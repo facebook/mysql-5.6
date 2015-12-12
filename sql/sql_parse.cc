@@ -7548,6 +7548,11 @@ bool add_field_to_list(THD *thd, LEX_STRING *field_name, enum_field_types type,
     my_error(ER_TOO_LONG_IDENT, MYF(0), field_name->str); /* purecov: inspected */
     DBUG_RETURN(1);				/* purecov: inspected */
   }
+  if (type == MYSQL_TYPE_DOCUMENT && (type_modifier & NOT_NULL_FLAG))
+  {
+    my_error(ER_DOCUMENT_FIELD_NOT_NULL, MYF(0), field_name->str);
+    DBUG_RETURN(1);
+  }
   if (type_modifier & PRI_KEY_FLAG)
   {
     Key *key;

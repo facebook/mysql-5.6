@@ -1,15 +1,18 @@
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
 insert into test_json values ('');
 
 select json_extract(json, 'k1') from test_json;
 
 truncate test_json;
 
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
 insert into test_json values ('');
 
 select json_contains_key(json, 'k1') from test_json;
 
 truncate test_json;
 
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
 insert into test_json values ('');
 
 select json_array_length(json) from test_json;

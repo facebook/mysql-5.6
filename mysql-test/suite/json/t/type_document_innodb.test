@@ -14,6 +14,10 @@ drop table if exists t, t1, t2, t3, t_big, t_big2;
 SET @start_allow_document_type = @@global.allow_document_type;
 SELECT @start_allow_document_type;
 
+# Fail to create a document column with "not null"
+--error ER_DOCUMENT_FIELD_NOT_NULL
+create table t (i int(8), a document not null, s text(255)) engine=innodb;
+
 # Fail to create table with document column with non-innodb engine
 --error ER_DOCUMENT_FIELD_IN_NON_INNODB_TABLE
 create table t (i int(8), a document, s text(255)) engine=myisam;
@@ -42,6 +46,10 @@ create table t (i int(8), a document, s text(255))
 create table t (i int(8), a document, s text(255), primary key (i)) engine=innodb;
 show create table t;
 
+# Fail to alter a document column to "not null"
+--error ER_DOCUMENT_FIELD_NOT_NULL
+alter table t change a a document not null;
+
 # Fail to create index on a document column
 --error ER_DOCUMENT_KEY_NOT_SUPPORTED
 alter table t add primary key (a);
@@ -59,20 +67,30 @@ create index doc_idx on t (i, a);
 --error ER_DOCUMENT_FIELD_IN_PART_FUNC_ERROR
 alter table t partition by hash(a) partitions 8;
 
-# Insert invalid JSON, insertion will succeed, the document filed will be NULL, expecting warnings
+# Insert invalid JSON, insertion will fail, expecting errors
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
 insert into t values (1, '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", }', 'a1');
 
-# Expecting the number of rows to be 1
-SELECT count(*) FROM t;
-
 # Insert invalid values, insertion will succeed, the document filed will be NULL, expecting warnings
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
 insert into t values (2, ' ', 'a2');
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
 insert into t values (3, 123, 'a3');
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
 insert into t values (4, 123.456, 'a4');
 
-# Update with invalid values, it will fail, expecting warnings
+# explicit NULL is ok
+insert into t values (1, NULL, 'a1');
+insert into t values (2, NULL, 'a2');
+insert into t values (3, NULL, 'a3');
+insert into t values (4, NULL, 'a4');
+
+# Update with invalid values, it will fail, expecting errors 
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
 update t set a='{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", }' where i = 1;
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
 update t set a=111222333444555666777888999 where i = 2;
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
 update t set a=123456789.123456789;
 
 # Default is NULL
@@ -86,6 +104,10 @@ insert into t values (8, '{ "id":104, "name":"David", "phone":6507770004, "addre
 
 # Load data from a file
 load data infile '../../std_data/type_document_innodb.txt' into table t;
+
+# Load data from a file containing invalid document, load will fail
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+load data infile '../../std_data/type_document_innodb_invalid.txt' into table t;
 
 select * from t;
 select a from t;
@@ -114,59 +136,6 @@ SELECT * FROM t1 WHERE a >= 1000 and a <= 1010;
 --error 1064
 SELECT CAST(c as document) FROM t1 WHERE a >= 1000 and a <= 1010;
 
-# Create table with a document column that cannot be NULL
-create table t2 (i int(8), a document not null, s text(255), primary key (i)) engine=innodb;
-show create table t2;
-
-# Insert invalid JSON, since the document field cannot be NULL so the insertion will fail, expecting errors
-
---error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
-insert into t2 values (1, '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", }', 'a1');
-
---error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
-insert into t2 values (2, ' ', 'a2');
-
---error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
-insert into t2 values (3, 123, 'a3');
-
---error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
-insert into t2 values (4, 123.456, 'a4');
-
---error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
-insert into t2 values (5, '{"testing really long key string that exceeds 64 characters but otherwise OK":123}', 'a4');
-
-# invalid JSON with empty value (nesting level is OK)
---error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
-insert into t2 values (6, repeat('{"a":',100), 'a6');
---error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
-insert into t2 values (7, repeat('["a",',100), 'a7');
-
-# invalid JSON with too many nesting levels
---error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
-insert into t2 values (8, repeat('{"a":',101), 'a8');
---error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
-insert into t2 values (9, repeat('{"a":',10000), 'a9');
---error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
-insert into t2 values (10, repeat('["a",',101), 'a10');
---error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
-insert into t2 values (11, repeat('["a",',10000), 'a11');
-
-# Expecting the number of rows to be 0
-SELECT count(*) FROM t2;
-
-#Insert valid JSON, trying to update with invalid JSON, expecting warnings
-insert into t2 values (1, '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761 } }', 'a5');
-
-# Update with invalid JSON, since the document field cannot be NULL so the update will fail, expecting errors
---error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
-update t2 set a='{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", }' where i = 1;
-# Expecting the row unchanged
-SELECT * from t2;
-
-# Default is not defined and the document field cannot be NULL, so it will default to {} 
-update t2 set a=DEFAULT;
-SELECT * from t2;
-
 # Create table with a document column that can be NULL
 create table t_big (i int(8), a document, s text(255), primary key (i)) engine=innodb;
 show create table t_big;
@@ -175,66 +144,36 @@ show create table t_big;
 # This insertion will succeed
 insert into t_big values (1, concat("{", repeat("\"json-key\":\"json-value\",", 670000), "\"last\":100}"), 'aaa');
 
-# Set sql_mode to strict_trans_tables
-set @original_session_sql_mode = @@session.sql_mode;
-set @@session.sql_mode = strict_trans_tables;
-select @@session.sql_mode;
-
-# Insert a document whose FBSON size is a little bit greater than 16MB (the max size of document type)
-# The document column will be set to NULL with warnings, but since sql_mode has been set to strict_trans_tables,
-# the warning will be treated as an error and the insertion will fail eventually
---error ER_TOO_BIG_DOCUMENT_FIELDLENGTH
-insert into t_big values (2, concat("{", repeat("\"json-key\":\"json-value\",", 700000), "\"last\":100}"), 'bbb');
-
-# Restore the value of sql_mode
-set @@session.sql_mode = @original_session_sql_mode;
-select @@session.sql_mode;
-
 # Insert a document whose FBSON size is a little bit greater than 16MB (the max size of document type)
 # This insertion will succeed but with warnings, the document column will be NULL
+--error ER_TOO_BIG_DOCUMENT_FIELDLENGTH
 insert into t_big values (2, concat("{", repeat("\"json-key\":\"json-value\",", 700000), "\"last\":100}"), 'bbb');
 
 select count(*) from t_big;
 select i, s from t_big;
-
-# Create table with a document column that cannot be NULL
-create table t_big2 (i int(8), a document not null, s text(255), primary key (i)) engine=innodb;
-show create table t_big2;
-
-# Insert a document whose FBSON size is a little bit less than 16MB (the max size of document type)
-# This insertion will succeed
-insert into t_big2 values (1, concat("{", repeat("\"json-key\":\"json-value\",", 670000), "\"last\":100}"), 'aaa');
-
-# Insert a document whose FBSON size is a little bit greater than 16MB (the max size of document type)
-# This insertion will fail
---error ER_TOO_BIG_DOCUMENT_FIELDLENGTH
-insert into t_big2 values (2, concat("{", repeat("\"json-key\":\"json-value\",", 700000), "\"last\":100}"), 'bbb');
-
-select count(*) from t_big2;
-select i, s from t_big2;
 
 # Disable document type when @@global.allow_document_type is false.
 SET @@global.allow_document_type = false;
 SELECT @@global.allow_document_type;
 
 --error ER_DOCUMENT_FIELD_NOT_ALLOWED
-create table t3 (i int(8), a document, s text(255)) engine=innodb;
+create table t2 (i int(8), a document, s text(255)) engine=innodb;
 
-create table t3 (i int(8), s text(255)) engine=innodb;
-
---error ER_DOCUMENT_FIELD_NOT_ALLOWED
-alter table t3 add column a document;
+create table t2 (i int(8), s text(255)) engine=innodb;
 
 --error ER_DOCUMENT_FIELD_NOT_ALLOWED
-alter table t3 modify column s document;
+alter table t2 add column a document;
+
+--error ER_DOCUMENT_FIELD_NOT_ALLOWED
+alter table t2 modify column s document;
 
 # Enable document type
 SET @@global.allow_document_type = true;
 SELECT @@global.allow_document_type;
 
-alter table t3 add column a document;
+alter table t2 add column a document;
 
-alter table t3 modify column s document;
+alter table t2 modify column s document;
 
 # Restore the original value
 SET @@global.allow_document_type = @start_allow_document_type;
@@ -246,7 +185,7 @@ sync_slave_with_master;
 checksum table t_big;
 
 connection master;
-drop table t, t1, t2, t3, t_big, t_big2;
+drop table t, t1, t2, t_big;
 
 --disable_warnings
 drop table if exists t4, t5;
@@ -263,9 +202,13 @@ select * from t4;
 
 # Test FBSon with wrong escape
 create table t5 (i int(8), a document, s text(255)) engine = innodb;
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
 insert into t5 values(1, "{\"BAD\":\"123\\u0xDFFE\"}", "Bad Unicode");
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
 insert into t5 values(2, "{\"BAD\":\"\\u0x0000\"}", "Bad Unicode");
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
 insert into t5 values(3, "{\"BAD\":\"\\u0x0000010\"}", "Bad Unicode");
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
 insert into t5 values(4, "{\"BAD\":\"\\u0xD801\"}", "Bad UTF16");
 select * from t5;
 
