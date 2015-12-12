@@ -1946,6 +1946,11 @@ int check_that_all_fields_are_given_values(THD *thd, TABLE *entry,
                             table_list->view_db.str,
                             table_list->view_name.str);
       }
+      else if ((*field)->real_type() == MYSQL_TYPE_DOCUMENT)
+      {
+        // disallow default value on document field
+        my_error(ER_NO_DEFAULT_FOR_FIELD, MYF(0), (*field)->field_name);
+      }
       else
       {
         push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,

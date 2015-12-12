@@ -570,7 +570,7 @@ public:
                                field_name,
                                name));
   }
-  virtual bool has_insert_default_function() const
+  bool has_insert_default_function() const
   {
     return unireg_check == TIMESTAMP_DN_FIELD ||
       unireg_check == TIMESTAMP_DNUN_FIELD;
@@ -959,7 +959,7 @@ public:
      field. If no such function exists for the column, or the function is not
      valid for the column's data type, invoking this function has no effect.
   */
-  virtual void evaluate_insert_default_function();
+  void evaluate_insert_default_function();
 
 
   /**
@@ -3719,14 +3719,8 @@ public:
 
 class Document_path_iterator;
 
-/* Default value for document column when not nullable */
-#define NON_NULL_DEFAULT_DOCUMENT "{}"
-
 class Field_document :public Field_blob {
   bool validate(const char *from, uint length, const CHARSET_INFO *cs);
-  void push_warning_invalid(const char *from,
-                            const fbson::FbsonErrInfo *err_info = nullptr);
-  void push_warning_too_big();
   void push_error_invalid(const char *from,
                           const fbson::FbsonErrInfo *err_info = nullptr);
   void push_error_too_big();
@@ -3796,7 +3790,6 @@ public:
      anything valid in Fbson in it.
   */
   int prefix_path_num;
-  bool nullable_document; // stores the user defined nullability in DDL
   uint doc_key_prefix_len;// stores the length of prefix index
   Save_in_field_args *update_args; // store the partial update arguments
 
@@ -3809,22 +3802,18 @@ public:
 
   Field_document(uchar *ptr_arg, uchar *null_ptr_arg, uint null_bit_arg,
                  enum utype unireg_check_arg, const char *field_name_arg,
-                 TABLE_SHARE *share, uint blob_pack_length,
-                 bool nullable_arg)
+                 TABLE_SHARE *share, uint blob_pack_length)
       :Field_blob(ptr_arg, null_ptr_arg, null_bit_arg, unireg_check_arg,
                   field_name_arg, share, blob_pack_length, &my_charset_bin),
        key_length(0), doc_type(DOC_DOCUMENT), prefix_path_num(0),
-       nullable_document(nullable_arg),
        doc_key_prefix_len(0), update_args(nullptr), inner_field(nullptr)
     {
       init();
     }
   Field_document(uint32 len_arg,bool maybe_null_arg, const char *field_name_arg,
-                 TABLE_SHARE *share,
-                 bool nullable_arg)
+                 TABLE_SHARE *share)
       :Field_blob(len_arg, maybe_null_arg, field_name_arg, &my_charset_bin),
        key_length(0), doc_type(DOC_DOCUMENT), prefix_path_num(0),
-       nullable_document(nullable_arg),
        doc_key_prefix_len(0), update_args(nullptr), inner_field(nullptr)
     {
       init();
@@ -4050,15 +4039,19 @@ public:
   }
 
   /* This overwrites the base version.
-   * - If the field is document column, it will return false if
-   *   nullable_document is false
+   * Note: document column should always nullable.
+   * We keep the document path logic below (which is no longer needed) for now
    * - If the field is a document path, it can always be nullable. For example,
    *   when document path is in the select, prefix_path_num is non-zero. When
    *   document path used in partial update, update_args is non-null. When
    *   document path is used in ORDER BY, get_inner_field() is non-null */
   bool real_maybe_null(void) const
-  { return Field_blob::real_maybe_null() && (nullable_document ||
-      prefix_path_num || update_args || get_inner_field()); }
+  {
+    // document column should always be nullable
+    DBUG_ASSERT(Field_blob::real_maybe_null());
+    return Field_blob::real_maybe_null() ||
+           (prefix_path_num || update_args || get_inner_field());
+  }
 
   Field_document *clone(MEM_ROOT *mem_root) const
   {
@@ -4125,9 +4118,6 @@ private:
                                   const fbson::FbsonValue *val,
                                   Save_in_field_args *args);
   int64 read_bigendian(char *src, unsigned len);
-
-  bool has_insert_default_function() const { return !real_maybe_null(); };
-  void evaluate_insert_default_function() { reset(); };
 
   uint get_key_image_bool(uchar *buff, fbson::FbsonValue *pval);
   uint get_key_image_int(uchar *buff, fbson::FbsonValue *pval);
@@ -4495,7 +4485,6 @@ public:
   Field::geometry_type geom_type;
   Field::document_type document_type;	// Sub-type of DOCUMENT
   Field *field;				// For alter table
-  bool nullable_document; // for document column
 
   uint8 row,col,sc_length,interval_id;	// For rea_create_table
   uint	offset,pack_flag;
@@ -4600,8 +4589,7 @@ Field *make_field(TABLE_SHARE *share, uchar *ptr, uint32 field_length,
 		  const CHARSET_INFO *cs,
 		  Field::geometry_type geom_type,
 		  Field::utype unireg_check,
-		  TYPELIB *interval, const char *field_name,
-		  bool nullable_document);
+		  TYPELIB *interval, const char *field_name);
 uint pack_length_to_packflag(uint type);
 enum_field_types get_blob_type_from_length(ulong length);
 uint32 calc_pack_length(enum_field_types type,uint32 length);

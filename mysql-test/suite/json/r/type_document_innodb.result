@@ -11,6 +11,8 @@ SET @start_allow_document_type = @@global.allow_document_type;
 SELECT @start_allow_document_type;
 @start_allow_document_type
 1
+create table t (i int(8), a document not null, s text(255)) engine=innodb;
+ERROR HY000: Document field 'a' must be nullable. NOT NULL type is not supported in document field
 create table t (i int(8), a document, s text(255)) engine=myisam;
 ERROR HY000: A DOCUMENT field is not allowed in non-innodb table
 create table t (i int(8), a document(65535), s text(255)) engine=innodb;
@@ -34,6 +36,8 @@ t	CREATE TABLE `t` (
   `s` tinytext,
   PRIMARY KEY (`i`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1
+alter table t change a a document not null;
+ERROR HY000: Document field 'a' must be nullable. NOT NULL type is not supported in document field
 alter table t add primary key (a);
 ERROR HY000: DOCUMENT column 'a' cannot be part of a key
 alter table t add index (a);
@@ -45,40 +49,31 @@ ERROR HY000: DOCUMENT column 'a' cannot be part of a key
 alter table t partition by hash(a) partitions 8;
 ERROR HY000: A DOCUMENT field is not allowed in partition function
 insert into t values (1, '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", }', 'a1');
-Warnings:
-Warning	1898	Invalid document value at column 'a' row 1: '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "hous', pos 100, error 'Invalid JSON object'
-SELECT count(*) FROM t;
-count(*)
-1
+ERROR HY000: Invalid document value: '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "hous', pos 100, error 'Invalid JSON object'
 insert into t values (2, ' ', 'a2');
-Warnings:
-Warning	1898	Invalid document value at column 'a' row 1: ' ', pos 1, error 'Invalid document: document must be an object or an array'
+ERROR HY000: Invalid document value: ' ', pos 1, error 'Invalid document: document must be an object or an array'
 insert into t values (3, 123, 'a3');
-Warnings:
-Warning	1898	Invalid document value at column 'a' row 1: '123', pos 0, error 'Invalid document'
+ERROR HY000: Invalid document value: '123'
 insert into t values (4, 123.456, 'a4');
-Warnings:
-Warning	1898	Invalid document value at column 'a' row 1: '123.456', pos 0, error 'Invalid document'
+ERROR HY000: Invalid document value: '123.456'
+insert into t values (1, NULL, 'a1');
+insert into t values (2, NULL, 'a2');
+insert into t values (3, NULL, 'a3');
+insert into t values (4, NULL, 'a4');
 update t set a='{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", }' where i = 1;
-Warnings:
-Warning	1898	Invalid document value at column 'a' row 1: '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "hous', pos 100, error 'Invalid JSON object'
+ERROR HY000: Invalid document value: '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "hous', pos 100, error 'Invalid JSON object'
 update t set a=111222333444555666777888999 where i = 2;
-Warnings:
-Warning	1898	Invalid document value at column 'a' row 1: '111222333444555666777888999', pos 0, error 'Invalid document'
+ERROR HY000: Invalid document value: '111222333444555666777888999'
 update t set a=123456789.123456789;
-Warnings:
-Warning	1898	Invalid document value at column 'a' row 1: '123456789.123456789', pos 0, error 'Invalid document'
-Warning	1898	Invalid document value at column 'a' row 2: '123456789.123456789', pos 0, error 'Invalid document'
-Warning	1898	Invalid document value at column 'a' row 3: '123456789.123456789', pos 0, error 'Invalid document'
-Warning	1898	Invalid document value at column 'a' row 4: '123456789.123456789', pos 0, error 'Invalid document'
+ERROR HY000: Invalid document value: '123456789.123456789'
 update t set a=DEFAULT;
 insert into t values (5, '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761 } }', 'a5');
 insert into t values (6, '{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762 } }', 'a6');
 insert into t values (7, '{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "hoa":39.99 } }', 'a7');
 insert into t values (8, '{ "id":104, "name":"David", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764 }, "children":["Alex", "Bob", "Charlie"] }', 'a8');
 load data infile '../../std_data/type_document_innodb.txt' into table t;
-Warnings:
-Warning	1898	Invalid document value at column 'a' row 8: '{ "id":112, "address":{ "houseNumber":1012, }', pos 45, error 'Invalid JSON object'
+load data infile '../../std_data/type_document_innodb_invalid.txt' into table t;
+ERROR HY000: Invalid document value: '{ "id":112, "address":{ "houseNumber":1012, }', pos 45, error 'Invalid JSON object'
 select * from t;
 i	a	s
 1	NULL	a1
@@ -96,7 +91,7 @@ i	a	s
 13	{"id":109,"name":"Ian","phone":6507770009,"address":{"houseNumber":1009,"streetName":"9th","zipcode":98769,"hoa":59.99}}	a13
 14	{"id":110,"name":"Jack","phone":6507770010,"address":{"houseNumber":1010,"streetName":"11th","zipcode":98769}}	a14
 15	{"id":111,"name":"Kevin","phone":6507770011,"address":{"houseNumber":1011,"streetName":"12nd","zipcode":98769},"children":["Amy"]}	a15
-16	NULL	a16
+16	{"id":112,"address":{"houseNumber":1012}}	a16
 17	NULL	a17
 select a from t;
 a
@@ -115,7 +110,7 @@ NULL
 {"id":109,"name":"Ian","phone":6507770009,"address":{"houseNumber":1009,"streetName":"9th","zipcode":98769,"hoa":59.99}}
 {"id":110,"name":"Jack","phone":6507770010,"address":{"houseNumber":1010,"streetName":"11th","zipcode":98769}}
 {"id":111,"name":"Kevin","phone":6507770011,"address":{"houseNumber":1011,"streetName":"12nd","zipcode":98769},"children":["Amy"]}
-NULL
+{"id":112,"address":{"houseNumber":1012}}
 NULL
 create table t1 (a int auto_increment, b varchar(64), c text, d document, primary key (a), key (b, c(128))) engine=innodb;
 Warnings:
@@ -157,52 +152,6 @@ a	b	c	d
 1010	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb	cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc	{"id":201,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"street":"1st","zipcode":98761}}
 SELECT CAST(c as document) FROM t1 WHERE a >= 1000 and a <= 1010;
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'document) FROM t1 WHERE a >= 1000 and a <= 1010' at line 1
-create table t2 (i int(8), a document not null, s text(255), primary key (i)) engine=innodb;
-show create table t2;
-Table	Create Table
-t2	CREATE TABLE `t2` (
-  `i` int(8) NOT NULL DEFAULT '0',
-  `a` document NOT NULL,
-  `s` tinytext,
-  PRIMARY KEY (`i`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1
-insert into t2 values (1, '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", }', 'a1');
-ERROR HY000: Invalid document value: '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "hous', pos 100, error 'Invalid JSON object'
-insert into t2 values (2, ' ', 'a2');
-ERROR HY000: Invalid document value: ' ', pos 1, error 'Invalid document: document must be an object or an array'
-insert into t2 values (3, 123, 'a3');
-ERROR HY000: Invalid document value: '123'
-insert into t2 values (4, 123.456, 'a4');
-ERROR HY000: Invalid document value: '123.456'
-insert into t2 values (5, '{"testing really long key string that exceeds 64 characters but otherwise OK":123}', 'a4');
-ERROR HY000: Invalid document value: '{"testing really long key string that exceeds 64 characters but ', pos 66, error 'Key length exceeds maximum size allowed (64 bytes)'
-insert into t2 values (6, repeat('{"a":',100), 'a6');
-ERROR HY000: Invalid document value: '{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a"', pos 500, error 'Invalid JSON object'
-insert into t2 values (7, repeat('["a",',100), 'a7');
-ERROR HY000: Invalid document value: '["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a"', pos 500, error 'Invalid JSON array'
-insert into t2 values (8, repeat('{"a":',101), 'a8');
-ERROR HY000: Invalid document value: '{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a"', pos 501, error 'Object or array has too many nesting levels'
-insert into t2 values (9, repeat('{"a":',10000), 'a9');
-ERROR HY000: Invalid document value: '{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a"', pos 501, error 'Object or array has too many nesting levels'
-insert into t2 values (10, repeat('["a",',101), 'a10');
-ERROR HY000: Invalid document value: '["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a"', pos 501, error 'Object or array has too many nesting levels'
-insert into t2 values (11, repeat('["a",',10000), 'a11');
-ERROR HY000: Invalid document value: '["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a"', pos 501, error 'Object or array has too many nesting levels'
-SELECT count(*) FROM t2;
-count(*)
-0
-insert into t2 values (1, '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761 } }', 'a5');
-update t2 set a='{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", }' where i = 1;
-ERROR HY000: Invalid document value: '{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "house', pos 99, error 'Invalid JSON object'
-SELECT * from t2;
-i	a	s
-1	{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761}}	a5
-update t2 set a=DEFAULT;
-Warnings:
-Warning	1364	Field 'a' doesn't have a default value
-SELECT * from t2;
-i	a	s
-1	{}	a5
 create table t_big (i int(8), a document, s text(255), primary key (i)) engine=innodb;
 show create table t_big;
 Table	Create Table
@@ -213,73 +162,42 @@ t_big	CREATE TABLE `t_big` (
   PRIMARY KEY (`i`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1
 insert into t_big values (1, concat("{", repeat("\"json-key\":\"json-value\",", 670000), "\"last\":100}"), 'aaa');
-set @original_session_sql_mode = @@session.sql_mode;
-set @@session.sql_mode = strict_trans_tables;
-select @@session.sql_mode;
-@@session.sql_mode
-STRICT_TRANS_TABLES
 insert into t_big values (2, concat("{", repeat("\"json-key\":\"json-value\",", 700000), "\"last\":100}"), 'bbb');
 ERROR HY000: Document column length too big for column 'a' (max = 16777215)
-set @@session.sql_mode = @original_session_sql_mode;
-select @@session.sql_mode;
-@@session.sql_mode
-NO_ENGINE_SUBSTITUTION
-insert into t_big values (2, concat("{", repeat("\"json-key\":\"json-value\",", 700000), "\"last\":100}"), 'bbb');
-Warnings:
-Warning	1909	Document column length too big for column 'a' (max = 16777215)
 select count(*) from t_big;
 count(*)
-2
-select i, s from t_big;
-i	s
-1	aaa
-2	bbb
-create table t_big2 (i int(8), a document not null, s text(255), primary key (i)) engine=innodb;
-show create table t_big2;
-Table	Create Table
-t_big2	CREATE TABLE `t_big2` (
-  `i` int(8) NOT NULL DEFAULT '0',
-  `a` document NOT NULL,
-  `s` tinytext,
-  PRIMARY KEY (`i`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1
-insert into t_big2 values (1, concat("{", repeat("\"json-key\":\"json-value\",", 670000), "\"last\":100}"), 'aaa');
-insert into t_big2 values (2, concat("{", repeat("\"json-key\":\"json-value\",", 700000), "\"last\":100}"), 'bbb');
-ERROR HY000: Document column length too big for column 'a' (max = 16777215)
-select count(*) from t_big2;
-count(*)
 1
-select i, s from t_big2;
+select i, s from t_big;
 i	s
 1	aaa
 SET @@global.allow_document_type = false;
 SELECT @@global.allow_document_type;
 @@global.allow_document_type
 0
-create table t3 (i int(8), a document, s text(255)) engine=innodb;
+create table t2 (i int(8), a document, s text(255)) engine=innodb;
 ERROR HY000: DOCUMENT fields are not allowed
-create table t3 (i int(8), s text(255)) engine=innodb;
-alter table t3 add column a document;
+create table t2 (i int(8), s text(255)) engine=innodb;
+alter table t2 add column a document;
 ERROR HY000: DOCUMENT fields are not allowed
-alter table t3 modify column s document;
+alter table t2 modify column s document;
 ERROR HY000: DOCUMENT fields are not allowed
 SET @@global.allow_document_type = true;
 SELECT @@global.allow_document_type;
 @@global.allow_document_type
 1
-alter table t3 add column a document;
-alter table t3 modify column s document;
+alter table t2 add column a document;
+alter table t2 modify column s document;
 SET @@global.allow_document_type = @start_allow_document_type;
 SELECT @@global.allow_document_type;
 @@global.allow_document_type
 1
 checksum table t_big;
 Table	Checksum
-test.t_big	3679544945
+test.t_big	2975435949
 checksum table t_big;
 Table	Checksum
-test.t_big	3679544945
-drop table t, t1, t2, t3, t_big, t_big2;
+test.t_big	2975435949
+drop table t, t1, t2, t_big;
 drop table if exists t4, t5;
 create table t4 (i int(8), a document, s text(255)) engine = innodb;
 insert into t4 values(1, "{\"Name\":\"Json\\tXia\"}", "escape in value");
@@ -298,22 +216,14 @@ i	a	s
 6	{"Control":"\u0002"}	escape of Unicode for control char
 create table t5 (i int(8), a document, s text(255)) engine = innodb;
 insert into t5 values(1, "{\"BAD\":\"123\\u0xDFFE\"}", "Bad Unicode");
-Warnings:
-Warning	1898	Invalid document value at column 'a' row 1: '{"BAD":"123\u0xDFFE"}', pos 14, error 'Invalid string value'
+ERROR HY000: Invalid document value: '{"BAD":"123\u0xDFFE"}', pos 14, error 'Invalid string value'
 insert into t5 values(2, "{\"BAD\":\"\\u0x0000\"}", "Bad Unicode");
-Warnings:
-Warning	1898	Invalid document value at column 'a' row 1: '{"BAD":"\u0x0000"}', pos 11, error 'Invalid string value'
+ERROR HY000: Invalid document value: '{"BAD":"\u0x0000"}', pos 11, error 'Invalid string value'
 insert into t5 values(3, "{\"BAD\":\"\\u0x0000010\"}", "Bad Unicode");
-Warnings:
-Warning	1898	Invalid document value at column 'a' row 1: '{"BAD":"\u0x0000010"}', pos 11, error 'Invalid string value'
+ERROR HY000: Invalid document value: '{"BAD":"\u0x0000010"}', pos 11, error 'Invalid string value'
 insert into t5 values(4, "{\"BAD\":\"\\u0xD801\"}", "Bad UTF16");
-Warnings:
-Warning	1898	Invalid document value at column 'a' row 1: '{"BAD":"\u0xD801"}', pos 11, error 'Invalid string value'
+ERROR HY000: Invalid document value: '{"BAD":"\u0xD801"}', pos 11, error 'Invalid string value'
 select * from t5;
 i	a	s
-1	NULL	Bad Unicode
-2	NULL	Bad Unicode
-3	NULL	Bad Unicode
-4	NULL	Bad UTF16
 drop table t4, t5;
 include/rpl_end.inc

@@ -8900,19 +8900,12 @@ type_conversion_status Field_document::reset(void)
 {
     if(!is_derived_document_field())
     {
-      /* When not nullable, set document field to {} */
-      if (!real_maybe_null()) {
-        set_notnull();
-        store(NON_NULL_DEFAULT_DOCUMENT, 2, &my_charset_bin);
-        return TYPE_OK;
-      }
-
       type_conversion_status res= Field_blob::reset();
       if (res != TYPE_OK)
         return res;
-      return maybe_null() && nullable_document
-        ? TYPE_OK
-        : TYPE_ERR_NULL_CONSTRAINT_VIOLATION;
+      // document column is always nullable
+      DBUG_ASSERT(maybe_null());
+      return maybe_null() ? TYPE_OK : TYPE_ERR_NULL_CONSTRAINT_VIOLATION;
     }
     else
     {
@@ -8963,12 +8956,8 @@ Field_document::update_json(const fbson::FbsonValue *val,
       {
         set_null();
         memset(ptr, 0, Field_blob::pack_length());
-        push_warning_invalid(json);
       }
-      else
-      {
-        push_error_invalid(json);
-      }
+      push_error_invalid(json);
       return TYPE_ERR_BAD_VALUE;
     }
     if(value.realloc(val->numPackedBytes() +
@@ -9092,31 +9081,6 @@ Field_document::sql_type(String &res) const
   res.set(STRING_WITH_LEN("document"), cs);
 }
 
-
-void
-Field_document::push_warning_invalid(const char *from,
-    const fbson::FbsonErrInfo *err_info)
-{
-  push_warning_printf(table->in_use, Sql_condition::WARN_LEVEL_WARN,
-                      ER_INVALID_VALUE_FOR_DOCUMENT_FIELD,
-                      ER(ER_INVALID_VALUE_FOR_DOCUMENT_FIELD),
-                      field_name, (ulong) table->in_use->get_stmt_da()->
-                                            current_row_for_warning(),
-                      from, err_info? err_info->err_pos : 0,
-                      err_info? err_info->err_msg : "Invalid document");
-}
-
-
-void
-Field_document::push_warning_too_big()
-{
-  push_warning_printf(table->in_use, Sql_condition::WARN_LEVEL_WARN,
-                      ER_TOO_BIG_DOCUMENT_FIELDLENGTH,
-                      ER(ER_TOO_BIG_DOCUMENT_FIELDLENGTH),
-                      field_name, max_data_length());
-}
-
-
 void
 Field_document::push_error_invalid(const char *from,
     const fbson::FbsonErrInfo *err_info)
@@ -9129,7 +9093,6 @@ Field_document::push_error_invalid(const char *from,
     sprintf(buffer, "Invalid document value: '%.64s'", from);
   my_message(ER_INVALID_VALUE_FOR_DOCUMENT_FIELD, buffer, MYF(0));
 }
-
 
 void
 Field_document::push_error_too_big()
@@ -9256,16 +9219,8 @@ Field_document::store_decimal(const my_decimal *nr)
     char buf[DECIMAL_MAX_STR_LENGTH];
     String str(buf, sizeof (buf), &my_charset_bin);
     my_decimal2string(E_DEC_FATAL_ERROR, nr, 0, 0, 0, &str);
-    if(real_maybe_null())
-    {
-      set_null();
-      memset(ptr, 0, Field_blob::pack_length());
-      push_warning_invalid(str.c_ptr_safe());
-    }
-    else
-    {
-      push_error_invalid(str.c_ptr_safe());
-    }
+    // we always fail on invalid document, instead of storing a null
+    push_error_invalid(str.c_ptr_safe());
     return TYPE_ERR_BAD_VALUE;
   }
   double dbl;
@@ -9281,7 +9236,7 @@ Field_document::store_internal(const char *from, uint length,
   {
     if (real_maybe_null())
       set_null();
-    push_warning_invalid("");
+    push_error_invalid(from, nullptr);
     return TYPE_ERR_BAD_VALUE;
   }
 
@@ -9312,28 +9267,19 @@ Field_document::store_internal(const char *from, uint length,
   }
 
   /*
-     When a document value to be inserted is not valid or too big, if the field
-     cannot be NULL then the whole insertion will fail and errors will be
-     returned, if the field can be NULL then the insertion will succeed but the
-     field will be NULL and warnings will be returned.
-     Updates will fail anyway if the document value is not valid.
+     When a document value to be inserted/updated is not valid or too big, the
+     whole insertion will fail and errors will be returned
   */
   if (real_maybe_null())
   {
     set_null();
     memset(ptr, 0, Field_blob::pack_length());
-    if (valid)
-      push_warning_too_big();
-    else
-      push_warning_invalid(from, err_info.err_msg ? &err_info : nullptr);
   }
+  if (valid)
+    push_error_too_big();
   else
-  {
-    if (valid)
-      push_error_too_big();
-    else
-      push_error_invalid(from, err_info.err_msg ? &err_info : nullptr);
-  }
+    push_error_invalid(from, err_info.err_msg ? &err_info : nullptr);
+
   return TYPE_ERR_BAD_VALUE;
 }
 
@@ -11586,7 +11532,6 @@ bool Create_field::init(THD *thd, const char *fld_name,
   field_name= fld_name;
   flags= fld_type_modifier;
   charset= fld_charset;
-  nullable_document = false;
 
   const bool on_update_is_function=
     (fld_on_update_value != NULL &&
@@ -11643,16 +11588,6 @@ bool Create_field::init(THD *thd, const char *fld_name,
   interval_list.empty();
 
   comment= *fld_comment;
-
-  /* Set document field nullable, and save real nullability */
-  if (fld_type == MYSQL_TYPE_DOCUMENT)
-  {
-    // document path is always nullable internally and we save the field
-    // nullability definition in nullable_document
-    nullable_document = !(fld_type_modifier & NOT_NULL_FLAG);
-    flags &= ~NOT_NULL_FLAG;
-  }
-
   /*
     Set NO_DEFAULT_VALUE_FLAG if this field doesn't have a default value and
     it is NOT NULL and not an AUTO_INCREMENT field.
@@ -12045,8 +11980,7 @@ Field *make_field(TABLE_SHARE *share, uchar *ptr, uint32 field_length,
 		  Field::geometry_type geom_type,
 		  Field::utype unireg_check,
 		  TYPELIB *interval,
-		  const char *field_name,
-      bool nullable_document)
+		  const char *field_name)
 {
   uchar *UNINIT_VAR(bit_ptr);
   uchar UNINIT_VAR(bit_offset);
@@ -12117,8 +12051,7 @@ Field *make_field(TABLE_SHARE *share, uchar *ptr, uint32 field_length,
     if (f_is_document(pack_flag))
       return new Field_document(ptr,null_pos,null_bit,
                                 unireg_check, field_name, share,
-                                pack_length,
-                                nullable_document);
+                                pack_length);
 
     if (f_is_blob(pack_flag))
       return new Field_blob(ptr,null_pos,null_bit,
@@ -12299,7 +12232,6 @@ Create_field::Create_field(Field *old_field,Field *orig_field) :
 #endif
   case MYSQL_TYPE_DOCUMENT:
     document_type= ((Field_document*)old_field)->doc_type;
-    nullable_document = ((Field_document*)old_field)->nullable_document;
     break;
   case MYSQL_TYPE_YEAR:
     if (length != 4)

@@ -10,7 +10,7 @@ SET @@global.allow_document_type = true;
 CREATE TABLE t1 (
 a int not null,
 b char (10) not null,
-doc document not null) engine=innodb;
+doc document) engine=innodb;
 insert into t1 values (1,'@1','{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761, "state":"CA" }, "intstr":"1001", "dt":"1001" }');
 insert into t1 values (2,'@2','{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" }, "int64":2222222220123456789, "intstr":"1002", "dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789" }');
 insert into t1 values (3,'@3','{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" }, "double":3.94065645841246, "dt":"2014-11-01" }');
@@ -248,7 +248,7 @@ update t2 set t2.doc.Children.set();
 ERROR 42000: Incorrect parameter count to procedure 'set'
 update t2 set t2.doc.Children.unset("ABC");
 ERROR 42000: Incorrect parameter count to procedure 'unset'
-create table t4 (a int primary key, doc document not null) engine=innodb;
+create table t4 (a int primary key, doc document) engine=innodb;
 insert into t4 values (1, '{"int":1, "k1":{"k2":2}}');
 insert into t4 values (2, '{"int":2, "k1":{"k2":4}}');
 select * from t4;
@@ -280,7 +280,7 @@ a	doc
 1	{"k1":{"k2":6},"int":3}
 2	{"int":4,"k1":{"k2":8}}
 drop table t4;
-create table t4 (a int auto_increment primary key, doc document not null) engine=innodb;
+create table t4 (a int auto_increment primary key, doc document) engine=innodb;
 insert into t4 values (1, '{"int":1, "k1":{"k2":2}}');
 insert into t4 (doc) values ('{"int":2, "k1":{"k2":4}}');
 select * from t4;
@@ -312,7 +312,7 @@ a	doc
 1	{"int":3,"k1":{"k2":6}}
 2	{"k1":{"k2":8},"int":4}
 drop table t4;
-create table t4 (a int, doc document not null, unique key doc_int(doc.int as int)) engine=innodb;
+create table t4 (a int, doc document, unique key doc_int(doc.int as int)) engine=innodb;
 insert into t4 values (1, '{"int":1, "k1":{"k2":2}}');
 insert into t4 values (2, '{"int":2, "k1":{"k2":4}}');
 select * from t4;
@@ -350,7 +350,7 @@ insert into t4 values (3, '{"int":3}')
 on duplicate key update a = values(a), doc.int = 1;
 ERROR 23000: Duplicate entry '1' for key 'doc_int'
 drop table t4;
-create table t4 (a int, b int, doc document not null, unique key b_doc(b, doc.int as int)) engine=innodb;
+create table t4 (a int, b int, doc document, unique key b_doc(b, doc.int as int)) engine=innodb;
 insert into t4 values (1, 1, '{"int":1, "k1":{"k2":2}}');
 insert into t4 values (2, 2, '{"int":2, "k1":{"k2":4}}');
 select * from t4;
@@ -376,7 +376,7 @@ insert into t4 values (3, 2, '{"int":3}')
 on duplicate key update a = values(a), b = 1, doc.int = 1;
 ERROR 23000: Duplicate entry '1-1' for key 'b_doc'
 drop table t4;
-create table t4 (a int, doc document not null, unique key doc_double(doc.double as double)) engine=innodb;
+create table t4 (a int, doc document, unique key doc_double(doc.double as double)) engine=innodb;
 insert into t4 values (1, '{"double":1.1, "k1":{"k2":2}}');
 insert into t4 values (2, '{"double":2.2, "k1":{"k2":4}}');
 select * from t4;
@@ -396,7 +396,7 @@ a	doc
 1	{"double":1.1,"k1":{"k2":9}}
 3	{"double":3.3,"k1":{"k2":6}}
 drop table t4;
-create table t4 (a int, doc document not null, unique key doc_prefix(doc.k1.k2 as string(2))) engine=innodb;
+create table t4 (a int, doc document, unique key doc_prefix(doc.k1.k2 as string(2))) engine=innodb;
 insert into t4 values (1, '{"k1":{"k2":"aaaa"}}');
 insert into t4 values (2, '{"k1":{"k2":"bbbb"}}');
 select * from t4;
@@ -422,7 +422,7 @@ insert into t4 values (4, '{"k1":{"k2":"cccc"}}')
 on duplicate key update doc.k1.k2 = 'aaaa';
 ERROR 23000: Duplicate entry 'aaaa' for key 'doc_prefix'
 drop table t4;
-create table t4 (a int, doc document not null, unique key doc_bool(doc.bool as bool)) engine=innodb;
+create table t4 (a int, doc document, unique key doc_bool(doc.bool as bool)) engine=innodb;
 insert into t4 values (1, '{"bool":true, "k1":{"k2":2}}');
 insert into t4 values (2, '{"bool":false, "k1":{"k2":4}}');
 select * from t4;

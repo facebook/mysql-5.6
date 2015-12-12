@@ -1602,8 +1602,7 @@ TABLE *create_virtual_tmp_table(THD *thd, List<Create_field> &field_list)
                        f_maybe_null(cdef->pack_flag) ? 1 : 0,
                        cdef->pack_flag, cdef->sql_type, cdef->charset,
                        cdef->geom_type, cdef->unireg_check,
-                       cdef->interval, cdef->field_name,
-                       cdef->nullable_document);
+                       cdef->interval, cdef->field_name);
     if (!*field)
       goto error;
     (*field)->init(table);
