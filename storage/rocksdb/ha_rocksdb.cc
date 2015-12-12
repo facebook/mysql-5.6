@@ -4369,6 +4369,7 @@ int ha_rocksdb::check(THD* thd, HA_CHECK_OPT* check_opt)
   uint pk= table->s->primary_key;
   String rowkey_copy;
   String sec_key_copy;
+  const char* table_name = table->s->table_name.str;
 
   // Only when debugging: don't use snapshot when reading
   // Rdb_transaction *trx= get_or_create_trx(table->in_use);
@@ -4378,7 +4379,9 @@ int ha_rocksdb::check(THD* thd, HA_CHECK_OPT* check_opt)
   verify_checksums= true;
 
   /* For each secondary index, check that we can get a PK value from it */
-  sql_print_information("Checking table %s", table->s->table_name.str);
+  // NO_LINT_DEBUG
+  sql_print_information("CHECKTABLE %s: Checking table %s", table_name,
+                        table_name);
   ha_rows UNINIT_VAR(row_checksums_at_start); // set/used iff first_index==true
   ha_rows row_checksums= ha_rows(-1);
   bool first_index= true;
@@ -4394,7 +4397,9 @@ int ha_rocksdb::check(THD* thd, HA_CHECK_OPT* check_opt)
       if (first_index)
         row_checksums_at_start= row_checksums_checked;
       int res;
-      sql_print_information("  Checking index %s", table->key_info[keyno].name);
+      // NO_LINT_DEBUG
+      sql_print_information("CHECKTABLE %s:   Checking index %s", table_name,
+                            table->key_info[keyno].name);
       while (1)
       {
         if (!rows)
@@ -4407,7 +4412,9 @@ int ha_rocksdb::check(THD* thd, HA_CHECK_OPT* check_opt)
         if (res)
         {
           // error
-          sql_print_error("  .. row %lld: index scan error %d", rows, res);
+          // NO_LINT_DEBUG
+          sql_print_error("CHECKTABLE %s:   .. row %lld: index scan error %d",
+                          table_name, rows, res);
           goto error;
         }
         rocksdb::Slice key= scan_it->key();
@@ -4423,7 +4430,10 @@ int ha_rocksdb::check(THD* thd, HA_CHECK_OPT* check_opt)
         if ((res= get_row_by_rowid(table->record[0], rowkey_copy.ptr(),
                                    rowkey_copy.length())))
         {
-          sql_print_error("  .. row %lld: failed to fetch row by rowid", rows);
+          // NO_LINT_DEBUG
+          sql_print_error("CHECKTABLE %s:   .. row %lld: "
+                          "failed to fetch row by rowid",
+                          table_name, rows);
           goto error;
         }
         /* Check if we get the same PK value */
@@ -4433,7 +4443,9 @@ int ha_rocksdb::check(THD* thd, HA_CHECK_OPT* check_opt)
         if (packed_size != rowkey_copy.length() ||
             memcmp(pk_packed_tuple, rowkey_copy.ptr(), packed_size))
         {
-          sql_print_error("  .. row %lld: PK value mismatch", rows);
+          // NO_LINT_DEBUG
+          sql_print_error("CHECKTABLE %s:   .. row %lld: PK value mismatch",
+                          table_name, rows);
           goto print_and_error;
         }
 
@@ -4446,7 +4458,10 @@ int ha_rocksdb::check(THD* thd, HA_CHECK_OPT* check_opt)
         if (packed_size != sec_key_copy.length() ||
             memcmp(sec_key_packed_tuple, sec_key_copy.ptr(), packed_size))
         {
-          sql_print_error("  .. row %lld: secondary index value mismatch", rows);
+          // NO_LINT_DEBUG
+          sql_print_error("CHECKTABLE %s:   .. row %lld: "
+                          "secondary index value mismatch",
+                          table_name, rows);
           goto print_and_error;
         }
         rows++;
@@ -4457,21 +4472,26 @@ print_and_error:
           char buf[1000];
           hexdump_value(buf, 1000, rocksdb::Slice(rowkey_copy.ptr(),
                                                   rowkey_copy.length()));
-          sql_print_error("  rowkey: %s", buf);
+          // NO_LINT_DEBUG
+          sql_print_error("CHECKTABLE %s:   rowkey: %s", table_name, buf);
 
           hexdump_value(buf, 1000, rocksdb::Slice(retrieved_record.data(),
                                                   retrieved_record.size()));
-          sql_print_error("  record: %s", buf);
+          // NO_LINT_DEBUG
+          sql_print_error("CHECKTABLE %s:   record: %s", table_name, buf);
 
           hexdump_value(buf, 1000, rocksdb::Slice(sec_key_copy.ptr(),
                                                   sec_key_copy.length()));
-          sql_print_error("  index: %s", buf);
+          // NO_LINT_DEBUG
+          sql_print_error("CHECKTABLE %s:   index: %s", table_name, buf);
 
           goto error;
         }
       }
-      sql_print_information("  ... %lld index entries checked (%lld had checksums)",
-                            rows, checksums);
+      // NO_LINT_DEBUG
+      sql_print_information("CHECKTABLE %s:   ... %lld index entries checked "
+                            "(%lld had checksums)", table_name, rows,
+                            checksums);
 
       if (first_index)
       {
@@ -4482,7 +4502,11 @@ print_and_error:
     }
   }
   if (row_checksums != ha_rows(-1))
-    sql_print_information("  %lld table records had checksums", row_checksums);
+  {
+    // NO_LINT_DEBUG
+    sql_print_information("CHECKTABLE %s:   %lld table records had checksums",
+                          table_name, row_checksums);
+  }
   extra(HA_EXTRA_NO_KEYREAD);
 
   verify_checksums= save_verify_checksums;
