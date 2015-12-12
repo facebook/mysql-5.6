@@ -8887,13 +8887,6 @@ type_conversion_status Field_document::reset(void)
 {
     if(!is_derived_document_field())
     {
-      /* When not nullable, set document field to {} */
-      if (!real_maybe_null()) {
-        set_notnull();
-        store(NON_NULL_DEFAULT_DOCUMENT, 2, &my_charset_bin);
-        return TYPE_OK;
-      }
-
       type_conversion_status res= Field_blob::reset();
       if (res != TYPE_OK)
         return res;
@@ -11638,6 +11631,9 @@ bool Create_field::init(THD *thd, const char *fld_name,
     // nullability definition in nullable_document
     nullable_document = !(fld_type_modifier & NOT_NULL_FLAG);
     flags &= ~NOT_NULL_FLAG;
+    // if the document field is not nullable, we disallow default value
+    if (!nullable_document)
+      flags|= NO_DEFAULT_VALUE_FLAG;
   }
 
   /*

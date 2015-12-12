@@ -1264,10 +1264,6 @@ static bool make_empty_rec(THD *thd, File file,
         goto err;
       }
     }
-    else if (regfield->real_type() == MYSQL_TYPE_DOCUMENT) {
-      /* Do not store implicit '{}' as it will be deleted right after */
-      regfield->set_notnull();
-    }
     else if (regfield->real_type() == MYSQL_TYPE_ENUM &&
 	     (field->flags & NOT_NULL_FLAG))
     {

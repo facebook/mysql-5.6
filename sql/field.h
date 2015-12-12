@@ -570,7 +570,7 @@ public:
                                field_name,
                                name));
   }
-  virtual bool has_insert_default_function() const
+  bool has_insert_default_function() const
   {
     return unireg_check == TIMESTAMP_DN_FIELD ||
       unireg_check == TIMESTAMP_DNUN_FIELD;
@@ -959,7 +959,7 @@ public:
      field. If no such function exists for the column, or the function is not
      valid for the column's data type, invoking this function has no effect.
   */
-  virtual void evaluate_insert_default_function();
+  void evaluate_insert_default_function();
 
 
   /**
@@ -3703,9 +3703,6 @@ public:
 
 class Document_path_iterator;
 
-/* Default value for document column when not nullable */
-#define NON_NULL_DEFAULT_DOCUMENT "{}"
-
 class Field_document :public Field_blob {
   bool validate(const char *from, uint length, const CHARSET_INFO *cs);
   void push_warning_invalid(const char *from,
@@ -4109,9 +4106,6 @@ private:
                                   const fbson::FbsonValue *val,
                                   Save_in_field_args *args);
   int64 read_bigendian(char *src, unsigned len);
-
-  bool has_insert_default_function() const { return !real_maybe_null(); };
-  void evaluate_insert_default_function() { reset(); };
 
   uint get_key_image_bool(uchar *buff, fbson::FbsonValue *pval);
   uint get_key_image_int(uchar *buff, fbson::FbsonValue *pval);
