@@ -6,13 +6,11 @@ drop table if exists test_json;
 --enable_warnings
 create table test_json(json document) engine=innodb;
 
---source suite/json/include/json_func_common.inc
+--source suite/json/include/json_func_common_document.inc
 
 --source suite/json/include/json_func_common_2_document.inc
 
 --source suite/json/include/fbson_output_format.inc
-
---source suite/json/include/fbson_input_format.inc
 
 #
 # cleanup
@@ -20,3 +18,8 @@ create table test_json(json document) engine=innodb;
 drop table test_json;
 
 --source include/rpl_end.inc
+
+# fbson_input_format.inc uses a session variable (needed for inserting fbson
+# binary strings) which will not be replicated to slave. So we exclude this
+# test case from replication.
+--source suite/json/include/fbson_input_format.inc

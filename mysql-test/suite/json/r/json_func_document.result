@@ -38,39 +38,30 @@ insert into test_json values
 (repeat('["a",',101)),
 ('{"MySQL":"开源数据库"}'),
 ('{"开源数据库":"MySQL"}');
-Warnings:
-Warning	1898	Invalid document value at column 'json' row 16: '', pos 0, error 'Invalid document'
-Warning	1898	Invalid document value at column 'json' row 17: '123', pos 0, error 'Invalid document'
-Warning	1898	Invalid document value at column 'json' row 18: '1.23', pos 0, error 'Invalid document'
-Warning	1898	Invalid document value at column 'json' row 19: 'abc', pos 0, error 'Invalid document: document must be an object or an array'
-Warning	1898	Invalid document value at column 'json' row 20: '{"key"}', pos 7, error 'Invalid JSON object'
-Warning	1898	Invalid document value at column 'json' row 21: '{1:value}', pos 2, error 'Invalid JSON object'
-Warning	1898	Invalid document value at column 'json' row 22: '{"key":"value"', pos 15, error 'Invalid JSON object'
-Warning	1898	Invalid document value at column 'json' row 23: '[1,2,3', pos 7, error 'Invalid JSON array'
-Warning	1898	Invalid document value at column 'json' row 24: '{}}', pos 2, error 'Invalid document: document must be an object or an array'
-Warning	1898	Invalid document value at column 'json' row 25: '[[]', pos 4, error 'Invalid JSON array'
-Warning	1898	Invalid document value at column 'json' row 26: '{[]}', pos 2, error 'Invalid JSON object'
-Warning	1898	Invalid document value at column 'json' row 27: '{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a"', pos 500, error 'Invalid JSON object'
-Warning	1898	Invalid document value at column 'json' row 28: '{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a"', pos 501, error 'Object or array has too many nesting levels'
-Warning	1898	Invalid document value at column 'json' row 29: '["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a"', pos 500, error 'Invalid JSON array'
-Warning	1898	Invalid document value at column 'json' row 30: '["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a"', pos 501, error 'Object or array has too many nesting levels'
+ERROR HY000: Invalid document value: ''
+select count(*) from test_json;
+count(*)
+0
+insert into test_json values
+(null),
+('{}'),
+('{"k":"v"}'),
+('{"k":{}}'),
+('{"k":[]}'),
+('{"k1":"v1","k2":true,"k3":3}'),
+('{"k1":{"k2":"v2"}}'),
+('{"key":[1,2,3]}'),
+('[]'),
+('[[[[[]]]]]'),
+('[{}]'),
+('[1,2,3]'),
+('[1,false,"str",1.2]'),
+('[{"k1":"v1"},2,3]'),
+('[[1,2,3],2,3]'),
+('{"MySQL":"开源数据库"}'),
+('{"开源数据库":"MySQL"}');
 select json_valid(json),json from test_json order by 1,2;
 json_valid(json)	json
-NULL	NULL
-NULL	NULL
-NULL	NULL
-NULL	NULL
-NULL	NULL
-NULL	NULL
-NULL	NULL
-NULL	NULL
-NULL	NULL
-NULL	NULL
-NULL	NULL
-NULL	NULL
-NULL	NULL
-NULL	NULL
-NULL	NULL
 NULL	NULL
 1	[1,2,3]
 1	[1,false,"str",1.2]
@@ -658,25 +649,19 @@ json_contains(json,'k2',DOCUMENT('["%",2,true]'))	json
 1	{"k1":[1,{"k2":["v1",2,true]},3,false]}
 truncate test_json;
 insert into test_json values ('');
-Warnings:
-Warning	1898	Invalid document value at column 'json' row 1: '', pos 0, error 'Invalid document'
+ERROR HY000: Invalid document value: ''
 select json_extract(json, 'k1') from test_json;
 json_extract(json, 'k1')
-NULL
 truncate test_json;
 insert into test_json values ('');
-Warnings:
-Warning	1898	Invalid document value at column 'json' row 1: '', pos 0, error 'Invalid document'
+ERROR HY000: Invalid document value: ''
 select json_contains_key(json, 'k1') from test_json;
 json_contains_key(json, 'k1')
-NULL
 truncate test_json;
 insert into test_json values ('');
-Warnings:
-Warning	1898	Invalid document value at column 'json' row 1: '', pos 0, error 'Invalid document'
+ERROR HY000: Invalid document value: ''
 select json_array_length(json) from test_json;
 json_array_length(json)
-NULL
 truncate test_json;
 insert into test_json values ('{}');
 select json_contains(json, 'k1') from test_json;
@@ -898,6 +883,8 @@ json
 {"name":"Bob Thompson","age":45,"age_string":"45","big_age":1234567890123,"amount":1.23456789,"amount_string":"1.23456789","true_value":true,"true_string":"true","true_json":"true","false_value":false,"false_string":"false","false_json":"false","null_value":null,"null_string":"null","null_json":"null","empty_string":"","zero":0,"json_vector1":"[]","json_vector2":"[1,2,3]","json_vector3":"\"[]\"","json_vector4":"\"[1,2,3]\"","json_vector5":"'[]'","json_vector6":"'[1,2,3]'","json_vector7":"[]","json_vector8":"[1,2,3]","json_map1":"{}","json_map2":"{\\\"a\\\":1,\\\"b\\\":2,\\\"c\\\":3}","json_map3":"\"{}\"","json_map4":"\"{\\\"a\\\":1,\\\"b\\\":2,\\\"c\\\":3}\"","json_map5":"'{}'","json_map6":"'{\"a\":1,\"b\":2,\"c\":3}'","json_map7":"{}","json_map8":"{\"a\":1,\"b\":2,\"c\":3}","address":{"street":"8008 Left Ln.","state":"CA","zipcode":90210},"jobs":["CEO","Director","Engineer"],"map_of_vectors":{"one":[10,20,30],"two":["x","y"],"three":[],"four":[true,false,null,1.2345]},"vector_of_maps":[{"xx":10,"yy":20,"zz":30},{"100":"x","324":"y"},{},{"x1":true,"x2":false,"x3":null,"x4":1.2345}]}
 truncate test_json;
 set use_fbson_output_format = DEFAULT;
+drop table test_json;
+include/rpl_end.inc
 show variables like 'use_fbson_input_format';
 Variable_name	Value
 use_fbson_input_format	OFF
@@ -938,5 +925,3 @@ NULL
 {"MySQL":"开源数据库"}
 {"开源数据库":"MySQL"}
 drop table test_json2;
-drop table test_json;
-include/rpl_end.inc
