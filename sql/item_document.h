@@ -34,7 +34,7 @@ public:
   fbson::FbsonValue *val_document_value(String *);
   String *val_str(String*);
   my_decimal *val_decimal(my_decimal*);
-  void fix_length_and_dec() {}
+  void fix_length_and_dec() { maybe_null = 1; }
   const char *func_name() const {return "document";}
 
   bool get_date(MYSQL_TIME*, uint);
