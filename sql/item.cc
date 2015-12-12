@@ -6670,8 +6670,7 @@ Field *Item::tmp_table_field_from_field_type(TABLE *table, bool fixed_length)
     field= new Field_document(max_length,
                               maybe_null,
                               item_name.ptr(),
-                              nullptr,
-                              1);
+                              nullptr);
     break;
   }
   default:

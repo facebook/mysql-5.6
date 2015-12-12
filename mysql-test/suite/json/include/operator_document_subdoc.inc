@@ -27,7 +27,7 @@ SELECT @start_allow_DOCUMENT_type;
 # Populate t1 with data
 CREATE TABLE t1 ( a int NOT null,
        b char (10) NOT null,
-       doc DOCUMENT NOT null) engine=innodb;
+       doc DOCUMENT) engine=innodb;
 
 insert into t1 values (1,'@1','{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761, "state":"CA" }, "intstr":"1001", "dt":"1001" }');
 insert into t1 values (2,'@2','{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" }, "int64":2222222220123456789, "intstr":"1002", "dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789" }');
@@ -41,7 +41,7 @@ insert into t1 values (6,'@2','{ "id":106, "address":{ "zipcode":98766 } }');
 # Populate t2 with data
 CREATE TABLE t2 ( a int NOT null,
        b char (10) NOT null,
-       doc DOCUMENT NOT null) engine=innodb;
+       doc DOCUMENT) engine=innodb;
 insert into t2 values (8,'@1','{ "id":108, "address":{ "zipcode":98761} }');
 insert into t2 values (7,'@3','{ "id":104, "address":{ "state":"NY", "zipcode":98767 } }');
 insert into t2 values (6,'@2','{ "id":106, "address":{"zipcode":98766, "state":"CA"} }');
@@ -188,7 +188,7 @@ DROP VIEW v1;
 # Populate t3 with data
 CREATE TABLE t3 ( a int NOT null,
        b char (10) NOT null,
-       doc DOCUMENT NOT null) engine=innodb;
+       doc DOCUMENT) engine=innodb;
 insert into t3 values (1,'@1','{ "id":101, "addr":{"state":"California", "zipcode":94306}}');
 insert into t3 values (2,'@2','{ "id":102, "addr":{"symbol":"%", "k":"v"}}');
 insert into t3 values (3,'@3','{ "id":103, "addr":{"symbol":"_", "k":"v"}}');
