@@ -1971,6 +1971,36 @@ static Sys_var_ulong Sys_max_connections(
        /* max_connections is used as a sizing hint by the performance schema. */
        sys_var::PARSE_EARLY);
 
+static bool update_max_running_queries(sys_var *self, THD *thd,
+                                       enum_var_type type) {
+  db_ac->update_max_running_queries(opt_max_running_queries);
+  return false;
+}
+
+static bool update_max_waiting_queries(sys_var *self, THD *thd,
+                                       enum_var_type type) {
+  db_ac->update_max_waiting_queries(opt_max_waiting_queries);
+  return false;
+}
+
+static Sys_var_ulong Sys_max_running_queries(
+       "max_running_queries",
+       "The maximum number of running queries allowed for a database. "
+       "If this value is 0, no such limits are applied.",
+       GLOBAL_VAR(opt_max_running_queries), CMD_LINE(REQUIRED_ARG),
+       VALID_RANGE(0, 100000), DEFAULT(0), BLOCK_SIZE(1),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0),
+       ON_UPDATE(update_max_running_queries));
+
+static Sys_var_ulong Sys_max_waiting_queries(
+       "max_waiting_queries",
+       "The maximum number of waiting queries allowed for a database."
+       "If this value is 0, no such limits are applied.",
+       GLOBAL_VAR(opt_max_waiting_queries), CMD_LINE(REQUIRED_ARG),
+       VALID_RANGE(0, 100000), DEFAULT(0), BLOCK_SIZE(1),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(0), ON_UPDATE(update_max_waiting_queries));
+
 static Sys_var_ulong Sys_max_connect_errors(
        "max_connect_errors",
        "If there is more than this number of interrupted connections from "
@@ -3010,6 +3040,26 @@ static Sys_var_set Slave_type_conversions(
        " allowed and it is expected that the types match exactly.",
        GLOBAL_VAR(slave_type_conversions_options), CMD_LINE(REQUIRED_ARG),
        slave_type_conversions_name,
+       DEFAULT(0));
+
+/*
+  Do not add more than 63 entries here.
+  There should be corresponding entry for each of these in
+  enum_admission_control_filter.
+*/
+const char *admission_control_filter_names[]=
+       {"ALTER", "BEGIN", "COMMIT", "CREATE", "DELETE", "DROP",
+        "INSERT", "LOAD", "SELECT", "SET", "REPLACE", "ROLLBACK", "TRUNCATE",
+        "UPDATE", "SHOW", 0};
+static Sys_var_set Admission_control_options(
+       "admission_control_filter",
+       "Commands that are skipped in admission control checks. The legal "
+       "values are: "
+       "ALTER, BEGIN, COMMIT, CREATE, DELETE, DROP, INSERT, LOAD, "
+       "SELECT, SET, REPLACE, ROLLBACK, TRUNCATE, UPDATE, SHOW "
+       "and empty string",
+       GLOBAL_VAR(admission_control_filter), CMD_LINE(REQUIRED_ARG),
+       admission_control_filter_names,
        DEFAULT(0));
 
 static Sys_var_mybool Sys_slave_sql_verify_checksum(

@@ -7200,6 +7200,9 @@ ER_TOO_LONG_DOCUMENT_PATH_INDEX
 ER_DB_READ_ONLY
   eng "Database '%s' is in read-only mode. %s"
 
+ER_DB_ADMISSION_CONTROL
+  eng "Maximum waiting queries %lu reached for database `%s`"
+
 ER_UNKNOWN_DB_READ_ONLY
   eng "Unknown db read ony option: '%-.64s'"
 

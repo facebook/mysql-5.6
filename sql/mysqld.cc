@@ -589,6 +589,7 @@ uint  slave_net_timeout;
 ulong slave_exec_mode_options;
 ulong slave_run_triggers_for_rbr = 0;
 ulonglong slave_type_conversions_options;
+ulonglong admission_control_filter;
 ulong opt_mts_slave_parallel_workers;
 ulonglong opt_mts_pending_jobs_size_max;
 ulonglong slave_rows_search_algorithms_options;
@@ -619,6 +620,8 @@ ulong specialflag=0;
 ulong binlog_cache_use= 0, binlog_cache_disk_use= 0;
 ulong binlog_stmt_cache_use= 0, binlog_stmt_cache_disk_use= 0;
 ulong max_connections, max_connect_errors;
+ulong opt_max_running_queries, opt_max_waiting_queries;
+AC *db_ac;
 ulong rpl_stop_slave_timeout= LONG_TIMEOUT;
 my_bool log_bin_use_v1_row_events= 0;
 bool thread_cache_size_specified= false;
@@ -2025,6 +2028,7 @@ void clean_up(bool print_message)
   if (cleanup_done++)
     return; /* purecov: inspected */
 
+  delete db_ac;
   stop_handle_manager();
   release_ddl_log();
 
@@ -6338,6 +6342,9 @@ int mysqld_main(int argc, char **argv)
   Service.SetSlowStarting(slow_start_timeout);
 #endif
 
+  db_ac = new AC();
+  db_ac->update_max_running_queries(opt_max_running_queries);
+  db_ac->update_max_waiting_queries(opt_max_waiting_queries);
   if (init_server_components())
     unireg_abort(1);
 
@@ -8926,6 +8933,30 @@ show_ssl_get_server_not_after(THD *thd, SHOW_VAR *var, char *buff)
 #endif /* HAVE_OPENSSL && !EMBEDDED_LIBRARY */
 
 
+static int get_db_ac_total_aborted_queries(THD *thd, SHOW_VAR *var,
+                                           char *buff) {
+  var->type = SHOW_LONGLONG;
+  var->value = buff;
+  *((longlong *)buff) = db_ac->get_total_aborted_queries();
+  return 0;
+}
+
+static int get_db_ac_total_running_queries(THD *thd, SHOW_VAR *var,
+                                           char *buff) {
+  var->type = SHOW_LONG;
+  var->value = buff;
+  *((long *)buff) = db_ac->get_total_running_queries();
+  return 0;
+}
+
+static int get_db_ac_total_waiting_queries(THD *thd, SHOW_VAR *var,
+                                           char *buff) {
+  var->type = SHOW_LONG;
+  var->value = buff;
+  *((long *)buff) = db_ac->get_total_waiting_queries();
+  return 0;
+}
+
 /*
   Variables shown by SHOW STATUS in alphabetical order
 */
@@ -8963,6 +8994,9 @@ SHOW_VAR status_vars[]= {
   {"Created_tmp_disk_tables",  (char*) offsetof(STATUS_VAR, created_tmp_disk_tables), SHOW_LONGLONG_STATUS},
   {"Created_tmp_files",        (char*) &my_tmp_file_created, SHOW_LONG},
   {"Created_tmp_tables",       (char*) offsetof(STATUS_VAR, created_tmp_tables), SHOW_LONGLONG_STATUS},
+  {"Database_admission_control_aborted_queries", (char*) &get_db_ac_total_aborted_queries, SHOW_FUNC},
+  {"Database_admission_control_running_queries", (char*) &get_db_ac_total_running_queries, SHOW_FUNC},
+  {"Database_admission_control_waiting_queries", (char*) &get_db_ac_total_waiting_queries, SHOW_FUNC},
   {"Delayed_errors",           (char*) &delayed_insert_errors,  SHOW_LONG},
   {"Delayed_insert_threads",   (char*) &delayed_insert_threads, SHOW_LONG_NOFLUSH},
   {"Delayed_writes",           (char*) &delayed_insert_writes,  SHOW_LONG},
@@ -11143,6 +11177,9 @@ static PSI_file_info all_server_files[]=
 };
 #endif /* HAVE_PSI_INTERFACE */
 
+PSI_stage_info stage_admission_control_enter=
+  { 0, "Admission control enter", 0};
+PSI_stage_info stage_admission_control_exit= { 0, "Admission control exit", 0};
 PSI_stage_info stage_after_create= { 0, "After create", 0};
 PSI_stage_info stage_allocating_local_table= { 0, "allocating local table", 0};
 PSI_stage_info stage_alter_inplace_prepare= { 0, "preparing for alter table", 0};
@@ -11225,6 +11262,7 @@ PSI_stage_info stage_user_lock= { 0, "User lock", 0};
 PSI_stage_info stage_user_sleep= { 0, "User sleep", 0};
 PSI_stage_info stage_verifying_table= { 0, "verifying table", 0};
 PSI_stage_info stage_waiting_for_commit= { 0, "waiting for commit", 0};
+PSI_stage_info stage_waiting_for_admission= { 0, "waiting for admission", 0};
 PSI_stage_info stage_waiting_for_delay_list= { 0, "waiting for delay_list", 0};
 PSI_stage_info stage_waiting_for_gtid_to_be_written_to_binary_log= { 0, "waiting for GTID to be written to binary log", 0};
 PSI_stage_info stage_waiting_for_handler_insert= { 0, "waiting for handler insert", 0};
@@ -11252,6 +11290,8 @@ PSI_stage_info stage_slave_waiting_event_from_coordinator= { 0, "Waiting for an 
 
 PSI_stage_info *all_server_stages[]=
 {
+  & stage_admission_control_enter,
+  & stage_admission_control_exit,
   & stage_after_create,
   & stage_allocating_local_table,
   & stage_alter_inplace_prepare,
@@ -11333,6 +11373,7 @@ PSI_stage_info *all_server_stages[]=
   & stage_user_lock,
   & stage_user_sleep,
   & stage_verifying_table,
+  & stage_waiting_for_admission,
   & stage_waiting_for_delay_list,
   & stage_waiting_for_handler_insert,
   & stage_waiting_for_handler_lock,
