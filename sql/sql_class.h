@@ -5470,7 +5470,7 @@ typedef struct st_sort_field {
     The type of sort keys can be specified if they are document paths,
     e.g. ORDER BY doc.a.b.c AS int, in which doc.a.b.c is a document path.
   */
-  enum_field_types as_type = MYSQL_TYPE_UNKNOWN;
+  enum_field_types as_type = MYSQL_TYPE_DOCUMENT_UNKNOWN;
 } SORT_FIELD;
 
 

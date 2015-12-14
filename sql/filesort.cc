@@ -1000,7 +1000,7 @@ void make_sortkey(Sort_param *param, uchar *to, uchar *ref_pos)
 	  *to++=1;
       }
       /* The type of sort key only can be specified for document type */
-      if(MYSQL_TYPE_UNKNOWN != sort_field->as_type)
+      if(MYSQL_TYPE_DOCUMENT_UNKNOWN != sort_field->as_type)
       {
         DBUG_ASSERT(field->type() == MYSQL_TYPE_DOCUMENT);
         field->make_sort_key_as_type(to,

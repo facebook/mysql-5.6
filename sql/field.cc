@@ -66,18 +66,31 @@ const char field_separator=',';
   and index of field in thia array.
 */
 #define FIELDTYPE_TEAR_FROM (MYSQL_TYPE_BIT + 1)
-#define FIELDTYPE_TEAR_TO   (MYSQL_TYPE_DOCUMENT - 1)
-#define FIELDTYPE_NUM (FIELDTYPE_TEAR_FROM + (255 - FIELDTYPE_TEAR_TO))
-
+#define FIELDTYPE_TEAR_TO   (MYSQL_TYPE_NEWDECIMAL - 1)
+// Add two document types in between TEAR_FROM and TEAR_TO
+#define FIELDTYPE_DOCUMENT_FROM (MYSQL_TYPE_DOCUMENT)
+#define FIELDTYPE_DOCUMENT_TO (MYSQL_TYPE_DOCUMENT_VALUE)
+#define DOCUMENT_TYPES_NUM \
+  FIELDTYPE_DOCUMENT_TO - FIELDTYPE_DOCUMENT_FROM + 1
+#define FIELDTYPE_NUM \
+  (FIELDTYPE_TEAR_FROM + DOCUMENT_TYPES_NUM + (255 - FIELDTYPE_TEAR_TO))
 
 inline int field_type2index (enum_field_types field_type)
 {
   field_type= real_type_to_type(field_type);
   DBUG_ASSERT(field_type < FIELDTYPE_TEAR_FROM ||
-              field_type > FIELDTYPE_TEAR_TO);
-  return (field_type < FIELDTYPE_TEAR_FROM ?
-          field_type :
-          ((int)FIELDTYPE_TEAR_FROM) + (field_type - FIELDTYPE_TEAR_TO) - 1);
+              field_type > FIELDTYPE_TEAR_TO ||
+              (field_type >= FIELDTYPE_DOCUMENT_FROM &&
+              field_type <= FIELDTYPE_DOCUMENT_TO));
+
+  if (field_type >= FIELDTYPE_DOCUMENT_FROM &&
+      field_type <= FIELDTYPE_DOCUMENT_TO)
+    return FIELDTYPE_TEAR_FROM + (field_type - FIELDTYPE_DOCUMENT_FROM);
+
+  return (field_type < FIELDTYPE_TEAR_FROM
+              ? field_type
+              : ((int)FIELDTYPE_TEAR_FROM + DOCUMENT_TYPES_NUM) +
+                    (field_type - FIELDTYPE_TEAR_TO) - 1);
 }
 const char *gen_document_path_full_name(
   MEM_ROOT *mem_root,
@@ -9665,7 +9678,7 @@ void Field_document::make_sort_key_as_type(uchar *buff,
   DBUG_ASSERT(buff && length > 0);
   memset(buff, 0, length);
   enum_field_types to_type = MYSQL_TYPE_DOCUMENT;
-  if(MYSQL_TYPE_UNKNOWN == as_type)
+  if(MYSQL_TYPE_DOCUMENT_UNKNOWN == as_type)
   {
     switch(doc_type)
     {
@@ -9718,7 +9731,7 @@ void Field_document::make_sort_key_as_type(uchar *buff,
 
 
 void Field_document::make_sort_key(uchar *buff, uint length){
-  return make_sort_key_as_type(buff, length, MYSQL_TYPE_UNKNOWN);
+  return make_sort_key_as_type(buff, length, MYSQL_TYPE_DOCUMENT_UNKNOWN);
 }
 
 String *Field_document::val_str(String *val_buffer,
@@ -9889,7 +9902,7 @@ Field_document::Field_document(MEM_ROOT *mem_root,
       for(Document_key *p; (p=it++) && trie;)
         trie = trie->get(p->string, p->length);
 
-      if (trie && trie->key_type != MYSQL_TYPE_UNKNOWN &&
+      if (trie && trie->key_type != MYSQL_TYPE_DOCUMENT_UNKNOWN &&
           current_thd->mark_used_columns != MARK_COLUMNS_NONE)
       {
         /* we found the key. Merge the key's part_of_key map
@@ -11731,7 +11744,7 @@ bool Create_field::init(THD *thd, const char *fld_name,
     break;
   case MYSQL_TYPE_STRING:
     break;
-  case MYSQL_TYPE_UNKNOWN:
+  case MYSQL_TYPE_DOCUMENT_UNKNOWN:
     DBUG_ASSERT(0);
     break;
   case MYSQL_TYPE_DOCUMENT_VALUE:
