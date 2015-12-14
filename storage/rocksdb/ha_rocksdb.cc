@@ -1190,6 +1190,7 @@ class Rdb_transaction
 
   bool is_trx_failed= false;
   bool is_delayed_snapshot= false;
+  bool tx_read_only= false;
 
   THD* thd_= nullptr;
 
@@ -1298,6 +1299,7 @@ public:
     delete txn;
     txn= NULL;
     n_writes= 0;
+    set_tx_read_only(false);
     return res;
   }
 
@@ -1312,6 +1314,7 @@ public:
       txn->Rollback();
       delete txn;
       txn= NULL;
+      set_tx_read_only(false);
     }
   }
 
@@ -1325,7 +1328,10 @@ public:
   void acquire_snapshot(bool acquire_now)
   {
     if (read_opts.snapshot == nullptr) {
-      if (acquire_now) {
+      if (is_tx_read_only()) {
+        snapshot_created(rdb->GetSnapshot());
+      }
+      else if (acquire_now) {
         txn->SetSnapshot();
         snapshot_created(txn->GetSnapshot());
       }
@@ -1343,8 +1349,16 @@ public:
     if (read_opts.snapshot != nullptr)
     {
       register_snapshot_release(read_opts.snapshot);
+      if (is_tx_read_only())
+      {
+        rdb->ReleaseSnapshot(read_opts.snapshot);
+        need_clear = false;
+      }
+      else
+      {
+        need_clear = true;
+      }
       read_opts.snapshot = nullptr;
-      need_clear = true;
     }
 
     if (need_clear && txn != nullptr)
@@ -1530,6 +1544,22 @@ public:
           is_delayed_snapshot = true;
       }
     }
+  }
+
+  /*
+    This is used by transactions started with "START TRANSACTION WITH "
+    "CONSISTENT [ROCKSDB] SNAPSHOT". When tx_read_only is turned on,
+    snapshot has to be created via DB::GetSnapshot(), not via Transaction
+    API.
+  */
+  bool is_tx_read_only() const
+  {
+    return tx_read_only;
+  }
+
+  void set_tx_read_only(bool val)
+  {
+    tx_read_only= val;
   }
 
   explicit Rdb_transaction(THD *thd) : txn(nullptr), thd_(thd)
@@ -1974,6 +2004,7 @@ static int rocksdb_start_trx_and_assign_read_view(
   }
 
   Rdb_transaction* trx= get_or_create_trx(thd);
+  trx->set_tx_read_only(true);
   rocksdb_register_trx(hton, thd, trx);
   trx->acquire_snapshot(true);
 
@@ -5929,6 +5960,16 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
 
     if (lock_type == F_WRLCK)
     {
+      if (trx->is_tx_read_only())
+      {
+        my_printf_error(ER_UNKNOWN_ERROR,
+                        "Can't execute updates when you started a transaction "
+                        "with START TRANSACTION WITH CONSISTENT [ROCKSDB] "
+                        "SNAPSHOT.",
+                        MYF(0));
+        DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+      }
+
       /*
         SQL layer signals us to take a write lock. It does so when starting DML
         statement. We should put locks on the rows we're reading.
