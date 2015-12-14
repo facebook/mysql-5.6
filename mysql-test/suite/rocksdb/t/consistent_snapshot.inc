@@ -118,6 +118,8 @@ SELECT * FROM r1; # 9
 --error 0,ER_UNKNOWN_ERROR
 START TRANSACTION WITH CONSISTENT SNAPSHOT;
 --echo ERROR: $mysql_errno
+# Succeeds with Read Committed, Fails with Repeatable Read
+--error 0,ER_UNKNOWN_ERROR
 INSERT INTO r1 values (11,11,11);
 SELECT * FROM r1; # self changes should be visible
 
