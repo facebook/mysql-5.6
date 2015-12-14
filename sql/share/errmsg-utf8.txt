@@ -7199,6 +7199,10 @@ ER_TOO_LONG_DOCUMENT_PATH_INDEX
 
 ER_DB_READ_ONLY
   eng "Database '%s' is in read-only mode. %s"
+
+ER_DB_ADMISSION_CONTROL
+  eng "Maximum waiting queries %lu reached for database `%s`"
+
 #
 #  End of 5.6 error messages.
 #
