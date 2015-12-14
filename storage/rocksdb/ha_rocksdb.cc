@@ -2401,9 +2401,6 @@ static int rocksdb_done_func(void *p)
   mysql_mutex_lock(&background_mutex);
   mysql_mutex_unlock(&background_mutex);
 
-  // save remaining stats which might've left unsaved
-  ddl_manager.persist_stats();
-
   // wait for the drop index thread to finish
   mysql_mutex_lock(&drop_index_mutex);
   mysql_mutex_unlock(&drop_index_mutex);
@@ -6985,6 +6982,9 @@ void* background_thread(void*)
       ts_next_sync.tv_sec = ts.tv_sec+1;
     }
   }
+
+  // save remaining stats which might've left unsaved
+  ddl_manager.persist_stats();
 
   mysql_mutex_unlock(&background_mutex);
 
