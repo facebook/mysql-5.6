@@ -1208,6 +1208,11 @@ exit:
   */
   if (thd->db && !strcmp(thd->db, db) && !error)
     mysql_change_db_impl(thd, NULL, 0, thd->variables.collation_server);
+
+  if (!error) {
+    db_ac->remove(db);
+  }
+
   my_dirend(dirp);
   DBUG_RETURN(error);
 }
