@@ -2997,7 +2997,7 @@ void Item_field::do_set_field(Field *field_par)
 {
   // order by as type is only supported for document type
   if(field_par->type() != MYSQL_TYPE_DOCUMENT &&
-     MYSQL_TYPE_UNKNOWN != order_by_as_type)
+     MYSQL_TYPE_DOCUMENT_UNKNOWN != order_by_as_type)
     my_error(ER_ORDERBY_AS_TYPE_NOT_SUPPORTED, MYF(0));
 
   field=result_field=field_par;			// for easy coding with fields
