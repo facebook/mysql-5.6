@@ -137,7 +137,6 @@ id	value	value2
 8	8	8
 9	9	9
 10	10	10
-11	11	11
 drop table r1;
 connection default;
 disconnect con1;
