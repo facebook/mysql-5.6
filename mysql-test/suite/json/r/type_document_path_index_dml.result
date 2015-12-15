@@ -22,8 +22,8 @@ select a from t1;
 a
 1
 update t1 set doc='{"bad_json" : "comma missing" "key" : 1}' where a=1;
-Warnings:
-Warning	1898	Invalid document value at column 'doc' row 1: '{"bad_json" : "comma missing" "key" : 1}', pos 31, error 'Invalid JSON object'
+ERROR HY000: Invalid document value: '{"bad_json" : "comma missing" "key" : 1}', pos 31, error 'Invalid JSON object'
+update t1 set doc=NULL where a=1;
 delete from t1 where a=1;
 select a from t1;
 a

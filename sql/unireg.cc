@@ -836,13 +836,6 @@ static bool pack_header(uchar *forminfo, enum legacy_db_type table_type,
       DBUG_RETURN(true);
     totlength+= field->length;
 
-    /* if this is a document field, we need to restore the actual nullability
-     * from the nullable_document flag. The document field in memory is always
-     * nullable.
-     */
-    if (field->sql_type == MYSQL_TYPE_DOCUMENT && !field->nullable_document)
-      field->pack_flag &= ~FIELDFLAG_MAYBE_NULL;
-
     com_length+= field->comment.length;
     if (MTYP_TYPENR(field->unireg_check) == Field::NOEMPTY ||
 	field->unireg_check & MTYP_NOEMPTY_BIT)
@@ -1215,8 +1208,7 @@ static bool make_empty_rec(THD *thd, File file,
                                 field->unireg_check,
                                 field->save_interval ? field->save_interval :
                                 field->interval, 
-                                field->field_name,
-                                field->nullable_document);
+                                field->field_name);
     if (!regfield)
     {
       error= 1;
