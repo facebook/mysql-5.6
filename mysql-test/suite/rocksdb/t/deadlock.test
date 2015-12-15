@@ -1,8 +1,10 @@
 --echo #
 --echo # Validate that deadlock errors don't occur with a high level of concurrency
+--echo # Disable for valgrind because this takes too long
 --echo #
 
 --source include/have_rocksdb.inc
+--source include/not_valgrind.inc
 
 --disable_warnings
 DROP DATABASE IF EXISTS mysqlslap;

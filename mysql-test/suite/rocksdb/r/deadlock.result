@@ -1,5 +1,6 @@
 #
 # Validate that deadlock errors don't occur with a high level of concurrency
+# Disable for valgrind because this takes too long
 #
 DROP DATABASE IF EXISTS mysqlslap;
 CREATE DATABASE mysqlslap;
