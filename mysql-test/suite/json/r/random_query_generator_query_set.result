@@ -5,7 +5,7 @@ CREATE SCHEMA /*!IF NOT EXISTS*/ test;
 USE test;
 DROP TABLE /*! IF EXISTS*/ table1_innodb;
 CREATE TABLE `table1_innodb` (
-`col_document_not_null` document not null,
+`col_document_not_null` document,
 `col_document` document) ENGINE=innodb ;
 ALTER TABLE `table1_innodb` DISABLE KEYS;
 INSERT /*! IGNORE */ INTO table1_innodb VALUES  ('[]', '[]') ;

@@ -7199,6 +7199,9 @@ ER_TOO_LONG_DOCUMENT_PATH_INDEX
 
 ER_DB_READ_ONLY
   eng "Database '%s' is in read-only mode. %s"
+
+ER_DOCUMENT_FIELD_NOT_NULL
+  eng "Document field '%s' must be nullable. NOT NULL type is not supported in document field"
 #
 #  End of 5.6 error messages.
 #

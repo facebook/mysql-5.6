@@ -5,6 +5,8 @@
 ## test is a crash regression test. The correctness of the queries is
 ## not a concern and the result set is large so the result log is disabled.
 ##
+## FIXME: we should regenerate the random query set since we don't allow
+## non-nullable document and always error out invalid json
 
 --source include/not_valgrind.inc
 
@@ -20,7 +22,7 @@ CREATE SCHEMA /*!IF NOT EXISTS*/ test;
 USE test;
 DROP TABLE /*! IF EXISTS*/ table1_innodb;
 CREATE TABLE `table1_innodb` (
-`col_document_not_null` document not null,
+`col_document_not_null` document,
 `col_document` document) ENGINE=innodb ;
 ALTER TABLE `table1_innodb` DISABLE KEYS;
 INSERT /*! IGNORE */ INTO table1_innodb VALUES  ('[]', '[]') ;
@@ -787,6 +789,7 @@ INSERT INTO `table1_innodb` (`col_document_not_null`) VALUES (' [ false ] ');
 START TRANSACTION;
 UPDATE `table1_innodb` SET `col_document_not_null`.1 = DOCUMENT('  { "k1": [  { "k1": true  } ]  } ') WHERE `col_document_not_null` SUBDOC DOCUMENT('  { "k1": "value" , "k2": null , "k3": [ true ] , "k4": false  } ') ORDER BY `col_document` , `col_document`.k2;
 (SELECT `col_document`.1.k2, `col_document`.k1.k2.k2.1, `col_document` FROM `table1_innodb` WHERE `col_document`.k1 >= true ORDER BY `col_document_not_null` , `col_document_not_null`.k2);
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD #FIXME
 (SELECT `col_document_not_null`.1, `col_document_not_null`.1.k2.2, `col_document` FROM `table1_innodb` WHERE `col_document`.k2 LIKE DOCUMENT(' [  { "k1": [ 1 ] , "k2": [ "value" , false ]  } ] ') ) UNION ALL (SELECT alias.1.k1.k1, alias2.k1.1, alias3.1.k2 FROM (SELECT `col_document_not_null`.1 as alias, `col_document_not_null`.1.2 as alias2, `col_document_not_null` alias3 FROM `table1_innodb` WHERE `col_document_not_null`.k1 <> DOCUMENT('  { "k1": "%" , "k2": false  } ') ) subquery_alias);
 ROLLBACK;
 UPDATE `table1_innodb` SET `col_document_not_null`.k1 = DOCUMENT(' [ "%" ] ') WHERE `col_document_not_null`.k2.k1.k2 > true ;
