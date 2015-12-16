@@ -514,7 +514,7 @@ inline
 void
 os_atomic_clear(volatile lock_word_t* ptr)
 {
-	__atomic_clear(ptr, __ATOMIC_RELEASE);
+	__atomic_clear(ptr, __ATOMIC_SEQ_CST);
 }
 
 # elif defined(IB_STRONG_MEMORY_MODEL)
