@@ -22,7 +22,7 @@
 #include <vector>
 #include <unordered_map>
 #include <string>
-#include <deque>
+#include <queue>
 #include <memory>
 #include "my_global.h"                          /* NO_EMBEDDED_ACCESS_CHECKS */
 #ifdef MYSQL_SERVER
@@ -2219,6 +2219,7 @@ my_micro_time_to_timeval(ulonglong micro_time, struct timeval *tm)
   tm->tv_usec= (long) (micro_time % 1000000);
 }
 
+class Ac_info;
 /**
   Per-thread information used in admission control.
 */
@@ -2237,7 +2238,9 @@ struct st_ac_node {
 #endif
   mysql_mutex_t lock;
   mysql_cond_t cond;
-  st_ac_node() {
+  bool signalled;
+  bool failed;
+  st_ac_node() : signalled(false), failed(false) {
 #ifdef HAVE_PSI_INTERFACE
     mysql_mutex_register("sql", key_lock_info,
                          array_elements(key_lock_info));
@@ -2251,6 +2254,20 @@ struct st_ac_node {
   ~st_ac_node () {
     mysql_mutex_destroy(&lock);
     mysql_cond_destroy(&cond);
+  }
+
+  inline void signal() {
+    mysql_mutex_lock(&lock);
+    signalled = true;
+    mysql_cond_signal(&cond);
+    mysql_mutex_unlock(&lock);
+  }
+
+  bool wait(THD *thd, PSI_stage_info *new_stage);
+
+  inline void fail() {
+    failed = true;
+    signal();
   }
 };
 
@@ -4504,7 +4521,6 @@ public:
 
 */
 class Ac_info {
-  friend class AC;
 #ifdef HAVE_PSI_INTERFACE
   PSI_mutex_key key_lock;
   PSI_mutex_info key_lock_info[1]=
@@ -4513,18 +4529,22 @@ class Ac_info {
   };
 #endif
   // Queue to track the running and waiting threads.
-  std::deque<std::shared_ptr<st_ac_node>> queue;
-  std::atomic<unsigned long> waiting_queries;
-  // Protects the queue.
+  std::queue<std::shared_ptr<st_ac_node>> queue;
+  uint running_queries;
+  ulong max_running_queries;
+  ulong max_waiting_queries;
+
+  // Protects the queue and running_queries.
   mysql_mutex_t lock;
 public:
-  Ac_info() {
+  Ac_info(ulong max_running_queries_ = 0, ulong max_waiting_queries_ = 0) :
+      max_running_queries(max_running_queries_),
+      max_waiting_queries(max_waiting_queries_) {
 #ifdef HAVE_PSI_INTERFACE
     mysql_mutex_register("sql", key_lock_info,
                          array_elements(key_lock_info));
 #endif
     mysql_mutex_init(key_lock, &lock, MY_MUTEX_INIT_FAST);
-    waiting_queries = 0;
   }
   ~Ac_info() {
     mysql_mutex_destroy(&lock);
@@ -4532,6 +4552,130 @@ public:
   // Disable copy constructor.
   Ac_info(const Ac_info&) = delete;
   Ac_info& operator=(const Ac_info&) = delete;
+
+  // Control number of running queries.  Returns false when the query begins
+  // to run.  Returns true if the query failed because there were already too
+  // many queries waiting.
+  bool control_query(THD *thd, PSI_stage_info *new_stage) {
+    mysql_mutex_lock(&lock);
+
+    if (running_queries == 0 || running_queries < max_running_queries) {
+      // This query can proceed to execute
+      ++running_queries;
+      mysql_mutex_unlock(&lock);
+      return false;
+    }
+
+    if (max_waiting_queries == 0 || queue.size() < max_waiting_queries) {
+      // Add this query to the waiting queries
+      queue.push(thd->ac_node);
+      mysql_mutex_unlock(&lock);  // release mutex while waiting
+
+      // Have the query wait for a running query to finish
+      return thd->ac_node->wait(thd, new_stage);
+    }
+
+    // We already have the maximum number of waiting queries, so fail this one.
+    mysql_mutex_unlock(&lock);
+    return true;
+  }
+
+  // Release the next query waiting in the queue.
+  void release_next_query() {
+    mysql_mutex_lock(&lock);
+
+    if (!queue.empty()) {
+      // no need to change the count of running queries here as we are simply
+      // replacing the ending query with a waiting query.
+      queue.front()->signal();
+      queue.pop();
+    }
+    else {
+      // No waiting query to release - just decrement count
+      --running_queries;
+    }
+
+    mysql_mutex_unlock(&lock);
+  }
+
+ private:
+  // The max_running_queries value is changing - release the correct number
+  // of waiting queries.
+  inline void release_available_queries_with_lock(ulong val) {
+    mysql_mutex_assert_owner(&lock);
+
+    while (running_queries < val && !queue.empty()) {
+      queue.front()->signal();
+      queue.pop();
+      ++running_queries;
+    }
+  }
+
+  inline void release_all_waiting_queries_with_lock() {
+    mysql_mutex_assert_owner(&lock);
+
+    while (!queue.empty()) {
+      queue.front()->signal();
+      queue.pop();
+      ++running_queries;
+    }
+  }
+
+  // The max_waiting_queries value is changing - there may now be too many
+  // on the queue, so fail those extra ones
+  void fail_some_waiting_queries_with_lock(ulong max_waiting_queries) {
+    DBUG_ASSERT(max_waiting_queries > 0);
+    mysql_mutex_assert_owner(&lock);
+
+    if (queue.size() > max_waiting_queries) {
+      // pop the first max_waiting_queries off and push them on the end
+      for (ulong ii = 0; ii < max_waiting_queries; ii++) {
+        auto& ac_info = queue.front();
+        queue.pop();
+        queue.push(ac_info);
+      }
+
+      // Now pop all the queries until the queue size is max_waiting_queries
+      while (queue.size() > max_waiting_queries) {
+        queue.front()->fail();
+        queue.pop();
+      }
+    }
+  }
+
+ public:
+  // Release all waiting queries.
+  void release_all_waiting_queries() {
+    mysql_mutex_lock(&lock);
+    release_all_waiting_queries_with_lock();
+    mysql_mutex_unlock(&lock);
+  }
+
+  void update_max_running_queries(ulong val) {
+    mysql_mutex_lock(&lock);
+
+    // Signal any waiting threads which are below the new limit. Note 0 is a
+    // special case where every waiting thread needs to be signalled.
+    if (val == 0)
+      release_all_waiting_queries_with_lock();
+    else if (val > max_running_queries)
+      release_available_queries_with_lock(val);
+
+    max_running_queries = val;
+
+    mysql_mutex_unlock(&lock);
+  }
+
+  void update_max_waiting_queries(ulong val) {
+    mysql_mutex_lock(&lock);
+
+    if (val != 0 && (val < max_waiting_queries || max_waiting_queries == 0))
+      fail_some_waiting_queries_with_lock(val);
+
+    max_waiting_queries = val;
+
+    mysql_mutex_unlock(&lock);
+  }
 };
 
 /**
@@ -4539,7 +4683,7 @@ public:
 */
 class AC {
   // This map is protected by the rwlock LOCK_ac.
-  std::unordered_map<std::string, std::unique_ptr<Ac_info>> ac_map;
+  std::unordered_map<std::string, std::shared_ptr<Ac_info>> ac_map;
   // Variables to track global limits
   ulong max_running_queries, max_waiting_queries;
   /**
@@ -4555,6 +4699,18 @@ class AC {
     {&key_rwlock_LOCK_ac, "AC::rwlock", 0}
   };
 #endif
+
+  std::shared_ptr<Ac_info> no_ac_info = std::make_shared<Ac_info>();
+
+  void release_ac_info(const std::string& entity) {
+    mysql_rwlock_wrlock(&LOCK_ac);
+
+    auto it = ac_map.find(entity);
+    if (it != ac_map.end())
+      ac_map.erase(it);
+
+    mysql_rwlock_unlock(&LOCK_ac);
+  }
 
 public:
   AC() {
@@ -4574,11 +4730,18 @@ public:
   AC(const AC&) = delete;
   AC& operator=(const AC&) = delete;
 
-  inline void signal(std::shared_ptr<st_ac_node>& ac_node) {
-    DBUG_ASSERT(ac_node && ac_node.get());
-    mysql_mutex_lock(&ac_node->lock);
-    mysql_cond_signal(&ac_node->cond);
-    mysql_mutex_unlock(&ac_node->lock);
+  std::shared_ptr<Ac_info> find_ac_info(const std::string& entity) {
+    std::shared_ptr<Ac_info> res = no_ac_info;
+
+    mysql_rwlock_rdlock(&LOCK_ac);
+
+    auto it = ac_map.find(entity);
+    if (it != ac_map.end())
+      res = it->second;
+
+    mysql_rwlock_unlock(&LOCK_ac);
+
+    return res;
   }
 
   /*
@@ -4586,60 +4749,61 @@ public:
    */
   void remove(const char* entity) {
     std::string str(entity);
-    // First take a read lock to unblock any waiting queries.
-    mysql_rwlock_rdlock(&LOCK_ac);
-    auto it = ac_map.find(str);
-    if (it != ac_map.end()) {
-      auto &ac_info  = it->second;
-      mysql_mutex_lock(&ac_info->lock);
-      while (ac_info->waiting_queries) {
-        for (uint i = max_running_queries; i < ac_info->queue.size(); ++i) {
-          signal(ac_info->queue[i]);
-        }
-      }
-      mysql_mutex_unlock(&ac_info->lock);
+
+    auto ac_info = find_ac_info(str);
+    if (ac_info != no_ac_info) {
+      // Make sure there are no queries on the queue
+      ac_info->release_all_waiting_queries();
+      // release the ac_info
+      release_ac_info(str);
     }
-    mysql_rwlock_unlock(&LOCK_ac);
-    mysql_rwlock_wrlock(&LOCK_ac);
-    it = ac_map.find(std::string(str));
-    if (it != ac_map.end()) {
-      ac_map.erase(it);
-    }
-    mysql_rwlock_unlock(&LOCK_ac);
   }
 
-  void insert(const std::string &entity) {
+  std::shared_ptr<Ac_info> insert(const std::string &entity) {
+    std::shared_ptr<Ac_info> res;
+
     mysql_rwlock_wrlock(&LOCK_ac);
-    if (ac_map.find(entity) == ac_map.end()) {
-      ac_map[entity] = std::unique_ptr<Ac_info>(new Ac_info());
+
+    auto it = ac_map.find(entity);
+    if (it == ac_map.end()) {
+      res = ac_map[entity] =
+          std::make_shared<Ac_info>(max_running_queries, max_waiting_queries);
     }
+    else {
+      res = it->second;
+    }
+
     mysql_rwlock_unlock(&LOCK_ac);
+
+    return res;
+  }
+
+  std::shared_ptr<Ac_info> get_ac_info(const std::string& entity) {
+    std::shared_ptr<Ac_info> res = find_ac_info(entity);
+    if (res == no_ac_info)
+      res = insert(entity);
+
+    return res;
   }
 
   void update_max_running_queries(ulong val) {
     // lock to protect against erasing map iterators.
     mysql_rwlock_wrlock(&LOCK_ac);
-    ulong old_val = max_running_queries;
+
     max_running_queries = val;
-    // Signal any waiting threads which are below the new limit. Note 0 is a
-    // special case where every waiting thread needs to be signalled.
-    if (val > old_val || !val) {
-      for (auto &it: ac_map) {
-        auto &ac_info = it.second;
-        mysql_mutex_lock(&ac_info->lock);
-        for (uint i = old_val;
-             (!val || i < val) && i < ac_info->queue.size(); ++i) {
-          signal(ac_info->queue[i]);
-        }
-        mysql_mutex_unlock(&ac_info->lock);
-      }
-    }
+    for (auto& it: ac_map)
+      it.second->update_max_running_queries(val);
+
     mysql_rwlock_unlock(&LOCK_ac);
   }
 
   void update_max_waiting_queries(ulong val) {
     mysql_rwlock_wrlock(&LOCK_ac);
+
     max_waiting_queries = val;
+    for (auto& it: ac_map)
+      it.second->update_max_waiting_queries(val);
+
     mysql_rwlock_unlock(&LOCK_ac);
   }
 
@@ -4659,8 +4823,6 @@ public:
 
   bool admission_control_enter(THD*, const std::string&);
   void admission_control_exit(THD*, const std::string&);
-  void wait_for_signal(THD*, std::shared_ptr<st_ac_node>&,
-                       std::unique_ptr<Ac_info>& ac_info);
 };
 
 /*

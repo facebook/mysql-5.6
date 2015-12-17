@@ -5183,3 +5183,24 @@ void THD::time_out_user_resource_limits()
 
   DBUG_VOID_RETURN;
 }
+
+bool st_ac_node::wait(THD *thd, PSI_stage_info *new_stage)
+{
+  PSI_stage_info old_stage;
+
+  mysql_mutex_lock(&lock);
+
+  thd->ENTER_COND(&cond, &lock, new_stage, &old_stage);
+  while (!signalled)
+    mysql_cond_wait(&cond, &lock);
+
+  bool res = failed;
+
+  // EXIT_COND releases lock
+  thd->EXIT_COND(&old_stage);
+
+  signalled = true;  // Reset for next usage
+  failed = false;
+
+  return res;
+}

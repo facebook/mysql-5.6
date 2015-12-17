@@ -7084,86 +7084,26 @@ static bool throttle_query_if_needed(THD* thd)
            True  maximum waiting queries limit reached. Error out this query.
 */
 bool AC::admission_control_enter(THD* thd, const std::string& entity) {
-  bool error = false;
+  bool error;
   const char* prev_proc_info = thd->proc_info;
   THD_STAGE_INFO(thd, stage_admission_control_enter);
-  bool release_lock_ac = true;
-  // Unlock this before waiting.
-  mysql_rwlock_rdlock(&LOCK_ac);
-  if (max_running_queries) {
-    auto it = ac_map.find(entity);
-    if (it == ac_map.end()) {
-      // New DB.
-      mysql_rwlock_unlock(&LOCK_ac);
-      insert(entity);
-      mysql_rwlock_rdlock(&LOCK_ac);
-      it = ac_map.find(entity);
-    }
 
-    if (!thd->ac_node) {
-      // Both THD and the admission control queue will share the object
-      // created here.
-      thd->ac_node = std::make_shared<st_ac_node>();
-    }
-    auto &ac_info = it->second;
-    mysql_mutex_lock(&ac_info->lock);
-    if (ac_info->queue.size() >= max_running_queries) {
-      if (max_waiting_queries &&
-          ac_info->queue.size() >= max_running_queries + max_waiting_queries) {
-        // We reached max waiting limit. Error out
-        mysql_mutex_unlock(&ac_info->lock);
-        error = true;
-      } else {
-        ac_info->queue.push_back(thd->ac_node);
-        ++ac_info->waiting_queries;
-        /**
-          Inserting or deleting in std::map will not invalidate existing
-          iterators except of course if the current iterator is erased. If the
-          db corresponding to this iterator is getting dropped, these waiting
-          queries are given signal to abort before the iterator
-          is erased. See AC::remove().
-          So, we don't need LOCK_ac here. The motivation to unlock the read lock
-          is that waiting queries here shouldn't block other operations
-          modifying ac_map or max_running_queries/max_waiting_queries.
-        */
-        mysql_rwlock_unlock(&LOCK_ac);
-        release_lock_ac = false;
-        wait_for_signal(thd, thd->ac_node, ac_info);
-        --ac_info->waiting_queries;
-      }
-    } else {
-      // We are below the max running limit.
-      ac_info->queue.push_back(thd->ac_node);
-      mysql_mutex_unlock(&ac_info->lock);
-    }
+  if (!thd->ac_node) {
+    // Both THD and the admission control queue will share the object
+    // created here.
+    thd->ac_node = std::make_shared<st_ac_node>();
   }
-  if (release_lock_ac) {
-    mysql_rwlock_unlock(&LOCK_ac);
-  }
+
+  // Make sure we have an ac_info for this database */
+  auto ac_info = get_ac_info(entity);
+
+  // Attempt to run the query.  If too many queries are running this will
+  // cause the query to block waiting on space.  If too many queries are
+  // waiting then fail.
+  error = ac_info->control_query(thd, &stage_waiting_for_admission);
+
   thd->proc_info = prev_proc_info;
   return error;
-}
-
-void AC::wait_for_signal(THD* thd, std::shared_ptr<st_ac_node>& ac_node,
-                         std::unique_ptr<Ac_info>& ac_info) {
-  PSI_stage_info old_stage;
-  mysql_mutex_lock(&ac_node->lock);
-  /**
-    The locking order followed during admission_control_enter() is
-    lock ac_info
-    lock ac_node
-    unlock ac_info
-    unlock ac_node
-    The locks are interleaved to avoid possible races which makes
-    this waiting thread miss the signal from admission_control_exit().
-  */
-  mysql_mutex_unlock(&ac_info->lock);
-  thd->ENTER_COND(&ac_node->cond, &ac_node->lock,
-                  &stage_waiting_for_admission,
-                  &old_stage);
-  // Spurious wake-ups are rare and fine in this design.
-  mysql_cond_wait(&ac_node->cond, &ac_node->lock);
-  thd->EXIT_COND(&old_stage);
 }
 
 /**
@@ -7175,24 +7115,14 @@ void AC::wait_for_signal(THD* thd, std::shared_ptr<st_ac_node>& ac_node,
 void AC::admission_control_exit(THD* thd, const std::string& entity) {
   const char* prev_proc_info = thd->proc_info;
   THD_STAGE_INFO(thd, stage_admission_control_exit);
-  mysql_rwlock_rdlock(&LOCK_ac);
-  auto it = ac_map.find(entity);
-  if (it != ac_map.end()) {
-    auto ac_info = it->second.get();
-    mysql_mutex_lock(&ac_info->lock);
-    if (max_running_queries &&
-        ac_info->queue.size() > max_running_queries) {
-      signal(ac_info->queue[max_running_queries]);
-    }
-    assert(ac_info->queue.size());
-    /**
-      The popped value here doesn't necessarily give the ac_node of the
-      current THD. It is better if the popped value is not accessed at all.
-    */
-    ac_info->queue.pop_front();
-    mysql_mutex_unlock(&ac_info->lock);
+
+  /* Find the ac_info for this database */
+  auto ac_info = find_ac_info(entity);
+  if (ac_info != no_ac_info) {
+    // We are done, so run the next waiting query if there is one
+    ac_info->release_next_query();
   }
-  mysql_rwlock_unlock(&LOCK_ac);
+
   thd->proc_info = prev_proc_info;
 }
 
