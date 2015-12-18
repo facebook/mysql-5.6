@@ -2233,10 +2233,24 @@ struct st_ac_node {
 #ifdef HAVE_PSI_INTERFACE
   PSI_mutex_key key_lock;
   PSI_cond_key key_cond;
+  PSI_mutex_info key_lock_info[1]=
+  {
+    {&key_lock, "st_ac_node::lock", 0}
+  };
+  PSI_cond_info key_cond_info[1]=
+  {
+    {&key_cond, "st_ac_node::cond", 0}
+  };
 #endif
   mysql_mutex_t lock;
   mysql_cond_t cond;
   st_ac_node() {
+#ifdef HAVE_PSI_INTERFACE
+    mysql_mutex_register("sql", key_lock_info,
+                         array_elements(key_lock_info));
+    mysql_cond_register("sql", key_cond_info,
+                        array_elements(key_cond_info));
+#endif
     mysql_mutex_init(key_lock, &lock, MY_MUTEX_INIT_FAST);
     mysql_cond_init(key_cond, &cond, NULL);
   }
@@ -4506,6 +4520,10 @@ class Ac_info {
   friend class AC;
 #ifdef HAVE_PSI_INTERFACE
   PSI_mutex_key key_lock;
+  PSI_mutex_info key_lock_info[1]=
+  {
+    {&key_lock, "Ac_info::lock", 0}
+  };
 #endif
   // Queue to track the running and waiting threads.
   std::deque<std::shared_ptr<st_ac_node>> queue;
@@ -4514,6 +4532,10 @@ class Ac_info {
   mysql_mutex_t lock;
 public:
   Ac_info() {
+#ifdef HAVE_PSI_INTERFACE
+    mysql_mutex_register("sql", key_lock_info,
+                         array_elements(key_lock_info));
+#endif
     mysql_mutex_init(key_lock, &lock, MY_MUTEX_INIT_FAST);
     waiting_queries = 0;
   }
@@ -4541,10 +4563,18 @@ class AC {
   mysql_rwlock_t LOCK_ac;
 #ifdef HAVE_PSI_INTERFACE
   PSI_rwlock_key key_rwlock_LOCK_ac;
+  PSI_rwlock_info key_rwlock_LOCK_ac_info[1]=
+  {
+    {&key_rwlock_LOCK_ac, "AC::rwlock", 0}
+  };
 #endif
 
 public:
   AC() {
+#ifdef HAVE_PSI_INTERFACE
+    mysql_rwlock_register("sql", key_rwlock_LOCK_ac_info,
+                          array_elements(key_rwlock_LOCK_ac_info));
+#endif
     mysql_rwlock_init(key_rwlock_LOCK_ac, &LOCK_ac);
     max_running_queries = 0;
     max_waiting_queries = 0;
