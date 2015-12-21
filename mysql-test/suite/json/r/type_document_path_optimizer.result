@@ -5,7 +5,7 @@ Note	####	Storing MySQL user name or password information in the master info rep
 [connection master]
 drop table if exists t1, t2, t3, t4;
 create table t1 (
-a int primary key, 
+a int primary key,
 b int,
 c double,
 d char(100),
@@ -18,7 +18,6 @@ key doc1_bool   (doc1.bool as bool),
 key doc1_int    (doc1.int as int),
 key doc1_double (doc1.double as double),
 key doc1_string (doc1.string as string(100)),
-key doc1_binary (doc1.binary as binary(100)),
 key doc1_nested (doc1.k1.k2.k3.int as int),
 key doc2_int    (doc2.int as int),
 key doc2_double (doc2.double as double),
@@ -29,18 +28,18 @@ key doc1_d (doc1.int as int, d),
 key b_doc1 (b, doc1.int as int)
 ) engine = innodb;
 insert into t1 values
-(10, 10, 10.1, 'jjj', '{"bool":false, "int":10, "double":10.1, "string":"jjj", "binary":"jjj", "k1":{"k2":{"k3":{"int":10}}}, "id":10}', '{"int":10, "double":10.1}'),
-(11, 11, 11.11, 'kkk', '{"bool":false, "int":11, "double":11.11, "string":"kkk", "binary":"kkk", "k1":{"k2":{"k3":{"int":11}}}, "id":11}', '{"int":11, "double":11.11}'),
-(12, 12, 12.12, 'lll', '{"bool":false, "int":12, "double":12.12, "string":"lll", "binary":"lll", "k1":{"k2":{"k3":{"int":12}}}, "id":12}', '{"int":12, "double":12.12}'),
-(1, 1, 1.1, 'aaa', '{"bool":true,  "int":1, "double":1.1, "string":"aaa", "binary":"aaa", "k1":{"k2":{"k3":{"int":1}}}, "id":1}', '{"int":1, "double":1.1}'), 
-(2, 2, 2.2, 'bbb', '{"bool":true,  "int":2, "double":2.2, "string":"bbb", "binary":"bbb", "k1":{"k2":{"k3":{"int":2}}}, "id":2}', '{"int":2, "double":2.2}'), 
-(3, 3, 3.3, 'ccc', '{"bool":true,  "int":3, "double":3.3, "string":"ccc", "binary":"ccc", "k1":{"k2":{"k3":{"int":3}}}, "id":3}', '{"int":3, "double":3.3}'), 
-(4, 4, 4.4, 'ddd', '{"bool":true,  "int":4, "double":4.4, "string":"ddd", "binary":"ddd", "k1":{"k2":{"k3":{"int":4}}}, "id":4}', '{"int":4, "double":4.4}'), 
-(5, 5, 5.5, 'eee', '{"bool":true,  "int":5, "double":5.5, "string":"eee", "binary":"eee", "k1":{"k2":{"k3":{"int":5}}}, "id":5}', '{"int":5, "double":5.5}'), 
-(6, 6, 6.6, 'fff', '{"bool":false, "int":6, "double":6.6, "string":"fff", "binary":"fff", "k1":{"k2":{"k3":{"int":6}}}, "id":6}', '{"int":6, "double":6.6}'), 
-(7, 7, 7.7, 'ggg', '{"bool":false, "int":7, "double":7.7, "string":"ggg", "binary":"ggg", "k1":{"k2":{"k3":{"int":7}}}, "id":7}', '{"int":7, "double":7.7}'), 
-(8, 8, 8.8, 'hhh', '{"bool":false, "int":8, "double":8.8, "string":"hhh", "binary":"hhh", "k1":{"k2":{"k3":{"int":8}}}, "id":8}', '{"int":8, "double":8.8}'), 
-(9, 9, 9.9, 'iii', '{"bool":false, "int":9, "double":9.9, "string":"iii", "binary":"iii", "k1":{"k2":{"k3":{"int":9}}}, "id":9}', '{"int":9, "double":9.9}');
+(10, 10, 10.1, 'jjj', '{"bool":false, "int":10, "double":10.1, "string":"jjj", "k1":{"k2":{"k3":{"int":10}}}, "id":10}', '{"int":10, "double":10.1}'),
+(11, 11, 11.11, 'kkk', '{"bool":false, "int":11, "double":11.11, "string":"kkk", "k1":{"k2":{"k3":{"int":11}}}, "id":11}', '{"int":11, "double":11.11}'),
+(12, 12, 12.12, 'lll', '{"bool":false, "int":12, "double":12.12, "string":"lll", "k1":{"k2":{"k3":{"int":12}}}, "id":12}', '{"int":12, "double":12.12}'),
+(1, 1, 1.1, 'aaa', '{"bool":true,  "int":1, "double":1.1, "string":"aaa", "k1":{"k2":{"k3":{"int":1}}}, "id":1}', '{"int":1, "double":1.1}'),
+(2, 2, 2.2, 'bbb', '{"bool":true,  "int":2, "double":2.2, "string":"bbb", "k1":{"k2":{"k3":{"int":2}}}, "id":2}', '{"int":2, "double":2.2}'),
+(3, 3, 3.3, 'ccc', '{"bool":true,  "int":3, "double":3.3, "string":"ccc", "k1":{"k2":{"k3":{"int":3}}}, "id":3}', '{"int":3, "double":3.3}'),
+(4, 4, 4.4, 'ddd', '{"bool":true,  "int":4, "double":4.4, "string":"ddd", "k1":{"k2":{"k3":{"int":4}}}, "id":4}', '{"int":4, "double":4.4}'),
+(5, 5, 5.5, 'eee', '{"bool":true,  "int":5, "double":5.5, "string":"eee", "k1":{"k2":{"k3":{"int":5}}}, "id":5}', '{"int":5, "double":5.5}'),
+(6, 6, 6.6, 'fff', '{"bool":false, "int":6, "double":6.6, "string":"fff", "k1":{"k2":{"k3":{"int":6}}}, "id":6}', '{"int":6, "double":6.6}'),
+(7, 7, 7.7, 'ggg', '{"bool":false, "int":7, "double":7.7, "string":"ggg", "k1":{"k2":{"k3":{"int":7}}}, "id":7}', '{"int":7, "double":7.7}'),
+(8, 8, 8.8, 'hhh', '{"bool":false, "int":8, "double":8.8, "string":"hhh", "k1":{"k2":{"k3":{"int":8}}}, "id":8}', '{"int":8, "double":8.8}'),
+(9, 9, 9.9, 'iii', '{"bool":false, "int":9, "double":9.9, "string":"iii", "k1":{"k2":{"k3":{"int":9}}}, "id":9}', '{"int":9, "double":9.9}');
 analyze table t1;
 Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
@@ -51,18 +50,18 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES
 select * from t1 use document keys;
 a	b	c	d	doc1	doc2
-1	1	1.1	aaa	{"bool":true,"int":1,"double":1.1,"string":"aaa","binary":"aaa","k1":{"k2":{"k3":{"int":1}}},"id":1}	{"int":1,"double":1.1}
-2	2	2.2	bbb	{"bool":true,"int":2,"double":2.2,"string":"bbb","binary":"bbb","k1":{"k2":{"k3":{"int":2}}},"id":2}	{"int":2,"double":2.2}
-3	3	3.3	ccc	{"bool":true,"int":3,"double":3.3,"string":"ccc","binary":"ccc","k1":{"k2":{"k3":{"int":3}}},"id":3}	{"int":3,"double":3.3}
-4	4	4.4	ddd	{"bool":true,"int":4,"double":4.4,"string":"ddd","binary":"ddd","k1":{"k2":{"k3":{"int":4}}},"id":4}	{"int":4,"double":4.4}
-5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
-6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
-7	7	7.7	ggg	{"bool":false,"int":7,"double":7.7,"string":"ggg","binary":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}	{"int":7,"double":7.7}
-8	8	8.8	hhh	{"bool":false,"int":8,"double":8.8,"string":"hhh","binary":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}	{"int":8,"double":8.8}
-9	9	9.9	iii	{"bool":false,"int":9,"double":9.9,"string":"iii","binary":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}	{"int":9,"double":9.9}
-10	10	10.1	jjj	{"bool":false,"int":10,"double":10.1,"string":"jjj","binary":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}	{"int":10,"double":10.1}
-11	11	11.11	kkk	{"bool":false,"int":11,"double":11.11,"string":"kkk","binary":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}	{"int":11,"double":11.11}
-12	12	12.12	lll	{"bool":false,"int":12,"double":12.12,"string":"lll","binary":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}	{"int":12,"double":12.12}
+1	1	1.1	aaa	{"bool":true,"int":1,"double":1.1,"string":"aaa","k1":{"k2":{"k3":{"int":1}}},"id":1}	{"int":1,"double":1.1}
+2	2	2.2	bbb	{"bool":true,"int":2,"double":2.2,"string":"bbb","k1":{"k2":{"k3":{"int":2}}},"id":2}	{"int":2,"double":2.2}
+3	3	3.3	ccc	{"bool":true,"int":3,"double":3.3,"string":"ccc","k1":{"k2":{"k3":{"int":3}}},"id":3}	{"int":3,"double":3.3}
+4	4	4.4	ddd	{"bool":true,"int":4,"double":4.4,"string":"ddd","k1":{"k2":{"k3":{"int":4}}},"id":4}	{"int":4,"double":4.4}
+5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
+6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
+7	7	7.7	ggg	{"bool":false,"int":7,"double":7.7,"string":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}	{"int":7,"double":7.7}
+8	8	8.8	hhh	{"bool":false,"int":8,"double":8.8,"string":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}	{"int":8,"double":8.8}
+9	9	9.9	iii	{"bool":false,"int":9,"double":9.9,"string":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}	{"int":9,"double":9.9}
+10	10	10.1	jjj	{"bool":false,"int":10,"double":10.1,"string":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}	{"int":10,"double":10.1}
+11	11	11.11	kkk	{"bool":false,"int":11,"double":11.11,"string":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}	{"int":11,"double":11.11}
+12	12	12.12	lll	{"bool":false,"int":12,"double":12.12,"string":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}	{"int":12,"double":12.12}
 explain extended select doc1 from t1 use document keys;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	NULL
@@ -70,18 +69,18 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES
 select doc1 from t1 use document keys;
 doc1
-{"bool":true,"int":1,"double":1.1,"string":"aaa","binary":"aaa","k1":{"k2":{"k3":{"int":1}}},"id":1}
-{"bool":true,"int":2,"double":2.2,"string":"bbb","binary":"bbb","k1":{"k2":{"k3":{"int":2}}},"id":2}
-{"bool":true,"int":3,"double":3.3,"string":"ccc","binary":"ccc","k1":{"k2":{"k3":{"int":3}}},"id":3}
-{"bool":true,"int":4,"double":4.4,"string":"ddd","binary":"ddd","k1":{"k2":{"k3":{"int":4}}},"id":4}
-{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
-{"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}
-{"bool":false,"int":7,"double":7.7,"string":"ggg","binary":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}
-{"bool":false,"int":8,"double":8.8,"string":"hhh","binary":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}
-{"bool":false,"int":9,"double":9.9,"string":"iii","binary":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}
-{"bool":false,"int":10,"double":10.1,"string":"jjj","binary":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}
-{"bool":false,"int":11,"double":11.11,"string":"kkk","binary":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}
-{"bool":false,"int":12,"double":12.12,"string":"lll","binary":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}
+{"bool":true,"int":1,"double":1.1,"string":"aaa","k1":{"k2":{"k3":{"int":1}}},"id":1}
+{"bool":true,"int":2,"double":2.2,"string":"bbb","k1":{"k2":{"k3":{"int":2}}},"id":2}
+{"bool":true,"int":3,"double":3.3,"string":"ccc","k1":{"k2":{"k3":{"int":3}}},"id":3}
+{"bool":true,"int":4,"double":4.4,"string":"ddd","k1":{"k2":{"k3":{"int":4}}},"id":4}
+{"bool":true,"int":5,"double":5.5,"string":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
+{"bool":false,"int":6,"double":6.6,"string":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}
+{"bool":false,"int":7,"double":7.7,"string":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}
+{"bool":false,"int":8,"double":8.8,"string":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}
+{"bool":false,"int":9,"double":9.9,"string":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}
+{"bool":false,"int":10,"double":10.1,"string":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}
+{"bool":false,"int":11,"double":11.11,"string":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}
+{"bool":false,"int":12,"double":12.12,"string":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}
 explain extended select doc2 from t1 use document keys;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	NULL
@@ -248,11 +247,11 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc1`.`bool` is true)
 select * from t1 where doc1.bool is true;
 a	b	c	d	doc1	doc2
-1	1	1.1	aaa	{"bool":true,"int":1,"double":1.1,"string":"aaa","binary":"aaa","k1":{"k2":{"k3":{"int":1}}},"id":1}	{"int":1,"double":1.1}
-2	2	2.2	bbb	{"bool":true,"int":2,"double":2.2,"string":"bbb","binary":"bbb","k1":{"k2":{"k3":{"int":2}}},"id":2}	{"int":2,"double":2.2}
-3	3	3.3	ccc	{"bool":true,"int":3,"double":3.3,"string":"ccc","binary":"ccc","k1":{"k2":{"k3":{"int":3}}},"id":3}	{"int":3,"double":3.3}
-4	4	4.4	ddd	{"bool":true,"int":4,"double":4.4,"string":"ddd","binary":"ddd","k1":{"k2":{"k3":{"int":4}}},"id":4}	{"int":4,"double":4.4}
-5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
+1	1	1.1	aaa	{"bool":true,"int":1,"double":1.1,"string":"aaa","k1":{"k2":{"k3":{"int":1}}},"id":1}	{"int":1,"double":1.1}
+2	2	2.2	bbb	{"bool":true,"int":2,"double":2.2,"string":"bbb","k1":{"k2":{"k3":{"int":2}}},"id":2}	{"int":2,"double":2.2}
+3	3	3.3	ccc	{"bool":true,"int":3,"double":3.3,"string":"ccc","k1":{"k2":{"k3":{"int":3}}},"id":3}	{"int":3,"double":3.3}
+4	4	4.4	ddd	{"bool":true,"int":4,"double":4.4,"string":"ddd","k1":{"k2":{"k3":{"int":4}}},"id":4}	{"int":4,"double":4.4}
+5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
 explain extended select * from t1 use document keys where doc1.bool is true;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
@@ -260,11 +259,11 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`bool` is true)
 select * from t1 use document keys where doc1.bool is true;
 a	b	c	d	doc1	doc2
-1	1	1.1	aaa	{"bool":true,"int":1,"double":1.1,"string":"aaa","binary":"aaa","k1":{"k2":{"k3":{"int":1}}},"id":1}	{"int":1,"double":1.1}
-2	2	2.2	bbb	{"bool":true,"int":2,"double":2.2,"string":"bbb","binary":"bbb","k1":{"k2":{"k3":{"int":2}}},"id":2}	{"int":2,"double":2.2}
-3	3	3.3	ccc	{"bool":true,"int":3,"double":3.3,"string":"ccc","binary":"ccc","k1":{"k2":{"k3":{"int":3}}},"id":3}	{"int":3,"double":3.3}
-4	4	4.4	ddd	{"bool":true,"int":4,"double":4.4,"string":"ddd","binary":"ddd","k1":{"k2":{"k3":{"int":4}}},"id":4}	{"int":4,"double":4.4}
-5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
+1	1	1.1	aaa	{"bool":true,"int":1,"double":1.1,"string":"aaa","k1":{"k2":{"k3":{"int":1}}},"id":1}	{"int":1,"double":1.1}
+2	2	2.2	bbb	{"bool":true,"int":2,"double":2.2,"string":"bbb","k1":{"k2":{"k3":{"int":2}}},"id":2}	{"int":2,"double":2.2}
+3	3	3.3	ccc	{"bool":true,"int":3,"double":3.3,"string":"ccc","k1":{"k2":{"k3":{"int":3}}},"id":3}	{"int":3,"double":3.3}
+4	4	4.4	ddd	{"bool":true,"int":4,"double":4.4,"string":"ddd","k1":{"k2":{"k3":{"int":4}}},"id":4}	{"int":4,"double":4.4}
+5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
 explain extended select count(*) from t1 use document keys group by doc1.bool;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc1_bool	2	NULL	12	100.00	Using index; Using temporary; Using filesort
@@ -281,11 +280,11 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1`.`bool` is true)
 select doc1 from t1 where doc1.bool is true;
 doc1
-{"bool":true,"int":1,"double":1.1,"string":"aaa","binary":"aaa","k1":{"k2":{"k3":{"int":1}}},"id":1}
-{"bool":true,"int":2,"double":2.2,"string":"bbb","binary":"bbb","k1":{"k2":{"k3":{"int":2}}},"id":2}
-{"bool":true,"int":3,"double":3.3,"string":"ccc","binary":"ccc","k1":{"k2":{"k3":{"int":3}}},"id":3}
-{"bool":true,"int":4,"double":4.4,"string":"ddd","binary":"ddd","k1":{"k2":{"k3":{"int":4}}},"id":4}
-{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
+{"bool":true,"int":1,"double":1.1,"string":"aaa","k1":{"k2":{"k3":{"int":1}}},"id":1}
+{"bool":true,"int":2,"double":2.2,"string":"bbb","k1":{"k2":{"k3":{"int":2}}},"id":2}
+{"bool":true,"int":3,"double":3.3,"string":"ccc","k1":{"k2":{"k3":{"int":3}}},"id":3}
+{"bool":true,"int":4,"double":4.4,"string":"ddd","k1":{"k2":{"k3":{"int":4}}},"id":4}
+{"bool":true,"int":5,"double":5.5,"string":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
 explain extended select doc1 from t1 use document keys where doc1.bool is true;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
@@ -293,11 +292,11 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`bool` is true)
 select doc1 from t1 use document keys where doc1.bool is true;
 doc1
-{"bool":true,"int":1,"double":1.1,"string":"aaa","binary":"aaa","k1":{"k2":{"k3":{"int":1}}},"id":1}
-{"bool":true,"int":2,"double":2.2,"string":"bbb","binary":"bbb","k1":{"k2":{"k3":{"int":2}}},"id":2}
-{"bool":true,"int":3,"double":3.3,"string":"ccc","binary":"ccc","k1":{"k2":{"k3":{"int":3}}},"id":3}
-{"bool":true,"int":4,"double":4.4,"string":"ddd","binary":"ddd","k1":{"k2":{"k3":{"int":4}}},"id":4}
-{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
+{"bool":true,"int":1,"double":1.1,"string":"aaa","k1":{"k2":{"k3":{"int":1}}},"id":1}
+{"bool":true,"int":2,"double":2.2,"string":"bbb","k1":{"k2":{"k3":{"int":2}}},"id":2}
+{"bool":true,"int":3,"double":3.3,"string":"ccc","k1":{"k2":{"k3":{"int":3}}},"id":3}
+{"bool":true,"int":4,"double":4.4,"string":"ddd","k1":{"k2":{"k3":{"int":4}}},"id":4}
+{"bool":true,"int":5,"double":5.5,"string":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
 explain extended select count(doc1) from t1 use document keys group by doc1.bool;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using temporary; Using filesort
@@ -622,13 +621,13 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc1`.`int` > 5)
 select * from t1 where doc1.int > 5;
 a	b	c	d	doc1	doc2
-6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
-7	7	7.7	ggg	{"bool":false,"int":7,"double":7.7,"string":"ggg","binary":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}	{"int":7,"double":7.7}
-8	8	8.8	hhh	{"bool":false,"int":8,"double":8.8,"string":"hhh","binary":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}	{"int":8,"double":8.8}
-9	9	9.9	iii	{"bool":false,"int":9,"double":9.9,"string":"iii","binary":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}	{"int":9,"double":9.9}
-10	10	10.1	jjj	{"bool":false,"int":10,"double":10.1,"string":"jjj","binary":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}	{"int":10,"double":10.1}
-11	11	11.11	kkk	{"bool":false,"int":11,"double":11.11,"string":"kkk","binary":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}	{"int":11,"double":11.11}
-12	12	12.12	lll	{"bool":false,"int":12,"double":12.12,"string":"lll","binary":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}	{"int":12,"double":12.12}
+6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
+7	7	7.7	ggg	{"bool":false,"int":7,"double":7.7,"string":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}	{"int":7,"double":7.7}
+8	8	8.8	hhh	{"bool":false,"int":8,"double":8.8,"string":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}	{"int":8,"double":8.8}
+9	9	9.9	iii	{"bool":false,"int":9,"double":9.9,"string":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}	{"int":9,"double":9.9}
+10	10	10.1	jjj	{"bool":false,"int":10,"double":10.1,"string":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}	{"int":10,"double":10.1}
+11	11	11.11	kkk	{"bool":false,"int":11,"double":11.11,"string":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}	{"int":11,"double":11.11}
+12	12	12.12	lll	{"bool":false,"int":12,"double":12.12,"string":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}	{"int":12,"double":12.12}
 explain extended select * from t1 use document keys where doc1.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_int	NULL	NULL	NULL	12	100.00	Using where
@@ -636,13 +635,13 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` > 5)
 select * from t1 use document keys where doc1.int > 5;
 a	b	c	d	doc1	doc2
-6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
-7	7	7.7	ggg	{"bool":false,"int":7,"double":7.7,"string":"ggg","binary":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}	{"int":7,"double":7.7}
-8	8	8.8	hhh	{"bool":false,"int":8,"double":8.8,"string":"hhh","binary":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}	{"int":8,"double":8.8}
-9	9	9.9	iii	{"bool":false,"int":9,"double":9.9,"string":"iii","binary":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}	{"int":9,"double":9.9}
-10	10	10.1	jjj	{"bool":false,"int":10,"double":10.1,"string":"jjj","binary":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}	{"int":10,"double":10.1}
-11	11	11.11	kkk	{"bool":false,"int":11,"double":11.11,"string":"kkk","binary":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}	{"int":11,"double":11.11}
-12	12	12.12	lll	{"bool":false,"int":12,"double":12.12,"string":"lll","binary":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}	{"int":12,"double":12.12}
+6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
+7	7	7.7	ggg	{"bool":false,"int":7,"double":7.7,"string":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}	{"int":7,"double":7.7}
+8	8	8.8	hhh	{"bool":false,"int":8,"double":8.8,"string":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}	{"int":8,"double":8.8}
+9	9	9.9	iii	{"bool":false,"int":9,"double":9.9,"string":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}	{"int":9,"double":9.9}
+10	10	10.1	jjj	{"bool":false,"int":10,"double":10.1,"string":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}	{"int":10,"double":10.1}
+11	11	11.11	kkk	{"bool":false,"int":11,"double":11.11,"string":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}	{"int":11,"double":11.11}
+12	12	12.12	lll	{"bool":false,"int":12,"double":12.12,"string":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}	{"int":12,"double":12.12}
 explain extended select count(*) from t1 use document keys group by doc1.int having doc1.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc1_int	9	NULL	12	100.00	Using index; Using temporary; Using filesort
@@ -664,13 +663,13 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1`.`int` > 5)
 select doc1 from t1 where doc1.int > 5;
 doc1
-{"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}
-{"bool":false,"int":7,"double":7.7,"string":"ggg","binary":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}
-{"bool":false,"int":8,"double":8.8,"string":"hhh","binary":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}
-{"bool":false,"int":9,"double":9.9,"string":"iii","binary":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}
-{"bool":false,"int":10,"double":10.1,"string":"jjj","binary":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}
-{"bool":false,"int":11,"double":11.11,"string":"kkk","binary":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}
-{"bool":false,"int":12,"double":12.12,"string":"lll","binary":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}
+{"bool":false,"int":6,"double":6.6,"string":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}
+{"bool":false,"int":7,"double":7.7,"string":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}
+{"bool":false,"int":8,"double":8.8,"string":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}
+{"bool":false,"int":9,"double":9.9,"string":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}
+{"bool":false,"int":10,"double":10.1,"string":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}
+{"bool":false,"int":11,"double":11.11,"string":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}
+{"bool":false,"int":12,"double":12.12,"string":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}
 explain extended select doc1 from t1 use document keys where doc1.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_int	NULL	NULL	NULL	12	100.00	Using where
@@ -678,13 +677,13 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` > 5)
 select doc1 from t1 use document keys where doc1.int > 5;
 doc1
-{"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}
-{"bool":false,"int":7,"double":7.7,"string":"ggg","binary":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}
-{"bool":false,"int":8,"double":8.8,"string":"hhh","binary":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}
-{"bool":false,"int":9,"double":9.9,"string":"iii","binary":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}
-{"bool":false,"int":10,"double":10.1,"string":"jjj","binary":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}
-{"bool":false,"int":11,"double":11.11,"string":"kkk","binary":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}
-{"bool":false,"int":12,"double":12.12,"string":"lll","binary":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}
+{"bool":false,"int":6,"double":6.6,"string":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}
+{"bool":false,"int":7,"double":7.7,"string":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}
+{"bool":false,"int":8,"double":8.8,"string":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}
+{"bool":false,"int":9,"double":9.9,"string":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}
+{"bool":false,"int":10,"double":10.1,"string":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}
+{"bool":false,"int":11,"double":11.11,"string":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}
+{"bool":false,"int":12,"double":12.12,"string":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}
 explain extended select count(doc1) from t1 use document keys group by doc1.int having doc1.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using temporary; Using filesort
@@ -748,13 +747,13 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc2`.`int` > 5)
 select * from t1 where doc2.int > 5;
 a	b	c	d	doc1	doc2
-6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
-7	7	7.7	ggg	{"bool":false,"int":7,"double":7.7,"string":"ggg","binary":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}	{"int":7,"double":7.7}
-8	8	8.8	hhh	{"bool":false,"int":8,"double":8.8,"string":"hhh","binary":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}	{"int":8,"double":8.8}
-9	9	9.9	iii	{"bool":false,"int":9,"double":9.9,"string":"iii","binary":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}	{"int":9,"double":9.9}
-10	10	10.1	jjj	{"bool":false,"int":10,"double":10.1,"string":"jjj","binary":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}	{"int":10,"double":10.1}
-11	11	11.11	kkk	{"bool":false,"int":11,"double":11.11,"string":"kkk","binary":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}	{"int":11,"double":11.11}
-12	12	12.12	lll	{"bool":false,"int":12,"double":12.12,"string":"lll","binary":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}	{"int":12,"double":12.12}
+6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
+7	7	7.7	ggg	{"bool":false,"int":7,"double":7.7,"string":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}	{"int":7,"double":7.7}
+8	8	8.8	hhh	{"bool":false,"int":8,"double":8.8,"string":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}	{"int":8,"double":8.8}
+9	9	9.9	iii	{"bool":false,"int":9,"double":9.9,"string":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}	{"int":9,"double":9.9}
+10	10	10.1	jjj	{"bool":false,"int":10,"double":10.1,"string":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}	{"int":10,"double":10.1}
+11	11	11.11	kkk	{"bool":false,"int":11,"double":11.11,"string":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}	{"int":11,"double":11.11}
+12	12	12.12	lll	{"bool":false,"int":12,"double":12.12,"string":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}	{"int":12,"double":12.12}
 explain extended select * from t1 use document keys where doc2.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc2_int	NULL	NULL	NULL	12	100.00	Using where
@@ -762,13 +761,13 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc2`.`int` > 5)
 select * from t1 use document keys where doc2.int > 5;
 a	b	c	d	doc1	doc2
-6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
-7	7	7.7	ggg	{"bool":false,"int":7,"double":7.7,"string":"ggg","binary":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}	{"int":7,"double":7.7}
-8	8	8.8	hhh	{"bool":false,"int":8,"double":8.8,"string":"hhh","binary":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}	{"int":8,"double":8.8}
-9	9	9.9	iii	{"bool":false,"int":9,"double":9.9,"string":"iii","binary":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}	{"int":9,"double":9.9}
-10	10	10.1	jjj	{"bool":false,"int":10,"double":10.1,"string":"jjj","binary":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}	{"int":10,"double":10.1}
-11	11	11.11	kkk	{"bool":false,"int":11,"double":11.11,"string":"kkk","binary":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}	{"int":11,"double":11.11}
-12	12	12.12	lll	{"bool":false,"int":12,"double":12.12,"string":"lll","binary":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}	{"int":12,"double":12.12}
+6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
+7	7	7.7	ggg	{"bool":false,"int":7,"double":7.7,"string":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}	{"int":7,"double":7.7}
+8	8	8.8	hhh	{"bool":false,"int":8,"double":8.8,"string":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}	{"int":8,"double":8.8}
+9	9	9.9	iii	{"bool":false,"int":9,"double":9.9,"string":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}	{"int":9,"double":9.9}
+10	10	10.1	jjj	{"bool":false,"int":10,"double":10.1,"string":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}	{"int":10,"double":10.1}
+11	11	11.11	kkk	{"bool":false,"int":11,"double":11.11,"string":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}	{"int":11,"double":11.11}
+12	12	12.12	lll	{"bool":false,"int":12,"double":12.12,"string":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}	{"int":12,"double":12.12}
 explain extended select count(*) from t1 use document keys group by doc2.int having doc2.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc2_int	9	NULL	12	100.00	Using index; Using temporary; Using filesort
@@ -1095,13 +1094,13 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc1`.`double` > 5.5)
 select * from t1 where doc1.double > 5.5;
 a	b	c	d	doc1	doc2
-6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
-7	7	7.7	ggg	{"bool":false,"int":7,"double":7.7,"string":"ggg","binary":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}	{"int":7,"double":7.7}
-8	8	8.8	hhh	{"bool":false,"int":8,"double":8.8,"string":"hhh","binary":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}	{"int":8,"double":8.8}
-9	9	9.9	iii	{"bool":false,"int":9,"double":9.9,"string":"iii","binary":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}	{"int":9,"double":9.9}
-10	10	10.1	jjj	{"bool":false,"int":10,"double":10.1,"string":"jjj","binary":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}	{"int":10,"double":10.1}
-11	11	11.11	kkk	{"bool":false,"int":11,"double":11.11,"string":"kkk","binary":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}	{"int":11,"double":11.11}
-12	12	12.12	lll	{"bool":false,"int":12,"double":12.12,"string":"lll","binary":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}	{"int":12,"double":12.12}
+6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
+7	7	7.7	ggg	{"bool":false,"int":7,"double":7.7,"string":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}	{"int":7,"double":7.7}
+8	8	8.8	hhh	{"bool":false,"int":8,"double":8.8,"string":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}	{"int":8,"double":8.8}
+9	9	9.9	iii	{"bool":false,"int":9,"double":9.9,"string":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}	{"int":9,"double":9.9}
+10	10	10.1	jjj	{"bool":false,"int":10,"double":10.1,"string":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}	{"int":10,"double":10.1}
+11	11	11.11	kkk	{"bool":false,"int":11,"double":11.11,"string":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}	{"int":11,"double":11.11}
+12	12	12.12	lll	{"bool":false,"int":12,"double":12.12,"string":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}	{"int":12,"double":12.12}
 explain extended select * from t1 use document keys where doc1.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_double	NULL	NULL	NULL	12	100.00	Using where
@@ -1109,13 +1108,13 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`double` > 5.5)
 select * from t1 use document keys where doc1.double > 5.5;
 a	b	c	d	doc1	doc2
-6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
-7	7	7.7	ggg	{"bool":false,"int":7,"double":7.7,"string":"ggg","binary":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}	{"int":7,"double":7.7}
-8	8	8.8	hhh	{"bool":false,"int":8,"double":8.8,"string":"hhh","binary":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}	{"int":8,"double":8.8}
-9	9	9.9	iii	{"bool":false,"int":9,"double":9.9,"string":"iii","binary":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}	{"int":9,"double":9.9}
-10	10	10.1	jjj	{"bool":false,"int":10,"double":10.1,"string":"jjj","binary":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}	{"int":10,"double":10.1}
-11	11	11.11	kkk	{"bool":false,"int":11,"double":11.11,"string":"kkk","binary":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}	{"int":11,"double":11.11}
-12	12	12.12	lll	{"bool":false,"int":12,"double":12.12,"string":"lll","binary":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}	{"int":12,"double":12.12}
+6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
+7	7	7.7	ggg	{"bool":false,"int":7,"double":7.7,"string":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}	{"int":7,"double":7.7}
+8	8	8.8	hhh	{"bool":false,"int":8,"double":8.8,"string":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}	{"int":8,"double":8.8}
+9	9	9.9	iii	{"bool":false,"int":9,"double":9.9,"string":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}	{"int":9,"double":9.9}
+10	10	10.1	jjj	{"bool":false,"int":10,"double":10.1,"string":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}	{"int":10,"double":10.1}
+11	11	11.11	kkk	{"bool":false,"int":11,"double":11.11,"string":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}	{"int":11,"double":11.11}
+12	12	12.12	lll	{"bool":false,"int":12,"double":12.12,"string":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}	{"int":12,"double":12.12}
 explain extended select count(*) from t1 use document keys group by doc1.double having doc1.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc1_double	9	NULL	12	100.00	Using index; Using temporary; Using filesort
@@ -1137,13 +1136,13 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1`.`double` > 5.5)
 select doc1 from t1 where doc1.double > 5.5;
 doc1
-{"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}
-{"bool":false,"int":7,"double":7.7,"string":"ggg","binary":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}
-{"bool":false,"int":8,"double":8.8,"string":"hhh","binary":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}
-{"bool":false,"int":9,"double":9.9,"string":"iii","binary":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}
-{"bool":false,"int":10,"double":10.1,"string":"jjj","binary":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}
-{"bool":false,"int":11,"double":11.11,"string":"kkk","binary":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}
-{"bool":false,"int":12,"double":12.12,"string":"lll","binary":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}
+{"bool":false,"int":6,"double":6.6,"string":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}
+{"bool":false,"int":7,"double":7.7,"string":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}
+{"bool":false,"int":8,"double":8.8,"string":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}
+{"bool":false,"int":9,"double":9.9,"string":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}
+{"bool":false,"int":10,"double":10.1,"string":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}
+{"bool":false,"int":11,"double":11.11,"string":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}
+{"bool":false,"int":12,"double":12.12,"string":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}
 explain extended select doc1 from t1 use document keys where doc1.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_double	NULL	NULL	NULL	12	100.00	Using where
@@ -1151,13 +1150,13 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`double` > 5.5)
 select doc1 from t1 use document keys where doc1.double > 5.5;
 doc1
-{"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}
-{"bool":false,"int":7,"double":7.7,"string":"ggg","binary":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}
-{"bool":false,"int":8,"double":8.8,"string":"hhh","binary":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}
-{"bool":false,"int":9,"double":9.9,"string":"iii","binary":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}
-{"bool":false,"int":10,"double":10.1,"string":"jjj","binary":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}
-{"bool":false,"int":11,"double":11.11,"string":"kkk","binary":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}
-{"bool":false,"int":12,"double":12.12,"string":"lll","binary":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}
+{"bool":false,"int":6,"double":6.6,"string":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}
+{"bool":false,"int":7,"double":7.7,"string":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}
+{"bool":false,"int":8,"double":8.8,"string":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}
+{"bool":false,"int":9,"double":9.9,"string":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}
+{"bool":false,"int":10,"double":10.1,"string":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}
+{"bool":false,"int":11,"double":11.11,"string":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}
+{"bool":false,"int":12,"double":12.12,"string":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}
 explain extended select count(doc1) from t1 use document keys group by doc1.double having doc1.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using temporary; Using filesort
@@ -1221,13 +1220,13 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc2`.`double` > 5.5)
 select * from t1 where doc2.double > 5.5;
 a	b	c	d	doc1	doc2
-6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
-7	7	7.7	ggg	{"bool":false,"int":7,"double":7.7,"string":"ggg","binary":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}	{"int":7,"double":7.7}
-8	8	8.8	hhh	{"bool":false,"int":8,"double":8.8,"string":"hhh","binary":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}	{"int":8,"double":8.8}
-9	9	9.9	iii	{"bool":false,"int":9,"double":9.9,"string":"iii","binary":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}	{"int":9,"double":9.9}
-10	10	10.1	jjj	{"bool":false,"int":10,"double":10.1,"string":"jjj","binary":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}	{"int":10,"double":10.1}
-11	11	11.11	kkk	{"bool":false,"int":11,"double":11.11,"string":"kkk","binary":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}	{"int":11,"double":11.11}
-12	12	12.12	lll	{"bool":false,"int":12,"double":12.12,"string":"lll","binary":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}	{"int":12,"double":12.12}
+6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
+7	7	7.7	ggg	{"bool":false,"int":7,"double":7.7,"string":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}	{"int":7,"double":7.7}
+8	8	8.8	hhh	{"bool":false,"int":8,"double":8.8,"string":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}	{"int":8,"double":8.8}
+9	9	9.9	iii	{"bool":false,"int":9,"double":9.9,"string":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}	{"int":9,"double":9.9}
+10	10	10.1	jjj	{"bool":false,"int":10,"double":10.1,"string":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}	{"int":10,"double":10.1}
+11	11	11.11	kkk	{"bool":false,"int":11,"double":11.11,"string":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}	{"int":11,"double":11.11}
+12	12	12.12	lll	{"bool":false,"int":12,"double":12.12,"string":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}	{"int":12,"double":12.12}
 explain extended select * from t1 use document keys where doc2.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc2_double	NULL	NULL	NULL	12	100.00	Using where
@@ -1235,13 +1234,13 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc2`.`double` > 5.5)
 select * from t1 use document keys where doc2.double > 5.5;
 a	b	c	d	doc1	doc2
-6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
-7	7	7.7	ggg	{"bool":false,"int":7,"double":7.7,"string":"ggg","binary":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}	{"int":7,"double":7.7}
-8	8	8.8	hhh	{"bool":false,"int":8,"double":8.8,"string":"hhh","binary":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}	{"int":8,"double":8.8}
-9	9	9.9	iii	{"bool":false,"int":9,"double":9.9,"string":"iii","binary":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}	{"int":9,"double":9.9}
-10	10	10.1	jjj	{"bool":false,"int":10,"double":10.1,"string":"jjj","binary":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}	{"int":10,"double":10.1}
-11	11	11.11	kkk	{"bool":false,"int":11,"double":11.11,"string":"kkk","binary":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}	{"int":11,"double":11.11}
-12	12	12.12	lll	{"bool":false,"int":12,"double":12.12,"string":"lll","binary":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}	{"int":12,"double":12.12}
+6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
+7	7	7.7	ggg	{"bool":false,"int":7,"double":7.7,"string":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}	{"int":7,"double":7.7}
+8	8	8.8	hhh	{"bool":false,"int":8,"double":8.8,"string":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}	{"int":8,"double":8.8}
+9	9	9.9	iii	{"bool":false,"int":9,"double":9.9,"string":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}	{"int":9,"double":9.9}
+10	10	10.1	jjj	{"bool":false,"int":10,"double":10.1,"string":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}	{"int":10,"double":10.1}
+11	11	11.11	kkk	{"bool":false,"int":11,"double":11.11,"string":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}	{"int":11,"double":11.11}
+12	12	12.12	lll	{"bool":false,"int":12,"double":12.12,"string":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}	{"int":12,"double":12.12}
 explain extended select count(*) from t1 use document keys group by doc2.double having doc2.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc2_double	9	NULL	12	100.00	Using index; Using temporary; Using filesort
@@ -1395,7 +1394,7 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc1`.`string` = 'eee')
 select * from t1 where doc1.string = 'eee';
 a	b	c	d	doc1	doc2
-5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
+5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
 explain extended select * from t1 use document keys where doc1.string = 'eee';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_string	doc1_string	101	const	1	100.00	Using where
@@ -1403,7 +1402,7 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`string` = 'eee')
 select * from t1 use document keys where doc1.string = 'eee';
 a	b	c	d	doc1	doc2
-5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
+5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
 explain extended select count(*) from t1 use document keys group by doc1.string having doc1.string = 'eee';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using temporary; Using filesort
@@ -1419,7 +1418,7 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1`.`string` = 'eee')
 select doc1 from t1 where doc1.string = 'eee';
 doc1
-{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
+{"bool":true,"int":5,"double":5.5,"string":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
 explain extended select doc1 from t1 use document keys where doc1.string = 'eee';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_string	doc1_string	101	const	1	100.00	Using where
@@ -1427,7 +1426,7 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`string` = 'eee')
 select doc1 from t1 use document keys where doc1.string = 'eee';
 doc1
-{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
+{"bool":true,"int":5,"double":5.5,"string":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
 explain extended select count(doc1) from t1 use document keys group by doc1.string having doc1.string = 'eee';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using temporary; Using filesort
@@ -1499,7 +1498,7 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc1`.`string` like 'e%')
 select * from t1 where doc1.string like 'e%';
 a	b	c	d	doc1	doc2
-5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
+5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
 explain extended select * from t1 use document keys where doc1.string like 'e%';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_string	NULL	NULL	NULL	12	100.00	Using where
@@ -1507,7 +1506,7 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`string` like 'e%')
 select * from t1 use document keys where doc1.string like 'e%';
 a	b	c	d	doc1	doc2
-5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
+5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
 explain extended select doc1 from t1 where doc1.string like 'e%';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
@@ -1515,7 +1514,7 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1`.`string` like 'e%')
 select doc1 from t1 where doc1.string like 'e%';
 doc1
-{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
+{"bool":true,"int":5,"double":5.5,"string":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
 explain extended select doc1 from t1 use document keys where doc1.string like 'e%';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_string	NULL	NULL	NULL	12	100.00	Using where
@@ -1523,7 +1522,7 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`string` like 'e%')
 select doc1 from t1 use document keys where doc1.string like 'e%';
 doc1
-{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
+{"bool":true,"int":5,"double":5.5,"string":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
 explain extended select doc1.int from t1 where doc1.string like 'e%';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
@@ -1538,161 +1537,6 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`string` like 'e%')
 select doc1.int from t1 use document keys where doc1.string like 'e%';
-`doc1`.`int`
-5
-explain extended select a from t1 where doc1.binary = 'eee';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`doc1`.`binary` = 'eee')
-select a from t1 where doc1.binary = 'eee';
-a
-5
-explain extended select a from t1 use document keys where doc1.binary = 'eee';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ref	doc1_binary	doc1_binary	103	const	1	100.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`binary` = 'eee')
-select a from t1 use document keys where doc1.binary = 'eee';
-a
-explain extended select doc1.binary from t1 where doc1.binary = 'eee';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`binary` AS "`doc1`.`binary`" from `test`.`t1` where (`test`.`t1`.`doc1`.`binary` = 'eee')
-select doc1.binary from t1 where doc1.binary = 'eee';
-`doc1`.`binary`
-eee
-explain extended select doc1.binary from t1 use document keys where doc1.binary = 'eee';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ref	doc1_binary	doc1_binary	103	const	1	100.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`binary` AS "`doc1`.`binary`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`binary` = 'eee')
-select doc1.binary from t1 use document keys where doc1.binary = 'eee';
-`doc1`.`binary`
-explain extended select * from t1 where doc1.binary = 'eee';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc1`.`binary` = 'eee')
-select * from t1 where doc1.binary = 'eee';
-a	b	c	d	doc1	doc2
-5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
-explain extended select * from t1 use document keys where doc1.binary = 'eee';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ref	doc1_binary	doc1_binary	103	const	1	100.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`binary` = 'eee')
-select * from t1 use document keys where doc1.binary = 'eee';
-a	b	c	d	doc1	doc2
-explain extended select doc1 from t1 where doc1.binary = 'eee';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1`.`binary` = 'eee')
-select doc1 from t1 where doc1.binary = 'eee';
-doc1
-{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
-explain extended select doc1 from t1 use document keys where doc1.binary = 'eee';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ref	doc1_binary	doc1_binary	103	const	1	100.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`binary` = 'eee')
-select doc1 from t1 use document keys where doc1.binary = 'eee';
-doc1
-explain extended select doc1.int from t1 where doc1.binary = 'eee';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` where (`test`.`t1`.`doc1`.`binary` = 'eee')
-select doc1.int from t1 where doc1.binary = 'eee';
-`doc1`.`int`
-5
-explain extended select doc1.int from t1 use document keys where doc1.binary = 'eee';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ref	doc1_binary	doc1_binary	103	const	1	100.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`binary` = 'eee')
-select doc1.int from t1 use document keys where doc1.binary = 'eee';
-`doc1`.`int`
-explain extended select a from t1 where doc1.binary like 'e%';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`doc1`.`binary` like 'e%')
-select a from t1 where doc1.binary like 'e%';
-a
-5
-explain extended select a from t1 use document keys where doc1.binary like 'e%';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	doc1_binary	NULL	NULL	NULL	12	100.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`binary` like 'e%')
-select a from t1 use document keys where doc1.binary like 'e%';
-a
-5
-explain extended select doc1.binary from t1 where doc1.binary like 'e%';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`binary` AS "`doc1`.`binary`" from `test`.`t1` where (`test`.`t1`.`doc1`.`binary` like 'e%')
-select doc1.binary from t1 where doc1.binary like 'e%';
-`doc1`.`binary`
-eee
-explain extended select doc1.binary from t1 use document keys where doc1.binary like 'e%';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	doc1_binary	NULL	NULL	NULL	12	100.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`binary` AS "`doc1`.`binary`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`binary` like 'e%')
-select doc1.binary from t1 use document keys where doc1.binary like 'e%';
-`doc1`.`binary`
-eee
-explain extended select * from t1 where doc1.binary like 'e%';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc1`.`binary` like 'e%')
-select * from t1 where doc1.binary like 'e%';
-a	b	c	d	doc1	doc2
-5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
-explain extended select * from t1 use document keys where doc1.binary like 'e%';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	doc1_binary	NULL	NULL	NULL	12	100.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`binary` like 'e%')
-select * from t1 use document keys where doc1.binary like 'e%';
-a	b	c	d	doc1	doc2
-5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
-explain extended select doc1 from t1 where doc1.binary like 'e%';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1`.`binary` like 'e%')
-select doc1 from t1 where doc1.binary like 'e%';
-doc1
-{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
-explain extended select doc1 from t1 use document keys where doc1.binary like 'e%';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	doc1_binary	NULL	NULL	NULL	12	100.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`binary` like 'e%')
-select doc1 from t1 use document keys where doc1.binary like 'e%';
-doc1
-{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
-explain extended select doc1.int from t1 where doc1.binary like 'e%';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` where (`test`.`t1`.`doc1`.`binary` like 'e%')
-select doc1.int from t1 where doc1.binary like 'e%';
-`doc1`.`int`
-5
-explain extended select doc1.int from t1 use document keys where doc1.binary like 'e%';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	doc1_binary	NULL	NULL	NULL	12	100.00	Using where
-Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`binary` like 'e%')
-select doc1.int from t1 use document keys where doc1.binary like 'e%';
 `doc1`.`int`
 5
 explain extended select doc1.int from t1 where b = 5;
@@ -2082,7 +1926,7 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc1`.`int` = 5)
 select * from t1 where doc1.int = 5;
 a	b	c	d	doc1	doc2
-5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
+5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
 explain extended select * from t1 use document keys where doc1.int = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_int	doc1_int	9	const	1	100.00	Using where
@@ -2090,7 +1934,7 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` = 5)
 select * from t1 use document keys where doc1.int = 5;
 a	b	c	d	doc1	doc2
-5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
+5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
 explain extended select doc1.double from t1 where doc1.int = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
@@ -2114,7 +1958,7 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1`.`int` = 5)
 select doc1 from t1 where doc1.int = 5;
 doc1
-{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
+{"bool":true,"int":5,"double":5.5,"string":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
 explain extended select doc1 from t1 use document keys where doc1.int = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_int	doc1_int	9	const	1	100.00	Using where
@@ -2122,7 +1966,7 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` = 5)
 select doc1 from t1 use document keys where doc1.int = 5;
 doc1
-{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
+{"bool":true,"int":5,"double":5.5,"string":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
 explain extended select doc1.double from t1 where doc1.int < 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
@@ -2152,13 +1996,13 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1`.`int` > 5)
 select doc1 from t1 where doc1.int > 5;
 doc1
-{"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}
-{"bool":false,"int":7,"double":7.7,"string":"ggg","binary":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}
-{"bool":false,"int":8,"double":8.8,"string":"hhh","binary":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}
-{"bool":false,"int":9,"double":9.9,"string":"iii","binary":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}
-{"bool":false,"int":10,"double":10.1,"string":"jjj","binary":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}
-{"bool":false,"int":11,"double":11.11,"string":"kkk","binary":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}
-{"bool":false,"int":12,"double":12.12,"string":"lll","binary":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}
+{"bool":false,"int":6,"double":6.6,"string":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}
+{"bool":false,"int":7,"double":7.7,"string":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}
+{"bool":false,"int":8,"double":8.8,"string":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}
+{"bool":false,"int":9,"double":9.9,"string":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}
+{"bool":false,"int":10,"double":10.1,"string":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}
+{"bool":false,"int":11,"double":11.11,"string":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}
+{"bool":false,"int":12,"double":12.12,"string":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}
 explain extended select doc1 from t1 use document keys where doc1.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_int	NULL	NULL	NULL	12	100.00	Using where
@@ -2166,13 +2010,13 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` > 5)
 select doc1 from t1 use document keys where doc1.int > 5;
 doc1
-{"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}
-{"bool":false,"int":7,"double":7.7,"string":"ggg","binary":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}
-{"bool":false,"int":8,"double":8.8,"string":"hhh","binary":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}
-{"bool":false,"int":9,"double":9.9,"string":"iii","binary":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}
-{"bool":false,"int":10,"double":10.1,"string":"jjj","binary":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}
-{"bool":false,"int":11,"double":11.11,"string":"kkk","binary":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}
-{"bool":false,"int":12,"double":12.12,"string":"lll","binary":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}
+{"bool":false,"int":6,"double":6.6,"string":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}
+{"bool":false,"int":7,"double":7.7,"string":"ggg","k1":{"k2":{"k3":{"int":7}}},"id":7}
+{"bool":false,"int":8,"double":8.8,"string":"hhh","k1":{"k2":{"k3":{"int":8}}},"id":8}
+{"bool":false,"int":9,"double":9.9,"string":"iii","k1":{"k2":{"k3":{"int":9}}},"id":9}
+{"bool":false,"int":10,"double":10.1,"string":"jjj","k1":{"k2":{"k3":{"int":10}}},"id":10}
+{"bool":false,"int":11,"double":11.11,"string":"kkk","k1":{"k2":{"k3":{"int":11}}},"id":11}
+{"bool":false,"int":12,"double":12.12,"string":"lll","k1":{"k2":{"k3":{"int":12}}},"id":12}
 explain extended select b, doc1.double from t1 where doc1.int = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
@@ -2196,7 +2040,7 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b`,`test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1`.`int` = 5)
 select b, doc1 from t1 where doc1.int = 5;
 b	doc1
-5	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
+5	{"bool":true,"int":5,"double":5.5,"string":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
 explain extended select b, doc1 from t1 use document keys where doc1.int = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_int	doc1_int	9	const	1	100.00	Using where
@@ -2204,7 +2048,7 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b`,`test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` = 5)
 select b, doc1 from t1 use document keys where doc1.int = 5;
 b	doc1
-5	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
+5	{"bool":true,"int":5,"double":5.5,"string":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
 explain extended select b from t1 where doc1.int = 5 and d = 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where

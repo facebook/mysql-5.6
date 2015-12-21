@@ -10,7 +10,7 @@ drop table if exists t1, t2, t3, t4;
 --enable_warnings
 
 create table t1 (
-  a int primary key, 
+  a int primary key,
   b int,
   c double,
   d char(100),
@@ -25,7 +25,6 @@ create table t1 (
   key doc1_int    (doc1.int as int),
   key doc1_double (doc1.double as double),
   key doc1_string (doc1.string as string(100)),
-  key doc1_binary (doc1.binary as binary(100)),
   key doc1_nested (doc1.k1.k2.k3.int as int),
   key doc2_int    (doc2.int as int),
   key doc2_double (doc2.double as double),
@@ -38,18 +37,18 @@ create table t1 (
 ) engine = innodb;
 
 insert into t1 values
-(10, 10, 10.1, 'jjj', '{"bool":false, "int":10, "double":10.1, "string":"jjj", "binary":"jjj", "k1":{"k2":{"k3":{"int":10}}}, "id":10}', '{"int":10, "double":10.1}'),
-(11, 11, 11.11, 'kkk', '{"bool":false, "int":11, "double":11.11, "string":"kkk", "binary":"kkk", "k1":{"k2":{"k3":{"int":11}}}, "id":11}', '{"int":11, "double":11.11}'),
-(12, 12, 12.12, 'lll', '{"bool":false, "int":12, "double":12.12, "string":"lll", "binary":"lll", "k1":{"k2":{"k3":{"int":12}}}, "id":12}', '{"int":12, "double":12.12}'),
-(1, 1, 1.1, 'aaa', '{"bool":true,  "int":1, "double":1.1, "string":"aaa", "binary":"aaa", "k1":{"k2":{"k3":{"int":1}}}, "id":1}', '{"int":1, "double":1.1}'), 
-(2, 2, 2.2, 'bbb', '{"bool":true,  "int":2, "double":2.2, "string":"bbb", "binary":"bbb", "k1":{"k2":{"k3":{"int":2}}}, "id":2}', '{"int":2, "double":2.2}'), 
-(3, 3, 3.3, 'ccc', '{"bool":true,  "int":3, "double":3.3, "string":"ccc", "binary":"ccc", "k1":{"k2":{"k3":{"int":3}}}, "id":3}', '{"int":3, "double":3.3}'), 
-(4, 4, 4.4, 'ddd', '{"bool":true,  "int":4, "double":4.4, "string":"ddd", "binary":"ddd", "k1":{"k2":{"k3":{"int":4}}}, "id":4}', '{"int":4, "double":4.4}'), 
-(5, 5, 5.5, 'eee', '{"bool":true,  "int":5, "double":5.5, "string":"eee", "binary":"eee", "k1":{"k2":{"k3":{"int":5}}}, "id":5}', '{"int":5, "double":5.5}'), 
-(6, 6, 6.6, 'fff', '{"bool":false, "int":6, "double":6.6, "string":"fff", "binary":"fff", "k1":{"k2":{"k3":{"int":6}}}, "id":6}', '{"int":6, "double":6.6}'), 
-(7, 7, 7.7, 'ggg', '{"bool":false, "int":7, "double":7.7, "string":"ggg", "binary":"ggg", "k1":{"k2":{"k3":{"int":7}}}, "id":7}', '{"int":7, "double":7.7}'), 
-(8, 8, 8.8, 'hhh', '{"bool":false, "int":8, "double":8.8, "string":"hhh", "binary":"hhh", "k1":{"k2":{"k3":{"int":8}}}, "id":8}', '{"int":8, "double":8.8}'), 
-(9, 9, 9.9, 'iii', '{"bool":false, "int":9, "double":9.9, "string":"iii", "binary":"iii", "k1":{"k2":{"k3":{"int":9}}}, "id":9}', '{"int":9, "double":9.9}');
+(10, 10, 10.1, 'jjj', '{"bool":false, "int":10, "double":10.1, "string":"jjj", "k1":{"k2":{"k3":{"int":10}}}, "id":10}', '{"int":10, "double":10.1}'),
+(11, 11, 11.11, 'kkk', '{"bool":false, "int":11, "double":11.11, "string":"kkk", "k1":{"k2":{"k3":{"int":11}}}, "id":11}', '{"int":11, "double":11.11}'),
+(12, 12, 12.12, 'lll', '{"bool":false, "int":12, "double":12.12, "string":"lll", "k1":{"k2":{"k3":{"int":12}}}, "id":12}', '{"int":12, "double":12.12}'),
+(1, 1, 1.1, 'aaa', '{"bool":true,  "int":1, "double":1.1, "string":"aaa", "k1":{"k2":{"k3":{"int":1}}}, "id":1}', '{"int":1, "double":1.1}'),
+(2, 2, 2.2, 'bbb', '{"bool":true,  "int":2, "double":2.2, "string":"bbb", "k1":{"k2":{"k3":{"int":2}}}, "id":2}', '{"int":2, "double":2.2}'),
+(3, 3, 3.3, 'ccc', '{"bool":true,  "int":3, "double":3.3, "string":"ccc", "k1":{"k2":{"k3":{"int":3}}}, "id":3}', '{"int":3, "double":3.3}'),
+(4, 4, 4.4, 'ddd', '{"bool":true,  "int":4, "double":4.4, "string":"ddd", "k1":{"k2":{"k3":{"int":4}}}, "id":4}', '{"int":4, "double":4.4}'),
+(5, 5, 5.5, 'eee', '{"bool":true,  "int":5, "double":5.5, "string":"eee", "k1":{"k2":{"k3":{"int":5}}}, "id":5}', '{"int":5, "double":5.5}'),
+(6, 6, 6.6, 'fff', '{"bool":false, "int":6, "double":6.6, "string":"fff", "k1":{"k2":{"k3":{"int":6}}}, "id":6}', '{"int":6, "double":6.6}'),
+(7, 7, 7.7, 'ggg', '{"bool":false, "int":7, "double":7.7, "string":"ggg", "k1":{"k2":{"k3":{"int":7}}}, "id":7}', '{"int":7, "double":7.7}'),
+(8, 8, 8.8, 'hhh', '{"bool":false, "int":8, "double":8.8, "string":"hhh", "k1":{"k2":{"k3":{"int":8}}}, "id":8}', '{"int":8, "double":8.8}'),
+(9, 9, 9.9, 'iii', '{"bool":false, "int":9, "double":9.9, "string":"iii", "k1":{"k2":{"k3":{"int":9}}}, "id":9}', '{"int":9, "double":9.9}');
 
 analyze table t1;
 
@@ -438,71 +437,6 @@ select doc1.int from t1 where doc1.string like 'e%';
 explain extended select doc1.int from t1 use document keys where doc1.string like 'e%';
 select doc1.int from t1 use document keys where doc1.string like 'e%';
 
-##
-## binary index type
-##
-
-#
-# TODO: using index scan for covering binary index
-#
-
-explain extended select a from t1 where doc1.binary = 'eee';
-select a from t1 where doc1.binary = 'eee';
-explain extended select a from t1 use document keys where doc1.binary = 'eee';
-select a from t1 use document keys where doc1.binary = 'eee';
-
-explain extended select doc1.binary from t1 where doc1.binary = 'eee';
-select doc1.binary from t1 where doc1.binary = 'eee';
-explain extended select doc1.binary from t1 use document keys where doc1.binary = 'eee';
-select doc1.binary from t1 use document keys where doc1.binary = 'eee';
-
-#
-# non-covering
-#
-
-explain extended select * from t1 where doc1.binary = 'eee';
-select * from t1 where doc1.binary = 'eee';
-explain extended select * from t1 use document keys where doc1.binary = 'eee';
-select * from t1 use document keys where doc1.binary = 'eee';
-
-explain extended select doc1 from t1 where doc1.binary = 'eee';
-select doc1 from t1 where doc1.binary = 'eee';
-explain extended select doc1 from t1 use document keys where doc1.binary = 'eee';
-select doc1 from t1 use document keys where doc1.binary = 'eee';
-
-explain extended select doc1.int from t1 where doc1.binary = 'eee';
-select doc1.int from t1 where doc1.binary = 'eee';
-explain extended select doc1.int from t1 use document keys where doc1.binary = 'eee';
-select doc1.int from t1 use document keys where doc1.binary = 'eee';
-
-#
-# TODO: pattern matching is not supported on prefix index scan
-#
-
-explain extended select a from t1 where doc1.binary like 'e%';
-select a from t1 where doc1.binary like 'e%';
-explain extended select a from t1 use document keys where doc1.binary like 'e%';
-select a from t1 use document keys where doc1.binary like 'e%';
-
-explain extended select doc1.binary from t1 where doc1.binary like 'e%';
-select doc1.binary from t1 where doc1.binary like 'e%';
-explain extended select doc1.binary from t1 use document keys where doc1.binary like 'e%';
-select doc1.binary from t1 use document keys where doc1.binary like 'e%';
-
-explain extended select * from t1 where doc1.binary like 'e%';
-select * from t1 where doc1.binary like 'e%';
-explain extended select * from t1 use document keys where doc1.binary like 'e%';
-select * from t1 use document keys where doc1.binary like 'e%';
-
-explain extended select doc1 from t1 where doc1.binary like 'e%';
-select doc1 from t1 where doc1.binary like 'e%';
-explain extended select doc1 from t1 use document keys where doc1.binary like 'e%';
-select doc1 from t1 use document keys where doc1.binary like 'e%';
-
-explain extended select doc1.int from t1 where doc1.binary like 'e%';
-select doc1.int from t1 where doc1.binary like 'e%';
-explain extended select doc1.int from t1 use document keys where doc1.binary like 'e%';
-select doc1.int from t1 use document keys where doc1.binary like 'e%';
 
 ##
 ## composite index

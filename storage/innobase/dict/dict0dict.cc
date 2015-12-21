@@ -2805,9 +2805,6 @@ set_doc_path_col(
 	} else if (field->document_path_type == MYSQL_TYPE_STRING) {
 		field->doc_path_col->mtype = DATA_BINARY;
 		field->doc_path_col->len = field->prefix_len;
-	} else if (field->document_path_type == MYSQL_TYPE_BLOB) {
-		field->doc_path_col->mtype = DATA_BLOB;
-		field->doc_path_col->len = field->prefix_len;
 	} else {
 		DBUG_ASSERT("Unsupported document index type");
 	}

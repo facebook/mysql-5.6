@@ -45,7 +45,7 @@ CREATE TABLE t1 (
        key (doc.name as string)) engine=innodb;
 
 
-## The prefix length must be specified when indexing on a document path as binary
+## The index type 'binary' is not supported
 --error 1064
 CREATE TABLE t1 (
        a int not null,
@@ -55,6 +55,15 @@ CREATE TABLE t1 (
        key (doc.id as int),
        key (doc.address as binary)) engine=innodb;
 
+## The index type 'binary' is not supported
+--error 1064
+CREATE TABLE t1 (
+       a int not null,
+       b char (10) not null,
+       doc document,
+       primary key (a),
+       key (doc.id as int),
+       key (doc.address as binary(100))) engine=innodb;
 
 ### Only one index key with only one document path key part
 CREATE TABLE t1 (
@@ -133,9 +142,8 @@ CREATE TABLE t2 (
        UNIQUE key doc_bool (doc.bool as bool),
        UNIQUE key doc_name (doc.name as string(64)),
        key doc_name_100 (doc.name as string(100)),
-       # binary index type is an alias of string
-       UNIQUE key doc_address_streetName (doc.address.streetName as binary(64)),
-       key (doc.address.streetName as binary(100))) engine=innodb;
+       UNIQUE key doc_address_streetName (doc.address.streetName as string(64)),
+       key (doc.address.streetName as string(100))) engine=innodb;
 
 SHOW CREATE TABLE t2;
 --replace_column 7 -
@@ -307,7 +315,7 @@ CREATE TABLE t4 (
        doc document,
        primary key (a),
        key id_a_double_b_bool (doc.id as int, a, doc.double as double, b, doc.bool as bool),
-       key a_name_b_name100_address_a_address100_b (a, doc.name as string(64), b, doc.name as string(100), doc.address as binary(64), a, doc.address as binary(100), b)) engine=innodb;
+       key a_name_b_name100_address_a_address100_b (a, doc.name as string(64), b, doc.name as string(100), doc.address as string(64), a, doc.address as string(100), b)) engine=innodb;
 
 
 ################################################################################
