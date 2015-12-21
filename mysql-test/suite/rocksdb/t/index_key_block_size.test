@@ -49,6 +49,8 @@ SHOW INDEX IN t1;
   
 DROP TABLE t1;
 
+--source drop_table_sync.inc
+
 #
 # ALTER TABLE
 #
