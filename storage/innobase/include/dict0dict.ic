@@ -1757,7 +1757,6 @@ dfield_set_document_path_data(
 			dfield_set_document_path_data_double(pval, field, heap);
 			break;
 		case MYSQL_TYPE_STRING:
-		case MYSQL_TYPE_BLOB:
 			dfield_set_document_path_data_string(pval, field,
 				ind_field->prefix_len, heap);
 			break;

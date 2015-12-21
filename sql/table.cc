@@ -1316,9 +1316,6 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
         case 'S':
           type = MYSQL_TYPE_STRING;
           break;
-        case 'B':
-          type = MYSQL_TYPE_BLOB;
-          break;
         default:
           type = MYSQL_TYPE_NULL;
           DBUG_ASSERT(0);
@@ -2104,14 +2101,9 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
           keyinfo->flags|=HA_NULL_PART_KEY;
           keyinfo->key_length+= HA_KEY_NULL_LENGTH;
         }
-        /* We need to check the document path key type,
-         * if it is blob key type, the key part's store_length
-         * needs to be modified. */
         if (field->type() == MYSQL_TYPE_BLOB ||
             field->real_type() == MYSQL_TYPE_VARCHAR ||
-            field->type() == MYSQL_TYPE_GEOMETRY ||
-            (field->type() == MYSQL_TYPE_DOCUMENT &&
-             key_part->document_path_key_part->type == MYSQL_TYPE_BLOB))
+            field->type() == MYSQL_TYPE_GEOMETRY)
         {
           key_part->store_length+=HA_KEY_BLOB_LENGTH;
           if (i + 1 <= keyinfo->user_defined_key_parts)
