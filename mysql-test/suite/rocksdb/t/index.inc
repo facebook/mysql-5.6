@@ -76,6 +76,8 @@ INSERT INTO t1 (a,b) VALUES (1,'c');
 
 DROP TABLE t1;
 
+--source drop_table_sync.inc
+
 --enable_parsing
 
 #
