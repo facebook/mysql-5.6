@@ -9375,11 +9375,6 @@ fbson::FbsonValue *Field_document::val_document_value(
       val_buffer->copy((char*)fb_val, fb_val->numPackedBytes(), charset());
       return (fbson::FbsonValue*)val_buffer->ptr();
     }
-    case DOC_PATH_BLOB:
-      // Currently it's not supported
-      DBUG_ASSERT(false);
-      return nullptr;
-      break;
     case DOC_DOCUMENT:
       // Currently, index can't be on the document
     default:
@@ -9457,7 +9452,6 @@ double Field_document::val_real(void)
       r = (double)val_int();
       break;
     }
-    case DOC_PATH_BLOB:
     case DOC_PATH_STRING:
     {
       String str_buff;
@@ -9541,7 +9535,6 @@ longlong Field_document::val_int(void)
   longlong r = 0;
   switch(real_doc_type())
   {
-    case DOC_PATH_BLOB:
     case DOC_PATH_STRING:
     {
       String str_buff;
@@ -9716,7 +9709,6 @@ String *Field_document::val_str(String *val_buffer,
       return val_buffer;
     }
     case DOC_PATH_STRING:
-    case DOC_PATH_BLOB:
     {
       Field_document *real = real_field();
       char *res_ptr = (char*)real->ptr;
@@ -9934,7 +9926,6 @@ uint Field_document::get_key_image(uchar *buff, uint length,
           return get_key_image_double(buff, fb_val);
 
       case DOC_PATH_STRING:
-      case DOC_PATH_BLOB:
         return get_key_image_text(buff, length, fb_val);
 
       default:

@@ -240,7 +240,6 @@ public:
       MYSQL_TYPE_DOUBLE : 8
       MYSQL_TYPE_TINY : 1
       MYSQL_TYPE_STRING : 64 (default)
-      MYSQL_TYPE_BLOB : 64 (default)
   */
   enum_field_types type;
 
