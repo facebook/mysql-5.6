@@ -7576,15 +7576,6 @@ key_part_type:
             }
             $$ = new Document_path_key_spec_type(MYSQL_TYPE_STRING, len);
           }
-        | BINARY '(' NUM ')'
-          {
-            int len= atoi($3.str);
-            if (!len)
-            {
-              my_error(ER_KEY_PART_0, MYF(0), $3.str);
-            }
-            $$ = new Document_path_key_spec_type(MYSQL_TYPE_BLOB, len);
-          }
           /* Make sure to handle new types in store_create_info */
         ;
 
