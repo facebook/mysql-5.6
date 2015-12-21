@@ -724,8 +724,6 @@ static int64_t pack_keys(uchar *keybuff, uint key_length, uint key_count,
           c[0] = 'T'; break;
         case MYSQL_TYPE_STRING:
           c[0] = 'S'; break;
-        case MYSQL_TYPE_BLOB:
-          c[0] = 'B'; break;
         default:
           DBUG_ASSERT(0);
         }

@@ -646,8 +646,7 @@ public:
     DOC_PATH_TINY,
     DOC_PATH_INT,
     DOC_PATH_DOUBLE,
-    DOC_PATH_STRING,
-    DOC_PATH_BLOB,
+    DOC_PATH_STRING
   };
   enum imagetype { itRAW, itMBR};
 
@@ -3866,19 +3865,12 @@ public:
                        uchar *new_ptr, uchar *new_null_ptr,
                        uint new_null_bit)
   {
-    if(DOC_PATH_BLOB != doc_type && DOC_DOCUMENT != doc_type)
-    {
+    if(DOC_DOCUMENT != doc_type)
       DBUG_ASSERT(key_length > 0);
-    }
+
     Field *field = nullptr;
     switch(doc_type)
     {
-      case DOC_PATH_BLOB:
-        return Field_blob::new_key_field(root,
-                                         new_table,
-                                         new_ptr,
-                                         new_null_ptr,
-                                         new_null_bit);
       case DOC_PATH_DOUBLE:
         field = new (root) Field_double(new_ptr,
                                         key_length,
@@ -4032,7 +4024,6 @@ public:
       case MYSQL_TYPE_LONGLONG: doc_type = DOC_PATH_INT; break;
       case MYSQL_TYPE_DOUBLE: doc_type = DOC_PATH_DOUBLE; break;
       case MYSQL_TYPE_STRING: doc_type = DOC_PATH_STRING; break;
-      case MYSQL_TYPE_BLOB: doc_type = DOC_PATH_BLOB; break;
       case MYSQL_TYPE_DOCUMENT: doc_type = DOC_DOCUMENT; break;
       default: DBUG_ASSERT(false); //not supported
     }

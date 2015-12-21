@@ -7437,8 +7437,7 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
         DBUG_ASSERT((type == MYSQL_TYPE_LONGLONG && len == 8) ||
                     (type == MYSQL_TYPE_DOUBLE && len == 8) ||
                     (type == MYSQL_TYPE_TINY && len == 1) ||
-                    (type == MYSQL_TYPE_STRING) ||
-                    (type == MYSQL_TYPE_BLOB));
+                    (type == MYSQL_TYPE_STRING));
 
         Document_path_key_spec_type dp_spec_type(type, len);
 
