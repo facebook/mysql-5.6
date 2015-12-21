@@ -9897,11 +9897,9 @@ found:
 		if (key_part->document_path_key_part)
 		{
 			if (key_part->document_path_key_part->type !=
-			    	MYSQL_TYPE_STRING &&
-			    key_part->document_path_key_part->type !=
-				MYSQL_TYPE_BLOB) {
+					MYSQL_TYPE_STRING) {
 				/* prefix_len should be 0 for document path
-				types other than STRING and BLOB. */
+				types other than STRING. */
 				prefix_len = 0;
 			}
 			DBUG_ASSERT(field->type() == MYSQL_TYPE_DOCUMENT);
