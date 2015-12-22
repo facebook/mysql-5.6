@@ -68,6 +68,10 @@
 #include <sys/syscall.h>
 #endif // TARGET_OS_LINUX
 
+#if defined(HAVE_OPENSSL)
+#include <openssl/pem.h>
+#endif
+
 using std::min;
 using std::max;
 
@@ -977,6 +981,9 @@ THD::THD(bool enable_plugins)
 #endif /* defined(ENABLED_DEBUG_SYNC) */
    m_enable_plugins(enable_plugins),
    owned_gtid_set(global_sid_map),
+#if defined(HAVE_OPENSSL)
+   connection_certificate_buf(NULL),
+#endif
    main_da(0, false),
    m_stmt_da(&main_da)
 {
@@ -1654,6 +1661,9 @@ void THD::release_resources()
     net_end(&net);
     net.vio= NULL;
   }
+#if defined(HAVE_OPENSSL)
+  reset_connection_certificate();
+#endif
 #endif
   mysql_mutex_unlock(&LOCK_thd_data);
 
@@ -4928,6 +4938,29 @@ void THD::get_definer(LEX_USER *definer)
     get_default_definer(this, definer);
 }
 
+#if defined(HAVE_OPENSSL)
+void THD::set_connection_certificate(BUF_MEM *bufmem) {
+  mysql_mutex_lock(&LOCK_thd_data);
+  connection_certificate_buf = bufmem;
+  mysql_mutex_unlock(&LOCK_thd_data);
+}
+
+void THD::reset_connection_certificate() {
+  mysql_mutex_assert_owner(&LOCK_thd_data);
+  if (connection_certificate_buf)
+    BUF_MEM_free(connection_certificate_buf);
+}
+
+const char *THD::connection_certificate() const {
+  mysql_mutex_assert_owner(&LOCK_thd_data);
+  return connection_certificate_buf ? connection_certificate_buf->data : NULL;
+}
+
+uint32 THD::connection_certificate_length() const {
+  mysql_mutex_assert_owner(&LOCK_thd_data);
+  return connection_certificate_buf ? connection_certificate_buf->length : 0;
+}
+#endif
 
 /**
   Mark transaction to rollback and mark error as fatal to a sub-statement.
