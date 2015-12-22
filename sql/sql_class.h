@@ -98,6 +98,11 @@ class user_var_entry;
 
 struct st_thd_timer;
 
+#if defined(HAVE_OPENSSL)
+struct buf_mem_st;
+typedef struct buf_mem_st BUF_MEM;
+#endif
+
 enum enum_ha_read_modes { RFIRST, RNEXT, RPREV, RLAST, RKEY, RNEXT_SAME };
 
 enum enum_delay_key_write { DELAY_KEY_WRITE_NONE, DELAY_KEY_WRITE_ON,
@@ -4437,6 +4442,13 @@ public:
 
   void mark_transaction_to_rollback(bool all);
 
+#if defined(HAVE_OPENSSL)
+  void set_connection_certificate(BUF_MEM *bufmem);
+  void reset_connection_certificate();
+  const char *connection_certificate() const;
+  uint32 connection_certificate_length() const;
+#endif
+
 #ifndef DBUG_OFF
 private:
   int gis_debug; // Storage for "SELECT ST_GIS_DEBUG(param);"
@@ -4446,6 +4458,9 @@ public:
 #endif
 
 private:
+#if defined(HAVE_OPENSSL)
+  BUF_MEM *connection_certificate_buf;
+#endif
 
   /** The current internal error handler for this thread, or NULL. */
   Internal_error_handler *m_internal_handler;
