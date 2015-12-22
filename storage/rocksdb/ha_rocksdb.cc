@@ -3740,6 +3740,9 @@ int ha_rocksdb::secondary_index_read(int keyno, uchar *buf)
 {
   stats.rows_requested++;
 
+  /* Use STATUS_NOT_FOUND when record not found or some error occurred */
+  table->status= STATUS_NOT_FOUND;
+
   if (scan_it->Valid())
   {
     rocksdb::Slice key= scan_it->key();
@@ -3773,11 +3776,10 @@ int ha_rocksdb::secondary_index_read(int keyno, uchar *buf)
         stats.rows_read++;
         stats.rows_index_next++;
         update_row_stats(table, ROWS_READ);
-        return rc;
       }
+      return rc;
     }
   }
-  table->status= STATUS_NOT_FOUND;
   return HA_ERR_END_OF_FILE;
 }
 
@@ -4176,7 +4178,7 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
 
   if (rc)
   {
-    table->status= STATUS_NOT_FOUND; /* Only not found error is possible */
+    table->status= STATUS_NOT_FOUND; /* This status is returned on any error */
     io_perf_end_and_record();
     DBUG_RETURN(rc);
   }
@@ -4617,11 +4619,13 @@ int ha_rocksdb::get_row_by_rowid(uchar *buf, const char *rowid, uint rowid_size)
   }
   found= !s.IsNotFound();
 
+  table->status= STATUS_NOT_FOUND;
   if (found)
   {
     last_rowkey.copy((const char*)rowid, rowid_size, &my_charset_bin);
     rc= convert_record_from_storage_format(&key_slice, buf);
-    table->status= 0;
+    if (!rc)
+      table->status= 0;
   }
   else
   {
@@ -4629,7 +4633,6 @@ int ha_rocksdb::get_row_by_rowid(uchar *buf, const char *rowid, uint rowid_size)
       Note: we don't need to unlock the row. It is intentional that we keep
       locks on rows that don't exist.
     */
-    table->status= STATUS_NOT_FOUND;
     rc= HA_ERR_KEY_NOT_FOUND;
   }
 
