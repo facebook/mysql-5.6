@@ -62,6 +62,12 @@ ELSE()
   SET(rocksdb_static_libs ${rocksdb_static_libs} bz2)
 ENDIF()
 
+# link ZSTD only if instructed
+IF (NOT "$ENV{WITH_ZSTD}" STREQUAL "")
+  SET(rocksdb_static_libs ${rocksdb_static_libs} $ENV{WITH_ZSTD}/lib/libzstd.a)
+  ADD_DEFINITIONS(-DZSTD)
+ENDIF()
+
 SET(rocksdb_static_libs ${rocksdb_static_libs} ${ZLIB_LIBRARY})
 
 MYSQL_ADD_PLUGIN(rocksdb_se ${ROCKSDB_SOURCES} STORAGE_ENGINE DEFAULT STATIC_ONLY
