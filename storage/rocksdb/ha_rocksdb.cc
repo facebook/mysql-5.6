@@ -149,6 +149,15 @@ background_thread_control bg_control;
 std::vector<std::string> collation_exception_list;
 
 static void
+rocksdb_flush_all_memtables()
+{
+  Column_family_manager& cf_manager = rocksdb_get_cf_manager();
+  for (auto cf_handle : cf_manager.get_all_cf()) {
+    rdb->Flush(rocksdb::FlushOptions(), cf_handle);
+  }
+}
+
+static void
 rocksdb_compact_column_family(THD* thd,
                               struct st_mysql_sys_var* var,
                               void* var_ptr,
@@ -232,10 +241,7 @@ rocksdb_force_flush_memtable_now(THD* thd,
                                  const void* save)
 {
   sql_print_information("RocksDB: Manual memtable flush\n");
-  Column_family_manager& cf_manager = rocksdb_get_cf_manager();
-  for (auto cf_handle : cf_manager.get_all_cf()) {
-    rdb->Flush(rocksdb::FlushOptions(), cf_handle);
-  }
+  rocksdb_flush_all_memtables();
 }
 
 static void
@@ -2418,6 +2424,9 @@ static int rocksdb_done_func(void *p)
 
   // signal the drop index thread to stop
   signal_drop_index_thread(true);
+
+  // Flush all memtables for not lose data, even if WAL is disabled.
+  rocksdb_flush_all_memtables();
 
   // Stop all rocksdb background work
   CancelAllBackgroundWork(rdb->GetBaseDB(), true);
