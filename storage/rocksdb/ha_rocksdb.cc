@@ -5679,7 +5679,8 @@ int ha_rocksdb::info(uint flag)
           0;
         if (x > stats.records)
           x = stats.records;
-        if (x == 0 && rocksdb_debug_optimizer_no_zero_cardinality)
+        if ((x == 0 && rocksdb_debug_optimizer_no_zero_cardinality) ||
+            rocksdb_debug_optimizer_n_rows > 0)
         {
           // Fake cardinality implementation. For example, (idx1, idx2, idx3) index
           // will have rec_per_key for (idx1)=4, (idx1,2)=2, and (idx1,2,3)=1.
