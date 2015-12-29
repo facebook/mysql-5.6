@@ -6427,7 +6427,7 @@ os_aio_print(
 		os_io_perf_print(file, &os_aio_perf[i], FALSE);
 
 #ifndef __WIN__
-		if (IS_SET(&os_aio_segment_wait_events[i]->ev)) {
+		if (os_aio_segment_wait_events[i]->is_set) {
 			fprintf(file, " ev set");
 		}
 #endif /* __WIN__ */

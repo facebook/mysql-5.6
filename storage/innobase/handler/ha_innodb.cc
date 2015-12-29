@@ -143,7 +143,6 @@ static long innobase_buffer_pool_instances = 1;
 
 long long innobase_buffer_pool_size;
 static long long innobase_log_file_size;
-static unsigned long innobase_sync_pool_size;
 
 ulong innobase_evicted_pages_sampling_ratio = 0;
 
@@ -3932,7 +3931,6 @@ innobase_change_buffering_inited_ok:
 #endif /* defined(__WIN__) && !defined(_WIN64) */
 	}
 	srv_buf_pool_size = (ulint) innobase_buffer_pool_size;
-	srv_sync_pool_size = (ulint) innobase_sync_pool_size;
 	srv_buf_pool_instances = (ulint) innobase_buffer_pool_instances;
 
 	srv_mem_pool_size = (ulint) innobase_additional_mem_pool_size;
@@ -17887,12 +17885,6 @@ static MYSQL_SYSVAR_STR(histogram_step_size_fsync,
   "Size of the histogram bins required for tracking fsync latencies",
   innodb_histogram_step_size_validate, NULL, "16ms");
 
-static MYSQL_SYSVAR_ULONG(sync_pool_size, innobase_sync_pool_size,
-  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-  "The size of the shared sync pool buffer InnoDB uses to store system lock"
-  "and condition variables.",
-  NULL, NULL, 1024UL, 1UL, ULONG_MAX, 1UL);
-
 #if defined UNIV_DEBUG || defined UNIV_PERF_DEBUG
 static MYSQL_SYSVAR_ULONG(page_hash_locks, srv_n_page_hash_locks,
   PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
@@ -18599,7 +18591,6 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(buffer_pool_size),
   MYSQL_SYSVAR(buffer_pool_populate),
   MYSQL_SYSVAR(buffer_pool_chunk_size),
-  MYSQL_SYSVAR(sync_pool_size),
   MYSQL_SYSVAR(buffer_pool_instances),
   MYSQL_SYSVAR(buffer_pool_filename),
   MYSQL_SYSVAR(buffer_pool_dump_now),

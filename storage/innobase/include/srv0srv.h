@@ -370,7 +370,6 @@ extern ulint	srv_buf_pool_base_size;	/*!< current size as scaling factor
 					for the other components */
 
 extern ulint	srv_buf_pool_curr_size;	/*!< current size in bytes */
-extern ulint	srv_sync_pool_size;	/*!< requested size (number) */
 extern ulint	srv_mem_pool_size;
 extern ulint	srv_lock_table_size;
 

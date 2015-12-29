@@ -2346,7 +2346,6 @@ buf_pool_resize_hash(
 		rw_lock_t *rw = &ha->sync_obj.rw_locks[j];
 		mutex_enter(&rw_lock_list_mutex);
 		UT_LIST_REMOVE(list, rw_lock_list, rw);
-		--rw_lock_count;
 		mutex_exit(&rw_lock_list_mutex);
 	}
 
