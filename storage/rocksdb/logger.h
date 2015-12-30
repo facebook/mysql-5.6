@@ -28,25 +28,33 @@ class Logger : public rocksdb::Logger {
   void Logv(const rocksdb::InfoLogLevel log_level,
             const char* format,
             va_list ap) {
+    enum loglevel mysql_log_level;
+
+    if (rocksdb_logger_) {
+      rocksdb_logger_->Logv(log_level, format, ap);
+    }
+
     if (log_level < GetInfoLogLevel()) {
       return;
     }
 
-    rocksdb::Logger::Logv(log_level, format, ap);
-
-    // log to MySQL if not 'info' level
-    if (log_level >= rocksdb::InfoLogLevel::WARN_LEVEL) {
-      std::string f("LibRocksDB:");
-      f.append(format);
-      error_log_print(INFORMATION_LEVEL, f.c_str(), ap);
+    if (log_level >= rocksdb::InfoLogLevel::ERROR_LEVEL) {
+      mysql_log_level= ERROR_LEVEL;
+    } else if (log_level >= rocksdb::InfoLogLevel::WARN_LEVEL) {
+      mysql_log_level= WARNING_LEVEL;
+    } else {
+      mysql_log_level= INFORMATION_LEVEL;
     }
+
+    // log to MySQL
+    std::string f("LibRocksDB:");
+    f.append(format);
+    error_log_print(mysql_log_level, f.c_str(), ap);
   }
 
-  // Write an entry to the log file using the proper logger.
   void Logv(const char* format, va_list ap) {
-    if (rocksdb_logger_) {
-      rocksdb_logger_->Logv(format, ap);
-    }
+    // If no level is specified, it is by default at information level
+    Logv(rocksdb::InfoLogLevel::INFO_LEVEL, format, ap);
   }
 
   void SetRocksDBLogger(std::shared_ptr<rocksdb::Logger> logger) {
