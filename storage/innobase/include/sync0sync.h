@@ -1,6 +1,6 @@
 /*****************************************************************************
 
-Copyright (c) 1995, 2015, Oracle and/or its affiliates. All Rights Reserved.
+Copyright (c) 1995, 2012, Oracle and/or its affiliates. All Rights Reserved.
 Copyright (c) 2008, Google Inc.
 Copyright (c) 2012, Facebook Inc.
 
@@ -56,6 +56,13 @@ extern ib_counter_t<ib_int64_t, IB_N_SLOTS>	mutex_os_wait_count;
 #if  defined(UNIV_DEBUG) && !defined(UNIV_HOTBACKUP)
 extern "C" my_bool	timed_mutexes;
 #endif /* UNIV_DEBUG && !UNIV_HOTBACKUP */
+
+#ifdef HAVE_WINDOWS_ATOMICS
+typedef LONG lock_word_t;	/*!< On Windows, InterlockedExchange operates
+				on LONG variable */
+#else
+typedef byte lock_word_t;
+#endif
 
 #if defined UNIV_PFS_MUTEX || defined UNIV_PFS_RWLOCK
 
