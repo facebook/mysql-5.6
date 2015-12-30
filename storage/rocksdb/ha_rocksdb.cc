@@ -6163,7 +6163,17 @@ void* drop_index_thread(void*)
         compact_range_options.bottommost_level_compaction =
                   rocksdb::BottommostLevelCompaction::kForce;
         compact_range_options.exclusive_manual_compaction = false;
-        rocksdb::Status status = rdb->CompactRange(
+        rocksdb::Status status = DeleteFilesInRange(rdb->GetBaseDB(), cfh,
+            &range.start, &range.limit);
+        if (!status.ok())
+        {
+          if (status.IsShutdownInProgress())
+          {
+            break;
+          }
+          rocksdb_handle_io_error(status, ROCKSDB_IO_ERROR_BG_THREAD);
+        }
+        status = rdb->CompactRange(
             compact_range_options, cfh, &range.start, &range.limit);
         if (!status.ok())
         {
