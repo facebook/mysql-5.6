@@ -256,7 +256,7 @@ rocksdb_drop_index_wakeup_thread(THD* thd,
 }
 
 static my_bool rocksdb_pause_background_work = 0;
-static mysql_mutex_t pause_background_work_mutex;
+static mysql_mutex_t sysvar_mutex;
 
 static void
 rocksdb_set_pause_background_work(THD* thd,
@@ -264,7 +264,7 @@ rocksdb_set_pause_background_work(THD* thd,
                                  void* var_ptr,
                                  const void* save)
 {
-  mysql_mutex_lock(&pause_background_work_mutex);
+  mysql_mutex_lock(&sysvar_mutex);
   bool pause_requested = *static_cast<const bool*>(save);
   if (rocksdb_pause_background_work != pause_requested) {
     if (pause_requested) {
@@ -274,7 +274,7 @@ rocksdb_set_pause_background_work(THD* thd,
     }
     rocksdb_pause_background_work = pause_requested;
   }
-  mysql_mutex_unlock(&pause_background_work_mutex);
+  mysql_mutex_unlock(&sysvar_mutex);
 }
 
 static void
@@ -329,6 +329,7 @@ static rocksdb::DBOptions init_db_options() {
   rocksdb::DBOptions o;
   o.create_if_missing = true;
   o.listeners.push_back(std::make_shared<MyRocksEventListener>(&ddl_manager));
+  o.info_log_level= rocksdb::InfoLogLevel::INFO_LEVEL;
   return o;
 }
 
@@ -337,6 +338,7 @@ static rocksdb::BlockBasedTableOptions table_options;
 
 static std::shared_ptr<rocksdb::RateLimiter> rate_limiter;
 
+/* This enum needs to be kept up to date with rocksdb::InfoLogLevel */
 static const char* info_log_level_names[] = {
   "debug_level",
   "info_level",
@@ -352,6 +354,19 @@ static TYPELIB info_log_level_typelib = {
   info_log_level_names,
   nullptr
 };
+
+static void
+rocksdb_set_rocksdb_info_log_level(THD* thd,
+                                   struct st_mysql_sys_var* var,
+                                   void* var_ptr,
+                                   const void* save)
+{
+  mysql_mutex_lock(&sysvar_mutex);
+  rocksdb_info_log_level = *static_cast<const uint64_t*>(save);
+  db_options.info_log->SetInfoLogLevel(
+      static_cast<const rocksdb::InfoLogLevel>(rocksdb_info_log_level));
+  mysql_mutex_unlock(&sysvar_mutex);
+}
 
 static const char* index_type_names[] = {
   "kBinarySearch",
@@ -415,9 +430,12 @@ static MYSQL_SYSVAR_ULONGLONG(rate_limiter_bytes_per_sec,
 
 static MYSQL_SYSVAR_ENUM(info_log_level,
   rocksdb_info_log_level,
-  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-  "DBOptions::info_log_level for RocksDB",
-  NULL, NULL, rocksdb::InfoLogLevel::ERROR_LEVEL, &info_log_level_typelib);
+  PLUGIN_VAR_RQCMDARG,
+  "Filter level for info logs to be written mysqld error log. "
+  "Valid values include 'debug_level', 'info_level', 'warn_level'"
+  "'error_level' and 'fatal_level'.",
+  nullptr, rocksdb_set_rocksdb_info_log_level,
+  rocksdb::InfoLogLevel::ERROR_LEVEL, &info_log_level_typelib);
 
 static MYSQL_SYSVAR_UINT(perf_context_level,
   rocksdb_perf_context_level,
@@ -979,7 +997,7 @@ static PSI_mutex_key ex_key_mutex_example, ex_key_mutex_ROCKSDB_SHARE_mutex,
   key_mutex_background, key_mutex_stop_background,
   key_mutex_drop_index, key_drop_index_interrupt_mutex,
   key_mutex_snapshot, key_mutex_collation_exception_list,
-  key_mutex_pause_background_work;
+  key_mutex_sysvar;
 
 static PSI_mutex_info all_rocksdb_mutexes[]=
 {
@@ -992,7 +1010,7 @@ static PSI_mutex_info all_rocksdb_mutexes[]=
   { &key_mutex_snapshot, "snapshot", PSI_FLAG_GLOBAL},
   { &key_mutex_collation_exception_list, "collation_exception_list",
       PSI_FLAG_GLOBAL},
-  { &key_mutex_pause_background_work, "pause background work", PSI_FLAG_GLOBAL},
+  { &key_mutex_sysvar, "setting sysvar", PSI_FLAG_GLOBAL},
 };
 
 PSI_cond_key key_cond_stop, key_drop_index_interrupt_cond;
@@ -2139,8 +2157,7 @@ static int rocksdb_init_func(void *p)
   mysql_mutex_init(key_mutex_snapshot, &snapshot_mutex, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_mutex_collation_exception_list,
                    &collation_exception_list_mutex, MY_MUTEX_INIT_FAST);
-  mysql_mutex_init(key_mutex_pause_background_work,
-                   &pause_background_work_mutex, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_mutex_sysvar, &sysvar_mutex, MY_MUTEX_INIT_FAST);
   mysql_cond_init(key_cond_stop, &stop_cond, NULL);
   (void) my_hash_init(&rocksdb_open_tables,system_charset_info,32,0,0,
                       (my_hash_get_key) rocksdb_get_key,0,0);
@@ -2198,7 +2215,8 @@ static int rocksdb_init_func(void *p)
   }
 
   db_options.info_log = myrocks_logger;
-  db_options.info_log_level = (rocksdb::InfoLogLevel)rocksdb_info_log_level;
+  myrocks_logger->SetInfoLogLevel(
+    static_cast<rocksdb::InfoLogLevel>(rocksdb_info_log_level));
   db_options.wal_dir = rocksdb_wal_dir;
 
   db_options.wal_recovery_mode=
@@ -2445,7 +2463,7 @@ static int rocksdb_done_func(void *p)
   mysql_mutex_destroy(&collation_exception_list_mutex);
   mysql_mutex_destroy(&snapshot_mutex);
   mysql_mutex_destroy(&rocksdb_mutex);
-  mysql_mutex_destroy(&pause_background_work_mutex);
+  mysql_mutex_destroy(&sysvar_mutex);
 
   ddl_manager.cleanup();
   binlog_manager.cleanup();
