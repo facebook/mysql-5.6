@@ -256,10 +256,10 @@ class ha_rocksdb: public handler
   Rdb_tbl_def *tbl_def;
 
   /* Primary Key encoder from KeyTupleFormat to StorageFormat */
-  Rdb_key_def *pk_descr;
+  std::shared_ptr<Rdb_key_def> pk_descr;
 
   /* Array of index descriptors */
-  Rdb_key_def **key_descr;
+  std::shared_ptr<Rdb_key_def>*key_descr;
 
   bool check_keyread_allowed(uint inx, uint part, bool all_parts) const;
   /*
@@ -368,16 +368,18 @@ class ha_rocksdb: public handler
   int secondary_index_read(const int keyno, uchar *buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   void setup_iterator_for_rnd_scan();
-  void setup_scan_iterator(Rdb_key_def *keydef, rocksdb::Slice *slice)
+  void setup_scan_iterator(const std::shared_ptr<const Rdb_key_def>& kd,
+                           rocksdb::Slice *slice)
       MY_ATTRIBUTE((__nonnull__))
   {
-    setup_scan_iterator(keydef, slice, false, false, 0);
+    setup_scan_iterator(kd, slice, false, false, 0);
   }
-  bool is_ascending(Rdb_key_def *keydef, enum ha_rkey_function find_flag)
+  bool is_ascending(const std::shared_ptr<const Rdb_key_def>& keydef,
+                    enum ha_rkey_function find_flag)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-  void setup_scan_iterator(Rdb_key_def *keydef, rocksdb::Slice *slice,
-                        const bool use_all_keys, const bool is_ascending,
-                        const uint eq_cond_len)
+  void setup_scan_iterator(const std::shared_ptr<const Rdb_key_def>& kd,
+                           rocksdb::Slice *slice, const bool use_all_keys,
+                           const bool is_ascending, const uint eq_cond_len)
     MY_ATTRIBUTE((__nonnull__));
   void release_scan_iterator(void)
   {
@@ -705,17 +707,18 @@ private:
                        const bool skip_unique_check)
     MY_ATTRIBUTE((__warn_unused_result__));
 
-  int read_key_exact(Rdb_key_def *kd, rocksdb::Iterator* scan_it,
-                     bool using_full_key, const rocksdb::Slice& key_slice)
-    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-int read_before_key(Rdb_key_def *kd, bool using_full_key,
-                      const rocksdb::Slice& key_slice)
-    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-  int read_after_key(Rdb_key_def *kd, bool using_full_key,
+  int read_key_exact(const std::shared_ptr<const Rdb_key_def>& kd,
+                     rocksdb::Iterator* scan_it, bool using_full_key,
                      const rocksdb::Slice& key_slice)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  int read_before_key(const std::shared_ptr<const Rdb_key_def>& kd,
+                      bool using_full_key, const rocksdb::Slice& key_slice)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  int read_after_key(const std::shared_ptr<const Rdb_key_def>& kd,
+                     bool using_full_key, const rocksdb::Slice& key_slice)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
-  int position_to_correct_key(Rdb_key_def *kd,
+  int position_to_correct_key(const std::shared_ptr<const Rdb_key_def>& kd,
                               enum ha_rkey_function find_flag,
                               bool full_key_match, const uchar* key,
                               key_part_map keypart_map,
@@ -725,11 +728,13 @@ int read_before_key(Rdb_key_def *kd, bool using_full_key,
 
   int read_row_from_primary_key(uchar* buf)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-  int read_row_from_secondary_key(uchar* buf, Rdb_key_def* kd,
+  int read_row_from_secondary_key(uchar* buf,
+                                  const std::shared_ptr<const Rdb_key_def>& kd,
                                   bool move_forward)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
-  int calc_eq_cond_len(Rdb_key_def *kd, enum ha_rkey_function find_flag,
+  int calc_eq_cond_len(const std::shared_ptr<const Rdb_key_def>& kd,
+                       enum ha_rkey_function find_flag,
                        const rocksdb::Slice& slice, int bytes_changed_by_succ,
                        const key_range *end_key, uint* end_key_packed_size)
     MY_ATTRIBUTE((__warn_unused_result__));
@@ -743,7 +748,8 @@ int read_before_key(Rdb_key_def *kd, bool using_full_key,
 
   bool prepare_drop_index_inplace(TABLE *altered_table,
       my_core::Alter_inplace_info *ha_alter_info, Rdb_tbl_def* new_tdef,
-      Rdb_key_def** old_key_descr, Rdb_key_def** new_key_descr,
+      std::shared_ptr<Rdb_key_def>* old_key_descr,
+      std::shared_ptr<Rdb_key_def>* new_key_descr,
       uint old_n_keys, uint new_n_keys,
       std::unordered_set<GL_INDEX_ID>* dropped_index_ids);
 public:
@@ -866,10 +872,10 @@ struct Rdb_inplace_alter_ctx : public my_core::inplace_alter_handler_ctx
   Rdb_tbl_def* m_new_tdef;
 
   /* Stores the original key definitions */
-  Rdb_key_def**  m_old_key_descr;
+  std::shared_ptr<Rdb_key_def>*  m_old_key_descr;
 
   /* Stores the new key definitions */
-  Rdb_key_def**  m_new_key_descr;
+  std::shared_ptr<Rdb_key_def>*  m_new_key_descr;
 
   /* Stores the old number of key definitions */
   const uint m_old_n_keys;
@@ -884,9 +890,9 @@ struct Rdb_inplace_alter_ctx : public my_core::inplace_alter_handler_ctx
   const uint m_n_dropped_keys;
 
   Rdb_inplace_alter_ctx(
-      Rdb_tbl_def* new_tdef, Rdb_key_def** old_key_descr,
-      Rdb_key_def** new_key_descr, uint old_n_keys, uint new_n_keys,
-      std::unordered_set<GL_INDEX_ID> dropped_index_ids,
+      Rdb_tbl_def* new_tdef, std::shared_ptr<Rdb_key_def>* old_key_descr,
+      std::shared_ptr<Rdb_key_def>* new_key_descr, uint old_n_keys,
+      uint new_n_keys, std::unordered_set<GL_INDEX_ID> dropped_index_ids,
       uint n_dropped_keys) :
     my_core::inplace_alter_handler_ctx(), m_new_tdef(new_tdef),
     m_old_key_descr(old_key_descr), m_new_key_descr(new_key_descr),
