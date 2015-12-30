@@ -2447,6 +2447,10 @@ static int rocksdb_init_func(void *p)
 
   collation_exception_list = split(rocksdb_strict_collation_exceptions, ',');
 
+  if (rocksdb_pause_background_work) {
+    rdb->PauseBackgroundWork();
+  }
+
   sql_print_information("RocksDB instance opened");
   DBUG_RETURN(0);
 }
