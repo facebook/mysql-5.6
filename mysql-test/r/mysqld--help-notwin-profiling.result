@@ -1062,7 +1062,9 @@ The following options may be given as the first argument:
  --rocksdb-index-type=name 
  BlockBasedTableOptions::index_type for RocksDB
  --rocksdb-info-log-level=name 
- DBOptions::info_log_level for RocksDB
+ Filter level for info logs to be written mysqld error
+ log. Valid values include 'debug_level', 'info_level',
+ 'warn_level''error_level' and 'fatal_level'.
  --rocksdb-is-fd-close-on-exec 
  DBOptions::is_fd_close_on_exec for RocksDB
  (Defaults to on; use --skip-rocksdb-is-fd-close-on-exec to disable.)
