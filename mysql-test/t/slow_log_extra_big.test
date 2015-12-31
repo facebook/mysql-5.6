@@ -46,15 +46,15 @@ select count(*) from big_table_slow where id < 100000;
 --echo # Cleanup
 
 connection default;
+eval SET GLOBAL innodb_file_format = \"$file_format_save\";
+set global slow_query_log_file = @my_slow_logname;
+
 set global long_query_time=1;
 disconnect con1;
 disconnect con;
 let $count_sessions= 1;
 --source include/wait_until_count_sessions.inc
 drop table big_table_slow;
-
-eval SET GLOBAL innodb_file_format = \"$file_format_save\";
-set global slow_query_log_file = @my_slow_logname;
 
 --echo #
 --echo # This is a hack to check the log result.
