@@ -5080,12 +5080,22 @@ locks_ok:
 		ibool row_contains_all_values = TRUE;
 		int i;
 		for (i = 0; i < prebuilt->n_template; i++) {
-			/* Condition (1) from above: is the field in the
-			index (prefix or not)? */
 			mysql_row_templ_t* templ =
 				prebuilt->mysql_template + i;
 			ulint secondary_index_field_no =
 				templ->rec_prefix_field_no;
+			const dict_field_t *field =
+				dict_index_get_nth_field(
+					index,
+					secondary_index_field_no);
+			/* Skip for document type */
+			if (field->document_path) {
+				ut_a(field->doc_path_col);
+				row_contains_all_values = FALSE;
+				break;
+			}
+			/* Condition (1) from above: is the field in the
+			index (prefix or not)? */
 			if (secondary_index_field_no == ULINT_UNDEFINED) {
 				row_contains_all_values = FALSE;
 				break;
@@ -5097,10 +5107,6 @@ locks_ok:
 				ulint record_size = rec_offs_nth_size(
 					offsets,
 					secondary_index_field_no);
-				const dict_field_t *field =
-					dict_index_get_nth_field(
-						index,
-						secondary_index_field_no);
 				ut_a(field->prefix_len > 0);
 				if (record_size >= field->prefix_len) {
 					row_contains_all_values = FALSE;
