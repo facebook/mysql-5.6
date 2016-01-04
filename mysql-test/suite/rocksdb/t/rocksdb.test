@@ -1744,4 +1744,13 @@ update t2 set a=concat('x-', a) where a between 'v-1002' and 'v-1004';
 
 drop table t1,t2;
 
+--echo #
+--echo # Issue #131: Assertion `v->cfd_->internal_comparator().Compare(start, end) <= 0' failed
+--echo #
+CREATE TABLE t2(c1 INTEGER UNSIGNED NOT NULL, c2 INTEGER NULL, c3 TINYINT, c4 SMALLINT , c5 MEDIUMINT, c6 INT, c7 BIGINT, PRIMARY KEY(c1,c6)) ENGINE=RocksDB;
+INSERT INTO t2 VALUES (1,1,1,1,1,1,1);
+SELECT * FROM t2 WHERE c1 > 4294967295 ORDER BY c1,c6;
+EXPLAIN SELECT * FROM t2 WHERE c1 > 4294967295 ORDER BY c1,c6;
+drop table t2;
+
 SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;
