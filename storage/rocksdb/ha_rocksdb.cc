@@ -6436,6 +6436,12 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *min_key,
   rocksdb::Slice slice1((const char*) sec_key_packed_tuple, size1);
   rocksdb::Slice slice2((const char*) sec_key_packed_tuple_old, size2);
 
+  // slice1 >= slice2 means no row will match
+  if (slice1.compare(slice2) >= 0)
+  {
+    DBUG_RETURN(0);
+  }
+
   rocksdb::Range r(
     kd->is_reverse_cf ? slice2 : slice1,
     kd->is_reverse_cf ? slice1 : slice2
