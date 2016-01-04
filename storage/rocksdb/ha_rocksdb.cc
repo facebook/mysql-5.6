@@ -661,7 +661,7 @@ static MYSQL_SYSVAR_INT(block_restart_interval,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "BlockBasedTableOptions::block_restart_interval for RocksDB",
   NULL, NULL, table_options.block_restart_interval,
-  /* min */ 0, /* max */ INT_MAX, 0);
+  /* min */ 1, /* max */ INT_MAX, 0);
 
 static MYSQL_SYSVAR_BOOL(whole_key_filtering,
   *reinterpret_cast<my_bool*>(&table_options.whole_key_filtering),
