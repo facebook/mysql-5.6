@@ -2172,4 +2172,15 @@ insert into t2
 select concat('v-', 100 + A.a*100 + B.a), 12345 from t1 A, t1 B;
 update t2 set a=concat('x-', a) where a between 'v-1002' and 'v-1004';
 drop table t1,t2;
+#
+# Issue #131: Assertion `v->cfd_->internal_comparator().Compare(start, end) <= 0' failed
+#
+CREATE TABLE t2(c1 INTEGER UNSIGNED NOT NULL, c2 INTEGER NULL, c3 TINYINT, c4 SMALLINT , c5 MEDIUMINT, c6 INT, c7 BIGINT, PRIMARY KEY(c1,c6)) ENGINE=RocksDB;
+INSERT INTO t2 VALUES (1,1,1,1,1,1,1);
+SELECT * FROM t2 WHERE c1 > 4294967295 ORDER BY c1,c6;
+c1	c2	c3	c4	c5	c6	c7
+EXPLAIN SELECT * FROM t2 WHERE c1 > 4294967295 ORDER BY c1,c6;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
+drop table t2;
 SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;
