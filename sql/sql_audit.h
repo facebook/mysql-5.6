@@ -79,8 +79,8 @@ void mysql_audit_general_log(THD *thd, const char *cmd, uint cmdlen,
     longlong affectrows= 0;
     int error_code= 0; 
     char user_buff[MAX_USER_HOST_SIZE + 1];
-    uint userlen, databaselen, certlen, queryattrlen;
-    const char *user, *database, *cert, *queryattr;
+    uint userlen, databaselen, queryattrlen;
+    const char *user, *database, *queryattr;
     time_t time= (time_t) thd->start_time.tv_sec;
 
     if (thd)
@@ -113,8 +113,6 @@ void mysql_audit_general_log(THD *thd, const char *cmd, uint cmdlen,
       sql_command.length= sql_statement_names[thd->lex->sql_command].length;
       database= thd->db;
       databaselen= thd->db_length;
-      cert= 0;
-      certlen= 0;
       queryattr= thd->query_attrs();
       queryattrlen= thd->query_attrs_length();
     }
@@ -128,8 +126,6 @@ void mysql_audit_general_log(THD *thd, const char *cmd, uint cmdlen,
       sql_command= empty;
       database= 0;
       databaselen= 0;
-      cert= 0;
-      certlen= 0;
       queryattr= 0;
       queryattrlen= 0;
     }
@@ -140,7 +136,7 @@ void mysql_audit_general_log(THD *thd, const char *cmd, uint cmdlen,
                        error_code, time, user, userlen, cmd, cmdlen, query.str,
                        query.length, clientcs, resultrows, affectrows,
                        sql_command, host, external_user, ip, database,
-                       databaselen, cert, certlen, queryattr, queryattrlen);
+                       databaselen, queryattr, queryattrlen);
   }
 #endif
 }
@@ -167,8 +163,8 @@ void mysql_audit_general(THD *thd, uint event_subtype,
   {
     time_t time= my_time(0);
     uint msglen= msg ? strlen(msg) : 0;
-    uint userlen, databaselen, certlen, queryattrlen;
-    const char *user, *database, *cert, *queryattr;
+    uint userlen, databaselen, queryattrlen;
+    const char *user, *database, *queryattr;
     char user_buff[MAX_USER_HOST_SIZE];
     CSET_STRING query;
     MYSQL_LEX_STRING ip, host, external_user, sql_command;
@@ -213,8 +209,6 @@ void mysql_audit_general(THD *thd, uint event_subtype,
       sql_command.length= sql_statement_names[thd->lex->sql_command].length;
       database= thd->db;
       databaselen= thd->db_length;
-      cert= 0;
-      certlen= 0;
       queryattr= thd->query_attrs();
       queryattrlen= thd->query_attrs_length();
     }
@@ -230,8 +224,6 @@ void mysql_audit_general(THD *thd, uint event_subtype,
       affectrows= 0;
       database= 0;
       databaselen= 0;
-      cert= 0;
-      certlen= 0;
       queryattr= 0;
       queryattrlen= 0;
     }
@@ -241,7 +233,7 @@ void mysql_audit_general(THD *thd, uint event_subtype,
                        query.str(), query.length(), query.charset(),
                        resultrows, affectrows, sql_command, host,
                        external_user, ip, database, databaselen,
-                       cert, certlen, queryattr, queryattrlen);
+                       queryattr, queryattrlen);
   }
 #endif
 }
@@ -259,7 +251,10 @@ void mysql_audit_general(THD *thd, uint event_subtype,
   (thd)->security_ctx->get_host()->length(),\
   (thd)->security_ctx->get_ip()->ptr(),\
   (thd)->security_ctx->get_ip()->length(),\
-  (thd)->db, (thd)->db ? strlen((thd)->db) : 0)
+  (thd)->db, (thd)->db ? strlen((thd)->db) : 0,\
+  (thd)->connection_certificate(),\
+  (thd)->connection_certificate_length());
+
 
 #define MYSQL_AUDIT_NOTIFY_CONNECTION_DISCONNECT(thd, errcode)\
   mysql_audit_notify(\
@@ -275,7 +270,9 @@ void mysql_audit_general(THD *thd, uint event_subtype,
   (thd)->security_ctx->get_host()->length(),\
   (thd)->security_ctx->get_ip()->ptr(),\
   (thd)->security_ctx->get_ip()->length(),\
-  (thd)->db, (thd)->db ? strlen((thd)->db) : 0)
+  (thd)->db, (thd)->db ? strlen((thd)->db) : 0,\
+  (thd)->connection_certificate(),\
+  (thd)->connection_certificate_length());
 
 #define MYSQL_AUDIT_NOTIFY_CONNECTION_CHANGE_USER(thd) mysql_audit_notify(\
   (thd), MYSQL_AUDIT_CONNECTION_CLASS, MYSQL_AUDIT_CONNECTION_CHANGE_USER,\
@@ -290,6 +287,8 @@ void mysql_audit_general(THD *thd, uint event_subtype,
   (thd)->security_ctx->get_host()->length(),\
   (thd)->security_ctx->get_ip()->ptr(),\
   (thd)->security_ctx->get_ip()->length(),\
-  (thd)->db, (thd)->db ? strlen((thd)->db) : 0)
+  (thd)->db, (thd)->db ? strlen((thd)->db) : 0,\
+  (thd)->connection_certificate(),\
+  (thd)->connection_certificate_length());
 
 #endif /* SQL_AUDIT_INCLUDED */

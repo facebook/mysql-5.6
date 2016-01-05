@@ -24,6 +24,7 @@ synchronization primitives.
 Created 9/6/1995 Heikki Tuuri
 *******************************************************/
 
+#define BIT63_NEEDED
 #include "os0sync.h"
 #include "sync0rw.h"
 #ifdef UNIV_NONINL
