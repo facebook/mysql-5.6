@@ -11265,6 +11265,10 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
       DBUG_RETURN(1);
     }
 
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+    thd->set_connection_certificate();
+#endif
+
     if (unlikely(mpvio.acl_user && mpvio.acl_user->password_expired
         && !(mpvio.client_capabilities & CLIENT_CAN_HANDLE_EXPIRED_PASSWORDS)
         && disconnect_on_expired_password))
