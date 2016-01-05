@@ -35,7 +35,7 @@
 #include "sql_time.h"   // interval_type_to_name
 #include "tztime.h"                             // struct Time_zone
 #include "sql_acl.h"     // TABLE_ACLS, check_grant, DB_ACLS, acl_get,
-                         // check_grant_db
+                         // check_grant_db, get_peer_cert_info
 #include "filesort.h"    // filesort_free_buffers
 #include "sp.h"
 #include "sp_head.h"
@@ -2127,59 +2127,6 @@ static const char *thread_state_info(THD *tmp)
   }
 }
 
-#ifdef HAVE_OPENSSL
-BUF_MEM *get_peer_cert_info(THD *thd)
-{
-  assert(thd);
-
-  if(!thd->vio_ok() || !thd->net.vio->ssl_arg) {
-    return NULL;
-  }
-
-  assert(thd->vio_ok() && thd->net.vio->ssl_arg);
-
-  SSL *ssl= (SSL*) thd->net.vio->ssl_arg;
-
-  // extract user cert ref from the thread
-  X509 *cert= SSL_get_peer_certificate(ssl);
-  if (!cert) {
-    return NULL;
-  }
-
-  // Create new X509 buffer abstraction
-  BIO *bio = BIO_new(BIO_s_mem());
-  if (!bio) {
-    return NULL;
-  }
-
-  // Print the certificate to the buffer
-  int status = X509_print(bio, cert);
-  if (status != 1) {
-    BIO_free(bio);
-    return NULL;
-  }
-
-  // decouple buffer and close bio object
-  BUF_MEM *bufmem;
-  BIO_get_mem_ptr(bio, &bufmem);
-  (void) BIO_set_close(bio, BIO_NOCLOSE);
-  BIO_free(bio);
-
-  assert(bufmem->length <= bufmem->max);
-  if (bufmem->length) {
-    // the buffer is not null terminated, fix that
-    const size_t n = bufmem->length < bufmem->max ? bufmem->length
-                                                 : bufmem->max - 1;
-    bufmem->data[n] = 0;
-    return bufmem;
-  }
-
-  assert(!bufmem->length);
-  BUF_MEM_free(bufmem);
-  return NULL;
-}
-#endif
-
 void mysqld_list_processes(THD *thd,const char *user, bool verbose)
 {
   Item *field;
@@ -2503,26 +2450,29 @@ int fill_schema_authinfo(THD* thd, TABLE_LIST* tables, Item* cond)
 
     /* SSL */
     bool ssl = false;
-#ifdef HAVE_OPENSSL
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
     ssl = (tmp->vio_ok() && tmp->net.vio->ssl_arg);
 #endif
     table->field[3]->store(ssl, /*unsigned=*/ TRUE);
 
     /* Info */
-    char* cert = NULL;
-#ifdef HAVE_OPENSSL
+    const char* cert = NULL;
+    size_t certlen = 0;
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
     BUF_MEM *bufmem = get_peer_cert_info(tmp);
     cert = bufmem ? bufmem->data : NULL;
+    certlen = bufmem ? bufmem->length : 0;
 #endif
+
     if (cert) {
-      const size_t certlen = cert ? strlen(cert) : 0;
       const size_t width = min<size_t>(PROCESS_LIST_INFO_WIDTH, certlen);
       table->field[4]->store(cert, width, cs);
       table->field[4]->set_notnull();
     }
 
-#ifdef HAVE_OPENSSL
-    BUF_MEM_free(bufmem);
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+    if (bufmem)
+      BUF_MEM_free(bufmem);
 #endif
 
     if (schema_table_store_record(thd, table)) {

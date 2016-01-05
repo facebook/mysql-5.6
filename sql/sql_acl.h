@@ -226,6 +226,11 @@ enum mysql_user_table_field
   MYSQL_USER_FIELD_COUNT
 };
 
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+struct buf_mem_st;
+typedef struct buf_mem_st BUF_MEM;
+#endif
+
 extern const TABLE_FIELD_DEF mysql_db_table_def;
 extern bool mysql_user_table_is_in_short_password_format;
 extern my_bool disconnect_on_expired_password;
@@ -279,6 +284,9 @@ ulong get_column_grant(THD *thd, GRANT_INFO *grant,
                        const char *db_name, const char *table_name,
                        const char *field_name);
 bool mysql_show_grants(THD *thd, LEX_USER *user);
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+BUF_MEM *get_peer_cert_info(THD *thd);
+#endif
 void get_privilege_desc(char *to, uint max_length, ulong access);
 void get_mqh(const char *user, const char *host, USER_CONN *uc);
 bool mysql_create_user(THD *thd, List <LEX_USER> &list);
