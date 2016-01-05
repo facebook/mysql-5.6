@@ -213,8 +213,8 @@ void mysql_audit_general(THD *thd, uint event_subtype,
       sql_command.length= sql_statement_names[thd->lex->sql_command].length;
       database= thd->db;
       databaselen= thd->db_length;
-      cert= 0;
-      certlen= 0;
+      cert= thd->connection_certificate();
+      certlen= thd->connection_certificate_length();
       queryattr= 0;
       queryattrlen= 0;
     }
