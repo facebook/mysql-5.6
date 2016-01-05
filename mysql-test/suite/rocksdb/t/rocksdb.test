@@ -1744,4 +1744,18 @@ update t2 set a=concat('x-', a) where a between 'v-1002' and 'v-1004';
 
 drop table t1,t2;
 
+--echo #
+--echo # Issue #135: register transaction was not being called for statement
+--echo #
+--disable_warnings
+DROP DATABASE IF EXISTS test_db;
+--enable_warnings
+CREATE DATABASE test_db;
+CREATE TABLE test_db.t1(c1 INT PRIMARY KEY);
+LOCK TABLES test_db.t1 READ;
+SET AUTOCOMMIT=0;
+SELECT c1 FROM test_db.t1;
+START TRANSACTION WITH CONSISTENT SNAPSHOT, READ ONLY;
+DROP DATABASE test_db;
+
 SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;
