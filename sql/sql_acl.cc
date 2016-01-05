@@ -6703,6 +6703,54 @@ end:
   DBUG_RETURN(error);
 }
 
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+BUF_MEM *get_peer_cert_info(THD *thd)
+{
+  if (!thd->vio_ok() || !thd->net.vio->ssl_arg) {
+    return NULL;
+  }
+
+  SSL *ssl= (SSL*) thd->net.vio->ssl_arg;
+
+  // extract user cert ref from the thread
+  X509 *cert= SSL_get_peer_certificate(ssl);
+
+  if (!cert) {
+    return NULL;
+  }
+
+  // Create new X509 buffer abstraction
+  BIO *bio = BIO_new(BIO_s_mem());
+  if (!bio) {
+    X509_free(cert);
+    return NULL;
+  }
+
+  // Print the certificate to the buffer
+  int status = X509_print(bio, cert);
+  if (status != 1) {
+    BIO_free(bio);
+    X509_free(cert);
+    return NULL;
+  }
+
+  // decouple buffer and close bio object
+  BUF_MEM *bufmem;
+  BIO_get_mem_ptr(bio, &bufmem);
+  (void) BIO_set_close(bio, BIO_NOCLOSE);
+  BIO_free(bio);
+  X509_free(cert);
+
+  assert(bufmem->length <= bufmem->max);
+  if (bufmem->length) {
+    return bufmem;
+  }
+
+  BUF_MEM_free(bufmem);
+  return NULL;
+}
+#endif
+
 static int show_routine_grants(THD* thd, LEX_USER *lex_user, HASH *hash,
                                const char *type, int typelen,
                                char *buff, int buffsize)
@@ -11264,6 +11312,10 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
         login_failed_error(&mpvio, thd->password);
       DBUG_RETURN(1);
     }
+
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+    thd->set_connection_certificate(get_peer_cert_info(thd));
+#endif
 
     if (unlikely(mpvio.acl_user && mpvio.acl_user->password_expired
         && !(mpvio.client_capabilities & CLIENT_CAN_HANDLE_EXPIRED_PASSWORDS)

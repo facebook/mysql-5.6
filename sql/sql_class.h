@@ -96,6 +96,9 @@ class user_var_entry;
 
 struct st_thd_timer;
 
+struct buf_mem_st;
+typedef struct buf_mem_st BUF_MEM;
+
 enum enum_ha_read_modes { RFIRST, RNEXT, RPREV, RLAST, RKEY, RNEXT_SAME };
 
 enum enum_delay_key_write { DELAY_KEY_WRITE_NONE, DELAY_KEY_WRITE_ON,
@@ -4444,6 +4447,14 @@ public:
   bool has_invoker() { return invoker_user.str != NULL; }
 
   void mark_transaction_to_rollback(bool all);
+
+  BUF_MEM *connection_certificate_buf;
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+  void set_connection_certificate(BUF_MEM *bufmem);
+  void reset_connection_certificate();
+  const char *connection_certificate() const;
+  uint32 connection_certificate_length() const;
+#endif
 
 #ifndef DBUG_OFF
 private:

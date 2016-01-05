@@ -68,6 +68,10 @@
 #include <sys/syscall.h>
 #endif // TARGET_OS_LINUX
 
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+#include <openssl/pem.h>
+#endif
+
 using std::min;
 using std::max;
 
@@ -978,6 +982,7 @@ THD::THD(bool enable_plugins)
 #endif /* defined(ENABLED_DEBUG_SYNC) */
    m_enable_plugins(enable_plugins),
    owned_gtid_set(global_sid_map),
+   connection_certificate_buf(NULL),
    main_da(0, false),
    m_stmt_da(&main_da),
    duplicate_slave_uuid(false)
@@ -1655,6 +1660,9 @@ void THD::release_resources()
     net_end(&net);
     net.vio= NULL;
   }
+#if defined(HAVE_OPENSSL)
+  reset_connection_certificate();
+#endif
 #endif
   mysql_mutex_unlock(&LOCK_thd_data);
 
@@ -4943,6 +4951,25 @@ void THD::get_definer(LEX_USER *definer)
     get_default_definer(this, definer);
 }
 
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+void THD::set_connection_certificate(BUF_MEM *bufmem) {
+  connection_certificate_buf = bufmem;
+}
+
+void THD::reset_connection_certificate() {
+  if (connection_certificate_buf)
+    BUF_MEM_free(connection_certificate_buf);
+  connection_certificate_buf = NULL;
+}
+
+const char *THD::connection_certificate() const {
+  return connection_certificate_buf ? connection_certificate_buf->data : NULL;
+}
+
+uint32 THD::connection_certificate_length() const {
+  return connection_certificate_buf ? connection_certificate_buf->length : 0;
+}
+#endif
 
 /**
   Mark transaction to rollback and mark error as fatal to a sub-statement.
