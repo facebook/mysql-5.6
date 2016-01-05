@@ -25,7 +25,7 @@
 
 #define MYSQL_AUDIT_CLASS_MASK_SIZE 1
 
-#define MYSQL_AUDIT_INTERFACE_VERSION 0x0303
+#define MYSQL_AUDIT_INTERFACE_VERSION 0x0304
 
 
 /*************************************************************************
@@ -69,8 +69,6 @@ struct mysql_event_general
   unsigned int database_length;
   /* Added in version 0x303 */
   unsigned long long affected_rows;
-  const char *connection_certificate;
-  unsigned int connection_certificate_length;
   const char *query_attributes;
   unsigned int query_attributes_length;
 };
@@ -109,6 +107,9 @@ struct mysql_event_connection
   unsigned int ip_length;
   const char *database;
   unsigned int database_length;
+  /* Added in version 0x304 */
+  const char *connection_certificate;
+  unsigned int connection_certificate_length;
 };
 
 
