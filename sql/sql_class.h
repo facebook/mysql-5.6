@@ -96,6 +96,9 @@ class user_var_entry;
 
 struct st_thd_timer;
 
+struct buf_mem_st;
+typedef struct buf_mem_st BUF_MEM;
+
 enum enum_ha_read_modes { RFIRST, RNEXT, RPREV, RLAST, RKEY, RNEXT_SAME };
 
 enum enum_delay_key_write { DELAY_KEY_WRITE_NONE, DELAY_KEY_WRITE_ON,
@@ -4474,6 +4477,23 @@ public:
   bool has_invoker() { return invoker_user.str != NULL; }
 
   void mark_transaction_to_rollback(bool all);
+
+private:
+  BUF_MEM *connection_certificate_buf;
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+  void reset_connection_certificate();
+public:
+  void set_connection_certificate();
+  const char *connection_certificate() const;
+  uint32 connection_certificate_length() const;
+  // The caller should take ownership of the BUF_MEM pointer.  If display is
+  // set to true, the buffer will contain the certificate encoded in a human
+  // readable format, which can be used for display in information schema.
+  // Otherwise, it is encoded in the PEM format.
+  //
+  // Free this using the function BUF_MEM_free.
+  BUF_MEM *get_peer_cert_info(bool display);
+#endif
 
 #ifndef DBUG_OFF
 private:

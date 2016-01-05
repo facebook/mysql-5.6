@@ -19,6 +19,9 @@
 #include "my_global.h"                          /* NO_EMBEDDED_ACCESS_CHECKS */
 #include "violite.h"                            /* SSL_type */
 #include "sql_class.h"                          /* LEX_COLUMN */
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+#include <openssl/pem.h>
+#endif
 
 #define SELECT_ACL	(1L << 0)
 #define INSERT_ACL	(1L << 1)

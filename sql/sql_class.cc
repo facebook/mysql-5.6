@@ -978,6 +978,7 @@ THD::THD(bool enable_plugins)
 #endif /* defined(ENABLED_DEBUG_SYNC) */
    m_enable_plugins(enable_plugins),
    owned_gtid_set(global_sid_map),
+   connection_certificate_buf(NULL),
    main_da(0, false),
    m_stmt_da(&main_da),
    conn_timeout_err_msg(NULL),
@@ -1550,6 +1551,9 @@ void THD::change_user(void)
                (my_hash_free_key) free_user_var, 0);
   sp_cache_clear(&sp_proc_cache);
   sp_cache_clear(&sp_func_cache);
+#if defined(HAVE_OPENSSL)
+  reset_connection_certificate();
+#endif
 }
 
 
@@ -1656,6 +1660,9 @@ void THD::release_resources()
     net_end(&net);
     net.vio= NULL;
   }
+#if defined(HAVE_OPENSSL)
+  reset_connection_certificate();
+#endif
 #endif
   mysql_mutex_unlock(&LOCK_thd_data);
 
@@ -4944,6 +4951,79 @@ void THD::get_definer(LEX_USER *definer)
     get_default_definer(this, definer);
 }
 
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+void THD::set_connection_certificate() {
+  DBUG_ASSERT(connection_certificate_buf == nullptr);
+  connection_certificate_buf = get_peer_cert_info(false);
+}
+
+void THD::reset_connection_certificate() {
+  if (connection_certificate_buf) {
+    BUF_MEM_free(connection_certificate_buf);
+    connection_certificate_buf = nullptr;
+  }
+}
+
+const char *THD::connection_certificate() const {
+  return connection_certificate_buf ?
+    connection_certificate_buf->data : nullptr;
+}
+
+uint32 THD::connection_certificate_length() const {
+  return connection_certificate_buf ? connection_certificate_buf->length : 0;
+}
+
+BUF_MEM *THD::get_peer_cert_info(bool display)
+{
+  if (!vio_ok() || !net.vio->ssl_arg) {
+    return NULL;
+  }
+
+  SSL *ssl= (SSL*) net.vio->ssl_arg;
+
+  // extract user cert ref from the thread
+  X509 *cert= SSL_get_peer_certificate(ssl);
+
+  if (!cert) {
+    return NULL;
+  }
+
+  // Create new X509 buffer abstraction
+  BIO *bio = BIO_new(BIO_s_mem());
+  if (!bio) {
+    X509_free(cert);
+    return NULL;
+  }
+
+  // Print the certificate to the buffer
+  int status;
+  if (display) {
+    status = X509_print(bio, cert);
+  } else {
+    status = PEM_write_bio_X509(bio, cert);
+  }
+
+  if (status != 1) {
+    BIO_free(bio);
+    X509_free(cert);
+    return NULL;
+  }
+
+  // decouple buffer and close bio object
+  BUF_MEM *bufmem;
+  BIO_get_mem_ptr(bio, &bufmem);
+  (void) BIO_set_close(bio, BIO_NOCLOSE);
+  BIO_free(bio);
+  X509_free(cert);
+
+  if (bufmem->length) {
+    return bufmem;
+  }
+
+  BUF_MEM_free(bufmem);
+  return NULL;
+}
+#endif
 
 /**
   Mark transaction to rollback and mark error as fatal to a sub-statement.
