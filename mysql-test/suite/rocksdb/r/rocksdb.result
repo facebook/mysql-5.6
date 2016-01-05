@@ -2183,4 +2183,16 @@ EXPLAIN SELECT * FROM t2 WHERE c1 > 4294967295 ORDER BY c1,c6;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
 drop table t2;
+#
+# Issue #135: register transaction was not being called for statement
+#
+DROP DATABASE IF EXISTS test_db;
+CREATE DATABASE test_db;
+CREATE TABLE test_db.t1(c1 INT PRIMARY KEY);
+LOCK TABLES test_db.t1 READ;
+SET AUTOCOMMIT=0;
+SELECT c1 FROM test_db.t1;
+c1
+START TRANSACTION WITH CONSISTENT SNAPSHOT, READ ONLY;
+DROP DATABASE test_db;
 SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;
