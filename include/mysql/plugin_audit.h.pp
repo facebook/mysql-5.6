@@ -286,8 +286,6 @@ struct mysql_event_general
   const char *database;
   unsigned int database_length;
   unsigned long long affected_rows;
-  const char *connection_certificate;
-  unsigned int connection_certificate_length;
   const char *query_attributes;
   unsigned int query_attributes_length;
 };
@@ -310,6 +308,8 @@ struct mysql_event_connection
   unsigned int ip_length;
   const char *database;
   unsigned int database_length;
+  const char *connection_certificate;
+  unsigned int connection_certificate_length;
 };
 struct st_mysql_audit
 {

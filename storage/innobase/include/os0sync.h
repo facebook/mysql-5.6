@@ -71,12 +71,18 @@ typedef pthread_mutex_t		fast_mutex_t;
 /** Native condition variable */
 typedef pthread_cond_t		os_cond_t;
 
+// The IS_SET macro conflicts with another macro of the same name. Since their
+// usage is mutually exclusive anyway, we define IS_SET (and related macros)
+// only when they are needed. To make use of the macros below in the
+// implementation file, the BIT63_NEEDED variable should be defined.
+#if defined(BIT63_NEEDED)
 #define BIT63 (1ULL << 63)
 #define INC_SIGNAL_COUNT(ev) { ++(ev)->stats; }
 #define SIGNAL_COUNT(ev) (static_cast<ib_int64_t>((ev)->stats & ~BIT63))
 #define SET_IS_SET(ev) { (ev)->stats |= BIT63; }
 #define CLEAR_IS_SET(ev) { (ev)->stats &= ~BIT63; }
 #define IS_SET(ev) (((ev)->stats & BIT63) != 0)
+#endif
 
 #endif
 
