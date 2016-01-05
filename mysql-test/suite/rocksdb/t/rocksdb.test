@@ -1753,4 +1753,18 @@ SELECT * FROM t2 WHERE c1 > 4294967295 ORDER BY c1,c6;
 EXPLAIN SELECT * FROM t2 WHERE c1 > 4294967295 ORDER BY c1,c6;
 drop table t2;
 
+--echo #
+--echo # Issue #135: register transaction was not being called for statement
+--echo #
+--disable_warnings
+DROP DATABASE IF EXISTS test_db;
+--enable_warnings
+CREATE DATABASE test_db;
+CREATE TABLE test_db.t1(c1 INT PRIMARY KEY);
+LOCK TABLES test_db.t1 READ;
+SET AUTOCOMMIT=0;
+SELECT c1 FROM test_db.t1;
+START TRANSACTION WITH CONSISTENT SNAPSHOT, READ ONLY;
+DROP DATABASE test_db;
+
 SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;
