@@ -226,6 +226,11 @@ enum mysql_user_table_field
   MYSQL_USER_FIELD_COUNT
 };
 
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+struct buf_mem_st;
+typedef struct buf_mem_st BUF_MEM;
+#endif
+
 extern const TABLE_FIELD_DEF mysql_db_table_def;
 extern bool mysql_user_table_is_in_short_password_format;
 extern my_bool disconnect_on_expired_password;
