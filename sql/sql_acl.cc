@@ -10812,7 +10812,8 @@ static void server_mpvio_info(MYSQL_PLUGIN_VIO *vio,
 }
 
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
-static bool acl_check_ssl(THD *thd, const ACL_USER *acl_user)
+static bool acl_check_ssl(THD *thd, const ACL_USER *acl_user,
+                          MYSQL_SERVER_AUTH_INFO *auth_info)
 {
 #if defined(HAVE_OPENSSL)
   Vio *vio= thd->net.vio;
@@ -10903,6 +10904,21 @@ static bool acl_check_ssl(THD *thd, const ACL_USER *acl_user)
       }
       OPENSSL_free(ptr);
     }
+
+    ASN1_OBJECT *obj = OBJ_txt2obj("1.3.6.1.4.1.40981.2.2.3", 0);
+    int ext_pos = X509_get_ext_by_OBJ(cert, obj, -1);
+    if (ext_pos >= 0) {
+      X509_EXTENSION* ext = X509_get_ext(cert, ext_pos);
+      ASN1_STRING* value_asn1 = X509_EXTENSION_get_data(ext);
+      unsigned char* data = ASN1_STRING_data(value_asn1);
+      int len = ASN1_STRING_length(value_asn1);
+      int max_len = min(len, (int)sizeof(auth_info->external_user) - 1);
+      memcpy(auth_info->external_user, data, max_len);
+    } else {
+      X509_free(cert);
+      return 1;
+    }
+
     X509_free(cert);
     return 0;
 #else  /* HAVE_OPENSSL */
@@ -11255,7 +11271,7 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
       as an additional layer, not instead of the password
       (in which case it would've been a plugin too).
     */
-    if (acl_check_ssl(thd, acl_user))
+    if (acl_check_ssl(thd, acl_user, &mpvio.auth_info))
     {
       Host_errors errors;
       errors.m_ssl= 1;
@@ -11264,6 +11280,10 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
         login_failed_error(&mpvio, thd->password);
       DBUG_RETURN(1);
     }
+
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+    thd->set_connection_certificate();
+#endif
 
     if (unlikely(mpvio.acl_user && mpvio.acl_user->password_expired
         && !(mpvio.client_capabilities & CLIENT_CAN_HANDLE_EXPIRED_PASSWORDS)
