@@ -6050,7 +6050,7 @@ int ha_rocksdb::start_stmt(THD *thd, thr_lock_type lock_type)
     store_checksums= THDVAR(thd, store_checksums);
     verify_checksums= THDVAR(thd, verify_checksums);
 
-    trx->start_stmt();
+    rocksdb_register_trx(ht, thd, trx);
   }
   return 0;
 }
