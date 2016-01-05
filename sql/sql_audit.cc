@@ -90,8 +90,6 @@ static void general_class_handler(THD *thd, uint event_subtype, va_list ap)
   event.general_ip= va_arg(ap, MYSQL_LEX_STRING);
   event.database= va_arg(ap, const char *);
   event.database_length= va_arg(ap, unsigned int);
-  event.connection_certificate= va_arg(ap, const char*);
-  event.connection_certificate_length= va_arg(ap, unsigned int);
   event.query_attributes= va_arg(ap, const char*);
   event.query_attributes_length= va_arg(ap, unsigned int);
   event.query_id= (unsigned long long) thd->query_id;
@@ -119,6 +117,8 @@ static void connection_class_handler(THD *thd, uint event_subclass, va_list ap)
   event.ip_length= va_arg(ap, unsigned int);
   event.database= va_arg(ap, const char *);
   event.database_length= va_arg(ap, unsigned int);
+  event.connection_certificate= va_arg(ap, const char*);
+  event.connection_certificate_length= va_arg(ap, unsigned int);
   event_class_dispatch(thd, MYSQL_AUDIT_CONNECTION_CLASS, &event);
 }
 
