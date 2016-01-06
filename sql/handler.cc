@@ -5800,7 +5800,10 @@ bool key_uses_partial_cols(TABLE *table, uint keyno)
   KEY_PART_INFO *kp_end= kp + table->key_info[keyno].user_defined_key_parts;
   for (; kp != kp_end; kp++)
   {
-    if (!kp->field->part_of_key.is_set(keyno))
+    if ((kp->field->type() != MYSQL_TYPE_DOCUMENT &&
+         !kp->field->part_of_key.is_set(keyno)) ||
+        (kp->field->type() == MYSQL_TYPE_DOCUMENT &&
+         !table->s->document_keys.is_set(keyno)))
       return TRUE;
   }
   return FALSE;

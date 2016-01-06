@@ -526,6 +526,8 @@ create_tmp_table(THD *thd,TMP_TABLE_PARAM *param,List<Item> &fields,
   uint  copy_func_count= param->func_count;
   uint  hidden_null_count, hidden_null_pack_length, hidden_field_count;
   uint  blob_count,group_null_items, string_count;
+  /* The number of derived document fields for document paths. */
+  uint  document_path_count= 0;
   uint  temp_pool_slot=MY_BIT_NONE;
   uint fieldnr= 0;
   ulong reclength, string_total_length;
@@ -753,6 +755,12 @@ create_tmp_table(THD *thd,TMP_TABLE_PARAM *param,List<Item> &fields,
 	  {
 	    *blob_field++= fieldnr;
 	    blob_count++;
+
+            if (new_field->type() == MYSQL_TYPE_DOCUMENT &&
+                ((Field_document*)new_field)->is_doc_type_primary())
+            {
+              document_path_count++;
+            }
 	  }
           if (new_field->type() == MYSQL_TYPE_BIT)
             total_uneven_bit_length+= new_field->field_length & 7;
@@ -826,6 +834,12 @@ create_tmp_table(THD *thd,TMP_TABLE_PARAM *param,List<Item> &fields,
       {
         *blob_field++= fieldnr;
 	blob_count++;
+
+        if (new_field->type() == MYSQL_TYPE_DOCUMENT &&
+            ((Field_document*)new_field)->is_doc_type_primary())
+        {
+          document_path_count++;
+        }
       }
 
       if (new_field->real_type() == MYSQL_TYPE_STRING ||
@@ -880,6 +894,7 @@ update_hidden:
   share->fields= field_count;
 
   /* If result table is small; use a heap */
+  /* If result table has document columns then use MyISAM */
   /* future: storage engine selection can be made dynamic? */
   if (blob_count || using_unique_constraint
       || (thd->variables.big_tables && !(select_options & SELECT_SMALL_RESULT))
@@ -1162,7 +1177,8 @@ update_hidden:
     */
     DBUG_PRINT("info",("hidden_field_count: %d", param->hidden_field_count));
 
-    if (blob_count)
+    /* Only when there are real blob fields. */
+    if (blob_count > document_path_count)
     {
       /*
         Special mode for index creation in MyISAM used to support unique

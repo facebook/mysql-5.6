@@ -5459,12 +5459,15 @@ add_key_part(Key_use_array *keyuse_array, Key_field *key_field)
       uint key_parts= actual_key_parts(&form->key_info[key]);
       for (uint part=0 ; part <  key_parts ; part++)
       {
-        /* Note, for document fields, matching the original fields isn't enough
-         * We need to check possible_document_keys.
+        /* For a document field if it is not a temp field then
+           the possible_document_keys need to be checked, otherwise,
+           it is called by create_keyuse_for_table() for a temp field,
+           and the key is created for the temp field specifically.
          */
         if (field->eq(form->key_info[key].key_part[part].field) &&
             (field->type() != MYSQL_TYPE_DOCUMENT ||
-             key_field->possible_document_keys.is_set(key)))
+             (form->s->tmp_table == INTERNAL_TMP_TABLE ||
+              key_field->possible_document_keys.is_set(key))))
         {
           const Key_use keyuse(field->table,
                                key_field->val,
