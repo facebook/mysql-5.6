@@ -1,5 +1,6 @@
 set @my_slow_logname = @@global.slow_query_log_file;
 set global slow_query_log_file = "slow_log_extra_big-slow.log";
+set @my_long_query_time = @@global.long_query_time;
 set session long_query_time = 20;
 set global long_query_time = 0;
 select count(*) from big_table_slow;
@@ -23,7 +24,7 @@ count(*)
 # Cleanup
 SET GLOBAL innodb_file_format = "Barracuda";
 set global slow_query_log_file = @my_slow_logname;
-set global long_query_time=1;
+set global long_query_time=@my_long_query_time;
 drop table big_table_slow;
 #
 # This is a hack to check the log result.

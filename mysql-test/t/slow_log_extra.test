@@ -58,14 +58,17 @@ delimiter ;||||
 
 --enable_ps_protocol
 
+# Wait for all output lines to show up in the slow log file
+let $file_lines_count=13;
+let $file_lines_pattern= ^# Query_time;
+let $file_lines_filename=
+    $MYSQLTEST_VARDIR/mysqld.1/data/slow_log_extra-slow.log;
+--source include/wait_for_file_lines.inc
+
 connection default;
 set global long_query_time = @my_long_query_time;
 set global slow_query_log_file = @my_slow_logname;
 
-connection con;
-flush status;
-
-connection default;
 disconnect con;
 
 --echo #
@@ -74,6 +77,7 @@ disconnect con;
 --echo #
 
 --perl
+# Parse the output log file
 open FILE, "$ENV{'MYSQLTEST_VARDIR'}/mysqld.1/data/slow_log_extra-slow.log" or die;
 my @lines = <FILE>;
 foreach $line (@lines) {
@@ -82,6 +86,8 @@ foreach $line (@lines) {
     print "$1 $2\n";
   }
 }
+# Delete the output log file
+unlink("$ENV{'MYSQLTEST_VARDIR'}/mysqld.1/data/slow_log_extra-slow.log");
 EOF
 
 drop table islow;
