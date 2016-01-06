@@ -1874,7 +1874,8 @@ get_store_key(THD *thd, Key_use *keyuse, table_map used_tables,
 			    key_buff + maybe_null,
 			    maybe_null ? key_buff : 0,
 			    key_part->length,
-			    keyuse->val);
+			    keyuse->val,
+			    key_part->document_path_key_part);
 }
 
 

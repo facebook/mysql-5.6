@@ -7014,12 +7014,6 @@ get_mm_leaf(RANGE_OPT_PARAM *param, Item *conf_func, Field *field,
     goto end;
   }
 
-  if (field->type() == MYSQL_TYPE_DOCUMENT)
-  {
-    // Clean up the document blob.
-    Field_document *field_document = (Field_document *)field;
-    field_document->reset_as_blob();
-  }
   if (save_value_and_handle_conversion(&tree, value, type, field,
                                        &impossible_cond_cause, alloc))
     goto end;
