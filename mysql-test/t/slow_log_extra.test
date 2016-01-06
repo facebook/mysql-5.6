@@ -58,31 +58,24 @@ delimiter ;||||
 
 --enable_ps_protocol
 
+# Wait for all output lines to show up in the slow log file
+let $file_lines_count=13;
+let $file_lines_pattern= ^# Query_time;
+let $file_lines_filename=
+    $MYSQLTEST_VARDIR/mysqld.1/data/slow_log_extra-slow.log;
+--source include/wait_for_file_lines.inc
+
 connection default;
 set global long_query_time = @my_long_query_time;
 set global slow_query_log_file = @my_slow_logname;
 
-connection con;
-flush status;
-
-connection default;
 disconnect con;
 
---echo #
---echo # This is a hack to check the log result.
---echo # We strip off time related fields (non-deterministic) and verify the rest are correct.
---echo #
-
---perl
-open FILE, "$ENV{'MYSQLTEST_VARDIR'}/mysqld.1/data/slow_log_extra-slow.log" or die;
-my @lines = <FILE>;
-foreach $line (@lines) {
-  if ($line =~ m/^# Query_time/) {
-    $line =~ m/(Rows_sent.*) Thread_id.* (Errno.*) Start.*/;
-    print "$1 $2\n";
-  }
-}
-EOF
+# Check the log results
+let $slow_log_output_filename = $file_lines_filename;
+let $slow_log_output_count = $file_lines_count;
+--source validate_slow_log_output.inc
+--remove_file $MYSQLTEST_VARDIR/mysqld.1/data/slow_log_extra-slow.log
 
 drop table islow;
 drop table mslow;
