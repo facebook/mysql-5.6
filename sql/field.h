@@ -3846,7 +3846,7 @@ public:
     Check whether this field is created based on the other field, such as
     a document path.
   */
-  bool is_derived_document_field() const
+  bool is_derived() const
   {
     return real_field() != this;
   }
@@ -3959,7 +3959,6 @@ public:
     will be checked.
   */
   bool is_null(my_ptrdiff_t row_offset= 0) const;
-  enum ha_base_keytype key_type() const { return HA_KEYTYPE_TEXT; }
   enum_field_types type() const { return MYSQL_TYPE_DOCUMENT; }
   bool match_collation_to_optimize_range() const { return false; }
   uint get_key_image(uchar *buff, uint length, imagetype type);
@@ -4014,6 +4013,31 @@ public:
   bool eq(Field *field);
   type_conversion_status reset(void);
 
+  enum ha_base_keytype key_type() const
+  {
+    DBUG_ASSERT(validate_doc_type());
+
+    switch (doc_type)
+    {
+    case DOC_PATH_TINY:
+      return HA_KEYTYPE_INT8;
+    case DOC_PATH_INT:
+      return HA_KEYTYPE_LONGLONG;
+    case DOC_PATH_DOUBLE:
+      return HA_KEYTYPE_DOUBLE;
+    case DOC_PATH_STRING:
+      return HA_KEYTYPE_VARBINARY2;
+    case DOC_DOCUMENT:
+      // A document key cannot be built on a document column
+      // directly but if a type needs to be returned
+      return HA_KEYTYPE_VARBINARY2;
+    default:
+      break;
+    }
+    DBUG_ASSERT(false); // should never reach here
+    return HA_KEYTYPE_END;
+  }
+
   document_type get_document_type()
   {
     DBUG_ASSERT(doc_type >= DOC_DOCUMENT);
@@ -4034,6 +4058,16 @@ public:
   {
     DBUG_ASSERT(validate_doc_type());
     return (doc_type == DOC_PATH_STRING);
+  }
+
+  // If the doc_type of this document is basic type,
+  // e.g. TINY/INT/DOUBLE/STRING, which indicates
+  // that this is a derived field and there is an
+  // index on it.
+  bool is_doc_type_basic()
+  {
+    DBUG_ASSERT(validate_doc_type());
+    return (doc_type != DOC_DOCUMENT);
   }
 
   void set_document_type(enum_field_types type)

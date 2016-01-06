@@ -920,11 +920,35 @@ static bool find_key_for_maxmin(bool max_fl, TABLE_REF *ref,
 
       /* Check whether the index component is partial */
       Field *part_field= table->field[part->fieldnr-1];
-      if ((part_field->flags & BLOB_FLAG) ||
-          part->length < part_field->key_length())
+
+      bool document_field_eq = false;
+      if (field->type() == MYSQL_TYPE_DOCUMENT &&
+          part_field->type() == MYSQL_TYPE_DOCUMENT &&
+          part->document_path_key_part)
+      {
+        Field_document *f_doc = (Field_document *)field;
+        DBUG_ASSERT(f_doc && (Field_document *)part_field);
+        if (f_doc->is_derived() && part_field->eq(f_doc->real_field()))
+        {
+          Document_path_iterator iter(f_doc);
+          document_field_eq = true;
+          for (uint i= 1; i< part->document_path_key_part->number_of_names; ++i)
+          {
+            Document_key *key = iter++;
+            char *name = part->document_path_key_part->names[i];
+            if (!key || !key->string || !name || strcmp(key->string, name))
+            {
+              document_field_eq = false;
+              break;
+            }
+          }
+        }
+      }
+      else if ((part_field->flags & BLOB_FLAG) ||
+               part->length < part_field->key_length())
         break;
 
-      if (field->eq(part->field))
+      if (document_field_eq || field->eq(part->field))
       {
         ref->key= idx;
         ref->key_length= 0;

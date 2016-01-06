@@ -1,0 +1,2932 @@
+--source include/have_innodb.inc
+--source include/have_innodb_16k.inc
+--source include/master-slave.inc
+connection master;
+
+############################################################################
+###
+### Create and populate tables
+###
+
+--source suite/json/include/type_document_path_optimizer.inc
+
+
+--echo ######################################################################
+--echo ###
+--echo ### To verify the bug fix in subselect_indexsubquery_engine::exec() in item_subselect.cc
+--echo ### When building the string key for a boolean vaule, use '1'/'0' in stead of NULL
+--echo ###
+
+--disable_warnings
+drop table if exists t11, t12, t13;
+--enable_warnings
+
+create table t11 (
+  a11 int primary key,
+  doc11 document,
+  key doc11_string (doc11.string as string(3))
+) engine = innodb;
+
+create table t12 (
+  a12 int primary key,
+  doc12 document,
+  key doc12_string (doc12.string as string(3))
+) engine = innodb;
+
+create table t13 (
+  a13 int primary key,
+  doc13 document,
+  key doc13_string (doc13.string as string(3))
+) engine = innodb;
+
+insert into t11 values (1, '{"string":"aaa"}');
+
+insert into t12 values (1, '{"string":true}');
+
+insert into t13 values (1, '{"string":false}');
+
+explain extended
+select t11.doc11.string from t11 use document keys
+where t11.doc11.string <> all (select t12.doc12.string from t12 use document keys where t12.doc12.string > "eee");
+
+select t11.doc11.string from t11 use document keys
+where t11.doc11.string <> all (select t12.doc12.string from t12 use document keys where t12.doc12.string > "eee");
+
+select t11.doc11.string from t11 use document keys
+where t11.doc11.string <> all (select t13.doc13.string from t13 use document keys where t13.doc13.string > "eee");
+
+drop table t11, t12, t13;
+
+
+--echo ######################################################################
+--echo ###
+--echo ###   Subqueries
+--echo ###     -- Semi-join for IN
+--echo ###        -- Non-correlated -- where_condition involves only columns from t7 and not t6
+--echo ###
+
+
+--echo ###
+--echo ### Bool: t6 and t7
+--echo ###
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 in (select t7.b7 from t7 where t7.b7 is true);
+
+explain extended
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool in (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is true);
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool in (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is true);
+
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool in (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is false);
+
+explain extended
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool in (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is not true);
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool in (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is not true);
+
+explain extended
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool not in (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is true);
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool not in (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is true);
+
+explain extended
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool not in (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is not true);
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool not in (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is not true);
+
+explain extended
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int in (select t7.doc71.int from t7 use document keys where t7.doc71.int is true);
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int in (select t7.doc71.int from t7 use document keys where t7.doc71.int is true);
+
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int not in (select t7.doc71.int from t7 use document keys where t7.doc71.int is not true);
+
+explain extended
+select t6.doc61.double from t6 use document keys
+where t6.doc61.double in (select t7.doc71.double from t7 use document keys where t7.doc71.double is true);
+select t6.doc61.double from t6 use document keys
+where t6.doc61.double in (select t7.doc71.double from t7 use document keys where t7.doc71.double is true);
+
+select t6.doc61.double from t6 use document keys
+where t6.doc61.double not in (select t7.doc71.double from t7 use document keys where t7.doc71.double is not true);
+
+explain extended
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string in (select t7.doc71.string from t7 use document keys where t7.doc71.string is false);
+
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string in (select t7.doc71.string from t7 use document keys where t7.doc71.string is false);
+
+--echo ###
+--echo ### Bool: t1 and t2
+--echo ###
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 in (select t2.b2 from t2 where t2.b2 > 9);
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int in (select t2.doc21.int from t2 use document keys where t2.doc21.int > 9);
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int in (select t2.doc21.int from t2 use document keys where t2.doc21.int > 9);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 in (select t2.b2 from t2 where t2.b2 is true);
+
+explain extended
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool in (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is true);
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool in (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is true);
+
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool in (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is false);
+
+explain extended
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool in (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is not true);
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool in (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is not true);
+
+explain extended
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool not in (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is true);
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool not in (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is true);
+
+explain extended
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool not in (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is not true);
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool not in (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is not true);
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int in (select t2.doc21.int from t2 use document keys where t2.doc21.int is true);
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int in (select t2.doc21.int from t2 use document keys where t2.doc21.int is true);
+
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int not in (select t2.doc21.int from t2 use document keys where t2.doc21.int is not true);
+
+explain extended
+select t1.doc11.double from t1 use document keys
+where t1.doc11.double in (select t2.doc21.double from t2 use document keys where t2.doc21.double is true);
+select t1.doc11.double from t1 use document keys
+where t1.doc11.double in (select t2.doc21.double from t2 use document keys where t2.doc21.double is true);
+
+select t1.doc11.double from t1 use document keys
+where t1.doc11.double not in (select t2.doc21.double from t2 use document keys where t2.doc21.double is not true);
+
+explain extended
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string in (select t2.doc21.string from t2 use document keys where t2.doc21.string is false);
+
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string in (select t2.doc21.string from t2 use document keys where t2.doc21.string is false);
+
+--echo ###
+--echo ### Range: t6 and t7
+--echo ###
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 in (select t7.b7 from t7 where t7.b7 <= 3);
+
+explain extended
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int in (select t7.doc71.int from t7 use document keys where t7.doc71.int <= 3);
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int in (select t7.doc71.int from t7 use document keys where t7.doc71.int <= 3);
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 in (select t7.b7 from t7 where t7.b7 > 9);
+
+explain extended
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int in (select t7.doc71.int from t7 use document keys where t7.doc71.int > 9);
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int in (select t7.doc71.int from t7 use document keys where t7.doc71.int > 9);
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 in (select t7.b7 from t7 where t7.b7 >= 9 and t7.b7 < 100);
+
+explain extended
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int in (select t7.doc71.int from t7 use document keys where t7.doc71.int >= 9 and t7.doc71.int < 100);
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int in (select t7.doc71.int from t7 use document keys where t7.doc71.int >= 9 and t7.doc71.int < 100);
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 in (select t7.b7 from t7 where t7.b7 between 2 and 12);
+
+explain extended
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int in (select t7.doc71.int from t7 use document keys where t7.doc71.int between 2 and 12);
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int in (select t7.doc71.int from t7 use document keys where t7.doc71.int between 2 and 12);
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 in (select t7.b7 from t7 where t7.b7 not in (0, 7, 3, 12, 100));
+
+explain extended
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int in (select t7.doc71.int from t7 use document keys where t7.doc71.int not in (0, 7, 3, 12, 100));
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int in (select t7.doc71.int from t7 use document keys where t7.doc71.int not in (0, 7, 3, 12, 100));
+
+--echo ### USED AS STANDARD
+explain extended select b6 from t6 where b6 in (
+                 select b7 from t7
+                        where ((b7 > 3 and b7 < 8) and (b7 not between 6 and 9)) or
+                              ((b7 between 11 and 15) and (b7 not in (4, 5))));
+
+explain extended
+select doc61.int from t6 use document keys where doc61.int in (
+       select doc71.int from t7 use document keys
+              where ((doc71.int > 3 and doc71.int < 8) and (doc71.int not between 6 and 9)) or
+                    ((doc71.int between 11 and 15) and (doc71.int not in (4, 5))));
+
+select doc61.int from t6 use document keys where doc61.int in (
+       select doc71.int from t7 use document keys
+              where ((doc71.int > 3 and doc71.int < 8) and (doc71.int not between 6 and 9)) or
+                    ((doc71.int between 11 and 15) and (doc71.int not in (4, 5))));
+
+--echo ### USED AS STANDARD
+explain extended select t6.c6 from t6 where t6.c6 in (select t7.c7 from t7 where t7.c7 > 9.9);
+select t6.c6 from t6 where t6.c6 in (select t7.c7 from t7 where t7.c7 > 9.9);
+
+--echo ### FIXME: double: different plan
+explain extended
+select t6.doc61.double from t6 use document keys
+where t6.doc61.double in (select t7.doc71.double from t7 use document keys where t7.doc71.double > 9.9);
+select t6.doc61.double from t6 use document keys
+where t6.doc61.double in (select t7.doc71.double from t7 use document keys where t7.doc71.double > 9.9);
+
+--echo ### USED AS STANDARD
+explain extended select t6.str6 from t6 where t6.str6 in (select t7.str7 from t7 where t7.str7 > "eee");
+select t6.str6 from t6 where t6.str6 in (select t7.str7 from t7 where t7.str7 > "eee");
+
+--echo ### FIXME: string: different plan
+explain extended
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string in (select t7.doc71.string from t7 use document keys where t7.doc71.string > "eee");
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string in (select t7.doc71.string from t7 use document keys where t7.doc71.string > "eee");
+
+--echo ###
+--echo ### Range: t1 and t2
+--echo ###
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 in (select t2.b2 from t2 where t2.b2 <= 3);
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int in (select t2.doc21.int from t2 use document keys where t2.doc21.int <= 3);
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int in (select t2.doc21.int from t2 use document keys where t2.doc21.int <= 3);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 in (select t2.b2 from t2 where t2.b2 > 9);
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int in (select t2.doc21.int from t2 use document keys where t2.doc21.int > 9);
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int in (select t2.doc21.int from t2 use document keys where t2.doc21.int > 9);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 in (select t2.b2 from t2 where t2.b2 >= 9 and t2.b2 < 100);
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int in (select t2.doc21.int from t2 use document keys where t2.doc21.int >= 9 and t2.doc21.int < 100);
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int in (select t2.doc21.int from t2 use document keys where t2.doc21.int >= 9 and t2.doc21.int < 100);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 in (select t2.b2 from t2 where t2.b2 between 2 and 12);
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int in (select t2.doc21.int from t2 use document keys where t2.doc21.int between 2 and 12);
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int in (select t2.doc21.int from t2 use document keys where t2.doc21.int between 2 and 12);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 in (select t2.b2 from t2 where t2.b2 not in (0, 7, 3, 12, 100));
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int in (select t2.doc21.int from t2 use document keys where t2.doc21.int not in (0, 7, 3, 12, 100));
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int in (select t2.doc21.int from t2 use document keys where t2.doc21.int not in (0, 7, 3, 12, 100));
+
+--echo ### USED AS STANDARD
+explain extended select b1 from t1 where b1 in (
+                 select b2 from t2
+                        where ((b2 > 3 and b2 < 8) and (b2 not between 6 and 9)) or
+                              ((b2 between 11 and 15) and (b2 not in (4, 5))));
+
+explain extended
+select doc11.int from t1 use document keys where doc11.int in (
+       select doc21.int from t2 use document keys
+              where ((doc21.int > 3 and doc21.int < 8) and (doc21.int not between 6 and 9)) or
+                    ((doc21.int between 11 and 15) and (doc21.int not in (4, 5))));
+
+select doc11.int from t1 use document keys where doc11.int in (
+       select doc21.int from t2 use document keys
+              where ((doc21.int > 3 and doc21.int < 8) and (doc21.int not between 6 and 9)) or
+                    ((doc21.int between 11 and 15) and (doc21.int not in (4, 5))));
+
+--echo ### USED AS STANDARD
+explain extended select t1.c1 from t1 where t1.c1 in (select t2.c2 from t2 where t2.c2 > 9.9);
+select t1.c1 from t1 where t1.c1 in (select t2.c2 from t2 where t2.c2 > 9.9);
+
+--echo ### FIXME: double: different plan
+explain extended
+select t1.doc11.double from t1 use document keys
+where t1.doc11.double in (select t2.doc21.double from t2 use document keys where t2.doc21.double > 9.9);
+select t1.doc11.double from t1 use document keys
+where t1.doc11.double in (select t2.doc21.double from t2 use document keys where t2.doc21.double > 9.9);
+
+--echo ### USED AS STANDARD
+explain extended select t1.str1 from t1 where t1.str1 in (select t2.str2 from t2 where t2.str2 > "eee");
+select t1.str1 from t1 where t1.str1 in (select t2.str2 from t2 where t2.str2 > "eee");
+
+--echo ### FIXME: string: different plan
+explain extended
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string in (select t2.doc21.string from t2 use document keys where t2.doc21.string > "eee");
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string in (select t2.doc21.string from t2 use document keys where t2.doc21.string > "eee");
+
+
+--echo ######################################################################
+--echo ###
+--echo ###   Subqueries
+--echo ###     -- Semi-join for ANY
+--echo ###        -- Non-correlated -- where_condition involves only columns from t7 and not t6
+--echo ###
+
+--echo ###
+--echo ### Bool: t6 and t7
+--echo ###
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 = any (select t7.b7 from t7 where t7.b7 is true);
+
+explain extended
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool = any (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is true);
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool = any (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is true);
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 <> any (select t7.b7 from t7 where t7.b7 is true);
+
+explain extended
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool <> any (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is true);
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool <> any (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is true);
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 > any (select t7.b7 from t7 where t7.b7 is not true);
+
+explain extended
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool > any (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is not true);
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool > any (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is not true);
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 <= any (select t7.b7 from t7 where t7.b7 is false);
+
+explain extended
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool <= any (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is false);
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool <= any (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is false);
+
+--echo ###
+--echo ### Bool: t1 and t2
+--echo ###
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 = any (select t2.b2 from t2 where t2.b2 is true);
+
+explain extended
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool = any (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is true);
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool = any (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is true);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 <> any (select t2.b2 from t2 where t2.b2 is true);
+
+explain extended
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool <> any (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is true);
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool <> any (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is true);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 > any (select t2.b2 from t2 where t2.b2 is not true);
+
+explain extended
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool > any (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is not true);
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool > any (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is not true);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 <= any (select t2.b2 from t2 where t2.b2 is false);
+
+explain extended
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool <= any (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is false);
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool <= any (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is false);
+
+--echo ###
+--echo ### Range: t6 and t7
+--echo ###
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 <> any (select t7.b7 from t7 where t7.b7 > 9);
+
+explain extended
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int <> any (select t7.doc71.int from t7 use document keys where t7.doc71.int > 9);
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int <> any (select t7.doc71.int from t7 use document keys where t7.doc71.int > 9);
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 > any (select t7.b7 from t7 where t7.b7 >= 9 and t7.b7 < 100);
+
+explain extended
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int > any (select t7.doc71.int from t7 use document keys where t7.doc71.int >= 9 and t7.doc71.int < 100);
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int > any (select t7.doc71.int from t7 use document keys where t7.doc71.int >= 9 and t7.doc71.int < 100);
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 <= any (select t7.b7 from t7 where t7.b7 between 2 and 12);
+
+explain extended
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int <= any (select t7.doc71.int from t7 use document keys where t7.doc71.int between 2 and 12);
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int <= any (select t7.doc71.int from t7 use document keys where t7.doc71.int between 2 and 12);
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 = any (select t7.b7 from t7 where t7.b7 not in (0, 7, 3, 12, 100));
+
+explain extended
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int = any (select t7.doc71.int from t7 use document keys where t7.doc71.int not in (0, 7, 3, 12, 100));
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int = any (select t7.doc71.int from t7 use document keys where t7.doc71.int not in (0, 7, 3, 12, 100));
+
+--echo ### USED AS STANDARD
+explain extended select b6 from t6 where b6 <> any (
+                 select b7 from t7
+                        where ((b7 > 3 and b7 < 8) and (b7 not between 6 and 9)) or
+                              ((b7 between 11 and 15) and (b7 not in (4, 5))));
+
+explain extended
+select doc61.int from t6 use document keys where doc61.int <> any (
+       select doc71.int from t7 use document keys
+              where ((doc71.int > 3 and doc71.int < 8) and (doc71.int not between 6 and 9)) or
+                    ((doc71.int between 11 and 15) and (doc71.int not in (4, 5))));
+
+select doc61.int from t6 use document keys where doc61.int <> any (
+       select doc71.int from t7 use document keys
+              where ((doc71.int > 3 and doc71.int < 8) and (doc71.int not between 6 and 9)) or
+                    ((doc71.int between 11 and 15) and (doc71.int not in (4, 5))));
+
+
+--echo ### USED AS STANDARD
+explain extended select t6.str6 from t6 where t6.str6 <> any (select t7.str7 from t7 where t7.str7 > "eee");
+
+explain extended
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string <> any (select t7.doc71.string from t7 use document keys where t7.doc71.string > "eee");
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string <> any (select t7.doc71.string from t7 use document keys where t7.doc71.string > "eee");
+
+--echo ### USED AS STANDARD
+explain extended select t6.str6 from t6 where t6.str6 > any (select t7.str7 from t7 where t7.str7 >= "hhh" and t7.str7 < "zzz");
+
+explain extended
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string > any (select t7.doc71.string from t7 use document keys where t7.doc71.string >= "hhh" and t7.doc71.string < "zzz");
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string > any (select t7.doc71.string from t7 use document keys where t7.doc71.string >= "hhh" and t7.doc71.string < "zzz");
+
+--echo ### USED AS STANDARD
+explain extended select t6.str6 from t6 where t6.str6 <= any (select t7.str7 from t7 where t7.str7 between "hhh" and "kkk");
+
+explain extended
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string <= any (select t7.doc71.string from t7 use document keys where t7.doc71.string between "hhh" and "zzz");
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string <= any (select t7.doc71.string from t7 use document keys where t7.doc71.string between "hhh" and "zzz");
+
+--echo ### USED AS STANDARD
+explain extended select t6.str6 from t6 where t6.str6 = any (select t7.str7 from t7 where t7.str7 not in ("aaa", "hhh", "ccc", "jjj", "zzz"));
+
+explain extended
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string = any (select t7.doc71.string from t7 use document keys where t7.doc71.string not in ("aaa", "hhh", "ccc", "jjj", "zzz"));
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string = any (select t7.doc71.string from t7 use document keys where t7.doc71.string not in ("aaa", "hhh", "ccc", "jjj", "zzz"));
+
+--echo ### USED AS STANDARD
+explain extended select str6 from t6 where str6 <> any (
+                 select str7 from t7
+                        where ((str7 > "eee" and str7 < "hhh") and (str7 not between "ggg" and "iii")) or
+                              ((str7 between "kkk" and "zzz") and (str7 not in ("ddd", "fff"))));
+
+explain extended
+select doc61.string from t6 use document keys where doc61.string <> any (
+       select doc71.string from t7 use document keys
+              where ((doc71.string > "eee" and doc71.string < "hhh") and (doc71.string not between "ggg" and "iii")) or
+                    ((doc71.string between "kkk" and "zzz") and (doc71.string not in ("ddd", "fff"))));
+
+select doc61.string from t6 use document keys where doc61.string <> any (
+       select doc71.string from t7 use document keys
+              where ((doc71.string > "eee" and doc71.string < "hhh") and (doc71.string not between "ggg" and "iii")) or
+                    ((doc71.string between "kkk" and "zzz") and (doc71.string not in ("ddd", "fff"))));
+
+--echo ###
+--echo ### Range: t1 and t2
+--echo ###
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 <> any (select t2.b2 from t2 where t2.b2 > 9);
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int <> any (select t2.doc21.int from t2 use document keys where t2.doc21.int > 9);
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int <> any (select t2.doc21.int from t2 use document keys where t2.doc21.int > 9);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 > any (select t2.b2 from t2 where t2.b2 >= 9 and t2.b2 < 100);
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int > any (select t2.doc21.int from t2 use document keys where t2.doc21.int >= 9 and t2.doc21.int < 100);
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int > any (select t2.doc21.int from t2 use document keys where t2.doc21.int >= 9 and t2.doc21.int < 100);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 <= any (select t2.b2 from t2 where t2.b2 between 2 and 12);
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int <= any (select t2.doc21.int from t2 use document keys where t2.doc21.int between 2 and 12);
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int <= any (select t2.doc21.int from t2 use document keys where t2.doc21.int between 2 and 12);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 = any (select t2.b2 from t2 where t2.b2 not in (0, 7, 3, 12, 100));
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int = any (select t2.doc21.int from t2 use document keys where t2.doc21.int not in (0, 7, 3, 12, 100));
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int = any (select t2.doc21.int from t2 use document keys where t2.doc21.int not in (0, 7, 3, 12, 100));
+
+--echo ### USED AS STANDARD
+explain extended select b1 from t1 where b1 <> any (
+                 select b2 from t2
+                        where ((b2 > 3 and b2 < 8) and (b2 not between 6 and 9)) or
+                              ((b2 between 11 and 15) and (b2 not in (4, 5))));
+
+explain extended
+select doc11.int from t1 use document keys where doc11.int <> any (
+       select doc21.int from t2 use document keys
+              where ((doc21.int > 3 and doc21.int < 8) and (doc21.int not between 6 and 9)) or
+                    ((doc21.int between 11 and 15) and (doc21.int not in (4, 5))));
+
+select doc11.int from t1 use document keys where doc11.int <> any (
+       select doc21.int from t2 use document keys
+              where ((doc21.int > 3 and doc21.int < 8) and (doc21.int not between 6 and 9)) or
+                    ((doc21.int between 11 and 15) and (doc21.int not in (4, 5))));
+
+--echo ### USED AS STANDARD
+explain extended select t1.str1 from t1 where t1.str1 <> any (select t2.str2 from t2 where t2.str2 > "eee");
+
+explain extended
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string <> any (select t2.doc21.string from t2 use document keys where t2.doc21.string > "eee");
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string <> any (select t2.doc21.string from t2 use document keys where t2.doc21.string > "eee");
+
+--echo ### USED AS STANDARD
+explain extended select t1.str1 from t1 where t1.str1 > any (select t2.str2 from t2 where t2.str2 >= "hhh" and t2.str2 < "zzz");
+
+explain extended
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string > any (select t2.doc21.string from t2 use document keys where t2.doc21.string >= "hhh" and t2.doc21.string < "zzz");
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string > any (select t2.doc21.string from t2 use document keys where t2.doc21.string >= "hhh" and t2.doc21.string < "zzz");
+
+--echo ### USED AS STANDARD
+explain extended select t1.str1 from t1 where t1.str1 <= any (select t2.str2 from t2 where t2.str2 between "hhh" and "kkk");
+
+explain extended
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string <= any (select t2.doc21.string from t2 use document keys where t2.doc21.string between "hhh" and "zzz");
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string <= any (select t2.doc21.string from t2 use document keys where t2.doc21.string between "hhh" and "zzz");
+
+--echo ### USED AS STANDARD
+explain extended select t1.str1 from t1 where t1.str1 = any (select t2.str2 from t2 where t2.str2 not in ("aaa", "hhh", "ccc", "jjj", "zzz"));
+
+explain extended
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string = any (select t2.doc21.string from t2 use document keys where t2.doc21.string not in ("aaa", "hhh", "ccc", "jjj", "zzz"));
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string = any (select t2.doc21.string from t2 use document keys where t2.doc21.string not in ("aaa", "hhh", "ccc", "jjj", "zzz"));
+
+--echo ### USED AS STANDARD
+explain extended select str1 from t1 where str1 <> any (
+                 select str2 from t2
+                        where ((str2 > "eee" and str2 < "hhh") and (str2 not between "ggg" and "iii")) or
+                              ((str2 between "kkk" and "zzz") and (str2 not in ("ddd", "fff"))));
+
+explain extended
+select doc11.string from t1 use document keys where doc11.string <> any (
+       select doc21.string from t2 use document keys
+              where ((doc21.string > "eee" and doc21.string < "hhh") and (doc21.string not between "ggg" and "iii")) or
+                    ((doc21.string between "kkk" and "zzz") and (doc21.string not in ("ddd", "fff"))));
+
+select doc11.string from t1 use document keys where doc11.string <> any (
+       select doc21.string from t2 use document keys
+              where ((doc21.string > "eee" and doc21.string < "hhh") and (doc21.string not between "ggg" and "iii")) or
+                    ((doc21.string between "kkk" and "zzz") and (doc21.string not in ("ddd", "fff"))));
+
+
+--echo ######################################################################
+--echo ###
+--echo ###   Subqueries
+--echo ###     -- Semi-join for SOME (an alias of ANY)
+--echo ###        -- Non-correlated -- where_condition involves only columns from t7 and not t6
+--echo ###
+
+--echo ###
+--echo ### Bool: t6 and t7
+--echo ###
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 = some (select t7.b7 from t7 where t7.b7 is true);
+
+explain extended
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool = some (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is true);
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool = some (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is true);
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 <> some (select t7.b7 from t7 where t7.b7 is true);
+
+explain extended
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool <> some (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is true);
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool <> some (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is true);
+
+--echo ###
+--echo ### Bool: t1 and t2
+--echo ###
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 = some (select t2.b2 from t2 where t2.b2 is true);
+
+explain extended
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool = some (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is true);
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool = some (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is true);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 <> some (select t2.b2 from t2 where t2.b2 is true);
+
+explain extended
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool <> some (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is true);
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool <> some (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is true);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 > some (select t2.b2 from t2 where t2.b2 is not true);
+
+explain extended
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool > some (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is not true);
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool > some (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is not true);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 <= some (select t2.b2 from t2 where t2.b2 is false);
+
+explain extended
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool <= some (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is false);
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool <= some (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is false);
+
+--echo ###
+--echo ### Range: t6 and t7
+--echo ###
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 <> some (select t7.b7 from t7 where t7.b7 > 9);
+
+explain extended
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int <> some (select t7.doc71.int from t7 use document keys where t7.doc71.int > 9);
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int <> some (select t7.doc71.int from t7 use document keys where t7.doc71.int > 9);
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 <= some (select t7.b7 from t7 where t7.b7 between 2 and 12);
+
+explain extended
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int <= some (select t7.doc71.int from t7 use document keys where t7.doc71.int between 2 and 12);
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int <= some (select t7.doc71.int from t7 use document keys where t7.doc71.int between 2 and 12);
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 = some (select t7.b7 from t7 where t7.b7 not in (0, 7, 3, 12, 100));
+
+explain extended
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int = some (select t7.doc71.int from t7 use document keys where t7.doc71.int not in (0, 7, 3, 12, 100));
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int = some (select t7.doc71.int from t7 use document keys where t7.doc71.int not in (0, 7, 3, 12, 100));
+
+--echo ### USED AS STANDARD
+explain extended select t6.str6 from t6 where t6.str6 > some (select t7.str7 from t7 where t7.str7 >= "hhh" and t7.b7 < "zzz");
+
+explain extended
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string > some (select t7.doc71.string from t7 use document keys where t7.doc71.string >= "hhh" and t7.doc71.string < "zzz");
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string > some (select t7.doc71.string from t7 use document keys where t7.doc71.string >= "hhh" and t7.doc71.string < "zzz");
+
+--echo ### USED AS STANDARD
+explain extended select t6.str6 from t6 where t6.str6 <= some (select t7.str7 from t7 where t7.str7 between "hhh" and "kkk");
+
+explain extended
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string <= some (select t7.doc71.string from t7 use document keys where t7.doc71.string between "hhh" and "zzz");
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string <= some (select t7.doc71.string from t7 use document keys where t7.doc71.string between "hhh" and "zzz");
+
+--echo ### USED AS STANDARD
+explain extended select t6.str6 from t6 where t6.str6 = some (select t7.str7 from t7 where t7.str7 not in ("aaa", "hhh", "ccc", "jjj", "zzz"));
+
+explain extended
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string = some (select t7.doc71.string from t7 use document keys where t7.doc71.string not in ("aaa", "hhh", "ccc", "jjj", "zzz"));
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string = some (select t7.doc71.string from t7 use document keys where t7.doc71.string not in ("aaa", "hhh", "ccc", "jjj", "zzz"));
+
+--echo ###
+--echo ### Range: t1 and t2
+--echo ###
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 <> some (select t2.b2 from t2 where t2.b2 > 9);
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int <> some (select t2.doc21.int from t2 use document keys where t2.doc21.int > 9);
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int <> some (select t2.doc21.int from t2 use document keys where t2.doc21.int > 9);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 > some (select t2.b2 from t2 where t2.b2 >= 9 and t2.b2 < 100);
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int > some (select t2.doc21.int from t2 use document keys where t2.doc21.int >= 9 and t2.doc21.int < 100);
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int > some (select t2.doc21.int from t2 use document keys where t2.doc21.int >= 9 and t2.doc21.int < 100);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 <= some (select t2.b2 from t2 where t2.b2 between 2 and 12);
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int <= some (select t2.doc21.int from t2 use document keys where t2.doc21.int between 2 and 12);
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int <= some (select t2.doc21.int from t2 use document keys where t2.doc21.int between 2 and 12);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 = some (select t2.b2 from t2 where t2.b2 not in (0, 7, 3, 12, 100));
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int = some (select t2.doc21.int from t2 use document keys where t2.doc21.int not in (0, 7, 3, 12, 100));
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int = some (select t2.doc21.int from t2 use document keys where t2.doc21.int not in (0, 7, 3, 12, 100));
+
+--echo ### USED AS STANDARD
+explain extended select b1 from t1 where b1 <> some (
+                 select b2 from t2
+                        where ((b2 > 3 and b2 < 8) and (b2 not between 6 and 9)) or
+                              ((b2 between 11 and 15) and (b2 not in (4, 5))));
+
+explain extended
+select doc11.int from t1 use document keys where doc11.int <> some (
+       select doc21.int from t2 use document keys
+              where ((doc21.int > 3 and doc21.int < 8) and (doc21.int not between 6 and 9)) or
+                    ((doc21.int between 11 and 15) and (doc21.int not in (4, 5))));
+
+select doc11.int from t1 use document keys where doc11.int <> some (
+       select doc21.int from t2 use document keys
+              where ((doc21.int > 3 and doc21.int < 8) and (doc21.int not between 6 and 9)) or
+                    ((doc21.int between 11 and 15) and (doc21.int not in (4, 5))));
+
+--echo ### USED AS STANDARD
+explain extended select t1.str1 from t1 where t1.str1 > some (select t2.str2 from t2 where t2.str2 >= "hhh" and t2.str2 < "zzz");
+
+explain extended
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string > some (select t2.doc21.string from t2 use document keys where t2.doc21.string >= "hhh" and t2.doc21.string < "zzz");
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string > some (select t2.doc21.string from t2 use document keys where t2.doc21.string >= "hhh" and t2.doc21.string < "zzz");
+
+--echo ### USED AS STANDARD
+explain extended select t1.str1 from t1 where t1.str1 <= some (select t2.str2 from t2 where t2.str2 between "hhh" and "kkk");
+
+explain extended
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string <= some (select t2.doc21.string from t2 use document keys where t2.doc21.string between "hhh" and "zzz");
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string <= some (select t2.doc21.string from t2 use document keys where t2.doc21.string between "hhh" and "zzz");
+
+--echo ### USED AS STANDARD
+explain extended select t1.str1 from t1 where t1.str1 = some (select t2.str2 from t2 where t2.str2 not in ("aaa", "hhh", "ccc", "jjj", "zzz"));
+
+explain extended
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string = some (select t2.doc21.string from t2 use document keys where t2.doc21.string not in ("aaa", "hhh", "ccc", "jjj", "zzz"));
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string = some (select t2.doc21.string from t2 use document keys where t2.doc21.string not in ("aaa", "hhh", "ccc", "jjj", "zzz"));
+
+
+--echo ######################################################################
+--echo ###
+--echo ###   Subqueries
+--echo ###     -- Semi-join for ALL
+--echo ###        -- Non-correlated -- where_condition involves only columns from t7 and not t6
+--echo ###
+
+--echo ###
+--echo ### Bool: t6 and t7
+--echo ###
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 = all (select t7.b7 from t7 where t7.b7 is true);
+
+explain extended
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool = all (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is true);
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool = all (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is true);
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 <> all (select t7.b7 from t7 where t7.b7 is true);
+
+explain extended
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool <> all (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is true);
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool <> all (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is true);
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 > all (select t7.b7 from t7 where t7.b7 is not true);
+
+explain extended
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool > all (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is not true);
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool > all (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is not true);
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 <= all (select t7.b7 from t7 where t7.b7 is false);
+
+explain extended
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool <= all (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is false);
+select t6.doc61.bool from t6 use document keys
+where t6.doc61.bool <= all (select t7.doc71.bool from t7 use document keys where t7.doc71.bool is false);
+
+--echo ###
+--echo ### Bool: t1 and t2
+--echo ###
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 = all (select t2.b2 from t2 where t2.b2 is true);
+
+explain extended
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool = all (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is true);
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool = all (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is true);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 <> all (select t2.b2 from t2 where t2.b2 is true);
+
+explain extended
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool <> all (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is true);
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool <> all (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is true);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 > all (select t2.b2 from t2 where t2.b2 is not true);
+
+explain extended
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool > all (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is not true);
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool > all (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is not true);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 <= all (select t2.b2 from t2 where t2.b2 is false);
+
+explain extended
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool <= all (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is false);
+select t1.doc11.bool from t1 use document keys
+where t1.doc11.bool <= all (select t2.doc21.bool from t2 use document keys where t2.doc21.bool is false);
+
+--echo ###
+--echo ### Range: t6 and t7
+--echo ###
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 <> all (select t7.b7 from t7 where t7.b7 > 9);
+
+explain extended
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int <> all (select t7.doc71.int from t7 use document keys where t7.doc71.int > 9);
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int <> all (select t7.doc71.int from t7 use document keys where t7.doc71.int > 9);
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 > all (select t7.b7 from t7 where t7.b7 >= 9 and t7.b7 < 100);
+
+explain extended
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int > all (select t7.doc71.int from t7 use document keys where t7.doc71.int >= 9 and t7.doc71.int < 100);
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int > all (select t7.doc71.int from t7 use document keys where t7.doc71.int >= 9 and t7.doc71.int < 100);
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 <= all (select t7.b7 from t7 where t7.b7 between 2 and 12);
+
+explain extended
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int <= all (select t7.doc71.int from t7 use document keys where t7.doc71.int between 2 and 12);
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int <= all (select t7.doc71.int from t7 use document keys where t7.doc71.int between 2 and 12);
+
+--echo ### USED AS STANDARD
+explain extended select t6.b6 from t6 where t6.b6 = all (select t7.b7 from t7 where t7.b7 not in (0, 7, 3, 12, 100));
+
+explain extended
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int = all (select t7.doc71.int from t7 use document keys where t7.doc71.int not in (0, 7, 3, 12, 100));
+select t6.doc61.int from t6 use document keys
+where t6.doc61.int = all (select t7.doc71.int from t7 use document keys where t7.doc71.int not in (0, 7, 3, 12, 100));
+
+--echo ### USED AS STANDARD
+explain extended select b6 from t6 where b6 <> all (
+                 select b7 from t7
+                        where ((b7 > 3 and b7 < 8) and (b7 not between 6 and 9)) or
+                              ((b7 between 11 and 15) and (b7 not in (4, 5))));
+
+explain extended
+select doc61.int from t6 use document keys where doc61.int <> all (
+       select doc71.int from t7 use document keys
+              where ((doc71.int > 3 and doc71.int < 8) and (doc71.int not between 6 and 9)) or
+                    ((doc71.int between 11 and 15) and (doc71.int not in (4, 5))));
+
+select doc61.int from t6 use document keys where doc61.int <> all (
+       select doc71.int from t7 use document keys
+              where ((doc71.int > 3 and doc71.int < 8) and (doc71.int not between 6 and 9)) or
+                    ((doc71.int between 11 and 15) and (doc71.int not in (4, 5))));
+
+
+--echo ### USED AS STANDARD
+explain extended select t6.str6 from t6 where t6.str6 <> all (select t7.str7 from t7 where t7.str7 > "eee");
+
+explain extended
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string <> all (select t7.doc71.string from t7 use document keys where t7.doc71.string > "eee");
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string <> all (select t7.doc71.string from t7 use document keys where t7.doc71.string > "eee");
+
+--echo ### USED AS STANDARD
+explain extended select t6.str6 from t6 where t6.str6 > all (select t7.str7 from t7 where t7.str7 >= "hhh" and t7.b7 < "zzz");
+
+explain extended
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string > all (select t7.doc71.string from t7 use document keys where t7.doc71.string >= "hhh" and t7.doc71.string < "zzz");
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string > all (select t7.doc71.string from t7 use document keys where t7.doc71.string >= "hhh" and t7.doc71.string < "zzz");
+
+--echo ### USED AS STANDARD
+explain extended select t6.str6 from t6 where t6.str6 <= all (select t7.str7 from t7 where t7.str7 between "hhh" and "kkk");
+
+explain extended
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string <= all (select t7.doc71.string from t7 use document keys where t7.doc71.string between "hhh" and "zzz");
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string <= all (select t7.doc71.string from t7 use document keys where t7.doc71.string between "hhh" and "zzz");
+
+--echo ### USED AS STANDARD
+explain extended select t6.str6 from t6 where t6.str6 = all (select t7.str7 from t7 where t7.str7 not in ("aaa", "hhh", "ccc", "jjj", "zzz"));
+
+explain extended
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string = all (select t7.doc71.string from t7 use document keys where t7.doc71.string not in ("aaa", "hhh", "ccc", "jjj", "zzz"));
+select t6.doc61.string from t6 use document keys
+where t6.doc61.string = all (select t7.doc71.string from t7 use document keys where t7.doc71.string not in ("aaa", "hhh", "ccc", "jjj", "zzz"));
+
+--echo ### USED AS STANDARD
+explain extended select str6 from t6 where str6 <> all (
+                 select str7 from t7
+                        where ((str7 > "eee" and str7 < "hhh") and (str7 not between "ggg" and "iii")) or
+                              ((str7 between "kkk" and "zzz") and (str7 not in ("ddd", "fff"))));
+explain extended
+select doc61.string from t6 use document keys where doc61.string <> all (
+       select doc71.string from t7 use document keys
+              where ((doc71.string > "eee" and doc71.string < "hhh") and (doc71.string not between "ggg" and "iii")) or
+                    ((doc71.string between "kkk" and "zzz") and (doc71.string not in ("ddd", "fff"))));
+
+select doc61.string from t6 use document keys where doc61.string <> all (
+       select doc71.string from t7 use document keys
+              where ((doc71.string > "eee" and doc71.string < "hhh") and (doc71.string not between "ggg" and "iii")) or
+                    ((doc71.string between "kkk" and "zzz") and (doc71.string not in ("ddd", "fff"))));
+
+--echo ###
+--echo ### Range: t1 and t2
+--echo ###
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 <> all (select t2.b2 from t2 where t2.b2 > 9);
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int <> all (select t2.doc21.int from t2 use document keys where t2.doc21.int > 9);
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int <> all (select t2.doc21.int from t2 use document keys where t2.doc21.int > 9);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 > all (select t2.b2 from t2 where t2.b2 >= 9 and t2.b2 < 100);
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int > all (select t2.doc21.int from t2 use document keys where t2.doc21.int >= 9 and t2.doc21.int < 100);
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int > all (select t2.doc21.int from t2 use document keys where t2.doc21.int >= 9 and t2.doc21.int < 100);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 <= all (select t2.b2 from t2 where t2.b2 between 2 and 12);
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int <= all (select t2.doc21.int from t2 use document keys where t2.doc21.int between 2 and 12);
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int <= all (select t2.doc21.int from t2 use document keys where t2.doc21.int between 2 and 12);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 = all (select t2.b2 from t2 where t2.b2 not in (0, 7, 3, 12, 100));
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int = all (select t2.doc21.int from t2 use document keys where t2.doc21.int not in (0, 7, 3, 12, 100));
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int = all (select t2.doc21.int from t2 use document keys where t2.doc21.int not in (0, 7, 3, 12, 100));
+
+--echo ### USED AS STANDARD
+explain extended select b1 from t1 where b1 <> all (
+                 select b2 from t2
+                        where ((b2 > 3 and b2 < 8) and (b2 not between 6 and 9)) or
+                              ((b2 between 11 and 15) and (b2 not in (4, 5))));
+explain extended
+select doc11.int from t1 use document keys where doc11.int <> all (
+       select doc21.int from t2 use document keys
+              where ((doc21.int > 3 and doc21.int < 8) and (doc21.int not between 6 and 9)) or
+                    ((doc21.int between 11 and 15) and (doc21.int not in (4, 5))));
+
+select doc11.int from t1 use document keys where doc11.int <> all (
+       select doc21.int from t2 use document keys
+              where ((doc21.int > 3 and doc21.int < 8) and (doc21.int not between 6 and 9)) or
+                    ((doc21.int between 11 and 15) and (doc21.int not in (4, 5))));
+
+--echo ### USED AS STANDARD
+explain extended select t1.str1 from t1 where t1.str1 <> all (select t2.str2 from t2 where t2.str2 > "eee");
+
+explain extended
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string <> all (select t2.doc21.string from t2 use document keys where t2.doc21.string > "eee");
+
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string <> all (select t2.doc21.string from t2 use document keys where t2.doc21.string > "eee");
+
+--echo ### USED AS STANDARD
+explain extended select t1.str1 from t1 where t1.str1 > all (select t2.str2 from t2 where t2.str2 >= "hhh" and t2.str2 < "zzz");
+
+explain extended
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string > all (select t2.doc21.string from t2 use document keys where t2.doc21.string >= "hhh" and t2.doc21.string < "zzz");
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string > all (select t2.doc21.string from t2 use document keys where t2.doc21.string >= "hhh" and t2.doc21.string < "zzz");
+
+--echo ### USED AS STANDARD
+explain extended select t1.str1 from t1 where t1.str1 <= all (select t2.str2 from t2 where t2.str2 between "hhh" and "kkk");
+
+explain extended
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string <= all (select t2.doc21.string from t2 use document keys where t2.doc21.string between "hhh" and "zzz");
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string <= all (select t2.doc21.string from t2 use document keys where t2.doc21.string between "hhh" and "zzz");
+
+--echo ### USED AS STANDARD
+explain extended select t1.str1 from t1 where t1.str1 = all (select t2.str2 from t2 where t2.str2 not in ("aaa", "hhh", "ccc", "jjj", "zzz"));
+
+explain extended
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string = all (select t2.doc21.string from t2 use document keys where t2.doc21.string not in ("aaa", "hhh", "ccc", "jjj", "zzz"));
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string = all (select t2.doc21.string from t2 use document keys where t2.doc21.string not in ("aaa", "hhh", "ccc", "jjj", "zzz"));
+
+--echo ### USED AS STANDARD
+explain extended select str1 from t1 where str1 <> all (
+                 select str2 from t2
+                        where ((str2 > "eee" and str2 < "hhh") and (str2 not between "ggg" and "iii")) or
+                              ((str2 between "kkk" and "zzz") and (str2 not in ("ddd", "fff"))));
+explain extended
+select doc11.string from t1 use document keys where doc11.string <> all (
+       select doc21.string from t2 use document keys
+              where ((doc21.string > "eee" and doc21.string < "hhh") and (doc21.string not between "ggg" and "iii")) or
+                    ((doc21.string between "kkk" and "zzz") and (doc21.string not in ("ddd", "fff"))));
+
+select doc11.string from t1 use document keys where doc11.string <> all (
+       select doc21.string from t2 use document keys
+              where ((doc21.string > "eee" and doc21.string < "hhh") and (doc21.string not between "ggg" and "iii")) or
+                    ((doc21.string between "kkk" and "zzz") and (doc21.string not in ("ddd", "fff"))));
+
+
+--echo ######################################################################
+--echo ###
+--echo ###   Subqueries
+--echo ###     -- EXISTS (with / without DISTINCT)
+--echo ###        -- Correlated
+--echo ###
+
+--echo ###
+--echo ### Bool: t6 and t7
+--echo ###
+
+--echo ### USED AS STANDARD
+explain extended select * from t6 where exists (select * from t7 where t7.b7 is true);
+
+explain extended select * from t6 use document keys where exists (
+                 select * from t7 use document keys where t7.doc71.bool is true);
+select * from t6 use document keys where exists (
+         select * from t7 use document keys where t7.doc71.bool is true);
+
+explain extended select distinct * from t6 use document keys where exists (
+                 select * from t7 use document keys where t7.doc71.bool is true);
+select distinct * from t6 use document keys where exists (
+         select * from t7 use document keys where t7.doc71.bool is true);
+
+explain extended select * from t6 use document keys where not exists (
+                 select * from t7 use document keys where t7.doc71.bool is not false);
+select * from t6 use document keys where not exists (
+         select * from t7 use document keys where t7.doc71.bool is not false);
+
+explain extended select distinct * from t6 use document keys where not exists (
+                 select * from t7 use document keys where t7.doc71.bool is not false);
+select distinct * from t6 use document keys where not exists (
+         select * from t7 use document keys where t7.doc71.bool is not false);
+
+explain extended select * from t6 use document keys where exists (
+                 select * from t7 use document keys where t7.doc71.int is true);
+select * from t6 use document keys where exists (
+         select * from t7 use document keys where t7.doc71.int is true);
+
+explain extended select distinct * from t6 use document keys where exists (
+                 select * from t7 use document keys where t7.doc71.int is true);
+select distinct * from t6 use document keys where exists (
+         select * from t7 use document keys where t7.doc71.int is true);
+
+explain extended select * from t6 use document keys where exists (
+                 select * from t7 use document keys where t7.doc71.double is true);
+select distinct * from t6 use document keys where exists (
+         select * from t7 use document keys where t7.doc71.double is true);
+
+explain extended select distinct * from t6 use document keys where exists (
+                 select * from t7 use document keys where t7.doc71.double is true);
+select distinct * from t6 use document keys where exists (
+         select * from t7 use document keys where t7.doc71.double is true);
+
+explain extended select * from t6 use document keys where exists (
+                 select * from t7 use document keys where t7.doc71.string is true);
+select distinct * from t6 use document keys where exists (
+         select * from t7 use document keys where t7.doc71.string is true);
+
+explain extended select distinct * from t6 use document keys where exists (
+                 select * from t7 use document keys where t7.doc71.string is true);
+select distinct * from t6 use document keys where exists (
+         select * from t7 use document keys where t7.doc71.string is true);
+
+explain extended select * from t6 use document keys where not exists (
+                 select * from t7 use document keys where t7.doc71.string is not false);
+select distinct * from t6 use document keys where not exists (
+         select * from t7 use document keys where t7.doc71.string is not false);
+
+explain extended select distinct * from t6 use document keys where not exists (
+                 select * from t7 use document keys where t7.doc71.string is not false);
+select distinct * from t6 use document keys where not exists (
+         select * from t7 use document keys where t7.doc71.string is not false);
+
+--echo ###
+--echo ### Bool: t1 and t2
+--echo ###
+
+--echo ### USED AS STANDARD
+explain extended select * from t1 where exists (select * from t2 where t2.b2 is true);
+
+explain extended select * from t1 use document keys where exists (
+                 select * from t2 use document keys where t2.doc21.bool is true);
+select * from t1 use document keys where exists (
+         select * from t2 use document keys where t2.doc21.bool is true);
+
+explain extended select distinct * from t1 use document keys where exists (
+                 select * from t2 use document keys where t2.doc21.bool is true);
+select distinct * from t1 use document keys where exists (
+         select * from t2 use document keys where t2.doc21.bool is true);
+
+explain extended select * from t1 use document keys where not exists (
+                 select * from t2 use document keys where t2.doc21.bool is not false);
+select * from t1 use document keys where not exists (
+         select * from t2 use document keys where t2.doc21.bool is not false);
+
+explain extended select distinct * from t1 use document keys where not exists (
+                 select * from t2 use document keys where t2.doc21.bool is not false);
+select distinct * from t1 use document keys where not exists (
+         select * from t2 use document keys where t2.doc21.bool is not false);
+
+explain extended select * from t1 use document keys where exists (
+                 select * from t2 use document keys where t2.doc21.int is true);
+select * from t1 use document keys where exists (
+         select * from t2 use document keys where t2.doc21.int is true);
+
+explain extended select distinct * from t1 use document keys where exists (
+                 select * from t2 use document keys where t2.doc21.int is true);
+select distinct * from t1 use document keys where exists (
+         select * from t2 use document keys where t2.doc21.int is true);
+
+explain extended select * from t1 use document keys where exists (
+                 select * from t2 use document keys where t2.doc21.double is true);
+select distinct * from t1 use document keys where exists (
+         select * from t2 use document keys where t2.doc21.double is true);
+
+explain extended select distinct * from t1 use document keys where exists (
+                 select * from t2 use document keys where t2.doc21.double is true);
+select distinct * from t1 use document keys where exists (
+         select * from t2 use document keys where t2.doc21.double is true);
+
+explain extended select * from t1 use document keys where exists (
+                 select * from t2 use document keys where t2.doc21.string is true);
+select distinct * from t1 use document keys where exists (
+         select * from t2 use document keys where t2.doc21.string is true);
+
+explain extended select distinct * from t1 use document keys where exists (
+                 select * from t2 use document keys where t2.doc21.string is true);
+select distinct * from t1 use document keys where exists (
+         select * from t2 use document keys where t2.doc21.string is true);
+
+explain extended select * from t1 use document keys where not exists (
+                 select * from t2 use document keys where t2.doc21.string is not false);
+select distinct * from t1 use document keys where not exists (
+         select * from t2 use document keys where t2.doc21.string is not false);
+
+explain extended select distinct * from t1 use document keys where not exists (
+                 select * from t2 use document keys where t2.doc21.string is not false);
+select distinct * from t1 use document keys where not exists (
+         select * from t2 use document keys where t2.doc21.string is not false);
+
+
+--echo ###
+--echo ### Range: t6 and t7
+--echo ###
+
+--echo ### USED AS STANDARD
+explain extended select * from t6 where exists (select * from t7 where t6.b6 = t7.b7);
+
+explain extended select * from t6 use document keys where exists (
+                 select * from t7 use document keys where t6.doc61.int = t7.doc71.int);
+select * from t6 use document keys where exists (
+         select * from t7 use document keys where t6.doc61.int = t7.doc71.int);
+
+--echo ### USED AS STANDARD
+explain extended select distinct * from t6 where exists (select * from t7 where t6.b6 = t7.b7);
+
+explain extended select distinct * from t6 use document keys where exists (
+                 select * from t7 use document keys where t6.doc61.int = t7.doc71.int);
+select distinct * from t6 use document keys where exists (
+         select * from t7 use document keys where t6.doc61.int = t7.doc71.int);
+
+--echo ### USED AS STANDARD
+explain extended select a6 from t6 where exists (select * from t7 where t6.b6 = t7.b7);
+
+explain extended select a6 from t6 use document keys where exists (
+                 select * from t7 use document keys where t6.doc61.int = t7.doc71.int);
+select a6 from t6 use document keys where exists (
+          select * from t7 use document keys where t6.doc61.int = t7.doc71.int);
+
+--echo ### USED AS STANDARD
+explain extended select distinct a6 from t6 where exists (select * from t7 where t6.b6 = t7.b7);
+
+explain extended select distinct a6 from t6 use document keys where exists (
+                 select * from t7 use document keys where t6.doc61.int = t7.doc71.int);
+select distinct a6 from t6 use document keys where exists (
+          select * from t7 use document keys where t6.doc61.int = t7.doc71.int);
+
+--echo ### USED AS STANDARD
+explain extended select a6 from t6 where exists (select * from t7 where t6.b6 > t7.b7);
+
+explain extended select a6 from t6 use document keys where exists (
+                 select * from t7 use document keys where t6.doc61.int > t7.doc71.int);
+select a6 from t6 use document keys where exists (
+          select * from t7 use document keys where t6.doc61.int > t7.doc71.int);
+
+--echo ### USED AS STANDARD
+explain extended select distinct a6 from t6 where exists (select * from t7 where t6.b6 > t7.b7);
+
+explain extended select distinct a6 from t6 use document keys where exists (
+                 select * from t7 use document keys where t6.doc61.int > t7.doc71.int);
+select distinct a6 from t6 use document keys where exists (
+          select * from t7 use document keys where t6.doc61.int > t7.doc71.int);
+
+--echo ### USED AS STANDARD
+explain extended select * from t6 where not exists (select * from t7 where t6.b6 = t7.b7);
+
+explain extended select * from t6 use document keys where not exists (
+                 select * from t7 use document keys where t6.doc61.int = t7.doc71.int);
+select * from t6 use document keys where not exists (
+         select * from t7 use document keys where t6.doc61.int = t7.doc71.int);
+
+--echo ### USED AS STANDARD
+explain extended select distinct * from t6 where not exists (select * from t7 where t6.b6 = t7.b7);
+
+explain extended select distinct * from t6 use document keys where not exists (
+                 select * from t7 use document keys where t6.doc61.int = t7.doc71.int);
+select distinct * from t6 use document keys where not exists (
+         select * from t7 use document keys where t6.doc61.int = t7.doc71.int);
+
+--echo ### USED AS STANDARD
+explain extended select a6 from t6 where not exists (select * from t7 where t6.b6 = t7.b7);
+
+explain extended select a6 from t6 use document keys where not exists (
+                 select * from t7 use document keys where t6.doc61.int = t7.doc71.int);
+select a6 from t6 use document keys where not exists (
+          select * from t7 use document keys where t6.doc61.int = t7.doc71.int);
+
+--echo ### USED AS STANDARD
+explain extended select distinct a6 from t6 where not exists (select * from t7 where t6.b6 = t7.b7);
+
+explain extended select distinct a6 from t6 use document keys where not exists (
+                 select * from t7 use document keys where t6.doc61.int = t7.doc71.int);
+select distinct a6 from t6 use document keys where not exists (
+          select * from t7 use document keys where t6.doc61.int = t7.doc71.int);
+
+--echo ### USED AS STANDARD
+explain extended select a6 from t6 where not exists (select * from t7 where t6.b6 > t7.b7);
+
+explain extended select a6 from t6 use document keys where not exists (
+                 select * from t7 use document keys where t6.doc61.int > t7.doc71.int);
+select a6 from t6 use document keys where not exists (
+          select * from t7 use document keys where t6.doc61.int > t7.doc71.int);
+
+--echo ### USED AS STANDARD
+explain extended select distinct a6 from t6 where not exists (select * from t7 where t6.b6 > t7.b7);
+
+explain extended select distinct a6 from t6 use document keys where not exists (
+                 select * from t7 use document keys where t6.doc61.int > t7.doc71.int);
+select distinct a6 from t6 use document keys where not exists (
+          select * from t7 use document keys where t6.doc61.int > t7.doc71.int);
+
+--echo ### USED AS STANDARD
+explain extended select * from t6 where exists (select * from t7 where t6.b6 = t7.b7) and t6.b6 >= 6;
+
+explain extended select * from t6 use document keys where exists (
+                 select * from t7 use document keys where t6.doc61.int = t7.doc71.int) and t6.doc61.int >= 6;
+select * from t6 use document keys where exists (
+       select * from t7 use document keys where t6.doc61.int = t7.doc71.int) and t6.doc61.int >= 6;
+
+--echo ### USED AS STANDARD
+explain extended select distinct * from t6 where exists (select * from t7 where t6.b6 = t7.b7) and t6.b6 >= 6;
+
+explain extended select distinct * from t6 use document keys where exists (
+                 select * from t7 use document keys where t6.doc61.int = t7.doc71.int) and t6.doc61.int >= 6;
+select distinct * from t6 use document keys where exists (
+       select * from t7 use document keys where t6.doc61.int = t7.doc71.int) and t6.doc61.int >= 6;
+
+--echo ### USED AS STANDARD
+explain extended select a6 from t6, t7 where exists (select * from t7 where t6.b6 = t7.b7) and t7.b7 >= 6;
+
+explain extended select a6 from t6 use document keys, t7 use document keys where exists (
+                 select * from t7 use document keys where t6.doc61.int = t7.doc71.int) and t7.doc71.int >= 6;
+select a6 from t6 use document keys, t7 use document keys where exists (
+       select * from t7 use document keys where t6.doc61.int = t7.doc71.int) and t7.doc71.int >= 6;
+
+--echo ### USED AS STANDARD
+explain extended select distinct a6 from t6, t7 where exists (select * from t7 where t6.b6 = t7.b7) and t7.b7 >= 6;
+
+explain extended select distinct a6 from t6 use document keys, t7 use document keys where exists (
+                 select * from t7 use document keys where t6.doc61.int = t7.doc71.int) and t7.doc71.int >= 6;
+select distinct a6 from t6 use document keys, t7 use document keys where exists (
+       select * from t7 use document keys where t6.doc61.int = t7.doc71.int) and t7.doc71.int >= 6;
+
+--echo ### USED AS STANDARD
+explain extended select a6 from t6, t7 where not exists (select * from t7 where t6.b6 = t7.b7) and t7.b7 >= 6;
+
+explain extended select a6 from t6 use document keys, t7 use document keys where not exists (
+                 select * from t7 use document keys where t6.doc61.int = t7.doc71.int) and t7.doc71.int >= 6;
+select a6 from t6 use document keys, t7 use document keys where not exists (
+       select * from t7 use document keys where t6.doc61.int = t7.doc71.int) and t7.doc71.int >= 6;
+
+--echo ### USED AS STANDARD
+explain extended select distinct a6 from t6, t7 where not exists (select * from t7 where t6.b6 = t7.b7) and t7.b7 >= 6;
+
+explain extended select distinct a6 from t6 use document keys, t7 use document keys where not exists (
+                 select * from t7 use document keys where t6.doc61.int = t7.doc71.int) and t7.doc71.int >= 6;
+select distinct a6 from t6 use document keys, t7 use document keys where not exists (
+       select * from t7 use document keys where t6.doc61.int = t7.doc71.int) and t7.doc71.int >= 6;
+
+--echo ### USED AS STANDARD
+explain extended select * from t6, t7 where exists (select * from t7 where t6.b6 > t7.b7) and t6.b6 >= 6 and t7.b7 < 8;
+
+explain extended select * from t6 use document keys, t7 use document keys where exists (
+                 select * from t7 use document keys where t6.doc61.int > t7.doc71.int) and t6.doc61.int >= 6 and t7.doc71.int < 8;
+select * from t6 use document keys, t7 use document keys where exists (
+       select * from t7 use document keys where t6.doc61.int > t7.doc71.int) and t6.doc61.int >= 6 and t7.doc71.int < 8;
+
+--echo ### USED AS STANDARD
+explain extended select distinct * from t6, t7 where exists (select * from t7 where t6.b6 > t7.b7) and t6.b6 >= 6 and t7.b7 < 8;
+
+explain extended select distinct * from t6 use document keys, t7 use document keys where exists (
+                 select * from t7 use document keys where t6.doc61.int > t7.doc71.int) and t6.doc61.int >= 6 and t7.doc71.int < 8;
+select distinct * from t6 use document keys, t7 use document keys where exists (
+       select * from t7 use document keys where t6.doc61.int > t7.doc71.int) and t6.doc61.int >= 6 and t7.doc71.int < 8;
+
+--echo ### USED AS STANDARD
+explain extended select a7 from t6, t7 where exists (select * from t7 where t6.b6 > t7.b7) and t6.b6 >= 6 and t7.b7 < 8;
+
+explain extended select a7 from t6 use document keys, t7 use document keys where exists (
+        select * from t7 use document keys where t6.doc61.int > t7.doc71.int) and t6.doc61.int >= 6 and t7.doc71.int < 8;
+select a7 from t6 use document keys, t7 use document keys where exists (
+       select * from t7 use document keys where t6.doc61.int > t7.doc71.int) and t6.doc61.int >= 6 and t7.doc71.int < 8;
+
+--echo ### USED AS STANDARD
+explain extended select distinct a7 from t6, t7 where exists (select * from t7 where t6.b6 > t7.b7) and t6.b6 >= 6 and t7.b7 < 8;
+
+explain extended select distinct a7 from t6 use document keys, t7 use document keys where exists (
+        select * from t7 use document keys where t6.doc61.int > t7.doc71.int) and t6.doc61.int >= 6 and t7.doc71.int < 8;
+select distinct a7 from t6 use document keys, t7 use document keys where exists (
+       select * from t7 use document keys where t6.doc61.int > t7.doc71.int) and t6.doc61.int >= 6 and t7.doc71.int < 8;
+
+--echo ### USED AS STANDARD
+explain extended select a7 from t6, t7 where not exists (select * from t7 where t6.b6 > t7.b7) and t6.b6 >= 6 and t7.b7 < 8;
+
+explain extended select a7 from t6 use document keys, t7 use document keys where not exists (
+        select * from t7 use document keys where t6.doc61.int > t7.doc71.int) and t6.doc61.int >= 6 and t7.doc71.int < 8;
+select a7 from t6 use document keys, t7 use document keys where not exists (
+       select * from t7 use document keys where t6.doc61.int > t7.doc71.int) and t6.doc61.int >= 6 and t7.doc71.int < 8;
+
+--echo ### USED AS STANDARD
+explain extended select distinct a7 from t6, t7 where not exists (select * from t7 where t6.b6 > t7.b7) and t6.b6 >= 6 and t7.b7 < 8;
+
+explain extended select distinct a7 from t6 use document keys, t7 use document keys where not exists (
+        select * from t7 use document keys where t6.doc61.int > t7.doc71.int) and t6.doc61.int >= 6 and t7.doc71.int < 8;
+select distinct a7 from t6 use document keys, t7 use document keys where not exists (
+       select * from t7 use document keys where t6.doc61.int > t7.doc71.int) and t6.doc61.int >= 6 and t7.doc71.int < 8;
+
+--echo ###
+--echo ### Range: t1 and t2
+--echo ###
+
+--echo ### USED AS STANDARD
+explain extended select * from t1 where exists (select * from t2 where t1.b1 = t2.b2);
+
+explain extended select * from t1 use document keys where exists (
+                 select * from t2 use document keys where t1.doc11.int = t2.doc21.int);
+select * from t1 use document keys where exists (
+         select * from t2 use document keys where t1.doc11.int = t2.doc21.int);
+
+--echo ### USED AS STANDARD
+explain extended select distinct * from t1 where exists (select * from t2 where t1.b1 = t2.b2);
+
+explain extended select distinct * from t1 use document keys where exists (
+                 select * from t2 use document keys where t1.doc11.int = t2.doc21.int);
+select distinct * from t1 use document keys where exists (
+         select * from t2 use document keys where t1.doc11.int = t2.doc21.int);
+
+--echo ### USED AS STANDARD
+explain extended select a1 from t1 where exists (select * from t2 where t1.b1 = t2.b2);
+
+explain extended select a1 from t1 use document keys where exists (
+                 select * from t2 use document keys where t1.doc11.int = t2.doc21.int);
+select a1 from t1 use document keys where exists (
+          select * from t2 use document keys where t1.doc11.int = t2.doc21.int);
+
+--echo ### USED AS STANDARD
+explain extended select distinct a1 from t1 where exists (select * from t2 where t1.b1 = t2.b2);
+
+explain extended select distinct a1 from t1 use document keys where exists (
+                 select * from t2 use document keys where t1.doc11.int = t2.doc21.int);
+select distinct a1 from t1 use document keys where exists (
+          select * from t2 use document keys where t1.doc11.int = t2.doc21.int);
+
+--echo ### USED AS STANDARD
+explain extended select a1 from t1 where exists (select * from t2 where t1.b1 > t2.b2);
+
+explain extended select a1 from t1 use document keys where exists (
+                 select * from t2 use document keys where t1.doc11.int > t2.doc21.int);
+select a1 from t1 use document keys where exists (
+          select * from t2 use document keys where t1.doc11.int > t2.doc21.int);
+
+--echo ### USED AS STANDARD
+explain extended select distinct a1 from t1 where exists (select * from t2 where t1.b1 > t2.b2);
+
+explain extended select distinct a1 from t1 use document keys where exists (
+                 select * from t2 use document keys where t1.doc11.int > t2.doc21.int);
+select distinct a1 from t1 use document keys where exists (
+          select * from t2 use document keys where t1.doc11.int > t2.doc21.int);
+
+--echo ### USED AS STANDARD
+explain extended select * from t1 where not exists (select * from t2 where t1.b1 = t2.b2);
+
+explain extended select * from t1 use document keys where not exists (
+                 select * from t2 use document keys where t1.doc11.int = t2.doc21.int);
+select * from t1 use document keys where not exists (
+         select * from t2 use document keys where t1.doc11.int = t2.doc21.int);
+
+--echo ### USED AS STANDARD
+explain extended select distinct * from t1 where not exists (select * from t2 where t1.b1 = t2.b2);
+
+explain extended select distinct * from t1 use document keys where not exists (
+                 select * from t2 use document keys where t1.doc11.int = t2.doc21.int);
+select distinct * from t1 use document keys where not exists (
+         select * from t2 use document keys where t1.doc11.int = t2.doc21.int);
+
+--echo ### USED AS STANDARD
+explain extended select a1 from t1 where not exists (select * from t2 where t1.b1 = t2.b2);
+
+explain extended select a1 from t1 use document keys where not exists (
+                 select * from t2 use document keys where t1.doc11.int = t2.doc21.int);
+select a1 from t1 use document keys where not exists (
+          select * from t2 use document keys where t1.doc11.int = t2.doc21.int);
+
+--echo ### USED AS STANDARD
+explain extended select distinct a1 from t1 where not exists (select * from t2 where t1.b1 = t2.b2);
+
+explain extended select distinct a1 from t1 use document keys where not exists (
+                 select * from t2 use document keys where t1.doc11.int = t2.doc21.int);
+select distinct a1 from t1 use document keys where not exists (
+          select * from t2 use document keys where t1.doc11.int = t2.doc21.int);
+
+--echo ### USED AS STANDARD
+explain extended select a1 from t1 where not exists (select * from t2 where t1.b1 > t2.b2);
+
+explain extended select a1 from t1 use document keys where not exists (
+                 select * from t2 use document keys where t1.doc11.int > t2.doc21.int);
+select a1 from t1 use document keys where not exists (
+          select * from t2 use document keys where t1.doc11.int > t2.doc21.int);
+
+--echo ### USED AS STANDARD
+explain extended select distinct a1 from t1 where not exists (select * from t2 where t1.b1 > t2.b2);
+
+explain extended select distinct a1 from t1 use document keys where not exists (
+                 select * from t2 use document keys where t1.doc11.int > t2.doc21.int);
+select distinct a1 from t1 use document keys where not exists (
+          select * from t2 use document keys where t1.doc11.int > t2.doc21.int);
+
+--echo ### USED AS STANDARD
+explain extended select * from t1 where exists (select * from t2 where t1.b1 = t2.b2) and t1.b1 >= 6;
+
+explain extended select * from t1 use document keys where exists (
+                 select * from t2 use document keys where t1.doc11.int = t2.doc21.int) and t1.doc11.int >= 6;
+select * from t1 use document keys where exists (
+       select * from t2 use document keys where t1.doc11.int = t2.doc21.int) and t1.doc11.int >= 6;
+
+--echo ### USED AS STANDARD
+explain extended select distinct * from t1 where exists (select * from t2 where t1.b1 = t2.b2) and t1.b1 >= 6;
+
+explain extended select distinct * from t1 use document keys where exists (
+                 select * from t2 use document keys where t1.doc11.int = t2.doc21.int) and t1.doc11.int >= 6;
+select distinct * from t1 use document keys where exists (
+       select * from t2 use document keys where t1.doc11.int = t2.doc21.int) and t1.doc11.int >= 6;
+
+--echo ### USED AS STANDARD
+explain extended select a1 from t1, t2 where exists (select * from t2 where t1.b1 = t2.b2) and t2.b2 >= 6;
+
+explain extended select a1 from t1 use document keys, t2 use document keys where exists (
+                 select * from t2 use document keys where t1.doc11.int = t2.doc21.int) and t2.doc21.int >= 6;
+select a1 from t1 use document keys, t2 use document keys where exists (
+       select * from t2 use document keys where t1.doc11.int = t2.doc21.int) and t2.doc21.int >= 6;
+
+--echo ### USED AS STANDARD
+explain extended select distinct a1 from t1, t2 where exists (select * from t2 where t1.b1 = t2.b2) and t2.b2 >= 6;
+
+explain extended select distinct a1 from t1 use document keys, t2 use document keys where exists (
+                 select * from t2 use document keys where t1.doc11.int = t2.doc21.int) and t2.doc21.int >= 6;
+select distinct a1 from t1 use document keys, t2 use document keys where exists (
+       select * from t2 use document keys where t1.doc11.int = t2.doc21.int) and t2.doc21.int >= 6;
+
+--echo ### USED AS STANDARD
+explain extended select a1 from t1, t2 where not exists (select * from t2 where t1.b1 = t2.b2) and t2.b2 >= 6;
+
+explain extended select a1 from t1 use document keys, t2 use document keys where not exists (
+                 select * from t2 use document keys where t1.doc11.int = t2.doc21.int) and t2.doc21.int >= 6;
+select a1 from t1 use document keys, t2 use document keys where not exists (
+       select * from t2 use document keys where t1.doc11.int = t2.doc21.int) and t2.doc21.int >= 6;
+
+--echo ### USED AS STANDARD
+explain extended select distinct a1 from t1, t2 where not exists (select * from t2 where t1.b1 = t2.b2) and t2.b2 >= 6;
+
+explain extended select distinct a1 from t1 use document keys, t2 use document keys where not exists (
+                 select * from t2 use document keys where t1.doc11.int = t2.doc21.int) and t2.doc21.int >= 6;
+select distinct a1 from t1 use document keys, t2 use document keys where not exists (
+       select * from t2 use document keys where t1.doc11.int = t2.doc21.int) and t2.doc21.int >= 6;
+
+--echo ### USED AS STANDARD
+explain extended select * from t1, t2 where exists (select * from t2 where t1.b1 > t2.b2) and t1.b1 >= 6 and t2.b2 < 8;
+
+explain extended select * from t1 use document keys, t2 use document keys where exists (
+                 select * from t2 use document keys where t1.doc11.int > t2.doc21.int) and t1.doc11.int >= 6 and t2.doc21.int < 8;
+select * from t1 use document keys, t2 use document keys where exists (
+       select * from t2 use document keys where t1.doc11.int > t2.doc21.int) and t1.doc11.int >= 6 and t2.doc21.int < 8;
+
+--echo ### USED AS STANDARD
+explain extended select distinct * from t1, t2 where exists (select * from t2 where t1.b1 > t2.b2) and t1.b1 >= 6 and t2.b2 < 8;
+
+explain extended select distinct * from t1 use document keys, t2 use document keys where exists (
+                 select * from t2 use document keys where t1.doc11.int > t2.doc21.int) and t1.doc11.int >= 6 and t2.doc21.int < 8;
+select distinct * from t1 use document keys, t2 use document keys where exists (
+       select * from t2 use document keys where t1.doc11.int > t2.doc21.int) and t1.doc11.int >= 6 and t2.doc21.int < 8;
+
+--echo ### USED AS STANDARD
+explain extended select a2 from t1, t2 where exists (select * from t2 where t1.b1 > t2.b2) and t1.b1 >= 6 and t2.b2 < 8;
+
+explain extended select a2 from t1 use document keys, t2 use document keys where exists (
+        select * from t2 use document keys where t1.doc11.int > t2.doc21.int) and t1.doc11.int >= 6 and t2.doc21.int < 8;
+select a2 from t1 use document keys, t2 use document keys where exists (
+       select * from t2 use document keys where t1.doc11.int > t2.doc21.int) and t1.doc11.int >= 6 and t2.doc21.int < 8;
+
+--echo ### USED AS STANDARD
+explain extended select distinct a2 from t1, t2 where exists (select * from t2 where t1.b1 > t2.b2) and t1.b1 >= 6 and t2.b2 < 8;
+
+explain extended select distinct a2 from t1 use document keys, t2 use document keys where exists (
+        select * from t2 use document keys where t1.doc11.int > t2.doc21.int) and t1.doc11.int >= 6 and t2.doc21.int < 8;
+select distinct a2 from t1 use document keys, t2 use document keys where exists (
+       select * from t2 use document keys where t1.doc11.int > t2.doc21.int) and t1.doc11.int >= 6 and t2.doc21.int < 8;
+
+--echo ### USED AS STANDARD
+explain extended select a2 from t1, t2 where not exists (select * from t2 where t1.b1 > t2.b2) and t1.b1 >= 6 and t2.b2 < 8;
+
+explain extended select a2 from t1 use document keys, t2 use document keys where not exists (
+        select * from t2 use document keys where t1.doc11.int > t2.doc21.int) and t1.doc11.int >= 6 and t2.doc21.int < 8;
+select a2 from t1 use document keys, t2 use document keys where not exists (
+       select * from t2 use document keys where t1.doc11.int > t2.doc21.int) and t1.doc11.int >= 6 and t2.doc21.int < 8;
+
+--echo ### USED AS STANDARD
+explain extended select distinct a2 from t1, t2 where not exists (select * from t2 where t1.b1 > t2.b2) and t1.b1 >= 6 and t2.b2 < 8;
+
+explain extended select distinct a2 from t1 use document keys, t2 use document keys where not exists (
+        select * from t2 use document keys where t1.doc11.int > t2.doc21.int) and t1.doc11.int >= 6 and t2.doc21.int < 8;
+select distinct a2 from t1 use document keys, t2 use document keys where not exists (
+       select * from t2 use document keys where t1.doc11.int > t2.doc21.int) and t1.doc11.int >= 6 and t2.doc21.int < 8;
+
+
+--echo ######################################################################
+--echo ###
+--echo ###   min()
+--echo ###
+
+--echo ### USED AS STANDARD
+explain extended select min(t6.b6) from t6;
+
+explain extended
+select min(t6.doc61.int) from t6 use document keys;
+select min(t6.doc61.int) from t6 use document keys;
+
+select min(t1.doc11.int) from t1 use document keys;
+
+--echo ### USED AS STANDARD
+explain extended select min(t6.b6) from t6 where t6.b6 > 5;
+
+explain extended
+select min(t6.doc61.int) from t6 use document keys where t6.doc61.int > 5;
+select min(t6.doc61.int) from t6 use document keys where t6.doc61.int > 5;
+
+select min(t1.doc11.int) from t1 use document keys where t1.doc11.int > 5;
+
+
+--echo ######################################################################
+--echo ###
+--echo ###   max()
+--echo ###
+
+--echo ### USED AS STANDARD
+explain extended select max(t6.b6) from t6;
+
+explain extended
+select max(t6.doc61.int) from t6 use document keys;
+select max(t6.doc61.int) from t6 use document keys;
+
+select max(t1.doc11.int) from t1 use document keys;
+
+--echo ### USED AS STANDARD
+explain extended select max(t6.b6) from t6 where t6.b6 < 5;
+
+explain extended
+select max(t6.doc61.int) from t6 use document keys where t6.doc61.int < 5;
+select max(t6.doc61.int) from t6 use document keys where t6.doc61.int < 5;
+
+select max(t1.doc11.int) from t1 use document keys where t1.doc11.int < 5;
+
+
+--echo ######################################################################
+--echo ###
+--echo ###   Subqueries
+--echo ###     -- Derived tables (Subqueries in FROM clauses)
+--echo ###
+
+--echo
+--echo ### SINGLE TABLE: t6
+--echo ### PATTERN 1 with int
+--echo
+
+--echo ### USED AS STANDARD
+explain extended
+select * from (select * from t6) as derived;
+
+explain extended
+select * from (select * from t6 use document keys) as derived;
+
+--echo ### USED AS STANDARD
+explain extended
+select * from (select * from t6 where t6.b6 > 9) as derived;
+
+explain extended
+select * from (select * from t6 use document keys where t6.doc61.int > 9) as derived;
+select * from (select * from t6 use document keys where t6.doc61.int > 9) as derived;
+
+--echo ### USED AS STANDARD
+explain extended
+select * from (select * from t6) as derived where derived.b6 > 9;
+
+explain extended
+select * from (select * from t6 use document keys) as derived where derived.doc61.int > 9;
+select * from (select * from t6 use document keys) as derived where derived.doc61.int > 9;
+
+
+--echo
+--echo ### SINGLE TABLE: t6
+--echo ### PATTERN 1 with string
+--echo
+
+--echo ### USED AS STANDARD
+explain extended
+select * from (select * from t6 where t6.str6 > "iii") as derived;
+
+explain extended
+select * from (select * from t6 use document keys where t6.doc61.string > "iii") as derived;
+select * from (select * from t6 use document keys where t6.doc61.string > "iii") as derived;
+
+--echo ### USED AS STANDARD
+explain extended
+select * from (select * from t6) as derived where derived.str6 > "iii";
+
+explain extended
+select * from (select * from t6 use document keys) as derived where derived.doc61.string > "iii";
+select * from (select * from t6 use document keys) as derived where derived.doc61.string > "iii";
+
+
+--echo
+--echo ### SINGLE TABLE: t6
+--echo ### PATTERN 1 with bool
+--echo
+
+--echo ### USED AS STANDARD
+explain extended
+select * from (select * from t6 where t6.b6 is true) as derived;
+
+explain extended
+select * from (select * from t6 use document keys where t6.doc61.bool is true) as derived;
+select * from (select * from t6 use document keys where t6.doc61.bool is true) as derived;
+select * from (select * from t6 use document keys where t6.doc61.bool is not false) as derived;
+
+--echo ### USED AS STANDARD
+explain extended
+select * from (select * from t6) as derived where derived.b6 is true;
+
+explain extended
+select * from (select * from t6 use document keys) as derived where derived.doc61.bool is true;
+select * from (select * from t6 use document keys) as derived where derived.doc61.bool is true;
+select * from (select * from t6 use document keys) as derived where derived.doc61.bool is not false;
+
+
+--echo
+--echo ### SINGLE TABLE: t6
+--echo ### PATTERN 1 with double
+--echo
+
+--echo ### USED AS STANDARD
+explain extended
+select * from (select * from t6) as derived;
+
+explain extended
+select * from (select * from t6 use document keys) as derived;
+
+--echo ### USED AS STANDARD
+explain extended
+select * from (select * from t6 where t6.c6 > 9.9) as derived;
+
+explain extended
+select * from (select * from t6 use document keys where t6.doc61.double > 9.9) as derived;
+select * from (select * from t6 use document keys where t6.doc61.double > 9.9) as derived;
+
+--echo ### USED AS STANDARD
+explain extended
+select * from (select * from t6) as derived where derived.c6 > 9.9;
+
+explain extended
+select * from (select * from t6 use document keys) as derived where derived.doc61.double > 9.9;
+select * from (select * from t6 use document keys) as derived where derived.doc61.double > 9.9;
+
+
+--echo
+--echo ### SINGLE TABLE: t6
+--echo ### PATTERN 2 with int
+--echo
+
+--echo ### USED AS STANDARD
+explain extended
+select derived_t6.b6 from (select * from t6) as derived_t6;
+
+explain extended
+select derived_t6.doc61.int from (select * from t6 use document keys) as derived_t6;
+select derived_t6.doc61.int from (select * from t6 use document keys) as derived_t6;
+
+explain extended
+select derived_t6.doc61.int from (select * from t6) as derived_t6;
+select derived_t6.doc61.int from (select * from t6) as derived_t6;
+
+--echo ### USED AS STANDARD
+explain extended
+select derived_t6.b6 from (select * from t6 where t6.b6 > 9) as derived_t6;
+
+explain extended
+select derived_t6.doc61.int from (select * from t6 use document keys where t6.doc61.int > 9) as derived_t6;
+select derived_t6.doc61.int from (select * from t6 use document keys where t6.doc61.int > 9) as derived_t6;
+
+explain extended
+select derived_t6.doc61.int from (select * from t6 where t6.doc61.int > 9) as derived_t6;
+select derived_t6.doc61.int from (select * from t6 where t6.doc61.int > 9) as derived_t6;
+
+--echo ### USED AS STANDARD
+explain extended
+select derived_t6.b6 from (select * from t6) as derived_t6 where derived_t6.b6 > 9;
+
+explain extended
+select derived_t6.doc61.int from (select * from t6 use document keys) as derived_t6 where derived_t6.doc61.int > 9;
+select derived_t6.doc61.int from (select * from t6 use document keys) as derived_t6 where derived_t6.doc61.int > 9;
+
+explain extended
+select derived_t6.doc61.int from (select * from t6) as derived_t6 where derived_t6.doc61.int > 9;
+select derived_t6.doc61.int from (select * from t6) as derived_t6 where derived_t6.doc61.int > 9;
+
+--echo ### USED AS STANDARD
+explain extended
+select derived_t6.str6 from (select * from t6) as derived_t6;
+
+explain extended
+select derived_t6.doc61.string from (select * from t6 use document keys) as derived_t6;
+select derived_t6.doc61.string from (select * from t6 use document keys) as derived_t6;
+
+explain extended
+select derived_t6.doc61.string from (select * from t6) as derived_t6;
+select derived_t6.doc61.string from (select * from t6) as derived_t6;
+
+
+--echo
+--echo ### SINGLE TABLE: t6
+--echo ### PATTERN 2 with string
+--echo
+
+--echo ### USED AS STANDARD
+explain extended
+select derived_t6.str6 from (select * from t6 where t6.str6 > "iii") as derived_t6;
+
+explain extended
+select derived_t6.doc61.string from (select * from t6 use document keys where t6.doc61.string > "iii") as derived_t6;
+select derived_t6.doc61.string from (select * from t6 use document keys where t6.doc61.string > "iii") as derived_t6;
+
+explain extended
+select derived_t6.doc61.string from (select * from t6 where t6.doc61.string > "iii") as derived_t6;
+select derived_t6.doc61.string from (select * from t6 where t6.doc61.string > "iii") as derived_t6;
+
+--echo ### USED AS STANDARD
+explain extended
+select derived_t6.str6 from (select * from t6) as derived_t6 where derived_t6.str6 > "iii";
+
+explain extended
+select derived_t6.doc61.string from (select * from t6 use document keys) as derived_t6 where derived_t6.doc61.string > "iii";
+select derived_t6.doc61.string from (select * from t6 use document keys) as derived_t6 where derived_t6.doc61.string > "iii";
+
+explain extended
+select derived_t6.doc61.string from (select * from t6) as derived_t6 where derived_t6.doc61.string > "iii";
+select derived_t6.doc61.string from (select * from t6) as derived_t6 where derived_t6.doc61.string > "iii";
+
+
+--echo
+--echo ### SINGLE TABLE: t6
+--echo ### PATTERN 2 with bool
+--echo
+
+--echo ### USED AS STANDARD
+explain extended
+select derived_t6.b6 from (select * from t6 where t6.b6 > true) as derived_t6;
+
+explain extended
+select derived_t6.doc61.bool from (select * from t6 use document keys where t6.doc61.bool > false) as derived_t6;
+select derived_t6.doc61.bool from (select * from t6 use document keys where t6.doc61.bool > false) as derived_t6;
+
+explain extended
+select derived_t6.doc61.bool from (select * from t6 where t6.doc61.bool >= true) as derived_t6;
+select derived_t6.doc61.bool from (select * from t6 where t6.doc61.bool >= true) as derived_t6;
+
+--echo ### USED AS STANDARD
+explain extended
+select derived_t6.b6 from (select * from t6) as derived_t6 where derived_t6.b6 > false;
+
+explain extended
+select derived_t6.doc61.bool from (select * from t6 use document keys) as derived_t6 where derived_t6.doc61.bool >= true;
+select derived_t6.doc61.bool from (select * from t6 use document keys) as derived_t6 where derived_t6.doc61.bool >= true;
+
+explain extended
+select derived_t6.doc61.bool from (select * from t6) as derived_t6 where derived_t6.doc61.bool >= true;
+select derived_t6.doc61.bool from (select * from t6) as derived_t6 where derived_t6.doc61.bool >= true;
+
+
+--echo
+--echo ### SINGLE TABLE: t6
+--echo ### PATTERN 2 with double
+--echo
+
+--echo ### USED AS STANDARD
+explain extended
+select derived_t6.c6 from (select * from t6) as derived_t6;
+
+explain extended
+select derived_t6.doc61.double from (select * from t6 use document keys) as derived_t6;
+select derived_t6.doc61.double from (select * from t6 use document keys) as derived_t6;
+
+explain extended
+select derived_t6.doc61.double from (select * from t6) as derived_t6;
+select derived_t6.doc61.double from (select * from t6) as derived_t6;
+
+--echo ### USED AS STANDARD
+explain extended
+select derived_t6.c6 from (select * from t6 where t6.c6 > 9.9) as derived_t6;
+
+explain extended
+select derived_t6.doc61.double from (select * from t6 use document keys where t6.doc61.double > 9.9) as derived_t6;
+select derived_t6.doc61.double from (select * from t6 use document keys where t6.doc61.double > 9.9) as derived_t6;
+
+explain extended
+select derived_t6.doc61.double from (select * from t6 where t6.doc61.double > 9.9) as derived_t6;
+select derived_t6.doc61.double from (select * from t6 where t6.doc61.double > 9.9) as derived_t6;
+
+--echo ### USED AS STANDARD
+explain extended
+select derived_t6.c6 from (select * from t6) as derived_t6 where derived_t6.c6 > 9.9;
+
+explain extended
+select derived_t6.doc61.double from (select * from t6 use document keys) as derived_t6 where derived_t6.doc61.double > 9.9;
+select derived_t6.doc61.double from (select * from t6 use document keys) as derived_t6 where derived_t6.doc61.double > 9.9;
+
+explain extended
+select derived_t6.doc61.double from (select * from t6) as derived_t6 where derived_t6.doc61.double > 9.9;
+select derived_t6.doc61.double from (select * from t6) as derived_t6 where derived_t6.doc61.double > 9.9;
+
+--echo ### USED AS STANDARD
+explain extended
+select derived_t6.str6 from (select * from t6) as derived_t6;
+
+explain extended
+select derived_t6.doc61.string from (select * from t6 use document keys) as derived_t6;
+select derived_t6.doc61.string from (select * from t6 use document keys) as derived_t6;
+
+explain extended
+select derived_t6.doc61.string from (select * from t6) as derived_t6;
+select derived_t6.doc61.string from (select * from t6) as derived_t6;
+
+
+--echo
+--echo ### SINGLE TABLE: t1
+--echo ### PATTERN 1 with int
+--echo
+
+explain extended
+select * from (select * from t1 use document keys) as derived;
+
+explain extended
+select * from (select * from t1 use document keys where t1.doc11.int > 9) as derived;
+select * from (select * from t1 use document keys where t1.doc11.int > 9) as derived;
+
+explain extended
+select * from (select * from t1 use document keys) as derived where derived.doc11.int > 9;
+select * from (select * from t1 use document keys) as derived where derived.doc11.int > 9;
+
+
+--echo
+--echo ### SINGLE TABLE: t1
+--echo ### PATTERN 1 with string
+--echo
+
+explain extended
+select * from (select * from t1 use document keys where t1.doc11.string > "iii") as derived;
+select * from (select * from t1 use document keys where t1.doc11.string > "iii") as derived;
+
+explain extended
+select * from (select * from t1 use document keys) as derived where derived.doc11.string > "iii";
+select * from (select * from t1 use document keys) as derived where derived.doc11.string > "iii";
+
+--echo
+--echo ### SINGLE TABLE: t1
+--echo ### PATTERN 1 with bool
+--echo
+
+explain extended
+select * from (select * from t1 use document keys where t1.doc11.bool is true) as derived;
+select * from (select * from t1 use document keys where t1.doc11.bool is true) as derived;
+select * from (select * from t1 use document keys where t1.doc11.bool is not false) as derived;
+
+explain extended
+select * from (select * from t1 use document keys) as derived where derived.doc11.bool is true;
+select * from (select * from t1 use document keys) as derived where derived.doc11.bool is true;
+select * from (select * from t1 use document keys) as derived where derived.doc11.bool is not false;
+
+
+--echo
+--echo ### SINGLE TABLE: t1
+--echo ### PATTERN 1 with double
+--echo
+
+explain extended
+select * from (select * from t1 use document keys) as derived;
+
+explain extended
+select * from (select * from t1 use document keys where t1.doc11.double > 9.9) as derived;
+select * from (select * from t1 use document keys where t1.doc11.double > 9.9) as derived;
+
+explain extended
+select * from (select * from t1 use document keys) as derived where derived.doc11.double > 9.9;
+select * from (select * from t1 use document keys) as derived where derived.doc11.double > 9.9;
+
+
+--echo
+--echo ### SINGLE TABLE: t1
+--echo ### PATTERN 2 with int
+--echo
+
+explain extended
+select derived_t1.doc11.int from (select * from t1 use document keys) as derived_t1;
+select derived_t1.doc11.int from (select * from t1 use document keys) as derived_t1;
+
+explain extended
+select derived_t1.doc11.int from (select * from t1) as derived_t1;
+select derived_t1.doc11.int from (select * from t1) as derived_t1;
+
+explain extended
+select derived_t1.doc11.int from (select * from t1 use document keys where t1.doc11.int > 9) as derived_t1;
+select derived_t1.doc11.int from (select * from t1 use document keys where t1.doc11.int > 9) as derived_t1;
+
+explain extended
+select derived_t1.doc11.int from (select * from t1 where t1.doc11.int > 9) as derived_t1;
+select derived_t1.doc11.int from (select * from t1 where t1.doc11.int > 9) as derived_t1;
+
+explain extended
+select derived_t1.doc11.int from (select * from t1 use document keys) as derived_t1 where derived_t1.doc11.int > 9;
+select derived_t1.doc11.int from (select * from t1 use document keys) as derived_t1 where derived_t1.doc11.int > 9;
+
+explain extended
+select derived_t1.doc11.int from (select * from t1) as derived_t1 where derived_t1.doc11.int > 9;
+select derived_t1.doc11.int from (select * from t1) as derived_t1 where derived_t1.doc11.int > 9;
+
+explain extended
+select derived_t1.doc11.string from (select * from t1 use document keys) as derived_t1;
+select derived_t1.doc11.string from (select * from t1 use document keys) as derived_t1;
+
+explain extended
+select derived_t1.doc11.string from (select * from t1) as derived_t1;
+select derived_t1.doc11.string from (select * from t1) as derived_t1;
+
+
+--echo
+--echo ### SINGLE TABLE: t1
+--echo ### PATTERN 2 with string
+--echo
+
+explain extended
+select derived_t1.doc11.string from (select * from t1 use document keys where t1.doc11.string > "iii") as derived_t1;
+select derived_t1.doc11.string from (select * from t1 use document keys where t1.doc11.string > "iii") as derived_t1;
+
+explain extended
+select derived_t1.doc11.string from (select * from t1 where t1.doc11.string > "iii") as derived_t1;
+select derived_t1.doc11.string from (select * from t1 where t1.doc11.string > "iii") as derived_t1;
+
+explain extended
+select derived_t1.doc11.string from (select * from t1 use document keys) as derived_t1 where derived_t1.doc11.string > "iii";
+select derived_t1.doc11.string from (select * from t1 use document keys) as derived_t1 where derived_t1.doc11.string > "iii";
+
+explain extended
+select derived_t1.doc11.string from (select * from t1) as derived_t1 where derived_t1.doc11.string > "iii";
+select derived_t1.doc11.string from (select * from t1) as derived_t1 where derived_t1.doc11.string > "iii";
+
+
+--echo
+--echo ### SINGLE TABLE: t1
+--echo ### PATTERN 2 with bool
+--echo
+
+explain extended
+select derived_t1.doc11.bool from (select * from t1 use document keys where t1.doc11.bool > false) as derived_t1;
+select derived_t1.doc11.bool from (select * from t1 use document keys where t1.doc11.bool > false) as derived_t1;
+
+explain extended
+select derived_t1.doc11.bool from (select * from t1 where t1.doc11.bool >= true) as derived_t1;
+select derived_t1.doc11.bool from (select * from t1 where t1.doc11.bool >= true) as derived_t1;
+
+explain extended
+select derived_t1.doc11.bool from (select * from t1 use document keys) as derived_t1 where derived_t1.doc11.bool >= true;
+select derived_t1.doc11.bool from (select * from t1 use document keys) as derived_t1 where derived_t1.doc11.bool >= true;
+
+explain extended
+select derived_t1.doc11.bool from (select * from t1) as derived_t1 where derived_t1.doc11.bool >= true;
+select derived_t1.doc11.bool from (select * from t1) as derived_t1 where derived_t1.doc11.bool >= true;
+
+
+--echo
+--echo ### SINGLE TABLE: t1
+--echo ### PATTERN 2 with double
+--echo
+
+explain extended
+select derived_t1.doc11.double from (select * from t1 use document keys) as derived_t1;
+select derived_t1.doc11.double from (select * from t1 use document keys) as derived_t1;
+
+explain extended
+select derived_t1.doc11.double from (select * from t1) as derived_t1;
+select derived_t1.doc11.double from (select * from t1) as derived_t1;
+
+explain extended
+select derived_t1.doc11.double from (select * from t1 use document keys where t1.doc11.double > 9.9) as derived_t1;
+select derived_t1.doc11.double from (select * from t1 use document keys where t1.doc11.double > 9.9) as derived_t1;
+
+explain extended
+select derived_t1.doc11.double from (select * from t1 where t1.doc11.double > 9.9) as derived_t1;
+select derived_t1.doc11.double from (select * from t1 where t1.doc11.double > 9.9) as derived_t1;
+
+explain extended
+select derived_t1.doc11.double from (select * from t1 use document keys) as derived_t1 where derived_t1.doc11.double > 9.9;
+select derived_t1.doc11.double from (select * from t1 use document keys) as derived_t1 where derived_t1.doc11.double > 9.9;
+
+explain extended
+select derived_t1.doc11.double from (select * from t1) as derived_t1 where derived_t1.doc11.double > 9.9;
+select derived_t1.doc11.double from (select * from t1) as derived_t1 where derived_t1.doc11.double > 9.9;
+
+explain extended
+select derived_t1.doc11.string from (select * from t1 use document keys) as derived_t1;
+select derived_t1.doc11.string from (select * from t1 use document keys) as derived_t1;
+
+explain extended
+select derived_t1.doc11.string from (select * from t1) as derived_t1;
+select derived_t1.doc11.string from (select * from t1) as derived_t1;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t6 and t7
+--echo ### PATTERN 1 with int
+--echo
+
+--echo ### USE AS STANDARD
+explain extended
+select derived_t7.b7 from t6 join (select * from t7) as derived_t7 on t6.b6 = derived_t7.b7;
+
+explain extended
+select derived_t7.doc71.int from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.int = derived_t7.doc71.int;
+select derived_t7.doc71.int from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.int = derived_t7.doc71.int;
+
+explain extended
+select derived_t7.doc71.int from t6 join (select * from t7) as derived_t7 on t6.doc61.int = derived_t7.doc71.int;
+select derived_t7.doc71.int from t6 join (select * from t7) as derived_t7 on t6.doc61.int = derived_t7.doc71.int;
+
+--echo ### USE AS STANDARD
+explain extended
+select derived_t7.b7 from t6 join (select * from t7 where t7.b7 > 9) as derived_t7 on t6.b6 = derived_t7.b7;
+
+explain extended
+select derived_t7.doc71.int from t6 use document keys join (select * from t7 use document keys where t7.doc71.int > 9) as derived_t7 on t6.doc61.int = derived_t7.doc71.int;
+select derived_t7.doc71.int from t6 use document keys join (select * from t7 use document keys where t7.doc71.int > 9) as derived_t7 on t6.doc61.int = derived_t7.doc71.int;
+
+explain extended
+select derived_t7.doc71.int from t6 join (select * from t7 where t7.doc71.int > 9) as derived_t7 on t6.doc61.int = derived_t7.doc71.int;
+select derived_t7.doc71.int from t6 join (select * from t7 where t7.doc71.int > 9) as derived_t7 on t6.doc61.int = derived_t7.doc71.int;
+
+explain extended
+select derived_t7.doc71.int from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.int = derived_t7.doc71.int and derived_t7.doc71.int > 9;
+select derived_t7.doc71.int from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.int = derived_t7.doc71.int and derived_t7.doc71.int > 9;
+
+explain extended
+select derived_t7.doc71.int from t6 join (select * from t7) as derived_t7 on t6.doc61.int = derived_t7.doc71.int and derived_t7.doc71.int > 9;
+select derived_t7.doc71.int from t6 join (select * from t7) as derived_t7 on t6.doc61.int = derived_t7.doc71.int and derived_t7.doc71.int > 9;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t6 and t7
+--echo ### PATTERN 1 with string
+--echo
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select derived_t7.b7 from t6 join (select * from t7) as derived_t7 on t6.b6 = derived_t7.b7 and derived_t7.b7 > 9;
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select derived_t7.str7 from t6 join (select * from t7) as derived_t7 on t6.str6 = derived_t7.str7 and derived_t7.str7 > "iii";
+
+explain extended
+select derived_t7.doc71.string from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.string = derived_t7.doc71.string and derived_t7.doc71.string > "iii";
+select derived_t7.doc71.string from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.string = derived_t7.doc71.string and derived_t7.doc71.string > "iii";
+
+explain extended
+select derived_t7.doc71.string from t6 join (select * from t7) as derived_t7 on t6.doc61.string = derived_t7.doc71.string and derived_t7.doc71.string > "iii";
+select derived_t7.doc71.string from t6 join (select * from t7) as derived_t7 on t6.doc61.string = derived_t7.doc71.string and derived_t7.doc71.string > "iii";
+
+--echo ### USE AS STANDARD
+explain extended
+select derived_t7.b7 from t6 join (select * from t7 where t7.b7 > 9) as derived_t7 on t6.b6 = derived_t7.b7;
+
+--echo ### USE AS STANDARD
+explain extended
+select derived_t7.str7 from t6 join (select * from t7 where t7.str7 > "iii") as derived_t7 on t6.str6 = derived_t7.str7;
+
+explain extended
+select derived_t7.doc71.string from t6 use document keys join (select * from t7 use document keys where t7.doc71.string > "iii") as derived_t7 on t6.doc61.string = derived_t7.doc71.string;
+select derived_t7.doc71.string from t6 use document keys join (select * from t7 use document keys where t7.doc71.string > "iii") as derived_t7 on t6.doc61.string = derived_t7.doc71.string;
+
+explain extended
+select derived_t7.doc71.string from t6 join (select * from t7 where t7.doc71.string > "iii") as derived_t7 on t6.doc61.string = derived_t7.doc71.string;
+select derived_t7.doc71.string from t6 join (select * from t7 where t7.doc71.string > "iii") as derived_t7 on t6.doc61.string = derived_t7.doc71.string;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t6 and t7
+--echo ### PATTERN 1 with bool
+--echo
+
+--echo ### USE AS STANDARD
+explain extended
+select derived_t7.b7 from t6 join (select * from t7) as derived_t7 on t6.b6 = derived_t7.b7;
+
+explain extended
+select derived_t7.doc71.bool from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool;
+select derived_t7.doc71.bool from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool;
+
+explain extended
+select derived_t7.doc71.bool from t6 join (select * from t7) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool;
+select derived_t7.doc71.bool from t6 join (select * from t7) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool;
+
+--echo ### USE AS STANDARD
+explain extended
+select derived_t7.b7 from t6 join (select * from t7 where t7.b7 > false) as derived_t7 on t6.b6 = derived_t7.b7;
+
+explain extended
+select derived_t7.doc71.bool from t6 use document keys join (select * from t7 use document keys where t7.doc71.bool > false) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool;
+select derived_t7.doc71.bool from t6 use document keys join (select * from t7 use document keys where t7.doc71.bool > false) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool;
+
+explain extended
+select derived_t7.doc71.bool from t6 join (select * from t7 where t7.doc71.bool > false) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool;
+select derived_t7.doc71.bool from t6 join (select * from t7 where t7.doc71.bool > false) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool;
+
+explain extended
+select derived_t7.doc71.bool from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool and derived_t7.doc71.bool > false;
+select derived_t7.doc71.bool from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool and derived_t7.doc71.bool > false;
+
+explain extended
+select derived_t7.doc71.bool from t6 join (select * from t7) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool and derived_t7.doc71.bool > false;
+select derived_t7.doc71.bool from t6 join (select * from t7) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool and derived_t7.doc71.bool > false;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t6 and t7
+--echo ### PATTERN 1 with double
+--echo
+
+--echo ### USE AS STANDARD
+explain extended
+select derived_t7.c7 from t6 join (select * from t7) as derived_t7 on t6.c6 = derived_t7.c7;
+
+explain extended
+select derived_t7.doc71.double from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.double = derived_t7.doc71.double;
+select derived_t7.doc71.double from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.double = derived_t7.doc71.double;
+
+explain extended
+select derived_t7.doc71.double from t6 join (select * from t7) as derived_t7 on t6.doc61.double = derived_t7.doc71.double;
+select derived_t7.doc71.double from t6 join (select * from t7) as derived_t7 on t6.doc61.double = derived_t7.doc71.double;
+
+--echo ### USE AS STANDARD
+explain extended
+select derived_t7.c7 from t6 join (select * from t7 where t7.c7 > 9.9) as derived_t7 on t6.c6 = derived_t7.c7;
+
+explain extended
+select derived_t7.doc71.double from t6 use document keys join (select * from t7 use document keys where t7.doc71.double > 9.9) as derived_t7 on t6.doc61.double = derived_t7.doc71.double;
+select derived_t7.doc71.double from t6 use document keys join (select * from t7 use document keys where t7.doc71.double > 9.9) as derived_t7 on t6.doc61.double = derived_t7.doc71.double;
+
+explain extended
+select derived_t7.doc71.double from t6 join (select * from t7 where t7.doc71.double > 9.9) as derived_t7 on t6.doc61.double = derived_t7.doc71.double;
+select derived_t7.doc71.double from t6 join (select * from t7 where t7.doc71.double > 9.9) as derived_t7 on t6.doc61.double = derived_t7.doc71.double;
+
+explain extended
+select derived_t7.doc71.double from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.double = derived_t7.doc71.double and derived_t7.doc71.double > 9.9;
+select derived_t7.doc71.double from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.double = derived_t7.doc71.double and derived_t7.doc71.double > 9.9;
+
+explain extended
+select derived_t7.doc71.double from t6 join (select * from t7) as derived_t7 on t6.doc61.double = derived_t7.doc71.double and derived_t7.doc71.double > 9.9;
+select derived_t7.doc71.double from t6 join (select * from t7) as derived_t7 on t6.doc61.double = derived_t7.doc71.double and derived_t7.doc71.double > 9.9;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t6 and t7
+--echo ### PATTERN 2 with int
+--echo
+
+--echo ### USE AS STANDARD
+explain extended
+select derived_t7.b7 from t6 join (select t7.b7 from t7 where t7.b7 > 9) as derived_t7 on t6.b6 = derived_t7.b7;
+
+explain extended
+select derived_t7.doc71.int from t6 use document keys join (select t7.doc71.int from t7 use document keys where t7.doc71.int > 9) as derived_t7 on t6.doc61.int = derived_t7.doc71.int;
+select derived_t7.doc71.int from t6 use document keys join (select t7.doc71.int from t7 use document keys where t7.doc71.int > 9) as derived_t7 on t6.doc61.int = derived_t7.doc71.int;
+
+explain extended
+select derived_t7.doc71.int from t6 join (select t7.doc71.int from t7 where t7.doc71.int > 9) as derived_t7 on t6.doc61.int = derived_t7.doc71.int;
+select derived_t7.doc71.int from t6 join (select t7.doc71.int from t7 where t7.doc71.int > 9) as derived_t7 on t6.doc61.int = derived_t7.doc71.int;
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select derived_t7.b7 from t6 join (select t7.b7 from t7) as derived_t7 on t6.b6 = derived_t7.b7 and derived_t7.b7 > 9;
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select derived_t7.str7 from t6 join (select t7.str7 from t7) as derived_t7 on t6.str6 = derived_t7.str7 and derived_t7.str7 > "iii";
+
+explain extended
+select derived_t7.doc71.int from t6 use document keys join (select t7.doc71.int from t7 use document keys) as derived_t7 on t6.doc61.int = derived_t7.doc71.int and derived_t7.doc71.int > 9;
+select derived_t7.doc71.int from t6 use document keys join (select t7.doc71.int from t7 use document keys) as derived_t7 on t6.doc61.int = derived_t7.doc71.int and derived_t7.doc71.int > 9;
+
+explain extended
+select derived_t7.doc71.int from t6 join (select t7.doc71.int from t7) as derived_t7 on t6.doc61.int = derived_t7.doc71.int and derived_t7.doc71.int > 9;
+select derived_t7.doc71.int from t6 join (select t7.doc71.int from t7) as derived_t7 on t6.doc61.int = derived_t7.doc71.int and derived_t7.doc71.int > 9;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t6 and t7
+--echo ### PATTERN 2 with string
+--echo
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select derived_t7.str7 from t6 join (select t7.str7 from t7 where t7.str7 > "iii") as derived_t7 on t6.str6 = derived_t7.str7;
+
+explain extended
+select derived_t7.doc71.string from t6 use document keys join (select t7.doc71.string from t7 use document keys where t7.doc71.string > "iii") as derived_t7 on t6.doc61.string = derived_t7.doc71.string;
+select derived_t7.doc71.string from t6 use document keys join (select t7.doc71.string from t7 use document keys where t7.doc71.string > "iii") as derived_t7 on t6.doc61.string = derived_t7.doc71.string;
+
+explain extended
+select derived_t7.doc71.string from t6 join (select t7.doc71.string from t7 where t7.doc71.string > "iii") as derived_t7 on t6.doc61.string = derived_t7.doc71.string;
+select derived_t7.doc71.string from t6 join (select t7.doc71.string from t7 where t7.doc71.string > "iii") as derived_t7 on t6.doc61.string = derived_t7.doc71.string;
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select derived_t7.str7 from t6 join (select t7.str7 from t7) as derived_t7 on t6.str6 = derived_t7.str7 and derived_t7.str7 > "iii";
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select derived_t7.str7 from t6 join (select t7.str7 from t7) as derived_t7 on t6.str6 = derived_t7.str7 and derived_t7.str7 > "iii";
+
+explain extended
+select derived_t7.doc71.string from t6 use document keys join (select t7.doc71.string from t7 use document keys) as derived_t7 on t6.doc61.string = derived_t7.doc71.string and derived_t7.doc71.string > "iii";
+select derived_t7.doc71.string from t6 use document keys join (select t7.doc71.string from t7 use document keys) as derived_t7 on t6.doc61.string = derived_t7.doc71.string and derived_t7.doc71.string > "iii";
+
+explain extended
+select derived_t7.doc71.string from t6 join (select t7.doc71.string from t7) as derived_t7 on t6.doc61.string = derived_t7.doc71.string and derived_t7.doc71.string > "iii";
+select derived_t7.doc71.string from t6 join (select t7.doc71.string from t7) as derived_t7 on t6.doc61.string = derived_t7.doc71.string and derived_t7.doc71.string > "iii";
+
+
+--echo
+--echo ### JOIN TWO TABLES: t6 and t7
+--echo ### PATTERN 2 with bool
+--echo
+
+--echo ### USE AS STANDARD
+explain extended
+select derived_t7.b7 from t6 join (select t7.b7 from t7 where t7.b7 > false) as derived_t7 on t6.b6 = derived_t7.b7;
+
+explain extended
+select derived_t7.doc71.bool from t6 use document keys join (select t7.doc71.bool from t7 use document keys where t7.doc71.bool > false) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool;
+select derived_t7.doc71.bool from t6 use document keys join (select t7.doc71.bool from t7 use document keys where t7.doc71.bool > false) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool;
+
+explain extended
+select derived_t7.doc71.bool from t6 join (select t7.doc71.bool from t7 where t7.doc71.bool > false) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool;
+select derived_t7.doc71.bool from t6 join (select t7.doc71.bool from t7 where t7.doc71.bool > false) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool;
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select derived_t7.b7 from t6 join (select t7.b7 from t7) as derived_t7 on t6.b6 = derived_t7.b7 and derived_t7.b7 > false;
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select derived_t7.str7 from t6 join (select t7.str7 from t7) as derived_t7 on t6.str6 = derived_t7.str7 and derived_t7.str7 > "iii";
+
+explain extended
+select derived_t7.doc71.bool from t6 use document keys join (select t7.doc71.bool from t7 use document keys) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool and derived_t7.doc71.bool > false;
+select derived_t7.doc71.bool from t6 use document keys join (select t7.doc71.bool from t7 use document keys) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool and derived_t7.doc71.bool > false;
+
+explain extended
+select derived_t7.doc71.bool from t6 join (select t7.doc71.bool from t7) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool and derived_t7.doc71.bool > false;
+select derived_t7.doc71.bool from t6 join (select t7.doc71.bool from t7) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool and derived_t7.doc71.bool > false;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t6 and t7
+--echo ### PATTERN 2 with double
+--echo
+
+--echo ### USE AS STANDARD
+explain extended
+select derived_t7.c7 from t6 join (select t7.c7 from t7 where t7.c7 > 9.9) as derived_t7 on t6.c6 = derived_t7.c7;
+
+explain extended
+select derived_t7.doc71.double from t6 use document keys join (select t7.doc71.double from t7 use document keys where t7.doc71.double > 9.9) as derived_t7 on t6.doc61.double = derived_t7.doc71.double;
+select derived_t7.doc71.double from t6 use document keys join (select t7.doc71.double from t7 use document keys where t7.doc71.double > 9.9) as derived_t7 on t6.doc61.double = derived_t7.doc71.double;
+
+explain extended
+select derived_t7.doc71.double from t6 join (select t7.doc71.double from t7 where t7.doc71.double > 9.9) as derived_t7 on t6.doc61.double = derived_t7.doc71.double;
+select derived_t7.doc71.double from t6 join (select t7.doc71.double from t7 where t7.doc71.double > 9.9) as derived_t7 on t6.doc61.double = derived_t7.doc71.double;
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select derived_t7.c7 from t6 join (select t7.c7 from t7) as derived_t7 on t6.c6 = derived_t7.c7 and derived_t7.c7 > 9.9;
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select derived_t7.str7 from t6 join (select t7.str7 from t7) as derived_t7 on t6.str6 = derived_t7.str7 and derived_t7.str7 > "iii";
+
+explain extended
+select derived_t7.doc71.double from t6 use document keys join (select t7.doc71.double from t7 use document keys) as derived_t7 on t6.doc61.double = derived_t7.doc71.double and derived_t7.doc71.double > 9.9;
+select derived_t7.doc71.double from t6 use document keys join (select t7.doc71.double from t7 use document keys) as derived_t7 on t6.doc61.double = derived_t7.doc71.double and derived_t7.doc71.double > 9.9;
+
+explain extended
+select derived_t7.doc71.double from t6 join (select t7.doc71.double from t7) as derived_t7 on t6.doc61.double = derived_t7.doc71.double and derived_t7.doc71.double > 9.9;
+select derived_t7.doc71.double from t6 join (select t7.doc71.double from t7) as derived_t7 on t6.doc61.double = derived_t7.doc71.double and derived_t7.doc71.double > 9.9;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t1 and t2
+--echo ### PATTERN 1 with int
+--echo
+
+explain extended
+select derived_t2.doc21.int from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.int = derived_t2.doc21.int;
+select derived_t2.doc21.int from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.int = derived_t2.doc21.int;
+
+explain extended
+select derived_t2.doc21.int from t1 join (select * from t2) as derived_t2 on t1.doc11.int = derived_t2.doc21.int;
+select derived_t2.doc21.int from t1 join (select * from t2) as derived_t2 on t1.doc11.int = derived_t2.doc21.int;
+
+explain extended
+select derived_t2.doc21.int from t1 use document keys join (select * from t2 use document keys where t2.doc21.int > 9) as derived_t2 on t1.doc11.int = derived_t2.doc21.int;
+select derived_t2.doc21.int from t1 use document keys join (select * from t2 use document keys where t2.doc21.int > 9) as derived_t2 on t1.doc11.int = derived_t2.doc21.int;
+
+explain extended
+select derived_t2.doc21.int from t1 join (select * from t2 where t2.doc21.int > 9) as derived_t2 on t1.doc11.int = derived_t2.doc21.int;
+select derived_t2.doc21.int from t1 join (select * from t2 where t2.doc21.int > 9) as derived_t2 on t1.doc11.int = derived_t2.doc21.int;
+
+explain extended
+select derived_t2.doc21.int from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.int = derived_t2.doc21.int and derived_t2.doc21.int > 9;
+select derived_t2.doc21.int from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.int = derived_t2.doc21.int and derived_t2.doc21.int > 9;
+
+explain extended
+select derived_t2.doc21.int from t1 join (select * from t2) as derived_t2 on t1.doc11.int = derived_t2.doc21.int and derived_t2.doc21.int > 9;
+select derived_t2.doc21.int from t1 join (select * from t2) as derived_t2 on t1.doc11.int = derived_t2.doc21.int and derived_t2.doc21.int > 9;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t1 and t2
+--echo ### PATTERN 1 with string
+--echo
+
+explain extended
+select derived_t2.doc21.string from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.string = derived_t2.doc21.string and derived_t2.doc21.string > "iii";
+select derived_t2.doc21.string from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.string = derived_t2.doc21.string and derived_t2.doc21.string > "iii";
+
+explain extended
+select derived_t2.doc21.string from t1 join (select * from t2) as derived_t2 on t1.doc11.string = derived_t2.doc21.string and derived_t2.doc21.string > "iii";
+select derived_t2.doc21.string from t1 join (select * from t2) as derived_t2 on t1.doc11.string = derived_t2.doc21.string and derived_t2.doc21.string > "iii";
+
+explain extended
+select derived_t2.doc21.string from t1 use document keys join (select * from t2 use document keys where t2.doc21.string > "iii") as derived_t2 on t1.doc11.string = derived_t2.doc21.string;
+select derived_t2.doc21.string from t1 use document keys join (select * from t2 use document keys where t2.doc21.string > "iii") as derived_t2 on t1.doc11.string = derived_t2.doc21.string;
+
+explain extended
+select derived_t2.doc21.string from t1 join (select * from t2 where t2.doc21.string > "iii") as derived_t2 on t1.doc11.string = derived_t2.doc21.string;
+select derived_t2.doc21.string from t1 join (select * from t2 where t2.doc21.string > "iii") as derived_t2 on t1.doc11.string = derived_t2.doc21.string;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t1 and t2
+--echo ### PATTERN 1 with bool
+--echo
+
+explain extended
+select derived_t2.doc21.bool from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool;
+select derived_t2.doc21.bool from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool;
+
+explain extended
+select derived_t2.doc21.bool from t1 join (select * from t2) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool;
+select derived_t2.doc21.bool from t1 join (select * from t2) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool;
+
+explain extended
+select derived_t2.doc21.bool from t1 use document keys join (select * from t2 use document keys where t2.doc21.bool > false) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool;
+select derived_t2.doc21.bool from t1 use document keys join (select * from t2 use document keys where t2.doc21.bool > false) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool;
+
+explain extended
+select derived_t2.doc21.bool from t1 join (select * from t2 where t2.doc21.bool > false) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool;
+select derived_t2.doc21.bool from t1 join (select * from t2 where t2.doc21.bool > false) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool;
+
+explain extended
+select derived_t2.doc21.bool from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool and derived_t2.doc21.bool > false;
+select derived_t2.doc21.bool from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool and derived_t2.doc21.bool > false;
+
+explain extended
+select derived_t2.doc21.bool from t1 join (select * from t2) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool and derived_t2.doc21.bool > false;
+select derived_t2.doc21.bool from t1 join (select * from t2) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool and derived_t2.doc21.bool > false;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t1 and t2
+--echo ### PATTERN 1 with double
+--echo
+
+explain extended
+select derived_t2.doc21.double from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.double = derived_t2.doc21.double;
+select derived_t2.doc21.double from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.double = derived_t2.doc21.double;
+
+explain extended
+select derived_t2.doc21.double from t1 join (select * from t2) as derived_t2 on t1.doc11.double = derived_t2.doc21.double;
+select derived_t2.doc21.double from t1 join (select * from t2) as derived_t2 on t1.doc11.double = derived_t2.doc21.double;
+
+explain extended
+select derived_t2.doc21.double from t1 use document keys join (select * from t2 use document keys where t2.doc21.double > 9.9) as derived_t2 on t1.doc11.double = derived_t2.doc21.double;
+select derived_t2.doc21.double from t1 use document keys join (select * from t2 use document keys where t2.doc21.double > 9.9) as derived_t2 on t1.doc11.double = derived_t2.doc21.double;
+
+explain extended
+select derived_t2.doc21.double from t1 join (select * from t2 where t2.doc21.double > 9.9) as derived_t2 on t1.doc11.double = derived_t2.doc21.double;
+select derived_t2.doc21.double from t1 join (select * from t2 where t2.doc21.double > 9.9) as derived_t2 on t1.doc11.double = derived_t2.doc21.double;
+
+explain extended
+select derived_t2.doc21.double from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.double = derived_t2.doc21.double and derived_t2.doc21.double > 9.9;
+select derived_t2.doc21.double from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.double = derived_t2.doc21.double and derived_t2.doc21.double > 9.9;
+
+explain extended
+select derived_t2.doc21.double from t1 join (select * from t2) as derived_t2 on t1.doc11.double = derived_t2.doc21.double and derived_t2.doc21.double > 9.9;
+select derived_t2.doc21.double from t1 join (select * from t2) as derived_t2 on t1.doc11.double = derived_t2.doc21.double and derived_t2.doc21.double > 9.9;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t1 and t2
+--echo ### PATTERN 2 with int
+--echo
+
+explain extended
+select derived_t2.doc21.int from t1 use document keys join (select t2.doc21.int from t2 use document keys where t2.doc21.int > 9) as derived_t2 on t1.doc11.int = derived_t2.doc21.int;
+select derived_t2.doc21.int from t1 use document keys join (select t2.doc21.int from t2 use document keys where t2.doc21.int > 9) as derived_t2 on t1.doc11.int = derived_t2.doc21.int;
+
+explain extended
+select derived_t2.doc21.int from t1 join (select t2.doc21.int from t2 where t2.doc21.int > 9) as derived_t2 on t1.doc11.int = derived_t2.doc21.int;
+select derived_t2.doc21.int from t1 join (select t2.doc21.int from t2 where t2.doc21.int > 9) as derived_t2 on t1.doc11.int = derived_t2.doc21.int;
+
+explain extended
+select derived_t2.doc21.int from t1 use document keys join (select t2.doc21.int from t2 use document keys) as derived_t2 on t1.doc11.int = derived_t2.doc21.int and derived_t2.doc21.int > 9;
+select derived_t2.doc21.int from t1 use document keys join (select t2.doc21.int from t2 use document keys) as derived_t2 on t1.doc11.int = derived_t2.doc21.int and derived_t2.doc21.int > 9;
+
+explain extended
+select derived_t2.doc21.int from t1 join (select t2.doc21.int from t2) as derived_t2 on t1.doc11.int = derived_t2.doc21.int and derived_t2.doc21.int > 9;
+select derived_t2.doc21.int from t1 join (select t2.doc21.int from t2) as derived_t2 on t1.doc11.int = derived_t2.doc21.int and derived_t2.doc21.int > 9;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t1 and t2
+--echo ### PATTERN 2 with string
+--echo
+
+explain extended
+select derived_t2.doc21.string from t1 use document keys join (select t2.doc21.string from t2 use document keys where t2.doc21.string > "iii") as derived_t2 on t1.doc11.string = derived_t2.doc21.string;
+select derived_t2.doc21.string from t1 use document keys join (select t2.doc21.string from t2 use document keys where t2.doc21.string > "iii") as derived_t2 on t1.doc11.string = derived_t2.doc21.string;
+
+explain extended
+select derived_t2.doc21.string from t1 join (select t2.doc21.string from t2 where t2.doc21.string > "iii") as derived_t2 on t1.doc11.string = derived_t2.doc21.string;
+select derived_t2.doc21.string from t1 join (select t2.doc21.string from t2 where t2.doc21.string > "iii") as derived_t2 on t1.doc11.string = derived_t2.doc21.string;
+
+explain extended
+select derived_t2.doc21.string from t1 use document keys join (select t2.doc21.string from t2 use document keys) as derived_t2 on t1.doc11.string = derived_t2.doc21.string and derived_t2.doc21.string > "iii";
+select derived_t2.doc21.string from t1 use document keys join (select t2.doc21.string from t2 use document keys) as derived_t2 on t1.doc11.string = derived_t2.doc21.string and derived_t2.doc21.string > "iii";
+
+explain extended
+select derived_t2.doc21.string from t1 join (select t2.doc21.string from t2) as derived_t2 on t1.doc11.string = derived_t2.doc21.string and derived_t2.doc21.string > "iii";
+select derived_t2.doc21.string from t1 join (select t2.doc21.string from t2) as derived_t2 on t1.doc11.string = derived_t2.doc21.string and derived_t2.doc21.string > "iii";
+
+
+--echo
+--echo ### JOIN TWO TABLES: t1 and t2
+--echo ### PATTERN 2 with bool
+--echo
+
+explain extended
+select derived_t2.doc21.bool from t1 use document keys join (select t2.doc21.bool from t2 use document keys where t2.doc21.bool > false) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool;
+select derived_t2.doc21.bool from t1 use document keys join (select t2.doc21.bool from t2 use document keys where t2.doc21.bool > false) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool;
+
+explain extended
+select derived_t2.doc21.bool from t1 join (select t2.doc21.bool from t2 where t2.doc21.bool > false) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool;
+select derived_t2.doc21.bool from t1 join (select t2.doc21.bool from t2 where t2.doc21.bool > false) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool;
+
+explain extended
+select derived_t2.doc21.bool from t1 use document keys join (select t2.doc21.bool from t2 use document keys) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool and derived_t2.doc21.bool > false;
+select derived_t2.doc21.bool from t1 use document keys join (select t2.doc21.bool from t2 use document keys) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool and derived_t2.doc21.bool > false;
+
+explain extended
+select derived_t2.doc21.bool from t1 join (select t2.doc21.bool from t2) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool and derived_t2.doc21.bool > false;
+select derived_t2.doc21.bool from t1 join (select t2.doc21.bool from t2) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool and derived_t2.doc21.bool > false;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t1 and t2
+--echo ### PATTERN 2 with double
+--echo
+
+explain extended
+select derived_t2.doc21.double from t1 use document keys join (select t2.doc21.double from t2 use document keys where t2.doc21.double > 9.9) as derived_t2 on t1.doc11.double = derived_t2.doc21.double;
+select derived_t2.doc21.double from t1 use document keys join (select t2.doc21.double from t2 use document keys where t2.doc21.double > 9.9) as derived_t2 on t1.doc11.double = derived_t2.doc21.double;
+
+explain extended
+select derived_t2.doc21.double from t1 join (select t2.doc21.double from t2 where t2.doc21.double > 9.9) as derived_t2 on t1.doc11.double = derived_t2.doc21.double;
+select derived_t2.doc21.double from t1 join (select t2.doc21.double from t2 where t2.doc21.double > 9.9) as derived_t2 on t1.doc11.double = derived_t2.doc21.double;
+
+explain extended
+select derived_t2.doc21.double from t1 use document keys join (select t2.doc21.double from t2 use document keys) as derived_t2 on t1.doc11.double = derived_t2.doc21.double and derived_t2.doc21.double > 9.9;
+select derived_t2.doc21.double from t1 use document keys join (select t2.doc21.double from t2 use document keys) as derived_t2 on t1.doc11.double = derived_t2.doc21.double and derived_t2.doc21.double > 9.9;
+
+explain extended
+select derived_t2.doc21.double from t1 join (select t2.doc21.double from t2) as derived_t2 on t1.doc11.double = derived_t2.doc21.double and derived_t2.doc21.double > 9.9;
+select derived_t2.doc21.double from t1 join (select t2.doc21.double from t2) as derived_t2 on t1.doc11.double = derived_t2.doc21.double and derived_t2.doc21.double > 9.9;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t6 and t7
+--echo ### PATTERN 3 with int/string
+--echo
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select *
+from t6, (select sum(t7.b7) as b7_sum, t7.str7
+          from t7
+          group by t7.str7
+          having t7.str7 > 'fff') as derived_t7
+where t6.b6 < derived_t7.b7_sum and t6.b6 > 10;
+
+explain extended
+select *
+from t6 use document keys, (select sum(t7.doc71.int) as doc71_int_sum, t7.doc71.string
+          from t7 use document keys
+          group by t7.doc71.string
+          having t7.doc71.string > 'fff') as derived_t7
+where t6.doc61.int < derived_t7.doc71_int_sum and t6.doc61.int > 10;
+
+select *
+from t6 use document keys, (select sum(t7.doc71.int) as doc71_int_sum, t7.doc71.string
+          from t7 use document keys
+          group by t7.doc71.string
+          having t7.doc71.string > 'fff') as derived_t7
+where t6.doc61.int < derived_t7.doc71_int_sum and t6.doc61.int > 10;
+
+explain extended
+select *
+from t6, (select sum(t7.doc71.int) as doc71_int_sum, t7.doc71.string
+          from t7
+          group by t7.doc71.string
+          having t7.doc71.string > 'fff') as derived_t7
+where t6.doc61.int < derived_t7.doc71_int_sum and t6.doc61.int > 10;
+
+select *
+from t6, (select sum(t7.doc71.int) as doc71_int_sum, t7.doc71.string
+          from t7
+          group by t7.doc71.string
+          having t7.doc71.string > 'fff') as derived_t7
+where t6.doc61.int < derived_t7.doc71_int_sum and t6.doc61.int > 10;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t6 and t7
+--echo ### PATTERN 3 with bool/string
+--echo
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select *
+from t6, (select sum(t7.b7) as b7_sum, t7.str7
+          from t7
+          group by t7.str7
+          having t7.str7 > 'fff') as derived_t7
+where t6.b6 < derived_t7.b7_sum and t6.b6 > false;
+
+explain extended
+select *
+from t6 use document keys, (select sum(t7.doc71.bool) as doc71_bool_sum, t7.doc71.string
+          from t7 use document keys
+          group by t7.doc71.string
+          having t7.doc71.string > 'fff') as derived_t7
+where t6.doc61.bool < derived_t7.doc71_bool_sum and t6.doc61.bool > false;
+
+select *
+from t6 use document keys, (select sum(t7.doc71.bool) as doc71_bool_sum, t7.doc71.string
+          from t7 use document keys
+          group by t7.doc71.string
+          having t7.doc71.string > 'fff') as derived_t7
+where t6.doc61.bool < derived_t7.doc71_bool_sum and t6.doc61.bool > false;
+
+explain extended
+select *
+from t6, (select sum(t7.doc71.bool) as doc71_bool_sum, t7.doc71.string
+          from t7
+          group by t7.doc71.string
+          having t7.doc71.string > 'fff') as derived_t7
+where t6.doc61.bool < derived_t7.doc71_bool_sum and t6.doc61.bool > false;
+
+select *
+from t6, (select sum(t7.doc71.bool) as doc71_bool_sum, t7.doc71.string
+          from t7
+          group by t7.doc71.string
+          having t7.doc71.string > 'fff') as derived_t7
+where t6.doc61.bool < derived_t7.doc71_bool_sum and t6.doc61.bool > false;
+
+--echo
+--echo ### JOIN TWO TABLES: t6 and t7
+--echo ### PATTERN 3 with double/string
+--echo
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select *
+from t6, (select sum(t7.c7) as c7_sum, t7.str7
+          from t7
+          group by t7.str7
+          having t7.str7 > 'fff') as derived_t7
+where t6.doc61.double < derived_t7.c7_sum and t6.c6 > 10.1;
+
+explain extended
+select *
+from t6 use document keys, (select sum(t7.doc71.double) as doc71_double_sum, t7.doc71.string
+          from t7 use document keys
+          group by t7.doc71.string
+          having t7.doc71.string > 'fff') as derived_t7
+where t6.doc61.double < derived_t7.doc71_double_sum and t6.doc61.double > 10.1;
+
+select *
+from t6 use document keys, (select sum(t7.doc71.double) as doc71_double_sum, t7.doc71.string
+          from t7 use document keys
+          group by t7.doc71.string
+          having t7.doc71.string > 'fff') as derived_t7
+where t6.doc61.double < derived_t7.doc71_double_sum and t6.doc61.double > 10.1;
+
+explain extended
+select *
+from t6, (select sum(t7.doc71.double) as doc71_double_sum, t7.doc71.string
+          from t7
+          group by t7.doc71.string
+          having t7.doc71.string > 'fff') as derived_t7
+where t6.doc61.double < derived_t7.doc71_double_sum and t6.doc61.double > 10.1;
+
+select *
+from t6, (select sum(t7.doc71.double) as doc71_double_sum, t7.doc71.string
+          from t7
+          group by t7.doc71.string
+          having t7.doc71.string > 'fff') as derived_t7
+where t6.doc61.double < derived_t7.doc71_double_sum and t6.doc61.double > 10.1;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t1 and t2
+--echo ### PATTERN 3 with int/string
+--echo
+
+select *
+from t1 use document keys, (select sum(t2.doc21.int) as doc21_int_sum, t2.doc21.string
+          from t2 use document keys
+          group by t2.doc21.string
+          having t2.doc21.string > 'a') as derived_t2
+where t1.b1 < derived_t2.doc21_int_sum and t1.doc11.int > 5;
+
+select *
+from t1, (select sum(t2.doc21.int) as doc21_int_sum, t2.doc21.string
+          from t2
+          group by t2.doc21.string
+          having t2.doc21.string > 'a') as derived_t2
+where t1.b1 < derived_t2.doc21_int_sum and t1.doc11.int > 5;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t1 and t2
+--echo ### PATTERN 3 with bool/string
+--echo
+
+select *
+from t1 use document keys, (select sum(t2.doc21.bool) as doc21_bool_sum, t2.doc21.string
+          from t2 use document keys
+          group by t2.doc21.string
+          having t2.doc21.string > 'a') as derived_t2
+where t1.b1 < derived_t2.doc21_bool_sum and t1.doc11.bool > false;
+
+select *
+from t1, (select sum(t2.doc21.bool) as doc21_bool_sum, t2.doc21.string
+          from t2
+          group by t2.doc21.string
+          having t2.doc21.string > 'a') as derived_t2
+where t1.b1 < derived_t2.doc21_bool_sum and t1.doc11.bool > false;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t1 and t2
+--echo ### PATTERN 3 with double/string
+--echo
+
+select *
+from t1 use document keys, (select sum(t2.doc21.double) as doc21_double_sum, t2.doc21.string
+          from t2 use document keys
+          group by t2.doc21.string
+          having t2.doc21.string > 'a') as derived_t2
+where t1.doc11.double < derived_t2.doc21_double_sum and t1.doc11.double > 5.5;
+
+select *
+from t1 use document keys, (select sum(t2.doc21.double) as doc21_double_sum, t2.doc21.string
+          from t2 use document keys
+          group by t2.doc21.string
+          having t2.doc21.string > 'a') as derived_t2
+where t1.doc11.double < derived_t2.doc21_double_sum and t1.doc11.double > 5.5;
+
+
+#############################################################################
+###
+### Clean up
+###
+drop table t1, t2, t3, t6, t7, t8;
+--source include/rpl_end.inc
