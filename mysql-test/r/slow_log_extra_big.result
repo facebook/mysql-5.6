@@ -1,5 +1,6 @@
 set @my_slow_logname = @@global.slow_query_log_file;
 set global slow_query_log_file = "slow_log_extra_big-slow.log";
+set @my_long_query_time = @@global.long_query_time;
 set session long_query_time = 20;
 set global long_query_time = 0;
 select count(*) from big_table_slow;
@@ -23,15 +24,20 @@ count(*)
 # Cleanup
 SET GLOBAL innodb_file_format = "Barracuda";
 set global slow_query_log_file = @my_slow_logname;
-set global long_query_time=1;
+set global long_query_time=@my_long_query_time;
 drop table big_table_slow;
 #
 # This is a hack to check the log result.
-# We strip off time related fields (non-deterministic) and verify the rest are correct.
+# We strip off time related fields (non-deterministic)
+# and verify the rest are correct.
 #
-Rows_sent: 1  Rows_examined: 20000 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 67 Read_first: 1 Read_last: 0 Read_key: 1 Read_next: 20000 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 RocksDB_key_skipped: 0 RocksDB_del_skipped: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
-Rows_sent: 1  Rows_examined: 20000 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 67 Read_first: 1 Read_last: 0 Read_key: 1 Read_next: 20000 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 RocksDB_key_skipped: 0 RocksDB_del_skipped: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
-Rows_sent: 1  Rows_examined: 499 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 65 Read_first: 0 Read_last: 0 Read_key: 1 Read_next: 499 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 RocksDB_key_skipped: 0 RocksDB_del_skipped: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
-Rows_sent: 1  Rows_examined: 1 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 314 Read_first: 0 Read_last: 0 Read_key: 1 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 RocksDB_key_skipped: 0 RocksDB_del_skipped: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
-Rows_sent: 1  Rows_examined: 15000 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 67 Read_first: 0 Read_last: 0 Read_key: 1 Read_next: 15000 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 RocksDB_key_skipped: 0 RocksDB_del_skipped: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
-Rows_sent: 1  Rows_examined: 20000 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 67 Read_first: 1 Read_last: 0 Read_key: 1 Read_next: 20000 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 RocksDB_key_skipped: 0 RocksDB_del_skipped: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+select * from log_output;
+Rows_sent	Rows_examined	Errno	Killed	Bytes_received	Bytes_sent	Read_first	Read_last	Read_key	Read_next	Read_prev	Read_rnd	Read_rnd_next	RocksDB_key_skipped	RocksDB_del_skipped	Sort_merge_passes	Sort_range_count	Sort_rows	Sort_scan_count	Created_tmp_disk_tables
+1	20000	0	0	0	6	1	0	1	2	0	0	0	0	0	0	0	0	0	0
+1	20000	0	0	0	6	1	0	1	2	0	0	0	0	0	0	0	0	0	0
+1	499	0	0	0	6	0	0	1	4	0	0	0	0	0	0	0	0	0	0
+1	1	0	0	0	3	0	0	1	0	0	0	0	0	0	0	0	0	0	0
+1	15000	0	0	0	6	0	0	1	1	0	0	0	0	0	0	0	0	0	0
+1	20000	0	0	0	6	1	0	1	2	0	0	0	0	0	0	0	0	0	0
+if the following is not 1 you need to adjust the file_lines_count variable
+1
