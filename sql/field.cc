@@ -2062,6 +2062,13 @@ Field *Field::new_field(MEM_ROOT *root, TABLE *new_table,
   tmp->unireg_check= Field::NONE;
   tmp->flags&= (NOT_NULL_FLAG | BLOB_FLAG | UNSIGNED_FLAG |
                 ZEROFILL_FLAG | BINARY_FLAG | ENUM_FLAG | SET_FLAG);
+
+  if (type() == MYSQL_TYPE_DOCUMENT)
+  {
+    DBUG_ASSERT(flags & DOCUMENT_FLAG);
+    tmp->flags |= DOCUMENT_FLAG;
+  }
+
   tmp->reset_fields();
   return tmp;
 }
@@ -8873,7 +8880,7 @@ fbson::FbsonErrType Field_document::update_node(
 }
 void Field_document::set_null(my_ptrdiff_t row_offset)
 {
-  if(!is_derived_document_field())
+  if(!is_derived())
     {
       return Field_blob::set_null(row_offset);
     }
@@ -8887,7 +8894,7 @@ void Field_document::set_null(my_ptrdiff_t row_offset)
 }
 type_conversion_status Field_document::reset(void)
 {
-    if(!is_derived_document_field())
+    if(!is_derived())
     {
       type_conversion_status res= Field_blob::reset();
       if (res != TYPE_OK)
@@ -8913,7 +8920,7 @@ Field_document::update_json(const fbson::FbsonValue *val,
                             Document_path_iterator& key_path,
                             Field_document *from)
 {
-  DBUG_ASSERT(!is_derived_document_field());
+  DBUG_ASSERT(!is_derived());
   // We do replace update here
   if(from == this)
   {
@@ -9131,7 +9138,7 @@ Field_document::store(const char *from, uint length, const CHARSET_INFO *cs)
     contain the whole document. The input value can be a json string
     or FbsonDocument binary when use_fbson_input_format is set.
   */
-  if(!is_derived_document_field() &&
+  if(!is_derived() &&
      prefix_document_key_path.elements == 0 &&
      document_key_path.elements == 0)
   {
@@ -9237,7 +9244,7 @@ type_conversion_status
 Field_document::store_decimal(const my_decimal *nr)
 {
   // Update root to decimal is not allowed.
-  if(!is_derived_document_field() &&
+  if(!is_derived() &&
      prefix_path_num == 0)
   {
     char buf[DECIMAL_MAX_STR_LENGTH];

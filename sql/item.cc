@@ -1844,6 +1844,13 @@ Item::save_in_field_no_warnings(Field *field, bool no_conversions)
   thd->variables.sql_mode&= ~(MODE_NO_ZERO_IN_DATE | MODE_NO_ZERO_DATE);
   thd->count_cuted_fields= CHECK_FIELD_IGNORE;
 
+  if (field->type() == MYSQL_TYPE_DOCUMENT)
+  {
+    // Reset the document blob since the memory hasn't been
+    // allocated yet and the pointer is not valid.
+    Field_document *field_document = (Field_document *)field;
+    field_document->reset_as_blob();
+  }
   const type_conversion_status res= save_in_field(field, no_conversions);
 
   thd->count_cuted_fields= tmp;
@@ -1858,7 +1865,9 @@ bool Item::is_blob_field() const
   DBUG_ASSERT(fixed);
 
   enum_field_types type= field_type();
+  /* Document type will be treated as blob */
   if (type == MYSQL_TYPE_BLOB || type == MYSQL_TYPE_GEOMETRY ||
+      type == MYSQL_TYPE_DOCUMENT ||
       // Char length, not the byte one, should be taken into account
       (max_length/collation.collation->mbmaxlen > CONVERT_IF_BIGGER_TO_BLOB))
     return true;
@@ -3025,7 +3034,7 @@ void Item_field::do_set_field(Field *field_par)
   if(field->type() == MYSQL_TYPE_DOCUMENT)
   {
     Field_document *doc_field = (Field_document*)field;
-    if(!doc_field->is_derived_document_field())
+    if(!doc_field->is_derived())
     {
       doc_field->table->covering_keys.intersect(field->part_of_key);
       doc_field->table->merge_keys.merge(field->part_of_key);
