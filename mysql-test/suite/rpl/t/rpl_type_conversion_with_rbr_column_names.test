@@ -35,8 +35,29 @@ insert into t1 values(1, "tiny blob", 100);
 sync_slave_with_master;
 select * from t1;
 
+connection master;
+--echo Check slave can deal with deleted columns in the middle
+create table t2 (a int, b varchar(1000), c enum('1','2','3'), d int) engine=innodb rbr_column_names=1;sync_slave_with_master;
+connection slave;
+drop table t2;
+create table t2(a int, b text, d int) engine=innodb rbr_column_names=1;
+connection master;
+insert into t2 values(1, "column2", 1, 1);
+sync_slave_with_master;
+select * from t2;
+
+--echo Check slave can deal with added columns in the middle
+connection slave;
+drop table t2;
+create table t2(a int, e enum('1','2','3'), b text, d int) engine=innodb rbr_column_names=1;
+connection master;
+insert into t2 values(1, "column2", 1, 1);
+sync_slave_with_master;
+select * from t2;
+
 set @@global.slave_type_conversions = @saved_slave_type_conversions;
 connection master;
 drop table t1;
+drop table t2;
 source include/rpl_end.inc;
 
