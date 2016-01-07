@@ -220,13 +220,16 @@ class RDBSE_KEYDEF
 {
 public:
   /* Convert a key from KeyTupleFormat to mem-comparable form */
-  uint pack_index_tuple(const ha_rocksdb *handler, TABLE *tbl,
+  uint pack_index_tuple(const ha_rocksdb *handler,
+                        RDBSE_TABLE_DEF *tbl_def,
+                        TABLE *tbl,
                         uchar *pack_buffer,
                         uchar *packed_tuple,
                         const uchar *key_tuple, key_part_map keypart_map);
 
   /* Convert a key from Table->record format to mem-comparable form */
   uint pack_record(const ha_rocksdb *handler,
+                   RDBSE_TABLE_DEF *tbl_def,
                    TABLE *tbl,
                    uchar *pack_buffer,
                    const uchar *record,
@@ -234,12 +237,15 @@ public:
                    uchar *unpack_info,
                    int *unpack_info_len,
                    uint n_key_parts=0,
-                   uint *n_null_fields=NULL);
+                   uint *n_null_fields= nullptr,
+                   longlong hidden_pk_id= 0);
   int unpack_record(const ha_rocksdb *handler,
+                    RDBSE_TABLE_DEF *tbl_def,
                     TABLE *table, uchar *buf, const rocksdb::Slice *packed_key,
                     const rocksdb::Slice *unpack_info);
 
   bool unpack_info_has_checksum(const rocksdb::Slice& unpack_info);
+
   int compare_keys(const rocksdb::Slice *key1, const rocksdb::Slice *key2,
                    std::size_t* column_index);
 
@@ -417,7 +423,7 @@ public:
     SECONDARY_FORMAT_VERSION_INITIAL= 10,
   };
 
-  void setup(TABLE *table);
+  void setup(TABLE *table, RDBSE_TABLE_DEF *tbl_def);
 
   rocksdb::ColumnFamilyHandle *get_cf() { return cf_handle; }
 
@@ -571,6 +577,8 @@ private:
 public:
   bool setup(Field *field, uint keynr_arg, uint key_part_arg);
   Field *get_field_in_table(TABLE *tbl);
+  void fill_hidden_pk_val(TABLE *table, Field_pack_info *fpi, uchar **dst,
+                          longlong hidden_pk_id);
 };
 
 inline
@@ -592,7 +600,7 @@ Field* RDBSE_KEYDEF::get_table_field_for_part_no(TABLE *table, uint part_no)
 class RDBSE_TABLE_DEF
 {
 public:
-  RDBSE_TABLE_DEF() : key_descr(NULL), auto_incr_val(1)
+  RDBSE_TABLE_DEF() : key_descr(nullptr), auto_incr_val(1), hidden_pk_val(1)
   {
     mysql_mutex_init(0, &mutex, MY_MUTEX_INIT_FAST);
   }
@@ -609,6 +617,7 @@ public:
 
   mysql_mutex_t mutex; // guards the following:
   longlong auto_incr_val;
+  longlong hidden_pk_val;
 
   bool put_dict(Dict_manager *dict, rocksdb::WriteBatch *batch,
                 uchar *key, size_t keylen);
