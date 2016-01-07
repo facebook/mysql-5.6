@@ -15,6 +15,7 @@ CF_COMPACTION	cf_t1	#
 CF_COMPACTION	cf_t4	#
 CF_COMPACTION	default	#
 CF_COMPACTION	rev:cf_t2	#
+Memory_Stats	rocksdb	#
 INSERT INTO t1 VALUES (1), (2), (3);
 SELECT COUNT(*) FROM t1;
 COUNT(*)
