@@ -1016,6 +1016,11 @@ TABLE *table_def::create_conversion_table(THD *thd, Relay_log_info *rli, TABLE *
       find_field_in_table_sef(target_table, get_column_name(col)) :
       target_table->field[col];
 
+    if (!slave_field)
+    {
+      // This column is removed on slave
+      continue;
+    }
     Create_field *field_def=
       (Create_field*) alloc_root(thd->mem_root, sizeof(Create_field));
     if (field_list.push_back(field_def))
@@ -1032,8 +1037,7 @@ TABLE *table_def::create_conversion_table(THD *thd, Relay_log_info *rli, TABLE *
       int precision;
     case MYSQL_TYPE_ENUM:
     case MYSQL_TYPE_SET:
-      if (slave_field)
-        interval= static_cast<Field_enum*>(slave_field)->typelib;
+      interval= static_cast<Field_enum*>(slave_field)->typelib;
       pack_length= field_metadata(col) & 0x00ff;
       break;
 
@@ -1074,8 +1078,8 @@ TABLE *table_def::create_conversion_table(THD *thd, Relay_log_info *rli, TABLE *
 
     DBUG_PRINT("debug", ("sql_type: %d, target_field: '%s', max_length: %d, decimals: %d,"
                          " maybe_null: %d, unsigned_flag: %d, pack_length: %u",
-                         binlog_type(col), slave_field ?
-                         slave_field->field_name : "",
+                         binlog_type(col),
+                         slave_field->field_name,
                          max_length, decimals, TRUE, unsigned_flag, pack_length));
     field_def->init_for_tmp_table(type(col),
                                   max_length,
@@ -1083,8 +1087,7 @@ TABLE *table_def::create_conversion_table(THD *thd, Relay_log_info *rli, TABLE *
                                   TRUE,          // maybe_null
                                   unsigned_flag, // unsigned_flag
                                   pack_length);
-    if (slave_field)
-      field_def->charset= slave_field->charset();
+    field_def->charset= slave_field->charset();
     field_def->interval= interval;
   }
 

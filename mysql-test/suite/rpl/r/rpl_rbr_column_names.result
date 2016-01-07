@@ -42,9 +42,30 @@ delete from t1 where a=3 and b="column3";
 select * from t1;
 a	extra_column	b
 2	NULL	column2
+set @start_val = @@global.slave_type_conversions;
+set @@global.slave_type_conversions=ALL_NON_LOSSY;
+create table t2 (a int, b varchar(1000), c enum('1','2','3'), d int) engine=innodb rbr_column_names=1;
+Check slave_type_conversions with rbr_column_names
+drop table t2;
+create table t2(a int, b text, d int) engine=innodb rbr_column_names=1;
+insert into t2 values(1, "column2", 1, 1);
+select * from t2;
+a	b	d
+1	column2	1
+drop table t2;
+create table t2 (a int, b varchar(1000), d int) engine=innodb rbr_column_names=1;
+Check slave_type_conversions with rbr_column_names
+drop table t2;
+create table t2(a int, b text, c enum('1','2','3'), d int) engine=innodb rbr_column_names=1;
+insert into t2 values(1, "column2", 1);
+select * from t2;
+a	b	c	d
+1	column2	NULL	1
+set @@global.slave_type_conversions = @start_val;
 drop table t1;
 create table t1 (a int, b int);
 Check slave fails with an error due to type mismatch
+drop table t2;
 insert into t1 values(1, "column2");
 include/wait_for_slave_sql_error.inc [errno=1677]
 include/stop_slave.inc

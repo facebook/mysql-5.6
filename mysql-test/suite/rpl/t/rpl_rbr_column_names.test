@@ -42,10 +42,39 @@ delete from t1 where a=3 and b="column3";
 sync_slave_with_master;
 select * from t1;
 
+set @start_val = @@global.slave_type_conversions;
+set @@global.slave_type_conversions=ALL_NON_LOSSY;
+connection master;
+create table t2 (a int, b varchar(1000), c enum('1','2','3'), d int) engine=innodb rbr_column_names=1;
+--echo Check slave_type_conversions with rbr_column_names
+sync_slave_with_master;
+connection slave;
+drop table t2;
+create table t2(a int, b text, d int) engine=innodb rbr_column_names=1;
+connection master;
+insert into t2 values(1, "column2", 1, 1);
+sync_slave_with_master;
+select * from t2;
+
+connection master;
+drop table t2;
+create table t2 (a int, b varchar(1000), d int) engine=innodb rbr_column_names=1;
+--echo Check slave_type_conversions with rbr_column_names
+sync_slave_with_master;
+connection slave;
+drop table t2;
+create table t2(a int, b text, c enum('1','2','3'), d int) engine=innodb rbr_column_names=1;
+connection master;
+insert into t2 values(1, "column2", 1);
+sync_slave_with_master;
+select * from t2;
+set @@global.slave_type_conversions = @start_val;
+
 drop table t1;
 create table t1 (a int, b int);
 --echo Check slave fails with an error due to type mismatch
 connection master;
+drop table t2;
 insert into t1 values(1, "column2");
 connection slave;
 let $slave_sql_errno=convert_error(ER_SLAVE_CONVERSION_FAILED);
