@@ -3202,6 +3202,9 @@ xtrabackup_backup_func(void)
 	} else if (0 == ut_strcmp(srv_file_flush_method_str, "O_DIRECT")) {
 	  	srv_unix_file_flush_method = SRV_UNIX_O_DIRECT;
 		msg("xtrabackup: using O_DIRECT\n");
+	} else if (0 == ut_strcmp(srv_file_flush_method_str, "ALL_O_DIRECT")) {
+	  	srv_unix_file_flush_method = SRV_UNIX_ALL_O_DIRECT;
+		msg("xtrabackup: using ALL_O_DIRECT\n");
 	} else if (0 == ut_strcmp(srv_file_flush_method_str, "O_DIRECT_NO_FSYNC")) {
 		srv_unix_file_flush_method = SRV_UNIX_O_DIRECT_NO_FSYNC;
 		msg("xtrabackup: using O_DIRECT_NO_FSYNC\n");
