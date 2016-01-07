@@ -202,6 +202,7 @@ int unpack_row_with_column_info(TABLE *table, uint const colcnt,
   size_t const master_null_byte_count= (bitmap_bits_set(cols) + 7) / 8;
   uchar const *pack_ptr= row_data + master_null_byte_count;
   uint null_bit_index = 0;
+  uint conv_table_col = 0;
 
   for (uint i = 0; i < tabledef->size(); ++i)
   {
@@ -210,14 +211,15 @@ int unpack_row_with_column_info(TABLE *table, uint const colcnt,
       continue;
     const char* col_name = tabledef->get_column_name(i);
     DBUG_ASSERT(col_name);
-    // use conversion table if present.
-    Field *conv_field = conv_table ? conv_table->field[i] : NULL;
-    Field *const field = conv_field ? conv_field :
-      find_field_in_table_sef(table, col_name);
+    Field *actual_field = find_field_in_table_sef(table, col_name);
     int is_null= (null_bits[null_bit_index / 8]
                   >> (null_bit_index % 8))  & 0x01;
-    if (field)
+    if (actual_field)
     {
+      // use conversion table if present.
+      Field *conv_field = conv_table ?
+                          conv_table->field[conv_table_col++] : NULL;
+      Field *const field = conv_field ? conv_field : actual_field;
       if (is_null)
       {
         // Handle null column case.
@@ -250,7 +252,7 @@ int unpack_row_with_column_info(TABLE *table, uint const colcnt,
       if (conv_field)
       {
         Copy_field copy;
-        copy.set(find_field_in_table_sef(table, col_name), conv_field, TRUE);
+        copy.set(actual_field, conv_field, TRUE);
         (*copy.do_copy)(&copy);
       }
     }
