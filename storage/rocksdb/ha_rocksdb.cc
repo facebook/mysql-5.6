@@ -2764,7 +2764,8 @@ std::vector<std::string> get_share_names(void)
 void ha_rocksdb::load_auto_incr_value()
 {
   int save_active_index= active_index;
-  active_index= table->s->primary_key;
+  active_index= pk_index(table, tbl_def);
+
   uint8 save_table_status= table->status;
 
   // Do a lookup.
@@ -2783,8 +2784,12 @@ void ha_rocksdb::load_auto_incr_value()
   scan_it= NULL;
 }
 
-
 /* Get PK value from table->record[0]. */
+/*
+  TODO(alexyang): No existing support for auto_increment on non-pk columns, see
+  end of ha_rocksdb::create. Also see opened issue here:
+  https://github.com/facebook/mysql-5.6/issues/153
+*/
 void ha_rocksdb::update_auto_incr_val()
 {
   Field *pk_field;
@@ -2802,6 +2807,68 @@ void ha_rocksdb::update_auto_incr_val()
   mysql_mutex_unlock(&tbl_def->mutex);
 }
 
+int ha_rocksdb::load_hidden_pk_value()
+{
+  int save_active_index= active_index;
+  active_index= tbl_def->n_keys - 1;
+  uint8 save_table_status= table->status;
+
+  // Do a lookup.
+  if (!index_last(table->record[0]))
+  {
+    /*
+      Decode PK field from the key
+    */
+    longlong hidden_pk_id= 0;
+    if (read_hidden_pk_id_from_rowkey(&hidden_pk_id))
+      return HA_ERR_INTERNAL_ERROR;
+
+    hidden_pk_id++;
+    longlong old = tbl_def->hidden_pk_val;
+    while (old < hidden_pk_id &&
+        !tbl_def->hidden_pk_val.compare_exchange_weak(old, hidden_pk_id)){}
+  }
+
+  table->status= save_table_status;
+  active_index= save_active_index;
+
+  if (scan_it)
+  {
+    delete scan_it;
+    scan_it= nullptr;
+  }
+
+  return 0;
+}
+
+/* Get PK value from tbl_def->hidden_pk_info. */
+longlong ha_rocksdb::update_hidden_pk_val()
+{
+  DBUG_ASSERT(has_hidden_pk(table));
+  longlong new_val;
+  new_val= tbl_def->hidden_pk_val++;
+  return new_val;
+}
+
+/* Get the id of the hidden pk id from last_rowkey */
+int ha_rocksdb::read_hidden_pk_id_from_rowkey(longlong* hidden_pk_id)
+{
+  DBUG_ASSERT(has_hidden_pk(table));
+  rocksdb::Slice rowkey_slice(last_rowkey.ptr(), last_rowkey.length());
+
+  // Get hidden primary key from old key slice
+  Stream_reader reader(&rowkey_slice);
+  if ((!reader.read(RDBSE_KEYDEF::INDEX_NUMBER_SIZE)))
+    return 1;
+
+  const int length= Field_longlong::PACK_LENGTH;
+  const char *from;
+  if (!(from= reader.read(length)))
+    return 1; /* Mem-comparable image doesn't have enough bytes */
+
+  *hidden_pk_id= read_int64(&from);
+  return 0;
+}
 
 /**
   @brief
@@ -3253,8 +3320,12 @@ void ha_rocksdb::setup_field_converters()
       - it can be decoded back from its key image.
       If both hold, we don't need to store this field in the value part of
       RocksDB's key-value pair.
+
+      If hidden pk exists, we skip this check since the field will never be
+      part of the hidden pk.
     */
-    if (field->part_of_key.is_set(table->s->primary_key))
+    if (!has_hidden_pk(table) &&
+        field->part_of_key.is_set(table->s->primary_key))
     {
       KEY *pk_info= &table->key_info[table->s->primary_key];
       for (uint kp= 0; kp < pk_info->user_defined_key_parts; kp++)
@@ -3390,26 +3461,24 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
   lock_for_write= false;
 
   key_descr= tbl_def->key_descr;
-  pk_descr= key_descr[table->s->primary_key];
 
-  pk_key_parts= table->key_info[table->s->primary_key].user_defined_key_parts;
+  uint key_len= 0;
+  pk_descr= key_descr[pk_index(table, tbl_def)];
+  if (has_hidden_pk(table))
+    pk_key_parts= 1;
+  else
+  {
+    pk_key_parts= table->key_info[table->s->primary_key].user_defined_key_parts;
+    key_len= table->key_info[table->s->primary_key].key_length;
+  }
 
-  uint key_len= table->key_info[table->s->primary_key].key_length;
-
-  pk_descr->setup(table);  // move this into get_share() ??
+  pk_descr->setup(table, tbl_def);  // move this into get_share() ??
 
   uint packed_key_len= pk_descr->max_storage_fmt_length();
 
   if (!(pk_tuple= (uchar*)my_malloc(key_len, MYF(0))) ||
       !(pk_packed_tuple= (uchar*)my_malloc(packed_key_len, MYF(0))))
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
-
-  /*
-    Full table scan actually uses primary key
-    (UPDATE needs to know this, otherwise it will go into infinite loop on
-    queries like "UPDATE tbl SET pk=pk+100")
-  */
-  key_used_on_scan= table->s->primary_key;
 
   /*
     Full table scan actually uses primary key
@@ -3425,7 +3494,7 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
     if (i == table->s->primary_key) /* Primary key was processed above */
       continue;
 
-    key_descr[i]->setup(table);  // move this into get_share() ??
+    key_descr[i]->setup(table, tbl_def);  // move this into get_share() ??
 
     uint packed_len= key_descr[i]->max_storage_fmt_length();
     if (packed_len > max_packed_sec_key_len)
@@ -3454,6 +3523,9 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
   /* TODO: move the following to where TABLE_SHARE is opened: */
   if (table->found_next_number_field)
     load_auto_incr_value();
+
+  if (has_hidden_pk(table) && load_hidden_pk_value())
+    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
 
   DBUG_RETURN(0);
 }
@@ -3567,9 +3639,13 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
   uint i;
   DBUG_ENTER("ha_rocksdb::create_key_defs");
   uint n_keys= table_arg->s->keys;
-  rocksdb::ColumnFamilyHandle* cf_handles[MAX_INDEXES];
-  bool is_cf_reverse[MAX_INDEXES];
-  bool is_auto_cf[MAX_INDEXES];
+
+  // These need to be one greater than MAX_INDEXES since the user can create
+  // MAX_INDEXES secondary keys and no primary key which would cause us
+  // to generate a hidden one.
+  std::array<rocksdb::ColumnFamilyHandle*, MAX_INDEXES + 1> cf_handles;
+  std::array<bool, MAX_INDEXES + 1> is_cf_reverse;
+  std::array<bool, MAX_INDEXES + 1> is_auto_cf;
 
   bool write_err= false;
   std::unique_ptr<rocksdb::WriteBatch> wb= dict_manager.begin();
@@ -3577,6 +3653,16 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
 
   /* Create table/key descriptions and put them into the data dictionary */
   tbl_def= new RDBSE_TABLE_DEF;
+
+  /*
+    If no primary key found, create a hidden PK and place it inside table
+    definition
+  */
+  if (has_hidden_pk(table_arg))
+  {
+    n_keys += 1;
+  }
+
   key_descr= new RDBSE_KEYDEF*[n_keys];
 
   memset(key_descr, 0, sizeof(RDBSE_KEYDEF*) * n_keys);
@@ -3587,11 +3673,11 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
      The first loop checks the index parameters and creates
      column families if necessary.
   */
-  for (i= 0; i < table_arg->s->keys; i++)
+  for (i= 0; i < tbl_def->n_keys; i++)
   {
     rocksdb::ColumnFamilyHandle* cf_handle;
 
-    if (rocksdb_strict_collation_check)
+    if (rocksdb_strict_collation_check && !is_hidden_pk(i, table_arg, tbl_def))
     {
       for (uint part= 0; part < table_arg->key_info[i].actual_key_parts; part++)
       {
@@ -3623,7 +3709,16 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
       index comment has Column Family name. If there was no comment, we get
       NULL, and it means use the default column family.
     */
-    const char *comment= table_arg->key_info[i].comment.str;
+    const char *comment;
+    const char *key_name;
+    if (is_hidden_pk(i, table_arg, tbl_def)) {
+      comment= nullptr;
+      key_name= const_cast<char*>("HIDDEN_PK_ID");
+    } else {
+      comment= table_arg->key_info[i].comment.str;
+      key_name= table_arg->key_info[i].name;
+    }
+
     if (looks_like_per_index_cf_typo(comment))
     {
       my_error(ER_NOT_SUPPORTED_YET, MYF(0),
@@ -3639,7 +3734,7 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
     }
     bool is_auto_cf_flag;
     cf_handle= cf_manager.get_or_create_cf(rdb, comment, db_table,
-                                           table_arg->key_info[i].name,
+                                           key_name,
                                            &is_auto_cf_flag);
     if (!cf_handle)
       goto error;
@@ -3649,18 +3744,23 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
     is_auto_cf[i]= is_auto_cf_flag;
   }
 
-
   /*
     Get the index numbers (this will update the next_index_number)
     and create RDBSE_KEYDEF structures.
   */
-  for (i= 0; i < table_arg->s->keys; i++)
+  for (i= 0; i < tbl_def->n_keys; i++)
   {
     uint index_id= ddl_manager.get_and_update_next_number(&dict_manager);
     uint16_t index_dict_version= RDBSE_KEYDEF::INDEX_INFO_VERSION_GLOBAL_ID;
     uchar index_type;
     uint16_t kv_version;
-    if (i == table_arg->s->primary_key)
+
+    if (is_hidden_pk(i, table_arg, tbl_def))
+    {
+      index_type= RDBSE_KEYDEF::INDEX_TYPE_HIDDEN_PRIMARY;
+      kv_version= RDBSE_KEYDEF::PRIMARY_FORMAT_VERSION_INITIAL;
+    }
+    else if (i == table_arg->s->primary_key)
     {
       index_type= RDBSE_KEYDEF::INDEX_TYPE_PRIMARY;
       kv_version= RDBSE_KEYDEF::PRIMARY_FORMAT_VERSION_INITIAL;
@@ -3671,6 +3771,13 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
       kv_version= RDBSE_KEYDEF::SECONDARY_FORMAT_VERSION_INITIAL;
     }
 
+    const char *key_name;
+    if (is_hidden_pk(i, table_arg, tbl_def)) {
+      key_name= const_cast<char*>("HIDDEN_PK_ID");
+    } else {
+      key_name= table_arg->key_info[i].name;
+    }
+
     key_descr[i]= new RDBSE_KEYDEF(index_id, i,
                                    cf_handles[i],
                                    index_dict_version,
@@ -3678,9 +3785,10 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
                                    kv_version,
                                    is_cf_reverse[i],
                                    is_auto_cf[i],
-                                   table_arg->key_info[i].name);
+                                   key_name);
   }
-  pk_descr= key_descr[table_arg->s->primary_key];
+
+  pk_descr= key_descr[pk_index(table_arg, tbl_def)];
 
   tbl_def->set_name(db_table, len);
   dict_manager.lock();
@@ -3805,17 +3913,14 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
 
   /*
-    We have HA_REQUIRE_PRIMARY_KEY flag, which guarantees there will be a
-    primary key.
-    But there is an exception: the query
-
-      ALTER TABLE ... DROP COLUMN primary_key_column
-
-    will attempt to create a table without primary key.
+    TODO(alexyang): Temporarily disable unique indexes support when there is no
+    Primary Key
   */
-  if (table_arg->s->primary_key == MAX_INDEXES)
+  for (uint keyno= 0; keyno < table_arg->s->keys; keyno++)
   {
-    DBUG_RETURN(HA_ERR_ROCKSDB_PK_REQUIRED);
+    if ((table_arg->key_info[keyno].flags & HA_NOSAME) &&
+        has_hidden_pk(table_arg))
+      DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
 
   if ((res= create_key_defs(table_arg, strbuf.ptr(), strbuf.length(),
@@ -3979,7 +4084,6 @@ ulong ha_rocksdb::index_flags(uint inx, uint part, bool all_parts) const
     scan_it points at the index key-value pair that we should read the (pk,row)
     pair for.
 */
-
 int ha_rocksdb::secondary_index_read(int keyno, uchar *buf)
 {
   stats.rows_requested++;
@@ -4004,7 +4108,7 @@ int ha_rocksdb::secondary_index_read(int keyno, uchar *buf)
 
       last_rowkey.copy((const char*)pk_packed_tuple, size, &my_charset_bin);
 
-      if (keyread_only && !lock_rows)
+      if (keyread_only && !lock_rows && !has_hidden_pk(table))
       {
         rocksdb::Slice value= scan_it->value();
         if (key_descr[keyno]->unpack_record(this, table, buf, &key, &value))
@@ -4450,7 +4554,7 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
   else
   {
     uint pk_size;
-    if (keyread_only && !lock_rows)
+    if (keyread_only && !lock_rows && !has_hidden_pk(table))
     {
       /* Get the key columns and primary key value */
       pk_size= kd->get_primary_key_tuple(table, pk_descr, &rkey,
@@ -4626,10 +4730,9 @@ void hexdump_value(char *strbuf, size_t strbuf_size, const rocksdb::Slice &val)
   *p= 0;
 }
 
-
 int ha_rocksdb::check(THD* thd, HA_CHECK_OPT* check_opt)
 {
-  uint pk= table->s->primary_key;
+  uint pk= pk_index(table, tbl_def);
   String rowkey_copy;
   String sec_key_copy;
   const char* table_name = table->s->table_name.str;
@@ -4699,10 +4802,18 @@ int ha_rocksdb::check(THD* thd, HA_CHECK_OPT* check_opt)
                           table_name, rows);
           goto error;
         }
+
+        longlong hidden_pk_id= 0;
+        if (has_hidden_pk(table) &&
+            read_hidden_pk_id_from_rowkey(&hidden_pk_id))
+          goto error;
+
         /* Check if we get the same PK value */
         uint packed_size= pk_descr->pack_record(this, table, pack_buffer,
                                                 table->record[0],
-                                                pk_packed_tuple, NULL, NULL);
+                                                pk_packed_tuple, nullptr,
+                                                nullptr, 0, nullptr,
+                                                hidden_pk_id);
         if (packed_size != rowkey_copy.length() ||
             memcmp(pk_packed_tuple, rowkey_copy.ptr(), packed_size))
         {
@@ -4717,7 +4828,9 @@ int ha_rocksdb::check(THD* thd, HA_CHECK_OPT* check_opt)
         packed_size= key_descr[keyno]->pack_record(this, table, pack_buffer,
                                                    table->record[0],
                                                    sec_key_packed_tuple,
-                                                   sec_key_tails, &tail_size);
+                                                   sec_key_tails, &tail_size,
+                                                   0, nullptr,
+                                                   hidden_pk_id);
         if (packed_size != sec_key_copy.length() ||
             memcmp(sec_key_packed_tuple, sec_key_copy.ptr(), packed_size))
         {
@@ -4999,8 +5112,10 @@ int ha_rocksdb::index_first_intern(uchar *buf)
   int rc;
   DBUG_ENTER("ha_rocksdb::index_first");
 
-  key= (active_index == table->s->primary_key)? pk_packed_tuple :
-                                                sec_key_packed_tuple;
+  if (is_pk(active_index, table, tbl_def))
+    key= pk_packed_tuple;
+  else
+    key= sec_key_packed_tuple;
 
   if (key_descr[active_index]->is_reverse_cf)
     key_descr[active_index]->get_supremum_key(key, &key_size);
@@ -5072,8 +5187,10 @@ int ha_rocksdb::index_last_intern(uchar *buf)
   int rc;
   DBUG_ENTER("ha_rocksdb::index_last");
 
-  key= (active_index == table->s->primary_key)? pk_packed_tuple :
-                                                sec_key_packed_tuple;
+  if (is_pk(active_index, table, tbl_def))
+    key= pk_packed_tuple;
+  else
+    key= sec_key_packed_tuple;
 
   if (key_descr[active_index]->is_reverse_cf)
     key_descr[active_index]->get_infimum_key(key, &key_size);
@@ -5105,7 +5222,7 @@ int ha_rocksdb::index_last_intern(uchar *buf)
   }
   skip_scan_it_next_call= FALSE;
 
-  if (active_index == table->s->primary_key)
+  if (is_pk(active_index, table, tbl_def))
   {
     skip_scan_it_next_call= true;
     rc= rnd_next_with_direction(buf, false);
@@ -5164,6 +5281,43 @@ bool ha_rocksdb::commit_in_the_middle()
          THDVAR(table->in_use, commit_in_the_middle);
 }
 
+  /*
+  If table was created without primary key, SQL layer represents the primary
+  key number as MAX_INDEXES.  Hence, this function returns true if the table
+  does not contain a primary key. (In which case we generate a hidden
+  'auto-incremented' pk.)
+*/
+bool ha_rocksdb::has_hidden_pk(const TABLE* table)
+{
+  return RDBSE_KEYDEF::rocksdb_has_hidden_pk(table);
+}
+
+/*
+  Returns true if given index number is a hidden_pk.
+  - This is used when a table is created with no primary key.
+*/
+bool ha_rocksdb::is_hidden_pk(const uint index, const TABLE* table,
+                              const RDBSE_TABLE_DEF* tbl_def)
+{
+  return (table->s->primary_key == MAX_INDEXES &&
+          index == tbl_def->n_keys - 1);
+}
+
+/* Returns index of primary key */
+int ha_rocksdb::pk_index(const TABLE* table, const RDBSE_TABLE_DEF* tbl_def)
+{
+  return table->s->primary_key == MAX_INDEXES ?
+         tbl_def->n_keys - 1 :
+         table->s->primary_key;
+}
+
+/* Returns true if given index number is a primary key */
+bool ha_rocksdb::is_pk(const uint index, const TABLE* table,
+                       const RDBSE_TABLE_DEF *tbl_def)
+{
+  return index == table->s->primary_key || is_hidden_pk(index, table, tbl_def);
+}
+
 int ha_rocksdb::write_row(uchar *buf)
 {
   DBUG_ENTER("ha_rocksdb::write_row");
@@ -5211,12 +5365,13 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
                                  uchar *new_data,
                                  const bool skip_unique_check)
 {
-  int pk_packed_size;
+  int pk_packed_size= 0;
   bool pk_key_changed= false;
 
   int new_packed_size;
   uchar *new_key_packed_tuple;
   int new_key_tail_size;
+  longlong hidden_pk_id= 0;
 
   int old_packed_size;
   int old_key_tail_size;
@@ -5230,12 +5385,39 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
 
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
 
-  /* Get a rowkey for the new record */
-  pk_packed_size= pk_descr->pack_record(this, table, pack_buffer, new_data,
-                                        pk_packed_tuple, NULL, NULL);
+
+  /*
+    Get new row key for any insert, and any update where the pk is not hidden.
+    Row key for updates with hidden pk is handled below.
+  */
+  if (!has_hidden_pk(table))
+  {
+    pk_packed_size= pk_descr->pack_record(this, table, pack_buffer,
+                                          new_data,
+                                          pk_packed_tuple, nullptr,
+                                          nullptr, 0, nullptr);
+  }
+  else if (!old_data)
+  {
+    hidden_pk_id= update_hidden_pk_val();
+    pk_packed_size= pk_descr->pack_hidden_pk(table, hidden_pk_id,
+                                             pk_packed_tuple);
+  }
+
   if (old_data)
   {
     old_pk_key_slice= rocksdb::Slice(last_rowkey.ptr(), last_rowkey.length());
+    /*
+      If hidden primary key, rowkey for new record will always be the same as
+      before
+    */
+    if (has_hidden_pk(table))
+    {
+      memcpy(pk_packed_tuple, old_pk_key_slice.data(), old_pk_key_slice.size());
+      pk_packed_size= old_pk_key_slice.size();
+      if (read_hidden_pk_id_from_rowkey(&hidden_pk_id))
+        DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+    }
 
     /* Determine which indexes need updating. */
     calc_updated_indexes();
@@ -5247,16 +5429,22 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
     Once all locks have been obtained, then perform the changes needed to
     update/insert the row.
   */
-  for (uint i= 0; i < table->s->keys; i++)
+  for (uint i= 0; i < tbl_def->n_keys; i++)
   {
+    KEY* key_info= nullptr;
     uint n_null_fields= 0;
-    uint user_defined_key_parts= table->key_info[i].user_defined_key_parts;
+    uint user_defined_key_parts= 1;
+    if (!is_hidden_pk(i, table, tbl_def))
+    {
+      key_info= &table->key_info[i];
+      user_defined_key_parts= key_info->user_defined_key_parts;
+    }
 
     /*
       If there are no uniqueness requirements, there's no need to obtain a
       lock for this key. The primary key should have this flag set.
     */
-    if (skip_unique_check || !(table->key_info[i].flags & HA_NOSAME))
+    if (skip_unique_check || (key_info && !(key_info->flags & HA_NOSAME)))
       continue;
 
     /*
@@ -5265,7 +5453,7 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
     */
     if (old_data)
     {
-      if (i == table->s->primary_key)
+      if (is_pk(i, table, tbl_def))
         old_key_slice= old_pk_key_slice;
       else
       {
@@ -5275,9 +5463,9 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
         old_packed_size= key_descr[i]->pack_record(this, table, pack_buffer,
                                                    old_data,
                                                    sec_key_packed_tuple_old,
-                                                   NULL,
-                                                   NULL,
-                                                   user_defined_key_parts);
+                                                   nullptr, nullptr,
+                                                   user_defined_key_parts,
+                                                   nullptr, hidden_pk_id);
         old_key_slice= rocksdb::Slice((const char*)sec_key_packed_tuple_old,
                                       old_packed_size);
       }
@@ -5286,7 +5474,7 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
     /*
       Calculate the new key for obtaining the lock
     */
-    if (i == table->s->primary_key)
+    if (is_pk(i, table, tbl_def))
     {
       new_key_packed_tuple= pk_packed_tuple;
       new_packed_size= pk_packed_size;
@@ -5301,7 +5489,7 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
                                                  new_data,
                                                  sec_key_packed_tuple, NULL,
                                                  NULL, user_defined_key_parts,
-                                                 &n_null_fields);
+                                                 &n_null_fields, 0);
       new_key_packed_tuple = sec_key_packed_tuple;
     }
     new_key_slice= rocksdb::Slice((const char*)new_key_packed_tuple,
@@ -5329,7 +5517,7 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
     */
 
     bool found;
-    if (i == table->s->primary_key)
+    if (is_pk(i, table, tbl_def))
     {
       /* Primary key has changed, it should be deleted later. */
       if (old_data)
@@ -5409,12 +5597,15 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
     here because updates to the transaction will be made and those updates
     cannot be easily removed without rolling back the entire transaction.
   */
-  for (uint i= 0; i < table->s->keys; i++)
+  for (uint i= 0; i < tbl_def->n_keys; i++)
   {
+    if (is_hidden_pk(i, table, tbl_def))
+      continue;
+
     /*
       Determine if the old key needs to be deleted.
     */
-    if (i == table->s->primary_key)
+    if (is_pk(i, table, tbl_def))
     {
       if (pk_key_changed)
       {
@@ -5440,7 +5631,8 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
                                                new_data,
                                                sec_key_packed_tuple,
                                                sec_key_tails,
-                                               &new_key_tail_size);
+                                               &new_key_tail_size,
+                                               0, nullptr, hidden_pk_id);
     new_key_slice= rocksdb::Slice((const char*)sec_key_packed_tuple,
                                    new_packed_size);
     new_value_slice= rocksdb::Slice((const char*)sec_key_tails,
@@ -5453,7 +5645,8 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
                                                  old_data,
                                                  sec_key_packed_tuple_old,
                                                  sec_key_tails_old,
-                                                 &old_key_tail_size);
+                                                 &old_key_tail_size,
+                                                 0, nullptr, hidden_pk_id);
       old_key_slice= rocksdb::Slice((const char*)sec_key_packed_tuple_old,
                                     old_packed_size);
 
@@ -5511,7 +5704,6 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
   if (table->next_number_field)
     update_auto_incr_val();
 
-  /* Write primary_key -> record */
   new_key_slice= rocksdb::Slice((const char*)pk_packed_tuple, pk_packed_size);
   rocksdb::Slice value_slice;
 
@@ -5811,6 +6003,7 @@ int ha_rocksdb::truncate()
 {
   mysql_mutex_lock(&tbl_def->mutex);
   tbl_def->auto_incr_val= 1;
+  tbl_def->hidden_pk_val= 1;
   mysql_mutex_unlock(&tbl_def->mutex);
   remove_rows(tbl_def);
   return 0;
@@ -5833,7 +6026,8 @@ int ha_rocksdb::delete_row(const uchar *buf)
   rocksdb::Slice key_slice(last_rowkey.ptr(), last_rowkey.length());
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
 
-  rocksdb::Status s= delete_or_singledelete(table->s->primary_key, trx,
+  uint index= pk_index(table, tbl_def);
+  rocksdb::Status s= delete_or_singledelete(index, trx,
                                             pk_descr->get_cf(),
                                             key_slice);
   if (!s.ok())
@@ -5841,15 +6035,21 @@ int ha_rocksdb::delete_row(const uchar *buf)
     DBUG_RETURN(trx->set_status_error(table->in_use, s, pk_descr, tbl_def));
   }
 
+  longlong hidden_pk_id= 0;
+  if (tbl_def->n_keys > 1 &&
+      has_hidden_pk(table) && read_hidden_pk_id_from_rowkey(&hidden_pk_id))
+    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+
   // Delete the record for every secondary index
-  for (uint i= 0; i < table->s->keys; i++)
+  for (uint i= 0; i < tbl_def->n_keys; i++)
   {
-    if (i != table->s->primary_key)
+    if (!is_pk(i, table, tbl_def))
     {
       int packed_size;
       packed_size= key_descr[i]->pack_record(this, table, pack_buffer,
                                              buf, sec_key_packed_tuple,
-                                             NULL, NULL);
+                                             nullptr, nullptr, 0, nullptr,
+                                             hidden_pk_id);
       rocksdb::Slice secondary_key_slice((char*)sec_key_packed_tuple,
                                          packed_size);
       /* Deleting on secondary key doesn't need any locks: */
@@ -5891,12 +6091,12 @@ int ha_rocksdb::info(uint flag)
     stats.index_file_length= 0ul;
     stats.data_file_length= 0ul;
     stats.mean_rec_length= 0;
-    for (uint i=0; i < table->s->keys; i++)
+    for (uint i= 0; i < tbl_def->n_keys; i++)
     {
-      if (i == table->s->primary_key)
+      if (is_pk(i, table, tbl_def))
       {
-        stats.data_file_length= key_descr[i]->stats.actual_disk_size;
-        stats.records = key_descr[i]->stats.rows;
+        stats.data_file_length= pk_descr->stats.actual_disk_size;
+        stats.records = pk_descr->stats.rows;
       }
       else
       {
@@ -5907,9 +6107,9 @@ int ha_rocksdb::info(uint flag)
     {
       // most likely, the table is in memtable
       // try to deduce from GetApproximateSizes
-      RDBSE_KEYDEF *kd= key_descr[table->s->primary_key];
+      RDBSE_KEYDEF *kd= pk_descr;
       uchar buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2];
-      auto r = get_range(table->s->primary_key, buf);
+      auto r = get_range(pk_index(table, tbl_def), buf);
       uint64_t sz = 0;
       rdb->GetApproximateSizes(
         kd->get_cf(),
@@ -5927,14 +6127,17 @@ int ha_rocksdb::info(uint flag)
   }
   if (flag & HA_STATUS_CONST)
   {
-    DBUG_ASSERT(table->s->primary_key != MAX_KEY);
-
     ref_length= pk_descr->max_storage_fmt_length();
 
     // TODO: Needs to reimplement after having real index statistics
-    for (uint i= 0; i < table->s->keys; i++)
+    for (uint i= 0; i < tbl_def->n_keys; i++)
     {
-      for (uint j = 0; j < table->key_info[i].actual_key_parts; j++)
+      if (is_hidden_pk(i, table, tbl_def))
+      {
+        continue;
+      }
+      KEY* k= &table->key_info[i];
+      for (uint j = 0; j < k->actual_key_parts; j++)
       {
         uint x = key_descr[i]->stats.distinct_keys_per_prefix.size() > j && key_descr[i]->stats.distinct_keys_per_prefix[j] > 0 ?
           key_descr[i]->stats.rows / key_descr[i]->stats.distinct_keys_per_prefix[j] :
@@ -5948,9 +6151,9 @@ int ha_rocksdb::info(uint flag)
           // will have rec_per_key for (idx1)=4, (idx1,2)=2, and (idx1,2,3)=1.
           // rec_per_key for the whole index is 1, and multiplied by 2^n if
           // n suffix columns of the index are not used.
-          x = 1 << (table->key_info[i].actual_key_parts-j-1);
+          x = 1 << (k->actual_key_parts-j-1);
         }
-        table->key_info[i].rec_per_key[j]= x;
+        k->rec_per_key[j]= x;
       }
     }
   }
@@ -5973,10 +6176,14 @@ int ha_rocksdb::info(uint flag)
   DBUG_RETURN(0);
 }
 
-
 void ha_rocksdb::position(const uchar *record)
 {
   DBUG_ENTER("ha_rocksdb::position");
+
+  longlong hidden_pk_id= 0;
+  if (has_hidden_pk(table) && read_hidden_pk_id_from_rowkey(&hidden_pk_id))
+    DBUG_ASSERT(false);  // should never reach here
+
   /*
     Get packed primary key value from the record.
 
@@ -5991,7 +6198,8 @@ void ha_rocksdb::position(const uchar *record)
     cannot be restored from its mem-comparable form in the secondary indexes).
   */
   uint packed_size= pk_descr->pack_record(this, table, pack_buffer, record,
-                                          ref, NULL, NULL);
+                                          ref, nullptr, nullptr, 0, nullptr,
+                                          hidden_pk_id);
 
   /*
     It could be that mem-comparable form of PK occupies less than ref_length
@@ -6046,6 +6254,9 @@ void ha_rocksdb::calc_updated_indexes()
       uint key_parts= key_descr[keynr]->get_m_key_parts();
       for (uint kp= 0; kp < key_parts; kp++)
       {
+        if (has_hidden_pk(table) && kp + 1 == key_parts)
+          break;
+
         Field *field= key_descr[keynr]->get_table_field_for_part_no(table, kp);
         if (bitmap_is_set(table->write_set, field->field_index))
         {
@@ -6631,7 +6842,10 @@ int ha_rocksdb::extra(enum ha_extra_function operation)
   DBUG_RETURN(0);
 }
 
-
+/*
+  Given a starting key and an ending key, estimate the number of rows that
+  will exist between the two keys.
+*/
 ha_rows ha_rocksdb::records_in_range(uint inx, key_range *min_key,
                                      key_range *max_key)
 {

@@ -234,7 +234,12 @@ public:
                    uchar *unpack_info,
                    int *unpack_info_len,
                    uint n_key_parts=0,
-                   uint *n_null_fields=NULL);
+                   uint *n_null_fields= nullptr,
+                   longlong hidden_pk_id= 0);
+  /* Pack the hidden primary key into mem-comparable form. */
+  uint pack_hidden_pk(TABLE *tbl,
+                      longlong hidden_pk_id,
+                      uchar *packed_tuple);
   int unpack_record(const ha_rocksdb *handler,
                     TABLE *table, uchar *buf, const rocksdb::Slice *packed_key,
                     const rocksdb::Slice *unpack_info);
@@ -409,6 +414,7 @@ public:
   enum {
     INDEX_TYPE_PRIMARY= 1,
     INDEX_TYPE_SECONDARY= 2,
+    INDEX_TYPE_HIDDEN_PRIMARY= 3,
   };
 
   // Key/Value format version for each index type
@@ -417,7 +423,7 @@ public:
     SECONDARY_FORMAT_VERSION_INITIAL= 10,
   };
 
-  void setup(TABLE *table);
+  void setup(TABLE *table, RDBSE_TABLE_DEF *tbl_def);
 
   rocksdb::ColumnFamilyHandle *get_cf() { return cf_handle; }
 
@@ -429,6 +435,9 @@ public:
     the value that is stored.
   */
   bool get_unpack_data_len() { return unpack_data_len; }
+
+  /* Check if given table has a primary key */
+  static bool rocksdb_has_hidden_pk(const TABLE* table);
 private:
 
   /* Global number of this index (used as prefix in StorageFormat) */
@@ -571,6 +580,8 @@ private:
 public:
   bool setup(Field *field, uint keynr_arg, uint key_part_arg);
   Field *get_field_in_table(TABLE *tbl);
+  void fill_hidden_pk_val(TABLE *table, Field_pack_info *fpi, uchar **dst,
+                          longlong hidden_pk_id);
 };
 
 inline
@@ -594,7 +605,7 @@ class RDBSE_TABLE_DEF
   void check_if_is_mysql_system_table();
 
 public:
-  RDBSE_TABLE_DEF() : key_descr(NULL), auto_incr_val(1)
+  RDBSE_TABLE_DEF() : key_descr(nullptr), hidden_pk_val(1), auto_incr_val(1)
   {
     mysql_mutex_init(0, &mutex, MY_MUTEX_INIT_FAST);
   }
@@ -608,6 +619,8 @@ public:
 
   /* Array of index descriptors */
   RDBSE_KEYDEF **key_descr;
+
+  std::atomic<longlong> hidden_pk_val;
 
   mysql_mutex_t mutex; // guards the following:
   longlong auto_incr_val;
