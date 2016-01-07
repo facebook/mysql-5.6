@@ -162,13 +162,15 @@ RDBSE_KEYDEF::~RDBSE_KEYDEF()
   pack_info = nullptr;
 }
 
-void RDBSE_KEYDEF::setup(TABLE *tbl)
+void RDBSE_KEYDEF::setup(TABLE *tbl, RDBSE_TABLE_DEF *tbl_def)
 {
   /*
     Set max_length based on the table.  This can be called concurrently from
     multiple threads, so there is a mutex to protect this code.
   */
-  const bool secondary_key= (keyno != tbl->s->primary_key);
+  const bool is_hidden_pk= (index_type == INDEX_TYPE_HIDDEN_PRIMARY);
+  const bool hidden_pk_exists= rocksdb_has_hidden_pk(tbl);
+  const bool secondary_key= (index_type == INDEX_TYPE_SECONDARY);
   if (!maxlength)
   {
     mysql_mutex_lock(&mutex);
@@ -178,21 +180,26 @@ void RDBSE_KEYDEF::setup(TABLE *tbl)
       return;
     }
 
-    KEY *key_info= &tbl->key_info[keyno];
-    KEY *pk_info=  &tbl->key_info[tbl->s->primary_key];
+    KEY *key_info= nullptr;
+    KEY *pk_info= nullptr;
+    if (!is_hidden_pk)
+    {
+      key_info= &tbl->key_info[keyno];
+      if (!hidden_pk_exists)
+        pk_info=  &tbl->key_info[tbl->s->primary_key];
+    }
 
     if (secondary_key)
-    {
-      n_pk_key_parts= pk_info->actual_key_parts;
-    }
+      n_pk_key_parts= hidden_pk_exists ? 1 : pk_info->actual_key_parts;
     else
     {
-      pk_info= NULL;
+      pk_info= nullptr;
       n_pk_key_parts= 0;
     }
 
     // "unique" secondary keys support:
-    m_key_parts= key_info->actual_key_parts;
+    m_key_parts= is_hidden_pk ? 1 : key_info->actual_key_parts;
+
     if (secondary_key)
     {
       /*
@@ -212,84 +219,122 @@ void RDBSE_KEYDEF::setup(TABLE *tbl)
       m_key_parts += n_pk_key_parts;
     }
 
-    if (keyno != tbl->s->primary_key)
+    if (secondary_key)
       pk_part_no= (uint*)my_malloc(sizeof(uint)*m_key_parts, MYF(0));
     else
-      pk_part_no= NULL;
+      pk_part_no= nullptr;
 
     size_t size= sizeof(Field_pack_info) * m_key_parts;
     pack_info= (Field_pack_info*)my_malloc(size, MYF(0));
 
     size_t max_len= INDEX_NUMBER_SIZE;
     int unpack_len= 0;
-    KEY_PART_INFO *key_part= key_info->key_part;
     int max_part_len= 0;
     bool simulating_extkey= false;
     uint dst_i= 0;
 
     uint keyno_to_set= keyno;
     uint keypart_to_set= 0;
-    /* this loop also loops over the 'extended key' tail */
-    for (uint src_i= 0; src_i < m_key_parts; src_i++, keypart_to_set++)
+
+    if (is_hidden_pk)
     {
-      Field *field= key_part->field;
-
-      if (simulating_extkey)
-      {
-        /* Check if this field is already present in the key definition */
-        bool found= false;
-        for (uint j= 0; j < key_info->actual_key_parts; j++)
-        {
-          if (field->field_index == key_info->key_part[j].field->field_index)
-          {
-            found= true;
-            break;
-          }
-        }
-
-        if (found)
-        {
-          key_part++;
-          continue;
-        }
-      }
-
-      if (field->real_maybe_null())
-        max_len +=1; // NULL-byte
-
-      pack_info[dst_i].setup(field, keyno_to_set, keypart_to_set);
+      Field *field= nullptr;
+      pack_info[dst_i].setup(field, keyno_to_set, 0);
       pack_info[dst_i].unpack_data_offset= unpack_len;
-
-      if (pk_info)
-      {
-        pk_part_no[dst_i]= -1;
-        for (uint j= 0; j < n_pk_key_parts; j++)
-        {
-          if (field->field_index == pk_info->key_part[j].field->field_index)
-          {
-            pk_part_no[dst_i]= j;
-            break;
-          }
-        }
-      }
-
       max_len    += pack_info[dst_i].max_image_len;
       unpack_len += pack_info[dst_i].unpack_data_len;
-
       max_part_len= std::max(max_part_len, pack_info[dst_i].max_image_len);
-
-      key_part++;
-      /* For "unique" secondary indexes, pretend they have "index extensions" */
-      if (secondary_key && src_i+1 == key_info->actual_key_parts)
-      {
-        simulating_extkey= true;
-        keyno_to_set= tbl->s->primary_key;
-        keypart_to_set= (uint)-1;
-        key_part= pk_info->key_part;
-      }
-
       dst_i++;
     }
+    else
+    {
+      KEY_PART_INFO *key_part= key_info->key_part;
+
+      /* this loop also loops over the 'extended key' tail */
+      for (uint src_i= 0; src_i < m_key_parts; src_i++, keypart_to_set++)
+      {
+        Field *field= key_part ? key_part->field : nullptr;
+
+        if (simulating_extkey && !hidden_pk_exists)
+        {
+          /* Check if this field is already present in the key definition */
+          bool found= false;
+          for (uint j= 0; j < key_info->actual_key_parts; j++)
+          {
+            if (field->field_index == key_info->key_part[j].field->field_index)
+            {
+              found= true;
+              break;
+            }
+          }
+
+          if (found)
+          {
+            key_part++;
+            continue;
+          }
+        }
+
+        if (field && field->real_maybe_null())
+          max_len +=1;  // NULL-byte
+
+        pack_info[dst_i].setup(field, keyno_to_set, keypart_to_set);
+        pack_info[dst_i].unpack_data_offset= unpack_len;
+
+        if (pk_info)
+        {
+          pk_part_no[dst_i]= -1;
+          for (uint j= 0; j < n_pk_key_parts; j++)
+          {
+            if (field->field_index == pk_info->key_part[j].field->field_index)
+            {
+              pk_part_no[dst_i]= j;
+              break;
+            }
+          }
+        }
+        else if (secondary_key && hidden_pk_exists)
+        {
+          /*
+            The hidden pk can never be part of the sk.  So it is always
+            appended to the end of the sk.
+          */
+          pk_part_no[dst_i]= -1;
+          if (simulating_extkey)
+            pk_part_no[dst_i]= 0;
+        }
+
+        max_len    += pack_info[dst_i].max_image_len;
+        unpack_len += pack_info[dst_i].unpack_data_len;
+
+        max_part_len= std::max(max_part_len, pack_info[dst_i].max_image_len);
+
+        key_part++;
+        /*
+          For "unique" secondary indexes, pretend they have
+          "index extensions"
+         */
+        if (secondary_key && src_i+1 == key_info->actual_key_parts)
+        {
+          simulating_extkey= true;
+          if (!hidden_pk_exists)
+          {
+            keyno_to_set= tbl->s->primary_key;
+            key_part= pk_info->key_part;
+            keypart_to_set= (uint)-1;
+          }
+          else
+          {
+            keyno_to_set= tbl_def->n_keys - 1;
+            key_part= nullptr;
+            keypart_to_set= 0;
+          }
+        }
+
+        dst_i++;
+      }
+    }
+
     m_key_parts= dst_i;
     maxlength= max_len;
     unpack_data_len= unpack_len;
@@ -378,7 +423,11 @@ uint RDBSE_KEYDEF::get_primary_key_tuple(TABLE *table,
     if (have_value)
     {
       Field_pack_info *fpi= &pack_info[i];
-      Field *field= fpi->get_field_in_table(table);
+      bool is_hidden_pk_part= (i + 1 == m_key_parts) &&
+                              (table->s->primary_key == MAX_INDEXES);
+      Field *field= nullptr;
+      if (!is_hidden_pk_part)
+        field= fpi->get_field_in_table(table);
       if (fpi->skip_func(fpi, field, &reader))
         return INVALID_LEN;
     }
@@ -496,10 +545,12 @@ uint RDBSE_KEYDEF::pack_record(const ha_rocksdb *handler, TABLE *tbl,
                                uchar *packed_tuple,
                                uchar *unpack_info, int *unpack_info_len,
                                uint n_key_parts,
-                               uint *n_null_fields)
+                               uint *n_null_fields,
+                               longlong hidden_pk_id)
 {
   uchar *tuple= packed_tuple;
   uchar *unpack_end= unpack_info;
+  const bool hidden_pk_exists= rocksdb_has_hidden_pk(tbl);
 
   store_index_number(tuple, index_number);
   tuple += INDEX_NUMBER_SIZE;
@@ -508,7 +559,13 @@ uint RDBSE_KEYDEF::pack_record(const ha_rocksdb *handler, TABLE *tbl,
   // The following includes the 'extended key' tail.
   // The 'extended key' includes primary key. This is done to 'uniqify'
   // non-unique indexes
-  if (n_key_parts == 0 || n_key_parts == MAX_REF_PARTS)
+  bool use_all_columns = n_key_parts == 0 || n_key_parts == MAX_REF_PARTS;
+
+  // If hidden pk exists, but hidden pk wasnt passed in, we can't pack the
+  // hidden key part.  So we skip it (its always 1 part).
+  if (hidden_pk_exists && !hidden_pk_id && use_all_columns)
+    n_key_parts= m_key_parts - 1;
+  else if (use_all_columns)
     n_key_parts= m_key_parts;
 
   if (n_null_fields)
@@ -516,6 +573,14 @@ uint RDBSE_KEYDEF::pack_record(const ha_rocksdb *handler, TABLE *tbl,
 
   for (uint i=0; i < n_key_parts; i++)
   {
+    // Fill hidden pk id into the last key part for secondary keys for tables
+    // with no pk
+    if (hidden_pk_exists && hidden_pk_id && i + 1 == n_key_parts)
+    {
+      pack_info[i].fill_hidden_pk_val(tbl, &pack_info[i], &tuple, hidden_pk_id);
+      break;
+    }
+
     Field *field= pack_info[i].get_field_in_table(tbl);
 
     // Old Field methods expected the record pointer to be at tbl->record[0].
@@ -579,6 +644,36 @@ uint RDBSE_KEYDEF::pack_record(const ha_rocksdb *handler, TABLE *tbl,
   return tuple - packed_tuple;
 }
 
+/*
+  Pack the hidden primary key into mem-comparable form.
+
+  @param
+    tbl                   Table we're working on
+    hidden_pk_id     IN   New value to be packed into key
+    packed_tuple     OUT  Key in the mem-comparable form
+
+  @return
+    Length of the packed tuple
+*/
+
+uint RDBSE_KEYDEF::pack_hidden_pk(TABLE *tbl,
+                                  longlong hidden_pk_id,
+                                  uchar *packed_tuple)
+{
+  uchar *tuple= packed_tuple;
+  store_index_number(tuple, index_number);
+  tuple += INDEX_NUMBER_SIZE;
+  DBUG_ASSERT(m_key_parts == 1);
+  DBUG_ASSERT(
+      (static_cast<int>(max_storage_fmt_length())-(tuple - packed_tuple)) >=
+       static_cast<int>(pack_info[0].max_image_len));
+
+  pack_info[0].fill_hidden_pk_val(tbl, &pack_info[0], &tuple, hidden_pk_id);
+
+  DBUG_ASSERT(
+      (static_cast<int>(max_storage_fmt_length())-(tuple - packed_tuple)) >= 0);
+  return tuple - packed_tuple;
+}
 
 void pack_with_make_sort_key(Field_pack_info *fpi, Field *field,
                              uchar *buf MY_ATTRIBUTE((unused)),
@@ -686,7 +781,9 @@ size_t RDBSE_KEYDEF::key_length(TABLE *table, const rocksdb::Slice &key)
   for (uint i= 0; i < m_key_parts ; i++)
   {
     Field_pack_info *fpi= &pack_info[i];
-    Field *field= fpi->get_field_in_table(table);
+    Field *field= nullptr;
+    if (index_type != INDEX_TYPE_HIDDEN_PRIMARY)
+      field= fpi->get_field_in_table(table);
     if (fpi->skip_func(fpi, field, &reader))
       return size_t(-1);
   }
@@ -711,6 +808,9 @@ int RDBSE_KEYDEF::unpack_record(const ha_rocksdb *handler, TABLE *table,
 {
   Stream_reader reader(packed_key);
   const uchar * const unpack_ptr= (const uchar*)unpack_info->data();
+  const bool is_hidden_pk= (index_type == INDEX_TYPE_HIDDEN_PRIMARY);
+  const bool hidden_pk_exists= rocksdb_has_hidden_pk(table);
+  const bool secondary_key= (index_type == INDEX_TYPE_SECONDARY);
 
   // Old Field methods expected the record pointer to be at tbl->record[0].
   // The quick and easy way to fix this was to pass along the offset
@@ -730,6 +830,21 @@ int RDBSE_KEYDEF::unpack_record(const ha_rocksdb *handler, TABLE *table,
   for (uint i= 0; i < m_key_parts ; i++)
   {
     Field_pack_info *fpi= &pack_info[i];
+
+    /*
+      Hidden pk field is packed at the end of the secondary keys, but the SQL
+      layer does not know about it. Skip retrieving field if hidden pk.
+    */
+    if ((secondary_key && hidden_pk_exists && i + 1 == m_key_parts) ||
+         is_hidden_pk)
+    {
+      DBUG_ASSERT(fpi->unpack_func);
+      if (fpi->unpack_func(fpi, nullptr, &reader,
+                       unpack_ptr + fpi->unpack_data_offset))
+        return 1;
+      continue;
+    }
+
     Field *field= fpi->get_field_in_table(table);
 
     if (fpi->unpack_func)
@@ -847,6 +962,11 @@ bool RDBSE_KEYDEF::can_unpack(uint kp) const
   return (pack_info[kp].unpack_func != NULL);
 }
 
+bool RDBSE_KEYDEF::rocksdb_has_hidden_pk(const TABLE* table)
+{
+  return table->s->primary_key == MAX_INDEXES;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////
 // Field_pack_info
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -863,11 +983,19 @@ int unpack_integer(Field_pack_info *fpi, Field *field,
                    Stream_reader *reader, const uchar *unpack_info)
 {
   const int length= fpi->max_image_len;
-  uchar *to= field->ptr;
-  const uchar *from;
 
+  const uchar *from;
   if (!(from= (const uchar*)reader->read(length)))
     return 1; /* Mem-comparable image doesn't have enough bytes */
+
+  /*
+    If no field object, must be hidden pk. Return since there is no field to
+    unpack into.
+   */
+  if (!field)
+    return 0;
+
+  uchar *to= field->ptr;
 
 #ifdef WORDS_BIGENDIAN
   {
@@ -1311,25 +1439,21 @@ int skip_variable_length(Field_pack_info *fpi, Field *field, Stream_reader *read
 bool Field_pack_info::setup(Field *field, uint keynr_arg, uint key_part_arg)
 {
   int res= false;
-  enum_field_types type= field->real_type();
+  enum_field_types type= field ? field->real_type() : MYSQL_TYPE_LONGLONG;
 
   keynr= keynr_arg;
   key_part= key_part_arg;
 
-  maybe_null= field->real_maybe_null();
+  maybe_null= field ? field->real_maybe_null() : false;
   make_unpack_info_func= NULL;
   unpack_func= NULL;
   unpack_data_len= 0;
   field_data_offset= 0;
 
   /* Calculate image length. By default, is is pack_length() */
-  max_image_len= field->pack_length();
-
+  max_image_len= field ? field->pack_length() : ROCKSDB_SIZEOF_HIDDEN_PK_COLUMN;
   skip_func= skip_max_length;
   pack_func= pack_with_make_sort_key;
-
-  make_unpack_info_func= NULL;
-  unpack_data_len= 0;
 
   switch (type) {
     case MYSQL_TYPE_LONGLONG:
@@ -1451,7 +1575,20 @@ void _rdbse_store_blob_length(uchar *pos,uint pack_length,uint length)
   return;
 }
 #endif
+void Field_pack_info::fill_hidden_pk_val(TABLE* table,
+                                         Field_pack_info *fpi,
+                                         uchar **dst,
+                                         longlong hidden_pk_id)
+{
+  const int max_len= fpi->max_image_len;
+  DBUG_ASSERT(max_len == 8);
 
+  String to;
+  write_int64(&to, hidden_pk_id);
+  memcpy(*dst, to.ptr(), max_len);
+
+  *dst += max_len;
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 // Table_ddl_manager
