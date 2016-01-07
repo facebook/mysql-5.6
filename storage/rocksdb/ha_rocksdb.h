@@ -352,6 +352,8 @@ class ha_rocksdb: public handler
 
   void update_auto_incr_val();
   void load_auto_incr_value();
+  void update_hidden_pk_val();
+  void load_hidden_pk_value();
   bool can_use_single_delete(uint index);
 
   /*
@@ -458,7 +460,6 @@ public:
     */
     return HA_BINLOG_ROW_CAPABLE | HA_BINLOG_STMT_CAPABLE |
            HA_REC_NOT_IN_SEQ | HA_CAN_INDEX_BLOBS |
-           HA_REQUIRE_PRIMARY_KEY |
            (pk_can_be_decoded? HA_PRIMARY_KEY_IN_READ_INDEX:0) |
            HA_PRIMARY_KEY_REQUIRED_FOR_POSITION |
            HA_NULL_IN_KEY;
@@ -503,6 +504,8 @@ public:
   void convert_record_to_storage_format(const char *pk_packed_tuple,
                                         size_t pk_packed_size,
                                         rocksdb::Slice *packed_rec);
+
+  bool is_hidden_pk(uint index, TABLE* table);
 
   /** @brief
     unireg.cc will call max_supported_record_length(), max_supported_keys(),

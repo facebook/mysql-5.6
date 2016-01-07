@@ -220,13 +220,16 @@ class RDBSE_KEYDEF
 {
 public:
   /* Convert a key from KeyTupleFormat to mem-comparable form */
-  uint pack_index_tuple(const ha_rocksdb *handler, TABLE *tbl,
+  uint pack_index_tuple(const ha_rocksdb *handler,
+                        RDBSE_TABLE_DEF *tbl_def,
+                        TABLE *tbl,
                         uchar *pack_buffer,
                         uchar *packed_tuple,
                         const uchar *key_tuple, key_part_map keypart_map);
 
   /* Convert a key from Table->record format to mem-comparable form */
   uint pack_record(const ha_rocksdb *handler,
+                   RDBSE_TABLE_DEF *tbl_def,
                    TABLE *tbl,
                    uchar *pack_buffer,
                    const uchar *record,
@@ -236,6 +239,7 @@ public:
                    uint n_key_parts=0,
                    uint *n_null_fields=NULL);
   int unpack_record(const ha_rocksdb *handler,
+                    RDBSE_TABLE_DEF *tbl_def,
                     TABLE *table, uchar *buf, const rocksdb::Slice *packed_key,
                     const rocksdb::Slice *unpack_info);
 
@@ -417,7 +421,7 @@ public:
     SECONDARY_FORMAT_VERSION_INITIAL= 10,
   };
 
-  void setup(TABLE *table);
+  void setup(TABLE *table, RDBSE_TABLE_DEF *tbl_def);
 
   rocksdb::ColumnFamilyHandle *get_cf() { return cf_handle; }
 
@@ -592,7 +596,8 @@ Field* RDBSE_KEYDEF::get_table_field_for_part_no(TABLE *table, uint part_no)
 class RDBSE_TABLE_DEF
 {
 public:
-  RDBSE_TABLE_DEF() : key_descr(NULL), auto_incr_val(1)
+  RDBSE_TABLE_DEF() : key_descr(nullptr), hidden_pk_info(nullptr),
+  auto_incr_val(1), hidden_pk_val(1)
   {
     mysql_mutex_init(0, &mutex, MY_MUTEX_INIT_FAST);
   }
@@ -607,8 +612,12 @@ public:
   /* Array of index descriptors */
   RDBSE_KEYDEF **key_descr;
 
+  /* Contains the key_info for hidden primary key if any */
+  KEY *hidden_pk_info;
+
   mysql_mutex_t mutex; // guards the following:
   longlong auto_incr_val;
+  longlong hidden_pk_val;
 
   bool put_dict(Dict_manager *dict, rocksdb::WriteBatch *batch,
                 uchar *key, size_t keylen);

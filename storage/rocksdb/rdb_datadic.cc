@@ -161,13 +161,15 @@ RDBSE_KEYDEF::~RDBSE_KEYDEF()
     my_free(pack_info);
 }
 
-void RDBSE_KEYDEF::setup(TABLE *tbl)
+void RDBSE_KEYDEF::setup(TABLE *tbl, RDBSE_TABLE_DEF *tbl_def)
 {
   /*
     Set max_length based on the table.  This can be called concurrently from
     multiple threads, so there is a mutex to protect this code.
   */
-  const bool secondary_key= (keyno != tbl->s->primary_key);
+  const bool hidden_pk= (MAX_INDEXES == tbl->s->primary_key) &&
+                        (keyno == tbl_def->n_keys - 1);
+  const bool secondary_key= (keyno != tbl->s->primary_key && !hidden_pk);
   if (!maxlength)
   {
     mysql_mutex_lock(&mutex);
@@ -177,8 +179,18 @@ void RDBSE_KEYDEF::setup(TABLE *tbl)
       return;
     }
 
-    KEY *key_info= &tbl->key_info[keyno];
-    KEY *pk_info=  &tbl->key_info[tbl->s->primary_key];
+    KEY *key_info;
+    KEY *pk_info;
+    if (hidden_pk)
+    {
+      key_info= tbl_def->hidden_pk_info;
+      pk_info=  tbl_def->hidden_pk_info;
+    }
+    else
+    {
+      key_info= &tbl->key_info[keyno];
+      pk_info=  &tbl->key_info[tbl->s->primary_key];
+    }
 
     if (secondary_key)
     {
@@ -211,7 +223,7 @@ void RDBSE_KEYDEF::setup(TABLE *tbl)
       m_key_parts += n_pk_key_parts;
     }
 
-    if (keyno != tbl->s->primary_key)
+    if (secondary_key)
       pk_part_no= (uint*)my_malloc(sizeof(uint)*m_key_parts, MYF(0));
     else
       pk_part_no= NULL;
@@ -233,7 +245,7 @@ void RDBSE_KEYDEF::setup(TABLE *tbl)
     {
       Field *field= key_part->field;
 
-      if (simulating_extkey)
+      if (simulating_extkey && !hidden_pk)
       {
         /* Check if this field is already present in the key definition */
         bool found= false;
@@ -259,7 +271,9 @@ void RDBSE_KEYDEF::setup(TABLE *tbl)
       pack_info[dst_i].setup(field, keyno_to_set, keypart_to_set);
       pack_info[dst_i].unpack_data_offset= unpack_len;
 
-      if (pk_info)
+      /* skip if hidden pk because there is no way a secondary key can include
+       * the hidden pk field */
+      if (pk_info && !hidden_pk)
       {
         pk_part_no[dst_i]= -1;
         for (uint j= 0; j < n_pk_key_parts; j++)
@@ -282,6 +296,7 @@ void RDBSE_KEYDEF::setup(TABLE *tbl)
       if (secondary_key && src_i+1 == key_info->actual_key_parts)
       {
         simulating_extkey= true;
+        // TODO(alexyang): investigate
         keyno_to_set= tbl->s->primary_key;
         keypart_to_set= (uint)-1;
         key_part= pk_info->key_part;
@@ -290,7 +305,7 @@ void RDBSE_KEYDEF::setup(TABLE *tbl)
       dst_i++;
     }
     m_key_parts= dst_i;
-    maxlength= max_len;
+    maxlength= max_len;  // should just be 4 for hidden pk
     unpack_data_len= unpack_len;
 
     mysql_mutex_unlock(&mutex);
@@ -411,7 +426,9 @@ uint RDBSE_KEYDEF::get_primary_key_tuple(TABLE *table,
                      size is at least max_storage_fmt_length() bytes.
 */
 
-uint RDBSE_KEYDEF::pack_index_tuple(const ha_rocksdb *handler, TABLE *tbl,
+uint RDBSE_KEYDEF::pack_index_tuple(const ha_rocksdb *handler,
+                                    RDBSE_TABLE_DEF *tbl_def,
+                                    TABLE *tbl,
                                     uchar *pack_buffer, uchar *packed_tuple,
                                     const uchar *key_tuple,
                                     key_part_map keypart_map)
@@ -426,7 +443,8 @@ uint RDBSE_KEYDEF::pack_index_tuple(const ha_rocksdb *handler, TABLE *tbl,
     n_used_parts= 0; // Full key is used
 
   /* Then, convert the record into a mem-comparable form */
-  return pack_record(handler, tbl, pack_buffer, tbl->record[0], packed_tuple,
+  return pack_record(handler, tbl_def,
+                     tbl, pack_buffer, tbl->record[0], packed_tuple,
                      NULL, NULL, n_used_parts);
 }
 
@@ -489,7 +507,9 @@ int RDBSE_KEYDEF::successor(uchar *packed_tuple, uint len)
     Length of the packed tuple
 */
 
-uint RDBSE_KEYDEF::pack_record(const ha_rocksdb *handler, TABLE *tbl,
+uint RDBSE_KEYDEF::pack_record(const ha_rocksdb *handler,
+                               RDBSE_TABLE_DEF *tbl_def,
+                               TABLE *tbl,
                                uchar *pack_buffer,
                                const uchar *record,
                                uchar *packed_tuple,
@@ -499,6 +519,8 @@ uint RDBSE_KEYDEF::pack_record(const ha_rocksdb *handler, TABLE *tbl,
 {
   uchar *tuple= packed_tuple;
   uchar *unpack_end= unpack_info;
+  bool hidden_pk= (keyno == tbl_def->n_keys - 1) &&
+                  (tbl->s->primary_key == MAX_INDEXES);
 
   store_index_number(tuple, index_number);
   tuple += INDEX_NUMBER_SIZE;
@@ -515,7 +537,12 @@ uint RDBSE_KEYDEF::pack_record(const ha_rocksdb *handler, TABLE *tbl,
 
   for (uint i=0; i < n_key_parts; i++)
   {
-    Field *field= pack_info[i].get_field_in_table(tbl);
+    Field *field;
+    if (hidden_pk) {
+      field= tbl_def->hidden_pk_info->key_part->field;
+    } else {
+      field= pack_info[i].get_field_in_table(tbl);
+    }
 
     // Old Field methods expected the record pointer to be at tbl->record[0].
     // The quick and easy way to fix this was to pass along the offset
@@ -704,12 +731,16 @@ size_t RDBSE_KEYDEF::key_length(TABLE *table, const rocksdb::Slice &key)
     1 - Data format error.
 */
 
-int RDBSE_KEYDEF::unpack_record(const ha_rocksdb *handler, TABLE *table,
+int RDBSE_KEYDEF::unpack_record(const ha_rocksdb *handler,
+                                RDBSE_TABLE_DEF *tbl_def,
+                                TABLE *table,
                                 uchar *buf, const rocksdb::Slice *packed_key,
                                 const rocksdb::Slice *unpack_info)
 {
   Stream_reader reader(packed_key);
   const uchar * const unpack_ptr= (const uchar*)unpack_info->data();
+  bool hidden_pk= (keyno == tbl_def->n_keys - 1) &&
+                  (table->s->primary_key == MAX_INDEXES);
 
   // Old Field methods expected the record pointer to be at tbl->record[0].
   // The quick and easy way to fix this was to pass along the offset
@@ -729,7 +760,12 @@ int RDBSE_KEYDEF::unpack_record(const ha_rocksdb *handler, TABLE *table,
   for (uint i= 0; i < m_key_parts ; i++)
   {
     Field_pack_info *fpi= &pack_info[i];
-    Field *field= fpi->get_field_in_table(table);
+    Field *field;
+    if (hidden_pk) {
+      field= tbl_def->hidden_pk_info->key_part->field;
+    } else {
+      field= fpi->get_field_in_table(table);
+    }
 
     if (fpi->unpack_func)
     {
@@ -1469,6 +1505,15 @@ RDBSE_TABLE_DEF::~RDBSE_TABLE_DEF()
       delete key_descr[i];
     }
     delete[] key_descr;
+  }
+
+  // KEY has no destructor
+  if (hidden_pk_info)
+  {
+    delete hidden_pk_info->key_part->field;
+    delete hidden_pk_info->key_part;
+    delete[] hidden_pk_info->rec_per_key;
+    delete hidden_pk_info;
   }
 }
 

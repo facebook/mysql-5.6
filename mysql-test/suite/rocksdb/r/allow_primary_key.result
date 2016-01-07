@@ -1,0 +1,52 @@
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (a INT, b CHAR(8)) ENGINE=rocksdb;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int(11) DEFAULT NULL,
+  `b` char(8) DEFAULT NULL
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+SHOW COLUMNS IN t1;
+Field	Type	Null	Key	Default	Extra
+a	int(11)	YES		NULL	
+b	char(8)	YES		NULL	
+INSERT INTO t1 (a,b) VALUES (35,'foo');
+INSERT INTO t1 (a,b) VALUES (76,'bar');
+INSERT INTO t1 (a,b) VALUES (77,'baz');
+SELECT * FROM t1;
+a	b
+35	foo
+76	bar
+77	baz
+UPDATE t1 SET a=a+100;
+SELECT * FROM t1;
+a	b
+135	foo
+176	bar
+177	baz
+UPDATE t1 SET a=a-100, b='bbb' WHERE a>100;
+UPDATE t1 SET a=300, b='ccc' WHERE a>70;
+UPDATE t1 SET a=123 WHERE a=35;
+UPDATE t1 SET a=321 WHERE b='ccc';
+SELECT a,b FROM t1 WHERE a>76;
+a	b
+123	bbb
+321	ccc
+321	ccc
+SELECT a,b FROM t1 WHERE a=123 AND b='bbb';
+a	b
+123	bbb
+SELECT a,b FROM t1;
+a	b
+123	bbb
+321	ccc
+321	ccc
+DELETE FROM t1 WHERE a=123;
+SELECT * FROM t1;
+a	b
+321	ccc
+321	ccc
+DELETE FROM t1 WHERE b > 'bbb';
+SELECT * FROM t1;
+a	b
+DROP TABLE t1;
