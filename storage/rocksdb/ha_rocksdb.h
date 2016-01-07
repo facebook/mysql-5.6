@@ -55,6 +55,11 @@ const char * const DEFAULT_SYSTEM_CF_NAME= "__system__";
 */
 const char * const PER_INDEX_CF_NAME = "$per_index_cf";
 
+/*
+  Hidden PK column (for tables with no primary key) is a longlong (aka 8 bytes)
+*/
+#define ROCKSDB_SIZEOF_HIDDEN_PK_COLUMN sizeof(longlong)
+
 /* MyRocks supports only the following collations for indexed columns */
 const std::set<const CHARSET_INFO *> MYROCKS_INDEX_COLLATIONS=
   {&my_charset_bin, &my_charset_utf8_bin, &my_charset_latin1_bin};
@@ -352,7 +357,11 @@ class ha_rocksdb: public handler
 
   void update_auto_incr_val();
   void load_auto_incr_value();
+  longlong update_hidden_pk_val();
+  int load_hidden_pk_value();
+  int read_hidden_pk_id_from_rowkey(longlong *hidden_pk_id);
   bool can_use_single_delete(uint index);
+  bool has_hidden_pk(const TABLE* table);
 
   /*
     Descriptor telling how to decode/encode a field to on-disk record storage
@@ -458,7 +467,6 @@ public:
     */
     return HA_BINLOG_ROW_CAPABLE | HA_BINLOG_STMT_CAPABLE |
            HA_REC_NOT_IN_SEQ | HA_CAN_INDEX_BLOBS |
-           HA_REQUIRE_PRIMARY_KEY |
            (pk_can_be_decoded? HA_PRIMARY_KEY_IN_READ_INDEX:0) |
            HA_PRIMARY_KEY_REQUIRED_FOR_POSITION |
            HA_NULL_IN_KEY;
@@ -503,6 +511,12 @@ public:
   void convert_record_to_storage_format(const char *pk_packed_tuple,
                                         size_t pk_packed_size,
                                         rocksdb::Slice *packed_rec);
+
+  bool is_hidden_pk(const uint index, const TABLE* table,
+                    const RDBSE_TABLE_DEF* tbl_def);
+  int pk_index(const TABLE* table, const RDBSE_TABLE_DEF* tbl_def);
+  bool is_pk(const uint index, const TABLE* table,
+             const RDBSE_TABLE_DEF* tbl_def);
 
   /** @brief
     unireg.cc will call max_supported_record_length(), max_supported_keys(),
