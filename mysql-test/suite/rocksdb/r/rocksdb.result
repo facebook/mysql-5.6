@@ -49,9 +49,6 @@ t0	CREATE TABLE `t0` (
   PRIMARY KEY (`a`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 drop table t0;
-# Try creating a table without PK:
-create table t1(a int) engine=rocksdb;
-ERROR 42000: This table type requires a primary key
 create table t1 (a int primary key, b int) engine=rocksdb;
 insert into t1 values (1,1);
 insert into t1 values (2,2);
@@ -1127,13 +1124,6 @@ ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on 
 disconnect con1;
 connection default;
 COMMIT;
-DROP TABLE t1;
-#
-# MDEV-4313: RocksDB: Server crashes in LDBSE_KEYDEF::setup on dropping the primary key column
-#
-CREATE TABLE t1 (pk INT PRIMARY KEY, i INT NOT NULL, KEY(i)) ENGINE=RocksDB;
-ALTER TABLE t1 DROP COLUMN `pk`;
-ERROR HY000: Got error 194 'Table must have a PRIMARY KEY' from ROCKSDB
 DROP TABLE t1;
 #
 # MDEV-4324: RocksDB: Valgrind "Use of uninitialised value" warnings on inserting value into varchar field
