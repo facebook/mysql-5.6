@@ -1,0 +1,392 @@
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (a INT, b CHAR(8), KEY(a)) ENGINE=rocksdb;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int(11) DEFAULT NULL,
+  `b` char(8) DEFAULT NULL,
+  KEY `a` (`a`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+SHOW COLUMNS IN t1;
+Field	Type	Null	Key	Default	Extra
+a	int(11)	YES	MUL	NULL	
+b	char(8)	YES		NULL	
+INSERT INTO t1 (a,b) VALUES (35,'foo');
+INSERT INTO t1 (a,b) VALUES (76,'bar');
+INSERT INTO t1 (a,b) VALUES (77,'baz');
+SELECT * FROM t1 WHERE a = 35;
+a	b
+35	foo
+SELECT * FROM t1 WHERE a = 35 AND b = 'foo';
+a	b
+35	foo
+SELECT * FROM t1 WHERE a = 77 OR b = 'bar';
+a	b
+76	bar
+77	baz
+SELECT * FROM t1 WHERE a > 35;
+a	b
+76	bar
+77	baz
+SELECT * FROM t1;
+a	b
+35	foo
+76	bar
+77	baz
+UPDATE t1 SET a=a+100;
+SELECT * FROM t1;
+a	b
+135	foo
+176	bar
+177	baz
+UPDATE t1 SET a=a-100, b='bbb' WHERE a>100;
+UPDATE t1 SET a=300, b='ccc' WHERE a>70;
+UPDATE t1 SET a=123 WHERE a=35;
+UPDATE t1 SET a=321 WHERE b='ccc';
+SELECT * FROM t1;
+a	b
+123	bbb
+321	ccc
+321	ccc
+INSERT INTO t1 (a,b) VALUES (45,'bbb');
+SELECT * FROM t1;
+a	b
+123	bbb
+321	ccc
+321	ccc
+45	bbb
+DELETE FROM t1 WHERE a=123;
+SELECT * FROM t1;
+a	b
+321	ccc
+321	ccc
+45	bbb
+DELETE FROM t1 WHERE b > 'bbb' AND a > 100;
+SELECT * FROM t1;
+a	b
+45	bbb
+DROP TABLE t1;
+CREATE TABLE t1 (a INT, b CHAR(8)) ENGINE=rocksdb;
+INSERT INTO t1 VALUES (1,'a'),(5,'z');
+ALTER TABLE t1 ADD INDEX (b);
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int(11) DEFAULT NULL,
+  `b` char(8) DEFAULT NULL,
+  KEY `b` (`b`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+INSERT INTO t1 (a,b) VALUES (35,'c');
+UPDATE t1 SET a=a-100, b='c' WHERE b>'b';
+DELETE FROM t1 WHERE b= 'c';
+SELECT * FROM t1;
+a	b
+1	a
+ALTER TABLE t1 DROP INDEX b;
+INSERT INTO t1 (a,b) VALUES (35,'c');
+UPDATE t1 SET a=a-100, b='c' WHERE b>'b';
+DELETE FROM t1 WHERE b= 'c';
+SELECT * FROM t1;
+a	b
+1	a
+DROP TABLE t1;
+CREATE TABLE t1 (a INT, b CHAR(8), pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=rocksdb;
+INSERT INTO t1 (a, b) VALUES (1,'a'),(5,'z');
+ALTER TABLE t1 DROP COLUMN pk;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int(11) DEFAULT NULL,
+  `b` char(8) DEFAULT NULL
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+INSERT INTO t1 (a,b) VALUES (35,'c');
+UPDATE t1 SET a=a-100, b='c' WHERE b>'b';
+DELETE FROM t1 WHERE b= 'c';
+SELECT * FROM t1;
+a	b
+1	a
+DROP TABLE t1;
+#
+# MDEV-4313: RocksDB: Server crashes in LDBSE_KEYDEF::setup on dropping the primary key column
+#
+CREATE TABLE t1 (pk INT PRIMARY KEY, i INT NOT NULL, KEY(i)) ENGINE=RocksDB;
+ALTER TABLE t1 DROP COLUMN `pk`;
+DROP TABLE t1;
+CREATE TABLE t1 (a INT, b CHAR(8), KEY(a), KEY(b)) ENGINE=rocksdb;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int(11) DEFAULT NULL,
+  `b` char(8) DEFAULT NULL,
+  KEY `a` (`a`),
+  KEY `b` (`b`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+SHOW COLUMNS IN t1;
+Field	Type	Null	Key	Default	Extra
+a	int(11)	YES	MUL	NULL	
+b	char(8)	YES	MUL	NULL	
+INSERT INTO t1 (a,b) VALUES (35,'foo');
+INSERT INTO t1 (a,b) VALUES (76,'bar');
+INSERT INTO t1 (a,b) VALUES (77,'baz');
+SELECT * FROM t1 WHERE a = 35;
+a	b
+35	foo
+SELECT * FROM t1 WHERE a = 35 AND b = 'foo';
+a	b
+35	foo
+SELECT * FROM t1 WHERE a = 77 OR b = 'bar';
+a	b
+76	bar
+77	baz
+SELECT * FROM t1 WHERE a > 35;
+a	b
+76	bar
+77	baz
+SELECT * FROM t1;
+a	b
+35	foo
+76	bar
+77	baz
+UPDATE t1 SET a=a+100;
+SELECT * FROM t1;
+a	b
+135	foo
+176	bar
+177	baz
+UPDATE t1 SET a=a-100, b='bbb' WHERE a>100;
+SELECT * FROM t1;
+a	b
+35	bbb
+76	bbb
+77	bbb
+UPDATE t1 SET a=300, b='ccc' WHERE a>70;
+SELECT * FROM t1;
+a	b
+300	ccc
+300	ccc
+35	bbb
+UPDATE t1 SET a=123 WHERE a=35;
+SELECT * FROM t1;
+a	b
+123	bbb
+300	ccc
+300	ccc
+UPDATE t1 SET a=321 WHERE b='ccc';
+SELECT * FROM t1;
+a	b
+123	bbb
+321	ccc
+321	ccc
+INSERT INTO t1 (a,b) VALUES (45,'bbb');
+SELECT * FROM t1;
+a	b
+123	bbb
+321	ccc
+321	ccc
+45	bbb
+DELETE FROM t1 WHERE a=123;
+SELECT * FROM t1;
+a	b
+321	ccc
+321	ccc
+45	bbb
+DELETE FROM t1 WHERE b > 'bbb' AND a > 100;
+SELECT * FROM t1;
+a	b
+45	bbb
+DROP TABLE t1;
+CREATE TABLE t1 (a INT, b CHAR(8), KEY(a, b)) ENGINE=rocksdb;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int(11) DEFAULT NULL,
+  `b` char(8) DEFAULT NULL,
+  KEY `a` (`a`,`b`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+SHOW COLUMNS IN t1;
+Field	Type	Null	Key	Default	Extra
+a	int(11)	YES	MUL	NULL	
+b	char(8)	YES		NULL	
+INSERT INTO t1 (a,b) VALUES (35,'foo');
+INSERT INTO t1 (a,b) VALUES (76,'bar');
+INSERT INTO t1 (a,b) VALUES (77,'baz');
+SELECT * FROM t1 WHERE a = 35;
+a	b
+35	foo
+SELECT * FROM t1 WHERE a = 35 AND b = 'foo';
+a	b
+35	foo
+SELECT * FROM t1 WHERE a = 77 OR b = 'bar';
+a	b
+76	bar
+77	baz
+SELECT * FROM t1 WHERE a > 35;
+a	b
+76	bar
+77	baz
+SELECT * FROM t1;
+a	b
+35	foo
+76	bar
+77	baz
+UPDATE t1 SET a=a+100;
+SELECT * FROM t1;
+a	b
+135	foo
+176	bar
+177	baz
+UPDATE t1 SET a=a-100, b='bbb' WHERE a>100;
+SELECT * FROM t1;
+a	b
+35	bbb
+76	bbb
+77	bbb
+UPDATE t1 SET a=300, b='ccc' WHERE a>70;
+SELECT * FROM t1;
+a	b
+300	ccc
+300	ccc
+35	bbb
+UPDATE t1 SET a=123 WHERE a=35;
+SELECT * FROM t1;
+a	b
+123	bbb
+300	ccc
+300	ccc
+UPDATE t1 SET a=321 WHERE b='ccc';
+SELECT * FROM t1;
+a	b
+123	bbb
+321	ccc
+321	ccc
+INSERT INTO t1 (a,b) VALUES (45,'bbb');
+SELECT * FROM t1;
+a	b
+123	bbb
+321	ccc
+321	ccc
+45	bbb
+DELETE FROM t1 WHERE a=123;
+SELECT * FROM t1;
+a	b
+321	ccc
+321	ccc
+45	bbb
+DELETE FROM t1 WHERE b > 'bbb' AND a > 100;
+SELECT * FROM t1;
+a	b
+45	bbb
+DROP TABLE t1;
+CREATE TABLE t1 (a INT, b CHAR(8), KEY(a), KEY(b)) ENGINE=rocksdb;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int(11) DEFAULT NULL,
+  `b` char(8) DEFAULT NULL,
+  KEY `a` (`a`),
+  KEY `b` (`b`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+SHOW COLUMNS IN t1;
+Field	Type	Null	Key	Default	Extra
+a	int(11)	YES	MUL	NULL	
+b	char(8)	YES	MUL	NULL	
+INSERT INTO t1 (a,b) VALUES (35,'foo');
+INSERT INTO t1 (a,b) VALUES (76,'bar');
+INSERT INTO t1 (a,b) VALUES (77,'baz');
+SELECT * FROM t1 WHERE a = 35;
+a	b
+35	foo
+SELECT * FROM t1 WHERE a = 35 AND b = 'foo';
+a	b
+35	foo
+SELECT * FROM t1 WHERE a = 77 OR b = 'bar';
+a	b
+76	bar
+77	baz
+SELECT * FROM t1 WHERE a > 35;
+a	b
+76	bar
+77	baz
+SELECT * FROM t1;
+a	b
+35	foo
+76	bar
+77	baz
+UPDATE t1 SET a=a+100;
+SELECT * FROM t1;
+a	b
+135	foo
+176	bar
+177	baz
+UPDATE t1 SET a=a-100, b='bbb' WHERE a>100;
+SELECT * FROM t1;
+a	b
+35	bbb
+76	bbb
+77	bbb
+UPDATE t1 SET a=300, b='ccc' WHERE a>70;
+SELECT * FROM t1;
+a	b
+300	ccc
+300	ccc
+35	bbb
+UPDATE t1 SET a=123 WHERE a=35;
+SELECT * FROM t1;
+a	b
+123	bbb
+300	ccc
+300	ccc
+UPDATE t1 SET a=321 WHERE b='ccc';
+SELECT * FROM t1;
+a	b
+123	bbb
+321	ccc
+321	ccc
+INSERT INTO t1 (a,b) VALUES (45,'bbb');
+SELECT * FROM t1;
+a	b
+123	bbb
+321	ccc
+321	ccc
+45	bbb
+DELETE FROM t1 WHERE a=123;
+SELECT * FROM t1;
+a	b
+321	ccc
+321	ccc
+45	bbb
+DELETE FROM t1 WHERE b > 'bbb' AND a > 100;
+SELECT * FROM t1;
+a	b
+45	bbb
+DROP TABLE t1;
+CREATE TABLE t1 (a INT, b CHAR(8), KEY(a)) ENGINE=rocksdb;
+INSERT INTO t1 (a) VALUES (1),(2),(5);
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+INSERT INTO t1 (a) VALUES (6),(8),(12);
+CHECK TABLE t1 FOR UPGRADE;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+INSERT INTO t1 (a) VALUES (13),(15),(16);
+CHECK TABLE t1 QUICK;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+INSERT INTO t1 (a) VALUES (17),(120),(132);
+CHECK TABLE t1 FAST;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+INSERT INTO t1 (a) VALUES (801),(900),(7714);
+CHECK TABLE t1 MEDIUM;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+INSERT INTO t1 (a) VALUES (8760),(10023),(12000);
+CHECK TABLE t1 EXTENDED;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+INSERT INTO t1 (a) VALUES (13345),(24456),(78302),(143028);
+CHECK TABLE t1 CHANGED;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+DROP TABLE t1;
