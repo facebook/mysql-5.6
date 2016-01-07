@@ -234,7 +234,8 @@ public:
                    uchar *unpack_info,
                    int *unpack_info_len,
                    uint n_key_parts=0,
-                   uint *n_null_fields=NULL);
+                   uint *n_null_fields= nullptr,
+                   longlong hidden_pk_id= 0);
   int unpack_record(const ha_rocksdb *handler,
                     TABLE *table, uchar *buf, const rocksdb::Slice *packed_key,
                     const rocksdb::Slice *unpack_info);
@@ -409,6 +410,7 @@ public:
   enum {
     INDEX_TYPE_PRIMARY= 1,
     INDEX_TYPE_SECONDARY= 2,
+    INDEX_TYPE_HIDDEN_PRIMARY= 3,
   };
 
   // Key/Value format version for each index type
@@ -571,6 +573,8 @@ private:
 public:
   bool setup(Field *field, uint keynr_arg, uint key_part_arg);
   Field *get_field_in_table(TABLE *tbl);
+  void fill_hidden_pk_val(TABLE *table, Field_pack_info *fpi, uchar **dst,
+                          longlong hidden_pk_id);
 };
 
 inline
@@ -592,7 +596,7 @@ Field* RDBSE_KEYDEF::get_table_field_for_part_no(TABLE *table, uint part_no)
 class RDBSE_TABLE_DEF
 {
 public:
-  RDBSE_TABLE_DEF() : key_descr(NULL), auto_incr_val(1)
+  RDBSE_TABLE_DEF() : key_descr(nullptr), auto_incr_val(1), hidden_pk_val(1)
   {
     mysql_mutex_init(0, &mutex, MY_MUTEX_INIT_FAST);
   }
@@ -609,6 +613,7 @@ public:
 
   mysql_mutex_t mutex; // guards the following:
   longlong auto_incr_val;
+  longlong hidden_pk_val;
 
   bool put_dict(Dict_manager *dict, rocksdb::WriteBatch *batch,
                 uchar *key, size_t keylen);
