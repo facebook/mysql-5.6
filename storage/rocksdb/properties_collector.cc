@@ -18,6 +18,7 @@
 #include "./properties_collector.h"
 
 /* Standard C++ header files */
+#include <algorithm>
 #include <map>
 
 /* MySQL header files */
@@ -37,12 +38,14 @@ uint64_t rocksdb_num_sst_entry_other = 0;
 MyRocksTablePropertiesCollector::MyRocksTablePropertiesCollector(
   Table_ddl_manager* ddl_manager,
   CompactionParams params,
-  uint32_t cf_id
+  uint32_t cf_id,
+  const uchar& table_stats_sampling_pct
 ) :
     cf_id_(cf_id),
     ddl_manager_(ddl_manager),
     rows_(0l), deleted_rows_(0l), max_deleted_rows_(0l),
-    file_size_(0), params_(params)
+    file_size_(0), params_(params),
+    table_stats_sampling_pct_(table_stats_sampling_pct)
 {
   deleted_rows_window_.resize(params_.window_, false);
 }
@@ -77,11 +80,51 @@ MyRocksTablePropertiesCollector::AddUserKey(
       break;
     }
 
+    if (params_.window_ > 0) {
+      // record the "is deleted" flag into the sliding window
+      // the sliding window is implemented as a circular buffer
+      // in deleted_rows_window_ vector
+      // the current position in the circular buffer is pointed at by
+      // rows_ % deleted_rows_window_.size()
+      // deleted_rows_ is the current number of 1's in the vector
+      // --update the counter for the element which will be overridden
+      if (deleted_rows_window_[rows_ % deleted_rows_window_.size()]) {
+        // correct the current number based on the element we about to override
+        deleted_rows_--;
+      }
+      bool is_delete= (type == rocksdb::kEntryDelete ||
+                       type == rocksdb::kEntrySingleDelete);
+      // --override the element with the new value
+      deleted_rows_window_[rows_ % deleted_rows_window_.size()]= is_delete;
+      // --update the counter
+      if (is_delete) {
+        deleted_rows_++;
+      }
+      // --we are looking for the maximum deleted_rows_
+      max_deleted_rows_ = std::max(deleted_rows_, max_deleted_rows_);
+    }
+
+    rows_++;
+
+    uint64_t actual_disk_size = file_size - file_size_;
+    file_size_ = file_size;
+
+    // Collecting statistics per every key is an expensive operation.
+    // Therefore depending on settings we'll collect this data only for
+    // a subset of keys (default is 10% of samples).
+    if (!ShouldCollectStats()) {
+      return rocksdb::Status::OK();
+    }
+
+    // All the code past this line must deal ONLY with collecting the
+    // statistics.
+
     GL_INDEX_ID gl_index_id;
+
     gl_index_id.cf_id = cf_id_;
     gl_index_id.index_id = read_big_uint4((const uchar*)key.data());
-    if (stats_.empty() || gl_index_id != stats_.back().gl_index_id)
-    {
+
+    if (stats_.empty() || gl_index_id != stats_.back().gl_index_id) {
       keydef_ = NULL;
       // starting a new table
       // add the new element into stats_
@@ -126,32 +169,7 @@ MyRocksTablePropertiesCollector::AddUserKey(
       break;
     }
 
-    stats.actual_disk_size += file_size-file_size_;
-
-    if (params_.window_ > 0) {
-      // record the "is deleted" flag into the sliding window
-      // the sliding window is implemented as a circular buffer
-      // in deleted_rows_window_ vector
-      // the current position in the circular buffer is pointed at by
-      // rows_ % deleted_rows_window_.size()
-      // deleted_rows_ is the current number of 1's in the vector
-      // --update the counter for the element which will be overridden
-      if (deleted_rows_window_[rows_ % deleted_rows_window_.size()]) {
-        // correct the current number based on the element we about to override
-        deleted_rows_--;
-      }
-      bool is_delete= (type == rocksdb::kEntryDelete ||
-                       type == rocksdb::kEntrySingleDelete);
-      // --override the element with the new value
-      deleted_rows_window_[rows_ % deleted_rows_window_.size()]= is_delete;
-      // --update the counter
-      if (is_delete) {
-        deleted_rows_++;
-      }
-      // --we are looking for the maximum deleted_rows_
-      max_deleted_rows_ = std::max(deleted_rows_, max_deleted_rows_);
-    }
-    rows_++;
+    stats.actual_disk_size += actual_disk_size;
 
     if (keydef_) {
       std::size_t column = 0;
@@ -175,7 +193,6 @@ MyRocksTablePropertiesCollector::AddUserKey(
       }
     }
   }
-  file_size_ = file_size;
 
   return rocksdb::Status::OK();
 }
@@ -199,6 +216,20 @@ bool MyRocksTablePropertiesCollector::NeedCompact() const {
     (params_.window_ > 0) &&
     (file_size_ > params_.file_size_) &&
     (max_deleted_rows_ > params_.deletes_);
+}
+
+bool MyRocksTablePropertiesCollector::ShouldCollectStats() const {
+  // Zero means that we'll use all the keys to update statistics.
+  if (!table_stats_sampling_pct_) {
+    return true;
+  }
+
+  int val = rand() % 100 + 1;
+
+  assert(val >= 1);
+  assert(val <= 100);
+
+  return val <= table_stats_sampling_pct_;
 }
 
 /*

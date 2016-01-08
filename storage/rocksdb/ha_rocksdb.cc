@@ -327,6 +327,7 @@ static long long rocksdb_compaction_sequential_deletes_window= 0l;
 static long long rocksdb_compaction_sequential_deletes_file_size= 0l;
 static uint32_t rocksdb_validate_tables = 1;
 static char * rocksdb_datadir;
+static uint32_t rocksdb_table_stats_sampling_pct;
 
 static rocksdb::DBOptions init_db_options() {
   rocksdb::DBOptions o;
@@ -859,6 +860,16 @@ static MYSQL_SYSVAR_STR(datadir,
   "RocksDB data directory",
   nullptr, nullptr, "./.rocksdb");
 
+static MYSQL_SYSVAR_UINT(
+  table_stats_sampling_pct,
+  rocksdb_table_stats_sampling_pct,
+  PLUGIN_VAR_RQCMDARG,
+  "Percentage of entries to sample when collecting statistics about table "
+  "properties. Specify either 0 to sample everything or percentage [1..100]. "
+  "By default 10% of entries are sampled.",
+  NULL, NULL, /* default */ 10,
+  /* min */ 0, /* max */ 100, 0);
+
 const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT=4194304;
 const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE= 100;
 
@@ -951,6 +962,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(verify_checksums),
 
   MYSQL_SYSVAR(validate_tables),
+  MYSQL_SYSVAR(table_stats_sampling_pct),
 
   NULL
 };
@@ -2273,7 +2285,13 @@ static int rocksdb_init_func(void *p)
       <MyRocksTablePropertiesCollectorFactory>(
         &ddl_manager
       );
+
     set_compaction_options(NULL, NULL, NULL, NULL);
+
+    assert(rocksdb_table_stats_sampling_pct <= 100);
+    properties_collector_factory->SetTableStatsSamplingPct(
+      rocksdb_table_stats_sampling_pct);
+
     default_cf_opts.table_properties_collector_factories.push_back(
       properties_collector_factory
     );
