@@ -21,11 +21,9 @@
 #include <sstream>
 #include <string>
 
-class Logger : public rocksdb::Logger {
+class RdbLogger : public rocksdb::Logger {
  public:
-  using rocksdb::Logger::Logv;
-
-  void Logv(const rocksdb::InfoLogLevel log_level,
+  virtual void Logv(const rocksdb::InfoLogLevel log_level,
             const char* format,
             va_list ap) {
     enum loglevel mysql_log_level;
@@ -34,7 +32,7 @@ class Logger : public rocksdb::Logger {
       rocksdb_logger_->Logv(log_level, format, ap);
     }
 
-    if (log_level < GetInfoLogLevel()) {
+    if (log_level < rdb_log_level_) {
       return;
     }
 
@@ -52,7 +50,7 @@ class Logger : public rocksdb::Logger {
     error_log_print(mysql_log_level, f.c_str(), ap);
   }
 
-  void Logv(const char* format, va_list ap) {
+  virtual void Logv(const char* format, va_list ap) {
     // If no level is specified, it is by default at information level
     Logv(rocksdb::InfoLogLevel::INFO_LEVEL, format, ap);
   }
@@ -61,8 +59,37 @@ class Logger : public rocksdb::Logger {
     rocksdb_logger_ = logger;
   }
 
+  void SetRdbLogLevel(const rocksdb::InfoLogLevel log_level) {
+    /*
+      The log_level parameter is stored in this class instead of using the
+      one in the base rocksdb::Logger class.
+
+      There is some obscure problem that occassionally triggers the following
+      ASan failure during system shutdown:
+
+      AddressSanitizer CHECK failed:
+      ../../.././libsanitizer/asan/asan_rtl.cc:397 "((curr_thread)) != (0)"
+      (0x0, 0x0)
+
+      along with the following two functions in the stack trace:
+
+      rocksdb::port::Mutex::Lock()
+      rocksdb::ThreadLocalPtr::StaticMeta::OnThreadExit(void*)
+
+      in the rocksdb.optimize_table test when the myrocks plugin attempts to
+      set the log_level_ private member of the rocksdb::Logger class, whether
+      through the rocksdb::Logger constructor, or the SetInfoLogLevel()
+      function. The root cause of the problem is not known, but could be
+      related to ordering of deinitializers.
+
+      Storing the level in RdbLogger works around the issue for now.
+    */
+    rdb_log_level_= log_level;
+  }
+
  private:
   std::shared_ptr<rocksdb::Logger> rocksdb_logger_;
+  rocksdb::InfoLogLevel rdb_log_level_;
 };
 
 #endif
