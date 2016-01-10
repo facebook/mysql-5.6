@@ -367,7 +367,9 @@ rocksdb_set_rocksdb_info_log_level(THD* thd,
 {
   mysql_mutex_lock(&sysvar_mutex);
   rocksdb_info_log_level = *static_cast<const uint64_t*>(save);
-  db_options.info_log->SetInfoLogLevel(
+  std::shared_ptr<RdbLogger> myrocks_logger =
+      std::dynamic_pointer_cast<RdbLogger>(db_options.info_log);
+  myrocks_logger->SetRdbLogLevel(
       static_cast<const rocksdb::InfoLogLevel>(rocksdb_info_log_level));
   mysql_mutex_unlock(&sysvar_mutex);
 }
@@ -2251,7 +2253,9 @@ static int rocksdb_init_func(void *p)
     db_options.rate_limiter = rate_limiter;
   }
 
-  std::shared_ptr<Logger> myrocks_logger = std::make_shared<Logger>();
+  std::shared_ptr<RdbLogger> myrocks_logger= std::make_shared<RdbLogger>();
+  myrocks_logger->SetRdbLogLevel(
+      static_cast<rocksdb::InfoLogLevel>(rocksdb_info_log_level));
   rocksdb::Status s = CreateLoggerFromOptions(rocksdb_datadir, db_options,
                                               &db_options.info_log);
   if (s.ok()) {
@@ -2259,8 +2263,7 @@ static int rocksdb_init_func(void *p)
   }
 
   db_options.info_log = myrocks_logger;
-  myrocks_logger->SetInfoLogLevel(
-    static_cast<rocksdb::InfoLogLevel>(rocksdb_info_log_level));
+  db_options.info_log_level = (rocksdb::InfoLogLevel)rocksdb_info_log_level;
   db_options.wal_dir = rocksdb_wal_dir;
 
   db_options.wal_recovery_mode=
