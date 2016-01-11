@@ -113,6 +113,8 @@ static const char *plugin_declarations_sym= "_mysql_plugin_declarations_";
 static int min_plugin_interface_version= MYSQL_PLUGIN_INTERFACE_VERSION & ~0xFF;
 #endif
 
+static const char *rocksdb_engine_name = "rocksdb";
+
 static void*	innodb_callback_data;
 
 /* Note that 'int version' must be the first field of every plugin
@@ -3788,7 +3790,7 @@ static int test_plugin_options(MEM_ROOT *tmp_root, struct st_plugin_int *tmp,
   */
   if (!(my_strcasecmp(&my_charset_latin1, tmp->name.str, "federated") &&
       my_strcasecmp(&my_charset_latin1, tmp->name.str, "ndbcluster") &&
-      my_strcasecmp(&my_charset_latin1, tmp->name.str, "rocksdb")))
+      my_strcasecmp(&my_charset_latin1, tmp->name.str, rocksdb_engine_name)))
     plugin_load_option= PLUGIN_OFF;
 
   for (opt= tmp->plugin->system_vars; opt && *opt; opt++)
@@ -3846,6 +3848,17 @@ static int test_plugin_options(MEM_ROOT *tmp_root, struct st_plugin_int *tmp,
     if (log_warnings)
       sql_print_information("Plugin '%s' is disabled.",
                             tmp->name.str);
+
+    if (!my_strcasecmp(&my_charset_latin1, tmp->name.str, rocksdb_engine_name))
+      /* NO_LINT_DEBUG */
+      sql_print_information("RocksDB storage engine is currently disabled. "
+                            "To enable it please add the following options "
+                            "to mysqld command-line: --skip-innodb --rocksdb "
+                            "--default-storage-engine=rocksdb "
+                            "--default-tmp-storage-engine=MyISAM or add these "
+                            "settings to my.cnf configuration file under "
+                            "[mysqld] section.");
+
     if (opts)
       my_cleanup_options(opts);
     DBUG_RETURN(1);
