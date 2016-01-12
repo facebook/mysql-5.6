@@ -1,0 +1,31 @@
+--source include/have_rocksdb.inc
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+create table t1 (pk int primary key) engine=rocksdb;
+
+--disable_query_log
+let $i = 0;
+let $n = 10000;
+
+while ($i < $n)
+{
+  inc $i;
+  eval insert t1(pk) values($i);
+}
+--enable_query_log
+
+set global rocksdb_force_flush_memtable_now = true;
+
+#
+# Use the heuristic to verify that statistics is gathered in ca 50% of cases.
+# In reality the variance is more of 1-2%, but for the purposes of test
+# reliability we allow 5% deviation. If the deviation is more than 5% then we
+# definitely have a problem somewhere.
+#
+select table_name from information_schema.tables
+where table_schema = database() and table_rows > 4500 and table_rows < 5500;
+
+drop table t1;
