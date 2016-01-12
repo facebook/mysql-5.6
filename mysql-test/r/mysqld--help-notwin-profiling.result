@@ -1145,6 +1145,11 @@ The following options may be given as the first argument:
  case sensitive collation enforcement
  --rocksdb-table-cache-numshardbits=# 
  DBOptions::table_cache_numshardbits for RocksDB
+ --rocksdb-table-stats-sampling-pct=# 
+ Percentage of entries to sample when collecting
+ statistics about table properties. Specify either 0 to
+ sample everything or percentage [1..100]. By default 10%
+ of entries are sampled.
  --rocksdb-unsafe-for-binlog 
  Allowing statement based binary logging which may break
  consistency
@@ -1777,6 +1782,7 @@ rocksdb-store-checksums FALSE
 rocksdb-strict-collation-check TRUE
 rocksdb-strict-collation-exceptions (No default value)
 rocksdb-table-cache-numshardbits 4
+rocksdb-table-stats-sampling-pct 10
 rocksdb-unsafe-for-binlog FALSE
 rocksdb-use-adaptive-mutex FALSE
 rocksdb-use-fsync FALSE

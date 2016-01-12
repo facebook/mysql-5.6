@@ -57,7 +57,8 @@ class MyRocksTablePropertiesCollector
     std::vector<int64_t> distinct_keys_per_prefix;
     std::string name; // name is not persisted
 
-    static std::string materialize(std::vector<IndexStats>);
+    static std::string materialize(std::vector<IndexStats>,
+                                   const float card_adj_extra);
     static int unmaterialize(const std::string& s, std::vector<IndexStats>&);
     IndexStats() : IndexStats({0, 0}) {}
     explicit IndexStats(GL_INDEX_ID _gl_index_id) :
@@ -75,7 +76,8 @@ class MyRocksTablePropertiesCollector
   MyRocksTablePropertiesCollector(
     Table_ddl_manager* ddl_manager,
     CompactionParams params,
-    uint32_t cf_id
+    uint32_t cf_id,
+    const uint8_t table_stats_sampling_pct
   );
 
   virtual rocksdb::Status AddUserKey(
@@ -108,6 +110,10 @@ class MyRocksTablePropertiesCollector
   }
 
  private:
+  bool ShouldCollectStats();
+  void CollectStatsForRow(const rocksdb::Slice& key,
+    const rocksdb::Slice& value, rocksdb::EntryType type, uint64_t file_size);
+
   uint32_t cf_id_;
   std::unique_ptr<RDBSE_KEYDEF> keydef_;
   Table_ddl_manager* ddl_manager_;
@@ -123,6 +129,9 @@ class MyRocksTablePropertiesCollector
   uint64_t file_size_;
 
   CompactionParams params_;
+  uint8_t table_stats_sampling_pct_;
+  unsigned int seed_;
+  float card_adj_extra_;
 };
 
 
@@ -137,18 +146,25 @@ class MyRocksTablePropertiesCollectorFactory
   virtual rocksdb::TablePropertiesCollector* CreateTablePropertiesCollector(
       rocksdb::TablePropertiesCollectorFactory::Context context) override {
     return new MyRocksTablePropertiesCollector(
-      ddl_manager_, params_, context.column_family_id);
+      ddl_manager_, params_, context.column_family_id,
+      table_stats_sampling_pct_);
   }
 
   virtual const char* Name() const override {
     return "MyRocksTablePropertiesCollectorFactory";
   }
+
   void SetCompactionParams(const CompactionParams& params) {
     params_ = params;
+  }
+
+  void SetTableStatsSamplingPct(const uint8_t table_stats_sampling_pct) {
+    table_stats_sampling_pct_ = table_stats_sampling_pct;
   }
  private:
   Table_ddl_manager* ddl_manager_;
   CompactionParams params_;
+  uint8_t table_stats_sampling_pct_;
 };
 
 #endif
