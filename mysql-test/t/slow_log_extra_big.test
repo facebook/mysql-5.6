@@ -74,7 +74,6 @@ drop table big_table_slow;
 # Check the log results
 let $slow_log_output_filename = $file_lines_filename;
 let $slow_log_output_count = $file_lines_count;
---source validate_slow_log_output.inc
---remove_file $MYSQLTEST_VARDIR/mysqld.1/data/slow_log_extra_big-slow.log
+--source include/validate_slow_log_output.inc
 
 --exit
