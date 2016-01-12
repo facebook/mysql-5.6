@@ -38,7 +38,9 @@ int main(int argc, char** argv) {
   params.deletes_= 333; //irrelevant
   params.window_= 10;
 
-  MyRocksTablePropertiesCollector coll(nullptr, params, 0);
+  MyRocksTablePropertiesCollector coll(nullptr, params, 0,
+    MYROCKS_DEFAULT_SAMPLE_PCT);
+
   putKeys(coll, 2, true, 2); // [xx]
   putKeys(coll, 3, false, 2); // [xxo]
   putKeys(coll, 1, true, 3); // [xxox]

@@ -1,0 +1,8 @@
+drop table if exists t1;
+create table t1 (pk int primary key) engine=rocksdb;
+set global rocksdb_force_flush_memtable_now = true;
+select table_name from information_schema.tables
+where table_schema = database() and table_rows > 4500 and table_rows < 5500;
+table_name
+t1
+drop table t1;
