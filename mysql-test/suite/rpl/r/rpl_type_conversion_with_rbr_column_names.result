@@ -35,7 +35,7 @@ insert into t2 values(1, "column2", 3, "column4");
 select * from t2;
 col2	col3	col4
 column2	3	column4
-Check slave can deal with deleted columns, different columnd order and modified column type
+Check slave can deal with deleted columns, different column order and modified column type
 drop table t2;
 create table t2(col3 enum('1','2','3'), col2 text) engine=innodb rbr_column_names=1;
 insert into t2 values(1, "column2", 3, "column4");
