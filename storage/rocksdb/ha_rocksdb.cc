@@ -7462,3 +7462,4 @@ void request_save_stats()
   bg_control.save_stats= true;
   mysql_mutex_unlock(&stop_cond_mutex);
 }
+
