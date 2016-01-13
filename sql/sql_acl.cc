@@ -11323,9 +11323,11 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
   if (command == COM_CONNECT &&
       !(thd->main_security_ctx.master_access & SUPER_ACL))
   {
-    mysql_mutex_lock(&LOCK_connection_count);
+    // Check the connection count while holding LOCK_thread_count
+    mysql_mutex_assert_not_owner(&LOCK_thread_count);
+    mysql_mutex_lock(&LOCK_thread_count);
     bool count_ok= (connection_count <= max_connections);
-    mysql_mutex_unlock(&LOCK_connection_count);
+    mysql_mutex_unlock(&LOCK_thread_count);
     if (!count_ok)
     {                                         // too many connections
       statistic_increment(connection_errors_max_connection, &LOCK_status);

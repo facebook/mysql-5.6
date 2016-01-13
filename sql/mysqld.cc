@@ -2853,9 +2853,10 @@ void thd_release_resources(THD *thd)
 
 void dec_connection_count()
 {
-  mysql_mutex_lock(&LOCK_connection_count);
+  mysql_mutex_assert_not_owner(&LOCK_thread_count);
+  mysql_mutex_lock(&LOCK_thread_count);
   --connection_count;
-  mysql_mutex_unlock(&LOCK_connection_count);
+  mysql_mutex_unlock(&LOCK_thread_count);
 }
 
 
@@ -2877,8 +2878,9 @@ void destroy_thd(THD *thd)
                  (ie, caller should return, not abort with pthread_exit())
 */
 
-static bool block_until_new_connection()
+static bool block_until_new_connection(bool& conn_count_decremented)
 {
+  conn_count_decremented = false;
   mysql_mutex_lock(&LOCK_thread_count);
   if (blocked_pthread_count < max_blocked_pthreads &&
       !abort_loop && !kill_blocked_pthreads_flag)
@@ -2894,6 +2896,10 @@ static bool block_until_new_connection()
       before picking another session in the thread cache.
     */
     DBUG_ASSERT( ! _db_is_pushed_());
+
+    // Decrement connection count while holding LOCK_thread_count
+    --connection_count;
+    conn_count_decremented = true;
 
     // Block pthread
     while (!abort_loop && !wake_pthread && !kill_blocked_pthreads_flag)
@@ -2962,7 +2968,7 @@ bool one_thread_per_connection_end(THD *thd, bool block_pthread)
   DBUG_PRINT("info", ("thd %p block_pthread %d", thd, (int) block_pthread));
 
   thd->release_resources();
-  dec_connection_count();
+
   remove_global_thread(thd);
   if (kill_blocked_pthreads_flag)
   {
@@ -2984,16 +2990,27 @@ bool one_thread_per_connection_end(THD *thd, bool block_pthread)
   PSI_THREAD_CALL(delete_current_thread)();
 #endif
 
+  bool conn_count_decremented = false;
   if (block_pthread)
-    block_pthread= block_until_new_connection();
+    block_pthread= block_until_new_connection(conn_count_decremented);
 
   if (block_pthread)
+  {
+    // Decrement the connection count
+    if (!conn_count_decremented)
+      dec_connection_count();
     DBUG_RETURN(false);                         // Pthread is reused
+  }
 
   /* It's safe to broadcast outside a lock (COND... is not deleted here) */
   DBUG_PRINT("signal", ("Broadcasting COND_thread_count"));
   DBUG_LEAVE;                                   // Must match DBUG_ENTER()
   my_thread_end();
+
+  // Decrement the connection count
+  if (!conn_count_decremented)
+    dec_connection_count();
+
   mysql_cond_broadcast(&COND_thread_count);
 
   pthread_exit(0);
@@ -6933,11 +6950,10 @@ void create_thread_to_handle_connection(THD *thd)
         sql_print_error("Can't create thread to handle request (errno= %d)",
                         error);
       thd->killed= THD::KILL_CONNECTION;      // Safety
-      mysql_mutex_unlock(&LOCK_thread_count);
 
-      mysql_mutex_lock(&LOCK_connection_count);
+      // Decrement connection count while holding LOCK_thread_count
       --connection_count;
-      mysql_mutex_unlock(&LOCK_connection_count);
+      mysql_mutex_unlock(&LOCK_thread_count);
 
       statistic_increment(aborted_connects,&LOCK_status);
       statistic_increment(connection_errors_internal, &LOCK_status);
@@ -6978,12 +6994,12 @@ static void create_new_thread(THD *thd)
     only (max_connections + 1) connections.
   */
 
-  mysql_mutex_lock(&LOCK_connection_count);
+  mysql_mutex_lock(&LOCK_thread_count);
 
   if (((connection_count >= max_connections + 1) &&
        (!thd->is_admin_connection())) || abort_loop)
   {
-    mysql_mutex_unlock(&LOCK_connection_count);
+    mysql_mutex_unlock(&LOCK_thread_count);
 
     DBUG_PRINT("error",("Too many connections"));
     /*
@@ -7009,11 +7025,7 @@ static void create_new_thread(THD *thd)
   if (connection_count > max_used_connections)
     max_used_connections= connection_count;
 
-  mysql_mutex_unlock(&LOCK_connection_count);
-
   /* Start a new thread to handle connection. */
-
-  mysql_mutex_lock(&LOCK_thread_count);
 
   /*
     The initialization of thread_id is done in create_embedded_thd() for
