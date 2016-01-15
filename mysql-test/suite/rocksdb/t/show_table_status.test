@@ -26,5 +26,29 @@ CREATE TABLE t3 (a INT, b CHAR(8), pk INT PRIMARY KEY) ENGINE=rocksdb CHARACTER 
 
 #--replace_column 2 <STORAGE_ENGINE> 4 ### 6 ### 7 ### 8 ### 9 ### 10 ### 12 ### 13 ### 
 SHOW TABLE STATUS WHERE name IN ( 't1', 't2', 't3' );
+
+# Some statistics don't get updated as quickly.  The Data_length and
+# Avg_row_length are trailing statistics, meaning they don't get updated
+# for the current SST until the next SST is written.  Insert a bunch of data,
+# then flush, then insert a bit more and do another flush to get them to show
+# up.
+
+--disable_query_log
+let $count = 2;
+let $max = 10000;
+while ($count < $max) {
+  eval INSERT INTO t2 (a) VALUES ($count);
+  inc $count;
+}
+
+set global rocksdb_force_flush_memtable_now = true;
+eval INSERT INTO t2 (a) VALUES ($max);
+set global rocksdb_force_flush_memtable_now = true;
+--enable_query_log
+
+# We currently expect Data_length to be about 65000, but it may vary a little.
+# Assume anything from 60000 to 69999 is valid.
+--replace_regex /6[0-9]{4}/65000/
+SHOW TABLE STATUS WHERE name LIKE 't2';
 DROP TABLE t1, t2, t3;
 
