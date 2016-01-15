@@ -319,6 +319,8 @@ static TYPELIB tc_heuristic_recover_typelib=
 const char *first_keyword= "first", *binary_keyword= "BINARY";
 const char *my_localhost= "localhost", *delayed_user= "DELAYED";
 
+static const char *rocksdb_engine_name = "rocksdb";
+
 bool opt_large_files= sizeof(my_off_t) > 4;
 static my_bool opt_autocommit; ///< for --autocommit command-line option
 
@@ -5619,6 +5621,22 @@ a file name for --log-bin-index option", opt_binlog_index_name);
   if (initialize_storage_engine(default_tmp_storage_engine, " temp",
                                 &global_system_variables.temp_table_plugin))
     unireg_abort(1);
+
+  /*
+    If RocksDB is disabled (InnoDB is enabled) then log a message so that users
+    can easily figure out what is needed to enable RocksDB.
+  */
+  if (my_strcasecmp(&my_charset_latin1, default_storage_engine,
+      rocksdb_engine_name)) {
+      /* NO_LINT_DEBUG */
+      sql_print_information("RocksDB storage engine is currently disabled. "
+                            "To enable it please add the following options "
+                            "to mysqld command-line: --skip-innodb --rocksdb "
+                            "--default-storage-engine=rocksdb "
+                            "--default-tmp-storage-engine=MyISAM or add these "
+                            "settings to my.cnf configuration file under "
+                            "[mysqld] section.");
+  }
 
   if (total_ha_2pc > 1 || (1 == total_ha_2pc && opt_bin_log))
   {
