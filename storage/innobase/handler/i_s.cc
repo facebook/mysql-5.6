@@ -3171,6 +3171,8 @@ i_s_metrics_fill_table(
 		DBUG_RETURN(0);
 	}
 
+	RETURN_IF_INNODB_NOT_STARTED(tables->schema_table_name);
+
 	i_s_metrics_fill(thd, tables->table);
 
 	DBUG_RETURN(0);
@@ -3279,6 +3281,8 @@ i_s_stopword_fill(
 	TABLE*	table = (TABLE*) tables->table;
 
 	DBUG_ENTER("i_s_stopword_fill");
+
+	RETURN_IF_INNODB_NOT_STARTED(tables->schema_table_name);
 
 	fields = table->field;
 
@@ -3476,6 +3480,7 @@ i_s_fts_deleted_fill(
 	Item*		)	/*!< in: condition (ignored) */
 {
 	DBUG_ENTER("i_s_fts_deleted_fill");
+	RETURN_IF_INNODB_NOT_STARTED(tables->schema_table_name);
 
 	DBUG_RETURN(i_s_fts_deleted_generic_fill(thd, tables, FALSE));
 }
@@ -3564,6 +3569,8 @@ i_s_fts_being_deleted_fill(
 {
 	DBUG_ENTER("i_s_fts_being_deleted_fill");
 
+	RETURN_IF_INNODB_NOT_STARTED(tables->schema_table_name);
+
 	DBUG_RETURN(i_s_fts_deleted_generic_fill(thd, tables, TRUE));
 }
 
@@ -3576,7 +3583,8 @@ i_s_fts_being_deleted_init(
 /*=======================*/
 	void*	p)	/*!< in/out: table schema object */
 {
-	DBUG_ENTER("i_s_fts_deleted_init");
+	DBUG_ENTER("i_s_fts_being_deleted_init");
+
 	ST_SCHEMA_TABLE* schema = (ST_SCHEMA_TABLE*) p;
 
 	schema->fields_info = i_s_fts_doc_fields_info;
@@ -3830,6 +3838,8 @@ i_s_fts_index_cache_fill(
 	if (check_global_access(thd, PROCESS_ACL)) {
 		DBUG_RETURN(0);
 	}
+
+	RETURN_IF_INNODB_NOT_STARTED(tables->schema_table_name);
 
 	if (!fts_internal_tbl_name) {
 		DBUG_RETURN(0);
@@ -4282,6 +4292,8 @@ i_s_fts_index_table_fill(
 		DBUG_RETURN(0);
 	}
 
+	RETURN_IF_INNODB_NOT_STARTED(tables->schema_table_name);
+
 	if (!fts_internal_tbl_name) {
 		DBUG_RETURN(0);
 	}
@@ -4441,6 +4453,8 @@ i_s_fts_config_fill(
 	if (check_global_access(thd, PROCESS_ACL)) {
 		DBUG_RETURN(0);
 	}
+
+	RETURN_IF_INNODB_NOT_STARTED(tables->schema_table_name);
 
 	if (!fts_internal_tbl_name) {
 		DBUG_RETURN(0);
@@ -5350,6 +5364,7 @@ i_s_innodb_buffer_page_fill(
 	Field**			fields;
 
 	DBUG_ENTER("i_s_innodb_buffer_page_fill");
+	RETURN_IF_INNODB_NOT_STARTED(tables->schema_table_name);
 
 	table = tables->table;
 
@@ -5767,6 +5782,8 @@ i_s_innodb_buffer_page_fill_table(
 	if (check_global_access(thd, PROCESS_ACL)) {
 		DBUG_RETURN(0);
 	}
+
+	RETURN_IF_INNODB_NOT_STARTED(tables->schema_table_name);
 
 	trx_t*	trx = thd_to_trx_func(thd);
 	buf_pool_reference_start(trx);
