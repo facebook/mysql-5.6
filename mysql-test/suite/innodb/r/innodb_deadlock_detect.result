@@ -26,11 +26,11 @@ update t1 set id = 3 where id = 1;
 # Wait for con2 to start lock wait
 # Try locking second row in con1
 update t1 set id = 4 where id = 2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 commit;
 # Switch to connection con2
 # reap the update command
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 commit;
 # Cleanup
 drop table t1;
