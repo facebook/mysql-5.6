@@ -393,11 +393,17 @@ public:
     return & m_namespace_to_wait_state_name[(int)mdl_namespace()];
   }
 
+  const char * get_namespace_name() const
+  {
+    return m_namespace_to_str[(int)mdl_namespace()];
+  }
+
 private:
   uint16 m_length;
   uint16 m_db_name_length;
   char m_ptr[MAX_MDLKEY_LENGTH];
   static PSI_stage_info m_namespace_to_wait_state_name[NAMESPACE_END];
+  static const char* m_namespace_to_str[NAMESPACE_END];
 private:
   MDL_key(const MDL_key &);                     /* not implemented */
   MDL_key &operator=(const MDL_key &);          /* not implemented */
