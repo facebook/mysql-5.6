@@ -90,6 +90,18 @@ PSI_stage_info MDL_key::m_namespace_to_wait_state_name[NAMESPACE_END]=
   {0, "Waiting for commit lock", 0}
 };
 
+const char* MDL_key::m_namespace_to_str[NAMESPACE_END]=
+{
+  "global read",
+  "schema metadata",
+  "table metadata",
+  "stored function metadata",
+  "stored procedure metadata",
+  "trigger metadata",
+  "event metadata",
+  "commit"
+};
+
 #ifdef HAVE_PSI_INTERFACE
 void MDL_key::init_psi_keys()
 {
@@ -2274,7 +2286,12 @@ MDL_context::acquire_lock(MDL_request *mdl_request, ulong lock_wait_timeout)
       my_error(ER_LOCK_DEADLOCK, MYF(0));
       break;
     case MDL_wait::TIMEOUT:
-      my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0));
+      char msg[256];
+      snprintf(msg, sizeof(msg), "Timeout on %s: %.64s.%.64s",
+               mdl_request->key.get_namespace_name(),
+               mdl_request->key.db_name(),
+               mdl_request->key.name());
+      my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0), msg);
       break;
     case MDL_wait::KILLED:
       if ((get_thd())->killed == THD::KILL_TIMEOUT)
