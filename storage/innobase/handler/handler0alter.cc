@@ -117,7 +117,9 @@ my_error_innodb(
 		my_error(ER_LOCK_DEADLOCK, MYF(0));
 		break;
 	case DB_LOCK_WAIT_TIMEOUT:
-		my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0));
+		char msg[128];
+		snprintf(msg, sizeof(msg), "Timeout on alter table: %s", table);
+		my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0), msg);
 		break;
 	case DB_INTERRUPTED:
 		my_error(ER_QUERY_INTERRUPTED, MYF(0));
