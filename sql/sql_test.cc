@@ -333,7 +333,7 @@ static void push_locks_into_array(DYNAMIC_ARRAY *ar, THR_LOCK_DATA *data,
 {
   if (data)
   {
-    TABLE *table=(TABLE *)data->debug_print_param;
+    TABLE *table=data->table;
     if (table && table->s->tmp_table == NO_TMP_TABLE)
     {
       TABLE_LOCK_INFO table_lock_info;

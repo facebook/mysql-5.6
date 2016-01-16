@@ -649,5 +649,15 @@ innobase_convert_to_filename_charset(
 	const char*     from,   /* in: identifier to convert */
 	ulint           len);   /* in: length of 'to', in bytes */
 
+/**********************************************************************
+Wrapper around timeout_message in MySQL. */
+void
+innobase_timeout_message(
+/*=================================*/
+	char*		msg,	 /* out: message buffer */
+	size_t		len,	 /* in: message buffer len */
+	const char*	command, /* in: object that timed out */
+	const char*	name1,	 /* in: first item */
+	const char*	name2);	 /* in: second item */
 
 #endif /* HA_INNODB_PROTOTYPES_H */

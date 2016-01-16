@@ -25,6 +25,7 @@ extern "C" {
 #include <my_list.h>
 
 struct st_thr_lock;
+struct TABLE;
 extern ulong locks_immediate,locks_waited ;
 
 /*
@@ -99,7 +100,7 @@ typedef struct st_thr_lock_data {
   mysql_cond_t *cond;
   enum thr_lock_type type;
   void *status_param;			/* Param to status functions */
-  void *debug_print_param;
+  struct TABLE *table;
   struct PSI_table *m_psi;
 } THR_LOCK_DATA;
 
@@ -141,7 +142,8 @@ enum enum_thr_lock_result thr_lock(THR_LOCK_DATA *data,
 void thr_unlock(THR_LOCK_DATA *data);
 enum enum_thr_lock_result thr_multi_lock(THR_LOCK_DATA **data,
                                          uint count, THR_LOCK_INFO *owner,
-                                         ulong lock_wait_timeout);
+                                         ulong lock_wait_timeout,
+                                         THR_LOCK_DATA **error_pos);
 void thr_multi_unlock(THR_LOCK_DATA **data,uint count);
 void
 thr_lock_merge_status(THR_LOCK_DATA **data, uint count);

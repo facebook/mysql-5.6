@@ -17,7 +17,7 @@ INSERT INTO t1 VALUES(1,2,3);
 SET DEBUG_SYNC = 'now WAIT_FOR have_handle';
 SET lock_wait_timeout = 1;
 ALTER TABLE t1 ADD UNIQUE INDEX(c2);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 SET DEBUG_SYNC = 'now SIGNAL go_ahead';
 ERROR 23000: Duplicate entry '1' for key 'PRIMARY'
 SELECT name, count FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE subsystem = 'ddl';
@@ -48,7 +48,7 @@ BEGIN;
 INSERT INTO t1 VALUES(7,4,2);
 SET DEBUG_SYNC = 'row_log_apply_before SIGNAL scanned WAIT_FOR rollback_done';
 ALTER TABLE t1 ADD UNIQUE INDEX(c2);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 COMMIT;
 ALTER TABLE t1 ADD UNIQUE INDEX(c2);
 ERROR 23000: Duplicate entry '4' for key 'c2'
@@ -300,7 +300,7 @@ name	pos
 c3	0
 SET DEBUG_SYNC = 'ib_after_row_insert SIGNAL ins_done WAIT_FOR ddl_timed_out';
 INSERT INTO t1 VALUES(347,33101,NULL);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 SET DEBUG_SYNC = 'now SIGNAL ddl_timed_out';
 SELECT sf.name, sf.pos FROM INFORMATION_SCHEMA.INNODB_SYS_INDEXES si
 INNER JOIN INFORMATION_SCHEMA.INNODB_SYS_FIELDS sf

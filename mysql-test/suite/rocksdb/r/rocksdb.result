@@ -393,7 +393,7 @@ rocksdb_lock_wait_timeout	2
 begin;
 update t17 set col1='UPD2-AA' where pk='row2';
 update t17 set col1='UPD2-BB' where pk='row2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t17.PRIMARY
 set rocksdb_lock_wait_timeout=1000;
 update t17 set col1='UPD2-CC' where pk='row2';
 rollback;
@@ -491,7 +491,7 @@ row3	row3data
 connection default;
 set rocksdb_lock_wait_timeout=1;
 update t27 set col1='row2-modified' where pk='row3';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t27.PRIMARY
 connection con1;
 rollback;
 connection default;
@@ -1123,7 +1123,7 @@ BEGIN;
 UPDATE t1 SET i = 100;
 connect  con1,localhost,root,,test;
 DELETE IGNORE FROM t1 ORDER BY i;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.PRIMARY
 disconnect con1;
 connection default;
 COMMIT;
@@ -2106,7 +2106,7 @@ id
 6
 begin;
 select * from t1 where id=4 for update;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.PRIMARY
 select * from t1 where id=7 for update;
 id
 select * from t1 where id=9 for update;
