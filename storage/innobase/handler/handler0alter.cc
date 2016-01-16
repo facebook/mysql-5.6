@@ -103,6 +103,7 @@ void
 my_error_innodb(
 /*============*/
 	dberr_t		error,	/*!< in: InnoDB error code */
+	const char*	db,	/*!< in: db name */
 	const char*	table,	/*!< in: table name */
 	ulint		flags)	/*!< in: table flags */
 {
@@ -117,7 +118,10 @@ my_error_innodb(
 		my_error(ER_LOCK_DEADLOCK, MYF(0));
 		break;
 	case DB_LOCK_WAIT_TIMEOUT:
-		my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0));
+		char msg[256];
+		snprintf(msg, sizeof(msg),
+			"Timeout on alter table: %.64s.%.64s", db, table);
+		my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0), msg);
 		break;
 	case DB_INTERRUPTED:
 		my_error(ER_QUERY_INTERRUPTED, MYF(0));
@@ -2865,7 +2869,8 @@ prepare_inplace_alter_table_dict(
 				 altered_table->s->table_name.str);
 			goto new_clustered_failed;
 		default:
-			my_error_innodb(error, table_name, flags);
+			my_error_innodb(error, old_table->s->db.str,
+					table_name, flags);
 		new_clustered_failed:
 			DBUG_ASSERT(ctx->trx != ctx->prebuilt->trx);
 			trx_rollback_to_savepoint(ctx->trx, NULL);
@@ -3104,7 +3109,8 @@ error_handling:
 		my_error(ER_DUP_KEY, MYF(0), "SYS_INDEXES");
 		break;
 	default:
-		my_error_innodb(error, table_name, user_table->flags);
+		my_error_innodb(error, old_table->s->db.str,
+				table_name, user_table->flags);
 	}
 
 error_handled:
@@ -4020,6 +4026,7 @@ oom:
 		break;
 	default:
 		my_error_innodb(error,
+				table_share->db.str,
 				table_share->table_name.str,
 				prebuilt->table->flags);
 	}
@@ -4145,7 +4152,8 @@ rollback_inplace_alter_table(
 
 			if (err != DB_SUCCESS) {
 				my_error_innodb(
-					err, table->s->table_name.str,
+					err, table->s->db.str,
+					table->s->table_name.str,
 					flags);
 				fail = true;
 			}
@@ -4168,8 +4176,8 @@ rollback_inplace_alter_table(
 		case DB_SUCCESS:
 			break;
 		default:
-			my_error_innodb(err, table->s->table_name.str,
-					flags);
+			my_error_innodb(err, table->s->db.str,
+					table->s->table_name.str, flags);
 			fail = true;
 		}
 	} else {
@@ -4240,6 +4248,7 @@ bool
 innobase_drop_foreign_try(
 /*======================*/
 	trx_t*			trx,
+	const char*		db_name,
 	const char*		table_name,
 	const char*		foreign_id)
 {
@@ -4274,7 +4283,7 @@ innobase_drop_foreign_try(
 			error = DB_OUT_OF_FILE_SPACE;);
 
 	if (error != DB_SUCCESS) {
-		my_error_innodb(error, table_name, 0);
+		my_error_innodb(error, db_name, table_name, 0);
 		trx->error_state = DB_SUCCESS;
 		DBUG_RETURN(true);
 	}
@@ -4298,6 +4307,7 @@ innobase_rename_column_try(
 /*=======================*/
 	const dict_table_t*	user_table,
 	trx_t*			trx,
+	const char*		db_name,
 	const char*		table_name,
 	ulint			nth_col,
 	const char*		from,
@@ -4344,7 +4354,7 @@ innobase_rename_column_try(
 
 	if (error != DB_SUCCESS) {
 err_exit:
-		my_error_innodb(error, table_name, 0);
+		my_error_innodb(error, db_name, table_name, 0);
 		trx->error_state = DB_SUCCESS;
 		trx->op_info = "";
 		DBUG_RETURN(true);
@@ -4528,7 +4538,9 @@ innobase_rename_columns_try(
 		while (Create_field* cf = cf_it++) {
 			if (cf->field == *fp) {
 				if (innobase_rename_column_try(
-					    ctx->old_table, trx, table_name, i,
+					    ctx->old_table, trx,
+					    table->s->db.str,
+					    table_name, i,
 					    cf->field->field_name,
 					    cf->field_name,
 					    ctx->need_rebuild())) {
@@ -4683,6 +4695,7 @@ innobase_update_foreign_try(
 /*========================*/
 	ha_innobase_inplace_ctx*ctx,
 	trx_t*			trx,
+	const char*		db_name,
 	const char*		table_name)
 {
 	ulint	foreign_id;
@@ -4747,7 +4760,8 @@ innobase_update_foreign_try(
 
 		DBUG_ASSERT(fk->foreign_table == ctx->old_table);
 
-		if (innobase_drop_foreign_try(trx, table_name, fk->id)) {
+		if (innobase_drop_foreign_try(trx, db_name,
+					      table_name, fk->id)) {
 			DBUG_RETURN(true);
 		}
 	}
@@ -4881,7 +4895,8 @@ commit_try_rebuild(
 		}
 	}
 
-	if (innobase_update_foreign_try(ctx, trx, table_name)) {
+	if (innobase_update_foreign_try(ctx, trx, old_table->s->db.str,
+					table_name)) {
 		DBUG_RETURN(true);
 	}
 
@@ -4936,7 +4951,8 @@ commit_try_rebuild(
 				 .name);
 			DBUG_RETURN(true);
 		default:
-			my_error_innodb(error, table_name, user_table->flags);
+			my_error_innodb(error, old_table->s->db.str,
+					table_name, user_table->flags);
 			DBUG_RETURN(true);
 		}
 	}
@@ -4999,7 +5015,8 @@ commit_try_rebuild(
 		my_error(ER_TABLE_EXISTS_ERROR, MYF(0), ctx->tmp_name);
 		DBUG_RETURN(true);
 	default:
-		my_error_innodb(error, table_name, user_table->flags);
+		my_error_innodb(error, old_table->s->db.str,
+				table_name, user_table->flags);
 		DBUG_RETURN(true);
 	}
 }
@@ -5089,7 +5106,8 @@ commit_try_norebuild(
 		}
 	}
 
-	if (innobase_update_foreign_try(ctx, trx, table_name)) {
+	if (innobase_update_foreign_try(ctx, trx, old_table->s->db.str,
+					table_name)) {
 		DBUG_RETURN(true);
 	}
 
@@ -5457,7 +5475,8 @@ ha_innobase::commit_inplace_alter_table(
 
 		if (error != DB_SUCCESS) {
 			my_error_innodb(
-				error, table_share->table_name.str, 0);
+				error, table_share->db.str,
+				table_share->table_name.str, 0);
 			DBUG_RETURN(true);
 		}
 	}
