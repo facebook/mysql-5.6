@@ -62,9 +62,9 @@ a	b
 #
 #  Dual locking clauses
 SELECT * FROM t1, t2 FOR SHARE OF t1 FOR UPDATE OF t2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t2.GEN_CLUST_INDEX
 SELECT * FROM t1, t2 FOR SHARE OF t1 FOR SHARE OF t2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t2.GEN_CLUST_INDEX
 SELECT * FROM t1 FOR SHARE OF t1 NOWAIT;
 a	b
 1	1
@@ -129,9 +129,9 @@ a	b
 #
 #  Dual locking clauses
 SELECT * FROM t1, t2 FOR SHARE OF t1 FOR UPDATE OF t2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t2.PRIMARY
 SELECT * FROM t1, t2 FOR SHARE OF t1 FOR SHARE OF t2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t2.PRIMARY
 SELECT * FROM t1 FOR SHARE OF t1 NOWAIT;
 a	b
 1	1
