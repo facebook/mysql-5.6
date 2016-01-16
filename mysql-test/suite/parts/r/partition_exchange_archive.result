@@ -156,13 +156,13 @@ a	b
 # any write (update/delete/insert) into t or tp should fail
 SET SESSION lock_wait_timeout=1;
 INSERT INTO tp VALUES (63, "Sixty three, new"), (59, "To be deleted");
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on object: test.tp
 INSERT INTO t VALUES (63, "Sixty three, new"), (59, "To be deleted");
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on object: test.t
 ALTER TABLE t ENGINE = 'Archive';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on object: test.t
 ALTER TABLE tp ENGINE = 'Archive';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on object: test.tp
 SHOW CREATE TABLE t;
 Table	Create Table
 t	CREATE TABLE `t` (
@@ -188,14 +188,14 @@ SELECT * FROM tp WHERE a = 61;
 a	b
 61	Sixty one
 INSERT INTO tp VALUES (63, "Sixty three, new 2"), (59, "To be deleted");
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on object: test.tp
 # any write (update/delete/insert) into t should fail
 INSERT INTO t VALUES (63, "Sixty three, new"), (59, "To be deleted");
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on object: test.t
 ALTER TABLE t ENGINE = 'Archive';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on object: test.t
 ALTER TABLE tp ENGINE = 'Archive';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on object: test.tp
 SHOW CREATE TABLE t;
 Table	Create Table
 t	CREATE TABLE `t` (
@@ -215,40 +215,40 @@ SET DEBUG_SYNC= 'now SIGNAL goto_wait';
 SET DEBUG_SYNC= 'now WAIT_FOR swap_in_progress';
 # Both tables should now be under exclusive lock, even SHOW should fail
 SELECT * FROM t WHERE a = 99;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on object: test.t
 SELECT * FROM tp WHERE a = 61;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on object: test.tp
 INSERT INTO tp VALUES (63, "Sixty three, new 2"), (59, "To be deleted");
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on object: test.tp
 INSERT INTO t VALUES (63, "Sixty three, new"), (59, "To be deleted");
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on object: test.t
 SHOW CREATE TABLE t;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on object: test.t
 SHOW CREATE TABLE tp;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on object: test.tp
 ALTER TABLE t ENGINE = 'Archive';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on object: test.t
 ALTER TABLE tp ENGINE = 'Archive';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on object: test.tp
 SET DEBUG_SYNC= 'now SIGNAL goto_rename';
 SET DEBUG_SYNC= 'now WAIT_FOR swap_in_progress';
 # Both tables should now be under exclusive lock
 SELECT * FROM t WHERE a = 99;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on object: test.t
 SELECT * FROM tp WHERE a = 61;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on object: test.tp
 INSERT INTO tp VALUES (63, "Sixty three, new 2"), (59, "To be deleted");
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on object: test.tp
 INSERT INTO t VALUES (63, "Sixty three, new"), (59, "To be deleted");
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on object: test.t
 ALTER TABLE t ENGINE = 'Archive';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on object: test.t
 ALTER TABLE tp ENGINE = 'Archive';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on object: test.tp
 SHOW CREATE TABLE t;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on object: test.t
 SHOW CREATE TABLE tp;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on object: test.tp
 SET DEBUG_SYNC= 'now SIGNAL test_done';
 # con1
 # con default
