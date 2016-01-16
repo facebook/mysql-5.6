@@ -8,7 +8,7 @@ i
 1
 begin;
 update t1 set i=2 where i=1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test/t1.PRIMARY
 rollback;
 commit_all_diff
 0

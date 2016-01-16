@@ -212,7 +212,7 @@ i	f
 SET lock_wait_timeout = 2;
 # Connection 2 tries to coalesce partitions (timeout):
 ALTER TABLE t1 COALESCE PARTITION 2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 # Connection 3 tries to load into the table:
 LOAD DATA INFILE 'load.in' INTO TABLE t1 (f);
 # Connection 1 commits the transaction

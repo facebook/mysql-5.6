@@ -3756,6 +3756,23 @@ void print_keydup_error(TABLE *table, KEY *key, myf errflag)
 }
 
 
+String timeout_message(const char *command, const char *name1,
+                       const char *name2)
+{
+    String msg;
+    msg.append("Timeout on ");
+    msg.append(command);
+    msg.append(": ");
+    msg.append(name1);
+    if (name2 && name2[0])
+    {
+      msg.append(".");
+      msg.append(name2);
+    }
+    return msg;
+}
+
+
 /**
   Print error that we got from handler function.
 
@@ -3884,8 +3901,12 @@ void handler::print_error(int error, myf errflag)
     break;
   }
   case HA_ERR_LOCK_WAIT_TIMEOUT:
-    textno=ER_LOCK_WAIT_TIMEOUT;
-    break;
+  {
+    String str;
+    get_error_message(error, &str);
+    my_error(ER_LOCK_WAIT_TIMEOUT, errflag, str.c_ptr_safe());
+    DBUG_VOID_RETURN;
+  }
   case HA_ERR_LOCK_TABLE_FULL:
     textno=ER_LOCK_TABLE_FULL;
     break;
