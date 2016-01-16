@@ -91,7 +91,6 @@ bool can_use_bloom_filter(RDBSE_KEYDEF *keydef,
 static ROCKSDB_SHARE *get_share(const char *table_name, TABLE *table);
 static int free_share(ROCKSDB_SHARE *share);
 
-int return_status_error(THD *thd, rocksdb::Status &s);
 ///////////////////////////////////////////////////////////
 // Parameters and settings
 ///////////////////////////////////////////////////////////
@@ -1294,8 +1293,41 @@ public:
   const char* mysql_log_file_name;
   my_off_t mysql_log_offset;
   const char* mysql_gtid;
+  String detailed_error;
 
   void set_trx_failed(bool failed_arg) { is_trx_failed= failed_arg; }
+
+  int set_status_error(THD *thd, const rocksdb::Status &s,
+                       RDBSE_KEYDEF *key_descr, RDBSE_TABLE_DEF *tbl_def)
+  {
+    DBUG_ASSERT(!s.ok());
+
+    if (s.IsTimedOut())
+    {
+      /*
+        SQL layer has weird expectations. If we return an error when
+        doing a read in DELETE IGNORE, it will ignore the error ("because it's
+        an IGNORE command!) but then will fail an assert, because "error code
+        was returned, but no error happened".  Do what InnoDB's
+        convert_error_code_to_mysql() does: force a statement
+        rollback before returning HA_ERR_LOCK_WAIT_TIMEOUT:
+        */
+      thd_mark_transaction_to_rollback(thd, false /*just statement*/);
+      detailed_error.copy(timeout_message("index",
+                                          tbl_def->dbname_tablename.c_ptr(),
+                                          key_descr->get_name().c_str()));
+
+      return HA_ERR_LOCK_WAIT_TIMEOUT;
+    }
+    if (s.IsBusy())
+    {
+      return HA_ERR_LOCK_DEADLOCK;
+    }
+    /* TODO: who returns HA_ERR_ROCKSDB_TOO_MANY_LOCKS now?? */
+
+    my_error(ER_INTERNAL_ERROR, MYF(0), s.ToString().c_str());
+    return HA_ERR_INTERNAL_ERROR;
+  }
 
   int timeout_sec; /* Cached value of @@rocksdb_lock_wait_timeout */
 
@@ -3474,12 +3506,19 @@ const int HA_ERR_ROCKSDB_TOO_MANY_LOCKS= HA_ERR_LAST+3;
 
 bool ha_rocksdb::get_error_message(int error, String *buf)
 {
+  Rdb_transaction* trx = get_trx_from_thd(ha_thd());
+
   if (error == HA_ERR_ROCKSDB_PK_REQUIRED)
     buf->append("Table must have a PRIMARY KEY");
   else if (error == HA_ERR_ROCKSDB_UNIQUE_NOT_SUPPORTED)
     buf->append("Unique indexes are not supported");
   else if (error == HA_ERR_ROCKSDB_TOO_MANY_LOCKS)
     buf->append("Number of locks held reached @@rocksdb_max_row_locks");
+  else if (error == HA_ERR_LOCK_WAIT_TIMEOUT)
+  {
+    buf->append(trx->detailed_error);
+    return TRUE;
+  }
   return FALSE; /* not a temporary error */
 }
 
@@ -4820,7 +4859,7 @@ int ha_rocksdb::get_row_by_rowid(uchar *buf, const char *rowid, uint rowid_size)
 
   if (!s.IsNotFound() && !s.ok())
   {
-    DBUG_RETURN(return_status_error(table->in_use, s));
+    DBUG_RETURN(trx->set_status_error(table->in_use, s, pk_descr, tbl_def));
   }
   found= !s.IsNotFound();
 
@@ -5337,7 +5376,8 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
                                            new_key_slice,
                                            &dummy_value);
       if (!s.ok() && !s.IsNotFound())
-        DBUG_RETURN(return_status_error(table->in_use, s));
+        DBUG_RETURN(trx->set_status_error(table->in_use, s, key_descr[i],
+                                          tbl_def));
 
       rocksdb::Iterator *s_iter= trx->GetIterator(key_descr[i]->get_cf(),
                                                   total_order_seek,
@@ -5383,7 +5423,8 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
                                                   old_pk_key_slice);
         if (!s.ok())
         {
-          DBUG_RETURN(return_status_error(table->in_use, s));
+          DBUG_RETURN(trx->set_status_error(table->in_use, s, key_descr[i],
+                                            tbl_def));
         }
       }
       continue;
@@ -5506,7 +5547,7 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
         DBUG_RETURN(HA_ERR_FOUND_DUPP_KEY);
       }
 
-      DBUG_RETURN(return_status_error(table->in_use, s));
+      DBUG_RETURN(trx->set_status_error(table->in_use, s, pk_descr, tbl_def));
     }
   }
 
@@ -5686,7 +5727,8 @@ int ha_rocksdb::rnd_next_with_direction(uchar *buf, bool move_forward)
 
           if (!s.ok())
           {
-            DBUG_RETURN(return_status_error(table->in_use, s));
+            DBUG_RETURN(trx->set_status_error(table->in_use, s, pk_descr,
+                                              tbl_def));
           }
 
           // If we called GetForUpdate() use the value from that call not from
@@ -5796,7 +5838,7 @@ int ha_rocksdb::delete_row(const uchar *buf)
                                             key_slice);
   if (!s.ok())
   {
-    DBUG_RETURN(return_status_error(table->in_use, s));
+    DBUG_RETURN(trx->set_status_error(table->in_use, s, pk_descr, tbl_def));
   }
 
   // Delete the record for every secondary index
@@ -5978,34 +6020,6 @@ int ha_rocksdb::rnd_pos(uchar *buf, uchar *pos)
   rc= get_row_by_rowid(buf, (const char*)pos, len);
 
   DBUG_RETURN(rc);
-}
-
-
-int return_status_error(THD *thd, rocksdb::Status &s)
-{
-  DBUG_ASSERT(!s.ok());
-
-  if (s.IsTimedOut())
-  {
-    /*
-      SQL layer has weird expectations. If we return an error when
-      doing a read in DELETE IGNORE, it will ignore the error ("because it's
-      an IGNORE command!) but then will fail an assert, because "error code was
-      returned, but no error happened".
-      Do what InnoDB's convert_error_code_to_mysql() does: force a statement
-      rollback before returning HA_ERR_LOCK_WAIT_TIMEOUT:
-    */
-    thd_mark_transaction_to_rollback(thd, false /*just statement*/);
-    return HA_ERR_LOCK_WAIT_TIMEOUT;
-  }
-  if (s.IsBusy())
-  {
-    return HA_ERR_LOCK_DEADLOCK;
-  }
-  /* TODO: who returns HA_ERR_ROCKSDB_TOO_MANY_LOCKS now?? */
-
-  my_error(ER_INTERNAL_ERROR, MYF(0), s.ToString().c_str());
-  return HA_ERR_INTERNAL_ERROR;
 }
 
 
