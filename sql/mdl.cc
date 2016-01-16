@@ -24,6 +24,7 @@
 #include <mysql/psi/mysql_stage.h>
 #include "sql_class.h"
 #include <my_murmur3.h>
+#include "sql_handler.h"
 
 #ifdef HAVE_PSI_INTERFACE
 static PSI_mutex_key key_MDL_map_mutex;
@@ -88,6 +89,18 @@ PSI_stage_info MDL_key::m_namespace_to_wait_state_name[NAMESPACE_END]=
   {0, "Waiting for trigger metadata lock", 0},
   {0, "Waiting for event metadata lock", 0},
   {0, "Waiting for commit lock", 0}
+};
+
+const char* MDL_key::m_namespace_to_str[NAMESPACE_END]=
+{
+  "global read",
+  "schema metadata",
+  "table metadata",
+  "stored function metadata",
+  "stored procedure metadata",
+  "trigger metadata",
+  "event metadata",
+  "commit"
 };
 
 #ifdef HAVE_PSI_INTERFACE
@@ -2274,7 +2287,10 @@ MDL_context::acquire_lock(MDL_request *mdl_request, ulong lock_wait_timeout)
       my_error(ER_LOCK_DEADLOCK, MYF(0));
       break;
     case MDL_wait::TIMEOUT:
-      my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0));
+      my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0),
+               timeout_message(mdl_request->key.get_namespace_name(),
+                               mdl_request->key.db_name(),
+                               mdl_request->key.name()).c_ptr_safe());
       break;
     case MDL_wait::KILLED:
       if ((get_thd())->killed == THD::KILL_TIMEOUT)

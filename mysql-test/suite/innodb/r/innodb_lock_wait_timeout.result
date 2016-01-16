@@ -42,10 +42,10 @@ SELECT * FROM t1 WHERE a=0 FOR UPDATE;
 a
 0
 SELECT * FROM t1 WHERE a=0 FOR UPDATE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 set session innodb_lock_wait_timeout=0;
 SELECT * FROM t1 WHERE a=0 FOR UPDATE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 rollback;
 set global innodb_lock_wait_timeout=default;
 drop table t1;

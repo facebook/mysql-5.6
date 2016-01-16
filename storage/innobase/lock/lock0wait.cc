@@ -200,6 +200,7 @@ lock_wait_suspend_thread(
 	srv_slot_t*	slot;
 	double		wait_time;
 	trx_t*		trx;
+	const lock_t*	wait_lock;
 	ulint		had_dict_lock;
 	ibool		was_declared_inside_innodb;
 	ib_int64_t	start_time			= 0;
@@ -266,7 +267,8 @@ lock_wait_suspend_thread(
 
 	lock_mutex_enter();
 
-	if (const lock_t* wait_lock = trx->lock.wait_lock) {
+	wait_lock = trx->lock.wait_lock;
+	if (wait_lock) {
 		lock_type = lock_get_type_low(wait_lock);
 	}
 
@@ -371,6 +373,21 @@ lock_wait_suspend_thread(
 
 	if (lock_wait_timeout < 100000000
 	    && wait_time > (double) lock_wait_timeout) {
+
+		if (lock_type == LOCK_REC) {
+			innobase_timeout_message(trx->detailed_error,
+						 sizeof(trx->detailed_error),
+						 "record in index",
+						 wait_lock->index->table_name,
+						 wait_lock->index->name);
+		} else if (lock_type == LOCK_TABLE) {
+			innobase_timeout_message(trx->detailed_error,
+						 sizeof(trx->detailed_error),
+						 "table",
+						 wait_lock->un_member.
+						   tab_lock.table->name,
+						 "");
+		}
 
 		trx->error_state = DB_LOCK_WAIT_TIMEOUT;
 

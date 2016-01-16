@@ -9,7 +9,7 @@ select * from t1 where i=1 for update;
 i
 1
 select * from t1 where i=1 for update;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 rollback;
 select innodb_row_lock_waits, innodb_row_lock_wait_timeouts
 from information_schema.table_statistics
