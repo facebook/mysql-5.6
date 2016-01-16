@@ -3383,6 +3383,8 @@ bool ha_rocksdb::get_error_message(int error, String *buf)
     buf->append("Unique indexes are not supported");
   else if (error == HA_ERR_ROCKSDB_TOO_MANY_LOCKS)
     buf->append("Number of locks held reached @@rocksdb_max_row_locks");
+  else if (error == HA_ERR_LOCK_WAIT_TIMEOUT)
+    buf->append("Not implemented for RocksDB table");
   return FALSE; /* not a temporary error */
 }
 

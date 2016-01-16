@@ -101,7 +101,7 @@ static MYSQL_LOCK *get_lock_data(THD *thd, TABLE **table_ptr, uint count,
                                  uint flags);
 static int lock_external(THD *thd, TABLE **table,uint count);
 static int unlock_external(THD *thd, TABLE **table,uint count);
-static void print_lock_error(int error, const char *);
+static void print_lock_error(int error, const char *, const char *);
 
 /* Map the return value of thr_lock to an error from errmsg.txt */
 static int thr_lock_errno_to_mysql[]=
@@ -318,18 +318,39 @@ MYSQL_LOCK *mysql_lock_tables(THD *thd, TABLE **tables, uint count, uint flags)
   /* Copy the lock data array. thr_multi_lock() reorders its contents. */
   memcpy(sql_lock->locks + sql_lock->lock_count, sql_lock->locks,
          sql_lock->lock_count * sizeof(*sql_lock->locks));
+
   /* Lock on the copied half of the lock data array. */
+  THR_LOCK_DATA *error_pos;
   rc= thr_lock_errno_to_mysql[(int) thr_multi_lock(sql_lock->locks +
                                                    sql_lock->lock_count,
                                                    sql_lock->lock_count,
-                                                   &thd->lock_info, timeout)];
+                                                   &thd->lock_info, timeout,
+                                                   &error_pos)];
   if (rc)
   {
     if (sql_lock->table_count)
       (void) unlock_external(thd, sql_lock->table, sql_lock->table_count);
-    reset_lock_data_and_free(&sql_lock);
     if (! thd->killed)
-      my_error(rc, MYF(0));
+    {
+      if (rc == ER_LOCK_WAIT_TIMEOUT)
+      {
+        /* Find table associated with error_pos. */
+        THR_LOCK_DATA **i = sql_lock->locks;
+        for (; i != sql_lock->locks + sql_lock->lock_count; i++) {
+          if (error_pos == *i)
+            break;
+        }
+        DBUG_ASSERT(error_pos == *i);
+
+        char msg[128];
+        snprintf(msg, sizeof(msg), "Timeout on table: %s",
+                 (*i)->table->s->table_name.str);
+        my_error(rc, MYF(0), msg);
+      }
+      else
+        my_error(rc, MYF(0));
+    }
+    reset_lock_data_and_free(&sql_lock);
   }
 end:
   if (!(flags & MYSQL_OPEN_IGNORE_KILLED) && thd->killed)
@@ -366,7 +387,9 @@ static int lock_external(THD *thd, TABLE **tables, uint count)
 
     if ((error=(*tables)->file->ha_external_lock(thd,lock_type)))
     {
-      print_lock_error(error, (*tables)->file->table_type());
+      String msg;
+      (*tables)->file->get_error_message(error, &msg);
+      print_lock_error(error, msg.c_ptr_safe(), (*tables)->file->table_type());
       while (--i)
       {
         tables--;
@@ -650,8 +673,10 @@ static int unlock_external(THD *thd, TABLE **table,uint count)
       (*table)->current_lock = F_UNLCK;
       if ((error=(*table)->file->ha_external_lock(thd, F_UNLCK)))
       {
+        String msg;
+        (*table)->file->get_error_message(error, &msg);
+        print_lock_error(error, msg.c_ptr_safe(), (*table)->file->table_type());
 	error_code=error;
-	print_lock_error(error_code, (*table)->file->table_type());
       }
     }
     table++;
@@ -734,7 +759,7 @@ static MYSQL_LOCK *get_lock_data(THD *thd, TABLE **table_ptr, uint count,
     {
       for ( ; org_locks != locks ; org_locks++)
       {
-	(*org_locks)->debug_print_param= (void *) table;
+	(*org_locks)->table= table;
         (*org_locks)->m_psi= table->file->m_psi;
       }
     }
@@ -870,13 +895,14 @@ bool lock_object_name(THD *thd, MDL_key::enum_mdl_namespace mdl_type,
 }
 
 
-static void print_lock_error(int error, const char *table)
+static void print_lock_error(int error, const char *msg,
+                             const char *table_type)
 {
   DBUG_ENTER("print_lock_error");
 
   switch (error) {
   case HA_ERR_LOCK_WAIT_TIMEOUT:
-    my_error(ER_LOCK_WAIT_TIMEOUT, MYF(ME_BELL+ME_OLDWIN+ME_WAITTANG), error);
+    my_error(ER_LOCK_WAIT_TIMEOUT, MYF(ME_BELL+ME_OLDWIN+ME_WAITTANG), msg);
     break;
   case HA_ERR_READ_ONLY_TRANSACTION:
     my_error(ER_READ_ONLY_TRANSACTION, MYF(ME_BELL+ME_OLDWIN+ME_WAITTANG),
@@ -886,7 +912,7 @@ static void print_lock_error(int error, const char *table)
     my_error(ER_LOCK_DEADLOCK, MYF(ME_BELL+ME_OLDWIN+ME_WAITTANG), error);
     break;
   case HA_ERR_WRONG_COMMAND:
-    my_error(ER_ILLEGAL_HA, MYF(ME_BELL+ME_OLDWIN+ME_WAITTANG), table);
+    my_error(ER_ILLEGAL_HA, MYF(ME_BELL+ME_OLDWIN+ME_WAITTANG), table_type);
     break;
   default:
     {
