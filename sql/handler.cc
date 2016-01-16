@@ -3756,6 +3756,16 @@ void print_keydup_error(TABLE *table, KEY *key, myf errflag)
 }
 
 
+std::string timeout_message(std::string command, std::string name1,
+                            std::string name2)
+{
+    std::string msg = "Timeout on " + command + ": " + name1;
+    if (!name2.empty())
+      msg += "." + name2;
+    return msg;
+}
+
+
 /**
   Print error that we got from handler function.
 
@@ -3884,8 +3894,12 @@ void handler::print_error(int error, myf errflag)
     break;
   }
   case HA_ERR_LOCK_WAIT_TIMEOUT:
-    textno=ER_LOCK_WAIT_TIMEOUT;
-    break;
+  {
+    String str;
+    get_error_message(error, &str);
+    my_error(ER_LOCK_WAIT_TIMEOUT, errflag, str.c_ptr_safe());
+    DBUG_VOID_RETURN;
+  }
   case HA_ERR_LOCK_TABLE_FULL:
     textno=ER_LOCK_TABLE_FULL;
     break;

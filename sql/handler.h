@@ -23,6 +23,7 @@
 
 #include "my_pthread.h"
 #include <algorithm>
+#include <string>
 #include "sql_const.h"
 #include "mysqld.h"                             /* server_id */
 #include "sql_plugin.h"        /* plugin_ref, st_plugin_int, plugin */
@@ -3634,5 +3635,8 @@ inline const char *table_case_name(HA_CREATE_INFO *info, const char *name)
 
 void print_keydup_error(TABLE *table, KEY *key, const char *msg, myf errflag);
 void print_keydup_error(TABLE *table, KEY *key, myf errflag);
+
+std::string timeout_message(std::string command, std::string name1,
+                            std::string name2);
 
 #endif /* HANDLER_INCLUDED */

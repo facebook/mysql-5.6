@@ -41,6 +41,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include <mysys_err.h>
 #include <mysql/innodb_priv.h>
 #include <my_check_opt.h>
+#include <sql_handler.h>
 /** @file ha_innodb.cc */
 
 /* Include necessary InnoDB headers */
@@ -19341,6 +19342,21 @@ innobase_convert_to_system_charset(
 	return(strconvert(
 		cs1, from, cs2, to, static_cast<uint>(len), errors));
 }
+
+/**********************************************************************
+Wrapper around timeout_message in MySQL. */
+void
+innobase_timeout_message(
+/*=================================*/
+	char*		msg,	 /* out: message buffer */
+	size_t		len,	 /* in: message buffer len */
+	const char*	command, /* in: object that timed out */
+	const char*	name1,	 /* in: first item */
+	const char*	name2)	 /* in: second item */
+{
+  strncpy(msg, timeout_message(command, name1, name2).c_str(), len);
+}
+
 
 /**********************************************************************
 Issue a warning that the row is too big. */
