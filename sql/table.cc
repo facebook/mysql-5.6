@@ -3964,7 +3964,11 @@ bool TABLE_SHARE::wait_for_old_version(THD *thd, struct timespec *abstime,
     my_error(ER_LOCK_DEADLOCK, MYF(0));
     return TRUE;
   case MDL_wait::TIMEOUT:
-    my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0));
+    char msg[128];
+    snprintf(msg, sizeof(msg), "Timeout waiting old version: %s.%s",
+             db.str,
+             table_name.str);
+    my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0), msg);
     return TRUE;
   case MDL_wait::KILLED:
     return TRUE;

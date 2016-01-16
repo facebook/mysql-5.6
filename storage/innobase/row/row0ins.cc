@@ -1707,6 +1707,8 @@ do_possible_lock_wait:
 			/* The table is being dropped. We shall timeout
 			this operation */
 			err = DB_LOCK_WAIT_TIMEOUT;
+			strcpy(trx->detailed_error,
+				"Referenced table being dropped");
 			goto exit_func;
 		}
 

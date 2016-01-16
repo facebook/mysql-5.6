@@ -2274,7 +2274,11 @@ MDL_context::acquire_lock(MDL_request *mdl_request, ulong lock_wait_timeout)
       my_error(ER_LOCK_DEADLOCK, MYF(0));
       break;
     case MDL_wait::TIMEOUT:
-      my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0));
+      char msg[128];
+      snprintf(msg, sizeof(msg), "Timeout on object: %s.%s",
+               mdl_request->key.db_name(),
+               mdl_request->key.name());
+      my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0), msg);
       break;
     case MDL_wait::KILLED:
       if ((get_thd())->killed == THD::KILL_TIMEOUT)
