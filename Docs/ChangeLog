@@ -1,0 +1,2061 @@
+commit 0f6cfdf6a16c7c5806786a194cd4f40a2eb3a9e1
+Author: Robert Golebiowski <robert.golebiowski@oracle.com>
+Date:   Fri Sep 18 11:18:25 2015 +0200
+
+    Updated yassl to yassl-2.3.8
+    
+    (cherry picked from commit 7f9941eab55ed672bfcccd382dafbdbcfdc75aaa)
+
+commit 1df863e9e8e43e3a96fd98a28cc3194449cceb94
+Author: Robert Golebiowski <robert.golebiowski@oracle.com>
+Date:   Fri Sep 18 10:35:09 2015 +0200
+
+    Bug #21025377 CAN'T CONNECT TO SSL ENABLED SERVER FIRST 30 SEC AFTER
+    INITIAL STARTUP
+    
+    Updated yassl to yassl-2.3.7e
+    
+    (cherry picked from commit 6e21c8c04b922bdb60b6a7c174709d2e1bdd3618)
+
+commit 7516bc111acac1292ca0fbfd97ff07970fba064e
+Author: Venkatesh Duggirala <venkatesh.duggirala@oracle.com>
+Date:   Fri Sep 11 18:56:07 2015 +0530
+
+    Bug#21816399	5.6.24: LOST DATA DURING MASTER RESTART IF PARTIAL TRANSACT HAS BEEN DOWNLOADED
+    
+    Problem: If dump thread is killed (during shutdown/explicit kill) during
+    dumping a non-active binary log, events in that binary log are getting
+    skipped completely and not getting replicated to slave.
+    
+    Analysis: During bug#19975697 fix, we have identified a case where a dump
+    thread is unnecessarily looping through a binary log file even if it is
+    in killed state. Problem is big enough if the binary log file is huge
+    Hence we fixed it by adding thd->killed flag check in while condition.
+    But after the while loop is exited, it was not checked whether while loop
+    was broken due to thd->killed condition or not. Earlier the code after
+    the while loop assumes that the loop processes full binary log file and
+    dump thread can be safely moved to next binary log.
+    But with this new condition, it is not the case.
+    
+    Fix: A condition "if (thd->killed)" after the while loop and should exit
+    the dump thread without doing any work.
+    
+    (cherry picked from commit 97d9f26d153e1aa688a5328c5e691953a2761e4d)
+
+commit fbdcb9954d0e36be51a6b559f991e3601f926695
+Author: Lars Tangvald <lars.tangvald@oracle.com>
+Date:   Fri Sep 4 15:15:10 2015 +0200
+
+    Created default.release for firewall plugin so tests will be run for release build
+    
+    (cherry picked from commit 88db0500a0e913d65164422b01c9da67350eb4f3)
+
+commit 7f8acabfca414a3e03a727f7fc7be2703168425e
+Author: Balasubramanian Kandasamy <balasubramanian.kandasamy@oracle.com>
+Date:   Fri Sep 4 17:12:02 2015 +0530
+
+            Bug#21775221 ADD NUMACTL-DEVEL AS BUILDREQ TO RPM SPEC FILES
+    
+            Description:
+    
+            Set Numa Mempolicy for optimum mysqld performance added
+            libnuma.so as build prerequisite on Linux.
+    
+            To build with support for this feature numactl devel files are required.
+    
+            Fix:
+    
+             Added numactl-devel as build pre-requisite for OL/RHEL/Fedora/docker
+             and libnuma-devel for SLES in the spec file.
+    
+    (cherry picked from commit 18fbfc582f9490d6632c0152d51a3ad19f9660a0)
+
+commit a5c8eb8cb78983413b29c4e05f96597151c1994a
+Author: Tor Didriksen <tor.didriksen@oracle.com>
+Date:   Fri Sep 4 13:36:18 2015 +0200
+
+    Bug#21785074 BUILD BREAKS IF COMPILED AGAINST OLDER NUMACTL HEADERS
+    
+    Fix: extend the cmake check with new numa features,
+    do not set HAVE_LIBNUMA if built against older numa headers.
+
+commit 40b33206d217239a5f4e4113d487010c851554ef
+Author: Venkatesh Duggirala <venkatesh.duggirala@oracle.com>
+Date:   Fri Sep 4 11:26:53 2015 +0530
+
+    Bug #19286708	REPLICATION BROKEN AFTER CREATION OF SCHEDULED EVENTS
+    
+    Reverting patch due to a regression
+
+commit 4facaa3572c0f907d922c53730c08ad68cc60054
+Author: Balasubramanian Kandasamy <balasubramanian.kandasamy@oracle.com>
+Date:   Thu Sep 3 17:52:13 2015 +0530
+
+        Bug#21775221 ADD NUMACTL-DEVEL AS BUILDREQ TO RPM SPEC FILES
+    
+        Description:
+    
+        Set Numa Mempolicy for optimum mysqld performance added
+        libnuma.so as build prerequisite on Linux.
+    
+        To build with support for this feature numactl devel files are required.
+    
+        Fix:
+    
+         Added numactl-devel as build pre-requisite for OL/RHEL/Fedora/docker
+         and libnuma-devel for SLES in the spec file.
+    
+    (cherry picked from commit 45d038b07faf7fd2d508fff77ed9322c3a3c3f0c)
+
+commit bb6b072e6a7689c2b7c642ba1f35655090b6b551
+Author: Tor Didriksen <tor.didriksen@oracle.com>
+Date:   Thu Sep 3 10:16:24 2015 +0200
+
+    Bug#21774859 CMAKE CHECKS FOR NUMA SUPPORT TOO WEAK
+    
+    The check for numa availability implemented by the patch for
+    Bug #18871046 SET NUMA MEMPOLICY FOR OPTIMUM MYSQLD PERFORMANCE
+    was wrong: it forgot to restore CMAKE_REQUIRED_LIBRARIES after the check.
+    
+    This affects all subsequent platform feature tests that rely on cmakes
+    CHECK_CXX_SOURCE_COMPILES. In particular: on platforms which do not have
+    numa support, the test for 'HAVE_PEERCRED' will also fail, and the
+    'auth_socket' plugin will not be built.
+
+commit 56c2c3d4ecdab0b2ab1bab8abd01c5de509e6550
+Merge: 928440d 282ed17
+Author: Murthy Narkedimilli <murthy.narkedimilli@oracle.com>
+Date:   Mon Aug 31 20:43:30 2015 +0200
+
+    Empty version change upmerge
+
+commit 282ed178bb3e456cbdbc6b98032c36ccaa867f8f
+Author: Murthy Narkedimilli <murthy.narkedimilli@oracle.com>
+Date:   Mon Aug 31 20:36:03 2015 +0200
+
+    Raise version number after cloning 5.5.46
+
+commit 928440d4bb1c0f436dd4a23bc95fd7d416a3350b
+Author: Ajo Robert <ajo.robert@oracle.com>
+Date:   Mon Aug 31 15:08:59 2015 +0530
+
+    Revert "Bug #20201006 spamming show processlist prevents old"
+    
+    This reverts commit 883e25e945f304f05130ee541f7962004ed9aa90.
+
+commit 0eb0cf1dbe3b10724b4fdfe80298fc51f9a4c8c9
+Author: Jon Olav Hauglid <jon.hauglid@oracle.com>
+Date:   Tue Jun 30 15:17:57 2015 +0200
+
+    Bug#21682439: BACKPORT OF BUG#20928289 TO MYSQL 5.6
+    
+    Backport from mysql-5.7 to mysql-5.6 of:
+    
+    Bug#20928289: DEFAULT CMAKE EXCLUDES UTF8_5624_1 CHARSET,
+                  REQUIRED FOR MAIN.CTYPE_LDML
+    
+    The problem was that on platforms where char is unsigned,
+    the server was unable to parse collation defintions which
+    included non-7bit ASCII characters. Affected platforms
+    include ARM and PowerPC.
+    
+    The reason was that the parsing code in once place used
+    '> 0' to check if a character was 7 bit or not. This
+    will fail if the char is unsigned.
+    
+    This patch fixes the problem by rewriting the check to
+    check the MSB explicitly.
+    
+    No test added as coverage is already included by
+    existing tests - e.g. main.ctype_ldml.
+    
+    This patch is a modified version of the contributed patch.
+    
+    (cherry picked from commit d59ac89547a75e1a422ac4e806fe7b853489764d)
+
+commit 5a8d80e69383da40bd7fd24d99b1a209df64d0b2
+Author: Aakanksha Verma <aakanksha.verma@oracle.com>
+Date:   Fri Aug 28 16:46:32 2015 +0530
+
+    Bug#21288106 - MISSING SANITY CHECK FOR STRDUP() IN HTTP.C PLUS POTENTIAL PROBLEM
+    
+    Sanity checks were missing in memcached code after memory allocations.
+    
+    FIX
+    
+    Put proper checks after memory alloction.MEMORY LEAK. *
+    
+    Reviewed by :Jimmy
+    RB :10036
+
+commit 0df8371bdd2c3064694aa5b4e2335179e6eafcca
+Author: Sujatha Sivakumar <sujatha.sivakumar@oracle.com>
+Date:   Fri Aug 28 12:05:29 2015 +0530
+
+    Bug#20901025: SLAVE ASSERTION IN UNPACK_ROW WITH ROLLBACK TO
+    SAVEPOINT IN ERROR HANDLER
+    
+    Problem:
+    =======
+    
+    When issuing a ROLLBACK TO SAVEPOINT within an error
+    handler, the slave asserts as follows:
+    
+    mysqlcom-pro-5.6.24/sql/rpl_record.cc:246:
+    int unpack_row(const Relay_log_info, TABLE, uint,
+    const uchar, const MY_BITMAP, const uchar, ulong, const
+    uchar): Assertion `table_found' failed.
+    
+    Analysis:
+    ========
+    
+    The above assert is caused in two cases.
+    
+    CASE 1:
+    SAVEPOINT and ROLLBACK TO SAVEPOINT are inside a trigger and
+    followed by other DML statements.
+    
+    SAVEPOINT, ROLLBACK TO SAVEPOINT statements are logged into
+    binary log as Query_log_events.
+    Query_log_event::do_apply_event() wipes out table map.
+    Events that follow the above Query_log_event will not find
+    table map event and it results in the above assertion.
+    
+    CASE 2:
+    
+    SAVEPOINT and ROLLBACK TO SAVEPOINT are inside a trigger and
+    and they does not follow with any DML statement.
+    
+    In the above scenario On master during execution of
+    savepoint inside the trigger
+    "mysql_bin_log.write_event(&qinfo)" is called, which intern
+    invokes thd->binlog_flush_pending_rows_event() call with
+    "end_stmt" = false. This causes the peding event to be flushed
+    to the IO_CACHE without a STMT_END_F flag. Since it does't
+    follow with any DML stements no proper clean up is done. i.e
+    table maps are not cleared this causes the next query that
+    follows to be logged as part of query1 without its own table
+    map event resulting in same assert as mentioned in the bug.
+    
+    Fix:
+    ====
+    
+    When a SAVEPOINT is executed inside a stored
+    function/trigger we force the pending event to be flushed
+    with a STMT_END_F flag and clear the table maps as well to
+    ensure that following DMLs will have a clean state to start
+    with. In the same way when we are rolling back to a
+    SAVEPOINT we should not only set the position back to
+    SAVEPOINT but also we must ensure that the same clean state
+    is preserved. In order to do that we clean the table maps
+    during rolling back to savepoint.
+
+commit ec4367058a9ba8e176e864160f729bedff255dba
+Author: Gleb Shchepa <gleb.shchepa@oracle.com>
+Date:   Fri Aug 28 02:49:33 2015 +0400
+
+    Bug #17865675: REGRESSION: EXPLAIN: FAILURE BELOW ITEM_FUNC_GROUP_CONCAT::PRINT
+    
+    The server failed on EXPLAIN of some GROUP_CONCAT() expressions.
+    
+    The fix consists of two parts.
+    
+    The 1st one (item_sum.{h,cc}) simplifies the code base by the removal of
+    superfluous Item_sum::orig_args and Item_sum::tmp_orig_args fields.
+    
+    The 2nd one (item.{h,cc}) improves Item_field::print() to output column
+    names with 3D-qualified identifiers:
+    <original database>.<original table>.<column name> instead of 1D identifiers
+    (<column name>).
+
+commit e5f8dfb230f884d75d3f9effe7fa3fc4f7fe02ce
+Author: Sujatha Sivakumar <sujatha.sivakumar@oracle.com>
+Date:   Thu Aug 27 12:22:06 2015 +0530
+
+    Bug#20805298: BINLOG_ERROR_ACTION DOESN'T HANDLE SOME
+    FAILURES DURING BINLOG ROTATION
+    
+    Analysis:
+    ========
+    In case of hardware errors in binlog partition during binlog
+    rotate, we can see the following error being reported.
+    
+    [ERROR] The server was unable to create a new log file. An
+    incident event has been written to the binary log which will
+    stop the slaves.
+    [ERROR] Can't generate a unique log-filename
+    master-bin.(1-999)
+    
+    All replicas break either due to seeing incident event or
+    simply because the dump thread cannot access binlog
+    partition. binlog_error_action was developed for these
+    purposes (i,e; to avoid server accepting writes even though
+    binlog writes are failing), but it doesn't handle the above
+    case.
+    
+    Fix:
+    ===
+    An error handler has been added in such a way that, on
+    hardware failure during rotate, it will do the specific
+    action defined as part 'binlog_error_action' variable.
+    Also incident event will not be written to the binary log
+    in the above mentioned scenario.
+
+commit cd965559549f7496dda22295aaf6fcebc16bdf10
+Author: Kevin Lewis <kevin.lewis@oracle.com>
+Date:   Mon Aug 24 16:09:04 2015 -0500
+
+    Bug#19206671:
+    TRX_SYS_READ_PERTABLE_FILE_FORMAT_ID() REPORTS INCORRECT FILE FORMAT
+    
+    Approved in rb#10041 by Marko Mäkelä and Sahil Binani
+
+commit 51c880be9cff5cf9a272722050dd8ecf1fed537c
+Merge: a503c95 d7a8779
+Author: Balasubramanian Kandasamy <balasubramanian.kandasamy@oracle.com>
+Date:   Wed Aug 26 19:32:25 2015 +0200
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit d7a8779d314734ec3d8561444cab51278198c824
+Author: Balasubramanian Kandasamy <balasubramanian.kandasamy@oracle.com>
+Date:   Wed Aug 26 19:29:00 2015 +0200
+
+    Bug#21527467 - RPM SCRIPTS FAIL WITH MULTIPLE DATADIR
+
+commit a503c9559ce7d002810eefac7a73b6311e687f96
+Author: Venkatesh Duggirala <venkatesh.duggirala@oracle.com>
+Date:   Wed Aug 26 15:12:56 2015 +0530
+
+    BUG#16418100: ERROR "WHEN GTID_NEXT IS SET TO A GTID" ROW BASED REPLICATION
+    
+    Fixing post push pb2 failure (should add have_debug.inc)
+
+commit 5b8da621311ae019cf3335b7a8af41aa11341bbb
+Author: Nisha Gopalakrishnan <nisha.gopalakrishnan@oracle.com>
+Date:   Sat Aug 22 18:26:28 2015 +0530
+
+    BUG#21473602: REDUNDANT CODE IN THD::RESET_FOR_NEXT_COMMAND()
+    
+    Note
+    ====
+    This a code cleanup to remove the redundant lines of
+    code to reset the binary log position in the function
+    'THD::reset_for_next_command()'.
+
+commit db632390886e09a62279ec30a8e210ec35eb8efe
+Author: Venkatesh Duggirala <venkatesh.duggirala@oracle.com>
+Date:   Wed Aug 26 12:12:42 2015 +0530
+
+    Bug#20198490 : LOWER_CASE_TABLE_NAMES=0 ON WINDOWS LEADS TO PROBLEMS
+    
+    Fixing post push pb2 failure
+
+commit f0592dc08e13d31e7f39283e5b67074e23c3b993
+Merge: a16946c d25487e
+Author: Nisha Gopalakrishnan <nisha.gopalakrishnan@oracle.com>
+Date:   Tue Aug 25 14:26:52 2015 +0530
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit d25487ea422cca759845123282dff3e5f027c656
+Author: Nisha Gopalakrishnan <nisha.gopalakrishnan@oracle.com>
+Date:   Tue Aug 25 14:25:46 2015 +0530
+
+    BUG#20449914: HANDLE_FATAL_SIGNAL (SIG=11) IN
+                  FIELD_ITERATOR_TABLE::END_OF_FIELDS
+    
+    Note: This a backport of the patch for bug#19894987
+          to MySQL-5.5
+
+commit a16946c41d624c66b39028bf9f7336291055404f
+Author: Venkatesh Duggirala <venkatesh.duggirala@oracle.com>
+Date:   Tue Aug 25 09:12:33 2015 +0530
+
+    BUG#16418100 ERROR "WHEN GTID_NEXT IS SET TO A GTID" ROW BASED REPLICATION
+    
+    Problem & Analysis:
+    ===================
+    When relay log info repository is configured to be persisted in a
+    table, it is updated when transaction commits or explicit flush is called,
+    like on relay log rotate. If a transaction that uses non-transactional
+    engine is split across multiple relay logs, on relay log flush
+    it will be partially committed. If GTID_MODE=ON and when partial transaction
+    in first relay log is committed, it uses the current GTID value and sets
+    GTID value to UNDEFINED GROUP. Hence it causes 'ER_GTID_NEXT_TYPE_UNDEFINED_GROUP'
+    error when it is trying to commit the rest of the transaction.
+    It also causes many other problems if the repository is updated in between
+    the transaction and it should be avoided.
+    
+    Fix: relay log info repository should be updated on relay log
+    rotate. But when the transaction is split across two relay logs,
+    update the repository will cause unexpected results and should
+    be postponed till the 'commit' of the transaction is executed.
+    
+    Introduced a flag that set to 'true' when this type of 'forced flush'(at the
+    time of rotate relay log) is postponed due to transaction split
+    across the relay logs. And the flag will be checked in flush_info function
+    to see if there is a flush that got postponed earlier. If so, it will
+    force the flush now irrespective of sync_relay_log_info value.
+
+commit b59cf7ee1ad94317b7b2013f541f49c54aebfbd0
+Author: Sreeharsha Ramanavarapu <sreeharsha.ramanavarapu@oracle.com>
+Date:   Sun Aug 23 08:32:58 2015 +0530
+
+    Bug #20229614 : OR CONDITIONS ON MULTI-COLUMN INDEX MAY NOT
+                    USE ALL INDEX COLUMNS TO FILTER ROWS
+    
+    ISSUE:
+    ------
+    While optimizing a range scan for the OR-operator, key_or
+    incorrectly assumes an out-of-memory situation. This in turn
+    results in an incomplete condition being considered for the
+    query plan and gives an incorrect row estimate. Hence the
+    over-estimation of the number of qualifying rows.
+    
+    
+    SOLUTION:
+    ---------
+    In key_or(), a key condition is cloned if it's already in
+    use in some other condition. In this case NULL should be
+    returned only if allocation fails.
+    
+    The check of key_count > 0 was originally added as part of
+    Bug #4157. This was done to check the key_count after the
+    swap of keys. Here changing the "||" to "&&" ensures that
+    when the new key_count is greater than 0, there will be
+    an attempt to clone the tree.
+    
+    This also exposes a different issue. When two SEL_ARG
+    predicates are "Or-ed" together, i.e. combined into a
+    common OR expression, the case when either predicate was of
+    the type ALWAYS, i.e. unable to reject any rows, was not
+    handled. When key_or tries to clone a SEL_ARG object of the
+    type ALWAYS, it results in a failed assertion.
+    
+    This is fixed by treating ALWAYS SEL_ARG's similar to NULL
+    SEL_ARG's. If either SEL_ARG type is ALWAYS, return it and
+    release the reference to other one. The logic is similar to
+    the inference TRUE or P => P.
+
+commit d6007d76d0034ef823ed0a5df72f1b92a0fc5766
+Author: Ajo Robert <ajo.robert@oracle.com>
+Date:   Fri Aug 21 18:17:06 2015 +0530
+
+    Bug #20201006 spamming show processlist prevents old
+    connection threads from cleaning up.
+    
+    Post push test fix.
+
+commit 6fd252159923a896d163c01f8f4dc01d6d7bffaa
+Merge: c102e4d ec58c25
+Author: Arun Kuruvila <arun.kuruvila@oracle.com>
+Date:   Fri Aug 21 08:39:13 2015 +0530
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit ec58c25e8d29220a05236208d13dc9e2b0b4fc9d
+Author: Arun Kuruvila <arun.kuruvila@oracle.com>
+Date:   Fri Aug 21 08:35:42 2015 +0530
+
+    Bug#20198490 : LOWER_CASE_TABLE_NAMES=0 ON WINDOWS LEADS TO
+                   PROBLEMS
+    
+    Description:- Server variable "--lower_case_tables_names"
+    when set to "0" on windows platform which does not support
+    case sensitive file operations leads to problems. A warning
+    message is printed in the error log while starting the
+    server with "--lower_case_tables_names=0". Also according to
+    the documentation, seting "lower_case_tables_names" to "0"
+    on a case-insensitive filesystem might lead to index
+    corruption.
+    
+    Analysis:- The problem reported in the bug is:-
+    Creating an INNODB table 'a' and executing a query, "INSERT
+    INTO a SELECT a FROM A;" on a server started with
+    "--lower_case_tables_names=0" and running on a
+    case-insensitive filesystem leads innodb to flat spin.
+    Optimizer thinks that "a" and "A" are two different tables
+    as the variable "lower_case_table_names" is set to "0". As a
+    result, optimizer comes up with a plan which does not need a
+    temporary table. If the same table is used in select and
+    insert, a temporary table is needed. This incorrect
+    optimizer plan leads to infinite insertions.
+    
+    Fix:- If the server is started with
+    "--lower_case_tables_names" set to 0 on a case-insensitive
+    filesystem, an error, "The server option
+    'lower_case_table_names'is configured to use case sensitive
+    table names but the data directory is on a case-insensitive
+    file system which is an unsupported combination. Please
+    consider either using a case sensitive file system for your
+    data directory or switching to a case-insensitive table name
+    mode.", is printed in the server error log and the server
+    exits.
+
+commit c102e4d40769466b7990c08d3ac1bfb9a01fd66e
+Merge: 883e25e 60a9535
+Author: Lars Tangvald <lars.tangvald@oracle.com>
+Date:   Wed Aug 19 14:19:48 2015 +0200
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+    - Change to default Docker config for all versions
+
+commit 60a95351c75e2df5c5957f3a11bda968283a6aa6
+Author: Lars Tangvald <lars.tangvald@oracle.com>
+Date:   Wed Aug 19 14:17:50 2015 +0200
+
+    Small change to default config for Docker-specific rpm package
+    Syncs "official" and our own Docker images
+
+commit 883e25e945f304f05130ee541f7962004ed9aa90
+Author: Ajo Robert <ajo.robert@oracle.com>
+Date:   Wed Aug 19 16:13:45 2015 +0530
+
+    Bug #20201006 spamming show processlist prevents old
+    connection threads from cleaning up.
+    
+    Analysis
+    --------
+    Issue here is, delay in connection cleanup for which global
+    connection counter is already decremented, makes room for new
+    connections. Hence more than expected connections are observed in
+    the server.
+    
+    Connections running statement "SHOW PROCESSLIST" or "SELECT on
+    INFORMATION_SCHEMA.PROCESSLIST" acquires mutex LOCK_thd_remove
+    for reading information of all the connections in server.
+    Connections in cleanup phase, acquires mutex to remove thread from
+    global thread list. Many such concurrent connections increases
+    contention on mutex LOCK_thd_remove.
+    
+    In connection cleanup phase, connection count is decreased first
+    and then the thd is removed from global thd list. This order
+    makes new connection (above max_connections) possible while
+    existing connections removal is still pending because of
+    mutex LOCK_thd_remove.
+    
+    Fix:
+    ---
+    In connection clean phase, now first thd is removed from the
+    global thd list and then the global connection count is
+    decremented.
+
+commit 1dbe2bcee728a6e4f126d66d5a159fae263007eb
+Author: Venkatesh Duggirala <venkatesh.duggirala@oracle.com>
+Date:   Tue Aug 18 17:29:02 2015 +0530
+
+    BUG#20928790 SHOW BINLOG EVENTS COMPLETELY LOCKS DOWN WRITES TO BINLOG, HENCE TRANSACTIONS.
+    Problem: While a `SHOW BINLOG EVENTS` is executing, any parallel transaction
+    is blocked.
+    
+    Analysis:
+    ========
+    
+    In the good old days, replication was coded such that every access to the
+    binlog was protected by a mutex. So `Show binlog events` also acquires
+    LOCK_log mutex and loops through the file to print the events in order not
+    to get conflicts with any ongoing operations. While this operation is happening,
+    all binlog write operation which are trying to acquire LOCK_log mutex are blocked.
+    Hence all the parallel transactions are blocked.
+    
+    When 'show binlog events' opens the file to read the events from it,
+    the file is locked and if there is parallel purge operation to delete
+    this file that operation will fail with a warning that "file 'xyz' was
+    not purged because it was being read by another thread". Hence
+    server does not require to acquire a lock while iterating through
+    the events in the file.
+    
+    Fix:
+    ====
+    Acquire LOCK_log only for the duration to calculate the log's end
+    position. LOCK_log should be acquired even while we are checking
+    whether the log is active log or not. Once 'end_pos' is calculated
+    for the given binary log, the events are displayed till that position.
+    Since we do not acquire LOCK_log (acquired only for less duration),
+    parallel transactions will not be blocked for large duration.
+
+commit 84f92327ffc567b2fcb9fede9cbbb7e6a1c93ea1
+Merge: 1b2f074 8e5de32
+Author: Shishir Jaiswal <shishir.j.jaiswal@oracle.com>
+Date:   Tue Aug 18 12:25:36 2015 +0530
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit 8e5de3276063c3b8edfa242ee6df49e73bd4cfc4
+Author: Shishir Jaiswal <shishir.j.jaiswal@oracle.com>
+Date:   Tue Aug 18 12:24:27 2015 +0530
+
+    Bug #16171518 - LOAD XML DOES NOT HANDLE EMPTY ELEMENTS
+    
+    DESCRIPTION
+    ===========
+    Inability of mysql LOAD XML command to handle empty XML
+    tags i.e. <row><tag/></row>. Also the behaviour is wrong
+    and (different than above) when there is a space in empty
+    tag i.e. <row><tag /></row>
+    
+    ANALYSIS
+    ========
+    In read_xml() the case where we encounter a close tag ('/')
+    we're decreasing the 'level' blindly which is wrong.
+    Actually when its an without-space-empty-tag (succeeding
+    char is '>'), we need to skip the decrement. In other words
+    whenever we hit a close tag ('/'), decrease the 'level'
+    only when (i) It's not an (without space) empty tag i.e.
+    <tag/> or, (ii) It is of format <row col="val" .../>
+    
+    FIX
+    ===
+    The switch case for '/' is modified. We've removed the
+    blind decrement of 'level'. We do it only when its not an
+    without-space-empty-tag. Also we are setting 'in_tag' to
+    false to let program know that we're done reading current
+    tag (required in the case of format <row col="val" .../>)
+
+commit 1b2f074c58299507bc4bbd3bdab5628a6500e9ef
+Merge: 65b12a2 447ee4b
+Author: Karthik Kamath <karthik.kamath@oracle.com>
+Date:   Tue Aug 18 10:39:07 2015 +0530
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit 447ee4b352ab0601f38e9befda3338e1e63ec608
+Author: Karthik Kamath <karthik.kamath@oracle.com>
+Date:   Tue Aug 18 10:38:06 2015 +0530
+
+    BUG#11754258: INCORRECT ERROR MESSAGE WHEN CREATING UNSAFE
+                  VIEW
+    
+    
+    It appears that the code refactoring done as part of the
+    patch for the MySQL BUG#11749859 fixed this issue. This
+    issue is not reproducible on MySQL 5.5+ versions now.
+    As part of this patch, the test file "mysqldump.test" has
+    been updated to remove the comment which was referring to
+    the bug and also the line which suppresses the warning.
+
+commit 65b12a2b55ad49a5718c373d515b17024fe96522
+Author: Kristofer Pettersson <kristofer.pettersson@oracle.com>
+Date:   Mon Aug 17 12:05:57 2015 +0200
+
+    Bug#21335271 CANNOT SET MYSQL_FIREWALL_TRACE AT RUNTIME
+    
+    (backport from 5.7)
+    The mysql_firewall_trace variable could be updated at runtime
+    because the plugin hijacked the update command without setting
+    the new value.
+
+commit 581ecda9c8eb039a65699fa43639ea2d6bdaa389
+Merge: e480ac6 43301e4
+Author: Mithun C Y <mithun.c.y@oracle.com>
+Date:   Mon Aug 17 15:28:18 2015 +0530
+
+    NULL-Merge branch 'mysql-5.5' into mysql-5.6
+
+commit 43301e42ef18b9898f1e8d94e9c9a6ac31f3efd5
+Merge: e242946 9d9a929
+Author: Mithun C Y <mithun.c.y@oracle.com>
+Date:   Mon Aug 17 15:26:01 2015 +0530
+
+    Merge branch 'mysql-5.1' into mysql-5.5
+
+commit 9d9a929f0b016ebab7254f6e47da509e71d509f4
+Author: Mithun C Y <mithun.c.y@oracle.com>
+Date:   Mon Aug 17 15:23:47 2015 +0530
+
+    Bug #21350175: SUBQUERIES IN PROCEDURE CLAUSE OF SELECT STATEMENT CAUSES SERVER FAILURES.
+    
+    Analysis :
+    ==========
+    During JOIN::prepare of sub-query which creates the
+    derived tables we call setup_procedure. Here we call
+    fix_fields for parameters of procedure clause. Calling
+    setup_procedure at this point may cause issue. If
+    sub-query is one of parameter being fixed it might
+    lead to complicated dependencies on derived tables
+    being prepared.
+    
+    SOLUTION :
+    ==========
+    In 5.6 with WL#6242, we have made procedure clause
+    parameters can only be NUM, so sub-queries are not
+    allowed as parameters. So in 5.5 we can block
+    sub-queries in procedure clause parameters.
+    This eliminates above conflicting dependencies.
+
+commit e480ac6c2cd23db1c420e0c6740b493cc2587195
+Author: Sujatha Sivakumar <sujatha.sivakumar@oracle.com>
+Date:   Mon Aug 17 15:12:17 2015 +0530
+
+    Bug#21046372: GAPS IN RETRIEVED_GTID_SET WHILE NO GAPS IN
+    EXECUTED_GTID_SET
+    
+    Fixing a post push issue.
+
+commit d24661b5200f453859517b89802cbd07e2d8de71
+Author: Venkatesh Duggirala <venkatesh.duggirala@oracle.com>
+Date:   Mon Aug 17 12:25:55 2015 +0530
+
+    BUG#19286708 REPLICATION BROKEN AFTER CREATION OF SCHEDULED EVENTS
+    
+    Problem: In mixed replication, events that has unsafe functions
+    (sysdate()) cannot be created.
+    
+    Analysis: DDL Statements (that change metadata) are always
+    getting written in the binlog in STATEMENT format irrespective
+    of binlog_format settings. And the changes to the metadata
+    should not be replicated as the same statement when it is executed
+    on Slave will update the metadata on slave side. Event based SQL
+    commands (CREATE EVENT, ALTER EVENT and DROP EVENT) belong to
+    the same category. Code was written to take care of changing the
+    current_statement_binlog_format into 'statement' if it is 'row'
+    in case of executing/replicating such statements. But in case of
+    create event and alter event, after we are converting row format
+    to statement format, while we are opening the tables server decides
+    the binlogging format (in decide_binlog_format()) and the logic
+    again changes binlog format to "row" if it sees the statement is
+    unsafe and we are using mixed format.
+    
+    Fix: Forcefully change the binlog format to 'statement' (if it is 'row'
+    format) for these statements *after* server executing 'decide_binlog_format'.
+
+commit f2e768e4fe39da8309f9e17d40faa80de6bf2752
+Author: Sujatha Sivakumar <sujatha.sivakumar@oracle.com>
+Date:   Wed Aug 5 16:09:02 2015 +0530
+
+    Bug#21046372: GAPS IN RETRIEVED_GTID_SET WHILE NO GAPS IN
+    EXECUTED_GTID_SET
+    
+    Problem:
+    ========
+    Under certain circumstances it is possible that
+    Retrieved_Gtid_Set on slave will contain gaps while actually
+    no gaps will be in Executed_Gtid_Set and slave binary logs.
+    
+    This happens when slave rotates relay log in such a way that
+    last event contains record which sets GTID_NEXT, then
+    following log contains few GTIDs, then slave restarts. After
+    restart GTIDs for Retrieved_Gtid_Set executed wrongly and
+    there are phantom gaps.
+    
+    Analysis:
+    ========
+    Let us consider a scenario where gtid set 1-3 is written to
+    relay log and we are about to write the 4th GTID event.
+    Existing code first writes the events to relay log and then
+    adds the new GTID to the Retrieved_Gtid_Set. If a rotation
+    happens at this moment after writing the GTID event the
+    newly written relay log will have the Previous_Gtid set as
+    1-3. If a restart happens at this scenario and few more
+    gtids are present after this event the Retrieved_Gtid_set
+    will have gaps like 1-3:5-6 and 4th GTID will be a gap.
+    
+    Fix:
+    ===
+    Add the gtid to the Retrieved_Gtid_Set before writing the
+    actual event to the relay log. If due to some reason
+    writing to relay log fails remove the GTID from the
+    Retrieved_Gtid_Set.
+
+commit 562bafcaa92f74d6bc0997c7546f47a82b1c6cae
+Author: Sujatha Sivakumar <sujatha.sivakumar@oracle.com>
+Date:   Mon Aug 17 11:00:50 2015 +0530
+
+    Bug#20909880: BROKEN REPLICATION ON SQL THREAD RESTART IF
+    GTID_MODE IS ENABLED
+    
+    Fix:
+    ===
+    Back port Bug #20644100  "Event crc check failed" when
+    master disable binlog_checksum to mysql-5.6.
+
+commit 9ef7ef98bb7fec19f7f2503529a2cb085170f364
+Author: Sujatha Sivakumar <sujatha.sivakumar@oracle.com>
+Date:   Wed Aug 12 11:06:19 2015 +0530
+
+    Bug#20797764: FAILED CREATE VIEW IS BINLOGGED, AND NOT
+    FILTERED OUT
+    
+    Problem:
+    ========
+    Replication slave choke on statement that should be ignored
+    instead.
+    
+    Analysis:
+    ========
+    There are two problems in the above mentioned bug.
+    1) Failed CREATE VIEW statement is written to the binary log
+    2) When a statement which has failed on master is received
+    on slave with an expected error and if the statement is
+    skipped on slave due to replication filter we still try to
+    compare the expected error with actual error that happened
+    on slave. Which is incorrect.
+    
+    Fix:
+    ===
+    For the first problem since CREATE VIEW statement cannot
+    result in partial view creation, it should not be binlogged
+    if the view creation fails. We check for the return status
+    of view creation and avoid writing to binlog on error.
+    
+    For the second problem if a statement with expected error is
+    received on slave and only if the statement is not filtered
+    then only compare it with actual error that happened on
+    slave.
+
+commit 67acbc6a2abeb68dc36dc442e8f2c32ab19e0452
+Merge: 6894e50 e242946
+Author: Aditya A <aditya.a@oracle.com>
+Date:   Wed Aug 12 19:20:56 2015 +0530
+
+    Bug #21025880	DUPLICATE UK VALUES IN READ-COMMITTED (AGAIN)
+    
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit e2429464cde3555962787fae236a296cf3971d07
+Author: Aditya A <aditya.a@oracle.com>
+Date:   Wed Aug 12 19:17:26 2015 +0530
+
+    Bug #21025880	DUPLICATE UK VALUES IN READ-COMMITTED (AGAIN)
+    
+    PROBLEM
+    
+    Whenever we insert in unique secondary index we take shared
+    locks on all possible duplicate record present in the table.
+    But while during a replace on the unique secondary index ,
+    we take exclusive and locks on the all duplicate record.
+    When the records are deleted, they are first delete marked
+    and later purged by the purge thread. While purging the
+    record we call the lock_update_delete() which in turn calls
+    lock_rec_inherit_to_gap() to inherit locks of the deleted
+    records. In repeatable read mode we inherit all the locks
+    from the record to the next record  but in the read commited
+    mode we skip inherting them as gap type locks. We make a
+    exception here if the lock on the records is  in shared mode
+    ,we assume that it is set during insert for unique secondary
+    index and needs to be inherited to stop constraint violation.
+    We didnt handle the case when exclusive locks are set during
+    replace, we skip inheriting locks of these records and hence
+    causing constraint violation.
+    
+    FIX
+    
+    While inheriting the locks,check whether the transaction is
+    allowed to do TRX_DUP_REPLACE/TRX_DUP_IGNORE, if true
+    inherit the locks.
+    
+    [ Revewied by Jimmy #rb9709]
+
+commit 6894e500fa685212022ae442d82b4fe0ac86255c
+Merge: 521aea9 7efc9f7
+Author: Shaohua Wang <shaohua.wang@oracle.com>
+Date:   Mon Aug 10 16:33:32 2015 +0800
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit 7efc9f757ec52741cfc4fba9711d16d52642a2c2
+Author: Shaohua Wang <shaohua.wang@oracle.com>
+Date:   Mon Aug 10 16:31:05 2015 +0800
+
+    BUG#21102971 data corruption on arm64
+    
+    The root cause is that x86 has a stronger memory model than the ARM
+    processors. And the GCC builtins didn't issue the correct fences when
+    setting/unsetting the lock word. In particular during the mutex release.
+    
+    The solution is rewriting atomic TAS operations: replace '__sync_' by
+    '__atomic_' if possible.
+    
+    Reviewed-by: Sunny Bains      <sunny.bains@oracle.com>
+    Reviewed-by: Bin Su           <bin.x.su@oracle.com>
+    Reviewed-by: Debarun Banerjee <debarun.banerjee@oracle.com>
+    Reviewed-by: Krunal Bauskar   <krunal.bauskar@oracle.com>
+    RB: 9782
+    RB: 9665
+    RB: 9783
+
+commit 521aea978966398f73481724be5d44c9fef637af
+Merge: 9ef7591 1eaec27
+Author: Ajo Robert <ajo.robert@oracle.com>
+Date:   Fri Aug 7 16:34:15 2015 +0530
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit 1eaec2788e234d8a5d4825ea3c8ffbe8dd2e392b
+Merge: 1908406 4052aa6
+Author: Ajo Robert <ajo.robert@oracle.com>
+Date:   Fri Aug 7 16:27:48 2015 +0530
+
+    Merge branch 'mysql-5.1' into mysql-5.5
+
+commit 4052aa6a3e5d9783dc91fe593172fbc4ea8c7110
+Author: Ajo Robert <ajo.robert@oracle.com>
+Date:   Fri Aug 7 16:26:10 2015 +0530
+
+    Bug #20760261 mysqld crashed in materialized_cursor::
+    send_result_set_metadata
+    
+    Analysis
+    --------
+    Cursor inside trigger accessing NEW/OLD row leads server exit.
+    
+    The reason for the bug was that implementation of function
+    create_tmp_table() was not considering Item::TRIGGER_FIELD_ITEM
+    as possible alternative for type of class being instantiated.
+    This was resulting in a mismatch between a number of columns
+    in result list and temp table definition. This mismatch leads
+    to the failure of assertion
+    DBUG_ASSERT(send_result_set_metadata.elements == item_list.elements)
+    in the method Materialized_cursor::send_result_set_metadata
+    in debug mode.
+    
+    Fix:
+    ---
+    Added code to consider Item::TRIGGER_FIELD_ITEM as valid
+    type while creating fields.
+
+commit 9ef759151dc57590b774bf26856bce480ef701c0
+Merge: 5ddc90c 1908406
+Author: Sayantan Dutta <sayantan.dutta@oracle.com>
+Date:   Wed Aug 5 15:30:36 2015 +0530
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+    
+    Conflicts:
+    	mysql-test/lib/mtr_cases.pm
+
+commit 19084061d0c4bb991d3bb85ca371b53de622d5ac
+Author: sayantan dutta <sayantan.dutta@oracle.com>
+Date:   Mon Feb 24 18:44:37 2014 +0530
+
+    Follow-up fix : Bug #18145121 - DEPRECATED PERL SYNTAX IN MTR
+    (cherry picked from commit 1bfe5f724bc4c24da635f632247e7d263aa53970)
+    
+    Conflicts:
+    	mysql-test/lib/mtr_cases.pm
+
+commit 82c1baac79ef72cf7f2604cf58fdce9339dc8fa4
+Author: sayantan dutta <sayantan.dutta@oracle.com>
+Date:   Tue Feb 18 17:57:54 2014 +0530
+
+    Follow up Fix: Bug #18145121 - DEPRECATED PERL SYNTAX IN MTR
+    (cherry picked from commit 3eb933e0eb55f962404a04741767177e12a9885f)
+    
+    Conflicts:
+    	mysql-test/mysql-test-run.pl
+
+commit 5ddc90c5e3267a437fb21c6d9eb01e81e9ea0740
+Merge: c195ac1 cafc94e
+Author: Mithun C Y <mithun.c.y@oracle.com>
+Date:   Tue Aug 4 12:30:10 2015 +0530
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit cafc94e644cc41486860a35afa60a58151faa07d
+Merge: 49a80c2 83cfb8e
+Author: Mithun C Y <mithun.c.y@oracle.com>
+Date:   Tue Aug 4 12:28:56 2015 +0530
+
+    Merge branch 'mysql-5.1' into mysql-5.5
+
+commit 83cfb8e31274cb4d8e05ebb0ab114a46b8944ef0
+Author: Mithun C Y <mithun.c.y@oracle.com>
+Date:   Tue Aug 4 11:45:02 2015 +0530
+
+    Bug #21096444: MYSQL IS TRYING TO PERFORM A CONSISTENT READ BUT THE READ VIEW IS NOT ASSIGNED!
+    
+    Issue: A select for update subquery in having clause
+    resulted deadlock and its transaction was rolled back
+    by innodb. val_XXX interfaces do not handle errors and
+    it do not propogate errors to its caller. sub_select
+    did not see this error when it called
+    evaluate_join_record and later made a call to innodb.
+    As transaction is rolled back innodb asserted.
+    
+    Fix: Now evaluate_join_record checks if there is any
+    error reported and then return the same to its caller.
+
+commit c195ac11883b84fc934deb842a38575a99a50631
+Author: Sreeharsha Ramanavarapu <sreeharsha.ramanavarapu@oracle.com>
+Date:   Tue Aug 4 10:25:28 2015 +0530
+
+    Bug #21039264: HANDLE_FATAL_SIGNAL (SIG=11) IN MI_EXTRA |
+                   STORAGE/MYISAM/MI_EXTRA.C:44
+    
+    Issue:
+    -----
+    The updatable property of a view is set during creation of
+    the view. If the underlying table is dropped and re-created
+    as a non-updatable one, the original view's updatable
+    property is not revised accordingly. This will cause a
+    problem when an attempt to insert or replace into the view
+    is made. This problem is specific to views with multiple
+    tables/views. It also does not occur with update statements.
+    
+    SOLUTION:
+    ---------
+    This problem affects only the insert/replace statements
+    because only the updatable property of the top view is
+    tested. The problem does not occur for update statements,
+    since the updatable property of each underlying table/view
+    is tested.
+    
+    For a view with a single table, the updatable property is
+    set based on the underlying table's property. The same
+    should be done for views with multiple tables/views.
+    
+    This fix is specific to 5.6. The problem was fixed in 5.7+
+    by WL#5275 and Bug#20515155. But this is not a backport
+    since the code has changed significantly.
+
+commit 126b53f63bfd4a0e6c13901937db806d439dbbb5
+Author: Aditya A <aditya.a@oracle.com>
+Date:   Mon Aug 3 10:56:24 2015 +0530
+
+    Bug #21239299 MYSQL CRASHED BECAUSE OF FLUSH_ALL
+    
+    Function call to start transaction was called
+    inside the assert. Assert can be disabled by
+    setting NDEBUG ,which will cause this function
+    not to be executed and causes crashes later.
+    
+    FIX
+    ---
+    
+    Call the function outside assert and do assert
+    on the return value.
+
+commit 13e09936d7b1c20c7ceb9b9d78402e19d9269509
+Merge: 1d20726 49a80c2
+Author: Sreeharsha Ramanavarapu <sreeharsha.ramanavarapu@oracle.com>
+Date:   Mon Aug 3 10:11:15 2015 +0530
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit 49a80c2e223496ad0d6d753337444d122826c6be
+Merge: 190d75e 9ab548f
+Author: Sreeharsha Ramanavarapu <sreeharsha.ramanavarapu@oracle.com>
+Date:   Mon Aug 3 10:10:41 2015 +0530
+
+    Merge branch 'mysql-5.1' into mysql-5.5
+
+commit 9ab548fcc4fe8e0fbf4ad63c76aaf365a7940b11
+Author: Sreeharsha Ramanavarapu <sreeharsha.ramanavarapu@oracle.com>
+Date:   Mon Aug 3 10:08:46 2015 +0530
+
+    Bug #20909518: HANDLE_FATAL_SIGNAL (SIG=11) IN
+                   FIND_USED_PARTITIONS | SQL/OPT_RANGE.CC:3884
+    
+    Post-push fix.
+
+commit 1d207269a640e03a19052dc0ed61a8a7895d048c
+Merge: 5059f10 190d75e
+Author: Sreeharsha Ramanavarapu <sreeharsha.ramanavarapu@oracle.com>
+Date:   Mon Aug 3 08:19:07 2015 +0530
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit 190d75e5de8ec78ad2f7e1b31b408451f5e39984
+Merge: 1ed0575 b7043a9
+Author: Sreeharsha Ramanavarapu <sreeharsha.ramanavarapu@oracle.com>
+Date:   Mon Aug 3 08:17:27 2015 +0530
+
+    Merge branch 'mysql-5.1' into mysql-5.5
+
+commit b7043a91aad5ee3753a10a46abb295a8bf159e83
+Author: Sreeharsha Ramanavarapu <sreeharsha.ramanavarapu@oracle.com>
+Date:   Mon Aug 3 08:15:59 2015 +0530
+
+    Bug #20909518: HANDLE_FATAL_SIGNAL (SIG=11) IN
+                   FIND_USED_PARTITIONS | SQL/OPT_RANGE.CC:3884
+    
+    Issue:
+    -----
+    During partition pruning, first we identify the partition
+    in which row can reside and then identify the subpartition.
+    If we find a partition but not the subpartion then we hit
+    a debug assert. While finding the subpartition we check
+    the current thread's error status in part_val_int()
+    function after some operation. In this case the thread's
+    error status is already set to an error (multiple rows
+    returned) so the function returns no partition found and
+    results in incorrect behavior.
+    
+    SOLUTION:
+    ---------
+    Currently any error encountered in part_val_int is
+    considered a "partition not found" type error. Instead of
+    an assert, a check needs to be done and a valid error
+    returned.
+
+commit 5059f10cebfe161fafb15f71d298ba8152a45999
+Author: Luis Soares <luis.soares@oracle.com>
+Date:   Fri Jul 31 12:30:49 2015 +0100
+
+    BUG#21349028: BACKPORT PATCH FOR BUG#16621582 TO MYSQL-5.6
+    
+    Backporting BUG#16621582 to mysql-5.6.
+    
+    Cset description from BUG#16621582:
+    
+    A flag that stated that transactional tables were
+    involved in the statements was not being set. The
+    binlogging routing would then assume that it had
+    to write to the statement cache instead of the
+    transactional cache. This would split the transaction
+    in two and the savepoints would be logged without
+    a GTID.
+    
+    This patch fixes the issue by setting the flag even
+    if no rows had been changed by the statement.
+    
+    Added test case.
+
+commit a4a11e47a68ddeffd858e73b9b7cef51a9d67076
+Author: Marc Alff <marc.alff@oracle.com>
+Date:   Thu Jul 30 11:17:50 2015 +0200
+
+    Bug#21528683 SLOWDOWN CAUSED BY MEMSET IN SQL_DIGEST_STORAGE.RESET()
+    
+    Before this fix, an unnecessary memset was called in
+    sql_digest_storage.memset().
+    
+    This affected:
+    - the server under normal operations,
+      when collecting digests for a query,
+      with typically an extra memset(1024) for each query.
+    
+    - the performance_schema.events_statements_current,
+      _history and _history_long tables, during a SELECT,
+      with typically an extra memset(1024*1024) for each row.
+    
+    This memset is un necessary, because the code making
+    copies of struct sql_digest_storage, or computing md5 of it,
+    is already only using the first m_byte_counts initialized bytes
+    and not the full array.
+    
+    The fix is to simply remove the memset().
+
+commit 18c1f4b1ddb5ed99d7f281087024ea073947ec3a
+Merge: 4dffb78 1ed0575
+Author: Thirunarayanan Balathandayuthapani <thirunarayanan.balathandayuth@oracle.com>
+Date:   Wed Jul 29 18:34:44 2015 +0530
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit 1ed0575ef7d03dcbfea778ed5f21de8730ccce31
+Merge: 2836d92 aa2bf3a
+Author: Thirunarayanan Balathandayuthapani <thirunarayanan.balathandayuth@oracle.com>
+Date:   Wed Jul 29 18:27:39 2015 +0530
+
+    Merge branch 'mysql-5.1' into mysql-5.5
+
+commit aa2bf3a1f5114a39e2ee58e4454c12f651e6eb2f
+Author: Thirunarayanan Balathandayuthapani <thirunarayanan.balathandayuth@oracle.com>
+Date:   Wed Jul 29 18:24:20 2015 +0530
+
+    Bug #20796566   ERROR: INSERT BUFFER INSERT FAIL CANNOT
+    			INSERT INDEX RECORD
+    
+    Problem:
+    =======
+    
+    IBUF_BITMAP_FREE bit in ibuf bitmap array is used to indicate the free
+    space available in leaf page. IBUF_BITMAP_FREE bit indicates free
+    space more than actual existing free space for the leaf page.
+    
+    Solution:
+    =========
+    
+    Ibuf_bitmap_array is not updated for the secondary index leaf page when
+    insert operation is done by updating a delete marked existing
+    record in the index.
+    
+    Reviewed-by: Jimmy Yang <jimmy.yang@oracle.com>
+    RB: 9544
+
+commit 4dffb78e407c89e9eaa42a53dee5b600e51d7d60
+Merge: 984a171 1f0fdfb
+Author: Balasubramanian Kandasamy <balasubramanian.kandasamy@oracle.com>
+Date:   Sat Jul 25 06:47:58 2015 +0200
+
+    Merge branch 'mysql-5.6.26-release' into mysql-5.6
+
+commit 984a171694959d35c37f74faf963c4e82b92e208
+Merge: 2008531 2836d92
+Author: Murthy Narkedimilli <murthy.narkedimilli@oracle.com>
+Date:   Fri Jul 24 17:03:14 2015 +0200
+
+    Upmerge of the 5.5.45 build
+
+commit 2836d925709de97c3f14481c0aae715fc2a3e3a7
+Merge: 16868a0 4c915b6
+Author: Murthy Narkedimilli <murthy.narkedimilli@oracle.com>
+Date:   Fri Jul 24 16:57:17 2015 +0200
+
+    Merge branch 'mysql-5.5.45-release' into mysql-5.5
+
+commit 2008531cf43563a934630a1ca82f44fb4817553c
+Author: Shaohua Wang <shaohua.wang@oracle.com>
+Date:   Fri Jul 24 19:52:45 2015 +0800
+
+    BUG#21454472 AUTO-INCREMENT SEQUENCE GETS RESET
+    
+    autoinc is reset to 0 when table is loaded after table is evicted
+    without any rows. The solution is store autoinc value in a map when
+    table is evicted, and restore autoinc when table is loaded.
+    
+    Reviewed-by: Jimmy Yang <jimmy.yang@oracle.com>
+    RB: 9694
+
+commit 13d05b5e381b81c49011b1646dc512a332f39465
+Merge: 11ca343 16868a0
+Author: Nisha Gopalakrishnan <nisha.gopalakrishnan@oracle.com>
+Date:   Thu Jul 23 10:59:54 2015 +0530
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit 16868a07b723edd2f83c40e8d8414169b5589a93
+Author: Nisha Gopalakrishnan <nisha.gopalakrishnan@oracle.com>
+Date:   Thu Jul 23 10:47:58 2015 +0530
+
+    BUG#19886430: VIEW CREATION WITH NAMED COLUMNS, OVER UNION,
+                  IS REJECTED.
+    
+    Analysis
+    ========
+    
+    View creation with named columns over UNION is rejected.
+    Consider the following view definition:
+    
+    CREATE VIEW v1 (fld1, fld2) AS SELECT 1 AS a, 2 AS b
+    UNION ALL SELECT 1 AS a, 1 AS a;
+    
+    A 'duplicate column' error was reported due to the duplicate
+    alias name in the secondary SELECT. The VIEW column names
+    are either explicitly specified or determined from the
+    first SELECT (which can be auto generated if not specified).
+    Since a duplicate column name check was performed even
+    for the secondary SELECTs, an error was reported.
+    
+    Fix
+    ====
+    
+    Check for duplicate column names only for the named
+    columns if specified or only for the first SELECT.
+
+commit 11ca34310a8778d8c8d4c1261d7926b69d9454dd
+Author: Mattias Jonsson <mattias.jonsson@oracle.com>
+Date:   Mon Jul 20 00:33:02 2015 +0200
+
+    Bug#20284744: COMMANDS OUT OF SYNC, MALFORMED PACKET, HANG, DISCONNECTIONS
+    
+    Bad error handling in mysql_admin_table for partitioned tables.
+    
+    Instead of returning error, mysql_admin_table produces a result-set
+    which includes the error message and returns OK.
+    
+    Adjusted error handling for partitioning accordingly.
+    
+    Reviewed-by: Praveen Hulakund <praveenkumar.hulakund@oracle.com>
+    Reviewed-by: Debarun Banerjee <debarun.banerjee@oracle.com>
+    RB: 8467
+
+commit ff07c7d95ceda203ea0e81a41ea05a0737d10834
+Author: Georgi Kodinov <georgi.kodinov@oracle.com>
+Date:   Fri Jul 17 11:15:42 2015 +0200
+
+    Bug #14700102 AUDIT PLUGIN: HEAP CORRUPTION IN DEBUG BUILD, UNABLE TO
+    STARTUP ON WINDOWS
+    
+    An error message code fix for the audit plugin so it won't report
+    extra non-relevant errors on startup if there is an invalid audit
+    log file.
+
+commit 05367118d26f31b92151a725f5acc8c0c19ef35e
+Author: Annamalai Gurusami <annamalai.gurusami@oracle.com>
+Date:   Thu Jul 16 12:23:39 2015 +0530
+
+    Bug #21447964 PAGE FRAMES OF INNODB BUFFER POOL NOT USING
+    MPOL_INTERLEAVE NUMA POLICY
+    
+    Problem:
+    
+    The fix for Bug #18871046 SET NUMA MEMPOLICY FOR OPTIMUM MYSQLD
+    PERFORMANCE attempts to allocate the innodb buffer pool with
+    MPOL_INTERLEAVE numa memory policy. But it doesn't do it correctly.
+    
+    The scenario:
+    
+    1.  Set the memory policy of process to MPOL_INTERLEAVE
+    2.  Initialize the InnoDB buffer pool.
+    3.  Set the memory policy of process to MPOL_DEFAULT
+    
+    In step 2, there are two parts to the InnoDB buffer pool
+    initialization.  One is the control block (buf_block_t) memory
+    allocation.  And the other is the actual database page frames.
+    
+    The control block memory is immediately allocated
+    and hence the patch works as expected.  But in the case
+    of the database page frames, which is using mmap(), it is not working
+    as expected.  The mmap() call only reserves memory and doesn't do
+    actual allocation.  The actual allocation happens only when it is
+    first used.  The allocation of pages will follow the memory policy
+    that is in place during allocation.
+    
+    Solution:
+    
+    While initializing the chunks in buf_chunk_init(), use the mbind() call
+    to specifically set the memory policy for the reserved memory.  This will
+    ensure that the database page frames use MPOL_INTERLEAVE memory policy.
+    
+    rb#9619 approved by Sunny.
+
+commit 8ee4495ddbf0f390134a20ee11ac33e4f203eec0
+Merge: 6bae99e 2aec6eb
+Author: Sreeharsha Ramanavarapu <sreeharsha.ramanavarapu@oracle.com>
+Date:   Thu Jul 16 07:57:53 2015 +0530
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit 2aec6ebda682541b8ad29ea637223f881921bc6a
+Author: Sreeharsha Ramanavarapu <sreeharsha.ramanavarapu@oracle.com>
+Date:   Thu Jul 16 07:56:39 2015 +0530
+
+    Bug #21143080: UPDATE ON VARCHAR AND TEXT COLUMNS PRODUCE
+                   INCORRECT RESULTS
+    
+    Issue:
+    -----
+    Updating varchar and text fields in the same update
+    statement can produce incorrect results. When a varchar
+    field is assigned to the text field and the varchar field
+    is then set to a different value, the text field's result
+    contains the varchar field's new value.
+    
+    SOLUTION:
+    ---------
+    Currently the blob type does not allocate space for the
+    string to be stored. Instead it contains a pointer to the
+    varchar string. So when the varchar field is changed as
+    part of the update statement, the value contained in the
+    blob also changes.
+    
+    The fix would be to actually store the value by allocating
+    space for the blob's string. We can avoid allocating this
+    space when the varchar field is not being written into.
+
+commit 6bae99e631d846178c1a0c1d351a71c991d6a9aa
+Author: Dyre Tjeldvoll <Dyre.Tjeldvoll@oracle.com>
+Date:   Tue Jul 14 10:11:09 2015 +0200
+
+    BUG#21021848: ASSERTION `M_STATUS == DA_ERROR' FAILED.
+    
+    Problem: When I_S query which needed to perform full table open
+    encountered a corrupt table it tried to repair it. To do this I_S
+    query tried to acquire X metadata lock on the table. When I_S query
+    was used in the middle of transaction this sometimes led to deadlocks
+    if there was concurrent DDL. As result transaction was aborted and
+    rolled back without appropriate error reported. For XA transaction in
+    debug builds assert fired.
+    
+    Solution: Since it is undesirable to have an I_S query attempt repair
+    (or discovery) the patch modifies the behavior of
+    Open_table_context::recover_from_failed_open() to skip these
+    operations if MYSQL_OPEN_FAIL_ON_MDL_CONFLICT set, and instead sets
+    the error ER_WARN_I_S_SKIPPED_TABLE which will be converted to a
+    warning. This will avoid deadlocks during I_S query execution.
+    
+    This returns the behavior of I_S queries to what they were before
+    BUG#18075170 was fixed. The assert in conjunction with XA abort, which
+    was present even before BUG#18075170, is now fixed.
+
+commit edea685729fbeefca5490e14caa4057ecca3c6f5
+Author: Aditya A <aditya.a@oracle.com>
+Date:   Tue Jul 14 17:31:10 2015 +0530
+
+    Bug #21040050	PURGE THREAD MUST EXIT SOONER AT SERVER SHUTDOWN
+    
+    PROBLEM
+    
+    The purge thread takes too much long time during
+    shutdown. This is because we call trx_purge()
+    three times during shutdown,each time it is
+    called 300 undo log pages are being processed.
+    so even though you set batch size as 300,
+    900 undo pages are processed during shutdown,
+    whereas in 5.5 it is only called once
+    during shutdown.  This is the reason we are
+    seeing a 10 minute delay in shutdown time.
+    
+    FIX
+    ---
+    Instead of calling a separate trx_purge()
+    for truncating the history log, do it
+    with the trx_purge() in work loop once every
+    128 (TRX_SYS_N_RSEGS) times. Also reduce the
+    batch size to 20 for trx_purge() which is
+    called after detecting shutdown.
+    
+    [#rb 9359 Approved by jimmy]
+
+commit 4ca9dbe2ef159e33d7a788eabe9aa013cf5cdf1e
+Merge: 58bc083 30cc4c5
+Author: Sreeharsha Ramanavarapu <sreeharsha.ramanavarapu@oracle.com>
+Date:   Tue Jul 14 07:38:36 2015 +0530
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit 30cc4c54c65cdc4b096a1a55e591b3796a6de3b9
+Author: Sreeharsha Ramanavarapu <sreeharsha.ramanavarapu@oracle.com>
+Date:   Tue Jul 14 07:37:37 2015 +0530
+
+    Bug #20777016: DELETE CHECKS PRIVILEGES ON THE WRONG
+                   DATABASE WHEN USING TABLE ALIASES
+    
+    Post-push fix.
+
+commit 58bc083d4cada37febf8d4365cc23c896eddef31
+Merge: 716d660 5b69f8d
+Author: Tor Didriksen <tor.didriksen@oracle.com>
+Date:   Mon Jul 13 10:43:53 2015 +0200
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit 5b69f8d338daeba50eb623ede7b4b9ea68dbf725
+Author: Tor Didriksen <tor.didriksen@oracle.com>
+Date:   Mon Jul 13 10:10:12 2015 +0200
+
+    Bug #20168526 YASSL: CORRUPT SSL-KEY CRASHES CLIENT
+    
+    Post-push fix: broken build on windows.
+    The problem is min/max macros from windows.h
+    which interfere with a template function callex max.
+    
+    Solution: ADD_DEFINITIONS(-DNOMINMAX)
+
+commit 716d66076c55c2e177723f58811923d0dc527c7e
+Author: Chaithra Gopalareddy <chaithra.gopalareddy@oracle.com>
+Date:   Mon Jul 13 09:11:09 2015 +0530
+
+    Bug #20728894: MEMORY LEAK IN ADD_DERIVED_KEY()
+    
+    Problem:
+    Possible derived keys are created in stmt_arena's mem_root which
+    is the permanent memory area for statement. It does not get deleted
+    after execution of the query. In case of stored procedure, if a query
+    creating derived table is executed many times, the memory keeps growing.
+    
+    Solution:
+    Allocated derived keys in thd->mem_root which is for runtime objects instead
+    of thd->stmt_arena->mem_root.
+
+commit 836c72914fd172fe0e09a909c582a1ebae096146
+Author: Sreeharsha Ramanavarapu <sreeharsha.ramanavarapu@oracle.com>
+Date:   Mon Jul 13 08:03:12 2015 +0530
+
+    Bug #21056907: CONTENTS OF NOT REQUESTED CHAR/VARCHAR
+                   COLUMN ARE REVEALED
+    
+    Issue:
+    -----
+    When a hexadecimal representation of a string literal is
+    passed as a parameter to the insert function, additional
+    information is displayed by the SELECT statement.
+    
+    
+    SOLUTION:
+    ---------
+    This happens because while creating the hexadecimal
+    character, the "Alloced_length" is set to the string
+    length, but the actual allocation does not happen. This
+    will result in the same string being used for multiple
+    rows, and the new string will be appended to the old one.
+    
+    The solution is to check whether a string is actually
+    allocated, if not make sure that this is done.
+    
+    Also, when a string is supplied from a variable,
+    String->realloc will result in truncation if 'to' and
+    'from' overlap. This needs to be handled by forcing an
+    allocation on the heap.
+    
+    Functions like lcase/encode/decode may return substrings
+    that are already allocated on the heap. concat/concat_ws
+    can have similar problems where temporary results are
+    over-written. Here uses_buffer_owned_by() can be used
+    to check if the input string is already allocated on the
+    heap. If yes, a temporary variable is used to store the
+    substring.
+    
+    This fix is a backport of Bug#11765149, Bug#20315088 and
+    Bug#20554017.
+
+commit f118b3e99b7680347df2be9a4f9f51a35f444010
+Merge: ced5c92 28c60fa
+Author: Sreeharsha Ramanavarapu <sreeharsha.ramanavarapu@oracle.com>
+Date:   Mon Jul 13 07:53:48 2015 +0530
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit 28c60fafd1e7aec7181c549f2196c976bc6b8a9c
+Author: Sreeharsha Ramanavarapu <sreeharsha.ramanavarapu@oracle.com>
+Date:   Mon Jul 13 07:51:23 2015 +0530
+
+    Bug #20777016: DELETE CHECKS PRIVILEGES ON THE WRONG
+                   DATABASE WHEN USING TABLE ALIASES
+    
+    Issue:
+    -----
+    When using table aliases for deleting, MySQL checks
+    privileges against the current database and not the
+    privileges on the actual table or database the table
+    resides.
+    
+    
+    SOLUTION:
+    ---------
+    While checking privileges for multi-deletes,
+    correspondent_table should be used since it points to the
+    correct table and database.
+
+commit ced5c926db09690c815102e181f4ba59da714615
+Author: Marcin Babij <marcin.babij@oracle.com>
+Date:   Sun Jul 12 12:38:39 2015 +0200
+
+    Bug #18636874	PASSWORD VALIDATE PLUGIN: DICTIONARY CHECK MISBEHAVES WITH GOOD HEX INPUT
+    
+    Running PASSWORD on non-text can lead to memory access problems. This is due to std::string being constructed on the buffer, but it ignore length of the buffer.
+
+commit 4c9f4350ae06701e580f33e6f95a923fe1e1d638
+Merge: ed289a2 e8911d2
+Author: Christopher Powers <chris.powers@oracle.com>
+Date:   Fri Jul 10 20:58:36 2015 +0200
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+    
+    Conflicts:
+    	storage/perfschema/pfs_timer.cc
+
+commit e8911d26774f2c4e0c5388713f2d3f8125116e2a
+Author: Christopher Powers <chris.powers@oracle.com>
+Date:   Fri Jul 10 20:42:33 2015 +0200
+
+    Bug#21374104 SETUP_TIMERS INITIALIZATION ASSUMES CYCLE TIMER IS ALWAYS AVAILABLE
+    
+    For WAIT events, fall back to other timers if CYCLE is not available.
+
+commit ed289a27a0655115353b6d22c49d6db6311d56d0
+Author: Venkatesh Duggirala <venkatesh.duggirala@oracle.com>
+Date:   Fri Jul 10 15:37:48 2015 +0530
+
+    BUG#20074353 HANDLE_FATAL_SIGNAL (SIG=11) IN MY_B_WRITE | MYSYS/MF_IOCACHE.C:1597
+    
+    Problem: Modifying master_info/relay_log_info repositories
+             inside a transaction and later rolling back that
+             transaction is leaving repository in a bad condition
+             that cannot be used later.
+    
+    Fix:     Disallow modifying these repositories inside a transaction
+             as there are no real uses cases for the same.
+
+commit 47b8c72ee93087dc5d550d2ce77fd6c0c98e1bf7
+Author: Annamalai Gurusami <annamalai.gurusami@oracle.com>
+Date:   Thu Jul 9 10:29:31 2015 +0530
+
+    Bug #18871046 SET NUMA MEMPOLICY FOR OPTIMUM MYSQLD PERFORMANCE
+    
+    Problem:
+    
+    This is a contributed patch (bug#72811). The original contributor
+    states that, "Historically, the suggested way to run MySQL on NUMA
+    machines has been to run with "numactl --interleave=all" so that
+    things like the InnoDB buffer pool are spread across all NUMA
+    nodes." Currently InnoDB buffer pool is allocated without using
+    NUMA features.
+    
+    Solution:
+    
+    Provide an option (--innodb_numa_interleave) to allocate InnoDB buffer
+    pool using MPOL_INTERLEAVE memory policy of NUMA. What this patch does
+    is the following:
+    
+    1.  If the option innodb_numa_interleave is enabled, then set the numa
+        memory policy MPOL_INTERLEAVE for the mysqld process.
+    2.  Allocate the buffer pool.
+    3.  If the option innodb_numa_interleave is enabled, then set the numa
+        memory policy back to MPOL_DEFAULT for the mysqld process.
+    
+    So all allocations that happen between 1 and 3 will be using the
+    MPOL_INTERLEAVE memory policy.  This is a basic patch to make InnoDB
+    numa aware.  More fine grained control is possible and will be taken
+    up later.
+    
+    rb#7309 approved by allen.
+
+commit 44dadb223d829e2e39ac318846e3e6e0013f23ea
+Merge: d4676a8 62ae704
+Author: Sreeharsha Ramanavarapu <sreeharsha.ramanavarapu@oracle.com>
+Date:   Fri Jul 10 07:56:33 2015 +0530
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit 62ae704a2279e6f2f18675d32eb9fd61fec164aa
+Merge: 5a955a5 314b436
+Author: Sreeharsha Ramanavarapu <sreeharsha.ramanavarapu@oracle.com>
+Date:   Fri Jul 10 07:54:55 2015 +0530
+
+    Merge branch 'mysql-5.1' into mysql-5.5
+
+commit 314b436982fd1adc5d306874dcc3ac772bf467a0
+Author: Sreeharsha Ramanavarapu <sreeharsha.ramanavarapu@oracle.com>
+Date:   Fri Jul 10 07:52:00 2015 +0530
+
+    Bug #20238729: ILLEGALLY CRAFTED UTF8 SELECT PROVIDES NO
+                   WARNINGS
+    
+    Backporting to 5.1 and 5.5
+
+commit d4676a84d83dc55e09ec16e4a400a04ed7765001
+Author: Christopher Powers <chris.powers@oracle.com>
+Date:   Wed Jul 8 19:27:06 2015 +0200
+
+    Bug#19929832 EVENTS_STATEMENTS_HISTORY HAS ERRORS=0 WHEN THERE ARE ERRORS
+    
+    Adjust perfschema.mist.test for gcov builds.
+
+commit 39fb50422c43d670fd530ac42891213a151d3eb8
+Merge: a787a4b 5a955a5
+Author: Robert Golebiowski <robert.golebiowski@oracle.com>
+Date:   Wed Jul 8 13:54:43 2015 +0200
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit 5a955a5499520cf3904d74dae46a02ccb3327cad
+Author: Robert Golebiowski <robert.golebiowski@oracle.com>
+Date:   Wed Jul 8 13:51:06 2015 +0200
+
+    Bug #20774956: THREAD_POOL.THREAD_POOL_CONNECT HANGS WHEN RUN ON A
+    YASSL-COMPILED SERVER/CLIENT
+    
+    Description: thread_pool.thread_pool_connect hangs when the server and
+    client are compiled with yaSSL.
+    
+    Bug-fix: Test thread_pool.thread_pool_connect was temporary disabled for
+    yaSSL. However, now that yaSSL is fixed it runs OK. The bug was
+    introduced by one of the yaSSL updates. set_current was not working for
+    i == 0. Now this is fixed. YASSL is updated to 2.3.7d
+
+commit a787a4b0ee3932bef42d551c0cc959bd68a5bd87
+Merge: a219d1c d8ca066
+Author: Robert Golebiowski <robert.golebiowski@oracle.com>
+Date:   Wed Jul 8 13:35:37 2015 +0200
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit d8ca0661c34098b798d2ce7ea242f76073cacc03
+Author: Robert Golebiowski <robert.golebiowski@oracle.com>
+Date:   Wed Jul 8 12:21:51 2015 +0200
+
+    Bug #21025377 CAN'T CONNECT TO SSL ENABLED SERVER FIRST 30 SEC AFTER
+    INITIAL STARTUP
+    
+    Description: By using mysql_ssl_rsa_setup to get SSL enabled server
+    (after running mysqld --initialize) server don't answer properly
+    to "mysqladmin ping" first 30 secs after startup.
+    
+    Bug-fix: YASSL validated certificate date to the minute but should have
+    to the second. This is why the ssl on the server side was not up right
+    away after new certs were created with mysql_ssl_rsa_setup. The fix for
+    that was submitted by Todd. YASSL was updated to 2.3.7c.
+
+commit a219d1ce3913657378710c277eaafdb2fa82e825
+Merge: b3279bc 853ae3f
+Author: Robert Golebiowski <robert.golebiowski@oracle.com>
+Date:   Wed Jul 8 12:08:28 2015 +0200
+
+    Null merge branch 'mysql-5.5' into mysql-5.6
+
+commit 853ae3fd763cca58c7c3ebee48e7a927ee8a2222
+Author: Robert Golebiowski <robert.golebiowski@oracle.com>
+Date:   Fri Mar 20 15:05:59 2015 +0100
+
+    Bug #20168526 YASSL: CORRUPT SSL-KEY CRASHES CLIENT
+    
+    Affects at least 5.6 and 5.7. In customer case, the "client" happened to
+    be a replication slave, therefore his server crashed.
+    
+    Bug-fix:
+    The bug was in yassl. Todd Ouska has provided us with the patch.
+    
+    (cherry picked from commit 42ffa91aad898b02f0793b669ffd04f5c178ce39)
+
+commit b3279bccf109501b9ec9f67ad42bfa916ce3ba2f
+Author: Thirunarayanan Balathandayuthapani <thirunarayanan.balathandayuth@oracle.com>
+Date:   Wed Jul 8 12:40:32 2015 +0530
+
+    Bug #19779113   INNODB REFUSES STARTUP WITH INNODB_FORCE_RECOVERY>3
+    
+    Problem:
+    =======
+    
+    Server refuses to startup when innodb_force_recovery > 3 and
+    InnoDB making the server to read-only mode before applying the redo log.
+    
+    Solution:
+    ========
+    Introduce a new variable called high_level_read_only and
+    it will be enabled when server is in read-only mode or
+    innodb_force_recovery > 3. This variable will be
+    checked during DML and DDL(expect Drop table). In other words,
+    Drop table is the only operation allowed when innodb_force_recovery > 3.
+    
+    Reviewed-by: Marko Mäkelä <marko.makela@oracle.com>
+    RB: 9320
+
+commit a8838908c9af9ae035ef716118cf0801b7cda9fe
+Merge: 13370fe 7fd0325
+Author: Shishir Jaiswal <shishir.j.jaiswal@oracle.com>
+Date:   Wed Jul 8 11:55:46 2015 +0530
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit 7fd0325f8f5876a1b2ad8824d98ab79ccb4fccca
+Author: Shishir Jaiswal <shishir.j.jaiswal@oracle.com>
+Date:   Wed Jul 8 11:53:54 2015 +0530
+
+    Bug #20802751 - SEGMENTATION FAILURE WHEN RUNNING
+                    MYSQLADMIN -U ROOT -P
+    
+    DESCRIPTION
+    ===========
+    Crash occurs when no command is given while executing
+    mysqladmin utility.
+    
+    ANALYSIS
+    ========
+    In mask_password() the final write to array 'temp_argv'
+    is done without checking if corresponding index 'argc'
+    is valid (non-negative) or not. In case its negative
+    (would happen when this function is called with 'argc'=0),
+    it may cause a SEGFAULT. Logically in such a case,
+    mask_password() should not have been called as it would do
+    no valid thing.
+    
+    FIX
+    ===
+    mask_password() is now called after checking 'argc'. This
+    function is now called only when 'argc' is positive
+    otherwise the process terminates
+
+commit 13370fec4b7fa0bcc002f73372cd57b4fe185069
+Merge: 6154e63 118774f
+Author: Debarun Banerjee <debarun.banerjee@oracle.com>
+Date:   Wed Jul 8 10:04:13 2015 +0530
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit 118774fd6f73cda46971f1831ea73de6807b2fb5
+Author: Debarun Banerjee <debarun.banerjee@oracle.com>
+Date:   Wed Jul 8 10:00:53 2015 +0530
+
+    BUG#16613004 PARTITIONING DDL, CRASH IN FIELD_VARSTRING::CMP_MAX
+    
+    Problem :
+    ---------
+    The specific issue reported in this bug is with range/list column
+    value that is allocated and initialized by evaluating partition
+    expression(item tree) during execution. After evaluation the range
+    list value is marked fixed [part_column_list_val]. During next
+    execution, we don't re-evaluate the expression and use the old value
+    since it is marked fixed.
+    
+    Solution :
+    ----------
+    One way to solve the issue is to mark all column values as not fixed
+    during clone so that the expression is always re-evaluated once we
+    attempt partition_info::fix_column_value_functions() after cloning
+    the part_info object during execution of DDL on partitioned table.
+    
+    Reviewed-by: Jimmy Yang <Jimmy.Yang@oracle.com>
+    Reviewed-by: Mattias Jonsson <mattias.jonsson@oracle.com>
+    
+    RB: 9424
+
+commit 6154e63999a5c717d9a86e2efa056b0b790f0ca4
+Merge: b68249f 993f4ec
+Author: Praveenkumar Hulakund <praveenkumar.hulakund@oracle.com>
+Date:   Fri Jul 3 16:56:53 2015 +0530
+
+    Bug#18487951 - QUERY_CACHE_MIN_RES_UNIT SET TO ZERO, CRASHES IN QUERY_CACHE::FIND_BIN
+    
+    Follow up patch to fix sys_vars.query_cache_min_res_unit_basic_32 test failure.
+    
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit 993f4ec0f8f6e915508ecbf87841fa5229257f53
+Author: Praveenkumar Hulakund <praveenkumar.hulakund@oracle.com>
+Date:   Fri Jul 3 16:56:13 2015 +0530
+
+    Bug#18487951 - QUERY_CACHE_MIN_RES_UNIT SET TO ZERO, CRASHES IN QUERY_CACHE::FIND_BIN
+    
+    Follow up patch to fix sys_vars.query_cache_min_res_unit_basic_32 test failure.
+
+commit b68249f0c6be85472417b477facafe361d464559
+Author: Luis Soares <luis.soares@oracle.com>
+Date:   Fri Jul 3 11:29:45 2015 +0100
+
+    BUG#21305976: REPORT RELAY_LOG_FILE AND RELAY_LOG_POS ON RELAY-LOG-RECOVERY.
+    
+    Extends the error log entry that reports the new recovery
+    positions when relay-log-recovery is set. Now it also reports
+    the old relay log positions.
+    
+    Added test case.
+
+commit 3976d4107493202472dae251ea08730d40892ecd
+Author: Sreeharsha Ramanavarapu <sreeharsha.ramanavarapu@oracle.com>
+Date:   Fri Jul 3 07:49:45 2015 +0530
+
+    Bug #20238729: ILLEGALLY CRAFTED UTF8 SELECT PROVIDES NO
+                   WARNINGS
+    
+    Post-push fix.
+
+commit 7da639e75ca7710c3aaf81b5fa47994bab4e62ea
+Author: Andrei Elkin <andrei.elkin@oracle.com>
+Date:   Tue Jun 23 19:30:19 2015 +0300
+
+    Bug#21095969 RPL+LOCK_WAIT_TIMEOUT: BOOL TRANS_CHECK_STATE ASSERTS `THD->GET_TRANSACTION().
+    
+    The reported assert in the slave temporary failing transaction block happens
+    *every* time when the replicated transaction faces a temporary error and
+    the slave's recovery tables (aka info repositories) are of the transactional
+    type. Indeed, such replicated deadlocked or timed-out transaction is to
+    be rolled back and re-tried whenever @@global.slave_trans_retries > 0.
+    
+    Before it is rolled back, the applier calls global_init_info where
+    thanks to BUG16533802 fixes, global_init_info starts a new (short-lived) transaction
+    when relay_log_info_repository_type='TABLE'.
+    And that leads to an assertion about improper transaction state
+    because the temproary failing one it still active.
+    
+    Fixed with relocating a part of general cleanup of the slave applier
+    (cleanup_context) to be executed before global_init_info().
+    Running the former function prior the latter must be safe and actually
+    makes much more sense.
+
+commit b374fd6965bdc93bdfa40bcd8c42813d5835cec4
+Author: Christopher Powers <chris.powers@oracle.com>
+Date:   Wed Jul 1 22:35:03 2015 +0200
+
+    Bug#19929832 EVENTS_STATEMENTS_HISTORY SHOWS ERRORS=0 WHEN THERE ARE ERRORS
+    
+    Incremente statement error count in end_statement().
+
+commit 4f8cffff5c52679510ce33702fc3341ab12fd5b1
+Merge: 27523c6 bc4d2f9
+Author: Praveenkumar Hulakund <praveenkumar.hulakund@oracle.com>
+Date:   Thu Jul 2 15:32:59 2015 +0530
+
+    Bug#18487951 - QUERY_CACHE_MIN_RES_UNIT SET TO ZERO, CRASHES IN QUERY_CACHE::FIND_BIN
+    
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit bc4d2f9efb5fb7d42ec31eefaea985015bb06cca
+Author: Praveenkumar Hulakund <praveenkumar.hulakund@oracle.com>
+Date:   Thu Jul 2 15:31:55 2015 +0530
+
+    Bug#18487951 - QUERY_CACHE_MIN_RES_UNIT SET TO ZERO, CRASHES IN QUERY_CACHE::FIND_BIN
+    
+    Valid min value for query_cache_min_res_unit is 512. But attempt
+    to set value greater than or equal to the ULONG_MAX(max value) is
+    resulting query_cache_min_res_unit value to 0. This result in
+    crash while searching for memory block lesser than the valid
+    min value to store query results.
+    
+    Free memory blocks in query cache are stored in bins according
+    to their size. The bins are stored in size descending order.
+    For the memory block request the appropriate bin is searched using
+    binary search algorithm. The minimum free memory block request
+    expected is 512 bytes. And the appropriate bin is searched for block
+    greater than or equals to 512 bytes.
+    
+    Because of the bug the query_cache_min_res_unit is set to 0. Due
+    to which there is a chance of request for memory blocks lesser
+    than the minimum size in free memory block bins. Search for bin
+    for this invalid input size fails and returns garbage index.
+    Accessing bins array element with this index is causing the issue
+    reported.
+    
+    The valid value range for the query_cache_min_res_unit is
+    512 to ULONG_MAX(when value is greater than the max allowed value,
+    max allowed value is used i.e ULONG_MAX). While setting result unit
+    block size (query_cache_min_res_unit), size is memory aligned by
+    using a macro ALIGN_SIZE. The ALIGN_SIZE logic is as below,
+    
+      (input_size + sizeof(double) - 1) & ~(sizeof(double) - 1)
+    
+    For unsigned long type variable when input_size is greater than
+    equal to ULONG_MAX-(sizeof(double)-1), above expression is
+    resulting in value 0.
+    
+    Fix:
+    -----
+    Comparing value set for query_cache_min_res_unit with max
+    aligned value which can be stored in ulong type variable.
+    If it is greater then setting it to the max aligned value for
+    ulong type variable.
+
+commit 27523c60a37f521ff429302fbc2afd0e3f90dd05
+Merge: 4df6e51 fd55787
+Author: Arun Kuruvila <arun.kuruvila@oracle.com>
+Date:   Tue Jun 30 10:30:04 2015 +0530
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit fd5578749645eb99c7a1565246a22fd432ef9536
+Author: Arun Kuruvila <arun.kuruvila@oracle.com>
+Date:   Tue Jun 30 10:27:12 2015 +0530
+
+    Bug #20772273 : MYSQLIMPORT --USE-THREADS DOESN'T USE
+                    MULTIPLE THREADS
+    
+    Description:- The utility "mysqlimport" does not use
+    multiple threads for the execution with option
+    "--use-threads". "mysqlimport" while importing multiple
+    files and multiple tables, uses a single thread even if the
+    number of threads are specified with "--use-threads" option.
+    
+    Analysis:- This utility uses ifdef HAVE_LIBPTHREAD to check
+    for libpthread library and if defined uses libpthread
+    library for mutlithreaing. Since HAVE_LIBPTHREAD is not
+    defined anywhere in the source, "--use-threads" option is
+    silently ignored.
+    
+    Fix:- "-DTHREADS" is set to the COMPILE_FLAGS  which will
+    enable pthreads. HAVE_LIBPTHREAD macro is removed.
+
+commit 4df6e517ed11a9072346d9a76f11aba327ab8844
+Author: Sreeharsha Ramanavarapu <sreeharsha.ramanavarapu@oracle.com>
+Date:   Mon Jun 29 08:23:39 2015 +0530
+
+    Bug #20238729: ILLEGALLY CRAFTED UTF8 SELECT PROVIDES NO
+                   WARNINGS
+    
+    Issue:
+    -----
+    No warning is delivered when MYSQL is unable to interpret
+    a character with the given charset.
+    
+    SOLUTION:
+    ---------
+    Check is now performed to test whether each character can
+    be interpreted with the relevant charset. Failing which, a
+    warning is raised.
+
+commit 4c915b63199d592b5406044d09a18016730498b1
+Author: Balasubramanian Kandasamy <balasubramanian.kandasamy@oracle.com>
+Date:   Thu Jun 25 15:04:44 2015 +0200
+
+    Update docker package names
+
+commit ae915dab38bc7b66e9b3c4fda666e4ccc300c4f6
+Merge: bb2364b 21cbfb1
+Author: Yashwant Sahu <yashwant.sahu@oracle.com>
+Date:   Wed Jun 24 18:18:56 2015 +0530
+
+    Bug# 20376760:  STACK-BUFFER-OVERFLOW WITH LONG PATHS TO CERTAIN VARIABLES
+
+commit 21cbfb12ef661cc274d19ce542a8507fc779f06d
+Author: Yashwant Sahu <yashwant.sahu@oracle.com>
+Date:   Wed Jun 24 17:48:46 2015 +0530
+
+    Bug# 20376760:  STACK-BUFFER-OVERFLOW WITH LONG PATHS TO CERTAIN VARIABLES
+
+commit bb2364b5eb0c1010a9a81abc6ff489cb2298e4c8
+Merge: f5b51be 8f5dca5
+Author: Debarun Banerjee <debarun.banerjee@oracle.com>
+Date:   Wed Jun 24 10:31:30 2015 +0530
+
+    Merge branch 'mysql-5.5' into mysql-5.6
+
+commit 8f5dca528e376ca1e01cbb6d615096998884969d
+Author: Debarun Banerjee <debarun.banerjee@oracle.com>
+Date:   Wed Jun 24 10:27:12 2015 +0530
+
+    BUG#20310212 PARTITION DDL- CRASH AFTER THD::NOCHECK_REGISTER_ITEM_
+    
+    Problem :
+    ---------
+    Issue-1: The root cause for the issues is that (col1 > 1) is not a
+    valid partition function and we should have thrown error at much early
+    stage [partition_info::check_partition_info]. We are not checking
+    sub-partition expression when partition expression is NULL.
+    
+    Issue-2: Potential issue for future if any partition function needs to
+    change item tree during open/fix_fields. We should release changed
+    items, if any, before doing closefrm when we open the partitioned table
+    during creation in create_table_impl.
+    
+    Solution :
+    ----------
+    1.check_partition_info() - Check for sub-partition expression even if no
+    partition expression.
+    [partition by ... columns(...) subpartition by hash(<expr>)]
+    
+    2.create_table_impl() - Assert that the change list is empty before doing
+    closefrm for partitioned table. Currently no supported partition function
+    seems to be changing item tree during open.
+    
+    Reviewed-by: Mattias Jonsson <mattias.jonsson@oracle.com>
+    
+    RB: 9345
+
+commit f5b51be2c1356341dec4c8aa2746f004114b02fc
+Merge: 3137808 9e3fee0
+Author: Balasubramanian Kandasamy <balasubramanian.kandasamy@oracle.com>
+Date:   Tue Jun 23 14:01:34 2015 +0200
+
+    Empty version change upmerge
+
+commit 9e3fee076ce8dfafc790d5b1d01b7075b591bd1a
+Merge: 9ee79c5 031b2e2
+Author: Balasubramanian Kandasamy <balasubramanian.kandasamy@oracle.com>
+Date:   Tue Jun 23 13:59:40 2015 +0200
+
+    Empty version change upmerge
+
+commit 031b2e277315c702debc63ecc728aa770b29fdf0
+Author: Balasubramanian Kandasamy <balasubramanian.kandasamy@oracle.com>
+Date:   Tue Jun 23 13:56:39 2015 +0200
+
+    Raise version number after tagging 5.1.76
+
+commit 313780897d25cff1251b2696d94317a1d8a6463b
+Author: Kristofer Pettersson <kristofer.pettersson@oracle.com>
+Date:   Tue Jun 23 11:29:57 2015 +0200
+
+    BUG#20894024 - FIREWALL STILL DEPENDS ON MAX_DIGEST_SIZE OF THE P_S DIGEST
+    
+    Fix for missing symbols compilation error on Windows.
+
+commit ef825d8b1f732a74db7d5b006d8b1b7e39f7b041
+Merge: a6592d1 9ee79c5
+Author: Murthy Narkedimilli <murthy.narkedimilli@oracle.com>
+Date:   Tue Jun 23 06:08:47 2015 +0200
+
+    Empty version change upmerge
+
+commit 9ee79c5d180dbc7ac1393d5e8d6b7977522e5c42
+Author: Murthy Narkedimilli <murthy.narkedimilli@oracle.com>
+Date:   Tue Jun 23 06:06:07 2015 +0200
+
+    Raise version number after cloning 5.5.45
+
+commit a6592d1087983d16841f07357f46ec2226edf1b6
+Author: Balasubramanian Kandasamy <balasubramanian.kandasamy@oracle.com>
+Date:   Tue Jun 23 04:40:22 2015 +0200
+
+    Raise version number after cloning 5.6.26
