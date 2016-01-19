@@ -735,6 +735,12 @@ static MYSQL_THDVAR_UINT(records_in_range,
   NULL, NULL, 0,
   /* min */ 0, /* max */ INT_MAX, 0);
 
+static MYSQL_THDVAR_UINT(force_index_records_in_range,
+  PLUGIN_VAR_RQCMDARG,
+  "Used to override the result of records_in_range() when FORCE INDEX is used.",
+  nullptr, nullptr, 0,
+  /* min */ 0, /* max */ INT_MAX, 0);
+
 static MYSQL_SYSVAR_UINT(debug_optimizer_n_rows,
   rocksdb_debug_optimizer_n_rows,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY | PLUGIN_VAR_NOSYSVAR,
@@ -925,6 +931,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(unsafe_for_binlog),
 
   MYSQL_SYSVAR(records_in_range),
+  MYSQL_SYSVAR(force_index_records_in_range),
   MYSQL_SYSVAR(debug_optimizer_n_rows),
   MYSQL_SYSVAR(debug_optimizer_no_zero_cardinality),
 
@@ -6469,6 +6476,12 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *min_key,
   ha_rows ret = THDVAR(ha_thd(), records_in_range);
   if (ret) {
     DBUG_RETURN(ret);
+  }
+  if (table->force_index) {
+    ha_rows force_rows = THDVAR(ha_thd(), force_index_records_in_range);
+    if (force_rows) {
+      DBUG_RETURN(force_rows);
+    }
   }
 
   RDBSE_KEYDEF *kd= key_descr[inx];
