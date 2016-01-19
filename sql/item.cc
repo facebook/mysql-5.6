@@ -1122,7 +1122,9 @@ bool Item_ident::right_shift_for_possible_document_path(THD *thd)
      or both datbase name and table name are empty so nothing to shift
   */
   if (!allow_document_type ||
-      (!orig_db_name && !orig_table_name))
+      (!orig_db_name && !orig_table_name) ||
+      (((Item_field*)(this))->field &&
+       ((Item_field*)(this))->field->type() != MYSQL_TYPE_DOCUMENT))
     return false;
 
   DBUG_ASSERT(orig_field_name && orig_table_name);

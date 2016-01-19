@@ -27,6 +27,10 @@ create table t (i int(8), a document, s text(255))
 partition by range columns(i)
 (partition p0 values less than (0) engine=myisam);
 ERROR HY000: A DOCUMENT field is not allowed in non-innodb table
+CREATE TABLE t1 (a INT NOT NULL PRIMARY KEY AUTO_INCREMENT, b INT);
+SELECT 1 FROM t1 AS t1_outer GROUP BY a HAVING (SELECT t1_outer.b FROM t1  AS t1_inner LIMIT 1);
+ERROR 42S22: Reference '`test`.`t1_outer`.`b`' not supported (forward reference in item list)
+drop table t1;
 create table t (i int(8), a document, s text(255), primary key (i)) engine=innodb;
 show create table t;
 Table	Create Table
