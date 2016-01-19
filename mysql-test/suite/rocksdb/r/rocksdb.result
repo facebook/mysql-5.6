@@ -888,6 +888,7 @@ rocksdb_disabledatasync	OFF
 rocksdb_enable_thread_tracking	OFF
 rocksdb_error_if_exists	OFF
 rocksdb_force_flush_memtable_now	OFF
+rocksdb_force_index_records_in_range	0
 rocksdb_hash_index_allow_collision	ON
 rocksdb_index_type	kBinarySearch
 rocksdb_info_log_level	error_level
