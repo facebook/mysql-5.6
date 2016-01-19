@@ -1115,6 +1115,14 @@ void Item_ident::update_field_name(THD *thd)
   }
 }
 
+/*
+ * Shift the identifiers to the right to compose a new document path.
+ * This is called after we fails to resolve the current identifiers.
+ *
+ * @return
+ * True succussfully shifted the identifiers
+ * False cannot shift the identifiers
+ */
 bool Item_ident::right_shift_for_possible_document_path(THD *thd)
 {
   /*
@@ -1124,6 +1132,22 @@ bool Item_ident::right_shift_for_possible_document_path(THD *thd)
   if (!allow_document_type ||
       (!orig_db_name && !orig_table_name))
     return false;
+
+  /* check if we already resolved the identifiers to a field in the previous
+   * attempt */
+  if (type() == FIELD_ITEM && ((Item_field*)(this))->field)
+  {
+    Item_field *item_f = ((Item_field*)(this));
+    /* This is an error if a non-document field (from Item_field) has already
+     * been found but we failed the field resolution (e.g. unresolved column
+     * reference) and try to shift the identifiers. */
+    if (item_f->field->type() != MYSQL_TYPE_DOCUMENT)
+      return false;
+    /* Otherwise, reset the field before right shifting, so next attempt will
+     * search the field using the new path */
+    else
+      item_f->field = 0;
+  }
 
   DBUG_ASSERT(orig_field_name && orig_table_name);
 
