@@ -3881,11 +3881,12 @@ static void dump_table(char *table, char *db)
   DYNAMIC_STRING explain_query_string;
   char table_type[NAME_LEN];
   char *result_table, table_buff2[NAME_LEN*2+3], *opt_quoted_table;
-  int error= 0, stat_field_offset= 0;
+  int error= 0;
   ulong         rownr, row_break, total_length, init_length, row_length;
   TYPE_STAT *bucket;
   my_bool gather_stats= 0;
   uint num_fields;
+  uint stat_field_offset= 0;
   MYSQL_RES     *res = NULL;
   MYSQL_FIELD   *field;
   MYSQL_ROW     row;
@@ -3894,20 +3895,6 @@ static void dump_table(char *table, char *db)
 
   if (opt_single_transaction) {
     mysql_real_query(mysql, STRING_WITH_LEN("SAVEPOINT mysqldump"));
-  }
-  /*
-    Dump stats for fbobj_* and assoc_* tables, but excluding assoc_count
-  */
-  if (opt_dump_fbobj_assoc_stats) {
-    if (strncmp(table, "fbobj_", 6) == 0) {
-      gather_stats= 1;
-      stat_field_offset= FBOBJ_FBTYPE_FIELD;
-    }
-    else if (strncmp(table, "assoc_", 6) == 0
-             && (strcmp(table, "assoc_count") != 0)) {
-      gather_stats= 1;
-      stat_field_offset= ASSOC_TYPE_FIELD;
-    }
   }
 
   /*
@@ -3953,6 +3940,28 @@ static void dump_table(char *table, char *db)
     verbose_msg("-- Skipping dump data for table '%s', it has no fields\n",
                 table);
     DBUG_VOID_RETURN;
+  }
+
+  /*
+    Dump stats for fbobj_* and assoc_* tables, but excluding assoc_count and
+    assoc_info_queue.
+  */
+  if (opt_dump_fbobj_assoc_stats) {
+    if (strncmp(table, "fbobj_", 6) == 0) {
+      gather_stats= 1;
+      stat_field_offset= FBOBJ_FBTYPE_FIELD;
+    }
+    else if (strncmp(table, "assoc_", 6) == 0
+             && (strcmp(table, "assoc_count") != 0)
+             && (strcmp(table, "assoc_info_queue") != 0)) {
+      gather_stats= 1;
+      stat_field_offset= ASSOC_TYPE_FIELD;
+    }
+    /* Protect against new tables that may not have the right schema. */
+    if (num_fields < stat_field_offset) {
+      gather_stats= 0;
+      fprintf(fbobj_assoc_stats_file, "-- Bad schema for: %s\n", table);
+    }
   }
 
   result_table= quote_name(table,table_buff, 1);
