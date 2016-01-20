@@ -388,7 +388,17 @@ static MYSQL_THDVAR_ULONG(lock_wait_timeout, PLUGIN_VAR_RQCMDARG,
   NULL, NULL, /*default*/ 1, /*min*/ 1, /*max*/ 1024*1024*1024, 0);
 
 static MYSQL_THDVAR_BOOL(bulk_load, PLUGIN_VAR_RQCMDARG,
-  "Use bulk-load mode for inserts", NULL, NULL, FALSE);
+  "Use bulk-load mode for inserts. This enables both "
+  "rocksdb_skip_unique_check and rocksdb_commit_in_the_middle. "
+  "This parameter will be deprecated in future release.",
+  nullptr, nullptr, FALSE);
+
+static MYSQL_THDVAR_BOOL(skip_unique_check, PLUGIN_VAR_RQCMDARG,
+  "Skip unique constraint checking", nullptr, nullptr, FALSE);
+
+static MYSQL_THDVAR_BOOL(commit_in_the_middle, PLUGIN_VAR_RQCMDARG,
+  "Commit rows implicitly every rocksdb_bulk_load_size, on bulk load/insert",
+  nullptr, nullptr, FALSE);
 
 static MYSQL_THDVAR_ULONG(max_row_locks, PLUGIN_VAR_RQCMDARG,
   "Maximum number of locks a transaction can have",
@@ -870,6 +880,8 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(lock_wait_timeout),
   MYSQL_SYSVAR(max_row_locks),
   MYSQL_SYSVAR(bulk_load),
+  MYSQL_SYSVAR(skip_unique_check),
+  MYSQL_SYSVAR(commit_in_the_middle),
   MYSQL_SYSVAR(bulk_load_size),
 
   MYSQL_SYSVAR(create_if_missing),
@@ -5010,6 +5022,18 @@ bool ha_rocksdb::can_use_single_delete(uint index)
           table->key_info[index].actual_key_parts == table->s->fields);
 }
 
+bool ha_rocksdb::skip_unique_check()
+{
+  return THDVAR(table->in_use, bulk_load) ||
+         THDVAR(table->in_use, skip_unique_check);
+}
+
+bool ha_rocksdb::commit_in_the_middle()
+{
+  return THDVAR(table->in_use, bulk_load) ||
+         THDVAR(table->in_use, commit_in_the_middle);
+}
+
 int ha_rocksdb::write_row(uchar *buf)
 {
   DBUG_ENTER("ha_rocksdb::write_row");
@@ -5032,12 +5056,11 @@ int ha_rocksdb::write_row(uchar *buf)
     }
   }
 
-  bool bulk_load= THDVAR(table->in_use, bulk_load);
-  int rv= update_write_row(nullptr, buf, bulk_load);
+  int rv= update_write_row(nullptr, buf, skip_unique_check());
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
 
-  if (rv == 0 && bulk_load &&
-      trx->get_n_writes() > THDVAR(table->in_use, bulk_load_size))
+  if (rv == 0 && commit_in_the_middle() &&
+      trx->get_n_writes() >= THDVAR(table->in_use, bulk_load_size))
   {
     /* Bulk insert mode: flush the write batch if it became too big */
     if (trx->flush_batch())
@@ -5056,7 +5079,7 @@ int ha_rocksdb::write_row(uchar *buf)
 
 int ha_rocksdb::update_write_row(const uchar *old_data,
                                  uchar *new_data,
-                                 bool bulk_load)
+                                 const bool skip_unique_check)
 {
   int pk_packed_size;
   bool pk_key_changed= false;
@@ -5103,7 +5126,7 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
       If there are no uniqueness requirements, there's no need to obtain a
       lock for this key. The primary key should have this flag set.
     */
-    if (bulk_load || !(table->key_info[i].flags & HA_NOSAME))
+    if (skip_unique_check || !(table->key_info[i].flags & HA_NOSAME))
       continue;
 
     /*
@@ -5343,7 +5366,7 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
     */
     rocksdb::WriteBatchBase *write_batch;
     if ((trx->ddl_transaction && !(table->key_info[i].flags & HA_NOSAME)) ||
-        bulk_load)
+        skip_unique_check)
     {
       write_batch= trx->GetBlindWriteBatch();
     }
@@ -5362,7 +5385,7 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
 
   convert_record_to_storage_format((const char*)pk_packed_tuple,
                                    pk_packed_size, &value_slice);
-  if (bulk_load)
+  if (skip_unique_check)
   {
     /*
       It is responsibility of the user to make sure that the data being
@@ -6057,6 +6080,22 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
     checksums_pct= THDVAR(thd, checksums_pct);
 
     updated_indexes_is_valid= false;
+
+    if (skip_unique_check())
+    {
+      if ((thd->lex->sql_command == SQLCOM_INSERT ||
+          thd->lex->sql_command == SQLCOM_REPLACE) &&
+          (thd->lex->duplicates == DUP_REPLACE ||
+          thd->lex->duplicates == DUP_UPDATE))
+      {
+        my_printf_error(ER_UNKNOWN_ERROR,
+                        "When disables unique check in MyRocks, 'INSERT or "
+                        "UPDATE' statement (INSERT ON DUPLICATE KEY UPDATE, "
+                        "REPLACE) is not allowed.",
+                        MYF(0));
+        DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+      }
+    }
 
     if (lock_type == F_WRLCK)
     {
