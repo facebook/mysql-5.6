@@ -975,7 +975,10 @@ The following options may be given as the first argument:
  BlockBasedTableOptions::block_size for RocksDB
  --rocksdb-block-size-deviation=# 
  BlockBasedTableOptions::block_size_deviation for RocksDB
- --rocksdb-bulk-load Use bulk-load mode for inserts
+ --rocksdb-bulk-load Use bulk-load mode for inserts. This enables both
+ rocksdb_skip_unique_check and
+ rocksdb_commit_in_the_middle. This parameter will be
+ deprecated in future release.
  --rocksdb-bulk-load-size=# 
  Max #records in a batch for bulk-load mode
  --rocksdb-bytes-per-sync=# 
@@ -997,6 +1000,8 @@ The following options may be given as the first argument:
  --rocksdb-collect-sst-properties 
  Enables collecting SST file properties on each flush
  (Defaults to on; use --skip-rocksdb-collect-sst-properties to disable.)
+ --rocksdb-commit-in-the-middle 
+ Commit rows implicitly every rocksdb_bulk_load_size
  --rocksdb-compact-cf=name 
  Compact column family
  --rocksdb-compaction-sequential-deletes=# 
@@ -1125,6 +1130,8 @@ The following options may be given as the first argument:
  Wake up drop index thread
  --rocksdb-skip-fill-cache 
  Skip filling block cache on read requests
+ --rocksdb-skip-unique-check 
+ Skip unique constraint checking
  --rocksdb-stats-dump-period-sec=# 
  DBOptions::stats_dump_period_sec for RocksDB
  --rocksdb-store-checksums 
@@ -1713,6 +1720,7 @@ rocksdb-cf-options ON
 rocksdb-cfstats ON
 rocksdb-checksums-pct 100
 rocksdb-collect-sst-properties TRUE
+rocksdb-commit-in-the-middle FALSE
 rocksdb-compact-cf 
 rocksdb-compaction-sequential-deletes 1900
 rocksdb-compaction-sequential-deletes-file-size 0
@@ -1762,6 +1770,7 @@ rocksdb-records-in-range 0
 rocksdb-seconds-between-stat-computes 3600
 rocksdb-signal-drop-index-thread FALSE
 rocksdb-skip-fill-cache FALSE
+rocksdb-skip-unique-check FALSE
 rocksdb-stats-dump-period-sec 600
 rocksdb-store-checksums FALSE
 rocksdb-strict-collation-check TRUE
