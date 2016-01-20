@@ -119,4 +119,48 @@ a	b
 BEGIN;
 DELETE FROM t1 WHERE a <= 4 ORDER BY b DESC LIMIT 1;
 SAVEPOINT spt1;
+DELETE FROM t1;
+RELEASE SAVEPOINT spt1;
+ROLLBACK;
+SELECT a,b FROM t1;
+a	b
+10000	foobar
+10000	foobar
+2	b
+2	b
+4	d
+4	d
+5	e
+5	e
+6	f
+6	f
+7	g
+7	g
+8	h
+8	h
+BEGIN;
+DELETE FROM t1 WHERE a <= 4 ORDER BY b DESC LIMIT 1;
+SAVEPOINT spt1;
+DELETE FROM t1;
+INSERT INTO t1 (a,b) VALUES (1,'a');
+ROLLBACK TO SAVEPOINT spt1;
+ERROR HY000: MyRocks currently does not support ROLLBACK TO SAVEPOINT if modifying rows.
+COMMIT;
+ERROR HY000: This transaction was rolled back and cannot be committed. Only supported operation is to roll it back, so all pending changes will be discarded. Please restart another transaction.
+SELECT a,b FROM t1;
+a	b
+10000	foobar
+10000	foobar
+2	b
+2	b
+4	d
+4	d
+5	e
+5	e
+6	f
+6	f
+7	g
+7	g
+8	h
+8	h
 DROP TABLE t1;
