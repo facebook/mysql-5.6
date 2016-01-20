@@ -591,6 +591,7 @@ private:
 
   int read_key_exact(RDBSE_KEYDEF *kd, rocksdb::Iterator* scan_it,
                      bool using_full_key, rocksdb::Slice& key_slice);
+  RDBSE_TABLE_DEF* get_table_if_exists(const char* tablename);
 public:
   int index_init(uint idx, bool sorted);
   int index_end();
