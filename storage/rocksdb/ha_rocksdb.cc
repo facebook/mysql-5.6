@@ -1448,6 +1448,12 @@ public:
     return txn->SingleDelete(column_family, key);
   }
 
+  bool has_modifications()
+  {
+    return txn->GetWriteBatch() && txn->GetWriteBatch()->GetWriteBatch() &&
+           txn->GetWriteBatch()->GetWriteBatch()->Count() > 0;
+  }
+
   /*
     Return a WriteBatch that one can write to. The writes will skip any
     transaction locking. The writes WILL be visible to the transaction.
@@ -2113,6 +2119,15 @@ static int rocksdb_savepoint(handlerton *hton, THD *thd, void *savepoint)
 static int rocksdb_rollback_to_savepoint(handlerton *hton, THD *thd,
                                          void *savepoint)
 {
+  Rdb_transaction*& trx= get_trx_from_thd(thd);
+  if (trx->has_modifications())
+  {
+    my_printf_error(ER_UNKNOWN_ERROR,
+                    "MyRocks currently does not support ROLLBACK TO SAVEPOINT "
+                    "if modifying rows."
+                    , MYF(0));
+    return 1;
+  }
   return 0;
 }
 
