@@ -62,6 +62,8 @@ slave_ignored_err_throttle(window_size,
 
 #include "sql_digest.h"
 
+#include <memory>
+
 using std::min;
 using std::max;
 
@@ -14659,7 +14661,7 @@ my_off_t find_gtid_pos_in_log(const char* log_name, const Gtid &gtid,
 
   IO_CACHE log;
   File file = -1;
-  Log_event *ev = NULL;
+  std::unique_ptr<Log_event> ev;
   my_off_t pos = BIN_LOG_HEADER_SIZE;
   /*
     Create a Format_description_log_event that is used to read the
@@ -14693,23 +14695,40 @@ my_off_t find_gtid_pos_in_log(const char* log_name, const Gtid &gtid,
 
   my_b_seek(&log, BIN_LOG_HEADER_SIZE);
 #ifndef MYSQL_CLIENT
-  while ((ev = Log_event::read_log_event(&log, 0, fd_ev_p, false, NULL)) !=
-         NULL)
+  while ((ev = std::unique_ptr<Log_event>
+          (Log_event::read_log_event(&log, 0, fd_ev_p, false, NULL))) != nullptr)
 #else
-  while ((ev = Log_event::read_log_event(&log, fd_ev_p, false)) != NULL)
+  while ((ev = std::unique_ptr<Log_event>
+          (Log_event::read_log_event(&log, fd_ev_p, false))) != nullptr)
 #endif
   {
     if (ev->get_type_code() == GTID_LOG_EVENT)
     {
-      Gtid_log_event *gtid_ev = (Gtid_log_event *) ev;
+      Gtid_log_event *gtid_ev = (Gtid_log_event *) ev.get();
       if (gtid_ev->get_sidno(sid_map) == gtid.sidno &&
             gtid_ev->get_gno() == gtid.gno)
+      {
+        end_io_cache(&log);
+#ifndef MYSQL_CLIENT
+        mysql_file_close(file, MYF(MY_WME));
+#else
+        my_close(file, MYF(MY_WME));
+#endif
         DBUG_RETURN(pos);
+      }
     }
-    if (ev != fd_ev_p)
-      delete ev;
+    DBUG_ASSERT(ev.get() != fd_ev_p);
     pos = my_b_tell(&log);
   }
 err:
+  if (file >= 0)
+  {
+    end_io_cache(&log);
+#ifndef MYSQL_CLIENT
+    mysql_file_close(file, MYF(MY_WME));
+#else
+    my_close(file, MYF(MY_WME));
+#endif
+  }
   DBUG_RETURN(0);
 }

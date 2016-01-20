@@ -32,6 +32,8 @@
 #include <list>
 #include <my_stacktrace.h>
 
+#include <memory>
+
 using std::max;
 using std::min;
 using std::string;
@@ -2455,8 +2457,8 @@ bool show_binlog_cache(THD *thd)
   DBUG_ASSERT(thd->lex->sql_command == SQLCOM_SHOW_BINLOG_CACHE);
 
   uint16 binlog_ver = BINLOG_VERSION;
-  Format_description_log_event *description_event= new
-    Format_description_log_event(binlog_ver); /* Binlog ver 4 by default */
+  std::unique_ptr<Format_description_log_event> description_event(new
+    Format_description_log_event(binlog_ver)); /* Binlog ver 4 by default */
 
   ulong thread_id_opt = thd->lex->thread_id_opt;
   THD *opt_thd = nullptr;
@@ -2508,10 +2510,7 @@ bool show_binlog_cache(THD *thd)
           int2store(ev_data+ST_BINLOG_VER_OFFSET,binlog_ver);
 
           if (binlog_ver != description_event->binlog_version)
-          {
-            delete description_event;
-            description_event = new Format_description_log_event(binlog_ver);
-          }
+            description_event.reset(new Format_description_log_event(binlog_ver));
 
           // move to next event header
           hdr_offs += event_len;
@@ -2519,7 +2518,7 @@ bool show_binlog_cache(THD *thd)
           Log_event *ev = nullptr;
           if (hdr_offs <= length)
             ev = Log_event::read_log_event(ev_buf, event_len, &errmsg,
-                                           description_event, false);
+                                           description_event.get(), false);
 
           if (ev && ev->is_valid()) // if we get an valid event, output it
           {
@@ -2541,8 +2540,6 @@ bool show_binlog_cache(THD *thd)
   // clean up
   if (opt_thd)
     mysql_mutex_unlock(&opt_thd->LOCK_thd_data);
-
-  delete description_event;
 
   if (errmsg)
     my_error(ER_ERROR_WHEN_EXECUTING_COMMAND, MYF(0),

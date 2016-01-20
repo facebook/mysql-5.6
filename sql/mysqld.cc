@@ -4658,8 +4658,8 @@ int init_common_variables(my_bool logging)
     {
 #ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
       buffered_logs.print();
-      buffered_logs.cleanup();
 #endif
+      buffered_logs.cleanup();
       sql_print_error(ER_DEFAULT(ER_UNKNOWN_COLLATION), default_collation_name);
       return 1;
     }
@@ -5334,8 +5334,8 @@ static int init_server_components()
     print the buffered messages to the log.
   */
   buffered_logs.print();
-  buffered_logs.cleanup();
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
+  buffered_logs.cleanup();
 
   /*
     Now that the logger is available, redirect character set
