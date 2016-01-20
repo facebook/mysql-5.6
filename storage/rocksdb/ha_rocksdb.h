@@ -353,6 +353,8 @@ class ha_rocksdb: public handler
   void update_auto_incr_val();
   void load_auto_incr_value();
   bool can_use_single_delete(uint index);
+  bool skip_unique_check();
+  bool commit_in_the_middle();
 
   void update_row_stats(operation_type type);
 
@@ -584,7 +586,8 @@ private:
   int find_icp_matching_index_rec(bool move_forward, uchar *buf);
 
   void calc_updated_indexes();
-  int update_write_row(const uchar *old_data, uchar *new_data, bool bulk_load);
+  int update_write_row(const uchar *old_data, uchar *new_data,
+                       const bool skip_unique_check);
 
   int read_key_exact(RDBSE_KEYDEF *kd, rocksdb::Iterator* scan_it,
                      bool using_full_key, rocksdb::Slice& key_slice);
