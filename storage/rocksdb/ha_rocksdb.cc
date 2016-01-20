@@ -3727,6 +3727,11 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
   StringBuffer<256> strbuf;
   DBUG_ENTER("ha_rocksdb::create");
 
+  if (get_table_if_exists(name) && delete_table(name))
+  {
+    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+  }
+
   /*
     Construct dbname.tablename ourselves, because parititioning
     passes strings like "./test/t14#P#p0" for individual partitions,
@@ -6412,6 +6417,19 @@ void* drop_index_thread(void*)
   return nullptr;
 }
 
+RDBSE_TABLE_DEF* ha_rocksdb::get_table_if_exists(const char* tablename)
+{
+  StringBuffer<256> strbuf;
+  if (rocksdb_normalize_tablename(tablename, &strbuf))
+  {
+    // We were not passed table name?
+    DBUG_ASSERT(0);
+    return nullptr;
+  }
+  return ddl_manager.find(reinterpret_cast<uchar*>(strbuf.c_ptr()),
+                          strbuf.length());
+}
+
 /*
   Note: the following function is called when the table is not open. That is,
   this->table==NULL, pk_key_descr==NULL, etc.
@@ -6421,20 +6439,13 @@ void* drop_index_thread(void*)
 
 int ha_rocksdb::delete_table(const char *tablename)
 {
-  StringBuffer<256> strbuf;
   DBUG_ENTER("ha_rocksdb::delete_table");
   std::unique_ptr<rocksdb::WriteBatch> wb= dict_manager.begin();
   rocksdb::WriteBatch *batch= wb.get();
 
-  if (rocksdb_normalize_tablename(tablename, &strbuf))
-  {
-    DBUG_ASSERT(0); // We were not passed table name?
-    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
-  }
-
   /* Find the table in the hash */
-  RDBSE_TABLE_DEF *tbl;
-  if (!(tbl= ddl_manager.find((uchar*)strbuf.c_ptr(), strbuf.length())))
+  RDBSE_TABLE_DEF *tbl = get_table_if_exists(tablename);
+  if (!tbl)
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   dict_manager.add_drop_table(tbl->key_descr, tbl->n_keys, batch);
 
