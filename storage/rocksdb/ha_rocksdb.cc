@@ -150,6 +150,13 @@ background_thread_control bg_control;
 // collation check requirement.
 std::vector<std::string> collation_exception_list;
 
+static const char* const ERRSTR_ROLLBACK_ONLY
+  = "This transaction was rolled back and cannot be "
+    "committed. Only supported operation is to roll it back, "
+    "so all pending changes will be discarded. "
+    "Please restart another transaction.";
+
+
 static void
 rocksdb_flush_all_memtables()
 {
@@ -1229,6 +1236,7 @@ class Rdb_transaction
   bool is_trx_failed= false;
   bool is_delayed_snapshot= false;
   bool tx_read_only= false;
+  bool rollback_only= false;
 
   THD* thd_= nullptr;
 
@@ -1308,7 +1316,27 @@ public:
 
   bool commit()
   {
-    if (get_n_writes() != 0)
+    if (get_n_writes() == 0)
+    {
+      rollback();
+      return false;
+    }
+    else if (rollback_only)
+    {
+     /*
+       Transactions marked as rollback_only are expected to be rolled back at
+       prepare(). But there are some exceptions like below that prepare() is
+       never called and commit() is called instead.
+        1. Binlog is disabled
+        2. No modification exists in binlog cache for the transaction (#195)
+       In both cases, rolling back transaction is safe. Nothing is written to
+       binlog.
+      */
+      my_printf_error(ER_UNKNOWN_ERROR, ERRSTR_ROLLBACK_ONLY, MYF(0));
+      rollback();
+      return true;
+    }
+    else
     {
       thd_binlog_pos(thd_, &mysql_log_file_name, &mysql_log_offset,
                      &mysql_gtid);
@@ -1316,11 +1344,6 @@ public:
                             mysql_log_offset,
                             mysql_gtid, txn->GetWriteBatch());
       return commit_no_binlog();
-    }
-    else
-    {
-      rollback();
-      return 0;
     }
   }
 
@@ -1338,6 +1361,7 @@ public:
     txn= NULL;
     n_writes= 0;
     set_tx_read_only(false);
+    rollback_only= false;
     return res;
   }
 
@@ -1353,6 +1377,7 @@ public:
       delete txn;
       txn= NULL;
       set_tx_read_only(false);
+      rollback_only= false;
     }
   }
 
@@ -1456,6 +1481,12 @@ public:
     if (++n_writes > max_row_locks)
       return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
     return txn->SingleDelete(column_family, key);
+  }
+
+  bool has_modifications()
+  {
+    return txn->GetWriteBatch() && txn->GetWriteBatch()->GetWriteBatch() &&
+           txn->GetWriteBatch()->GetWriteBatch()->Count() > 0;
   }
 
   /*
@@ -1584,6 +1615,30 @@ public:
     }
   }
 
+  bool can_prepare()
+  {
+    if (rollback_only)
+    {
+      my_printf_error(ER_UNKNOWN_ERROR, ERRSTR_ROLLBACK_ONLY, MYF(0));
+      return false;
+    }
+    return true;
+  }
+
+  int rollback_to_savepoint(void *savepoint)
+  {
+    if (has_modifications())
+    {
+      my_printf_error(ER_UNKNOWN_ERROR,
+                      "MyRocks currently does not support ROLLBACK TO "
+                      "SAVEPOINT if modifying rows.",
+                      MYF(0));
+      rollback_only= true;
+      return 1;
+    }
+    return 0;
+  }
+
   /*
     This is used by transactions started with "START TRANSACTION WITH "
     "CONSISTENT [ROCKSDB] SNAPSHOT". When tx_read_only is turned on,
@@ -1668,6 +1723,11 @@ static int rocksdb_close_connection(handlerton* hton, THD* thd)
 static int rocksdb_prepare(handlerton* hton, THD* thd, bool prepare_trx,
                            bool async)
 {
+  Rdb_transaction*& trx= get_trx_from_thd(thd);
+  if (!trx->can_prepare())
+  {
+    return 1;
+  }
   if (prepare_trx ||
       (!thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))) {
     /* We were instructed to prepare the whole transaction, or
@@ -1675,7 +1735,6 @@ static int rocksdb_prepare(handlerton* hton, THD* thd, bool prepare_trx,
     std::vector<st_slave_gtid_info> slave_gtid_info;
     thd_slave_gtid_info(thd, &slave_gtid_info);
     for (auto it : slave_gtid_info) {
-      Rdb_transaction*& trx= get_trx_from_thd(thd);
       rocksdb::WriteBatchBase* write_batch = trx->GetBlindWriteBatch();
       binlog_manager.update_slave_gtid_info(it.id, it.db, it.gtid, write_batch);
     }
@@ -2123,7 +2182,8 @@ static int rocksdb_savepoint(handlerton *hton, THD *thd, void *savepoint)
 static int rocksdb_rollback_to_savepoint(handlerton *hton, THD *thd,
                                          void *savepoint)
 {
-  return 0;
+  Rdb_transaction*& trx= get_trx_from_thd(thd);
+  return trx->rollback_to_savepoint(savepoint);
 }
 
 static bool rocksdb_rollback_to_savepoint_can_release_mdl(handlerton *hton,
