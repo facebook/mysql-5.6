@@ -185,6 +185,7 @@ SAVEPOINT spt1;
 INSERT INTO t1 SET a = 11, b = 'f';
 INSERT t1 SET b = DEFAULT;
 ROLLBACK TO SAVEPOINT spt1;
+ERROR HY000: MyRocks currently does not support ROLLBACK TO SAVEPOINT if modifying rows.
 INSERT INTO t1 (b,a) VALUES ('test1',10);
 COMMIT;
 SELECT a,b FROM t1;
