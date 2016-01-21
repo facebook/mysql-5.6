@@ -1389,6 +1389,7 @@ struct st_VioSSLFd *ssl_acceptor_fd;
   LOCK_connection_count.
 */
 uint connection_count= 0;
+mysql_cond_t COND_connection_count;
 
 /* Function declarations */
 
@@ -1693,6 +1694,17 @@ static void close_connections(void)
     DBUG_PRINT("quit", ("One thread died (count=%u)", get_thread_count()));
   }
   mysql_mutex_unlock(&LOCK_thread_count);
+
+  /*
+    Connection threads might take a little while to go down after removing from
+    global thread list. Give it some time.
+  */
+  mysql_mutex_lock(&LOCK_connection_count);
+  while (connection_count > 0)
+  {
+    mysql_cond_wait(&COND_connection_count, &LOCK_connection_count);
+  }
+  mysql_mutex_unlock(&LOCK_connection_count);
 
   close_active_mi();
   DBUG_PRINT("quit",("close_connections thread"));
@@ -2210,6 +2222,7 @@ static void clean_up_mutexes()
   mysql_cond_destroy(&COND_thread_cache);
   mysql_cond_destroy(&COND_flush_thread_cache);
   mysql_cond_destroy(&COND_manager);
+  mysql_cond_destroy(&COND_connection_count);
 }
 #endif /*EMBEDDED_LIBRARY*/
 
@@ -2850,6 +2863,8 @@ void dec_connection_count()
 {
   mysql_mutex_lock(&LOCK_connection_count);
   --connection_count;
+  if (connection_count == 0)
+    mysql_cond_signal(&COND_connection_count);
   mysql_mutex_unlock(&LOCK_connection_count);
 }
 
@@ -2957,8 +2972,8 @@ bool one_thread_per_connection_end(THD *thd, bool block_pthread)
   DBUG_PRINT("info", ("thd %p block_pthread %d", thd, (int) block_pthread));
 
   thd->release_resources();
-  dec_connection_count();
   remove_global_thread(thd);
+  dec_connection_count();
   if (kill_blocked_pthreads_flag)
   {
     // Do not block if we are about to shut down
@@ -4874,6 +4889,7 @@ static int init_thread_environment()
   mysql_rwlock_init(key_rwlock_LOCK_sys_init_slave, &LOCK_sys_init_slave);
   mysql_rwlock_init(key_rwlock_LOCK_grant, &LOCK_grant);
   mysql_cond_init(key_COND_thread_count, &COND_thread_count, NULL);
+  mysql_cond_init(key_COND_connection_count, &COND_connection_count, NULL);
   mysql_cond_init(key_COND_thread_cache, &COND_thread_cache, NULL);
   mysql_cond_init(key_COND_flush_thread_cache, &COND_flush_thread_cache, NULL);
   mysql_cond_init(key_COND_manager, &COND_manager, NULL);
@@ -6941,6 +6957,8 @@ void create_thread_to_handle_connection(THD *thd)
 
       mysql_mutex_lock(&LOCK_connection_count);
       --connection_count;
+      if (connection_count == 0)
+        mysql_cond_signal(&COND_connection_count);
       mysql_mutex_unlock(&LOCK_connection_count);
 
       statistic_increment(aborted_connects,&LOCK_status);
@@ -10725,7 +10743,7 @@ PSI_cond_key key_BINLOG_update_cond,
   key_TABLE_SHARE_cond, key_user_level_lock_cond,
   key_COND_thread_count, key_COND_thread_cache, key_COND_flush_thread_cache,
   key_gtid_info_data_cond, key_gtid_info_start_cond, key_gtid_info_stop_cond,
-  key_gtid_info_sleep_cond;
+  key_gtid_info_sleep_cond, key_COND_connection_count;
 PSI_cond_key key_RELAYLOG_update_cond;
 PSI_cond_key key_BINLOG_COND_done;
 PSI_cond_key key_RELAYLOG_COND_done;
@@ -10778,7 +10796,8 @@ static PSI_cond_info all_server_conds[]=
   { &key_gtid_info_data_cond, "Gtid_info::data_cond", 0},
   { &key_gtid_info_start_cond, "Gtid_info::start_cond", 0},
   { &key_gtid_info_stop_cond, "Gtid_info::stop_cond", 0},
-  { &key_gtid_info_sleep_cond, "Gtid_info::sleep_cond", 0}
+  { &key_gtid_info_sleep_cond, "Gtid_info::sleep_cond", 0},
+  { &key_COND_connection_count, "COND_connection_count", PSI_FLAG_GLOBAL}
 };
 
 PSI_thread_key key_thread_bootstrap, key_thread_delayed_insert,
