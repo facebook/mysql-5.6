@@ -30,6 +30,7 @@
 #include <vector>
 
 /* MySQL includes */
+#include "./debug_sync.h"
 #include "./my_bit.h"
 #include "./my_stacktrace.h"
 #include <mysql/psi/mysql_table.h>
@@ -5547,62 +5548,77 @@ int ha_rocksdb::rnd_next_with_direction(uchar *buf, bool move_forward)
     DBUG_RETURN(HA_ERR_END_OF_FILE);
   }
 
-  if (skip_scan_it_next_call)
-    skip_scan_it_next_call= false;
-  else
+  bool retry;
+  do
   {
-    if (move_forward)
-      scan_it->Next();  /* this call cannot fail */
+    retry = false;
+    if (skip_scan_it_next_call)
+      skip_scan_it_next_call= false;
     else
-      scan_it->Prev();  /* this call cannot fail */
-  }
-
-  if (scan_it->Valid())
-  {
-    /* check if we're out of this table */
-    rocksdb::Slice key= scan_it->key();
-    if (!pk_descr->covers_key(key.data(), key.size()))
     {
-      rc= HA_ERR_END_OF_FILE;
-      table->status= STATUS_NOT_FOUND;
+      if (move_forward)
+        scan_it->Next();  /* this call cannot fail */
+      else
+        scan_it->Prev();  /* this call cannot fail */
     }
-    else
+
+    if (scan_it->Valid())
     {
-      if (lock_rows)
+      /* check if we're out of this table */
+      rocksdb::Slice key= scan_it->key();
+      if (!pk_descr->covers_key(key.data(), key.size()))
       {
-        /*
-          Lock the row we've just read.
-
-          Now we call GetForUpdate which will 1) Take a lock and 2) Will fail
-          if the row was deleted since the snapshot was taken.
-        */
-        Rdb_transaction *trx= get_or_create_trx(table->in_use);
-        rocksdb::Status s= trx->GetForUpdate(pk_descr->get_cf(), key,
-                                             &retrieved_record);
-        if (!s.ok())
-        {
-          DBUG_RETURN(return_status_error(table->in_use, s));
-        }
-
-        // If we called GetForUpdate() use the value from that call not from
-        // the iterator as it may be stale since we don't have a snapshot
-        // when lock_rows is true.
-        last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
-        rc= convert_record_from_storage_format(&key, buf);
+        rc= HA_ERR_END_OF_FILE;
+        table->status= STATUS_NOT_FOUND;
       }
       else
       {
-        // Use the value from the iterator
-        rocksdb::Slice value= scan_it->value();
-        last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
-        rc= convert_record_from_storage_format(&key, &value, buf);
-      }
+        if (lock_rows)
+        {
+          /*
+            Lock the row we've just read.
 
-      table->status= 0;
+            Now we call GetForUpdate which will 1) Take a lock and 2) Will fail
+            if the row was deleted since the snapshot was taken.
+          */
+          Rdb_transaction *trx= get_or_create_trx(table->in_use);
+          DEBUG_SYNC(ha_thd(), "rocksdb_concurrent_delete");
+          rocksdb::Status s= trx->GetForUpdate(pk_descr->get_cf(), key,
+                                               &retrieved_record);
+          if (s.IsNotFound())
+          {
+            // The current row was deleted between when we saw it
+            // (via Next/Prev) and when we locked and read it.
+            // Move on to the next row instead.
+            retry = true;
+            continue;
+          }
+
+          if (!s.ok())
+          {
+            DBUG_RETURN(return_status_error(table->in_use, s));
+          }
+
+          // If we called GetForUpdate() use the value from that call not from
+          // the iterator as it may be stale since we don't have a snapshot
+          // when lock_rows is true.
+          last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
+          rc= convert_record_from_storage_format(&key, buf);
+        }
+        else
+        {
+          // Use the value from the iterator
+          rocksdb::Slice value= scan_it->value();
+          last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
+          rc= convert_record_from_storage_format(&key, &value, buf);
+        }
+
+        table->status= 0;
+      }
     }
-  }
-  else
-    rc= HA_ERR_END_OF_FILE;
+    else
+      rc= HA_ERR_END_OF_FILE;
+  } while (retry);
 
   if (!rc) {
     stats.rows_read++;
