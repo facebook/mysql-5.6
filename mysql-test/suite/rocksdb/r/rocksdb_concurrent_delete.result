@@ -1,0 +1,14 @@
+set debug_sync='RESET';
+drop table if exists t1;
+create table t1 (pk int primary key, a int);
+insert into t1 values(1,1), (2,2), (3,3);
+set debug_sync='rocksdb_concurrent_delete SIGNAL parked WAIT_FOR go';
+select * from t1 for update;
+set debug_sync='now WAIT_FOR parked';
+delete from t1 where pk = 1;
+set debug_sync='now SIGNAL go';
+pk	a
+2	2
+3	3
+set debug_sync='RESET';
+drop table t1;

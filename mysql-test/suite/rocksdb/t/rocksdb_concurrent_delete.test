@@ -1,0 +1,46 @@
+--source include/have_rocksdb.inc
+--source include/have_debug_sync.inc
+
+# This validates the fix for Issue #144.  The problem was that with more
+# than one client accessing/deleting the same row there was a possibility
+# of client A finding a row (through Next() or Prev()) but the row being
+# deleted before the GetForUpdate() call could occur.  When this happened
+# a nearly useless error was being returned.
+
+connect (con, localhost, root,,);
+connection default;
+
+--disable_warnings
+set debug_sync='RESET';
+drop table if exists t1;
+--enable_warnings
+
+create table t1 (pk int primary key, a int);
+insert into t1 values(1,1), (2,2), (3,3);
+
+# This will cause the select to block after finding the first row, but
+# before locking and reading it.
+connection con;
+set debug_sync='rocksdb_concurrent_delete SIGNAL parked WAIT_FOR go';
+send select * from t1 for update;
+
+# While that connection is waiting, delete the first row (the one con
+# is about to lock and read
+connection default;
+set debug_sync='now WAIT_FOR parked';
+delete from t1 where pk = 1;
+
+# Signal the waiting select to continue
+set debug_sync='now SIGNAL go';
+
+# Now get the results from the select.  The first entry (1,1) should
+# be missing.  Prior to the fix the select would have returned:
+# "1815: Internal error: NotFound:"
+connection con;
+reap;
+
+# Cleanup
+connection default;
+disconnect con;
+set debug_sync='RESET';
+drop table t1;
