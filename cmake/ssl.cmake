@@ -94,10 +94,10 @@ MACRO (MYSQL_CHECK_SSL)
       MESSAGE(STATUS "suffixes <${CMAKE_FIND_LIBRARY_SUFFIXES}>")
     ENDIF()
     FIND_LIBRARY(OPENSSL_LIBRARY
-                 NAMES ssl ssleay32 ssleay32MD
+                 NAMES ssl_pic ssl ssleay32 ssleay32MD
                  HINTS ${OPENSSL_ROOT_DIR}/lib)
     FIND_LIBRARY(CRYPTO_LIBRARY
-                 NAMES crypto libeay32
+                 NAMES crypto_pic crypto libeay32
                  HINTS ${OPENSSL_ROOT_DIR}/lib)
     IF (WITH_SSL_PATH)
       LIST(REVERSE CMAKE_FIND_LIBRARY_SUFFIXES)
