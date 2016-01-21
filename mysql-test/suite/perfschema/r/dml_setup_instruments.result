@@ -36,6 +36,7 @@ where name like 'Wait/Synch/Cond/sql/%'
 'wait/synch/cond/sql/DEBUG_SYNC::cond')
 order by name limit 10;
 NAME	ENABLED	TIMED
+wait/synch/cond/sql/COND_connection_count	YES	YES
 wait/synch/cond/sql/COND_flush_thread_cache	YES	YES
 wait/synch/cond/sql/COND_manager	YES	YES
 wait/synch/cond/sql/COND_queue_state	YES	YES
