@@ -2455,8 +2455,7 @@ bool show_binlog_cache(THD *thd)
   DBUG_ASSERT(thd->lex->sql_command == SQLCOM_SHOW_BINLOG_CACHE);
 
   uint16 binlog_ver = BINLOG_VERSION;
-  Format_description_log_event *description_event= new
-    Format_description_log_event(binlog_ver); /* Binlog ver 4 by default */
+  Format_description_log_event *description_event;
 
   ulong thread_id_opt = thd->lex->thread_id_opt;
   THD *opt_thd = nullptr;
@@ -2467,6 +2466,8 @@ bool show_binlog_cache(THD *thd)
       DBUG_RETURN(true);
   }
 
+  description_event = new
+    Format_description_log_event(binlog_ver); /* Binlog ver 4 by default */
   SELECT_LEX_UNIT *unit= &thd->lex->unit;
   ha_rows limit_start, limit_end;
 
