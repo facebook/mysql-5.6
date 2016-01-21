@@ -2149,6 +2149,7 @@ BUF_MEM *get_peer_cert_info(THD *thd)
   // Create new X509 buffer abstraction
   BIO *bio = BIO_new(BIO_s_mem());
   if (!bio) {
+    X509_free(cert);
     return NULL;
   }
 
@@ -2156,6 +2157,7 @@ BUF_MEM *get_peer_cert_info(THD *thd)
   int status = X509_print(bio, cert);
   if (status != 1) {
     BIO_free(bio);
+    X509_free(cert);
     return NULL;
   }
 
@@ -2164,6 +2166,7 @@ BUF_MEM *get_peer_cert_info(THD *thd)
   BIO_get_mem_ptr(bio, &bufmem);
   (void) BIO_set_close(bio, BIO_NOCLOSE);
   BIO_free(bio);
+  X509_free(cert);
 
   assert(bufmem->length <= bufmem->max);
   if (bufmem->length) {
