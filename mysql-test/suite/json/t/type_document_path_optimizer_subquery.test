@@ -1781,6 +1781,1149 @@ select max(t6.doc61.int) from t6 use document keys where t6.doc61.int < 5;
 select max(t1.doc11.int) from t1 use document keys where t1.doc11.int < 5;
 
 
+--echo ######################################################################
+--echo ###
+--echo ###   Subqueries
+--echo ###     -- Derived tables (Subqueries in FROM clauses)
+--echo ###
+
+--echo
+--echo ### SINGLE TABLE: t6
+--echo ### PATTERN 1 with int
+--echo
+
+--echo ### USED AS STANDARD
+explain extended
+select * from (select * from t6) as derived;
+
+explain extended
+select * from (select * from t6 use document keys) as derived;
+
+--echo ### USED AS STANDARD
+explain extended
+select * from (select * from t6 where t6.b6 > 9) as derived;
+
+explain extended
+select * from (select * from t6 use document keys where t6.doc61.int > 9) as derived;
+select * from (select * from t6 use document keys where t6.doc61.int > 9) as derived;
+
+--echo ### USED AS STANDARD
+explain extended
+select * from (select * from t6) as derived where derived.b6 > 9;
+
+explain extended
+select * from (select * from t6 use document keys) as derived where derived.doc61.int > 9;
+select * from (select * from t6 use document keys) as derived where derived.doc61.int > 9;
+
+
+--echo
+--echo ### SINGLE TABLE: t6
+--echo ### PATTERN 1 with string
+--echo
+
+--echo ### USED AS STANDARD
+explain extended
+select * from (select * from t6 where t6.str6 > "iii") as derived;
+
+explain extended
+select * from (select * from t6 use document keys where t6.doc61.string > "iii") as derived;
+select * from (select * from t6 use document keys where t6.doc61.string > "iii") as derived;
+
+--echo ### USED AS STANDARD
+explain extended
+select * from (select * from t6) as derived where derived.str6 > "iii";
+
+explain extended
+select * from (select * from t6 use document keys) as derived where derived.doc61.string > "iii";
+select * from (select * from t6 use document keys) as derived where derived.doc61.string > "iii";
+
+
+--echo
+--echo ### SINGLE TABLE: t6
+--echo ### PATTERN 1 with bool
+--echo
+
+--echo ### USED AS STANDARD
+explain extended
+select * from (select * from t6 where t6.b6 is true) as derived;
+
+explain extended
+select * from (select * from t6 use document keys where t6.doc61.bool is true) as derived;
+select * from (select * from t6 use document keys where t6.doc61.bool is true) as derived;
+select * from (select * from t6 use document keys where t6.doc61.bool is not false) as derived;
+
+--echo ### USED AS STANDARD
+explain extended
+select * from (select * from t6) as derived where derived.b6 is true;
+
+explain extended
+select * from (select * from t6 use document keys) as derived where derived.doc61.bool is true;
+select * from (select * from t6 use document keys) as derived where derived.doc61.bool is true;
+select * from (select * from t6 use document keys) as derived where derived.doc61.bool is not false;
+
+
+--echo
+--echo ### SINGLE TABLE: t6
+--echo ### PATTERN 1 with double
+--echo
+
+--echo ### USED AS STANDARD
+explain extended
+select * from (select * from t6) as derived;
+
+explain extended
+select * from (select * from t6 use document keys) as derived;
+
+--echo ### USED AS STANDARD
+explain extended
+select * from (select * from t6 where t6.c6 > 9.9) as derived;
+
+explain extended
+select * from (select * from t6 use document keys where t6.doc61.double > 9.9) as derived;
+select * from (select * from t6 use document keys where t6.doc61.double > 9.9) as derived;
+
+--echo ### USED AS STANDARD
+explain extended
+select * from (select * from t6) as derived where derived.c6 > 9.9;
+
+explain extended
+select * from (select * from t6 use document keys) as derived where derived.doc61.double > 9.9;
+select * from (select * from t6 use document keys) as derived where derived.doc61.double > 9.9;
+
+
+--echo
+--echo ### SINGLE TABLE: t6
+--echo ### PATTERN 2 with int
+--echo
+
+--echo ### USED AS STANDARD
+explain extended
+select derived_t6.b6 from (select * from t6) as derived_t6;
+
+explain extended
+select derived_t6.doc61.int from (select * from t6 use document keys) as derived_t6;
+select derived_t6.doc61.int from (select * from t6 use document keys) as derived_t6;
+
+explain extended
+select derived_t6.doc61.int from (select * from t6) as derived_t6;
+select derived_t6.doc61.int from (select * from t6) as derived_t6;
+
+--echo ### USED AS STANDARD
+explain extended
+select derived_t6.b6 from (select * from t6 where t6.b6 > 9) as derived_t6;
+
+explain extended
+select derived_t6.doc61.int from (select * from t6 use document keys where t6.doc61.int > 9) as derived_t6;
+select derived_t6.doc61.int from (select * from t6 use document keys where t6.doc61.int > 9) as derived_t6;
+
+explain extended
+select derived_t6.doc61.int from (select * from t6 where t6.doc61.int > 9) as derived_t6;
+select derived_t6.doc61.int from (select * from t6 where t6.doc61.int > 9) as derived_t6;
+
+--echo ### USED AS STANDARD
+explain extended
+select derived_t6.b6 from (select * from t6) as derived_t6 where derived_t6.b6 > 9;
+
+explain extended
+select derived_t6.doc61.int from (select * from t6 use document keys) as derived_t6 where derived_t6.doc61.int > 9;
+select derived_t6.doc61.int from (select * from t6 use document keys) as derived_t6 where derived_t6.doc61.int > 9;
+
+explain extended
+select derived_t6.doc61.int from (select * from t6) as derived_t6 where derived_t6.doc61.int > 9;
+select derived_t6.doc61.int from (select * from t6) as derived_t6 where derived_t6.doc61.int > 9;
+
+--echo ### USED AS STANDARD
+explain extended
+select derived_t6.str6 from (select * from t6) as derived_t6;
+
+explain extended
+select derived_t6.doc61.string from (select * from t6 use document keys) as derived_t6;
+select derived_t6.doc61.string from (select * from t6 use document keys) as derived_t6;
+
+explain extended
+select derived_t6.doc61.string from (select * from t6) as derived_t6;
+select derived_t6.doc61.string from (select * from t6) as derived_t6;
+
+
+--echo
+--echo ### SINGLE TABLE: t6
+--echo ### PATTERN 2 with string
+--echo
+
+--echo ### USED AS STANDARD
+explain extended
+select derived_t6.str6 from (select * from t6 where t6.str6 > "iii") as derived_t6;
+
+explain extended
+select derived_t6.doc61.string from (select * from t6 use document keys where t6.doc61.string > "iii") as derived_t6;
+select derived_t6.doc61.string from (select * from t6 use document keys where t6.doc61.string > "iii") as derived_t6;
+
+explain extended
+select derived_t6.doc61.string from (select * from t6 where t6.doc61.string > "iii") as derived_t6;
+select derived_t6.doc61.string from (select * from t6 where t6.doc61.string > "iii") as derived_t6;
+
+--echo ### USED AS STANDARD
+explain extended
+select derived_t6.str6 from (select * from t6) as derived_t6 where derived_t6.str6 > "iii";
+
+explain extended
+select derived_t6.doc61.string from (select * from t6 use document keys) as derived_t6 where derived_t6.doc61.string > "iii";
+select derived_t6.doc61.string from (select * from t6 use document keys) as derived_t6 where derived_t6.doc61.string > "iii";
+
+explain extended
+select derived_t6.doc61.string from (select * from t6) as derived_t6 where derived_t6.doc61.string > "iii";
+select derived_t6.doc61.string from (select * from t6) as derived_t6 where derived_t6.doc61.string > "iii";
+
+
+--echo
+--echo ### SINGLE TABLE: t6
+--echo ### PATTERN 2 with bool
+--echo
+
+--echo ### USED AS STANDARD
+explain extended
+select derived_t6.b6 from (select * from t6 where t6.b6 > true) as derived_t6;
+
+explain extended
+select derived_t6.doc61.bool from (select * from t6 use document keys where t6.doc61.bool > false) as derived_t6;
+select derived_t6.doc61.bool from (select * from t6 use document keys where t6.doc61.bool > false) as derived_t6;
+
+explain extended
+select derived_t6.doc61.bool from (select * from t6 where t6.doc61.bool >= true) as derived_t6;
+select derived_t6.doc61.bool from (select * from t6 where t6.doc61.bool >= true) as derived_t6;
+
+--echo ### USED AS STANDARD
+explain extended
+select derived_t6.b6 from (select * from t6) as derived_t6 where derived_t6.b6 > false;
+
+explain extended
+select derived_t6.doc61.bool from (select * from t6 use document keys) as derived_t6 where derived_t6.doc61.bool >= true;
+select derived_t6.doc61.bool from (select * from t6 use document keys) as derived_t6 where derived_t6.doc61.bool >= true;
+
+explain extended
+select derived_t6.doc61.bool from (select * from t6) as derived_t6 where derived_t6.doc61.bool >= true;
+select derived_t6.doc61.bool from (select * from t6) as derived_t6 where derived_t6.doc61.bool >= true;
+
+
+--echo
+--echo ### SINGLE TABLE: t6
+--echo ### PATTERN 2 with double
+--echo
+
+--echo ### USED AS STANDARD
+explain extended
+select derived_t6.c6 from (select * from t6) as derived_t6;
+
+explain extended
+select derived_t6.doc61.double from (select * from t6 use document keys) as derived_t6;
+select derived_t6.doc61.double from (select * from t6 use document keys) as derived_t6;
+
+explain extended
+select derived_t6.doc61.double from (select * from t6) as derived_t6;
+select derived_t6.doc61.double from (select * from t6) as derived_t6;
+
+--echo ### USED AS STANDARD
+explain extended
+select derived_t6.c6 from (select * from t6 where t6.c6 > 9.9) as derived_t6;
+
+explain extended
+select derived_t6.doc61.double from (select * from t6 use document keys where t6.doc61.double > 9.9) as derived_t6;
+select derived_t6.doc61.double from (select * from t6 use document keys where t6.doc61.double > 9.9) as derived_t6;
+
+explain extended
+select derived_t6.doc61.double from (select * from t6 where t6.doc61.double > 9.9) as derived_t6;
+select derived_t6.doc61.double from (select * from t6 where t6.doc61.double > 9.9) as derived_t6;
+
+--echo ### USED AS STANDARD
+explain extended
+select derived_t6.c6 from (select * from t6) as derived_t6 where derived_t6.c6 > 9.9;
+
+explain extended
+select derived_t6.doc61.double from (select * from t6 use document keys) as derived_t6 where derived_t6.doc61.double > 9.9;
+select derived_t6.doc61.double from (select * from t6 use document keys) as derived_t6 where derived_t6.doc61.double > 9.9;
+
+explain extended
+select derived_t6.doc61.double from (select * from t6) as derived_t6 where derived_t6.doc61.double > 9.9;
+select derived_t6.doc61.double from (select * from t6) as derived_t6 where derived_t6.doc61.double > 9.9;
+
+--echo ### USED AS STANDARD
+explain extended
+select derived_t6.str6 from (select * from t6) as derived_t6;
+
+explain extended
+select derived_t6.doc61.string from (select * from t6 use document keys) as derived_t6;
+select derived_t6.doc61.string from (select * from t6 use document keys) as derived_t6;
+
+explain extended
+select derived_t6.doc61.string from (select * from t6) as derived_t6;
+select derived_t6.doc61.string from (select * from t6) as derived_t6;
+
+
+--echo
+--echo ### SINGLE TABLE: t1
+--echo ### PATTERN 1 with int
+--echo
+
+explain extended
+select * from (select * from t1 use document keys) as derived;
+
+explain extended
+select * from (select * from t1 use document keys where t1.doc11.int > 9) as derived;
+select * from (select * from t1 use document keys where t1.doc11.int > 9) as derived;
+
+explain extended
+select * from (select * from t1 use document keys) as derived where derived.doc11.int > 9;
+select * from (select * from t1 use document keys) as derived where derived.doc11.int > 9;
+
+
+--echo
+--echo ### SINGLE TABLE: t1
+--echo ### PATTERN 1 with string
+--echo
+
+explain extended
+select * from (select * from t1 use document keys where t1.doc11.string > "iii") as derived;
+select * from (select * from t1 use document keys where t1.doc11.string > "iii") as derived;
+
+explain extended
+select * from (select * from t1 use document keys) as derived where derived.doc11.string > "iii";
+select * from (select * from t1 use document keys) as derived where derived.doc11.string > "iii";
+
+--echo
+--echo ### SINGLE TABLE: t1
+--echo ### PATTERN 1 with bool
+--echo
+
+explain extended
+select * from (select * from t1 use document keys where t1.doc11.bool is true) as derived;
+select * from (select * from t1 use document keys where t1.doc11.bool is true) as derived;
+select * from (select * from t1 use document keys where t1.doc11.bool is not false) as derived;
+
+explain extended
+select * from (select * from t1 use document keys) as derived where derived.doc11.bool is true;
+select * from (select * from t1 use document keys) as derived where derived.doc11.bool is true;
+select * from (select * from t1 use document keys) as derived where derived.doc11.bool is not false;
+
+
+--echo
+--echo ### SINGLE TABLE: t1
+--echo ### PATTERN 1 with double
+--echo
+
+explain extended
+select * from (select * from t1 use document keys) as derived;
+
+explain extended
+select * from (select * from t1 use document keys where t1.doc11.double > 9.9) as derived;
+select * from (select * from t1 use document keys where t1.doc11.double > 9.9) as derived;
+
+explain extended
+select * from (select * from t1 use document keys) as derived where derived.doc11.double > 9.9;
+select * from (select * from t1 use document keys) as derived where derived.doc11.double > 9.9;
+
+
+--echo
+--echo ### SINGLE TABLE: t1
+--echo ### PATTERN 2 with int
+--echo
+
+explain extended
+select derived_t1.doc11.int from (select * from t1 use document keys) as derived_t1;
+select derived_t1.doc11.int from (select * from t1 use document keys) as derived_t1;
+
+explain extended
+select derived_t1.doc11.int from (select * from t1) as derived_t1;
+select derived_t1.doc11.int from (select * from t1) as derived_t1;
+
+explain extended
+select derived_t1.doc11.int from (select * from t1 use document keys where t1.doc11.int > 9) as derived_t1;
+select derived_t1.doc11.int from (select * from t1 use document keys where t1.doc11.int > 9) as derived_t1;
+
+explain extended
+select derived_t1.doc11.int from (select * from t1 where t1.doc11.int > 9) as derived_t1;
+select derived_t1.doc11.int from (select * from t1 where t1.doc11.int > 9) as derived_t1;
+
+explain extended
+select derived_t1.doc11.int from (select * from t1 use document keys) as derived_t1 where derived_t1.doc11.int > 9;
+select derived_t1.doc11.int from (select * from t1 use document keys) as derived_t1 where derived_t1.doc11.int > 9;
+
+explain extended
+select derived_t1.doc11.int from (select * from t1) as derived_t1 where derived_t1.doc11.int > 9;
+select derived_t1.doc11.int from (select * from t1) as derived_t1 where derived_t1.doc11.int > 9;
+
+explain extended
+select derived_t1.doc11.string from (select * from t1 use document keys) as derived_t1;
+select derived_t1.doc11.string from (select * from t1 use document keys) as derived_t1;
+
+explain extended
+select derived_t1.doc11.string from (select * from t1) as derived_t1;
+select derived_t1.doc11.string from (select * from t1) as derived_t1;
+
+
+--echo
+--echo ### SINGLE TABLE: t1
+--echo ### PATTERN 2 with string
+--echo
+
+explain extended
+select derived_t1.doc11.string from (select * from t1 use document keys where t1.doc11.string > "iii") as derived_t1;
+select derived_t1.doc11.string from (select * from t1 use document keys where t1.doc11.string > "iii") as derived_t1;
+
+explain extended
+select derived_t1.doc11.string from (select * from t1 where t1.doc11.string > "iii") as derived_t1;
+select derived_t1.doc11.string from (select * from t1 where t1.doc11.string > "iii") as derived_t1;
+
+explain extended
+select derived_t1.doc11.string from (select * from t1 use document keys) as derived_t1 where derived_t1.doc11.string > "iii";
+select derived_t1.doc11.string from (select * from t1 use document keys) as derived_t1 where derived_t1.doc11.string > "iii";
+
+explain extended
+select derived_t1.doc11.string from (select * from t1) as derived_t1 where derived_t1.doc11.string > "iii";
+select derived_t1.doc11.string from (select * from t1) as derived_t1 where derived_t1.doc11.string > "iii";
+
+
+--echo
+--echo ### SINGLE TABLE: t1
+--echo ### PATTERN 2 with bool
+--echo
+
+explain extended
+select derived_t1.doc11.bool from (select * from t1 use document keys where t1.doc11.bool > false) as derived_t1;
+select derived_t1.doc11.bool from (select * from t1 use document keys where t1.doc11.bool > false) as derived_t1;
+
+explain extended
+select derived_t1.doc11.bool from (select * from t1 where t1.doc11.bool >= true) as derived_t1;
+select derived_t1.doc11.bool from (select * from t1 where t1.doc11.bool >= true) as derived_t1;
+
+explain extended
+select derived_t1.doc11.bool from (select * from t1 use document keys) as derived_t1 where derived_t1.doc11.bool >= true;
+select derived_t1.doc11.bool from (select * from t1 use document keys) as derived_t1 where derived_t1.doc11.bool >= true;
+
+explain extended
+select derived_t1.doc11.bool from (select * from t1) as derived_t1 where derived_t1.doc11.bool >= true;
+select derived_t1.doc11.bool from (select * from t1) as derived_t1 where derived_t1.doc11.bool >= true;
+
+
+--echo
+--echo ### SINGLE TABLE: t1
+--echo ### PATTERN 2 with double
+--echo
+
+explain extended
+select derived_t1.doc11.double from (select * from t1 use document keys) as derived_t1;
+select derived_t1.doc11.double from (select * from t1 use document keys) as derived_t1;
+
+explain extended
+select derived_t1.doc11.double from (select * from t1) as derived_t1;
+select derived_t1.doc11.double from (select * from t1) as derived_t1;
+
+explain extended
+select derived_t1.doc11.double from (select * from t1 use document keys where t1.doc11.double > 9.9) as derived_t1;
+select derived_t1.doc11.double from (select * from t1 use document keys where t1.doc11.double > 9.9) as derived_t1;
+
+explain extended
+select derived_t1.doc11.double from (select * from t1 where t1.doc11.double > 9.9) as derived_t1;
+select derived_t1.doc11.double from (select * from t1 where t1.doc11.double > 9.9) as derived_t1;
+
+explain extended
+select derived_t1.doc11.double from (select * from t1 use document keys) as derived_t1 where derived_t1.doc11.double > 9.9;
+select derived_t1.doc11.double from (select * from t1 use document keys) as derived_t1 where derived_t1.doc11.double > 9.9;
+
+explain extended
+select derived_t1.doc11.double from (select * from t1) as derived_t1 where derived_t1.doc11.double > 9.9;
+select derived_t1.doc11.double from (select * from t1) as derived_t1 where derived_t1.doc11.double > 9.9;
+
+explain extended
+select derived_t1.doc11.string from (select * from t1 use document keys) as derived_t1;
+select derived_t1.doc11.string from (select * from t1 use document keys) as derived_t1;
+
+explain extended
+select derived_t1.doc11.string from (select * from t1) as derived_t1;
+select derived_t1.doc11.string from (select * from t1) as derived_t1;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t6 and t7
+--echo ### PATTERN 1 with int
+--echo
+
+--echo ### USE AS STANDARD
+explain extended
+select derived_t7.b7 from t6 join (select * from t7) as derived_t7 on t6.b6 = derived_t7.b7;
+
+explain extended
+select derived_t7.doc71.int from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.int = derived_t7.doc71.int;
+select derived_t7.doc71.int from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.int = derived_t7.doc71.int;
+
+explain extended
+select derived_t7.doc71.int from t6 join (select * from t7) as derived_t7 on t6.doc61.int = derived_t7.doc71.int;
+select derived_t7.doc71.int from t6 join (select * from t7) as derived_t7 on t6.doc61.int = derived_t7.doc71.int;
+
+--echo ### USE AS STANDARD
+explain extended
+select derived_t7.b7 from t6 join (select * from t7 where t7.b7 > 9) as derived_t7 on t6.b6 = derived_t7.b7;
+
+explain extended
+select derived_t7.doc71.int from t6 use document keys join (select * from t7 use document keys where t7.doc71.int > 9) as derived_t7 on t6.doc61.int = derived_t7.doc71.int;
+select derived_t7.doc71.int from t6 use document keys join (select * from t7 use document keys where t7.doc71.int > 9) as derived_t7 on t6.doc61.int = derived_t7.doc71.int;
+
+explain extended
+select derived_t7.doc71.int from t6 join (select * from t7 where t7.doc71.int > 9) as derived_t7 on t6.doc61.int = derived_t7.doc71.int;
+select derived_t7.doc71.int from t6 join (select * from t7 where t7.doc71.int > 9) as derived_t7 on t6.doc61.int = derived_t7.doc71.int;
+
+explain extended
+select derived_t7.doc71.int from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.int = derived_t7.doc71.int and derived_t7.doc71.int > 9;
+select derived_t7.doc71.int from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.int = derived_t7.doc71.int and derived_t7.doc71.int > 9;
+
+explain extended
+select derived_t7.doc71.int from t6 join (select * from t7) as derived_t7 on t6.doc61.int = derived_t7.doc71.int and derived_t7.doc71.int > 9;
+select derived_t7.doc71.int from t6 join (select * from t7) as derived_t7 on t6.doc61.int = derived_t7.doc71.int and derived_t7.doc71.int > 9;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t6 and t7
+--echo ### PATTERN 1 with string
+--echo
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select derived_t7.b7 from t6 join (select * from t7) as derived_t7 on t6.b6 = derived_t7.b7 and derived_t7.b7 > 9;
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select derived_t7.str7 from t6 join (select * from t7) as derived_t7 on t6.str6 = derived_t7.str7 and derived_t7.str7 > "iii";
+
+explain extended
+select derived_t7.doc71.string from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.string = derived_t7.doc71.string and derived_t7.doc71.string > "iii";
+select derived_t7.doc71.string from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.string = derived_t7.doc71.string and derived_t7.doc71.string > "iii";
+
+explain extended
+select derived_t7.doc71.string from t6 join (select * from t7) as derived_t7 on t6.doc61.string = derived_t7.doc71.string and derived_t7.doc71.string > "iii";
+select derived_t7.doc71.string from t6 join (select * from t7) as derived_t7 on t6.doc61.string = derived_t7.doc71.string and derived_t7.doc71.string > "iii";
+
+--echo ### USE AS STANDARD
+explain extended
+select derived_t7.b7 from t6 join (select * from t7 where t7.b7 > 9) as derived_t7 on t6.b6 = derived_t7.b7;
+
+--echo ### USE AS STANDARD
+explain extended
+select derived_t7.str7 from t6 join (select * from t7 where t7.str7 > "iii") as derived_t7 on t6.str6 = derived_t7.str7;
+
+explain extended
+select derived_t7.doc71.string from t6 use document keys join (select * from t7 use document keys where t7.doc71.string > "iii") as derived_t7 on t6.doc61.string = derived_t7.doc71.string;
+select derived_t7.doc71.string from t6 use document keys join (select * from t7 use document keys where t7.doc71.string > "iii") as derived_t7 on t6.doc61.string = derived_t7.doc71.string;
+
+explain extended
+select derived_t7.doc71.string from t6 join (select * from t7 where t7.doc71.string > "iii") as derived_t7 on t6.doc61.string = derived_t7.doc71.string;
+select derived_t7.doc71.string from t6 join (select * from t7 where t7.doc71.string > "iii") as derived_t7 on t6.doc61.string = derived_t7.doc71.string;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t6 and t7
+--echo ### PATTERN 1 with bool
+--echo
+
+--echo ### USE AS STANDARD
+explain extended
+select derived_t7.b7 from t6 join (select * from t7) as derived_t7 on t6.b6 = derived_t7.b7;
+
+explain extended
+select derived_t7.doc71.bool from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool;
+select derived_t7.doc71.bool from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool;
+
+explain extended
+select derived_t7.doc71.bool from t6 join (select * from t7) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool;
+select derived_t7.doc71.bool from t6 join (select * from t7) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool;
+
+--echo ### USE AS STANDARD
+explain extended
+select derived_t7.b7 from t6 join (select * from t7 where t7.b7 > false) as derived_t7 on t6.b6 = derived_t7.b7;
+
+explain extended
+select derived_t7.doc71.bool from t6 use document keys join (select * from t7 use document keys where t7.doc71.bool > false) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool;
+select derived_t7.doc71.bool from t6 use document keys join (select * from t7 use document keys where t7.doc71.bool > false) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool;
+
+explain extended
+select derived_t7.doc71.bool from t6 join (select * from t7 where t7.doc71.bool > false) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool;
+select derived_t7.doc71.bool from t6 join (select * from t7 where t7.doc71.bool > false) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool;
+
+explain extended
+select derived_t7.doc71.bool from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool and derived_t7.doc71.bool > false;
+select derived_t7.doc71.bool from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool and derived_t7.doc71.bool > false;
+
+explain extended
+select derived_t7.doc71.bool from t6 join (select * from t7) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool and derived_t7.doc71.bool > false;
+select derived_t7.doc71.bool from t6 join (select * from t7) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool and derived_t7.doc71.bool > false;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t6 and t7
+--echo ### PATTERN 1 with double
+--echo
+
+--echo ### USE AS STANDARD
+explain extended
+select derived_t7.c7 from t6 join (select * from t7) as derived_t7 on t6.c6 = derived_t7.c7;
+
+explain extended
+select derived_t7.doc71.double from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.double = derived_t7.doc71.double;
+select derived_t7.doc71.double from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.double = derived_t7.doc71.double;
+
+explain extended
+select derived_t7.doc71.double from t6 join (select * from t7) as derived_t7 on t6.doc61.double = derived_t7.doc71.double;
+select derived_t7.doc71.double from t6 join (select * from t7) as derived_t7 on t6.doc61.double = derived_t7.doc71.double;
+
+--echo ### USE AS STANDARD
+explain extended
+select derived_t7.c7 from t6 join (select * from t7 where t7.c7 > 9.9) as derived_t7 on t6.c6 = derived_t7.c7;
+
+explain extended
+select derived_t7.doc71.double from t6 use document keys join (select * from t7 use document keys where t7.doc71.double > 9.9) as derived_t7 on t6.doc61.double = derived_t7.doc71.double;
+select derived_t7.doc71.double from t6 use document keys join (select * from t7 use document keys where t7.doc71.double > 9.9) as derived_t7 on t6.doc61.double = derived_t7.doc71.double;
+
+explain extended
+select derived_t7.doc71.double from t6 join (select * from t7 where t7.doc71.double > 9.9) as derived_t7 on t6.doc61.double = derived_t7.doc71.double;
+select derived_t7.doc71.double from t6 join (select * from t7 where t7.doc71.double > 9.9) as derived_t7 on t6.doc61.double = derived_t7.doc71.double;
+
+explain extended
+select derived_t7.doc71.double from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.double = derived_t7.doc71.double and derived_t7.doc71.double > 9.9;
+select derived_t7.doc71.double from t6 use document keys join (select * from t7 use document keys) as derived_t7 on t6.doc61.double = derived_t7.doc71.double and derived_t7.doc71.double > 9.9;
+
+explain extended
+select derived_t7.doc71.double from t6 join (select * from t7) as derived_t7 on t6.doc61.double = derived_t7.doc71.double and derived_t7.doc71.double > 9.9;
+select derived_t7.doc71.double from t6 join (select * from t7) as derived_t7 on t6.doc61.double = derived_t7.doc71.double and derived_t7.doc71.double > 9.9;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t6 and t7
+--echo ### PATTERN 2 with int
+--echo
+
+--echo ### USE AS STANDARD
+explain extended
+select derived_t7.b7 from t6 join (select t7.b7 from t7 where t7.b7 > 9) as derived_t7 on t6.b6 = derived_t7.b7;
+
+explain extended
+select derived_t7.doc71.int from t6 use document keys join (select t7.doc71.int from t7 use document keys where t7.doc71.int > 9) as derived_t7 on t6.doc61.int = derived_t7.doc71.int;
+select derived_t7.doc71.int from t6 use document keys join (select t7.doc71.int from t7 use document keys where t7.doc71.int > 9) as derived_t7 on t6.doc61.int = derived_t7.doc71.int;
+
+explain extended
+select derived_t7.doc71.int from t6 join (select t7.doc71.int from t7 where t7.doc71.int > 9) as derived_t7 on t6.doc61.int = derived_t7.doc71.int;
+select derived_t7.doc71.int from t6 join (select t7.doc71.int from t7 where t7.doc71.int > 9) as derived_t7 on t6.doc61.int = derived_t7.doc71.int;
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select derived_t7.b7 from t6 join (select t7.b7 from t7) as derived_t7 on t6.b6 = derived_t7.b7 and derived_t7.b7 > 9;
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select derived_t7.str7 from t6 join (select t7.str7 from t7) as derived_t7 on t6.str6 = derived_t7.str7 and derived_t7.str7 > "iii";
+
+explain extended
+select derived_t7.doc71.int from t6 use document keys join (select t7.doc71.int from t7 use document keys) as derived_t7 on t6.doc61.int = derived_t7.doc71.int and derived_t7.doc71.int > 9;
+select derived_t7.doc71.int from t6 use document keys join (select t7.doc71.int from t7 use document keys) as derived_t7 on t6.doc61.int = derived_t7.doc71.int and derived_t7.doc71.int > 9;
+
+explain extended
+select derived_t7.doc71.int from t6 join (select t7.doc71.int from t7) as derived_t7 on t6.doc61.int = derived_t7.doc71.int and derived_t7.doc71.int > 9;
+select derived_t7.doc71.int from t6 join (select t7.doc71.int from t7) as derived_t7 on t6.doc61.int = derived_t7.doc71.int and derived_t7.doc71.int > 9;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t6 and t7
+--echo ### PATTERN 2 with string
+--echo
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select derived_t7.str7 from t6 join (select t7.str7 from t7 where t7.str7 > "iii") as derived_t7 on t6.str6 = derived_t7.str7;
+
+explain extended
+select derived_t7.doc71.string from t6 use document keys join (select t7.doc71.string from t7 use document keys where t7.doc71.string > "iii") as derived_t7 on t6.doc61.string = derived_t7.doc71.string;
+select derived_t7.doc71.string from t6 use document keys join (select t7.doc71.string from t7 use document keys where t7.doc71.string > "iii") as derived_t7 on t6.doc61.string = derived_t7.doc71.string;
+
+explain extended
+select derived_t7.doc71.string from t6 join (select t7.doc71.string from t7 where t7.doc71.string > "iii") as derived_t7 on t6.doc61.string = derived_t7.doc71.string;
+select derived_t7.doc71.string from t6 join (select t7.doc71.string from t7 where t7.doc71.string > "iii") as derived_t7 on t6.doc61.string = derived_t7.doc71.string;
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select derived_t7.str7 from t6 join (select t7.str7 from t7) as derived_t7 on t6.str6 = derived_t7.str7 and derived_t7.str7 > "iii";
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select derived_t7.str7 from t6 join (select t7.str7 from t7) as derived_t7 on t6.str6 = derived_t7.str7 and derived_t7.str7 > "iii";
+
+explain extended
+select derived_t7.doc71.string from t6 use document keys join (select t7.doc71.string from t7 use document keys) as derived_t7 on t6.doc61.string = derived_t7.doc71.string and derived_t7.doc71.string > "iii";
+select derived_t7.doc71.string from t6 use document keys join (select t7.doc71.string from t7 use document keys) as derived_t7 on t6.doc61.string = derived_t7.doc71.string and derived_t7.doc71.string > "iii";
+
+explain extended
+select derived_t7.doc71.string from t6 join (select t7.doc71.string from t7) as derived_t7 on t6.doc61.string = derived_t7.doc71.string and derived_t7.doc71.string > "iii";
+select derived_t7.doc71.string from t6 join (select t7.doc71.string from t7) as derived_t7 on t6.doc61.string = derived_t7.doc71.string and derived_t7.doc71.string > "iii";
+
+
+--echo
+--echo ### JOIN TWO TABLES: t6 and t7
+--echo ### PATTERN 2 with bool
+--echo
+
+--echo ### USE AS STANDARD
+explain extended
+select derived_t7.b7 from t6 join (select t7.b7 from t7 where t7.b7 > false) as derived_t7 on t6.b6 = derived_t7.b7;
+
+explain extended
+select derived_t7.doc71.bool from t6 use document keys join (select t7.doc71.bool from t7 use document keys where t7.doc71.bool > false) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool;
+select derived_t7.doc71.bool from t6 use document keys join (select t7.doc71.bool from t7 use document keys where t7.doc71.bool > false) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool;
+
+explain extended
+select derived_t7.doc71.bool from t6 join (select t7.doc71.bool from t7 where t7.doc71.bool > false) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool;
+select derived_t7.doc71.bool from t6 join (select t7.doc71.bool from t7 where t7.doc71.bool > false) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool;
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select derived_t7.b7 from t6 join (select t7.b7 from t7) as derived_t7 on t6.b6 = derived_t7.b7 and derived_t7.b7 > false;
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select derived_t7.str7 from t6 join (select t7.str7 from t7) as derived_t7 on t6.str6 = derived_t7.str7 and derived_t7.str7 > "iii";
+
+explain extended
+select derived_t7.doc71.bool from t6 use document keys join (select t7.doc71.bool from t7 use document keys) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool and derived_t7.doc71.bool > false;
+select derived_t7.doc71.bool from t6 use document keys join (select t7.doc71.bool from t7 use document keys) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool and derived_t7.doc71.bool > false;
+
+explain extended
+select derived_t7.doc71.bool from t6 join (select t7.doc71.bool from t7) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool and derived_t7.doc71.bool > false;
+select derived_t7.doc71.bool from t6 join (select t7.doc71.bool from t7) as derived_t7 on t6.doc61.bool = derived_t7.doc71.bool and derived_t7.doc71.bool > false;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t6 and t7
+--echo ### PATTERN 2 with double
+--echo
+
+--echo ### USE AS STANDARD
+explain extended
+select derived_t7.c7 from t6 join (select t7.c7 from t7 where t7.c7 > 9.9) as derived_t7 on t6.c6 = derived_t7.c7;
+
+explain extended
+select derived_t7.doc71.double from t6 use document keys join (select t7.doc71.double from t7 use document keys where t7.doc71.double > 9.9) as derived_t7 on t6.doc61.double = derived_t7.doc71.double;
+select derived_t7.doc71.double from t6 use document keys join (select t7.doc71.double from t7 use document keys where t7.doc71.double > 9.9) as derived_t7 on t6.doc61.double = derived_t7.doc71.double;
+
+explain extended
+select derived_t7.doc71.double from t6 join (select t7.doc71.double from t7 where t7.doc71.double > 9.9) as derived_t7 on t6.doc61.double = derived_t7.doc71.double;
+select derived_t7.doc71.double from t6 join (select t7.doc71.double from t7 where t7.doc71.double > 9.9) as derived_t7 on t6.doc61.double = derived_t7.doc71.double;
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select derived_t7.c7 from t6 join (select t7.c7 from t7) as derived_t7 on t6.c6 = derived_t7.c7 and derived_t7.c7 > 9.9;
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select derived_t7.str7 from t6 join (select t7.str7 from t7) as derived_t7 on t6.str6 = derived_t7.str7 and derived_t7.str7 > "iii";
+
+explain extended
+select derived_t7.doc71.double from t6 use document keys join (select t7.doc71.double from t7 use document keys) as derived_t7 on t6.doc61.double = derived_t7.doc71.double and derived_t7.doc71.double > 9.9;
+select derived_t7.doc71.double from t6 use document keys join (select t7.doc71.double from t7 use document keys) as derived_t7 on t6.doc61.double = derived_t7.doc71.double and derived_t7.doc71.double > 9.9;
+
+explain extended
+select derived_t7.doc71.double from t6 join (select t7.doc71.double from t7) as derived_t7 on t6.doc61.double = derived_t7.doc71.double and derived_t7.doc71.double > 9.9;
+select derived_t7.doc71.double from t6 join (select t7.doc71.double from t7) as derived_t7 on t6.doc61.double = derived_t7.doc71.double and derived_t7.doc71.double > 9.9;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t1 and t2
+--echo ### PATTERN 1 with int
+--echo
+
+explain extended
+select derived_t2.doc21.int from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.int = derived_t2.doc21.int;
+select derived_t2.doc21.int from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.int = derived_t2.doc21.int;
+
+explain extended
+select derived_t2.doc21.int from t1 join (select * from t2) as derived_t2 on t1.doc11.int = derived_t2.doc21.int;
+select derived_t2.doc21.int from t1 join (select * from t2) as derived_t2 on t1.doc11.int = derived_t2.doc21.int;
+
+explain extended
+select derived_t2.doc21.int from t1 use document keys join (select * from t2 use document keys where t2.doc21.int > 9) as derived_t2 on t1.doc11.int = derived_t2.doc21.int;
+select derived_t2.doc21.int from t1 use document keys join (select * from t2 use document keys where t2.doc21.int > 9) as derived_t2 on t1.doc11.int = derived_t2.doc21.int;
+
+explain extended
+select derived_t2.doc21.int from t1 join (select * from t2 where t2.doc21.int > 9) as derived_t2 on t1.doc11.int = derived_t2.doc21.int;
+select derived_t2.doc21.int from t1 join (select * from t2 where t2.doc21.int > 9) as derived_t2 on t1.doc11.int = derived_t2.doc21.int;
+
+explain extended
+select derived_t2.doc21.int from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.int = derived_t2.doc21.int and derived_t2.doc21.int > 9;
+select derived_t2.doc21.int from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.int = derived_t2.doc21.int and derived_t2.doc21.int > 9;
+
+explain extended
+select derived_t2.doc21.int from t1 join (select * from t2) as derived_t2 on t1.doc11.int = derived_t2.doc21.int and derived_t2.doc21.int > 9;
+select derived_t2.doc21.int from t1 join (select * from t2) as derived_t2 on t1.doc11.int = derived_t2.doc21.int and derived_t2.doc21.int > 9;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t1 and t2
+--echo ### PATTERN 1 with string
+--echo
+
+explain extended
+select derived_t2.doc21.string from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.string = derived_t2.doc21.string and derived_t2.doc21.string > "iii";
+select derived_t2.doc21.string from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.string = derived_t2.doc21.string and derived_t2.doc21.string > "iii";
+
+explain extended
+select derived_t2.doc21.string from t1 join (select * from t2) as derived_t2 on t1.doc11.string = derived_t2.doc21.string and derived_t2.doc21.string > "iii";
+select derived_t2.doc21.string from t1 join (select * from t2) as derived_t2 on t1.doc11.string = derived_t2.doc21.string and derived_t2.doc21.string > "iii";
+
+explain extended
+select derived_t2.doc21.string from t1 use document keys join (select * from t2 use document keys where t2.doc21.string > "iii") as derived_t2 on t1.doc11.string = derived_t2.doc21.string;
+select derived_t2.doc21.string from t1 use document keys join (select * from t2 use document keys where t2.doc21.string > "iii") as derived_t2 on t1.doc11.string = derived_t2.doc21.string;
+
+explain extended
+select derived_t2.doc21.string from t1 join (select * from t2 where t2.doc21.string > "iii") as derived_t2 on t1.doc11.string = derived_t2.doc21.string;
+select derived_t2.doc21.string from t1 join (select * from t2 where t2.doc21.string > "iii") as derived_t2 on t1.doc11.string = derived_t2.doc21.string;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t1 and t2
+--echo ### PATTERN 1 with bool
+--echo
+
+explain extended
+select derived_t2.doc21.bool from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool;
+select derived_t2.doc21.bool from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool;
+
+explain extended
+select derived_t2.doc21.bool from t1 join (select * from t2) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool;
+select derived_t2.doc21.bool from t1 join (select * from t2) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool;
+
+explain extended
+select derived_t2.doc21.bool from t1 use document keys join (select * from t2 use document keys where t2.doc21.bool > false) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool;
+select derived_t2.doc21.bool from t1 use document keys join (select * from t2 use document keys where t2.doc21.bool > false) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool;
+
+explain extended
+select derived_t2.doc21.bool from t1 join (select * from t2 where t2.doc21.bool > false) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool;
+select derived_t2.doc21.bool from t1 join (select * from t2 where t2.doc21.bool > false) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool;
+
+explain extended
+select derived_t2.doc21.bool from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool and derived_t2.doc21.bool > false;
+select derived_t2.doc21.bool from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool and derived_t2.doc21.bool > false;
+
+explain extended
+select derived_t2.doc21.bool from t1 join (select * from t2) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool and derived_t2.doc21.bool > false;
+select derived_t2.doc21.bool from t1 join (select * from t2) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool and derived_t2.doc21.bool > false;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t1 and t2
+--echo ### PATTERN 1 with double
+--echo
+
+explain extended
+select derived_t2.doc21.double from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.double = derived_t2.doc21.double;
+select derived_t2.doc21.double from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.double = derived_t2.doc21.double;
+
+explain extended
+select derived_t2.doc21.double from t1 join (select * from t2) as derived_t2 on t1.doc11.double = derived_t2.doc21.double;
+select derived_t2.doc21.double from t1 join (select * from t2) as derived_t2 on t1.doc11.double = derived_t2.doc21.double;
+
+explain extended
+select derived_t2.doc21.double from t1 use document keys join (select * from t2 use document keys where t2.doc21.double > 9.9) as derived_t2 on t1.doc11.double = derived_t2.doc21.double;
+select derived_t2.doc21.double from t1 use document keys join (select * from t2 use document keys where t2.doc21.double > 9.9) as derived_t2 on t1.doc11.double = derived_t2.doc21.double;
+
+explain extended
+select derived_t2.doc21.double from t1 join (select * from t2 where t2.doc21.double > 9.9) as derived_t2 on t1.doc11.double = derived_t2.doc21.double;
+select derived_t2.doc21.double from t1 join (select * from t2 where t2.doc21.double > 9.9) as derived_t2 on t1.doc11.double = derived_t2.doc21.double;
+
+explain extended
+select derived_t2.doc21.double from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.double = derived_t2.doc21.double and derived_t2.doc21.double > 9.9;
+select derived_t2.doc21.double from t1 use document keys join (select * from t2 use document keys) as derived_t2 on t1.doc11.double = derived_t2.doc21.double and derived_t2.doc21.double > 9.9;
+
+explain extended
+select derived_t2.doc21.double from t1 join (select * from t2) as derived_t2 on t1.doc11.double = derived_t2.doc21.double and derived_t2.doc21.double > 9.9;
+select derived_t2.doc21.double from t1 join (select * from t2) as derived_t2 on t1.doc11.double = derived_t2.doc21.double and derived_t2.doc21.double > 9.9;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t1 and t2
+--echo ### PATTERN 2 with int
+--echo
+
+explain extended
+select derived_t2.doc21.int from t1 use document keys join (select t2.doc21.int from t2 use document keys where t2.doc21.int > 9) as derived_t2 on t1.doc11.int = derived_t2.doc21.int;
+select derived_t2.doc21.int from t1 use document keys join (select t2.doc21.int from t2 use document keys where t2.doc21.int > 9) as derived_t2 on t1.doc11.int = derived_t2.doc21.int;
+
+explain extended
+select derived_t2.doc21.int from t1 join (select t2.doc21.int from t2 where t2.doc21.int > 9) as derived_t2 on t1.doc11.int = derived_t2.doc21.int;
+select derived_t2.doc21.int from t1 join (select t2.doc21.int from t2 where t2.doc21.int > 9) as derived_t2 on t1.doc11.int = derived_t2.doc21.int;
+
+explain extended
+select derived_t2.doc21.int from t1 use document keys join (select t2.doc21.int from t2 use document keys) as derived_t2 on t1.doc11.int = derived_t2.doc21.int and derived_t2.doc21.int > 9;
+select derived_t2.doc21.int from t1 use document keys join (select t2.doc21.int from t2 use document keys) as derived_t2 on t1.doc11.int = derived_t2.doc21.int and derived_t2.doc21.int > 9;
+
+explain extended
+select derived_t2.doc21.int from t1 join (select t2.doc21.int from t2) as derived_t2 on t1.doc11.int = derived_t2.doc21.int and derived_t2.doc21.int > 9;
+select derived_t2.doc21.int from t1 join (select t2.doc21.int from t2) as derived_t2 on t1.doc11.int = derived_t2.doc21.int and derived_t2.doc21.int > 9;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t1 and t2
+--echo ### PATTERN 2 with string
+--echo
+
+explain extended
+select derived_t2.doc21.string from t1 use document keys join (select t2.doc21.string from t2 use document keys where t2.doc21.string > "iii") as derived_t2 on t1.doc11.string = derived_t2.doc21.string;
+select derived_t2.doc21.string from t1 use document keys join (select t2.doc21.string from t2 use document keys where t2.doc21.string > "iii") as derived_t2 on t1.doc11.string = derived_t2.doc21.string;
+
+explain extended
+select derived_t2.doc21.string from t1 join (select t2.doc21.string from t2 where t2.doc21.string > "iii") as derived_t2 on t1.doc11.string = derived_t2.doc21.string;
+select derived_t2.doc21.string from t1 join (select t2.doc21.string from t2 where t2.doc21.string > "iii") as derived_t2 on t1.doc11.string = derived_t2.doc21.string;
+
+explain extended
+select derived_t2.doc21.string from t1 use document keys join (select t2.doc21.string from t2 use document keys) as derived_t2 on t1.doc11.string = derived_t2.doc21.string and derived_t2.doc21.string > "iii";
+select derived_t2.doc21.string from t1 use document keys join (select t2.doc21.string from t2 use document keys) as derived_t2 on t1.doc11.string = derived_t2.doc21.string and derived_t2.doc21.string > "iii";
+
+explain extended
+select derived_t2.doc21.string from t1 join (select t2.doc21.string from t2) as derived_t2 on t1.doc11.string = derived_t2.doc21.string and derived_t2.doc21.string > "iii";
+select derived_t2.doc21.string from t1 join (select t2.doc21.string from t2) as derived_t2 on t1.doc11.string = derived_t2.doc21.string and derived_t2.doc21.string > "iii";
+
+
+--echo
+--echo ### JOIN TWO TABLES: t1 and t2
+--echo ### PATTERN 2 with bool
+--echo
+
+explain extended
+select derived_t2.doc21.bool from t1 use document keys join (select t2.doc21.bool from t2 use document keys where t2.doc21.bool > false) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool;
+select derived_t2.doc21.bool from t1 use document keys join (select t2.doc21.bool from t2 use document keys where t2.doc21.bool > false) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool;
+
+explain extended
+select derived_t2.doc21.bool from t1 join (select t2.doc21.bool from t2 where t2.doc21.bool > false) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool;
+select derived_t2.doc21.bool from t1 join (select t2.doc21.bool from t2 where t2.doc21.bool > false) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool;
+
+explain extended
+select derived_t2.doc21.bool from t1 use document keys join (select t2.doc21.bool from t2 use document keys) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool and derived_t2.doc21.bool > false;
+select derived_t2.doc21.bool from t1 use document keys join (select t2.doc21.bool from t2 use document keys) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool and derived_t2.doc21.bool > false;
+
+explain extended
+select derived_t2.doc21.bool from t1 join (select t2.doc21.bool from t2) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool and derived_t2.doc21.bool > false;
+select derived_t2.doc21.bool from t1 join (select t2.doc21.bool from t2) as derived_t2 on t1.doc11.bool = derived_t2.doc21.bool and derived_t2.doc21.bool > false;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t1 and t2
+--echo ### PATTERN 2 with double
+--echo
+
+explain extended
+select derived_t2.doc21.double from t1 use document keys join (select t2.doc21.double from t2 use document keys where t2.doc21.double > 9.9) as derived_t2 on t1.doc11.double = derived_t2.doc21.double;
+select derived_t2.doc21.double from t1 use document keys join (select t2.doc21.double from t2 use document keys where t2.doc21.double > 9.9) as derived_t2 on t1.doc11.double = derived_t2.doc21.double;
+
+explain extended
+select derived_t2.doc21.double from t1 join (select t2.doc21.double from t2 where t2.doc21.double > 9.9) as derived_t2 on t1.doc11.double = derived_t2.doc21.double;
+select derived_t2.doc21.double from t1 join (select t2.doc21.double from t2 where t2.doc21.double > 9.9) as derived_t2 on t1.doc11.double = derived_t2.doc21.double;
+
+explain extended
+select derived_t2.doc21.double from t1 use document keys join (select t2.doc21.double from t2 use document keys) as derived_t2 on t1.doc11.double = derived_t2.doc21.double and derived_t2.doc21.double > 9.9;
+select derived_t2.doc21.double from t1 use document keys join (select t2.doc21.double from t2 use document keys) as derived_t2 on t1.doc11.double = derived_t2.doc21.double and derived_t2.doc21.double > 9.9;
+
+explain extended
+select derived_t2.doc21.double from t1 join (select t2.doc21.double from t2) as derived_t2 on t1.doc11.double = derived_t2.doc21.double and derived_t2.doc21.double > 9.9;
+select derived_t2.doc21.double from t1 join (select t2.doc21.double from t2) as derived_t2 on t1.doc11.double = derived_t2.doc21.double and derived_t2.doc21.double > 9.9;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t6 and t7
+--echo ### PATTERN 3 with int/string
+--echo
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select *
+from t6, (select sum(t7.b7) as b7_sum, t7.str7
+          from t7
+          group by t7.str7
+          having t7.str7 > 'fff') as derived_t7
+where t6.b6 < derived_t7.b7_sum and t6.b6 > 10;
+
+explain extended
+select *
+from t6 use document keys, (select sum(t7.doc71.int) as doc71_int_sum, t7.doc71.string
+          from t7 use document keys
+          group by t7.doc71.string
+          having t7.doc71.string > 'fff') as derived_t7
+where t6.doc61.int < derived_t7.doc71_int_sum and t6.doc61.int > 10;
+
+select *
+from t6 use document keys, (select sum(t7.doc71.int) as doc71_int_sum, t7.doc71.string
+          from t7 use document keys
+          group by t7.doc71.string
+          having t7.doc71.string > 'fff') as derived_t7
+where t6.doc61.int < derived_t7.doc71_int_sum and t6.doc61.int > 10;
+
+explain extended
+select *
+from t6, (select sum(t7.doc71.int) as doc71_int_sum, t7.doc71.string
+          from t7
+          group by t7.doc71.string
+          having t7.doc71.string > 'fff') as derived_t7
+where t6.doc61.int < derived_t7.doc71_int_sum and t6.doc61.int > 10;
+
+select *
+from t6, (select sum(t7.doc71.int) as doc71_int_sum, t7.doc71.string
+          from t7
+          group by t7.doc71.string
+          having t7.doc71.string > 'fff') as derived_t7
+where t6.doc61.int < derived_t7.doc71_int_sum and t6.doc61.int > 10;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t6 and t7
+--echo ### PATTERN 3 with bool/string
+--echo
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select *
+from t6, (select sum(t7.b7) as b7_sum, t7.str7
+          from t7
+          group by t7.str7
+          having t7.str7 > 'fff') as derived_t7
+where t6.b6 < derived_t7.b7_sum and t6.b6 > false;
+
+explain extended
+select *
+from t6 use document keys, (select sum(t7.doc71.bool) as doc71_bool_sum, t7.doc71.string
+          from t7 use document keys
+          group by t7.doc71.string
+          having t7.doc71.string > 'fff') as derived_t7
+where t6.doc61.bool < derived_t7.doc71_bool_sum and t6.doc61.bool > false;
+
+select *
+from t6 use document keys, (select sum(t7.doc71.bool) as doc71_bool_sum, t7.doc71.string
+          from t7 use document keys
+          group by t7.doc71.string
+          having t7.doc71.string > 'fff') as derived_t7
+where t6.doc61.bool < derived_t7.doc71_bool_sum and t6.doc61.bool > false;
+
+explain extended
+select *
+from t6, (select sum(t7.doc71.bool) as doc71_bool_sum, t7.doc71.string
+          from t7
+          group by t7.doc71.string
+          having t7.doc71.string > 'fff') as derived_t7
+where t6.doc61.bool < derived_t7.doc71_bool_sum and t6.doc61.bool > false;
+
+select *
+from t6, (select sum(t7.doc71.bool) as doc71_bool_sum, t7.doc71.string
+          from t7
+          group by t7.doc71.string
+          having t7.doc71.string > 'fff') as derived_t7
+where t6.doc61.bool < derived_t7.doc71_bool_sum and t6.doc61.bool > false;
+
+--echo
+--echo ### JOIN TWO TABLES: t6 and t7
+--echo ### PATTERN 3 with double/string
+--echo
+
+--echo ### USE AS REFERENCE and STANDARD
+explain extended
+select *
+from t6, (select sum(t7.c7) as c7_sum, t7.str7
+          from t7
+          group by t7.str7
+          having t7.str7 > 'fff') as derived_t7
+where t6.doc61.double < derived_t7.c7_sum and t6.c6 > 10.1;
+
+explain extended
+select *
+from t6 use document keys, (select sum(t7.doc71.double) as doc71_double_sum, t7.doc71.string
+          from t7 use document keys
+          group by t7.doc71.string
+          having t7.doc71.string > 'fff') as derived_t7
+where t6.doc61.double < derived_t7.doc71_double_sum and t6.doc61.double > 10.1;
+
+select *
+from t6 use document keys, (select sum(t7.doc71.double) as doc71_double_sum, t7.doc71.string
+          from t7 use document keys
+          group by t7.doc71.string
+          having t7.doc71.string > 'fff') as derived_t7
+where t6.doc61.double < derived_t7.doc71_double_sum and t6.doc61.double > 10.1;
+
+explain extended
+select *
+from t6, (select sum(t7.doc71.double) as doc71_double_sum, t7.doc71.string
+          from t7
+          group by t7.doc71.string
+          having t7.doc71.string > 'fff') as derived_t7
+where t6.doc61.double < derived_t7.doc71_double_sum and t6.doc61.double > 10.1;
+
+select *
+from t6, (select sum(t7.doc71.double) as doc71_double_sum, t7.doc71.string
+          from t7
+          group by t7.doc71.string
+          having t7.doc71.string > 'fff') as derived_t7
+where t6.doc61.double < derived_t7.doc71_double_sum and t6.doc61.double > 10.1;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t1 and t2
+--echo ### PATTERN 3 with int/string
+--echo
+
+select *
+from t1 use document keys, (select sum(t2.doc21.int) as doc21_int_sum, t2.doc21.string
+          from t2 use document keys
+          group by t2.doc21.string
+          having t2.doc21.string > 'a') as derived_t2
+where t1.b1 < derived_t2.doc21_int_sum and t1.doc11.int > 5;
+
+select *
+from t1, (select sum(t2.doc21.int) as doc21_int_sum, t2.doc21.string
+          from t2
+          group by t2.doc21.string
+          having t2.doc21.string > 'a') as derived_t2
+where t1.b1 < derived_t2.doc21_int_sum and t1.doc11.int > 5;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t1 and t2
+--echo ### PATTERN 3 with bool/string
+--echo
+
+select *
+from t1 use document keys, (select sum(t2.doc21.bool) as doc21_bool_sum, t2.doc21.string
+          from t2 use document keys
+          group by t2.doc21.string
+          having t2.doc21.string > 'a') as derived_t2
+where t1.b1 < derived_t2.doc21_bool_sum and t1.doc11.bool > false;
+
+select *
+from t1, (select sum(t2.doc21.bool) as doc21_bool_sum, t2.doc21.string
+          from t2
+          group by t2.doc21.string
+          having t2.doc21.string > 'a') as derived_t2
+where t1.b1 < derived_t2.doc21_bool_sum and t1.doc11.bool > false;
+
+
+--echo
+--echo ### JOIN TWO TABLES: t1 and t2
+--echo ### PATTERN 3 with double/string
+--echo
+
+select *
+from t1 use document keys, (select sum(t2.doc21.double) as doc21_double_sum, t2.doc21.string
+          from t2 use document keys
+          group by t2.doc21.string
+          having t2.doc21.string > 'a') as derived_t2
+where t1.doc11.double < derived_t2.doc21_double_sum and t1.doc11.double > 5.5;
+
+select *
+from t1 use document keys, (select sum(t2.doc21.double) as doc21_double_sum, t2.doc21.string
+          from t2 use document keys
+          group by t2.doc21.string
+          having t2.doc21.string > 'a') as derived_t2
+where t1.doc11.double < derived_t2.doc21_double_sum and t1.doc11.double > 5.5;
+
+
 #############################################################################
 ###
 ### Clean up
