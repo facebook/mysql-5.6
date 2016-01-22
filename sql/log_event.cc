@@ -14660,7 +14660,7 @@ my_off_t find_gtid_pos_in_log(const char* log_name, const Gtid &gtid,
   IO_CACHE log;
   File file = -1;
   Log_event *ev = NULL;
-  my_off_t pos = BIN_LOG_HEADER_SIZE;
+  my_off_t pos = 0;
   /*
     Create a Format_description_log_event that is used to read the
     first event of the log.
@@ -14692,6 +14692,7 @@ my_off_t find_gtid_pos_in_log(const char* log_name, const Gtid &gtid,
 #endif
 
   my_b_seek(&log, BIN_LOG_HEADER_SIZE);
+  pos = BIN_LOG_HEADER_SIZE;
 #ifndef MYSQL_CLIENT
   while ((ev = Log_event::read_log_event(&log, 0, fd_ev_p, false, NULL)) !=
          NULL)
@@ -14704,12 +14705,26 @@ my_off_t find_gtid_pos_in_log(const char* log_name, const Gtid &gtid,
       Gtid_log_event *gtid_ev = (Gtid_log_event *) ev;
       if (gtid_ev->get_sidno(sid_map) == gtid.sidno &&
             gtid_ev->get_gno() == gtid.gno)
-        DBUG_RETURN(pos);
+        break;
     }
-    if (ev != fd_ev_p)
-      delete ev;
+    DBUG_ASSERT(ev != fd_ev_p);
+    delete ev;
     pos = my_b_tell(&log);
   }
+
+  /* Event was not found in above while loop.  */
+  if (ev == NULL)
+    pos = 0;
 err:
-  DBUG_RETURN(0);
+  if (file >= 0)
+  {
+    end_io_cache(&log);
+#ifndef MYSQL_CLIENT
+    mysql_file_close(file, MYF(MY_WME));
+#else
+    my_close(file, MYF(MY_WME));
+#endif
+  }
+  delete ev;
+  DBUG_RETURN(pos);
 }
