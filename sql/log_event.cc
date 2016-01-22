@@ -14704,12 +14704,31 @@ my_off_t find_gtid_pos_in_log(const char* log_name, const Gtid &gtid,
       Gtid_log_event *gtid_ev = (Gtid_log_event *) ev;
       if (gtid_ev->get_sidno(sid_map) == gtid.sidno &&
             gtid_ev->get_gno() == gtid.gno)
+      {
+        end_io_cache(&log);
+#ifndef MYSQL_CLIENT
+        mysql_file_close(file, MYF(MY_WME));
+#else
+        my_close(file, MYF(MY_WME));
+#endif
+        delete ev;
         DBUG_RETURN(pos);
+      }
     }
-    if (ev != fd_ev_p)
-      delete ev;
+    DBUG_ASSERT(ev != fd_ev_p);
+    delete ev;
     pos = my_b_tell(&log);
   }
 err:
+  if (file >= 0)
+  {
+    end_io_cache(&log);
+#ifndef MYSQL_CLIENT
+    mysql_file_close(file, MYF(MY_WME));
+#else
+    my_close(file, MYF(MY_WME));
+#endif
+  }
+  delete ev;
   DBUG_RETURN(0);
 }
