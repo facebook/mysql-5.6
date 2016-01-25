@@ -24,8 +24,8 @@
 #include "./ha_rocksdb.h"
 
 /* C++ standard header files */
-#include <map>
 #include <regex>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -110,15 +110,12 @@ Cf_options rocksdb_cf_options_map;
 handlerton *rocksdb_hton;
 
 rocksdb::TransactionDB *rdb= NULL;
-class MyRocksSnapshot;
 
 static std::shared_ptr<rocksdb::Statistics> rocksdb_stats;
 static std::unique_ptr<rocksdb::Env> flashcache_aware_env;
 static std::shared_ptr<MyRocksTablePropertiesCollectorFactory>
   properties_collector_factory;
 static rdb_perf_context_shared global_perf_context;
-static std::map<const rocksdb::Snapshot*, std::shared_ptr<MyRocksSnapshot>>
-  snapshot_map;
 static std::vector<std::string> split(const std::string& input,
                                       char               delimiter);
 
@@ -140,7 +137,7 @@ static HASH rocksdb_open_tables;
 mysql_mutex_t rocksdb_mutex;
 mysql_mutex_t background_mutex;
 mysql_mutex_t stop_cond_mutex;
-mysql_mutex_t snapshot_mutex;
+mysql_mutex_t trx_list_mutex;
 mysql_mutex_t collation_exception_list_mutex;
 mysql_cond_t stop_cond;
 struct background_thread_control {
@@ -1042,7 +1039,7 @@ static PSI_stage_info *all_rocksdb_stages[]=
 static PSI_mutex_key ex_key_mutex_example, ex_key_mutex_ROCKSDB_SHARE_mutex,
   key_mutex_background, key_mutex_stop_background,
   key_mutex_drop_index, key_drop_index_interrupt_mutex,
-  key_mutex_snapshot, key_mutex_collation_exception_list,
+  key_mutex_trx_list, key_mutex_collation_exception_list,
   key_mutex_sysvar;
 
 static PSI_mutex_info all_rocksdb_mutexes[]=
@@ -1053,7 +1050,7 @@ static PSI_mutex_info all_rocksdb_mutexes[]=
   { &key_mutex_stop_background, "stop background", PSI_FLAG_GLOBAL},
   { &key_mutex_drop_index, "drop index", PSI_FLAG_GLOBAL},
   { &key_drop_index_interrupt_mutex, "drop index interrupt", PSI_FLAG_GLOBAL},
-  { &key_mutex_snapshot, "snapshot", PSI_FLAG_GLOBAL},
+  { &key_mutex_trx_list, "trx_list", PSI_FLAG_GLOBAL},
   { &key_mutex_collation_exception_list, "collation_exception_list",
       PSI_FLAG_GLOBAL},
   { &key_mutex_sysvar, "setting sysvar", PSI_FLAG_GLOBAL},
@@ -1099,6 +1096,40 @@ static void init_rocksdb_psi_keys()
 Primary_key_comparator rocksdb_pk_comparator;
 Reverse_comparator     rocksdb_rev_pk_comparator;
 
+class Rdb_transaction;
+std::multiset<Rdb_transaction*> trx_list;
+
+class TransactionListWalker
+{
+ public:
+  virtual ~TransactionListWalker() {}
+  virtual void processTransaction(const Rdb_transaction*) = 0;
+};
+
+static void add_trx_to_list(Rdb_transaction* trx)
+{
+  mysql_mutex_lock(&trx_list_mutex);
+  trx_list.insert(trx);
+  mysql_mutex_unlock(&trx_list_mutex);
+}
+
+static void remove_trx_from_list(Rdb_transaction* trx)
+{
+  mysql_mutex_lock(&trx_list_mutex);
+  trx_list.erase(trx);
+  mysql_mutex_unlock(&trx_list_mutex);
+}
+
+static void walk_trx_list(TransactionListWalker* walker)
+{
+  mysql_mutex_lock(&trx_list_mutex);
+
+  for (auto it = trx_list.begin(); it != trx_list.end(); it++)
+    walker->processTransaction(*it);
+
+  mysql_mutex_unlock(&trx_list_mutex);
+}
+
 class MyRocksSnapshot
 {
 private:
@@ -1113,36 +1144,6 @@ public:
   int64_t GetTimestamp() const { return timestamp_; }
   THD* GetThread() const { return thd_; }
 };
-
-/*
-  Note that given THD has acquired a given snapshot.
-
-  @detail This is used to report diagnostics info
-*/
-static void register_snapshot(const rocksdb::Snapshot* snapshot, THD *thd)
-{
-  mysql_mutex_lock(&snapshot_mutex);
-  auto res = snapshot_map.emplace(snapshot,
-      std::make_shared<MyRocksSnapshot>(thd));
-  mysql_mutex_unlock(&snapshot_mutex);
-  assert(res.second);
-}
-
-
-/*
-  Note that the snapshot is about to be released.
-*/
-static void register_snapshot_release(const rocksdb::Snapshot* snapshot)
-{
-  if (snapshot != nullptr)
-  {
-    mysql_mutex_lock(&snapshot_mutex);
-    auto count = snapshot_map.erase(snapshot);
-    mysql_mutex_unlock(&snapshot_mutex);
-
-    assert(count == 1);
-  }
-}
 
 /*
   This function doesn't support reverse comparisons. They are handled by the
@@ -1381,10 +1382,12 @@ public:
     }
   }
 
+  std::shared_ptr<MyRocksSnapshot> my_snapshot;
+
   void snapshot_created(const rocksdb::Snapshot *snapshot)
   {
     read_opts.snapshot = snapshot;
-    register_snapshot(read_opts.snapshot, thd_);
+    my_snapshot = std::make_shared<MyRocksSnapshot>(thd_);
     is_delayed_snapshot = false;
   }
 
@@ -1411,7 +1414,7 @@ public:
 
     if (read_opts.snapshot != nullptr)
     {
-      register_snapshot_release(read_opts.snapshot);
+      my_snapshot.reset();
       if (is_tx_read_only())
       {
         rdb->ReleaseSnapshot(read_opts.snapshot);
@@ -1604,11 +1607,11 @@ public:
       if (org_snapshot != cur_snapshot)
       {
         if (org_snapshot != nullptr)
-          register_snapshot_release(org_snapshot);
+          my_snapshot.reset();
 
         read_opts.snapshot = cur_snapshot;
         if (cur_snapshot != nullptr)
-          register_snapshot(cur_snapshot, thd_);
+          my_snapshot = std::make_shared<MyRocksSnapshot>(thd_);
         else
           is_delayed_snapshot = true;
       }
@@ -1664,6 +1667,8 @@ static Rdb_transaction *get_or_create_trx(THD *thd)
   {
     if (!(trx= new Rdb_transaction(thd)))
       return NULL;
+
+    add_trx_to_list(trx);
     trx->set_params(THDVAR(thd, lock_wait_timeout),
                     THDVAR(thd, max_row_locks));
     trx->start_trx();
@@ -1684,6 +1689,7 @@ static Rdb_transaction *get_or_create_trx(THD *thd)
 static int rocksdb_close_connection(handlerton* hton, THD* thd)
 {
   Rdb_transaction*& trx= get_trx_from_thd(thd);
+  remove_trx_from_list(trx);
   delete trx;
   trx= NULL;
   return 0;
@@ -1885,76 +1891,84 @@ static std::string format_string(
   return res;
 }
 
-/* Create and return one row in the snapshot status table */
-static std::string rocksdb_show_this_snapshot_status(
-    std::shared_ptr<MyRocksSnapshot> snapshot)
+class ShowSnapshotStatus : public TransactionListWalker
 {
-  /* Calculate the duration the snapshot has existed */
-  int64_t curr_time;
-  rdb->GetEnv()->GetCurrentTime(&curr_time);
+ private:
+  std::string data;
 
-  THD* thd = snapshot->GetThread();
+  std::string current_timestamp(void)
+  {
+    static const char *const format = "%d-%02d-%02d %02d:%02d:%02d";
+    time_t currtime;
+    struct tm currtm;
 
-  return format_string("---SNAPSHOT, ACTIVE %lld sec\n"
-                       "MySQL thread id %lu, OS thread handle %p\n",
-                       curr_time - snapshot->GetTimestamp(),
-                       thd_get_thread_id(thd), thd);
-}
+    time(&currtime);
 
-static std::string get_timestamp_as_string(void)
-{
-  static const char *const format = "%d-%02d-%02d %02d:%02d:%02d";
-  time_t currtime;
+    localtime_r(&currtime, &currtm);
 
-  time(&currtime);
+    return format_string(format, currtm.tm_year + 1900, currtm.tm_mon + 1,
+                         currtm.tm_mday, currtm.tm_hour, currtm.tm_min,
+                         currtm.tm_sec);
+  }
 
-#if defined(HAVE_LOCALTIME_R)
-  struct tm  tm;
+  std::string get_header(void)
+  {
+    return
+      "\n============================================================\n" +
+      current_timestamp() +
+      " ROCKSDB TRANSACTION MONITOR OUTPUT\n"
+      "============================================================\n"
+      "---------\n"
+      "SNAPSHOTS\n"
+      "---------\n"
+      "LIST OF SNAPSHOTS FOR EACH SESSION:\n";
+  }
 
-  localtime_r(&currtime, &tm);
-  return format_string(format, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
-                       tm.tm_hour, tm.tm_min, tm.tm_sec);
-#else
-  struct tm* tm_ptr = localtime(&currtime);
+  std::string get_footer(void)
+  {
+    return
+        "-----------------------------------------\n"
+        "END OF ROCKSDB TRANSACTION MONITOR OUTPUT\n"
+        "=========================================\n";
+  }
 
-  return format_string(format, tm_ptr->tm_year + 1900, tm_ptr->tm_mon + 1,
-                       tm_ptr->tm_mday, tm_ptr->tm_hour, tm_ptr->tm_min,
-                       tm_ptr->tm_sec);
-#endif
-}
+ public:
+  ShowSnapshotStatus() : data(get_header()) {}
+
+  std::string getResult() { return data + get_footer(); }
+
+  /* Create one row in the snapshot status table */
+  void processTransaction(const Rdb_transaction *trx)
+  {
+    /* Calculate the duration the snapshot has existed */
+    std::shared_ptr<MyRocksSnapshot> snapshot = trx->my_snapshot;
+    if (snapshot != nullptr)
+    {
+      int64_t curr_time;
+      rdb->GetEnv()->GetCurrentTime(&curr_time);
+
+      THD* thd = snapshot->GetThread();
+
+      data += format_string("---SNAPSHOT, ACTIVE %lld sec\n"
+                            "MySQL thread id %lu, OS thread handle %p\n",
+                            curr_time - snapshot->GetTimestamp(),
+                            thd_get_thread_id(thd), thd);
+    }
+  }
+};
 
 /* Generate the snapshot status table */
 static bool rocksdb_show_snapshot_status(handlerton*    hton,
                                          THD*           thd,
                                          stat_print_fn* stat_print)
 {
-  std::string status =
-    "\n============================================================\n" +
-    get_timestamp_as_string() +
-    " ROCKSDB TRANSACTION MONITOR OUTPUT\n"
-    "============================================================\n"
-    "---------\n"
-    "SNAPSHOTS\n"
-    "---------\n"
-    "LIST OF SNAPSHOTS FOR EACH SESSION:\n";
+  ShowSnapshotStatus showStatus;
 
-  mysql_mutex_lock(&snapshot_mutex);
-
-  /* Iterate through the exising snapshots and generate the output. */
-  for (auto const& snapshot : snapshot_map) {
-    /* Add a line for this snapshot */
-    status += rocksdb_show_this_snapshot_status(snapshot.second);
-  }
-
-  mysql_mutex_unlock(&snapshot_mutex);
-
-  status +=
-    "-----------------------------------------\n"
-    "END OF ROCKSDB TRANSACTION MONITOR OUTPUT\n"
-    "=========================================\n";
+  walk_trx_list(&showStatus);
 
   // Send the result data back to MySQL */
-  return print_stats(thd, "SNAPSHOTS", "rocksdb", status, stat_print);
+  return print_stats(thd, "SNAPSHOTS", "rocksdb", showStatus.getResult(),
+      stat_print);
 }
 
 /*
@@ -2272,7 +2286,7 @@ static int rocksdb_init_func(void *p)
   mysql_mutex_init(key_mutex_background, &background_mutex, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_mutex_stop_background, &stop_cond_mutex,
                    MY_MUTEX_INIT_FAST);
-  mysql_mutex_init(key_mutex_snapshot, &snapshot_mutex, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_mutex_trx_list, &trx_list_mutex, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_mutex_collation_exception_list,
                    &collation_exception_list_mutex, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_mutex_sysvar, &sysvar_mutex, MY_MUTEX_INIT_FAST);
@@ -2589,7 +2603,7 @@ static int rocksdb_done_func(void *p)
     error= 1;
   my_hash_free(&rocksdb_open_tables);
   mysql_mutex_destroy(&collation_exception_list_mutex);
-  mysql_mutex_destroy(&snapshot_mutex);
+  mysql_mutex_destroy(&trx_list_mutex);
   mysql_mutex_destroy(&rocksdb_mutex);
   mysql_mutex_destroy(&sysvar_mutex);
 
