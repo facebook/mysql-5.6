@@ -34,6 +34,7 @@ uint64_t rocksdb_num_sst_entry_delete = 0;
 uint64_t rocksdb_num_sst_entry_singledelete = 0;
 uint64_t rocksdb_num_sst_entry_merge = 0;
 uint64_t rocksdb_num_sst_entry_other = 0;
+my_bool rocksdb_compaction_sequential_deletes_count_sd = false;
 
 MyRocksTablePropertiesCollector::MyRocksTablePropertiesCollector(
   Table_ddl_manager* ddl_manager,
@@ -101,8 +102,11 @@ MyRocksTablePropertiesCollector::AddUserKey(
         // correct the current number based on the element we about to override
         deleted_rows_--;
       }
-      bool is_delete= (type == rocksdb::kEntryDelete ||
-                       type == rocksdb::kEntrySingleDelete);
+      bool is_delete= (type == rocksdb::kEntryDelete);
+      if (rocksdb_compaction_sequential_deletes_count_sd && !is_delete &&
+          (type == rocksdb::kEntrySingleDelete)) {
+        is_delete= true;
+      }
       // --override the element with the new value
       deleted_rows_window_[rows_ % deleted_rows_window_.size()]= is_delete;
       // --update the counter
