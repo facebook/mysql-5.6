@@ -312,6 +312,47 @@ NULL
 NULL
 ######################################################################
 ###
+### To verify the bug fix in subselect_indexsubquery_engine::exec() in item_subselect.cc
+### When building the string key for a boolean vaule, use '1'/'0' in stead of NULL
+###
+drop table if exists t11, t12, t13;
+create table t11 (
+a11 int primary key,
+doc11 document,
+key doc11_string (doc11.string as string(3))
+) engine = innodb;
+create table t12 (
+a12 int primary key,
+doc12 document,
+key doc12_string (doc12.string as string(3))
+) engine = innodb;
+create table t13 (
+a13 int primary key,
+doc13 document,
+key doc13_string (doc13.string as string(3))
+) engine = innodb;
+insert into t11 values (1, '{"string":"aaa"}');
+insert into t12 values (1, '{"string":true}');
+insert into t13 values (1, '{"string":false}');
+explain extended
+select t11.doc11.string from t11 use document keys
+where t11.doc11.string <> all (select t12.doc12.string from t12 use document keys where t12.doc12.string > "eee");
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t11	ALL	NULL	NULL	NULL	NULL	1	100.00	Using where
+2	DEPENDENT SUBQUERY	t12	index_subquery	doc12_string	doc12_string	6	func	2	100.00	Using where; Full scan on NULL key
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t11`.`doc11`.`string` AS "`doc11`.`string`" from `test`.`t11` USE DOCUMENT INDEXES where (not(<in_optimizer>(`test`.`t11`.`doc11`.`string`,<exists>(<index_lookup>(<cache>(`test`.`t11`.`doc11`.`string`) in t12 on doc12_string checking NULL where (`test`.`t12`.`doc12`.`string` > 'eee') having <if>(outer_field_is_not_null, <is_not_null_test>(`test`.`t12`.`doc12`.`string`), true))))))
+select t11.doc11.string from t11 use document keys
+where t11.doc11.string <> all (select t12.doc12.string from t12 use document keys where t12.doc12.string > "eee");
+`doc11`.`string`
+aaa
+select t11.doc11.string from t11 use document keys
+where t11.doc11.string <> all (select t13.doc13.string from t13 use document keys where t13.doc13.string > "eee");
+`doc11`.`string`
+aaa
+drop table t11, t12, t13;
+######################################################################
+###
 ###   Subqueries
 ###     -- Semi-join for IN
 ###        -- Non-correlated -- where_condition involves only columns from t7 and not t6
@@ -1828,7 +1869,7 @@ explain extended
 select t1.doc11.string from t1 use document keys
 where t1.doc11.string = any (select t2.doc21.string from t2 use document keys where t2.doc21.string not in ("aaa", "hhh", "ccc", "jjj", "zzz"));
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	58.33	Using where
+1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	75.00	Using where
 1	SIMPLE	t2	ref	doc21_string	doc21_string	5	test.t1.`doc11`.`string`	1	100.00	FirstMatch(t1)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc11`.`string` AS "`doc11`.`string`" from `test`.`t1` USE DOCUMENT INDEXES semi join (`test`.`t2` USE DOCUMENT INDEXES) where ((`test`.`t2`.`doc21`.`string` = `test`.`t1`.`doc11`.`string`) and (`test`.`t1`.`doc11`.`string` not in ('aaa','hhh','ccc','jjj','zzz')))
@@ -2401,7 +2442,7 @@ explain extended
 select t1.doc11.string from t1 use document keys
 where t1.doc11.string = some (select t2.doc21.string from t2 use document keys where t2.doc21.string not in ("aaa", "hhh", "ccc", "jjj", "zzz"));
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	58.33	Using where
+1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	75.00	Using where
 1	SIMPLE	t2	ref	doc21_string	doc21_string	5	test.t1.`doc11`.`string`	1	100.00	FirstMatch(t1)
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc11`.`string` AS "`doc11`.`string`" from `test`.`t1` USE DOCUMENT INDEXES semi join (`test`.`t2` USE DOCUMENT INDEXES) where ((`test`.`t2`.`doc21`.`string` = `test`.`t1`.`doc11`.`string`) and (`test`.`t1`.`doc11`.`string` not in ('aaa','hhh','ccc','jjj','zzz')))
@@ -2980,7 +3021,16 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 2	DEPENDENT SUBQUERY	t2	index_subquery	doc21_string	doc21_string	5	func	2	100.00	Using where; Full scan on NULL key
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc11`.`string` AS "`doc11`.`string`" from `test`.`t1` USE DOCUMENT INDEXES where (not(<in_optimizer>(`test`.`t1`.`doc11`.`string`,<exists>(<index_lookup>(<cache>(`test`.`t1`.`doc11`.`string`) in t2 on doc21_string checking NULL where (`test`.`t2`.`doc21`.`string` > 'eee') having <if>(outer_field_is_not_null, <is_not_null_test>(`test`.`t2`.`doc21`.`string`), true))))))
-### FIXME: <> all
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string <> all (select t2.doc21.string from t2 use document keys where t2.doc21.string > "eee");
+`doc11`.`string`
+aaaaaaa
+2.2
+true
+false
+eee
+
+12
 ### USED AS STANDARD
 explain extended select t1.str1 from t1 where t1.str1 > all (select t2.str2 from t2 where t2.str2 >= "hhh" and t2.str2 < "zzz");
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -3037,7 +3087,7 @@ select t1.doc11.string from t1 use document keys
 where t1.doc11.string = all (select t2.doc21.string from t2 use document keys where t2.doc21.string not in ("aaa", "hhh", "ccc", "jjj", "zzz"));
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
-2	DEPENDENT SUBQUERY	t2	ALL	doc21_string	NULL	NULL	NULL	12	50.00	Using where
+2	DEPENDENT SUBQUERY	t2	ALL	doc21_string	NULL	NULL	NULL	12	66.67	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc11`.`string` AS "`doc11`.`string`" from `test`.`t1` USE DOCUMENT INDEXES where <not>(<in_optimizer>(`test`.`t1`.`doc11`.`string`,<exists>(/* select#2 */ select 1 from `test`.`t2` USE DOCUMENT INDEXES where ((`test`.`t2`.`doc21`.`string` not in ('aaa','hhh','ccc','jjj','zzz')) and <if>(outer_field_is_not_null, ((<cache>(`test`.`t1`.`doc11`.`string`) <> `test`.`t2`.`doc21`.`string`) or isnull(`test`.`t2`.`doc21`.`string`)), true)) having <if>(outer_field_is_not_null, <is_not_null_test>(`test`.`t2`.`doc21`.`string`), true))))
 select t1.doc11.string from t1 use document keys
@@ -3063,7 +3113,20 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 2	DEPENDENT SUBQUERY	t2	index_subquery	doc21_string	doc21_string	5	func	2	100.00	Using where; Full scan on NULL key
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc11`.`string` AS "`doc11`.`string`" from `test`.`t1` USE DOCUMENT INDEXES where (not(<in_optimizer>(`test`.`t1`.`doc11`.`string`,<exists>(<index_lookup>(<cache>(`test`.`t1`.`doc11`.`string`) in t2 on doc21_string checking NULL where (((`test`.`t2`.`doc21`.`string` > 'eee') and (`test`.`t2`.`doc21`.`string` < 'hhh') and (`test`.`t2`.`doc21`.`string` not between 'ggg' and 'iii')) or ((`test`.`t2`.`doc21`.`string` between 'kkk' and 'zzz') and (`test`.`t2`.`doc21`.`string` not in ('ddd','fff')))) having <if>(outer_field_is_not_null, <is_not_null_test>(`test`.`t2`.`doc21`.`string`), true))))))
-### FIXME: <> all
+select doc11.string from t1 use document keys where doc11.string <> all (
+select doc21.string from t2 use document keys
+where ((doc21.string > "eee" and doc21.string < "hhh") and (doc21.string not between "ggg" and "iii")) or
+((doc21.string between "kkk" and "zzz") and (doc21.string not in ("ddd", "fff"))));
+`doc11`.`string`
+aaaaaaa
+2.2
+true
+false
+eee
+hhh
+
+k
+12
 ######################################################################
 ###
 ###   Subqueries
