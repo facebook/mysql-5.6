@@ -1686,6 +1686,14 @@ dfield_set_document_path_data_string(
 	char* buf = NULL;
 	switch (pval->type())
 	{
+	case fbson::FbsonType::T_True:
+		buf = (char*)mem_heap_alloc(heap, 30);
+		longlong2str(1, buf, -10);
+		break;
+	case fbson::FbsonType::T_False:
+		buf = (char*)mem_heap_alloc(heap, 30);
+		longlong2str(0, buf, -10);
+		break;
 	case fbson::FbsonType::T_Int8:
 		buf = (char*)mem_heap_alloc(heap, 30);
 		longlong2str(((fbson::Int8Val *)pval)->val(), buf, -10);
@@ -1711,9 +1719,6 @@ dfield_set_document_path_data_string(
 		dfield_set_data(field, pval->getValuePtr(),
 			prefix_len < pval->size() ? prefix_len : pval->size());
 		break;
-
-	case fbson::FbsonType::T_True:
-	case fbson::FbsonType::T_False:
 	default:
 		dfield_set_null(field);
 	}

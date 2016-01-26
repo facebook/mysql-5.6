@@ -13,10 +13,58 @@ connection master;
 
 --echo ######################################################################
 --echo ###
+--echo ### To verify the bug fix in subselect_indexsubquery_engine::exec() in item_subselect.cc
+--echo ### When building the string key for a boolean vaule, use '1'/'0' in stead of NULL
+--echo ###
+
+--disable_warnings
+drop table if exists t11, t12, t13;
+--enable_warnings
+
+create table t11 (
+  a11 int primary key,
+  doc11 document,
+  key doc11_string (doc11.string as string(3))
+) engine = innodb;
+
+create table t12 (
+  a12 int primary key,
+  doc12 document,
+  key doc12_string (doc12.string as string(3))
+) engine = innodb;
+
+create table t13 (
+  a13 int primary key,
+  doc13 document,
+  key doc13_string (doc13.string as string(3))
+) engine = innodb;
+
+insert into t11 values (1, '{"string":"aaa"}');
+
+insert into t12 values (1, '{"string":true}');
+
+insert into t13 values (1, '{"string":false}');
+
+explain extended
+select t11.doc11.string from t11 use document keys
+where t11.doc11.string <> all (select t12.doc12.string from t12 use document keys where t12.doc12.string > "eee");
+
+select t11.doc11.string from t11 use document keys
+where t11.doc11.string <> all (select t12.doc12.string from t12 use document keys where t12.doc12.string > "eee");
+
+select t11.doc11.string from t11 use document keys
+where t11.doc11.string <> all (select t13.doc13.string from t13 use document keys where t13.doc13.string > "eee");
+
+drop table t11, t12, t13;
+
+
+--echo ######################################################################
+--echo ###
 --echo ###   Subqueries
 --echo ###     -- Semi-join for IN
 --echo ###        -- Non-correlated -- where_condition involves only columns from t7 and not t6
 --echo ###
+
 
 --echo ###
 --echo ### Bool: t6 and t7
@@ -850,7 +898,6 @@ where t1.doc11.string = some (select t2.doc21.string from t2 use document keys w
 --echo ###        -- Non-correlated -- where_condition involves only columns from t7 and not t6
 --echo ###
 
-
 --echo ###
 --echo ### Bool: t6 and t7
 --echo ###
@@ -1104,9 +1151,8 @@ explain extended
 select t1.doc11.string from t1 use document keys
 where t1.doc11.string <> all (select t2.doc21.string from t2 use document keys where t2.doc21.string > "eee");
 
---echo ### FIXME: <> all
-#select t1.doc11.string from t1 use document keys
-#where t1.doc11.string <> all (select t2.doc21.string from t2 use document keys where t2.doc21.string > "eee");
+select t1.doc11.string from t1 use document keys
+where t1.doc11.string <> all (select t2.doc21.string from t2 use document keys where t2.doc21.string > "eee");
 
 --echo ### USED AS STANDARD
 explain extended select t1.str1 from t1 where t1.str1 > all (select t2.str2 from t2 where t2.str2 >= "hhh" and t2.str2 < "zzz");
@@ -1146,11 +1192,10 @@ select doc11.string from t1 use document keys where doc11.string <> all (
               where ((doc21.string > "eee" and doc21.string < "hhh") and (doc21.string not between "ggg" and "iii")) or
                     ((doc21.string between "kkk" and "zzz") and (doc21.string not in ("ddd", "fff"))));
 
---echo ### FIXME: <> all
-#select doc11.string from t1 use document keys where doc11.string <> all (
-#       select doc21.string from t2 use document keys
-#              where ((doc21.string > "eee" and doc21.string < "hhh") and (doc21.string not between "ggg" and "iii")) or
-#                    ((doc21.string between "kkk" and "zzz") and (doc21.string not in ("ddd", "fff"))));
+select doc11.string from t1 use document keys where doc11.string <> all (
+       select doc21.string from t2 use document keys
+              where ((doc21.string > "eee" and doc21.string < "hhh") and (doc21.string not between "ggg" and "iii")) or
+                    ((doc21.string between "kkk" and "zzz") and (doc21.string not in ("ddd", "fff"))));
 
 
 --echo ######################################################################
