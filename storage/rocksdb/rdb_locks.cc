@@ -306,8 +306,8 @@ retry:
   locked= do_locking_action(pins, found_lock, timeout_sec, is_write_lock);
 
 err:
-  if (key_copy)
-    my_free(key_copy);
+  my_free(key_copy);
+  key_copy = nullptr;
 
   return locked? found_lock->get_lock_handle(is_write_lock) : NULL;
 }
@@ -469,6 +469,7 @@ func_exit:
       res= lf_hash_delete(&lf_hash, pins, found_lock->rowkey, found_lock->len);
       DBUG_ASSERT(res == 0);
       my_free(rowkey);
+      rowkey = nullptr;
     }
   }
 
@@ -579,6 +580,7 @@ void LockTable::release_lock(LF_PINS *pins, Row_lock *own_lock_handle)
     res= lf_hash_delete(&lf_hash, pins, own_lock->rowkey, own_lock->len);
     DBUG_ASSERT(res == 0);
     my_free(rowkey);
+    rowkey = nullptr;
   }
   else
   {
