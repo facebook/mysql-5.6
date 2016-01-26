@@ -2928,7 +2928,7 @@ void Dict_manager::add_stats(
     // IndexStats::materialize takes complete care of serialization including
     // storing the version
     auto value = MyRocksTablePropertiesCollector::IndexStats::materialize(
-      std::vector<MyRocksTablePropertiesCollector::IndexStats>{it});
+      std::vector<MyRocksTablePropertiesCollector::IndexStats>{it}, 1.);
 
     batch->Put(
       system_cfh,

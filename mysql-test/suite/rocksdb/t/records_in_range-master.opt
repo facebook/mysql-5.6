@@ -1,1 +1,3 @@
---force-restart --rocksdb_debug_optimizer_n_rows=1000
+--force-restart
+--rocksdb_debug_optimizer_n_rows=1000
+--rocksdb_table_stats_sampling_pct=100
