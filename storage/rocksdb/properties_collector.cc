@@ -18,6 +18,7 @@
 #include "./properties_collector.h"
 
 /* Standard C++ header files */
+#include <algorithm>
 #include <map>
 
 /* MySQL header files */
@@ -37,13 +38,24 @@ uint64_t rocksdb_num_sst_entry_other = 0;
 MyRocksTablePropertiesCollector::MyRocksTablePropertiesCollector(
   Table_ddl_manager* ddl_manager,
   CompactionParams params,
-  uint32_t cf_id
+  uint32_t cf_id,
+  const uint8_t table_stats_sampling_pct
 ) :
     cf_id_(cf_id),
     ddl_manager_(ddl_manager),
     rows_(0l), deleted_rows_(0l), max_deleted_rows_(0l),
-    file_size_(0), params_(params)
+    file_size_(0), params_(params),
+    table_stats_sampling_pct_(table_stats_sampling_pct),
+    seed_(time(nullptr)),
+    card_adj_extra_(1.)
 {
+  // We need to adjust the index cardinality numbers based on the sampling
+  // rate so that the output of "SHOW INDEX" command will reflect reality
+  // more closely. It will still be an approximation, just a better one.
+  if (table_stats_sampling_pct_ > 0) {
+    card_adj_extra_ = 100. / table_stats_sampling_pct_;
+  }
+
   deleted_rows_window_.resize(params_.window_, false);
 }
 
@@ -77,57 +89,6 @@ MyRocksTablePropertiesCollector::AddUserKey(
       break;
     }
 
-    GL_INDEX_ID gl_index_id;
-    gl_index_id.cf_id = cf_id_;
-    gl_index_id.index_id = read_big_uint4((const uchar*)key.data());
-    if (stats_.empty() || gl_index_id != stats_.back().gl_index_id)
-    {
-      keydef_ = NULL;
-      // starting a new table
-      // add the new element into stats_
-      stats_.push_back(IndexStats(gl_index_id));
-      if (ddl_manager_) {
-        keydef_ = ddl_manager_->get_copy_of_keydef(gl_index_id);
-      }
-      if (keydef_) {
-        // resize the array to the number of columns.
-        // It will be initialized with zeroes
-        stats_.back().distinct_keys_per_prefix.resize(
-          keydef_->get_m_key_parts());
-        stats_.back().name = keydef_->get_name();
-      }
-      last_key_.clear();
-    }
-    auto& stats = stats_.back();
-    stats.data_size += key.size()+value.size();
-
-    // Incrementing per-index entry-type statistics
-    switch (type) {
-    case rocksdb::kEntryPut:
-      stats.rows++;
-      break;
-    case rocksdb::kEntryDelete:
-      stats.entry_deletes++;
-      break;
-    case rocksdb::kEntrySingleDelete:
-      stats.entry_singledeletes++;
-      break;
-    case rocksdb::kEntryMerge:
-      stats.entry_merges++;
-      break;
-    case rocksdb::kEntryOther:
-      stats.entry_others++;
-      break;
-    default:
-      // NO_LINT_DEBUG
-      sql_print_error("RocksDB: Unexpected entry type found: %u. "
-                      "This should not happen so aborting the system.", type);
-      abort_with_stack_traces();
-      break;
-    }
-
-    stats.actual_disk_size += file_size-file_size_;
-
     if (params_.window_ > 0) {
       // record the "is deleted" flag into the sliding window
       // the sliding window is implemented as a circular buffer
@@ -136,48 +97,112 @@ MyRocksTablePropertiesCollector::AddUserKey(
       // rows_ % deleted_rows_window_.size()
       // deleted_rows_ is the current number of 1's in the vector
       // --update the counter for the element which will be overridden
-      if (deleted_rows_window_[rows_ % deleted_rows_window_.size()]) {
-        // correct the current number based on the element we about to override
-        deleted_rows_--;
-      }
       bool is_delete= (type == rocksdb::kEntryDelete ||
                        type == rocksdb::kEntrySingleDelete);
-      // --override the element with the new value
-      deleted_rows_window_[rows_ % deleted_rows_window_.size()]= is_delete;
-      // --update the counter
-      if (is_delete) {
-        deleted_rows_++;
+      // Only make changes if the value at the current position needs to change
+      uint64_t pos = rows_ % deleted_rows_window_.size();
+      if (is_delete != deleted_rows_window_[pos]) {
+        // Set or clear the flag at the current position as appropriate
+        deleted_rows_window_[pos]= is_delete;
+        if (!is_delete)
+          deleted_rows_--;
+        else if (++deleted_rows_ > max_deleted_rows_)
+          max_deleted_rows_ = deleted_rows_;
       }
-      // --we are looking for the maximum deleted_rows_
-      max_deleted_rows_ = std::max(deleted_rows_, max_deleted_rows_);
     }
+
     rows_++;
 
-    if (keydef_) {
-      std::size_t column = 0;
-      rocksdb::Slice last(last_key_.data(), last_key_.size());
-      if (last_key_.empty()
-          || (keydef_->compare_keys(&last, &key, &column) == 0)) {
-        assert(column <= stats.distinct_keys_per_prefix.size());
-        for (std::size_t i=column;
-             i < stats.distinct_keys_per_prefix.size(); i++) {
-          stats.distinct_keys_per_prefix[i]++;
-        }
+    CollectStatsForRow(key, value, type, file_size);
+  }
 
-        // assign new last_key for the next call
-        // however, we only need to change the last key
-        // if one of the first n-1 columns is different
-        // If the n-1 prefix is the same, no sense in storing
-        // the new key
-        if (column < stats.distinct_keys_per_prefix.size()) {
-          last_key_.assign(key.data(), key.size());
-        }
+  return rocksdb::Status::OK();
+}
+
+void MyRocksTablePropertiesCollector::CollectStatsForRow(
+  const rocksdb::Slice& key, const rocksdb::Slice& value,
+  rocksdb::EntryType type, uint64_t file_size) {
+  // All the code past this line must deal ONLY with collecting the
+  // statistics.
+  GL_INDEX_ID gl_index_id;
+
+  gl_index_id.cf_id = cf_id_;
+  gl_index_id.index_id = read_big_uint4((const uchar*)key.data());
+
+  if (stats_.empty() || gl_index_id != stats_.back().gl_index_id) {
+    keydef_ = nullptr;
+    // starting a new table
+    // add the new element into stats_
+    stats_.push_back(IndexStats(gl_index_id));
+    if (ddl_manager_) {
+      keydef_ = ddl_manager_->get_copy_of_keydef(gl_index_id);
+    }
+    if (keydef_) {
+      // resize the array to the number of columns.
+      // It will be initialized with zeroes
+      stats_.back().distinct_keys_per_prefix.resize(
+        keydef_->get_m_key_parts());
+      stats_.back().name = keydef_->get_name();
+    }
+    last_key_.clear();
+  }
+
+  auto& stats = stats_.back();
+  stats.data_size += key.size()+value.size();
+
+  // Incrementing per-index entry-type statistics
+  switch (type) {
+  case rocksdb::kEntryPut:
+    stats.rows++;
+    break;
+  case rocksdb::kEntryDelete:
+    stats.entry_deletes++;
+    break;
+  case rocksdb::kEntrySingleDelete:
+    stats.entry_singledeletes++;
+    break;
+  case rocksdb::kEntryMerge:
+    stats.entry_merges++;
+    break;
+  case rocksdb::kEntryOther:
+    stats.entry_others++;
+    break;
+  default:
+    // NO_LINT_DEBUG
+    sql_print_error("RocksDB: Unexpected entry type found: %u. "
+                    "This should not happen so aborting the system.", type);
+    abort_with_stack_traces();
+    break;
+  }
+
+  stats.actual_disk_size += file_size - file_size_;
+  file_size_ = file_size;
+
+  bool collect_cardinality = ShouldCollectStats();
+
+  if (keydef_ && collect_cardinality) {
+    std::size_t column = 0;
+    rocksdb::Slice last(last_key_.data(), last_key_.size());
+
+    if (last_key_.empty()
+        || (keydef_->compare_keys(&last, &key, &column) == 0)) {
+      assert(column <= stats.distinct_keys_per_prefix.size());
+
+      for (std::size_t i = column;
+           i < stats.distinct_keys_per_prefix.size(); i++) {
+        stats.distinct_keys_per_prefix[i]++;
+      }
+
+      // assign new last_key for the next call
+      // however, we only need to change the last key
+      // if one of the first n-1 columns is different
+      // If the n-1 prefix is the same, no sense in storing
+      // the new key
+      if (column < stats.distinct_keys_per_prefix.size()) {
+        last_key_.assign(key.data(), key.size());
       }
     }
   }
-  file_size_ = file_size;
-
-  return rocksdb::Status::OK();
 }
 
 const char* MyRocksTablePropertiesCollector::INDEXSTATS_KEY = "__indexstats__";
@@ -189,7 +214,8 @@ rocksdb::Status
 MyRocksTablePropertiesCollector::Finish(
   rocksdb::UserCollectedProperties* properties
 ) {
-  properties->insert({INDEXSTATS_KEY, IndexStats::materialize(stats_)});
+  properties->insert({INDEXSTATS_KEY,
+                     IndexStats::materialize(stats_, card_adj_extra_)});
   return rocksdb::Status::OK();
 }
 
@@ -199,6 +225,21 @@ bool MyRocksTablePropertiesCollector::NeedCompact() const {
     (params_.window_ > 0) &&
     (file_size_ > params_.file_size_) &&
     (max_deleted_rows_ > params_.deletes_);
+}
+
+bool MyRocksTablePropertiesCollector::ShouldCollectStats() {
+  // Zero means that we'll use all the keys to update statistics.
+  if (!table_stats_sampling_pct_ ||
+      MYROCKS_SAMPLE_PCT_MAX == table_stats_sampling_pct_) {
+    return true;
+  }
+
+  int val = rand_r(&seed_) % MYROCKS_SAMPLE_PCT_MAX + 1;
+
+  assert(val >= MYROCKS_SAMPLE_PCT_MIN);
+  assert(val <= MYROCKS_SAMPLE_PCT_MAX);
+
+  return val <= table_stats_sampling_pct_;
 }
 
 /*
@@ -305,7 +346,8 @@ void MyRocksTablePropertiesCollector::GetStats(
   Stores an array on IndexStats in string
 */
 std::string MyRocksTablePropertiesCollector::IndexStats::materialize(
-  std::vector<IndexStats> stats
+  std::vector<IndexStats> stats,
+  const float card_adj_extra
 ) {
   String ret;
   write_short(&ret, INDEX_STATS_VERSION_ENTRY_TYPES);
@@ -322,7 +364,8 @@ std::string MyRocksTablePropertiesCollector::IndexStats::materialize(
     write_int64(&ret, i.entry_merges);
     write_int64(&ret, i.entry_others);
     for (auto num_keys : i.distinct_keys_per_prefix) {
-      write_int64(&ret, num_keys);
+      float upd_num_keys = num_keys * card_adj_extra;
+      write_int64(&ret, static_cast<int64_t>(upd_num_keys));
     }
   }
 
