@@ -293,6 +293,12 @@ set_compaction_options(THD* thd,
                        const void* save);
 
 static void
+myrocks_set_table_stats_sampling_pct(THD* thd,
+                                     struct st_mysql_sys_var* var,
+                                     void* var_ptr,
+                                     const void* save);
+
+static void
 set_rate_limiter_bytes_per_sec(THD*                     thd,
                                struct st_mysql_sys_var* var,
                                void*                    var_ptr,
@@ -333,6 +339,7 @@ static long long rocksdb_compaction_sequential_deletes_window= 0l;
 static long long rocksdb_compaction_sequential_deletes_file_size= 0l;
 static uint32_t rocksdb_validate_tables = 1;
 static char * rocksdb_datadir;
+static uint32_t rocksdb_table_stats_sampling_pct;
 
 static rocksdb::DBOptions init_db_options() {
   rocksdb::DBOptions o;
@@ -881,6 +888,20 @@ static MYSQL_SYSVAR_STR(datadir,
   "RocksDB data directory",
   nullptr, nullptr, "./.rocksdb");
 
+static MYSQL_SYSVAR_UINT(
+  table_stats_sampling_pct,
+  rocksdb_table_stats_sampling_pct,
+  PLUGIN_VAR_RQCMDARG,
+  "Percentage of entries to sample when collecting statistics about table "
+  "properties. Specify either 0 to sample everything or percentage ["
+  STRINGIFY_ARG(MYROCKS_SAMPLE_PCT_MIN) ".."
+  STRINGIFY_ARG(MYROCKS_SAMPLE_PCT_MAX) "]. " "By default "
+  STRINGIFY_ARG(MYROCKS_DEFAULT_SAMPLE_PCT) "% of entries are "
+  "sampled.",
+  nullptr, myrocks_set_table_stats_sampling_pct, /* default */
+  MYROCKS_DEFAULT_SAMPLE_PCT, /* everything */ 0,
+  /* max */ MYROCKS_SAMPLE_PCT_MAX, 0);
+
 const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT=4194304;
 const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE= 100;
 
@@ -976,6 +997,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(verify_checksums),
 
   MYSQL_SYSVAR(validate_tables),
+  MYSQL_SYSVAR(table_stats_sampling_pct),
 
   NULL
 };
@@ -2408,7 +2430,17 @@ static int rocksdb_init_func(void *p)
       <MyRocksTablePropertiesCollectorFactory>(
         &ddl_manager
       );
+
     set_compaction_options(NULL, NULL, NULL, NULL);
+
+    mysql_mutex_lock(&sysvar_mutex);
+
+    assert(rocksdb_table_stats_sampling_pct <= MYROCKS_SAMPLE_PCT_MAX);
+    properties_collector_factory->SetTableStatsSamplingPct(
+      rocksdb_table_stats_sampling_pct);
+
+    mysql_mutex_unlock(&sysvar_mutex);
+
     default_cf_opts.table_properties_collector_factories.push_back(
       properties_collector_factory
     );
@@ -7457,10 +7489,12 @@ void rocksdb_handle_io_error(rocksdb::Status status, enum io_error_type type)
   }
   else if (status.IsCorruption())
   {
-      sql_print_error("RocksDB: Data Corruption detected! %d, %s",
-                      status.code(), status.ToString().c_str());
-      sql_print_error("RocksDB: Aborting because of data corruption.");
-      abort_with_stack_traces();
+    /* NO_LINT_DEBUG */
+    sql_print_error("RocksDB: Data Corruption detected! %d, %s",
+                     status.code(), status.ToString().c_str());
+    /* NO_LINT_DEBUG */
+    sql_print_error("RocksDB: Aborting because of data corruption.");
+    abort_with_stack_traces();
   }
   else if (!status.ok())
   {
@@ -7515,6 +7549,28 @@ set_compaction_options(THD* thd,
   if (properties_collector_factory) {
     properties_collector_factory->SetCompactionParams(params);
   }
+}
+
+void
+myrocks_set_table_stats_sampling_pct(THD* thd,
+                                     struct st_mysql_sys_var* var,
+                                     void* var_ptr,
+                                     const void* save)
+{
+  mysql_mutex_lock(&sysvar_mutex);
+
+  uint32_t new_val = *static_cast<const uint32_t*>(save);
+
+  if (new_val != rocksdb_table_stats_sampling_pct) {
+    rocksdb_table_stats_sampling_pct = new_val;
+
+    if (properties_collector_factory) {
+      properties_collector_factory->SetTableStatsSamplingPct(
+        rocksdb_table_stats_sampling_pct);
+    }
+  }
+
+  mysql_mutex_unlock(&sysvar_mutex);
 }
 
 /*

@@ -55,6 +55,14 @@ const char * const DEFAULT_SYSTEM_CF_NAME= "__system__";
 */
 const char * const PER_INDEX_CF_NAME = "$per_index_cf";
 
+/*
+  Default, minimal valid, and maximum valid sampling rate values when collecting
+  statistics about table.
+*/
+#define MYROCKS_DEFAULT_SAMPLE_PCT   10
+#define MYROCKS_SAMPLE_PCT_MIN        1
+#define MYROCKS_SAMPLE_PCT_MAX      100
+
 /* MyRocks supports only the following collations for indexed columns */
 const std::set<const CHARSET_INFO *> MYROCKS_INDEX_COLLATIONS=
   {&my_charset_bin, &my_charset_utf8_bin, &my_charset_latin1_bin};
