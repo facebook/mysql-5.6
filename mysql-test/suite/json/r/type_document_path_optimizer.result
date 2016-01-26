@@ -2871,7 +2871,7 @@ select a1 from t1 use document keys where doc11.string > 'zzz';
 a1
 explain extended select a1, doc11.string from t1 use document keys where doc11.string < 'iii';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	41.67	Using where
+1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	58.33	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a1` AS `a1`,`test`.`t1`.`doc11`.`string` AS "`doc11`.`string`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc11`.`string` < 'iii')
 select a1, doc11.string from t1 use document keys where doc11.string < 'iii';
@@ -2885,7 +2885,7 @@ a1	`doc11`.`string`
 12	12
 explain extended select doc11.string, a1 from t1 use document keys where doc11.string <= 'iii';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	50.00	Using where
+1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	66.67	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc11`.`string` AS "`doc11`.`string`",`test`.`t1`.`a1` AS `a1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc11`.`string` <= 'iii')
 select doc11.string, a1 from t1 use document keys where doc11.string <= 'iii';
@@ -2899,14 +2899,14 @@ hhh	8
 12	12
 explain extended select doc11.string from t1 use document keys where doc11.string < 'aaa';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	range	doc11_string	doc11_string	6	NULL	2	100.00	Using where
+1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	33.33	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc11`.`string` AS "`doc11`.`string`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc11`.`string` < 'aaa')
 select doc11.double from t1 use document keys where doc11.string < 'aaa';
 `doc11`.`double`
+2.2
 10.1
 false
-2.2
 explain extended select a1, doc11.string from t1 use document keys where doc11.string > 'eee' and doc11.string < 'iii';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	range	doc11_string	doc11_string	6	NULL	1	100.00	Using where
@@ -2926,7 +2926,7 @@ a1
 8
 explain extended select a1 from t1 use document keys where doc11.string > '' and doc11.string < 'zzz';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	41.67	Using where
+1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	58.33	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a1` AS `a1` from `test`.`t1` USE DOCUMENT INDEXES where ((`test`.`t1`.`doc11`.`string` > '') and (`test`.`t1`.`doc11`.`string` < 'zzz'))
 select a1 from t1 use document keys where doc11.string > '' and doc11.string < 'zzz';
@@ -2960,7 +2960,7 @@ hhh
 k
 explain extended select a1, doc11.string from t1 use document keys where doc11.string not between 'eee' and 'iii';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	33.33	Using where
+1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	50.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a1` AS `a1`,`test`.`t1`.`doc11`.`string` AS "`doc11`.`string`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc11`.`string` not between 'eee' and 'iii')
 select a1, doc11.string from t1 use document keys where doc11.string not between 'eee' and 'iii';
@@ -2973,7 +2973,7 @@ a1	`doc11`.`string`
 12	12
 explain extended select a1, doc11.string from t1 use document keys where doc11.string not between 'eee' and 'zzz';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	33.33	Using where
+1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	50.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a1` AS `a1`,`test`.`t1`.`doc11`.`string` AS "`doc11`.`string`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc11`.`string` not between 'eee' and 'zzz')
 select a1, doc11.string from t1 use document keys where doc11.string not between 'eee' and 'zzz';
@@ -3001,7 +3001,7 @@ a1	`doc11`.`string`
 10	
 explain extended select a1, doc11.string from t1 use document keys where doc11.string not in ('eee', 'ggg', 'iii', 'lll');
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	58.33	Using where
+1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	75.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a1` AS `a1`,`test`.`t1`.`doc11`.`string` AS "`doc11`.`string`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc11`.`string` not in ('eee','ggg','iii','lll'))
 select a1, doc11.string from t1 use document keys where doc11.string not in ('eee', 'ggg', 'iii', 'lll');
@@ -3016,7 +3016,7 @@ a1	`doc11`.`string`
 12	12
 explain extended select a1, doc11.string from t1 use document keys where doc11.string not in ('', 'zzz', 'eee', 'fff', 'ggg', 'lll', 'iii', 'hhh');
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	83.33	Using where
+1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a1` AS `a1`,`test`.`t1`.`doc11`.`string` AS "`doc11`.`string`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc11`.`string` not in ('','zzz','eee','fff','ggg','lll','iii','hhh'))
 select a1, doc11.string from t1 use document keys where doc11.string not in ('', 'zzz', 'eee', 'fff', 'ggg', 'lll', 'iii', 'hhh');
@@ -3104,7 +3104,7 @@ select a1, doc11.int from t1 use document keys where doc11.string > 'zzz';
 a1	`doc11`.`int`
 explain extended select a1, doc11.string, doc11.int from t1 use document keys where doc11.string < 'iii';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	41.67	Using where
+1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	58.33	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a1` AS `a1`,`test`.`t1`.`doc11`.`string` AS "`doc11`.`string`",`test`.`t1`.`doc11`.`int` AS "`doc11`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc11`.`string` < 'iii')
 select a1, doc11.string, doc11.int from t1 use document keys where doc11.string < 'iii';
@@ -3118,7 +3118,7 @@ a1	`doc11`.`string`	`doc11`.`int`
 12	12	false
 explain extended select doc11.string, a1, doc11.int from t1 use document keys where doc11.string <= 'iii';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	50.00	Using where
+1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	66.67	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc11`.`string` AS "`doc11`.`string`",`test`.`t1`.`a1` AS `a1`,`test`.`t1`.`doc11`.`int` AS "`doc11`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc11`.`string` <= 'iii')
 select doc11.string, a1, doc11.int from t1 use document keys where doc11.string <= 'iii';
@@ -3132,14 +3132,14 @@ hhh	8	8
 12	12	false
 explain extended select doc11.string, doc11.int from t1 use document keys where doc11.string < 'aaa';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	range	doc11_string	doc11_string	6	NULL	2	100.00	Using where
+1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	33.33	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc11`.`string` AS "`doc11`.`string`",`test`.`t1`.`doc11`.`int` AS "`doc11`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc11`.`string` < 'aaa')
 select doc11.string, doc11.int from t1 use document keys where doc11.string < 'aaa';
 `doc11`.`string`	`doc11`.`int`
+2.2	true
 	10
 12	false
-2.2	true
 explain extended select a1, doc11.string, doc11.int from t1 use document keys where doc11.string > 'eee' and doc11.string < 'iii';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	range	doc11_string	doc11_string	6	NULL	1	100.00	Using where
@@ -3159,7 +3159,7 @@ a1	`doc11`.`int`
 8	8
 explain extended select a1, doc11.int from t1 use document keys where doc11.string > '' and doc11.string < 'zzz';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	41.67	Using where
+1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	58.33	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a1` AS `a1`,`test`.`t1`.`doc11`.`int` AS "`doc11`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where ((`test`.`t1`.`doc11`.`string` > '') and (`test`.`t1`.`doc11`.`string` < 'zzz'))
 select a1, doc11.int from t1 use document keys where doc11.string > '' and doc11.string < 'zzz';
@@ -3193,7 +3193,7 @@ hhh	8
 k	11.111
 explain extended select a1, doc11.string, doc11.int from t1 use document keys where doc11.string not between 'eee' and 'iii';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	33.33	Using where
+1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	50.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a1` AS `a1`,`test`.`t1`.`doc11`.`string` AS "`doc11`.`string`",`test`.`t1`.`doc11`.`int` AS "`doc11`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc11`.`string` not between 'eee' and 'iii')
 select a1, doc11.string, doc11.int from t1 use document keys where doc11.string not between 'eee' and 'iii';
@@ -3206,7 +3206,7 @@ a1	`doc11`.`string`	`doc11`.`int`
 12	12	false
 explain extended select a1, doc11.string, doc11.int from t1 use document keys where doc11.string not between 'eee' and 'zzz';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	33.33	Using where
+1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	50.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a1` AS `a1`,`test`.`t1`.`doc11`.`string` AS "`doc11`.`string`",`test`.`t1`.`doc11`.`int` AS "`doc11`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc11`.`string` not between 'eee' and 'zzz')
 select a1, doc11.string, doc11.int from t1 use document keys where doc11.string not between 'eee' and 'zzz';
@@ -3234,7 +3234,7 @@ a1	`doc11`.`string`	`doc11`.`int`
 10		10
 explain extended select a1, doc11.string, doc11.int from t1 use document keys where doc11.string not in ('eee', 'ggg', 'iii', 'lll');
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	58.33	Using where
+1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	75.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a1` AS `a1`,`test`.`t1`.`doc11`.`string` AS "`doc11`.`string`",`test`.`t1`.`doc11`.`int` AS "`doc11`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc11`.`string` not in ('eee','ggg','iii','lll'))
 select a1, doc11.string, doc11.int from t1 use document keys where doc11.string not in ('eee', 'ggg', 'iii', 'lll');
@@ -3249,7 +3249,7 @@ a1	`doc11`.`string`	`doc11`.`int`
 12	12	false
 explain extended select a1, doc11.string, doc11.int from t1 use document keys where doc11.string not in ('', 'zzz', 'eee', 'fff', 'ggg', 'lll', 'iii', 'hhh');
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	83.33	Using where
+1	SIMPLE	t1	ALL	doc11_string	NULL	NULL	NULL	12	100.00	Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`a1` AS `a1`,`test`.`t1`.`doc11`.`string` AS "`doc11`.`string`",`test`.`t1`.`doc11`.`int` AS "`doc11`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc11`.`string` not in ('','zzz','eee','fff','ggg','lll','iii','hhh'))
 select a1, doc11.string, doc11.int from t1 use document keys where doc11.string not in ('', 'zzz', 'eee', 'fff', 'ggg', 'lll', 'iii', 'hhh');
