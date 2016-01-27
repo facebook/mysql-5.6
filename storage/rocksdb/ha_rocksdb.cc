@@ -3268,8 +3268,13 @@ void ha_rocksdb::setup_field_converters()
 
 void ha_rocksdb::io_perf_start(void)
 {
-  rocksdb::SetPerfLevel(
-    static_cast<rocksdb::PerfLevel>(rocksdb_perf_context_level));
+  rocksdb::PerfLevel perf_level=
+    static_cast<rocksdb::PerfLevel>(rocksdb_perf_context_level);
+
+  rocksdb::SetPerfLevel(perf_level);
+
+  if (perf_level == rocksdb::kDisable)
+    return;
 
 #define IO_PERF_INIT(_field_) io_perf._field_= rocksdb::perf_context._field_
   IO_PERF_INIT(block_read_byte);
@@ -3281,12 +3286,17 @@ void ha_rocksdb::io_perf_start(void)
 
 void ha_rocksdb::io_perf_end_and_record(void)
 {
+  rocksdb::PerfLevel perf_level=
+    static_cast<rocksdb::PerfLevel>(rocksdb_perf_context_level);
+
+  if (perf_level == rocksdb::kDisable)
+    return;
+
   /*
     This seems to be needed to prevent gdb from crashing if it breaks
     or enters this function.
    */
-  rocksdb::SetPerfLevel(
-    static_cast<rocksdb::PerfLevel>(rocksdb_perf_context_level));
+  rocksdb::SetPerfLevel(perf_level);
 
 #define IO_PERF_DIFF(_field_) io_perf._field_= rocksdb::perf_context._field_ - \
                                                io_perf._field_
