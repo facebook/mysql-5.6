@@ -97,20 +97,18 @@ MyRocksTablePropertiesCollector::AddUserKey(
       // rows_ % deleted_rows_window_.size()
       // deleted_rows_ is the current number of 1's in the vector
       // --update the counter for the element which will be overridden
-      if (deleted_rows_window_[rows_ % deleted_rows_window_.size()]) {
-        // correct the current number based on the element we about to override
-        deleted_rows_--;
-      }
       bool is_delete= (type == rocksdb::kEntryDelete ||
                        type == rocksdb::kEntrySingleDelete);
-      // --override the element with the new value
-      deleted_rows_window_[rows_ % deleted_rows_window_.size()]= is_delete;
-      // --update the counter
-      if (is_delete) {
-        deleted_rows_++;
+      // Only make changes if the value at the current position needs to change
+      uint64_t pos = rows_ % deleted_rows_window_.size();
+      if (is_delete != deleted_rows_window_[pos]) {
+        // Set or clear the flag at the current position as appropriate
+        deleted_rows_window_[pos]= is_delete;
+        if (!is_delete)
+          deleted_rows_--;
+        else if (++deleted_rows_ > max_deleted_rows_)
+          max_deleted_rows_ = deleted_rows_;
       }
-      // --we are looking for the maximum deleted_rows_
-      max_deleted_rows_ = std::max(deleted_rows_, max_deleted_rows_);
     }
 
     rows_++;
