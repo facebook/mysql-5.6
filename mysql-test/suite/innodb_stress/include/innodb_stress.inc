@@ -15,6 +15,14 @@
 --let $innodb_zlib_wrap_save_slave = `SELECT @@innodb_zlib_wrap`
 --let $histogram_step_size_binlog_fsync_save_slave = `SELECT @@histogram_step_size_binlog_fsync`
 
+--disable_query_log
+# DocStore hugestress tests create large transaction (redo) logs. Suppress
+# warnings of resizing redo logs
+call mtr.add_suppression("InnoDB: Resizing redo log");
+call mtr.add_suppression("InnoDB: Starting to delete and rewrite log files");
+call mtr.add_suppression("InnoDB: New log files created");
+--enable_query_log
+
 # create the directory for temporary log files.
 --exec mkdir -p $MYSQL_TMP_DIR/load_generator
 
@@ -29,6 +37,12 @@ call mtr.add_suppression("Error in Log_event::read_log_event()");
 call mtr.add_suppression("Warning: database page corruption or a failed");
 # Defragmentation might still hold a table open so drop table will be executed asynchronously, generating warning.
 call mtr.add_suppression("InnoDB: Warning: MySQL is trying to drop table ");
+
+# DocStore hugestress tests create large transaction (redo) logs. Suppress
+# warnings of resizing redo logs
+call mtr.add_suppression("InnoDB: Resizing redo log");
+call mtr.add_suppression("InnoDB: Starting to delete and rewrite log files");
+call mtr.add_suppression("InnoDB: New log files created");
 
 # Some tests create transactions larger than the defined buffer size. Suppress
 # to test the auto-extend code path rather than increasing the buffer size.
