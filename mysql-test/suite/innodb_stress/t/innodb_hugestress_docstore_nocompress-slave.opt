@@ -5,3 +5,4 @@
 --force-restart
 --innodb_buffer_pool_size=512M
 --allow_document_type=ON
+--innodb_log_file_size=128M
