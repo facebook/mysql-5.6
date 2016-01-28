@@ -607,6 +607,9 @@ public:
   /* Array of index descriptors */
   RDBSE_KEYDEF **key_descr;
 
+  /* Is this a system table */
+  bool mysql_system_table;
+
   mysql_mutex_t mutex; // guards the following:
   longlong auto_incr_val;
 

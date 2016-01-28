@@ -63,19 +63,36 @@ extern my_bool cachedev_enabled;
 static st_global_stats global_stats;
 static st_export_stats export_stats;
 
+static bool is_mysql_system_table(TABLE_SHARE* s)
+{
+  static const char *const system_dbs[] = {
+    "mysql",
+    "performance_schema",
+    "information_schema",
+  };
+
+  if (s == nullptr)
+    return false;
+
+  for (uint ii = 0; ii < array_elements(system_dbs); ii++) {
+    if (strcmp(s->db.str, system_dbs[ii]) == 0) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 /**
   Updates row counters based on the table type and operation type.
 */
-static void update_row_stats(const TABLE* table, operation_type type) {
+void ha_rocksdb::update_row_stats(operation_type type) {
   DBUG_ASSERT(type < ROWS_MAX);
   // Find if we are modifying system databases.
-  if (table->s && (!strcmp(table->s->db.str, "mysql") ||
-      !strcmp(table->s->db.str, "performance_schema") ||
-      !strcmp(table->s->db.str, "information_schema"))) {
-      global_stats.system_rows[type].inc();
-  } else {
-      global_stats.rows[type].inc();
-  }
+  if (table->s && tbl_def->mysql_system_table)
+    global_stats.system_rows[type].inc();
+  else
+    global_stats.rows[type].inc();
 }
 
 void dbug_dump_database(rocksdb::DB *db);
@@ -3609,6 +3626,7 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
   }
   pk_descr= key_descr[table_arg->s->primary_key];
 
+  tbl_def->mysql_system_table = is_mysql_system_table(table_arg->s);
   tbl_def->dbname_tablename.append(db_table, len);
   dict_manager.lock();
   write_err= ddl_manager.put_and_write(tbl_def, batch)
@@ -3946,7 +3964,7 @@ int ha_rocksdb::secondary_index_read(int keyno, uchar *buf)
         table->status= 0;
         stats.rows_read++;
         stats.rows_index_next++;
-        update_row_stats(table, ROWS_READ);
+        update_row_stats(ROWS_READ);
       }
       return rc;
     }
@@ -4059,7 +4077,7 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
     {
       stats.rows_read++;
       stats.rows_index_first++;
-      update_row_stats(table, ROWS_READ);
+      update_row_stats(ROWS_READ);
     }
     io_perf_end_and_record();
     DBUG_RETURN(rc);
@@ -4423,7 +4441,7 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
     table->status= 0;
     stats.rows_read++;
     stats.rows_index_first++;
-    update_row_stats(table, ROWS_READ);
+    update_row_stats(ROWS_READ);
   }
   io_perf_end_and_record();
   DBUG_RETURN(rc);
@@ -5127,7 +5145,7 @@ int ha_rocksdb::write_row(uchar *buf)
   if (rv == 0)
   {
     stats.rows_inserted++;
-    update_row_stats(table, ROWS_INSERTED);
+    update_row_stats(ROWS_INSERTED);
   }
   io_perf_end_and_record();
   DBUG_RETURN(rv);
@@ -5679,7 +5697,7 @@ int ha_rocksdb::rnd_next_with_direction(uchar *buf, bool move_forward)
   if (!rc) {
     stats.rows_read++;
     stats.rows_index_next++;
-    update_row_stats(table, ROWS_READ);
+    update_row_stats(ROWS_READ);
   }
 
   DBUG_RETURN(rc);
@@ -5783,7 +5801,7 @@ int ha_rocksdb::delete_row(const uchar *buf)
   }
 
   stats.rows_deleted++;
-  update_row_stats(table, ROWS_DELETED);
+  update_row_stats(ROWS_DELETED);
 
   io_perf_end_and_record();
 
@@ -6029,7 +6047,7 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
   if (rv == 0)
   {
     stats.rows_updated++;
-    update_row_stats(table, ROWS_UPDATED);
+    update_row_stats(ROWS_UPDATED);
   }
   DBUG_RETURN(rv);
 }
