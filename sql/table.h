@@ -858,6 +858,10 @@ struct TABLE_SHARE
   // If true, column names for this table are logged in Table_map_log_events
   bool rbr_column_names;
 
+  // RocksDB stores information about whether this table is part of a
+  // 'system' database here.
+  int rocksdb_system_table;
+
   /*
     Set share's table cache key and update its db and table name appropriately.
 

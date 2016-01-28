@@ -63,19 +63,43 @@ extern my_bool cachedev_enabled;
 static st_global_stats global_stats;
 static st_export_stats export_stats;
 
+static bool is_mysql_system_table(TABLE_SHARE* s)
+{
+  static const char *const system_dbs[] = {
+    "mysql",
+    "performance_schema",
+    "information_schema",
+  };
+
+  /* We use 0 to indicate that the value has never been set (since MySQL
+   * memset's this structure to 0 when it is allocated), 1 to mean the
+   * table is not in a system database and 2 to mean the table is in a
+   * system database. */
+  if (s->rocksdb_system_table == 0) {
+    for (uint ii = 0; ii < array_elements(system_dbs); ii++) {
+      if (strcmp(s->db.str, system_dbs[ii]) == 0) {
+        s->rocksdb_system_table = 2;
+        return true;
+      }
+    }
+
+    s->rocksdb_system_table = 1;
+    return false;
+  }
+
+  return s->rocksdb_system_table == 2;
+}
+
 /**
   Updates row counters based on the table type and operation type.
 */
 static void update_row_stats(const TABLE* table, operation_type type) {
   DBUG_ASSERT(type < ROWS_MAX);
   // Find if we are modifying system databases.
-  if (table->s && (!strcmp(table->s->db.str, "mysql") ||
-      !strcmp(table->s->db.str, "performance_schema") ||
-      !strcmp(table->s->db.str, "information_schema"))) {
-      global_stats.system_rows[type].inc();
-  } else {
-      global_stats.rows[type].inc();
-  }
+  if (table->s && is_mysql_system_table(table->s))
+    global_stats.system_rows[type].inc();
+  else
+    global_stats.rows[type].inc();
 }
 
 void dbug_dump_database(rocksdb::DB *db);
