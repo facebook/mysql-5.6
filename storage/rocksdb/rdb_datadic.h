@@ -618,6 +618,9 @@ public:
   std::atomic<longlong> hidden_pk_val;
   std::atomic<longlong> auto_incr_val;
 
+  /* Is this a system table */
+  bool mysql_system_table;
+
   bool put_dict(Dict_manager *dict, rocksdb::WriteBatch *batch,
                 uchar *key, size_t keylen);
 };
