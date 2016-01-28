@@ -373,6 +373,8 @@ class ha_rocksdb: public handler
   bool commit_in_the_middle();
   bool has_hidden_pk(const TABLE* table);
 
+  void update_row_stats(operation_type type);
+
   /*
     Descriptor telling how to decode/encode a field to on-disk record storage
     format. Not all information is in the structure yet, but eventually we

@@ -620,6 +620,9 @@ public:
 
   std::atomic<longlong> hidden_pk_val;
 
+  /* Is this a system table */
+  bool mysql_system_table;
+
   mysql_mutex_t mutex; // guards the following:
   longlong auto_incr_val;
 
