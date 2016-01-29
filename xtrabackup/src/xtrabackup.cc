@@ -2282,6 +2282,10 @@ read_retry:
 						    thread_n, node->name);
 						goto error;
 					}
+		      msg("[%02u] Dump of the corrupted page:\n", thread_n);
+		      buf_page_print(page+chunk_offset,
+						info.zip_size,
+						BUF_PAGE_PRINT_NO_CRASH);
 					msg("[%02u] xtrabackup: "
 					    "Database page corruption "
 					    "detected at page %lu. "
