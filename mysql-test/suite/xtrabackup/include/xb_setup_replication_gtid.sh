@@ -1,6 +1,6 @@
 set -e
 
-binlog_line=($(grep -m 1 -o "Last MySQL binlog file position 0 [0-9]*, file name .*\.[0-9]*" ${MYSQL_TMP_DIR}/xtrabackup_restore_log))
+binlog_line=($(grep -m 1 -o "Last MySQL binlog file position 0 [0-9]*, file name .*\.[0-9]*" ${MYSQLTEST_VARDIR}/log/xtrabackup_restore_log))
 binlog_pos=${binlog_line[6]%?}
 binlog_file=${binlog_line[9]}
 
@@ -17,4 +17,4 @@ sql="$sql stop slave;"
 sql="$sql change master to master_auto_position=0;"
 sql="$sql start slave;"
 $MYSQL --defaults-group-suffix=.2 -e "$sql"
-echo "$sql" > ${MYSQL_TMP_DIR}/gtid_stmt
+echo "$sql" > ${MYSQLTEST_VARDIR}/log/gtid_stmt
