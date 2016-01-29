@@ -2747,11 +2747,8 @@ void ha_rocksdb::load_auto_incr_value()
     (Why don't we use index_init/index_end? class handler defines index_init
      as private, for some reason).
   */
-  if (scan_it)
-  {
-    delete scan_it;
-    scan_it= NULL;
-  }
+  delete scan_it;
+  scan_it= NULL;
 }
 
 
@@ -3437,44 +3434,34 @@ int ha_rocksdb::close(void)
   pk_descr= NULL;
   key_descr= NULL;
 
-  if (pk_tuple)
-    my_free(pk_tuple);
+  my_free(pk_tuple);
   pk_tuple= NULL;
 
-  if (pk_packed_tuple)
-    my_free(pk_packed_tuple);
+  my_free(pk_packed_tuple);
   pk_packed_tuple= NULL;
 
-  if (sec_key_packed_tuple)
-    my_free(sec_key_packed_tuple);
+  my_free(sec_key_packed_tuple);
   sec_key_packed_tuple= NULL;
 
-  if (sec_key_match_prefix_buf)
-    my_free(sec_key_match_prefix_buf);
+  my_free(sec_key_match_prefix_buf);
   sec_key_match_prefix_buf= NULL;
 
-  if (sec_key_packed_tuple_old)
-    my_free(sec_key_packed_tuple_old);
+  my_free(sec_key_packed_tuple_old);
   sec_key_packed_tuple_old= NULL;
 
-  if (end_key_packed_tuple)
-    my_free(end_key_packed_tuple);
+  my_free(end_key_packed_tuple);
   end_key_packed_tuple= NULL;
 
-  if (sec_key_tails)
-    my_free(sec_key_tails);
+  my_free(sec_key_tails);
   sec_key_tails= NULL;
 
-  if (sec_key_tails_old)
-    my_free(sec_key_tails_old);
+  my_free(sec_key_tails_old);
   sec_key_tails_old= NULL;
 
-  if (pack_buffer)
-    my_free(pack_buffer);
+  my_free(pack_buffer);
   pack_buffer= NULL;
 
-  if (field_enc)
-    my_free(field_enc);
+  my_free(field_enc);
   field_enc= NULL;
 
   DBUG_RETURN(free_share(share));
@@ -3670,6 +3657,7 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
 error:
   /* Delete what we have allocated so far */
   delete tbl_def;
+  tbl_def = nullptr;
 
   DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
 }
@@ -5736,11 +5724,9 @@ int ha_rocksdb::rnd_end()
 {
   DBUG_ENTER("ha_rocksdb::rnd_end");
 
-  if (scan_it)
-  {
-    delete scan_it;
-    scan_it= NULL;
-  }
+  delete scan_it;
+  scan_it= NULL;
+
   DBUG_RETURN(0);
 }
 
@@ -5760,12 +5746,8 @@ int ha_rocksdb::index_init(uint idx, bool sorted)
 
 int ha_rocksdb::index_end()
 {
-
-  if (scan_it)
-  {
-    delete scan_it;
-    scan_it= NULL;
-  }
+  delete scan_it;
+  scan_it= NULL;
 
   active_index= MAX_KEY;
   in_range_check_pushed_down= FALSE;
