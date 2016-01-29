@@ -2280,6 +2280,9 @@ read_retry:
 						    "%s seems to be "
 						    "corrupted.\n",
 						    thread_n, node->name);
+						buf_page_print(page+chunk_offset,
+								info.zip_size,
+								BUF_PAGE_PRINT_NO_CRASH);
 						goto error;
 					}
 					msg("[%02u] xtrabackup: "
