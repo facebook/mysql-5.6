@@ -667,6 +667,16 @@ buf_page_is_corrupted(
 		/* Stored log sequence numbers at the start and the end
 		of page do not match */
 
+#ifdef XTRABACKUP
+			ut_print_timestamp(stderr);
+			fprintf(stderr,
+				" InnoDB (XtraBackup): Error:"
+				" Stored log sequence numbers\n"
+				"InnoDB (XtraBackup):"
+				" at the start and the end of page\n"
+				"InnoDB (XtraBackup): do not match");
+#endif /* XTRABACKUP */
+
 		return(TRUE);
 	}
 
@@ -764,11 +774,25 @@ FIL_PAGE_END_LSN_OLD_CHKSUM == 0 */
 			// computed checksums, *and* doesn't match against
 			// old_checksum, corrupt!  Otherwise, non-corrupt.
 			if (!fb_crc32_match(both_crcs, checksum_field1)
-			    && checksum_field1 != buf_calc_page_new_checksum(read_buf))
+			    && checksum_field1 != buf_calc_page_new_checksum(read_buf)) {
+#ifdef XTRABACKUP
+				ut_print_timestamp(stderr);
+				fprintf(stderr,
+					" InnoDB (XtraBackup): Error:"
+					" checksum_field1 does not match");
+#endif /* XTRABACKUP */
 				return (TRUE);
+			}
 			if (!fb_crc32_match(both_crcs, checksum_field2)
-			    && checksum_field2 != buf_calc_page_old_checksum(read_buf))
+			    && checksum_field2 != buf_calc_page_old_checksum(read_buf)) {
+#ifdef XTRABACKUP
+				ut_print_timestamp(stderr);
+				fprintf(stderr,
+					" InnoDB (XtraBackup): Error:"
+					" checksum_field2 does not match");
+#endif /* XTRABACKUP */
 				return (TRUE);
+			}
 			return (FALSE);
 		}
 
