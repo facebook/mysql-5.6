@@ -155,10 +155,11 @@ RDBSE_KEYDEF::~RDBSE_KEYDEF()
 {
   mysql_mutex_destroy(&mutex);
 
-  if (pk_part_no)
-    my_free(pk_part_no);
-  if (pack_info)
-    my_free(pack_info);
+  my_free(pk_part_no);
+  pk_part_no = nullptr;
+
+  my_free(pack_info);
+  pack_info = nullptr;
 }
 
 void RDBSE_KEYDEF::setup(TABLE *tbl)
@@ -1466,9 +1467,13 @@ RDBSE_TABLE_DEF::~RDBSE_TABLE_DEF()
       if (ddl_manager && key_descr[i]) {
         ddl_manager->erase_index_num(key_descr[i]->get_gl_index_id());
       }
+
       delete key_descr[i];
+      key_descr[i] = nullptr;
     }
+
     delete[] key_descr;
+    key_descr = nullptr;
   }
 }
 
