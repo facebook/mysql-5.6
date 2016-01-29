@@ -206,6 +206,8 @@ bool mysql_delete(THD *thd, TABLE_LIST *table_list, Item *conds,
     if (conds)
     {
       conds= substitute_for_best_equal_field(conds, cond_equal, 0);
+      if (conds == nullptr)
+        DBUG_RETURN(TRUE);
       conds->update_used_tables();
     }
   }
