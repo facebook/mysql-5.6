@@ -75,7 +75,7 @@ Wrapped_mysql_cond::WaitFor(std::shared_ptr<TransactionDBMutex> mutex_arg,
   mysql_mutex_assert_owner(mutex_ptr);
   bool should_call_set_unlock= false;
 
-  DBUG_ASSERT(mutex_obj->thd == NULL || mutex_obj->thd == thd);
+  DBUG_ASSERT(mutex_obj->thd == nullptr || mutex_obj->thd == thd);
   if (thd)
   {
     if (mutex_obj->thd)
@@ -88,10 +88,10 @@ Wrapped_mysql_cond::WaitFor(std::shared_ptr<TransactionDBMutex> mutex_arg,
         Condition wait will release the mutex; other threads may acquire
         it and call SetUnlockAction(). Let them do so.
       */
-      mutex_obj->thd= NULL;
+      mutex_obj->thd= nullptr;
       should_call_set_unlock= true;
     }
-    else /* mutex_obj->thd == NULL */
+    else /* mutex_obj->thd == nullptr */
     {
       thd_enter_cond(thd, &cond_, mutex_ptr, &stage_waiting_on_row_lock2,
                      &old_stage);
@@ -184,7 +184,7 @@ void Wrapped_mysql_cond::NotifyAll()
 
 Wrapped_mysql_mutex::Wrapped_mysql_mutex()
 #ifndef STANDALONE_UNITTEST
-: thd(NULL)
+: thd(nullptr)
 #endif
 {
   mysql_mutex_init(0 /* Don't register in P_S. */, &mutex_,
@@ -197,7 +197,7 @@ Wrapped_mysql_mutex::~Wrapped_mysql_mutex() {
 
 Status Wrapped_mysql_mutex::Lock() {
   mysql_mutex_lock(&mutex_);
-  thd= NULL; /* should be already NULL, actually */
+  thd= nullptr; /* should be already nullptr, actually */
   return Status::OK();
 }
 
@@ -232,7 +232,7 @@ void Wrapped_mysql_mutex::UnLock() {
   if (thd)
   {
     THD *a_thd=thd;
-    thd= NULL;
+    thd= nullptr;
     /* The following will call mysql_mutex_unlock */
     thd_exit_cond(a_thd, &old_stage);
     return;

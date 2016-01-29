@@ -113,7 +113,7 @@ public:
         We must not access str.at(0), since len==0, we can set ptr to any
         value.
       */
-      ptr= NULL;
+      ptr= nullptr;
     }
   }
 
@@ -125,13 +125,13 @@ public:
 
   /*
     Read the next @param size bytes. Returns pointer to the bytes read, or
-    NULL if the remaining string doesn't have that many bytes.
+    nullptr if the remaining string doesn't have that many bytes.
   */
   const char *read(uint size)
   {
     const char *res;
     if (len < size)
-      res= NULL;
+      res= nullptr;
     else
     {
       res= ptr;
