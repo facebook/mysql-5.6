@@ -1843,8 +1843,7 @@ bool Table_ddl_manager::init(Dict_manager *dict_arg,
       return true;
     }
     tdef->n_keys= real_val_size / (RDBSE_KEYDEF::PACKED_SIZE*2);
-    if (!(tdef->key_descr= new RDBSE_KEYDEF*[tdef->n_keys]))
-      return true;
+    tdef->key_descr= new RDBSE_KEYDEF*[tdef->n_keys];
 
     memset(tdef->key_descr, 0, sizeof(RDBSE_KEYDEF*) * tdef->n_keys);
 
@@ -2152,8 +2151,7 @@ bool Table_ddl_manager::rename(uchar *from, uint from_len,
   if (!(rec= (RDBSE_TABLE_DEF*)find(from, from_len, false)))
     goto err;
 
-  if (!(new_rec= new RDBSE_TABLE_DEF))
-    goto err;
+  new_rec= new RDBSE_TABLE_DEF;
 
   new_rec->dbname_tablename.append((char*)to, to_len);
   new_rec->n_keys= rec->n_keys;
