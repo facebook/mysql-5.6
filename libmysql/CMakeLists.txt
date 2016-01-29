@@ -21,7 +21,8 @@ INCLUDE_DIRECTORIES(
   ${CMAKE_SOURCE_DIR}/strings
   ${SSL_INCLUDE_DIRS}
   ${SSL_INTERNAL_INCLUDE_DIRS}
-  ${ZLIB_INCLUDE_DIR})
+  ${ZLIB_INCLUDE_DIR}
+  ${LUA_INCLUDE_DIR})
 ADD_DEFINITIONS(${SSL_DEFINES})
 
 SET(CLIENT_API_FUNCTIONS
@@ -170,7 +171,7 @@ ADD_DEPENDENCIES(clientlib GenError)
 # Don't merge zlib, ssl, etc when building static libraries.
 SET(STATIC_MERGE_LIBS clientlib dbug strings vio mysys mysys_ssl ${LIBDL})
 
-SET(LIBS ${STATIC_MERGE_LIBS} ${ZLIB_LIBRARY} ${SSL_LIBRARIES})
+SET(LIBS ${STATIC_MERGE_LIBS} ${ZLIB_LIBRARY} ${SSL_LIBRARIES} ${LUA_LIBRARY})
 
 #
 # On Windows platform client library includes the client-side 

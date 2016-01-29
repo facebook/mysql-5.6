@@ -18,6 +18,7 @@ INCLUDE_DIRECTORIES(
   ${CMAKE_SOURCE_DIR}/sql 
   ${CMAKE_SOURCE_DIR}/regex 
   ${ZLIB_INCLUDE_DIR}
+  ${LUA_INCLUDE_DIR}
   ${SSL_INCLUDE_DIRS}
   ${CMAKE_BINARY_DIR}/sql
 )
@@ -332,7 +333,7 @@ IF(NOT WITHOUT_DYNAMIC_PLUGINS)
 ENDIF()
 
 SET_TARGET_PROPERTIES(mysqld PROPERTIES ENABLE_EXPORTS TRUE) 
-TARGET_LINK_LIBRARIES(mysqld sql binlog rpl master slave sql mysys mysys_ssl)
+TARGET_LINK_LIBRARIES(mysqld sql binlog rpl master slave sql mysys mysys_ssl lua)
 
 # Provide plugins with minimal set of libraries
 SET(INTERFACE_LIBS ${LIBRT})
