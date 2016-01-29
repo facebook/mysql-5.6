@@ -3879,6 +3879,7 @@ public:
 #include "item_strfunc.h"
 #include "item_geofunc.h"
 #include "item_jsonfunc.h"
+#include "item_luafunc.h"
 #include "item_timefunc.h"
 #include "item_subselect.h"
 #include "item_xmlfunc.h"

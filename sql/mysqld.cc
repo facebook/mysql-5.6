@@ -78,6 +78,7 @@
 #include "global_threads.h"
 #include "mysqld.h"
 #include "my_default.h"
+#include "lua_call.h"
 
 #ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
 #include "../storage/perfschema/pfs_server.h"
@@ -6512,6 +6513,11 @@ int mysqld_main(int argc, char **argv)
       unireg_abort(1);
   }
 
+  /* Lua initialization */
+  Lua_init();
+
+  Lua_test();
+
   create_shutdown_thread();
   start_handle_manager();
 
@@ -6580,6 +6586,9 @@ int mysqld_main(int argc, char **argv)
   while (!ready_to_exit)
     mysql_cond_wait(&COND_thread_count, &LOCK_thread_count);
   mysql_mutex_unlock(&LOCK_thread_count);
+
+  /* Lua exit */
+  Lua_exit();
 
 #if defined(__WIN__) && !defined(EMBEDDED_LIBRARY)
   if (Service.IsNT() && start_mode)

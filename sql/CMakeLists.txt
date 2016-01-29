@@ -79,6 +79,7 @@ SET(SQL_SHARED_SOURCES
   item_document.cc
   item_func.cc
   item_geofunc.cc
+  item_luafunc.cc
   item_row.cc 
   item_strfunc.cc
   item_subselect.cc
@@ -92,6 +93,7 @@ SET(SQL_SHARED_SOURCES
   keycaches.cc
   lock.cc
   log.cc
+  lua_call.cc
   mdl.cc
   mf_iocache.cc
   my_decimal.cc
