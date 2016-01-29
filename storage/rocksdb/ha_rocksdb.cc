@@ -1708,8 +1708,7 @@ static Rdb_transaction *get_or_create_trx(THD *thd)
   // TODO: this is called too many times.. O(#rows)
   if (trx == NULL)
   {
-    if (!(trx= new Rdb_transaction(thd)))
-      return NULL;
+    trx= new Rdb_transaction(thd);
     trx->set_params(THDVAR(thd, lock_wait_timeout),
                     THDVAR(thd, max_row_locks));
     trx->start_trx();
@@ -3551,10 +3550,8 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
   rocksdb::WriteBatch *batch= wb.get();
 
   /* Create table/key descriptions and put them into the data dictionary */
-  if (!(tbl_def= new RDBSE_TABLE_DEF))
-    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
-  if (!(key_descr= new RDBSE_KEYDEF*[n_keys]))
-    goto error;
+  tbl_def= new RDBSE_TABLE_DEF;
+  key_descr= new RDBSE_KEYDEF*[n_keys];
 
   memset(key_descr, 0, sizeof(RDBSE_KEYDEF*) * n_keys);
   tbl_def->n_keys= n_keys;
@@ -3648,16 +3645,14 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
       kv_version= RDBSE_KEYDEF::SECONDARY_FORMAT_VERSION_INITIAL;
     }
 
-    if (!(key_descr[i]= new RDBSE_KEYDEF(index_id, i,
-                                         cf_handles[i],
-                                         index_dict_version,
-                                         index_type,
-                                         kv_version,
-                                         is_cf_reverse[i],
-                                         is_auto_cf[i],
-                                         table_arg->key_info[i].name
-                                        )))
-      goto error;
+    key_descr[i]= new RDBSE_KEYDEF(index_id, i,
+                                   cf_handles[i],
+                                   index_dict_version,
+                                   index_type,
+                                   kv_version,
+                                   is_cf_reverse[i],
+                                   is_auto_cf[i],
+                                   table_arg->key_info[i].name);
   }
   pk_descr= key_descr[table_arg->s->primary_key];
 
