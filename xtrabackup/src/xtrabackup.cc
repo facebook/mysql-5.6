@@ -2230,6 +2230,10 @@ xtrabackup_copy_datafile(fil_node_t* node, uint thread_n, ds_ctxt_t *ds_ctxt)
 		ulint chunk;
 		ulint chunk_offset;
 		ulint retry_count = 10;
+		// how long do we wait between retries
+		ulint sleep_duration = 100000;
+		// increase wait time after each retry
+		ulint sleep_increment = 50000;
 
 		if (file_size - offset > COPY_CHUNK * page_size) {
 			chunk = COPY_CHUNK * page_size;
@@ -2291,7 +2295,8 @@ read_retry:
 						     (IB_INT64)chunk_offset)
 						    >> page_size_shift));
 
-					os_thread_sleep(100000);
+					os_thread_sleep(sleep_duration);
+					sleep_duration += sleep_increment;
 
 					goto read_retry;
 				}
