@@ -17,6 +17,10 @@
 #define SQL_DB_INCLUDED
 
 #include "hash.h"                               /* HASH */
+#include <atomic>
+#include <memory>
+#include <string>
+#include <unordered_map>
 
 class THD;
 typedef struct charset_info_st CHARSET_INFO;
@@ -46,6 +50,7 @@ bool my_dbopt_init(void);
 void my_dbopt_cleanup(void);
 void init_thd_db_read_only(THD *thd);
 bool is_thd_db_read_only_by_name(THD *thd, const char *db);
+std::string get_db_uuid(const std::string& dbname, THD* thd);
 
 #define MY_DB_OPT_FILE "db.opt"
 

@@ -18,6 +18,7 @@
 #include "rpl_gtid.h"
 #include "sql_class.h"
 #include "binlog.h"
+#include "sql_db.h"
 
 
 Group_cache::Group_cache()
@@ -147,7 +148,19 @@ enum_return_status Group_cache::generate_automatic_gno(THD *thd)
         else
         {
           automatic_type= GTID_GROUP;
-          automatic_gtid.sidno= gtid_state->get_server_sidno();
+          MDL_DB_Name_List db_names;
+          thd->mdl_context.get_locked_object_db_names(db_names);
+          if (use_db_uuid && db_names.size()) {
+            std::string db_uuid = get_db_uuid(*db_names.begin(), thd);
+            if (!db_uuid.empty()) {
+              rpl_sid sid;
+              sid.parse(db_uuid.c_str());
+              automatic_gtid.sidno = global_sid_map->add_sid(sid);
+            }
+          }
+          if (!automatic_gtid.sidno)
+            automatic_gtid.sidno = gtid_state->get_server_sidno();
+
           gtid_state->lock_sidno(automatic_gtid.sidno);
           automatic_gtid.gno=
             gtid_state->get_automatic_gno(automatic_gtid.sidno);

@@ -70,6 +70,23 @@ static void mysql_change_db_impl(THD *thd,
 static HASH dboptions;
 static my_bool dboptions_init= 0;
 static mysql_rwlock_t LOCK_dboptions;
+typedef std::unordered_map<std::string, std::string> db_options_map;
+class db_options {
+  db_options_map map;
+public:
+  void insert(const std::string& k, const std::string& v) {
+    map.emplace(k, v);
+  }
+  std::string find(const std::string& k) {
+    auto it = map.find(k);
+    if (it != map.end()) {
+      return it->second;
+    }
+    return std::string("");
+  }
+};
+typedef std::shared_ptr<db_options> db_options_ptr;
+std::atomic<db_options_ptr> global_db_options;
 
 /* Structure for database options */
 typedef struct my_dbopt_st
@@ -78,6 +95,7 @@ typedef struct my_dbopt_st
   uint name_length;		/* Database length name           */
   const CHARSET_INFO *charset;	/* Database default character set */
   uchar db_read_only;
+  char *db_uuid;  /* Database UUID */
 } my_dbopt_t;
 
 
@@ -228,6 +246,7 @@ static my_bool get_dbopt(const char *dbname, HA_CREATE_INFO *create)
   {
     create->default_table_charset= opt->charset;
     create->db_read_only= opt->db_read_only;
+    create->db_uuid = opt->db_uuid;
     error= 0;
   }
   mysql_rwlock_unlock(&LOCK_dboptions);
@@ -249,6 +268,7 @@ static my_bool get_dbopt(const char *dbname, HA_CREATE_INFO *create)
 
 static my_bool put_dbopt(const char *dbname, HA_CREATE_INFO *create)
 {
+  auto new_db_options = std::make_shared<db_options>();
   my_dbopt_t *opt;
   uint length;
   my_bool error= 0;
@@ -261,9 +281,10 @@ static my_bool put_dbopt(const char *dbname, HA_CREATE_INFO *create)
                                           length)))
   { 
     /* Options are not in the hash, insert them */
-    char *tmp_name;
+    char *tmp_name, *tmp_uuid;
     if (!my_multi_malloc(MYF(MY_WME | MY_ZEROFILL),
                          &opt, (uint) sizeof(*opt), &tmp_name, (uint) length+1,
+                         &tmp_uuid, UUID_LENGTH+1,
                          NullS))
     {
       error= 1;
@@ -273,7 +294,8 @@ static my_bool put_dbopt(const char *dbname, HA_CREATE_INFO *create)
     opt->name= tmp_name;
     strmov(opt->name, dbname);
     opt->name_length= length;
-    
+    opt->db_uuid = tmp_uuid;
+
     if ((error= my_hash_insert(&dboptions, (uchar*) opt)))
     {
       my_free(opt);
@@ -284,6 +306,15 @@ static my_bool put_dbopt(const char *dbname, HA_CREATE_INFO *create)
   /* Update / write options in hash */
   opt->charset= create->default_table_charset;
   opt->db_read_only= create->db_read_only;
+  if (create->db_uuid)
+    strcpy(opt->db_uuid, create->db_uuid);
+
+  for (uint i=0; i < dboptions.records; ++i) {
+    my_dbopt_t* elem = (my_dbopt_t*) my_hash_element(&dboptions, i);
+    new_db_options->insert(std::string(elem->name, elem->name_length),
+                           std::string(elem->db_uuid));
+  }
+  std::atomic_store(&global_db_options, new_db_options);
 
 end:
   mysql_rwlock_unlock(&LOCK_dboptions);
@@ -333,6 +364,13 @@ static void del_dbopt(const char *path)
     if (opt->db_read_only)
       del_thd_db_read_only(opt); // removing db_opt from threads
     my_hash_delete(&dboptions, (uchar*) opt);
+    auto new_db_options = std::make_shared<db_options>();
+    for (uint i=0; i < dboptions.records; ++i) {
+      my_dbopt_t* elem = (my_dbopt_t*) my_hash_element(&dboptions, i);
+      new_db_options->insert(std::string(elem->name, elem->name_length),
+                             std::string(elem->db_uuid));
+    }
+    //std::atomic_store(&global_db_options, new_db_options);
   }
   mysql_rwlock_unlock(&LOCK_dboptions);
 }
@@ -515,6 +553,8 @@ static bool write_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create)
                               "\ndb-read-only=",
                               create->db_read_only==0? "0":
                               create->db_read_only==1? "1":"2",
+                              "\ndb-uuid=",
+                              create->db_uuid ? create->db_uuid : "",
                               "\n", NullS) - buf);
 
     /* Error is written by mysql_file_write */
@@ -612,6 +652,13 @@ bool load_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create)
       else if (!strncmp(buf,"db-read-only", (pos-buf)))
       {
         create->db_read_only = (*(pos+1) - '0');
+      }
+      else if (!strncmp(buf, "db-uuid", (pos-buf)) &&
+               nbytes > strlen("db-uuid=") + 1)
+      {
+        create->db_uuid = pos+1;
+        Uuid tmp_uuid;
+        assert(tmp_uuid.parse(create->db_uuid) == RETURN_STATUS_OK);
       }
     }
   }
@@ -2088,4 +2135,21 @@ bool check_db_dir_existence(const char *db_name)
   /* Check access. */
 
   return my_access(db_dir_path, F_OK);
+}
+
+std::string get_db_uuid(const std::string& dbname, THD* thd)
+{
+  bool empty = (dboptions.records == 0);
+  if (empty)
+    fetch_schema_schemata(thd);
+  char path[FN_REFLEN + 1];
+  build_table_filename(path, sizeof(path) - 1,
+                       dbname.c_str(), "", MY_DB_OPT_FILE, 0);
+  // Use a copy of the global shared_ptr. Note each thread
+  // should *only* use the copy made below to guarantee thread safety.
+  auto ptr = std::atomic_load(&global_db_options);
+  if (ptr) {
+    return ptr->find(std::string(path));
+  }
+  return std::string("");
 }

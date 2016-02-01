@@ -553,6 +553,7 @@ my_bool binlog_gtid_simple_recovery;
 ulong binlog_error_action;
 const char *binlog_error_action_list[]= {"IGNORE_ERROR", "ABORT_SERVER", NullS};
 my_bool log_gtid_unsafe_statements;
+my_bool use_db_uuid;
 ulong gtid_mode;
 ulong slave_gtid_info;
 bool enable_gtid_mode_on_new_slave_with_old_master;
