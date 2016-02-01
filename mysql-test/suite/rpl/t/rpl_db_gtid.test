@@ -1,0 +1,63 @@
+source include/master-slave.inc;
+source include/gtid_utils.inc;
+call mtr.add_suppression('db_uuid not found for database .*');
+
+connect (test_con,localhost,root,,);
+
+connection master;
+set @old_use_db_uuid = @@global.use_db_uuid;
+set @@global.use_db_uuid=true;
+create database db1;
+
+connection test_con;
+create table test_table(a int) engine=innodb;
+insert into test_table values(1);
+drop table test_table;
+
+connection master;
+alter database db1 db_uuid='465b88cb-caad-11e5-871f-78e9260296ea';
+show create database db1;
+create database db2 db_uuid='2b8711b7-cc5d-11e5-871f-78e9260296ea';
+# Verify alter db not specifying db_uuid is fine.
+alter database db2 read_only=true;
+show create database db2;
+alter database db2 read_only=false;
+show create database db2;
+
+--echo Verify existing connections picks up db_uuid updates
+connection test_con;
+create table db1.t1 (a int) engine=innodb;
+insert into db1.t1 values(2);
+
+--echo Verify server uuid is used if no database uuid is available.
+create database test_no_db_uuid /*!40100 DEFAULT CHARACTER SET utf8 */;
+
+connect (test_con1,localhost,root,,);
+connection test_con1;
+create table test_no_db_uuid.test_table (a int) engine=innodb;
+insert into test_no_db_uuid.test_table values(2);
+
+let $master_uuid = `select @@global.server_uuid`;
+
+let $value = `select @@global.gtid_executed`;
+# gtid_executed is not sorted. So we need this to avoid test failures.
+replace_result $value gtid_executed_set;
+eval select gtid_intersection_with_uuid('$value', '465b88cb-caad-11e5-871f-78e9260296ea');
+replace_result $value gtid_executed_set;
+eval select gtid_intersection_with_uuid('$value', '2b8711b7-cc5d-11e5-871f-78e9260296ea');
+replace_result $value gtid_executed_set $master_uuid master_uuid;
+eval select gtid_intersection_with_uuid('$value', '$master_uuid');
+
+drop database db1;
+--echo Verify drop database uses server uuid
+replace_result $value gtid_executed_set;
+eval select gtid_intersection_with_uuid('$value', '465b88cb-caad-11e5-871f-78e9260296ea');
+
+drop database db2;
+drop database test_no_db_uuid;
+
+connection master;
+set @@global.use_db_uuid = @old_use_db_uuid;
+
+source include/gtid_utils_end.inc;
+source include/rpl_end.inc;

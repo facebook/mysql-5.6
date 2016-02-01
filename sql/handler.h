@@ -30,6 +30,7 @@
 #include "thr_lock.h"          /* thr_lock_type, THR_LOCK_DATA */
 #include "sql_cache.h"
 #include "structs.h"                            /* SHOW_COMP_OPTION */
+#include "rpl_gtid.h"
 
 #include <my_global.h>
 #include <my_compare.h>
@@ -1075,6 +1076,7 @@ typedef struct st_ha_create_information
 {
   const CHARSET_INFO *table_charset, *default_table_charset;
   uchar db_read_only;
+  char db_uuid_str[Uuid::TEXT_LENGTH + 1] = {0};
   LEX_STRING connect_string;
   const char *password, *tablespace;
   LEX_STRING comment;
