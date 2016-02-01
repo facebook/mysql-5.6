@@ -1,0 +1,49 @@
+-- source include/load_sysvars.inc
+
+SET @start_use_db_uuid = @@global.use_db_uuid;
+SELECT @start_use_db_uuid;
+
+SET @@global.use_db_uuid = true;
+SET @@global.use_db_uuid = DEFAULT;
+SELECT @@global.use_db_uuid;
+
+SET @@global.use_db_uuid = @start_use_db_uuid;
+SELECT @@global.use_db_uuid = false;
+
+SET @@global.use_db_uuid = false;
+SELECT @@global.use_db_uuid;
+SET @@global.use_db_uuid = true;
+SELECT @@global.use_db_uuid;
+
+SET @@global.use_db_uuid = 1;
+SELECT @@global.use_db_uuid;
+SET @@global.use_db_uuid = 0;
+
+SELECT @@global.use_db_uuid;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.use_db_uuid = -1;
+SELECT @@global.use_db_uuid;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.use_db_uuid = 100;
+SELECT @@global.use_db_uuid;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.use_db_uuid = 1000.01;
+SELECT @@global.use_db_uuid;
+
+--ERROR ER_GLOBAL_VARIABLE
+SET @@session.use_db_uuid = 10;
+--ERROR ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.use_db_uuid;
+
+SELECT @@global.use_db_uuid = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='use_db_uuid';
+
+SELECT @@use_db_uuid = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='use_db_uuid';
+
+
+SET @@global.use_db_uuid = @start_use_db_uuid;
+SELECT @@global.use_db_uuid;
