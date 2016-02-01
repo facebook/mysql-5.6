@@ -1,0 +1,34 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/gtid_utils.inc
+call mtr.add_suppression('db_uuid not found for database .*');
+set @old_use_db_uuid = @@global.use_db_uuid;
+create database db1;
+set @@global.use_db_uuid=true;
+Verify DDL uses db_uuid
+create database db2;
+create table db1.t1 (a int) engine=innodb;
+Verify DML uses db_uuid
+insert into db1.t1 values(1);
+create table db2.t2 (a int) engine=innodb;
+select gtid_intersection_with_uuid('gtid_executed_set', 'd384a947-daa0-80f3-9257-1d6b0039dd30');
+gtid_intersection_with_uuid('gtid_executed_set', 'd384a947-daa0-80f3-9257-1d6b0039dd30')
+d384a947-daa0-80f3-9257-1d6b0039dd30:1-2
+select gtid_intersection_with_uuid('gtid_executed_set', 'ea95a7d8-0f83-fc61-f9f1-53f2638ea853');
+gtid_intersection_with_uuid('gtid_executed_set', 'ea95a7d8-0f83-fc61-f9f1-53f2638ea853')
+ea95a7d8-0f83-fc61-f9f1-53f2638ea853:1-2
+select gtid_intersection_with_uuid('gtid_executed_set', 'master_uuid');
+gtid_intersection_with_uuid('gtid_executed_set', 'master_uuid')
+master_uuid:1-19
+Verify drop database uses db_uuid
+drop database db1;
+select gtid_intersection_with_uuid('gtid_executed_set', 'd384a947-daa0-80f3-9257-1d6b0039dd30');
+gtid_intersection_with_uuid('gtid_executed_set', 'd384a947-daa0-80f3-9257-1d6b0039dd30')
+d384a947-daa0-80f3-9257-1d6b0039dd30:1-3
+drop database db2;
+set @@global.use_db_uuid = @old_use_db_uuid;
+include/gtid_utils_end.inc
+include/rpl_end.inc

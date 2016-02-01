@@ -534,6 +534,9 @@ void safe_mutex_end(FILE *file);
 #define safe_mutex_assert_not_owner(mp) \
           DBUG_ASSERT(! (mp)->count || \
                       ! pthread_equal(pthread_self(), (mp)->thread))
+#define safe_mutex_assert_thd_owner(mp, T) \
+          DBUG_ASSERT((mp)->count > 0 && \
+                      pthread_equal(T->real_id, (mp)->thread))
 
 #define my_cond_timedwait(A,B,C) safe_cond_timedwait((A),(B),(C),__FILE__,__LINE__)
 #define my_cond_wait(A,B) safe_cond_wait((A), (B), __FILE__, __LINE__)
@@ -541,6 +544,7 @@ void safe_mutex_end(FILE *file);
 #elif defined(MY_PTHREAD_FASTMUTEX)
 
 #define safe_mutex_assert_owner(mp) do {} while (0)
+#define safe_mutex_assert_thd_owner(mp, T) do {} while (0)
 #define safe_mutex_assert_not_owner(mp) do {} while (0)
 
 #define my_cond_timedwait(A,B,C) pthread_cond_timedwait((A), &(B)->mutex, (C))
@@ -549,6 +553,7 @@ void safe_mutex_end(FILE *file);
 #else
 
 #define safe_mutex_assert_owner(mp) do {} while (0)
+#define safe_mutex_assert_thd_owner(mp, T) do {} while (0)
 #define safe_mutex_assert_not_owner(mp) do {} while (0)
 
 #define my_cond_timedwait(A,B,C) pthread_cond_timedwait((A),(B),(C))

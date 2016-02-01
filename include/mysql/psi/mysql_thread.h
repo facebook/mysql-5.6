@@ -210,6 +210,9 @@ typedef struct st_mysql_cond mysql_cond_t;
 #define mysql_mutex_assert_owner(M) \
   safe_mutex_assert_owner(&(M)->m_mutex)
 
+#define mysql_mutex_assert_thd_owner(M, T) \
+  safe_mutex_assert_thd_owner(&(M)->m_mutex, T)
+
 /**
   @def mysql_mutex_assert_not_owner(M)
   Wrapper, to use safe_mutex_assert_not_owner with instrumented mutexes.
