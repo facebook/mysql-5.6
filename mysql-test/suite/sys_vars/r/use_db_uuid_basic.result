@@ -1,0 +1,66 @@
+SET @start_use_db_uuid = @@global.use_db_uuid;
+SELECT @start_use_db_uuid;
+@start_use_db_uuid
+0
+SET @@global.use_db_uuid = true;
+SET @@global.use_db_uuid = DEFAULT;
+SELECT @@global.use_db_uuid;
+@@global.use_db_uuid
+0
+SET @@global.use_db_uuid = @start_use_db_uuid;
+SELECT @@global.use_db_uuid = false;
+@@global.use_db_uuid = false
+1
+SET @@global.use_db_uuid = false;
+SELECT @@global.use_db_uuid;
+@@global.use_db_uuid
+0
+SET @@global.use_db_uuid = true;
+SELECT @@global.use_db_uuid;
+@@global.use_db_uuid
+1
+SET @@global.use_db_uuid = 1;
+SELECT @@global.use_db_uuid;
+@@global.use_db_uuid
+1
+SET @@global.use_db_uuid = 0;
+SELECT @@global.use_db_uuid;
+@@global.use_db_uuid
+0
+SET @@global.use_db_uuid = -1;
+ERROR 42000: Variable 'use_db_uuid' can't be set to the value of '-1'
+SELECT @@global.use_db_uuid;
+@@global.use_db_uuid
+0
+SET @@global.use_db_uuid = 100;
+ERROR 42000: Variable 'use_db_uuid' can't be set to the value of '100'
+SELECT @@global.use_db_uuid;
+@@global.use_db_uuid
+0
+SET @@global.use_db_uuid = 1000.01;
+ERROR 42000: Incorrect argument type to variable 'use_db_uuid'
+SELECT @@global.use_db_uuid;
+@@global.use_db_uuid
+0
+SET @@session.use_db_uuid = 10;
+ERROR HY000: Variable 'use_db_uuid' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.use_db_uuid;
+ERROR HY000: Variable 'use_db_uuid' is a GLOBAL variable
+SELECT @@global.use_db_uuid = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='use_db_uuid';
+@@global.use_db_uuid = VARIABLE_VALUE
+1
+Warnings:
+Warning	1292	Truncated incorrect DOUBLE value: 'OFF'
+SELECT @@use_db_uuid = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='use_db_uuid';
+@@use_db_uuid = VARIABLE_VALUE
+1
+Warnings:
+Warning	1292	Truncated incorrect DOUBLE value: 'OFF'
+SET @@global.use_db_uuid = @start_use_db_uuid;
+SELECT @@global.use_db_uuid;
+@@global.use_db_uuid
+0
