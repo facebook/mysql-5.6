@@ -41,7 +41,7 @@
 #include <my_bit.h>
 #include <list>
 #include "sql_readonly.h"       // check_ro
-#include "sql_db.h"      // init_thd_db_read_only
+#include "sql_db.h"      // init_thd_dboptions
                          // is_thd_db_read_only_by_name
 
 #ifdef WITH_PARTITION_STORAGE_ENGINE
@@ -1440,16 +1440,19 @@ int ha_commit_trans(THD *thd, bool all, bool async,
     /* rw_trans is TRUE when we in a transaction changing data */
     rw_trans= is_real_trans && (rw_ha_count > 0);
 
-    // initialize thread's db_read_only_hash on the first time
-    if (rw_trans && !my_hash_inited(&thd->db_read_only_hash))
-      init_thd_db_read_only(thd);
+    // initialize thread's dboptions_hash on the first time
+    if (rw_trans && !my_hash_inited(&thd->dboptions_hash))
+      init_thd_dboptions(thd);
 
     /* If this is a write transaction, we need to lock the
      * (local) db_read_only hash map during the whole transaction,
      * so the read_only option is not changed once a commit starts.
      */
     if (rw_trans)
-      mysql_mutex_lock(&thd->LOCK_thd_db_read_only_hash);
+    {
+      mysql_mutex_lock(&thd->LOCK_thd_dboptions);
+      thd->dboptions_lock = TRUE;
+    }
 
     DBUG_EXECUTE_IF("dbug.enabled_commit",
                     {
@@ -1501,7 +1504,7 @@ int ha_commit_trans(THD *thd, bool all, bool async,
       goto end;
     }
 
-    if (rw_trans && thd->db_read_only_hash.records)
+    if (rw_trans && thd->dboptions_hash.records)
     {
       // This is a write transaction and we have db_read_only on some database.
       // Since this transaction may be an explicit "commit" which doesn't have
@@ -1553,7 +1556,10 @@ end:
     thd->transaction.cleanup();
   /* Unlock db_read_only hash after a write-transaction */
   if (rw_trans)
-    mysql_mutex_unlock(&thd->LOCK_thd_db_read_only_hash);
+  {
+    mysql_mutex_unlock(&thd->LOCK_thd_dboptions);
+    thd->dboptions_lock = FALSE;
+  }
   DBUG_RETURN(error);
 }
 

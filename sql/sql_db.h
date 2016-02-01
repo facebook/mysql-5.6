@@ -17,6 +17,7 @@
 #define SQL_DB_INCLUDED
 
 #include "hash.h"                               /* HASH */
+#include <string>
 
 class THD;
 typedef struct charset_info_st CHARSET_INFO;
@@ -44,8 +45,9 @@ bool load_db_opt_by_name(THD *thd, const char *db_name,
 const CHARSET_INFO *get_default_db_collation(THD *thd, const char *db_name);
 bool my_dbopt_init(void);
 void my_dbopt_cleanup(void);
-void init_thd_db_read_only(THD *thd);
+void init_thd_dboptions(THD *thd);
 bool is_thd_db_read_only_by_name(THD *thd, const char *db);
+const char* get_db_uuid(const std::string& dbname, THD* thd);
 
 #define MY_DB_OPT_FILE "db.opt"
 
