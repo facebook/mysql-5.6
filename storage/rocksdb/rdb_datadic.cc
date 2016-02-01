@@ -1459,7 +1459,6 @@ void _rdbse_store_blob_length(uchar *pos,uint pack_length,uint length)
 RDBSE_TABLE_DEF::~RDBSE_TABLE_DEF()
 {
   auto ddl_manager= get_ddl_manager();
-  mysql_mutex_destroy(&mutex);
   /* Don't free key definitions */
   if (key_descr)
   {
@@ -2160,7 +2159,7 @@ bool Table_ddl_manager::rename(uchar *from, uint from_len,
 
   new_rec->dbname_tablename.append((char*)to, to_len);
   new_rec->n_keys= rec->n_keys;
-  new_rec->auto_incr_val= rec->auto_incr_val;
+  new_rec->auto_incr_val= (longlong) rec->auto_incr_val;
   new_rec->key_descr= rec->key_descr;
   rec->key_descr= NULL; /* so that it's not free'd when deleting the old rec */
 
