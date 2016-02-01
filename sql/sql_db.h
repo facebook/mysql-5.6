@@ -46,6 +46,7 @@ bool my_dbopt_init(void);
 void my_dbopt_cleanup(void);
 void init_thd_db_read_only(THD *thd);
 bool is_thd_db_read_only_by_name(THD *thd, const char *db);
+const char* get_db_uuid(const char* dbname, THD* thd);
 
 #define MY_DB_OPT_FILE "db.opt"
 

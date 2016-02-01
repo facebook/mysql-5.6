@@ -1075,6 +1075,7 @@ typedef struct st_ha_create_information
 {
   const CHARSET_INFO *table_charset, *default_table_charset;
   uchar db_read_only;
+  char* db_uuid;
   LEX_STRING connect_string;
   const char *password, *tablespace;
   LEX_STRING comment;
@@ -1111,7 +1112,7 @@ typedef struct st_ha_create_information
                             in Table_map_log_events */
 
   /* initialize db_read_only parameter */
-  st_ha_create_information() : db_read_only(0) {}
+  st_ha_create_information() : db_read_only(0), db_uuid(0) {}
 } HA_CREATE_INFO;
 
 /**

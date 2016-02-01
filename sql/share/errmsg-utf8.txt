@@ -7205,6 +7205,9 @@ ER_DB_ADMISSION_CONTROL
 
 ER_DOCUMENT_FIELD_NOT_NULL
   eng "Document field '%s' must be nullable. NOT NULL type is not supported in document field"
+
+ER_INVALID_UUID
+  eng "Invalid UUID encountered"
 #
 #  End of 5.6 error messages.
 #

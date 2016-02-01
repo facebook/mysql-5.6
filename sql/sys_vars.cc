@@ -5313,3 +5313,11 @@ static Sys_var_mybool Sys_show_old_temporals(
         ON_CHECK(0), ON_UPDATE(0),
         DEPRECATED(""));
 
+static Sys_var_mybool Sys_use_db_uuid(
+        "use_db_uuid",
+        "MySQL uses database UUID while generating GTID for that database. "
+        "UUID of a database must be set either while creating the database or "
+        "using an alter command. If no UUID is associated with a database, "
+        "server_uuid is used.",
+         GLOBAL_VAR(use_db_uuid), CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+

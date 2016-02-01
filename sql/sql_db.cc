@@ -78,6 +78,7 @@ typedef struct my_dbopt_st
   uint name_length;		/* Database length name           */
   const CHARSET_INFO *charset;	/* Database default character set */
   uchar db_read_only;
+  char *db_uuid;  /* Database UUID */
 } my_dbopt_t;
 
 
@@ -228,6 +229,7 @@ static my_bool get_dbopt(const char *dbname, HA_CREATE_INFO *create)
   {
     create->default_table_charset= opt->charset;
     create->db_read_only= opt->db_read_only;
+    create->db_uuid = opt->db_uuid;
     error= 0;
   }
   mysql_rwlock_unlock(&LOCK_dboptions);
@@ -261,9 +263,10 @@ static my_bool put_dbopt(const char *dbname, HA_CREATE_INFO *create)
                                           length)))
   { 
     /* Options are not in the hash, insert them */
-    char *tmp_name;
+    char *tmp_name, *tmp_uuid;
     if (!my_multi_malloc(MYF(MY_WME | MY_ZEROFILL),
                          &opt, (uint) sizeof(*opt), &tmp_name, (uint) length+1,
+                         &tmp_uuid, UUID_LENGTH+1,
                          NullS))
     {
       error= 1;
@@ -274,6 +277,10 @@ static my_bool put_dbopt(const char *dbname, HA_CREATE_INFO *create)
     strmov(opt->name, dbname);
     opt->name_length= length;
     
+    opt->db_uuid = tmp_uuid;
+    if (create->db_uuid)
+      strcpy(opt->db_uuid, create->db_uuid);
+
     if ((error= my_hash_insert(&dboptions, (uchar*) opt)))
     {
       my_free(opt);
@@ -284,6 +291,8 @@ static my_bool put_dbopt(const char *dbname, HA_CREATE_INFO *create)
   /* Update / write options in hash */
   opt->charset= create->default_table_charset;
   opt->db_read_only= create->db_read_only;
+  if (create->db_uuid)
+    strcpy(opt->db_uuid, create->db_uuid);
 
 end:
   mysql_rwlock_unlock(&LOCK_dboptions);
@@ -515,6 +524,8 @@ static bool write_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create)
                               "\ndb-read-only=",
                               create->db_read_only==0? "0":
                               create->db_read_only==1? "1":"2",
+                              "\ndb-uuid=",
+                              create->db_uuid ? create->db_uuid : "",
                               "\n", NullS) - buf);
 
     /* Error is written by mysql_file_write */
@@ -612,6 +623,13 @@ bool load_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create)
       else if (!strncmp(buf,"db-read-only", (pos-buf)))
       {
         create->db_read_only = (*(pos+1) - '0');
+      }
+      else if (!strncmp(buf, "db-uuid", (pos-buf)) &&
+               nbytes > strlen("db-uuid=") + 1)
+      {
+        create->db_uuid = pos+1;
+        Uuid tmp_uuid;
+        assert(tmp_uuid.parse(create->db_uuid) == RETURN_STATUS_OK);
       }
     }
   }
@@ -2088,4 +2106,23 @@ bool check_db_dir_existence(const char *db_name)
   /* Check access. */
 
   return my_access(db_dir_path, F_OK);
+}
+
+const char* get_db_uuid(const char *dbname, THD* thd)
+{
+  const char* res = NULL;
+  bool empty = (dboptions.records == 0);
+  if (empty)
+    fetch_schema_schemata(thd);
+  char path[FN_REFLEN + 1];
+  uint path_len= build_table_filename(path, sizeof(path) - 1,
+                                      dbname, "", MY_DB_OPT_FILE, 0);
+  mysql_rwlock_rdlock(&LOCK_dboptions);
+  my_dbopt_t *opt = (my_dbopt_t*) my_hash_search(&dboptions, (uchar*) path,
+                                                 path_len);
+  if (opt && *opt->db_uuid) {
+    res = opt->db_uuid;
+  }
+  mysql_rwlock_unlock(&LOCK_dboptions);
+  return res;
 }

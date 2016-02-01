@@ -1050,6 +1050,17 @@ bool mysqld_show_create_db(THD *thd, char *dbname,
       buffer.append(STRING_WITH_LEN(" READ_ONLY"));
   }
 
+  if (create.db_uuid)
+  {
+    if (!enclose_comment)
+    {
+      buffer.append(STRING_WITH_LEN(" /*"));
+      enclose_comment = true;
+    }
+    buffer.append(STRING_WITH_LEN(" DB_UUID "));
+    buffer.append(create.db_uuid);
+  }
+
   if (enclose_comment)
     buffer.append(STRING_WITH_LEN(" */"));
 
