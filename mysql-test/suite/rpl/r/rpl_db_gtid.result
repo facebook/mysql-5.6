@@ -1,0 +1,46 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/gtid_utils.inc
+call mtr.add_suppression('db_uuid not found for database .*');
+set @old_use_db_uuid = @@global.use_db_uuid;
+set @@global.use_db_uuid=true;
+create database db1;
+alter database db1 db_uuid='465b88cb-caad-11e5-871f-78e9260296ea';
+show create database db1;
+Database	Create Database
+db1	CREATE DATABASE `db1` /*!40100 DEFAULT CHARACTER SET latin1 DB_UUID 465b88cb-caad-11e5-871f-78e9260296ea */
+create database db2 db_uuid='2b8711b7-cc5d-11e5-871f-78e9260296ea';
+alter database db2 read_only=true;
+alter database db2 read_only=false;
+show create database db2;
+Database	Create Database
+db2	CREATE DATABASE `db2` /*!40100 DEFAULT CHARACTER SET latin1 DB_UUID 2b8711b7-cc5d-11e5-871f-78e9260296ea */
+Verify existing connections picks up db_uuid updates
+create table db1.t1 (a int) engine=innodb;
+insert into db1.t1 values(2);
+Verify server uuid is used if no database uuid is available.
+use test;
+create table test_table (a int) engine=innodb;
+insert into test_table values(2);
+select gtid_intersection_with_uuid('gtid_executed_set', '465b88cb-caad-11e5-871f-78e9260296ea');
+gtid_intersection_with_uuid('gtid_executed_set', '465b88cb-caad-11e5-871f-78e9260296ea')
+465b88cb-caad-11e5-871f-78e9260296ea:1-3
+select gtid_intersection_with_uuid('gtid_executed_set', '2b8711b7-cc5d-11e5-871f-78e9260296ea');
+gtid_intersection_with_uuid('gtid_executed_set', '2b8711b7-cc5d-11e5-871f-78e9260296ea')
+2b8711b7-cc5d-11e5-871f-78e9260296ea:1-3
+select gtid_intersection_with_uuid('gtid_executed_set', 'master_uuid');
+gtid_intersection_with_uuid('gtid_executed_set', 'master_uuid')
+master_uuid:1-21
+drop database db1;
+Verify drop database uses server uuid
+select gtid_intersection_with_uuid('gtid_executed_set', '465b88cb-caad-11e5-871f-78e9260296ea');
+gtid_intersection_with_uuid('gtid_executed_set', '465b88cb-caad-11e5-871f-78e9260296ea')
+465b88cb-caad-11e5-871f-78e9260296ea:1-3
+drop database db2;
+drop table test_table;
+set @@global.use_db_uuid = @old_use_db_uuid;
+include/gtid_utils_end.inc
+include/rpl_end.inc
