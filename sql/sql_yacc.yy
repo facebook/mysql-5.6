@@ -1221,10 +1221,10 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %lex-param { class THD *YYTHD }
 %pure-parser                                    /* We have threads */
 /*
-  Currently there are 182 shift/reduce conflicts.
+  Currently there are 183 shift/reduce conflicts.
   We should not introduce new conflicts any more.
 */
-%expect 182
+%expect 183
 
 /*
    Comments for TOKENS.
@@ -1358,6 +1358,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  DAY_MINUTE_SYM
 %token  DAY_SECOND_SYM
 %token  DAY_SYM                       /* SQL-2003-R */
+%token  DB_UUID_SYM
 %token  DEALLOCATE_SYM                /* SQL-2003-R */
 %token  DECIMAL_NUM
 %token  DECIMAL_SYM                   /* SQL-2003-R */
@@ -6193,6 +6194,7 @@ create_database_option:
           default_collation {}
         | default_charset {}
         | db_read_only {}
+        | db_uuid {}
         ;
 
 opt_table_options:
@@ -6486,6 +6488,18 @@ db_read_only:
             else if ($1 == 1 && $3 == 1)
             {
               Lex->create_info.db_read_only= 2; /* super_read_only = true */
+            }
+          }
+        ;
+
+db_uuid:
+          DB_UUID_SYM opt_equal TEXT_STRING_sys
+          {
+            Lex->create_info.db_uuid = $3.str;
+            Uuid uuid;
+            if (uuid.parse(Lex->create_info.db_uuid) != RETURN_STATUS_OK) {
+              my_error(ER_INVALID_UUID, MYF(0), $3.str);
+              MYSQL_YYABORT;
             }
           }
         ;
@@ -14895,6 +14909,7 @@ keyword_sp:
         | DATETIME                 {}
         | DATE_SYM                 {}
         | DAY_SYM                  {}
+        | DB_UUID_SYM              {}
         | DEFAULT_AUTH_SYM         {}
         | DEFINER_SYM              {}
         | DELAY_KEY_WRITE_SYM      {}

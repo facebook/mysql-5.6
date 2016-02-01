@@ -553,6 +553,7 @@ my_bool binlog_gtid_simple_recovery;
 ulong binlog_error_action;
 const char *binlog_error_action_list[]= {"IGNORE_ERROR", "ABORT_SERVER", NullS};
 my_bool log_gtid_unsafe_statements;
+my_bool use_db_uuid;
 ulong gtid_mode;
 ulong slave_gtid_info;
 bool enable_gtid_mode_on_new_slave_with_old_master;
@@ -10587,7 +10588,7 @@ PSI_mutex_key
   key_LOCK_slave_net_timeout,
   key_LOCK_server_started, key_LOCK_status,
   key_LOCK_system_variables_hash, key_LOCK_table_share, key_LOCK_thd_data,
-  key_LOCK_thd_db_read_only_hash,
+  key_LOCK_thd_dboptions,
   key_LOCK_user_conn, key_LOCK_uuid_generator, key_LOG_LOCK_log,
   key_master_info_data_lock, key_master_info_run_lock,
   key_master_info_sleep_lock, key_master_info_thd_lock,
@@ -10683,7 +10684,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_system_variables_hash, "LOCK_system_variables_hash", PSI_FLAG_GLOBAL},
   { &key_LOCK_table_share, "LOCK_table_share", PSI_FLAG_GLOBAL},
   { &key_LOCK_thd_data, "THD::LOCK_thd_data", 0},
-  { &key_LOCK_thd_db_read_only_hash, "THD::LOCK_thd_db_read_only_hash", 0},
+  { &key_LOCK_thd_dboptions, "THD::LOCK_thd_dboptions_hash", 0},
   { &key_LOCK_user_conn, "LOCK_user_conn", PSI_FLAG_GLOBAL},
   { &key_LOCK_uuid_generator, "LOCK_uuid_generator", PSI_FLAG_GLOBAL},
   { &key_LOCK_sql_rand, "LOCK_sql_rand", PSI_FLAG_GLOBAL},
