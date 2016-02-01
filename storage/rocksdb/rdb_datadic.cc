@@ -1596,7 +1596,6 @@ void Field_pack_info::fill_hidden_pk_val(TABLE* table,
 RDBSE_TABLE_DEF::~RDBSE_TABLE_DEF()
 {
   auto ddl_manager= get_ddl_manager();
-  mysql_mutex_destroy(&mutex);
   /* Don't free key definitions */
   if (key_descr)
   {
@@ -2325,7 +2324,7 @@ bool Table_ddl_manager::rename(uchar *from, uint from_len,
 
   new_rec->set_name(reinterpret_cast<char*>(to), to_len);
   new_rec->n_keys= rec->n_keys;
-  new_rec->auto_incr_val= rec->auto_incr_val;
+  new_rec->auto_incr_val= rec->auto_incr_val.load(std::memory_order_relaxed);
   new_rec->key_descr= rec->key_descr;
   rec->key_descr= NULL; /* so that it's not free'd when deleting the old rec */
 
