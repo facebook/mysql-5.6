@@ -324,6 +324,7 @@ static uint32_t rocksdb_debug_optimizer_n_rows;
 static my_bool rocksdb_debug_optimizer_no_zero_cardinality;
 static uint32_t rocksdb_perf_context_level;
 static uint32_t rocksdb_wal_recovery_mode;
+static uint32_t rocksdb_access_hint_on_compaction_start;
 static char * compact_cf_name;
 static char * checkpoint_name;
 static my_bool rocksdb_signal_drop_index_thread;
@@ -476,6 +477,39 @@ static MYSQL_SYSVAR_UINT(wal_recovery_mode,
   NULL, NULL, 2,
   /* min */ 0L, /* max */ 3, 0);
 
+static MYSQL_SYSVAR_ULONG(compaction_readahead_size,
+  db_options.compaction_readahead_size,
+  PLUGIN_VAR_RQCMDARG,
+  "DBOptions::compaction_readahead_size for RocksDB",
+  nullptr, nullptr, db_options.compaction_readahead_size,
+  /* min */ 0L, /* max */ ULONG_MAX, 0);
+
+static MYSQL_SYSVAR_BOOL(new_table_reader_for_compaction_inputs,
+  *reinterpret_cast<my_bool*>
+    (&db_options.new_table_reader_for_compaction_inputs),
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::new_table_reader_for_compaction_inputs for RocksDB",
+  nullptr, nullptr, db_options.new_table_reader_for_compaction_inputs);
+
+static MYSQL_SYSVAR_UINT(access_hint_on_compaction_start,
+  rocksdb_access_hint_on_compaction_start,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::access_hint_on_compaction_start for RocksDB",
+  nullptr, nullptr, 1,
+  /* min */ 0L, /* max */ 3, 0);
+
+static MYSQL_SYSVAR_BOOL(allow_concurrent_memtable_write,
+  *reinterpret_cast<my_bool*>(&db_options.allow_concurrent_memtable_write),
+  PLUGIN_VAR_RQCMDARG,
+  "DBOptions::allow_concurrent_memtable_write for RocksDB",
+  nullptr, nullptr, db_options.allow_concurrent_memtable_write);
+
+static MYSQL_SYSVAR_BOOL(enable_write_thread_adaptive_yield,
+  *reinterpret_cast<my_bool*>(&db_options.enable_write_thread_adaptive_yield),
+  PLUGIN_VAR_RQCMDARG,
+  "DBOptions::enable_write_thread_adaptive_yield for RocksDB",
+  nullptr, nullptr, db_options.enable_write_thread_adaptive_yield);
+
 static MYSQL_SYSVAR_INT(max_open_files,
   db_options.max_open_files,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -513,6 +547,13 @@ static MYSQL_SYSVAR_ULONG(delete_obsolete_files_period_micros,
   "DBOptions::delete_obsolete_files_period_micros for RocksDB",
   NULL, NULL, db_options.delete_obsolete_files_period_micros,
   /* min */ 0L, /* max */ LONG_MAX, 0);
+
+static MYSQL_SYSVAR_INT(base_background_compactions,
+  db_options.base_background_compactions,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::base_background_compactions for RocksDB",
+  nullptr, nullptr, db_options.base_background_compactions,
+  /* min */ -1, /* max */ INT_MAX, 0);
 
 static MYSQL_SYSVAR_INT(max_background_compactions,
   db_options.max_background_compactions,
@@ -924,6 +965,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(use_fsync),
   MYSQL_SYSVAR(wal_dir),
   MYSQL_SYSVAR(delete_obsolete_files_period_micros),
+  MYSQL_SYSVAR(base_background_compactions),
   MYSQL_SYSVAR(max_background_compactions),
   MYSQL_SYSVAR(max_background_flushes),
   MYSQL_SYSVAR(max_log_file_size),
@@ -947,6 +989,11 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(enable_thread_tracking),
   MYSQL_SYSVAR(perf_context_level),
   MYSQL_SYSVAR(wal_recovery_mode),
+  MYSQL_SYSVAR(access_hint_on_compaction_start),
+  MYSQL_SYSVAR(new_table_reader_for_compaction_inputs),
+  MYSQL_SYSVAR(compaction_readahead_size),
+  MYSQL_SYSVAR(allow_concurrent_memtable_write),
+  MYSQL_SYSVAR(enable_write_thread_adaptive_yield),
 
   MYSQL_SYSVAR(block_cache_size),
   MYSQL_SYSVAR(cache_index_and_filter_blocks),
@@ -2412,6 +2459,10 @@ static int rocksdb_init_func(void *p)
 
   db_options.wal_recovery_mode=
     static_cast<rocksdb::WALRecoveryMode>(rocksdb_wal_recovery_mode);
+
+  db_options.access_hint_on_compaction_start=
+    static_cast<rocksdb::Options::AccessHint>
+      (rocksdb_access_hint_on_compaction_start);
 
   status= rocksdb::DB::ListColumnFamilies(db_options, rocksdb_datadir,
                                           &cf_names);
