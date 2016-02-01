@@ -603,10 +603,7 @@ Field* RDBSE_KEYDEF::get_table_field_for_part_no(TABLE *table, uint part_no)
 class RDBSE_TABLE_DEF
 {
 public:
-  RDBSE_TABLE_DEF() : key_descr(nullptr), hidden_pk_val(1), auto_incr_val(1)
-  {
-    mysql_mutex_init(0, &mutex, MY_MUTEX_INIT_FAST);
-  }
+  RDBSE_TABLE_DEF() : key_descr(nullptr), hidden_pk_val(1), auto_incr_val(1) {}
   ~RDBSE_TABLE_DEF();
 
   /* Stores 'dbname.tablename' */
@@ -619,9 +616,7 @@ public:
   RDBSE_KEYDEF **key_descr;
 
   std::atomic<longlong> hidden_pk_val;
-
-  mysql_mutex_t mutex; // guards the following:
-  longlong auto_incr_val;
+  std::atomic<longlong> auto_incr_val;
 
   bool put_dict(Dict_manager *dict, rocksdb::WriteBatch *batch,
                 uchar *key, size_t keylen);
