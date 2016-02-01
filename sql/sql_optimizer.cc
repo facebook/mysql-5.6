@@ -5863,7 +5863,15 @@ add_group_and_distinct_keys(JOIN *join, JOIN_TAB *join_tab)
       return;
     }
     else
-      possible_keys.intersect(cur_item->field->part_of_key);
+    {
+      if (cur_item->field->type() == MYSQL_TYPE_DOCUMENT)
+      {
+        Field_document *field_document = (Field_document*)cur_item->field;
+        possible_keys.intersect(field_document->the_key_map);
+      }
+      else
+        possible_keys.intersect(cur_item->field->part_of_key);
+    }
   }
 
   /*

@@ -9829,6 +9829,7 @@ Field_document::Field_document(MEM_ROOT *mem_root,
     Field_document(*document)
 {
   DBUG_ASSERT(doc_path.elements > 0);
+  // the_key_map ???
   key_len = key_length;
   set_document_type(type);
   DBUG_ASSERT(validate_doc_type());
@@ -9881,6 +9882,12 @@ Field_document::Field_document(MEM_ROOT *mem_root,
         /* we found the key. Merge the key's part_of_key map
          * with the field
          */
+        DBUG_ASSERT(the_key_map.is_clear_all());
+        the_key_map.merge(trie->part_of_key);
+
+        DBUG_ASSERT(part_of_sortkey.is_clear_all());
+        part_of_sortkey.merge(trie->part_of_key);
+
         table->covering_keys.intersect(trie->part_of_key);
         table->merge_keys.merge(trie->part_of_key);
         set_document_type(trie->key_type);

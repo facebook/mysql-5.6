@@ -3736,6 +3736,7 @@ protected:
 public:
   friend class Document_path_iterator;
   enum document_type doc_type;
+  key_map the_key_map; // The key map for document path if it exists
   /*
     Used to indicate the number of the prefix of document path in
     this field. Because we forbid storing something not array or
@@ -4216,6 +4217,7 @@ private:
   {
     flags|= DOCUMENT_FLAG;
     packlength = 3;
+    the_key_map.clear_all();
     memset(document_path_key_start, 0,
            sizeof(DOCUMENT_PATH_KEY_PART_INFO*)*MAX_KEY);
   }
