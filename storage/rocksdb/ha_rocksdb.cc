@@ -2854,11 +2854,13 @@ void ha_rocksdb::update_auto_incr_val()
   new_val= field->val_int() + 1;
   dbug_tmp_restore_column_map(table->read_set, old_map);
 
-  /* TODO: switch to compare-and-swap? */
-  mysql_mutex_lock(&tbl_def->mutex);
-  if (tbl_def->auto_incr_val < new_val)
-    tbl_def->auto_incr_val= new_val;
-  mysql_mutex_unlock(&tbl_def->mutex);
+  longlong auto_incr_val= tbl_def->auto_incr_val;
+  while (auto_incr_val < new_val &&
+         !tbl_def->auto_incr_val.compare_exchange_weak(auto_incr_val,
+                                                       new_val)) {
+    // Do nothing - just loop until auto_incr_val is >= new_val or
+    // we successfully set it
+  }
 }
 
 int ha_rocksdb::load_hidden_pk_value()
@@ -6055,10 +6057,8 @@ int ha_rocksdb::delete_all_rows(ha_rows* nrows)
 
 int ha_rocksdb::truncate()
 {
-  mysql_mutex_lock(&tbl_def->mutex);
   tbl_def->auto_incr_val= 1;
   tbl_def->hidden_pk_val= 1;
-  mysql_mutex_unlock(&tbl_def->mutex);
   remove_rows(tbl_def);
   return 0;
 }
@@ -7159,11 +7159,9 @@ void ha_rocksdb::get_auto_increment(ulonglong offset, ulonglong increment,
   if (!nb_desired_values)
     nb_desired_values= 1;
 
-  mysql_mutex_lock(&tbl_def->mutex);
-  *first_value= tbl_def->auto_incr_val;
+  *first_value= (tbl_def->auto_incr_val += nb_desired_values) -
+      nb_desired_values;
   *nb_reserved_values= nb_desired_values;
-  tbl_def->auto_incr_val += nb_desired_values;
-  mysql_mutex_unlock(&tbl_def->mutex);
 }
 
 
