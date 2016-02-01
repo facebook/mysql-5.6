@@ -952,9 +952,13 @@ The following options may be given as the first argument:
  DBOptions::WAL_size_limit_MB for RocksDB
  --rocksdb-WAL-ttl-seconds=# 
  DBOptions::WAL_ttl_seconds for RocksDB
+ --rocksdb-access-hint-on-compaction-start=# 
+ DBOptions::access_hint_on_compaction_start for RocksDB
  --rocksdb-advise-random-on-open 
  DBOptions::advise_random_on_open for RocksDB
  (Defaults to on; use --skip-rocksdb-advise-random-on-open to disable.)
+ --rocksdb-allow-concurrent-memtable-write 
+ DBOptions::allow_concurrent_memtable_write for RocksDB
  --rocksdb-allow-mmap-reads 
  DBOptions::allow_mmap_reads for RocksDB
  --rocksdb-allow-mmap-writes 
@@ -964,6 +968,8 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-rocksdb-allow-os-buffer to disable.)
  --rocksdb-background-sync 
  turns on background syncs for RocksDB
+ --rocksdb-base-background-compactions=# 
+ DBOptions::base_background_compactions for RocksDB
  --rocksdb-block-cache-size=# 
  block_cache size for RocksDB
  --rocksdb-block-restart-interval=# 
@@ -1003,6 +1009,8 @@ The following options may be given as the first argument:
  bulk load/insert
  --rocksdb-compact-cf=name 
  Compact column family
+ --rocksdb-compaction-readahead-size=# 
+ DBOptions::compaction_readahead_size for RocksDB
  --rocksdb-compaction-sequential-deletes=# 
  RocksDB will trigger compaction for the file if it has
  more than this number sequential deletes per window
@@ -1046,6 +1054,8 @@ The following options may be given as the first argument:
  DBOptions::disableDataSync for RocksDB
  --rocksdb-enable-thread-tracking 
  DBOptions::enable_thread_tracking for RocksDB
+ --rocksdb-enable-write-thread-adaptive-yield 
+ DBOptions::enable_write_thread_adaptive_yield for RocksDB
  --rocksdb-error-if-exists 
  DBOptions::error_if_exists for RocksDB
  --rocksdb-force-flush-memtable-now 
@@ -1097,6 +1107,9 @@ The following options may be given as the first argument:
  Maximum number of locks a transaction can have
  --rocksdb-max-total-wal-size=# 
  DBOptions::max_total_wal_size for RocksDB
+ --rocksdb-new-table-reader-for-compaction-inputs 
+ DBOptions::new_table_reader_for_compaction_inputs for
+ RocksDB
  --rocksdb-no-block-cache 
  BlockBasedTableOptions::no_block_cache for RocksDB
  --rocksdb-override-cf-options=name 
@@ -1706,11 +1719,14 @@ reset-seconds-behind-master TRUE
 rocksdb ON
 rocksdb-WAL-size-limit-MB 0
 rocksdb-WAL-ttl-seconds 0
+rocksdb-access-hint-on-compaction-start 1
 rocksdb-advise-random-on-open TRUE
+rocksdb-allow-concurrent-memtable-write FALSE
 rocksdb-allow-mmap-reads FALSE
 rocksdb-allow-mmap-writes FALSE
 rocksdb-allow-os-buffer TRUE
 rocksdb-background-sync FALSE
+rocksdb-base-background-compactions -1
 rocksdb-block-cache-size 8388608
 rocksdb-block-restart-interval 16
 rocksdb-block-size 4096
@@ -1725,6 +1741,7 @@ rocksdb-checksums-pct 100
 rocksdb-collect-sst-properties TRUE
 rocksdb-commit-in-the-middle FALSE
 rocksdb-compact-cf 
+rocksdb-compaction-readahead-size 0
 rocksdb-compaction-sequential-deletes 1900
 rocksdb-compaction-sequential-deletes-file-size 0
 rocksdb-compaction-sequential-deletes-window 2000
@@ -1741,6 +1758,7 @@ rocksdb-default-cf-options
 rocksdb-delete-obsolete-files-period-micros 21600000000
 rocksdb-disableDataSync FALSE
 rocksdb-enable-thread-tracking FALSE
+rocksdb-enable-write-thread-adaptive-yield FALSE
 rocksdb-error-if-exists FALSE
 rocksdb-force-flush-memtable-now FALSE
 rocksdb-force-index-records-in-range 0
@@ -1761,6 +1779,7 @@ rocksdb-max-manifest-file-size 18446744073709551615
 rocksdb-max-open-files 5000
 rocksdb-max-row-locks 1073741824
 rocksdb-max-total-wal-size 0
+rocksdb-new-table-reader-for-compaction-inputs FALSE
 rocksdb-no-block-cache FALSE
 rocksdb-override-cf-options 
 rocksdb-paranoid-checks TRUE
