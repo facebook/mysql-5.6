@@ -2194,7 +2194,7 @@ void Table_ddl_manager::adjust_stats(
     request_save_stats();
 }
 
-void Table_ddl_manager::persist_stats()
+void Table_ddl_manager::persist_stats(bool sync)
 {
   mysql_rwlock_wrlock(&rwlock);
   auto local_stats2store = std::move(stats2store);
@@ -2211,7 +2211,7 @@ void Table_ddl_manager::persist_stats()
     const std::pair<GL_INDEX_ID, MyRocksTablePropertiesCollector::IndexStats>& s
     ) {return s.second;});
   dict->add_stats(wb.get(), stats);
-  dict->commit(wb.get(), false);
+  dict->commit(wb.get(), sync);
 }
 
 /*

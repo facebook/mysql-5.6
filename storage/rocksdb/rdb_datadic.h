@@ -704,7 +704,7 @@ public:
     const std::vector<MyRocksTablePropertiesCollector::IndexStats>& new_data,
     const std::vector<MyRocksTablePropertiesCollector::IndexStats>& deleted_data
      =std::vector<MyRocksTablePropertiesCollector::IndexStats>());
-  void persist_stats();
+  void persist_stats(bool sync = false);
 
   /* Modify the mapping and write it to on-disk storage */
   int put_and_write(RDBSE_TABLE_DEF *key_descr, rocksdb::WriteBatch *batch);
