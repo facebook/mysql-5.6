@@ -28,7 +28,7 @@ void putKeys(MyRocksTablePropertiesCollector& coll, int num, bool is_delete,
       sl, sl,
       is_delete?rocksdb::kEntryDelete:rocksdb::kEntryPut, 0, 100);
   }
-  assert(coll.GetMaxDeletedRows() ==  expected_deleted);
+  DBUG_ASSERT(coll.GetMaxDeletedRows() ==  expected_deleted);
 }
 
 int main(int argc, char** argv) {

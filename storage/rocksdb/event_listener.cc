@@ -38,7 +38,7 @@ extract_index_stats(
   std::vector<MyRocksTablePropertiesCollector::IndexStats> ret;
   for (auto fn : files) {
     auto it = props.find(fn);
-    assert(it != props.end());
+    DBUG_ASSERT(it != props.end());
     std::vector<MyRocksTablePropertiesCollector::IndexStats> stats =
       MyRocksTablePropertiesCollector::GetStatsFromTableProperties(
         it->second);
