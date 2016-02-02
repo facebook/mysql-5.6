@@ -2819,8 +2819,7 @@ std::vector<std::string> get_share_names(void)
 void ha_rocksdb::load_auto_incr_value()
 {
   int save_active_index= active_index;
-  active_index= pk_index(table, tbl_def);
-
+  active_index= table->s->next_number_index;
   uint8 save_table_status= table->status;
 
   // Do a lookup.
@@ -2847,12 +2846,12 @@ void ha_rocksdb::load_auto_incr_value()
 */
 void ha_rocksdb::update_auto_incr_val()
 {
-  Field *pk_field;
+  Field *field;
   longlong new_val;
-  pk_field= table->key_info[table->s->primary_key].key_part[0].field;
+  field= table->key_info[table->s->next_number_index].key_part[0].field;
 
   my_bitmap_map *old_map= dbug_tmp_use_all_columns(table, table->read_set);
-  new_val= pk_field->val_int() + 1;
+  new_val= field->val_int() + 1;
   dbug_tmp_restore_column_map(table->read_set, old_map);
 
   /* TODO: switch to compare-and-swap? */
