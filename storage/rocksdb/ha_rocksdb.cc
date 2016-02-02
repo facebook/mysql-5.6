@@ -1067,7 +1067,7 @@ rocksdb::WriteOptions get_write_options(THD* thd)
 */
 
 static uchar* rocksdb_get_key(ROCKSDB_SHARE *share, size_t *length,
-                             my_bool not_used MY_ATTRIBUTE((unused)))
+                             my_bool not_used MY_ATTRIBUTE((__unused__)))
 {
   *length=share->table_name_length;
   return (uchar*) share->table_name;
@@ -1172,10 +1172,10 @@ public:
 static void register_snapshot(const rocksdb::Snapshot* snapshot, THD *thd)
 {
   mysql_mutex_lock(&snapshot_mutex);
-  auto res = snapshot_map.emplace(snapshot,
+  auto res MY_ATTRIBUTE((__unused__)) = snapshot_map.emplace(snapshot,
       std::make_shared<MyRocksSnapshot>(thd));
   mysql_mutex_unlock(&snapshot_mutex);
-  assert(res.second);
+  DBUG_ASSERT(res.second);
 }
 
 
@@ -1187,10 +1187,10 @@ static void register_snapshot_release(const rocksdb::Snapshot* snapshot)
   if (snapshot != nullptr)
   {
     mysql_mutex_lock(&snapshot_mutex);
-    auto count = snapshot_map.erase(snapshot);
+    auto count MY_ATTRIBUTE((__unused__)) = snapshot_map.erase(snapshot);
     mysql_mutex_unlock(&snapshot_mutex);
 
-    assert(count == 1);
+    DBUG_ASSERT(count == 1);
   }
 }
 
@@ -2517,7 +2517,7 @@ static int rocksdb_init_func(void *p)
 
     mysql_mutex_lock(&sysvar_mutex);
 
-    assert(rocksdb_table_stats_sampling_pct <= MYROCKS_SAMPLE_PCT_MAX);
+    DBUG_ASSERT(rocksdb_table_stats_sampling_pct <= MYROCKS_SAMPLE_PCT_MAX);
     properties_collector_factory->SetTableStatsSamplingPct(
       rocksdb_table_stats_sampling_pct);
 
@@ -4987,7 +4987,7 @@ void dbug_dump_database(rocksdb::DB *db)
     dbug_dump_str(out, val.data(), val.size());
     fprintf(out, "\n");
   }
-  //assert(it->status().ok());  // Check for any errors found during the scan
+
   delete it;
   fclose(out);
 }
@@ -6607,13 +6607,14 @@ void* drop_index_thread(void*)
       ? 24*60*60 // no filtering
       : 60; // filtering
 
-    auto ret = mysql_cond_timedwait(&drop_index_interrupt_cond,
+    auto ret MY_ATTRIBUTE((__unused__)) = mysql_cond_timedwait(
+                                    &drop_index_interrupt_cond,
                                     &drop_index_interrupt_mutex, &ts);
     if (stop_drop_index_thread) {
       break;
     }
     // make sure, no program error is returned
-    assert(ret == 0 || ret == ETIMEDOUT);
+    DBUG_ASSERT(ret == 0 || ret == ETIMEDOUT);
     mysql_mutex_unlock(&drop_index_interrupt_mutex);
 
     std::vector<GL_INDEX_ID> indices;
@@ -6913,7 +6914,7 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *min_key,
   }
 
   RDBSE_KEYDEF *kd= key_descr[inx];
-  assert(kd);
+  DBUG_ASSERT(kd);
 
   uint size1=0;
   if (min_key) {
@@ -7075,10 +7076,10 @@ int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
   rocksdb::TablePropertiesCollection props;
   for (auto it : ranges)
   {
-    auto old_size = props.size();
+    auto old_size MY_ATTRIBUTE((__unused__)) = props.size();
     auto status = rdb->GetPropertiesOfTablesInRange(
       it.first, &it.second[0], it.second.size(), &props);
-    assert(props.size() >= old_size);
+    DBUG_ASSERT(props.size() >= old_size);
     if (!status.ok())
       DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
@@ -7583,10 +7584,10 @@ void* background_thread(void*)
   {
     // wait for 1 second or until we received a condition to stop the thread
     mysql_mutex_lock(&stop_cond_mutex);
-    auto ret = mysql_cond_timedwait(
+    auto ret MY_ATTRIBUTE((__unused__)) = mysql_cond_timedwait(
       &stop_cond, &stop_cond_mutex, &ts_next_sync);
     // make sure that no program error is returned
-    assert(ret == 0 || ret == ETIMEDOUT);
+    DBUG_ASSERT(ret == 0 || ret == ETIMEDOUT);
     auto local_bg_control = bg_control;
     bg_control = background_thread_control();
     mysql_mutex_unlock(&stop_cond_mutex);
@@ -7607,7 +7608,7 @@ void* background_thread(void*)
     {
       if (rdb && rocksdb_background_sync)
       {
-        assert(!db_options.allow_mmap_writes);
+        DBUG_ASSERT(!db_options.allow_mmap_writes);
         rocksdb::Status s= rdb->SyncWAL();
         if (!s.ok())
           rocksdb_handle_io_error(s, ROCKSDB_IO_ERROR_BG_THREAD);
@@ -7870,7 +7871,7 @@ set_rate_limiter_bytes_per_sec(THD*                     thd,
   else if (new_val != rocksdb_rate_limiter_bytes_per_sec)
   {
     /* Apply the new value to the rate limiter and store it locally */
-    assert(rate_limiter != nullptr);
+    DBUG_ASSERT(rate_limiter != nullptr);
     rocksdb_rate_limiter_bytes_per_sec = new_val;
     rate_limiter->SetBytesPerSecond(new_val);
   }
