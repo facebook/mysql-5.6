@@ -2042,7 +2042,7 @@ void Table_ddl_manager::persist_stats()
     const std::pair<GL_INDEX_ID, MyRocksTablePropertiesCollector::IndexStats>& s
     ) {return s.second;});
   dict->add_stats(wb.get(), stats);
-  dict->commit(wb.get(), false);
+  dict->commit(wb.get(), true);
 }
 
 /*
