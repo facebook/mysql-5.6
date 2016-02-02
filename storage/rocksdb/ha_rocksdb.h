@@ -455,7 +455,7 @@ public:
   const char *table_type() const { return rocksdb_hton_name; }
 
   /* The following is only used by SHOW KEYS: */
-  const char *index_type(uint inx) { return "BTREE"; }
+  const char *index_type(uint inx) { return "LSMTREE"; }
 
   /** @brief
     The file extensions.
