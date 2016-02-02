@@ -186,7 +186,7 @@ void MyRocksTablePropertiesCollector::CollectStatsForRow(
 
     if (last_key_.empty()
         || (keydef_->compare_keys(&last, &key, &column) == 0)) {
-      assert(column <= stats.distinct_keys_per_prefix.size());
+      DBUG_ASSERT(column <= stats.distinct_keys_per_prefix.size());
 
       for (std::size_t i = column;
            i < stats.distinct_keys_per_prefix.size(); i++) {
@@ -236,8 +236,8 @@ bool MyRocksTablePropertiesCollector::ShouldCollectStats() {
 
   int val = rand_r(&seed_) % MYROCKS_SAMPLE_PCT_MAX + 1;
 
-  assert(val >= MYROCKS_SAMPLE_PCT_MIN);
-  assert(val <= MYROCKS_SAMPLE_PCT_MAX);
+  DBUG_ASSERT(val >= MYROCKS_SAMPLE_PCT_MIN);
+  DBUG_ASSERT(val <= MYROCKS_SAMPLE_PCT_MAX);
 
   return val <= table_stats_sampling_pct_;
 }
@@ -354,7 +354,7 @@ std::string MyRocksTablePropertiesCollector::IndexStats::materialize(
   for (auto i : stats) {
     write_int(&ret, i.gl_index_id.cf_id);
     write_int(&ret, i.gl_index_id.index_id);
-    assert(sizeof i.data_size <= 8);
+    DBUG_ASSERT(sizeof i.data_size <= 8);
     write_int64(&ret, i.data_size);
     write_int64(&ret, i.rows);
     write_int64(&ret, i.actual_disk_size);

@@ -87,6 +87,9 @@ class FacebookMySQLLintEngine extends ArcanistLintEngine {
     $linters[] = id(new FacebookMySQLPrintfLinter())
         ->setPaths($all_cpp_paths);
 
+    $linters[] = id(new FacebookMySQLAssertUsageLinter())
+        ->setPaths($myrocks_cpp_paths);
+
     return $linters;
   }
 }
