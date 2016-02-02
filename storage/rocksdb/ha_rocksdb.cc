@@ -2686,12 +2686,6 @@ static int rocksdb_done_func(void *p)
   int error= 0;
   DBUG_ENTER("rocksdb_done_func");
 
-  // signal the background thread to stop
-  mysql_mutex_lock(&stop_cond_mutex);
-  bg_control.stop = true;
-  mysql_cond_signal(&stop_cond);
-  mysql_mutex_unlock(&stop_cond_mutex);
-
   // signal the drop index thread to stop
   signal_drop_index_thread(true);
 
@@ -2700,6 +2694,16 @@ static int rocksdb_done_func(void *p)
 
   // Stop all rocksdb background work
   CancelAllBackgroundWork(rdb->GetBaseDB(), true);
+
+  // Signal the background thread to stop and to persist all stats collected
+  // from background flushes and compactions. This will add more keys to a new
+  // memtable, but since the memtables were just flushed, it should not trigger
+  // a flush that can stall due to background threads being stopped. As long
+  // as these keys are stored in a WAL file, they can be retrieved on restart.
+  mysql_mutex_lock(&stop_cond_mutex);
+  bg_control.stop = true;
+  mysql_cond_signal(&stop_cond);
+  mysql_mutex_unlock(&stop_cond_mutex);
 
   // wait for the background thread to finish
   mysql_mutex_lock(&background_mutex);
@@ -7116,7 +7120,7 @@ int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
 
   // set and persist new stats
   ddl_manager.set_stats(stats);
-  ddl_manager.persist_stats();
+  ddl_manager.persist_stats(true);
 
   DBUG_RETURN(0);
 }
