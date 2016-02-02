@@ -2832,7 +2832,9 @@ int ha_rocksdb::load_hidden_pk_value()
     if (read_hidden_pk_id_from_rowkey(&hidden_pk_id))
       return HA_ERR_INTERNAL_ERROR;
 
-    tbl_def->hidden_pk_val= hidden_pk_id + 1;
+    hidden_pk_id += 1;
+    if (tbl_def->hidden_pk_val < hidden_pk_id)
+      tbl_def->hidden_pk_val= hidden_pk_id;
   }
 
   table->status= save_table_status;
