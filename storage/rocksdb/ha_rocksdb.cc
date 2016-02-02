@@ -318,6 +318,7 @@ static uint64_t rocksdb_index_type;
 static char rocksdb_background_sync;
 static uint32_t rocksdb_debug_optimizer_n_rows;
 static my_bool rocksdb_debug_optimizer_no_zero_cardinality;
+static my_bool rocksdb_debug_negative_stats;
 static uint32_t rocksdb_perf_context_level;
 static uint32_t rocksdb_wal_recovery_mode;
 static uint32_t rocksdb_access_hint_on_compaction_start;
@@ -814,6 +815,12 @@ static MYSQL_SYSVAR_BOOL(debug_optimizer_no_zero_cardinality,
   "In case if cardinality is zero, overrides it with some value",
   NULL, NULL, TRUE);
 
+static MYSQL_SYSVAR_BOOL(debug_negative_stats,
+  rocksdb_debug_negative_stats,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY | PLUGIN_VAR_NOSYSVAR,
+  "Test only to return negative stats for table info and force analyze table",
+  nullptr, nullptr, FALSE);
+
 static MYSQL_SYSVAR_STR(compact_cf, compact_cf_name,
   PLUGIN_VAR_RQCMDARG,
   "Compact column family",
@@ -1017,6 +1024,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(force_index_records_in_range),
   MYSQL_SYSVAR(debug_optimizer_n_rows),
   MYSQL_SYSVAR(debug_optimizer_no_zero_cardinality),
+  MYSQL_SYSVAR(debug_negative_stats),
 
   MYSQL_SYSVAR(compact_cf),
   MYSQL_SYSVAR(signal_drop_index_thread),
@@ -6094,6 +6102,29 @@ ha_rocksdb::delete_or_singledelete(uint index,
 }
 
 
+void ha_rocksdb::update_stats(void)
+{
+  DBUG_ENTER("ha_rocksdb::update_stats");
+
+  stats.records= 0;
+  stats.index_file_length= 0ul;
+  stats.data_file_length= 0ul;
+  stats.mean_rec_length= 0;
+  for (uint i= 0; i < tbl_def->n_keys; i++)
+  {
+    if (is_pk(i, table, tbl_def))
+    {
+      stats.data_file_length= pk_descr->stats.actual_disk_size;
+      stats.records = pk_descr->stats.rows;
+    }
+    else
+    {
+      stats.index_file_length+= key_descr[i]->stats.actual_disk_size;
+    }
+  }
+  DBUG_VOID_RETURN;
+}
+
 int ha_rocksdb::info(uint flag)
 {
   DBUG_ENTER("ha_rocksdb::info");
@@ -6103,22 +6134,27 @@ int ha_rocksdb::info(uint flag)
 
   if (flag & HA_STATUS_VARIABLE)
   {
-    stats.records= 0;
-    stats.index_file_length= 0ul;
-    stats.data_file_length= 0ul;
-    stats.mean_rec_length= 0;
-    for (uint i= 0; i < tbl_def->n_keys; i++)
+    /*
+      Test only to simulate corrupted stats
+    */
+    if (rocksdb_debug_negative_stats)
     {
-      if (is_pk(i, table, tbl_def))
-      {
-        stats.data_file_length= pk_descr->stats.actual_disk_size;
-        stats.records = pk_descr->stats.rows;
-      }
-      else
-      {
-        stats.index_file_length+= key_descr[i]->stats.actual_disk_size;
-      }
+      pk_descr->stats.actual_disk_size = -pk_descr->stats.actual_disk_size;
     }
+
+    update_stats();
+
+    /*
+      If any stats are negative due to bad cached stats, re-run analyze table
+      and re-retrieve the stats.
+    */
+    if (static_cast<signed>(stats.data_file_length) < 0 ||
+        static_cast<signed>(stats.index_file_length) < 0)
+    {
+      analyze(nullptr, nullptr);
+      update_stats();
+    }
+
     if (stats.records == 0)
     {
       // most likely, the table is in memtable
