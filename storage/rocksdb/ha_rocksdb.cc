@@ -6132,6 +6132,29 @@ ha_rocksdb::delete_or_singledelete(uint index,
 }
 
 
+void ha_rocksdb::update_stats(void)
+{
+  DBUG_ENTER("ha_rocksdb::update_stats");
+
+  stats.records= 0;
+  stats.index_file_length= 0ul;
+  stats.data_file_length= 0ul;
+  stats.mean_rec_length= 0;
+  for (uint i= 0; i < tbl_def->n_keys; i++)
+  {
+    if (is_pk(i, table, tbl_def))
+    {
+      stats.data_file_length= pk_descr->stats.actual_disk_size;
+      stats.records = pk_descr->stats.rows;
+    }
+    else
+    {
+      stats.index_file_length+= key_descr[i]->stats.actual_disk_size;
+    }
+  }
+  DBUG_VOID_RETURN;
+}
+
 int ha_rocksdb::info(uint flag)
 {
   DBUG_ENTER("ha_rocksdb::info");
@@ -6141,22 +6164,26 @@ int ha_rocksdb::info(uint flag)
 
   if (flag & HA_STATUS_VARIABLE)
   {
-    stats.records= 0;
-    stats.index_file_length= 0ul;
-    stats.data_file_length= 0ul;
-    stats.mean_rec_length= 0;
-    for (uint i= 0; i < tbl_def->n_keys; i++)
+    /*
+      Test only to simulate corrupted stats
+    */
+    DBUG_EXECUTE_IF("myrocks_simulate_negative_stats",
+        pk_descr->stats.actual_disk_size = -pk_descr->stats.actual_disk_size;);
+
+    update_stats();
+
+    /*
+      If any stats are negative due to bad cached stats, re-run analyze table
+      and re-retrieve the stats.
+    */
+    if (static_cast<longlong>(stats.data_file_length) < 0 ||
+        static_cast<longlong>(stats.index_file_length) < 0 ||
+        static_cast<longlong>(stats.records) < 0)
     {
-      if (is_pk(i, table, tbl_def))
-      {
-        stats.data_file_length= pk_descr->stats.actual_disk_size;
-        stats.records = pk_descr->stats.rows;
-      }
-      else
-      {
-        stats.index_file_length+= key_descr[i]->stats.actual_disk_size;
-      }
+      analyze(nullptr, nullptr);
+      update_stats();
     }
+
     if (stats.records == 0)
     {
       // most likely, the table is in memtable

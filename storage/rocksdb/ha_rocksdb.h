@@ -435,6 +435,11 @@ class ha_rocksdb: public handler
   */
   ha_rows row_checksums_checked;
 
+  /*
+    Update stats
+  */
+  void update_stats(void);
+
 public:
   /*
     Controls whether writes include checksums. This is updated from the session variable
