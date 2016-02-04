@@ -186,7 +186,9 @@ public:
              HA_CREATE_INFO *create_info);
 
   THR_LOCK_DATA **store_lock(THD *thd, THR_LOCK_DATA **to,
-                             enum thr_lock_type lock_type);
+                             enum thr_lock_type lock_type,
+                             enum thr_x_lock_type x_lock_type =
+                             TL_X_LOCK_REGULAR);
 
   virtual uint8 table_cache_type(void)
   { return HA_CACHE_TBL_NOCACHE; }

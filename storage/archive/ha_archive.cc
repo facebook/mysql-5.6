@@ -1609,7 +1609,8 @@ error:
 */
 THR_LOCK_DATA **ha_archive::store_lock(THD *thd,
                                        THR_LOCK_DATA **to,
-                                       enum thr_lock_type lock_type)
+                                       enum thr_lock_type lock_type,
+                                       enum thr_x_lock_type x_lock_type)
 {
   if (lock_type == TL_WRITE_DELAYED)
     delayed_insert= TRUE;

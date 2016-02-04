@@ -741,7 +741,7 @@ static MYSQL_LOCK *get_lock_data(THD *thd, TABLE **table_ptr, uint count,
     locks_start= locks;
     locks= table->file->store_lock(thd, locks,
                                    (flags & GET_LOCK_UNLOCK) ? TL_IGNORE :
-                                   lock_type);
+                                   lock_type, table->reginfo.x_lock_type);
     if (flags & GET_LOCK_STORE_LOCKS)
     {
       table->lock_position=   (uint) (to - table_buf);

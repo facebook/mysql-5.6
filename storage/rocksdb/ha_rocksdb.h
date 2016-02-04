@@ -668,7 +668,9 @@ public:
                                   uint table_changes);
 
   THR_LOCK_DATA **store_lock(THD *thd, THR_LOCK_DATA **to,
-                             enum thr_lock_type lock_type);
+                             enum thr_lock_type lock_type,
+                             enum thr_x_lock_type x_lock_type =
+                             TL_X_LOCK_REGULAR);
 
   my_bool register_query_cache_table(THD *thd, char *table_key,
                                      uint key_length,
