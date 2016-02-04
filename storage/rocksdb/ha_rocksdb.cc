@@ -862,6 +862,12 @@ static MYSQL_SYSVAR_BOOL(
   "Forces memstore flush which may block all write requests so be careful",
   NULL, rocksdb_force_flush_memtable_now, FALSE);
 
+static MYSQL_THDVAR_BOOL(
+  flush_memtable_on_analyze,
+  PLUGIN_VAR_RQCMDARG,
+  "Forces memtable flush on ANALZYE table to get accurate cardinality",
+  nullptr, nullptr, true);
+
 static MYSQL_SYSVAR_UINT(seconds_between_stat_computes,
   rocksdb_seconds_between_stat_computes,
   PLUGIN_VAR_RQCMDARG,
@@ -1025,6 +1031,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(strict_collation_exceptions),
   MYSQL_SYSVAR(collect_sst_properties),
   MYSQL_SYSVAR(force_flush_memtable_now),
+  MYSQL_SYSVAR(flush_memtable_on_analyze),
   MYSQL_SYSVAR(seconds_between_stat_computes),
 
   MYSQL_SYSVAR(compaction_sequential_deletes),
@@ -7024,6 +7031,10 @@ int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
 
   if (!table)
     DBUG_RETURN(1);
+
+  // for analyze statements, force flush on memtable to get accurate cardinality
+  if (THDVAR(thd, flush_memtable_on_analyze))
+    rocksdb_flush_all_memtables();
 
   // find per column family key ranges which need to be queried
   std::unordered_map<rocksdb::ColumnFamilyHandle*, std::vector<rocksdb::Range>>
