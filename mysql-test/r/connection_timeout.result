@@ -4,7 +4,7 @@ no timeout, should work
 select "short timeout, should work", sleep(0.70);
 short timeout, should work	sleep(0.70)
 short timeout, should work	0
-select "long timeout, should fail 1s accuracy", sleep(1.01);
+select "long timeout, should fail 1s accuracy", sleep(1.3);
 ERROR HY000: Read timeout is reached
 select "no timeout, should work";
 no timeout, should work
@@ -15,6 +15,6 @@ short timeout, should work	0
 select "short timeout, over one second, should also work", sleep(1.2);
 short timeout, over one second, should also work	sleep(1.2)
 short timeout, over one second, should also work	0
-select "long timeout, should 1500ms accuracy", sleep(1.51);
+select "long timeout, should 1500ms accuracy", sleep(1.8);
 ERROR HY000: Read timeout is reached
 ERROR HY000: Can't connect to MySQL server on '192.0.2.1' (101/110)
