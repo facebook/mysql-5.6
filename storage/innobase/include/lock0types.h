@@ -43,5 +43,17 @@ enum lock_mode {
 	LOCK_NONE_UNSET = 255
 };
 
+/* X-lock modes : these are complements to LOCK_X
+   LOCK_X + LOCK_X_SKIP_LOCKED is for SELECT ... FOR UPDATE SKIP LOCKED.
+   LOCK_X + LOCK_X_NOWAIT is for SELECT ... FOR UPDATE NOWAIT.
+   LOCK_X_REGULAR is the default value, which means the LOCK_X is regular.
+   It will be ignored if X-lock modes combine with other lock modes.
+*/
+enum x_lock_mode {
+	LOCK_X_REGULAR = 0, /* regular */
+	LOCK_X_SKIP_LOCKED, /* skip locked */
+	LOCK_X_NOWAIT, /* nowait */
+	LOCK_X_MODE_COUNT
+};
 
 #endif

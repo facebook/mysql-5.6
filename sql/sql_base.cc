@@ -5355,6 +5355,12 @@ restart:
                                      some_routine_modifies_data);
       else
         tbl->reginfo.lock_type= tables->lock_type;
+
+      /* Copy the X-lock type */
+      tbl->reginfo.x_lock_type = tables->x_lock_type;
+      if (tables->lock_type != TL_WRITE &&
+          tables->lock_type != TL_WRITE_DEFAULT)
+        DBUG_ASSERT(tbl->reginfo.x_lock_type == TL_X_LOCK_REGULAR);
     }
 
   }

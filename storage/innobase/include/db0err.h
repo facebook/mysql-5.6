@@ -45,6 +45,20 @@ enum dberr_t {
 	DB_MISSING_HISTORY,		/*!< required history data has been
 					deleted due to lack of space in
 					rollback segment */
+
+	DB_FAILED_TO_LOCK_REC_NOWAIT,	/*!< a record was locked by another
+					transaction so the current transaction
+					returned directly without waitting.
+					this is for SELECT ... FOR UPDATE
+					NOWAIT in MySQL */
+
+	DB_FAILED_TO_LOCK_REC_SKIP_LOCKED,/*!< a record was locked by another
+					transaction so the current transaction
+					skipped without waitting and would
+					select the next one. this is for
+					SELECT ... FOR UPDATE SKIP LOCKED
+					in MySQL */
+
 	DB_CLUSTER_NOT_FOUND = 30,
 	DB_TABLE_NOT_FOUND,
 	DB_MUST_GET_MORE_FILE_SPACE,	/*!< the database has to be stopped

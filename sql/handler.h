@@ -2676,6 +2676,27 @@ public:
   virtual THR_LOCK_DATA **store_lock(THD *thd,
 				     THR_LOCK_DATA **to,
 				     enum thr_lock_type lock_type)=0;
+  /*
+    Overload this virtual function for the storage engines that
+    support x-lock types.
+  */
+  virtual THR_LOCK_DATA **store_lock_with_x_type(THD *thd,
+				     THR_LOCK_DATA **to,
+				     enum thr_lock_type lock_type,
+				     enum thr_x_lock_type x_lock_type)
+  {
+    DBUG_ASSERT(0);
+    return NULL;
+  }
+
+  /*
+    Overload this virtual function and make it return true for the storage
+    engines that support x-lock types.
+  */
+  virtual bool support_x_lock_type()
+  {
+    return false;
+  }
 
   /** Type of table for caching query */
   virtual uint8 table_cache_type() { return HA_CACHE_TBL_NONTRANSACT; }
