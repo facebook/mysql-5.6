@@ -372,6 +372,10 @@ lock_sec_rec_read_check_and_lock(
 					records: LOCK_S or LOCK_X; the
 					latter is possible in
 					SELECT FOR UPDATE */
+	enum x_lock_mode	x_mode,	/*!< in: mode of the x-lock:
+					LOCK_X_REGULAR, LOCK_X_NOWAIT,
+					or LOCK_X_SKIP_LOCKED, this is
+					for SELECT FOR UPDATE */
 	ulint			gap_mode,/*!< in: LOCK_ORDINARY, LOCK_GAP, or
 					LOCK_REC_NOT_GAP */
 	que_thr_t*		thr);	/*!< in: query thread */
@@ -402,6 +406,10 @@ lock_clust_rec_read_check_and_lock(
 					records: LOCK_S or LOCK_X; the
 					latter is possible in
 					SELECT FOR UPDATE */
+	enum x_lock_mode	x_mode,	/*!< in: mode of the x-lock:
+					LOCK_X_REGULAR, LOCK_X_NOWAIT,
+					or LOCK_X_SKIP_LOCKED, this is
+					for SELECT FOR UPDATE */
 	ulint			gap_mode,/*!< in: LOCK_ORDINARY, LOCK_GAP, or
 					LOCK_REC_NOT_GAP */
 	que_thr_t*		thr);	/*!< in: query thread */
