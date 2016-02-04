@@ -1,4 +1,3 @@
-drop table if exists x;
 flush statistics;
 create table x (i int primary key auto_increment, j char(255)) ;
 insert into x values (null, 'foobar');
@@ -174,4 +173,12 @@ INNODB_PAGES_READ_BLOB	0
 INNODB_PAGES_WRITTEN	0
 INNODB_PAGES_WRITTEN_INDEX	0
 INNODB_PAGES_WRITTEN_BLOB	0
+create database `db_new..............................................end`;
+use `db_new..............................................end`;
+create table `t1_new..............................................end`(a int) engine=innodb;
+select table_schema, table_name from information_schema.table_statistics where table_name = 't1_new..............................................end';
+table_schema	db_new..............................................end
+table_name	t1_new..............................................end
+drop database `db_new..............................................end`;
+use test;
 drop table x;
