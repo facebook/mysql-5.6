@@ -1357,10 +1357,12 @@ row_ins_set_shared_rec_lock(
 
 	if (dict_index_is_clust(index)) {
 		err = lock_clust_rec_read_check_and_lock(
-			0, block, rec, index, offsets, LOCK_S, type, thr);
+			0, block, rec, index, offsets, LOCK_S,
+			LOCK_X_REGULAR, type, thr);
 	} else {
 		err = lock_sec_rec_read_check_and_lock(
-			0, block, rec, index, offsets, LOCK_S, type, thr);
+			0, block, rec, index, offsets, LOCK_S,
+			LOCK_X_REGULAR, type, thr);
 	}
 
 	return(err);
@@ -1388,10 +1390,12 @@ row_ins_set_exclusive_rec_lock(
 
 	if (dict_index_is_clust(index)) {
 		err = lock_clust_rec_read_check_and_lock(
-			0, block, rec, index, offsets, LOCK_X, type, thr);
+			0, block, rec, index, offsets, LOCK_X,
+			LOCK_X_REGULAR, type, thr);
 	} else {
 		err = lock_sec_rec_read_check_and_lock(
-			0, block, rec, index, offsets, LOCK_X, type, thr);
+			0, block, rec, index, offsets, LOCK_X,
+			LOCK_X_REGULAR, type, thr);
 	}
 
 	return(err);

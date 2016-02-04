@@ -2282,6 +2282,10 @@ lock_rec_lock_slow(
 	ulint			mode,	/*!< in: lock mode: LOCK_X or
 					LOCK_S possibly ORed to either
 					LOCK_GAP or LOCK_REC_NOT_GAP */
+	enum x_lock_mode	x_mode,	/*!< in: mode of the x-lock:
+					LOCK_X_REGULAR, LOCK_X_NOWAIT,
+					or LOCK_X_SKIP_LOCKED, this is
+					for SELECT FOR UPDATE */
 	const buf_block_t*	block,	/*!< in: buffer block containing
 					the record */
 	ulint			heap_no,/*!< in: heap number of record */
@@ -2322,8 +2326,13 @@ lock_rec_lock_slow(
 		have a lock strong enough already granted on the
 		record, we have to wait. */
 
-		err = lock_rec_enqueue_waiting(
-			mode, block, heap_no, index, thr);
+		if (x_mode == LOCK_X_NOWAIT)
+			err = DB_FAILED_TO_LOCK_REC_NOWAIT;
+		else if (x_mode == LOCK_X_SKIP_LOCKED)
+			err = DB_FAILED_TO_LOCK_REC_SKIP_LOCKED;
+		else
+			err = lock_rec_enqueue_waiting(
+				mode, block, heap_no, index, thr);
 
 	} else if (!impl) {
 		/* Set the requested lock on the record, note that
@@ -2359,6 +2368,10 @@ lock_rec_lock(
 	ulint			mode,	/*!< in: lock mode: LOCK_X or
 					LOCK_S possibly ORed to either
 					LOCK_GAP or LOCK_REC_NOT_GAP */
+	enum x_lock_mode	x_mode,	/*!< in: mode of the x-lock:
+					LOCK_X_REGULAR, LOCK_X_NOWAIT,
+					or LOCK_X_SKIP_LOCKED, this is
+					for SELECT FOR UPDATE */
 	const buf_block_t*	block,	/*!< in: buffer block containing
 					the record */
 	ulint			heap_no,/*!< in: heap number of record */
@@ -2385,7 +2398,7 @@ lock_rec_lock(
 	case LOCK_REC_SUCCESS_CREATED:
 		return(DB_SUCCESS_LOCKED_REC);
 	case LOCK_REC_FAIL:
-		return(lock_rec_lock_slow(impl, mode, block,
+		return(lock_rec_lock_slow(impl, mode, x_mode, block,
 					  heap_no, index, thr));
 	}
 
@@ -6323,7 +6336,7 @@ lock_clust_rec_modify_check_and_lock(
 
 	ut_ad(lock_table_has(thr_get_trx(thr), index->table, LOCK_IX));
 
-	err = lock_rec_lock(TRUE, LOCK_X | LOCK_REC_NOT_GAP,
+	err = lock_rec_lock(TRUE, LOCK_X | LOCK_REC_NOT_GAP, LOCK_X_REGULAR,
 			    block, heap_no, index, thr);
 
 	MONITOR_INC(MONITOR_NUM_RECLOCK_REQ);
@@ -6383,7 +6396,7 @@ lock_sec_rec_modify_check_and_lock(
 
 	ut_ad(lock_table_has(thr_get_trx(thr), index->table, LOCK_IX));
 
-	err = lock_rec_lock(TRUE, LOCK_X | LOCK_REC_NOT_GAP,
+	err = lock_rec_lock(TRUE, LOCK_X | LOCK_REC_NOT_GAP, LOCK_X_REGULAR,
 			    block, heap_no, index, thr);
 
 	MONITOR_INC(MONITOR_NUM_RECLOCK_REQ);
@@ -6446,6 +6459,10 @@ lock_sec_rec_read_check_and_lock(
 					records: LOCK_S or LOCK_X; the
 					latter is possible in
 					SELECT FOR UPDATE */
+	enum x_lock_mode	x_mode,	/*!< in: mode of the x-lock:
+					LOCK_X_REGULAR, LOCK_X_NOWAIT,
+					or LOCK_X_SKIP_LOCKED, this is
+					for SELECT FOR UPDATE */
 	ulint			gap_mode,/*!< in: LOCK_ORDINARY, LOCK_GAP, or
 					LOCK_REC_NOT_GAP */
 	que_thr_t*		thr)	/*!< in: query thread */
@@ -6485,7 +6502,7 @@ lock_sec_rec_read_check_and_lock(
 	ut_ad(mode != LOCK_S
 	      || lock_table_has(thr_get_trx(thr), index->table, LOCK_IS));
 
-	err = lock_rec_lock(FALSE, mode | gap_mode,
+	err = lock_rec_lock(FALSE, mode | gap_mode, x_mode,
 			    block, heap_no, index, thr);
 
 	MONITOR_INC(MONITOR_NUM_RECLOCK_REQ);
@@ -6524,6 +6541,10 @@ lock_clust_rec_read_check_and_lock(
 					records: LOCK_S or LOCK_X; the
 					latter is possible in
 					SELECT FOR UPDATE */
+	enum x_lock_mode	x_mode,	/*!< in: mode of the x-lock:
+					LOCK_X_REGULAR, LOCK_X_NOWAIT,
+					or LOCK_X_SKIP_LOCKED, this is
+					for SELECT FOR UPDATE */
 	ulint			gap_mode,/*!< in: LOCK_ORDINARY, LOCK_GAP, or
 					LOCK_REC_NOT_GAP */
 	que_thr_t*		thr)	/*!< in: query thread */
@@ -6557,7 +6578,7 @@ lock_clust_rec_read_check_and_lock(
 	ut_ad(mode != LOCK_S
 	      || lock_table_has(thr_get_trx(thr), index->table, LOCK_IS));
 
-	err = lock_rec_lock(FALSE, mode | gap_mode,
+	err = lock_rec_lock(FALSE, mode | gap_mode, x_mode,
 			    block, heap_no, index, thr);
 
 	MONITOR_INC(MONITOR_NUM_RECLOCK_REQ);
@@ -6608,7 +6629,8 @@ lock_clust_rec_read_check_and_lock_alt(
 	offsets = rec_get_offsets(rec, index, offsets,
 				  ULINT_UNDEFINED, &tmp_heap);
 	err = lock_clust_rec_read_check_and_lock(flags, block, rec, index,
-						 offsets, mode, gap_mode, thr);
+						 offsets, mode, LOCK_X_REGULAR,
+						 gap_mode, thr);
 	if (tmp_heap) {
 		mem_heap_free(tmp_heap);
 	}
