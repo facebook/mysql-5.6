@@ -522,7 +522,8 @@ public:
 					List<Index_hint> *hints= 0,
                                         List<String> *partition_names= 0,
                                         LEX_STRING *option= 0);
-  virtual void set_lock_for_tables(thr_lock_type lock_type) {}
+  virtual void set_lock_for_tables(thr_lock_type lock_type,
+                        thr_x_lock_type x_lock_type = TL_X_LOCK_REGULAR) {}
 
   friend class st_select_lex_unit;
   friend bool mysql_new_select(LEX *lex, bool move_down);
@@ -939,7 +940,8 @@ public:
   TABLE_LIST *convert_right_join();
   List<Item>* get_item_list();
   ulong get_table_join_options();
-  void set_lock_for_tables(thr_lock_type lock_type);
+  void set_lock_for_tables(thr_lock_type lock_type,
+                           thr_x_lock_type x_lock_type = TL_X_LOCK_REGULAR);
   inline void init_order()
   {
     order_list.elements= 0;

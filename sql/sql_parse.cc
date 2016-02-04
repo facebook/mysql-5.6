@@ -8128,6 +8128,7 @@ TABLE_LIST *st_select_lex::convert_right_join()
   Set lock for all tables in current select level.
 
   @param lock_type			Lock to set for tables
+  @param x_lock_type			X-lock type to set for tables
 
   @note
     If lock is a write lock, then tables->updating is set 1
@@ -8135,17 +8136,19 @@ TABLE_LIST *st_select_lex::convert_right_join()
     query
 */
 
-void st_select_lex::set_lock_for_tables(thr_lock_type lock_type)
+void st_select_lex::set_lock_for_tables(thr_lock_type lock_type,
+                                        thr_x_lock_type x_lock_type)
 {
   bool for_update= lock_type >= TL_READ_NO_INSERT;
   DBUG_ENTER("set_lock_for_tables");
-  DBUG_PRINT("enter", ("lock_type: %d  for_update: %d", lock_type,
-		       for_update));
+  DBUG_PRINT("enter", ("lock_type: %d x_lock_type: %d for_update: %d",
+                       lock_type, x_lock_type, for_update));
   for (TABLE_LIST *tables= table_list.first;
        tables;
        tables= tables->next_local)
   {
     tables->lock_type= lock_type;
+    tables->x_lock_type= x_lock_type;
     tables->updating=  for_update;
     tables->mdl_request.set_type((lock_type >= TL_WRITE_ALLOW_WRITE) ?
                                  MDL_SHARED_WRITE : MDL_SHARED_READ);

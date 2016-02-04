@@ -739,9 +739,22 @@ static MYSQL_LOCK *get_lock_data(THD *thd, TABLE **table_ptr, uint count,
     lock_type= table->reginfo.lock_type;
     DBUG_ASSERT(lock_type != TL_WRITE_DEFAULT && lock_type != TL_READ_DEFAULT);
     locks_start= locks;
-    locks= table->file->store_lock(thd, locks,
-                                   (flags & GET_LOCK_UNLOCK) ? TL_IGNORE :
-                                   lock_type);
+
+    if (table->reginfo.x_lock_type != TL_X_LOCK_REGULAR &&
+        table->file->support_x_lock_type())
+    {
+      DBUG_ASSERT(table->reginfo.x_lock_type == TL_X_LOCK_SKIP_LOCKED ||
+                  table->reginfo.x_lock_type == TL_X_LOCK_NOWAIT);
+      locks= table->file->store_lock_with_x_type(thd, locks,
+                                     (flags & GET_LOCK_UNLOCK) ? TL_IGNORE :
+                                     lock_type, table->reginfo.x_lock_type);
+    } else {
+      DBUG_ASSERT(table->reginfo.x_lock_type == TL_X_LOCK_REGULAR);
+      locks= table->file->store_lock(thd, locks,
+                                     (flags & GET_LOCK_UNLOCK) ? TL_IGNORE :
+                                     lock_type);
+    }
+
     if (flags & GET_LOCK_STORE_LOCKS)
     {
       table->lock_position=   (uint) (to - table_buf);
