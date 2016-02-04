@@ -82,6 +82,75 @@ show binlog cache;
 --replace_regex /for [0-9]*/for $mysqluser1/
 --eval show binlog cache for $conn_mysqluser1;
 
+set @save_binlog_cache_size = @@global.binlog_cache_size;
+set global binlog_cache_size = 4096;
+select @@global.binlog_cache_size;
+
+truncate mysqltest1;
+set @@autocommit=0;
+
+let $cnt= 1;
+start transaction;
+--echo # Start a large transaction so that trx cache will spill to disk
+--echo # Running 200 inserts and 200 updates
+--echo #   insert into mysqltest1 values ($cnt);
+--echo #   update mysqltest1 set a = a+1 where a > 0;
+--disable_query_log
+while ($cnt < 200)
+{
+  eval insert into mysqltest1 values ($cnt);
+  update mysqltest1 set a = a+1 where a > 0;
+  inc $cnt;
+}
+--enable_query_log
+
+# show binlog cache will read from the file associated with the cache
+--replace_column 2 ###
+show binlog cache limit 20;
+
+rollback;
+
+--echo #connection a
+connection a;
+select @@global.binlog_cache_size;
+
+set @@autocommit=0;
+let $cnt= 1;
+start transaction;
+--echo # Start a large transaction so that trx cache will spill to disk
+--echo # Running 200 inserts and 200 updates
+--echo #   insert into mysqltest1 values ($cnt);
+--echo #   update mysqltest1 set a = a+1 where a > 0;
+--disable_query_log
+while ($cnt < 200)
+{
+  eval insert into mysqltest1 values ($cnt);
+  update mysqltest1 set a = a+1 where a > 0;
+  inc $cnt;
+}
+--enable_query_log
+
+--echo #connection master
+connection master;
+
+# master connection binlog cache should be empty
+show binlog cache;
+
+# check connection a
+--replace_column 2 ###
+--replace_regex /for [0-9]*/for $mysqluser1/
+--eval show binlog cache for $conn_mysqluser1 limit 20;
+
+--echo #connection a
+connection a;
+
+rollback;
+
+--echo #connection master
+connection master;
+
+set @@global.binlog_cache_size = @save_binlog_cache_size;
+
 # cleanup
 drop table mysqltest1;
 drop user mysqluser1;
