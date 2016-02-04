@@ -2478,10 +2478,15 @@ bool show_binlog_cache(THD *thd)
   IO_CACHE cache_snapshot;
   binlog_cache_mngr *cache_mngr = nullptr;
 
-  if (opt_thd)
-    cache_mngr = thd_get_cache_mngr(opt_thd);
+  if (opt_bin_log)
+  {
+    if (opt_thd)
+      cache_mngr = thd_get_cache_mngr(opt_thd);
+    else
+      cache_mngr = thd_get_cache_mngr(thd);
+  }
   else
-    cache_mngr = thd_get_cache_mngr(thd);
+    errmsg = "log-bin option is not enabled";
 
   if (cache_mngr && limit_end-limit_start > 0)
   {
@@ -2500,41 +2505,64 @@ bool show_binlog_cache(THD *thd)
         cache_snapshot = cache_data->cache_log;
         reinit_io_cache(&cache_snapshot, READ_CACHE, 0, 0, 0);
         uint length = my_b_bytes_in_cache(&cache_snapshot), hdr_offs = 0;
-
-        while (hdr_offs < length && event_count < limit_end)
+        bool use_own_buffer = false;
+        // If the cache spills to disk, we need to create an independent copy
+        // of cache_snapshot and not to share the read buffer with the write
+        // cache. So the temp file content is read into its own read buffer.
+        if (!length && cache_data->cache_log.file != -1)
         {
-          const char *ev_buf= (const char *)cache_snapshot.read_pos + hdr_offs;
-          uint event_len= uint4korr(ev_buf + EVENT_LEN_OFFSET);
-          const char *ev_data = ev_buf+LOG_EVENT_HEADER_LEN;
-          int2store(ev_data+ST_BINLOG_VER_OFFSET,binlog_ver);
-
-          if (binlog_ver != description_event->binlog_version)
+          size_t cache_size = b ? binlog_cache_size : binlog_stmt_cache_size;
+          if (init_io_cache(&cache_snapshot, cache_data->cache_log.file,
+                             cache_size, READ_CACHE, 0L, 0, MYF(MY_WME)))
           {
-            delete description_event;
-            description_event = new Format_description_log_event(binlog_ver);
+            end_io_cache(&cache_snapshot);
+            continue;
           }
+          use_own_buffer = true;
+        }
 
-          // move to next event header
-          hdr_offs += event_len;
-
-          Log_event *ev = nullptr;
-          if (hdr_offs <= length)
-            ev = Log_event::read_log_event(ev_buf, event_len, &errmsg,
-                                           description_event, false);
-
-          if (ev && ev->is_valid()) // if we get an valid event, output it
+        do
+        {
+          while (hdr_offs < length && event_count < limit_end)
           {
-            if (event_count++ >= limit_start && ev->net_send(protocol))
+            const char *ev_buf =
+                (const char *)cache_snapshot.read_pos + hdr_offs;
+            uint event_len= uint4korr(ev_buf + EVENT_LEN_OFFSET);
+            const char *ev_data = ev_buf+LOG_EVENT_HEADER_LEN;
+            int2store(ev_data+ST_BINLOG_VER_OFFSET,binlog_ver);
+
+            if (binlog_ver != description_event->binlog_version)
             {
-              errmsg = "Net error";
-              delete ev;
-              break;
+              delete description_event;
+              description_event = new Format_description_log_event(binlog_ver);
             }
-          }
 
-          if (ev)
-            delete ev;
-        } // while()
+            // move to next event header
+            hdr_offs += event_len;
+
+            Log_event *ev = nullptr;
+            if (hdr_offs <= length)
+              ev = Log_event::read_log_event(ev_buf, event_len, &errmsg,
+                                             description_event, false);
+
+            if (ev && ev->is_valid()) // if we get an valid event, output it
+            {
+              if (event_count++ >= limit_start && ev->net_send(protocol))
+              {
+                errmsg = "Net error";
+                delete ev;
+                break;
+              }
+            }
+
+            if (ev)
+              delete ev;
+          } // while()
+        } while (use_own_buffer && (length= my_b_fill(&cache_snapshot)));
+
+        // cleanup if we initiated our own copy of cache
+        if (use_own_buffer)
+          end_io_cache(&cache_snapshot);
       }
     } // for()
   }
