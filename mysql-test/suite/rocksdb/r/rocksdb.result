@@ -890,6 +890,7 @@ rocksdb_disabledatasync	OFF
 rocksdb_enable_thread_tracking	OFF
 rocksdb_enable_write_thread_adaptive_yield	OFF
 rocksdb_error_if_exists	OFF
+rocksdb_flush_memtable_on_analyze	ON
 rocksdb_force_flush_memtable_now	OFF
 rocksdb_force_index_records_in_range	0
 rocksdb_hash_index_allow_collision	ON

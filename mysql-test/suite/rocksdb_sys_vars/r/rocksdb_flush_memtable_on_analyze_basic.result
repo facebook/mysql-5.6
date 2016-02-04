@@ -1,0 +1,32 @@
+drop table if exists t1;
+CREATE TABLE t1 (a INT AUTO_INCREMENT, b INT, PRIMARY KEY(a)) ENGINE=rocksdb;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int(11) NOT NULL AUTO_INCREMENT,
+  `b` int(11) DEFAULT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+INSERT INTO t1 (b) VALUES (1);
+INSERT INTO t1 (b) VALUES (2);
+INSERT INTO t1 (b) VALUES (3);
+SELECT * FROM t1;
+a	b
+1	1
+2	2
+3	3
+set session rocksdb_flush_memtable_on_analyze=off;
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+SHOW INDEXES FROM t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
+t1	0	PRIMARY	1	a	A	0	NULL	NULL		LSMTREE		
+set session rocksdb_flush_memtable_on_analyze=on;
+ANALYZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+SHOW INDEXES FROM t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
+t1	0	PRIMARY	1	a	A	3	NULL	NULL		LSMTREE		
+DROP TABLE t1;
