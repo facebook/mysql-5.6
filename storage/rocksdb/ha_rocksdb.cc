@@ -865,6 +865,12 @@ static MYSQL_SYSVAR_BOOL(
   "Forces memstore flush which may block all write requests so be careful",
   nullptr, rocksdb_force_flush_memtable_now, FALSE);
 
+static MYSQL_THDVAR_BOOL(
+  flush_memtable_on_analyze,
+  PLUGIN_VAR_RQCMDARG,
+  "Forces memtable flush on ANALZYE table to get accurate cardinality",
+  nullptr, nullptr, true);
+
 static MYSQL_SYSVAR_UINT(seconds_between_stat_computes,
   rocksdb_seconds_between_stat_computes,
   PLUGIN_VAR_RQCMDARG,
@@ -1028,6 +1034,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(strict_collation_exceptions),
   MYSQL_SYSVAR(collect_sst_properties),
   MYSQL_SYSVAR(force_flush_memtable_now),
+  MYSQL_SYSVAR(flush_memtable_on_analyze),
   MYSQL_SYSVAR(seconds_between_stat_computes),
 
   MYSQL_SYSVAR(compaction_sequential_deletes),
@@ -7133,6 +7140,17 @@ int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
     auto bufp = &buf[i * 2 * RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
     ranges[key_descr[i]->get_cf()].push_back(get_range(i, bufp));
     ids_to_check.insert(key_descr[i]->get_gl_index_id());
+  }
+
+  // for analyze statements, force flush on memtable to get accurate cardinality
+  Column_family_manager& cf_manager = rocksdb_get_cf_manager();
+  if (thd != nullptr && THDVAR(thd, flush_memtable_on_analyze) &&
+      !rocksdb_pause_background_work)
+  {
+    for (auto it : ids_to_check)
+    {
+      rdb->Flush(rocksdb::FlushOptions(), cf_manager.get_cf(it.cf_id));
+    }
   }
 
   // get RocksDB table properties for these ranges
