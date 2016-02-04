@@ -2,10 +2,6 @@
 # tests for bugs in SHOW TABLE_STATISTICS
 #
 
---disable_warnings
-drop table if exists x;
---enable_warnings
-
 #
 # Confirm that duplicate entries do not occur in SHOW TABLE_STATISTICS
 #
@@ -54,7 +50,18 @@ delete from x where i=2;
 --query_vertical select * from information_schema.table_statistics where table_name = 'x'
 
 #
+# Confirm that long db and table names work.
+#
+
+create database `db_new..............................................end`;
+use `db_new..............................................end`;
+create table `t1_new..............................................end`(a int) engine=innodb;
+--query_vertical select table_schema, table_name from information_schema.table_statistics where table_name = 't1_new..............................................end'
+drop database `db_new..............................................end`;
+
+#
 # cleanup
 #
 
+use test;
 drop table x;
