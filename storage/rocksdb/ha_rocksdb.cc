@@ -6353,8 +6353,9 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
 
 /* The following function was copied from ha_blackhole::store_lock: */
 THR_LOCK_DATA **ha_rocksdb::store_lock(THD *thd,
-                                         THR_LOCK_DATA **to,
-                                         enum thr_lock_type lock_type)
+                                       THR_LOCK_DATA **to,
+                                       enum thr_lock_type lock_type,
+                                       enum thr_x_lock_type x_lock_type)
 {
   DBUG_ENTER("ha_rocksdb::store_lock");
 

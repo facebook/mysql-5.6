@@ -93,7 +93,8 @@ public:
              HA_CREATE_INFO *create_info);
   THR_LOCK_DATA **store_lock(THD *thd,
                              THR_LOCK_DATA **to,
-                             enum thr_lock_type lock_type);
+                             enum thr_lock_type lock_type,
+                             enum thr_x_lock_type x_lock_type);
 private:
   virtual int write_row(uchar *buf);
   virtual int update_row(const uchar *old_data, uchar *new_data);

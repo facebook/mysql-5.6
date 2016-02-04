@@ -422,7 +422,9 @@ public:
     -------------------------------------------------------------------------
   */
   virtual THR_LOCK_DATA **store_lock(THD * thd, THR_LOCK_DATA ** to,
-				     enum thr_lock_type lock_type);
+				     enum thr_lock_type lock_type,
+				     enum thr_x_lock_type x_lock_type =
+						TL_X_LOCK_REGULAR);
   virtual int external_lock(THD * thd, int lock_type);
   /*
     When table is locked a statement is started by calling start_stmt

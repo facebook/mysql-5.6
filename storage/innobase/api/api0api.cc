@@ -945,6 +945,7 @@ ib_create_cursor(
 
 		prebuilt->table = table;
 		prebuilt->select_lock_type = LOCK_NONE;
+		prebuilt->select_x_lock_type = LOCK_X_REGULAR;
 		prebuilt->innodb_api = TRUE;
 
 		prebuilt->index = index;

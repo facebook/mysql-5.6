@@ -1427,7 +1427,8 @@ uint ha_myisammrg::lock_count(void) const
 
 THR_LOCK_DATA **ha_myisammrg::store_lock(THD *thd,
 					 THR_LOCK_DATA **to,
-					 enum thr_lock_type lock_type)
+					 enum thr_lock_type lock_type,
+					 enum thr_x_lock_type x_lock_type)
 {
   return to;
 }

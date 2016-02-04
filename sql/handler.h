@@ -2675,7 +2675,9 @@ public:
   */
   virtual THR_LOCK_DATA **store_lock(THD *thd,
 				     THR_LOCK_DATA **to,
-				     enum thr_lock_type lock_type)=0;
+				     enum thr_lock_type lock_type,
+				     enum thr_x_lock_type x_lock_type=
+						TL_X_LOCK_REGULAR)=0;
 
   /** Type of table for caching query */
   virtual uint8 table_cache_type() { return HA_CACHE_TBL_NONTRANSACT; }

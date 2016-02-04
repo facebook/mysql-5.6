@@ -1,0 +1,175 @@
+--disable_warnings
+drop table if exists t0, t1, t2, t3;
+--enable_warnings
+
+# (0) Without primary key
+create table t0 (id integer, x integer) engine=INNODB;
+insert into t0 values(0, 0), (1, 1), (2, 2), (3, 3);
+
+# (1) With primary key
+create table t1 (id integer primary key, x integer) engine=INNODB;
+insert into t1 values(0, 0), (1, 1), (2, 2), (3, 3);
+
+# (2) With unique secondary key
+create table t2 (id integer primary key, x integer, unique key x(x)) engine=INNODB;
+insert into t2 values(0, 0), (1, 1), (2, 2), (3, 3);
+
+# (3) With non-unique secondary key
+create table t3 (id integer primary key, x integer, key x(x)) engine=INNODB;
+insert into t3 values(0, 0), (1, 1), (2, 2), (3, 3);
+
+connect (con1,localhost,root,,);
+connect (con2,localhost,root,,);
+
+--echo ### (0.1) Without pirmary key: Locks on all rows
+
+connection con1;
+set autocommit=0;
+SELECT * from t0 where id = 1 FOR UPDATE;
+
+connection con2;
+set autocommit=0;
+
+--echo lock will skip
+SELECT * from t0 where id >= 0 FOR UPDATE SKIP LOCKED;
+
+--echo lock will skip
+SELECT * from t0 order by id FOR UPDATE SKIP LOCKED;
+
+--echo lock will not wait, expecting error
+--error ER_DB_FAILED_TO_LOCK_REC_NOWAIT
+SELECT * from t0 where id = 1 FOR UPDATE NOWAIT;
+
+connection con1;
+commit;
+
+connection con2;
+commit;
+
+--echo ### (0.2) Without pirmary key: Locks on some rows with 'limit x'
+
+connection con1;
+set autocommit=0;
+SELECT * from t0 where id = 1 limit 1 FOR UPDATE;
+
+connection con2;
+set autocommit=0;
+
+--echo lock will skip
+SELECT * from t0 where id >= 0 FOR UPDATE SKIP LOCKED;
+
+--echo lock will skip
+SELECT * from t0 order by id FOR UPDATE SKIP LOCKED;
+
+--echo lock will not wait, expecting error
+--error ER_DB_FAILED_TO_LOCK_REC_NOWAIT
+SELECT * from t0 where id = 1 FOR UPDATE NOWAIT;
+
+connection con1;
+commit;
+
+connection con2;
+commit;
+
+--echo ### (1) With pirmary key: Locks only on the record (covering index)
+
+connection con1;
+set autocommit=0;
+SELECT * from t1 where id = 1 FOR UPDATE;
+
+connection con2;
+set autocommit=0;
+
+--echo lock will skip
+SELECT * from t1 where id >= 0 FOR UPDATE SKIP LOCKED;
+
+--echo lock will skip
+SELECT * from t1 order by id FOR UPDATE SKIP LOCKED;
+
+--echo lock will not wait, expecting error
+--error ER_DB_FAILED_TO_LOCK_REC_NOWAIT
+SELECT * from t1 where id = 1 FOR UPDATE NOWAIT;
+
+connection con1;
+commit;
+
+connection con2;
+commit;
+
+--echo ### (2) With unique secondary key: Locks on the unique secondary key (covering index)
+
+connection con1;
+set autocommit=0;
+SELECT x from t2 where x = 1 FOR UPDATE;
+
+connection con2;
+set autocommit=0;
+
+--echo lock will skip
+SELECT x from t2 where x >= 0 FOR UPDATE SKIP LOCKED;
+
+--echo lock will skip
+SELECT x from t2 order by x FOR UPDATE SKIP LOCKED;
+
+--echo lock will not wait, expecting error
+--error ER_DB_FAILED_TO_LOCK_REC_NOWAIT
+SELECT x from t2 where x = 1 FOR UPDATE NOWAIT;
+
+connection con1;
+commit;
+
+connection con2;
+commit;
+
+--echo ### (3) With unique secondary key: Locks on the unique secondary key (covering index)
+
+connection con1;
+set autocommit=0;
+SELECT x from t3 where x = 1 FOR UPDATE;
+
+connection con2;
+set autocommit=0;
+
+--echo lock will skip
+SELECT x from t3 where x >= 0 FOR UPDATE SKIP LOCKED;
+
+--echo lock will skip
+SELECT x from t3 order by x FOR UPDATE SKIP LOCKED;
+
+--echo lock will not wait, expecting error
+--error ER_DB_FAILED_TO_LOCK_REC_NOWAIT
+SELECT x from t3 where x = 1 FOR UPDATE NOWAIT;
+
+connection con1;
+commit;
+
+connection con2;
+commit;
+
+--echo ### (4) Locks on both the primary key and the unique secondary key
+
+connection con1;
+set autocommit=0;
+SELECT * from t2 where id = 1 FOR UPDATE;
+
+connection con2;
+set autocommit=0;
+
+--echo lock will skip
+SELECT * from t2 where id >= 0 FOR UPDATE SKIP LOCKED;
+
+--echo lock will skip
+SELECT * from t2 order by id FOR UPDATE SKIP LOCKED;
+
+--echo lock will not wait, expecting error
+--error ER_DB_FAILED_TO_LOCK_REC_NOWAIT
+SELECT * from t2 where id = 1 FOR UPDATE NOWAIT;
+
+connection con1;
+commit;
+
+connection con2;
+commit;
+
+drop table t0, t1, t2, t3;
+exit;

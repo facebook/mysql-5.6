@@ -156,7 +156,9 @@ public:
     return ROW_TYPE_COMPRESSED;
   }
   THR_LOCK_DATA **store_lock(THD *thd, THR_LOCK_DATA **to,
-                             enum thr_lock_type lock_type);
+                             enum thr_lock_type lock_type,
+                             enum thr_x_lock_type x_lock_type=
+                             TL_X_LOCK_REGULAR);
   bool is_crashed() const;
   int check_for_upgrade(HA_CHECK_OPT *check_opt);
   int check(THD* thd, HA_CHECK_OPT* check_opt);

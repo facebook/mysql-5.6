@@ -3561,6 +3561,8 @@ ha_innobase::init_table_handle_for_HANDLER(void)
 	prebuilt->select_lock_type = LOCK_NONE;
 	prebuilt->stored_select_lock_type = LOCK_NONE;
 
+	prebuilt->select_x_lock_type = LOCK_X_REGULAR;
+
 	/* Always fetch all columns in the index record */
 
 	prebuilt->hint_need_to_fetch_extra_cols = ROW_RETRIEVE_ALL_COLS;
@@ -8563,6 +8565,17 @@ ha_innobase::index_read(
 		table->status = STATUS_NOT_FOUND;
 		error = HA_ERR_NO_SUCH_TABLE;
 		break;
+
+	case DB_FAILED_TO_LOCK_REC_NOWAIT:
+
+		ib_senderrf(
+			prebuilt->trx->mysql_thd, IB_LOG_LEVEL_ERROR,
+			ER_DB_FAILED_TO_LOCK_REC_NOWAIT, MYF(0));
+
+		table->status = STATUS_NOT_FOUND;
+		error = HA_ERR_FAILED_TO_LOCK_REC_NOWAIT;
+		break;
+
 	default:
 		error = convert_error_code_to_mysql(
 			ret, prebuilt->table->flags, user_thd);
@@ -12681,6 +12694,7 @@ ha_innobase::check(
 		dtuple_set_n_fields(prebuilt->search_tuple, 0);
 
 		prebuilt->select_lock_type = LOCK_NONE;
+		prebuilt->select_x_lock_type = LOCK_X_REGULAR;
 
 		if (!row_check_index_for_mysql(prebuilt, index, &n_rows)) {
 			innobase_format_name(
@@ -13343,6 +13357,7 @@ ha_innobase::start_stmt(
 		no lock for consistent read (plain SELECT). */
 
 		prebuilt->select_lock_type = LOCK_NONE;
+		prebuilt->select_x_lock_type = LOCK_X_REGULAR;
 	} else {
 		/* Not a consistent read: restore the
 		select_lock_type value. The value of
@@ -13519,9 +13534,13 @@ ha_innobase::external_lock(
 	if (lock_type == F_WRLCK) {
 
 		/* If this is a SELECT, then it is in UPDATE TABLE ...
-		or SELECT ... FOR UPDATE */
+		or SELECT ... FOR UPDATE (NOWAIT or SKIP LOCKED) */
+
 		prebuilt->select_lock_type = LOCK_X;
 		prebuilt->stored_select_lock_type = LOCK_X;
+	}
+	else if (lock_type != F_UNLCK) {
+		DBUG_ASSERT(prebuilt->select_x_lock_type == LOCK_X_REGULAR);
 	}
 
 	if (lock_type != F_UNLCK) {
@@ -13546,6 +13565,7 @@ ha_innobase::external_lock(
 
 			prebuilt->select_lock_type = LOCK_S;
 			prebuilt->stored_select_lock_type = LOCK_S;
+			prebuilt->select_x_lock_type = LOCK_X_REGULAR;
 		}
 
 		/* Starting from 4.1.9, no InnoDB table lock is taken in LOCK
@@ -13696,6 +13716,7 @@ ha_innobase::transactional_table_lock(
 	} else if (lock_type == F_RDLCK) {
 		prebuilt->select_lock_type = LOCK_S;
 		prebuilt->stored_select_lock_type = LOCK_S;
+		prebuilt->select_x_lock_type = LOCK_X_REGULAR;
 	} else {
 		ib_logf(IB_LOG_LEVEL_ERROR,
 			"MySQL is trying to set transactional table lock "
@@ -14174,9 +14195,10 @@ ha_innobase::store_lock(
 						pointer to the 'lock' field
 						of current handle is stored
 						next to this array */
-	enum thr_lock_type	lock_type)	/*!< in: lock type to store in
+	enum thr_lock_type	lock_type,	/*!< in: lock type to store in
 						'lock'; this may also be
 						TL_IGNORE */
+	enum thr_x_lock_type	x_lock_type)	/*!< in: x_lock type to store*/
 {
 	trx_t*		trx;
 
@@ -14247,9 +14269,11 @@ ha_innobase::store_lock(
 		if (trx->isolation_level == TRX_ISO_SERIALIZABLE) {
 			prebuilt->select_lock_type = LOCK_S;
 			prebuilt->stored_select_lock_type = LOCK_S;
+			prebuilt->select_x_lock_type = LOCK_X_REGULAR;
 		} else {
 			prebuilt->select_lock_type = LOCK_NONE;
 			prebuilt->stored_select_lock_type = LOCK_NONE;
+			prebuilt->select_x_lock_type = LOCK_X_REGULAR;
 		}
 
 	/* Check for DROP TABLE */
@@ -14317,18 +14341,32 @@ ha_innobase::store_lock(
 
 			prebuilt->select_lock_type = LOCK_NONE;
 			prebuilt->stored_select_lock_type = LOCK_NONE;
+			prebuilt->select_x_lock_type = LOCK_X_REGULAR;
 		} else {
 			prebuilt->select_lock_type = LOCK_S;
 			prebuilt->stored_select_lock_type = LOCK_S;
+			prebuilt->select_x_lock_type = LOCK_X_REGULAR;
 		}
 
 	} else if (lock_type != TL_IGNORE) {
 
 		/* We set possible LOCK_X value in external_lock, not yet
-		here even if this would be SELECT ... FOR UPDATE */
+		here even if this would be SELECT ... FOR UPDATE, but set
+		the value for SELECT ... FOR UPDATE (NOWAIT or SKIP LOCKED) */
 
-		prebuilt->select_lock_type = LOCK_NONE;
-		prebuilt->stored_select_lock_type = LOCK_NONE;
+		if (lock_type == TL_WRITE &&
+		    x_lock_type == TL_X_LOCK_NOWAIT) {
+			prebuilt->select_x_lock_type = LOCK_X_NOWAIT;
+		}
+		else if (lock_type == TL_WRITE &&
+			 x_lock_type == TL_X_LOCK_SKIP_LOCKED) {
+			prebuilt->select_x_lock_type = LOCK_X_SKIP_LOCKED;
+		}
+		else {
+			prebuilt->select_lock_type = LOCK_NONE;
+			prebuilt->stored_select_lock_type = LOCK_NONE;
+			prebuilt->select_x_lock_type = LOCK_X_REGULAR;
+		}
 	}
 
 	if (lock_type != TL_IGNORE && lock.type == TL_UNLOCK) {

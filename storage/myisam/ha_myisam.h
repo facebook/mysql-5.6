@@ -131,7 +131,9 @@ class ha_myisam: public handler
   void update_create_info(HA_CREATE_INFO *create_info);
   int create(const char *name, TABLE *form, HA_CREATE_INFO *create_info);
   THR_LOCK_DATA **store_lock(THD *thd, THR_LOCK_DATA **to,
-			     enum thr_lock_type lock_type);
+			     enum thr_lock_type lock_type,
+			     enum thr_x_lock_type x_lock_type=
+					TL_X_LOCK_REGULAR);
   virtual void get_auto_increment(ulonglong offset, ulonglong increment,
                                   ulonglong nb_desired_values,
                                   ulonglong *first_value,

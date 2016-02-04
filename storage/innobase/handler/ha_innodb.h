@@ -202,7 +202,9 @@ class ha_innobase: public handler
 	uint referenced_by_foreign_key();
 	void free_foreign_key_create_info(char* str);
 	THR_LOCK_DATA **store_lock(THD *thd, THR_LOCK_DATA **to,
-					enum thr_lock_type lock_type);
+					enum thr_lock_type lock_type,
+					enum thr_x_lock_type x_lock_type =
+							TL_X_LOCK_REGULAR);
 	void init_table_handle_for_HANDLER();
         virtual void get_auto_increment(ulonglong offset, ulonglong increment,
                                         ulonglong nb_desired_values,
