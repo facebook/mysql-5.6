@@ -33,6 +33,7 @@
 #include "./debug_sync.h"
 #include "./my_bit.h"
 #include "./my_stacktrace.h"
+#include "./sql_table.h"
 #include <mysql/psi/mysql_table.h>
 
 /* RocksDB includes */
@@ -2324,6 +2325,8 @@ static void rocksdb_update_table_stats(
   {
     ROCKSDB_SHARE *share;
     StringBuffer<256> buf, dbname, tablename, partname;
+    char dbname_sys[NAME_LEN + 1];
+    char tablename_sys[NAME_LEN + 1];
     bool is_partition;
 
     rocksdb_normalize_tablename(it.c_str(), &buf);
@@ -2356,9 +2359,16 @@ static void rocksdb_update_table_stats(
     io_perf_read.slow_ios= share->io_perf_read.slow_ios.load();
     free_share(share);
 
-    (*cb)(dbname.c_ptr(), tablename.c_ptr(), is_partition, &io_perf_read,
-          &io_perf, &io_perf, &io_perf, &io_perf, &page_stats, &comp_stats, 0,
-          0, rocksdb_hton_name);
+    /*
+      Table stats expects our database and table name to be in system encoding,
+      not filename format. Convert before calling callback.
+     */
+    filename_to_tablename(dbname.c_ptr(), dbname_sys, sizeof(dbname_sys));
+    filename_to_tablename(tablename.c_ptr(), tablename_sys,
+                          sizeof(tablename_sys));
+    (*cb)(dbname_sys, tablename_sys, is_partition, &io_perf_read, &io_perf,
+          &io_perf, &io_perf, &io_perf, &page_stats, &comp_stats, 0, 0,
+          rocksdb_hton_name);
   }
 }
 
