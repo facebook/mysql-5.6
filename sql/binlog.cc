@@ -2478,10 +2478,15 @@ bool show_binlog_cache(THD *thd)
   IO_CACHE cache_snapshot;
   binlog_cache_mngr *cache_mngr = nullptr;
 
-  if (opt_thd)
-    cache_mngr = thd_get_cache_mngr(opt_thd);
+  if (opt_bin_log)
+  {
+    if (opt_thd)
+      cache_mngr = thd_get_cache_mngr(opt_thd);
+    else
+      cache_mngr = thd_get_cache_mngr(thd);
+  }
   else
-    cache_mngr = thd_get_cache_mngr(thd);
+    errmsg = "log-bin option is not enabled";
 
   if (cache_mngr && limit_end-limit_start > 0)
   {
@@ -2501,40 +2506,44 @@ bool show_binlog_cache(THD *thd)
         reinit_io_cache(&cache_snapshot, READ_CACHE, 0, 0, 0);
         uint length = my_b_bytes_in_cache(&cache_snapshot), hdr_offs = 0;
 
-        while (hdr_offs < length && event_count < limit_end)
+        do
         {
-          const char *ev_buf= (const char *)cache_snapshot.read_pos + hdr_offs;
-          uint event_len= uint4korr(ev_buf + EVENT_LEN_OFFSET);
-          const char *ev_data = ev_buf+LOG_EVENT_HEADER_LEN;
-          int2store(ev_data+ST_BINLOG_VER_OFFSET,binlog_ver);
-
-          if (binlog_ver != description_event->binlog_version)
+          while (hdr_offs < length && event_count < limit_end)
           {
-            delete description_event;
-            description_event = new Format_description_log_event(binlog_ver);
-          }
+            const char *ev_buf =
+                (const char *)cache_snapshot.read_pos + hdr_offs;
+            uint event_len= uint4korr(ev_buf + EVENT_LEN_OFFSET);
+            const char *ev_data = ev_buf+LOG_EVENT_HEADER_LEN;
+            int2store(ev_data+ST_BINLOG_VER_OFFSET,binlog_ver);
 
-          // move to next event header
-          hdr_offs += event_len;
-
-          Log_event *ev = nullptr;
-          if (hdr_offs <= length)
-            ev = Log_event::read_log_event(ev_buf, event_len, &errmsg,
-                                           description_event, false);
-
-          if (ev && ev->is_valid()) // if we get an valid event, output it
-          {
-            if (event_count++ >= limit_start && ev->net_send(protocol))
+            if (binlog_ver != description_event->binlog_version)
             {
-              errmsg = "Net error";
-              delete ev;
-              break;
+              delete description_event;
+              description_event = new Format_description_log_event(binlog_ver);
             }
-          }
 
-          if (ev)
-            delete ev;
-        } // while()
+            // move to next event header
+            hdr_offs += event_len;
+
+            Log_event *ev = nullptr;
+            if (hdr_offs <= length)
+              ev = Log_event::read_log_event(ev_buf, event_len, &errmsg,
+                                             description_event, false);
+
+            if (ev && ev->is_valid()) // if we get an valid event, output it
+            {
+              if (event_count++ >= limit_start && ev->net_send(protocol))
+              {
+                errmsg = "Net error";
+                delete ev;
+                break;
+              }
+            }
+
+            if (ev)
+              delete ev;
+          } // while()
+        } while ((length= my_b_fill(&cache_snapshot)));
       }
     } // for()
   }
