@@ -1522,6 +1522,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  LOAD
 %token  LOCAL_SYM                     /* SQL-2003-R */
 %token  LOCATOR_SYM                   /* SQL-2003-N */
+%token  LOCKED_SYM
 %token  LOCKS_SYM
 %token  LOCK_SYM
 %token  LOGFILE_SYM
@@ -1610,6 +1611,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  NO_SYM                        /* SQL-2003-R */
 %token  NO_WAIT_SYM
 %token  NO_WRITE_TO_BINLOG
+%token  NOWAIT_SYM
 %token  NULL_SYM                      /* SQL-2003-R */
 %token  NUM
 %token  NUMBER_SYM                    /* SQL-2003-N */
@@ -1743,6 +1745,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  SIGNED_SYM
 %token  SIMILAR                       /* WebScaleSQL-2015 */
 %token  SIMPLE_SYM                    /* SQL-2003-N */
+%token  SKIP_SYM
 %token  SLAVE
 %token  SLOW
 %token  SMALLINT                      /* SQL-2003-R */
@@ -9234,6 +9237,20 @@ select_lock_type:
               lex->safe_to_cache_query=0;
             }
           }
+        | FOR_SYM UPDATE_SYM SKIP_SYM LOCKED_SYM
+          {
+            LEX *lex=Lex;
+            lex->current_select->set_lock_for_tables(TL_WRITE,
+                                                     TL_X_LOCK_SKIP_LOCKED);
+            lex->safe_to_cache_query=0;
+          }
+        | FOR_SYM UPDATE_SYM NOWAIT_SYM
+          {
+            LEX *lex=Lex;
+            lex->current_select->set_lock_for_tables(TL_WRITE,
+                                                     TL_X_LOCK_NOWAIT);
+            lex->safe_to_cache_query=0;
+          }
         | LOCK_SYM IN_SYM SHARE_SYM MODE_SYM
           {
             LEX *lex=Lex;
@@ -14997,6 +15014,7 @@ keyword_sp:
         | LINESTRING               {}
         | LIST_SYM                 {}
         | LOCAL_SYM                {}
+        | LOCKED_SYM               {}
         | LOCKS_SYM                {}
         | LOGFILE_SYM              {}
         | LOGS_SYM                 {}
@@ -15054,6 +15072,7 @@ keyword_sp:
         | NO_WAIT_SYM              {}
         | NODEGROUP_SYM            {}
         | NONE_SYM                 {}
+        | NOWAIT_SYM               {}
         | NUMBER_SYM               {}
         | NVARCHAR_SYM             {}
         | OFFSET_SYM               {}
@@ -15121,6 +15140,7 @@ keyword_sp:
         | SIMPLE_SYM               {}
         | SHARE_SYM                {}
         | SHUTDOWN                 {}
+        | SKIP_SYM                 {}
         | SLOW                     {}
         | SNAPSHOT_SYM             {}
         | SOUNDS_SYM               {}

@@ -731,6 +731,10 @@ ut_strerr(
 		return("The queue thread has been suspended");
 	case DB_MISSING_HISTORY:
 		return("Required history data has been deleted");
+	case DB_FAILED_TO_LOCK_REC_NOWAIT:
+		return("Failed to lock record with no-wait");
+	case DB_FAILED_TO_LOCK_REC_SKIP_LOCKED:
+		return("Failed to lock record with skip-locked");
 	case DB_CLUSTER_NOT_FOUND:
 		return("Cluster not found");
 	case DB_TABLE_NOT_FOUND:

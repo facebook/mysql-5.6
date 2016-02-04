@@ -2421,6 +2421,7 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
 
   error= 4;
   outparam->reginfo.lock_type= TL_UNLOCK;
+  outparam->reginfo.x_lock_type= TL_X_LOCK_REGULAR;
   outparam->current_lock= F_UNLCK;
   records=0;
   if ((db_stat & HA_OPEN_KEYFILE) || (prgflag & DELAYED_OPEN))
@@ -4007,6 +4008,7 @@ void TABLE::init(THD *thd, TABLE_LIST *tl)
   file->ft_handler= 0;
   reginfo.impossible_range= 0;
   reginfo.join_tab= NULL;
+  reginfo.x_lock_type= TL_X_LOCK_REGULAR;
 
 #ifdef HAVE_REPLICATION
   /* used in RBR Triggers */

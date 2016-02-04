@@ -901,6 +901,7 @@ row_sel_get_clust_rec(
 			0, btr_pcur_get_block(&plan->clust_pcur),
 			clust_rec, index, offsets,
 			static_cast<enum lock_mode>(node->row_lock_mode),
+			LOCK_X_REGULAR,
 			lock_type,
 			thr);
 
@@ -992,6 +993,10 @@ sel_set_rec_lock(
 	dict_index_t*		index,	/*!< in: index */
 	const ulint*		offsets,/*!< in: rec_get_offsets(rec, index) */
 	ulint			mode,	/*!< in: lock mode */
+	ulint			x_mode,	/*!< in: mode of the x-lock:
+					LOCK_X_REGULAR, LOCK_X_NOWAIT,
+					or LOCK_X_SKIP_LOCKED, this is
+					for SELECT FOR UPDATE */
 	ulint			type,	/*!< in: LOCK_ORDINARY, LOCK_GAP, or
 					LOC_REC_NOT_GAP */
 	que_thr_t*		thr)	/*!< in: query thread */
@@ -1011,11 +1016,15 @@ sel_set_rec_lock(
 	if (dict_index_is_clust(index)) {
 		err = lock_clust_rec_read_check_and_lock(
 			0, block, rec, index, offsets,
-			static_cast<enum lock_mode>(mode), type, thr);
+			static_cast<enum lock_mode>(mode),
+			static_cast<enum x_lock_mode>(x_mode),
+			type, thr);
 	} else {
 		err = lock_sec_rec_read_check_and_lock(
 			0, block, rec, index, offsets,
-			static_cast<enum lock_mode>(mode), type, thr);
+			static_cast<enum lock_mode>(mode),
+			static_cast<enum x_lock_mode>(x_mode),
+			type, thr);
 	}
 
 	return(err);
@@ -1537,6 +1546,7 @@ rec_loop:
 			err = sel_set_rec_lock(btr_pcur_get_block(&plan->pcur),
 					       next_rec, index, offsets,
 					       node->row_lock_mode,
+					       LOCK_X_REGULAR,
 					       lock_type, thr);
 
 			switch (err) {
@@ -1597,7 +1607,9 @@ skip_lock:
 
 		err = sel_set_rec_lock(btr_pcur_get_block(&plan->pcur),
 				       rec, index, offsets,
-				       node->row_lock_mode, lock_type, thr);
+				       node->row_lock_mode,
+				       LOCK_X_REGULAR,
+				       lock_type, thr);
 
 		switch (err) {
 		case DB_SUCCESS_LOCKED_REC:
@@ -3119,6 +3131,8 @@ row_sel_get_clust_rec_for_mysql(
 			0, btr_pcur_get_block(&prebuilt->clust_pcur),
 			clust_rec, clust_index, *offsets,
 			static_cast<enum lock_mode>(prebuilt->select_lock_type),
+			static_cast<enum x_lock_mode>
+				(prebuilt->select_x_lock_type),
 			LOCK_REC_NOT_GAP,
 			thr);
 
@@ -4519,6 +4533,7 @@ wait_table_again:
 			err = sel_set_rec_lock(btr_pcur_get_block(pcur),
 					       next_rec, index, offsets,
 					       prebuilt->select_lock_type,
+					       prebuilt->select_x_lock_type,
 					       LOCK_GAP, thr);
 
 			switch (err) {
@@ -4589,6 +4604,7 @@ rec_loop:
 			err = sel_set_rec_lock(btr_pcur_get_block(pcur),
 					       rec, index, offsets,
 					       prebuilt->select_lock_type,
+					       prebuilt->select_x_lock_type,
 					       LOCK_ORDINARY, thr);
 
 			switch (err) {
@@ -4727,8 +4743,9 @@ wrong_offs:
 				err = sel_set_rec_lock(
 					btr_pcur_get_block(pcur),
 					rec, index, offsets,
-					prebuilt->select_lock_type, LOCK_GAP,
-					thr);
+					prebuilt->select_lock_type,
+					prebuilt->select_x_lock_type,
+					LOCK_GAP, thr);
 
 				switch (err) {
 				case DB_SUCCESS_LOCKED_REC:
@@ -4776,8 +4793,9 @@ wrong_offs:
 				err = sel_set_rec_lock(
 					btr_pcur_get_block(pcur),
 					rec, index, offsets,
-					prebuilt->select_lock_type, LOCK_GAP,
-					thr);
+					prebuilt->select_lock_type,
+					prebuilt->select_x_lock_type,
+					LOCK_GAP, thr);
 
 				switch (err) {
 				case DB_SUCCESS_LOCKED_REC:
@@ -4858,6 +4876,7 @@ no_gap_lock:
 		err = sel_set_rec_lock(btr_pcur_get_block(pcur),
 				       rec, index, offsets,
 				       prebuilt->select_lock_type,
+				       prebuilt->select_x_lock_type,
 				       lock_type, thr);
 
 		switch (err) {
@@ -4873,6 +4892,10 @@ no_gap_lock:
 			err = DB_SUCCESS;
 		case DB_SUCCESS:
 			break;
+		case DB_FAILED_TO_LOCK_REC_SKIP_LOCKED:
+			goto next_rec;
+		case DB_FAILED_TO_LOCK_REC_NOWAIT:
+			goto lock_wait_or_error;
 		case DB_LOCK_WAIT:
 			/* Never unlock rows that were part of a conflict. */
 			prebuilt->new_rec_locks = 0;
@@ -5156,6 +5179,9 @@ requires_clust_rec:
 				goto next_rec;
 			}
 			break;
+		case DB_FAILED_TO_LOCK_REC_SKIP_LOCKED:
+			goto next_rec;
+
 		case DB_SUCCESS_LOCKED_REC:
 			ut_a(clust_rec != NULL);
 			if (srv_locks_unsafe_for_binlog

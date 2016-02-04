@@ -1900,6 +1900,7 @@ public:
   /* call back function for asking handler about caching in query cache */
   qc_engine_callback callback_func;
   thr_lock_type lock_type;
+  thr_x_lock_type x_lock_type;
   uint		outer_join;		/* Which join type */
   uint		shared;			/* Used in multi-upd */
   size_t        db_length;

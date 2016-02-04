@@ -7215,6 +7215,9 @@ ER_CANNOT_PURGE_SERVER_UUID
 ER_UUID_NOT_IN_EXECUTED_GTID_SET
   eng "%s is not present in executed gtid set"
 
+ER_DB_FAILED_TO_LOCK_REC_NOWAIT
+  eng "Failed to lock a record and didn't wait"
+
 ER_UNKNOWN_DB_READ_ONLY
   eng "Unknown db read ony option: '%-.64s'"
 

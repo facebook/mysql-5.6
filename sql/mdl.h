@@ -28,6 +28,7 @@
 #include <my_sys.h>
 #include <m_string.h>
 #include <mysql_com.h>
+#include "thr_lock.h"
 
 #include <algorithm>
 #include <unordered_set>
