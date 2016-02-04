@@ -14,3 +14,11 @@ SHOW TABLE STATUS WHERE name LIKE 't2';
 Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
 t2	ROCKSDB	10	Fixed	10000	6	65000	0	0	0	NULL	NULL	NULL	NULL	latin1_swedish_ci	NULL		
 DROP TABLE t1, t2, t3;
+CREATE DATABASE `db_new..............................................end`;
+USE `db_new..............................................end`;
+CREATE TABLE `t1_new..............................................end`(a int) engine=rocksdb;
+INSERT INTO `t1_new..............................................end` VALUES (1);
+SELECT TABLE_SCHEMA, TABLE_NAME FROM information_schema.table_statistics WHERE TABLE_NAME = 't1_new..............................................end';
+TABLE_SCHEMA	db_new..............................................end
+TABLE_NAME	t1_new..............................................end
+DROP DATABASE `db_new..............................................end`;

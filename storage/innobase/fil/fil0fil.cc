@@ -1405,22 +1405,51 @@ parse_db_and_table(
 		strcpy(db_name, "sys:innodb");
 		strcpy(table_name, "system");
 	} else {
+		char table_name_file[FN_LEN + 1];
+		char db_name_file[FN_LEN + 1];
 		if (sscanf(name, "%" FN_LEN_STR "[^/]/%" FN_LEN_STR "[^/]",
-		    db_name, table_name) != 2) {
-			strcpy(db_name, "sys:innodb");
-			strcpy(table_name, "other");
-			fprintf(stderr,
-				"InnoDB: unable to parse table and "
-				"db name from ::%s::\n", name);
+		    db_name_file, table_name_file) != 2) {
+		  goto err;
 		} else {
 			// Use only base table name for partitioned tables
-			char *part = strstr(table_name, "#P#");
+			char *part = strstr(table_name_file, "#P#");
+			uint errors;
 			if (part) {
 				*part = '\0';
 				*is_partition = true;
 			}
+
+			// Do not attempt to convert if this is a temp file.
+			if (strncmp(table_name_file,
+				    TEMP_FILE_PREFIX_INNODB,
+				    sizeof(TEMP_FILE_PREFIX_INNODB)) == 0) {
+				strcpy(table_name, table_name_file);
+			} else {
+				innobase_convert_to_system_charset(table_name,
+								   table_name_file,
+								   NAME_LEN,
+								   &errors);
+			}
+
+			if (errors)
+				goto err;
+
+			innobase_convert_to_system_charset(db_name,
+							   db_name_file,
+							   NAME_LEN, &errors);
+			if (errors)
+				goto err;
 		}
 	}
+	return;
+err:
+	strcpy(db_name, "sys:innodb");
+	strcpy(table_name, "other");
+	// NO_LINT_DEBUG
+	fprintf(stderr,
+		"InnoDB: unable to parse table and "
+		"db name from ::%s::\n", name);
+
 }
 
 /*******************************************************************//**
