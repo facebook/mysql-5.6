@@ -52,3 +52,13 @@ set global rocksdb_force_flush_memtable_now = true;
 SHOW TABLE STATUS WHERE name LIKE 't2';
 DROP TABLE t1, t2, t3;
 
+#
+# Confirm that long db and table names work.
+#
+
+CREATE DATABASE `db_new..............................................end`;
+USE `db_new..............................................end`;
+CREATE TABLE `t1_new..............................................end`(a int) engine=rocksdb;
+INSERT INTO `t1_new..............................................end` VALUES (1);
+--query_vertical SELECT TABLE_SCHEMA, TABLE_NAME FROM information_schema.table_statistics WHERE TABLE_NAME = 't1_new..............................................end'
+DROP DATABASE `db_new..............................................end`;

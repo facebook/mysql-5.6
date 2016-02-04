@@ -2221,7 +2221,7 @@ void Table_ddl_manager::persist_stats(bool sync)
 int Table_ddl_manager::put_and_write(RDBSE_TABLE_DEF *tbl,
                                      rocksdb::WriteBatch *batch)
 {
-  uchar buf[NAME_LEN * 2 + RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
+  uchar buf[FN_LEN * 2 + RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
   uint pos= 0;
 
   store_index_number(buf, RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER);
@@ -2286,7 +2286,7 @@ void Table_ddl_manager::remove(RDBSE_TABLE_DEF *tbl,
   if (lock)
     mysql_rwlock_wrlock(&rwlock);
 
-  uchar buf[NAME_LEN * 2 + RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
+  uchar buf[FN_LEN * 2 + RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
   uint pos= 0;
 
   store_index_number(buf, RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER);
@@ -2313,7 +2313,7 @@ bool Table_ddl_manager::rename(uchar *from, uint from_len,
   RDBSE_TABLE_DEF *rec;
   RDBSE_TABLE_DEF *new_rec;
   bool res= true;
-  uchar new_buf[NAME_LEN * 2 + RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
+  uchar new_buf[FN_LEN * 2 + RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
   uint new_pos= 0;
 
   mysql_rwlock_wrlock(&rwlock);
