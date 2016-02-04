@@ -1060,6 +1060,10 @@ The following options may be given as the first argument:
  DBOptions::enable_write_thread_adaptive_yield for RocksDB
  --rocksdb-error-if-exists 
  DBOptions::error_if_exists for RocksDB
+ --rocksdb-flush-memtable-on-analyze 
+ Forces memtable flush on ANALZYE table to get accurate
+ cardinality
+ (Defaults to on; use --skip-rocksdb-flush-memtable-on-analyze to disable.)
  --rocksdb-force-flush-memtable-now 
  Forces memstore flush which may block all write requests
  so be careful
@@ -1763,6 +1767,7 @@ rocksdb-disableDataSync FALSE
 rocksdb-enable-thread-tracking FALSE
 rocksdb-enable-write-thread-adaptive-yield FALSE
 rocksdb-error-if-exists FALSE
+rocksdb-flush-memtable-on-analyze TRUE
 rocksdb-force-flush-memtable-now FALSE
 rocksdb-force-index-records-in-range 0
 rocksdb-global-info ON
