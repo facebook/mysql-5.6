@@ -184,7 +184,7 @@ void LockTable::init(lf_key_comparison_func_t key_cmp_func,
 {
   lf_hash_init(&lf_hash, sizeof(Row_lock_impl), LF_HASH_UNIQUE, 0 /* key offset */,
                0 /*key_len*/, get_row_lock_hash_key /*get_hash_key*/,
-               NULL /*charset*/);
+               nullptr /*charset*/);
 
   lf_hash.alloc.constructor= rowlock_init;
   lf_hash.alloc.destructor=  rowlock_destroy;
@@ -220,7 +220,7 @@ void LockTable::cleanup()
 
   @return
     pointer  Pointer to the obtained lock
-    NULL     Failed to acquire the lock (timeout or out-of-memory error).
+    nullptr  Failed to acquire the lock (timeout or out-of-memory error).
 
   @note
     The code is based on wt_thd_will_wait_for() in mysys/waiting_threads.c
@@ -235,7 +235,7 @@ Row_lock* LockTable::get_lock(LF_PINS *pins, const uchar* key, size_t keylen,
 
   bool locked= false;
 
-  uchar *key_copy= NULL;
+  uchar *key_copy= nullptr;
 
 retry:
   while (!(ptr= lf_hash_search(&lf_hash, pins, key, keylen)))
@@ -250,7 +250,7 @@ retry:
     memset(&new_lock.read_locks, 0, sizeof(new_lock.read_locks));
 
     if (!key_copy && !(key_copy= (uchar*)my_malloc(keylen, MYF(0))))
-      return NULL;
+      return nullptr;
     memcpy(key_copy, key, keylen);
     new_lock.rowkey= (char*)key_copy;
     new_lock.len= keylen;
@@ -267,7 +267,7 @@ retry:
         key_copy is now used in the entry in hash table.
         We should not free it.
       */
-      key_copy= NULL;
+      key_copy= nullptr;
     }
 
     /*
@@ -306,7 +306,7 @@ err:
   my_free(key_copy);
   key_copy = nullptr;
 
-  return locked? found_lock->get_lock_handle(is_write_lock) : NULL;
+  return locked? found_lock->get_lock_handle(is_write_lock) : nullptr;
 }
 
 
