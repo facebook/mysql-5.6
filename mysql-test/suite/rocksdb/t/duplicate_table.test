@@ -1,0 +1,12 @@
+--source include/have_rocksdb.inc
+CREATE TABLE t(id int primary key) engine=rocksdb;
+INSERT INTO t values (1), (2), (3); 
+--error ER_TABLE_EXISTS_ERROR 
+CREATE TABLE t(id int primary key) engine=rocksdb;
+FLUSH TABLES;
+--exec mv $MYSQLTEST_VARDIR/mysqld.1/data/test/t.frm $MYSQLTEST_VARDIR/mysqld.1/data/test/t.frm.tmp
+--error ER_UNKNOWN_ERROR 
+CREATE TABLE t(id int primary key) engine=rocksdb;
+--exec mv $MYSQLTEST_VARDIR/mysqld.1/data/test/t.frm.tmp $MYSQLTEST_VARDIR/mysqld.1/data/test/t.frm
+FLUSH TABLES;
+DROP TABLE t;
