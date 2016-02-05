@@ -62,6 +62,8 @@ Wrapped_mysql_cond::WaitFor(std::shared_ptr<TransactionDBMutex> mutex_arg,
                             int64_t timeout_micros)
 {
   auto *mutex_obj= (Wrapped_mysql_mutex*)mutex_arg.get();
+  DBUG_ASSERT(mutex_obj != nullptr);
+
   mysql_mutex_t * const mutex_ptr= &mutex_obj->mutex_;
 
   int res= 0;
@@ -100,6 +102,9 @@ Wrapped_mysql_cond::WaitFor(std::shared_ptr<TransactionDBMutex> mutex_arg,
       should_call_set_unlock= true;
     }
   }
+
+  DBUG_ASSERT(mutex_obj->thd == nullptr);
+
 #endif
   bool killed= false;
 
@@ -222,6 +227,8 @@ Status Wrapped_mysql_mutex::TryLockFor(int64_t timeout_time) {
 void Wrapped_mysql_mutex::SetUnlockAction(THD *thd_arg,
                                           PSI_stage_info *old_stage_arg)
 {
+  DBUG_ASSERT(old_stage_arg != nullptr);
+
   mysql_mutex_assert_owner(&mutex_);
   thd= thd_arg;
   old_stage= *old_stage_arg;
