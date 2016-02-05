@@ -64,26 +64,6 @@ extern my_bool cachedev_enabled;
 static st_global_stats global_stats;
 static st_export_stats export_stats;
 
-static bool is_mysql_system_table(TABLE_SHARE* s)
-{
-  static const char *const system_dbs[] = {
-    "mysql",
-    "performance_schema",
-    "information_schema",
-  };
-
-  if (s == nullptr)
-    return false;
-
-  for (uint ii = 0; ii < array_elements(system_dbs); ii++) {
-    if (strcmp(s->db.str, system_dbs[ii]) == 0) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 /**
   Updates row counters based on the table type and operation type.
 */
@@ -3842,8 +3822,7 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
 
   pk_descr= key_descr[pk_index(table_arg, tbl_def)];
 
-  tbl_def->mysql_system_table = is_mysql_system_table(table_arg->s);
-  tbl_def->dbname_tablename.append(db_table, len);
+  tbl_def->set_name(db_table, len);
   dict_manager.lock();
   write_err= ddl_manager.put_and_write(tbl_def, batch)
              || dict_manager.commit(batch);

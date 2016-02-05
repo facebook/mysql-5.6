@@ -602,6 +602,8 @@ Field* RDBSE_KEYDEF::get_table_field_for_part_no(TABLE *table, uint part_no)
 
 class RDBSE_TABLE_DEF
 {
+  void check_if_is_mysql_system_table();
+
 public:
   RDBSE_TABLE_DEF() : key_descr(nullptr), hidden_pk_val(1), auto_incr_val(1) {}
   ~RDBSE_TABLE_DEF();
@@ -623,6 +625,11 @@ public:
 
   bool put_dict(Dict_manager *dict, rocksdb::WriteBatch *batch,
                 uchar *key, size_t keylen);
+
+  void set_name(const char *name, size_t len);
+  void set_name(const rocksdb::Slice& slice, size_t pos = 0) {
+    set_name(slice.data() + pos, slice.size() - pos);
+  }
 };
 
 
