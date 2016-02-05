@@ -152,7 +152,7 @@ void do_tests()
   prevent_deadlocks= true;
   timeout_sec= 10*1000;
 
-  locktable_test1(NULL);
+  locktable_test1(nullptr);
 
   test_concurrently("locktable_test1", locktable_test1, 2 /*THREADS*/, 10 /*CYCLES*/);
   check_shared_data("1");
