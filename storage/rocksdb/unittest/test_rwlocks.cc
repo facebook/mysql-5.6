@@ -173,7 +173,7 @@ void basic_test()
 */
 typedef void (*callback_func_t)();
 
-callback_func_t thread2_work= NULL;
+callback_func_t thread2_work= nullptr;
 mysql_mutex_t thread2_has_work_mutex;
 mysql_cond_t  thread2_has_work_cond;
 
@@ -245,7 +245,7 @@ void test2()
 
   pthread_attr_init(&thr_attr);
   pthread_attr_setdetachstate(&thr_attr,PTHREAD_CREATE_DETACHED);
-  res= pthread_create(&thread2, &thr_attr, thread2_func, NULL /*arg*/);
+  res= pthread_create(&thread2, &thr_attr, thread2_func, nullptr /*arg*/);
   DBUG_ASSERT(!res);
 
   fprintf(stderr, "  Test that two threads can acquire a read-lock\n");
@@ -264,11 +264,11 @@ void test2()
   do_in_thread2(get_a_write_lock);
   lock1= lock_table->get_lock(pins, (uchar*)&val1, sizeof(int), 3 /* seconds timeout */,
                               true);
-  DBUG_ASSERT(lock1==NULL);
+  DBUG_ASSERT(lock1 == nullptr);
   fprintf(stderr, "  Test that a write lock prevents acquisition of a read lock\n");
   lock1= lock_table->get_lock(pins, (uchar*)&val1, sizeof(int), 3 /* seconds timeout */,
                               false);
-  DBUG_ASSERT(lock1==NULL);
+  DBUG_ASSERT(lock1 == nullptr);
   do_in_thread2(release_a_write_lock);
 
   fprintf(stderr, "  Take read locks by both threads, then try to get a write lock also\n");
@@ -278,7 +278,7 @@ void test2()
   DBUG_ASSERT(lock1);
   lock2= lock_table->get_lock(pins, (uchar*)&val1, sizeof(int), 3 /* seconds timeout */,
                               true);
-  DBUG_ASSERT(lock2==NULL);
+  DBUG_ASSERT(lock2 == nullptr);
   do_in_thread2(release_a_read_lock);
   lock_table->release_lock(pins, lock1);
 
@@ -308,7 +308,7 @@ void do_in_thread2(callback_func_t func)
     } while (res == EINTR);
     DBUG_ASSERT(!res);
   }
-  thread2_work= NULL; // ??
+  thread2_work= nullptr;  // ??
   mysql_mutex_unlock(&thread2_done_mutex);
 }
 
@@ -331,7 +331,7 @@ pthread_handler_t thread2_func(void *arg)
 
     // Report that work is finished
     mysql_mutex_lock(&thread2_done_mutex);
-    thread2_work= NULL;
+    thread2_work= nullptr;
     thread2_done= true;
     mysql_cond_signal(&thread2_done_cond);
     mysql_mutex_unlock(&thread2_done_mutex);
@@ -381,7 +381,7 @@ void do_tests()
   prevent_deadlocks= true;
   timeout_sec= 10*1000;
 
-  //locktable_test1(NULL);
+  // locktable_test1(nullptr);
 #if 0
   test_concurrently("locktable_test1", locktable_test1, 2 /*THREADS*/, 10 /*CYCLES*/);
   check_shared_data("1");

@@ -110,8 +110,8 @@ RDBSE_KEYDEF::RDBSE_KEYDEF(
     is_auto_cf(is_auto_cf_arg),
     name(_name),
     stats(_stats),
-    pk_part_no(NULL),
-    pack_info(NULL),
+    pk_part_no(nullptr),
+    pack_info(nullptr),
     keyno(keyno_arg),
     m_key_parts(0),
     maxlength(0) // means 'not intialized'
@@ -477,7 +477,7 @@ uint RDBSE_KEYDEF::pack_index_tuple(const ha_rocksdb *handler, TABLE *tbl,
 
   /* Then, convert the record into a mem-comparable form */
   return pack_record(handler, tbl, pack_buffer, tbl->record[0], packed_tuple,
-                     NULL, NULL, n_used_parts);
+                     nullptr, nullptr, n_used_parts);
 }
 
 
@@ -533,7 +533,7 @@ int RDBSE_KEYDEF::successor(uchar *packed_tuple, uint len)
 
   @detail
     Some callers do not need the unpack information, they can pass
-    unpack_info=NULL, unpack_info_len=NULL.
+    unpack_info=nullptr, unpack_info_len=nullptr.
 
   @return
     Length of the packed tuple
@@ -720,7 +720,7 @@ int RDBSE_KEYDEF::compare_keys(
     {
       auto nullp1= reader1.read(1);
       auto nullp2= reader2.read(1);
-      if (nullp1 == NULL || nullp2 == NULL)
+      if (nullp1 == nullptr || nullp2 == nullptr)
         return 1; //error
 
       if (*nullp1 != *nullp2)
@@ -739,9 +739,9 @@ int RDBSE_KEYDEF::compare_keys(
     auto before_skip1 = reader1.get_current_ptr();
     auto before_skip2 = reader2.get_current_ptr();
     DBUG_ASSERT(fpi->skip_func);
-    if (fpi->skip_func(fpi, NULL, &reader1))
+    if (fpi->skip_func(fpi, nullptr, &reader1))
       return 1;
-    if (fpi->skip_func(fpi, NULL, &reader2))
+    if (fpi->skip_func(fpi, nullptr, &reader2))
       return 1;
     auto size1 = reader1.get_current_ptr() - before_skip1;
     auto size2 = reader2.get_current_ptr() - before_skip2;
@@ -959,7 +959,7 @@ int RDBSE_KEYDEF::unpack_record(const ha_rocksdb *handler, TABLE *table,
 
 bool RDBSE_KEYDEF::can_unpack(uint kp) const
 {
-  return (pack_info[kp].unpack_func != NULL);
+  return (pack_info[kp].unpack_func != nullptr);
 }
 
 bool RDBSE_KEYDEF::rocksdb_has_hidden_pk(const TABLE* table)
@@ -1445,8 +1445,8 @@ bool Field_pack_info::setup(Field *field, uint keynr_arg, uint key_part_arg)
   key_part= key_part_arg;
 
   maybe_null= field ? field->real_maybe_null() : false;
-  make_unpack_info_func= NULL;
-  unpack_func= NULL;
+  make_unpack_info_func= nullptr;
+  unpack_func= nullptr;
   unpack_data_len= 0;
   field_data_offset= 0;
 
@@ -2142,7 +2142,7 @@ Table_ddl_manager::get_copy_of_keydef(GL_INDEX_ID gl_index_id)
 // this method assumes at least read-only lock on rwlock
 RDBSE_KEYDEF* Table_ddl_manager::find(GL_INDEX_ID gl_index_id)
 {
-  RDBSE_KEYDEF* ret = NULL;
+  RDBSE_KEYDEF* ret = nullptr;
 
   auto it= index_num_to_keydef.find(gl_index_id);
   if (it != index_num_to_keydef.end()) {
@@ -2326,7 +2326,7 @@ bool Table_ddl_manager::rename(uchar *from, uint from_len,
   new_rec->n_keys= rec->n_keys;
   new_rec->auto_incr_val= rec->auto_incr_val.load(std::memory_order_relaxed);
   new_rec->key_descr= rec->key_descr;
-  rec->key_descr= NULL; /* so that it's not free'd when deleting the old rec */
+  rec->key_descr= nullptr;  // so that it's not free'd when deleting the old rec
 
   // Create a new key
   store_index_number(new_buf, RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER);
@@ -2613,13 +2613,13 @@ bool Dict_manager::init(rocksdb::DB *rdb_dict, Column_family_manager *cf_manager
   rdb= rdb_dict;
   bool is_automatic;
   system_cfh= cf_manager->get_or_create_cf(rdb, DEFAULT_SYSTEM_CF_NAME,
-                                           NULL, NULL, &is_automatic);
+                                           nullptr, nullptr, &is_automatic);
   store_index_number(key_buf_max_index_id,
                      RDBSE_KEYDEF::MAX_INDEX_ID);
   key_slice_max_index_id = rocksdb::Slice((char*)key_buf_max_index_id,
                                           RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
   resume_drop_indexes();
-  return (system_cfh == NULL);
+  return (system_cfh == nullptr);
 }
 
 void Dict_manager::cleanup()

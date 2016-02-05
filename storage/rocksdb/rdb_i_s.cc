@@ -31,9 +31,10 @@
 #include "./rdb_datadic.h"
 
 #define ROCKSDB_FIELD_INFO(_name_, _len_, _type_, _flag_) \
-        { _name_, _len_, _type_, 0, _flag_, NULL, 0 }
+        { _name_, _len_, _type_, 0, _flag_, nullptr, 0 }
 
-#define ROCKSDB_FIELD_INFO_END ROCKSDB_FIELD_INFO(NULL, 0, MYSQL_TYPE_NULL, 0)
+#define ROCKSDB_FIELD_INFO_END ROCKSDB_FIELD_INFO(nullptr, \
+        0, MYSQL_TYPE_NULL, 0)
 
 /*
   Support for INFORMATION_SCHEMA.ROCKSDB_CFSTATS dynamic table
@@ -287,7 +288,7 @@ static int i_s_rocksdb_perf_context_global_fill_table(THD *thd,
   DBUG_ENTER("i_s_rocksdb_perf_context_global_fill_table");
 
   SHARE_PERF_COUNTERS counters;
-  if (rocksdb_get_share_perf_counters(NULL, &counters))
+  if (rocksdb_get_share_perf_counters(nullptr, &counters))
     DBUG_RETURN(0);
 
   for (int i= 0; i < PC_MAX_IDX; i++) {
@@ -972,9 +973,9 @@ struct st_mysql_plugin i_s_rocksdb_cfstats=
   i_s_rocksdb_cfstats_init,
   i_s_rocksdb_deinit,
   0x0001,                             /* version number (0.1) */
-  NULL,                               /* status variables */
-  NULL,                               /* system variables */
-  NULL,                               /* config options */
+  nullptr,                            /* status variables */
+  nullptr,                            /* system variables */
+  nullptr,                            /* config options */
   0,                                  /* flags */
 };
 
@@ -989,9 +990,9 @@ struct st_mysql_plugin i_s_rocksdb_dbstats=
   i_s_rocksdb_dbstats_init,
   i_s_rocksdb_deinit,
   0x0001,                             /* version number (0.1) */
-  NULL,                               /* status variables */
-  NULL,                               /* system variables */
-  NULL,                               /* config options */
+  nullptr,                            /* status variables */
+  nullptr,                            /* system variables */
+  nullptr,                            /* config options */
   0,                                  /* flags */
 };
 
@@ -1006,9 +1007,9 @@ struct st_mysql_plugin i_s_rocksdb_perf_context=
   i_s_rocksdb_perf_context_init,
   i_s_rocksdb_deinit,
   0x0001,                             /* version number (0.1) */
-  NULL,                               /* status variables */
-  NULL,                               /* system variables */
-  NULL,                               /* config options */
+  nullptr,                            /* status variables */
+  nullptr,                            /* system variables */
+  nullptr,                            /* config options */
   0,                                  /* flags */
 };
 
@@ -1023,9 +1024,9 @@ struct st_mysql_plugin i_s_rocksdb_perf_context_global=
   i_s_rocksdb_perf_context_global_init,
   i_s_rocksdb_deinit,
   0x0001,                             /* version number (0.1) */
-  NULL,                               /* status variables */
-  NULL,                               /* system variables */
-  NULL,                               /* config options */
+  nullptr,                            /* status variables */
+  nullptr,                            /* system variables */
+  nullptr,                            /* config options */
   0,                                  /* flags */
 };
 
@@ -1057,9 +1058,9 @@ struct st_mysql_plugin i_s_rocksdb_global_info=
   i_s_rocksdb_global_info_init,
   i_s_rocksdb_deinit,
   0x0001,                             /* version number (0.1) */
-  NULL,                               /* status variables */
-  NULL,                               /* system variables */
-  NULL,                               /* config options */
+  nullptr,                            /* status variables */
+  nullptr,                            /* system variables */
+  nullptr,                            /* config options */
   0,                                  /* flags */
 };
 
@@ -1074,9 +1075,9 @@ struct st_mysql_plugin i_s_rocksdb_ddl=
   i_s_rocksdb_ddl_init,
   i_s_rocksdb_deinit,
   0x0001,                             /* version number (0.1) */
-  NULL,                               /* status variables */
-  NULL,                               /* system variables */
-  NULL,                               /* config options */
+  nullptr,                            /* status variables */
+  nullptr,                            /* system variables */
+  nullptr,                            /* config options */
   0,                                  /* flags */
 };
 
@@ -1091,8 +1092,8 @@ struct st_mysql_plugin i_s_rocksdb_index_file_map=
   i_s_rocksdb_index_file_map_init,
   i_s_rocksdb_deinit,
   0x0001,                             /* version number (0.1) */
-  NULL,                               /* status variables */
-  NULL,                               /* system variables */
-  NULL,                               /* config options */
+  nullptr,                            /* status variables */
+  nullptr,                            /* system variables */
+  nullptr,                            /* config options */
   0,                                  /* flags */
 };
