@@ -22,6 +22,9 @@
 #include <cstdint>
 #include <string>
 
+#include <my_global.h>
+#include <my_dbug.h>
+
 namespace myrocks {
 
 enum {

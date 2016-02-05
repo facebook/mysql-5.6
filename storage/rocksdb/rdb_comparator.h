@@ -55,7 +55,7 @@ class Primary_key_comparator : public rocksdb::Comparator
   }
 
   /* The following is not needed by RocksDB, but conceptually should be here: */
-  static ulong get_hashnr(const char *key, size_t key_len);
+  static ulong get_hashnr(const char *key, const size_t key_len);
   const char* Name() const { return "RocksDB_SE_v3.10"; }
 
   //TODO: advanced funcs:
