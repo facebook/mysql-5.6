@@ -25,7 +25,8 @@
 /* Check if ColumnFamily name says it's a reverse-ordered CF */
 bool is_cf_name_reverse(const char *name)
 {
-  /* NULL means the default CF is used.. (TODO: can the default CF be reverse?) */
+  /* nullptr means the default CF is used.. (TODO: can the default CF be
+   * reverse?) */
   if (name && !strncmp(name, "rev:", 4))
     return true;
   else
@@ -89,7 +90,7 @@ Column_family_manager::get_or_create_cf(rocksdb::DB *rdb, const char *cf_name,
 
   mysql_mutex_lock(&cfm_mutex);
   *is_automatic= false;
-  if (cf_name == NULL)
+  if (cf_name == nullptr)
     cf_name= DEFAULT_CF_NAME;
 
   std::string per_index_name;
@@ -120,7 +121,7 @@ Column_family_manager::get_or_create_cf(rocksdb::DB *rdb, const char *cf_name,
       cf_name_map[cf_handle->GetName()] = cf_handle;
       cf_id_map[cf_handle->GetID()] = cf_handle;
     } else {
-      cf_handle= NULL;
+      cf_handle= nullptr;
     }
   }
   mysql_mutex_unlock(&cfm_mutex);
@@ -151,7 +152,7 @@ Column_family_manager::get_cf(const char *cf_name,
 
   *is_automatic= false;
   mysql_mutex_lock(&cfm_mutex);
-  if (cf_name == NULL)
+  if (cf_name == nullptr)
     cf_name= DEFAULT_CF_NAME;
 
   std::string per_index_name;
