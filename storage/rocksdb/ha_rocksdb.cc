@@ -35,6 +35,7 @@
 #include "./my_stacktrace.h"
 #include "./sql_table.h"
 #include <mysql/psi/mysql_table.h>
+#include <mysql/thread_pool_priv.h>
 
 /* RocksDB includes */
 #include "rocksdb/compaction_filter.h"
@@ -3972,9 +3973,23 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
   StringBuffer<256> strbuf;
   DBUG_ENTER("ha_rocksdb::create");
 
-  if (get_table_if_exists(name) && delete_table(name))
-  {
-    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+  if (get_table_if_exists(name)) {
+    THD *thd = thd_get_current_thd();
+    if (thd->lex->sql_command == SQLCOM_TRUNCATE) {
+      if (delete_table(name)) {
+        DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+      }
+    } else {
+      if (rocksdb_normalize_tablename(name, &strbuf)) {
+        DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+      }
+      my_printf_error(ER_UNKNOWN_ERROR,
+        "Table '%s' does not exist, but metadata information exists inside "
+        "MyRocks. This is a sign of data inconsistency. Please check if "
+        "'%s.frm' exists, and try to restore it if it does not exist.",
+        MYF(0), strbuf.c_ptr(), name);
+      DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+    }
   }
 
   /*
