@@ -138,7 +138,7 @@ public:
     else
     {
       if (is_eof)
-        return NULL;
+        return nullptr;
       else
       {
         /* Read more data from the file */
@@ -155,7 +155,7 @@ public:
         if (end_pos - start_pos > chars)
           return start_pos;
         else
-          return NULL;
+          return nullptr;
       }
     }
   }
