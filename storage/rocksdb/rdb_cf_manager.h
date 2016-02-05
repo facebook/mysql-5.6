@@ -63,7 +63,7 @@ public:
 
   /*
     Used by CREATE TABLE.
-    - cf_name=NULL means use default column family
+    - cf_name=nullptr means use default column family
     - cf_name=_auto_ means use 'dbname.tablename.indexname'
   */
   rocksdb::ColumnFamilyHandle* get_or_create_cf(rocksdb::DB *rdb,
