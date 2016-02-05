@@ -1677,6 +1677,41 @@ bool RDBSE_TABLE_DEF::put_dict(Dict_manager* dict, rocksdb::WriteBatch *batch,
   return false;
 }
 
+void RDBSE_TABLE_DEF::check_if_is_mysql_system_table()
+{
+  static const char *const system_dbs[] = {
+    "mysql",
+    "performance_schema",
+    "information_schema",
+  };
+
+  const char *dotpos= strstr(dbname_tablename.c_ptr(), ".");
+  DBUG_ASSERT(dotpos != nullptr);
+
+  std::string dbname;
+  dbname.assign(dbname_tablename.c_ptr(), dotpos - dbname_tablename.c_ptr());
+
+  mysql_system_table= false;
+  for (uint ii = 0; ii < array_elements(system_dbs); ii++) {
+    if (strcmp(dbname.c_str(), system_dbs[ii]) == 0) {
+      mysql_system_table= true;
+    }
+  }
+}
+
+void RDBSE_TABLE_DEF::set_name(const char *name, size_t len)
+{
+  dbname_tablename.append(name, len);
+
+  check_if_is_mysql_system_table();
+}
+
+void RDBSE_TABLE_DEF::set_name(const rocksdb::Slice& slice, size_t pos)
+{
+  dbname_tablename.append(slice.data() + pos, slice.size() - pos);
+
+  check_if_is_mysql_system_table();
+}
 
 uchar* Table_ddl_manager::get_hash_key(RDBSE_TABLE_DEF *rec, size_t *length,
                                        my_bool not_used __attribute__((unused)))
@@ -1972,8 +2007,7 @@ bool Table_ddl_manager::init(Dict_manager *dict_arg,
     }
 
     RDBSE_TABLE_DEF *tdef= new RDBSE_TABLE_DEF;
-    tdef->dbname_tablename.append(key.data() + RDBSE_KEYDEF::INDEX_NUMBER_SIZE,
-                                  key.size() - RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
+    tdef->set_name(key, RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
 
     // Now, read the DDLs.
     int real_val_size= val.size() - RDBSE_KEYDEF::VERSION_SIZE;
@@ -2294,7 +2328,7 @@ bool Table_ddl_manager::rename(uchar *from, uint from_len,
 
   new_rec= new RDBSE_TABLE_DEF;
 
-  new_rec->dbname_tablename.append((char*)to, to_len);
+  new_rec->set_name(reinterpret_cast<char*>(to), to_len);
   new_rec->n_keys= rec->n_keys;
   new_rec->auto_incr_val= rec->auto_incr_val.load(std::memory_order_relaxed);
   new_rec->key_descr= rec->key_descr;
