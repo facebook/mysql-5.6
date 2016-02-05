@@ -1,0 +1,7 @@
+CREATE TABLE t(id int primary key) engine=rocksdb;
+INSERT INTO t values (1), (2), (3);
+CREATE TABLE t(id int primary key) engine=rocksdb;
+ERROR 42S01: Table 't' already exists
+FLUSH TABLES;
+CREATE TABLE t(id int primary key) engine=rocksdb;
+ERROR HY000: Tablespace for table 'test.t' exists. Please TRUNCATE TABLE before IMPORT.
