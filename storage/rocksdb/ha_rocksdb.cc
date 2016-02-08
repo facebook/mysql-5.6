@@ -5047,6 +5047,7 @@ int ha_rocksdb::get_row_by_rowid(uchar *buf, const char *rowid, uint rowid_size)
 
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
 
+  DEBUG_SYNC(ha_thd(), "rocksdb.get_row_by_rowid");
   bool found;
   rocksdb::Status s;
 
