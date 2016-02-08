@@ -66,7 +66,7 @@ static int i_s_rocksdb_cfstats_fill_table(THD *thd,
   };
 
   rocksdb::DB *rdb= rocksdb_get_rdb();
-  Column_family_manager cf_manager= rocksdb_get_cf_manager();
+  Column_family_manager& cf_manager= rocksdb_get_cf_manager();
 
   for (auto cf_name : cf_manager.get_cf_names())
   {
@@ -143,7 +143,8 @@ static int i_s_rocksdb_dbstats_fill_table(THD *thd,
   };
 
   rocksdb::DB *rdb= rocksdb_get_rdb();
-  rocksdb::BlockBasedTableOptions table_options= rocksdb_get_table_options();
+  const rocksdb::BlockBasedTableOptions& table_options=
+    rocksdb_get_table_options();
 
   for (auto property : db_properties)
   {
@@ -337,7 +338,7 @@ static int i_s_rocksdb_cfoptions_fill_table(THD *thd,
 
   DBUG_ENTER("i_s_rocksdb_cfoptions_fill_table");
 
-  Column_family_manager cf_manager = rocksdb_get_cf_manager();
+  Column_family_manager& cf_manager = rocksdb_get_cf_manager();
 
   for (auto cf_name : cf_manager.get_cf_names())
   {
@@ -507,7 +508,8 @@ static int i_s_rocksdb_cfoptions_fill_table(THD *thd,
         std::to_string(opts.compaction_options_fifo.max_table_files_size)});
 
     // get block-based table related options
-    rocksdb::BlockBasedTableOptions& table_options = rocksdb_get_table_options();
+    const rocksdb::BlockBasedTableOptions& table_options =
+      rocksdb_get_table_options();
 
     // get BLOCK_BASED_TABLE_FACTORY::CACHE_INDEX_AND_FILTER_BLOCKS option
     cf_option_types.push_back(
@@ -666,7 +668,7 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
   /* cf_id -> cf_flags */
   char cf_id_buf[INT_BUF_LEN]= {0};
   char cf_value_buf[FN_REFLEN+1] = {0};
-  Column_family_manager cf_manager = rocksdb_get_cf_manager();
+  Column_family_manager& cf_manager = rocksdb_get_cf_manager();
   for (auto cf_handle : cf_manager.get_all_cf()) {
     uint flags;
     dict_manager->get_cf_flags(cf_handle->GetID(), &flags);
