@@ -1214,6 +1214,8 @@ The following options may be given as the first argument:
  --secure-file-priv=name 
  Limit LOAD DATA, SELECT ... OUTFILE, and LOAD_FILE() to
  files within specified directory
+ --send-error-before-closing-timed-out-connection 
+ Send error before closing connections due to timeout.
  --server-id=#       Uniquely identifies the server instance in the community
  of replication partners
  --server-id-bits=#  Set number of significant bits in server-id
@@ -1824,6 +1826,7 @@ rpl-stop-slave-timeout 604800
 safe-user-create FALSE
 secure-auth TRUE
 secure-file-priv (No default value)
+send-error-before-closing-timed-out-connection FALSE
 server-id 0
 server-id-bits 32
 show-old-temporals FALSE
