@@ -1,0 +1,16 @@
+--source connection_timeout_server_error_header.inc
+
+--echo ### (1) Connection con1 SSL
+connect (con1,localhost,root,,,,,SSL);
+
+--source connection_timeout_server_error_case1.inc
+
+--echo ### (2) Connection con2 SSL
+connect (con2,localhost,root,,,,,SSL);
+
+--source connection_timeout_server_error_case2.inc
+
+--echo ### (3) Connection con3 SSL
+connect (con3,localhost,root,,,,,SSL);
+
+--source connection_timeout_server_error_case3.inc

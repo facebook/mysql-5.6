@@ -434,6 +434,7 @@
 #include <limits>
 
 #include "decimal.h"
+#include "errmsg.h"  // CR_*
 #include "lex_string.h"
 #include "m_ctype.h"
 #include "m_string.h"
@@ -449,6 +450,7 @@
 #include "mysql_com.h"
 #include "mysqld_error.h"
 #include "mysys_err.h"
+#include "sql/derror.h"
 #include "sql/field.h"
 #include "sql/item.h"
 #include "sql/item_func.h"  // Item_func_set_user_var
@@ -661,6 +663,53 @@ bool net_send_error(NET *net, uint sql_errno, const char *err) {
       global_system_variables.character_set_results);
 
   return error;
+}
+
+/**
+  @param thd Thread handler
+  @param sql_errno The error code to send
+  @param err A pointer to the error message
+  @param sql_state The SQL state
+   @param force_hash If '#' is always added
+  @out buff The generated error packet (null-terminated)
+  @out length The length of buff
+   @return
+   @retval FALSE The message was successfully sent
+   @retval TRUE  An error occurred and the messages wasn't sent properly
+*/
+bool generate_error_packet(NET *net, uint sql_errno, const char *err,
+                           const char *sql_state, bool force_hash,
+                           bool bootstrap,
+                           const CHARSET_INFO *character_set_results,
+                           ulong client_capabilities, char *buff,
+                           uint *length) {
+  uint error;
+  char converted_err[MYSQL_ERRMSG_SIZE], *pos;
+  DBUG_ENTER("generate_error_packet");
+  if (net->vio == 0) {
+    if (bootstrap) {
+      /* In bootstrap it's ok to print on stderr */
+      my_message_local(ERROR_LEVEL, EE_NET_SEND_ERROR_IN_BOOTSTRAP, sql_errno,
+                       err);
+    }
+    DBUG_RETURN(false);
+  }
+
+  int2store(buff, sql_errno);
+  pos = buff + 2;
+  if (force_hash || (client_capabilities & CLIENT_DEPRECATE_EOF)) {
+    /* The first # is to make the protocol backward compatible */
+    buff[2] = '#';
+    pos = my_stpcpy(buff + 3, sql_state);
+  }
+
+  convert_error_message(converted_err, sizeof(converted_err),
+                        character_set_results, err, strlen(err),
+                        system_charset_info, &error);
+  /* Converted error message is always null-terminated. */
+  *length = (uint)(strmake(pos, converted_err, MYSQL_ERRMSG_SIZE - 1) - buff);
+
+  DBUG_RETURN(true);
 }
 
 /* clang-format off */
@@ -1202,34 +1251,15 @@ static bool net_send_error_packet(NET *net, uint sql_errno, const char *err,
   /*
     buff[]: sql_errno:2 + ('#':1 + SQLSTATE_LENGTH:5) + MYSQL_ERRMSG_SIZE:512
   */
-  uint error;
-  char converted_err[MYSQL_ERRMSG_SIZE];
-  char buff[2 + 1 + SQLSTATE_LENGTH + MYSQL_ERRMSG_SIZE], *pos;
+  char buff[2 + 1 + SQLSTATE_LENGTH + MYSQL_ERRMSG_SIZE];
 
   DBUG_TRACE;
 
-  if (net->vio == nullptr) {
-    if (bootstrap) {
-      /* In bootstrap it's ok to print on stderr */
-      my_message_local(ERROR_LEVEL, EE_NET_SEND_ERROR_IN_BOOTSTRAP, sql_errno,
-                       err);
-    }
+  if (!generate_error_packet(net, sql_errno, err, sqlstate, false, bootstrap,
+                             character_set_results, client_capabilities, buff,
+                             &length)) {
     return false;
   }
-
-  int2store(buff, sql_errno);
-  pos = buff + 2;
-  if (client_capabilities & CLIENT_PROTOCOL_41) {
-    /* The first # is to make the protocol backward compatible */
-    buff[2] = '#';
-    pos = my_stpcpy(buff + 3, sqlstate);
-  }
-
-  convert_error_message(converted_err, sizeof(converted_err),
-                        character_set_results, err, strlen(err),
-                        system_charset_info, &error);
-  /* Converted error message is always null-terminated. */
-  length = (uint)(strmake(pos, converted_err, MYSQL_ERRMSG_SIZE - 1) - buff);
 
   return net_write_command(net, uchar{255}, pointer_cast<const uchar *>(""), 0,
                            pointer_cast<uchar *>(buff), length);
@@ -1346,6 +1376,31 @@ bool Protocol_classic::send_error(uint sql_errno, const char *err_msg,
   // Reclaim some memory
   convert.shrink(m_thd->variables.net_buffer_length);
   return retval;
+}
+
+void Protocol_classic::gen_conn_timeout_err(char *msg_buf) {
+  /* The error code must be 2006 to ensure the compatiblity
+     with client error 2006 MySQL server has gone away so
+     the actual error code ER_CONNECTION_TIMEOUT will be
+     ignored and only the error message will be used.
+  */
+  uint sql_errno = CR_SERVER_GONE_ERROR;
+  char err[128];
+  sprintf(err, ER_THD(m_thd, ER_CONNECTION_TIMEOUT),
+          m_thd->variables.net_wait_timeout);
+  // The default value is "HY000"
+  const char *sql_state = mysql_errno_to_sqlstate(sql_errno);
+  uint length;
+  char buff[2 + 1 + SQLSTATE_LENGTH + MYSQL_ERRMSG_SIZE];
+  /* Always add # to make the protocol backward compatible */
+  if (generate_error_packet(&m_thd->net, sql_errno, err, sql_state, true, false,
+                            global_system_variables.character_set_results,
+                            get_client_capabilities(), buff, &length)) {
+    memcpy(msg_buf, buff, length);
+    msg_buf[length] = '\0';
+  } else {
+    msg_buf[0] = '\0';
+  }
 }
 
 void Protocol_classic::set_read_timeout(ulong read_timeout) {

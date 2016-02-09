@@ -4085,6 +4085,9 @@ class THD : public MDL_context_owner,
   Cost_model_server m_cost_model;
 
  public:
+  /* connection timeout error message */
+  char *conn_timeout_err_msg;
+
   /**
     Initialize the optimizer cost model.
 
