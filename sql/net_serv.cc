@@ -1008,14 +1008,22 @@ static my_bool net_read_raw_loop(NET *net, size_t count)
   /* On failure, propagate the error code. */
   if (count)
   {
-    /* Socket should be closed. */
-    net->error= 2;
-
     /* Interrupted by a timeout? */
     if (!eof && vio_was_timeout(net->vio))
+    {
+      if (net->vio->timeout_err_msg)
+      {
+        const char *msg = net->vio->timeout_err_msg;
+        net_write_command(net, (uchar)255, (uchar*) "", 0,
+                          (uchar*)msg, strlen(msg));
+      }
       net->last_errno= ER_NET_READ_INTERRUPTED;
+    }
     else
       net->last_errno= ER_NET_READ_ERROR;
+
+    /* Socket should be closed. */
+    net->error= 2;
 
 #ifdef MYSQL_SERVER
     my_error(net->last_errno, MYF(0));
