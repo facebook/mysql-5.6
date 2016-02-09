@@ -980,6 +980,7 @@ THD::THD(bool enable_plugins)
    owned_gtid_set(global_sid_map),
    main_da(0, false),
    m_stmt_da(&main_da),
+   conn_timeout_err_msg(NULL),
    duplicate_slave_uuid(false)
 {
   ulong tmp;

@@ -1006,6 +1006,21 @@ bool thd_is_connection_alive(THD *thd)
   return FALSE;
 }
 
+void set_conn_timeout_err(THD *thd, char *msg_buf)
+{
+  if (send_error_before_closing_timed_out_connection && strlen(msg_buf) > 0)
+  {
+    thd->conn_timeout_err_msg = msg_buf;
+    if (thd->net.vio)
+      thd->net.vio->timeout_err_msg = msg_buf;
+  }
+  else {
+    thd->conn_timeout_err_msg = NULL;
+    if (thd->net.vio)
+      thd->net.vio->timeout_err_msg = NULL;
+  }
+}
+
 void do_handle_one_connection(THD *thd_arg)
 {
   ulonglong start_time, connection_create_time;
@@ -1048,6 +1063,15 @@ void do_handle_one_connection(THD *thd_arg)
   thd->thread_stack= (char*) &thd;
   if (setup_connection_thread_globals(thd))
     return;
+
+  /*
+    Generate the error message when this connection gets closed
+    due to timeout. This error message will be written into the
+    socket right before it gets closed.
+  */
+  char msg_buf[256];
+  thd->protocol->gen_conn_timeout_err(msg_buf);
+  set_conn_timeout_err(thd, msg_buf);
 
   for (;;)
   {
@@ -1095,6 +1119,11 @@ end_thread:
     */
     thd= current_thd;
     thd->thread_stack= (char*) &thd;
+
+    /* This connection will be reused. Set the pointer to
+       the timeout error mesage.
+    */
+    set_conn_timeout_err(thd, msg_buf);
   }
 }
 
