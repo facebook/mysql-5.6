@@ -8253,7 +8253,9 @@ int rotate_relay_log(Master_info* mi)
         init_io_cache(&tmp_file, -1, 200, WRITE_CACHE, 0, 0, MYF(MY_WME)))) {
       goto end;
     }
+    mysql_mutex_lock(&mi->fde_lock);
     mi->get_mi_description_event()->write(&tmp_file);
+    mysql_mutex_unlock(&mi->fde_lock);
     if ((error= reinit_io_cache(&tmp_file, READ_CACHE, 0, 0, 0))) {
       goto end;
     }

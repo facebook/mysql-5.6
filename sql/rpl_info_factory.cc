@@ -106,6 +106,7 @@ Master_info *Rpl_info_factory::create_mi(uint mi_option)
                             &key_master_info_start_cond,
                             &key_master_info_stop_cond,
                             &key_master_info_sleep_cond,
+                            &key_master_info_fde_lock,
 #endif
                             instances
                            )))

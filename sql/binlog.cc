@@ -5309,8 +5309,16 @@ bool MYSQL_BIN_LOG::after_append_to_relay_log(Master_info *mi)
                           DBUG_EVALUATE_IF("slave_skipping_gtid",
                                            870, max_size)))
     {
+      mysql_mutex_lock(&mi->fde_lock);
       error= new_file_without_locking(
                mi->get_mi_descripion_event_with_no_lock());
+      mysql_mutex_unlock(&mi->fde_lock);
+      DBUG_EXECUTE_IF ("set_max_size_zero",
+                       {
+                       max_size=1073741824;
+                       DBUG_SET("-d,set_max_size_zero");
+                       DBUG_SET("-d,flush_after_reading_gtid_event");
+                       });
     }
   }
 
