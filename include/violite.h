@@ -250,6 +250,7 @@ struct st_vio
   char                  *read_end;      /* end of unfetched data */
   timeout_t             read_timeout;   /* Timeout value for read ops. */
   timeout_t             write_timeout;  /* Timeout value for write ops. */
+  const char            *timeout_err_msg; /* Timeout error message. */
   
   /* 
      VIO vtable interface to be implemented by VIO's like SSL, Socket,
