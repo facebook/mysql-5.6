@@ -1419,9 +1419,18 @@ parse_db_and_table(
 				*is_partition = true;
 			}
 
-			innobase_convert_to_system_charset(table_name,
-							   table_name_file,
-							   NAME_LEN, &errors);
+			// Do not attempt to convert if this is a temp file.
+			if (strncmp(table_name_file,
+				    TEMP_FILE_PREFIX_INNODB,
+				    sizeof(TEMP_FILE_PREFIX_INNODB)) == 0) {
+				strcpy(table_name, table_name_file);
+			} else {
+				innobase_convert_to_system_charset(table_name,
+								   table_name_file,
+								   NAME_LEN,
+								   &errors);
+			}
+
 			if (errors)
 				goto err;
 
