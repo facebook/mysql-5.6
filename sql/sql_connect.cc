@@ -1049,6 +1049,14 @@ void do_handle_one_connection(THD *thd_arg)
   if (setup_connection_thread_globals(thd))
     return;
 
+  /*
+    Generate the error message when this connection gets closed
+    due to timeout. This error message will be written into the
+    socket right before it gets closed.
+  */
+  char msg_buf[256];
+  thd->protocol->gen_conn_timeout_err(msg_buf);
+
   for (;;)
   {
 	bool rc;
@@ -1095,6 +1103,13 @@ end_thread:
     */
     thd= current_thd;
     thd->thread_stack= (char*) &thd;
+
+    /* This connection will be reused. Set the pointer to
+       the timeout error mesage.
+    */
+    thd->conn_timeout_err_msg = msg_buf;
+    if (thd->net.vio)
+      thd->net.vio->timeout_err_msg = msg_buf;
   }
 }
 

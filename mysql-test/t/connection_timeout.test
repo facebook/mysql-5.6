@@ -24,3 +24,61 @@ select "long timeout, should 1500ms accuracy", sleep(1.8);
 --disable_abort_on_error
 --replace_result (101) (101/110) (110) (101/110)
 connect (con3,192.0.2.1,root,,,,,TIMEOUT_1500MS);
+
+
+--echo ### mysqld writes error 2006 to the socket before closing a connection
+--echo ### due to timeout so that client can find out the cause of the lost
+--echo ### connection by reading the message.
+
+connection default;
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+create table t1 (a1 int primary key, x1 int) engine = innodb;
+insert into t1 values (1, 1);
+
+select @@wait_timeout;
+select @@interactive_timeout;
+
+set @orig_wait_timeout = @@wait_timeout;
+set @orig_interactive_timeout = @@interactive_timeout;
+
+set @@global.wait_timeout = 3;
+set @@global.interactive_timeout = 3;
+
+--echo ### (1) Connection gets timed out without executing any queries
+
+connect (con4,localhost,root,,);
+
+--echo sleeping 6 sec to make sure the connection get timed out and closed by server...
+sleep 6;
+--echo waking up...
+
+--echo dump and verify the error 2006 from socket buffer...
+dump_timed_out_connection_socket_buffer;
+
+--echo ### (2) Query results and timeout error will sit in client socket buffer in order
+
+connect (con5,localhost,root,,);
+
+send select * from t1;
+
+--echo sleeping 6 sec to make sure the connection get timed out and closed by server...
+sleep 6;
+--echo waking up...
+
+--echo con5 has been closed on server side but the results of 'send show processlist'
+--echo should be in cilent buffer already and can be received by 'reap'
+reap;
+
+--echo dump and verify the error 2006 from socket buffer...
+dump_timed_out_connection_socket_buffer;
+
+connection default;
+
+set @@global.wait_timeout = @orig_wait_timeout;
+set @@global.interactive_timeout = @orig_interactive_timeout;
+
+drop table t1;

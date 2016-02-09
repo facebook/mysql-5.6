@@ -4496,6 +4496,9 @@ private:
   LEX_STRING invoker_user;
   LEX_STRING invoker_host;
 public:
+  /* connection timeout error message */
+  char *conn_timeout_err_msg;
+
   /**
     This is only used by master dump threads.
     When the master receives a new connection from a slave with a UUID that
