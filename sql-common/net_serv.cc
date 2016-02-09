@@ -45,6 +45,7 @@
 #include <mysql/components/services/log_builtins.h>
 #include <mysql/thread_pool_priv.h>
 #include "../sql/current_thd.h"
+#include "../sql/mysqld.h"  // send_error_before_closing_timed_out_connection
 #include "../sql/sql_class.h"
 #include "../sql/sql_thd_internal_api.h"
 #include "my_byteorder.h"
@@ -1407,6 +1408,17 @@ static bool net_read_raw_loop(NET *net, size_t count) {
       net->last_errno = ER_NET_READ_ERROR;
 
 #ifdef MYSQL_SERVER
+    if (vio_was_timeout(net->vio) &&
+        send_error_before_closing_timed_out_connection && current_thd) {
+      /* Force the packet serial number to 1 for client compatibility */
+      net->pkt_nr = 1;
+      net->error = NET_ERROR_SOCKET_NOT_READABLE;
+      my_printf_error(CR_SERVER_GONE_ERROR,
+                      ER_THD(current_thd, ER_CONNECTION_TIMEOUT), MYF(0),
+                      (uint)thd_get_net_wait_timeout(current_thd));
+      return count != 0;
+    }
+
     /* First packet always wait for net_wait_timeout */
     if (net->pkt_nr == 0 && (vio_was_timeout(net->vio) || is_packet_timeout)) {
       net->last_errno = ER_CLIENT_INTERACTION_TIMEOUT;
