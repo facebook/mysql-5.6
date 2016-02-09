@@ -543,6 +543,12 @@ static Sys_var_long Sys_pfs_connect_attrs_size(
 #endif /* EMBEDDED_LIBRARY */
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
 
+static Sys_var_mybool Sys_send_error_before_closing_timed_out_connection(
+       "send_error_before_closing_timed_out_connection",
+       "Send error before closing connections due to timeout.",
+       GLOBAL_VAR(send_error_before_closing_timed_out_connection),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
 static Sys_var_mybool Sys_allow_document_type(
        "allow_document_type",
        "Allows document type when parsing queries, "

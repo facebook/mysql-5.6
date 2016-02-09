@@ -174,6 +174,61 @@ bool net_send_error(THD *thd, uint sql_errno, const char *err,
 }
 
 /**
+  @param thd Thread handler
+  @param sql_errno The error code to send
+  @param err A pointer to the error message
+  @param sql_state The SQL state
+
+  @param force_hash If '#' is always added
+  @out buff The generated error packet (null-terminated)
+  @out length The length of buff
+
+  @return
+   @retval FALSE The message was successfully sent
+   @retval TRUE  An error occurred and the messages wasn't sent properly
+*/
+
+bool generate_error_packet(THD *thd, uint sql_errno, const char *err,
+                           const char* sql_state, bool force_hash,
+                           char* buff, uint* length)
+
+{
+  NET *net= &thd->net;
+  uint error;
+  char converted_err[MYSQL_ERRMSG_SIZE], *pos;
+
+  DBUG_ENTER("generate_error_packet");
+
+  if (net->vio == 0)
+  {
+    if (thd->bootstrap)
+    {
+      /* In bootstrap it's ok to print on stderr */
+      /* NO_LINT_DEBUG */
+      fprintf(stderr,"ERROR: %d  %s\n",sql_errno,err);
+    }
+    DBUG_RETURN(FALSE);
+  }
+
+  int2store(buff,sql_errno);
+  pos= buff+2;
+  if (force_hash || (thd->client_capabilities & CLIENT_PROTOCOL_41))
+  {
+    /* The first # is to make the protocol backward compatible */
+    buff[2]= '#';
+    pos= strmov(buff+3, sql_state);
+  }
+
+  convert_error_message(converted_err, sizeof(converted_err),
+                        thd->variables.character_set_results,
+                        err, strlen(err), system_charset_info, &error);
+  /* Converted error message is always null-terminated. */
+  *length= (uint) (strmake(pos, converted_err, MYSQL_ERRMSG_SIZE - 1) - buff);
+
+  DBUG_RETURN(TRUE);
+}
+
+/**
   Return ok to the client.
 
   The ok packet has the following structure:
@@ -367,36 +422,13 @@ bool net_send_error_packet(THD *thd, uint sql_errno, const char *err,
   /*
     buff[]: sql_errno:2 + ('#':1 + SQLSTATE_LENGTH:5) + MYSQL_ERRMSG_SIZE:512
   */
-  uint error;
-  char converted_err[MYSQL_ERRMSG_SIZE];
-  char buff[2+1+SQLSTATE_LENGTH+MYSQL_ERRMSG_SIZE], *pos;
+  char buff[2+1+SQLSTATE_LENGTH+MYSQL_ERRMSG_SIZE];
 
   DBUG_ENTER("send_error_packet");
 
-  if (net->vio == 0)
-  {
-    if (thd->bootstrap)
-    {
-      /* In bootstrap it's ok to print on stderr */
-      fprintf(stderr,"ERROR: %d  %s\n",sql_errno,err);
-    }
+  if (!generate_error_packet(thd, sql_errno, err, sqlstate,
+                             false, buff, &length))
     DBUG_RETURN(FALSE);
-  }
-
-  int2store(buff,sql_errno);
-  pos= buff+2;
-  if (thd->client_capabilities & CLIENT_PROTOCOL_41)
-  {
-    /* The first # is to make the protocol backward compatible */
-    buff[2]= '#';
-    pos= strmov(buff+3, sqlstate);
-  }
-
-  convert_error_message(converted_err, sizeof(converted_err),
-                        thd->variables.character_set_results,
-                        err, strlen(err), system_charset_info, &error);
-  /* Converted error message is always null-terminated. */
-  length= (uint) (strmake(pos, converted_err, MYSQL_ERRMSG_SIZE - 1) - buff);
 
   DBUG_RETURN(net_write_command(net,(uchar) 255, (uchar*) "", 0, (uchar*) buff,
                                 length));
@@ -572,6 +604,35 @@ bool Protocol::send_error(uint sql_errno, const char *err_msg,
   DBUG_ENTER("Protocol::send_error");
   const bool retval= net_send_error_packet(thd, sql_errno, err_msg, sql_state);
   DBUG_RETURN(retval);
+}
+
+
+void Protocol::gen_conn_timeout_err(char *msg_buf)
+{
+  /* The error code must be 2006 to ensure the compatiblity
+     with client error 2006 MySQL server has gone away
+  */
+  uint sql_errno = ER_CONNECTION_TIMEOUT;
+  DBUG_ASSERT(sql_errno == 2006);
+  const char *err = ER(ER_CONNECTION_TIMEOUT);
+  DBUG_ASSERT(strlen(err) > 0);
+  // The default value is "HY000"
+  const char *sql_state = mysql_errno_to_sqlstate(sql_errno);
+
+  uint length;
+  char buff[2+1+SQLSTATE_LENGTH+MYSQL_ERRMSG_SIZE];
+
+  /* Always add # to make the protocol backward compatible */
+  if (generate_error_packet(thd, sql_errno, err, sql_state,
+                            true, buff, &length))
+  {
+    memcpy(msg_buf, buff, length);
+    msg_buf[length] = '\0';
+  }
+  else
+  {
+    msg_buf[0] = '\0';
+  }
 }
 
 
