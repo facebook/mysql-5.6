@@ -733,6 +733,7 @@ enum enum_commands {
   Q_MOVE_FILE, Q_REMOVE_FILES_WILDCARD, Q_SEND_EVAL,
   Q_DISABLE_ASYNC_CLIENT,       /* disable async for the rest of this test */
   Q_SUSPEND_ASYNC_CLIENT,       /* disable async for only the next command */
+  Q_DUMP_TIMED_OUT_CONNECTION_SOCKET_BUFFER,
   Q_UNKNOWN,			       /* Unknown command.   */
   Q_COMMENT,			       /* Comments, ignored. */
   Q_COMMENT_WITH_COMMAND,
@@ -836,6 +837,7 @@ const char *command_names[]=
   "send_eval",
   "disable_async_client",
   "suspend_async_client",
+  "dump_timed_out_connection_socket_buffer",
 
   0
 };
@@ -5648,6 +5650,121 @@ void do_close_connection(struct st_command *command)
 }
 
 
+void dump_timed_out_connection_socket_buffer(struct st_connection *con)
+{
+  if (!con->mysql.net.vio)
+    return;
+
+  const int PACKET_LEN = 46;
+  int len = PACKET_LEN;
+#ifndef DBUG_OFF
+  len = vio_pending(con->mysql.net.vio);
+#endif
+  /* If the socket buffer is empty or an EOF */
+  if (len <= 1)
+    return;
+
+  DYNAMIC_STRING ds;
+  init_dynamic_string(&ds, "", 2048, 2048);
+
+  /* vio read buffer size is 16KB */
+  uchar buf[VIO_READ_BUFFER_SIZE+1];
+  int sz = vio_read(con->mysql.net.vio, (uchar *)buf,
+                    VIO_READ_BUFFER_SIZE);
+
+  char err_msg[256];
+  if (len != sz || sz != PACKET_LEN)
+  {
+    sprintf(err_msg, "Error: len=%d, sz=%d;", len, sz);
+    dynstr_append_mem(&ds, (const char*)err_msg, sizeof(err_msg));
+    dynstr_append_mem(&ds, "\n", 1);
+    log_file.write(&ds);
+    log_file.flush();
+    dynstr_free(&ds);
+    return;
+  }
+
+  bool ok = true;
+  buf[sz] = 0;
+
+  // buf[0..2] is the length of the packet, which should be 42
+  int packet_len = sint3korr(&buf[0]);
+  if (packet_len != 42)
+  {
+    ok = false;
+    sprintf(err_msg, "Error: packet length in buf[0..2] is %d, "
+            "but 42 is expected;", packet_len);
+    dynstr_append_mem(&ds, (const char*)err_msg, sizeof(err_msg));
+    dynstr_append_mem(&ds, "\n", 1);
+  }
+
+  // buf[3] is the packet serial number, which should be 0
+  int packet_serial_num = buf[3];
+  if (packet_serial_num != 0)
+  {
+    ok = false;
+    sprintf(err_msg, "Error: packet serial number in buf[3] is %d, "
+            "but 0 is expected;", packet_serial_num);
+    dynstr_append_mem(&ds, (const char*)err_msg, sizeof(err_msg));
+    dynstr_append_mem(&ds, "\n", 1);
+  }
+
+  // buf[4] is 255
+  if (buf[4] != 255)
+  {
+    ok = false;
+    sprintf(err_msg, "Error: buf[4] != 255;");
+    dynstr_append_mem(&ds, (const char*)err_msg, sizeof(err_msg));
+    dynstr_append_mem(&ds, "\n", 1);
+  }
+
+  // buf[5..6] is the error code 2006
+  int err_code = sint2korr(&buf[5]);
+  if (err_code != 2006)
+  {
+    ok = false;
+    sprintf(err_msg, "Error: error code in buf[5..6] is %d, "
+            "but 2006 is expected;", err_code);
+    dynstr_append_mem(&ds, (const char*)err_msg, sizeof(err_msg));
+    dynstr_append_mem(&ds, "\n", 1);
+  }
+
+  // buf[7] is '#'
+  if (buf[7] != '#')
+  {
+    ok = false;
+    sprintf(err_msg, "Error: buf[7] != #;");
+    dynstr_append_mem(&ds, (const char*)err_msg, sizeof(err_msg));
+    dynstr_append_mem(&ds, "\n", 1);
+  }
+
+  // Starting from buf[8] is the sql state "HY000" + message
+  // The total lenght of the packet (sz) is 46, message is as below
+  // HY000Connection closed due to timeout.
+  if (strcmp((const char*)&buf[8],
+             "HY000Connection closed due to timeout.") != 0)
+  {
+    ok = false;
+    sprintf(err_msg, "Error message is wrong: %s", &buf[8]);
+    dynstr_append_mem(&ds, (const char*)err_msg, sizeof(err_msg));
+    dynstr_append_mem(&ds, "\n", 1);
+  }
+
+  if (ok)
+  {
+    // Print the error message if no error was found
+    const char *err_str = "Error 2006: ";
+    replace_dynstr_append_mem(&ds, err_str, strlen(err_str));
+    replace_dynstr_append_mem(&ds, (const char*)&buf[8], len-8);
+    dynstr_append_mem(&ds, "\n", 1);
+  }
+
+  log_file.write(&ds);
+  log_file.flush();
+  dynstr_free(&ds);
+}
+
+
 /*
   Connect to a server doing several retries if needed.
 
@@ -9547,6 +9664,9 @@ int main(int argc, char **argv)
         break;
       case Q_PING:
         handle_command_error(command, mysql_ping(&cur_con->mysql));
+        break;
+      case Q_DUMP_TIMED_OUT_CONNECTION_SOCKET_BUFFER:
+        dump_timed_out_connection_socket_buffer(cur_con);
         break;
       case Q_SEND_SHUTDOWN:
         handle_command_error(command,
