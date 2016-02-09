@@ -138,6 +138,7 @@ class Protocol_classic : public Protocol {
                                    const CHARSET_INFO *item_charset);
   virtual void abort_row() {}
   virtual enum enum_protocol_type type() = 0;
+  virtual void gen_conn_timeout_err(char *msg_buf);
 
   /**
     Returns the type of the connection

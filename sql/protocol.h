@@ -122,6 +122,8 @@ class Protocol {
   */
   enum { SEND_NUM_ROWS = 1, SEND_DEFAULTS = 2, SEND_EOF = 4 };
 
+  virtual void gen_conn_timeout_err(char *) {}
+
   virtual enum enum_protocol_type type() = 0;
 
   virtual enum enum_vio_type connection_type() = 0;

@@ -378,6 +378,7 @@ struct Vio {
   int kq_fd = {-1};
   std::atomic_flag kevent_wakeup_flag = ATOMIC_FLAG_INIT;
 #endif
+  const char *timeout_err_msg = {nullptr}; /* Timeout error message. */
 
   /*
      VIO vtable interface to be implemented by VIO's like SSL, Socket,
