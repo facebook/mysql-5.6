@@ -1073,6 +1073,7 @@ ulong opt_server_id_mask = 0;
 bool read_only = false, opt_readonly = false;
 bool super_read_only = false, opt_super_readonly = false;
 bool opt_require_secure_transport = false;
+bool send_error_before_closing_timed_out_connection = false;
 bool relay_log_purge;
 bool relay_log_recovery;
 bool opt_allow_suspicious_udfs;

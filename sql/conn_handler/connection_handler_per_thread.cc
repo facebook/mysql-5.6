@@ -227,6 +227,25 @@ static THD *init_new_thd(Channel_info *channel_info) {
   return thd;
 }
 
+/*
+  Generate and set the error message when this connection
+  gets closed due to timeout. This error message will be
+  written into the socket right before it gets closed.
+*/
+static void set_conn_timeout_err(THD *thd, char *msg_buf) {
+  Vio *vio = thd->get_protocol_classic()->get_vio();
+  if (send_error_before_closing_timed_out_connection) {
+    thd->get_protocol_classic()->gen_conn_timeout_err(msg_buf);
+    if (strlen(msg_buf) > 0) {
+      thd->conn_timeout_err_msg = msg_buf;
+      if (vio) vio->timeout_err_msg = msg_buf;
+      return;
+    }
+  }
+  thd->conn_timeout_err_msg = nullptr;
+  if (vio) vio->timeout_err_msg = nullptr;
+}
+
 /**
   Thread handler for a connection
 
@@ -258,6 +277,10 @@ static void *handle_connection(void *arg) {
     my_thread_exit(nullptr);
     return nullptr;
   }
+
+  ulong conn_timeout = 0;
+  char timeout_error_msg_buf[256];
+  timeout_error_msg_buf[0] = '\0';
 
   for (;;) {
     THD *thd = init_new_thd(channel_info);
@@ -298,8 +321,19 @@ static void *handle_connection(void *arg) {
     if (thd_prepare_connection(thd))
       handler_manager->inc_aborted_connects();
     else {
+      conn_timeout = thd->variables.net_wait_timeout;
+      set_conn_timeout_err(thd, timeout_error_msg_buf);
+
       while (thd_connection_alive(thd)) {
         if (do_command(thd)) break;
+        /*
+          Update the error message with new timeout value if wait_timeout
+          was changed in this session.
+        */
+        if (conn_timeout != thd->variables.net_wait_timeout) {
+          conn_timeout = thd->variables.net_wait_timeout;
+          set_conn_timeout_err(thd, timeout_error_msg_buf);
+        }
       }
       end_connection(thd);
     }

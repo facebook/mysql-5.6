@@ -455,6 +455,7 @@ THD::THD(bool enable_plugins)
       m_query_rewrite_plugin_da(false),
       m_query_rewrite_plugin_da_ptr(&m_query_rewrite_plugin_da),
       m_stmt_da(&main_da),
+      conn_timeout_err_msg(nullptr),
       duplicate_slave_id(false),
       is_a_srv_session_thd(false),
       m_is_plugin_fake_ddl(false) {

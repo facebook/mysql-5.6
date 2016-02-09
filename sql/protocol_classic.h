@@ -129,6 +129,7 @@ class Protocol_classic : public Protocol {
   bool send_field_metadata(Send_field *field,
                            const CHARSET_INFO *item_charset) override;
   void abort_row() override {}
+  virtual void gen_conn_timeout_err(char *msg_buf) override;
 
   /**
     Returns the type of the connection

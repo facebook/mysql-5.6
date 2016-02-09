@@ -1361,14 +1361,25 @@ static bool net_read_raw_loop(NET *net, size_t count) {
 
   /* On failure, propagate the error code. */
   if (count) {
+    /* Interrupted by a timeout? */
+    if (!eof && vio_was_timeout(net->vio)) {
+      if (net->vio->timeout_err_msg) {
+        const char *msg = net->vio->timeout_err_msg;
+        /* Force the packet serial number to 1 for client compatibility */
+        net->pkt_nr = 1;
+        /*
+          255 or 0xff indicates error packet. This is mirrors how
+          net_send_error_packet is implemented.
+        */
+        net_write_command(net, (uchar)255, pointer_cast<const uchar *>(""), 0,
+                          pointer_cast<const uchar *>(msg), strlen(msg));
+      }
+      net->last_errno = ER_NET_READ_INTERRUPTED;
+    } else
+      net->last_errno = ER_NET_READ_ERROR;
+
     /* Socket should be closed. */
     net->error = 2;
-
-    /* Interrupted by a timeout? */
-    if (!eof && vio_was_timeout(net->vio))
-      net->last_errno = ER_NET_READ_INTERRUPTED;
-    else
-      net->last_errno = ER_NET_READ_ERROR;
 
 #ifdef MYSQL_SERVER
     my_error(net->last_errno, MYF(0));

@@ -78,6 +78,7 @@
 #include "m_ctype.h"
 #include "map_helpers.h"
 #include "mf_wcomp.h"  // wild_compare
+#include "my_byteorder.h"
 #include "my_compiler.h"
 #include "my_config.h"
 #include "my_dbug.h"
@@ -523,6 +524,7 @@ enum enum_commands {
   Q_QUERY_ATTRS_ADD,
   Q_QUERY_ATTRS_DELETE,
   Q_QUERY_ATTRS_RESET,
+  Q_DUMP_TIMED_OUT_CONNECTION_SOCKET_BUFFER,
   Q_UNKNOWN, /* Unknown command.   */
   Q_COMMENT, /* Comments, ignored. */
   Q_COMMENT_WITH_COMMAND,
@@ -559,7 +561,7 @@ const char *command_names[] = {
     "send_shutdown", "shutdown_server", "result_format", "move_file",
     "remove_files_wildcard", "copy_files_wildcard", "send_eval", "output",
     "reset_connection", "query_attrs_add", "query_attrs_delete",
-    "query_attrs_reset",
+    "query_attrs_reset", "dump_timed_out_connection_socket_buffer",
 
     nullptr};
 
@@ -6125,6 +6127,124 @@ static void do_close_connection(struct st_command *command) {
   dynstr_free(&ds_connection);
 }
 
+/* Append a line to a dynamic string. */
+void dynstr_append_line(DYNAMIC_STRING *ds, const char *msg, int len) {
+  dynstr_append_mem(ds, msg, len);
+  dynstr_append_mem(ds, "\n", 1);
+}
+
+/*
+  When mysql global sys var "send_error_before_closing_timed_out_connection"
+  is turned on, mysqld will push error 2006 with the following message:
+  "Closed connection: idle timeout after <wait_timeout>s"
+  into socket before closing it due to timeout. This error will sit in the
+  socket buffer on client side so that client will be able to find out the
+  reason of lost connection or mysql server has gone away. This function will
+  try to read this error from socket buffer and verify if the packet is valid.
+*/
+void dump_timed_out_connection_socket_buffer(struct st_connection *con) {
+  if (!con->mysql.net.vio) return;
+  DYNAMIC_STRING ds;
+  init_dynamic_string(&ds, "", 2048, 2048);
+  /* vio read buffer size is 16KB */
+  uchar buf[VIO_READ_BUFFER_SIZE + 1];
+  int sz = vio_read(con->mysql.net.vio, (uchar *)buf, VIO_READ_BUFFER_SIZE);
+  bool ok = true;
+  char err_msg[256];
+  buf[sz] = 0;
+  // buf[0..2] is the length of the message, will check it later
+  int message_len = sint3korr(&buf[0]);
+  // buf[3] is the packet serial number, which has been forced to 1
+  int packet_serial_num = buf[3];
+  if (packet_serial_num != 1) {
+    ok = false;
+    sprintf(err_msg,
+            "Error: packet serial number in buf[3] is %d, "
+            "but 1 is expected;",
+            packet_serial_num);
+    dynstr_append_line(&ds, err_msg, sizeof(err_msg));
+  }
+  // buf[4] is 255
+  if (buf[4] != 255) {
+    ok = false;
+    sprintf(err_msg, "Error: buf[4] != 255;");
+    dynstr_append_line(&ds, err_msg, sizeof(err_msg));
+  }
+  // buf[5..6] is the error code 2006
+  int err_code = sint2korr(&buf[5]);
+  if (err_code != 2006) {
+    ok = false;
+    sprintf(err_msg,
+            "Error: error code in buf[5..6] is %d, "
+            "but 2006 is expected;",
+            err_code);
+    dynstr_append_line(&ds, err_msg, sizeof(err_msg));
+  }
+  // buf[7] is '#'
+  if (buf[7] != '#') {
+    ok = false;
+    sprintf(err_msg, "Error: buf[7] != #;");
+    dynstr_append_line(&ds, err_msg, sizeof(err_msg));
+  }
+  // Starting from buf[8] is the sql state "HY000" + message
+  // The message is as below, wait_timeout is a unsigned integer
+  // HY000Closed connection: idle timeout after <wait_timeout>s
+  static const char *msg_body = "HY000Closed connection: idle timeout after ";
+  int msg_body_len = strlen(msg_body);
+  uchar *end = NULL;
+  if (strncmp((const char *)&buf[8], msg_body, msg_body_len) == 0) {
+    // Skip the wait_timeout value, which is a unsigned integer,
+    // followed by 's', which is the last character of the string
+    end = &buf[8] + msg_body_len;
+    while (*end >= '0' && *end <= '9') ++end;
+    if (*end != 's' || *(++end) != '\0') ok = false;
+  } else
+    ok = false;
+  if (ok) {
+    // It is time to verify the packet and message length
+    DBUG_ASSERT(*end == '\0');
+    int packet_len = end - &buf[0];
+    // packet_len is the length of the whole network packet
+    // that includes 4 bytes of header (3 bytes of payload
+    // length followed by 1 byte of serial number) plus 42
+    // bytes of payload (the error message string)
+    if (sz != packet_len) {
+      sprintf(err_msg,
+              "Error: packet length is %d, "
+              "but %d is expected;",
+              sz, packet_len);
+      dynstr_append_line(&ds, err_msg, sizeof(err_msg));
+      log_file.write(ds.str, ds.length);
+      log_file.flush();
+      dynstr_free(&ds);
+      return;
+    }
+    // The header length is 4 bytes
+    if (message_len + 4 != packet_len) {
+      ok = false;
+      sprintf(err_msg,
+              "Error: message length in buf[0..2] is %d, "
+              "but %d is expected;",
+              message_len, packet_len - 4);
+      dynstr_append_line(&ds, err_msg, sizeof(err_msg));
+    }
+  }
+  if (ok) {
+    // Print the error message if no error was found
+    const char *err_str = "Error 2006: ";
+    replace_dynstr_append_mem(&ds, err_str, strlen(err_str));
+    replace_dynstr_append_mem(&ds, (const char *)&buf[8], sz - 8);
+    dynstr_append_mem(&ds, "\n", 1);
+  } else {
+    const char *err_str = "Error message is wrong: ";
+    dynstr_append_mem(&ds, err_str, std::strlen(err_str));
+    dynstr_append_line(&ds, reinterpret_cast<char *>(&buf[8]), sz - 8);
+  }
+  log_file.write(ds.str, ds.length);
+  log_file.flush();
+  dynstr_free(&ds);
+}
+
 /*
   Connect to a server doing several retries if needed.
 
@@ -9426,6 +9546,9 @@ int main(int argc, char **argv) {
           break;
         case Q_DISABLE_SESSION_TRACK_INFO:
           set_property(command, P_SESSION_TRACK, false);
+          break;
+        case Q_DUMP_TIMED_OUT_CONNECTION_SOCKET_BUFFER:
+          dump_timed_out_connection_socket_buffer(cur_con);
           break;
         case Q_ENABLE_METADATA:
           set_property(command, P_META, true);
