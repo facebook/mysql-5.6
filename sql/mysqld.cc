@@ -1063,6 +1063,7 @@ uint opt_server_id_bits = 0;
 ulong opt_server_id_mask = 0;
 bool read_only = 0, opt_readonly = 0;
 bool super_read_only = 0, opt_super_readonly = 0;
+bool send_error_before_closing_timed_out_connection = 0;
 bool opt_require_secure_transport = 0;
 bool relay_log_purge;
 bool relay_log_recovery;

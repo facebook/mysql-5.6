@@ -1,0 +1,73 @@
+### mysqld writes error 2006 to the socket before closing a connection
+### due to timeout so that client can find out the cause of the lost
+### connection by reading the message.
+drop table if exists t1;
+create table t1 (a1 int primary key, x1 int) engine = innodb;
+insert into t1 values (1, 1);
+select @@wait_timeout;
+@@wait_timeout
+28800
+select @@interactive_timeout;
+@@interactive_timeout
+28800
+set @orig_wait_timeout = @@wait_timeout;
+set @orig_interactive_timeout = @@interactive_timeout;
+set @@global.wait_timeout to 3 seconds
+set @@global.wait_timeout = 3;
+set @@global.interactive_timeout to 3 seconds
+set @@global.interactive_timeout = 3;
+### (1) Connection con1 SSL
+select @@session.wait_timeout;
+@@session.wait_timeout
+3
+select @@session.interactive_timeout;
+@@session.interactive_timeout
+3
+### Connection gets timed out without executing any queries
+sleeping 18 sec to make sure the connection get timed out and closed by server...
+waking up...
+dump and verify the error 2006 from socket buffer...
+Error 2006: HY000Closed connection: idle timeout after 3s
+### (2) Connection con2 SSL
+select @@session.wait_timeout;
+@@session.wait_timeout
+3
+select @@session.interactive_timeout;
+@@session.interactive_timeout
+3
+### Query results and timeout error will sit in client socket buffer in order
+select * from t1;
+sleeping 18 sec to make sure the connection get timed out and closed by server...
+waking up...
+con2 has been closed on server side but the results of 'select * from t1'
+should be in cilent buffer already and can be received by 'reap'
+a1	x1
+1	1
+dump and verify the error 2006 from socket buffer...
+Error 2006: HY000Closed connection: idle timeout after 3s
+### (3) Connection con3 SSL
+select @@session.wait_timeout;
+@@session.wait_timeout
+3
+select @@session.interactive_timeout;
+@@session.interactive_timeout
+3
+set wait_timeout to 2 seconds
+set wait_timeout = 2;
+set interactive_timeout to 2 seconds
+set interactive_timeout = 2;
+select @@session.wait_timeout;
+@@session.wait_timeout
+2
+select @@session.interactive_timeout;
+@@session.interactive_timeout
+2
+sleeping 12 sec to make sure the connection get timed out and closed by server...
+waking up...
+dump and verify the error 2006 from socket buffer
+the timeout value in error message should refect
+the latest session variable overrides
+Error 2006: HY000Closed connection: idle timeout after 2s
+set @@global.wait_timeout = @orig_wait_timeout;
+set @@global.interactive_timeout = @orig_interactive_timeout;
+drop table t1;
