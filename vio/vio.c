@@ -216,6 +216,9 @@ my_bool vio_reset(Vio* vio, enum enum_vio_type type,
   if (timeout_is_nonzero(vio->write_timeout))
     ret|= vio_timeout(&new_vio, 1, vio->write_timeout);
 
+  /* Propagate the timeout error message */
+  new_vio.timeout_err_msg = vio->timeout_err_msg;
+
   if (ret)
   {
     /*

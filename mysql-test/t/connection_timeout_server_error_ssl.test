@@ -1,0 +1,15 @@
+# embedded can't make more than one connection
+--source include/not_embedded.inc
+--source include/have_ssl_communication.inc
+
+--source connection_timeout_server_error_header.inc
+
+--echo ### (1) Connection con1 SSL
+connect (con1,localhost,root,,,,,SSL);
+
+--source connection_timeout_server_error_case1.inc
+
+--echo ### (2) Connection con2 SSL
+connect (con2,localhost,root,,,,,SSL);
+
+--source connection_timeout_server_error_case2.inc

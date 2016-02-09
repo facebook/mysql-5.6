@@ -1,0 +1,38 @@
+### mysqld writes error 2006 to the socket before closing a connection
+### due to timeout so that client can find out the cause of the lost
+### connection by reading the message.
+drop table if exists t1;
+create table t1 (a1 int primary key, x1 int) engine = innodb;
+insert into t1 values (1, 1);
+select @@wait_timeout;
+@@wait_timeout
+28800
+select @@interactive_timeout;
+@@interactive_timeout
+28800
+set @orig_wait_timeout = @@wait_timeout;
+set @orig_interactive_timeout = @@interactive_timeout;
+set @@global.wait_timeout to 3 seconds
+set @@global.wait_timeout = 3;
+set @@global.interactive_timeout to 3 seconds
+set @@global.interactive_timeout = 3;
+### (1) Connection con1 non-SSL
+### Connection gets timed out without executing any queries
+sleeping 18 sec to make sure the connection get timed out and closed by server...
+waking up...
+dump and verify the error 2006 from socket buffer...
+Error 2006: HY000Connection closed due to timeout.
+### (2) Connection con2 non-SSL
+### Query results and timeout error will sit in client socket buffer in order
+select * from t1;
+sleeping 18 sec to make sure the connection get timed out and closed by server...
+waking up...
+con2 has been closed on server side but the results of 'send show processlist'
+should be in cilent buffer already and can be received by 'reap'
+a1	x1
+1	1
+dump and verify the error 2006 from socket buffer...
+Error 2006: HY000Connection closed due to timeout.
+set @@global.wait_timeout = @orig_wait_timeout;
+set @@global.interactive_timeout = @orig_interactive_timeout;
+drop table t1;

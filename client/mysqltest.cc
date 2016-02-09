@@ -733,6 +733,7 @@ enum enum_commands {
   Q_MOVE_FILE, Q_REMOVE_FILES_WILDCARD, Q_SEND_EVAL,
   Q_DISABLE_ASYNC_CLIENT,       /* disable async for the rest of this test */
   Q_SUSPEND_ASYNC_CLIENT,       /* disable async for only the next command */
+  Q_DUMP_TIMED_OUT_CONNECTION_SOCKET_BUFFER,
   Q_UNKNOWN,			       /* Unknown command.   */
   Q_COMMENT,			       /* Comments, ignored. */
   Q_COMMENT_WITH_COMMAND,
@@ -836,6 +837,7 @@ const char *command_names[]=
   "send_eval",
   "disable_async_client",
   "suspend_async_client",
+  "dump_timed_out_connection_socket_buffer",
 
   0
 };
@@ -5647,6 +5649,126 @@ void do_close_connection(struct st_command *command)
   DBUG_VOID_RETURN;
 }
 
+/* Append a line to a dynamic string. */
+void dynstr_append_line(DYNAMIC_STRING *ds, char *msg, int len)
+{
+  dynstr_append_mem(ds, (const char*)msg, len);
+  dynstr_append_mem(ds, "\n", 1);
+}
+
+/*
+  When mysql global sys var "send_error_before_closing_timed_out_connection"
+  is turned on, mysqld will push error 2006 with message "Connection closed
+  due to timeout." into socket before closing it due to timeout. This error
+  will sit in the socket buffer on client side so that client will be able
+  to find out the reason of lost connection or mysql server has gone away.
+  This function will try to read this error from socket buffer and verify if
+  the packet is valid.
+*/
+void dump_timed_out_connection_socket_buffer(struct st_connection *con)
+{
+  if (!con->mysql.net.vio)
+    return;
+
+  DYNAMIC_STRING ds;
+  init_dynamic_string(&ds, "", 2048, 2048);
+
+  /* vio read buffer size is 16KB */
+  uchar buf[VIO_READ_BUFFER_SIZE+1];
+  int sz = vio_read(con->mysql.net.vio, (uchar *)buf,
+                    VIO_READ_BUFFER_SIZE);
+
+  // PACKET_LEN 46 is the length of the whole network packet
+  // that includes 4 bytes of header (3 bytes of payload
+  // length followed by 1 byte of serial number) plus 42
+  // bytes of payload (the error message string)
+  const int PACKET_LEN = 46;
+  char err_msg[256];
+  if (sz != PACKET_LEN)
+  {
+    sprintf(err_msg, "Error: packet length is %d, "
+            "but %d is expected;", sz, PACKET_LEN);
+    dynstr_append_line(&ds, err_msg, sizeof(err_msg));
+    log_file.write(&ds);
+    log_file.flush();
+    dynstr_free(&ds);
+    return;
+  }
+
+  bool ok = true;
+  buf[sz] = 0;
+
+  // buf[0..2] is the length of the message, which should be 42
+  int message_len = sint3korr(&buf[0]);
+  if (message_len != 42)
+  {
+    ok = false;
+    sprintf(err_msg, "Error: message length in buf[0..2] is %d, "
+            "but 42 is expected;", message_len);
+    dynstr_append_line(&ds, err_msg, sizeof(err_msg));
+  }
+
+  // buf[3] is the packet serial number, which has been forced to 1
+  int packet_serial_num = buf[3];
+  if (packet_serial_num != 1)
+  {
+    ok = false;
+    sprintf(err_msg, "Error: packet serial number in buf[3] is %d, "
+            "but 1 is expected;", packet_serial_num);
+    dynstr_append_line(&ds, err_msg, sizeof(err_msg));
+  }
+
+  // buf[4] is 255
+  if (buf[4] != 255)
+  {
+    ok = false;
+    sprintf(err_msg, "Error: buf[4] != 255;");
+    dynstr_append_line(&ds, err_msg, sizeof(err_msg));
+  }
+
+  // buf[5..6] is the error code 2006
+  int err_code = sint2korr(&buf[5]);
+  if (err_code != 2006)
+  {
+    ok = false;
+    sprintf(err_msg, "Error: error code in buf[5..6] is %d, "
+            "but 2006 is expected;", err_code);
+    dynstr_append_line(&ds, err_msg, sizeof(err_msg));
+  }
+
+  // buf[7] is '#'
+  if (buf[7] != '#')
+  {
+    ok = false;
+    sprintf(err_msg, "Error: buf[7] != #;");
+    dynstr_append_line(&ds, err_msg, sizeof(err_msg));
+  }
+
+  // Starting from buf[8] is the sql state "HY000" + message
+  // The total length of the packet (sz) is 46, message is as below
+  // HY000Connection closed due to timeout.
+  if (strcmp((const char*)&buf[8],
+             "HY000Connection closed due to timeout.") != 0)
+  {
+    ok = false;
+    sprintf(err_msg, "Error message is wrong: %s", &buf[8]);
+    dynstr_append_line(&ds, err_msg, sizeof(err_msg));
+  }
+
+  if (ok)
+  {
+    // Print the error message if no error was found
+    const char *err_str = "Error 2006: ";
+    replace_dynstr_append_mem(&ds, err_str, strlen(err_str));
+    replace_dynstr_append_mem(&ds, (const char*)&buf[8], sz-8);
+    dynstr_append_mem(&ds, "\n", 1);
+  }
+
+  log_file.write(&ds);
+  log_file.flush();
+  dynstr_free(&ds);
+}
+
 
 /*
   Connect to a server doing several retries if needed.
@@ -9547,6 +9669,9 @@ int main(int argc, char **argv)
         break;
       case Q_PING:
         handle_command_error(command, mysql_ping(&cur_con->mysql));
+        break;
+      case Q_DUMP_TIMED_OUT_CONNECTION_SOCKET_BUFFER:
+        dump_timed_out_connection_socket_buffer(cur_con);
         break;
       case Q_SEND_SHUTDOWN:
         handle_command_error(command,
