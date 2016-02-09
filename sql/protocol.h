@@ -68,6 +68,7 @@ public:
 
   enum { SEND_NUM_ROWS= 1, SEND_DEFAULTS= 2, SEND_EOF= 4 };
   virtual bool send_result_set_metadata(List<Item> *list, uint flags);
+  virtual void gen_conn_timeout_err(char *msg_buf);
   bool send_result_set_row(List<Item> *row_items);
 
   bool store(I_List<i_string> *str_list);
