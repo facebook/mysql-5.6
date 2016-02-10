@@ -1259,6 +1259,7 @@ public:
 class Rdb_transaction
 {
   ulonglong n_writes= 0;
+  ulonglong n_locks= 0;
 
   rocksdb::Transaction *txn= nullptr;
 
@@ -1454,6 +1455,7 @@ public:
     delete txn;
     txn= nullptr;
     n_writes= 0;
+    n_locks= 0;
     set_tx_read_only(false);
     rollback_only= false;
     return res;
@@ -1462,6 +1464,7 @@ public:
   void rollback()
   {
     n_writes= 0;
+    n_locks= 0;
     ddl_transaction= false;
     if (txn)
     {
@@ -1558,7 +1561,9 @@ public:
   rocksdb::Status Put(rocksdb::ColumnFamilyHandle* column_family,
                       const rocksdb::Slice& key, const rocksdb::Slice& value)
   {
-    if (++n_writes > max_row_locks)
+    ++n_writes;
+    ++n_locks;
+    if (n_writes > max_row_locks || n_locks > max_row_locks)
       return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
     return txn->Put(column_family, key, value);
   }
@@ -1566,7 +1571,9 @@ public:
   rocksdb::Status Delete(rocksdb::ColumnFamilyHandle* column_family,
                          const rocksdb::Slice& key)
   {
-    if (++n_writes > max_row_locks)
+    ++n_writes;
+    ++n_locks;
+    if (n_writes > max_row_locks || n_locks > max_row_locks)
       return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
     return txn->Delete(column_family, key);
   }
@@ -1574,7 +1581,9 @@ public:
   rocksdb::Status SingleDelete(rocksdb::ColumnFamilyHandle* column_family,
                                const rocksdb::Slice& key)
   {
-    if (++n_writes > max_row_locks)
+    ++n_writes;
+    ++n_locks;
+    if (n_writes > max_row_locks || n_locks > max_row_locks)
       return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
     return txn->SingleDelete(column_family, key);
   }
@@ -1614,7 +1623,7 @@ public:
   rocksdb::Status GetForUpdate(rocksdb::ColumnFamilyHandle* column_family,
                                const rocksdb::Slice& key, std::string* value)
   {
-    if (++n_writes > max_row_locks)
+    if (++n_locks > max_row_locks)
       return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
     return txn->GetForUpdate(read_opts, column_family, key, value);
   }
@@ -2994,7 +3003,6 @@ ha_rocksdb::ha_rocksdb(handlerton *hton, TABLE_SHARE *table_arg)
     pack_buffer(nullptr),
     lock_rows(FALSE),
     keyread_only(FALSE),
-    insert_with_update(false),
     field_enc(nullptr),
     row_checksums_checked(0)
 {}
@@ -5651,15 +5659,24 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
         pk_key_changed= true;
 
       rocksdb::Status s;
-      if (insert_with_update)
-      {
-        s= trx->GetForUpdate(pk_descr->get_cf(), new_key_slice,
-            &retrieved_record);
-      }
-      else
-      {
-        s= trx->Get(pk_descr->get_cf(), new_key_slice, &retrieved_record);
-      }
+
+      /*
+        To prevent race conditions like below, it is necessary to
+        take a lock for a target row. GetForUpdate() holds a gap lock if
+        target key does not exist, so below conditions should never
+        happen.
+
+        1) T1 Get(empty) -> T2 Get(empty) -> T1 Put(insert) -> T1 commit
+           -> T2 Put(overwrite) -> T2 commit
+        2) T1 Get(empty) -> T1 Put(insert, not committed yet) -> T2 Get(empty)
+           -> T2 Put(insert, blocked) -> T1 commit -> T2 commit(overwrite)
+      */
+      s= trx->GetForUpdate(pk_descr->get_cf(), new_key_slice,
+          &retrieved_record);
+
+      if (!s.ok() && !s.IsNotFound())
+        DBUG_RETURN(trx->set_status_error(table->in_use, s, key_descr[i],
+                                          tbl_def));
 
       found= !s.IsNotFound();
     }
@@ -5717,6 +5734,8 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
       DBUG_RETURN(HA_ERR_FOUND_DUPP_KEY);
     }
   }
+
+  DEBUG_SYNC(ha_thd(), "rocksdb.update_write_row_after_unique_check");
 
   /*
     At this point, all locks have been obtained, and all checks for duplicate
@@ -6977,12 +6996,6 @@ int ha_rocksdb::extra(enum ha_extra_function operation)
     break;
   case HA_EXTRA_NO_KEYREAD:
     keyread_only= FALSE;
-    break;
-  case HA_EXTRA_INSERT_WITH_UPDATE:
-    insert_with_update= true;
-    break;
-  case HA_EXTRA_NO_IGNORE_DUP_KEY:
-    insert_with_update= false;
     break;
   case HA_EXTRA_FLUSH:
     /*
