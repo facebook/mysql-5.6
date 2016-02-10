@@ -1782,5 +1782,14 @@ SET rocksdb_commit_in_the_middle=0;
 SET rocksdb_bulk_load_size= @save_rocksdb_bulk_load_size;
 DROP TABLE t1;
 
+--echo #
+--echo # Issue#267: MyRocks issue with no matching min/max row and count(*)
+--echo #
+CREATE TABLE t1(c1 INT UNSIGNED, c2 INT SIGNED, INDEX idx2(c2));
+INSERT INTO t1 VALUES(1,null);
+INSERT INTO t1 VALUES(2,null);
+SELECT count(*) as total_rows, min(c2) as min_value FROM t1;
+DROP TABLE t1;
+
 
 SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;
