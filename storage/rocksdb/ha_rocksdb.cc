@@ -5055,6 +5055,17 @@ int ha_rocksdb::get_row_by_rowid(uchar *buf, const char *rowid, uint rowid_size)
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
 
   DEBUG_SYNC(ha_thd(), "rocksdb.get_row_by_rowid");
+  DBUG_EXECUTE_IF("dbug.rocksdb.get_row_by_rowid",
+                  {
+                    THD *thd= ha_thd();
+                    const char act[]=
+                      "now signal Reached "
+                      "wait_for signal.rocksdb.get_row_by_rowid_let_running";
+                    DBUG_ASSERT(opt_debug_sync_timeout > 0);
+                    DBUG_ASSERT(!debug_sync_set_action(thd,
+                                                       STRING_WITH_LEN(act)));
+                  };);
+
   bool found;
   rocksdb::Status s;
 
@@ -5102,7 +5113,8 @@ int ha_rocksdb::index_next(uchar *buf)
   io_perf_start();
   int rc= index_next_with_direction(buf, moves_forward);
   io_perf_end_and_record();
-
+  if (rc == HA_ERR_KEY_NOT_FOUND)
+    rc = HA_ERR_END_OF_FILE;
   return rc;
 }
 
@@ -5116,6 +5128,8 @@ int ha_rocksdb::index_prev(uchar *buf)
   io_perf_start();
   int rc= index_next_with_direction(buf, moves_forward);
   io_perf_end_and_record();
+  if (rc == HA_ERR_KEY_NOT_FOUND)
+    rc = HA_ERR_END_OF_FILE;
 
   return rc;
 }
@@ -5155,6 +5169,8 @@ int ha_rocksdb::index_first(uchar *buf)
   int rc= key_descr[active_index]->is_reverse_cf ? index_last_intern(buf):
                                                    index_first_intern(buf);
   io_perf_end_and_record();
+  if (rc == HA_ERR_KEY_NOT_FOUND)
+    rc = HA_ERR_END_OF_FILE;
   return rc;
 }
 
@@ -5166,6 +5182,8 @@ int ha_rocksdb::index_last(uchar *buf)
   int rc= key_descr[active_index]->is_reverse_cf ? index_first_intern(buf):
                                                    index_last_intern(buf);
   io_perf_end_and_record();
+  if (rc == HA_ERR_KEY_NOT_FOUND)
+    rc = HA_ERR_END_OF_FILE;
   return rc;
 }
 
@@ -5938,6 +5956,8 @@ int ha_rocksdb::rnd_next(uchar *buf)
   io_perf_start();
   int rc= rnd_next_with_direction(buf, true);
   io_perf_end_and_record();
+  if (rc == HA_ERR_KEY_NOT_FOUND)
+    rc = HA_ERR_END_OF_FILE;
   return rc;
 }
 
