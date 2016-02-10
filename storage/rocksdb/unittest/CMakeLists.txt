@@ -11,6 +11,4 @@ IF (WITH_ROCKSDB_SE_STORAGE_ENGINE)
           test_properties_collector.cc
           )
   TARGET_LINK_LIBRARIES(test_properties_collector mysqlserver)
-
-  #MY_ADD_TEST(test_rowlocks)
 ENDIF()
