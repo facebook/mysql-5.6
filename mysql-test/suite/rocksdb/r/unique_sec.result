@@ -75,10 +75,10 @@ COUNT(*)
 13
 # Primary key should prevent duplicate on insert
 INSERT INTO t1 VALUES (30, 31, 30, 30, 30, 30, 30, 30);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.id2
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.PRIMARY
 # Primary key should prevent duplicate on update
 UPDATE t1 SET id1=30, id2=31 WHERE id2=10;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.id2
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.PRIMARY
 # Unique secondary key should prevent duplicate on insert
 INSERT INTO t1 VALUES (31, 31, 32, 33, 30, 30, 30, 30);
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.id2_2
@@ -126,7 +126,7 @@ BEGIN;
 INSERT INTO t1 VALUES (40, 40, 40, 40, 40, 40, 40, 40);
 # When transaction is pending, fail on lock acquisition
 INSERT INTO t1 VALUES (40, 40, 40, 40, 40, 40, 40, 40);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.id2
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.PRIMARY
 INSERT INTO t1 VALUES (41, 40, 40, 40, 40, 40, 40, 40);
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t1.id2_2
 SELECT COUNT(*) FROM t1;
