@@ -556,7 +556,7 @@ eprint(err)
 int err;
 {
 	static char epbuf[100];
-	size_t len;
+	size_t len __attribute__((__unused__));
 
 	len = my_regerror(MY_REG_ITOA|err, (my_regex_t *)NULL, epbuf, sizeof(epbuf));
 	assert(len <= sizeof(epbuf));
