@@ -1252,6 +1252,7 @@ public:
 class Rdb_transaction
 {
   ulonglong n_writes= 0;
+  ulonglong n_locks= 0;
 
   rocksdb::Transaction *txn= nullptr;
 
@@ -1431,6 +1432,7 @@ public:
     delete txn;
     txn= nullptr;
     n_writes= 0;
+    n_locks= 0;
     set_tx_read_only(false);
     return res;
   }
@@ -1438,6 +1440,7 @@ public:
   void rollback()
   {
     n_writes= 0;
+    n_locks= 0;
     ddl_transaction= false;
     if (txn)
     {
@@ -1533,7 +1536,9 @@ public:
   rocksdb::Status Put(rocksdb::ColumnFamilyHandle* column_family,
                       const rocksdb::Slice& key, const rocksdb::Slice& value)
   {
-    if (++n_writes > max_row_locks)
+    ++n_writes;
+    ++n_locks;
+    if (n_writes > max_row_locks || n_locks > max_row_locks)
       return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
     return txn->Put(column_family, key, value);
   }
@@ -1541,7 +1546,9 @@ public:
   rocksdb::Status Delete(rocksdb::ColumnFamilyHandle* column_family,
                          const rocksdb::Slice& key)
   {
-    if (++n_writes > max_row_locks)
+    ++n_writes;
+    ++n_locks;
+    if (n_writes > max_row_locks || n_locks > max_row_locks)
       return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
     return txn->Delete(column_family, key);
   }
@@ -1549,7 +1556,9 @@ public:
   rocksdb::Status SingleDelete(rocksdb::ColumnFamilyHandle* column_family,
                                const rocksdb::Slice& key)
   {
-    if (++n_writes > max_row_locks)
+    ++n_writes;
+    ++n_locks;
+    if (n_writes > max_row_locks || n_locks > max_row_locks)
       return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
     return txn->SingleDelete(column_family, key);
   }
@@ -1589,7 +1598,7 @@ public:
   rocksdb::Status GetForUpdate(rocksdb::ColumnFamilyHandle* column_family,
                                const rocksdb::Slice& key, std::string* value)
   {
-    if (++n_writes > max_row_locks)
+    if (++n_locks > max_row_locks)
       return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
     return txn->GetForUpdate(read_opts, column_family, key, value);
   }
@@ -4240,7 +4249,10 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
                                key_part_map keypart_map,
                                enum ha_rkey_function find_flag)
 {
-  return index_read_map_impl(buf, key, keypart_map, find_flag, nullptr);
+  int rc= index_read_map_impl(buf, key, keypart_map, find_flag, nullptr);
+  if (rc == HA_ERR_KEY_NOT_FOUND)
+    rc = HA_ERR_END_OF_FILE;
+  return rc;
 }
 
 /*
@@ -5014,6 +5026,17 @@ int ha_rocksdb::get_row_by_rowid(uchar *buf, const char *rowid, uint rowid_size)
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
 
   DEBUG_SYNC(ha_thd(), "rocksdb.get_row_by_rowid");
+  DBUG_EXECUTE_IF("dbug.rocksdb.get_row_by_rowid",
+                  {
+                    THD *thd= ha_thd();
+                    const char act[]=
+                      "now signal Reached "
+                      "wait_for signal.rocksdb.get_row_by_rowid_let_running";
+                    DBUG_ASSERT(opt_debug_sync_timeout > 0);
+                    DBUG_ASSERT(!debug_sync_set_action(thd,
+                                                       STRING_WITH_LEN(act)));
+                  };);
+
   bool found;
   rocksdb::Status s;
 
@@ -5061,7 +5084,8 @@ int ha_rocksdb::index_next(uchar *buf)
   io_perf_start();
   int rc= index_next_with_direction(buf, moves_forward);
   io_perf_end_and_record();
-
+  if (rc == HA_ERR_KEY_NOT_FOUND)
+    rc = HA_ERR_END_OF_FILE;
   return rc;
 }
 
@@ -5075,6 +5099,8 @@ int ha_rocksdb::index_prev(uchar *buf)
   io_perf_start();
   int rc= index_next_with_direction(buf, moves_forward);
   io_perf_end_and_record();
+  if (rc == HA_ERR_KEY_NOT_FOUND)
+    rc = HA_ERR_END_OF_FILE;
 
   return rc;
 }
@@ -5114,6 +5140,8 @@ int ha_rocksdb::index_first(uchar *buf)
   int rc= key_descr[active_index]->is_reverse_cf ? index_last_intern(buf):
                                                    index_first_intern(buf);
   io_perf_end_and_record();
+  if (rc == HA_ERR_KEY_NOT_FOUND)
+    rc = HA_ERR_END_OF_FILE;
   return rc;
 }
 
@@ -5125,6 +5153,8 @@ int ha_rocksdb::index_last(uchar *buf)
   int rc= key_descr[active_index]->is_reverse_cf ? index_first_intern(buf):
                                                    index_last_intern(buf);
   io_perf_end_and_record();
+  if (rc == HA_ERR_KEY_NOT_FOUND)
+    rc = HA_ERR_END_OF_FILE;
   return rc;
 }
 
@@ -5579,15 +5609,24 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
         pk_key_changed= true;
 
       rocksdb::Status s;
-      if (insert_with_update)
-      {
-        s= trx->GetForUpdate(pk_descr->get_cf(), new_key_slice,
-            &retrieved_record);
-      }
-      else
-      {
-        s= trx->Get(pk_descr->get_cf(), new_key_slice, &retrieved_record);
-      }
+
+      /*
+        To prevent race conditions like below, it is necessary to
+        take a lock for a target row. GetForUpdate() holds a gap lock if
+        target key does not exist, so below conditions should never
+        happen.
+
+        1) T1 Get(empty) -> T2 Get(empty) -> T1 Put(insert) -> T1 commit
+           -> T2 Put(overwrite) -> T2 commit
+        2) T1 Get(empty) -> T1 Put(insert, not committed yet) -> T2 Get(empty)
+           -> T2 Put(insert, blocked) -> T2 commit -> T2 commit(overwrite)
+      */
+      s= trx->GetForUpdate(pk_descr->get_cf(), new_key_slice,
+          &retrieved_record);
+
+      if (!s.ok() && !s.IsNotFound())
+        DBUG_RETURN(trx->set_status_error(table->in_use, s, key_descr[i],
+                                          tbl_def));
 
       found= !s.IsNotFound();
     }
@@ -5645,6 +5684,8 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
       DBUG_RETURN(HA_ERR_FOUND_DUPP_KEY);
     }
   }
+
+  DEBUG_SYNC(ha_thd(), "rocksdb.update_write_row_after_unique_check");
 
   /*
     At this point, all locks have been obtained, and all checks for duplicate
@@ -5897,6 +5938,8 @@ int ha_rocksdb::rnd_next(uchar *buf)
   io_perf_start();
   int rc= rnd_next_with_direction(buf, true);
   io_perf_end_and_record();
+  if (rc == HA_ERR_KEY_NOT_FOUND)
+    rc = HA_ERR_END_OF_FILE;
   return rc;
 }
 
@@ -6306,6 +6349,8 @@ int ha_rocksdb::rnd_pos(uchar *buf, uchar *pos)
   }
 
   rc= get_row_by_rowid(buf, (const char*)pos, len);
+  if (rc == HA_ERR_KEY_NOT_FOUND)
+    rc = HA_ERR_END_OF_FILE;
 
   DBUG_RETURN(rc);
 }
