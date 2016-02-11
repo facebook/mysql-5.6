@@ -4089,7 +4089,7 @@ bool ha_rocksdb::check_keyread_allowed(uint inx, uint part, bool all_parts) cons
 int ha_rocksdb::read_key_exact(RDBSE_KEYDEF *kd,
                                rocksdb::Iterator *iter,
                                bool full_key_match,
-                               rocksdb::Slice& key_slice)
+                               const rocksdb::Slice& key_slice)
 {
   /*
     We are looking for the first record such that
@@ -4118,6 +4118,270 @@ int ha_rocksdb::read_key_exact(RDBSE_KEYDEF *kd,
   return 0;
 }
 
+int ha_rocksdb::read_before_key(RDBSE_KEYDEF *kd,
+                                bool full_key_match,
+                                const rocksdb::Slice& key_slice)
+{
+  /*
+    We are looking for record with the biggest t.key such that
+    t.key < lookup_tuple.
+  */
+  if (kd->is_reverse_cf)
+  {
+    if (scan_it->Valid() && full_key_match &&
+          kd->value_matches_prefix(scan_it->key(), key_slice))
+    {
+      /* We are using full key and we've hit an exact match */
+      scan_it->Next();
+    }
+  }
+  else
+  {
+    if (scan_it->Valid())
+      scan_it->Prev();
+    else
+      scan_it->SeekToLast();
+  }
+
+  return scan_it->Valid() ? 0 : HA_ERR_KEY_NOT_FOUND;
+}
+
+int ha_rocksdb::read_after_key(RDBSE_KEYDEF *kd,
+                               bool full_key_match,
+                               const rocksdb::Slice& key_slice)
+{
+  /*
+    We are looking for the first record such that
+
+      index_tuple $GT lookup_tuple
+
+    with HA_READ_AFTER_KEY, $GT = '>',
+    with HA_READ_KEY_OR_NEXT, $GT = '>='
+  */
+  if (kd->is_reverse_cf)
+  {
+    if (!scan_it->Valid())
+    {
+      scan_it->SeekToLast();
+    }
+    else
+    {
+      /*
+        We should step back
+         - when not using full extended key
+         - when using full extended key and when we've got an exact match
+      */
+      if (!full_key_match ||
+          !kd->value_matches_prefix(scan_it->key(), key_slice))
+      {
+        scan_it->Prev();
+      }
+    }
+  }
+
+  return scan_it->Valid() ? 0 : HA_ERR_KEY_NOT_FOUND;
+}
+
+int ha_rocksdb::position_to_correct_key(RDBSE_KEYDEF *kd,
+                                        enum ha_rkey_function find_flag,
+                                        bool full_key_match,
+                                        const uchar* key,
+                                        key_part_map keypart_map,
+                                        const rocksdb::Slice& key_slice,
+                                        bool* move_forward)
+{
+  int rc= 0;
+
+  *move_forward= true;
+
+  switch (find_flag) {
+  case HA_READ_KEY_EXACT:
+    rc= read_key_exact(kd, scan_it, full_key_match, key_slice);
+    break;
+  case HA_READ_BEFORE_KEY:
+    *move_forward= false;
+    rc= read_before_key(kd, full_key_match, key_slice);
+    if (rc == 0 && !kd->covers_key(scan_it->key()))
+    {
+      /* The record we've got is not from this index */
+      rc= HA_ERR_KEY_NOT_FOUND;
+    }
+    break;
+  case HA_READ_AFTER_KEY:
+  case HA_READ_KEY_OR_NEXT:
+    rc= read_after_key(kd, full_key_match, key_slice);
+    if (rc == 0 && !kd->covers_key(scan_it->key()))
+    {
+      /* The record we've got is not from this index */
+      rc= HA_ERR_KEY_NOT_FOUND;
+    }
+    break;
+  case HA_READ_KEY_OR_PREV:
+  case HA_READ_PREFIX:
+    /* This flag is not used by the SQL layer, so we don't support it yet. */
+    rc= HA_ERR_UNSUPPORTED;
+    break;
+  case HA_READ_PREFIX_LAST:
+  case HA_READ_PREFIX_LAST_OR_PREV:
+    *move_forward= false;
+    /*
+      Find the last record with the specified index prefix lookup.
+      - HA_READ_PREFIX_LAST requires that the record has the
+        prefix=lookup (if there are no such records,
+        HA_ERR_KEY_NOT_FOUND should be returned).
+      - HA_READ_PREFIX_LAST_OR_PREV has no such requirement. If there are no
+        records with prefix=lookup, we should return the last record
+        before that.
+    */
+    rc= read_before_key(kd, full_key_match, key_slice);
+    if (rc == 0)
+    {
+      const rocksdb::Slice& rkey= scan_it->key();
+      if (!kd->covers_key(rkey))
+      {
+        /* The record we've got is not from this index */
+        rc= HA_ERR_KEY_NOT_FOUND;
+      }
+      else if (find_flag == HA_READ_PREFIX_LAST)
+      {
+        uint size = kd->pack_index_tuple(this, table, pack_buffer,
+                                         sec_key_packed_tuple, key,
+                                         keypart_map);
+        rocksdb::Slice lookup_tuple(
+            reinterpret_cast<char*>(sec_key_packed_tuple), size);
+
+        // We need to compare the key we've got with the original search prefix.
+        if (!kd->value_matches_prefix(rkey, lookup_tuple))
+        {
+          rc= HA_ERR_KEY_NOT_FOUND;
+        }
+      }
+    }
+    break;
+  default:
+    DBUG_ASSERT(0);
+    break;
+  }
+
+  return rc;
+}
+
+int ha_rocksdb::calc_eq_cond_len(RDBSE_KEYDEF *kd,
+                                 enum ha_rkey_function find_flag,
+                                 const rocksdb::Slice& slice,
+                                 int bytes_changed_by_succ,
+                                 const key_range *end_key,
+                                 uint* end_key_packed_size)
+{
+  if (find_flag == HA_READ_KEY_EXACT)
+    return slice.size();
+
+  if (find_flag == HA_READ_PREFIX_LAST)
+  {
+    /*
+      We have made the kd->successor(sec_key_packed_tuple) call above.
+
+      The slice is at least RDBSE_KEYDEF::INDEX_NUMBER_SIZE bytes long.
+    */
+    return slice.size() - bytes_changed_by_succ;
+  }
+
+  if (end_key)
+  {
+    *end_key_packed_size= kd->pack_index_tuple(this, table, pack_buffer,
+                                              end_key_packed_tuple,
+                                              end_key->key,
+                                              end_key->keypart_map);
+    /*
+      Calculating length of the equal conditions here. 4 byte index id is
+      included.
+      Example1: id1 BIGINT, id2 INT, id3 BIGINT, PRIMARY KEY (id1, id2, id3)
+       WHERE id1=1 AND id2=1 AND id3>=2 => eq_cond_len= 4+8+4= 16
+       WHERE id1=1 AND id2>=1 AND id3>=2 => eq_cond_len= 4+8= 12
+      Example2: id1 VARCHAR(30), id2 INT, PRIMARY KEY (id1, id2)
+       WHERE id1 = 'AAA' and id2 < 3; => eq_cond_len=13 (varchar used 9 bytes)
+    */
+    rocksdb::Slice end_slice(reinterpret_cast<char*>(end_key_packed_tuple),
+                             *end_key_packed_size);
+    return slice.difference_offset(end_slice);
+  }
+
+  /*
+    On range scan without any end key condition, there is no
+    eq cond, and eq cond length is the same as index_id size (4 bytes).
+    Example1: id1 BIGINT, id2 INT, id3 BIGINT, PRIMARY KEY (id1, id2, id3)
+     WHERE id1>=1 AND id2 >= 2 and id2 <= 5 => eq_cond_len= 4
+  */
+  return RDBSE_KEYDEF::INDEX_NUMBER_SIZE;
+}
+
+int ha_rocksdb::read_row_from_primary_key(uchar *buf)
+{
+  int rc;
+  const rocksdb::Slice& rkey= scan_it->key();
+  uint pk_size= rkey.size();
+  const char *pk_data= rkey.data();
+
+  memcpy(pk_packed_tuple, pk_data, pk_size);
+  last_rowkey.copy(pk_data, pk_size, &my_charset_bin);
+
+  if (lock_rows)
+  {
+    /* We need to put a lock and re-read */
+    // TODO(jkedgar): what if we find that the row is gone? Need a re-read?
+    rc= get_row_by_rowid(buf, pk_packed_tuple, pk_size);
+  }
+  else
+  {
+    /* Unpack from the row we've read */
+    const rocksdb::Slice& value = scan_it->value();
+    rc= convert_record_from_storage_format(&rkey, &value, buf);
+  }
+
+  return rc;
+}
+
+int ha_rocksdb::read_row_from_secondary_key(uchar *buf, RDBSE_KEYDEF* kd,
+                                            bool move_forward)
+{
+  int rc= 0;
+  uint pk_size;
+
+  if (keyread_only && !lock_rows && !has_hidden_pk(table))
+  {
+    /* Get the key columns and primary key value */
+    const rocksdb::Slice& rkey= scan_it->key();
+    pk_size= kd->get_primary_key_tuple(table, pk_descr, &rkey, pk_packed_tuple);
+    const rocksdb::Slice& value= scan_it->value();
+    if (pk_size == INVALID_LEN ||
+        kd->unpack_record(this, table, buf, &rkey, &value))
+    {
+      rc= HA_ERR_INTERNAL_ERROR;
+    }
+  }
+  else
+  {
+    if (kd->is_reverse_cf)
+      move_forward= !move_forward;
+
+    rc= find_icp_matching_index_rec(move_forward, buf);
+    if (!rc)
+    {
+      const rocksdb::Slice& rkey= scan_it->key();
+      pk_size= kd->get_primary_key_tuple(table, pk_descr, &rkey,
+                                         pk_packed_tuple);
+      if (pk_size == INVALID_LEN)
+        rc= HA_ERR_INTERNAL_ERROR;
+      else
+        rc= get_row_by_rowid(buf, pk_packed_tuple, pk_size);
+    }
+  }
+
+  if (!rc)
+    last_rowkey.copy((const char*)pk_packed_tuple, pk_size, &my_charset_bin);
+
+  return rc;
+}
 /*
   @note
     The problem with this function is that SQL layer calls it, when
@@ -4191,13 +4455,13 @@ int ha_rocksdb::secondary_index_read(int keyno, uchar *buf)
     rocksdb::Slice key= scan_it->key();
 
     /* Check if we've ran out of records of this index */
-    if (key_descr[keyno]->covers_key(key.data(), key.size()))
+    if (key_descr[keyno]->covers_key(key))
     {
       int rc;
 
       //TODO: We could here check if we have ran out of range we're scanning
       uint size= key_descr[keyno]->get_primary_key_tuple(table, pk_descr, &key,
-                                                         (char*) pk_packed_tuple);
+                                                         pk_packed_tuple);
       if (size == (uint)-1)
         return HA_ERR_INTERNAL_ERROR;
 
@@ -4211,7 +4475,7 @@ int ha_rocksdb::secondary_index_read(int keyno, uchar *buf)
         rc= 0;
       }
       else
-        rc= get_row_by_rowid(buf, (const char*)pk_packed_tuple, size);
+        rc= get_row_by_rowid(buf, pk_packed_tuple, size);
 
       if (!rc)
       {
@@ -4309,6 +4573,7 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
   bool using_full_key= (keypart_map == HA_WHOLE_KEY) ||
                        (keypart_map == ((key_part_map(1) << actual_key_parts)
                                          - 1));
+
   if (!end_key)
     end_key= end_range;
 
@@ -4326,7 +4591,7 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
     */
     uint size= kd->pack_index_tuple(this, table, pack_buffer, pk_packed_tuple,
                                     key, keypart_map);
-    rc= get_row_by_rowid(buf, (const char*)pk_packed_tuple, size);
+    rc= get_row_by_rowid(buf, pk_packed_tuple, size);
     if (!rc)
     {
       stats.rows_read++;
@@ -4391,233 +4656,28 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
   rocksdb::Slice slice((char*)sec_key_packed_tuple, packed_size);
 
   uint end_key_packed_size= 0;
-
-  uint eq_cond_len= 0;
-  if (find_flag == HA_READ_KEY_EXACT)
-  {
-    eq_cond_len= slice.size();
-  }
-  else if (find_flag == HA_READ_PREFIX_LAST)
-  {
-    /*
-      We have made the kd->successor(sec_key_packed_tuple) call above.
-
-      The slice is at least RDBSE_KEYDEF::INDEX_NUMBER_SIZE bytes long.
-    */
-    eq_cond_len= slice.size() - bytes_changed_by_succ;
-  }
-  else if (end_key)
-  {
-    end_key_packed_size= kd->pack_index_tuple(this, table, pack_buffer,
-                                              end_key_packed_tuple,
-                                              end_key->key,
-                                              end_key->keypart_map);
-    /*
-      Calculating length of the equal conditions here. 4 byte index id is included.
-      Example1: id1 BIGINT, id2 INT, id3 BIGINT, PRIMARY KEY (id1, id2, id3)
-       WHERE id1=1 AND id2=1 AND id3>=2 => eq_cond_len= 4+8+4= 16
-       WHERE id1=1 AND id2>=1 AND id3>=2 => eq_cond_len= 4+8= 12
-      Example2: id1 VARCHAR(30), id2 INT, PRIMARY KEY (id1, id2)
-       WHERE id1 = 'AAA' and id2 < 3; => eq_cond_len=13 (varchar used 9 bytes)
-    */
-    rocksdb::Slice end_slice((char*)end_key_packed_tuple, end_key_packed_size);
-    eq_cond_len= slice.difference_offset(end_slice);
-  }
-  else
-  {
-    /*
-      On range scan without any end key condition, there is no
-      eq cond, and eq cond length is the same as index_id size (4 bytes).
-      Example1: id1 BIGINT, id2 INT, id3 BIGINT, PRIMARY KEY (id1, id2, id3)
-       WHERE id1>=1 AND id2 >= 2 and id2 <= 5 => eq_cond_len= 4
-    */
-    eq_cond_len= RDBSE_KEYDEF::INDEX_NUMBER_SIZE;
-  }
+  uint eq_cond_len= calc_eq_cond_len(kd, find_flag, slice,
+                                     bytes_changed_by_succ, end_key,
+                                     &end_key_packed_size);
 
   bool use_all_keys= false;
   if (find_flag == HA_READ_KEY_EXACT &&
       my_count_bits(keypart_map) == kd->get_m_key_parts())
     use_all_keys= true;
-  rocksdb::Slice rkey;
   /*
     This will open the iterator and position it at a record that's equal or
     greater than the lookup tuple.
   */
   setup_index_scan(kd, &slice, use_all_keys, is_ascending(kd, find_flag),
                    eq_cond_len);
-  bool move_forward= true;
 
-  switch (find_flag) {
-  case HA_READ_KEY_EXACT:
-  {
-    rc = read_key_exact(key_descr[active_index], scan_it, using_full_key,
-                        slice);
-    if (rc == 0)
-      rkey= scan_it->key();
-    break;
-  }
-  case HA_READ_BEFORE_KEY:
-  {
-    move_forward= false;
-    /*
-      We are looking for record with the biggest t.key such that
-      t.key < lookup_tuple.
-    */
-    if (key_descr[active_index]->is_reverse_cf)
-    {
-      if (scan_it->Valid() && using_full_key &&
-          kd->value_matches_prefix(scan_it->key(), slice))
-      {
-        /* We are using full key and we've hit an exact match */
-        scan_it->Next();
-      }
-    }
-    else
-    {
-      if (scan_it->Valid())
-        scan_it->Prev();
-      else
-        scan_it->SeekToLast();
-    }
-
-    if (!scan_it->Valid())
-      rc= HA_ERR_KEY_NOT_FOUND;
-    else
-    {
-      rkey= scan_it->key();
-      if (!kd->covers_key(rkey.data(), rkey.size()))
-      {
-        /* The record we've got is not from this index */
-        rc= HA_ERR_KEY_NOT_FOUND;
-      }
-    }
-    break;
-  }
-  case HA_READ_AFTER_KEY:
-  case HA_READ_KEY_OR_NEXT:
-  {
-    /*
-      We are looking for the first record such that
-
-        index_tuple $GT lookup_tuple
-
-      with HA_READ_AFTER_KEY, $GT = '>',
-      with HA_READ_KEY_OR_NEXT, $GT = '>='
-    */
-    if (key_descr[active_index]->is_reverse_cf)
-    {
-      if (!scan_it->Valid())
-      {
-        scan_it->SeekToLast();
-      }
-      else
-      {
-        /*
-          We should step back
-           - when not using full extended key
-           - when using full extended key and when we've got an exact match
-        */
-        rkey= scan_it->key();
-        if (!using_full_key || !kd->value_matches_prefix(rkey, slice))
-        {
-          scan_it->Prev();
-        }
-      }
-    }
-
-    if (!scan_it->Valid())
-    {
-      rc= HA_ERR_KEY_NOT_FOUND;
-    }
-    else
-    {
-      rkey= scan_it->key();
-      if (!kd->covers_key(rkey.data(), rkey.size()))
-      {
-        /* The record we've got is not from this index */
-        rc= HA_ERR_KEY_NOT_FOUND;
-      }
-    }
-    break;
-  }
-  case HA_READ_KEY_OR_PREV:
-  case HA_READ_PREFIX:
-  {
-    /* This flag is not used by the SQL layer, so we don't support it yet. */
-    rc= HA_ERR_UNSUPPORTED;
-    break;
-  }
-  case HA_READ_PREFIX_LAST:
-  case HA_READ_PREFIX_LAST_OR_PREV:
-  {
-    move_forward= false;
-    /*
-      Find the last record with the specified index prefix lookup_tuple.
-      - HA_READ_PREFIX_LAST requires that the record has the
-        prefix=lookup_tuple (if there are no such records,
-        HA_ERR_KEY_NOT_FOUND should be returned).
-      - HA_READ_PREFIX_LAST_OR_PREV has no such requirement. If there are no
-        records with prefix=lookup_tuple, we should return the last record
-        before that.
-    */
-    if (key_descr[active_index]->is_reverse_cf)
-    {
-      if (using_full_key && scan_it->Valid())
-      {
-        rkey= scan_it->key();
-        if (kd->value_matches_prefix(rkey, slice))
-        {
-          scan_it->Next();
-        }
-      }
-    }
-    else
-    {
-      if (!scan_it->Valid())
-        scan_it->SeekToLast();
-      else
-        scan_it->Prev();
-    }
-
-    if (scan_it->Valid())
-    {
-      rc= 0;
-      rkey= scan_it->key();
-      if (!kd->covers_key(rkey.data(), rkey.size()))
-      {
-        /* The record we've got is not from this index */
-        rc= HA_ERR_KEY_NOT_FOUND;
-        break;
-      }
-
-      if (find_flag == HA_READ_PREFIX_LAST)
-      {
-        /*
-          We need to compare the key we've got (rkey) with the original
-          search prefix.
-          We don't have the original search prefix, because we've called
-          kd->successor() on it.  We'll need to prepare packed lookup tuple
-          again.
-        */
-        uint size = kd->pack_index_tuple(this, table, pack_buffer,
-                                         sec_key_packed_tuple, key,
-                                         keypart_map);
-        rocksdb::Slice lookup_tuple((char*)sec_key_packed_tuple, size);
-        if (!kd->value_matches_prefix(rkey, lookup_tuple))
-        {
-          rc= HA_ERR_KEY_NOT_FOUND;
-        }
-      }
-    }
-    else
-      rc= HA_ERR_KEY_NOT_FOUND;
-
-    break;
-  }
-  default:
-    DBUG_ASSERT(0);
-    break;
-  }
+  /*
+    Once we are positioned on from above, move to the position we really
+    want: See storage/rocksdb/rocksdb-range-access.txt
+  */
+  bool move_forward;
+  rc = position_to_correct_key(kd, find_flag, using_full_key, key, keypart_map,
+                               slice, &move_forward);
 
   if (rc)
   {
@@ -4628,62 +4688,15 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
 
   skip_scan_it_next_call= FALSE;
 
+  /*
+    Now get the data for the row into 'buf'.  If we were using a primary key
+    then we have all the rows we need.  For a secondary key we now need to
+    lookup the primary key.
+  */
   if (active_index == table->s->primary_key)
-  {
-    uint pk_size= rkey.size();
-    memcpy(pk_packed_tuple, rkey.data(), pk_size);
-    last_rowkey.copy(rkey.data(), pk_size, &my_charset_bin);
-    if (lock_rows)
-    {
-      /* We need to put a lock and re-read */
-      // TODO: what if we find that the row is gone? Need a re-read?
-      rc= get_row_by_rowid(buf, (const char*)pk_packed_tuple, pk_size);
-    }
-    else
-    {
-      /* Unpack from the row we've read */
-      rocksdb::Slice value= scan_it->value();
-      rc= convert_record_from_storage_format(&rkey, &value, buf);
-    }
-  }
+    rc= read_row_from_primary_key(buf);
   else
-  {
-    uint pk_size;
-    if (keyread_only && !lock_rows && !has_hidden_pk(table))
-    {
-      /* Get the key columns and primary key value */
-      pk_size= kd->get_primary_key_tuple(table, pk_descr, &rkey,
-                                         (char*)pk_packed_tuple);
-      rocksdb::Slice value= scan_it->value();
-      if (pk_size == INVALID_LEN ||
-          kd->unpack_record(this, table, buf, &rkey, &value))
-      {
-        rc= HA_ERR_INTERNAL_ERROR;
-      }
-      else
-        rc= 0;
-    }
-    else
-    {
-      if (key_descr[active_index]->is_reverse_cf)
-        move_forward= !move_forward;
-
-      rc= find_icp_matching_index_rec(move_forward, buf);
-      if (!rc)
-      {
-        rocksdb::Slice cur_key= scan_it->key();
-        pk_size= kd->get_primary_key_tuple(table, pk_descr, &cur_key,
-                                           (char*) pk_packed_tuple);
-        if (pk_size == INVALID_LEN)
-          rc= HA_ERR_INTERNAL_ERROR;
-        else
-          rc= get_row_by_rowid(buf, (const char*)pk_packed_tuple, pk_size);
-      }
-    }
-
-    if (!rc)
-      last_rowkey.copy((const char*)pk_packed_tuple, pk_size, &my_charset_bin);
-  }
+    rc= read_row_from_secondary_key(buf, kd, move_forward);
 
   if (rc)
   {
@@ -4736,7 +4749,7 @@ int ha_rocksdb::find_icp_matching_index_rec(bool move_forward, uchar *buf)
       }
       rocksdb::Slice rkey= scan_it->key();
 
-      if (!kd->covers_key(rkey.data(), rkey.size()))
+      if (!kd->covers_key(rkey))
       {
         table->status= STATUS_NOT_FOUND;
         return HA_ERR_END_OF_FILE;
@@ -6005,7 +6018,7 @@ int ha_rocksdb::rnd_next_with_direction(uchar *buf, bool move_forward)
     {
       /* check if we're out of this table */
       rocksdb::Slice key= scan_it->key();
-      if (!pk_descr->covers_key(key.data(), key.size()))
+      if (!pk_descr->covers_key(key))
       {
         rc= HA_ERR_END_OF_FILE;
         table->status= STATUS_NOT_FOUND;
@@ -6366,7 +6379,7 @@ int ha_rocksdb::rnd_pos(uchar *buf, uchar *pos)
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR); /* Data corruption? */
   }
 
-  rc= get_row_by_rowid(buf, (const char*)pos, len);
+  rc= get_row_by_rowid(buf, pos, len);
 
   DBUG_RETURN(rc);
 }
@@ -6872,7 +6885,7 @@ void ha_rocksdb::remove_rows(RDBSE_TABLE_DEF *tbl)
     while (it->Valid())
     {
       rocksdb::Slice key= it->key();
-      if (!tbl->key_descr[i]->covers_key(key.data(), key.size()))
+      if (!tbl->key_descr[i]->covers_key(key))
         break;
       if (can_use_single_delete(i))
         rdb->SingleDelete(wo, key);

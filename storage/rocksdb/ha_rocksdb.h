@@ -362,6 +362,11 @@ class ha_rocksdb: public handler
                         const bool use_all_keys, const bool is_ascending,
                         const uint eq_cond_len);
   int get_row_by_rowid(uchar *buf, const char *pk_tuple, uint pk_tuple_size);
+  int get_row_by_rowid(uchar *buf, const uchar *pk_tuple, uint pk_tuple_size)
+  {
+    return get_row_by_rowid(buf, reinterpret_cast<const char *>(pk_tuple),
+                            pk_tuple_size);
+  }
 
   void update_auto_incr_val();
   void load_auto_incr_value();
@@ -617,7 +622,26 @@ private:
                        const bool skip_unique_check);
 
   int read_key_exact(RDBSE_KEYDEF *kd, rocksdb::Iterator* scan_it,
-                     bool using_full_key, rocksdb::Slice& key_slice);
+                     bool using_full_key, const rocksdb::Slice& key_slice);
+  int read_before_key(RDBSE_KEYDEF *kd, bool using_full_key,
+                      const rocksdb::Slice& key_slice);
+  int read_after_key(RDBSE_KEYDEF *kd, bool using_full_key,
+                     const rocksdb::Slice& key_slice);
+  int position_to_correct_key(RDBSE_KEYDEF *kd,
+                              enum ha_rkey_function find_flag,
+                              bool full_key_match, const uchar* key,
+                              key_part_map keypart_map,
+                              const rocksdb::Slice& key_slice,
+                              bool* move_forward);
+
+  int read_row_from_primary_key(uchar* buf);
+  int read_row_from_secondary_key(uchar* buf, RDBSE_KEYDEF* kd,
+                                  bool move_forward);
+
+  int calc_eq_cond_len(RDBSE_KEYDEF *kd, enum ha_rkey_function find_flag,
+                       const rocksdb::Slice& slice, int bytes_changed_by_succ,
+                       const key_range *end_key, uint* end_key_packed_size);
+
   RDBSE_TABLE_DEF* get_table_if_exists(const char* tablename);
 public:
   int index_init(uint idx, bool sorted);
