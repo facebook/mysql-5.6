@@ -169,8 +169,6 @@ const size_t CHECKSUM_CHUNK_SIZE= 2 * CHECKSUM_SIZE + 1;
 */
 const char CHECKSUM_DATA_TAG=0x01;
 
-
-
 void report_checksum_mismatch(RDBSE_KEYDEF *kd, bool is_key,
                               const char *data, size_t data_size);
 
@@ -869,6 +867,8 @@ public:
   bool is_drop_index_empty();
   void add_drop_table(RDBSE_KEYDEF** key_descr,
                       uint32 n_keys,
+                      rocksdb::WriteBatch *batch);
+  void add_drop_index(const std::unordered_set<GL_INDEX_ID>& gl_index_ids,
                       rocksdb::WriteBatch *batch);
   void done_drop_indexes(const std::unordered_set<GL_INDEX_ID>& gl_index_ids);
 

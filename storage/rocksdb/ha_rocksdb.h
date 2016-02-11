@@ -753,4 +753,18 @@ public:
   void update_create_info(HA_CREATE_INFO *create_info);
   int optimize(THD *thd, HA_CHECK_OPT *check_opt);
   int analyze(THD* thd, HA_CHECK_OPT* check_opt);
+
+  enum_alter_inplace_result check_if_supported_inplace_alter(
+    TABLE *altered_table,
+    Alter_inplace_info *ha_alter_info);
+
+  bool prepare_inplace_alter_table(TABLE *altered_table,
+                                   Alter_inplace_info *ha_alter_info);
+
+  bool inplace_alter_table(TABLE *altered_table,
+                           Alter_inplace_info *ha_alter_info);
+
+  bool commit_inplace_alter_table(TABLE *altered_table,
+                                  Alter_inplace_info *ha_alter_info,
+                                  bool commit);
 };
