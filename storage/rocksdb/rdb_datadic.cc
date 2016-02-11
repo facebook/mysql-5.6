@@ -187,6 +187,11 @@ void RDBSE_KEYDEF::setup(TABLE *tbl, RDBSE_TABLE_DEF *tbl_def)
       key_info= &tbl->key_info[keyno];
       if (!hidden_pk_exists)
         pk_info=  &tbl->key_info[tbl->s->primary_key];
+      name= std::string(key_info->name);
+    }
+    else
+    {
+      name= "HIDDEN_PK_ID";
     }
 
     if (secondary_key)
@@ -2250,7 +2255,7 @@ int Table_ddl_manager::put_and_write(RDBSE_TABLE_DEF *tbl,
   This function modifies ddl_hash and index_num_to_keydef.
   However, these changes need to be reversed if dict_manager.commit fails
   See the discussion here: https://reviews.facebook.net/D35925#inline-259167
-  Tracked by https://github.com/MySQLOnRocksDB/mysql-5.6/issues/50
+  Tracked by https://github.com/facebook/mysql-5.6/issues/33
 */
 int Table_ddl_manager::put(RDBSE_TABLE_DEF *tbl, bool lock)
 {
@@ -2929,6 +2934,22 @@ void Dict_manager::add_drop_table(RDBSE_KEYDEF** key_descr,
   for (uint32 i = 0; i < n_keys; i++)
   {
     start_drop_index_ongoing(batch, key_descr[i]->get_gl_index_id());
+  }
+}
+
+/*
+  Called during inplace index drop operations. Logging messages
+  that dropping indexes started, and adding data dictionary so that
+  all associated indexes to be removed
+ */
+void Dict_manager::add_drop_index(
+    const std::unordered_set<GL_INDEX_ID>& gl_index_ids,
+    rocksdb::WriteBatch *batch)
+{
+  for (auto gl_index_id : gl_index_ids)
+  {
+    log_start_drop_index(gl_index_id, "Begin");
+    start_drop_index_ongoing(batch, gl_index_id);
   }
 }
 

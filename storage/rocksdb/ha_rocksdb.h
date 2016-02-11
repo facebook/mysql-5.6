@@ -35,6 +35,7 @@
 
 /* MyRocks header files */
 #include "rdb_perf_context.h"
+#include <unordered_set>
 
 /*
   This is
@@ -686,6 +687,11 @@ private:
                        const key_range *end_key, uint* end_key_packed_size);
 
   RDBSE_TABLE_DEF* get_table_if_exists(const char* tablename);
+
+  bool prepare_drop_index_inplace(TABLE *altered_table,
+      Alter_inplace_info *ha_alter_info, RDBSE_TABLE_DEF* new_tdef,
+      RDBSE_KEYDEF** old_key_descr, RDBSE_KEYDEF** new_key_descr,
+      uint old_n_keys, std::unordered_set<GL_INDEX_ID>* dropped_index_ids);
 public:
   int index_init(uint idx, bool sorted);
   int index_end();
@@ -753,4 +759,18 @@ public:
   void update_create_info(HA_CREATE_INFO *create_info);
   int optimize(THD *thd, HA_CHECK_OPT *check_opt);
   int analyze(THD* thd, HA_CHECK_OPT* check_opt);
+
+  enum_alter_inplace_result check_if_supported_inplace_alter(
+    TABLE *altered_table,
+    Alter_inplace_info *ha_alter_info);
+
+  bool prepare_inplace_alter_table(TABLE *altered_table,
+                                   Alter_inplace_info *ha_alter_info);
+
+  bool inplace_alter_table(TABLE *altered_table,
+                           Alter_inplace_info *ha_alter_info);
+
+  bool commit_inplace_alter_table(TABLE *altered_table,
+                                  Alter_inplace_info *ha_alter_info,
+                                  bool commit);
 };
