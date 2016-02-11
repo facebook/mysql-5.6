@@ -7515,6 +7515,325 @@ bool ha_rocksdb::is_ascending(RDBSE_KEYDEF *keydef, enum ha_rkey_function find_f
   return is_ascending;
 }
 
+/*
+  Helper class for in-place alter, for storing handler context between inplace
+  alter calls
+*/
+struct ha_rocksdb_inplace_ctx : public inplace_alter_handler_ctx
+{
+  /* The new table definition */
+  RDBSE_TABLE_DEF* new_tdef;
+
+  /* Stores the original key definitions */
+  RDBSE_KEYDEF**  old_key_descr;
+
+  /* Stores the new key definitions */
+  RDBSE_KEYDEF**  new_key_descr;
+
+  /* Stores the old number of key definitions */
+  const uint old_n_keys;
+
+  /* Stores the new number of key definitions */
+  const uint new_n_keys;
+
+  /* Stores the dropped key glids */
+  std::unordered_set<GL_INDEX_ID> dropped_index_ids;
+
+  /* Stores number of keys to drop */
+  const uint n_dropped_keys;
+
+  ha_rocksdb_inplace_ctx(
+      RDBSE_TABLE_DEF* new_tdef, RDBSE_KEYDEF** old_key_descr,
+      RDBSE_KEYDEF** new_key_descr, uint old_n_keys, uint new_n_keys,
+      std::unordered_set<GL_INDEX_ID> dropped_index_ids, uint n_dropped_keys) :
+    inplace_alter_handler_ctx(), new_tdef(new_tdef),
+    old_key_descr(old_key_descr), new_key_descr(new_key_descr),
+    old_n_keys(old_n_keys), new_n_keys(new_n_keys),
+    dropped_index_ids(dropped_index_ids),
+    n_dropped_keys(n_dropped_keys)
+  {
+  }
+
+  ~ha_rocksdb_inplace_ctx()
+  {
+    if (new_key_descr)
+    {
+      /* Delete the new key descriptors */
+      for (uint i= 0; i < new_n_keys; i++) {
+        delete new_key_descr[i];
+        new_key_descr[i] = nullptr;
+      }
+
+      delete[] new_key_descr;
+    }
+
+    old_key_descr= nullptr;
+    new_key_descr= nullptr;
+    new_tdef= nullptr;
+  }
+
+ private:
+  // Disable copying
+  ha_rocksdb_inplace_ctx(const ha_rocksdb_inplace_ctx&);
+  ha_rocksdb_inplace_ctx& operator=(const ha_rocksdb_inplace_ctx&);
+};
+
+/*
+  Checks if inplace alter is supported for a given operation.
+*/
+
+enum_alter_inplace_result ha_rocksdb::check_if_supported_inplace_alter(
+  TABLE *altered_table,
+  Alter_inplace_info *ha_alter_info)
+{
+  DBUG_ENTER("check_if_supported_alter");
+
+  if (ha_alter_info->handler_flags &
+      (Alter_inplace_info::DROP_INDEX |
+       Alter_inplace_info::DROP_UNIQUE_INDEX))
+    DBUG_RETURN(HA_ALTER_INPLACE_SHARED_LOCK_AFTER_PREPARE);
+
+  DBUG_RETURN(HA_ALTER_INPLACE_NOT_SUPPORTED);
+}
+
+/**
+  Allows the storage engine to update internal structures with concurrent
+  writes blocked. If check_if_supported_inplace_alter() returns
+  HA_ALTER_INPLACE_NO_LOCK_AFTER_PREPARE or
+  HA_ALTER_INPLACE_SHARED_AFTER_PREPARE, this function is called with
+  exclusive lock otherwise the same level of locking as for
+  inplace_alter_table() will be used.
+
+  @note Storage engines are responsible for reporting any errors by
+  calling my_error()/print_error()
+
+  @note If this function reports error, commit_inplace_alter_table()
+  will be called with commit= false.
+
+  @note For partitioning, failing to prepare one partition, means that
+  commit_inplace_alter_table() will be called to roll back changes for
+  all partitions. This means that commit_inplace_alter_table() might be
+  called without prepare_inplace_alter_table() having been called first
+  for a given partition.
+
+  @param    altered_table     TABLE object for new version of table.
+  @param    ha_alter_info     Structure describing changes to be done
+                              by ALTER TABLE and holding data used
+                              during in-place alter.
+
+  @retval   true              Error
+  @retval   false             Success
+*/
+bool ha_rocksdb::prepare_inplace_alter_table(TABLE *altered_table,
+                                 Alter_inplace_info *ha_alter_info)
+{
+  RDBSE_KEYDEF** old_key_descr= tbl_def->key_descr;
+  uint n_dropped_keys= ha_alter_info->index_drop_count;
+  uint old_n_keys= tbl_def->n_keys;
+  uint new_n_keys= altered_table->s->keys;
+  if (has_hidden_pk(altered_table))
+    new_n_keys += 1;
+
+  RDBSE_KEYDEF** new_key_descr= new RDBSE_KEYDEF*[new_n_keys];
+  memset(new_key_descr, 0, sizeof(RDBSE_KEYDEF*) * new_n_keys);
+
+  RDBSE_TABLE_DEF* new_tdef= new RDBSE_TABLE_DEF;
+  new_tdef->set_name(tbl_def->dbname_tablename.c_ptr(),
+                     tbl_def->dbname_tablename.length());
+  new_tdef->n_keys= new_n_keys;
+  new_tdef->auto_incr_val=
+    tbl_def->auto_incr_val.load(std::memory_order_relaxed);
+  new_tdef->hidden_pk_val=
+    tbl_def->hidden_pk_val.load(std::memory_order_relaxed);
+
+  std::unordered_set<GL_INDEX_ID> dropped_index_ids;
+
+  /* Check if indexes need to be dropped */
+  if (ha_alter_info->handler_flags &
+      (Alter_inplace_info::DROP_INDEX |
+       Alter_inplace_info::DROP_UNIQUE_INDEX))
+  {
+    /* Determine which key definition(s) need to be dropped */
+    for (uint i= 0; i < ha_alter_info->index_drop_count; i++)
+    {
+      const KEY* key = ha_alter_info->index_drop_buffer[i];
+      for (uint i= 0; i < old_n_keys; i++)
+      {
+        if (!strcmp((old_key_descr[i]->name).c_str(), key->name))
+        {
+          dropped_index_ids.insert(old_key_descr[i]->get_gl_index_id());
+          break;
+        }
+      }
+    }
+
+    DBUG_ASSERT(dropped_index_ids.size() == n_dropped_keys);
+
+    uint kd_index= 0;
+    for (uint i= 0; i < old_n_keys; i++)
+    {
+      RDBSE_KEYDEF* okd= old_key_descr[i];
+      uint16 index_dict_version= 0;
+      uchar index_type= 0;
+      uint16 kv_version= 0;
+      GL_INDEX_ID gl_index_id= okd->get_gl_index_id();
+      if (!dict_manager.get_index_info(gl_index_id, &index_dict_version,
+                           &index_type, &kv_version))
+      {
+        // NO_LINT_DEBUG
+        sql_print_error("RocksDB: Could not get index information "
+                        "for Index Number (%u,%u), table %s",
+                        gl_index_id.cf_id, gl_index_id.index_id,
+                        tbl_def->dbname_tablename.c_ptr_safe());
+        return true;
+      }
+
+      if (!dropped_index_ids.count(gl_index_id))
+      {
+        /*
+          We can't use the copy constructor because we need to update the
+          keynr within the pack_info for each field and the keyno of the keydef
+          itself.
+        */
+        new_key_descr[kd_index]= new RDBSE_KEYDEF(
+            okd->get_index_number(),
+            kd_index,
+            okd->get_cf(),
+            index_dict_version,
+            index_type,
+            kv_version,
+            okd->is_reverse_cf,
+            okd->is_auto_cf,
+            okd->name.c_str(),
+            dict_manager.get_stats(gl_index_id));
+
+        new_key_descr[kd_index]->setup(altered_table, new_tdef);
+        kd_index++;
+      }
+    }
+  }
+
+  new_tdef->key_descr= new_key_descr;
+
+  ha_alter_info->handler_ctx = new ha_rocksdb_inplace_ctx(
+    new_tdef, old_key_descr, new_key_descr, old_n_keys, new_n_keys,
+    dropped_index_ids, n_dropped_keys);
+
+  return false;
+}
+
+/**
+  Alter the table structure in-place with operations specified using
+  HA_ALTER_FLAGS and Alter_inplace_info. The level of concurrency allowed
+  during this operation depends on the return value from
+  check_if_supported_inplace_alter().
+
+  @note Storage engines are responsible for reporting any errors by
+  calling my_error()/print_error()
+
+  @note If this function reports error, commit_inplace_alter_table()
+  will be called with commit= false.
+
+  @param    altered_table     TABLE object for new version of table.
+  @param    ha_alter_info     Structure describing changes to be done
+                              by ALTER TABLE and holding data used
+                              during in-place alter.
+
+  @retval   true              Error
+  @retval   false             Success
+*/
+bool ha_rocksdb::inplace_alter_table(TABLE *altered_table,
+                                     Alter_inplace_info *ha_alter_info)
+{
+  /* Do nothing for now */
+  DBUG_ASSERT(ha_alter_info->handler_ctx);
+  return false;
+}
+
+/**
+  Commit or rollback the changes made during prepare_inplace_alter_table()
+  and inplace_alter_table() inside the storage engine.
+  Note that in case of rollback the allowed level of concurrency during
+  this operation will be the same as for inplace_alter_table() and thus
+  might be higher than during prepare_inplace_alter_table(). (For example,
+  concurrent writes were blocked during prepare, but might not be during
+  rollback).
+
+  @note Storage engines are responsible for reporting any errors by
+  calling my_error()/print_error()
+
+  @note If this function with commit= true reports error, it will be called
+  again with commit= false.
+
+  @note In case of partitioning, this function might be called for rollback
+  without prepare_inplace_alter_table() having been called first.
+  Also partitioned tables sets ha_alter_info->group_commit_ctx to a NULL
+  terminated array of the partitions handlers and if all of them are
+  committed as one, then group_commit_ctx should be set to NULL to indicate
+  to the partitioning handler that all partitions handlers are committed.
+  @see prepare_inplace_alter_table().
+
+  @param    altered_table     TABLE object for new version of table.
+  @param    ha_alter_info     Structure describing changes to be done
+                              by ALTER TABLE and holding data used
+                              during in-place alter.
+  @param    commit            True => Commit, False => Rollback.
+
+  @retval   true              Error
+  @retval   false             Success
+*/
+bool ha_rocksdb::commit_inplace_alter_table(TABLE *altered_table,
+                                            Alter_inplace_info *ha_alter_info,
+                                            bool commit)
+{
+  DBUG_ASSERT(ha_alter_info->handler_ctx);
+  ha_rocksdb_inplace_ctx* ctx
+    = static_cast<ha_rocksdb_inplace_ctx*> (ha_alter_info->handler_ctx);
+
+  /*
+    When rollback is requested, mysql layer will abort with an assertion
+    failure. No other necessary work is needed here for now.
+  */
+  if (!commit)
+  {
+    return false;
+  }
+
+  if (ha_alter_info->handler_flags &
+      (Alter_inplace_info::DROP_INDEX |
+       Alter_inplace_info::DROP_UNIQUE_INDEX))
+  {
+    std::unique_ptr<rocksdb::WriteBatch> wb= dict_manager.begin();
+    rocksdb::WriteBatch *batch= wb.get();
+
+    dict_manager.add_drop_index(ctx->dropped_index_ids, batch);
+
+    tbl_def= ctx->new_tdef;
+    key_descr= tbl_def->key_descr;
+    pk_descr= key_descr[pk_index(altered_table, tbl_def)];
+
+    dict_manager.lock();
+    if (ddl_manager.put_and_write(ctx->new_tdef, batch) ||
+        dict_manager.commit(batch))
+    {
+      /*
+        Should never reach here. We assume MyRocks will abort if commit fails.
+      */
+      DBUG_ASSERT(0);
+    }
+    dict_manager.unlock();
+
+    /*
+      Set new_key_descr to nullptr so that the new key descriptors do not get
+      deleted on destruction of ctx
+    */
+    ctx->new_key_descr = nullptr;
+
+    signal_drop_index_thread();
+  }
+
+  return false;
+}
 
 #define SHOW_FNAME(name) rocksdb_show_##name
 
