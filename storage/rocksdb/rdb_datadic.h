@@ -21,8 +21,9 @@ class Field_pack_info;
 class Column_family_manager;
 class Table_ddl_manager;
 
-#include <atomic>
 /* C++ standard header files */
+#include <algorithm>
+#include <atomic>
 #include <map>
 #include <mutex>
 #include <unordered_set>
@@ -269,31 +270,26 @@ public:
   /*
     This can be used to compare prefixes.
     if  X is a prefix of Y, then we consider that X = Y.
-
-    @detail
-      n_parts parameter is not used anymore. TODO: remove it.
   */
-  // {pb, b_len} describe the lookup key, which can be a prefix of pa/a_len.
-  int cmp_full_keys(const char *pa, uint a_len, const char *pb, uint b_len,
-                    uint n_parts=0) const
+  // b describes the lookup key, which can be a prefix of a.
+  int cmp_full_keys(const rocksdb::Slice& a, const rocksdb::Slice& b) const
   {
-    DBUG_ASSERT(covers_key(pa, a_len));
-    DBUG_ASSERT(covers_key(pb, b_len));
+    DBUG_ASSERT(covers_key(a));
+    DBUG_ASSERT(covers_key(b));
 
-    uint min_len= a_len < b_len? a_len : b_len;
-    int res= memcmp(pa, pb, min_len);
-    return res;
+    return memcmp(a.data(), b.data(), std::min(a.size(), b.size()));
   }
 
   /* Check if given mem-comparable key belongs to this index */
-  bool covers_key(const char *key, uint keylen) const
+  bool covers_key(const rocksdb::Slice &slice) const
   {
-    if (keylen < INDEX_NUMBER_SIZE)
+    if (slice.size() < INDEX_NUMBER_SIZE)
       return false;
-    if (memcmp(key, index_number_storage_form, INDEX_NUMBER_SIZE))
+
+    if (memcmp(slice.data(), index_number_storage_form, INDEX_NUMBER_SIZE))
       return false;
-    else
-      return true;
+
+    return true;
   }
 
   /*
@@ -305,9 +301,7 @@ public:
   bool value_matches_prefix(const rocksdb::Slice &value,
                             const rocksdb::Slice &prefix) const
   {
-    return covers_key(value.data(), value.size()) &&
-           !cmp_full_keys(value.data(), value.size(),
-                          prefix.data(), prefix.size());
+    return covers_key(value) && !cmp_full_keys(value, prefix);
   }
 
   uint32 get_index_number()
@@ -323,7 +317,7 @@ public:
 
   /* Must only be called for secondary keys: */
   uint get_primary_key_tuple(TABLE *tbl, RDBSE_KEYDEF *pk_descr,
-                             const rocksdb::Slice *key, char *pk_buffer);
+                             const rocksdb::Slice *key, uchar *pk_buffer);
 
   /* Return max length of mem-comparable form */
   uint max_storage_fmt_length()

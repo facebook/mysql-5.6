@@ -372,10 +372,10 @@ void RDBSE_KEYDEF::setup(TABLE *tbl, RDBSE_TABLE_DEF *tbl_def)
 uint RDBSE_KEYDEF::get_primary_key_tuple(TABLE *table,
                                          RDBSE_KEYDEF *pk_descr,
                                          const rocksdb::Slice *key,
-                                         char *pk_buffer)
+                                         uchar *pk_buffer)
 {
   uint size= 0;
-  char *buf= pk_buffer;
+  uchar *buf= pk_buffer;
   DBUG_ASSERT(n_pk_key_parts);
 
   /* Put the PK number */
