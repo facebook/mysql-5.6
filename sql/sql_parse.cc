@@ -118,6 +118,7 @@
 #endif
 
 #include <algorithm>
+#include <vector>
 using std::max;
 using std::min;
 
@@ -3300,6 +3301,44 @@ case SQLCOM_PREPARE:
     */
     it->quick_fix_field();
     res = purge_master_logs_before_date(thd, (ulong)it->val_int());
+    break;
+  }
+#endif
+#ifdef HAVE_REPLICATION
+  case SQLCOM_PURGE_UUID:
+  {
+    if (check_global_access(thd,RELOAD_ACL))
+      goto error;
+    std::vector<rpl_sidno> sidnos;
+    rpl_sidno server_sidno = gtid_state->get_server_sidno();
+    char *token = strtok(lex->gtid_string, ",");
+    while (token) {
+      rpl_sid sid;
+      if (sid.parse(token) != RETURN_STATUS_OK) {
+        my_error(ER_INVALID_UUID, MYF(0), token);
+        goto error;
+      }
+      global_sid_lock->rdlock();
+      rpl_sidno sidno;
+      sidno = global_sid_map->sid_to_sidno(sid);
+      if (sidno == server_sidno) {
+        global_sid_lock->unlock();
+        my_error(ER_CANNOT_PURGE_SERVER_UUID, MYF(0), NULL);
+        goto error;
+      }
+      global_sid_lock->unlock();
+      sidnos.push_back(sidno);
+      token = strtok(NULL, ",");
+    }
+    mysql_mutex_lock(mysql_bin_log.get_log_lock());
+    global_sid_lock->wrlock();
+    const_cast<Gtid_set*>(gtid_state->get_logged_gtids())->remove(sidnos);
+    global_sid_lock->unlock();
+    bool check_purge;
+    mysql_bin_log.rotate(true, &check_purge);
+    res = write_bin_log(thd, FALSE, thd->query(), thd->query_length());
+    my_ok(thd);
+    mysql_mutex_unlock(mysql_bin_log.get_log_lock());
     break;
   }
 #endif
