@@ -7,44 +7,18 @@
 # deleted before the GetForUpdate() call could occur.  When this happened
 # a nearly useless error was being returned.
 
-connect (con, localhost, root,,);
-connection default;
+let $order=ASC;
+let $comment="";
+--source suite/rocksdb/include/rocksdb_concurrent_delete.inc
 
---disable_warnings
-set debug_sync='RESET';
-drop table if exists t1;
---enable_warnings
+let $order=DESC;
+let $comment="";
+--source suite/rocksdb/include/rocksdb_concurrent_delete.inc
 
-create table t1 (pk int primary key, a int);
-insert into t1 values(1,1), (2,2), (3,3);
+let $order=ASC;
+let $comment="rev:cf2";
+--source suite/rocksdb/include/rocksdb_concurrent_delete.inc
 
-# This will cause the select to block after finding the first row, but
-# before locking and reading it.
-connection con;
-set debug_sync='rocksdb_concurrent_delete SIGNAL parked WAIT_FOR go';
-send select * from t1 for update;
-
-# While that connection is waiting, delete the first row (the one con
-# is about to lock and read
-connection default;
-set debug_sync='now WAIT_FOR parked';
-delete from t1 where pk = 1;
-
-# Signal the waiting select to continue
-set debug_sync='now SIGNAL go';
-
-# Now get the results from the select.  The first entry (1,1) should
-# be missing.  Prior to the fix the select would have returned:
-# "1815: Internal error: NotFound:"
-connection con;
-# As of https://reviews.facebook.net/D54129 this will get a deadlock error
-# TODO(jkedgar): Once retrying is available this should no longer return
-# an error
---error ER_LOCK_DEADLOCK
-reap;
-
-# Cleanup
-connection default;
-disconnect con;
-set debug_sync='RESET';
-drop table t1;
+let $order=DESC;
+let $comment="rev:cf2";
+--source suite/rocksdb/include/rocksdb_concurrent_delete.inc
