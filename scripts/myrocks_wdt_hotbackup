@@ -224,7 +224,6 @@ def backup_using_wdt():
       time.sleep(sleep_duration)
 
     backup_round = backup_round + 1
-    # TODO: wait for checkpoint_interval if backup_with_timeout returns earlier
   logger.info("Finished myrocks backup using WDT")
 
 
