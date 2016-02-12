@@ -1527,6 +1527,11 @@ public:
       txn->ClearSnapshot();
   }
 
+  bool has_snapshot()
+  {
+    return read_opts.snapshot != nullptr;
+  }
+
   /*
     Flush the data accumulated so far. This assumes we're doing a bulk insert.
 
@@ -2877,8 +2882,7 @@ void ha_rocksdb::load_auto_incr_value()
     (Why don't we use index_init/index_end? class handler defines index_init
      as private, for some reason).
   */
-  delete scan_it;
-  scan_it= nullptr;
+  release_scan_iterator();
 }
 
 /* Get PK value from table->record[0]. */
@@ -2931,11 +2935,7 @@ int ha_rocksdb::load_hidden_pk_value()
   table->status= save_table_status;
   active_index= save_active_index;
 
-  if (scan_it)
-  {
-    delete scan_it;
-    scan_it= nullptr;
-  }
+  release_scan_iterator();
 
   return 0;
 }
@@ -3001,6 +3001,7 @@ static handler* rocksdb_create_handler(handlerton *hton,
 
 ha_rocksdb::ha_rocksdb(handlerton *hton, TABLE_SHARE *table_arg)
   : handler(hton, table_arg), scan_it(nullptr),
+    scan_it_skips_bloom(false),
     tbl_def(nullptr),
     pk_descr(nullptr),
     key_descr(nullptr),
@@ -4345,7 +4346,6 @@ int ha_rocksdb::read_row_from_primary_key(uchar *buf)
   if (lock_rows)
   {
     /* We need to put a lock and re-read */
-    // TODO(jkedgar): what if we find that the row is gone? Need a re-read?
     rc= get_row_by_rowid(buf, pk_packed_tuple, pk_size);
   }
   else
@@ -4681,39 +4681,55 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
   if (find_flag == HA_READ_KEY_EXACT &&
       my_count_bits(keypart_map) == kd->get_m_key_parts())
     use_all_keys= true;
-  /*
-    This will open the iterator and position it at a record that's equal or
-    greater than the lookup tuple.
-  */
-  setup_index_scan(kd, &slice, use_all_keys, is_ascending(kd, find_flag),
-                   eq_cond_len);
 
-  /*
-    Once we are positioned on from above, move to the position we really
-    want: See storage/rocksdb/rocksdb-range-access.txt
-  */
-  bool move_forward;
-  rc = position_to_correct_key(kd, find_flag, using_full_key, key, keypart_map,
-                               slice, &move_forward);
-
-  if (rc)
+  Rdb_transaction *trx= get_or_create_trx(table->in_use);
+  bool is_new_snapshot= !trx->has_snapshot();
+  // Loop as long as we get a deadlock error AND we end up creating the
+  // snapshot here (i.e. it did not exist prior to this)
+  for (;;)
   {
-    table->status= STATUS_NOT_FOUND; /* This status is returned on any error */
-    io_perf_end_and_record();
-    DBUG_RETURN(rc);
+    /*
+      This will open the iterator and position it at a record that's equal or
+      greater than the lookup tuple.
+    */
+    setup_scan_iterator(kd, &slice, use_all_keys, is_ascending(kd, find_flag),
+                        eq_cond_len);
+
+    /*
+      Once we are positioned on from above, move to the position we really
+      want: See storage/rocksdb/rocksdb-range-access.txt
+    */
+    bool move_forward;
+    rc = position_to_correct_key(kd, find_flag, using_full_key, key,
+                                 keypart_map, slice, &move_forward);
+
+    if (rc)
+    {
+      /* This status is returned on any error */
+      table->status= STATUS_NOT_FOUND;
+      io_perf_end_and_record();
+      DBUG_RETURN(rc);
+    }
+
+    skip_scan_it_next_call= FALSE;
+
+    /*
+      Now get the data for the row into 'buf'.  If we were using a primary key
+      then we have all the rows we need.  For a secondary key we now need to
+      lookup the primary key.
+    */
+    if (active_index == table->s->primary_key)
+      rc= read_row_from_primary_key(buf);
+    else
+      rc= read_row_from_secondary_key(buf, kd, move_forward);
+
+    if (rc != HA_ERR_LOCK_DEADLOCK || !is_new_snapshot)
+      break; /* Exit the loop */
+
+    // release the snapshot and iterator so they will be regenerated
+    trx->release_snapshot();
+    release_scan_iterator();
   }
-
-  skip_scan_it_next_call= FALSE;
-
-  /*
-    Now get the data for the row into 'buf'.  If we were using a primary key
-    then we have all the rows we need.  For a secondary key we now need to
-    lookup the primary key.
-  */
-  if (active_index == table->s->primary_key)
-    rc= read_row_from_primary_key(buf);
-  else
-    rc= read_row_from_secondary_key(buf, kd, move_forward);
 
   if (rc)
   {
@@ -5268,12 +5284,25 @@ int ha_rocksdb::index_first_intern(uchar *buf)
 
   rocksdb::Slice index_key((const char*)key, key_size);
 
-  setup_index_scan(key_descr[active_index], &index_key, false,
-                   !key_descr[active_index]->is_reverse_cf,
-                   RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
-  skip_scan_it_next_call= TRUE;
+  Rdb_transaction *trx= get_or_create_trx(table->in_use);
+  bool is_new_snapshot= !trx->has_snapshot();
+  // Loop as long as we get a deadlock error AND we end up creating the
+  // snapshot here (i.e. it did not exist prior to this)
+  for (;;)
+  {
+    setup_scan_iterator(key_descr[active_index], &index_key, false,
+                        !key_descr[active_index]->is_reverse_cf,
+                        RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
+    skip_scan_it_next_call= TRUE;
 
-  rc= index_next_with_direction(buf, true);
+    rc= index_next_with_direction(buf, true);
+    if (rc != HA_ERR_LOCK_DEADLOCK || !is_new_snapshot)
+      break;  // exit the loop
+
+    // release the snapshot and iterator so they will be regenerated
+    trx->release_snapshot();
+    release_scan_iterator();
+  }
 
   if (!rc)
   {
@@ -5343,39 +5372,53 @@ int ha_rocksdb::index_last_intern(uchar *buf)
 
   rocksdb::Slice index_key((const char*)key, key_size);
 
-  setup_index_scan(key_descr[active_index], &index_key, false,
-                   key_descr[active_index]->is_reverse_cf,
-                   RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
+  Rdb_transaction *trx= get_or_create_trx(table->in_use);
+  bool is_new_snapshot= !trx->has_snapshot();
+  // Loop as long as we get a deadlock error AND we end up creating the
+  // snapshot here (i.e. it did not exist prior to this)
+  for (;;)
+  {
+    setup_scan_iterator(key_descr[active_index], &index_key, false,
+                        key_descr[active_index]->is_reverse_cf,
+                        RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
 
-  if (!scan_it->Valid())
-  {
-    /*
-      RocksDB keyspace has no records that follow our index. It could be, our
-      index is the last in the keyspace. Navigate to last record in the
-      keyspace.
-    */
-    scan_it->SeekToLast();
-  }
-  else
-  {
-    /*
-      Iterator is pointing at some record right after the end of the index.
-      Move one record back.
-    */
-    scan_it->Prev();
-  }
-  skip_scan_it_next_call= FALSE;
+    if (!scan_it->Valid())
+    {
+      /*
+        RocksDB keyspace has no records that follow our index. It could be, our
+        index is the last in the keyspace. Navigate to last record in the
+        keyspace.
+      */
+      scan_it->SeekToLast();
+    }
+    else
+    {
+      /*
+        Iterator is pointing at some record right after the end of the index.
+        Move one record back.
+      */
+      scan_it->Prev();
+    }
+    skip_scan_it_next_call= FALSE;
 
-  if (is_pk(active_index, table, tbl_def))
-  {
-    skip_scan_it_next_call= true;
-    rc= rnd_next_with_direction(buf, false);
-  }
-  else
-  {
-    rc= find_icp_matching_index_rec(false /*move_forward*/, buf);
-    if (!rc)
-      rc= secondary_index_read(active_index, buf);
+    if (is_pk(active_index, table, tbl_def))
+    {
+      skip_scan_it_next_call= true;
+      rc= rnd_next_with_direction(buf, false);
+    }
+    else
+    {
+      rc= find_icp_matching_index_rec(false /*move_forward*/, buf);
+      if (!rc)
+        rc= secondary_index_read(active_index, buf);
+    }
+
+    if (rc != HA_ERR_LOCK_DEADLOCK || !is_new_snapshot)
+      break;  /* exit the loop */
+
+    // release the snapshot and iterator so they will be regenerated
+    trx->release_snapshot();
+    release_scan_iterator();
   }
 
   if (!rc)
@@ -5907,11 +5950,11 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
   Open a cursor and position it at the passed record
 */
 
-void ha_rocksdb::setup_index_scan(RDBSE_KEYDEF *keydef,
-                                  rocksdb::Slice *slice,
-                                  const bool use_all_keys,
-                                  const bool is_ascending,
-                                  const uint eq_cond_len)
+void ha_rocksdb::setup_scan_iterator(RDBSE_KEYDEF *keydef,
+                                     rocksdb::Slice *slice,
+                                     const bool use_all_keys,
+                                     const bool is_ascending,
+                                     const uint eq_cond_len)
 {
   DBUG_ASSERT(slice->size() >= eq_cond_len);
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
@@ -5923,21 +5966,20 @@ void ha_rocksdb::setup_index_scan(RDBSE_KEYDEF *keydef,
     skip_bloom= false;
 
   /*
-    In some cases, setup_index_scan() is called multiple times from
+    In some cases, setup_scan_iterator() is called multiple times from
     the same query but bloom filter can not always be used.
     Suppose the following query example. id2 is VARCHAR(30) and PRIMARY KEY (id1, id2).
      select count(*) from t2 WHERE id1=100 and id2 IN ('00000000000000000000', '100');
-    In this case, setup_index_scan() is called twice, the first time is for
+    In this case, setup_scan_iterator() is called twice, the first time is for
     (id1, id2)=(100, '00000000000000000000') and the second time is for (100, '100').
     If prefix bloom filter length is 24 bytes, prefix bloom filter can be used for the
     first condition but not for the second condition.
     If bloom filter condition is changed, currently it is necessary to destroy and
     re-create Iterator.
   */
-  if (scan_it && scan_it_skips_bloom != skip_bloom)
+  if (scan_it_skips_bloom != skip_bloom)
   {
-    delete scan_it;
-    scan_it= nullptr;
+    release_scan_iterator();
   }
 
   /*
@@ -5957,37 +5999,44 @@ void ha_rocksdb::setup_index_scan(RDBSE_KEYDEF *keydef,
   scan_it->Seek(*slice);
 }
 
+void ha_rocksdb::setup_iterator_for_rnd_scan()
+{
+  uint key_size;
+
+  if (pk_descr->is_reverse_cf)
+    pk_descr->get_supremum_key(pk_packed_tuple, &key_size);
+  else
+    pk_descr->get_infimum_key(pk_packed_tuple, &key_size);
+
+  rocksdb::Slice table_key((const char*)pk_packed_tuple, key_size);
+
+  setup_scan_iterator(pk_descr, &table_key);
+  skip_scan_it_next_call= true;
+}
 
 int ha_rocksdb::rnd_init(bool scan)
 {
   DBUG_ENTER("ha_rocksdb::rnd_init");
 
   io_perf_start();
+
+  Rdb_transaction *trx= get_or_create_trx(table->in_use);
   if (scan)
   {
-    uint key_size;
-    if (pk_descr->is_reverse_cf)
-      pk_descr->get_supremum_key(pk_packed_tuple, &key_size);
-    else
-      pk_descr->get_infimum_key(pk_packed_tuple, &key_size);
-
-    rocksdb::Slice table_key((const char*)pk_packed_tuple, key_size);
-
-    setup_index_scan(pk_descr, &table_key);
-    skip_scan_it_next_call= true;
+    rnd_scan_is_new_snapshot= !trx->has_snapshot();
+    setup_iterator_for_rnd_scan();
   }
   else
   {
     /* We don't need any preparations for rnd_pos() calls. */
   }
-  io_perf_end_and_record();
-
-  Rdb_transaction *trx= get_or_create_trx(table->in_use);
 
   // If lock_rows is on then we will be doing a GetForUpdate when accessing
   // the index, so don't acquire the snapshot right away.  Otherwise acquire
   // the snapshot immediately.
   trx->acquire_snapshot(!lock_rows);
+
+  io_perf_end_and_record();
 
   DBUG_RETURN(0);
 }
@@ -5995,8 +6044,23 @@ int ha_rocksdb::rnd_init(bool scan)
 
 int ha_rocksdb::rnd_next(uchar *buf)
 {
+  int rc;
   io_perf_start();
-  int rc= rnd_next_with_direction(buf, true);
+  for (;;)
+  {
+    rc= rnd_next_with_direction(buf, true);
+    if (rc != HA_ERR_LOCK_DEADLOCK || !rnd_scan_is_new_snapshot)
+      break;  /* exit the loop */
+
+    // release the snapshot and iterator and then regenerate them
+    Rdb_transaction *trx= get_or_create_trx(table->in_use);
+    trx->release_snapshot();
+    release_scan_iterator();
+    setup_iterator_for_rnd_scan();
+  }
+
+  rnd_scan_is_new_snapshot= false;
+
   io_perf_end_and_record();
   if (rc == HA_ERR_KEY_NOT_FOUND)
     rc = HA_ERR_END_OF_FILE;
@@ -6029,78 +6093,64 @@ int ha_rocksdb::rnd_next_with_direction(uchar *buf, bool move_forward)
     DBUG_RETURN(HA_ERR_END_OF_FILE);
   }
 
-  bool retry;
-  do
+  if (skip_scan_it_next_call)
+    skip_scan_it_next_call= false;
+  else
   {
-    retry = false;
-    if (skip_scan_it_next_call)
-      skip_scan_it_next_call= false;
+    if (move_forward)
+      scan_it->Next();  /* this call cannot fail */
     else
+      scan_it->Prev();  /* this call cannot fail */
+  }
+
+  if (scan_it->Valid())
+  {
+    /* check if we're out of this table */
+    rocksdb::Slice key= scan_it->key();
+    if (!pk_descr->covers_key(key))
     {
-      if (move_forward)
-        scan_it->Next();  /* this call cannot fail */
-      else
-        scan_it->Prev();  /* this call cannot fail */
-    }
-
-    if (scan_it->Valid())
-    {
-      /* check if we're out of this table */
-      rocksdb::Slice key= scan_it->key();
-      if (!pk_descr->covers_key(key))
-      {
-        rc= HA_ERR_END_OF_FILE;
-        table->status= STATUS_NOT_FOUND;
-      }
-      else
-      {
-        if (lock_rows)
-        {
-          /*
-            Lock the row we've just read.
-
-            Now we call GetForUpdate which will 1) Take a lock and 2) Will fail
-            if the row was deleted since the snapshot was taken.
-          */
-          Rdb_transaction *trx= get_or_create_trx(table->in_use);
-          DEBUG_SYNC(ha_thd(), "rocksdb_concurrent_delete");
-          rocksdb::Status s= trx->GetForUpdate(pk_descr->get_cf(), key,
-                                               &retrieved_record);
-          if (s.IsNotFound())
-          {
-            // The current row was deleted between when we saw it
-            // (via Next/Prev) and when we locked and read it.
-            // Move on to the next row instead.
-            retry = true;
-            continue;
-          }
-
-          if (!s.ok())
-          {
-            DBUG_RETURN(trx->set_status_error(table->in_use, s, pk_descr,
-                                              tbl_def));
-          }
-
-          // If we called GetForUpdate() use the value from that call not from
-          // the iterator as it may be stale since we don't have a snapshot
-          // when lock_rows is true.
-          last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
-          rc= convert_record_from_storage_format(&key, buf);
-        }
-        else
-        {
-          // Use the value from the iterator
-          rocksdb::Slice value= scan_it->value();
-          last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
-          rc= convert_record_from_storage_format(&key, &value, buf);
-        }
-
-        table->status= 0;
-      }
-    }
-    else
       rc= HA_ERR_END_OF_FILE;
-  } while (retry);
+      table->status= STATUS_NOT_FOUND;
+    }
+    else
+    {
+      if (lock_rows)
+      {
+        /*
+          Lock the row we've just read.
+
+          Now we call GetForUpdate which will 1) Take a lock and 2) Will fail
+          if the row was deleted since the snapshot was taken.
+        */
+        Rdb_transaction *trx= get_or_create_trx(table->in_use);
+        DEBUG_SYNC(ha_thd(), "rocksdb_concurrent_delete");
+        rocksdb::Status s= trx->GetForUpdate(pk_descr->get_cf(), key,
+                                             &retrieved_record);
+        if (!s.ok())
+        {
+          DBUG_RETURN(trx->set_status_error(table->in_use, s, pk_descr,
+                                            tbl_def));
+        }
+
+        // If we called GetForUpdate() use the value from that call not from
+        // the iterator as it may be stale since we don't have a snapshot
+        // when lock_rows is true.
+        last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
+        rc= convert_record_from_storage_format(&key, buf);
+      }
+      else
+      {
+        // Use the value from the iterator
+        rocksdb::Slice value= scan_it->value();
+        last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
+        rc= convert_record_from_storage_format(&key, &value, buf);
+      }
+
+      table->status= 0;
+    }
+  }
+  else
+    rc= HA_ERR_END_OF_FILE;
 
   if (!rc) {
     stats.rows_read++;
@@ -6116,8 +6166,7 @@ int ha_rocksdb::rnd_end()
 {
   DBUG_ENTER("ha_rocksdb::rnd_end");
 
-  delete scan_it;
-  scan_it= nullptr;
+  release_scan_iterator();
 
   DBUG_RETURN(0);
 }
@@ -6138,8 +6187,7 @@ int ha_rocksdb::index_init(uint idx, bool sorted)
 
 int ha_rocksdb::index_end()
 {
-  delete scan_it;
-  scan_it= nullptr;
+  release_scan_iterator();
 
   active_index= MAX_KEY;
   in_range_check_pushed_down= FALSE;
