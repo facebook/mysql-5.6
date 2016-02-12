@@ -5867,6 +5867,7 @@ void ha_rocksdb::setup_index_scan(RDBSE_KEYDEF *keydef,
   if (!scan_it)
   {
     bool fill_cache= !THDVAR(ha_thd(), skip_fill_cache);
+    trx->acquire_snapshot(true);
     scan_it= trx->GetIterator(keydef->get_cf(), skip_bloom, fill_cache);
     scan_it_skips_bloom= skip_bloom;
   }
