@@ -256,6 +256,26 @@ void Gtid_set::clear()
   DBUG_VOID_RETURN;
 }
 
+void Gtid_set::remove(const std::vector<rpl_sidno>& sidnos)
+{
+  if (sid_lock != NULL)
+    sid_lock->assert_some_wrlock();
+  cached_string_length = -1;
+  rpl_sidno max_sidno = get_max_sidno();
+  if (!max_sidno)
+    return;
+  Free_intervals_lock lock(this);
+  lock.lock_if_not_locked();
+  for (auto sidno: sidnos)
+  {
+    if (sidno >= 1 && sidno <= max_sidno) {
+      Interval_iterator ivit(this, sidno);
+      if (ivit.get())
+        ivit.remove(this);
+    }
+  }
+  lock.unlock_if_locked();
+}
 
 enum_return_status
 Gtid_set::add_gno_interval(Interval_iterator *ivitp,
