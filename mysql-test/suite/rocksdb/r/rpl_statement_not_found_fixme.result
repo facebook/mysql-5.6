@@ -50,6 +50,6 @@ select * from t3 where pk < 5;
 pk	kp1	kp2	col1
 0	0	0	0
 1	1	1	1
-4	4	4	4
+4	4	4	100
 drop table t0, t1, t2, t3;
 include/rpl_end.inc
