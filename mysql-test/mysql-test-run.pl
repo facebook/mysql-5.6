@@ -2634,6 +2634,12 @@ sub environment_setup {
   $ENV{'MYSQL_MYROCKS_HOTBACKUP'}= native_path($exe_myrocks_hotbackup);
 
   # ----------------------------------------------------
+  # myrockswdthotbackup
+  # ----------------------------------------------------
+  my $exe_myrocks_wdt_hotbackup= "$bindir/scripts/myrocks_wdt_hotbackup";
+  $ENV{'MYSQL_MYROCKS_WDT_HOTBACKUP'}= native_path($exe_myrocks_wdt_hotbackup);
+
+  # ----------------------------------------------------
   # Setup env so childs can execute myisampack and myisamchk
   # ----------------------------------------------------
   $ENV{'MYISAMCHK'}= native_path(mtr_exe_exists(

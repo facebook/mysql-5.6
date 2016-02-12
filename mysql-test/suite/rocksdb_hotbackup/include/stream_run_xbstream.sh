@@ -11,6 +11,9 @@ stream_opt="--stream=xbstream"
 mysql_dir=$(echo $MYSQL | awk '{print $1}' | xargs dirname)
 PATH=$mysql_dir:$PATH
 
+mkdir -p $checkpoint_dir
+rm -rf $checkpoint_dir/*
+
 mkdir -p $backup_dir
 rm -rf $backup_dir/*
 # delete and recreate the dest dir to make sure all hidden files
@@ -20,7 +23,7 @@ mkdir $dest_data_dir
 
 echo "myrocks_hotbackup copy phase"
 if ! $MYSQL_MYROCKS_HOTBACKUP --user='root' --port=${MASTER_MYPORT} \
-  $stream_opt --checkpoint_dir=$backup_dir 2> \
+  $stream_opt --checkpoint_dir=$checkpoint_dir 2> \
   ${MYSQL_TMP_DIR}/myrocks_hotbackup_copy_log | \
   xbstream -x --directory=$backup_dir
 then
