@@ -14,11 +14,5 @@ count
 SELECT count from t1;
 count
 100000
-SELECT count from t1;
-count
-150000
-SELECT count from t1;
-count
-200000
 SET GLOBAL rocksdb_lock_wait_timeout = @save;
 DROP DATABASE mysqlslap;

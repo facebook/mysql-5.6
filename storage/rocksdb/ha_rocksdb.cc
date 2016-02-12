@@ -1631,8 +1631,17 @@ public:
   rocksdb::Iterator *GetIterator(rocksdb::ColumnFamilyHandle* column_family,
                                  bool skip_bloom_filter,
                                  bool fill_cache,
-                                 bool read_current=false)
+                                 bool read_current= false,
+                                 bool create_snapshot= true)
   {
+    // Make sure we are not doing both read_current (which implies we don't
+    // want a snapshot) and create_snapshot which makes sure we create
+    // a snapshot
+    DBUG_ASSERT(!read_current || !create_snapshot);
+
+    if (create_snapshot)
+      acquire_snapshot(true);
+
     rocksdb::ReadOptions options= read_opts;
 
     if (skip_bloom_filter)
@@ -5714,7 +5723,8 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
       rocksdb::Iterator *s_iter= trx->GetIterator(key_descr[i]->get_cf(),
                                                   total_order_seek,
                                                   fill_cache,
-                                                  true /* read current data */);
+                                                  true /* read current data */,
+                                                  false /* acquire snapshot */);
       /*
         Need to scan the transaction to see if there is a duplicate key.
         Also need to scan RocksDB and verify the key has not been deleted
