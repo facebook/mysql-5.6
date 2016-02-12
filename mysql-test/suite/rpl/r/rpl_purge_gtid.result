@@ -1,0 +1,34 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+create table t1 (a int);
+insert into t1 values(1);
+insert into t1 values(1);
+insert into t1 values(1);
+insert into t1 values(1);
+set gtid_next = '551dab6a-d12b-11e5-a3ea-0002c9d31542:1';
+insert into t1 values(1);
+set gtid_next = '551dab6a-d12b-11e5-a3ea-0002c9d31542:2';
+insert into t1 values(1);
+set gtid_next = '551dab6a-d12b-11e5-a3ea-0002c9d31543:1';
+insert into t1 values(1);
+set gtid_next = AUTOMATIC;
+purge gtid 'garbage uuid';
+ERROR HY000: Invalid UUID 'garbage uuid'
+purge gtid 'master_uuid';
+ERROR HY000: Cannot purge uuid of this server
+Check 'purge gtid' query resets logged and lost gtid state.
+purge gtid '551dab6a-d12b-11e5-a3ea-0002c9d31542,551dab6a-d12b-11e5-a3ea-0002c9d31543';
+insert into t1 values(1);
+insert into t1 values(1);
+select @@global.gtid_executed;
+@@global.gtid_executed
+master_uuid:1-8
+Check gtid_executed on slave is also resetted
+select @@global.gtid_executed;
+@@global.gtid_executed
+master_uuid:1-8
+drop table t1;
+include/rpl_end.inc

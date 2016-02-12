@@ -47,6 +47,7 @@
 #include "hash.h"
 #include "lf.h"
 #include "my_atomic.h"
+#include <vector>
 
 /**
   This macro is used to check that the given character, pointed to by the
@@ -887,6 +888,13 @@ public:
     existing allocated memory will be re-used.
   */
   void clear();
+  /**
+    Removes the sidnos (and their intervals) from the logged state.
+
+    @params sidnos List of rpl_sidno to remove.
+  */
+  void remove(const std::vector<rpl_sidno> &sidnos);
+
   /**
     Adds the given GTID to this Gtid_set.
 
