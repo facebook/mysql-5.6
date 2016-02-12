@@ -71,6 +71,7 @@ connection master;
 update t3 set col1=100 where kp1 between 1 and 4 and mod(kp2,2)=0;
 
 connection slave;
+call mtr.add_suppression("Deadlock found when trying to get lock");
 set debug_sync= 'now WAIT_FOR Reached';
 eval set global debug = '$old_debug';
 set sql_log_bin=0;
