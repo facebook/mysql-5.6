@@ -37,6 +37,10 @@ set debug_sync='now SIGNAL go';
 # be missing.  Prior to the fix the select would have returned:
 # "1815: Internal error: NotFound:"
 connection con;
+# As of https://reviews.facebook.net/D54129 this will get a deadlock error
+# TODO(jkedgar): Once retrying is available this should no longer return
+# an error
+--error ER_LOCK_DEADLOCK
 reap;
 
 # Cleanup
