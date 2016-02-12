@@ -59,9 +59,16 @@ const char * const PER_INDEX_CF_NAME = "$per_index_cf";
   Default, minimal valid, and maximum valid sampling rate values when collecting
   statistics about table.
 */
-#define MYROCKS_DEFAULT_SAMPLE_PCT   10
-#define MYROCKS_SAMPLE_PCT_MIN        1
-#define MYROCKS_SAMPLE_PCT_MAX      100
+#define MYROCKS_DEFAULT_SAMPLE_PCT                       10
+#define MYROCKS_SAMPLE_PCT_MIN                            1
+#define MYROCKS_SAMPLE_PCT_MAX                          100
+
+/*
+  Maximum values for rocksdb-compaction-sequential-deletes and
+  rocksdb-compaction-sequential-deletes-window to add basic boundary checking.
+*/
+#define MAX_COMPACTION_SEQUENTIAL_DELETES            100000
+#define MAX_COMPACTION_SEQUENTIAL_DELETES_WINDOW     100000
 
 /*
   Hidden PK column (for tables with no primary key) is a longlong (aka 8 bytes)
