@@ -47,6 +47,7 @@
 #include "hash.h"
 #include "lf.h"
 #include "my_atomic.h"
+#include <vector>
 
 /**
   This macro is used to check that the given character, pointed to by the
@@ -239,6 +240,27 @@ struct Uuid
     @return RETURN_STATUS_OK or RETURN_STATUS_UNREPORTED_ERROR.
   */
   enum_return_status parse(const char *string);
+  /**
+    Similar to parse() with additional check on input string length.
+    This functions also skips white spaces.
+
+    @param string Input text
+    @return RETURN_STATUS_OK or RETURN_STATUS_UNREPORTED_ERROR.
+  */
+  enum_return_status parse_with_length_check(const char *string) {
+    DBUG_ENTER("Uuid::parse_with_length_check");
+    const char* s = string;
+    SKIP_WHITESPACE();
+    uint len = strlen(s);
+    if (!len)
+      RETURN_UNREPORTED_ERROR;
+    const char* end = s + len - 1;
+    while (end != s && my_isspace(&my_charset_utf8_general_ci, *end)) --end;
+    if (end - s + 1 != TEXT_LENGTH)
+      RETURN_UNREPORTED_ERROR;
+    DBUG_RETURN(parse(s));
+  }
+
   /// Set to all zeros.
   void clear() { memset(bytes, 0, BYTE_LENGTH); }
   /// Copies the given 16-byte data to this UUID.
@@ -887,6 +909,13 @@ public:
     existing allocated memory will be re-used.
   */
   void clear();
+  /**
+    Removes the sidnos (and their intervals) from the logged state.
+
+    @params sidnos List of rpl_sidno to remove.
+  */
+  void remove(const std::vector<rpl_sidno> &sidnos);
+
   /**
     Adds the given GTID to this Gtid_set.
 

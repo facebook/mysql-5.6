@@ -3303,6 +3303,51 @@ case SQLCOM_PREPARE:
     break;
   }
 #endif
+#ifdef HAVE_REPLICATION
+  case SQLCOM_PURGE_UUID:
+  {
+    if (check_global_access(thd, SUPER_ACL))
+      goto error;
+    std::vector<rpl_sidno> sidnos;
+    rpl_sidno server_sidno = gtid_state->get_server_sidno();
+    char *token = strtok(lex->gtid_string, ",");
+    while (token) {
+      rpl_sid sid;
+      if (sid.parse_with_length_check(token) != RETURN_STATUS_OK) {
+        my_error(ER_INVALID_UUID, MYF(0), token);
+        goto error;
+      }
+      global_sid_lock->rdlock();
+      rpl_sidno sidno;
+      sidno = global_sid_map->sid_to_sidno(sid);
+      if (sidno == server_sidno) {
+        global_sid_lock->unlock();
+        my_error(ER_CANNOT_PURGE_SERVER_UUID, MYF(0), NULL);
+        goto error;
+      }
+      global_sid_lock->unlock();
+      sidnos.push_back(sidno);
+      token = strtok(NULL, ",");
+    }
+    mysql_mutex_lock(mysql_bin_log.get_log_lock());
+    global_sid_lock->wrlock();
+    const_cast<Gtid_set*>(gtid_state->get_logged_gtids())->remove(sidnos);
+    global_sid_lock->unlock();
+    bool check_purge;
+    res = mysql_bin_log.rotate(true, &check_purge);
+    if (!res)
+      res = write_bin_log(thd, FALSE, thd->query(), thd->query_length());
+    /*
+      Ideally we should be reverting the change done to gtid set. But since
+      the purge operation is idempotent, sending an error to the client is good
+      enough.
+    */
+    if (!res)
+      my_ok(thd);
+    mysql_mutex_unlock(mysql_bin_log.get_log_lock());
+    break;
+  }
+#endif
   case SQLCOM_SHOW_WARNS:
   {
     res= mysqld_show_warnings(thd, (ulong)
