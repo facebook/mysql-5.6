@@ -7,6 +7,8 @@ select * from t1 for update;
 set debug_sync='now WAIT_FOR parked';
 delete from t1 where pk = 1;
 set debug_sync='now SIGNAL go';
-ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
+pk	a
+2	2
+3	3
 set debug_sync='RESET';
 drop table t1;
