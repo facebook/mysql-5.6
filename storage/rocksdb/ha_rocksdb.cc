@@ -2354,6 +2354,61 @@ void get_cf_options(const std::string &cf_name, rocksdb::ColumnFamilyOptions *op
     opts->comparator= &rocksdb_pk_comparator;
 }
 
+static rocksdb::Status check_rocksdb_options_compatibility(
+        const char *db_name,
+        const rocksdb::Options& main_opts,
+        const std::vector<rocksdb::ColumnFamilyDescriptor>& cf_descr)
+{
+  DBUG_ASSERT(db_name != nullptr);
+
+  rocksdb::DBOptions loaded_db_opt;
+  std::vector<rocksdb::ColumnFamilyDescriptor> loaded_cf_descs;
+  rocksdb::Status status = LoadLatestOptions(rocksdb_datadir,
+                            rocksdb::Env::Default(), &loaded_db_opt,
+                            &loaded_cf_descs);
+
+  // If we're starting from scratch and there are no options saved yet then this
+  // is a valid case. Therefore we can't compare the current set of options to
+  // anything.
+  if (status.IsNotFound()) {
+    return rocksdb::Status::OK();
+  }
+
+  if (!status.ok()) {
+    return status;
+  }
+
+  if (loaded_cf_descs.size() != cf_descr.size()) {
+    return rocksdb::Status::NotSupported("Mismatched size of column family " \
+            "descriptors.");
+  }
+
+  // Please see RocksDB documentation for more context about why we need to set
+  // user-defined functions and pointer-typed options manually.
+  for (size_t i = 0; i < loaded_cf_descs.size(); i++) {
+    loaded_cf_descs[i].options.compaction_filter =
+      cf_descr[i].options.compaction_filter;
+    loaded_cf_descs[i].options.compaction_filter_factory  =
+      cf_descr[i].options.compaction_filter_factory;
+    loaded_cf_descs[i].options.comparator = cf_descr[i].options.comparator;
+    loaded_cf_descs[i].options.memtable_factory =
+      cf_descr[i].options.memtable_factory;
+    loaded_cf_descs[i].options.merge_operator =
+      cf_descr[i].options.merge_operator;
+    loaded_cf_descs[i].options.prefix_extractor =
+      cf_descr[i].options.prefix_extractor;
+    loaded_cf_descs[i].options.table_factory =
+      cf_descr[i].options.table_factory;
+  }
+
+  // This is the essence of the function - determine if it's safe to open the
+  // database or not.
+  status = CheckOptionsCompatibility(db_name, rocksdb::Env::Default(),
+                                     main_opts, loaded_cf_descs);
+
+  return status;
+}
+
 /*
   Engine initialization function
 */
@@ -2582,9 +2637,29 @@ static int rocksdb_init_func(void *p)
   txn_db_options.custom_mutex_factory=
   std::make_shared<Wrapped_mysql_mutex_factory>();
 
+  status= check_rocksdb_options_compatibility(rocksdb_datadir, main_opts,
+                                              cf_descr);
+
+  // Currently the sanity check for options is too strict and it fails for some
+  // of the legitimate cases. Once those checks in RocksDB will be relaxed then
+  // we'll enable the #else block below and make sure that we don't start up if
+  // there's a chance of data corruption.
+  if (!status.ok()) {
+#if 1
+    // Can't use *_error or *_warning because it will skew the tests.
+    sql_print_information("RocksDB: options compatibility check warning: %s",
+                          status.ToString().c_str());
+#else
+    sql_print_error("RocksDB: compatibility check against existing database " \
+                    "options failed. %s", status.ToString().c_str());
+    DBUG_RETURN(1);
+#endif
+  }
+
   status= rocksdb::TransactionDB::Open(main_opts, txn_db_options,
                                        rocksdb_datadir, cf_descr,
                                        &cf_handles, &rdb);
+  DBUG_ASSERT(status.ok());
 
   if (!status.ok())
   {

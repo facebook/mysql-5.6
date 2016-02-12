@@ -29,6 +29,7 @@
 #include "rocksdb/cache.h"
 #include "rocksdb/perf_context.h"
 #include "rocksdb/statistics.h"
+#include "rocksdb/utilities/options_util.h"
 #include "rocksdb/utilities/transaction_db.h"
 #include "rocksdb/utilities/write_batch_with_index.h"
 
