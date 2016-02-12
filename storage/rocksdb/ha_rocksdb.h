@@ -365,6 +365,9 @@ class ha_rocksdb: public handler
 
   bool skip_scan_it_next_call;
 
+  /* TRUE means we are accessing the first row after a snapshot was created */
+  bool rnd_scan_is_new_snapshot;
+
   /*
     Valid inside UPDATE statements, when updated_indexes_is_valid=true:
 
@@ -383,14 +386,21 @@ class ha_rocksdb: public handler
   int create_key_defs(TABLE *table_arg, const char *db_table, uint len,
                       HA_CREATE_INFO *create_info);
   int secondary_index_read(int keyno, uchar *buf);
-  void setup_index_scan(RDBSE_KEYDEF *keydef, rocksdb::Slice *slice)
+  void setup_iterator_for_rnd_scan();
+  void setup_scan_iterator(RDBSE_KEYDEF *keydef, rocksdb::Slice *slice)
   {
-    setup_index_scan(keydef, slice, false, false, 0);
+    setup_scan_iterator(keydef, slice, false, false, 0);
   }
   bool is_ascending(RDBSE_KEYDEF *keydef, enum ha_rkey_function find_flag);
-  void setup_index_scan(RDBSE_KEYDEF *keydef, rocksdb::Slice *slice,
+  void setup_scan_iterator(RDBSE_KEYDEF *keydef, rocksdb::Slice *slice,
                         const bool use_all_keys, const bool is_ascending,
                         const uint eq_cond_len);
+  void release_scan_iterator(void)
+  {
+    delete scan_it;
+    scan_it= nullptr;
+  }
+
   int get_row_by_rowid(uchar *buf, const char *pk_tuple, uint pk_tuple_size);
   int get_row_by_rowid(uchar *buf, const uchar *pk_tuple, uint pk_tuple_size)
   {
