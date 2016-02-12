@@ -26,7 +26,6 @@ delete from t1 where id1=1 and id2=1;
 set debug_sync='now SIGNAL go';
 
 connection con;
---error ER_LOCK_DEADLOCK
 reap;
 select * from t1 where id1=1 for update;
 
