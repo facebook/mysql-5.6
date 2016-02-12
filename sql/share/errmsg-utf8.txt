@@ -7205,6 +7205,15 @@ ER_DB_ADMISSION_CONTROL
 
 ER_DOCUMENT_FIELD_NOT_NULL
   eng "Document field '%s' must be nullable. NOT NULL type is not supported in document field"
+
+ER_INVALID_UUID
+  eng "Invalid UUID '%s'"
+
+ER_CANNOT_PURGE_SERVER_UUID
+  eng "Cannot purge uuid of this server or uuid of master server"
+
+ER_UUID_NOT_IN_EXECUTED_GTID_SET
+  eng "%s is not present in executed gtid set"
 #
 #  End of 5.6 error messages.
 #

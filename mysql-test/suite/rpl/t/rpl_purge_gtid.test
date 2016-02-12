@@ -1,0 +1,61 @@
+source include/master-slave.inc;
+source include/have_gtid.inc;
+source include/gtid_utils.inc;
+
+connection master;
+# purge gtid succeeds even if the given uuid is not present in the gtid set.
+purge gtid '551dab6a-d12b-11e5-a3ea-0002c9d31542';
+
+let $master_uuid= `select @@server_uuid`;
+create table t1 (a int);
+insert into t1 values(1);
+insert into t1 values(1);
+insert into t1 values(1);
+insert into t1 values(1);
+
+set gtid_next = '551dab6a-d12b-11e5-a3ea-0002c9d31542:1';
+insert into t1 values(1);
+set gtid_next = '551dab6a-d12b-11e5-a3ea-0002c9d31542:2';
+insert into t1 values(1);
+set gtid_next = '551dab6a-d12b-11e5-a3ea-0002c9d31543:1';
+insert into t1 values(1);
+set gtid_next = AUTOMATIC;
+
+error ER_INVALID_UUID;
+purge gtid 'garbage uuid';
+
+replace_result $master_uuid master_uuid;
+error ER_CANNOT_PURGE_SERVER_UUID;
+eval purge gtid '$master_uuid';
+
+let $value = `select @@global.gtid_executed`;
+# gtid_executed is not sorted. So we need this to avoid test failures.
+replace_result $value gtid_executed_set;
+eval select gtid_intersection_with_uuid('$value', '551dab6a-d12b-11e5-a3ea-0002c9d31542');
+replace_result $value gtid_executed_set;
+eval select gtid_intersection_with_uuid('$value', '551dab6a-d12b-11e5-a3ea-0002c9d31543');
+replace_result $value gtid_executed_set $master_uuid master_uuid;
+eval select gtid_intersection_with_uuid('$value', '$master_uuid');
+
+echo Check 'purge gtid' query resets logged and lost gtid state.;
+purge gtid '551dab6a-d12b-11e5-a3ea-0002c9d31542 , 551dab6a-d12b-11e5-a3ea-0002c9d31543';
+insert into t1 values(1);
+insert into t1 values(1);
+
+replace_result $master_uuid master_uuid;
+select @@global.gtid_executed;
+
+sync_slave_with_master;
+echo Check gtid_executed on slave is also reset;
+replace_result $master_uuid master_uuid;
+select @@global.gtid_executed;
+
+replace_result $master_uuid master_uuid;
+error ER_CANNOT_PURGE_SERVER_UUID;
+eval purge gtid '$master_uuid';
+
+connection master;
+drop table t1;
+
+source include/gtid_utils_end.inc;
+source include/rpl_end.inc;
