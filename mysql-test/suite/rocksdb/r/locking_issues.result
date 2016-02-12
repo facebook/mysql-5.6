@@ -1,0 +1,306 @@
+
+-----------------------------------------------------------------------
+- Locking issues case 1.1:
+-   Locking rows that do not exist when using all primary key columns in
+-   a WHERE clause
+-   using REPEATABLE READ transaction isolation level
+-----------------------------------------------------------------------
+DROP TABLE IF EXISTS t0;
+CREATE TABLE t0(id1 INT, id2 INT, value INT, PRIMARY KEY(id1, id2));
+INSERT INTO t0 VALUES (1,1,0), (3,3,0), (4,4,0), (6,6,0);
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+BEGIN;
+SELECT * FROM t0 WHERE id1=1 AND id2=5 FOR UPDATE;
+id1	id2	value
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+BEGIN;
+INSERT INTO t0 VALUES (1,5,0);
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t0.PRIMARY
+SELECT * FROM t0 WHERE id1=1 AND id2=5 FOR UPDATE;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t0.PRIMARY
+COMMIT;
+DROP TABLE t0;
+
+-----------------------------------------------------------------------
+- Locking issues case 1.1:
+-   Locking rows that do not exist when using all primary key columns in
+-   a WHERE clause
+-   using READ COMMITTED transaction isolation level
+-----------------------------------------------------------------------
+DROP TABLE IF EXISTS t0;
+CREATE TABLE t0(id1 INT, id2 INT, value INT, PRIMARY KEY(id1, id2));
+INSERT INTO t0 VALUES (1,1,0), (3,3,0), (4,4,0), (6,6,0);
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+BEGIN;
+SELECT * FROM t0 WHERE id1=1 AND id2=5 FOR UPDATE;
+id1	id2	value
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+BEGIN;
+INSERT INTO t0 VALUES (1,5,0);
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t0.PRIMARY
+SELECT * FROM t0 WHERE id1=1 AND id2=5 FOR UPDATE;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t0.PRIMARY
+COMMIT;
+DROP TABLE t0;
+
+-----------------------------------------------------------------------
+- Locking issues case 1.2:
+-   Locking rows that do not exist without using all primary key
+-   columns in a WHERE clause
+-   using REPEATABLE READ transaction isolation level
+-----------------------------------------------------------------------
+DROP TABLE IF EXISTS t0;
+CREATE TABLE t0(id1 INT, id2 INT, value INT, PRIMARY KEY(id1, id2));
+INSERT INTO t0 VALUES (1,1,0), (3,3,0), (4,4,0), (6,6,0);
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+BEGIN;
+SELECT * FROM t0 WHERE id1=1 FOR UPDATE;
+id1	id2	value
+1	1	0
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+BEGIN;
+SELECT * FROM t0 WHERE id1=1 AND id2=4 FOR UPDATE;
+id1	id2	value
+INSERT INTO t0 VALUES (1,5,0);
+COMMIT;
+DROP TABLE t0;
+
+-----------------------------------------------------------------------
+- Locking issues case 1.2:
+-   Locking rows that do not exist without using all primary key
+-   columns in a WHERE clause
+-   using READ COMMITTED transaction isolation level
+-----------------------------------------------------------------------
+DROP TABLE IF EXISTS t0;
+CREATE TABLE t0(id1 INT, id2 INT, value INT, PRIMARY KEY(id1, id2));
+INSERT INTO t0 VALUES (1,1,0), (3,3,0), (4,4,0), (6,6,0);
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+BEGIN;
+SELECT * FROM t0 WHERE id1=1 FOR UPDATE;
+id1	id2	value
+1	1	0
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+BEGIN;
+SELECT * FROM t0 WHERE id1=1 AND id2=4 FOR UPDATE;
+id1	id2	value
+INSERT INTO t0 VALUES (1,5,0);
+COMMIT;
+DROP TABLE t0;
+
+-----------------------------------------------------------------------
+- Locking issues case 2:
+-   Locking rows that are scanned but not updated
+-   using REPEATABLE READ transaction isolation level
+-----------------------------------------------------------------------
+DROP TABLE IF EXISTS t0;
+CREATE TABLE t0(id INT PRIMARY KEY, value INT);
+INSERT INTO t0 VALUES (1,0), (2,0), (3,0), (4,0), (5,0);
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+BEGIN;
+SELECT * FROM t0 WHERE value > 0 FOR UPDATE;
+id	value
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+BEGIN;
+UPDATE t0 SET VALUE=10 WHERE id=1;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t0.PRIMARY
+SELECT * FROM t0 WHERE value>0 FOR UPDATE;
+id	value
+UPDATE t0 SET value=100;
+SELECT * FROM t0 FOR UPDATE;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t0.PRIMARY
+COMMIT;
+SELECT * FROM t0;
+id	value
+1	0
+2	0
+3	0
+4	0
+5	0
+COMMIT;
+SELECT * FROM t0 FOR UPDATE;
+id	value
+1	100
+2	100
+3	100
+4	100
+5	100
+DROP TABLE t0;
+
+-----------------------------------------------------------------------
+- Locking issues case 2:
+-   Locking rows that are scanned but not updated
+-   using READ COMMITTED transaction isolation level
+-----------------------------------------------------------------------
+DROP TABLE IF EXISTS t0;
+CREATE TABLE t0(id INT PRIMARY KEY, value INT);
+INSERT INTO t0 VALUES (1,0), (2,0), (3,0), (4,0), (5,0);
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+BEGIN;
+SELECT * FROM t0 WHERE value > 0 FOR UPDATE;
+id	value
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+BEGIN;
+UPDATE t0 SET VALUE=10 WHERE id=1;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t0.PRIMARY
+SELECT * FROM t0 WHERE value>0 FOR UPDATE;
+id	value
+UPDATE t0 SET value=100;
+SELECT * FROM t0 FOR UPDATE;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t0.PRIMARY
+COMMIT;
+SELECT * FROM t0;
+id	value
+1	0
+2	0
+3	0
+4	0
+5	0
+COMMIT;
+SELECT * FROM t0 FOR UPDATE;
+id	value
+1	100
+2	100
+3	100
+4	100
+5	100
+DROP TABLE t0;
+
+-----------------------------------------------------------------------
+- Locking issues case 3:
+-   After creating a snapshot, other clients updating rows
+-   using REPEATABLE READ transaction isolation level
+-----------------------------------------------------------------------
+DROP TABLE IF EXISTS t0;
+CREATE TABLE t0(id INT AUTO_INCREMENT PRIMARY KEY, value INT);
+Inserting 200,000 rows
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SELECT * FROM t0 WHERE value > 0 FOR UPDATE;
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+UPDATE t0 SET VALUE=VALUE+1 WHERE id=190000;
+ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
+DROP TABLE t0;
+
+-----------------------------------------------------------------------
+- Locking issues case 3:
+-   After creating a snapshot, other clients updating rows
+-   using READ COMMITTED transaction isolation level
+-----------------------------------------------------------------------
+DROP TABLE IF EXISTS t0;
+CREATE TABLE t0(id INT AUTO_INCREMENT PRIMARY KEY, value INT);
+Inserting 200,000 rows
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SELECT * FROM t0 WHERE value > 0 FOR UPDATE;
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+UPDATE t0 SET VALUE=VALUE+1 WHERE id=190000;
+ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
+DROP TABLE t0;
+
+-----------------------------------------------------------------------
+- Locking issues case 4:
+-   Phantom rows
+-   using REPEATABLE READ transaction isolation level
+-----------------------------------------------------------------------
+DROP TABLE IF EXISTS t0;
+CREATE TABLE t0(id INT AUTO_INCREMENT PRIMARY KEY, value INT);
+Inserting 200,000 rows
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SELECT * FROM t0 WHERE value > 0 FOR UPDATE;
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+INSERT INTO t0 VALUES(200001,1), (-1,1);
+id	value
+DROP TABLE t0;
+
+-----------------------------------------------------------------------
+- Locking issues case 4:
+-   Phantom rows
+-   using READ COMMITTED transaction isolation level
+-----------------------------------------------------------------------
+DROP TABLE IF EXISTS t0;
+CREATE TABLE t0(id INT AUTO_INCREMENT PRIMARY KEY, value INT);
+Inserting 200,000 rows
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SELECT * FROM t0 WHERE value > 0 FOR UPDATE;
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+INSERT INTO t0 VALUES(200001,1), (-1,1);
+id	value
+DROP TABLE t0;
+
+-----------------------------------------------------------------------
+- Locking issues case 5:
+-   Deleting primary key
+-   using REPEATABLE READ transaction isolation level
+-----------------------------------------------------------------------
+DROP TABLE IF EXISTS t0;
+CREATE TABLE t0(id INT AUTO_INCREMENT PRIMARY KEY, value INT);
+Inserting 200,000 rows
+UPDATE t0 SET value=100 WHERE id=190000;
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+BEGIN;
+SELECT * FROM t0 WHERE value > 0 FOR UPDATE;
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+BEGIN;
+DELETE FROM t0 WHERE id=190000;
+COMMIT;
+ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
+COMMIT;
+DROP TABLE t0;
+
+-----------------------------------------------------------------------
+- Locking issues case 5:
+-   Deleting primary key
+-   using READ COMMITTED transaction isolation level
+-----------------------------------------------------------------------
+DROP TABLE IF EXISTS t0;
+CREATE TABLE t0(id INT AUTO_INCREMENT PRIMARY KEY, value INT);
+Inserting 200,000 rows
+UPDATE t0 SET value=100 WHERE id=190000;
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+BEGIN;
+SELECT * FROM t0 WHERE value > 0 FOR UPDATE;
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+BEGIN;
+DELETE FROM t0 WHERE id=190000;
+COMMIT;
+ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
+COMMIT;
+DROP TABLE t0;
+
+-----------------------------------------------------------------------
+- Locking issues case 6:
+-   Changing primary key
+-   using REPEATABLE READ transaction isolation level
+-----------------------------------------------------------------------
+DROP TABLE IF EXISTS t0;
+CREATE TABLE t0(id INT AUTO_INCREMENT PRIMARY KEY, value INT);
+Inserting 200,000 rows
+UPDATE t0 SET value=100 WHERE id=190000;
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+BEGIN;
+SELECT * FROM t0 WHERE value > 0 FOR UPDATE;
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+BEGIN;
+UPDATE t0 SET id=200001 WHERE id=190000;
+COMMIT;
+ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
+COMMIT;
+DROP TABLE t0;
+
+-----------------------------------------------------------------------
+- Locking issues case 6:
+-   Changing primary key
+-   using READ COMMITTED transaction isolation level
+-----------------------------------------------------------------------
+DROP TABLE IF EXISTS t0;
+CREATE TABLE t0(id INT AUTO_INCREMENT PRIMARY KEY, value INT);
+Inserting 200,000 rows
+UPDATE t0 SET value=100 WHERE id=190000;
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+BEGIN;
+SELECT * FROM t0 WHERE value > 0 FOR UPDATE;
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+BEGIN;
+UPDATE t0 SET id=200001 WHERE id=190000;
+COMMIT;
+ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
+COMMIT;
+DROP TABLE t0;
