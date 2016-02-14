@@ -1,0 +1,10 @@
+################################################################################
+# This test is to test if mysqld can dump a core. See opt file for the config
+#   (1) core-file is set to enable core dump for mysqld
+#   (2) buffer pool is small so that the core size will be less than 512MB
+
+--source include/not_valgrind.inc
+
+--let $expected_max_core_size = 512
+
+--source include/mysqld_core_dump.inc

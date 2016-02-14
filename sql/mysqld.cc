@@ -2340,14 +2340,6 @@ err:
   sql_print_error("Fatal error: Can't change to run as user '%s' ;  Please check that the user exists!\n",user);
   unireg_abort(1);
 
-#ifdef PR_SET_DUMPABLE
-  if (opt_core_file)
-  {
-    /* inform kernel that process is dumpable */
-    (void) prctl(PR_SET_DUMPABLE, 1);
-  }
-#endif
-
 #endif
   return NULL;
 }
@@ -2377,6 +2369,14 @@ static void set_user(const char *user, struct passwd *user_info_arg)
   {
     sql_perror("setuid");
     unireg_abort(1);
+  }
+#endif
+
+#ifdef PR_SET_DUMPABLE
+  if (opt_core_file)
+  {
+    /* inform kernel that process is dumpable */
+    (void) prctl(PR_SET_DUMPABLE, 1);
   }
 #endif
   /* purecov: end */
