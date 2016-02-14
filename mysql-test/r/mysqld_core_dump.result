@@ -1,0 +1,9 @@
+# Get the full path name of the PID file
+# Expecting a "crash", but don't restart the server until it is told to
+# Expected max core size is 512 MB
+# Call Perl script to test if a core can be dumped
+# Perl: Sent a SIGSEGV to mysqld to dump a core.
+# Perl: OK! Found the core file and it's small, or skipped for Asan and Valgrind builds!
+# Clear error log to make sure there are no complains about it
+# Make server restart
+# Wait for server to be back online
