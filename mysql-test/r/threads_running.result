@@ -9,7 +9,7 @@ Threads_running	1
 SHOW STATUS LIKE 'Threads_binlog_client';
 Variable_name	Value
 Threads_binlog_client	1
-STOP SLAVE;
+include/stop_slave.inc
 FLUSH LOGS;
 drop table if exists t1, t2;
 create table t1 (a int);

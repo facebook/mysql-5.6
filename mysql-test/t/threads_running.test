@@ -4,7 +4,7 @@ SHOW STATUS LIKE 'Threads_running';
 SHOW STATUS LIKE 'Threads_binlog_client';
 
 connection slave;
-STOP SLAVE;
+source include/stop_slave.inc;
 
 connection master;
 
