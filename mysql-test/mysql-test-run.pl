@@ -5335,6 +5335,10 @@ sub mysqld_arguments ($$$) {
     mtr_add_arg($args, "%s", "--core-file");
   }
 
+  # Turn off the core dumping without large memory buffer so that
+  # the full core will be dumped
+  mtr_add_arg($args, "--innodb_dump_core_without_large_mem_buf=false");
+
   return $args;
 }
 
