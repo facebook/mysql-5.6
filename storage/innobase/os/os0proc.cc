@@ -57,6 +57,13 @@ UNIV_INTERN ibool os_use_large_pages;
 /* Large page size. This may be a boot-time option on some platforms */
 UNIV_INTERN ulint os_large_page_size;
 
+/* If core dump is enabled */
+extern my_bool opt_core_file;
+
+/* Boolean config knobs that tell Linux kernel whether to dump core without
+large memory buffer, e.g. InnoDB buffer pool, when core-file is enabled. */
+extern my_bool srv_dump_core_without_large_mem_buf;
+
 /****************************************************************//**
 Converts the current process id to a number. It is not guaranteed that the
 number is unique. In Linux returns the 'process number' of the current
@@ -197,6 +204,10 @@ skip:
 		os_fast_mutex_lock(&ut_list_mutex);
 		ut_total_allocated_memory += size;
 		os_fast_mutex_unlock(&ut_list_mutex);
+		/* Track the memory buffer when both core dump and
+		core dump without large memory buffer are enabled */
+		if (opt_core_file && srv_dump_core_without_large_mem_buf)
+			ut_track_large_mem_for_core_dump(ptr, size);
 		UNIV_MEM_ALLOC(ptr, size);
 	}
 #endif
@@ -277,6 +288,10 @@ os_mem_free_large(
 		ut_a(ut_total_allocated_memory >= size);
 		ut_total_allocated_memory -= size;
 		os_fast_mutex_unlock(&ut_list_mutex);
+		/* Track the memory buffer when both core dump and
+		core dump without large memory buffer are enabled */
+		if (opt_core_file && srv_dump_core_without_large_mem_buf)
+			ut_untrack_large_mem_for_core_dump(ptr, size);
 		UNIV_MEM_FREE(ptr, size);
 	}
 #endif
