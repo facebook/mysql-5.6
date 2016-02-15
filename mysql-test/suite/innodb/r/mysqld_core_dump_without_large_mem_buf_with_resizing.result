@@ -1,0 +1,17 @@
+set global innodb_adaptive_hash_index=ON;
+set global innodb_buffer_pool_size = 21474836480;
+select @@innodb_buffer_pool_size;
+@@innodb_buffer_pool_size
+21474836480
+set global innodb_adaptive_hash_index=OFF;
+set global innodb_buffer_pool_size = 64424509440;
+select @@innodb_buffer_pool_size;
+@@innodb_buffer_pool_size
+64424509440
+# Get the full path name of the PID file
+# Expecting a "crash", but don't restart the server until it is told to
+# Expected max core size is 5632 MB
+# Perl: Sent a SIGSEGV to mysqld to dump a core.
+# Perl: OK! Found the core file and it's small!
+# Make server restart
+# Wait for server to be back online

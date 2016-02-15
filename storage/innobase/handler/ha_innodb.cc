@@ -240,6 +240,10 @@ bool srv_buffer_pool_in_core_file = TRUE;
 
 extern thread_local ulint ut_rnd_ulint_counter;
 
+/* Boolean config knobs that tell Linux kernel whether to dump core without
+large memory buffer, e.g. InnoDB buffer pool, when core-file is enabled. */
+bool srv_dump_core_without_large_mem_buf = TRUE;
+
 /** Percentage of the buffer pool to reserve for 'old' blocks.
 Connected to buf_LRU_old_ratio. */
 static uint innobase_old_blocks_pct;
@@ -21678,6 +21682,13 @@ static MYSQL_SYSVAR_ULONG(
     "Dump only the hottest N% of each buffer pool, defaults to 25", NULL, NULL,
     25, 1, 100, 0);
 
+static MYSQL_SYSVAR_BOOL(
+    dump_core_without_large_mem_buf, srv_dump_core_without_large_mem_buf,
+    PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,
+    "Dump core without large memory buffer. Default value is TRUE. "
+    "Disable with --skip-innodb-dump-core-without-large-mem-buf.",
+    NULL, NULL, TRUE);
+
 #ifdef UNIV_DEBUG
 static MYSQL_SYSVAR_STR(buffer_pool_evict, srv_buffer_pool_evict,
                         PLUGIN_VAR_RQCMDARG, "Evict pages from the buffer pool",
@@ -22466,6 +22477,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(buffer_pool_filename),
     MYSQL_SYSVAR(buffer_pool_dump_now),
     MYSQL_SYSVAR(buffer_pool_dump_at_shutdown),
+    MYSQL_SYSVAR(dump_core_without_large_mem_buf),
     MYSQL_SYSVAR(buffer_pool_in_core_file),
     MYSQL_SYSVAR(buffer_pool_dump_pct),
 #ifdef UNIV_DEBUG

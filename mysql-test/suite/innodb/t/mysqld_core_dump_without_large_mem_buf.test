@@ -1,0 +1,18 @@
+################################################################################
+# This test is to test if mysqld can dump a core without large memory buffers.
+# See opt file for the config:
+#   (1) --innodb-dump-core-without-large-mem-buf is set
+#   (2) the buffer pool is set to be large so that without dropping the large
+#       memory buffers the core size will be much greater than 3.5GB (the actual
+#       core size is less than 3GB now but set the limit to 3.5GB here in case
+#       the memory footprint increases in the future)
+
+--source include/big_test.inc
+--source include/not_valgrind.inc
+--source include/linux_core_pattern.inc
+
+--let $restart_parameters = restart:--log-error=$MYSQLTEST_VARDIR/log/core_dump.err
+--source include/restart_mysqld_no_echo.inc
+
+--let $expected_max_core_size = 3584
+--source include/mysqld_core_dump.inc

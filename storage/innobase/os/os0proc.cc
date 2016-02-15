@@ -73,6 +73,13 @@ bool os_use_large_pages;
 /** Large page size. This may be a boot-time option on some platforms */
 uint os_large_page_size;
 
+/* If core dump is enabled */
+extern bool opt_core_file;
+
+/* Boolean config knobs that tell Linux kernel whether to dump core without
+large memory buffer, e.g. InnoDB buffer pool, when core-file is enabled. */
+extern bool srv_dump_core_without_large_mem_buf;
+
 /** Converts the current process id to a number.
 @return process id as a number */
 ulint os_proc_get_number(void) {
@@ -180,6 +187,10 @@ skip:
     ptr = NULL;
   } else {
     os_atomic_increment_ulint(&os_total_large_mem_allocated, size);
+    /* Dump core without large memory buffers */
+    if (opt_core_file && srv_dump_core_without_large_mem_buf) {
+      madvise(ptr, size, MADV_DONTDUMP);
+    }
     UNIV_MEM_ALLOC(ptr, size);
   }
 #endif
@@ -242,6 +253,10 @@ void os_mem_free_large(void *ptr, ulint size) {
                              << errno;
   } else {
     os_atomic_decrement_ulint(&os_total_large_mem_allocated, size);
+    /* Undo the effect of the earlier MADV_DONTDUMP */
+    if (opt_core_file && srv_dump_core_without_large_mem_buf) {
+      madvise(ptr, size, MADV_DODUMP);
+    }
     UNIV_MEM_FREE(ptr, size);
   }
 #endif

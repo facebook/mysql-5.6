@@ -1,0 +1,20 @@
+--source include/load_sysvars.inc
+
+select @@global.innodb_dump_core_without_large_mem_buf;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.innodb_dump_core_without_large_mem_buf;
+
+show global variables like 'innodb_dump_core_without_large_mem_buf';
+show session variables like 'innodb_dump_core_without_large_mem_buf';
+
+select * from performance_schema.global_variables where variable_name='innodb_dump_core_without_large_mem_buf';
+select * from performance_schema.session_variables where variable_name='innodb_dump_core_without_large_mem_buf';
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set global innodb_dump_core_without_large_mem_buf = default;
+--echo Expected error 'Read only variable'
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set global innodb_dump_core_without_large_mem_buf = true;
+--echo Expected error 'Read only variable'

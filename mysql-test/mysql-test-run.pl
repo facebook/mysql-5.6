@@ -5891,6 +5891,7 @@ sub mysqld_arguments ($$$) {
   my $found_skip_core  = 0;
   my $found_no_console = 0;
   my $found_log_error  = 0;
+  my $innodb_dump_core_without_large_mem_buf = 0;
 
   # Check if the option 'log-error' is found in the .cnf file
   # In the group defined for the server
@@ -5920,6 +5921,9 @@ sub mysqld_arguments ($$$) {
       # Allow --skip-core-file to be set in <testname>-[master|slave].opt file
       $found_skip_core = 1;
       next;
+    } elsif ($arg eq "--innodb-dump-core-without-large-mem-buf") {
+      $innodb_dump_core_without_large_mem_buf = 1;
+      next;
     } elsif ($arg eq "--no-console") {
       $found_no_console = 1;
       next;
@@ -5946,6 +5950,11 @@ sub mysqld_arguments ($$$) {
 
   if (!$found_skip_core && !$opt_user_args) {
     mtr_add_arg($args, "%s", "--core-file");
+  }
+
+  # Set the default value to false so that the full core will be dumped
+  if ( !$innodb_dump_core_without_large_mem_buf) {
+      mtr_add_arg($args, "--skip-innodb-dump-core-without-large-mem-buf");
   }
 
   return $args;

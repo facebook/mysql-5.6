@@ -1,22 +1,23 @@
-SET @old_val = @@global.core_file;
-SET GLOBAL core_file = FALSE;
-SELECT @@core_file;
-@@core_file
-0
-SHOW GLOBAL VARIABLES LIKE 'core_file';
-Variable_name	Value
-core_file	OFF
-SELECT * FROM performance_schema.global_variables WHERE VARIABLE_NAME = 'core_file';
-VARIABLE_NAME	VARIABLE_VALUE
-core_file	OFF
-SET GLOBAL core_file = TRUE;
-SELECT @@core_file;
-@@core_file
+select @@global.core_file;
+@@global.core_file
 1
-SHOW GLOBAL VARIABLES LIKE 'core_file';
+select @@session.core_file;
+ERROR HY000: Variable 'core_file' is a GLOBAL variable
+show global variables like 'core_file';
 Variable_name	Value
 core_file	ON
-SELECT * FROM performance_schema.global_variables WHERE VARIABLE_NAME = 'core_file';
+show session variables like 'core_file';
+Variable_name	Value
+core_file	ON
+select * from performance_schema.global_variables where variable_name='core_file';
 VARIABLE_NAME	VARIABLE_VALUE
 core_file	ON
-SET @@global.core_file = @old_val;
+select * from performance_schema.session_variables where variable_name='core_file';
+VARIABLE_NAME	VARIABLE_VALUE
+core_file	ON
+set global core_file = default;
+ERROR HY000: Variable 'core_file' is a read only variable
+Expected error 'Read only variable'
+set global core_file = true;
+ERROR HY000: Variable 'core_file' is a read only variable
+Expected error 'Read only variable'

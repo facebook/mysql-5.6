@@ -1,0 +1,51 @@
+################################################################################
+# This test is to test if mysqld can dump a core without large memory buffers.
+# See opt file for the config:
+#   (1) --innodb-dump-core-without-large-mem-buf is set
+#   (2) the buffer pool is set to be large initially, shrink it, then expand
+#       it back to the original large size, without dropping the large memory
+#       buffers the core size will be much greater than 5.5GB (the actual
+#       core size is less than 5GB now but set the limit to 5.5GB here in case
+#       the memory footprint increases in the future)
+
+--source include/big_test.inc
+--source include/not_valgrind.inc
+--source include/linux_core_pattern.inc
+
+--let $restart_parameters = restart:--log-error=$MYSQLTEST_VARDIR/log/core_dump.err
+--source include/restart_mysqld_no_echo.inc
+
+let $wait_timeout = 600;
+let $wait_condition =
+  SELECT SUBSTR(variable_value, 1, 34) = 'Completed resizing buffer pool at '
+  FROM performance_schema.global_status
+  WHERE LOWER(variable_name) = 'innodb_buffer_pool_resize_status';
+
+--disable_query_log
+set @old_innodb_buffer_pool_size = @@innodb_buffer_pool_size;
+set @old_innodb_adaptive_hash_index = @@innodb_adaptive_hash_index;
+--enable_query_log
+
+set global innodb_adaptive_hash_index=ON;
+
+# Shrink buffer pool to 20GB
+set global innodb_buffer_pool_size = 21474836480;
+--source include/wait_condition.inc
+
+select @@innodb_buffer_pool_size;
+
+set global innodb_adaptive_hash_index=OFF;
+
+# Expand buffer pool back to 60GB
+set global innodb_buffer_pool_size = 64424509440;
+--source include/wait_condition.inc
+
+select @@innodb_buffer_pool_size;
+
+--disable_query_log
+set global innodb_buffer_pool_size = @old_innodb_buffer_pool_size;
+set global innodb_adaptive_hash_index = @old_innodb_adaptive_hash_index;
+--enable_query_log
+
+--let $expected_max_core_size = 5632
+--source include/mysqld_core_dump.inc

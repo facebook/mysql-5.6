@@ -1,0 +1,23 @@
+select @@global.innodb_dump_core_without_large_mem_buf;
+@@global.innodb_dump_core_without_large_mem_buf
+0
+select @@session.innodb_dump_core_without_large_mem_buf;
+ERROR HY000: Variable 'innodb_dump_core_without_large_mem_buf' is a GLOBAL variable
+show global variables like 'innodb_dump_core_without_large_mem_buf';
+Variable_name	Value
+innodb_dump_core_without_large_mem_buf	OFF
+show session variables like 'innodb_dump_core_without_large_mem_buf';
+Variable_name	Value
+innodb_dump_core_without_large_mem_buf	OFF
+select * from performance_schema.global_variables where variable_name='innodb_dump_core_without_large_mem_buf';
+VARIABLE_NAME	VARIABLE_VALUE
+innodb_dump_core_without_large_mem_buf	OFF
+select * from performance_schema.session_variables where variable_name='innodb_dump_core_without_large_mem_buf';
+VARIABLE_NAME	VARIABLE_VALUE
+innodb_dump_core_without_large_mem_buf	OFF
+set global innodb_dump_core_without_large_mem_buf = default;
+ERROR HY000: Variable 'innodb_dump_core_without_large_mem_buf' is a read only variable
+Expected error 'Read only variable'
+set global innodb_dump_core_without_large_mem_buf = true;
+ERROR HY000: Variable 'innodb_dump_core_without_large_mem_buf' is a read only variable
+Expected error 'Read only variable'

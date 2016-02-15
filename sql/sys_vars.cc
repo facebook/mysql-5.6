@@ -1274,7 +1274,7 @@ static bool prevent_global_rbr_exec_mode_idempotent(sys_var *self, THD *thd,
 }
 
 static Sys_var_bool Sys_core_file("core_file", "write a core-file on crashes",
-                                  GLOBAL_VAR(opt_core_file), NO_CMD_LINE,
+                                  READ_ONLY GLOBAL_VAR(opt_core_file), NO_CMD_LINE,
                                   DEFAULT(false));
 
 static Sys_var_bool Sys_skip_core_dump_on_error(

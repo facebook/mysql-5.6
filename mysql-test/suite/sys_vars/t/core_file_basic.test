@@ -1,15 +1,20 @@
-SET @old_val = @@global.core_file;
+--source include/load_sysvars.inc
 
-SET GLOBAL core_file = FALSE;
+select @@global.core_file;
 
-SELECT @@core_file;
-SHOW GLOBAL VARIABLES LIKE 'core_file';
-SELECT * FROM performance_schema.global_variables WHERE VARIABLE_NAME = 'core_file';
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.core_file;
 
-SET GLOBAL core_file = TRUE;
+show global variables like 'core_file';
+show session variables like 'core_file';
 
-SELECT @@core_file;
-SHOW GLOBAL VARIABLES LIKE 'core_file';
-SELECT * FROM performance_schema.global_variables WHERE VARIABLE_NAME = 'core_file';
+select * from performance_schema.global_variables where variable_name='core_file';
+select * from performance_schema.session_variables where variable_name='core_file';
 
-SET @@global.core_file = @old_val;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set global core_file = default;
+--echo Expected error 'Read only variable'
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set global core_file = true;
+--echo Expected error 'Read only variable'
