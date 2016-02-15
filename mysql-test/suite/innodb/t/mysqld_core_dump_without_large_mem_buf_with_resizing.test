@@ -1,0 +1,46 @@
+################################################################################
+# This test is to test if mysqld can dump a core without large memory buffers.
+# See opt file for the config:
+#   (1) --innodb-dump-core-without-large-mem-buf is set
+#   (2) the buffer pool is set to be large initially, shrink it, then expand
+#       it back to the original large size, without dropping the large memory
+#       buffers the core size will be much greater than 5.5GB (the actual
+#       core size is less than 5GB now but set the limit to 5.5GB here in case
+#       the memory footprint increases in the future)
+
+--source include/not_valgrind.inc
+--source include/have_innodb.inc
+
+# Embedded mode doesn't support restart
+--source include/not_embedded.inc
+
+--echo # Shutdown server
+--source include/shutdown_mysqld.inc
+
+--echo # Restart server with --log-error
+--exec echo "restart:--log-error=$MYSQLTEST_VARDIR/log/core_dump_with_resizing.err" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+
+--source suite/innodb/t/innodb-buffer-pool-resize-setup.inc
+
+# Shrink buffer pool to 20GB
+set global innodb_buffer_pool_size = 21474836480;
+--source include/wait_condition.inc
+
+set global innodb_adaptive_hash_index=OFF;
+
+# Expand buffer pool back to 60GB
+set global innodb_buffer_pool_size = 64424509440;
+--source include/wait_condition.inc
+
+--disable_query_log
+set global innodb_buffer_pool_size = @old_innodb_buffer_pool_size;
+set global innodb_file_format = @old_innodb_file_format;
+set global innodb_file_per_table = @old_innodb_file_per_table;
+set global innodb_adaptive_hash_index = @old_innodb_adaptive_hash_index;
+--enable_query_log
+--source include/wait_condition.inc
+
+--let $expected_max_core_size = 5632
+--source include/mysqld_core_dump.inc
