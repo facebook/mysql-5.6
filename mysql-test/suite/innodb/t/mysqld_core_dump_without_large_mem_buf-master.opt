@@ -1,0 +1,2 @@
+--innodb-dump-core-without-large-mem-buf
+--innodb-buffer-pool-size=60G
