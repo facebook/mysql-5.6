@@ -30,10 +30,16 @@ if ($pid eq "") {
 $cur_time = time;
 
 # Kill mysqld to dump a core
-system("kill", "-s", "SIGABRT", "$pid");
-print "# Perl: Sent a SIGABRT to mysqld to dump a core.\n";
+system("kill", "-s", "SIGSEGV", "$pid");
+print "# Perl: Sent a SIGSEGV to mysqld to dump a core.\n";
 
-$core_dir = $ENV{'MYSQLTEST_VARDIR'} . '/mysqld.1/data/';
+# Get the core file pattern, e.g. /var/tmp/cores/%e.%p
+$core_pattern = `cat /proc/sys/kernel/core_pattern`;
+
+$last_slash = rindex($core_pattern, '/');
+
+# The core file directory, e.g. /var/tmp/cores
+$core_dir = substr($core_pattern, 0, $last_slash);
 
 $found_core = 0;
 $core_size = 0;
