@@ -1,0 +1,50 @@
+--source include/have_innodb.inc
+--source include/load_sysvars.inc
+
+SET @start_innodb_dump_core_without_large_mem_buf = @@global.innodb_dump_core_without_large_mem_buf;
+SELECT @start_innodb_dump_core_without_large_mem_buf;
+
+select @@global.innodb_dump_core_without_large_mem_buf;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.innodb_dump_core_without_large_mem_buf;
+
+show global variables like 'innodb_dump_core_without_large_mem_buf';
+
+show session variables like 'innodb_dump_core_without_large_mem_buf';
+
+select * from information_schema.global_variables where variable_name='innodb_dump_core_without_large_mem_buf';
+
+select * from information_schema.session_variables where variable_name='innodb_dump_core_without_large_mem_buf';
+
+set global innodb_dump_core_without_large_mem_buf = default;
+select @@global.innodb_dump_core_without_large_mem_buf;
+
+set global innodb_dump_core_without_large_mem_buf = true;
+select @@global.innodb_dump_core_without_large_mem_buf;
+
+set global innodb_dump_core_without_large_mem_buf = false;
+select @@global.innodb_dump_core_without_large_mem_buf;
+
+set global innodb_dump_core_without_large_mem_buf = on;
+select @@global.innodb_dump_core_without_large_mem_buf;
+
+set global innodb_dump_core_without_large_mem_buf = off;
+select @@global.innodb_dump_core_without_large_mem_buf;
+
+set global innodb_dump_core_without_large_mem_buf = 1;
+select @@global.innodb_dump_core_without_large_mem_buf;
+
+set global innodb_dump_core_without_large_mem_buf = 0;
+select @@global.innodb_dump_core_without_large_mem_buf;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.innodb_dump_core_without_large_mem_buf = 100;
+SELECT @@global.innodb_dump_core_without_large_mem_buf;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.innodb_dump_core_without_large_mem_buf = 1000.01;
+SELECT @@global.innodb_dump_core_without_large_mem_buf;
+
+SET @@global.innodb_dump_core_without_large_mem_buf = @start_innodb_dump_core_without_large_mem_buf;
+SELECT @@global.innodb_dump_core_without_large_mem_buf;
