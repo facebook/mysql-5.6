@@ -254,6 +254,33 @@ ut_str_sql_format(
 	ulint		buf_size);	/*!< in: output buffer size
 					in bytes */
 
+/*******************************************************************//**
+Track a large allocated memory buffer for core dumping. */
+UNIV_INTERN
+void
+ut_track_large_mem_for_core_dump(
+/*==============*/
+	void *ptr,	/*!< in: starting address of the buffer */
+	size_t size);	/*!< in: size of the buffer in bytes */
+
+/*******************************************************************//**
+Untrack a large allocated memory buffer for core dumping. */
+UNIV_INTERN
+void
+ut_untrack_large_mem_for_core_dump(
+/*==============*/
+	void *ptr,	/*!< in: starting address of the buffer */
+	size_t size);	/*!< in: size of the buffer in bytes */
+
+/*******************************************************************//**
+Advise core dumping with or without large memory buffer. */
+UNIV_INTERN
+void
+ut_advise_core_dump(
+/*==============*/
+	ibool dump_without_large_mem_buf);	/*!< in: dump core without
+						large memory buffer */
+
 #ifndef UNIV_NONINL
 #include "ut0mem.ic"
 #endif

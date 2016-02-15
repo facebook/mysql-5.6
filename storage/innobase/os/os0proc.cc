@@ -197,6 +197,7 @@ skip:
 		os_fast_mutex_lock(&ut_list_mutex);
 		ut_total_allocated_memory += size;
 		os_fast_mutex_unlock(&ut_list_mutex);
+		ut_track_large_mem_for_core_dump(ptr, size);
 		UNIV_MEM_ALLOC(ptr, size);
 	}
 #endif
@@ -277,6 +278,7 @@ os_mem_free_large(
 		ut_a(ut_total_allocated_memory >= size);
 		ut_total_allocated_memory -= size;
 		os_fast_mutex_unlock(&ut_list_mutex);
+		ut_untrack_large_mem_for_core_dump(ptr, size);
 		UNIV_MEM_FREE(ptr, size);
 	}
 #endif
