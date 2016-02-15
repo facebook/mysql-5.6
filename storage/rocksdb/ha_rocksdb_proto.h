@@ -46,15 +46,15 @@ void request_save_stats();
 
 class Dict_manager;
 Dict_manager *get_dict_manager(void)
-  MY_ATTRIBUTE((__returns_nonnull__, __warn_unused_result__));
+  MY_ATTRIBUTE((__warn_unused_result__));
 
 class Table_ddl_manager;
 Table_ddl_manager *get_ddl_manager(void)
-  MY_ATTRIBUTE((__returns_nonnull__, __warn_unused_result__));
+  MY_ATTRIBUTE((__warn_unused_result__));
 
 class Binlog_info_manager;
 Binlog_info_manager *get_binlog_manager(void)
-  MY_ATTRIBUTE((__returns_nonnull__, __warn_unused_result__));
+  MY_ATTRIBUTE((__warn_unused_result__));
 
 }  // namespace myrocks
 
