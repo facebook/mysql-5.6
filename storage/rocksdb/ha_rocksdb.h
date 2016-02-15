@@ -594,7 +594,6 @@ public:
   ulong index_flags(uint inx, uint part, bool all_parts) const;
 
   const key_map * keys_to_use_for_scanning()
-    MY_ATTRIBUTE((__returns_nonnull__))
   {
     return &key_map_full;
   }
