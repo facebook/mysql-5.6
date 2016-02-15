@@ -5283,6 +5283,7 @@ sub mysqld_arguments ($$$) {
   # override defaults above.
 
   my $found_skip_core= 0;
+  my $innodb_dump_core_without_large_mem_buf= 0;
   my $found_no_console= 0;
   my $found_log_error= 0;
   foreach my $arg ( @$extra_opts )
@@ -5300,6 +5301,10 @@ sub mysqld_arguments ($$$) {
     if ($arg eq "--skip-core-file")
     {
       $found_skip_core= 1;
+    }
+    elsif ($arg eq "--innodb-dump-core-without-large-mem-buf")
+    {
+      $innodb_dump_core_without_large_mem_buf= 1;
     }
     elsif ($arg eq "--no-console")
     {
@@ -5335,6 +5340,11 @@ sub mysqld_arguments ($$$) {
     mtr_add_arg($args, "%s", "--core-file");
   }
 
+  # Set the default value to false so that the full core will be dumped
+  if ( !$innodb_dump_core_without_large_mem_buf)
+  {
+    mtr_add_arg($args, "--skip-innodb-dump-core-without-large-mem-buf");
+  }
   return $args;
 }
 
