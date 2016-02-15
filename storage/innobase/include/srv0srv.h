@@ -217,6 +217,10 @@ and/or load it during startup. */
 extern char		srv_buffer_pool_dump_at_shutdown;
 extern char		srv_buffer_pool_load_at_startup;
 
+/* Boolean config knobs that tell Linux kernel whether to dump core without
+large memory buffer, e.g. InnoDB buffer pool, when core-file is enabled. */
+extern my_bool		srv_dump_core_without_large_mem_buf;
+
 /* Whether to disable file system cache if it is defined */
 extern char		srv_disable_sort_file_cache;
 

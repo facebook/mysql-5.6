@@ -5283,6 +5283,7 @@ sub mysqld_arguments ($$$) {
   # override defaults above.
 
   my $found_skip_core= 0;
+  my $innodb_dump_core_without_large_mem_buf= 0;
   my $found_no_console= 0;
   my $found_log_error= 0;
   foreach my $arg ( @$extra_opts )
@@ -5314,6 +5315,14 @@ sub mysqld_arguments ($$$) {
     {
       ; # Dont add --skip-log-bin when mysqld have --log-slave-updates in config
     }
+    elsif ($arg =~ m/^--innodb_dump_core_without_large_mem_buf=(.*)/)
+    {
+      my $val = lc($1);
+      if ($val eq "true" || $val eq "on")
+      {
+        $innodb_dump_core_without_large_mem_buf= 1;
+      }
+    }
     elsif ($arg eq "")
     {
       # We can get an empty argument when  we set environment variables to ""
@@ -5335,6 +5344,11 @@ sub mysqld_arguments ($$$) {
     mtr_add_arg($args, "%s", "--core-file");
   }
 
+  # Set the default value to false so that the full core will be dumped
+  if ( !$innodb_dump_core_without_large_mem_buf)
+  {
+    mtr_add_arg($args, "--innodb_dump_core_without_large_mem_buf=false");
+  }
   return $args;
 }
 

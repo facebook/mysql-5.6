@@ -1,0 +1,63 @@
+SET @start_innodb_dump_core_without_large_mem_buf = @@global.innodb_dump_core_without_large_mem_buf;
+SELECT @start_innodb_dump_core_without_large_mem_buf;
+@start_innodb_dump_core_without_large_mem_buf
+0
+select @@global.innodb_dump_core_without_large_mem_buf;
+@@global.innodb_dump_core_without_large_mem_buf
+0
+select @@session.innodb_dump_core_without_large_mem_buf;
+ERROR HY000: Variable 'innodb_dump_core_without_large_mem_buf' is a GLOBAL variable
+show global variables like 'innodb_dump_core_without_large_mem_buf';
+Variable_name	Value
+innodb_dump_core_without_large_mem_buf	OFF
+show session variables like 'innodb_dump_core_without_large_mem_buf';
+Variable_name	Value
+innodb_dump_core_without_large_mem_buf	OFF
+select * from information_schema.global_variables where variable_name='innodb_dump_core_without_large_mem_buf';
+VARIABLE_NAME	VARIABLE_VALUE
+INNODB_DUMP_CORE_WITHOUT_LARGE_MEM_BUF	OFF
+select * from information_schema.session_variables where variable_name='innodb_dump_core_without_large_mem_buf';
+VARIABLE_NAME	VARIABLE_VALUE
+INNODB_DUMP_CORE_WITHOUT_LARGE_MEM_BUF	OFF
+set global innodb_dump_core_without_large_mem_buf = default;
+select @@global.innodb_dump_core_without_large_mem_buf;
+@@global.innodb_dump_core_without_large_mem_buf
+1
+set global innodb_dump_core_without_large_mem_buf = true;
+select @@global.innodb_dump_core_without_large_mem_buf;
+@@global.innodb_dump_core_without_large_mem_buf
+1
+set global innodb_dump_core_without_large_mem_buf = false;
+select @@global.innodb_dump_core_without_large_mem_buf;
+@@global.innodb_dump_core_without_large_mem_buf
+0
+set global innodb_dump_core_without_large_mem_buf = on;
+select @@global.innodb_dump_core_without_large_mem_buf;
+@@global.innodb_dump_core_without_large_mem_buf
+1
+set global innodb_dump_core_without_large_mem_buf = off;
+select @@global.innodb_dump_core_without_large_mem_buf;
+@@global.innodb_dump_core_without_large_mem_buf
+0
+set global innodb_dump_core_without_large_mem_buf = 1;
+select @@global.innodb_dump_core_without_large_mem_buf;
+@@global.innodb_dump_core_without_large_mem_buf
+1
+set global innodb_dump_core_without_large_mem_buf = 0;
+select @@global.innodb_dump_core_without_large_mem_buf;
+@@global.innodb_dump_core_without_large_mem_buf
+0
+SET @@global.innodb_dump_core_without_large_mem_buf = 100;
+ERROR 42000: Variable 'innodb_dump_core_without_large_mem_buf' can't be set to the value of '100'
+SELECT @@global.innodb_dump_core_without_large_mem_buf;
+@@global.innodb_dump_core_without_large_mem_buf
+0
+SET @@global.innodb_dump_core_without_large_mem_buf = 1000.01;
+ERROR 42000: Incorrect argument type to variable 'innodb_dump_core_without_large_mem_buf'
+SELECT @@global.innodb_dump_core_without_large_mem_buf;
+@@global.innodb_dump_core_without_large_mem_buf
+0
+SET @@global.innodb_dump_core_without_large_mem_buf = @start_innodb_dump_core_without_large_mem_buf;
+SELECT @@global.innodb_dump_core_without_large_mem_buf;
+@@global.innodb_dump_core_without_large_mem_buf
+0

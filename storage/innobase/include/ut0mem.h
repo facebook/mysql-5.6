@@ -78,6 +78,18 @@ ut_mem_init(void);
 /*=============*/
 
 /**********************************************************************//**
+Initializes the mem buffer hash table for core dump.
+* @param buf_pool_size         in: buffer pool size in bytes
+* @param buf_pool_instance_num in: number of buffer pool instances
+* @param buf_pool_chunk_size   in: buffer pool chunk size in bytes */
+UNIV_INTERN
+void
+ut_core_dump_mem_hash_init(ulint buf_pool_size,
+			   ulint buf_pool_instance_num,
+			   ulint buf_pool_chunk_size);
+/*=============*/
+
+/**********************************************************************//**
 Allocates memory.
 @return	own: allocated memory */
 UNIV_INTERN
@@ -253,6 +265,33 @@ ut_str_sql_format(
 	char*		buf,		/*!< out: output buffer */
 	ulint		buf_size);	/*!< in: output buffer size
 					in bytes */
+
+/*******************************************************************//**
+Track a large allocated memory buffer for core dumping. */
+UNIV_INTERN
+void
+ut_track_large_mem_for_core_dump(
+/*==============*/
+	void *ptr,	/*!< in: starting address of the buffer */
+	size_t size);	/*!< in: size of the buffer in bytes */
+
+/*******************************************************************//**
+Untrack a large allocated memory buffer for core dumping. */
+UNIV_INTERN
+void
+ut_untrack_large_mem_for_core_dump(
+/*==============*/
+	void *ptr,	/*!< in: starting address of the buffer */
+	size_t size);	/*!< in: size of the buffer in bytes */
+
+/*******************************************************************//**
+Advise core dumping with or without large memory buffer. */
+UNIV_INTERN
+void
+ut_advise_core_dump(
+/*==============*/
+	ibool dump_without_large_mem_buf);	/*!< in: dump core without
+						large memory buffer */
 
 #ifndef UNIV_NONINL
 #include "ut0mem.ic"
