@@ -142,6 +142,10 @@ static ulong innobase_read_io_threads;
 static ulong innobase_write_io_threads;
 static long innobase_buffer_pool_instances = 1;
 
+/* Boolean config knobs that tell Linux kernel whether to dump core without
+large memory buffer, e.g. InnoDB buffer pool, when core-file is enabled. */
+my_bool srv_dump_core_without_large_mem_buf = TRUE;
+
 long long innobase_buffer_pool_size;
 static long long innobase_log_file_size;
 static unsigned long innobase_sync_pool_size;
@@ -17970,6 +17974,13 @@ static MYSQL_SYSVAR_BOOL(buffer_pool_dump_at_shutdown, srv_buffer_pool_dump_at_s
   "Dump the buffer pool into a file named @@innodb_buffer_pool_filename",
   NULL, NULL, FALSE);
 
+static MYSQL_SYSVAR_BOOL(dump_core_without_large_mem_buf,
+  srv_dump_core_without_large_mem_buf,
+  PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,
+  "Dump core without large memory buffer. Default value is TRUE. "
+  "Disable with --skip-innodb-dump-core-without-large-mem-buf.",
+  NULL, NULL, TRUE);
+
 #ifdef UNIV_DEBUG
 static MYSQL_SYSVAR_STR(buffer_pool_evict, srv_buffer_pool_evict,
   PLUGIN_VAR_RQCMDARG,
@@ -18643,6 +18654,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(buffer_pool_filename),
   MYSQL_SYSVAR(buffer_pool_dump_now),
   MYSQL_SYSVAR(buffer_pool_dump_at_shutdown),
+  MYSQL_SYSVAR(dump_core_without_large_mem_buf),
   MYSQL_SYSVAR(evicted_pages_sampling_ratio),
   MYSQL_SYSVAR(buffer_pool_resizing_timeout),
   MYSQL_SYSVAR(histogram_step_size_async_read),

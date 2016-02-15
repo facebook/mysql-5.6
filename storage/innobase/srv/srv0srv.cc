@@ -1206,6 +1206,9 @@ srv_general_init(void)
 /*==================*/
 {
 	ut_mem_init();
+	ut_core_dump_mem_hash_init(srv_buf_pool_size,
+				   srv_buf_pool_instances,
+				   srv_buf_pool_chunk_unit);
 	/* Reset the system variables in the recovery module. */
 	recv_sys_var_init();
 	os_sync_init();

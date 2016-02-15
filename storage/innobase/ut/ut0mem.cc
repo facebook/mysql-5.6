@@ -24,6 +24,7 @@ Created 5/11/1994 Heikki Tuuri
 *************************************************************************/
 
 #include "ut0mem.h"
+#include "hash0hash.h"
 
 #ifdef UNIV_NONINL
 #include "ut0mem.ic"
@@ -43,9 +44,13 @@ UNIV_INTERN ulint		ut_total_allocated_memory	= 0;
 /** Mutex protecting ut_total_allocated_memory and ut_mem_block_list */
 UNIV_INTERN os_fast_mutex_t	ut_list_mutex;
 
+/** Mutex protecting core_dump_mem_hash */
+UNIV_INTERN os_fast_mutex_t	ut_core_dump_mem_hash_mutex;
+
 #ifdef UNIV_PFS_MUTEX
 /* Key to register server_mutex with performance schema */
 UNIV_INTERN mysql_pfs_key_t	ut_list_mutex_key;
+UNIV_INTERN mysql_pfs_key_t	ut_core_dump_mem_hash_mutex_key;
 #endif
 
 /** Dynamically allocated memory block */
@@ -67,6 +72,19 @@ static UT_LIST_BASE_NODE_T(ut_mem_block_t)   ut_mem_block_list;
 /** Flag: has ut_mem_block_list been initialized? */
 static ibool  ut_mem_block_list_inited = FALSE;
 
+/** Track allocated memory blocks for core dump */
+struct ut_mem_t {
+	void* start;			/*!< starting address of the buffer */
+	size_t size;			/*!< size of the buffer in bytes */
+	ut_mem_t* next;			/*!< pointer for hash chain */
+};
+/** Hash table for tracking memory buffer for core dump.
+Protected by ut_core_dump_mem_hash_mutex. */
+static hash_table_t* core_dump_mem_hash;
+
+/** Flag: has ut_mem_list been initialized? */
+static ibool  ut_core_dump_mem_hash_inited = FALSE;
+
 /** A dummy pointer for generating a null pointer exception in
 ut_malloc_low() */
 static ulint*	ut_mem_null_ptr	= NULL;
@@ -82,6 +100,37 @@ ut_mem_init(void)
 	os_fast_mutex_init(ut_list_mutex_key, &ut_list_mutex);
 	UT_LIST_INIT(ut_mem_block_list);
 	ut_mem_block_list_inited = TRUE;
+}
+
+/**********************************************************************//**
+Initializes the mem buffer hash table for core dump.
+* @param buf_pool_size         in: buffer pool size in bytes
+* @param buf_pool_instance_num in: number of buffer pool instances
+* @param buf_pool_chunk_size   in: buffer pool chunk size in bytes */
+UNIV_INTERN
+void
+ut_core_dump_mem_hash_init(ulint buf_pool_size,
+			   ulint buf_pool_instance_num,
+			   ulint buf_pool_chunk_size)
+{
+	ut_a(srv_buf_pool_instances > 0);
+	ulint chunk_num = srv_buf_pool_instances;
+	if (buf_pool_chunk_size > 0) {
+		ut_a(buf_pool_size>=buf_pool_instance_num*buf_pool_chunk_size);
+		chunk_num = buf_pool_size / buf_pool_chunk_size;
+	}
+	ut_a(chunk_num >= srv_buf_pool_instances);
+
+	/* Initializes the memory buffer hash for core dump. */
+	ut_a(!ut_core_dump_mem_hash_inited);
+	os_fast_mutex_init(ut_core_dump_mem_hash_mutex_key,
+				&ut_core_dump_mem_hash_mutex);
+
+	/* The mainly tracked memory buffers are from buffer pool,
+	so the hash table size should be greater than the number
+	of buffer pool chunks. */
+	core_dump_mem_hash = hash_create(chunk_num + 512);
+	ut_core_dump_mem_hash_inited = TRUE;
 }
 #endif /* !UNIV_HOTBACKUP */
 
@@ -203,6 +252,50 @@ retry:
 
 	return(ret);
 #endif /* !UNIV_HOTBACKUP */
+}
+
+/*******************************************************************//**
+Track a large allocated memory buffer for core dumping. */
+UNIV_INTERN
+void
+ut_track_large_mem_for_core_dump(
+/*==============*/
+	void *ptr,	/*!< in: starting address of the buffer */
+	size_t size)	/*!< in: size of the buffer in bytes */
+{
+	os_fast_mutex_lock(&ut_core_dump_mem_hash_mutex);
+	ut_mem_t *p = (ut_mem_t *)malloc(sizeof(ut_mem_t));
+	p->start = ptr;
+	p->size = size;
+	HASH_INSERT(ut_mem_t, next, core_dump_mem_hash,
+		    ut_fold_ull((ulint)(p->start)), p);
+	madvise(ptr, size, MADV_DONTDUMP);
+	os_fast_mutex_unlock(&ut_core_dump_mem_hash_mutex);
+}
+
+/*******************************************************************//**
+Untrack a large allocated memory buffer for core dumping. */
+UNIV_INTERN
+void
+ut_untrack_large_mem_for_core_dump(
+/*==============*/
+	void *ptr,	/*!< in: starting address of the buffer */
+	size_t size)	/*!< in: size of the buffer in bytes */
+{
+	os_fast_mutex_lock(&ut_core_dump_mem_hash_mutex);
+	ut_mem_t *p = NULL;
+	HASH_SEARCH(next, core_dump_mem_hash,
+		    ut_fold_ull((ulint)(ptr)), ut_mem_t*, p,
+		    ut_a(1), (p->start == ptr && p->size == size));
+	ut_ad(p);
+	if (p) {
+		/* Undo the effect of the earlier MADV_DONTDUMP */
+		madvise(ptr, size, MADV_DODUMP);
+		HASH_DELETE(ut_mem_t, next, core_dump_mem_hash,
+				ut_fold_ull((ulint)(ptr)), p);
+		free(p);
+	}
+	os_fast_mutex_unlock(&ut_core_dump_mem_hash_mutex);
 }
 
 /**********************************************************************//**
@@ -354,6 +447,23 @@ ut_free_all_mem(void)
 	}
 
 	ut_mem_block_list_inited = FALSE;
+
+	/* Free the mem hash for core dump. */
+	ut_a(ut_core_dump_mem_hash_inited);
+	ut_core_dump_mem_hash_inited = FALSE;
+	os_fast_mutex_free(&ut_core_dump_mem_hash_mutex);
+
+	ulint cell_count = hash_get_n_cells(core_dump_mem_hash);
+	for (ulint i = 0; i < cell_count; i++) {
+		ut_mem_t *p = (ut_mem_t*)
+			hash_get_nth_cell(core_dump_mem_hash, i)->node;
+		while(p) {
+			ut_mem_t *next = p->next;
+			free(p);
+			p = next;
+		}
+	}
+	hash_table_free(core_dump_mem_hash);
 }
 #endif /* !UNIV_HOTBACKUP */
 
