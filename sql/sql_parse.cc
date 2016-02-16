@@ -7139,7 +7139,7 @@ bool AC::admission_control_enter(THD* thd, const std::string& entity) {
 }
 
 void AC::wait_for_signal(THD* thd, std::shared_ptr<st_ac_node>& ac_node,
-                         std::unique_ptr<Ac_info>& ac_info) {
+                         std::shared_ptr<Ac_info> ac_info) {
   PSI_stage_info old_stage;
   mysql_mutex_lock(&ac_node->lock);
   /**
