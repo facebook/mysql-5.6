@@ -11762,7 +11762,9 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli)
                              &m_cols_ai : &m_cols);
     table_def *tabledef= NULL;
     TABLE *conv_table= NULL;
-    assert(rli->get_table_data(table, &tabledef, &conv_table));
+    bool get_success __attribute__((__unused__)) = rli->get_table_data(table,
+            &tabledef, &conv_table);
+    assert(get_success);
     if (tabledef->have_column_names())
     {
       bitmap_clear_all(table->write_set);
