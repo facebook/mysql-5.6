@@ -66,8 +66,10 @@ mysql-test/lib/My/SafeProcess/my_safe_process
 mysql-test/var/
 mysys/thr_lock
 mysys/queues
-packaging/rpm-oel/mysql.spec
+packaging/rpm-docker/mysql.spec
 packaging/rpm-fedora/mysql.spec
+packaging/rpm-oel/mysql.spec
+packaging/rpm-sles/mysql.spec
 packaging/rpm-uln/mysql.*.spec
 regex/re
 scripts/comp_sql

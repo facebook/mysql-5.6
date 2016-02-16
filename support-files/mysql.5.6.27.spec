@@ -245,7 +245,7 @@ Group:          Applications/Databases
 Version:        5.6.27
 Release:        %{release}%{?distro_releasetag:.%{distro_releasetag}}
 Distribution:   %{distro_description}
-License:        Copyright (c) 2000, 2015, %{mysql_vendor}. All rights reserved. Under %{license_type} license as shown in the Description field.
+License:        Copyright (c) 2000, 2016, %{mysql_vendor}. All rights reserved. Under %{license_type} license as shown in the Description field.
 Source:         http://www.mysql.com/Downloads/MySQL-5.6/%{src_dir}.tar.gz
 URL:            http://www.mysql.com/
 Packager:       MySQL Release Engineering <mysql-build@oss.oracle.com> 
@@ -1077,7 +1077,6 @@ echo "====="                                     >> $STATUS_HISTORY
 %doc %attr(644, root, man) %{_mandir}/man1/mysql_secure_installation.1*
 %doc %attr(644, root, man) %{_mandir}/man1/mysql_setpermission.1*
 %doc %attr(644, root, man) %{_mandir}/man1/mysql_upgrade.1*
-%doc %attr(644, root, man) %{_mandir}/man1/mysqlhotcopy.1*
 %doc %attr(644, root, man) %{_mandir}/man1/mysqlman.1*
 %doc %attr(644, root, man) %{_mandir}/man1/mysql.server.1*
 %doc %attr(644, root, man) %{_mandir}/man1/mysqltest.1*
@@ -1111,7 +1110,6 @@ echo "====="                                     >> $STATUS_HISTORY
 %attr(755, root, root) %{_bindir}/mysqld_multi
 %attr(755, root, root) %{_bindir}/mysqld_safe
 %attr(755, root, root) %{_bindir}/mysqldumpslow
-%attr(755, root, root) %{_bindir}/mysqlhotcopy
 %attr(755, root, root) %{_bindir}/mysqltest
 %attr(755, root, root) %{_bindir}/perror
 %attr(755, root, root) %{_bindir}/replace
