@@ -7099,7 +7099,7 @@ bool AC::admission_control_enter(THD* thd, const std::string& entity) {
       // created here.
       thd->ac_node = std::make_shared<st_ac_node>();
     }
-    auto &ac_info = it->second;
+    auto ac_info = it->second;
     mysql_mutex_lock(&ac_info->lock);
     if (ac_info->queue.size() >= max_running_queries) {
       if (max_waiting_queries &&
@@ -7139,7 +7139,7 @@ bool AC::admission_control_enter(THD* thd, const std::string& entity) {
 }
 
 void AC::wait_for_signal(THD* thd, std::shared_ptr<st_ac_node>& ac_node,
-                         std::unique_ptr<Ac_info>& ac_info) {
+                         std::shared_ptr<Ac_info> ac_info) {
   PSI_stage_info old_stage;
   mysql_mutex_lock(&ac_node->lock);
   /**

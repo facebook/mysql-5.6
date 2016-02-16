@@ -4551,7 +4551,7 @@ public:
 */
 class AC {
   // This map is protected by the rwlock LOCK_ac.
-  std::unordered_map<std::string, std::unique_ptr<Ac_info>> ac_map;
+  std::unordered_map<std::string, std::shared_ptr<Ac_info>> ac_map;
   // Variables to track global limits
   ulong max_running_queries, max_waiting_queries;
   /**
@@ -4602,7 +4602,7 @@ public:
     mysql_rwlock_rdlock(&LOCK_ac);
     auto it = ac_map.find(str);
     if (it != ac_map.end()) {
-      auto &ac_info  = it->second;
+      auto ac_info  = it->second;
       mysql_mutex_lock(&ac_info->lock);
       while (ac_info->waiting_queries) {
         for (uint i = max_running_queries; i < ac_info->queue.size(); ++i) {
@@ -4623,7 +4623,7 @@ public:
   void insert(const std::string &entity) {
     mysql_rwlock_wrlock(&LOCK_ac);
     if (ac_map.find(entity) == ac_map.end()) {
-      ac_map[entity] = std::unique_ptr<Ac_info>(new Ac_info());
+      ac_map[entity] = std::make_shared<Ac_info>();
     }
     mysql_rwlock_unlock(&LOCK_ac);
   }
@@ -4672,7 +4672,7 @@ public:
   bool admission_control_enter(THD*, const std::string&);
   void admission_control_exit(THD*, const std::string&);
   void wait_for_signal(THD*, std::shared_ptr<st_ac_node>&,
-                       std::unique_ptr<Ac_info>& ac_info);
+                       std::shared_ptr<Ac_info> ac_info);
 };
 
 /*
