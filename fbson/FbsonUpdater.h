@@ -66,13 +66,16 @@ class FbsonUpdater {
 
     // Get the current node and because we want to delete it, pop it from stack
     NodeInfo curr_node = path_node_.back();
-    int pack_size = (int)((char*)curr_node.fbson_value -
+    int pack_size = (int)((char*)
+                          curr_node.fbson_value -
                           curr_node.addr +
                           curr_node.fbson_value->numPackedBytes());
 
     // Move the data after the current node to new place
-    assert(moveTo(curr_node.addr + pack_size,
-                  curr_node.addr));
+    if (!moveTo(curr_node.addr + pack_size,
+                  curr_node.addr)) {
+       return FbsonErrType::E_OUTOFMEMORY;
+    }
     path_node_.pop_back();
     return FbsonErrType::E_NONE;
   }
@@ -273,7 +276,9 @@ class FbsonUpdater {
       if(str_len <= (int)curr->size() &&
          str_len >= ((int)curr->size() * (1.0 - str_shrink_ratio_))){
         // We can update string in place
-        assert(((StringVal*)curr)->setVal(str, str_len));
+        if (!((StringVal*)curr)->setVal(str, str_len)) {
+          return FbsonErrType::E_INVALID_OPER;
+        }
         return FbsonErrType::E_NONE;
       }
     }
