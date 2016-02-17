@@ -1749,9 +1749,9 @@ rocksdb-collect-sst-properties TRUE
 rocksdb-commit-in-the-middle FALSE
 rocksdb-compact-cf 
 rocksdb-compaction-readahead-size 0
-rocksdb-compaction-sequential-deletes 1900
+rocksdb-compaction-sequential-deletes 0
 rocksdb-compaction-sequential-deletes-file-size 0
-rocksdb-compaction-sequential-deletes-window 2000
+rocksdb-compaction-sequential-deletes-window 0
 rocksdb-create-checkpoint 
 rocksdb-create-if-missing TRUE
 rocksdb-create-missing-column-families FALSE
