@@ -68,6 +68,29 @@ const char * const PER_INDEX_CF_NAME = "$per_index_cf";
 */
 #define ROCKSDB_SIZEOF_HIDDEN_PK_COLUMN sizeof(longlong)
 
+/*
+  The intent behind a SHIP_ASSERT() macro is to have a mechanism for validating
+  invariants in retail builds. Traditionally assertions (such as macros defined
+  in <cassert>) are evaluated for performance reasons only in debug builds and
+  become NOOP in retail builds when NDEBUG is defined.
+
+  This macro is intended to validate the invariants which are critical for
+  making sure that data corruption and data loss won't take place. Proper
+  intended usage can be described as "If a particular condition is not true then
+  stop everything what's going on and terminate the process because continued
+  execution will cause really bad things to happen".
+
+  Use the power of SHIP_ASSERT() wisely.
+*/
+
+#define SHIP_ASSERT(expr)                                               \
+  do {                                                                  \
+    if (!(expr)) {                                                      \
+      my_safe_printf_stderr("\nShip assert failure: \'%s\'\n", #expr);  \
+      abort_with_stack_traces();                                        \
+    }                                                                   \
+  } while (0)                                                           \
+
 /* MyRocks supports only the following collations for indexed columns */
 const std::set<const CHARSET_INFO *> MYROCKS_INDEX_COLLATIONS=
   {&my_charset_bin, &my_charset_utf8_bin, &my_charset_latin1_bin};
