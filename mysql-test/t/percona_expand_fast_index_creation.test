@@ -67,12 +67,26 @@ ORDER BY
 # confirm that there are four different ID's
 SELECT COUNT(DISTINCT a) FROM idx;
 
+DROP TABLE idx;
+DROP TABLE t;
+
 # https://github.com/facebook/mysql-5.6/issues/99
 # When one of the secondary indexes contained the last field in the table
 # an assert was triggered.
 CREATE TABLE t_assert(a INT NOT NULL, b CHAR(1), id INT NOT NULL, KEY(a), KEY(id)) ENGINE=INNODB;
 ALTER TABLE t_assert CHANGE COLUMN b b CHAR(1) NOT NULL;
-
 DROP TABLE t_assert;
-DROP TABLE idx;
-DROP TABLE t;
+
+# https://github.com/facebook/mysql-5.6/issues/170
+# When altering a table from the MEMORY storage engine to the INNODB storage
+# engine an assert was triggered because a transaction was left active during
+# the restore of the secondary indexes
+CREATE TABLE t_assert(a INT, b INT, key(a,b)) ENGINE=MEMORY;
+ALTER TABLE t_assert ENGINE=INNODB;
+ALTER TABLE t_assert ADD c INT;
+DROP TABLE t_assert;
+
+CREATE TEMPORARY TABLE t_assert(a INT, b INT, key(a,b)) ENGINE=MEMORY;
+ALTER TABLE t_assert ENGINE=INNODB;
+ALTER TABLE t_assert ADD c INT;
+DROP TABLE t_assert;

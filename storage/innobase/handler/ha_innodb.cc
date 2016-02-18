@@ -5631,8 +5631,6 @@ ha_innobase::open(
 		buf_pool_reference_start(trx);
 	}
 
-	ut_ad(no_trx || trx->is_primary);
-
 	normalize_table_name(norm_name, name);
 
 	user_thd = NULL;
@@ -10708,8 +10706,6 @@ ha_innobase::create(
 		buf_pool_reference_start(parent_trx);
 	}
 
-	ut_ad(no_trx || parent_trx->is_primary);
-
 	trx = innobase_trx_allocate(thd);
 
 	/* Latch the InnoDB data dictionary exclusively so that no deadlocks
@@ -11175,8 +11171,6 @@ ha_innobase::delete_table(
 		buf_pool_reference_start(parent_trx);
 	}
 
-	ut_ad(no_trx || parent_trx->is_primary);
-
 	trx = innobase_trx_allocate(thd);
 
 	name_len = strlen(name);
@@ -11351,8 +11345,6 @@ innobase_drop_database(
 		no_trx = true;
 		buf_pool_reference_start(parent_trx);
 	}
-
-	ut_ad(no_trx || parent_trx->is_primary);
 
 	ptr = strend(path) - 2;
 
@@ -11541,8 +11533,6 @@ ha_innobase::rename_table(
 		buf_pool_reference_start(parent_trx);
 	}
 
-	ut_ad(no_trx || parent_trx->is_primary);
-
 	trx = innobase_trx_allocate(thd);
 
 	/* We are doing a DDL operation. */
@@ -11643,8 +11633,6 @@ ha_innobase::records_in_range(
 		no_trx = true;
 		buf_pool_reference_start(prebuilt->trx);
 	}
-
-	ut_ad(no_trx || prebuilt->trx->is_primary);
 
 	last_active_index = active_index = keynr;
 
@@ -12446,8 +12434,6 @@ ha_innobase::info(
 		buf_pool_reference_start(prebuilt->trx);
 	}
 
-	ut_ad(no_trx || prebuilt->trx->is_primary);
-
 	/* If innodb_stats_on_metadata is turned on, make sure to update
 	 * both the 'variable' part and the 'constatnt' part of the
 	 * info, so MySQL doesn't get staled index cardinality due to
@@ -12488,8 +12474,6 @@ ha_innobase::analyze(
 		no_trx = true;
 		buf_pool_reference_start(prebuilt->trx);
 	}
-
-	ut_ad(no_trx || prebuilt->trx->is_primary);
 
 	/* Simply call this->info_low() with all the flags
 	and request recalculation of the statistics */
@@ -13500,8 +13484,6 @@ ha_innobase::external_lock(
 				no_trx = true;
 				buf_pool_reference_start(trx);
 			}
-
-			ut_ad(no_trx || trx->is_primary);
 
 			row_quiesce_table_start(prebuilt->table, trx);
 
