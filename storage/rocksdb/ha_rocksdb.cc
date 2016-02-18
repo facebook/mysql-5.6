@@ -6558,15 +6558,19 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
     if (skip_unique_check())
     {
       if ((thd->lex->sql_command == SQLCOM_INSERT ||
+          thd->lex->sql_command == SQLCOM_LOAD ||
           thd->lex->sql_command == SQLCOM_REPLACE) &&
           (thd->lex->duplicates == DUP_REPLACE ||
           thd->lex->duplicates == DUP_UPDATE))
       {
+        char buf[80];
+        snprintf(buf, sizeof(buf), "%s", thd->query());
         my_printf_error(ER_UNKNOWN_ERROR,
-                        "When disables unique check in MyRocks, 'INSERT or "
-                        "UPDATE' statement (INSERT ON DUPLICATE KEY UPDATE, "
-                        "REPLACE) is not allowed.",
-                        MYF(0));
+                        "When disables unique check in MyRocks, INSERT,UPDATE,"
+                        "LOAD statements with replacing unique keys (i.e. "
+                        "INSERT ON DUPLICATE KEY UPDATE, REPLACE) is not "
+                        "allowed. Query: %s",
+                        MYF(0), buf);
         DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
       }
     }
