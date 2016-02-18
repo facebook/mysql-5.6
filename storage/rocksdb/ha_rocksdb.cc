@@ -884,16 +884,16 @@ static MYSQL_SYSVAR_LONGLONG(
   rocksdb_compaction_sequential_deletes,
   PLUGIN_VAR_RQCMDARG,
   "RocksDB will trigger compaction for the file if it has more than this number sequential deletes per window",
-  nullptr, set_compaction_options, 1900L,
-  /* min */ -1L, /* max */ LONGLONG_MAX, 0);
+  nullptr, set_compaction_options, DEFAULT_COMPACTION_SEQUENTIAL_DELETES,
+  /* min */ -1L, /* max */ MAX_COMPACTION_SEQUENTIAL_DELETES, 0);
 
 static MYSQL_SYSVAR_LONGLONG(
   compaction_sequential_deletes_window,
   rocksdb_compaction_sequential_deletes_window,
   PLUGIN_VAR_RQCMDARG,
   "Size of the window for counting rocksdb_compaction_sequential_deletes",
-  nullptr, set_compaction_options, 2000L,
-  /* min */ -1L, /* max */ LONGLONG_MAX, 0);
+  nullptr, set_compaction_options, DEFAULT_COMPACTION_SEQUENTIAL_DELETES_WINDOW,
+  /* min */ -1L, /* max */ MAX_COMPACTION_SEQUENTIAL_DELETES_WINDOW, 0);
 
 static MYSQL_SYSVAR_LONGLONG(
   compaction_sequential_deletes_file_size,
