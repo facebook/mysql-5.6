@@ -1,3 +1,4 @@
+--source include/not_valgrind.inc
 --source innodb-buffer-pool-resize-setup.inc
 
 create table t1 (id int not null, val int not null default '0', primary key (id)) ENGINE=InnoDB;
