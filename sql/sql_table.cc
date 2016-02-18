@@ -74,10 +74,10 @@ bool symdir_warning_emitted= false;
 static bool check_if_keyname_exists(const char *name,KEY *start, KEY *end);
 static char *make_unique_key_name(const char *field_name,KEY *start,KEY *end);
 static int copy_data_between_tables(TABLE *from,TABLE *to,
-                                    List<Create_field> &create, bool ignore,
+                                    HA_CREATE_INFO* create_info,
+                                    Alter_info *alter_info, bool ignore,
 				    uint order_num, ORDER *order,
 				    ha_rows *copied,ha_rows *deleted,
-                                    Alter_info::enum_enable_or_disable keys_onoff,
                                     Alter_table_ctx *alter_ctx);
 
 static bool prepare_blob_field(THD *thd, Create_field *sql_field);
@@ -8983,9 +8983,6 @@ bool mysql_alter_table(THD *thd,char *new_db, char *new_name,
       index creation.
       TODO: is there a better way to check for InnoDB?
     */
-    bool optimize_keys= (alter_info->delayed_key_count > 0) &&
-      !my_strcasecmp(system_charset_info,
-                     new_table->file->table_type(), "InnoDB");
     new_table->next_number_field=new_table->found_next_number_field;
     THD_STAGE_INFO(thd, stage_copy_to_tmp_table);
     DBUG_EXECUTE_IF("abort_copy_table", {
@@ -8993,22 +8990,10 @@ bool mysql_alter_table(THD *thd,char *new_db, char *new_name,
         goto err_new_table_cleanup;
       });
 
-    if (optimize_keys)
-    {
-      /* ignore the error */
-      remove_secondary_keys(thd, create_info, new_table, alter_info);
-    }
-
-    if (copy_data_between_tables(table, new_table,
-                                 alter_info->create_list, ignore,
-                                 order_num, order, &copied, &deleted,
-                                 alter_info->keys_onoff,
+    if (copy_data_between_tables(table, new_table, create_info, alter_info,
+                                 ignore, order_num, order, &copied, &deleted,
                                  &alter_ctx))
       goto err_new_table_cleanup;
-
-    if (optimize_keys)
-      if (restore_secondary_keys(thd, create_info, new_table, alter_info))
-        goto err_new_table_cleanup;
   }
   else
   {
@@ -9330,12 +9315,12 @@ bool mysql_trans_commit_alter_copy_data(THD *thd)
 
 static int
 copy_data_between_tables(TABLE *from,TABLE *to,
-			 List<Create_field> &create,
+                         HA_CREATE_INFO* create_info,
+                         Alter_info *alter_info,
                          bool ignore,
 			 uint order_num, ORDER *order,
 			 ha_rows *copied,
 			 ha_rows *deleted,
-                         Alter_info::enum_enable_or_disable keys_onoff,
                          Alter_table_ctx *alter_ctx)
 {
   int error;
@@ -9356,6 +9341,17 @@ copy_data_between_tables(TABLE *from,TABLE *to,
   if (mysql_trans_prepare_alter_copy_data(thd))
     DBUG_RETURN(-1);
   
+  bool optimize_keys= (alter_info->delayed_key_count > 0) &&
+    !my_strcasecmp(system_charset_info, to->file->table_type(), "InnoDB");
+
+  // If we can, remove the secondary keys.  This must occur after the alter
+  // has prepared the transaction as we don't want to log this action.
+  if (optimize_keys)
+  {
+    /* ignore the error */
+    remove_secondary_keys(thd, create_info, to, alter_info);
+  }
+
   if (!(copy= new Copy_field[to->s->fields]))
     DBUG_RETURN(-1);				/* purecov: inspected */
 
@@ -9363,7 +9359,8 @@ copy_data_between_tables(TABLE *from,TABLE *to,
     DBUG_RETURN(-1);
 
   /* We need external lock before we can disable/enable keys */
-  alter_table_manage_keys(to, from->file->indexes_are_disabled(), keys_onoff);
+  alter_table_manage_keys(to, from->file->indexes_are_disabled(),
+			  alter_info->keys_onoff);
 
   /* We can abort alter table for any table type */
   thd->abort_on_warning= !ignore && thd->is_strict_mode();
@@ -9373,7 +9370,7 @@ copy_data_between_tables(TABLE *from,TABLE *to,
 
   save_sql_mode= thd->variables.sql_mode;
 
-  List_iterator<Create_field> it(create);
+  List_iterator<Create_field> it(alter_info->create_list);
   Create_field *def;
   copy_end=copy;
   for (Field **ptr=to->field ; *ptr ; ptr++)
@@ -9445,7 +9442,7 @@ copy_data_between_tables(TABLE *from,TABLE *to,
     to->file->extra(HA_EXTRA_IGNORE_DUP_KEY);
   thd->get_stmt_da()->reset_current_row_for_warning();
 
-  set_column_defaults(to, create);
+  set_column_defaults(to, alter_info->create_list);
 
   while (!(error=info.read_record(&info)))
   {
@@ -9544,6 +9541,11 @@ copy_data_between_tables(TABLE *from,TABLE *to,
     error= 1;
   }
   to->file->extra(HA_EXTRA_NO_IGNORE_DUP_KEY);
+
+  // Restore any secondary keys that were removed.  This must take place before
+  // the alter's transaction is committed
+  if (optimize_keys && restore_secondary_keys(thd, create_info, to, alter_info))
+    error= 1;
 
   if (mysql_trans_commit_alter_copy_data(thd))
     error= 1;
