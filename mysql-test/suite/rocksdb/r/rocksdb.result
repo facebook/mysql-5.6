@@ -2207,9 +2207,9 @@ INSERT INTO t1 VALUES(1, 3);
 SELECT * FROM t1;
 id	value
 REPLACE INTO t1 VALUES(4, 4);
-ERROR HY000: When disables unique check in MyRocks, 'INSERT or UPDATE' statement (INSERT ON DUPLICATE KEY UPDATE, REPLACE) is not allowed.
+ERROR HY000: When unique checking is disabled in MyRocks, INSERT,UPDATE,LOAD statements with clauses that update or replace the key (i.e. INSERT ON DUPLICATE KEY UPDATE, REPLACE) are not allowed. Query: REPLACE INTO t1 VALUES(4, 4)
 INSERT INTO t1 VALUES(5, 5) ON DUPLICATE KEY UPDATE value=value+1;
-ERROR HY000: When disables unique check in MyRocks, 'INSERT or UPDATE' statement (INSERT ON DUPLICATE KEY UPDATE, REPLACE) is not allowed.
+ERROR HY000: When unique checking is disabled in MyRocks, INSERT,UPDATE,LOAD statements with clauses that update or replace the key (i.e. INSERT ON DUPLICATE KEY UPDATE, REPLACE) are not allowed. Query: INSERT INTO t1 VALUES(5, 5) ON DUPLICATE KEY UPDATE value=value+1
 TRUNCATE TABLE t1;
 SET @save_rocksdb_bulk_load_size= @@rocksdb_bulk_load_size;
 SET rocksdb_skip_unique_check=0;
