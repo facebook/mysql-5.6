@@ -450,7 +450,7 @@ int MyRocksTablePropertiesCollector::IndexStats::unmaterialize(
   for the index based on stats for each sst
 */
 void MyRocksTablePropertiesCollector::IndexStats::merge(
-  const IndexStats& s, bool increment
+  const IndexStats& s, bool increment, int64_t estimated_data_len
 ) {
   std::size_t i;
 
@@ -463,7 +463,16 @@ void MyRocksTablePropertiesCollector::IndexStats::merge(
   {
     rows += s.rows;
     data_size += s.data_size;
-    actual_disk_size += s.actual_disk_size;
+
+    /*
+      The Data_length and Avg_row_length are trailing statistics, meaning
+      they don't get updated for the current SST until the next SST is
+      written.  So, if rocksdb reports the data_length as 0,
+      we make a reasoned estimate for the data_file_length for the
+      index in the current SST.
+    */
+    actual_disk_size +=
+      s.actual_disk_size ? s.actual_disk_size : estimated_data_len * s.rows;
     entry_deletes += s.entry_deletes;
     entry_singledeletes += s.entry_singledeletes;
     entry_merges += s.entry_merges;
@@ -477,7 +486,8 @@ void MyRocksTablePropertiesCollector::IndexStats::merge(
   {
     rows -= s.rows;
     data_size -= s.data_size;
-    actual_disk_size -= s.actual_disk_size;
+    actual_disk_size -=
+      s.actual_disk_size ? s.actual_disk_size : estimated_data_len * s.rows;
     entry_deletes -= s.entry_deletes;
     entry_singledeletes -= s.entry_singledeletes;
     entry_merges -= s.entry_merges;
