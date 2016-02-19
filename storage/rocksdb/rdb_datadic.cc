@@ -2181,7 +2181,7 @@ void Table_ddl_manager::adjust_stats(
     for (const auto& src : data) {
       auto keydef = find(src.gl_index_id);
       if (keydef) {
-        keydef->stats.merge(src, i == 0);
+        keydef->stats.merge(src, i == 0, keydef->max_storage_fmt_length());
         stats2store[keydef->stats.gl_index_id] = keydef->stats;
       }
     }
