@@ -17892,7 +17892,7 @@ static MYSQL_SYSVAR_ULONG(sync_pool_size, innobase_sync_pool_size,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "The size of the shared sync pool buffer InnoDB uses to store system lock"
   "and condition variables.",
-  NULL, NULL, 1024UL, 1UL, ULONG_MAX, 1UL);
+  NULL, NULL, 1024UL, 1UL, 1024UL * 1024UL, 1UL);
 
 #if defined UNIV_DEBUG || defined UNIV_PERF_DEBUG
 static MYSQL_SYSVAR_ULONG(page_hash_locks, srv_n_page_hash_locks,
