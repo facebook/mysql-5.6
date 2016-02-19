@@ -7364,7 +7364,9 @@ int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
       */
       if (ids_to_check.find(it1.gl_index_id) == ids_to_check.end())
         continue;
-      stats[it1.gl_index_id].merge(it1);
+
+      RDBSE_KEYDEF* kd= ddl_manager.find(it1.gl_index_id);
+      stats[it1.gl_index_id].merge(it1, true, kd->max_storage_fmt_length());
     }
     num_sst++;
   }
