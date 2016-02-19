@@ -6210,6 +6210,24 @@ void ha_rocksdb::update_stats(void)
     {
       stats.data_file_length= pk_descr->stats.actual_disk_size;
       stats.records = pk_descr->stats.rows;
+
+      /*
+        The Data_length and Avg_row_length are trailing statistics, meaning
+        they don't get updated for the current SST until the next SST is
+        written.  So, if rocksdb reports the data_length as 0 but there are
+        records, we make a reasoned estimate for the data_file_length for the
+        current SST.
+      */
+      if (!pk_descr->stats.actual_disk_size && stats.records)
+      {
+        uint total_column_len= 0;
+        for (uint i= 0; i < table->s->fields; i++)
+        {
+          Field *field= table->field[i];
+          total_column_len+= field->pack_length();
+        }
+        stats.data_file_length= total_column_len * stats.records;
+      }
     }
     else
     {
