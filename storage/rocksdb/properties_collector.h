@@ -70,7 +70,8 @@ class MyRocksTablePropertiesCollector
         entry_singledeletes(0),
         entry_merges(0),
         entry_others(0) {}
-    void merge(const IndexStats& s, bool increment = true);
+    void merge(const IndexStats& s, bool increment = true,
+               int64_t estimated_data_len = 0);
   };
 
   MyRocksTablePropertiesCollector(
