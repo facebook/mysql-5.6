@@ -6563,7 +6563,7 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
           (thd->lex->duplicates == DUP_REPLACE ||
           thd->lex->duplicates == DUP_UPDATE))
       {
-        char buf[160];
+        char buf[1024];
         snprintf(buf, sizeof(buf), "%s", thd->query());
         my_printf_error(ER_UNKNOWN_ERROR,
                         "When unique checking is disabled in MyRocks, INSERT,"
