@@ -16,7 +16,7 @@
 --let $histogram_step_size_binlog_fsync_save_slave = `SELECT @@histogram_step_size_binlog_fsync`
 
 --disable_query_log
-# DocStore hugestress tests create large transaction (redo) logs. Suppress
+# DocStore/blob hugestress tests create large transaction (redo) logs. Suppress
 # warnings of resizing redo logs
 call mtr.add_suppression("InnoDB: Resizing redo log");
 call mtr.add_suppression("InnoDB: Starting to delete and rewrite log files");
@@ -38,7 +38,7 @@ call mtr.add_suppression("Warning: database page corruption or a failed");
 # Defragmentation might still hold a table open so drop table will be executed asynchronously, generating warning.
 call mtr.add_suppression("InnoDB: Warning: MySQL is trying to drop table ");
 
-# DocStore hugestress tests create large transaction (redo) logs. Suppress
+# DocStore/blob hugestress tests create large transaction (redo) logs. Suppress
 # warnings of resizing redo logs
 call mtr.add_suppression("InnoDB: Resizing redo log");
 call mtr.add_suppression("InnoDB: Starting to delete and rewrite log files");
