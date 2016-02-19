@@ -6563,15 +6563,13 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
           (thd->lex->duplicates == DUP_REPLACE ||
           thd->lex->duplicates == DUP_UPDATE))
       {
-        char buf[160];
-        snprintf(buf, sizeof(buf), "%s", thd->query());
         my_printf_error(ER_UNKNOWN_ERROR,
                         "When unique checking is disabled in MyRocks, INSERT,"
                         "UPDATE,LOAD statements with clauses that update or "
                         "replace the key (i.e. "
                         "INSERT ON DUPLICATE KEY UPDATE, REPLACE) are not "
                         "allowed. Query: %s",
-                        MYF(0), buf);
+                        MYF(0), thd->query());
         DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
       }
     }
