@@ -214,6 +214,7 @@ insert into t4 values(3, "{\"\\b\\f\\n\\r\\t\":\"123\\t\\r\\n\\f\\bABC\"}", "esc
 insert into t4 values(4, "{\"Status\":\"\\u675f\\u5e26\\u7ed3\\u53d1\\u523b\\u5f55\\u673a\\u5076\\u5c14\\u4e94\\u798f\\u805a\\u54e6\"}", "escape of Unicode");
 insert into t4 values(5, "{\"\\u0009\":\"\\u000d\\u000a\"}", "escape of Unicode for control char");
 insert into t4 values(6, "{\"Control\":\"\\u0002\"}", "escape of Unicode for control char");
+insert into t4 values(7, "{\"NULL\":\"\\u0000\"}", "Unicode for NULL");
 select * from t4;
 i	a	s
 1	{"Name":"Json\tXia"}	escape in value
@@ -222,6 +223,7 @@ i	a	s
 4	{"Status":"束带结发刻录机偶尔五福聚哦"}	escape of Unicode
 5	{"\t":"\r\n"}	escape of Unicode for control char
 6	{"Control":"\u0002"}	escape of Unicode for control char
+7	{"NULL":""}	Unicode for NULL
 create table t5 (i int(8), a document, s text(255)) engine = innodb;
 insert into t5 values(1, "{\"BAD\":\"123\\u0xDFFE\"}", "Bad Unicode");
 ERROR HY000: Invalid document value: '{"BAD":"123\u0xDFFE"}', pos 14, error 'Invalid string value'
