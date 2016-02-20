@@ -489,7 +489,7 @@ class FbsonJsonParserT {
           For DC00 to DFFF, it should be low surrogates for UTF16.
           So if it display in the high bits, it's invalid.
         */
-        if ((uc >= 0xDC00 && uc <= 0xDFFF) || uc==0){
+        if (uc >= 0xDC00 && uc <= 0xDFFF){
           return false;
         }
 
