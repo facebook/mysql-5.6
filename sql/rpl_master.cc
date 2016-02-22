@@ -799,6 +799,7 @@ bool com_binlog_dump(THD *thd, char *packet, uint packet_length)
   mysql_binlog_send(thd, thd->strdup(packet + 10), (my_off_t) pos, NULL, flags);
 
   inc_thread_running();
+  my_sleep(1000 * 10);
   my_atomic_add32(&thread_binlog_client, -1);
 
   unregister_slave(thd, true, true/*need_lock_slave_list=true*/);
@@ -855,6 +856,10 @@ bool com_binlog_dump_gtid(THD *thd, char *packet, uint packet_length)
   kill_zombie_dump_threads(&slave_uuid);
   general_log_print(thd, thd->get_command(), "Log: '%s' Pos: %llu GTIDs: '%s'",
                     name, pos, gtid_string);
+
+  my_atomic_add32(&thread_binlog_client, 1);
+  dec_thread_running();
+
   if ((flags & USING_START_GTID_PROTOCOL))
   {
     if ((error = find_gtid_position_helper(gtid_string, name, pos)))
@@ -867,6 +872,9 @@ bool com_binlog_dump_gtid(THD *thd, char *packet, uint packet_length)
   }
   else
     mysql_binlog_send(thd, name, (my_off_t) pos, &slave_gtid_executed, flags);
+
+  inc_thread_running();
+  my_atomic_add32(&thread_binlog_client, -1);
 
   my_free(gtid_string);
   unregister_slave(thd, true, true/*need_lock_slave_list=true*/);
