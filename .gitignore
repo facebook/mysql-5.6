@@ -64,6 +64,7 @@ mysql-test/mtr
 mysql-test/mysql-test-run
 mysql-test/lib/My/SafeProcess/my_safe_process
 mysql-test/var/
+mysys/base64_test
 mysys/thr_lock
 mysys/queues
 packaging/rpm-docker/mysql.spec
@@ -117,6 +118,8 @@ sql-bench/test-select
 sql-bench/test-table-elimination
 sql-bench/test-transactions
 sql-bench/test-wisconsin
+sql/gen_lex_token
+sql/lex_token.h
 sql/mysqld
 sql/share/*/errmsg.sys
 sql/sql_builtin.cc
@@ -132,6 +135,10 @@ storage/myisam/myisamchk
 storage/myisam/myisamlog
 storage/myisam/myisampack
 storage/perfschema/gen_pfs_lex_token
+storage/rocksdb/ldb
+storage/rocksdb/mysql_ldb
+storage/rocksdb/sst_dump
+storage/rocksdb/unittest/test_properties_collector
 support-files/MySQL-shared-compat.spec
 support-files/binary-configure
 support-files/my-default.cnf
