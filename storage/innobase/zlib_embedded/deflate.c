@@ -1312,9 +1312,15 @@ local void fill_window(s)
            "There should be enough space for the entire input");
 
     if (s->strm->avail_in == 0) return;
+
+    /* s->strm->avail_in gets modified during the call to read_buf as a
+     * side-effect. To validate the invariant later we'll need to store the
+     * original value. */
+    unsigned avail_in = s->strm->avail_in;
+
     n = read_buf(s->strm, s->window + s->lookahead,
-                 s->strm->avail_in);
-    Assert(n == s->strm->avail_in, "all input should be read");
+                 avail_in);
+    Assert(n == avail_in, "all input should be read");
     s->lookahead += n;
 }
 
