@@ -949,26 +949,15 @@
 }
 
 #
-# LevelDB Storage Engine suppressions
+# RocksDB Storage Engine suppressions
 #
 {
-   Still reachable for once-per-process intializations
+   Still reachable for once-per-process initializations
    Memcheck:Leak
+   match-leak-kinds: reachable
    ...
-   fun:_ZN7leveldb4port8InitOnceEPiPFvvE
-   fun:_ZN7leveldb18BytewiseComparatorEv
-   fun:_ZN7leveldb7OptionsC1Ev
-   fun:_ZL17leveldb_init_funcPv
+   fun:_ZN7rocksdb14ThreadLocalPtr14InitSingletonsEv
+   fun:_ZN7rocksdb3Env7DefaultEv
+   fun:_ZN7rocksdb9DBOptionsC1Ev
+   fun:_ZL15init_db_optionsv
 }
-
-{
-   Still reachable for once-per-process intializations (2)
-   Memcheck:Leak
-   ...
-   fun:_ZN7leveldbL14InitDefaultEnvEv
-   ...
-   fun:_ZN7leveldb3Env7DefaultEv
-   fun:_ZN7leveldb7OptionsC1Ev
-   fun:_ZL17leveldb_init_funcPv
-}
-
