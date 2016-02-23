@@ -2956,6 +2956,7 @@ static handler* rocksdb_create_handler(handlerton *hton,
 
 ha_rocksdb::ha_rocksdb(handlerton *hton, TABLE_SHARE *table_arg)
   : handler(hton, table_arg), scan_it(nullptr),
+    scan_it_skips_bloom(false),
     tbl_def(nullptr),
     pk_descr(nullptr),
     key_descr(nullptr),
