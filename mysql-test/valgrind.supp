@@ -961,3 +961,14 @@
    fun:_ZN7rocksdb9DBOptionsC1Ev
    fun:_ZL15init_db_optionsv
 }
+
+{
+   Still reachable for thread local storage initialization
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:_ZNSt13unordered_mapIjPFvPvESt4hashIjESt8equal_toIjESaISt4pairIKjS2_EEEixERS8_
+   fun:_ZN7rocksdb14ThreadLocalPtr10StaticMeta10SetHandlerEjPFvPvE
+   fun:_ZN7rocksdb14ThreadLocalPtrC1EPFvPvE
+   ...
+}
