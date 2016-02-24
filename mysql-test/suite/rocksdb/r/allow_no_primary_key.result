@@ -229,7 +229,7 @@ Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
 DROP TABLE t1, t2;
 CREATE TABLE t1 (a INT, b CHAR(8), UNIQUE INDEX(a)) ENGINE=rocksdb;
-ERROR HY000: Got error 122 from storage engine
+ERROR HY000: Unique index support is disabled when the table has no primary key. 
 CREATE TABLE t1 (a INT, b CHAR(8)) ENGINE=rocksdb;
 SHOW CREATE TABLE t1;
 Table	Create Table
