@@ -29,6 +29,9 @@
 #  include <stdlib.h>
 #endif
 
+#include <assert.h>
+#include <stdio.h>
+
 #ifndef local
 #  define local static
 #endif
@@ -243,10 +246,9 @@ extern const char * const z_errmsg[10]; /* indexed by 2-zlib_error */
 
 /* Diagnostic functions */
 #ifdef DEBUG
-#  include <stdio.h>
    extern int ZLIB_INTERNAL z_verbose;
    extern void ZLIB_INTERNAL z_error OF((const char *m));
-#  define Assert(cond,msg) {if(!(cond)) z_error(msg);}
+#  define Assert(cond,msg) assert(cond)
 #  define Trace(x) {if (z_verbose>=0) fprintf x ;}
 #  define Tracev(x) {if (z_verbose>0) fprintf x ;}
 #  define Tracevv(x) {if (z_verbose>1) fprintf x ;}
