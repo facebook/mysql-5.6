@@ -6669,6 +6669,17 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
 
+  if (thd_tx_isolation(thd) < ISO_READ_COMMITTED ||
+      thd_tx_isolation(thd) > ISO_REPEATABLE_READ)
+  {
+    my_printf_error(ER_UNKNOWN_ERROR,
+                    "MyRocks supports only READ COMMITTED and REPEATABLE READ "
+                    "isolation levels. Please change from current isolation "
+                    "level %s",
+                    MYF(0), tx_isolation_names[thd_tx_isolation(thd)]);
+    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+  }
+
   io_perf_start();
 
   if (lock_type == F_UNLCK)
