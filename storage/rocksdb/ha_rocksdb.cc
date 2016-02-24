@@ -4100,7 +4100,12 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
   {
     if ((table_arg->key_info[keyno].flags & HA_NOSAME) &&
         has_hidden_pk(table_arg))
+    {
+      my_printf_error(ER_UNKNOWN_ERROR,
+        "Unique index support is disabled when the table has no primary key. ",
+        MYF(0));
       DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+    }
   }
 
   if ((res= create_key_defs(table_arg, strbuf.ptr(), strbuf.length(),
