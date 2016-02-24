@@ -72,7 +72,7 @@ CHECK TABLE t1 CHANGED;
 DROP TABLE t1, t2;
 
 # test disabling unique keys
---error ER_GET_ERRNO
+--error 1105
 CREATE TABLE t1 (a INT, b CHAR(8), UNIQUE INDEX(a)) ENGINE=rocksdb;
 
 ## test restarting a table that has no data
