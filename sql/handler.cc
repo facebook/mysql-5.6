@@ -1475,8 +1475,8 @@ int ha_commit_trans(THD *thd, bool all, bool async,
                                         thd->variables.lock_wait_timeout))
       {
         ha_rollback_trans(thd, all);
-        thd->enter_stage(&old_stage, NULL, __func__, __FILE__, __LINE__);
-        DBUG_RETURN(1);
+        error= 1;
+        goto end;
       }
       release_mdl= true;
 
