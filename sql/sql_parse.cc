@@ -3312,11 +3312,12 @@ case SQLCOM_PREPARE:
     rpl_sidno master_sidno = 0;
     mysql_mutex_lock(&LOCK_active_mi);
     // We should not purge gtids received from current active master.
-    if (active_mi)
+    if (active_mi && active_mi->master_uuid[0])
     {
       global_sid_lock->rdlock();
       rpl_sid master_sid;
-      master_sid.parse(active_mi->master_uuid);
+      if (master_sid.parse(active_mi->master_uuid) != RETURN_STATUS_OK)
+        DBUG_ASSERT(FALSE);
       master_sidno = global_sid_map->sid_to_sidno(master_sid);
       global_sid_lock->unlock();
     }
