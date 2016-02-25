@@ -1476,6 +1476,7 @@ int ha_commit_trans(THD *thd, bool all, bool async,
       {
         ha_rollback_trans(thd, all);
         thd->enter_stage(&old_stage, NULL, __func__, __FILE__, __LINE__);
+        mysql_mutex_unlock(&thd->LOCK_thd_db_read_only_hash);
         DBUG_RETURN(1);
       }
       release_mdl= true;
