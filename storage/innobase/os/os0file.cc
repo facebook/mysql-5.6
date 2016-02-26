@@ -1564,7 +1564,7 @@ os_file_create_simple_no_error_handling_func(
 	*success = (file != INVALID_HANDLE_VALUE);
 #else /* __WIN__ */
 	int		create_flag;
-	const char*	mode_str	= NULL;
+	const char*	mode_str	__attribute__((unused)) = NULL;
 
 	ut_a(name);
 
@@ -1615,6 +1615,7 @@ os_file_create_simple_no_error_handling_func(
 
 	*success = file == -1 ? FALSE : TRUE;
 
+#ifndef XTRABACKUP
 	/* This function is always called for data files, we should disable
 	OS caching (O_DIRECT) here as we do in os_file_create_func(), so
 	we open the same file in the same mode, see man page of open(2). */
@@ -1625,6 +1626,7 @@ os_file_create_simple_no_error_handling_func(
 
 		os_file_set_nocache(file, name, mode_str);
 	}
+#endif /* XTRABACKUP */
 
 #ifdef USE_FILE_LOCK
 	if (!srv_read_only_mode
