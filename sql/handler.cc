@@ -2850,6 +2850,13 @@ int handler::ha_rnd_init(bool scan)
   DBUG_ASSERT(table_share->tmp_table != NO_TMP_TABLE ||
               m_lock_type != F_UNLCK);
   DBUG_ASSERT(inited == NONE || (inited == RND && scan));
+
+  if (is_using_prohibited_gap_locks(table->in_use,
+                                    table->reginfo.lock_type, false))
+  {
+    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+  }
+
   inited= (result= rnd_init(scan)) ? NONE : RND;
   end_range= NULL;
   DBUG_RETURN(result);
@@ -2961,6 +2968,14 @@ int handler::ha_index_read_map(uchar *buf, const uchar *key,
               m_lock_type != F_UNLCK);
   DBUG_ASSERT(inited == INDEX);
 
+  if (is_using_prohibited_gap_locks(table->in_use,
+                                    table->reginfo.lock_type,
+                                    is_using_full_primary_key(
+                                      active_index, keypart_map, find_flag)))
+  {
+    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+  }
+
   MYSQL_TABLE_IO_WAIT(m_psi, PSI_TABLE_FETCH_ROW, active_index, 0,
     { result= index_read_map(buf, key, keypart_map, find_flag); })
   DBUG_RETURN(result);
@@ -2974,6 +2989,12 @@ int handler::ha_index_read_last_map(uchar *buf, const uchar *key,
   DBUG_ASSERT(table_share->tmp_table != NO_TMP_TABLE ||
               m_lock_type != F_UNLCK);
   DBUG_ASSERT(inited == INDEX);
+
+  if (is_using_prohibited_gap_locks(table->in_use,
+                                    table->reginfo.lock_type, false))
+  {
+    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+  }
 
   MYSQL_TABLE_IO_WAIT(m_psi, PSI_TABLE_FETCH_ROW, active_index, 0,
     { result= index_read_last_map(buf, key, keypart_map); })
@@ -2995,6 +3016,14 @@ int handler::ha_index_read_idx_map(uchar *buf, uint index, const uchar *key,
   DBUG_ASSERT(table_share->tmp_table != NO_TMP_TABLE ||
               m_lock_type != F_UNLCK);
   DBUG_ASSERT(end_range == NULL);
+
+  if (is_using_prohibited_gap_locks(table->in_use,
+                                    table->reginfo.lock_type,
+                                    is_using_full_primary_key(
+                                      index, keypart_map, find_flag)))
+  {
+    return HA_ERR_INTERNAL_ERROR;
+  }
 
   MYSQL_TABLE_IO_WAIT(m_psi, PSI_TABLE_FETCH_ROW, index, 0,
     { result= index_read_idx_map(buf, index, key, keypart_map, find_flag); })
@@ -3070,9 +3099,37 @@ int handler::ha_index_first(uchar * buf)
               m_lock_type != F_UNLCK);
   DBUG_ASSERT(inited == INDEX);
 
+  if (is_using_prohibited_gap_locks(table->in_use,
+                                    table->reginfo.lock_type, false))
+  {
+    return HA_ERR_INTERNAL_ERROR;
+  }
+
   MYSQL_TABLE_IO_WAIT(m_psi, PSI_TABLE_FETCH_ROW, active_index, 0,
     { result= index_first(buf); })
   return result;
+}
+
+bool handler::is_using_full_key(key_part_map keypart_map,
+                                uint actual_key_parts)
+{
+  return (keypart_map == HA_WHOLE_KEY) ||
+         (keypart_map == ((key_part_map(1) << actual_key_parts)
+                        - 1));
+}
+
+bool handler::is_using_full_primary_key(uint index,
+                                        key_part_map keypart_map,
+                                        enum ha_rkey_function find_flag)
+{
+  if (is_using_full_key(keypart_map,
+                        table->key_info[index].actual_key_parts)
+      && index == table->s->primary_key
+      && find_flag == HA_READ_KEY_EXACT)
+  {
+    return true;
+  }
+  return false;
 }
 
 
@@ -3093,6 +3150,12 @@ int handler::ha_index_last(uchar * buf)
   DBUG_ASSERT(table_share->tmp_table != NO_TMP_TABLE ||
               m_lock_type != F_UNLCK);
   DBUG_ASSERT(inited == INDEX);
+
+  if (is_using_prohibited_gap_locks(table->in_use,
+                                    table->reginfo.lock_type, false))
+  {
+    return HA_ERR_INTERNAL_ERROR;
+  }
 
   MYSQL_TABLE_IO_WAIT(m_psi, PSI_TABLE_FETCH_ROW, active_index, 0,
     { result= index_last(buf); })
@@ -7827,6 +7890,123 @@ bool is_binlog_advanced(const char *b1, const my_off_t p1,
     return true;
   if(strcmp(b1, b2) == 0 && p1 < p2)
     return true;
+  return false;
+}
+
+bool can_hold_read_locks_on_select(THD *thd, thr_lock_type lock_type)
+{
+  if (lock_type == TL_READ_WITH_SHARED_LOCKS
+      || lock_type == TL_READ_NO_INSERT
+      || (lock_type != TL_IGNORE
+          && thd->lex->sql_command != SQLCOM_SELECT))
+  {
+    return true;
+  }
+  return false;
+}
+
+bool can_hold_locks_on_trans(THD *thd, thr_lock_type lock_type)
+{
+  if (lock_type >= TL_WRITE_ALLOW_WRITE
+      || can_hold_read_locks_on_select(thd, lock_type))
+  {
+    return true;
+  }
+  return false;
+}
+
+static int print_gap_lock_log(THD *thd)
+{
+  return fprintf(gap_lock_log_file, "%lu\t%lu\t%s\t%s;\n",
+                 my_time(0), thd_thread_id(thd),
+                 thd->main_security_ctx.user,
+                 thd->query());
+}
+
+bool is_using_prohibited_gap_locks(THD *thd, thr_lock_type lock_type,
+                                   bool using_full_primary_key)
+{
+  if (!using_full_primary_key
+      && !thd->rli_slave
+      && (thd->variables.gap_lock_raise_error
+          || thd->variables.gap_lock_write_log)
+      && (thd->lex->table_count >= 2 || thd->in_multi_stmt_transaction_mode())
+      && can_hold_locks_on_trans(thd, lock_type))
+  {
+    if (thd->variables.gap_lock_write_log)
+    {
+      if (!gap_lock_log_file)
+      {
+        mysql_mutex_lock(&LOCK_global_system_variables);
+        if (!gap_lock_log_file)
+          fix_gap_lock_log();
+        mysql_mutex_unlock(&LOCK_global_system_variables);
+      }
+      if (gap_lock_log_file)
+      {
+        mysql_mutex_lock(&LOCK_gap_lock_log);
+        int rc = print_gap_lock_log(thd);
+        if (rc < 0)
+        {
+          reopen_gap_lock_log(opt_gap_lock_logname);
+          print_gap_lock_log(thd);
+        }
+        mysql_mutex_unlock(&LOCK_gap_lock_log);
+      }
+    }
+    if (thd->variables.gap_lock_raise_error)
+    {
+      my_printf_error(ER_UNKNOWN_ERROR,
+                      "Using Gap Lock without full primary key in multi-table "
+                      "or multi-statement transactions is not "
+                      "allowed. You need either 1: Execute 'SET SESSION "
+                      "gap_lock_raise_error=0' if you are sure that "
+                      "your application does not rely on Gap Lock. "
+                      "2: Rewrite queries to use "
+                      "all primary key columns in WHERE equal conditions. "
+                      "3: Rewrite to single-table, single-statement "
+                      "transaction.  Query: %s",
+                      MYF(0), thd->query());
+      return true;
+    }
+  }
+  return false;
+}
+
+void close_gap_lock_log_file(void)
+{
+  if (gap_lock_log_file)
+  {
+    fclose(gap_lock_log_file);
+    gap_lock_log_file= nullptr;
+  }
+}
+void reopen_gap_lock_log(char *name)
+{
+  close_gap_lock_log_file();
+  FILE * f = fopen(name, "a+");
+  if (f)
+  {
+    setbuf(f, nullptr);
+    gap_lock_log_file= f;
+  }
+}
+bool fix_gap_lock_log()
+{
+  if (!opt_gap_lock_logname) // SET ... = DEFAULT
+  {
+    char buff[FN_REFLEN];
+    opt_gap_lock_logname= my_strdup(make_log_name(buff,
+                                    default_logfile_name, "-gaplock.log"),
+                                    MYF(MY_FAE+MY_WME));
+    if (!opt_gap_lock_logname)
+      return true;
+  }
+  mysql_mutex_unlock(&LOCK_global_system_variables);
+  mysql_mutex_lock(&LOCK_gap_lock_log);
+  reopen_gap_lock_log(opt_gap_lock_logname);
+  mysql_mutex_unlock(&LOCK_gap_lock_log);
+  mysql_mutex_lock(&LOCK_global_system_variables);
   return false;
 }
 

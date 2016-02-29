@@ -696,6 +696,9 @@ typedef struct system_variables
   my_bool use_fbson_input_format;
   my_bool sql_log_bin_triggers;
 
+  my_bool gap_lock_raise_error;
+  my_bool gap_lock_write_log;
+
 } SV;
 
 

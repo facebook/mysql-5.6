@@ -749,6 +749,7 @@ const key_map key_map_empty(0);
 key_map key_map_full(0);                        // Will be initialized later
 char logname_path[FN_REFLEN];
 char slow_logname_path[FN_REFLEN];
+char gap_lock_logname_path[FN_REFLEN];
 char secure_file_real_path[FN_REFLEN];
 
 DATE_TIME_FORMAT global_date_format, global_datetime_format, global_time_format;
@@ -846,6 +847,7 @@ mysql_mutex_t
   LOCK_user_conn, LOCK_slave_list, LOCK_active_mi,
   LOCK_connection_count, LOCK_error_messages;
 mysql_mutex_t LOCK_sql_rand;
+mysql_mutex_t LOCK_gap_lock_log;
 
 /**
   The below lock protects access to two global server variables:
@@ -888,7 +890,7 @@ char *master_info_file;
 char *relay_log_info_file, *report_user, *report_password, *report_host;
 char *opt_relay_logname = 0, *opt_relaylog_index_name=0;
 char *opt_logname, *opt_slow_logname, *opt_bin_logname;
-
+char *opt_gap_lock_logname;
 /* Static variables */
 
 static volatile sig_atomic_t kill_in_progress;
@@ -937,6 +939,7 @@ Checkable_rwlock *global_sid_lock= NULL;
 Sid_map *global_sid_map= NULL;
 Gtid_state *gtid_state= NULL;
 extern my_bool opt_core_file;
+FILE* gap_lock_log_file= NULL;
 
 /*
   global_thread_list and waiting_thd_list are both pointers to objects
@@ -1974,6 +1977,7 @@ static void mysqld_exit(int exit_code)
   */
   wait_for_signal_thread_to_end();
   mysql_audit_finalize();
+  close_gap_lock_log_file();
   clean_up_mutexes();
   clean_up_error_log_mutex();
 #ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
@@ -2218,6 +2222,7 @@ static void clean_up_mutexes()
   mysql_rwlock_destroy(&LOCK_system_variables_hash);
   mysql_mutex_destroy(&LOCK_uuid_generator);
   mysql_mutex_destroy(&LOCK_sql_rand);
+  mysql_mutex_destroy(&LOCK_gap_lock_log);
   mysql_mutex_destroy(&LOCK_prepared_stmt_count);
   mysql_mutex_destroy(&LOCK_sql_slave_skip_counter);
   mysql_mutex_destroy(&LOCK_slave_net_timeout);
@@ -4743,6 +4748,10 @@ int init_common_variables(my_bool logging)
   if (!opt_slow_logname || !*opt_slow_logname)
     opt_slow_logname= make_default_log_name(slow_logname_path, "-slow.log");
 
+  if (!opt_gap_lock_logname || !*opt_gap_lock_logname)
+    opt_gap_lock_logname= make_default_log_name(gap_lock_logname_path,
+                                                "-gaplock.log");
+
 #if defined(ENABLED_DEBUG_SYNC)
   /* Initialize the debug sync facility. See debug_sync.cc. */
   if (debug_sync_init())
@@ -4865,6 +4874,8 @@ static int init_thread_environment()
                    &LOCK_uuid_generator, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_sql_rand,
                    &LOCK_sql_rand, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_gap_lock_log,
+                   &LOCK_gap_lock_log, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_connection_count,
                    &LOCK_connection_count, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_log_throttle_qni,
@@ -9327,6 +9338,7 @@ static int mysql_init_variables(void)
   opt_skip_name_resolve= 0;
   opt_ignore_builtin_innodb= 0;
   opt_logname= opt_update_logname= opt_binlog_index_name= opt_slow_logname= 0;
+  opt_gap_lock_logname= 0;
   opt_tc_log_file= (char *)"tc.log";      // no hostname in tc_log file name !
   opt_secure_auth= 0;
   opt_secure_file_priv= NULL;
@@ -10592,6 +10604,7 @@ PSI_mutex_key key_RELAYLOG_LOCK_sync_queue;
 PSI_mutex_key key_RELAYLOG_LOCK_xids;
 PSI_mutex_key key_RELAYLOG_LOCK_binlog_end_pos;
 PSI_mutex_key key_LOCK_sql_rand;
+PSI_mutex_key key_LOCK_gap_lock_log;
 PSI_mutex_key key_gtid_ensure_index_mutex;
 PSI_mutex_key key_LOCK_thread_created;
 #ifdef HAVE_MY_TIMER
@@ -10659,6 +10672,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_user_conn, "LOCK_user_conn", PSI_FLAG_GLOBAL},
   { &key_LOCK_uuid_generator, "LOCK_uuid_generator", PSI_FLAG_GLOBAL},
   { &key_LOCK_sql_rand, "LOCK_sql_rand", PSI_FLAG_GLOBAL},
+  { &key_LOCK_gap_lock_log, "LOCK_gap_lock_log", PSI_FLAG_GLOBAL},
   { &key_LOG_LOCK_log, "LOG::LOCK_log", 0},
   { &key_master_info_data_lock, "Master_info::data_lock", 0},
   { &key_master_info_run_lock, "Master_info::run_lock", 0},
