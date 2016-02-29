@@ -148,7 +148,8 @@ my_thread_id log_get_thread_id(THD *thd);
 enum enum_log_table_type {
   QUERY_LOG_NONE = 0,
   QUERY_LOG_SLOW = 1,
-  QUERY_LOG_GENERAL = 2
+  QUERY_LOG_GENERAL = 2,
+  QUERY_LOG_GAP_LOCK = 3
 };
 
 /**
@@ -217,6 +218,28 @@ class Log_event_handler {
                            size_t command_type_len, const char *sql_text,
                            size_t sql_text_len,
                            const CHARSET_INFO *client_cs) = 0;
+  /**
+    Log command to the gap lock log.
+
+    @param  thd               THD of the query
+    @param  event_utime       Command start timestamp in micro seconds
+    @param  user_host         The pointer to the string with user\@host info
+    @param  user_host_len     Length of the user_host string. this is computed
+    once and passed to all general log event handlers
+    @param  thread_id         Id of the thread, issued a query
+    @param  command_type      The type of the command being logged
+    @param  command_type_len  The length of the string above
+    @param  sql_text          The very text of the query being executed
+    @param  sql_text_len      The length of sql_text string
+
+    @retval  false   OK
+    @retval  true    error occured
+  */
+  virtual bool log_gap_lock(THD *thd, ulonglong event_utime,
+                            const char *user_host, size_t user_host_len,
+                            my_thread_id thread_id, const char *command_type,
+                            size_t command_type_len, const char *sql_text,
+                            size_t sql_text_len) = 0;
 };
 
 /** Class responsible for table based logging. */
@@ -234,6 +257,12 @@ class Log_to_csv_event_handler : public Log_event_handler {
                    const char *command_type, size_t command_type_len,
                    const char *sql_text, size_t sql_text_len,
                    const CHARSET_INFO *client_cs) override;
+
+  /** @see Log_event_handler::log_gap_lock(). */
+  bool log_gap_lock(THD *thd, ulonglong event_utime, const char *user_host,
+                    size_t user_host_len, my_thread_id thread_id,
+                    const char *command_type, size_t command_type_len,
+                    const char *sql_text, size_t sql_text_len) override;
 
  private:
   /**
@@ -278,6 +307,7 @@ class Query_logger {
   /** NULL-terminated arrays of log handlers. */
   Log_event_handler *slow_log_handler_list[MAX_LOG_HANDLERS_NUM + 1];
   Log_event_handler *general_log_handler_list[MAX_LOG_HANDLERS_NUM + 1];
+  Log_event_handler *gap_lock_log_handler_list[MAX_LOG_HANDLERS_NUM + 1];
 
  private:
   /**
@@ -365,6 +395,33 @@ class Query_logger {
   */
   bool general_log_write(THD *thd, enum_server_command command,
                          const char *query, size_t query_length);
+
+  /**
+    Write printf style message to gap lock query log.
+
+    @param thd           THD of the statement being logged.
+    @param command       COM of statement being logged.
+    @param format        Printf style format of message.
+    @param ...           Printf parameters to write.
+
+    @return true if error, false otherwise.
+  */
+  bool gap_lock_log_print(THD *thd, enum_server_command command,
+                          const char *format, ...)
+      MY_ATTRIBUTE((format(printf, 4, 5)));
+
+  /**
+    Write query to gap lock query log.
+
+    @param thd           THD of the statement being logged.
+    @param command       COM of statement being logged.
+    @param query         The query string being logged.
+    @param query_length  The length of the query string.
+
+    @return true if error, false otherwise.
+  */
+  bool gap_lock_log_write(THD *thd, enum_server_command command,
+                          const char *query, size_t query_length);
 
   /**
      Enable log event handlers for slow/general log.

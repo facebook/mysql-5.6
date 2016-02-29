@@ -345,6 +345,23 @@ class File_query_log {
                   ulonglong lock_utime, bool is_command, const char *sql_text,
                   size_t sql_text_len);
 
+  /**
+    Write a command to gap lock log file.
+    Log given command to normal (not rotatable) log file.
+
+    @param event_utime       Command start timestamp in micro seconds
+    @param thread_id         Id of the thread that issued the query
+    @param command_type      The type of the command being logged
+    @param command_type_len  The length of the string above
+    @param sql_text          The very text of the query being executed
+    @param sql_text_len      The length of sql_text string
+
+    @return true if error, false otherwise.
+  */
+  bool write_gap_lock(ulonglong event_utime, my_thread_id thread_id,
+                      const char *command_type, size_t command_type_len,
+                      const char *sql_text, size_t sql_text_len);
+
  private:
   /** Type of log file. */
   const enum_log_table_type m_log_type;
@@ -386,6 +403,8 @@ File_query_log::File_query_log(enum_log_table_type log_type)
     m_log_file_key = key_file_general_log;
   else if (log_type == QUERY_LOG_SLOW)
     m_log_file_key = key_file_slow_log;
+  else if (log_type == QUERY_LOG_GAP_LOCK)
+    m_log_file_key = key_file_gap_lock_log;
 #endif
 }
 
@@ -545,7 +564,7 @@ bool File_query_log::open() {
                     MYF(MY_WME | MY_NABP)))
     goto err;
 
-  {
+  if (m_log_type != QUERY_LOG_GAP_LOCK) {
     char *end;
     size_t len =
         snprintf(buff, sizeof(buff),
@@ -979,6 +998,14 @@ err:
   return result;
 }
 
+bool Log_to_csv_event_handler::log_gap_lock(THD *, ulonglong, const char *,
+                                            size_t, my_thread_id, const char *,
+                                            size_t, const char *, size_t) {
+  /* No log table is implemented */
+  assert(false);
+  return false;
+}
+
 bool Log_to_csv_event_handler::log_slow(
     THD *thd, ulonglong current_utime, ulonglong query_start_arg,
     const char *user_host, size_t user_host_len, ulonglong query_utime,
@@ -1190,6 +1217,7 @@ bool Log_to_csv_event_handler::activate_log(
 class Log_to_file_event_handler : public Log_event_handler {
   File_query_log mysql_general_log;
   File_query_log mysql_slow_log;
+  File_query_log mysql_gap_lock_log;
 
  public:
   /**
@@ -1210,21 +1238,33 @@ class Log_to_file_event_handler : public Log_event_handler {
                    const char *command_type, size_t command_type_len,
                    const char *sql_text, size_t sql_text_len,
                    const CHARSET_INFO *client_cs) override;
+  /**
+    Wrapper around File_query_log::write_gap_lock() for gap lock log.
+    @see Log_event_handler::log_gap_lock().
+    */
+  bool log_gap_lock(THD *thd, ulonglong event_utime, const char *user_host,
+                    size_t user_host_len, my_thread_id thread_id,
+                    const char *command_type, size_t command_type_len,
+                    const char *sql_text, size_t sql_text_len) override;
 
  private:
   Log_to_file_event_handler()
-      : mysql_general_log(QUERY_LOG_GENERAL), mysql_slow_log(QUERY_LOG_SLOW) {}
+      : mysql_general_log(QUERY_LOG_GENERAL),
+        mysql_slow_log(QUERY_LOG_SLOW),
+        mysql_gap_lock_log(QUERY_LOG_GAP_LOCK) {}
 
   /** Close slow and general log files. */
   void cleanup() {
     mysql_general_log.close();
     mysql_slow_log.close();
+    mysql_gap_lock_log.close();
   }
 
   /** @return File_query_log instance responsible for writing to slow/general
    * log.*/
   File_query_log *get_query_log(enum_log_table_type log_type) {
     if (log_type == QUERY_LOG_SLOW) return &mysql_slow_log;
+    if (log_type == QUERY_LOG_GAP_LOCK) return &mysql_gap_lock_log;
     assert(log_type == QUERY_LOG_GENERAL);
     return &mysql_general_log;
   }
@@ -1263,11 +1303,28 @@ bool Log_to_file_event_handler::log_general(
   return retval;
 }
 
+bool Log_to_file_event_handler::log_gap_lock(
+    THD *thd, ulonglong event_utime, const char *, size_t,
+    my_thread_id thread_id, const char *command_type, size_t command_type_len,
+    const char *sql_text, size_t sql_text_len) {
+  if (!mysql_gap_lock_log.is_open()) return false;
+
+  Silence_log_table_errors error_handler;
+  thd->push_internal_handler(&error_handler);
+  bool retval = mysql_gap_lock_log.write_general(event_utime, thread_id,
+                                                 command_type, command_type_len,
+                                                 sql_text, sql_text_len);
+  thd->pop_internal_handler();
+  return retval;
+}
+
 bool Query_logger::is_log_table_enabled(enum_log_table_type log_type) const {
   if (log_type == QUERY_LOG_SLOW)
     return (opt_slow_log && (log_output_options & LOG_TABLE));
   else if (log_type == QUERY_LOG_GENERAL)
     return (opt_general_log && (log_output_options & LOG_TABLE));
+  else if (log_type == QUERY_LOG_GAP_LOCK)
+    return (log_output_options & LOG_TABLE);
   assert(false);
   return false; /* make compiler happy */
 }
@@ -1425,6 +1482,69 @@ bool Query_logger::general_log_print(THD *thd, enum_server_command command,
   return general_log_write(thd, command, message_buff, message_buff_len);
 }
 
+bool Query_logger::gap_lock_log_write(THD *thd,
+                                      enum enum_server_command command,
+                                      const char *query, size_t query_length) {
+  /*
+     Did we already log this command?
+     Is gap lock log enabled?
+     Any active handlers?
+   */
+  if (!thd->variables.gap_lock_write_log || thd->m_gap_lock_log_written ||
+      !(*gap_lock_log_handler_list))
+    return false;
+
+  thd->m_gap_lock_log_written = true;
+
+  char user_host_buff[MAX_USER_HOST_SIZE + 1];
+  size_t user_host_len =
+      make_user_name(thd->security_context(), user_host_buff);
+  ulonglong current_utime = my_micro_time();
+
+  mysql_rwlock_rdlock(&LOCK_logger);
+
+  bool error = false;
+  for (Log_event_handler **current_handler = gap_lock_log_handler_list;
+       *current_handler;) {
+    error |= (*current_handler++)
+                 ->log_gap_lock(thd, current_utime, user_host_buff,
+                                user_host_len, thd->thread_id(),
+                                Command_names::str_session(command).c_str(),
+                                Command_names::str_session(command).length(),
+                                query, query_length);
+  }
+  mysql_rwlock_unlock(&LOCK_logger);
+
+  return error;
+}
+
+bool Query_logger::gap_lock_log_print(THD *thd, enum_server_command command,
+                                      const char *format, ...) {
+  /*
+     Any active handlers?
+  */
+  if (!(*gap_lock_log_handler_list)) {
+    return false;
+  }
+
+  size_t message_buff_len = 0;
+  char message_buff[LOG_BUFF_MAX];
+
+  /* prepare message */
+  if (format) {
+    va_list args;
+    va_start(args, format);
+    message_buff_len =
+        vsnprintf(message_buff, sizeof(message_buff), format, args);
+    va_end(args);
+
+    message_buff_len = std::min(message_buff_len, sizeof(message_buff) - 1);
+  } else
+    message_buff[0] = '\0';
+
+  return gap_lock_log_write(thd, command, message_buff, message_buff_len);
+}
+
 void Query_logger::init_query_log(enum_log_table_type log_type,
                                   ulonglong log_printer) {
   if (log_type == QUERY_LOG_SLOW) {
@@ -1469,6 +1589,25 @@ void Query_logger::init_query_log(enum_log_table_type log_type,
         general_log_handler_list[2] = nullptr;
         break;
     }
+  } else if (log_type == QUERY_LOG_GAP_LOCK) {
+    if (log_printer & LOG_NONE) {
+      gap_lock_log_handler_list[0] = NULL;
+      return;
+    }
+
+    switch (log_printer) {
+      case LOG_FILE:
+        gap_lock_log_handler_list[0] = file_log_handler;
+        gap_lock_log_handler_list[1] = NULL;
+        break;
+        /* these two are disabled for now */
+      case LOG_TABLE:
+        assert(false);
+        break;
+      case LOG_TABLE | LOG_FILE:
+        assert(false);
+        break;
+    }
   } else
     assert(false);
 }
@@ -1478,6 +1617,7 @@ void Query_logger::set_handlers(ulonglong log_printer) {
 
   init_query_log(QUERY_LOG_SLOW, log_printer);
   init_query_log(QUERY_LOG_GENERAL, log_printer);
+  init_query_log(QUERY_LOG_GAP_LOCK, LOG_FILE);
 
   mysql_rwlock_unlock(&LOCK_logger);
 }
@@ -1513,6 +1653,8 @@ bool Query_logger::set_log_file(enum_log_table_type log_type) {
     log_name = opt_slow_logname;
   else if (log_type == QUERY_LOG_GENERAL)
     log_name = opt_general_logname;
+  else if (log_type == QUERY_LOG_GAP_LOCK)
+    log_name = opt_gap_lock_logname;
   else
     assert(false);
 
@@ -1567,6 +1709,8 @@ char *make_query_log_name(char *buff, enum_log_table_type log_type) {
     log_ext = ".log";
   else if (log_type == QUERY_LOG_SLOW)
     log_ext = "-slow.log";
+  else if (log_type == QUERY_LOG_GAP_LOCK)
+    log_ext = "-gaplock.log";
   else
     assert(false);
 

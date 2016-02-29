@@ -1,0 +1,77 @@
+--source include/load_sysvars.inc
+
+SET @start_value = @@global.gap_lock_raise_error;
+SELECT @start_value;
+
+
+SET @@global.gap_lock_raise_error = DEFAULT;
+SELECT @@global.gap_lock_raise_error = TRUE;
+
+
+SET @@global.gap_lock_raise_error = ON;
+SELECT @@global.gap_lock_raise_error;
+SET @@global.gap_lock_raise_error = OFF;
+SELECT @@global.gap_lock_raise_error;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.gap_lock_raise_error = 2;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.gap_lock_raise_error = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.gap_lock_raise_error = TRUEF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.gap_lock_raise_error = TRUE_F;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.gap_lock_raise_error = FALSE0;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.gap_lock_raise_error = OON;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.gap_lock_raise_error = ONN;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.gap_lock_raise_error = OOFF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.gap_lock_raise_error = 0FF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.gap_lock_raise_error = ' ';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.gap_lock_raise_error = " ";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.gap_lock_raise_error = '';
+
+
+SET @@session.gap_lock_raise_error = OFF;
+SELECT @@session.gap_lock_raise_error;
+
+
+SELECT IF(@@global.gap_lock_raise_error, "ON", "OFF") = VARIABLE_VALUE 
+FROM performance_schema.global_variables 
+WHERE VARIABLE_NAME='gap_lock_raise_error';
+
+
+SET @@global.gap_lock_raise_error = 0;
+SELECT @@global.gap_lock_raise_error;
+SET @@global.gap_lock_raise_error = 1;
+SELECT @@global.gap_lock_raise_error;
+
+SET @@global.gap_lock_raise_error = TRUE;
+SELECT @@global.gap_lock_raise_error;
+SET @@global.gap_lock_raise_error = FALSE;
+SELECT @@global.gap_lock_raise_error;
+
+SET @@global.gap_lock_raise_error = ON;
+SELECT @@gap_lock_raise_error = @@global.gap_lock_raise_error;
+
+SET gap_lock_raise_error = ON;
+--Error ER_PARSE_ERROR
+SET local.gap_lock_raise_error = OFF;
+--Error ER_UNKNOWN_TABLE
+SELECT local.gap_lock_raise_error;
+--Error ER_PARSE_ERROR
+SET global.gap_lock_raise_error = ON;
+--Error ER_UNKNOWN_TABLE
+SELECT global.gap_lock_raise_error;
+--Error ER_BAD_FIELD_ERROR
+SELECT gap_lock_raise_error = @@session.gap_lock_raise_error;
+
+SET @@global.gap_lock_raise_error = @start_value;
+SELECT @@global.gap_lock_raise_error;

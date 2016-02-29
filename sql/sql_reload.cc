@@ -206,6 +206,9 @@ bool handle_reload_request(THD *thd, unsigned long options, Table_ref *tables,
       (log_output_options & LOG_FILE))
     if (query_logger.reopen_log_file(QUERY_LOG_GENERAL)) result = true;
 
+  if (options & REFRESH_GENERAL_LOG)
+    if (query_logger.reopen_log_file(QUERY_LOG_GAP_LOCK)) result = 1;
+
   if (options & REFRESH_ENGINE_LOG) {
     if (ha_flush_logs()) {
       result = true;

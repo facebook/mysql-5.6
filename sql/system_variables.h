@@ -445,6 +445,10 @@ struct System_variables {
     @sa Sys_var_require_row_format
   */
   bool require_row_format;
+
+  bool gap_lock_raise_error;
+  bool gap_lock_write_log;
+
   /**
     @sa Sys_select_into_buffer_size
   */
