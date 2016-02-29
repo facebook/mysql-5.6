@@ -759,6 +759,7 @@ const key_map key_map_empty(0);
 key_map key_map_full(0);                        // Will be initialized later
 char logname_path[FN_REFLEN];
 char slow_logname_path[FN_REFLEN];
+char gap_lock_logname_path[FN_REFLEN];
 char secure_file_real_path[FN_REFLEN];
 
 DATE_TIME_FORMAT global_date_format, global_datetime_format, global_time_format;
@@ -898,7 +899,7 @@ char *master_info_file;
 char *relay_log_info_file, *report_user, *report_password, *report_host;
 char *opt_relay_logname = 0, *opt_relaylog_index_name=0;
 char *opt_logname, *opt_slow_logname, *opt_bin_logname;
-
+char *opt_gap_lock_logname;
 /* Static variables */
 
 static volatile sig_atomic_t kill_in_progress;
@@ -3838,7 +3839,7 @@ pthread_handler_t signal_hand(void *arg __attribute__((unused)))
       sql_print_information("Got signal %d to shutdown mysqld",sig);
       /* switch to the old log message processing */
       logger.set_handlers(LOG_FILE, opt_slow_log ? LOG_FILE:LOG_NONE,
-                          opt_log ? LOG_FILE:LOG_NONE);
+                          opt_log ? LOG_FILE:LOG_NONE, LOG_FILE);
       DBUG_PRINT("info",("Got signal: %d  abort_loop: %d",sig,abort_loop));
       if (!abort_loop)
       {
@@ -3876,13 +3877,13 @@ pthread_handler_t signal_hand(void *arg __attribute__((unused)))
       {
         logger.set_handlers(LOG_FILE,
                             opt_slow_log ? LOG_TABLE : LOG_NONE,
-                            opt_log ? LOG_TABLE : LOG_NONE);
+                            opt_log ? LOG_TABLE : LOG_NONE, LOG_FILE);
       }
       else
       {
         logger.set_handlers(LOG_FILE,
                             opt_slow_log ? log_output_options : LOG_NONE,
-                            opt_log ? log_output_options : LOG_NONE);
+                            opt_log ? log_output_options : LOG_NONE, LOG_FILE);
       }
       break;
 #ifdef USE_ONE_SIGNAL_HAND
@@ -4753,6 +4754,10 @@ int init_common_variables(my_bool logging)
   if (!opt_slow_logname || !*opt_slow_logname)
     opt_slow_logname= make_default_log_name(slow_logname_path, "-slow.log");
 
+  if (!opt_gap_lock_logname || !*opt_gap_lock_logname)
+    opt_gap_lock_logname= make_default_log_name(gap_lock_logname_path,
+                                                "-gaplock.log");
+
 #if defined(ENABLED_DEBUG_SYNC)
   /* Initialize the debug sync facility. See debug_sync.cc. */
   if (debug_sync_init())
@@ -5619,7 +5624,7 @@ a file name for --log-bin-index option", opt_binlog_index_name);
       sql_print_warning("There were other values specified to "
                         "log-output besides NONE. Disabling slow "
                         "and general logs anyway.");
-    logger.set_handlers(LOG_FILE, LOG_NONE, LOG_NONE);
+    logger.set_handlers(LOG_FILE, LOG_NONE, LOG_NONE, LOG_FILE);
   }
   else
   {
@@ -5635,11 +5640,11 @@ a file name for --log-bin-index option", opt_binlog_index_name);
     }
 
     logger.set_handlers(LOG_FILE, opt_slow_log ? log_output_options:LOG_NONE,
-                        opt_log ? log_output_options:LOG_NONE);
+                        opt_log ? log_output_options:LOG_NONE, LOG_FILE);
   }
 #else
   logger.set_handlers(LOG_FILE, opt_slow_log ? LOG_FILE:LOG_NONE,
-                      opt_log ? LOG_FILE:LOG_NONE);
+                      opt_log ? LOG_FILE:LOG_NONE, LOG_FILE);
 #endif
 
   /*
@@ -9370,6 +9375,7 @@ static int mysql_init_variables(void)
   opt_skip_name_resolve= 0;
   opt_ignore_builtin_innodb= 0;
   opt_logname= opt_update_logname= opt_binlog_index_name= opt_slow_logname= 0;
+  opt_gap_lock_logname= 0;
   opt_tc_log_file= (char *)"tc.log";      // no hostname in tc_log file name !
   opt_secure_auth= 0;
   opt_secure_file_priv= NULL;
@@ -10895,7 +10901,7 @@ PSI_file_key key_file_binlog, key_file_binlog_index, key_file_casetest,
   key_file_master_info, key_file_misc, key_file_partition,
   key_file_pid, key_file_relay_log_info, key_file_send_file, key_file_tclog,
   key_file_trg, key_file_trn, key_file_init;
-PSI_file_key key_file_query_log, key_file_slow_log;
+PSI_file_key key_file_query_log, key_file_slow_log, key_file_gap_lock_log;
 PSI_file_key key_file_relaylog, key_file_relaylog_index;
 
 static PSI_file_info all_server_files[]=
@@ -10914,6 +10920,7 @@ static PSI_file_info all_server_files[]=
   { &key_select_to_file, "select_to_file", 0},
   { &key_file_fileparser, "file_parser", 0},
   { &key_file_frm, "FRM", 0},
+  { &key_file_gap_lock_log, "gap_lock_log", 0},
   { &key_file_global_ddl_log, "global_ddl_log", 0},
   { &key_file_load, "load", 0},
   { &key_file_loadfile, "LOAD_FILE", 0},

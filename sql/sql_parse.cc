@@ -6853,6 +6853,7 @@ void THD::reset_for_next_command()
   thd->commit_error= THD::CE_NONE;
   thd->durability_property= HA_REGULAR_DURABILITY;
   thd->set_trans_pos(NULL, 0, NULL);
+  thd->m_gap_lock_log_written= false;
 
   if (unlikely(!thd->prepared_engine))
     thd->prepared_engine= new engine_lsn_map();

@@ -1,0 +1,402 @@
+drop table if exists t1,t2,t3;
+CREATE DATABASE mysqlslap;
+CREATE TABLE t1 (id1 INT, id2 INT, id3 INT, c1 INT, value INT,
+PRIMARY KEY (id1, id2, id3),
+INDEX i (c1)) ENGINE=rocksdb;
+CREATE TABLE t2 like t1;
+CREATE TABLE t3 (id INT, value INT,
+PRIMARY KEY (id),
+UNIQUE KEY ui(value)) ENGINE=rocksdb;
+insert into t3 values (1,1), (2,2),(3,3),(4,4),(5,5);
+create table x1 (
+pk int primary key,
+a int,
+b int,
+key(a)
+) ENGINE=rocksdb;
+insert into x1 values (1,1,1), (2,2,2), (3,3,3), (4,4,4);
+create table x2 like x1;
+insert into x2 values (1,1,1), (2,2,2), (3,3,3), (4,4,4);
+set session gap_lock_raise_error=1;
+set session gap_lock_write_log=1;
+set @save_gap_lock_write_log = @@gap_lock_write_log;
+set @save_gap_lock_raise_error = @@gap_lock_raise_error;
+set gap_lock_write_log = 1;
+set gap_lock_raise_error = 0;
+begin;
+update x1 set a= (select 1+max(a) from x2 where x2.pk between 1 and 3 and x2.b=x1.b);
+1
+update x1 set a= (select 2+max(a) from x2 where x2.pk between 1 and 3 and x2.b=x1.b);
+update x1 set a= (select 3+max(a) from x2 where x2.pk between 1 and 3 and x2.b=x1.b);
+1
+1
+rollback;
+set gap_lock_write_log = @save_gap_lock_write_log;
+set gap_lock_raise_error = @save_gap_lock_raise_error;
+set global gap_lock_write_log = 1;
+set global gap_lock_write_log = 0;
+1000
+set session autocommit=0;
+select * from t1 limit 1 for update;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 limit 1 for update
+select * from t1 where value != 100 limit 1 for update;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 where value != 100 limit 1 for update
+select * from t1 where id1=1 for update;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 where id1=1 for update
+select * from t1 where id1=1 and id2= 1 for update;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 where id1=1 and id2= 1 for update
+select * from t1 where id1=1 and id2= 1 and id3 != 1 for update;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 where id1=1 and id2= 1 and id3 != 1 for update
+select * from t1 where id1=1 and id2= 1 and id3
+between 1 and 3 for update;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 where id1=1 and id2= 1 and id3
+between 1 and 3 for update
+select * from t1 where id1=1 and id2= 1 order by id3 asc
+limit 1 for update;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 where id1=1 and id2= 1 order by id3 asc
+limit 1 for update
+select * from t1 where id1=1 and id2= 1 order by id3 desc
+limit 1 for update;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 where id1=1 and id2= 1 order by id3 desc
+limit 1 for update
+select * from t1 order by id1 asc limit 1 for update;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 order by id1 asc limit 1 for update
+select * from t1 order by id1 asc, id2 asc, id3 asc limit 1 for update;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 order by id1 asc, id2 asc, id3 asc limit 1 for update
+select * from t1 order by id1 desc limit 1 for update;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 order by id1 desc limit 1 for update
+select * from t1 order by id1 desc, id2 desc, id3 desc
+limit 1 for update;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 order by id1 desc, id2 desc, id3 desc
+limit 1 for update
+select * from t1 force index(i) where c1=1 for update;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 force index(i) where c1=1 for update
+select * from t3 force index(ui) where value=1 for update;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t3 force index(ui) where value=1 for update
+select * from t1 where id1=1 and id2=1 and id3=1 for update;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2=1 and id3 in (1, 2, 3) for update;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2=1 and id3=1 and value=1
+order by c1 for update;
+id1	id2	id3	c1	value
+select * from t3 where id=1 for update;
+id	value
+1	1
+set session autocommit=1;
+select * from t1 limit 1 for update;
+id1	id2	id3	c1	value
+0	0	1	1	1
+select * from t1 where value != 100 limit 1 for update;
+id1	id2	id3	c1	value
+0	0	1	1	1
+select * from t1 where id1=1 for update;
+id1	id2	id3	c1	value
+1	0	2	2	2
+1	0	3	3	3
+select * from t1 where id1=1 and id2= 1 for update;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2= 1 and id3 != 1 for update;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2= 1 and id3
+between 1 and 3 for update;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2= 1 order by id3 asc
+limit 1 for update;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2= 1 order by id3 desc
+limit 1 for update;
+id1	id2	id3	c1	value
+select * from t1 order by id1 asc limit 1 for update;
+id1	id2	id3	c1	value
+0	0	1	1	1
+select * from t1 order by id1 asc, id2 asc, id3 asc limit 1 for update;
+id1	id2	id3	c1	value
+0	0	1	1	1
+select * from t1 order by id1 desc limit 1 for update;
+id1	id2	id3	c1	value
+500	100	1000	1000	1000
+select * from t1 order by id1 desc, id2 desc, id3 desc
+limit 1 for update;
+id1	id2	id3	c1	value
+500	100	1000	1000	1000
+select * from t1 force index(i) where c1=1 for update;
+id1	id2	id3	c1	value
+0	0	1	1	1
+select * from t3 force index(ui) where value=1 for update;
+id	value
+1	1
+select * from t1 where id1=1 and id2=1 and id3=1 for update;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2=1 and id3 in (1, 2, 3) for update;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2=1 and id3=1 and value=1
+order by c1 for update;
+id1	id2	id3	c1	value
+select * from t3 where id=1 for update;
+id	value
+1	1
+set session autocommit=0;
+select * from t1 limit 1 lock in share mode;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 limit 1 lock in share mode
+select * from t1 where value != 100 limit 1 lock in share mode;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 where value != 100 limit 1 lock in share mode
+select * from t1 where id1=1 lock in share mode;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 where id1=1 lock in share mode
+select * from t1 where id1=1 and id2= 1 lock in share mode;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 where id1=1 and id2= 1 lock in share mode
+select * from t1 where id1=1 and id2= 1 and id3 != 1 lock in share mode;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 where id1=1 and id2= 1 and id3 != 1 lock in share mode
+select * from t1 where id1=1 and id2= 1 and id3
+between 1 and 3 lock in share mode;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 where id1=1 and id2= 1 and id3
+between 1 and 3 lock in share mode
+select * from t1 where id1=1 and id2= 1 order by id3 asc
+limit 1 lock in share mode;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 where id1=1 and id2= 1 order by id3 asc
+limit 1 lock in share mode
+select * from t1 where id1=1 and id2= 1 order by id3 desc
+limit 1 lock in share mode;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 where id1=1 and id2= 1 order by id3 desc
+limit 1 lock in share mode
+select * from t1 order by id1 asc limit 1 lock in share mode;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 order by id1 asc limit 1 lock in share mode
+select * from t1 order by id1 asc, id2 asc, id3 asc limit 1 lock in share mode;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 order by id1 asc, id2 asc, id3 asc limit 1 lock in share mode
+select * from t1 order by id1 desc limit 1 lock in share mode;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 order by id1 desc limit 1 lock in share mode
+select * from t1 order by id1 desc, id2 desc, id3 desc
+limit 1 lock in share mode;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 order by id1 desc, id2 desc, id3 desc
+limit 1 lock in share mode
+select * from t1 force index(i) where c1=1 lock in share mode;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 force index(i) where c1=1 lock in share mode
+select * from t3 force index(ui) where value=1 lock in share mode;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t3 force index(ui) where value=1 lock in share mode
+select * from t1 where id1=1 and id2=1 and id3=1 lock in share mode;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2=1 and id3 in (1, 2, 3) lock in share mode;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2=1 and id3=1 and value=1
+order by c1 lock in share mode;
+id1	id2	id3	c1	value
+select * from t3 where id=1 lock in share mode;
+id	value
+1	1
+set session autocommit=1;
+select * from t1 limit 1 lock in share mode;
+id1	id2	id3	c1	value
+0	0	1	1	1
+select * from t1 where value != 100 limit 1 lock in share mode;
+id1	id2	id3	c1	value
+0	0	1	1	1
+select * from t1 where id1=1 lock in share mode;
+id1	id2	id3	c1	value
+1	0	2	2	2
+1	0	3	3	3
+select * from t1 where id1=1 and id2= 1 lock in share mode;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2= 1 and id3 != 1 lock in share mode;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2= 1 and id3
+between 1 and 3 lock in share mode;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2= 1 order by id3 asc
+limit 1 lock in share mode;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2= 1 order by id3 desc
+limit 1 lock in share mode;
+id1	id2	id3	c1	value
+select * from t1 order by id1 asc limit 1 lock in share mode;
+id1	id2	id3	c1	value
+0	0	1	1	1
+select * from t1 order by id1 asc, id2 asc, id3 asc limit 1 lock in share mode;
+id1	id2	id3	c1	value
+0	0	1	1	1
+select * from t1 order by id1 desc limit 1 lock in share mode;
+id1	id2	id3	c1	value
+500	100	1000	1000	1000
+select * from t1 order by id1 desc, id2 desc, id3 desc
+limit 1 lock in share mode;
+id1	id2	id3	c1	value
+500	100	1000	1000	1000
+select * from t1 force index(i) where c1=1 lock in share mode;
+id1	id2	id3	c1	value
+0	0	1	1	1
+select * from t3 force index(ui) where value=1 lock in share mode;
+id	value
+1	1
+select * from t1 where id1=1 and id2=1 and id3=1 lock in share mode;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2=1 and id3 in (1, 2, 3) lock in share mode;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2=1 and id3=1 and value=1
+order by c1 lock in share mode;
+id1	id2	id3	c1	value
+select * from t3 where id=1 lock in share mode;
+id	value
+1	1
+set session autocommit=0;
+select * from t1 limit 1 ;
+id1	id2	id3	c1	value
+0	0	1	1	1
+select * from t1 where value != 100 limit 1 ;
+id1	id2	id3	c1	value
+0	0	1	1	1
+select * from t1 where id1=1 ;
+id1	id2	id3	c1	value
+1	0	2	2	2
+1	0	3	3	3
+select * from t1 where id1=1 and id2= 1 ;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2= 1 and id3 != 1 ;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2= 1 and id3
+between 1 and 3 ;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2= 1 order by id3 asc
+limit 1 ;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2= 1 order by id3 desc
+limit 1 ;
+id1	id2	id3	c1	value
+select * from t1 order by id1 asc limit 1 ;
+id1	id2	id3	c1	value
+0	0	1	1	1
+select * from t1 order by id1 asc, id2 asc, id3 asc limit 1 ;
+id1	id2	id3	c1	value
+0	0	1	1	1
+select * from t1 order by id1 desc limit 1 ;
+id1	id2	id3	c1	value
+500	100	1000	1000	1000
+select * from t1 order by id1 desc, id2 desc, id3 desc
+limit 1 ;
+id1	id2	id3	c1	value
+500	100	1000	1000	1000
+select * from t1 force index(i) where c1=1 ;
+id1	id2	id3	c1	value
+0	0	1	1	1
+select * from t3 force index(ui) where value=1 ;
+id	value
+1	1
+select * from t1 where id1=1 and id2=1 and id3=1 ;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2=1 and id3 in (1, 2, 3) ;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2=1 and id3=1 and value=1
+order by c1 ;
+id1	id2	id3	c1	value
+select * from t3 where id=1 ;
+id	value
+1	1
+set session autocommit=1;
+select * from t1 limit 1 ;
+id1	id2	id3	c1	value
+0	0	1	1	1
+select * from t1 where value != 100 limit 1 ;
+id1	id2	id3	c1	value
+0	0	1	1	1
+select * from t1 where id1=1 ;
+id1	id2	id3	c1	value
+1	0	2	2	2
+1	0	3	3	3
+select * from t1 where id1=1 and id2= 1 ;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2= 1 and id3 != 1 ;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2= 1 and id3
+between 1 and 3 ;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2= 1 order by id3 asc
+limit 1 ;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2= 1 order by id3 desc
+limit 1 ;
+id1	id2	id3	c1	value
+select * from t1 order by id1 asc limit 1 ;
+id1	id2	id3	c1	value
+0	0	1	1	1
+select * from t1 order by id1 asc, id2 asc, id3 asc limit 1 ;
+id1	id2	id3	c1	value
+0	0	1	1	1
+select * from t1 order by id1 desc limit 1 ;
+id1	id2	id3	c1	value
+500	100	1000	1000	1000
+select * from t1 order by id1 desc, id2 desc, id3 desc
+limit 1 ;
+id1	id2	id3	c1	value
+500	100	1000	1000	1000
+select * from t1 force index(i) where c1=1 ;
+id1	id2	id3	c1	value
+0	0	1	1	1
+select * from t3 force index(ui) where value=1 ;
+id	value
+1	1
+select * from t1 where id1=1 and id2=1 and id3=1 ;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2=1 and id3 in (1, 2, 3) ;
+id1	id2	id3	c1	value
+select * from t1 where id1=1 and id2=1 and id3=1 and value=1
+order by c1 ;
+id1	id2	id3	c1	value
+select * from t3 where id=1 ;
+id	value
+1	1
+set session autocommit=0;
+insert into t1 (id1, id2, id3) values (-1,-1,-1);
+insert into t1 (id1, id2, id3) values (-1,-1,-1)
+on duplicate key update value=100;
+update t1 set value=100 where id1=1;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: update t1 set value=100 where id1=1
+update t1 set value=100 where id1=1 and id2=1 and id3=1;
+delete from t1 where id1=2;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: delete from t1 where id1=2
+delete from t1 where id1=-1 and id2=-1 and id3=-1;
+commit;
+set session autocommit=1;
+insert into t1 (id1, id2, id3) values (-1,-1,-1);
+insert into t1 (id1, id2, id3) values (-1,-1,-1)
+on duplicate key update value=100;
+update t1 set value=100 where id1=1;
+update t1 set value=100 where id1=1 and id2=1 and id3=1;
+delete from t1 where id1=2;
+delete from t1 where id1=-1 and id2=-1 and id3=-1;
+commit;
+set session autocommit=1;
+insert into t2 select * from t1;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: insert into t2 select * from t1
+insert into t2 select * from t1 where id1=1;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: insert into t2 select * from t1 where id1=1
+insert into t2 select * from t1 where id1=1 and id2=1 and id3=1;
+create table t4 select * from t1 where id1=1 and id2=1 and id3=1;
+drop table t4;
+create table t4 select * from t1;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: create table t4 select * from t1
+create table t4 select * from t1 where id1=1;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: create table t4 select * from t1 where id1=1
+update t1 join t2 on t1.id1 and t1.id2=t2.id2 set t1.value=100 where t2.id1=3
+and t2.id2=3 and t2.id3=3;
+update t1 join t2 on t1.id1 and t1.id2=t2.id2 set t1.value=100 where t2.id1=3;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: update t1 join t2 on t1.id1 and t1.id2=t2.id2 set t1.value=100 where t2.id1=3
+update t1 join t2 on t1.id1 and t1.id2=t2.id2 join t3 on t1.id1=t3.id
+set t1.value=100 where t2.id1=3;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: update t1 join t2 on t1.id1 and t1.id2=t2.id2 join t3 on t1.id1=t3.id
+set t1.value=100 where t2.id1=3
+update t1 set t1.value= (select count(*) from t2);
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: update t1 set t1.value= (select count(*) from t2)
+delete t1 from t1 join t2 on t1.id1 and t1.id2=t2.id2 where t2.id1=3
+and t2.id2=3 and t2.id3=3;
+delete t1 from t1 join t2 on t1.id1 and t1.id2=t2.id2 where t2.id1=3;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: delete t1 from t1 join t2 on t1.id1 and t1.id2=t2.id2 where t2.id1=3
+select * from t1, t2 limit 1 for update;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1, t2 limit 1 for update
+select * from t1 a, t1 b limit 1 for update;
+ERROR HY000: Using Gap Lock without full primary key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all primary key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from t1 a, t1 b limit 1 for update
+set global gap_lock_write_log= 0;
+set global gap_lock_raise_error= 0;
+drop table if exists t1, t2, t3;
+drop table if exists x1, x2;
+DROP DATABASE mysqlslap;
+SET GLOBAL gap_lock_log_file='<GAP_LOCK_ORIG>';
+SET GLOBAL gap_lock_log_file='<GAP_LOCK>';
+flush general logs;

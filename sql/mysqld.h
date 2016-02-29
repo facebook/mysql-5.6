@@ -263,6 +263,7 @@ extern MY_BITMAP temp_pool;
 extern bool opt_large_files, server_id_supplied;
 extern bool opt_update_log, opt_bin_log, opt_error_log;
 extern my_bool opt_log, opt_slow_log, opt_log_raw;
+extern char* opt_gap_lock_logname;
 extern my_bool opt_allow_multiple_engines;
 extern my_bool opt_backup_history_log;
 extern my_bool opt_backup_progress_log;
@@ -1003,7 +1004,8 @@ extern PSI_file_key key_file_binlog, key_file_binlog_index, key_file_casetest,
   key_file_master_info, key_file_misc, key_file_partition,
   key_file_pid, key_file_relay_log_info, key_file_send_file, key_file_tclog,
   key_file_trg, key_file_trn, key_file_init;
-extern PSI_file_key key_file_query_log, key_file_slow_log;
+extern PSI_file_key key_file_query_log, key_file_slow_log,
+  key_file_gap_lock_log;
 extern PSI_file_key key_file_relaylog, key_file_relaylog_index;
 extern PSI_socket_key key_socket_tcpip, key_socket_unix, key_socket_client_connection;
 
