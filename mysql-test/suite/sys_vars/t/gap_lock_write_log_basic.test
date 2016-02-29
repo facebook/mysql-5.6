@@ -1,0 +1,77 @@
+--source include/load_sysvars.inc
+
+SET @start_value = @@global.gap_lock_write_log;
+SELECT @start_value;
+
+
+SET @@global.gap_lock_write_log = DEFAULT;
+SELECT @@global.gap_lock_write_log = TRUE;
+
+
+SET @@global.gap_lock_write_log = ON;
+SELECT @@global.gap_lock_write_log;
+SET @@global.gap_lock_write_log = OFF;
+SELECT @@global.gap_lock_write_log;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.gap_lock_write_log = 2;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.gap_lock_write_log = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.gap_lock_write_log = TRUEF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.gap_lock_write_log = TRUE_F;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.gap_lock_write_log = FALSE0;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.gap_lock_write_log = OON;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.gap_lock_write_log = ONN;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.gap_lock_write_log = OOFF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.gap_lock_write_log = 0FF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.gap_lock_write_log = ' ';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.gap_lock_write_log = " ";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.gap_lock_write_log = '';
+
+
+SET @@session.gap_lock_write_log = OFF;
+SELECT @@session.gap_lock_write_log;
+
+
+SELECT IF(@@global.gap_lock_write_log, "ON", "OFF") = VARIABLE_VALUE 
+FROM performance_schema.global_variables 
+WHERE VARIABLE_NAME='gap_lock_write_log';
+
+
+SET @@global.gap_lock_write_log = 0;
+SELECT @@global.gap_lock_write_log;
+SET @@global.gap_lock_write_log = 1;
+SELECT @@global.gap_lock_write_log;
+
+SET @@global.gap_lock_write_log = TRUE;
+SELECT @@global.gap_lock_write_log;
+SET @@global.gap_lock_write_log = FALSE;
+SELECT @@global.gap_lock_write_log;
+
+SET @@global.gap_lock_write_log = ON;
+SELECT @@gap_lock_write_log = @@global.gap_lock_write_log;
+
+SET gap_lock_write_log = ON;
+--Error ER_PARSE_ERROR
+SET local.gap_lock_write_log = OFF;
+--Error ER_UNKNOWN_TABLE
+SELECT local.gap_lock_write_log;
+--Error ER_PARSE_ERROR
+SET global.gap_lock_write_log = ON;
+--Error ER_UNKNOWN_TABLE
+SELECT global.gap_lock_write_log;
+--Error ER_BAD_FIELD_ERROR
+SELECT gap_lock_write_log = @@session.gap_lock_write_log;
+
+SET @@global.gap_lock_write_log = @start_value;
+SELECT @@global.gap_lock_write_log;

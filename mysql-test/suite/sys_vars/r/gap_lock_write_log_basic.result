@@ -1,0 +1,84 @@
+SET @start_value = @@global.gap_lock_write_log;
+SELECT @start_value;
+@start_value
+0
+SET @@global.gap_lock_write_log = DEFAULT;
+SELECT @@global.gap_lock_write_log = TRUE;
+@@global.gap_lock_write_log = TRUE
+0
+SET @@global.gap_lock_write_log = ON;
+SELECT @@global.gap_lock_write_log;
+@@global.gap_lock_write_log
+1
+SET @@global.gap_lock_write_log = OFF;
+SELECT @@global.gap_lock_write_log;
+@@global.gap_lock_write_log
+0
+SET @@global.gap_lock_write_log = 2;
+ERROR 42000: Variable 'gap_lock_write_log' can't be set to the value of '2'
+SET @@global.gap_lock_write_log = -1;
+ERROR 42000: Variable 'gap_lock_write_log' can't be set to the value of '-1'
+SET @@global.gap_lock_write_log = TRUEF;
+ERROR 42000: Variable 'gap_lock_write_log' can't be set to the value of 'TRUEF'
+SET @@global.gap_lock_write_log = TRUE_F;
+ERROR 42000: Variable 'gap_lock_write_log' can't be set to the value of 'TRUE_F'
+SET @@global.gap_lock_write_log = FALSE0;
+ERROR 42000: Variable 'gap_lock_write_log' can't be set to the value of 'FALSE0'
+SET @@global.gap_lock_write_log = OON;
+ERROR 42000: Variable 'gap_lock_write_log' can't be set to the value of 'OON'
+SET @@global.gap_lock_write_log = ONN;
+ERROR 42000: Variable 'gap_lock_write_log' can't be set to the value of 'ONN'
+SET @@global.gap_lock_write_log = OOFF;
+ERROR 42000: Variable 'gap_lock_write_log' can't be set to the value of 'OOFF'
+SET @@global.gap_lock_write_log = 0FF;
+ERROR 42000: Variable 'gap_lock_write_log' can't be set to the value of '0FF'
+SET @@global.gap_lock_write_log = ' ';
+ERROR 42000: Variable 'gap_lock_write_log' can't be set to the value of ' '
+SET @@global.gap_lock_write_log = " ";
+ERROR 42000: Variable 'gap_lock_write_log' can't be set to the value of ' '
+SET @@global.gap_lock_write_log = '';
+ERROR 42000: Variable 'gap_lock_write_log' can't be set to the value of ''
+SET @@session.gap_lock_write_log = OFF;
+SELECT @@session.gap_lock_write_log;
+@@session.gap_lock_write_log
+0
+SELECT IF(@@global.gap_lock_write_log, "ON", "OFF") = VARIABLE_VALUE 
+FROM performance_schema.global_variables 
+WHERE VARIABLE_NAME='gap_lock_write_log';
+IF(@@global.gap_lock_write_log, "ON", "OFF") = VARIABLE_VALUE
+1
+SET @@global.gap_lock_write_log = 0;
+SELECT @@global.gap_lock_write_log;
+@@global.gap_lock_write_log
+0
+SET @@global.gap_lock_write_log = 1;
+SELECT @@global.gap_lock_write_log;
+@@global.gap_lock_write_log
+1
+SET @@global.gap_lock_write_log = TRUE;
+SELECT @@global.gap_lock_write_log;
+@@global.gap_lock_write_log
+1
+SET @@global.gap_lock_write_log = FALSE;
+SELECT @@global.gap_lock_write_log;
+@@global.gap_lock_write_log
+0
+SET @@global.gap_lock_write_log = ON;
+SELECT @@gap_lock_write_log = @@global.gap_lock_write_log;
+@@gap_lock_write_log = @@global.gap_lock_write_log
+0
+SET gap_lock_write_log = ON;
+SET local.gap_lock_write_log = OFF;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.gap_lock_write_log = OFF' at line 1
+SELECT local.gap_lock_write_log;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.gap_lock_write_log = ON;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'global.gap_lock_write_log = ON' at line 1
+SELECT global.gap_lock_write_log;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT gap_lock_write_log = @@session.gap_lock_write_log;
+ERROR 42S22: Unknown column 'gap_lock_write_log' in 'field list'
+SET @@global.gap_lock_write_log = @start_value;
+SELECT @@global.gap_lock_write_log;
+@@global.gap_lock_write_log
+0

@@ -1,0 +1,29 @@
+# Inherited from general_log_file_basic.test
+
+--source include/load_sysvars.inc
+
+
+SET @start_value = @@global.gap_lock_log_file;
+SELECT @start_value;
+
+
+
+SET @@global.gap_lock_log_file = DEFAULT;
+SET @a=concat(left(@@hostname, instr(concat(@@hostname, '.'), '.')-1), '-gaplock.log');
+SELECT RIGHT(@@global.gap_lock_log_file, length(@a)) = @a;
+
+
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET @@global.gap_lock_log_file = mytest.log;
+--error ER_WRONG_TYPE_FOR_VAR
+SET @@global.gap_lock_log_file = 12;
+
+
+SELECT @@global.gap_lock_log_file = VARIABLE_VALUE 
+FROM performance_schema.global_variables 
+WHERE VARIABLE_NAME='gap_lock_log_file';
+
+SET @@global.gap_lock_log_file= @start_value;
+
+
