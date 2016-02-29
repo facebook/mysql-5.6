@@ -5786,6 +5786,16 @@ int ha_rocksdb::read_range_first(const key_range *start_key,
     result= ha_index_first(table->record[0]);
   else
   {
+    if (is_using_prohibited_gap_locks(table->in_use,
+                                      table->reginfo.lock_type,
+                                      is_using_full_unique_key(
+                                        active_index,
+                                        start_key->keypart_map,
+                                        start_key->flag)))
+    {
+      DBUG_RETURN(HA_ERR_LOCK_DEADLOCK);
+    }
+
     MYSQL_TABLE_IO_WAIT(m_psi, PSI_TABLE_FETCH_ROW, active_index, 0,
       { result= index_read_map_impl(table->record[0],
                                 start_key->key,
@@ -5844,9 +5854,7 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
   ha_statistic_increment(&SSV::ha_read_key_count);
   const std::shared_ptr<const Rdb_key_def>& kd= m_key_descr_arr[active_index];
   uint actual_key_parts= kd->get_key_parts();
-  bool using_full_key= (keypart_map == HA_WHOLE_KEY) ||
-                       (keypart_map == ((key_part_map(1) << actual_key_parts)
-                                         - 1));
+  bool using_full_key= is_using_full_key(keypart_map, actual_key_parts);
 
   if (!end_key)
     end_key= end_range;
