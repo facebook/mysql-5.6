@@ -136,6 +136,9 @@ bool reload_acl_and_cache(THD *thd, unsigned long options,
   if ((options & REFRESH_GENERAL_LOG) && opt_log)
     logger.flush_general_log();
 
+  if (options & REFRESH_GENERAL_LOG)
+    logger.flush_gap_lock_log();
+
   if (options & REFRESH_ENGINE_LOG)
     if (ha_flush_logs(NULL))
       result= 1;

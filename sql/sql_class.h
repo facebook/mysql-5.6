@@ -717,6 +717,9 @@ typedef struct system_variables
   my_bool use_fbson_input_format;
   my_bool sql_log_bin_triggers;
 
+  my_bool gap_lock_raise_error;
+  my_bool gap_lock_write_log;
+
 } SV;
 
 
@@ -3528,6 +3531,12 @@ public:
 
   // We don't want to load/unload plugins for unit tests.
   bool m_enable_plugins;
+
+  /**
+    A flag to mark that SQL statement using Gap Lock was already written.
+    This is to prevent to log the same query multiple times.
+  */
+  bool m_gap_lock_log_written;
 
   THD(bool enable_plugins= true);
 
