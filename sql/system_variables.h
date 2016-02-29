@@ -417,6 +417,9 @@ struct System_variables {
 
   bool sql_log_bin_triggers;
 
+  bool gap_lock_raise_error;
+  bool gap_lock_write_log;
+
   ulong select_into_file_fsync_size;
   uint select_into_file_fsync_timeout;
   bool high_priority_ddl;

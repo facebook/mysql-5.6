@@ -1,0 +1,4 @@
+let $engine=innodb;
+--source include/gap_lock_raise_error_all.inc
+
+

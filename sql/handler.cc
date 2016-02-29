@@ -2821,6 +2821,13 @@ int handler::ha_rnd_init(bool scan) {
   DBUG_ENTER("handler::ha_rnd_init");
   DBUG_ASSERT(table_share->tmp_table != NO_TMP_TABLE || m_lock_type != F_UNLCK);
   DBUG_ASSERT(inited == NONE || (inited == RND && scan));
+
+  if (scan && is_using_prohibited_gap_locks(table->in_use,
+                                    table->reginfo.lock_type, false))
+  {
+    DBUG_RETURN(HA_ERR_LOCK_DEADLOCK);
+  }
+
   inited = (result = rnd_init(scan)) ? NONE : RND;
   end_range = NULL;
   DBUG_RETURN(result);
@@ -3120,6 +3127,13 @@ int handler::ha_index_read_map(uchar *buf, const uchar *key,
   DBUG_ASSERT(inited == INDEX);
   DBUG_ASSERT(!pushed_idx_cond || buf == table->record[0]);
 
+  if (is_using_prohibited_gap_locks(table->in_use,
+                                    table->reginfo.lock_type,
+                                    is_using_full_unique_key(
+                                      active_index, keypart_map, find_flag)))
+  {
+    DBUG_RETURN(HA_ERR_LOCK_DEADLOCK);
+  }
   // Set status for the need to update generated fields
   m_update_generated_read_fields = table->has_gcol();
 
@@ -3141,6 +3155,11 @@ int handler::ha_index_read_last_map(uchar *buf, const uchar *key,
   DBUG_ASSERT(table_share->tmp_table != NO_TMP_TABLE || m_lock_type != F_UNLCK);
   DBUG_ASSERT(inited == INDEX);
   DBUG_ASSERT(!pushed_idx_cond || buf == table->record[0]);
+  if (is_using_prohibited_gap_locks(table->in_use,
+                                    table->reginfo.lock_type, false))
+  {
+    DBUG_RETURN(HA_ERR_LOCK_DEADLOCK);
+  }
 
   // Set status for the need to update generated fields
   m_update_generated_read_fields = table->has_gcol();
@@ -3169,6 +3188,13 @@ int handler::ha_index_read_idx_map(uchar *buf, uint index, const uchar *key,
   DBUG_ASSERT(table_share->tmp_table != NO_TMP_TABLE || m_lock_type != F_UNLCK);
   DBUG_ASSERT(end_range == NULL);
   DBUG_ASSERT(!pushed_idx_cond || buf == table->record[0]);
+  if (is_using_prohibited_gap_locks(table->in_use,
+                                    table->reginfo.lock_type,
+                                    is_using_full_unique_key(
+                                      index, keypart_map, find_flag)))
+  {
+    DBUG_RETURN(HA_ERR_LOCK_DEADLOCK);
+  }
 
   // Set status for the need to update generated fields
   m_update_generated_read_fields = table->has_gcol();
@@ -3264,6 +3290,11 @@ int handler::ha_index_first(uchar *buf) {
   DBUG_ASSERT(inited == INDEX);
   DBUG_ASSERT(!pushed_idx_cond || buf == table->record[0]);
 
+  if (is_using_prohibited_gap_locks(table->in_use,
+                                    table->reginfo.lock_type, false))
+  {
+    DBUG_RETURN(HA_ERR_LOCK_DEADLOCK);
+  }
   // Set status for the need to update generated fields
   m_update_generated_read_fields = table->has_gcol();
 
@@ -3313,6 +3344,11 @@ int handler::ha_index_last(uchar *buf) {
   DBUG_ASSERT(table_share->tmp_table != NO_TMP_TABLE || m_lock_type != F_UNLCK);
   DBUG_ASSERT(inited == INDEX);
   DBUG_ASSERT(!pushed_idx_cond || buf == table->record[0]);
+  if (is_using_prohibited_gap_locks(table->in_use,
+                                    table->reginfo.lock_type, false))
+  {
+    DBUG_RETURN(HA_ERR_LOCK_DEADLOCK);
+  }
 
   // Set status for the need to update generated fields
   m_update_generated_read_fields = table->has_gcol();
@@ -8093,6 +8129,56 @@ static void copy_blob_data(const TABLE *table, const MY_BITMAP *const fields,
   }
 }
 
+bool can_hold_read_locks_on_select(THD *thd, thr_lock_type lock_type)
+{
+  return (lock_type == TL_READ_WITH_SHARED_LOCKS
+          || lock_type == TL_READ_NO_INSERT
+          || (lock_type != TL_IGNORE
+            && thd->lex->sql_command != SQLCOM_SELECT));
+}
+
+bool can_hold_locks_on_trans(THD *thd, thr_lock_type lock_type)
+{
+  return (lock_type >= TL_WRITE_ALLOW_WRITE
+          || can_hold_read_locks_on_select(thd, lock_type));
+}
+
+bool handler::is_using_prohibited_gap_locks(THD *thd, thr_lock_type lock_type,
+                                            bool using_full_primary_key)
+{
+  if (!using_full_primary_key
+      && table->s->table_category != TABLE_CATEGORY_DICTIONARY
+      && !thd->is_system_thread()
+      && ht
+      && (ht->db_type == DB_TYPE_INNODB || ht->db_type == DB_TYPE_ROCKSDB)
+      && !thd->rli_slave
+      && (thd->variables.gap_lock_raise_error
+          || thd->variables.gap_lock_write_log)
+      && (thd->lex->table_count >= 2 || thd->in_multi_stmt_transaction_mode())
+      && can_hold_locks_on_trans(thd, lock_type))
+  {
+    query_logger.gap_lock_log_write(thd, COM_QUERY, thd->query().str, thd->query().length);
+    if (thd->variables.gap_lock_raise_error)
+    {
+      my_printf_error(ER_UNKNOWN_ERROR,
+                      "Using Gap Lock without full unique key in multi-table "
+                      "or multi-statement transactions is not "
+                      "allowed. You need either 1: Execute 'SET SESSION "
+                      "gap_lock_raise_error=0' if you are sure that "
+                      "your application does not rely on Gap Lock. "
+                      "2: Rewrite queries to use "
+                      "all unique key columns in WHERE equal conditions. "
+                      "3: Rewrite to single-table, single-statement "
+                      "transaction.  Query: %s",
+                      MYF(0), thd->query().str);
+      return true;
+    }
+  }
+  return false;
+}
+
+
+
 /*
   Evaluate generated column's value. This is an internal helper reserved for
   handler::my_eval_gcolumn_expr().
@@ -9006,19 +9092,5 @@ void warn_about_bad_patterns(const Regex_list_handler* regex_list_handler,
   // NO_LINT_DEBUG
   sql_print_warning("Invalid pattern in %s: %s", name,
                     regex_list_handler->bad_pattern().c_str());
-}
-
-bool can_hold_read_locks_on_select(THD *thd, thr_lock_type lock_type)
-{
-  return (lock_type == TL_READ_WITH_SHARED_LOCKS
-          || lock_type == TL_READ_NO_INSERT
-          || (lock_type != TL_IGNORE
-            && thd->lex->sql_command != SQLCOM_SELECT));
-}
-
-bool can_hold_locks_on_trans(THD *thd, thr_lock_type lock_type)
-{
-  return (lock_type >= TL_WRITE_ALLOW_WRITE
-          || can_hold_read_locks_on_select(thd, lock_type));
 }
 

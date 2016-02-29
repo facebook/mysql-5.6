@@ -2529,6 +2529,12 @@ class THD : public MDL_context_owner,
   // We don't want to load/unload plugins for unit tests.
   bool m_enable_plugins;
 
+  /**
+    A flag to mark that SQL statement using Gap Lock was already written.
+    This is to prevent to log the same query multiple times.
+  */
+  bool m_gap_lock_log_written;
+
   THD(bool enable_plugins = true);
 
   /*

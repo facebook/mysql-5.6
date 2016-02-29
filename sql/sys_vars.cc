@@ -2067,6 +2067,7 @@ static bool check_ftb_syntax(sys_var *, THD *, set_var *var) {
   return ft_boolean_check_syntax_string(
       (uchar *)(var->save_result.string_value.str));
 }
+
 /// @todo make SESSION_VAR (usability enhancement and a fix for a race
 /// condition)
 static Sys_var_charptr Sys_ft_boolean_syntax(
@@ -5708,6 +5709,55 @@ bool update_Sys_slow_log_path(const char *const log_file_name,
   if (need_lock) mysql_mutex_unlock(&LOCK_global_system_variables);
   return res;
 }
+
+static bool fix_gap_lock_log_file(sys_var *, THD *, enum_var_type) {
+  bool res;
+
+  if (!opt_gap_lock_logname)  // SET ... = DEFAULT
+  {
+    char buff[FN_REFLEN];
+    opt_gap_lock_logname = my_strdup(
+        key_memory_LOG_name, make_query_log_name(buff, QUERY_LOG_GAP_LOCK),
+        MYF(MY_FAE + MY_WME));
+    if (!opt_gap_lock_logname) return true;
+  }
+
+  res = query_logger.set_log_file(QUERY_LOG_GAP_LOCK);
+
+  mysql_mutex_unlock(&LOCK_global_system_variables);
+
+  if (!res)
+    res = query_logger.reopen_log_file(QUERY_LOG_GAP_LOCK);
+  else
+    query_logger.deactivate_log_handler(QUERY_LOG_GAP_LOCK);
+
+  mysql_mutex_lock(&LOCK_global_system_variables);
+
+  return res;
+}
+
+static Sys_var_charptr Sys_gap_lock_log_path(
+    "gap_lock_log_file",
+    "Log file path where queries using Gap Lock are written. "
+    "gap_lock_write_log needs to be turned on to write logs",
+    GLOBAL_VAR(opt_gap_lock_logname), CMD_LINE(REQUIRED_ARG),
+    IN_FS_CHARSET, DEFAULT(0), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(check_log_path),
+    ON_UPDATE(fix_gap_lock_log_file));
+
+static Sys_var_bool Sys_gap_lock_raise_error(
+    "gap_lock_raise_error",
+    "Raising an error when executing queries "
+    "relying on Gap Lock. Default is false.",
+    SESSION_VAR(gap_lock_raise_error), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
+static Sys_var_bool Sys_gap_lock_write_log(
+    "gap_lock_write_log",
+    "Writing to gap_lock_log_file when executing queries "
+    "relying on Gap Lock. Default is false.",
+    SESSION_VAR(gap_lock_write_log), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
 
 static Sys_var_have Sys_have_compress(
     "have_compress", "have_compress",

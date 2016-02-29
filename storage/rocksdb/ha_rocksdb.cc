@@ -8157,16 +8157,16 @@ int ha_rocksdb::read_range_first(const key_range *const start_key,
     // Read first record
     result = ha_index_first(table->record[0]);
   } else {
-    /*
-    TODO(yzha) - 85e5baf2eed Optionally block/log queries relying on Gap Locks
-    if (is_using_prohibited_gap_locks(
-            table,
-            is_using_full_unique_key(active_index, start_key->keypart_map,
-                                     start_key->flag))) {
+    if (is_using_prohibited_gap_locks(table->in_use,
+                                      table->reginfo.lock_type,
+                                      is_using_full_unique_key(
+                                        active_index,
+                                        start_key->keypart_map,
+                                        start_key->flag)))
+    {
       DBUG_RETURN(HA_ERR_LOCK_DEADLOCK);
     }
-    */
-    
+
     MYSQL_TABLE_IO_WAIT(PSI_TABLE_FETCH_ROW, active_index, 0, {
       result =
           index_read_map_impl(table->record[0], start_key->key,

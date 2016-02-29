@@ -1,0 +1,2 @@
+--gap-lock-write-log
+--gap-lock-log-file=test.log

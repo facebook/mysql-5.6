@@ -241,7 +241,7 @@ SET GLOBAL general_log_file = 'bug32748.query.log';
 SET GLOBAL slow_query_log_file = 'bug32748.slow.log';
 
 --echo
-SHOW VARIABLES LIKE '%log_file';
+show variables where variable_name like '%log_file' and variable_name != 'gap_lock_log_file';
 
 # Reset to initial values
 --echo

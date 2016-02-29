@@ -4964,6 +4964,8 @@ class handler {
   bool is_using_full_unique_key(uint active_index,
                                  key_part_map keypart_map,
                                  enum ha_rkey_function find_flag);
+  bool is_using_prohibited_gap_locks(THD *thd, thr_lock_type lock_type,
+                                     bool using_full_unique_key);
 
   virtual int read_range_first(const key_range *start_key,
                                const key_range *end_key, bool eq_range,
@@ -6878,6 +6880,8 @@ bool ha_notify_alter_table(THD *thd, const MDL_key *mdl_key,
 int commit_owned_gtids(THD *thd, bool all, bool *need_clear_ptr);
 int commit_owned_gtid_by_partial_command(THD *thd);
 bool set_tx_isolation(THD *thd, enum_tx_isolation tx_isolation, bool one_shot);
+bool can_hold_read_locks_on_select(THD *thd, thr_lock_type lock_type);
+bool can_hold_locks_on_trans(THD *thd, thr_lock_type lock_type);
 
 /** Generate a string representation of an `ha_rkey_function` enum value.
  * @param[in] r value to turn into string
