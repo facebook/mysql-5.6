@@ -4568,6 +4568,9 @@ class AC {
   };
 #endif
 
+  std::atomic<ulong> total_running_queries, total_waiting_queries;
+  std::atomic<ulonglong> total_aborted_queries;
+
 public:
   AC() {
 #ifdef HAVE_PSI_INTERFACE
@@ -4577,6 +4580,9 @@ public:
     mysql_rwlock_init(key_rwlock_LOCK_ac, &LOCK_ac);
     max_running_queries = 0;
     max_waiting_queries = 0;
+    total_running_queries = 0;
+    total_waiting_queries = 0;
+    total_aborted_queries = 0;
   }
 
   ~AC() {
@@ -4673,6 +4679,16 @@ public:
   void admission_control_exit(THD*, const std::string&);
   void wait_for_signal(THD*, std::shared_ptr<st_ac_node>&,
                        std::shared_ptr<Ac_info> ac_info);
+
+  ulonglong get_total_aborted_queries() const {
+    return total_aborted_queries;
+  }
+  ulong get_total_running_queries() const {
+    return total_running_queries;
+  }
+  ulong get_total_waiting_queries() const {
+    return total_waiting_queries;
+  }
 };
 
 /*

@@ -8915,6 +8915,30 @@ show_ssl_get_server_not_after(THD *thd, SHOW_VAR *var, char *buff)
 #endif /* HAVE_OPENSSL && !EMBEDDED_LIBRARY */
 
 
+static int get_db_ac_total_aborted_queries(THD *thd, SHOW_VAR *var,
+                                           char *buff) {
+  var->type = SHOW_LONGLONG;
+  var->value = buff;
+  *((longlong *)buff) = db_ac->get_total_aborted_queries();
+  return 0;
+}
+
+static int get_db_ac_total_running_queries(THD *thd, SHOW_VAR *var,
+                                           char *buff) {
+  var->type = SHOW_LONG;
+  var->value = buff;
+  *((long *)buff) = db_ac->get_total_running_queries();
+  return 0;
+}
+
+static int get_db_ac_total_waiting_queries(THD *thd, SHOW_VAR *var,
+                                           char *buff) {
+  var->type = SHOW_LONG;
+  var->value = buff;
+  *((long *)buff) = db_ac->get_total_waiting_queries();
+  return 0;
+}
+
 /*
   Variables shown by SHOW STATUS in alphabetical order
 */
@@ -8952,6 +8976,9 @@ SHOW_VAR status_vars[]= {
   {"Created_tmp_disk_tables",  (char*) offsetof(STATUS_VAR, created_tmp_disk_tables), SHOW_LONGLONG_STATUS},
   {"Created_tmp_files",        (char*) &my_tmp_file_created, SHOW_LONG},
   {"Created_tmp_tables",       (char*) offsetof(STATUS_VAR, created_tmp_tables), SHOW_LONGLONG_STATUS},
+  {"Database_admission_control_aborted_queries", (char*) &get_db_ac_total_aborted_queries, SHOW_FUNC},
+  {"Database_admission_control_running_queries", (char*) &get_db_ac_total_running_queries, SHOW_FUNC},
+  {"Database_admission_control_waiting_queries", (char*) &get_db_ac_total_waiting_queries, SHOW_FUNC},
   {"Delayed_errors",           (char*) &delayed_insert_errors,  SHOW_LONG},
   {"Delayed_insert_threads",   (char*) &delayed_insert_threads, SHOW_LONG_NOFLUSH},
   {"Delayed_writes",           (char*) &delayed_insert_writes,  SHOW_LONG},

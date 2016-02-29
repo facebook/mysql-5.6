@@ -3,6 +3,10 @@ create user test_user@localhost;
 grant all on test_db to test_user@localhost;
 grant all on test to test_user@localhost;
 
+let $start_aborted_queries = query_get_value(show global status like "Database_admission_control_aborted_queries", Value, 1);
+let $start_running_queries = query_get_value(show global status like "Database_admission_control_running_queries", Value, 1);
+let $start_waiting_queries = query_get_value(show global status like "Database_admission_control_waiting_queries", Value, 1);
+
 connection default;
 use test_db;
 set @start_max_running_queries= @@global.max_running_queries;
@@ -55,6 +59,16 @@ connection con_max_wait;
 error ER_DB_ADMISSION_CONTROL;
 select * from t1;
 disconnect con_max_wait;
+
+connection default;
+--echo Check status variables
+let $aborted_queries = query_get_value(show global status like "Database_admission_control_aborted_queries", Value, 1);
+let $running_queries = query_get_value(show global status like "Database_admission_control_running_queries", Value, 1);
+let $waiting_queries = query_get_value(show global status like "Database_admission_control_waiting_queries", Value, 1);
+let $aborted_queries = `select $aborted_queries - $start_aborted_queries`;
+let $running_queries = `select $running_queries - $start_running_queries`;
+let $waiting_queries = `select $waiting_queries - $start_waiting_queries`;
+echo $aborted_queries, $running_queries, $waiting_queries;
 
 --echo Filled up queues on one db doesn't affect queries on other db.
 connect (con_test, localhost, test_user,,test);
