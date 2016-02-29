@@ -370,6 +370,16 @@ public:
                 generate_name(log_name, ".log", 0, buf),
                 LOG_NORMAL, 0, WRITE_CACHE);
   }
+  bool open_gap_lock_log(const char *log_name)
+  {
+    char buf[FN_REFLEN];
+    return open(
+#ifdef HAVE_PSI_INTERFACE
+                key_file_gap_lock_log,
+#endif
+                generate_name(log_name, "-gaplock.log", 0, buf),
+                LOG_NORMAL, 0, WRITE_CACHE);
+  }
 
 private:
   time_t last_time;
@@ -395,6 +405,10 @@ public:
                            const char *command_type, uint command_type_len,
                            const char *sql_text, uint sql_text_len,
                            const CHARSET_INFO *client_cs)= 0;
+  virtual bool log_gap_lock(THD *thd, time_t event_time, const char *user_host,
+                            uint user_host_len, my_thread_id thread_id,
+                            const char *command_type, uint command_type_len,
+                            const char *sql_text, uint sql_text_len)= 0;
   virtual ~Log_event_handler() {}
 };
 
@@ -423,7 +437,10 @@ public:
                            const char *command_type, uint command_type_len,
                            const char *sql_text, uint sql_text_len,
                            const CHARSET_INFO *client_cs);
-
+  virtual bool log_gap_lock(THD *thd, time_t event_time, const char *user_host,
+                            uint user_host_len, my_thread_id thread_id,
+                            const char *command_type, uint command_type_len,
+                            const char *sql_text, uint sql_text_len);
   int activate_log(THD *thd, uint log_type);
 };
 
@@ -436,6 +453,7 @@ class Log_to_file_event_handler: public Log_event_handler
 {
   MYSQL_QUERY_LOG mysql_log;
   MYSQL_QUERY_LOG mysql_slow_log;
+  MYSQL_QUERY_LOG mysql_gap_lock_log;
   bool is_initialized;
 public:
   Log_to_file_event_handler(): is_initialized(FALSE)
@@ -456,10 +474,15 @@ public:
                            const char *command_type, uint command_type_len,
                            const char *sql_text, uint sql_text_len,
                            const CHARSET_INFO *client_cs);
+  virtual bool log_gap_lock(THD *thd, time_t event_time, const char *user_host,
+                            uint user_host_len, my_thread_id thread_id,
+                            const char *command_type, uint command_type_len,
+                            const char *sql_text, uint sql_text_len);
   void flush();
   void init_pthread_objects();
   MYSQL_QUERY_LOG *get_mysql_slow_log() { return &mysql_slow_log; }
   MYSQL_QUERY_LOG *get_mysql_log() { return &mysql_log; }
+  MYSQL_QUERY_LOG *get_mysql_gap_lock_log() { return &mysql_gap_lock_log; }
 };
 
 
@@ -478,6 +501,7 @@ class LOGGER
   Log_event_handler *error_log_handler_list[MAX_LOG_HANDLERS_NUM + 1];
   Log_event_handler *slow_log_handler_list[MAX_LOG_HANDLERS_NUM + 1];
   Log_event_handler *general_log_handler_list[MAX_LOG_HANDLERS_NUM + 1];
+  Log_event_handler *gap_lock_log_handler_list[MAX_LOG_HANDLERS_NUM + 1];
 
 public:
 
@@ -504,6 +528,7 @@ public:
   bool flush_logs(THD *thd);
   bool flush_slow_log();
   bool flush_general_log();
+  bool flush_gap_lock_log();
   /* Perform basic logger cleanup. this will leave e.g. error log open. */
   void cleanup_base();
   /* Free memory. Nothing could be logged after this function is called */
@@ -514,14 +539,18 @@ public:
                       struct system_status_var *query_start_status);
   bool general_log_write(THD *thd, enum enum_server_command command,
                          const char *query, uint query_length);
+  bool gap_lock_log_write(THD *thd, enum enum_server_command command,
+                          const char *query, uint query_length);
 
   /* we use this function to setup all enabled log event handlers */
   int set_handlers(uint error_log_printer,
                    uint slow_log_printer,
-                   uint general_log_printer);
+                   uint general_log_printer,
+                   uint gap_lock_log_printer);
   void init_error_log(uint error_log_printer);
   void init_slow_log(uint slow_log_printer);
   void init_general_log(uint general_log_printer);
+  void init_gap_lock_log(uint gap_lock_log_printer);
   void deactivate_log_handler(THD* thd, uint log_type);
   bool activate_log_handler(THD* thd, uint log_type);
   MYSQL_QUERY_LOG *get_slow_log_file_handler() const
@@ -534,6 +563,12 @@ public:
   { 
     if (file_log_handler)
       return file_log_handler->get_mysql_log();
+    return NULL;
+  }
+  MYSQL_QUERY_LOG *get_gap_lock_log_file_handler() const
+  {
+    if (file_log_handler)
+      return file_log_handler->get_mysql_gap_lock_log();
     return NULL;
   }
 };
@@ -577,6 +612,9 @@ bool general_log_print(THD *thd, enum enum_server_command command,
 
 bool general_log_write(THD *thd, enum enum_server_command command,
                        const char *query, uint query_length);
+
+bool gap_lock_log_write(THD *thd, enum enum_server_command command,
+                        const char *query, uint query_length);
 
 void sql_perror(const char *message);
 bool flush_error_log();
