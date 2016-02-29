@@ -5388,7 +5388,8 @@ static int init_server_components()
               array_elements(binlog_format_names)-1);
 
 #ifdef HAVE_REPLICATION
-  if (opt_log_slave_updates && replicate_same_server_id)
+  if (opt_log_slave_updates && replicate_same_server_id &&
+      gtid_mode != GTID_MODE_ON)
   {
     if (opt_bin_log)
     {
