@@ -2389,6 +2389,12 @@ protected:
     uint key_len= calculate_key_len(table, active_index, key, keypart_map);
     return index_read_last(buf, key, key_len);
   }
+  bool is_using_full_key(key_part_map keypart_map, uint actual_key_parts);
+  bool is_using_full_unique_key(uint active_index,
+                                 key_part_map keypart_map,
+                                 enum ha_rkey_function find_flag);
+  bool is_using_prohibited_gap_locks(THD *thd, thr_lock_type lock_type,
+                                     bool using_full_unique_key);
 public:
   virtual int read_range_first(const key_range *start_key,
                                const key_range *end_key,
@@ -3661,6 +3667,8 @@ const char *get_canonical_filename(handler *file, const char *path,
 bool mysql_xa_recover(THD *thd);
 bool is_binlog_advanced(const char *b1, const my_off_t p1,
                         const char *b2, const my_off_t p2);
+bool can_hold_read_locks_on_select(THD *thd, thr_lock_type lock_type);
+bool can_hold_locks_on_trans(THD *thd, thr_lock_type lock_type);
 
 inline const char *table_case_name(HA_CREATE_INFO *info, const char *name)
 {
