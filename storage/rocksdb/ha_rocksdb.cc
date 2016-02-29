@@ -6150,7 +6150,7 @@ int ha_rocksdb::rnd_next_with_direction(uchar *buf, bool move_forward)
 
   stats.rows_requested++;
 
-  if (!scan_it)
+  if (!scan_it || !scan_it->Valid())
   {
     /*
       We can get here when SQL layer has called

@@ -1783,6 +1783,16 @@ SET rocksdb_bulk_load_size= @save_rocksdb_bulk_load_size;
 DROP TABLE t1;
 
 --echo #
+--echo # Issue #185 Assertion `BaseValid()' failed in void rocksdb::BaseDeltaIterator::Advance()
+--echo #
+CREATE TABLE t2(id INT NOT NULL PRIMARY KEY, data INT) Engine=MEMORY;
+INSERT INTO t2 VALUES (100,NULL),(150,"long varchar"),(200,"varchar"),(250,"long long long varchar");
+create TABLE t1 (a int not null, b int not null, primary key(a,b));
+INSERT INTO t1  VALUES (1,1);
+SELECT a FROM t1, t2 WHERE a=b AND (b NOT IN (SELECT a FROM t1 WHERE a > 4));
+DROP TABLE t1, t2;
+
+--echo #
 --echo # Issue#267: MyRocks issue with no matching min/max row and count(*)
 --echo #
 CREATE TABLE t1(c1 INT UNSIGNED, c2 INT SIGNED, INDEX idx2(c2));
@@ -1790,6 +1800,5 @@ INSERT INTO t1 VALUES(1,null);
 INSERT INTO t1 VALUES(2,null);
 SELECT count(*) as total_rows, min(c2) as min_value FROM t1;
 DROP TABLE t1;
-
 
 SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;
