@@ -16,6 +16,8 @@ a
 Maximum waiting queries reached. So this would hit an error.
 select * from t1;
 ERROR HY000: Maximum waiting queries 5 reached for database `test_db`
+Check status variables
+1, 10, 5
 Filled up queues on one db doesn't affect queries on other db.
 use test;
 set @@global.max_waiting_queries=6;
