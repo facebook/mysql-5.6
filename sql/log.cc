@@ -771,6 +771,7 @@ void Log_to_file_event_handler::init_pthread_objects()
 {
   mysql_log.init_pthread_objects();
   mysql_slow_log.init_pthread_objects();
+  mysql_gap_lock_log.init_pthread_objects();
 }
 
 
@@ -816,6 +817,18 @@ bool Log_to_file_event_handler::
   return retval;
 }
 
+bool Log_to_file_event_handler::
+  log_gap_lock(THD *thd, time_t event_time, const char *user_host,
+               uint user_host_len, my_thread_id thread_id,
+               const char *command_type, uint command_type_len,
+               const char *sql_text, uint sql_text_len)
+{
+  bool retval= mysql_gap_lock_log.write(event_time, user_host, user_host_len,
+                                        thread_id, command_type,
+                                        command_type_len,
+                                        sql_text, sql_text_len);
+  return retval;
+}
 
 bool Log_to_file_event_handler::init()
 {
@@ -826,6 +839,8 @@ bool Log_to_file_event_handler::init()
 
     if (opt_log)
       mysql_log.open_query_log(opt_logname);
+
+    mysql_gap_lock_log.open_gap_lock_log(opt_gap_lock_logname);
 
     is_initialized= TRUE;
   }
@@ -838,6 +853,7 @@ void Log_to_file_event_handler::cleanup()
 {
   mysql_log.cleanup();
   mysql_slow_log.cleanup();
+  mysql_gap_lock_log.cleanup();
 }
 
 void Log_to_file_event_handler::flush()
@@ -847,7 +863,20 @@ void Log_to_file_event_handler::flush()
     mysql_log.reopen_file();
   if (opt_slow_log)
     mysql_slow_log.reopen_file();
+  mysql_gap_lock_log.reopen_file();
 }
+
+bool Log_to_csv_event_handler::
+  log_gap_lock(THD *thd, time_t event_time, const char *user_host,
+               uint user_host_len, my_thread_id thread_id,
+               const char *command_type, uint command_type_len,
+               const char *sql_text, uint sql_text_len)
+{
+  /* No log table is implemented */
+  DBUG_ASSERT(0);
+  return FALSE;
+}
+
 
 /*
   Log error with all enabled log event handlers
@@ -1008,6 +1037,14 @@ bool LOGGER::flush_general_log()
   return 0;
 }
 
+bool LOGGER::flush_gap_lock_log()
+{
+  logger.lock_exclusive();
+  file_log_handler->get_mysql_gap_lock_log()->reopen_file();
+  logger.unlock();
+  return 0;
+}
+
 
 /*
   Log slow query with all enabled log event handlers
@@ -1131,6 +1168,35 @@ bool LOGGER::general_log_write(THD *thd, enum enum_server_command command,
   return error;
 }
 
+bool LOGGER::gap_lock_log_write(THD *thd, enum enum_server_command command,
+                                const char *query, uint query_length)
+{
+  bool error= FALSE;
+  Log_event_handler **current_handler= gap_lock_log_handler_list;
+  char user_host_buff[MAX_USER_HOST_SIZE + 1];
+  uint user_host_len= 0;
+  time_t current_time;
+
+  DBUG_ASSERT(thd);
+
+  lock_shared();
+  user_host_len= make_user_name(thd, user_host_buff);
+
+  current_time= my_time(0);
+
+  while (*current_handler)
+    error|= (*current_handler++)->
+      log_gap_lock(thd, current_time, user_host_buff,
+                   user_host_len, thd->thread_id,
+                   command_name[(uint) command].str,
+                   command_name[(uint) command].length,
+                   query, query_length) || error;
+  unlock();
+
+  return error;
+}
+
+
 void LOGGER::init_error_log(uint error_log_printer)
 {
   if (error_log_printer & LOG_NONE)
@@ -1204,6 +1270,28 @@ void LOGGER::init_general_log(uint general_log_printer)
   }
 }
 
+void LOGGER::init_gap_lock_log(uint gap_lock_log_printer)
+{
+  if (gap_lock_log_printer & LOG_NONE)
+  {
+    gap_lock_log_handler_list[0]= 0;
+    return;
+  }
+
+  switch (gap_lock_log_printer) {
+  case LOG_FILE:
+    gap_lock_log_handler_list[0]= file_log_handler;
+    gap_lock_log_handler_list[1]= 0;
+    break;
+    /* these two are disabled for now */
+  case LOG_TABLE:
+    DBUG_ASSERT(0);
+    break;
+  case LOG_TABLE|LOG_FILE:
+    DBUG_ASSERT(0);
+    break;
+  }
+}
 
 bool LOGGER::activate_log_handler(THD* thd, uint log_type)
 {
@@ -1293,7 +1381,8 @@ bool Log_to_csv_event_handler::init()
 
 int LOGGER::set_handlers(uint error_log_printer,
                          uint slow_log_printer,
-                         uint general_log_printer)
+                         uint general_log_printer,
+                         uint gap_lock_log_printer)
 {
   /* error log table is not supported yet */
   DBUG_ASSERT(error_log_printer < LOG_TABLE);
@@ -1313,6 +1402,7 @@ int LOGGER::set_handlers(uint error_log_printer,
   init_error_log(error_log_printer);
   init_slow_log(slow_log_printer);
   init_general_log(general_log_printer);
+  init_gap_lock_log(gap_lock_log_printer);
 
   unlock();
 
@@ -2318,6 +2408,17 @@ bool general_log_write(THD *thd, enum enum_server_command command,
   return FALSE;
 }
 
+bool gap_lock_log_write(THD *thd, enum enum_server_command command,
+                       const char *query, uint query_length)
+{
+  if (thd->variables.gap_lock_write_log && !thd->m_gap_lock_log_written)
+  {
+    thd->m_gap_lock_log_written= true;
+    return logger.gap_lock_log_write(thd, command, query, query_length);
+  }
+  return FALSE;
+}
+
 /**
   Check if a string is a valid number.
 
@@ -3129,3 +3230,4 @@ int TC_LOG::using_heuristic_recover()
   sql_print_information("Please restart mysqld without --tc-heuristic-recover");
   return 1;
 }
+
