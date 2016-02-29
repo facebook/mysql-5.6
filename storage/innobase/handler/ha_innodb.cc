@@ -14262,10 +14262,7 @@ ha_innobase::store_lock(
 	/* Check for LOCK TABLE t1,...,tn WITH SHARED LOCKS */
 	} else if ((lock_type == TL_READ && in_lock_tables)
 		   || (lock_type == TL_READ_HIGH_PRIORITY && in_lock_tables)
-		   || lock_type == TL_READ_WITH_SHARED_LOCKS
-		   || lock_type == TL_READ_NO_INSERT
-		   || (lock_type != TL_IGNORE
-		       && sql_command != SQLCOM_SELECT)) {
+		   || can_hold_read_locks_on_select(thd, lock_type)) {
 
 		/* The OR cases above are in this order:
 		1) MySQL is doing LOCK TABLES ... READ LOCAL, or we
