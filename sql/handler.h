@@ -660,6 +660,8 @@ enum legacy_db_type {
   DB_TYPE_MEMCACHE,
   DB_TYPE_FALCON,
   DB_TYPE_MARIA,
+  DB_TYPE_LEVELDB, /* Need it here for extended keys to work */
+  DB_TYPE_ROCKSDB, /* Need it here for extended keys to work */
   /** Performance schema engine. */
   DB_TYPE_PERFORMANCE_SCHEMA,
   DB_TYPE_TEMPTABLE,
@@ -4995,6 +4997,12 @@ class handler {
     return index_read_last(buf, key, key_len);
   }
 
+  bool is_using_full_key(key_part_map keypart_map, uint actual_key_parts);
+  bool is_using_full_unique_key(uint active_index, key_part_map keypart_map,
+                                enum ha_rkey_function find_flag);
+  bool is_using_prohibited_gap_locks(THD *thd, thr_lock_type lock_type,
+                                     bool using_full_unique_key);
+
   virtual int read_range_first(const key_range *start_key,
                                const key_range *end_key, bool eq_range,
                                bool sorted);
@@ -6874,6 +6882,8 @@ bool ha_notify_alter_table(THD *thd, const MDL_key *mdl_key,
 std::pair<int, bool> commit_owned_gtids(THD *thd, bool all);
 bool set_tx_isolation(THD *thd, enum_tx_isolation tx_isolation, bool one_shot);
 bool is_index_access_error(int error);
+bool can_hold_read_locks_on_select(THD *thd, thr_lock_type lock_type);
+bool can_hold_locks_on_trans(THD *thd, thr_lock_type lock_type);
 
 /** Generate a string representation of an `ha_rkey_function` enum value.
  * @param[in] r value to turn into string

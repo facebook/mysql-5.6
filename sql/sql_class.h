@@ -2670,6 +2670,12 @@ class THD : public MDL_context_owner,
     ~Permanent_transform() { m_thd->m_permanent_transform = m_old_value; }
   };
 
+  /**
+    A flag to mark that SQL statement using Gap Lock was already written.
+    This is to prevent to log the same query multiple times.
+  */
+  bool m_gap_lock_log_written;
+
   THD(bool enable_plugins = true);
 
   /*

@@ -1,0 +1,19 @@
+SET @start_value = @@global.gap_lock_log_file;
+SELECT @start_value;
+@start_value
+test.log
+SET @@global.gap_lock_log_file = DEFAULT;
+SET @a=concat(left(@@hostname, instr(concat(@@hostname, '.'), '.')-1), '-gaplock.log');
+SELECT RIGHT(@@global.gap_lock_log_file, length(@a)) = @a;
+RIGHT(@@global.gap_lock_log_file, length(@a)) = @a
+1
+SET @@global.gap_lock_log_file = mytest.log;
+ERROR 42000: Incorrect argument type to variable 'gap_lock_log_file'
+SET @@global.gap_lock_log_file = 12;
+ERROR 42000: Incorrect argument type to variable 'gap_lock_log_file'
+SELECT @@global.gap_lock_log_file = VARIABLE_VALUE 
+FROM performance_schema.global_variables 
+WHERE VARIABLE_NAME='gap_lock_log_file';
+@@global.gap_lock_log_file = VARIABLE_VALUE
+1
+SET @@global.gap_lock_log_file= @start_value;
