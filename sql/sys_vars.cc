@@ -76,7 +76,7 @@ TYPELIB bool_typelib={ array_elements(bool_values)-1, "", bool_values, 0 };
   and include a file with the prototype instead.
 */
 extern void close_thread_tables(THD *thd, bool async_commit);
-
+static bool check_log_path(sys_var *self, THD *thd, set_var *var);
 
 static bool update_buffer_size(THD *thd, KEY_CACHE *key_cache,
                                ptrdiff_t offset, ulonglong new_value)
@@ -1505,6 +1505,10 @@ static bool check_ftb_syntax(sys_var *self, THD *thd, set_var *var)
   return ft_boolean_check_syntax_string((uchar*)
                       (var->save_result.string_value.str));
 }
+static bool fix_gap_lock_log_file(sys_var *self, THD *thd, enum_var_type type)
+{
+  return fix_gap_lock_log();
+}
 static bool query_cache_flush(sys_var *self, THD *thd, enum_var_type type)
 {
 #ifdef HAVE_QUERY_CACHE
@@ -1549,6 +1553,29 @@ static Sys_var_charptr Sys_ft_stopword_file(
        "Use stopwords from this file instead of built-in list",
        READ_ONLY GLOBAL_VAR(ft_stopword_file), CMD_LINE(REQUIRED_ARG),
        IN_FS_CHARSET, DEFAULT(0));
+
+static Sys_var_charptr Sys_gap_lock_log_path(
+       "gap_lock_log_file",
+       "Log file path where queries using Gap Lock are written. "
+       "gap_lock_write_log needs to be turned on to write logs",
+       GLOBAL_VAR(opt_gap_lock_logname), CMD_LINE(REQUIRED_ARG),
+       IN_FS_CHARSET, DEFAULT(0), NO_MUTEX_GUARD,
+       NOT_IN_BINLOG, ON_CHECK(check_log_path),
+       ON_UPDATE(fix_gap_lock_log_file));
+
+static Sys_var_mybool Sys_gap_lock_raise_error(
+       "gap_lock_raise_error",
+       "Raising an error when executing queries "
+       "relying on Gap Lock. Default is false.",
+       SESSION_VAR(gap_lock_raise_error), CMD_LINE(OPT_ARG),
+       DEFAULT(false));
+
+static Sys_var_mybool Sys_gap_lock_write_log(
+       "gap_lock_write_log",
+       "Writing to gap_lock_log_file when executing queries "
+       "relying on Gap Lock. Default is false.",
+       SESSION_VAR(gap_lock_write_log), CMD_LINE(OPT_ARG),
+       DEFAULT(false));
 
 static Sys_var_mybool Sys_ignore_builtin_innodb(
        "ignore_builtin_innodb",

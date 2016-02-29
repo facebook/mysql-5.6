@@ -263,6 +263,8 @@ extern MY_BITMAP temp_pool;
 extern bool opt_large_files, server_id_supplied;
 extern bool opt_update_log, opt_bin_log, opt_error_log;
 extern my_bool opt_log, opt_slow_log, opt_log_raw;
+extern char* opt_gap_lock_logname;
+extern FILE* gap_lock_log_file;
 extern my_bool opt_backup_history_log;
 extern my_bool opt_backup_progress_log;
 extern ulonglong log_output_options;
@@ -951,6 +953,7 @@ extern PSI_mutex_key key_RELAYLOG_LOCK_sync_queue;
 extern PSI_mutex_key key_RELAYLOG_LOCK_xids;
 extern PSI_mutex_key key_RELAYLOG_LOCK_binlog_end_pos;
 extern PSI_mutex_key key_LOCK_sql_rand;
+extern PSI_mutex_key key_LOCK_gap_lock_log;
 extern PSI_mutex_key key_gtid_ensure_index_mutex;
 extern PSI_mutex_key key_LOCK_thread_created;
 
@@ -1192,7 +1195,8 @@ extern mysql_mutex_t
        LOCK_slave_list, LOCK_active_mi, LOCK_manager,
        LOCK_global_system_variables, LOCK_user_conn, LOCK_log_throttle_qni,
        LOCK_prepared_stmt_count, LOCK_error_messages, LOCK_connection_count,
-       LOCK_sql_slave_skip_counter, LOCK_slave_net_timeout;
+       LOCK_sql_slave_skip_counter, LOCK_slave_net_timeout,
+       LOCK_gap_lock_log;
 #ifdef HAVE_OPENSSL
 extern mysql_mutex_t LOCK_des_key_file;
 extern mysql_rwlock_t LOCK_use_ssl;
