@@ -1,0 +1,86 @@
+#!/bin/sh
+
+# Run 'ln -s -f ../../hooks/pre-push .git/hooks/pre-push' from the base
+# mysql/5.6 directory to symlink this into your git hooks
+
+# Called by "git push" after it has checked the remote status, but before
+# anything has been pushed.  If this script exits with a non-zero status
+# nothing will be pushed.
+#
+# This hook is called with the following parameters:
+#
+# $1 -- Name of the remote to which the push is being done
+# $2 -- URL to which the push is being done
+#
+# If pushing without using a named remote those arguments will be equal.
+#
+# Information about the commits which are being pushed is supplied as lines to
+# the standard input in the form:
+#
+#   <local ref> <local sha1> <remote ref> <remote sha1>
+
+echo >&2 "Performing pre-push checks..."
+
+remote="$1"
+url="$2"
+dev_remote_ssh="git@github.com:facebook/mysql-5.6.git"
+dev_remote_https="https://github.com/facebook/mysql-5.6.git"
+status=0
+
+z40=0000000000000000000000000000000000000000
+
+while read local_ref local_sha remote_ref remote_sha
+do
+  if [ "$local_sha" = $z40 ]
+  then
+    :
+  else
+    if [ "$remote_sha" = $z40 ]
+    then
+      # New branch, examine all commits
+      range="$local_sha"
+    else
+      # Update to existing branch, examine new commits
+      range="$remote_sha..$local_sha"
+    fi
+
+    # Check for Reviewed By text in commit
+    for Rev in $(git rev-list "$range")
+    do
+      message=`git cat-file commit "$Rev" | sed '1,/^$/d'`
+      if [[ $message =~ Reviewed\ By:\ .+ ]]
+      then
+        :
+      else
+        echo >&2 "[POLICY] Found un-reviewed commit $Rev, not pushing.  Please make sure a differential has been created for this commit."
+        status=1
+      fi
+    done
+  fi
+done
+
+# get current default branch by querying github
+webscalesql_branch="$(curl --silent https://api.github.com/repos/facebook/mysql-5.6 | grep 'default_branch' | sed 's/.* "//' | tr -d '",')"
+if [ ! "$webscalesql_branch" ]
+then
+  webscalesql_branch="$(curl --silent -x fwdproxy:8080 https://api.github.com/repos/facebook/mysql-5.6 | grep 'default_branch' | sed 's/.* "//' | tr -d '",')"
+fi
+
+current_branch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
+
+if [ "$webscalesql_branch" != "$current_branch" ] &&
+([ "$url" == "$dev_remote_ssh" ] || [ "$url" == "$dev_remote_https" ])
+then
+    echo >&2 "[POLICY] Please direct all pushes to the dev branch $webscalesql_branch, the current branch you are pushing to ($current_branch) is incorrect."
+    status=1
+fi
+
+if [ $status -eq 0 ]
+then
+  echo >&2 "[SUCCESS] Pre-push checks passed."
+  exit 0
+else
+  echo >&2 "[FAILURE] Some checks failed.  To push anyways, use the --no-verify flag."
+  exit 1
+fi
+
