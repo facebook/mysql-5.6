@@ -1,0 +1,13 @@
+# assert that only innodb is enabled
+select * from information_schema.engines where engine in ('rocksdb', 'innodb');
+
+# assert that both innodb and rocksdb are enabled
+--let $_mysqld_option=--default-storage-engine=rocksdb --default-tmp-storage-engine=MyISAM --rocksdb --binlog-format=row --allow-multiple-engines
+--source include/restart_mysqld_with_option.inc
+select * from information_schema.engines where engine in ('rocksdb', 'innodb');
+
+# assert that only rocksdb is enabled
+call mtr.add_suppression("Info table is not ready to be used");
+--let $_mysqld_option=--default-storage-engine=rocksdb --default-tmp-storage-engine=MyISAM --rocksdb --binlog-format=row --skip-innodb
+--source include/restart_mysqld_with_option.inc
+select * from information_schema.engines where engine in ('rocksdb', 'innodb');
