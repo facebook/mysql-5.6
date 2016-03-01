@@ -1,0 +1,13 @@
+select * from information_schema.engines where engine in ('rocksdb', 'innodb');
+ENGINE	SUPPORT	COMMENT	TRANSACTIONS	XA	SAVEPOINTS
+ROCKSDB	NO	RocksDB storage engine	NULL	NULL	NULL
+InnoDB	YES	Supports transactions, row-level locking, and foreign keys	YES	YES	YES
+select * from information_schema.engines where engine in ('rocksdb', 'innodb');
+ENGINE	SUPPORT	COMMENT	TRANSACTIONS	XA	SAVEPOINTS
+ROCKSDB	DEFAULT	RocksDB storage engine	YES	YES	YES
+InnoDB	YES	Supports transactions, row-level locking, and foreign keys	YES	YES	YES
+call mtr.add_suppression("Info table is not ready to be used");
+select * from information_schema.engines where engine in ('rocksdb', 'innodb');
+ENGINE	SUPPORT	COMMENT	TRANSACTIONS	XA	SAVEPOINTS
+ROCKSDB	DEFAULT	RocksDB storage engine	YES	YES	YES
+InnoDB	NO	Supports transactions, row-level locking, and foreign keys	NULL	NULL	NULL
