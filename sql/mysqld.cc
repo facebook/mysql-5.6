@@ -378,6 +378,7 @@ static bool volatile select_thread_in_use, signal_thread_in_use;
 /* See Bug#56666 and Bug#56760 */;
 volatile bool ready_to_exit;
 static my_bool opt_debugging= 0, opt_external_locking= 0, opt_console= 0;
+my_bool opt_allow_multiple_engines= 0;
 static my_bool opt_short_log_format= 0;
 static uint kill_blocked_pthreads_flag, wake_pthread;
 static ulong killed_threads;
@@ -5537,10 +5538,11 @@ a file name for --log-bin-index option", opt_binlog_index_name);
     unireg_abort(1);
   }
   plugins_are_initialized= TRUE;  /* Don't separate from init function */
-  if (total_ha_2pc - opt_bin_log  >= 2)
+  if ((total_ha_2pc - opt_bin_log  >= 2) && !opt_allow_multiple_engines)
   {
     sql_print_error(
-      "Only one of RocksDB or InnoDB engines is supported at a time. "
+      "Only one of RocksDB or InnoDB engines is supported at a time "
+      "unless --allow-multiple-engines is specified."
       "Start mysqld with --skip-innodb (requires --default-tmp-storage"
       "-engine=MyISAM) if you're enabling rocksdb.");
     unireg_abort(1);
@@ -7897,6 +7899,9 @@ vector<my_option> all_options;
 
 struct my_option my_long_early_options[]=
 {
+  {"allow-multiple-engines", 0, "Allow multiple storage engines to be enabled",
+   &opt_allow_multiple_engines, &opt_allow_multiple_engines, 0, GET_BOOL,
+   NO_ARG, 0, 0, 0, 0, 0, 0},
 #ifndef DISABLE_GRANT_OPTIONS
   {"bootstrap", OPT_BOOTSTRAP, "Used by mysql installation scripts.", 0, 0, 0,
    GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0},
