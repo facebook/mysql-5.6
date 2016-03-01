@@ -1955,7 +1955,8 @@ int ha_recover(HASH *commit_list, char *binlog_file, my_off_t *binlog_pos)
     rollback all pending transactions, without risking inconsistent data
   */
   // only InnoDB/RocksDB [optional] and binlog
-  DBUG_ASSERT(total_ha_2pc <= (ulong) opt_bin_log+1);
+  DBUG_ASSERT((total_ha_2pc <= (ulong) opt_bin_log+1)
+      || opt_allow_multiple_engines);
   tc_heuristic_recover= TC_HEURISTIC_RECOVER_ROLLBACK; // forcing ROLLBACK
   info.dry_run=FALSE;
 #endif

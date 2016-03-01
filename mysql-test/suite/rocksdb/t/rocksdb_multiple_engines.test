@@ -1,0 +1,4 @@
+--let $_mysqld_option=--default-storage-engine=rocksdb --default-tmp-storage-engine=MyISAM --rocksdb --binlog-format=row
+--source restart_mysqld_with_option.inc
+
+select * from information_schema.engines where engine in ('rocksdb', 'innodb');

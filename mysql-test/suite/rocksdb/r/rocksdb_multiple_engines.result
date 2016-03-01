@@ -1,0 +1,4 @@
+select * from information_schema.engines where engine in ('rocksdb', 'innodb');
+ENGINE	SUPPORT	COMMENT	TRANSACTIONS	XA	SAVEPOINTS
+ROCKSDB	DEFAULT	RocksDB storage engine	YES	YES	YES
+InnoDB	NO	Supports transactions, row-level locking, and foreign keys	NULL	NULL	NULL

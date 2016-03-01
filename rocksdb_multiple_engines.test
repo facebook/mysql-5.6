@@ -1,0 +1,6 @@
+--source include/have_rocksdb.inc
+
+--let $_mysqld_option=--default-storage-engine=rocksdb --default-tmp-storage-engine=MyISAM --rocksdb --binlog-format=row --allow-multiple-engines
+
+--source restart_mysqld_with_option.inc
+
