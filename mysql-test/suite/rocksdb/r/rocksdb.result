@@ -2252,4 +2252,31 @@ a
 1
 1
 DROP TABLE t1, t2;
+#
+# Issue #189 ha_rocksdb::load_auto_incr_value() creates implicit snapshot and doesn't release
+#
+create table r1 (id int auto_increment primary key, value int);
+insert into r1 (id) values (null), (null), (null), (null), (null);
+create table r2 like r1;
+show create table r2;
+Table	Create Table
+r2	CREATE TABLE `r2` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `value` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+begin;
+insert into r1 values (10, 1);
+commit;
+begin;
+select * from r1;
+id	value
+1	NULL
+2	NULL
+3	NULL
+4	NULL
+5	NULL
+10	1
+commit;
+drop table r1, r2;
 SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;
