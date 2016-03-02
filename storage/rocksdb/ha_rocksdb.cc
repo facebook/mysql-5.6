@@ -1259,6 +1259,7 @@ class Rdb_transaction
   bool is_trx_failed= false;
   bool is_delayed_snapshot= false;
   bool tx_read_only= false;
+  bool rollback_only= false;
 
   THD* thd_= nullptr;
 
@@ -1434,6 +1435,7 @@ public:
     n_writes= 0;
     n_locks= 0;
     set_tx_read_only(false);
+    rollback_only= false;
     return res;
   }
 
@@ -1450,6 +1452,7 @@ public:
       delete txn;
       txn= nullptr;
       set_tx_read_only(false);
+      rollback_only= false;
     }
   }
 
@@ -1709,6 +1712,35 @@ public:
     }
   }
 
+  bool can_prepare()
+  {
+    if (rollback_only)
+    {
+      my_printf_error(ER_UNKNOWN_ERROR,
+                      "This transaction was rolled back and cannot be "
+                      "committed. Only supported operation is to roll it back, "
+                      "so all pending changes will be discarded. "
+                      "Please restart another transaction.",
+                      MYF(0));
+      return false;
+    }
+    return true;
+  }
+
+  int rollback_to_savepoint(void *savepoint)
+  {
+    if (has_modifications())
+    {
+      my_printf_error(ER_UNKNOWN_ERROR,
+                      "MyRocks currently does not support ROLLBACK TO "
+                      "SAVEPOINT if modifying rows.",
+                      MYF(0));
+      rollback_only= true;
+      return 1;
+    }
+    return 0;
+  }
+
   /*
     This is used by transactions started with "START TRANSACTION WITH "
     "CONSISTENT [ROCKSDB] SNAPSHOT". When tx_read_only is turned on,
@@ -1804,6 +1836,11 @@ static int rocksdb_close_connection(handlerton* hton, THD* thd)
 static int rocksdb_prepare(handlerton* hton, THD* thd, bool prepare_trx,
                            bool async)
 {
+  Rdb_transaction*& trx= get_trx_from_thd(thd);
+  if (!trx->can_prepare())
+  {
+    return 1;
+  }
   if (prepare_trx ||
       (!thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))) {
     /* We were instructed to prepare the whole transaction, or
@@ -1811,7 +1848,6 @@ static int rocksdb_prepare(handlerton* hton, THD* thd, bool prepare_trx,
     std::vector<st_slave_gtid_info> slave_gtid_info;
     thd_slave_gtid_info(thd, &slave_gtid_info);
     for (auto it : slave_gtid_info) {
-      Rdb_transaction*& trx= get_trx_from_thd(thd);
       rocksdb::WriteBatchBase* write_batch = trx->GetBlindWriteBatch();
       binlog_manager.update_slave_gtid_info(it.id, it.db, it.gtid, write_batch);
     }
@@ -2269,15 +2305,7 @@ static int rocksdb_rollback_to_savepoint(handlerton *hton, THD *thd,
                                          void *savepoint)
 {
   Rdb_transaction*& trx= get_trx_from_thd(thd);
-  if (trx->has_modifications())
-  {
-    my_printf_error(ER_UNKNOWN_ERROR,
-                    "MyRocks currently does not support ROLLBACK TO SAVEPOINT "
-                    "if modifying rows.",
-                    MYF(0));
-    return 1;
-  }
-  return 0;
+  return trx->rollback_to_savepoint(savepoint);
 }
 
 static bool rocksdb_rollback_to_savepoint_can_release_mdl(handlerton *hton,
