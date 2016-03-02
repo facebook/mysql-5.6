@@ -1259,6 +1259,7 @@ class Rdb_transaction
   bool is_trx_failed= false;
   bool is_delayed_snapshot= false;
   bool tx_read_only= false;
+  bool rollback_only= false;
 
   THD* thd_= nullptr;
 
@@ -1434,6 +1435,7 @@ public:
     n_writes= 0;
     n_locks= 0;
     set_tx_read_only(false);
+    set_rollback_only(false);
     return res;
   }
 
@@ -1450,6 +1452,7 @@ public:
       delete txn;
       txn= nullptr;
       set_tx_read_only(false);
+      set_rollback_only(false);
     }
   }
 
@@ -1725,6 +1728,16 @@ public:
     tx_read_only= val;
   }
 
+  bool is_rollback_only() const
+  {
+    return rollback_only;
+  }
+
+  void set_rollback_only(bool val)
+  {
+    rollback_only= val;
+  }
+
   explicit Rdb_transaction(THD *thd) : txn(nullptr), thd_(thd)
   {
     // Create a notifier that can be called when a snapshot gets generated.
@@ -1804,6 +1817,15 @@ static int rocksdb_close_connection(handlerton* hton, THD* thd)
 static int rocksdb_prepare(handlerton* hton, THD* thd, bool prepare_trx,
                            bool async)
 {
+  Rdb_transaction*& trx= get_trx_from_thd(thd);
+  if (trx->is_rollback_only())
+  {
+    my_printf_error(ER_UNKNOWN_ERROR,
+                    "This transaction cannot be committed, so rolling back "
+                    "instead. Please restart another transaction.",
+                    MYF(0));
+    return 1;
+  }
   if (prepare_trx ||
       (!thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))) {
     /* We were instructed to prepare the whole transaction, or
@@ -2275,6 +2297,7 @@ static int rocksdb_rollback_to_savepoint(handlerton *hton, THD *thd,
                     "MyRocks currently does not support ROLLBACK TO SAVEPOINT "
                     "if modifying rows.",
                     MYF(0));
+    trx->set_rollback_only(true);
     return 1;
   }
   return 0;
