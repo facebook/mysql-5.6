@@ -2243,6 +2243,12 @@ static int rocksdb_start_trx_and_assign_read_view(
   }
 
   Rdb_transaction* trx= get_or_create_trx(thd);
+  /*
+     If trx has previous snapshot, it has to be released because
+     a snapshot used by START TRANSACTION WITH CONSISTENT SNAPSHOT is
+     not compatible with regular snapshots.
+  */
+  trx->release_snapshot();
   trx->set_tx_read_only(true);
   rocksdb_register_trx(hton, thd, trx);
   trx->acquire_snapshot(true);
