@@ -2296,6 +2296,7 @@ static int rocksdb_start_trx_and_assign_read_view(
   }
 
   Rdb_transaction* trx= get_or_create_trx(thd);
+  DBUG_ASSERT(!trx->has_snapshot());
   trx->set_tx_read_only(true);
   rocksdb_register_trx(hton, thd, trx);
   trx->acquire_snapshot(true);
@@ -2937,9 +2938,23 @@ void ha_rocksdb::load_auto_incr_value()
   active_index= table->s->next_number_index;
   uint8 save_table_status= table->status;
 
+  /*
+    load_auto_incr_value() may be called by statements that
+    do not execute implicit commits (i.e. SHOW CREATE TABLE).
+    index_last() creates a snapshot. When a snapshot is created
+    here, it has to be released as well. (GitHub issue#189)
+  */
+  Rdb_transaction *trx= get_or_create_trx(table->in_use);
+  bool is_new_snapshot= !trx->has_snapshot();
+
   // Do a lookup.
   if (!index_last(table->record[0]))
     update_auto_incr_val();
+
+  if (is_new_snapshot)
+  {
+    trx->release_snapshot();
+  }
 
   table->status= save_table_status;
   active_index= save_active_index;
@@ -2983,6 +2998,9 @@ int ha_rocksdb::load_hidden_pk_value()
   active_index= tbl_def->n_keys - 1;
   uint8 save_table_status= table->status;
 
+  Rdb_transaction *trx= get_or_create_trx(table->in_use);
+  bool is_new_snapshot= !trx->has_snapshot();
+
   // Do a lookup.
   if (!index_last(table->record[0]))
   {
@@ -2991,12 +3009,23 @@ int ha_rocksdb::load_hidden_pk_value()
     */
     longlong hidden_pk_id= 0;
     if (read_hidden_pk_id_from_rowkey(&hidden_pk_id))
+    {
+      if (is_new_snapshot)
+      {
+        trx->release_snapshot();
+      }
       return HA_ERR_INTERNAL_ERROR;
+    }
 
     hidden_pk_id++;
     longlong old = tbl_def->hidden_pk_val;
     while (old < hidden_pk_id &&
         !tbl_def->hidden_pk_val.compare_exchange_weak(old, hidden_pk_id)){}
+  }
+
+  if (is_new_snapshot)
+  {
+    trx->release_snapshot();
   }
 
   table->status= save_table_status;
