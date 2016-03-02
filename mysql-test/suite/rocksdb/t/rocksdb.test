@@ -1793,6 +1793,45 @@ SELECT a FROM t1, t2 WHERE a=b AND (b NOT IN (SELECT a FROM t1 WHERE a > 4));
 DROP TABLE t1, t2;
 
 --echo #
+--echo # Issue #189 ha_rocksdb::load_auto_incr_value() creates implicit snapshot and doesn't release
+--echo #
+--connect (con1,localhost,root,,)
+create table r1 (id int auto_increment primary key, value int);
+insert into r1 (id) values (null), (null), (null), (null), (null);
+connection con1;
+create table r2 like r1;
+show create table r2;
+connection default;
+begin;
+insert into r1 values (10, 1);
+commit;
+connection con1;
+begin;
+select * from r1;
+commit;
+connection default;
+drop table r1, r2;
+
+# hidden primary key
+create table r1 (id int auto_increment, value int, index i(id));
+insert into r1 (id) values (null), (null), (null), (null), (null);
+connection con1;
+create table r2 like r1;
+show create table r2;
+connection default;
+begin;
+insert into r1 values (10, 1);
+commit;
+connection con1;
+begin;
+select * from r1;
+commit;
+connection default;
+drop table r1, r2;
+
+disconnect con1;
+
+--echo #
 --echo # Issue#267: MyRocks issue with no matching min/max row and count(*)
 --echo #
 CREATE TABLE t1(c1 INT UNSIGNED, c2 INT SIGNED, INDEX idx2(c2));
