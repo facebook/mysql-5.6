@@ -339,6 +339,9 @@ void RDBSE_KEYDEF::setup(TABLE *tbl, RDBSE_TABLE_DEF *tbl_def)
     maxlength= max_len;
     unpack_data_len= unpack_len;
 
+    /* Initialize the memory needed by the stats structure */
+    stats.distinct_keys_per_prefix.resize(get_m_key_parts());
+
     mysql_mutex_unlock(&mutex);
   }
 }
