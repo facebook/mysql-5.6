@@ -3314,6 +3314,10 @@ static int run_ssl_connect(MCPVIO_EXT *mpvio, my_bool *error) {
     }
 
     mysql->connector_fd= (unsigned char *) ssl_fd;
+    // When a new SSL FD is created, the SSL handshake needs to initialize
+    // net->ssl as well. This assignments makes sure that SSL this
+    // initialization will happen.
+    net->ssl = NULL;
   } else {
     ssl_fd = (struct st_VioSSLFd *) mysql->connector_fd;
   }
@@ -3329,6 +3333,7 @@ static int run_ssl_connect(MCPVIO_EXT *mpvio, my_bool *error) {
       vio,
       timeout_to_seconds(mysql->options.connect_timeout),
       ssl_session,
+      &net->ssl,
       &ssl_error))) {
 
     switch (ret) {
