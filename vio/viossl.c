@@ -566,42 +566,43 @@ static int ssl_finish(SSL *ssl, Vio *vio) {
  *    -3 -> wants write
  *    0  -> success
  */
-static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
+static int ssl_do(struct st_VioSSLFd *ptr,
+                  Vio *vio,
+                  long timeout,
                   SSL_SESSION* ssl_session,
                   ssl_handshake_func_t func,
+                  SSL **p_ssl,
                   unsigned long *ssl_errno_holder)
 {
   DBUG_ENTER("ssl_do");
 
-  if (!ptr->ssl) {
-    SSL *ssl;
+  if (*p_ssl == NULL) {
     if (ssl_init(
-            &ssl, ptr, vio, timeout,
+            p_ssl, ptr, vio, timeout,
             ssl_session, ssl_errno_holder)) {
         DBUG_RETURN(-1);
     }
-    ptr->ssl = ssl;
   }
 
-  SSL *ssl = ptr->ssl;
   size_t loop_ret;
-  if ((loop_ret = ssl_handshake_loop(vio, ssl, func, ssl_errno_holder)))
+  if ((loop_ret = ssl_handshake_loop(vio, *p_ssl, func, ssl_errno_holder)))
   {
     if (loop_ret != VIO_SOCKET_ERROR) {
+      assert(0);
       DBUG_RETURN( (int) loop_ret); // Don't free SSL
     }
 #ifndef DBUG_OFF  /* Debug build */
-    report_errors(ssl);
+    report_errors(*p_ssl);
 #endif
     DBUG_PRINT("error", ("SSL_connect/accept failure"));
-    ptr->ssl = NULL;
-    SSL_free(ssl);
+    *p_ssl = NULL;
+    SSL_free(*p_ssl);
     DBUG_RETURN(-1);
   }
 
-  DBUG_PRINT("info", ("reused session: %ld", SSL_session_reused(ssl)));
-  ptr->ssl = NULL;
-  int r = ssl_finish(ssl, vio);
+  DBUG_PRINT("info", ("reused session: %ld", SSL_session_reused(*p_ssl)));
+  int r = ssl_finish(*p_ssl, vio);
+  *p_ssl = NULL;
   DBUG_RETURN(r ? -1 : 0);
 }
 
@@ -610,9 +611,9 @@ int sslaccept(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
               unsigned long *ssl_errno_holder)
 {
   DBUG_ENTER("sslaccept");
-  DBUG_RETURN(
-      ssl_do(
-        ptr, vio, timeout, NULL, SSL_accept, ssl_errno_holder
+  SSL *ssl= NULL;
+  DBUG_RETURN(ssl_do(
+        ptr, vio, timeout, NULL, SSL_accept, &ssl, ssl_errno_holder
       ) == 0 ? 0 : 1);
 }
 
@@ -620,11 +621,12 @@ int sslaccept(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
  * Return values are the same as `ssl_do`.
  */
 int sslconnect(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
-               SSL_SESSION* ssl_session, unsigned long *ssl_errno_holder)
+               SSL_SESSION* ssl_session, SSL** ssl,
+               unsigned long *ssl_errno_holder)
 {
   DBUG_ENTER("sslconnect");
   DBUG_RETURN(ssl_do(ptr, vio, timeout, ssl_session,
-                     SSL_connect, ssl_errno_holder));
+                     SSL_connect, ssl, ssl_errno_holder));
 }
 
 my_bool vio_ssl_has_data(Vio *vio)
