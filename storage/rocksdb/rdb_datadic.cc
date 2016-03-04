@@ -339,6 +339,9 @@ void RDBSE_KEYDEF::setup(TABLE *tbl, RDBSE_TABLE_DEF *tbl_def)
     maxlength= max_len;
     unpack_data_len= unpack_len;
 
+    /* Initialize the memory needed by the stats structure */
+    stats.distinct_keys_per_prefix.resize(get_m_key_parts());
+
     mysql_mutex_unlock(&mutex);
   }
 }
@@ -2133,7 +2136,10 @@ Table_ddl_manager::get_copy_of_keydef(GL_INDEX_ID gl_index_id)
   mysql_rwlock_rdlock(&rwlock);
   auto key_def = find(gl_index_id);
   if (key_def) {
+    /* Locking the key_def prevents changes to it while a copy is made */
+    key_def->block_setup();
     ret = std::unique_ptr<RDBSE_KEYDEF>(new RDBSE_KEYDEF(*key_def));
+    key_def->unblock_setup();
   }
   mysql_rwlock_unlock(&rwlock);
   return ret;
