@@ -486,6 +486,10 @@ private:
 
   /* mutex to protect setup */
   mysql_mutex_t mutex;
+
+ public:
+  void lock() { mysql_mutex_lock(&mutex); }
+  void unlock() { mysql_mutex_unlock(&mutex); }
 };
 
 
