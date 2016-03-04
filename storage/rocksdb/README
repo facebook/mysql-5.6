@@ -1,4 +1,9 @@
+== Summary ==
 This directory contains RocksDB-based Storage Engine (RDBSE) for MySQL = "MyRocks". 
+
+== Resources ==
+See https://github.com/facebook/mysql-5.6/wiki/Getting-Started-with-MyRocks
+Facebook group: https://www.facebook.com/groups/mysqlonrocksdb/
 
 == Running Tests ==
 To run tests from rocksdb, rocksd_rpl or rocksdb_sys_vars packages, use the following parameters:
