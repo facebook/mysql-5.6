@@ -170,14 +170,11 @@ struct st_VioSSLFd
    * is supplied by mysql_options(..., MYSQL_OPT_SSL_CONTEXT, ...)
    * then it is also not owned by the client library. */
   my_bool owned;
-  /* SSL struct for the nonblocking actions. It's only kept until the
-   * connection is being established */
-  SSL *ssl;
 };
 
 int sslaccept(struct st_VioSSLFd*, Vio *, long timeout, unsigned long *errptr);
 int sslconnect(struct st_VioSSLFd*, Vio *, long timeout,
-               SSL_SESSION* ssl_session, unsigned long *errptr);
+               SSL_SESSION* ssl_session, SSL **ssl, unsigned long *errptr);
 
 struct st_VioSSLFd
 *new_VioSSLConnectorFdFromContext(SSL_CTX* context,

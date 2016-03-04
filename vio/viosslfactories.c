@@ -221,7 +221,6 @@ new_VioSSLFd(const char *key_file, const char *cert_file,
                  my_malloc(sizeof(struct st_VioSSLFd),MYF(0)))))
     DBUG_RETURN(0);
   ssl_fd->owned = TRUE;
-  ssl_fd->ssl = NULL;
 
   if (!(ssl_fd->ssl_context= SSL_CTX_new(is_client ?
                                          SSLv23_client_method() :
@@ -391,7 +390,6 @@ new_VioSSLConnectorFdFromContext(SSL_CTX* context,
     *error = SSL_INITERR_MEMFAIL;
      DBUG_RETURN(NULL);
   }
-  ssl_fd->ssl = NULL;
   ssl_fd->ssl_context = context;
   ssl_fd->owned = FALSE;
 

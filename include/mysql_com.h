@@ -394,6 +394,9 @@ uint timeout_to_seconds(const timeout_t t);
 struct st_vio;					/* Only C */
 typedef struct st_vio Vio;
 
+struct ssl_st;
+typedef struct ssl_st SSL;
+
 #define MAX_TINYINT_WIDTH       3       /* Max width for a TINY w.o. sign */
 #define MAX_SMALLINT_WIDTH      5       /* Max width for a SHORT w.o. sign */
 #define MAX_MEDIUMINT_WIDTH     8       /* Max width for a INT24 w.o. sign */
@@ -461,6 +464,11 @@ typedef struct st_net {
   /* The position in buff we continue reads from when data is next
    * available */
   unsigned char *cur_pos;
+
+  /* State for SSL Handshake
+   * SSL struct for the nonblocking actions. It's only kept until the
+   * connection is being established */
+  SSL* ssl;
 
   /* Blocking state */
   net_async_block_state async_blocking_state;
