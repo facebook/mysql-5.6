@@ -69,6 +69,8 @@ uint timeout_to_millis(const timeout_t t);
 uint timeout_to_seconds(const timeout_t t);
 struct st_vio;
 typedef struct st_vio Vio;
+struct ssl_st;
+typedef struct ssl_st SSL;
 typedef struct st_net {
   Vio *vio;
   unsigned char *buff,*buff_end,*write_pos,*read_pos;
@@ -95,6 +97,7 @@ typedef struct st_net {
   char sqlstate[5 +1];
   void *extension;
   unsigned char *cur_pos;
+  SSL* ssl;
   net_async_block_state async_blocking_state;
   net_async_operation async_operation;
   size_t async_bytes_wanted;
