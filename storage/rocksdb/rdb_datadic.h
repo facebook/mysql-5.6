@@ -486,6 +486,22 @@ private:
 
   /* mutex to protect setup */
   mysql_mutex_t mutex;
+
+ public:
+  void block_setup()
+  {
+    if (maxlength == 0)
+    {
+      mysql_mutex_lock(&mutex);
+      if (maxlength != 0)
+        mysql_mutex_unlock(&mutex);
+    }
+  }
+  void unblock_setup()
+  {
+    if (maxlength == 0)
+      mysql_mutex_unlock(&mutex);
+  }
 };
 
 
