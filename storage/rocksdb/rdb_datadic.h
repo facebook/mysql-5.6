@@ -346,7 +346,8 @@ public:
     return name;
   }
 
-  RDBSE_KEYDEF(const RDBSE_KEYDEF& k);
+  RDBSE_KEYDEF(RDBSE_KEYDEF& k) :
+      RDBSE_KEYDEF(k, std::lock_guard<std::mutex>(k.mutex)) {}
   RDBSE_KEYDEF(uint indexnr_arg, uint keyno_arg,
                rocksdb::ColumnFamilyHandle* cf_handle_arg,
                uint16_t index_dict_version_arg,
@@ -485,7 +486,10 @@ private:
   uint unpack_data_len;
 
   /* mutex to protect setup */
-  mysql_mutex_t mutex;
+  std::mutex mutex;
+
+  /* Copy constructor with multi-thread protection */
+  RDBSE_KEYDEF(const RDBSE_KEYDEF& k, const std::lock_guard<std::mutex>& g);
 };
 
 

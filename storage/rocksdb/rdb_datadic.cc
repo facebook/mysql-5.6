@@ -116,12 +116,12 @@ RDBSE_KEYDEF::RDBSE_KEYDEF(
     m_key_parts(0),
     maxlength(0) // means 'not intialized'
 {
-  mysql_mutex_init(0, &mutex, MY_MUTEX_INIT_FAST);
   store_index_number(index_number_storage_form, index_number);
   DBUG_ASSERT(cf_handle != nullptr);
 }
 
-RDBSE_KEYDEF::RDBSE_KEYDEF(const RDBSE_KEYDEF& k) :
+RDBSE_KEYDEF::RDBSE_KEYDEF(const RDBSE_KEYDEF& k,
+                           const std::lock_guard<std::mutex>& g) :
     index_number(k.index_number),
     cf_handle(k.cf_handle),
     is_reverse_cf(k.is_reverse_cf),
@@ -134,7 +134,6 @@ RDBSE_KEYDEF::RDBSE_KEYDEF(const RDBSE_KEYDEF& k) :
     m_key_parts(k.m_key_parts),
     maxlength(k.maxlength)
 {
-  mysql_mutex_init(0, &mutex, MY_MUTEX_INIT_FAST);
   store_index_number(index_number_storage_form, index_number);
   if (k.pack_info)
   {
@@ -153,8 +152,6 @@ RDBSE_KEYDEF::RDBSE_KEYDEF(const RDBSE_KEYDEF& k) :
 
 RDBSE_KEYDEF::~RDBSE_KEYDEF()
 {
-  mysql_mutex_destroy(&mutex);
-
   my_free(pk_part_no);
   pk_part_no = nullptr;
 
@@ -173,10 +170,9 @@ void RDBSE_KEYDEF::setup(TABLE *tbl, RDBSE_TABLE_DEF *tbl_def)
   const bool secondary_key= (index_type == INDEX_TYPE_SECONDARY);
   if (!maxlength)
   {
-    mysql_mutex_lock(&mutex);
+    std::lock_guard<std::mutex> guard(mutex);
     if (maxlength != 0)
     {
-      mysql_mutex_unlock(&mutex);
       return;
     }
 
@@ -339,7 +335,8 @@ void RDBSE_KEYDEF::setup(TABLE *tbl, RDBSE_TABLE_DEF *tbl_def)
     maxlength= max_len;
     unpack_data_len= unpack_len;
 
-    mysql_mutex_unlock(&mutex);
+    /* Initialize the memory needed by the stats structure */
+    stats.distinct_keys_per_prefix.resize(get_m_key_parts());
   }
 }
 
