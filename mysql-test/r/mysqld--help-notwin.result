@@ -12,6 +12,11 @@ The following options may be given as the first argument:
  Option used by mysql-test for debugging and testing of
  replication.
  --admin-port=#      Port number to use for connections from admin.
+ --admission-control-filter=name 
+ Commands that are skipped in admission control checks.
+ The legal values are: ALTER, BEGIN, COMMIT, CREATE,
+ DELETE, DROP, INSERT, LOAD, SELECT, SET, REPLACE,
+ ROLLBACK, TRUNCATE, UPDATE and empty string
  --allow-document-type 
  Allows document type when parsing queries, creating and
  altering tables.
@@ -1455,6 +1460,7 @@ The following options may be given as the first argument:
 Variables (--variable-name=value)
 abort-slave-event-count 0
 admin-port 0
+admission-control-filter 
 allow-document-type FALSE
 allow-multiple-engines FALSE
 allow-noncurrent-db-rw ON

@@ -7261,6 +7261,94 @@ void AC::admission_control_exit(THD* thd, const std::string& entity) {
 }
 
 /*
+  @param sql_command command the thread is currently executing
+
+  @return true Skips the current query in admission control
+          false Admission control checks are applied for this query
+*/
+static bool filter_command(enum_sql_command sql_command)
+{
+  switch (sql_command) {
+    case SQLCOM_ALTER_TABLE:
+    case SQLCOM_ALTER_DB:
+    case SQLCOM_ALTER_PROCEDURE:
+    case SQLCOM_ALTER_FUNCTION:
+    case SQLCOM_ALTER_TABLESPACE:
+    case SQLCOM_ALTER_SERVER:
+    case SQLCOM_ALTER_EVENT:
+    case SQLCOM_ALTER_DB_UPGRADE:
+    case SQLCOM_ALTER_USER:
+    case SQLCOM_RENAME_TABLE:
+    case SQLCOM_RENAME_USER:
+      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_ALTER);
+
+    case SQLCOM_BEGIN:
+      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_BEGIN);
+
+    case SQLCOM_COMMIT:
+      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_COMMIT);
+
+    case SQLCOM_CREATE_TABLE:
+    case SQLCOM_CREATE_INDEX:
+    case SQLCOM_CREATE_DB:
+    case SQLCOM_CREATE_FUNCTION:
+    case SQLCOM_CREATE_USER:
+    case SQLCOM_CREATE_PROCEDURE:
+    case SQLCOM_CREATE_SPFUNCTION:
+    case SQLCOM_CREATE_VIEW:
+    case SQLCOM_CREATE_TRIGGER:
+    case SQLCOM_CREATE_SERVER:
+    case SQLCOM_CREATE_EVENT:
+      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_CREATE);
+
+    case SQLCOM_DELETE:
+    case SQLCOM_DELETE_MULTI:
+      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_DELETE);
+
+    case SQLCOM_DROP_TABLE:
+    case SQLCOM_DROP_INDEX:
+    case SQLCOM_DROP_DB:
+    case SQLCOM_DROP_FUNCTION:
+    case SQLCOM_DROP_USER:
+    case SQLCOM_DROP_PROCEDURE:
+    case SQLCOM_DROP_VIEW:
+    case SQLCOM_DROP_TRIGGER:
+    case SQLCOM_DROP_SERVER:
+    case SQLCOM_DROP_EVENT:
+      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_DROP);
+
+    case SQLCOM_INSERT:
+    case SQLCOM_INSERT_SELECT:
+      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_INSERT);
+
+    case SQLCOM_LOAD:
+      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_LOAD);
+
+    case SQLCOM_SELECT:
+      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_SELECT);
+
+    case SQLCOM_SET_OPTION:
+      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_SET);
+
+    case SQLCOM_REPLACE:
+    case SQLCOM_REPLACE_SELECT:
+      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_REPLACE);
+
+    case SQLCOM_ROLLBACK:
+      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_ROLLBACK);
+
+    case SQLCOM_TRUNCATE:
+      return IS_BIT_SET(admission_control_filter,  ADMISSION_CONTROL_TRUNCATE);
+
+    case SQLCOM_UPDATE:
+    case SQLCOM_UPDATE_MULTI:
+      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_UPDATE);
+    default:
+      return false;
+  }
+}
+
+/*
   When you modify mysql_parse(), you may need to mofify
   mysql_test_parse_for_slave() in this same file.
 */
@@ -7433,7 +7521,8 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
             */
             if (!(thd->security_ctx->master_access & SUPER_ACL) &&
                 !thd->rli_slave &&
-                thd->db && db_ac->get_max_running_queries()) {
+                thd->db && db_ac->get_max_running_queries() &&
+                !filter_command(thd->lex->sql_command)) {
               admission_check= true;
               // thd->db can be changed. So make a copy here.
               db = std::string(thd->db);
