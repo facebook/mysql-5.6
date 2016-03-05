@@ -3038,6 +3038,20 @@ static Sys_var_set Slave_type_conversions(
        slave_type_conversions_name,
        DEFAULT(0));
 
+// Do not add more than 63 entries here.
+const char *admission_control_filter_names[]=
+       {"NONE", "ALTER", "BEGIN", "COMMIT", "CREATE", "DELETE", "DROP",
+        "INSERT", "LOAD", "SELECT", "SET", "REPLACE", "TRUNCATE", "UPDATE", 0};
+static Sys_var_set Admission_control_options(
+       "admission_control_filter",
+       "Commands that are skipped in admission control checks. The legal "
+       "values are: "
+       "NONE, ALTER, BEGIN, COMMIT, CREATE, DELETE, DROP, INSERT, LOAD, "
+       "SELECT, SET, REPLACE, TRUNCATE, UPDATE",
+       GLOBAL_VAR(admission_control_filter), CMD_LINE(REQUIRED_ARG),
+       admission_control_filter_names,
+       DEFAULT(1));
+
 static Sys_var_mybool Sys_slave_sql_verify_checksum(
        "slave_sql_verify_checksum",
        "Force checksum verification of replication events after reading them "
