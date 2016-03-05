@@ -600,6 +600,7 @@ uint  slave_net_timeout;
 ulong slave_exec_mode_options;
 ulong slave_run_triggers_for_rbr = 0;
 ulonglong slave_type_conversions_options;
+ulonglong admission_control_filter;
 ulong opt_mts_slave_parallel_workers;
 ulonglong opt_mts_pending_jobs_size_max;
 ulonglong slave_rows_search_algorithms_options;

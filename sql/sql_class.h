@@ -121,6 +121,27 @@ enum enum_mark_columns
 { MARK_COLUMNS_NONE, MARK_COLUMNS_READ, MARK_COLUMNS_WRITE};
 enum enum_filetype { FILETYPE_CSV, FILETYPE_XML };
 
+// The contents here must match entries in admission_control_filter_names array
+enum enum_admission_control_filter {
+  ADMISSION_CONTROL_ALTER,
+  ADMISSION_CONTROL_BEGIN,
+  ADMISSION_CONTROL_COMMIT,
+  ADMISSION_CONTROL_CREATE,
+  ADMISSION_CONTROL_DELETE,
+  ADMISSION_CONTROL_DROP,
+  ADMISSION_CONTROL_INSERT,
+  ADMISSION_CONTROL_LOAD,
+  ADMISSION_CONTROL_SELECT,
+  ADMISSION_CONTROL_SET,
+  ADMISSION_CONTROL_REPLACE,
+  ADMISSION_CONTROL_ROLLBACK,
+  ADMISSION_CONTROL_TRUNCATE,
+  ADMISSION_CONTROL_UPDATE,
+  ADMISSION_CONTROL_END = 64
+};
+
+#define IS_BIT_SET(val, n) ((val) & (1 << (n)))
+
 /* Bits for different SQL modes modes (including ANSI mode) */
 #define MODE_REAL_AS_FLOAT              1
 #define MODE_PIPES_AS_CONCAT            2
