@@ -1,0 +1,73 @@
+create database test_db;
+create user test_user@localhost;
+grant all on test_db to test_user@localhost;
+
+set @start_max_running_queries = @@global.max_running_queries;
+set @@global.max_running_queries = 4;
+set @start_innodb_lock_wait_timeout = @@global.innodb_lock_wait_timeout;
+set @@global.innodb_lock_wait_timeout = 10000;
+set @start_admission_control_filter = @@global.admission_control_filter;
+set @@global.admission_control_filter = 'COMMIT';
+
+let $i= 6;
+while ($i)
+{
+  connect (con$i, localhost, test_user,,test_db);
+  dec $i;
+}
+
+connection con5;
+create table t1 (a int) engine=innodb;
+insert into t1 values(1);
+begin;
+update t1 set a=2 where a=1;
+
+connection default;
+let $i= 4;
+# Fill up the admission control running limit.
+while($i)
+{
+  connection con$i;
+  # Blocked on innodb row lock
+  send update t1 set a=2 where a=1;
+  dec $i;
+}
+
+connection default;
+set @@global.admission_control_filter = 'ALTER,BEGIN,COMMIT,CREATE,DELETE,DROP,INSERT,LOAD,SELECT,SET,REPLACE,TRUNCATE,UPDATE';
+
+# Verify the commands filtered above run fine.
+connection con6;
+create table t2(a int) engine=innodb;
+begin;
+insert into t2 values(1);
+update t2 set a=2 where a=1;
+commit;
+alter table t2 rename t3;
+select * from t3;
+delete from t3;
+set @val = 1;
+truncate table t3;
+drop table t3;
+
+connection default;
+set @@global.admission_control_filter = 'COMMIT';
+
+connection con5;
+# Without the COMMIT filter set above, this query gets blocked until conflicting
+# queries hit timeout.
+commit;
+
+let $i= 6;
+while ($i)
+{
+  disconnect con$i;
+  dec $i;
+}
+
+connection default;
+set @@global.max_running_queries = @start_max_running_queries;
+set @@global.innodb_lock_wait_timeout = @start_innodb_lock_wait_timeout;
+set @@global.admission_control_filter = @start_admission_control_filter;
+drop database test_db;
+drop user test_user@localhost;
