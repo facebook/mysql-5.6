@@ -30,6 +30,10 @@
 #include "./rdb_cf_manager.h"
 #include "./rdb_datadic.h"
 
+/**
+  Define the INFORMATION_SCHEMA (I_S) structures needed by MyRocks storage engine.
+*/
+
 #define ROCKSDB_FIELD_INFO(_name_, _len_, _type_, _flag_) \
         { _name_, _len_, _type_, 0, _flag_, nullptr, 0 }
 

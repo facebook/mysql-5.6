@@ -17,6 +17,10 @@
 #ifndef _rdb_i_s_h_
 #define _rdb_i_s_h_
 
+/**
+  Declare INFORMATION_SCHEMA (I_S) plugins needed by MyRocks storage engine.
+*/
+
 extern struct st_mysql_plugin i_s_rocksdb_cfstats;
 extern struct st_mysql_plugin i_s_rocksdb_dbstats;
 extern struct st_mysql_plugin i_s_rocksdb_perf_context;
