@@ -953,10 +953,6 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-reset-seconds-behind-master to disable.)
  --rocksdb[=name]    Enable or disable ROCKSDB plugin. Possible values are ON,
  OFF, FORCE (don't start if the plugin fails to load).
- --rocksdb-WAL-size-limit-MB=# 
- DBOptions::WAL_size_limit_MB for RocksDB
- --rocksdb-WAL-ttl-seconds=# 
- DBOptions::WAL_ttl_seconds for RocksDB
  --rocksdb-access-hint-on-compaction-start=# 
  DBOptions::access_hint_on_compaction_start for RocksDB
  --rocksdb-advise-random-on-open 
@@ -1055,7 +1051,7 @@ The following options may be given as the first argument:
  --rocksdb-delete-obsolete-files-period-micros=# 
  DBOptions::delete_obsolete_files_period_micros for
  RocksDB
- --rocksdb-disableDataSync 
+ --rocksdb-disabledatasync 
  DBOptions::disableDataSync for RocksDB
  --rocksdb-enable-thread-tracking 
  DBOptions::enable_thread_tracking for RocksDB
@@ -1188,6 +1184,10 @@ The following options may be given as the first argument:
  DBOptions::wal_dir for RocksDB
  --rocksdb-wal-recovery-mode=# 
  DBOptions::wal_recovery_mode for RocksDB
+ --rocksdb-wal-size-limit-mb=# 
+ DBOptions::WAL_size_limit_MB for RocksDB
+ --rocksdb-wal-ttl-seconds=# 
+ DBOptions::WAL_ttl_seconds for RocksDB
  --rocksdb-whole-key-filtering 
  BlockBasedTableOptions::whole_key_filtering for RocksDB
  (Defaults to on; use --skip-rocksdb-whole-key-filtering to disable.)
@@ -1728,8 +1728,6 @@ report-port 0
 report-user (No default value)
 reset-seconds-behind-master TRUE
 rocksdb ON
-rocksdb-WAL-size-limit-MB 0
-rocksdb-WAL-ttl-seconds 0
 rocksdb-access-hint-on-compaction-start 1
 rocksdb-advise-random-on-open TRUE
 rocksdb-allow-concurrent-memtable-write FALSE
@@ -1767,7 +1765,7 @@ rocksdb-debug-optimizer-n-rows 0
 rocksdb-debug-optimizer-no-zero-cardinality TRUE
 rocksdb-default-cf-options 
 rocksdb-delete-obsolete-files-period-micros 21600000000
-rocksdb-disableDataSync FALSE
+rocksdb-disabledatasync FALSE
 rocksdb-enable-thread-tracking FALSE
 rocksdb-enable-write-thread-adaptive-yield FALSE
 rocksdb-error-if-exists FALSE
@@ -1819,6 +1817,8 @@ rocksdb-verify-checksums FALSE
 rocksdb-wal-bytes-per-sync 0
 rocksdb-wal-dir 
 rocksdb-wal-recovery-mode 2
+rocksdb-wal-size-limit-mb 0
+rocksdb-wal-ttl-seconds 0
 rocksdb-whole-key-filtering TRUE
 rocksdb-write-disable-wal FALSE
 rocksdb-write-ignore-missing-column-families FALSE
