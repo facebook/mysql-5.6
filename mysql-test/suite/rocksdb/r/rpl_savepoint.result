@@ -70,5 +70,34 @@ id	value
 1	1
 2	2
 3	3
+SET autocommit=off;
+select * from t1;
+id	value
+1	1
+2	2
+3	3
+SAVEPOINT A;
+select * from t1;
+id	value
+1	1
+2	2
+3	3
+SAVEPOINT A;
+insert into t1 values (35, 35);
+ROLLBACK TO SAVEPOINT A;
+ERROR HY000: MyRocks currently does not support ROLLBACK TO SAVEPOINT if modifying rows.
+START TRANSACTION;
+ERROR HY000: This transaction was rolled back and cannot be committed. Only supported operation is to roll it back, so all pending changes will be discarded. Please restart another transaction.
+select * from t1;
+id	value
+1	1
+2	2
+3	3
+include/sync_slave_sql_with_master.inc
+select * from t1;
+id	value
+1	1
+2	2
+3	3
 drop table t1;
 include/rpl_end.inc

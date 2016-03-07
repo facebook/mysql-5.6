@@ -65,6 +65,22 @@ select * from t1;
 connection slave;
 select * from t1;
 
+### GitHub Issue#195
+connection master;
+SET autocommit=off;
+select * from t1;
+SAVEPOINT A;
+select * from t1;
+SAVEPOINT A;
+insert into t1 values (35, 35);
+--error ER_UNKNOWN_ERROR
+ROLLBACK TO SAVEPOINT A;
+--error ER_UNKNOWN_ERROR
+START TRANSACTION;
+select * from t1;
+--source include/sync_slave_sql_with_master.inc
+connection slave;
+select * from t1;
 
 
 connection master;
