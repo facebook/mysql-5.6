@@ -147,6 +147,13 @@ background_thread_control bg_control;
 // collation check requirement.
 std::vector<std::string> collation_exception_list;
 
+static const char* const ERRSTR_ROLLBACK_ONLY
+  = "This transaction was rolled back and cannot be "
+    "committed. Only supported operation is to roll it back, "
+    "so all pending changes will be discarded. "
+    "Please restart another transaction.";
+
+
 static void
 rocksdb_flush_all_memtables()
 {
@@ -1404,7 +1411,27 @@ public:
 
   bool commit()
   {
-    if (get_n_writes() != 0)
+    if (get_n_writes() == 0)
+    {
+      rollback();
+      return false;
+    }
+    else if (rollback_only)
+    {
+     /*
+       Transactions marked as rollback_only are expected to be rolled back at
+       prepare(). But there are some exceptions like below that prepare() is
+       never called and commit() is called instead.
+        1. Binlog is disabled
+        2. No modification exists in binlog cache for the transaction (#195)
+       In both cases, rolling back transaction is safe. Nothing is written to
+       binlog.
+      */
+      my_printf_error(ER_UNKNOWN_ERROR, ERRSTR_ROLLBACK_ONLY, MYF(0));
+      rollback();
+      return true;
+    }
+    else
     {
       thd_binlog_pos(thd_, &mysql_log_file_name, &mysql_log_offset,
                      &mysql_gtid);
@@ -1412,11 +1439,6 @@ public:
                             mysql_log_offset,
                             mysql_gtid, txn->GetWriteBatch());
       return commit_no_binlog();
-    }
-    else
-    {
-      rollback();
-      return 0;
     }
   }
 
@@ -1716,12 +1738,7 @@ public:
   {
     if (rollback_only)
     {
-      my_printf_error(ER_UNKNOWN_ERROR,
-                      "This transaction was rolled back and cannot be "
-                      "committed. Only supported operation is to roll it back, "
-                      "so all pending changes will be discarded. "
-                      "Please restart another transaction.",
-                      MYF(0));
+      my_printf_error(ER_UNKNOWN_ERROR, ERRSTR_ROLLBACK_ONLY, MYF(0));
       return false;
     }
     return true;
