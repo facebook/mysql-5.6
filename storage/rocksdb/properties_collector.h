@@ -37,6 +37,7 @@ extern uint64_t rocksdb_num_sst_entry_delete;
 extern uint64_t rocksdb_num_sst_entry_singledelete;
 extern uint64_t rocksdb_num_sst_entry_merge;
 extern uint64_t rocksdb_num_sst_entry_other;
+extern my_bool rocksdb_compaction_sequential_deletes_count_sd;
 
 struct CompactionParams {
   uint64_t deletes_, window_, file_size_;
