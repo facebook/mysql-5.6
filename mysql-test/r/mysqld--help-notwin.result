@@ -1013,6 +1013,9 @@ The following options may be given as the first argument:
  --rocksdb-compaction-sequential-deletes=# 
  RocksDB will trigger compaction for the file if it has
  more than this number sequential deletes per window
+ --rocksdb-compaction-sequential-deletes-count-sd 
+ Counting SingleDelete as
+ rocksdb_compaction_sequential_deletes
  --rocksdb-compaction-sequential-deletes-file-size=# 
  Minimum file size required for
  compaction_sequential_deletes
@@ -1752,6 +1755,7 @@ rocksdb-compact-cf
 rocksdb-compaction-readahead-size 0
 rocksdb-compaction-sequential-deletes 0
 rocksdb-compaction-sequential-deletes-file-size 0
+rocksdb-compaction-sequential-deletes-count-sd FALSE
 rocksdb-compaction-sequential-deletes-window 0
 rocksdb-create-checkpoint 
 rocksdb-create-if-missing TRUE
