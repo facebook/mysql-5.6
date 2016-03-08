@@ -903,6 +903,12 @@ static MYSQL_SYSVAR_LONGLONG(
   nullptr, set_compaction_options, 0L,
   /* min */ -1L, /* max */ LONGLONG_MAX, 0);
 
+static MYSQL_SYSVAR_BOOL(compaction_sequential_deletes_count_sd,
+  rocksdb_compaction_sequential_deletes_count_sd,
+  PLUGIN_VAR_RQCMDARG,
+  "Counting SingleDelete as rocksdb_compaction_sequential_deletes",
+  nullptr, nullptr, rocksdb_compaction_sequential_deletes_count_sd);
+
 static MYSQL_THDVAR_INT(checksums_pct,
   PLUGIN_VAR_RQCMDARG,
   "How many percentages of rows to be checksummed",
@@ -1040,6 +1046,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(compaction_sequential_deletes),
   MYSQL_SYSVAR(compaction_sequential_deletes_window),
   MYSQL_SYSVAR(compaction_sequential_deletes_file_size),
+  MYSQL_SYSVAR(compaction_sequential_deletes_count_sd),
 
   MYSQL_SYSVAR(datadir),
   MYSQL_SYSVAR(create_checkpoint),
