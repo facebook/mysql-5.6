@@ -128,6 +128,13 @@
 #ifdef HAVE_JEMALLOC
 #ifndef EMBEDDED_LIBRARY
 #include <jemalloc/jemalloc.h>
+
+// Please see https://github.com/jemalloc/jemalloc/issues/325 to learn more
+// about the functionality this change enables.
+extern "C" {
+  const char *malloc_conf = "purge:decay";
+}
+
 #endif
 #endif
 
