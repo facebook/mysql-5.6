@@ -2663,7 +2663,7 @@ rocksdb::Status Dict_manager::Get(const rocksdb::Slice &key, std::string *value)
 }
 
 void Dict_manager::Delete(rocksdb::WriteBatchBase *batch,
-                          const rocksdb::Slice &key)
+                          const rocksdb::Slice &key) const
 {
   batch->Delete(system_cfh, key);
 }
@@ -2691,7 +2691,6 @@ int Dict_manager::commit(rocksdb::WriteBatch *batch, bool sync)
   return res;
 }
 
-
 void Dict_manager::delete_util(rocksdb::WriteBatch* batch,
                                const uint32_t prefix,
                                const GL_INDEX_ID gl_index_id)
@@ -2705,7 +2704,6 @@ void Dict_manager::delete_util(rocksdb::WriteBatch* batch,
 
   Delete(batch, key);
 }
-
 
 void Dict_manager::add_or_update_index_cf_mapping(rocksdb::WriteBatch* batch,
                                                   const uchar index_type,
