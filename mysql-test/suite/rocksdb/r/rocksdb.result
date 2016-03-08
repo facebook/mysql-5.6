@@ -875,6 +875,7 @@ rocksdb_collect_sst_properties	ON
 rocksdb_commit_in_the_middle	OFF
 rocksdb_compact_cf	
 rocksdb_compaction_sequential_deletes	1900
+rocksdb_compaction_sequential_deletes_count_sd	OFF
 rocksdb_compaction_sequential_deletes_file_size	0
 rocksdb_compaction_sequential_deletes_window	2000
 rocksdb_create_checkpoint	
