@@ -855,7 +855,7 @@ public:
   rocksdb::Status Get(const rocksdb::Slice& key, std::string *value);
   void Put(rocksdb::WriteBatchBase *batch, const rocksdb::Slice &key,
            const rocksdb::Slice &value);
-  void Delete(rocksdb::WriteBatchBase *batch, const rocksdb::Slice &key);
+  void Delete(rocksdb::WriteBatchBase *batch, const rocksdb::Slice &key) const;
   rocksdb::Iterator *NewIterator();
 
   /* Internal Index id => CF */
