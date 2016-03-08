@@ -34,6 +34,7 @@ uint64_t rocksdb_num_sst_entry_delete = 0;
 uint64_t rocksdb_num_sst_entry_singledelete = 0;
 uint64_t rocksdb_num_sst_entry_merge = 0;
 uint64_t rocksdb_num_sst_entry_other = 0;
+my_bool rocksdb_compaction_sequential_deletes_count_sd = false;
 
 MyRocksTablePropertiesCollector::MyRocksTablePropertiesCollector(
   Table_ddl_manager* ddl_manager,
@@ -98,7 +99,8 @@ MyRocksTablePropertiesCollector::AddUserKey(
       // deleted_rows_ is the current number of 1's in the vector
       // --update the counter for the element which will be overridden
       bool is_delete= (type == rocksdb::kEntryDelete ||
-                       type == rocksdb::kEntrySingleDelete);
+       (type == rocksdb::kEntrySingleDelete &&
+         rocksdb_compaction_sequential_deletes_count_sd));
       // Only make changes if the value at the current position needs to change
       uint64_t pos = rows_ % deleted_rows_window_.size();
       if (is_delete != deleted_rows_window_[pos]) {
