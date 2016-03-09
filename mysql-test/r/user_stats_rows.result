@@ -29,7 +29,7 @@ rows_deleted	0
 rows_read	1
 replace into userstats value (6,6);
 
-Replace does insert: Increment rows_inserted by 1, rows_deleted by 1
+Replace does insert: Increment rows_inserted by 1
 
 select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
 rows_inserted	6
@@ -47,7 +47,7 @@ rows_deleted	0
 rows_read	2
 delete from userstats where i = 1;
 
-Delete 1 row: Increment rows_deleted by 1, rows_read by 0
+Delete 1 row: Increment rows_deleted by 1, rows_read by 1
 
 select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
 rows_inserted	6
@@ -79,12 +79,13 @@ rows_deleted	5
 rows_read	11
 delete userstats, userstats2 from userstats inner join userstats2 where userstats.i = userstats2.i;
 
-Multi-table delete of 2 rows: Increment rows_deleted by 2
+Multi-table delete of 2 rows: Increment rows_deleted by 2, rows_read by 3
 
-select rows_inserted, rows_updated, rows_deleted from information_schema.user_statistics where user_name = 'mysqltest_1';
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
 rows_inserted	6
 rows_updated	1
 rows_deleted	7
+rows_read	14
 truncate table userstats2;
 
 Truncate: nothing changes
@@ -93,7 +94,7 @@ select rows_inserted, rows_updated, rows_deleted, rows_read from information_sch
 rows_inserted	6
 rows_updated	1
 rows_deleted	7
-rows_read	17
+rows_read	14
 update userstats set j=j+1 where i = 2;
 
 Update 1 row: Increment rows_updated by 1, rows_read by 1
@@ -102,7 +103,7 @@ select rows_inserted, rows_updated, rows_deleted, rows_read from information_sch
 rows_inserted	6
 rows_updated	2
 rows_deleted	7
-rows_read	18
+rows_read	15
 update userstats set j=j+1 where i = 7;
 
 Update 0 rows: Increment nothing
@@ -111,7 +112,7 @@ select rows_inserted, rows_updated, rows_deleted, rows_read from information_sch
 rows_inserted	6
 rows_updated	2
 rows_deleted	7
-rows_read	18
+rows_read	15
 insert into userstats set i=6, j=6 on duplicate key update j=j+1;
 
 Update 1 row: Increment rows_updated by 1, rows_read by 1
@@ -120,7 +121,7 @@ select rows_inserted, rows_updated, rows_deleted, rows_read from information_sch
 rows_inserted	6
 rows_updated	3
 rows_deleted	7
-rows_read	19
+rows_read	16
 drop table userstats;
 drop table userstats2;
 drop user mysqltest_1@localhost;
