@@ -174,6 +174,20 @@ lock_tables_check(THD *thd, TABLE **tables, uint count, uint flags)
     }
 
     /*
+       Return error if SKIP LOCKED | NOWAIT is used for
+       SELECT ... FOR UPDATE but the storage engine
+       doesn't support it.
+    */
+    if (t->reginfo.x_lock_type != TL_X_LOCK_REGULAR &&
+        !t->file->support_x_lock_type())
+    {
+      DBUG_ASSERT(t->reginfo.x_lock_type == TL_X_LOCK_SKIP_LOCKED ||
+                  t->reginfo.x_lock_type == TL_X_LOCK_NOWAIT);
+      my_error(ER_ILLEGAL_HA, MYF(0), t->alias);
+      DBUG_RETURN(1);
+    }
+
+    /*
       If we are going to lock a non-temporary table we must own metadata
       lock of appropriate type on it (I.e. for table to be locked for
       write we must own metadata lock of MDL_SHARED_WRITE or stronger

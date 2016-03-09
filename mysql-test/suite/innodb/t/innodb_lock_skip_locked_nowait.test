@@ -1,5 +1,5 @@
 --disable_warnings
-drop table if exists t0, t1, t2, t3;
+drop table if exists t0, t1, t2, t3, t4;
 --enable_warnings
 
 # (0) Without primary key
@@ -17,6 +17,20 @@ insert into t2 values(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5);
 # (3) With non-unique secondary key
 create table t3 (id integer primary key, x integer, key x(x)) engine=INNODB;
 insert into t3 values(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5);
+
+--echo ### (0.0) Basic syntax
+
+set autocommit=1;
+
+select 1 for update skip locked;
+
+--error ER_NO_SUCH_TABLE
+select * from nonexistence for update skip locked;
+
+select 1 for update nowait;
+
+--error ER_NO_SUCH_TABLE
+select * from nonexistence for update nowait;
 
 connect (con1,localhost,root,,);
 connect (con2,localhost,root,,);
@@ -232,5 +246,35 @@ disconnect con3;
 
 connection default;
 
-drop table t0, t1, t2, t3;
+--echo ### (6) Unsupported storage engines
+
+create table t4 (a int primary key) engine=heap;
+
+insert into t4 values (1), (2), (3);
+
+--echo Should succeed since no table gets involved
+select 1 for update skip locked;
+
+--error ER_NO_SUCH_TABLE
+select * from nonexistence for update skip locked;
+
+--error ER_ILLEGAL_HA
+select * from t4 for update skip locked;
+
+--error ER_ILLEGAL_HA
+select * from t4 where a > 1 and a < 3 for update skip locked;
+
+--echo Should succeed since no table gets involved
+select 1 for update nowait;
+
+--error ER_NO_SUCH_TABLE
+select * from nonexistence for update nowait;
+
+--error ER_ILLEGAL_HA
+select * from t4 for update nowait;
+
+--error ER_ILLEGAL_HA
+select * from t4 where a > 1 and a < 3 for update nowait;
+
+drop table t0, t1, t2, t3, t4;
 exit;
