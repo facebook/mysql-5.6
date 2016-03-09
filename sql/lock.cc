@@ -749,7 +749,8 @@ static MYSQL_LOCK *get_lock_data(THD *thd, TABLE **table_ptr, uint count,
                                      (flags & GET_LOCK_UNLOCK) ? TL_IGNORE :
                                      lock_type, table->reginfo.x_lock_type);
     } else {
-      DBUG_ASSERT(table->reginfo.x_lock_type == TL_X_LOCK_REGULAR);
+      /* The X-Lock type will be ignored if it is not supported
+         by this storage engine. */
       locks= table->file->store_lock(thd, locks,
                                      (flags & GET_LOCK_UNLOCK) ? TL_IGNORE :
                                      lock_type);
