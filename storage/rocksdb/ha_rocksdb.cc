@@ -545,7 +545,7 @@ static MYSQL_SYSVAR_INT(base_background_compactions,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "DBOptions::base_background_compactions for RocksDB",
   nullptr, nullptr, db_options.base_background_compactions,
-  /* min */ -1, /* max */ INT_MAX, 0);
+  /* min */ -1, /* max */ 4030, 0);
 
 static MYSQL_SYSVAR_INT(max_background_compactions,
   db_options.max_background_compactions,
