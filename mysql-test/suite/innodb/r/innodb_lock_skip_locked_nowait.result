@@ -7,6 +7,18 @@ create table t2 (id integer primary key, x integer, unique key x(x)) engine=INNO
 insert into t2 values(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5);
 create table t3 (id integer primary key, x integer, key x(x)) engine=INNODB;
 insert into t3 values(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5);
+### (0.0) Basic syntax
+set autocommit=1;
+select 1 for update skip locked;
+1
+1
+select * from nonexistence for update skip locked;
+ERROR 42S02: Table 'test.nonexistence' doesn't exist
+select 1 for update nowait;
+1
+1
+select * from nonexistence for update nowait;
+ERROR 42S02: Table 'test.nonexistence' doesn't exist
 ### (0.1) Without pirmary key: Locks on all rows
 set autocommit=0;
 SELECT * from t0 where id = 1 FOR UPDATE;

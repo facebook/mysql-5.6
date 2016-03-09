@@ -18,6 +18,20 @@ insert into t2 values(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5);
 create table t3 (id integer primary key, x integer, key x(x)) engine=INNODB;
 insert into t3 values(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5);
 
+--echo ### (0.0) Basic syntax
+
+set autocommit=1;
+
+select 1 for update skip locked;
+
+--error ER_NO_SUCH_TABLE
+select * from nonexistence for update skip locked;
+
+select 1 for update nowait;
+
+--error ER_NO_SUCH_TABLE
+select * from nonexistence for update nowait;
+
 connect (con1,localhost,root,,);
 connect (con2,localhost,root,,);
 connect (con3,localhost,root,,);

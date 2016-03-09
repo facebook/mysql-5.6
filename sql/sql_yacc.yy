@@ -227,6 +227,17 @@ void MYSQLerror(THD *thd, const char *s)
   my_parse_error(s);
 }
 
+bool my_error_illegal_ha_non_innodb(LEX *lex)
+{
+  if (lex->create_info.db_type &&
+      lex->create_info.db_type->db_type != DB_TYPE_INNODB)
+  {
+    TABLE_LIST *t = lex->current_select->table_list.first;
+    my_error(ER_ILLEGAL_HA, MYF(0), t ? t->table_name : "");
+    return true;
+  }
+  return false;
+}
 
 #ifndef DBUG_OFF
 void turn_parser_debug_on()
@@ -9208,6 +9219,8 @@ select_lock_type:
         | FOR_SYM UPDATE_SYM SKIP_SYM LOCKED_SYM
           {
             LEX *lex=Lex;
+            if (my_error_illegal_ha_non_innodb(lex))
+              MYSQL_YYABORT;
             lex->current_select->set_lock_for_tables(TL_WRITE,
                                                      TL_X_LOCK_SKIP_LOCKED);
             lex->safe_to_cache_query=0;
@@ -9215,6 +9228,8 @@ select_lock_type:
         | FOR_SYM UPDATE_SYM NOWAIT_SYM
           {
             LEX *lex=Lex;
+            if (my_error_illegal_ha_non_innodb(lex))
+              MYSQL_YYABORT;
             lex->current_select->set_lock_for_tables(TL_WRITE,
                                                      TL_X_LOCK_NOWAIT);
             lex->safe_to_cache_query=0;
