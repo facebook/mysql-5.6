@@ -22,7 +22,7 @@ from MySQLdb import OperationalError, ProgrammingError
 
 logger = None
 opts = None
-rocksdb_files = ['MANIFEST', 'CURRENT']
+rocksdb_files = ['MANIFEST', 'CURRENT', 'OPTIONS']
 rocksdb_data_suffix = '.sst'
 rocksdb_wal_suffix = '.log'
 exclude_files = ['auto.cnf', 'ibdata1', 'ib_logfile0', 'ib_logfile1']
