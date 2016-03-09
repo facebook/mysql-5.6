@@ -1,4 +1,4 @@
-drop table if exists t0, t1, t2, t3;
+drop table if exists t0, t1, t2, t3, t4;
 create table t0 (id integer, x integer) engine=INNODB;
 insert into t0 values(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5);
 create table t1 (id integer primary key, x integer) engine=INNODB;
@@ -7,6 +7,18 @@ create table t2 (id integer primary key, x integer, unique key x(x)) engine=INNO
 insert into t2 values(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5);
 create table t3 (id integer primary key, x integer, key x(x)) engine=INNODB;
 insert into t3 values(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5);
+### (0.0) Basic syntax
+set autocommit=1;
+select 1 for update skip locked;
+1
+1
+select * from nonexistence for update skip locked;
+ERROR 42S02: Table 'test.nonexistence' doesn't exist
+select 1 for update nowait;
+1
+1
+select * from nonexistence for update nowait;
+ERROR 42S02: Table 'test.nonexistence' doesn't exist
 ### (0.1) Without pirmary key: Locks on all rows
 set autocommit=0;
 SELECT * from t0 where id = 1 FOR UPDATE;
@@ -174,4 +186,44 @@ lock will skip
 SELECT x from t2 where x >= 0 FOR UPDATE SKIP LOCKED;
 x
 5
-drop table t0, t1, t2, t3;
+### (6) INSERT INTO t SELECT * FROM t FOR UPDATE [SKIP LOCKED | NOWAIT]
+set autocommit=1;
+select count(*) from t0;
+count(*)
+6
+insert into t0 select * from t0 for update skip locked;
+select count(*) from t0;
+count(*)
+12
+insert into t0 select * from t0 for update nowait;
+select count(*) from t0;
+count(*)
+24
+### (7) Unsupported storage engines
+create table t4 (a int primary key) engine=heap;
+insert into t4 values (1), (2), (3);
+Should succeed since no table gets involved
+select 1 for update skip locked;
+1
+1
+select * from nonexistence for update skip locked;
+ERROR 42S02: Table 'test.nonexistence' doesn't exist
+select * from t4 for update skip locked;
+ERROR HY000: Table storage engine for 't4' doesn't have this option
+select * from t4 where a > 1 and a < 3 for update skip locked;
+ERROR HY000: Table storage engine for 't4' doesn't have this option
+insert into t4 select * from t4 for update skip locked;
+ERROR HY000: Table storage engine for 't4' doesn't have this option
+Should succeed since no table gets involved
+select 1 for update nowait;
+1
+1
+select * from nonexistence for update nowait;
+ERROR 42S02: Table 'test.nonexistence' doesn't exist
+select * from t4 for update nowait;
+ERROR HY000: Table storage engine for 't4' doesn't have this option
+select * from t4 where a > 1 and a < 3 for update nowait;
+ERROR HY000: Table storage engine for 't4' doesn't have this option
+insert into t4 select * from t4 for update nowait;
+ERROR HY000: Table storage engine for 't4' doesn't have this option
+drop table t0, t1, t2, t3, t4;
