@@ -66,7 +66,7 @@ insert into userstats select * from userstats2;
 replace into userstats value (6,6);
 
 --echo
---echo Replace does insert: Increment rows_inserted by 1, rows_deleted by 1
+--echo Replace does insert: Increment rows_inserted by 1
 --echo
 --query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1'
 
@@ -84,7 +84,7 @@ replace into userstats value (1,1);
 delete from userstats where i = 1;
 
 --echo
---echo Delete 1 row: Increment rows_deleted by 1, rows_read by 0
+--echo Delete 1 row: Increment rows_deleted by 1, rows_read by 1
 --echo
 --query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1'
 
@@ -105,12 +105,23 @@ rollback;
 --echo
 --query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1'
 
+# jkedgar: Without analyzing the tables the optimizer usually picks userstats
+# as the primary table followed by userstats2 but very rarely (t10164878) it
+# appears to do the reverse causing the test to fail.  Adding the analyze
+# tables command solves this by getting updated statistics which will allow
+# the optimizer to know that it will be cheaper to access the userstats2
+# table first.
+--disable_query_log
+--disable_result_log
+analyze table userstats, userstats2;
+--enable_result_log
+--enable_query_log
 delete userstats, userstats2 from userstats inner join userstats2 where userstats.i = userstats2.i;
 
 --echo
---echo Multi-table delete of 2 rows: Increment rows_deleted by 2
+--echo Multi-table delete of 2 rows: Increment rows_deleted by 2, rows_read by 3
 --echo
---query_vertical select rows_inserted, rows_updated, rows_deleted from information_schema.user_statistics where user_name = 'mysqltest_1'
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1'
 truncate table userstats2;
 
 --echo
