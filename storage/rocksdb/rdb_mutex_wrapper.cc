@@ -70,33 +70,23 @@ Wrapped_mysql_cond::WaitFor(std::shared_ptr<TransactionDBMutex> mutex_arg,
   set_timespec_nsec(wait_timeout, timeout_micros*1000);
 
 #ifndef STANDALONE_UNITTEST
-  THD *thd= current_thd;
   PSI_stage_info old_stage;
   mysql_mutex_assert_owner(mutex_ptr);
-  bool should_call_set_unlock= false;
 
-  DBUG_ASSERT(mutex_obj->thd == nullptr || mutex_obj->thd == thd);
-  if (thd)
+  if (current_thd && mutex_obj->old_stage_info.count(current_thd) == 0)
   {
-    if (mutex_obj->thd)
-    {
-      /*
-        There was a spurious wake-up, or something like this. We've
-        called thd_enter_cond(); mutex->SetUnlockAction() before, but
-        the mutex->UnLock() was not called.
+    thd_enter_cond(current_thd, &cond_, mutex_ptr, &stage_waiting_on_row_lock2,
+                   &old_stage);
+    /*
+      After the mysql_cond_timedwait we need make this call
 
-        Condition wait will release the mutex; other threads may acquire
-        it and call SetUnlockAction(). Let them do so.
-      */
-      mutex_obj->thd= nullptr;
-      should_call_set_unlock= true;
-    }
-    else /* mutex_obj->thd == nullptr */
-    {
-      thd_enter_cond(thd, &cond_, mutex_ptr, &stage_waiting_on_row_lock2,
-                     &old_stage);
-      should_call_set_unlock= true;
-    }
+        thd_exit_cond(thd, &old_stage);
+
+      to inform the SQL layer that KILLable wait has ended. However,
+      that will cause mutex to be released. Defer the release until the mutex
+      that is unlocked by RocksDB's Pessimistic Transactions system.
+    */
+    mutex_obj->SetUnlockAction(&old_stage);
   }
 #endif
   bool killed= false;
@@ -106,27 +96,10 @@ Wrapped_mysql_cond::WaitFor(std::shared_ptr<TransactionDBMutex> mutex_arg,
     res= mysql_cond_timedwait(&cond_, mutex_ptr, &wait_timeout);
 
 #ifndef STANDALONE_UNITTEST
-    if (thd)
-      killed= thd_killed(thd);
+    if (current_thd)
+      killed= thd_killed(current_thd);
 #endif
   } while (!killed && res == EINTR);
-
-
-#ifndef STANDALONE_UNITTEST
-  if (should_call_set_unlock)
-  {
-    /*
-      We need make this call
-
-        thd_exit_cond(thd, &old_stage);
-
-      to inform the SQL layer that KILLable wait has ended. However,
-      that will cause mutex to be released. Defer the release until the mutex
-      that is unlocked by RocksDB's Pessimistic Transactions system.
-    */
-    mutex_obj->SetUnlockAction(thd, &old_stage);
-  }
-#endif
 
   if (res || killed)
     return Status::TimedOut();
@@ -183,9 +156,6 @@ void Wrapped_mysql_cond::NotifyAll()
 
 
 Wrapped_mysql_mutex::Wrapped_mysql_mutex()
-#ifndef STANDALONE_UNITTEST
-: thd(nullptr)
-#endif
 {
   mysql_mutex_init(0 /* Don't register in P_S. */, &mutex_,
                    MY_MUTEX_INIT_FAST);
@@ -197,7 +167,7 @@ Wrapped_mysql_mutex::~Wrapped_mysql_mutex() {
 
 Status Wrapped_mysql_mutex::Lock() {
   mysql_mutex_lock(&mutex_);
-  thd= nullptr; /* should be already nullptr, actually */
+  DBUG_ASSERT(old_stage_info.count(current_thd) == 0);
   return Status::OK();
 }
 
@@ -217,24 +187,25 @@ Status Wrapped_mysql_mutex::TryLockFor(int64_t timeout_time) {
 
 
 #ifndef STANDALONE_UNITTEST
-void Wrapped_mysql_mutex::SetUnlockAction(THD *thd_arg,
-                                          PSI_stage_info *old_stage_arg)
+void Wrapped_mysql_mutex::SetUnlockAction(PSI_stage_info *old_stage_arg)
 {
   mysql_mutex_assert_owner(&mutex_);
-  thd= thd_arg;
-  old_stage= *old_stage_arg;
+  DBUG_ASSERT(old_stage_info.count(current_thd) == 0);
+
+  old_stage_info[current_thd] =
+      std::make_shared<PSI_stage_info>(*old_stage_arg);
 }
 #endif
 
 // Unlock Mutex that was successfully locked by Lock() or TryLockUntil()
 void Wrapped_mysql_mutex::UnLock() {
 #ifndef STANDALONE_UNITTEST
-  if (thd)
+  if (old_stage_info.count(current_thd) > 0)
   {
-    THD *a_thd=thd;
-    thd= nullptr;
+    std::shared_ptr<PSI_stage_info> old_stage = old_stage_info[current_thd];
+    old_stage_info.erase(current_thd);
     /* The following will call mysql_mutex_unlock */
-    thd_exit_cond(a_thd, &old_stage);
+    thd_exit_cond(current_thd, old_stage.get());
     return;
   }
 #endif
