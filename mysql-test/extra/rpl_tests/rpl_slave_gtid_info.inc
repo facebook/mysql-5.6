@@ -28,7 +28,7 @@ call mtr.add_suppression("Recovery from master pos");
 -- let $rpl_start_with_gtids = 1
 -- source include/rpl_restart_server.inc
 
-change master to master_auto_position=1;
+change master to master_auto_position=1, master_heartbeat_period=0.25;
 -- source include/start_slave.inc
 
 connection master;
