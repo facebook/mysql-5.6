@@ -25,6 +25,8 @@
 /* RocksDB header files */
 #include "rocksdb/db.h"
 
+namespace myrocks {
+
 /*
   Expected from outside: a function that fills CF options for a given name.
 */
@@ -90,3 +92,4 @@ public:
   // void drop_cf(); -- not implemented so far.
 };
 
+}  // namespace myrocks
