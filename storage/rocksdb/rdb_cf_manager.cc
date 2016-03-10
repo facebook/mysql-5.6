@@ -22,6 +22,8 @@
 
 #include "./ha_rocksdb.h"
 
+namespace myrocks {
+
 /* Check if ColumnFamily name says it's a reverse-ordered CF */
 bool is_cf_name_reverse(const char *name)
 {
@@ -210,3 +212,5 @@ Column_family_manager::get_all_cf(void)
 
   return list;
 }
+
+}  // namespace myrocks

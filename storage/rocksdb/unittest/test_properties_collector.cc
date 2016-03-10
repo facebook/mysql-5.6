@@ -18,38 +18,43 @@
 #include "../ha_rocksdb.h"
 #include "../rdb_datadic.h"
 
-void putKeys(MyRocksTablePropertiesCollector& coll, int num, bool is_delete,
-             uint64_t expected_deleted) {
+void putKeys(myrocks::MyRocksTablePropertiesCollector* coll,
+             int num,
+             bool is_delete,
+             uint64_t expected_deleted)
+{
   std::string str("aaaaaaaaaaaaaa");
   rocksdb::Slice sl(str.data(), str.size());
 
   for (int i=0; i < num; i++) {
-    coll.AddUserKey(
+    coll->AddUserKey(
       sl, sl,
-      is_delete?rocksdb::kEntryDelete:rocksdb::kEntryPut, 0, 100);
+      is_delete ? rocksdb::kEntryDelete : rocksdb::kEntryPut,
+      0, 100);
   }
-  DBUG_ASSERT(coll.GetMaxDeletedRows() ==  expected_deleted);
+  DBUG_ASSERT(coll->GetMaxDeletedRows() ==  expected_deleted);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
   // test the circular buffer for delete flags
-  CompactionParams params;
+  myrocks::CompactionParams params;
   params.file_size_= 333;
   params.deletes_= 333; //irrelevant
   params.window_= 10;
 
-  MyRocksTablePropertiesCollector coll(nullptr, params, 0,
+  myrocks::MyRocksTablePropertiesCollector coll(nullptr, params, 0,
     MYROCKS_DEFAULT_SAMPLE_PCT);
 
-  putKeys(coll, 2, true, 2); // [xx]
-  putKeys(coll, 3, false, 2); // [xxo]
-  putKeys(coll, 1, true, 3); // [xxox]
-  putKeys(coll, 6, false, 3); // [xxoxoooooo]
-  putKeys(coll, 3, true, 4); // xxo[xooooooxxx]
-  putKeys(coll, 1, false, 4); // xxox[ooooooxxxo]
-  putKeys(coll, 100, false, 4); // ....[oooooooooo]
-  putKeys(coll, 100, true, 10); // ....[xxxxxxxxxx]
-  putKeys(coll, 100, true, 10); // ....[oooooooooo]
+  putKeys(&coll, 2, true, 2);     // [xx]
+  putKeys(&coll, 3, false, 2);    // [xxo]
+  putKeys(&coll, 1, true, 3);     // [xxox]
+  putKeys(&coll, 6, false, 3);    // [xxoxoooooo]
+  putKeys(&coll, 3, true, 4);     // xxo[xooooooxxx]
+  putKeys(&coll, 1, false, 4);    // xxox[ooooooxxxo]
+  putKeys(&coll, 100, false, 4);  // ....[oooooooooo]
+  putKeys(&coll, 100, true, 10);  // ....[xxxxxxxxxx]
+  putKeys(&coll, 100, true, 10);  // ....[oooooooooo]
 
   return 0;
 }

@@ -21,6 +21,8 @@
 #include <sstream>
 #include <string>
 
+namespace myrocks {
+
 class Logger : public rocksdb::Logger {
  public:
   using rocksdb::Logger::Logv;
@@ -64,5 +66,7 @@ class Logger : public rocksdb::Logger {
  private:
   std::shared_ptr<rocksdb::Logger> rocksdb_logger_;
 };
+
+}  // namespace myrocks
 
 #endif

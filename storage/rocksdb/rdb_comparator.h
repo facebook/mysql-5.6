@@ -20,6 +20,8 @@
 /* RocksDB header files */
 #include "rocksdb/comparator.h"
 
+namespace myrocks {
+
 static int bytewise_compare(const rocksdb::Slice& a, const rocksdb::Slice& b)
 {
   size_t a_size= a.size();
@@ -75,5 +77,7 @@ class Reverse_comparator : public rocksdb::Comparator
   void FindShortestSeparator(std::string* start, const rocksdb::Slice& limit) const {}
   void FindShortSuccessor(std::string* key) const {}
 };
+
+}  // namespace myrocks
 
 #endif /* _rdb_comparator_h_ */

@@ -24,6 +24,8 @@ namespace rocksdb {
 class ColumnFamilyOptions;
 }
 
+namespace myrocks {
+
 bool is_cf_name_reverse(const char *name);
 
 /*
@@ -51,3 +53,5 @@ class Cf_options {
   /* The default value (if there is only one value, it is stored here) */
   std::string default_config_;
 };
+
+}  // namespace myrocks
