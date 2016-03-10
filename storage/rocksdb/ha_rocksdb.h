@@ -36,6 +36,8 @@
 /* MyRocks header files */
 #include "rdb_perf_context.h"
 
+namespace myrocks {
+
 /*
   This is
   - the name of the default Column Family (the CF which stores indexes which
@@ -111,6 +113,8 @@ inline bool looks_like_per_index_cf_typo(const char *name)
   return (name && name[0]=='$' && strcmp(name, PER_INDEX_CF_NAME));
 }
 
+}  // namespace myrocks
+
 extern PSI_stage_info stage_waiting_on_row_lock;
 
 extern "C"
@@ -142,6 +146,8 @@ bool thd_binlog_filter_ok(const MYSQL_THD thd);
 }
 
 //#endif
+
+namespace myrocks {
 
 /** @brief
   ROCKSDB_SHARE is a structure that will be shared among all open handlers.
@@ -239,12 +245,14 @@ struct st_export_stats {
   ulonglong system_rows_updated;
 };
 
+}  // namespace myrocks
+
 /* Provide hash function for GL_INDEX_ID so we can include it in sets */
 namespace std {
   template <>
-  struct hash<GL_INDEX_ID>
+  struct hash<myrocks::GL_INDEX_ID>
   {
-    std::size_t operator()(const GL_INDEX_ID& gl_index_id) const
+    std::size_t operator()(const myrocks::GL_INDEX_ID& gl_index_id) const
     {
       uint64_t val = ((uint64_t) gl_index_id.cf_id << 32 |
                       (uint64_t) gl_index_id.index_id);
@@ -252,6 +260,8 @@ namespace std {
     }
   };
 }  // namespace std
+
+namespace myrocks {
 
 /** @brief
   Class definition for the storage engine
@@ -752,3 +762,5 @@ public:
   int optimize(THD *thd, HA_CHECK_OPT *check_opt);
   int analyze(THD* thd, HA_CHECK_OPT* check_opt);
 };
+
+}  // namespace myrocks
