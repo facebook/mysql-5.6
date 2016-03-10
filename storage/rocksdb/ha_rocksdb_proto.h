@@ -19,6 +19,8 @@
 
 #include "rocksdb/table.h"
 
+namespace myrocks {
+
 class Column_family_manager;
 
 rocksdb::DB *rocksdb_get_rdb();
@@ -44,5 +46,7 @@ class Table_ddl_manager;
 Table_ddl_manager *get_ddl_manager(void);
 class Binlog_info_manager;
 Binlog_info_manager *get_binlog_manager(void);
-#endif /* _ha_rocksdb_proto_h_ */
 
+}  // namespace myrocks
+
+#endif /* _ha_rocksdb_proto_h_ */

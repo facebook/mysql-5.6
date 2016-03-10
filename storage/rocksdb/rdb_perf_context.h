@@ -22,6 +22,8 @@
 #include <cstdint>
 #include <string>
 
+namespace myrocks {
+
 enum {
   PC_USER_KEY_COMPARISON_COUNT = 0,
   PC_BLOCK_CACHE_HIT_COUNT,
@@ -116,5 +118,7 @@ struct rdb_perf_context_guard {
 
 #define RDB_PERF_CONTEXT_GUARD(_local_, _table_, _global_) \
   rdb_perf_context_guard rdb_perf_context_guard_(_local_, _table_, _global_)
+
+}  // namespace myrocks
 
 #endif
