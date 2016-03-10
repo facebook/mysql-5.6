@@ -21,6 +21,7 @@
 #include <condition_variable>
 #include <functional>
 #include <mutex>
+#include <unordered_map>
 
 /* MySQL header files */
 #include "./my_sys.h"
@@ -58,9 +59,8 @@ class Wrapped_mysql_mutex: public rocksdb::TransactionDBMutex {
   friend class Wrapped_mysql_cond;
 
 #ifndef STANDALONE_UNITTEST
-  void SetUnlockAction(THD *thd_arg, PSI_stage_info *old_stage_arg);
-  THD *thd;
-  PSI_stage_info old_stage;
+  void SetUnlockAction(PSI_stage_info *old_stage_arg);
+  std::unordered_map<THD*, std::shared_ptr<PSI_stage_info>> old_stage_info;
 #endif
 };
 
