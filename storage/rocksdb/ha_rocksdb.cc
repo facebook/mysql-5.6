@@ -452,7 +452,7 @@ static MYSQL_SYSVAR_ULONGLONG(rate_limiter_bytes_per_sec,
   PLUGIN_VAR_RQCMDARG,
   "DBOptions::rate_limiter bytes_per_sec for RocksDB",
   nullptr, set_rate_limiter_bytes_per_sec, /* default */ 0L,
-  /* min */ 0L, /* max */ ULONGLONG_MAX, 0);
+  /* min */ 0L, /* max */ MAX_RATE_LIMITER_BYTES_PER_SEC, 0);
 
 static MYSQL_SYSVAR_ENUM(info_log_level,
   rocksdb_info_log_level,
@@ -553,21 +553,21 @@ static MYSQL_SYSVAR_INT(base_background_compactions,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "DBOptions::base_background_compactions for RocksDB",
   nullptr, nullptr, db_options.base_background_compactions,
-  /* min */ -1, /* max */ INT_MAX, 0);
+  /* min */ -1, /* max */ MAX_BACKGROUND_COMPACTIONS, 0);
 
 static MYSQL_SYSVAR_INT(max_background_compactions,
   db_options.max_background_compactions,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "DBOptions::max_background_compactions for RocksDB",
   nullptr, nullptr, db_options.max_background_compactions,
-  /* min */ 1, /* max */ INT_MAX, 0);
+  /* min */ 1, /* max */ MAX_BACKGROUND_COMPACTIONS, 0);
 
 static MYSQL_SYSVAR_INT(max_background_flushes,
   db_options.max_background_flushes,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "DBOptions::max_background_flushes for RocksDB",
   nullptr, nullptr, db_options.max_background_flushes,
-  /* min */ 1, /* max */ INT_MAX, 0);
+  /* min */ 1, /* max */ MAX_BACKGROUND_FLUSHES, 0);
 
 static MYSQL_SYSVAR_ULONG(max_log_file_size,
   db_options.max_log_file_size,
@@ -886,7 +886,7 @@ static MYSQL_SYSVAR_LONGLONG(
   PLUGIN_VAR_RQCMDARG,
   "RocksDB will trigger compaction for the file if it has more than this number sequential deletes per window",
   nullptr, set_compaction_options, DEFAULT_COMPACTION_SEQUENTIAL_DELETES,
-  /* min */ -1L, /* max */ MAX_COMPACTION_SEQUENTIAL_DELETES, 0);
+  /* min */ 0L, /* max */ MAX_COMPACTION_SEQUENTIAL_DELETES, 0);
 
 static MYSQL_SYSVAR_LONGLONG(
   compaction_sequential_deletes_window,
@@ -894,7 +894,7 @@ static MYSQL_SYSVAR_LONGLONG(
   PLUGIN_VAR_RQCMDARG,
   "Size of the window for counting rocksdb_compaction_sequential_deletes",
   nullptr, set_compaction_options, DEFAULT_COMPACTION_SEQUENTIAL_DELETES_WINDOW,
-  /* min */ -1L, /* max */ MAX_COMPACTION_SEQUENTIAL_DELETES_WINDOW, 0);
+  /* min */ 0L, /* max */ MAX_COMPACTION_SEQUENTIAL_DELETES_WINDOW, 0);
 
 static MYSQL_SYSVAR_LONGLONG(
   compaction_sequential_deletes_file_size,
