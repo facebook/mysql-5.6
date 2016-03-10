@@ -29,6 +29,8 @@
 /* MyRocks header files */
 #include "./ha_rocksdb.h"
 
+namespace myrocks {
+
 class Table_ddl_manager;
 class RDBSE_KEYDEF;
 
@@ -168,5 +170,7 @@ class MyRocksTablePropertiesCollectorFactory
   CompactionParams params_;
   uint8_t table_stats_sampling_pct_;
 };
+
+}  // namespace myrocks
 
 #endif

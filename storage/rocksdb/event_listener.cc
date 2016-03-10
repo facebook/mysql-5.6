@@ -30,6 +30,8 @@
 #include "./properties_collector.h"
 #include "./rdb_datadic.h"
 
+namespace myrocks {
+
 static std::vector<MyRocksTablePropertiesCollector::IndexStats>
 extract_index_stats(
   const std::vector<std::string>& files,
@@ -46,7 +48,6 @@ extract_index_stats(
   }
   return ret;
 }
-
 
 void MyRocksEventListener::OnCompactionCompleted(
   rocksdb::DB *db,
@@ -69,3 +70,5 @@ void  MyRocksEventListener::OnFlushCompleted(
     ddl_manager_->adjust_stats(
       MyRocksTablePropertiesCollector::GetStatsFromTableProperties(p_props));
 }
+
+}  // namespace myrocks

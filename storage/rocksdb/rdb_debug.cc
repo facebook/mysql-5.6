@@ -34,6 +34,7 @@
 
 #include "rdb_applyiter.h"
 
+namespace myrocks {
 
 /****************************************************************************
  *   Utility functions for debugging RocksDB-SE. Not intended for production use.
@@ -352,3 +353,5 @@ static void dump_delete_cmd(rocksdb::Slice &key)
   mysql_mutex_unlock(&write_mutex);
 #endif
 }
+
+}  // namespace myrocks
