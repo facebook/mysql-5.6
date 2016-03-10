@@ -27,6 +27,7 @@
 #include <utility>
 
 /* MySQL header files */
+#include "./key.h"
 #include "./my_bit.h"
 
 /* MyRocks header files */
@@ -34,8 +35,7 @@
 #include "./my_stacktrace.h"
 #include "./rdb_cf_manager.h"
 
-void key_restore(uchar *to_record, uchar *from_key, KEY *key_info,
-                 uint key_length);
+namespace myrocks {
 
 void write_int64(String *out, uint64 val)
 {
@@ -3121,3 +3121,5 @@ uint Sequence_generator::get_and_update_next_number(Dict_manager *dict)
   mysql_mutex_unlock(&mutex);
   return res;
 }
+
+}  // namespace myrocks

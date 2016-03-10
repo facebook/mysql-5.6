@@ -61,6 +61,7 @@
 extern my_bool cachedev_enabled;
 #endif /* TARGET_OS_LINUX */
 
+namespace myrocks {
 
 static st_global_stats global_stats;
 static st_export_stats export_stats;
@@ -2486,7 +2487,7 @@ static rocksdb::Status check_rocksdb_options_compatibility(
 }
 
 /*
-  Engine initialization function
+  Storage Engine initialization function, invoked when plugin is loaded.
 */
 
 static int rocksdb_init_func(void *p)
@@ -2803,6 +2804,10 @@ static int rocksdb_init_func(void *p)
   sql_print_information("RocksDB instance opened");
   DBUG_RETURN(0);
 }
+
+/*
+  Storage Engine deinitialization function, invoked when plugin is unloaded.
+*/
 
 static int rocksdb_done_func(void *p)
 {
@@ -6867,15 +6872,15 @@ rocksdb::Range get_range(
   RDBSE_KEYDEF* keydef, uchar buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2])
 {
   if (keydef->is_reverse_cf)
-    return ::get_range(keydef, buf, 1, 0);
+    return myrocks::get_range(keydef, buf, 1, 0);
   else
-    return ::get_range(keydef, buf, 0, 1);
+    return myrocks::get_range(keydef, buf, 0, 1);
 }
 
 rocksdb::Range ha_rocksdb::get_range(
   int i, uchar buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2]) const
 {
-  return ::get_range(key_descr[i], buf);
+  return myrocks::get_range(key_descr[i], buf);
 }
 
 void signal_drop_index_thread(bool stop_thread)
@@ -7831,36 +7836,6 @@ static SHOW_VAR rocksdb_status_vars[]= {
 };
 
 
-struct st_mysql_storage_engine rocksdb_storage_engine=
-{ MYSQL_HANDLERTON_INTERFACE_VERSION };
-
-mysql_declare_plugin(rocksdb_se)
-{
-  MYSQL_STORAGE_ENGINE_PLUGIN,
-  &rocksdb_storage_engine,
-  "ROCKSDB",
-  "Monty Program Ab",
-  "RocksDB storage engine",
-  PLUGIN_LICENSE_GPL,
-  rocksdb_init_func,                            /* Plugin Init */
-  rocksdb_done_func,                            /* Plugin Deinit */
-  0x0001,                                       /* version number (0.1) */
-  rocksdb_status_vars,                          /* status variables */
-  rocksdb_system_variables,                     /* system variables */
-  nullptr,                                      /* config options */
-  0,                                            /* flags */
-},
-i_s_rocksdb_cfstats,
-i_s_rocksdb_dbstats,
-i_s_rocksdb_perf_context,
-i_s_rocksdb_perf_context_global,
-i_s_rocksdb_cfoptions,
-i_s_rocksdb_global_info,
-i_s_rocksdb_ddl,
-i_s_rocksdb_index_file_map
-mysql_declare_plugin_end;
-
-
 /*
   Compute a hash number for a PK value in RowKeyFormat.
 
@@ -8238,3 +8213,40 @@ void request_save_stats()
   bg_control.save_stats= true;
   mysql_mutex_unlock(&stop_cond_mutex);
 }
+
+}  // namespace myrocks
+
+/*
+  Register the storage engine plugin outside of myrocks namespace
+  so that mysql_declare_plugin does not get confused when it does
+  its name generation.
+*/
+
+struct st_mysql_storage_engine rocksdb_storage_engine=
+{ MYSQL_HANDLERTON_INTERFACE_VERSION };
+
+mysql_declare_plugin(rocksdb_se)
+{
+  MYSQL_STORAGE_ENGINE_PLUGIN,                  /* Plugin Type */
+  &rocksdb_storage_engine,                      /* Plugin Descriptor */
+  "ROCKSDB",                                    /* Plugin Name */
+  "Monty Program Ab",                           /* Plugin Author */
+  "RocksDB storage engine",                     /* Plugin Description */
+  PLUGIN_LICENSE_GPL,                           /* Plugin Licence */
+  myrocks::rocksdb_init_func,                   /* Plugin Entry Point */
+  myrocks::rocksdb_done_func,                   /* Plugin Deinitializer */
+  0x0001,                                       /* version number (0.1) */
+  myrocks::rocksdb_status_vars,                 /* status variables */
+  myrocks::rocksdb_system_variables,            /* system variables */
+  nullptr,                                      /* config options */
+  0,                                            /* flags */
+},
+myrocks::i_s_rocksdb_cfstats,
+myrocks::i_s_rocksdb_dbstats,
+myrocks::i_s_rocksdb_perf_context,
+myrocks::i_s_rocksdb_perf_context_global,
+myrocks::i_s_rocksdb_cfoptions,
+myrocks::i_s_rocksdb_global_info,
+myrocks::i_s_rocksdb_ddl,
+myrocks::i_s_rocksdb_index_file_map
+mysql_declare_plugin_end;
