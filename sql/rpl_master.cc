@@ -1023,7 +1023,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   */
   String packet_str;
   String* packet = &packet_str;
-  time_t last_event_sent_ts= time(0);
+  struct timespec last_event_sent_ts;
+  set_timespec_nsec(last_event_sent_ts, 0);
   bool time_for_hb_event= false;
   int error= 0;
   const char *errmsg = "Unknown error";
@@ -1687,10 +1688,12 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                         {
                           my_sleep(2000000);
                         });
-        time_t now= time(0);
-        DBUG_ASSERT(now >= last_event_sent_ts);
-        time_for_hb_event= ((ulonglong)(now - last_event_sent_ts) >=
-                            (ulonglong)(heartbeat_period/1000000000UL));
+        struct timespec cur_clock;
+        set_timespec_nsec(cur_clock, 0);
+        DBUG_ASSERT(cmp_timespec(cur_clock, last_event_sent_ts) >= 0);
+        // Both diff_timespec() and heartbeat_period are in nano seconds.
+        time_for_hb_event= (diff_timespec(cur_clock, last_event_sent_ts) >=
+                            heartbeat_period);
       }
 
       if ((!skip_group && last_skip_group
@@ -1718,7 +1721,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
         {
           GOTO_ERR;
         }
-        last_event_sent_ts= time(0);
+        set_timespec_nsec(last_event_sent_ts, 0);
         last_skip_group= time_for_hb_event= false;
       }
       else
@@ -1734,7 +1737,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
           my_errno= ER_UNKNOWN_ERROR;
           GOTO_ERR;
         }
-        last_event_sent_ts= time(0);
+        set_timespec_nsec(last_event_sent_ts, 0);
       }
 
       DBUG_EXECUTE_IF("dump_thread_wait_before_send_xid",
@@ -2140,7 +2143,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
              my_errno= ER_UNKNOWN_ERROR;
              GOTO_ERR;
             }
-            last_event_sent_ts= time(0);
+            set_timespec_nsec(last_event_sent_ts, 0);
 
             if (event_type == LOAD_EVENT)
             {
