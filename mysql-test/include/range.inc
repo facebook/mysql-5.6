@@ -1815,6 +1815,11 @@ INSERT INTO t1 SELECT c1, 3, c3 FROM t1 WHERE c2 = 1;
 
 SELECT COUNT(*) FROM t1;
 
+--disable_query_log
+--disable_result_log
+ANALYZE TABLE t1;
+--enable_result_log
+--enable_query_log
 EXPLAIN SELECT c1, c2, c3
         FROM t1
         WHERE (c1 = 1 AND c2 = 1 AND c3 = 1) OR
@@ -1836,4 +1841,4 @@ CREATE TABLE t1 (
 
 SELECT 1 FROM t1 WHERE a <> 'a' OR a <> "";
 
-DROP TABLE t1;
+DROP_TABLE t1;
