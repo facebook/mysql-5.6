@@ -30,6 +30,8 @@
 #include "./rdb_cf_manager.h"
 #include "./rdb_datadic.h"
 
+namespace myrocks {
+
 /**
   Define the INFORMATION_SCHEMA (I_S) structures needed by MyRocks storage engine.
 */
@@ -1103,3 +1105,5 @@ struct st_mysql_plugin i_s_rocksdb_index_file_map=
   nullptr,                            /* config options */
   0,                                  /* flags */
 };
+
+}  // namespace myrocks

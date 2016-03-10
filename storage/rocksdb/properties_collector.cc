@@ -29,6 +29,8 @@
 /* MyRocks header files */
 #include "./rdb_datadic.h"
 
+namespace myrocks {
+
 uint64_t rocksdb_num_sst_entry_put = 0;
 uint64_t rocksdb_num_sst_entry_delete = 0;
 uint64_t rocksdb_num_sst_entry_singledelete = 0;
@@ -500,3 +502,5 @@ void MyRocksTablePropertiesCollector::IndexStats::merge(
     }
   }
 }
+
+}  // namespace myrocks

@@ -21,6 +21,8 @@
 #include "rocksdb/iostats_context.h"
 #include "rocksdb/perf_context.h"
 
+namespace myrocks {
+
 // To add a new metric:
 //   1. Update the PC enum in rdb_perf_context.h
 //   2. Update sections (A), (B), and (C) below
@@ -213,3 +215,5 @@ void rdb_perf_context_collect(rdb_perf_context_shared &perf_context,
     counters->value[i]= perf_context.value[i].load(std::memory_order_relaxed);
   }
 }
+
+}  // namespace myrocks

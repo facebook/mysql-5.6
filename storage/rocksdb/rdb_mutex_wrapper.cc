@@ -22,6 +22,8 @@
 
 using namespace rocksdb;
 
+namespace myrocks {
+
 static
 PSI_stage_info stage_waiting_on_row_lock2= { 0, "Waiting for row lock", 0};
 
@@ -212,3 +214,4 @@ void Wrapped_mysql_mutex::UnLock() {
   mysql_mutex_unlock(&mutex_);
 }
 
+}  // namespace myrocks

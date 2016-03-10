@@ -17,9 +17,11 @@
 #ifndef EVENT_LISTENER_H
 #define EVENT_LISTENER_H
 
-struct Table_ddl_manager;
-
 #include "rocksdb/listener.h"
+
+namespace myrocks {
+
+struct Table_ddl_manager;
 
 class MyRocksEventListener : public rocksdb::EventListener {
  public:
@@ -35,5 +37,7 @@ class MyRocksEventListener : public rocksdb::EventListener {
  private:
   Table_ddl_manager* ddl_manager_;
 };
+
+}  // namespace myrocks
 
 #endif

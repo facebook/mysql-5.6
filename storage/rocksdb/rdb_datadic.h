@@ -15,12 +15,6 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 #pragma once
 
-class Dict_manager;
-class RDBSE_KEYDEF;
-class Field_pack_info;
-class Column_family_manager;
-class Table_ddl_manager;
-
 /* C++ standard header files */
 #include <algorithm>
 #include <atomic>
@@ -35,6 +29,14 @@ class Table_ddl_manager;
 /* MyRocks header files */
 #include "./ha_rocksdb.h"
 #include "./properties_collector.h"
+
+namespace myrocks {
+
+class Dict_manager;
+class RDBSE_KEYDEF;
+class Field_pack_info;
+class Column_family_manager;
+class Table_ddl_manager;
 
 bool is_myrocks_collation_supported(Field *field);
 void write_int64(String *out, uint64 val);
@@ -899,3 +901,5 @@ public:
     GL_INDEX_ID gl_index_id
   );
 };
+
+}  // namespace myrocks
