@@ -6,6 +6,8 @@ drop table if exists t1, t2, t3;
 drop table if exists x1, x2;
 DROP DATABASE mysqlslap;
 
+--exec grep "Got error" $MYSQLTEST_VARDIR/log/mysqld.1.err | wc -l
+
 let $gap_lock_log_file_orig=`select concat(@@gap_lock_log_file, '_orig')`;
 let $gap_lock_log_file_orig2=`select concat(@@gap_lock_log_file, '_orig2')`;
 

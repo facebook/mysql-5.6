@@ -4649,7 +4649,7 @@ int ha_rocksdb::read_range_first(const key_range *start_key,
                                         start_key->keypart_map,
                                         start_key->flag)))
     {
-      DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+      DBUG_RETURN(HA_ERR_LOCK_DEADLOCK);
     }
 
     MYSQL_TABLE_IO_WAIT(m_psi, PSI_TABLE_FETCH_ROW, active_index, 0,
