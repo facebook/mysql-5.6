@@ -17,6 +17,8 @@
 #ifndef _rdb_i_s_h_
 #define _rdb_i_s_h_
 
+namespace myrocks {
+
 /**
   Declare INFORMATION_SCHEMA (I_S) plugins needed by MyRocks storage engine.
 */
@@ -29,5 +31,7 @@ extern struct st_mysql_plugin i_s_rocksdb_cfoptions;
 extern struct st_mysql_plugin i_s_rocksdb_global_info;
 extern struct st_mysql_plugin i_s_rocksdb_ddl;
 extern struct st_mysql_plugin i_s_rocksdb_index_file_map;
+
+}  // namespace myrocks
 
 #endif /* _rdb_i_s_h_ */

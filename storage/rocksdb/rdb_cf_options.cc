@@ -30,6 +30,8 @@
 /* RocksDB header files */
 #include "rocksdb/utilities/convenience.h"
 
+namespace myrocks {
+
 void Cf_options::Get(const std::string &cf_name,
                      rocksdb::ColumnFamilyOptions *opts) {
 
@@ -256,3 +258,5 @@ bool Cf_options::SetOverride(const std::string &override_config)
 
   return true;
 }
+
+}  // namespace myrocks

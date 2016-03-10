@@ -30,6 +30,8 @@
 /* RocksDB header files */
 #include "rocksdb/utilities/transaction_db_mutex.h"
 
+namespace myrocks {
+
 class Wrapped_mysql_mutex: public rocksdb::TransactionDBMutex {
   Wrapped_mysql_mutex(const Wrapped_mysql_mutex& p) = delete;
   Wrapped_mysql_mutex& operator = (const Wrapped_mysql_mutex& p)=delete;
@@ -121,3 +123,4 @@ class Wrapped_mysql_mutex_factory : public rocksdb::TransactionDBMutexFactory {
   virtual ~Wrapped_mysql_mutex_factory() {}
 };
 
+}  // namespace myrocks
