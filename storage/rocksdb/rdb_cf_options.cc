@@ -34,6 +34,7 @@ namespace myrocks {
 
 void Cf_options::Get(const std::string &cf_name,
                      rocksdb::ColumnFamilyOptions *opts) {
+  DBUG_ASSERT(opts != nullptr);
 
   // set defaults
   rocksdb::GetColumnFamilyOptionsFromString(*opts,
@@ -69,6 +70,8 @@ bool Cf_options::SetDefault(const std::string &default_config) {
 // Skip over any spaces in the input string.
 static void skip_spaces(const std::string& input, size_t* pos)
 {
+  DBUG_ASSERT(pos != nullptr);
+
   while (*pos < input.size() && isspace(input[*pos]))
     ++(*pos);
 }
@@ -79,6 +82,9 @@ static void skip_spaces(const std::string& input, size_t* pos)
 static bool find_column_family(const std::string& input, size_t* pos,
                               std::string* key)
 {
+  DBUG_ASSERT(pos != nullptr);
+  DBUG_ASSERT(key != nullptr);
+
   size_t beg_pos = *pos;
   size_t end_pos = *pos - 1;
 
@@ -107,6 +113,9 @@ static bool find_column_family(const std::string& input, size_t* pos,
 static bool find_options(const std::string& input, size_t* pos,
                          std::string* options)
 {
+  DBUG_ASSERT(pos != nullptr);
+  DBUG_ASSERT(options != nullptr);
+
   // Make sure we have an open curly brace at the current position.
   if (*pos < input.size() && input[*pos] != '{')
   {
@@ -166,6 +175,10 @@ static bool find_options(const std::string& input, size_t* pos,
 static bool find_cf_options_pair(const std::string& input, size_t* pos,
                                  std::string* cf, std::string* opt_str)
 {
+  DBUG_ASSERT(pos != nullptr);
+  DBUG_ASSERT(cf != nullptr);
+  DBUG_ASSERT(opt_str != nullptr);
+
   // Skip any spaces.
   skip_spaces(input, pos);
 

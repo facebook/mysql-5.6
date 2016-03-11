@@ -211,6 +211,8 @@ void rdb_perf_context_stop(rdb_perf_context_local &local_perf_context,
 void rdb_perf_context_collect(rdb_perf_context_shared &perf_context,
                               SHARE_PERF_COUNTERS *counters)
 {
+  DBUG_ASSERT(counters != nullptr);
+
   for (int i= 0; i < PC_MAX_IDX; i++) {
     counters->value[i]= perf_context.value[i].load(std::memory_order_relaxed);
   }

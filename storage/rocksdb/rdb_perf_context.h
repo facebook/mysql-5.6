@@ -22,6 +22,9 @@
 #include <cstdint>
 #include <string>
 
+/* MySQL header files */
+#include <my_global.h>
+
 namespace myrocks {
 
 enum {

@@ -53,6 +53,9 @@ void MyRocksEventListener::OnCompactionCompleted(
   rocksdb::DB *db,
   const rocksdb::CompactionJobInfo& ci
 ) {
+  DBUG_ASSERT(db != nullptr);
+  DBUG_ASSERT(ddl_manager_ != nullptr);
+
   if (ci.status.ok()) {
     ddl_manager_->adjust_stats(
       extract_index_stats(ci.output_files, ci.table_properties),
@@ -64,11 +67,14 @@ void  MyRocksEventListener::OnFlushCompleted(
   rocksdb::DB* db,
   const rocksdb::FlushJobInfo& flush_job_info
 ) {
-    auto p_props = std::make_shared<const rocksdb::TableProperties>(
-      flush_job_info.table_properties);
+  DBUG_ASSERT(db != nullptr);
+  DBUG_ASSERT(ddl_manager_ != nullptr);
 
-    ddl_manager_->adjust_stats(
-      MyRocksTablePropertiesCollector::GetStatsFromTableProperties(p_props));
+  auto p_props = std::make_shared<const rocksdb::TableProperties>(
+    flush_job_info.table_properties);
+
+  ddl_manager_->adjust_stats(
+    MyRocksTablePropertiesCollector::GetStatsFromTableProperties(p_props));
 }
 
 }  // namespace myrocks
