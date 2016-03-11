@@ -1089,6 +1089,12 @@ void do_handle_one_connection(THD *thd_arg)
     if (rc)
       goto end_thread;
 
+    /*
+      Set per user session variables for this user.
+      Ignore the return value of the function but errors will logged.
+    */
+    per_user_session_variables.set_thd(thd);
+
     while (thd_is_connection_alive(thd))
     {
       mysql_audit_release(thd);

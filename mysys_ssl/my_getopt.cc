@@ -30,9 +30,9 @@ my_error_reporter my_getopt_error_reporter= &default_reporter;
 
 static int findopt(char *, uint, const struct my_option **, const char **);
 my_bool getopt_compare_strings(const char *, const char *, uint);
-static longlong getopt_ll(char *arg, const struct my_option *optp, int *err);
-static ulonglong getopt_ull(char *, const struct my_option *, int *);
-static double getopt_double(char *arg, const struct my_option *optp, int *err);
+longlong getopt_ll(char *arg, const struct my_option *optp, int *err);
+ulonglong getopt_ull(char *, const struct my_option *, int *);
+double getopt_double(char *arg, const struct my_option *optp, int *err);
 static void init_variables(const struct my_option *, init_func_p);
 static void init_one_value(const struct my_option *, void *, longlong);
 static void fini_one_value(const struct my_option *, void *, longlong);
@@ -979,6 +979,21 @@ ret:
   return res;
 }
 
+/**
+   Parse a boolean command line argument
+   Return the parsed boolean value
+   error will be set if invalid
+*/
+my_bool my_get_bool_argument(const struct my_option *opts,
+                             const char *argument,
+                             int *error)
+{
+  bool err = 0;
+  my_bool ret = get_bool_argument(opts, argument, &err);
+  *error = err;
+  return ret;
+}
+
 
 /* 
   Find option
@@ -1155,7 +1170,7 @@ static ulonglong eval_num_suffix_ull(char *argument, int *error,
   In case of an error, set error value in *err.
 */
 
-static longlong getopt_ll(char *arg, const struct my_option *optp, int *err)
+longlong getopt_ll(char *arg, const struct my_option *optp, int *err)
 {
   longlong num=eval_num_suffix(arg, err, (char*) optp->name);
   return getopt_ll_limit_value(num, optp, NULL);
@@ -1246,7 +1261,7 @@ longlong getopt_ll_limit_value(longlong num, const struct my_option *optp,
   values.
 */
 
-static ulonglong getopt_ull(char *arg, const struct my_option *optp, int *err)
+ulonglong getopt_ull(char *arg, const struct my_option *optp, int *err)
 {
   ulonglong num= eval_num_suffix_ull(arg, err, (char*) optp->name);
   return getopt_ull_limit_value(num, optp, NULL);
@@ -1338,7 +1353,7 @@ double getopt_double_limit_value(double num, const struct my_option *optp,
     EXIT_ARGUMENT_INVALID.  Otherwise err is not touched
 */
 
-static double getopt_double(char *arg, const struct my_option *optp, int *err)
+double getopt_double(char *arg, const struct my_option *optp, int *err)
 {
   double num;
   int error;
