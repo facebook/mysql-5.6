@@ -232,20 +232,20 @@ ENDMACRO()
 OPTION(WITH_ASAN "Enable address sanitizer" OFF)
 IF (WITH_ASAN)
   # gcc 4.8.1 and new versions of clang
-  MY_CHECK_C_COMPILER_FLAG("-fsanitize=address" HAVE_C_FSANITIZE)
-  MY_CHECK_CXX_COMPILER_FLAG("-fsanitize=address" HAVE_CXX_FSANITIZE)
+  MY_CHECK_C_COMPILER_FLAG("-fsanitize=undefined" HAVE_C_FSANITIZE)
+  MY_CHECK_CXX_COMPILER_FLAG("-fsanitize=undefined" HAVE_CXX_FSANITIZE)
 
   IF(HAVE_C_FSANITIZE AND HAVE_CXX_FSANITIZE)
     # We switch on basic optimization also for debug builds.
     # With optimization we may get some warnings, so we switch off -Werror
     SET(CMAKE_C_FLAGS_DEBUG
-      "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address -O1 -Wno-error -fPIC")
+      "${CMAKE_C_FLAGS_DEBUG} -fsanitize=undefined -O1 -Wno-error -fPIC")
     SET(CMAKE_C_FLAGS_RELWITHDEBINFO
-      "${CMAKE_C_FLAGS_RELWITHDEBINFO} -fsanitize=address -fPIC")
+      "${CMAKE_C_FLAGS_RELWITHDEBINFO} -fsanitize=undefined -fPIC")
     SET(CMAKE_CXX_FLAGS_DEBUG
-      "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address -O1 -Wno-error -fPIC")
+      "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=undefined -O1 -Wno-error -fPIC")
     SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO
-      "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -fsanitize=address -fPIC")
+      "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -fsanitize=undefined -fPIC")
     SET(WITH_ASAN_OK 1)
   ELSE()
     # older versions of clang
