@@ -39,7 +39,7 @@ bool is_cf_name_reverse(const char *name)
 static PSI_mutex_key ex_key_cfm;
 #endif
 
-void Column_family_manager::init(std::vector<rocksdb::ColumnFamilyHandle*> *handles)
+void Rdb_cf_manager::init(std::vector<rocksdb::ColumnFamilyHandle*> *handles)
 {
   mysql_mutex_init(ex_key_cfm, &cfm_mutex, MY_MUTEX_INIT_FAST);
 
@@ -54,7 +54,7 @@ void Column_family_manager::init(std::vector<rocksdb::ColumnFamilyHandle*> *hand
 }
 
 
-void Column_family_manager::cleanup()
+void Rdb_cf_manager::cleanup()
 {
   for (auto it : cf_name_map) {
     delete it.second;
@@ -87,10 +87,10 @@ void get_per_index_cf_name(const char *db_table_name, const char *index_name,
   Find column family by name. If it doesn't exist, create it
 
   @detail
-    See Column_family_manager::get_cf
+    See Rdb_cf_manager::get_cf
 */
 rocksdb::ColumnFamilyHandle*
-Column_family_manager::get_or_create_cf(rocksdb::DB *rdb, const char *cf_name,
+Rdb_cf_manager::get_or_create_cf(rocksdb::DB *rdb, const char *cf_name,
                                         const char *db_table_name,
                                         const char *index_name,
                                         bool *is_automatic)
@@ -155,7 +155,7 @@ Column_family_manager::get_or_create_cf(rocksdb::DB *rdb, const char *cf_name,
 */
 
 rocksdb::ColumnFamilyHandle*
-Column_family_manager::get_cf(const char *cf_name,
+Rdb_cf_manager::get_cf(const char *cf_name,
                               const char *db_table_name,
                               const char *index_name,
                               bool *is_automatic)
@@ -186,7 +186,7 @@ Column_family_manager::get_cf(const char *cf_name,
   return cf_handle;
 }
 
-rocksdb::ColumnFamilyHandle* Column_family_manager::get_cf(const uint32_t id)
+rocksdb::ColumnFamilyHandle* Rdb_cf_manager::get_cf(const uint32_t id)
 {
   rocksdb::ColumnFamilyHandle* cf_handle = nullptr;
 
@@ -200,7 +200,7 @@ rocksdb::ColumnFamilyHandle* Column_family_manager::get_cf(const uint32_t id)
 }
 
 std::vector<std::string>
-Column_family_manager::get_cf_names(void)
+Rdb_cf_manager::get_cf_names(void)
 {
   std::vector<std::string> names;
 
@@ -213,7 +213,7 @@ Column_family_manager::get_cf_names(void)
 }
 
 std::vector<rocksdb::ColumnFamilyHandle*>
-Column_family_manager::get_all_cf(void)
+Rdb_cf_manager::get_all_cf(void)
 {
   std::vector<rocksdb::ColumnFamilyHandle*> list;
 

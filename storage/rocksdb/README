@@ -1,9 +1,46 @@
 == Summary ==
-This directory contains RocksDB-based Storage Engine (RDBSE) for MySQL = "MyRocks". 
+This directory contains RocksDB-based Storage Engine (RDBSE) for MySQL = "MyRocks".
 
 == Resources ==
 See https://github.com/facebook/mysql-5.6/wiki/Getting-Started-with-MyRocks
 Facebook group: https://www.facebook.com/groups/mysqlonrocksdb/
+
+== Coding Conventions ==
+See http://dev.mysql.com/doc/internals/en/coding-guidelines.html
+
+See below a list of old class names that have been brought up to standard, in case
+you don't find them in the code anymore:
+
+Old name                                         New name
+------------------------------------------------------------------------------------------
+Logger                                           Rdb_logger
+MyRocksTablePropertiesCollector                  Rdb_tbl_props
+MyRocksTablePropertiesCollectorFactory           Rdb_tbl_props_fact
+Table_ddl_manager                                Rdb_ddl_manager
+Dict_manager                                     Rdb_dict_manager
+RDBSE_KEYDEF                                     Rdb_key_def
+RDBSE_TABLE_DEF                                  Rdb_tbl_def
+MyRocksEventListener                             Rdb_event_listener
+CompactionParams                                 Rdb_compact_params
+Rdb_CompactionFilter                             Rdb_compact_filter
+Rdb_CompactionFilterFactory                      Rdb_compact_filter_fact
+SnapshotNotifier                                 Rdb_snapshot_notifier
+ShowSnapshotStatus                               Rdb_snapshot_status
+TransactionListWalker                            Rdb_tx_list_walker
+Cf_options                                       Rdb_cf_options
+Column_family_manager                            Rdb_cf_manager
+Binlog_info_manager                              Rdb_binlog_manager
+Sequence_generator                               Rdb_seq_generator
+Primary_key_comparator                           Rdb_pk_comparator
+Reverse_comparator                               Rdb_rev_pk_comparator
+Stream_reader                                    Rdb_stream_reader
+Field_pack_info                                  Rdb_field_packing
+Wrapped_mysql_mutex                              Rdb_mutex
+Wrapped_mysql_mutex_factory                      Rdb_mutex_factory
+Wrapped_mysql_cod                                Rdb_cond_var
+
+NOTE: Given the 80 character line limit, we'll not always use full English words
+      when a well known or easily recognizable abbreviation exists.
 
 == Running Tests ==
 To run tests from rocksdb, rocksd_rpl or rocksdb_sys_vars packages, use the following parameters:

@@ -18,7 +18,7 @@
 #include "../ha_rocksdb.h"
 #include "../rdb_datadic.h"
 
-void putKeys(myrocks::MyRocksTablePropertiesCollector* coll,
+void putKeys(myrocks::Rdb_tbl_props* coll,
              int num,
              bool is_delete,
              uint64_t expected_deleted)
@@ -38,12 +38,12 @@ void putKeys(myrocks::MyRocksTablePropertiesCollector* coll,
 int main(int argc, char** argv)
 {
   // test the circular buffer for delete flags
-  myrocks::CompactionParams params;
+  myrocks::Rdb_compact_params params;
   params.file_size_= 333;
   params.deletes_= 333; //irrelevant
   params.window_= 10;
 
-  myrocks::MyRocksTablePropertiesCollector coll(nullptr, params, 0,
+  myrocks::Rdb_tbl_props coll(nullptr, params, 0,
     MYROCKS_DEFAULT_SAMPLE_PCT);
 
   putKeys(&coll, 2, true, 2);     // [xx]

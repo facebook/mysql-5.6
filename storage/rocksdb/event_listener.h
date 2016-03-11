@@ -13,20 +13,18 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
-
-#ifndef EVENT_LISTENER_H
-#define EVENT_LISTENER_H
+#pragma once
 
 #include "rocksdb/listener.h"
 
 namespace myrocks {
 
-struct Table_ddl_manager;
+struct Rdb_ddl_manager;
 
-class MyRocksEventListener : public rocksdb::EventListener {
+class Rdb_event_listener : public rocksdb::EventListener {
  public:
-  explicit MyRocksEventListener(Table_ddl_manager* ddl_manager) :
-      ddl_manager_(ddl_manager) {
+  explicit Rdb_event_listener(Rdb_ddl_manager* ddl_manager) :
+      m_ddl_manager(ddl_manager) {
   }
 
   void OnCompactionCompleted(
@@ -35,9 +33,7 @@ class MyRocksEventListener : public rocksdb::EventListener {
     rocksdb::DB* db, const rocksdb::FlushJobInfo& flush_job_info);
 
  private:
-  Table_ddl_manager* ddl_manager_;
+  Rdb_ddl_manager* m_ddl_manager;
 };
 
 }  // namespace myrocks
-
-#endif

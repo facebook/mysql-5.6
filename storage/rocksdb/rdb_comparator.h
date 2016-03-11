@@ -13,9 +13,7 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
-
-#ifndef _rdb_comparator_h_
-#define _rdb_comparator_h_
+#pragma once
 
 /* RocksDB header files */
 #include "rocksdb/comparator.h"
@@ -46,7 +44,7 @@ static int bytewise_compare(const rocksdb::Slice& a, const rocksdb::Slice& b)
   (todo: knowledge about this format is shared between this class and
    RDBSE_KEYDEF)
 */
-class Primary_key_comparator : public rocksdb::Comparator
+class Rdb_pk_comparator : public rocksdb::Comparator
 {
   public:
   int Compare(const rocksdb::Slice& a, const rocksdb::Slice& b) const
@@ -67,7 +65,7 @@ class Primary_key_comparator : public rocksdb::Comparator
   void FindShortSuccessor(std::string* key) const {}
 };
 
-class Reverse_comparator : public rocksdb::Comparator
+class Rdb_rev_pk_comparator : public rocksdb::Comparator
 {
   int Compare(const rocksdb::Slice& a, const rocksdb::Slice& b) const
   {
@@ -79,5 +77,3 @@ class Reverse_comparator : public rocksdb::Comparator
 };
 
 }  // namespace myrocks
-
-#endif /* _rdb_comparator_h_ */

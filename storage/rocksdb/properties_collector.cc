@@ -38,9 +38,9 @@ uint64_t rocksdb_num_sst_entry_merge = 0;
 uint64_t rocksdb_num_sst_entry_other = 0;
 my_bool rocksdb_compaction_sequential_deletes_count_sd = false;
 
-MyRocksTablePropertiesCollector::MyRocksTablePropertiesCollector(
-  Table_ddl_manager* ddl_manager,
-  CompactionParams params,
+Rdb_tbl_props::Rdb_tbl_props(
+  Rdb_ddl_manager* ddl_manager,
+  Rdb_compact_params params,
   uint32_t cf_id,
   const uint8_t table_stats_sampling_pct
 ) :
@@ -66,7 +66,7 @@ MyRocksTablePropertiesCollector::MyRocksTablePropertiesCollector(
   This function is called by RocksDB for every key in the SST file
 */
 rocksdb::Status
-MyRocksTablePropertiesCollector::AddUserKey(
+Rdb_tbl_props::AddUserKey(
     const rocksdb::Slice& key, const rocksdb::Slice& value,
     rocksdb::EntryType type, rocksdb::SequenceNumber seq,
     uint64_t file_size
@@ -123,7 +123,7 @@ MyRocksTablePropertiesCollector::AddUserKey(
   return rocksdb::Status::OK();
 }
 
-void MyRocksTablePropertiesCollector::CollectStatsForRow(
+void Rdb_tbl_props::CollectStatsForRow(
   const rocksdb::Slice& key, const rocksdb::Slice& value,
   rocksdb::EntryType type, uint64_t file_size) {
   // All the code past this line must deal ONLY with collecting the
@@ -131,7 +131,7 @@ void MyRocksTablePropertiesCollector::CollectStatsForRow(
   GL_INDEX_ID gl_index_id;
 
   gl_index_id.cf_id = cf_id_;
-  gl_index_id.index_id = read_big_uint4((const uchar*)key.data());
+  gl_index_id.index_id = rdb_read_big_uint4((const uchar*)key.data());
 
   if (stats_.empty() || gl_index_id != stats_.back().gl_index_id) {
     keydef_ = nullptr;
@@ -209,13 +209,13 @@ void MyRocksTablePropertiesCollector::CollectStatsForRow(
   }
 }
 
-const char* MyRocksTablePropertiesCollector::INDEXSTATS_KEY = "__indexstats__";
+const char* Rdb_tbl_props::INDEXSTATS_KEY = "__indexstats__";
 
 /*
   This function is called by RocksDB to compute properties to store in sst file
 */
 rocksdb::Status
-MyRocksTablePropertiesCollector::Finish(
+Rdb_tbl_props::Finish(
   rocksdb::UserCollectedProperties* properties
 ) {
   properties->insert({INDEXSTATS_KEY,
@@ -223,7 +223,7 @@ MyRocksTablePropertiesCollector::Finish(
   return rocksdb::Status::OK();
 }
 
-bool MyRocksTablePropertiesCollector::NeedCompact() const {
+bool Rdb_tbl_props::NeedCompact() const {
   return
     params_.deletes_ &&
     (params_.window_ > 0) &&
@@ -231,7 +231,7 @@ bool MyRocksTablePropertiesCollector::NeedCompact() const {
     (max_deleted_rows_ > params_.deletes_);
 }
 
-bool MyRocksTablePropertiesCollector::ShouldCollectStats() {
+bool Rdb_tbl_props::ShouldCollectStats() {
   // Zero means that we'll use all the keys to update statistics.
   if (!table_stats_sampling_pct_ ||
       MYROCKS_SAMPLE_PCT_MAX == table_stats_sampling_pct_) {
@@ -250,7 +250,7 @@ bool MyRocksTablePropertiesCollector::ShouldCollectStats() {
   Returns the same as above, but in human-readable way for logging
 */
 rocksdb::UserCollectedProperties
-MyRocksTablePropertiesCollector::GetReadableProperties() const {
+Rdb_tbl_props::GetReadableProperties() const {
   std::string s;
 #ifdef DBUG_OFF
   s.append("[...");
@@ -271,8 +271,8 @@ MyRocksTablePropertiesCollector::GetReadableProperties() const {
 }
 
 std::string
-MyRocksTablePropertiesCollector::GetReadableStats(
-  const MyRocksTablePropertiesCollector::IndexStats& it
+Rdb_tbl_props::GetReadableStats(
+  const Rdb_tbl_props::IndexStats& it
 ) {
   std::string s;
   s.append("(");
@@ -307,11 +307,11 @@ MyRocksTablePropertiesCollector::GetReadableStats(
 /*
   Given the properties of an SST file, reads the stats from it and returns it.
 */
-std::vector<MyRocksTablePropertiesCollector::IndexStats>
-MyRocksTablePropertiesCollector::GetStatsFromTableProperties(
+std::vector<Rdb_tbl_props::IndexStats>
+Rdb_tbl_props::GetStatsFromTableProperties(
   const std::shared_ptr<const rocksdb::TableProperties>& table_props)
 {
-  std::vector<MyRocksTablePropertiesCollector::IndexStats> ret;
+  std::vector<Rdb_tbl_props::IndexStats> ret;
   const auto& user_properties = table_props->user_collected_properties;
   auto it2 = user_properties.find(std::string(INDEXSTATS_KEY));
   if (it2 != user_properties.end()) {
@@ -325,10 +325,10 @@ MyRocksTablePropertiesCollector::GetStatsFromTableProperties(
   Given properties stored on a bunch of SST files, reads the stats from them
   and returns one IndexStats struct per index
 */
-void MyRocksTablePropertiesCollector::GetStats(
+void Rdb_tbl_props::GetStats(
   const rocksdb::TablePropertiesCollection& collection,
   const std::unordered_set<GL_INDEX_ID>& index_numbers,
-  std::map<GL_INDEX_ID, MyRocksTablePropertiesCollector::IndexStats>& ret
+  std::map<GL_INDEX_ID, Rdb_tbl_props::IndexStats>& ret
 ) {
   for (auto it : collection) {
     const auto& user_properties = it.second->user_collected_properties;
@@ -349,27 +349,27 @@ void MyRocksTablePropertiesCollector::GetStats(
 /*
   Stores an array on IndexStats in string
 */
-std::string MyRocksTablePropertiesCollector::IndexStats::materialize(
+std::string Rdb_tbl_props::IndexStats::materialize(
   std::vector<IndexStats> stats,
   const float card_adj_extra
 ) {
   String ret;
-  write_short(&ret, INDEX_STATS_VERSION_ENTRY_TYPES);
+  rdb_write_short(&ret, INDEX_STATS_VERSION_ENTRY_TYPES);
   for (auto i : stats) {
-    write_int(&ret, i.gl_index_id.cf_id);
-    write_int(&ret, i.gl_index_id.index_id);
+    rdb_write_int(&ret, i.gl_index_id.cf_id);
+    rdb_write_int(&ret, i.gl_index_id.index_id);
     DBUG_ASSERT(sizeof i.data_size <= 8);
-    write_int64(&ret, i.data_size);
-    write_int64(&ret, i.rows);
-    write_int64(&ret, i.actual_disk_size);
-    write_int64(&ret, i.distinct_keys_per_prefix.size());
-    write_int64(&ret, i.entry_deletes);
-    write_int64(&ret, i.entry_singledeletes);
-    write_int64(&ret, i.entry_merges);
-    write_int64(&ret, i.entry_others);
+    rdb_write_int64(&ret, i.data_size);
+    rdb_write_int64(&ret, i.rows);
+    rdb_write_int64(&ret, i.actual_disk_size);
+    rdb_write_int64(&ret, i.distinct_keys_per_prefix.size());
+    rdb_write_int64(&ret, i.entry_deletes);
+    rdb_write_int64(&ret, i.entry_singledeletes);
+    rdb_write_int64(&ret, i.entry_merges);
+    rdb_write_int64(&ret, i.entry_others);
     for (auto num_keys : i.distinct_keys_per_prefix) {
       float upd_num_keys = num_keys * card_adj_extra;
-      write_int64(&ret, static_cast<int64_t>(upd_num_keys));
+      rdb_write_int64(&ret, static_cast<int64_t>(upd_num_keys));
     }
   }
 
@@ -379,7 +379,7 @@ std::string MyRocksTablePropertiesCollector::IndexStats::materialize(
 /*
   Reads an array of IndexStats from a string
 */
-int MyRocksTablePropertiesCollector::IndexStats::unmaterialize(
+int Rdb_tbl_props::IndexStats::unmaterialize(
   const std::string& s, std::vector<IndexStats>& ret
 ) {
   const char* p = s.data();
@@ -390,7 +390,7 @@ int MyRocksTablePropertiesCollector::IndexStats::unmaterialize(
     return 1;
   }
 
-  int version= read_short(&p);
+  int version= rdb_read_short(&p);
   IndexStats stats;
   // Make sure version is within supported range.
   if (version < INDEX_STATS_VERSION_INITIAL ||
@@ -422,18 +422,18 @@ int MyRocksTablePropertiesCollector::IndexStats::unmaterialize(
     {
       return 1;
     }
-    stats.gl_index_id.cf_id = read_int(&p);
-    stats.gl_index_id.index_id = read_int(&p);
-    stats.data_size = read_int64(&p);
-    stats.rows = read_int64(&p);
-    stats.actual_disk_size = read_int64(&p);
-    stats.distinct_keys_per_prefix.resize(read_int64(&p));
+    stats.gl_index_id.cf_id = rdb_read_int(&p);
+    stats.gl_index_id.index_id = rdb_read_int(&p);
+    stats.data_size = rdb_read_int64(&p);
+    stats.rows = rdb_read_int64(&p);
+    stats.actual_disk_size = rdb_read_int64(&p);
+    stats.distinct_keys_per_prefix.resize(rdb_read_int64(&p));
     if (version >= INDEX_STATS_VERSION_ENTRY_TYPES)
     {
-      stats.entry_deletes = read_int64(&p);
-      stats.entry_singledeletes = read_int64(&p);
-      stats.entry_merges = read_int64(&p);
-      stats.entry_others = read_int64(&p);
+      stats.entry_deletes = rdb_read_int64(&p);
+      stats.entry_singledeletes = rdb_read_int64(&p);
+      stats.entry_merges = rdb_read_int64(&p);
+      stats.entry_others = rdb_read_int64(&p);
     }
     if (p+stats.distinct_keys_per_prefix.size()
         *sizeof(stats.distinct_keys_per_prefix[0]) > p2)
@@ -442,7 +442,7 @@ int MyRocksTablePropertiesCollector::IndexStats::unmaterialize(
     }
     for (std::size_t i= 0; i < stats.distinct_keys_per_prefix.size(); i++)
     {
-      stats.distinct_keys_per_prefix[i] = read_int64(&p);
+      stats.distinct_keys_per_prefix[i] = rdb_read_int64(&p);
     }
     ret.push_back(stats);
   }
@@ -453,7 +453,7 @@ int MyRocksTablePropertiesCollector::IndexStats::unmaterialize(
   Merges one IndexStats into another. Can be used to come up with the stats
   for the index based on stats for each sst
 */
-void MyRocksTablePropertiesCollector::IndexStats::merge(
+void Rdb_tbl_props::IndexStats::merge(
   const IndexStats& s, bool increment, int64_t estimated_data_len
 ) {
   std::size_t i;

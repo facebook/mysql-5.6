@@ -32,12 +32,12 @@
 
 namespace myrocks {
 
-class Wrapped_mysql_mutex: public rocksdb::TransactionDBMutex {
-  Wrapped_mysql_mutex(const Wrapped_mysql_mutex& p) = delete;
-  Wrapped_mysql_mutex& operator = (const Wrapped_mysql_mutex& p)=delete;
+class Rdb_mutex: public rocksdb::TransactionDBMutex {
+  Rdb_mutex(const Rdb_mutex& p) = delete;
+  Rdb_mutex& operator = (const Rdb_mutex& p)=delete;
  public:
-  Wrapped_mysql_mutex();
-  virtual ~Wrapped_mysql_mutex();
+  Rdb_mutex();
+  virtual ~Rdb_mutex();
 
   // Attempt to acquire lock.  Return OK on success, or other Status on failure.
   // If returned status is OK, TransactionDB will eventually call UnLock().
@@ -56,7 +56,7 @@ class Wrapped_mysql_mutex: public rocksdb::TransactionDBMutex {
 
  private:
   mysql_mutex_t mutex_;
-  friend class Wrapped_mysql_cond;
+  friend class Rdb_cond_var;
 
 #ifndef STANDALONE_UNITTEST
   void SetUnlockAction(PSI_stage_info *old_stage_arg);
@@ -65,10 +65,10 @@ class Wrapped_mysql_mutex: public rocksdb::TransactionDBMutex {
 };
 
 
-class Wrapped_mysql_cond: public rocksdb::TransactionDBCondVar {
+class Rdb_cond_var: public rocksdb::TransactionDBCondVar {
  public:
-  Wrapped_mysql_cond();
-  virtual ~Wrapped_mysql_cond();
+  Rdb_cond_var();
+  virtual ~Rdb_cond_var();
 
   // Block current thread until condition variable is notified by a call to
   // Notify() or NotifyAll().  Wait() will be called with mutex locked.
@@ -106,21 +106,21 @@ class Wrapped_mysql_cond: public rocksdb::TransactionDBCondVar {
 };
 
 
-class Wrapped_mysql_mutex_factory : public rocksdb::TransactionDBMutexFactory {
+class Rdb_mutex_factory : public rocksdb::TransactionDBMutexFactory {
  public:
   virtual std::shared_ptr<rocksdb::TransactionDBMutex>
   AllocateMutex() override {
     return
-      std::shared_ptr<rocksdb::TransactionDBMutex>(new Wrapped_mysql_mutex);
+      std::shared_ptr<rocksdb::TransactionDBMutex>(new Rdb_mutex);
   }
 
   virtual std::shared_ptr<rocksdb::TransactionDBCondVar>
   AllocateCondVar() override {
     return
-      std::shared_ptr<rocksdb::TransactionDBCondVar>(new Wrapped_mysql_cond);
+      std::shared_ptr<rocksdb::TransactionDBCondVar>(new Rdb_cond_var);
   }
 
-  virtual ~Wrapped_mysql_mutex_factory() {}
+  virtual ~Rdb_mutex_factory() {}
 };
 
 }  // namespace myrocks
