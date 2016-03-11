@@ -13,9 +13,7 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
-
-#ifndef EVENT_LISTENER_H
-#define EVENT_LISTENER_H
+#pragma once
 
 #include "rocksdb/listener.h"
 
@@ -23,9 +21,9 @@ namespace myrocks {
 
 struct Table_ddl_manager;
 
-class MyRocksEventListener : public rocksdb::EventListener {
+class Event_listener : public rocksdb::EventListener {
  public:
-  explicit MyRocksEventListener(Table_ddl_manager* ddl_manager) :
+  explicit Event_listener(Table_ddl_manager* ddl_manager) :
       ddl_manager_(ddl_manager) {
   }
 
@@ -39,5 +37,3 @@ class MyRocksEventListener : public rocksdb::EventListener {
 };
 
 }  // namespace myrocks
-
-#endif

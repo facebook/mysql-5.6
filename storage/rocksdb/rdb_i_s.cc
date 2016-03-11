@@ -14,6 +14,9 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
+/* C++ standard header files */
+#include <vector>
+
 /* MySQL header files */
 #include <sql_show.h>
 
@@ -719,7 +722,7 @@ struct i_s_rocksdb_ddl {
   Item *cond;
 };
 
-static int i_s_rocksdb_ddl_callback(void *cb_arg, RDBSE_TABLE_DEF *rec)
+static int i_s_rocksdb_ddl_callback(void *cb_arg, Table_descriptor *rec)
 {
   struct i_s_rocksdb_ddl *ddl_arg= (struct i_s_rocksdb_ddl*)cb_arg;
   int ret= 0;
@@ -734,7 +737,7 @@ static int i_s_rocksdb_ddl_callback(void *cb_arg, RDBSE_TABLE_DEF *rec)
     return 0;
 
   for (uint i= 0; i < rec->n_keys; i++) {
-    RDBSE_KEYDEF* key_descr= rec->key_descr[i];
+    Key_descriptor* key_descr= rec->key_descr[i];
 
     tables->table->field[0]->store(dbname.c_ptr(), dbname.length(),
                                    system_charset_info);
@@ -888,8 +891,8 @@ static int i_s_rocksdb_index_file_map_fill_table(
       field[2]->store(sst_name.data(), sst_name.size(), system_charset_info);
 
       /* Get the __indexstats__ data out of the table property */
-      std::vector<MyRocksTablePropertiesCollector::IndexStats> stats =
-          MyRocksTablePropertiesCollector::GetStatsFromTableProperties(props.second);
+      std::vector<Table_properties_collector::IndexStats> stats =
+          Table_properties_collector::GetStatsFromTableProperties(props.second);
       if (stats.empty()) {
         field[0]->store(-1, true);
         field[1]->store(-1, true);

@@ -153,7 +153,7 @@ namespace myrocks {
   ROCKSDB_SHARE is a structure that will be shared among all open handlers.
   This example implements the minimum of what you will probably need.
 
-  //TODO: join this with RDBSE_TABLE_DEF ?
+  //TODO: join this with Table_descriptor ?
 */
 typedef struct st_rocksdb_share {
   char *table_name;
@@ -175,10 +175,10 @@ typedef enum io_error_type {
 
 void rocksdb_handle_io_error(rocksdb::Status status, enum io_error_type type);
 
-class RDBSE_KEYDEF;
-class RDBSE_TABLE_DEF;
+class Key_descriptor;
+class Table_descriptor;
 class Row_lock;
-class Rdb_transaction;
+class Transaction;
 
 const char *const rocksdb_hton_name= "ROCKSDB";
 
@@ -264,10 +264,10 @@ namespace std {
 namespace myrocks {
 
 /** @brief
-  Class definition for the storage engine
+  Class definition for the storage engine plugin hanlder
 */
 
-class ha_rocksdb: public handler
+class Plugin_handler: public handler
 {
   THR_LOCK_DATA lock;      ///< MySQL lock
   ROCKSDB_SHARE *share;    ///< Shared lock info
@@ -278,13 +278,13 @@ class ha_rocksdb: public handler
   /* Whether scan_it was created with skip_bloom=true */
   bool scan_it_skips_bloom;
 
-  RDBSE_TABLE_DEF *tbl_def;
+  Table_descriptor *tbl_def;
 
   /* Primary Key encoder from KeyTupleFormat to StorageFormat */
-  RDBSE_KEYDEF *pk_descr;
+  Key_descriptor *pk_descr;
 
   /* Array of index descriptors */
-  RDBSE_KEYDEF **key_descr;
+  Key_descriptor **key_descr;
 
   bool check_keyread_allowed(uint inx, uint part, bool all_parts) const;
   /*
@@ -318,9 +318,9 @@ class ha_rocksdb: public handler
     Same as above, but it stores the value part. It holds unpack info which
     is currently not used (always empty).
 
-    TODO: why does ha_rocksdb::open() assume that an upper bound of the size of
-    this buffer is max_packed_sec_key_len? This is technically true currently,
-    but doesn't look meaningful.
+    TODO: why does Plugin_handler::open() assume that an upper bound of the
+    size of this buffer is max_packed_sec_key_len? This is technically true
+    currently, but doesn't look meaningful.
   */
   uchar *sec_key_tails;
 
@@ -398,12 +398,12 @@ class ha_rocksdb: public handler
                       HA_CREATE_INFO *create_info);
   int secondary_index_read(int keyno, uchar *buf);
   void setup_iterator_for_rnd_scan();
-  void setup_scan_iterator(RDBSE_KEYDEF *keydef, rocksdb::Slice *slice)
+  void setup_scan_iterator(Key_descriptor *keydef, rocksdb::Slice *slice)
   {
     setup_scan_iterator(keydef, slice, false, false, 0);
   }
-  bool is_ascending(RDBSE_KEYDEF *keydef, enum ha_rkey_function find_flag);
-  void setup_scan_iterator(RDBSE_KEYDEF *keydef, rocksdb::Slice *slice,
+  bool is_ascending(Key_descriptor *keydef, enum ha_rkey_function find_flag);
+  void setup_scan_iterator(Key_descriptor *keydef, rocksdb::Slice *slice,
                         const bool use_all_keys, const bool is_ascending,
                         const uint eq_cond_len);
   void release_scan_iterator(void)
@@ -436,7 +436,7 @@ class ha_rocksdb: public handler
     format. Not all information is in the structure yet, but eventually we
     want to have as much as possible there to avoid virtual calls.
 
-    For encoding/decoding of index tuples, see RDBSE_KEYDEF.
+    For encoding/decoding of index tuples, see Key_descriptor.
   */
   typedef struct st_field_encoder
   {
@@ -470,7 +470,7 @@ class ha_rocksdb: public handler
 
   void setup_field_converters();
 
-  // the buffer size should be at least 2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE
+  // the buffer size should be at least 2*Key_descriptor::INDEX_NUMBER_SIZE
   rocksdb::Range get_range(int i, uchar buf[]) const;
 
   /*
@@ -507,8 +507,8 @@ public:
   bool verify_checksums;
   int checksums_pct;
 
-  ha_rocksdb(handlerton *hton, TABLE_SHARE *table_arg);
-  ~ha_rocksdb() {}
+  Plugin_handler(handlerton *hton, TABLE_SHARE *table_arg);
+  ~Plugin_handler() {}
 
   /** @brief
     The name that will be used for display purposes.
@@ -586,10 +586,10 @@ public:
                                         rocksdb::Slice *packed_rec);
 
   bool is_hidden_pk(const uint index, const TABLE* table,
-                    const RDBSE_TABLE_DEF* tbl_def);
-  int pk_index(const TABLE* table, const RDBSE_TABLE_DEF* tbl_def);
+                    const Table_descriptor* tbl_def);
+  int pk_index(const TABLE* table, const Table_descriptor* tbl_def);
   bool is_pk(const uint index, const TABLE* table,
-             const RDBSE_TABLE_DEF* tbl_def);
+             const Table_descriptor* tbl_def);
 
   /** @brief
     unireg.cc will call max_supported_record_length(), max_supported_keys(),
@@ -648,7 +648,7 @@ public:
   int update_row(const uchar *old_data, uchar *new_data);
   int delete_row(const uchar *buf);
   rocksdb::Status delete_or_singledelete(uint index,
-                                         Rdb_transaction *trx,
+                                         Transaction *trx,
                                          rocksdb::ColumnFamilyHandle* cf,
                                          const rocksdb::Slice& key);
 
@@ -674,13 +674,13 @@ private:
   int update_write_row(const uchar *old_data, uchar *new_data,
                        const bool skip_unique_check);
 
-  int read_key_exact(RDBSE_KEYDEF *kd, rocksdb::Iterator* scan_it,
+  int read_key_exact(Key_descriptor *kd, rocksdb::Iterator* scan_it,
                      bool using_full_key, const rocksdb::Slice& key_slice);
-  int read_before_key(RDBSE_KEYDEF *kd, bool using_full_key,
+  int read_before_key(Key_descriptor *kd, bool using_full_key,
                       const rocksdb::Slice& key_slice);
-  int read_after_key(RDBSE_KEYDEF *kd, bool using_full_key,
+  int read_after_key(Key_descriptor *kd, bool using_full_key,
                      const rocksdb::Slice& key_slice);
-  int position_to_correct_key(RDBSE_KEYDEF *kd,
+  int position_to_correct_key(Key_descriptor *kd,
                               enum ha_rkey_function find_flag,
                               bool full_key_match, const uchar* key,
                               key_part_map keypart_map,
@@ -688,14 +688,14 @@ private:
                               bool* move_forward);
 
   int read_row_from_primary_key(uchar* buf);
-  int read_row_from_secondary_key(uchar* buf, RDBSE_KEYDEF* kd,
+  int read_row_from_secondary_key(uchar* buf, Key_descriptor* kd,
                                   bool move_forward);
 
-  int calc_eq_cond_len(RDBSE_KEYDEF *kd, enum ha_rkey_function find_flag,
+  int calc_eq_cond_len(Key_descriptor *kd, enum ha_rkey_function find_flag,
                        const rocksdb::Slice& slice, int bytes_changed_by_succ,
                        const key_range *end_key, uint* end_key_packed_size);
 
-  RDBSE_TABLE_DEF* get_table_if_exists(const char* tablename);
+  Table_descriptor* get_table_if_exists(const char* tablename);
 public:
   int index_init(uint idx, bool sorted);
   int index_end();
@@ -733,7 +733,7 @@ public:
   }
 
   int check(THD* thd, HA_CHECK_OPT* check_opt);
-  void remove_rows(RDBSE_TABLE_DEF *tbl);
+  void remove_rows(Table_descriptor *tbl);
   ha_rows records_in_range(uint inx, key_range *min_key,
                            key_range *max_key);
   int delete_table(const char *from);

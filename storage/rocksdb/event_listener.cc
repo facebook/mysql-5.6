@@ -32,24 +32,25 @@
 
 namespace myrocks {
 
-static std::vector<MyRocksTablePropertiesCollector::IndexStats>
+// @todo: move this function to Table_properties_collector class
+static std::vector<Table_properties_collector::IndexStats>
 extract_index_stats(
   const std::vector<std::string>& files,
   const rocksdb::TablePropertiesCollection& props
 ) {
-  std::vector<MyRocksTablePropertiesCollector::IndexStats> ret;
+  std::vector<Table_properties_collector::IndexStats> ret;
   for (auto fn : files) {
     auto it = props.find(fn);
     DBUG_ASSERT(it != props.end());
-    std::vector<MyRocksTablePropertiesCollector::IndexStats> stats =
-      MyRocksTablePropertiesCollector::GetStatsFromTableProperties(
+    std::vector<Table_properties_collector::IndexStats> stats =
+      Table_properties_collector::GetStatsFromTableProperties(
         it->second);
     ret.insert(ret.end(), stats.begin(), stats.end());
   }
   return ret;
 }
 
-void MyRocksEventListener::OnCompactionCompleted(
+void Event_listener::OnCompactionCompleted(
   rocksdb::DB *db,
   const rocksdb::CompactionJobInfo& ci
 ) {
@@ -60,7 +61,7 @@ void MyRocksEventListener::OnCompactionCompleted(
   }
 }
 
-void  MyRocksEventListener::OnFlushCompleted(
+void  Event_listener::OnFlushCompleted(
   rocksdb::DB* db,
   const rocksdb::FlushJobInfo& flush_job_info
 ) {
@@ -68,7 +69,7 @@ void  MyRocksEventListener::OnFlushCompleted(
       flush_job_info.table_properties);
 
     ddl_manager_->adjust_stats(
-      MyRocksTablePropertiesCollector::GetStatsFromTableProperties(p_props));
+      Table_properties_collector::GetStatsFromTableProperties(p_props));
 }
 
 }  // namespace myrocks

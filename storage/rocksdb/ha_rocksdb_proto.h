@@ -13,9 +13,7 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
-
-#ifndef _ha_rocksdb_proto_h_
-#define _ha_rocksdb_proto_h_
+#pragma once
 
 #include "rocksdb/table.h"
 
@@ -26,6 +24,7 @@ class Column_family_manager;
 rocksdb::DB *rocksdb_get_rdb();
 Column_family_manager& rocksdb_get_cf_manager();
 rocksdb::BlockBasedTableOptions& rocksdb_get_table_options();
+
 void get_cf_options(const std::string &cf_name, rocksdb::ColumnFamilyOptions *opts);
 int rocksdb_normalize_tablename(const char *tablename,
                                 StringBuffer<256> *strbuf);
@@ -48,5 +47,3 @@ class Binlog_info_manager;
 Binlog_info_manager *get_binlog_manager(void);
 
 }  // namespace myrocks
-
-#endif /* _ha_rocksdb_proto_h_ */

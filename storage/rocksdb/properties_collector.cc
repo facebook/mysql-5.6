@@ -38,9 +38,9 @@ uint64_t rocksdb_num_sst_entry_merge = 0;
 uint64_t rocksdb_num_sst_entry_other = 0;
 my_bool rocksdb_compaction_sequential_deletes_count_sd = false;
 
-MyRocksTablePropertiesCollector::MyRocksTablePropertiesCollector(
+Table_properties_collector::Table_properties_collector(
   Table_ddl_manager* ddl_manager,
-  CompactionParams params,
+  Compaction_params params,
   uint32_t cf_id,
   const uint8_t table_stats_sampling_pct
 ) :
@@ -66,7 +66,7 @@ MyRocksTablePropertiesCollector::MyRocksTablePropertiesCollector(
   This function is called by RocksDB for every key in the SST file
 */
 rocksdb::Status
-MyRocksTablePropertiesCollector::AddUserKey(
+Table_properties_collector::AddUserKey(
     const rocksdb::Slice& key, const rocksdb::Slice& value,
     rocksdb::EntryType type, rocksdb::SequenceNumber seq,
     uint64_t file_size
@@ -123,7 +123,7 @@ MyRocksTablePropertiesCollector::AddUserKey(
   return rocksdb::Status::OK();
 }
 
-void MyRocksTablePropertiesCollector::CollectStatsForRow(
+void Table_properties_collector::CollectStatsForRow(
   const rocksdb::Slice& key, const rocksdb::Slice& value,
   rocksdb::EntryType type, uint64_t file_size) {
   // All the code past this line must deal ONLY with collecting the
@@ -209,13 +209,13 @@ void MyRocksTablePropertiesCollector::CollectStatsForRow(
   }
 }
 
-const char* MyRocksTablePropertiesCollector::INDEXSTATS_KEY = "__indexstats__";
+const char* Table_properties_collector::INDEXSTATS_KEY = "__indexstats__";
 
 /*
   This function is called by RocksDB to compute properties to store in sst file
 */
 rocksdb::Status
-MyRocksTablePropertiesCollector::Finish(
+Table_properties_collector::Finish(
   rocksdb::UserCollectedProperties* properties
 ) {
   properties->insert({INDEXSTATS_KEY,
@@ -223,7 +223,7 @@ MyRocksTablePropertiesCollector::Finish(
   return rocksdb::Status::OK();
 }
 
-bool MyRocksTablePropertiesCollector::NeedCompact() const {
+bool Table_properties_collector::NeedCompact() const {
   return
     params_.deletes_ &&
     (params_.window_ > 0) &&
@@ -231,7 +231,7 @@ bool MyRocksTablePropertiesCollector::NeedCompact() const {
     (max_deleted_rows_ > params_.deletes_);
 }
 
-bool MyRocksTablePropertiesCollector::ShouldCollectStats() {
+bool Table_properties_collector::ShouldCollectStats() {
   // Zero means that we'll use all the keys to update statistics.
   if (!table_stats_sampling_pct_ ||
       MYROCKS_SAMPLE_PCT_MAX == table_stats_sampling_pct_) {
@@ -250,7 +250,7 @@ bool MyRocksTablePropertiesCollector::ShouldCollectStats() {
   Returns the same as above, but in human-readable way for logging
 */
 rocksdb::UserCollectedProperties
-MyRocksTablePropertiesCollector::GetReadableProperties() const {
+Table_properties_collector::GetReadableProperties() const {
   std::string s;
 #ifdef DBUG_OFF
   s.append("[...");
@@ -271,8 +271,8 @@ MyRocksTablePropertiesCollector::GetReadableProperties() const {
 }
 
 std::string
-MyRocksTablePropertiesCollector::GetReadableStats(
-  const MyRocksTablePropertiesCollector::IndexStats& it
+Table_properties_collector::GetReadableStats(
+  const Table_properties_collector::IndexStats& it
 ) {
   std::string s;
   s.append("(");
@@ -307,11 +307,11 @@ MyRocksTablePropertiesCollector::GetReadableStats(
 /*
   Given the properties of an SST file, reads the stats from it and returns it.
 */
-std::vector<MyRocksTablePropertiesCollector::IndexStats>
-MyRocksTablePropertiesCollector::GetStatsFromTableProperties(
+std::vector<Table_properties_collector::IndexStats>
+Table_properties_collector::GetStatsFromTableProperties(
   const std::shared_ptr<const rocksdb::TableProperties>& table_props)
 {
-  std::vector<MyRocksTablePropertiesCollector::IndexStats> ret;
+  std::vector<Table_properties_collector::IndexStats> ret;
   const auto& user_properties = table_props->user_collected_properties;
   auto it2 = user_properties.find(std::string(INDEXSTATS_KEY));
   if (it2 != user_properties.end()) {
@@ -325,10 +325,10 @@ MyRocksTablePropertiesCollector::GetStatsFromTableProperties(
   Given properties stored on a bunch of SST files, reads the stats from them
   and returns one IndexStats struct per index
 */
-void MyRocksTablePropertiesCollector::GetStats(
+void Table_properties_collector::GetStats(
   const rocksdb::TablePropertiesCollection& collection,
   const std::unordered_set<GL_INDEX_ID>& index_numbers,
-  std::map<GL_INDEX_ID, MyRocksTablePropertiesCollector::IndexStats>& ret
+  std::map<GL_INDEX_ID, Table_properties_collector::IndexStats>& ret
 ) {
   for (auto it : collection) {
     const auto& user_properties = it.second->user_collected_properties;
@@ -349,7 +349,7 @@ void MyRocksTablePropertiesCollector::GetStats(
 /*
   Stores an array on IndexStats in string
 */
-std::string MyRocksTablePropertiesCollector::IndexStats::materialize(
+std::string Table_properties_collector::IndexStats::materialize(
   std::vector<IndexStats> stats,
   const float card_adj_extra
 ) {
@@ -379,7 +379,7 @@ std::string MyRocksTablePropertiesCollector::IndexStats::materialize(
 /*
   Reads an array of IndexStats from a string
 */
-int MyRocksTablePropertiesCollector::IndexStats::unmaterialize(
+int Table_properties_collector::IndexStats::unmaterialize(
   const std::string& s, std::vector<IndexStats>& ret
 ) {
   const char* p = s.data();
@@ -453,7 +453,7 @@ int MyRocksTablePropertiesCollector::IndexStats::unmaterialize(
   Merges one IndexStats into another. Can be used to come up with the stats
   for the index based on stats for each sst
 */
-void MyRocksTablePropertiesCollector::IndexStats::merge(
+void Table_properties_collector::IndexStats::merge(
   const IndexStats& s, bool increment, int64_t estimated_data_len
 ) {
   std::size_t i;

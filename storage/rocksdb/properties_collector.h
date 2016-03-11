@@ -13,9 +13,7 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
-
-#ifndef PROPERTIES_COLLECTOR_H
-#define PROPERTIES_COLLECTOR_H
+#pragma once
 
 /* C++ system header files */
 #include <map>
@@ -32,7 +30,7 @@
 namespace myrocks {
 
 class Table_ddl_manager;
-class RDBSE_KEYDEF;
+class Key_descriptor;
 
 extern uint64_t rocksdb_num_sst_entry_put;
 extern uint64_t rocksdb_num_sst_entry_delete;
@@ -41,11 +39,11 @@ extern uint64_t rocksdb_num_sst_entry_merge;
 extern uint64_t rocksdb_num_sst_entry_other;
 extern my_bool rocksdb_compaction_sequential_deletes_count_sd;
 
-struct CompactionParams {
+struct Compaction_params {
   uint64_t deletes_, window_, file_size_;
 };
 
-class MyRocksTablePropertiesCollector
+class Table_properties_collector
     : public rocksdb::TablePropertiesCollector {
  public:
   struct IndexStats {
@@ -77,9 +75,9 @@ class MyRocksTablePropertiesCollector
                int64_t estimated_data_len = 0);
   };
 
-  MyRocksTablePropertiesCollector(
+  Table_properties_collector(
     Table_ddl_manager* ddl_manager,
-    CompactionParams params,
+    Compaction_params params,
     uint32_t cf_id,
     const uint8_t table_stats_sampling_pct
   );
@@ -95,7 +93,7 @@ class MyRocksTablePropertiesCollector
   }
 
   static std::string
-  GetReadableStats(const MyRocksTablePropertiesCollector::IndexStats& it);
+  GetReadableStats(const Table_properties_collector::IndexStats& it);
   rocksdb::UserCollectedProperties GetReadableProperties() const override;
 
   static std::vector<IndexStats> GetStatsFromTableProperties(
@@ -105,7 +103,7 @@ class MyRocksTablePropertiesCollector
   static void GetStats(
     const rocksdb::TablePropertiesCollection& collection,
     const std::unordered_set<GL_INDEX_ID>& index_numbers,
-    std::map<GL_INDEX_ID, MyRocksTablePropertiesCollector::IndexStats>& stats
+    std::map<GL_INDEX_ID, Table_properties_collector::IndexStats>& stats
   );
 
   bool NeedCompact() const;
@@ -119,7 +117,7 @@ class MyRocksTablePropertiesCollector
     const rocksdb::Slice& value, rocksdb::EntryType type, uint64_t file_size);
 
   uint32_t cf_id_;
-  std::unique_ptr<RDBSE_KEYDEF> keydef_;
+  std::unique_ptr<Key_descriptor> keydef_;
   Table_ddl_manager* ddl_manager_;
   std::vector<IndexStats> stats_;
   static const char* INDEXSTATS_KEY;
@@ -132,24 +130,24 @@ class MyRocksTablePropertiesCollector
   uint64_t rows_, deleted_rows_, max_deleted_rows_;
   uint64_t file_size_;
 
-  CompactionParams params_;
+  Compaction_params params_;
   uint8_t table_stats_sampling_pct_;
   unsigned int seed_;
   float card_adj_extra_;
 };
 
 
-class MyRocksTablePropertiesCollectorFactory
+class Table_properties_collector_factory
     : public rocksdb::TablePropertiesCollectorFactory {
  public:
-  explicit MyRocksTablePropertiesCollectorFactory(
+  explicit Table_properties_collector_factory(
     Table_ddl_manager* ddl_manager
   ) : ddl_manager_(ddl_manager) {
   }
 
   virtual rocksdb::TablePropertiesCollector* CreateTablePropertiesCollector(
       rocksdb::TablePropertiesCollectorFactory::Context context) override {
-    return new MyRocksTablePropertiesCollector(
+    return new Table_properties_collector(
       ddl_manager_, params_, context.column_family_id,
       table_stats_sampling_pct_);
   }
@@ -158,7 +156,7 @@ class MyRocksTablePropertiesCollectorFactory
     return "MyRocksTablePropertiesCollectorFactory";
   }
 
-  void SetCompactionParams(const CompactionParams& params) {
+  void SetCompactionParams(const Compaction_params& params) {
     params_ = params;
   }
 
@@ -167,10 +165,8 @@ class MyRocksTablePropertiesCollectorFactory
   }
  private:
   Table_ddl_manager* ddl_manager_;
-  CompactionParams params_;
+  Compaction_params params_;
   uint8_t table_stats_sampling_pct_;
 };
 
 }  // namespace myrocks
-
-#endif

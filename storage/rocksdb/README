@@ -1,9 +1,32 @@
 == Summary ==
-This directory contains RocksDB-based Storage Engine (RDBSE) for MySQL = "MyRocks". 
+This directory contains RocksDB-based Storage Engine (RDBSE) for MySQL = "MyRocks".
 
 == Resources ==
 See https://github.com/facebook/mysql-5.6/wiki/Getting-Started-with-MyRocks
 Facebook group: https://www.facebook.com/groups/mysqlonrocksdb/
+
+== Coding Conventions ==
+See http://dev.mysql.com/doc/internals/en/coding-guidelines.html
+
+See below a list of old class names that have been brought up to standard, in case
+you don't find them in the code anymore:
+
+Old name                                   New name
+------------------------------------------------------------------------------------------
+MyRocksTablePropertiesCollector            Table_properties_collector
+MyRocksTablePropertiesCollectorFactory     Table_properties_collector_factory
+ha_rocksdb                                 Plugin_handler
+RDBSE_KEYDEF                               Key_descriptor
+RDBSE_TABLE_DEF                            Table_descriptor
+MyRocksEventListener                       Event_listener
+Rdb_CompactionFilter                       Compaction_filter
+Rdb_CompactionFilterFactory                Compaction_filter_factory
+Rdb_transaction                            Transaction
+SnapshotNotifier                           Snapshot_notifier
+TransactionListWalker                      Transaction_list_walker
+ShowSnapshotStatus                         Show_snapshot_status
+ColumnFamilyOptions                        Column_family_options
+CompactionParams                           Compaction_params
 
 == Running Tests ==
 To run tests from rocksdb, rocksd_rpl or rocksdb_sys_vars packages, use the following parameters:

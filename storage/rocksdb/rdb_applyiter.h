@@ -20,7 +20,7 @@ namespace myrocks {
 class Row_table;
 class Row_table_iter;
 
-class RDBSE_KEYDEF;
+class Key_descriptor;
 
 /*
   A class that looks like RocksDB's iterator, but internally it takes into

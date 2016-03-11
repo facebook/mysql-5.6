@@ -289,7 +289,7 @@ bool read_trx(Buffered_reader *reader, bool *error)
   return false;
 }
 
-void apply_and_check(const char *filename, ha_rocksdb *h)
+void apply_and_check(const char *filename, Plugin_handler *h)
 {
   FILE *in= fopen(filename,"r");
   Buffered_reader reader;
