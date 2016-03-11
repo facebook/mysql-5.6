@@ -2,9 +2,10 @@
 set global gap_lock_write_log= 0;
 set global gap_lock_raise_error= 0;
 
-drop table if exists t1, t2, t3;
-drop table if exists x1, x2;
+drop table if exists gap1, gap2, gap3, gap4, gap5;
 DROP DATABASE mysqlslap;
+
+--exec grep "Got error" $MYSQLTEST_VARDIR/log/mysqld.1.err | grep "gap" | wc -l
 
 let $gap_lock_log_file_orig=`select concat(@@gap_lock_log_file, '_orig')`;
 let $gap_lock_log_file_orig2=`select concat(@@gap_lock_log_file, '_orig2')`;
