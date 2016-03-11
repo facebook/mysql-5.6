@@ -959,7 +959,7 @@
    fun:_ZN7rocksdb14ThreadLocalPtr14InitSingletonsEv
    fun:_ZN7rocksdb3Env7DefaultEv
    fun:_ZN7rocksdb9DBOptionsC1Ev
-   fun:_ZL15init_db_optionsv
+   fun:_ZN7myrocksL15init_db_optionsEv
 }
 
 {
