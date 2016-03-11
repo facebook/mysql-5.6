@@ -73,6 +73,7 @@ static int i_s_rocksdb_cfstats_fill_table(THD *thd,
 
   rocksdb::DB *rdb= rocksdb_get_rdb();
   Column_family_manager& cf_manager= rocksdb_get_cf_manager();
+  DBUG_ASSERT(rdb != nullptr);
 
   for (auto cf_name : cf_manager.get_cf_names())
   {
@@ -91,6 +92,8 @@ static int i_s_rocksdb_cfstats_fill_table(THD *thd,
     {
       if (!rdb->GetIntProperty(cfh, property.first, &val))
         continue;
+
+      DBUG_ASSERT(tables != nullptr);
 
       tables->table->field[0]->store(cf_name.c_str(), cf_name.size(),
                                      system_charset_info);
@@ -121,6 +124,7 @@ static int i_s_rocksdb_cfstats_init(void *p)
   ST_SCHEMA_TABLE *schema;
 
   DBUG_ENTER("i_s_rocksdb_cfstats_init");
+  DBUG_ASSERT(p != nullptr);
 
   schema= (ST_SCHEMA_TABLE*) p;
 
@@ -156,6 +160,8 @@ static int i_s_rocksdb_dbstats_fill_table(THD *thd,
   {
     if (!rdb->GetIntProperty(property.first, &val))
       continue;
+
+    DBUG_ASSERT(tables != nullptr);
 
     tables->table->field[0]->store(property.second.c_str(),
                                    property.second.size(),
@@ -197,6 +203,8 @@ static ST_FIELD_INFO i_s_rocksdb_dbstats_fields_info[]=
 
 static int i_s_rocksdb_dbstats_init(void *p)
 {
+  DBUG_ASSERT(p != nullptr);
+
   ST_SCHEMA_TABLE *schema;
 
   DBUG_ENTER("i_s_rocksdb_dbstats_init");
@@ -217,6 +225,9 @@ static int i_s_rocksdb_perf_context_fill_table(THD *thd,
                                                TABLE_LIST *tables,
                                                Item *cond)
 {
+  DBUG_ASSERT(thd != nullptr);
+  DBUG_ASSERT(tables != nullptr);
+
   int ret= 0;
   Field** field = tables->table->field;
 
@@ -235,6 +246,8 @@ static int i_s_rocksdb_perf_context_fill_table(THD *thd,
 
     if (rocksdb_get_share_perf_counters(it.c_str(), &counters))
       continue;
+
+    DBUG_ASSERT(field != nullptr);
 
     field[0]->store(dbname.c_ptr(), dbname.length(), system_charset_info);
     field[1]->store(tablename.c_ptr(), tablename.length(), system_charset_info);
@@ -275,6 +288,8 @@ static ST_FIELD_INFO i_s_rocksdb_perf_context_fields_info[]=
 
 static int i_s_rocksdb_perf_context_init(void *p)
 {
+  DBUG_ASSERT(p != nullptr);
+
   ST_SCHEMA_TABLE *schema;
 
   DBUG_ENTER("i_s_rocksdb_perf_context_init");
@@ -291,6 +306,9 @@ static int i_s_rocksdb_perf_context_global_fill_table(THD *thd,
                                                       TABLE_LIST *tables,
                                                       Item *cond)
 {
+  DBUG_ASSERT(thd != nullptr);
+  DBUG_ASSERT(tables != nullptr);
+
   int ret= 0;
   DBUG_ENTER("i_s_rocksdb_perf_context_global_fill_table");
 
@@ -299,6 +317,9 @@ static int i_s_rocksdb_perf_context_global_fill_table(THD *thd,
     DBUG_RETURN(0);
 
   for (int i= 0; i < PC_MAX_IDX; i++) {
+    DBUG_ASSERT(tables->table != nullptr);
+    DBUG_ASSERT(tables->table->field != nullptr);
+
     tables->table->field[0]->store(pc_stat_types[i].c_str(),
                                    pc_stat_types[i].size(),
                                    system_charset_info);
@@ -321,6 +342,8 @@ static ST_FIELD_INFO i_s_rocksdb_perf_context_global_fields_info[]=
 
 static int i_s_rocksdb_perf_context_global_init(void *p)
 {
+  DBUG_ASSERT(p != nullptr);
+
   ST_SCHEMA_TABLE *schema;
 
   DBUG_ENTER("i_s_rocksdb_perf_context_global_init");
@@ -340,6 +363,9 @@ static int i_s_rocksdb_cfoptions_fill_table(THD *thd,
                                             TABLE_LIST *tables,
                                             Item *cond)
 {
+  DBUG_ASSERT(thd != nullptr);
+  DBUG_ASSERT(tables != nullptr);
+
   bool ret;
 
   DBUG_ENTER("i_s_rocksdb_cfoptions_fill_table");
@@ -586,6 +612,9 @@ static int i_s_rocksdb_cfoptions_fill_table(THD *thd,
 
     for (auto cf_option_type : cf_option_types)
     {
+      DBUG_ASSERT(tables->table != nullptr);
+      DBUG_ASSERT(tables->table->field != nullptr);
+
       tables->table->field[0]->store(cf_name.c_str(), cf_name.size(),
                                      system_charset_info);
       tables->table->field[1]->store(cf_option_type.first.c_str(),
@@ -623,7 +652,15 @@ static int global_info_fill_row(THD *thd,
                              const char *name,
                              const char *value)
 {
+  DBUG_ASSERT(thd != nullptr);
+  DBUG_ASSERT(tables != nullptr);
+  DBUG_ASSERT(tables->table != nullptr);
+  DBUG_ASSERT(type != nullptr);
+  DBUG_ASSERT(name != nullptr);
+  DBUG_ASSERT(value != nullptr);
+
   Field **field = tables->table->field;
+  DBUG_ASSERT(field != nullptr);
 
   field[0]->store(type, strlen(type), system_charset_info);
   field[1]->store(name, strlen(name), system_charset_info);
@@ -639,6 +676,9 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
                                               TABLE_LIST *tables,
                                               Item *cond)
 {
+  DBUG_ASSERT(thd != nullptr);
+  DBUG_ASSERT(tables != nullptr);
+
   DBUG_ENTER("i_s_rocksdb_global_info_fill_table");
   static const uint32_t INT_BUF_LEN = 21;
   static const uint32_t GTID_BUF_LEN = 60;
@@ -648,6 +688,8 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
 
   /* binlog info */
   Binlog_info_manager *blm = get_binlog_manager();
+  DBUG_ASSERT(blm != nullptr);
+
   char file_buf[FN_REFLEN+1]= {0};
   my_off_t pos = 0;
   char pos_buf[INT_BUF_LEN]= {0};
@@ -662,6 +704,8 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
 
   /* max index info */
   Dict_manager *dict_manager = get_dict_manager();
+  DBUG_ASSERT(dict_manager != nullptr);
+
   uint32_t max_index_id;
   char max_index_id_buf[INT_BUF_LEN]= {0};
 
@@ -722,9 +766,15 @@ struct i_s_rocksdb_ddl {
 static int i_s_rocksdb_ddl_callback(void *cb_arg, RDBSE_TABLE_DEF *rec)
 {
   struct i_s_rocksdb_ddl *ddl_arg= (struct i_s_rocksdb_ddl*)cb_arg;
+  DBUG_ASSERT(ddl_arg != nullptr);
+  DBUG_ASSERT(rec != nullptr);
+
   int ret= 0;
   THD *thd= ddl_arg->thd;
+  DBUG_ASSERT(thd != nullptr);
+
   TABLE_LIST *tables= ddl_arg->tables;
+  DBUG_ASSERT(tables != nullptr);
 
   StringBuffer<256> dbname, tablename, partname;
 
@@ -735,6 +785,9 @@ static int i_s_rocksdb_ddl_callback(void *cb_arg, RDBSE_TABLE_DEF *rec)
 
   for (uint i= 0; i < rec->n_keys; i++) {
     RDBSE_KEYDEF* key_descr= rec->key_descr[i];
+
+    DBUG_ASSERT(tables->table != nullptr);
+    DBUG_ASSERT(tables->table->field != nullptr);
 
     tables->table->field[0]->store(dbname.c_ptr(), dbname.length(),
                                    system_charset_info);
@@ -772,8 +825,12 @@ static int i_s_rocksdb_ddl_callback(void *cb_arg, RDBSE_TABLE_DEF *rec)
 
 static int i_s_rocksdb_ddl_fill_table(THD *thd, TABLE_LIST *tables, Item *cond)
 {
+  DBUG_ASSERT(thd != nullptr);
+  DBUG_ASSERT(tables != nullptr);
+
   int ret;
   Table_ddl_manager *ddl_manager= get_ddl_manager();
+  DBUG_ASSERT(ddl_manager != nullptr);
   struct i_s_rocksdb_ddl ddl_arg= { thd, tables, cond };
 
   DBUG_ENTER("i_s_rocksdb_ddl_fill_table");
@@ -804,6 +861,7 @@ static int i_s_rocksdb_ddl_init(void *p)
   ST_SCHEMA_TABLE *schema;
 
   DBUG_ENTER("i_s_rocksdb_ddl_init");
+  DBUG_ASSERT(p != nullptr);
 
   schema= (ST_SCHEMA_TABLE*) p;
 
@@ -818,6 +876,7 @@ static int i_s_rocksdb_cfoptions_init(void *p)
   ST_SCHEMA_TABLE *schema;
 
   DBUG_ENTER("i_s_rocksdb_cfoptions_init");
+  DBUG_ASSERT(p != nullptr);
 
   schema= (ST_SCHEMA_TABLE*) p;
 
@@ -832,6 +891,7 @@ static int i_s_rocksdb_global_info_init(void *p)
   ST_SCHEMA_TABLE *schema;
 
   DBUG_ENTER("i_s_rocksdb_global_info_init");
+  DBUG_ASSERT(p != nullptr);
 
   schema= reinterpret_cast<ST_SCHEMA_TABLE*>(p);
 
@@ -863,13 +923,20 @@ static int i_s_rocksdb_index_file_map_fill_table(
     TABLE_LIST *tables,
     Item       *cond)
 {
+  DBUG_ASSERT(thd != nullptr);
+  DBUG_ASSERT(tables != nullptr);
+  DBUG_ASSERT(tables->table != nullptr);
+
   int     ret = 0;
   Field **field = tables->table->field;
+  DBUG_ASSERT(field != nullptr);
 
   DBUG_ENTER("i_s_rocksdb_index_file_map_fill_table");
 
   /* Iterate over all the column families */
   rocksdb::DB *rdb= rocksdb_get_rdb();
+  DBUG_ASSERT(rdb != nullptr);
+
   Column_family_manager& cf_manager = rocksdb_get_cf_manager();
   for (auto cf_handle : cf_manager.get_all_cf()) {
     /* Grab the the properties of all the tables in the column family */
@@ -952,6 +1019,7 @@ static int i_s_rocksdb_index_file_map_init(void *p)
   ST_SCHEMA_TABLE *schema;
 
   DBUG_ENTER("i_s_rocksdb_index_file_map_init");
+  DBUG_ASSERT(p != nullptr);
 
   schema= (ST_SCHEMA_TABLE*) p;
 
