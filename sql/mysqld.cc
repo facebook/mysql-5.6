@@ -1491,6 +1491,8 @@ char *mysql_home_ptr, *pidfile_name_ptr;
 char *default_auth_plugin;
 char *binlog_file_basedir_ptr;
 char *binlog_index_basedir_ptr;
+char *per_user_session_var_default_val_ptr = nullptr;
+char *per_user_session_var_user_name_delimiter_ptr = nullptr;
 /**
   Memory for allocating command line arguments, after load_defaults().
 */
@@ -6665,6 +6667,15 @@ int mysqld_main(int argc, char **argv)
   if (init_common_variables()) {
     setup_error_log();
     unireg_abort(MYSQLD_ABORT_EXIT);  // Will do exit
+  }
+
+  /*
+    All sys-var are processed so it is time handle
+    the per-user session variables.
+  */
+  if (!get_per_user_session_variables()->init()) {
+    fprintf(stderr, "[ERROR] init_per_user_session_variables() failed.\n");
+    unireg_abort(MYSQLD_ABORT_EXIT);
   }
 
   my_init_signals();

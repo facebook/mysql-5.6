@@ -1,0 +1,69 @@
+--source include/load_sysvars.inc
+
+# Wait for all the connections from previous tests except
+# the default one to be completedly disconnected
+let $count_sessions= 1;
+--source include/wait_until_count_sessions.inc
+
+flush privileges;
+
+--source include/master-slave.inc
+connection master;
+
+let $original_val = query_get_value(select @@GLOBAL.per_user_session_var_default_val as val, val, 1);
+--echo $original_val
+SELECT @@GLOBAL.per_user_session_var_default_val;
+
+--echo ## create non-super users tao1, tao2, and tao3
+create user tao1@localhost;
+create user tao2@localhost;
+create user tao3@localhost;
+
+--echo ## create super users tao4 and tao5
+create user tao4@localhost identified by '';
+create user tao5@localhost identified by '';
+grant all privileges on *.* to tao4@localhost with grant option;
+grant all privileges on *.* to tao5@localhost with grant option;
+
+flush user_resources;
+
+let $tao=tao;
+let $i=1;
+--echo ## ($i) Initial non-empty value
+--source per_user_session_var_conn_create.inc
+
+inc $i;
+--echo ## ($i) DEFAULT value
+SET GLOBAL per_user_session_var_default_val = DEFAULT;
+SELECT @@GLOBAL.per_user_session_var_default_val;
+--source per_user_session_var_conn_create.inc
+
+inc $i;
+--echo ## ($i) Non-empty value
+SET GLOBAL per_user_session_var_default_val="tao1:tao2:tao3:tao4:transaction_isolation=serializable,big_tables=1,auto_increment_increment=12345,long_query_time=123.45,bulk_insert_buffer_size=1G,tao5:root:binlog_format=row";
+SELECT @@GLOBAL.per_user_session_var_default_val;
+--source per_user_session_var_conn_create.inc
+
+inc $i;
+--echo ## ($i) NULL value
+SET GLOBAL per_user_session_var_default_val = NULL;
+SELECT @@GLOBAL.per_user_session_var_default_val;
+--source per_user_session_var_conn_create.inc
+
+inc $i;
+--echo ## ($i) Non-empty value
+SET GLOBAL per_user_session_var_default_val="tao1:transaction_isolation=READ-UNCOMMITTED,tao2:tao3:big_tables=FALSE,root:show_create_table_verbosity=off,tao4:big_tables=1,auto_increment_increment=12345,long_query_time=123.45,tao5:binlog_format=MIXED,bulk_insert_buffer_size=32M";
+SELECT @@GLOBAL.per_user_session_var_default_val;
+--source per_user_session_var_conn_create.inc
+
+--source per_user_session_var_default_val_common.inc
+
+connection default;
+
+drop user tao1@localhost;
+drop user tao2@localhost;
+drop user tao3@localhost;
+drop user tao4@localhost;
+drop user tao5@localhost;
+
+--source include/rpl_end.inc

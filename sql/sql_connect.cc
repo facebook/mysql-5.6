@@ -874,6 +874,9 @@ bool thd_prepare_connection(THD *thd) {
   if (rc) return rc;
 
   prepare_new_connection_state(thd);
+
+  get_per_user_session_variables()->set_thd(thd);
+
   return false;
 }
 

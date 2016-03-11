@@ -1,0 +1,141 @@
+flush privileges;
+create user usr1@localhost identified by '';
+create user admin1@localhost;
+grant all privileges on *.* to admin1@localhost with grant option;
+flush user_resources;
+SET @original_val = @@global.per_user_session_var_default_val;
+SELECT @original_val;
+@original_val
+NULL
+## default value is NULL
+SET GLOBAL per_user_session_var_default_val = DEFAULT;
+SELECT @@GLOBAL.per_user_session_var_default_val;
+@@GLOBAL.per_user_session_var_default_val
+NULL
+## NULL is a valid value
+SET GLOBAL per_user_session_var_default_val = NULL;
+SELECT @@GLOBAL.per_user_session_var_default_val;
+@@GLOBAL.per_user_session_var_default_val
+NULL
+## "" is a valid value
+SET GLOBAL per_user_session_var_default_val = "";
+SELECT @@GLOBAL.per_user_session_var_default_val;
+@@GLOBAL.per_user_session_var_default_val
+
+##
+## Invalid values. SET command will fail
+##
+SET GLOBAL per_user_session_var_default_val = " ";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of ' '
+SET GLOBAL per_user_session_var_default_val = " ";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of ' '
+SET GLOBAL per_user_session_var_default_val = ":";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of ':'
+SET GLOBAL per_user_session_var_default_val = "=";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of '='
+SET GLOBAL per_user_session_var_default_val = ",";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of ','
+SET GLOBAL per_user_session_var_default_val = ";";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of ';'
+SET GLOBAL per_user_session_var_default_val = "\"";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of '"'
+SET GLOBAL per_user_session_var_default_val = "'";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of '''
+SET GLOBAL per_user_session_var_default_val = "\\";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of '\'
+SET GLOBAL per_user_session_var_default_val = "/";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of '/'
+SET GLOBAL per_user_session_var_default_val = "u";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u'
+SET GLOBAL per_user_session_var_default_val = "gap_lock_raise_error=0";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'gap_lock_raise_error=0'
+SET GLOBAL per_user_session_var_default_val = "gap_lock_raise_error=0,u2:gap_lock_raise_error=1";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'gap_lock_raise_error=0,u2:gap_lock_raise_error=1'
+SET GLOBAL per_user_session_var_default_val = " u";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of ' u'
+SET GLOBAL per_user_session_var_default_val = "u ";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u '
+SET GLOBAL per_user_session_var_default_val = "u :";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u :'
+SET GLOBAL per_user_session_var_default_val = "u:gap_lock_raise_error";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:gap_lock_raise_error'
+SET GLOBAL per_user_session_var_default_val = "u: ";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u: '
+SET GLOBAL per_user_session_var_default_val = " u:gap_lock_raise_error";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of ' u:gap_lock_raise_error'
+SET GLOBAL per_user_session_var_default_val = "u:v:";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:v:'
+SET GLOBAL per_user_session_var_default_val = "u:gap_lock_raise_error=";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:gap_lock_raise_error='
+SET GLOBAL per_user_session_var_default_val = "u:gap_lock_raise_error=0:";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:gap_lock_raise_error=0:'
+SET GLOBAL per_user_session_var_default_val = "u:gap_lock_raise_error=0=";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:gap_lock_raise_error=0='
+SET GLOBAL per_user_session_var_default_val = "u:gap_lock_raise_error=0=1";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:gap_lock_raise_error=0=1'
+SET GLOBAL per_user_session_var_default_val = "u:gap_lock_raise_error=0,u:gap_lock_write_log=0";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:gap_lock_raise_error=0,u:gap_lock_write_log=0'
+SET GLOBAL per_user_session_var_default_val = "u:= 0";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:= 0'
+SET GLOBAL per_user_session_var_default_val = "u:gap_lock_raise_error= 0";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:gap_lock_raise_error= 0'
+SET GLOBAL per_user_session_var_default_val = "u:gap_lock_raise_error= ";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:gap_lock_raise_error= '
+SET GLOBAL per_user_session_var_default_val = "u:gap_lock_raise_error=0,";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:gap_lock_raise_error=0,'
+SET GLOBAL per_user_session_var_default_val = "u:gap_lock_raise_error=0;";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:gap_lock_raise_error=0;'
+SET GLOBAL per_user_session_var_default_val = "u1:u2:gap_lock_raise_error=0,gap_lock_write_log=0,,u3:big_tables=1";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u1:u2:gap_lock_raise_error=0,gap_lock_write_log=0,,u3:big_tables=1'
+SET GLOBAL per_user_session_var_default_val = "u1::u2:gap_lock_raise_error=0,gap_lock_write_log=0,u3:big_tables=1";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u1::u2:gap_lock_raise_error=0,gap_lock_write_log=0,u3:big_tables=1'
+SET GLOBAL per_user_session_var_default_val = "u1:gap_lock_raise_error=0,gap_lock_write_log=0,u3:big_tables=1 ";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u1:gap_lock_raise_error=0,gap_lock_write_log=0,u3:big_tables=1 '
+SET GLOBAL per_user_session_var_default_val = "u1:gap_lock_raise_error=0,gap_lock_write_log=0,u3:big_tables=1,";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u1:gap_lock_raise_error=0,gap_lock_write_log=0,u3:big_tables=1,'
+SET GLOBAL per_user_session_var_default_val = "u1:gap_lock_raise_error=0,gap_lock_write_log=0,u3:big_tables=1'";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u1:gap_lock_raise_error=0,gap_lock_write_log=0,u3:big_tables=1''
+SET GLOBAL per_user_session_var_default_val = "u1:gap_lock_raise_error=0,gap_lock_write_log=0,u3:big_tables='1'";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u1:gap_lock_raise_error=0,gap_lock_write_log=0,u3:big_tables='1''
+SET GLOBAL per_user_session_var_default_val = "u1:gap_lock_raise_error=0,gap_lock_write_log=0,u3:big_tables=\"1\"";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u1:gap_lock_raise_error=0,gap_lock_write_log=0,u3:big_tables="1"'
+SET GLOBAL per_user_session_var_default_val = "u1:time_zone=\'+10:00\'";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u1:time_zone='+10:00''
+## Syntax error
+SET GLOBAL per_user_session_var_default_val = "u1:optimizer_switch=index_merge=on";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u1:optimizer_switch=index_merge=on'
+## Unsupported type 'flagset'
+SET GLOBAL per_user_session_var_default_val = "u1:optimizer_switch=xyz";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u1:optimizer_switch=xyz'
+##
+## root privilege is required to set session variable binglog_format
+## root privilege will be granted to usr1 temporarily to get this done
+##
+SET GLOBAL per_user_session_var_default_val = "usr1:binlog_format=MIXED";
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	MIXED
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	MIXED
+SET GLOBAL per_user_session_var_default_val = "usr1:binlog_format=ROW";
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SET GLOBAL per_user_session_var_default_val = "admin1:binlog_format=MIXED";
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	MIXED
+SET GLOBAL per_user_session_var_default_val = "admin1:binlog_format=ROW";
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+drop user usr1@localhost;
+drop user admin1@localhost;
+SET @@global.per_user_session_var_default_val = @original_val;
+SELECT @@global.per_user_session_var_default_val;
+@@global.per_user_session_var_default_val
+NULL

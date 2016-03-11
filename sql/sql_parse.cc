@@ -1752,6 +1752,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
 
         if (save_user_connect) decrease_user_connections(save_user_connect);
         mysql_mutex_lock(&thd->LOCK_thd_data);
+        get_per_user_session_variables()->set_thd(thd);
         my_free(const_cast<char *>(save_db.str));
         save_db = NULL_CSTR;
         mysql_mutex_unlock(&thd->LOCK_thd_data);

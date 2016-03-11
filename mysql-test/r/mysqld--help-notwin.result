@@ -800,6 +800,10 @@ The following options may be given as the first argument:
  The minimum number of days that need to pass before a
  password can be reused. Set to 0 (the default) to turn
  the checks off
+ --per-user-session-var-default-val[=name] 
+ Per user session variable default value
+ --per-user-session-var-user-name-delimiter[=name] 
+ Per user session variable user name delimiter
  --performance-schema 
  Enable the performance schema.
  (Defaults to on; use --skip-performance-schema to disable.)
@@ -1671,6 +1675,8 @@ partial-revokes ####
 password-history 0
 password-require-current FALSE
 password-reuse-interval 0
+per-user-session-var-default-val (No default value)
+per-user-session-var-user-name-delimiter :
 performance-schema TRUE
 performance-schema-accounts-size -1
 performance-schema-consumer-events-stages-current FALSE
