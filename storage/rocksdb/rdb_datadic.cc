@@ -39,29 +39,40 @@ namespace myrocks {
 
 void write_int64(String *out, uint64 val)
 {
+  DBUG_ASSERT(out != nullptr);
+
   write_int(out, uint32(val >> 32));
   write_int(out, uint32(val & 0xffffffff));
 }
 
 void write_int(String *out, uint32 val)
 {
+  DBUG_ASSERT(out != nullptr);
+
   uint buf= htonl(val);
   out->append((char*)&buf, 4);
 }
 
 void write_short(String *out, uint16 val)
 {
+  DBUG_ASSERT(out != nullptr);
+
   uint16 buf= htons(val);
   out->append((char*)&buf, 2);
 }
 
 void write_byte(String *out, uchar val)
 {
+  DBUG_ASSERT(out != nullptr);
+
   out->append((char*)&val, 1);
 }
 
 uint32 read_int(const char **data)
 {
+  DBUG_ASSERT(data != nullptr);
+  DBUG_ASSERT(*data != nullptr);
+
   uint buf;
   memcpy(&buf, *data, sizeof(uint32));
   *data += sizeof(uint32);
@@ -70,6 +81,9 @@ uint32 read_int(const char **data)
 
 uint64 read_int64(const char **data)
 {
+  DBUG_ASSERT(data != nullptr);
+  DBUG_ASSERT(*data != nullptr);
+
   uint64 n1 = read_int(data);
   uint32 n2 = read_int(data);
   return (n1 << 32) + n2;
@@ -77,6 +91,9 @@ uint64 read_int64(const char **data)
 
 uint16 read_short(const char **data)
 {
+  DBUG_ASSERT(data != nullptr);
+  DBUG_ASSERT(*data != nullptr);
+
   uint16 buf;
   memcpy(&buf, *data, sizeof(uint16));
   *data += sizeof(uint16);
@@ -85,6 +102,9 @@ uint16 read_short(const char **data)
 
 uchar read_byte(const char **data)
 {
+  DBUG_ASSERT(data != nullptr);
+  DBUG_ASSERT(*data != nullptr);
+
   uchar buf;
   memcpy(&buf, *data, sizeof(uchar));
   *data += sizeof(uchar);
@@ -164,6 +184,9 @@ RDBSE_KEYDEF::~RDBSE_KEYDEF()
 
 void RDBSE_KEYDEF::setup(TABLE *tbl, RDBSE_TABLE_DEF *tbl_def)
 {
+  DBUG_ASSERT(tbl != nullptr);
+  DBUG_ASSERT(tbl_def != nullptr);
+
   /*
     Set max_length based on the table.  This can be called concurrently from
     multiple threads, so there is a mutex to protect this code.
@@ -377,6 +400,11 @@ uint RDBSE_KEYDEF::get_primary_key_tuple(TABLE *table,
                                          const rocksdb::Slice *key,
                                          uchar *pk_buffer)
 {
+  DBUG_ASSERT(table != nullptr);
+  DBUG_ASSERT(pk_descr != nullptr);
+  DBUG_ASSERT(key != nullptr);
+  DBUG_ASSERT(pk_buffer);
+
   uint size= 0;
   uchar *buf= pk_buffer;
   DBUG_ASSERT(n_pk_key_parts);
@@ -426,6 +454,8 @@ uint RDBSE_KEYDEF::get_primary_key_tuple(TABLE *table,
     if (have_value)
     {
       Field_pack_info *fpi= &pack_info[i];
+
+      DBUG_ASSERT(table->s != nullptr);
       bool is_hidden_pk_part= (i + 1 == m_key_parts) &&
                               (table->s->primary_key == MAX_INDEXES);
       Field *field= nullptr;
@@ -469,6 +499,12 @@ uint RDBSE_KEYDEF::pack_index_tuple(const ha_rocksdb *handler, TABLE *tbl,
                                     const uchar *key_tuple,
                                     key_part_map keypart_map)
 {
+  DBUG_ASSERT(handler != nullptr);
+  DBUG_ASSERT(tbl != nullptr);
+  DBUG_ASSERT(pack_buffer != nullptr);
+  DBUG_ASSERT(packed_tuple != nullptr);
+  DBUG_ASSERT(key_tuple != nullptr);
+
   /* We were given a record in KeyTupleFormat. First, save it to record */
   uint key_len= calculate_key_len(tbl, keyno, key_tuple, keypart_map);
   key_restore(tbl->record[0], (uchar*)key_tuple, &tbl->key_info[keyno],
@@ -504,6 +540,8 @@ bool RDBSE_KEYDEF::unpack_info_has_checksum(const rocksdb::Slice &unpack_info)
 */
 int RDBSE_KEYDEF::successor(uchar *packed_tuple, uint len)
 {
+  DBUG_ASSERT(packed_tuple != nullptr);
+
   int changed= 0;
   uchar *p= packed_tuple + len - 1;
   for (; p > packed_tuple; p--)
@@ -551,6 +589,12 @@ uint RDBSE_KEYDEF::pack_record(const ha_rocksdb *handler, TABLE *tbl,
                                uint *n_null_fields,
                                longlong hidden_pk_id)
 {
+  DBUG_ASSERT(handler != nullptr);
+  DBUG_ASSERT(tbl != nullptr);
+  DBUG_ASSERT(pack_buffer != nullptr);
+  DBUG_ASSERT(record != nullptr);
+  DBUG_ASSERT(packed_tuple != nullptr);
+
   uchar *tuple= packed_tuple;
   uchar *unpack_end= unpack_info;
   const bool hidden_pk_exists= rocksdb_has_hidden_pk(tbl);
@@ -585,6 +629,7 @@ uint RDBSE_KEYDEF::pack_record(const ha_rocksdb *handler, TABLE *tbl,
     }
 
     Field *field= pack_info[i].get_field_in_table(tbl);
+    DBUG_ASSERT(field != nullptr);
 
     // Old Field methods expected the record pointer to be at tbl->record[0].
     // The quick and easy way to fix this was to pass along the offset
@@ -663,6 +708,9 @@ uint RDBSE_KEYDEF::pack_hidden_pk(TABLE *tbl,
                                   longlong hidden_pk_id,
                                   uchar *packed_tuple)
 {
+  DBUG_ASSERT(tbl != nullptr);
+  DBUG_ASSERT(packed_tuple != nullptr);
+
   uchar *tuple= packed_tuple;
   store_index_number(tuple, index_number);
   tuple += INDEX_NUMBER_SIZE;
@@ -682,6 +730,11 @@ void pack_with_make_sort_key(Field_pack_info *fpi, Field *field,
                              uchar *buf MY_ATTRIBUTE((unused)),
                              uchar **dst)
 {
+  DBUG_ASSERT(fpi != nullptr);
+  DBUG_ASSERT(field != nullptr);
+  DBUG_ASSERT(dst != nullptr);
+  DBUG_ASSERT(*dst != nullptr);
+
   const int max_len= fpi->max_image_len;
   field->make_sort_key(*dst, max_len);
   *dst += max_len;
@@ -702,6 +755,10 @@ int RDBSE_KEYDEF::compare_keys(
   std::size_t* column_index
 )
 {
+  DBUG_ASSERT(key1 != nullptr);
+  DBUG_ASSERT(key2 != nullptr);
+  DBUG_ASSERT(column_index != nullptr);
+
   // the caller should check the return value and
   // not rely on column_index being valid
   *column_index = 0xbadf00d;
@@ -776,6 +833,8 @@ int RDBSE_KEYDEF::compare_keys(
 
 size_t RDBSE_KEYDEF::key_length(TABLE *table, const rocksdb::Slice &key)
 {
+  DBUG_ASSERT(table != nullptr);
+
   Stream_reader reader(&key);
 
   if ((!reader.read(INDEX_NUMBER_SIZE)))
@@ -3034,6 +3093,8 @@ bool Dict_manager::get_max_index_id(uint32_t *index_id)
 bool Dict_manager::update_max_index_id(rocksdb::WriteBatch* batch,
                                        const uint32_t index_id)
 {
+  DBUG_ASSERT(batch != nullptr);
+
   uint32_t old_index_id= -1;
   if (get_max_index_id(&old_index_id))
   {
@@ -3060,6 +3121,8 @@ void Dict_manager::add_stats(
   const std::vector<MyRocksTablePropertiesCollector::IndexStats>& stats
 )
 {
+  DBUG_ASSERT(batch != nullptr);
+
   for (const auto& it : stats) {
     uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*3]= {0};
     store_big_uint4(key_buf, RDBSE_KEYDEF::INDEX_STATISTICS);
@@ -3111,14 +3174,22 @@ Dict_manager::get_stats(
 
 uint Sequence_generator::get_and_update_next_number(Dict_manager *dict)
 {
+  DBUG_ASSERT(dict != nullptr);
+
   uint res;
   mysql_mutex_lock(&mutex);
+
   res= next_number++;
+
   std::unique_ptr<rocksdb::WriteBatch> wb= dict->begin();
   rocksdb::WriteBatch *batch= wb.get();
+
+  DBUG_ASSERT(batch != nullptr);
   dict->update_max_index_id(batch, res);
   dict->commit(batch);
+
   mysql_mutex_unlock(&mutex);
+
   return res;
 }
 

@@ -49,6 +49,8 @@ namespace myrocks {
 */
 void dump_value(FILE *out, const rocksdb::Slice &val)
 {
+  DBUG_ASSERT(out != nullptr);
+
   char buf[1000];
   char *p= buf;
   for (size_t i= 0; i < val.size(); i++)
@@ -84,6 +86,8 @@ void dump_value(FILE *out, const rocksdb::Slice &val)
 
 void dump_trx_changes(FILE *out, Row_table &changes)
 {
+  DBUG_ASSERT(out != nullptr);
+
   for (int reverse= 0; reverse <= 1; reverse++)
   Row_table_iter iter(&changes, (bool)reverse);
   {
@@ -125,6 +129,8 @@ public:
   bool is_eof;
   void init(FILE *infile_arg)
   {
+    DBUG_ASSERT(infile_arg != nullptr);
+
     infile= infile_arg;
     end_pos= start_pos= 0;
     is_eof= false;
@@ -169,6 +175,8 @@ public:
 
   void get_binary(std::string *strbuf)
   {
+    DBUG_ASSERT(strbuf != nullptr);
+
     char *p;
     char val;
     strbuf->clear();
@@ -224,6 +232,9 @@ public:
 */
 bool read_trx(Buffered_reader *reader, bool *error)
 {
+  DBUG_ASSERT(reader != nullptr);
+  DBUG_ASSERT(error != nullptr);
+
   char *p;
   *error= true;
 
