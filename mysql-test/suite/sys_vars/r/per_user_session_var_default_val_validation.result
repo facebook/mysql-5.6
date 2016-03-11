@@ -1,0 +1,132 @@
+flush privileges;
+create user usr1@localhost;
+grant all privileges on *.* to admin1@localhost identified by password '' with grant option;
+flush user_resources;
+SET @original_val = @@global.per_user_session_var_default_val;
+SELECT @original_val;
+@original_val
+NULL
+## default value is NULL
+SET GLOBAL per_user_session_var_default_val = DEFAULT;
+SELECT @@GLOBAL.per_user_session_var_default_val;
+@@GLOBAL.per_user_session_var_default_val
+NULL
+## NULL is a valid value
+SET GLOBAL per_user_session_var_default_val = NULL;
+SELECT @@GLOBAL.per_user_session_var_default_val;
+@@GLOBAL.per_user_session_var_default_val
+NULL
+## "" is a valid value
+SET GLOBAL per_user_session_var_default_val = "";
+SELECT @@GLOBAL.per_user_session_var_default_val;
+@@GLOBAL.per_user_session_var_default_val
+
+##
+## Invalid values. SET command will fail
+##
+SET GLOBAL per_user_session_var_default_val = " ";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of ' '
+SET GLOBAL per_user_session_var_default_val = " ";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of ' '
+SET GLOBAL per_user_session_var_default_val = ":";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of ':'
+SET GLOBAL per_user_session_var_default_val = "=";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of '='
+SET GLOBAL per_user_session_var_default_val = ",";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of ','
+SET GLOBAL per_user_session_var_default_val = ";";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of ';'
+SET GLOBAL per_user_session_var_default_val = "\"";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of '"'
+SET GLOBAL per_user_session_var_default_val = "'";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of '''
+SET GLOBAL per_user_session_var_default_val = "\\";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of '\'
+SET GLOBAL per_user_session_var_default_val = "/";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of '/'
+SET GLOBAL per_user_session_var_default_val = "u";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u'
+SET GLOBAL per_user_session_var_default_val = "u=v";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u=v'
+SET GLOBAL per_user_session_var_default_val = "k1=v1,u2:k2=v2";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'k1=v1,u2:k2=v2'
+SET GLOBAL per_user_session_var_default_val = " u";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of ' u'
+SET GLOBAL per_user_session_var_default_val = "u ";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u '
+SET GLOBAL per_user_session_var_default_val = "u :";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u :'
+SET GLOBAL per_user_session_var_default_val = "u:v";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:v'
+SET GLOBAL per_user_session_var_default_val = "u: v";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u: v'
+SET GLOBAL per_user_session_var_default_val = " u:v";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of ' u:v'
+SET GLOBAL per_user_session_var_default_val = "u:v:";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:v:'
+SET GLOBAL per_user_session_var_default_val = "u:k=";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:k='
+SET GLOBAL per_user_session_var_default_val = "u:k=v:";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:k=v:'
+SET GLOBAL per_user_session_var_default_val = "u:k=v=";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:k=v='
+SET GLOBAL per_user_session_var_default_val = "u:k=v=x";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:k=v=x'
+SET GLOBAL per_user_session_var_default_val = "u:k=v,u:x=y";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:k=v,u:x=y'
+SET GLOBAL per_user_session_var_default_val = "u:k= v";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:k= v'
+SET GLOBAL per_user_session_var_default_val = "u:k= v";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:k= v'
+SET GLOBAL per_user_session_var_default_val = "u:k= v";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:k= v'
+SET GLOBAL per_user_session_var_default_val = "u:k= v";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:k= v'
+SET GLOBAL per_user_session_var_default_val = "u:k= v";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:k= v'
+SET GLOBAL per_user_session_var_default_val = "u:k=v,";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:k=v,'
+SET GLOBAL per_user_session_var_default_val = "u:k=v;";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u:k=v;'
+SET GLOBAL per_user_session_var_default_val = "u1:u2:k1=v1,k2=v2,,u3:k3=v3";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u1:u2:k1=v1,k2=v2,,u3:k3=v3'
+SET GLOBAL per_user_session_var_default_val = "u1::u2:k1=v1,k2=v2,u3:k3=v3";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u1::u2:k1=v1,k2=v2,u3:k3=v3'
+SET GLOBAL per_user_session_var_default_val = "u1:k1=v1,k2=v2,u3:k3=v3 ";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u1:k1=v1,k2=v2,u3:k3=v3 '
+SET GLOBAL per_user_session_var_default_val = "u1:k1=v1,k2=v2,u3:k3=v3,";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u1:k1=v1,k2=v2,u3:k3=v3,'
+SET GLOBAL per_user_session_var_default_val = "u1:k1=v1,k2=v2,u3:k3=v3'";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u1:k1=v1,k2=v2,u3:k3=v3''
+SET GLOBAL per_user_session_var_default_val = "u1:k1=v1,k2=v2,u3:k3='v3'";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u1:k1=v1,k2=v2,u3:k3='v3''
+SET GLOBAL per_user_session_var_default_val = "u1:k1=v1,k2=v2,u3:k3=\"v3\"";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u1:k1=v1,k2=v2,u3:k3="v3"'
+SET GLOBAL per_user_session_var_default_val = "u1:time_zone=\'+10:00\'";
+ERROR 42000: Variable 'per_user_session_var_default_val' can't be set to the value of 'u1:time_zone='+10:00''
+##
+## root privilege is required to set session variable binglog_format
+## root privilege will be granted to usr1 temporarily to get this done
+##
+SET GLOBAL per_user_session_var_default_val = "usr1:binlog_format=MIXED";
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+STATEMENT	MIXED
+SET GLOBAL per_user_session_var_default_val = "usr1:binlog_format=ROW";
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+STATEMENT	ROW
+SET GLOBAL per_user_session_var_default_val = "admin1:binlog_format=MIXED";
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+STATEMENT	MIXED
+SET GLOBAL per_user_session_var_default_val = "admin1:binlog_format=ROW";
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+STATEMENT	ROW
+drop user usr1@localhost;
+drop user admin1@localhost;
+SET @@global.per_user_session_var_default_val = @original_val;
+SELECT @@global.per_user_session_var_default_val;
+@@global.per_user_session_var_default_val
+NULL

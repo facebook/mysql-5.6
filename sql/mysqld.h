@@ -16,6 +16,11 @@
 #ifndef MYSQLD_INCLUDED
 #define MYSQLD_INCLUDED
 
+#include <string>
+#include <memory>
+#include <vector>
+#include <unordered_map>
+
 #include "my_global.h" /* MYSQL_PLUGIN_IMPORT, FN_REFLEN, FN_EXTLEN */
 #include "sql_bitmap.h"                         /* Bitmap */
 #include "my_decimal.h"                         /* my_decimal */
@@ -344,6 +349,7 @@ extern const char *log_backup_output_str;
 extern char *mysql_home_ptr, *pidfile_name_ptr;
 extern char *my_bind_addr_str;
 extern char *binlog_file_basedir_ptr, *binlog_index_basedir_ptr;
+extern char *per_user_session_var_default_val_ptr;
 extern char glob_hostname[FN_REFLEN], mysql_home[FN_REFLEN];
 extern char pidfile_name[FN_REFLEN], system_time_zone[30], *opt_init_file;
 extern char default_logfile_name[FN_REFLEN];
@@ -706,6 +712,135 @@ unsigned char get_db_stats_index(const char* db);
 void update_global_db_stats_access(unsigned char db_stats_index,
                                    uint64 space,
                                    uint64 offset);
+
+/**
+   Per-user session variables
+*/
+
+/**
+  A session variable item
+  First  : the variable name
+  Second : the value
+*/
+typedef std::pair<std::string, std::string> Session_var;
+
+/**
+  The session variables for a user
+  Key   : the session variable name
+  Value : the default value of this session variable
+*/
+typedef std::unordered_map<std::string, std::string> Session_vars;
+
+typedef Session_vars::iterator Session_vars_it;
+
+typedef std::shared_ptr<Session_vars> Session_vars_sp;
+
+/**
+  The session variables for users
+  Key   : the user name
+  Value : the collection of session variables of this user
+*/
+typedef std::unordered_map<std::string, Session_vars_sp>
+        User_session_vars;
+
+typedef User_session_vars::iterator User_session_vars_it;
+
+/**
+  Global hash table for per-user session variables
+*/
+typedef std::shared_ptr<User_session_vars> User_session_vars_sp;
+
+
+class Per_user_session_variables
+{
+  /* The per-user session variable hash table */
+  User_session_vars_sp per_user_session_vars;
+
+  mysql_rwlock_t LOCK_per_user_session_var;
+
+#ifdef HAVE_PSI_INTERFACE
+  PSI_rwlock_key key_rwlock_LOCK_per_user_session_var;
+  PSI_rwlock_info key_rwlock_LOCK_per_user_session_var_info[1]=
+  {
+    {&key_rwlock_LOCK_per_user_session_var,
+     "Per_user_session_variables::rwlock", 0}
+  };
+#endif
+
+public:
+  Per_user_session_variables()
+  {
+#ifdef HAVE_PSI_INTERFACE
+    mysql_rwlock_register("sql", key_rwlock_LOCK_per_user_session_var_info,
+                  array_elements(key_rwlock_LOCK_per_user_session_var_info));
+#endif
+    mysql_rwlock_init(key_rwlock_LOCK_per_user_session_var,
+                      &LOCK_per_user_session_var);
+  }
+
+  ~Per_user_session_variables()
+  {
+    mysql_rwlock_destroy(&LOCK_per_user_session_var);
+  }
+
+private:
+  /**
+    Set a session variable's value
+    name  : the variable name
+    value : the value
+  */
+  static bool set_val_do(sys_var *var, Item *item, THD *thd);
+
+  static bool set_val(const std::string& name,
+                      const std::string& val, THD *thd);
+
+  /**
+    Validate a session variable name and its value
+    name  : the variable name
+    value : the value
+  */
+  static bool validate_val(const std::string& name,
+                           const std::string& val);
+
+  /**
+    Validate and store a per user session variable segment
+    users : user list have the same settings
+    vars  : session variable list
+  */
+  static bool store(User_session_vars_sp& per_user_vars,
+                    const std::vector<std::string>& users,
+                    const std::vector<Session_var>& vars);
+
+  /**
+    Do the actual initialization
+  */
+  static bool init_do(User_session_vars_sp& per_user_vars,
+                      const char *sys_var_str);
+
+public:
+  /**
+    Set per user session variables for a THD
+  */
+  bool set_thd(THD *thd);
+
+  /**
+    Initialize the per user session variables.
+    This is called by SET command.
+  */
+  bool init(const char *sys_var_str);
+
+  /**
+    Initialize the per user session variables.
+    This is called during server starting time.
+  */
+  bool init();
+};
+
+/**
+  The global per-user session variables instance
+*/
+extern Per_user_session_variables per_user_session_variables;
+
 
 /*Move UUID_LENGTH from item_strfunc.h*/
 #define UUID_LENGTH (8+1+4+1+4+1+4+1+12)
@@ -1435,5 +1570,6 @@ extern const char *MY_BIND_ALL_ADDRESSES;
   for use as a uniform hash)
 */
 uint32 my_sbox_hash(const uchar* data, ulong length);
+
 
 #endif /* MYSQLD_INCLUDED */
