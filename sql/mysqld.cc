@@ -16,7 +16,6 @@
 
 #include "my_global.h"                          /* NO_EMBEDDED_ACCESS_CHECKS */
 
-#include <vector>
 #include <algorithm>
 #include <functional>
 #include <list>
@@ -918,6 +917,7 @@ char *opt_binlog_index_name;
 char *mysql_home_ptr, *pidfile_name_ptr;
 char *binlog_file_basedir_ptr;
 char *binlog_index_basedir_ptr;
+char *per_user_session_var_default_val_ptr;
 /** Initial command line arguments (count), after load_defaults().*/
 static int defaults_argc;
 /**
@@ -5818,6 +5818,450 @@ a file name for --log-bin-index option", opt_binlog_index_name);
   DBUG_RETURN(0);
 }
 
+/**
+   The global per-user session variables instance
+*/
+Per_user_session_variables per_user_session_variables;
+
+#define CHECK_ERR_AND_VALIDATE_ONLY(err, validate_only) \
+do { \
+  if (err) \
+    return false; \
+  if (validate_only) \
+    return true; \
+} while (0)
+
+/**
+   Static method
+
+   Set a session variable's value
+   name  : the variable name
+   value : the value
+*/
+bool Per_user_session_variables::set_val_do(sys_var *var, Item *item, THD *thd)
+{
+  LEX_STRING tmp;
+  set_var set_v(OPT_SESSION, var, &tmp, item);
+
+  /* validate and update */
+  if (!set_v.check(thd) && !thd->is_error() && !set_v.update(thd))
+    return true;
+
+  return false;
+}
+
+/**
+   Static method
+*/
+bool Per_user_session_variables::set_val(const std::string& name,
+                                         const std::string& val,
+                                         THD *thd)
+{
+  sys_var *var = intern_find_sys_var(name.c_str(), name.length());
+  DBUG_ASSERT(var);
+
+  /* validate only if thd is NULL */
+  bool validate_only = !thd;
+
+  const my_option *opt = var->get_option();
+  int err = 0; // 0 means no error
+
+  switch (opt->var_type & GET_TYPE_MASK) {
+  case GET_ENUM:
+    {
+      bool valid = false;
+      int type= find_type(val.c_str(), opt->typelib, FIND_TYPE_BASIC);
+      if (type == 0)
+      {
+        /* Accept an integer representation of the enumerated item.*/
+        char *endptr;
+        ulong arg= strtoul(val.c_str(), &endptr, 10);
+        if (!*endptr && arg < opt->typelib->count)
+          valid = true;
+      }
+      else if (type > 0)
+        valid = true;
+
+      if (validate_only)
+        return valid;
+
+      Item_string item(val.c_str(), val.length(), thd->charset());
+      return set_val_do(var, &item, thd);
+    }
+  case GET_BOOL: /* If argument differs from 0, enable option, else disable */
+    {
+      my_bool v = my_get_bool_argument(opt, val.c_str(), &err);
+
+      CHECK_ERR_AND_VALIDATE_ONLY(err, validate_only);
+
+      Item_int item(v);
+      return set_val_do(var, &item, thd);
+    }
+  case GET_INT:
+    {
+      int v = (int) getopt_ll((char *)val.c_str(), opt, &err);
+
+      CHECK_ERR_AND_VALIDATE_ONLY(err, validate_only);
+
+      Item_int item(v);
+      return set_val_do(var, &item, thd);
+    }
+  case GET_UINT:
+    {
+      uint v = (uint) getopt_ull((char *)val.c_str(), opt, &err);
+
+      CHECK_ERR_AND_VALIDATE_ONLY(err, validate_only);
+
+      Item_uint item(v);
+      return set_val_do(var, &item, thd);
+    }
+  case GET_LONG:
+    {
+      long v = (long) getopt_ll((char *)val.c_str(), opt, &err);
+
+      CHECK_ERR_AND_VALIDATE_ONLY(err, validate_only);
+
+      Item_int item((int32)v);
+      return set_val_do(var, &item, thd);
+    }
+  case GET_ULONG:
+    {
+      /* Note that the name says the type is ulong
+         but the actual internal type is long */
+      long v = (long) getopt_ull((char *)val.c_str(), opt, &err);
+
+      CHECK_ERR_AND_VALIDATE_ONLY(err, validate_only);
+
+      Item_int item((int32)v);
+      return set_val_do(var, &item, thd);
+    }
+  case GET_LL:
+    {
+      longlong v = (longlong) getopt_ll((char *)val.c_str(), opt, &err);
+
+      CHECK_ERR_AND_VALIDATE_ONLY(err, validate_only);
+
+      Item_int item(v);
+      return set_val_do(var, &item, thd);
+    }
+  case GET_ULL:
+    {
+      ulonglong v = (ulonglong) getopt_ull((char *)val.c_str(), opt, &err);
+
+      CHECK_ERR_AND_VALIDATE_ONLY(err, validate_only);
+
+      Item_uint item(v);
+      return set_val_do(var, &item, thd);
+    }
+  case GET_DOUBLE:
+    {
+      double v = getopt_double((char *)val.c_str(), opt, &err);
+
+      CHECK_ERR_AND_VALIDATE_ONLY(err, validate_only);
+
+      Item_uint item(v);
+      return set_val_do(var, &item, thd);
+    }
+  default:
+    /* All other types are not supported */
+    break;
+  }
+  return false;
+}
+
+/**
+   Static method
+
+   Validate a session variable name and its value
+   name  : the variable name
+   value : the value
+*/
+bool Per_user_session_variables::validate_val(const std::string& name,
+                                              const std::string& val)
+{
+  return set_val(name, val, NULL);
+}
+
+/**
+   Static method
+
+   Validate and store a per user session variable segment
+   users : user list have the same settings
+   vars  : session variable list
+*/
+bool Per_user_session_variables::store(User_session_vars_sp& per_user_vars,
+                                       const std::vector<std::string>& users,
+                                       const std::vector<Session_var>& vars)
+{
+  if (users.empty() || vars.empty())
+    return false;
+
+  Session_vars_sp sp_vars = std::make_shared<Session_vars>();
+  for(auto it = vars.begin(); it != vars.end(); ++it)
+  {
+    const char* name = it->first.c_str();
+    size_t name_len = it->first.size();
+    const char* val = it->second.c_str();
+
+    /* If the name is a valid var name */
+    sys_var *var = intern_find_sys_var(name, name_len);
+    if (!var)
+      return false;
+
+    /* If the value is valid */
+    if (!validate_val(it->first, it->second))
+      return false;
+
+    /* Insert the name value pair */
+    std::pair<Session_vars_it, bool> ret =
+      sp_vars->insert(std::make_pair(name, val));
+
+    /* Duplicate entries are not allowed */
+    if (!ret.second)
+      return false;
+  }
+  DBUG_ASSERT(sp_vars->size() == vars.size());
+
+  /* We don't validate user names so that per user session variables
+     can be defined earlier and users can be added later */
+  for(auto it = users.begin(); it != users.end(); ++it)
+  {
+    std::pair<User_session_vars_it, bool> ret =
+      per_user_vars->insert(std::make_pair(*it, sp_vars));
+
+    /* Duplicate entries are not allowed */
+    if (!ret.second)
+      return false;
+  }
+  return true;
+}
+
+/**
+   Static method
+*/
+bool Per_user_session_variables::init_do(User_session_vars_sp& per_user_vars,
+                                         const char *sys_var_str)
+{
+  /* NULL and "" are valid values */
+  if (!sys_var_str || !strlen(sys_var_str))
+    return true;
+
+  std::vector<std::string> users;
+  users.reserve(16);
+
+  std::vector<Session_var> vars;
+  vars.reserve(32);
+
+  std::string key, val;
+
+  static const char *delimiters = ":=,";
+  static const char *invalid_tokens = " \t\"\\/';";
+  const char *p = sys_var_str;
+  const char *prev = p;
+
+  /* Parsing the string value, for example:
+     --per-user-session-var-default-val="u1:u2:u3:k1=v1,k2=v2,k3=v3,u4:k4=v4"
+  */
+  while (*p)
+  {
+    /* Get a token in the forms of "foo:", "bar=", "baz,",
+       or the last one in the form of "tail" */
+    while (*p && !strchr(delimiters, *p))
+    {
+      /* Return immediately if invalid tokens are seen */
+      if (strchr(invalid_tokens, *p++))
+        return false;
+    }
+
+    /* Consecutive delimiters */
+    if (p == prev)
+      return false;
+
+    if (*p == ':')
+    {
+      /* Return if we have a key with no value */
+      if (!key.empty())
+        return false;
+
+      if (!vars.empty())
+      {
+        /* Return false if we have key/values but no users, otherwise
+           store the segment of per user session variables. */
+        if (users.empty() || !store(per_user_vars, users, vars))
+          return false;
+        /* Start a new segment */
+        users.clear();
+        vars.clear();
+      }
+      users.push_back(std::string(prev, p - prev));
+    }
+    /* Saw a key */
+    else if (*p == '=')
+    {
+      /* Return if we have a key with no value */
+      if (!key.empty())
+        return false;
+      key = std::string(prev, p - prev);
+    }
+    /* Saw a val */
+    else if (*p == ',' || *p == '\0')
+    {
+      /* Return false if we don't have a valid key,
+         Or we have key/values but no users. */
+      if (key.empty() || users.empty())
+        return false;
+      val = std::string(prev, p - prev);
+      vars.push_back(Session_var(key, val));
+      if (*p == '\0')
+      {
+        /* Store the segment of per user session variables */
+        if (!store(per_user_vars, users, vars))
+          return false;
+
+        /* Done */
+        return true;
+      }
+      key.clear();
+    }
+
+    /* Skip the delimiter and start a new token */
+    prev = ++p;
+  }
+  /* Saw end of string at wrong stage */
+  return false;
+}
+
+/**
+   Set per user session variables for a THD
+*/
+bool Per_user_session_variables::set_thd(THD *thd)
+{
+  thd->get_stmt_da()->reset_diagnostics_area();
+
+  bool ret = true;
+  std::string err_msg;
+
+  /* Read-lock */
+  mysql_rwlock_rdlock(&LOCK_per_user_session_var);
+
+  if (per_user_session_vars)
+  {
+    const char *user = thd->main_security_ctx.user;
+    if (user)
+    {
+      User_session_vars_it it = per_user_session_vars->find(user);
+      if (it != per_user_session_vars->end())
+      {
+        /* Temporarily grant super privilege to this user if it doesn't
+           have it because root privilege will be needed to set some
+           session variables like binlog_format.
+        */
+        bool temp_super_acl = false;
+        if (!(thd->security_ctx->master_access & SUPER_ACL))
+        {
+          thd->security_ctx->master_access |= SUPER_ACL;
+          temp_super_acl = true;
+        }
+
+        Session_vars_sp vars_sp = it->second;
+        DBUG_ASSERT(vars_sp->size() > 0);
+
+        for (Session_vars_it it = vars_sp->begin();
+             it != vars_sp->end(); ++it)
+        {
+          if (!set_val(it->first, it->second, thd))
+          {
+            /* Log the error and continue */
+            ret = false;
+            if (!err_msg.empty())
+              err_msg += ",";
+            err_msg += it->first + "=" + it->second;
+          }
+        }
+        /* Remove the temporary super ACL */
+        if (temp_super_acl)
+          thd->security_ctx->master_access &= ~SUPER_ACL;
+      }
+    }
+    else {
+      /* The user wasn't set. This should never happen. */
+      DBUG_ASSERT(false);
+      ret = false;
+    }
+  }
+  mysql_rwlock_unlock(&LOCK_per_user_session_var);
+
+  if (!ret)
+  {
+    /* Log the errors into server log */
+    DBUG_ASSERT(!err_msg.empty());
+    static const std::string s =
+      "Failed to set per-user session variables for user ";
+    err_msg = s + thd->main_security_ctx.user + ":" + err_msg;
+    fprintf(stderr, "[Warning] %s\n", err_msg.c_str());
+  }
+  return ret;
+}
+
+void Per_user_session_variables::print()
+{
+  /* Read-lock */
+  mysql_rwlock_rdlock(&LOCK_per_user_session_var);
+
+  if (per_user_session_vars)
+  {
+    for (auto it1 = per_user_session_vars->begin();
+         it1 != per_user_session_vars->end();
+         ++it1)
+    {
+      std::string msg = it1->first + ":";
+      for (auto it2 = it1->second->begin();
+           it2 != it1->second->end();
+           ++it2)
+      {
+        if (msg.back() != ':')
+          msg += ",";
+        msg += it2->first + "=" + it2->second;
+      }
+      fprintf(stderr, "[Per-user session variables] %s\n", msg.c_str());
+    }
+  }
+  mysql_rwlock_unlock(&LOCK_per_user_session_var);
+}
+
+bool Per_user_session_variables::init(const char *sys_var_str)
+{
+  /* Create a new hash table */
+  User_session_vars_sp per_user_vars = std::make_shared<User_session_vars>();
+
+  bool ret = false;
+  if (init_do(per_user_vars, sys_var_str))
+  {
+    /* Write-lock */
+    mysql_rwlock_wrlock(&LOCK_per_user_session_var);
+    per_user_session_vars.swap(per_user_vars);
+    mysql_rwlock_unlock(&LOCK_per_user_session_var);
+    ret = true;
+  }
+
+  /* Print all the values in the hash table into log file. */
+  print();
+
+  return ret;
+}
+
+bool Per_user_session_variables::init()
+{
+  /* This is called during server starting time so it is safe
+     to access the global pointer directly */
+  if (!per_user_session_var_default_val_ptr ||
+      !strlen(per_user_session_var_default_val_ptr))
+  {
+    return true;
+  }
+  return init(per_user_session_var_default_val_ptr);
+}
+
 
 #ifndef EMBEDDED_LIBRARY
 
@@ -6089,6 +6533,7 @@ epilogue:
 }
 #endif /* TARGET_OS_LINUX */
 
+
 #ifdef __WIN__
 int win_main(int argc, char **argv)
 #else
@@ -6257,6 +6702,16 @@ int mysqld_main(int argc, char **argv)
 
   if (init_common_variables(TRUE))
     unireg_abort(1);        // Will do exit
+
+  /*
+    All sys-var are processed so it is time handle
+    the per-user session variables.
+  */
+  if (!per_user_session_variables.init())
+  {
+    fprintf(stderr, "[ERROR] init_per_user_session_variables() failed.\n");
+    unireg_abort(1);
+  }
 
   my_init_signals();
 
@@ -9450,6 +9905,8 @@ static int mysql_init_variables(void)
   admin_ip_sock = MYSQL_INVALID_SOCKET;
   binlog_file_basedir_ptr= binlog_file_basedir;
   binlog_index_basedir_ptr= binlog_index_basedir;
+  per_user_session_var_default_val_ptr= NULL;
+
   mysql_home_ptr= mysql_home;
   pidfile_name_ptr= pidfile_name;
   log_error_file_ptr= log_error_file;

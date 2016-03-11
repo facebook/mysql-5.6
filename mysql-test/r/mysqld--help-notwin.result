@@ -673,6 +673,8 @@ The following options may be given as the first argument:
  The rate of sampling replayed events on slave to
  determine the peak replication lag over some period.
  --peak-lag-time=#   The time frame peak lag is measured within, in seconds.
+ --per-user-session-var-default-val[=name] 
+ Per user session variable default value
  --performance-schema 
  Enable the performance schema.
  (Defaults to on; use --skip-performance-schema to disable.)
@@ -1682,6 +1684,7 @@ optimizer-trace-offset -1
 part-scan-max 10
 peak-lag-sample-rate 100
 peak-lag-time 60
+per-user-session-var-default-val (No default value)
 performance-schema TRUE
 performance-schema-accounts-size -1
 performance-schema-consumer-events-stages-current FALSE
