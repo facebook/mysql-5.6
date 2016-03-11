@@ -1382,6 +1382,8 @@ char *mysql_home_ptr, *pidfile_name_ptr;
 char *default_auth_plugin;
 char *binlog_file_basedir_ptr;
 char *binlog_index_basedir_ptr;
+char *per_user_session_var_default_val_ptr = nullptr;
+char *per_user_session_var_user_name_delimiter_ptr = nullptr;
 /**
   Memory for allocating command line arguments, after load_defaults().
 */

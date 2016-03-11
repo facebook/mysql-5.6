@@ -57,17 +57,18 @@ typedef void (*init_func_p)(const struct my_option *option, void *variable,
 
 my_error_reporter my_getopt_error_reporter = &my_message_local;
 
+longlong getopt_ll(char *arg, const struct my_option *optp, int *err);
+ulonglong getopt_ull(char *, const struct my_option *, int *);
+double getopt_double(char *arg, const struct my_option *optp, int *err);
+bool get_bool_argument(const char *argument, bool *error);
+
 static bool getopt_compare_strings(const char *, const char *, uint);
-static longlong getopt_ll(char *arg, const struct my_option *optp, int *err);
-static ulonglong getopt_ull(char *, const struct my_option *, int *);
-static double getopt_double(char *arg, const struct my_option *optp, int *err);
 static void init_variables(const struct my_option *, init_func_p);
 static void init_one_value(const struct my_option *, void *, longlong);
 static void fini_one_value(const struct my_option *, void *, longlong);
 static int setval(const struct my_option *, void *, char *, bool);
 static void setval_source(const struct my_option *, void *);
 static char *check_struct_option(char *cur_arg, char *key_name);
-static bool get_bool_argument(const char *argument, bool *error);
 
 /*
   The following three variables belong to same group and the number and
@@ -697,7 +698,7 @@ static char *check_struct_option(char *cur_arg, char *key_name) {
    @param [out] error Error indicator
    @return boolean value
 */
-static bool get_bool_argument(const char *argument, bool *error) {
+bool get_bool_argument(const char *argument, bool *error) {
   if (!my_strcasecmp(&my_charset_latin1, argument, "true") ||
       !my_strcasecmp(&my_charset_latin1, argument, "on") ||
       !my_strcasecmp(&my_charset_latin1, argument, "1"))
@@ -997,7 +998,7 @@ static ulonglong eval_num_suffix_ull(char *argument, int *error,
   In case of an error, set error value in *err.
 */
 
-static longlong getopt_ll(char *arg, const struct my_option *optp, int *err) {
+longlong getopt_ll(char *arg, const struct my_option *optp, int *err) {
   longlong num = eval_num_suffix(arg, err, (char *)optp->name);
   return getopt_ll_limit_value(num, optp, NULL);
 }
@@ -1084,7 +1085,7 @@ static inline bool is_negative_num(char *num) {
   values.
 */
 
-static ulonglong getopt_ull(char *arg, const struct my_option *optp, int *err) {
+ulonglong getopt_ull(char *arg, const struct my_option *optp, int *err) {
   char buf[255];
   ulonglong num;
 
@@ -1176,7 +1177,7 @@ double getopt_double_limit_value(double num, const struct my_option *optp,
     EXIT_ARGUMENT_INVALID.  Otherwise err is not touched
 */
 
-static double getopt_double(char *arg, const struct my_option *optp, int *err) {
+double getopt_double(char *arg, const struct my_option *optp, int *err) {
   double num;
   int error;
   char *end = arg + 1000; /* Big enough as *arg is \0 terminated */

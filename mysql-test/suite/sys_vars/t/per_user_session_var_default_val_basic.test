@@ -1,0 +1,31 @@
+--source include/load_sysvars.inc
+
+SET @original_val = @@global.per_user_session_var_default_val;
+SELECT @original_val;
+
+SELECT @@GLOBAL.per_user_session_var_default_val = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='per_user_session_var_default_val';
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@SESSION.per_user_session_var_default_val;
+
+--error ER_GLOBAL_VARIABLE
+SET SESSION per_user_session_var_default_val = "";
+
+SELECT @@GLOBAL.per_user_session_var_default_val;
+
+--echo ## default value is NULL
+SET GLOBAL per_user_session_var_default_val = DEFAULT;
+SELECT @@GLOBAL.per_user_session_var_default_val;
+
+--echo ## NULL is a valid value
+SET GLOBAL per_user_session_var_default_val = NULL;
+SELECT @@GLOBAL.per_user_session_var_default_val;
+
+--echo ## "" is a valid value
+SET GLOBAL per_user_session_var_default_val = "";
+SELECT @@GLOBAL.per_user_session_var_default_val;
+
+SET @@global.per_user_session_var_default_val = @original_val;
+SELECT @@global.per_user_session_var_default_val;

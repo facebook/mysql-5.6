@@ -1,0 +1,2 @@
+--echo # empty string is a valid value
+SELECT @@GLOBAL.per_user_session_var_default_val;

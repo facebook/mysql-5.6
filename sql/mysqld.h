@@ -260,6 +260,8 @@ extern uint default_password_lifetime;
 extern volatile bool password_require_current;
 extern char *my_bind_addr_str;
 extern char *binlog_file_basedir_ptr, *binlog_index_basedir_ptr;
+extern char *per_user_session_var_default_val_ptr;
+extern char *per_user_session_var_user_name_delimiter_ptr;
 extern char glob_hostname[FN_REFLEN];
 extern char system_time_zone[30], *opt_init_file;
 extern char *opt_tc_log_file;
