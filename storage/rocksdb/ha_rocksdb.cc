@@ -2172,6 +2172,7 @@ static bool rocksdb_show_status(handlerton*		hton,
 
       res |= print_stats(thd, "CF_COMPACTION", cf_name, str, stat_print);
     }
+
     /* Memory Statistics */
     std::vector<rocksdb::DB*> dbs;
     std::unordered_set<const rocksdb::Cache*> cache_set;
@@ -2211,6 +2212,7 @@ static bool rocksdb_show_status(handlerton*		hton,
     }
 
     std::map<rocksdb::MemoryUtil::UsageType, uint64_t> temp_usage_by_type;
+    str.clear();
     rocksdb::MemoryUtil::GetApproximateMemoryUsageByType(
       dbs, cache_set, &temp_usage_by_type);
     snprintf(buf, sizeof(buf), "\nMemTable Total: %lu",
