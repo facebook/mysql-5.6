@@ -37,7 +37,7 @@ bool is_cf_name_reverse(const char *name);
     and also there is a default value which applies to column
     families not found in the map.
 */
-class Cf_options {
+class Rdb_cf_options {
 public:
   void Get(const std::string &cf_name, rocksdb::ColumnFamilyOptions *opts);
 
