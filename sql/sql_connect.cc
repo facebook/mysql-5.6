@@ -889,7 +889,14 @@ bool thd_prepare_connection(THD *thd) {
 
   if (rc) return rc;
 
+  // Set overwrite status to true as login_connection set OK status
+  thd->get_stmt_da()->set_overwrite_status(true);
   prepare_new_connection_state(thd);
+
+  get_per_user_session_variables()->set_thd(thd);
+
+  thd->get_stmt_da()->set_overwrite_status(false);
+
   return false;
 }
 

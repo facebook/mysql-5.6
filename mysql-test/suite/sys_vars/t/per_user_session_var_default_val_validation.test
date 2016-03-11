@@ -1,0 +1,203 @@
+--source include/not_valgrind.inc
+
+# Wait for all the connections from previous tests except
+# the default one to be completedly disconnected
+let $count_sessions= 1;
+--source include/wait_until_count_sessions.inc
+flush privileges;
+
+create user usr1@localhost identified by '';
+create user admin1@localhost;
+grant all privileges on *.* to admin1@localhost with grant option;
+flush user_resources;
+
+SET @original_val = @@global.per_user_session_var_default_val;
+SELECT @original_val;
+
+--echo ## default value is NULL
+SET GLOBAL per_user_session_var_default_val = DEFAULT;
+SELECT @@GLOBAL.per_user_session_var_default_val;
+
+--echo ## NULL is a valid value
+SET GLOBAL per_user_session_var_default_val = NULL;
+SELECT @@GLOBAL.per_user_session_var_default_val;
+
+--echo ## "" is a valid value
+SET GLOBAL per_user_session_var_default_val = "";
+SELECT @@GLOBAL.per_user_session_var_default_val;
+
+--echo ##
+--echo ## Invalid values. SET command will fail
+--echo ##
+
+## white space
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = " ";
+
+## TAB
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = " ";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = ":";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "=";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = ",";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = ";";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "\"";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "'";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "\\";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "/";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "gap_lock_raise_error=0";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "gap_lock_raise_error=0,u2:gap_lock_raise_error=1";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = " u";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u ";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u :";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u:gap_lock_raise_error";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u: ";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = " u:gap_lock_raise_error";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u:v:";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u:gap_lock_raise_error=";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u:gap_lock_raise_error=0:";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u:gap_lock_raise_error=0=";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u:gap_lock_raise_error=0=1";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u:gap_lock_raise_error=0,u:gap_lock_write_log=0";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u:= 0";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u:gap_lock_raise_error= 0";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u:gap_lock_raise_error= ";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u:gap_lock_raise_error=0,";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u:gap_lock_raise_error=0;";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u1:u2:gap_lock_raise_error=0,gap_lock_write_log=0,,u3:big_tables=1";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u1::u2:gap_lock_raise_error=0,gap_lock_write_log=0,u3:big_tables=1";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u1:gap_lock_raise_error=0,gap_lock_write_log=0,u3:big_tables=1 ";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u1:gap_lock_raise_error=0,gap_lock_write_log=0,u3:big_tables=1,";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u1:gap_lock_raise_error=0,gap_lock_write_log=0,u3:big_tables=1'";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u1:gap_lock_raise_error=0,gap_lock_write_log=0,u3:big_tables='1'";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u1:gap_lock_raise_error=0,gap_lock_write_log=0,u3:big_tables=\"1\"";
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u1:time_zone=\'+10:00\'";
+
+--echo ## Syntax error
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u1:optimizer_switch=index_merge=on";
+
+--echo ## Unsupported type 'flagset'
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "u1:optimizer_switch=xyz";
+
+--echo ## Read-Only
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL per_user_session_var_default_val = "usr1:tx_isolation=READ-COMMITTED";
+
+--echo ##
+--echo ## root privilege is required to set session variable binglog_format
+--echo ## root privilege will be granted to usr1 temporarily to get this done
+--echo ##
+
+connection default;
+SET GLOBAL per_user_session_var_default_val = "usr1:binlog_format=MIXED";
+connect (con_usr1,localhost,usr1,,);
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+
+# Ensure that per-user session variables remain on change user
+change_user admin1;
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+
+change_user usr1;
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+
+connection default;
+SET GLOBAL per_user_session_var_default_val = "usr1:binlog_format=ROW";
+connect (con_usr1_ssl,localhost,usr1,,,,,SSL);
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+
+connection default;
+SET GLOBAL per_user_session_var_default_val = "admin1:binlog_format=MIXED";
+connect (con_admin1,localhost,admin1,,);
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+
+SET GLOBAL per_user_session_var_default_val = "admin1:binlog_format=ROW";
+connect (con_admin1_ssl,localhost,admin1,,,,,SSL);
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+
+disconnect con_usr1;
+disconnect con_usr1_ssl;
+disconnect con_admin1;
+disconnect con_admin1_ssl;
+
+connection default;
+
+drop user usr1@localhost;
+drop user admin1@localhost;
+
+SET @@global.per_user_session_var_default_val = @original_val;
+SELECT @@global.per_user_session_var_default_val;

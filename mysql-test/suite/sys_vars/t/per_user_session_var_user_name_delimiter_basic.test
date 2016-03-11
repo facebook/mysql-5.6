@@ -1,0 +1,30 @@
+###
+### GLOBAL ONLY
+###
+
+SELECT @@global.per_user_session_var_user_name_delimiter;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.per_user_session_var_user_name_delimiter;
+
+SHOW GLOBAL VARIABLES LIKE 'per_user_session_var_user_name_delimiter';
+
+SHOW SESSION VARIABLES LIKE 'per_user_session_var_user_name_delimiter';
+
+SELECT *
+FROM performance_schema.global_variables
+WHERE variable_name='per_user_session_var_user_name_delimiter';
+
+SELECT *
+FROM performance_schema.session_variables
+WHERE variable_name='per_user_session_var_user_name_delimiter';
+
+###
+### READ-ONLY
+###
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SET GLOBAL per_user_session_var_user_name_delimiter=';';
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SET SESSION per_user_session_var_user_name_delimiter=";";
