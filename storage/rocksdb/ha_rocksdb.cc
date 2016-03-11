@@ -2172,7 +2172,9 @@ static bool rocksdb_show_status(handlerton*		hton,
 
       res |= print_stats(thd, "CF_COMPACTION", cf_name, str, stat_print);
     }
+
     /* Memory Statistics */
+    str.clear();
     std::vector<rocksdb::DB*> dbs;
     std::unordered_set<const rocksdb::Cache*> cache_set;
     size_t internal_cache_count = 0;
