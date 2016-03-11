@@ -2855,7 +2855,7 @@ int handler::ha_rnd_init(bool scan)
   if (is_using_prohibited_gap_locks(table->in_use,
                                     table->reginfo.lock_type, false))
   {
-    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+    DBUG_RETURN(HA_ERR_LOCK_DEADLOCK);
   }
 
   inited= (result= rnd_init(scan)) ? NONE : RND;
@@ -2974,7 +2974,7 @@ int handler::ha_index_read_map(uchar *buf, const uchar *key,
                                     is_using_full_primary_key(
                                       active_index, keypart_map, find_flag)))
   {
-    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+    DBUG_RETURN(HA_ERR_LOCK_DEADLOCK);
   }
 
   MYSQL_TABLE_IO_WAIT(m_psi, PSI_TABLE_FETCH_ROW, active_index, 0,
@@ -2994,7 +2994,7 @@ int handler::ha_index_read_last_map(uchar *buf, const uchar *key,
   if (is_using_prohibited_gap_locks(table->in_use,
                                     table->reginfo.lock_type, false))
   {
-    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+    DBUG_RETURN(HA_ERR_LOCK_DEADLOCK);
   }
 
   MYSQL_TABLE_IO_WAIT(m_psi, PSI_TABLE_FETCH_ROW, active_index, 0,
@@ -3023,7 +3023,7 @@ int handler::ha_index_read_idx_map(uchar *buf, uint index, const uchar *key,
                                     is_using_full_primary_key(
                                       index, keypart_map, find_flag)))
   {
-    return HA_ERR_INTERNAL_ERROR;
+    return HA_ERR_LOCK_DEADLOCK;
   }
 
   MYSQL_TABLE_IO_WAIT(m_psi, PSI_TABLE_FETCH_ROW, index, 0,
@@ -3103,7 +3103,7 @@ int handler::ha_index_first(uchar * buf)
   if (is_using_prohibited_gap_locks(table->in_use,
                                     table->reginfo.lock_type, false))
   {
-    return HA_ERR_INTERNAL_ERROR;
+    return HA_ERR_LOCK_DEADLOCK;
   }
 
   MYSQL_TABLE_IO_WAIT(m_psi, PSI_TABLE_FETCH_ROW, active_index, 0,
@@ -3151,7 +3151,7 @@ int handler::ha_index_last(uchar * buf)
   if (is_using_prohibited_gap_locks(table->in_use,
                                     table->reginfo.lock_type, false))
   {
-    return HA_ERR_INTERNAL_ERROR;
+    return HA_ERR_LOCK_DEADLOCK;
   }
 
   MYSQL_TABLE_IO_WAIT(m_psi, PSI_TABLE_FETCH_ROW, active_index, 0,
