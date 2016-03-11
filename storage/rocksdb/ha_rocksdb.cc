@@ -7846,7 +7846,7 @@ static SHOW_VAR rocksdb_status_vars[]= {
     Note from Bar: could also use crc32 function.
 */
 
-ulong Primary_key_comparator::get_hashnr(const char *key, size_t key_len)
+ulong Primary_key_comparator::get_hashnr(const char *key, const size_t key_len)
 {
   ulong nr=1, nr2=4;
   my_charset_bin.coll->hash_sort(&my_charset_bin, (const uchar*)key, key_len,
