@@ -107,6 +107,13 @@ extern my_bool my_getopt_print_errors;
 extern my_bool my_getopt_skip_unknown;
 extern my_error_reporter my_getopt_error_reporter;
 
+extern my_bool my_get_bool_argument(const struct my_option *opts,
+                                    const char *argument,
+                                    int *error);
+extern longlong getopt_ll(char *arg, const struct my_option *optp, int *err);
+extern ulonglong getopt_ull(char *, const struct my_option *, int *);
+extern double getopt_double(char *arg, const struct my_option *optp, int *err);
+
 extern int handle_options (int *argc, char ***argv, 
 			   const struct my_option *longopts, my_get_one_option);
 extern int handle_options_with_logging (int *argc, char ***argv,

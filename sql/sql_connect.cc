@@ -1093,6 +1093,12 @@ void do_handle_one_connection(THD *thd_arg)
     if (rc)
       goto end_thread;
 
+    /*
+      Set per user session variables for this user.
+      Ignore the return value of the function but errors will logged.
+    */
+    per_user_session_variables.set_thd(thd);
+
     conn_timeout = thd->variables.net_wait_timeout_seconds;
     set_conn_timeout_err(thd, timeout_error_msg_buf);
 

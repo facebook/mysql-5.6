@@ -1,0 +1,4 @@
+# default value is NULL ptr
+SELECT @@GLOBAL.per_user_session_var_default_val;
+@@GLOBAL.per_user_session_var_default_val
+NULL
