@@ -1290,6 +1290,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  BTREE_SYM
 %token  BY                            /* SQL-2003-R */
 %token  BYTE_SYM
+%token  BZIP_SYM
 %token  CACHE_SYM
 %token  CALL_SYM                      /* SQL-2003-R */
 %token  CASCADE                       /* SQL-2003-N */
@@ -1320,8 +1321,11 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  COMMITTED_SYM                 /* SQL-2003-N */
 %token  COMMIT_SYM                    /* SQL-2003-R */
 %token  COMPACT_SYM
+%token  COMPACT_METADATA_SYM
 %token  COMPLETION_SYM
 %token  COMPRESSED_SYM
+%token  COMPRESSION_SYM
+%token  COMPRESSION_LEVEL_SYM
 %token  CONCURRENT
 %token  CONDITION_SYM                 /* SQL-2003-R, SQL-2008-R */
 %token  CONNECTION_SYM
@@ -1534,6 +1538,8 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  LOOP_SYM
 %token  LOW_PRIORITY
 %token  LT                            /* OPERATOR */
+%token  LZ4_SYM
+%token  LZMA_SYM
 %token  MASTER_AUTO_POSITION_SYM
 %token  MASTER_BIND_SYM
 %token  MASTER_CONNECT_RETRY_SYM
@@ -1669,6 +1675,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  QUARTER_SYM
 %token  QUERY_SYM
 %token  QUICK
+%token  QUICKLZ_SYM
 %token  RANGE_SYM                     /* SQL-2003-R */
 %token  RBR_COLUMN_NAMES_SYM
 %token  READS_SYM                     /* SQL-2003-R */
@@ -1749,6 +1756,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  SLAVE
 %token  SLOW
 %token  SMALLINT                      /* SQL-2003-R */
+%token  SNAPPY_SYM
 %token  SNAPSHOT_SYM
 %token  SOCKET_SYM
 %token  SONAME_SYM
@@ -1886,6 +1894,8 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  YEAR_MONTH_SYM
 %token  YEAR_SYM                      /* SQL-2003-R */
 %token  ZEROFILL
+%token  ZLIB_SYM
+%token  ZLIB_STREAM_SYM
 
 %left   JOIN_SYM INNER_SYM STRAIGHT_JOIN CROSS LEFT RIGHT
 /* A dummy token to force the priority of table_ref production in a join. */
@@ -6434,6 +6444,9 @@ create_table_option:
             Lex->create_info.used_fields|= HA_CREATE_USED_KEY_BLOCK_SIZE;
             Lex->create_info.key_block_size= $3;
           }
+        | COMPRESSION_SYM opt_equal compression_types { /* option ignored */ }
+        | COMPRESSION_LEVEL_SYM opt_equal ulong_num { /* option ignored */ }
+        | COMPACT_METADATA_SYM opt_equal ulong_num { /* option ignored */ }
         | RBR_COLUMN_NAMES_SYM opt_equal ulong_num
           {
             Lex->create_info.used_fields |= HA_CREATE_USED_RBR_COLUMN_NAMES;
@@ -6555,6 +6568,16 @@ row_types:
         | REDUNDANT_SYM  { $$= ROW_TYPE_REDUNDANT; }
         | COMPACT_SYM    { $$= ROW_TYPE_COMPACT; }
         ;
+
+compression_types:
+            ZLIB_STREAM_SYM
+          | ZLIB_SYM
+          | BZIP_SYM
+          | LZMA_SYM
+          | SNAPPY_SYM
+          | QUICKLZ_SYM
+          | LZ4_SYM
+          ;
 
 merge_insert_types:
          NO_SYM          { $$= MERGE_INSERT_DISABLED; }
