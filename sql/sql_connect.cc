@@ -1089,6 +1089,10 @@ void do_handle_one_connection(THD *thd_arg)
     if (rc)
       goto end_thread;
 
+    /* Set per user session variables */
+    if (!per_user_session_variables.set_thd(thd))
+      goto end_thread;
+
     while (thd_is_connection_alive(thd))
     {
       mysql_audit_release(thd);

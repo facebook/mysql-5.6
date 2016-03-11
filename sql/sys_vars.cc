@@ -547,6 +547,21 @@ static Sys_var_long Sys_pfs_connect_attrs_size(
 #endif /* EMBEDDED_LIBRARY */
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
 
+static bool check_per_user_session_var(sys_var *self, THD *thd,
+                                       set_var *var)
+{
+  /* false means success */
+  return !per_user_session_variables.init(var->save_result.string_value.str);
+}
+
+static Sys_var_charptr Sys_per_user_session_var_default_val(
+       "per_user_session_var_default_val",
+       "Per user session variable default value",
+       GLOBAL_VAR(per_user_session_var_default_val_ptr),
+       CMD_LINE(OPT_ARG), IN_FS_CHARSET, DEFAULT(0),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(check_per_user_session_var));
+
 static Sys_var_mybool Sys_send_error_before_closing_timed_out_connection(
        "send_error_before_closing_timed_out_connection",
        "Send error before closing connections due to timeout.",
@@ -651,7 +666,6 @@ static Sys_var_charptr Sys_binlog_index_basedir(
        "binlog_index_basedir", "Path to binlog index base directory.",
        READ_ONLY GLOBAL_VAR(binlog_index_basedir_ptr), NO_CMD_LINE,
        IN_FS_CHARSET, DEFAULT(0));
-
 
 static bool fix_binlog_cache_size(sys_var *self, THD *thd, enum_var_type type)
 {

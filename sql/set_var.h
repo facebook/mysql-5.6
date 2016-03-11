@@ -67,6 +67,8 @@ public:
   enum binlog_status_enum { VARIABLE_NOT_IN_BINLOG,
                             SESSION_VARIABLE_IN_BINLOG } binlog_status;
 
+  const my_option * get_option() { return &option; };
+
 protected:
   typedef bool (*on_check_function)(sys_var *self, THD *thd, set_var *var);
   typedef bool (*on_update_function)(sys_var *self, THD *thd, enum_var_type type);
