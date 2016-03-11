@@ -32,49 +32,50 @@
 
 namespace myrocks {
 
-static std::vector<MyRocksTablePropertiesCollector::IndexStats>
+// @todo: move this function to Rdb_tbl_props class
+static std::vector<Rdb_tbl_props::IndexStats>
 extract_index_stats(
   const std::vector<std::string>& files,
   const rocksdb::TablePropertiesCollection& props
 ) {
-  std::vector<MyRocksTablePropertiesCollector::IndexStats> ret;
+  std::vector<Rdb_tbl_props::IndexStats> ret;
   for (auto fn : files) {
     auto it = props.find(fn);
     DBUG_ASSERT(it != props.end());
-    std::vector<MyRocksTablePropertiesCollector::IndexStats> stats =
-      MyRocksTablePropertiesCollector::GetStatsFromTableProperties(
+    std::vector<Rdb_tbl_props::IndexStats> stats =
+      Rdb_tbl_props::GetStatsFromTableProperties(
         it->second);
     ret.insert(ret.end(), stats.begin(), stats.end());
   }
   return ret;
 }
 
-void MyRocksEventListener::OnCompactionCompleted(
+void Rdb_event_listener::OnCompactionCompleted(
   rocksdb::DB *db,
   const rocksdb::CompactionJobInfo& ci
 ) {
   DBUG_ASSERT(db != nullptr);
-  DBUG_ASSERT(ddl_manager_ != nullptr);
+  DBUG_ASSERT(m_ddl_manager != nullptr);
 
   if (ci.status.ok()) {
-    ddl_manager_->adjust_stats(
+    m_ddl_manager->adjust_stats(
       extract_index_stats(ci.output_files, ci.table_properties),
       extract_index_stats(ci.input_files, ci.table_properties));
   }
 }
 
-void  MyRocksEventListener::OnFlushCompleted(
+void  Rdb_event_listener::OnFlushCompleted(
   rocksdb::DB* db,
   const rocksdb::FlushJobInfo& flush_job_info
 ) {
   DBUG_ASSERT(db != nullptr);
-  DBUG_ASSERT(ddl_manager_ != nullptr);
+  DBUG_ASSERT(m_ddl_manager != nullptr);
 
   auto p_props = std::make_shared<const rocksdb::TableProperties>(
     flush_job_info.table_properties);
 
-  ddl_manager_->adjust_stats(
-    MyRocksTablePropertiesCollector::GetStatsFromTableProperties(p_props));
+  m_ddl_manager->adjust_stats(
+    Rdb_tbl_props::GetStatsFromTableProperties(p_props));
 }
 
 }  // namespace myrocks

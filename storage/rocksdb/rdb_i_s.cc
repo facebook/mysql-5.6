@@ -14,6 +14,9 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
+/* C++ standard header files */
+#include <vector>
+
 /* MySQL header files */
 #include <sql_show.h>
 
@@ -72,7 +75,7 @@ static int i_s_rocksdb_cfstats_fill_table(THD *thd,
   };
 
   rocksdb::DB *rdb= rocksdb_get_rdb();
-  Column_family_manager& cf_manager= rocksdb_get_cf_manager();
+  Rdb_cf_manager& cf_manager= rocksdb_get_cf_manager();
   DBUG_ASSERT(rdb != nullptr);
 
   for (auto cf_name : cf_manager.get_cf_names())
@@ -373,7 +376,7 @@ static int i_s_rocksdb_cfoptions_fill_table(THD *thd,
 
   DBUG_ENTER("i_s_rocksdb_cfoptions_fill_table");
 
-  Column_family_manager& cf_manager = rocksdb_get_cf_manager();
+  Rdb_cf_manager& cf_manager = rocksdb_get_cf_manager();
 
   for (auto cf_name : cf_manager.get_cf_names())
   {
@@ -690,7 +693,7 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
   int ret= 0;
 
   /* binlog info */
-  Binlog_info_manager *blm = get_binlog_manager();
+  Rdb_binlog_manager *blm = get_binlog_manager();
   DBUG_ASSERT(blm != nullptr);
 
   char file_buf[FN_REFLEN+1]= {0};
@@ -698,7 +701,7 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
   char pos_buf[INT_BUF_LEN]= {0};
   char gtid_buf[GTID_BUF_LEN]= {0};
 
-  if (blm->read(file_buf, pos, gtid_buf)) {
+  if (blm->read(file_buf, &pos, gtid_buf)) {
     snprintf(pos_buf, INT_BUF_LEN, "%lu", (uint64_t) pos);
     ret |= global_info_fill_row(thd, tables, "BINLOG", "FILE", file_buf);
     ret |= global_info_fill_row(thd, tables, "BINLOG", "POS", pos_buf);
@@ -706,7 +709,7 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
   }
 
   /* max index info */
-  Dict_manager *dict_manager = get_dict_manager();
+  Rdb_dict_manager *dict_manager = get_dict_manager();
   DBUG_ASSERT(dict_manager != nullptr);
 
   uint32_t max_index_id;
@@ -721,7 +724,7 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
   /* cf_id -> cf_flags */
   char cf_id_buf[INT_BUF_LEN]= {0};
   char cf_value_buf[FN_REFLEN+1] = {0};
-  Column_family_manager& cf_manager = rocksdb_get_cf_manager();
+  Rdb_cf_manager& cf_manager = rocksdb_get_cf_manager();
   for (auto cf_handle : cf_manager.get_all_cf()) {
     uint flags;
     dict_manager->get_cf_flags(cf_handle->GetID(), &flags);
@@ -766,7 +769,7 @@ struct i_s_rocksdb_ddl {
   Item *cond;
 };
 
-static int i_s_rocksdb_ddl_callback(void *cb_arg, RDBSE_TABLE_DEF *rec)
+static int i_s_rocksdb_ddl_callback(void *cb_arg, Rdb_tbl_def *rec)
 {
   struct i_s_rocksdb_ddl *ddl_arg= (struct i_s_rocksdb_ddl*)cb_arg;
   DBUG_ASSERT(ddl_arg != nullptr);
@@ -787,7 +790,7 @@ static int i_s_rocksdb_ddl_callback(void *cb_arg, RDBSE_TABLE_DEF *rec)
     return 0;
 
   for (uint i= 0; i < rec->n_keys; i++) {
-    RDBSE_KEYDEF* key_descr= rec->key_descr[i];
+    Rdb_key_def* key_descr= rec->key_descr[i];
 
     DBUG_ASSERT(tables->table != nullptr);
     DBUG_ASSERT(tables->table->field != nullptr);
@@ -832,7 +835,7 @@ static int i_s_rocksdb_ddl_fill_table(THD *thd, TABLE_LIST *tables, Item *cond)
   DBUG_ASSERT(tables != nullptr);
 
   int ret;
-  Table_ddl_manager *ddl_manager= get_ddl_manager();
+  Rdb_ddl_manager *ddl_manager= get_ddl_manager();
   DBUG_ASSERT(ddl_manager != nullptr);
   struct i_s_rocksdb_ddl ddl_arg= { thd, tables, cond };
 
@@ -940,7 +943,7 @@ static int i_s_rocksdb_index_file_map_fill_table(
   rocksdb::DB *rdb= rocksdb_get_rdb();
   DBUG_ASSERT(rdb != nullptr);
 
-  Column_family_manager& cf_manager = rocksdb_get_cf_manager();
+  Rdb_cf_manager& cf_manager = rocksdb_get_cf_manager();
   for (auto cf_handle : cf_manager.get_all_cf()) {
     /* Grab the the properties of all the tables in the column family */
     rocksdb::TablePropertiesCollection table_props_collection;
@@ -958,8 +961,8 @@ static int i_s_rocksdb_index_file_map_fill_table(
       field[2]->store(sst_name.data(), sst_name.size(), system_charset_info);
 
       /* Get the __indexstats__ data out of the table property */
-      std::vector<MyRocksTablePropertiesCollector::IndexStats> stats =
-          MyRocksTablePropertiesCollector::GetStatsFromTableProperties(props.second);
+      std::vector<Rdb_tbl_props::IndexStats> stats =
+          Rdb_tbl_props::GetStatsFromTableProperties(props.second);
       if (stats.empty()) {
         field[0]->store(-1, true);
         field[1]->store(-1, true);

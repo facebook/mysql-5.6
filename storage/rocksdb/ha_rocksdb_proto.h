@@ -13,18 +13,16 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
-
-#ifndef _ha_rocksdb_proto_h_
-#define _ha_rocksdb_proto_h_
+#pragma once
 
 #include "rocksdb/table.h"
 
 namespace myrocks {
 
-class Column_family_manager;
+class Rdb_cf_manager;
 
 rocksdb::DB *rocksdb_get_rdb();
-Column_family_manager& rocksdb_get_cf_manager();
+Rdb_cf_manager& rocksdb_get_cf_manager();
 rocksdb::BlockBasedTableOptions& rocksdb_get_table_options();
 
 void get_cf_options(const std::string &cf_name,
@@ -42,20 +40,18 @@ std::vector<std::string> get_share_names(void);
 int rocksdb_get_share_perf_counters(const char *tablename,
   SHARE_PERF_COUNTERS *counters) __attribute__((__nonnull__(2)));
 
-void request_save_stats();
+void rocksdb_request_save_stats();
 
-class Dict_manager;
-Dict_manager *get_dict_manager(void)
+class Rdb_dict_manager;
+Rdb_dict_manager *get_dict_manager(void)
   __attribute__((__returns_nonnull__, __warn_unused_result__));
 
-class Table_ddl_manager;
-Table_ddl_manager *get_ddl_manager(void)
+class Rdb_ddl_manager;
+Rdb_ddl_manager *get_ddl_manager(void)
   __attribute__((__returns_nonnull__, __warn_unused_result__));
 
-class Binlog_info_manager;
-Binlog_info_manager *get_binlog_manager(void)
+class Rdb_binlog_manager;
+Rdb_binlog_manager *get_binlog_manager(void)
   __attribute__((__returns_nonnull__, __warn_unused_result__));
 
 }  // namespace myrocks
-
-#endif /* _ha_rocksdb_proto_h_ */

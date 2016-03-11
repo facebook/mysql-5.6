@@ -32,7 +32,7 @@
 
 namespace myrocks {
 
-void Cf_options::Get(const std::string &cf_name,
+void Rdb_cf_options::Get(const std::string &cf_name,
                      rocksdb::ColumnFamilyOptions *opts) {
   DBUG_ASSERT(opts != nullptr);
 
@@ -50,7 +50,7 @@ void Cf_options::Get(const std::string &cf_name,
   }
 }
 
-bool Cf_options::SetDefault(const std::string &default_config) {
+bool Rdb_cf_options::SetDefault(const std::string &default_config) {
   rocksdb::ColumnFamilyOptions options;
 
   if (!default_config.empty() &&
@@ -224,7 +224,7 @@ static bool find_cf_options_pair(const std::string& input, size_t* pos,
   return true;
 }
 
-bool Cf_options::SetOverride(const std::string &override_config)
+bool Rdb_cf_options::SetOverride(const std::string &override_config)
 {
   // TODO(???): support updates?
 

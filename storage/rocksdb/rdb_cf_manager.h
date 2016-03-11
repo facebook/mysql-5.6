@@ -49,7 +49,7 @@ void get_per_index_cf_name(const char *db_table_name, const char *index_name,
   - CFs are created in a synchronized way. We can't remove them, yet.
 */
 
-class Column_family_manager
+class Rdb_cf_manager
 {
   std::map<std::string, rocksdb::ColumnFamilyHandle*> cf_name_map;
   std::map<uint32_t, rocksdb::ColumnFamilyHandle*> cf_id_map;

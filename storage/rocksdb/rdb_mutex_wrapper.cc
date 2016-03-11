@@ -30,15 +30,15 @@ PSI_stage_info stage_waiting_on_row_lock2= { 0, "Waiting for row lock", 0};
 static const int64_t MICROSECS= 1000*1000;
 static const int64_t BIG_TIMEOUT= MICROSECS * 60 * 60 * 24 * 7 * 365;
 
-Wrapped_mysql_cond::Wrapped_mysql_cond() {
+Rdb_cond_var::Rdb_cond_var() {
   mysql_cond_init(0, &cond_, 0);
 }
 
-Wrapped_mysql_cond::~Wrapped_mysql_cond() {
+Rdb_cond_var::~Rdb_cond_var() {
   mysql_cond_destroy(&cond_);
 }
 
-Status Wrapped_mysql_cond::Wait(std::shared_ptr<TransactionDBMutex> mutex_arg) {
+Status Rdb_cond_var::Wait(std::shared_ptr<TransactionDBMutex> mutex_arg) {
   return WaitFor(mutex_arg, BIG_TIMEOUT);
 }
 
@@ -58,10 +58,10 @@ Status Wrapped_mysql_cond::Wait(std::shared_ptr<TransactionDBMutex> mutex_arg) {
 */
 
 Status
-Wrapped_mysql_cond::WaitFor(std::shared_ptr<TransactionDBMutex> mutex_arg,
+Rdb_cond_var::WaitFor(std::shared_ptr<TransactionDBMutex> mutex_arg,
                             int64_t timeout_micros)
 {
-  auto *mutex_obj= (Wrapped_mysql_mutex*)mutex_arg.get();
+  auto *mutex_obj= reinterpret_cast<Rdb_mutex*>(mutex_arg.get());
   DBUG_ASSERT(mutex_obj != nullptr);
 
   mysql_mutex_t * const mutex_ptr= &mutex_obj->mutex_;
@@ -143,7 +143,7 @@ Wrapped_mysql_cond::WaitFor(std::shared_ptr<TransactionDBMutex> mutex_arg,
   None of this looks like a problem for our use case.
 */
 
-void Wrapped_mysql_cond::Notify()
+void Rdb_cond_var::Notify()
 {
   mysql_cond_signal(&cond_);
 }
@@ -154,23 +154,23 @@ void Wrapped_mysql_cond::Notify()
     This is called without holding the mutex that's used for waiting on the
     condition. See ::Notify().
 */
-void Wrapped_mysql_cond::NotifyAll()
+void Rdb_cond_var::NotifyAll()
 {
   mysql_cond_broadcast(&cond_);
 }
 
 
-Wrapped_mysql_mutex::Wrapped_mysql_mutex()
+Rdb_mutex::Rdb_mutex()
 {
   mysql_mutex_init(0 /* Don't register in P_S. */, &mutex_,
                    MY_MUTEX_INIT_FAST);
 }
 
-Wrapped_mysql_mutex::~Wrapped_mysql_mutex() {
+Rdb_mutex::~Rdb_mutex() {
     mysql_mutex_destroy(&mutex_);
 }
 
-Status Wrapped_mysql_mutex::Lock() {
+Status Rdb_mutex::Lock() {
   mysql_mutex_lock(&mutex_);
   DBUG_ASSERT(old_stage_info.count(current_thd) == 0);
   return Status::OK();
@@ -181,7 +181,7 @@ Status Wrapped_mysql_mutex::Lock() {
 // If implementing a custom version of this class, the implementation may
 // choose to ignore the timeout.
 // Return OK on success, or other Status on failure.
-Status Wrapped_mysql_mutex::TryLockFor(int64_t timeout_time) {
+Status Rdb_mutex::TryLockFor(int64_t timeout_time) {
   /*
     Note: PThreads API has pthread_mutex_timedlock(), but mysql's
     mysql_mutex_* wrappers do not wrap that function.
@@ -192,7 +192,7 @@ Status Wrapped_mysql_mutex::TryLockFor(int64_t timeout_time) {
 
 
 #ifndef STANDALONE_UNITTEST
-void Wrapped_mysql_mutex::SetUnlockAction(PSI_stage_info *old_stage_arg)
+void Rdb_mutex::SetUnlockAction(PSI_stage_info *old_stage_arg)
 {
   DBUG_ASSERT(old_stage_arg != nullptr);
 
@@ -205,7 +205,7 @@ void Wrapped_mysql_mutex::SetUnlockAction(PSI_stage_info *old_stage_arg)
 #endif
 
 // Unlock Mutex that was successfully locked by Lock() or TryLockUntil()
-void Wrapped_mysql_mutex::UnLock() {
+void Rdb_mutex::UnLock() {
 #ifndef STANDALONE_UNITTEST
   if (old_stage_info.count(current_thd) > 0)
   {

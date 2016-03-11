@@ -13,9 +13,7 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
-
-#ifndef PROPERTIES_COLLECTOR_H
-#define PROPERTIES_COLLECTOR_H
+#pragma once
 
 /* C++ system header files */
 #include <map>
@@ -31,8 +29,8 @@
 
 namespace myrocks {
 
-class Table_ddl_manager;
-class RDBSE_KEYDEF;
+class Rdb_ddl_manager;
+class Rdb_key_def;
 
 extern uint64_t rocksdb_num_sst_entry_put;
 extern uint64_t rocksdb_num_sst_entry_delete;
@@ -41,11 +39,11 @@ extern uint64_t rocksdb_num_sst_entry_merge;
 extern uint64_t rocksdb_num_sst_entry_other;
 extern my_bool rocksdb_compaction_sequential_deletes_count_sd;
 
-struct CompactionParams {
+struct Rdb_compact_params {
   uint64_t deletes_, window_, file_size_;
 };
 
-class MyRocksTablePropertiesCollector
+class Rdb_tbl_props
     : public rocksdb::TablePropertiesCollector {
  public:
   struct IndexStats {
@@ -77,9 +75,9 @@ class MyRocksTablePropertiesCollector
                int64_t estimated_data_len = 0);
   };
 
-  MyRocksTablePropertiesCollector(
-    Table_ddl_manager* ddl_manager,
-    CompactionParams params,
+  Rdb_tbl_props(
+    Rdb_ddl_manager* ddl_manager,
+    Rdb_compact_params params,
     uint32_t cf_id,
     const uint8_t table_stats_sampling_pct
   );
@@ -95,7 +93,7 @@ class MyRocksTablePropertiesCollector
   }
 
   static std::string
-  GetReadableStats(const MyRocksTablePropertiesCollector::IndexStats& it);
+  GetReadableStats(const Rdb_tbl_props::IndexStats& it);
   rocksdb::UserCollectedProperties GetReadableProperties() const override;
 
   static std::vector<IndexStats> GetStatsFromTableProperties(
@@ -105,7 +103,7 @@ class MyRocksTablePropertiesCollector
   static void GetStats(
     const rocksdb::TablePropertiesCollection& collection,
     const std::unordered_set<GL_INDEX_ID>& index_numbers,
-    std::map<GL_INDEX_ID, MyRocksTablePropertiesCollector::IndexStats>& stats
+    std::map<GL_INDEX_ID, Rdb_tbl_props::IndexStats>& stats
   );
 
   bool NeedCompact() const;
@@ -119,8 +117,8 @@ class MyRocksTablePropertiesCollector
     const rocksdb::Slice& value, rocksdb::EntryType type, uint64_t file_size);
 
   uint32_t cf_id_;
-  std::unique_ptr<RDBSE_KEYDEF> keydef_;
-  Table_ddl_manager* ddl_manager_;
+  std::unique_ptr<Rdb_key_def> keydef_;
+  Rdb_ddl_manager* ddl_manager_;
   std::vector<IndexStats> stats_;
   static const char* INDEXSTATS_KEY;
 
@@ -132,24 +130,24 @@ class MyRocksTablePropertiesCollector
   uint64_t rows_, deleted_rows_, max_deleted_rows_;
   uint64_t file_size_;
 
-  CompactionParams params_;
+  Rdb_compact_params params_;
   uint8_t table_stats_sampling_pct_;
   unsigned int seed_;
   float card_adj_extra_;
 };
 
 
-class MyRocksTablePropertiesCollectorFactory
+class Rdb_tbl_props_fact
     : public rocksdb::TablePropertiesCollectorFactory {
  public:
-  explicit MyRocksTablePropertiesCollectorFactory(
-    Table_ddl_manager* ddl_manager
+  explicit Rdb_tbl_props_fact(
+    Rdb_ddl_manager* ddl_manager
   ) : ddl_manager_(ddl_manager) {
   }
 
   virtual rocksdb::TablePropertiesCollector* CreateTablePropertiesCollector(
       rocksdb::TablePropertiesCollectorFactory::Context context) override {
-    return new MyRocksTablePropertiesCollector(
+    return new Rdb_tbl_props(
       ddl_manager_, params_, context.column_family_id,
       table_stats_sampling_pct_);
   }
@@ -158,7 +156,7 @@ class MyRocksTablePropertiesCollectorFactory
     return "MyRocksTablePropertiesCollectorFactory";
   }
 
-  void SetCompactionParams(const CompactionParams& params) {
+  void SetCompactionParams(const Rdb_compact_params& params) {
     params_ = params;
   }
 
@@ -166,11 +164,9 @@ class MyRocksTablePropertiesCollectorFactory
     table_stats_sampling_pct_ = table_stats_sampling_pct;
   }
  private:
-  Table_ddl_manager* ddl_manager_;
-  CompactionParams params_;
+  Rdb_ddl_manager* ddl_manager_;
+  Rdb_compact_params params_;
   uint8_t table_stats_sampling_pct_;
 };
 
 }  // namespace myrocks
-
-#endif
