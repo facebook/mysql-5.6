@@ -3231,6 +3231,16 @@ class PT_create_table_default_collation : public PT_create_table_option {
   bool contextualize(Table_ddl_parse_context *pc) override;
 };
 
+class PT_ignore_create_table_option : public PT_create_table_option {
+  using super = PT_create_table_option;
+
+ public:
+  bool contextualize(Table_ddl_parse_context *pc) override {
+    if (super::contextualize(pc)) return true;
+    return false;
+  }
+};
+
 class PT_check_constraint : public PT_table_constraint_def {
   typedef PT_table_constraint_def super;
 

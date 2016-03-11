@@ -752,6 +752,18 @@ static const SYMBOL symbols[] = {
     {SYM("ZEROFILL", ZEROFILL_SYM)},
     {SYM("||", OR_OR_SYM)},
     /*
+      Add backward compatibility for "COMPRESSION=" options
+    */
+    {SYM("BZIP", BZIP_SYM)},
+    {SYM("COMPACT_METADATA", COMPACT_METADATA_SYM)},
+    {SYM("COMPRESSION_LEVEL", COMPRESSION_LEVEL_SYM)},
+    {SYM("LZ4", LZ4_SYM)},
+    {SYM("LZMA", LZMA_SYM)},
+    {SYM("QUICKLZ", QUICKLZ_SYM)},
+    {SYM("SNAPPY", SNAPPY_SYM)},
+    {SYM("ZLIB", ZLIB_SYM)},
+    {SYM("ZLIB_STREAM", ZLIB_STREAM_SYM)},
+    /*
       Place keywords that accept optimizer hints below this comment.
     */
     {SYM_HK("DELETE", DELETE_SYM)},

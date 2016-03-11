@@ -1236,6 +1236,15 @@ void warn_about_deprecated_national(THD *thd)
 %token<keyword> GTID_SYM
 %token<keyword> GTID_EXECUTED                 /* MYSQL */
 %token<keyword> SUPER_READ_ONLY_SYM           /* MYSQL */
+%token  BZIP_SYM
+%token  LZ4_SYM
+%token  LZMA_SYM
+%token  QUICKLZ_SYM
+%token  SNAPPY_SYM
+%token  ZLIB_SYM
+%token  ZLIB_STREAM_SYM
+%token<keyword>  COMPACT_METADATA_SYM
+%token<keyword>  COMPRESSION_LEVEL_SYM
 
 
 /*
@@ -5926,9 +5935,21 @@ create_table_option:
             $$= NEW_PTN PT_create_commen_option($3);
           }
         | COMPRESSION_SYM opt_equal TEXT_STRING_sys
-	  {
+          {
             $$= NEW_PTN PT_create_compress_option($3);
-	  }
+          }
+        | COMPRESSION_SYM opt_equal compression_types
+          {
+            $$= NEW_PTN PT_ignore_create_table_option();
+          }
+        | COMPRESSION_LEVEL_SYM opt_equal ulong_num
+          {
+            $$= NEW_PTN PT_ignore_create_table_option();
+          }
+        | COMPACT_METADATA_SYM opt_equal ulong_num
+          {
+            $$= NEW_PTN PT_ignore_create_table_option();
+          }
         | ENCRYPTION_SYM opt_equal TEXT_STRING_sys
 	  {
             $$= NEW_PTN PT_create_encryption_option($3);
@@ -6084,6 +6105,16 @@ row_types:
         | REDUNDANT_SYM  { $$= ROW_TYPE_REDUNDANT; }
         | COMPACT_SYM    { $$= ROW_TYPE_COMPACT; }
         ;
+
+compression_types:
+            ZLIB_STREAM_SYM
+          | ZLIB_SYM
+          | BZIP_SYM
+          | LZMA_SYM
+          | SNAPPY_SYM
+          | QUICKLZ_SYM
+          | LZ4_SYM
+          ;
 
 merge_insert_types:
          NO_SYM          { $$= MERGE_INSERT_DISABLED; }
