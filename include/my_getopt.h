@@ -142,6 +142,13 @@ extern bool log_slave_updates_supplied;
 extern bool slave_preserve_commit_order_supplied;
 extern my_error_reporter my_getopt_error_reporter;
 
+extern longlong getopt_ll(const char *arg, const struct my_option *optp,
+                          int *err);
+extern ulonglong getopt_ull(const char *, const struct my_option *, int *);
+extern double getopt_double(const char *arg, const struct my_option *optp,
+                            int *err);
+extern bool get_bool_argument(const char *argument, bool *error);
+
 extern "C" int handle_options(int *argc, char ***argv,
                               const struct my_option *longopts,
                               my_get_one_option);

@@ -6781,3 +6781,25 @@ static Sys_var_bool Sys_var_print_identified_with_as_hex(
     "non-prinable characters",
     SESSION_VAR(print_identified_with_as_hex), CMD_LINE(OPT_ARG),
     DEFAULT(false));
+
+static Sys_var_charptr Sys_per_user_session_var_user_name_delimiter(
+    "per_user_session_var_user_name_delimiter",
+    "Per user session variable user name delimiter",
+    READ_ONLY GLOBAL_VAR(per_user_session_var_user_name_delimiter_ptr),
+    CMD_LINE(OPT_ARG), IN_FS_CHARSET, DEFAULT(":"), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(check_not_null_not_empty));
+
+static bool check_per_user_session_var(sys_var *self MY_ATTRIBUTE((unused)),
+                                       THD *thd MY_ATTRIBUTE((unused)),
+                                       set_var *var) {
+  /* false means success */
+  return !get_per_user_session_variables()->init(
+      var->save_result.string_value.str);
+}
+
+static Sys_var_charptr Sys_per_user_session_var_default_val(
+    "per_user_session_var_default_val",
+    "Per user session variable default value",
+    GLOBAL_VAR(per_user_session_var_default_val_ptr), CMD_LINE(OPT_ARG),
+    IN_FS_CHARSET, DEFAULT(0), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(check_per_user_session_var));

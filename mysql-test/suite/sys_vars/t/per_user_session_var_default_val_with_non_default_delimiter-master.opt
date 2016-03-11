@@ -1,0 +1,2 @@
+--per-user-session-var-user-name-delimiter='#'
+--per-user-session-var-default-val="tao:2#tao:3#root#transaction_isolation=read-committed,big_tables=1,tao:1#bulk_insert_buffer_size=16M,big_tables=0,auto_increment_increment=12345,long_query_time=123.45"
