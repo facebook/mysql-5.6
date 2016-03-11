@@ -81,7 +81,7 @@ public:
                                       bool *is_automatic);
 
   /* Look up cf by id; used by datadic */
-  rocksdb::ColumnFamilyHandle* get_cf(uint32_t);
+  rocksdb::ColumnFamilyHandle* get_cf(const uint32_t id);
 
   /* Used to iterate over column families for show status */
   std::vector<std::string> get_cf_names(void);
