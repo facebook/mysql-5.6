@@ -1,0 +1,1852 @@
+flush privileges;
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+tao:2#tao:3#root#transaction_isolation=read-committed,big_tables=1,tao:1#bulk_insert_buffer_size=16M,big_tables=0,auto_increment_increment=12345,long_query_time=123.45
+SELECT @@GLOBAL.per_user_session_var_default_val;
+@@GLOBAL.per_user_session_var_default_val
+tao:2#tao:3#root#transaction_isolation=read-committed,big_tables=1,tao:1#bulk_insert_buffer_size=16M,big_tables=0,auto_increment_increment=12345,long_query_time=123.45
+## create non-super users tao1, tao2, and tao3
+create user `tao:1`@localhost;
+create user `tao:2`@localhost;
+create user `tao:3`@localhost;
+## create super users tao4 and tao5
+create user `tao:4`@localhost identified by '';
+create user `tao:5`@localhost identified by '';
+grant all privileges on *.* to `tao:4`@localhost with grant option;
+grant all privileges on *.* to `tao:5`@localhost with grant option;
+flush user_resources;
+## (1) Initial non-empty value
+## create connection batch 1
+## (2) DEFAULT value
+SET GLOBAL per_user_session_var_default_val = DEFAULT;
+SELECT @@GLOBAL.per_user_session_var_default_val;
+@@GLOBAL.per_user_session_var_default_val
+NULL
+## create connection batch 2
+## (3) Non-empty value
+SET GLOBAL per_user_session_var_default_val="tao:1#tao:2#tao:3#tao:4#transaction_isolation=serializable,big_tables=1,auto_increment_increment=12345,long_query_time=123.45,bulk_insert_buffer_size=1G,tao:5#root#binlog_format=row";
+SELECT @@GLOBAL.per_user_session_var_default_val;
+@@GLOBAL.per_user_session_var_default_val
+tao:1#tao:2#tao:3#tao:4#transaction_isolation=serializable,big_tables=1,auto_increment_increment=12345,long_query_time=123.45,bulk_insert_buffer_size=1G,tao:5#root#binlog_format=row
+## create connection batch 3
+## (4) NULL value
+SET GLOBAL per_user_session_var_default_val = NULL;
+SELECT @@GLOBAL.per_user_session_var_default_val;
+@@GLOBAL.per_user_session_var_default_val
+NULL
+## create connection batch 4
+## (5) Non-empty value
+SET GLOBAL per_user_session_var_default_val="tao:1#transaction_isolation=READ-UNCOMMITTED,tao:2#tao:3#big_tables=FALSE,root#big_tables=off,tao:4#big_tables=1,auto_increment_increment=12345,long_query_time=123.45,tao:5#binlog_format=MIXED,bulk_insert_buffer_size=32M";
+SELECT @@GLOBAL.per_user_session_var_default_val;
+@@GLOBAL.per_user_session_var_default_val
+tao:1#transaction_isolation=READ-UNCOMMITTED,tao:2#tao:3#big_tables=FALSE,root#big_tables=off,tao:4#big_tables=1,auto_increment_increment=12345,long_query_time=123.45,tao:5#binlog_format=MIXED,bulk_insert_buffer_size=32M
+## create connection batch 5
+## (6) Empty value
+SET GLOBAL per_user_session_var_default_val = "";
+SELECT @@GLOBAL.per_user_session_var_default_val;
+@@GLOBAL.per_user_session_var_default_val
+
+## create connection batch 6
+## (7) Restored initial non-empty value
+SET @@global.per_user_session_var_default_val = "tao:2#tao:3#root#transaction_isolation=read-committed,big_tables=1,tao:1#bulk_insert_buffer_size=16M,big_tables=0,auto_increment_increment=12345,long_query_time=123.45";
+SELECT @@global.per_user_session_var_default_val;
+@@global.per_user_session_var_default_val
+tao:2#tao:3#root#transaction_isolation=read-committed,big_tables=1,tao:1#bulk_insert_buffer_size=16M,big_tables=0,auto_increment_increment=12345,long_query_time=123.45
+## create connection batch 7
+##
+## Session variables of all the connections
+##
+##
+## (1) Connection batch 1
+##
+##
+## Connection con_tao_11 for user tao1
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	12345
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	123.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	16777216
+##
+## SSL connection con_tao_ssl_11 for user tao1
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	12345
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	123.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	16777216
+##
+## Connection con_tao_12 for user tao2
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	READ-COMMITTED
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_12 for user tao2
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	READ-COMMITTED
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_tao_13 for user tao3
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	READ-COMMITTED
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_13 for user tao3
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	READ-COMMITTED
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_tao_14 for user tao4
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_14 for user tao4
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_tao_15 for user tao5
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_15 for user tao5
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_root_1 for user root
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	READ-COMMITTED
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_root_ssl_1 for user root
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	READ-COMMITTED
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## (2) Connection batch 2
+##
+##
+## Connection con_tao_21 for user tao1
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_21 for user tao1
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_tao_22 for user tao2
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_22 for user tao2
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_tao_23 for user tao3
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_23 for user tao3
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_tao_24 for user tao4
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_24 for user tao4
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_tao_25 for user tao5
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_25 for user tao5
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_root_2 for user root
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_root_ssl_2 for user root
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## (3) Connection batch 3
+##
+##
+## Connection con_tao_31 for user tao1
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	SERIALIZABLE
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	12345
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	123.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	1073741824
+##
+## SSL connection con_tao_ssl_31 for user tao1
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	SERIALIZABLE
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	12345
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	123.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	1073741824
+##
+## Connection con_tao_32 for user tao2
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	SERIALIZABLE
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	12345
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	123.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	1073741824
+##
+## SSL connection con_tao_ssl_32 for user tao2
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	SERIALIZABLE
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	12345
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	123.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	1073741824
+##
+## Connection con_tao_33 for user tao3
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	SERIALIZABLE
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	12345
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	123.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	1073741824
+##
+## SSL connection con_tao_ssl_33 for user tao3
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	SERIALIZABLE
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	12345
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	123.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	1073741824
+##
+## Connection con_tao_34 for user tao4
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	SERIALIZABLE
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	12345
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	123.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	1073741824
+##
+## SSL connection con_tao_ssl_34 for user tao4
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	SERIALIZABLE
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	12345
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	123.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	1073741824
+##
+## Connection con_tao_35 for user tao5
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_35 for user tao5
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_root_3 for user root
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_root_ssl_3 for user root
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## (4) Connection batch 4
+##
+##
+## Connection con_tao_41 for user tao1
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_41 for user tao1
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_tao_42 for user tao2
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_42 for user tao2
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_tao_43 for user tao3
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_43 for user tao3
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_tao_44 for user tao4
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_44 for user tao4
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_tao_45 for user tao5
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_45 for user tao5
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_root_4 for user root
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_root_ssl_4 for user root
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## (5) Connection batch 5
+##
+##
+## Connection con_tao_51 for user tao1
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	READ-UNCOMMITTED
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_51 for user tao1
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	READ-UNCOMMITTED
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_tao_52 for user tao2
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_52 for user tao2
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_tao_53 for user tao3
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_53 for user tao3
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_tao_54 for user tao4
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	12345
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	123.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_54 for user tao4
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	12345
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	123.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_tao_55 for user tao5
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	MIXED
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	33554432
+##
+## SSL connection con_tao_ssl_55 for user tao5
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	MIXED
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	33554432
+##
+## Connection con_root_5 for user root
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_root_ssl_5 for user root
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## (6) Connection batch 6
+##
+##
+## Connection con_tao_61 for user tao1
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_61 for user tao1
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_tao_62 for user tao2
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_62 for user tao2
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_tao_63 for user tao3
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_63 for user tao3
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_tao_64 for user tao4
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_64 for user tao4
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_tao_65 for user tao5
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_65 for user tao5
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_root_6 for user root
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_root_ssl_6 for user root
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## (7) Connection batch 7
+##
+##
+## Connection con_tao_71 for user tao1
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	12345
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	123.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	16777216
+##
+## SSL connection con_tao_ssl_71 for user tao1
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	12345
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	123.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	16777216
+##
+## Connection con_tao_72 for user tao2
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	READ-COMMITTED
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_72 for user tao2
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	READ-COMMITTED
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_tao_73 for user tao3
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	READ-COMMITTED
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_73 for user tao3
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	READ-COMMITTED
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_tao_74 for user tao4
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_74 for user tao4
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_tao_75 for user tao5
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_tao_ssl_75 for user tao5
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## Connection con_root_7 for user root
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	READ-COMMITTED
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+##
+## SSL connection con_root_ssl_7 for user root
+##
+SELECT @@GLOBAL.transaction_isolation, @@SESSION.transaction_isolation;
+@@GLOBAL.transaction_isolation	@@SESSION.transaction_isolation
+REPEATABLE-READ	READ-COMMITTED
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+ROW	ROW
+SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
+@@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
+8388608	8388608
+drop user `tao:1`@localhost;
+drop user `tao:2`@localhost;
+drop user `tao:3`@localhost;
+drop user `tao:4`@localhost;
+drop user `tao:5`@localhost;
+include/rpl_end.inc

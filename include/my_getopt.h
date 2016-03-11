@@ -144,6 +144,10 @@ extern bool log_replica_updates_supplied;
 extern bool replica_preserve_commit_order_supplied;
 extern my_error_reporter my_getopt_error_reporter;
 
+extern longlong getopt_ll(const char *, bool, const my_option *, int *);
+extern ulonglong getopt_ull(const char *, bool, const my_option *, int *);
+extern double getopt_double(const char *, bool, const my_option *, int *);
+
 extern "C" int handle_options(int *argc, char ***argv,
                               const struct my_option *longopts,
                               my_get_one_option);

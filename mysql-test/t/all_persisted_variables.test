@@ -52,6 +52,7 @@ let $total_excluded_vars=`SELECT COUNT(*) FROM performance_schema.global_variabl
 'innodb_log_recent_closed_size',
 'innodb_log_recent_written_size',
 'innodb_log_write_events',
+'per_user_session_var_user_name_delimiter',
 '_list_end_'
 )`;
 let $total_persistent_vars= `SELECT $total_persistent_vars - $total_excluded_vars`;

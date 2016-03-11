@@ -37,8 +37,10 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
+#include <mysql/components/services/bits/mysql_rwlock_bits.h>
 #include "lex_string.h"
 #include "m_ctype.h"
 #include "my_getopt.h"    // get_opt_arg_type
@@ -46,7 +48,9 @@
 #include "my_inttypes.h"
 #include "my_sys.h"
 #include "my_systime.h"  // my_micro_time()
+#include "mysql/components/services/bits/psi_rwlock_bits.h"
 #include "mysql/components/services/system_variable_source_type.h"
+#include "mysql/psi/mysql_rwlock.h"
 #include "mysql/status_var.h"
 #include "mysql/udf_registration_types.h"
 #include "mysql_com.h"           // Item_result
@@ -1079,6 +1083,104 @@ class set_var_collation_client : public set_var_base {
   bool print(const THD *thd, String *str) override; /* To self-print */
 };
 
+/**
+   Per-user session variables
+*/
+
+class Per_user_session_variables {
+  /**
+    A session variable item
+    First  : the variable name
+    Second : the value
+  */
+  using Session_var = std::pair<std::string, std::string>;
+
+  /**
+    The session variables for a user
+    Key   : the session variable name
+    Value : the default value of this session variable
+  */
+  using Session_vars = std::unordered_map<std::string, std::string>;
+  using Session_vars_it = Session_vars::iterator;
+  using Session_vars_sp = std::shared_ptr<Session_vars>;
+  /**
+    The session variables for users
+    Key   : the user name
+    Value : the collection of session variables of this user
+  */
+  using User_session_vars = std::unordered_map<std::string, Session_vars_sp>;
+  using User_session_vars_it = User_session_vars::iterator;
+
+  /**
+    Global hash table for per-user session variables
+  */
+  using User_session_vars_sp = std::shared_ptr<User_session_vars>;
+
+  /* The per-user session variable hash table */
+  User_session_vars_sp per_user_session_vars;
+  mysql_rwlock_t LOCK_per_user_session_var;
+  PSI_rwlock_key key_rwlock_LOCK_per_user_session_var;
+  PSI_rwlock_info key_rwlock_LOCK_per_user_session_var_info[1] = {
+      {&key_rwlock_LOCK_per_user_session_var,
+       "Per_user_session_variables::rwlock", PSI_FLAG_SINGLETON, 0,
+       "rwlock for per-user session hash table"}};
+
+ public:
+  Per_user_session_variables();
+  ~Per_user_session_variables();
+
+ private:
+  /**
+    Set a session variable's value
+    name  : the variable name
+    value : the value
+  */
+  static bool set_val_do(System_variable_tracker &var_tracker, Item *item,
+                         THD *thd);
+  static bool set_val(const std::string &name, const std::string &val,
+                      THD *thd);
+  /**
+    Validate a session variable name and its value
+    name  : the variable name
+    value : the value
+  */
+  static bool validate_val(const std::string &name, const std::string &val);
+  /**
+    Validate and store a per user session variable segment
+    users : user list have the same settings
+    vars  : session variable list
+  */
+  static bool store(
+      User_session_vars_sp &per_user_vars,
+      const std::vector<std::string> &users,
+      const std::vector<Per_user_session_variables::Session_var> &vars);
+  /**
+    Do the actual initialization
+  */
+  static bool init_do(User_session_vars_sp &per_user_vars,
+                      const char *sys_var_str);
+
+ public:
+  /**
+    Set per user session variables for a THD.
+  */
+  bool set_thd(THD *thd);
+  /**
+    Print all the values in the hash table into log file.
+  */
+  void print();
+  /**
+    Initialize the per user session variables.
+    This is called by SET command.
+  */
+  bool init(const char *sys_var_str);
+  /**
+    Initialize the per user session variables.
+    This is called during server starting time.
+  */
+  bool init();
+};
+
 /* optional things, have_* variables */
 extern SHOW_COMP_OPTION have_profiling;
 
@@ -1097,6 +1199,8 @@ collation_unordered_map<std::string, sys_var *>
     *get_static_system_variable_hash(void);
 collation_unordered_map<std::string, sys_var *>
     *get_dynamic_system_variable_hash(void);
+
+Per_user_session_variables *get_per_user_session_variables(void);
 
 extern bool get_sysvar_source(const char *name, uint length,
                               enum enum_variable_source *source);

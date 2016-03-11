@@ -1,0 +1,35 @@
+SET @original_val = @@global.per_user_session_var_default_val;
+SELECT @original_val;
+@original_val
+NULL
+SELECT @@GLOBAL.per_user_session_var_default_val = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='per_user_session_var_default_val';
+@@GLOBAL.per_user_session_var_default_val = VARIABLE_VALUE
+NULL
+SELECT @@SESSION.per_user_session_var_default_val;
+ERROR HY000: Variable 'per_user_session_var_default_val' is a GLOBAL variable
+SET SESSION per_user_session_var_default_val = "";
+ERROR HY000: Variable 'per_user_session_var_default_val' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@GLOBAL.per_user_session_var_default_val;
+@@GLOBAL.per_user_session_var_default_val
+NULL
+## default value is NULL
+SET GLOBAL per_user_session_var_default_val = DEFAULT;
+SELECT @@GLOBAL.per_user_session_var_default_val;
+@@GLOBAL.per_user_session_var_default_val
+NULL
+## NULL is a valid value
+SET GLOBAL per_user_session_var_default_val = NULL;
+SELECT @@GLOBAL.per_user_session_var_default_val;
+@@GLOBAL.per_user_session_var_default_val
+NULL
+## "" is a valid value
+SET GLOBAL per_user_session_var_default_val = "";
+SELECT @@GLOBAL.per_user_session_var_default_val;
+@@GLOBAL.per_user_session_var_default_val
+
+SET @@global.per_user_session_var_default_val = @original_val;
+SELECT @@global.per_user_session_var_default_val;
+@@global.per_user_session_var_default_val
+NULL
