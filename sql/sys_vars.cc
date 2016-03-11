@@ -650,6 +650,12 @@ static Sys_var_charptr Sys_binlog_index_basedir(
        READ_ONLY GLOBAL_VAR(binlog_index_basedir_ptr), NO_CMD_LINE,
        IN_FS_CHARSET, DEFAULT(0));
 
+static Sys_var_charptr Sys_per_user_session_var_default_val(
+       "per_user_session_var_default_val",
+       "Per user session variable default value",
+       READ_ONLY GLOBAL_VAR(per_user_session_var_default_val_ptr),
+       CMD_LINE(OPT_ARG),
+       IN_FS_CHARSET, DEFAULT(0));
 
 static bool fix_binlog_cache_size(sys_var *self, THD *thd, enum_var_type type)
 {

@@ -1,0 +1,40 @@
+# valid non-empty string
+SELECT @@GLOBAL.per_user_session_var_default_val;
+@@GLOBAL.per_user_session_var_default_val
+tao2:tao3:tao4:root:tx_isolation=read-committed,gap_lock_raise_error=0,gap_lock_write_log=0,big_tables=1,auto_increment_increment=12345,long_query_time=123.45,admin3:gap_lock_raise_error=0,gap_lock_write_log=0
+SELECT @@GLOBAL.tx_isolation;
+@@GLOBAL.tx_isolation
+REPEATABLE-READ
+SELECT @@SESSION.tx_isolation;
+@@SESSION.tx_isolation
+READ-COMMITTED
+SELECT @@GLOBAL.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error
+0
+SELECT @@SESSION.gap_lock_raise_error;
+@@SESSION.gap_lock_raise_error
+0
+SELECT @@GLOBAL.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log
+0
+SELECT @@SESSION.gap_lock_write_log;
+@@SESSION.gap_lock_write_log
+0
+SELECT @@GLOBAL.big_tables;
+@@GLOBAL.big_tables
+0
+SELECT @@SESSION.big_tables;
+@@SESSION.big_tables
+1
+SELECT @@GLOBAL.auto_increment_increment;
+@@GLOBAL.auto_increment_increment
+1
+SELECT @@SESSION.auto_increment_increment;
+@@SESSION.auto_increment_increment
+12345
+SELECT @@GLOBAL.long_query_time;
+@@GLOBAL.long_query_time
+10.000000
+SELECT @@SESSION.long_query_time;
+@@SESSION.long_query_time
+123.000000

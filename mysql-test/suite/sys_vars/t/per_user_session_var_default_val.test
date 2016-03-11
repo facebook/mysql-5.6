@@ -1,0 +1,20 @@
+--echo # valid non-empty string
+SELECT @@GLOBAL.per_user_session_var_default_val;
+
+SELECT @@GLOBAL.tx_isolation;
+SELECT @@SESSION.tx_isolation;
+
+SELECT @@GLOBAL.gap_lock_raise_error;
+SELECT @@SESSION.gap_lock_raise_error;
+
+SELECT @@GLOBAL.gap_lock_write_log;
+SELECT @@SESSION.gap_lock_write_log;
+
+SELECT @@GLOBAL.big_tables;
+SELECT @@SESSION.big_tables;
+
+SELECT @@GLOBAL.auto_increment_increment;
+SELECT @@SESSION.auto_increment_increment;
+
+SELECT @@GLOBAL.long_query_time;
+SELECT @@SESSION.long_query_time;

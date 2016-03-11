@@ -1,0 +1,14 @@
+SELECT @@GLOBAL.per_user_session_var_default_val = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='per_user_session_var_default_val';
+@@GLOBAL.per_user_session_var_default_val = VARIABLE_VALUE
+NULL
+SELECT @@GLOBAL.per_user_session_var_default_val;
+@@GLOBAL.per_user_session_var_default_val
+NULL
+SELECT @@SESSION.per_user_session_var_default_val;
+ERROR HY000: Variable 'per_user_session_var_default_val' is a GLOBAL variable
+SET GLOBAL per_user_session_var_default_val = "";
+ERROR HY000: Variable 'per_user_session_var_default_val' is a read only variable
+SET SESSION per_user_session_var_default_val = "";
+ERROR HY000: Variable 'per_user_session_var_default_val' is a read only variable

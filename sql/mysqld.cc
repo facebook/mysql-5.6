@@ -913,6 +913,7 @@ char *opt_binlog_index_name;
 char *mysql_home_ptr, *pidfile_name_ptr;
 char *binlog_file_basedir_ptr;
 char *binlog_index_basedir_ptr;
+char *per_user_session_var_default_val_ptr;
 /** Initial command line arguments (count), after load_defaults().*/
 static int defaults_argc;
 /**
@@ -6080,6 +6081,375 @@ epilogue:
 }
 #endif /* TARGET_OS_LINUX */
 
+/**
+  The session variables for a user
+  Key   : the session variable name
+  Value : the default value of this session variable
+*/
+typedef std::unordered_map<std::string, std::string> Session_vars;
+
+typedef Session_vars::iterator Session_vars_it;
+
+typedef std::shared_ptr<Session_vars> Session_vars_sp;
+
+/**
+  The session variables for users
+  Key   : the user name
+  Value : the collection of session variables of this user
+*/
+typedef std::unordered_map<std::string, Session_vars_sp>
+        User_session_vars;
+
+typedef User_session_vars::iterator User_session_vars_it;
+
+/**
+  Global hash table for per-user session variables
+*/
+User_session_vars per_user_session_vars;
+
+/**
+  A session variable item
+  First  : the variable name
+  Second : the value
+*/
+typedef std::pair<std::string, std::string> Session_var;
+
+/**
+  Set a session variable's value
+  name  : the variable name
+  value : the value
+*/
+
+static bool per_user_session_var_set_val_do(sys_var *var, Item *item, THD *thd)
+{
+  LEX_STRING tmp;
+  set_var set_v(OPT_SESSION, var, &tmp, item);
+
+  if (!set_v.check(thd) && !thd->is_error() && !set_v.update(thd))
+    return true;
+
+  return false;
+}
+
+#define CHECK_ERR_AND_VALIDATE_ONLY(err, validate_only) \
+do { \
+  if (err) \
+    return false; \
+  if (validate_only) \
+    return !err; \
+} while (0)
+
+bool per_user_session_var_set_val(const std::string& name,
+                                  const std::string& val,
+                                  THD *thd)
+{
+  sys_var *var = intern_find_sys_var(name.c_str(), name.length());
+  DBUG_ASSERT(var);
+  if (!var)
+    return false;
+
+  /* validate only if thd is NULL */
+  bool validate_only = !thd;
+
+  const my_option *opt = var->get_option();
+  int err = 0; // 0 means no error
+
+  switch (opt->var_type & GET_TYPE_MASK) {
+  case GET_BOOL: /* If argument differs from 0, enable option, else disable */
+    {
+      my_bool v = my_get_bool_argument(opt, val.c_str(), &err);
+
+      CHECK_ERR_AND_VALIDATE_ONLY(err, validate_only);
+
+      Item_int item(v);
+      return per_user_session_var_set_val_do(var, &item, thd);
+    }
+  case GET_INT:
+    {
+      int v = (int) getopt_ll((char *)val.c_str(), opt, &err);
+
+      CHECK_ERR_AND_VALIDATE_ONLY(err, validate_only);
+
+      Item_int item(v);
+      return per_user_session_var_set_val_do(var, &item, thd);
+    }
+  case GET_UINT:
+    {
+      uint v = (uint) getopt_ull((char *)val.c_str(), opt, &err);
+
+      CHECK_ERR_AND_VALIDATE_ONLY(err, validate_only);
+
+      Item_uint item(v);
+      return per_user_session_var_set_val_do(var, &item, thd);
+    }
+  case GET_LONG:
+    {
+      long v = (long) getopt_ll((char *)val.c_str(), opt, &err);
+
+      CHECK_ERR_AND_VALIDATE_ONLY(err, validate_only);
+
+      Item_int item((int32)v);
+      return per_user_session_var_set_val_do(var, &item, thd);
+    }
+  case GET_ULONG:
+    {
+      /* Note that the name says the type is ulong
+         but the actual internal type is long */
+      long v = (long) getopt_ull((char *)val.c_str(), opt, &err);
+
+      CHECK_ERR_AND_VALIDATE_ONLY(err, validate_only);
+
+      Item_int item((int32)v);
+      return per_user_session_var_set_val_do(var, &item, thd);
+    }
+  case GET_LL:
+    {
+      longlong v = (longlong) getopt_ll((char *)val.c_str(), opt, &err);
+
+      CHECK_ERR_AND_VALIDATE_ONLY(err, validate_only);
+
+      Item_int item(v);
+      return per_user_session_var_set_val_do(var, &item, thd);
+    }
+  case GET_ULL:
+    {
+      ulonglong v = (ulonglong) getopt_ull((char *)val.c_str(), opt, &err);
+
+      CHECK_ERR_AND_VALIDATE_ONLY(err, validate_only);
+
+      Item_uint item(v);
+      return per_user_session_var_set_val_do(var, &item, thd);
+    }
+  case GET_DOUBLE:
+    {
+      double v = getopt_double((char *)val.c_str(), opt, &err);
+
+      CHECK_ERR_AND_VALIDATE_ONLY(err, validate_only);
+
+      Item_uint item(v);
+      return per_user_session_var_set_val_do(var, &item, thd);
+    }
+  case GET_ENUM:
+    {
+      bool valid = false;
+      int type= find_type(val.c_str(), opt->typelib, FIND_TYPE_BASIC);
+      if (type == 0)
+      {
+        /* Accept an integer representation of the enumerated item.*/
+        char *endptr;
+        ulong arg= strtoul(val.c_str(), &endptr, 10);
+        if (!*endptr && arg < opt->typelib->count)
+          valid = true;
+      }
+      else if (type > 0)
+        valid = true;
+
+      if (validate_only)
+        return valid;
+
+      Item_string item(val.c_str(), val.length(), thd->charset());
+      return per_user_session_var_set_val_do(var, &item, thd);
+    }
+  default:
+    /* All other types are not supported */
+    break;
+  }
+  return false;
+}
+
+/**
+  Validate a session variable name and its value
+  name  : the variable name
+  value : the value
+*/
+bool per_user_session_var_validate_val(const std::string& name,
+                                       const std::string& val)
+{
+  return per_user_session_var_set_val(name, val, NULL);
+}
+
+
+/**
+  Set per user session variables for a THD
+*/
+bool set_per_user_session_variables(THD *thd)
+{
+  const char *user = thd->main_security_ctx.user;
+  DBUG_ASSERT(user);
+  if (!user)
+    return false;
+
+  User_session_vars_it it = per_user_session_vars.find(user);
+  /* This user doesn't have per-user session varibles */
+  if (it == per_user_session_vars.end())
+    return true;
+
+  Session_vars_sp vars_sp = it->second;
+  DBUG_ASSERT(vars_sp->size() > 0);
+
+  for (Session_vars_it it = vars_sp->begin();
+       it != vars_sp->end(); ++it)
+  {
+    if (!per_user_session_var_set_val(it->first, it->second, thd))
+      return false;
+  }
+
+  return true;
+}
+
+/**
+  Validate and store a per user session variable segment
+  users : user list have the same settings
+  vars  : session variable list
+*/
+
+bool store_per_user_session_variables(const std::vector<std::string>& users,
+                                      const std::vector<Session_var>& vars)
+{
+  Session_vars_sp sp_vars = std::make_shared<Session_vars>();
+  assert(sp_vars.use_count() == 1);
+  for(uint i = 0; i < vars.size(); ++i)
+  {
+    const char* name = vars[i].first.c_str();
+    size_t name_len = vars[i].first.size();
+    const char* val = vars[i].second.c_str();
+
+    printf("##### KV >>%s=%s<<\n", name, val);
+
+    /* If the name is a valid var name */
+    sys_var *var = intern_find_sys_var(name, name_len);
+    if (!var)
+      return false;
+
+    /* If the value is valid */
+    if (!per_user_session_var_validate_val(vars[i].first, vars[i].second))
+      return false;
+
+    /* Insert the name value pair */
+    std::pair<Session_vars_it, bool> ret =
+      sp_vars->insert(std::make_pair(name, val));
+    /* Duplicate entries are not allowed */
+    if (!ret.second)
+      return false;
+  }
+  DBUG_ASSERT(sp_vars->size() == vars.size());
+
+  /* We don't validate user names so that per user session variables
+     can be defined earlier and users can be added later */
+  for(uint i = 0; i < users.size(); ++i)
+  {
+    printf("##### USER >>%s<<\n", users[i].c_str());
+    std::pair<User_session_vars_it, bool> ret =
+      per_user_session_vars.insert(std::make_pair(users[i], sp_vars));
+    /* Duplicate entries are not allowed */
+    if (!ret.second)
+      return false;
+  }
+  DBUG_ASSERT(sp_vars.use_count() == (int)(users.size() + 1));
+
+  return true;
+}
+
+bool init_per_user_session_variables()
+{
+  if (!per_user_session_var_default_val_ptr ||
+      !strlen(per_user_session_var_default_val_ptr))
+    return true;
+
+  printf("##### Per user session variabls = %s\n",
+         per_user_session_var_default_val_ptr);
+
+  std::vector<std::string> users;
+  users.reserve(16);
+
+  std::vector<Session_var> vars;
+  vars.reserve(16);
+
+  std::string key, val;
+
+  const char *delimiters = ":=, \t";
+  const char *p = per_user_session_var_default_val_ptr;
+  const char *prev = p;
+
+  enum STAGE {
+    USER, USER_KEY, VAL
+  } stage;
+  stage = STAGE::USER;
+  bool saw_var = false;
+
+  /* Parsing the string value, for example:
+     --per-user-session-var-default-val="u1:u2:u3:k1=v1,k2=v2,k3=v3,u4:k4=v4"
+  */
+  while (*p)
+  {
+    /* Get a token in the forms of "foo:", "bar=", "baz,",
+       or the last one in the form of "tail" */
+    while (*p && !strchr(delimiters, *p))
+      ++p;
+    /* Consecutive delimiters */
+    if (p == prev)
+      return false;
+
+    /* White space and tab is not allowed */
+    if (*p == ' ' || *p == '\t')
+    {
+      fprintf(stderr, "[ERROR] White space and TAB are not allowed.\n");
+      return false;
+    }
+
+    /* Saw a user */
+    if (*p == ':' && stage == STAGE::USER)
+    {
+      users.push_back(std::string(prev, p - prev));
+      stage = STAGE::USER_KEY;
+    }
+    else if (*p == ':' && stage == STAGE::USER_KEY)
+    {
+      if (saw_var)
+      {
+        /* Store the whole segment of per user session variables */
+        if (!store_per_user_session_variables(users, vars))
+          return false;
+        /* Start a new segment */
+        saw_var = false;
+        users.clear();
+        vars.clear();
+      }
+      users.push_back(std::string(prev, p - prev));
+    }
+    /* Saw a key */
+    else if (*p == '=' && stage == STAGE::USER_KEY)
+    {
+      key = std::string(prev, p - prev);
+      stage = STAGE::VAL;
+    }
+    /* Saw a val */
+    else if ((*p == ',' || *p == '\0') && stage == STAGE::VAL)
+    {
+      val = std::string(prev, p - prev);
+      vars.push_back(std::pair<std::string, std::string>(key, val));
+      if (*p == '\0')
+      {
+        /* Store the whole segment of per user session variables */
+        if (!store_per_user_session_variables(users, vars))
+          return false;
+
+        /* Done */
+        return true;
+      }
+      saw_var = true;
+      stage = STAGE::USER_KEY;
+    }
+    else
+      return false;
+
+    /* Skip the delimiter and start a new token */
+    prev = ++p;
+  }
+  /* Saw end of string at wrong stage */
+  return false;
+}
+
 #ifdef __WIN__
 int win_main(int argc, char **argv)
 #else
@@ -6248,6 +6618,16 @@ int mysqld_main(int argc, char **argv)
 
   if (init_common_variables(TRUE))
     unireg_abort(1);        // Will do exit
+
+  /*
+    All sys-var are processed so it is time handle
+    the per-user session variables.
+  */
+  if (!init_per_user_session_variables())
+  {
+    fprintf(stderr, "[ERROR] init_per_user_session_variables() failed.\n");
+    unireg_abort(1);
+  }
 
   my_init_signals();
 
@@ -9439,6 +9819,8 @@ static int mysql_init_variables(void)
   admin_ip_sock = MYSQL_INVALID_SOCKET;
   binlog_file_basedir_ptr= binlog_file_basedir;
   binlog_index_basedir_ptr= binlog_index_basedir;
+  per_user_session_var_default_val_ptr= NULL;
+
   mysql_home_ptr= mysql_home;
   pidfile_name_ptr= pidfile_name;
   log_error_file_ptr= log_error_file;
