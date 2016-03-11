@@ -1,0 +1,1373 @@
+flush privileges;
+SELECT @@GLOBAL.per_user_session_var_default_val;
+@@GLOBAL.per_user_session_var_default_val
+tao2:tao3:root:tx_isolation=read-committed,gap_lock_raise_error=0,gap_lock_write_log=0,big_tables=1,tao1:gap_lock_raise_error=0,gap_lock_write_log=0,auto_increment_increment=12345,long_query_time=123.45
+## create non-super users tao1, tao2, and tao3
+create user tao1@localhost;
+create user tao2@localhost;
+create user tao3@localhost;
+## create super users tao4 and tao5
+grant all privileges on *.* to tao4@localhost identified by password '' with grant option;
+grant all privileges on *.* to tao5@localhost identified by password '' with grant option;
+flush user_resources;
+##
+## (1) Initial non-empty values
+##
+## create connection batch 1
+##
+## session variables of the current connnection batch
+## which should be determined by the latest values of the SET command
+##
+## connection batch 1
+## connection con11 for user tao1
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	12345
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	123.000000
+## connection con12 for user tao2
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	READ-COMMITTED
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con13 for user tao3
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	READ-COMMITTED
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con14 for user tao4
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con15 for user tao5
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con for user root
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	READ-COMMITTED
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+##
+## (2) DEFAULT values
+##
+SET GLOBAL per_user_session_var_default_val = DEFAULT;
+SELECT @@GLOBAL.per_user_session_var_default_val;
+@@GLOBAL.per_user_session_var_default_val
+NULL
+## create connection batch 2
+##
+## session variables of the current connnection batch
+## which should be determined by the latest values of the SET command
+##
+## connection batch 2
+## connection con21 for user tao1
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con22 for user tao2
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con23 for user tao3
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con24 for user tao4
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con25 for user tao5
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con for user root
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+##
+## session variables of the last connnection batch
+## which should remain the values of the previous SET command
+##
+## connection batch 1
+## connection con11 for user tao1
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	12345
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	123.000000
+## connection con12 for user tao2
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	READ-COMMITTED
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con13 for user tao3
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	READ-COMMITTED
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con14 for user tao4
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con15 for user tao5
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con for user root
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	READ-COMMITTED
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+##
+## (3) NULL
+##
+SET GLOBAL per_user_session_var_default_val = NULL;
+SELECT @@GLOBAL.per_user_session_var_default_val;
+@@GLOBAL.per_user_session_var_default_val
+NULL
+## create connection batch 3
+##
+## session variables of the current connnection batch
+## which should be determined by the latest values of the SET command
+##
+## connection batch 3
+## connection con31 for user tao1
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con32 for user tao2
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con33 for user tao3
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con34 for user tao4
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con35 for user tao5
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con for user root
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+##
+## session variables of the last connnection batch
+## which should remain the values of the previous SET command
+##
+## connection batch 2
+## connection con21 for user tao1
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con22 for user tao2
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con23 for user tao3
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con24 for user tao4
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con25 for user tao5
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con for user root
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+##
+## (4) Empty string
+##
+SET GLOBAL per_user_session_var_default_val = "";
+SELECT @@GLOBAL.per_user_session_var_default_val;
+@@GLOBAL.per_user_session_var_default_val
+
+## create connection batch 4
+##
+## session variables of the current connnection batch
+## which should be determined by the latest values of the SET command
+##
+## connection batch 4
+## connection con41 for user tao1
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con42 for user tao2
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con43 for user tao3
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con44 for user tao4
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con45 for user tao5
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con for user root
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+##
+## session variables of the last connnection batch
+## which should remain the values of the previous SET command
+##
+## connection batch 3
+## connection con31 for user tao1
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con32 for user tao2
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con33 for user tao3
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con34 for user tao4
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con35 for user tao5
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con for user root
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+##
+## (5) New non-empty string
+##
+SET GLOBAL per_user_session_var_default_val="tao1:tx_isolation=SERIALIZABLE,tao2:tao3:gap_lock_raise_error=0,root:gap_lock_write_log=0,tao4:big_tables=1,auto_increment_increment=12345,long_query_time=123.45,tao5:gap_lock_raise_error=0,gap_lock_write_log=0";
+SELECT @@GLOBAL.per_user_session_var_default_val;
+@@GLOBAL.per_user_session_var_default_val
+tao1:tx_isolation=SERIALIZABLE,tao2:tao3:gap_lock_raise_error=0,root:gap_lock_write_log=0,tao4:big_tables=1,auto_increment_increment=12345,long_query_time=123.45,tao5:gap_lock_raise_error=0,gap_lock_write_log=0
+## create connection batch 5
+##
+## session variables of the current connnection batch
+## which should be determined by the latest values of the SET command
+##
+## connection batch 5
+## connection con51 for user tao1
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	SERIALIZABLE
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con52 for user tao2
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con53 for user tao3
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con54 for user tao4
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	12345
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	123.000000
+## connection con55 for user tao5
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con for user root
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+##
+## session variables of the last connnection batch
+## which should remain the values of the previous SET command
+##
+## connection batch 4
+## connection con41 for user tao1
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con42 for user tao2
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con43 for user tao3
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con44 for user tao4
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con45 for user tao5
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con for user root
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+##
+## (6) Restored initial non-empty values
+##
+SET @@global.per_user_session_var_default_val = @original_val;
+SET @@global.per_user_session_var_default_val = "tao2:tao3:root:tx_isolation=read-committed,gap_lock_raise_error=0,gap_lock_write_log=0,big_tables=1,tao1:gap_lock_raise_error=0,gap_lock_write_log=0,auto_increment_increment=12345,long_query_time=123.45";
+SELECT @@global.per_user_session_var_default_val;
+@@global.per_user_session_var_default_val
+tao2:tao3:root:tx_isolation=read-committed,gap_lock_raise_error=0,gap_lock_write_log=0,big_tables=1,tao1:gap_lock_raise_error=0,gap_lock_write_log=0,auto_increment_increment=12345,long_query_time=123.45
+## create connection batch 6
+##
+## session variables of the current connnection batch
+## which should be determined by the latest values of the SET command
+##
+## connection batch 6
+## connection con61 for user tao1
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	12345
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	123.000000
+## connection con62 for user tao2
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	READ-COMMITTED
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con63 for user tao3
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	READ-COMMITTED
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con64 for user tao4
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con65 for user tao5
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con for user root
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	READ-COMMITTED
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+##
+## session variables of the last connnection batch
+## which should remain the values of the previous SET command
+##
+## connection batch 5
+## connection con51 for user tao1
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	SERIALIZABLE
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con52 for user tao2
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con53 for user tao3
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con54 for user tao4
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	1
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	12345
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	123.000000
+## connection con55 for user tao5
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## connection con for user root
+SELECT @@GLOBAL.tx_isolation, @@SESSION.tx_isolation;
+@@GLOBAL.tx_isolation	@@SESSION.tx_isolation
+REPEATABLE-READ	REPEATABLE-READ
+SELECT @@GLOBAL.gap_lock_raise_error, @@SESSION.gap_lock_raise_error;
+@@GLOBAL.gap_lock_raise_error	@@SESSION.gap_lock_raise_error
+0	0
+SELECT @@GLOBAL.gap_lock_write_log, @@SESSION.gap_lock_write_log;
+@@GLOBAL.gap_lock_write_log	@@SESSION.gap_lock_write_log
+0	0
+SELECT @@GLOBAL.big_tables, @@SESSION.big_tables;
+@@GLOBAL.big_tables	@@SESSION.big_tables
+0	0
+SELECT @@GLOBAL.auto_increment_increment, @@SESSION.auto_increment_increment;
+@@GLOBAL.auto_increment_increment	@@SESSION.auto_increment_increment
+1	1
+SELECT @@GLOBAL.long_query_time, @@SESSION.long_query_time;
+@@GLOBAL.long_query_time	@@SESSION.long_query_time
+10.000000	10.000000
+## disconnect all the connections
+## drop all the users
+drop user tao1@localhost;
+drop user tao2@localhost;
+drop user tao3@localhost;
+drop user tao4@localhost;
+drop user tao5@localhost;
