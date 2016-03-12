@@ -93,8 +93,6 @@ Wrapped_mysql_cond::WaitFor(std::shared_ptr<TransactionDBMutex> mutex_arg,
     mutex_obj->SetUnlockAction(&old_stage);
   }
 
-  DBUG_ASSERT(mutex_obj->thd == nullptr);
-
 #endif
   bool killed= false;
 
