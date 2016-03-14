@@ -1,0 +1,202 @@
+--source include/have_rocksdb.inc
+
+source include/master-slave.inc;
+
+
+connection master;
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+# initialization/insert
+connection master;
+--source init_stats_procedure.inc
+
+create table t1 (id int primary key, value int);
+insert into t1 values (1,1), (2,2), (3,3), (4,4);
+--source include/sync_slave_sql_with_master.inc
+
+--let $diff_tables= master:t1, slave:t1
+
+--echo
+--echo # regular update/delete. With rpl_lookup_rows=false, rocksdb_rows_read does not increase on slaves
+--echo
+connection slave;
+call save_read_stats();
+connection master;
+update t1 set value=value+1 where id=1;
+delete from t1 where id=4;
+select * from t1;
+--source include/sync_slave_sql_with_master.inc
+connection slave;
+call get_read_stats();
+select * from t1;
+
+
+--echo
+--echo # "rpl_lookup_rows=false" makes "row not found error" not happen anymore
+--echo
+connection slave;
+--source include/stop_slave.inc
+delete from t1 where id in (2, 3);
+--source include/start_slave.inc
+call save_read_stats();
+
+connection master;
+update t1 set value=value+1 where id=3;
+delete from t1 where id=2;
+select * from t1;
+--source include/sync_slave_sql_with_master.inc
+connection slave;
+call get_read_stats();
+select * from t1;
+
+
+--echo
+--echo ## tables without primary key -- read free replication should be disabled
+--echo
+--echo
+--echo #no index
+--echo
+connection master;
+drop table t1;
+create table t1 (c1 int, c2 int);
+insert into t1 values (1,1), (2,2),(3,3),(4,4),(5,5);
+--source include/sync_slave_sql_with_master.inc
+connection slave;
+call save_read_stats();
+connection master;
+update t1 set c2=100 where c1=3;
+delete from t1 where c1 <= 2;
+--source include/sync_slave_sql_with_master.inc
+connection slave;
+call get_read_stats();
+select * from t1;
+
+--echo
+--echo #secondary index only
+--echo
+connection master;
+drop table t1;
+create table t1 (c1 int, c2 int, index i(c1));
+insert into t1 values (1,1), (2,2),(3,3),(4,4),(5,5);
+--source include/sync_slave_sql_with_master.inc
+connection slave;
+call save_read_stats();
+connection master;
+update t1 set c2=100 where c1=3;
+delete from t1 where c1 <= 2;
+--source include/sync_slave_sql_with_master.inc
+connection slave;
+call get_read_stats();
+select * from t1;
+
+
+
+--echo
+--echo ## large row operations -- primary key modification, secondary key modification
+--echo
+connection master;
+drop table t1;
+create table t1 (id1 bigint, id2 bigint, c1 bigint, c2 bigint, c3 bigint, c4 bigint, c5 bigint, c6 bigint, c7 bigint, primary key (id1, id2), index i(c1, c2));
+
+--disable_query_log
+let $i=1;
+while ($i<=10000)
+{
+  eval insert t1(id1,id2,c1,c2,c3,c4,c5,c6,c7)
+  values($i,0,$i,0,0,0,0,0,0);
+  inc $i;
+}
+--enable_query_log
+
+--source include/sync_slave_sql_with_master.inc
+connection slave;
+call save_read_stats();
+connection master;
+
+--echo
+--echo #updating all seconary keys by 1
+--echo
+--disable_query_log
+let $i=1;
+while ($i<=10000)
+{
+  eval update t1 set c2=c2+1 where id1=$i and id2=0;
+  inc $i;
+}
+--enable_query_log
+--source include/sync_slave_sql_with_master.inc
+connection slave;
+call get_read_stats();
+connection master;
+--source include/diff_tables.inc
+
+--echo
+--echo #updating all primary keys by 2
+--echo
+connection slave;
+call save_read_stats();
+connection master;
+--disable_query_log
+let $i=1;
+while ($i<=10000)
+{
+  eval update t1 set id2=id2+2 where id1=$i and id2=0;
+  inc $i;
+}
+--enable_query_log
+--source include/sync_slave_sql_with_master.inc
+connection slave;
+call get_read_stats();
+connection master;
+--source include/diff_tables.inc
+
+--echo
+--echo #updating secondary keys after truncating t1 on slave
+--echo
+connection slave;
+truncate table t1;
+call save_read_stats();
+connection master;
+update t1 set c2=c2+10;
+--source include/sync_slave_sql_with_master.inc
+connection slave;
+call get_read_stats();
+connection master;
+--source include/diff_tables.inc
+
+--echo
+--echo #updating primary keys after truncating t1 on slave
+--echo
+connection slave;
+truncate table t1;
+call save_read_stats();
+connection master;
+update t1 set id2=id2+10;
+--source include/sync_slave_sql_with_master.inc
+connection slave;
+call get_read_stats();
+connection master;
+--source include/diff_tables.inc
+
+--echo
+--echo #deleting half rows
+--echo
+connection slave;
+call save_read_stats();
+connection master;
+delete from t1 where id1 <= 5000;
+--source include/sync_slave_sql_with_master.inc
+connection slave;
+call get_read_stats();
+connection master;
+--source include/diff_tables.inc
+
+# cleanup
+connection master;
+drop table t1;
+--source drop_stats_procedure.inc
+
+--source include/rpl_end.inc
+
