@@ -453,6 +453,8 @@ class ha_rocksdb: public handler
 
   void update_row_stats(operation_type type);
 
+  void set_last_rowkey(const uchar *old_data);
+
   /*
     Descriptor telling how to decode/encode a field to on-disk record storage
     format. Not all information is in the structure yet, but eventually we
@@ -783,6 +785,17 @@ public:
   void update_create_info(HA_CREATE_INFO *create_info);
   int optimize(THD *thd, HA_CHECK_OPT *check_opt);
   int analyze(THD* thd, HA_CHECK_OPT* check_opt);
+
+ public:
+  virtual void rpl_before_delete_rows() override;
+  virtual void rpl_after_delete_rows() override;
+  virtual void rpl_before_update_rows() override;
+  virtual void rpl_after_update_rows() override;
+  virtual bool rpl_lookup_rows();
+
+ private:
+  bool in_rpl_delete_rows;
+  bool in_rpl_update_rows;
 };
 
 }  // namespace myrocks
