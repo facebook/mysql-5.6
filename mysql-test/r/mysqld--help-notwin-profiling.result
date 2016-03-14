@@ -1157,6 +1157,9 @@ The following options may be given as the first argument:
  --rocksdb-records-in-range=# 
  Used to override the result of records_in_range(). Set to
  a positive number to override
+ --rocksdb-rpl-lookup-rows 
+ Lookup a row on replication slave
+ (Defaults to on; use --skip-rocksdb-rpl-lookup-rows to disable.)
  --rocksdb-seconds-between-stat-computes=# 
  Sets a number of seconds to wait between optimizer stats
  recomputation. Only changed indexes will be refreshed.
@@ -1822,6 +1825,7 @@ rocksdb-perf-context-global ON
 rocksdb-perf-context-level 1
 rocksdb-rate-limiter-bytes-per-sec 0
 rocksdb-records-in-range 0
+rocksdb-rpl-lookup-rows TRUE
 rocksdb-seconds-between-stat-computes 3600
 rocksdb-signal-drop-index-thread FALSE
 rocksdb-skip-fill-cache FALSE
