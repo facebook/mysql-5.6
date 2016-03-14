@@ -917,6 +917,7 @@ rocksdb_pause_background_work	ON
 rocksdb_perf_context_level	1
 rocksdb_rate_limiter_bytes_per_sec	0
 rocksdb_records_in_range	0
+rocksdb_rpl_lookup_rows	ON
 rocksdb_seconds_between_stat_computes	3600
 rocksdb_signal_drop_index_thread	OFF
 rocksdb_skip_fill_cache	OFF
