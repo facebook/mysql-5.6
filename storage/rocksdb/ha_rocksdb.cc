@@ -6564,6 +6564,7 @@ int ha_rocksdb::rnd_pos(uchar *buf, uchar *pos)
   size_t len;
   DBUG_ENTER("ha_rocksdb::rnd_pos");
 
+  stats.rows_requested++;
   len= pk_descr->key_length(table, rocksdb::Slice((const char*)pos,
                                                   ref_length));
   if (len == size_t(-1))
@@ -6572,6 +6573,12 @@ int ha_rocksdb::rnd_pos(uchar *buf, uchar *pos)
   }
 
   rc= get_row_by_rowid(buf, pos, len);
+
+  if (!rc)
+  {
+    stats.rows_read++;
+    update_row_stats(ROWS_READ);
+  }
 
   DBUG_RETURN(rc);
 }
