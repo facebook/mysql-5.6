@@ -6598,6 +6598,27 @@ class handler {
   */
   bool filter_dup_records();
 
+ public:
+  /* Read-free replication interface */
+
+  /**
+    Determine whether the storage engine asks for row-based replication that
+    may skip the lookup of the old row image.
+    @return true if old rows should not be read
+            false if old rows should be read (the default)
+   */
+  virtual bool use_read_free_rpl() const { return false; }
+  /*
+    Storage engine hooks to be called before and after row write, delete, and
+    update events
+  */
+  virtual void rpl_before_write_rows() { }
+  virtual void rpl_after_write_rows() { }
+  virtual void rpl_before_delete_rows() { }
+  virtual void rpl_after_delete_rows() { }
+  virtual void rpl_before_update_rows() { }
+  virtual void rpl_after_update_rows() { }
+
  protected:
   Handler_share *get_ha_share_ptr();
   void set_ha_share_ptr(Handler_share *arg_ha_share);

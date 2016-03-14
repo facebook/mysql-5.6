@@ -952,16 +952,12 @@ class ha_rocksdb : public my_core::handler {
   int adjust_handler_stats_table_scan();
 
  public:
-  /* TODO(yzha) - 019a9fcd7f6 Add Tokutek's read-free replication api in mysqld
   virtual void rpl_before_delete_rows() override;
   virtual void rpl_after_delete_rows() override;
   virtual void rpl_before_update_rows() override;
   virtual void rpl_after_update_rows() override;
-   */
 
-  /* TODO(yzha) - af531c246d35 New variable to control read free replication
   virtual bool use_read_free_rpl() const override;
-   */
 
   virtual bool has_ttl_column() const override;
 

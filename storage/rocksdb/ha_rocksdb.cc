@@ -9572,9 +9572,7 @@ bool ha_rocksdb::skip_unique_check() const {
          (my_core::thd_test_options(table->in_use,
                                     OPTION_RELAXED_UNIQUE_CHECKS) &&
           m_tbl_def->m_key_count == 1)
-      /* TODO(yzha) - af531c246d35 (New variable to control read free
-      replication)
-      || use_read_free_rpl() */
+      || use_read_free_rpl()
       ;
 }
 
@@ -9800,14 +9798,12 @@ void ha_rocksdb::dec_table_n_rows() {
 */
 void ha_rocksdb::set_last_rowkey(
     const uchar *const old_data MY_ATTRIBUTE((__unused__))) {
-  /* TODO(yzha) - af531c246d35 (New variable to control read free replication)
   if (old_data && use_read_free_rpl()) {
     const int old_pk_size = m_pk_descr->pack_record(
         table, m_pack_buffer, old_data, m_pk_packed_tuple, nullptr, false);
     m_last_rowkey.copy((const char *)m_pk_packed_tuple, old_pk_size,
                        &my_charset_bin);
   }
-  */
 }
 
 /**
@@ -14595,9 +14591,7 @@ bool ha_rocksdb::should_recreate_snapshot(const int rc,
  * using TX API and skipping row locking.
  */
 bool ha_rocksdb::can_assume_tracked(THD *thd) {
-  /* TODO(yzha) - af531c246d35 (New variable to control read free replication)
-   */
-  if (/*use_read_free_rpl() || */ (THDVAR(thd, blind_delete_primary_key))) {
+  if (use_read_free_rpl() || (THDVAR(thd, blind_delete_primary_key))) {
     return false;
   }
   return true;
@@ -15407,7 +15401,6 @@ static void rocksdb_set_update_cf_options(THD *const /* unused */,
 
 void rdb_queue_save_stats_request() { rdb_bg_thread.request_save_stats(); }
 
-/* TODO(yzha) - c0e6859bffd (Read free replication)
 void ha_rocksdb::rpl_before_delete_rows() {
   DBUG_ENTER_FUNC();
 
@@ -15439,9 +15432,7 @@ void ha_rocksdb::rpl_after_update_rows() {
 
   DBUG_VOID_RETURN;
 }
-*/
 
-/* TODO(yzha) - af531c246d35 (New variable to control read free replication) */
 bool ha_rocksdb::is_read_free_rpl_table() const {
   return table->s && m_tbl_def->m_is_read_free_rpl_table;
 }
@@ -15451,7 +15442,6 @@ bool ha_rocksdb::is_read_free_rpl_table() const {
   Read Free Replication can be used or not. Returning true means
   Read Free Replication can be used.
 */
-/* TODO(yzha) - af531c246d35 (New variable to control read free replication)
 bool ha_rocksdb::use_read_free_rpl() const {
   DBUG_ENTER_FUNC();
 
@@ -15471,7 +15461,6 @@ bool ha_rocksdb::use_read_free_rpl() const {
   DBUG_ASSERT(false);
   DBUG_RETURN(false);
 }
-*/
 
 /**
   @brief
