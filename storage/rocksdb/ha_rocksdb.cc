@@ -414,6 +414,9 @@ static MYSQL_THDVAR_BOOL(commit_in_the_middle, PLUGIN_VAR_RQCMDARG,
   "Commit rows implicitly every rocksdb_bulk_load_size, on bulk load/insert",
   nullptr, nullptr, FALSE);
 
+static MYSQL_THDVAR_BOOL(rpl_lookup_rows, PLUGIN_VAR_RQCMDARG,
+  "Lookup a row on replication slave", nullptr, nullptr, TRUE);
+
 static MYSQL_THDVAR_ULONG(max_row_locks, PLUGIN_VAR_RQCMDARG,
   "Maximum number of locks a transaction can have",
   nullptr, nullptr, /*default*/ 1024*1024*1024, /*min*/ 1,
@@ -963,6 +966,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(bulk_load),
   MYSQL_SYSVAR(skip_unique_check),
   MYSQL_SYSVAR(commit_in_the_middle),
+  MYSQL_SYSVAR(rpl_lookup_rows),
   MYSQL_SYSVAR(bulk_load_size),
 
   MYSQL_SYSVAR(create_if_missing),
@@ -5677,6 +5681,18 @@ int ha_rocksdb::write_row(uchar *buf)
   DBUG_RETURN(rv);
 }
 
+void ha_rocksdb::set_last_rowkey(const uchar *old_data)
+{
+  if (old_data && !rpl_lookup_rows())
+  {
+    int old_pk_size= pk_descr->pack_record(this, table, pack_buffer,
+                                           old_data,
+                                           pk_packed_tuple, nullptr,
+                                           nullptr, 0, nullptr);
+    last_rowkey.copy((const char*)pk_packed_tuple, old_pk_size,
+                     &my_charset_bin);
+  }
+}
 
 int ha_rocksdb::update_write_row(const uchar *old_data,
                                  uchar *new_data,
@@ -5699,6 +5715,8 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
   rocksdb::Slice old_key_slice;
 
   DBUG_ENTER("ha_rocksdb::write_row_common");
+
+  set_last_rowkey(old_data);
 
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
 
@@ -6356,6 +6374,8 @@ int ha_rocksdb::delete_row(const uchar *buf)
   DBUG_ENTER("ha_rocksdb::delete_row");
 
   io_perf_start();
+
+  set_last_rowkey(buf);
 
   rocksdb::Slice key_slice(last_rowkey.ptr(), last_rowkey.length());
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
@@ -8236,6 +8256,56 @@ void request_save_stats()
   mysql_mutex_lock(&stop_cond_mutex);
   bg_control.save_stats= true;
   mysql_mutex_unlock(&stop_cond_mutex);
+}
+
+void ha_rocksdb::rpl_before_write_rows()
+{
+  in_rpl_write_rows = true;
+}
+
+void ha_rocksdb::rpl_after_write_rows()
+{
+  in_rpl_write_rows = false;
+}
+
+void ha_rocksdb::rpl_before_delete_rows()
+{
+  in_rpl_delete_rows = true;
+}
+
+void ha_rocksdb::rpl_after_delete_rows()
+{
+  in_rpl_delete_rows = false;
+}
+
+void ha_rocksdb::rpl_before_update_rows()
+{
+  in_rpl_update_rows = true;
+}
+
+void ha_rocksdb::rpl_after_update_rows()
+{
+  in_rpl_update_rows = false;
+}
+
+/**
+  Read Free Replication can be used or not. Returning False means
+  Read Free Replication can be used.
+*/
+bool ha_rocksdb::rpl_lookup_rows()
+{
+  if (!in_rpl_delete_rows && !in_rpl_update_rows)
+  {
+    return true;
+  }
+  else if (has_hidden_pk(table))
+  {
+    return true;
+  }
+  else
+  {
+    return THDVAR(ha_thd(), rpl_lookup_rows);
+  }
 }
 
 }  // namespace myrocks
