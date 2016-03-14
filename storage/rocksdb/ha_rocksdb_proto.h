@@ -26,26 +26,34 @@ class Column_family_manager;
 rocksdb::DB *rocksdb_get_rdb();
 Column_family_manager& rocksdb_get_cf_manager();
 rocksdb::BlockBasedTableOptions& rocksdb_get_table_options();
-void get_cf_options(const std::string &cf_name, rocksdb::ColumnFamilyOptions *opts);
+
+void get_cf_options(const std::string &cf_name,
+  rocksdb::ColumnFamilyOptions *opts) __attribute__((nonnull));
 int rocksdb_normalize_tablename(const char *tablename,
-                                StringBuffer<256> *strbuf);
+  StringBuffer<256> *strbuf) __attribute__((nonnull, warn_unused_result));
 int rocksdb_split_normalized_tablename(const char *fullname,
                                        StringBuffer<256> *dbbuf,
                                        StringBuffer<256> *tablebuf,
-                                       StringBuffer<256> *partitionbuf);
+                                       StringBuffer<256> *partitionbuf)
+  __attribute__((nonnull, warn_unused_result));
 std::vector<std::string> get_share_names(void);
 
 int rocksdb_get_share_perf_counters(const char *tablename,
-                                    SHARE_PERF_COUNTERS *counters);
+  SHARE_PERF_COUNTERS *counters) __attribute__((nonnull(2)));
 
 void request_save_stats();
 
 class Dict_manager;
-Dict_manager *get_dict_manager(void);
+Dict_manager *get_dict_manager(void)
+  __attribute__((returns_nonnull, warn_unused_result));
+
 class Table_ddl_manager;
-Table_ddl_manager *get_ddl_manager(void);
+Table_ddl_manager *get_ddl_manager(void)
+  __attribute__((returns_nonnull, warn_unused_result));
+
 class Binlog_info_manager;
-Binlog_info_manager *get_binlog_manager(void);
+Binlog_info_manager *get_binlog_manager(void)
+  __attribute__((returns_nonnull, warn_unused_result));
 
 }  // namespace myrocks
 
