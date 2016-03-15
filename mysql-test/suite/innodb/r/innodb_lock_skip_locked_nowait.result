@@ -226,4 +226,63 @@ select * from t4 where a > 1 and a < 3 for update nowait;
 ERROR HY000: Table storage engine for 't4' doesn't have this option
 insert into t4 select * from t4 for update nowait;
 ERROR HY000: Table storage engine for 't4' doesn't have this option
+### (7) New key words 'SKIP' 'LOCKED' 'NOWAIT' are not reserved key words
+create database skip;
+use skip;
+create table skip (skip int primary key) engine=innodb;
+insert into skip values (1), (2), (3);
+select skip.skip.skip from skip.skip where skip.skip.skip = 2;
+skip
+2
+select skip as locked from skip where skip = 2;
+locked
+2
+select * from skip where skip > 9 for update skip locked;
+skip
+select * from skip where skip > 9 for update nowait;
+skip
+update skip set skip = 4 where skip = 2;
+select skip as nowait from skip where skip = 4;
+nowait
+4
+drop database skip;
+create database locked;
+use locked;
+create table locked (locked int primary key) engine=innodb;
+insert into locked values (1), (2), (3);
+select locked.locked.locked from locked.locked where locked.locked.locked = 2;
+locked
+2
+select locked as nowait from locked where locked = 2;
+nowait
+2
+select * from locked where locked > 9 for update skip locked;
+locked
+select * from locked where locked > 9 for update nowait;
+locked
+update locked set locked = 4 where locked = 2;
+select locked as skip from locked where locked = 4;
+skip
+4
+drop database locked;
+create database nowait;
+use nowait;
+create table nowait (nowait int primary key) engine=innodb;
+insert into nowait values (1), (2), (3);
+select nowait.nowait.nowait from nowait.nowait where nowait.nowait.nowait = 2;
+nowait
+2
+select nowait as skip from nowait where nowait = 2;
+skip
+2
+select * from nowait where nowait > 9 for update skip locked;
+nowait
+select * from nowait where nowait > 9 for update nowait;
+nowait
+update nowait set nowait = 4 where nowait = 2;
+select nowait as locked from nowait where nowait = 4;
+locked
+4
+drop database nowait;
+use test;
 drop table t0, t1, t2, t3, t4;

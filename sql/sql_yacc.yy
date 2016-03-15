@@ -15002,6 +15002,7 @@ keyword_sp:
         | LINESTRING               {}
         | LIST_SYM                 {}
         | LOCAL_SYM                {}
+        | LOCKED_SYM               {}
         | LOCKS_SYM                {}
         | LOGFILE_SYM              {}
         | LOGS_SYM                 {}
@@ -15059,6 +15060,7 @@ keyword_sp:
         | NO_WAIT_SYM              {}
         | NODEGROUP_SYM            {}
         | NONE_SYM                 {}
+        | NOWAIT_SYM               {}
         | NUMBER_SYM               {}
         | NVARCHAR_SYM             {}
         | OFFSET_SYM               {}
@@ -15126,6 +15128,7 @@ keyword_sp:
         | SIMPLE_SYM               {}
         | SHARE_SYM                {}
         | SHUTDOWN                 {}
+        | SKIP_SYM                 {}
         | SLOW                     {}
         | SNAPSHOT_SYM             {}
         | SOUNDS_SYM               {}
