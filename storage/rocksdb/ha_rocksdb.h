@@ -77,16 +77,13 @@ const char * const PER_INDEX_CF_NAME = "$per_index_cf";
 #define MAX_COMPACTION_SEQUENTIAL_DELETES_WINDOW     100000
 
 /*
-  To fix a crash bug when we set number of concurrent background
-  compaction threads greater than 4030
-
-  We chose 64 since at the time we didn't think we have machines more than
-  64 cores.
-
-  See: https://github.com/facebook/mysql-5.6/issues/175
+  Default and maximum values for various compaction and flushing related
+  options.
 */
-#define MAX_BACKGROUND_COMPACTIONS                (64)
-#define MAX_BACKGROUND_FLUSHES                    (64)
+#define MAX_BACKGROUND_COMPACTIONS                       64
+#define MAX_BACKGROUND_FLUSHES                           64
+#define DEFAULT_SUBCOMPACTIONS                           16
+#define MAX_SUBCOMPACTIONS                               64
 
 /*
   To fix a crash bug, we made upper bound LONGLONGMAX instead of ULONGLONGMAX
@@ -99,7 +96,7 @@ const char * const PER_INDEX_CF_NAME = "$per_index_cf";
 #define MAX_RATE_LIMITER_BYTES_PER_SEC  static_cast<uint64_t>(LONGLONG_MAX)
 
 /*
-  Hidden PK column (for tables with no primary key) is a longlong (aka 8 bytes)
+  Hidden PK column (for tables with no primary key) is a longlong (aka 8 bytes).
 */
 #define ROCKSDB_SIZEOF_HIDDEN_PK_COLUMN sizeof(longlong)
 
