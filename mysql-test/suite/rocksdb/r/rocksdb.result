@@ -914,7 +914,7 @@ rocksdb_no_block_cache	OFF
 rocksdb_override_cf_options	
 rocksdb_paranoid_checks	ON
 rocksdb_pause_background_work	ON
-rocksdb_perf_context_level	1
+rocksdb_perf_context_level	0
 rocksdb_rate_limiter_bytes_per_sec	0
 rocksdb_records_in_range	0
 rocksdb_rpl_lookup_rows	ON
