@@ -101,26 +101,36 @@ struct rdb_perf_context_guard {
   rdb_perf_context_local &local_perf_context;
   rdb_perf_context_shared *table_perf_context;
   rdb_perf_context_shared &global_perf_context;
+  bool capture_perf_context;
 
   rdb_perf_context_guard(rdb_perf_context_local &local_perf_context,
                          rdb_perf_context_shared *table_perf_context,
-                         rdb_perf_context_shared &global_perf_context)
+                         rdb_perf_context_shared &global_perf_context,
+                         bool capture_perf_context)
   : local_perf_context(local_perf_context),
     table_perf_context(table_perf_context),
-    global_perf_context(global_perf_context)
+    global_perf_context(global_perf_context),
+    capture_perf_context(capture_perf_context)
   {
-    rdb_perf_context_start(local_perf_context);
+    if (capture_perf_context)
+    {
+      rdb_perf_context_start(local_perf_context);
+    }
   }
 
   ~rdb_perf_context_guard() {
-    rdb_perf_context_stop(local_perf_context,
-                          table_perf_context,
-                          global_perf_context);
+    if (capture_perf_context)
+    {
+      rdb_perf_context_stop(local_perf_context,
+                            table_perf_context,
+                            global_perf_context);
+    }
   }
 };
 
-#define RDB_PERF_CONTEXT_GUARD(_local_, _table_, _global_) \
-  rdb_perf_context_guard rdb_perf_context_guard_(_local_, _table_, _global_)
+#define RDB_PERF_CONTEXT_GUARD(_local_, _table_, _global_, _capture_) \
+  rdb_perf_context_guard rdb_perf_context_guard_(_local_, _table_, _global_, \
+                                                 _capture_)
 
 }  // namespace myrocks
 
