@@ -789,8 +789,6 @@ public:
   int analyze(THD* thd, HA_CHECK_OPT* check_opt);
 
  public:
-  virtual void rpl_before_write_rows() override;
-  virtual void rpl_after_write_rows() override;
   virtual void rpl_before_delete_rows() override;
   virtual void rpl_after_delete_rows() override;
   virtual void rpl_before_update_rows() override;
@@ -798,7 +796,6 @@ public:
   virtual bool rpl_lookup_rows();
 
  private:
-  bool in_rpl_write_rows;
   bool in_rpl_delete_rows;
   bool in_rpl_update_rows;
 };
