@@ -239,7 +239,10 @@ static int i_s_rocksdb_perf_context_fill_table(THD *thd,
     StringBuffer<256> buf, dbname, tablename, partname;
     SHARE_PERF_COUNTERS counters;
 
-    rocksdb_normalize_tablename(it.c_str(), &buf);
+    if (rocksdb_normalize_tablename(it.c_str(), &buf)) {
+      return HA_ERR_INTERNAL_ERROR;
+    }
+
     if (rocksdb_split_normalized_tablename(buf.c_ptr(), &dbname, &tablename,
                                            &partname))
       continue;

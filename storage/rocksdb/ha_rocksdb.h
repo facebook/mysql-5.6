@@ -416,26 +416,35 @@ class ha_rocksdb: public handler
   */
   int dupp_errkey;
 
-  int create_key_defs(TABLE *table_arg, const char *db_table, uint len,
-                      HA_CREATE_INFO *create_info);
-  int secondary_index_read(int keyno, uchar *buf);
+  int create_key_defs(TABLE *table_arg, const char *db_table, const uint len,
+                      HA_CREATE_INFO *create_info)
+      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  int secondary_index_read(const int keyno, uchar *buf)
+      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   void setup_iterator_for_rnd_scan();
   void setup_scan_iterator(RDBSE_KEYDEF *keydef, rocksdb::Slice *slice)
+      MY_ATTRIBUTE((__nonnull__))
   {
     setup_scan_iterator(keydef, slice, false, false, 0);
   }
-  bool is_ascending(RDBSE_KEYDEF *keydef, enum ha_rkey_function find_flag);
+  bool is_ascending(RDBSE_KEYDEF *keydef, enum ha_rkey_function find_flag)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   void setup_scan_iterator(RDBSE_KEYDEF *keydef, rocksdb::Slice *slice,
                         const bool use_all_keys, const bool is_ascending,
-                        const uint eq_cond_len);
+                        const uint eq_cond_len)
+    MY_ATTRIBUTE((__nonnull__));
   void release_scan_iterator(void)
   {
     delete scan_it;
     scan_it= nullptr;
   }
 
-  int get_row_by_rowid(uchar *buf, const char *pk_tuple, uint pk_tuple_size);
-  int get_row_by_rowid(uchar *buf, const uchar *pk_tuple, uint pk_tuple_size)
+  int get_row_by_rowid(uchar *buf, const char *pk_tuple,
+    const uint pk_tuple_size)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  int get_row_by_rowid(uchar *buf, const uchar *pk_tuple,
+    const uint pk_tuple_size)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__))
   {
     return get_row_by_rowid(buf, reinterpret_cast<const char *>(pk_tuple),
                             pk_tuple_size);
@@ -444,12 +453,15 @@ class ha_rocksdb: public handler
   void update_auto_incr_val();
   void load_auto_incr_value();
   longlong update_hidden_pk_val();
-  int load_hidden_pk_value();
-  int read_hidden_pk_id_from_rowkey(longlong *hidden_pk_id);
-  bool can_use_single_delete(uint index);
-  bool skip_unique_check();
-  bool commit_in_the_middle();
-  bool has_hidden_pk(const TABLE* table);
+  int load_hidden_pk_value() MY_ATTRIBUTE((__warn_unused_result__));
+  int read_hidden_pk_id_from_rowkey(longlong *hidden_pk_id)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  bool can_use_single_delete(uint index)
+    MY_ATTRIBUTE((__warn_unused_result__));
+  bool skip_unique_check() MY_ATTRIBUTE((__warn_unused_result__));
+  bool commit_in_the_middle() MY_ATTRIBUTE((__warn_unused_result__));
+  bool has_hidden_pk(const TABLE* table)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   void update_row_stats(operation_type type);
 
@@ -582,36 +594,48 @@ public:
   ulong index_flags(uint inx, uint part, bool all_parts) const;
 
   const key_map * keys_to_use_for_scanning()
+    MY_ATTRIBUTE((__returns_nonnull__))
   {
     return &key_map_full;
   }
+
   bool primary_key_is_clustered()
   {
     return true;
   }
+
   bool should_store_checksums() const
   {
     return store_checksums && (rand() % 100 < checksums_pct);
   }
 
-  int rename_table(const char *from, const char *to);
+  int rename_table(const char *from, const char *to)
+      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   int convert_record_from_storage_format(const rocksdb::Slice *key,
                                          const rocksdb::Slice *value,
-                                         uchar *buf);
+                                         uchar *buf)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   int convert_record_from_storage_format(const rocksdb::Slice *key,
-                                         uchar *buf);
+                                         uchar *buf)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   void convert_record_to_storage_format(const char *pk_packed_tuple,
-                                        size_t pk_packed_size,
-                                        rocksdb::Slice *packed_rec);
+                                        const size_t pk_packed_size,
+                                        rocksdb::Slice *packed_rec)
+    MY_ATTRIBUTE((__nonnull__));
 
   bool is_hidden_pk(const uint index, const TABLE* table,
-                    const RDBSE_TABLE_DEF* tbl_def);
-  int pk_index(const TABLE* table, const RDBSE_TABLE_DEF* tbl_def);
+                    const RDBSE_TABLE_DEF* tbl_def)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+
+  int pk_index(const TABLE* table, const RDBSE_TABLE_DEF* tbl_def)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+
   bool is_pk(const uint index, const TABLE* table,
-             const RDBSE_TABLE_DEF* tbl_def);
+             const RDBSE_TABLE_DEF* tbl_def)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   /** @brief
     unireg.cc will call max_supported_record_length(), max_supported_keys(),
@@ -647,80 +671,102 @@ public:
   int index_read_map(uchar * buf, const uchar * key,
                      key_part_map keypart_map,
                      enum ha_rkey_function find_flag);
+    MY_ATTRIBUTE((__warn_unused_result__));
+
   int index_read_map_impl(uchar * buf, const uchar * key,
                           key_part_map keypart_map,
                           enum ha_rkey_function find_flag,
-                          const key_range *end_key);
+                          const key_range *end_key)
+    MY_ATTRIBUTE((__warn_unused_result__));;
 
   int index_read_last_map(uchar * buf, const uchar * key,
-                          key_part_map keypart_map);
+                          key_part_map keypart_map)
+    MY_ATTRIBUTE((__warn_unused_result__));;
 
   int read_range_first(const key_range *start_key,
                        const key_range *end_key,
-                       bool eq_range, bool sorted);
+                       bool eq_range, bool sorted)
+    MY_ATTRIBUTE((__warn_unused_result__));;
 
   virtual double scan_time() { return (double) (stats.records+stats.deleted) / 20.0+10; }
   virtual double read_time(uint, uint, ha_rows rows)
   { return (double) rows /  20.0+1; }
 
-  int open(const char *name, int mode, uint test_if_locked);
-  int close(void);
+  int open(const char *name, int mode, uint test_if_locked)
+    MY_ATTRIBUTE((__warn_unused_result__));
+  int close(void) MY_ATTRIBUTE((__warn_unused_result__));
 
-  int write_row(uchar *buf);
-  int update_row(const uchar *old_data, uchar *new_data);
-  int delete_row(const uchar *buf);
+  int write_row(uchar *buf) MY_ATTRIBUTE((__warn_unused_result__));
+  int update_row(const uchar *old_data, uchar *new_data)
+    MY_ATTRIBUTE((__warn_unused_result__));
+  int delete_row(const uchar *buf) MY_ATTRIBUTE((__warn_unused_result__));
   rocksdb::Status delete_or_singledelete(uint index,
                                          Rdb_transaction *trx,
                                          rocksdb::ColumnFamilyHandle* cf,
-                                         const rocksdb::Slice& key);
+                                         const rocksdb::Slice& key)
+    MY_ATTRIBUTE((__warn_unused_result__));
 
-  int index_next(uchar *buf);
-  int index_next_with_direction(uchar *buf, bool move_forward);
-  int index_prev(uchar *buf);
+  int index_next(uchar *buf) MY_ATTRIBUTE((__warn_unused_result__));
+  int index_next_with_direction(uchar *buf, bool move_forward)
+    MY_ATTRIBUTE((__warn_unused_result__));
+  int index_prev(uchar *buf) MY_ATTRIBUTE((__warn_unused_result__));
 
-  int index_first(uchar *buf);
-  int index_last(uchar *buf);
+  int index_first(uchar *buf) MY_ATTRIBUTE((__warn_unused_result__));
+  int index_last(uchar *buf) MY_ATTRIBUTE((__warn_unused_result__));
 
   class Item* idx_cond_push(uint keyno, class Item* idx_cond);
   /*
     Default implementation from cancel_pushed_idx_cond() suits us
   */
 private:
-  int index_first_intern(uchar *buf);
-  int index_last_intern(uchar *buf);
+  int index_first_intern(uchar *buf)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  int index_last_intern(uchar *buf)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   enum icp_result check_index_cond();
-  int find_icp_matching_index_rec(bool move_forward, uchar *buf);
+  int find_icp_matching_index_rec(bool move_forward, uchar *buf)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   void calc_updated_indexes();
   int update_write_row(const uchar *old_data, uchar *new_data,
-                       const bool skip_unique_check);
+                       const bool skip_unique_check)
+    MY_ATTRIBUTE((__warn_unused_result__));
 
   int read_key_exact(RDBSE_KEYDEF *kd, rocksdb::Iterator* scan_it,
-                     bool using_full_key, const rocksdb::Slice& key_slice);
+                     bool using_full_key, const rocksdb::Slice& key_slice)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   int read_before_key(RDBSE_KEYDEF *kd, bool using_full_key,
-                      const rocksdb::Slice& key_slice);
+                      const rocksdb::Slice& key_slice)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   int read_after_key(RDBSE_KEYDEF *kd, bool using_full_key,
-                     const rocksdb::Slice& key_slice);
+                     const rocksdb::Slice& key_slice)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+
   int position_to_correct_key(RDBSE_KEYDEF *kd,
                               enum ha_rkey_function find_flag,
                               bool full_key_match, const uchar* key,
                               key_part_map keypart_map,
                               const rocksdb::Slice& key_slice,
-                              bool* move_forward);
+                              bool* move_forward)
+    MY_ATTRIBUTE((__warn_unused_result__));
 
-  int read_row_from_primary_key(uchar* buf);
+  int read_row_from_primary_key(uchar* buf)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   int read_row_from_secondary_key(uchar* buf, RDBSE_KEYDEF* kd,
-                                  bool move_forward);
+                                  bool move_forward)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   int calc_eq_cond_len(RDBSE_KEYDEF *kd, enum ha_rkey_function find_flag,
                        const rocksdb::Slice& slice, int bytes_changed_by_succ,
-                       const key_range *end_key, uint* end_key_packed_size);
+                       const key_range *end_key, uint* end_key_packed_size)
+    MY_ATTRIBUTE((__warn_unused_result__));
 
-  RDBSE_TABLE_DEF* get_table_if_exists(const char* tablename);
+  RDBSE_TABLE_DEF* get_table_if_exists(const char* tablename)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 public:
-  int index_init(uint idx, bool sorted);
-  int index_end();
+  int index_init(uint idx, bool sorted) MY_ATTRIBUTE((__warn_unused_result__));
+  int index_end() MY_ATTRIBUTE((__warn_unused_result__));
 
   void unlock_row();
 
@@ -732,20 +778,28 @@ public:
     cursor to the start of the table; no need to deallocate and allocate
     it again. This is a required method.
   */
-  int rnd_init(bool scan);
-  int rnd_end();
+  int rnd_init(bool scan) MY_ATTRIBUTE((__warn_unused_result__));
+  int rnd_end() MY_ATTRIBUTE((__warn_unused_result__));
 
-  int rnd_next(uchar *buf);
-  int rnd_next_with_direction(uchar *buf, bool move_forward);
+  int rnd_next(uchar *buf) MY_ATTRIBUTE((__warn_unused_result__));
+  int rnd_next_with_direction(uchar *buf, bool move_forward)
+    MY_ATTRIBUTE((__warn_unused_result__));
 
-  int rnd_pos(uchar *buf, uchar *pos);
+  int rnd_pos(uchar *buf, uchar *pos) MY_ATTRIBUTE((__warn_unused_result__));
   void position(const uchar *record);
   int info(uint);
+
+  /* This function will always return success, therefore no annotation related
+   * to checking the return value. Can't change the signature because it's
+   * required by the interface. */
   int extra(enum ha_extra_function operation);
-  int start_stmt(THD *thd, thr_lock_type lock_type);
-  int external_lock(THD *thd, int lock_type);
-  int delete_all_rows(ha_rows* nrows);
-  int truncate();
+
+  int start_stmt(THD *thd, thr_lock_type lock_type)
+    MY_ATTRIBUTE((__warn_unused_result__));
+  int external_lock(THD *thd, int lock_type)
+    MY_ATTRIBUTE((__warn_unused_result__));
+  int delete_all_rows(ha_rows* nrows) MY_ATTRIBUTE((__warn_unused_result__));
+  int truncate() MY_ATTRIBUTE((__warn_unused_result__));
 
   int reset()
   {
@@ -754,18 +808,22 @@ public:
     return 0;
   }
 
-  int check(THD* thd, HA_CHECK_OPT* check_opt);
+  int check(THD* thd, HA_CHECK_OPT* check_opt)
+    MY_ATTRIBUTE((__warn_unused_result__));
   void remove_rows(RDBSE_TABLE_DEF *tbl);
   ha_rows records_in_range(uint inx, key_range *min_key,
-                           key_range *max_key);
-  int delete_table(const char *from);
-  int create(const char *name, TABLE *form,
-             HA_CREATE_INFO *create_info);
+                           key_range *max_key)
+    MY_ATTRIBUTE((__warn_unused_result__));
+  int delete_table(const char *from) MY_ATTRIBUTE((__warn_unused_result__));
+  int create(const char *name, TABLE *form, HA_CREATE_INFO *create_info)
+    MY_ATTRIBUTE((__warn_unused_result__));
   bool check_if_incompatible_data(HA_CREATE_INFO *info,
-                                  uint table_changes);
+                                  uint table_changes)
+    MY_ATTRIBUTE((__warn_unused_result__));
 
   THR_LOCK_DATA **store_lock(THD *thd, THR_LOCK_DATA **to,
-                             enum thr_lock_type lock_type);
+                             enum thr_lock_type lock_type)
+    MY_ATTRIBUTE((__warn_unused_result__));
 
   my_bool register_query_cache_table(THD *thd, char *table_key,
                                      uint key_length,
@@ -776,15 +834,19 @@ public:
     /* Currently, we don't support query cache */
     return FALSE;
   }
-  bool get_error_message(int error, String *buf);
+
+  bool get_error_message(const int error, String *buf)
+    MY_ATTRIBUTE((__nonnull__));
 
   void get_auto_increment(ulonglong offset, ulonglong increment,
                           ulonglong nb_desired_values,
                           ulonglong *first_value,
                           ulonglong *nb_reserved_values);
   void update_create_info(HA_CREATE_INFO *create_info);
-  int optimize(THD *thd, HA_CHECK_OPT *check_opt);
-  int analyze(THD* thd, HA_CHECK_OPT* check_opt);
+  int optimize(THD *thd, HA_CHECK_OPT *check_opt)
+    MY_ATTRIBUTE((__warn_unused_result__));
+  int analyze(THD* thd, HA_CHECK_OPT* check_opt)
+    MY_ATTRIBUTE((__warn_unused_result__));
 
  public:
   virtual void rpl_before_delete_rows() override;
