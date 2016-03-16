@@ -470,7 +470,7 @@ static MYSQL_SYSVAR_UINT(perf_context_level,
   rocksdb_perf_context_level,
   PLUGIN_VAR_RQCMDARG,
   "Perf Context Level for rocksdb internal timer stat collection",
-  nullptr, nullptr, rocksdb::kEnableCount,
+  nullptr, nullptr, rocksdb::kDisable,
   /* min */ 0L, /* max */ UINT_MAX, 0);
 
 static MYSQL_SYSVAR_UINT(wal_recovery_mode,
@@ -1935,7 +1935,8 @@ static int rocksdb_commit(handlerton* hton, THD* thd, bool commit_trx, bool)
   DBUG_ENTER("rocksdb_commit");
 
   rdb_perf_context_local local_perf_context;
-  RDB_PERF_CONTEXT_GUARD(local_perf_context, nullptr, global_perf_context);
+  RDB_PERF_CONTEXT_GUARD(local_perf_context, nullptr, global_perf_context,
+                         rocksdb_perf_context_level != rocksdb::kDisable);
 
   /* note: h->external_lock(F_UNLCK) is called after this function is called) */
 
@@ -1978,7 +1979,8 @@ static int rocksdb_commit(handlerton* hton, THD* thd, bool commit_trx, bool)
 static int rocksdb_rollback(handlerton* hton, THD* thd, bool rollback_trx)
 {
   rdb_perf_context_local local_perf_context;
-  RDB_PERF_CONTEXT_GUARD(local_perf_context, nullptr, global_perf_context);
+  RDB_PERF_CONTEXT_GUARD(local_perf_context, nullptr, global_perf_context,
+                         rocksdb_perf_context_level != rocksdb::kDisable);
 
   Rdb_transaction*& trx= get_trx_from_thd(thd);
   if (trx != nullptr)
@@ -2288,7 +2290,8 @@ static int rocksdb_start_trx_and_assign_read_view(
         int*    gtid_executed_length)   /*out: Length of gtid_executed string */
 {
   rdb_perf_context_local local_perf_context;
-  RDB_PERF_CONTEXT_GUARD(local_perf_context, nullptr, global_perf_context);
+  RDB_PERF_CONTEXT_GUARD(local_perf_context, nullptr, global_perf_context,
+                         rocksdb_perf_context_level != rocksdb::kDisable);
 
   ulong const tx_isolation = thd_tx_isolation(thd);
 
