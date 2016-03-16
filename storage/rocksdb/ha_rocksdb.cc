@@ -1402,10 +1402,7 @@ public:
   void release_lock(rocksdb::ColumnFamilyHandle* column_family,
                     const std::string &rowkey)
   {
-    /*
-      TODO: Need RocksDB's transaction API implement this call:
-      txn->UnLock(column_family->GetID(), rowkey);
-    */
+    txn->UndoGetForUpdate(column_family, rocksdb::Slice(rowkey));
   }
 
   bool commit_or_rollback()
