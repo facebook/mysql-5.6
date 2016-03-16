@@ -1822,7 +1822,7 @@ rocksdb-paranoid-checks TRUE
 rocksdb-pause-background-work FALSE
 rocksdb-perf-context ON
 rocksdb-perf-context-global ON
-rocksdb-perf-context-level 1
+rocksdb-perf-context-level 0
 rocksdb-rate-limiter-bytes-per-sec 0
 rocksdb-records-in-range 0
 rocksdb-rpl-lookup-rows TRUE
