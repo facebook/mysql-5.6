@@ -22,8 +22,8 @@ typedef struct charset_info_st CHARSET_INFO;
 typedef struct st_mem_root MEM_ROOT;
 
 void init_sql_alloc(MEM_ROOT *root, uint block_size, uint pre_alloc_size);
-void *sql_alloc(size_t);
-void *sql_calloc(size_t);
+void *sql_alloc(size_t) __attribute__((__malloc__, __warn_unused_result__));
+void *sql_calloc(size_t) __attribute__((__malloc__, __warn_unused_result__));
 char *sql_strdup(const char *str);
 char *sql_strmake(const char *str, size_t len);
 void *sql_memdup(const void * ptr, size_t size);
