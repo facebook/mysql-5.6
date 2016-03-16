@@ -3128,7 +3128,9 @@ ha_rocksdb::ha_rocksdb(handlerton *hton, TABLE_SHARE *table_arg)
     lock_rows(FALSE),
     keyread_only(FALSE),
     field_enc(nullptr),
-    row_checksums_checked(0)
+    row_checksums_checked(0),
+    in_rpl_delete_rows(false),
+    in_rpl_update_rows(false)
 {}
 
 
@@ -8265,16 +8267,6 @@ void request_save_stats()
   mysql_mutex_lock(&stop_cond_mutex);
   bg_control.save_stats= true;
   mysql_mutex_unlock(&stop_cond_mutex);
-}
-
-void ha_rocksdb::rpl_before_write_rows()
-{
-  in_rpl_write_rows = true;
-}
-
-void ha_rocksdb::rpl_after_write_rows()
-{
-  in_rpl_write_rows = false;
 }
 
 void ha_rocksdb::rpl_before_delete_rows()
