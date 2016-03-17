@@ -4139,6 +4139,27 @@ int rocksdb_split_normalized_tablename(const char *fullname,
   return 0;
 }
 
+/**
+  Returning true if index types are not supported in MyRocks.
+  This function is supposed to be called from ha_rocksdb::create().
+  See check_fk_parent_table_access() in sql_parse.cc for details.
+*/
+bool ha_rocksdb::check_supported_indexes()
+{
+  DBUG_ASSERT(thd_get_current_thd()->lex != nullptr);
+  Key *key;
+  List_iterator<Key> key_iterator(
+    thd_get_current_thd()->lex->alter_info.key_list);
+  while ((key= key_iterator++))
+  {
+    if (key->type == Key::FOREIGN_KEY)
+    {
+      my_error(ER_CANNOT_ADD_FOREIGN, MYF(0));
+      return true;
+    }
+  }
+  return false;
+}
 
 /**
   @brief
@@ -4165,6 +4186,11 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
   int res;
   StringBuffer<256> strbuf;
   DBUG_ENTER("ha_rocksdb::create");
+
+  if (check_supported_indexes())
+  {
+    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+  }
 
   if (get_table_if_exists(name)) {
     THD *thd = thd_get_current_thd();

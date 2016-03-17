@@ -1829,6 +1829,15 @@ commit;
 connection default;
 drop table r1, r2;
 
+--echo #
+--echo # Issue #205 Create table with foreign key on RocksDB should report error
+--echo #
+create table test2 (a int not null, b int not null, index (b));
+--error ER_CANNOT_ADD_FOREIGN
+create table test (a int not null, b int not null, foreign key (b) references test2(b));
+drop table test2;
+
+
 disconnect con1;
 
 SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;
