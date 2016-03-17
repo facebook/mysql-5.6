@@ -51,7 +51,7 @@ while ($j) {
   connection default;
   let $i = 20;
   while ($i) {
-    let $val = `select 5*ceiling(10*rand())`;
+    let $val = `select 5*floor(10*rand())`;
     eval set global max_running_queries = $val;
     let $id = `select id from information_schema.processlist where user='test_user' order by rand() limit 1;`;
     eval kill query $id;

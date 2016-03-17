@@ -7248,12 +7248,16 @@ void AC::admission_control_exit(THD* thd, const std::string& entity) {
         ac_info->queue.size() > max_running_queries) {
       signal(ac_info->queue[max_running_queries]);
     }
-    assert(ac_info->queue.size());
-    /**
-      The popped value here doesn't necessarily give the ac_node of the
-      current THD. It is better if the popped value is not accessed at all.
-    */
-    ac_info->queue.pop_front();
+    // The queue is empty if max_running_queries is toggled to 0
+    // when this THD is inside admission_control_enter().
+    if (ac_info->queue.size())
+    {
+      /**
+        The popped value here doesn't necessarily give the ac_node of the
+        current THD. It is better if the popped value is not accessed at all.
+      */
+      ac_info->queue.pop_front();
+    }
     mysql_mutex_unlock(&ac_info->lock);
   }
   mysql_rwlock_unlock(&LOCK_ac);
