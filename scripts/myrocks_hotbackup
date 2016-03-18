@@ -426,7 +426,7 @@ class WDTBackup:
                    opts.backupdir,
                    self.datadir,
                    opts.checkpoint_interval,
-                   opts.extra_receiver_options)
+                   opts.extra_wdt_receiver_options)
       logger.info("WDT remote cmd %s", remote_cmd)
       server_log = tempfile.TemporaryFile()
       remote_process = subprocess.Popen(remote_cmd.split(),
@@ -444,7 +444,7 @@ class WDTBackup:
                    snapshot_dir,
                    opts.avg_mbytes_per_sec,
                    opts.checkpoint_interval,
-                   opts.extra_sender_options)
+                   opts.extra_wdt_sender_options)
       sender_status = os.system(sender_cmd) >> 8
       remote_status = remote_process.wait()
       self.cleanup(snapshot_dir, server_log)
@@ -499,7 +499,7 @@ backup_wdt_usage = ("Backup using WDT: myrocks_hotbackup "
                 "are created> --destination=<remote host name> --backup_dir="
                 "<remote directory name>. This has to be executed at the src "
                 "host.")
-backup_usage= "Backup: myrocks_hotbackup --user=root --password=pw --port=3306 --checkpoint_dir=<directory where temporary backup hard links are created> | ssh -o NoneEnabled=yes remove_server 'tar -xi -C <directory on remove server where backups will be sent>' . You need to execute backup command on a server where you take backups."
+backup_usage= "Backup: myrocks_hotbackup --user=root --password=pw --port=3306 --checkpoint_dir=<directory where temporary backup hard links are created> | ssh -o NoneEnabled=yes remote_server 'tar -xi -C <directory on remote server where backups will be sent>' . You need to execute backup command on a server where you take backups."
 move_back_usage= "Move-Back: myrocks_hotbackup --move_back --datadir=<dest mysql datadir> --rocksdb_datadir=<dest rocksdb datadir> --rocksdb_waldir=<dest rocksdb wal dir> --backup_dir=<where backup files are stored> . You need to execute move-back command on a server where backup files are sent."
 
 
@@ -522,17 +522,17 @@ def parse_options():
                     'and xbstream are supported. Default is tar')
   parser.add_option('--destination', type='string', dest='destination',
                     default='',
-                    help='Remote server name.')
+                    help='Remote server name. Only used for WDT mode so far.')
   parser.add_option('--avg_mbytes_per_sec', type='int',
                     dest='avg_mbytes_per_sec',
                     default=500,
-                    help='Average backup rate in MBytes/sec.')
-  parser.add_option('--extra_sender_options', type='string',
-                    dest='extra_sender_options',
+                    help='Average backup rate in MBytes/sec. WDT only.')
+  parser.add_option('--extra_wdt_sender_options', type='string',
+                    dest='extra_wdt_sender_options',
                     default='',
                     help='Extra options for WDT sender')
-  parser.add_option('--extra_receiver_options', type='string',
-                    dest='extra_receiver_options',
+  parser.add_option('--extra_wdt_receiver_options', type='string',
+                    dest='extra_wdt_receiver_options',
                     default='',
                     help='Extra options for WDT receiver')
   parser.add_option('-u', '--user', type='string', dest='mysql_user',
@@ -624,4 +624,3 @@ def main():
 
 if __name__ == "__main__":
   main()
-
