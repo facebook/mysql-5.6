@@ -343,7 +343,7 @@ static uint32_t rocksdb_table_stats_sampling_pct;
 static rocksdb::DBOptions init_db_options() {
   rocksdb::DBOptions o;
   o.create_if_missing = true;
-  o.listeners.push_back(std::make_shared<MyRocksEventListener>(&ddl_manager));
+  o.listeners.push_back(std::make_shared<Rdb_event_listener>(&ddl_manager));
   o.info_log_level= rocksdb::InfoLogLevel::INFO_LEVEL;
   return o;
 }
