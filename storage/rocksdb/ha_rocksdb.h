@@ -77,29 +77,33 @@ const char * const PER_INDEX_CF_NAME = "$per_index_cf";
 #define MAX_COMPACTION_SEQUENTIAL_DELETES_WINDOW    2000000
 
 /*
-  To fix a crash bug when we set number of concurrent background
-  compaction threads greater than 4030
+  Default and maximum values for various compaction and flushing related
+  options. Numbers are based on the hardware we currently use and our internal
+  benchmarks which indicate that parallelization helps with the speed of
+  compactions.
 
-  We chose 64 since at the time we didn't think we have machines more than
-  64 cores.
-
-  See: https://github.com/facebook/mysql-5.6/issues/175
+  Ideally of course we'll use heuristic technique to determine the number of
+  CPU-s and derive the values from there. This however has its own set of
+  problems and we'll choose simplicity for now.
 */
-#define MAX_BACKGROUND_COMPACTIONS                (64)
-#define MAX_BACKGROUND_FLUSHES                    (64)
+#define MAX_BACKGROUND_COMPACTIONS                       64
+#define MAX_BACKGROUND_FLUSHES                           64
+
+#define DEFAULT_SUBCOMPACTIONS                           1
+#define MAX_SUBCOMPACTIONS                               64
 
 /*
-  To fix a crash bug, we made upper bound LONGLONGMAX instead of ULONGLONGMAX
-  as the latter is -1 and crashes the system when cast to jlong (signed) of JNI
+  To fix an unhandled exception we specify the upper bound as LONGLONGMAX
+  instead of ULONGLONGMAX because the latter is -1 and causes an exception when
+  cast to jlong (signed) of JNI
 
-  The reason of the cast issue is the lack of unsigned int support in Java.
-
-  See: https://github.com/facebook/mysql-5.6/issues/172
+  The reason behind the cast issue is the lack of unsigned int support in Java.
 */
 #define MAX_RATE_LIMITER_BYTES_PER_SEC  static_cast<uint64_t>(LONGLONG_MAX)
 
 /*
-  Hidden PK column (for tables with no primary key) is a longlong (aka 8 bytes)
+  Hidden PK column (for tables with no primary key) is a longlong (aka 8 bytes).
+  static_assert() in code will validate this assumption.
 */
 #define ROCKSDB_SIZEOF_HIDDEN_PK_COLUMN sizeof(longlong)
 
