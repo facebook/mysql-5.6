@@ -342,9 +342,12 @@ static uint32_t rocksdb_table_stats_sampling_pct;
 
 static rocksdb::DBOptions init_db_options() {
   rocksdb::DBOptions o;
+
   o.create_if_missing = true;
   o.listeners.push_back(std::make_shared<MyRocksEventListener>(&ddl_manager));
-  o.info_log_level= rocksdb::InfoLogLevel::INFO_LEVEL;
+  o.info_log_level = rocksdb::InfoLogLevel::INFO_LEVEL;
+  o.max_subcompactions = DEFAULT_SUBCOMPACTIONS;
+
   return o;
 }
 
@@ -571,6 +574,13 @@ static MYSQL_SYSVAR_INT(max_background_flushes,
   "DBOptions::max_background_flushes for RocksDB",
   nullptr, nullptr, db_options.max_background_flushes,
   /* min */ 1, /* max */ MAX_BACKGROUND_FLUSHES, 0);
+
+static MYSQL_SYSVAR_UINT(max_subcompactions,
+  db_options.max_subcompactions,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::max_subcompactions for RocksDB",
+  nullptr, nullptr, db_options.max_subcompactions,
+  /* min */ 1, /* max */ MAX_SUBCOMPACTIONS, 0);
 
 static MYSQL_SYSVAR_ULONG(max_log_file_size,
   db_options.max_log_file_size,
@@ -985,6 +995,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(max_background_compactions),
   MYSQL_SYSVAR(max_background_flushes),
   MYSQL_SYSVAR(max_log_file_size),
+  MYSQL_SYSVAR(max_subcompactions),
   MYSQL_SYSVAR(log_file_time_to_roll),
   MYSQL_SYSVAR(keep_log_file_num),
   MYSQL_SYSVAR(max_manifest_file_size),
@@ -2509,6 +2520,9 @@ static rocksdb::Status check_rocksdb_options_compatibility(
 static int rocksdb_init_func(void *p)
 {
   DBUG_ENTER("rocksdb_init_func");
+
+  // Validate the assumption about the size of ROCKSDB_SIZEOF_HIDDEN_PK_COLUMN.
+  static_assert(sizeof(longlong) == 8, "Assuming that longlong is 8 bytes.");
 
 #ifdef HAVE_PSI_INTERFACE
   init_rocksdb_psi_keys();
