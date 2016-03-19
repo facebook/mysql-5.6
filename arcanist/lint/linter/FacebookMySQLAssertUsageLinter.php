@@ -45,6 +45,7 @@ class FacebookMySQLAssertUsageLinter extends ArcanistLinter {
       // NO_LINT_DEBUG comment can be used to turn off this advice.
       if (($line_idx > 0 &&
           strpos($lines[$line_idx - 1], 'NO_LINT_DEBUG') === false) &&
+          !(preg_match('/[\t ]*static_assert[\t ]*\(/', $trimmedLine)) &&
           (preg_match('/[\t ]*assert[\t ]*\(/', $trimmedLine) === 1)) {
         $this->raiseLintAtLine(
           $line_idx + 1,
