@@ -1955,10 +1955,18 @@ static void make_traverse_code_tree(HUFF_TREE *huff_tree,
   if (!element->a.leaf.null)
   {
     chr=element->a.leaf.element_nr;
-    huff_tree->code_len[chr]= (uchar) (8 * sizeof(ulonglong) - size);
-    huff_tree->code[chr]= (code >> size);
-    if (huff_tree->height < 8 * sizeof(ulonglong) - size)
-        huff_tree->height= 8 * sizeof(ulonglong) - size;
+    huff_tree->code_len[chr]= (uchar) (CHAR_BIT * sizeof(ulonglong) - size);
+
+    /* ubsan will trigger a runtime error here if we'll shift incorrectly and
+     * therefore an additional check is needed. */
+    if (size >= CHAR_BIT * sizeof(ulonglong)) {
+      huff_tree->code[chr]= 0;
+    } else {
+      huff_tree->code[chr]= (code >> size);
+    }
+
+    if (huff_tree->height < CHAR_BIT * sizeof(ulonglong) - size)
+        huff_tree->height= CHAR_BIT * sizeof(ulonglong) - size;
   }
   else
   {
@@ -2947,7 +2955,15 @@ static void flush_bits(void)
   ulonglong bit_buffer;
 
   bits= file_buffer.bits & ~7;
-  bit_buffer= file_buffer.bitbucket >> bits;
+
+  /* ubsan will trigger a runtime error here if we'll shift incorrectly and
+   * therefore an additional check is needed. */
+  if (bits >= (int) (CHAR_BIT * sizeof(ulonglong))) {
+    bit_buffer= 0;
+  } else {
+    bit_buffer= file_buffer.bitbucket >> bits;
+  }
+
   bits= BITS_SAVED - bits;
   while (bits > 0)
   {
