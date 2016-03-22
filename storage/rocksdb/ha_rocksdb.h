@@ -54,7 +54,7 @@ const char * const DEFAULT_SYSTEM_CF_NAME= "__system__";
 
 /*
   Column family name which means "put this index into its own column family".
-  See get_per_index_cf_name.
+  See Rdb_cf_manager::get_per_index_cf_name().
 */
 const char * const PER_INDEX_CF_NAME = "$per_index_cf";
 
