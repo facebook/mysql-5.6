@@ -49,31 +49,31 @@ extract_index_stats(
   return ret;
 }
 
-void MyRocksEventListener::OnCompactionCompleted(
+void Rdb_event_listener::OnCompactionCompleted(
   rocksdb::DB *db,
   const rocksdb::CompactionJobInfo& ci
 ) {
   DBUG_ASSERT(db != nullptr);
-  DBUG_ASSERT(ddl_manager_ != nullptr);
+  DBUG_ASSERT(m_ddl_manager != nullptr);
 
   if (ci.status.ok()) {
-    ddl_manager_->adjust_stats(
+    m_ddl_manager->adjust_stats(
       extract_index_stats(ci.output_files, ci.table_properties),
       extract_index_stats(ci.input_files, ci.table_properties));
   }
 }
 
-void  MyRocksEventListener::OnFlushCompleted(
+void Rdb_event_listener::OnFlushCompleted(
   rocksdb::DB* db,
   const rocksdb::FlushJobInfo& flush_job_info
 ) {
   DBUG_ASSERT(db != nullptr);
-  DBUG_ASSERT(ddl_manager_ != nullptr);
+  DBUG_ASSERT(m_ddl_manager != nullptr);
 
   auto p_props = std::make_shared<const rocksdb::TableProperties>(
     flush_job_info.table_properties);
 
-  ddl_manager_->adjust_stats(
+  m_ddl_manager->adjust_stats(
     MyRocksTablePropertiesCollector::GetStatsFromTableProperties(p_props));
 }
 
