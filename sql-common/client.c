@@ -4976,7 +4976,7 @@ csm_parse_handshake(mysql_csm_context *ctx)
     /* New protocol with 16 bytes to describe server characteristics */
     mysql->server_language=end[2];
     mysql->server_status=uint2korr(end+3);
-    mysql->server_capabilities|= uint2korr(end+5) << 16;
+    mysql->server_capabilities |= ((unsigned long) uint2korr(end + 5) << 16);
     ctx->pkt_scramble_len= end[7];
     if (ctx->pkt_scramble_len < 0)
     {
