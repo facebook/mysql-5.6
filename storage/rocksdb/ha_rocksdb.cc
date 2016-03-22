@@ -2587,7 +2587,7 @@ static int rocksdb_init_func(void *p)
     db_options.rate_limiter = rate_limiter;
   }
 
-  std::shared_ptr<Logger> myrocks_logger = std::make_shared<Logger>();
+  std::shared_ptr<Rdb_logger> myrocks_logger = std::make_shared<Rdb_logger>();
   rocksdb::Status s = CreateLoggerFromOptions(rocksdb_datadir, db_options,
                                               &db_options.info_log);
   if (s.ok()) {
