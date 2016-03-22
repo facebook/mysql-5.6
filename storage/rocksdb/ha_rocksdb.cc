@@ -1285,6 +1285,7 @@ class Rdb_transaction
   ulonglong n_locks= 0;
 
   rocksdb::Transaction *txn= nullptr;
+  rocksdb::Transaction *reuse_txn= nullptr;
 
   bool is_trx_failed= false;
   bool is_delayed_snapshot= false;
@@ -1472,8 +1473,12 @@ public:
       rocksdb_handle_io_error(s, ROCKSDB_IO_ERROR_TRX_COMMIT);
       res= true;
     }
-    delete txn;
+
+    /* Save the transaction object to be reused */
+    DBUG_ASSERT(reuse_txn == nullptr);
+    reuse_txn= txn;
     txn= nullptr;
+
     n_writes= 0;
     n_locks= 0;
     set_tx_read_only(false);
@@ -1491,8 +1496,12 @@ public:
       release_snapshot();
       /* This will also release all of the locks: */
       txn->Rollback();
-      delete txn;
+
+      /* Save the transaction object to be reused */
+      DBUG_ASSERT(reuse_txn == nullptr);
+      reuse_txn= txn;
       txn= nullptr;
+
       set_tx_read_only(false);
       rollback_only= false;
     }
@@ -1704,7 +1713,10 @@ public:
     write_opts.ignore_missing_column_families=
       THDVAR(thd_, write_ignore_missing_column_families);
 
-    txn= rdb->BeginTransaction(write_opts, txn_opts);
+    /* If reuse_txn is null this will create a new transaction object.
+     * Otherwise it will reuse the existing one. */
+    txn= rdb->BeginTransaction(write_opts, txn_opts, reuse_txn);
+    reuse_txn= nullptr;
 
     read_opts= rocksdb::ReadOptions();
 
@@ -1816,6 +1828,9 @@ public:
     // of the shared_ptr), so let it know it can't reference the transaction
     // anymore.
     notifier->RemoveTransaction();
+
+    // Free any transaction memory that is still hanging around.
+    delete reuse_txn;
   }
 };
 
