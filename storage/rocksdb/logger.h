@@ -13,9 +13,7 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
-
-#ifndef LOGGER_H
-#define LOGGER_H
+#pragma once
 
 #include <log.h>
 #include <sstream>
@@ -23,19 +21,19 @@
 
 namespace myrocks {
 
-class Logger : public rocksdb::Logger {
+class Rdb_logger : public rocksdb::Logger
+{
  public:
-  using rocksdb::Logger::Logv;
-
   void Logv(const rocksdb::InfoLogLevel log_level,
             const char* format,
-            va_list ap) {
+            va_list ap) override
+  {
     DBUG_ASSERT(format != nullptr);
 
     enum loglevel mysql_log_level;
 
-    if (rocksdb_logger_) {
-      rocksdb_logger_->Logv(log_level, format, ap);
+    if (m_logger) {
+      m_logger->Logv(log_level, format, ap);
     }
 
     if (log_level < GetInfoLogLevel()) {
@@ -56,20 +54,20 @@ class Logger : public rocksdb::Logger {
     error_log_print(mysql_log_level, f.c_str(), ap);
   }
 
-  void Logv(const char* format, va_list ap) {
+  void Logv(const char* format, va_list ap) override
+  {
     DBUG_ASSERT(format != nullptr);
     // If no level is specified, it is by default at information level
     Logv(rocksdb::InfoLogLevel::INFO_LEVEL, format, ap);
   }
 
-  void SetRocksDBLogger(std::shared_ptr<rocksdb::Logger> logger) {
-    rocksdb_logger_ = logger;
+  void SetRocksDBLogger(std::shared_ptr<rocksdb::Logger> logger)
+  {
+    m_logger = logger;
   }
 
  private:
-  std::shared_ptr<rocksdb::Logger> rocksdb_logger_;
+  std::shared_ptr<rocksdb::Logger> m_logger;
 };
 
 }  // namespace myrocks
-
-#endif
