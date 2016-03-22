@@ -18,6 +18,7 @@ final class FacebookMySQLDiffCreatedListener extends PhutilEventListener {
     if ($this->shouldStartBuilds($workflow)) {
       $this->startJenkinsBuilds($workflow->getArgument('big-test-queue'),
                                 $diffID);
+      $this->startSandcastleBuilds($workflow, $diffID);
     } else {
       $console = PhutilConsole::getConsole();
       $console->writeOut("Skipping launch of tests. Ask a Facebook "
@@ -32,6 +33,38 @@ final class FacebookMySQLDiffCreatedListener extends PhutilEventListener {
     $sentinel = "../tools/sandcastle/mysql_diff_determinator.php";
     $working_copy = $workflow->getWorkingCopy();
     return Filesystem::pathExists($working_copy->getProjectPath($sentinel));
+  }
+
+  // Enqueue Sandcastle build & test.
+  function startSandcastleBuilds($workflow, $diffID) {
+    // Using env variable to make it optional.
+    if (getenv('USE_SANDCASTLE') != true) {
+      return;
+    }
+
+    $cmd_args = array (
+      'name' => 'MySql determinator',
+      'steps' => array (
+        array (
+          'name' => 'MySQL determinator',
+          'shell' => 'tools/sandcastle/mysql_diff_determinator.php',
+          'determinator' => true,
+        ),
+       ),
+    );
+
+    $job = array (
+      'command' => 'SandcastleUniversalCommand',
+      'command-args' => $cmd_args,
+      'vcs' => 'mysql-github',
+      'diff' => $diffID,
+      'type' => 'lego',
+      'alias' => 'mysql-determinator',
+    );
+
+    $sandcastle = new ArcanistSandcastleClient($workflow);
+    $sandcastle->createBundle();
+    $sandcastle->enqueue($job);
   }
 
   // Enqueue Jenkins build & test
