@@ -1703,16 +1703,10 @@ THD::~THD()
   free_root(&transaction.mem_root,MYF(0));
   mysql_mutex_destroy(&LOCK_thd_data);
 
-  /* The session may still holding the lock in an ongoing transaction, so we
-   * trylock and then unlock before destroying it. Note: we will not have
-   * another thread holding the lock to update the read_only hash table while
-   * this thread is being deleted.  LOCK_thd_remove is locked before updating
-   * local read_only hash map, which prevents any thread being deleted. See
-   * sql_db.cc:update_thd_db_read_only() for details. */
-  mysql_mutex_trylock(&LOCK_thd_db_read_only_hash);
+  mysql_mutex_lock(&LOCK_thd_db_read_only_hash);
+  my_hash_free(&db_read_only_hash);
   mysql_mutex_unlock(&LOCK_thd_db_read_only_hash);
 
-  my_hash_free(&db_read_only_hash);
   mysql_mutex_destroy(&LOCK_thd_db_read_only_hash);
 
 #ifndef DBUG_OFF
