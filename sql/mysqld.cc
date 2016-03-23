@@ -680,7 +680,11 @@ ulong max_prepared_stmt_count;
   statements.
 */
 ulong prepared_stmt_count=0;
-ulong thread_id=1L,current_pid;
+my_thread_id thread_id_counter=1;
+uint64 total_thread_ids=0;
+const my_thread_id reserved_thread_id=0;
+
+ulong current_pid;
 ulong slow_launch_threads = 0;
 uint sync_binlog_period= 0, sync_relaylog_period= 0,
      sync_relayloginfo_period= 0, sync_masterinfo_period= 0,
@@ -940,6 +944,7 @@ int show_rsa_public_key(THD *thd, SHOW_VAR *var, char *buff);
 
 static volatile sig_atomic_t global_thread_count= 0;
 static std::set<THD*> *global_thread_list= NULL;
+std::set<my_thread_id> *global_thread_id_list= NULL;
 
 ulong max_blocked_pthreads= 0;
 static ulong blocked_pthread_count= 0;
@@ -956,8 +961,10 @@ extern my_bool opt_core_file;
 static void delete_global_thread_list()
 {
   delete global_thread_list;
+  delete global_thread_id_list;
   delete waiting_thd_list;
   global_thread_list= NULL;
+  global_thread_id_list= NULL;
   waiting_thd_list= NULL;
 }
 
@@ -1580,8 +1587,8 @@ static void close_connections(void)
   for (; it != global_thread_list->end(); ++it)
   {
     THD *tmp= *it;
-    DBUG_PRINT("quit",("Informing thread %ld that it's time to die",
-                       tmp->thread_id));
+    DBUG_PRINT("quit",("Informing thread %u that it's time to die",
+                       tmp->thread_id()));
     /* We skip slave threads & scheduler on this first loop through. */
     if (tmp->slave_thread)
       continue;
@@ -1635,8 +1642,8 @@ static void close_connections(void)
     for (it= global_thread_list->begin(); it != global_thread_list->end(); ++it)
     {
       THD *tmp= *it;
-      DBUG_PRINT("quit",("Informing dump thread %ld that it's time to die",
-                         tmp->thread_id));
+      DBUG_PRINT("quit",("Informing dump thread %u that it's time to die",
+                         tmp->thread_id()));
       if (tmp->get_command() == COM_BINLOG_DUMP ||
           tmp->get_command() == COM_BINLOG_DUMP_GTID)
       {
@@ -1690,7 +1697,7 @@ static void close_connections(void)
     {
       if (log_warnings)
         sql_print_warning(ER_DEFAULT(ER_FORCING_CLOSE),my_progname,
-                          tmp->thread_id,
+                          tmp->thread_id(),
                           (tmp->main_security_ctx.user ?
                            tmp->main_security_ctx.user : ""));
       close_connection(tmp);
@@ -1904,7 +1911,7 @@ pthread_handler_t kill_server_thread(void *arg __attribute__((unused)))
 extern "C" sig_handler print_signal_warning(int sig)
 {
   if (log_warnings)
-    sql_print_warning("Got signal %d from thread %ld", sig,my_thread_id());
+    sql_print_warning("Got signal %d from thread %u", sig,my_thread_id());
 #ifdef SIGNAL_HANDLER_RESET_ON_DELIVERY
   my_sigset(sig,print_signal_warning);    /* int. thread system calls */
 #endif
@@ -2829,7 +2836,7 @@ void close_connection(THD *thd, uint sql_errno)
 
   thd->disconnect();
 
-  MYSQL_CONNECTION_DONE((int) sql_errno, thd->thread_id);
+  MYSQL_CONNECTION_DONE((int) sql_errno, thd->thread_id());
 
   if (MYSQL_CONNECTION_DONE_ENABLED())
   {
@@ -2946,7 +2953,7 @@ static bool block_until_new_connection()
         and attach it to this running pthread.
       */
       PSI_thread *psi= PSI_THREAD_CALL(new_thread)
-        (key_thread_one_connection, thd, thd->thread_id);
+        (key_thread_one_connection, thd, thd->thread_id());
       PSI_THREAD_CALL(set_thread)(psi);
 #endif
 
@@ -4369,7 +4376,7 @@ int init_common_variables(my_bool logging)
   my_decimal_set_zero(&decimal_zero); // set decimal_zero constant;
   tzset();      // Set tzname
 
-  max_system_variables.pseudo_thread_id= (ulong)~0;
+  max_system_variables.pseudo_thread_id= (my_thread_id)~0;
   server_start_time= flush_status_time= my_time(0);
 
   rpl_filter= new Rpl_filter;
@@ -6845,7 +6852,10 @@ static void bootstrap(MYSQL_FILE *file)
   my_net_init(&thd->net,(st_vio*) 0);
   thd->max_client_packet_length= thd->net.max_packet;
   thd->security_ctx->master_access= ~(ulong)0;
-  thd->thread_id= thd->variables.pseudo_thread_id= thread_id++;
+  mysql_mutex_lock(&LOCK_thread_count);
+  thd->set_new_thread_id();
+  thd->variables.pseudo_thread_id= thd->thread_id();
+  mysql_mutex_unlock(&LOCK_thread_count);
 
   in_bootstrap= TRUE;
 
@@ -6953,7 +6963,7 @@ void create_thread_to_handle_connection(THD *thd)
     /* Create new thread to handle connection */
     int error;
     inc_thread_created();
-    DBUG_PRINT("info",(("creating thread %lu"), thd->thread_id));
+    DBUG_PRINT("info",(("creating thread %u"), thd->thread_id()));
     thd->prior_thr_create_utime= thd->start_utime= my_micro_time();
     if ((error= mysql_thread_create(key_thread_one_connection,
                                     &thd->real_id, &connection_attrib,
@@ -7057,7 +7067,8 @@ static void create_new_thread(THD *thd)
     the embedded library.
     TODO: refactor this to avoid code duplication there
   */
-  thd->thread_id= thd->variables.pseudo_thread_id= thread_id++;
+  thd->set_new_thread_id();
+  thd->variables.pseudo_thread_id= thd->thread_id();
 
   MYSQL_CALLBACK(thread_scheduler, add_connection, (thd));
 
@@ -8981,7 +8992,7 @@ SHOW_VAR status_vars[]= {
   {"Command_seconds",          (char*) offsetof(STATUS_VAR, command_time), SHOW_TIMER_STATUS},
   {"Command_slave_seconds",    (char*) &command_slave_seconds,  SHOW_TIMER},
   {"Compression",              (char*) &show_net_compression, SHOW_FUNC},
-  {"Connections",              (char*) &thread_id,              SHOW_LONG_NOFLUSH},
+  {"Connections",              (char*) &total_thread_ids,              SHOW_LONG_NOFLUSH},
   {"Connection_errors_accept", (char*) &connection_errors_accept, SHOW_LONG},
   {"Connection_errors_internal", (char*) &connection_errors_internal, SHOW_LONG},
   {"Connection_errors_max_connections", (char*) &connection_errors_max_connection, SHOW_LONG},
@@ -9446,12 +9457,14 @@ static int mysql_init_variables(void)
   protocol_version= PROTOCOL_VERSION;
   what_to_log= ~ (1L << (uint) COM_TIME);
   refresh_version= 1L;  /* Increments on each reload */
-  global_query_id= thread_id= 1L;
+  global_query_id= thread_id_counter= 1L;
   my_atomic_rwlock_init(&global_query_id_lock);
   my_atomic_rwlock_init(&thread_running_lock);
   my_atomic_rwlock_init(&write_query_running_lock);
   strmov(server_version, MYSQL_SERVER_VERSION);
   global_thread_list= new std::set<THD*>;
+  global_thread_id_list= new std::set<my_thread_id>;
+  global_thread_id_list->insert(reserved_thread_id);
   waiting_thd_list= new std::list<THD*>;
   key_caches.empty();
   if (!(dflt_key_cache= get_or_create_key_cache(default_key_cache_base.str,

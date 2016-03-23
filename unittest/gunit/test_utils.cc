@@ -89,7 +89,8 @@ void Server_initializer::SetUp()
   m_thd->set_current_time();
 
   mysql_mutex_lock(&LOCK_thread_count);
-  m_thd->thread_id= m_thd->variables.pseudo_thread_id= thread_id++;
+  thd->set_new_thread_id();
+  thd->variables.pseudo_thread_id= thd->thread_id();
   mysql_mutex_unlock(&LOCK_thread_count);
 
   my_pthread_setspecific_ptr(THR_THD, m_thd);
