@@ -6438,7 +6438,7 @@ ndb_binlog_thread_func(void *arg)
      set an invalid value for thd->variables.pseudo_thread_id.
   */
   mysql_mutex_lock(&LOCK_thread_count);
-  thd->thread_id= thread_id++;
+  thd->set_new_thread_id();
   mysql_mutex_unlock(&LOCK_thread_count);
 
   thd->thread_stack= (char*) &thd; /* remember where our stack is */

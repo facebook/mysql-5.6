@@ -155,7 +155,7 @@ public:
   /** Get instance of table cache to be used by particular connection. */
   Table_cache* get_cache(THD *thd)
   {
-    return &m_table_cache[thd->thread_id % table_cache_instances];
+    return &m_table_cache[thd->thread_id() % table_cache_instances];
   }
 
   /** Get index for the table cache in container. */

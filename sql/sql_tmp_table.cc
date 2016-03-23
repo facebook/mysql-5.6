@@ -570,8 +570,8 @@ create_tmp_table(THD *thd,TMP_TABLE_PARAM *param,List<Item> &fields,
   else
   {
     /* if we run out of slots or we are not using tempool */
-    sprintf(path,"%s%lx_%lx_%x", tmp_file_prefix,current_pid,
-            thd->thread_id, thd->tmp_table++);
+    sprintf(path,"%s%lx_%x_%x", tmp_file_prefix,current_pid,
+            thd->thread_id(), thd->tmp_table++);
   }
 
   /*
@@ -1337,8 +1337,8 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd,
   else
   {
     /* if we run out of slots or we are not using tempool */
-    sprintf(path,"%s%lx_%lx_%x", tmp_file_prefix,current_pid,
-            thd->thread_id, thd->tmp_table++);
+    sprintf(path,"%s%lx_%x_%x", tmp_file_prefix,current_pid,
+            thd->thread_id(), thd->tmp_table++);
   }
   fn_format(path, path, mysql_tmpdir, "", MY_REPLACE_EXT|MY_UNPACK_FILENAME);
 

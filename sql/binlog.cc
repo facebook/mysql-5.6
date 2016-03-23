@@ -1928,8 +1928,8 @@ static int log_in_use(const char* log_name)
       {
         thread_count++;
         sql_print_warning("file %s was not purged because it was being read "
-                          "by thread number %llu", log_name,
-                          (ulonglong)(*it)->thread_id);
+                          "by thread number %u", log_name,
+                          (*it)->thread_id());
       }
       mysql_mutex_unlock(&linfo->lock);
     }
@@ -2471,7 +2471,7 @@ bool show_binlog_cache(THD *thd)
 
   ulong thread_id_opt = thd->lex->thread_id_opt;
   THD *opt_thd = nullptr;
-  if (thread_id_opt && thread_id_opt != thd->thread_id)
+  if (thread_id_opt && thread_id_opt != thd->thread_id())
   {
     opt_thd = get_opt_thread_with_data_lock(thd, thread_id_opt);
     if (!opt_thd)
@@ -7145,8 +7145,8 @@ MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first, bool async)
 #endif
   for (THD *head= first ; head ; head = head->next_to_commit)
   {
-    DBUG_PRINT("debug", ("Thread ID: %lu, commit_error: %d, flags.pending: %s",
-                         head->thread_id, head->commit_error,
+    DBUG_PRINT("debug", ("Thread ID: %u, commit_error: %d, flags.pending: %s",
+                         head->thread_id(), head->commit_error,
                          YESNO(head->transaction.flags.pending)));
     /*
       If flushing failed, set commit_error for the session, skip the
@@ -7438,8 +7438,8 @@ MYSQL_BIN_LOG::finish_commit(THD *thd, bool async)
 
   DBUG_ASSERT(thd->commit_error || !thd->transaction.flags.run_hooks);
   DBUG_ASSERT(!thd_get_cache_mngr(thd)->dbug_any_finalized());
-  DBUG_PRINT("return", ("Thread ID: %lu, commit_error: %d",
-                        thd->thread_id, thd->commit_error));
+  DBUG_PRINT("return", ("Thread ID: %u, commit_error: %d",
+                        thd->thread_id(), thd->commit_error));
   /*
     flush or sync errors are handled by the leader of the group
     (using binlog_error_action). Hence treat only COMMIT_ERRORs as errors.
@@ -7599,9 +7599,9 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
   thd->transaction.flags.ready_preempt= 0;
 #endif
 
-  DBUG_PRINT("enter", ("flags.pending: %s, commit_error: %d, thread_id: %lu",
+  DBUG_PRINT("enter", ("flags.pending: %s, commit_error: %d, thread_id: %u",
                        YESNO(thd->transaction.flags.pending),
-                       thd->commit_error, thd->thread_id));
+                       thd->commit_error, thd->thread_id()));
 
   /*
     Stage #1: flushing transactions to binary log
@@ -7614,8 +7614,8 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
   DEBUG_SYNC(thd, "waiting_to_enter_flush_stage");
   if (change_stage(thd, Stage_manager::FLUSH_STAGE, thd, NULL, &LOCK_log))
   {
-    DBUG_PRINT("return", ("Thread ID: %lu, commit_error: %d",
-                          thd->thread_id, thd->commit_error));
+    DBUG_PRINT("return", ("Thread ID: %u, commit_error: %d",
+                          thd->thread_id(), thd->commit_error));
     DBUG_RETURN(finish_commit(thd, async));
   }
 
@@ -7698,8 +7698,8 @@ commit_stage:
   if (change_stage(thd, Stage_manager::SEMISYNC_STAGE, final_queue,
                    &LOCK_log, &LOCK_semisync))
   {
-    DBUG_PRINT("return", ("Thread ID: %lu, commit_error: %d",
-                          thd->thread_id, thd->commit_error));
+    DBUG_PRINT("return", ("Thread ID: %u, commit_error: %d",
+                          thd->thread_id(), thd->commit_error));
     DBUG_RETURN(finish_commit(thd, async));
   }
   semisync_queue =
@@ -7728,8 +7728,8 @@ commit_stage:
     if (change_stage(thd, Stage_manager::COMMIT_STAGE,
                      semisync_queue, leave_mutex_before_commit_stage, &LOCK_commit))
     {
-      DBUG_PRINT("return", ("Thread ID: %lu, commit_error: %d",
-                            thd->thread_id, thd->commit_error));
+      DBUG_PRINT("return", ("Thread ID: %u, commit_error: %d",
+                            thd->thread_id(), thd->commit_error));
       DBUG_RETURN(finish_commit(thd, async));
     }
     THD *commit_queue= stage_manager.fetch_queue_for(Stage_manager::COMMIT_STAGE);

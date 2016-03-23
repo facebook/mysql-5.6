@@ -277,11 +277,11 @@ static inline enum_gtid_statement_status skip_statement(const THD *thd)
 
   DBUG_PRINT("info", ("skipping statement '%s'. "
                       "gtid_next->type=%d sql_command=%d "
-                      "thd->thread_id=%lu",
+                      "thd->thread_id=%u",
                       thd->query(),
                       thd->variables.gtid_next.type,
                       thd->lex->sql_command,
-                      thd->thread_id));
+                      thd->thread_id()));
 
 #ifndef DBUG_OFF
   const Gtid_set* logged_gtids= gtid_state->get_logged_gtids();
@@ -365,11 +365,11 @@ enum_gtid_statement_status gtid_pre_statement_checks(THD *thd)
 
   DBUG_PRINT("info", ("gtid_next_list=%p gtid_next->type=%d "
                       "thd->owned_gtid.gtid.{sidno,gno}={%d,%lld} "
-                      "thd->thread_id=%lu",
+                      "thd->thread_id=%u",
                       gtid_next_list, gtid_next->type,
                       thd->owned_gtid.sidno,
                       thd->owned_gtid.gno,
-                      (ulong)thd->thread_id));
+                      thd->thread_id()));
 
   const bool skip_transaction= is_already_logged_transaction(thd);
   if (gtid_next_list == NULL)

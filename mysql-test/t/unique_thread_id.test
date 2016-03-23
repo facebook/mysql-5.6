@@ -1,0 +1,44 @@
+--source include/have_debug.inc
+
+set @old_debug_val = @@global.debug;
+
+# Skip to the largest thread_id to see if it wraps around
+set @@global.debug="+d,skip_to_largest_thread_id";
+connect (con1,localhost,root,,);
+set global debug = @old_debug_val;
+# This should give UINT32_MAX
+select connection_id();
+
+connect (con2,localhost,root,,);
+# This should give a small number after wrapping around
+let $conn_id = query_get_value(select connection_id() as conn_id, conn_id, 1);
+--disable_query_log
+eval select $conn_id < 0xFFFFFFFF && $conn_id > 0 as "thread_id has wrapped";
+--enable_query_log
+
+# Skip to second largest thread_id and check if we reuse thread_id used in
+# con1 (UINT32_MAX)
+set @@global.debug="+d,skip_to_second_largest_thread_id";
+connect (con3,localhost,root,,);
+set global debug = @old_debug_val;
+# This gives UINT32_MAX - 1
+select connection_id();
+
+connect (con4,localhost,root,,);
+# This should give a small number after wrapping around
+let $conn_id = query_get_value(select connection_id() as conn_id, conn_id, 1);
+--disable_query_log
+eval select $conn_id < 0xFFFFFFFE && $conn_id > 0 as "thread_id has wrapped";
+--enable_query_log
+
+# Free connection ID
+connection con1;
+set @@global.debug="+d,skip_to_second_largest_thread_id";
+disconnect con1;
+--source include/wait_until_disconnected.inc
+connect (con5,localhost,root,,);
+set global debug = @old_debug_val;
+# This should give UINT32_MAX
+select connection_id();
+
+connection default;
