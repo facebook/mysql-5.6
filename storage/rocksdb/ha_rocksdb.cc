@@ -6873,6 +6873,12 @@ THR_LOCK_DATA **ha_rocksdb::store_lock(THD *thd,
   DBUG_RETURN(to);
 }
 
+void ha_rocksdb::read_thd_vars(THD *thd)
+{
+  store_checksums= THDVAR(thd, store_checksums);
+  verify_checksums= THDVAR(thd, verify_checksums);
+  checksums_pct= THDVAR(thd, checksums_pct);
+}
 
 int ha_rocksdb::external_lock(THD *thd, int lock_type)
 {
@@ -6931,15 +6937,7 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
       So, we put this code here.
     */
     Rdb_transaction* trx= get_or_create_trx(thd);
-
-    THD *thd= table->in_use;
-    trx->set_params(THDVAR(thd, lock_wait_timeout),
-                    THDVAR(thd, max_row_locks));
-    // TODO: get_or_create_trx above does the same
-
-    store_checksums= THDVAR(thd, store_checksums);
-    verify_checksums= THDVAR(thd, verify_checksums);
-    checksums_pct= THDVAR(thd, checksums_pct);
+    read_thd_vars(thd);
 
     updated_indexes_is_valid= false;
 
@@ -7011,16 +7009,9 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
 
 int ha_rocksdb::start_stmt(THD *thd, thr_lock_type lock_type)
 {
-  if (thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))
-  {
-    Rdb_transaction* trx= get_or_create_trx(thd);
-   /* trx->set_params(THDVAR(table->in_use, lock_wait_timeout),
-                    THDVAR(table->in_use, max_row_locks)); */
-    store_checksums= THDVAR(thd, store_checksums);
-    verify_checksums= THDVAR(thd, verify_checksums);
-
-    rocksdb_register_trx(ht, thd, trx);
-  }
+  Rdb_transaction* trx= get_or_create_trx(thd);
+  read_thd_vars(thd);
+  rocksdb_register_trx(ht, thd, trx);
   return 0;
 }
 
