@@ -22,6 +22,7 @@
 #include <mutex>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 /* C standard header files */
 #include <arpa/inet.h>
@@ -356,8 +357,7 @@ public:
                uint16_t kv_format_version_arg,
                bool is_reverse_cf_arg, bool is_auto_cf_arg,
                const char* _name,
-               MyRocksTablePropertiesCollector::IndexStats _stats
-                 =MyRocksTablePropertiesCollector::IndexStats()
+               Rdb_index_stats _stats= Rdb_index_stats()
               );
   ~RDBSE_KEYDEF();
 
@@ -455,7 +455,7 @@ public:
 
   bool is_auto_cf;
   std::string name;
-  MyRocksTablePropertiesCollector::IndexStats stats;
+  Rdb_index_stats stats;
 private:
 
   friend class RDBSE_TABLE_DEF; // for index_number above
@@ -691,8 +691,7 @@ class Table_ddl_manager
   // A queue of table stats to write into data dictionary
   // It is produced by event listener (ie compaction and flush threads)
   // and consumed by the rocksdb background thread
-  std::map<GL_INDEX_ID, MyRocksTablePropertiesCollector::IndexStats>
-    stats2store;
+  std::map<GL_INDEX_ID, Rdb_index_stats> stats2store;
 public:
   /* Load the data dictionary from on-disk storage */
   bool init(Dict_manager *dict_arg, Column_family_manager *cf_manager,
@@ -705,12 +704,12 @@ public:
   std::unique_ptr<RDBSE_KEYDEF> get_copy_of_keydef(GL_INDEX_ID gl_index_id);
   void set_stats(
     const std::unordered_map<GL_INDEX_ID,
-    MyRocksTablePropertiesCollector::IndexStats>& stats
+    Rdb_index_stats>& stats
   );
   void adjust_stats(
-    const std::vector<MyRocksTablePropertiesCollector::IndexStats>& new_data,
-    const std::vector<MyRocksTablePropertiesCollector::IndexStats>& deleted_data
-     =std::vector<MyRocksTablePropertiesCollector::IndexStats>());
+    const std::vector<Rdb_index_stats>& new_data,
+    const std::vector<Rdb_index_stats>& deleted_data
+     =std::vector<Rdb_index_stats>());
   void persist_stats(bool sync = false);
 
   /* Modify the mapping and write it to on-disk storage */
@@ -895,9 +894,9 @@ public:
                            const uint32_t index_id);
   void add_stats(
     rocksdb::WriteBatch* batch,
-    const std::vector<MyRocksTablePropertiesCollector::IndexStats>& stats
+    const std::vector<Rdb_index_stats>& stats
   );
-  MyRocksTablePropertiesCollector::IndexStats get_stats(
+  Rdb_index_stats get_stats(
     GL_INDEX_ID gl_index_id
   );
 };
