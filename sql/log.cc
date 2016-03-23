@@ -687,7 +687,7 @@ bool Log_to_csv_event_handler::
                                                client_cs) < 0)
     goto err;
 
-  if (table->field[SQLT_FIELD_THREAD_ID]->store((longlong) thd->thread_id,
+  if (table->field[SQLT_FIELD_THREAD_ID]->store((longlong) thd->thread_id(),
                                                 TRUE))
     goto err;
 
@@ -1158,7 +1158,7 @@ bool LOGGER::general_log_write(THD *thd, enum enum_server_command command,
   while (*current_handler)
     error|= (*current_handler++)->
       log_general(thd, current_time, user_host_buff,
-                  user_host_len, thd->thread_id,
+                  user_host_len, thd->thread_id(),
                   command_name[(uint) command].str,
                   command_name[(uint) command].length,
                   query, query_length,
@@ -1187,7 +1187,7 @@ bool LOGGER::gap_lock_log_write(THD *thd, enum enum_server_command command,
   while (*current_handler)
     error|= (*current_handler++)->
       log_gap_lock(thd, current_time, user_host_buff,
-                   user_host_len, thd->thread_id,
+                   user_host_len, thd->thread_id(),
                    command_name[(uint) command].str,
                    command_name[(uint) command].length,
                    query, query_length) || error;
@@ -2096,7 +2096,7 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
         if (my_b_write(&log_file, (uchar*) buff, buff_len))
           tmp_errno= errno;
       }
-      buff_len= my_snprintf(buff, 32, "%5lu", thd->thread_id);
+      buff_len= my_snprintf(buff, 32, "%5u", thd->thread_id());
       if (my_b_printf(&log_file, "# User@Host: %s  Id: %s\n", user_host, buff)
           == (uint) -1)
         tmp_errno= errno;
@@ -2133,7 +2133,7 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
                       query_time_buff, lock_time_buff,
                       (ulong) thd->get_sent_row_count(),
                       (ulong) thd->get_examined_row_count(),
-                      (ulong) thd->thread_id,
+                      (ulong) thd->thread_id(),
                       (ulong) thd->net.last_errno,
                       (ulong) thd->killed,
                       (ulong) (thd->status_var.bytes_received -
@@ -2196,7 +2196,7 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
                       query_time_buff, lock_time_buff,
                       (ulong) thd->get_sent_row_count(),
                       (ulong) thd->get_examined_row_count(),
-                      (ulong) thd->thread_id,
+                      (ulong) thd->thread_id(),
                       (ulong) thd->net.last_errno,
                       (ulong) thd->killed,
                       (ulong) thd->status_var.bytes_received,

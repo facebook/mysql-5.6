@@ -58,6 +58,7 @@ Thread_iterator global_thread_list_end();
 void copy_global_thread_list(std::set<THD*> *new_copy);
 void add_global_thread(THD *);
 void remove_global_thread(THD *);
+extern std::set<my_thread_id> *global_thread_id_list;
 
 /*
   We maintain a separate counter for the number of threads,

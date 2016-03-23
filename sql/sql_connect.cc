@@ -753,8 +753,8 @@ bool login_connection(THD *thd)
   NET *net= &thd->net;
   int error;
   DBUG_ENTER("login_connection");
-  DBUG_PRINT("info", ("login_connection called by thread %lu",
-                      thd->thread_id));
+  DBUG_PRINT("info", ("login_connection called by thread %u",
+                      thd->thread_id()));
 
   /* Use "connect_timeout" value during connection phase */
   my_net_set_read_timeout(net, timeout_from_seconds(connect_timeout));
@@ -823,7 +823,7 @@ void end_connection(THD *thd)
       Security_context *sctx= thd->security_ctx;
 
       sql_print_warning(ER(ER_NEW_ABORTING_CONNECTION),
-                        thd->thread_id,(thd->db ? thd->db : "unconnected"),
+                        thd->thread_id(),(thd->db ? thd->db : "unconnected"),
                         sctx->user ? sctx->user : "unauthenticated",
                         sctx->host_or_ip,
                         (thd->get_stmt_da()->is_error() ?
@@ -865,7 +865,7 @@ void prepare_new_connection_state(THD* thd)
       NET *net= &thd->net;
 
       sql_print_warning(ER(ER_NEW_ABORTING_CONNECTION),
-                        thd->thread_id,
+                        thd->thread_id(),
                         thd->db ? thd->db : "unconnected",
                         sctx->user ? sctx->user : "unauthenticated",
                         sctx->host_or_ip, "init_connect command failed");
@@ -883,7 +883,7 @@ void prepare_new_connection_state(THD* thd)
       */
       if (packet_length != packet_error)
         my_error(ER_NEW_ABORTING_CONNECTION, MYF(0),
-                 thd->thread_id,
+                 thd->thread_id(),
                  thd->db ? thd->db : "unconnected",
                  sctx->user ? sctx->user : "unauthenticated",
                  sctx->host_or_ip, "init_connect command failed");
@@ -924,7 +924,7 @@ pthread_handler_t handle_one_connection(void *arg)
 {
   THD *thd= (THD*) arg;
 
-  mysql_thread_set_psi_id(thd->thread_id);
+  mysql_thread_set_psi_id(thd->thread_id());
 
   do_handle_one_connection(thd);
   return 0;

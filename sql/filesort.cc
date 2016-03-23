@@ -461,11 +461,11 @@ ha_rows filesort(THD *thd, TABLE *table, Filesort *filesort,
 
     if (log_warnings > 1)
     {
-      sql_print_warning("%s, host: %s, user: %s, thread: %lu, query: %-.4096s",
+      sql_print_warning("%s, host: %s, user: %s, thread: %u, query: %-.4096s",
                         ER_THD(thd, ER_FILSORT_ABORT),
                         thd->security_ctx->host_or_ip,
                         &thd->security_ctx->priv_user[0],
-                        (ulong) thd->thread_id,
+                        thd->thread_id(),
                         thd->query());
     }
   }
