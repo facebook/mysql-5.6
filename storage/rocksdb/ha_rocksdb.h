@@ -179,7 +179,7 @@ namespace myrocks {
   ROCKSDB_SHARE is a structure that will be shared among all open handlers.
   This example implements the minimum of what you will probably need.
 
-  //TODO: join this with RDBSE_TABLE_DEF ?
+  //TODO: join this with Rdb_tbl_def ?
 */
 typedef struct st_rocksdb_share {
   char *table_name;
@@ -201,8 +201,8 @@ typedef enum io_error_type {
 
 void rocksdb_handle_io_error(rocksdb::Status status, enum io_error_type type);
 
-class RDBSE_KEYDEF;
-class RDBSE_TABLE_DEF;
+class Rdb_key_def;
+class Rdb_tbl_def;
 class Row_lock;
 class Rdb_transaction;
 
@@ -304,13 +304,13 @@ class ha_rocksdb: public handler
   /* Whether scan_it was created with skip_bloom=true */
   bool scan_it_skips_bloom;
 
-  RDBSE_TABLE_DEF *tbl_def;
+  Rdb_tbl_def *tbl_def;
 
   /* Primary Key encoder from KeyTupleFormat to StorageFormat */
-  RDBSE_KEYDEF *pk_descr;
+  Rdb_key_def *pk_descr;
 
   /* Array of index descriptors */
-  RDBSE_KEYDEF **key_descr;
+  Rdb_key_def **key_descr;
 
   bool check_keyread_allowed(uint inx, uint part, bool all_parts) const;
   /*
@@ -426,14 +426,14 @@ class ha_rocksdb: public handler
   int secondary_index_read(const int keyno, uchar *buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   void setup_iterator_for_rnd_scan();
-  void setup_scan_iterator(RDBSE_KEYDEF *keydef, rocksdb::Slice *slice)
+  void setup_scan_iterator(Rdb_key_def *keydef, rocksdb::Slice *slice)
       MY_ATTRIBUTE((__nonnull__))
   {
     setup_scan_iterator(keydef, slice, false, false, 0);
   }
-  bool is_ascending(RDBSE_KEYDEF *keydef, enum ha_rkey_function find_flag)
+  bool is_ascending(Rdb_key_def *keydef, enum ha_rkey_function find_flag)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-  void setup_scan_iterator(RDBSE_KEYDEF *keydef, rocksdb::Slice *slice,
+  void setup_scan_iterator(Rdb_key_def *keydef, rocksdb::Slice *slice,
                         const bool use_all_keys, const bool is_ascending,
                         const uint eq_cond_len)
     MY_ATTRIBUTE((__nonnull__));
@@ -476,7 +476,7 @@ class ha_rocksdb: public handler
     format. Not all information is in the structure yet, but eventually we
     want to have as much as possible there to avoid virtual calls.
 
-    For encoding/decoding of index tuples, see RDBSE_KEYDEF.
+    For encoding/decoding of index tuples, see Rdb_key_def.
   */
   typedef struct st_field_encoder
   {
@@ -510,7 +510,7 @@ class ha_rocksdb: public handler
 
   void setup_field_converters();
 
-  // the buffer size should be at least 2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE
+  // the buffer size should be at least 2*Rdb_key_def::INDEX_NUMBER_SIZE
   rocksdb::Range get_range(int i, uchar buf[]) const;
 
   /*
@@ -630,14 +630,14 @@ public:
     MY_ATTRIBUTE((__nonnull__));
 
   bool is_hidden_pk(const uint index, const TABLE* table,
-                    const RDBSE_TABLE_DEF* tbl_def)
+                    const Rdb_tbl_def* tbl_def)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
-  int pk_index(const TABLE* table, const RDBSE_TABLE_DEF* tbl_def)
+  int pk_index(const TABLE* table, const Rdb_tbl_def* tbl_def)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   bool is_pk(const uint index, const TABLE* table,
-             const RDBSE_TABLE_DEF* tbl_def)
+             const Rdb_tbl_def* tbl_def)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   /** @brief
@@ -736,17 +736,17 @@ private:
                        const bool skip_unique_check)
     MY_ATTRIBUTE((__warn_unused_result__));
 
-  int read_key_exact(RDBSE_KEYDEF *kd, rocksdb::Iterator* scan_it,
+  int read_key_exact(Rdb_key_def *kd, rocksdb::Iterator* scan_it,
                      bool using_full_key, const rocksdb::Slice& key_slice)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-  int read_before_key(RDBSE_KEYDEF *kd, bool using_full_key,
+int read_before_key(Rdb_key_def *kd, bool using_full_key,
                       const rocksdb::Slice& key_slice)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-  int read_after_key(RDBSE_KEYDEF *kd, bool using_full_key,
+  int read_after_key(Rdb_key_def *kd, bool using_full_key,
                      const rocksdb::Slice& key_slice)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
-  int position_to_correct_key(RDBSE_KEYDEF *kd,
+  int position_to_correct_key(Rdb_key_def *kd,
                               enum ha_rkey_function find_flag,
                               bool full_key_match, const uchar* key,
                               key_part_map keypart_map,
@@ -756,16 +756,16 @@ private:
 
   int read_row_from_primary_key(uchar* buf)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-  int read_row_from_secondary_key(uchar* buf, RDBSE_KEYDEF* kd,
+  int read_row_from_secondary_key(uchar* buf, Rdb_key_def* kd,
                                   bool move_forward)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
-  int calc_eq_cond_len(RDBSE_KEYDEF *kd, enum ha_rkey_function find_flag,
+  int calc_eq_cond_len(Rdb_key_def *kd, enum ha_rkey_function find_flag,
                        const rocksdb::Slice& slice, int bytes_changed_by_succ,
                        const key_range *end_key, uint* end_key_packed_size)
     MY_ATTRIBUTE((__warn_unused_result__));
 
-  RDBSE_TABLE_DEF* get_table_if_exists(const char* tablename)
+  Rdb_tbl_def* get_table_if_exists(const char* tablename)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   void read_thd_vars(THD *thd)
     MY_ATTRIBUTE((__nonnull__));
@@ -815,7 +815,7 @@ public:
 
   int check(THD* thd, HA_CHECK_OPT* check_opt)
     MY_ATTRIBUTE((__warn_unused_result__));
-  void remove_rows(RDBSE_TABLE_DEF *tbl);
+  void remove_rows(Rdb_tbl_def *tbl);
   ha_rows records_in_range(uint inx, key_range *min_key,
                            key_range *max_key)
     MY_ATTRIBUTE((__warn_unused_result__));
