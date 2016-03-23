@@ -997,7 +997,7 @@ insert into t1 values (-5,-5,-5);
 explain
 select key1 from t1 where key1=2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	key1	key1	5	NULL	#	Using where; Using index
+1	SIMPLE	t1	ref	key1	key1	5	const	#	Using index
 select key1 from t1 where key1=2;
 key1
 2
@@ -1011,7 +1011,7 @@ insert into t2 values (1,1,1), (2,2,2);
 explain
 select key1 from t2 where key1=2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	index	key1	key1	5	NULL	#	Using where; Using index
+1	SIMPLE	t2	ref	key1	key1	5	const	#	Using index
 select key1 from t2 where key1=2;
 key1
 2
@@ -1022,7 +1022,7 @@ insert into t3 values (1,1,1), (2,2,2);
 explain 
 select key1 from t3 where key1=2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t3	index	key1	key1	9	NULL	#	Using where; Using index
+1	SIMPLE	t3	ref	key1	key1	9	const	#	Using index
 select key1 from t3 where key1=2;
 key1
 2
@@ -1040,7 +1040,7 @@ insert into t1 values(1, 'one',11), (2,'two',22);
 explain 
 select key1 from t1 where key1='one';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	key1	key1	11	NULL	#	Using where; Using index
+1	SIMPLE	t1	ref	key1	key1	11	const	#	Using where; Using index
 # The following will produce no rows. This looks like a bug,
 #  but it is actually correct behavior. Binary strings are end-padded
 #  with \0 character (and not space).  Comparison does not ignore
@@ -1050,7 +1050,7 @@ key1
 explain
 select hex(key1) from t1 where key1='one\0\0\0\0\0\0\0';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	key1	key1	11	NULL	#	Using where; Using index
+1	SIMPLE	t1	ref	key1	key1	11	const	#	Using where; Using index
 select hex(key1) from t1 where key1='one\0\0\0\0\0\0\0';
 hex(key1)
 6F6E6500000000000000
@@ -1065,7 +1065,7 @@ insert into t2 values(1, 'one',11), (2,'two',22);
 explain 
 select key1 from t2 where key1='one';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	index	key1	key1	11	NULL	#	Using where; Using index
+1	SIMPLE	t2	ref	key1	key1	11	const	#	Using where; Using index
 select key1 from t2 where key1='one';
 key1
 one
@@ -1080,7 +1080,7 @@ insert into t3 values(1, 'one',11), (2,'two',22);
 explain 
 select key1 from t3 where key1='one';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t3	index	key1	key1	31	NULL	#	Using where; Using index
+1	SIMPLE	t3	ref	key1	key1	31	const	#	Using where; Using index
 select key1 from t3 where key1='one';
 key1
 one
@@ -1095,7 +1095,7 @@ insert into t4 values(1, 'one'), (2,'two'),(3,'threee'),(55,'fifty-five');
 explain 
 select key1 from t4 where key1='two';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t4	index	key1	key1	13	NULL	#	Using where; Using index
+1	SIMPLE	t4	ref	key1	key1	13	const	#	Using where; Using index
 select key1 from t4 where key1='two';
 key1
 two
