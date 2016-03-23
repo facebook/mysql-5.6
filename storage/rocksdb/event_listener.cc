@@ -32,17 +32,17 @@
 
 namespace myrocks {
 
-static std::vector<MyRocksTablePropertiesCollector::IndexStats>
+static std::vector<Rdb_index_stats>
 extract_index_stats(
   const std::vector<std::string>& files,
   const rocksdb::TablePropertiesCollection& props
 ) {
-  std::vector<MyRocksTablePropertiesCollector::IndexStats> ret;
+  std::vector<Rdb_index_stats> ret;
   for (auto fn : files) {
     auto it = props.find(fn);
     DBUG_ASSERT(it != props.end());
-    std::vector<MyRocksTablePropertiesCollector::IndexStats> stats =
-      MyRocksTablePropertiesCollector::GetStatsFromTableProperties(
+    std::vector<Rdb_index_stats> stats =
+      Rdb_tbl_prop_coll::read_stats_from_tbl_props(
         it->second);
     ret.insert(ret.end(), stats.begin(), stats.end());
   }
@@ -74,7 +74,7 @@ void Rdb_event_listener::OnFlushCompleted(
     flush_job_info.table_properties);
 
   m_ddl_manager->adjust_stats(
-    MyRocksTablePropertiesCollector::GetStatsFromTableProperties(p_props));
+    Rdb_tbl_prop_coll::read_stats_from_tbl_props(p_props));
 }
 
 }  // namespace myrocks
