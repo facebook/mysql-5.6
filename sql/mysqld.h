@@ -714,7 +714,7 @@ extern const char *server_uuid_ptr;
 extern const double log_10[309];
 extern ulonglong keybuff_size;
 extern ulonglong thd_startup_options;
-extern ulong thread_id;
+extern my_thread_id thread_id_counter;
 extern ulong binlog_cache_use, binlog_cache_disk_use;
 extern ulong binlog_stmt_cache_use, binlog_stmt_cache_disk_use;
 extern ulonglong binlog_bytes_written;

@@ -635,7 +635,7 @@ uint build_tmptable_filename(THD* thd, char *buff, size_t bufflen)
   char *p= strnmov(buff, mysql_tmpdir, bufflen);
   my_snprintf(p, bufflen - (p - buff), "/%s%lx_%lx_%x",
               tmp_file_prefix, current_pid,
-              thd->thread_id, thd->tmp_table++);
+              thd->thread_id(), thd->tmp_table++);
 
   if (lower_case_table_names)
   {
@@ -9100,7 +9100,7 @@ bool mysql_alter_table(THD *thd,char *new_db, char *new_name,
   */
   char backup_name[32];
   my_snprintf(backup_name, sizeof(backup_name), "%s2-%lx-%lx", tmp_file_prefix,
-              current_pid, thd->thread_id);
+              current_pid, thd->thread_id());
   if (lower_case_table_names)
     my_casedn_str(files_charset_info, backup_name);
   if (mysql_rename_table(old_db_type, alter_ctx.db, alter_ctx.table_name,

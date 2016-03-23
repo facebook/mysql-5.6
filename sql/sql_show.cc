@@ -2244,7 +2244,7 @@ void mysqld_list_processes(THD *thd,const char *user, bool verbose)
       {
         thread_info *thd_info= new thread_info;
 
-        thd_info->thread_id=tmp->thread_id;
+        thd_info->thread_id=tmp->thread_id();
         thd_info->system_thread_id= tmp->system_thread_id;
         thd_info->user= thd->strdup(tmp_sctx->user ? tmp_sctx->user :
                                     (tmp->system_thread ?
@@ -2373,7 +2373,7 @@ int fill_schema_processlist(THD* thd, TABLE_LIST* tables, Item* cond)
       restore_record(table, s->default_values);
       /* ID */
 
-      table->field[0]->store((ulonglong) tmp->thread_id, TRUE);
+      table->field[0]->store((ulonglong) tmp->thread_id(), TRUE);
       /* USER */
       val= tmp_sctx->user ? tmp_sctx->user :
             (tmp->system_thread ? "system user" : "unauthenticated user");
@@ -2487,7 +2487,7 @@ int fill_schema_authinfo(THD* thd, TABLE_LIST* tables, Item* cond)
     restore_record(table, s->default_values);
 
     /* ID */
-    table->field[0]->store((ulonglong) tmp->thread_id, TRUE);
+    table->field[0]->store((ulonglong) tmp->thread_id(), TRUE);
 
     /* USER */
     const char *val= tmp_sctx->user ? tmp_sctx->user :
@@ -6999,7 +6999,7 @@ int fill_variables(THD *thd, TABLE_LIST *tables, Item *cond)
 
   ulong thread_id_opt = lex->thread_id_opt;
   THD *var_thd = nullptr;
-  if (thread_id_opt && thread_id_opt != thd->thread_id)
+  if (thread_id_opt && thread_id_opt != thd->thread_id())
   {
     var_thd = get_opt_thread_with_data_lock(thd, thread_id_opt);
     if (!var_thd)
@@ -7040,7 +7040,7 @@ int fill_status(THD *thd, TABLE_LIST *tables, Item *cond)
 
   ulong thread_id_opt = lex->thread_id_opt;
   THD *var_thd = nullptr;
-  if (thread_id_opt && thread_id_opt != thd->thread_id)
+  if (thread_id_opt && thread_id_opt != thd->thread_id())
   {
     var_thd = get_opt_thread_with_data_lock(thd, thread_id_opt);
     if (!var_thd)

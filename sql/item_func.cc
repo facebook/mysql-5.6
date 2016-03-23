@@ -3953,7 +3953,7 @@ public:
   bool locked;
   mysql_cond_t cond;
   my_thread_id thread_id;
-  void set_thread(THD *thd) { thread_id= thd->thread_id; }
+  void set_thread(THD *thd) { thread_id= thd->thread_id(); }
 
   User_level_lock(const uchar *key_arg,uint length, ulong id) 
     :key_length(length),count(1),locked(1), thread_id(id)
@@ -4286,7 +4286,7 @@ longlong Item_func_get_lock::val_int()
                                                  (size_t) res->length()))))
   {
     ull= new User_level_lock((uchar*) res->ptr(), (size_t) res->length(),
-                             thd->thread_id);
+                             thd->thread_id());
     if (!ull || !ull->initialized())
     {
       delete ull;
@@ -4345,7 +4345,7 @@ longlong Item_func_get_lock::val_int()
   {
     ull->locked=1;
     ull->set_thread(thd);
-    ull->thread_id= thd->thread_id;
+    ull->thread_id= thd->thread_id();
     thd->ull=ull;
     error=0;
     DBUG_PRINT("info", ("got the lock"));
@@ -4395,11 +4395,11 @@ longlong Item_func_release_lock::val_int()
   }
   else
   {
-    DBUG_PRINT("info", ("ull->locked=%d ull->thread=%lu thd=%lu", 
+    DBUG_PRINT("info", ("ull->locked=%d ull->thread=%lu thd=%u", 
                         (int) ull->locked,
                         (long)ull->thread_id,
-                        (long)thd->thread_id));
-    if (ull->locked && current_thd->thread_id == ull->thread_id)
+                        thd->thread_id()));
+    if (ull->locked && current_thd->thread_id() == ull->thread_id)
     {
       DBUG_PRINT("info", ("release lock"));
       result=1;					// Release is ok
@@ -4597,14 +4597,14 @@ void Item_func_set_user_var::cleanup()
 
 bool Item_func_set_user_var::set_entry(THD *thd, bool create_if_not_exists)
 {
-  if (entry && thd->thread_id == entry_thread_id)
+  if (entry && thd->thread_id() == entry_thread_id)
     goto end; // update entry->update_query_id for PS
   if (!(entry= get_variable(&thd->user_vars, name, create_if_not_exists)))
   {
     entry_thread_id= 0;
     return TRUE;
   }
-  entry_thread_id= thd->thread_id;
+  entry_thread_id= thd->thread_id();
 end:
   /* 
     Remember the last query which updated it, this way a query can later know
