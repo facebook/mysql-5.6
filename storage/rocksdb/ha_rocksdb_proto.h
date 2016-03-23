@@ -21,12 +21,6 @@
 
 namespace myrocks {
 
-class Column_family_manager;
-
-rocksdb::DB *rocksdb_get_rdb();
-Column_family_manager& rocksdb_get_cf_manager();
-rocksdb::BlockBasedTableOptions& rocksdb_get_table_options();
-
 void get_cf_options(const std::string &cf_name,
   rocksdb::ColumnFamilyOptions *opts) MY_ATTRIBUTE((__nonnull__));
 int rocksdb_normalize_tablename(const char *tablename,
@@ -43,6 +37,17 @@ int rocksdb_get_share_perf_counters(const char *tablename,
   SHARE_PERF_COUNTERS *counters) MY_ATTRIBUTE((__nonnull__(2)));
 
 void request_save_stats();
+
+/*
+  Access to singleton objects.
+*/
+
+rocksdb::DB *rocksdb_get_rdb();
+
+class Rdb_cf_manager;
+Rdb_cf_manager& rocksdb_get_cf_manager();
+
+rocksdb::BlockBasedTableOptions& rocksdb_get_table_options();
 
 class Dict_manager;
 Dict_manager *get_dict_manager(void)

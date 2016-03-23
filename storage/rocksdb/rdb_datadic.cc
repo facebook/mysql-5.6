@@ -2022,7 +2022,7 @@ bool Table_ddl_manager::validate_schemas(void)
 }
 
 bool Table_ddl_manager::init(Dict_manager *dict_arg,
-                             Column_family_manager *cf_manager,
+                             Rdb_cf_manager *cf_manager,
                              uint32_t validate_tables)
 {
   dict= dict_arg;
@@ -2673,7 +2673,7 @@ void Binlog_info_manager::update_slave_gtid_info(uint id, const char* db,
   }
 }
 
-bool Dict_manager::init(rocksdb::DB *rdb_dict, Column_family_manager *cf_manager)
+bool Dict_manager::init(rocksdb::DB *rdb_dict, Rdb_cf_manager *cf_manager)
 {
   mysql_mutex_init(0, &mutex, MY_MUTEX_INIT_FAST);
   rdb= rdb_dict;
