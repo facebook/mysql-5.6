@@ -769,7 +769,7 @@ struct i_s_rocksdb_ddl {
   Item *cond;
 };
 
-static int i_s_rocksdb_ddl_callback(void *cb_arg, RDBSE_TABLE_DEF *rec)
+static int i_s_rocksdb_ddl_callback(void *cb_arg, Rdb_tbl_def *rec)
 {
   struct i_s_rocksdb_ddl *ddl_arg= (struct i_s_rocksdb_ddl*)cb_arg;
   DBUG_ASSERT(ddl_arg != nullptr);
@@ -785,12 +785,12 @@ static int i_s_rocksdb_ddl_callback(void *cb_arg, RDBSE_TABLE_DEF *rec)
   StringBuffer<256> dbname, tablename, partname;
 
   /* Some special tables such as drop_index have different names, ignore them */
-  if (rocksdb_split_normalized_tablename(rec->dbname_tablename.c_ptr(),
+  if (rocksdb_split_normalized_tablename(rec->m_dbname_tablename.c_ptr(),
                                          &dbname, &tablename, &partname))
     return 0;
 
-  for (uint i= 0; i < rec->n_keys; i++) {
-    RDBSE_KEYDEF* key_descr= rec->key_descr[i];
+  for (uint i= 0; i < rec->m_key_count; i++) {
+    Rdb_key_def* key_descr= rec->m_key_descr[i];
 
     DBUG_ASSERT(tables->table != nullptr);
     DBUG_ASSERT(tables->table->field != nullptr);
@@ -808,15 +808,15 @@ static int i_s_rocksdb_ddl_callback(void *cb_arg, RDBSE_TABLE_DEF *rec)
                                      system_charset_info);
     }
 
-    tables->table->field[3]->store(key_descr->name.c_str(),
-                                   key_descr->name.size(),
+    tables->table->field[3]->store(key_descr->m_name.c_str(),
+                                   key_descr->m_name.size(),
                                    system_charset_info);
 
     GL_INDEX_ID gl_index_id = key_descr->get_gl_index_id();
     tables->table->field[4]->store(gl_index_id.cf_id, true);
     tables->table->field[5]->store(gl_index_id.index_id, true);
-    tables->table->field[6]->store(key_descr->index_type, true);
-    tables->table->field[7]->store(key_descr->kv_format_version, true);
+    tables->table->field[6]->store(key_descr->m_index_type, true);
+    tables->table->field[7]->store(key_descr->m_kv_format_version, true);
 
     std::string cf_name= key_descr->get_cf()->GetName();
     tables->table->field[8]->store(cf_name.c_str(), cf_name.size(),

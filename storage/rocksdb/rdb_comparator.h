@@ -44,7 +44,7 @@ static int bytewise_compare(const rocksdb::Slice& a, const rocksdb::Slice& b)
   The keys are in form: {index_number} {mem-comparable-key}
 
   (todo: knowledge about this format is shared between this class and
-   RDBSE_KEYDEF)
+   Rdb_key_def)
 */
 class Primary_key_comparator : public rocksdb::Comparator
 {

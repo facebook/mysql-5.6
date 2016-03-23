@@ -31,7 +31,7 @@
 namespace myrocks {
 
 class Table_ddl_manager;
-class RDBSE_KEYDEF;
+class Rdb_key_def;
 
 extern uint64_t rocksdb_num_sst_entry_put;
 extern uint64_t rocksdb_num_sst_entry_delete;
@@ -126,7 +126,7 @@ class Rdb_tbl_prop_coll : public rocksdb::TablePropertiesCollector
 
  private:
   uint32_t m_cf_id;
-  std::unique_ptr<RDBSE_KEYDEF> m_keydef;
+  std::unique_ptr<Rdb_key_def> m_keydef;
   Table_ddl_manager* m_ddl_manager;
   std::vector<Rdb_index_stats> m_stats;
   static const char* INDEXSTATS_KEY;
