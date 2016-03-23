@@ -35,6 +35,7 @@
 #include "./ha_rocksdb_proto.h"
 #include "./my_stacktrace.h"
 #include "./rdb_cf_manager.h"
+#include "./rdb_utils.h"
 
 namespace myrocks {
 
@@ -112,7 +113,11 @@ uchar read_byte(const char **data)
   return buf;
 }
 
-RDBSE_KEYDEF::RDBSE_KEYDEF(
+/*
+  Rdb_key_def class implementation
+*/
+
+Rdb_key_def::Rdb_key_def(
   uint indexnr_arg, uint keyno_arg,
   rocksdb::ColumnFamilyHandle* cf_handle_arg,
   uint16_t index_dict_version_arg,
@@ -122,68 +127,68 @@ RDBSE_KEYDEF::RDBSE_KEYDEF(
   const char* _name,
   Rdb_index_stats _stats
 ) :
-    index_number(indexnr_arg),
-    cf_handle(cf_handle_arg),
-    index_dict_version(index_dict_version_arg),
-    index_type(index_type_arg),
-    kv_format_version(kv_format_version_arg),
-    is_reverse_cf(is_reverse_cf_arg),
-    is_auto_cf(is_auto_cf_arg),
-    name(_name),
-    stats(_stats),
-    pk_part_no(nullptr),
-    pack_info(nullptr),
-    keyno(keyno_arg),
+    m_index_number(indexnr_arg),
+    m_cf_handle(cf_handle_arg),
+    m_index_dict_version(index_dict_version_arg),
+    m_index_type(index_type_arg),
+    m_kv_format_version(kv_format_version_arg),
+    m_is_reverse_cf(is_reverse_cf_arg),
+    m_is_auto_cf(is_auto_cf_arg),
+    m_name(_name),
+    m_stats(_stats),
+    m_pk_part_no(nullptr),
+    m_pack_info(nullptr),
+    m_keyno(keyno_arg),
     m_key_parts(0),
-    maxlength(0) // means 'not intialized'
+    m_maxlength(0)  // means 'not intialized'
 {
-  mysql_mutex_init(0, &mutex, MY_MUTEX_INIT_FAST);
-  store_index_number(index_number_storage_form, index_number);
-  DBUG_ASSERT(cf_handle != nullptr);
+  mysql_mutex_init(0, &m_mutex, MY_MUTEX_INIT_FAST);
+  store_index_number(m_index_number_storage_form, m_index_number);
+  DBUG_ASSERT(m_cf_handle != nullptr);
 }
 
-RDBSE_KEYDEF::RDBSE_KEYDEF(const RDBSE_KEYDEF& k) :
-    index_number(k.index_number),
-    cf_handle(k.cf_handle),
-    is_reverse_cf(k.is_reverse_cf),
-    is_auto_cf(k.is_auto_cf),
-    name(k.name),
-    stats(k.stats),
-    pk_part_no(k.pk_part_no),
-    pack_info(k.pack_info),
-    keyno(k.keyno),
+Rdb_key_def::Rdb_key_def(const Rdb_key_def& k) :
+    m_index_number(k.m_index_number),
+    m_cf_handle(k.m_cf_handle),
+    m_is_reverse_cf(k.m_is_reverse_cf),
+    m_is_auto_cf(k.m_is_auto_cf),
+    m_name(k.m_name),
+    m_stats(k.m_stats),
+    m_pk_part_no(k.m_pk_part_no),
+    m_pack_info(k.m_pack_info),
+    m_keyno(k.m_keyno),
     m_key_parts(k.m_key_parts),
-    maxlength(k.maxlength)
+    m_maxlength(k.m_maxlength)
 {
-  mysql_mutex_init(0, &mutex, MY_MUTEX_INIT_FAST);
-  store_index_number(index_number_storage_form, index_number);
-  if (k.pack_info)
+  mysql_mutex_init(0, &m_mutex, MY_MUTEX_INIT_FAST);
+  store_index_number(m_index_number_storage_form, m_index_number);
+  if (k.m_pack_info)
   {
     size_t size= sizeof(Field_pack_info) * k.m_key_parts;
-    pack_info= (Field_pack_info*)my_malloc(size, MYF(0));
-    memcpy(pack_info, k.pack_info, size);
+    m_pack_info= reinterpret_cast<Field_pack_info*>(my_malloc(size, MYF(0)));
+    memcpy(m_pack_info, k.m_pack_info, size);
   }
 
-  if (k.pk_part_no)
+  if (k.m_pk_part_no)
   {
     size_t size = sizeof(uint)*m_key_parts;
-    pk_part_no= (uint*)my_malloc(size, MYF(0));
-    memcpy(pk_part_no, k.pk_part_no, size);
+    m_pk_part_no= reinterpret_cast<uint*>(my_malloc(size, MYF(0)));
+    memcpy(m_pk_part_no, k.m_pk_part_no, size);
   }
 }
 
-RDBSE_KEYDEF::~RDBSE_KEYDEF()
+Rdb_key_def::~Rdb_key_def()
 {
-  mysql_mutex_destroy(&mutex);
+  mysql_mutex_destroy(&m_mutex);
 
-  my_free(pk_part_no);
-  pk_part_no = nullptr;
+  my_free(m_pk_part_no);
+  m_pk_part_no = nullptr;
 
-  my_free(pack_info);
-  pack_info = nullptr;
+  my_free(m_pack_info);
+  m_pack_info = nullptr;
 }
 
-void RDBSE_KEYDEF::setup(TABLE *tbl, RDBSE_TABLE_DEF *tbl_def)
+void Rdb_key_def::setup(TABLE *tbl, Rdb_tbl_def *tbl_def)
 {
   DBUG_ASSERT(tbl != nullptr);
   DBUG_ASSERT(tbl_def != nullptr);
@@ -192,15 +197,15 @@ void RDBSE_KEYDEF::setup(TABLE *tbl, RDBSE_TABLE_DEF *tbl_def)
     Set max_length based on the table.  This can be called concurrently from
     multiple threads, so there is a mutex to protect this code.
   */
-  const bool is_hidden_pk= (index_type == INDEX_TYPE_HIDDEN_PRIMARY);
+  const bool is_hidden_pk= (m_index_type == INDEX_TYPE_HIDDEN_PRIMARY);
   const bool hidden_pk_exists= rocksdb_has_hidden_pk(tbl);
-  const bool secondary_key= (index_type == INDEX_TYPE_SECONDARY);
-  if (!maxlength)
+  const bool secondary_key= (m_index_type == INDEX_TYPE_SECONDARY);
+  if (!m_maxlength)
   {
-    mysql_mutex_lock(&mutex);
-    if (maxlength != 0)
+    mysql_mutex_lock(&m_mutex);
+    if (m_maxlength != 0)
     {
-      mysql_mutex_unlock(&mutex);
+      mysql_mutex_unlock(&m_mutex);
       return;
     }
 
@@ -208,17 +213,17 @@ void RDBSE_KEYDEF::setup(TABLE *tbl, RDBSE_TABLE_DEF *tbl_def)
     KEY *pk_info= nullptr;
     if (!is_hidden_pk)
     {
-      key_info= &tbl->key_info[keyno];
+      key_info= &tbl->key_info[m_keyno];
       if (!hidden_pk_exists)
         pk_info=  &tbl->key_info[tbl->s->primary_key];
     }
 
     if (secondary_key)
-      n_pk_key_parts= hidden_pk_exists ? 1 : pk_info->actual_key_parts;
+      m_pk_key_parts= hidden_pk_exists ? 1 : pk_info->actual_key_parts;
     else
     {
       pk_info= nullptr;
-      n_pk_key_parts= 0;
+      m_pk_key_parts= 0;
     }
 
     // "unique" secondary keys support:
@@ -240,16 +245,17 @@ void RDBSE_KEYDEF::setup(TABLE *tbl, RDBSE_TABLE_DEF *tbl_def)
         by the user or by "extended keys" feature) are not included for the
         second time.
       */
-      m_key_parts += n_pk_key_parts;
+      m_key_parts += m_pk_key_parts;
     }
 
     if (secondary_key)
-      pk_part_no= (uint*)my_malloc(sizeof(uint)*m_key_parts, MYF(0));
+      m_pk_part_no= reinterpret_cast<uint*>(my_malloc(sizeof(uint)*m_key_parts,
+                                                      MYF(0)));
     else
-      pk_part_no= nullptr;
+      m_pk_part_no= nullptr;
 
     size_t size= sizeof(Field_pack_info) * m_key_parts;
-    pack_info= (Field_pack_info*)my_malloc(size, MYF(0));
+    m_pack_info= reinterpret_cast<Field_pack_info*>(my_malloc(size, MYF(0)));
 
     size_t max_len= INDEX_NUMBER_SIZE;
     int unpack_len= 0;
@@ -257,17 +263,17 @@ void RDBSE_KEYDEF::setup(TABLE *tbl, RDBSE_TABLE_DEF *tbl_def)
     bool simulating_extkey= false;
     uint dst_i= 0;
 
-    uint keyno_to_set= keyno;
+    uint keyno_to_set= m_keyno;
     uint keypart_to_set= 0;
 
     if (is_hidden_pk)
     {
       Field *field= nullptr;
-      pack_info[dst_i].setup(field, keyno_to_set, 0);
-      pack_info[dst_i].unpack_data_offset= unpack_len;
-      max_len    += pack_info[dst_i].max_image_len;
-      unpack_len += pack_info[dst_i].unpack_data_len;
-      max_part_len= std::max(max_part_len, pack_info[dst_i].max_image_len);
+      m_pack_info[dst_i].setup(field, keyno_to_set, 0);
+      m_pack_info[dst_i].unpack_data_offset= unpack_len;
+      max_len    += m_pack_info[dst_i].max_image_len;
+      unpack_len += m_pack_info[dst_i].unpack_data_len;
+      max_part_len= std::max(max_part_len, m_pack_info[dst_i].max_image_len);
       dst_i++;
     }
     else
@@ -302,17 +308,17 @@ void RDBSE_KEYDEF::setup(TABLE *tbl, RDBSE_TABLE_DEF *tbl_def)
         if (field && field->real_maybe_null())
           max_len +=1;  // NULL-byte
 
-        pack_info[dst_i].setup(field, keyno_to_set, keypart_to_set);
-        pack_info[dst_i].unpack_data_offset= unpack_len;
+        m_pack_info[dst_i].setup(field, keyno_to_set, keypart_to_set);
+        m_pack_info[dst_i].unpack_data_offset= unpack_len;
 
         if (pk_info)
         {
-          pk_part_no[dst_i]= -1;
-          for (uint j= 0; j < n_pk_key_parts; j++)
+          m_pk_part_no[dst_i]= -1;
+          for (uint j= 0; j < m_pk_key_parts; j++)
           {
             if (field->field_index == pk_info->key_part[j].field->field_index)
             {
-              pk_part_no[dst_i]= j;
+              m_pk_part_no[dst_i]= j;
               break;
             }
           }
@@ -323,15 +329,15 @@ void RDBSE_KEYDEF::setup(TABLE *tbl, RDBSE_TABLE_DEF *tbl_def)
             The hidden pk can never be part of the sk.  So it is always
             appended to the end of the sk.
           */
-          pk_part_no[dst_i]= -1;
+          m_pk_part_no[dst_i]= -1;
           if (simulating_extkey)
-            pk_part_no[dst_i]= 0;
+            m_pk_part_no[dst_i]= 0;
         }
 
-        max_len    += pack_info[dst_i].max_image_len;
-        unpack_len += pack_info[dst_i].unpack_data_len;
+        max_len    += m_pack_info[dst_i].max_image_len;
+        unpack_len += m_pack_info[dst_i].unpack_data_len;
 
-        max_part_len= std::max(max_part_len, pack_info[dst_i].max_image_len);
+        max_part_len= std::max(max_part_len, m_pack_info[dst_i].max_image_len);
 
         key_part++;
         /*
@@ -349,7 +355,7 @@ void RDBSE_KEYDEF::setup(TABLE *tbl, RDBSE_TABLE_DEF *tbl_def)
           }
           else
           {
-            keyno_to_set= tbl_def->n_keys - 1;
+            keyno_to_set= tbl_def->m_key_count - 1;
             key_part= nullptr;
             keypart_to_set= 0;
           }
@@ -360,18 +366,18 @@ void RDBSE_KEYDEF::setup(TABLE *tbl, RDBSE_TABLE_DEF *tbl_def)
     }
 
     m_key_parts= dst_i;
-    maxlength= max_len;
-    unpack_data_len= unpack_len;
+    m_maxlength= max_len;
+    m_unpack_data_len= unpack_len;
 
     /* Initialize the memory needed by the stats structure */
-    stats.m_distinct_keys_per_prefix.resize(get_m_key_parts());
+    m_stats.m_distinct_keys_per_prefix.resize(get_m_key_parts());
 
-    mysql_mutex_unlock(&mutex);
+    mysql_mutex_unlock(&m_mutex);
   }
 }
 
 
-/*
+/**
   Get a mem-comparable form of Primary Key from mem-comparable form of this key
 
   @param
@@ -396,10 +402,10 @@ void RDBSE_KEYDEF::setup(TABLE *tbl, RDBSE_TABLE_DEF *tbl_def)
     set of queries for which we would check the checksum twice.
 */
 
-uint RDBSE_KEYDEF::get_primary_key_tuple(TABLE *table,
-                                         RDBSE_KEYDEF *pk_descr,
-                                         const rocksdb::Slice *key,
-                                         uchar *pk_buffer)
+uint Rdb_key_def::get_primary_key_tuple(TABLE *table,
+                                        Rdb_key_def *pk_descr,
+                                        const rocksdb::Slice *key,
+                                        uchar *pk_buffer) const
 {
   DBUG_ASSERT(table != nullptr);
   DBUG_ASSERT(pk_descr != nullptr);
@@ -408,10 +414,10 @@ uint RDBSE_KEYDEF::get_primary_key_tuple(TABLE *table,
 
   uint size= 0;
   uchar *buf= pk_buffer;
-  DBUG_ASSERT(n_pk_key_parts);
+  DBUG_ASSERT(m_pk_key_parts);
 
   /* Put the PK number */
-  store_index_number((uchar*)buf, pk_descr->index_number);
+  store_index_number(buf, pk_descr->m_index_number);
   buf += INDEX_NUMBER_SIZE;
   size += INDEX_NUMBER_SIZE;
 
@@ -427,14 +433,14 @@ uint RDBSE_KEYDEF::get_primary_key_tuple(TABLE *table,
 
   for (i= 0; i < m_key_parts; i++)
   {
-    if ((pk_key_part= pk_part_no[i]) != -1)
+    if ((pk_key_part= m_pk_part_no[i]) != -1)
     {
       start_offs[pk_key_part]= reader.get_current_ptr();
     }
 
     bool have_value= true;
     /* It is impossible to unpack the column. Skip it. */
-    if (pack_info[i].maybe_null)
+    if (m_pack_info[i].maybe_null)
     {
       const char* nullp;
       if (!(nullp= reader.read(1)))
@@ -454,7 +460,7 @@ uint RDBSE_KEYDEF::get_primary_key_tuple(TABLE *table,
 
     if (have_value)
     {
-      Field_pack_info *fpi= &pack_info[i];
+      Field_pack_info *fpi= &m_pack_info[i];
 
       DBUG_ASSERT(table->s != nullptr);
       bool is_hidden_pk_part= (i + 1 == m_key_parts) &&
@@ -472,7 +478,7 @@ uint RDBSE_KEYDEF::get_primary_key_tuple(TABLE *table,
     }
   }
 
-  for (i=0; i < n_pk_key_parts; i++)
+  for (i= 0; i < m_pk_key_parts; i++)
   {
     uint part_size= end_offs[i] - start_offs[i];
     memcpy(buf, start_offs[i], end_offs[i] - start_offs[i]);
@@ -484,7 +490,7 @@ uint RDBSE_KEYDEF::get_primary_key_tuple(TABLE *table,
 }
 
 
-/*
+/**
   Convert index tuple into storage (i.e. mem-comparable) format
 
   @detail
@@ -495,10 +501,10 @@ uint RDBSE_KEYDEF::get_primary_key_tuple(TABLE *table,
                      size is at least max_storage_fmt_length() bytes.
 */
 
-uint RDBSE_KEYDEF::pack_index_tuple(const ha_rocksdb *handler, TABLE *tbl,
-                                    uchar *pack_buffer, uchar *packed_tuple,
-                                    const uchar *key_tuple,
-                                    key_part_map keypart_map)
+uint Rdb_key_def::pack_index_tuple(const ha_rocksdb *handler, TABLE *tbl,
+                                   uchar *pack_buffer, uchar *packed_tuple,
+                                   const uchar *key_tuple,
+                                   key_part_map keypart_map)
 {
   DBUG_ASSERT(handler != nullptr);
   DBUG_ASSERT(tbl != nullptr);
@@ -507,9 +513,8 @@ uint RDBSE_KEYDEF::pack_index_tuple(const ha_rocksdb *handler, TABLE *tbl,
   DBUG_ASSERT(key_tuple != nullptr);
 
   /* We were given a record in KeyTupleFormat. First, save it to record */
-  uint key_len= calculate_key_len(tbl, keyno, key_tuple, keypart_map);
-  key_restore(tbl->record[0], (uchar*)key_tuple, &tbl->key_info[keyno],
-              key_len);
+  uint key_len= calculate_key_len(tbl, m_keyno, key_tuple, keypart_map);
+  key_restore(tbl->record[0], key_tuple, &tbl->key_info[m_keyno], key_len);
 
   uint n_used_parts= my_count_bits(keypart_map);
   if (keypart_map == HA_WHOLE_KEY)
@@ -521,7 +526,7 @@ uint RDBSE_KEYDEF::pack_index_tuple(const ha_rocksdb *handler, TABLE *tbl,
 }
 
 
-/*
+/**
   @brief
     Check if "unpack info" data includes checksum.
 
@@ -530,7 +535,7 @@ uint RDBSE_KEYDEF::pack_index_tuple(const ha_rocksdb *handler, TABLE *tbl,
     checksums. I guess this is a hackish approach.
 */
 
-bool RDBSE_KEYDEF::unpack_info_has_checksum(const rocksdb::Slice &unpack_info)
+bool Rdb_key_def::unpack_info_has_checksum(const rocksdb::Slice &unpack_info)
 {
   return (unpack_info.size() == CHECKSUM_CHUNK_SIZE &&
           unpack_info.data()[0]== CHECKSUM_DATA_TAG);
@@ -539,7 +544,7 @@ bool RDBSE_KEYDEF::unpack_info_has_checksum(const rocksdb::Slice &unpack_info)
 /*
   @return Number of bytes that were changed
 */
-int RDBSE_KEYDEF::successor(uchar *packed_tuple, uint len)
+int Rdb_key_def::successor(uchar *packed_tuple, uint len)
 {
   DBUG_ASSERT(packed_tuple != nullptr);
 
@@ -559,7 +564,7 @@ int RDBSE_KEYDEF::successor(uchar *packed_tuple, uint len)
 }
 
 
-/*
+/**
   Get index columns from the record and pack them into mem-comparable form.
 
   @param
@@ -581,14 +586,14 @@ int RDBSE_KEYDEF::successor(uchar *packed_tuple, uint len)
     Length of the packed tuple
 */
 
-uint RDBSE_KEYDEF::pack_record(const ha_rocksdb *handler, TABLE *tbl,
-                               uchar *pack_buffer,
-                               const uchar *record,
-                               uchar *packed_tuple,
-                               uchar *unpack_info, int *unpack_info_len,
-                               uint n_key_parts,
-                               uint *n_null_fields,
-                               longlong hidden_pk_id)
+uint Rdb_key_def::pack_record(const ha_rocksdb *handler, TABLE *tbl,
+                              uchar *pack_buffer,
+                              const uchar *record,
+                              uchar *packed_tuple,
+                              uchar *unpack_info, int *unpack_info_len,
+                              uint n_key_parts,
+                              uint *n_null_fields,
+                              longlong hidden_pk_id)
 {
   DBUG_ASSERT(handler != nullptr);
   DBUG_ASSERT(tbl != nullptr);
@@ -600,7 +605,7 @@ uint RDBSE_KEYDEF::pack_record(const ha_rocksdb *handler, TABLE *tbl,
   uchar *unpack_end= unpack_info;
   const bool hidden_pk_exists= rocksdb_has_hidden_pk(tbl);
 
-  store_index_number(tuple, index_number);
+  store_index_number(tuple, m_index_number);
   tuple += INDEX_NUMBER_SIZE;
 
   // If n_key_parts is 0, it means all columns.
@@ -625,11 +630,11 @@ uint RDBSE_KEYDEF::pack_record(const ha_rocksdb *handler, TABLE *tbl,
     // with no pk
     if (hidden_pk_exists && hidden_pk_id && i + 1 == n_key_parts)
     {
-      pack_info[i].fill_hidden_pk_val(tbl, &pack_info[i], &tuple, hidden_pk_id);
+      m_pack_info[i].fill_hidden_pk_val(&tuple, hidden_pk_id);
       break;
     }
 
-    Field *field= pack_info[i].get_field_in_table(tbl);
+    Field *field= m_pack_info[i].get_field_in_table(tbl);
     DBUG_ASSERT(field != nullptr);
 
     // Old Field methods expected the record pointer to be at tbl->record[0].
@@ -639,7 +644,7 @@ uint RDBSE_KEYDEF::pack_record(const ha_rocksdb *handler, TABLE *tbl,
 
     if (field->real_maybe_null())
     {
-      DBUG_ASSERT((int(max_storage_fmt_length())-(tuple - packed_tuple)) >= 1);
+      DBUG_ASSERT(is_storage_available(tuple - packed_tuple, 1));
       if (field->is_real_null(ptr_diff))
       {
         /* NULL value. store '\0' so that it sorts before non-NULL values */
@@ -657,16 +662,16 @@ uint RDBSE_KEYDEF::pack_record(const ha_rocksdb *handler, TABLE *tbl,
     }
 
     // Set the offset for methods which do not take an offset as an argument
-    DBUG_ASSERT((int(max_storage_fmt_length())-(tuple - packed_tuple)) >=
-                 int(pack_info[i].max_image_len));
+    DBUG_ASSERT(is_storage_available(tuple - packed_tuple,
+                                     m_pack_info[i].max_image_len));
     field->move_field_offset(ptr_diff);
-    pack_info[i].pack_func(&pack_info[i], field, pack_buffer, &tuple);
+    m_pack_info[i].pack_func(&m_pack_info[i], field, pack_buffer, &tuple);
 
     /* Make "unpack info" to be stored in the value */
-    if (unpack_end && pack_info[i].make_unpack_info_func)
+    if (unpack_end && m_pack_info[i].make_unpack_info_func)
     {
-      pack_info[i].make_unpack_info_func(&pack_info[i], field, unpack_end);
-      unpack_end += pack_info[i].unpack_data_len;
+      m_pack_info[i].make_unpack_info_func(&m_pack_info[i], field, unpack_end);
+      unpack_end += m_pack_info[i].unpack_data_len;
     }
     field->move_field_offset(-ptr_diff);
   }
@@ -689,11 +694,12 @@ uint RDBSE_KEYDEF::pack_record(const ha_rocksdb *handler, TABLE *tbl,
     *unpack_info_len= unpack_end - unpack_info;
   }
 
-  DBUG_ASSERT((int(max_storage_fmt_length())-(tuple - packed_tuple)) >= 0);
+  DBUG_ASSERT(is_storage_available(tuple - packed_tuple, 0));
+
   return tuple - packed_tuple;
 }
 
-/*
+/**
   Pack the hidden primary key into mem-comparable form.
 
   @param
@@ -705,25 +711,21 @@ uint RDBSE_KEYDEF::pack_record(const ha_rocksdb *handler, TABLE *tbl,
     Length of the packed tuple
 */
 
-uint RDBSE_KEYDEF::pack_hidden_pk(TABLE *tbl,
-                                  longlong hidden_pk_id,
-                                  uchar *packed_tuple)
+uint Rdb_key_def::pack_hidden_pk(longlong hidden_pk_id,
+                                 uchar *packed_tuple) const
 {
-  DBUG_ASSERT(tbl != nullptr);
   DBUG_ASSERT(packed_tuple != nullptr);
 
   uchar *tuple= packed_tuple;
-  store_index_number(tuple, index_number);
+  store_index_number(tuple, m_index_number);
   tuple += INDEX_NUMBER_SIZE;
   DBUG_ASSERT(m_key_parts == 1);
-  DBUG_ASSERT(
-      (static_cast<int>(max_storage_fmt_length())-(tuple - packed_tuple)) >=
-       static_cast<int>(pack_info[0].max_image_len));
+  DBUG_ASSERT(is_storage_available(tuple - packed_tuple,
+                                   m_pack_info[0].max_image_len));
 
-  pack_info[0].fill_hidden_pk_val(tbl, &pack_info[0], &tuple, hidden_pk_id);
+  m_pack_info[0].fill_hidden_pk_val(&tuple, hidden_pk_id);
 
-  DBUG_ASSERT(
-      (static_cast<int>(max_storage_fmt_length())-(tuple - packed_tuple)) >= 0);
+  DBUG_ASSERT(is_storage_available(tuple - packed_tuple, 0));
   return tuple - packed_tuple;
 }
 
@@ -750,7 +752,7 @@ void pack_with_make_sort_key(Field_pack_info *fpi, Field *field,
           -1 if two kes are equal
     1 - Data format error.
 */
-int RDBSE_KEYDEF::compare_keys(
+int Rdb_key_def::compare_keys(
   const rocksdb::Slice *key1,
   const rocksdb::Slice *key2,
   std::size_t* column_index
@@ -776,7 +778,7 @@ int RDBSE_KEYDEF::compare_keys(
 
   for (uint i= 0; i < m_key_parts ; i++)
   {
-    Field_pack_info *fpi= &pack_info[i];
+    Field_pack_info *fpi= &m_pack_info[i];
     if (fpi->maybe_null)
     {
       auto nullp1= reader1.read(1);
@@ -832,7 +834,7 @@ int RDBSE_KEYDEF::compare_keys(
     Fixed-size skip functions just read.
 */
 
-size_t RDBSE_KEYDEF::key_length(TABLE *table, const rocksdb::Slice &key)
+size_t Rdb_key_def::key_length(TABLE *table, const rocksdb::Slice &key) const
 {
   DBUG_ASSERT(table != nullptr);
 
@@ -843,9 +845,9 @@ size_t RDBSE_KEYDEF::key_length(TABLE *table, const rocksdb::Slice &key)
 
   for (uint i= 0; i < m_key_parts ; i++)
   {
-    Field_pack_info *fpi= &pack_info[i];
+    Field_pack_info *fpi= &m_pack_info[i];
     Field *field= nullptr;
-    if (index_type != INDEX_TYPE_HIDDEN_PRIMARY)
+    if (m_index_type != INDEX_TYPE_HIDDEN_PRIMARY)
       field= fpi->get_field_in_table(table);
     if (fpi->skip_func(fpi, field, &reader))
       return size_t(-1);
@@ -865,23 +867,23 @@ size_t RDBSE_KEYDEF::key_length(TABLE *table, const rocksdb::Slice &key)
     1 - Data format error.
 */
 
-int RDBSE_KEYDEF::unpack_record(const ha_rocksdb *handler, TABLE *table,
-                                uchar *buf, const rocksdb::Slice *packed_key,
-                                const rocksdb::Slice *unpack_info)
+int Rdb_key_def::unpack_record(const ha_rocksdb *handler, TABLE *table,
+                               uchar *buf, const rocksdb::Slice *packed_key,
+                               const rocksdb::Slice *unpack_info)
 {
   Stream_reader reader(packed_key);
   const uchar * const unpack_ptr= (const uchar*)unpack_info->data();
-  const bool is_hidden_pk= (index_type == INDEX_TYPE_HIDDEN_PRIMARY);
+  const bool is_hidden_pk= (m_index_type == INDEX_TYPE_HIDDEN_PRIMARY);
   const bool hidden_pk_exists= rocksdb_has_hidden_pk(table);
-  const bool secondary_key= (index_type == INDEX_TYPE_SECONDARY);
+  const bool secondary_key= (m_index_type == INDEX_TYPE_SECONDARY);
 
   // Old Field methods expected the record pointer to be at tbl->record[0].
   // The quick and easy way to fix this was to pass along the offset
   // for the pointer.
   my_ptrdiff_t ptr_diff= buf - table->record[0];
 
-  if (unpack_info->size() != unpack_data_len &&
-      unpack_info->size() != unpack_data_len + CHECKSUM_CHUNK_SIZE)
+  if (unpack_info->size() != m_unpack_data_len &&
+      unpack_info->size() != m_unpack_data_len + CHECKSUM_CHUNK_SIZE)
   {
     return 1;
   }
@@ -892,7 +894,7 @@ int RDBSE_KEYDEF::unpack_record(const ha_rocksdb *handler, TABLE *table,
 
   for (uint i= 0; i < m_key_parts ; i++)
   {
-    Field_pack_info *fpi= &pack_info[i];
+    Field_pack_info *fpi= &m_pack_info[i];
 
     /*
       Hidden pk field is packed at the end of the secondary keys, but the SQL
@@ -1020,12 +1022,12 @@ int RDBSE_KEYDEF::unpack_record(const ha_rocksdb *handler, TABLE *table,
 }
 
 
-bool RDBSE_KEYDEF::can_unpack(uint kp) const
+bool Rdb_key_def::can_unpack(uint kp) const
 {
-  return (pack_info[kp].unpack_func != nullptr);
+  return (m_pack_info[kp].unpack_func != nullptr);
 }
 
-bool RDBSE_KEYDEF::rocksdb_has_hidden_pk(const TABLE* table)
+bool Rdb_key_def::rocksdb_has_hidden_pk(const TABLE* table)
 {
   return table->s->primary_key == MAX_INDEXES;
 }
@@ -1596,13 +1598,13 @@ bool Field_pack_info::setup(Field *field, uint keynr_arg, uint key_part_arg)
 }
 
 
-Field *Field_pack_info::get_field_in_table(TABLE *tbl)
+Field *Field_pack_info::get_field_in_table(TABLE *tbl) const
 {
   return tbl->key_info[keynr].key_part[key_part].field;
 }
 
 
-void report_checksum_mismatch(RDBSE_KEYDEF *kd, bool is_key,
+void report_checksum_mismatch(Rdb_key_def *kd, bool is_key,
                               const char *data, size_t data_size)
 {
   char buf[1024];
@@ -1617,62 +1619,40 @@ void report_checksum_mismatch(RDBSE_KEYDEF *kd, bool is_key,
 }
 
 
-#if 0
-void _rdbse_store_blob_length(uchar *pos,uint pack_length,uint length)
+void Field_pack_info::fill_hidden_pk_val(uchar **dst,
+                                         longlong hidden_pk_id) const
 {
-  switch (pack_length) {
-  case 1:
-    *pos= (uchar) length;
-    break;
-  case 2:
-    int2store(pos,length);
-    break;
-  case 3:
-    int3store(pos,length);
-    break;
-  case 4:
-    int4store(pos,length);
-  default:
-    break;
-  }
-  return;
-}
-#endif
-void Field_pack_info::fill_hidden_pk_val(TABLE* table,
-                                         Field_pack_info *fpi,
-                                         uchar **dst,
-                                         longlong hidden_pk_id)
-{
-  const int max_len= fpi->max_image_len;
-  DBUG_ASSERT(max_len == 8);
+  DBUG_ASSERT(max_image_len == 8);
 
   String to;
   write_int64(&to, hidden_pk_id);
-  memcpy(*dst, to.ptr(), max_len);
+  memcpy(*dst, to.ptr(), max_image_len);
 
-  *dst += max_len;
+  *dst += max_image_len;
 }
+
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 // Table_ddl_manager
 ///////////////////////////////////////////////////////////////////////////////////////////
-RDBSE_TABLE_DEF::~RDBSE_TABLE_DEF()
+
+Rdb_tbl_def::~Rdb_tbl_def()
 {
   auto ddl_manager= get_ddl_manager();
   /* Don't free key definitions */
-  if (key_descr)
+  if (m_key_descr)
   {
-    for (uint i= 0; i < n_keys; i++) {
-      if (ddl_manager && key_descr[i]) {
-        ddl_manager->erase_index_num(key_descr[i]->get_gl_index_id());
+    for (uint i= 0; i < m_key_count; i++) {
+      if (ddl_manager && m_key_descr[i]) {
+        ddl_manager->erase_index_num(m_key_descr[i]->get_gl_index_id());
       }
 
-      delete key_descr[i];
-      key_descr[i] = nullptr;
+      delete m_key_descr[i];
+      m_key_descr[i] = nullptr;
     }
 
-    delete[] key_descr;
-    key_descr = nullptr;
+    delete[] m_key_descr;
+    m_key_descr = nullptr;
   }
 }
 
@@ -1686,20 +1666,21 @@ RDBSE_TABLE_DEF::~RDBSE_TABLE_DEF()
     ( cf_id, index_nr )
 */
 
-bool RDBSE_TABLE_DEF::put_dict(Dict_manager* dict, rocksdb::WriteBatch *batch,
+bool Rdb_tbl_def::put_dict(Dict_manager* dict, rocksdb::WriteBatch *batch,
                                uchar *key, size_t keylen)
 {
-  StringBuffer<8 * RDBSE_KEYDEF::PACKED_SIZE> indexes;
-  indexes.alloc(RDBSE_KEYDEF::VERSION_SIZE+n_keys*RDBSE_KEYDEF::PACKED_SIZE*2);
-  write_short(&indexes, RDBSE_KEYDEF::DDL_ENTRY_INDEX_VERSION);
+  StringBuffer<8 * Rdb_key_def::PACKED_SIZE> indexes;
+  indexes.alloc(Rdb_key_def::VERSION_SIZE +
+                m_key_count * Rdb_key_def::PACKED_SIZE * 2);
+  write_short(&indexes, Rdb_key_def::DDL_ENTRY_INDEX_VERSION);
 
-  for (uint i=0; i < n_keys; i++)
+  for (uint i = 0; i < m_key_count; i++)
   {
-    RDBSE_KEYDEF* kd = key_descr[i];
+    Rdb_key_def* kd = m_key_descr[i];
 
     uchar flags =
-      (kd->is_reverse_cf ? RDBSE_KEYDEF::REVERSE_CF_FLAG : 0) |
-      (kd->is_auto_cf ? RDBSE_KEYDEF::AUTO_CF_FLAG : 0);
+      (kd->m_is_reverse_cf ? Rdb_key_def::REVERSE_CF_FLAG : 0) |
+      (kd->m_is_auto_cf ? Rdb_key_def::AUTO_CF_FLAG : 0);
 
     uint cf_id= kd->get_cf()->GetID();
     /*
@@ -1727,10 +1708,10 @@ bool RDBSE_TABLE_DEF::put_dict(Dict_manager* dict, rocksdb::WriteBatch *batch,
     }
 
     write_int(&indexes, cf_id);
-    write_int(&indexes, kd->index_number);
-    dict->add_or_update_index_cf_mapping(batch, kd->index_type,
-                                         kd->kv_format_version,
-                                         kd->index_number, cf_id);
+    write_int(&indexes, kd->m_index_number);
+    dict->add_or_update_index_cf_mapping(batch, kd->m_index_type,
+                                         kd->m_kv_format_version,
+                                         kd->m_index_number, cf_id);
   }
 
   rocksdb::Slice skey((char*)key, keylen);
@@ -1740,7 +1721,7 @@ bool RDBSE_TABLE_DEF::put_dict(Dict_manager* dict, rocksdb::WriteBatch *batch,
   return false;
 }
 
-void RDBSE_TABLE_DEF::check_if_is_mysql_system_table()
+void Rdb_tbl_def::check_if_is_mysql_system_table()
 {
   static const char *const system_dbs[] = {
     "mysql",
@@ -1748,38 +1729,40 @@ void RDBSE_TABLE_DEF::check_if_is_mysql_system_table()
     "information_schema",
   };
 
-  const char *dotpos= strstr(dbname_tablename.c_ptr(), ".");
+  const char *dotpos= strstr(m_dbname_tablename.c_ptr(), ".");
   DBUG_ASSERT(dotpos != nullptr);
 
   std::string dbname;
-  dbname.assign(dbname_tablename.c_ptr(), dotpos - dbname_tablename.c_ptr());
+  dbname.assign(m_dbname_tablename.c_ptr(),
+                dotpos - m_dbname_tablename.c_ptr());
 
-  mysql_system_table= false;
+  m_is_mysql_system_table= false;
   for (uint ii = 0; ii < array_elements(system_dbs); ii++) {
     if (strcmp(dbname.c_str(), system_dbs[ii]) == 0) {
-      mysql_system_table= true;
+      m_is_mysql_system_table= true;
     }
   }
 }
 
-void RDBSE_TABLE_DEF::set_name(const char *name, size_t len)
+void Rdb_tbl_def::set_name(const char *name, size_t len)
 {
-  dbname_tablename.append(name, len);
+  m_dbname_tablename.append(name, len);
 
   check_if_is_mysql_system_table();
 }
 
-uchar* Table_ddl_manager::get_hash_key(RDBSE_TABLE_DEF *rec, size_t *length,
+
+uchar* Table_ddl_manager::get_hash_key(Rdb_tbl_def *rec, size_t *length,
                                        my_bool not_used MY_ATTRIBUTE((unused)))
 {
-  *length= rec->dbname_tablename.length();
-  return (uchar*) rec->dbname_tablename.c_ptr();
+  *length= rec->m_dbname_tablename.length();
+  return str_to_uchar_ptr(&rec->m_dbname_tablename);
 }
 
 
 void Table_ddl_manager::free_hash_elem(void* data)
 {
-  RDBSE_TABLE_DEF* elem= (RDBSE_TABLE_DEF*)data;
+  Rdb_tbl_def* elem= reinterpret_cast<Rdb_tbl_def*>(data);
   delete elem;
 }
 
@@ -1797,15 +1780,15 @@ typedef std::map<std::string, std::set<validate_tbl_info>> validate_tbl_list;
 */
 static int add_table_to_validate_list(
     void*            arg,
-    RDBSE_TABLE_DEF* tdef)
+    Rdb_tbl_def* tdef)
 {
   validate_tbl_list* table_list = reinterpret_cast<validate_tbl_list*>(arg);
   StringBuffer<256>  dbname_buff;
   StringBuffer<256>  tablename_buff;
   StringBuffer<256>  partition_buff;
 
-  /* Parse the dbname_tablename for the different elements */
-  if (rocksdb_split_normalized_tablename(tdef->dbname_tablename.ptr(),
+  /* Parse the m_dbname_tablename for the different elements */
+  if (rocksdb_split_normalized_tablename(tdef->m_dbname_tablename.ptr(),
                                          &dbname_buff, &tablename_buff,
                                          &partition_buff) != 0)
   {
@@ -2033,10 +2016,10 @@ bool Table_ddl_manager::init(Dict_manager *dict_arg,
                       0);
 
   /* Read the data dictionary and populate the hash */
-  uchar ddl_entry[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
-  store_index_number(ddl_entry, RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER);
+  uchar ddl_entry[Rdb_key_def::INDEX_NUMBER_SIZE];
+  store_index_number(ddl_entry, Rdb_key_def::DDL_ENTRY_INDEX_START_NUMBER);
   rocksdb::Slice ddl_entry_slice((char*)ddl_entry,
-                                 RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
+                                 Rdb_key_def::INDEX_NUMBER_SIZE);
 
   /* Reading data dictionary should always skip bloom filter */
   rocksdb::Iterator* it= dict->NewIterator();
@@ -2052,40 +2035,40 @@ bool Table_ddl_manager::init(Dict_manager *dict_arg,
     rocksdb::Slice key= it->key();
     rocksdb::Slice val= it->value();
 
-    if (key.size() >= RDBSE_KEYDEF::INDEX_NUMBER_SIZE &&
-        memcmp(key.data(), ddl_entry, RDBSE_KEYDEF::INDEX_NUMBER_SIZE))
+    if (key.size() >= Rdb_key_def::INDEX_NUMBER_SIZE &&
+        memcmp(key.data(), ddl_entry, Rdb_key_def::INDEX_NUMBER_SIZE))
       break;
 
-    if (key.size() <= RDBSE_KEYDEF::INDEX_NUMBER_SIZE)
+    if (key.size() <= Rdb_key_def::INDEX_NUMBER_SIZE)
     {
       sql_print_error("RocksDB: Table_store: key has length %d (corruption?)",
                       (int)key.size());
       return true;
     }
 
-    RDBSE_TABLE_DEF *tdef= new RDBSE_TABLE_DEF;
-    tdef->set_name(key, RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
+    Rdb_tbl_def *tdef= new Rdb_tbl_def;
+    tdef->set_name(key, Rdb_key_def::INDEX_NUMBER_SIZE);
 
     // Now, read the DDLs.
-    int real_val_size= val.size() - RDBSE_KEYDEF::VERSION_SIZE;
-    if (real_val_size % RDBSE_KEYDEF::PACKED_SIZE*2)
+    int real_val_size= val.size() - Rdb_key_def::VERSION_SIZE;
+    if (real_val_size % Rdb_key_def::PACKED_SIZE*2)
     {
       sql_print_error("RocksDB: Table_store: invalid keylist for table %s",
-                      tdef->dbname_tablename.c_ptr_safe());
+                      tdef->m_dbname_tablename.c_ptr_safe());
       return true;
     }
-    tdef->n_keys= real_val_size / (RDBSE_KEYDEF::PACKED_SIZE*2);
-    tdef->key_descr= new RDBSE_KEYDEF*[tdef->n_keys];
+    tdef->m_key_count= real_val_size / (Rdb_key_def::PACKED_SIZE*2);
+    tdef->m_key_descr= new Rdb_key_def*[tdef->m_key_count];
 
-    memset(tdef->key_descr, 0, sizeof(RDBSE_KEYDEF*) * tdef->n_keys);
+    memset(tdef->m_key_descr, 0, sizeof(Rdb_key_def*) * tdef->m_key_count);
 
     ptr= (char*)val.data();
     int version= read_short(&ptr);
-    if (version != RDBSE_KEYDEF::DDL_ENTRY_INDEX_VERSION)
+    if (version != Rdb_key_def::DDL_ENTRY_INDEX_VERSION)
     {
       sql_print_error("RocksDB: DDL ENTRY Version was not expected."
                       "Expected: %d, Actual: %d",
-                      RDBSE_KEYDEF::DDL_ENTRY_INDEX_VERSION, version);
+                      Rdb_key_def::DDL_ENTRY_INDEX_VERSION, version);
       return true;
     }
     ptr_end= ptr + real_val_size;
@@ -2094,17 +2077,17 @@ bool Table_ddl_manager::init(Dict_manager *dict_arg,
       GL_INDEX_ID gl_index_id;
       gl_index_id.cf_id= read_int(&ptr);
       gl_index_id.index_id= read_int(&ptr);
-      uint16 index_dict_version= 0;
-      uchar index_type= 0;
+      uint16 m_index_dict_version= 0;
+      uchar m_index_type= 0;
       uint16 kv_version= 0;
       uint flags= 0;
-      if (!dict->get_index_info(gl_index_id, &index_dict_version,
-                           &index_type, &kv_version))
+      if (!dict->get_index_info(gl_index_id, &m_index_dict_version,
+                           &m_index_type, &kv_version))
       {
         sql_print_error("RocksDB: Could not get index information "
                         "for Index Number (%u,%u), table %s",
                         gl_index_id.cf_id, gl_index_id.index_id,
-                        tdef->dbname_tablename.c_ptr_safe());
+                        tdef->m_dbname_tablename.c_ptr_safe());
         return true;
       }
       if (max_index_id_in_dict < gl_index_id.index_id)
@@ -2119,7 +2102,8 @@ bool Table_ddl_manager::init(Dict_manager *dict_arg,
       {
         sql_print_error("RocksDB: Could not get Column Family Flags "
                         "for CF Number %d, table %s",
-                        gl_index_id.cf_id, tdef->dbname_tablename.c_ptr_safe());
+                        gl_index_id.cf_id,
+                        tdef->m_dbname_tablename.c_ptr_safe());
         return true;
       }
 
@@ -2127,16 +2111,17 @@ bool Table_ddl_manager::init(Dict_manager *dict_arg,
       DBUG_ASSERT(cfh != nullptr);
 
       /*
-        We can't fully initialize RDBSE_KEYDEF object here, because full
+        We can't fully initialize Rdb_key_def object here, because full
         initialization requires that there is an open TABLE* where we could
         look at Field* objects and set max_length and other attributes
       */
-      tdef->key_descr[keyno]=
-          new RDBSE_KEYDEF(gl_index_id.index_id, keyno, cfh, index_dict_version,
-                           index_type, kv_version,
-                           flags & RDBSE_KEYDEF::REVERSE_CF_FLAG,
-                           flags & RDBSE_KEYDEF::AUTO_CF_FLAG, "",
-                           dict->get_stats(gl_index_id));
+      tdef->m_key_descr[keyno]=
+          new Rdb_key_def(gl_index_id.index_id, keyno, cfh,
+                          m_index_dict_version,
+                          m_index_type, kv_version,
+                          flags & Rdb_key_def::REVERSE_CF_FLAG,
+                          flags & Rdb_key_def::AUTO_CF_FLAG, "",
+                          dict->get_stats(gl_index_id));
     }
     put(tdef);
     i++;
@@ -2156,9 +2141,9 @@ bool Table_ddl_manager::init(Dict_manager *dict_arg,
 
   // index ids used by applications should not conflict with
   // data dictionary index ids
-  if (max_index_id_in_dict < RDBSE_KEYDEF::END_DICT_INDEX_ID)
+  if (max_index_id_in_dict < Rdb_key_def::END_DICT_INDEX_ID)
   {
-    max_index_id_in_dict = RDBSE_KEYDEF::END_DICT_INDEX_ID;
+    max_index_id_in_dict = Rdb_key_def::END_DICT_INDEX_ID;
   }
 
   sequence.init(max_index_id_in_dict+1);
@@ -2175,30 +2160,31 @@ bool Table_ddl_manager::init(Dict_manager *dict_arg,
 }
 
 
-RDBSE_TABLE_DEF* Table_ddl_manager::find(const uchar *table_name,
-                                         uint table_name_len,
-                                         bool lock)
+Rdb_tbl_def* Table_ddl_manager::find(const uchar *table_name,
+                                     uint table_name_len,
+                                     bool lock)
 {
-  RDBSE_TABLE_DEF *rec;
+  Rdb_tbl_def *rec;
   if (lock)
     mysql_rwlock_rdlock(&rwlock);
-  rec= (RDBSE_TABLE_DEF*)my_hash_search(&ddl_hash, (uchar*)table_name,
-                                        table_name_len);
+  rec= reinterpret_cast<Rdb_tbl_def*>(my_hash_search(&ddl_hash,
+                                      table_name,
+                                      table_name_len));
   if (lock)
     mysql_rwlock_unlock(&rwlock);
   return rec;
 }
 
-std::unique_ptr<RDBSE_KEYDEF>
+std::unique_ptr<Rdb_key_def>
 Table_ddl_manager::get_copy_of_keydef(GL_INDEX_ID gl_index_id)
 {
-  std::unique_ptr<RDBSE_KEYDEF> ret;
+  std::unique_ptr<Rdb_key_def> ret;
   mysql_rwlock_rdlock(&rwlock);
   auto key_def = find(gl_index_id);
   if (key_def) {
     /* Locking the key_def prevents changes to it while a copy is made */
     key_def->block_setup();
-    ret = std::unique_ptr<RDBSE_KEYDEF>(new RDBSE_KEYDEF(*key_def));
+    ret = std::unique_ptr<Rdb_key_def>(new Rdb_key_def(*key_def));
     key_def->unblock_setup();
   }
   mysql_rwlock_unlock(&rwlock);
@@ -2206,17 +2192,17 @@ Table_ddl_manager::get_copy_of_keydef(GL_INDEX_ID gl_index_id)
 }
 
 // this method assumes at least read-only lock on rwlock
-RDBSE_KEYDEF* Table_ddl_manager::find(GL_INDEX_ID gl_index_id)
+Rdb_key_def* Table_ddl_manager::find(GL_INDEX_ID gl_index_id)
 {
-  RDBSE_KEYDEF* ret = nullptr;
+  Rdb_key_def* ret = nullptr;
 
   auto it= index_num_to_keydef.find(gl_index_id);
   if (it != index_num_to_keydef.end()) {
     auto table_def = find(it->second.first.data(), it->second.first.size(),
                           false);
     if (table_def) {
-      if (it->second.second < table_def->n_keys) {
-        ret = table_def->key_descr[it->second.second];
+      if (it->second.second < table_def->m_key_count) {
+        ret = table_def->m_key_descr[it->second.second];
       }
     }
   }
@@ -2231,7 +2217,7 @@ void Table_ddl_manager::set_stats(
   for (auto src : stats) {
     auto keydef = find(src.second.m_gl_index_id);
     if (keydef) {
-      keydef->stats = src.second;
+      keydef->m_stats = src.second;
     }
   }
   mysql_rwlock_unlock(&rwlock);
@@ -2247,8 +2233,8 @@ void Table_ddl_manager::adjust_stats(
     for (const auto& src : data) {
       auto keydef = find(src.m_gl_index_id);
       if (keydef) {
-        keydef->stats.merge(src, i == 0, keydef->max_storage_fmt_length());
-        stats2store[keydef->stats.m_gl_index_id] = keydef->stats;
+        keydef->m_stats.merge(src, i == 0, keydef->max_storage_fmt_length());
+        stats2store[keydef->m_stats.m_gl_index_id] = keydef->m_stats;
       }
     }
     i++;
@@ -2284,17 +2270,18 @@ void Table_ddl_manager::persist_stats(bool sync)
   on-disk data dictionary.
 */
 
-int Table_ddl_manager::put_and_write(RDBSE_TABLE_DEF *tbl,
+int Table_ddl_manager::put_and_write(Rdb_tbl_def *tbl,
                                      rocksdb::WriteBatch *batch)
 {
-  uchar buf[FN_LEN * 2 + RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
+  uchar buf[FN_LEN * 2 + Rdb_key_def::INDEX_NUMBER_SIZE];
   uint pos= 0;
 
-  store_index_number(buf, RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER);
-  pos+= RDBSE_KEYDEF::INDEX_NUMBER_SIZE;
+  store_index_number(buf, Rdb_key_def::DDL_ENTRY_INDEX_START_NUMBER);
+  pos+= Rdb_key_def::INDEX_NUMBER_SIZE;
 
-  memcpy(buf + pos, tbl->dbname_tablename.ptr(), tbl->dbname_tablename.length());
-  pos += tbl->dbname_tablename.length();
+  memcpy(buf + pos, tbl->m_dbname_tablename.ptr(),
+         tbl->m_dbname_tablename.length());
+  pos += tbl->m_dbname_tablename.length();
 
   int res;
   if ((res= tbl->put_dict(dict, batch, buf, pos)))
@@ -2313,15 +2300,17 @@ int Table_ddl_manager::put_and_write(RDBSE_TABLE_DEF *tbl,
   See the discussion here: https://reviews.facebook.net/D35925#inline-259167
   Tracked by https://github.com/MySQLOnRocksDB/mysql-5.6/issues/50
 */
-int Table_ddl_manager::put(RDBSE_TABLE_DEF *tbl, bool lock)
+int Table_ddl_manager::put(Rdb_tbl_def *tbl, bool lock)
 {
-  RDBSE_TABLE_DEF *rec;
+  Rdb_tbl_def *rec;
   my_bool result;
 
   if (lock)
     mysql_rwlock_wrlock(&rwlock);
-  rec= (RDBSE_TABLE_DEF*)find((uchar*)tbl->dbname_tablename.c_ptr(),
-                               tbl->dbname_tablename.length(), false);
+
+  rec= reinterpret_cast<Rdb_tbl_def*>(
+          find(str_to_uchar_ptr(&tbl->m_dbname_tablename),
+               tbl->m_dbname_tablename.length(), false));
   if (rec)
   {
     // this will free the old record.
@@ -2329,12 +2318,12 @@ int Table_ddl_manager::put(RDBSE_TABLE_DEF *tbl, bool lock)
   }
   result= my_hash_insert(&ddl_hash, (uchar*)tbl);
 
-  for (uint keyno = 0; keyno < tbl->n_keys; keyno++) {
-    index_num_to_keydef[tbl->key_descr[keyno]->get_gl_index_id()]=
+  for (uint keyno= 0; keyno < tbl->m_key_count; keyno++) {
+    index_num_to_keydef[tbl->m_key_descr[keyno]->get_gl_index_id()]=
       std::make_pair(
         std::basic_string<uchar>(
-          (uchar*) tbl->dbname_tablename.c_ptr(),
-          tbl->dbname_tablename.length()
+          str_to_uchar_ptr(&tbl->m_dbname_tablename),
+          tbl->m_dbname_tablename.length()
         ),
         keyno
       );
@@ -2346,20 +2335,21 @@ int Table_ddl_manager::put(RDBSE_TABLE_DEF *tbl, bool lock)
 }
 
 
-void Table_ddl_manager::remove(RDBSE_TABLE_DEF *tbl,
+void Table_ddl_manager::remove(Rdb_tbl_def *tbl,
                                rocksdb::WriteBatch *batch, bool lock)
 {
   if (lock)
     mysql_rwlock_wrlock(&rwlock);
 
-  uchar buf[FN_LEN * 2 + RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
+  uchar buf[FN_LEN * 2 + Rdb_key_def::INDEX_NUMBER_SIZE];
   uint pos= 0;
 
-  store_index_number(buf, RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER);
-  pos+= RDBSE_KEYDEF::INDEX_NUMBER_SIZE;
+  store_index_number(buf, Rdb_key_def::DDL_ENTRY_INDEX_START_NUMBER);
+  pos+= Rdb_key_def::INDEX_NUMBER_SIZE;
 
-  memcpy(buf + pos, tbl->dbname_tablename.ptr(), tbl->dbname_tablename.length());
-  pos += tbl->dbname_tablename.length();
+  memcpy(buf + pos, tbl->m_dbname_tablename.ptr(),
+         tbl->m_dbname_tablename.length());
+  pos += tbl->m_dbname_tablename.length();
 
   rocksdb::Slice tkey((char*)buf, pos);
   dict->Delete(batch, tkey);
@@ -2376,31 +2366,33 @@ bool Table_ddl_manager::rename(uchar *from, uint from_len,
                                uchar *to, uint to_len,
                                rocksdb::WriteBatch *batch)
 {
-  RDBSE_TABLE_DEF *rec;
-  RDBSE_TABLE_DEF *new_rec;
+  Rdb_tbl_def *rec;
+  Rdb_tbl_def *new_rec;
   bool res= true;
-  uchar new_buf[FN_LEN * 2 + RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
+  uchar new_buf[FN_LEN * 2 + Rdb_key_def::INDEX_NUMBER_SIZE];
   uint new_pos= 0;
 
   mysql_rwlock_wrlock(&rwlock);
-  if (!(rec= (RDBSE_TABLE_DEF*)find(from, from_len, false)))
+  if (!(rec= reinterpret_cast<Rdb_tbl_def*>(find(from, from_len, false))))
     goto err;
 
-  new_rec= new RDBSE_TABLE_DEF;
+  new_rec= new Rdb_tbl_def;
 
   new_rec->set_name(reinterpret_cast<char*>(to), to_len);
-  new_rec->n_keys= rec->n_keys;
-  new_rec->auto_incr_val= rec->auto_incr_val.load(std::memory_order_relaxed);
-  new_rec->key_descr= rec->key_descr;
-  rec->key_descr= nullptr;  // so that it's not free'd when deleting the old rec
+  new_rec->m_key_count= rec->m_key_count;
+  new_rec->m_auto_incr_val=
+    rec->m_auto_incr_val.load(std::memory_order_relaxed);
+  new_rec->m_key_descr= rec->m_key_descr;
+  // so that it's not free'd when deleting the old rec
+  rec->m_key_descr= nullptr;
 
   // Create a new key
-  store_index_number(new_buf, RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER);
-  new_pos+= RDBSE_KEYDEF::INDEX_NUMBER_SIZE;
+  store_index_number(new_buf, Rdb_key_def::DDL_ENTRY_INDEX_START_NUMBER);
+  new_pos+= Rdb_key_def::INDEX_NUMBER_SIZE;
 
-  memcpy(new_buf + new_pos, new_rec->dbname_tablename.ptr(),
-         new_rec->dbname_tablename.length());
-  new_pos += new_rec->dbname_tablename.length();
+  memcpy(new_buf + new_pos, new_rec->m_dbname_tablename.ptr(),
+         new_rec->m_dbname_tablename.length());
+  new_pos += new_rec->m_dbname_tablename.length();
 
   // Create a key to add
   if (new_rec->put_dict(dict, batch, new_buf, new_pos))
@@ -2422,17 +2414,18 @@ void Table_ddl_manager::cleanup()
 }
 
 int Table_ddl_manager::scan(void* cb_arg,
-                            int (*callback)(void*, RDBSE_TABLE_DEF*))
+                            int (*callback)(void*, Rdb_tbl_def*))
 {
   int i, ret;
-  RDBSE_TABLE_DEF *rec;
+  Rdb_tbl_def *rec;
 
   mysql_rwlock_rdlock(&rwlock);
 
   ret= 0;
   i= 0;
 
-  while ((rec = (RDBSE_TABLE_DEF*)my_hash_element(&ddl_hash, i))) {
+  while ((rec = reinterpret_cast<Rdb_tbl_def*>(my_hash_element(&ddl_hash, i))))
+  {
     ret = (*callback)(cb_arg, rec);
     if (ret)
       break;
@@ -2447,8 +2440,9 @@ bool Binlog_info_manager::init(Dict_manager *dict_arg)
 {
   dict= dict_arg;
 
-  store_index_number(key_buf, RDBSE_KEYDEF::BINLOG_INFO_INDEX_NUMBER);
-  key_slice = rocksdb::Slice((char*)key_buf, RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
+  store_index_number(key_buf, Rdb_key_def::BINLOG_INFO_INDEX_NUMBER);
+  key_slice = rocksdb::Slice(reinterpret_cast<char*>(key_buf),
+                             Rdb_key_def::INDEX_NUMBER_SIZE);
   return false;
 }
 
@@ -2526,8 +2520,8 @@ rocksdb::Slice Binlog_info_manager::pack_value(uchar *buf,
   uint pack_len= 0;
 
   // store version
-  store_big_uint2(buf, RDBSE_KEYDEF::BINLOG_INFO_INDEX_NUMBER_VERSION);
-  pack_len += RDBSE_KEYDEF::VERSION_SIZE;
+  store_big_uint2(buf, Rdb_key_def::BINLOG_INFO_INDEX_NUMBER_VERSION);
+  pack_len += Rdb_key_def::VERSION_SIZE;
 
   // store binlog file name length
   DBUG_ASSERT(strlen(binlog_name) <= 65535);
@@ -2575,8 +2569,8 @@ bool Binlog_info_manager::unpack_value(const uchar *value, char *binlog_name,
 
   // read version
   uint16_t version= read_big_uint2(value);
-  pack_len += RDBSE_KEYDEF::VERSION_SIZE;
-  if (version != RDBSE_KEYDEF::BINLOG_INFO_INDEX_NUMBER_VERSION)
+  pack_len += Rdb_key_def::VERSION_SIZE;
+  if (version != Rdb_key_def::BINLOG_INFO_INDEX_NUMBER_VERSION)
     return true;
 
   // read binlog file name length
@@ -2629,16 +2623,16 @@ void Binlog_info_manager::update_slave_gtid_info(uint id, const char* db,
       // slave_gtid_info table is not present. Simply return.
       return;
     }
-    DBUG_ASSERT(slave_gtid_info.load()->n_keys == 1);
+    DBUG_ASSERT(slave_gtid_info.load()->m_key_count == 1);
 
-    RDBSE_KEYDEF* key_def = slave_gtid_info.load()->key_descr[0];
+    Rdb_key_def* key_def = slave_gtid_info.load()->m_key_descr[0];
     String value;
 
     // Build key
-    uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE + 4]= {0};
+    uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE + 4]= {0};
     uchar* buf= key_buf;
     store_index_number(buf, key_def->get_index_number());
-    buf += RDBSE_KEYDEF::INDEX_NUMBER_SIZE;
+    buf += Rdb_key_def::INDEX_NUMBER_SIZE;
     store_big_uint4(buf, id);
     buf += 4;
     rocksdb::Slice key_slice =
@@ -2681,9 +2675,9 @@ bool Dict_manager::init(rocksdb::DB *rdb_dict, Rdb_cf_manager *cf_manager)
   system_cfh= cf_manager->get_or_create_cf(rdb, DEFAULT_SYSTEM_CF_NAME,
                                            nullptr, nullptr, &is_automatic);
   store_index_number(key_buf_max_index_id,
-                     RDBSE_KEYDEF::MAX_INDEX_ID);
+                     Rdb_key_def::MAX_INDEX_ID);
   key_slice_max_index_id = rocksdb::Slice((char*)key_buf_max_index_id,
-                                          RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
+                                          Rdb_key_def::INDEX_NUMBER_SIZE);
   resume_drop_indexes();
   return (system_cfh == nullptr);
 }
@@ -2755,10 +2749,10 @@ void Dict_manager::delete_util(rocksdb::WriteBatch* batch,
                                const uint32_t prefix,
                                const GL_INDEX_ID gl_index_id)
 {
-  uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*3]= {0};
+  uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE*3]= {0};
   store_big_uint4(key_buf, prefix);
-  store_big_uint4(key_buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE, gl_index_id.cf_id);
-  store_big_uint4(key_buf+2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE,
+  store_big_uint4(key_buf+Rdb_key_def::INDEX_NUMBER_SIZE, gl_index_id.cf_id);
+  store_big_uint4(key_buf+2*Rdb_key_def::INDEX_NUMBER_SIZE,
                   gl_index_id.index_id);
   rocksdb::Slice key= rocksdb::Slice((char*)key_buf, sizeof(key_buf));
 
@@ -2766,22 +2760,22 @@ void Dict_manager::delete_util(rocksdb::WriteBatch* batch,
 }
 
 void Dict_manager::add_or_update_index_cf_mapping(rocksdb::WriteBatch* batch,
-                                                  const uchar index_type,
+                                                  const uchar m_index_type,
                                                   const uint16_t kv_version,
                                                   const uint32_t index_id,
                                                   const uint32_t cf_id)
 {
-  uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*3]= {0};
+  uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE*3]= {0};
   uchar value_buf[256]= {0};
-  store_big_uint4(key_buf, RDBSE_KEYDEF::INDEX_INFO);
-  store_big_uint4(key_buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE, cf_id);
-  store_big_uint4(key_buf+2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE, index_id);
+  store_big_uint4(key_buf, Rdb_key_def::INDEX_INFO);
+  store_big_uint4(key_buf+Rdb_key_def::INDEX_NUMBER_SIZE, cf_id);
+  store_big_uint4(key_buf+2*Rdb_key_def::INDEX_NUMBER_SIZE, index_id);
   rocksdb::Slice key= rocksdb::Slice((char*)key_buf, sizeof(key_buf));
 
   uchar* ptr= value_buf;
-  store_big_uint2(ptr, RDBSE_KEYDEF::INDEX_INFO_VERSION_GLOBAL_ID);
+  store_big_uint2(ptr, Rdb_key_def::INDEX_INFO_VERSION_GLOBAL_ID);
   ptr+= 2;
-  store_big_uint1(ptr, index_type);
+  store_big_uint1(ptr, m_index_type);
   ptr+= 1;
   store_big_uint2(ptr, kv_version);
   ptr+= 2;
@@ -2794,15 +2788,15 @@ void Dict_manager::add_cf_flags(rocksdb::WriteBatch* batch,
                                 const uint32_t cf_id,
                                 const uint32_t cf_flags)
 {
-  uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2]= {0};
-  uchar value_buf[RDBSE_KEYDEF::VERSION_SIZE+
-                  RDBSE_KEYDEF::INDEX_NUMBER_SIZE]= {0};
-  store_big_uint4(key_buf, RDBSE_KEYDEF::CF_DEFINITION);
-  store_big_uint4(key_buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE, cf_id);
+  uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE*2]= {0};
+  uchar value_buf[Rdb_key_def::VERSION_SIZE+
+                  Rdb_key_def::INDEX_NUMBER_SIZE]= {0};
+  store_big_uint4(key_buf, Rdb_key_def::CF_DEFINITION);
+  store_big_uint4(key_buf+Rdb_key_def::INDEX_NUMBER_SIZE, cf_id);
   rocksdb::Slice key= rocksdb::Slice((char*)key_buf, sizeof(key_buf));
 
-  store_big_uint2(value_buf, RDBSE_KEYDEF::CF_DEFINITION_VERSION);
-  store_big_uint4(value_buf+RDBSE_KEYDEF::VERSION_SIZE, cf_flags);
+  store_big_uint2(value_buf, Rdb_key_def::CF_DEFINITION_VERSION);
+  store_big_uint4(value_buf+Rdb_key_def::VERSION_SIZE, cf_flags);
   rocksdb::Slice value= rocksdb::Slice((char*)value_buf, sizeof(value_buf));
   batch->Put(system_cfh, key, value);
 }
@@ -2810,20 +2804,20 @@ void Dict_manager::add_cf_flags(rocksdb::WriteBatch* batch,
 void Dict_manager::delete_index_info(rocksdb::WriteBatch* batch,
                                      const GL_INDEX_ID gl_index_id)
 {
-  delete_util(batch, RDBSE_KEYDEF::INDEX_INFO, gl_index_id);
+  delete_util(batch, Rdb_key_def::INDEX_INFO, gl_index_id);
 }
 
 bool Dict_manager::get_index_info(const GL_INDEX_ID gl_index_id,
-                                  uint16_t *index_dict_version,
-                                  uchar *index_type,
+                                  uint16_t *m_index_dict_version,
+                                  uchar *m_index_type,
                                   uint16_t *kv_version)
 {
   bool found= false;
   std::string value;
-  uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*3]= {0};
-  store_big_uint4(key_buf, RDBSE_KEYDEF::INDEX_INFO);
-  store_big_uint4(key_buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE, gl_index_id.cf_id);
-  store_big_uint4(key_buf+2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE,
+  uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE*3]= {0};
+  store_big_uint4(key_buf, Rdb_key_def::INDEX_INFO);
+  store_big_uint4(key_buf+Rdb_key_def::INDEX_NUMBER_SIZE, gl_index_id.cf_id);
+  store_big_uint4(key_buf+2*Rdb_key_def::INDEX_NUMBER_SIZE,
       gl_index_id.index_id);
   rocksdb::Slice key= rocksdb::Slice((char*)key_buf, sizeof(key_buf));
 
@@ -2832,12 +2826,12 @@ bool Dict_manager::get_index_info(const GL_INDEX_ID gl_index_id,
   {
     const uchar* val= (const uchar*)value.c_str();
     uchar* ptr= (uchar*)val;
-    *index_dict_version= read_big_uint2(val);
+    *m_index_dict_version= read_big_uint2(val);
     ptr+= 2;
-    switch (*index_dict_version) {
+    switch (*m_index_dict_version) {
 
-    case RDBSE_KEYDEF::INDEX_INFO_VERSION_GLOBAL_ID:
-      *index_type= read_big_uint1(ptr);
+    case Rdb_key_def::INDEX_INFO_VERSION_GLOBAL_ID:
+      *m_index_type= read_big_uint1(ptr);
       ptr+= 1;
       *kv_version= read_big_uint2(ptr);
       found= true;
@@ -2847,7 +2841,7 @@ bool Dict_manager::get_index_info(const GL_INDEX_ID gl_index_id,
         sql_print_error("RocksDB: Found invalid version number %u from "
                         "data dictionary. This should never happen "
                         "and possibly a bug.",
-                        *index_dict_version);
+                        *m_index_dict_version);
         abort_with_stack_traces();
       break;
     }
@@ -2859,9 +2853,9 @@ bool Dict_manager::get_cf_flags(const uint32_t cf_id, uint32_t *cf_flags)
 {
   bool found= false;
   std::string value;
-  uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2]= {0};
-  store_big_uint4(key_buf, RDBSE_KEYDEF::CF_DEFINITION);
-  store_big_uint4(key_buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE, cf_id);
+  uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE*2]= {0};
+  store_big_uint4(key_buf, Rdb_key_def::CF_DEFINITION);
+  store_big_uint4(key_buf+Rdb_key_def::INDEX_NUMBER_SIZE, cf_id);
   rocksdb::Slice key= rocksdb::Slice((char*)key_buf, sizeof(key_buf));
 
   rocksdb::Status status= Get(key, &value);
@@ -2869,9 +2863,9 @@ bool Dict_manager::get_cf_flags(const uint32_t cf_id, uint32_t *cf_flags)
   {
     const uchar* val= (const uchar*)value.c_str();
     uint16_t version= read_big_uint2(val);
-    if (version == RDBSE_KEYDEF::CF_DEFINITION_VERSION)
+    if (version == Rdb_key_def::CF_DEFINITION_VERSION)
     {
-      *cf_flags= read_big_uint4(val+RDBSE_KEYDEF::VERSION_SIZE);
+      *cf_flags= read_big_uint4(val+Rdb_key_def::VERSION_SIZE);
       found= true;
     }
   }
@@ -2885,10 +2879,10 @@ bool Dict_manager::get_cf_flags(const uint32_t cf_id, uint32_t *cf_flags)
 void Dict_manager::get_drop_indexes_ongoing(
     std::vector<GL_INDEX_ID>* gl_index_ids)
 {
-  uchar drop_index_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
-  store_big_uint4(drop_index_buf, RDBSE_KEYDEF::DDL_DROP_INDEX_ONGOING);
+  uchar drop_index_buf[Rdb_key_def::INDEX_NUMBER_SIZE];
+  store_big_uint4(drop_index_buf, Rdb_key_def::DDL_DROP_INDEX_ONGOING);
   rocksdb::Slice drop_index_slice((char*)drop_index_buf,
-                                  RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
+                                  Rdb_key_def::INDEX_NUMBER_SIZE);
 
   rocksdb::Iterator* it= NewIterator();
   for (it->Seek(drop_index_slice); it->Valid(); it->Next())
@@ -2896,18 +2890,18 @@ void Dict_manager::get_drop_indexes_ongoing(
     rocksdb::Slice key= it->key();
     const uchar* ptr= (const uchar*)key.data();
 
-    if (key.size() != RDBSE_KEYDEF::INDEX_NUMBER_SIZE * 3)
+    if (key.size() != Rdb_key_def::INDEX_NUMBER_SIZE * 3)
       break;
 
-    if (read_big_uint4(ptr) != RDBSE_KEYDEF::DDL_DROP_INDEX_ONGOING)
+    if (read_big_uint4(ptr) != Rdb_key_def::DDL_DROP_INDEX_ONGOING)
       break;
 
     // We don't check version right now since currently we always store only
-    // RDBSE_KEYDEF::DDL_DROP_INDEX_ONGOING_VERSION = 1 as a value.
+    // Rdb_key_def::DDL_DROP_INDEX_ONGOING_VERSION = 1 as a value.
     // If increasing version number, we need to add version check logic here.
     GL_INDEX_ID gl_index_id;
-    gl_index_id.cf_id= read_big_uint4(ptr+RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
-    gl_index_id.index_id= read_big_uint4(ptr+2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
+    gl_index_id.cf_id= read_big_uint4(ptr+Rdb_key_def::INDEX_NUMBER_SIZE);
+    gl_index_id.index_id= read_big_uint4(ptr+2*Rdb_key_def::INDEX_NUMBER_SIZE);
     gl_index_ids->push_back(gl_index_id);
   }
   delete it;
@@ -2921,10 +2915,10 @@ bool Dict_manager::is_drop_index_ongoing(GL_INDEX_ID gl_index_id)
 {
   bool found= false;
   std::string value;
-  uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*3]= {0};
-  store_big_uint4(key_buf, RDBSE_KEYDEF::DDL_DROP_INDEX_ONGOING);
-  store_big_uint4(key_buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE, gl_index_id.cf_id);
-  store_big_uint4(key_buf+2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE,
+  uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE*3]= {0};
+  store_big_uint4(key_buf, Rdb_key_def::DDL_DROP_INDEX_ONGOING);
+  store_big_uint4(key_buf+Rdb_key_def::INDEX_NUMBER_SIZE, gl_index_id.cf_id);
+  store_big_uint4(key_buf+2*Rdb_key_def::INDEX_NUMBER_SIZE,
                   gl_index_id.index_id);
   rocksdb::Slice key= rocksdb::Slice((char*)key_buf, sizeof(key_buf));
 
@@ -2943,13 +2937,13 @@ bool Dict_manager::is_drop_index_ongoing(GL_INDEX_ID gl_index_id)
 void Dict_manager::start_drop_index_ongoing(rocksdb::WriteBatch* batch,
                                             GL_INDEX_ID gl_index_id)
 {
-  uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*3]= {0};
-  uchar value_buf[RDBSE_KEYDEF::VERSION_SIZE]= {0};
-  store_big_uint4(key_buf, RDBSE_KEYDEF::DDL_DROP_INDEX_ONGOING);
-  store_big_uint4(key_buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE, gl_index_id.cf_id);
-  store_big_uint4(key_buf+2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE,
+  uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE*3]= {0};
+  uchar value_buf[Rdb_key_def::VERSION_SIZE]= {0};
+  store_big_uint4(key_buf, Rdb_key_def::DDL_DROP_INDEX_ONGOING);
+  store_big_uint4(key_buf+Rdb_key_def::INDEX_NUMBER_SIZE, gl_index_id.cf_id);
+  store_big_uint4(key_buf+2*Rdb_key_def::INDEX_NUMBER_SIZE,
       gl_index_id.index_id);
-  store_big_uint2(value_buf, RDBSE_KEYDEF::DDL_DROP_INDEX_ONGOING_VERSION);
+  store_big_uint2(value_buf, Rdb_key_def::DDL_DROP_INDEX_ONGOING_VERSION);
   rocksdb::Slice key= rocksdb::Slice((char*)key_buf, sizeof(key_buf));
   rocksdb::Slice value= rocksdb::Slice((char*)value_buf, sizeof(value_buf));
   batch->Put(system_cfh, key, value);
@@ -2962,7 +2956,7 @@ void Dict_manager::start_drop_index_ongoing(rocksdb::WriteBatch* batch,
 void Dict_manager::end_drop_index_ongoing(rocksdb::WriteBatch* batch,
                                           GL_INDEX_ID gl_index_id)
 {
-  delete_util(batch, RDBSE_KEYDEF::DDL_DROP_INDEX_ONGOING, gl_index_id);
+  delete_util(batch, Rdb_key_def::DDL_DROP_INDEX_ONGOING, gl_index_id);
 }
 
 /*
@@ -2981,7 +2975,7 @@ bool Dict_manager::is_drop_index_empty()
   that dropping indexes started, and adding data dictionary so that
   all associated indexes to be removed
  */
-void Dict_manager::add_drop_table(RDBSE_KEYDEF** key_descr,
+void Dict_manager::add_drop_table(Rdb_key_def** key_descr,
                                   uint32 n_keys,
                                   rocksdb::WriteBatch *batch)
 {
@@ -3044,7 +3038,7 @@ void Dict_manager::resume_drop_indexes()
   }
 }
 
-void Dict_manager::log_start_drop_table(RDBSE_KEYDEF** key_descr,
+void Dict_manager::log_start_drop_table(Rdb_key_def** key_descr,
                                         uint32 n_keys,
                                         const char* log_action)
 {
@@ -3057,11 +3051,11 @@ void Dict_manager::log_start_drop_table(RDBSE_KEYDEF** key_descr,
 void Dict_manager::log_start_drop_index(GL_INDEX_ID gl_index_id,
                                         const char* log_action)
 {
-  uint16 index_dict_version= 0;
-  uchar index_type= 0;
+  uint16 m_index_dict_version= 0;
+  uchar m_index_type= 0;
   uint16 kv_version= 0;
-  if (!get_index_info(gl_index_id, &index_dict_version,
-                      &index_type, &kv_version))
+  if (!get_index_info(gl_index_id, &m_index_dict_version,
+                      &m_index_type, &kv_version))
   {
     sql_print_error("RocksDB: Failed to get column family info "
                     "from index id (%u,%u). MyRocks data dictionary may "
@@ -3082,9 +3076,9 @@ bool Dict_manager::get_max_index_id(uint32_t *index_id)
   {
     const uchar* val= (const uchar*)value.c_str();
     uint16_t version= read_big_uint2(val);
-    if (version == RDBSE_KEYDEF::MAX_INDEX_ID_VERSION)
+    if (version == Rdb_key_def::MAX_INDEX_ID_VERSION)
     {
-      *index_id= read_big_uint4(val+RDBSE_KEYDEF::VERSION_SIZE);
+      *index_id= read_big_uint4(val+Rdb_key_def::VERSION_SIZE);
       found= true;
     }
   }
@@ -3109,9 +3103,10 @@ bool Dict_manager::update_max_index_id(rocksdb::WriteBatch* batch,
     }
   }
 
-  uchar value_buf[RDBSE_KEYDEF::VERSION_SIZE+RDBSE_KEYDEF::INDEX_NUMBER_SIZE]= {0};
-  store_big_uint2(value_buf, RDBSE_KEYDEF::MAX_INDEX_ID_VERSION);
-  store_big_uint4(value_buf+RDBSE_KEYDEF::VERSION_SIZE, index_id);
+  uchar value_buf[Rdb_key_def::VERSION_SIZE + Rdb_key_def::INDEX_NUMBER_SIZE]=
+    {0};
+  store_big_uint2(value_buf, Rdb_key_def::MAX_INDEX_ID_VERSION);
+  store_big_uint4(value_buf+Rdb_key_def::VERSION_SIZE, index_id);
   rocksdb::Slice value= rocksdb::Slice((char*)value_buf, sizeof(value_buf));
   batch->Put(system_cfh, key_slice_max_index_id, value);
   return false;
@@ -3125,11 +3120,11 @@ void Dict_manager::add_stats(
   DBUG_ASSERT(batch != nullptr);
 
   for (const auto& it : stats) {
-    uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*3]= {0};
-    store_big_uint4(key_buf, RDBSE_KEYDEF::INDEX_STATISTICS);
-    store_big_uint4(key_buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE,
+    uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE*3]= {0};
+    store_big_uint4(key_buf, Rdb_key_def::INDEX_STATISTICS);
+    store_big_uint4(key_buf+Rdb_key_def::INDEX_NUMBER_SIZE,
                     it.m_gl_index_id.cf_id);
-    store_big_uint4(key_buf+2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE,
+    store_big_uint4(key_buf+2*Rdb_key_def::INDEX_NUMBER_SIZE,
                     it.m_gl_index_id.index_id);
 
     // IndexStats::materialize takes complete care of serialization including
@@ -3149,10 +3144,10 @@ Rdb_index_stats
 Dict_manager::get_stats(
   GL_INDEX_ID gl_index_id
 ) {
-  uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*3]= {0};
-  store_big_uint4(key_buf, RDBSE_KEYDEF::INDEX_STATISTICS);
-  store_big_uint4(key_buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE, gl_index_id.cf_id);
-  store_big_uint4(key_buf+2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE,
+  uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE*3]= {0};
+  store_big_uint4(key_buf, Rdb_key_def::INDEX_STATISTICS);
+  store_big_uint4(key_buf+Rdb_key_def::INDEX_NUMBER_SIZE, gl_index_id.cf_id);
+  store_big_uint4(key_buf+2*Rdb_key_def::INDEX_NUMBER_SIZE,
       gl_index_id.index_id);
 
   std::string value;

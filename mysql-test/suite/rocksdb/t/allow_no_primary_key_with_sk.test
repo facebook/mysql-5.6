@@ -31,7 +31,7 @@ ALTER TABLE t1 DROP COLUMN pk;
 DROP TABLE t1;
 
 --echo #
---echo # MDEV-4313: RocksDB: Server crashes in RDBSE_KEYDEF::setup on dropping the primary key column
+--echo # MDEV-4313: RocksDB: Server crashes in Rdb_key_def::setup on dropping the primary key column
 --echo #
 CREATE TABLE t1 (pk INT PRIMARY KEY, i INT NOT NULL, KEY(i)) ENGINE=RocksDB;
 ALTER TABLE t1 DROP COLUMN `pk`;
