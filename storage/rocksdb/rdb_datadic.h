@@ -36,7 +36,7 @@ namespace myrocks {
 class Dict_manager;
 class RDBSE_KEYDEF;
 class Field_pack_info;
-class Column_family_manager;
+class Rdb_cf_manager;
 class Table_ddl_manager;
 
 bool is_myrocks_collation_supported(Field *field);
@@ -694,7 +694,7 @@ class Table_ddl_manager
   std::map<GL_INDEX_ID, Rdb_index_stats> stats2store;
 public:
   /* Load the data dictionary from on-disk storage */
-  bool init(Dict_manager *dict_arg, Column_family_manager *cf_manager,
+  bool init(Dict_manager *dict_arg, Rdb_cf_manager *cf_manager,
             uint32_t validate_tables);
 
   void cleanup();
@@ -846,7 +846,7 @@ private:
   void log_start_drop_index(GL_INDEX_ID gl_index_id,
                             const char* log_action);
 public:
-  bool init(rocksdb::DB *rdb_dict, Column_family_manager *cf_manager);
+  bool init(rocksdb::DB *rdb_dict, Rdb_cf_manager *cf_manager);
   void cleanup();
   void lock();
   void unlock();

@@ -122,7 +122,7 @@ rocksdb::ColumnFamilyOptions default_cf_opts;
 
 
 Dict_manager dict_manager;
-Column_family_manager cf_manager;
+Rdb_cf_manager cf_manager;
 Table_ddl_manager ddl_manager;
 Binlog_info_manager binlog_manager;
 
@@ -158,7 +158,7 @@ static const char* const ERRSTR_ROLLBACK_ONLY
 static void
 rocksdb_flush_all_memtables()
 {
-  Column_family_manager& cf_manager = rocksdb_get_cf_manager();
+  Rdb_cf_manager& cf_manager = rocksdb_get_cf_manager();
   for (auto cf_handle : cf_manager.get_all_cf()) {
     rdb->Flush(rocksdb::FlushOptions(), cf_handle);
   }
@@ -2452,7 +2452,7 @@ void get_cf_options(const std::string &cf_name, rocksdb::ColumnFamilyOptions *op
   rocksdb_cf_options_map.Get(cf_name, opts);
 
   // Set the comparator according to 'rev:'
-  if (is_cf_name_reverse(cf_name.c_str()))
+  if (Rdb_cf_manager::is_cf_name_reverse(cf_name.c_str()))
     opts->comparator= &rocksdb_rev_pk_comparator;
   else
     opts->comparator= &rocksdb_pk_comparator;
@@ -4003,7 +4003,7 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
       goto error;
 
     cf_handles[i]= cf_handle;
-    is_cf_reverse[i]= is_cf_name_reverse(comment);
+    is_cf_reverse[i]= Rdb_cf_manager::is_cf_name_reverse(comment);
     is_auto_cf[i]= is_auto_cf_flag;
   }
 
@@ -7541,7 +7541,7 @@ int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
   }
 
   // for analyze statements, force flush on memtable to get accurate cardinality
-  Column_family_manager& cf_manager = rocksdb_get_cf_manager();
+  Rdb_cf_manager& cf_manager = rocksdb_get_cf_manager();
   if (thd != nullptr && THDVAR(thd, flush_memtable_on_analyze) &&
       !rocksdb_pause_background_work)
   {
@@ -8150,7 +8150,7 @@ rocksdb::DB *rocksdb_get_rdb()
   return rdb;
 }
 
-Column_family_manager& rocksdb_get_cf_manager()
+Rdb_cf_manager& rocksdb_get_cf_manager()
 {
   return cf_manager;
 }

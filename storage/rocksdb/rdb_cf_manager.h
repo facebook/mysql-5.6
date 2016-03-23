@@ -18,6 +18,8 @@
 
 /* C++ system header files */
 #include <map>
+#include <string>
+#include <vector>
 
 /* MySQL header files */
 #include "./sql_class.h"
@@ -28,15 +30,7 @@
 namespace myrocks {
 
 /*
-  Expected from outside: a function that fills CF options for a given name.
-*/
-void get_cf_options(const std::string &cf_name, rocksdb::ColumnFamilyOptions *opts);
-
-void get_per_index_cf_name(const char *db_table_name, const char *index_name,
-                           std::string *res);
-
-/*
-  We need a column family manager. Its functions:
+  We need a Column Family (CF) manager. Its functions:
   - create column families (synchronized, don't create the same twice)
   - keep count in each column family.
      = the count is kept on-disk.
@@ -49,13 +43,20 @@ void get_per_index_cf_name(const char *db_table_name, const char *index_name,
   - CFs are created in a synchronized way. We can't remove them, yet.
 */
 
-class Column_family_manager
+class Rdb_cf_manager
 {
-  std::map<std::string, rocksdb::ColumnFamilyHandle*> cf_name_map;
-  std::map<uint32_t, rocksdb::ColumnFamilyHandle*> cf_id_map;
+  std::map<std::string, rocksdb::ColumnFamilyHandle*> m_cf_name_map;
+  std::map<uint32_t, rocksdb::ColumnFamilyHandle*> m_cf_id_map;
 
-  mysql_mutex_t cfm_mutex;
+  mutable mysql_mutex_t m_mutex;
+
+  static
+  void get_per_index_cf_name(const char *db_table_name, const char *index_name,
+                             std::string *res);
+
 public:
+  static bool is_cf_name_reverse(const char *name);
+
   /*
     This is called right after the DB::Open() call. The parameters describe column
     families that are present in the database. The first CF is the default CF.
@@ -78,16 +79,16 @@ public:
   rocksdb::ColumnFamilyHandle* get_cf(const char *cf_name,
                                       const char *db_table_name,
                                       const char *index_name,
-                                      bool *is_automatic);
+                                      bool *is_automatic) const;
 
   /* Look up cf by id; used by datadic */
-  rocksdb::ColumnFamilyHandle* get_cf(const uint32_t id);
+  rocksdb::ColumnFamilyHandle* get_cf(const uint32_t id) const;
 
   /* Used to iterate over column families for show status */
-  std::vector<std::string> get_cf_names(void);
+  std::vector<std::string> get_cf_names(void) const;
 
   /* Used to iterate over column families */
-  std::vector<rocksdb::ColumnFamilyHandle*> get_all_cf(void);
+  std::vector<rocksdb::ColumnFamilyHandle*> get_all_cf(void) const;
 
   // void drop_cf(); -- not implemented so far.
 };
