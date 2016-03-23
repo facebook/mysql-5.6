@@ -14,6 +14,9 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
+/* C++ standard header files */
+#include <vector>
+
 /* MySQL header files */
 #include <sql_show.h>
 
@@ -958,8 +961,8 @@ static int i_s_rocksdb_index_file_map_fill_table(
       field[2]->store(sst_name.data(), sst_name.size(), system_charset_info);
 
       /* Get the __indexstats__ data out of the table property */
-      std::vector<MyRocksTablePropertiesCollector::IndexStats> stats =
-          MyRocksTablePropertiesCollector::GetStatsFromTableProperties(props.second);
+      std::vector<Rdb_index_stats> stats =
+          Rdb_tbl_prop_coll::read_stats_from_tbl_props(props.second);
       if (stats.empty()) {
         field[0]->store(-1, true);
         field[1]->store(-1, true);
@@ -973,14 +976,14 @@ static int i_s_rocksdb_index_file_map_fill_table(
       else {
         for (auto it : stats) {
           /* Add the index number, the number of rows, and data size to the output */
-          field[0]->store(it.gl_index_id.cf_id, true);
-          field[1]->store(it.gl_index_id.index_id, true);
-          field[3]->store(it.rows, true);
-          field[4]->store(it.data_size, true);
-          field[5]->store(it.entry_deletes, true);
-          field[6]->store(it.entry_singledeletes, true);
-          field[7]->store(it.entry_merges, true);
-          field[8]->store(it.entry_others, true);
+          field[0]->store(it.m_gl_index_id.cf_id, true);
+          field[1]->store(it.m_gl_index_id.index_id, true);
+          field[3]->store(it.m_rows, true);
+          field[4]->store(it.m_data_size, true);
+          field[5]->store(it.m_entry_deletes, true);
+          field[6]->store(it.m_entry_single_deletes, true);
+          field[7]->store(it.m_entry_merges, true);
+          field[8]->store(it.m_entry_others, true);
 
           /* Tell MySQL about this row in the virtual table */
           ret= schema_table_store_record(thd, tables->table);

@@ -13,13 +13,12 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
-
-#ifndef PROPERTIES_COLLECTOR_H
-#define PROPERTIES_COLLECTOR_H
+#pragma once
 
 /* C++ system header files */
 #include <map>
 #include <memory>
+#include <string>
 #include <unordered_set>
 #include <vector>
 
@@ -41,136 +40,146 @@ extern uint64_t rocksdb_num_sst_entry_merge;
 extern uint64_t rocksdb_num_sst_entry_other;
 extern my_bool rocksdb_compaction_sequential_deletes_count_sd;
 
-struct CompactionParams {
-  uint64_t deletes_, window_, file_size_;
+
+struct Rdb_compact_params
+{
+  uint64_t m_deletes, m_window, m_file_size;
 };
 
-class MyRocksTablePropertiesCollector
-    : public rocksdb::TablePropertiesCollector {
- public:
-  struct IndexStats {
+
+struct Rdb_index_stats
+{
     enum {
       INDEX_STATS_VERSION_INITIAL= 1,
       INDEX_STATS_VERSION_ENTRY_TYPES= 2,
-    };
-    GL_INDEX_ID gl_index_id;
-    int64_t data_size, rows, actual_disk_size;
-    int64_t entry_deletes, entry_singledeletes;
-    int64_t entry_merges, entry_others;
-    std::vector<int64_t> distinct_keys_per_prefix;
-    std::string name; // name is not persisted
-
-    static std::string materialize(std::vector<IndexStats>,
-                                   const float card_adj_extra);
-    static int unmaterialize(const std::string& s, std::vector<IndexStats>&);
-    IndexStats() : IndexStats({0, 0}) {}
-    explicit IndexStats(GL_INDEX_ID _gl_index_id) :
-        gl_index_id(_gl_index_id),
-        data_size(0),
-        rows(0),
-        actual_disk_size(0),
-        entry_deletes(0),
-        entry_singledeletes(0),
-        entry_merges(0),
-        entry_others(0) {}
-    void merge(const IndexStats& s, bool increment = true,
-               int64_t estimated_data_len = 0);
   };
+  GL_INDEX_ID m_gl_index_id;
+  int64_t m_data_size, m_rows, m_actual_disk_size;
+  int64_t m_entry_deletes, m_entry_single_deletes;
+  int64_t m_entry_merges, m_entry_others;
+  std::vector<int64_t> m_distinct_keys_per_prefix;
+  std::string m_name;  // name is not persisted
 
-  MyRocksTablePropertiesCollector(
+  static std::string materialize(std::vector<Rdb_index_stats>,
+                                 const float card_adj_extra);
+  static int unmaterialize(const std::string& s, std::vector<Rdb_index_stats>&);
+
+  Rdb_index_stats() : Rdb_index_stats({0, 0}) {}
+  explicit Rdb_index_stats(GL_INDEX_ID gl_index_id) :
+      m_gl_index_id(gl_index_id),
+      m_data_size(0),
+      m_rows(0),
+      m_actual_disk_size(0),
+      m_entry_deletes(0),
+      m_entry_single_deletes(0),
+      m_entry_merges(0),
+      m_entry_others(0) {}
+
+  void merge(const Rdb_index_stats& s, bool increment = true,
+             int64_t estimated_data_len = 0);
+};
+
+
+class Rdb_tbl_prop_coll : public rocksdb::TablePropertiesCollector
+{
+ public:
+  Rdb_tbl_prop_coll(
     Table_ddl_manager* ddl_manager,
-    CompactionParams params,
+    Rdb_compact_params params,
     uint32_t cf_id,
     const uint8_t table_stats_sampling_pct
   );
+
+  /*
+    Override parent class's virtual methods of interest.
+  */
 
   virtual rocksdb::Status AddUserKey(
     const rocksdb::Slice& key, const rocksdb::Slice& value,
     rocksdb::EntryType type, rocksdb::SequenceNumber seq,
     uint64_t file_size);
+
   virtual rocksdb::Status Finish(rocksdb::UserCollectedProperties* properties) override;
 
   virtual const char* Name() const override {
-    return "MyRocksTablePropertiesCollector";
+    return "Rdb_tbl_prop_coll";
   }
 
-  static std::string
-  GetReadableStats(const MyRocksTablePropertiesCollector::IndexStats& it);
   rocksdb::UserCollectedProperties GetReadableProperties() const override;
 
-  static std::vector<IndexStats> GetStatsFromTableProperties(
-    const std::shared_ptr<const rocksdb::TableProperties>& table_props
-  );
+  bool NeedCompact() const override;
 
-  static void GetStats(
-    const rocksdb::TablePropertiesCollection& collection,
-    const std::unordered_set<GL_INDEX_ID>& index_numbers,
-    std::map<GL_INDEX_ID, MyRocksTablePropertiesCollector::IndexStats>& stats
-  );
-
-  bool NeedCompact() const;
+ public:
   uint64_t GetMaxDeletedRows() const {
-    return max_deleted_rows_;
+    return m_max_deleted_rows;
   }
 
+  static std::vector<Rdb_index_stats> read_stats_from_tbl_props(
+     const std::shared_ptr<const rocksdb::TableProperties>& table_props);
+
  private:
+  static std::string GetReadableStats(const Rdb_index_stats& it);
+
   bool ShouldCollectStats();
   void CollectStatsForRow(const rocksdb::Slice& key,
     const rocksdb::Slice& value, rocksdb::EntryType type, uint64_t file_size);
 
-  uint32_t cf_id_;
-  std::unique_ptr<RDBSE_KEYDEF> keydef_;
-  Table_ddl_manager* ddl_manager_;
-  std::vector<IndexStats> stats_;
+ private:
+  uint32_t m_cf_id;
+  std::unique_ptr<RDBSE_KEYDEF> m_keydef;
+  Table_ddl_manager* m_ddl_manager;
+  std::vector<Rdb_index_stats> m_stats;
   static const char* INDEXSTATS_KEY;
 
   // last added key
-  std::string last_key_;
+  std::string m_last_key;
 
   // floating window to count deleted rows
-  std::vector<bool> deleted_rows_window_;
-  uint64_t rows_, deleted_rows_, max_deleted_rows_;
-  uint64_t file_size_;
-
-  CompactionParams params_;
-  uint8_t table_stats_sampling_pct_;
-  unsigned int seed_;
-  float card_adj_extra_;
+  std::vector<bool> m_deleted_rows_window;
+  uint64_t m_rows, m_deleted_rows, m_max_deleted_rows;
+  uint64_t m_file_size;
+  Rdb_compact_params m_params;
+  uint8_t m_table_stats_sampling_pct;
+  unsigned int m_seed;
+  float m_card_adj_extra;
 };
 
 
-class MyRocksTablePropertiesCollectorFactory
+class Rdb_tbl_prop_coll_factory
     : public rocksdb::TablePropertiesCollectorFactory {
  public:
-  explicit MyRocksTablePropertiesCollectorFactory(
-    Table_ddl_manager* ddl_manager
-  ) : ddl_manager_(ddl_manager) {
+  explicit Rdb_tbl_prop_coll_factory(Table_ddl_manager* ddl_manager)
+    : m_ddl_manager(ddl_manager) {
   }
+
+  /*
+    Override parent class's virtual methods of interest.
+  */
 
   virtual rocksdb::TablePropertiesCollector* CreateTablePropertiesCollector(
       rocksdb::TablePropertiesCollectorFactory::Context context) override {
-    return new MyRocksTablePropertiesCollector(
-      ddl_manager_, params_, context.column_family_id,
-      table_stats_sampling_pct_);
+    return new Rdb_tbl_prop_coll(
+      m_ddl_manager, m_params, context.column_family_id,
+      m_table_stats_sampling_pct);
   }
 
   virtual const char* Name() const override {
-    return "MyRocksTablePropertiesCollectorFactory";
+    return "Rdb_tbl_prop_coll_factory";
   }
 
-  void SetCompactionParams(const CompactionParams& params) {
-    params_ = params;
+ public:
+  void SetCompactionParams(const Rdb_compact_params& params) {
+    m_params = params;
   }
 
   void SetTableStatsSamplingPct(const uint8_t table_stats_sampling_pct) {
-    table_stats_sampling_pct_ = table_stats_sampling_pct;
+    m_table_stats_sampling_pct = table_stats_sampling_pct;
   }
+
  private:
-  Table_ddl_manager* ddl_manager_;
-  CompactionParams params_;
-  uint8_t table_stats_sampling_pct_;
+  Table_ddl_manager* m_ddl_manager;
+  Rdb_compact_params m_params;
+  uint8_t m_table_stats_sampling_pct;
 };
 
 }  // namespace myrocks
-
-#endif
