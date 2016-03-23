@@ -112,7 +112,7 @@ rocksdb::TransactionDB *rdb= nullptr;
 
 static std::shared_ptr<rocksdb::Statistics> rocksdb_stats;
 static std::unique_ptr<rocksdb::Env> flashcache_aware_env;
-static std::shared_ptr<MyRocksTablePropertiesCollectorFactory>
+static std::shared_ptr<Rdb_tbl_prop_coll_factory>
   properties_collector_factory;
 static rdb_perf_context_shared global_perf_context;
 static std::vector<std::string> split(const std::string& input,
@@ -2651,7 +2651,7 @@ static int rocksdb_init_func(void *p)
   default_cf_opts.table_factory.reset(rocksdb::NewBlockBasedTableFactory(table_options));
   if (rocksdb_collect_sst_properties) {
     properties_collector_factory = std::make_shared
-      <MyRocksTablePropertiesCollectorFactory>(
+      <Rdb_tbl_prop_coll_factory>(
         &ddl_manager
       );
 
@@ -6553,12 +6553,12 @@ void ha_rocksdb::update_stats(void)
   {
     if (is_pk(i, table, tbl_def))
     {
-      stats.data_file_length= pk_descr->stats.actual_disk_size;
-      stats.records = pk_descr->stats.rows;
+      stats.data_file_length= pk_descr->stats.m_actual_disk_size;
+      stats.records = pk_descr->stats.m_rows;
     }
     else
     {
-      stats.index_file_length+= key_descr[i]->stats.actual_disk_size;
+      stats.index_file_length+= key_descr[i]->stats.m_actual_disk_size;
     }
   }
   DBUG_VOID_RETURN;
@@ -6577,7 +6577,8 @@ int ha_rocksdb::info(uint flag)
       Test only to simulate corrupted stats
     */
     DBUG_EXECUTE_IF("myrocks_simulate_negative_stats",
-        pk_descr->stats.actual_disk_size = -pk_descr->stats.actual_disk_size;);
+        pk_descr->stats.m_actual_disk_size =
+          -pk_descr->stats.m_actual_disk_size;);
 
     update_stats();
 
@@ -6632,8 +6633,10 @@ int ha_rocksdb::info(uint flag)
       KEY* k= &table->key_info[i];
       for (uint j = 0; j < k->actual_key_parts; j++)
       {
-        uint x = key_descr[i]->stats.distinct_keys_per_prefix.size() > j && key_descr[i]->stats.distinct_keys_per_prefix[j] > 0 ?
-          key_descr[i]->stats.rows / key_descr[i]->stats.distinct_keys_per_prefix[j] :
+        const Rdb_index_stats& k_stats= key_descr[i]->stats;
+        uint x = k_stats.m_distinct_keys_per_prefix.size() > j &&
+                 k_stats.m_distinct_keys_per_prefix[j] > 0 ?
+          k_stats.m_rows / k_stats.m_distinct_keys_per_prefix[j] :
           0;
         if (x > stats.records)
           x = stats.records;
@@ -7441,10 +7444,10 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *min_key,
   );
 
   uint64_t sz=0;
-  auto disk_size = kd->stats.actual_disk_size;
+  auto disk_size = kd->stats.m_actual_disk_size;
   if (disk_size == 0)
-    disk_size = kd->stats.data_size;
-  auto rows = kd->stats.rows;
+    disk_size = kd->stats.m_data_size;
+  auto rows = kd->stats.m_rows;
   if (rows == 0 || disk_size == 0)
   {
     // no stats. Most likely, this is memtable-only table.
@@ -7562,13 +7565,12 @@ int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
 
   int num_sst = 0;
   // group stats per index id
-  std::unordered_map<GL_INDEX_ID, MyRocksTablePropertiesCollector::IndexStats>
+  std::unordered_map<GL_INDEX_ID, Rdb_index_stats>
     stats;
   for (auto it : props)
   {
-    std::vector<MyRocksTablePropertiesCollector::IndexStats> sst_stats =
-        MyRocksTablePropertiesCollector::GetStatsFromTableProperties(
-          it.second);
+    std::vector<Rdb_index_stats> sst_stats =
+        Rdb_tbl_prop_coll::read_stats_from_tbl_props(it.second);
     /*
       sst_stats is a list of index statistics for indexes that have entries
       in the current SST file.
@@ -7583,11 +7585,11 @@ int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
         other SQL tables, it can be that we're only seeing a small fraction
         of table's entries (and so we can't update statistics based on that).
       */
-      if (ids_to_check.find(it1.gl_index_id) == ids_to_check.end())
+      if (ids_to_check.find(it1.m_gl_index_id) == ids_to_check.end())
         continue;
 
-      RDBSE_KEYDEF* kd= ddl_manager.find(it1.gl_index_id);
-      stats[it1.gl_index_id].merge(it1, true, kd->max_storage_fmt_length());
+      RDBSE_KEYDEF* kd= ddl_manager.find(it1.m_gl_index_id);
+      stats[it1.m_gl_index_id].merge(it1, true, kd->max_storage_fmt_length());
     }
     num_sst++;
   }
@@ -8258,7 +8260,7 @@ set_compaction_options(THD* thd,
   if (var_ptr && save) {
     *(uint64_t*)var_ptr = *(const uint64_t*) save;
   }
-  CompactionParams params = {
+  Rdb_compact_params params = {
     (uint64_t)rocksdb_compaction_sequential_deletes,
     (uint64_t)rocksdb_compaction_sequential_deletes_window,
     (uint64_t)rocksdb_compaction_sequential_deletes_file_size
