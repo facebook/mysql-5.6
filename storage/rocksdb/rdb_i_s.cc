@@ -75,7 +75,7 @@ static int i_s_rocksdb_cfstats_fill_table(THD *thd,
   };
 
   rocksdb::DB *rdb= rocksdb_get_rdb();
-  Column_family_manager& cf_manager= rocksdb_get_cf_manager();
+  Rdb_cf_manager& cf_manager= rocksdb_get_cf_manager();
   DBUG_ASSERT(rdb != nullptr);
 
   for (auto cf_name : cf_manager.get_cf_names())
@@ -376,7 +376,7 @@ static int i_s_rocksdb_cfoptions_fill_table(THD *thd,
 
   DBUG_ENTER("i_s_rocksdb_cfoptions_fill_table");
 
-  Column_family_manager& cf_manager = rocksdb_get_cf_manager();
+  Rdb_cf_manager& cf_manager = rocksdb_get_cf_manager();
 
   for (auto cf_name : cf_manager.get_cf_names())
   {
@@ -724,7 +724,7 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
   /* cf_id -> cf_flags */
   char cf_id_buf[INT_BUF_LEN]= {0};
   char cf_value_buf[FN_REFLEN+1] = {0};
-  Column_family_manager& cf_manager = rocksdb_get_cf_manager();
+  Rdb_cf_manager& cf_manager = rocksdb_get_cf_manager();
   for (auto cf_handle : cf_manager.get_all_cf()) {
     uint flags;
     dict_manager->get_cf_flags(cf_handle->GetID(), &flags);
@@ -943,7 +943,7 @@ static int i_s_rocksdb_index_file_map_fill_table(
   rocksdb::DB *rdb= rocksdb_get_rdb();
   DBUG_ASSERT(rdb != nullptr);
 
-  Column_family_manager& cf_manager = rocksdb_get_cf_manager();
+  Rdb_cf_manager& cf_manager = rocksdb_get_cf_manager();
   for (auto cf_handle : cf_manager.get_all_cf()) {
     /* Grab the the properties of all the tables in the column family */
     rocksdb::TablePropertiesCollection table_props_collection;
