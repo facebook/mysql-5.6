@@ -168,7 +168,7 @@ extern void reset_statement_timer(THD *thd);
   @note It acquires LOCK_thd_data mutex when it finds matching thd.
   It is the responsibility of the caller to release this mutex.
 */
-inline THD* find_thd_from_id(ulong id)
+inline THD* find_thd_from_id(my_thread_id id)
 {
   THD *tmp= NULL;
 
@@ -179,7 +179,7 @@ inline THD* find_thd_from_id(ulong id)
   {
     if ((*it)->get_command() == COM_DAEMON)
       continue;
-    if ((*it)->thread_id == id)
+    if ((*it)->thread_id() == id)
     {
       tmp= *it;
       mysql_mutex_lock(&tmp->LOCK_thd_data);    // Lock from delete

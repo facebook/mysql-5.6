@@ -407,7 +407,7 @@ void thd_new_connection_setup(THD *thd, char *stack_start)
 #ifdef HAVE_PSI_INTERFACE
   thd_set_psi(thd,
               PSI_THREAD_CALL(new_thread)
-                (key_thread_one_connection, thd, thd->thread_id));
+                (key_thread_one_connection, thd, thd->thread_id()));
 #endif
   thd->set_time();
   thd->prior_thr_create_utime= thd->thr_create_utime= thd->start_utime=
@@ -795,7 +795,7 @@ char *thd_security_context(THD *thd, char *buffer, unsigned int length,
 
   len= my_snprintf(header, sizeof(header),
                    "MySQL thread id %lu, OS thread handle 0x%lx, query id %lu",
-                   thd->thread_id, (ulong) thd->real_id, (ulong) thd->query_id);
+                   thd->thread_id(), (ulong) thd->real_id, (ulong) thd->query_id);
   str.length(0);
   str.append(header, len);
 
@@ -1023,7 +1023,7 @@ THD::THD(bool enable_plugins)
   current_linfo =  0;
   slave_thread = 0;
   memset(&variables, 0, sizeof(variables));
-  thread_id= 0;
+  m_thread_id= 0;
   system_thread_id= 0;
   one_shot_set= 0;
   file_id = 0;
@@ -1447,7 +1447,7 @@ void THD::init(void)
     variables.pseudo_thread_id to 0. We need to correct it here to
     avoid temporary tables replication failure.
   */
-  variables.pseudo_thread_id= thread_id;
+  variables.pseudo_thread_id= m_thread_id;
   mysql_mutex_unlock(&LOCK_global_system_variables);
   server_status= SERVER_STATUS_AUTOCOMMIT;
   if (variables.sql_mode & MODE_NO_BACKSLASH_ESCAPES)
@@ -1556,6 +1556,40 @@ void THD::change_user(void)
 #endif
 }
 
+my_thread_id THD::set_new_thread_id()
+{
+  my_thread_id new_id;
+  mysql_mutex_assert_owner(&LOCK_thread_count);
+
+  DBUG_EXECUTE_IF("skip_to_largest_thread_id", {
+      thread_id_counter= UINT32_MAX;
+    }
+  );
+  DBUG_EXECUTE_IF("skip_to_second_largest_thread_id", {
+      thread_id_counter= UINT32_MAX - 1;
+    }
+  );
+  do {
+    new_id= thread_id_counter++;
+  } while (!global_thread_id_list->insert(new_id).second);
+  m_thread_id= new_id;
+  total_thread_ids++;
+
+  return m_thread_id;
+}
+
+void THD::release_thread_id() {
+  // Some temporary THDs are never given a proper ID.
+  if (m_thread_id != reserved_thread_id) {
+    mysql_mutex_lock(&LOCK_thread_count);
+    const size_t num_erased __attribute__((unused)) =
+      global_thread_id_list->erase(m_thread_id);
+    // Assert if the ID was not found in the list.
+    DBUG_ASSERT(num_erased == 1);
+    mysql_mutex_unlock(&LOCK_thread_count);
+  }
+  m_thread_id= reserved_thread_id;
+}
 
 /*
   Do what's needed when one invokes change user.
@@ -1642,6 +1676,8 @@ void THD::release_resources()
 {
   mysql_mutex_assert_not_owner(&LOCK_thread_count);
   DBUG_ASSERT(m_release_resources_done == false);
+
+  release_thread_id();
 
   mysql_mutex_lock(&LOCK_status);
   add_to_status(&global_status_var, &status_var);
@@ -1877,7 +1913,7 @@ void THD::awake(THD::killed_state state_to_set)
 #endif
 
     /* Mark the target thread's alarm request expired, and signal alarm. */
-    thr_alarm_kill(thread_id);
+    thr_alarm_kill(m_thread_id);
 
     /* Send an event to the scheduler that a thread should be killed. */
     if (!slave_thread)
@@ -2045,7 +2081,7 @@ bool THD::store_globals()
     Let mysqld define the thread id (not mysys)
     This allows us to move THD to different threads if needed.
   */
-  mysys_var->id= thread_id;
+  mysys_var->id= m_thread_id;
   real_id= pthread_self();                      // For debugging
 
 #ifdef TARGET_OS_LINUX
@@ -4325,7 +4361,7 @@ extern "C" void thd_set_kill_status(const MYSQL_THD thd)
 */
 extern "C" unsigned long thd_get_thread_id(const MYSQL_THD thd)
 {
-  return((unsigned long)thd->thread_id);
+  return((unsigned long)thd->thread_id());
 }
 
 /**
@@ -4417,7 +4453,7 @@ extern "C" LEX_STRING * thd_query_string (MYSQL_THD thd)
 */
 extern "C" ulong thd_thread_id(MYSQL_THD thd)
 {
-  return(thd->thread_id);
+  return(thd->thread_id());
 }
 
 

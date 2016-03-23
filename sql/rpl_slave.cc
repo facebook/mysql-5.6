@@ -3393,7 +3393,7 @@ static int init_slave_thread(THD* thd, SLAVE_THD_TYPE thd_type)
   set_slave_thread_options(thd);
   thd->client_capabilities = CLIENT_LOCAL_FILES;
   mysql_mutex_lock(&LOCK_thread_count);
-  thd->thread_id= thd->variables.pseudo_thread_id= thread_id++;
+  thd->variables.pseudo_thread_id= thd->set_new_thread_id();
   mysql_mutex_unlock(&LOCK_thread_count);
 
   DBUG_EXECUTE_IF("simulate_io_slave_error_on_init",

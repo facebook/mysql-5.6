@@ -1,0 +1,20 @@
+set @old_debug_val = @@global.debug;
+set @@global.debug="+d,skip_to_largest_thread_id";
+set global debug = @old_debug_val;
+select connection_id();
+connection_id()
+4294967295
+thread_id has wrapped
+1
+set @@global.debug="+d,skip_to_second_largest_thread_id";
+set global debug = @old_debug_val;
+select connection_id();
+connection_id()
+4294967294
+thread_id has wrapped
+1
+set @@global.debug="+d,skip_to_second_largest_thread_id";
+set global debug = @old_debug_val;
+select connection_id();
+connection_id()
+4294967295

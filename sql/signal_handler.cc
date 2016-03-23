@@ -194,8 +194,8 @@ extern "C" sig_handler handle_fatal_signal(int sig)
     my_safe_printf_stderr("Last run query buffer: %s\n", thd->raw_query_buffer);
     my_safe_printf_stderr("Query (%p): ", thd->query());
     my_safe_print_str(thd->query(), MY_MIN(1024U, thd->query_length()));
-    my_safe_printf_stderr("Connection ID (thread ID): %lu\n",
-                          (ulong) thd->thread_id);
+    my_safe_printf_stderr("Connection ID (thread ID): %u\n",
+                          thd->thread_id());
     my_safe_printf_stderr("Status: %s\n\n", kreason);
   }
   my_safe_printf_stderr("%s",
