@@ -255,14 +255,14 @@ insert into t4 select pk,pk,pk,pk from t2 where pk < 100;
 explain 
 select * from t4 where a=1 and b in (1) order by c desc;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t4	index	a	a	15	NULL	#	Using where; Using index
+1	SIMPLE	t4	ref	a	a	10	const,const	#	Using where; Using index
 select * from t4 where a=1 and b in (1) order by c desc;
 pk	a	b	c
 1	1	1	1
 explain 
 select * from t4 where a=5 and b in (4) order by c desc;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t4	index	a	a	15	NULL	#	Using where; Using index
+1	SIMPLE	t4	ref	a	a	10	const,const	#	Using where; Using index
 select * from t4 where a=5 and b in (4) order by c desc;
 pk	a	b	c
 # HA_READ_PREFIX_LAST for reverse-ordered CF
@@ -277,14 +277,14 @@ insert into t5 select pk,pk,pk,pk from t2 where pk < 100;
 explain 
 select * from t5 where a=1 and b in (1) order by c desc;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t5	index	a	a	15	NULL	#	Using where; Using index
+1	SIMPLE	t5	ref	a	a	10	const,const	#	Using where; Using index
 select * from t5 where a=1 and b in (1) order by c desc;
 pk	a	b	c
 1	1	1	1
 explain 
 select * from t5 where a=5 and b in (4) order by c desc;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t5	index	a	a	15	NULL	#	Using where; Using index
+1	SIMPLE	t5	ref	a	a	10	const,const	#	Using where; Using index
 select * from t5 where a=5 and b in (4) order by c desc;
 pk	a	b	c
 drop table t0,t1,t2,t3,t4,t5;
