@@ -785,7 +785,7 @@ i
 10
 drop table t38;
 #
-# MDEV-4092: RocksDB: Assertion `in_table(pa, a_len)' fails in LDBSE_KEYDEF::cmp_full_keys 
+# MDEV-4092: RocksDB: Assertion `in_table(pa, a_len)' fails in Rdb_key_def::cmp_full_keys 
 #            with a multi-part key and ORDER BY .. DESC
 #
 CREATE TABLE t40 (pk1 INT PRIMARY KEY, a INT, b VARCHAR(1), KEY(b,a)) ENGINE=RocksDB;
@@ -1163,7 +1163,7 @@ SELECT 1 FROM t2 WHERE i < 0 FOR UPDATE;
 1
 DROP TABLE t2;
 #
-# MDEV-4301: RocksDB: Assertion `pack_info != __null' fails in LDBSE_KEYDEF::unpack_record
+# MDEV-4301: RocksDB: Assertion `pack_info != __null' fails in Rdb_key_def::unpack_record
 #
 CREATE TABLE t1 (pk INT PRIMARY KEY, i INT, c CHAR(1), KEY(c,i)) ENGINE=RocksDB;
 INSERT INTO t1 VALUES (1,4,'d'),(2,8,'e');
@@ -1610,7 +1610,7 @@ pk	col1
 3	123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-
 drop table t0, t1;
 #
-# Fix issue #10: Segfault in RDBSE_KEYDEF::get_primary_key_tuple
+# Fix issue #10: Segfault in Rdb_key_def::get_primary_key_tuple
 #
 create table t0 (a int) engine=myisam;
 insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
