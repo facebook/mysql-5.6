@@ -1832,6 +1832,31 @@ drop table r1, r2;
 disconnect con1;
 
 --echo #
+--echo # Issue#211 Crash on LOCK TABLES + START TRANSACTION WITH CONSISTENT SNAPSHOT
+--echo #
+CREATE TABLE t1(c1 INT);
+lock TABLE t1 read local;
+SELECT 1 FROM t1 GROUP BY TRIM(LEADING RAND()FROM'');
+set AUTOCOMMIT=0;
+start transaction with consistent snapshot;
+SELECT * FROM t1;
+COMMIT;
+UNLOCK TABLES;
+DROP TABLE t1;
+
+--echo #
+--echo # Issue#213 Crash on LOCK TABLES + partitions
+--echo #
+CREATE TABLE t1(a INT,b INT,KEY (b)) engine=rocksdb PARTITION BY HASH(a) PARTITIONS 2;
+INSERT INTO t1(a)VALUES (20010101101010.999949);
+lock tables t1 write,t1 as t0 write,t1 as t2 write;
+SELECT a FROM t1 ORDER BY a;
+truncate t1;
+INSERT INTO t1 VALUES(X'042000200020',X'042000200020'),(X'200400200020',X'200400200020');
+UNLOCK TABLES;
+DROP TABLE t1;
+
+--echo #
 --echo # Issue#267: MyRocks issue with no matching min/max row and count(*)
 --echo #
 CREATE TABLE t1(c1 INT UNSIGNED, c2 INT SIGNED, INDEX idx2(c2));
@@ -1839,5 +1864,6 @@ INSERT INTO t1 VALUES(1,null);
 INSERT INTO t1 VALUES(2,null);
 SELECT count(*) as total_rows, min(c2) as min_value FROM t1;
 DROP TABLE t1;
+
 
 SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;
