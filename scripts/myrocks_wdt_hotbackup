@@ -1,0 +1,360 @@
+#!/usr/bin/env python
+
+from optparse import OptionParser
+import collections
+import signal
+import os
+import sys
+import re
+import commands
+import subprocess
+import logging
+import logging.handlers
+import time
+import shutil
+import traceback
+import tempfile
+
+import MySQLdb
+import MySQLdb.connections
+
+logger = None
+opts = None
+rocksdb_files = ['MANIFEST', 'CURRENT']
+rocksdb_data_suffix = '.sst'
+rocksdb_wal_suffix = '.log'
+exclude_files = ['auto.cnf', 'ibdata1', 'ib_logfile0', 'ib_logfile1']
+wdt_bin = 'wdt'
+
+def is_manifest(fname):
+  for m in rocksdb_files:
+    if fname.startswith(m):
+      return True
+  return False
+
+"""
+This class creates a hard link to misc mysql files in the snapshot directory
+"""
+class MiscFilesLinkCreator():
+  datadir = None
+  snapshot_dir = None
+  wildcard = r'.*\.[frm|MYD|MYI|MAD|MAI|MRG|TRG|TRN|ARM|ARZ|CSM|CSV|opt|par]'
+  regex = None
+
+  def __init__(self, datadir, snapshot_dir):
+    self.datadir = datadir
+    self.snapshot_dir = snapshot_dir
+    self.regex = re.compile(self.wildcard)
+
+  def create_links(self):
+    for db in self.get_databases():
+      logger.info("Starting MySQL misc file traversal from database %s..", db)
+      snapshot_sub_dir = os.path.join(self.snapshot_dir, db)
+      os.makedirs(snapshot_sub_dir)
+      for f in self.get_files(db):
+        if self.match(f):
+          src_path = os.path.join(self.datadir, db, f)
+          dst_path = os.path.join(snapshot_sub_dir, f)
+          os.link(src_path, dst_path)
+    logger.info("Traversing misc files from data directory..")
+    for f in self.get_files(""):
+      if f not in exclude_files:
+        src_path = os.path.join(self.datadir, f)
+        dst_path = os.path.join(self.snapshot_dir, f)
+        os.link(src_path, dst_path)
+
+  def match(self, filename):
+    if self.regex.match(filename):
+      return True
+    else:
+      return False
+
+  def get_databases(self):
+    dbs = []
+    dirs = [ d for d in os.listdir(self.datadir) \
+            if not os.path.isfile(os.path.join(self.datadir,d))]
+    for db in dirs:
+      if not db.startswith('.'):
+        dbs.append(db)
+    return dbs
+
+  def get_files(self, db):
+    dbdir = self.datadir + "/" + db
+    return [ f for f in os.listdir(dbdir) \
+            if os.path.isfile(os.path.join(dbdir,f))]
+
+
+class MySQLUtil:
+  @staticmethod
+  def connect(user, password, port):
+    dbh = MySQLdb.Connect(user=user,
+                          passwd=password,
+                          port=port,
+                          host="127.0.0.1")
+    return dbh
+
+  @staticmethod
+  def create_checkpoint(dbh, checkpoint_dir):
+    sql = ("SET GLOBAL rocksdb_create_checkpoint='{0}'"
+           .format(checkpoint_dir))
+    cur = dbh.cursor()
+    cur.execute(sql)
+    cur.close()
+
+  @staticmethod
+  def get_datadir(dbh):
+    sql = "SELECT @@datadir"
+    cur = dbh.cursor()
+    cur.execute(sql)
+    row = cur.fetchone()
+    return row[0]
+
+
+class WDTBackup:
+  datadir = None
+
+  def __init__(self, datadir):
+    self.datadir = datadir
+
+  def cleanup(self, snapshot_dir, server_log):
+    if server_log:
+      server_log.seek(0)
+      logger.info("WDT server log:")
+      logger.info(server_log.read())
+      server_log.close()
+    if snapshot_dir:
+      logger.info("Cleaning up snapshot dir %s", snapshot_dir)
+      shutil.rmtree(snapshot_dir)
+
+  def backup_with_timeout(self, backup_round):
+    def signal_handler(*args):
+      logger.info("Got signal. Exit")
+      self.cleanup(snapshot_dir, server_log)
+      sys.exit(1)
+
+    logger.info("Starting backup round %d", backup_round)
+    snapshot_dir = None
+    server_log = None
+    try:
+      signal.signal(signal.SIGINT, signal_handler)
+      # create rocksdb snapshot
+      snapshot_dir = os.path.join(opts.checkpoint_directory, str(backup_round))
+      dbh = MySQLUtil.connect(opts.mysql_user,
+                              opts.mysql_password,
+                              opts.mysql_port)
+      logger.info("Creating checkpoint at %s", snapshot_dir)
+      MySQLUtil.create_checkpoint(dbh, snapshot_dir)
+      logger.info("Created checkpoint at %s", snapshot_dir)
+
+      # get datadir if not provided
+      if not self.datadir:
+        self.datadir = MySQLUtil.get_datadir(dbh)
+        logger.info("Set datadir: %s", self.datadir)
+
+      # create links for misc files
+      link_creator = MiscFilesLinkCreator(self.datadir, snapshot_dir)
+      link_creator.create_links()
+
+      current_path = os.path.join(opts.backupdir, "CURRENT")
+
+      # construct receiver cmd, using the data directory as recovery-id.
+      # we delete the current file because it is not append-only, therefore not
+      # resumable.
+      remote_cmd = (
+                "ssh {0} rm -f {1}; "
+                "{2} -directory {3} -enable_download_resumption "
+                "-recovery_id {4} -start_port 0 -abort_after_seconds {5} {6}"
+          ).format(opts.destination,
+                   current_path,
+                   wdt_bin,
+                   opts.backupdir,
+                   self.datadir,
+                   opts.checkpoint_interval,
+                   opts.extra_receiver_options)
+      logger.info("WDT remote cmd %s", remote_cmd)
+      server_log = tempfile.TemporaryFile()
+      remote_process = subprocess.Popen(remote_cmd.split(),
+                                        stdout=subprocess.PIPE,
+                                        stderr=server_log)
+      wdt_url = remote_process.stdout.readline().strip()
+      if not wdt_url:
+        raise Exception("Unable to get connection url from wdt receiver")
+      sender_cmd = (
+                "{0} -connection_url \'{1}\' -directory {2} "
+                "-avg_mbytes_per_sec {3} "
+                "-enable_download_resumption -abort_after_seconds {4} {5}"
+          ).format(wdt_bin,
+                   wdt_url,
+                   snapshot_dir,
+                   opts.avg_mbytes_per_sec,
+                   opts.checkpoint_interval,
+                   opts.extra_sender_options)
+      sender_status = os.system(sender_cmd) >> 8
+      remote_status = remote_process.wait()
+      self.cleanup(snapshot_dir, server_log)
+      # TODO: handle retryable and non-retyable errors differently
+      return (sender_status == 0 and remote_status == 0)
+
+    except Exception as e:
+      logger.error(e)
+      logger.error(traceback.format_exc())
+      self.cleanup(snapshot_dir, server_log)
+      sys.exit(1)
+
+
+def backup_using_wdt():
+  if not opts.destination:
+    logger.error("Must provide remote destination when using WDT")
+    sys.exit(1)
+
+  # TODO: detect whether WDT is installed
+  logger.info("Backing up myrocks to %s using WDT", opts.destination)
+  wdt_backup = WDTBackup(opts.datadir)
+  finished = False
+  backup_round = 1
+  while not finished:
+    start_time = time.time()
+    finished = wdt_backup.backup_with_timeout(backup_round)
+    end_time = time.time()
+    duration_seconds = end_time - start_time
+    if (not finished) and (duration_seconds < opts.checkpoint_interval):
+      # round finished before timeout
+      sleep_duration = (opts.checkpoint_interval - duration_seconds)
+      logger.info("Sleeping for %f seconds", sleep_duration)
+      time.sleep(sleep_duration)
+
+    backup_round = backup_round + 1
+  logger.info("Finished myrocks backup using WDT")
+
+
+def init_logger():
+  global logger
+  logger = logging.getLogger('myrocks_wdt_hotbackup')
+  logger.setLevel(logging.INFO)
+  h1= logging.StreamHandler(sys.stderr)
+  f = logging.Formatter("%(asctime)s.%(msecs)03d %(levelname)s %(message)s",
+                        "%Y-%m-%d %H:%M:%S")
+  h1.setFormatter(f)
+  logger.addHandler(h1)
+
+move_back_usage = (
+        "Move-Back: myrocks_hotbackup --move_back --datadir=<dest "
+        "mysql datadir> --rocksdb_datadir=<dest rocksdb datadir> "
+        "--rocksdb_waldir=<dest rocksdb wal dir> --backup_dir=<where backup "
+        "files are stored> . You need to execute move-back command on a "
+        "server where backup files are sent.")
+
+backup_usage = ("Backup: myrocks_wdt_hotbackup --user=root --password=pw "
+                "--checkpoint_dir=<directory where temporary backup hard links "
+                "are created> --destination=<remote host name> --backup_dir="
+                "<remote directory name>. This has to be executed at the src "
+                "host.")
+
+
+def parse_options():
+  global opts
+  parser = OptionParser(usage = "\n\n" + backup_usage + "\n\n" + \
+          move_back_usage)
+  parser.add_option('--interval', type='int', dest='checkpoint_interval',
+                    default=300, # 5 minutes
+                    help='Number of seconds to renew checkpoint')
+  parser.add_option('--checkpoint_dir', type='string',
+                    dest='checkpoint_directory',
+                    default='/data/mysql/backup/snapshot',
+                    help='Local directory name where checkpoints will be '
+                    'created.')
+  parser.add_option('--datadir', type='string', dest='datadir',
+                    default=None,
+                    help='backup mode: src MySQL datadir. '
+                    'move_back mode: dest MySQL datadir')
+  parser.add_option('--destination', type='string', dest='destination',
+                    default='',
+                    help='Remote server name.')
+  parser.add_option('--avg_mbytes_per_sec', type='int',
+                    dest='avg_mbytes_per_sec',
+                    default=500,
+                    help='Average backup rate in MBytes/sec.')
+  parser.add_option('--extra_sender_options', type='string',
+                    dest='extra_sender_options',
+                    default='',
+                    help='Extra options for WDT sender')
+  parser.add_option('--extra_receiver_options', type='string',
+                    dest='extra_receiver_options',
+                    default='',
+                    help='Extra options for WDT receiver')
+  parser.add_option('--user', type='string', dest='mysql_user',
+                    default='root',
+                    help='MySQL user name')
+  parser.add_option('--password', type='string', dest='mysql_password',
+                    default='',
+                    help='MySQL password name')
+  parser.add_option('--port', type='int', dest='mysql_port',
+                    default=3306,
+                    help='MySQL port number')
+  parser.add_option('--move_back', action='store_true', dest='move_back',
+                    default=False,
+                    help='Moving MyRocks backup files to proper locations.')
+  parser.add_option('--rocksdb_datadir', type='string', dest='rocksdb_datadir',
+                    default=None,
+                    help='RocksDB target data directory where backup data '
+                    'files will be moved. Must be empty.')
+  parser.add_option('--rocksdb_waldir', type='string', dest='rocksdb_waldir',
+                    default=None,
+                    help='RocksDB target data directory where backup wal '
+                    'files will be moved. Must be empty.')
+  parser.add_option('--backup_dir', type='string', dest='backupdir',
+                    default=None,
+                    help='backup mode: Remote directory to store backup. '
+                    'move_back mode: Locations where backup files are stored.')
+
+  opts, args = parser.parse_args()
+
+
+def create_moveback_dir(directory):
+  if not os.path.exists(directory):
+    os.makedirs(directory)
+  else:
+    for f in os.listdir(directory):
+      logger.error("Directory %s has file or directory %s!", directory, f)
+      raise
+
+def print_move_back_usage():
+  logger.warning(move_back_usage)
+
+def move_back():
+  if opts.rocksdb_datadir is None or opts.rocksdb_waldir is None \
+          or opts.backupdir is None or opts.datadir is None:
+    print_move_back_usage()
+    sys.exit()
+  logger.info("Moving back snapshot to %s", opts.datadir)
+  create_moveback_dir(opts.datadir)
+  create_moveback_dir(opts.rocksdb_datadir)
+  create_moveback_dir(opts.rocksdb_waldir)
+
+  os.chdir(opts.backupdir)
+  for f in os.listdir(opts.backupdir):
+    if os.path.isfile(os.path.join(opts.backupdir,f)):
+      if f.endswith(rocksdb_wal_suffix):
+        shutil.move(f, opts.rocksdb_waldir)
+      elif f.endswith(rocksdb_data_suffix) or is_manifest(f):
+        shutil.move(f, opts.rocksdb_datadir)
+      else:
+        shutil.move(f, opts.datadir)
+    else: #directory
+      if f.endswith('.rocksdb'):
+        continue
+      shutil.move(f, opts.datadir)
+
+
+def main():
+  parse_options()
+  init_logger()
+
+  if opts.move_back is True:
+    move_back()
+  else:
+    backup_using_wdt()
+
+if __name__ == "__main__":
+  main()
+

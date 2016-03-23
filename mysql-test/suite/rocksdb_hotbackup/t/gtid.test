@@ -1,17 +1,6 @@
 
 source suite/rocksdb_hotbackup/include/setup.inc;
 
-connection server_1;
-create database db1;
-
-create table db1.t1 (
-  `id` int(10) not null auto_increment,
-  `k` int(10),
-  `data` varchar(255),
-  primary key (`id`),
-  key (`k`)
-) engine=rocksdb;
-
 --let $rpl_server_number= 2
 --source include/rpl_stop_server.inc
 
