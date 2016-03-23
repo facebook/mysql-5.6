@@ -156,7 +156,7 @@ thd_timer_set(THD *thd, THD_timer_info *thd_timer, unsigned long time)
   DBUG_ASSERT(!thd_timer->destroy && !thd_timer->thread_id);
 
   /* Mark the notification as pending. */
-  thd_timer->thread_id= thd->thread_id;
+  thd_timer->thread_id= thd->thread_id();
 
   /* Arm the timer. */
   if (DBUG_EVALUATE_IF("thd_timer_set_failure", 0, 1) &&

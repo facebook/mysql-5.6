@@ -141,7 +141,7 @@ using std::min;
 static bool execute_sqlcom_select(THD *thd, TABLE_LIST *all_tables,
 	ulonglong *last_timer);
 static bool check_show_access(THD *thd, TABLE_LIST *table);
-static void sql_kill(THD *thd, ulong id, bool only_kill_query);
+static void sql_kill(THD *thd, my_thread_id id, bool only_kill_query);
 static bool lock_tables_precheck(THD *thd, TABLE_LIST *tables);
 
 const char *any_db="*any*";	// Special symbol for check_access
@@ -901,7 +901,7 @@ pthread_handler_t handle_bootstrap(void *arg)
 {
   THD *thd=(THD*) arg;
 
-  mysql_thread_set_psi_id(thd->thread_id);
+  mysql_thread_set_psi_id(thd->thread_id());
 
   do_handle_bootstrap(thd);
   return 0;
@@ -2076,14 +2076,13 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
     break;
   case COM_PROCESS_KILL:
   {
-    if (thread_id & (~0xfffffffful))
-      my_error(ER_DATA_OUT_OF_RANGE, MYF(0), "thread_id", "mysql_kill()");
-    else if (packet_length < 4)
+    static_assert(sizeof(my_thread_id) == 4, "my_thread_id is 32-bit");
+    if (packet_length < 4)
       my_error(ER_MALFORMED_PACKET, MYF(0));
     else
     {
       status_var_increment(thd->status_var.com_stat[SQLCOM_KILL]);
-      ulong id=(ulong) uint4korr(packet);
+      my_thread_id id= static_cast<my_thread_id>(uint4korr(packet));
       sql_kill(thd,id,false);
     }
     break;
@@ -5023,7 +5022,8 @@ end_with_restore_list:
 		 MYF(0));
       goto error;
     }
-    sql_kill(thd, (ulong)it->val_int(), lex->type & ONLY_KILL_QUERY);
+    sql_kill(thd, static_cast<my_thread_id>(it->val_int()),
+             lex->type & ONLY_KILL_QUERY);
     break;
   }
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
@@ -8535,11 +8535,11 @@ void add_join_natural(TABLE_LIST *a, TABLE_LIST *b, List<String> *using_fields,
     This is written such that we have a short lock on LOCK_thread_count
 */
 
-uint kill_one_thread(THD *thd, ulong id, bool only_kill_query)
+uint kill_one_thread(THD *thd, my_thread_id id, bool only_kill_query)
 {
   uint error=ER_NO_SUCH_THREAD;
   DBUG_ENTER("kill_one_thread");
-  DBUG_PRINT("enter", ("id=%lu only_kill=%d", id, only_kill_query));
+  DBUG_PRINT("enter", ("id=%u only_kill=%d", id, only_kill_query));
 
   /* If successful we'll have LOCK_thd_data on return. */
   THD* tmp= find_thd_from_id(id);
@@ -8595,7 +8595,7 @@ uint kill_one_thread(THD *thd, ulong id, bool only_kill_query)
 */
 
 static
-void sql_kill(THD *thd, ulong id, bool only_kill_query)
+void sql_kill(THD *thd, my_thread_id id, bool only_kill_query)
 {
   uint error;
   if (!(error= kill_one_thread(thd, id, only_kill_query)))
@@ -9832,7 +9832,7 @@ THD* get_opt_thread_with_data_lock(THD *thd, ulong thread_id)
   for (; it != end && !found; ++it)
   {
     THD *tmp= *it;
-    if (thread_id == tmp->thread_id)
+    if (thread_id == tmp->thread_id())
     {
       found = true;
       Security_context *tmp_sctx= tmp->security_ctx;

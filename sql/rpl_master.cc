@@ -1285,8 +1285,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   }
 
   if (log_warnings > 1)
-    sql_print_information("Start binlog_dump to master_thread_id(%lu) slave_server(%u), pos(%s, %lu)",
-                          thd->thread_id, thd->server_id, log_ident, (ulong)pos);
+    sql_print_information("Start binlog_dump to master_thread_id(%u) slave_server(%u), pos(%s, %lu)",
+                          thd->thread_id(), thd->server_id, log_ident, (ulong)pos);
   semi_sync_slave = is_semi_sync_slave();
   if (semi_sync_slave &&
       RUN_HOOK(binlog_transmit, transmit_start,
@@ -2404,7 +2404,7 @@ void kill_zombie_dump_threads(String *slave_uuid)
       sql_print_information("While initializing dump thread for slave with "
                             "UUID <%s>, found a zombie dump thread with "
                             "the same UUID. Master is killing the zombie dump "
-                            "thread(%lu).", slave_uuid->c_ptr(), tmp->thread_id);
+                            "thread(%u).", slave_uuid->c_ptr(), tmp->thread_id());
     tmp->duplicate_slave_uuid= true;
     tmp->awake(THD::KILL_QUERY);
     mysql_mutex_unlock(&tmp->LOCK_thd_data);
