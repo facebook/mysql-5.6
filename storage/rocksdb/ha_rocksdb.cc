@@ -3780,6 +3780,9 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
   if (has_hidden_pk(table) && load_hidden_pk_value())
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
 
+  /* Index block size in MyRocks: used by MySQL in query optimization */
+  stats.block_size = table_options.block_size;
+
   DBUG_RETURN(0);
 }
 
@@ -7469,6 +7472,19 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *min_key,
   }
 
   ret = rows*sz/disk_size;
+
+  /*
+    GetApproximateSizes() gives estimates so ret might exceed stats.records.
+    MySQL then decides to use full index scan rather than range scan, which
+    is not efficient for most cases.
+    To prevent this, changing estimated records slightly smaller than
+    stats.records.
+  */
+  if (ret >= stats.records)
+  {
+    ret = stats.records * 0.99;
+  }
+
   if (rocksdb_debug_optimizer_n_rows > 0)
   {
     ret= rocksdb_debug_optimizer_n_rows;
