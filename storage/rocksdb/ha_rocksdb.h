@@ -767,6 +767,8 @@ private:
 
   RDBSE_TABLE_DEF* get_table_if_exists(const char* tablename)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  void read_thd_vars(THD *thd)
+    MY_ATTRIBUTE((__nonnull__));
 public:
   int index_init(uint idx, bool sorted) MY_ATTRIBUTE((__warn_unused_result__));
   int index_end() MY_ATTRIBUTE((__warn_unused_result__));
