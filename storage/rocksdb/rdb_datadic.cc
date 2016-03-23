@@ -25,6 +25,7 @@
 #include <map>
 #include <set>
 #include <utility>
+#include <vector>
 
 /* MySQL header files */
 #include "./key.h"
@@ -119,7 +120,7 @@ RDBSE_KEYDEF::RDBSE_KEYDEF(
   uint16_t kv_format_version_arg,
   bool is_reverse_cf_arg, bool is_auto_cf_arg,
   const char* _name,
-  MyRocksTablePropertiesCollector::IndexStats _stats
+  Rdb_index_stats _stats
 ) :
     index_number(indexnr_arg),
     cf_handle(cf_handle_arg),
@@ -363,7 +364,7 @@ void RDBSE_KEYDEF::setup(TABLE *tbl, RDBSE_TABLE_DEF *tbl_def)
     unpack_data_len= unpack_len;
 
     /* Initialize the memory needed by the stats structure */
-    stats.distinct_keys_per_prefix.resize(get_m_key_parts());
+    stats.m_distinct_keys_per_prefix.resize(get_m_key_parts());
 
     mysql_mutex_unlock(&mutex);
   }
@@ -2224,11 +2225,11 @@ RDBSE_KEYDEF* Table_ddl_manager::find(GL_INDEX_ID gl_index_id)
 
 void Table_ddl_manager::set_stats(
   const std::unordered_map<GL_INDEX_ID,
-  MyRocksTablePropertiesCollector::IndexStats>& stats
+  Rdb_index_stats>& stats
 ) {
   mysql_rwlock_wrlock(&rwlock);
   for (auto src : stats) {
-    auto keydef = find(src.second.gl_index_id);
+    auto keydef = find(src.second.m_gl_index_id);
     if (keydef) {
       keydef->stats = src.second;
     }
@@ -2237,17 +2238,17 @@ void Table_ddl_manager::set_stats(
 }
 
 void Table_ddl_manager::adjust_stats(
-  const std::vector<MyRocksTablePropertiesCollector::IndexStats>& new_data,
-  const std::vector<MyRocksTablePropertiesCollector::IndexStats>& deleted_data
+  const std::vector<Rdb_index_stats>& new_data,
+  const std::vector<Rdb_index_stats>& deleted_data
 ) {
   mysql_rwlock_wrlock(&rwlock);
   int i = 0;
   for (const auto& data : {new_data, deleted_data}) {
     for (const auto& src : data) {
-      auto keydef = find(src.gl_index_id);
+      auto keydef = find(src.m_gl_index_id);
       if (keydef) {
         keydef->stats.merge(src, i == 0, keydef->max_storage_fmt_length());
-        stats2store[keydef->stats.gl_index_id] = keydef->stats;
+        stats2store[keydef->stats.m_gl_index_id] = keydef->stats;
       }
     }
     i++;
@@ -2267,12 +2268,12 @@ void Table_ddl_manager::persist_stats(bool sync)
 
   // Persist stats
   std::unique_ptr<rocksdb::WriteBatch> wb = dict->begin();
-  std::vector<MyRocksTablePropertiesCollector::IndexStats> stats;
+  std::vector<Rdb_index_stats> stats;
   std::transform(
     local_stats2store.begin(), local_stats2store.end(),
     std::back_inserter(stats),
     [](
-    const std::pair<GL_INDEX_ID, MyRocksTablePropertiesCollector::IndexStats>& s
+    const std::pair<GL_INDEX_ID, Rdb_index_stats>& s
     ) {return s.second;});
   dict->add_stats(wb.get(), stats);
   dict->commit(wb.get(), sync);
@@ -3118,7 +3119,7 @@ bool Dict_manager::update_max_index_id(rocksdb::WriteBatch* batch,
 
 void Dict_manager::add_stats(
   rocksdb::WriteBatch* batch,
-  const std::vector<MyRocksTablePropertiesCollector::IndexStats>& stats
+  const std::vector<Rdb_index_stats>& stats
 )
 {
   DBUG_ASSERT(batch != nullptr);
@@ -3127,14 +3128,14 @@ void Dict_manager::add_stats(
     uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*3]= {0};
     store_big_uint4(key_buf, RDBSE_KEYDEF::INDEX_STATISTICS);
     store_big_uint4(key_buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE,
-                    it.gl_index_id.cf_id);
+                    it.m_gl_index_id.cf_id);
     store_big_uint4(key_buf+2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE,
-                    it.gl_index_id.index_id);
+                    it.m_gl_index_id.index_id);
 
     // IndexStats::materialize takes complete care of serialization including
     // storing the version
-    auto value = MyRocksTablePropertiesCollector::IndexStats::materialize(
-      std::vector<MyRocksTablePropertiesCollector::IndexStats>{it}, 1.);
+    auto value = Rdb_index_stats::materialize(
+      std::vector<Rdb_index_stats>{it}, 1.);
 
     batch->Put(
       system_cfh,
@@ -3144,7 +3145,7 @@ void Dict_manager::add_stats(
   }
 }
 
-MyRocksTablePropertiesCollector::IndexStats
+Rdb_index_stats
 Dict_manager::get_stats(
   GL_INDEX_ID gl_index_id
 ) {
@@ -3161,15 +3162,15 @@ Dict_manager::get_stats(
   );
   if (status.ok())
   {
-    std::vector<MyRocksTablePropertiesCollector::IndexStats> v;
+    std::vector<Rdb_index_stats> v;
     // unmaterialize checks if the version matches
-    if (MyRocksTablePropertiesCollector::IndexStats::unmaterialize(value, v)
+    if (Rdb_index_stats::unmaterialize(value, v)
         == 0 && v.size() == 1) {
       return v[0];
     }
   }
 
-  return MyRocksTablePropertiesCollector::IndexStats();
+  return Rdb_index_stats();
 }
 
 uint Sequence_generator::get_and_update_next_number(Dict_manager *dict)
