@@ -26,8 +26,6 @@ namespace rocksdb {
 
 namespace myrocks {
 
-bool is_cf_name_reverse(const char *name);
-
 /*
   Per-column family options configs.
 
