@@ -2749,7 +2749,11 @@ static int show_memory_status(THD* thd)
   Protocol *protocol= thd->protocol;
   malloc_status mstat;
   char* buf;
-  const uint MALLOC_STATUS_LEN= 300000;
+  /*
+    Buffer size in bytes. Should be large enough for per-arena statistics not
+    to be truncated.
+  */
+  const uint MALLOC_STATUS_LEN= 1000000;
 
   field_list.push_back(new Item_empty_string("Status",10));
   if (protocol->send_result_set_metadata(&field_list,
