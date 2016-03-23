@@ -34,7 +34,7 @@
 namespace myrocks {
 
 class Dict_manager;
-class RDBSE_KEYDEF;
+class Rdb_key_def;
 class Field_pack_info;
 class Rdb_cf_manager;
 class Table_ddl_manager;
@@ -174,7 +174,7 @@ const char CHECKSUM_DATA_TAG=0x01;
 
 
 
-void report_checksum_mismatch(RDBSE_KEYDEF *kd, bool is_key,
+void report_checksum_mismatch(Rdb_key_def *kd, bool is_key,
                               const char *data, size_t data_size);
 
 void hexdump_value(char *strbuf, size_t strbuf_size,
@@ -184,7 +184,7 @@ void hexdump_value(char *strbuf, size_t strbuf_size,
   An object of this class represents information about an index in an SQL
   table. It provides services to encode and decode index tuples.
 
-  Note: a table (as in, on-disk table) has a single RDBSE_KEYDEF object which
+  Note: a table (as in, on-disk table) has a single Rdb_key_def object which
   is shared across multiple TABLE* objects and may be used simultaneously from
   different threads.
 
@@ -220,7 +220,7 @@ void hexdump_value(char *strbuf, size_t strbuf_size,
   reads.
 */
 
-class RDBSE_KEYDEF
+class Rdb_key_def
 {
 public:
   /* Convert a key from KeyTupleFormat to mem-comparable form */
@@ -241,34 +241,34 @@ public:
                    uint *n_null_fields= nullptr,
                    longlong hidden_pk_id= 0);
   /* Pack the hidden primary key into mem-comparable form. */
-  uint pack_hidden_pk(TABLE *tbl,
-                      longlong hidden_pk_id,
-                      uchar *packed_tuple);
+  uint pack_hidden_pk(longlong hidden_pk_id,
+                      uchar *packed_tuple) const;
   int unpack_record(const ha_rocksdb *handler,
                     TABLE *table, uchar *buf, const rocksdb::Slice *packed_key,
                     const rocksdb::Slice *unpack_info);
 
-  bool unpack_info_has_checksum(const rocksdb::Slice& unpack_info);
+  static bool unpack_info_has_checksum(const rocksdb::Slice& unpack_info);
   int compare_keys(const rocksdb::Slice *key1, const rocksdb::Slice *key2,
                    std::size_t* column_index);
 
-  size_t key_length(TABLE *table, const rocksdb::Slice &key);
+  size_t key_length(TABLE *table, const rocksdb::Slice &key) const;
+
   /* Get the key that is the "infimum" for this index */
-  inline void get_infimum_key(uchar *key, uint *size)
+  inline void get_infimum_key(uchar *key, uint *size) const
   {
-    store_index_number(key, index_number);
+    store_index_number(key, m_index_number);
     *size= INDEX_NUMBER_SIZE;
   }
 
   /* Get the key that is a "supremum" for this index */
-  inline void get_supremum_key(uchar *key, uint *size)
+  inline void get_supremum_key(uchar *key, uint *size) const
   {
-    store_index_number(key, index_number+1);
+    store_index_number(key, m_index_number+1);
     *size= INDEX_NUMBER_SIZE;
   }
 
   /* Make a key that is right after the given key. */
-  int successor(uchar *packed_tuple, uint len);
+  static int successor(uchar *packed_tuple, uint len);
 
   /*
     This can be used to compare prefixes.
@@ -289,7 +289,7 @@ public:
     if (slice.size() < INDEX_NUMBER_SIZE)
       return false;
 
-    if (memcmp(slice.data(), index_number_storage_form, INDEX_NUMBER_SIZE))
+    if (memcmp(slice.data(), m_index_number_storage_form, INDEX_NUMBER_SIZE))
       return false;
 
     return true;
@@ -307,28 +307,28 @@ public:
     return covers_key(value) && !cmp_full_keys(value, prefix);
   }
 
-  uint32 get_index_number()
+  uint32 get_index_number() const
   {
-    return index_number;
+    return m_index_number;
   }
 
-  GL_INDEX_ID get_gl_index_id()
+  GL_INDEX_ID get_gl_index_id() const
   {
-    GL_INDEX_ID gl_index_id = { cf_handle->GetID(), index_number };
+    GL_INDEX_ID gl_index_id = { m_cf_handle->GetID(), m_index_number };
     return gl_index_id;
   }
 
   /* Must only be called for secondary keys: */
-  uint get_primary_key_tuple(TABLE *tbl, RDBSE_KEYDEF *pk_descr,
-                             const rocksdb::Slice *key, uchar *pk_buffer);
+  uint get_primary_key_tuple(TABLE *tbl, Rdb_key_def *pk_descr,
+                             const rocksdb::Slice *key, uchar *pk_buffer) const;
 
   /* Return max length of mem-comparable form */
-  uint max_storage_fmt_length()
+  uint max_storage_fmt_length() const
   {
-    return maxlength;
+    return m_maxlength;
   }
 
-  uint get_m_key_parts()
+  uint get_m_key_parts() const
   {
     return m_key_parts;
   }
@@ -343,23 +343,22 @@ public:
       Internally, we always extend all indexes with PK columns. This function
       uses our definition of how the index is Extended.
   */
-  inline Field* get_table_field_for_part_no(TABLE *table, uint part_no);
+  inline Field* get_table_field_for_part_no(TABLE *table, uint part_no) const;
 
   const std::string& get_name() const {
-    return name;
+    return m_name;
   }
 
-  RDBSE_KEYDEF(const RDBSE_KEYDEF& k);
-  RDBSE_KEYDEF(uint indexnr_arg, uint keyno_arg,
-               rocksdb::ColumnFamilyHandle* cf_handle_arg,
-               uint16_t index_dict_version_arg,
-               uchar index_type_arg,
-               uint16_t kv_format_version_arg,
-               bool is_reverse_cf_arg, bool is_auto_cf_arg,
-               const char* _name,
-               Rdb_index_stats _stats= Rdb_index_stats()
-              );
-  ~RDBSE_KEYDEF();
+  Rdb_key_def(const Rdb_key_def& k);
+  Rdb_key_def(uint indexnr_arg, uint keyno_arg,
+              rocksdb::ColumnFamilyHandle* cf_handle_arg,
+              uint16_t index_dict_version_arg,
+              uchar index_type_arg,
+              uint16_t kv_format_version_arg,
+              bool is_reverse_cf_arg, bool is_auto_cf_arg,
+              const char* name,
+              Rdb_index_stats stats= Rdb_index_stats());
+  ~Rdb_key_def();
 
   enum {
     INDEX_NUMBER_SIZE= 4,
@@ -419,9 +418,9 @@ public:
     SECONDARY_FORMAT_VERSION_INITIAL= 10,
   };
 
-  void setup(TABLE *table, RDBSE_TABLE_DEF *tbl_def);
+  void setup(TABLE *table, Rdb_tbl_def *tbl_def);
 
-  rocksdb::ColumnFamilyHandle *get_cf() { return cf_handle; }
+  rocksdb::ColumnFamilyHandle *get_cf() { return m_cf_handle; }
 
   /* Check if keypart #kp can be unpacked from index tuple */
   bool can_unpack(uint kp) const;
@@ -430,79 +429,87 @@ public:
     Current code assumes that unpack_data occupies fixed length regardless of
     the value that is stored.
   */
-  bool get_unpack_data_len() { return unpack_data_len; }
+  bool get_unpack_data_len() { return m_unpack_data_len; }
 
   /* Check if given table has a primary key */
   static bool rocksdb_has_hidden_pk(const TABLE* table);
 private:
 
+#ifndef DBUG_OFF
+  inline bool is_storage_available(int offset, int needed) const
+  {
+    int storage_length= static_cast<int>(max_storage_fmt_length());
+    return (storage_length - offset) >= needed;
+  }
+#endif  // DBUG_OFF
+
   /* Global number of this index (used as prefix in StorageFormat) */
-  const uint32 index_number;
+  const uint32 m_index_number;
 
-  uchar index_number_storage_form[INDEX_NUMBER_SIZE];
+  uchar m_index_number_storage_form[INDEX_NUMBER_SIZE];
 
-  rocksdb::ColumnFamilyHandle* cf_handle;
+  rocksdb::ColumnFamilyHandle* m_cf_handle;
 
 public:
-  void set_keyno(uint _keyno) { keyno = _keyno; }
+  void set_keyno(uint keyno) { m_keyno = keyno; }
 
-  uint16_t index_dict_version;
-  uchar index_type;
+  uint16_t m_index_dict_version;
+  uchar m_index_type;
   /* KV format version for the index id */
-  uint16_t kv_format_version;
+  uint16_t m_kv_format_version;
   /* If true, the column family stores data in the reverse order */
-  bool is_reverse_cf;
+  bool m_is_reverse_cf;
 
-  bool is_auto_cf;
-  std::string name;
-  Rdb_index_stats stats;
+  bool m_is_auto_cf;
+  std::string m_name;
+  Rdb_index_stats m_stats;
 private:
 
-  friend class RDBSE_TABLE_DEF; // for index_number above
+  friend class Rdb_tbl_def;  // for m_index_number above
 
   /* Number of key parts in the primary key*/
-  uint n_pk_key_parts;
+  uint m_pk_key_parts;
 
   /*
      pk_part_no[X]=Y means that keypart #X of this key is key part #Y of the
      primary key.  Y==-1 means this column is not present in the primary key.
   */
-  uint *pk_part_no;
+  uint *m_pk_part_no;
 
   /* Array of index-part descriptors. */
-  Field_pack_info *pack_info;
+  Field_pack_info *m_pack_info;
 
-  uint keyno; /* number of this index in the table */
+  uint m_keyno; /* number of this index in the table */
 
   /*
     Number of key parts in the index (including "index extension"). This is how
-    many elemants are in the pack_info array.
+    many elements are in the m_pack_info array.
   */
   uint m_key_parts;
 
   /* Maximum length of the mem-comparable form. */
-  uint maxlength;
+  uint m_maxlength;
 
   /* Length of the unpack_data */
-  uint unpack_data_len;
+  uint m_unpack_data_len;
 
   /* mutex to protect setup */
-  mysql_mutex_t mutex;
+  mysql_mutex_t m_mutex;
 
  public:
   void block_setup()
   {
-    if (maxlength == 0)
+    if (m_maxlength == 0)
     {
-      mysql_mutex_lock(&mutex);
-      if (maxlength != 0)
-        mysql_mutex_unlock(&mutex);
+      mysql_mutex_lock(&m_mutex);
+      if (m_maxlength != 0)
+        mysql_mutex_unlock(&m_mutex);
     }
   }
   void unblock_setup()
   {
-    if (maxlength == 0)
-      mysql_mutex_unlock(&mutex);
+    if (m_maxlength == 0)
+      mysql_mutex_unlock(&m_mutex);
   }
 };
 
@@ -591,16 +598,15 @@ private:
   uint key_part;
 public:
   bool setup(Field *field, uint keynr_arg, uint key_part_arg);
-  Field *get_field_in_table(TABLE *tbl);
-  void fill_hidden_pk_val(TABLE *table, Field_pack_info *fpi, uchar **dst,
-                          longlong hidden_pk_id);
+  Field *get_field_in_table(TABLE *tbl) const;
+  void fill_hidden_pk_val(uchar **dst, longlong hidden_pk_id) const;
 };
 
-inline
-Field* RDBSE_KEYDEF::get_table_field_for_part_no(TABLE *table, uint part_no)
+inline Field* Rdb_key_def::get_table_field_for_part_no(TABLE *table,
+                                                       uint part_no) const
 {
   DBUG_ASSERT(part_no < get_m_key_parts());
-  return pack_info[part_no].get_field_in_table(table);
+  return m_pack_info[part_no].get_field_in_table(table);
 }
 
 /*
@@ -608,32 +614,33 @@ Field* RDBSE_KEYDEF::get_table_field_for_part_no(TABLE *table, uint part_no)
 
     dbname.tablename -> {index_nr, index_nr, ... }
 
-  There is only one RDBSE_TABLE_DEF object for a given table.
+  There is only one Rdb_tbl_def object for a given table.
   That's why we keep auto_increment value here, too.
 */
 
-class RDBSE_TABLE_DEF
+class Rdb_tbl_def
 {
   void check_if_is_mysql_system_table();
 
 public:
-  RDBSE_TABLE_DEF() : key_descr(nullptr), hidden_pk_val(1), auto_incr_val(1) {}
-  ~RDBSE_TABLE_DEF();
+  Rdb_tbl_def() : m_key_descr(nullptr), m_hidden_pk_val(1), m_auto_incr_val(1)
+    {}
+  ~Rdb_tbl_def();
 
   /* Stores 'dbname.tablename' */
-  StringBuffer<64> dbname_tablename;
+  StringBuffer<64> m_dbname_tablename;
 
   /* Number of indexes */
-  uint n_keys;
+  uint m_key_count;
 
   /* Array of index descriptors */
-  RDBSE_KEYDEF **key_descr;
+  Rdb_key_def **m_key_descr;
 
-  std::atomic<longlong> hidden_pk_val;
-  std::atomic<longlong> auto_incr_val;
+  std::atomic<longlong> m_hidden_pk_val;
+  std::atomic<longlong> m_auto_incr_val;
 
   /* Is this a system table */
-  bool mysql_system_table;
+  bool m_is_mysql_system_table;
 
   bool put_dict(Dict_manager *dict, rocksdb::WriteBatch *batch,
                 uchar *key, size_t keylen);
@@ -673,7 +680,7 @@ public:
 /*
   This contains a mapping of
 
-     dbname.table_name -> array{RDBSE_KEYDEF}.
+     dbname.table_name -> array{Rdb_key_def}.
 
   objects are shared among all threads.
 */
@@ -681,7 +688,7 @@ public:
 class Table_ddl_manager
 {
   Dict_manager *dict;
-  HASH ddl_hash; // Contains RDBSE_TABLE_DEF elements
+  HASH ddl_hash;  // Contains Rdb_tbl_def elements
   // maps index id to <table_name, index number>
   std::map<GL_INDEX_ID, std::pair<std::basic_string<uchar>, uint>>
     index_num_to_keydef;
@@ -699,9 +706,9 @@ public:
 
   void cleanup();
 
-  RDBSE_TABLE_DEF *find(const uchar *table_name, uint len, bool lock=true);
-  RDBSE_KEYDEF* find(GL_INDEX_ID gl_index_id);
-  std::unique_ptr<RDBSE_KEYDEF> get_copy_of_keydef(GL_INDEX_ID gl_index_id);
+  Rdb_tbl_def* find(const uchar *table_name, uint len, bool lock= true);
+  Rdb_key_def* find(GL_INDEX_ID gl_index_id);
+  std::unique_ptr<Rdb_key_def> get_copy_of_keydef(GL_INDEX_ID gl_index_id);
   void set_stats(
     const std::unordered_map<GL_INDEX_ID,
     Rdb_index_stats>& stats
@@ -713,8 +720,8 @@ public:
   void persist_stats(bool sync = false);
 
   /* Modify the mapping and write it to on-disk storage */
-  int put_and_write(RDBSE_TABLE_DEF *key_descr, rocksdb::WriteBatch *batch);
-  void remove(RDBSE_TABLE_DEF *rec, rocksdb::WriteBatch *batch, bool lock=true);
+  int put_and_write(Rdb_tbl_def *key_descr, rocksdb::WriteBatch *batch);
+  void remove(Rdb_tbl_def *rec, rocksdb::WriteBatch *batch, bool lock= true);
   bool rename(uchar *from, uint from_len, uchar *to, uint to_len,
               rocksdb::WriteBatch *batch);
 
@@ -722,14 +729,14 @@ public:
     { return sequence.get_and_update_next_number(dict); }
 
   /* Walk the data dictionary */
-  int scan(void* cb_arg, int (*callback)(void* cb_arg, RDBSE_TABLE_DEF*));
+  int scan(void* cb_arg, int (*callback)(void* cb_arg, Rdb_tbl_def*));
 
   void erase_index_num(GL_INDEX_ID gl_index_id);
 private:
   /* Put the data into in-memory table (only) */
-  int put(RDBSE_TABLE_DEF *key_descr, bool lock= true);
+  int put(Rdb_tbl_def *key_descr, bool lock= true);
 
-  static uchar* get_hash_key(RDBSE_TABLE_DEF *rec, size_t *length,
+  static uchar* get_hash_key(Rdb_tbl_def *rec, size_t *length,
                              my_bool not_used MY_ATTRIBUTE((unused)));
   static void free_hash_elem(void* data);
   rocksdb::ColumnFamilyHandle* system_cfh;
@@ -766,7 +773,7 @@ public:
 
 private:
   Dict_manager *dict;
-  uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
+  uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE];
   rocksdb::Slice key_slice;
   rocksdb::Slice pack_value(uchar *buf,
                             const char *binlog_name,
@@ -774,7 +781,7 @@ private:
                             const char *binlog_gtid);
   bool unpack_value(const uchar *value, char *binlog_name,
                     my_off_t &binlog_pos, char *binlog_gtid);
-  std::atomic<RDBSE_TABLE_DEF*> slave_gtid_info;
+  std::atomic<Rdb_tbl_def*> slave_gtid_info;
 };
 
 
@@ -788,34 +795,34 @@ private:
    Currently MyRocks has the following data dictionary data models.
 
   1. Table Name => internal index id mappings
-  key: RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER(0x1) + dbname.tablename
+  key: Rdb_key_def::DDL_ENTRY_INDEX_START_NUMBER(0x1) + dbname.tablename
   value: version, {cf_id, index_id}*n_indexes_of_the_table
   version is 2 bytes. cf_id and index_id are 4 bytes.
 
   2. internal cf_id, index id => index information
-  key: RDBSE_KEYDEF::INDEX_INFO(0x2) + cf_id + index_id
+  key: Rdb_key_def::INDEX_INFO(0x2) + cf_id + index_id
   value: version, index_type, kv_format_version
   index_type is 1 byte, version and kv_format_version are 2 bytes.
 
   3. CF id => CF flags
-  key: RDBSE_KEYDEF::CF_DEFINITION(0x3) + cf_id
+  key: Rdb_key_def::CF_DEFINITION(0x3) + cf_id
   value: version, {is_reverse_cf, is_auto_cf}
   cf_flags is 4 bytes in total.
 
   4. Binlog entry (updated at commit)
-  key: RDBSE_KEYDEF::BINLOG_INFO_INDEX_NUMBER (0x4)
+  key: Rdb_key_def::BINLOG_INFO_INDEX_NUMBER (0x4)
   value: version, {binlog_name,binlog_pos,binlog_gtid}
 
   5. Ongoing drop index entry
-  key: RDBSE_KEYDEF::DDL_DROP_INDEX_ONGOING(0x5) + cf_id + index_id
+  key: Rdb_key_def::DDL_DROP_INDEX_ONGOING(0x5) + cf_id + index_id
   value: version
 
   6. index stats
-  key: RDBSE_KEYDEF::INDEX_STATISTICS(0x6) + cf_id + index_id
+  key: Rdb_key_def::INDEX_STATISTICS(0x6) + cf_id + index_id
   value: version, {materialized PropertiesCollector::IndexStats}
 
   7. maximum index id
-  key: RDBSE_KEYDEF::MAX_INDEX_ID(0x7)
+  key: Rdb_key_def::MAX_INDEX_ID(0x7)
   value: index_id
   index_id is 4 bytes
 
@@ -833,14 +840,14 @@ private:
   rocksdb::ColumnFamilyHandle *system_cfh;
   /* Utility to put INDEX_INFO and CF_DEFINITION */
 
-  uchar key_buf_max_index_id[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
+  uchar key_buf_max_index_id[Rdb_key_def::INDEX_NUMBER_SIZE];
   rocksdb::Slice key_slice_max_index_id;
   void delete_util(rocksdb::WriteBatch* batch,
                    const uint32_t prefix,
                    const GL_INDEX_ID gl_index_id);
   /* Functions for fast DROP TABLE/INDEX */
   void resume_drop_indexes();
-  void log_start_drop_table(RDBSE_KEYDEF** key_descr,
+  void log_start_drop_table(Rdb_key_def** key_descr,
                             uint32 n_keys,
                             const char* log_action);
   void log_start_drop_index(GL_INDEX_ID gl_index_id,
@@ -884,7 +891,7 @@ public:
   void end_drop_index_ongoing(rocksdb::WriteBatch* batch,
                               GL_INDEX_ID gl_index_id);
   bool is_drop_index_empty();
-  void add_drop_table(RDBSE_KEYDEF** key_descr,
+  void add_drop_table(Rdb_key_def** key_descr,
                       uint32 n_keys,
                       rocksdb::WriteBatch *batch);
   void done_drop_indexes(const std::unordered_set<GL_INDEX_ID>& gl_index_ids);
