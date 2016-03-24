@@ -231,6 +231,30 @@ namespace {
     virtual void LogData(const Slice& blob) override {
       seen += "LogData(" + blob.ToString() + ")";
     }
+    virtual Status MarkBeginPrepare(const Slice& xid) override {
+      seen += "MarkBeginPrepare(" + xid.ToString() + ")";
+      return Status::OK();
+    }
+    virtual Status MarkEndPrepare() override {
+      seen += "MarkEndPrepare()";
+      return Status::OK();
+    }
+    virtual Status MarkCommit(const Slice& xid, const Slice& blob) override {
+      if (blob.size() > 0) {
+        WriteBatch nested_batch;
+        WriteBatchInternal::SetContents(&nested_batch, blob);
+        TestHandler handler;
+        nested_batch.Iterate(&handler);
+        seen += "MarkCommit(" + xid.ToString() + ",[" + handler.seen + "])";
+      } else {
+        seen += "MarkCommit(" + xid.ToString() + ")";
+      }
+      return Status::OK();
+    }
+    virtual Status MarkRollback(const Slice& xid) override {
+      seen += "MarkRollback(" + xid.ToString() + ")";
+      return Status::OK();
+    }
   };
 }
 
@@ -305,6 +329,44 @@ TEST_F(WriteBatchTest, Blob) {
       "SingleDelete(k3)"
       "LogData(blob2)"
       "Merge(foo, bar)",
+      handler.seen);
+}
+
+TEST_F(WriteBatchTest, PrepareCommit) {
+  WriteBatch batch, commit_batch, empty;
+  commit_batch.Put(Slice("k1"), Slice("v1"));
+  commit_batch.Put(Slice("k2"), Slice("v2"));
+  commit_batch.Delete(Slice("k2"));
+  commit_batch.SingleDelete(Slice("k3"));
+  ASSERT_EQ(4, commit_batch.Count());
+
+  WriteBatchInternal::MarkBeginPrepare(&batch, Slice("xid1"));
+  batch.Put(Slice("k1"), Slice("v1"));
+  batch.Put(Slice("k2"), Slice("v2"));
+  WriteBatchInternal::MarkEndPrepare(&batch);
+  WriteBatchInternal::MarkCommit(&batch, Slice("xid1"), &commit_batch);
+  WriteBatchInternal::MarkBeginPrepare(&batch, Slice("xid2"));
+  batch.Put(Slice("k3"), Slice("v3"));
+  batch.Delete(Slice("k2"));
+  batch.SingleDelete(Slice("k3"));
+  WriteBatchInternal::MarkRollback(&batch, Slice("xid2"));
+  WriteBatchInternal::MarkCommit(&batch, Slice("xid2"));
+  ASSERT_EQ(5, batch.Count());
+
+  TestHandler handler;
+  batch.Iterate(&handler);
+  ASSERT_EQ(
+      "MarkBeginPrepare(xid1)"
+      "Put(k1, v1)"
+      "Put(k2, v2)"
+      "MarkEndPrepare()"
+      "MarkCommit(xid1,[Put(k1, v1)Put(k2, v2)Delete(k2)SingleDelete(k3)])"
+      "MarkBeginPrepare(xid2)"
+      "Put(k3, v3)"
+      "Delete(k2)"
+      "SingleDelete(k3)"
+      "MarkRollback(xid2)"
+      "MarkCommit(xid2)",
       handler.seen);
 }
 
