@@ -43,7 +43,7 @@ else
   BACKUP_CMD="$MYSQL_MYROCKS_HOTBACKUP --user='root' --stream=wdt \
     --port=${MASTER_MYPORT} --destination=localhost --backup_dir=$backup_dir \
     --avg_mbytes_per_sec=10 --interval=5 \
-    --extra_sender_options='--block_size_mbytes=1' \
+    --extra_wdt_sender_options='--block_size_mbytes=1' \
     --checkpoint_dir=$checkpoint_dir 2> \
     $COPY_LOG"
 fi
