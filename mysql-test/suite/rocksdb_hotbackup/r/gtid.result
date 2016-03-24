@@ -4,7 +4,7 @@ create database db1;
 create table db1.t1 (
 `id` int(10) not null auto_increment,
 `k` int(10),
-`data` varchar(255),
+`data` varchar(2048),
 primary key (`id`),
 key (`k`)
 ) engine=rocksdb;
@@ -16,7 +16,7 @@ stop slave;
 start slave;
 select count(*) from db1.t1;
 count(*)
-20000
+500000
 drop database db1;
 stop slave;
 reset slave;
