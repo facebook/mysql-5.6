@@ -20,6 +20,10 @@
 //    kTypeColumnFamilyDeletion varint32 varstring varstring
 //    kTypeColumnFamilySingleDeletion varint32 varstring varstring
 //    kTypeColumnFamilyMerge varint32 varstring varstring
+//    kTypeBeginPrepareXID varstring
+//    kTypeEndPrepareXID
+//    kTypeCommitXID varstring
+//    kTypeRollbackXID varstring
 // varstring :=
 //    len: varint32
 //    data: uint8[len]
@@ -48,11 +52,15 @@ namespace rocksdb {
 namespace {
 
 enum ContentFlags : uint32_t {
-  DEFERRED = 1,
-  HAS_PUT = 2,
-  HAS_DELETE = 4,
-  HAS_SINGLE_DELETE = 8,
-  HAS_MERGE = 16,
+  DEFERRED = 1 << 0,
+  HAS_PUT = 1 << 1,
+  HAS_DELETE = 1 << 2,
+  HAS_SINGLE_DELETE = 1 << 3,
+  HAS_MERGE = 1 << 4,
+  HAS_BEGIN_PREPARE = 1 << 5,
+  HAS_END_PREPARE = 1 << 6,
+  HAS_COMMIT = 1 << 7,
+  HAS_ROLLBACK = 1 << 8,
 };
 
 struct BatchContentClassifier : public WriteBatch::Handler {
@@ -75,6 +83,26 @@ struct BatchContentClassifier : public WriteBatch::Handler {
 
   Status MergeCF(uint32_t, const Slice&, const Slice&) override {
     content_flags |= ContentFlags::HAS_MERGE;
+    return Status::OK();
+  }
+
+  Status MarkBeginPrepare(const Slice&) override {
+    content_flags |= ContentFlags::HAS_BEGIN_PREPARE;
+    return Status::OK();
+  }
+
+  Status MarkEndPrepare() override {
+    content_flags |= ContentFlags::HAS_END_PREPARE;
+    return Status::OK();
+  }
+
+  Status MarkCommit(const Slice&, const Slice&) override {
+    content_flags |= ContentFlags::HAS_COMMIT;
+    return Status::OK();
+  }
+
+  Status MarkRollback(const Slice&) override {
+    content_flags |= ContentFlags::HAS_ROLLBACK;
     return Status::OK();
   }
 };
@@ -193,9 +221,25 @@ bool WriteBatch::HasMerge() const {
   return (ComputeContentFlags() & ContentFlags::HAS_MERGE) != 0;
 }
 
+bool WriteBatch::HasBeginPrepare() const {
+  return (ComputeContentFlags() & ContentFlags::HAS_BEGIN_PREPARE) != 0;
+}
+
+bool WriteBatch::HasEndPrepare() const {
+  return (ComputeContentFlags() & ContentFlags::HAS_END_PREPARE) != 0;
+}
+
+bool WriteBatch::HasCommit() const {
+  return (ComputeContentFlags() & ContentFlags::HAS_COMMIT) != 0;
+}
+
+bool WriteBatch::HasRollback() const {
+  return (ComputeContentFlags() & ContentFlags::HAS_ROLLBACK) != 0;
+}
+
 Status ReadRecordFromWriteBatch(Slice* input, char* tag,
                                 uint32_t* column_family, Slice* key,
-                                Slice* value, Slice* blob) {
+                                Slice* value, Slice* blob, Slice* xid) {
   assert(key != nullptr && value != nullptr);
   *tag = (*input)[0];
   input->remove_prefix(1);
@@ -241,6 +285,24 @@ Status ReadRecordFromWriteBatch(Slice* input, char* tag,
         return Status::Corruption("bad WriteBatch Blob");
       }
       break;
+    case kTypeBeginPrepareXID:
+      if (!GetLengthPrefixedSlice(input, xid)) {
+        return Status::Corruption("bad BeginPrepare XID");
+      }
+      break;
+    case kTypeEndPrepareXID:
+      break;
+    case kTypeCommitXID:
+      if (!GetLengthPrefixedSlice(input, xid) ||
+          !GetLengthPrefixedSlice(input, blob)) {
+        return Status::Corruption("bad Commit XID");
+      }
+      break;
+    case kTypeRollbackXID:
+      if (!GetLengthPrefixedSlice(input, xid)) {
+        return Status::Corruption("bad Rollback XID");
+      }
+      break;
     default:
       return Status::Corruption("unknown WriteBatch tag");
   }
@@ -254,7 +316,7 @@ Status WriteBatch::Iterate(Handler* handler) const {
   }
 
   input.remove_prefix(kHeader);
-  Slice key, value, blob;
+  Slice key, value, blob, xid;
   int found = 0;
   Status s;
   while (s.ok() && !input.empty() && handler->Continue()) {
@@ -262,7 +324,7 @@ Status WriteBatch::Iterate(Handler* handler) const {
     uint32_t column_family = 0;  // default
 
     s = ReadRecordFromWriteBatch(&input, &tag, &column_family, &key, &value,
-                                 &blob);
+                                 &blob, &xid);
     if (!s.ok()) {
       return s;
     }
@@ -298,6 +360,26 @@ Status WriteBatch::Iterate(Handler* handler) const {
         break;
       case kTypeLogData:
         handler->LogData(blob);
+        break;
+      case kTypeBeginPrepareXID:
+        assert(content_flags_.load(std::memory_order_relaxed) &
+               (ContentFlags::DEFERRED | ContentFlags::HAS_BEGIN_PREPARE));
+        handler->MarkBeginPrepare(xid);
+        break;
+      case kTypeEndPrepareXID:
+        assert(content_flags_.load(std::memory_order_relaxed) &
+               (ContentFlags::DEFERRED | ContentFlags::HAS_END_PREPARE));
+        handler->MarkEndPrepare();
+        break;
+      case kTypeCommitXID:
+        assert(content_flags_.load(std::memory_order_relaxed) &
+               (ContentFlags::DEFERRED | ContentFlags::HAS_COMMIT));
+        handler->MarkCommit(xid, blob);
+        break;
+      case kTypeRollbackXID:
+        assert(content_flags_.load(std::memory_order_relaxed) &
+               (ContentFlags::DEFERRED | ContentFlags::HAS_ROLLBACK));
+        handler->MarkRollback(xid);
         break;
       default:
         return Status::Corruption("unknown WriteBatch tag");
@@ -371,6 +453,45 @@ void WriteBatchInternal::Put(WriteBatch* b, uint32_t column_family_id,
 void WriteBatch::Put(ColumnFamilyHandle* column_family, const SliceParts& key,
                      const SliceParts& value) {
   WriteBatchInternal::Put(this, GetColumnFamilyID(column_family), key, value);
+}
+
+void WriteBatchInternal::MarkBeginPrepare(WriteBatch* b, const Slice& xid) {
+  b->rep_.push_back(static_cast<char>(kTypeBeginPrepareXID));
+  PutLengthPrefixedSlice(&b->rep_, xid);
+  b->content_flags_.store(b->content_flags_.load(std::memory_order_relaxed) |
+                              ContentFlags::HAS_BEGIN_PREPARE,
+                          std::memory_order_relaxed);
+}
+
+void WriteBatchInternal::MarkEndPrepare(WriteBatch* b) {
+  b->rep_.push_back(static_cast<char>(kTypeEndPrepareXID));
+  b->content_flags_.store(b->content_flags_.load(std::memory_order_relaxed) |
+                              ContentFlags::HAS_END_PREPARE,
+                          std::memory_order_relaxed);
+}
+
+void WriteBatchInternal::MarkCommit(WriteBatch* b, const Slice& xid,
+                                    WriteBatch* commit_batch) {
+  b->rep_.push_back(static_cast<char>(kTypeCommitXID));
+  PutLengthPrefixedSlice(&b->rep_, xid);
+  if (commit_batch != nullptr) {
+    PutLengthPrefixedSlice(&b->rep_,
+                           WriteBatchInternal::Contents(commit_batch));
+  } else {
+    Slice empty_slice;
+    PutLengthPrefixedSlice(&b->rep_, empty_slice);
+  }
+  b->content_flags_.store(b->content_flags_.load(std::memory_order_relaxed) |
+                              ContentFlags::HAS_COMMIT,
+                          std::memory_order_relaxed);
+}
+
+void WriteBatchInternal::MarkRollback(WriteBatch* b, const Slice& xid) {
+  b->rep_.push_back(static_cast<char>(kTypeRollbackXID));
+  PutLengthPrefixedSlice(&b->rep_, xid);
+  b->content_flags_.store(b->content_flags_.load(std::memory_order_relaxed) |
+                              ContentFlags::HAS_ROLLBACK,
+                          std::memory_order_relaxed);
 }
 
 void WriteBatchInternal::Delete(WriteBatch* b, uint32_t column_family_id,
