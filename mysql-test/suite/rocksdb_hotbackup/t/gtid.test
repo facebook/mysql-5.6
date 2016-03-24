@@ -1,17 +1,6 @@
 
 source suite/rocksdb_hotbackup/include/setup.inc;
 
-connection server_1;
-create database db1;
-
-create table db1.t1 (
-  `id` int(10) not null auto_increment,
-  `k` int(10),
-  `data` varchar(255),
-  primary key (`id`),
-  key (`k`)
-) engine=rocksdb;
-
 --let $rpl_server_number= 2
 --source include/rpl_stop_server.inc
 
@@ -27,11 +16,11 @@ let $max_id = `select id from db1.t1 order by id desc limit 1`;
 if($num_rows != $max_id) {
   echo Number of rows($num_rows) and last_id($max_id) does not match;
 }
-if($num_rows < 10000) {
-  echo Number of rows($num_rows) is less than 10000;
+if($num_rows < 250000) {
+  echo Number of rows($num_rows) is less than 250000;
 }
-if($num_rows > 20000) {
-  echo Number of rows($num_rows) is more than 20000;
+if($num_rows > 500000) {
+  echo Number of rows($num_rows) is more than 500000;
 }
 
 --source suite/rocksdb_hotbackup/include/setup_replication_gtid_and_sync.inc
