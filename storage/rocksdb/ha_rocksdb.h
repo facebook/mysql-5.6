@@ -89,7 +89,7 @@ const char * const PER_INDEX_CF_NAME = "$per_index_cf";
 #define MAX_BACKGROUND_COMPACTIONS                       64
 #define MAX_BACKGROUND_FLUSHES                           64
 
-#define DEFAULT_SUBCOMPACTIONS                           16
+#define DEFAULT_SUBCOMPACTIONS                           1
 #define MAX_SUBCOMPACTIONS                               64
 
 /*
