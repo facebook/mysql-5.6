@@ -11,11 +11,12 @@
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
-#include <vector>
 #include <type_traits>
+#include <vector>
 #include "db/write_callback.h"
-#include "rocksdb/types.h"
 #include "rocksdb/status.h"
+#include "rocksdb/types.h"
+#include "rocksdb/utilities/transaction.h"
 #include "rocksdb/write_batch.h"
 #include "util/autovector.h"
 #include "util/instrumented_mutex.h"
@@ -91,6 +92,7 @@ class WriteThread {
     std::aligned_storage<sizeof(std::condition_variable)>::type state_cv_bytes;
     Writer* link_older;  // read/write only before linking, or as leader
     Writer* link_newer;  // lazy, read/write only before linking, or as leader
+    Transaction* txn;    // transaction being written, may be null
 
     Writer()
         : batch(nullptr),
@@ -116,6 +118,35 @@ class WriteThread {
         callback_status = callback->Callback(db);
       }
       return callback_status.ok();
+    }
+
+    bool IsSinglePhaseWrite() {
+      return txn == nullptr || !txn->two_phase_commit_;
+    }
+
+    bool IsCommitPhase() {
+      return txn != nullptr && txn->two_phase_commit_ &&
+             txn->exec_status_ == Transaction::AWAITING_COMMIT;
+    }
+
+    bool IsRollbackPhase() {
+      return txn != nullptr && txn->two_phase_commit_ &&
+             txn->exec_status_ == Transaction::AWAITING_ROLLBACK;
+    }
+
+    bool IsPreparePhase() {
+      return txn != nullptr && txn->two_phase_commit_ &&
+             txn->exec_status_ == Transaction::AWAITING_PREPARE;
+    }
+
+    // should this Writers contents be written to memtable.
+    // keep in mind that for 2pc the writebatch never contains
+    // any of the meta markers
+    bool ShouldWriteToMem() {
+      if (CallbackFailed()) {
+        return false;
+      }
+      return IsSinglePhaseWrite() || IsCommitPhase();
     }
 
     void CreateMutex() {

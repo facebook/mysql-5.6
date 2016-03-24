@@ -248,7 +248,7 @@ TESTHARNESS = ./util/testharness.o $(TESTUTIL) $(MOCKOBJECTS) $(GTEST)
 VALGRIND_ERROR = 2
 VALGRIND_VER := $(join $(VALGRIND_VER),valgrind)
 
-VALGRIND_OPTS = --error-exitcode=$(VALGRIND_ERROR) --leak-check=full
+VALGRIND_OPTS = --error-exitcode=$(VALGRIND_ERROR) --leak-check=full --log-file=vout
 
 BENCHTOOLOBJECTS = $(BENCH_SOURCES:.cc=.o) $(LIBOBJECTS) $(TESTUTIL)
 

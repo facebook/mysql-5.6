@@ -71,6 +71,7 @@ class DBWithTTLImpl : public DBWithTTL {
                        ColumnFamilyHandle* column_family, const Slice& key,
                        const Slice& value) override;
 
+  using StackableDB::Write;
   virtual Status Write(const WriteOptions& opts, WriteBatch* updates) override;
 
   using StackableDB::NewIterator;

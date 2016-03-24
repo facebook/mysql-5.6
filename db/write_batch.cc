@@ -676,7 +676,6 @@ Status WriteBatch::RollbackToSavePoint() {
   return Status::OK();
 }
 
-namespace {
 class MemTableInserter : public WriteBatch::Handler {
  public:
   SequenceNumber sequence_;
@@ -687,6 +686,13 @@ class MemTableInserter : public WriteBatch::Handler {
   DBImpl* db_;
   const bool dont_filter_deletes_;
   const bool concurrent_memtable_writes_;
+  bool in_prepared_section_;
+  // current transaction we are committing (non recovery)
+  Transaction* commiting_trx_;
+  // current recovered transaction we are committing (recovery)
+  DBImpl::RecoveredTransaction* recommiting_trx_;
+  // current recovered transaction we are rebuilding (recovery)
+  DBImpl::RecoveredTransaction* rebuilding_trx_;
 
   // cf_mems should not be shared with concurrent inserters
   MemTableInserter(SequenceNumber sequence, ColumnFamilyMemTables* cf_mems,
@@ -701,7 +707,11 @@ class MemTableInserter : public WriteBatch::Handler {
         log_number_(log_number),
         db_(reinterpret_cast<DBImpl*>(db)),
         dont_filter_deletes_(dont_filter_deletes),
-        concurrent_memtable_writes_(concurrent_memtable_writes) {
+        concurrent_memtable_writes_(concurrent_memtable_writes),
+        in_prepared_section_(false),
+        commiting_trx_(nullptr),
+        recommiting_trx_(nullptr),
+        rebuilding_trx_(nullptr) {
     assert(cf_mems_);
     if (!dont_filter_deletes_) {
       assert(db_);
@@ -733,6 +743,21 @@ class MemTableInserter : public WriteBatch::Handler {
       *s = Status::OK();
       return false;
     }
+
+    // we are committing a prepard transaction so we must
+    // take note of the logfile in which the data resides.
+    if (commiting_trx_ != nullptr && commiting_trx_->two_phase_commit_) {
+      assert(commiting_trx_->exec_status_ == Transaction::AWAITING_COMMIT);
+      cf_mems_->GetMemTable()->RefLogContainingPrepSection(
+          commiting_trx_->GetLogNumber());
+    }
+
+    if (recommiting_trx_ != nullptr) {
+      assert(recommiting_trx_->exec_status_ == Transaction::AWAITING_COMMIT);
+      cf_mems_->GetMemTable()->RefLogContainingPrepSection(
+          recommiting_trx_->log_number_);
+    }
+
     return true;
   }
 
@@ -743,6 +768,13 @@ class MemTableInserter : public WriteBatch::Handler {
       ++sequence_;
       return seek_status;
     }
+
+    if (in_prepared_section_) {
+      assert(rebuilding_trx_);
+      rebuilding_trx_->batch.Put(cf_mems_->GetColumnFamilyHandle(), key, value);
+      return Status::OK();
+    }
+
     MemTable* mem = cf_mems_->GetMemTable();
     auto* moptions = mem->GetMemTableOptions();
     if (!moptions->inplace_update_support) {
@@ -796,11 +828,6 @@ class MemTableInserter : public WriteBatch::Handler {
 
   Status DeleteImpl(uint32_t column_family_id, const Slice& key,
                     ValueType delete_type) {
-    Status seek_status;
-    if (!SeekToColumnFamily(column_family_id, &seek_status)) {
-      ++sequence_;
-      return seek_status;
-    }
     MemTable* mem = cf_mems_->GetMemTable();
     auto* moptions = mem->GetMemTableOptions();
     if (!dont_filter_deletes_ && moptions->filter_deletes) {
@@ -827,11 +854,36 @@ class MemTableInserter : public WriteBatch::Handler {
 
   virtual Status DeleteCF(uint32_t column_family_id,
                           const Slice& key) override {
+    Status seek_status;
+    if (!SeekToColumnFamily(column_family_id, &seek_status)) {
+      ++sequence_;
+      return seek_status;
+    }
+
+    if (in_prepared_section_) {
+      assert(rebuilding_trx_);
+      rebuilding_trx_->batch.Delete(cf_mems_->GetColumnFamilyHandle(), key);
+      return Status::OK();
+    }
+
     return DeleteImpl(column_family_id, key, kTypeDeletion);
   }
 
   virtual Status SingleDeleteCF(uint32_t column_family_id,
                                 const Slice& key) override {
+    Status seek_status;
+    if (!SeekToColumnFamily(column_family_id, &seek_status)) {
+      ++sequence_;
+      return seek_status;
+    }
+
+    if (in_prepared_section_) {
+      assert(rebuilding_trx_);
+      rebuilding_trx_->batch.SingleDelete(cf_mems_->GetColumnFamilyHandle(),
+                                         key);
+      return Status::OK();
+    }
+
     return DeleteImpl(column_family_id, key, kTypeSingleDeletion);
   }
 
@@ -842,6 +894,12 @@ class MemTableInserter : public WriteBatch::Handler {
     if (!SeekToColumnFamily(column_family_id, &seek_status)) {
       ++sequence_;
       return seek_status;
+    }
+    if (in_prepared_section_) {
+      assert(rebuilding_trx_);
+      rebuilding_trx_->batch.Merge(cf_mems_->GetColumnFamilyHandle(), key,
+                                  value);
+      return Status::OK();
     }
     MemTable* mem = cf_mems_->GetMemTable();
     auto* moptions = mem->GetMemTableOptions();
@@ -928,8 +986,119 @@ class MemTableInserter : public WriteBatch::Handler {
       }
     }
   }
+
+  // These markers should only be encountered during recovery
+  // because they are inserted directly into the WAL
+  Status MarkBeginPrepare(const Slice& name) override {
+    assert(log_number_ != 0);
+    assert(!in_prepared_section_);
+    assert(rebuilding_trx_ == nullptr);
+    assert(db_);
+
+    if (db_->allow_2pc_ == false) {
+      return Status::NotSupported(
+          "WAL contains prepared transactions. Open with "
+          "TransactionDB::Open().");
+    }
+
+    // we are now iterating through a prepared section
+    in_prepared_section_ = true;
+    rebuilding_trx_ = new DBImpl::RecoveredTransaction(log_number_, name);
+    db_->MarkLogAsContainingPrepSection(log_number_);
+    return Status::OK();
+  }
+
+  Status MarkEndPrepare() override {
+    assert(log_number_ != 0);
+    assert(db_);
+    assert(db_->allow_2pc_);
+    assert(rebuilding_trx_ != nullptr);
+    assert(in_prepared_section_ == true);
+
+    in_prepared_section_ = false;
+    rebuilding_trx_->exec_status_ = Transaction::PREPARED;
+    db_->recovered_transactions_[rebuilding_trx_->name_] = rebuilding_trx_;
+    rebuilding_trx_ = nullptr;
+    return Status::OK();
+  }
+
+  Status MarkCommit(const Slice& name, const Slice& blob) override {
+    assert(log_number_ != 0);
+    assert(!in_prepared_section_);
+    assert(db_);
+    assert(db_->allow_2pc_);
+
+    bool has_commit_time_batch = false;
+    if (blob.size() > 0) {
+      if (blob.size() < 12) {
+        return Status::Corruption(
+        "Slice stored in Commit WAL marker does not contain valid WriteBatch.");
+      }
+      has_commit_time_batch = true;
+    }
+
+    TransactionName tname(name.data(), name.size());
+    auto it = db_->recovered_transactions_.find(tname);
+
+    Status s;
+
+    // the log contaiting the prepared section may have
+    // been released in the last incarnation because the
+    // data was flushed to L0
+    if (it != db_->recovered_transactions_.end()) {
+      auto* trx = it->second;
+      assert(trx->exec_status_ == Transaction::PREPARED);
+
+      trx->exec_status_ = Transaction::AWAITING_COMMIT;
+
+      recommiting_trx_ = trx;
+      // at this point individual CF lognumbers will prevent
+      // duplicate re-insertion of values.
+      s = trx->batch.Iterate(this);
+      recommiting_trx_ = nullptr;
+
+      if (s.ok()) {
+        // for debugging
+        trx->exec_status_ = Transaction::COMMITED;
+        db_->recovered_transactions_.erase(it);
+        db_->MarkLogAsHavingPrepSectionFlushed(log_number_);
+        delete trx;
+      }
+    }
+
+    if (has_commit_time_batch) {
+      WriteBatch commit_time_batch;
+      WriteBatchInternal::SetContents(&commit_time_batch, blob);
+      s = commit_time_batch.Iterate(this);
+    }
+
+    return s;
+  }
+
+  Status MarkRollback(const Slice& name) override {
+    assert(log_number_ != 0);
+    assert(!in_prepared_section_);
+    assert(db_);
+    assert(db_->allow_2pc_);
+
+    TransactionName tname(name.data(), name.size());
+    auto it = db_->recovered_transactions_.find(tname);
+
+    // the log containing the transactions prep section
+    // may have been released in the previous incarnation
+    // because we knew it had been rolled back
+    if (it != db_->recovered_transactions_.end()) {
+      auto* trx = it->second;
+      assert(trx->exec_status_ == Transaction::PREPARED);
+      trx->exec_status_ = Transaction::ROLLEDBACK;
+      db_->recovered_transactions_.erase(it);
+      db_->MarkLogAsHavingPrepSectionFlushed(log_number_);
+      delete trx;
+    }
+
+    return Status::OK();
+  }
 };
-}  // namespace
 
 // This function can only be called in these conditions:
 // 1) During Recovery()
@@ -946,14 +1115,48 @@ Status WriteBatchInternal::InsertInto(
                             dont_filter_deletes, concurrent_memtable_writes);
 
   for (size_t i = 0; i < writers.size(); i++) {
-    if (!writers[i]->CallbackFailed()) {
-      writers[i]->status = writers[i]->batch->Iterate(&inserter);
-      if (!writers[i]->status.ok()) {
-        return writers[i]->status;
+    auto w = writers[i];
+    if (w->ShouldWriteToMem()) {
+      inserter.commiting_trx_ = w->txn;
+      w->status = w->batch->Iterate(&inserter);
+      if (!w->status.ok()) {
+        return w->status;
+      }
+      // must write the commit-time batch
+      if (w->IsCommitPhase()) {
+        inserter.commiting_trx_ = nullptr;
+        w->status = w->txn->GetCommitTimeWriteBatch()->Iterate(&inserter);
+        if (!w->status.ok()) {
+          return w->status;
+        }
       }
     }
   }
   return Status::OK();
+}
+
+Status WriteBatchInternal::InsertInto(WriteThread::Writer* writer,
+                                      ColumnFamilyMemTables* memtables,
+                                      FlushScheduler* flush_scheduler,
+                                      bool ignore_missing_column_families,
+                                      uint64_t log_number, DB* db,
+                                      const bool dont_filter_deletes,
+                                      bool concurrent_memtable_writes) {
+  assert(writer->ShouldWriteToMem());
+  MemTableInserter inserter(WriteBatchInternal::Sequence(writer->batch),
+                            memtables, flush_scheduler,
+                            ignore_missing_column_families, log_number, db,
+                            dont_filter_deletes, concurrent_memtable_writes);
+  inserter.commiting_trx_ = writer->txn;
+  writer->status = writer->batch->Iterate(&inserter);
+
+  // do insert for commit-time write batch
+  if (writer->status.ok() && writer->IsCommitPhase()) {
+    inserter.commiting_trx_ = nullptr;
+    writer->status = writer->txn->GetCommitTimeWriteBatch()->Iterate(&inserter);
+  }
+
+  return writer->status;
 }
 
 Status WriteBatchInternal::InsertInto(const WriteBatch* batch,

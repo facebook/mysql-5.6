@@ -5140,8 +5140,8 @@ class ModelDB: public DB {
     delete reinterpret_cast<const ModelSnapshot*>(snapshot);
   }
 
-  virtual Status Write(const WriteOptions& options,
-                       WriteBatch* batch) override {
+  using DB::Write;
+  virtual Status Write(const WriteOptions& options, WriteBatch* batch) override {
     class Handler : public WriteBatch::Handler {
      public:
       KVMap* map_;

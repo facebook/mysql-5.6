@@ -41,16 +41,22 @@ TransactionImpl::TransactionImpl(TransactionDB* txn_db,
       txn_db_impl_(nullptr),
       txn_id_(0),
       expiration_time_(0),
-      lock_timeout_(0),
-      exec_status_(STARTED) {
+      lock_timeout_(0) {
   txn_db_impl_ = dynamic_cast<TransactionDBImpl*>(txn_db);
   assert(txn_db_impl_);
+
+  db_impl_ = dynamic_cast<DBImpl*>(txn_db->GetBaseDB());
+  assert(db_impl_);
 
   Initialize(txn_options);
 }
 
 void TransactionImpl::Initialize(const TransactionOptions& txn_options) {
   txn_id_ = GenTxnID();
+
+  two_phase_commit_ = txn_options.enable_two_phase_commit;
+
+  name_ = txn_options.name;
 
   exec_status_ = STARTED;
 
@@ -74,6 +80,11 @@ void TransactionImpl::Initialize(const TransactionOptions& txn_options) {
   if (expiration_time_ > 0) {
     txn_db_impl_->InsertExpirableTransaction(txn_id_, this);
   }
+
+  if (two_phase_commit_) {
+    assert(name_.length() > 0);
+    txn_db_impl_->RegisterTransaction(this);
+  }
 }
 
 TransactionImpl::~TransactionImpl() {
@@ -81,9 +92,19 @@ TransactionImpl::~TransactionImpl() {
   if (expiration_time_ > 0) {
     txn_db_impl_->RemoveExpirableTransaction(txn_id_);
   }
+  if (two_phase_commit_) {
+    txn_db_impl_->UnregisterTransaction(this);
+    // if we have a prep section that was never committed
+    // and we are releasing the transaction then we
+    // can release that prep section
+    if (log_number_ != 0 && exec_status_ != COMMITED) {
+      dbimpl_->MarkLogAsHavingPrepSectionFlushed(log_number_);
+    }
+  }
 }
 
 void TransactionImpl::Clear() {
+  assert(txn_db_impl_ != nullptr);
   txn_db_impl_->UnLock(this, &GetTrackedKeys());
   TransactionBaseImpl::Clear();
 }
@@ -120,6 +141,62 @@ Status TransactionImpl::CommitBatch(WriteBatch* batch) {
   return s;
 }
 
+Status TransactionImpl::Prepare() {
+  if (!two_phase_commit_) {
+    return Status::InvalidArgument(
+        "Cannot prepare a single phase transaction.");
+  }
+
+  if (IsExpired()) {
+    return Status::Expired();
+  }
+
+  Status s;
+
+  // must concern ourselves with expiration and/or lock stealing
+  if (expiration_time_ > 0) {
+    // need to compare/exchange bc locks could be stolen under us here
+    ExecutionStatus expected = STARTED;
+    bool can_prepare = std::atomic_compare_exchange_strong(
+        &exec_status_, &expected, AWAITING_PREPARE);
+
+    if (can_prepare) {
+      // transaction can't expire after preparation
+      expiration_time_ = 0;
+
+      s = db_impl_->WriteImpl(
+        write_options_, GetWriteBatch()->GetWriteBatch(), nullptr, this);
+
+      if (s.ok()) {
+        // at this point the WAL should  have synced and we should know
+        // which log our prepared section resides in
+        assert(log_number_ != 0);
+        dbimpl_->MarkLogAsContainingPrepSection(log_number_);
+        exec_status_.store(PREPARED);
+      }
+    } else if (exec_status_ == LOCKS_STOLEN) {
+      return Status::Expired();
+    } else {
+      s = Status::InvalidArgument(
+          "Transaction is not in state for preparation.");
+    }
+  } else if (exec_status_ == STARTED) {
+    // expiration and lock stealing is not possible
+    exec_status_.store(AWAITING_PREPARE);
+      s = db_impl_->WriteImpl(
+        write_options_, GetWriteBatch()->GetWriteBatch(), nullptr, this);
+    if (s.ok()) {
+      assert(log_number_ != 0);
+      dbimpl_->MarkLogAsContainingPrepSection(log_number_);
+      exec_status_.store(PREPARED);
+    }
+  } else {
+    s = Status::InvalidArgument("Transaction is not in state for preparation.");
+  }
+
+  return s;
+}
+
 Status TransactionImpl::Commit() {
   Status s = DoCommit(GetWriteBatch()->GetWriteBatch());
 
@@ -131,38 +208,97 @@ Status TransactionImpl::Commit() {
 Status TransactionImpl::DoCommit(WriteBatch* batch) {
   Status s;
 
+  if (two_phase_commit_ && exec_status_ != PREPARED) {
+    return Status::InvalidArgument(
+        "Two phase transaction is not in state for commit.");
+  }
+
   if (expiration_time_ > 0) {
+    // two phase transaction cannot expire after preparation
+    assert(!two_phase_commit_);
+
     if (IsExpired()) {
       return Status::Expired();
     }
 
     // Transaction should only be committed if the thread succeeds
-    // changing its execution status to COMMITTING. This is because
+    // changing its execution status to AWAITING_COMMIT. This is because
     // A different transaction may consider this one expired and attempt
     // to steal its locks between the IsExpired() check and the beginning
     // of a commit.
     ExecutionStatus expected = STARTED;
     bool can_commit = std::atomic_compare_exchange_strong(
-        &exec_status_, &expected, COMMITTING);
+        &exec_status_, &expected, AWAITING_COMMIT);
 
     TEST_SYNC_POINT("TransactionTest::ExpirableTransactionDataRace:1");
 
     if (can_commit) {
-      s = db_->Write(write_options_, batch);
-    } else {
-      assert(exec_status_ == LOCKS_STOLEN);
+      s = db_impl_->WriteImpl(write_options_, batch, nullptr, this);
+      if (s.ok()) {
+        exec_status_.store(COMMITED);
+      }
+    } else if (exec_status_ == LOCKS_STOLEN) {
       return Status::Expired();
+    } else {
+      return Status::InvalidArgument("Transaction is not in state for commit.");
     }
   } else {
-    s = db_->Write(write_options_, batch);
+    // expiration and lock stealing is not a concern
+    exec_status_.store(AWAITING_COMMIT);
+    s = db_impl_->WriteImpl(write_options_, batch, nullptr, this);
+    if (s.ok()) {
+      exec_status_.store(COMMITED);
+
+      if (two_phase_commit_) {
+        // FindObsoleteFiles must now look to the memtables
+        // to determine what prep logs must be kept around,
+        // not the prep section heap.
+        dbimpl_->MarkLogAsHavingPrepSectionFlushed(log_number_);
+      }
+    }
   }
 
   return s;
 }
 
-void TransactionImpl::Rollback() { Clear(); }
+Status TransactionImpl::Rollback() {
+  Status s;
+
+  if (two_phase_commit_) {
+    // data has prepared to WAL so we must append
+    // a rollback marker
+    if (exec_status_ == PREPARED) {
+      exec_status_.store(AWAITING_ROLLBACK);
+      s = db_impl_->WriteImpl(
+        write_options_, GetWriteBatch()->GetWriteBatch(), nullptr, this);
+      if (s.ok()) {
+        // we do not need to keep our prepared section around
+        dbimpl_->MarkLogAsHavingPrepSectionFlushed(log_number_);
+        Clear();
+        exec_status_.store(ROLLEDBACK);
+      }
+    } else if (exec_status_ == STARTED) {
+      // prepare couldn't have taken place
+      Clear();
+    } else if (exec_status_ == COMMITED) {
+      s = Status::InvalidArgument(
+          "This transaction has alrady been committed.");
+    } else {
+      s = Status::InvalidArgument(
+          "Two phase transaction is not in state for rollback.");
+    }
+  } else {
+    Clear();
+  }
+
+  return s;
+}
 
 Status TransactionImpl::RollbackToSavePoint() {
+  if (two_phase_commit_ && exec_status_ != STARTED) {
+    return Status::InvalidArgument("Transaction is beyond state for rollback.");
+  }
+
   // Unlock any keys locked since last transaction
   const std::unique_ptr<TransactionKeyMap>& keys =
       GetTrackedKeysSinceSavePoint();

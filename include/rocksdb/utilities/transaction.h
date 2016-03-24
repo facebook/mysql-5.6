@@ -19,6 +19,9 @@ namespace rocksdb {
 class Iterator;
 class TransactionDB;
 class WriteBatchWithIndex;
+class DBImpl;
+
+typedef std::string TransactionName;
 
 // Provides notification to the caller of SetSnapshotOnNextOperation when
 // the actual snapshot gets created
@@ -114,6 +117,9 @@ class Transaction {
   // longer be valid and should be discarded after a call to ClearSnapshot().
   virtual void ClearSnapshot() = 0;
 
+  // Prepare the current transation for 2PC
+  virtual Status Prepare() = 0;
+
   // Write all batched keys to the db atomically.
   //
   // Returns OK on success.
@@ -132,7 +138,7 @@ class Transaction {
   virtual Status Commit() = 0;
 
   // Discard all batched writes in this transaction.
-  virtual void Rollback() = 0;
+  virtual Status Rollback() = 0;
 
   // Records the state of the transaction for future calls to
   // RollbackToSavePoint().  May be called multiple times to set multiple save
@@ -378,9 +384,51 @@ class Transaction {
                                 const Slice& key) = 0;
   virtual void UndoGetForUpdate(const Slice& key) = 0;
 
+  virtual Status RebuildFromWriteBatch(WriteBatch* src_batch) = 0;
+
+  virtual WriteBatch* GetCommitTimeWriteBatch() = 0;
+
+  virtual void SetLogNumber(uint64_t log) {
+    log_number_ = log;
+  }
+
+  virtual uint64_t GetLogNumber() {
+    return log_number_;
+  }
+
+  virtual void SetName(const TransactionName& name) {
+    name_ = name;
+  }
+
+  virtual TransactionName GetName() {
+    return name_;
+  }
+
+  enum ExecutionStatus {
+    STARTED = 0,
+    AWAITING_PREPARE = 1,
+    PREPARED = 2,
+    AWAITING_COMMIT = 3,
+    COMMITED = 4,
+    AWAITING_ROLLBACK = 5,
+    ROLLEDBACK = 6,
+    LOCKS_STOLEN = 7,
+  };
+
+  // does this transaction use two phase commit semantics
+  bool two_phase_commit_;
+
+  // Execution status of the transaction.
+  std::atomic<ExecutionStatus> exec_status_;
+
  protected:
   explicit Transaction(const TransactionDB* db) {}
   Transaction() {}
+
+  // the log in which the prepared section for this txn resides
+  // (for two phase commit)
+  uint64_t log_number_;
+  TransactionName name_;
 
  private:
   // No copying allowed

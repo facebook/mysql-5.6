@@ -72,6 +72,11 @@ struct TransactionOptions {
   // Transaction::SetSnapshot().
   bool set_snapshot = false;
 
+  // use two phase commit for this transation
+  bool enable_two_phase_commit = false;
+
+  // the xid for this transaction should it use 2pc
+  TransactionName name;
 
   // TODO(agiardullo): TransactionDB does not yet support comparators that allow
   // two non-equal keys to be equivalent.  Ie, cmp->Compare(a,b) should only
@@ -122,7 +127,10 @@ class TransactionDB : public StackableDB {
   virtual Transaction* BeginTransaction(
       const WriteOptions& write_options,
       const TransactionOptions& txn_options = TransactionOptions(),
-      Transaction* old_txn = nullptr) = 0;
+      Transaction* old_txn=nullptr) = 0;
+
+  virtual Transaction* GetTransactionByName(const TransactionName& name) = 0;
+  virtual void GetAllPreparedTransactions(std::vector<Transaction*>* trans) = 0;
 
  protected:
   // To Create an TransactionDB, call Open()

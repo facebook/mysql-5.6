@@ -12,9 +12,9 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <memory>
-#include <vector>
 #include <string>
 #include <unordered_map>
+#include <vector>
 #include "rocksdb/immutable_options.h"
 #include "rocksdb/iterator.h"
 #include "rocksdb/listener.h"
@@ -24,6 +24,7 @@
 #include "rocksdb/thread_status.h"
 #include "rocksdb/transaction_log.h"
 #include "rocksdb/types.h"
+#include "rocksdb/utilities/transaction.h"
 #include "rocksdb/version.h"
 
 #ifdef _WIN32
@@ -43,6 +44,7 @@ struct FlushOptions;
 struct CompactionOptions;
 struct CompactRangeOptions;
 struct TableProperties;
+class Transaction;
 struct ExternalSstFileInfo;
 class WriteBatch;
 class Env;
@@ -149,7 +151,8 @@ class DB {
   // will use to operate on column family column_family[i]
   static Status Open(const DBOptions& db_options, const std::string& name,
                      const std::vector<ColumnFamilyDescriptor>& column_families,
-                     std::vector<ColumnFamilyHandle*>* handles, DB** dbptr);
+                     std::vector<ColumnFamilyHandle*>* handles, DB** dbptr,
+                     bool backed_by_trx_db = false);
 
   // ListColumnFamilies will open the DB specified by argument name
   // and return the list of all column families in that DB

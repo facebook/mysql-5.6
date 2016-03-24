@@ -26,6 +26,7 @@ namespace rocksdb {
 class ColumnFamilyHandle;
 class Comparator;
 class DB;
+class DBImpl;
 struct ReadOptions;
 struct DBOptions;
 
