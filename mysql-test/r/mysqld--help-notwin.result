@@ -1813,7 +1813,7 @@ rocksdb-max-log-file-size 0
 rocksdb-max-manifest-file-size 18446744073709551615
 rocksdb-max-open-files 5000
 rocksdb-max-row-locks 1073741824
-rocksdb-max-subcompactions 16
+rocksdb-max-subcompactions 1
 rocksdb-max-total-wal-size 0
 rocksdb-new-table-reader-for-compaction-inputs FALSE
 rocksdb-no-block-cache FALSE
