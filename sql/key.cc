@@ -208,7 +208,7 @@ void key_zero_nulls(uchar *tuple, KEY *key_info)
   @param key_length  specifies length of all keyparts that will be restored
 */
 
-void key_restore(uchar *to_record, uchar *from_key, KEY *key_info,
+void key_restore(uchar *to_record, const uchar *from_key, const KEY *key_info,
                  uint key_length)
 {
   uint length;
