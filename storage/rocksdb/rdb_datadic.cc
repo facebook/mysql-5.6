@@ -1756,7 +1756,7 @@ uchar* Table_ddl_manager::get_hash_key(Rdb_tbl_def *rec, size_t *length,
                                        my_bool not_used __attribute__((unused)))
 {
   *length= rec->m_dbname_tablename.length();
-  return str_to_uchar_ptr(&rec->m_dbname_tablename);
+  return rdb_str_to_uchar_ptr(&rec->m_dbname_tablename);
 }
 
 
@@ -2308,7 +2308,7 @@ int Table_ddl_manager::put(Rdb_tbl_def *tbl, bool lock)
     mysql_rwlock_wrlock(&rwlock);
 
   rec= reinterpret_cast<Rdb_tbl_def*>(
-          find(str_to_uchar_ptr(&tbl->m_dbname_tablename),
+          find(rdb_str_to_uchar_ptr(&tbl->m_dbname_tablename),
                tbl->m_dbname_tablename.length(), false));
   if (rec)
   {
@@ -2321,7 +2321,7 @@ int Table_ddl_manager::put(Rdb_tbl_def *tbl, bool lock)
     index_num_to_keydef[tbl->m_key_descr[keyno]->get_gl_index_id()]=
       std::make_pair(
         std::basic_string<uchar>(
-          str_to_uchar_ptr(&tbl->m_dbname_tablename),
+          rdb_str_to_uchar_ptr(&tbl->m_dbname_tablename),
           tbl->m_dbname_tablename.length()
         ),
         keyno
