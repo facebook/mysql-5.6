@@ -190,7 +190,7 @@ typedef struct st_rocksdb_share {
 
   /* Stores cumulative table statistics */
   my_io_perf_atomic_t io_perf_read;
-  rdb_perf_context_shared table_perf_context;
+  Rdb_perf_context_shared table_perf_context;
 } ROCKSDB_SHARE;
 
 typedef enum io_error_type {
@@ -521,7 +521,7 @@ class ha_rocksdb: public handler
     uint64_t block_read_count;
     uint64_t block_read_time;
   } io_perf;
-  rdb_perf_context_local local_perf_context;
+  Rdb_perf_context_local local_perf_context;
   void io_perf_start(void);
   void io_perf_end_and_record(void);
 
