@@ -3115,7 +3115,7 @@ int ha_rocksdb::read_hidden_pk_id_from_rowkey(longlong* hidden_pk_id)
   rocksdb::Slice rowkey_slice(last_rowkey.ptr(), last_rowkey.length());
 
   // Get hidden primary key from old key slice
-  Stream_reader reader(&rowkey_slice);
+  Rdb_string_reader reader(&rowkey_slice);
   if ((!reader.read(Rdb_key_def::INDEX_NUMBER_SIZE)))
     return 1;
 
@@ -3380,7 +3380,7 @@ int ha_rocksdb::convert_record_from_storage_format(const rocksdb::Slice *key,
   DBUG_EXECUTE_IF("myrocks_simulate_bad_row_read3",
                   dbug_modify_rec_varchar12(retrieved_record););
 
-  Stream_reader reader(retrieved_record);
+  Rdb_string_reader reader(retrieved_record);
   my_ptrdiff_t ptr_diff= buf - table->record[0];
 
   /*
