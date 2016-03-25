@@ -1562,11 +1562,11 @@ my_thread_id THD::set_new_thread_id()
   mysql_mutex_assert_owner(&LOCK_thread_count);
 
   DBUG_EXECUTE_IF("skip_to_largest_thread_id", {
-      thread_id_counter= UINT32_MAX;
+      thread_id_counter= std::numeric_limits<uint32_t>::max();
     }
   );
   DBUG_EXECUTE_IF("skip_to_second_largest_thread_id", {
-      thread_id_counter= UINT32_MAX - 1;
+      thread_id_counter= std::numeric_limits<uint32_t>::max() - 1;
     }
   );
   do {
