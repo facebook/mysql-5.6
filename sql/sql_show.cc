@@ -2855,6 +2855,9 @@ static bool show_status_array(THD *thd, const char *wild,
         case SHOW_LONGLONG:
           end= longlong10_to_str(*(longlong*) value, buff, 10);
           break;
+        case SHOW_SIGNED_LONGLONG:
+          end= longlong10_to_str(*(longlong*) value, buff, -10);
+          break;
         case SHOW_HA_ROWS:
           end= longlong10_to_str((longlong) *(ha_rows*) value, buff, 10);
           break;
@@ -2866,6 +2869,9 @@ static bool show_status_array(THD *thd, const char *wild,
           break;
         case SHOW_INT:
           end= int10_to_str((long) *(uint32*) value, buff, 10);
+          break;
+        case SHOW_SIGNED_INT:
+          end= int10_to_str((long) *(int32*) value, buff, -10);
           break;
         case SHOW_HAVE:
         {
