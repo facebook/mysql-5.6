@@ -758,6 +758,39 @@ test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY */
 show create database test;
 Database	Create Database
 test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY */
+create database test_db_opt;
+show create database test_db_opt;
+Database	Create Database
+test_db_opt	CREATE DATABASE `test_db_opt` /*!40100 DEFAULT CHARACTER SET latin1 */
+alter database test_db_opt read_only = true;
+show create database test_db_opt;
+Database	Create Database
+test_db_opt	CREATE DATABASE `test_db_opt` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY */
+alter database test_db_opt default charset = utf8;
+show create database test_db_opt;
+Database	Create Database
+test_db_opt	CREATE DATABASE `test_db_opt` /*!40100 DEFAULT CHARACTER SET utf8 READ_ONLY */
+alter database test_db_opt default charset = default;
+show create database test_db_opt;
+Database	Create Database
+test_db_opt	CREATE DATABASE `test_db_opt` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY */
+alter database test_db_opt default collate = utf8_general_ci;
+show create database test_db_opt;
+Database	Create Database
+test_db_opt	CREATE DATABASE `test_db_opt` /*!40100 DEFAULT CHARACTER SET utf8 READ_ONLY */
+alter database test_db_opt super_read_only  = true;
+show create database test_db_opt;
+Database	Create Database
+test_db_opt	CREATE DATABASE `test_db_opt` /*!40100 DEFAULT CHARACTER SET utf8 SUPER_READ_ONLY */
+alter database test_db_opt super_read_only  = false;
+show create database test_db_opt;
+Database	Create Database
+test_db_opt	CREATE DATABASE `test_db_opt` /*!40100 DEFAULT CHARACTER SET utf8 READ_ONLY */
+alter database test_db_opt default collate = default;
+show create database test_db_opt;
+Database	Create Database
+test_db_opt	CREATE DATABASE `test_db_opt` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY */
+drop database test_db_opt;
 connection default;
 alter database test read_only = false;
 show create database test;

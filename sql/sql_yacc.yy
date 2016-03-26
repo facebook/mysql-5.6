@@ -2739,7 +2739,8 @@ create:
           {
             Lex->create_info.default_table_charset= NULL;
             Lex->create_info.used_fields= 0;
-            Lex->create_info.db_read_only= 0;
+            Lex->create_info.db_read_only=
+              enum_db_read_only::HA_READ_ONLY_NULL;
           }
           opt_create_database_options
           {
@@ -6468,6 +6469,7 @@ default_charset:
                        "CHARACTER SET ", $4->csname);
               MYSQL_YYABORT;
             }
+            Lex->create_info.alter_default_table_charset = true;
             Lex->create_info.default_table_charset= $4;
             Lex->create_info.used_fields|= HA_CREATE_USED_DEFAULT_CHARSET;
           }
@@ -6485,6 +6487,7 @@ default_collation:
               MYSQL_YYABORT;
             }
 
+            Lex->create_info.alter_default_table_charset = true;
             Lex->create_info.default_table_charset= $4;
             Lex->create_info.used_fields|= HA_CREATE_USED_DEFAULT_CHARSET;
           }
@@ -6493,15 +6496,19 @@ default_collation:
 db_read_only:
           read_only_opt equal boolean_val
           {
-            Lex->create_info.db_read_only= 0; /* read_only = false */
+            /* read_only = false */
+            Lex->create_info.db_read_only= enum_db_read_only::HA_READ_ONLY_NO;
             if (($1 == 0 && $3 == 1) || ($1 == 1 && $3 == 0))
             {
-              Lex->create_info.db_read_only= 1; /* read_only = true */
-                                                /* super_read_only = false */
+              /* read_only = true and super_read_only = false */
+              Lex->create_info.db_read_only=
+                enum_db_read_only::HA_READ_ONLY_YES;
             }
             else if ($1 == 1 && $3 == 1)
             {
-              Lex->create_info.db_read_only= 2; /* super_read_only = true */
+              /* super_read_only = true */
+              Lex->create_info.db_read_only=
+                enum_db_read_only::HA_READ_ONLY_SUPER;
             }
           }
         ;
@@ -7715,8 +7722,10 @@ alter:
         | ALTER DATABASE ident_or_empty
           {
             Lex->create_info.default_table_charset= NULL;
+            Lex->create_info.alter_default_table_charset = false;
             Lex->create_info.used_fields= 0;
-            Lex->create_info.db_read_only= 0;
+            Lex->create_info.db_read_only=
+              enum_db_read_only::HA_READ_ONLY_NULL;
           }
           create_database_options
           {
