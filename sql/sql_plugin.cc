@@ -2944,21 +2944,32 @@ static void plugin_vars_free_values(sys_var *vars)
 
 static SHOW_TYPE pluginvar_show_type(st_mysql_sys_var *plugin_var)
 {
-  switch (plugin_var->flags & PLUGIN_VAR_TYPEMASK) {
+  switch (plugin_var->flags & (PLUGIN_VAR_TYPEMASK | PLUGIN_VAR_UNSIGNED)) {
   case PLUGIN_VAR_BOOL:
+  case PLUGIN_VAR_BOOL | PLUGIN_VAR_UNSIGNED:
     return SHOW_MY_BOOL;
   case PLUGIN_VAR_INT:
+    return SHOW_SIGNED_INT;
+  case PLUGIN_VAR_INT | PLUGIN_VAR_UNSIGNED:
     return SHOW_INT;
   case PLUGIN_VAR_LONG:
+    return SHOW_SIGNED_LONG;
+  case PLUGIN_VAR_LONG | PLUGIN_VAR_UNSIGNED:
     return SHOW_LONG;
   case PLUGIN_VAR_LONGLONG:
+    return SHOW_SIGNED_LONGLONG;
+  case PLUGIN_VAR_LONGLONG | PLUGIN_VAR_UNSIGNED:
     return SHOW_LONGLONG;
   case PLUGIN_VAR_STR:
+  case PLUGIN_VAR_STR | PLUGIN_VAR_UNSIGNED:
     return SHOW_CHAR_PTR;
   case PLUGIN_VAR_ENUM:
+  case PLUGIN_VAR_ENUM | PLUGIN_VAR_UNSIGNED:
   case PLUGIN_VAR_SET:
+  case PLUGIN_VAR_SET | PLUGIN_VAR_UNSIGNED:
     return SHOW_CHAR;
   case PLUGIN_VAR_DOUBLE:
+  case PLUGIN_VAR_DOUBLE | PLUGIN_VAR_UNSIGNED:
     return SHOW_DOUBLE;
   default:
     DBUG_ASSERT(0);
