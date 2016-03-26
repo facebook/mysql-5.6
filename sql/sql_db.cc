@@ -77,7 +77,7 @@ typedef struct my_dbopt_st
   char *name;			/* Database name                  */
   uint name_length;		/* Database length name           */
   const CHARSET_INFO *charset;	/* Database default character set */
-  uchar db_read_only;
+  enum enum_db_read_only db_read_only;
 } my_dbopt_t;
 
 
@@ -414,21 +414,6 @@ void init_thd_db_read_only(THD *thd)
   DBUG_VOID_RETURN;
 }
 
-/**
- * Return db_read_only value in the dbopt
- *
- * Similar logic here as in get_default_db_collation() -
- * In case load_db_opt_by_name() fails (e.g. db.opt file
- * doesn't exist), db_read_only will be false (0) by default.
- */
-static uchar get_db_read_only(THD *thd, const char *path)
-{
-  HA_CREATE_INFO db_info;
-
-  load_db_opt(thd, path, &db_info);
-  return db_info.db_read_only;
-}
-
 /* Update db_ops in all threads' local hash map */
 static void update_thd_db_read_only(const char *path, uchar db_read_only)
 {
@@ -496,10 +481,23 @@ static bool write_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create)
   char buf[512]; // Should be enough for options
   bool error=1;
 
-  if (!create->default_table_charset)
-    create->default_table_charset= thd->variables.collation_server;
+  /* If db.opt doesn't exist, defaults will be loaded */
+  HA_CREATE_INFO db_info;
+  load_db_opt(thd, path, &db_info);
 
-  uchar prev_db_read_only= get_db_read_only(thd, path);
+  if (!create->default_table_charset)
+  {
+    if (!create->alter_default_table_charset)
+      /* if we are not explicitly setting charset to default,
+       * use the current value */
+      create->default_table_charset = db_info.default_table_charset;
+    else
+      create->default_table_charset= thd->variables.collation_server;
+  }
+
+  /* if db_read_only is not specified, use the current value */
+  if (create->db_read_only == enum_db_read_only::HA_READ_ONLY_NULL)
+    create->db_read_only = db_info.db_read_only;
 
   if (put_dbopt(path, create))
     return 1;
@@ -513,8 +511,10 @@ static bool write_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create)
                               "\ndefault-collation=",
                               create->default_table_charset->name,
                               "\ndb-read-only=",
-                              create->db_read_only==0? "0":
-                              create->db_read_only==1? "1":"2",
+                              create->db_read_only==
+                                enum_db_read_only::HA_READ_ONLY_YES? "1":
+                              create->db_read_only==
+                                enum_db_read_only::HA_READ_ONLY_SUPER? "2":"0",
                               "\n", NullS) - buf);
 
     /* Error is written by mysql_file_write */
@@ -525,7 +525,7 @@ static bool write_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create)
 
   /* If the read_only option is not changed,
    * don't need to update it across all sessions */
-  if (prev_db_read_only != create->db_read_only)
+  if (db_info.db_read_only != create->db_read_only)
     update_thd_db_read_only(path, create->db_read_only);
 
   return error;
@@ -611,7 +611,18 @@ bool load_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create)
       }
       else if (!strncmp(buf,"db-read-only", (pos-buf)))
       {
-        create->db_read_only = (*(pos+1) - '0');
+        if (!strcmp((pos+1), "0"))
+          create->db_read_only = HA_READ_ONLY_NO;
+        else if (!strcmp((pos+1), "1"))
+          create->db_read_only = HA_READ_ONLY_YES;
+        else if (!strcmp((pos+1), "2"))
+          create->db_read_only = HA_READ_ONLY_SUPER;
+        else
+        {
+          sql_print_error("Error while loading database options: '%s':",path);
+          sql_print_error(ER(ER_UNKNOWN_DB_READ_ONLY),pos+1);
+          create->db_read_only = HA_READ_ONLY_NO;
+        }
       }
     }
   }

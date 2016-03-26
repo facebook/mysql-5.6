@@ -7218,8 +7218,9 @@ ER_UUID_NOT_IN_EXECUTED_GTID_SET
 ER_DB_FAILED_TO_LOCK_REC_NOWAIT
   eng "Failed to lock a record and didn't wait"
 
-ER_PLACE_HOLDER_1922
-  eng "PLACE HOLDER."
+ER_UNKNOWN_DB_READ_ONLY
+  eng "Unknown db read ony option: '%-.64s'"
+
 ER_PLACE_HOLDER_1923
   eng "PLACE HOLDER."
 ER_PLACE_HOLDER_1924
