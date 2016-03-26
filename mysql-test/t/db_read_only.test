@@ -177,6 +177,27 @@ show create database test;
 show create database test;
 
 #
+# Alter database options will not overwrite un-altered optinos
+#
+create database test_db_opt;
+show create database test_db_opt;
+alter database test_db_opt read_only = true;
+show create database test_db_opt;
+alter database test_db_opt default charset = utf8;
+show create database test_db_opt;
+alter database test_db_opt default charset = default;
+show create database test_db_opt;
+alter database test_db_opt default collate = utf8_general_ci;
+show create database test_db_opt;
+alter database test_db_opt super_read_only  = true;
+show create database test_db_opt;
+alter database test_db_opt super_read_only  = false;
+show create database test_db_opt;
+alter database test_db_opt default collate = default;
+show create database test_db_opt;
+drop database test_db_opt;
+
+#
 # cleanup
 #
 --echo connection default;
