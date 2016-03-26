@@ -1071,10 +1071,19 @@ enum enum_stats_auto_recalc { HA_STATS_AUTO_RECALC_DEFAULT= 0,
                               HA_STATS_AUTO_RECALC_ON,
                               HA_STATS_AUTO_RECALC_OFF };
 
+enum enum_db_read_only { DB_READ_ONLY_NO = 0,
+                         DB_READ_ONLY_YES = 1,
+                         DB_READ_ONLY_SUPER = 2,
+                         DB_READ_ONLY_NULL = 255 };
+
 typedef struct st_ha_create_information
 {
   const CHARSET_INFO *table_charset, *default_table_charset;
-  uchar db_read_only;
+  bool alter_default_table_charset; /* This is to differentiate whether the
+                                       null value for default_table_charset
+                                       means it is explicitly set to default or
+                                       it is not specified in alter */
+  enum enum_db_read_only db_read_only;
   LEX_STRING connect_string;
   const char *password, *tablespace;
   LEX_STRING comment;
@@ -1111,7 +1120,7 @@ typedef struct st_ha_create_information
                             in Table_map_log_events */
 
   /* initialize db_read_only parameter */
-  st_ha_create_information() : db_read_only(0) {}
+  st_ha_create_information() : db_read_only(DB_READ_ONLY_NO) {}
 } HA_CREATE_INFO;
 
 /**
