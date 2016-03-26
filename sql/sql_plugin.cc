@@ -2944,15 +2944,16 @@ static void plugin_vars_free_values(sys_var *vars)
 
 static SHOW_TYPE pluginvar_show_type(st_mysql_sys_var *plugin_var)
 {
+  bool is_signed = plugin_var->flags & PLUGIN_VAR_UNSIGNED;
   switch (plugin_var->flags & PLUGIN_VAR_TYPEMASK) {
   case PLUGIN_VAR_BOOL:
     return SHOW_MY_BOOL;
   case PLUGIN_VAR_INT:
-    return SHOW_INT;
+    return is_signed ? SHOW_INT : SHOW_SIGNED_INT;
   case PLUGIN_VAR_LONG:
-    return SHOW_LONG;
+    return is_signed ? SHOW_LONG : SHOW_SIGNED_LONG;
   case PLUGIN_VAR_LONGLONG:
-    return SHOW_LONGLONG;
+    return is_signed ? SHOW_LONGLONG : SHOW_SIGNED_LONGLONG;
   case PLUGIN_VAR_STR:
     return SHOW_CHAR_PTR;
   case PLUGIN_VAR_ENUM:
