@@ -20,6 +20,7 @@ phutil_register_library_map(array(
     'FacebookMySQLUnitTestEngine' => 'unit/FacebookMySQLUnitTestEngine.php',
     'FacebookMySQLWhitespaceLinter' => 'lint/linter/FacebookMySQLWhitespaceLinter.php',
     'FbcodeCppLinter' => 'lint/linter/FbcodeCppLinter.php',
+    'FacebookMySQLHowtoevenLinter' => '../../tools/arcanist/lint/linter/FacebookMySQLHowtoevenLinter.php',
   ),
   'function' =>
   array(
@@ -36,5 +37,6 @@ phutil_register_library_map(array(
     'FacebookMySQLUnitTestEngine' => 'ArcanistBaseUnitTestEngine',
     'FacebookMySQLWhitespaceLinter' => 'ArcanistLinter',
     'FbcodeCppLinter' => 'ArcanistLinter',
+    'FacebookMySQLHowtoevenLinter' => 'ArcanistLinter',
   ),
 ));
