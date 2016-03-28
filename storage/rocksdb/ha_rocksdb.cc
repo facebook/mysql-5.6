@@ -115,7 +115,7 @@ static std::shared_ptr<rocksdb::Statistics> rocksdb_stats;
 static std::unique_ptr<rocksdb::Env> flashcache_aware_env;
 static std::shared_ptr<Rdb_tbl_prop_coll_factory>
   properties_collector_factory;
-static rdb_perf_context_shared global_perf_context;
+static Rdb_perf_context_shared global_perf_context;
 static std::vector<std::string> split(const std::string& input,
                                       char               delimiter);
 
@@ -1958,7 +1958,7 @@ static int rocksdb_commit(handlerton* hton, THD* thd, bool commit_tx, bool)
 {
   DBUG_ENTER("rocksdb_commit");
 
-  rdb_perf_context_local local_perf_context;
+  Rdb_perf_context_local local_perf_context;
   RDB_PERF_CONTEXT_GUARD(local_perf_context, nullptr, global_perf_context,
                          rocksdb_perf_context_level != rocksdb::kDisable);
 
@@ -2002,7 +2002,7 @@ static int rocksdb_commit(handlerton* hton, THD* thd, bool commit_tx, bool)
 
 static int rocksdb_rollback(handlerton* hton, THD* thd, bool rollback_tx)
 {
-  rdb_perf_context_local local_perf_context;
+  Rdb_perf_context_local local_perf_context;
   RDB_PERF_CONTEXT_GUARD(local_perf_context, nullptr, global_perf_context,
                          rocksdb_perf_context_level != rocksdb::kDisable);
 
@@ -2314,7 +2314,7 @@ static int rocksdb_start_tx_and_assign_read_view(
         char**  gtid_executed,  /* out: Gtids logged until last commit */
         int*    gtid_executed_length)   /*out: Length of gtid_executed string */
 {
-  rdb_perf_context_local local_perf_context;
+  Rdb_perf_context_local local_perf_context;
   RDB_PERF_CONTEXT_GUARD(local_perf_context, nullptr, global_perf_context,
                          rocksdb_perf_context_level != rocksdb::kDisable);
 
@@ -4277,7 +4277,7 @@ bool ha_rocksdb::check_keyread_allowed(uint inx, uint part, bool all_parts) cons
   bool res= true;
   KEY *key_info= &table_share->key_info[inx];
 
-  Field_pack_info dummy1;
+  Rdb_field_packing dummy1;
   res= dummy1.setup(key_info->key_part[part].field, inx, part);
 
   if (res && all_parts)
@@ -4287,7 +4287,7 @@ bool ha_rocksdb::check_keyread_allowed(uint inx, uint part, bool all_parts) cons
       Field *field;
       if ((field= key_info->key_part[i].field))
       {
-        Field_pack_info dummy;
+        Rdb_field_packing dummy;
         if (!dummy.setup(field, inx, i))
         {
           /* Cannot do index-only reads for this column */
@@ -8199,7 +8199,7 @@ rocksdb::BlockBasedTableOptions& rocksdb_get_table_options()
 }
 
 int rocksdb_get_share_perf_counters(const char *tablename,
-                                    SHARE_PERF_COUNTERS *counters)
+                                    RDB_SHARE_PERF_COUNTERS *counters)
 {
   DBUG_ASSERT(counters != nullptr);
 
