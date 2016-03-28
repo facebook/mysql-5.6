@@ -4,6 +4,9 @@
 # Internal Facebook build puts generate files in directories like:
 /_build-5.6*
 
+# Internal Facebook Howtoeven static analyzer uses this directory.
+/.howtoeven/*
+
 # Ignores for files resulting from building in place:
 *-t
 *.a
@@ -33,6 +36,7 @@ client/mysqlimport
 client/mysqlshow
 client/mysqlslap
 client/mysqltest
+compile_commands.json
 extra/comp_err
 extra/innochecksum
 extra/my_print_defaults
