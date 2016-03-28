@@ -107,29 +107,6 @@ const char * const PER_INDEX_CF_NAME = "$per_index_cf";
 */
 #define ROCKSDB_SIZEOF_HIDDEN_PK_COLUMN sizeof(longlong)
 
-/*
-  The intent behind a SHIP_ASSERT() macro is to have a mechanism for validating
-  invariants in retail builds. Traditionally assertions (such as macros defined
-  in <cassert>) are evaluated for performance reasons only in debug builds and
-  become NOOP in retail builds when NDEBUG is defined.
-
-  This macro is intended to validate the invariants which are critical for
-  making sure that data corruption and data loss won't take place. Proper
-  intended usage can be described as "If a particular condition is not true then
-  stop everything what's going on and terminate the process because continued
-  execution will cause really bad things to happen".
-
-  Use the power of SHIP_ASSERT() wisely.
-*/
-
-#define SHIP_ASSERT(expr)                                               \
-  do {                                                                  \
-    if (!(expr)) {                                                      \
-      my_safe_printf_stderr("\nShip assert failure: \'%s\'\n", #expr);  \
-      abort_with_stack_traces();                                        \
-    }                                                                   \
-  } while (0)                                                           \
-
 /* MyRocks supports only the following collations for indexed columns */
 const std::set<const CHARSET_INFO *> MYROCKS_INDEX_COLLATIONS=
   {&my_charset_bin, &my_charset_utf8_bin, &my_charset_latin1_bin};
@@ -190,11 +167,11 @@ typedef struct st_rocksdb_share {
 
   /* Stores cumulative table statistics */
   my_io_perf_atomic_t io_perf_read;
-  rdb_perf_context_shared table_perf_context;
+  Rdb_perf_context_shared table_perf_context;
 } ROCKSDB_SHARE;
 
 typedef enum io_error_type {
-  ROCKSDB_IO_ERROR_TRX_COMMIT,
+  ROCKSDB_IO_ERROR_TX_COMMIT,
   ROCKSDB_IO_ERROR_DICT_COMMIT,
   ROCKSDB_IO_ERROR_BG_THREAD
 } ROCKSDB_IO_ERROR_TYPES;
@@ -521,7 +498,7 @@ class ha_rocksdb: public handler
     uint64_t block_read_count;
     uint64_t block_read_time;
   } io_perf;
-  rdb_perf_context_local local_perf_context;
+  Rdb_perf_context_local local_perf_context;
   void io_perf_start(void);
   void io_perf_end_and_record(void);
 
@@ -704,7 +681,7 @@ public:
     MY_ATTRIBUTE((__warn_unused_result__));
   int delete_row(const uchar *buf) MY_ATTRIBUTE((__warn_unused_result__));
   rocksdb::Status delete_or_singledelete(uint index,
-                                         Rdb_transaction *trx,
+                                         Rdb_transaction *tx,
                                          rocksdb::ColumnFamilyHandle* cf,
                                          const rocksdb::Slice& key)
     MY_ATTRIBUTE((__warn_unused_result__));
