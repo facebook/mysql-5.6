@@ -240,7 +240,7 @@ static int i_s_rocksdb_perf_context_fill_table(THD *thd,
   for (auto it : tablenames)
   {
     StringBuffer<256> buf, dbname, tablename, partname;
-    SHARE_PERF_COUNTERS counters;
+    RDB_SHARE_PERF_COUNTERS counters;
 
     if (rocksdb_normalize_tablename(it.c_str(), &buf)) {
       return HA_ERR_INTERNAL_ERROR;
@@ -267,7 +267,7 @@ static int i_s_rocksdb_perf_context_fill_table(THD *thd,
     }
 
     for (int i= 0; i < PC_MAX_IDX; i++) {
-      field[3]->store(pc_stat_types[i].c_str(), pc_stat_types[i].size(),
+      field[3]->store(rdb_pc_stat_types[i].c_str(), rdb_pc_stat_types[i].size(),
                       system_charset_info);
       field[4]->store(counters.value[i], true);
 
@@ -318,7 +318,7 @@ static int i_s_rocksdb_perf_context_global_fill_table(THD *thd,
   int ret= 0;
   DBUG_ENTER("i_s_rocksdb_perf_context_global_fill_table");
 
-  SHARE_PERF_COUNTERS counters;
+  RDB_SHARE_PERF_COUNTERS counters;
   if (rocksdb_get_share_perf_counters(nullptr, &counters))
     DBUG_RETURN(0);
 
@@ -326,8 +326,8 @@ static int i_s_rocksdb_perf_context_global_fill_table(THD *thd,
     DBUG_ASSERT(tables->table != nullptr);
     DBUG_ASSERT(tables->table->field != nullptr);
 
-    tables->table->field[0]->store(pc_stat_types[i].c_str(),
-                                   pc_stat_types[i].size(),
+    tables->table->field[0]->store(rdb_pc_stat_types[i].c_str(),
+                                   rdb_pc_stat_types[i].size(),
                                    system_charset_info);
     tables->table->field[1]->store(counters.value[i], true);
 
