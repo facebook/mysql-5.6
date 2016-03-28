@@ -13,9 +13,7 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
-
-#ifndef _rdb_perf_context_h
-#define _rdb_perf_context_h
+#pragma once
 
 /* C++ standard header files */
 #include <atomic>
@@ -74,38 +72,38 @@ enum {
   PC_MAX_IDX
 };
 
-struct rdb_perf_context_shared {
+struct Rdb_perf_context_shared {
   std::atomic_ullong value[PC_MAX_IDX];
 };
 
-struct rdb_perf_context_local {
+struct Rdb_perf_context_local {
   uint64_t value[PC_MAX_IDX];
 };
 
-extern std::string pc_stat_types[PC_MAX_IDX];
+extern std::string rdb_pc_stat_types[PC_MAX_IDX];
 
-void rdb_perf_context_start(rdb_perf_context_local &local_perf_context);
+void rdb_perf_context_start(Rdb_perf_context_local &local_perf_context);
 
-void rdb_perf_context_stop(rdb_perf_context_local &local_perf_context,
-                           rdb_perf_context_shared *table_perf_context,
-                           rdb_perf_context_shared &global_perf_context);
+void rdb_perf_context_stop(Rdb_perf_context_local &local_perf_context,
+                           Rdb_perf_context_shared *table_perf_context,
+                           Rdb_perf_context_shared &global_perf_context);
 
-typedef rdb_perf_context_local SHARE_PERF_COUNTERS;
+typedef Rdb_perf_context_local RDB_SHARE_PERF_COUNTERS;
 
-void rdb_perf_context_collect(rdb_perf_context_shared &perf_context,
-                              SHARE_PERF_COUNTERS *counters);
+void rdb_perf_context_collect(Rdb_perf_context_shared &perf_context,
+                              RDB_SHARE_PERF_COUNTERS *counters);
 
 
 // RAII utility to automatically call stop/start on scope entry/exit
-struct rdb_perf_context_guard {
-  rdb_perf_context_local &local_perf_context;
-  rdb_perf_context_shared *table_perf_context;
-  rdb_perf_context_shared &global_perf_context;
+struct Rdb_perf_context_guard {
+  Rdb_perf_context_local &local_perf_context;
+  Rdb_perf_context_shared *table_perf_context;
+  Rdb_perf_context_shared &global_perf_context;
   bool capture_perf_context;
 
-  rdb_perf_context_guard(rdb_perf_context_local &local_perf_context,
-                         rdb_perf_context_shared *table_perf_context,
-                         rdb_perf_context_shared &global_perf_context,
+  Rdb_perf_context_guard(Rdb_perf_context_local &local_perf_context,
+                         Rdb_perf_context_shared *table_perf_context,
+                         Rdb_perf_context_shared &global_perf_context,
                          bool capture_perf_context)
   : local_perf_context(local_perf_context),
     table_perf_context(table_perf_context),
@@ -118,7 +116,7 @@ struct rdb_perf_context_guard {
     }
   }
 
-  ~rdb_perf_context_guard() {
+  ~Rdb_perf_context_guard() {
     if (capture_perf_context)
     {
       rdb_perf_context_stop(local_perf_context,
@@ -129,9 +127,7 @@ struct rdb_perf_context_guard {
 };
 
 #define RDB_PERF_CONTEXT_GUARD(_local_, _table_, _global_, _capture_) \
-  rdb_perf_context_guard rdb_perf_context_guard_(_local_, _table_, _global_, \
+  Rdb_perf_context_guard rdb_perf_context_guard_(_local_, _table_, _global_, \
                                                  _capture_)
 
 }  // namespace myrocks
-
-#endif

@@ -34,7 +34,7 @@ int rocksdb_split_normalized_tablename(const char *fullname,
 std::vector<std::string> get_share_names(void);
 
 int rocksdb_get_share_perf_counters(const char *tablename,
-  SHARE_PERF_COUNTERS *counters) MY_ATTRIBUTE((__nonnull__(2)));
+  RDB_SHARE_PERF_COUNTERS *counters) MY_ATTRIBUTE((__nonnull__(2)));
 
 void request_save_stats();
 
