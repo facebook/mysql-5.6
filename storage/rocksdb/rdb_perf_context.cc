@@ -17,6 +17,9 @@
 /* This C++ file's header file */
 #include "./rdb_perf_context.h"
 
+/* C++ system header files */
+#include <string>
+
 /* RocksDB header files */
 #include "rocksdb/iostats_context.h"
 #include "rocksdb/perf_context.h"
@@ -28,7 +31,7 @@ namespace myrocks {
 //   2. Update sections (A), (B), and (C) below
 //   3. Update perf_context.test and show_engine.test
 
-std::string pc_stat_types[]=
+std::string rdb_pc_stat_types[]=
 {
   // (A) These should be in the same order as the PC enum
   "USER_KEY_COMPARISON_COUNT",
@@ -81,7 +84,7 @@ std::string pc_stat_types[]=
 #define IO_STAT_INIT(_field_) \
   local_perf_context.value[idx++]= rocksdb::iostats_context._field_
 
-void rdb_perf_context_start(rdb_perf_context_local &local_perf_context)
+void rdb_perf_context_start(Rdb_perf_context_local &local_perf_context)
 {
   // (B) These should be in the same order as the PC enum
   size_t idx= 0;
@@ -139,7 +142,7 @@ void rdb_perf_context_start(rdb_perf_context_local &local_perf_context)
                                  local_perf_context.value[idx];     \
   idx++
 
-void rdb_perf_context_diff(rdb_perf_context_local &local_perf_context)
+void rdb_perf_context_diff(Rdb_perf_context_local &local_perf_context)
 {
   // (C) These should be in the same order as the PC enum
   size_t idx= 0;
@@ -193,9 +196,9 @@ void rdb_perf_context_diff(rdb_perf_context_local &local_perf_context)
 #undef IO_PERF_DIFF
 #undef IO_STAT_DIFF
 
-void rdb_perf_context_stop(rdb_perf_context_local &local_perf_context,
-                           rdb_perf_context_shared *table_perf_context,
-                           rdb_perf_context_shared &global_perf_context)
+void rdb_perf_context_stop(Rdb_perf_context_local &local_perf_context,
+                           Rdb_perf_context_shared *table_perf_context,
+                           Rdb_perf_context_shared &global_perf_context)
 {
   rdb_perf_context_diff(local_perf_context);
   for (int i= 0; i < PC_MAX_IDX; i++) {
@@ -208,8 +211,8 @@ void rdb_perf_context_stop(rdb_perf_context_local &local_perf_context,
   }
 }
 
-void rdb_perf_context_collect(rdb_perf_context_shared &perf_context,
-                              SHARE_PERF_COUNTERS *counters)
+void rdb_perf_context_collect(Rdb_perf_context_shared &perf_context,
+                              RDB_SHARE_PERF_COUNTERS *counters)
 {
   DBUG_ASSERT(counters != nullptr);
 
