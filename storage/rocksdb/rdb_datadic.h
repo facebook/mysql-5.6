@@ -35,7 +35,7 @@ namespace myrocks {
 
 class Dict_manager;
 class Rdb_key_def;
-class Field_pack_info;
+class Rdb_field_packing;
 class Rdb_cf_manager;
 class Table_ddl_manager;
 
@@ -477,7 +477,7 @@ private:
   uint *m_pk_part_no;
 
   /* Array of index-part descriptors. */
-  Field_pack_info *m_pack_info;
+  Rdb_field_packing *m_pack_info;
 
   uint m_keyno; /* number of this index in the table */
 
@@ -514,41 +514,50 @@ private:
 };
 
 
-typedef void (*make_unpack_info_t) (Field_pack_info *fpi, Field *field, uchar *dst);
-typedef int (*index_field_unpack_t)(Field_pack_info *fpi, Field *field,
+/*
+  C-style "virtual table" allowing different handling of packing logic
+  depending upon the field type. See Rdb_field_packing::setup() implementation.
+*/
+
+typedef void (*make_unpack_info_t) (Rdb_field_packing *fpi, Field *field,
+                                    uchar *dst);
+
+typedef int (*index_field_unpack_t)(Rdb_field_packing *fpi, Field *field,
                                     Stream_reader *reader,
                                     const uchar *unpack_info);
 
-typedef int (*index_field_skip_t)(Field_pack_info *fpi, Field *field, Stream_reader *reader);
+typedef int (*index_field_skip_t)(Rdb_field_packing *fpi, Field *field,
+                                  Stream_reader *reader);
 
-typedef void (*index_field_pack_t)(Field_pack_info *fpi, Field *field, uchar* buf, uchar **dst);
+typedef void (*index_field_pack_t)(Rdb_field_packing *fpi, Field *field,
+                                   uchar* buf, uchar **dst);
 
 /*
   This stores information about how a field can be packed to mem-comparable
   form and unpacked back.
 */
 
-class Field_pack_info
+class Rdb_field_packing
 {
 public:
   /* Length of mem-comparable image of the field, in bytes */
-  int max_image_len;
+  int m_max_image_len;
 
   /* Length of image in the unpack data */
-  int unpack_data_len;
-  int unpack_data_offset;
+  int m_unpack_data_len;
+  int m_unpack_data_offset;
 
   /* Offset of field data in table->record[i] from field->ptr. */
-  int field_data_offset;
+  int m_field_data_offset;
 
-  bool maybe_null; /* TRUE <=> NULL-byte is stored */
+  bool m_maybe_null; /* TRUE <=> NULL-byte is stored */
 
   /*
     Valid only for VARCHAR fields.
   */
-  const CHARSET_INFO *varchar_charset;
+  const CHARSET_INFO *m_varchar_charset;
 
-  index_field_pack_t pack_func;
+  index_field_pack_t m_pack_func;
 
   /*
     Pack function is assumed to be:
@@ -556,7 +565,7 @@ public:
      - call field->make_sort_key();
     If you neeed to unpack, you should also call
   */
-  make_unpack_info_t make_unpack_info_func;
+  make_unpack_info_t m_make_unpack_info_func;
 
   /*
     This function takes
@@ -564,12 +573,12 @@ public:
     - unpack_info data
     and restores the original value.
   */
-  index_field_unpack_t unpack_func;
+  index_field_unpack_t m_unpack_func;
 
   /*
     This function skips over mem-comparable form.
   */
-  index_field_skip_t skip_func;
+  index_field_skip_t m_skip_func;
 
 private:
   /*
@@ -594,8 +603,8 @@ private:
     columns (and the point is that these columns are parts of PK, not parts
     of the current index).
   */
-  uint keynr;
-  uint key_part;
+  uint m_keynr;
+  uint m_key_part;
 public:
   bool setup(Field *field, uint keynr_arg, uint key_part_arg);
   Field *get_field_in_table(TABLE *tbl) const;
