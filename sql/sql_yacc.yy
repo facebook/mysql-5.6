@@ -2738,6 +2738,7 @@ create:
         | CREATE DATABASE opt_if_not_exists ident
           {
             Lex->create_info.default_table_charset= NULL;
+            Lex->create_info.alter_default_table_charset= false;
             Lex->create_info.used_fields= 0;
             Lex->create_info.db_read_only=
               enum_db_read_only::DB_READ_ONLY_NULL;
