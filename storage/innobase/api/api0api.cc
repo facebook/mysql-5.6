@@ -1818,6 +1818,21 @@ ib_execute_update_query_graph(
 	return(err);
 }
 
+UNIV_INTERN
+ib_err_t
+slave_gtid_info_upd_vector(
+	ib_crsr_t	ib_crsr,
+	const ib_tpl_t  ib_new_tpl)
+{
+	const ib_tuple_t* new_tuple = (const ib_tuple_t*) ib_new_tpl;
+	upd_t* upd = ib_update_vector_create(ib_crsr);
+	ib_update_col(ib_crsr, &upd->fields[0], 2,
+		      dtuple_get_nth_field(new_tuple->ptr, 2));
+	upd->info_bits = 0;
+	upd->n_fields = 1;
+	return DB_SUCCESS;
+}
+
 /*****************************************************************//**
 Update a row in a table.
 @return	DB_SUCCESS or err code */
@@ -1827,7 +1842,8 @@ ib_cursor_update_row(
 /*=================*/
 	ib_crsr_t	ib_crsr,	/*!< in: InnoDB cursor instance */
 	const ib_tpl_t	ib_old_tpl,	/*!< in: Old tuple in table */
-	const ib_tpl_t	ib_new_tpl)	/*!< in: New tuple to update */
+	const ib_tpl_t	ib_new_tpl,	/*!< in: New tuple to update */
+	ibool		upd_vector)
 {
 	upd_t*		upd;
 	ib_err_t	err;
@@ -1848,9 +1864,13 @@ ib_cursor_update_row(
 	ut_a(old_tuple->type == TPL_TYPE_ROW);
 	ut_a(new_tuple->type == TPL_TYPE_ROW);
 
-	upd = ib_update_vector_create(cursor);
+	if (!upd_vector) {
+		upd = ib_update_vector_create(cursor);
 
-	err = ib_calc_diff(cursor, upd, old_tuple, new_tuple);
+		err = ib_calc_diff(cursor, upd, old_tuple, new_tuple);
+	} else {
+		err = DB_SUCCESS;
+	}
 
 	if (err == DB_SUCCESS) {
 		/* Note that this is not a delete. */

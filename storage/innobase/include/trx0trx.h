@@ -1156,9 +1156,10 @@ struct trx_t{
 	char detailed_error[256];	/*!< detailed error message for last
 					error, or empty. */
 	/* These tuples are used in updating slave_gtid_info table */
-	ib_tpl_t new_tpl;
-	ib_tpl_t old_tpl;
-	ib_tpl_t search_tpl;
+	ib_tpl_t 	new_tpl;
+	ib_tpl_t 	old_tpl;
+	ib_tpl_t	search_tpl;
+	ib_crsr_t	gtid_info_crsr;
 };
 
 /* Transaction isolation levels (trx->isolation_level) */

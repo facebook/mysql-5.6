@@ -666,7 +666,8 @@ ib_cursor_update_row(
 /*=================*/
 	ib_crsr_t	ib_crsr,	/*!< in: InnoDB cursor instance */
 	const ib_tpl_t	ib_old_tpl,	/*!< in: Old tuple in table */
-	const ib_tpl_t	ib_new_tpl);	/*!< in: New tuple to update */
+	const ib_tpl_t	ib_new_tpl,	/*!< in: New tuple to update */
+	ibool		upd_vector = FALSE);
 
 /*****************************************************************//**
 Delete a row in a table.
@@ -1309,4 +1310,8 @@ ib_trx_get_start_time(
 /*==================*/
 	ib_trx_t	ib_trx);	/*!< in: transaction */
 
+ib_err_t
+slave_gtid_info_upd_vector(
+	ib_crsr_t	ib_crsr,
+	const ib_tpl_t  ib_new_tpl);
 #endif /* api0api_h */
