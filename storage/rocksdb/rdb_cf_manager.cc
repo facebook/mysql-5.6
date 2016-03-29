@@ -40,12 +40,17 @@ bool Rdb_cf_manager::is_cf_name_reverse(const char *name)
 static PSI_mutex_key ex_key_cfm;
 #endif
 
-void Rdb_cf_manager::init(std::vector<rocksdb::ColumnFamilyHandle*> *handles)
+void Rdb_cf_manager::init(
+  Rdb_cf_options* cf_options,
+  std::vector<rocksdb::ColumnFamilyHandle*> *handles)
 {
   mysql_mutex_init(ex_key_cfm, &m_mutex, MY_MUTEX_INIT_FAST);
 
+  DBUG_ASSERT(cf_options != nullptr);
   DBUG_ASSERT(handles != nullptr);
   DBUG_ASSERT(handles->size() > 0);
+
+  m_cf_options = cf_options;
 
   for (auto cfh : *handles) {
     DBUG_ASSERT(cfh != nullptr);
@@ -124,7 +129,7 @@ Rdb_cf_manager::get_or_create_cf(rocksdb::DB *rdb,
     /* Create a Column Family. */
     std::string cf_name_str(cf_name);
     rocksdb::ColumnFamilyOptions opts;
-    get_cf_options(cf_name_str, &opts);
+    m_cf_options->get_cf_options(cf_name_str, &opts);
 
     sql_print_information("RocksDB: creating column family %s", cf_name_str.c_str());
     sql_print_information("    write_buffer_size=%ld",    opts.write_buffer_size);

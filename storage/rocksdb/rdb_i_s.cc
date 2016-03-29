@@ -382,7 +382,7 @@ static int i_s_rocksdb_cfoptions_fill_table(THD *thd,
   {
     std::string val;
     rocksdb::ColumnFamilyOptions opts;
-    get_cf_options(cf_name, &opts);
+    cf_manager.get_cf_options(cf_name, &opts);
 
     std::vector<std::pair<std::string, std::string>> cf_option_types = {
       {"COMPARATOR", opts.comparator == nullptr ? "NULL" :
