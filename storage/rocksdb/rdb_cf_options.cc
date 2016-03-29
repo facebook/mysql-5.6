@@ -30,27 +30,65 @@
 /* RocksDB header files */
 #include "rocksdb/utilities/convenience.h"
 
+/* MyRocks header files */
+#include "./ha_rocksdb.h"
+#include "./rdb_cf_manager.h"
+#include "./rdb_compact_filter.h"
+
 namespace myrocks {
 
-void Cf_options::Get(const std::string &cf_name,
-                     rocksdb::ColumnFamilyOptions *opts) {
+Rdb_pk_comparator Rdb_cf_options::s_pk_comparator;
+Rdb_rev_comparator Rdb_cf_options::s_rev_pk_comparator;
+
+bool Rdb_cf_options::init(
+  size_t default_write_buffer_size,
+  const rocksdb::BlockBasedTableOptions& table_options,
+  std::shared_ptr<rocksdb::TablePropertiesCollectorFactory> prop_coll_factory,
+  const char * default_cf_options,
+  const char * override_cf_options)
+{
+  m_default_cf_opts.comparator = &s_pk_comparator;
+  m_default_cf_opts.compaction_filter_factory.reset(
+    new Rdb_compact_filter_factory);
+  m_default_cf_opts.write_buffer_size = default_write_buffer_size;
+
+  m_default_cf_opts.table_factory.reset(
+    rocksdb::NewBlockBasedTableFactory(table_options));
+
+  if (prop_coll_factory) {
+    m_default_cf_opts.table_properties_collector_factories.push_back(
+      prop_coll_factory);
+  }
+
+  if (!set_default(std::string(default_cf_options)) ||
+      !set_override(std::string(override_cf_options))) {
+    return false;
+  }
+
+  return true;
+}
+
+void Rdb_cf_options::get(const std::string &cf_name,
+                         rocksdb::ColumnFamilyOptions *opts)
+{
   DBUG_ASSERT(opts != nullptr);
 
   // set defaults
   rocksdb::GetColumnFamilyOptionsFromString(*opts,
-                                            default_config_,
+                                            m_default_config,
                                             opts);
 
   // set per-cf config if we have one
-  NameToConfig::iterator it = name_map_.find(cf_name);
-  if (it != name_map_.end()) {
+  Name_to_config_t::iterator it = m_name_map.find(cf_name);
+  if (it != m_name_map.end()) {
     rocksdb::GetColumnFamilyOptionsFromString(*opts,
                                               it->second,
                                               opts);
   }
 }
 
-bool Cf_options::SetDefault(const std::string &default_config) {
+bool Rdb_cf_options::set_default(const std::string &default_config)
+{
   rocksdb::ColumnFamilyOptions options;
 
   if (!default_config.empty() &&
@@ -63,12 +101,12 @@ bool Cf_options::SetDefault(const std::string &default_config) {
     return false;
   }
 
-  default_config_ = default_config;
+  m_default_config = default_config;
   return true;
 }
 
 // Skip over any spaces in the input string.
-static void skip_spaces(const std::string& input, size_t* pos)
+void Rdb_cf_options::skip_spaces(const std::string& input, size_t* pos)
 {
   DBUG_ASSERT(pos != nullptr);
 
@@ -79,8 +117,8 @@ static void skip_spaces(const std::string& input, size_t* pos)
 // Find a valid column family name.  Note that all characters except a
 // semicolon are valid (should this change?) and all spaces are trimmed from
 // the beginning and end but are not removed between other characters.
-static bool find_column_family(const std::string& input, size_t* pos,
-                              std::string* key)
+bool Rdb_cf_options::find_column_family(const std::string& input, size_t* pos,
+                                        std::string* key)
 {
   DBUG_ASSERT(pos != nullptr);
   DBUG_ASSERT(key != nullptr);
@@ -110,8 +148,8 @@ static bool find_column_family(const std::string& input, size_t* pos,
 // Find a valid options portion.  Everything is deemed valid within the options
 // portion until we hit as many close curly braces as we have seen open curly
 // braces.
-static bool find_options(const std::string& input, size_t* pos,
-                         std::string* options)
+bool Rdb_cf_options::find_options(const std::string& input, size_t* pos,
+                                  std::string* options)
 {
   DBUG_ASSERT(pos != nullptr);
   DBUG_ASSERT(options != nullptr);
@@ -172,8 +210,10 @@ static bool find_options(const std::string& input, size_t* pos,
   return false;
 }
 
-static bool find_cf_options_pair(const std::string& input, size_t* pos,
-                                 std::string* cf, std::string* opt_str)
+bool Rdb_cf_options::find_cf_options_pair(const std::string& input,
+                                          size_t* pos,
+                                          std::string* cf,
+                                          std::string* opt_str)
 {
   DBUG_ASSERT(pos != nullptr);
   DBUG_ASSERT(cf != nullptr);
@@ -224,14 +264,14 @@ static bool find_cf_options_pair(const std::string& input, size_t* pos,
   return true;
 }
 
-bool Cf_options::SetOverride(const std::string &override_config)
+bool Rdb_cf_options::set_override(const std::string &override_config)
 {
   // TODO(???): support updates?
 
   std::string cf;
   std::string opt_str;
   rocksdb::ColumnFamilyOptions options;
-  NameToConfig configs;
+  Name_to_config_t configs;
 
   // Loop through the characters of the string until we reach the end.
   size_t pos = 0;
@@ -267,9 +307,24 @@ bool Cf_options::SetOverride(const std::string &override_config)
   }
 
   // Everything checked out - make the map live
-  name_map_ = configs;
+  m_name_map = configs;
 
   return true;
+}
+
+void Rdb_cf_options::get_cf_options(const std::string &cf_name,
+                                    rocksdb::ColumnFamilyOptions *opts)
+{
+  DBUG_ASSERT(opts != nullptr);
+
+  *opts = m_default_cf_opts;
+  get(cf_name, opts);
+
+  // Set the comparator according to 'rev:'
+  if (Rdb_cf_manager::is_cf_name_reverse(cf_name.c_str()))
+    opts->comparator= &s_rev_pk_comparator;
+  else
+    opts->comparator= &s_pk_comparator;
 }
 
 }  // namespace myrocks
