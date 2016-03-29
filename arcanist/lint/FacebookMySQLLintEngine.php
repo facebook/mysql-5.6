@@ -91,9 +91,11 @@ class FacebookMySQLLintEngine extends ArcanistLintEngine {
         ->setPaths($myrocks_cpp_paths);
 
     //
-    // If USE_HOWTOEVEN is specified then run Howtoeven linter as well.
+    // If SKIP_HOWTOEVEN is specified then don't run Howtoeven linter.
+    // Readability note: strcmp() returns a non-zero value if strings aren't
+    // equal.
     //
-    if (!strcmp(getenv("USE_HOWTOEVEN"), 1)) {
+    if (strcmp(getenv("SKIP_HOWTOEVEN"), "1")) {
       // Advanced static analysis will be only applied to MyRocks because the
       // existing MySQL codebase differs too much from our requirements.
       $linters[] = id(new FacebookMySQLHowtoevenLinter())
