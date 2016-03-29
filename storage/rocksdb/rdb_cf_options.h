@@ -20,9 +20,12 @@
 #include <string>
 #include <unordered_map>
 
-namespace rocksdb {
-class ColumnFamilyOptions;
-}
+/* RocksDB header files */
+#include "rocksdb/table.h"
+#include "rocksdb/utilities/options_util.h"
+
+/* MyRocks header files */
+#include "./rdb_comparator.h"
 
 namespace myrocks {
 
@@ -35,21 +38,52 @@ namespace myrocks {
     and also there is a default value which applies to column
     families not found in the map.
 */
-class Cf_options {
+class Rdb_cf_options
+{
  public:
-  void Get(const std::string &cf_name, rocksdb::ColumnFamilyOptions *opts);
+  void get(const std::string &cf_name, rocksdb::ColumnFamilyOptions *opts);
 
-  bool SetDefault(const std::string &default_config);
-  bool SetOverride(const std::string &overide_config);
+  bool init(
+    size_t default_write_buffer_size,
+    const rocksdb::BlockBasedTableOptions& table_options,
+    std::shared_ptr<rocksdb::TablePropertiesCollectorFactory> prop_coll_factory,
+    const char * default_cf_options,
+    const char * override_cf_options);
+
+  const rocksdb::ColumnFamilyOptions& get_defaults() const {
+    return m_default_cf_opts;
+  }
+
+  void get_cf_options(
+    const std::string &cf_name,
+    rocksdb::ColumnFamilyOptions *opts) MY_ATTRIBUTE((__nonnull__));
 
  private:
-  typedef std::unordered_map<std::string, std::string> NameToConfig;
+  bool set_default(const std::string &default_config);
+  bool set_override(const std::string &overide_config);
 
-  /* cf_name -> value map */
-  NameToConfig name_map_;
+  /* Helper string manipulation functions */
+  static void skip_spaces(const std::string& input, size_t* pos);
+  static bool find_column_family(const std::string& input, size_t* pos,
+                                 std::string* key);
+  static bool find_options(const std::string& input, size_t* pos,
+                           std::string* options);
+  static bool find_cf_options_pair(const std::string& input, size_t* pos,
+                                   std::string* cf, std::string* opt_str);
+
+ private:
+  static Rdb_pk_comparator s_pk_comparator;
+  static Rdb_rev_comparator s_rev_pk_comparator;
+
+  typedef std::unordered_map<std::string, std::string> Name_to_config_t;
+
+  /* CF name -> value map */
+  Name_to_config_t m_name_map;
 
   /* The default value (if there is only one value, it is stored here) */
-  std::string default_config_;
+  std::string m_default_config;
+
+  rocksdb::ColumnFamilyOptions m_default_cf_opts;
 };
 
 }  // namespace myrocks
