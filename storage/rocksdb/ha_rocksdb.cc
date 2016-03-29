@@ -119,7 +119,7 @@ static Rdb_perf_context_shared global_perf_context;
 static std::vector<std::string> split(const std::string& input,
                                       char               delimiter);
 
-Dict_manager dict_manager;
+Rdb_dict_manager dict_manager;
 Rdb_cf_manager cf_manager;
 Table_ddl_manager ddl_manager;
 Binlog_info_manager binlog_manager;
@@ -8127,7 +8127,7 @@ void rocksdb_handle_io_error(rocksdb::Status status, enum io_error_type type)
   }
 }
 
-Dict_manager *get_dict_manager(void)
+Rdb_dict_manager *get_dict_manager(void)
 {
   return &dict_manager;
 }
