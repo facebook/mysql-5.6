@@ -19,6 +19,7 @@
 
 /* MyRocks header files */
 #include "./ha_rocksdb.h"  /* for thd_enter_cond and thd_exit_cond */
+#include "./rdb_utils.h"
 
 using namespace rocksdb;
 
@@ -79,12 +80,12 @@ Wrapped_mysql_cond::WaitFor(std::shared_ptr<TransactionDBMutex> mutex_arg,
 
   if (current_thd && mutex_obj->old_stage_info.count(current_thd) == 0)
   {
-    thd_enter_cond(current_thd, &cond_, mutex_ptr, &stage_waiting_on_row_lock2,
-                   &old_stage);
+    my_core::thd_enter_cond(current_thd, &cond_, mutex_ptr,
+                            &stage_waiting_on_row_lock2, &old_stage);
     /*
       After the mysql_cond_timedwait we need make this call
 
-        thd_exit_cond(thd, &old_stage);
+        my_core::thd_exit_cond(thd, &old_stage);
 
       to inform the SQL layer that KILLable wait has ended. However,
       that will cause mutex to be released. Defer the release until the mutex
@@ -102,7 +103,7 @@ Wrapped_mysql_cond::WaitFor(std::shared_ptr<TransactionDBMutex> mutex_arg,
 
 #ifndef STANDALONE_UNITTEST
     if (current_thd)
-      killed= thd_killed(current_thd);
+      killed= my_core::thd_killed(current_thd);
 #endif
   } while (!killed && res == EINTR);
 
@@ -212,7 +213,7 @@ void Wrapped_mysql_mutex::UnLock() {
     std::shared_ptr<PSI_stage_info> old_stage = old_stage_info[current_thd];
     old_stage_info.erase(current_thd);
     /* The following will call mysql_mutex_unlock */
-    thd_exit_cond(current_thd, old_stage.get());
+    my_core::thd_exit_cond(current_thd, old_stage.get());
     return;
   }
 #endif

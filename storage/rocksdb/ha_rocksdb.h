@@ -118,7 +118,6 @@ inline bool looks_like_per_index_cf_typo(const char *name)
 
 }  // namespace myrocks
 
-extern PSI_stage_info stage_waiting_on_row_lock;
 
 extern "C"
 {
@@ -148,7 +147,6 @@ int thd_binlog_format(const MYSQL_THD thd);
 bool thd_binlog_filter_ok(const MYSQL_THD thd);
 }
 
-//#endif
 
 namespace myrocks {
 
