@@ -102,7 +102,7 @@ extern const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT;
 
 static char * rocksdb_default_cf_options;
 static char * rocksdb_override_cf_options;
-Cf_options rocksdb_cf_options_map;
+Rdb_cf_options rocksdb_cf_options_map;
 
 ///////////////////////////////////////////////////////////
 // Globals
@@ -118,9 +118,6 @@ static std::shared_ptr<Rdb_tbl_prop_coll_factory>
 static Rdb_perf_context_shared global_perf_context;
 static std::vector<std::string> split(const std::string& input,
                                       char               delimiter);
-
-rocksdb::ColumnFamilyOptions default_cf_opts;
-
 
 Dict_manager dict_manager;
 Rdb_cf_manager cf_manager;
@@ -1176,100 +1173,11 @@ static void init_rocksdb_psi_keys()
 }
 #endif
 
-Primary_key_comparator rocksdb_pk_comparator;
-Reverse_comparator     rocksdb_rev_pk_comparator;
-
-/*
-  This function doesn't support reverse comparisons. They are handled by the
-  caller.
-*/
-int compare_mem_comparable_keys(const uchar *a, size_t a_len, const uchar *b, size_t b_len)
-{
-  rocksdb::Slice a_slice((char*)a, a_len);
-  rocksdb::Slice b_slice((char*)b, b_len);
-  return rocksdb_pk_comparator.Compare(a_slice, b_slice);
-}
-
 static mysql_mutex_t drop_index_mutex;
 static mysql_mutex_t drop_index_interrupt_mutex;
 static mysql_cond_t drop_index_interrupt_cond;
 static bool stop_drop_index_thread;
 
-class Rdb_CompactionFilter : public rocksdb::CompactionFilter
-{
-public:
-  explicit Rdb_CompactionFilter(uint32_t _cf_id) : cf_id(_cf_id) {}
-  ~Rdb_CompactionFilter()
-  {
-  }
-
-  // keys are passed in sorted order within the same sst.
-  // V1 Filter is thread safe on our usage (creating from Factory).
-  // Make sure to protect instance variables when switching to thread
-  // unsafe in the future.
-  virtual bool Filter(int level,
-                      const rocksdb::Slice& key,
-                      const rocksdb::Slice& existing_value,
-                      std::string* new_value,
-                      bool* value_changed) const override {
-
-    DBUG_ASSERT(key.size() >= sizeof(uint32));
-
-    GL_INDEX_ID gl_index_id;
-    gl_index_id.cf_id= cf_id;
-    gl_index_id.index_id= read_big_uint4((const uchar*)key.data());
-    DBUG_ASSERT(gl_index_id.index_id >= 1);
-
-    if (gl_index_id != prev_index)  // processing new index id
-    {
-      if (num_deleted > 0)
-      {
-        num_deleted= 0;
-      }
-      should_delete= dict_manager.is_drop_index_ongoing(gl_index_id);
-      prev_index= gl_index_id;
-    }
-
-    if (should_delete)
-      num_deleted++;
-
-    return should_delete;
-  }
-
-  virtual bool IgnoreSnapshots() const override { return true; }
-
-  virtual const char* Name() const override {
-    return "Rdb_CompactionFilter";
-  }
-private:
-
-  // Column family for this compaction filter
-  const uint32_t cf_id;
-  // Index id of the previous record
-  mutable GL_INDEX_ID prev_index= {0, 0};
-  // Number of rows deleted for the same index id
-  mutable uint64 num_deleted= 0;
-  // Current index id should be deleted or not (should be deleted if true)
-  mutable bool should_delete= false;
-};
-
-class Rdb_CompactionFilterFactory : public rocksdb::CompactionFilterFactory
-{
-public:
-  Rdb_CompactionFilterFactory() {}
-
-  ~Rdb_CompactionFilterFactory() {}
-
-  const char* Name() const override {
-    return "Rdb_CompactionFilterFactory";
-  }
-
-  std::unique_ptr<rocksdb::CompactionFilter> CreateCompactionFilter(
-      const rocksdb::CompactionFilter::Context& context) {
-    return std::unique_ptr<rocksdb::CompactionFilter>(
-      new Rdb_CompactionFilter(context.column_family_id));
-  }
-};
 
 /*
   Very short (functor-like) interface to be passed to
@@ -2461,20 +2369,6 @@ static void rocksdb_update_table_stats(
 }
 
 
-void get_cf_options(const std::string &cf_name, rocksdb::ColumnFamilyOptions *opts)
-{
-  DBUG_ASSERT(opts != nullptr);
-
-  *opts = default_cf_opts;
-  rocksdb_cf_options_map.Get(cf_name, opts);
-
-  // Set the comparator according to 'rev:'
-  if (Rdb_cf_manager::is_cf_name_reverse(cf_name.c_str()))
-    opts->comparator= &rocksdb_rev_pk_comparator;
-  else
-    opts->comparator= &rocksdb_pk_comparator;
-}
-
 static rocksdb::Status check_rocksdb_options_compatibility(
         const char *dbpath,
         const rocksdb::Options& main_opts,
@@ -2650,11 +2544,6 @@ static int rocksdb_init_func(void *p)
   std::vector<rocksdb::ColumnFamilyDescriptor> cf_descr;
   std::vector<rocksdb::ColumnFamilyHandle*> cf_handles;
 
-  default_cf_opts.comparator= &rocksdb_pk_comparator;
-  default_cf_opts.compaction_filter_factory.reset(new Rdb_CompactionFilterFactory);
-
-  default_cf_opts.write_buffer_size = ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT;
-
   table_options.index_type =
     (rocksdb::BlockBasedTableOptions::IndexType)rocksdb_index_type;
 
@@ -2665,7 +2554,7 @@ static int rocksdb_init_func(void *p)
   // and better memory allocation.
   // See: https://github.com/facebook/rocksdb/commit/9ab5adfc59a621d12357580c94451d9f7320c2dd
   table_options.format_version= 2;
-  default_cf_opts.table_factory.reset(rocksdb::NewBlockBasedTableFactory(table_options));
+
   if (rocksdb_collect_sst_properties) {
     properties_collector_factory = std::make_shared
       <Rdb_tbl_prop_coll_factory>(
@@ -2681,16 +2570,13 @@ static int rocksdb_init_func(void *p)
       rocksdb_table_stats_sampling_pct);
 
     mysql_mutex_unlock(&sysvar_mutex);
-
-    default_cf_opts.table_properties_collector_factories.push_back(
-      properties_collector_factory
-    );
   }
 
-  if (!rocksdb_cf_options_map.SetDefault(
-        std::string(rocksdb_default_cf_options)) ||
-      !rocksdb_cf_options_map.SetOverride(
-        std::string(rocksdb_override_cf_options))) {
+  if (!rocksdb_cf_options_map.init(ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT,
+                                   table_options,
+                                   properties_collector_factory,
+                                   rocksdb_default_cf_options,
+                                   rocksdb_override_cf_options)) {
     DBUG_RETURN(1);
   }
 
@@ -2706,7 +2592,7 @@ static int rocksdb_init_func(void *p)
   for (size_t i = 0; i < cf_names.size(); ++i)
   {
     rocksdb::ColumnFamilyOptions opts;
-    get_cf_options(cf_names[i], &opts);
+    rocksdb_cf_options_map.get_cf_options(cf_names[i], &opts);
 
     sql_print_information("  cf=%s", cf_names[i].c_str());
     sql_print_information("    write_buffer_size=%ld", opts.write_buffer_size);
@@ -2725,7 +2611,7 @@ static int rocksdb_init_func(void *p)
     cf_descr.push_back(rocksdb::ColumnFamilyDescriptor(cf_names[i], opts));
   }
 
-  rocksdb::Options main_opts(db_options, default_cf_opts);
+  rocksdb::Options main_opts(db_options, rocksdb_cf_options_map.get_defaults());
 
   /*
     Flashcache configuration:
@@ -2783,7 +2669,7 @@ static int rocksdb_init_func(void *p)
     sql_print_error("RocksDB: Error opening instance: %s", err_text.c_str());
     DBUG_RETURN(1);
   }
-  cf_manager.init(&cf_handles);
+  cf_manager.init(&rocksdb_cf_options_map, &cf_handles);
 
   if (dict_manager.init(rdb, &cf_manager))
   {
@@ -3115,7 +3001,7 @@ int ha_rocksdb::read_hidden_pk_id_from_rowkey(longlong* hidden_pk_id)
   rocksdb::Slice rowkey_slice(last_rowkey.ptr(), last_rowkey.length());
 
   // Get hidden primary key from old key slice
-  Stream_reader reader(&rowkey_slice);
+  Rdb_string_reader reader(&rowkey_slice);
   if ((!reader.read(Rdb_key_def::INDEX_NUMBER_SIZE)))
     return 1;
 
@@ -3372,7 +3258,7 @@ int ha_rocksdb::convert_record_from_storage_format(const rocksdb::Slice *key,
   DBUG_EXECUTE_IF("myrocks_simulate_bad_row_read3",
                   dbug_modify_rec_varchar12(retrieved_record););
 
-  Stream_reader reader(retrieved_record);
+  Rdb_string_reader reader(retrieved_record);
   my_ptrdiff_t ptr_diff= buf - table->record[0];
 
   /*
@@ -5962,7 +5848,7 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
       this key is unique since NULL is not equal to each other, so no lock is
       needed. Primary keys never have NULLable fields.
     */
-    if (!rocksdb_pk_comparator.Compare(new_key_slice, old_key_slice) ||
+    if (!Rdb_pk_comparator::bytewise_compare(new_key_slice, old_key_slice) ||
         n_null_fields > 0)
       continue;
 
@@ -8026,24 +7912,6 @@ static SHOW_VAR rocksdb_status_vars[]= {
   {NullS, NullS, SHOW_LONG}
 };
 
-
-/*
-  Compute a hash number for a PK value in RowKeyFormat.
-
-  @note
-    RowKeyFormat is comparable with memcmp. This means, any hash function will
-    work correctly. We use my_charset_bin's hash function.
-
-    Note from Bar: could also use crc32 function.
-*/
-
-ulong Primary_key_comparator::get_hashnr(const char *key, const size_t key_len)
-{
-  ulong nr=1, nr2=4;
-  my_charset_bin.coll->hash_sort(&my_charset_bin, (const uchar*)key, key_len,
-                                 &nr, &nr2);
-  return((ulong) nr);
-}
 
 void* background_thread(void*)
 {
