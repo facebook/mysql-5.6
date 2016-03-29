@@ -229,48 +229,56 @@ MACRO (MY_CHECK_CXX_COMPILER_FLAG FLAG RESULT)
   SET(CMAKE_REQUIRED_FLAGS "${SAVE_CMAKE_REQUIRED_FLAGS}")
 ENDMACRO()
 
-OPTION(WITH_ASAN "Enable address sanitizer" OFF)
-IF (WITH_ASAN)
-  # gcc 4.8.1 and new versions of clang
-  MY_CHECK_C_COMPILER_FLAG("-fsanitize=address" HAVE_C_FSANITIZE)
-  MY_CHECK_CXX_COMPILER_FLAG("-fsanitize=address" HAVE_CXX_FSANITIZE)
-
-  IF(HAVE_C_FSANITIZE AND HAVE_CXX_FSANITIZE)
+MACRO(MY_SANITIZER_CHECK SAN_OPT RESULT)
+  MY_CHECK_C_COMPILER_FLAG("${SAN_OPT}" C_RESULT)
+  MY_CHECK_CXX_COMPILER_FLAG("${SAN_OPT}" CXX_RESULT)
+  IF(C_RESULT AND CXX_RESULT)
     # We switch on basic optimization also for debug builds.
     # With optimization we may get some warnings, so we switch off -Werror
     SET(CMAKE_C_FLAGS_DEBUG
-      "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address -O1 -Wno-error -fPIC")
+      "${CMAKE_C_FLAGS_DEBUG} ${SAN_OPT} -O1 -Wno-error -fPIC")
+    SET(CMAKE_C_FLAGS_RELEASE
+      "${CMAKE_C_FLAGS_RELEASE} ${SAN_OPT} -fPIC")
     SET(CMAKE_C_FLAGS_RELWITHDEBINFO
-      "${CMAKE_C_FLAGS_RELWITHDEBINFO} -fsanitize=address -fPIC")
+      "${CMAKE_C_FLAGS_RELWITHDEBINFO} ${SAN_OPT} -fPIC")
     SET(CMAKE_CXX_FLAGS_DEBUG
-      "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address -O1 -Wno-error -fPIC")
+      "${CMAKE_CXX_FLAGS_DEBUG} ${SAN_OPT} -O1 -Wno-error -fPIC")
+    SET(CMAKE_CXX_FLAGS_RELEASE
+      "${CMAKE_CXX_FLAGS_RELEASE} ${SAN_OPT} -fPIC")
     SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO
-      "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -fsanitize=address -fPIC")
-    SET(WITH_ASAN_OK 1)
+      "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${SAN_OPT} -fPIC")
+    SET(${RESULT} 1)
   ELSE()
-    # older versions of clang
-    MY_CHECK_C_COMPILER_FLAG("-faddress-sanitizer" HAVE_C_FADDRESS)
-    MY_CHECK_CXX_COMPILER_FLAG("-faddress-sanitizer" HAVE_CXX_FFADDRESS)
-
-    IF(HAVE_C_FADDRESS AND HAVE_CXX_FFADDRESS)
-      # We switch on basic optimization also for debug builds.
-      SET(CMAKE_C_FLAGS_DEBUG
-        "${CMAKE_C_FLAGS_DEBUG} -faddress-sanitizer -O1 -fPIC")
-      SET(CMAKE_C_FLAGS_RELWITHDEBINFO
-        "${CMAKE_C_FLAGS_RELWITHDEBINFO} -faddress-sanitizer -fPIC")
-      SET(CMAKE_CXX_FLAGS_DEBUG
-        "${CMAKE_CXX_FLAGS_DEBUG} -faddress-sanitizer -O1 -fPIC")
-      SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO
-        "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -faddress-sanitizer -fPIC")
-      SET(WITH_ASAN_OK 1)
-    ENDIF()
+    SET(${RESULT} 0)
   ENDIF()
+ENDMACRO()
 
-  IF(NOT WITH_ASAN_OK)
-    MESSAGE(FATAL_ERROR "Do not know how to enable address sanitizer")
+OPTION(WITH_ASAN "Enable address sanitizer" OFF)
+IF(WITH_ASAN)
+  MY_SANITIZER_CHECK("-fsanitize=address" WITH_ASAN_OK)
+  IF(WITH_ASAN_OK)
+    SET(HAVE_ASAN 1)
+  ELSE()
+    MESSAGE(FATAL_ERROR "Do not know how to enable address sanitizer.")
   ENDIF()
 ENDIF()
 
+OPTION(WITH_UBSAN "Enable undefined behavior sanitizer" OFF)
+IF(WITH_UBSAN)
+  MY_SANITIZER_CHECK("-fsanitize=undefined" WITH_UBSAN_OK)
+  IF(NOT WITH_UBSAN_OK)
+    MESSAGE(FATAL_ERROR
+            "Do not know how to enable undefined behavior sanitizer.")
+  ELSE()
+    MESSAGE(WARNING
+            "Note that Undefined Behavior support is currently experimental.")
+  ENDIF()
+ENDIF()
+
+IF(WITH_ASAN AND WITH_UBSAN)
+  MESSAGE(FATAL_ERROR
+    "Cannot use AddressSanitizer and UndefinedBehaviorSanitizer together.")
+ENDIF()
 
 OPTION(ENABLE_DEBUG_SYNC "Enable debug sync (debug builds only)" ON) 
 IF(ENABLE_DEBUG_SYNC) 
