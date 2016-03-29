@@ -62,6 +62,31 @@
 extern my_bool cachedev_enabled;
 #endif /* TARGET_OS_LINUX */
 
+// Internal MySQL APIs not exposed in any header.
+extern "C"
+{
+/**
+  Mark transaction to rollback and mark error as fatal to a sub-statement.
+  @param  thd   Thread handle
+  @param  all   TRUE <=> rollback main transaction.
+*/
+void thd_mark_transaction_to_rollback(MYSQL_THD thd, bool all);
+
+/**
+ *   Get the user thread's binary logging format
+ *   @param thd  user thread
+ *   @return Value to be used as index into the binlog_format_names array
+*/
+int thd_binlog_format(const MYSQL_THD thd);
+
+/**
+ *   Check if binary logging is filtered for thread's current db.
+ *   @param  thd   Thread handle
+ *   @retval 1 the query is not filtered, 0 otherwise.
+*/
+bool thd_binlog_filter_ok(const MYSQL_THD thd);
+}
+
 namespace myrocks {
 
 static st_global_stats global_stats;
@@ -1101,8 +1126,8 @@ static uchar* rocksdb_get_key(ROCKSDB_SHARE *share, size_t *length,
 }
 
 /*
-  The following is needed as an argument for thd_enter_cond, irrespectively of
-  whether we're compiling with P_S or not.
+  The following is needed as an argument for mysql_stage_register,
+  irrespectively of whether we're compiling with P_S or not.
 */
 PSI_stage_info stage_waiting_on_row_lock= { 0, "Waiting for row lock", 0};
 
@@ -1287,7 +1312,7 @@ public:
         convert_error_code_to_mysql() does: force a statement
         rollback before returning HA_ERR_LOCK_WAIT_TIMEOUT:
         */
-      thd_mark_transaction_to_rollback(thd, false /*just statement*/);
+      my_core::thd_mark_transaction_to_rollback(thd, false /*just statement*/);
       m_detailed_error.copy(timeout_message("index",
                                             tbl_def->m_dbname_tablename.c_ptr(),
                                             key_descr->get_name().c_str()));
@@ -1366,8 +1391,8 @@ public:
     }
     else
     {
-      ::thd_binlog_pos(m_thd, &m_mysql_log_file_name, &m_mysql_log_offset,
-                       &m_mysql_gtid);
+      my_core::thd_binlog_pos(m_thd, &m_mysql_log_file_name,
+                              &m_mysql_log_offset, &m_mysql_gtid);
       binlog_manager.update(m_mysql_log_file_name,
                             m_mysql_log_offset,
                             m_mysql_gtid, m_rocksdb_tx->GetWriteBatch());
@@ -1803,11 +1828,11 @@ static int rocksdb_prepare(handlerton* hton, THD* thd, bool prepare_tx,
     return 1;
   }
   if (prepare_tx ||
-      (!thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))) {
+      (!my_core::thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))) {
     /* We were instructed to prepare the whole transaction, or
     this is an SQL statement end and autocommit is on */
     std::vector<st_slave_gtid_info> slave_gtid_info;
-    thd_slave_gtid_info(thd, &slave_gtid_info);
+    my_core::thd_slave_gtid_info(thd, &slave_gtid_info);
     for (auto it : slave_gtid_info) {
       rocksdb::WriteBatchBase* write_batch = tx->get_blind_write_batch();
       binlog_manager.update_slave_gtid_info(it.id, it.db, it.gtid, write_batch);
@@ -1876,7 +1901,7 @@ static int rocksdb_commit(handlerton* hton, THD* thd, bool commit_tx, bool)
   if (tx != nullptr)
   {
     if (commit_tx ||
-       (!thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN)))
+       (!my_core::thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN)))
     {
       /*
         We get here
@@ -1897,7 +1922,7 @@ static int rocksdb_commit(handlerton* hton, THD* thd, bool commit_tx, bool)
       tx->set_tx_failed(false);
     }
 
-    if (::thd_tx_isolation(thd) <= ISO_READ_COMMITTED)
+    if (my_core::thd_tx_isolation(thd) <= ISO_READ_COMMITTED)
     {
       // For READ_COMMITTED, we release any existing snapshot so that we will
       // see any changes that occurred since the last statement.
@@ -1940,7 +1965,7 @@ static int rocksdb_rollback(handlerton* hton, THD* thd, bool rollback_tx)
       tx->set_tx_failed(true);
     }
 
-    if (::thd_tx_isolation(thd) <= ISO_READ_COMMITTED)
+    if (my_core::thd_tx_isolation(thd) <= ISO_READ_COMMITTED)
     {
       // For READ_COMMITTED, we release any existing snapshot so that we will
       // see any changes that occurred since the last statement.
@@ -2051,7 +2076,7 @@ class Rdb_snapshot_status : public Rdb_tx_list_walker
       m_data += format_string("---SNAPSHOT, ACTIVE %lld sec\n"
                               "MySQL thread id %lu, OS thread handle %p\n",
                               curr_time - snapshot_timestamp,
-                              ::thd_get_thread_id(thd), thd);
+                              my_core::thd_get_thread_id(thd), thd);
     }
   }
 };
@@ -2184,7 +2209,7 @@ static inline void rocksdb_register_tx(handlerton *hton, THD *thd,
                                        Rdb_transaction *tx)
 {
   trans_register_ha(thd, FALSE, rocksdb_hton);
-  if (thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))
+  if (my_core::thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))
   {
     tx->start_stmt();
     trans_register_ha(thd, TRUE, rocksdb_hton);
@@ -2226,7 +2251,7 @@ static int rocksdb_start_tx_and_assign_read_view(
   RDB_PERF_CONTEXT_GUARD(local_perf_context, nullptr, global_perf_context,
                          rocksdb_perf_context_level != rocksdb::kDisable);
 
-  ulong const tx_isolation = ::thd_tx_isolation(thd);
+  ulong const tx_isolation = my_core::thd_tx_isolation(thd);
 
   if (tx_isolation != ISO_REPEATABLE_READ)
   {
@@ -4080,7 +4105,7 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
   DBUG_ENTER("ha_rocksdb::create");
 
   if (get_table_if_exists(name)) {
-    THD *thd = thd_get_current_thd();
+    THD *thd = my_core::thd_get_current_thd();
     if (thd->lex->sql_command == SQLCOM_TRUNCATE) {
       if (delete_table(name)) {
         DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
@@ -4931,7 +4956,7 @@ int ha_rocksdb::find_icp_matching_index_rec(bool move_forward, uchar *buf)
       }
       /*
         TODO: should we have this here, or RockDB handles this internally?
-        if (thd_killed(current_thd))
+        if (my_core::thd_killed(current_thd))
         {
           rc= HA_ERR_INTERNAL_ERROR; // doesn't matter
           break;
@@ -6738,8 +6763,8 @@ THR_LOCK_DATA **ha_rocksdb::store_lock(THD *thd,
     */
 
     if ((lock_type >= TL_WRITE_CONCURRENT_INSERT &&
-         lock_type <= TL_WRITE) && !thd_in_lock_tables(thd)
-        && !thd_tablespace_op(thd))
+         lock_type <= TL_WRITE) && !my_core::thd_in_lock_tables(thd)
+        && !my_core::thd_tablespace_op(thd))
       lock_type = TL_WRITE_ALLOW_WRITE;
 
     /*
@@ -6750,7 +6775,7 @@ THR_LOCK_DATA **ha_rocksdb::store_lock(THD *thd,
       concurrent inserts to t2.
     */
 
-    if (lock_type == TL_READ_NO_INSERT && !thd_in_lock_tables(thd))
+    if (lock_type == TL_READ_NO_INSERT && !my_core::thd_in_lock_tables(thd))
       lock_type = TL_READ;
 
     lock.type= lock_type;
@@ -6771,13 +6796,13 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
   int res= 0;
   DBUG_ENTER("ha_rocksdb::external_lock");
 
-  int binlog_format= thd_binlog_format(thd);
+  int binlog_format= my_core::thd_binlog_format(thd);
   bool unsafe_for_binlog= THDVAR(ha_thd(), unsafe_for_binlog);
   if (lock_type == F_WRLCK && !thd->rli_slave &&
       !unsafe_for_binlog &&
       binlog_format != BINLOG_FORMAT_ROW &&
       binlog_format != BINLOG_FORMAT_UNSPEC &&
-      thd_binlog_filter_ok(thd))
+      my_core::thd_binlog_filter_ok(thd))
   {
     my_printf_error(ER_UNKNOWN_ERROR,
              "Can't execute updates on master with binlog_format != ROW.",
@@ -6785,14 +6810,14 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
 
-  if (::thd_tx_isolation(thd) < ISO_READ_COMMITTED ||
-      ::thd_tx_isolation(thd) > ISO_REPEATABLE_READ)
+  if (my_core::thd_tx_isolation(thd) < ISO_READ_COMMITTED ||
+      my_core::thd_tx_isolation(thd) > ISO_REPEATABLE_READ)
   {
     my_printf_error(ER_UNKNOWN_ERROR,
                     "MyRocks supports only READ COMMITTED and REPEATABLE READ "
                     "isolation levels. Please change from current isolation "
                     "level %s",
-                    MYF(0), tx_isolation_names[thd_tx_isolation(thd)]);
+                    MYF(0), tx_isolation_names[my_core::thd_tx_isolation(thd)]);
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
 
@@ -6802,7 +6827,7 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
   {
     Rdb_transaction* tx= get_or_create_tx(thd);
 
-    if (!thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))
+    if (!my_core::thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))
     {
       /*
         Do like InnoDB: when we get here, it's time to commit a
