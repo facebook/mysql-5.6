@@ -31,6 +31,7 @@
 /* MyRocks header files */
 #include "./ha_rocksdb.h"
 #include "./properties_collector.h"
+#include "./rdb_utils.h"
 
 namespace myrocks {
 
@@ -38,7 +39,7 @@ class Rdb_dict_manager;
 class Rdb_key_def;
 class Rdb_field_packing;
 class Rdb_cf_manager;
-class Table_ddl_manager;
+class Rdb_ddl_manager;
 
 bool is_myrocks_collation_supported(Field *field);
 void write_int64(String *out, uint64 val);
@@ -695,20 +696,20 @@ public:
   objects are shared among all threads.
 */
 
-class Table_ddl_manager
+class Rdb_ddl_manager
 {
-  Rdb_dict_manager *dict;
-  HASH ddl_hash;  // Contains Rdb_tbl_def elements
+  Rdb_dict_manager *m_dict= nullptr;
+  my_core::HASH m_ddl_hash;  // Contains Rdb_tbl_def elements
   // maps index id to <table_name, index number>
   std::map<GL_INDEX_ID, std::pair<std::basic_string<uchar>, uint>>
-    index_num_to_keydef;
-  mysql_rwlock_t rwlock;
+    m_index_num_to_keydef;
+  mysql_rwlock_t m_rwlock;
 
-  Sequence_generator sequence;
+  Sequence_generator m_sequence;
   // A queue of table stats to write into data dictionary
   // It is produced by event listener (ie compaction and flush threads)
   // and consumed by the rocksdb background thread
-  std::map<GL_INDEX_ID, Rdb_index_stats> stats2store;
+  std::map<GL_INDEX_ID, Rdb_index_stats> m_stats2store;
 public:
   /* Load the data dictionary from on-disk storage */
   bool init(Rdb_dict_manager *dict_arg, Rdb_cf_manager *cf_manager,
@@ -736,7 +737,7 @@ public:
               rocksdb::WriteBatch *batch);
 
   uint get_and_update_next_number(Rdb_dict_manager *dict)
-    { return sequence.get_and_update_next_number(dict); }
+    { return m_sequence.get_and_update_next_number(dict); }
 
   /* Walk the data dictionary */
   int scan(void* cb_arg, int (*callback)(void* cb_arg, Rdb_tbl_def*));
