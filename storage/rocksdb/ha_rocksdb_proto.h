@@ -54,12 +54,12 @@ class Rdb_dict_manager;
 Rdb_dict_manager *get_dict_manager(void)
   MY_ATTRIBUTE((__warn_unused_result__));
 
-class Table_ddl_manager;
-Table_ddl_manager *get_ddl_manager(void)
+class Rdb_ddl_manager;
+Rdb_ddl_manager *get_ddl_manager(void)
   MY_ATTRIBUTE((__warn_unused_result__));
 
-class Binlog_info_manager;
-Binlog_info_manager *get_binlog_manager(void)
+class Rdb_binlog_manager;
+Rdb_binlog_manager *get_binlog_manager(void)
   MY_ATTRIBUTE((__warn_unused_result__));
 
 }  // namespace myrocks
