@@ -375,7 +375,7 @@ static TYPELIB info_log_level_typelib = {
 };
 
 static void
-rocksdb_set_rocksdb_info_log_level(THD* thd,
+rocksdb_set_rocksdb_info_log_level(THD* thd ,
                                    struct st_mysql_sys_var* var,
                                    void* var_ptr,
                                    const void* save)
