@@ -43,7 +43,7 @@ namespace myrocks {
 #ifndef my_core
 // C-style pseudo-namespace for MySQL Core API, to be used in decorating calls
 // to non-obvious MySQL functions, like the ones that do not start with well
-// known prefixes: "my_" and "mysql_".
+// known prefixes: "my_", "sql_", and "mysql_".
 #define my_core
 #endif  // my_core
 

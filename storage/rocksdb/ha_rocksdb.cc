@@ -146,8 +146,8 @@ static std::vector<std::string> split(const std::string& input,
 
 Rdb_dict_manager dict_manager;
 Rdb_cf_manager cf_manager;
-Table_ddl_manager ddl_manager;
-Binlog_info_manager binlog_manager;
+Rdb_ddl_manager ddl_manager;
+Rdb_binlog_manager binlog_manager;
 
 /*
    Hash used to track the number of open tables; variable for example share
@@ -1894,7 +1894,7 @@ static int rocksdb_recover(handlerton* hton, XID* xid_list, uint len,
     char file_buf[FN_REFLEN+1]= {0};
     my_off_t pos;
     char gtid_buf[FN_REFLEN+1]= {0};
-    if (binlog_manager.read(file_buf, pos, gtid_buf))
+    if (binlog_manager.read(file_buf, &pos, gtid_buf))
     {
       if (is_binlog_advanced(binlog_file, *binlog_pos, file_buf, pos))
       {
@@ -8183,12 +8183,12 @@ Rdb_dict_manager *get_dict_manager(void)
   return &dict_manager;
 }
 
-Table_ddl_manager *get_ddl_manager(void)
+Rdb_ddl_manager *get_ddl_manager(void)
 {
   return &ddl_manager;
 }
 
-Binlog_info_manager *get_binlog_manager(void)
+Rdb_binlog_manager *get_binlog_manager(void)
 {
   return &binlog_manager;
 }

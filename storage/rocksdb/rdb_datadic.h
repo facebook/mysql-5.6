@@ -31,6 +31,7 @@
 /* MyRocks header files */
 #include "./ha_rocksdb.h"
 #include "./properties_collector.h"
+#include "./rdb_utils.h"
 
 namespace myrocks {
 
@@ -38,7 +39,7 @@ class Rdb_dict_manager;
 class Rdb_key_def;
 class Rdb_field_packing;
 class Rdb_cf_manager;
-class Table_ddl_manager;
+class Rdb_ddl_manager;
 
 bool is_myrocks_collation_supported(Field *field);
 void write_int64(String *out, uint64 val);
@@ -695,20 +696,20 @@ public:
   objects are shared among all threads.
 */
 
-class Table_ddl_manager
+class Rdb_ddl_manager
 {
-  Rdb_dict_manager *dict;
-  HASH ddl_hash;  // Contains Rdb_tbl_def elements
+  Rdb_dict_manager *m_dict= nullptr;
+  my_core::HASH m_ddl_hash;  // Contains Rdb_tbl_def elements
   // maps index id to <table_name, index number>
   std::map<GL_INDEX_ID, std::pair<std::basic_string<uchar>, uint>>
-    index_num_to_keydef;
-  mysql_rwlock_t rwlock;
+    m_index_num_to_keydef;
+  mysql_rwlock_t m_rwlock;
 
-  Sequence_generator sequence;
+  Sequence_generator m_sequence;
   // A queue of table stats to write into data dictionary
   // It is produced by event listener (ie compaction and flush threads)
   // and consumed by the rocksdb background thread
-  std::map<GL_INDEX_ID, Rdb_index_stats> stats2store;
+  std::map<GL_INDEX_ID, Rdb_index_stats> m_stats2store;
 public:
   /* Load the data dictionary from on-disk storage */
   bool init(Rdb_dict_manager *dict_arg, Rdb_cf_manager *cf_manager,
@@ -720,9 +721,7 @@ public:
   Rdb_key_def* find(GL_INDEX_ID gl_index_id);
   std::unique_ptr<Rdb_key_def> get_copy_of_keydef(GL_INDEX_ID gl_index_id);
   void set_stats(
-    const std::unordered_map<GL_INDEX_ID,
-    Rdb_index_stats>& stats
-  );
+    const std::unordered_map<GL_INDEX_ID, Rdb_index_stats>& stats);
   void adjust_stats(
     const std::vector<Rdb_index_stats>& new_data,
     const std::vector<Rdb_index_stats>& deleted_data
@@ -736,7 +735,7 @@ public:
               rocksdb::WriteBatch *batch);
 
   uint get_and_update_next_number(Rdb_dict_manager *dict)
-    { return sequence.get_and_update_next_number(dict); }
+    { return m_sequence.get_and_update_next_number(dict); }
 
   /* Walk the data dictionary */
   int scan(void* cb_arg, int (*callback)(void* cb_arg, Rdb_tbl_def*));
@@ -746,10 +745,10 @@ private:
   /* Put the data into in-memory table (only) */
   int put(Rdb_tbl_def *key_descr, bool lock= true);
 
+  /* Helper functions to be passed to my_core::HASH object */
   static uchar* get_hash_key(Rdb_tbl_def *rec, size_t *length,
                              my_bool not_used MY_ATTRIBUTE((unused)));
   static void free_hash_elem(void* data);
-  rocksdb::ColumnFamilyHandle* system_cfh;
 
   bool validate_schemas();
 };
@@ -770,28 +769,30 @@ private:
      binlog_gtid_length (2 byte form)
      binlog_gtid
 */
-class Binlog_info_manager
+class Rdb_binlog_manager
 {
 public:
   bool init(Rdb_dict_manager *dict);
   void cleanup();
   void update(const char* binlog_name, const my_off_t binlog_pos,
               const char* binlog_gtid, rocksdb::WriteBatchBase* batch);
-  bool read(char* binlog_name, my_off_t& binlog_pos, char* binlog_gtid);
+  bool read(char* binlog_name, my_off_t* binlog_pos, char* binlog_gtid);
   void update_slave_gtid_info(uint id, const char* db, const char* gtid,
                               rocksdb::WriteBatchBase *write_batch);
 
 private:
-  Rdb_dict_manager *dict;
-  uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE];
-  rocksdb::Slice key_slice;
+  Rdb_dict_manager *m_dict= nullptr;
+  uchar m_key_buf[Rdb_key_def::INDEX_NUMBER_SIZE]= {0};
+  rocksdb::Slice m_key_slice;
+
   rocksdb::Slice pack_value(uchar *buf,
                             const char *binlog_name,
                             const my_off_t binlog_pos,
                             const char *binlog_gtid);
   bool unpack_value(const uchar *value, char *binlog_name,
-                    my_off_t &binlog_pos, char *binlog_gtid);
-  std::atomic<Rdb_tbl_def*> slave_gtid_info;
+                    my_off_t *binlog_pos, char *binlog_gtid);
+
+  std::atomic<Rdb_tbl_def*> m_slave_gtid_info_tbl;
 };
 
 
@@ -883,7 +884,8 @@ public:
   /* Raw RocksDB operations */
   std::unique_ptr<rocksdb::WriteBatch> begin();
   int commit(rocksdb::WriteBatch *batch, bool sync = true);
-  rocksdb::Status get_value(const rocksdb::Slice& key, std::string *value);
+  rocksdb::Status get_value(const rocksdb::Slice& key,
+                            std::string *value) const;
   void put_key(rocksdb::WriteBatchBase *batch, const rocksdb::Slice &key,
                const rocksdb::Slice &value);
   void delete_key(rocksdb::WriteBatchBase *batch,
