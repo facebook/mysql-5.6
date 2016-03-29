@@ -60,7 +60,7 @@ class Rdb_cf_manager
   void get_per_index_cf_name(const char *db_table_name, const char *index_name,
                              std::string *res);
 
-  Rdb_cf_options* m_cf_options;
+  Rdb_cf_options* m_cf_options= nullptr;
 
 public:
   static bool is_cf_name_reverse(const char *name);
