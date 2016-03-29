@@ -54,8 +54,8 @@ class Rdb_dict_manager;
 Rdb_dict_manager *get_dict_manager(void)
   __attribute__((__warn_unused_result__));
 
-class Table_ddl_manager;
-Table_ddl_manager *get_ddl_manager(void)
+class Rdb_ddl_manager;
+Rdb_ddl_manager *get_ddl_manager(void)
   __attribute__((__warn_unused_result__));
 
 class Binlog_info_manager;
