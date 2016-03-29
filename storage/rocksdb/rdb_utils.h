@@ -30,8 +30,8 @@ namespace myrocks {
 #endif  // interface
 
 /*
-  Introduce C-style namespaces, a handy way to make code more readble when
-  calling into a legacy API, which does not have any namespace defined.
+  Introduce C-style pseudo-namespaces, a handy way to make code more readble
+  when calling into a legacy API, which does not have any namespace defined.
   Since we cannot or don't want to change the API in any way, we can use this
   mechanism to define readability tokens that look like C++ namespaces, but are
   not enforced in any way by the compiler, since the pre-compiler strips them
@@ -41,7 +41,9 @@ namespace myrocks {
 */
 
 #ifndef my_core
-// C-style namespace for MySQL Core API
+// C-style pseudo-namespace for MySQL Core API, to be used in decorating calls
+// to non-obvious MySQL functions, like the ones that do not start with well
+// known prefixes: "my_" and "mysql_".
 #define my_core
 #endif  // my_core
 
