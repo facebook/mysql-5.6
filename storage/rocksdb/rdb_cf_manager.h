@@ -27,7 +27,13 @@
 /* RocksDB header files */
 #include "rocksdb/db.h"
 
+/* MyRocks header files */
+#include "./rdb_cf_options.h"
+
 namespace myrocks {
+
+void get_per_index_cf_name(const char *db_table_name, const char *index_name,
+                           std::string *res);
 
 /*
   We need a Column Family (CF) manager. Its functions:
@@ -54,6 +60,8 @@ class Rdb_cf_manager
   void get_per_index_cf_name(const char *db_table_name, const char *index_name,
                              std::string *res);
 
+  Rdb_cf_options* m_cf_options;
+
 public:
   static bool is_cf_name_reverse(const char *name);
 
@@ -61,7 +69,8 @@ public:
     This is called right after the DB::Open() call. The parameters describe column
     families that are present in the database. The first CF is the default CF.
   */
-  void init(std::vector<rocksdb::ColumnFamilyHandle*> *handles);
+  void init(Rdb_cf_options* cf_options,
+            std::vector<rocksdb::ColumnFamilyHandle*> *handles);
   void cleanup();
 
   /*
@@ -91,6 +100,12 @@ public:
   std::vector<rocksdb::ColumnFamilyHandle*> get_all_cf(void) const;
 
   // void drop_cf(); -- not implemented so far.
+
+  void get_cf_options(
+    const std::string &cf_name,
+    rocksdb::ColumnFamilyOptions *opts) MY_ATTRIBUTE((__nonnull__)) {
+      m_cf_options->get_cf_options(cf_name, opts);
+  }
 };
 
 }  // namespace myrocks

@@ -102,16 +102,6 @@ uint16 read_short(const char **data)
   return ntohs(buf);
 }
 
-uchar read_byte(const char **data)
-{
-  DBUG_ASSERT(data != nullptr);
-  DBUG_ASSERT(*data != nullptr);
-
-  uchar buf;
-  memcpy(&buf, *data, sizeof(uchar));
-  *data += sizeof(uchar);
-  return buf;
-}
 
 /*
   Rdb_key_def class implementation
@@ -426,7 +416,7 @@ uint Rdb_key_def::get_primary_key_tuple(TABLE *table,
   const char* end_offs[MAX_REF_PARTS];
   int pk_key_part;
   uint i;
-  Stream_reader reader(key);
+  Rdb_string_reader reader(key);
 
   // Skip the index number
   if ((!reader.read(INDEX_NUMBER_SIZE)))
@@ -768,8 +758,8 @@ int Rdb_key_def::compare_keys(
   // not rely on column_index being valid
   *column_index = 0xbadf00d;
 
-  Stream_reader reader1(key1);
-  Stream_reader reader2(key2);
+  Rdb_string_reader reader1(key1);
+  Rdb_string_reader reader2(key2);
 
   // Skip the index number
   if ((!reader1.read(INDEX_NUMBER_SIZE)))
@@ -840,7 +830,7 @@ size_t Rdb_key_def::key_length(TABLE *table, const rocksdb::Slice &key) const
 {
   DBUG_ASSERT(table != nullptr);
 
-  Stream_reader reader(&key);
+  Rdb_string_reader reader(&key);
 
   if ((!reader.read(INDEX_NUMBER_SIZE)))
     return size_t(-1);
@@ -873,7 +863,7 @@ int Rdb_key_def::unpack_record(const ha_rocksdb *handler, TABLE *table,
                                uchar *buf, const rocksdb::Slice *packed_key,
                                const rocksdb::Slice *unpack_info)
 {
-  Stream_reader reader(packed_key);
+  Rdb_string_reader reader(packed_key);
   const uchar * const unpack_ptr= (const uchar*)unpack_info->data();
   const bool is_hidden_pk= (m_index_type == INDEX_TYPE_HIDDEN_PRIMARY);
   const bool hidden_pk_exists= rocksdb_has_hidden_pk(table);
@@ -976,7 +966,7 @@ int Rdb_key_def::unpack_record(const ha_rocksdb *handler, TABLE *table,
   */
   if (unpack_info->size() == CHECKSUM_CHUNK_SIZE)
   {
-    Stream_reader unp_reader(unpack_info);
+    Rdb_string_reader unp_reader(unpack_info);
     if (unp_reader.read(1)[0] == CHECKSUM_DATA_TAG)
     {
       if (handler->verify_checksums)
@@ -1038,7 +1028,8 @@ bool Rdb_key_def::rocksdb_has_hidden_pk(const TABLE* table)
 // Rdb_field_packing
 ///////////////////////////////////////////////////////////////////////////////////////////
 
-int skip_max_length(Rdb_field_packing *fpi, Field *field, Stream_reader *reader)
+int skip_max_length(Rdb_field_packing *fpi, Field *field,
+                    Rdb_string_reader *reader)
 {
   if (!reader->read(fpi->m_max_image_len))
     return 1;
@@ -1047,7 +1038,7 @@ int skip_max_length(Rdb_field_packing *fpi, Field *field, Stream_reader *reader)
 
 
 int unpack_integer(Rdb_field_packing *fpi, Field *field,
-                   Stream_reader *reader, const uchar *unpack_info)
+                   Rdb_string_reader *reader, const uchar *unpack_info)
 {
   const int length= fpi->m_max_image_len;
 
@@ -1111,10 +1102,10 @@ void swap_float_bytes(uchar *dst, const uchar *src)
 #endif
 
 static
-int unpack_floating_point(uchar *dst, Stream_reader *reader, size_t size,
-                         int exp_digit, const uchar *zero_pattern,
-                         const uchar *zero_val,
-                         void (*swap)(uchar *, const uchar *))
+int unpack_floating_point(uchar *dst, Rdb_string_reader *reader, size_t size,
+                          int exp_digit, const uchar *zero_pattern,
+                          const uchar *zero_val,
+                          void (*swap_func)(uchar *, const uchar *))
 {
   const uchar* from;
 
@@ -1159,7 +1150,9 @@ int unpack_floating_point(uchar *dst, Stream_reader *reader, size_t size,
 
 #if !defined(WORDS_BIGENDIAN)
   // On little-endian, swap the bytes around
-  swap(dst, tmp);
+  swap_func(dst, tmp);
+#else
+  static_assert(swap_func == nullptr, "Assuming that no swapping is needed.");
 #endif
 
   return 0;
@@ -1178,7 +1171,7 @@ int unpack_floating_point(uchar *dst, Stream_reader *reader, size_t size,
 */
 static
 int unpack_double(Rdb_field_packing *fpi, Field *field,
-                  Stream_reader *reader, const uchar *unpack_info)
+                  Rdb_string_reader *reader, const uchar *unpack_info)
 {
   static double      zero_val = 0.0;
   static const uchar zero_pattern[8] = { 128, 0, 0, 0, 0, 0, 0, 0 };
@@ -1199,7 +1192,7 @@ int unpack_double(Rdb_field_packing *fpi, Field *field,
 */
 static
 int unpack_float(Rdb_field_packing *fpi, Field *field,
-                 Stream_reader *reader, const uchar *unpack_info)
+                 Rdb_string_reader *reader, const uchar *unpack_info)
 {
   static float       zero_val = 0.0;
   static const uchar zero_pattern[4] = { 128, 0, 0, 0 };
@@ -1214,7 +1207,7 @@ int unpack_float(Rdb_field_packing *fpi, Field *field,
 
 static
 int unpack_newdate(Rdb_field_packing *fpi, Field *field,
-                   Stream_reader *reader, const uchar *unpack_info)
+                   Rdb_string_reader *reader, const uchar *unpack_info)
 {
   const char* from;
   DBUG_ASSERT(fpi->m_max_image_len == 3);
@@ -1236,7 +1229,7 @@ int unpack_newdate(Rdb_field_packing *fpi, Field *field,
 */
 
 int unpack_binary_str(Rdb_field_packing *fpi, Field *field,
-                      Stream_reader *reader,
+                      Rdb_string_reader *reader,
                       const uchar *unpack_info)
 {
   const char* from;
@@ -1254,7 +1247,7 @@ int unpack_binary_str(Rdb_field_packing *fpi, Field *field,
 */
 
 int unpack_utf8_str(Rdb_field_packing *fpi, Field *field,
-                    Stream_reader *reader,
+                    Rdb_string_reader *reader,
                     const uchar *unpack_info)
 {
   CHARSET_INFO *cset= (CHARSET_INFO*)field->charset();
@@ -1354,7 +1347,7 @@ bool is_myrocks_collation_supported(Field *field)
 
 
 int unpack_binary_or_utf8_varchar(Rdb_field_packing *fpi, Field *field,
-                                  Stream_reader *reader,
+                                  Rdb_string_reader *reader,
                                   const uchar *unpack_info)
 {
   const uchar *ptr;
@@ -1449,7 +1442,7 @@ int unpack_binary_or_utf8_varchar(Rdb_field_packing *fpi, Field *field,
 
 
 int skip_variable_length(Rdb_field_packing *fpi, Field *field,
-                         Stream_reader *reader)
+                         Rdb_string_reader *reader)
 {
   const uchar *ptr;
   bool finished= false;

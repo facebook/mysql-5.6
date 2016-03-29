@@ -23,6 +23,7 @@ namespace myrocks {
 
 void get_cf_options(const std::string &cf_name,
   rocksdb::ColumnFamilyOptions *opts) MY_ATTRIBUTE((__nonnull__));
+
 int rocksdb_normalize_tablename(const char *tablename,
   StringBuffer<256> *strbuf)
   MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
