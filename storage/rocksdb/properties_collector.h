@@ -30,7 +30,7 @@
 
 namespace myrocks {
 
-class Table_ddl_manager;
+class Rdb_ddl_manager;
 class Rdb_key_def;
 
 extern uint64_t rocksdb_num_sst_entry_put;
@@ -84,7 +84,7 @@ class Rdb_tbl_prop_coll : public rocksdb::TablePropertiesCollector
 {
  public:
   Rdb_tbl_prop_coll(
-    Table_ddl_manager* ddl_manager,
+    Rdb_ddl_manager* ddl_manager,
     Rdb_compact_params params,
     uint32_t cf_id,
     const uint8_t table_stats_sampling_pct
@@ -127,7 +127,7 @@ class Rdb_tbl_prop_coll : public rocksdb::TablePropertiesCollector
  private:
   uint32_t m_cf_id;
   std::unique_ptr<Rdb_key_def> m_keydef;
-  Table_ddl_manager* m_ddl_manager;
+  Rdb_ddl_manager* m_ddl_manager;
   std::vector<Rdb_index_stats> m_stats;
   static const char* INDEXSTATS_KEY;
 
@@ -148,7 +148,7 @@ class Rdb_tbl_prop_coll : public rocksdb::TablePropertiesCollector
 class Rdb_tbl_prop_coll_factory
     : public rocksdb::TablePropertiesCollectorFactory {
  public:
-  explicit Rdb_tbl_prop_coll_factory(Table_ddl_manager* ddl_manager)
+  explicit Rdb_tbl_prop_coll_factory(Rdb_ddl_manager* ddl_manager)
     : m_ddl_manager(ddl_manager) {
   }
 
@@ -177,7 +177,7 @@ class Rdb_tbl_prop_coll_factory
   }
 
  private:
-  Table_ddl_manager* m_ddl_manager;
+  Rdb_ddl_manager* m_ddl_manager;
   Rdb_compact_params m_params;
   uint8_t m_table_stats_sampling_pct;
 };

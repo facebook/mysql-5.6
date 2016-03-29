@@ -41,7 +41,7 @@ uint64_t rocksdb_num_sst_entry_other = 0;
 my_bool rocksdb_compaction_sequential_deletes_count_sd = false;
 
 Rdb_tbl_prop_coll::Rdb_tbl_prop_coll(
-  Table_ddl_manager* ddl_manager,
+  Rdb_ddl_manager* ddl_manager,
   Rdb_compact_params params,
   uint32_t cf_id,
   const uint8_t table_stats_sampling_pct

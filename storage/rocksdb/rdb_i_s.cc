@@ -693,7 +693,7 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
   int ret= 0;
 
   /* binlog info */
-  Binlog_info_manager *blm = get_binlog_manager();
+  Rdb_binlog_manager *blm = get_binlog_manager();
   DBUG_ASSERT(blm != nullptr);
 
   char file_buf[FN_REFLEN+1]= {0};
@@ -701,7 +701,7 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
   char pos_buf[INT_BUF_LEN]= {0};
   char gtid_buf[GTID_BUF_LEN]= {0};
 
-  if (blm->read(file_buf, pos, gtid_buf)) {
+  if (blm->read(file_buf, &pos, gtid_buf)) {
     snprintf(pos_buf, INT_BUF_LEN, "%lu", (uint64_t) pos);
     ret |= global_info_fill_row(thd, tables, "BINLOG", "FILE", file_buf);
     ret |= global_info_fill_row(thd, tables, "BINLOG", "POS", pos_buf);
@@ -835,7 +835,7 @@ static int i_s_rocksdb_ddl_fill_table(THD *thd, TABLE_LIST *tables, Item *cond)
   DBUG_ASSERT(tables != nullptr);
 
   int ret;
-  Table_ddl_manager *ddl_manager= get_ddl_manager();
+  Rdb_ddl_manager *ddl_manager= get_ddl_manager();
   DBUG_ASSERT(ddl_manager != nullptr);
   struct i_s_rocksdb_ddl ddl_arg= { thd, tables, cond };
 

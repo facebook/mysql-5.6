@@ -19,12 +19,12 @@
 
 namespace myrocks {
 
-class Table_ddl_manager;
+class Rdb_ddl_manager;
 
 class Rdb_event_listener : public rocksdb::EventListener
 {
  public:
-  explicit Rdb_event_listener(Table_ddl_manager* ddl_manager) :
+  explicit Rdb_event_listener(Rdb_ddl_manager* ddl_manager) :
       m_ddl_manager(ddl_manager) {
   }
 
@@ -34,7 +34,7 @@ class Rdb_event_listener : public rocksdb::EventListener
     rocksdb::DB* db, const rocksdb::FlushJobInfo& flush_job_info) override;
 
  private:
-  Table_ddl_manager* m_ddl_manager;
+  Rdb_ddl_manager* m_ddl_manager;
 };
 
 }  // namespace myrocks
