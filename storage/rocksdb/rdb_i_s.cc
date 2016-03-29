@@ -709,7 +709,7 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
   }
 
   /* max index info */
-  Dict_manager *dict_manager = get_dict_manager();
+  Rdb_dict_manager *dict_manager = get_dict_manager();
   DBUG_ASSERT(dict_manager != nullptr);
 
   uint32_t max_index_id;
