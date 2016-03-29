@@ -50,8 +50,8 @@ Rdb_cf_manager& rocksdb_get_cf_manager();
 
 rocksdb::BlockBasedTableOptions& rocksdb_get_table_options();
 
-class Dict_manager;
-Dict_manager *get_dict_manager(void)
+class Rdb_dict_manager;
+Rdb_dict_manager *get_dict_manager(void)
   MY_ATTRIBUTE((__warn_unused_result__));
 
 class Table_ddl_manager;
