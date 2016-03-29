@@ -47,7 +47,7 @@ void write_byte(String *out, uchar val);
 uint32 read_int(const char **data);
 uint64 read_int64(const char **data);
 uint16 read_short(const char **data);
-uchar read_byte(const char **data);
+
 
 inline void store_big_uint4(uchar *dst, uint32_t n)
 {
@@ -93,38 +93,37 @@ inline void store_index_number(uchar *dst, uint32 number)
 }
 
 /*
-  A simple string reader.
+  A simple string reader:
   - it keeps position within the string that we read from
   - it prevents one from reading beyond the end of the string.
-  (todo: rename to String_reader)
 */
 
-class Stream_reader
+class Rdb_string_reader
 {
-  const char* ptr;
-  uint len;
+  const char* m_ptr;
+  uint m_len;
 public:
-  explicit Stream_reader(const std::string &str)
+  explicit Rdb_string_reader(const std::string &str)
   {
-    len= str.length();
-    if (len)
-      ptr= &str.at(0);
+    m_len= str.length();
+    if (m_len)
+      m_ptr= &str.at(0);
     else
     {
       /*
-        One can a create a Stream_reader for reading from an empty string
+        One can a create a Rdb_string_reader for reading from an empty string
         (although attempts to read anything will fail).
         We must not access str.at(0), since len==0, we can set ptr to any
         value.
       */
-      ptr= nullptr;
+      m_ptr= nullptr;
     }
   }
 
-  explicit Stream_reader(const rocksdb::Slice *slice)
+  explicit Rdb_string_reader(const rocksdb::Slice *slice)
   {
-    ptr= slice->data();
-    len= slice->size();
+    m_ptr= slice->data();
+    m_len= slice->size();
   }
 
   /*
@@ -134,24 +133,25 @@ public:
   const char *read(uint size)
   {
     const char *res;
-    if (len < size)
+    if (m_len < size)
       res= nullptr;
     else
     {
-      res= ptr;
-      ptr += size;
-      len -= size;
+      res= m_ptr;
+      m_ptr += size;
+      m_len -= size;
     }
     return res;
   }
-  uint remaining_bytes() { return len; }
+
+  uint remaining_bytes() const { return m_len; }
 
   /*
     Return pointer to data that will be read by next read() call (if there is
     nothing left to read, returns pointer to beyond the end of previous read()
     call)
   */
-  const char *get_current_ptr() { return ptr; }
+  const char *get_current_ptr() const { return m_ptr; }
 };
 
 
@@ -523,11 +523,11 @@ typedef void (*make_unpack_info_t) (Rdb_field_packing *fpi, Field *field,
                                     uchar *dst);
 
 typedef int (*index_field_unpack_t)(Rdb_field_packing *fpi, Field *field,
-                                    Stream_reader *reader,
+                                    Rdb_string_reader *reader,
                                     const uchar *unpack_info);
 
 typedef int (*index_field_skip_t)(Rdb_field_packing *fpi, Field *field,
-                                  Stream_reader *reader);
+                                  Rdb_string_reader *reader);
 
 typedef void (*index_field_pack_t)(Rdb_field_packing *fpi, Field *field,
                                    uchar* buf, uchar **dst);
