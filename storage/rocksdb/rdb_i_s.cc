@@ -835,7 +835,7 @@ static int i_s_rocksdb_ddl_fill_table(THD *thd, TABLE_LIST *tables, Item *cond)
   DBUG_ASSERT(tables != nullptr);
 
   int ret;
-  Table_ddl_manager *ddl_manager= get_ddl_manager();
+  Rdb_ddl_manager *ddl_manager= get_ddl_manager();
   DBUG_ASSERT(ddl_manager != nullptr);
   struct i_s_rocksdb_ddl ddl_arg= { thd, tables, cond };
 
