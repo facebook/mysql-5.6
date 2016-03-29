@@ -812,7 +812,7 @@ int Item_func_spatial_rel::func_touches()
   String *res1= args[0]->val_str(&tmp_value1);
   String *res2= args[1]->val_str(&tmp_value2);
   Geometry_buffer buffer1, buffer2;
-  Geometry *g1, *g2;
+  Geometry *g1 = NULL, *g2 = NULL;
   int obj2_si;
 
   DBUG_ENTER("Item_func_spatial_rel::func_touches");
@@ -938,7 +938,7 @@ longlong Item_func_spatial_rel::val_int()
   String *res1;
   String *res2;
   Geometry_buffer buffer1, buffer2;
-  Geometry *g1, *g2;
+  Geometry *g1 = NULL, *g2 = NULL;
   int result= 0;
   int mask= 0;
 
@@ -1811,7 +1811,7 @@ double Item_func_distance::val_real()
   String *res1= args[0]->val_str(&tmp_value1);
   String *res2= args[1]->val_str(&tmp_value2);
   Geometry_buffer buffer1, buffer2;
-  Geometry *g1, *g2;
+  Geometry *g1 = NULL, *g2 = NULL;
 
   if ((null_value= (args[0]->null_value || args[1]->null_value ||
           !(g1= Geometry::construct(&buffer1, res1)) ||
