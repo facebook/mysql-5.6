@@ -146,7 +146,7 @@ static std::vector<std::string> split(const std::string& input,
 
 Rdb_dict_manager dict_manager;
 Rdb_cf_manager cf_manager;
-Table_ddl_manager ddl_manager;
+Rdb_ddl_manager ddl_manager;
 Binlog_info_manager binlog_manager;
 
 /*
@@ -8172,7 +8172,7 @@ Rdb_dict_manager *get_dict_manager(void)
   return &dict_manager;
 }
 
-Table_ddl_manager *get_ddl_manager(void)
+Rdb_ddl_manager *get_ddl_manager(void)
 {
   return &ddl_manager;
 }
