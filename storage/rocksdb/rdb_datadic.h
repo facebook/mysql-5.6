@@ -20,6 +20,7 @@
 #include <atomic>
 #include <map>
 #include <mutex>
+#include <string>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -33,7 +34,7 @@
 
 namespace myrocks {
 
-class Dict_manager;
+class Rdb_dict_manager;
 class Rdb_key_def;
 class Rdb_field_packing;
 class Rdb_cf_manager;
@@ -651,7 +652,7 @@ public:
   /* Is this a system table */
   bool m_is_mysql_system_table;
 
-  bool put_dict(Dict_manager *dict, rocksdb::WriteBatch *batch,
+  bool put_dict(Rdb_dict_manager *dict, rocksdb::WriteBatch *batch,
                 uchar *key, size_t keylen);
 
   void set_name(const char *name, size_t len);
@@ -677,7 +678,7 @@ public:
     next_number= initial_number;
   }
 
-  uint get_and_update_next_number(Dict_manager *dict);
+  uint get_and_update_next_number(Rdb_dict_manager *dict);
 
   void cleanup()
   {
@@ -696,7 +697,7 @@ public:
 
 class Table_ddl_manager
 {
-  Dict_manager *dict;
+  Rdb_dict_manager *dict;
   HASH ddl_hash;  // Contains Rdb_tbl_def elements
   // maps index id to <table_name, index number>
   std::map<GL_INDEX_ID, std::pair<std::basic_string<uchar>, uint>>
@@ -710,7 +711,7 @@ class Table_ddl_manager
   std::map<GL_INDEX_ID, Rdb_index_stats> stats2store;
 public:
   /* Load the data dictionary from on-disk storage */
-  bool init(Dict_manager *dict_arg, Rdb_cf_manager *cf_manager,
+  bool init(Rdb_dict_manager *dict_arg, Rdb_cf_manager *cf_manager,
             uint32_t validate_tables);
 
   void cleanup();
@@ -734,7 +735,7 @@ public:
   bool rename(uchar *from, uint from_len, uchar *to, uint to_len,
               rocksdb::WriteBatch *batch);
 
-  uint get_and_update_next_number(Dict_manager *dict)
+  uint get_and_update_next_number(Rdb_dict_manager *dict)
     { return sequence.get_and_update_next_number(dict); }
 
   /* Walk the data dictionary */
@@ -772,7 +773,7 @@ private:
 class Binlog_info_manager
 {
 public:
-  bool init(Dict_manager *dict);
+  bool init(Rdb_dict_manager *dict);
   void cleanup();
   void update(const char* binlog_name, const my_off_t binlog_pos,
               const char* binlog_gtid, rocksdb::WriteBatchBase* batch);
@@ -781,7 +782,7 @@ public:
                               rocksdb::WriteBatchBase *write_batch);
 
 private:
-  Dict_manager *dict;
+  Rdb_dict_manager *dict;
   uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE];
   rocksdb::Slice key_slice;
   rocksdb::Slice pack_value(uchar *buf,
@@ -795,7 +796,7 @@ private:
 
 
 /*
-   Dict_manager manages how MySQL on RocksDB (MyRocks) stores its
+   Rdb_dict_manager manages how MySQL on RocksDB (MyRocks) stores its
   internal data dictionary.
    MyRocks stores data dictionary on dedicated system column family
   named __system__. The system column family is used by MyRocks
@@ -837,23 +838,23 @@ private:
 
    Data dictionary operations are atomic inside RocksDB. For example,
   when creating a table with two indexes, it is necessary to call Put
-  three times. They have to be atomic. Dict_manager has a wrapper function
+  three times. They have to be atomic. Rdb_dict_manager has a wrapper function
   begin() and commit() to make it easier to do atomic operations.
 
 */
-class Dict_manager
+class Rdb_dict_manager
 {
 private:
-  mysql_mutex_t mutex;
-  rocksdb::DB *rdb;
-  rocksdb::ColumnFamilyHandle *system_cfh;
+  mysql_mutex_t m_mutex;
+  rocksdb::DB *m_db= nullptr;
+  rocksdb::ColumnFamilyHandle *m_system_cfh= nullptr;
   /* Utility to put INDEX_INFO and CF_DEFINITION */
 
-  uchar key_buf_max_index_id[Rdb_key_def::INDEX_NUMBER_SIZE];
-  rocksdb::Slice key_slice_max_index_id;
-  void delete_util(rocksdb::WriteBatch* batch,
-                   const uint32_t prefix,
-                   const GL_INDEX_ID gl_index_id);
+  uchar m_key_buf_max_index_id[Rdb_key_def::INDEX_NUMBER_SIZE]= {0};
+  rocksdb::Slice m_key_slice_max_index_id;
+  void delete_with_prefix(rocksdb::WriteBatch* batch,
+                          const uint32_t prefix,
+                          const GL_INDEX_ID gl_index_id) const;
   /* Functions for fast DROP TABLE/INDEX */
   void resume_drop_indexes();
   void log_start_drop_table(Rdb_key_def** key_descr,
@@ -863,17 +864,31 @@ private:
                             const char* log_action);
 public:
   bool init(rocksdb::DB *rdb_dict, Rdb_cf_manager *cf_manager);
-  void cleanup();
-  void lock();
-  void unlock();
+
+  inline void cleanup()
+  {
+    mysql_mutex_destroy(&m_mutex);
+  }
+
+  inline void lock()
+  {
+    mysql_mutex_lock(&m_mutex);
+  }
+
+  inline void unlock()
+  {
+    mysql_mutex_unlock(&m_mutex);
+  }
+
   /* Raw RocksDB operations */
   std::unique_ptr<rocksdb::WriteBatch> begin();
   int commit(rocksdb::WriteBatch *batch, bool sync = true);
-  rocksdb::Status Get(const rocksdb::Slice& key, std::string *value);
-  void Put(rocksdb::WriteBatchBase *batch, const rocksdb::Slice &key,
-           const rocksdb::Slice &value);
-  void Delete(rocksdb::WriteBatchBase *batch, const rocksdb::Slice &key) const;
-  rocksdb::Iterator *NewIterator();
+  rocksdb::Status get_value(const rocksdb::Slice& key, std::string *value);
+  void put_key(rocksdb::WriteBatchBase *batch, const rocksdb::Slice &key,
+               const rocksdb::Slice &value);
+  void delete_key(rocksdb::WriteBatchBase *batch,
+                  const rocksdb::Slice &key) const;
+  rocksdb::Iterator *new_iterator();
 
   /* Internal Index id => CF */
   void add_or_update_index_cf_mapping(rocksdb::WriteBatch *batch,
@@ -882,7 +897,7 @@ public:
                                       const uint index_id,
                                       const uint cf_id);
   void delete_index_info(rocksdb::WriteBatch* batch,
-                         const GL_INDEX_ID index_id);
+                         const GL_INDEX_ID index_id) const;
   bool get_index_info(GL_INDEX_ID gl_index_id, uint16_t *index_dict_version,
                       uchar *index_type, uint16_t *kv_version);
 
@@ -908,13 +923,9 @@ public:
   bool get_max_index_id(uint32_t *index_id);
   bool update_max_index_id(rocksdb::WriteBatch* batch,
                            const uint32_t index_id);
-  void add_stats(
-    rocksdb::WriteBatch* batch,
-    const std::vector<Rdb_index_stats>& stats
-  );
-  Rdb_index_stats get_stats(
-    GL_INDEX_ID gl_index_id
-  );
+  void add_stats(rocksdb::WriteBatch* batch,
+                 const std::vector<Rdb_index_stats>& stats);
+  Rdb_index_stats get_stats(GL_INDEX_ID gl_index_id);
 };
 
 }  // namespace myrocks
