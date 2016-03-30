@@ -33,8 +33,11 @@
 #include "rocksdb/utilities/transaction_db.h"
 #include "rocksdb/utilities/write_batch_with_index.h"
 
+#include <vector>
+
 /* MyRocks header files */
 #include "rdb_perf_context.h"
+
 
 namespace myrocks {
 
@@ -319,11 +322,10 @@ class ha_rocksdb: public handler
   String storage_record;
 
   /*
-    Last retrieved record, in table->record[0] data format. It also serves as
-    as storage for blob data (Field_blob object have pointers to here)
+    Last retrieved record, in table->record[0] data format.
 
-    TODO: Dont we lose one malloc() per record read by having it as std::string
-    instead of rocksdb::Slice?
+    This is used only when we get the record with rocksdb's Get() call (The
+    other option is when we get a rocksdb::Slice from an iterator)
   */
   std::string retrieved_record;
 
@@ -425,11 +427,21 @@ class ha_rocksdb: public handler
     bool dont_store;
 
     uint null_offset;
+    uint16 field_index;
+
     uchar null_mask;  // 0 means the field cannot be null
 
     enum_field_types field_type;
 
-    bool maybe_null() { return null_mask != 0; }
+    uint pack_length_in_rec;
+
+    bool maybe_null() const { return null_mask != 0; }
+
+    bool uses_variable_len_encoding() const
+    {
+      return (field_type == MYSQL_TYPE_BLOB ||
+              field_type == MYSQL_TYPE_VARCHAR);
+    }
   } FIELD_ENCODER;
 
   /*
@@ -437,6 +449,28 @@ class ha_rocksdb: public handler
     record.
   */
   FIELD_ENCODER *field_enc;
+
+  /* Describes instructions on how to decode the field */
+  class READ_FIELD
+  {
+   public:
+    /* Points to FIELD_ENCODER describing the field */
+    FIELD_ENCODER* field_enc;
+    /* if true, decode the field, otherwise skip it */
+    bool  decode;
+    /* Skip this many bytes before reading (or skipping) this field */
+    int   skip;
+  };
+
+  /*
+    This tells which table fields should be decoded (or skipped) when
+    decoding table row from (pk, encoded_row) pair. (Secondary keys are
+    just always decoded in full currently)
+  */
+  std::vector<READ_FIELD> field_decoders;
+
+  /* Setup field_decoders based on type of scan and table->read_set */
+  void setup_read_decoders();
 
   /*
     Number of bytes in on-disk (storage) record format that are used for
@@ -518,7 +552,8 @@ public:
            HA_REC_NOT_IN_SEQ | HA_CAN_INDEX_BLOBS |
            (pk_can_be_decoded? HA_PRIMARY_KEY_IN_READ_INDEX:0) |
            HA_PRIMARY_KEY_REQUIRED_FOR_POSITION |
-           HA_NULL_IN_KEY;
+           HA_NULL_IN_KEY |
+           HA_PARTIAL_COLUMN_READ;
   }
 
   /** @brief
