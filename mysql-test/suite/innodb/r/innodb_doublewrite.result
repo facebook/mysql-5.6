@@ -17,6 +17,31 @@ INSERT INTO t1(a) SELECT NULL FROM t1;
 INSERT INTO t1(a) SELECT NULL FROM t1;
 INSERT INTO t1(a) SELECT NULL FROM t1;
 # Ensure that dirty pages of table t1 are flushed.
+InnoDB offline file checksum utility.
+Table is uncompressed
+Page size is page_size
+page NNN FIL_PAGE_TYPE_DBLWR_HEADER
+0	bad checksum
+0	FIL_PAGE_INDEX
+0	FIL_PAGE_UNDO_LOG
+0	FIL_PAGE_INODE
+0	FIL_PAGE_IBUF_FREE_LIST
+0	FIL_PAGE_TYPE_ALLOCATED
+0	FIL_PAGE_IBUF_BITMAP
+0	FIL_PAGE_TYPE_SYS
+0	FIL_PAGE_TYPE_TRX_SYS
+0	FIL_PAGE_TYPE_FSP_HDR
+0	FIL_PAGE_TYPE_XDES
+0	FIL_PAGE_TYPE_BLOB
+0	FIL_PAGE_TYPE_ZBLOB
+1	FIL_PAGE_TYPE_DBLWR_HEADER
+0	other
+0	max index_id
+undo type: 0 insert, 0 update, 0 other
+undo state: 0 active, 0 cached, 0 to_free, 0 to_purge, 0 prepared, 0 other
+index_id	#pages		#leaf_pages	#recs_per_page	#bytes_per_page
+
+index_id	page_data_bytes_histgram(empty,...,oversized)
 InnoDB: Cannot recover it from the doublewrite buffer because it was written in reduced-doublewrite mode.
 
 SELECT COUNT(*) FROM t1;
