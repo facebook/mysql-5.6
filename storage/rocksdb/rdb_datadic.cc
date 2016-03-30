@@ -2456,22 +2456,23 @@ int Rdb_ddl_manager::scan(void* cb_arg,
   return ret;
 }
 
-bool Binlog_info_manager::init(Rdb_dict_manager *dict_arg)
-{
-  dict= dict_arg;
 
-  store_index_number(key_buf, Rdb_key_def::BINLOG_INFO_INDEX_NUMBER);
-  key_slice = rocksdb::Slice(reinterpret_cast<char*>(key_buf),
-                             Rdb_key_def::INDEX_NUMBER_SIZE);
+/*
+  Rdb_binlog_manager class implementation
+*/
+
+bool Rdb_binlog_manager::init(Rdb_dict_manager *dict_arg)
+{
+  DBUG_ASSERT(dict_arg != nullptr);
+  m_dict= dict_arg;
+
+  store_index_number(m_key_buf, Rdb_key_def::BINLOG_INFO_INDEX_NUMBER);
+  m_key_slice = rocksdb::Slice(reinterpret_cast<char*>(m_key_buf),
+                               Rdb_key_def::INDEX_NUMBER_SIZE);
   return false;
 }
 
-
-/*
-  Binlog_info_manager class implementation
-*/
-
-void Binlog_info_manager::cleanup()
+void Rdb_binlog_manager::cleanup()
 {
 }
 
@@ -2486,17 +2487,18 @@ void Binlog_info_manager::cleanup()
   @param binlog_gtid   Binlog GTID
   @param batch         WriteBatch
 */
-void Binlog_info_manager::update(const char* binlog_name,
-                                 const my_off_t binlog_pos,
-                                 const char* binlog_gtid,
-                                 rocksdb::WriteBatchBase* batch)
+void Rdb_binlog_manager::update(const char* binlog_name,
+                                const my_off_t binlog_pos,
+                                const char* binlog_gtid,
+                                rocksdb::WriteBatchBase* batch)
 {
   if (binlog_name && binlog_pos)
   {
     // max binlog length (512) + binlog pos (4) + binlog gtid (57) < 1024
     uchar  value_buf[1024];
-    dict->put_key(batch, key_slice,
-                  pack_value(value_buf, binlog_name, binlog_pos, binlog_gtid));
+    m_dict->put_key(batch, m_key_slice,
+                    pack_value(value_buf, binlog_name,
+                               binlog_pos, binlog_gtid));
   }
 }
 
@@ -2509,14 +2511,14 @@ void Binlog_info_manager::update(const char* binlog_name,
     true is binlog info was found (valid behavior)
     false otherwise
 */
-bool Binlog_info_manager::read(char *binlog_name, my_off_t &binlog_pos,
-                               char *binlog_gtid)
+bool Rdb_binlog_manager::read(char *binlog_name, my_off_t *binlog_pos,
+                              char *binlog_gtid)
 {
   bool ret= false;
   if (binlog_name)
   {
     std::string value;
-    rocksdb::Status status= dict->get_value(key_slice, &value);
+    rocksdb::Status status= m_dict->get_value(m_key_slice, &value);
     if(status.ok())
     {
       if (!unpack_value((const uchar*)value.c_str(),
@@ -2536,10 +2538,10 @@ bool Binlog_info_manager::read(char *binlog_name, my_off_t &binlog_pos,
   @param binlog_gtid   Binlog GTID
   @return              rocksdb::Slice converted from buf and its length
 */
-rocksdb::Slice Binlog_info_manager::pack_value(uchar *buf,
-                                               const char* binlog_name,
-                                               const my_off_t binlog_pos,
-                                               const char* binlog_gtid)
+rocksdb::Slice Rdb_binlog_manager::pack_value(uchar *buf,
+                                              const char* binlog_name,
+                                              const my_off_t binlog_pos,
+                                              const char* binlog_gtid)
 {
   uint pack_len= 0;
 
@@ -2585,11 +2587,13 @@ rocksdb::Slice Binlog_info_manager::pack_value(uchar *buf,
   @param[OUT] binlog_gtid  Binlog GTID
   @return     true on error
 */
-bool Binlog_info_manager::unpack_value(const uchar *value, char *binlog_name,
-                                       my_off_t &binlog_pos,
-                                       char *binlog_gtid)
+bool Rdb_binlog_manager::unpack_value(const uchar *value, char *binlog_name,
+                                      my_off_t *binlog_pos,
+                                      char *binlog_gtid)
 {
   uint pack_len= 0;
+
+  DBUG_ASSERT(binlog_pos != nullptr);
 
   // read version
   uint16_t version= read_big_uint2(value);
@@ -2608,7 +2612,7 @@ bool Binlog_info_manager::unpack_value(const uchar *value, char *binlog_name,
     pack_len += binlog_name_len;
 
     // read and set binlog pos
-    binlog_pos= read_big_uint4(value+pack_len);
+    *binlog_pos= read_big_uint4(value+pack_len);
     pack_len += 4;
 
     // read gtid length
@@ -2633,23 +2637,22 @@ bool Binlog_info_manager::unpack_value(const uchar *value, char *binlog_name,
   @param[IN] db Database name. This is column 2 of the table.
   @param[IN] gtid Gtid in human readable form. This is column 3 of the table.
 */
-void Binlog_info_manager::update_slave_gtid_info(uint id, const char* db,
-                                                 const char* gtid,
-                                                 rocksdb::WriteBatchBase*
-                                                   write_batch)
+void Rdb_binlog_manager::update_slave_gtid_info(
+  uint id, const char* db, const char* gtid,
+  rocksdb::WriteBatchBase* write_batch)
 {
   if (id && db && gtid) {
-    if (!slave_gtid_info.load()) {
-      slave_gtid_info.store(get_ddl_manager()->find(
-                              (const uchar*)("mysql.slave_gtid_info"), 21));
+    if (!m_slave_gtid_info.load()) {
+      m_slave_gtid_info.store(get_ddl_manager()->find(
+                              (const uchar*)("mysql.m_slave_gtid_info"), 21));
     }
-    if (!slave_gtid_info.load()) {
-      // slave_gtid_info table is not present. Simply return.
+    if (!m_slave_gtid_info.load()) {
+      // m_slave_gtid_info table is not present. Simply return.
       return;
     }
-    DBUG_ASSERT(slave_gtid_info.load()->m_key_count == 1);
+    DBUG_ASSERT(m_slave_gtid_info.load()->m_key_count == 1);
 
-    Rdb_key_def* key_def = slave_gtid_info.load()->m_key_descr[0];
+    Rdb_key_def* key_def = m_slave_gtid_info.load()->m_key_descr[0];
     String value;
 
     // Build key
@@ -2720,7 +2723,7 @@ void Rdb_dict_manager::put_key(rocksdb::WriteBatchBase *batch,
 }
 
 rocksdb::Status Rdb_dict_manager::get_value(const rocksdb::Slice &key,
-                                            std::string *value)
+                                            std::string *value) const
 {
   rocksdb::ReadOptions options;
   options.total_order_seek= true;

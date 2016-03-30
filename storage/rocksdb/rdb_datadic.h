@@ -769,28 +769,30 @@ private:
      binlog_gtid_length (2 byte form)
      binlog_gtid
 */
-class Binlog_info_manager
+class Rdb_binlog_manager
 {
 public:
   bool init(Rdb_dict_manager *dict);
   void cleanup();
   void update(const char* binlog_name, const my_off_t binlog_pos,
               const char* binlog_gtid, rocksdb::WriteBatchBase* batch);
-  bool read(char* binlog_name, my_off_t& binlog_pos, char* binlog_gtid);
+  bool read(char* binlog_name, my_off_t* binlog_pos, char* binlog_gtid);
   void update_slave_gtid_info(uint id, const char* db, const char* gtid,
                               rocksdb::WriteBatchBase *write_batch);
 
 private:
-  Rdb_dict_manager *dict;
-  uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE];
-  rocksdb::Slice key_slice;
+  Rdb_dict_manager *m_dict= nullptr;
+  uchar m_key_buf[Rdb_key_def::INDEX_NUMBER_SIZE]= {0};
+  rocksdb::Slice m_key_slice;
+
   rocksdb::Slice pack_value(uchar *buf,
                             const char *binlog_name,
                             const my_off_t binlog_pos,
                             const char *binlog_gtid);
   bool unpack_value(const uchar *value, char *binlog_name,
-                    my_off_t &binlog_pos, char *binlog_gtid);
-  std::atomic<Rdb_tbl_def*> slave_gtid_info;
+                    my_off_t *binlog_pos, char *binlog_gtid);
+
+  std::atomic<Rdb_tbl_def*> m_slave_gtid_info;
 };
 
 
@@ -882,7 +884,8 @@ public:
   /* Raw RocksDB operations */
   std::unique_ptr<rocksdb::WriteBatch> begin();
   int commit(rocksdb::WriteBatch *batch, bool sync = true);
-  rocksdb::Status get_value(const rocksdb::Slice& key, std::string *value);
+  rocksdb::Status get_value(const rocksdb::Slice& key,
+                            std::string *value) const;
   void put_key(rocksdb::WriteBatchBase *batch, const rocksdb::Slice &key,
                const rocksdb::Slice &value);
   void delete_key(rocksdb::WriteBatchBase *batch,
