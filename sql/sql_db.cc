@@ -2150,7 +2150,7 @@ bool check_db_dir_existence(const char *db_name)
 
 const rpl_sid *get_db_uuid(const std::string& dbname, THD* thd)
 {
-  mysql_mutex_assert_owner(&thd->LOCK_thd_dboptions);
+  mysql_mutex_assert_thd_owner(&thd->LOCK_thd_dboptions, thd);
   char path[FN_REFLEN + 1];
   uint path_len = build_table_filename(path, sizeof(path) - 1,
                                        dbname.c_str(), "", MY_DB_OPT_FILE, 0);
