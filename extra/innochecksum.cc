@@ -113,6 +113,7 @@ int n_fil_page_type_allocated;
 int n_fil_page_type_xdes;
 int n_fil_page_type_blob;
 int n_fil_page_type_zblob;
+int n_fil_page_type_dblwr_header;
 int n_fil_page_type_other;
 
 int n_fil_page_max_index_id;
@@ -585,6 +586,12 @@ parse_page(
                }
                n_fil_page_type_zblob++;
                break;
+       case FIL_PAGE_TYPE_DBLWR_HEADER:
+               if (per_page_details) {
+                       printf("FIL_PAGE_TYPE_DBLWR_HEADER\n");
+               }
+               n_fil_page_type_dblwr_header++;
+               break;
        default:
                if (per_page_details) {
                        printf("FIL_PAGE_TYPE_OTHER\n");
@@ -674,6 +681,8 @@ print_stats()
        printf("%d\tFIL_PAGE_TYPE_XDES\n", n_fil_page_type_xdes);
        printf("%d\tFIL_PAGE_TYPE_BLOB\n", n_fil_page_type_blob);
        printf("%d\tFIL_PAGE_TYPE_ZBLOB\n", n_fil_page_type_zblob);
+       printf("%d\tFIL_PAGE_TYPE_DBLWR_HEADER\n",
+              n_fil_page_type_dblwr_header);
        printf("%d\tother\n", n_fil_page_type_other);
        printf("%d\tmax index_id\n", n_fil_page_max_index_id);
        printf("undo type: %d insert, %d update, %d other\n",
@@ -870,7 +879,7 @@ int main(int argc, char **argv)
           return 1;
         page_ok = 0;
       }
-    } else {
+    } else if (FIL_PAGE_TYPE_DBLWR_HEADER != fil_page_get_type(buf)) {
       /* check the "stored log sequence numbers" */
       logseq= mach_read_from_4(buf + FIL_PAGE_LSN + 4);
       logseqfield= mach_read_from_4(buf + logical_page_size - FIL_PAGE_END_LSN_OLD_CHKSUM + 4);

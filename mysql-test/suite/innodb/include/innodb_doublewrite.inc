@@ -53,6 +53,9 @@ let $wait_condition= SELECT VARIABLE_VALUE = 0
 --shutdown_server
 --source include/wait_until_disconnected.inc
 
+# Verify innochecksum can read the modified doublewrite format.
+--exec $INNOCHECKSUM $data_dir/ibdata1 --per-page-detail --start-page=64 --end-page=65
+
 exec $corrupt_exec $space_id 2;
 
 --enable_reconnect
