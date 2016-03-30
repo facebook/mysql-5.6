@@ -28,6 +28,7 @@ eval INSERT INTO t1 (c,c1,c2) VALUES ($col_default,$col_default,$col_default);
 INSERT INTO t1 () VALUES ();
 
 SELECT pk, HEX(c), HEX(c1), HEX(c2) FROM t1 ORDER BY pk;
+SELECT pk, HEX(c2) FROM t1 ORDER BY pk;
 
 DROP TABLE t1;
 
