@@ -35,6 +35,7 @@ InnoChecksum; checking pages in range 0 to 6
 0	FIL_PAGE_TYPE_XDES
 0	FIL_PAGE_TYPE_BLOB
 0	FIL_PAGE_TYPE_ZBLOB
+0	FIL_PAGE_TYPE_DBLWR_HEADER
 0	other
 0	max index_id
 undo type: 0 insert, 0 update, 0 other

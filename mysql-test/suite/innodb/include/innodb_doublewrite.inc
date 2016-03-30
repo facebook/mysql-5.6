@@ -23,6 +23,18 @@ let $data_dir = `SELECT @@datadir`;
 let $page_size = `SELECT @@innodb_page_size`;
 let $corrupt_exec = python suite/innodb/t/innodb_corrupt_doublewrite_pages.py $data_dir $page_size;
 
+# Compute the page number of the first doublewrite page.
+# The doublewrite buffer starts at the second extent in the file.
+# See definition of FSP_EXTENT_SIZE in fsp0types.h.
+let $first_dblwr_page=`select 1024 * 1024 DIV $page_size`;
+if ($page_size > 16384) {
+ let $first_dblwr_page=`select $first_dblwr_page * 2`;
+}
+if ($page_size > 32768) {
+ let $first_dblwr_page=`select $first_dblwr_page * 2`;
+}
+let $second_dblwr_page=`select $first_dblwr_page + 1`;
+
 SET GLOBAL innodb_doublewrite=2;
 CREATE TABLE t1(a INT PRIMARY KEY AUTO_INCREMENT, b char(255) default '') ENGINE=innodb;
 INSERT INTO t1(a) VALUES(NULL);
@@ -52,6 +64,10 @@ let $wait_condition= SELECT VARIABLE_VALUE = 0
 --exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
 --shutdown_server
 --source include/wait_until_disconnected.inc
+
+# Verify innochecksum can read the modified doublewrite format.
+--replace_result $page_size page_size $first_dblwr_page NNN
+--exec $INNOCHECKSUM $data_dir/ibdata1 --per-page-detail --start-page=$first_dblwr_page --end-page=$second_dblwr_page
 
 exec $corrupt_exec $space_id 2;
 
