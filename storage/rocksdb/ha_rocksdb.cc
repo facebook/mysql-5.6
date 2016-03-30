@@ -2968,10 +2968,16 @@ void ha_rocksdb::load_auto_incr_value()
   Rdb_transaction *tx= get_or_create_tx(table->in_use);
   bool is_new_snapshot= !tx->has_snapshot();
 
-  // Do a lookup.
+  // Do a lookup. We only need index column, so it should be index-only.
+  // (another reason to make it index-only is that table->read_set is
+  //  not set appropriately and non-index-only lookup will not read the value)
+  bool save_keyread_only= keyread_only;
+  keyread_only= true;
+
   if (!index_last(table->record[0]))
     update_auto_incr_val();
 
+  keyread_only= save_keyread_only;
   if (is_new_snapshot)
   {
     tx->release_snapshot();
@@ -3245,21 +3251,64 @@ void ha_rocksdb::convert_record_to_storage_format(const char *pk_packed_tuple,
 
 
 /*
-  @param  key   Table record's Key in storage format
-  @param  value Table record in storage format
-  @param  buf   Store record in table->record[0] form here
-*/
-int ha_rocksdb::convert_record_from_storage_format(const rocksdb::Slice *key,
-                                                   const rocksdb::Slice *value,
-                                                   uchar *buf)
-{
-  DBUG_ASSERT(key != nullptr);
-  DBUG_ASSERT(value != nullptr);
-  DBUG_ASSERT(buf != nullptr);
+  @brief
+    Setup which fields will be unpacked when reading rows
 
-  retrieved_record.assign(value->data(), value->size());
-  return convert_record_from_storage_format(key, buf);
+  @detail
+    Two special cases when we still unpack all fields:
+    - When this table is being updated (lock_rows==RDB_LOCK_WRITE).
+    - When @@rocksdb_verify_checksums is ON (In this mode, we need to read all
+      fields to find whether there is a row checksum at the end. We could skip
+      the fields instead of decoding them, but currently we do decoding.)
+
+  @seealso
+    ha_rocksdb::setup_field_converters()
+    ha_rocksdb::convert_record_from_storage_format()
+*/
+void ha_rocksdb::setup_read_decoders()
+{
+  field_decoders.clear();
+  int last_useful= 0;
+  int skip_size= 0;
+
+  for (uint i= 0; i < table->s->fields; i++)
+  {
+    /* PK decoding is not handled, yet */
+    if (field_enc[i].dont_store)
+      continue;
+
+    if (lock_rows == RDB_LOCK_WRITE || verify_checksums ||
+        bitmap_is_set(table->read_set, table->field[i]->field_index))
+    {
+      // We will need to decode this field
+      field_decoders.push_back({&field_enc[i], true, skip_size});
+      last_useful= field_decoders.size();
+      skip_size= 0;
+    }
+    else
+    {
+      if (field_enc[i].uses_variable_len_encoding() ||
+          field_enc[i].maybe_null())
+      {
+        // For variable-length field, we need to read the data and skip it
+        field_decoders.push_back({&field_enc[i], false, skip_size});
+        skip_size= 0;
+      }
+      else
+      {
+        // Fixed-width field can be skipped without looking at it.
+        // Add appropriate skip_size to the next field.
+        skip_size += field_enc[i].pack_length_in_rec;
+      }
+    }
+  }
+
+  // It could be that the last few elements are varchars that just do
+  // skipping. Remove them.
+  field_decoders.erase(field_decoders.begin() + last_useful,
+                       field_decoders.end());
 }
+
 
 #ifndef NDEBUG
 void dbug_append_garbage_at_end(std::string &on_disk_rec)
@@ -3300,6 +3349,23 @@ void dbug_modify_key_varchar8(String &on_disk_rec)
 
 #endif
 
+
+int ha_rocksdb::convert_record_from_storage_format(const rocksdb::Slice *key,
+                                                   uchar * buf)
+{
+  DBUG_EXECUTE_IF("myrocks_simulate_bad_row_read1",
+                  dbug_append_garbage_at_end(retrieved_record););
+  DBUG_EXECUTE_IF("myrocks_simulate_bad_row_read2",
+                  dbug_truncate_record(retrieved_record););
+  DBUG_EXECUTE_IF("myrocks_simulate_bad_row_read3",
+                  dbug_modify_rec_varchar12(retrieved_record););
+
+  rocksdb::Slice retrieved_rec_slice(&retrieved_record.front(),
+                                    retrieved_record.size());
+  return convert_record_from_storage_format(key, &retrieved_rec_slice, buf);
+}
+
+
 /*
   @brief
   Unpack the record in this->retrieved_record and this->last_rowkey from
@@ -3315,25 +3381,23 @@ void dbug_modify_key_varchar8(String &on_disk_rec)
     The key is only needed to check its checksum value (the checksum is in
     retrieved_record).
 
+  @seealso
+    ha_rocksdb::setup_read_decoders()  Sets up data structures which tell which
+    columns to decode.
+
   @return
     0      OK
     other  Error inpacking the data
 */
 
 int ha_rocksdb::convert_record_from_storage_format(const rocksdb::Slice *key,
+                                                   const rocksdb::Slice *value,
                                                    uchar * buf)
 {
   DBUG_ASSERT(key != nullptr);
   DBUG_ASSERT(buf != nullptr);
 
-  DBUG_EXECUTE_IF("myrocks_simulate_bad_row_read1",
-                  dbug_append_garbage_at_end(retrieved_record););
-  DBUG_EXECUTE_IF("myrocks_simulate_bad_row_read2",
-                  dbug_truncate_record(retrieved_record););
-  DBUG_EXECUTE_IF("myrocks_simulate_bad_row_read3",
-                  dbug_modify_rec_varchar12(retrieved_record););
-
-  Rdb_string_reader reader(retrieved_record);
+  Rdb_string_reader reader(value);
   my_ptrdiff_t ptr_diff= buf - table->record[0];
 
   /*
@@ -3341,6 +3405,7 @@ int ha_rocksdb::convert_record_from_storage_format(const rocksdb::Slice *key,
   */
   DBUG_EXECUTE_IF("myrocks_simulate_bad_pk_read1",
                   dbug_modify_key_varchar8(last_rowkey););
+
   rocksdb::Slice rowkey_slice(last_rowkey.ptr(), last_rowkey.length());
 
 
@@ -3356,46 +3421,49 @@ int ha_rocksdb::convert_record_from_storage_format(const rocksdb::Slice *key,
   if (null_bytes_in_rec && !(null_bytes= reader.read(null_bytes_in_rec)))
     return HA_ERR_INTERNAL_ERROR;
 
-  for (uint i=0; i < table->s->fields; i++)
+  for (auto it= field_decoders.begin(); it != field_decoders.end(); it++)
   {
-    if (field_enc[i].dont_store)
-      continue;
+    const FIELD_ENCODER* const field_enc= it->field_enc;
+    const bool decode= it->decode;
+    bool isNull = field_enc->maybe_null() &&
+      ((null_bytes[field_enc->null_offset] & field_enc->null_mask) != 0);
 
-    Field *field= table->field[i];
+    Field *field= table->field[field_enc->field_index];
 
-    int isNull = field_enc[i].maybe_null() &&
-      (null_bytes[field_enc[i].null_offset] & field_enc[i].null_mask) != 0;
+    /* Skip the bytes we need to skip */
+    if (it->skip && !reader.read(it->skip))
+      return HA_ERR_INTERNAL_ERROR;
+
     if (isNull)
     {
-      /* This sets the NULL-bit of this record */
-      field->set_null(ptr_diff);
-      /*
-        Besides that, set the field value to default value. CHECKSUM TABLE
-        depends on this.
-      */
-      uint field_offset= field->ptr - table->record[0];
-      memcpy(buf + field_offset,
-             table->s->default_values + field_offset,
-             field->pack_length());
+      if (decode)
+      {
+        /* This sets the NULL-bit of this record */
+        field->set_null(ptr_diff);
+        /*
+          Besides that, set the field value to default value. CHECKSUM TABLE
+          depends on this.
+        */
+        uint field_offset= field->ptr - table->record[0];
+        memcpy(buf + field_offset,
+               table->s->default_values + field_offset,
+               field->pack_length());
+      }
+      continue;
     }
     else
-      field->set_notnull(ptr_diff);
+    {
+      if (decode)
+        field->set_notnull(ptr_diff);
+    }
 
-    if (field_enc[i].field_type == MYSQL_TYPE_BLOB)
+    if (field_enc->field_type == MYSQL_TYPE_BLOB)
     {
       Field_blob *blob= (Field_blob*)field;
       /* Get the number of bytes needed to store length*/
       uint length_bytes= blob->pack_length() - portable_sizeof_char_ptr;
 
       blob->move_field_offset(ptr_diff);
-
-      if (isNull)
-      {
-        memset(blob->ptr, 0, length_bytes + sizeof(uchar**));
-        blob->move_field_offset(-ptr_diff);
-        /* NULL value means no data is stored */
-        continue;
-      }
 
       const char *data_len_str;
       if (!(data_len_str= reader.read(length_bytes)))
@@ -3415,16 +3483,17 @@ int ha_rocksdb::convert_record_from_storage_format(const rocksdb::Slice *key,
         return HA_ERR_INTERNAL_ERROR;
       }
 
-      // set 8-byte pointer to 0, like innodb does (relevant for 32-bit platforms)
-      memset(blob->ptr + length_bytes, 0, 8);
-      memcpy(blob->ptr + length_bytes, &blob_ptr, sizeof(uchar**));
-      blob->move_field_offset(-ptr_diff);
+      if (decode)
+      {
+        // set 8-byte pointer to 0, like innodb does (relevant for 32-bit
+        // platforms)
+        memset(blob->ptr + length_bytes, 0, 8);
+        memcpy(blob->ptr + length_bytes, &blob_ptr, sizeof(uchar**));
+        blob->move_field_offset(-ptr_diff);
+      }
     }
-    else if (field_enc[i].field_type == MYSQL_TYPE_VARCHAR)
+    else if (field_enc->field_type == MYSQL_TYPE_VARCHAR)
     {
-      if (isNull)
-        continue;
-
       Field_varstring* field_var= (Field_varstring*)field;
       const char *data_len_str;
       if (!(data_len_str= reader.read(field_var->length_bytes)))
@@ -3446,80 +3515,70 @@ int ha_rocksdb::convert_record_from_storage_format(const rocksdb::Slice *key,
         /* The data on disk is longer than table DDL allows? */
         return HA_ERR_INTERNAL_ERROR;
       }
-      if (!(reader.read(data_len)))
+      if (!reader.read(data_len))
         return HA_ERR_INTERNAL_ERROR;
-      field_var->move_field_offset(ptr_diff);
-      memcpy(field_var->ptr, data_len_str, field_var->length_bytes + data_len);
-      field_var->move_field_offset(-ptr_diff);
+
+      if (decode)
+      {
+        memcpy(field_var->ptr + ptr_diff, data_len_str,
+               field_var->length_bytes + data_len);
+      }
     }
     else
     {
-      if (isNull)
-        continue;
-
       const char *data_bytes;
-      uint len= field->pack_length_in_rec();
+      uint len= field_enc->pack_length_in_rec;
       if (len > 0)
       {
         if ((data_bytes= reader.read(len)) == nullptr)
         {
           return HA_ERR_INTERNAL_ERROR;
         }
-        field->move_field_offset(ptr_diff);
-        memcpy(reinterpret_cast<char*>(field->ptr), data_bytes, len);
-        field->move_field_offset(-ptr_diff);
+        if (decode)
+          memcpy(field->ptr + ptr_diff, data_bytes, len);
       }
     }
   }
 
-  if (reader.remaining_bytes() == CHECKSUM_CHUNK_SIZE)
+  if (verify_checksums)
   {
-    if (reader.read(1)[0] == CHECKSUM_DATA_TAG)
+    if (reader.remaining_bytes() == CHECKSUM_CHUNK_SIZE &&
+        reader.read(1)[0] == CHECKSUM_DATA_TAG)
     {
-      if (verify_checksums)
+      uint32_t stored_key_chksum=
+        read_big_uint4((const uchar*)reader.read(CHECKSUM_SIZE));
+
+      uint32_t stored_val_chksum=
+        read_big_uint4((const uchar*)reader.read(CHECKSUM_SIZE));
+
+      uint32_t computed_key_chksum= crc32(0, (const uchar*)key->data(),
+                                          key->size());
+      uint32_t computed_val_chksum= crc32(0, (const uchar*) value->data(),
+                                          value->size()-CHECKSUM_CHUNK_SIZE);
+
+      DBUG_EXECUTE_IF("myrocks_simulate_bad_pk_checksum1",
+                      stored_key_chksum++;);
+
+      if (stored_key_chksum != computed_key_chksum)
       {
-        uint32_t stored_key_chksum;
-        uint32_t stored_val_chksum;
-
-        stored_key_chksum= read_big_uint4((const uchar*)reader.read(CHECKSUM_SIZE));
-        stored_val_chksum= read_big_uint4((const uchar*)reader.read(CHECKSUM_SIZE));
-
-        uint32_t computed_key_chksum= crc32(0, (const uchar*)key->data(),
-                                            key->size());
-        uint32_t computed_val_chksum=
-          crc32(0, (const uchar*) retrieved_record.data(),
-                retrieved_record.size()-CHECKSUM_CHUNK_SIZE);
-
-        DBUG_EXECUTE_IF("myrocks_simulate_bad_pk_checksum1",
-                        stored_key_chksum++;);
-
-        if (stored_key_chksum != computed_key_chksum)
-        {
-          report_checksum_mismatch(pk_descr, true, key->data(), key->size());
-          return HA_ERR_INTERNAL_ERROR;
-        }
-
-        DBUG_EXECUTE_IF("myrocks_simulate_bad_pk_checksum2",
-                        stored_val_chksum++;);
-        if (stored_val_chksum != computed_val_chksum)
-        {
-          report_checksum_mismatch(pk_descr, false, retrieved_record.data(),
-                                   retrieved_record.size());
-          return HA_ERR_INTERNAL_ERROR;
-        }
-
-        row_checksums_checked++;
+        report_checksum_mismatch(pk_descr, true, key->data(), key->size());
+        return HA_ERR_INTERNAL_ERROR;
       }
-      else
+
+      DBUG_EXECUTE_IF("myrocks_simulate_bad_pk_checksum2",
+                      stored_val_chksum++;);
+      if (stored_val_chksum != computed_val_chksum)
       {
-        /* Not checking the checksums */
-        reader.read(CHECKSUM_CHUNK_SIZE-1);
+        report_checksum_mismatch(pk_descr, false, value->data(),
+                                 value->size());
+        return HA_ERR_INTERNAL_ERROR;
       }
+
+      row_checksums_checked++;
     }
+    if (reader.remaining_bytes())
+      return HA_ERR_INTERNAL_ERROR;
   }
-
-  if (reader.remaining_bytes())
-    return HA_ERR_INTERNAL_ERROR;
 
   return 0;
 }
@@ -3574,6 +3633,8 @@ void ha_rocksdb::setup_field_converters()
     }
 
     field_enc[i].field_type= field->real_type();
+    field_enc[i].field_index= i;
+    field_enc[i].pack_length_in_rec= field->pack_length_in_rec();
 
     if (field->real_maybe_null())
     {
@@ -3754,6 +3815,16 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
 
   info(HA_STATUS_NO_LOCK | HA_STATUS_VARIABLE | HA_STATUS_CONST);
+
+  /*
+    The following load_XXX code calls row decode functions, and they do
+    that without having done ::external_lock() or index_init()/rnd_init().
+    (Note: this also means we're doing a read when there was no
+    setup_field_converters() call)
+
+    Initialize the necessary variables for them:
+  */
+  verify_checksums= false;
 
   /* TODO: move the following to where TABLE_SHARE is opened: */
   if (table->found_next_number_field)
@@ -6264,6 +6335,8 @@ int ha_rocksdb::rnd_init(bool scan)
   io_perf_start();
 
   Rdb_transaction *tx= get_or_create_tx(table->in_use);
+  setup_read_decoders();
+
   if (scan)
   {
     rnd_scan_is_new_snapshot= !tx->has_snapshot();
@@ -6418,6 +6491,8 @@ int ha_rocksdb::index_init(uint idx, bool sorted)
 {
   Rdb_transaction *tx= get_or_create_tx(table->in_use);
   DBUG_ASSERT(tx != nullptr);
+
+  setup_read_decoders();
 
   // If lock_rows is not RDB_LOCK_NONE then we will be doing a get_for_update
   // when accessing the index, so don't acquire the snapshot right away.
