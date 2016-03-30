@@ -57,4 +57,8 @@ inline uchar* rdb_str_to_uchar_ptr(String * str)
   return reinterpret_cast<uchar*>(str->c_ptr());
 }
 
+#ifndef CSTR_LEN
+#define CSTR_LEN(cstr) ((sizeof(cstr) / sizeof((cstr)[0])) - 1)
+#endif  // CSTR_LEN
+
 }  // namespace myrocks

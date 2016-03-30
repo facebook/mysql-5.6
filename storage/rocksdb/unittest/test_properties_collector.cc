@@ -18,6 +18,11 @@
 #include "../ha_rocksdb.h"
 #include "../rdb_datadic.h"
 
+// Unit-testing the CSTR_LEN macro
+static_assert(CSTR_LEN("") == 0, "Unit-test 1 for CSTR_LEN");
+static_assert(CSTR_LEN("a") == 1, "Unit-test 2 for CSTR_LEN");
+static_assert(CSTR_LEN("MyRocks") == 7, "Unit-test 3 for CSTR_LEN");
+
 void putKeys(myrocks::Rdb_tbl_prop_coll* coll,
              int num,
              bool is_delete,
