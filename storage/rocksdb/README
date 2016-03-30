@@ -5,6 +5,20 @@ This directory contains RocksDB-based Storage Engine (RDBSE) for MySQL = "MyRock
 See https://github.com/facebook/mysql-5.6/wiki/Getting-Started-with-MyRocks
 Facebook group: https://www.facebook.com/groups/mysqlonrocksdb/
 
+== Coding Conventions ==
+The baseline for MyRocks coding conventions is the MySQL set, available at
+http://dev.mysql.com/doc/internals/en/coding-guidelines.html.
+
+Several refinements:
+	0. There is an umbrella C++ namespace named "myrocks" for all MyRocks code.
+	1. We introduce "RDB" as the super-short abbreviation for "RocksDB".
+	2. The names for classes, interfaces, and structures that act as classes,
+     start with prefix "Rdb_".
+	3. The names for global objects and functions start with prefix "rdb_".
+  4. Given the 80 character per line limit, we'll not always use full English
+     words in names, when a well known or easily recognizable abbreviation
+     exists (like "tx" for "transaction" or "params" for "parameters").
+
 == Running Tests ==
 To run tests from rocksdb, rocksd_rpl or rocksdb_sys_vars packages, use the following parameters:
 --mysqld=--default-storage-engine=rocksdb  --mysqld=--skip-innodb --mysqld=--default-tmp-storage-engine=MyISAM --mysqld=--rocksdb
