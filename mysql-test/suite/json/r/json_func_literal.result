@@ -48,6 +48,18 @@ json_valid('[{"k1":"v1"},2,3]')
 select json_valid('[[1,2,3],2,3]');
 json_valid('[[1,2,3],2,3]')
 1
+select json_valid(concat('{"k1":[', repeat('{},', 200), '{}]}'));
+json_valid(concat('{"k1":[', repeat('{},', 200), '{}]}'))
+1
+select json_valid(concat('{"k2":[', repeat('[],', 200), '[]]}'));
+json_valid(concat('{"k2":[', repeat('[],', 200), '[]]}'))
+1
+select json_valid(concat('{"k3":[', repeat('{},', 100), repeat('[],', 100), '[]]}'));
+json_valid(concat('{"k3":[', repeat('{},', 100), repeat('[],', 100), '[]]}'))
+1
+select json_valid(concat('[', repeat('[],', 200), '[]]'));
+json_valid(concat('[', repeat('[],', 200), '[]]'))
+1
 select json_valid('{"MySQL":"开源数据库"}');
 json_valid('{"MySQL":"开源数据库"}')
 1

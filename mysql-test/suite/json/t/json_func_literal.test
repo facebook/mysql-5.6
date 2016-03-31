@@ -28,6 +28,10 @@ select json_valid('[1,2,3]');
 select json_valid('[1,false,"str",1.2]');
 select json_valid('[{"k1":"v1"},2,3]');
 select json_valid('[[1,2,3],2,3]');
+select json_valid(concat('{"k1":[', repeat('{},', 200), '{}]}'));
+select json_valid(concat('{"k2":[', repeat('[],', 200), '[]]}'));
+select json_valid(concat('{"k3":[', repeat('{},', 100), repeat('[],', 100), '[]]}'));
+select json_valid(concat('[', repeat('[],', 200), '[]]'));
 
 # utf-8 multi-byte character
 select json_valid('{"MySQL":"开源数据库"}');
