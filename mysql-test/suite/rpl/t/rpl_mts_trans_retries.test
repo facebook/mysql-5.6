@@ -1,5 +1,4 @@
 --source include/have_gtid.inc
---source include/have_debug_sync.inc
 --source include/master-slave.inc
 
 call mtr.add_suppression("The slave coordinator and worker threads are stopped");
@@ -90,10 +89,36 @@ SELECT * FROM t1;
 source include/check_slave_is_running.inc;
 --echo
 
+--echo *** Test lock wait timeout on table with primary key ***
+connection master;
+create table t3(a int primary key, b int) engine=innodb;
+insert into t3 values (1,1), (2,2), (3,3);
+sync_slave_with_master;
+source include/stop_slave.inc;
+connection slave2;
+begin;
+# take row lock
+update t3 set b = 3 where a = 2;
+
+connection master;
+update t3 set b = 4 where a >= 2;
+
+connection slave;
+source include/start_slave.inc;
+real_sleep 5;
+
+connection slave2;
+rollback;
+
+connection slave;
+source include/check_slave_is_running.inc;
+# Verify table data
+select * from t3;
+
 # Clean up
 --echo *** Clean up ***
 connection master;
-DROP TABLE t1,t2;
+DROP TABLE t1,t2, t3;
 sync_slave_with_master;
 
 --source include/rpl_end.inc

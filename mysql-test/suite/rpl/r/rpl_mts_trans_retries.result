@@ -71,6 +71,21 @@ a
 1
 include/check_slave_is_running.inc
 
+*** Test lock wait timeout on table with primary key ***
+create table t3(a int primary key, b int) engine=innodb;
+insert into t3 values (1,1), (2,2), (3,3);
+include/stop_slave.inc
+begin;
+update t3 set b = 3 where a = 2;
+update t3 set b = 4 where a >= 2;
+include/start_slave.inc
+rollback;
+include/check_slave_is_running.inc
+select * from t3;
+a	b
+1	1
+2	4
+3	4
 *** Clean up ***
-DROP TABLE t1,t2;
+DROP TABLE t1,t2, t3;
 include/rpl_end.inc
