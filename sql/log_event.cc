@@ -11952,6 +11952,12 @@ AFTER_MAIN_EXEC_ROW_LOOP:
       clear_all_errors(thd, const_cast<Relay_log_info*>(rli));
       error= 0;
     }
+    /*
+      Restore m_curr_row. This is necessary when slave threads are retrying
+      execution of row event after hitting a trasient error such as
+      lock wait timeout.
+    */
+    m_curr_row = saved_m_curr_row;
   } // if (table)
 
   if (error)
