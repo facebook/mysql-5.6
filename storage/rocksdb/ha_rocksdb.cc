@@ -140,7 +140,6 @@ static std::shared_ptr<rocksdb::Statistics> rocksdb_stats;
 static std::unique_ptr<rocksdb::Env> flashcache_aware_env;
 static std::shared_ptr<Rdb_tbl_prop_coll_factory>
   properties_collector_factory;
-static Rdb_perf_context_shared global_perf_context;
 static std::vector<std::string> split(const std::string& input,
                                       char               delimiter);
 
@@ -1920,9 +1919,7 @@ static int rocksdb_commit(handlerton* hton, THD* thd, bool commit_tx, bool)
 {
   DBUG_ENTER("rocksdb_commit");
 
-  Rdb_perf_context_local local_perf_context;
-  RDB_PERF_CONTEXT_GUARD(local_perf_context, nullptr, global_perf_context,
-                         rocksdb_perf_context_level != rocksdb::kDisable);
+  Rdb_perf_context_guard guard(rocksdb_perf_context_level != rocksdb::kDisable);
 
   /* note: h->external_lock(F_UNLCK) is called after this function is called) */
 
@@ -1964,9 +1961,7 @@ static int rocksdb_commit(handlerton* hton, THD* thd, bool commit_tx, bool)
 
 static int rocksdb_rollback(handlerton* hton, THD* thd, bool rollback_tx)
 {
-  Rdb_perf_context_local local_perf_context;
-  RDB_PERF_CONTEXT_GUARD(local_perf_context, nullptr, global_perf_context,
-                         rocksdb_perf_context_level != rocksdb::kDisable);
+  Rdb_perf_context_guard guard(rocksdb_perf_context_level != rocksdb::kDisable);
 
   Rdb_transaction*& tx= get_tx_from_thd(thd);
   if (tx != nullptr)
@@ -2276,9 +2271,7 @@ static int rocksdb_start_tx_and_assign_read_view(
         char**  gtid_executed,  /* out: Gtids logged until last commit */
         int*    gtid_executed_length)   /*out: Length of gtid_executed string */
 {
-  Rdb_perf_context_local local_perf_context;
-  RDB_PERF_CONTEXT_GUARD(local_perf_context, nullptr, global_perf_context,
-                         rocksdb_perf_context_level != rocksdb::kDisable);
+  Rdb_perf_context_guard guard(rocksdb_perf_context_level != rocksdb::kDisable);
 
   ulong const tx_isolation = my_core::thd_tx_isolation(thd);
 
@@ -3589,77 +3582,6 @@ void ha_rocksdb::setup_field_converters()
   null_bytes_in_rec= null_bytes;
 }
 
-void ha_rocksdb::io_perf_start(void)
-{
-  rocksdb::PerfLevel perf_level=
-    static_cast<rocksdb::PerfLevel>(rocksdb_perf_context_level);
-
-  rocksdb::SetPerfLevel(perf_level);
-
-  if (perf_level == rocksdb::kDisable)
-    return;
-
-#define IO_PERF_INIT(_field_) io_perf._field_= rocksdb::perf_context._field_
-  IO_PERF_INIT(block_read_byte);
-  IO_PERF_INIT(block_read_count);
-  IO_PERF_INIT(block_read_time);
-  rdb_perf_context_start(local_perf_context);
-#undef IO_PERF_INIT
-}
-
-void ha_rocksdb::io_perf_end_and_record(void)
-{
-  rocksdb::PerfLevel perf_level=
-    static_cast<rocksdb::PerfLevel>(rocksdb_perf_context_level);
-
-  if (perf_level == rocksdb::kDisable)
-    return;
-
-  /*
-    This seems to be needed to prevent gdb from crashing if it breaks
-    or enters this function.
-   */
-  rocksdb::SetPerfLevel(perf_level);
-
-#define IO_PERF_DIFF(_field_) io_perf._field_= rocksdb::perf_context._field_ - \
-                                               io_perf._field_
-  IO_PERF_DIFF(block_read_byte);
-  IO_PERF_DIFF(block_read_count);
-  IO_PERF_DIFF(block_read_time);
-  rdb_perf_context_stop(local_perf_context,
-                        &share->table_perf_context,
-                        global_perf_context);
-#undef IO_PERF_DIFF
-
-  if (io_perf.block_read_byte + io_perf.block_read_count +
-      io_perf.block_read_time != 0)
-  {
-    my_io_perf_t io_perf_read;
-
-    my_io_perf_init(&io_perf_read);
-    io_perf_read.bytes= io_perf.block_read_byte;
-    io_perf_read.requests= io_perf.block_read_count;
-
-    /*
-      Rocksdb does not distinguish between I/O service and wait time, so just
-      use svc time.
-     */
-    io_perf_read.svc_time_max= io_perf_read.svc_time= io_perf.block_read_time;
-
-    my_io_perf_sum_atomic_helper(&share->io_perf_read, &io_perf_read);
-    my_io_perf_sum(&stats.table_io_perf_read, &io_perf_read);
-  }
-
-  if (local_perf_context.value[PC_KEY_SKIPPED])
-  {
-    stats.key_skipped += local_perf_context.value[PC_KEY_SKIPPED];
-  }
-
-  if (local_perf_context.value[PC_DELETE_SKIPPED])
-  {
-    stats.delete_skipped += local_perf_context.value[PC_DELETE_SKIPPED];
-  }
-}
 
 int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
 {
@@ -3668,6 +3590,8 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
   if (!(share = get_share(name, table)))
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   thr_lock_data_init(&share->lock, &lock, nullptr);
+
+  m_io_perf.init(&share->table_perf_context, &share->io_perf_read, &stats);
 
   /*
     note: pk_descr may be non-NULL here, when using partitions. It seems,
@@ -4776,7 +4700,8 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
   /* By default, we don't need the retrieved records to match the prefix */
   sec_key_match_prefix= nullptr;
   stats.rows_requested++;
-  io_perf_start();
+
+  m_io_perf.start(rocksdb_perf_context_level);
 
   if (active_index == table->s->primary_key &&
       find_flag == HA_READ_KEY_EXACT && using_full_key)
@@ -4794,7 +4719,7 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
       stats.rows_index_first++;
       update_row_stats(ROWS_READ);
     }
-    io_perf_end_and_record();
+    m_io_perf.end_and_record(rocksdb_perf_context_level);
     DBUG_RETURN(rc);
   }
 
@@ -4886,7 +4811,7 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
     {
       /* This status is returned on any error */
       table->status= STATUS_NOT_FOUND;
-      io_perf_end_and_record();
+      m_io_perf.end_and_record(rocksdb_perf_context_level);
       DBUG_RETURN(rc);
     }
 
@@ -4922,7 +4847,7 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
     stats.rows_index_first++;
     update_row_stats(ROWS_READ);
   }
-  io_perf_end_and_record();
+  m_io_perf.end_and_record(rocksdb_perf_context_level);
   DBUG_RETURN(rc);
 }
 
@@ -5345,9 +5270,9 @@ int ha_rocksdb::index_next(uchar *buf)
   if (key_descr[active_index]->m_is_reverse_cf)
     moves_forward= false;
 
-  io_perf_start();
+  m_io_perf.start(rocksdb_perf_context_level);
   int rc= index_next_with_direction(buf, moves_forward);
-  io_perf_end_and_record();
+  m_io_perf.end_and_record(rocksdb_perf_context_level);
   if (rc == HA_ERR_KEY_NOT_FOUND)
     rc = HA_ERR_END_OF_FILE;
   return rc;
@@ -5360,9 +5285,9 @@ int ha_rocksdb::index_prev(uchar *buf)
   if (key_descr[active_index]->m_is_reverse_cf)
     moves_forward= true;
 
-  io_perf_start();
+  m_io_perf.start(rocksdb_perf_context_level);
   int rc= index_next_with_direction(buf, moves_forward);
-  io_perf_end_and_record();
+  m_io_perf.end_and_record(rocksdb_perf_context_level);
   if (rc == HA_ERR_KEY_NOT_FOUND)
     rc = HA_ERR_END_OF_FILE;
 
@@ -5399,11 +5324,11 @@ int ha_rocksdb::index_next_with_direction(uchar *buf, bool move_forward)
 
 int ha_rocksdb::index_first(uchar *buf)
 {
-  io_perf_start();
+  m_io_perf.start(rocksdb_perf_context_level);
   sec_key_match_prefix= nullptr;
   int rc= key_descr[active_index]->m_is_reverse_cf ? index_last_intern(buf):
                                                    index_first_intern(buf);
-  io_perf_end_and_record();
+  m_io_perf.end_and_record(rocksdb_perf_context_level);
   if (rc == HA_ERR_KEY_NOT_FOUND)
     rc = HA_ERR_END_OF_FILE;
   return rc;
@@ -5412,11 +5337,11 @@ int ha_rocksdb::index_first(uchar *buf)
 
 int ha_rocksdb::index_last(uchar *buf)
 {
-  io_perf_start();
+  m_io_perf.start(rocksdb_perf_context_level);
   sec_key_match_prefix= nullptr;
   int rc= key_descr[active_index]->m_is_reverse_cf ? index_first_intern(buf):
                                                    index_last_intern(buf);
-  io_perf_end_and_record();
+  m_io_perf.end_and_record(rocksdb_perf_context_level);
   if (rc == HA_ERR_KEY_NOT_FOUND)
     rc = HA_ERR_END_OF_FILE;
   return rc;
@@ -5725,7 +5650,7 @@ int ha_rocksdb::write_row(uchar *buf)
   DBUG_ASSERT(buf == table->record[0]);
   DBUG_ASSERT(lock_rows && lock_for_write);
 
-  io_perf_start();
+  m_io_perf.start(rocksdb_perf_context_level);
 
   /*
     Note: "buf == table->record[0]" is copied from innodb. I am not aware of
@@ -5736,7 +5661,7 @@ int ha_rocksdb::write_row(uchar *buf)
     int err;
     if ((err= update_auto_increment()))
     {
-      io_perf_end_and_record();
+      m_io_perf.end_and_record(rocksdb_perf_context_level);
       DBUG_RETURN(err);
     }
   }
@@ -5757,7 +5682,7 @@ int ha_rocksdb::write_row(uchar *buf)
     stats.rows_inserted++;
     update_row_stats(ROWS_INSERTED);
   }
-  io_perf_end_and_record();
+  m_io_perf.end_and_record(rocksdb_perf_context_level);
   DBUG_RETURN(rv);
 }
 
@@ -6257,7 +6182,7 @@ int ha_rocksdb::rnd_init(bool scan)
 {
   DBUG_ENTER("ha_rocksdb::rnd_init");
 
-  io_perf_start();
+  m_io_perf.start(rocksdb_perf_context_level);
 
   Rdb_transaction *tx= get_or_create_tx(table->in_use);
   if (scan)
@@ -6275,7 +6200,7 @@ int ha_rocksdb::rnd_init(bool scan)
   // the snapshot immediately.
   tx->acquire_snapshot(!lock_rows);
 
-  io_perf_end_and_record();
+  m_io_perf.end_and_record(rocksdb_perf_context_level);
 
   DBUG_RETURN(0);
 }
@@ -6284,7 +6209,7 @@ int ha_rocksdb::rnd_init(bool scan)
 int ha_rocksdb::rnd_next(uchar *buf)
 {
   int rc;
-  io_perf_start();
+  m_io_perf.start(rocksdb_perf_context_level);
   for (;;)
   {
     rc= rnd_next_with_direction(buf, true);
@@ -6300,7 +6225,7 @@ int ha_rocksdb::rnd_next(uchar *buf)
 
   rnd_scan_is_new_snapshot= false;
 
-  io_perf_end_and_record();
+  m_io_perf.end_and_record(rocksdb_perf_context_level);
   if (rc == HA_ERR_KEY_NOT_FOUND)
     rc = HA_ERR_END_OF_FILE;
   return rc;
@@ -6328,7 +6253,7 @@ int ha_rocksdb::rnd_next_with_direction(uchar *buf, bool move_forward)
       In this case, we should return EOF.
     */
     table->status= STATUS_NOT_FOUND;
-    io_perf_end_and_record();
+    m_io_perf.end_and_record(rocksdb_perf_context_level);
     DBUG_RETURN(HA_ERR_END_OF_FILE);
   }
 
@@ -6465,7 +6390,7 @@ int ha_rocksdb::delete_row(const uchar *buf)
 {
   DBUG_ENTER("ha_rocksdb::delete_row");
 
-  io_perf_start();
+  m_io_perf.start(rocksdb_perf_context_level);
 
   set_last_rowkey(buf);
 
@@ -6507,7 +6432,7 @@ int ha_rocksdb::delete_row(const uchar *buf)
   stats.rows_deleted++;
   update_row_stats(ROWS_DELETED);
 
-  io_perf_end_and_record();
+  m_io_perf.end_and_record(rocksdb_perf_context_level);
 
   DBUG_RETURN(0);
 }
@@ -6766,10 +6691,10 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
   */
   DBUG_ASSERT(new_data == table->record[0]);
 
-  io_perf_start();
+  m_io_perf.start(rocksdb_perf_context_level);
 
   int rv= update_write_row(old_data, new_data, false);
-  io_perf_end_and_record();
+  m_io_perf.end_and_record(rocksdb_perf_context_level);
 
   if (rv == 0)
   {
@@ -6874,7 +6799,7 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
 
-  io_perf_start();
+  m_io_perf.start(rocksdb_perf_context_level);
 
   if (lock_type == F_UNLCK)
   {
@@ -6956,7 +6881,7 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
     rocksdb_register_tx(rocksdb_hton, thd, tx);
   }
 
-  io_perf_end_and_record();
+  m_io_perf.end_and_record(rocksdb_perf_context_level);
   DBUG_RETURN(res);
 }
 
@@ -8129,13 +8054,14 @@ rocksdb::BlockBasedTableOptions& rocksdb_get_table_options()
   return table_options;
 }
 
-int rocksdb_get_share_perf_counters(const char *tablename,
-                                    RDB_SHARE_PERF_COUNTERS *counters)
+int rdb_get_table_perf_counters(const char *tablename,
+                                Rdb_perf_counters *counters)
 {
   DBUG_ASSERT(counters != nullptr);
 
+  // If table name is null, fetch the global counters
   if (!tablename) {
-    rdb_perf_context_collect(global_perf_context, counters);
+    counters->dump_global_counters();
     return 0;
   }
 
@@ -8144,7 +8070,7 @@ int rocksdb_get_share_perf_counters(const char *tablename,
   if (!share)
     return HA_ERR_INTERNAL_ERROR;
 
-  rdb_perf_context_collect(share->table_perf_context, counters);
+  share->table_perf_context.dump_out(counters);
   free_share(share);
   return 0;
 }
@@ -8219,6 +8145,7 @@ Rdb_binlog_manager *get_binlog_manager(void)
 {
   return &binlog_manager;
 }
+
 
 void
 set_compaction_options(THD* thd,
