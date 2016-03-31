@@ -354,6 +354,9 @@ class FbsonJsonParserT {
         return false;
       }
       res = parseObject(in, handler);
+      if (res) {
+        --nesting_lvl_;
+      }
       break;
     }
     case '[': {
@@ -364,6 +367,9 @@ class FbsonJsonParserT {
         return false;
       }
       res = parseArray(in, handler);
+      if (res) {
+        --nesting_lvl_;
+      }
       break;
     }
     default: {
