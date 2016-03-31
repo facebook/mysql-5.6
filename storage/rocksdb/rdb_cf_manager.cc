@@ -18,8 +18,10 @@
 #pragma implementation        // gcc: Class implementation
 #endif
 
+/* This C++ files header file */
 #include "./rdb_cf_manager.h"
 
+/* MyRocks header files */
 #include "./ha_rocksdb.h"
 #include "./ha_rocksdb_proto.h"
 
