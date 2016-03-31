@@ -166,6 +166,7 @@ class FbsonJsonParserT {
         err_ = FbsonErrType::E_OUTPUT_FAIL;
         return false;
       }
+      --nesting_lvl_;
       return true;
     }
 
@@ -188,6 +189,7 @@ class FbsonJsonParserT {
           err_ = FbsonErrType::E_OUTPUT_FAIL;
           return false;
         }
+        --nesting_lvl_;
         return true;
       } else if (ch != ',') {
         err_ = FbsonErrType::E_INVALID_OBJ;
@@ -217,6 +219,7 @@ class FbsonJsonParserT {
         err_ = FbsonErrType::E_OUTPUT_FAIL;
         return false;
       }
+      --nesting_lvl_;
       return true;
     }
 
@@ -234,6 +237,7 @@ class FbsonJsonParserT {
           err_ = FbsonErrType::E_OUTPUT_FAIL;
           return false;
         }
+        --nesting_lvl_;
         return true;
       } else if (ch != ',') {
         err_ = FbsonErrType::E_INVALID_ARR;
