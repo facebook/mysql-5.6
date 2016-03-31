@@ -160,6 +160,30 @@ a	b	c	d
 1010	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb	cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc	{"id":201,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"street":"1st","zipcode":98761}}
 SELECT CAST(c as document) FROM t1 WHERE a >= 1000 and a <= 1010;
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'document) FROM t1 WHERE a >= 1000 and a <= 1010' at line 1
+create table t2 (i int(8) auto_increment, a document, primary key (i)) engine=innodb;
+insert into t2(a) values (repeat('{"a":',100));
+ERROR HY000: Invalid document value: '{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a"', pos 500, error 'Invalid JSON object'
+insert into t2(a) values (repeat('["a",',100));
+ERROR HY000: Invalid document value: '["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a"', pos 500, error 'Invalid JSON array'
+insert into t2(a) values (repeat('{"a":',101));
+ERROR HY000: Invalid document value: '{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a"', pos 501, error 'Object or array has too many nesting levels'
+insert into t2(a) values (repeat('{"a":',10000));
+ERROR HY000: Invalid document value: '{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a"', pos 501, error 'Object or array has too many nesting levels'
+insert into t2(a) values (repeat('["a",',101));
+ERROR HY000: Invalid document value: '["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a"', pos 501, error 'Object or array has too many nesting levels'
+insert into t2(a) values (repeat('["a",',10000));
+ERROR HY000: Invalid document value: '["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a"', pos 501, error 'Object or array has too many nesting levels'
+insert into t2(a) values (concat('{"k1":[', repeat('{},', 200), '{}]}'));
+insert into t2(a) values (concat('{"k2":[', repeat('[],', 200), '[]]}'));
+insert into t2(a) values (concat('{"k3":[', repeat('{},', 100), repeat('[],', 100), '[]]}'));
+insert into t2(a) values (concat('[', repeat('[],', 200), '[]]'));
+select * from t2;
+i	a
+1	{"k1":[{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}]}
+2	{"k2":[[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]]}
+3	{"k3":[{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]]}
+4	[[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]]
+drop table t2;
 create table t_big (i int(8), a document, s text(255), primary key (i)) engine=innodb;
 show create table t_big;
 Table	Create Table
