@@ -2695,8 +2695,7 @@ static int rocksdb_init_func(void *p)
                                       rocksdb::Env::Priority::LOW);
   rocksdb::TransactionDBOptions tx_db_options;
   tx_db_options.transaction_lock_timeout= 2;  // 2 seconds
-  tx_db_options.custom_mutex_factory=
-    std::make_shared<Wrapped_mysql_mutex_factory>();
+  tx_db_options.custom_mutex_factory= std::make_shared<Rdb_mutex_factory>();
 
   status= check_rocksdb_options_compatibility(rocksdb_datadir, main_opts,
                                               cf_descr);
