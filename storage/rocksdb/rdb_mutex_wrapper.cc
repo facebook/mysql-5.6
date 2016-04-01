@@ -37,24 +37,26 @@ static
 PSI_stage_info stage_waiting_on_row_lock2= { 0, "Waiting for row lock", 0};
 
 static const int64_t MICROSECS= 1000*1000;
+// A timeout as long as one full non-leap year worth of microseconds is as
+// good as infinite timeout.
 static const int64_t BIG_TIMEOUT= MICROSECS * 60 * 60 * 24 * 7 * 365;
 
-Wrapped_mysql_cond::Wrapped_mysql_cond() {
-  mysql_cond_init(0, &cond_, 0);
+Rdb_cond_var::Rdb_cond_var() {
+  mysql_cond_init(0, &m_cond, nullptr);
 }
 
-Wrapped_mysql_cond::~Wrapped_mysql_cond() {
-  mysql_cond_destroy(&cond_);
+Rdb_cond_var::~Rdb_cond_var() {
+  mysql_cond_destroy(&m_cond);
 }
 
-Status Wrapped_mysql_cond::Wait(std::shared_ptr<TransactionDBMutex> mutex_arg) {
+Status Rdb_cond_var::Wait(std::shared_ptr<TransactionDBMutex> mutex_arg) {
   return WaitFor(mutex_arg, BIG_TIMEOUT);
 }
 
 
 /*
   @brief
-    Wait on condition *cond_ptr. The caller must make sure that we own
+    Wait on condition variable.  The caller must make sure that we own
     *mutex_ptr.  The mutex is released and re-acquired by the wait function.
 
   @param
@@ -67,13 +69,13 @@ Status Wrapped_mysql_cond::Wait(std::shared_ptr<TransactionDBMutex> mutex_arg) {
 */
 
 Status
-Wrapped_mysql_cond::WaitFor(std::shared_ptr<TransactionDBMutex> mutex_arg,
-                            int64_t timeout_micros)
+Rdb_cond_var::WaitFor(std::shared_ptr<TransactionDBMutex> mutex_arg,
+                      int64_t timeout_micros)
 {
-  auto *mutex_obj= (Wrapped_mysql_mutex*)mutex_arg.get();
+  auto *mutex_obj= reinterpret_cast<Rdb_mutex*>(mutex_arg.get());
   DBUG_ASSERT(mutex_obj != nullptr);
 
-  mysql_mutex_t * const mutex_ptr= &mutex_obj->mutex_;
+  mysql_mutex_t * const mutex_ptr= &mutex_obj->m_mutex;
 
   int res= 0;
   struct timespec wait_timeout;
@@ -86,9 +88,9 @@ Wrapped_mysql_cond::WaitFor(std::shared_ptr<TransactionDBMutex> mutex_arg,
   PSI_stage_info old_stage;
   mysql_mutex_assert_owner(mutex_ptr);
 
-  if (current_thd && mutex_obj->old_stage_info.count(current_thd) == 0)
+  if (current_thd && mutex_obj->m_old_stage_info.count(current_thd) == 0)
   {
-    my_core::thd_enter_cond(current_thd, &cond_, mutex_ptr,
+    my_core::thd_enter_cond(current_thd, &m_cond, mutex_ptr,
                             &stage_waiting_on_row_lock2, &old_stage);
     /*
       After the mysql_cond_timedwait we need make this call
@@ -99,7 +101,7 @@ Wrapped_mysql_cond::WaitFor(std::shared_ptr<TransactionDBMutex> mutex_arg,
       that will cause mutex to be released. Defer the release until the mutex
       that is unlocked by RocksDB's Pessimistic Transactions system.
     */
-    mutex_obj->SetUnlockAction(&old_stage);
+    mutex_obj->set_unlock_action(&old_stage);
   }
 
 #endif
@@ -107,7 +109,7 @@ Wrapped_mysql_cond::WaitFor(std::shared_ptr<TransactionDBMutex> mutex_arg,
 
   do
   {
-    res= mysql_cond_timedwait(&cond_, mutex_ptr, &wait_timeout);
+    res= mysql_cond_timedwait(&m_cond, mutex_ptr, &wait_timeout);
 
 #ifndef STANDALONE_UNITTEST
     if (current_thd)
@@ -152,9 +154,9 @@ Wrapped_mysql_cond::WaitFor(std::shared_ptr<TransactionDBMutex> mutex_arg,
   None of this looks like a problem for our use case.
 */
 
-void Wrapped_mysql_cond::Notify()
+void Rdb_cond_var::Notify()
 {
-  mysql_cond_signal(&cond_);
+  mysql_cond_signal(&m_cond);
 }
 
 
@@ -163,25 +165,25 @@ void Wrapped_mysql_cond::Notify()
     This is called without holding the mutex that's used for waiting on the
     condition. See ::Notify().
 */
-void Wrapped_mysql_cond::NotifyAll()
+void Rdb_cond_var::NotifyAll()
 {
-  mysql_cond_broadcast(&cond_);
+  mysql_cond_broadcast(&m_cond);
 }
 
 
-Wrapped_mysql_mutex::Wrapped_mysql_mutex()
+Rdb_mutex::Rdb_mutex()
 {
-  mysql_mutex_init(0 /* Don't register in P_S. */, &mutex_,
+  mysql_mutex_init(0 /* Don't register in P_S. */, &m_mutex,
                    MY_MUTEX_INIT_FAST);
 }
 
-Wrapped_mysql_mutex::~Wrapped_mysql_mutex() {
-    mysql_mutex_destroy(&mutex_);
+Rdb_mutex::~Rdb_mutex() {
+    mysql_mutex_destroy(&m_mutex);
 }
 
-Status Wrapped_mysql_mutex::Lock() {
-  mysql_mutex_lock(&mutex_);
-  DBUG_ASSERT(old_stage_info.count(current_thd) == 0);
+Status Rdb_mutex::Lock() {
+  mysql_mutex_lock(&m_mutex);
+  DBUG_ASSERT(m_old_stage_info.count(current_thd) == 0);
   return Status::OK();
 }
 
@@ -190,42 +192,43 @@ Status Wrapped_mysql_mutex::Lock() {
 // If implementing a custom version of this class, the implementation may
 // choose to ignore the timeout.
 // Return OK on success, or other Status on failure.
-Status Wrapped_mysql_mutex::TryLockFor(int64_t timeout_time) {
+Status Rdb_mutex::TryLockFor(int64_t timeout_time MY_ATTRIBUTE((__unused__)))
+{
   /*
     Note: PThreads API has pthread_mutex_timedlock(), but mysql's
     mysql_mutex_* wrappers do not wrap that function.
   */
-  mysql_mutex_lock(&mutex_);
+  mysql_mutex_lock(&m_mutex);
   return Status::OK();
 }
 
 
 #ifndef STANDALONE_UNITTEST
-void Wrapped_mysql_mutex::SetUnlockAction(PSI_stage_info *old_stage_arg)
+void Rdb_mutex::set_unlock_action(PSI_stage_info *old_stage_arg)
 {
   DBUG_ASSERT(old_stage_arg != nullptr);
 
-  mysql_mutex_assert_owner(&mutex_);
-  DBUG_ASSERT(old_stage_info.count(current_thd) == 0);
+  mysql_mutex_assert_owner(&m_mutex);
+  DBUG_ASSERT(m_old_stage_info.count(current_thd) == 0);
 
-  old_stage_info[current_thd] =
+  m_old_stage_info[current_thd] =
       std::make_shared<PSI_stage_info>(*old_stage_arg);
 }
 #endif
 
 // Unlock Mutex that was successfully locked by Lock() or TryLockUntil()
-void Wrapped_mysql_mutex::UnLock() {
+void Rdb_mutex::UnLock() {
 #ifndef STANDALONE_UNITTEST
-  if (old_stage_info.count(current_thd) > 0)
+  if (m_old_stage_info.count(current_thd) > 0)
   {
-    std::shared_ptr<PSI_stage_info> old_stage = old_stage_info[current_thd];
-    old_stage_info.erase(current_thd);
+    std::shared_ptr<PSI_stage_info> old_stage = m_old_stage_info[current_thd];
+    m_old_stage_info.erase(current_thd);
     /* The following will call mysql_mutex_unlock */
     my_core::thd_exit_cond(current_thd, old_stage.get());
     return;
   }
 #endif
-  mysql_mutex_unlock(&mutex_);
+  mysql_mutex_unlock(&m_mutex);
 }
 
 }  // namespace myrocks
