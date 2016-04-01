@@ -32,12 +32,16 @@
 
 namespace myrocks {
 
-class Wrapped_mysql_mutex: public rocksdb::TransactionDBMutex {
-  Wrapped_mysql_mutex(const Wrapped_mysql_mutex& p) = delete;
-  Wrapped_mysql_mutex& operator = (const Wrapped_mysql_mutex& p)=delete;
+class Rdb_mutex: public rocksdb::TransactionDBMutex {
+  Rdb_mutex(const Rdb_mutex& p) = delete;
+  Rdb_mutex& operator = (const Rdb_mutex& p)=delete;
  public:
-  Wrapped_mysql_mutex();
-  virtual ~Wrapped_mysql_mutex();
+  Rdb_mutex();
+  virtual ~Rdb_mutex();
+
+  /*
+    Override parent class's virtual methods of interrest.
+  */
 
   // Attempt to acquire lock.  Return OK on success, or other Status on failure.
   // If returned status is OK, TransactionDB will eventually call UnLock().
@@ -49,26 +53,31 @@ class Wrapped_mysql_mutex: public rocksdb::TransactionDBMutex {
   //         TimedOut if timed out,
   //         or other Status on failure.
   // If returned status is OK, TransactionDB will eventually call UnLock().
-  virtual rocksdb::Status TryLockFor(int64_t timeout_time) override;
+  virtual rocksdb::Status TryLockFor(
+    int64_t timeout_time MY_ATTRIBUTE((__unused__))) override;
 
   // Unlock Mutex that was successfully locked by Lock() or TryLockUntil()
   virtual void UnLock() override;
 
  private:
-  mysql_mutex_t mutex_;
-  friend class Wrapped_mysql_cond;
+  mysql_mutex_t m_mutex;
+  friend class Rdb_cond_var;
 
 #ifndef STANDALONE_UNITTEST
-  void SetUnlockAction(PSI_stage_info *old_stage_arg);
-  std::unordered_map<THD*, std::shared_ptr<PSI_stage_info>> old_stage_info;
+  void set_unlock_action(PSI_stage_info *old_stage_arg);
+  std::unordered_map<THD*, std::shared_ptr<PSI_stage_info>> m_old_stage_info;
 #endif
 };
 
 
-class Wrapped_mysql_cond: public rocksdb::TransactionDBCondVar {
+class Rdb_cond_var: public rocksdb::TransactionDBCondVar {
  public:
-  Wrapped_mysql_cond();
-  virtual ~Wrapped_mysql_cond();
+  Rdb_cond_var();
+  virtual ~Rdb_cond_var();
+
+  /*
+    Override parent class's virtual methods of interrest.
+  */
 
   // Block current thread until condition variable is notified by a call to
   // Notify() or NotifyAll().  Wait() will be called with mutex locked.
@@ -102,25 +111,29 @@ class Wrapped_mysql_cond: public rocksdb::TransactionDBCondVar {
   virtual void NotifyAll() override;
 
  private:
-  mysql_cond_t cond_;
+  mysql_cond_t m_cond;
 };
 
 
-class Wrapped_mysql_mutex_factory : public rocksdb::TransactionDBMutexFactory {
+class Rdb_mutex_factory : public rocksdb::TransactionDBMutexFactory {
  public:
+   /*
+     Override parent class's virtual methods of interrest.
+   */
+
   virtual std::shared_ptr<rocksdb::TransactionDBMutex>
   AllocateMutex() override {
     return
-      std::shared_ptr<rocksdb::TransactionDBMutex>(new Wrapped_mysql_mutex);
+      std::make_shared<Rdb_mutex>();
   }
 
   virtual std::shared_ptr<rocksdb::TransactionDBCondVar>
   AllocateCondVar() override {
     return
-      std::shared_ptr<rocksdb::TransactionDBCondVar>(new Wrapped_mysql_cond);
+      std::make_shared<Rdb_cond_var>();
   }
 
-  virtual ~Wrapped_mysql_mutex_factory() {}
+  virtual ~Rdb_mutex_factory() {}
 };
 
 }  // namespace myrocks
