@@ -83,4 +83,5 @@ enable_result_log;
 
 connection master;
 set @@global.use_db_uuid = @old_use_db_uuid;
+let $slave_timeout = 3600;
 source include/rpl_end.inc;
