@@ -232,6 +232,7 @@ ENDMACRO()
 MACRO(MY_SANITIZER_CHECK SAN_OPT RESULT)
   MY_CHECK_C_COMPILER_FLAG("${SAN_OPT}" C_RESULT)
   MY_CHECK_CXX_COMPILER_FLAG("${SAN_OPT}" CXX_RESULT)
+
   IF(C_RESULT AND CXX_RESULT)
     # We switch on basic optimization also for debug builds.
     # With optimization we may get some warnings, so we switch off -Werror
@@ -247,6 +248,13 @@ MACRO(MY_SANITIZER_CHECK SAN_OPT RESULT)
       "${CMAKE_CXX_FLAGS_RELEASE} ${SAN_OPT} -fPIC")
     SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO
       "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${SAN_OPT} -fPIC")
+
+    IF(WITH_FB_TSAN)
+      # fPIC implies PIC version of the TSan library.
+      SET(CMAKE_C_STANDARD_LIBRARIES " -ltsan_pic")
+      SET(CMAKE_CXX_STANDARD_LIBRARIES " -ltsan_pic")
+    ENDIF()
+
     SET(${RESULT} 1)
   ELSE()
     SET(${RESULT} 0)
@@ -263,6 +271,27 @@ IF(WITH_ASAN)
   ENDIF()
 ENDIF()
 
+# It's unfortunate, but we need to have separate options for both internal and
+# external builds. That's the price of two separate build environments.
+OPTION(WITH_FB_TSAN "Enable thread sanitizer for FB builds" OFF)
+IF(WITH_FB_TSAN)
+  # There are a couple of things to note here:
+  #
+  # 1. -fsanitize=thread requires (-fPIC | -fPIE) and (-pie | -shared).
+  #    Current combination is based on experimentation after verifying what
+  #    works in our particular build and runtime environments.
+  # 2. We need to pass in both flags for the MY_CHECK_* function to succeed.
+  # 3. Eventually -fPIC will be duplicated on the command-line, but that's OK.
+  #
+  MY_SANITIZER_CHECK("-fsanitize=thread -fPIC -pie" WITH_FB_TSAN_OK)
+  IF(NOT WITH_FB_TSAN_OK)
+    MESSAGE(FATAL_ERROR
+            "Do not know how to enable thread sanitizer.")
+    MESSAGE(WARNING
+            "Thread sanitizer support is now enabled.")
+  ENDIF()
+ENDIF()
+
 OPTION(WITH_UBSAN "Enable undefined behavior sanitizer" OFF)
 IF(WITH_UBSAN)
   MY_SANITIZER_CHECK("-fsanitize=undefined" WITH_UBSAN_OK)
@@ -275,9 +304,11 @@ IF(WITH_UBSAN)
   ENDIF()
 ENDIF()
 
-IF(WITH_ASAN AND WITH_UBSAN)
+# Paranoia.
+IF((WITH_ASAN AND WITH_FB_TSAN) OR (WITH_ASAN AND WITH_UBSAN) OR
+   (WITH_FB_TSAN AND WITH_UBSAN))
   MESSAGE(FATAL_ERROR
-    "Cannot use AddressSanitizer and UndefinedBehaviorSanitizer together.")
+    "Cannot use multiple sanitizers together. Nothing good will come of it.")
 ENDIF()
 
 OPTION(ENABLE_DEBUG_SYNC "Enable debug sync (debug builds only)" ON) 
