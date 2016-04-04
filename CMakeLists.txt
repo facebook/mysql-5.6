@@ -253,6 +253,10 @@ MACRO(MY_SANITIZER_CHECK SAN_OPT RESULT)
       # fPIC implies PIC version of the TSan library.
       SET(CMAKE_C_STANDARD_LIBRARIES " -ltsan_pic")
       SET(CMAKE_CXX_STANDARD_LIBRARIES " -ltsan_pic")
+    ELSEIF(WITH_TSAN)
+      # This combination is tested only on Ubuntu 15.10. YMMV on other OS-s.
+      SET(CMAKE_C_STANDARD_LIBRARIES " -static-libtsan")
+      SET(CMAKE_CXX_STANDARD_LIBRARIES " -static-libtsan")
     ENDIF()
 
     SET(${RESULT} 1)
@@ -292,6 +296,15 @@ IF(WITH_FB_TSAN)
   ENDIF()
 ENDIF()
 
+OPTION(WITH_TSAN "Enable thread sanitizer" OFF)
+IF(WITH_TSAN)
+  MY_SANITIZER_CHECK("-fsanitize=thread" WITH_TSAN_OK)
+  IF(NOT WITH_TSAN_OK)
+    MESSAGE(FATAL_ERROR
+            "Do not know how to enable thread sanitizer.")
+  ENDIF()
+ENDIF()
+
 OPTION(WITH_UBSAN "Enable undefined behavior sanitizer" OFF)
 IF(WITH_UBSAN)
   MY_SANITIZER_CHECK("-fsanitize=undefined" WITH_UBSAN_OK)
@@ -306,7 +319,8 @@ ENDIF()
 
 # Paranoia.
 IF((WITH_ASAN AND WITH_FB_TSAN) OR (WITH_ASAN AND WITH_UBSAN) OR
-   (WITH_FB_TSAN AND WITH_UBSAN))
+   (WITH_FB_TSAN AND WITH_UBSAN) OR (WITH_ASAN AND WITH_TSAN) OR
+   (WITH_TSAN AND WITH_UBSAN) OR (WITH_FB_TSAN AND WITH_TSAN))
   MESSAGE(FATAL_ERROR
     "Cannot use multiple sanitizers together. Nothing good will come of it.")
 ENDIF()
@@ -315,8 +329,8 @@ OPTION(ENABLE_DEBUG_SYNC "Enable debug sync (debug builds only)" ON)
 IF(ENABLE_DEBUG_SYNC) 
   SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DENABLED_DEBUG_SYNC") 
   SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DENABLED_DEBUG_SYNC") 
-ENDIF() 
- 
+ENDIF()
+
 # Older versions of ccache must be disabled: export CCACHE_DISABLE=1
 # See http://www.cmake.org/Wiki/CTest/Coverage
 OPTION(ENABLE_GCOV "Enable gcov (debug, Linux builds only)" OFF)

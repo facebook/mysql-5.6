@@ -171,6 +171,9 @@ ADD_DEPENDENCIES(clientlib GenError)
 IF(WITH_FB_TSAN)
   SET(STATIC_MERGE_LIBS clientlib dbug strings vio mysys mysys_ssl ${LIBDL}
   tsan_pic)
+ELSEIF(WITH_TSAN)
+  SET(STATIC_MERGE_LIBS clientlib dbug strings vio mysys mysys_ssl ${LIBDL}
+  tsan)
 ELSE()
   SET(STATIC_MERGE_LIBS clientlib dbug strings vio mysys mysys_ssl ${LIBDL})
 ENDIF()
