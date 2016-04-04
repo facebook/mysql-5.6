@@ -327,14 +327,8 @@ class ha_rocksdb: public handler
   */
   std::string retrieved_record;
 
-  /* If TRUE, reads should place locks on rows */
-  bool lock_rows;
-
-  /*
-    When lock_rows==true, specifies what kind of locks should be placed
-    (true means write locks, false means read locks)
-  */
-  bool lock_for_write;
+  /* Type of locking to apply to rows */
+  enum { RDB_LOCK_NONE, RDB_LOCK_READ, RDB_LOCK_WRITE } lock_rows;
 
   /* Lock that we've placed on the row we've just read. */
   Row_lock *last_row_lock;
