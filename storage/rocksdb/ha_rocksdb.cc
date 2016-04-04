@@ -448,6 +448,10 @@ static MYSQL_THDVAR_ULONG(max_row_locks, PLUGIN_VAR_RQCMDARG,
   nullptr, nullptr, /*default*/ 1024*1024*1024, /*min*/ 1,
   /*max*/ 1024*1024*1024, 0);
 
+static MYSQL_THDVAR_BOOL(lock_scanned_rows, PLUGIN_VAR_RQCMDARG,
+  "Take and hold locks on rows that are scanned but not updated",
+  nullptr, nullptr, FALSE);
+
 static MYSQL_THDVAR_ULONG(bulk_load_size, PLUGIN_VAR_RQCMDARG,
   "Max #records in a batch for bulk-load mode",
   nullptr, nullptr, /*default*/ 1000, /*min*/ 1, /*max*/ 1024*1024*1024, 0);
@@ -996,6 +1000,7 @@ const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE= 100;
 static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(lock_wait_timeout),
   MYSQL_SYSVAR(max_row_locks),
+  MYSQL_SYSVAR(lock_scanned_rows),
   MYSQL_SYSVAR(bulk_load),
   MYSQL_SYSVAR(skip_unique_check),
   MYSQL_SYSVAR(commit_in_the_middle),
@@ -1355,7 +1360,10 @@ public:
   void release_lock(rocksdb::ColumnFamilyHandle* column_family,
                     const std::string &rowkey)
   {
-    m_rocksdb_tx->UndoGetForUpdate(column_family, rocksdb::Slice(rowkey));
+    if (!THDVAR(m_thd, lock_scanned_rows))
+    {
+      m_rocksdb_tx->UndoGetForUpdate(column_family, rocksdb::Slice(rowkey));
+    }
   }
 
   bool commit_or_rollback()
@@ -3119,7 +3127,7 @@ ha_rocksdb::ha_rocksdb(handlerton *hton, TABLE_SHARE *table_arg)
     sec_key_match_prefix(nullptr), sec_key_match_prefix_buf(nullptr),
     sec_key_packed_tuple_old(nullptr), sec_key_tails_old(nullptr),
     pack_buffer(nullptr),
-    lock_rows(FALSE),
+    lock_rows(RDB_LOCK_NONE),
     keyread_only(FALSE),
     field_enc(nullptr),
     row_checksums_checked(0),
@@ -3681,8 +3689,7 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
              "Attempt to open a table that is not present in RocksDB-SE data dictionary");
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
-  lock_rows= false;
-  lock_for_write= false;
+  lock_rows= RDB_LOCK_NONE;
 
   key_descr= tbl_def->m_key_descr;
 
@@ -4506,7 +4513,7 @@ int ha_rocksdb::read_row_from_primary_key(uchar *buf)
   memcpy(pk_packed_tuple, pk_data, pk_size);
   last_rowkey.copy(pk_data, pk_size, &my_charset_bin);
 
-  if (lock_rows)
+  if (lock_rows != RDB_LOCK_NONE)
   {
     /* We need to put a lock and re-read */
     rc= get_row_by_rowid(buf, pk_packed_tuple, pk_size);
@@ -4530,7 +4537,7 @@ int ha_rocksdb::read_row_from_secondary_key(uchar *buf, Rdb_key_def* kd,
   int rc= 0;
   uint pk_size;
 
-  if (keyread_only && !lock_rows && !has_hidden_pk(table))
+  if (keyread_only && lock_rows == RDB_LOCK_NONE && !has_hidden_pk(table))
   {
     /* Get the key columns and primary key value */
     const rocksdb::Slice& rkey= scan_it->key();
@@ -4653,7 +4660,7 @@ int ha_rocksdb::secondary_index_read(const int keyno, uchar *buf)
 
       last_rowkey.copy((const char*)pk_packed_tuple, size, &my_charset_bin);
 
-      if (keyread_only && !lock_rows && !has_hidden_pk(table))
+      if (keyread_only && lock_rows == RDB_LOCK_NONE && !has_hidden_pk(table))
       {
         rocksdb::Slice value= scan_it->value();
         if (key_descr[keyno]->unpack_record(this, table, buf, &key, &value))
@@ -5294,7 +5301,7 @@ int ha_rocksdb::get_row_by_rowid(uchar *buf, const char *rowid,
   bool found;
   rocksdb::Status s;
 
-  if (!lock_rows)
+  if (lock_rows == RDB_LOCK_NONE)
   {
     tx->acquire_snapshot(true);
     s= tx->get(pk_descr->get_cf(), key_slice, &retrieved_record);
@@ -5627,7 +5634,7 @@ int ha_rocksdb::index_last_intern(uchar *buf)
 
 void ha_rocksdb::unlock_row()
 {
-  if (lock_rows)
+  if (lock_rows != RDB_LOCK_NONE)
   {
     Rdb_transaction *tx= get_or_create_tx(table->in_use);
     tx->release_lock(pk_descr->get_cf(), std::string(last_rowkey.ptr(),
@@ -5714,7 +5721,7 @@ int ha_rocksdb::write_row(uchar *buf)
 {
   DBUG_ENTER("ha_rocksdb::write_row");
   DBUG_ASSERT(buf == table->record[0]);
-  DBUG_ASSERT(lock_rows && lock_for_write);
+  DBUG_ASSERT(lock_rows == RDB_LOCK_WRITE);
 
   io_perf_start();
 
@@ -6264,7 +6271,7 @@ int ha_rocksdb::rnd_init(bool scan)
   // If lock_rows is on then we will be doing a get_for_update when accessing
   // the index, so don't acquire the snapshot right away.  Otherwise acquire
   // the snapshot immediately.
-  tx->acquire_snapshot(!lock_rows);
+  tx->acquire_snapshot(lock_rows == RDB_LOCK_NONE);
 
   io_perf_end_and_record();
 
@@ -6344,7 +6351,7 @@ int ha_rocksdb::rnd_next_with_direction(uchar *buf, bool move_forward)
     }
     else
     {
-      if (lock_rows)
+      if (lock_rows != RDB_LOCK_NONE)
       {
         /*
           Lock the row we've just read.
@@ -6364,7 +6371,7 @@ int ha_rocksdb::rnd_next_with_direction(uchar *buf, bool move_forward)
 
         // If we called get_for_update() use the value from that call not from
         // the iterator as it may be stale since we don't have a snapshot
-        // when lock_rows is true.
+        // when lock_rows is not RDB_LOCK_NONE.
         last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
         rc= convert_record_from_storage_format(&key, buf);
       }
@@ -6406,10 +6413,10 @@ int ha_rocksdb::index_init(uint idx, bool sorted)
   Rdb_transaction *tx= get_or_create_tx(table->in_use);
   DBUG_ASSERT(tx != nullptr);
 
-  // If lock_rows is on then we will be doing a get_for_update when accessing
-  // the index, so don't acquire the snapshot right away.  Otherwise acquire
-  // the snapshot immediately.
-  tx->acquire_snapshot(!lock_rows);
+  // If lock_rows is not RDB_LOCK_NONE then we will be doing a get_for_update
+  // when accessing the index, so don't acquire the snapshot right away.
+  // Otherwise acquire the snapshot immediately.
+  tx->acquire_snapshot(lock_rows == RDB_LOCK_NONE);
 
   active_index= idx;
 
@@ -6749,7 +6756,7 @@ void ha_rocksdb::calc_updated_indexes()
 int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
 {
   DBUG_ENTER("ha_rocksdb::update_row");
-  DBUG_ASSERT(lock_rows && lock_for_write);
+  DBUG_ASSERT(lock_rows == RDB_LOCK_WRITE);
   /*
     old_data points to record we're updating. It is the same as the record
     we've just read (for multi-table UPDATE, too, because SQL layer will make
@@ -6770,33 +6777,59 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
   DBUG_RETURN(rv);
 }
 
-
 /* The following function was copied from ha_blackhole::store_lock: */
 THR_LOCK_DATA **ha_rocksdb::store_lock(THD *thd,
-                                         THR_LOCK_DATA **to,
-                                         enum thr_lock_type lock_type)
+                                       THR_LOCK_DATA **to,
+                                       enum thr_lock_type lock_type)
 {
   DBUG_ENTER("ha_rocksdb::store_lock");
+
+  bool in_lock_tables = my_core::thd_in_lock_tables(thd);
 
   /* First, make a decision about MyRocks's internal locking */
   if (lock_type >= TL_WRITE_ALLOW_WRITE)
   {
-    lock_rows= true;
-    lock_for_write=true;
+    lock_rows = RDB_LOCK_WRITE;
   }
   else if (lock_type == TL_READ_WITH_SHARED_LOCKS)
   {
-    lock_rows= true;
-    lock_for_write= false;
+    lock_rows = RDB_LOCK_READ;
   }
   else
   {
-    lock_rows= false;
-    lock_for_write= false;
+    lock_rows = RDB_LOCK_NONE;
+    if (THDVAR(thd, lock_scanned_rows))
+    {
+      /*
+        The following logic was copied directly from
+        ha_innobase::store_lock_with_x_type() in
+        storage/innobase/handler/ha_innodb.cc and causes MyRocks to leave
+        locks in place on rows that are in a table that is not beint updated.
+      */
+      uint sql_command = my_core::thd_sql_command(thd);
+      if ((lock_type == TL_READ && in_lock_tables) ||
+          (lock_type == TL_READ_HIGH_PRIORITY && in_lock_tables) ||
+          can_hold_read_locks_on_select(thd, lock_type))
+      {
+        ulong tx_isolation = my_core::thd_tx_isolation(thd);
+        if (sql_command != SQLCOM_CHECKSUM &&
+            ((my_core::thd_test_options(thd, OPTION_BIN_LOG) &&
+              tx_isolation > ISO_READ_COMMITTED) ||
+             tx_isolation == ISO_SERIALIZABLE ||
+             (lock_type != TL_READ && lock_type != TL_READ_NO_INSERT) ||
+             (sql_command != SQLCOM_INSERT_SELECT &&
+              sql_command != SQLCOM_REPLACE_SELECT &&
+              sql_command != SQLCOM_UPDATE &&
+              sql_command != SQLCOM_DELETE &&
+              sql_command != SQLCOM_CREATE_TABLE)))
+        {
+          lock_rows = RDB_LOCK_READ;
+        }
+      }
+    }
   }
 
   /* Then, tell the SQL layer what kind of locking it should use: */
-
   if (lock_type != TL_IGNORE && lock.type == TL_UNLOCK)
   {
     /*
@@ -6806,10 +6839,11 @@ THR_LOCK_DATA **ha_rocksdb::store_lock(THD *thd,
       TABLESPACE, then allow multiple writers
     */
 
-    if ((lock_type >= TL_WRITE_CONCURRENT_INSERT &&
-         lock_type <= TL_WRITE) && !my_core::thd_in_lock_tables(thd)
-        && !my_core::thd_tablespace_op(thd))
+    if ((lock_type >= TL_WRITE_CONCURRENT_INSERT && lock_type <= TL_WRITE) &&
+        !in_lock_tables && !my_core::thd_tablespace_op(thd))
+    {
       lock_type = TL_WRITE_ALLOW_WRITE;
+    }
 
     /*
       In queries of type INSERT INTO t1 SELECT ... FROM t2 ...
@@ -6819,8 +6853,10 @@ THR_LOCK_DATA **ha_rocksdb::store_lock(THD *thd,
       concurrent inserts to t2.
     */
 
-    if (lock_type == TL_READ_NO_INSERT && !my_core::thd_in_lock_tables(thd))
+    if (lock_type == TL_READ_NO_INSERT && !in_lock_tables)
+    {
       lock_type = TL_READ;
+    }
 
     lock.type= lock_type;
   }
@@ -6934,8 +6970,7 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
         Note: sometimes, external_lock() can be called without a prior
         ::store_lock call.  That's why we need to set lock_* members here, too.
       */
-      lock_rows= true;
-      lock_for_write= true;
+      lock_rows= RDB_LOCK_WRITE;
 
       if (thd->lex->sql_command == SQLCOM_CREATE_INDEX ||
           thd->lex->sql_command == SQLCOM_DROP_INDEX   ||
