@@ -1109,6 +1109,9 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-rocksdb-is-fd-close-on-exec to disable.)
  --rocksdb-keep-log-file-num=# 
  DBOptions::keep_log_file_num for RocksDB
+ --rocksdb-lock-scanned-rows	
+ Take and hold locks on rows that are scanned but not
+ updated
  --rocksdb-lock-wait-timeout=# 
  Number of seconds to wait for lock
  --rocksdb-log-file-time-to-roll=# 
@@ -1812,6 +1815,7 @@ rocksdb-index-type kBinarySearch
 rocksdb-info-log-level error_level
 rocksdb-is-fd-close-on-exec TRUE
 rocksdb-keep-log-file-num 1000
+rocksdb-lock-scanned-rows FALSE
 rocksdb-lock-wait-timeout 1
 rocksdb-log-file-time-to-roll 0
 rocksdb-manifest-preallocation-size 4194304
