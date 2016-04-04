@@ -32,8 +32,10 @@ eval select $conn_id < 0xFFFFFFFE && $conn_id > 0 as "thread_id has wrapped";
 --enable_query_log
 
 # Free connection ID
-disconnect con1;
+connection con1;
 set @@global.debug="+d,skip_to_second_largest_thread_id";
+disconnect con1;
+--source include/wait_until_disconnected.inc
 connect (con5,localhost,root,,);
 set global debug = @old_debug_val;
 # This should give UINT32_MAX
