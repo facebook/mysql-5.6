@@ -32,8 +32,11 @@
 
 namespace myrocks {
 
-void get_per_index_cf_name(const char *db_table_name, const char *index_name,
-                           std::string *res);
+/*
+  Column family name which means "put this index into its own column family".
+  See Rdb_cf_manager::get_per_index_cf_name().
+*/
+const char * const RDB_PER_INDEX_CF_NAME = "$per_index_cf";
 
 /*
   We need a Column Family (CF) manager. Its functions:
@@ -60,16 +63,21 @@ class Rdb_cf_manager
   void get_per_index_cf_name(const char *db_table_name, const char *index_name,
                              std::string *res);
 
-  Rdb_cf_options* m_cf_options= nullptr;
+  Rdb_cf_opt_registry* m_cf_options= nullptr;
 
 public:
   static bool is_cf_name_reverse(const char *name);
+
+  static inline bool looks_like_per_index_cf_typo(const char *name)
+  {
+    return (name && name[0] == '$' && strcmp(name, RDB_PER_INDEX_CF_NAME));
+  }
 
   /*
     This is called right after the DB::Open() call. The parameters describe column
     families that are present in the database. The first CF is the default CF.
   */
-  void init(Rdb_cf_options* cf_options,
+  void init(Rdb_cf_opt_registry* cf_options,
             std::vector<rocksdb::ColumnFamilyHandle*> *handles);
   void cleanup();
 

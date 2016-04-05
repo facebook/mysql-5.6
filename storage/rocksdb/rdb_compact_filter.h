@@ -50,10 +50,10 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter
   {
     DBUG_ASSERT(key.size() >= sizeof(uint32));
 
-    GL_INDEX_ID gl_index_id;
-    gl_index_id.cf_id= m_cf_id;
-    gl_index_id.index_id= read_big_uint4((const uchar*)key.data());
-    DBUG_ASSERT(gl_index_id.index_id >= 1);
+    Rdb_gl_index_id gl_index_id;
+    gl_index_id.m_cf_id= m_cf_id;
+    gl_index_id.m_index_id= read_big_uint4((const uchar*)key.data());
+    DBUG_ASSERT(gl_index_id.m_index_id >= 1);
 
     if (gl_index_id != m_prev_index)  // processing new index id
     {
@@ -61,7 +61,8 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter
       {
         m_num_deleted= 0;
       }
-      m_should_delete= get_dict_manager()->is_drop_index_ongoing(gl_index_id);
+      m_should_delete= rdb_get_dict_manager()->is_drop_index_ongoing(
+        gl_index_id);
       m_prev_index= gl_index_id;
     }
 
@@ -84,7 +85,7 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter
   // Column family for this compaction filter
   const uint32_t m_cf_id;
   // Index id of the previous record
-  mutable GL_INDEX_ID m_prev_index= {0, 0};
+  mutable Rdb_gl_index_id m_prev_index= {0, 0};
   // Number of rows deleted for the same index id
   mutable uint64 m_num_deleted= 0;
   // Current index id should be deleted or not (should be deleted if true)

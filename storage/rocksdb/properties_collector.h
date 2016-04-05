@@ -33,12 +33,12 @@ namespace myrocks {
 class Rdb_ddl_manager;
 class Rdb_key_def;
 
-extern uint64_t rocksdb_num_sst_entry_put;
-extern uint64_t rocksdb_num_sst_entry_delete;
-extern uint64_t rocksdb_num_sst_entry_singledelete;
-extern uint64_t rocksdb_num_sst_entry_merge;
-extern uint64_t rocksdb_num_sst_entry_other;
-extern my_bool rocksdb_compaction_sequential_deletes_count_sd;
+extern uint64_t rdb_num_sst_entry_put_showvar;
+extern uint64_t rdb_num_sst_entry_del_showvar;
+extern uint64_t rdb_num_sst_entry_sd_showvar;
+extern uint64_t rdb_num_sst_entry_merge_showvar;
+extern uint64_t rdb_num_sst_entry_other_showvar;
+extern my_bool  rdb_compact_seqdelete_count_sd_sysvar;
 
 
 struct Rdb_compact_params
@@ -53,7 +53,7 @@ struct Rdb_index_stats
       INDEX_STATS_VERSION_INITIAL= 1,
       INDEX_STATS_VERSION_ENTRY_TYPES= 2,
   };
-  GL_INDEX_ID m_gl_index_id;
+  Rdb_gl_index_id m_gl_index_id;
   int64_t m_data_size, m_rows, m_actual_disk_size;
   int64_t m_entry_deletes, m_entry_single_deletes;
   int64_t m_entry_merges, m_entry_others;
@@ -65,7 +65,7 @@ struct Rdb_index_stats
   static int unmaterialize(const std::string& s, std::vector<Rdb_index_stats>&);
 
   Rdb_index_stats() : Rdb_index_stats({0, 0}) {}
-  explicit Rdb_index_stats(GL_INDEX_ID gl_index_id) :
+  explicit Rdb_index_stats(Rdb_gl_index_id gl_index_id) :
       m_gl_index_id(gl_index_id),
       m_data_size(0),
       m_rows(0),
@@ -97,7 +97,7 @@ class Rdb_tbl_prop_coll : public rocksdb::TablePropertiesCollector
   virtual rocksdb::Status AddUserKey(
     const rocksdb::Slice& key, const rocksdb::Slice& value,
     rocksdb::EntryType type, rocksdb::SequenceNumber seq,
-    uint64_t file_size);
+    uint64_t file_size) override;
 
   virtual rocksdb::Status Finish(rocksdb::UserCollectedProperties* properties) override;
 
@@ -110,7 +110,8 @@ class Rdb_tbl_prop_coll : public rocksdb::TablePropertiesCollector
   bool NeedCompact() const override;
 
  public:
-  uint64_t GetMaxDeletedRows() const {
+  uint64_t get_max_deleted_rows() const
+  {
     return m_max_deleted_rows;
   }
 
@@ -118,18 +119,18 @@ class Rdb_tbl_prop_coll : public rocksdb::TablePropertiesCollector
      const std::shared_ptr<const rocksdb::TableProperties>& table_props);
 
  private:
-  static std::string GetReadableStats(const Rdb_index_stats& it);
+  static std::string get_readable_stats(const Rdb_index_stats& it);
 
-  bool ShouldCollectStats();
-  void CollectStatsForRow(const rocksdb::Slice& key,
-    const rocksdb::Slice& value, rocksdb::EntryType type, uint64_t file_size);
+  bool should_collect_stats() const;
+  void collect_stats_for_row(const rocksdb::Slice& key,
+                             const rocksdb::Slice& value,
+                             rocksdb::EntryType type, uint64_t file_size);
 
  private:
   uint32_t m_cf_id;
   std::unique_ptr<Rdb_key_def> m_keydef;
   Rdb_ddl_manager* m_ddl_manager;
   std::vector<Rdb_index_stats> m_stats;
-  static const char* INDEXSTATS_KEY;
 
   // last added key
   std::string m_last_key;
@@ -140,7 +141,7 @@ class Rdb_tbl_prop_coll : public rocksdb::TablePropertiesCollector
   uint64_t m_file_size;
   Rdb_compact_params m_params;
   uint8_t m_table_stats_sampling_pct;
-  unsigned int m_seed;
+  mutable unsigned int m_rand_seed;
   float m_card_adj_extra;
 };
 
