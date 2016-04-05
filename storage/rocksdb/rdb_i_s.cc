@@ -39,10 +39,10 @@ namespace myrocks {
   Define the INFORMATION_SCHEMA (I_S) structures needed by MyRocks storage engine.
 */
 
-#define ROCKSDB_FIELD_INFO(_name_, _len_, _type_, _flag_) \
+#define RDB_FIELD_INFO(_name_, _len_, _type_, _flag_) \
         { _name_, _len_, _type_, 0, _flag_, nullptr, 0 }
 
-#define ROCKSDB_FIELD_INFO_END ROCKSDB_FIELD_INFO(nullptr, \
+#define RDB_FIELD_INFO_END RDB_FIELD_INFO(nullptr, \
         0, MYSQL_TYPE_NULL, 0)
 
 /*
@@ -74,8 +74,8 @@ static int i_s_rocksdb_cfstats_fill_table(THD *thd,
     {rocksdb::DB::Properties::kNumLiveVersions, "NUM_LIVE_VERSIONS"}
   };
 
-  rocksdb::DB *rdb= rocksdb_get_rdb();
-  Rdb_cf_manager& cf_manager= rocksdb_get_cf_manager();
+  rocksdb::DB *rdb= rdb_get_rocksdb_db();
+  Rdb_cf_manager& cf_manager= rdb_get_cf_manager();
   DBUG_ASSERT(rdb != nullptr);
 
   for (auto cf_name : cf_manager.get_cf_names())
@@ -116,10 +116,10 @@ static int i_s_rocksdb_cfstats_fill_table(THD *thd,
 
 static ST_FIELD_INFO i_s_rocksdb_cfstats_fields_info[]=
 {
-  ROCKSDB_FIELD_INFO("CF_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
-  ROCKSDB_FIELD_INFO("STAT_TYPE", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
-  ROCKSDB_FIELD_INFO("VALUE", sizeof(uint64_t), MYSQL_TYPE_LONGLONG, 0),
-  ROCKSDB_FIELD_INFO_END
+  RDB_FIELD_INFO("CF_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  RDB_FIELD_INFO("STAT_TYPE", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  RDB_FIELD_INFO("VALUE", sizeof(uint64_t), MYSQL_TYPE_LONGLONG, 0),
+  RDB_FIELD_INFO_END
 };
 
 static int i_s_rocksdb_cfstats_init(void *p)
@@ -155,9 +155,8 @@ static int i_s_rocksdb_dbstats_fill_table(THD *thd,
     {rocksdb::DB::Properties::kOldestSnapshotTime, "DB_OLDEST_SNAPSHOT_TIME"}
   };
 
-  rocksdb::DB *rdb= rocksdb_get_rdb();
-  const rocksdb::BlockBasedTableOptions& table_options=
-    rocksdb_get_table_options();
+  rocksdb::DB *rdb= rdb_get_rocksdb_db();
+  const rocksdb::BlockBasedTableOptions& table_options= rdb_get_table_options();
 
   for (auto property : db_properties)
   {
@@ -199,9 +198,9 @@ static int i_s_rocksdb_dbstats_fill_table(THD *thd,
 
 static ST_FIELD_INFO i_s_rocksdb_dbstats_fields_info[]=
 {
-  ROCKSDB_FIELD_INFO("STAT_TYPE", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
-  ROCKSDB_FIELD_INFO("VALUE", sizeof(uint64_t), MYSQL_TYPE_LONGLONG, 0),
-  ROCKSDB_FIELD_INFO_END
+  RDB_FIELD_INFO("STAT_TYPE", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  RDB_FIELD_INFO("VALUE", sizeof(uint64_t), MYSQL_TYPE_LONGLONG, 0),
+  RDB_FIELD_INFO_END
 };
 
 static int i_s_rocksdb_dbstats_init(void *p)
@@ -236,22 +235,26 @@ static int i_s_rocksdb_perf_context_fill_table(THD *thd,
 
   DBUG_ENTER("i_s_rocksdb_perf_context_fill_table");
 
-  std::vector<std::string> tablenames= get_share_names();
+  std::vector<std::string> tablenames= rdb_get_table_names();
   for (auto it : tablenames)
   {
     StringBuffer<256> buf, dbname, tablename, partname;
     RDB_SHARE_PERF_COUNTERS counters;
 
-    if (rocksdb_normalize_tablename(it.c_str(), &buf)) {
+    if (rdb_normalize_tablename(it.c_str(), &buf)) {
       return HA_ERR_INTERNAL_ERROR;
     }
 
-    if (rocksdb_split_normalized_tablename(buf.c_ptr(), &dbname, &tablename,
-                                           &partname))
+    if (rdb_split_normalized_tablename(buf.c_ptr(), &dbname, &tablename,
+                                       &partname))
+    {
       continue;
+    }
 
-    if (rocksdb_get_share_perf_counters(it.c_str(), &counters))
+    if (rdb_get_table_perf_counters(it.c_str(), &counters))
+    {
       continue;
+    }
 
     DBUG_ASSERT(field != nullptr);
 
@@ -282,14 +285,13 @@ static int i_s_rocksdb_perf_context_fill_table(THD *thd,
 
 static ST_FIELD_INFO i_s_rocksdb_perf_context_fields_info[]=
 {
-  ROCKSDB_FIELD_INFO("TABLE_SCHEMA", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
-  ROCKSDB_FIELD_INFO("TABLE_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
-  ROCKSDB_FIELD_INFO("PARTITION_NAME", NAME_LEN+1, MYSQL_TYPE_STRING,
-                     MY_I_S_MAYBE_NULL),
-  ROCKSDB_FIELD_INFO("STAT_TYPE", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
-  ROCKSDB_FIELD_INFO("VALUE", sizeof(uint64_t), MYSQL_TYPE_LONGLONG,
-                     0),
-  ROCKSDB_FIELD_INFO_END
+  RDB_FIELD_INFO("TABLE_SCHEMA", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  RDB_FIELD_INFO("TABLE_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  RDB_FIELD_INFO("PARTITION_NAME", NAME_LEN+1, MYSQL_TYPE_STRING,
+                 MY_I_S_MAYBE_NULL),
+  RDB_FIELD_INFO("STAT_TYPE", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  RDB_FIELD_INFO("VALUE", sizeof(uint64_t), MYSQL_TYPE_LONGLONG, 0),
+  RDB_FIELD_INFO_END
 };
 
 static int i_s_rocksdb_perf_context_init(void *p)
@@ -319,8 +321,10 @@ static int i_s_rocksdb_perf_context_global_fill_table(THD *thd,
   DBUG_ENTER("i_s_rocksdb_perf_context_global_fill_table");
 
   RDB_SHARE_PERF_COUNTERS counters;
-  if (rocksdb_get_share_perf_counters(nullptr, &counters))
+  if (rdb_get_table_perf_counters(nullptr, &counters))
+  {
     DBUG_RETURN(0);
+  }
 
   for (int i= 0; i < PC_MAX_IDX; i++) {
     DBUG_ASSERT(tables->table != nullptr);
@@ -341,9 +345,9 @@ static int i_s_rocksdb_perf_context_global_fill_table(THD *thd,
 
 static ST_FIELD_INFO i_s_rocksdb_perf_context_global_fields_info[]=
 {
-  ROCKSDB_FIELD_INFO("STAT_TYPE", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
-  ROCKSDB_FIELD_INFO("VALUE", sizeof(uint64_t), MYSQL_TYPE_LONGLONG, 0),
-  ROCKSDB_FIELD_INFO_END
+  RDB_FIELD_INFO("STAT_TYPE", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  RDB_FIELD_INFO("VALUE", sizeof(uint64_t), MYSQL_TYPE_LONGLONG, 0),
+  RDB_FIELD_INFO_END
 };
 
 static int i_s_rocksdb_perf_context_global_init(void *p)
@@ -376,7 +380,7 @@ static int i_s_rocksdb_cfoptions_fill_table(THD *thd,
 
   DBUG_ENTER("i_s_rocksdb_cfoptions_fill_table");
 
-  Rdb_cf_manager& cf_manager = rocksdb_get_cf_manager();
+  Rdb_cf_manager& cf_manager = rdb_get_cf_manager();
 
   for (auto cf_name : cf_manager.get_cf_names())
   {
@@ -547,7 +551,7 @@ static int i_s_rocksdb_cfoptions_fill_table(THD *thd,
 
     // get block-based table related options
     const rocksdb::BlockBasedTableOptions& table_options =
-      rocksdb_get_table_options();
+      rdb_get_table_options();
 
     // get BLOCK_BASED_TABLE_FACTORY::CACHE_INDEX_AND_FILTER_BLOCKS option
     cf_option_types.push_back(
@@ -641,10 +645,10 @@ static int i_s_rocksdb_cfoptions_fill_table(THD *thd,
 
 static ST_FIELD_INFO i_s_rocksdb_cfoptions_fields_info[] =
 {
-  ROCKSDB_FIELD_INFO("CF_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
-  ROCKSDB_FIELD_INFO("OPTION_TYPE", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
-  ROCKSDB_FIELD_INFO("VALUE", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
-  ROCKSDB_FIELD_INFO_END
+  RDB_FIELD_INFO("CF_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  RDB_FIELD_INFO("OPTION_TYPE", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  RDB_FIELD_INFO("VALUE", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  RDB_FIELD_INFO_END
 };
 
 /*
@@ -693,7 +697,7 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
   int ret= 0;
 
   /* binlog info */
-  Rdb_binlog_manager *blm = get_binlog_manager();
+  Rdb_binlog_manager *blm = rdb_get_binlog_manager();
   DBUG_ASSERT(blm != nullptr);
 
   char file_buf[FN_REFLEN+1]= {0};
@@ -709,7 +713,7 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
   }
 
   /* max index info */
-  Rdb_dict_manager *dict_manager = get_dict_manager();
+  Rdb_dict_manager *dict_manager = rdb_get_dict_manager();
   DBUG_ASSERT(dict_manager != nullptr);
 
   uint32_t max_index_id;
@@ -724,7 +728,7 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
   /* cf_id -> cf_flags */
   char cf_id_buf[INT_BUF_LEN]= {0};
   char cf_value_buf[FN_REFLEN+1] = {0};
-  Rdb_cf_manager& cf_manager = rocksdb_get_cf_manager();
+  Rdb_cf_manager& cf_manager = rdb_get_cf_manager();
   for (auto cf_handle : cf_manager.get_all_cf()) {
     uint flags;
     dict_manager->get_cf_flags(cf_handle->GetID(), &flags);
@@ -739,12 +743,12 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
   }
 
   /* DDL_DROP_INDEX_ONGOING */
-  std::vector<GL_INDEX_ID> gl_index_ids;
+  std::vector<Rdb_gl_index_id> gl_index_ids;
   dict_manager->get_drop_indexes_ongoing(&gl_index_ids);
   char cf_id_index_buf[CF_ID_INDEX_BUF_LEN]= {0};
   for (auto gl_index_id : gl_index_ids) {
     snprintf(cf_id_index_buf, CF_ID_INDEX_BUF_LEN, "cf_id:%u,index_id:%u",
-        gl_index_id.cf_id, gl_index_id.index_id);
+        gl_index_id.m_cf_id, gl_index_id.m_index_id);
     ret |= global_info_fill_row(thd, tables, "DDL_DROP_INDEX_ONGOING",
         cf_id_index_buf, "");
 
@@ -757,10 +761,10 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
 
 static ST_FIELD_INFO i_s_rocksdb_global_info_fields_info[] =
 {
-  ROCKSDB_FIELD_INFO("TYPE", FN_REFLEN+1, MYSQL_TYPE_STRING, 0),
-  ROCKSDB_FIELD_INFO("NAME", FN_REFLEN+1, MYSQL_TYPE_STRING, 0),
-  ROCKSDB_FIELD_INFO("VALUE", FN_REFLEN+1, MYSQL_TYPE_STRING, 0),
-  ROCKSDB_FIELD_INFO_END
+  RDB_FIELD_INFO("TYPE", FN_REFLEN+1, MYSQL_TYPE_STRING, 0),
+  RDB_FIELD_INFO("NAME", FN_REFLEN+1, MYSQL_TYPE_STRING, 0),
+  RDB_FIELD_INFO("VALUE", FN_REFLEN+1, MYSQL_TYPE_STRING, 0),
+  RDB_FIELD_INFO_END
 };
 
 struct i_s_rocksdb_ddl {
@@ -785,12 +789,14 @@ static int i_s_rocksdb_ddl_callback(void *cb_arg, Rdb_tbl_def *rec)
   StringBuffer<256> dbname, tablename, partname;
 
   /* Some special tables such as drop_index have different names, ignore them */
-  if (rocksdb_split_normalized_tablename(rec->m_dbname_tablename.c_ptr(),
-                                         &dbname, &tablename, &partname))
+  if (rdb_split_normalized_tablename(rec->m_dbname_tablename.c_ptr(),
+                                     &dbname, &tablename, &partname))
+  {
     return 0;
+  }
 
   for (uint i= 0; i < rec->m_key_count; i++) {
-    Rdb_key_def* key_descr= rec->m_key_descr[i];
+    Rdb_key_def* key_descr= rec->m_key_descriptors[i];
 
     DBUG_ASSERT(tables->table != nullptr);
     DBUG_ASSERT(tables->table->field != nullptr);
@@ -812,9 +818,9 @@ static int i_s_rocksdb_ddl_callback(void *cb_arg, Rdb_tbl_def *rec)
                                    key_descr->m_name.size(),
                                    system_charset_info);
 
-    GL_INDEX_ID gl_index_id = key_descr->get_gl_index_id();
-    tables->table->field[4]->store(gl_index_id.cf_id, true);
-    tables->table->field[5]->store(gl_index_id.index_id, true);
+    Rdb_gl_index_id gl_index_id = key_descr->get_gl_index_id();
+    tables->table->field[4]->store(gl_index_id.m_cf_id, true);
+    tables->table->field[5]->store(gl_index_id.m_index_id, true);
     tables->table->field[6]->store(key_descr->m_index_type, true);
     tables->table->field[7]->store(key_descr->m_kv_format_version, true);
 
@@ -835,7 +841,7 @@ static int i_s_rocksdb_ddl_fill_table(THD *thd, TABLE_LIST *tables, Item *cond)
   DBUG_ASSERT(tables != nullptr);
 
   int ret;
-  Rdb_ddl_manager *ddl_manager= get_ddl_manager();
+  Rdb_ddl_manager *ddl_manager= rdb_get_ddl_manager();
   DBUG_ASSERT(ddl_manager != nullptr);
   struct i_s_rocksdb_ddl ddl_arg= { thd, tables, cond };
 
@@ -848,18 +854,18 @@ static int i_s_rocksdb_ddl_fill_table(THD *thd, TABLE_LIST *tables, Item *cond)
 
 static ST_FIELD_INFO i_s_rocksdb_ddl_fields_info[] =
 {
-  ROCKSDB_FIELD_INFO("TABLE_SCHEMA", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
-  ROCKSDB_FIELD_INFO("TABLE_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
-  ROCKSDB_FIELD_INFO("PARTITION_NAME", NAME_LEN+1, MYSQL_TYPE_STRING,
+  RDB_FIELD_INFO("TABLE_SCHEMA", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  RDB_FIELD_INFO("TABLE_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  RDB_FIELD_INFO("PARTITION_NAME", NAME_LEN+1, MYSQL_TYPE_STRING,
                      MY_I_S_MAYBE_NULL),
-  ROCKSDB_FIELD_INFO("INDEX_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
-  ROCKSDB_FIELD_INFO("COLUMN_FAMILY", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
-  ROCKSDB_FIELD_INFO("INDEX_NUMBER", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
-  ROCKSDB_FIELD_INFO("INDEX_TYPE", sizeof(uint16_t), MYSQL_TYPE_SHORT, 0),
-  ROCKSDB_FIELD_INFO("KV_FORMAT_VERSION", sizeof(uint16_t),
+  RDB_FIELD_INFO("INDEX_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  RDB_FIELD_INFO("COLUMN_FAMILY", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
+  RDB_FIELD_INFO("INDEX_NUMBER", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
+  RDB_FIELD_INFO("INDEX_TYPE", sizeof(uint16_t), MYSQL_TYPE_SHORT, 0),
+  RDB_FIELD_INFO("KV_FORMAT_VERSION", sizeof(uint16_t),
                      MYSQL_TYPE_SHORT, 0),
-  ROCKSDB_FIELD_INFO("CF", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
-  ROCKSDB_FIELD_INFO_END
+  RDB_FIELD_INFO("CF", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  RDB_FIELD_INFO_END
 };
 
 static int i_s_rocksdb_ddl_init(void *p)
@@ -940,10 +946,10 @@ static int i_s_rocksdb_index_file_map_fill_table(
   DBUG_ENTER("i_s_rocksdb_index_file_map_fill_table");
 
   /* Iterate over all the column families */
-  rocksdb::DB *rdb= rocksdb_get_rdb();
+  rocksdb::DB *rdb= rdb_get_rocksdb_db();
   DBUG_ASSERT(rdb != nullptr);
 
-  Rdb_cf_manager& cf_manager = rocksdb_get_cf_manager();
+  Rdb_cf_manager& cf_manager = rdb_get_cf_manager();
   for (auto cf_handle : cf_manager.get_all_cf()) {
     /* Grab the the properties of all the tables in the column family */
     rocksdb::TablePropertiesCollection table_props_collection;
@@ -976,8 +982,8 @@ static int i_s_rocksdb_index_file_map_fill_table(
       else {
         for (auto it : stats) {
           /* Add the index number, the number of rows, and data size to the output */
-          field[0]->store(it.m_gl_index_id.cf_id, true);
-          field[1]->store(it.m_gl_index_id.index_id, true);
+          field[0]->store(it.m_gl_index_id.m_cf_id, true);
+          field[1]->store(it.m_gl_index_id.m_index_id, true);
           field[3]->store(it.m_rows, true);
           field[4]->store(it.m_data_size, true);
           field[5]->store(it.m_entry_deletes, true);
@@ -1006,17 +1012,17 @@ static ST_FIELD_INFO i_s_rocksdb_index_file_map_fields_info[] =
    *   SST_NAME => the name of the SST file containing some indexes
    *   NUM_ROWS => the number of entries of this index id in this SST file
    *   DATA_SIZE => the data size stored in this SST file for this index id */
-  ROCKSDB_FIELD_INFO("COLUMN_FAMILY", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
-  ROCKSDB_FIELD_INFO("INDEX_NUMBER", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
-  ROCKSDB_FIELD_INFO("SST_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
-  ROCKSDB_FIELD_INFO("NUM_ROWS", sizeof(int64_t), MYSQL_TYPE_LONGLONG, 0),
-  ROCKSDB_FIELD_INFO("DATA_SIZE", sizeof(int64_t), MYSQL_TYPE_LONGLONG, 0),
-  ROCKSDB_FIELD_INFO("ENTRY_DELETES", sizeof(int64_t), MYSQL_TYPE_LONGLONG, 0),
-  ROCKSDB_FIELD_INFO("ENTRY_SINGLEDELETES", sizeof(int64_t),
+  RDB_FIELD_INFO("COLUMN_FAMILY", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
+  RDB_FIELD_INFO("INDEX_NUMBER", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
+  RDB_FIELD_INFO("SST_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  RDB_FIELD_INFO("NUM_ROWS", sizeof(int64_t), MYSQL_TYPE_LONGLONG, 0),
+  RDB_FIELD_INFO("DATA_SIZE", sizeof(int64_t), MYSQL_TYPE_LONGLONG, 0),
+  RDB_FIELD_INFO("ENTRY_DELETES", sizeof(int64_t), MYSQL_TYPE_LONGLONG, 0),
+  RDB_FIELD_INFO("ENTRY_SINGLEDELETES", sizeof(int64_t),
                       MYSQL_TYPE_LONGLONG, 0),
-  ROCKSDB_FIELD_INFO("ENTRY_MERGES", sizeof(int64_t), MYSQL_TYPE_LONGLONG, 0),
-  ROCKSDB_FIELD_INFO("ENTRY_OTHERS", sizeof(int64_t), MYSQL_TYPE_LONGLONG, 0),
-  ROCKSDB_FIELD_INFO_END
+  RDB_FIELD_INFO("ENTRY_MERGES", sizeof(int64_t), MYSQL_TYPE_LONGLONG, 0),
+  RDB_FIELD_INFO("ENTRY_OTHERS", sizeof(int64_t), MYSQL_TYPE_LONGLONG, 0),
+  RDB_FIELD_INFO_END
 };
 
 /* Initialize the information_schema.rocksdb_index_file_map virtual table */

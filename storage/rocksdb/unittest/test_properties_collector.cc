@@ -32,7 +32,7 @@ void putKeys(myrocks::Rdb_tbl_prop_coll* coll,
       is_delete ? rocksdb::kEntryDelete : rocksdb::kEntryPut,
       0, 100);
   }
-  DBUG_ASSERT(coll->GetMaxDeletedRows() ==  expected_deleted);
+  DBUG_ASSERT(coll->get_max_deleted_rows() ==  expected_deleted);
 }
 
 int main(int argc, char** argv)
@@ -43,8 +43,7 @@ int main(int argc, char** argv)
   params.m_deletes= 333;  // irrelevant
   params.m_window= 10;
 
-  myrocks::Rdb_tbl_prop_coll coll(nullptr, params, 0,
-    MYROCKS_DEFAULT_SAMPLE_PCT);
+  myrocks::Rdb_tbl_prop_coll coll(nullptr, params, 0, RDB_DEFAULT_SAMPLE_PCT);
 
   putKeys(&coll, 2, true, 2);     // [xx]
   putKeys(&coll, 3, false, 2);    // [xxo]

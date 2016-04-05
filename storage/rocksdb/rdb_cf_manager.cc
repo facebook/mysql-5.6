@@ -41,7 +41,7 @@ static PSI_mutex_key ex_key_cfm;
 #endif
 
 void Rdb_cf_manager::init(
-  Rdb_cf_options* cf_options,
+  Rdb_cf_opt_registry* cf_options,
   std::vector<rocksdb::ColumnFamilyHandle*> *handles)
 {
   mysql_mutex_init(ex_key_cfm, &m_mutex, MY_MUTEX_INIT_FAST);
@@ -111,10 +111,10 @@ Rdb_cf_manager::get_or_create_cf(rocksdb::DB *rdb,
   mysql_mutex_lock(&m_mutex);
   *is_automatic= false;
   if (cf_name == nullptr)
-    cf_name= DEFAULT_CF_NAME;
+    cf_name= RDB_DEFAULT_CF_NAME;
 
   std::string per_index_name;
-  if (!strcmp(cf_name, PER_INDEX_CF_NAME))
+  if (!strcmp(cf_name, RDB_PER_INDEX_CF_NAME))
   {
     get_per_index_cf_name(db_table_name, index_name, &per_index_name);
     cf_name= per_index_name.c_str();
@@ -155,7 +155,7 @@ Rdb_cf_manager::get_or_create_cf(rocksdb::DB *rdb,
 
   @detail
   dbname.tablename  and index_name are also parameters, because
-  cf_name=PER_INDEX_CF_NAME means that column family name is a function
+  cf_name=RDB_PER_INDEX_CF_NAME means that column family name is a function
   of table/index name.
 
   @param out is_automatic  TRUE<=> column family name is auto-assigned based on
@@ -176,10 +176,10 @@ Rdb_cf_manager::get_cf(const char *cf_name,
   *is_automatic= false;
   mysql_mutex_lock(&m_mutex);
   if (cf_name == nullptr)
-    cf_name= DEFAULT_CF_NAME;
+    cf_name= RDB_DEFAULT_CF_NAME;
 
   std::string per_index_name;
-  if (!strcmp(cf_name, PER_INDEX_CF_NAME))
+  if (!strcmp(cf_name, RDB_PER_INDEX_CF_NAME))
   {
     get_per_index_cf_name(db_table_name, index_name, &per_index_name);
     cf_name= per_index_name.c_str();
