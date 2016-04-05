@@ -665,25 +665,26 @@ public:
 
 /*
   A thread-safe sequential number generator. Its performance is not a concern
+  hence it is ok to protect it by a mutex.
 */
 
-class Sequence_generator
+class Rdb_seq_generator
 {
-  uint next_number;
+  uint m_next_number= 0;
 
-  mysql_mutex_t mutex;
+  mysql_mutex_t m_mutex;
 public:
   void init(uint initial_number)
   {
-    mysql_mutex_init(0 , &mutex, MY_MUTEX_INIT_FAST);
-    next_number= initial_number;
+    mysql_mutex_init(0 , &m_mutex, MY_MUTEX_INIT_FAST);
+    m_next_number= initial_number;
   }
 
   uint get_and_update_next_number(Rdb_dict_manager *dict);
 
   void cleanup()
   {
-    mysql_mutex_destroy(&mutex);
+    mysql_mutex_destroy(&m_mutex);
   }
 };
 
@@ -705,7 +706,7 @@ class Rdb_ddl_manager
     m_index_num_to_keydef;
   mysql_rwlock_t m_rwlock;
 
-  Sequence_generator m_sequence;
+  Rdb_seq_generator m_sequence;
   // A queue of table stats to write into data dictionary
   // It is produced by event listener (ie compaction and flush threads)
   // and consumed by the rocksdb background thread
