@@ -3184,14 +3184,14 @@ Rdb_index_stats Rdb_dict_manager::get_stats(GL_INDEX_ID gl_index_id)
   return Rdb_index_stats();
 }
 
-uint Sequence_generator::get_and_update_next_number(Rdb_dict_manager *dict)
+uint Rdb_seq_generator::get_and_update_next_number(Rdb_dict_manager *dict)
 {
   DBUG_ASSERT(dict != nullptr);
 
   uint res;
-  mysql_mutex_lock(&mutex);
+  mysql_mutex_lock(&m_mutex);
 
-  res= next_number++;
+  res= m_next_number++;
 
   std::unique_ptr<rocksdb::WriteBatch> wb= dict->begin();
   rocksdb::WriteBatch *batch= wb.get();
@@ -3200,7 +3200,7 @@ uint Sequence_generator::get_and_update_next_number(Rdb_dict_manager *dict)
   dict->update_max_index_id(batch, res);
   dict->commit(batch);
 
-  mysql_mutex_unlock(&mutex);
+  mysql_mutex_unlock(&m_mutex);
 
   return res;
 }
