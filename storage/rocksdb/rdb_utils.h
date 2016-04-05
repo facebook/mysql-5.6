@@ -47,6 +47,11 @@ namespace myrocks {
 #define my_core
 #endif  // my_core
 
+#ifndef my_os
+// C-style pseudo-namespace for MySQL support for cross-platform OS calls.
+#define my_os
+#endif  // my_os
+
 /*
   Helper function to get an uchar* out of a MySQL String.
 */
