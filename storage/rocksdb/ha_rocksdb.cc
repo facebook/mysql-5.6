@@ -1131,6 +1131,9 @@ static uchar* rocksdb_get_key(ROCKSDB_SHARE *share, size_t *length,
 */
 PSI_stage_info stage_waiting_on_row_lock= { 0, "Waiting for row lock", 0};
 
+pthread_t background_thread_handle;
+pthread_t drop_index_thread_handle;
+
 #ifdef HAVE_PSI_INTERFACE
 static PSI_thread_key key_thread_background;
 static PSI_thread_key key_thread_drop_index;
@@ -2754,9 +2757,8 @@ static int rocksdb_init_func(void *p)
     DBUG_RETURN(1);
   }
 
-  pthread_t thread_handle;
   auto err = mysql_thread_create(
-    key_thread_background, &thread_handle,
+    key_thread_background, &background_thread_handle,
     nullptr,
     background_thread, nullptr
   );
@@ -2768,7 +2770,7 @@ static int rocksdb_init_func(void *p)
 
   stop_drop_index_thread = false;
   err = mysql_thread_create(
-    key_thread_drop_index, &thread_handle,
+    key_thread_drop_index, &drop_index_thread_handle,
     nullptr,
     drop_index_thread, nullptr
   );
@@ -2816,16 +2818,27 @@ static int rocksdb_done_func(void *p)
   mysql_cond_signal(&stop_cond);
   mysql_mutex_unlock(&stop_cond_mutex);
 
-  // wait for the background thread to finish
-  mysql_mutex_lock(&background_mutex);
-  mysql_mutex_unlock(&background_mutex);
+  // Wait for the background thread to finish.
+  auto err = pthread_join(background_thread_handle, nullptr);
+  if (err != 0) {
+    // We'lll log the message and continue because we're shutting down and
+    // continuation is the optimal strategy.
+    // NO_LINT_DEBUG
+    sql_print_error("RocksDB: Couldn't stop the background thread: (errno=%d)",
+                    err);
+  }
 
-  // wait for the drop index thread to finish
-  mysql_mutex_lock(&drop_index_mutex);
-  mysql_mutex_unlock(&drop_index_mutex);
+  // Wait for the drop index thread to finish.
+  err = pthread_join(drop_index_thread_handle, nullptr);
+  if (err != 0) {
+    // NO_LINT_DEBUG
+    sql_print_error("RocksDB: Couldn't stop the index thread: (errno=%d)",
+                    err);
+  }
 
   if (rocksdb_open_tables.records)
     error= 1;
+
   my_hash_free(&rocksdb_open_tables);
   mysql_mutex_destroy(&collation_exception_list_mutex);
   mysql_mutex_destroy(&rocksdb_mutex);
