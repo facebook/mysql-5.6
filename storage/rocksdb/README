@@ -11,13 +11,17 @@ http://dev.mysql.com/doc/internals/en/coding-guidelines.html.
 
 Several refinements:
 	0. There is an umbrella C++ namespace named "myrocks" for all MyRocks code.
-	1. We introduce "RDB" as the super-short abbreviation for "RocksDB".
+	1. We introduce "RDB" as the super-short abbreviation for "RocksDB". We will
+     use it as a name prefix, with different capitalization (see below), to ease
+     up code navigation with ctags and grep.
 	2. The names for classes, interfaces, and structures that act as classes,
      start with prefix "Rdb_".
 	3. The names for global objects and functions start with prefix "rdb_".
   4. Given the 80 character per line limit, we'll not always use full English
      words in names, when a well known or easily recognizable abbreviation
      exists (like "tx" for "transaction" or "params" for "parameters").
+  5. Regular class member names start with "m_".
+  6. Static class member names start with "s_".
 
 == Running Tests ==
 To run tests from rocksdb, rocksd_rpl or rocksdb_sys_vars packages, use the following parameters:
