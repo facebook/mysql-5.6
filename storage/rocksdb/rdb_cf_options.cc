@@ -37,10 +37,10 @@
 
 namespace myrocks {
 
-Rdb_pk_comparator Rdb_cf_options::s_pk_comparator;
-Rdb_rev_comparator Rdb_cf_options::s_rev_pk_comparator;
+Rdb_pk_comparator Rdb_cf_opt_registry::s_pk_comparator;
+Rdb_rev_comparator Rdb_cf_opt_registry::s_rev_pk_comparator;
 
-bool Rdb_cf_options::init(
+bool Rdb_cf_opt_registry::init(
   size_t default_write_buffer_size,
   const rocksdb::BlockBasedTableOptions& table_options,
   std::shared_ptr<rocksdb::TablePropertiesCollectorFactory> prop_coll_factory,
@@ -68,7 +68,7 @@ bool Rdb_cf_options::init(
   return true;
 }
 
-void Rdb_cf_options::get(const std::string &cf_name,
+void Rdb_cf_opt_registry::get(const std::string &cf_name,
                          rocksdb::ColumnFamilyOptions *opts)
 {
   DBUG_ASSERT(opts != nullptr);
@@ -79,15 +79,15 @@ void Rdb_cf_options::get(const std::string &cf_name,
                                             opts);
 
   // set per-cf config if we have one
-  Name_to_config_t::iterator it = m_name_map.find(cf_name);
-  if (it != m_name_map.end()) {
+  Cf_name_to_config_t::iterator it = m_name_to_config_map.find(cf_name);
+  if (it != m_name_to_config_map.end()) {
     rocksdb::GetColumnFamilyOptionsFromString(*opts,
                                               it->second,
                                               opts);
   }
 }
 
-bool Rdb_cf_options::set_default(const std::string &default_config)
+bool Rdb_cf_opt_registry::set_default(const std::string &default_config)
 {
   rocksdb::ColumnFamilyOptions options;
 
@@ -106,7 +106,7 @@ bool Rdb_cf_options::set_default(const std::string &default_config)
 }
 
 // Skip over any spaces in the input string.
-void Rdb_cf_options::skip_spaces(const std::string& input, size_t* pos)
+void Rdb_cf_opt_registry::skip_spaces(const std::string& input, size_t* pos)
 {
   DBUG_ASSERT(pos != nullptr);
 
@@ -117,8 +117,8 @@ void Rdb_cf_options::skip_spaces(const std::string& input, size_t* pos)
 // Find a valid column family name.  Note that all characters except a
 // semicolon are valid (should this change?) and all spaces are trimmed from
 // the beginning and end but are not removed between other characters.
-bool Rdb_cf_options::find_column_family(const std::string& input, size_t* pos,
-                                        std::string* key)
+bool Rdb_cf_opt_registry::find_column_family(const std::string& input,
+                                             size_t* pos, std::string* key)
 {
   DBUG_ASSERT(pos != nullptr);
   DBUG_ASSERT(key != nullptr);
@@ -148,7 +148,7 @@ bool Rdb_cf_options::find_column_family(const std::string& input, size_t* pos,
 // Find a valid options portion.  Everything is deemed valid within the options
 // portion until we hit as many close curly braces as we have seen open curly
 // braces.
-bool Rdb_cf_options::find_options(const std::string& input, size_t* pos,
+bool Rdb_cf_opt_registry::find_options(const std::string& input, size_t* pos,
                                   std::string* options)
 {
   DBUG_ASSERT(pos != nullptr);
@@ -210,7 +210,7 @@ bool Rdb_cf_options::find_options(const std::string& input, size_t* pos,
   return false;
 }
 
-bool Rdb_cf_options::find_cf_options_pair(const std::string& input,
+bool Rdb_cf_opt_registry::find_cf_options_pair(const std::string& input,
                                           size_t* pos,
                                           std::string* cf,
                                           std::string* opt_str)
@@ -264,14 +264,14 @@ bool Rdb_cf_options::find_cf_options_pair(const std::string& input,
   return true;
 }
 
-bool Rdb_cf_options::set_override(const std::string &override_config)
+bool Rdb_cf_opt_registry::set_override(const std::string &override_config)
 {
   // TODO(???): support updates?
 
   std::string cf;
   std::string opt_str;
   rocksdb::ColumnFamilyOptions options;
-  Name_to_config_t configs;
+  Cf_name_to_config_t configs;
 
   // Loop through the characters of the string until we reach the end.
   size_t pos = 0;
@@ -307,12 +307,12 @@ bool Rdb_cf_options::set_override(const std::string &override_config)
   }
 
   // Everything checked out - make the map live
-  m_name_map = configs;
+  m_name_to_config_map = configs;
 
   return true;
 }
 
-void Rdb_cf_options::get_cf_options(const std::string &cf_name,
+void Rdb_cf_opt_registry::get_cf_options(const std::string &cf_name,
                                     rocksdb::ColumnFamilyOptions *opts)
 {
   DBUG_ASSERT(opts != nullptr);

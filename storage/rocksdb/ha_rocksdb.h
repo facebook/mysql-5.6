@@ -19,6 +19,9 @@
 #pragma interface			/* gcc class implementation */
 #endif
 
+/* Standard C++ header files */
+#include <string>
+
 /* MySQL header files */
 #include "./handler.h"                     /* handler */
 #include "./my_global.h"                   /* ulonglong */
@@ -34,7 +37,8 @@
 #include "rocksdb/utilities/write_batch_with_index.h"
 
 /* MyRocks header files */
-#include "rdb_perf_context.h"
+#include "./rdb_perf_context.h"
+#include "./rdb_utils.h"
 
 namespace myrocks {
 
@@ -45,36 +49,30 @@ namespace myrocks {
   - the name used to set the default column family parameter for per-cf
     arguments.
 */
-const char * const DEFAULT_CF_NAME= "default";
+const char * const RDB_DEFAULT_CF_NAME= "default";
 
 /*
   This is the name of the Column Family used for storing the data dictionary.
 */
-const char * const DEFAULT_SYSTEM_CF_NAME= "__system__";
-
-/*
-  Column family name which means "put this index into its own column family".
-  See Rdb_cf_manager::get_per_index_cf_name().
-*/
-const char * const PER_INDEX_CF_NAME = "$per_index_cf";
+const char * const RDB_DEFAULT_SYSTEM_CF_NAME= "__system__";
 
 /*
   Default, minimal valid, and maximum valid sampling rate values when collecting
   statistics about table.
 */
-#define MYROCKS_DEFAULT_SAMPLE_PCT                       10
-#define MYROCKS_SAMPLE_PCT_MIN                            1
-#define MYROCKS_SAMPLE_PCT_MAX                          100
+#define RDB_DEFAULT_SAMPLE_PCT                        10
+#define RDB_SAMPLE_PCT_MIN                            1
+#define RDB_SAMPLE_PCT_MAX                            100
 
 /*
   Default and maximum values for rocksdb-compaction-sequential-deletes and
   rocksdb-compaction-sequential-deletes-window to add basic boundary checking.
 */
-#define DEFAULT_COMPACTION_SEQUENTIAL_DELETES             0
-#define MAX_COMPACTION_SEQUENTIAL_DELETES            100000
+#define RDB_DEF_COMPACT_SEQUENTIAL_DELETES            0
+#define RDB_MAX_COMPACT_SEQUENTIAL_DELETES            100000
 
-#define DEFAULT_COMPACTION_SEQUENTIAL_DELETES_WINDOW      0
-#define MAX_COMPACTION_SEQUENTIAL_DELETES_WINDOW     100000
+#define RDB_DEF_COMPACT_SEQUENTIAL_DELETES_WINDOW     0
+#define RDB_MAX_COMPACT_SEQUENTIAL_DELETES_WINDOW     100000
 
 /*
   Default and maximum values for various compaction and flushing related
@@ -86,11 +84,11 @@ const char * const PER_INDEX_CF_NAME = "$per_index_cf";
   CPU-s and derive the values from there. This however has its own set of
   problems and we'll choose simplicity for now.
 */
-#define MAX_BACKGROUND_COMPACTIONS                       64
-#define MAX_BACKGROUND_FLUSHES                           64
+#define RDB_MAX_BACKGROUND_COMPACTIONS                64
+#define RDB_MAX_BACKGROUND_FLUSHES                    64
 
-#define DEFAULT_SUBCOMPACTIONS                           1
-#define MAX_SUBCOMPACTIONS                               64
+#define RDB_DEFAULT_SUBCOMPACTIONS                    1
+#define RDB_MAX_SUBCOMPACTIONS                        64
 
 /*
   To fix an unhandled exception we specify the upper bound as LONGLONGMAX
@@ -99,89 +97,76 @@ const char * const PER_INDEX_CF_NAME = "$per_index_cf";
 
   The reason behind the cast issue is the lack of unsigned int support in Java.
 */
-#define MAX_RATE_LIMITER_BYTES_PER_SEC  static_cast<uint64_t>(LONGLONG_MAX)
+#define RDB_MAX_RATE_LIMITER_BPS  static_cast<uint64_t>(LONGLONG_MAX)
 
 /*
   Hidden PK column (for tables with no primary key) is a longlong (aka 8 bytes).
   static_assert() in code will validate this assumption.
 */
-#define ROCKSDB_SIZEOF_HIDDEN_PK_COLUMN sizeof(longlong)
+#define RDB_SIZEOF_HIDDEN_PK_COLUMN sizeof(longlong)
 
 /* MyRocks supports only the following collations for indexed columns */
 const std::set<const CHARSET_INFO *> MYROCKS_INDEX_COLLATIONS=
   {&my_charset_bin, &my_charset_utf8_bin, &my_charset_latin1_bin};
 
-inline bool looks_like_per_index_cf_typo(const char *name)
-{
-  return (name && name[0]=='$' && strcmp(name, PER_INDEX_CF_NAME));
-}
-
 
 /** @brief
-  ROCKSDB_SHARE is a structure that will be shared among all open handlers.
-  This example implements the minimum of what you will probably need.
+  Rdb_table_handler is a structure stroing information for each open table.
 
   //TODO: join this with Rdb_tbl_def ?
 */
-typedef struct st_rocksdb_share {
-  char *table_name;
-  uint table_name_length,use_count;
-  //mysql_mutex_t mutex;
-
-  THR_LOCK lock;
+struct Rdb_table_handler
+{
+  char *m_table_name;
+  uint m_table_name_length;
+  uint m_ref_count;
 
   /* Stores cumulative table statistics */
-  my_io_perf_atomic_t io_perf_read;
-  Rdb_perf_context_shared table_perf_context;
-} ROCKSDB_SHARE;
+  my_io_perf_atomic_t m_io_perf_read;
+  Rdb_perf_context_shared m_table_perf_context;
+};
 
-typedef enum io_error_type {
-  ROCKSDB_IO_ERROR_TX_COMMIT,
-  ROCKSDB_IO_ERROR_DICT_COMMIT,
-  ROCKSDB_IO_ERROR_BG_THREAD
-} ROCKSDB_IO_ERROR_TYPES;
-
-void rocksdb_handle_io_error(rocksdb::Status status, enum io_error_type type);
 
 class Rdb_key_def;
 class Rdb_tbl_def;
-class Row_lock;
 class Rdb_transaction;
 
-const char *const rocksdb_hton_name= "ROCKSDB";
+const char *const rdb_storage_engine_name= "ROCKSDB";
 
-typedef struct _gl_index_id_s {
-  uint32_t cf_id;
-  uint32_t index_id;
-  bool operator==(const struct _gl_index_id_s& other) const
+struct Rdb_gl_index_id
+{
+  uint32_t m_cf_id;
+  uint32_t m_index_id;
+
+  bool operator==(const struct Rdb_gl_index_id& other) const
   {
-    return cf_id == other.cf_id && index_id == other.index_id;
+    return m_cf_id == other.m_cf_id && m_index_id == other.m_index_id;
   }
-  bool operator!=(const struct _gl_index_id_s& other) const
+  bool operator!=(const struct Rdb_gl_index_id& other) const
   {
-    return cf_id != other.cf_id || index_id != other.index_id;
+    return m_cf_id != other.m_cf_id || m_index_id != other.m_index_id;
   }
-  bool operator<(const struct _gl_index_id_s& other) const
+  bool operator<(const struct Rdb_gl_index_id& other) const
   {
-    return cf_id < other.cf_id ||
-        (cf_id == other.cf_id && index_id < other.index_id);
+    return m_cf_id < other.m_cf_id ||
+        (m_cf_id == other.m_cf_id && m_index_id < other.m_index_id);
   }
-  bool operator<=(const struct _gl_index_id_s& other) const
+  bool operator<=(const struct Rdb_gl_index_id& other) const
   {
-    return cf_id < other.cf_id ||
-        (cf_id == other.cf_id && index_id <= other.index_id);
+    return m_cf_id < other.m_cf_id ||
+        (m_cf_id == other.m_cf_id && m_index_id <= other.m_index_id);
   }
-  bool operator>(const struct _gl_index_id_s& other) const
+  bool operator>(const struct Rdb_gl_index_id& other) const
   {
-    return cf_id > other.cf_id ||
-        (cf_id == other.cf_id && index_id > other.index_id);
+    return m_cf_id > other.m_cf_id ||
+        (m_cf_id == other.m_cf_id && m_index_id > other.m_index_id);
   }
-  bool operator>=(const struct _gl_index_id_s& other) const
+  bool operator>=(const struct Rdb_gl_index_id& other) const
   {
-    return cf_id > other.cf_id ||
-        (cf_id == other.cf_id && index_id >= other.index_id);
+    return m_cf_id > other.m_cf_id ||
+        (m_cf_id == other.m_cf_id && m_index_id >= other.m_index_id);
   }
-} GL_INDEX_ID;
+};
 
 enum operation_type {
   ROWS_DELETED = 0,
@@ -192,38 +177,40 @@ enum operation_type {
 };
 
 /* Global statistics struct used inside MyRocks */
-struct st_global_stats {
-  ib_counter_t<ulonglong, 64> rows[ROWS_MAX];
+struct Rdb_global_stats
+{
+  my_core::ib_counter_t<ulonglong, 64> m_rows[ROWS_MAX];
 
   // system_rows_ stats are only for system
   // tables. They are not counted in rows_* stats.
-  ib_counter_t<ulonglong, 64> system_rows[ROWS_MAX];
+  my_core::ib_counter_t<ulonglong, 64> m_system_rows[ROWS_MAX];
 };
 
 /* Struct used for exporting status to MySQL */
-struct st_export_stats {
-  ulonglong rows_deleted;
-  ulonglong rows_inserted;
-  ulonglong rows_read;
-  ulonglong rows_updated;
+struct Rdb_export_stats
+{
+  ulonglong m_rows_deleted;
+  ulonglong m_rows_inserted;
+  ulonglong m_rows_read;
+  ulonglong m_rows_updated;
 
-  ulonglong system_rows_deleted;
-  ulonglong system_rows_inserted;
-  ulonglong system_rows_read;
-  ulonglong system_rows_updated;
+  ulonglong m_system_rows_deleted;
+  ulonglong m_system_rows_inserted;
+  ulonglong m_system_rows_read;
+  ulonglong m_system_rows_updated;
 };
 
 }  // namespace myrocks
 
-/* Provide hash function for GL_INDEX_ID so we can include it in sets */
+/* Provide hash function for Rdb_gl_index_id so we can include it in sets */
 namespace std {
   template <>
-  struct hash<myrocks::GL_INDEX_ID>
+  struct hash<myrocks::Rdb_gl_index_id>
   {
-    std::size_t operator()(const myrocks::GL_INDEX_ID& gl_index_id) const
+    std::size_t operator()(const myrocks::Rdb_gl_index_id& gl_index_id) const
     {
-      uint64_t val = ((uint64_t) gl_index_id.cf_id << 32 |
-                      (uint64_t) gl_index_id.index_id);
+      uint64_t val = ((uint64_t) gl_index_id.m_cf_id << 32 |
+                      (uint64_t) gl_index_id.m_index_id);
       return std::hash<uint64_t>()(val);
     }
   };
@@ -235,52 +222,54 @@ namespace myrocks {
   Class definition for the storage engine
 */
 
-class ha_rocksdb: public handler
+class ha_rocksdb: public my_core::handler
 {
-  THR_LOCK_DATA lock;      ///< MySQL lock
-  ROCKSDB_SHARE *share;    ///< Shared lock info
+  my_core::THR_LOCK m_thr_lock;         ///< MySQL latch needed by m_db_lock
+  my_core::THR_LOCK_DATA m_db_lock;     ///< MySQL database lock
+
+  Rdb_table_handler *m_table_handler;   ///< Open table handler
 
   /* Iterator used for range scans and for full table/index scans */
-  rocksdb::Iterator *scan_it;
+  rocksdb::Iterator *m_scan_it;
+  /* Whether m_scan_it was created with skip_bloom=true */
+  bool m_scan_it_skips_bloom;
 
-  /* Whether scan_it was created with skip_bloom=true */
-  bool scan_it_skips_bloom;
-
-  Rdb_tbl_def *tbl_def;
+  Rdb_tbl_def *m_tbl_def;
 
   /* Primary Key encoder from KeyTupleFormat to StorageFormat */
-  Rdb_key_def *pk_descr;
+  Rdb_key_def *m_pk_descr;
 
   /* Array of index descriptors */
-  Rdb_key_def **key_descr;
+  Rdb_key_def **m_key_descriptors;
 
   bool check_keyread_allowed(uint inx, uint part, bool all_parts) const;
+
   /*
     Number of key parts in PK. This is the same as
       table->key_info[table->s->primary_key].keyparts
   */
-  uint pk_key_parts;
+  uint m_pk_key_parts;
 
   /*
     TRUE <=> Primary Key columns can be decoded from the index
   */
-  mutable bool pk_can_be_decoded;
+  mutable bool m_pk_can_be_decoded;
 
-  uchar *pk_tuple; /* Buffer for storing PK in KeyTupleFormat */
-  uchar *pk_packed_tuple; /* Buffer for storing PK in StorageFormat */
-  // ^^ todo: change it to 'char*'? TODO: ^ can we join this with last_rowkey?
+  uchar *m_pk_tuple; /* Buffer for storing PK in KeyTupleFormat */
+  uchar *m_pk_packed_tuple; /* Buffer for storing PK in StorageFormat */
+  // ^^ todo: change it to 'char*'? TODO: ^ can we join this with m_last_rowkey?
 
   /*
     Temporary buffers for storing the key part of the Key/Value pair
     for secondary indexes.
   */
-  uchar *sec_key_packed_tuple;
+  uchar *m_sec_key_packed_tuple;
 
   /*
     Temporary buffers for storing end key part of the Key/Value pair.
     This is used for range scan only.
   */
-  uchar *end_key_packed_tuple;
+  uchar *m_end_key_packed_tuple;
 
   /*
     Same as above, but it stores the value part. It holds unpack info which
@@ -290,33 +279,33 @@ class ha_rocksdb: public handler
     this buffer is max_packed_sec_key_len? This is technically true currently,
     but doesn't look meaningful.
   */
-  uchar *sec_key_tails;
+  uchar *m_sec_key_tails;
 
   /*
     ha_rockdb->index_read_map(.. HA_READ_KEY_EXACT or similar) will save here
     mem-comparable form of the index lookup tuple.
   */
-  uchar *sec_key_match_prefix;
-  uint sec_key_match_length;
+  uchar *m_sec_key_match_prefix;
+  uint m_sec_key_match_length;
 
   /* Buffer space for the above */
-  uchar *sec_key_match_prefix_buf;
+  uchar *m_sec_key_match_prefix_buf;
 
   /* Second buffers, used by UPDATE. */
-  uchar *sec_key_packed_tuple_old;
-  uchar *sec_key_tails_old;
+  uchar *m_sec_key_packed_tuple_old;
+  uchar *m_sec_key_tails_old;
 
   /*
     Temporary space for packing VARCHARs (we provide it to
     pack_record()/pack_index_tuple() calls).
   */
-  uchar *pack_buffer;
+  uchar *m_pack_buffer;
 
   /* rowkey of the last record we've read, in StorageFormat. */
-  String last_rowkey;
+  String m_last_rowkey;
 
   /* Buffer used by convert_record_to_storage_format() */
-  String storage_record;
+  String m_storage_record;
 
   /*
     Last retrieved record, in table->record[0] data format. It also serves as
@@ -325,27 +314,24 @@ class ha_rocksdb: public handler
     TODO: Dont we lose one malloc() per record read by having it as std::string
     instead of rocksdb::Slice?
   */
-  std::string retrieved_record;
+  std::string m_retrieved_record;
 
   /* If TRUE, reads should place locks on rows */
-  bool lock_rows;
+  bool m_lock_rows;
 
   /*
     When lock_rows==true, specifies what kind of locks should be placed
     (true means write locks, false means read locks)
   */
-  bool lock_for_write;
-
-  /* Lock that we've placed on the row we've just read. */
-  Row_lock *last_row_lock;
+  bool m_lock_for_write;
 
   /* TRUE means we're doing an index-only read. FALSE means otherwise. */
-  bool keyread_only;
+  bool m_key_is_read_only;
 
-  bool skip_scan_it_next_call;
+  bool m_skip_scan_it_next_call;
 
   /* TRUE means we are accessing the first row after a snapshot was created */
-  bool rnd_scan_is_new_snapshot;
+  bool m_rnd_scan_is_new_snapshot;
 
   /*
     Valid inside UPDATE statements, when updated_indexes_is_valid=true:
@@ -354,13 +340,13 @@ class ha_rocksdb: public handler
     by this statement. Indexes that are not in the bitmap do not need to be
     updated.
   */
-  key_map updated_indexes;
-  bool updated_indexes_is_valid;
+  my_core::key_map m_updated_indexes;
+  bool m_updated_indexes_is_valid;
 
   /*
     MySQL index number for duplicate key error
   */
-  int dupp_errkey;
+  int m_dupp_errkey;
 
   int create_key_defs(TABLE *table_arg, const char *db_table, const uint len,
                       HA_CREATE_INFO *create_info)
@@ -373,7 +359,7 @@ class ha_rocksdb: public handler
   {
     setup_scan_iterator(keydef, slice, false, false, 0);
   }
-  bool is_ascending(Rdb_key_def *keydef, enum ha_rkey_function find_flag)
+  bool is_ascending(Rdb_key_def *keydef, my_core::ha_rkey_function find_flag)
     __attribute__((__nonnull__, __warn_unused_result__));
   void setup_scan_iterator(Rdb_key_def *keydef, rocksdb::Slice *slice,
                         const bool use_all_keys, const bool is_ascending,
@@ -381,8 +367,8 @@ class ha_rocksdb: public handler
     __attribute__((__nonnull__));
   void release_scan_iterator(void)
   {
-    delete scan_it;
-    scan_it= nullptr;
+    delete m_scan_it;
+    m_scan_it= nullptr;
   }
 
   int get_row_by_rowid(uchar *buf, const char *pk_tuple,
@@ -400,16 +386,14 @@ class ha_rocksdb: public handler
   void load_auto_incr_value();
   longlong update_hidden_pk_val();
   int load_hidden_pk_value() __attribute__((__warn_unused_result__));
-  int read_hidden_pk_id_from_rowkey(longlong *hidden_pk_id)
+  int read_hidden_pk_id_from_rowkey(longlong *hidden_pk_id) const
     __attribute__((__nonnull__, __warn_unused_result__));
   bool can_use_single_delete(uint index)
     __attribute__((__warn_unused_result__));
   bool skip_unique_check() __attribute__((__warn_unused_result__));
   bool commit_in_the_middle() __attribute__((__warn_unused_result__));
-  bool has_hidden_pk(const TABLE* table)
-    __attribute__((__nonnull__, __warn_unused_result__));
 
-  void update_row_stats(operation_type type);
+  void update_row_stats(operation_type type) const;
 
   void set_last_rowkey(const uchar *old_data);
 
@@ -420,7 +404,7 @@ class ha_rocksdb: public handler
 
     For encoding/decoding of index tuples, see Rdb_key_def.
   */
-  typedef struct st_field_encoder
+  struct Rdb_field_encoder
   {
     /*
       This is set to true for columns of Primary Key that can be decoded from
@@ -428,27 +412,27 @@ class ha_rocksdb: public handler
       Since we can get them from the key part of RocksDB key->value pair, we
       don't need to store them in the value part.
     */
-    bool dont_store;
+    bool m_dont_store;
 
-    uint null_offset;
-    uchar null_mask;  // 0 means the field cannot be null
+    uint m_null_offset;
+    uchar m_null_mask;  // 0 means the field cannot be null
 
-    enum_field_types field_type;
+    my_core::enum_field_types m_field_type;
 
-    bool maybe_null() { return null_mask != 0; }
-  } FIELD_ENCODER;
+    bool maybe_null() { return m_null_mask != 0; }
+  };
 
   /*
     Array of table->s->fields elements telling how to store fields in the
     record.
   */
-  FIELD_ENCODER *field_enc;
+  Rdb_field_encoder *m_field_enc;
 
   /*
     Number of bytes in on-disk (storage) record format that are used for
     storing SQL NULL flags.
   */
-  uint null_bytes_in_rec;
+  uint m_null_bytes_in_rec;
 
   void setup_field_converters();
 
@@ -471,31 +455,33 @@ class ha_rocksdb: public handler
     A counter of how many row checksums were checked for this table. Note that
     this does not include checksums for secondary index entries.
   */
-  ha_rows row_checksums_checked;
+  my_core::ha_rows m_row_checksums_checked;
 
   /*
     Update stats
   */
   void update_stats(void);
 
+  mutable unsigned int m_rand_seed;
+
 public:
   /*
     Controls whether writes include checksums. This is updated from the session variable
     at the start of each query.
   */
-  bool store_checksums;
+  bool m_store_checksums;
 
   /* Same as above but for verifying checksums when reading */
-  bool verify_checksums;
-  int checksums_pct;
+  bool m_verify_checksums;
+  int m_checksums_pct;
 
-  ha_rocksdb(handlerton *hton, TABLE_SHARE *table_arg);
+  ha_rocksdb(my_core::handlerton *hton, my_core::TABLE_SHARE *table_arg);
   ~ha_rocksdb() {}
 
   /** @brief
     The name that will be used for display purposes.
    */
-  const char *table_type() const { return rocksdb_hton_name; }
+  const char *table_type() const override { return rdb_storage_engine_name; }
 
   /* The following is only used by SHOW KEYS: */
   const char *index_type(uint inx) { return "LSMTREE"; }
@@ -509,7 +495,7 @@ public:
     This is a list of flags that indicate what functionality the storage engine
     implements. The current table flags are documented in handler.h
   */
-  ulonglong table_flags() const
+  ulonglong table_flags() const override
   {
     /*
       HA_BINLOG_STMT_CAPABLE
@@ -522,7 +508,7 @@ public:
     */
     return HA_BINLOG_ROW_CAPABLE | HA_BINLOG_STMT_CAPABLE |
            HA_REC_NOT_IN_SEQ | HA_CAN_INDEX_BLOBS |
-           (pk_can_be_decoded? HA_PRIMARY_KEY_IN_READ_INDEX:0) |
+           (m_pk_can_be_decoded? HA_PRIMARY_KEY_IN_READ_INDEX:0) |
            HA_PRIMARY_KEY_REQUIRED_FOR_POSITION |
            HA_NULL_IN_KEY;
   }
@@ -541,9 +527,9 @@ public:
   */
   ulong index_flags(uint inx, uint part, bool all_parts) const;
 
-  const key_map * keys_to_use_for_scanning()
+  const my_core::key_map * keys_to_use_for_scanning() override
   {
-    return &key_map_full;
+    return &my_core::key_map_full;
   }
 
   bool primary_key_is_clustered()
@@ -553,7 +539,7 @@ public:
 
   bool should_store_checksums() const
   {
-    return store_checksums && (rand() % 100 < checksums_pct);
+    return m_store_checksums && (rand_r(&m_rand_seed) % 100 < m_checksums_pct);
   }
 
   int rename_table(const char *from, const char *to)
@@ -568,20 +554,19 @@ public:
                                          uchar *buf)
     __attribute__((__nonnull__, __warn_unused_result__));
 
-  void convert_record_to_storage_format(const char *pk_packed_tuple,
-                                        const size_t pk_packed_size,
+  void convert_record_to_storage_format(const size_t pk_packed_size,
                                         rocksdb::Slice *packed_rec)
     __attribute__((__nonnull__));
 
-  bool is_hidden_pk(const uint index, const TABLE* table,
-                    const Rdb_tbl_def* tbl_def)
+  static bool is_hidden_pk(const uint index, const my_core::TABLE* table_arg,
+                           const Rdb_tbl_def* tbl_def_arg)
     __attribute__((__nonnull__, __warn_unused_result__));
 
-  int pk_index(const TABLE* table, const Rdb_tbl_def* tbl_def)
+  static int pk_index(const TABLE* table_arg, const Rdb_tbl_def* tbl_def_arg)
     __attribute__((__nonnull__, __warn_unused_result__));
 
-  bool is_pk(const uint index, const TABLE* table,
-             const Rdb_tbl_def* tbl_def)
+  static bool is_pk(const uint index, const TABLE* table_arg,
+                    const Rdb_tbl_def* tbl_def_arg)
     __attribute__((__nonnull__, __warn_unused_result__));
 
   /** @brief
@@ -591,21 +576,25 @@ public:
     send. Return *real* limits of your storage engine here; MySQL will do
     min(your_limits, MySQL_limits) automatically.
    */
-  uint max_supported_record_length() const { return HA_MAX_REC_LENGTH; }
+  uint max_supported_record_length() const override
+      { return HA_MAX_REC_LENGTH; }
 
-  uint max_supported_keys()          const { return MAX_INDEXES; }
-  uint max_supported_key_parts()     const { return MAX_REF_PARTS; }
-  uint max_supported_key_part_length() const { return 2048; }
-  /** @brief
+  uint max_supported_keys() const override { return MAX_INDEXES; }
+  uint max_supported_key_parts() const override { return MAX_REF_PARTS; }
+  uint max_supported_key_part_length() const override { return 2048; }
+
+  /** 
+    @brief
     unireg.cc will call this to make sure that the storage engine can handle
     the data it is about to send. Return *real* limits of your storage engine
     here; MySQL will do min(your_limits, MySQL_limits) automatically.
 
-      @details
+    @details
     There is no need to implement ..._key_... methods if your engine doesn't
     support indexes.
    */
-  uint max_supported_key_length()    const { return 16*1024; /* just to return something*/ }
+  uint max_supported_key_length() const override
+      { return 16*1024; /* just to return something */ }
 
   /**
     TODO: return actual upper bound of number of records in the table.
@@ -617,23 +606,23 @@ public:
   /* At the moment, we're ok with default handler::index_init() implementation. */
   int index_read_map(uchar * buf, const uchar * key,
                      key_part_map keypart_map,
-                     enum ha_rkey_function find_flag);
+                     my_core::ha_rkey_function find_flag) override
     __attribute__((__warn_unused_result__));
 
   int index_read_map_impl(uchar * buf, const uchar * key,
                           key_part_map keypart_map,
-                          enum ha_rkey_function find_flag,
+                          my_core::ha_rkey_function find_flag,
                           const key_range *end_key)
-    __attribute__((__warn_unused_result__));;
+    __attribute__((__warn_unused_result__));
 
   int index_read_last_map(uchar * buf, const uchar * key,
-                          key_part_map keypart_map)
-    __attribute__((__warn_unused_result__));;
+                          key_part_map keypart_map) override
+    __attribute__((__warn_unused_result__));
 
   int read_range_first(const key_range *start_key,
                        const key_range *end_key,
-                       bool eq_range, bool sorted)
-    __attribute__((__warn_unused_result__));;
+                       bool eq_range, bool sorted) override
+    __attribute__((__warn_unused_result__));
 
   virtual double scan_time() { return (double) (stats.records+stats.deleted) / 20.0+10; }
   virtual double read_time(uint, uint, ha_rows rows)
@@ -680,7 +669,7 @@ private:
                        const bool skip_unique_check)
     __attribute__((__warn_unused_result__));
 
-  int read_key_exact(Rdb_key_def *kd, rocksdb::Iterator* scan_it,
+  int read_key_exact(Rdb_key_def *kd, rocksdb::Iterator* m_scan_it,
                      bool using_full_key, const rocksdb::Slice& key_slice)
     __attribute__((__nonnull__, __warn_unused_result__));
   int read_before_key(Rdb_key_def *kd, bool using_full_key,
@@ -691,7 +680,7 @@ private:
     __attribute__((__nonnull__, __warn_unused_result__));
 
   int position_to_correct_key(Rdb_key_def *kd,
-                              enum ha_rkey_function find_flag,
+                              my_core::ha_rkey_function find_flag,
                               bool full_key_match, const uchar* key,
                               key_part_map keypart_map,
                               const rocksdb::Slice& key_slice,
@@ -704,20 +693,22 @@ private:
                                   bool move_forward)
     __attribute__((__nonnull__, __warn_unused_result__));
 
-  int calc_eq_cond_len(Rdb_key_def *kd, enum ha_rkey_function find_flag,
+  int calc_eq_cond_len(Rdb_key_def *kd, my_core::ha_rkey_function find_flag,
                        const rocksdb::Slice& slice, int bytes_changed_by_succ,
                        const key_range *end_key, uint* end_key_packed_size)
     __attribute__((__warn_unused_result__));
 
-  Rdb_tbl_def* get_table_if_exists(const char* tablename)
+  Rdb_tbl_def* get_table_if_exists(const char* tablename) const
     __attribute__((__nonnull__, __warn_unused_result__));
-  void read_thd_vars(THD *thd)
+  void read_thd_vars(my_core::THD *thd)
     __attribute__((__nonnull__));
 public:
-  int index_init(uint idx, bool sorted) __attribute__((__warn_unused_result__));
-  int index_end() __attribute__((__warn_unused_result__));
+  int index_init(uint idx, bool sorted) override
+    __attribute__((__warn_unused_result__));
+  int index_end() override
+    __attribute__((__warn_unused_result__));
 
-  void unlock_row();
+  void unlock_row() override;
 
   /** @brief
     Unlike index_init(), rnd_init() can be called two consecutive times
@@ -727,86 +718,106 @@ public:
     cursor to the start of the table; no need to deallocate and allocate
     it again. This is a required method.
   */
-  int rnd_init(bool scan) __attribute__((__warn_unused_result__));
-  int rnd_end() __attribute__((__warn_unused_result__));
+  int rnd_init(bool scan) override __attribute__((__warn_unused_result__));
+  int rnd_end() override __attribute__((__warn_unused_result__));
 
-  int rnd_next(uchar *buf) __attribute__((__warn_unused_result__));
+  int rnd_next(uchar *buf) override __attribute__((__warn_unused_result__));
   int rnd_next_with_direction(uchar *buf, bool move_forward)
     __attribute__((__warn_unused_result__));
 
-  int rnd_pos(uchar *buf, uchar *pos) __attribute__((__warn_unused_result__));
-  void position(const uchar *record);
-  int info(uint);
+  int rnd_pos(uchar *buf, uchar *pos) override
+    __attribute__((__warn_unused_result__));
+  void position(const uchar *record) override;
+  int info(uint) override;
 
   /* This function will always return success, therefore no annotation related
    * to checking the return value. Can't change the signature because it's
    * required by the interface. */
-  int extra(enum ha_extra_function operation);
+  int extra(enum ha_extra_function operation) override;
 
-  int start_stmt(THD *thd, thr_lock_type lock_type)
+  int start_stmt(my_core::THD *thd, thr_lock_type lock_type) override
     __attribute__((__warn_unused_result__));
-  int external_lock(THD *thd, int lock_type)
+  int external_lock(my_core::THD *thd, int lock_type) override
     __attribute__((__warn_unused_result__));
-  int delete_all_rows(ha_rows* nrows) __attribute__((__warn_unused_result__));
-  int truncate() __attribute__((__warn_unused_result__));
+  int delete_all_rows(ha_rows* nrows) override
+    __attribute__((__warn_unused_result__));
+  int truncate() override __attribute__((__warn_unused_result__));
 
-  int reset()
+  int reset() override
   {
     /* Free blob data */
-    retrieved_record.clear();
+    m_retrieved_record.clear();
     return 0;
   }
 
-  int check(THD* thd, HA_CHECK_OPT* check_opt)
+  int check(my_core::THD* thd, HA_CHECK_OPT* check_opt) override
     __attribute__((__warn_unused_result__));
-  void remove_rows(Rdb_tbl_def *tbl);
+  void remove_rows(void);
   ha_rows records_in_range(uint inx, key_range *min_key,
-                           key_range *max_key)
+                           key_range *max_key) override
     __attribute__((__warn_unused_result__));
-  int delete_table(const char *from) __attribute__((__warn_unused_result__));
-  int create(const char *name, TABLE *form, HA_CREATE_INFO *create_info)
+  int delete_table(const char *from) override
+    __attribute__((__warn_unused_result__));
+  int create(const char *name, TABLE *form,
+             HA_CREATE_INFO *create_info) override
     __attribute__((__warn_unused_result__));
   bool check_if_incompatible_data(HA_CREATE_INFO *info,
-                                  uint table_changes)
+                                  uint table_changes) override
     __attribute__((__warn_unused_result__));
 
-  THR_LOCK_DATA **store_lock(THD *thd, THR_LOCK_DATA **to,
-                             enum thr_lock_type lock_type)
+  my_core::THR_LOCK_DATA **store_lock(my_core::THD *thd,
+                                      my_core::THR_LOCK_DATA **db_lock_dest,
+                                      my_core::thr_lock_type lock_type) override
     __attribute__((__warn_unused_result__));
 
-  my_bool register_query_cache_table(THD *thd, char *table_key,
-                                     uint key_length,
-                                     qc_engine_callback
-                                     *engine_callback,
-                                     ulonglong *engine_data)
+  my_bool register_query_cache_table(
+    my_core::THD *thd __attribute__((__unused__)),
+    char *table_key __attribute__((__unused__)),
+    uint key_length __attribute__((__unused__)),
+    qc_engine_callback *engine_callback __attribute__((__unused__)),
+    ulonglong *engine_data __attribute__((__unused__))) override
   {
     /* Currently, we don't support query cache */
     return FALSE;
   }
 
-  bool get_error_message(const int error, String *buf)
+  bool get_error_message(const int error, String *buf) override
     __attribute__((__nonnull__));
 
   void get_auto_increment(ulonglong offset, ulonglong increment,
                           ulonglong nb_desired_values,
                           ulonglong *first_value,
-                          ulonglong *nb_reserved_values);
-  void update_create_info(HA_CREATE_INFO *create_info);
-  int optimize(THD *thd, HA_CHECK_OPT *check_opt)
+                          ulonglong *nb_reserved_values) override;
+  void update_create_info(HA_CREATE_INFO *create_info) override;
+  int optimize(my_core::THD *thd, HA_CHECK_OPT *check_opt) override
     __attribute__((__warn_unused_result__));
-  int analyze(THD* thd, HA_CHECK_OPT* check_opt)
+  int analyze(my_core::THD* thd, HA_CHECK_OPT* check_opt) override
     __attribute__((__warn_unused_result__));
 
  public:
+  /* Read-free replication interface implementation */
+
+  /**
+     Determine whether the storage engine asks for row-based replication that
+     may skip the lookup of the old row image.
+
+     @return true if old rows should be read (the default)
+             false if old rows should not be read
+  */
+  virtual bool rpl_lookup_rows() override;
+
+  /*
+     Storage engine hooks to be called before and after row write, delete, and
+     update events
+  */
   virtual void rpl_before_delete_rows() override;
   virtual void rpl_after_delete_rows() override;
   virtual void rpl_before_update_rows() override;
   virtual void rpl_after_update_rows() override;
-  virtual bool rpl_lookup_rows();
 
  private:
-  bool in_rpl_delete_rows;
-  bool in_rpl_update_rows;
+  bool m_rpl_delete_rows;
+  bool m_rpl_update_rows;
 };
 
 }  // namespace myrocks

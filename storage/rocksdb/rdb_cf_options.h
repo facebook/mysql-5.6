@@ -30,15 +30,15 @@
 namespace myrocks {
 
 /*
-  Per-column family options configs.
+  Column Family (CF) options registry.
 
-  Per-column family option can be set
+  Per column-family option can be set:
   - Globally (the same value applies to all column families)
   - Per column family: there is a {cf_name -> value} map,
     and also there is a default value which applies to column
     families not found in the map.
 */
-class Rdb_cf_options
+class Rdb_cf_opt_registry
 {
  public:
   void get(const std::string &cf_name, rocksdb::ColumnFamilyOptions *opts);
@@ -75,10 +75,10 @@ class Rdb_cf_options
   static Rdb_pk_comparator s_pk_comparator;
   static Rdb_rev_comparator s_rev_pk_comparator;
 
-  typedef std::unordered_map<std::string, std::string> Name_to_config_t;
+  using Cf_name_to_config_t = std::unordered_map<std::string, std::string>;
 
   /* CF name -> value map */
-  Name_to_config_t m_name_map;
+  Cf_name_to_config_t m_name_to_config_map;
 
   /* The default value (if there is only one value, it is stored here) */
   std::string m_default_config;

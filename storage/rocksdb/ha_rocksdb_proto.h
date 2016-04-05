@@ -13,55 +13,74 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
+#pragma once
 
-#ifndef _ha_rocksdb_proto_h_
-#define _ha_rocksdb_proto_h_
+/* C++ system header files */
+#include <string>
+#include <vector>
 
+/* MyRocks header files */
 #include "rocksdb/table.h"
 
 namespace myrocks {
 
-void get_cf_options(const std::string &cf_name,
+enum rdb_io_error_type_t {
+  RDB_IO_ERROR_TX_COMMIT,
+  RDB_IO_ERROR_DICT_COMMIT,
+  RDB_IO_ERROR_BG_THREAD
+};
+using RDB_IO_ERROR_TYPES = enum rdb_io_error_type_t;
+
+void rdb_handle_io_error(rocksdb::Status status, RDB_IO_ERROR_TYPES type);
+
+void rdb_get_cf_options(
+  const std::string &cf_name,
   rocksdb::ColumnFamilyOptions *opts) __attribute__((__nonnull__));
 
-int rocksdb_normalize_tablename(const char *tablename,
+int rdb_normalize_tablename(
+  const char *tablename,
   StringBuffer<256> *strbuf)
   __attribute__((__nonnull__, __warn_unused_result__));
-int rocksdb_split_normalized_tablename(const char *fullname,
-                                       StringBuffer<256> *dbbuf,
-                                       StringBuffer<256> *tablebuf,
-                                       StringBuffer<256> *partitionbuf)
-  __attribute__((__nonnull__, __warn_unused_result__));
-std::vector<std::string> get_share_names(void);
 
-int rocksdb_get_share_perf_counters(const char *tablename,
+int rdb_split_normalized_tablename(const char *fullname,
+                                   StringBuffer<256> *dbbuf,
+                                   StringBuffer<256> *tablebuf,
+                                   StringBuffer<256> *partitionbuf)
+  __attribute__((__nonnull__, __warn_unused_result__));
+
+std::vector<std::string> rdb_get_table_names(void);
+
+/* Check if given table has a primary key */
+bool rdb_table_has_hidden_pk(const my_core::TABLE* table_arg)
+  __attribute__((__nonnull__, __warn_unused_result__));
+
+int rdb_get_table_perf_counters(
+  const char *tablename,
   RDB_SHARE_PERF_COUNTERS *counters) __attribute__((__nonnull__(2)));
 
-void request_save_stats();
+void rdb_request_save_stats();
 
 /*
   Access to singleton objects.
 */
 
-rocksdb::DB *rocksdb_get_rdb();
+rocksdb::DB* rdb_get_rocksdb_db();
 
 class Rdb_cf_manager;
-Rdb_cf_manager& rocksdb_get_cf_manager();
+Rdb_cf_manager& rdb_get_cf_manager();
 
-rocksdb::BlockBasedTableOptions& rocksdb_get_table_options();
+rocksdb::BlockBasedTableOptions& rdb_get_table_options();
 
 class Rdb_dict_manager;
-Rdb_dict_manager *get_dict_manager(void)
+Rdb_dict_manager* rdb_get_dict_manager(void)
   __attribute__((__warn_unused_result__));
 
 class Rdb_ddl_manager;
-Rdb_ddl_manager *get_ddl_manager(void)
+Rdb_ddl_manager* rdb_get_ddl_manager(void)
   __attribute__((__warn_unused_result__));
 
 class Rdb_binlog_manager;
-Rdb_binlog_manager *get_binlog_manager(void)
+Rdb_binlog_manager* rdb_get_binlog_manager(void)
   __attribute__((__warn_unused_result__));
 
 }  // namespace myrocks
-
-#endif /* _ha_rocksdb_proto_h_ */
