@@ -575,7 +575,7 @@ public:
                     const Rdb_tbl_def* tbl_def)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
-  int pk_index(const TABLE* table, const Rdb_tbl_def* tbl_def)
+  uint pk_index(const TABLE* table, const Rdb_tbl_def* tbl_def)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   bool is_pk(const uint index, const TABLE* table,
