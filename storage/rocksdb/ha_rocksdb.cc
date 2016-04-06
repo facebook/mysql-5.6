@@ -57,6 +57,7 @@
 #include "./rdb_i_s.h"
 #include "./rdb_mutex_wrapper.h"
 #include "./rdb_utils.h"
+#include "./rdb_version.h"
 
 #ifdef TARGET_OS_LINUX
 extern my_bool cachedev_enabled;
@@ -362,6 +363,10 @@ static long long rocksdb_compaction_sequential_deletes_file_size= 0l;
 static uint32_t rocksdb_validate_tables = 1;
 static char * rocksdb_datadir;
 static uint32_t rocksdb_table_stats_sampling_pct;
+static char rocksdb_git_hash[] = MYROCKS_GIT_COMMIT_HASH;
+static char rocksdb_git_date[] = MYROCKS_GIT_COMMIT_DATE;
+static char rocksdb_git_submodule_hash[] = ROCKSDB_GIT_COMMIT_HASH;
+static char rocksdb_git_submodule_date[] = ROCKSDB_GIT_COMMIT_DATE;
 
 static rocksdb::DBOptions init_db_options() {
   rocksdb::DBOptions o;
@@ -2485,6 +2490,13 @@ static rocksdb::Status check_rocksdb_options_compatibility(
 static int rocksdb_init_func(void *p)
 {
   DBUG_ENTER("rocksdb_init_func");
+
+  // NO_LINT_DEBUG
+  sql_print_information("MyRocks git hash: " MYROCKS_GIT_COMMIT_HASH
+                        " (" MYROCKS_GIT_COMMIT_DATE ")");
+  // NO_LINT_DEBUG
+  sql_print_information("Rocksdb git hash: " ROCKSDB_GIT_COMMIT_HASH
+                        " (" ROCKSDB_GIT_COMMIT_DATE ")");
 
   // Validate the assumption about the size of ROCKSDB_SIZEOF_HIDDEN_PK_COLUMN.
   static_assert(sizeof(longlong) == 8, "Assuming that longlong is 8 bytes.");
@@ -7975,6 +7987,12 @@ static SHOW_VAR rocksdb_status_vars[]= {
   DEF_STATUS_VAR(number_superversion_releases),
   DEF_STATUS_VAR(number_superversion_cleanups),
   DEF_STATUS_VAR(number_block_not_compressed),
+  DEF_STATUS_VAR_PTR("git_hash", &rocksdb_git_hash, SHOW_CHAR),
+  DEF_STATUS_VAR_PTR("git_date", &rocksdb_git_date, SHOW_CHAR),
+  DEF_STATUS_VAR_PTR("git_submodule_hash", &rocksdb_git_submodule_hash,
+                     SHOW_CHAR),
+  DEF_STATUS_VAR_PTR("git_submodule_date", &rocksdb_git_submodule_date,
+                     SHOW_CHAR),
   DEF_STATUS_VAR_PTR("number_stat_computes", &rocksdb_number_stat_computes, SHOW_LONGLONG),
   DEF_STATUS_VAR_PTR("number_sst_entry_put", &rocksdb_num_sst_entry_put,
                      SHOW_LONGLONG),

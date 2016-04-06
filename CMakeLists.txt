@@ -448,6 +448,47 @@ INCLUDE(configure.cmake)
 ADD_DEFINITIONS(-DHAVE_CONFIG_H)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/include)
 
+# Get git hash for MyRocks
+EXECUTE_PROCESS(
+  COMMAND git log -1 --format=%H
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE MYROCKS_GIT_COMMIT_HASH
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+# Get git date for MyRocks
+EXECUTE_PROCESS(
+  COMMAND git log -1 --format=%cd
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE MYROCKS_GIT_COMMIT_DATE
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+# Get git hash for RocksDB
+EXECUTE_PROCESS(
+  COMMAND git log -1 --format=%H
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/rocksdb
+  OUTPUT_VARIABLE ROCKSDB_GIT_COMMIT_HASH
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+# Get git date for RocksDB
+EXECUTE_PROCESS(
+  COMMAND git log -1 --format=%cd
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/rocksdb
+  OUTPUT_VARIABLE ROCKSDB_GIT_COMMIT_DATE
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+# Create the rdb_version.h file with the git hashes/dates
+CONFIGURE_FILE(
+  ${CMAKE_SOURCE_DIR}/storage/rocksdb/rdb_version.h.in
+  ${CMAKE_BINARY_DIR}/generated/rdb_version.h
+)
+
+# Make sure the rdb_version.h can be found
+INCLUDE_DIRECTORIES(${CMAKE_BINARY_DIR}/generated)
+
 # Add bundled or system zlib.
 MYSQL_CHECK_ZLIB_WITH_COMPRESS()
 # Add bundled yassl/taocrypt or system openssl.
