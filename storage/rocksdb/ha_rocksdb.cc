@@ -5638,8 +5638,9 @@ void ha_rocksdb::unlock_row()
 */
 bool ha_rocksdb::can_use_single_delete(uint index)
 {
-  return (index != table->s->primary_key ||
-          table->key_info[index].actual_key_parts == table->s->fields);
+  return (index != pk_index(table, tbl_def) ||
+          (!has_hidden_pk(table) &&
+          table->key_info[index].actual_key_parts == table->s->fields));
 }
 
 bool ha_rocksdb::skip_unique_check()
@@ -5682,7 +5683,7 @@ bool ha_rocksdb::is_hidden_pk(const uint index, const TABLE* table,
 }
 
 /* Returns index of primary key */
-int ha_rocksdb::pk_index(const TABLE* table, const Rdb_tbl_def* tbl_def)
+uint ha_rocksdb::pk_index(const TABLE* table, const Rdb_tbl_def* tbl_def)
 {
   DBUG_ASSERT(table != nullptr);
   DBUG_ASSERT(table->s != nullptr);
