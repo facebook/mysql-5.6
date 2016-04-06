@@ -206,6 +206,11 @@ void Rdb_key_def::setup(TABLE *tbl, Rdb_tbl_def *tbl_def)
       key_info= &tbl->key_info[m_keyno];
       if (!hidden_pk_exists)
         pk_info=  &tbl->key_info[tbl->s->primary_key];
+      m_name= std::string(key_info->name);
+    }
+    else
+    {
+      m_name= HIDDEN_PK_NAME;
     }
 
     if (secondary_key)
@@ -2301,7 +2306,7 @@ int Rdb_ddl_manager::put_and_write(Rdb_tbl_def *tbl,
   This function modifies m_ddl_hash and m_index_num_to_keydef.
   However, these changes need to be reversed if dict_manager.commit fails
   See the discussion here: https://reviews.facebook.net/D35925#inline-259167
-  Tracked by https://github.com/MySQLOnRocksDB/mysql-5.6/issues/50
+  Tracked by https://github.com/facebook/mysql-5.6/issues/33
 */
 int Rdb_ddl_manager::put(Rdb_tbl_def *tbl, bool lock)
 {
@@ -2984,11 +2989,28 @@ void Rdb_dict_manager::add_drop_table(Rdb_key_def** key_descr,
                                       uint32 n_keys,
                                       rocksdb::WriteBatch *batch)
 {
-  log_start_drop_table(key_descr, n_keys, "Begin");
-
+  std::unordered_set<GL_INDEX_ID> dropped_index_ids;
   for (uint32 i = 0; i < n_keys; i++)
   {
-    start_drop_index_ongoing(batch, key_descr[i]->get_gl_index_id());
+    dropped_index_ids.insert(key_descr[i]->get_gl_index_id());
+  }
+
+  add_drop_index(dropped_index_ids, batch);
+}
+
+/*
+  Called during inplace index drop operations. Logging messages
+  that dropping indexes started, and adding data dictionary so that
+  all associated indexes to be removed
+ */
+void Rdb_dict_manager::add_drop_index(
+    const std::unordered_set<GL_INDEX_ID>& gl_index_ids,
+    rocksdb::WriteBatch *batch)
+{
+  for (auto gl_index_id : gl_index_ids)
+  {
+    log_start_drop_index(gl_index_id, "Begin");
+    start_drop_index_ongoing(batch, gl_index_id);
   }
 }
 

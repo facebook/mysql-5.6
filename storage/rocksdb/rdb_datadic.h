@@ -921,6 +921,8 @@ public:
   void add_drop_table(Rdb_key_def** key_descr,
                       uint32 n_keys,
                       rocksdb::WriteBatch *batch);
+  void add_drop_index(const std::unordered_set<GL_INDEX_ID>& gl_index_ids,
+                      rocksdb::WriteBatch *batch);
   void done_drop_indexes(const std::unordered_set<GL_INDEX_ID>& gl_index_ids);
 
   bool get_max_index_id(uint32_t *index_id);
