@@ -27,6 +27,7 @@ SET(GEN_SOURCES
   ${CMAKE_CURRENT_BINARY_DIR}/sql_yacc.cc
   ${CMAKE_CURRENT_BINARY_DIR}/sql_builtin.cc
   ${CMAKE_CURRENT_BINARY_DIR}/lex_hash.h 
+  ${CMAKE_CURRENT_BINARY_DIR}/mysql_githash.h
 )
 SET(GEN_DIGEST_SOURCES
   ${CMAKE_CURRENT_BINARY_DIR}/lex_token.h 
@@ -507,3 +508,55 @@ ADD_CUSTOM_TARGET(show-dist-name
   COMMAND ${CMAKE_COMMAND} -E echo "${CPACK_PACKAGE_FILE_NAME}"
 )
 
+SET(GITHASH_HEADER ${CMAKE_CURRENT_BINARY_DIR}/mysql_githash.h)
+ADD_CUSTOM_COMMAND(OUTPUT ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E echo "/*" > ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E echo
+        "   Copyright (c) 2016, Facebook, Inc." >> ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E echo "" >> ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E echo
+        "   Do not hand edit this file.  It is generated as part of the build"
+        >> ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E echo
+        "   process and contains git hashes and dates for MySQL and RocksDB"
+        >> ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E echo "*/" >> ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E echo "#pragma once " >> ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E echo "" >> ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E echo "#include \"my_global.h\""
+        >> ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E echo "" >> ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E echo_append "#define MYSQL_GIT_HASH_RAW "
+        >> ${GITHASH_HEADER}
+  COMMAND ${GIT_EXECUTABLE} log -1 --format=%H >> ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E echo
+        "#define MYSQL_GIT_HASH     STRINGIFY_ARG(MYSQL_GIT_HASH_RAW)"
+        >> ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E echo "" >> ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E echo_append "#define MYSQL_GIT_DATE_RAW "
+        >> ${GITHASH_HEADER}
+  COMMAND ${GIT_EXECUTABLE} log -1 --format=%cd >> ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E echo
+        "#define MYSQL_GIT_DATE     STRINGIFY_ARG(MYSQL_GIT_DATE_RAW)"
+        >> ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E echo "" >> ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E echo_append "#define ROCKSDB_GIT_HASH_RAW "
+        >> ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E chdir rocksdb
+        ${GIT_EXECUTABLE} log -1 --format=%H >> ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E echo
+        "#define ROCKSDB_GIT_HASH     STRINGIFY_ARG(ROCKSDB_GIT_HASH_RAW)"
+        >> ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E echo "" >> ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E echo_append "#define ROCKSDB_GIT_DATE_RAW "
+        >> ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E chdir rocksdb
+        ${GIT_EXECUTABLE} log -1 --format=%cd >> ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E echo
+        "#define ROCKSDB_GIT_DATE     STRINGIFY_ARG(ROCKSDB_GIT_DATE_RAW)"
+        >> ${GITHASH_HEADER}
+  DEPENDS ${CMAKE_SOURCE_DIR}/.git/logs/HEAD
+          ${CMAKE_SOURCE_DIR}/rocksdb/.git/logs/HEAD
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  VERBATIM
+)
