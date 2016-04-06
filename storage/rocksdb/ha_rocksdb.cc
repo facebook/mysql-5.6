@@ -2576,6 +2576,15 @@ static int rocksdb_init_func(void *p)
     static_cast<rocksdb::Options::AccessHint>
       (rocksdb_access_hint_on_compaction_start);
 
+  if (db_options.allow_mmap_reads && !db_options.allow_os_buffer)
+  {
+    // allow_mmap_reads implies allow_os_buffer and RocksDB will not open if
+    // mmap_reads is on and os_buffer is off.   (NO_LINT_DEBUG)
+    sql_print_error("RocksDB: Can't disable allow_os_buffer "
+                    "if allow_mmap_reads is enabled\n");
+    DBUG_RETURN(1);
+  }
+
   status= rocksdb::DB::ListColumnFamilies(db_options, rocksdb_datadir,
                                           &cf_names);
   if (!status.ok())
