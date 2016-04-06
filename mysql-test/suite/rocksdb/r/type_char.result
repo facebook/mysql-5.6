@@ -56,3 +56,11 @@ xxxxxxxxxxxxxxxxxxxx	aaaaaaaaaaaaaaaaaaaa	1
 ALTER TABLE t1 ADD COLUMN c257 CHAR(257) ;
 ERROR 42000: Column length too big for column 'c257' (max = 255); use BLOB or TEXT instead
 DROP TABLE t1;
+CREATE TABLE t1(c1 CHAR(0) NOT NULL);
+INSERT INTO t1 VALUES('a');
+Warnings:
+Warning	1265	Data truncated for column 'c1' at row 1
+SELECT * FROM t1;
+c1
+
+DROP TABLE t1;
