@@ -27,6 +27,7 @@ SET(GEN_SOURCES
   ${CMAKE_CURRENT_BINARY_DIR}/sql_yacc.cc
   ${CMAKE_CURRENT_BINARY_DIR}/sql_builtin.cc
   ${CMAKE_CURRENT_BINARY_DIR}/lex_hash.h 
+  ${CMAKE_CURRENT_BINARY_DIR}/mysql_githash.h
 )
 SET(GEN_DIGEST_SOURCES
   ${CMAKE_CURRENT_BINARY_DIR}/lex_token.h 
@@ -507,3 +508,32 @@ ADD_CUSTOM_TARGET(show-dist-name
   COMMAND ${CMAKE_COMMAND} -E echo "${CPACK_PACKAGE_FILE_NAME}"
 )
 
+# Get the git hash and date for the main repository as well as for the
+# rocksdb submodule
+EXEC_PROGRAM(${GIT_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}
+             ARGS log -1 --format=%H
+             OUTPUT_VARIABLE GITHASH_MYSQL_HASH)
+EXEC_PROGRAM(${GIT_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}
+             ARGS log -1 --format=%cd
+             OUTPUT_VARIABLE GITHASH_MYSQL_DATE)
+EXEC_PROGRAM(${GIT_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/../rocksdb
+             ARGS log -1 --format=%H
+             OUTPUT_VARIABLE GITHASH_ROCKSDB_HASH)
+EXEC_PROGRAM(${GIT_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/../rocksdb
+             ARGS log -1 --format=%cd
+             OUTPUT_VARIABLE GITHASH_ROCKSDB_DATE)
+
+# If the repository was modified (via push or pull) or if the
+# mysql_githash.h.in changed rebuild the mysql_githash.h file
+SET(GITHASH_HEADER_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/mysql_githash.h.in)
+SET(GITHASH_HEADER ${CMAKE_CURRENT_BINARY_DIR}/mysql_githash.h)
+ADD_CUSTOM_COMMAND(OUTPUT ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E copy ${GITHASH_HEADER_SOURCE} ${GITHASH_HEADER}
+  COMMAND sed -i -e s/@MYSQL_GIT_HASH@/${GITHASH_MYSQL_HASH}/
+                 -e s/@MYSQL_GIT_DATE@/${GITHASH_MYSQL_DATE}/
+                 -e s/@ROCKSDB_GIT_HASH@/${GITHASH_ROCKSDB_HASH}/
+                 -e s/@ROCKSDB_GIT_DATE@/${GITHASH_ROCKSDB_DATE}/
+                 ${GITHASH_HEADER}
+  DEPENDS ${CMAKE_SOURCE_DIR}/.git/logs/HEAD ${GITHASH_HEADER_SOURCE}
+  VERBATIM
+)

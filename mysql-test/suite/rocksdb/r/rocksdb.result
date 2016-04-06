@@ -1389,6 +1389,8 @@ drop table t0, t1;
 #
 show status like 'rocksdb%';
 Variable_name	Value
+Rocksdb_git_date	#
+Rocksdb_git_hash	#
 rocksdb_rows_deleted	#
 rocksdb_rows_inserted	#
 rocksdb_rows_read	#
@@ -1458,6 +1460,8 @@ rocksdb_write_timedout	#
 rocksdb_write_wal	#
 select VARIABLE_NAME from INFORMATION_SCHEMA.global_status where VARIABLE_NAME LIKE 'rocksdb%';
 VARIABLE_NAME
+ROCKSDB_GIT_DATE
+ROCKSDB_GIT_HASH
 ROCKSDB_ROWS_DELETED
 ROCKSDB_ROWS_INSERTED
 ROCKSDB_ROWS_READ
@@ -1529,6 +1533,8 @@ ROCKSDB_WRITE_WAL
 #  but they are shown as both session and global, like InnoDB's status vars.
 select VARIABLE_NAME from INFORMATION_SCHEMA.session_status where VARIABLE_NAME LIKE 'rocksdb%';
 VARIABLE_NAME
+ROCKSDB_GIT_DATE
+ROCKSDB_GIT_HASH
 ROCKSDB_ROWS_DELETED
 ROCKSDB_ROWS_INSERTED
 ROCKSDB_ROWS_READ
