@@ -409,6 +409,60 @@ rocksdb_set_rocksdb_info_log_level(THD* thd,
   mysql_mutex_unlock(&sysvar_mutex);
 }
 
+static int
+rocksdb_check_allow_os_buffer(
+    THD* thd __attribute__((__unused__)),
+    struct st_mysql_sys_var* var __attribute__((__unused__)),
+    void* save,
+    struct st_mysql_value* value)
+{
+  long long new_val;  // NOLINT(runtime/int)
+  if (value->val_int(value, &new_val) != 0)
+  {
+    my_printf_error(ER_UNKNOWN_ERROR,
+                    "RocksDB: Unknown error accessing allow_os_buffer\n",
+                    MYF(0));
+    return 1;
+  }
+
+  if (new_val == 0 && db_options.allow_mmap_reads)
+  {
+    my_printf_error(ER_UNKNOWN_ERROR, "RocksDB: Can't disable allow_os_buffer "
+                    "if allow_mmap_reads is enabled\n", MYF(0));
+    return 1;
+  }
+
+  *reinterpret_cast<my_bool*>(save) = (my_bool) new_val;
+  return 0;
+}
+
+static int
+rocksdb_check_allow_mmap_reads(
+    THD* thd __attribute__((__unused__)),
+    struct st_mysql_sys_var* var __attribute__((__unused__)),
+    void* save,
+    struct st_mysql_value* value)
+{
+  long long new_val;  // NOLINT(runtime/int)
+  if (value->val_int(value, &new_val) != 0)
+  {
+    my_printf_error(ER_UNKNOWN_ERROR,
+                    "RocksDB: Unknown error accessing allow_mmap_reads\n",
+                    MYF(0));
+    return 1;
+  }
+
+  if (new_val == 1 && !db_options.allow_os_buffer)
+  {
+    my_printf_error(ER_UNKNOWN_ERROR, "RocksDB: Can't enable allow_mmap_reads "
+                    "if allow_os_buffer is disabled\n", MYF(0));
+    return 1;
+  }
+
+  *reinterpret_cast<my_bool*>(save) = (my_bool) new_val;
+  return 0;
+}
+
 static const char* index_type_names[] = {
   "kBinarySearch",
   "kHashSearch",
@@ -665,13 +719,13 @@ static MYSQL_SYSVAR_BOOL(allow_os_buffer,
   *reinterpret_cast<my_bool*>(&db_options.allow_os_buffer),
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "DBOptions::allow_os_buffer for RocksDB",
-  nullptr, nullptr, db_options.allow_os_buffer);
+  rocksdb_check_allow_os_buffer, nullptr, db_options.allow_os_buffer);
 
 static MYSQL_SYSVAR_BOOL(allow_mmap_reads,
   *reinterpret_cast<my_bool*>(&db_options.allow_mmap_reads),
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "DBOptions::allow_mmap_reads for RocksDB",
-  nullptr, nullptr, db_options.allow_mmap_reads);
+  rocksdb_check_allow_mmap_reads, nullptr, db_options.allow_mmap_reads);
 
 static MYSQL_SYSVAR_BOOL(allow_mmap_writes,
   *reinterpret_cast<my_bool*>(&db_options.allow_mmap_writes),

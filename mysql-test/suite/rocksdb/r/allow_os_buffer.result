@@ -1,0 +1,1 @@
+ RocksDB: Error opening instance: Not implemented: If memory mapped reads (allow_mmap_reads) are enabled then os caching (allow_os_buffer) must also be enabled. 
