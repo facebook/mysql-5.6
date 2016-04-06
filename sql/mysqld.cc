@@ -85,6 +85,7 @@
 #include <mysql/psi/mysql_socket.h>
 #include <mysql/psi/mysql_statement.h>
 #include "mysql_com_server.h"
+#include "mysql_githash.h"
 
 #include "keycaches.h"
 #include "../storage/myisam/ha_myisam.h"
@@ -400,6 +401,12 @@ char *default_storage_engine;
 char *default_tmp_storage_engine;
 static char compiled_default_collation_name[]= MYSQL_DEFAULT_COLLATION_NAME;
 static bool binlog_format_used= false;
+
+/* MySQL and RocksDB git hashes and dates */
+static char git_hash[] = MYSQL_GIT_HASH;
+static char git_date[] = MYSQL_GIT_DATE;
+static char rocksdb_git_hash[] = ROCKSDB_GIT_HASH;
+static char rocksdb_git_date[] = ROCKSDB_GIT_DATE;
 
 LEX_STRING opt_init_connect, opt_init_slave;
 
@@ -7024,6 +7031,11 @@ int mysqld_main(int argc, char **argv)
                                                        : mysqld_unix_port),
                          mysqld_port,
                          MYSQL_COMPILATION_COMMENT);
+  // NO_LINT_DEBUG
+  sql_print_information("MySQL git hash: %s (%s)", git_hash, git_date);
+  // NO_LINT_DEBUG
+  sql_print_information("RocksDB git hash: %s (%s)", rocksdb_git_hash,
+                        rocksdb_git_date);
 #if defined(_WIN32) && !defined(EMBEDDED_LIBRARY)
   Service.SetRunning();
 #endif
@@ -9494,6 +9506,8 @@ SHOW_VAR status_vars[]= {
   {"Exec_seconds",             (char*) offsetof(STATUS_VAR, exec_time), SHOW_TIMER_STATUS},
   {"Flashcache_enabled",       (char*) &cachedev_enabled,       SHOW_BOOL },
   {"Flush_commands",           (char*) &refresh_version,        SHOW_LONG_NOFLUSH},
+  {"Git_hash",                 (char*) git_hash, SHOW_CHAR },
+  {"Git_date",                 (char*) git_date, SHOW_CHAR },
   {"Handler_commit",           (char*) offsetof(STATUS_VAR, ha_commit_count), SHOW_LONGLONG_STATUS},
   {"Handler_delete",           (char*) offsetof(STATUS_VAR, ha_delete_count), SHOW_LONGLONG_STATUS},
   {"Handler_discover",         (char*) offsetof(STATUS_VAR, ha_discover_count), SHOW_LONGLONG_STATUS},
@@ -9632,6 +9646,8 @@ SHOW_VAR status_vars[]= {
   {"Rpl_seconds_delete_rows",  (char*) &repl_event_times[DELETE_ROWS_EVENT],   SHOW_TIMER},
   {"Rpl_seconds_incident",     (char*) &repl_event_times[INCIDENT_EVENT],      SHOW_TIMER},
 #endif
+  {"Rocksdb_git_hash",         (char*) rocksdb_git_hash, SHOW_CHAR },
+  {"Rocksdb_git_date",         (char*) rocksdb_git_date, SHOW_CHAR },
   {"Select_full_join",         (char*) offsetof(STATUS_VAR, select_full_join_count), SHOW_LONGLONG_STATUS},
   {"Select_full_range_join",   (char*) offsetof(STATUS_VAR, select_full_range_join_count), SHOW_LONGLONG_STATUS},
   {"Select_range",             (char*) offsetof(STATUS_VAR, select_range_count), SHOW_LONGLONG_STATUS},

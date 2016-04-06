@@ -27,6 +27,7 @@ SET(GEN_SOURCES
   ${CMAKE_CURRENT_BINARY_DIR}/sql_yacc.cc
   ${CMAKE_CURRENT_BINARY_DIR}/sql_builtin.cc
   ${CMAKE_CURRENT_BINARY_DIR}/lex_hash.h 
+  ${CMAKE_CURRENT_BINARY_DIR}/mysql_githash.h
 )
 SET(GEN_DIGEST_SOURCES
   ${CMAKE_CURRENT_BINARY_DIR}/lex_token.h 
@@ -507,3 +508,14 @@ ADD_CUSTOM_TARGET(show-dist-name
   COMMAND ${CMAKE_COMMAND} -E echo "${CPACK_PACKAGE_FILE_NAME}"
 )
 
+# If the repository was modified (via push or pull) or if the
+# mysql_githash.h.in changed rebuild the mysql_githash.h file
+SET(GITHASH_HEADER_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/mysql_githash.h.in)
+SET(GITHASH_HEADER ${CMAKE_CURRENT_BINARY_DIR}/mysql_githash.h)
+SET(GITHASH_PERL ${CMAKE_SOURCE_DIR}/cmake/githash.pl)
+ADD_CUSTOM_COMMAND(OUTPUT ${GITHASH_HEADER}
+  COMMAND ${CMAKE_COMMAND} -E copy ${GITHASH_HEADER_SOURCE} ${GITHASH_HEADER}
+  COMMAND perl ${GITHASH_PERL} ${CMAKE_SOURCE_DIR} ${GITHASH_HEADER}
+  DEPENDS ${CMAKE_SOURCE_DIR}/.git/logs/HEAD ${GITHASH_HEADER_SOURCE}
+  VERBATIM
+)
