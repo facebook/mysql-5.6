@@ -36,7 +36,9 @@
 #include <vector>
 
 /* MyRocks header files */
+#include "./rdb_utils.h"
 #include "rdb_perf_context.h"
+#include <unordered_set>
 
 
 namespace myrocks {
@@ -54,6 +56,11 @@ const char * const DEFAULT_CF_NAME= "default";
   This is the name of the Column Family used for storing the data dictionary.
 */
 const char * const DEFAULT_SYSTEM_CF_NAME= "__system__";
+
+/*
+  This is the name of the hidden primary key for tables with no pk.
+*/
+const char * const HIDDEN_PK_NAME= "HIDDEN_PK_ID";
 
 /*
   Column family name which means "put this index into its own column family".
@@ -733,6 +740,12 @@ int read_before_key(Rdb_key_def *kd, bool using_full_key,
     MY_ATTRIBUTE((__nonnull__));
   bool contains_foreign_key(THD* thd)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+
+  bool prepare_drop_index_inplace(TABLE *altered_table,
+      my_core::Alter_inplace_info *ha_alter_info, Rdb_tbl_def* new_tdef,
+      Rdb_key_def** old_key_descr, Rdb_key_def** new_key_descr,
+      uint old_n_keys, uint new_n_keys,
+      std::unordered_set<GL_INDEX_ID>* dropped_index_ids);
 public:
   int index_init(uint idx, bool sorted) MY_ATTRIBUTE((__warn_unused_result__));
   int index_end() MY_ATTRIBUTE((__warn_unused_result__));
@@ -817,6 +830,20 @@ public:
   int analyze(THD* thd, HA_CHECK_OPT* check_opt)
     MY_ATTRIBUTE((__warn_unused_result__));
 
+  enum_alter_inplace_result check_if_supported_inplace_alter(
+    TABLE *altered_table,
+    my_core::Alter_inplace_info *ha_alter_info) override;
+
+  bool prepare_inplace_alter_table(TABLE *altered_table,
+                                   my_core::Alter_inplace_info *ha_alter_info);
+
+  bool inplace_alter_table(TABLE *altered_table,
+                           my_core::Alter_inplace_info *ha_alter_info);
+
+  bool commit_inplace_alter_table(TABLE *altered_table,
+                                  my_core::Alter_inplace_info *ha_alter_info,
+                                  bool commit);
+
  public:
   virtual void rpl_before_delete_rows() override;
   virtual void rpl_after_delete_rows() override;
@@ -827,6 +854,54 @@ public:
  private:
   bool in_rpl_delete_rows;
   bool in_rpl_update_rows;
+};
+
+/*
+  Helper class for in-place alter, for storing handler context between inplace
+  alter calls
+*/
+struct Rdb_inplace_alter_ctx : public my_core::inplace_alter_handler_ctx
+{
+  /* The new table definition */
+  Rdb_tbl_def* m_new_tdef;
+
+  /* Stores the original key definitions */
+  Rdb_key_def**  m_old_key_descr;
+
+  /* Stores the new key definitions */
+  Rdb_key_def**  m_new_key_descr;
+
+  /* Stores the old number of key definitions */
+  const uint m_old_n_keys;
+
+  /* Stores the new number of key definitions */
+  const uint m_new_n_keys;
+
+  /* Stores the dropped key glids */
+  std::unordered_set<GL_INDEX_ID> m_dropped_index_ids;
+
+  /* Stores number of keys to drop */
+  const uint m_n_dropped_keys;
+
+  Rdb_inplace_alter_ctx(
+      Rdb_tbl_def* new_tdef, Rdb_key_def** old_key_descr,
+      Rdb_key_def** new_key_descr, uint old_n_keys, uint new_n_keys,
+      std::unordered_set<GL_INDEX_ID> dropped_index_ids,
+      uint n_dropped_keys) :
+    my_core::inplace_alter_handler_ctx(), m_new_tdef(new_tdef),
+    m_old_key_descr(old_key_descr), m_new_key_descr(new_key_descr),
+    m_old_n_keys(old_n_keys), m_new_n_keys(new_n_keys),
+    m_dropped_index_ids(dropped_index_ids),
+    m_n_dropped_keys(n_dropped_keys)
+  {
+  }
+
+  ~Rdb_inplace_alter_ctx(){}
+
+ private:
+  /* Disable Copying */
+  Rdb_inplace_alter_ctx(const Rdb_inplace_alter_ctx&);
+  Rdb_inplace_alter_ctx& operator=(const Rdb_inplace_alter_ctx&);
 };
 
 }  // namespace myrocks
