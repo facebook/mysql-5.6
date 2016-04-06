@@ -6,3 +6,9 @@
 
 --source type_char.inc
 
+#Issue 226
+CREATE TABLE t1(c1 CHAR(0) NOT NULL);
+INSERT INTO t1 VALUES('a');
+SELECT * FROM t1;
+DROP TABLE t1;
+

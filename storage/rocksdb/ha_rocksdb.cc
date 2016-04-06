@@ -3447,11 +3447,16 @@ int ha_rocksdb::convert_record_from_storage_format(const rocksdb::Slice *key,
 
       const char *data_bytes;
       uint len= field->pack_length_in_rec();
-      if (!(data_bytes= reader.read(len)))
-        return HA_ERR_INTERNAL_ERROR;
-      field->move_field_offset(ptr_diff);
-      memcpy((char*)field->ptr, data_bytes, len);
-      field->move_field_offset(-ptr_diff);
+      if (len > 0)
+      {
+        if ((data_bytes= reader.read(len)) == nullptr)
+        {
+          return HA_ERR_INTERNAL_ERROR;
+        }
+        field->move_field_offset(ptr_diff);
+        memcpy(reinterpret_cast<char*>(field->ptr), data_bytes, len);
+        field->move_field_offset(-ptr_diff);
+      }
     }
   }
 
