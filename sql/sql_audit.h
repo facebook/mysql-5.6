@@ -189,16 +189,8 @@ void mysql_audit_general(THD *thd, uint event_subtype,
         query= thd->query_string;
       user= user_buff;
       userlen= make_user_name(thd, user_buff);
-      if (event_subtype == MYSQL_AUDIT_GENERAL_STATUS)
-      {
-        affectrows= 0;
-        resultrows= 0;
-      }
-      else
-      {
-        affectrows= thd->get_row_count_func();
-        resultrows= thd->get_sent_row_count();
-      }
+      affectrows= thd->get_row_count_func();
+      resultrows= thd->get_sent_row_count();
       ip.str= (char *) thd->security_ctx->get_ip()->ptr();
       ip.length= thd->security_ctx->get_ip()->length();
       host.str= (char *) thd->security_ctx->get_host()->ptr();
