@@ -1,9 +1,15 @@
 <?php
 // Copyright 2004-present Facebook. All Rights Reserved.
 
+// Internal diff determinator for Sandcastle. The file will exist only in the
+// FB-specific environment.
+define("MYSQL_INTERNAL_DIFF_DETERMINATOR",
+       "../tools/sandcastle/mysql_diff_determinator.php");
+
 final class FacebookMySQLDiffCreatedListener extends PhutilEventListener {
 
   public function register() {
+    assert_options(ASSERT_BAIL, true);
     $this->listen(ArcanistEventType::TYPE_DIFF_WASCREATED);
   }
 
@@ -11,30 +17,56 @@ final class FacebookMySQLDiffCreatedListener extends PhutilEventListener {
     if ($event->getValue('unitResult') == ArcanistUnitWorkflow::RESULT_SKIP) {
       return;
     }
-
     $workflow = $event->getValue('workflow');
+    assert($workflow);
+
     $diffID = $event->getValue('diffID');
+    assert(is_numeric($diffID));
 
     if ($this->shouldStartBuilds($workflow)) {
-      $this->startJenkinsBuilds($workflow->getArgument('big-test-queue'),
-                                $diffID);
+        // If you're brave enough and want to start dogfooding Sandcastle
+        // integration then set this environment variable and instead of
+        // Jenkins build the code will take you to the unexplored territory.
+        if (getenv('USE_SANDCASTLE')) {
+          $this->startSandcastleBuilds($workflow->getArgument('big-test-queue'),
+                                       $diffID,
+                                       $workflow->getUserName());
+        } else {
+          $this->startJenkinsBuilds($workflow->getArgument('big-test-queue'),
+                                    $diffID);
+        }
     } else {
       $console = PhutilConsole::getConsole();
-      $console->writeOut("Skipping launch of tests. Ask a Facebook "
-                         ."reviewer to launch tests for %d.\n", $diffID);
+      $console->writeOut("Skipping launch of tests. Ask a Facebook " .
+                         "reviewer to launch tests for %d.\n", $diffID);
     }
   }
 
   // Should we try to launch CI builds / tests?
   function shouldStartBuilds($workflow) {
     // If this sentinel file exists, assume that we have access to
-    // the CI servers
-    $sentinel = "../tools/sandcastle/mysql_diff_determinator.php";
+    // the CI servers.
+    $sentinel = MYSQL_INTERNAL_DIFF_DETERMINATOR;
     $working_copy = $workflow->getWorkingCopy();
+    assert($working_copy);
+
     return Filesystem::pathExists($working_copy->getProjectPath($sentinel));
   }
 
-  // Enqueue Jenkins build & test
+  // Start Sandcastle build and test execution.
+  function startSandcastleBuilds($useBigTestQueue, $diffID, $username) {
+    assert(is_numeric($diffID));
+    assert(strlen($username) > 0);
+
+    // All the real work will be done by the code in the file referenced
+    // below. File will be there because shouldStartBuilds() guards the
+    // execution of this section of code.
+    require(MYSQL_INTERNAL_DIFF_DETERMINATOR);
+
+    StartSandCastleBuild($useBigTestQueue, $diffID, $username);
+  }
+
+  // Enqueue Jenkins build & test.
   function startJenkinsBuilds($big, $diffID) {
     $console = PhutilConsole::getConsole();
 
@@ -60,6 +92,7 @@ final class FacebookMySQLDiffCreatedListener extends PhutilEventListener {
       . "'http://$server/job/$project"
       . "/buildWithParameters?token=ARC&DIFF_ID={$diffID}'";
     $last_line = system($jenkins_cmd, $retval);
+
     if ($retval) {
       $console->writeOut("Attempt to launch Jenkins build returned %d.\n"
                          ."Command run: %s\n"
