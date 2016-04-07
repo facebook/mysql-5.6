@@ -3884,9 +3884,13 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
   uint i;
   DBUG_ENTER("ha_rocksdb::create_key_defs");
   uint n_keys= table_arg->s->keys;
-  rocksdb::ColumnFamilyHandle* cf_handles[MAX_INDEXES];
-  bool is_cf_reverse[MAX_INDEXES];
-  bool is_auto_cf[MAX_INDEXES];
+
+  // These need to be one greater than MAX_INDEXES since the user can create
+  // MAX_INDEXES secondary keys and no primary key which would cause us
+  // to generate a hidden one.
+  std::array<rocksdb::ColumnFamilyHandle*, MAX_INDEXES + 1> cf_handles;
+  std::array<bool, MAX_INDEXES + 1> is_cf_reverse;
+  std::array<bool, MAX_INDEXES + 1> is_auto_cf;
 
   bool write_err= false;
   std::unique_ptr<rocksdb::WriteBatch> wb= dict_manager.begin();
