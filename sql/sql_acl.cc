@@ -9598,7 +9598,7 @@ static bool send_server_handshake_packet(MPVIO_EXT *mpvio,
     data_len= SCRAMBLE_LENGTH;
   }
 
-  end= strnmov(end, server_version, SERVER_VERSION_LENGTH) + 1;
+  end= strnmov(end, MYSQL_COMPILATION_COMMENT, SERVER_VERSION_LENGTH) + 1;
   int4store((uchar*) end, mpvio->thread_id);
   end+= 4;
 
