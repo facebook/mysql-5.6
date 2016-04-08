@@ -399,6 +399,8 @@ class ha_rocksdb: public handler
     MY_ATTRIBUTE((__warn_unused_result__));
   bool skip_unique_check() MY_ATTRIBUTE((__warn_unused_result__));
   bool commit_in_the_middle() MY_ATTRIBUTE((__warn_unused_result__));
+  bool do_bulk_commit(Rdb_transaction *tx)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   bool has_hidden_pk(const TABLE* table)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
