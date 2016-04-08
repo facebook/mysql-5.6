@@ -989,7 +989,8 @@ mysql_ping(MYSQL *mysql)
 const char * STDCALL
 mysql_get_server_info(MYSQL *mysql)
 {
-  return((char*) mysql->server_version);
+  (void) mysql;
+  return (char*) MYSQL_SERVER_VERSION;
 }
 
 
