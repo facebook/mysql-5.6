@@ -10763,7 +10763,7 @@ static void set_server_version(void)
     end= strmov(end, "-debug");
 #endif
   if (opt_log || opt_slow_log || opt_bin_log)
-    strmov(end, "-log");                        // This may slow down system
+    strmov(end, "-log");                     // This may slow down system
 }
 
 
