@@ -4952,7 +4952,7 @@ csm_parse_handshake(mysql_csm_context *ctx)
 {
   MYSQL *mysql = ctx->mysql;
   int pkt_length = ctx->pkt_length;
-  char *end,*server_version_end, *pkt_end;
+  char *end, *pkt_end;
   NET *net = &mysql->net;
 
   DBUG_ENTER(__func__);
@@ -4970,7 +4970,7 @@ csm_parse_handshake(mysql_csm_context *ctx)
                              PROTOCOL_VERSION);
     DBUG_RETURN(STATE_MACHINE_FAILED);
   }
-  server_version_end= end= strend((char*) net->read_pos+1);
+  end= strend((char*) net->read_pos+1);
   mysql->thread_id=uint4korr(end+1);
   end+=5;
   /* 
@@ -5017,7 +5017,7 @@ csm_parse_handshake(mysql_csm_context *ctx)
 		       &mysql->unix_socket,ctx->unix_socket ?
 		       (uint) strlen(ctx->unix_socket)+1 : (uint) 1,
 		       &mysql->server_version,
-		       (uint) (server_version_end - (char*) net->read_pos + 1),
+		       (uint) strlen(MYSQL_SERVER_VERSION)+1,
 		       NullS) ||
       !(mysql->user=my_strdup(ctx->user,MYF(0))) ||
       !(mysql->passwd=my_strdup(ctx->passwd,MYF(0))))
@@ -5031,7 +5031,7 @@ csm_parse_handshake(mysql_csm_context *ctx)
     strmov(mysql->unix_socket,ctx->unix_socket);
   else
     mysql->unix_socket=0;
-  strmov(mysql->server_version,(char*) net->read_pos+1);
+  strmov(mysql->server_version,(char*) MYSQL_SERVER_VERSION);
   mysql->port=ctx->port;
 
   if (pkt_end >= end + SCRAMBLE_LENGTH - SCRAMBLE_LENGTH_323 + 1)
