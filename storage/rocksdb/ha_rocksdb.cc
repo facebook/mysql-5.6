@@ -6389,7 +6389,10 @@ int ha_rocksdb::rnd_next_with_direction(uchar *buf, bool move_forward)
     }
   }
   else
+  {
     rc= HA_ERR_END_OF_FILE;
+    table->status= STATUS_NOT_FOUND;
+  }
 
   if (!rc) {
     stats.rows_read++;
