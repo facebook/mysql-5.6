@@ -11,7 +11,7 @@ INSERT INTO t1 VALUES (2);
 INSERT INTO t1 VALUES (3);
 
 --echo # Running 'replace_regex' on Server/mysqldump Versions
---replace_regex /-- Server version.*-log/-- SERVER VERSION/ /-- MySQL dump.*[)]/-- MYSQLDUMP VERSION/
+--replace_regex /-- Server version.*$/-- SERVER VERSION/ /-- MySQL dump.*[)]/-- MYSQLDUMP VERSION/
 --exec $MYSQL_DUMP --skip-dump-date db1 t1
 
 DROP TABLE t1;
