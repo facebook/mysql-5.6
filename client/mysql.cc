@@ -5095,36 +5095,11 @@ server_version_string(MYSQL *con)
   /* Only one thread calls this, so no synchronization is needed */
   if (server_version == NULL)
   {
-    MYSQL_RES *result;
+    /* version, space, comment, \0 */
+    size_t len= strlen(mysql_get_server_info(con)) + 1;
 
-    /* "limit 1" is protection against SQL_SELECT_LIMIT=0 */
-    if (!mysql_query(con, "select @@version_comment limit 1") &&
-        (result = mysql_use_result(con)))
-    {
-      MYSQL_ROW cur = mysql_fetch_row(result);
-      if (cur && cur[0])
-      {
-        /* version, space, comment, \0 */
-        size_t len= strlen(mysql_get_server_info(con)) + strlen(cur[0]) + 2;
-
-        if ((server_version= (char *) my_malloc(len, MYF(MY_WME))))
-        {
-          char *bufp;
-          bufp = strmov(server_version, mysql_get_server_info(con));
-          bufp = strmov(bufp, " ");
-          (void) strmov(bufp, cur[0]);
-        }
-      }
-      mysql_free_result(result);
-    }
-
-    /*
-      If for some reason we didn't get a version_comment, we'll
-      keep things simple.
-    */
-
-    if (server_version == NULL)
-      server_version= my_strdup(mysql_get_server_info(con), MYF(MY_WME));
+    if ((server_version= (char *) my_malloc(len, MYF(MY_WME))))
+      (void) strmov(server_version, mysql_get_server_info(con));
   }
 
   return server_version ? server_version : "";
