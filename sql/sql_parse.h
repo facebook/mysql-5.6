@@ -100,7 +100,9 @@ bool alloc_query(THD *thd, const char *packet, uint packet_length);
 void mysql_init_select(LEX *lex);
 void mysql_parse(THD *thd, char *rawbuf, uint length,
                  Parser_state *parser_state, ulonglong *last_timer,
-                 my_bool *async_commit);
+                 my_bool *async_commit,
+                 const std::string &db = std::string(""),
+                 my_bool *exit_admission_control = NULL);
 void mysql_reset_thd_for_next_command(THD *thd);
 bool mysql_new_select(LEX *lex, bool move_down);
 void create_select_for_variable(const char *var_name);
