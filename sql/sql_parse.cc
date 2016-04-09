@@ -1591,8 +1591,11 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
     if (parser_state.init(thd, thd->query(), thd->query_length()))
       break;
 
+    my_bool exit_admission_control = FALSE;
+    // thd->db can be changed. So make a copy here.
+    std::string db = thd->db ? std::string(thd->db) : "";
     mysql_parse(thd, thd->query(), thd->query_length(), &parser_state,
-                &last_timer, &async_commit);
+                &last_timer, &async_commit, db, &exit_admission_control);
 
     while (!thd->killed && (parser_state.m_lip.found_semicolon != NULL) &&
            ! thd->is_error())
@@ -1676,8 +1679,10 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
       parser_state.reset(beginning_of_next_stmt, length);
       /* TODO: set thd->lex->sql_command to SQLCOM_END here */
       mysql_parse(thd, beginning_of_next_stmt, length, &parser_state,
-                  &last_timer, &async_commit);
+                  &last_timer, &async_commit, db, &exit_admission_control);
     }
+    if (exit_admission_control)
+      db_ac->admission_control_exit(thd, db);
 
     DBUG_PRINT("info",("query ready"));
     break;
@@ -7190,19 +7195,19 @@ bool AC::admission_control_enter(THD* thd, const std::string& entity) {
         release_lock_ac = false;
         wait_for_signal(thd, thd->ac_node, ac_info);
         --ac_info->waiting_queries;
-        ++total_running_queries;
       }
     } else {
       // We are below the max running limit.
       ac_info->queue.push_back(thd->ac_node);
       mysql_mutex_unlock(&ac_info->lock);
-      ++total_running_queries;
     }
   }
   if (release_lock_ac) {
     mysql_rwlock_unlock(&LOCK_ac);
   }
   thd->proc_info = prev_proc_info;
+  if (!error)
+    ++total_running_queries;
   return error;
 }
 
@@ -7366,11 +7371,20 @@ static bool filter_command(enum_sql_command sql_command)
   @param       length  Length of the query text
   @param[out]  found_semicolon For multi queries, position of the character of
                                the next query in the query text.
+  @param[in]  db
+              database name used for admission control checks
+  @param[in, out] exit_admission_control
+              Set to TRUE when admission control limits are applied and
+              query is allowed to run. This flag is TRUE if the THD entered
+              admission control already and executing next statement in a
+              multi query packet.
 */
 
 void mysql_parse(THD *thd, char *rawbuf, uint length,
                  Parser_state *parser_state, ulonglong *last_timer,
-                 my_bool* async_commit)
+                 my_bool* async_commit,
+                 const std::string &db,
+                 my_bool* exit_admission_control)
 {
   int error __attribute__((unused));
   ulonglong statement_start_time;
@@ -7514,23 +7528,25 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
           }
           else {
             bool admission_check= false;
-            std::string db;
             /**
               Admission control checks are skipped in the following
               scenarios.
               1. The query is run by super user
               2. The THD is a replication thread
-              3. No database is set for this session
-              4. Admission control checks are turned off by setting
+              3. If this is a multi query packet and the THD already entered
+                 admission control
+              4. No database is set for this session
+              5. Admission control checks are turned off by setting
                  max_running_queries=0
+              6. If the command is filtered from admission checks
             */
             if (!(thd->security_ctx->master_access & SUPER_ACL) &&
                 !thd->rli_slave &&
-                thd->db && db_ac->get_max_running_queries() &&
+                exit_admission_control && !(*exit_admission_control) &&
+                !db.empty() &&
+                db_ac->get_max_running_queries() &&
                 !filter_command(thd->lex->sql_command)) {
               admission_check= true;
-              // thd->db can be changed. So make a copy here.
-              db = std::string(thd->db);
             }
 
             if (admission_check &&
@@ -7541,8 +7557,8 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
             } else {
               error = mysql_execute_command(thd, &statement_start_time,
                                             last_timer);
-              if (admission_check)
-                db_ac->admission_control_exit(thd, db);
+              if (exit_admission_control && admission_check)
+                *exit_admission_control = TRUE;
             }
           }
           if (error == 0 &&

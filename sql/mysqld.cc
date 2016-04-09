@@ -6345,6 +6345,8 @@ int mysqld_main(int argc, char **argv)
 #endif
 
   db_ac = new AC();
+  db_ac->update_max_running_queries(opt_max_running_queries);
+  db_ac->update_max_waiting_queries(opt_max_waiting_queries);
   if (init_server_components())
     unireg_abort(1);
 
