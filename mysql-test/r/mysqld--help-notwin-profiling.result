@@ -1172,6 +1172,8 @@ The following options may be given as the first argument:
  recomputation. Only changed indexes will be refreshed.
  --rocksdb-signal-drop-index-thread 
  Wake up drop index thread
+ --rocksdb-skip-bloom-filter-on-read 
+ Skip using bloom filter for reads
  --rocksdb-skip-fill-cache 
  Skip filling block cache on read requests
  --rocksdb-skip-unique-check 
@@ -1843,6 +1845,7 @@ rocksdb-records-in-range 0
 rocksdb-rpl-lookup-rows TRUE
 rocksdb-seconds-between-stat-computes 3600
 rocksdb-signal-drop-index-thread FALSE
+rocksdb-skip-bloom-filter-on-read FALSE
 rocksdb-skip-fill-cache FALSE
 rocksdb-skip-unique-check FALSE
 rocksdb-stats-dump-period-sec 600
