@@ -1006,19 +1006,28 @@ bool thd_is_connection_alive(THD *thd)
   return FALSE;
 }
 
+/*
+  Generate and set the error message when this connection
+  gets closed due to timeout. This error message will be
+  written into the socket right before it gets closed.
+*/
 void set_conn_timeout_err(THD *thd, char *msg_buf)
 {
-  if (send_error_before_closing_timed_out_connection && strlen(msg_buf) > 0)
+  if (send_error_before_closing_timed_out_connection)
   {
-    thd->conn_timeout_err_msg = msg_buf;
-    if (thd->net.vio)
-      thd->net.vio->timeout_err_msg = msg_buf;
+    thd->protocol->gen_conn_timeout_err(msg_buf);
+    if (strlen(msg_buf) > 0)
+    {
+      thd->conn_timeout_err_msg = msg_buf;
+      if (thd->net.vio)
+        thd->net.vio->timeout_err_msg = msg_buf;
+      return;
+    }
   }
-  else {
-    thd->conn_timeout_err_msg = NULL;
-    if (thd->net.vio)
-      thd->net.vio->timeout_err_msg = NULL;
-  }
+
+  thd->conn_timeout_err_msg = NULL;
+  if (thd->net.vio)
+    thd->net.vio->timeout_err_msg = NULL;
 }
 
 void do_handle_one_connection(THD *thd_arg)
@@ -1064,14 +1073,9 @@ void do_handle_one_connection(THD *thd_arg)
   if (setup_connection_thread_globals(thd))
     return;
 
-  /*
-    Generate the error message when this connection gets closed
-    due to timeout. This error message will be written into the
-    socket right before it gets closed.
-  */
-  char msg_buf[256];
-  thd->protocol->gen_conn_timeout_err(msg_buf);
-  set_conn_timeout_err(thd, msg_buf);
+  ulong conn_timeout = 0;
+  char timeout_error_msg_buf[256];
+  timeout_error_msg_buf[0] = '\0';
 
   for (;;)
   {
@@ -1095,11 +1099,24 @@ void do_handle_one_connection(THD *thd_arg)
     */
     per_user_session_variables.set_thd(thd);
 
+    conn_timeout = thd->variables.net_wait_timeout_seconds;
+    set_conn_timeout_err(thd, timeout_error_msg_buf);
+
     while (thd_is_connection_alive(thd))
     {
       mysql_audit_release(thd);
       if (do_command(thd))
   break;
+
+      /*
+        Update the error message with new timeout value if wait_timeout
+        was changed in this session.
+      */
+      if (conn_timeout != thd->variables.net_wait_timeout_seconds)
+      {
+        conn_timeout = thd->variables.net_wait_timeout_seconds;
+        set_conn_timeout_err(thd, timeout_error_msg_buf);
+      }
     }
     thd_update_net_stats(thd);
     end_connection(thd);
@@ -1125,11 +1142,6 @@ end_thread:
     */
     thd= current_thd;
     thd->thread_stack= (char*) &thd;
-
-    /* This connection will be reused. Set the pointer to
-       the timeout error mesage.
-    */
-    set_conn_timeout_err(thd, msg_buf);
   }
 }
 

@@ -1,3 +1,6 @@
+select @@session.wait_timeout;
+select @@session.interactive_timeout;
+
 --echo ### Connection gets timed out without executing any queries
 
 --echo sleeping 18 sec to make sure the connection get timed out and closed by server...

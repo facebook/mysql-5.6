@@ -5665,12 +5665,12 @@ void dynstr_append_line(DYNAMIC_STRING *ds, char *msg, int len)
 
 /*
   When mysql global sys var "send_error_before_closing_timed_out_connection"
-  is turned on, mysqld will push error 2006 with message "Connection closed
-  due to timeout." into socket before closing it due to timeout. This error
-  will sit in the socket buffer on client side so that client will be able
-  to find out the reason of lost connection or mysql server has gone away.
-  This function will try to read this error from socket buffer and verify if
-  the packet is valid.
+  is turned on, mysqld will push error 2006 with the following message:
+  "Closed connection: idle timeout after <wait_timeout>s"
+  into socket before closing it due to timeout. This error will sit in the
+  socket buffer on client side so that client will be able to find out the
+  reason of lost connection or mysql server has gone away. This function will
+  try to read this error from socket buffer and verify if the packet is valid.
 */
 void dump_timed_out_connection_socket_buffer(struct st_connection *con)
 {
@@ -5685,35 +5685,12 @@ void dump_timed_out_connection_socket_buffer(struct st_connection *con)
   int sz = vio_read(con->mysql.net.vio, (uchar *)buf,
                     VIO_READ_BUFFER_SIZE);
 
-  // PACKET_LEN 46 is the length of the whole network packet
-  // that includes 4 bytes of header (3 bytes of payload
-  // length followed by 1 byte of serial number) plus 42
-  // bytes of payload (the error message string)
-  const int PACKET_LEN = 46;
-  char err_msg[256];
-  if (sz != PACKET_LEN)
-  {
-    sprintf(err_msg, "Error: packet length is %d, "
-            "but %d is expected;", sz, PACKET_LEN);
-    dynstr_append_line(&ds, err_msg, sizeof(err_msg));
-    log_file.write(&ds);
-    log_file.flush();
-    dynstr_free(&ds);
-    return;
-  }
-
   bool ok = true;
+  char err_msg[256];
   buf[sz] = 0;
 
-  // buf[0..2] is the length of the message, which should be 42
+  // buf[0..2] is the length of the message, will check it later
   int message_len = sint3korr(&buf[0]);
-  if (message_len != 42)
-  {
-    ok = false;
-    sprintf(err_msg, "Error: message length in buf[0..2] is %d, "
-            "but 42 is expected;", message_len);
-    dynstr_append_line(&ds, err_msg, sizeof(err_msg));
-  }
 
   // buf[3] is the packet serial number, which has been forced to 1
   int packet_serial_num = buf[3];
@@ -5752,14 +5729,53 @@ void dump_timed_out_connection_socket_buffer(struct st_connection *con)
   }
 
   // Starting from buf[8] is the sql state "HY000" + message
-  // The total length of the packet (sz) is 46, message is as below
-  // HY000Connection closed due to timeout.
-  if (strcmp((const char*)&buf[8],
-             "HY000Connection closed due to timeout.") != 0)
+  // The message is as below, wait_timeout is a unsigned integer
+  // HY000Closed connection: idle timeout after <wait_timeout>s
+  static const char *msg_body = "HY000Closed connection: idle timeout after ";
+  int msg_body_len = strlen(msg_body);
+  uchar *end = NULL;
+  if (strncmp((const char*)&buf[8], msg_body, msg_body_len) == 0)
   {
+    // Skip the wait_timeout value, which is a unsigned integer,
+    // followed by 's', which is the last character of the string
+    end = &buf[8] + msg_body_len;
+    while (*end >= '0' && *end <= '9')
+      ++end;
+    if (*end != 's' || *(++end) != '\0')
+      ok = false;
+  }
+  else
     ok = false;
-    sprintf(err_msg, "Error message is wrong: %s", &buf[8]);
-    dynstr_append_line(&ds, err_msg, sizeof(err_msg));
+
+  if (ok)
+  {
+    // It is time to verify the packet and message length
+    DBUG_ASSERT(*end == '\0');
+    int packet_len = end - &buf[0];
+
+    // packet_len is the length of the whole network packet
+    // that includes 4 bytes of header (3 bytes of payload
+    // length followed by 1 byte of serial number) plus 42
+    // bytes of payload (the error message string)
+    if (sz != packet_len)
+    {
+      sprintf(err_msg, "Error: packet length is %d, "
+              "but %d is expected;", sz, packet_len);
+      dynstr_append_line(&ds, err_msg, sizeof(err_msg));
+      log_file.write(&ds);
+      log_file.flush();
+      dynstr_free(&ds);
+      return;
+    }
+
+    // The header length is 4 bytes
+    if (message_len + 4 != packet_len)
+    {
+      ok = false;
+      sprintf(err_msg, "Error: message length in buf[0..2] is %d, "
+              "but %d is expected;", message_len, packet_len - 4);
+      dynstr_append_line(&ds, err_msg, sizeof(err_msg));
+    }
   }
 
   if (ok)
@@ -5769,6 +5785,11 @@ void dump_timed_out_connection_socket_buffer(struct st_connection *con)
     replace_dynstr_append_mem(&ds, err_str, strlen(err_str));
     replace_dynstr_append_mem(&ds, (const char*)&buf[8], sz-8);
     dynstr_append_mem(&ds, "\n", 1);
+  }
+  else
+  {
+    sprintf(err_msg, "Error message is wrong: %s", &buf[8]);
+    dynstr_append_line(&ds, err_msg, sizeof(err_msg));
   }
 
   log_file.write(&ds);
