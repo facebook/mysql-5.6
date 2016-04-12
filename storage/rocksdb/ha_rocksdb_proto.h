@@ -13,19 +13,22 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
+#pragma once
 
-#ifndef _ha_rocksdb_proto_h_
-#define _ha_rocksdb_proto_h_
+/* MySQL header files */
+#include "./sql_string.h"
 
+/* RocksDB includes */
 #include "rocksdb/table.h"
 
 namespace myrocks {
 
-void get_cf_options(const std::string &cf_name,
+void get_cf_options(
+  const std::string &cf_name,
   rocksdb::ColumnFamilyOptions *opts) MY_ATTRIBUTE((__nonnull__));
 
 int rocksdb_normalize_tablename(const char *tablename,
-  StringBuffer<256> *strbuf)
+                                StringBuffer<256> *strbuf)
   MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 int rocksdb_split_normalized_tablename(const char *fullname,
                                        StringBuffer<256> *dbbuf,
@@ -34,8 +37,12 @@ int rocksdb_split_normalized_tablename(const char *fullname,
   MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 std::vector<std::string> get_share_names(void);
 
-int rocksdb_get_share_perf_counters(const char *tablename,
-  RDB_SHARE_PERF_COUNTERS *counters) MY_ATTRIBUTE((__nonnull__(2)));
+int rdb_get_table_perf_counters(const char *tablename,
+                                Rdb_perf_counters *counters)
+  MY_ATTRIBUTE((__nonnull__(2)));
+
+void rdb_get_global_perf_counters(Rdb_perf_counters *counters)
+  MY_ATTRIBUTE((__nonnull__(1)));
 
 void request_save_stats();
 
@@ -63,5 +70,3 @@ Rdb_binlog_manager *get_binlog_manager(void)
   MY_ATTRIBUTE((__warn_unused_result__));
 
 }  // namespace myrocks
-
-#endif /* _ha_rocksdb_proto_h_ */

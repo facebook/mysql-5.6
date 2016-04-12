@@ -1,5 +1,6 @@
 /*
-   Copyright (c) 2015, Facebook, Inc.
+   Portions Copyright (c) 2015-Present, Facebook, Inc.
+   Portions Copyright (c) 2012, Monty Program Ab
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -23,6 +24,9 @@
 /* RocksDB header files */
 #include "rocksdb/iostats_context.h"
 #include "rocksdb/perf_context.h"
+
+/* MyRocks header files */
+#include "./ha_rocksdb_proto.h"
 
 namespace myrocks {
 
@@ -80,11 +84,11 @@ std::string rdb_pc_stat_types[]=
 };
 
 #define IO_PERF_INIT(_field_) \
-  local_perf_context.value[idx++]= rocksdb::perf_context._field_
+  m_value[idx++]= rocksdb::perf_context._field_
 #define IO_STAT_INIT(_field_) \
-  local_perf_context.value[idx++]= rocksdb::iostats_context._field_
+  m_value[idx++]= rocksdb::iostats_context._field_
 
-void rdb_perf_context_start(Rdb_perf_context_local &local_perf_context)
+void Rdb_perf_counters::start()
 {
   // (B) These should be in the same order as the PC enum
   size_t idx= 0;
@@ -133,16 +137,14 @@ void rdb_perf_context_start(Rdb_perf_context_local &local_perf_context)
   IO_STAT_INIT(logger_nanos);
 }
 
-#define IO_PERF_DIFF(_field_)                                    \
-  local_perf_context.value[idx]= rocksdb::perf_context._field_ - \
-                                 local_perf_context.value[idx];  \
+#define IO_PERF_DIFF(_field_)                                        \
+  m_value[idx]= rocksdb::perf_context._field_ - m_value[idx];        \
   idx++
-#define IO_STAT_DIFF(_field_)                                       \
-  local_perf_context.value[idx]= rocksdb::iostats_context._field_ - \
-                                 local_perf_context.value[idx];     \
+#define IO_STAT_DIFF(_field_)                                        \
+  m_value[idx]= rocksdb::iostats_context._field_ - m_value[idx];     \
   idx++
 
-void rdb_perf_context_diff(Rdb_perf_context_local &local_perf_context)
+void Rdb_perf_counters::harvest_diffs()
 {
   // (C) These should be in the same order as the PC enum
   size_t idx= 0;
@@ -196,28 +198,107 @@ void rdb_perf_context_diff(Rdb_perf_context_local &local_perf_context)
 #undef IO_PERF_DIFF
 #undef IO_STAT_DIFF
 
-void rdb_perf_context_stop(Rdb_perf_context_local &local_perf_context,
-                           Rdb_perf_context_shared *table_perf_context,
-                           Rdb_perf_context_shared &global_perf_context)
+
+static Rdb_atomic_perf_counters rdb_global_perf_counters;
+
+void rdb_get_global_perf_counters(Rdb_perf_counters *counters)
 {
-  rdb_perf_context_diff(local_perf_context);
+  DBUG_ASSERT(counters != nullptr);
+
+  counters->load(rdb_global_perf_counters);
+}
+
+
+void Rdb_perf_counters::end_and_record(
+  Rdb_atomic_perf_counters *atomic_counters)
+{
+  harvest_diffs();
+
   for (int i= 0; i < PC_MAX_IDX; i++) {
-    if (local_perf_context.value[i]) {
-      if (table_perf_context) {
-        table_perf_context->value[i] += local_perf_context.value[i];
+    if (m_value[i]) {
+      if (atomic_counters) {
+        atomic_counters->m_value[i] += m_value[i];
       }
-      global_perf_context.value[i] += local_perf_context.value[i];
+      rdb_global_perf_counters.m_value[i] += m_value[i];
     }
   }
 }
 
-void rdb_perf_context_collect(Rdb_perf_context_shared &perf_context,
-                              RDB_SHARE_PERF_COUNTERS *counters)
-{
-  DBUG_ASSERT(counters != nullptr);
 
+void Rdb_perf_counters::load(const Rdb_atomic_perf_counters &atomic_counters)
+{
   for (int i= 0; i < PC_MAX_IDX; i++) {
-    counters->value[i]= perf_context.value[i].load(std::memory_order_relaxed);
+    m_value[i]= atomic_counters.m_value[i].load(std::memory_order_relaxed);
+  }
+}
+
+void Rdb_io_perf::start(uint32_t perf_context_level)
+{
+  rocksdb::PerfLevel perf_level=
+    static_cast<rocksdb::PerfLevel>(perf_context_level);
+
+  rocksdb::SetPerfLevel(perf_level);
+
+  if (perf_level == rocksdb::kDisable)
+  {
+    return;
+  }
+
+  m_block_read_byte= rocksdb::perf_context.block_read_byte;
+  m_block_read_count= rocksdb::perf_context.block_read_count;
+  m_block_read_time= rocksdb::perf_context.block_read_time;
+  m_local_perf_context.start();
+}
+
+void Rdb_io_perf::end_and_record(uint32_t perf_context_level)
+{
+  rocksdb::PerfLevel perf_level=
+    static_cast<rocksdb::PerfLevel>(perf_context_level);
+
+  if (perf_level == rocksdb::kDisable)
+  {
+    return;
+  }
+
+  /*
+    This seems to be needed to prevent gdb from crashing if it breaks
+    or enters this function.
+   */
+  rocksdb::SetPerfLevel(perf_level);
+
+  m_block_read_byte= rocksdb::perf_context.block_read_byte - m_block_read_byte;
+  m_block_read_count= rocksdb::perf_context.block_read_count
+                      - m_block_read_count;
+  m_block_read_time= rocksdb::perf_context.block_read_time - m_block_read_time;
+  m_local_perf_context.end_and_record(m_atomic_counters);
+
+  if (m_block_read_byte + m_block_read_count +
+      m_block_read_time != 0)
+  {
+    my_io_perf_t io_perf_read;
+
+    my_io_perf_init(&io_perf_read);
+    io_perf_read.bytes= m_block_read_byte;
+    io_perf_read.requests= m_block_read_count;
+
+    /*
+      Rocksdb does not distinguish between I/O service and wait time, so just
+      use svc time.
+     */
+    io_perf_read.svc_time_max= io_perf_read.svc_time= m_block_read_time;
+
+    my_io_perf_sum_atomic_helper(m_shared_io_perf_read, &io_perf_read);
+    my_io_perf_sum(&m_stats->table_io_perf_read, &io_perf_read);
+  }
+
+  if (m_local_perf_context.m_value[PC_KEY_SKIPPED])
+  {
+    m_stats->key_skipped += m_local_perf_context.m_value[PC_KEY_SKIPPED];
+  }
+
+  if (m_local_perf_context.m_value[PC_DELETE_SKIPPED])
+  {
+    m_stats->delete_skipped += m_local_perf_context.m_value[PC_DELETE_SKIPPED];
   }
 }
 
