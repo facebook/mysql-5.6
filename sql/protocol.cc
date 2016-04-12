@@ -610,10 +610,11 @@ bool Protocol::send_error(uint sql_errno, const char *err_msg,
 void Protocol::gen_conn_timeout_err(char *msg_buf)
 {
   /* The error code must be 2006 to ensure the compatiblity
-     with client error 2006 MySQL server has gone away
+     with client error 2006 MySQL server has gone away so
+     the actual error code ER_CONNECTION_TIMEOUT will be
+     ignored and only the error message will be used.
   */
-  uint sql_errno = ER_CONNECTION_TIMEOUT;
-  DBUG_ASSERT(sql_errno == 2006);
+  uint sql_errno = 2006;
   const char *err = ER(ER_CONNECTION_TIMEOUT);
   DBUG_ASSERT(strlen(err) > 0);
   // The default value is "HY000"
