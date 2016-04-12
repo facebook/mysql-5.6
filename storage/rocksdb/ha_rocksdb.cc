@@ -3915,6 +3915,26 @@ bool ha_rocksdb::get_error_message(const int error, String *buf)
   return FALSE; /* not a temporary error */
 }
 
+
+/* MyRocks supports only the following collations for indexed columns */
+static const std::set<const my_core::CHARSET_INFO *> RDB_INDEX_COLLATIONS=
+  {&my_charset_bin, &my_charset_utf8_bin, &my_charset_latin1_bin};
+
+
+static bool rdb_is_index_collation_supported(my_core::Field *field)
+{
+  my_core::enum_field_types type= field->real_type();
+  /* Handle [VAR](CHAR|BINARY) or TEXT|BLOB */
+  if (type == MYSQL_TYPE_VARCHAR || type == MYSQL_TYPE_STRING ||
+      type == MYSQL_TYPE_BLOB)
+  {
+    return RDB_INDEX_COLLATIONS.find(field->charset()) !=
+           RDB_INDEX_COLLATIONS.end();
+  }
+  return true;
+}
+
+
 static bool is_table_in_collation_exception_list(const std::string& table_name)
 {
   bool result = false;
@@ -4007,12 +4027,12 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
     {
       for (uint part= 0; part < table_arg->key_info[i].actual_key_parts; part++)
       {
-        if (!is_myrocks_collation_supported(
+        if (!rdb_is_index_collation_supported(
             table_arg->key_info[i].key_part[part].field) &&
             !is_table_in_collation_exception_list(table_arg->s->table_name.str))
         {
           std::string collation_err;
-          for (auto coll: MYROCKS_INDEX_COLLATIONS)
+          for (auto coll : RDB_INDEX_COLLATIONS)
           {
             if (collation_err != "")
             {

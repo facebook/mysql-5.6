@@ -110,9 +110,6 @@ const char * const PER_INDEX_CF_NAME = "$per_index_cf";
 */
 #define ROCKSDB_SIZEOF_HIDDEN_PK_COLUMN sizeof(longlong)
 
-/* MyRocks supports only the following collations for indexed columns */
-const std::set<const CHARSET_INFO *> MYROCKS_INDEX_COLLATIONS=
-  {&my_charset_bin, &my_charset_utf8_bin, &my_charset_latin1_bin};
 
 inline bool looks_like_per_index_cf_typo(const char *name)
 {
