@@ -1,5 +1,6 @@
 /*
-   Copyright (c) 2015, Facebook, Inc.
+   Portions Copyright (c) 2015-Present, Facebook, Inc.
+   Portions Copyright (c) 2012,2013 Monty Program Ab
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -21,6 +22,7 @@
 #include <string>
 
 /* MySQL header files */
+#include "./handler.h"
 #include <my_global.h>
 
 namespace myrocks {
@@ -72,62 +74,118 @@ enum {
   PC_MAX_IDX
 };
 
-struct Rdb_perf_context_shared {
-  std::atomic_ullong value[PC_MAX_IDX];
+class Rdb_perf_counters;
+
+/*
+  A collection of performance counters that can be safely incremented by
+  multiple threads since it stores atomic datapoints.
+*/
+struct Rdb_atomic_perf_counters
+{
+  std::atomic_ullong m_value[PC_MAX_IDX];
 };
 
-struct Rdb_perf_context_local {
-  uint64_t value[PC_MAX_IDX];
+/*
+  A collection of performance counters that is meant to be incremented by
+  a single thread.
+*/
+class Rdb_perf_counters
+{
+ public:
+  uint64_t m_value[PC_MAX_IDX];
+
+  void load(const Rdb_atomic_perf_counters &atomic_counters);
+
+  void start();
+  void end_and_record(Rdb_atomic_perf_counters *atomic_counters);
+
+ private:
+  void harvest_diffs();
 };
 
 extern std::string rdb_pc_stat_types[PC_MAX_IDX];
 
-void rdb_perf_context_start(Rdb_perf_context_local &local_perf_context);
-
-void rdb_perf_context_stop(Rdb_perf_context_local &local_perf_context,
-                           Rdb_perf_context_shared *table_perf_context,
-                           Rdb_perf_context_shared &global_perf_context);
-
-typedef Rdb_perf_context_local RDB_SHARE_PERF_COUNTERS;
-
-void rdb_perf_context_collect(Rdb_perf_context_shared &perf_context,
-                              RDB_SHARE_PERF_COUNTERS *counters);
-
-
 // RAII utility to automatically call stop/start on scope entry/exit
-struct Rdb_perf_context_guard {
-  Rdb_perf_context_local &local_perf_context;
-  Rdb_perf_context_shared *table_perf_context;
-  Rdb_perf_context_shared &global_perf_context;
-  bool capture_perf_context;
+// for a given Rdb_perf_counters object.
+class Rdb_perf_context_guard
+{
+ public:
+  Rdb_perf_counters m_local_perf_context;
+  bool m_capture_perf_context;
 
-  Rdb_perf_context_guard(Rdb_perf_context_local &local_perf_context,
-                         Rdb_perf_context_shared *table_perf_context,
-                         Rdb_perf_context_shared &global_perf_context,
-                         bool capture_perf_context)
-  : local_perf_context(local_perf_context),
-    table_perf_context(table_perf_context),
-    global_perf_context(global_perf_context),
-    capture_perf_context(capture_perf_context)
+  explicit Rdb_perf_context_guard(bool capture_perf_context)
+  : m_capture_perf_context(capture_perf_context)
   {
-    if (capture_perf_context)
+    if (m_capture_perf_context)
     {
-      rdb_perf_context_start(local_perf_context);
+      m_local_perf_context.start();
     }
   }
 
-  ~Rdb_perf_context_guard() {
-    if (capture_perf_context)
+  ~Rdb_perf_context_guard()
+  {
+    if (m_capture_perf_context)
     {
-      rdb_perf_context_stop(local_perf_context,
-                            table_perf_context,
-                            global_perf_context);
+      m_local_perf_context.end_and_record(nullptr);
     }
   }
 };
 
-#define RDB_PERF_CONTEXT_GUARD(_local_, _table_, _global_, _capture_) \
-  Rdb_perf_context_guard rdb_perf_context_guard_(_local_, _table_, _global_, \
-                                                 _capture_)
+/*
+  Perf timers for data reads
+ */
+class Rdb_io_perf
+{
+  // Read counters
+  uint64_t m_block_read_byte= 0;
+  uint64_t m_block_read_count= 0;
+  uint64_t m_block_read_time= 0;
+
+  // Context management
+  Rdb_perf_counters m_local_perf_context;
+  Rdb_atomic_perf_counters *m_atomic_counters= nullptr;
+  my_io_perf_atomic_t *m_shared_io_perf_read= nullptr;
+  ha_statistics *m_stats= nullptr;
+
+ public:
+  void init(Rdb_atomic_perf_counters *atomic_counters,
+            my_io_perf_atomic_t *shared_io_perf_read,
+            ha_statistics *stats)
+  {
+    DBUG_ASSERT(atomic_counters != nullptr);
+    DBUG_ASSERT(shared_io_perf_read != nullptr);
+    DBUG_ASSERT(stats != nullptr);
+
+    m_atomic_counters= atomic_counters;
+    m_shared_io_perf_read= shared_io_perf_read;
+    m_stats= stats;
+  }
+
+  void start(uint32_t perf_context_level);
+  void end_and_record(uint32_t perf_context_level);
+};
+
+// RAII utility to automatically call stop/start on scope entry/exit
+// for a given Rdb_io_perf object.
+class Rdb_io_perf_guard
+{
+ public:
+  explicit Rdb_io_perf_guard(Rdb_io_perf *perf_context,
+                             uint32_t perf_context_level)
+  : m_perf_context(perf_context), m_perf_context_level(perf_context_level)
+  {
+    DBUG_ASSERT(m_perf_context != nullptr);
+    m_perf_context->start(m_perf_context_level);
+  }
+
+  ~Rdb_io_perf_guard()
+  {
+    m_perf_context->end_and_record(m_perf_context_level);
+  }
+
+ private:
+  Rdb_io_perf *m_perf_context= nullptr;
+  uint32_t m_perf_context_level;
+};
 
 }  // namespace myrocks
