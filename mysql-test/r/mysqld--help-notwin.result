@@ -1849,7 +1849,7 @@ rocksdb-stats-dump-period-sec 600
 rocksdb-store-checksums FALSE
 rocksdb-strict-collation-check TRUE
 rocksdb-strict-collation-exceptions (No default value)
-rocksdb-table-cache-numshardbits 4
+rocksdb-table-cache-numshardbits 6
 rocksdb-table-stats-sampling-pct 10
 rocksdb-unsafe-for-binlog FALSE
 rocksdb-use-adaptive-mutex FALSE
