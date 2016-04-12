@@ -240,7 +240,7 @@ static int i_s_rocksdb_perf_context_fill_table(THD *thd,
   for (auto it : tablenames)
   {
     StringBuffer<256> buf, dbname, tablename, partname;
-    RDB_SHARE_PERF_COUNTERS counters;
+    Rdb_perf_counters counters;
 
     if (rocksdb_normalize_tablename(it.c_str(), &buf)) {
       return HA_ERR_INTERNAL_ERROR;
@@ -250,8 +250,10 @@ static int i_s_rocksdb_perf_context_fill_table(THD *thd,
                                            &partname))
       continue;
 
-    if (rocksdb_get_share_perf_counters(it.c_str(), &counters))
+    if (rdb_get_table_perf_counters(it.c_str(), &counters))
+    {
       continue;
+    }
 
     DBUG_ASSERT(field != nullptr);
 
@@ -269,7 +271,7 @@ static int i_s_rocksdb_perf_context_fill_table(THD *thd,
     for (int i= 0; i < PC_MAX_IDX; i++) {
       field[3]->store(rdb_pc_stat_types[i].c_str(), rdb_pc_stat_types[i].size(),
                       system_charset_info);
-      field[4]->store(counters.value[i], true);
+      field[4]->store(counters.m_value[i], true);
 
       ret= schema_table_store_record(thd, tables->table);
       if (ret)
@@ -318,9 +320,9 @@ static int i_s_rocksdb_perf_context_global_fill_table(THD *thd,
   int ret= 0;
   DBUG_ENTER("i_s_rocksdb_perf_context_global_fill_table");
 
-  RDB_SHARE_PERF_COUNTERS counters;
-  if (rocksdb_get_share_perf_counters(nullptr, &counters))
-    DBUG_RETURN(0);
+  // Get a copy of the global perf counters.
+  Rdb_perf_counters global_counters;
+  rdb_get_global_perf_counters(&global_counters);
 
   for (int i= 0; i < PC_MAX_IDX; i++) {
     DBUG_ASSERT(tables->table != nullptr);
@@ -329,7 +331,7 @@ static int i_s_rocksdb_perf_context_global_fill_table(THD *thd,
     tables->table->field[0]->store(rdb_pc_stat_types[i].c_str(),
                                    rdb_pc_stat_types[i].size(),
                                    system_charset_info);
-    tables->table->field[1]->store(counters.value[i], true);
+    tables->table->field[1]->store(global_counters.m_value[i], true);
 
     ret= schema_table_store_record(thd, tables->table);
     if (ret)

@@ -110,9 +110,6 @@ const char * const PER_INDEX_CF_NAME = "$per_index_cf";
 */
 #define ROCKSDB_SIZEOF_HIDDEN_PK_COLUMN sizeof(longlong)
 
-/* MyRocks supports only the following collations for indexed columns */
-const std::set<const CHARSET_INFO *> MYROCKS_INDEX_COLLATIONS=
-  {&my_charset_bin, &my_charset_utf8_bin, &my_charset_latin1_bin};
 
 inline bool looks_like_per_index_cf_typo(const char *name)
 {
@@ -135,7 +132,7 @@ typedef struct st_rocksdb_share {
 
   /* Stores cumulative table statistics */
   my_io_perf_atomic_t io_perf_read;
-  Rdb_perf_context_shared table_perf_context;
+  Rdb_atomic_perf_counters table_perf_context;
 } ROCKSDB_SHARE;
 
 typedef enum io_error_type {
@@ -486,15 +483,7 @@ class ha_rocksdb: public handler
   /*
     Perf timers for data reads
    */
-  struct {
-    uint64_t block_read_byte;
-    uint64_t block_read_count;
-    uint64_t block_read_time;
-  } io_perf;
-  Rdb_perf_context_local local_perf_context;
-  void io_perf_start(void);
-  void io_perf_end_and_record(void);
-
+  Rdb_io_perf m_io_perf;
   /*
     A counter of how many row checksums were checked for this table. Note that
     this does not include checksums for secondary index entries.
