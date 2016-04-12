@@ -41,7 +41,7 @@ class Rdb_field_packing;
 class Rdb_cf_manager;
 class Rdb_ddl_manager;
 
-bool is_myrocks_collation_supported(Field *field);
+
 void write_int64(String *out, uint64 val);
 void write_int(String *out, uint32 val);
 void write_short(String *out, uint16 val);
