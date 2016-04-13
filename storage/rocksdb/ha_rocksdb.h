@@ -733,6 +733,8 @@ private:
     __attribute__((__nonnull__, __warn_unused_result__));
   void read_thd_vars(THD *thd)
     __attribute__((__nonnull__));
+  bool contains_foreign_key(THD* thd)
+    __attribute__((__nonnull__, __warn_unused_result__));
 public:
   int index_init(uint idx, bool sorted) __attribute__((__warn_unused_result__));
   int index_end() __attribute__((__warn_unused_result__));

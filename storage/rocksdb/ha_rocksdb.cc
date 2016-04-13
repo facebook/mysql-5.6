@@ -4114,6 +4114,61 @@ int rocksdb_normalize_tablename(const char *tablename,
   return 0;
 }
 
+/*
+  Check to see if the user's original statement includes foreign key
+  references
+*/
+bool ha_rocksdb::contains_foreign_key(THD* thd)
+{
+  bool success;
+  const char* str = thd_query_string(thd)->str;
+
+  DBUG_ASSERT(str != nullptr);
+
+  while (*str != '\0')
+  {
+    // Scan from our current pos looking for 'FOREIGN'
+    str = rdb_find_in_string(str, "FOREIGN", &success);
+    if (!success)
+    {
+      return false;
+    }
+
+    // Skip past the found "FOREIGN'
+    str = rdb_check_next_token(&my_charset_bin, str, "FOREIGN", &success);
+    DBUG_ASSERT(success);
+
+    if (!my_isspace(&my_charset_bin, *str))
+    {
+      return false;
+    }
+
+    // See if the next token is 'KEY'
+    str = rdb_check_next_token(&my_charset_bin, str, "KEY", &success);
+    if (!success)
+    {
+      continue;
+    }
+
+    // See if the next token is '('
+    str = rdb_check_next_token(&my_charset_bin, str, "(", &success);
+    if (!success)
+    {
+      // There is an optional index id after 'FOREIGN KEY', skip it
+      str = rdb_skip_id(&my_charset_bin, str);
+
+      // Now check for '(' again
+      str = rdb_check_next_token(&my_charset_bin, str, "(", &success);
+    }
+
+    // If we have found 'FOREIGN KEY [<word>] (' we can be confident we have
+    // a foreign key clause.
+    return success;
+  }
+
+  // We never found a valid foreign key clause
+  return false;
+}
 
 /**
   @brief
@@ -4188,8 +4243,9 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
   StringBuffer<256> strbuf;
   DBUG_ENTER("ha_rocksdb::create");
 
+  THD *thd = my_core::thd_get_current_thd();
+
   if (get_table_if_exists(name)) {
-    THD *thd = my_core::thd_get_current_thd();
     if (thd->lex->sql_command == SQLCOM_TRUNCATE) {
       if (delete_table(name)) {
         DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
@@ -4214,6 +4270,13 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
   */
   if (rocksdb_normalize_tablename(name, &strbuf))
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+
+  if (contains_foreign_key(thd))
+  {
+    my_printf_error(ER_NOT_SUPPORTED_YET, "MyRocks does not currently support "
+        "foreign key constraints", MYF(0));
+    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+  }
 
   /*
     TODO(alexyang): Temporarily disable unique indexes support when there is no
