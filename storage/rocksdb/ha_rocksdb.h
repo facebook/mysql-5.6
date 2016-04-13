@@ -23,6 +23,7 @@
 #include "./handler.h"                     /* handler */
 #include "./my_global.h"                   /* ulonglong */
 #include "./sql_string.h"
+#include "./table.h"
 #include "./ut0counter.h"
 
 /* RocksDB header files */
@@ -183,21 +184,24 @@ typedef struct _gl_index_id_s {
   }
 } GL_INDEX_ID;
 
-enum operation_type {
-  ROWS_DELETED = 0,
-  ROWS_INSERTED,
-  ROWS_READ,
-  ROWS_UPDATED,
-  ROWS_MAX
+enum rdb_rows_operation_enum_t
+{
+  RDB_ROWS_DELETED = 0,
+  RDB_ROWS_INSERTED,
+  RDB_ROWS_READ,
+  RDB_ROWS_UPDATED,
+  RDB_ROWS_MAX  // always last element!!!
 };
+
+using RDB_ROWS_OPERATION_TYPE = enum rdb_rows_operation_enum_t;
 
 /* Global statistics struct used inside MyRocks */
 struct st_global_stats {
-  ib_counter_t<ulonglong, 64> rows[ROWS_MAX];
+  ib_counter_t<ulonglong, 64> rows[RDB_ROWS_MAX];
 
   // system_rows_ stats are only for system
   // tables. They are not counted in rows_* stats.
-  ib_counter_t<ulonglong, 64> system_rows[ROWS_MAX];
+  ib_counter_t<ulonglong, 64> system_rows[RDB_ROWS_MAX];
 };
 
 /* Struct used for exporting status to MySQL */
@@ -237,6 +241,26 @@ namespace myrocks {
 
 class ha_rocksdb: public handler
 {
+  /*
+    Helper accessor methods to disambiguate access to parent class members.
+  */
+  inline TABLE *tbl()
+  {
+    DBUG_ASSERT(this->handler::table != nullptr);
+    return this->handler::table;
+  }
+  inline uchar          *rec0() { return this->handler::table->record[0]; }
+  inline TABLE_SHARE    *tbl_share() { return this->handler::table->s; }
+  inline ha_statistics  &stats() { return this->handler::stats; }
+  inline const KEY      &key_info(uint k) const
+  { return this->handler::table->key_info[k]; }
+  inline KEY            *key(uint k) { return &(tbl()->key_info[k]); }
+  inline uint           pk_idx() const
+  { return this->handler::table->s->primary_key; }
+  inline const KEY      &pk_info() const { return key_info(pk_idx()); }
+  inline uint           index() const { return this->handler::active_index; }
+  inline const KEY      &index_key() const { return key_info(index()); }
+
   THR_LOCK_DATA lock;      ///< MySQL lock
   ROCKSDB_SHARE *share;    ///< Shared lock info
 
@@ -257,7 +281,7 @@ class ha_rocksdb: public handler
   bool check_keyread_allowed(uint inx, uint part, bool all_parts) const;
   /*
     Number of key parts in PK. This is the same as
-      table->key_info[table->s->primary_key].keyparts
+      this->handler::table->key_info[table->s->primary_key].keyparts
   */
   uint pk_key_parts;
 
@@ -319,7 +343,7 @@ class ha_rocksdb: public handler
   String storage_record;
 
   /*
-    Last retrieved record, in table->record[0] data format.
+    Last retrieved record, in this->handler::table->record[0] data format.
 
     This is used only when we get the record with rocksdb's Get() call (The
     other option is when we get a rocksdb::Slice from an iterator)
@@ -399,10 +423,10 @@ class ha_rocksdb: public handler
     __attribute__((__warn_unused_result__));
   bool skip_unique_check() __attribute__((__warn_unused_result__));
   bool commit_in_the_middle() __attribute__((__warn_unused_result__));
-  bool has_hidden_pk(const TABLE* table)
+  bool has_hidden_pk(const TABLE* table_arg)
     __attribute__((__nonnull__, __warn_unused_result__));
 
-  void update_row_stats(operation_type type);
+  void update_row_stats(RDB_ROWS_OPERATION_TYPE type);
 
   void set_last_rowkey(const uchar *old_data);
 
@@ -442,8 +466,8 @@ class ha_rocksdb: public handler
   } FIELD_ENCODER;
 
   /*
-    Array of table->s->fields elements telling how to store fields in the
-    record.
+    Array of this->handler::table->s->fields elements telling how to store
+    fields in the record.
   */
   FIELD_ENCODER *field_enc;
 
@@ -466,7 +490,10 @@ class ha_rocksdb: public handler
   */
   std::vector<READ_FIELD> field_decoders;
 
-  /* Setup field_decoders based on type of scan and table->read_set */
+  /*
+    Setup field_decoders based on type of scan and
+    this->handler::table->read_set
+  */
   void setup_read_decoders();
 
   /*
@@ -506,7 +533,7 @@ public:
   bool verify_checksums;
   int checksums_pct;
 
-  ha_rocksdb(handlerton *hton, TABLE_SHARE *table_arg);
+  ha_rocksdb(handlerton *hton, TABLE_SHARE *table_share);
   ~ha_rocksdb() {}
 
   /** @brief
@@ -591,14 +618,14 @@ public:
                                         rocksdb::Slice *packed_rec)
     __attribute__((__nonnull__));
 
-  bool is_hidden_pk(const uint index, const TABLE* table,
+  bool is_hidden_pk(const uint index, const TABLE* table_arg,
                     const Rdb_tbl_def* tbl_def)
     __attribute__((__nonnull__, __warn_unused_result__));
 
-  uint pk_index(const TABLE* table, const Rdb_tbl_def* tbl_def)
+  uint pk_index(const TABLE* table_arg, const Rdb_tbl_def* tbl_def)
     __attribute__((__nonnull__, __warn_unused_result__));
 
-  bool is_pk(const uint index, const TABLE* table,
+  bool is_pk(const uint index, const TABLE* table_arg,
              const Rdb_tbl_def* tbl_def)
     __attribute__((__nonnull__, __warn_unused_result__));
 
@@ -653,7 +680,8 @@ public:
                        bool eq_range, bool sorted)
     __attribute__((__warn_unused_result__));;
 
-  virtual double scan_time() { return (double) (stats.records+stats.deleted) / 20.0+10; }
+  virtual double scan_time()
+  { return (double) (stats().records + stats().deleted) / 20.0+10; }
   virtual double read_time(uint, uint, ha_rows rows)
   { return (double) rows /  20.0+1; }
 

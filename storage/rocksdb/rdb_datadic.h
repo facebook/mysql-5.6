@@ -608,7 +608,7 @@ private:
   uint m_keynr;
   uint m_key_part;
 public:
-  bool setup(Field *field, uint keynr_arg, uint key_part_arg);
+  bool setup(const Field *field, uint keynr_arg, uint key_part_arg);
   Field *get_field_in_table(TABLE *tbl) const;
   void fill_hidden_pk_val(uchar **dst, longlong hidden_pk_id) const;
 };
