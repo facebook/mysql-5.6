@@ -4153,6 +4153,19 @@ int rocksdb_split_normalized_tablename(const char *fullname,
   return 0;
 }
 
+/*
+  Check to see if the user's original statement includes foreign key
+  references
+*/
+bool ha_rocksdb::contains_foreign_key(THD* thd)
+{
+  /* Get the user's statement and scan it looking for 'FOREIGN' */
+  const char* str = thd_query_string(thd)->str;
+  const char* foreign = rdb_find_in_string(str, "FOREIGN");
+
+  /* If we found something return true - else false */
+  return foreign != nullptr;
+}
 
 /**
   @brief
@@ -4180,8 +4193,9 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
   StringBuffer<256> strbuf;
   DBUG_ENTER("ha_rocksdb::create");
 
+  THD *thd = my_core::thd_get_current_thd();
+
   if (get_table_if_exists(name)) {
-    THD *thd = my_core::thd_get_current_thd();
     if (thd->lex->sql_command == SQLCOM_TRUNCATE) {
       if (delete_table(name)) {
         DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
@@ -4206,6 +4220,13 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
   */
   if (rocksdb_normalize_tablename(name, &strbuf))
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+
+  if (contains_foreign_key(thd))
+  {
+    my_printf_error(ER_NOT_SUPPORTED_YET, "MyRocks does not currently support "
+        "foreign key constraints", MYF(0));
+    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+  }
 
   /*
     TODO(alexyang): Temporarily disable unique indexes support when there is no

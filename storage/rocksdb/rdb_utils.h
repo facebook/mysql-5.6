@@ -57,4 +57,11 @@ inline uchar* rdb_str_to_uchar_ptr(String * str)
   return reinterpret_cast<uchar*>(str->c_ptr());
 }
 
+/*
+  Helper function to find a string in another string ignoring case and not
+  looking inside quoted substrings.
+*/
+const char* rdb_find_in_string(const char *str, const char *pattern)
+  __attribute__((__nonnull__, __warn_unused_result__));
+
 }  // namespace myrocks
