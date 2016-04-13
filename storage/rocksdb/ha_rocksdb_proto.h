@@ -44,7 +44,7 @@ int rdb_get_table_perf_counters(const char *tablename,
 void rdb_get_global_perf_counters(Rdb_perf_counters *counters)
   __attribute__((__nonnull__(1)));
 
-void request_save_stats();
+void rdb_request_save_stats();
 
 /*
   Access to singleton objects.

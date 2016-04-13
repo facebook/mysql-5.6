@@ -1532,7 +1532,8 @@ static int rdb_skip_variable_length(
     FALSE -  Otherwise
 */
 
-bool Rdb_field_packing::setup(Field *field, uint keynr_arg, uint key_part_arg)
+bool Rdb_field_packing::setup(const Field *field, uint keynr_arg,
+                              uint key_part_arg)
 {
   int res= false;
   enum_field_types type= field ? field->real_type() : MYSQL_TYPE_LONGLONG;
@@ -1607,7 +1608,7 @@ bool Rdb_field_packing::setup(Field *field, uint keynr_arg, uint key_part_arg)
   {
     m_varchar_charset= cs;
     m_field_data_offset=
-        reinterpret_cast<Field_varstring*>(field)->length_bytes;
+        reinterpret_cast<const my_core::Field_varstring*>(field)->length_bytes;
     m_skip_func= rdb_skip_variable_length;
     m_pack_func= rdb_pack_with_varchar_encoding;
     m_max_image_len=
@@ -2325,7 +2326,9 @@ void Rdb_ddl_manager::adjust_stats(
   bool should_save_stats = !m_stats2store.empty();
   mysql_rwlock_unlock(&m_rwlock);
   if (should_save_stats)
-    request_save_stats();
+  {
+    rdb_request_save_stats();
+  }
 }
 
 void Rdb_ddl_manager::persist_stats(bool sync)
