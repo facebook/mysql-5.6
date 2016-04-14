@@ -7910,10 +7910,12 @@ bool can_hold_locks_on_trans(THD *thd, thr_lock_type lock_type)
           || can_hold_read_locks_on_select(thd, lock_type));
 }
 
-bool is_using_prohibited_gap_locks(THD *thd, thr_lock_type lock_type,
-                                   bool using_full_primary_key)
+bool handler::is_using_prohibited_gap_locks(THD *thd, thr_lock_type lock_type,
+                                            bool using_full_primary_key)
 {
   if (!using_full_primary_key
+      && ht
+      && (ht->db_type == DB_TYPE_INNODB || ht->db_type == DB_TYPE_ROCKSDB)
       && !thd->rli_slave
       && (thd->variables.gap_lock_raise_error
           || thd->variables.gap_lock_write_log)
