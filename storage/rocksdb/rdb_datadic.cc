@@ -394,9 +394,9 @@ void Rdb_key_def::setup(TABLE *tbl, Rdb_tbl_def *tbl_def)
 */
 
 uint Rdb_key_def::get_primary_key_tuple(TABLE *table,
-                                        Rdb_key_def *pk_descr,
-                                        const rocksdb::Slice *key,
-                                        uchar *pk_buffer) const
+    const std::shared_ptr<const Rdb_key_def>& pk_descr,
+    const rocksdb::Slice *key,
+    uchar *pk_buffer) const
 {
   DBUG_ASSERT(table != nullptr);
   DBUG_ASSERT(pk_descr != nullptr);
@@ -492,12 +492,11 @@ uint Rdb_key_def::get_primary_key_tuple(TABLE *table,
                      size is at least max_storage_fmt_length() bytes.
 */
 
-uint Rdb_key_def::pack_index_tuple(const ha_rocksdb *handler, TABLE *tbl,
+uint Rdb_key_def::pack_index_tuple(bool should_store_checksums, TABLE *tbl,
                                    uchar *pack_buffer, uchar *packed_tuple,
                                    const uchar *key_tuple,
-                                   key_part_map keypart_map)
+                                   key_part_map keypart_map) const
 {
-  DBUG_ASSERT(handler != nullptr);
   DBUG_ASSERT(tbl != nullptr);
   DBUG_ASSERT(pack_buffer != nullptr);
   DBUG_ASSERT(packed_tuple != nullptr);
@@ -512,8 +511,9 @@ uint Rdb_key_def::pack_index_tuple(const ha_rocksdb *handler, TABLE *tbl,
     n_used_parts= 0; // Full key is used
 
   /* Then, convert the record into a mem-comparable form */
-  return pack_record(handler, tbl, pack_buffer, tbl->record[0], packed_tuple,
-                     nullptr, nullptr, n_used_parts);
+  return pack_record(should_store_checksums, tbl, pack_buffer,
+                     tbl->record[0], packed_tuple, nullptr, nullptr,
+                     n_used_parts);
 }
 
 
@@ -577,16 +577,15 @@ int Rdb_key_def::successor(uchar *packed_tuple, uint len)
     Length of the packed tuple
 */
 
-uint Rdb_key_def::pack_record(const ha_rocksdb *handler, TABLE *tbl,
+uint Rdb_key_def::pack_record(bool should_store_checksums, TABLE *tbl,
                               uchar *pack_buffer,
                               const uchar *record,
                               uchar *packed_tuple,
                               uchar *unpack_info, int *unpack_info_len,
                               uint n_key_parts,
                               uint *n_null_fields,
-                              longlong hidden_pk_id)
+                              longlong hidden_pk_id) const
 {
-  DBUG_ASSERT(handler != nullptr);
   DBUG_ASSERT(tbl != nullptr);
   DBUG_ASSERT(pack_buffer != nullptr);
   DBUG_ASSERT(record != nullptr);
@@ -670,7 +669,7 @@ uint Rdb_key_def::pack_record(const ha_rocksdb *handler, TABLE *tbl,
 
   if (unpack_info_len)
   {
-    if (handler->should_store_checksums())
+    if (should_store_checksums)
     {
       uint32_t key_crc32= crc32(0, packed_tuple, tuple - packed_tuple);
       uint32_t val_crc32= crc32(0, unpack_info, unpack_end - unpack_info);
@@ -748,7 +747,7 @@ int Rdb_key_def::compare_keys(
   const rocksdb::Slice *key1,
   const rocksdb::Slice *key2,
   std::size_t* column_index
-)
+) const
 {
   DBUG_ASSERT(key1 != nullptr);
   DBUG_ASSERT(key2 != nullptr);
@@ -859,9 +858,9 @@ size_t Rdb_key_def::key_length(TABLE *table, const rocksdb::Slice &key) const
     1 - Data format error.
 */
 
-int Rdb_key_def::unpack_record(const ha_rocksdb *handler, TABLE *table,
+int Rdb_key_def::unpack_record(bool verify_checksums, TABLE *table,
                                uchar *buf, const rocksdb::Slice *packed_key,
-                               const rocksdb::Slice *unpack_info)
+                               const rocksdb::Slice *unpack_info) const
 {
   Rdb_string_reader reader(packed_key);
   const uchar * const unpack_ptr= (const uchar*)unpack_info->data();
@@ -969,7 +968,7 @@ int Rdb_key_def::unpack_record(const ha_rocksdb *handler, TABLE *table,
     Rdb_string_reader unp_reader(unpack_info);
     if (unp_reader.read(1)[0] == CHECKSUM_DATA_TAG)
     {
-      if (handler->verify_checksums)
+      if (verify_checksums)
       {
         uint32_t stored_key_chksum;
         uint32_t stored_val_chksum;
@@ -987,14 +986,14 @@ int Rdb_key_def::unpack_record(const ha_rocksdb *handler, TABLE *table,
 
         if (stored_key_chksum != computed_key_chksum)
         {
-          report_checksum_mismatch(this, true, packed_key->data(),
+          report_checksum_mismatch(true, packed_key->data(),
                                    packed_key->size());
           return HA_ERR_INTERNAL_ERROR;
         }
 
         if (stored_val_chksum != computed_val_chksum)
         {
-          report_checksum_mismatch(this, false, unpack_info->data(),
+          report_checksum_mismatch(false, unpack_info->data(),
                                    unpack_info->size() - CHECKSUM_CHUNK_SIZE);
           return HA_ERR_INTERNAL_ERROR;
         }
@@ -1022,6 +1021,21 @@ bool Rdb_key_def::can_unpack(uint kp) const
 bool Rdb_key_def::rocksdb_has_hidden_pk(const TABLE* table)
 {
   return table->s->primary_key == MAX_INDEXES;
+}
+
+void Rdb_key_def::report_checksum_mismatch(bool is_key, const char *data,
+                                           size_t data_size) const
+{
+  char buf[1024];
+  // NO_LINT_DEBUG
+  sql_print_error("Checksum mismatch in %s of key-value pair for index 0x%x",
+                   is_key? "key" : "value", get_index_number());
+  hexdump_value(buf, sizeof(buf), rocksdb::Slice(data, data_size));
+  // NO_LINT_DEBUG
+  sql_print_error("Data with incorrect checksum (%" PRIu64 " bytes): %s",
+                  (uint64_t)data_size, buf);
+
+  my_error(ER_INTERNAL_ERROR, MYF(0), "Record checksum mismatch");
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -1590,21 +1604,6 @@ Field *Rdb_field_packing::get_field_in_table(TABLE *tbl) const
 }
 
 
-void report_checksum_mismatch(Rdb_key_def *kd, bool is_key,
-                              const char *data, size_t data_size)
-{
-  char buf[1024];
-  sql_print_error("Checksum mismatch in %s of key-value pair for index 0x%x",
-                   is_key? "key" : "value",
-                   kd->get_index_number());
-  hexdump_value(buf, sizeof(buf), rocksdb::Slice(data, data_size));
-  sql_print_error("Data with incorrect checksum (%ld bytes): %s",
-                  (long)data_size, buf);
-
-  my_error(ER_INTERNAL_ERROR, MYF(0), "Record checksum mismatch");
-}
-
-
 void Rdb_field_packing::fill_hidden_pk_val(uchar **dst,
                                          longlong hidden_pk_id) const
 {
@@ -1633,7 +1632,6 @@ Rdb_tbl_def::~Rdb_tbl_def()
         ddl_manager->erase_index_num(m_key_descr[i]->get_gl_index_id());
       }
 
-      delete m_key_descr[i];
       m_key_descr[i] = nullptr;
     }
 
@@ -1663,7 +1661,7 @@ bool Rdb_tbl_def::put_dict(Rdb_dict_manager* dict, rocksdb::WriteBatch *batch,
 
   for (uint i = 0; i < m_key_count; i++)
   {
-    Rdb_key_def* kd = m_key_descr[i];
+    const std::shared_ptr<const Rdb_key_def>& kd = m_key_descr[i];
 
     uchar flags =
       (kd->m_is_reverse_cf ? Rdb_key_def::REVERSE_CF_FLAG : 0) |
@@ -2059,9 +2057,7 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager *dict_arg,
       return true;
     }
     tdef->m_key_count= real_val_size / (Rdb_key_def::PACKED_SIZE*2);
-    tdef->m_key_descr= new Rdb_key_def*[tdef->m_key_count];
-
-    memset(tdef->m_key_descr, 0, sizeof(Rdb_key_def*) * tdef->m_key_count);
+    tdef->m_key_descr= new std::shared_ptr<Rdb_key_def>[tdef->m_key_count];
 
     ptr= (char*)val.data();
     int version= read_short(&ptr);
@@ -2117,12 +2113,12 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager *dict_arg,
         look at Field* objects and set max_length and other attributes
       */
       tdef->m_key_descr[keyno]=
-          new Rdb_key_def(gl_index_id.index_id, keyno, cfh,
-                          m_index_dict_version,
-                          m_index_type, kv_version,
-                          flags & Rdb_key_def::REVERSE_CF_FLAG,
-                          flags & Rdb_key_def::AUTO_CF_FLAG, "",
-                          m_dict->get_stats(gl_index_id));
+          std::make_shared<Rdb_key_def>(gl_index_id.index_id, keyno, cfh,
+                                        m_index_dict_version,
+                                        m_index_type, kv_version,
+                                        flags & Rdb_key_def::REVERSE_CF_FLAG,
+                                        flags & Rdb_key_def::AUTO_CF_FLAG, "",
+                                        m_dict->get_stats(gl_index_id));
     }
     put(tdef);
     i++;
@@ -2176,6 +2172,7 @@ Rdb_tbl_def* Rdb_ddl_manager::find(const uchar *table_name,
   return rec;
 }
 
+#if 0
 std::unique_ptr<Rdb_key_def>
 Rdb_ddl_manager::get_copy_of_keydef(GL_INDEX_ID gl_index_id)
 {
@@ -2191,23 +2188,26 @@ Rdb_ddl_manager::get_copy_of_keydef(GL_INDEX_ID gl_index_id)
   mysql_rwlock_unlock(&m_rwlock);
   return ret;
 }
+#endif
 
 // this method assumes at least read-only lock on m_rwlock
-Rdb_key_def* Rdb_ddl_manager::find(GL_INDEX_ID gl_index_id)
+const std::shared_ptr<Rdb_key_def>& Rdb_ddl_manager::find(
+    GL_INDEX_ID gl_index_id)
 {
-  Rdb_key_def* ret = nullptr;
-
   auto it= m_index_num_to_keydef.find(gl_index_id);
   if (it != m_index_num_to_keydef.end()) {
     auto table_def = find(it->second.first.data(), it->second.first.size(),
                           false);
     if (table_def) {
       if (it->second.second < table_def->m_key_count) {
-        ret = table_def->m_key_descr[it->second.second];
+        return table_def->m_key_descr[it->second.second];
       }
     }
   }
-  return ret;
+
+  static std::shared_ptr<Rdb_key_def> empty = nullptr;
+
+  return empty;
 }
 
 void Rdb_ddl_manager::set_stats(
@@ -2642,13 +2642,14 @@ void Rdb_binlog_manager::update_slave_gtid_info(
     }
     DBUG_ASSERT(m_slave_gtid_info_tbl.load()->m_key_count == 1);
 
-    Rdb_key_def* key_def = m_slave_gtid_info_tbl.load()->m_key_descr[0];
+    const std::shared_ptr<const Rdb_key_def>& kd =
+        m_slave_gtid_info_tbl.load()->m_key_descr[0];
     String value;
 
     // Build key
     uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE + 4]= {0};
     uchar* buf= key_buf;
-    store_index_number(buf, key_def->get_index_number());
+    store_index_number(buf, kd->get_index_number());
     buf += Rdb_key_def::INDEX_NUMBER_SIZE;
     store_big_uint4(buf, id);
     buf += 4;
@@ -2680,7 +2681,7 @@ void Rdb_binlog_manager::update_slave_gtid_info(
     rocksdb::Slice value_slice =
       rocksdb::Slice((const char*)value_buf, buf-value_buf);
 
-    write_batch->Put(key_def->get_cf(), key_slice, value_slice);
+    write_batch->Put(kd->get_cf(), key_slice, value_slice);
   }
 }
 
@@ -2980,7 +2981,7 @@ bool Rdb_dict_manager::is_drop_index_empty()
   that dropping indexes started, and adding data dictionary so that
   all associated indexes to be removed
  */
-void Rdb_dict_manager::add_drop_table(Rdb_key_def** key_descr,
+void Rdb_dict_manager::add_drop_table(std::shared_ptr<Rdb_key_def>* key_descr,
                                       uint32 n_keys,
                                       rocksdb::WriteBatch *batch)
 {
@@ -3043,9 +3044,10 @@ void Rdb_dict_manager::resume_drop_indexes()
   }
 }
 
-void Rdb_dict_manager::log_start_drop_table(Rdb_key_def** key_descr,
-                                            uint32 n_keys,
-                                            const char* log_action)
+void Rdb_dict_manager::log_start_drop_table(
+    const std::shared_ptr<Rdb_key_def>* key_descr,
+    uint32 n_keys,
+    const char* log_action)
 {
   for (uint32 i = 0; i < n_keys; i++) {
     log_start_drop_index(key_descr[i]->get_gl_index_id(), log_action);

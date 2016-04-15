@@ -792,7 +792,7 @@ static int i_s_rocksdb_ddl_callback(void *cb_arg, Rdb_tbl_def *rec)
     return 0;
 
   for (uint i= 0; i < rec->m_key_count; i++) {
-    Rdb_key_def* key_descr= rec->m_key_descr[i];
+    const std::shared_ptr<const Rdb_key_def>& kd = rec->m_key_descr[i];
 
     DBUG_ASSERT(tables->table != nullptr);
     DBUG_ASSERT(tables->table->field != nullptr);
@@ -810,17 +810,17 @@ static int i_s_rocksdb_ddl_callback(void *cb_arg, Rdb_tbl_def *rec)
                                      system_charset_info);
     }
 
-    tables->table->field[3]->store(key_descr->m_name.c_str(),
-                                   key_descr->m_name.size(),
+    tables->table->field[3]->store(kd->m_name.c_str(),
+                                   kd->m_name.size(),
                                    system_charset_info);
 
-    GL_INDEX_ID gl_index_id = key_descr->get_gl_index_id();
+    GL_INDEX_ID gl_index_id = kd->get_gl_index_id();
     tables->table->field[4]->store(gl_index_id.cf_id, true);
     tables->table->field[5]->store(gl_index_id.index_id, true);
-    tables->table->field[6]->store(key_descr->m_index_type, true);
-    tables->table->field[7]->store(key_descr->m_kv_format_version, true);
+    tables->table->field[6]->store(kd->m_index_type, true);
+    tables->table->field[7]->store(kd->m_kv_format_version, true);
 
-    std::string cf_name= key_descr->get_cf()->GetName();
+    std::string cf_name= kd->get_cf()->GetName();
     tables->table->field[8]->store(cf_name.c_str(), cf_name.size(),
                                    system_charset_info);
 
