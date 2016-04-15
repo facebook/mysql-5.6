@@ -26,5 +26,5 @@ shutdown_server 10;
 --disable_reconnect
 
 # We should now have an error message
---exec grep "allow_os_buffer" $MYSQLTEST_VARDIR/log/mysqld.1.err | cut -d] -f2
+--exec grep "disable allow_os_buffer" $MYSQLTEST_VARDIR/log/mysqld.1.err | cut -d] -f2
 
