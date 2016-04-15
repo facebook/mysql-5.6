@@ -973,8 +973,8 @@ static int rdb_i_s_index_file_map_fill_table(
       field[2]->store(sst_name.data(), sst_name.size(), system_charset_info);
 
       /* Get the __indexstats__ data out of the table property */
-      std::vector<Rdb_index_stats> stats=
-          Rdb_tbl_prop_coll::read_stats_from_tbl_props(props.second);
+      std::vector<Rdb_index_stats> stats;
+      Rdb_tbl_prop_coll::read_stats_from_tbl_props(props.second, &stats);
       if (stats.empty()) {
         field[0]->store(-1, true);
         field[1]->store(-1, true);
