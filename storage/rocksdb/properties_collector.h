@@ -33,11 +33,11 @@ namespace myrocks {
 class Rdb_ddl_manager;
 class Rdb_key_def;
 
-extern uint64_t rocksdb_num_sst_entry_put;
-extern uint64_t rocksdb_num_sst_entry_delete;
-extern uint64_t rocksdb_num_sst_entry_singledelete;
-extern uint64_t rocksdb_num_sst_entry_merge;
-extern uint64_t rocksdb_num_sst_entry_other;
+extern std::atomic<uint64_t> rocksdb_num_sst_entry_put;
+extern std::atomic<uint64_t> rocksdb_num_sst_entry_delete;
+extern std::atomic<uint64_t> rocksdb_num_sst_entry_singledelete;
+extern std::atomic<uint64_t> rocksdb_num_sst_entry_merge;
+extern std::atomic<uint64_t> rocksdb_num_sst_entry_other;
 extern my_bool rocksdb_compaction_sequential_deletes_count_sd;
 
 
@@ -123,12 +123,15 @@ class Rdb_tbl_prop_coll : public rocksdb::TablePropertiesCollector
   bool ShouldCollectStats();
   void CollectStatsForRow(const rocksdb::Slice& key,
     const rocksdb::Slice& value, rocksdb::EntryType type, uint64_t file_size);
+  Rdb_index_stats* AccessStats(const rocksdb::Slice& key);
+  void AdjustDeletedRows(rocksdb::EntryType type);
 
  private:
   uint32_t m_cf_id;
-  std::unique_ptr<Rdb_key_def> m_keydef;
+  std::shared_ptr<Rdb_key_def> m_keydef;
   Rdb_ddl_manager* m_ddl_manager;
   std::vector<Rdb_index_stats> m_stats;
+  Rdb_index_stats* m_last_stats;
   static const char* INDEXSTATS_KEY;
 
   // last added key
@@ -136,7 +139,7 @@ class Rdb_tbl_prop_coll : public rocksdb::TablePropertiesCollector
 
   // floating window to count deleted rows
   std::vector<bool> m_deleted_rows_window;
-  uint64_t m_rows, m_deleted_rows, m_max_deleted_rows;
+  uint64_t m_rows, m_window_pos, m_deleted_rows, m_max_deleted_rows;
   uint64_t m_file_size;
   Rdb_compact_params m_params;
   uint8_t m_table_stats_sampling_pct;
