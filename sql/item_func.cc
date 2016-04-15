@@ -1870,8 +1870,8 @@ longlong Item_func_mod::int_op()
 double Item_func_mod::real_op()
 {
   DBUG_ASSERT(fixed == 1);
-  double value= args[0]->val_real();
-  double val2=  args[1]->val_real();
+  double val1= args[0]->val_real();
+  double val2= args[1]->val_real();
   if ((null_value= args[0]->null_value || args[1]->null_value))
     return 0.0; /* purecov: inspected */
   if (val2 == 0.0)
@@ -1879,7 +1879,23 @@ double Item_func_mod::real_op()
     signal_divide_by_null();
     return 0.0;
   }
-  return fmod(value,val2);
+
+  /*
+    Input is converted to real numbers what have 15 digits precision.
+    For every input with more precision MOD will return incorrect results.
+    Suggestion is to implicitly convert arguments to numeric type.
+  */
+  my_decimal value1, value2, *decimal_val1, *decimal_val2;
+  decimal_val1= args[0]->val_decimal(&value1);
+  decimal_val2= args[1]->val_decimal(&value2);
+  if ((decimal_val1 && decimal_val1->precision() > 15) ||
+      (decimal_val2 && decimal_val2->precision() > 15))
+  {
+    push_warning(current_thd, Sql_condition::WARN_LEVEL_WARN, ER_UNKNOWN_ERROR,
+      "Precision is lost for input value, consider cast to numeric type");
+  }
+
+  return fmod(val1, val2);
 }
 
 
