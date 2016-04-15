@@ -42,57 +42,83 @@ class Rdb_cf_manager;
 class Rdb_ddl_manager;
 
 
-void write_int64(String *out, uint64 val);
-void write_int(String *out, uint32 val);
-void write_short(String *out, uint16 val);
-void write_byte(String *out, uchar val);
-uint32 read_int(const char **data);
-uint64 read_int64(const char **data);
-uint16 read_short(const char **data);
+/*
+  Basic composition functions for a network buffer presented as a MySQL String
+  ("netstr") which stores data in Network Byte Order (Big Endian).
+*/
+
+void rdb_netstr_append_uint64(my_core::String *out, uint64 val);
+void rdb_netstr_append_uint32(my_core::String *out, uint32 val);
+void rdb_netstr_append_uint16(my_core::String *out, uint16 val);
 
 
-inline void store_big_uint4(uchar *dst, uint32_t n)
+/*
+  Basic network buffer ("netbuf") read helper functions.
+  Network buffer stores data in Network Byte Order (Big Endian).
+  NB: The netbuf is passed as an input/output param, hence after reading,
+      the netbuf pointer gets advanced to the following byte.
+*/
+
+uint32 rdb_netbuf_read_uint32(const char **data);
+uint64 rdb_netbuf_read_uint64(const char **data);
+uint16 rdb_netbuf_read_uint16(const char **data);
+
+
+/*
+  Basic network buffer ("netbuf") write helper functions.
+*/
+
+inline void rdb_netbuf_store_uint32(uchar *dst, uint32_t n)
 {
-  uint32_t src= htonl(n);
+  // convert from host byte order (Little Endian) to network byte order
+  uint32_t src= ::htonl(n);
+  static_assert(sizeof(n) == 4, "Assuming that input is 4 bytes.");
   memcpy(dst, &src, 4);
 }
 
-inline void store_big_uint2(uchar *dst, uint16_t n)
+inline void rdb_netbuf_store_uint16(uchar *dst, uint16_t n)
 {
+  // convert from host byte order (Little Endian) to network byte order
   uint16_t src= htons(n);
+  static_assert(sizeof(n) == 2, "Assuming that input is 2 bytes.");
   memcpy(dst, &src, 2);
 }
 
-inline void store_big_uint1(uchar *dst, uchar n)
+inline void rdb_netbuf_store_byte(uchar *dst, uchar c)
 {
-  *dst= n;
+  *dst= c;
 }
 
-inline uint32_t read_big_uint4(const uchar* b)
+
+/*
+  Basic conversion helper functions from network byte order (Big Endian) to host
+  byte order (Little Endian).
+*/
+
+inline uint32_t rdb_netbuf_to_uint32(const uchar* b)
 {
   return(((uint32_t)(b[0]) << 24)
-    | ((uint32_t)(b[1]) << 16)
-    | ((uint32_t)(b[2]) << 8)
-    | (uint32_t)(b[3])
-    );
+       | ((uint32_t)(b[1]) << 16)
+       | ((uint32_t)(b[2]) << 8)
+       | (uint32_t)(b[3]));
 }
 
-inline uint16_t read_big_uint2(const uchar* b)
+inline uint16_t rdb_netbuf_to_uint16(const uchar* b)
 {
   return(((uint16_t)(b[0]) << 8)
-    | (uint16_t)(b[1])
-    );
+        | (uint16_t)(b[1]));
 }
 
-inline uchar read_big_uint1(const uchar* b)
+inline uchar rdb_netbuf_to_byte(const uchar* b)
 {
   return(uchar)b[0];
 }
 
-inline void store_index_number(uchar *dst, uint32 number)
+inline void rdb_netbuf_store_index(uchar *dst, uint32 number)
 {
-  store_big_uint4(dst, number);
+  rdb_netbuf_store_uint32(dst, number);
 }
+
 
 /*
   A simple string reader:
@@ -258,14 +284,14 @@ public:
   /* Get the key that is the "infimum" for this index */
   inline void get_infimum_key(uchar *key, uint *size) const
   {
-    store_index_number(key, m_index_number);
+    rdb_netbuf_store_index(key, m_index_number);
     *size= INDEX_NUMBER_SIZE;
   }
 
   /* Get the key that is a "supremum" for this index */
   inline void get_supremum_key(uchar *key, uint *size) const
   {
-    store_index_number(key, m_index_number+1);
+    rdb_netbuf_store_index(key, m_index_number+1);
     *size= INDEX_NUMBER_SIZE;
   }
 
@@ -372,12 +398,12 @@ public:
 
   // bit flags for combining bools when writing to disk
   enum {
-    REVERSE_CF_FLAG = 1,
-    AUTO_CF_FLAG = 2,
+    REVERSE_CF_FLAG= 1,
+    AUTO_CF_FLAG= 2,
   };
 
   // Data dictionary types
-  enum {
+  enum DATA_DICT_TYPE {
     DDL_ENTRY_INDEX_START_NUMBER= 1,
     INDEX_INFO= 2,
     CF_DEFINITION= 3,
@@ -855,8 +881,8 @@ private:
   uchar m_key_buf_max_index_id[Rdb_key_def::INDEX_NUMBER_SIZE]= {0};
   rocksdb::Slice m_key_slice_max_index_id;
   void delete_with_prefix(rocksdb::WriteBatch* batch,
-                          const uint32_t prefix,
-                          const GL_INDEX_ID gl_index_id) const;
+                          Rdb_key_def::DATA_DICT_TYPE dict_type,
+                          const GL_INDEX_ID &gl_index_id) const;
   /* Functions for fast DROP TABLE/INDEX */
   void resume_drop_indexes();
   void log_start_drop_table(Rdb_key_def** key_descr,
@@ -900,8 +926,9 @@ public:
                                       const uint index_id,
                                       const uint cf_id);
   void delete_index_info(rocksdb::WriteBatch* batch,
-                         const GL_INDEX_ID index_id) const;
-  bool get_index_info(GL_INDEX_ID gl_index_id, uint16_t *index_dict_version,
+                         const GL_INDEX_ID &index_id) const;
+  bool get_index_info(const GL_INDEX_ID &gl_index_id,
+                      uint16_t *index_dict_version,
                       uchar *index_type, uint16_t *kv_version);
 
   /* CF id => CF flags */
