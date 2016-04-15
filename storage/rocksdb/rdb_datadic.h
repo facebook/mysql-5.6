@@ -176,9 +176,6 @@ const char CHECKSUM_DATA_TAG=0x01;
 
 
 
-void report_checksum_mismatch(Rdb_key_def *kd, bool is_key,
-                              const char *data, size_t data_size);
-
 void hexdump_value(char *strbuf, size_t strbuf_size,
                    const rocksdb::Slice &val);
 
@@ -226,13 +223,13 @@ class Rdb_key_def
 {
 public:
   /* Convert a key from KeyTupleFormat to mem-comparable form */
-  uint pack_index_tuple(const ha_rocksdb *handler, TABLE *tbl,
+  uint pack_index_tuple(bool should_store_checksums, TABLE *tbl,
                         uchar *pack_buffer,
                         uchar *packed_tuple,
-                        const uchar *key_tuple, key_part_map keypart_map);
+                        const uchar *key_tuple, key_part_map keypart_map) const;
 
   /* Convert a key from Table->record format to mem-comparable form */
-  uint pack_record(const ha_rocksdb *handler,
+  uint pack_record(bool should_store_checksums,
                    TABLE *tbl,
                    uchar *pack_buffer,
                    const uchar *record,
@@ -241,17 +238,17 @@ public:
                    int *unpack_info_len,
                    uint n_key_parts=0,
                    uint *n_null_fields= nullptr,
-                   longlong hidden_pk_id= 0);
+                   longlong hidden_pk_id= 0) const;
   /* Pack the hidden primary key into mem-comparable form. */
   uint pack_hidden_pk(longlong hidden_pk_id,
                       uchar *packed_tuple) const;
-  int unpack_record(const ha_rocksdb *handler,
+  int unpack_record(bool verify_checksums,
                     TABLE *table, uchar *buf, const rocksdb::Slice *packed_key,
-                    const rocksdb::Slice *unpack_info);
+                    const rocksdb::Slice *unpack_info) const;
 
   static bool unpack_info_has_checksum(const rocksdb::Slice& unpack_info);
   int compare_keys(const rocksdb::Slice *key1, const rocksdb::Slice *key2,
-                   std::size_t* column_index);
+                   std::size_t* column_index) const;
 
   size_t key_length(TABLE *table, const rocksdb::Slice &key) const;
 
@@ -321,7 +318,8 @@ public:
   }
 
   /* Must only be called for secondary keys: */
-  uint get_primary_key_tuple(TABLE *tbl, Rdb_key_def *pk_descr,
+  uint get_primary_key_tuple(TABLE *tbl,
+                             const std::shared_ptr<const Rdb_key_def>& pk_descr,
                              const rocksdb::Slice *key, uchar *pk_buffer) const;
 
   /* Return max length of mem-comparable form */
@@ -422,7 +420,7 @@ public:
 
   void setup(TABLE *table, Rdb_tbl_def *tbl_def);
 
-  rocksdb::ColumnFamilyHandle *get_cf() { return m_cf_handle; }
+  rocksdb::ColumnFamilyHandle *get_cf() const { return m_cf_handle; }
 
   /* Check if keypart #kp can be unpacked from index tuple */
   bool can_unpack(uint kp) const;
@@ -431,10 +429,14 @@ public:
     Current code assumes that unpack_data occupies fixed length regardless of
     the value that is stored.
   */
-  bool get_unpack_data_len() { return m_unpack_data_len; }
+  bool get_unpack_data_len() const { return m_unpack_data_len; }
 
   /* Check if given table has a primary key */
   static bool rocksdb_has_hidden_pk(const TABLE* table);
+
+  void report_checksum_mismatch(bool is_key, const char *data,
+                                size_t data_size) const;
+
 private:
 
 #ifndef DBUG_OFF
@@ -453,8 +455,6 @@ private:
   rocksdb::ColumnFamilyHandle* m_cf_handle;
 
 public:
-  void set_keyno(uint keyno) { m_keyno = keyno; }
-
   uint16_t m_index_dict_version;
   uchar m_index_type;
   /* KV format version for the index id */
@@ -464,7 +464,7 @@ public:
 
   bool m_is_auto_cf;
   std::string m_name;
-  Rdb_index_stats m_stats;
+  mutable Rdb_index_stats m_stats;
 private:
 
   friend class Rdb_tbl_def;  // for m_index_number above
@@ -645,7 +645,7 @@ public:
   uint m_key_count;
 
   /* Array of index descriptors */
-  Rdb_key_def **m_key_descr;
+  std::shared_ptr<Rdb_key_def>*m_key_descr;
 
   std::atomic<longlong> m_hidden_pk_val;
   std::atomic<longlong> m_auto_incr_val;
@@ -719,8 +719,8 @@ public:
   void cleanup();
 
   Rdb_tbl_def* find(const uchar *table_name, uint len, bool lock= true);
-  Rdb_key_def* find(GL_INDEX_ID gl_index_id);
-  std::unique_ptr<Rdb_key_def> get_copy_of_keydef(GL_INDEX_ID gl_index_id);
+  const std::shared_ptr<Rdb_key_def>& find(GL_INDEX_ID gl_index_id);
+  std::shared_ptr<Rdb_key_def> safe_find(GL_INDEX_ID gl_index_id);
   void set_stats(
     const std::unordered_map<GL_INDEX_ID, Rdb_index_stats>& stats);
   void adjust_stats(
@@ -859,7 +859,7 @@ private:
                           const GL_INDEX_ID gl_index_id) const;
   /* Functions for fast DROP TABLE/INDEX */
   void resume_drop_indexes();
-  void log_start_drop_table(Rdb_key_def** key_descr,
+  void log_start_drop_table(const std::shared_ptr<Rdb_key_def>* key_descr,
                             uint32 n_keys,
                             const char* log_action);
   void log_start_drop_index(GL_INDEX_ID gl_index_id,
@@ -918,8 +918,7 @@ public:
   void end_drop_index_ongoing(rocksdb::WriteBatch* batch,
                               GL_INDEX_ID gl_index_id);
   bool is_drop_index_empty();
-  void add_drop_table(Rdb_key_def** key_descr,
-                      uint32 n_keys,
+  void add_drop_table(std::shared_ptr<Rdb_key_def>* key_descr, uint32 n_keys,
                       rocksdb::WriteBatch *batch);
   void done_drop_indexes(const std::unordered_set<GL_INDEX_ID>& gl_index_ids);
 
