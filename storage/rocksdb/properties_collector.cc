@@ -133,7 +133,7 @@ void Rdb_tbl_prop_coll::CollectStatsForRow(
   GL_INDEX_ID gl_index_id;
 
   gl_index_id.cf_id = m_cf_id;
-  gl_index_id.index_id = read_big_uint4((const uchar*)key.data());
+  gl_index_id.index_id = rdb_netbuf_to_uint32((const uchar*)key.data());
 
   if (m_stats.empty() || gl_index_id != m_stats.back().m_gl_index_id) {
     m_keydef = nullptr;
@@ -325,29 +325,29 @@ Rdb_tbl_prop_coll::read_stats_from_tbl_props(
 
 
 /*
-  Serializes an array of Rdb_index_stats into a string.
+  Serializes an array of Rdb_index_stats into a network string.
 */
 std::string Rdb_index_stats::materialize(
   std::vector<Rdb_index_stats> stats,
   const float card_adj_extra
 ) {
   String ret;
-  write_short(&ret, INDEX_STATS_VERSION_ENTRY_TYPES);
+  rdb_netstr_append_uint16(&ret, INDEX_STATS_VERSION_ENTRY_TYPES);
   for (auto i : stats) {
-    write_int(&ret, i.m_gl_index_id.cf_id);
-    write_int(&ret, i.m_gl_index_id.index_id);
+    rdb_netstr_append_uint32(&ret, i.m_gl_index_id.cf_id);
+    rdb_netstr_append_uint32(&ret, i.m_gl_index_id.index_id);
     DBUG_ASSERT(sizeof i.m_data_size <= 8);
-    write_int64(&ret, i.m_data_size);
-    write_int64(&ret, i.m_rows);
-    write_int64(&ret, i.m_actual_disk_size);
-    write_int64(&ret, i.m_distinct_keys_per_prefix.size());
-    write_int64(&ret, i.m_entry_deletes);
-    write_int64(&ret, i.m_entry_single_deletes);
-    write_int64(&ret, i.m_entry_merges);
-    write_int64(&ret, i.m_entry_others);
+    rdb_netstr_append_uint64(&ret, i.m_data_size);
+    rdb_netstr_append_uint64(&ret, i.m_rows);
+    rdb_netstr_append_uint64(&ret, i.m_actual_disk_size);
+    rdb_netstr_append_uint64(&ret, i.m_distinct_keys_per_prefix.size());
+    rdb_netstr_append_uint64(&ret, i.m_entry_deletes);
+    rdb_netstr_append_uint64(&ret, i.m_entry_single_deletes);
+    rdb_netstr_append_uint64(&ret, i.m_entry_merges);
+    rdb_netstr_append_uint64(&ret, i.m_entry_others);
     for (auto num_keys : i.m_distinct_keys_per_prefix) {
       float upd_num_keys = num_keys * card_adj_extra;
-      write_int64(&ret, static_cast<int64_t>(upd_num_keys));
+      rdb_netstr_append_uint64(&ret, static_cast<int64_t>(upd_num_keys));
     }
   }
 
@@ -368,7 +368,7 @@ int Rdb_index_stats::unmaterialize(
     return 1;
   }
 
-  int version= read_short(&p);
+  int version= rdb_netbuf_read_uint16(&p);
   Rdb_index_stats stats;
   // Make sure version is within supported range.
   if (version < INDEX_STATS_VERSION_INITIAL ||
@@ -400,18 +400,18 @@ int Rdb_index_stats::unmaterialize(
     {
       return 1;
     }
-    stats.m_gl_index_id.cf_id = read_int(&p);
-    stats.m_gl_index_id.index_id = read_int(&p);
-    stats.m_data_size = read_int64(&p);
-    stats.m_rows = read_int64(&p);
-    stats.m_actual_disk_size = read_int64(&p);
-    stats.m_distinct_keys_per_prefix.resize(read_int64(&p));
+    stats.m_gl_index_id.cf_id=    rdb_netbuf_read_uint32(&p);
+    stats.m_gl_index_id.index_id= rdb_netbuf_read_uint32(&p);
+    stats.m_data_size=            rdb_netbuf_read_uint64(&p);
+    stats.m_rows=                 rdb_netbuf_read_uint64(&p);
+    stats.m_actual_disk_size=     rdb_netbuf_read_uint64(&p);
+    stats.m_distinct_keys_per_prefix.resize(rdb_netbuf_read_uint64(&p));
     if (version >= INDEX_STATS_VERSION_ENTRY_TYPES)
     {
-      stats.m_entry_deletes = read_int64(&p);
-      stats.m_entry_single_deletes = read_int64(&p);
-      stats.m_entry_merges = read_int64(&p);
-      stats.m_entry_others = read_int64(&p);
+      stats.m_entry_deletes=        rdb_netbuf_read_uint64(&p);
+      stats.m_entry_single_deletes= rdb_netbuf_read_uint64(&p);
+      stats.m_entry_merges=         rdb_netbuf_read_uint64(&p);
+      stats.m_entry_others=         rdb_netbuf_read_uint64(&p);
     }
     if (p+stats.m_distinct_keys_per_prefix.size()
         *sizeof(stats.m_distinct_keys_per_prefix[0]) > p2)
@@ -420,7 +420,7 @@ int Rdb_index_stats::unmaterialize(
     }
     for (std::size_t i= 0; i < stats.m_distinct_keys_per_prefix.size(); i++)
     {
-      stats.m_distinct_keys_per_prefix[i] = read_int64(&p);
+      stats.m_distinct_keys_per_prefix[i]= rdb_netbuf_read_uint64(&p);
     }
     ret.push_back(stats);
   }

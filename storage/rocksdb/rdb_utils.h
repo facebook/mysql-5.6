@@ -51,7 +51,7 @@ namespace myrocks {
   Helper function to get an uchar* out of a MySQL String.
 */
 
-inline uchar* rdb_str_to_uchar_ptr(String * str)
+inline uchar* rdb_str_to_uchar_ptr(my_core::String * str)
 {
   DBUG_ASSERT(str != nullptr);
   return reinterpret_cast<uchar*>(str->c_ptr());
