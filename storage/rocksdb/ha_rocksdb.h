@@ -136,6 +136,7 @@ typedef struct st_rocksdb_share {
 } ROCKSDB_SHARE;
 
 typedef enum io_error_type {
+  ROCKSDB_IO_ERROR_TX_PREPARE,
   ROCKSDB_IO_ERROR_TX_COMMIT,
   ROCKSDB_IO_ERROR_DICT_COMMIT,
   ROCKSDB_IO_ERROR_BG_THREAD
