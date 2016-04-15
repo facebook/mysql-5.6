@@ -191,7 +191,7 @@ reset slave;
 reset master;
 
 # randomize slave server's own checksum policy
-set @@global.binlog_checksum= IF(floor((rand()*1000)%2), "CRC32", "NONE");
+set @@global.binlog_checksum= IF(floor(rand()*2), "CRC32", "NONE");
 flush logs;
 
 connection master;
@@ -229,7 +229,7 @@ sync_slave_with_master;
 select count(*) as 'must be one' from t3;
 
 connection master;
-set @@global.binlog_checksum= IF(floor((rand()*1000)%2), "CRC32", "NONE");
+set @@global.binlog_checksum= IF(floor(rand()*2), "CRC32", "NONE");
 insert into t3 value (1, @@global.binlog_checksum);
 sync_slave_with_master;
 
