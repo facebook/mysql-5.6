@@ -33,11 +33,11 @@
 
 namespace myrocks {
 
-uint64_t rocksdb_num_sst_entry_put = 0;
-uint64_t rocksdb_num_sst_entry_delete = 0;
-uint64_t rocksdb_num_sst_entry_singledelete = 0;
-uint64_t rocksdb_num_sst_entry_merge = 0;
-uint64_t rocksdb_num_sst_entry_other = 0;
+std::atomic<uint64_t> rocksdb_num_sst_entry_put(0);
+std::atomic<uint64_t> rocksdb_num_sst_entry_delete(0);
+std::atomic<uint64_t> rocksdb_num_sst_entry_singledelete(0);
+std::atomic<uint64_t> rocksdb_num_sst_entry_merge(0);
+std::atomic<uint64_t> rocksdb_num_sst_entry_other(0);
 my_bool rocksdb_compaction_sequential_deletes_count_sd = false;
 
 Rdb_tbl_prop_coll::Rdb_tbl_prop_coll(
@@ -48,7 +48,8 @@ Rdb_tbl_prop_coll::Rdb_tbl_prop_coll(
 ) :
     m_cf_id(cf_id),
     m_ddl_manager(ddl_manager),
-    m_rows(0l), m_deleted_rows(0l), m_max_deleted_rows(0l),
+    m_last_stats(nullptr),
+    m_rows(0l), m_window_pos(0l), m_deleted_rows(0l), m_max_deleted_rows(0l),
     m_file_size(0), m_params(params),
     m_table_stats_sampling_pct(table_stats_sampling_pct),
     m_seed(time(nullptr)),
@@ -74,48 +75,7 @@ Rdb_tbl_prop_coll::AddUserKey(
     uint64_t file_size
 ) {
   if (key.size() >= 4) {
-    switch (type) {
-    case rocksdb::kEntryPut:
-      rocksdb_num_sst_entry_put++;
-      break;
-    case rocksdb::kEntryDelete:
-      rocksdb_num_sst_entry_delete++;
-      break;
-    case rocksdb::kEntrySingleDelete:
-      rocksdb_num_sst_entry_singledelete++;
-      break;
-    case rocksdb::kEntryMerge:
-      rocksdb_num_sst_entry_merge++;
-      break;
-    case rocksdb::kEntryOther:
-      rocksdb_num_sst_entry_other++;
-      break;
-    default:
-      break;
-    }
-
-    if (m_params.m_window > 0) {
-      // record the "is deleted" flag into the sliding window
-      // the sliding window is implemented as a circular buffer
-      // in m_deleted_rows_window vector
-      // the current position in the circular buffer is pointed at by
-      // m_rows % m_deleted_rows_window.size()
-      // m_deleted_rows is the current number of 1's in the vector
-      // --update the counter for the element which will be overridden
-      bool is_delete= (type == rocksdb::kEntryDelete ||
-       (type == rocksdb::kEntrySingleDelete &&
-         rocksdb_compaction_sequential_deletes_count_sd));
-      // Only make changes if the value at the current position needs to change
-      uint64_t pos = m_rows % m_deleted_rows_window.size();
-      if (is_delete != m_deleted_rows_window[pos]) {
-        // Set or clear the flag at the current position as appropriate
-        m_deleted_rows_window[pos]= is_delete;
-        if (!is_delete)
-          m_deleted_rows--;
-        else if (++m_deleted_rows > m_max_deleted_rows)
-          m_max_deleted_rows = m_deleted_rows;
-      }
-    }
+    AdjustDeletedRows(type);
 
     m_rows++;
 
@@ -125,53 +85,109 @@ Rdb_tbl_prop_coll::AddUserKey(
   return rocksdb::Status::OK();
 }
 
-void Rdb_tbl_prop_coll::CollectStatsForRow(
-  const rocksdb::Slice& key, const rocksdb::Slice& value,
-  rocksdb::EntryType type, uint64_t file_size) {
-  // All the code past this line must deal ONLY with collecting the
-  // statistics.
-  GL_INDEX_ID gl_index_id;
+void Rdb_tbl_prop_coll::AdjustDeletedRows(rocksdb::EntryType type)
+{
+  if (m_params.m_window > 0)
+  {
+    // record the "is deleted" flag into the sliding window
+    // the sliding window is implemented as a circular buffer
+    // in m_deleted_rows_window vector
+    // the current position in the circular buffer is pointed at by
+    // m_rows % m_deleted_rows_window.size()
+    // m_deleted_rows is the current number of 1's in the vector
+    // --update the counter for the element which will be overridden
+    bool is_delete= (type == rocksdb::kEntryDelete ||
+                    (type == rocksdb::kEntrySingleDelete &&
+                     rocksdb_compaction_sequential_deletes_count_sd));
 
-  gl_index_id.cf_id = m_cf_id;
-  gl_index_id.index_id = read_big_uint4((const uchar*)key.data());
+    // Only make changes if the value at the current position needs to change
+    if (is_delete != m_deleted_rows_window[m_window_pos])
+    {
+      // Set or clear the flag at the current position as appropriate
+      m_deleted_rows_window[m_window_pos]= is_delete;
+      if (!is_delete)
+      {
+        m_deleted_rows--;
+      }
+      else if (++m_deleted_rows > m_max_deleted_rows)
+      {
+        m_max_deleted_rows = m_deleted_rows;
+      }
+    }
 
-  if (m_stats.empty() || gl_index_id != m_stats.back().m_gl_index_id) {
+    if (++m_window_pos == m_params.m_window)
+    {
+      m_window_pos = 0;
+    }
+  }
+}
+
+Rdb_index_stats* Rdb_tbl_prop_coll::AccessStats(
+  const rocksdb::Slice& key)
+{
+  GL_INDEX_ID gl_index_id = {
+    .cf_id = m_cf_id,
+    .index_id = read_big_uint4(reinterpret_cast<const uchar*>(key.data()))
+  };
+
+  if (m_last_stats == nullptr || m_last_stats->m_gl_index_id != gl_index_id)
+  {
     m_keydef = nullptr;
+
     // starting a new table
     // add the new element into m_stats
-    m_stats.push_back(Rdb_index_stats(gl_index_id));
-    if (m_ddl_manager) {
-      m_keydef = m_ddl_manager->get_copy_of_keydef(gl_index_id);
-    }
-    if (m_keydef) {
-      // resize the array to the number of columns.
-      // It will be initialized with zeroes
-      m_stats.back().m_distinct_keys_per_prefix.resize(
-        m_keydef->get_key_parts());
-      m_stats.back().m_name = m_keydef->get_name();
+    m_stats.emplace_back(gl_index_id);
+    m_last_stats = &m_stats.back();
+
+    if (m_ddl_manager)
+    {
+      // safe_find() returns a std::shared_ptr<Rdb_key_def> with the count
+      // incremented (so it can't be deleted out from under us) and with
+      // the mutex locked (if setup has not occurred yet).  We must make
+      // sure to free the mutex (via unblock_setup()) when we are done
+      // with this object.  Currently this happens earlier in this function
+      // when we are switching to a new Rdb_key_def and when this object
+      // is destructed.
+      m_keydef = m_ddl_manager->safe_find(gl_index_id);
+      if (m_keydef != nullptr)
+      {
+        // resize the array to the number of columns.
+        // It will be initialized with zeroes
+        m_last_stats->m_distinct_keys_per_prefix.resize(
+            m_keydef->get_key_parts());
+        m_last_stats->m_name = m_keydef->get_name();
+      }
     }
     m_last_key.clear();
   }
 
-  auto& stats = m_stats.back();
-  stats.m_data_size += key.size()+value.size();
+  return m_last_stats;
+}
+
+void Rdb_tbl_prop_coll::CollectStatsForRow(
+  const rocksdb::Slice& key, const rocksdb::Slice& value,
+  rocksdb::EntryType type, uint64_t file_size)
+{
+  auto stats = AccessStats(key);
+
+  stats->m_data_size += key.size()+value.size();
 
   // Incrementing per-index entry-type statistics
   switch (type) {
   case rocksdb::kEntryPut:
-    stats.m_rows++;
+    stats->m_rows++;
     break;
   case rocksdb::kEntryDelete:
-    stats.m_entry_deletes++;
+    stats->m_entry_deletes++;
     break;
   case rocksdb::kEntrySingleDelete:
-    stats.m_entry_single_deletes++;
+    stats->m_entry_single_deletes++;
     break;
   case rocksdb::kEntryMerge:
-    stats.m_entry_merges++;
+    stats->m_entry_merges++;
     break;
   case rocksdb::kEntryOther:
-    stats.m_entry_others++;
+    stats->m_entry_others++;
     break;
   default:
     // NO_LINT_DEBUG
@@ -181,22 +197,27 @@ void Rdb_tbl_prop_coll::CollectStatsForRow(
     break;
   }
 
-  stats.m_actual_disk_size += file_size - m_file_size;
+  stats->m_actual_disk_size += file_size - m_file_size;
   m_file_size = file_size;
 
-  bool collect_cardinality = ShouldCollectStats();
-
-  if (m_keydef && collect_cardinality) {
+  if (m_keydef != nullptr && ShouldCollectStats())
+  {
     std::size_t column = 0;
-    rocksdb::Slice last(m_last_key.data(), m_last_key.size());
+    bool new_key = true;
 
-    if (m_last_key.empty()
-        || (m_keydef->compare_keys(&last, &key, &column) == 0)) {
-      DBUG_ASSERT(column <= stats.m_distinct_keys_per_prefix.size());
+    if (!m_last_key.empty())
+    {
+      rocksdb::Slice last(m_last_key.data(), m_last_key.size());
+      new_key = (m_keydef->compare_keys(&last, &key, &column) == 0);
+    }
 
-      for (std::size_t i = column;
-           i < stats.m_distinct_keys_per_prefix.size(); i++) {
-        stats.m_distinct_keys_per_prefix[i]++;
+    if (new_key)
+    {
+      DBUG_ASSERT(column <= stats->m_distinct_keys_per_prefix.size());
+
+      for (auto i = column; i < stats->m_distinct_keys_per_prefix.size(); i++)
+      {
+        stats->m_distinct_keys_per_prefix[i]++;
       }
 
       // assign new last_key for the next call
@@ -204,7 +225,8 @@ void Rdb_tbl_prop_coll::CollectStatsForRow(
       // if one of the first n-1 columns is different
       // If the n-1 prefix is the same, no sense in storing
       // the new key
-      if (column < stats.m_distinct_keys_per_prefix.size()) {
+      if (column < stats->m_distinct_keys_per_prefix.size())
+      {
         m_last_key.assign(key.data(), key.size());
       }
     }
@@ -220,6 +242,46 @@ rocksdb::Status
 Rdb_tbl_prop_coll::Finish(
   rocksdb::UserCollectedProperties* properties
 ) {
+  uint64_t num_sst_entry_put = 0;
+  uint64_t num_sst_entry_delete = 0;
+  uint64_t num_sst_entry_singledelete = 0;
+  uint64_t num_sst_entry_merge = 0;
+  uint64_t num_sst_entry_other = 0;
+
+  for (auto it = m_stats.begin(); it != m_stats.end(); it++)
+  {
+    num_sst_entry_put += it->m_rows;
+    num_sst_entry_delete += it->m_entry_deletes;
+    num_sst_entry_singledelete += it->m_entry_single_deletes;
+    num_sst_entry_merge += it->m_entry_merges;
+    num_sst_entry_other += it->m_entry_others;
+  }
+
+  if (num_sst_entry_put > 0)
+  {
+    rocksdb_num_sst_entry_put += num_sst_entry_put;
+  }
+
+  if (num_sst_entry_delete > 0)
+  {
+    rocksdb_num_sst_entry_delete += num_sst_entry_delete;
+  }
+
+  if (num_sst_entry_singledelete > 0)
+  {
+    rocksdb_num_sst_entry_singledelete += num_sst_entry_singledelete;
+  }
+
+  if (num_sst_entry_merge > 0)
+  {
+    rocksdb_num_sst_entry_merge += num_sst_entry_merge;
+  }
+
+  if (num_sst_entry_other > 0)
+  {
+    rocksdb_num_sst_entry_other += num_sst_entry_other;
+  }
+
   properties->insert({INDEXSTATS_KEY,
                      Rdb_index_stats::materialize(m_stats, m_card_adj_extra)});
   return rocksdb::Status::OK();
@@ -240,7 +302,9 @@ bool Rdb_tbl_prop_coll::ShouldCollectStats() {
     return true;
   }
 
-  int val = rand_r(&m_seed) % MYROCKS_SAMPLE_PCT_MAX + 1;
+  int val = rand_r(&m_seed) %
+      (MYROCKS_SAMPLE_PCT_MAX - MYROCKS_SAMPLE_PCT_MIN + 1) +
+      MYROCKS_SAMPLE_PCT_MIN;
 
   DBUG_ASSERT(val >= MYROCKS_SAMPLE_PCT_MIN);
   DBUG_ASSERT(val <= MYROCKS_SAMPLE_PCT_MAX);
