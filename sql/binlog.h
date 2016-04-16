@@ -23,7 +23,9 @@
 
 extern ulong rpl_read_size;
 extern char *histogram_step_size_binlog_fsync;
+extern int opt_histogram_step_size_binlog_group_commit;
 extern latency_histogram histogram_binlog_fsync;
+extern counter_histogram histogram_binlog_group_commit;
 
 class Relay_log_info;
 class Master_info;
@@ -782,6 +784,12 @@ public:
   mysql_mutex_t* get_binlog_end_pos_lock() { return &LOCK_binlog_end_pos; }
   void lock_binlog_end_pos() { mysql_mutex_lock(&LOCK_binlog_end_pos); }
   void unlock_binlog_end_pos() { mysql_mutex_unlock(&LOCK_binlog_end_pos); }
+  inline void update_binlog_group_commit_step() {
+    mysql_mutex_lock(&LOCK_log);
+    counter_histogram_init(&histogram_binlog_group_commit,
+                           opt_histogram_step_size_binlog_group_commit);
+    mysql_mutex_unlock(&LOCK_log);
+  }
 };
 
 typedef struct st_load_file_info

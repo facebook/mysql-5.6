@@ -20,6 +20,7 @@ SET @start_global_value_step_size_semisync_trx_wait = @@GLOBAL.rpl_semi_sync_mas
 SHOW VARIABLES LIKE "%histogram%" ;
 Variable_name	Value
 histogram_step_size_binlog_fsync	16ms
+histogram_step_size_binlog_group_commit	1
 histogram_step_size_connection_create	16ms
 histogram_step_size_ddl_command	64ms
 histogram_step_size_delete_command	64us
@@ -60,6 +61,7 @@ SET @@GLOBAL.rpl_semi_sync_master_histogram_trx_wait_step_size='128us';
 SHOW VARIABLES LIKE "%histogram%" ;
 Variable_name	Value
 histogram_step_size_binlog_fsync	16s
+histogram_step_size_binlog_group_commit	1
 histogram_step_size_connection_create	16s
 histogram_step_size_ddl_command	16s
 histogram_step_size_delete_command	16s
@@ -100,6 +102,7 @@ SET @@GLOBAL.rpl_semi_sync_master_histogram_trx_wait_step_size = @start_global_v
 SHOW VARIABLES LIKE "%histogram%" ;
 Variable_name	Value
 histogram_step_size_binlog_fsync	16ms
+histogram_step_size_binlog_group_commit	1
 histogram_step_size_connection_create	16ms
 histogram_step_size_ddl_command	64ms
 histogram_step_size_delete_command	64us

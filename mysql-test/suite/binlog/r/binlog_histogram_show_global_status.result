@@ -15,7 +15,23 @@ Latency_histogram_binlog_fsync_13200-14400ms	COUNT
 Latency_histogram_binlog_fsync_14400-15600ms	COUNT
 Latency_histogram_binlog_fsync_15600-16800ms	COUNT
 Latency_histogram_binlog_fsync_16800-18000ms	COUNT
+histogram_binlog_group_commit_0-1	COUNT
+histogram_binlog_group_commit_1-2	COUNT
+histogram_binlog_group_commit_2-3	COUNT
+histogram_binlog_group_commit_3-4	COUNT
+histogram_binlog_group_commit_4-5	COUNT
+histogram_binlog_group_commit_5-6	COUNT
+histogram_binlog_group_commit_6-7	COUNT
+histogram_binlog_group_commit_7-8	COUNT
+histogram_binlog_group_commit_8-9	COUNT
+histogram_binlog_group_commit_9-10	COUNT
+histogram_binlog_group_commit_10-11	COUNT
+histogram_binlog_group_commit_11-12	COUNT
+histogram_binlog_group_commit_12-13	COUNT
+histogram_binlog_group_commit_13-14	COUNT
+histogram_binlog_group_commit_14-15	COUNT
 SHOW VARIABLES LIKE "%histogram%binlog%";
 Variable_name	Value
 histogram_step_size_binlog_fsync	1200ms
+histogram_step_size_binlog_group_commit	1
 Done

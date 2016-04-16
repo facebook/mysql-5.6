@@ -537,6 +537,8 @@ ulonglong relay_sql_wait_time= 0;
 /* status variables for binlog fsync histogram */
 SHOW_VAR latency_histogram_binlog_fsync[NUMBER_OF_HISTOGRAM_BINS + 1];
 ulonglong histogram_binlog_fsync_values[NUMBER_OF_HISTOGRAM_BINS];
+SHOW_VAR histogram_binlog_group_commit_var[NUMBER_OF_HISTOGRAM_BINS + 1];
+ulonglong histogram_binlog_group_commit_values[NUMBER_OF_HISTOGRAM_BINS];
 
 uint net_compression_level = 6;
 
@@ -2071,6 +2073,7 @@ void clean_up(bool print_message)
   memcached_shutdown();
 
   free_latency_histogram_sysvars(latency_histogram_binlog_fsync);
+  free_latency_histogram_sysvars(histogram_binlog_group_commit_var);
 
   /*
     make sure that handlers finish up
@@ -3472,6 +3475,18 @@ void latency_histogram_init(latency_histogram* current_histogram,
 }
 
 /**
+  @param current_histogram    The histogram being initialized.
+  @param step_size            Step size
+*/
+void counter_histogram_init(counter_histogram* current_histogram,
+                            ulonglong step_size)
+{
+  current_histogram->num_bins = NUMBER_OF_HISTOGRAM_BINS;
+  current_histogram->step_size = step_size;
+  for (size_t i = 0; i < current_histogram->num_bins; ++i)
+    (current_histogram->count_per_bin)[i] = 0;
+}
+/**
   Search a value in the histogram bins.
 
   @param current_histogram  The current histogram.
@@ -3507,6 +3522,20 @@ void latency_histogram_increment(latency_histogram* current_histogram,
     return;
   my_atomic_add64((longlong*)&((current_histogram->count_per_bin)[index]),
                   count);
+}
+
+/**
+  Increment the count of a bin in counter histogram.
+
+  @param current_histogram  The current histogram.
+  @param value              Current counter value.
+*/
+void counter_histogram_increment(counter_histogram* current_histogram,
+                                 ulonglong value)
+{
+  int index = latency_histogram_bin_search(current_histogram, value - 1);
+  if (index >= 0)
+    my_atomic_add64((longlong*)&((current_histogram->count_per_bin)[index]), 1);
 }
 
 /**
@@ -3649,6 +3678,37 @@ void prepare_latency_histogram_vars(latency_histogram* current_histogram,
   }
   latency_histogram_data[NUMBER_OF_HISTOGRAM_BINS] =
   temp_last;
+}
+
+/**
+  Prepares counter histogram to display in SHOW STATUS
+
+  @param current_histogram current histogram
+  @param counter_histogram_data
+*/
+void prepare_counter_histogram_vars(counter_histogram *current_histogram,
+                                    SHOW_VAR* counter_histogram_data,
+                                    ulonglong* histogram_values)
+{
+  ulonglong bucket_lower_display=0, bucket_upper_display;
+  free_latency_histogram_sysvars(counter_histogram_data);
+  const SHOW_VAR temp_last = {NullS, NullS, SHOW_LONG};
+
+  for (size_t i=0; i < NUMBER_OF_HISTOGRAM_BINS; ++i)
+  {
+    bucket_upper_display = current_histogram->step_size + bucket_lower_display;
+
+    struct histogram_display_string histogram_bucket_name;
+    my_snprintf(histogram_bucket_name.name,
+                HISTOGRAM_BUCKET_NAME_MAX_SIZE, "%llu-%llu",
+                bucket_lower_display, bucket_upper_display);
+
+    const SHOW_VAR temp = {my_strdup(histogram_bucket_name.name, MYF(0)),
+                           (char*) &(histogram_values[i]), SHOW_LONGLONG};
+    counter_histogram_data[i] = temp;
+    bucket_lower_display = bucket_upper_display;
+  }
+  counter_histogram_data[NUMBER_OF_HISTOGRAM_BINS] = temp_last;
 }
 
 
@@ -9111,6 +9171,21 @@ static int show_latency_histogram_binlog_fsync(THD *thd, SHOW_VAR *var,
   return 0;
 }
 
+static int show_histogram_binlog_group_commit(THD *thd, SHOW_VAR* var,
+                                              char *buff)
+{
+  for (int i = 0; i < NUMBER_OF_HISTOGRAM_BINS; ++i)
+  {
+    histogram_binlog_group_commit_values[i] =
+      (histogram_binlog_group_commit.count_per_bin)[i];
+  }
+  prepare_counter_histogram_vars(&histogram_binlog_group_commit,
+                                 histogram_binlog_group_commit_var,
+                                 histogram_binlog_group_commit_values);
+  var->type = SHOW_ARRAY;
+  var->value = (char*) &histogram_binlog_group_commit_var;
+  return 0;
+}
 #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
 /* Functions relying on CTX */
 static int show_ssl_ctx_sess_accept(THD *thd, SHOW_VAR *var, char *buff)
@@ -9585,6 +9660,8 @@ SHOW_VAR status_vars[]= {
   {"Last_query_partial_plans", (char*) offsetof(STATUS_VAR, last_query_partial_plans), SHOW_LONGLONG_STATUS},
   {"Latency_histogram_binlog_fsync",
    (char*) &show_latency_histogram_binlog_fsync, SHOW_FUNC},
+  {"histogram_binlog_group_commit",
+   (char*) &show_histogram_binlog_group_commit, SHOW_FUNC},
   {"Max_used_connections",     (char*) &max_used_connections,  SHOW_LONG},
   {"Max_statement_time_exceeded",   (char*) offsetof(STATUS_VAR, max_statement_time_exceeded), SHOW_LONG_STATUS},
   {"Max_statement_time_set",        (char*) offsetof(STATUS_VAR, max_statement_time_set), SHOW_LONG_STATUS},

@@ -620,6 +620,8 @@ struct latency_histogram {
   ulonglong count_per_bin[NUMBER_OF_HISTOGRAM_BINS];
 };
 
+typedef latency_histogram counter_histogram;
+
 /**
   Create a new Histogram.
 
@@ -629,6 +631,9 @@ struct latency_histogram {
 */
 void latency_histogram_init(latency_histogram* current_histogram,
                     const char* step_size_with_unit);
+
+void counter_histogram_init(latency_histogram* current_histogram,
+                            ulonglong step_value);
 
 /**
   Increment the count of a bin in Histogram.
@@ -641,6 +646,8 @@ void latency_histogram_init(latency_histogram* current_histogram,
 */
 void latency_histogram_increment(latency_histogram* current_histogram,
                                    ulonglong value, ulonglong count);
+void counter_histogram_increment(latency_histogram* current_histogram,
+                                 ulonglong value);
 /**
   Get the count corresponding to a bin of the Histogram.
 
@@ -700,6 +707,10 @@ histogram_bucket_to_display_string(ulonglong bucket_lower_display,
                                  respective Histograms.
 */
 void prepare_latency_histogram_vars(latency_histogram* current_histogram,
+                                    SHOW_VAR* latency_histogram_data,
+                                    ulonglong* histogram_values);
+
+void prepare_counter_histogram_vars(latency_histogram* current_histogram,
                                     SHOW_VAR* latency_histogram_data,
                                     ulonglong* histogram_values);
 /**
