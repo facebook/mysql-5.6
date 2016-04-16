@@ -70,7 +70,9 @@ const char *log_bin_index= 0;
 const char *log_bin_basename= 0;
 
 char *histogram_step_size_binlog_fsync = NULL;
+int opt_histogram_step_size_binlog_group_commit = 1;
 latency_histogram histogram_binlog_fsync;
+latency_histogram histogram_binlog_group_commit;
 
 MYSQL_BIN_LOG mysql_bin_log(&sync_binlog_period);
 
@@ -905,6 +907,9 @@ static int binlog_init(void *p)
 
   latency_histogram_init(&histogram_binlog_fsync,
                          histogram_step_size_binlog_fsync);
+  latency_histogram_init(&histogram_binlog_group_commit,
+                         opt_histogram_step_size_binlog_group_commit,
+                         "s");
   return 0;
 }
 
@@ -7069,6 +7074,7 @@ MYSQL_BIN_LOG::process_flush_stage_queue(my_off_t *total_bytes_var,
 
   DBUG_EXECUTE_IF("crash_after_flush_engine_log", DBUG_SUICIDE(););
 
+  ulonglong thd_count = 0;
   /* Flush thread caches to binary log. */
   for (THD *head= first_seen ; head ; head = head->next_to_commit)
   {
@@ -7079,7 +7085,16 @@ MYSQL_BIN_LOG::process_flush_stage_queue(my_off_t *total_bytes_var,
 
     /* Reset prepared_engine for every thd in the queue. */
     head->prepared_engine->clear();
+    ++thd_count;
   }
+  DBUG_ASSERT(thd_count > 0);
+  DBUG_PRINT("info", ("Number of threads in group commit %llu", thd_count));
+  // This is really not latency, but converting this count into time helps in
+  // using existing histograms.
+  latency_histogram_increment(&histogram_binlog_group_commit,
+                              microseconds_to_my_timer(
+                                (thd_count - 1) * 1000000),
+                              1);
 
   *out_queue_var= first_seen;
   *total_bytes_var= total_bytes;
