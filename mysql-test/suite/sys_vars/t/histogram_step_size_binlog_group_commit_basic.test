@@ -1,0 +1,23 @@
+#
+# only global
+#
+select @@global.histogram_step_size_binlog_group_commit = 1;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.histogram_step_size_binlog_group_commit;
+--replace_column 2 #
+show global variables like 'histogram_step_size_binlog_group_commit';
+--replace_column 2 #
+show session variables like 'histogram_step_size_binlog_group_commit';
+--replace_column 2 #
+select * from information_schema.global_variables where variable_name='histogram_step_size_binlog_group_commit';
+--replace_column 2 #
+select * from information_schema.session_variables where variable_name='histogram_step_size_binlog_group_commit';
+
+#
+# show that it's read-only
+#
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set global histogram_step_size_binlog_group_commit=1;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set session histogram_step_size_binlog_group_commit=1;
+

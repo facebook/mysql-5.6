@@ -24,7 +24,9 @@
 
 extern ulong rpl_read_size;
 extern char *histogram_step_size_binlog_fsync;
+extern int opt_histogram_step_size_binlog_group_commit;
 extern latency_histogram histogram_binlog_fsync;
+extern latency_histogram histogram_binlog_group_commit;
 
 class Relay_log_info;
 class Master_info;

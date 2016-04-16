@@ -319,6 +319,9 @@ The following options may be given as the first argument:
  --histogram-step-size-binlog-fsync=name 
  Step size of the Histogram which is used to track binlog
  fsync latencies.
+ --histogram-step-size-binlog-group-commit=# 
+ Step size of the histogram used in tracking number of
+ threads involved in the binlog group commit
  --histogram-step-size-connection-create=name 
  Step size of the Histogram which is used to track
  connection create latencies.
@@ -1571,6 +1574,7 @@ gtid-mode OFF
 gtid-precommit FALSE
 help TRUE
 histogram-step-size-binlog-fsync 16ms
+histogram-step-size-binlog-group-commit 1
 histogram-step-size-connection-create 16ms
 histogram-step-size-ddl-command 64ms
 histogram-step-size-delete-command 64us

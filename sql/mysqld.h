@@ -627,6 +627,15 @@ void latency_histogram_init(latency_histogram* current_histogram,
                     const char* step_size_with_unit);
 
 /**
+  @param current_histogram    The histogram being initialized.
+  @param step_size            Step size
+  @param unit                 Step unit ("s"/"ms"/"us")
+*/
+void latency_histogram_init(latency_histogram* current_histogram,
+                            double step_size_base_time,
+                            const char* histogram_unit);
+
+/**
   Increment the count of a bin in Histogram.
 
   @param current_histogram  The current histogram.
