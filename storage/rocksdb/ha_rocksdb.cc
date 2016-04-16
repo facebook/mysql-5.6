@@ -436,7 +436,8 @@ static MYSQL_THDVAR_BOOL(skip_unique_check, PLUGIN_VAR_RQCMDARG,
   "Skip unique constraint checking", nullptr, nullptr, FALSE);
 
 static MYSQL_THDVAR_BOOL(commit_in_the_middle, PLUGIN_VAR_RQCMDARG,
-  "Commit rows implicitly every rocksdb_bulk_load_size, on bulk load/insert",
+  "Commit rows implicitly every rocksdb_bulk_load_size, on bulk load/insert, "
+  "update and delete",
   nullptr, nullptr, FALSE);
 
 static MYSQL_THDVAR_BOOL(rpl_lookup_rows, PLUGIN_VAR_RQCMDARG,
@@ -5795,15 +5796,6 @@ int ha_rocksdb::write_row(uchar *buf)
   }
 
   int rv= update_write_row(nullptr, buf, skip_unique_check());
-  Rdb_transaction *tx= get_or_create_tx(table->in_use);
-
-  if (rv == 0 && commit_in_the_middle() &&
-      tx->get_n_writes() >= THDVAR(table->in_use, bulk_load_size))
-  {
-    /* Bulk insert mode: flush the write batch if it became too big */
-    if (tx->flush_batch())
-      rv= HA_ERR_INTERNAL_ERROR;
-  }
 
   if (rv == 0)
   {
@@ -6232,6 +6224,14 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
     }
   }
 
+  if (commit_in_the_middle() &&
+      tx->get_n_writes() >= THDVAR(table->in_use, bulk_load_size))
+  {
+    /* Bulk insert mode: flush the write batch if it became too big */
+    if (tx->flush_batch())
+      DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+  }
+
   DBUG_RETURN(0);
 }
 
@@ -6561,6 +6561,12 @@ int ha_rocksdb::delete_row(const uchar *buf)
     }
   }
 
+  if (commit_in_the_middle() &&
+      tx->get_n_writes() >= THDVAR(table->in_use, bulk_load_size))
+  {
+    if (tx->flush_batch())
+      DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+  }
   stats.rows_deleted++;
   update_row_stats(ROWS_DELETED);
 
