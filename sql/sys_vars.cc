@@ -1077,6 +1077,23 @@ static Sys_var_charptr Sys_histogram_step_size_binlog_fsync(
        IN_FS_CHARSET, DEFAULT("16ms"), NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(check_histogram_step_size_syntax));
 
+#ifdef HAVE_REPLICATION
+static bool update_binlog_group_commit_step(sys_var *self, THD *thd,
+                                            enum_var_type type) {
+  mysql_bin_log.update_binlog_group_commit_step();
+  return false;
+}
+
+static Sys_var_uint Sys_histogram_step_size_binlog_group_commit(
+       "histogram_step_size_binlog_group_commit",
+       "Step size of the histogram used in tracking number of threads "
+       "involved in the binlog group commit",
+       GLOBAL_VAR(opt_histogram_step_size_binlog_group_commit),
+       CMD_LINE(REQUIRED_ARG), VALID_RANGE(1, 1024), DEFAULT(1),
+       BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(0), ON_UPDATE(update_binlog_group_commit_step));
+#endif
+
 static Sys_var_charptr Sys_histogram_step_size_connection_create(
        "histogram_step_size_connection_create",
        "Step size of the Histogram which "
