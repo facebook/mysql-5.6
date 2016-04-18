@@ -846,7 +846,8 @@ have_sleep=1
 
 while true
 do
-  rm -f $safe_mysql_unix_port "$pid_file"	# Some extra safety
+  # Some extra safety
+  rm -f $safe_mysql_unix_port "$pid_file" "$pid_file.shutdown"
 
   start_time=`date +%M%S`
 
@@ -860,7 +861,8 @@ do
 
   end_time=`date +%M%S`
 
-  if test ! -f "$pid_file"		# This is removed if normal shutdown
+  # pid file is removed and shutdown file is created for normal shutdown
+  if test ! -f "$pid_file" || test -f "$pid_file.shutdown"
   then
     break
   fi

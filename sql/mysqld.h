@@ -1146,7 +1146,7 @@ extern PSI_file_key key_file_binlog, key_file_binlog_index, key_file_casetest,
   key_file_loadfile, key_file_log_event_data, key_file_log_event_info,
   key_file_master_info, key_file_misc, key_file_partition,
   key_file_pid, key_file_relay_log_info, key_file_send_file, key_file_tclog,
-  key_file_trg, key_file_trn, key_file_init;
+  key_file_trg, key_file_trn, key_file_init, key_file_shutdown;
 extern PSI_file_key key_file_query_log, key_file_slow_log,
   key_file_gap_lock_log;
 extern PSI_file_key key_file_relaylog, key_file_relaylog_index;
