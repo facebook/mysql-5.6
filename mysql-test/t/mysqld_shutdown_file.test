@@ -1,0 +1,27 @@
+--echo Get the full path name of the PID file
+--let PIDFILE= query_get_value(SELECT @@pid_file, @@pid_file, 1)
+
+--echo Expecting a clean shutdown but don't restart the server until it is told to
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+
+--echo Request clean shutdown
+--send_shutdown
+
+--echo Wait for disconect
+--source include/wait_until_disconnected.inc
+--echo Server shutdown cleanly
+
+let EXPECT_EXISTENCE= yes;
+--source include/mysqld_shutdown_file_perl.inc
+
+--echo Restart server
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+--disable_reconnect
+
+--echo Server restarted
+
+let EXPECT_EXISTENCE= no;
+--source include/mysqld_shutdown_file_perl.inc
