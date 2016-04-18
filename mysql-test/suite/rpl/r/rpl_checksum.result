@@ -102,7 +102,7 @@ must be zero
 stop slave;
 reset slave;
 reset master;
-set @@global.binlog_checksum= IF(floor((rand()*1000)%2), "CRC32", "NONE");
+set @@global.binlog_checksum= IF(floor(rand()*2), "CRC32", "NONE");
 flush logs;
 set @@global.binlog_checksum= CRC32;
 reset master;
@@ -125,7 +125,7 @@ flush logs;
 select count(*) as 'must be one' from t3;
 must be one
 1
-set @@global.binlog_checksum= IF(floor((rand()*1000)%2), "CRC32", "NONE");
+set @@global.binlog_checksum= IF(floor(rand()*2), "CRC32", "NONE");
 insert into t3 value (1, @@global.binlog_checksum);
 drop table t1, t2, t3;
 set @@global.binlog_checksum = @master_save_binlog_checksum;
