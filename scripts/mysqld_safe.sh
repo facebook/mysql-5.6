@@ -915,6 +915,9 @@ do
   if [ ! -h "$pid_file" ]; then
     rm -f "$pid_file"
   fi
+  if [ ! -h "$pid_file.shutdown" ]; then
+    rm -f "$pid_file.shutdown"
+  fi
 
   start_time=`date +%M%S`
 
@@ -948,7 +951,8 @@ do
 
   end_time=`date +%M%S`
 
-  if test ! -f "$pid_file"		# This is removed if normal shutdown
+  # pid file is removed and shutdown file is created for normal shutdown
+  if test ! -f "$pid_file" || test -f "$pid_file.shutdown"
   then
     break
   fi

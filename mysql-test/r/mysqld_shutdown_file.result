@@ -1,0 +1,9 @@
+Get the full path name of the PID file
+Expecting a clean shutdown but don't restart the server until it is told to
+Request clean shutdown
+Wait for disconect
+Server shutdown cleanly
+Found shutodwn file as expected!
+Restart server
+Server restarted
+shutodwn file has been deleted as expected after server starts!
