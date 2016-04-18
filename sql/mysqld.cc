@@ -747,6 +747,7 @@ const char *server_uuid_ptr;
 char binlog_file_basedir[FN_REFLEN];
 char binlog_index_basedir[FN_REFLEN];
 char mysql_home[FN_REFLEN], pidfile_name[FN_REFLEN], system_time_zone[30];
+char shutdownfile_name[FN_REFLEN];
 char default_logfile_name[FN_REFLEN];
 char *default_tz_name;
 char log_error_file[FN_REFLEN], glob_hostname[FN_REFLEN];
@@ -914,7 +915,7 @@ static int cleanup_done;
 static ulong opt_specialflag;
 static char *opt_update_logname;
 char *opt_binlog_index_name;
-char *mysql_home_ptr, *pidfile_name_ptr;
+char *mysql_home_ptr, *pidfile_name_ptr, *shutdownfile_name_ptr;
 char *binlog_file_basedir_ptr;
 char *binlog_index_basedir_ptr;
 char *per_user_session_var_default_val_ptr;
@@ -1451,6 +1452,8 @@ static void close_server_sock();
 static void clean_up_mutexes(void);
 static void wait_for_signal_thread_to_end(void);
 static void create_pid_file();
+static void create_shutdown_file();
+static int delete_shutdown_file();
 static void mysqld_exit(int exit_code) __attribute__((noreturn));
 #endif
 static void delete_pid_file(myf flags);
@@ -1870,6 +1873,9 @@ static void __cdecl kill_server(int sig_ptr)
     }
   }
 #endif
+
+  /* Craete shutdown file */
+  create_shutdown_file();
 
   close_connections();
   if (sig != MYSQL_KILL_SIGNAL &&
@@ -6713,6 +6719,14 @@ int mysqld_main(int argc, char **argv)
     unireg_abort(1);
   }
 
+  /* Delete the shutdown file if it exists */
+  if (delete_shutdown_file())
+  {
+    /* Server will fail to start if it failed to delete shutdown file */
+    fprintf(stderr, "[ERROR] Failed to delete shutdown file.\n");
+    unireg_abort(1);
+  }
+
   my_init_signals();
 
   size_t guardize= 0;
@@ -9834,7 +9848,7 @@ static int mysql_init_variables(void)
 {
   /* Things reset to zero */
   opt_skip_slave_start= opt_reckless_slave = 0;
-  mysql_home[0]= pidfile_name[0]= log_error_file[0]= 0;
+  mysql_home[0]= pidfile_name[0]= shutdownfile_name[0]= log_error_file[0]= 0;
   binlog_file_basedir[0]= binlog_index_basedir[0]= 0;
   myisam_test_invalid_symlink= test_if_data_home_dir;
   opt_log= opt_slow_log= 0;
@@ -9911,6 +9925,7 @@ static int mysql_init_variables(void)
 
   mysql_home_ptr= mysql_home;
   pidfile_name_ptr= pidfile_name;
+  shutdownfile_name_ptr= shutdownfile_name;
   log_error_file_ptr= log_error_file;
   lc_messages_dir_ptr= lc_messages_dir;
   protocol_version= PROTOCOL_VERSION;
@@ -10827,6 +10842,17 @@ bool is_secure_file_path(char *path)
   return TRUE;
 }
 
+/**
+   Generate shutdown file name, which is the pid file name with
+   suffix ".shutdown"
+*/
+static void generate_shutdownfile_name()
+{
+  static const char *SHUTDOWN_SUFFIX = ".shutdown";
+  strmake(shutdownfile_name, pidfile_name,
+          sizeof(shutdownfile_name) - strlen(SHUTDOWN_SUFFIX) - 1);
+  strmov(&shutdownfile_name[strlen(shutdownfile_name)], SHUTDOWN_SUFFIX);
+}
 
 static int fix_paths(void)
 {
@@ -10846,6 +10872,9 @@ static int fix_paths(void)
   (void) my_load_path(mysql_home,mysql_home,""); // Resolve current dir
   (void) my_load_path(mysql_real_data_home,mysql_real_data_home,mysql_home);
   (void) my_load_path(pidfile_name, pidfile_name_ptr, mysql_real_data_home);
+
+  /* Generate shutdown file name after the pid full-path name is available */
+  generate_shutdownfile_name();
 
   convert_dirname(opt_plugin_dir, opt_plugin_dir_ptr ? opt_plugin_dir_ptr :
                                   get_relative_path(PLUGINDIR), NullS);
@@ -10976,6 +11005,41 @@ static void create_pid_file()
   sql_perror("Can't start server: can't create PID file");
   exit(1);
 }
+
+/**
+  Create shutdown file.
+*/
+static void create_shutdown_file()
+{
+  File file;
+  if ((file= mysql_file_create(key_file_shutdown, shutdownfile_name, 0664,
+                               O_WRONLY | O_TRUNC, MYF(MY_WME))) >= 0)
+  {
+    mysql_file_close(file, MYF(0));
+  }
+  else
+  {
+    /* Log the error and continue */
+    sql_perror("Can't create SHUTDOWN file.\n");
+  }
+}
+
+/**
+  Delete shutdown file. 0 means successful.
+*/
+static int delete_shutdown_file()
+{
+  /* If it is bootstrap or the shutdown file doesn't exist */
+  if (opt_bootstrap ||
+      access(shutdownfile_name, F_OK))
+  {
+    return 0;
+  }
+  /* 0 will be returned if shutdown file was deleted successfully */
+  return mysql_file_delete(key_file_shutdown, shutdownfile_name,
+                           MYF(MY_WME));
+}
+
 #endif /* EMBEDDED_LIBRARY */
 
 
@@ -11372,7 +11436,7 @@ PSI_file_key key_file_binlog, key_file_binlog_index, key_file_casetest,
   key_file_loadfile, key_file_log_event_data, key_file_log_event_info,
   key_file_master_info, key_file_misc, key_file_partition,
   key_file_pid, key_file_relay_log_info, key_file_send_file, key_file_tclog,
-  key_file_trg, key_file_trn, key_file_init;
+  key_file_trg, key_file_trn, key_file_init, key_file_shutdown;
 PSI_file_key key_file_query_log, key_file_slow_log, key_file_gap_lock_log;
 PSI_file_key key_file_relaylog, key_file_relaylog_index;
 
@@ -11409,7 +11473,8 @@ static PSI_file_info all_server_files[]=
   { &key_file_tclog, "tclog", 0},
   { &key_file_trg, "trigger_name", 0},
   { &key_file_trn, "trigger", 0},
-  { &key_file_init, "init", 0}
+  { &key_file_init, "init", 0},
+  { &key_file_shutdown, "shutdown", 0}
 };
 #endif /* HAVE_PSI_INTERFACE */
 
