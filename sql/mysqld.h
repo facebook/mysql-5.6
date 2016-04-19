@@ -354,6 +354,7 @@ extern char glob_hostname[FN_REFLEN], mysql_home[FN_REFLEN];
 extern char pidfile_name[FN_REFLEN], system_time_zone[30], *opt_init_file;
 extern char default_logfile_name[FN_REFLEN];
 extern char log_error_file[FN_REFLEN], *opt_tc_log_file;
+extern char *opt_gap_lock_exception_list;
 
 extern int32 thread_binlog_client;
 
@@ -1104,7 +1105,7 @@ extern PSI_mutex_key key_LOCK_thread_created;
 extern PSI_rwlock_key key_rwlock_LOCK_grant, key_rwlock_LOCK_logger,
   key_rwlock_LOCK_sys_init_connect, key_rwlock_LOCK_sys_init_slave,
   key_rwlock_LOCK_system_variables_hash, key_rwlock_query_cache_query_lock,
-  key_rwlock_global_sid_lock;
+  key_rwlock_global_sid_lock, key_rwlock_LOCK_gap_lock_exceptions;
 
 #ifdef HAVE_MMAP
 extern PSI_cond_key key_PAGE_cond, key_COND_active, key_COND_pool;
@@ -1348,7 +1349,7 @@ extern mysql_rwlock_t LOCK_use_ssl;
 extern mysql_mutex_t LOCK_server_started;
 extern mysql_cond_t COND_server_started;
 extern mysql_rwlock_t LOCK_grant, LOCK_sys_init_connect, LOCK_sys_init_slave;
-extern mysql_rwlock_t LOCK_system_variables_hash;
+extern mysql_rwlock_t LOCK_system_variables_hash, LOCK_gap_lock_exceptions;
 extern mysql_cond_t COND_manager;
 extern int32 num_thread_running;
 extern my_atomic_rwlock_t thread_running_lock;
