@@ -36,6 +36,7 @@
 #include <my_compare.h>
 #include <ft_global.h>
 #include <keycache.h>
+#include <vector>
 
 class Alter_info;
 
@@ -1834,6 +1835,11 @@ public:
   virtual ~Handler_share() {}
 };
 
+extern std::vector<std::string> gap_lock_exception_list;
+bool is_table_in_list(const std::string& table_name,
+                      const std::vector<std::string>& table_list,
+                      mysql_rwlock_t* lock);
+std::vector<std::string> split(const std::string& input, char delimiter);
 
 /**
   The handler class is the interface for dynamically loadable
@@ -2391,7 +2397,7 @@ protected:
   bool is_using_full_primary_key(uint active_index,
                                  key_part_map keypart_map,
                                  enum ha_rkey_function find_flag);
-  bool is_using_prohibited_gap_locks(THD *thd, thr_lock_type lock_type,
+  bool is_using_prohibited_gap_locks(TABLE *table,
                                      bool using_full_primary_key);
 public:
   virtual int read_range_first(const key_range *start_key,
