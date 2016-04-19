@@ -1607,6 +1607,20 @@ static Sys_var_mybool Sys_gap_lock_write_log(
        SESSION_VAR(gap_lock_write_log), CMD_LINE(OPT_ARG),
        DEFAULT(false));
 
+static bool set_gap_lock_exception_list(sys_var *, THD *, enum_var_type)
+{
+  gap_lock_exception_list = split(opt_gap_lock_exception_list, ',');
+  return false;
+}
+static PolyLock_rwlock PLock_gap_lock_exceptions(&LOCK_gap_lock_exceptions);
+static Sys_var_charptr Sys_gap_lock_exceptions(
+       "gap_lock_exceptions",
+       "List of tables (using regex) that are excluded from gap lock "
+       "detection.", GLOBAL_VAR(opt_gap_lock_exception_list), CMD_LINE(OPT_ARG),
+       IN_FS_CHARSET, DEFAULT(0), &PLock_gap_lock_exceptions,
+       NOT_IN_BINLOG, ON_CHECK(nullptr),
+       ON_UPDATE(set_gap_lock_exception_list));
+
 static Sys_var_mybool Sys_ignore_builtin_innodb(
        "ignore_builtin_innodb",
        "IGNORED. This option will be removed in future releases. "
