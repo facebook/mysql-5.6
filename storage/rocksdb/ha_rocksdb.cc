@@ -24,7 +24,6 @@
 #include "./ha_rocksdb.h"
 
 /* C++ standard header files */
-#include <regex>
 #include <set>
 #include <string>
 #include <vector>
@@ -133,8 +132,6 @@ static std::shared_ptr<rocksdb::Statistics> rocksdb_stats;
 static std::unique_ptr<rocksdb::Env> flashcache_aware_env;
 static std::shared_ptr<Rdb_tbl_prop_coll_factory>
   properties_collector_factory;
-static std::vector<std::string> split(const std::string& input,
-                                      char               delimiter);
 
 Rdb_dict_manager dict_manager;
 Rdb_cf_manager cf_manager;
@@ -154,7 +151,7 @@ static Rdb_background_thread rdb_bg_thread;
 // List of table names (using regex) that are exceptions to the strict
 // collation check requirement.
 std::vector<std::string> collation_exception_list;
-mysql_mutex_t collation_exception_list_mutex;
+mysql_rwlock_t collation_exception_list_rwlock;
 
 static const char* const ERRSTR_ROLLBACK_ONLY
   = "This transaction was rolled back and cannot be "
@@ -1238,7 +1235,7 @@ static PSI_stage_info *all_rocksdb_stages[]=
 
 static my_core::PSI_mutex_key rdb_psi_open_tbls_mutex_key,
   rdb_signal_bg_psi_mutex_key, rdb_signal_drop_idx_psi_mutex_key,
-  key_mutex_tx_list, key_mutex_collation_exception_list,
+  key_mutex_tx_list,
   rdb_sysvars_psi_mutex_key, rdb_collation_data_mutex_key,
   rdb_mem_cmp_space_mutex_key;
 
@@ -1251,9 +1248,15 @@ static PSI_mutex_info all_rocksdb_mutexes[]=
   { &rdb_mem_cmp_space_mutex_key, "collation space char data init",
     PSI_FLAG_GLOBAL},
   { &key_mutex_tx_list, "tx_list", PSI_FLAG_GLOBAL},
-  { &key_mutex_collation_exception_list, "collation_exception_list",
-      PSI_FLAG_GLOBAL},
   { &rdb_sysvars_psi_mutex_key, "setting sysvar", PSI_FLAG_GLOBAL},
+};
+
+static PSI_rwlock_key key_rwlock_collation_exception_list;
+
+static PSI_rwlock_info all_rocksdb_rwlocks[]=
+{
+  { &key_rwlock_collation_exception_list, "collation_exception_list",
+      PSI_FLAG_GLOBAL},
 };
 
 PSI_cond_key rdb_signal_bg_psi_cond_key, rdb_signal_drop_idx_psi_cond_key;
@@ -1281,6 +1284,9 @@ static void init_rocksdb_psi_keys()
 
   count= array_elements(all_rocksdb_mutexes);
   PSI_server->register_mutex(category, all_rocksdb_mutexes, count);
+
+  count= array_elements(all_rocksdb_rwlocks);
+  PSI_server->register_rwlock(category, all_rocksdb_rwlocks, count);
 
   count= array_elements(all_rocksdb_conds);
   // TODO Disabling PFS for conditions due to the bug https://github.com/MySQLOnRocksDB/mysql-5.6/issues/92
@@ -2929,8 +2935,8 @@ static int rocksdb_init_func(void *p)
 #endif
   mysql_mutex_init(rdb_collation_data_mutex_key, &rdb_collation_data_mutex,
                    MY_MUTEX_INIT_FAST);
-  mysql_mutex_init(key_mutex_collation_exception_list,
-                   &collation_exception_list_mutex, MY_MUTEX_INIT_FAST);
+  mysql_rwlock_init(key_rwlock_collation_exception_list,
+                   &collation_exception_list_rwlock);
   mysql_mutex_init(rdb_sysvars_psi_mutex_key, &rdb_sysvars_mutex,
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(rdb_mem_cmp_space_mutex_key, &rdb_mem_cmp_space_mutex,
@@ -3242,7 +3248,8 @@ static int rocksdb_init_func(void *p)
     DBUG_RETURN(1);
   }
 
-  collation_exception_list = split(rocksdb_strict_collation_exceptions, ',');
+  collation_exception_list = my_core::split(rocksdb_strict_collation_exceptions,
+                                            ',');
 
   if (rocksdb_pause_background_work) {
     rdb->PauseBackgroundWork();
@@ -3303,7 +3310,7 @@ static int rocksdb_done_func(void *p)
   }
 
   rdb_open_tables.free_hash();
-  mysql_mutex_destroy(&collation_exception_list_mutex);
+  mysql_rwlock_destroy(&collation_exception_list_rwlock);
   mysql_mutex_destroy(&rdb_open_tables.m_mutex);
   mysql_mutex_destroy(&rdb_sysvars_mutex);
   mysql_mutex_destroy(&rdb_collation_data_mutex);
@@ -4503,32 +4510,6 @@ static bool rdb_is_index_collation_supported(const my_core::Field *field)
   return true;
 }
 
-
-static bool is_table_in_collation_exception_list(const std::string& table_name)
-{
-  bool result = false;
-
-  // Make sure no one else changes the list while we are accessing it.
-  mysql_mutex_lock(&collation_exception_list_mutex);
-
-  // See if this table name matches any in the list
-  for (const auto& exception_elem : collation_exception_list)
-  {
-    // Use regular expressions for the match
-    if (std::regex_match(table_name, std::regex(exception_elem)))
-    {
-      // This table name matches
-      result = true;
-      break;
-    }
-  }
-
-  // Release the mutex
-  mysql_mutex_unlock(&collation_exception_list_mutex);
-
-  return result;
-}
-
 /*
   Create structures needed for storing data in rocksdb. This is called when the
   table is created. The structures will be shared by all TABLE* objects.
@@ -4664,7 +4645,9 @@ int ha_rocksdb::create_cfs(const TABLE *table_arg, const std::string& db_table,
       {
         if (!rdb_is_index_collation_supported(
             table_arg->key_info[i].key_part[part].field) &&
-            !is_table_in_collation_exception_list(tablename_sys))
+            !my_core::is_table_in_list(tablename_sys,
+                                       collation_exception_list,
+                                       &collation_exception_list_rwlock))
         {
           std::string collation_err;
           for (auto coll : RDB_INDEX_COLLATIONS)
@@ -5786,8 +5769,7 @@ int ha_rocksdb::read_range_first(const key_range *start_key,
     result= ha_index_first(table->record[0]);
   else
   {
-    if (is_using_prohibited_gap_locks(table->in_use,
-                                      table->reginfo.lock_type,
+    if (is_using_prohibited_gap_locks(table,
                                       is_using_full_unique_key(
                                         active_index,
                                         start_key->keypart_map,
@@ -10107,34 +10089,6 @@ rocksdb_set_rate_limiter_bytes_per_sec(
   }
 }
 
-// Split a string based on a delimiter.  Two delimiters in a row will not
-// add an empty string in the list.
-static std::vector<std::string> split(const std::string& input,
-                                      char               delimiter)
-{
-  size_t                   pos;
-  size_t                   start = 0;
-  std::vector<std::string> elems;
-
-  // Find next delimiter
-  while ((pos = input.find(delimiter, start)) != std::string::npos)
-  {
-    // If there is any data since the last delimiter add it to the list
-    if (pos > start)
-      elems.push_back(input.substr(start, pos - start));
-
-    // Set our start position to the character after the delimiter
-    start = pos + 1;
-  }
-
-  // Add a possible string since the last delimiter
-  if (input.length() > start)
-    elems.push_back(input.substr(start));
-
-  // Return the resulting list back to the caller
-  return elems;
-}
-
 void
 rocksdb_set_collation_exception_list(THD*                     thd,
                                      struct st_mysql_sys_var* var,
@@ -10144,13 +10098,13 @@ rocksdb_set_collation_exception_list(THD*                     thd,
   const char* val = *static_cast<const char*const*>(save);
 
   // Make sure we are not updating the list when it is being used elsewhere
-  mysql_mutex_lock(&collation_exception_list_mutex);
+  mysql_rwlock_wrlock(&collation_exception_list_rwlock);
 
   // Split the input string into a list of table names
-  collation_exception_list = split(val, ',');
+  collation_exception_list = my_core::split(val, ',');
 
   // Release the mutex
-  mysql_mutex_unlock(&collation_exception_list_mutex);
+  mysql_rwlock_unlock(&collation_exception_list_rwlock);
 
   *static_cast<const char**>(var_ptr) = val;
 }
