@@ -40,6 +40,7 @@
 #include "debug_sync.h"         // DEBUG_SYNC
 #include <my_bit.h>
 #include <list>
+#include <regex>
 #include "sql_readonly.h"       // check_ro
 #include "sql_db.h"      // init_thd_dboptions
                          // is_thd_db_read_only_by_name
@@ -88,6 +89,8 @@ ulong total_ha= 0;
 ulong total_ha_2pc= 0;
 /* size of savepoint storage area (see ha_init) */
 ulong savepoint_alloc_size= 0;
+
+std::vector<std::string> gap_lock_exception_list;
 
 static const LEX_STRING sys_table_aliases[]=
 {
@@ -2858,8 +2861,7 @@ int handler::ha_rnd_init(bool scan)
               m_lock_type != F_UNLCK);
   DBUG_ASSERT(inited == NONE || (inited == RND && scan));
 
-  if (is_using_prohibited_gap_locks(table->in_use,
-                                    table->reginfo.lock_type, false))
+  if (is_using_prohibited_gap_locks(table, false))
   {
     DBUG_RETURN(HA_ERR_LOCK_DEADLOCK);
   }
@@ -2975,9 +2977,7 @@ int handler::ha_index_read_map(uchar *buf, const uchar *key,
               m_lock_type != F_UNLCK);
   DBUG_ASSERT(inited == INDEX);
 
-  if (is_using_prohibited_gap_locks(table->in_use,
-                                    table->reginfo.lock_type,
-                                    is_using_full_primary_key(
+  if (is_using_prohibited_gap_locks(table, is_using_full_primary_key(
                                       active_index, keypart_map, find_flag)))
   {
     DBUG_RETURN(HA_ERR_LOCK_DEADLOCK);
@@ -2997,8 +2997,7 @@ int handler::ha_index_read_last_map(uchar *buf, const uchar *key,
               m_lock_type != F_UNLCK);
   DBUG_ASSERT(inited == INDEX);
 
-  if (is_using_prohibited_gap_locks(table->in_use,
-                                    table->reginfo.lock_type, false))
+  if (is_using_prohibited_gap_locks(table, false))
   {
     DBUG_RETURN(HA_ERR_LOCK_DEADLOCK);
   }
@@ -3024,9 +3023,7 @@ int handler::ha_index_read_idx_map(uchar *buf, uint index, const uchar *key,
               m_lock_type != F_UNLCK);
   DBUG_ASSERT(end_range == NULL);
 
-  if (is_using_prohibited_gap_locks(table->in_use,
-                                    table->reginfo.lock_type,
-                                    is_using_full_primary_key(
+  if (is_using_prohibited_gap_locks(table, is_using_full_primary_key(
                                       index, keypart_map, find_flag)))
   {
     return HA_ERR_LOCK_DEADLOCK;
@@ -3106,8 +3103,7 @@ int handler::ha_index_first(uchar * buf)
               m_lock_type != F_UNLCK);
   DBUG_ASSERT(inited == INDEX);
 
-  if (is_using_prohibited_gap_locks(table->in_use,
-                                    table->reginfo.lock_type, false))
+  if (is_using_prohibited_gap_locks(table, false))
   {
     return HA_ERR_LOCK_DEADLOCK;
   }
@@ -3154,8 +3150,7 @@ int handler::ha_index_last(uchar * buf)
               m_lock_type != F_UNLCK);
   DBUG_ASSERT(inited == INDEX);
 
-  if (is_using_prohibited_gap_locks(table->in_use,
-                                    table->reginfo.lock_type, false))
+  if (is_using_prohibited_gap_locks(table, false))
   {
     return HA_ERR_LOCK_DEADLOCK;
   }
@@ -7896,6 +7891,60 @@ bool is_binlog_advanced(const char *b1, const my_off_t p1,
   return false;
 }
 
+// Split a string based on a delimiter.  Two delimiters in a row will not add
+// an empty string in the list.
+std::vector<std::string> split(const std::string& input, char delimiter)
+{
+  size_t                   pos;
+  size_t                   start = 0;
+  std::vector<std::string> elems;
+
+  // Find next delimiter
+  while ((pos = input.find(delimiter, start)) != std::string::npos)
+  {
+    // If there is any data since the last delimiter add it to the list
+    if (pos > start)
+      elems.push_back(input.substr(start, pos - start));
+
+    // Set our start position to the character after the delimiter
+    start = pos + 1;
+  }
+
+  // Add a possible string since the last delimiter
+  if (input.length() > start)
+    elems.push_back(input.substr(start));
+
+  // Return the resulting list back to the caller
+  return elems;
+}
+
+bool is_table_in_list(const std::string& table_name,
+                      const std::vector<std::string>& table_list,
+                      mysql_rwlock_t* lock)
+{
+  bool result = false;
+
+  // Make sure no one else changes the list while we are accessing it.
+  mysql_rwlock_rdlock(lock);
+
+  // See if this table name matches any in the list
+  for (const auto& e: table_list)
+  {
+    // Use regular expressions for the match
+    if (std::regex_match(table_name, std::regex(e)))
+    {
+      // This table name matches
+      result = true;
+      break;
+    }
+  }
+
+  // Release the mutex
+  mysql_rwlock_unlock(lock);
+
+  return result;
+}
+
 bool can_hold_read_locks_on_select(THD *thd, thr_lock_type lock_type)
 {
   return (lock_type == TL_READ_WITH_SHARED_LOCKS
@@ -7910,9 +7959,13 @@ bool can_hold_locks_on_trans(THD *thd, thr_lock_type lock_type)
           || can_hold_read_locks_on_select(thd, lock_type));
 }
 
-bool handler::is_using_prohibited_gap_locks(THD *thd, thr_lock_type lock_type,
+bool handler::is_using_prohibited_gap_locks(TABLE *table,
                                             bool using_full_primary_key)
 {
+  THD* thd = table->in_use;
+  thr_lock_type lock_type = table->reginfo.lock_type;
+  const char *table_name = table->s->table_name.str;
+
   if (!using_full_primary_key
       && ht
       && (ht->db_type == DB_TYPE_INNODB || ht->db_type == DB_TYPE_ROCKSDB)
@@ -7920,7 +7973,9 @@ bool handler::is_using_prohibited_gap_locks(THD *thd, thr_lock_type lock_type,
       && (thd->variables.gap_lock_raise_error
           || thd->variables.gap_lock_write_log)
       && (thd->lex->table_count >= 2 || thd->in_multi_stmt_transaction_mode())
-      && can_hold_locks_on_trans(thd, lock_type))
+      && can_hold_locks_on_trans(thd, lock_type)
+      && !is_table_in_list(table_name, gap_lock_exception_list,
+                           &LOCK_gap_lock_exceptions))
   {
     gap_lock_log_write(thd, COM_QUERY, thd->query(), thd->query_length());
     if (thd->variables.gap_lock_raise_error)
