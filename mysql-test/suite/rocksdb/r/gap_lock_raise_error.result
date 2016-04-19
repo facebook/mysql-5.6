@@ -428,3 +428,77 @@ DROP DATABASE mysqlslap;
 SET GLOBAL gap_lock_log_file='<GAP_LOCK_ORIG>';
 SET GLOBAL gap_lock_log_file='<GAP_LOCK>';
 flush general logs;
+SET @save_gap_lock_exceptions = @@global.gap_lock_exceptions;
+SET GLOBAL gap_lock_exceptions="t.*";
+drop table if exists gap1,gap2,gap3;
+CREATE DATABASE mysqlslap;
+CREATE TABLE gap1 (id1 INT, id2 INT, id3 INT, c1 INT, value INT,
+PRIMARY KEY (id1, id2, id3),
+INDEX i (c1)) ENGINE=rocksdb;
+CREATE TABLE gap2 like gap1;
+CREATE TABLE gap3 (id INT, value INT,
+PRIMARY KEY (id),
+UNIQUE KEY ui(value)) ENGINE=rocksdb;
+insert into gap3 values (1,1), (2,2),(3,3),(4,4),(5,5);
+create table gap4 (
+pk int primary key,
+a int,
+b int,
+key(a)
+) ENGINE=rocksdb;
+insert into gap4 values (1,1,1), (2,2,2), (3,3,3), (4,4,4);
+create table gap5 like gap4;
+insert into gap5 values (1,1,1), (2,2,2), (3,3,3), (4,4,4);
+set session gap_lock_raise_error=1;
+set session gap_lock_write_log=1;
+set session autocommit=0;
+select * from gap1 limit 1 for update;
+ERROR HY000: Using Gap Lock without full unique key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all unique key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from gap1 limit 1 for update
+select * from gap1 where value != 100 limit 1 for update;
+ERROR HY000: Using Gap Lock without full unique key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all unique key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: select * from gap1 where value != 100 limit 1 for update
+set global gap_lock_write_log= 0;
+set global gap_lock_raise_error= 0;
+drop table if exists gap1, gap2, gap3, gap4, gap5;
+DROP DATABASE mysqlslap;
+0
+SET GLOBAL gap_lock_log_file='<GAP_LOCK_ORIG>';
+SET GLOBAL gap_lock_log_file='<GAP_LOCK>';
+flush general logs;
+SET GLOBAL gap_lock_exceptions="gap.*";
+drop table if exists gap1,gap2,gap3;
+CREATE DATABASE mysqlslap;
+CREATE TABLE gap1 (id1 INT, id2 INT, id3 INT, c1 INT, value INT,
+PRIMARY KEY (id1, id2, id3),
+INDEX i (c1)) ENGINE=rocksdb;
+CREATE TABLE gap2 like gap1;
+CREATE TABLE gap3 (id INT, value INT,
+PRIMARY KEY (id),
+UNIQUE KEY ui(value)) ENGINE=rocksdb;
+insert into gap3 values (1,1), (2,2),(3,3),(4,4),(5,5);
+create table gap4 (
+pk int primary key,
+a int,
+b int,
+key(a)
+) ENGINE=rocksdb;
+insert into gap4 values (1,1,1), (2,2,2), (3,3,3), (4,4,4);
+create table gap5 like gap4;
+insert into gap5 values (1,1,1), (2,2,2), (3,3,3), (4,4,4);
+set session gap_lock_raise_error=1;
+set session gap_lock_write_log=1;
+set session autocommit=0;
+select * from gap1 limit 1 for update;
+id1	id2	id3	c1	value
+0	0	1	1	1
+select * from gap1 where value != 100 limit 1 for update;
+id1	id2	id3	c1	value
+0	0	1	1	1
+set global gap_lock_write_log= 0;
+set global gap_lock_raise_error= 0;
+drop table if exists gap1, gap2, gap3, gap4, gap5;
+DROP DATABASE mysqlslap;
+0
+SET GLOBAL gap_lock_log_file='<GAP_LOCK_ORIG>';
+SET GLOBAL gap_lock_log_file='<GAP_LOCK>';
+flush general logs;
+SET GLOBAL gap_lock_exceptions=@save_gap_lock_exceptions;
