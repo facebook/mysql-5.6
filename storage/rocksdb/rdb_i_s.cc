@@ -674,7 +674,7 @@ static int global_info_fill_row(THD *thd,
   field[1]->store(name, strlen(name), system_charset_info);
   field[2]->store(value, strlen(value), system_charset_info);
 
-  return schema_table_store_record(thd, tables->table);
+  return my_core::schema_table_store_record(thd, tables->table);
 }
 
 /*
@@ -765,66 +765,70 @@ static ST_FIELD_INFO i_s_rocksdb_global_info_fields_info[] =
   ROCKSDB_FIELD_INFO_END
 };
 
-struct i_s_rocksdb_ddl {
-  THD *thd;
-  TABLE_LIST *tables;
-  Item *cond;
-};
 
-static int i_s_rocksdb_ddl_callback(void *cb_arg, Rdb_tbl_def *rec)
+namespace  // anonymous namespace = not visible outside this source file
 {
-  struct i_s_rocksdb_ddl *ddl_arg= (struct i_s_rocksdb_ddl*)cb_arg;
-  DBUG_ASSERT(ddl_arg != nullptr);
-  DBUG_ASSERT(rec != nullptr);
+struct Rdb_ddl_scanner : public Rdb_tables_scanner
+{
+  my_core::THD        *m_thd;
+  my_core::TABLE_LIST *m_tables;
+  my_core::Item       *m_cond;
+
+  int add_table(Rdb_tbl_def* tdef) override;
+};
+}  // anonymous namespace
+
+
+int Rdb_ddl_scanner::add_table(Rdb_tbl_def *tdef)
+{
+  DBUG_ASSERT(tdef != nullptr);
 
   int ret= 0;
-  THD *thd= ddl_arg->thd;
-  DBUG_ASSERT(thd != nullptr);
-
-  TABLE_LIST *tables= ddl_arg->tables;
-  DBUG_ASSERT(tables != nullptr);
-
   StringBuffer<256> dbname, tablename, partname;
 
   /* Some special tables such as drop_index have different names, ignore them */
-  if (rocksdb_split_normalized_tablename(rec->m_dbname_tablename.c_ptr(),
+  if (rocksdb_split_normalized_tablename(tdef->m_dbname_tablename.c_ptr(),
                                          &dbname, &tablename, &partname))
+  {
     return 0;
+  }
 
-  for (uint i= 0; i < rec->m_key_count; i++) {
-    Rdb_key_def* key_descr= rec->m_key_descr[i];
+  for (uint i= 0; i < tdef->m_key_count; i++) {
+    Rdb_key_def* key_descr= tdef->m_key_descr[i];
 
-    DBUG_ASSERT(tables->table != nullptr);
-    DBUG_ASSERT(tables->table->field != nullptr);
+    DBUG_ASSERT(m_tables->table != nullptr);
+    DBUG_ASSERT(m_tables->table->field != nullptr);
 
-    tables->table->field[0]->store(dbname.c_ptr(), dbname.length(),
-                                   system_charset_info);
-    tables->table->field[1]->store(tablename.c_ptr(), tablename.length(),
-                                   system_charset_info);
+    m_tables->table->field[0]->store(dbname.c_ptr(), dbname.length(),
+                                     system_charset_info);
+    m_tables->table->field[1]->store(tablename.c_ptr(), tablename.length(),
+                                     system_charset_info);
     if (partname.length() == 0)
-      tables->table->field[2]->set_null();
+    {
+      m_tables->table->field[2]->set_null();
+    }
     else
     {
-      tables->table->field[2]->set_notnull();
-      tables->table->field[2]->store(partname.c_ptr(), partname.length(),
-                                     system_charset_info);
+      m_tables->table->field[2]->set_notnull();
+      m_tables->table->field[2]->store(partname.c_ptr(), partname.length(),
+                                       system_charset_info);
     }
 
-    tables->table->field[3]->store(key_descr->m_name.c_str(),
-                                   key_descr->m_name.size(),
-                                   system_charset_info);
+    m_tables->table->field[3]->store(key_descr->m_name.c_str(),
+                                     key_descr->m_name.size(),
+                                     system_charset_info);
 
     GL_INDEX_ID gl_index_id = key_descr->get_gl_index_id();
-    tables->table->field[4]->store(gl_index_id.cf_id, true);
-    tables->table->field[5]->store(gl_index_id.index_id, true);
-    tables->table->field[6]->store(key_descr->m_index_type, true);
-    tables->table->field[7]->store(key_descr->m_kv_format_version, true);
+    m_tables->table->field[4]->store(gl_index_id.cf_id, true);
+    m_tables->table->field[5]->store(gl_index_id.index_id, true);
+    m_tables->table->field[6]->store(key_descr->m_index_type, true);
+    m_tables->table->field[7]->store(key_descr->m_kv_format_version, true);
 
     std::string cf_name= key_descr->get_cf()->GetName();
-    tables->table->field[8]->store(cf_name.c_str(), cf_name.size(),
-                                   system_charset_info);
+    m_tables->table->field[8]->store(cf_name.c_str(), cf_name.size(),
+                                     system_charset_info);
 
-    ret= schema_table_store_record(thd, tables->table);
+    ret= schema_table_store_record(m_thd, m_tables->table);
     if (ret)
       return ret;
   }
@@ -833,17 +837,22 @@ static int i_s_rocksdb_ddl_callback(void *cb_arg, Rdb_tbl_def *rec)
 
 static int i_s_rocksdb_ddl_fill_table(THD *thd, TABLE_LIST *tables, Item *cond)
 {
+  DBUG_ENTER("i_s_rocksdb_ddl_fill_table");
+
   DBUG_ASSERT(thd != nullptr);
   DBUG_ASSERT(tables != nullptr);
 
   int ret;
+
   Rdb_ddl_manager *ddl_manager= get_ddl_manager();
   DBUG_ASSERT(ddl_manager != nullptr);
-  struct i_s_rocksdb_ddl ddl_arg= { thd, tables, cond };
 
-  DBUG_ENTER("i_s_rocksdb_ddl_fill_table");
+  Rdb_ddl_scanner ddl_arg;
+  ddl_arg.m_thd= thd;
+  ddl_arg.m_tables= tables;
+  ddl_arg.m_cond= cond;
 
-  ret= ddl_manager->scan((void*)&ddl_arg, i_s_rocksdb_ddl_callback);
+  ret= ddl_manager->scan_for_tables(&ddl_arg);
 
   DBUG_RETURN(ret);
 }
@@ -866,12 +875,12 @@ static ST_FIELD_INFO i_s_rocksdb_ddl_fields_info[] =
 
 static int i_s_rocksdb_ddl_init(void *p)
 {
-  ST_SCHEMA_TABLE *schema;
+  my_core::ST_SCHEMA_TABLE *schema;
 
   DBUG_ENTER("i_s_rocksdb_ddl_init");
   DBUG_ASSERT(p != nullptr);
 
-  schema= (ST_SCHEMA_TABLE*) p;
+  schema= (my_core::ST_SCHEMA_TABLE*) p;
 
   schema->fields_info= i_s_rocksdb_ddl_fields_info;
   schema->fill_table= i_s_rocksdb_ddl_fill_table;
