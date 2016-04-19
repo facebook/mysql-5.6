@@ -1,0 +1,68 @@
+################### mysql-test\t\gap_lock_exceptions_basic.test ################
+#                                                                              #
+# Variable Name: gap_lock_exceptions                                           #
+# Scope: GLOBAL                                                                #
+# Access Type: Dynamic                                                         #
+# Data Type: Filename                                                          #
+# Default Value: ""                                                            #
+# Valid Values:                                                                #
+#                                                                              #
+#                                                                              #
+# Creation Date: 2016-04-18                                                    #
+#                                                                              #
+# Description: Test Cases of Dynamic System Variable "gap_lock_exceptions"     #
+#              that checks behavior of this variable in the following ways     #
+#              * Default Value                                                 #
+#              * Valid & Invalid values                                        #
+#              * Scope & Access method                                         #
+#              * Data Integrity                                                #
+#                                                                              #
+# Reference:                                                                   #
+# http://dev.mysql.com/doc/refman/5.1/en/server-system-variables.html          
+#                                                                              #
+################################################################################
+
+--source include/load_sysvars.inc
+
+###########################################################
+#           START OF gap_lock_exceptions TESTS            #
+###########################################################
+
+
+###########################################################################
+#   Saving initial value of gap_lock_exceptions in a temporary variable   #
+###########################################################################
+
+SET @start_value = @@global.gap_lock_exceptions;
+
+--echo '#---------------------FN_DYNVARS_004_01-------------------------#'
+############################################### 
+#     Verify default value of variable        #
+############################################### 
+
+SET @@global.gap_lock_exceptions = DEFAULT;
+SELECT @@global.gap_lock_exceptions, length(@a) = '';
+
+
+--echo '#--------------------FN_DYNVARS_004_02------------------------#'
+#######################################################################
+#      Change the value of gap_lock_exceptions to a invalid value     #
+#######################################################################
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET @@global.gap_lock_exceptions = 12;
+
+--echo '#----------------------FN_DYNVARS_004_03------------------------#'
+############################################################################## 
+# Check if the value in GLOBAL Tables matches values in variable             #
+##############################################################################
+
+SELECT @@global.gap_lock_exceptions = VARIABLE_VALUE 
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES 
+WHERE VARIABLE_NAME='gap_lock_exceptions';
+
+SET @@global.gap_lock_exceptions= @start_value;
+#####################################################
+#       END OF gap_lock_exceptions TESTS            #
+#####################################################
+
