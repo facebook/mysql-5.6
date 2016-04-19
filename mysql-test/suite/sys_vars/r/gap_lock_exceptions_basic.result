@@ -1,0 +1,36 @@
+SET @start_global_value = @@global.GAP_LOCK_EXCEPTIONS;
+SELECT @start_global_value;
+@start_global_value
+NULL
+"Trying to set @session.GAP_LOCK_EXCEPTIONS to simple table name."
+SET @@global.GAP_LOCK_EXCEPTIONS = mytable;
+SELECT @@global.GAP_LOCK_EXCEPTIONS;
+@@global.GAP_LOCK_EXCEPTIONS
+mytable
+"Trying to set @session.GAP_LOCK_EXCEPTIONS to regex table name(s)."
+SET @@global.GAP_LOCK_EXCEPTIONS = "t.*";
+SELECT @@global.GAP_LOCK_EXCEPTIONS;
+@@global.GAP_LOCK_EXCEPTIONS
+t.*
+"Trying to set @session.GAP_LOCK_EXCEPTIONS to multiple regex table names."
+SET @@global.GAP_LOCK_EXCEPTIONS = "s.*,t.*";
+SELECT @@global.GAP_LOCK_EXCEPTIONS;
+@@global.GAP_LOCK_EXCEPTIONS
+s.*,t.*
+"Trying to set @session.GAP_LOCK_EXCEPTIONS to empty."
+SET @@global.GAP_LOCK_EXCEPTIONS = "";
+SELECT @@global.GAP_LOCK_EXCEPTIONS;
+@@global.GAP_LOCK_EXCEPTIONS
+
+"Trying to set @session.GAP_LOCK_EXCEPTIONS to default."
+SET @@global.GAP_LOCK_EXCEPTIONS = DEFAULT;
+SELECT @@global.GAP_LOCK_EXCEPTIONS;
+@@global.GAP_LOCK_EXCEPTIONS
+NULL
+"Trying to set @session.GAP_LOCK_EXCEPTIONS to 444.  It should fail because it is not session."
+SET @@session.GAP_LOCK_EXCEPTIONS = 444;
+ERROR HY000: Variable 'gap_lock_exceptions' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@global.GAP_LOCK_EXCEPTIONS = @start_global_value;
+SELECT @@global.GAP_LOCK_EXCEPTIONS;
+@@global.GAP_LOCK_EXCEPTIONS
+NULL

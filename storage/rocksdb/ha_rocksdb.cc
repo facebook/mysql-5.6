@@ -8157,8 +8157,7 @@ int ha_rocksdb::read_range_first(const key_range *const start_key,
     // Read first record
     result = ha_index_first(table->record[0]);
   } else {
-    if (is_using_prohibited_gap_locks(table->in_use,
-                                      table->reginfo.lock_type,
+    if (is_using_prohibited_gap_locks(table,
                                       is_using_full_unique_key(
                                         active_index,
                                         start_key->keypart_map,

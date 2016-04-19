@@ -30,8 +30,6 @@ rocksdb.explicit_snapshot : missing patch 0b671a35cc7 SQL to create and manage e
 rocksdb.create_no_primary_key_table : missing patch
 rocksdb.rocksdb_qcache : missing patch
 rocksdb.skip_core_dump_on_error : missing patch
-rocksdb.gap_lock_issue254 : missing patch
-rocksdb.gap_lock_raise_error : missing patch
 rocksdb_rpl.rpl_mts_dependency_unique_key_conflicts : missing patch
 rocksdb.innodb_i_s_tables_disabled : missing patch
 rocksdb.force_shutdown: missing 5354b969fa6 Extending SHUTDOWN query to support read_only/aborting

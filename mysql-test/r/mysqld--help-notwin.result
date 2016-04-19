@@ -392,6 +392,9 @@ The following options may be given as the first argument:
  Number of best matches to use for query expansion
  --ft-stopword-file=name 
  Use stopwords from this file instead of built-in list
+ --gap-lock-exceptions[=name] 
+ List of tables (using regex) that are excluded from gap
+ lock detection.
  --gap-lock-log-file=name 
  Log file path where queries using Gap Lock are written.
  gap_lock_write_log needs to be turned on to write logs
@@ -2167,6 +2170,7 @@ ft-max-word-len 84
 ft-min-word-len 4
 ft-query-expansion-limit 20
 ft-stopword-file (No default value)
+gap-lock-exceptions (No default value)
 gap-lock-raise-error FALSE
 gap-lock-write-log FALSE
 gdb FALSE

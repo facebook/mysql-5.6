@@ -1,0 +1,33 @@
+# We cannot use the rocskdb_sys_var.inc script as some of the strings we set
+# need to be quoted and that doesn't work with this script.  Run through valid
+# options by hand.
+
+SET @start_global_value = @@global.GAP_LOCK_EXCEPTIONS;
+SELECT @start_global_value;
+
+--echo "Trying to set @session.GAP_LOCK_EXCEPTIONS to simple table name."
+SET @@global.GAP_LOCK_EXCEPTIONS = mytable;
+SELECT @@global.GAP_LOCK_EXCEPTIONS;
+
+--echo "Trying to set @session.GAP_LOCK_EXCEPTIONS to regex table name(s)."
+SET @@global.GAP_LOCK_EXCEPTIONS = "t.*";
+SELECT @@global.GAP_LOCK_EXCEPTIONS;
+
+--echo "Trying to set @session.GAP_LOCK_EXCEPTIONS to multiple regex table names."
+SET @@global.GAP_LOCK_EXCEPTIONS = "s.*,t.*";
+SELECT @@global.GAP_LOCK_EXCEPTIONS;
+
+--echo "Trying to set @session.GAP_LOCK_EXCEPTIONS to empty."
+SET @@global.GAP_LOCK_EXCEPTIONS = "";
+SELECT @@global.GAP_LOCK_EXCEPTIONS;
+
+--echo "Trying to set @session.GAP_LOCK_EXCEPTIONS to default."
+SET @@global.GAP_LOCK_EXCEPTIONS = DEFAULT;
+SELECT @@global.GAP_LOCK_EXCEPTIONS;
+
+--echo "Trying to set @session.GAP_LOCK_EXCEPTIONS to 444.  It should fail because it is not session."
+--Error ER_GLOBAL_VARIABLE
+SET @@session.GAP_LOCK_EXCEPTIONS = 444;
+
+SET @@global.GAP_LOCK_EXCEPTIONS = @start_global_value;
+SELECT @@global.GAP_LOCK_EXCEPTIONS;
