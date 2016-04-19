@@ -1104,6 +1104,7 @@ extern bool get_sysvar_source(const char *name, uint length,
 int sql_set_variables(THD *thd, List<set_var_base> *var_list, bool opened);
 bool keyring_access_test();
 bool fix_delay_key_write(sys_var *self, THD *thd, enum_var_type type);
+bool set_gap_lock_exception_list(sys_var *, THD *, enum_var_type);
 
 sql_mode_t expand_sql_mode(sql_mode_t sql_mode, THD *thd);
 bool sql_mode_string_representation(THD *thd, sql_mode_t sql_mode,

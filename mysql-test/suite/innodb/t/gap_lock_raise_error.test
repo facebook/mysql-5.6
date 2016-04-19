@@ -1,4 +1,26 @@
 let $engine=innodb;
 --source include/gap_lock_raise_error_all.inc
 
+SET @save_gap_lock_exceptions = @@global.gap_lock_exceptions;
 
+SET GLOBAL gap_lock_exceptions="t.*";
+--source include/gap_lock_raise_error_init.inc
+
+set session autocommit=0;
+--error ER_UNKNOWN_ERROR
+select * from gap1 limit 1 for update;
+--error ER_UNKNOWN_ERROR
+select * from gap1 where value != 100 limit 1 for update;
+
+--source include/gap_lock_raise_error_cleanup.inc
+
+SET GLOBAL gap_lock_exceptions="gap.*";
+--source include/gap_lock_raise_error_init.inc
+
+set session autocommit=0;
+select * from gap1 limit 1 for update;
+select * from gap1 where value != 100 limit 1 for update;
+
+--source include/gap_lock_raise_error_cleanup.inc
+
+SET GLOBAL gap_lock_exceptions=@save_gap_lock_exceptions;

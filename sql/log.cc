@@ -1523,9 +1523,9 @@ bool Query_logger::gap_lock_log_print(THD *thd, enum_server_command command,
   /*
      Any active handlers?
   */
-  if (!(*gap_lock_log_handler_list)) {
+  if (!thd->variables.gap_lock_write_log || thd->m_gap_lock_log_written ||
+      !(*gap_lock_log_handler_list))
     return false;
-  }
 
   size_t message_buff_len = 0;
   char message_buff[LOG_BUFF_MAX];
