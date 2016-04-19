@@ -1460,6 +1460,7 @@ char glob_hostname[HOSTNAME_LENGTH + 1];
 char mysql_real_data_home[FN_REFLEN], lc_messages_dir[FN_REFLEN],
     reg_ext[FN_EXTLEN], mysql_charsets_dir[FN_REFLEN], *opt_init_file;
 const char *opt_tc_log_file;
+char *opt_gap_lock_exception_list;
 char *lc_messages_dir_ptr;
 char mysql_unpacked_real_data_home[FN_REFLEN];
 size_t mysql_unpacked_real_data_home_len;
@@ -1563,6 +1564,7 @@ mysql_mutex_t LOCK_replica_trans_dep_tracker;
 mysql_mutex_t LOCK_log_throttle_qni;
 mysql_rwlock_t LOCK_sys_init_connect, LOCK_sys_init_replica;
 mysql_rwlock_t LOCK_system_variables_hash;
+mysql_rwlock_t LOCK_gap_lock_exceptions;
 my_thread_handle signal_thread_id;
 sigset_t mysqld_signal_mask;
 my_thread_attr_t connection_attrib;
@@ -2676,6 +2678,7 @@ static void clean_up_mutexes() {
   mysql_rwlock_destroy(&LOCK_sys_init_replica);
   mysql_mutex_destroy(&LOCK_global_system_variables);
   mysql_rwlock_destroy(&LOCK_system_variables_hash);
+  mysql_rwlock_destroy(&LOCK_gap_lock_exceptions);
   mysql_mutex_destroy(&LOCK_uuid_generator);
   mysql_mutex_destroy(&LOCK_sql_rand);
   mysql_mutex_destroy(&LOCK_prepared_stmt_count);
@@ -5236,6 +5239,8 @@ static int init_thread_environment() {
                    &LOCK_password_reuse_interval, MY_MUTEX_INIT_FAST);
   mysql_rwlock_init(key_rwlock_LOCK_sys_init_connect, &LOCK_sys_init_connect);
   mysql_rwlock_init(key_rwlock_LOCK_sys_init_replica, &LOCK_sys_init_replica);
+  mysql_rwlock_init(key_rwlock_LOCK_gap_lock_exceptions,
+                    &LOCK_gap_lock_exceptions);
   mysql_cond_init(key_COND_manager, &COND_manager);
   mysql_mutex_init(key_LOCK_server_started, &LOCK_server_started,
                    MY_MUTEX_INIT_FAST);
@@ -10683,6 +10688,8 @@ static int get_options(int *argc_ptr, char ***argv_ptr) {
   /* Set global MyISAM variables from delay_key_write_options */
   fix_delay_key_write(nullptr, nullptr, OPT_GLOBAL);
 
+  set_gap_lock_exception_list(0, 0, OPT_GLOBAL);
+
 #ifndef _WIN32
   if (mysqld_chroot) set_root(mysqld_chroot);
 #endif
@@ -11423,6 +11430,7 @@ PSI_rwlock_key key_rwlock_channel_lock;
 PSI_rwlock_key key_rwlock_receiver_sid_lock;
 PSI_rwlock_key key_rwlock_rpl_filter_lock;
 PSI_rwlock_key key_rwlock_channel_to_filter_lock;
+PSI_rwlock_key key_rwlock_LOCK_gap_lock_exceptions;
 
 PSI_rwlock_key key_rwlock_Trans_delegate_lock;
 PSI_rwlock_key key_rwlock_Server_state_delegate_lock;
@@ -11439,6 +11447,7 @@ static PSI_rwlock_info all_server_rwlocks[]=
   { &key_rwlock_LOCK_logger, "LOGGER::LOCK_logger", 0, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_LOCK_sys_init_connect, "LOCK_sys_init_connect", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_LOCK_sys_init_replica, "LOCK_sys_init_replica", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+  { &key_rwlock_LOCK_gap_lock_exceptions, "LOCK_gap_lock_exceptions", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_LOCK_system_variables_hash, "LOCK_system_variables_hash", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_global_sid_lock, "gtid_commit_rollback", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_gtid_mode_lock, "gtid_mode_lock", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},

@@ -298,6 +298,7 @@ extern char glob_hostname[HOSTNAME_LENGTH + 1];
 extern char system_time_zone_dst_on[30], system_time_zone_dst_off[30];
 extern char *opt_init_file;
 extern const char *opt_tc_log_file;
+extern char *opt_gap_lock_exception_list;
 extern char server_uuid[UUID_LENGTH + 1];
 extern const char *server_uuid_ptr;
 extern const double log_10[309];
@@ -474,6 +475,7 @@ extern PSI_rwlock_key key_rwlock_gtid_mode_lock;
 extern PSI_rwlock_key key_rwlock_receiver_sid_lock;
 extern PSI_rwlock_key key_rwlock_rpl_filter_lock;
 extern PSI_rwlock_key key_rwlock_channel_to_filter_lock;
+extern PSI_rwlock_key key_rwlock_LOCK_gap_lock_exceptions;
 extern PSI_rwlock_key key_rwlock_resource_group_mgr_map_lock;
 
 extern PSI_cond_key key_PAGE_cond;
@@ -732,6 +734,7 @@ extern mysql_cond_t COND_manager;
 extern mysql_rwlock_t LOCK_sys_init_connect;
 extern mysql_rwlock_t LOCK_sys_init_replica;
 extern mysql_rwlock_t LOCK_system_variables_hash;
+extern mysql_rwlock_t LOCK_gap_lock_exceptions;
 
 extern ulong opt_ssl_fips_mode;
 
