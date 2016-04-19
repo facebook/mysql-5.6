@@ -1,0 +1,19 @@
+create table t1 (id bigint(20), key id (id)) engine=innodb;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+show variables where variable_name = 'gap_lock_exceptions';
+Variable_name	Value
+gap_lock_exceptions	t1
+set session gap_lock_raise_error=1;
+begin;
+delete from t1 where id=1;
+commit;
+show variables where variable_name = 'gap_lock_exceptions';
+Variable_name	Value
+gap_lock_exceptions	t2
+set session gap_lock_raise_error=1;
+begin;
+delete from t1 where id=1;
+ERROR HY000: Using Gap Lock without full unique key in multi-table or multi-statement transactions is not allowed. You need either 1: Execute 'SET SESSION gap_lock_raise_error=0' if you are sure that your application does not rely on Gap Lock. 2: Rewrite queries to use all unique key columns in WHERE equal conditions. 3: Rewrite to single-table, single-statement transaction.  Query: delete from t1 where id=1
+commit;
+drop table t1;
