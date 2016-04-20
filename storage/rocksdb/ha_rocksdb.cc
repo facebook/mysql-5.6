@@ -5734,7 +5734,9 @@ bool ha_rocksdb::do_bulk_commit(Rdb_transaction *tx)
       tx->get_n_writes() >= THDVAR(table->in_use, bulk_load_size))
   {
     if (tx->flush_batch())
+    {
       return 1;
+    }
   }
   return 0;
 }
@@ -8517,12 +8519,12 @@ mysql_declare_plugin(rocksdb_se)
   nullptr,                                      /* config options */
   0,                                            /* flags */
 },
-myrocks::i_s_rocksdb_cfstats,
-myrocks::i_s_rocksdb_dbstats,
-myrocks::i_s_rocksdb_perf_context,
-myrocks::i_s_rocksdb_perf_context_global,
-myrocks::i_s_rocksdb_cfoptions,
-myrocks::i_s_rocksdb_global_info,
-myrocks::i_s_rocksdb_ddl,
-myrocks::i_s_rocksdb_index_file_map
+myrocks::rdb_i_s_cfstats,
+myrocks::rdb_i_s_dbstats,
+myrocks::rdb_i_s_perf_context,
+myrocks::rdb_i_s_perf_context_global,
+myrocks::rdb_i_s_cfoptions,
+myrocks::rdb_i_s_global_info,
+myrocks::rdb_i_s_ddl,
+myrocks::rdb_i_s_index_file_map
 mysql_declare_plugin_end;
