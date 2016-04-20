@@ -5706,21 +5706,19 @@ bool ha_rocksdb::commit_in_the_middle()
 }
 
 /*
- Executing bulk commit if it should.
- @retval 1 if bulk commit failed. 0 if bulk commit was skipped or succeeded
+  Executing bulk commit if it should.
+  @retval true if bulk commit failed
+  @retval false if bulk commit was skipped or succeeded
 */
 bool ha_rocksdb::do_bulk_commit(Rdb_transaction *tx)
 {
-  if (commit_in_the_middle() &&
-      tx->get_n_writes() >= THDVAR(table->in_use, bulk_load_size))
-  {
-    if (tx->flush_batch())
-      return 1;
-  }
-  return 0;
+  DBUG_ASSERT(tx != nullptr);
+  return commit_in_the_middle() &&
+         tx->get_n_writes() >= THDVAR(table->in_use, bulk_load_size) &&
+         tx->flush_batch();
 }
 
-  /*
+/*
   If table was created without primary key, SQL layer represents the primary
   key number as MAX_INDEXES.  Hence, this function returns true if the table
   does not contain a primary key. (In which case we generate a hidden
@@ -8470,12 +8468,12 @@ mysql_declare_plugin(rocksdb_se)
   nullptr,                                      /* config options */
   0,                                            /* flags */
 },
-myrocks::i_s_rocksdb_cfstats,
-myrocks::i_s_rocksdb_dbstats,
-myrocks::i_s_rocksdb_perf_context,
-myrocks::i_s_rocksdb_perf_context_global,
-myrocks::i_s_rocksdb_cfoptions,
-myrocks::i_s_rocksdb_global_info,
-myrocks::i_s_rocksdb_ddl,
-myrocks::i_s_rocksdb_index_file_map
+myrocks::rdb_i_s_cfstats,
+myrocks::rdb_i_s_dbstats,
+myrocks::rdb_i_s_perf_context,
+myrocks::rdb_i_s_perf_context_global,
+myrocks::rdb_i_s_cfoptions,
+myrocks::rdb_i_s_global_info,
+myrocks::rdb_i_s_ddl,
+myrocks::rdb_i_s_index_file_map
 mysql_declare_plugin_end;
