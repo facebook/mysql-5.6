@@ -74,10 +74,10 @@ const char * const PER_INDEX_CF_NAME = "$per_index_cf";
   rocksdb-compaction-sequential-deletes-window to add basic boundary checking.
 */
 #define DEFAULT_COMPACTION_SEQUENTIAL_DELETES             0
-#define MAX_COMPACTION_SEQUENTIAL_DELETES            100000
+#define MAX_COMPACTION_SEQUENTIAL_DELETES           2000000
 
 #define DEFAULT_COMPACTION_SEQUENTIAL_DELETES_WINDOW      0
-#define MAX_COMPACTION_SEQUENTIAL_DELETES_WINDOW     100000
+#define MAX_COMPACTION_SEQUENTIAL_DELETES_WINDOW    2000000
 
 /*
   Default and maximum values for various compaction and flushing related
