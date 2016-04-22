@@ -16,8 +16,7 @@ let $num_connections = 100;
 let $i = $db_count;
 while ($i)
 {
-  let $uuid = `select uuid()`;
-  eval create database db$i db_uuid='$uuid';
+  eval create database db$i;
   eval create table db$i.t1(a int) engine=innodb;
   dec $i;
 }

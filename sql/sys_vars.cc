@@ -5396,4 +5396,3 @@ static Sys_var_mybool Sys_use_db_uuid(
         "while creating the database or using an alter command. If no UUID is "
         "associated with a database, server_uuid is used.",
          GLOBAL_VAR(use_db_uuid), CMD_LINE(OPT_ARG), DEFAULT(FALSE));
-

@@ -2392,17 +2392,7 @@ public:
     Is locked when THD is deleted.
   */
   mysql_mutex_t LOCK_thd_data;
-  mysql_mutex_t LOCK_thd_dboptions;
-  /*
-    Used to identify whether LOCK_thd_dboptions is already held.
-
-    LOCK_thd_dboptions lock must be held while looking up db_uuid in the
-    options map. See get_db_uuid().  For transactions it is held inside
-    ha_commit_trans(), but for DDL statements the lock has to be explcitly
-    held when calling get_db_uuid(). So this flag is used to differentiate
-    the two cases.
-  */
-  my_bool dboptions_lock = FALSE;
+  mysql_mutex_t LOCK_thd_db_read_only_hash;
 
   /* all prepared statements and cursors of this connection */
   Statement_map stmt_map;
@@ -3170,7 +3160,7 @@ public:
   void capture_system_thread_id();
 
   /* local hash map of db opt */
-  HASH dboptions_hash;
+  HASH db_read_only_hash;
   const CHARSET_INFO *db_charset;
 #if defined(ENABLED_PROFILING)
   PROFILING  profiling;

@@ -1030,7 +1030,7 @@ THD::THD(bool enable_plugins)
   query_id= 0;
   query_name_consts= 0;
   db_charset= global_system_variables.collation_database;
-  my_hash_clear(&dboptions_hash);
+  my_hash_clear(&db_read_only_hash);
   memset(ha_data, 0, sizeof(ha_data));
   mysys_var=0;
   binlog_evt_union.do_union= FALSE;
@@ -1057,7 +1057,7 @@ THD::THD(bool enable_plugins)
   active_vio = 0;
 #endif
   mysql_mutex_init(key_LOCK_thd_data, &LOCK_thd_data, MY_MUTEX_INIT_FAST);
-  mysql_mutex_init(key_LOCK_thd_dboptions, &LOCK_thd_dboptions,
+  mysql_mutex_init(key_LOCK_thd_db_read_only_hash, &LOCK_thd_db_read_only_hash,
                    MY_MUTEX_INIT_FAST);
 
   /* Variables with default values */
@@ -1745,11 +1745,11 @@ THD::~THD()
   free_root(&transaction.mem_root,MYF(0));
   mysql_mutex_destroy(&LOCK_thd_data);
 
-  mysql_mutex_lock(&LOCK_thd_dboptions);
-  my_hash_free(&dboptions_hash);
-  mysql_mutex_unlock(&LOCK_thd_dboptions);
+  mysql_mutex_lock(&LOCK_thd_db_read_only_hash);
+  my_hash_free(&db_read_only_hash);
+  mysql_mutex_unlock(&LOCK_thd_db_read_only_hash);
 
-  mysql_mutex_destroy(&LOCK_thd_dboptions);
+  mysql_mutex_destroy(&LOCK_thd_db_read_only_hash);
 
 #ifndef DBUG_OFF
   dbug_sentry= THD_SENTRY_GONE;

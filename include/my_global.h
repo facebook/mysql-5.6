@@ -1194,7 +1194,6 @@ static inline double rint(double x)
 #endif
 
 #include <my_dbug.h>
-#include <my_stacktrace.h>
 
 /* Defines that are unique to the embedded version of MySQL */
 
@@ -1227,28 +1226,5 @@ typedef struct
   long long int rem;    /* Remainder.  */
 } lldiv_t;
 #endif
-
-/*
-  The intent behind a SHIP_ASSERT() macro is to have a mechanism for validating
-  invariants in retail builds. Traditionally assertions (such as macros defined
-  in <cassert>) are evaluated for performance reasons only in debug builds and
-  become NOOP in retail builds when NDEBUG is defined.
-
-  This macro is intended to validate the invariants which are critical for
-  making sure that data corruption and data loss won't take place. Proper
-  intended usage can be described as "If a particular condition is not true then
-  stop everything what's going on and terminate the process because continued
-  execution will cause really bad things to happen".
-
-  Use the power of SHIP_ASSERT() wisely.
-*/
-
-#define SHIP_ASSERT(expr)                                               \
-  do {                                                                  \
-    if (!(expr)) {                                                      \
-      my_safe_printf_stderr("\nShip assert failure: \'%s\'\n", #expr);  \
-      abort_with_stack_traces();                                        \
-    }                                                                   \
-  } while (0)                                                           \
 
 #endif  // MY_GLOBAL_INCLUDED
