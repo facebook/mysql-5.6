@@ -3,83 +3,39 @@ source include/have_gtid.inc;
 source include/gtid_utils.inc;
 call mtr.add_suppression('db_uuid not found for database .*');
 
-connect (test_con,localhost,root,,,$MASTER_MYPORT);
-
 connection master;
-set @@global.use_db_uuid=true;
+set @old_use_db_uuid = @@global.use_db_uuid;
 create database db1;
 
-connection test_con;
-create table test_table(a int) engine=innodb;
-insert into test_table values(1);
-drop table test_table;
-
-connection master;
-alter database db1 db_uuid='465b88cb-caad-11e5-871f-78e9260296ea';
-show create database db1;
-create database db2 db_uuid='2b8711b7-cc5d-11e5-871f-78e9260296ea';
-# Verify alter db not specifying db_uuid is fine.
-alter database db2 super_read_only=true;
-show create database db2;
-alter database db2 read_only=true;
-show create database db2;
-
---echo Verify existing connections picks up db_uuid updates
-connection test_con;
-create table db1.t1 (a int) engine=innodb;
-insert into db1.t1 values(2);
-
---echo Verify server uuid is used if no database uuid is available.
-create database test_no_db_uuid /*!40100 DEFAULT CHARACTER SET utf8 */;
-
-connection master;
---echo Verify server preservs db_uuid on restarts
-let $rpl_server_number = 1;
-source include/rpl_restart_server.inc;
-
-set @old_use_db_uuid = @@global.use_db_uuid;
 set @@global.use_db_uuid=true;
-insert into db1.t1 values(3);
-show create database db2;
-alter database db2 read_only=false;
+--echo Verify DDL uses db_uuid
+create database db2;
+create table db1.t1 (a int) engine=innodb;
+--echo Verify DML uses db_uuid
+insert into db1.t1 values(1);
 create table db2.t2 (a int) engine=innodb;
 
-connect (test_con1,localhost,root,,,$MASTER_MYPORT);
-connection test_con1;
-create table test_no_db_uuid.test_table (a int) engine=innodb;
-insert into test_no_db_uuid.test_table values(2);
-
 let $master_uuid = `select @@global.server_uuid`;
+let $db1_uuid = `select "d384a947-daa0-80f3-9257-1d6b0039dd30"`;
+let $db2_uuid = `select "ea95a7d8-0f83-fc61-f9f1-53f2638ea853"`;
 
 let $value = `select @@global.gtid_executed`;
 # gtid_executed is not sorted. So we need this to avoid test failures.
 replace_result $value gtid_executed_set;
-eval select gtid_intersection_with_uuid('$value', '465b88cb-caad-11e5-871f-78e9260296ea');
+eval select gtid_intersection_with_uuid('$value', '$db1_uuid');
 replace_result $value gtid_executed_set;
-eval select gtid_intersection_with_uuid('$value', '2b8711b7-cc5d-11e5-871f-78e9260296ea');
+eval select gtid_intersection_with_uuid('$value', '$db2_uuid');
 replace_result $value gtid_executed_set $master_uuid master_uuid;
 eval select gtid_intersection_with_uuid('$value', '$master_uuid');
 
+--echo Verify drop database uses db_uuid
 drop database db1;
---echo Verify drop database uses server uuid
+let $value = `select @@global.gtid_executed`;
 replace_result $value gtid_executed_set;
-eval select gtid_intersection_with_uuid('$value', '465b88cb-caad-11e5-871f-78e9260296ea');
+eval select gtid_intersection_with_uuid('$value', '$db1_uuid');
 
 drop database db2;
-drop database test_no_db_uuid;
-
-connection master;
 set @@global.use_db_uuid = @old_use_db_uuid;
 
-disconnect test_con;
-disconnect test_con1;
-
-connection slave;
-# Restart slave, so io_thread is out of reconnecting state. Note this is
-# required because of master restart.
-source include/stop_slave.inc;
-source include/start_slave.inc;
-
-connection master;
 source include/gtid_utils_end.inc;
 source include/rpl_end.inc;
