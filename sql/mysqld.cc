@@ -10729,7 +10729,18 @@ static void set_server_version(void)
     end= strmov(end, "-debug");
 #endif
   if (opt_log || opt_slow_log || opt_bin_log)
-    strmov(end, "-log");                        // This may slow down system
+    end= strmov(end, "-log");                     // This may slow down system
+
+  end= strmov(end, " ");
+  uint len_comment = strlen(MYSQL_COMPILATION_COMMENT);
+  uint len_server_version = end - server_version;
+  if (len_comment + len_server_version > SERVER_VERSION_LENGTH)
+    end= strnmov(end, MYSQL_COMPILATION_COMMENT,
+            SERVER_VERSION_LENGTH - len_server_version);
+  else
+    end= strmov(end, MYSQL_COMPILATION_COMMENT);
+
+  DBUG_ASSERT(end - server_version <= SERVER_VERSION_LENGTH);
 }
 
 
