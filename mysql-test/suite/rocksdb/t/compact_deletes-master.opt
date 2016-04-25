@@ -1,1 +1,2 @@
 --rocksdb_debug_optimizer_n_rows=1000
+--rocksdb_compaction_sequential_deletes_count_sd=1
