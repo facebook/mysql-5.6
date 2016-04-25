@@ -28,7 +28,16 @@ while ($i<1000)
 --enable_query_log
 set global rocksdb_force_flush_memtable_now=1;
 select sleep(1);
---exec bash suite/rocksdb/t/sst_count_rows.sh $MYSQLTEST_VARDIR $MYSQL_SST_DUMP
+
+--disable_query_log
+let $wait_timeout= 300; # Override default 30 seconds with 300.
+let $wait_condition = select count(*) = 0
+                      as c from information_schema.rocksdb_global_info
+                      where TYPE = 'DDL_DROP_INDEX_ONGOING';
+--source include/wait_condition.inc
+--enable_query_log
+
+--exec bash suite/rocksdb/t/sst_count_rows.sh $MYSQLTEST_VARDIR $MYSQL_SST_DUMP $no_more_deletes
 eval SET GLOBAL rocksdb_compaction_sequential_deletes= $save_rocksdb_compaction_sequential_deletes;
 eval SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= $save_rocksdb_compaction_sequential_deletes_file_size;
 eval SET GLOBAL rocksdb_compaction_sequential_deletes_window= $save_rocksdb_compaction_sequential_deletes_window;
