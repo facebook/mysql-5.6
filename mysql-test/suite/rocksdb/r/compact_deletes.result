@@ -25,6 +25,7 @@ set global rocksdb_force_flush_memtable_now=1;
 select sleep(1);
 sleep(1)
 0
+wait_for_delete: 0
 There are deletes left
 SET GLOBAL rocksdb_compaction_sequential_deletes= 0;
 SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= 0;
@@ -38,6 +39,7 @@ set global rocksdb_force_flush_memtable_now=1;
 select sleep(1);
 sleep(1)
 0
+wait_for_delete: 1
 No more deletes left
 SET GLOBAL rocksdb_compaction_sequential_deletes= 0;
 SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= 0;
@@ -51,12 +53,13 @@ set global rocksdb_force_flush_memtable_now=1;
 select sleep(1);
 sleep(1)
 0
+wait_for_delete: 0
 There are deletes left
 SET GLOBAL rocksdb_compaction_sequential_deletes= 0;
 SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= 0;
 SET GLOBAL rocksdb_compaction_sequential_deletes_window= 0;
 Test 4: Do a bunch of secondary key updates and set the compaction sysvar
-Expect: no compaction
+Expect: compaction
 set global rocksdb_compaction_sequential_deletes_window=1000;
 set global rocksdb_compaction_sequential_deletes= 50;
 set global rocksdb_compaction_sequential_deletes_file_size=0;
@@ -64,7 +67,8 @@ set global rocksdb_force_flush_memtable_now=1;
 select sleep(1);
 sleep(1)
 0
-There are deletes left
+wait_for_delete: 1
+No more deletes left
 SET GLOBAL rocksdb_compaction_sequential_deletes= 0;
 SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= 0;
 SET GLOBAL rocksdb_compaction_sequential_deletes_window= 0;
@@ -80,6 +84,7 @@ set global rocksdb_force_flush_memtable_now=1;
 select sleep(1);
 sleep(1)
 0
+wait_for_delete: 1
 No more deletes left
 SET GLOBAL rocksdb_compaction_sequential_deletes= 0;
 SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= 0;
