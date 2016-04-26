@@ -5152,6 +5152,10 @@ err:
   mi->set_mi_description_event(NULL);
   mysql_mutex_unlock(&mi->data_lock);
 
+  mysql_mutex_lock(&mi->info_thd_lock);
+  mi->info_thd= 0;
+  mysql_mutex_unlock(&mi->info_thd_lock);
+
   DBUG_ASSERT(thd->net.buff != 0);
   net_end(&thd->net); // destructor will not free it, because net.vio is 0
 
@@ -5163,9 +5167,6 @@ err:
 
   mi->abort_slave= 0;
   mi->slave_running= 0;
-  mysql_mutex_lock(&mi->info_thd_lock);
-  mi->info_thd= 0;
-  mysql_mutex_unlock(&mi->info_thd_lock);
   /*
     Note: the order of the two following calls (first broadcast, then unlock)
     is important. Otherwise a killer_thread can execute between the calls and
