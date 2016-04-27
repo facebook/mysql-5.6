@@ -15,6 +15,10 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 #pragma once
 
+/* C++ system header files */
+#include <string>
+#include <vector>
+
 /* MySQL header files */
 #include "./sql_string.h"
 
@@ -35,7 +39,7 @@ int rocksdb_split_normalized_tablename(const char *fullname,
                                        StringBuffer<256> *tablebuf,
                                        StringBuffer<256> *partitionbuf)
   __attribute__((__nonnull__, __warn_unused_result__));
-std::vector<std::string> get_share_names(void);
+std::vector<std::string> rdb_get_open_table_names(void);
 
 int rdb_get_table_perf_counters(const char *tablename,
                                 Rdb_perf_counters *counters)
