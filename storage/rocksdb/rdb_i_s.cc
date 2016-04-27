@@ -240,7 +240,7 @@ static int rdb_i_s_perf_context_fill_table(
 
   DBUG_ENTER("rdb_i_s_perf_context_fill_table");
 
-  std::vector<std::string> tablenames= get_share_names();
+  std::vector<std::string> tablenames= rdb_get_table_names();
   for (auto it : tablenames)
   {
     StringBuffer<256> buf, dbname, tablename, partname;
