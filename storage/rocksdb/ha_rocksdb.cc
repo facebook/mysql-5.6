@@ -4125,6 +4125,61 @@ int rocksdb_normalize_tablename(const char *tablename,
   return 0;
 }
 
+/*
+  Check to see if the user's original statement includes foreign key
+  references
+*/
+bool ha_rocksdb::contains_foreign_key(THD* thd)
+{
+  bool success;
+  const char* str = thd_query_string(thd)->str;
+
+  DBUG_ASSERT(str != nullptr);
+
+  while (*str != '\0')
+  {
+    // Scan from our current pos looking for 'FOREIGN'
+    str = rdb_find_in_string(str, "FOREIGN", &success);
+    if (!success)
+    {
+      return false;
+    }
+
+    // Skip past the found "FOREIGN'
+    str = rdb_check_next_token(&my_charset_bin, str, "FOREIGN", &success);
+    DBUG_ASSERT(success);
+
+    if (!my_isspace(&my_charset_bin, *str))
+    {
+      return false;
+    }
+
+    // See if the next token is 'KEY'
+    str = rdb_check_next_token(&my_charset_bin, str, "KEY", &success);
+    if (!success)
+    {
+      continue;
+    }
+
+    // See if the next token is '('
+    str = rdb_check_next_token(&my_charset_bin, str, "(", &success);
+    if (!success)
+    {
+      // There is an optional index id after 'FOREIGN KEY', skip it
+      str = rdb_skip_id(&my_charset_bin, str);
+
+      // Now check for '(' again
+      str = rdb_check_next_token(&my_charset_bin, str, "(", &success);
+    }
+
+    // If we have found 'FOREIGN KEY [<word>] (' we can be confident we have
+    // a foreign key clause.
+    return success;
+  }
+
+  // We never found a valid foreign key clause
+  return false;
+}
 
 /**
   @brief
@@ -4199,8 +4254,9 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
   StringBuffer<256> strbuf;
   DBUG_ENTER("ha_rocksdb::create");
 
+  THD *thd = my_core::thd_get_current_thd();
+
   if (get_table_if_exists(name)) {
-    THD *thd = my_core::thd_get_current_thd();
     if (thd->lex->sql_command == SQLCOM_TRUNCATE) {
       if (delete_table(name)) {
         DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
@@ -4225,6 +4281,13 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
   */
   if (rocksdb_normalize_tablename(name, &strbuf))
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+
+  if (contains_foreign_key(thd))
+  {
+    my_printf_error(ER_NOT_SUPPORTED_YET, "MyRocks does not currently support "
+        "foreign key constraints", MYF(0));
+    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+  }
 
   /*
     TODO(alexyang): Temporarily disable unique indexes support when there is no
@@ -5707,21 +5770,19 @@ bool ha_rocksdb::commit_in_the_middle()
 }
 
 /*
- Executing bulk commit if it should.
- @retval 1 if bulk commit failed. 0 if bulk commit was skipped or succeeded
+  Executing bulk commit if it should.
+  @retval true if bulk commit failed
+  @retval false if bulk commit was skipped or succeeded
 */
 bool ha_rocksdb::do_bulk_commit(Rdb_transaction *tx)
 {
-  if (commit_in_the_middle() &&
-      tx->get_n_writes() >= THDVAR(table->in_use, bulk_load_size))
-  {
-    if (tx->flush_batch())
-      return 1;
-  }
-  return 0;
+  DBUG_ASSERT(tx != nullptr);
+  return commit_in_the_middle() &&
+         tx->get_n_writes() >= THDVAR(table->in_use, bulk_load_size) &&
+         tx->flush_batch();
 }
 
-  /*
+/*
   If table was created without primary key, SQL layer represents the primary
   key number as MAX_INDEXES.  Hence, this function returns true if the table
   does not contain a primary key. (In which case we generate a hidden
@@ -8500,12 +8561,12 @@ mysql_declare_plugin(rocksdb_se)
   nullptr,                                      /* config options */
   0,                                            /* flags */
 },
-myrocks::i_s_rocksdb_cfstats,
-myrocks::i_s_rocksdb_dbstats,
-myrocks::i_s_rocksdb_perf_context,
-myrocks::i_s_rocksdb_perf_context_global,
-myrocks::i_s_rocksdb_cfoptions,
-myrocks::i_s_rocksdb_global_info,
-myrocks::i_s_rocksdb_ddl,
-myrocks::i_s_rocksdb_index_file_map
+myrocks::rdb_i_s_cfstats,
+myrocks::rdb_i_s_dbstats,
+myrocks::rdb_i_s_perf_context,
+myrocks::rdb_i_s_perf_context_global,
+myrocks::rdb_i_s_cfoptions,
+myrocks::rdb_i_s_global_info,
+myrocks::rdb_i_s_ddl,
+myrocks::rdb_i_s_index_file_map
 mysql_declare_plugin_end;
