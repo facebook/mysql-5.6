@@ -15,6 +15,9 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 #pragma once
 
+/* C++ header files */
+#include <string>
+
 /* MySQL header files */
 #include "./sql_string.h"
 
@@ -82,4 +85,27 @@ inline uchar* rdb_str_to_uchar_ptr(String * str)
   return reinterpret_cast<uchar*>(str->c_ptr());
 }
 
+/*
+  Helper function to parse strings
+*/
+const char* rdb_skip_spaces(struct charset_info_st* cs, const char *str)
+  MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+
+bool rdb_compare_strings_ic(const char *str1, const char *str2)
+  MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+
+const char* rdb_find_in_string(const char *str, const char *pattern,
+                               bool *succeeded)
+  MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+
+const char* rdb_check_next_token(struct charset_info_st* cs, const char *str,
+                                 const char *pattern, bool *succeeded)
+  MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+
+const char* rdb_parse_id(struct charset_info_st* cs, const char *str,
+                         std::string *id)
+  MY_ATTRIBUTE((__nonnull__(1, 2), __warn_unused_result__));
+
+const char* rdb_skip_id(struct charset_info_st* cs, const char *str)
+  MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 }  // namespace myrocks
