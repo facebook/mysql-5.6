@@ -15,6 +15,7 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
 /* C++ standard header files */
+#include <string>
 #include <vector>
 
 /* MySQL header files */
@@ -48,14 +49,15 @@ namespace myrocks {
 /*
   Support for INFORMATION_SCHEMA.ROCKSDB_CFSTATS dynamic table
  */
-static int i_s_rocksdb_cfstats_fill_table(THD *thd,
-                                          TABLE_LIST *tables,
-                                          Item *cond)
+static int rdb_i_s_cfstats_fill_table(
+    my_core::THD *thd,
+    my_core::TABLE_LIST *tables,
+    my_core::Item *cond MY_ATTRIBUTE((__unused__)))
 {
   bool ret;
   uint64_t val;
 
-  DBUG_ENTER("i_s_rocksdb_cfstats_fill_table");
+  DBUG_ENTER("rdb_i_s_cfstats_fill_table");
 
   std::vector<std::pair<const std::string, std::string>> cf_properties = {
     {rocksdb::DB::Properties::kNumImmutableMemTable, "NUM_IMMUTABLE_MEM_TABLE"},
@@ -105,7 +107,7 @@ static int i_s_rocksdb_cfstats_fill_table(THD *thd,
                                      system_charset_info);
       tables->table->field[2]->store(val, true);
 
-      ret= schema_table_store_record(thd, tables->table);
+      ret= my_core::schema_table_store_record(thd, tables->table);
 
       if (ret)
         DBUG_RETURN(ret);
@@ -114,7 +116,7 @@ static int i_s_rocksdb_cfstats_fill_table(THD *thd,
   DBUG_RETURN(0);
 }
 
-static ST_FIELD_INFO i_s_rocksdb_cfstats_fields_info[]=
+static ST_FIELD_INFO rdb_i_s_cfstats_fields_info[]=
 {
   ROCKSDB_FIELD_INFO("CF_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
   ROCKSDB_FIELD_INFO("STAT_TYPE", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
@@ -122,17 +124,17 @@ static ST_FIELD_INFO i_s_rocksdb_cfstats_fields_info[]=
   ROCKSDB_FIELD_INFO_END
 };
 
-static int i_s_rocksdb_cfstats_init(void *p)
+static int rdb_i_s_cfstats_init(void *p)
 {
-  ST_SCHEMA_TABLE *schema;
+  my_core::ST_SCHEMA_TABLE *schema;
 
-  DBUG_ENTER("i_s_rocksdb_cfstats_init");
+  DBUG_ENTER("rdb_i_s_cfstats_init");
   DBUG_ASSERT(p != nullptr);
 
-  schema= (ST_SCHEMA_TABLE*) p;
+  schema= (my_core::ST_SCHEMA_TABLE*) p;
 
-  schema->fields_info= i_s_rocksdb_cfstats_fields_info;
-  schema->fill_table= i_s_rocksdb_cfstats_fill_table;
+  schema->fields_info= rdb_i_s_cfstats_fields_info;
+  schema->fill_table= rdb_i_s_cfstats_fill_table;
 
   DBUG_RETURN(0);
 }
@@ -140,14 +142,15 @@ static int i_s_rocksdb_cfstats_init(void *p)
 /*
   Support for INFORMATION_SCHEMA.ROCKSDB_DBSTATS dynamic table
  */
-static int i_s_rocksdb_dbstats_fill_table(THD *thd,
-                                          TABLE_LIST *tables,
-                                          Item *cond)
+static int rdb_i_s_dbstats_fill_table(
+    my_core::THD *thd,
+    my_core::TABLE_LIST *tables,
+    my_core::Item *cond MY_ATTRIBUTE((__unused__)))
 {
   bool ret;
   uint64_t val;
 
-  DBUG_ENTER("i_s_rocksdb_dbstats_fill_table");
+  DBUG_ENTER("rdb_i_s_dbstats_fill_table");
 
   std::vector<std::pair<std::string, std::string>> db_properties = {
     {rocksdb::DB::Properties::kBackgroundErrors, "DB_BACKGROUND_ERRORS"},
@@ -171,7 +174,7 @@ static int i_s_rocksdb_dbstats_fill_table(THD *thd,
                                    system_charset_info);
     tables->table->field[1]->store(val, true);
 
-    ret= schema_table_store_record(thd, tables->table);
+    ret= my_core::schema_table_store_record(thd, tables->table);
 
     if (ret)
       DBUG_RETURN(ret);
@@ -192,30 +195,30 @@ static int i_s_rocksdb_dbstats_fill_table(THD *thd,
                                  system_charset_info);
   tables->table->field[1]->store(val, true);
 
-  ret= schema_table_store_record(thd, tables->table);
+  ret= my_core::schema_table_store_record(thd, tables->table);
 
   DBUG_RETURN(ret);
 }
 
-static ST_FIELD_INFO i_s_rocksdb_dbstats_fields_info[]=
+static ST_FIELD_INFO rdb_i_s_dbstats_fields_info[]=
 {
   ROCKSDB_FIELD_INFO("STAT_TYPE", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
   ROCKSDB_FIELD_INFO("VALUE", sizeof(uint64_t), MYSQL_TYPE_LONGLONG, 0),
   ROCKSDB_FIELD_INFO_END
 };
 
-static int i_s_rocksdb_dbstats_init(void *p)
+static int rdb_i_s_dbstats_init(void *p)
 {
   DBUG_ASSERT(p != nullptr);
 
-  ST_SCHEMA_TABLE *schema;
+  my_core::ST_SCHEMA_TABLE *schema;
 
-  DBUG_ENTER("i_s_rocksdb_dbstats_init");
+  DBUG_ENTER("rdb_i_s_dbstats_init");
 
-  schema= (ST_SCHEMA_TABLE*) p;
+  schema= (my_core::ST_SCHEMA_TABLE*) p;
 
-  schema->fields_info= i_s_rocksdb_dbstats_fields_info;
-  schema->fill_table= i_s_rocksdb_dbstats_fill_table;
+  schema->fields_info= rdb_i_s_dbstats_fields_info;
+  schema->fill_table= rdb_i_s_dbstats_fill_table;
 
   DBUG_RETURN(0);
 }
@@ -224,9 +227,10 @@ static int i_s_rocksdb_dbstats_init(void *p)
   Support for INFORMATION_SCHEMA.ROCKSDB_PERF_CONTEXT dynamic table
  */
 
-static int i_s_rocksdb_perf_context_fill_table(THD *thd,
-                                               TABLE_LIST *tables,
-                                               Item *cond)
+static int rdb_i_s_perf_context_fill_table(
+    my_core::THD *thd,
+    my_core::TABLE_LIST *tables,
+    my_core::Item *cond MY_ATTRIBUTE((__unused__)))
 {
   DBUG_ASSERT(thd != nullptr);
   DBUG_ASSERT(tables != nullptr);
@@ -234,7 +238,7 @@ static int i_s_rocksdb_perf_context_fill_table(THD *thd,
   int ret= 0;
   Field** field = tables->table->field;
 
-  DBUG_ENTER("i_s_rocksdb_perf_context_fill_table");
+  DBUG_ENTER("rdb_i_s_perf_context_fill_table");
 
   std::vector<std::string> tablenames= get_share_names();
   for (auto it : tablenames)
@@ -273,7 +277,7 @@ static int i_s_rocksdb_perf_context_fill_table(THD *thd,
                       system_charset_info);
       field[4]->store(counters.m_value[i], true);
 
-      ret= schema_table_store_record(thd, tables->table);
+      ret= my_core::schema_table_store_record(thd, tables->table);
       if (ret)
         DBUG_RETURN(ret);
     }
@@ -282,7 +286,7 @@ static int i_s_rocksdb_perf_context_fill_table(THD *thd,
   DBUG_RETURN(0);
 }
 
-static ST_FIELD_INFO i_s_rocksdb_perf_context_fields_info[]=
+static ST_FIELD_INFO rdb_i_s_perf_context_fields_info[]=
 {
   ROCKSDB_FIELD_INFO("TABLE_SCHEMA", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
   ROCKSDB_FIELD_INFO("TABLE_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
@@ -294,31 +298,32 @@ static ST_FIELD_INFO i_s_rocksdb_perf_context_fields_info[]=
   ROCKSDB_FIELD_INFO_END
 };
 
-static int i_s_rocksdb_perf_context_init(void *p)
+static int rdb_i_s_perf_context_init(void *p)
 {
   DBUG_ASSERT(p != nullptr);
 
-  ST_SCHEMA_TABLE *schema;
+  my_core::ST_SCHEMA_TABLE *schema;
 
-  DBUG_ENTER("i_s_rocksdb_perf_context_init");
+  DBUG_ENTER("rdb_i_s_perf_context_init");
 
-  schema= (ST_SCHEMA_TABLE*) p;
+  schema= (my_core::ST_SCHEMA_TABLE*) p;
 
-  schema->fields_info= i_s_rocksdb_perf_context_fields_info;
-  schema->fill_table= i_s_rocksdb_perf_context_fill_table;
+  schema->fields_info= rdb_i_s_perf_context_fields_info;
+  schema->fill_table= rdb_i_s_perf_context_fill_table;
 
   DBUG_RETURN(0);
 }
 
-static int i_s_rocksdb_perf_context_global_fill_table(THD *thd,
-                                                      TABLE_LIST *tables,
-                                                      Item *cond)
+static int rdb_i_s_perf_context_global_fill_table(
+    my_core::THD *thd,
+    my_core::TABLE_LIST *tables,
+    my_core::Item *cond MY_ATTRIBUTE((__unused__)))
 {
   DBUG_ASSERT(thd != nullptr);
   DBUG_ASSERT(tables != nullptr);
 
   int ret= 0;
-  DBUG_ENTER("i_s_rocksdb_perf_context_global_fill_table");
+  DBUG_ENTER("rdb_i_s_perf_context_global_fill_table");
 
   // Get a copy of the global perf counters.
   Rdb_perf_counters global_counters;
@@ -333,7 +338,7 @@ static int i_s_rocksdb_perf_context_global_fill_table(THD *thd,
                                    system_charset_info);
     tables->table->field[1]->store(global_counters.m_value[i], true);
 
-    ret= schema_table_store_record(thd, tables->table);
+    ret= my_core::schema_table_store_record(thd, tables->table);
     if (ret)
       DBUG_RETURN(ret);
   }
@@ -341,25 +346,25 @@ static int i_s_rocksdb_perf_context_global_fill_table(THD *thd,
   DBUG_RETURN(0);
 }
 
-static ST_FIELD_INFO i_s_rocksdb_perf_context_global_fields_info[]=
+static ST_FIELD_INFO rdb_i_s_perf_context_global_fields_info[]=
 {
   ROCKSDB_FIELD_INFO("STAT_TYPE", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
   ROCKSDB_FIELD_INFO("VALUE", sizeof(uint64_t), MYSQL_TYPE_LONGLONG, 0),
   ROCKSDB_FIELD_INFO_END
 };
 
-static int i_s_rocksdb_perf_context_global_init(void *p)
+static int rdb_i_s_perf_context_global_init(void *p)
 {
   DBUG_ASSERT(p != nullptr);
 
-  ST_SCHEMA_TABLE *schema;
+  my_core::ST_SCHEMA_TABLE *schema;
 
-  DBUG_ENTER("i_s_rocksdb_perf_context_global_init");
+  DBUG_ENTER("rdb_i_s_perf_context_global_init");
 
-  schema= (ST_SCHEMA_TABLE*) p;
+  schema= (my_core::ST_SCHEMA_TABLE*) p;
 
-  schema->fields_info= i_s_rocksdb_perf_context_global_fields_info;
-  schema->fill_table= i_s_rocksdb_perf_context_global_fill_table;
+  schema->fields_info= rdb_i_s_perf_context_global_fields_info;
+  schema->fill_table= rdb_i_s_perf_context_global_fill_table;
 
   DBUG_RETURN(0);
 }
@@ -367,16 +372,17 @@ static int i_s_rocksdb_perf_context_global_init(void *p)
 /*
   Support for INFORMATION_SCHEMA.ROCKSDB_CFOPTIONS dynamic table
  */
-static int i_s_rocksdb_cfoptions_fill_table(THD *thd,
-                                            TABLE_LIST *tables,
-                                            Item *cond)
+static int rdb_i_s_cfoptions_fill_table(
+    my_core::THD *thd,
+    my_core::TABLE_LIST *tables,
+    my_core::Item *cond MY_ATTRIBUTE((__unused__)))
 {
   DBUG_ASSERT(thd != nullptr);
   DBUG_ASSERT(tables != nullptr);
 
   bool ret;
 
-  DBUG_ENTER("i_s_rocksdb_cfoptions_fill_table");
+  DBUG_ENTER("rdb_i_s_cfoptions_fill_table");
 
   Rdb_cf_manager& cf_manager = rocksdb_get_cf_manager();
 
@@ -632,7 +638,7 @@ static int i_s_rocksdb_cfoptions_fill_table(THD *thd,
                                      cf_option_type.second.size(),
                                      system_charset_info);
 
-      ret = schema_table_store_record(thd, tables->table);
+      ret = my_core::schema_table_store_record(thd, tables->table);
 
       if (ret)
         DBUG_RETURN(ret);
@@ -641,7 +647,7 @@ static int i_s_rocksdb_cfoptions_fill_table(THD *thd,
   DBUG_RETURN(0);
 }
 
-static ST_FIELD_INFO i_s_rocksdb_cfoptions_fields_info[] =
+static ST_FIELD_INFO rdb_i_s_cfoptions_fields_info[] =
 {
   ROCKSDB_FIELD_INFO("CF_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
   ROCKSDB_FIELD_INFO("OPTION_TYPE", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
@@ -650,15 +656,15 @@ static ST_FIELD_INFO i_s_rocksdb_cfoptions_fields_info[] =
 };
 
 /*
- * helper function for i_s_rocksdb_global_info_fill_table
+ * helper function for rdb_i_s_global_info_fill_table
  * to insert (TYPE, KEY, VALUE) rows into
  * information_schema.rocksdb_global_info
  */
-static int global_info_fill_row(THD *thd,
-                             TABLE_LIST *tables,
-                             const char *type,
-                             const char *name,
-                             const char *value)
+static int rdb_global_info_fill_row(my_core::THD *thd,
+                                    my_core::TABLE_LIST *tables,
+                                    const char *type,
+                                    const char *name,
+                                    const char *value)
 {
   DBUG_ASSERT(thd != nullptr);
   DBUG_ASSERT(tables != nullptr);
@@ -674,20 +680,21 @@ static int global_info_fill_row(THD *thd,
   field[1]->store(name, strlen(name), system_charset_info);
   field[2]->store(value, strlen(value), system_charset_info);
 
-  return schema_table_store_record(thd, tables->table);
+  return my_core::schema_table_store_record(thd, tables->table);
 }
 
 /*
   Support for INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO dynamic table
  */
-static int i_s_rocksdb_global_info_fill_table(THD *thd,
-                                              TABLE_LIST *tables,
-                                              Item *cond)
+static int rdb_i_s_global_info_fill_table(
+    my_core::THD *thd,
+    my_core::TABLE_LIST *tables,
+    my_core::Item *cond MY_ATTRIBUTE((__unused__)))
 {
   DBUG_ASSERT(thd != nullptr);
   DBUG_ASSERT(tables != nullptr);
 
-  DBUG_ENTER("i_s_rocksdb_global_info_fill_table");
+  DBUG_ENTER("rdb_i_s_global_info_fill_table");
   static const uint32_t INT_BUF_LEN = 21;
   static const uint32_t GTID_BUF_LEN = 60;
   static const uint32_t CF_ID_INDEX_BUF_LEN = 60;
@@ -705,9 +712,9 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
 
   if (blm->read(file_buf, &pos, gtid_buf)) {
     snprintf(pos_buf, INT_BUF_LEN, "%lu", (uint64_t) pos);
-    ret |= global_info_fill_row(thd, tables, "BINLOG", "FILE", file_buf);
-    ret |= global_info_fill_row(thd, tables, "BINLOG", "POS", pos_buf);
-    ret |= global_info_fill_row(thd, tables, "BINLOG", "GTID", gtid_buf);
+    ret |= rdb_global_info_fill_row(thd, tables, "BINLOG", "FILE", file_buf);
+    ret |= rdb_global_info_fill_row(thd, tables, "BINLOG", "POS", pos_buf);
+    ret |= rdb_global_info_fill_row(thd, tables, "BINLOG", "GTID", gtid_buf);
   }
 
   /* max index info */
@@ -719,8 +726,8 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
 
   if (dict_manager->get_max_index_id(&max_index_id)) {
     snprintf(max_index_id_buf, INT_BUF_LEN, "%u", max_index_id);
-    ret |= global_info_fill_row(thd, tables, "MAX_INDEX_ID", "MAX_INDEX_ID",
-                                max_index_id_buf);
+    ret |= rdb_global_info_fill_row(thd, tables, "MAX_INDEX_ID", "MAX_INDEX_ID",
+                                    max_index_id_buf);
   }
 
   /* cf_id -> cf_flags */
@@ -733,7 +740,7 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
     snprintf(cf_id_buf, INT_BUF_LEN, "%u", cf_handle->GetID());
     snprintf(cf_value_buf, FN_REFLEN, "%s [%u]", cf_handle->GetName().c_str(),
         flags);
-    ret |= global_info_fill_row(thd, tables, "CF_FLAGS", cf_id_buf,
+    ret |= rdb_global_info_fill_row(thd, tables, "CF_FLAGS", cf_id_buf,
         cf_value_buf);
 
     if (ret)
@@ -747,7 +754,7 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
   for (auto gl_index_id : gl_index_ids) {
     snprintf(cf_id_index_buf, CF_ID_INDEX_BUF_LEN, "cf_id:%u,index_id:%u",
         gl_index_id.cf_id, gl_index_id.index_id);
-    ret |= global_info_fill_row(thd, tables, "DDL_DROP_INDEX_ONGOING",
+    ret |= rdb_global_info_fill_row(thd, tables, "DDL_DROP_INDEX_ONGOING",
         cf_id_index_buf, "");
 
     if (ret)
@@ -757,7 +764,7 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
   DBUG_RETURN(ret);
 }
 
-static ST_FIELD_INFO i_s_rocksdb_global_info_fields_info[] =
+static ST_FIELD_INFO rdb_i_s_global_info_fields_info[] =
 {
   ROCKSDB_FIELD_INFO("TYPE", FN_REFLEN+1, MYSQL_TYPE_STRING, 0),
   ROCKSDB_FIELD_INFO("NAME", FN_REFLEN+1, MYSQL_TYPE_STRING, 0),
@@ -765,23 +772,23 @@ static ST_FIELD_INFO i_s_rocksdb_global_info_fields_info[] =
   ROCKSDB_FIELD_INFO_END
 };
 
-struct i_s_rocksdb_ddl {
-  THD *thd;
-  TABLE_LIST *tables;
-  Item *cond;
+struct rdb_i_s_ddl {
+  my_core::THD        *thd;
+  my_core::TABLE_LIST *tables;
+  my_core::Item       *cond;
 };
 
-static int i_s_rocksdb_ddl_callback(void *cb_arg, Rdb_tbl_def *rec)
+static int rdb_i_s_ddl_callback(void *cb_arg, Rdb_tbl_def *rec)
 {
-  struct i_s_rocksdb_ddl *ddl_arg= (struct i_s_rocksdb_ddl*)cb_arg;
+  struct rdb_i_s_ddl *ddl_arg= (struct rdb_i_s_ddl*)cb_arg;
   DBUG_ASSERT(ddl_arg != nullptr);
   DBUG_ASSERT(rec != nullptr);
 
   int ret= 0;
-  THD *thd= ddl_arg->thd;
+  my_core::THD *thd= ddl_arg->thd;
   DBUG_ASSERT(thd != nullptr);
 
-  TABLE_LIST *tables= ddl_arg->tables;
+  my_core::TABLE_LIST *tables= ddl_arg->tables;
   DBUG_ASSERT(tables != nullptr);
 
   StringBuffer<256> dbname, tablename, partname;
@@ -824,14 +831,16 @@ static int i_s_rocksdb_ddl_callback(void *cb_arg, Rdb_tbl_def *rec)
     tables->table->field[8]->store(cf_name.c_str(), cf_name.size(),
                                    system_charset_info);
 
-    ret= schema_table_store_record(thd, tables->table);
+    ret= my_core::schema_table_store_record(thd, tables->table);
     if (ret)
       return ret;
   }
   return 0;
 }
 
-static int i_s_rocksdb_ddl_fill_table(THD *thd, TABLE_LIST *tables, Item *cond)
+static int rdb_i_s_ddl_fill_table(my_core::THD *thd,
+                                  my_core::TABLE_LIST *tables,
+                                  my_core::Item *cond)
 {
   DBUG_ASSERT(thd != nullptr);
   DBUG_ASSERT(tables != nullptr);
@@ -839,16 +848,17 @@ static int i_s_rocksdb_ddl_fill_table(THD *thd, TABLE_LIST *tables, Item *cond)
   int ret;
   Rdb_ddl_manager *ddl_manager= get_ddl_manager();
   DBUG_ASSERT(ddl_manager != nullptr);
-  struct i_s_rocksdb_ddl ddl_arg= { thd, tables, cond };
+  struct rdb_i_s_ddl ddl_arg= { thd, tables, cond };
 
-  DBUG_ENTER("i_s_rocksdb_ddl_fill_table");
+  DBUG_ENTER("rdb_i_s_ddl_fill_table");
 
-  ret= ddl_manager->scan((void*)&ddl_arg, i_s_rocksdb_ddl_callback);
+  ret= ddl_manager->scan(reinterpret_cast<void*>(&ddl_arg),
+                         rdb_i_s_ddl_callback);
 
   DBUG_RETURN(ret);
 }
 
-static ST_FIELD_INFO i_s_rocksdb_ddl_fields_info[] =
+static ST_FIELD_INFO rdb_i_s_ddl_fields_info[] =
 {
   ROCKSDB_FIELD_INFO("TABLE_SCHEMA", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
   ROCKSDB_FIELD_INFO("TABLE_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
@@ -864,53 +874,53 @@ static ST_FIELD_INFO i_s_rocksdb_ddl_fields_info[] =
   ROCKSDB_FIELD_INFO_END
 };
 
-static int i_s_rocksdb_ddl_init(void *p)
+static int rdb_i_s_ddl_init(void *p)
 {
-  ST_SCHEMA_TABLE *schema;
+  my_core::ST_SCHEMA_TABLE *schema;
 
-  DBUG_ENTER("i_s_rocksdb_ddl_init");
+  DBUG_ENTER("rdb_i_s_ddl_init");
   DBUG_ASSERT(p != nullptr);
 
-  schema= (ST_SCHEMA_TABLE*) p;
+  schema= (my_core::ST_SCHEMA_TABLE*) p;
 
-  schema->fields_info= i_s_rocksdb_ddl_fields_info;
-  schema->fill_table= i_s_rocksdb_ddl_fill_table;
+  schema->fields_info= rdb_i_s_ddl_fields_info;
+  schema->fill_table= rdb_i_s_ddl_fill_table;
 
   DBUG_RETURN(0);
 }
 
-static int i_s_rocksdb_cfoptions_init(void *p)
+static int rdb_i_s_cfoptions_init(void *p)
 {
-  ST_SCHEMA_TABLE *schema;
+  my_core::ST_SCHEMA_TABLE *schema;
 
-  DBUG_ENTER("i_s_rocksdb_cfoptions_init");
+  DBUG_ENTER("rdb_i_s_cfoptions_init");
   DBUG_ASSERT(p != nullptr);
 
-  schema= (ST_SCHEMA_TABLE*) p;
+  schema= (my_core::ST_SCHEMA_TABLE*) p;
 
-  schema->fields_info= i_s_rocksdb_cfoptions_fields_info;
-  schema->fill_table= i_s_rocksdb_cfoptions_fill_table;
+  schema->fields_info= rdb_i_s_cfoptions_fields_info;
+  schema->fill_table= rdb_i_s_cfoptions_fill_table;
 
   DBUG_RETURN(0);
 }
 
-static int i_s_rocksdb_global_info_init(void *p)
+static int rdb_i_s_global_info_init(void *p)
 {
-  ST_SCHEMA_TABLE *schema;
+  my_core::ST_SCHEMA_TABLE *schema;
 
-  DBUG_ENTER("i_s_rocksdb_global_info_init");
+  DBUG_ENTER("rdb_i_s_global_info_init");
   DBUG_ASSERT(p != nullptr);
 
-  schema= reinterpret_cast<ST_SCHEMA_TABLE*>(p);
+  schema= reinterpret_cast<my_core::ST_SCHEMA_TABLE*>(p);
 
-  schema->fields_info= i_s_rocksdb_global_info_fields_info;
-  schema->fill_table= i_s_rocksdb_global_info_fill_table;
+  schema->fields_info= rdb_i_s_global_info_fields_info;
+  schema->fill_table= rdb_i_s_global_info_fill_table;
 
   DBUG_RETURN(0);
 }
 
 /* Given a path to a file return just the filename portion. */
-static std::string filename_without_path(
+static std::string rdb_filename_without_path(
     const std::string& path)
 {
   /* Find last slash in path */
@@ -926,10 +936,10 @@ static std::string filename_without_path(
 }
 
 /* Fill the information_schema.rocksdb_index_file_map virtual table */
-static int i_s_rocksdb_index_file_map_fill_table(
-    THD        *thd,
-    TABLE_LIST *tables,
-    Item       *cond)
+static int rdb_i_s_index_file_map_fill_table(
+    my_core::THD        *thd,
+    my_core::TABLE_LIST *tables,
+    my_core::Item       *cond MY_ATTRIBUTE((__unused__)))
 {
   DBUG_ASSERT(thd != nullptr);
   DBUG_ASSERT(tables != nullptr);
@@ -939,7 +949,7 @@ static int i_s_rocksdb_index_file_map_fill_table(
   Field **field = tables->table->field;
   DBUG_ASSERT(field != nullptr);
 
-  DBUG_ENTER("i_s_rocksdb_index_file_map_fill_table");
+  DBUG_ENTER("rdb_i_s_index_file_map_fill_table");
 
   /* Iterate over all the column families */
   rocksdb::DB *rdb= rocksdb_get_rdb();
@@ -959,11 +969,11 @@ static int i_s_rocksdb_index_file_map_fill_table(
      * name and the actual properties */
     for (auto props : table_props_collection) {
       /* Add the SST name into the output */
-      std::string sst_name = filename_without_path(props.first);
+      std::string sst_name = rdb_filename_without_path(props.first);
       field[2]->store(sst_name.data(), sst_name.size(), system_charset_info);
 
       /* Get the __indexstats__ data out of the table property */
-      std::vector<Rdb_index_stats> stats =
+      std::vector<Rdb_index_stats> stats=
           Rdb_tbl_prop_coll::read_stats_from_tbl_props(props.second);
       if (stats.empty()) {
         field[0]->store(-1, true);
@@ -988,7 +998,7 @@ static int i_s_rocksdb_index_file_map_fill_table(
           field[8]->store(it.m_entry_others, true);
 
           /* Tell MySQL about this row in the virtual table */
-          ret= schema_table_store_record(thd, tables->table);
+          ret= my_core::schema_table_store_record(thd, tables->table);
           if (ret != 0) {
             break;
           }
@@ -1000,7 +1010,7 @@ static int i_s_rocksdb_index_file_map_fill_table(
   DBUG_RETURN(ret);
 }
 
-static ST_FIELD_INFO i_s_rocksdb_index_file_map_fields_info[] =
+static ST_FIELD_INFO rdb_i_s_index_file_map_fields_info[] =
 {
   /* The information_schema.rocksdb_index_file_map virtual table has four fields:
    *   COLUMN_FAMILY => the index's column family contained in the SST file
@@ -1022,40 +1032,40 @@ static ST_FIELD_INFO i_s_rocksdb_index_file_map_fields_info[] =
 };
 
 /* Initialize the information_schema.rocksdb_index_file_map virtual table */
-static int i_s_rocksdb_index_file_map_init(void *p)
+static int rdb_i_s_index_file_map_init(void *p)
 {
-  ST_SCHEMA_TABLE *schema;
+  my_core::ST_SCHEMA_TABLE *schema;
 
-  DBUG_ENTER("i_s_rocksdb_index_file_map_init");
+  DBUG_ENTER("rdb_i_s_index_file_map_init");
   DBUG_ASSERT(p != nullptr);
 
-  schema= (ST_SCHEMA_TABLE*) p;
+  schema= (my_core::ST_SCHEMA_TABLE*) p;
 
-  schema->fields_info=i_s_rocksdb_index_file_map_fields_info;
-  schema->fill_table=i_s_rocksdb_index_file_map_fill_table;
+  schema->fields_info= rdb_i_s_index_file_map_fields_info;
+  schema->fill_table= rdb_i_s_index_file_map_fill_table;
 
   DBUG_RETURN(0);
 }
 
-static int i_s_rocksdb_deinit(void *p)
+static int rdb_i_s_deinit(void *p MY_ATTRIBUTE((__unused__)))
 {
-  DBUG_ENTER("i_s_rocksdb_deinit");
+  DBUG_ENTER("rdb_i_s_deinit");
   DBUG_RETURN(0);
 }
 
-static struct st_mysql_information_schema i_s_rocksdb_info=
+static struct st_mysql_information_schema rdb_i_s_info=
 { MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION };
 
-struct st_mysql_plugin i_s_rocksdb_cfstats=
+struct st_mysql_plugin rdb_i_s_cfstats=
 {
   MYSQL_INFORMATION_SCHEMA_PLUGIN,
-  &i_s_rocksdb_info,
+  &rdb_i_s_info,
   "ROCKSDB_CFSTATS",
   "Facebook",
   "RocksDB column family stats",
   PLUGIN_LICENSE_GPL,
-  i_s_rocksdb_cfstats_init,
-  i_s_rocksdb_deinit,
+  rdb_i_s_cfstats_init,
+  rdb_i_s_deinit,
   0x0001,                             /* version number (0.1) */
   nullptr,                            /* status variables */
   nullptr,                            /* system variables */
@@ -1063,16 +1073,16 @@ struct st_mysql_plugin i_s_rocksdb_cfstats=
   0,                                  /* flags */
 };
 
-struct st_mysql_plugin i_s_rocksdb_dbstats=
+struct st_mysql_plugin rdb_i_s_dbstats=
 {
   MYSQL_INFORMATION_SCHEMA_PLUGIN,
-  &i_s_rocksdb_info,
+  &rdb_i_s_info,
   "ROCKSDB_DBSTATS",
   "Facebook",
   "RocksDB database stats",
   PLUGIN_LICENSE_GPL,
-  i_s_rocksdb_dbstats_init,
-  i_s_rocksdb_deinit,
+  rdb_i_s_dbstats_init,
+  rdb_i_s_deinit,
   0x0001,                             /* version number (0.1) */
   nullptr,                            /* status variables */
   nullptr,                            /* system variables */
@@ -1080,16 +1090,16 @@ struct st_mysql_plugin i_s_rocksdb_dbstats=
   0,                                  /* flags */
 };
 
-struct st_mysql_plugin i_s_rocksdb_perf_context=
+struct st_mysql_plugin rdb_i_s_perf_context=
 {
   MYSQL_INFORMATION_SCHEMA_PLUGIN,
-  &i_s_rocksdb_info,
+  &rdb_i_s_info,
   "ROCKSDB_PERF_CONTEXT",
   "Facebook",
   "RocksDB perf context stats",
   PLUGIN_LICENSE_GPL,
-  i_s_rocksdb_perf_context_init,
-  i_s_rocksdb_deinit,
+  rdb_i_s_perf_context_init,
+  rdb_i_s_deinit,
   0x0001,                             /* version number (0.1) */
   nullptr,                            /* status variables */
   nullptr,                            /* system variables */
@@ -1097,16 +1107,16 @@ struct st_mysql_plugin i_s_rocksdb_perf_context=
   0,                                  /* flags */
 };
 
-struct st_mysql_plugin i_s_rocksdb_perf_context_global=
+struct st_mysql_plugin rdb_i_s_perf_context_global=
 {
   MYSQL_INFORMATION_SCHEMA_PLUGIN,
-  &i_s_rocksdb_info,
+  &rdb_i_s_info,
   "ROCKSDB_PERF_CONTEXT_GLOBAL",
   "Facebook",
   "RocksDB perf context stats (all)",
   PLUGIN_LICENSE_GPL,
-  i_s_rocksdb_perf_context_global_init,
-  i_s_rocksdb_deinit,
+  rdb_i_s_perf_context_global_init,
+  rdb_i_s_deinit,
   0x0001,                             /* version number (0.1) */
   nullptr,                            /* status variables */
   nullptr,                            /* system variables */
@@ -1114,16 +1124,16 @@ struct st_mysql_plugin i_s_rocksdb_perf_context_global=
   0,                                  /* flags */
 };
 
-struct st_mysql_plugin i_s_rocksdb_cfoptions=
+struct st_mysql_plugin rdb_i_s_cfoptions=
 {
   MYSQL_INFORMATION_SCHEMA_PLUGIN,
-  &i_s_rocksdb_info,
+  &rdb_i_s_info,
   "ROCKSDB_CF_OPTIONS",
   "Facebook",
   "RocksDB column family options",
   PLUGIN_LICENSE_GPL,
-  i_s_rocksdb_cfoptions_init,
-  i_s_rocksdb_deinit,
+  rdb_i_s_cfoptions_init,
+  rdb_i_s_deinit,
   0x0001,                             /* version number (0.1) */
   nullptr,                            /* status variables */
   nullptr,                            /* system variables */
@@ -1131,16 +1141,16 @@ struct st_mysql_plugin i_s_rocksdb_cfoptions=
   0,                                  /* flags */
 };
 
-struct st_mysql_plugin i_s_rocksdb_global_info=
+struct st_mysql_plugin rdb_i_s_global_info=
 {
   MYSQL_INFORMATION_SCHEMA_PLUGIN,
-  &i_s_rocksdb_info,
+  &rdb_i_s_info,
   "ROCKSDB_GLOBAL_INFO",
   "Facebook",
   "RocksDB global info",
   PLUGIN_LICENSE_GPL,
-  i_s_rocksdb_global_info_init,
-  i_s_rocksdb_deinit,
+  rdb_i_s_global_info_init,
+  rdb_i_s_deinit,
   0x0001,                             /* version number (0.1) */
   nullptr,                            /* status variables */
   nullptr,                            /* system variables */
@@ -1148,16 +1158,16 @@ struct st_mysql_plugin i_s_rocksdb_global_info=
   0,                                  /* flags */
 };
 
-struct st_mysql_plugin i_s_rocksdb_ddl=
+struct st_mysql_plugin rdb_i_s_ddl=
 {
   MYSQL_INFORMATION_SCHEMA_PLUGIN,
-  &i_s_rocksdb_info,
+  &rdb_i_s_info,
   "ROCKSDB_DDL",
   "Facebook",
   "RocksDB Data Dictionary",
   PLUGIN_LICENSE_GPL,
-  i_s_rocksdb_ddl_init,
-  i_s_rocksdb_deinit,
+  rdb_i_s_ddl_init,
+  rdb_i_s_deinit,
   0x0001,                             /* version number (0.1) */
   nullptr,                            /* status variables */
   nullptr,                            /* system variables */
@@ -1165,16 +1175,16 @@ struct st_mysql_plugin i_s_rocksdb_ddl=
   0,                                  /* flags */
 };
 
-struct st_mysql_plugin i_s_rocksdb_index_file_map=
+struct st_mysql_plugin rdb_i_s_index_file_map=
 {
   MYSQL_INFORMATION_SCHEMA_PLUGIN,
-  &i_s_rocksdb_info,
+  &rdb_i_s_info,
   "ROCKSDB_INDEX_FILE_MAP",
   "Facebook",
   "RocksDB index file map",
   PLUGIN_LICENSE_GPL,
-  i_s_rocksdb_index_file_map_init,
-  i_s_rocksdb_deinit,
+  rdb_i_s_index_file_map_init,
+  rdb_i_s_deinit,
   0x0001,                             /* version number (0.1) */
   nullptr,                            /* status variables */
   nullptr,                            /* system variables */

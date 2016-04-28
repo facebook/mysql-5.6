@@ -143,6 +143,7 @@ storage/rocksdb/ldb
 storage/rocksdb/mysql_ldb
 storage/rocksdb/sst_dump
 storage/rocksdb/unittest/test_properties_collector
+storage/rocksdb/__dev_temp
 support-files/MySQL-shared-compat.spec
 support-files/binary-configure
 support-files/my-default.cnf
