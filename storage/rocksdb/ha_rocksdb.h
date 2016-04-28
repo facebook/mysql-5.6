@@ -731,6 +731,8 @@ int read_before_key(Rdb_key_def *kd, bool using_full_key,
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   void read_thd_vars(THD *thd)
     MY_ATTRIBUTE((__nonnull__));
+  bool contains_foreign_key(THD* thd)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 public:
   int index_init(uint idx, bool sorted) MY_ATTRIBUTE((__warn_unused_result__));
   int index_end() MY_ATTRIBUTE((__warn_unused_result__));
