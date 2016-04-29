@@ -10,6 +10,14 @@ final class FacebookMySQLUnitTestEngine extends ArcanistBaseUnitTestEngine {
   }
 
   public function run() {
+    if (getenv('USE_SANDCASTLE')) {
+      // If Sandcastle is being used then no work is necessary here because
+      // the code for submitting a diff will take care of creating necessary
+      // properties and if we'll create the property here as well then it'll
+      // override everything specified earlier.
+      return array();
+    }
+
     if ($this->getEnableAsyncTests()) {
       // 'arc diff' workflow.
       //
