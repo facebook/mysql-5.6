@@ -108,4 +108,8 @@ const char* rdb_parse_id(struct charset_info_st* cs, const char *str,
 
 const char* rdb_skip_id(struct charset_info_st* cs, const char *str)
   MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+
+std::string rdb_hexdump(const char *data, std::size_t data_len,
+                        std::size_t maxsize = 0)
+  MY_ATTRIBUTE((__nonnull__));
 }  // namespace myrocks
