@@ -14,31 +14,73 @@ use strict;
 use Cwd;
 use File::Copy qw(copy);
 
+my $mysql_git_hash = "";
+my $mysql_git_date = "";
+my $rocksdb_git_hash = "";
+my $rocksdb_git_date = "";
+
 # Simple command line processing that expects just two items
 #  1) a subdirectory
 #  2) a file name
 sub process_cmd_line {
   my $root = "";
   my $infile = "";
+  my $bitmask = 0;
+  my $help = "
+usage:
+  $0 {options}
+
+where options are
+  --git_root=<path>
+  --file=<file>
+  [--mysql_githash=<hash>]
+  [--mysql_gitdate=<date>]
+  [--rocksdb_githash=<hash>]
+  [--rocksdb_gitdate=<date>]
+";
 
   # Loop through the command line arguments
-  foreach (@_) {
-    if (!length($root)) {
-      # If we don't already have the root directory, get it
-      $root = $_;
+  foreach my $option (@_) {
+    if ($option =~ /^--git_root/)
+    {
+      $root = substr($option, 11);
+      next;
     }
-    elsif (!length($infile)) {
-      # If we don't already have the file name, get it
-      $infile = $_;
+    if ($option =~ /^--file/)
+    {
+      $infile = substr($option, 7);
+      next;
     }
-    else {
-      die "Too many parameters - $_";
+    if ($option =~ /^--mysql_githash/)
+    {
+      $bitmask = $bitmask | 1;
+      $mysql_git_hash = substr($option, 16);
+      next;
     }
+    if ($option =~ /^--mysql_gitdate/)
+    {
+      $bitmask = $bitmask | 2;
+      $mysql_git_date = substr($option, 16);
+      next;
+    }
+    if ($option =~ /^--rocksdb_githash/)
+    {
+      $bitmask = $bitmask | 4;
+      $rocksdb_git_hash = substr($option, 18);
+      next;
+    }
+    if ($option =~ /^--rocksdb_gitdate/)
+    {
+      $bitmask = $bitmask | 8;
+      $rocksdb_git_date = substr($option, 18);
+      next;
+    }
+
+    die "Invalid option: $option\n$help";
   }
 
-  # Check to make sure we got what we expected
-  die "Too few parameters, expect githash.pl <git_root> <file>"
-      unless length($infile);
+  die "If you specify any of the git hashes or dates you must specify them all"
+      unless ($bitmask == 0 || $bitmask == 15);
 
   # Return the parameters to the caller
   return ($root, $infile);
@@ -53,7 +95,7 @@ sub git_hash_and_date {
   chdir($subdir) or die "Can't change directory to $subdir";
 
   # Get the hash and date from the most recent revision in the repository
-  my $git_cmd = "git log -1 --format=\"%H;%cd\"";
+  my $git_cmd = "git log -1 --format=\"%H;%cI\"";
   open (my $log, "$git_cmd |") or die "Can't run $git_cmd";
 
   my $githash = "";
@@ -89,10 +131,12 @@ sub main {
   my $rocksdb = "$root/rocksdb";
   my $outfile = "$infile.tmp";
 
-  # retrieve the git hash and date for the main repository
-  my ($mysql_git_hash, $mysql_git_date) = git_hash_and_date $root;
-  # retrieve the git hash and date for the rocksdb submodule
-  my ($rocksdb_git_hash, $rocksdb_git_date) = git_hash_and_date $rocksdb;
+  if ($mysql_git_hash eq "") {
+    # retrieve the git hash and date for the main repository
+    ($mysql_git_hash, $mysql_git_date) = git_hash_and_date $root;
+    # retrieve the git hash and date for the rocksdb submodule
+    ($rocksdb_git_hash, $rocksdb_git_date) = git_hash_and_date $rocksdb;
+  }
 
   # Open the user's file for reading and a temporary file for writing
   open(my $in, "<", $infile) or die "Could not open $infile";
