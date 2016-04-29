@@ -5130,32 +5130,6 @@ int ha_rocksdb::index_read_last_map(uchar * buf, const uchar * key,
 }
 
 
-/*
-  Print a value into provided buffer, in hex form.
-*/
-void hexdump_value(char *strbuf, size_t strbuf_size, const rocksdb::Slice &val)
-{
-  char *p= strbuf;
-  strbuf_size -= 3;
-  for (size_t i= 0; i < val.size(); i++)
-  {
-    uint c= (uint)(uchar)val[i];
-    DBUG_ASSERT( c < 0x100);
-    int len= snprintf(p, strbuf + strbuf_size - p, "%02x", c);
-    DBUG_ASSERT(len == 2);
-    p += len;
-    if (p >= strbuf + strbuf_size - 10)
-    {
-      // End the value with '..' if we ran out of buffer space
-      p[0]= '.';
-      p[1]= '.';
-      p[2]=0;
-      return;
-    }
-  }
-  *p= 0;
-}
-
 int ha_rocksdb::check(THD* thd, HA_CHECK_OPT* check_opt)
 {
   uint pk= pk_index(table, tbl_def);
@@ -5271,21 +5245,22 @@ int ha_rocksdb::check(THD* thd, HA_CHECK_OPT* check_opt)
 
 print_and_error:
         {
-          char buf[1000];
-          hexdump_value(buf, 1000, rocksdb::Slice(rowkey_copy.ptr(),
-                                                  rowkey_copy.length()));
+          std::string buf;
+          buf = rdb_hexdump(rowkey_copy.ptr(), rowkey_copy.length(), 1000);
           // NO_LINT_DEBUG
-          sql_print_error("CHECKTABLE %s:   rowkey: %s", table_name, buf);
+          sql_print_error("CHECKTABLE %s:   rowkey: %s", table_name,
+                          buf.c_str());
 
-          hexdump_value(buf, 1000, rocksdb::Slice(retrieved_record.data(),
-                                                  retrieved_record.size()));
+          buf = rdb_hexdump(retrieved_record.data(), retrieved_record.size(),
+                              1000);
           // NO_LINT_DEBUG
-          sql_print_error("CHECKTABLE %s:   record: %s", table_name, buf);
+          sql_print_error("CHECKTABLE %s:   record: %s", table_name,
+                          buf.c_str());
 
-          hexdump_value(buf, 1000, rocksdb::Slice(sec_key_copy.ptr(),
-                                                  sec_key_copy.length()));
+          buf = rdb_hexdump(sec_key_copy.ptr(), sec_key_copy.length(), 1000);
           // NO_LINT_DEBUG
-          sql_print_error("CHECKTABLE %s:   index: %s", table_name, buf);
+          sql_print_error("CHECKTABLE %s:   index: %s", table_name,
+                          buf.c_str());
 
           goto error;
         }
