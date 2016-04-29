@@ -187,6 +187,10 @@ case "$type" in
                 -DWITH_EXTRA_CHARSETS=all \
                 -DWITH_EMBEDDED_SERVER=1 \
                 -DWITHOUT_ROCKSDB_SE_STORAGE_ENGINE=1 \
+                -DMYSQL_GITHASH=--mysql_githash=\"empty\" \
+                -DMYSQL_GITDATE=--mysql_gitdate=\"empty\" \
+                -DROCKSDB_GITHASH=--rocksdb_githash=\"empty\" \
+                -DROCKSDB_GITDATE=--rocksdb_gitdate=\"empty\" \
                 -DMYSQL_MAINTAINER_MODE=1 \
                 -DMYSQL_ROOT_DIR=$server_dir \
                 -DCMAKE_AR=$AR \
