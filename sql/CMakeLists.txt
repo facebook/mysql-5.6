@@ -514,10 +514,28 @@ ADD_CUSTOM_TARGET(show-dist-name
 # mysql_githash.h.in changed rebuild the mysql_githash.h file
 SET(GITHASH_HEADER_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/mysql_githash.h.in)
 SET(GITHASH_HEADER ${CMAKE_CURRENT_BINARY_DIR}/mysql_githash.h)
+
+SET(GITHASH_DEPENDS ${GITHASH_HEADER_SOURCE})
+SET(GITHASH_PERL_OPTS --git_root=${CMAKE_SOURCE_DIR} --file=${GITHASH_HEADER})
+IF(MYSQL_GITHASH)
+  # If the hashes and dates are passed in add them to the parameters for
+  # the perl script
+  SET(GITHASH_PERL_OPTS ${GITHASH_PERL_OPTS}
+                        --mysql_githash=${MYSQL_GITHASH}
+                        --mysql_gitdate=${MYSQL_GITDATE}
+                        --rocksdb_githash=${ROCKSDB_GITHASH}
+                        --rocksdb_gitdate=${ROCKSDB_GITDATE})
+ELSE()
+  # Otherwise we want to add the .git/logs/HEAD file to the list of
+  # dependencies
+  SET(GITHASH_DEPENDS ${GITHASH_DEPENDS} ${CMAKE_SOURCE_DIR}/.git/logs/HEAD)
+ENDIF()
+
 SET(GITHASH_PERL ${CMAKE_SOURCE_DIR}/cmake/githash.pl)
 ADD_CUSTOM_COMMAND(OUTPUT ${GITHASH_HEADER}
   COMMAND ${CMAKE_COMMAND} -E copy ${GITHASH_HEADER_SOURCE} ${GITHASH_HEADER}
-  COMMAND perl ${GITHASH_PERL} ${CMAKE_SOURCE_DIR} ${GITHASH_HEADER}
-  DEPENDS ${CMAKE_SOURCE_DIR}/.git/logs/HEAD ${GITHASH_HEADER_SOURCE}
+  COMMAND ${CMAKE_COMMAND} -E echo ${GITHASH_PERL} ${GITHASH_PERL_OPTS}
+  COMMAND perl ${GITHASH_PERL} ${GITHASH_PERL_OPTS}
+  DEPENDS ${GITHASH_DEPENDS}
   VERBATIM
 )
