@@ -7221,8 +7221,8 @@ ER_DB_FAILED_TO_LOCK_REC_NOWAIT
 ER_UNKNOWN_DB_READ_ONLY
   eng "Unknown db read ony option: '%-.64s'"
 
-ER_PLACE_HOLDER_1923
-  eng "PLACE HOLDER."
+ER_GIT_HASH
+  eng "%s git hash: %s - %s"
 ER_PLACE_HOLDER_1924
   eng "PLACE HOLDER."
 ER_PLACE_HOLDER_1925
