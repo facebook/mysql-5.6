@@ -18,6 +18,7 @@
 #include "./rdb_utils.h"
 
 /* C++ standard header files */
+#include <array>
 #include <string>
 
 /* C standard header files */
@@ -234,6 +235,56 @@ const char* rdb_skip_id(struct charset_info_st* cs, const char *str)
   DBUG_ASSERT(str != nullptr);
 
   return rdb_parse_id(cs, str, nullptr);
+}
+
+static const std::size_t rdb_hex_bytes_per_char = 2;
+static const std::array<char, 16> rdb_hexdigit =
+{
+  { '0', '1', '2', '3', '4', '5', '6', '7',
+    '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' }
+};
+
+/*
+  Convert data into a hex string with optional maximum length.
+  If the data is larger than the maximum length trancate it and append "..".
+*/
+std::string rdb_hexdump(const char *data, std::size_t data_len,
+                        std::size_t maxsize)
+{
+  DBUG_ASSERT(data != nullptr);
+
+  // Count the elements in the string
+  std::size_t elems = data_len;
+  // Calculate the amount of output needed
+  std::size_t len = elems * rdb_hex_bytes_per_char;
+  std::string str;
+
+  if (maxsize != 0 && len > maxsize)
+  {
+    // If the amount of output is too large adjust the settings
+    // and leave room for the ".." at the end
+    elems = (maxsize - 2) / rdb_hex_bytes_per_char;
+    len = elems * rdb_hex_bytes_per_char + 2;
+  }
+
+  // Reserve sufficient space to avoid reallocations
+  str.reserve(len);
+
+  // Loop through the input data and build the output string
+  for (std::size_t ii = 0; ii < elems; ii++, data++)
+  {
+    uint8_t ch = (uint8_t) *data;
+    str += rdb_hexdigit[ch >> 4];
+    str += rdb_hexdigit[ch & 0x0F];
+  }
+
+  // If we can't fit it all add the ".."
+  if (elems != data_len)
+  {
+    str += "..";
+  }
+
+  return str;
 }
 
 }  // namespace myrocks
