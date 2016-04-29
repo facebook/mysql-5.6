@@ -7026,16 +7026,17 @@ int mysqld_main(int argc, char **argv)
   create_shutdown_thread();
   start_handle_manager();
 
+  // NO_LINT_DEBUG
+  sql_print_information(ER_DEFAULT(ER_GIT_HASH), "MySQL", git_hash, git_date);
+  // NO_LINT_DEBUG
+  sql_print_information(ER_DEFAULT(ER_GIT_HASH), "RocksDB", rocksdb_git_hash,
+                        rocksdb_git_date);
+
   sql_print_information(ER_DEFAULT(ER_STARTUP),my_progname,server_version,
                         ((mysql_socket_getfd(unix_sock) == INVALID_SOCKET) ? (char*) ""
                                                        : mysqld_unix_port),
                          mysqld_port,
                          MYSQL_COMPILATION_COMMENT);
-  // NO_LINT_DEBUG
-  sql_print_information("MySQL git hash: %s (%s)", git_hash, git_date);
-  // NO_LINT_DEBUG
-  sql_print_information("RocksDB git hash: %s (%s)", rocksdb_git_hash,
-                        rocksdb_git_date);
 #if defined(_WIN32) && !defined(EMBEDDED_LIBRARY)
   Service.SetRunning();
 #endif
