@@ -13,35 +13,19 @@ use strict;
 
 use Cwd;
 use File::Copy qw(copy);
+use Getopt::Long qw(GetOptions);
+use Pod::Usage qw(pod2usage);
 
-# Simple command line processing that expects just two items
-#  1) a subdirectory
-#  2) a file name
-sub process_cmd_line {
-  my $root = "";
-  my $infile = "";
+sub check_all_or_none {
+  my $bitmask = 0;
 
-  # Loop through the command line arguments
-  foreach (@_) {
-    if (!length($root)) {
-      # If we don't already have the root directory, get it
-      $root = $_;
-    }
-    elsif (!length($infile)) {
-      # If we don't already have the file name, get it
-      $infile = $_;
-    }
-    else {
-      die "Too many parameters - $_";
-    }
-  }
+  $bitmask = $bitmask | 1 if shift ne "";
+  $bitmask = $bitmask | 2 if shift ne "";
+  $bitmask = $bitmask | 4 if shift ne "";
+  $bitmask = $bitmask | 8 if shift ne "";
 
-  # Check to make sure we got what we expected
-  die "Too few parameters, expect githash.pl <git_root> <file>"
-      unless length($infile);
-
-  # Return the parameters to the caller
-  return ($root, $infile);
+  pod2usage("You must specify none or all of the git hashes and dates")
+      unless ($bitmask == 0 || $bitmask == 15);
 }
 
 # Function to retrieve the git hash and date from a repository
@@ -50,10 +34,10 @@ sub git_hash_and_date {
   my $orgdir = Cwd::getcwd;
 
   # Switch directories to the specified one
-  chdir($subdir) or die "Can't change directory to $subdir";
+  chdir($subdir) or die "Can't change directory to '$subdir'";
 
   # Get the hash and date from the most recent revision in the repository
-  my $git_cmd = "git log -1 --format=\"%H;%cd\"";
+  my $git_cmd = "git log -1 --format=\"%H;%cI\"";
   open (my $log, "$git_cmd |") or die "Can't run $git_cmd";
 
   my $githash = "";
@@ -82,21 +66,45 @@ sub git_hash_and_date {
 
 # main function
 sub main {
-  # expect two parameters -
-  #   1) the root of the git repository
-  #   2) the file to update with the git hash and date
-  (my $root, my $infile) = process_cmd_line(@_);
+  my $root = "";
+  my $infile = "";
+  my $mysql_git_hash = "";
+  my $mysql_git_date = "";
+  my $rocksdb_git_hash = "";
+  my $rocksdb_git_date = "";
+  my $help = 0;
+
+  # Get the parameters
+  GetOptions(
+    'help|?' => \$help,
+    'git_root=s' => \$root,
+    'file=s' => \$infile,
+    'mysql_githash=s' => \$mysql_git_hash,
+    'mysql_gitdate=s' => \$mysql_git_date,
+    'rocksdb_githash=s' => \$rocksdb_git_hash,
+    'rocksdb_gitdate=s' => \$rocksdb_git_date
+  ) or pod2usage();
+
+  # Validate the parameters
+  pod2usage(-verbose => 1) if $help;
+  pod2usage("missing required parameter --git_root") if $root eq "";
+  pos2usage("missing required parameter --file") if $infile eq "";
+  check_all_or_none($mysql_git_hash, $mysql_git_date,
+                    $rocksdb_git_hash, $rocksdb_git_date);
+
   my $rocksdb = "$root/rocksdb";
   my $outfile = "$infile.tmp";
 
-  # retrieve the git hash and date for the main repository
-  my ($mysql_git_hash, $mysql_git_date) = git_hash_and_date $root;
-  # retrieve the git hash and date for the rocksdb submodule
-  my ($rocksdb_git_hash, $rocksdb_git_date) = git_hash_and_date $rocksdb;
+  if ($mysql_git_hash eq "") {
+    # retrieve the git hash and date for the main repository
+    ($mysql_git_hash, $mysql_git_date) = git_hash_and_date $root;
+    # retrieve the git hash and date for the rocksdb submodule
+    ($rocksdb_git_hash, $rocksdb_git_date) = git_hash_and_date $rocksdb;
+  }
 
   # Open the user's file for reading and a temporary file for writing
-  open(my $in, "<", $infile) or die "Could not open $infile";
-  open(my $out, ">", $outfile) or die "Could not create $outfile";
+  open(my $in, "<", $infile) or die "Could not open '$infile'";
+  open(my $out, ">", $outfile) or die "Could not create '$outfile'";
 
   # For each line, see if we can replace anything
   while (<$in>) {
@@ -112,8 +120,84 @@ sub main {
   close $out;
 
   # Copy the temporary file to the original and then delete it
-  copy $outfile, $infile or die "Unable to copy temp file on top of original";
+  copy $outfile, $infile or
+      die "Unable to copy temp file ($outfile) on top of original ($infile)";
   unlink $outfile;
 }
 
 main(@ARGV);
+
+=head1 NAME
+
+githash.pl - Generate the mysql_githash.h file for MySQL
+
+=head1 SYNOPSIS
+
+githash.pl [options]
+
+  Options:
+    --help                        Brief help message
+    --git_root=<path>             Path to the root of the MySQL git repository
+    --file=<file>                 File to update with the git hashes and dates
+    --mysql_githash=<hash_str>    Optional git hash to use for MySQL
+    --mysql_gitdate=<date_str>    Optional git date to use for MySQL
+    --rocksdb_githash=<hash_str>  Optional git hash to use for RocksDB
+    --rocksdb_gitdate=<date_str>  Optional git date to use for RocksDB
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<--help>
+
+Print a brief help message list all the options and exits
+
+=item B<--git_root>
+
+Supplies the path to the root git repository.  If the optional hashes and
+dates are not supplied this script will call 'git log' in this location to get
+the hashes and dates.
+
+=item B<--file>
+
+Specifies the file to update.  This file will be scanned for the following
+markers, which will be replaced by the corresponding hash or date:
+
+  @MYSQL_GIT_HASH@
+  @MYSQL_GIT_DATE@
+  @ROCKSDB_GIT_HASH@
+  @ROCKSDB_GIT_DATE@
+
+=item B<--mysql_githash>
+
+Optional git hash for the MySQL repository.  If this is not specified the
+script will use "git log" to query the repository.  If one of the hashes or
+dates is supplied, all of them must be supplied.
+
+=item B<--mysql_gitdate>
+
+Optional git date for the MySQL repository.  If this is not specified the
+script will use "git log" to query the repository.  If one of the hashes or
+dates is supplied, all of them must be supplied.
+
+=item B<--rocksdb_githash>
+
+Optional git hash for the RocksDB repository.  If this is not specified the
+script will use "git log" to query the repository.  If one of the hashes or
+dates is supplied, all of them must be supplied.
+
+=item B<--rocksdb_gitdate>
+
+Optional git date for the RocksDB repository.  If this is not specified the
+script will use "git log" to query the repository.  If one of the hashes or
+dates is supplied, all of them must be supplied.
+
+=back
+
+=head1 DESCRIPTION
+
+B<This program> will take the git hashes and dates (either supplied via
+parameters or retrieved from 'git log') and update the specified file with the
+values.
+
+=cut
