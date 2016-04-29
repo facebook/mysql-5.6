@@ -179,9 +179,6 @@ const char CHECKSUM_DATA_TAG=0x01;
 void report_checksum_mismatch(Rdb_key_def *kd, bool is_key,
                               const char *data, size_t data_size);
 
-void hexdump_value(char *strbuf, size_t strbuf_size,
-                   const rocksdb::Slice &val);
-
 /*
   An object of this class represents information about an index in an SQL
   table. It provides services to encode and decode index tuples.
