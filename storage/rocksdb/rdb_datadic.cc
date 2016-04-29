@@ -1598,13 +1598,16 @@ Field *Rdb_field_packing::get_field_in_table(TABLE *tbl) const
 void report_checksum_mismatch(Rdb_key_def *kd, bool is_key,
                               const char *data, size_t data_size)
 {
-  char buf[1024];
+  std::string buf;
+
+  // NO_LINT_DEBUG
   sql_print_error("Checksum mismatch in %s of key-value pair for index 0x%x",
-                   is_key? "key" : "value",
-                   kd->get_index_number());
-  hexdump_value(buf, sizeof(buf), rocksdb::Slice(data, data_size));
-  sql_print_error("Data with incorrect checksum (%ld bytes): %s",
-                  (long)data_size, buf);
+                   is_key? "key" : "value", kd->get_index_number());
+
+  buf = rdb_hexdump(data, data_size, 1000);
+  // NO_LINT_DEBUG
+  sql_print_error("Data with incorrect checksum (%u bytes): %s",
+                  (uint32_t) data_size, buf.c_str());
 
   my_error(ER_INTERNAL_ERROR, MYF(0), "Record checksum mismatch");
 }
