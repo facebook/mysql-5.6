@@ -36,6 +36,7 @@
 #include <vector>
 
 /* MyRocks header files */
+#include "./rdb_utils.h"
 #include "rdb_perf_context.h"
 #include <unordered_set>
 
@@ -743,7 +744,7 @@ private:
     __attribute__((__nonnull__, __warn_unused_result__));
 
   bool prepare_drop_index_inplace(TABLE *altered_table,
-      Alter_inplace_info *ha_alter_info, Rdb_tbl_def* new_tdef,
+      my_core::Alter_inplace_info *ha_alter_info, Rdb_tbl_def* new_tdef,
       Rdb_key_def** old_key_descr, Rdb_key_def** new_key_descr,
       uint old_n_keys, uint new_n_keys,
       std::unordered_set<GL_INDEX_ID>* dropped_index_ids);
@@ -833,16 +834,16 @@ public:
 
   enum_alter_inplace_result check_if_supported_inplace_alter(
     TABLE *altered_table,
-    Alter_inplace_info *ha_alter_info) override;
+    my_core::Alter_inplace_info *ha_alter_info) override;
 
   bool prepare_inplace_alter_table(TABLE *altered_table,
-                                   Alter_inplace_info *ha_alter_info);
+                                   my_core::Alter_inplace_info *ha_alter_info);
 
   bool inplace_alter_table(TABLE *altered_table,
-                           Alter_inplace_info *ha_alter_info);
+                           my_core::Alter_inplace_info *ha_alter_info);
 
   bool commit_inplace_alter_table(TABLE *altered_table,
-                                  Alter_inplace_info *ha_alter_info,
+                                  my_core::Alter_inplace_info *ha_alter_info,
                                   bool commit);
 
  public:
@@ -861,48 +862,48 @@ public:
   Helper class for in-place alter, for storing handler context between inplace
   alter calls
 */
-struct ha_rocksdb_inplace_ctx : public inplace_alter_handler_ctx
+struct Rdb_inplace_alter_ctx : public my_core::inplace_alter_handler_ctx
 {
   /* The new table definition */
-  Rdb_tbl_def* new_tdef;
+  Rdb_tbl_def* m_new_tdef;
 
   /* Stores the original key definitions */
-  Rdb_key_def**  old_key_descr;
+  Rdb_key_def**  m_old_key_descr;
 
   /* Stores the new key definitions */
-  Rdb_key_def**  new_key_descr;
+  Rdb_key_def**  m_new_key_descr;
 
   /* Stores the old number of key definitions */
-  const uint old_n_keys;
+  const uint m_old_n_keys;
 
   /* Stores the new number of key definitions */
-  const uint new_n_keys;
+  const uint m_new_n_keys;
 
   /* Stores the dropped key glids */
-  std::unordered_set<GL_INDEX_ID> dropped_index_ids;
+  std::unordered_set<GL_INDEX_ID> m_dropped_index_ids;
 
   /* Stores number of keys to drop */
-  const uint n_dropped_keys;
+  const uint m_n_dropped_keys;
 
-  ha_rocksdb_inplace_ctx(
-      Rdb_tbl_def* new_tdef_, Rdb_key_def** old_key_descr_,
-      Rdb_key_def** new_key_descr_, uint old_n_keys_, uint new_n_keys_,
-      std::unordered_set<GL_INDEX_ID> dropped_index_ids_,
-      uint n_dropped_keys_) :
-    inplace_alter_handler_ctx(), new_tdef(new_tdef_),
-    old_key_descr(old_key_descr_), new_key_descr(new_key_descr_),
-    old_n_keys(old_n_keys_), new_n_keys(new_n_keys_),
-    dropped_index_ids(dropped_index_ids_),
-    n_dropped_keys(n_dropped_keys_)
+  Rdb_inplace_alter_ctx(
+      Rdb_tbl_def* new_tdef, Rdb_key_def** old_key_descr,
+      Rdb_key_def** new_key_descr, uint old_n_keys, uint new_n_keys,
+      std::unordered_set<GL_INDEX_ID> dropped_index_ids,
+      uint n_dropped_keys) :
+    my_core::inplace_alter_handler_ctx(), m_new_tdef(new_tdef),
+    m_old_key_descr(old_key_descr), m_new_key_descr(new_key_descr),
+    m_old_n_keys(old_n_keys), m_new_n_keys(new_n_keys),
+    m_dropped_index_ids(dropped_index_ids),
+    m_n_dropped_keys(n_dropped_keys)
   {
   }
 
-  ~ha_rocksdb_inplace_ctx(){}
+  ~Rdb_inplace_alter_ctx(){}
 
  private:
   /* Disable Copying */
-  ha_rocksdb_inplace_ctx(const ha_rocksdb_inplace_ctx&);
-  ha_rocksdb_inplace_ctx& operator=(const ha_rocksdb_inplace_ctx&);
+  Rdb_inplace_alter_ctx(const Rdb_inplace_alter_ctx&);
+  Rdb_inplace_alter_ctx& operator=(const Rdb_inplace_alter_ctx&);
 };
 
 }  // namespace myrocks
