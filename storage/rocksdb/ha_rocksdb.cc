@@ -55,7 +55,6 @@
 #include "./rdb_datadic.h"
 #include "./rdb_i_s.h"
 #include "./rdb_mutex_wrapper.h"
-#include "./rdb_utils.h"
 
 #ifdef TARGET_OS_LINUX
 extern my_bool cachedev_enabled;
@@ -7870,20 +7869,20 @@ bool ha_rocksdb::is_ascending(Rdb_key_def *keydef,
   Checks if inplace alter is supported for a given operation.
 */
 
-enum_alter_inplace_result ha_rocksdb::check_if_supported_inplace_alter(
+my_core::enum_alter_inplace_result ha_rocksdb::check_if_supported_inplace_alter(
   TABLE* /* altered_table */,
-  Alter_inplace_info *ha_alter_info)
+  my_core::Alter_inplace_info *ha_alter_info)
 {
   DBUG_ENTER("check_if_supported_alter");
 
   if (ha_alter_info->handler_flags &
-      (Alter_inplace_info::DROP_INDEX |
-       Alter_inplace_info::DROP_UNIQUE_INDEX))
+      (my_core::Alter_inplace_info::DROP_INDEX |
+       my_core::Alter_inplace_info::DROP_UNIQUE_INDEX))
   {
-    DBUG_RETURN(HA_ALTER_INPLACE_SHARED_LOCK_AFTER_PREPARE);
+    DBUG_RETURN(my_core::HA_ALTER_INPLACE_SHARED_LOCK_AFTER_PREPARE);
   }
 
-  DBUG_RETURN(HA_ALTER_INPLACE_NOT_SUPPORTED);
+  DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
 }
 
 /**
@@ -7914,8 +7913,9 @@ enum_alter_inplace_result ha_rocksdb::check_if_supported_inplace_alter(
   @retval   true              Error
   @retval   false             Success
 */
-bool ha_rocksdb::prepare_inplace_alter_table(TABLE *altered_table,
-                                 Alter_inplace_info *ha_alter_info)
+bool ha_rocksdb::prepare_inplace_alter_table(
+    TABLE *altered_table,
+    my_core::Alter_inplace_info *ha_alter_info)
 {
   DBUG_ENTER("prepare_inplace_alter_table");
   uint n_dropped_keys= ha_alter_info->index_drop_count;
@@ -7943,7 +7943,8 @@ bool ha_rocksdb::prepare_inplace_alter_table(TABLE *altered_table,
 
   /* Check if indexes need to be dropped */
   if (ha_alter_info->handler_flags &
-     (Alter_inplace_info::DROP_INDEX | Alter_inplace_info::DROP_UNIQUE_INDEX)
+     (my_core::Alter_inplace_info::DROP_INDEX |
+      my_core::Alter_inplace_info::DROP_UNIQUE_INDEX)
      && prepare_drop_index_inplace(altered_table, ha_alter_info, new_tdef,
           old_key_descr, new_key_descr, old_n_keys, new_n_keys,
           &dropped_index_ids))
@@ -7963,7 +7964,7 @@ bool ha_rocksdb::prepare_inplace_alter_table(TABLE *altered_table,
 
   new_tdef->m_key_descr= new_key_descr;
 
-  ha_alter_info->handler_ctx = new ha_rocksdb_inplace_ctx(
+  ha_alter_info->handler_ctx= new Rdb_inplace_alter_ctx(
     new_tdef, old_key_descr, new_key_descr, old_n_keys, new_n_keys,
     dropped_index_ids, n_dropped_keys);
 
@@ -7991,7 +7992,7 @@ bool ha_rocksdb::prepare_inplace_alter_table(TABLE *altered_table,
   @retval   false             Success
 */
 bool ha_rocksdb::inplace_alter_table(TABLE* /* altered_table */,
-                                     Alter_inplace_info *ha_alter_info)
+                                  my_core::Alter_inplace_info *ha_alter_info)
 {
   /* Do nothing for now */
   DBUG_ENTER("inplace_alter_table");
@@ -8031,14 +8032,15 @@ bool ha_rocksdb::inplace_alter_table(TABLE* /* altered_table */,
   @retval   true              Error
   @retval   false             Success
 */
-bool ha_rocksdb::commit_inplace_alter_table(TABLE *altered_table,
-                                            Alter_inplace_info *ha_alter_info,
-                                            bool commit)
+bool ha_rocksdb::commit_inplace_alter_table(
+    TABLE *altered_table,
+    my_core::Alter_inplace_info *ha_alter_info,
+    bool commit)
 {
   DBUG_ENTER("commit_inplace_alter_table");
   DBUG_ASSERT(ha_alter_info->handler_ctx);
-  ha_rocksdb_inplace_ctx* ctx
-    = static_cast<ha_rocksdb_inplace_ctx*> (ha_alter_info->handler_ctx);
+  Rdb_inplace_alter_ctx* ctx=
+    static_cast<Rdb_inplace_alter_ctx*> (ha_alter_info->handler_ctx);
 
   /*
     IMPORTANT: When rollback is requested, mysql will abort with
@@ -8058,39 +8060,39 @@ bool ha_rocksdb::commit_inplace_alter_table(TABLE *altered_table,
       erase the mappings inside the ddl_manager, as the old_key_descr is still
       using them.
     */
-    if (ctx->new_key_descr)
+    if (ctx->m_new_key_descr)
     {
       /* Delete the new key descriptors */
-      for (uint i= 0; i < ctx->new_n_keys; i++) {
-        if (ctx->new_key_descr[i])
+      for (uint i= 0; i < ctx->m_new_n_keys; i++) {
+        if (ctx->m_new_key_descr[i])
         {
-          delete ctx->new_key_descr[i];
-          ctx->new_key_descr[i] = nullptr;
+          delete ctx->m_new_key_descr[i];
+          ctx->m_new_key_descr[i] = nullptr;
         }
       }
 
-      delete[] ctx->new_key_descr;
-      ctx->new_key_descr = nullptr;
+      delete[] ctx->m_new_key_descr;
+      ctx->m_new_key_descr = nullptr;
     }
 
     DBUG_RETURN(0);
   }
 
   if (ha_alter_info->handler_flags &
-      (Alter_inplace_info::DROP_INDEX |
-       Alter_inplace_info::DROP_UNIQUE_INDEX))
+      (my_core::Alter_inplace_info::DROP_INDEX |
+       my_core::Alter_inplace_info::DROP_UNIQUE_INDEX))
   {
     std::unique_ptr<rocksdb::WriteBatch> wb= dict_manager.begin();
     rocksdb::WriteBatch *batch= wb.get();
 
-    dict_manager.add_drop_index(ctx->dropped_index_ids, batch);
+    dict_manager.add_drop_index(ctx->m_dropped_index_ids, batch);
 
-    tbl_def= ctx->new_tdef;
+    tbl_def= ctx->m_new_tdef;
     key_descr= tbl_def->m_key_descr;
     pk_descr= key_descr[pk_index(altered_table, tbl_def)];
 
     dict_manager.lock();
-    if (ddl_manager.put_and_write(ctx->new_tdef, batch) ||
+    if (ddl_manager.put_and_write(ctx->m_new_tdef, batch) ||
         dict_manager.commit(batch))
     {
       /*
@@ -8107,7 +8109,7 @@ bool ha_rocksdb::commit_inplace_alter_table(TABLE *altered_table,
 }
 
 bool ha_rocksdb::prepare_drop_index_inplace(
-    TABLE *altered_table, Alter_inplace_info *ha_alter_info,
+    TABLE *altered_table, my_core::Alter_inplace_info *ha_alter_info,
     Rdb_tbl_def* new_tdef, Rdb_key_def** old_key_descr,
     Rdb_key_def** new_key_descr, uint old_n_keys, uint new_n_keys,
     std::unordered_set<GL_INDEX_ID>* dropped_index_ids)
