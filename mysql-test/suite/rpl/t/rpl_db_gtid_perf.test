@@ -1,0 +1,86 @@
+source include/master-slave.inc;
+source include/have_gtid.inc;
+source include/not_valgrind.inc;
+source include/big_test.inc;
+
+connection master;
+set @old_use_db_uuid = @@global.use_db_uuid;
+let $use_gtids = 1;
+
+disable_query_log;
+disable_result_log;
+
+let $db_count = 1000;
+let $num_connections = 100;
+
+let $i = $db_count;
+while ($i)
+{
+  eval create database db$i;
+  eval create table db$i.t1(a int) engine=innodb;
+  dec $i;
+}
+
+let $i = 100;
+while ($i)
+{
+  connect (con$i,localhost,root,,);
+  dec $i;
+}
+
+
+let $counter = 2000;
+while ($counter)
+{
+  let $j = $num_connections;
+  while ($j)
+  {
+    connection con$j;
+    eval use db$j;
+    send insert into t1 values(1);
+    dec $j;
+  }
+
+  connection master;
+  let $result = `select @@global.use_db_uuid = false`;
+  if ($result == 1)
+  {
+    set @@global.use_db_uuid = true;
+  }
+  if ($result == 0)
+  {
+    set @@global.use_db_uuid = false;
+  }
+
+  let $j = $num_connections;
+  while ($j)
+  {
+    connection con$j;
+    reap;
+    dec $j;
+  }
+  dec $counter;
+}
+
+connection master;
+# cleanup
+let $i = $db_count;
+while ($i)
+{
+  eval drop database db$i;
+  dec $i;
+}
+let $i = 100;
+while ($i)
+{
+  disconnect con$i;
+  dec $i;
+}
+
+enable_query_log;
+enable_result_log;
+
+connection master;
+set @@global.use_db_uuid = @old_use_db_uuid;
+let $slave_timeout = 3600;
+source include/rpl_end.inc;

@@ -1,0 +1,1 @@
+--gtid_mode=ON --enforce_gtid_consistency --log_slave_updates --sync_binlog=0 --innodb_flush_log_at_trx_commit=2 --slave_parallel_workers=30

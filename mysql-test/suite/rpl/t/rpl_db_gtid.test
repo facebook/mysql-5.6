@@ -1,0 +1,41 @@
+source include/master-slave.inc;
+source include/have_gtid.inc;
+source include/gtid_utils.inc;
+call mtr.add_suppression('db_uuid not found for database .*');
+
+connection master;
+set @old_use_db_uuid = @@global.use_db_uuid;
+create database db1;
+
+set @@global.use_db_uuid=true;
+--echo Verify DDL uses db_uuid
+create database db2;
+create table db1.t1 (a int) engine=innodb;
+--echo Verify DML uses db_uuid
+insert into db1.t1 values(1);
+create table db2.t2 (a int) engine=innodb;
+
+let $master_uuid = `select @@global.server_uuid`;
+let $db1_uuid = `select "d384a947-daa0-80f3-9257-1d6b0039dd30"`;
+let $db2_uuid = `select "ea95a7d8-0f83-fc61-f9f1-53f2638ea853"`;
+
+let $value = `select @@global.gtid_executed`;
+# gtid_executed is not sorted. So we need this to avoid test failures.
+replace_result $value gtid_executed_set;
+eval select gtid_intersection_with_uuid('$value', '$db1_uuid');
+replace_result $value gtid_executed_set;
+eval select gtid_intersection_with_uuid('$value', '$db2_uuid');
+replace_result $value gtid_executed_set $master_uuid master_uuid;
+eval select gtid_intersection_with_uuid('$value', '$master_uuid');
+
+--echo Verify drop database uses db_uuid
+drop database db1;
+let $value = `select @@global.gtid_executed`;
+replace_result $value gtid_executed_set;
+eval select gtid_intersection_with_uuid('$value', '$db1_uuid');
+
+drop database db2;
+set @@global.use_db_uuid = @old_use_db_uuid;
+
+source include/gtid_utils_end.inc;
+source include/rpl_end.inc;
