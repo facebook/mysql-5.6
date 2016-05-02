@@ -18,7 +18,7 @@
 #include "rpl_gtid.h"
 #include "sql_class.h"
 #include "binlog.h"
-#include "sql_db.h"
+#include "my_md5.h"
 
 
 Group_cache::Group_cache()
@@ -152,19 +152,12 @@ enum_return_status Group_cache::generate_automatic_gno(THD *thd)
           thd->mdl_context.get_locked_object_db_names(db_names);
           if (use_db_uuid && db_names.size())
           {
-            if (!thd->dboptions_lock)
-              mysql_mutex_lock(&thd->LOCK_thd_dboptions);
-            const rpl_sid* db_uuid = get_db_uuid(*db_names.begin(), thd);
-            if (db_uuid && !db_uuid->is_empty())
-              automatic_gtid.sidno = global_sid_map->add_sid(*db_uuid);
-            else
-              // NO_LINT_DEBUG
-              sql_print_warning("db_uuid not found for database %s",
-                                (*db_names.begin()).c_str());
-            if (!thd->dboptions_lock)
-              mysql_mutex_unlock(&thd->LOCK_thd_dboptions);
+            rpl_sid db_uuid;
+            compute_md5_hash((char*)db_uuid.bytes, (*db_names.begin()).c_str(),
+                             (*db_names.begin()).length());
+            automatic_gtid.sidno = global_sid_map->add_sid(db_uuid);
           }
-          if (!automatic_gtid.sidno)
+          else
             automatic_gtid.sidno = gtid_state->get_server_sidno();
 
           gtid_state->lock_sidno(automatic_gtid.sidno);
