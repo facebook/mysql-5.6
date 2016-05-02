@@ -108,7 +108,7 @@
 
 #include "sql_digest.h"
 
-#include "sql_db.h"      // init_thd_dboptions
+#include "sql_db.h"      // init_thd_db_read_only
                          // is_thd_db_read_only_by_name
 
 #ifdef HAVE_JEMALLOC
@@ -1249,12 +1249,12 @@ deny_implicit_commit_if_db_read_only(THD *thd, TABLE_LIST *all_tables)
       lex->drop_temporary)
     DBUG_RETURN(nullptr);
 
-  if (!my_hash_inited(&thd->dboptions_hash))
-    init_thd_dboptions(thd);
+  if (!my_hash_inited(&thd->db_read_only_hash))
+    init_thd_db_read_only(thd);
 
-  mysql_mutex_lock(&thd->LOCK_thd_dboptions);
+  mysql_mutex_lock(&thd->LOCK_thd_db_read_only_hash);
 
-  if (thd->dboptions_hash.records)
+  if (thd->db_read_only_hash.records)
   {
     /* Check if the database to be dropped is read_only */
     if (lex->sql_command == SQLCOM_DROP_DB &&
@@ -1271,7 +1271,7 @@ deny_implicit_commit_if_db_read_only(THD *thd, TABLE_LIST *all_tables)
     }
   }
 
-  mysql_mutex_unlock(&thd->LOCK_thd_dboptions);
+  mysql_mutex_unlock(&thd->LOCK_thd_db_read_only_hash);
 
   DBUG_RETURN(db_name);
 }

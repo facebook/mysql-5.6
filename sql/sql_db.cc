@@ -78,7 +78,6 @@ typedef struct my_dbopt_st
   uint name_length;		/* Database length name           */
   const CHARSET_INFO *charset;	/* Database default character set */
   enum enum_db_read_only db_read_only;
-  rpl_sid db_uuid;  /* Database UUID */
 } my_dbopt_t;
 
 
@@ -218,7 +217,7 @@ void my_dbopt_cleanup(void)
 
 static my_bool get_dbopt(const char *dbname, HA_CREATE_INFO *create)
 {
-  const my_dbopt_t *opt;
+  my_dbopt_t *opt;
   uint length;
   my_bool error= 1;
   
@@ -229,7 +228,6 @@ static my_bool get_dbopt(const char *dbname, HA_CREATE_INFO *create)
   {
     create->default_table_charset= opt->charset;
     create->db_read_only= opt->db_read_only;
-    opt->db_uuid.to_string_safe(create->db_uuid_str);
     error= 0;
   }
   mysql_rwlock_unlock(&LOCK_dboptions);
@@ -249,7 +247,7 @@ static my_bool get_dbopt(const char *dbname, HA_CREATE_INFO *create)
     1 on error.
 */
 
-static my_bool put_dbopt(const char *dbname, const HA_CREATE_INFO *create)
+static my_bool put_dbopt(const char *dbname, HA_CREATE_INFO *create)
 {
   my_dbopt_t *opt;
   uint length;
@@ -286,53 +284,14 @@ static my_bool put_dbopt(const char *dbname, const HA_CREATE_INFO *create)
   /* Update / write options in hash */
   opt->charset= create->default_table_charset;
   opt->db_read_only= create->db_read_only;
-  opt->db_uuid.parse_safe(create->db_uuid_str);
 
 end:
   mysql_rwlock_unlock(&LOCK_dboptions);
   DBUG_RETURN(error);
 }
 
-/*
- * Copies  src into dst.
- *
- * @param dst destination struct
- * @param src source struct
-*/
-static void dbopt_copy(my_dbopt_t* dst, const my_dbopt_t* src) {
-  DBUG_ASSERT(src && dst);
-  DBUG_ASSERT(src->name && dst->name);
-  memcpy(dst->name, src->name, src->name_length);
-  dst->name_length = src->name_length;
-  dst->db_read_only = src->db_read_only;
-  dst->db_uuid.copy_from(src->db_uuid);
-  dst->charset= src->charset;
-}
-
-/*
- * Duplicates the src struct.
- *
- * @param src source struct
- *
- * @return duplicate of src
- *         NULL if memory allocation failed
-*/
-static my_dbopt_t* dbopt_dup(const my_dbopt_t* src) {
-  DBUG_ASSERT(src);
-  my_dbopt_t *dst = NULL;
-  uint length = src->name_length;
-  char *tmp_name;
-  if (!my_multi_malloc(MYF(MY_FAE | MY_ZEROFILL),
-                       &dst, (uint) sizeof(*dst), &tmp_name, (uint) length+1,
-                       NullS))
-    return NULL;
-  dst->name = tmp_name;
-  dbopt_copy(dst, src);
-  return dst;
-}
-
 /* Delete db opt from all thread's local hash maps */
-static void del_thd_dboptions(my_dbopt_t *opt)
+static void del_thd_db_read_only(my_dbopt_t *opt)
 {
   DBUG_ENTER("del_thd_db_read_only");
   DBUG_ASSERT(opt);
@@ -348,11 +307,11 @@ static void del_thd_dboptions(my_dbopt_t *opt)
   for (; it != end; ++it)
   {
     THD *tmp= *it;
-    mysql_mutex_lock(&tmp->LOCK_thd_dboptions);
-    // update if the thread's dboptions_hash is inited
-    if (my_hash_inited(&tmp->dboptions_hash))
-      my_hash_delete(&tmp->dboptions_hash, (uchar*) opt);
-    mysql_mutex_unlock(&tmp->LOCK_thd_dboptions);
+    mysql_mutex_lock(&tmp->LOCK_thd_db_read_only_hash);
+    // update if the thread's db_read_only_hash is inited
+    if (my_hash_inited(&tmp->db_read_only_hash))
+      my_hash_delete(&tmp->db_read_only_hash, (uchar*) opt);
+    mysql_mutex_unlock(&tmp->LOCK_thd_db_read_only_hash);
   }
 
   mysql_mutex_unlock(&LOCK_thd_remove);
@@ -371,7 +330,8 @@ static void del_dbopt(const char *path)
   if ((opt= (my_dbopt_t *)my_hash_search(&dboptions, (const uchar*) path,
                                          strlen(path))))
   {
-    del_thd_dboptions(opt); // removing db_opt from threads
+    if (opt->db_read_only)
+      del_thd_db_read_only(opt); // removing db_opt from threads
     my_hash_delete(&dboptions, (uchar*) opt);
   }
   mysql_rwlock_unlock(&LOCK_dboptions);
@@ -383,7 +343,7 @@ static void del_dbopt(const char *path)
 bool is_thd_db_read_only_by_name(THD *thd, const char *db)
 {
   DBUG_ENTER("is_thd_db_read_only_by_name");
-  mysql_mutex_assert_owner(&thd->LOCK_thd_dboptions);
+  mysql_mutex_assert_owner(&thd->LOCK_thd_db_read_only_hash);
 
   bool ret = false;
   char path[FN_REFLEN + 1];
@@ -392,10 +352,14 @@ bool is_thd_db_read_only_by_name(THD *thd, const char *db)
 
   bool super = (thd->security_ctx->master_access & SUPER_ACL);
   my_dbopt_t *opt= (my_dbopt_t *)my_hash_search
-    (&thd->dboptions_hash, (const uchar*)path, path_len);
+    (&thd->db_read_only_hash, (const uchar*)path, path_len);
 
   if (opt)
-    ret = super ? (opt->db_read_only == 2) : (opt->db_read_only == 1);
+  {
+    DBUG_ASSERT(opt->db_read_only);
+    if (opt->db_read_only > 1 || !super)
+      ret = true;
+  }
 
   DBUG_RETURN(ret);
 }
@@ -403,11 +367,11 @@ bool is_thd_db_read_only_by_name(THD *thd, const char *db)
 /*
  * Initialize thread's local db opt hash map
  */
-void init_thd_dboptions(THD *thd)
+void init_thd_db_read_only(THD *thd)
 {
   DBUG_ENTER("init_thd_db_read_only");
-  DBUG_ASSERT(!my_hash_inited(&thd->dboptions_hash));
-  mysql_mutex_assert_not_owner(&thd->LOCK_thd_dboptions);
+  DBUG_ASSERT(!my_hash_inited(&thd->db_read_only_hash));
+  mysql_mutex_assert_not_owner(&thd->LOCK_thd_db_read_only_hash);
 
   bool empty = (dboptions.records == 0);
 
@@ -417,40 +381,43 @@ void init_thd_dboptions(THD *thd)
     fetch_schema_schemata(thd);
 
   mysql_rwlock_rdlock(&LOCK_dboptions);
-  mysql_mutex_lock(&thd->LOCK_thd_dboptions);
+  mysql_mutex_lock(&thd->LOCK_thd_db_read_only_hash);
 
   /* check again whether it is initialized */
-  if (!my_hash_inited(&thd->dboptions_hash))
+  if (!my_hash_inited(&thd->db_read_only_hash))
   {
     /*
-     * Note: we create new my_dbopt_t objects, so the local hash map need
-     * a free_element function.
+     * Note: we do not create new my_dbopt_t objects, but stores objects in the
+     * shared map into the local hash map. So the local hash map doesn't need a
+     * free_element function.
      */
-    if (!my_hash_init(&thd->dboptions_hash, lower_case_table_names ?
+    if (!my_hash_init(&thd->db_read_only_hash, lower_case_table_names ?
                       system_charset_info : &my_charset_bin,
                       32, 0, 0, (my_hash_get_key) dboptions_get_key,
-                      free_dbopt, 0))
+                      NULL /* free_element */, 0))
     {
       for (uint idx= 0; idx < dboptions.records; ++idx)
       {
         my_dbopt_t *opt= (my_dbopt_t*) my_hash_element(&dboptions, idx);
-        my_hash_insert(&thd->dboptions_hash, (uchar*) dbopt_dup(opt));
+        // only insert the db opt if db_read_only is turned on
+        if (opt->db_read_only)
+          my_hash_insert(&thd->db_read_only_hash, (uchar*) opt);
       }
     }
     else
       // initialization failed. clear the hash map
-      my_hash_clear(&thd->dboptions_hash);
+      my_hash_clear(&thd->db_read_only_hash);
   }
 
-  mysql_mutex_unlock(&thd->LOCK_thd_dboptions);
+  mysql_mutex_unlock(&thd->LOCK_thd_db_read_only_hash);
   mysql_rwlock_unlock(&LOCK_dboptions);
   DBUG_VOID_RETURN;
 }
 
 /* Update db_ops in all threads' local hash map */
-static void update_thd_dboptions(const char *path, const HA_CREATE_INFO *create)
+static void update_thd_db_read_only(const char *path, uchar db_read_only)
 {
-  DBUG_ENTER("update_thd_dboptions");
+  DBUG_ENTER("update_thd_db_read_only");
 
   mysql_rwlock_rdlock(&LOCK_dboptions);
 
@@ -465,29 +432,30 @@ static void update_thd_dboptions(const char *path, const HA_CREATE_INFO *create)
   for (; it != end; ++it)
   {
     THD *tmp= *it;
-    mysql_mutex_lock(&tmp->LOCK_thd_dboptions);
+    mysql_mutex_lock(&tmp->LOCK_thd_db_read_only_hash);
 
-    // update if the thread's dboptions_hash is inited
-    if (my_hash_inited(&tmp->dboptions_hash))
+    // update if the thread's db_read_only_hash is inited
+    if (my_hash_inited(&tmp->db_read_only_hash))
     {
       my_dbopt_t *opt= (my_dbopt_t *)my_hash_search
-        (&tmp->dboptions_hash, (const uchar*) path, strlen(path));
+        (&tmp->db_read_only_hash, (const uchar*) path, strlen(path));
 
-      // check if the db_opt actually exists
-      if (opt)
+      // db_opt is in the hash map only if db_read_only is turned on
+      if (!db_read_only && opt)
+        my_hash_delete(&tmp->db_read_only_hash, (uchar*) opt);
+      else if (db_read_only && !opt)
       {
-        opt->db_read_only = create->db_read_only;
-        opt->db_uuid.parse_safe(create->db_uuid_str);
-      }
-      else
-      {
+        // get the db_opt from shared hash map
         opt= (my_dbopt_t *)my_hash_search
           (&dboptions, (const uchar*) path, strlen(path));
-        my_hash_insert(&tmp->dboptions_hash, (uchar*) dbopt_dup(opt));
+
+        // check if the db_opt actually exists
+        if (opt)
+          my_hash_insert(&tmp->db_read_only_hash, (uchar*) opt);
       }
     }
 
-    mysql_mutex_unlock(&tmp->LOCK_thd_dboptions);
+    mysql_mutex_unlock(&tmp->LOCK_thd_db_read_only_hash);
   }
 
   mysql_mutex_unlock(&LOCK_thd_remove);
@@ -547,8 +515,6 @@ static bool write_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create)
                                 enum_db_read_only::DB_READ_ONLY_YES? "1":
                               create->db_read_only==
                                 enum_db_read_only::DB_READ_ONLY_SUPER? "2":"0",
-                              "\ndb-uuid=", create->db_uuid_str[0] ?
-                              create->db_uuid_str : db_info.db_uuid_str,
                               "\n", NullS) - buf);
 
     /* Error is written by mysql_file_write */
@@ -557,11 +523,10 @@ static bool write_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create)
     mysql_file_close(file, MYF(0));
   }
 
-  // Update is required if either read_only or db_uuid is changed.
-  if (db_info.db_read_only != create->db_read_only ||
-      (create->db_uuid_str[0] &&
-       strncmp(db_info.db_uuid_str, create->db_uuid_str, Uuid::TEXT_LENGTH)))
-    update_thd_dboptions(path, create);
+  /* If the read_only option is not changed,
+   * don't need to update it across all sessions */
+  if (db_info.db_read_only != create->db_read_only)
+    update_thd_db_read_only(path, create->db_read_only);
 
   return error;
 }
@@ -657,18 +622,6 @@ bool load_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create)
           sql_print_error("Error while loading database options: '%s':",path);
           sql_print_error(ER(ER_UNKNOWN_DB_READ_ONLY),pos+1);
           create->db_read_only = DB_READ_ONLY_NO;
-        }
-      }
-      else if (!strncmp(buf, "db-uuid", (pos-buf)) &&
-               nbytes > strlen("db-uuid=") + 1)
-      {
-        rpl_sid tmp_uuid;
-        strncpy(create->db_uuid_str, pos+1, Uuid::TEXT_LENGTH);
-        if (tmp_uuid.parse(pos+1) != RETURN_STATUS_OK)
-        {
-          sql_print_error("Invalid db-uuid %s found in the options file of "
-                          "database %s", pos+1, path);
-          SHIP_ASSERT(false);
         }
       }
     }
@@ -2146,21 +2099,4 @@ bool check_db_dir_existence(const char *db_name)
   /* Check access. */
 
   return my_access(db_dir_path, F_OK);
-}
-
-const rpl_sid *get_db_uuid(const std::string& dbname, THD* thd)
-{
-  /*
-    Due to mysql group commit, the thd calling get_db_uuid() may
-    not be same as thd passed to the function, so we use
-    mysql_mutex_assert_thd_owner().
-  */
-  mysql_mutex_assert_thd_owner(&thd->LOCK_thd_dboptions, thd);
-  char path[FN_REFLEN + 1];
-  uint path_len = build_table_filename(path, sizeof(path) - 1,
-                                       dbname.c_str(), "", MY_DB_OPT_FILE, 0);
-  my_dbopt_t *opt= (my_dbopt_t *)my_hash_search
-    (&thd->dboptions_hash, (const uchar*)path, path_len);
-
-  return opt ? &opt->db_uuid : NULL;
 }

@@ -281,38 +281,6 @@ struct Uuid
   size_t to_string(char *buf) const;
   /// Convert the given binary buffer to a UUID
   static size_t to_string(const uchar* bytes_arg, char *buf);
-  bool is_empty() const
-  {
-    for (size_t i=0; i < BYTE_LENGTH; ++i)
-    {
-      if (bytes[i]) return false;
-    }
-    return true;
-  }
-  /**
-    Similar to to_string() except verifies this rpl_sid is not empty.
-
-    @param buf[in, out] UUID is stored in this buffer.
-  */
-  void to_string_safe(char *buf) const
-  {
-    if (!is_empty())
-      to_string(buf);
-  }
-
-  /**
-    Similar to parse() except this checks for validity of input buffer.
-
-    @param buf[in] Input uuid buffer.
-    @return RETURN_STATUS_OK or RETURN_STATUS_UNREPORTED_ERROR
-  */
-  enum_return_status parse_safe(const char* buf)
-  {
-    if (buf && *buf)
-      return parse(buf);
-    return RETURN_STATUS_OK;
-  }
-
 #ifndef DBUG_OFF
   /// Debugging only: Print this Uuid to stdout.
   void print() const
