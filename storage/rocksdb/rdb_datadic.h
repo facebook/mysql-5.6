@@ -157,27 +157,23 @@ public:
 };
 
 
-const uint INVALID_LEN= uint(-1);
+const uint RDB_INVALID_KEY_LEN= uint(-1);
 
 /* How much one checksum occupies when stored in the record */
-const size_t CHECKSUM_SIZE= sizeof(uint32_t);
+const size_t RDB_CHECKSUM_SIZE= sizeof(uint32_t);
 
 /*
   How much the checksum data occupies in record, in total.
   It is storing two checksums plus 1 tag-byte.
 */
-const size_t CHECKSUM_CHUNK_SIZE= 2 * CHECKSUM_SIZE + 1;
+const size_t RDB_CHECKSUM_CHUNK_SIZE= 2 * RDB_CHECKSUM_SIZE + 1;
 
 /*
   Checksum data starts from CHECKSUM_DATA_TAG which is followed by two CRC32
   checksums.
 */
-const char CHECKSUM_DATA_TAG=0x01;
+const char RDB_CHECKSUM_DATA_TAG= 0x01;
 
-
-
-void report_checksum_mismatch(Rdb_key_def *kd, bool is_key,
-                              const char *data, size_t data_size);
 
 /*
   An object of this class represents information about an index in an SQL
@@ -327,7 +323,7 @@ public:
     return m_maxlength;
   }
 
-  uint get_m_key_parts() const
+  uint get_key_parts() const
   {
     return m_key_parts;
   }
@@ -431,7 +427,11 @@ public:
   bool get_unpack_data_len() { return m_unpack_data_len; }
 
   /* Check if given table has a primary key */
-  static bool rocksdb_has_hidden_pk(const TABLE* table);
+  static bool table_has_hidden_pk(const TABLE* table);
+
+  void report_checksum_mismatch(bool is_key, const char *data,
+                                size_t data_size) const;
+
 private:
 
 #ifndef DBUG_OFF
@@ -514,30 +514,26 @@ private:
 
 
 /*
-  C-style "virtual table" allowing different handling of packing logic
-  depending upon the field type. See Rdb_field_packing::setup() implementation.
-*/
-
-typedef void (*make_unpack_info_t) (Rdb_field_packing *fpi, Field *field,
-                                    uchar *dst);
-
-typedef int (*index_field_unpack_t)(Rdb_field_packing *fpi, Field *field,
-                                    Rdb_string_reader *reader,
-                                    const uchar *unpack_info);
-
-typedef int (*index_field_skip_t)(Rdb_field_packing *fpi, Field *field,
-                                  Rdb_string_reader *reader);
-
-typedef void (*index_field_pack_t)(Rdb_field_packing *fpi, Field *field,
-                                   uchar* buf, uchar **dst);
-
-/*
   This stores information about how a field can be packed to mem-comparable
   form and unpacked back.
 */
 
 class Rdb_field_packing
 {
+  /*
+    C-style "virtual table" allowing different handling of packing logic based
+    on the field type. See Rdb_field_packing::setup() implementation.
+  */
+  typedef void (*make_unpack_info_t) (Rdb_field_packing *fpi, Field *field,
+                                      uchar *dst);
+  typedef int (*index_field_unpack_t)(Rdb_field_packing *fpi, Field *field,
+                                      Rdb_string_reader *reader,
+                                      const uchar *unpack_info);
+  typedef int (*index_field_skip_t)  (Rdb_field_packing *fpi, Field *field,
+                                      Rdb_string_reader *reader);
+  typedef void (*index_field_pack_t) (Rdb_field_packing *fpi, Field *field,
+                                      uchar* buf, uchar **dst);
+
 public:
   /* Length of mem-comparable image of the field, in bytes */
   int m_max_image_len;
@@ -613,7 +609,7 @@ public:
 inline Field* Rdb_key_def::get_table_field_for_part_no(TABLE *table,
                                                        uint part_no) const
 {
-  DBUG_ASSERT(part_no < get_m_key_parts());
+  DBUG_ASSERT(part_no < get_key_parts());
   return m_pack_info[part_no].get_field_in_table(table);
 }
 
@@ -686,6 +682,12 @@ public:
 };
 
 
+interface Rdb_tables_scanner
+{
+  virtual int add_table(Rdb_tbl_def* tdef) =0;
+};
+
+
 /*
   This contains a mapping of
 
@@ -736,9 +738,10 @@ public:
     { return m_sequence.get_and_update_next_number(dict); }
 
   /* Walk the data dictionary */
-  int scan(void* cb_arg, int (*callback)(void* cb_arg, Rdb_tbl_def*));
+  int scan_for_tables(Rdb_tables_scanner* tables_scanner);
 
   void erase_index_num(GL_INDEX_ID gl_index_id);
+
 private:
   /* Put the data into in-memory table (only) */
   int put(Rdb_tbl_def *key_descr, bool lock= true);

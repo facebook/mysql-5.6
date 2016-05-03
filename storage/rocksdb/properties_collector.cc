@@ -147,7 +147,7 @@ void Rdb_tbl_prop_coll::CollectStatsForRow(
       // resize the array to the number of columns.
       // It will be initialized with zeroes
       m_stats.back().m_distinct_keys_per_prefix.resize(
-        m_keydef->get_m_key_parts());
+        m_keydef->get_key_parts());
       m_stats.back().m_name = m_keydef->get_name();
     }
     m_last_key.clear();

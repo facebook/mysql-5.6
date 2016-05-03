@@ -3255,13 +3255,13 @@ void ha_rocksdb::convert_record_to_storage_format(const char *pk_packed_tuple,
     uint32_t key_crc32= crc32(0, (uchar*)pk_packed_tuple, pk_packed_size);
     uint32_t val_crc32= crc32(0, (uchar*)storage_record.ptr(),
                               storage_record.length());
-    uchar key_crc_buf[CHECKSUM_SIZE];
-    uchar val_crc_buf[CHECKSUM_SIZE];
+    uchar key_crc_buf[RDB_CHECKSUM_SIZE];
+    uchar val_crc_buf[RDB_CHECKSUM_SIZE];
     store_big_uint4(key_crc_buf, key_crc32);
     store_big_uint4(val_crc_buf, val_crc32);
-    storage_record.append((const char*)&CHECKSUM_DATA_TAG, 1);
-    storage_record.append((const char*)key_crc_buf, CHECKSUM_SIZE);
-    storage_record.append((const char*)val_crc_buf, CHECKSUM_SIZE);
+    storage_record.append((const char*)&RDB_CHECKSUM_DATA_TAG, 1);
+    storage_record.append((const char*)key_crc_buf, RDB_CHECKSUM_SIZE);
+    storage_record.append((const char*)val_crc_buf, RDB_CHECKSUM_SIZE);
   }
 
   *packed_rec= rocksdb::Slice(storage_record.ptr(), storage_record.length());
@@ -3560,26 +3560,30 @@ int ha_rocksdb::convert_record_from_storage_format(const rocksdb::Slice *key,
 
   if (verify_checksums)
   {
-    if (reader.remaining_bytes() == CHECKSUM_CHUNK_SIZE &&
-        reader.read(1)[0] == CHECKSUM_DATA_TAG)
+    if (reader.remaining_bytes() == RDB_CHECKSUM_CHUNK_SIZE &&
+        reader.read(1)[0] == RDB_CHECKSUM_DATA_TAG)
     {
       uint32_t stored_key_chksum=
-        read_big_uint4((const uchar*)reader.read(CHECKSUM_SIZE));
+          read_big_uint4(reinterpret_cast<const uchar*>(
+              reader.read(RDB_CHECKSUM_SIZE)));
 
       uint32_t stored_val_chksum=
-        read_big_uint4((const uchar*)reader.read(CHECKSUM_SIZE));
+          read_big_uint4(reinterpret_cast<const uchar*>(
+              reader.read(RDB_CHECKSUM_SIZE)));
 
-      uint32_t computed_key_chksum= crc32(0, (const uchar*)key->data(),
-                                          key->size());
-      uint32_t computed_val_chksum= crc32(0, (const uchar*) value->data(),
-                                          value->size()-CHECKSUM_CHUNK_SIZE);
+      uint32_t computed_key_chksum=
+          my_core::crc32(0, reinterpret_cast<const uchar*>(key->data()),
+                         key->size());
+      uint32_t computed_val_chksum=
+          my_core::crc32(0, reinterpret_cast<const uchar*>(value->data()),
+                         value->size() - RDB_CHECKSUM_CHUNK_SIZE);
 
       DBUG_EXECUTE_IF("myrocks_simulate_bad_pk_checksum1",
                       stored_key_chksum++;);
 
       if (stored_key_chksum != computed_key_chksum)
       {
-        report_checksum_mismatch(pk_descr, true, key->data(), key->size());
+        pk_descr->report_checksum_mismatch(true, key->data(), key->size());
         return HA_ERR_INTERNAL_ERROR;
       }
 
@@ -3587,8 +3591,7 @@ int ha_rocksdb::convert_record_from_storage_format(const rocksdb::Slice *key,
                       stored_val_chksum++;);
       if (stored_val_chksum != computed_val_chksum)
       {
-        report_checksum_mismatch(pk_descr, false, value->data(),
-                                 value->size());
+        pk_descr->report_checksum_mismatch(false, value->data(), value->size());
         return HA_ERR_INTERNAL_ERROR;
       }
 
@@ -3748,7 +3751,7 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
 
   setup_field_converters();
 
-  size_t tails_size= max_packed_sec_key_len + CHECKSUM_CHUNK_SIZE;
+  size_t tails_size= max_packed_sec_key_len + RDB_CHECKSUM_CHUNK_SIZE;
 
   if (!(sec_key_packed_tuple= (uchar*)my_malloc(max_packed_sec_key_len,
                                                 MYF(0))) ||
@@ -4650,7 +4653,7 @@ int ha_rocksdb::read_row_from_secondary_key(uchar *buf, Rdb_key_def* kd,
     const rocksdb::Slice& rkey= scan_it->key();
     pk_size= kd->get_primary_key_tuple(table, pk_descr, &rkey, pk_packed_tuple);
     const rocksdb::Slice& value= scan_it->value();
-    if (pk_size == INVALID_LEN ||
+    if (pk_size == RDB_INVALID_KEY_LEN ||
         kd->unpack_record(this, table, buf, &rkey, &value))
     {
       rc= HA_ERR_INTERNAL_ERROR;
@@ -4667,10 +4670,14 @@ int ha_rocksdb::read_row_from_secondary_key(uchar *buf, Rdb_key_def* kd,
       const rocksdb::Slice& rkey= scan_it->key();
       pk_size= kd->get_primary_key_tuple(table, pk_descr, &rkey,
                                          pk_packed_tuple);
-      if (pk_size == INVALID_LEN)
+      if (pk_size == RDB_INVALID_KEY_LEN)
+      {
         rc= HA_ERR_INTERNAL_ERROR;
+      }
       else
+      {
         rc= get_row_by_rowid(buf, pk_packed_tuple, pk_size);
+      }
     }
   }
 
@@ -4869,7 +4876,7 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
   DBUG_ENTER("ha_rocksdb::index_read_map");
 
   Rdb_key_def *kd= key_descr[active_index];
-  uint actual_key_parts= kd->get_m_key_parts();
+  uint actual_key_parts= kd->get_key_parts();
   bool using_full_key= (keypart_map == HA_WHOLE_KEY) ||
                        (keypart_map == ((key_part_map(1) << actual_key_parts)
                                          - 1));
@@ -4915,7 +4922,7 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
     packed_size= kd->pack_index_tuple(this, table, pack_buffer,
                                       sec_key_packed_tuple, key, tmp_map);
     if (table->key_info[active_index].user_defined_key_parts !=
-        kd->get_m_key_parts())
+        kd->get_key_parts())
       using_full_key= false;
   }
   else
@@ -4962,7 +4969,7 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
 
   bool use_all_keys= false;
   if (find_flag == HA_READ_KEY_EXACT &&
-      my_count_bits(keypart_map) == kd->get_m_key_parts())
+      my_count_bits(keypart_map) == kd->get_key_parts())
     use_all_keys= true;
 
   Rdb_transaction *tx= get_or_create_tx(table->in_use);
@@ -5765,7 +5772,7 @@ bool ha_rocksdb::do_bulk_commit(Rdb_transaction *tx)
 bool ha_rocksdb::has_hidden_pk(const TABLE* table)
 {
   DBUG_ASSERT(table != nullptr);
-  return Rdb_key_def::rocksdb_has_hidden_pk(table);
+  return Rdb_key_def::table_has_hidden_pk(table);
 }
 
 /*
@@ -6048,7 +6055,7 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
     else
     {
       bool all_parts_used= (user_defined_key_parts ==
-                            key_descr[i]->get_m_key_parts());
+                            key_descr[i]->get_key_parts());
       /*
         This iterator seems expensive since we need to allocate and free
         memory for each unique index.
@@ -6826,7 +6833,7 @@ void ha_rocksdb::calc_updated_indexes()
     for (uint keynr= 0; keynr < table->s->keys; keynr++)
     {
       /* Walk over all key parts, including the "extended key" suffix */
-      uint key_parts= key_descr[keynr]->get_m_key_parts();
+      uint key_parts= key_descr[keynr]->get_key_parts();
       for (uint kp= 0; kp < key_parts; kp++)
       {
         if (has_hidden_pk(table) && kp + 1 == key_parts)
