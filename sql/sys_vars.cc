@@ -4768,6 +4768,14 @@ static Sys_var_uint Sys_checkpoint_mts_period(
        VALID_RANGE(1, UINT_MAX), DEFAULT(300), BLOCK_SIZE(1));
 #endif /* DBUG_OFF */
 
+static Sys_var_charptr Sys_rbr_idempotent_tables(
+       "rbr_idempotent_tables",
+       "slave_exec_mode is set to IDEMPOTENT for these list of tables. "
+       "The table names are assumed to be separated by commas. Note this "
+       "will take effect only after restarting slave sql thread.",
+       GLOBAL_VAR(opt_rbr_idempotent_tables), CMD_LINE(REQUIRED_ARG),
+       IN_SYSTEM_CHARSET, DEFAULT(0));
+
 static Sys_var_uint Sys_checkpoint_mts_group(
        "slave_checkpoint_group",
        "Maximum number of processed transactions by Multi-threaded slave "

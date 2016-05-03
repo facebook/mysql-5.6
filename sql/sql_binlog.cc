@@ -167,6 +167,9 @@ void mysql_client_binlog_statement(THD* thd)
       thd->rli_fake= rli;
       rli->info_thd= thd;
     }
+    if (opt_rbr_idempotent_tables)
+      rli->rbr_idempotent_tables =
+        split_into_set(opt_rbr_idempotent_tables, ',');
   }
 
   const char *error= 0;

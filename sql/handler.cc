@@ -7937,6 +7937,34 @@ std::vector<std::string> split(const std::string& input, char delimiter)
   return elems;
 }
 
+// Split a string based on a delimiter.  Two delimiters in a row will not add
+// an empty string in the set.
+std::unordered_set<std::string> split_into_set(const std::string& input,
+                                               char delimiter)
+{
+  size_t                   pos;
+  size_t                   start = 0;
+  std::unordered_set<std::string> elems;
+
+  // Find next delimiter
+  while ((pos = input.find(delimiter, start)) != std::string::npos)
+  {
+    // If there is any data since the last delimiter add it to the list
+    if (pos > start)
+      elems.insert(input.substr(start, pos - start));
+
+    // Set our start position to the character after the delimiter
+    start = pos + 1;
+  }
+
+  // Add a possible string since the last delimiter
+  if (input.length() > start)
+    elems.insert(input.substr(start));
+
+  // Return the resulting list back to the caller
+  return elems;
+}
+
 bool is_table_in_list(const std::string& table_name,
                       const std::vector<std::string>& table_list,
                       mysql_rwlock_t* lock)

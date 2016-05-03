@@ -851,6 +851,11 @@ The following options may be given as the first argument:
  --range-alloc-block-size=# 
  Allocation block size for storing ranges during
  optimization
+ --rbr-idempotent-tables=name 
+ slave_exec_mode is set to IDEMPOTENT for these list of
+ tables. The table names are assumed to be separated by
+ commas. Note this will take effect only after restarting
+ slave sql thread.
  --read-buffer-size=# 
  Each thread that does a sequential scan allocates a
  buffer of this size for each table it scans. If you do
@@ -1755,6 +1760,7 @@ query-cache-type OFF
 query-cache-wlock-invalidate FALSE
 query-prealloc-size 8192
 range-alloc-block-size 4096
+rbr-idempotent-tables (No default value)
 read-buffer-size 131072
 read-only FALSE
 read-only-slave TRUE

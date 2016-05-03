@@ -1,0 +1,6 @@
+source include/master-slave.inc;
+source include/have_binlog_format_row.inc;
+
+source extra/rpl_tests/rpl_rbr_idempotent_tables.inc;
+
+source include/rpl_end.inc;

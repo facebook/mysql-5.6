@@ -1,0 +1,18 @@
+source include/have_binlog_format_row.inc;
+connect (con1, localhost, root, , test);
+
+connection con1;
+set @@global.rbr_idempotent_tables= 't1';
+create table t1 (a int primary key) engine=InnoDB;
+insert into t1 values(1);
+flush logs;
+insert into t1 values(2);
+flush logs;
+
+let $MYSQLD_DATADIR= `select @@datadir`;
+--exec $MYSQL_BINLOG --skip-gtids $MYSQLD_DATADIR/master-bin.000002 | $MYSQL --user=root 2>&1
+
+set @@global.rbr_idempotent_tables= '';
+drop table t1;
+
+disconnect con1;

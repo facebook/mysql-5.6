@@ -1,0 +1,1 @@
+--binlog_format=ROW --slave_exec_mode=STRICT

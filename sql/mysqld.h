@@ -20,6 +20,7 @@
 #include <memory>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "my_global.h" /* MYSQL_PLUGIN_IMPORT, FN_REFLEN, FN_EXTLEN */
 #include "sql_bitmap.h"                         /* Bitmap */
@@ -285,6 +286,7 @@ extern my_bool opt_character_set_client_handshake;
 extern MYSQL_PLUGIN_IMPORT bool volatile abort_loop;
 extern bool in_bootstrap;
 extern my_bool opt_bootstrap;
+extern char *opt_rbr_idempotent_tables;
 extern uint connection_count;
 extern ulong opt_srv_fatal_semaphore_timeout;
 extern my_bool opt_safe_user_create;

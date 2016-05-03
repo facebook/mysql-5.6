@@ -1033,6 +1033,18 @@ private:
   time_t row_stmt_start_timestamp;
   bool long_find_row_note_printed;
 
+public:
+  /*
+    Set of tables for which slave-exec-mode is considered IDEMPOTENT.
+    This is modified only during sql thread startup. This set is read by
+    sql threads.
+  */
+  std::unordered_set<std::string> rbr_idempotent_tables;
+  virtual bool is_table_idempotent(const std::string &table) const
+  {
+    return rbr_idempotent_tables.find(table) !=
+           rbr_idempotent_tables.end();
+  }
 };
 
 bool mysql_show_relaylog_events(THD* thd);

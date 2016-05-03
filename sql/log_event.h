@@ -4415,7 +4415,7 @@ private:
       error code otherwise.
   */
   virtual 
-  int do_before_row_operations(const Slave_reporting_capability *const log) = 0;
+  int do_before_row_operations(const Relay_log_info* rli) = 0;
 
   /*
     Primitive to clean up after a sequence of row executions.
@@ -4431,7 +4431,7 @@ private:
       function is successful, it should return the error code given in the argument.
   */
   virtual 
-  int do_after_row_operations(const Slave_reporting_capability *const log,
+  int do_after_row_operations(const Relay_log_info* rli,
                               int error) = 0;
 
   /*
@@ -4621,8 +4621,8 @@ private:
 #endif
 
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
-  virtual int do_before_row_operations(const Slave_reporting_capability *const);
-  virtual int do_after_row_operations(const Slave_reporting_capability *const,int);
+  virtual int do_before_row_operations(const Relay_log_info*);
+  virtual int do_after_row_operations(const Relay_log_info*, int);
   virtual int do_exec_row(const Relay_log_info *const);
   uint8 get_trg_event_map();
 #endif
@@ -4695,8 +4695,8 @@ protected:
 #endif
 
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
-  virtual int do_before_row_operations(const Slave_reporting_capability *const);
-  virtual int do_after_row_operations(const Slave_reporting_capability *const,int);
+  virtual int do_before_row_operations(const Relay_log_info*);
+  virtual int do_after_row_operations(const Relay_log_info*, int);
   virtual int do_exec_row(const Relay_log_info *const);
   uint8 get_trg_event_map();
 #endif /* defined(MYSQL_SERVER) && defined(HAVE_REPLICATION) */
@@ -4759,8 +4759,8 @@ protected:
 #endif
 
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
-  virtual int do_before_row_operations(const Slave_reporting_capability *const);
-  virtual int do_after_row_operations(const Slave_reporting_capability *const,int);
+  virtual int do_before_row_operations(const Relay_log_info*);
+  virtual int do_after_row_operations(const Relay_log_info*, int);
   virtual int do_exec_row(const Relay_log_info *const);
   uint8 get_trg_event_map();
 #endif

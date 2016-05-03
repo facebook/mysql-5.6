@@ -36,6 +36,7 @@
 #include <ft_global.h>
 #include <keycache.h>
 #include <vector>
+#include <unordered_set>
 
 class Alter_info;
 
@@ -1839,6 +1840,8 @@ bool is_table_in_list(const std::string& table_name,
                       const std::vector<std::string>& table_list,
                       mysql_rwlock_t* lock);
 std::vector<std::string> split(const std::string& input, char delimiter);
+std::unordered_set<std::string> split_into_set(const std::string& input,
+                                               char delimiter);
 
 /**
   The handler class is the interface for dynamically loadable
