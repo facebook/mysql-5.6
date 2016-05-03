@@ -10615,7 +10615,8 @@ int Rows_log_event::handle_idempotent_and_ignored_errors(Relay_log_info const *r
   {
     int actual_error= convert_handler_error(error, thd, m_table);
     bool idempotent_error= (idempotent_error_code(error) &&
-                           (slave_exec_mode == SLAVE_EXEC_MODE_IDEMPOTENT));
+                           (slave_exec_mode == SLAVE_EXEC_MODE_IDEMPOTENT ||
+                            is_table_idempotent(m_table->s->table_name.str)));
     bool ignore_delete_error =
       (slave_exec_mode == SLAVE_EXEC_MODE_SEMI_STRICT &&
        (error == HA_ERR_RECORD_CHANGED || error == HA_ERR_KEY_NOT_FOUND));
@@ -13093,6 +13094,7 @@ Write_rows_log_event::do_before_row_operations(const Slave_reporting_capability 
      applying the event in the replace (idempotent) fashion.
   */
   if ((slave_exec_mode == SLAVE_EXEC_MODE_IDEMPOTENT) ||
+      is_table_idempotent(m_table->s->table_name.str) ||
       (m_table->s->db_type()->db_type == DB_TYPE_NDBCLUSTER))
   {
     /*
@@ -13198,6 +13200,7 @@ Write_rows_log_event::do_after_row_operations(const Slave_reporting_capability *
   m_table->next_number_field=0;
   m_table->auto_increment_field_not_null= FALSE;
   if ((slave_exec_mode == SLAVE_EXEC_MODE_IDEMPOTENT) ||
+      is_table_idempotent(m_table->s->table_name.str) ||
       m_table->s->db_type()->db_type == DB_TYPE_NDBCLUSTER)
   {
     m_table->file->extra(HA_EXTRA_NO_IGNORE_DUP_KEY);
@@ -13565,7 +13568,8 @@ int
 Write_rows_log_event::do_exec_row(const Relay_log_info *const rli)
 {
   DBUG_ASSERT(m_table != NULL);
-  int error= write_row(rli, slave_exec_mode == SLAVE_EXEC_MODE_IDEMPOTENT);
+  int error= write_row(rli, slave_exec_mode == SLAVE_EXEC_MODE_IDEMPOTENT ||
+                       is_table_idempotent(m_table->s->table_name.str));
 
   if (error && !thd->is_error())
   {

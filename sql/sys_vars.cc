@@ -4758,6 +4758,38 @@ static Sys_var_uint Sys_checkpoint_mts_period(
        VALID_RANGE(1, UINT_MAX), DEFAULT(300), BLOCK_SIZE(1));
 #endif /* DBUG_OFF */
 
+static bool check_rbr_idempotent_tables(sys_var *self, THD *thd, set_var *var)
+{
+  bool result = false;
+  mysql_mutex_lock(&LOCK_active_mi);
+  if (active_mi)
+  {
+    mysql_mutex_lock(&active_mi->rli->run_lock);
+    if (active_mi->rli->slave_running)
+    {
+      my_message(ER_SLAVE_MUST_STOP, ER(ER_SLAVE_MUST_STOP), MYF(0));
+      result = true;
+    }
+    else
+    {
+      rbr_idempotent_tables.clear();
+      if (var->save_result.string_value.str)
+        rbr_idempotent_tables = split_into_set(
+          var->save_result.string_value.str, ',');
+    }
+    mysql_mutex_unlock(&active_mi->rli->run_lock);
+  }
+  mysql_mutex_unlock(&LOCK_active_mi);
+  return result;
+}
+
+static Sys_var_charptr Sys_rbr_idempotent_tables(
+       "rbr_idempotent_tables",
+       "slave_exec_mode is set to IDEMPOTENT for these list of tables.",
+       GLOBAL_VAR(opt_rbr_idempotent_tables), CMD_LINE(REQUIRED_ARG),
+       IN_SYSTEM_CHARSET, DEFAULT(0), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(check_rbr_idempotent_tables));
+
 static Sys_var_uint Sys_checkpoint_mts_group(
        "slave_checkpoint_group",
        "Maximum number of processed transactions by Multi-threaded slave "
