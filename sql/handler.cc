@@ -7903,8 +7903,9 @@ bool is_binlog_advanced(const char *b1, const my_off_t p1,
 {
   if(!b1 || !b2 || p1 <= 0 || p2 <= 0)
     return false;
-  if(strcmp(b1, b2) < 0)
-    return true;
+  int cmp = strlen(b1) - strlen(b2);
+  if(cmp)
+    return cmp < 0 ? true : false;
   if(strcmp(b1, b2) == 0 && p1 < p2)
     return true;
   return false;

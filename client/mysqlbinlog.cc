@@ -201,7 +201,7 @@ static char *opt_include_gtids_str= NULL,
             *opt_start_gtid_str = NULL,
             *opt_find_gtid_str = NULL;
 static char *opt_index_file_str = NULL;
-std::map<std::string, std::string> previous_gtid_set_map;
+Gtid_set_map previous_gtid_set_map;
 static my_bool opt_skip_gtids= 0;
 static my_bool opt_skip_empty_trans= 0;
 static bool filter_based_on_gtids= false;
@@ -2782,15 +2782,14 @@ connected:
           }
           /*
             rev->new_log_ident points a logfile to read. If the new file
-            is ahead the current log file, mysqlbinlog should read from the
+            is not the current log file, mysqlbinlog should read from the
             first position of the new file so setting position (old_off)
             to the head. If the new file is the same as current logfile,
             it means fake rotate
             event was sent, and position should not be changed.
           */
-          int c = strcmp(cur_logname, rev->new_log_ident);
           // switching to new file
-          if(c < 0) {
+          if(strcmp(cur_logname, rev->new_log_ident)) {
             old_off = BIN_LOG_HEADER_SIZE;
             strcpy(cur_logname, rev->new_log_ident);
           }

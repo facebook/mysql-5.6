@@ -3119,8 +3119,7 @@ bool MYSQL_BIN_LOG::find_first_log_not_in_gtid_set(char *binlog_file_name,
   Gtid_set previous_gtid_set(gtid_set->get_sid_map());
 
   mysql_mutex_lock(&LOCK_index);
-  std::map<std::string, std::string>::reverse_iterator rit;
-  for (rit = previous_gtid_set_map.rbegin();
+  for (auto rit = previous_gtid_set_map.rbegin();
        rit != previous_gtid_set_map.rend(); ++rit)
   {
 
@@ -3165,7 +3164,7 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
   bool found_lost_gtids = false;
   uint last_previous_gtid_encoded_length = 0;
   int error = 0, length;
-  std::pair<std::map<string, string>::iterator, bool> iterator, save_iterator;
+  std::pair<Gtid_set_map::iterator, bool> iterator, save_iterator;
   previous_gtid_set_map.clear();
 
   /* Initialize the sid_map to be used in read_gtids_from_binlog */

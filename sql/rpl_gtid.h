@@ -20,6 +20,8 @@
 #define RPL_GTID_H_INCLUDED
 
 
+#include <map>
+#include <string>
 #include <m_string.h>
 #include <mysqld_error.h>
 #include <my_global.h>
@@ -2866,5 +2868,13 @@ int gtid_acquire_ownership_multiple(THD *thd);
 #endif
 
 #endif // ifndef MYSQL_CLIENT
+class binlog_cmp {
+  public:
+  bool operator() (std::string s1, std::string s2) {
+    return (s1.length() != s2.length()) ? (s1.length() < s2.length()) :
+                                          (s1 < s2);
+  }
+};
+typedef std::map<std::string, std::string, binlog_cmp> Gtid_set_map;
 
 #endif /* RPL_GTID_H_INCLUDED */

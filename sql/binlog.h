@@ -19,8 +19,7 @@
 #include "mysqld.h"                             /* opt_relay_logname */
 #include "log_event.h"
 #include "log.h"
-#include <map>
-#include <string>
+#include "rpl_gtid.h"
 
 extern ulong rpl_read_size;
 extern char *histogram_step_size_binlog_fsync;
@@ -306,7 +305,7 @@ public:
      mutex. A new mapping is added in add_log_to_index() function,
      and this is totally rebuilt in init_gtid_sets() function.
   */
-  std::map<std::string, std::string> previous_gtid_set_map;
+  Gtid_set_map previous_gtid_set_map;
   /*
     crash_safe_index_file is temp file used for guaranteeing
     index file crash safe when master server restarts.
@@ -758,7 +757,7 @@ public:
   inline void lock_index() { mysql_mutex_lock(&LOCK_index);}
   inline void unlock_index() { mysql_mutex_unlock(&LOCK_index);}
   inline IO_CACHE *get_index_file() { return &index_file;}
-  inline std::map<std::string, std::string> *get_previous_gtid_set_map()
+  inline const Gtid_set_map *get_previous_gtid_set_map() const
   {
     return &previous_gtid_set_map;
   }
