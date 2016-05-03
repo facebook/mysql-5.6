@@ -7883,13 +7883,13 @@ my_core::enum_alter_inplace_result ha_rocksdb::check_if_supported_inplace_alter(
   DBUG_ENTER("check_if_supported_alter");
 
   if (ha_alter_info->handler_flags &
-      (my_core::Alter_inplace_info::DROP_INDEX |
+      ~(my_core::Alter_inplace_info::DROP_INDEX |
        my_core::Alter_inplace_info::DROP_UNIQUE_INDEX))
   {
-    DBUG_RETURN(my_core::HA_ALTER_INPLACE_SHARED_LOCK_AFTER_PREPARE);
+      DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
   }
 
-  DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
+  DBUG_RETURN(my_core::HA_ALTER_INPLACE_SHARED_LOCK_AFTER_PREPARE);
 }
 
 /**
