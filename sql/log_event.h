@@ -5318,6 +5318,11 @@ inline void do_server_version_split(char* version, uchar split_versions[3])
 }
 
 #ifdef MYSQL_SERVER
+inline bool is_table_idempotent(const std::string &table)
+{
+  return rbr_idempotent_tables.find(table) != rbr_idempotent_tables.end();
+}
+
 /*
   This is an utility function that adds a quoted identifier into the a buffer.
   This also escapes any existance of the quote string inside the identifier.
