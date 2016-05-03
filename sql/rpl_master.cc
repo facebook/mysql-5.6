@@ -2703,9 +2703,7 @@ uint find_gtid_position_helper(const char* gtid_string,
   int dir_len;
 
   Gtid_set previous_gtid_set(&sid_map);
-
-  std::map<std::string, std::string>::reverse_iterator rit;
-  std::map<std::string, std::string> *previous_gtid_set_map;
+  Gtid_set_map previous_gtid_set_map;
 
   if (gtid.parse(&sid_map, gtid_string) != RETURN_STATUS_OK)
   {
@@ -2715,8 +2713,8 @@ uint find_gtid_position_helper(const char* gtid_string,
   mysql_bin_log.lock_index();
   previous_gtid_set_map = mysql_bin_log.get_previous_gtid_set_map();
 
-  for (rit = previous_gtid_set_map->rbegin();
-       rit != previous_gtid_set_map->rend(); ++rit)
+  for (auto rit = previous_gtid_set_map.rbegin();
+       rit != previous_gtid_set_map.rend(); ++rit)
   {
 
     previous_gtid_set.add_gtid_encoding((const uchar*)rit->second.c_str(),

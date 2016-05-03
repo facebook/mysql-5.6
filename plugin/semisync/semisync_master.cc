@@ -123,6 +123,10 @@ unsigned int ActiveTranx::get_hash_value(const char *log_file_name,
 int ActiveTranx::compare(const char *log_file_name1, my_off_t log_file_pos1,
 			 const char *log_file_name2, my_off_t log_file_pos2)
 {
+  int cmp_len = strlen(log_file_name1) - strlen(log_file_name2);
+  if (cmp_len)
+    return cmp_len;
+
   int cmp = strcmp(log_file_name1, log_file_name2);
 
   if (cmp != 0)
