@@ -980,7 +980,7 @@ int Rdb_key_def::unpack_record(const ha_rocksdb *handler, TABLE *table,
     Rdb_string_reader unp_reader(unpack_info);
     if (unp_reader.read(1)[0] == RDB_CHECKSUM_DATA_TAG)
     {
-      if (handler->verify_checksums)
+      if (handler->m_verify_checksums)
       {
         uint32_t stored_key_chksum;
         uint32_t stored_val_chksum;
