@@ -508,6 +508,7 @@ void init_update_queries(void)
   sql_command_flags[SQLCOM_SHOW_ENGINE_LOGS]= CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_ENGINE_TRX]=  CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_PROCESSLIST]= CF_STATUS_COMMAND;
+  sql_command_flags[SQLCOM_SHOW_TRANSACTION_LIST]= CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_GRANTS]=      CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE_DB]=   CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE]=  CF_STATUS_COMMAND;
@@ -2966,6 +2967,8 @@ mysql_execute_command(THD *thd,
   DBUG_ENTER("mysql_execute_command");
   DBUG_ASSERT(!lex->describe || is_explainable_query(lex->sql_command));
 
+  thd->stmt_start = *statement_start_time;
+
   if (unlikely(lex->is_broken()))
   {
     // Force a Reprepare, to get a fresh LEX
@@ -4479,6 +4482,16 @@ end_with_restore_list:
                            thd->security_ctx->priv_user),
                           lex->verbose);
     break;
+  case SQLCOM_SHOW_TRANSACTION_LIST:
+    if (!thd->security_ctx->priv_user[0] &&
+        check_global_access(thd, PROCESS_ACL))
+      break;
+    mysqld_list_transactions(thd,
+			  (thd->security_ctx->master_access & PROCESS_ACL ?
+                           NullS :
+                           thd->security_ctx->priv_user),
+                          lex->verbose);
+    break;
   case SQLCOM_SHOW_PRIVILEGES:
     res= mysqld_show_privileges(thd);
     break;
@@ -5951,9 +5964,18 @@ finish:
       thd->get_stmt_da()->set_overwrite_status(true);
       trans_commit_stmt(thd, lex->async_commit);
       thd->get_stmt_da()->set_overwrite_status(false);
+
+      // add current statement_time to transaction_time in an open transaction
+      if (!thd->is_real_trans)
+        thd->trx_time += my_timer_since(*statement_start_time);
     }
   }
 
+  // reset trx timer at the end of a transaction
+  if (thd->is_real_trans)
+    thd->trx_time = 0;
+  // Reset statement start time
+  thd->stmt_start = 0;
   lex->unit.cleanup();
   /* Free tables */
   THD_STAGE_INFO(thd, stage_closing_tables);

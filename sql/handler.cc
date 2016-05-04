@@ -1442,6 +1442,8 @@ int ha_commit_trans(THD *thd, bool all, bool async,
     trans->rw_ha_count= rw_ha_count;
     /* rw_trans is TRUE when we in a transaction changing data */
     rw_trans= is_real_trans && (rw_ha_count > 0);
+    /* Tracking if the transaction will potentially change data */
+    thd->rw_trans = (rw_ha_count > 0);
 
     // initialize thread's db_read_only_hash on the first time
     if (rw_trans && !my_hash_inited(&thd->db_read_only_hash))
@@ -1583,6 +1585,8 @@ int ha_commit_low(THD *thd, bool all, bool async)
   THD_TRANS *trans=all ? &thd->transaction.all : &thd->transaction.stmt;
   Ha_trx_info *ha_info= trans->ha_list, *ha_info_next;
   bool is_real_trans= all || thd->transaction.all.ha_list == 0;
+  // Save the state of the current transaction to reset thd->trx_secs
+  thd->is_real_trans = is_real_trans;
   DBUG_ENTER("ha_commit_low");
 
   if (ha_info)

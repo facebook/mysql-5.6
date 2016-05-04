@@ -1832,6 +1832,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  TO_SYM                        /* SQL-2003-R */
 %token  TRAILING                      /* SQL-2003-R */
 %token  TRANSACTION_SYM
+%token  TRANSACTION_LIST_SYM
 %token  TRIGGERS_SYM
 %token  TRIGGER_SYM                   /* SQL-2003-R */
 %token  TRIM                          /* SQL-2003-N */
@@ -13385,6 +13386,8 @@ show_param:
           }
         | opt_full PROCESSLIST_SYM
           { Lex->sql_command= SQLCOM_SHOW_PROCESSLIST;}
+        | opt_full TRANSACTION_LIST_SYM
+          { Lex->sql_command= SQLCOM_SHOW_TRANSACTION_LIST;}
         | opt_var_type  VARIABLES wild_and_where
           {
             LEX *lex= Lex;
@@ -15120,6 +15123,7 @@ keyword_sp:
         | PRIVILEGES               {}
         | PROCESS                  {}
         | PROCESSLIST_SYM          {}
+        | TRANSACTION_LIST_SYM     {}
         | PROFILE_SYM              {}
         | PROFILES_SYM             {}
         | PROXY_SYM                {}

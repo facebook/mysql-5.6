@@ -71,6 +71,7 @@ PARAMETERS
 PARTITIONS
 PLUGINS
 PROCESSLIST
+TRANSACTION_LIST
 PROFILING
 REFERENTIAL_CONSTRAINTS
 ROUTINES
@@ -127,6 +128,7 @@ select c,table_name from v1
 inner join information_schema.TABLES v2 on (v1.c=v2.table_name)
 where v1.c like "t%";
 c	table_name
+TRANSACTION_LIST	TRANSACTION_LIST
 TABLES	TABLES
 TABLESPACES	TABLESPACES
 TABLE_CONSTRAINTS	TABLE_CONSTRAINTS
@@ -148,6 +150,7 @@ select c,table_name from v1
 left join information_schema.TABLES v2 on (v1.c=v2.table_name)
 where v1.c like "t%";
 c	table_name
+TRANSACTION_LIST	TRANSACTION_LIST
 TABLES	TABLES
 TABLESPACES	TABLESPACES
 TABLE_CONSTRAINTS	TABLE_CONSTRAINTS
@@ -169,6 +172,7 @@ select c, v2.table_name from v1
 right join information_schema.TABLES v2 on (v1.c=v2.table_name)
 where v1.c like "t%";
 c	table_name
+TRANSACTION_LIST	TRANSACTION_LIST
 TABLES	TABLES
 TABLESPACES	TABLESPACES
 TABLE_CONSTRAINTS	TABLE_CONSTRAINTS
@@ -663,6 +667,7 @@ CHARACTER_SETS	SYSTEM VIEW	MEMORY
 COLLATIONS	SYSTEM VIEW	MEMORY
 show tables from information_schema like "T%";
 Tables_in_information_schema (T%)
+TRANSACTION_LIST
 TABLES
 TABLESPACES
 TABLE_CONSTRAINTS
@@ -674,6 +679,7 @@ ERROR 42000: Access denied for user 'root'@'localhost' to database 'information_
 use information_schema;
 show full tables like "T%";
 Tables_in_information_schema (T%)	Table_type
+TRANSACTION_LIST	SYSTEM VIEW
 TABLES	SYSTEM VIEW
 TABLESPACES	SYSTEM VIEW
 TABLE_CONSTRAINTS	SYSTEM VIEW
@@ -688,6 +694,7 @@ Tables_in_test
 use information_schema;
 show tables like "T%";
 Tables_in_information_schema (T%)
+TRANSACTION_LIST
 TABLES
 TABLESPACES
 TABLE_CONSTRAINTS
@@ -917,7 +924,7 @@ table_schema IN ('mysql', 'INFORMATION_SCHEMA', 'test', 'mysqltest')
 AND table_name not like 'ndb%' AND table_name not like 'innodb_%'  AND table_name not like 'rocksdb_%'
 GROUP BY TABLE_SCHEMA;
 table_schema	count(*)
-information_schema	38
+information_schema	39
 mysql	26
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
@@ -1390,6 +1397,7 @@ TABLESPACES	information_schema.TABLESPACES	1
 TABLE_CONSTRAINTS	information_schema.TABLE_CONSTRAINTS	1
 TABLE_PRIVILEGES	information_schema.TABLE_PRIVILEGES	1
 TABLE_STATISTICS	information_schema.TABLE_STATISTICS	1
+TRANSACTION_LIST	information_schema.TRANSACTION_LIST	1
 TRIGGERS	information_schema.TRIGGERS	1
 USER_LATENCY_HISTOGRAMS	information_schema.USER_LATENCY_HISTOGRAMS	1
 USER_PRIVILEGES	information_schema.USER_PRIVILEGES	1

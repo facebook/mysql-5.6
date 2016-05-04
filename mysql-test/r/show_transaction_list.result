@@ -1,0 +1,136 @@
+desc information_schema.transaction_list;
+Field	Type	Null	Key	Default	Extra
+ID	bigint(21) unsigned	NO		0	
+USER	varchar(80)	NO			
+HOST	varchar(64)	NO			
+DB	varchar(64)	YES		NULL	
+COMMAND	varchar(16)	NO			
+STATE	varchar(64)	YES		NULL	
+STATEMENT_SECONDS	decimal(9,6)	NO		0.000000	
+TRANSACTION_SECONDS	decimal(9,6)	NO		0.000000	
+COMMAND_SECONDS	decimal(9,6)	NO		0.000000	
+READ_ONLY	tinyint(1) unsigned	NO		0	
+SQL_LOG_BIN	tinyint(1) unsigned	NO		0	
+create table t1 (id integer not null auto_increment, i int, primary key (id))
+engine = innodb;
+create user mysqluser1;
+
+##
+## Test Open Transaction
+##
+
+# connection a
+# Start a transaction
+begin;
+insert into t1 (i) values
+(1),(2),(4),(5),(6),(7),(8),(9),(10),(11),(12),(13),(14);
+# connection default
+show transaction_list;
+Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin
+#	mysqluser1	localhost	test	Command	State	#	#	#	0	1
+#	root	localhost	test	Command	State	#	#	#	1	1
+select statement_seconds from information_schema.transaction_list where Id = conn_a;
+statement_seconds
+0.000000
+# Check OK: Transaction_seconds is not reset for open transactions.
+# Check OK: Command_seconds is larger than Transaction_seconds.
+# Check OK: Transaction is not read_only
+# Check OK: sql_log_bin = 1
+show session conn_a status like 'Statement_seconds';
+Variable_name	Value
+Statement_seconds	0.000000
+# Check OK: show session $conn_a status like 'Transaction_seconds'
+# Check OK: show session $conn_a status like 'Command_seconds'
+# connection a
+insert into t1 (i) select i from t1 where id > 6 AND id < 20;
+select count(*) from t1 where id > 6 AND id < 20;
+count(*)
+13
+commit;
+# connection default
+show transaction_list;
+Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin
+#	mysqluser1	localhost	test	Command	State	#	#	#	0	1
+#	root	localhost	test	Command	State	#	#	#	1	1
+select statement_seconds from information_schema.transaction_list where Id = conn_a;
+statement_seconds
+0.000000
+select transaction_seconds from information_schema.transaction_list where Id = conn_a;
+transaction_seconds
+0.000000
+# Check OK: Command_seconds is increasing.
+show session conn_a status like 'Statement_seconds';
+Variable_name	Value
+Statement_seconds	0.000000
+show session conn_a status like 'Transaction_seconds';
+Variable_name	Value
+Transaction_seconds	0.000000
+# Check OK: show session $conn_a status like 'Command_seconds'
+# connection a
+begin;
+insert into t1 (i) select i from t1 where id > 6 AND id < 20;
+select count(*) from t1;
+count(*)
+33
+rollback;
+# connection default
+show transaction_list;
+Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin
+#	mysqluser1	localhost	test	Command	State	#	#	#	1	1
+#	root	localhost	test	Command	State	#	#	#	1	1
+select statement_seconds from information_schema.transaction_list where Id = conn_a;
+statement_seconds
+0.000000
+select transaction_seconds from information_schema.transaction_list where Id = conn_a;
+transaction_seconds
+0.000000
+# Check OK: Command_seconds is increasing.
+# Check OK: (Autocommit) Transaction is read_only
+# Check OK: sql_log_bin = 1
+
+##
+## Test Autocommit Transaction (single statement)
+##
+
+# connection a
+# Start another transaction autocommit
+insert into t1 (i) select i from t1 where id > 6 AND id < 20;
+# connection default
+show transaction_list;
+Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin
+#	mysqluser1	localhost	test	Command	State	#	#	#	0	1
+#	root	localhost	test	Command	State	#	#	#	1	1
+select statement_seconds from information_schema.transaction_list where Id = conn_a;
+statement_seconds
+0.000000
+select transaction_seconds from information_schema.transaction_list where Id = conn_a;
+transaction_seconds
+0.000000
+# Check OK: Command_seconds is increasing.
+
+##
+## Test long-running query in open transaction
+##
+
+# connection a
+select sleep(10);
+# connection default
+# Check OK: Statement_seconds is increasing.
+# Check OK: Transaction_seconds is increasing.
+# Check OK: Command_seconds is increasing.
+# connection a
+sleep(10)
+0
+# connection default
+show transaction_list;
+Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin
+#	mysqluser1	localhost	test	Command	State	#	#	#	0	1
+#	root	localhost	test	Command	State	#	#	#	1	1
+select statement_seconds from information_schema.transaction_list where Id = conn_a;
+statement_seconds
+0.000000
+select transaction_seconds from information_schema.transaction_list where Id = conn_a;
+transaction_seconds
+0.000000
+drop user mysqluser1;
+drop table t1;

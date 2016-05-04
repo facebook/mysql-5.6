@@ -1001,6 +1001,16 @@ void copy_global_thread_list(std::set<THD*> *new_copy)
   mysql_mutex_unlock(&LOCK_thread_count);
 }
 
+void copy_global_thread_list_sorted(
+    std::set<THD *, bool (*)(const THD *, const THD *)> *new_copy)
+{
+  mysql_mutex_assert_owner(&LOCK_thd_remove);
+  mysql_mutex_lock(&LOCK_thread_count);
+  for (auto thd : *global_thread_list)
+    new_copy->insert(thd);
+  mysql_mutex_unlock(&LOCK_thread_count);
+}
+
 void add_global_thread(THD *thd)
 {
   DBUG_PRINT("info", ("add_global_thread %p", thd));
@@ -4271,6 +4281,7 @@ SHOW_VAR com_status_vars[]= {
   {"show_procedure_code",  (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_SHOW_PROC_CODE]), SHOW_LONG_STATUS},
   {"show_procedure_status",(char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_SHOW_STATUS_PROC]), SHOW_LONG_STATUS},
   {"show_processlist",     (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_SHOW_PROCESSLIST]), SHOW_LONG_STATUS},
+  {"show_transaction_list",(char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_SHOW_TRANSACTION_LIST]), SHOW_LONG_STATUS},
   {"show_profile",         (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_SHOW_PROFILE]), SHOW_LONG_STATUS},
   {"show_profiles",        (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_SHOW_PROFILES]), SHOW_LONG_STATUS},
   {"show_relaylog_events", (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_SHOW_RELAYLOG_EVENTS]), SHOW_LONG_STATUS},
@@ -9025,6 +9036,32 @@ static int show_starttime(THD *thd, SHOW_VAR *var, char *buff)
   return 0;
 }
 
+static int show_stmt_time(THD *thd, SHOW_VAR *var, char *buff)
+{
+  var->type = SHOW_TIMER;
+  var->value = buff;
+  // if there is an in-fly query, calculate the in-fly statement time
+  if (thd->stmt_start)
+    *((longlong *)buff) = (longlong)(my_timer_since(thd->stmt_start));
+  else
+    *((longlong *)buff) = (longlong)0;
+  return 0;
+}
+
+static int show_trx_time(THD *thd, SHOW_VAR *var, char *buff)
+{
+  var->type = SHOW_TIMER;
+  var->value = buff;
+  // if there is an in-fly query, calculate the transaction time including the
+  // in-fly query
+  if (thd->stmt_start)
+    *((longlong *)buff) =
+        (longlong)(thd->trx_time + my_timer_since(thd->stmt_start));
+  else
+    *((longlong *)buff) = (longlong)(thd->trx_time);
+  return 0;
+}
+
 #ifdef ENABLED_PROFILING
 static int show_flushstatustime(THD *thd, SHOW_VAR *var, char *buff)
 {
@@ -9819,6 +9856,7 @@ SHOW_VAR status_vars[]= {
 #endif
 #endif
 #endif /* HAVE_OPENSSL */
+  {"Statement_seconds",        (char*) &show_stmt_time, SHOW_FUNC},
   {"Table_locks_immediate",    (char*) &locks_immediate,        SHOW_LONG},
   {"Table_locks_waited",       (char*) &locks_waited,           SHOW_LONG},
   {"Table_open_cache_hits",    (char*) offsetof(STATUS_VAR, table_open_cache_hits), SHOW_LONGLONG_STATUS},
@@ -9837,6 +9875,7 @@ SHOW_VAR status_vars[]= {
   {"Timer_in_use",             (char*) &timer_in_use,           SHOW_CHAR_PTR},
   {"Tmp_table_bytes_written",  (char*) &tmp_table_bytes_written, SHOW_LONGLONG},
   {"Total_queries_rejected",   (char*) &total_query_rejected,   SHOW_LONG},
+  {"Transaction_seconds",      (char*) &show_trx_time, SHOW_FUNC},
   {"Uptime",                   (char*) &show_starttime,         SHOW_FUNC},
 #ifdef ENABLED_PROFILING
   {"Uptime_since_flush_status",(char*) &show_flushstatustime,   SHOW_FUNC},
