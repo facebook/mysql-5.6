@@ -3319,7 +3319,8 @@ void ha_rocksdb::setup_read_decoders()
     }
     else
     {
-      if (field_enc[i].uses_variable_len_encoding())
+      if (field_enc[i].uses_variable_len_encoding() ||
+          field_enc[i].maybe_null())
       {
         // For variable-length field, we need to read the data and skip it
         field_decoders.push_back({&field_enc[i], false, skip_size});
