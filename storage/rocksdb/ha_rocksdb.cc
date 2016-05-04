@@ -8835,3 +8835,4 @@ myrocks::rdb_i_s_global_info,
 myrocks::rdb_i_s_ddl,
 myrocks::rdb_i_s_index_file_map
 mysql_declare_plugin_end;
+
