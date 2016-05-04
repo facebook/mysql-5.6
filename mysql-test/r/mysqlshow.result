@@ -146,6 +146,7 @@ DROP TABLE t1, t2;
 | TABLE_CONSTRAINTS                     |
 | TABLE_PRIVILEGES                      |
 | TABLE_STATISTICS                      |
+| TRANSACTION_LIST                      |
 | TRIGGERS                              |
 | USER_LATENCY_HISTOGRAMS               |
 | USER_PRIVILEGES                       |
@@ -222,6 +223,7 @@ DROP TABLE t1, t2;
 | TABLE_CONSTRAINTS                     |
 | TABLE_PRIVILEGES                      |
 | TABLE_STATISTICS                      |
+| TRANSACTION_LIST                      |
 | TRIGGERS                              |
 | USER_LATENCY_HISTOGRAMS               |
 | USER_PRIVILEGES                       |

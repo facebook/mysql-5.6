@@ -56,6 +56,8 @@ typedef std::set<THD*>::iterator Thread_iterator;
 Thread_iterator global_thread_list_begin();
 Thread_iterator global_thread_list_end();
 void copy_global_thread_list(std::set<THD*> *new_copy);
+void copy_global_thread_list_sorted(
+    std::set<THD *, bool (*)(const THD *, const THD *)> *new_copy);
 void add_global_thread(THD *);
 void remove_global_thread(THD *);
 extern std::set<my_thread_id> *global_thread_id_list;
