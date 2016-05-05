@@ -1,5 +1,5 @@
 --disable_warnings
-drop table if exists t0, t1, t2, t3, t4;
+drop table if exists t0, t1, t2, t3, t4, t5;
 --enable_warnings
 
 # (0) Without primary key
@@ -17,6 +17,16 @@ insert into t2 values(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5);
 # (3) With non-unique secondary key
 create table t3 (id integer primary key, x integer, key x(x)) engine=INNODB;
 insert into t3 values(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5);
+
+# (5) Large table with primary key and non-unique secondary key
+create table t5 (id integer primary key, x integer, key x(x)) engine=INNODB;
+--disable_query_log
+let $i=10000;
+while ($i) {
+  --eval INSERT INTO t5 values($i, $i);
+  dec $i;
+}
+--enable_query_log
 
 --echo ### (0.0) Basic syntax
 
@@ -86,7 +96,7 @@ commit;
 connection con2;
 commit;
 
---echo ### (1) With pirmary key: Locks only on the record (covering index)
+--echo ### (1.1) With pirmary key: Locks only on the record (covering index)
 
 connection con1;
 set autocommit=0;
@@ -120,7 +130,39 @@ commit;
 connection con3;
 commit;
 
---echo ### (2) With unique secondary key: Locks on the unique secondary key (covering index)
+--echo ### (1.2) With pirmary key: Encountering locked rows after at least one match already (covering index) with NOWAIT
+
+connection con1;
+set autocommit=0;
+SELECT * from t1 where id >= 2 and id <= 5 FOR UPDATE;
+
+connection con2;
+set autocommit=0;
+
+--echo lock will not wait, expecting error
+--error ER_DB_FAILED_TO_LOCK_REC_NOWAIT
+SELECT * from t1 where id >= 0 FOR UPDATE NOWAIT;
+
+connection con3;
+set autocommit=0;
+
+--echo lock will not wait, expecting error
+--error ER_DB_FAILED_TO_LOCK_REC_NOWAIT
+SELECT * from t1 where id > 0 and id < 3 FOR UPDATE NOWAIT;
+
+--error ER_DB_FAILED_TO_LOCK_REC_NOWAIT
+SELECT * from t1 order by id FOR UPDATE NOWAIT;
+
+connection con1;
+commit;
+
+connection con2;
+commit;
+
+connection con3;
+commit;
+
+--echo ### (2.1) With unique secondary key: Locks on the unique secondary key (covering index)
 
 connection con1;
 set autocommit=0;
@@ -144,6 +186,35 @@ SELECT x from t2 order by x FOR UPDATE SKIP LOCKED;
 --echo lock will not wait, expecting error
 --error ER_DB_FAILED_TO_LOCK_REC_NOWAIT
 SELECT x from t2 where x = 1 FOR UPDATE NOWAIT;
+
+connection con1;
+commit;
+
+connection con2;
+commit;
+
+connection con3;
+commit;
+
+--echo ### (2.2) With unique secondary key: Encountering locked rows after at least one match already (covering index) with NOWAIT
+
+connection con1;
+set autocommit=0;
+SELECT x from t2 where x >= 2 and x < 5 FOR UPDATE;
+
+connection con2;
+set autocommit=0;
+
+--echo lock will not wait, expecting error
+--error ER_DB_FAILED_TO_LOCK_REC_NOWAIT
+SELECT x from t2 where x > 0 FOR UPDATE NOWAIT;
+
+connection con3;
+set autocommit=0;
+
+--echo lock will not wait, expecting error
+--error ER_DB_FAILED_TO_LOCK_REC_NOWAIT
+SELECT x from t2 where x >= 0 and x < 3 FOR UPDATE NOWAIT;
 
 connection con1;
 commit;
@@ -222,7 +293,460 @@ commit;
 connection con3;
 commit;
 
---echo ### (5) Transaction 1 locks primary key only, transaction 2 locks both
+--echo ### (5.1.1) Large table with primary key and non-unique secondary key :
+--echo ###         Primary key and SKIP LOCKED
+
+connection con1;
+set autocommit=0;
+SELECT * from t5
+where (id > 5000 and id < 5006) or
+      (id >= 6000 and id <= 6006) FOR UPDATE;
+
+connection con2;
+set autocommit=0;
+
+--echo lock will skip
+SELECT * from t5
+where (id = 1000) or
+      (id = 5003) or
+      (id = 5050) or
+      (id = 6003) or
+      (id = 6050) FOR UPDATE SKIP LOCKED;
+
+connection con3;
+set autocommit=0;
+
+--echo lock will skip
+SELECT * from t5
+where (id = 1000) or
+      (id >= 5003) and (id <= 5010) or
+      (id = 5050) or
+      (id >= 6003) and (id <= 6010) or
+      (id = 6050) FOR UPDATE SKIP LOCKED;
+
+connection con1;
+commit;
+
+connection con2;
+commit;
+
+connection con3;
+commit;
+
+--echo ### (5.1.2) Large table with primary key and non-unique secondary key :
+--echo ###         Primary key and NOWAIT
+
+connection con1;
+set autocommit=0;
+SELECT * from t5
+where (id > 5000 and id < 5006) or
+      (id >= 6000 and id <= 6006) FOR UPDATE;
+
+connection con2;
+set autocommit=0;
+
+--echo lock will not wait, expecting error
+--error ER_DB_FAILED_TO_LOCK_REC_NOWAIT
+SELECT * from t5
+where (id = 1000) or
+      (id = 5003) or
+      (id = 5050) FOR UPDATE NOWAIT;
+
+connection con3;
+set autocommit=0;
+
+--echo lock will not wait, expecting error
+--error ER_DB_FAILED_TO_LOCK_REC_NOWAIT
+SELECT * from t5
+where (id = 1000) or
+      (id >= 5003) and (id <= 5010) or
+      (id = 5050) FOR UPDATE NOWAIT;
+
+connection con1;
+commit;
+
+connection con2;
+commit;
+
+connection con3;
+commit;
+
+--echo ### (5.2.1) Large table with primary key and non-unique secondary key : SKIP LOCKED
+--echo ###         Secondary key and SKIP LOCKED
+
+connection con1;
+set autocommit=0;
+SELECT * from t5
+where (x > 5000 and x < 5006) or
+      (x >= 6000 and x <= 6006) FOR UPDATE;
+
+connection con2;
+set autocommit=0;
+
+--echo lock will skip
+SELECT * from t5
+where (x = 1000) or
+      (x = 5003) or
+      (x = 5050) or
+      (x = 6003) or
+      (x = 6050) FOR UPDATE SKIP LOCKED;
+
+connection con3;
+set autocommit=0;
+
+--echo lock will skip
+SELECT * from t5
+where (x = 1000) or
+      (x >= 5003) and (x <= 5010) or
+      (x = 5050) or
+      (x >= 6003) and (x <= 6010) or
+      (x = 6050) FOR UPDATE SKIP LOCKED;
+
+connection con1;
+commit;
+
+connection con2;
+commit;
+
+connection con3;
+commit;
+
+--echo ### (5.2.2) Large table with primary key and non-unique secondary key :
+--echo ###         Secondary key and NOWAIT
+
+connection con1;
+set autocommit=0;
+SELECT * from t5
+where (x > 5000 and x < 5006) or
+      (x >= 6000 and x <= 6006) FOR UPDATE;
+
+connection con2;
+set autocommit=0;
+
+--echo lock will not wait, expecting error
+--error ER_DB_FAILED_TO_LOCK_REC_NOWAIT
+SELECT * from t5
+where (x = 1000) or
+      (x = 5003) or
+      (x = 5050) FOR UPDATE NOWAIT;
+
+connection con3;
+set autocommit=0;
+
+--echo lock will not wait, expecting error
+--error ER_DB_FAILED_TO_LOCK_REC_NOWAIT
+SELECT * from t5
+where (x = 1000) or
+      (x >= 5003) and (x <= 5010) or
+      (x = 5050) FOR UPDATE NOWAIT;
+
+connection con1;
+commit;
+
+connection con2;
+commit;
+
+connection con3;
+commit;
+
+--echo ### (5.3.1) Large table with primary key and non-unique secondary key :
+--echo ###         Primary key, Secondary key, and SKIP LOCKED
+
+connection con1;
+set autocommit=0;
+SELECT * from t5
+where (id > 5000 and id < 5006) or
+      (id >= 6000 and id <= 6006) or
+      (x > 7000 and x < 7006) or
+      (x > 8000 and x < 8006) FOR UPDATE;
+
+connection con2;
+set autocommit=0;
+
+--echo lock will skip
+SELECT * from t5
+where (id = 1000) or
+      (id = 5003) or
+      (x = 6003) FOR UPDATE SKIP LOCKED;
+
+--echo lock will skip
+SELECT * from t5
+where (x = 1000) or
+      (x = 5003) or
+      (id = 6003) FOR UPDATE SKIP LOCKED;
+
+connection con3;
+set autocommit=0;
+
+--echo lock will skip
+SELECT * from t5
+where (id > 5000) and (id < 5005) or
+      (x > 6003) and (x < 6008) FOR UPDATE SKIP LOCKED;
+
+--echo lock will skip
+SELECT * from t5
+where (id = 5003) or
+      (x = 6003) order by id FOR UPDATE SKIP LOCKED;
+
+connection con1;
+commit;
+
+connection con2;
+commit;
+
+connection con3;
+commit;
+
+--echo ### (5.3.2) Large table with primary key and non-unique secondary key :
+--echo ###         Primary key, Secondary key, and NOWAIT
+
+connection con1;
+set autocommit=0;
+SELECT * from t5
+where (id > 5000 and id < 5005) or
+      (id >= 6000 and id <= 6005) or
+      (x > 7000 and x < 7005) or
+      (x > 8000 and x < 8005) FOR UPDATE;
+
+connection con2;
+set autocommit=0;
+
+--echo lock will not wait, expecting error
+--error ER_DB_FAILED_TO_LOCK_REC_NOWAIT
+SELECT * from t5
+where (id = 1000) or
+      (id = 5003) or
+      (x = 6003) FOR UPDATE NOWAIT;
+
+--error ER_DB_FAILED_TO_LOCK_REC_NOWAIT
+SELECT * from t5
+where (x = 1000) or
+      (x = 5003) or
+      (id = 6003) FOR UPDATE NOWAIT;
+
+connection con3;
+set autocommit=0;
+
+--error ER_DB_FAILED_TO_LOCK_REC_NOWAIT
+SELECT * from t5
+where (id > 5000) and (id < 5005) or
+      (x > 6003) and (x < 6008) FOR UPDATE NOWAIT;
+
+--error ER_DB_FAILED_TO_LOCK_REC_NOWAIT
+SELECT * from t5
+where (id = 5003) or
+      (x = 6003) order by id FOR UPDATE NOWAIT;
+
+connection con1;
+commit;
+
+connection con2;
+commit;
+
+connection con3;
+commit;
+
+--echo ### (5.4.1.1) Multi-table joins & ranges : SKIP LOCKED & NOWAIT
+
+connection con1;
+set autocommit=0;
+
+select t1.id, t2.id, t5.id
+from t1, t2, t5
+where (t1.id >= 2 and t1.id <= 4) and
+      (t2.id >= 3 and t2.id < 6) and
+      (t1.id = t2.id and t5.id > t2.id) and
+      ((t5.id between 1000 and 1002) or
+       (t5.x between 2000 and 2002)) FOR UPDATE;
+
+connection con2;
+set autocommit=0;
+
+select t1.id, t3.x, t5.id
+from t1, t3, t5
+where (t1.id in (3, 5)) and
+      (t1.id = t3.x) and
+      (t3.x < t5.id and t5.x in (900, 1001, 1010, 2001, 3000)) FOR UPDATE SKIP LOCKED;
+
+connection con3;
+set autocommit=0;
+
+--error ER_DB_FAILED_TO_LOCK_REC_NOWAIT
+select t1.id, t3.x, t5.id
+from t1, t3, t5
+where (t1.id in (3, 5)) and
+      (t1.id = t3.x) and
+      (t3.x < t5.id and t5.x in (900, 1001, 1010, 2001, 3000)) FOR UPDATE NOWAIT;
+
+connection con1;
+commit;
+
+connection con2;
+commit;
+
+connection con3;
+commit;
+
+--echo ### (5.4.1.2) Multi-table joins & ranges : SKIP LOCKED & NOWAIT
+
+connection con1;
+set autocommit=0;
+
+select t1.id, t2.id, t5.x
+from t1, t2, t5
+where (t1.id = t2.id) and
+      (t2.x = t5.id) and
+      ((t5.id > 5003 and t5.id < 5008) or (t5.x >= 3 and t5.x <= 4)) FOR UPDATE;
+
+connection con2;
+set autocommit=0;
+
+select t1.id, t5.x
+from t1, t5
+where (t1.id = t5.id) and
+      (t5.x in (1, 2, 3, 4, 5, 5000)) FOR UPDATE SKIP LOCKED;
+
+select t1.id, t2.id, t3.id, t5.x
+from t1, t2, t3, t5
+where (t1.id >= 1) and (t1.id < t5.x) or
+      (t2.id <= 4) and (t2.id < t5.id) or
+      (t3.x < 6) and (t3.x < t5.x) or
+      (t5.id in (1, 3, 5, 5001, 5005, 5010, 5050)) FOR UPDATE SKIP LOCKED;
+
+connection con3;
+set autocommit=0;
+
+--error ER_DB_FAILED_TO_LOCK_REC_NOWAIT
+select t1.id, t2.id, t3.id, t5.x
+from t1, t2, t3, t5
+where (t1.id >= 1) and (t1.id < t5.x) or
+      (t2.id <= 4) and (t2.id < t5.id) or
+      (t3.x < 6) and (t3.x < t5.x) or
+      (t5.id in (5001, 5002, 5005, 5008, 5010, 5050, 6000)) FOR UPDATE NOWAIT;
+
+connection con1;
+commit;
+
+connection con2;
+commit;
+
+connection con3;
+commit;
+
+--echo ### (5.4.2.1) Sub-queries : SKIP LOCKED & NOWAIT
+
+connection con1;
+set autocommit=0;
+
+select t1.id, t1.x
+from t1
+where t1.id in (select t2.x from t2 where t2.x between 2 and 4) FOR UPDATE;
+
+connection con2;
+set autocommit=0;
+
+select t1.id, t1.x
+from t1
+where t1.x >= 0 and t1.x <= 5 FOR UPDATE SKIP LOCKED;
+
+connection con3;
+set autocommit=0;
+
+--error ER_DB_FAILED_TO_LOCK_REC_NOWAIT
+select t1.id, t1.x
+from t1
+where t1.x >= 0 and t1.x <= 5 FOR UPDATE NOWAIT;
+
+connection con1;
+commit;
+
+connection con2;
+commit;
+
+connection con3;
+commit;
+
+--echo ### (5.4.2.2) Sub-queries : SKIP LOCKED & NOWAIT
+
+connection con1;
+set autocommit=0;
+
+select t1.id, t1.x
+from t1
+where t1.id in (select t2.x
+                from t2
+                where t2.x not in (select t5.id
+                                   from t5
+                                   where t5.x between 1 and 3)) FOR UPDATE;
+connection con2;
+set autocommit=0;
+
+select t2.id, t2.x
+from t2
+where t2.x in (select t1.id
+               from t1
+               where t1.id in (select t5.id
+                               from t5
+                               where t5.x >= 0 and t5.x <= 5)) FOR UPDATE SKIP LOCKED;
+connection con3;
+set autocommit=0;
+
+--error ER_DB_FAILED_TO_LOCK_REC_NOWAIT
+select t5.id
+from t5, t2
+where t5.x >= t2.x and t2.x < 5 FOR UPDATE NOWAIT;
+
+connection con1;
+commit;
+
+connection con2;
+commit;
+
+connection con3;
+commit;
+
+--echo ### (5.4.2.3) Sub-queries : SKIP LOCKED & NOWAIT
+
+connection con1;
+set autocommit=0;
+
+select *
+from t1, (select sum(t2.id) as t2_id_sum, t2.x
+          from t2
+          group by t2.x
+          having t2.x > 2) as derived_t2
+where t1.id < derived_t2.t2_id_sum and t1.x > 1 and t1.x < 3 FOR UPDATE;
+
+connection con2;
+set autocommit=0;
+
+select *
+from t2, (select sum(t5.id) as t5_id_sum, t5.x
+          from t5
+          group by t5.x
+          having t5.x > 2 and t5.x < 5) as derived_t5
+where t2.id < derived_t5.t5_id_sum and t2.x >= 0 FOR UPDATE SKIP LOCKED;
+
+connection con3;
+set autocommit=0;
+
+select *
+from t1, (select sum(t5.id) as t5_id_sum, t5.x
+          from t5
+          group by t5.x
+          having t5.x >= 4 and t5.x <= 5) as derived_t5
+where t1.id <= derived_t5.t5_id_sum and t1.x >= 1 FOR UPDATE SKIP LOCKED;
+
+connection con1;
+commit;
+
+connection con2;
+commit;
+
+connection con3;
+commit;
+
+--echo ### (6) Transaction 1 locks primary key only, transaction 2 locks both
 
 connection con1;
 set autocommit=0;
@@ -246,7 +770,7 @@ disconnect con3;
 
 connection default;
 
---echo ### (6) INSERT INTO t SELECT * FROM t FOR UPDATE [SKIP LOCKED | NOWAIT]
+--echo ### (7) INSERT INTO t SELECT * FROM t FOR UPDATE [SKIP LOCKED | NOWAIT]
 
 set autocommit=1;
 
@@ -258,7 +782,7 @@ insert into t0 select * from t0 for update nowait;
 
 select count(*) from t0;
 
---echo ### (7) Unsupported storage engines
+--echo ### (8) Unsupported storage engines
 
 create table t4 (a int primary key) engine=heap;
 
@@ -298,7 +822,7 @@ select * from t4 where a > 1 and a < 3 for update nowait;
 --error ER_ILLEGAL_HA
 insert into t4 select * from t4 for update nowait;
 
---echo ### (7) New key words 'SKIP' 'LOCKED' 'NOWAIT' are not reserved key words
+--echo ### (8) New key words 'SKIP' 'LOCKED' 'NOWAIT' are not reserved key words
 
 # save the current database name
 let $OLD_DB= `SELECT DATABASE()`;
@@ -341,5 +865,5 @@ drop database nowait;
 
 # restore the original database
 eval use $OLD_DB;
-drop table t0, t1, t2, t3, t4;
+drop table t0, t1, t2, t3, t4, t5;
 exit;

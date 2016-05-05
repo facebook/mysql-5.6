@@ -835,6 +835,7 @@ row_create_prebuilt(
 	btr_pcur_reset(&prebuilt->clust_pcur);
 
 	prebuilt->select_lock_type = LOCK_NONE;
+	prebuilt->select_x_lock_type = LOCK_X_REGULAR;
 	prebuilt->stored_select_lock_type = LOCK_NONE_UNSET;
 
 	prebuilt->search_tuple = dtuple_create(heap, search_tuple_n_fields);
