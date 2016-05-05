@@ -1,4 +1,4 @@
-drop table if exists t0, t1, t2, t3, t4;
+drop table if exists t0, t1, t2, t3, t4, t5;
 create table t0 (id integer, x integer) engine=INNODB;
 insert into t0 values(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5);
 create table t1 (id integer primary key, x integer) engine=INNODB;
@@ -7,6 +7,7 @@ create table t2 (id integer primary key, x integer, unique key x(x)) engine=INNO
 insert into t2 values(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5);
 create table t3 (id integer primary key, x integer, key x(x)) engine=INNODB;
 insert into t3 values(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5);
+create table t5 (id integer primary key, x integer, key x(x)) engine=INNODB;
 ### (0.0) Basic syntax
 set autocommit=1;
 select 1 for update skip locked;
@@ -61,7 +62,7 @@ SELECT * from t0 where id = 1 FOR UPDATE NOWAIT;
 ERROR HY000: Failed to lock a record and didn't wait
 commit;
 commit;
-### (1) With pirmary key: Locks only on the record (covering index)
+### (1.1) With pirmary key: Locks only on the record (covering index)
 set autocommit=0;
 SELECT * from t1 where id = 1 FOR UPDATE;
 id	x
@@ -88,7 +89,28 @@ ERROR HY000: Failed to lock a record and didn't wait
 commit;
 commit;
 commit;
-### (2) With unique secondary key: Locks on the unique secondary key (covering index)
+### (1.2) With pirmary key: Encountering locked rows after at least one match already (covering index) with NOWAIT
+set autocommit=0;
+SELECT * from t1 where id >= 2 and id <= 5 FOR UPDATE;
+id	x
+2	2
+3	3
+4	4
+5	5
+set autocommit=0;
+lock will not wait, expecting error
+SELECT * from t1 where id >= 0 FOR UPDATE NOWAIT;
+ERROR HY000: Failed to lock a record and didn't wait
+set autocommit=0;
+lock will not wait, expecting error
+SELECT * from t1 where id > 0 and id < 3 FOR UPDATE NOWAIT;
+ERROR HY000: Failed to lock a record and didn't wait
+SELECT * from t1 order by id FOR UPDATE NOWAIT;
+ERROR HY000: Failed to lock a record and didn't wait
+commit;
+commit;
+commit;
+### (2.1) With unique secondary key: Locks on the unique secondary key (covering index)
 set autocommit=0;
 SELECT x from t2 where x = 1 FOR UPDATE;
 x
@@ -111,6 +133,24 @@ x
 5
 lock will not wait, expecting error
 SELECT x from t2 where x = 1 FOR UPDATE NOWAIT;
+ERROR HY000: Failed to lock a record and didn't wait
+commit;
+commit;
+commit;
+### (2.2) With unique secondary key: Encountering locked rows after at least one match already (covering index) with NOWAIT
+set autocommit=0;
+SELECT x from t2 where x >= 2 and x < 5 FOR UPDATE;
+x
+2
+3
+4
+set autocommit=0;
+lock will not wait, expecting error
+SELECT x from t2 where x > 0 FOR UPDATE NOWAIT;
+ERROR HY000: Failed to lock a record and didn't wait
+set autocommit=0;
+lock will not wait, expecting error
+SELECT x from t2 where x >= 0 and x < 3 FOR UPDATE NOWAIT;
 ERROR HY000: Failed to lock a record and didn't wait
 commit;
 commit;
@@ -169,7 +209,460 @@ ERROR HY000: Failed to lock a record and didn't wait
 commit;
 commit;
 commit;
-### (5) Transaction 1 locks primary key only, transaction 2 locks both
+### (5.1.1) Large table with primary key and non-unique secondary key :
+###         Primary key and SKIP LOCKED
+set autocommit=0;
+SELECT * from t5
+where (id > 5000 and id < 5006) or
+(id >= 6000 and id <= 6006) FOR UPDATE;
+id	x
+5001	5001
+5002	5002
+5003	5003
+5004	5004
+5005	5005
+6000	6000
+6001	6001
+6002	6002
+6003	6003
+6004	6004
+6005	6005
+6006	6006
+set autocommit=0;
+lock will skip
+SELECT * from t5
+where (id = 1000) or
+(id = 5003) or
+(id = 5050) or
+(id = 6003) or
+(id = 6050) FOR UPDATE SKIP LOCKED;
+id	x
+1000	1000
+5050	5050
+6050	6050
+set autocommit=0;
+lock will skip
+SELECT * from t5
+where (id = 1000) or
+(id >= 5003) and (id <= 5010) or
+(id = 5050) or
+(id >= 6003) and (id <= 6010) or
+(id = 6050) FOR UPDATE SKIP LOCKED;
+id	x
+5007	5007
+5008	5008
+5009	5009
+5010	5010
+6008	6008
+6009	6009
+6010	6010
+commit;
+commit;
+commit;
+### (5.1.2) Large table with primary key and non-unique secondary key :
+###         Primary key and NOWAIT
+set autocommit=0;
+SELECT * from t5
+where (id > 5000 and id < 5006) or
+(id >= 6000 and id <= 6006) FOR UPDATE;
+id	x
+5001	5001
+5002	5002
+5003	5003
+5004	5004
+5005	5005
+6000	6000
+6001	6001
+6002	6002
+6003	6003
+6004	6004
+6005	6005
+6006	6006
+set autocommit=0;
+lock will not wait, expecting error
+SELECT * from t5
+where (id = 1000) or
+(id = 5003) or
+(id = 5050) FOR UPDATE NOWAIT;
+ERROR HY000: Failed to lock a record and didn't wait
+set autocommit=0;
+lock will not wait, expecting error
+SELECT * from t5
+where (id = 1000) or
+(id >= 5003) and (id <= 5010) or
+(id = 5050) FOR UPDATE NOWAIT;
+ERROR HY000: Failed to lock a record and didn't wait
+commit;
+commit;
+commit;
+### (5.2.1) Large table with primary key and non-unique secondary key : SKIP LOCKED
+###         Secondary key and SKIP LOCKED
+set autocommit=0;
+SELECT * from t5
+where (x > 5000 and x < 5006) or
+(x >= 6000 and x <= 6006) FOR UPDATE;
+id	x
+5001	5001
+5002	5002
+5003	5003
+5004	5004
+5005	5005
+6000	6000
+6001	6001
+6002	6002
+6003	6003
+6004	6004
+6005	6005
+6006	6006
+set autocommit=0;
+lock will skip
+SELECT * from t5
+where (x = 1000) or
+(x = 5003) or
+(x = 5050) or
+(x = 6003) or
+(x = 6050) FOR UPDATE SKIP LOCKED;
+id	x
+1000	1000
+5050	5050
+6050	6050
+set autocommit=0;
+lock will skip
+SELECT * from t5
+where (x = 1000) or
+(x >= 5003) and (x <= 5010) or
+(x = 5050) or
+(x >= 6003) and (x <= 6010) or
+(x = 6050) FOR UPDATE SKIP LOCKED;
+id	x
+5007	5007
+5008	5008
+5009	5009
+5010	5010
+6008	6008
+6009	6009
+6010	6010
+commit;
+commit;
+commit;
+### (5.2.2) Large table with primary key and non-unique secondary key :
+###         Secondary key and NOWAIT
+set autocommit=0;
+SELECT * from t5
+where (x > 5000 and x < 5006) or
+(x >= 6000 and x <= 6006) FOR UPDATE;
+id	x
+5001	5001
+5002	5002
+5003	5003
+5004	5004
+5005	5005
+6000	6000
+6001	6001
+6002	6002
+6003	6003
+6004	6004
+6005	6005
+6006	6006
+set autocommit=0;
+lock will not wait, expecting error
+SELECT * from t5
+where (x = 1000) or
+(x = 5003) or
+(x = 5050) FOR UPDATE NOWAIT;
+ERROR HY000: Failed to lock a record and didn't wait
+set autocommit=0;
+lock will not wait, expecting error
+SELECT * from t5
+where (x = 1000) or
+(x >= 5003) and (x <= 5010) or
+(x = 5050) FOR UPDATE NOWAIT;
+ERROR HY000: Failed to lock a record and didn't wait
+commit;
+commit;
+commit;
+### (5.3.1) Large table with primary key and non-unique secondary key :
+###         Primary key, Secondary key, and SKIP LOCKED
+set autocommit=0;
+SELECT * from t5
+where (id > 5000 and id < 5006) or
+(id >= 6000 and id <= 6006) or
+(x > 7000 and x < 7006) or
+(x > 8000 and x < 8006) FOR UPDATE;
+id	x
+7001	7001
+7002	7002
+7003	7003
+7004	7004
+7005	7005
+8001	8001
+8002	8002
+8003	8003
+8004	8004
+8005	8005
+5001	5001
+5002	5002
+5003	5003
+5004	5004
+5005	5005
+6000	6000
+6001	6001
+6002	6002
+6003	6003
+6004	6004
+6005	6005
+6006	6006
+set autocommit=0;
+lock will skip
+SELECT * from t5
+where (id = 1000) or
+(id = 5003) or
+(x = 6003) FOR UPDATE SKIP LOCKED;
+id	x
+1000	1000
+lock will skip
+SELECT * from t5
+where (x = 1000) or
+(x = 5003) or
+(id = 6003) FOR UPDATE SKIP LOCKED;
+id	x
+1000	1000
+set autocommit=0;
+lock will skip
+SELECT * from t5
+where (id > 5000) and (id < 5005) or
+(x > 6003) and (x < 6008) FOR UPDATE SKIP LOCKED;
+id	x
+lock will skip
+SELECT * from t5
+where (id = 5003) or
+(x = 6003) order by id FOR UPDATE SKIP LOCKED;
+id	x
+commit;
+commit;
+commit;
+### (5.3.2) Large table with primary key and non-unique secondary key :
+###         Primary key, Secondary key, and NOWAIT
+set autocommit=0;
+SELECT * from t5
+where (id > 5000 and id < 5005) or
+(id >= 6000 and id <= 6005) or
+(x > 7000 and x < 7005) or
+(x > 8000 and x < 8005) FOR UPDATE;
+id	x
+7001	7001
+7002	7002
+7003	7003
+7004	7004
+8001	8001
+8002	8002
+8003	8003
+8004	8004
+5001	5001
+5002	5002
+5003	5003
+5004	5004
+6000	6000
+6001	6001
+6002	6002
+6003	6003
+6004	6004
+6005	6005
+set autocommit=0;
+lock will not wait, expecting error
+SELECT * from t5
+where (id = 1000) or
+(id = 5003) or
+(x = 6003) FOR UPDATE NOWAIT;
+ERROR HY000: Failed to lock a record and didn't wait
+SELECT * from t5
+where (x = 1000) or
+(x = 5003) or
+(id = 6003) FOR UPDATE NOWAIT;
+ERROR HY000: Failed to lock a record and didn't wait
+set autocommit=0;
+SELECT * from t5
+where (id > 5000) and (id < 5005) or
+(x > 6003) and (x < 6008) FOR UPDATE NOWAIT;
+ERROR HY000: Failed to lock a record and didn't wait
+SELECT * from t5
+where (id = 5003) or
+(x = 6003) order by id FOR UPDATE NOWAIT;
+ERROR HY000: Failed to lock a record and didn't wait
+commit;
+commit;
+commit;
+### (5.4.1.1) Multi-table joins & ranges : SKIP LOCKED & NOWAIT
+set autocommit=0;
+select t1.id, t2.id, t5.id
+from t1, t2, t5
+where (t1.id >= 2 and t1.id <= 4) and
+(t2.id >= 3 and t2.id < 6) and
+(t1.id = t2.id and t5.id > t2.id) and
+((t5.id between 1000 and 1002) or
+(t5.x between 2000 and 2002)) FOR UPDATE;
+id	id	id
+3	3	2000
+3	3	2001
+3	3	2002
+3	3	1000
+3	3	1001
+3	3	1002
+4	4	2000
+4	4	2001
+4	4	2002
+4	4	1000
+4	4	1001
+4	4	1002
+set autocommit=0;
+select t1.id, t3.x, t5.id
+from t1, t3, t5
+where (t1.id in (3, 5)) and
+(t1.id = t3.x) and
+(t3.x < t5.id and t5.x in (900, 1001, 1010, 2001, 3000)) FOR UPDATE SKIP LOCKED;
+id	x	id
+set autocommit=0;
+select t1.id, t3.x, t5.id
+from t1, t3, t5
+where (t1.id in (3, 5)) and
+(t1.id = t3.x) and
+(t3.x < t5.id and t5.x in (900, 1001, 1010, 2001, 3000)) FOR UPDATE NOWAIT;
+ERROR HY000: Failed to lock a record and didn't wait
+commit;
+commit;
+commit;
+### (5.4.1.2) Multi-table joins & ranges : SKIP LOCKED & NOWAIT
+set autocommit=0;
+select t1.id, t2.id, t5.x
+from t1, t2, t5
+where (t1.id = t2.id) and
+(t2.x = t5.id) and
+((t5.id > 5003 and t5.id < 5008) or (t5.x >= 3 and t5.x <= 4)) FOR UPDATE;
+id	id	x
+3	3	3
+4	4	4
+set autocommit=0;
+select t1.id, t5.x
+from t1, t5
+where (t1.id = t5.id) and
+(t5.x in (1, 2, 3, 4, 5, 5000)) FOR UPDATE SKIP LOCKED;
+id	x
+select t1.id, t2.id, t3.id, t5.x
+from t1, t2, t3, t5
+where (t1.id >= 1) and (t1.id < t5.x) or
+(t2.id <= 4) and (t2.id < t5.id) or
+(t3.x < 6) and (t3.x < t5.x) or
+(t5.id in (1, 3, 5, 5001, 5005, 5010, 5050)) FOR UPDATE SKIP LOCKED;
+id	id	id	x
+set autocommit=0;
+select t1.id, t2.id, t3.id, t5.x
+from t1, t2, t3, t5
+where (t1.id >= 1) and (t1.id < t5.x) or
+(t2.id <= 4) and (t2.id < t5.id) or
+(t3.x < 6) and (t3.x < t5.x) or
+(t5.id in (5001, 5002, 5005, 5008, 5010, 5050, 6000)) FOR UPDATE NOWAIT;
+ERROR HY000: Failed to lock a record and didn't wait
+commit;
+commit;
+commit;
+### (5.4.2.1) Sub-queries : SKIP LOCKED & NOWAIT
+set autocommit=0;
+select t1.id, t1.x
+from t1
+where t1.id in (select t2.x from t2 where t2.x between 2 and 4) FOR UPDATE;
+id	x
+2	2
+3	3
+4	4
+set autocommit=0;
+select t1.id, t1.x
+from t1
+where t1.x >= 0 and t1.x <= 5 FOR UPDATE SKIP LOCKED;
+id	x
+0	0
+1	1
+set autocommit=0;
+select t1.id, t1.x
+from t1
+where t1.x >= 0 and t1.x <= 5 FOR UPDATE NOWAIT;
+ERROR HY000: Failed to lock a record and didn't wait
+commit;
+commit;
+commit;
+### (5.4.2.2) Sub-queries : SKIP LOCKED & NOWAIT
+set autocommit=0;
+select t1.id, t1.x
+from t1
+where t1.id in (select t2.x
+from t2
+where t2.x not in (select t5.id
+from t5
+where t5.x between 1 and 3)) FOR UPDATE;
+id	x
+0	0
+4	4
+5	5
+set autocommit=0;
+select t2.id, t2.x
+from t2
+where t2.x in (select t1.id
+from t1
+where t1.id in (select t5.id
+from t5
+where t5.x >= 0 and t5.x <= 5)) FOR UPDATE SKIP LOCKED;
+id	x
+1	1
+2	2
+3	3
+4	4
+5	5
+set autocommit=0;
+select t5.id
+from t5, t2
+where t5.x >= t2.x and t2.x < 5 FOR UPDATE NOWAIT;
+ERROR HY000: Failed to lock a record and didn't wait
+commit;
+commit;
+commit;
+### (5.4.2.3) Sub-queries : SKIP LOCKED & NOWAIT
+set autocommit=0;
+select *
+from t1, (select sum(t2.id) as t2_id_sum, t2.x
+from t2
+group by t2.x
+having t2.x > 2) as derived_t2
+where t1.id < derived_t2.t2_id_sum and t1.x > 1 and t1.x < 3 FOR UPDATE;
+id	x	t2_id_sum	x
+2	2	3	3
+2	2	4	4
+2	2	5	5
+set autocommit=0;
+select *
+from t2, (select sum(t5.id) as t5_id_sum, t5.x
+from t5
+group by t5.x
+having t5.x > 2 and t5.x < 5) as derived_t5
+where t2.id < derived_t5.t5_id_sum and t2.x >= 0 FOR UPDATE SKIP LOCKED;
+id	x	t5_id_sum	x
+0	0	3	3
+1	1	3	3
+2	2	3	3
+0	0	4	4
+1	1	4	4
+2	2	4	4
+3	3	4	4
+set autocommit=0;
+select *
+from t1, (select sum(t5.id) as t5_id_sum, t5.x
+from t5
+group by t5.x
+having t5.x >= 4 and t5.x <= 5) as derived_t5
+where t1.id <= derived_t5.t5_id_sum and t1.x >= 1 FOR UPDATE SKIP LOCKED;
+id	x	t5_id_sum	x
+commit;
+commit;
+commit;
+### (6) Transaction 1 locks primary key only, transaction 2 locks both
 set autocommit=0;
 SELECT id from t2 where id = 1 FOR UPDATE;
 id
@@ -186,7 +679,7 @@ lock will skip
 SELECT x from t2 where x >= 0 FOR UPDATE SKIP LOCKED;
 x
 5
-### (6) INSERT INTO t SELECT * FROM t FOR UPDATE [SKIP LOCKED | NOWAIT]
+### (7) INSERT INTO t SELECT * FROM t FOR UPDATE [SKIP LOCKED | NOWAIT]
 set autocommit=1;
 select count(*) from t0;
 count(*)
@@ -199,7 +692,7 @@ insert into t0 select * from t0 for update nowait;
 select count(*) from t0;
 count(*)
 24
-### (7) Unsupported storage engines
+### (8) Unsupported storage engines
 create table t4 (a int primary key) engine=heap;
 insert into t4 values (1), (2), (3);
 Should succeed since no table gets involved
@@ -226,7 +719,7 @@ select * from t4 where a > 1 and a < 3 for update nowait;
 ERROR HY000: Table storage engine for 't4' doesn't have this option
 insert into t4 select * from t4 for update nowait;
 ERROR HY000: Table storage engine for 't4' doesn't have this option
-### (7) New key words 'SKIP' 'LOCKED' 'NOWAIT' are not reserved key words
+### (8) New key words 'SKIP' 'LOCKED' 'NOWAIT' are not reserved key words
 create database skip;
 use skip;
 create table skip (skip int primary key) engine=innodb;
@@ -285,4 +778,4 @@ locked
 4
 drop database nowait;
 use test;
-drop table t0, t1, t2, t3, t4;
+drop table t0, t1, t2, t3, t4, t5;

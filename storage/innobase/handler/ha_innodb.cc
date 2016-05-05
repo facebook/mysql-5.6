@@ -6139,6 +6139,9 @@ ha_innobase::clone(
 
 		new_handler->prebuilt->select_lock_type
 			= prebuilt->select_lock_type;
+
+		new_handler->prebuilt->select_x_lock_type
+			= prebuilt->select_x_lock_type;
 	}
 
 	DBUG_RETURN(new_handler);
@@ -8998,6 +9001,17 @@ ha_innobase::general_fetch(
 		table->status = STATUS_NOT_FOUND;
 		error = HA_ERR_NO_SUCH_TABLE;
 		break;
+
+	case DB_FAILED_TO_LOCK_REC_NOWAIT:
+
+		ib_senderrf(
+			prebuilt->trx->mysql_thd, IB_LOG_LEVEL_ERROR,
+			ER_DB_FAILED_TO_LOCK_REC_NOWAIT, MYF(0));
+
+		table->status = STATUS_NOT_FOUND;
+		error = HA_ERR_FAILED_TO_LOCK_REC_NOWAIT;
+		break;
+
 	default:
 		error = convert_error_code_to_mysql(
 			ret, prebuilt->table->flags, user_thd);
@@ -13665,9 +13679,6 @@ ha_innobase::external_lock(
 
 		prebuilt->select_lock_type = LOCK_X;
 		prebuilt->stored_select_lock_type = LOCK_X;
-	}
-	else if (lock_type != F_UNLCK) {
-		DBUG_ASSERT(prebuilt->select_x_lock_type == LOCK_X_REGULAR);
 	}
 
 	if (lock_type != F_UNLCK) {
