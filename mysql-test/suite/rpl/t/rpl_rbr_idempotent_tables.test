@@ -1,5 +1,6 @@
 source include/master-slave.inc;
 source include/have_binlog_format_row.inc;
+call mtr.add_suppression('Slave SQL:.* Could not execute Write_rows event on table test.test_table2');
 
 connection master;
 create table test_table1 (a int primary key);
