@@ -52,7 +52,7 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter
 
     GL_INDEX_ID gl_index_id;
     gl_index_id.cf_id= m_cf_id;
-    gl_index_id.index_id= read_big_uint4((const uchar*)key.data());
+    gl_index_id.index_id= rdb_netbuf_to_uint32((const uchar*)key.data());
     DBUG_ASSERT(gl_index_id.index_id >= 1);
 
     if (gl_index_id != m_prev_index)  // processing new index id
