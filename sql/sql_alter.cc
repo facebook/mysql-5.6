@@ -20,6 +20,11 @@
 #include "sql_alter.h"
 #include "debug_sync.h"                      // DEBUG_SYNC
 
+#ifdef TARGET_OS_LINUX
+#include <sys/syscall.h>
+#include <sys/ioctl.h>
+#include "flashcache_ioctl.h"
+#endif /* TARGET_OS_LINUX */
 
 Alter_info::Alter_info(const Alter_info &rhs, MEM_ROOT *mem_root)
   :drop_list(rhs.drop_list, mem_root),
@@ -310,6 +315,17 @@ bool Sql_cmd_alter_table::execute(THD *thd)
 
   thd->enable_slow_log= opt_log_slow_admin_statements;
 
+#ifdef TARGET_OS_LINUX
+  pid_t pid = -1;
+  if (lex->disable_flashcache && cachedev_fd > 0)
+  {
+    pid = syscall(SYS_gettid);
+    if (pid >= 0) {
+      ioctl(cachedev_fd, FLASHCACHEADDNCPID, &pid);
+    }
+  }
+#endif /* TARGET_OS_LINUX */
+
   result= mysql_alter_table(thd, select_lex->db, lex->name.str,
                             &create_info,
                             first_table,
@@ -317,6 +333,13 @@ bool Sql_cmd_alter_table::execute(THD *thd)
                             select_lex->order_list.elements,
                             select_lex->order_list.first,
                             lex->ignore);
+
+#ifdef TARGET_OS_LINUX
+  if (pid >= 0)
+  {
+    ioctl(cachedev_fd, FLASHCACHEDELNCPID, &pid);
+  }
+#endif /* TARGET_OS_LINUX */
 
   DBUG_RETURN(result);
 }
