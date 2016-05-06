@@ -41,9 +41,8 @@ extract_index_stats(
   for (auto fn : files) {
     auto it = props.find(fn);
     DBUG_ASSERT(it != props.end());
-    std::vector<Rdb_index_stats> stats =
-      Rdb_tbl_prop_coll::read_stats_from_tbl_props(
-        it->second);
+    std::vector<Rdb_index_stats> stats;
+    Rdb_tbl_prop_coll::read_stats_from_tbl_props(it->second, &stats);
     ret.insert(ret.end(), stats.begin(), stats.end());
   }
   return ret;
@@ -70,11 +69,12 @@ void Rdb_event_listener::OnFlushCompleted(
   DBUG_ASSERT(db != nullptr);
   DBUG_ASSERT(m_ddl_manager != nullptr);
 
-  auto p_props = std::make_shared<const rocksdb::TableProperties>(
+  auto tbl_props = std::make_shared<const rocksdb::TableProperties>(
     flush_job_info.table_properties);
 
-  m_ddl_manager->adjust_stats(
-    Rdb_tbl_prop_coll::read_stats_from_tbl_props(p_props));
+  std::vector<Rdb_index_stats> stats;
+  Rdb_tbl_prop_coll::read_stats_from_tbl_props(tbl_props, &stats);
+  m_ddl_manager->adjust_stats(stats);
 }
 
 }  // namespace myrocks
