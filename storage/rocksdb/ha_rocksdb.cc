@@ -3107,11 +3107,13 @@ int ha_rocksdb::read_hidden_pk_id_from_rowkey(longlong* hidden_pk_id)
     return 1;
 
   const int length= Field_longlong::PACK_LENGTH;
-  const char *from;
-  if (!(from= reader.read(length)))
+  const uchar *from= reinterpret_cast<const uchar*>(reader.read(length));
+  if (from == nullptr)
+  {
     return 1; /* Mem-comparable image doesn't have enough bytes */
+  }
 
-  *hidden_pk_id= read_int64(&from);
+  *hidden_pk_id= rdb_netbuf_read_uint64(&from);
   return 0;
 }
 
@@ -3259,8 +3261,8 @@ void ha_rocksdb::convert_record_to_storage_format(const char *pk_packed_tuple,
                               storage_record.length());
     uchar key_crc_buf[RDB_CHECKSUM_SIZE];
     uchar val_crc_buf[RDB_CHECKSUM_SIZE];
-    store_big_uint4(key_crc_buf, key_crc32);
-    store_big_uint4(val_crc_buf, val_crc32);
+    rdb_netbuf_store_uint32(key_crc_buf, key_crc32);
+    rdb_netbuf_store_uint32(val_crc_buf, val_crc32);
     storage_record.append((const char*)&RDB_CHECKSUM_DATA_TAG, 1);
     storage_record.append((const char*)key_crc_buf, RDB_CHECKSUM_SIZE);
     storage_record.append((const char*)val_crc_buf, RDB_CHECKSUM_SIZE);
@@ -3566,12 +3568,9 @@ int ha_rocksdb::convert_record_from_storage_format(const rocksdb::Slice *key,
         reader.read(1)[0] == RDB_CHECKSUM_DATA_TAG)
     {
       uint32_t stored_key_chksum=
-          read_big_uint4(reinterpret_cast<const uchar*>(
-              reader.read(RDB_CHECKSUM_SIZE)));
-
+        rdb_netbuf_to_uint32((const uchar*)reader.read(RDB_CHECKSUM_SIZE));
       uint32_t stored_val_chksum=
-          read_big_uint4(reinterpret_cast<const uchar*>(
-              reader.read(RDB_CHECKSUM_SIZE)));
+        rdb_netbuf_to_uint32((const uchar*)reader.read(RDB_CHECKSUM_SIZE));
 
       uint32_t computed_key_chksum=
           my_core::crc32(0, reinterpret_cast<const uchar*>(key->data()),
@@ -7110,10 +7109,10 @@ rocksdb::Range get_range(
   uint32_t i, uchar buf[Rdb_key_def::INDEX_NUMBER_SIZE*2], int offset1,
   int offset2)
 {
-  uchar* buf_begin = buf;
-  uchar* buf_end = buf+Rdb_key_def::INDEX_NUMBER_SIZE;
-  store_index_number(buf_begin, i + offset1);
-  store_index_number(buf_end, i + offset2);
+  uchar* buf_begin= buf;
+  uchar* buf_end= buf + Rdb_key_def::INDEX_NUMBER_SIZE;
+  rdb_netbuf_store_index(buf_begin, i + offset1);
+  rdb_netbuf_store_index(buf_end, i + offset2);
 
   return rocksdb::Range(
     rocksdb::Slice((const char*) buf_begin, Rdb_key_def::INDEX_NUMBER_SIZE),
@@ -7210,7 +7209,7 @@ void* drop_index_thread(void*)
 
         bool index_removed= false;
         uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE]= {0};
-        store_big_uint4(key_buf, d.index_id);
+        rdb_netbuf_store_uint32(key_buf, d.index_id);
         rocksdb::Slice key = rocksdb::Slice((char*)key_buf, sizeof(key_buf));
         uchar buf[Rdb_key_def::INDEX_NUMBER_SIZE*2];
         rocksdb::Range range = get_range(d.index_id, buf, is_reverse_cf?1:0,
@@ -7678,14 +7677,13 @@ int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
       DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
 
-  int num_sst = 0;
+  int num_sst= 0;
   // group stats per index id
-  std::unordered_map<GL_INDEX_ID, Rdb_index_stats>
-    stats;
+  std::unordered_map<GL_INDEX_ID, Rdb_index_stats> stats;
   for (auto it : props)
   {
-    std::vector<Rdb_index_stats> sst_stats =
-        Rdb_tbl_prop_coll::read_stats_from_tbl_props(it.second);
+    std::vector<Rdb_index_stats> sst_stats;
+    Rdb_tbl_prop_coll::read_stats_from_tbl_props(it.second, &sst_stats);
     /*
       sst_stats is a list of index statistics for indexes that have entries
       in the current SST file.
