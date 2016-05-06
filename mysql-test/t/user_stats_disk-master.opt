@@ -1,2 +1,1 @@
 --innodb_buffer_pool_size=24M
---innodb-buffer-pool-chunk-size=0
