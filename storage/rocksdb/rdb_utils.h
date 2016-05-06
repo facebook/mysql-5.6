@@ -15,7 +15,7 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 #pragma once
 
-/* C++ header files */
+/* C++ standard header files */
 #include <string>
 
 /* MySQL header files */
@@ -76,18 +76,29 @@ namespace myrocks {
 #endif  // SHIP_ASSERT
 
 /*
-  Helper function to get an uchar* out of a MySQL String.
+  Helper function to get an NULL terminated uchar* out of a given MySQL String.
 */
 
-inline uchar* rdb_str_to_uchar_ptr(String * str)
+inline uchar* rdb_mysql_str_to_uchar_str(my_core::String * str)
 {
   DBUG_ASSERT(str != nullptr);
   return reinterpret_cast<uchar*>(str->c_ptr());
 }
 
 /*
-  Helper function to parse strings
+  Helper function to get plain (not necessary NULL terminated) uchar* out of a
+  given STL string.
 */
+
+inline const uchar* rdb_std_str_to_uchar_ptr(const std::string & str)
+{
+  return reinterpret_cast<const uchar*>(str.data());
+}
+
+/*
+  Helper functions to parse strings.
+*/
+
 const char* rdb_skip_spaces(struct charset_info_st* cs, const char *str)
   MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
@@ -109,7 +120,12 @@ const char* rdb_parse_id(struct charset_info_st* cs, const char *str,
 const char* rdb_skip_id(struct charset_info_st* cs, const char *str)
   MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
+/*
+  Helper functions to populate strings.
+*/
+
 std::string rdb_hexdump(const char *data, std::size_t data_len,
                         std::size_t maxsize = 0)
   MY_ATTRIBUTE((__nonnull__));
+
 }  // namespace myrocks

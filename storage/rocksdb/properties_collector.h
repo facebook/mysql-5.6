@@ -60,9 +60,10 @@ struct Rdb_index_stats
   std::vector<int64_t> m_distinct_keys_per_prefix;
   std::string m_name;  // name is not persisted
 
-  static std::string materialize(std::vector<Rdb_index_stats>,
+  static std::string materialize(const std::vector<Rdb_index_stats>& stats,
                                  const float card_adj_extra);
-  static int unmaterialize(const std::string& s, std::vector<Rdb_index_stats>&);
+  static int unmaterialize(const std::string& s,
+                           std::vector<Rdb_index_stats>* ret);
 
   Rdb_index_stats() : Rdb_index_stats({0, 0}) {}
   explicit Rdb_index_stats(GL_INDEX_ID gl_index_id) :
@@ -114,8 +115,9 @@ class Rdb_tbl_prop_coll : public rocksdb::TablePropertiesCollector
     return m_max_deleted_rows;
   }
 
-  static std::vector<Rdb_index_stats> read_stats_from_tbl_props(
-     const std::shared_ptr<const rocksdb::TableProperties>& table_props);
+  static void read_stats_from_tbl_props(
+    const std::shared_ptr<const rocksdb::TableProperties>& table_props,
+    std::vector<Rdb_index_stats>* out_stats_vector);
 
  private:
   static std::string GetReadableStats(const Rdb_index_stats& it);
