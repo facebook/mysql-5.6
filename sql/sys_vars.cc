@@ -4770,13 +4770,6 @@ static bool check_rbr_idempotent_tables(sys_var *self, THD *thd, set_var *var)
       my_message(ER_SLAVE_MUST_STOP, ER(ER_SLAVE_MUST_STOP), MYF(0));
       result = true;
     }
-    else
-    {
-      rbr_idempotent_tables.clear();
-      if (var->save_result.string_value.str)
-        rbr_idempotent_tables = split_into_set(
-          var->save_result.string_value.str, ',');
-    }
     mysql_mutex_unlock(&active_mi->rli->run_lock);
   }
   mysql_mutex_unlock(&LOCK_active_mi);

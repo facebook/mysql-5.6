@@ -24,6 +24,18 @@ connection master;
 insert into test_table1 values(2);
 
 sync_slave_with_master;
+let $rpl_server_parameters= --rbr_idempotent_tables=test_table1,test_table3;
+let $rpl_server_number=2;
+source include/rpl_restart_server.inc;
+
+connection slave;
+source include/start_slave.inc;
+insert into test_table1 values(3);
+connection master;
+# Slave SQL thread doesn't hit duplicate key error after restart.
+insert into test_table1 values(3);
+
+sync_slave_with_master;
 source include/stop_slave_sql.inc;
 set @@global.rbr_idempotent_tables = @old_var;
 source include/start_slave_sql.inc;

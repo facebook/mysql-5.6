@@ -6158,6 +6158,10 @@ pthread_handler_t handle_slave_sql(void *arg)
   /* Inform waiting threads that slave has started */
   rli->slave_run_id++;
   rli->slave_running = 1;
+  rbr_idempotent_tables.clear();
+  if (opt_rbr_idempotent_tables)
+    rbr_idempotent_tables = split_into_set(opt_rbr_idempotent_tables, ',');
+
   rli->reported_unsafe_warning= false;
 
   pthread_detach_this_thread();
