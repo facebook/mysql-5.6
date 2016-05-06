@@ -288,8 +288,7 @@ extern my_bool opt_bootstrap;
 extern char *opt_rbr_idempotent_tables;
 /*
   Global set of tables for which slave-exec-mode is considered IDEMPOTENT.
-  This is modified only when sql thread is stopped and while setting the
-  global variable rbr_idempotent_tables.
+  This is modified only during sql thread startup.
 
   This set is accessed by sql threads.
 */

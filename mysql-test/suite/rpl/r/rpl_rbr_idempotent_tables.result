@@ -14,9 +14,11 @@ set @@global.rbr_idempotent_tables='test_table1';
 include/start_slave_sql.inc
 insert into test_table1 values(2);
 insert into test_table2 values(2);
-set @@global.rbr_idempotent_tables='';
-ERROR HY000: This operation cannot be performed with a running slave; run STOP SLAVE first
 insert into test_table1 values(2);
+include/rpl_restart_server.inc [server_number=2 parameters: --rbr_idempotent_tables=test_table1,test_table3]
+include/start_slave.inc
+insert into test_table1 values(3);
+insert into test_table1 values(3);
 include/stop_slave_sql.inc
 set @@global.rbr_idempotent_tables = @old_var;
 include/start_slave_sql.inc

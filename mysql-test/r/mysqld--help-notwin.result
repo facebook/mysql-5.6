@@ -852,7 +852,8 @@ The following options may be given as the first argument:
  --rbr-idempotent-tables=name 
  slave_exec_mode is set to IDEMPOTENT for these list of
  tables. The table names are assumed to be separated by
- commas.
+ commas. Note this will take effect only after restarting
+ slave sql thread.
  --read-buffer-size=# 
  Each thread that does a sequential scan allocates a
  buffer of this size for each table it scans. If you do
