@@ -1,3 +1,4 @@
 --innodb-dump-core-without-large-mem-buf
 --innodb-buffer-pool-size=60G
+--innodb-buffer-pool-chunk-size=64M
 --innodb-buffer-pool-resizing-timeout=60
