@@ -19,6 +19,10 @@
 #pragma interface			/* gcc class implementation */
 #endif
 
+/* C++ standard header files */
+#include <string>
+#include <vector>
+
 /* MySQL header files */
 #include "./handler.h"                     /* handler */
 #include "./my_global.h"                   /* ulonglong */
@@ -32,8 +36,6 @@
 #include "rocksdb/utilities/options_util.h"
 #include "rocksdb/utilities/transaction_db.h"
 #include "rocksdb/utilities/write_batch_with_index.h"
-
-#include <vector>
 
 /* MyRocks header files */
 #include "./rdb_utils.h"
@@ -244,50 +246,51 @@ namespace myrocks {
 
 class ha_rocksdb: public handler
 {
-  THR_LOCK_DATA lock;      ///< MySQL lock
-  ROCKSDB_SHARE *share;    ///< Shared lock info
+  THR_LOCK_DATA m_lock;      ///< MySQL lock
+  ROCKSDB_SHARE *m_share;    ///< Shared lock info
 
   /* Iterator used for range scans and for full table/index scans */
-  rocksdb::Iterator *scan_it;
+  rocksdb::Iterator *m_scan_it;
 
-  /* Whether scan_it was created with skip_bloom=true */
-  bool scan_it_skips_bloom;
+  /* Whether m_scan_it was created with skip_bloom=true */
+  bool m_scan_it_skips_bloom;
 
-  Rdb_tbl_def *tbl_def;
+  Rdb_tbl_def *m_tbl_def;
 
   /* Primary Key encoder from KeyTupleFormat to StorageFormat */
-  std::shared_ptr<Rdb_key_def> pk_descr;
+  std::shared_ptr<Rdb_key_def> m_pk_descr;
 
   /* Array of index descriptors */
-  std::shared_ptr<Rdb_key_def>*key_descr;
+  std::shared_ptr<Rdb_key_def> *m_key_descr_arr;
 
   bool check_keyread_allowed(uint inx, uint part, bool all_parts) const;
+
   /*
     Number of key parts in PK. This is the same as
       table->key_info[table->s->primary_key].keyparts
   */
-  uint pk_key_parts;
+  uint m_pk_key_parts;
 
   /*
     TRUE <=> Primary Key columns can be decoded from the index
   */
-  mutable bool pk_can_be_decoded;
+  mutable bool m_pk_can_be_decoded;
 
-  uchar *pk_tuple; /* Buffer for storing PK in KeyTupleFormat */
-  uchar *pk_packed_tuple; /* Buffer for storing PK in StorageFormat */
+  uchar *m_pk_tuple; /* Buffer for storing PK in KeyTupleFormat */
+  uchar *m_pk_packed_tuple; /* Buffer for storing PK in StorageFormat */
   // ^^ todo: change it to 'char*'? TODO: ^ can we join this with last_rowkey?
 
   /*
     Temporary buffers for storing the key part of the Key/Value pair
     for secondary indexes.
   */
-  uchar *sec_key_packed_tuple;
+  uchar *m_sec_key_packed_tuple;
 
   /*
     Temporary buffers for storing end key part of the Key/Value pair.
     This is used for range scan only.
   */
-  uchar *end_key_packed_tuple;
+  uchar *m_end_key_packed_tuple;
 
   /*
     Same as above, but it stores the value part. It holds unpack info which
@@ -297,33 +300,33 @@ class ha_rocksdb: public handler
     this buffer is max_packed_sec_key_len? This is technically true currently,
     but doesn't look meaningful.
   */
-  uchar *sec_key_tails;
+  uchar *m_sec_key_tails;
 
   /*
     ha_rockdb->index_read_map(.. HA_READ_KEY_EXACT or similar) will save here
     mem-comparable form of the index lookup tuple.
   */
-  uchar *sec_key_match_prefix;
-  uint sec_key_match_length;
+  uchar *m_sec_key_match_prefix;
+  uint m_sec_key_match_length;
 
   /* Buffer space for the above */
-  uchar *sec_key_match_prefix_buf;
+  uchar *m_sec_key_match_prefix_buf;
 
   /* Second buffers, used by UPDATE. */
-  uchar *sec_key_packed_tuple_old;
-  uchar *sec_key_tails_old;
+  uchar *m_sec_key_packed_tuple_old;
+  uchar *m_sec_key_tails_old;
 
   /*
     Temporary space for packing VARCHARs (we provide it to
     pack_record()/pack_index_tuple() calls).
   */
-  uchar *pack_buffer;
+  uchar *m_pack_buffer;
 
   /* rowkey of the last record we've read, in StorageFormat. */
-  String last_rowkey;
+  String m_last_rowkey;
 
   /* Buffer used by convert_record_to_storage_format() */
-  String storage_record;
+  String m_storage_record;
 
   /*
     Last retrieved record, in table->record[0] data format.
@@ -331,36 +334,33 @@ class ha_rocksdb: public handler
     This is used only when we get the record with rocksdb's Get() call (The
     other option is when we get a rocksdb::Slice from an iterator)
   */
-  std::string retrieved_record;
+  std::string m_retrieved_record;
 
   /* Type of locking to apply to rows */
-  enum { RDB_LOCK_NONE, RDB_LOCK_READ, RDB_LOCK_WRITE } lock_rows;
-
-  /* Lock that we've placed on the row we've just read. */
-  Row_lock *last_row_lock;
+  enum { RDB_LOCK_NONE, RDB_LOCK_READ, RDB_LOCK_WRITE } m_lock_rows;
 
   /* TRUE means we're doing an index-only read. FALSE means otherwise. */
-  bool keyread_only;
+  bool m_keyread_only;
 
-  bool skip_scan_it_next_call;
+  bool m_skip_scan_it_next_call;
 
   /* TRUE means we are accessing the first row after a snapshot was created */
-  bool rnd_scan_is_new_snapshot;
+  bool m_rnd_scan_is_new_snapshot;
 
-  /*
-    Valid inside UPDATE statements, when updated_indexes_is_valid=true:
-
-    This is a bitmap of indexes whose keys (in future, values) may be changed
-    by this statement. Indexes that are not in the bitmap do not need to be
-    updated.
+  /**
+    @brief
+    This is a bitmap of indexes (i.e. a set) whose keys (in future, values) may
+    be changed by this statement. Indexes that are not in the bitmap do not need
+    to be updated.
+    @note Valid inside UPDATE statements, IIF(m_update_scope_is_valid == true).
   */
-  key_map updated_indexes;
-  bool updated_indexes_is_valid;
+  my_core::key_map m_update_scope;
+  bool m_update_scope_is_valid;
 
   /*
     MySQL index number for duplicate key error
   */
-  int dupp_errkey;
+  int m_dupp_errkey;
 
   int create_key_defs(TABLE *table_arg, const char *db_table, const uint len,
                       HA_CREATE_INFO *create_info)
@@ -383,8 +383,8 @@ class ha_rocksdb: public handler
     MY_ATTRIBUTE((__nonnull__));
   void release_scan_iterator(void)
   {
-    delete scan_it;
-    scan_it= nullptr;
+    delete m_scan_it;
+    m_scan_it= nullptr;
   }
 
   int get_row_by_rowid(uchar *buf, const char *pk_tuple,
@@ -432,23 +432,23 @@ class ha_rocksdb: public handler
       Since we can get them from the key part of RocksDB key->value pair, we
       don't need to store them in the value part.
     */
-    bool dont_store;
+    bool m_dont_store;
 
-    uint null_offset;
-    uint16 field_index;
+    uint m_null_offset;
+    uint16 m_field_index;
 
-    uchar null_mask;  // 0 means the field cannot be null
+    uchar m_null_mask;  // 0 means the field cannot be null
 
-    enum_field_types field_type;
+    my_core::enum_field_types m_field_type;
 
-    uint pack_length_in_rec;
+    uint m_pack_length_in_rec;
 
-    bool maybe_null() const { return null_mask != 0; }
+    bool maybe_null() const { return m_null_mask != 0; }
 
     bool uses_variable_len_encoding() const
     {
-      return (field_type == MYSQL_TYPE_BLOB ||
-              field_type == MYSQL_TYPE_VARCHAR);
+      return (m_field_type == MYSQL_TYPE_BLOB ||
+              m_field_type == MYSQL_TYPE_VARCHAR);
     }
   } FIELD_ENCODER;
 
@@ -456,18 +456,18 @@ class ha_rocksdb: public handler
     Array of table->s->fields elements telling how to store fields in the
     record.
   */
-  FIELD_ENCODER *field_enc;
+  FIELD_ENCODER *m_encoder_arr;
 
   /* Describes instructions on how to decode the field */
   class READ_FIELD
   {
    public:
     /* Points to FIELD_ENCODER describing the field */
-    FIELD_ENCODER* field_enc;
+    FIELD_ENCODER* m_field_enc;
     /* if true, decode the field, otherwise skip it */
-    bool  decode;
+    bool  m_decode;
     /* Skip this many bytes before reading (or skipping) this field */
-    int   skip;
+    int   m_skip;
   };
 
   /*
@@ -475,7 +475,7 @@ class ha_rocksdb: public handler
     decoding table row from (pk, encoded_row) pair. (Secondary keys are
     just always decoded in full currently)
   */
-  std::vector<READ_FIELD> field_decoders;
+  std::vector<READ_FIELD> m_decoders_vect;
 
   /* Setup field_decoders based on type of scan and table->read_set */
   void setup_read_decoders();
@@ -484,7 +484,7 @@ class ha_rocksdb: public handler
     Number of bytes in on-disk (storage) record format that are used for
     storing SQL NULL flags.
   */
-  uint null_bytes_in_rec;
+  uint m_null_bytes_in_rec;
 
   void setup_field_converters();
 
@@ -495,11 +495,12 @@ class ha_rocksdb: public handler
     Perf timers for data reads
    */
   Rdb_io_perf m_io_perf;
+
   /*
     A counter of how many row checksums were checked for this table. Note that
     this does not include checksums for secondary index entries.
   */
-  ha_rows row_checksums_checked;
+  my_core::ha_rows m_row_checksums_checked;
 
   /*
     Update stats
@@ -511,13 +512,13 @@ public:
     Controls whether writes include checksums. This is updated from the session variable
     at the start of each query.
   */
-  bool store_checksums;
+  bool m_store_checksums;
 
   /* Same as above but for verifying checksums when reading */
-  bool verify_checksums;
-  int checksums_pct;
+  bool m_verify_checksums;
+  int m_checksums_pct;
 
-  ha_rocksdb(handlerton *hton, TABLE_SHARE *table_arg);
+  ha_rocksdb(my_core::handlerton *hton, my_core::TABLE_SHARE *table_arg);
   ~ha_rocksdb() {}
 
   /** @brief
@@ -537,7 +538,7 @@ public:
     This is a list of flags that indicate what functionality the storage engine
     implements. The current table flags are documented in handler.h
   */
-  ulonglong table_flags() const
+  ulonglong table_flags() const override
   {
     /*
       HA_BINLOG_STMT_CAPABLE
@@ -550,7 +551,7 @@ public:
     */
     return HA_BINLOG_ROW_CAPABLE | HA_BINLOG_STMT_CAPABLE |
            HA_REC_NOT_IN_SEQ | HA_CAN_INDEX_BLOBS |
-           (pk_can_be_decoded? HA_PRIMARY_KEY_IN_READ_INDEX:0) |
+           (m_pk_can_be_decoded? HA_PRIMARY_KEY_IN_READ_INDEX : 0) |
            HA_PRIMARY_KEY_REQUIRED_FOR_POSITION |
            HA_NULL_IN_KEY |
            HA_PARTIAL_COLUMN_READ;
@@ -561,7 +562,7 @@ public:
     implements indexes. The current index flags are documented in
     handler.h. If you do not implement indexes, just return zero here.
 
-      @details
+    @details
     part is the key part to check. First key part is 0.
     If all_parts is set, MySQL wants to know the flags for the combined
     index, up to and including 'part'.
@@ -580,7 +581,7 @@ public:
 
   bool should_store_checksums() const
   {
-    return store_checksums && (rand() % 100 < checksums_pct);
+    return m_store_checksums && (rand() % 100 < m_checksums_pct);
   }
 
   int rename_table(const char *from, const char *to)
@@ -600,15 +601,15 @@ public:
                                         rocksdb::Slice *packed_rec)
     MY_ATTRIBUTE((__nonnull__));
 
-  bool is_hidden_pk(const uint index, const TABLE* table,
-                    const Rdb_tbl_def* tbl_def)
+  static bool is_hidden_pk(const uint index, const TABLE* table_arg,
+                           const Rdb_tbl_def* tbl_def_arg)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
-  uint pk_index(const TABLE* table, const Rdb_tbl_def* tbl_def)
+  static uint pk_index(const TABLE* table_arg, const Rdb_tbl_def* tbl_def_arg)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
-  bool is_pk(const uint index, const TABLE* table,
-             const Rdb_tbl_def* tbl_def)
+  static bool is_pk(const uint index, const TABLE* table_arg,
+                    const Rdb_tbl_def* tbl_def_arg)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   /** @brief
@@ -708,7 +709,7 @@ private:
     MY_ATTRIBUTE((__warn_unused_result__));
 
   int read_key_exact(const std::shared_ptr<const Rdb_key_def>& kd,
-                     rocksdb::Iterator* scan_it, bool using_full_key,
+                     rocksdb::Iterator* iter, bool using_full_key,
                      const rocksdb::Slice& key_slice)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   int read_before_key(const std::shared_ptr<const Rdb_key_def>& kd,
@@ -775,7 +776,7 @@ public:
 
   int rnd_pos(uchar *buf, uchar *pos) MY_ATTRIBUTE((__warn_unused_result__));
   void position(const uchar *record);
-  int info(uint);
+  int info(uint) override;
 
   /* This function will always return success, therefore no annotation related
    * to checking the return value. Can't change the signature because it's
@@ -789,10 +790,10 @@ public:
   int delete_all_rows(ha_rows* nrows) MY_ATTRIBUTE((__warn_unused_result__));
   int truncate() MY_ATTRIBUTE((__warn_unused_result__));
 
-  int reset()
+  int reset() override
   {
     /* Free blob data */
-    retrieved_record.clear();
+    m_retrieved_record.clear();
     return 0;
   }
 
@@ -858,8 +859,8 @@ public:
   virtual bool rpl_lookup_rows();
 
  private:
-  bool in_rpl_delete_rows;
-  bool in_rpl_update_rows;
+  bool m_in_rpl_delete_rows;
+  bool m_in_rpl_update_rows;
 };
 
 /*
