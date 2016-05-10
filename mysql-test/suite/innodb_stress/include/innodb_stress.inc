@@ -120,8 +120,10 @@ $table 0 $max_rows $MYSQL_TMP_DIR/load_generator $checksum $secondary_index_chec
     --echo Wait for reconnect
     enable_reconnect;
     # Call script that will poll the server waiting for it to be back online again
+    let $wait_timeout = 36000;
     source include/wait_until_connected_again.inc;
     connection slave;
+    let $wait_timeout = 36000;
     source include/wait_until_connected_again.inc;
     connection master;
   }
