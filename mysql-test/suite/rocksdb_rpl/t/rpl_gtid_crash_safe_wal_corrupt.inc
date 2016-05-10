@@ -1,6 +1,8 @@
 source include/master-slave.inc;
 -- let $uuid = `select @@server_uuid;`
 
+--exec echo > $MYSQLTEST_VARDIR/log/mysqld.1.err
+
 connection master;
 --disable_warnings
 drop table if exists x;
@@ -56,9 +58,10 @@ EOF
 --let $rpl_skip_start_slave= 1
 --source include/rpl_start_server.inc
 --disable_query_log
-select "--- slave state after crash recovery, slave stop, one WAL entry missing ---" as "";
+select "--- slave state after crash recovery, slave stop, one transaction recovered---" as "";
 --enable_query_log
 connection slave;
+--exec python suite/rocksdb/t/check_log_for_xa.py $MYSQLTEST_VARDIR/log/mysqld.2.err commit,prepare,rollback
 select * from x;
 -- replace_result $uuid uuid
 select @@global.gtid_executed;

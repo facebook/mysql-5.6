@@ -118,6 +118,21 @@ const char * const PER_INDEX_CF_NAME = "$per_index_cf";
 #define MAX_SUBCOMPACTIONS                               64
 
 /*
+  Defines the field sizes for serializing XID object to a string representation.
+  string byte format: [field_size: field_value, ...]
+  [
+    8: XID.formatID,
+    1: XID.gtrid_length,
+    1: XID.bqual_length,
+    XID.gtrid_length + XID.bqual_length: XID.data
+  ]
+*/
+#define RDB_FORMATID_SZ 8
+#define RDB_GTRID_SZ 1
+#define RDB_BQUAL_SZ 1
+#define RDB_XIDHDR_LEN (RDB_FORMATID_SZ + RDB_GTRID_SZ + RDB_BQUAL_SZ)
+
+/*
   To fix an unhandled exception we specify the upper bound as LONGLONGMAX
   instead of ULONGLONGMAX because the latter is -1 and causes an exception when
   cast to jlong (signed) of JNI
