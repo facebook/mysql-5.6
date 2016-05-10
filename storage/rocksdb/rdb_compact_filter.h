@@ -61,7 +61,8 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter
       {
         m_num_deleted= 0;
       }
-      m_should_delete= get_dict_manager()->is_drop_index_ongoing(gl_index_id);
+      m_should_delete=
+          rdb_get_dict_manager()->is_drop_index_ongoing(gl_index_id);
       m_prev_index= gl_index_id;
     }
 

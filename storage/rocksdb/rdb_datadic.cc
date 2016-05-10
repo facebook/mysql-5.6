@@ -846,7 +846,7 @@ int Rdb_key_def::unpack_record(TABLE *table, uchar *buf,
          is_hidden_pk)
     {
       DBUG_ASSERT(fpi->m_unpack_func);
-      if (fpi->m_unpack_func(fpi, nullptr, &reader,
+      if (fpi->m_unpack_func(fpi, nullptr, nullptr, &reader,
                              unpack_ptr + fpi->m_unpack_data_offset))
         return 1;
       continue;
@@ -881,10 +881,8 @@ int Rdb_key_def::unpack_record(TABLE *table, uchar *buf,
       }
 
       // Set the offset for methods which do not take an offset as an argument
-      field->move_field_offset(ptr_diff);
-      int res= fpi->m_unpack_func(fpi, field, &reader,
+      int res= fpi->m_unpack_func(fpi, field, field->ptr + ptr_diff, &reader,
                                   unpack_ptr + fpi->m_unpack_data_offset);
-      field->move_field_offset(-ptr_diff);
 
       if (res)
         return 1;
@@ -1012,6 +1010,7 @@ int rdb_skip_max_length(Rdb_field_packing *fpi,
 */
 
 int rdb_unpack_integer(Rdb_field_packing *fpi, Field *field,
+                       uchar *to,
                        Rdb_string_reader *reader,
                        const uchar *unpack_info MY_ATTRIBUTE((__unused__)))
 {
@@ -1027,8 +1026,6 @@ int rdb_unpack_integer(Rdb_field_packing *fpi, Field *field,
    */
   if (!field)
     return 0;
-
-  uchar *to= field->ptr;
 
 #ifdef WORDS_BIGENDIAN
   {
@@ -1146,13 +1143,15 @@ static int rdb_unpack_floating_point(
 static int rdb_unpack_double(
     Rdb_field_packing *fpi MY_ATTRIBUTE((__unused__)),
     Field *field,
+    uchar *field_ptr,
     Rdb_string_reader *reader,
     const uchar *unpack_info MY_ATTRIBUTE((__unused__)))
 {
   static double      zero_val = 0.0;
   static const uchar zero_pattern[8] = { 128, 0, 0, 0, 0, 0, 0, 0 };
 
-  return rdb_unpack_floating_point(field->ptr, reader, sizeof(double),
+  return rdb_unpack_floating_point(field_ptr, reader,
+      sizeof(double),
       DBL_EXP_DIG, zero_pattern, (const uchar *) &zero_val,
       rdb_swap_double_bytes);
 }
@@ -1170,13 +1169,15 @@ static int rdb_unpack_double(
 static int rdb_unpack_float(
     Rdb_field_packing *fpi MY_ATTRIBUTE((__unused__)),
     Field *field,
+    uchar *field_ptr,
     Rdb_string_reader *reader,
     const uchar *unpack_info MY_ATTRIBUTE((__unused__)))
 {
   static float       zero_val = 0.0;
   static const uchar zero_pattern[4] = { 128, 0, 0, 0 };
 
-  return rdb_unpack_floating_point(field->ptr, reader, sizeof(float),
+  return rdb_unpack_floating_point(field_ptr, reader,
+      sizeof(float),
       FLT_EXP_DIG, zero_pattern, (const uchar *) &zero_val,
       rdb_swap_float_bytes);
 }
@@ -1188,6 +1189,7 @@ static int rdb_unpack_float(
 
 static int rdb_unpack_newdate(
     Rdb_field_packing *fpi, Field *field,
+    uchar *field_ptr,
     Rdb_string_reader *reader,
     const uchar *unpack_info MY_ATTRIBUTE((__unused__)))
 {
@@ -1198,9 +1200,9 @@ static int rdb_unpack_newdate(
   if (!(from= reader->read(3)))
     return 1; /* Mem-comparable image doesn't have enough bytes */
 
-  field->ptr[0]= from[2];
-  field->ptr[1]= from[1];
-  field->ptr[2]= from[0];
+  field_ptr[0]= from[2];
+  field_ptr[1]= from[1];
+  field_ptr[2]= from[0];
   return 0;
 }
 
@@ -1213,6 +1215,7 @@ static int rdb_unpack_newdate(
 
 static int rdb_unpack_binary_str(
     Rdb_field_packing *fpi, Field *field,
+    uchar *to,
     Rdb_string_reader *reader,
     const uchar *unpack_info MY_ATTRIBUTE((__unused__)))
 {
@@ -1220,7 +1223,7 @@ static int rdb_unpack_binary_str(
   if (!(from= reader->read(fpi->m_max_image_len)))
     return 1; /* Mem-comparable image doesn't have enough bytes */
 
-  memcpy(field->ptr + fpi->m_field_data_offset, from, fpi->m_max_image_len);
+  memcpy(to + fpi->m_field_data_offset, from, fpi->m_max_image_len);
   return 0;
 }
 
@@ -1233,6 +1236,7 @@ static int rdb_unpack_binary_str(
 
 static int rdb_unpack_utf8_str(
     Rdb_field_packing *fpi, Field *field,
+    uchar *field_ptr,
     Rdb_string_reader *reader,
     const uchar *unpack_info MY_ATTRIBUTE((__unused__)))
 {
@@ -1242,7 +1246,7 @@ static int rdb_unpack_utf8_str(
     return 1; /* Mem-comparable image doesn't have enough bytes */
 
   const uchar *src_end= src + fpi->m_max_image_len;
-  uchar *dst= field->ptr + fpi->m_field_data_offset;
+  uchar *dst= field_ptr + fpi->m_field_data_offset;
   uchar *dst_end= dst + field->pack_length();
 
   while (src < src_end)
@@ -1325,13 +1329,15 @@ static void rdb_pack_with_varchar_encoding(
 */
 
 static int rdb_unpack_binary_or_utf8_varchar(
-    Rdb_field_packing *fpi, Field *field, Rdb_string_reader *reader,
+    Rdb_field_packing *fpi, Field *field,
+    uchar *dst,
+    Rdb_string_reader *reader,
     const uchar *unpack_info MY_ATTRIBUTE((__unused__)))
 {
   const uchar *ptr;
   size_t len= 0;
   bool finished= false;
-  uchar *dst= field->ptr + fpi->m_field_data_offset;
+  dst += fpi->m_field_data_offset;
   Field_varstring* field_var= (Field_varstring*)field;
   size_t dst_len= field_var->pack_length() - field_var->length_bytes; // How much we can unpack
   uchar *dst_end= dst + dst_len;
@@ -1611,7 +1617,7 @@ void Rdb_field_packing::fill_hidden_pk_val(uchar **dst,
 
 Rdb_tbl_def::~Rdb_tbl_def()
 {
-  auto ddl_manager= get_ddl_manager();
+  auto ddl_manager= rdb_get_ddl_manager();
   /* Don't free key definitions */
   if (m_key_descr_arr)
   {
@@ -1799,9 +1805,9 @@ int Rdb_validate_tbls::add_table(Rdb_tbl_def* tdef)
   DBUG_ASSERT(tdef != nullptr);
 
   /* Parse the m_dbname_tablename for the different elements */
-  if (rocksdb_split_normalized_tablename(tdef->m_dbname_tablename.ptr(),
-                                         &dbname_buff, &tablename_buff,
-                                         &partition_buff) != 0)
+  if (rdb_split_normalized_tablename(tdef->m_dbname_tablename.ptr(),
+                                     &dbname_buff, &tablename_buff,
+                                     &partition_buff) != 0)
   {
     return 1;
   }
@@ -2271,7 +2277,9 @@ void Rdb_ddl_manager::adjust_stats(
   bool should_save_stats = !m_stats2store.empty();
   mysql_rwlock_unlock(&m_rwlock);
   if (should_save_stats)
-    request_save_stats();
+  {
+    rdb_request_save_stats();
+  }
 }
 
 void Rdb_ddl_manager::persist_stats(bool sync)
@@ -2664,7 +2672,8 @@ void Rdb_binlog_manager::update_slave_gtid_info(
     // pointer to it via m_slave_gtid_info_tbl.
     if (!m_slave_gtid_info_tbl.load()) {
       m_slave_gtid_info_tbl.store(
-        get_ddl_manager()->find((const uchar*)("mysql.slave_gtid_info"), 21));
+        rdb_get_ddl_manager()->find((const uchar*)("mysql.slave_gtid_info"),
+                                    21));
     }
     if (!m_slave_gtid_info_tbl.load()) {
       // slave_gtid_info table is not present. Simply return.
@@ -2775,7 +2784,9 @@ int Rdb_dict_manager::commit(rocksdb::WriteBatch *batch, bool sync)
   rocksdb::Status s= m_db->Write(options, batch);
   res= !s.ok(); // we return true when something failed
   if (res)
-    rocksdb_handle_io_error(s, ROCKSDB_IO_ERROR_DICT_COMMIT);
+  {
+    rdb_handle_io_error(s, RDB_IO_ERROR_DICT_COMMIT);
+  }
   batch->Clear();
   return res;
 }
