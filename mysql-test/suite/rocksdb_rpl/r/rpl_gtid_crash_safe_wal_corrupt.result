@@ -40,12 +40,13 @@ id	value	value2
 2	1	1
 3	1	1
 4	1	1
+5	1	1
 select @@global.gtid_executed;
 @@global.gtid_executed
 uuid:1-6
 select * from mysql.slave_gtid_info;
 Id	Database_name	Last_gtid
-1	test	uuid:6
+1	test	uuid:7
 
 --- slave state after restart, slave start ---
 include/start_slave.inc
@@ -114,6 +115,7 @@ id	value	value2
 7	1	1
 8	1	1
 9	1	1
+10	1	1
 include/start_slave.inc
 select * from x;
 id	value	value2

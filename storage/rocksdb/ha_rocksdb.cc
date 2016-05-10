@@ -1376,6 +1376,25 @@ public:
     }
   }
 
+  bool prepare(const rocksdb::TransactionName& name)
+  {
+    rocksdb::Status s;
+    s= m_rocksdb_tx->SetName(name);
+    if (!s.ok())
+    {
+      rocksdb_handle_io_error(s, ROCKSDB_IO_ERROR_TX_COMMIT);
+      return false;
+    }
+
+    s= m_rocksdb_tx->Prepare();
+    if (!s.ok())
+    {
+      rocksdb_handle_io_error(s, ROCKSDB_IO_ERROR_TX_COMMIT);
+      return false;
+    }
+    return true;
+  }
+
   bool commit_or_rollback()
   {
     bool res;
@@ -1391,6 +1410,7 @@ public:
 
   bool commit()
   {
+    release_snapshot();
     if (get_n_writes() == 0)
     {
       rollback();
@@ -1415,9 +1435,10 @@ public:
     {
       my_core::thd_binlog_pos(m_thd, &m_mysql_log_file_name,
                               &m_mysql_log_offset, &m_mysql_gtid);
+      rocksdb::WriteBatch *batch = m_rocksdb_tx->GetCommitTimeWriteBatch();
       binlog_manager.update(m_mysql_log_file_name,
                             m_mysql_log_offset,
-                            m_mysql_gtid, m_rocksdb_tx->GetWriteBatch());
+                            m_mysql_gtid, batch);
       return commit_no_binlog();
     }
   }
@@ -1435,7 +1456,6 @@ public:
   bool commit_no_binlog()
   {
     bool res= false;
-    release_snapshot();
     rocksdb::Status s= m_rocksdb_tx->Commit();
     if (!s.ok())
     {
@@ -1613,6 +1633,15 @@ public:
   {
     ++m_write_count;
     return m_rocksdb_tx->GetWriteBatch()->GetWriteBatch();
+  }
+
+  /* get writebatch that will be inserted into mem
+   * at time of commit for 2pc transactions.
+   */
+  rocksdb::WriteBatchBase* get_commit_time_write_batch()
+  {
+    ++m_write_count;
+    return m_rocksdb_tx->GetCommitTimeWriteBatch();
   }
 
   rocksdb::Status get(rocksdb::ColumnFamilyHandle* column_family,
@@ -1859,6 +1888,25 @@ static int rocksdb_close_connection(handlerton* hton, THD* thd)
   return 0;
 }
 
+/* serializes an xid to a string so that it can
+ * be used as a rocksdb transaction name
+ */
+static size_t write_xid_to_string(XID *src, uchar *dst) {
+  int32 f = src->formatID;
+  int32 g = src->gtrid_length;
+  int32 b = src->bqual_length;
+
+  rdb_netbuf_store_uint32(dst, *reinterpret_cast<uint32_t*>(&f));
+  dst += 4;
+  rdb_netbuf_store_uint32(dst, *reinterpret_cast<uint32_t*>(&g));
+  dst += 4;
+  rdb_netbuf_store_uint32(dst, *reinterpret_cast<uint32_t*>(&b));
+  dst += 4;
+  memcpy(dst, src->data, g+b);
+  return 12+g+b;
+}
+
+
 /**
   Doing nothing at prepare() on master. But defining handler::prepare() is
   needed for Xid binlog event to be written at commit.
@@ -1881,9 +1929,17 @@ static int rocksdb_prepare(handlerton* hton, THD* thd, bool prepare_tx,
     std::vector<st_slave_gtid_info> slave_gtid_info;
     my_core::thd_slave_gtid_info(thd, &slave_gtid_info);
     for (auto it : slave_gtid_info) {
-      rocksdb::WriteBatchBase* write_batch = tx->get_blind_write_batch();
+      rocksdb::WriteBatchBase* write_batch = tx->get_commit_time_write_batch();
       binlog_manager.update_slave_gtid_info(it.id, it.db, it.gtid, write_batch);
     }
+
+    XID xid;
+    thd_get_xid(thd, reinterpret_cast<MYSQL_XID*>(&xid));
+    uchar buf[256];
+    size_t len = write_xid_to_string(&xid, buf);
+    rocksdb::TransactionName txname((const char*)buf, len);
+    if (!tx->prepare(txname))
+      return 1;
   }
 
   return 0;
@@ -1895,12 +1951,52 @@ static int rocksdb_prepare(handlerton* hton, THD* thd, bool prepare_tx,
 */
 static int rocksdb_commit_by_xid(handlerton* hton,	XID* xid)
 {
+  uchar buf[256];
+  size_t len = write_xid_to_string(xid, buf);
+  rocksdb::TransactionName txname((const char*)buf, len);
+  rocksdb::Transaction *trx = rdb->GetTransactionByName(txname);
+  if (trx == nullptr) {
+    return 1;
+  }
+  rocksdb::Status s = trx->Commit();
+  if (!s.ok()) {
+    return 1;
+  }
   return 0;
 }
 
-static int rocksdb_rollback_by_xid(handlerton* hton,	XID* xid)
+static int rocksdb_rollback_by_xid(handlerton* hton, XID* xid)
 {
+  uchar buf[256];
+  size_t len = write_xid_to_string(xid, buf);
+  rocksdb::TransactionName txname((const char*)buf, len);
+  rocksdb::Transaction *trx = rdb->GetTransactionByName(txname);
+  if (trx == nullptr) {
+    return 1;
+  }
+  rocksdb::Status s = trx->Rollback();
+  if (!s.ok()) {
+    return 1;
+  }
   return 0;
+}
+
+/*
+ * rebuilds an XID from a serialized version stored
+ * in a string.
+ */
+static void read_xid_from_string(const uchar *src, XID *dst)
+{
+  uint64_t f = rdb_netbuf_to_uint32(src);
+  src += 4;
+  uint64_t g = rdb_netbuf_to_uint32(src);
+  src += 4;
+  uint64_t b = rdb_netbuf_to_uint32(src);
+  src += 4;
+  memcpy(&dst->formatID, &f, 4);
+  memcpy(&dst->gtrid_length, &g, 4);
+  memcpy(&dst->bqual_length, &b, 4);
+  memcpy(dst->data, src, (dst->gtrid_length)+(dst->bqual_length));
 }
 
 /**
@@ -1930,9 +2026,25 @@ static int rocksdb_recover(handlerton* hton, XID* xid_list, uint len,
       }
     }
   }
-  return 0;
-}
 
+  if (len == 0 || xid_list == nullptr)
+  {
+    return 0;
+  }
+
+  std::vector<rocksdb::Transaction*> trans_list;
+  rdb->GetAllPreparedTransactions(&trans_list);
+  uint count= 0;
+  for (auto it= trans_list.begin();
+       it < trans_list.end() && count < len;
+       it++) {
+    XID *xid = new (&xid_list[count]) XID();
+    auto *name = (*it)->GetName().c_str();
+    read_xid_from_string(reinterpret_cast<const uchar*>(name), xid);
+    count++;
+  }
+  return count;
+}
 
 static int rocksdb_commit(handlerton* hton, THD* thd, bool commit_tx, bool)
 {
