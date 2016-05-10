@@ -1788,7 +1788,7 @@ rocksdb-allow-mmap-reads FALSE
 rocksdb-allow-mmap-writes FALSE
 rocksdb-allow-os-buffer TRUE
 rocksdb-background-sync FALSE
-rocksdb-base-background-compactions -1
+rocksdb-base-background-compactions 1
 rocksdb-block-cache-size 8388608
 rocksdb-block-restart-interval 16
 rocksdb-block-size 4096
@@ -1841,7 +1841,7 @@ rocksdb-max-background-compactions 1
 rocksdb-max-background-flushes 1
 rocksdb-max-log-file-size 0
 rocksdb-max-manifest-file-size 18446744073709551615
-rocksdb-max-open-files 5000
+rocksdb-max-open-files -1
 rocksdb-max-row-locks 1073741824
 rocksdb-max-subcompactions 1
 rocksdb-max-total-wal-size 0
