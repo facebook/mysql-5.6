@@ -77,8 +77,8 @@ static int rdb_i_s_cfstats_fill_table(
     {rocksdb::DB::Properties::kNumLiveVersions, "NUM_LIVE_VERSIONS"}
   };
 
-  rocksdb::DB *rdb= rocksdb_get_rdb();
-  Rdb_cf_manager& cf_manager= rocksdb_get_cf_manager();
+  rocksdb::DB *rdb= rdb_get_rocksdb_db();
+  Rdb_cf_manager& cf_manager= rdb_get_cf_manager();
   DBUG_ASSERT(rdb != nullptr);
 
   for (auto cf_name : cf_manager.get_cf_names())
@@ -159,9 +159,9 @@ static int rdb_i_s_dbstats_fill_table(
     {rocksdb::DB::Properties::kOldestSnapshotTime, "DB_OLDEST_SNAPSHOT_TIME"}
   };
 
-  rocksdb::DB *rdb= rocksdb_get_rdb();
+  rocksdb::DB *rdb= rdb_get_rocksdb_db();
   const rocksdb::BlockBasedTableOptions& table_options=
-    rocksdb_get_table_options();
+    rdb_get_table_options();
 
   for (auto property : db_properties)
   {
@@ -241,19 +241,21 @@ static int rdb_i_s_perf_context_fill_table(
 
   DBUG_ENTER("rdb_i_s_perf_context_fill_table");
 
-  std::vector<std::string> tablenames= get_share_names();
+  std::vector<std::string> tablenames= rdb_get_open_table_names();
   for (auto it : tablenames)
   {
     StringBuffer<256> buf, dbname, tablename, partname;
     Rdb_perf_counters counters;
 
-    if (rocksdb_normalize_tablename(it.c_str(), &buf)) {
+    if (rdb_normalize_tablename(it.c_str(), &buf)) {
       return HA_ERR_INTERNAL_ERROR;
     }
 
-    if (rocksdb_split_normalized_tablename(buf.c_ptr(), &dbname, &tablename,
-                                           &partname))
+    if (rdb_split_normalized_tablename(buf.c_ptr(), &dbname, &tablename,
+                                       &partname))
+    {
       continue;
+    }
 
     if (rdb_get_table_perf_counters(it.c_str(), &counters))
     {
@@ -385,7 +387,7 @@ static int rdb_i_s_cfoptions_fill_table(
 
   DBUG_ENTER("rdb_i_s_cfoptions_fill_table");
 
-  Rdb_cf_manager& cf_manager = rocksdb_get_cf_manager();
+  Rdb_cf_manager& cf_manager= rdb_get_cf_manager();
 
   for (auto cf_name : cf_manager.get_cf_names())
   {
@@ -557,8 +559,8 @@ static int rdb_i_s_cfoptions_fill_table(
         std::to_string(opts.compaction_options_fifo.max_table_files_size)});
 
     // get block-based table related options
-    const rocksdb::BlockBasedTableOptions& table_options =
-      rocksdb_get_table_options();
+    const rocksdb::BlockBasedTableOptions& table_options=
+      rdb_get_table_options();
 
     // get BLOCK_BASED_TABLE_FACTORY::CACHE_INDEX_AND_FILTER_BLOCKS option
     cf_option_types.push_back(
@@ -705,7 +707,7 @@ static int rdb_i_s_global_info_fill_table(
   int ret= 0;
 
   /* binlog info */
-  Rdb_binlog_manager *blm = get_binlog_manager();
+  Rdb_binlog_manager *blm= rdb_get_binlog_manager();
   DBUG_ASSERT(blm != nullptr);
 
   char file_buf[FN_REFLEN+1]= {0};
@@ -721,7 +723,7 @@ static int rdb_i_s_global_info_fill_table(
   }
 
   /* max index info */
-  Rdb_dict_manager *dict_manager = get_dict_manager();
+  Rdb_dict_manager *dict_manager= rdb_get_dict_manager();
   DBUG_ASSERT(dict_manager != nullptr);
 
   uint32_t max_index_id;
@@ -736,7 +738,7 @@ static int rdb_i_s_global_info_fill_table(
   /* cf_id -> cf_flags */
   char cf_id_buf[INT_BUF_LEN]= {0};
   char cf_value_buf[FN_REFLEN+1] = {0};
-  Rdb_cf_manager& cf_manager = rocksdb_get_cf_manager();
+  Rdb_cf_manager& cf_manager= rdb_get_cf_manager();
   for (auto cf_handle : cf_manager.get_all_cf()) {
     uint flags;
     dict_manager->get_cf_flags(cf_handle->GetID(), &flags);
@@ -796,8 +798,8 @@ int Rdb_ddl_scanner::add_table(Rdb_tbl_def *tdef)
   StringBuffer<256> dbname, tablename, partname;
 
   /* Some special tables such as drop_index have different names, ignore them */
-  if (rocksdb_split_normalized_tablename(tdef->m_dbname_tablename.c_ptr(),
-                                         &dbname, &tablename, &partname))
+  if (rdb_split_normalized_tablename(tdef->m_dbname_tablename.c_ptr(),
+                                     &dbname, &tablename, &partname))
   {
     return 0;
   }
@@ -854,7 +856,7 @@ static int rdb_i_s_ddl_fill_table(my_core::THD *thd,
   ddl_arg.m_thd= thd;
   ddl_arg.m_table= tables->table;
 
-  Rdb_ddl_manager *ddl_manager= get_ddl_manager();
+  Rdb_ddl_manager *ddl_manager= rdb_get_ddl_manager();
   DBUG_ASSERT(ddl_manager != nullptr);
   int ret= ddl_manager->scan_for_tables(&ddl_arg);
 
@@ -955,10 +957,10 @@ static int rdb_i_s_index_file_map_fill_table(
   DBUG_ENTER("rdb_i_s_index_file_map_fill_table");
 
   /* Iterate over all the column families */
-  rocksdb::DB *rdb= rocksdb_get_rdb();
+  rocksdb::DB *rdb= rdb_get_rocksdb_db();
   DBUG_ASSERT(rdb != nullptr);
 
-  Rdb_cf_manager& cf_manager = rocksdb_get_cf_manager();
+  Rdb_cf_manager& cf_manager= rdb_get_cf_manager();
   for (auto cf_handle : cf_manager.get_all_cf()) {
     /* Grab the the properties of all the tables in the column family */
     rocksdb::TablePropertiesCollection table_props_collection;

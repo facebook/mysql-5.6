@@ -25,6 +25,9 @@ Several refinements:
   7. Given the 80 character per line limit, we'll not always use full English
      words in names, when a well known or easily recognizable abbreviation
      exists (like "tx" for "transaction" or "param" for "parameter" etc).
+  8. When needing to disambiguate, we use different suffixes for that, like
+     "_arg" for a function argument/parameter, "_arr" for a C style array, and
+     "_vect" for a std::vector etc.
 
 == Running Tests ==
 To run tests from rocksdb, rocksd_rpl or rocksdb_sys_vars packages, use the following parameters:
