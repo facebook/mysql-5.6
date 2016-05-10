@@ -482,6 +482,9 @@ static int rdb_i_s_cfoptions_fill_table(
       case rocksdb::kBZip2Compression: val = "kBZip2Compression"; break;
       case rocksdb::kLZ4Compression: val = "kLZ4Compression"; break;
       case rocksdb::kLZ4HCCompression: val = "kLZ4HCCompression"; break;
+      case rocksdb::kZSTDNotFinalCompression: val = "kZSTDNotFinalCompression"; break;
+      case rocksdb::kXpressCompression: val = "kXpressCompression"; break;
+      case rocksdb::kDisableCompressionOption: val = "kDisableCompressionOption"; break;
       default: val = "NULL";
     }
     cf_option_types.push_back({"COMPRESSION_TYPE", val});
@@ -499,6 +502,8 @@ static int rdb_i_s_cfoptions_fill_table(
         case rocksdb::kLZ4Compression: val.append("kLZ4Compression:"); break;
         case rocksdb::kLZ4HCCompression: val.append("kLZ4HCCompression:"); break;
         case rocksdb::kZSTDNotFinalCompression: val.append("kZSTDNotFinalCompression"); break;
+        case rocksdb::kXpressCompression: val.append("kXpressCompression"); break;
+        case rocksdb::kDisableCompressionOption: val.append("kDisableCompressionOption"); break;
       }
     }
     val.pop_back();
