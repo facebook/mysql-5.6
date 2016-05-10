@@ -624,6 +624,7 @@ class Rdb_field_packing
   typedef void (*make_unpack_info_t) (Rdb_field_packing *fpi, Field *field,
                                       uchar *dst);
   typedef int (*index_field_unpack_t)(Rdb_field_packing *fpi, Field *field,
+                                      uchar *field_ptr,
                                       Rdb_string_reader *reader,
                                       const uchar *unpack_info);
   typedef int (*index_field_skip_t)  (Rdb_field_packing *fpi, Field *field,
