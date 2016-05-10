@@ -61,6 +61,14 @@ inline void rdb_netstr_append_uint16(my_core::String *out_netstr, uint16 val)
   Basic network buffer ("netbuf") write helper functions.
 */
 
+inline void rdb_netbuf_store_uint64(uchar *dst_netbuf, uint64 n)
+{
+  // Convert from host byte order (usually Little Endian) to network byte order
+  // (Big Endian).
+  uint64 net_val= htobe64(n);
+  memcpy(dst_netbuf, &net_val, sizeof(net_val));
+}
+
 inline void rdb_netbuf_store_uint32(uchar *dst_netbuf, uint32 n)
 {
   DBUG_ASSERT(dst_netbuf != nullptr);
