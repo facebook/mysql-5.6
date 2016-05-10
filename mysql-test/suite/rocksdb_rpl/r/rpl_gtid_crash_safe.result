@@ -109,12 +109,13 @@ SET GLOBAL debug = ``;
 use mysql;
 select * from slave_gtid_info;
 Id	Database_name	Last_gtid
-1	test	uuid:3
+1	test	uuid:4
 use test;
 select * from t1;
 a
 1
 2
+3
 change master to master_auto_position = 1;
 include/start_slave.inc
 rename table t1 to test1;
@@ -241,12 +242,13 @@ SET GLOBAL debug = ``;
 use mysql;
 select * from slave_gtid_info;
 Id	Database_name	Last_gtid
-1	test	uuid:3
+1	test	uuid:4
 use test;
 select * from t1;
 a
 1
 2
+3
 change master to master_auto_position = 1;
 include/start_slave.inc
 rename table t1 to test1;
