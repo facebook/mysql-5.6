@@ -861,7 +861,7 @@ rocksdb_allow_mmap_reads	OFF
 rocksdb_allow_mmap_writes	OFF
 rocksdb_allow_os_buffer	ON
 rocksdb_background_sync	OFF
-rocksdb_base_background_compactions	-1
+rocksdb_base_background_compactions	1
 rocksdb_block_cache_size	8388608
 rocksdb_block_restart_interval	16
 rocksdb_block_size	4096
@@ -907,7 +907,7 @@ rocksdb_max_background_compactions	1
 rocksdb_max_background_flushes	1
 rocksdb_max_log_file_size	0
 rocksdb_max_manifest_file_size	18446744073709551615
-rocksdb_max_open_files	5000
+rocksdb_max_open_files	-1
 rocksdb_max_row_locks	1073741824
 rocksdb_max_subcompactions	1
 rocksdb_max_total_wal_size	0

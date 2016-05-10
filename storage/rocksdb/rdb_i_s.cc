@@ -22,6 +22,7 @@
 #include <sql_show.h>
 
 /* RocksDB header files */
+#include "rocksdb/convenience.h"
 #include "rocksdb/compaction_filter.h"
 #include "rocksdb/filter_policy.h"
 #include "rocksdb/memtablerep.h"
@@ -474,15 +475,10 @@ static int rdb_i_s_cfoptions_fill_table(
     cf_option_types.push_back({"MAX_BYTES_FOR_LEVEL_MULTIPLIER_ADDITIONAL", val});
 
     // get COMPRESSION_TYPE option value
-    switch (opts.compression)
+    GetStringFromCompressionType(&val, opts.compression);
+    if (val.empty())
     {
-      case rocksdb::kNoCompression: val = "kNoCompression"; break;
-      case rocksdb::kSnappyCompression: val = "kSnappyCompression"; break;
-      case rocksdb::kZlibCompression: val = "kZlibCompression"; break;
-      case rocksdb::kBZip2Compression: val = "kBZip2Compression"; break;
-      case rocksdb::kLZ4Compression: val = "kLZ4Compression"; break;
-      case rocksdb::kLZ4HCCompression: val = "kLZ4HCCompression"; break;
-      default: val = "NULL";
+      val = "NULL";
     }
     cf_option_types.push_back({"COMPRESSION_TYPE", val});
 
@@ -490,15 +486,11 @@ static int rdb_i_s_cfoptions_fill_table(
     val = opts.compression_per_level.empty() ? "NULL" : "";
     for (auto compression_type : opts.compression_per_level)
     {
-      switch (compression_type)
+      std::string res;
+      GetStringFromCompressionType(&res, compression_type);
+      if (!res.empty())
       {
-        case rocksdb::kNoCompression: val.append("kNoCompression:"); break;
-        case rocksdb::kSnappyCompression: val.append("kSnappyCompression:"); break;
-        case rocksdb::kZlibCompression: val.append("kZlibCompression:"); break;
-        case rocksdb::kBZip2Compression: val.append("kBZip2Compression:"); break;
-        case rocksdb::kLZ4Compression: val.append("kLZ4Compression:"); break;
-        case rocksdb::kLZ4HCCompression: val.append("kLZ4HCCompression:"); break;
-        case rocksdb::kZSTDNotFinalCompression: val.append("kZSTDNotFinalCompression"); break;
+        val.append(res + ":");
       }
     }
     val.pop_back();
@@ -509,6 +501,17 @@ static int rdb_i_s_cfoptions_fill_table(
     val.append(std::to_string(opts.compression_opts.level) + ":");
     val.append(std::to_string(opts.compression_opts.strategy));
     cf_option_types.push_back({"COMPRESSION_OPTS", val});
+
+    // bottommost_compression
+    if (opts.bottommost_compression)
+    {
+      std::string res;
+      GetStringFromCompressionType(&res, opts.bottommost_compression);
+      if (!res.empty())
+      {
+        cf_option_types.push_back({"BOTTOMMOST_COMPRESSION", res});
+      }
+    }
 
     // get PREFIX_EXTRACTOR option
     cf_option_types.push_back({"PREFIX_EXTRACTOR",
