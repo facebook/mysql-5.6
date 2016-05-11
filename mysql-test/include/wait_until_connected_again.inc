@@ -4,6 +4,13 @@
 --disable_result_log
 --disable_query_log
 let $counter= 3000;
+if ($wait_timeout)
+{
+  let $counter= $wait_timeout;
+}
+# Reset $wait_timeout
+let $wait_timeout= 0;
+
 let $mysql_errno= 9999;
 while ($mysql_errno)
 {
