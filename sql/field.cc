@@ -12477,7 +12477,7 @@ Create_field::Create_field(Field *old_field,Field *orig_field) :
     length
 */
 
-uint32 Field_blob::char_length()
+uint32 Field_blob::char_length() const
 {
   switch (packlength)
   {

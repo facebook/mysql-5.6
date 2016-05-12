@@ -31,6 +31,7 @@
 /* MyRocks header files */
 #include "./ha_rocksdb.h"
 #include "./properties_collector.h"
+#include "./rdb_buff.h"
 #include "./rdb_utils.h"
 
 namespace myrocks {
@@ -41,241 +42,21 @@ class Rdb_field_packing;
 class Rdb_cf_manager;
 class Rdb_ddl_manager;
 
-
 /*
-  Basic composition functions for a network buffer presented as a MySQL String
-  ("netstr") which stores data in Network Byte Order (Big Endian).
-*/
-
-inline void rdb_netstr_append_uint64(my_core::String *out_netstr, uint64 val)
-{
-  DBUG_ASSERT(out_netstr != nullptr);
-
-  // Convert from host machine byte order (usually Little Endian) to network
-  // byte order (Big Endian).
-  uint64 net_val= htobe64(val);
-  out_netstr->append(reinterpret_cast<char*>(&net_val), sizeof(net_val));
-}
-
-inline void rdb_netstr_append_uint32(my_core::String *out_netstr, uint32 val)
-{
-  DBUG_ASSERT(out_netstr != nullptr);
-
-  // Convert from host machine byte order (usually Little Endian) to network
-  // byte order (Big Endian).
-  uint32 net_val= htobe32(val);
-  out_netstr->append(reinterpret_cast<char*>(&net_val), sizeof(net_val));
-}
-
-inline void rdb_netstr_append_uint16(my_core::String *out_netstr, uint16 val)
-{
-  DBUG_ASSERT(out_netstr != nullptr);
-
-  // Convert from host machine byte order (usually Little Endian) to network
-  // byte order (Big Endian).
-  uint16 net_val= htobe16(val);
-  out_netstr->append(reinterpret_cast<char*>(&net_val), sizeof(net_val));
-}
-
-
-/*
-  Basic network buffer ("netbuf") write helper functions.
-*/
-
-inline void rdb_netbuf_store_uint32(uchar *dst_netbuf, uint32 n)
-{
-  // Convert from host byte order (usually Little Endian) to network byte order
-  // (Big Endian).
-  uint32 net_val= htobe32(n);
-  memcpy(dst_netbuf, &net_val, sizeof(net_val));
-}
-
-inline void rdb_netbuf_store_uint16(uchar *dst_netbuf, uint16 n)
-{
-  // Convert from host byte order (usually Little Endian) to network byte order
-  // (Big Endian).
-  uint16 net_val= htobe16(n);
-  memcpy(dst_netbuf, &net_val, sizeof(net_val));
-}
-
-inline void rdb_netbuf_store_byte(uchar *dst_netbuf, uchar c)
-{
-  *dst_netbuf= c;
-}
-
-inline void rdb_netbuf_store_index(uchar *dst_netbuf, uint32 number)
-{
-  rdb_netbuf_store_uint32(dst_netbuf, number);
-}
-
-
-/*
-  Basic conversion helper functions from network byte order (Big Endian) to host
-  machine byte order (usually Little Endian).
-*/
-
-inline uint64 rdb_netbuf_to_uint64(const uchar *netbuf)
-{
-  DBUG_ASSERT(netbuf != nullptr);
-
-  uint64 net_val;
-  memcpy(&net_val, netbuf, sizeof(net_val));
-
-  // Convert from network byte order (Big Endian) to host machine byte order
-  // (usually Little Endian).
-  return be64toh(net_val);
-}
-
-inline uint32 rdb_netbuf_to_uint32(const uchar *netbuf)
-{
-  DBUG_ASSERT(netbuf != nullptr);
-
-  uint32 net_val;
-  memcpy(&net_val, netbuf, sizeof(net_val));
-
-  // Convert from network byte order (Big Endian) to host machine byte order
-  // (usually Little Endian).
-  return be32toh(net_val);
-}
-
-inline uint16 rdb_netbuf_to_uint16(const uchar *netbuf)
-{
-  DBUG_ASSERT(netbuf != nullptr);
-
-  uint16 net_val;
-  memcpy(&net_val, netbuf, sizeof(net_val));
-
-  // Convert from network byte order (Big Endian) to host machine byte order
-  // (usually Little Endian).
-  return be16toh(net_val);
-}
-
-inline uchar rdb_netbuf_to_byte(const uchar* netbuf)
-{
-  return(uchar)netbuf[0];
-}
-
-
-/*
-  Basic network buffer ("netbuf") read helper functions.
-  Network buffer stores data in Network Byte Order (Big Endian).
-  NB: The netbuf is passed as an input/output param, hence after reading,
-      the netbuf pointer gets advanced to the following byte.
-*/
-
-inline uint64 rdb_netbuf_read_uint64(const uchar **netbuf_ptr)
-{
-  DBUG_ASSERT(netbuf_ptr != nullptr);
-
-  // Convert from network byte order (Big Endian) to host machine byte order
-  // (usually Little Endian).
-  uint64 host_val= rdb_netbuf_to_uint64(*netbuf_ptr);
-
-  // Advance pointer.
-  *netbuf_ptr += sizeof(host_val);
-
-  return host_val;
-}
-
-inline uint32 rdb_netbuf_read_uint32(const uchar **netbuf_ptr)
-{
-  DBUG_ASSERT(netbuf_ptr != nullptr);
-
-  // Convert from network byte order (Big Endian) to host machine byte order
-  // (usually Little Endian).
-  uint32 host_val= rdb_netbuf_to_uint32(*netbuf_ptr);
-
-  // Advance pointer.
-  *netbuf_ptr += sizeof(host_val);
-
-  return host_val;
-}
-
-inline uint16 rdb_netbuf_read_uint16(const uchar **netbuf_ptr)
-{
-  DBUG_ASSERT(netbuf_ptr != nullptr);
-
-  // Convert from network byte order (Big Endian) to host machine byte order
-  // (usually Little Endian).
-  uint16 host_val= rdb_netbuf_to_uint16(*netbuf_ptr);
-
-  // Advance pointer.
-  *netbuf_ptr += sizeof(host_val);
-
-  return host_val;
-}
-
-inline void rdb_netbuf_read_gl_index(const uchar **netbuf_ptr,
-                                     GL_INDEX_ID *gl_index_id)
-{
-  DBUG_ASSERT(gl_index_id != nullptr);
-  gl_index_id->cf_id=    rdb_netbuf_read_uint32(netbuf_ptr);
-  gl_index_id->index_id= rdb_netbuf_read_uint32(netbuf_ptr);
-}
-
-
-/*
-  A simple string reader:
-  - it keeps position within the string that we read from
-  - it prevents one from reading beyond the end of the string.
-*/
-
-class Rdb_string_reader
-{
-  const char* m_ptr;
-  uint m_len;
-public:
-  explicit Rdb_string_reader(const std::string &str)
-  {
-    m_len= str.length();
-    if (m_len)
-      m_ptr= &str.at(0);
-    else
-    {
-      /*
-        One can a create a Rdb_string_reader for reading from an empty string
-        (although attempts to read anything will fail).
-        We must not access str.at(0), since len==0, we can set ptr to any
-        value.
-      */
-      m_ptr= nullptr;
-    }
-  }
-
-  explicit Rdb_string_reader(const rocksdb::Slice *slice)
-  {
-    m_ptr= slice->data();
-    m_len= slice->size();
-  }
-
-  /*
-    Read the next @param size bytes. Returns pointer to the bytes read, or
-    nullptr if the remaining string doesn't have that many bytes.
+  C-style "virtual table" allowing different handling of packing logic based
+  on the field type. See Rdb_field_packing::setup() implementation.
   */
-  const char *read(uint size)
-  {
-    const char *res;
-    if (m_len < size)
-      res= nullptr;
-    else
-    {
-      res= m_ptr;
-      m_ptr += size;
-      m_len -= size;
-    }
-    return res;
-  }
-
-  uint remaining_bytes() const { return m_len; }
-
-  /*
-    Return pointer to data that will be read by next read() call (if there is
-    nothing left to read, returns pointer to beyond the end of previous read()
-    call)
-  */
-  const char *get_current_ptr() const { return m_ptr; }
-};
-
+using rdb_make_unpack_info_t=  uint (*)(Rdb_field_packing *fpi,
+                                    const Field *field, uchar *dst);
+using rdb_index_field_unpack_t= int (*)(Rdb_field_packing *fpi, Field *field,
+                                    uchar *field_ptr,
+                                    Rdb_string_reader *reader,
+                                    Rdb_string_reader *unpack_reader);
+using rdb_index_field_skip_t=   int (*)(const Rdb_field_packing *fpi,
+                                    const Field *field,
+                                    Rdb_string_reader *reader);
+using rdb_index_field_pack_t=  void (*)(Rdb_field_packing *fpi, Field *field,
+                                    uchar* buf, uchar **dst);
 
 const uint RDB_INVALID_KEY_LEN= uint(-1);
 
@@ -293,6 +74,22 @@ const size_t RDB_CHECKSUM_CHUNK_SIZE= 2 * RDB_CHECKSUM_SIZE + 1;
   checksums.
 */
 const char RDB_CHECKSUM_DATA_TAG= 0x01;
+
+/*
+  Unpack data is variable length. It is a 1 tag-byte plus a
+  two byte length field. The length field includes the header as well.
+*/
+const char RDB_UNPACK_DATA_TAG= 0x02;
+const size_t RDB_UNPACK_DATA_LEN_SIZE= sizeof(uint16_t);
+const size_t RDB_UNPACK_HEADER_SIZE= sizeof(RDB_UNPACK_DATA_TAG) +
+  RDB_UNPACK_DATA_LEN_SIZE;
+
+// Possible return values for rdb_index_field_unpack_t functions.
+enum {
+  UNPACK_SUCCESS= 0,
+  UNPACK_FAILURE= 1,
+  UNPACK_INFO_MISSING= 2,
+};
 
 
 /*
@@ -539,6 +336,8 @@ public:
     PRIMARY_FORMAT_VERSION_LATEST= PRIMARY_FORMAT_VERSION_INITIAL,
 
     SECONDARY_FORMAT_VERSION_INITIAL= 10,
+    // This change the SK format to include unpack_info.
+    SECONDARY_FORMAT_VERSION_UNPACK_INFO= 11,
     SECONDARY_FORMAT_VERSION_LATEST= SECONDARY_FORMAT_VERSION_INITIAL,
   };
 
@@ -548,12 +347,6 @@ public:
 
   /* Check if keypart #kp can be unpacked from index tuple */
   bool can_unpack(uint kp) const;
-
-  /*
-    Current code assumes that unpack_data occupies fixed length regardless of
-    the value that is stored.
-  */
-  bool get_unpack_data_len() const { return m_unpack_data_len; }
 
   /* Check if given table has a primary key */
   static bool table_has_hidden_pk(const TABLE* table);
@@ -616,36 +409,46 @@ private:
   /* Maximum length of the mem-comparable form. */
   uint m_maxlength;
 
-  /* Length of the unpack_data */
-  uint m_unpack_data_len;
-
   /* mutex to protect setup */
   mysql_mutex_t m_mutex;
 };
 
+// "Simple" collations (those specified in strings/ctype-simple.c) are simple
+// because their strnxfrm function maps one byte to one byte. However, the
+// mapping is not injective, so the inverse function will take in an extra
+// index parameter containing information to disambiguate what the original
+// character was.
+//
+// The m_enc* members are for encoding. Generally, we want encoding to be:
+//      src -> (dst, idx)
+//
+// Since strnxfrm already gives us dst, we just need m_enc_idx[src] to give us
+// idx.
+//
+// For the inverse, we have:
+//      (dst, idx) -> src
+//
+// We have m_dec_idx[idx][dst] = src to get our original character back.
+//
+struct Rdb_collation_codec
+{
+  const my_core::CHARSET_INFO *m_cs;
+  std::array<rdb_make_unpack_info_t, 2> m_make_unpack_info_func;
+  std::array<rdb_index_field_unpack_t, 2> m_unpack_func;
 
-/*
-  This stores information about how a field can be packed to mem-comparable
-  form and unpacked back.
-*/
+  std::array<uchar, 256> m_enc_idx;
+  std::array<uchar, 256> m_enc_size;
+
+  std::array<uchar, 256> m_dec_size;
+  std::vector<std::array<uchar, 256>> m_dec_idx;
+};
+
+extern mysql_mutex_t rdb_collation_data_mutex;
+extern std::array<const Rdb_collation_codec*, MY_ALL_CHARSETS_SIZE>
+  rdb_collation_data;
 
 class Rdb_field_packing
 {
-  /*
-    C-style "virtual table" allowing different handling of packing logic based
-    on the field type. See Rdb_field_packing::setup() implementation.
-  */
-  typedef void (*make_unpack_info_t) (Rdb_field_packing *fpi, Field *field,
-                                      uchar *dst);
-  typedef int (*index_field_unpack_t)(Rdb_field_packing *fpi, Field *field,
-                                      uchar *field_ptr,
-                                      Rdb_string_reader *reader,
-                                      const uchar *unpack_info);
-  typedef int (*index_field_skip_t)  (Rdb_field_packing *fpi, Field *field,
-                                      Rdb_string_reader *reader);
-  typedef void (*index_field_pack_t) (Rdb_field_packing *fpi, Field *field,
-                                      uchar* buf, uchar **dst);
-
 public:
   /* Length of mem-comparable image of the field, in bytes */
   int m_max_image_len;
@@ -663,8 +466,9 @@ public:
     Valid only for VARCHAR fields.
   */
   const CHARSET_INFO *m_varchar_charset;
+  const Rdb_collation_codec* m_charset_codec;
 
-  index_field_pack_t m_pack_func;
+  rdb_index_field_pack_t m_pack_func;
 
   /*
     Pack function is assumed to be:
@@ -672,7 +476,7 @@ public:
      - call field->make_sort_key();
     If you neeed to unpack, you should also call
   */
-  make_unpack_info_t m_make_unpack_info_func;
+  rdb_make_unpack_info_t m_make_unpack_info_func;
 
   /*
     This function takes
@@ -680,12 +484,12 @@ public:
     - unpack_info data
     and restores the original value.
   */
-  index_field_unpack_t m_unpack_func;
+  rdb_index_field_unpack_t m_unpack_func;
 
   /*
     This function skips over mem-comparable form.
   */
-  index_field_skip_t m_skip_func;
+  rdb_index_field_skip_t m_skip_func;
 
 private:
   /*
