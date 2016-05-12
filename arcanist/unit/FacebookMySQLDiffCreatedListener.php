@@ -24,17 +24,7 @@ final class FacebookMySQLDiffCreatedListener extends PhutilEventListener {
     assert(is_numeric($diffID));
 
     if ($this->shouldStartBuilds($workflow)) {
-        // If you're brave enough and want to start dogfooding Sandcastle
-        // integration then set this environment variable and instead of
-        // Jenkins build the code will take you to the unexplored territory.
-        if (getenv('USE_SANDCASTLE')) {
-          $this->startSandcastleBuilds($workflow->getArgument('big-test-queue'),
-                                       $diffID,
-                                       $workflow->getUserName());
-        } else {
-          $this->startJenkinsBuilds($workflow->getArgument('big-test-queue'),
-                                    $diffID);
-        }
+      $this->startSandcastleBuilds($workflow, $diffID);
     } else {
       $console = PhutilConsole::getConsole();
       $console->writeOut("Skipping launch of tests. Ask a Facebook " .
@@ -54,51 +44,25 @@ final class FacebookMySQLDiffCreatedListener extends PhutilEventListener {
   }
 
   // Start Sandcastle build and test execution.
-  function startSandcastleBuilds($useBigTestQueue, $diffID, $username) {
+  function startSandcastleBuilds($workflow, $diffID) {
+    assert($workflow);
+    assert(strlen($diffID) > 0);
     assert(is_numeric($diffID));
+
+    $username = $workflow->getUserName();
     assert(strlen($username) > 0);
+
+    $working_copy = $workflow->getWorkingCopy();
+    assert($working_copy);
+
+    $full_diff_det_path = $working_copy->getProjectPath(
+        MYSQL_INTERNAL_DIFF_DETERMINATOR);
 
     // All the real work will be done by the code in the file referenced
     // below. File will be there because shouldStartBuilds() guards the
     // execution of this section of code.
-    require(MYSQL_INTERNAL_DIFF_DETERMINATOR);
+    require($full_diff_det_path);
 
-    StartSandCastleBuild($useBigTestQueue, $diffID, $username);
-  }
-
-  // Enqueue Jenkins build & test.
-  function startJenkinsBuilds($big, $diffID) {
-    $console = PhutilConsole::getConsole();
-
-    $server = "ci-builds.fb.com";
-    $project = "github-mysql-precommit";
-    if ($big) {
-      $console->writeOut("Tests will use the 'big' queue.\n");
-      $project = "github-mysql-precommit-big";
-    }
-
-    // Push the source up to the master repo so that Jenkins
-    // can pull it down and build it
-    $repository = "git@github.com:facebook/mysql-5.6.git";
-    $gitcmd = "git push {$repository} HEAD:refs/autobuilds/{$diffID}";
-    $git_future = new ExecFuture($gitcmd);
-    $git_future->resolvex();
-
-    $console->writeOut("Launching async tests for %d.\n",
-                       $diffID);
-
-    // Initiate a Jenkins build for this diff_id
-    $jenkins_cmd = "wget -q -O - --no-proxy "
-      . "'http://$server/job/$project"
-      . "/buildWithParameters?token=ARC&DIFF_ID={$diffID}'";
-    $last_line = system($jenkins_cmd, $retval);
-
-    if ($retval) {
-      $console->writeOut("Attempt to launch Jenkins build returned %d.\n"
-                         ."Command run: %s\n"
-                         ."Last line of output:\n%s\n",
-                         $retval, $jenkins_cmd, $last_line);
-      throw new Exception("Launch of Jenkins build failed.");
-    }
+    StartSandCastleBuild(/* not used */ false, $diffID, $username);
   }
 }
