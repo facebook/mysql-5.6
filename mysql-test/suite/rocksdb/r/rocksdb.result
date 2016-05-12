@@ -522,21 +522,21 @@ insert into t30 values ('row3', 'row3-key', 'row3-data');
 explain
 select * from t30 where key1='row2-key';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t30	ref	key1	key1	18	const	#	Using where
+1	SIMPLE	t30	ref	key1	key1	18	const	#	Using index condition
 select * from t30 where key1='row2-key';
 pk	key1	col1
 row2	row2-key	row2-data
 explain 
 select * from t30 where key1='row1';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t30	ref	key1	key1	18	const	#	Using where
+1	SIMPLE	t30	ref	key1	key1	18	const	#	Using index condition
 # This will produce nothing:
 select * from t30 where key1='row1';
 pk	key1	col1
 explain
 select key1 from t30;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t30	ALL	NULL	NULL	NULL	NULL	#	NULL
+1	SIMPLE	t30	index	NULL	key1	18	NULL	#	Using index
 select key1 from t30;
 key1
 row1-key
@@ -569,7 +569,7 @@ test.t30	analyze	status	OK
 explain 
 select * from t30 where key1 <='row3-key';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t30	range	key1	key1	18	NULL	#	Using where
+1	SIMPLE	t30	range	key1	key1	18	NULL	#	Using index condition
 select * from t30 where key1 <='row3-key';
 pk	key1	col1
 row1	row1-key	row1-data
@@ -578,7 +578,7 @@ row3	row3-key	row3-data
 explain 
 select * from t30 where key1 between 'row2-key' and 'row4-key';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t30	range	key1	key1	18	NULL	#	Using where
+1	SIMPLE	t30	range	key1	key1	18	NULL	#	Using index condition
 select * from t30 where key1 between 'row2-key' and 'row4-key';
 pk	key1	col1
 row2	row2-key	row2-data
@@ -595,7 +595,7 @@ row4	row4-key	row4-data
 explain 
 select key1 from t30 where key1 in ('row2-key','row4-key');
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t30	ALL	key1	NULL	NULL	NULL	#	Using where
+1	SIMPLE	t30	index	key1	key1	18	NULL	#	Using where; Using index
 select key1 from t30 where key1 in ('row2-key','row4-key');
 key1
 row2-key
@@ -603,7 +603,7 @@ row4-key
 explain 
 select * from t30 where key1 > 'row1-key' and key1 < 'row4-key';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t30	range	key1	key1	18	NULL	#	Using where
+1	SIMPLE	t30	range	key1	key1	18	NULL	#	Using index condition
 select * from t30 where key1 > 'row1-key' and key1 < 'row4-key';
 pk	key1	col1
 row2	row2-key	row2-data
