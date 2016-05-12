@@ -1227,6 +1227,7 @@ static PSI_stage_info *all_rocksdb_stages[]=
 static my_core::PSI_mutex_key rdb_psi_open_tbls_mutex_key,
   rdb_background_psi_mutex_key, rdb_stop_bg_psi_mutex_key,
   rdb_drop_index_psi_mutex_key, rdb_interrupt_drop_index_psi_mutex_key,
+  rdb_collation_data_mutex_key,
   key_mutex_tx_list, rdb_sysvars_psi_mutex_key;
 
 static PSI_mutex_info all_rocksdb_mutexes[]=
@@ -1236,6 +1237,8 @@ static PSI_mutex_info all_rocksdb_mutexes[]=
   { &rdb_stop_bg_psi_mutex_key, "stop background", PSI_FLAG_GLOBAL},
   { &rdb_drop_index_psi_mutex_key, "drop index", PSI_FLAG_GLOBAL},
   { &rdb_interrupt_drop_index_psi_mutex_key, "drop index interrupt",
+      PSI_FLAG_GLOBAL},
+  { &rdb_collation_data_mutex_key, "collation data init",
       PSI_FLAG_GLOBAL},
   { &key_mutex_tx_list, "tx_list", PSI_FLAG_GLOBAL},
   { &rdb_sysvars_psi_mutex_key, "setting sysvar", PSI_FLAG_GLOBAL},
@@ -2722,6 +2725,8 @@ static int rocksdb_init_func(void *p)
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(rdb_stop_bg_psi_mutex_key, &rdb_bg_thread.m_stop_mutex,
                    MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(rdb_collation_data_mutex_key, &rdb_collation_data_mutex,
+                   MY_MUTEX_INIT_FAST);
   mysql_rwlock_init(key_rwlock_collation_exception_list,
                    &collation_exception_list_rwlock);
   mysql_mutex_init(rdb_sysvars_psi_mutex_key, &rdb_sysvars_mutex,
@@ -3041,7 +3046,6 @@ static int rocksdb_init_func(void *p)
 
   collation_exception_list = my_core::split(rocksdb_strict_collation_exceptions,
                                             ',');
-
   if (rocksdb_pause_background_work) {
     rdb->PauseBackgroundWork();
   }
@@ -3104,7 +3108,14 @@ static int rocksdb_done_func(void *p)
   mysql_rwlock_destroy(&collation_exception_list_rwlock);
   mysql_mutex_destroy(&rdb_open_tables.m_mutex);
   mysql_mutex_destroy(&rdb_sysvars_mutex);
+  mysql_mutex_destroy(&rdb_collation_data_mutex);
   Rdb_transaction::term_mutex();
+
+  for (auto& it : rdb_collation_data)
+  {
+    delete it;
+    it= nullptr;
+  }
 
   ddl_manager.cleanup();
   binlog_manager.cleanup();
@@ -3698,10 +3709,8 @@ int ha_rocksdb::convert_record_from_storage_format(const rocksdb::Slice *key,
   rocksdb::Slice rowkey_slice(m_last_rowkey.ptr(), m_last_rowkey.length());
 
 
-  DBUG_ASSERT(m_pk_descr->get_unpack_data_len() == 0);
-  rocksdb::Slice pk_unpack_info_slice;
   if (m_pk_descr->unpack_record(table, buf, &rowkey_slice,
-                                &pk_unpack_info_slice, m_verify_checksums))
+                                nullptr, m_verify_checksums))
   {
     return HA_ERR_INTERNAL_ERROR;
   }
@@ -4053,7 +4062,8 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
 
   setup_field_converters();
 
-  size_t tails_size= max_packed_sk_len + RDB_CHECKSUM_CHUNK_SIZE;
+  size_t tails_size= max_packed_sk_len + RDB_CHECKSUM_CHUNK_SIZE +
+    RDB_UNPACK_HEADER_SIZE;
 
   if (!(m_sk_packed_tuple=
          reinterpret_cast<uchar*>(my_malloc(max_packed_sk_len, MYF(0)))) ||
@@ -4178,7 +4188,7 @@ static const std::set<const my_core::CHARSET_INFO *> RDB_INDEX_COLLATIONS=
   {&my_charset_bin, &my_charset_utf8_bin, &my_charset_latin1_bin};
 
 
-static bool rdb_is_index_collation_supported(my_core::Field *field)
+static bool rdb_is_index_collation_supported(const my_core::Field *field)
 {
   my_core::enum_field_types type= field->real_type();
   /* Handle [VAR](CHAR|BINARY) or TEXT|BLOB */
@@ -5147,10 +5157,13 @@ int ha_rocksdb::read_row_from_secondary_key(uchar *buf,
     pk_size= kd->get_primary_key_tuple(table, m_pk_descr, &rkey,
                                        m_pk_packed_tuple);
     const rocksdb::Slice& value= m_scan_it->value();
-    if (pk_size == RDB_INVALID_KEY_LEN ||
-        kd->unpack_record(table, buf, &rkey, &value, m_verify_checksums))
+    if (pk_size == RDB_INVALID_KEY_LEN)
     {
       rc= HA_ERR_INTERNAL_ERROR;
+    }
+    else
+    {
+      rc= try_keyonly_read_from_sk(buf, kd, rkey, value, pk_size);
     }
   }
   else
@@ -5182,6 +5195,40 @@ int ha_rocksdb::read_row_from_secondary_key(uchar *buf,
   }
 
   return rc;
+}
+
+/**
+  @note
+    Some data types require unpack_info in order to do index-only reads.
+
+    However, support for this may have been added after the database was built.
+    This means that we need to support the case where unpack_info is not
+    available. In this case, we should just do a primary key lookup.
+*/
+int ha_rocksdb::try_keyonly_read_from_sk(uchar* buf,
+    const std::shared_ptr<const Rdb_key_def>& kd,
+    const rocksdb::Slice& key,
+    const rocksdb::Slice& value,
+    const uint rowid_size)
+{
+  int res= kd->unpack_record(table, buf, &key, &value, m_verify_checksums);
+  uint size= rowid_size;
+  if (res == UNPACK_INFO_MISSING)
+  {
+    // If we can't unpack, then do a PK lookup.
+    if (rowid_size == RDB_INVALID_KEY_LEN)
+    {
+      size= kd->get_primary_key_tuple(
+              table, m_pk_descr, &key, m_pk_packed_tuple);
+    }
+    return get_row_by_rowid(buf, m_pk_packed_tuple, size);
+  }
+  else if (res == UNPACK_FAILURE)
+  {
+    return HA_ERR_INTERNAL_ERROR;
+  }
+  DBUG_ASSERT(res == UNPACK_SUCCESS);
+  return res;
 }
 
 
@@ -5279,16 +5326,13 @@ int ha_rocksdb::secondary_index_read(const int keyno, uchar *buf)
       if (m_keyread_only && m_lock_rows == RDB_LOCK_NONE &&
           !has_hidden_pk(table))
       {
-        rocksdb::Slice value= m_scan_it->value();
-        if (m_key_descr_arr[keyno]->unpack_record(table, buf, &key, &value,
-                                                  m_verify_checksums))
-        {
-          return HA_ERR_INTERNAL_ERROR;
-        }
-        rc= 0;
+        rc= try_keyonly_read_from_sk(buf, m_key_descr_arr[keyno],
+                                     key, m_scan_it->value(), size);
       }
       else
+      {
         rc= get_row_by_rowid(buf, m_pk_packed_tuple, size);
+      }
 
       if (!rc)
       {
@@ -5604,7 +5648,7 @@ int ha_rocksdb::find_icp_matching_index_rec(bool move_forward, uchar *buf)
       }
 
       rocksdb::Slice value= m_scan_it->value();
-      if (kd->unpack_record(table, buf, &rkey, &value, m_verify_checksums))
+      if (try_keyonly_read_from_sk(buf, kd, rkey, value, RDB_INVALID_KEY_LEN))
       {
         return HA_ERR_INTERNAL_ERROR;
       }
