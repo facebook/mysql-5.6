@@ -132,7 +132,6 @@ const char * const PER_INDEX_CF_NAME = "$per_index_cf";
 */
 #define ROCKSDB_SIZEOF_HIDDEN_PK_COLUMN sizeof(longlong)
 
-
 inline bool looks_like_per_index_cf_typo(const char *name)
 {
   return (name && name[0]=='$' && strcmp(name, PER_INDEX_CF_NAME));
@@ -786,6 +785,12 @@ private:
   int read_row_from_secondary_key(uchar* buf,
                                   const std::shared_ptr<const Rdb_key_def>& kd,
                                   bool move_forward)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  int try_keyonly_read_from_sk(uchar* buf,
+      const std::shared_ptr<const Rdb_key_def>& kd,
+      const rocksdb::Slice& key,
+      const rocksdb::Slice& value,
+      uint rowid_size)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   int calc_eq_cond_len(const std::shared_ptr<const Rdb_key_def>& kd,
