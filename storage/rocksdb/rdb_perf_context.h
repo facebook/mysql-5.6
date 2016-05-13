@@ -95,54 +95,16 @@ class Rdb_perf_counters
   uint64_t m_value[PC_MAX_IDX];
 
   void load(const Rdb_atomic_perf_counters &atomic_counters);
-
-  void start();
-  void end_and_record(Rdb_atomic_perf_counters *atomic_counters);
-
- private:
-  void harvest_diffs();
 };
 
 extern std::string rdb_pc_stat_types[PC_MAX_IDX];
-
-// RAII utility to automatically call stop/start on scope entry/exit
-// for a given Rdb_perf_counters object.
-class Rdb_perf_context_guard
-{
- public:
-  Rdb_perf_counters m_local_perf_context;
-  bool m_capture_perf_context;
-
-  explicit Rdb_perf_context_guard(bool capture_perf_context)
-  : m_capture_perf_context(capture_perf_context)
-  {
-    if (m_capture_perf_context)
-    {
-      m_local_perf_context.start();
-    }
-  }
-
-  ~Rdb_perf_context_guard()
-  {
-    if (m_capture_perf_context)
-    {
-      m_local_perf_context.end_and_record(nullptr);
-    }
-  }
-};
 
 /*
   Perf timers for data reads
  */
 class Rdb_io_perf
 {
-  // Read counters
-  uint64_t m_block_read_byte= 0;
-  uint64_t m_block_read_count= 0;
-  uint64_t m_block_read_time= 0;
-
   // Context management
-  Rdb_perf_counters m_local_perf_context;
   Rdb_atomic_perf_counters *m_atomic_counters= nullptr;
   my_io_perf_atomic_t *m_shared_io_perf_read= nullptr;
   ha_statistics *m_stats= nullptr;
@@ -161,31 +123,12 @@ class Rdb_io_perf
     m_stats= stats;
   }
 
-  void start(uint32_t perf_context_level);
+  bool start(uint32_t perf_context_level);
   void end_and_record(uint32_t perf_context_level);
-};
 
-// RAII utility to automatically call stop/start on scope entry/exit
-// for a given Rdb_io_perf object.
-class Rdb_io_perf_guard
-{
- public:
-  explicit Rdb_io_perf_guard(Rdb_io_perf *perf_context,
-                             uint32_t perf_context_level)
-  : m_perf_context(perf_context), m_perf_context_level(perf_context_level)
-  {
-    DBUG_ASSERT(m_perf_context != nullptr);
-    m_perf_context->start(m_perf_context_level);
-  }
-
-  ~Rdb_io_perf_guard()
-  {
-    m_perf_context->end_and_record(m_perf_context_level);
-  }
-
- private:
-  Rdb_io_perf *m_perf_context= nullptr;
-  uint32_t m_perf_context_level;
+  explicit Rdb_io_perf() : m_atomic_counters(nullptr),
+                           m_shared_io_perf_read(nullptr),
+                           m_stats(nullptr) {}
 };
 
 }  // namespace myrocks
