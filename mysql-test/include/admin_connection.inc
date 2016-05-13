@@ -5,6 +5,13 @@
 let $count_sessions= 1;
 --source include/wait_until_count_sessions.inc
 
+# Restart the server with admin_port being set to one more than the server's
+# port
+--let $admin_port=$MASTER_MYPORT
+--inc $admin_port
+--let $_mysqld_option=--admin_port=$admin_port
+--source include/restart_mysqld_with_option.inc
+
 flush privileges;
 --echo ## Create non-super user nosuper
 create user nosuper@localhost;
@@ -16,17 +23,17 @@ flush user_resources;
 
 select user from mysql.user order by 1 asc;
 
---echo ## Start a connection fail_admin_con1 at 14000 with new user nosuper
+--echo ## Start a connection fail_admin_con1 at ADMIN_PORT with new user nosuper
 --echo ## This will fail since this user doesn't have SUPER ACL
---replace_result $MASTER_MYSOCK MASTER_SOCKET
+--replace_result $MASTER_MYSOCK MASTER_SOCKET $ADMIN_PORT ADMIN_PORT
 --error ER_SPECIFIC_ACCESS_DENIED_ERROR
-connect (fail_admin_con1,$IP,nosuper,,mysql,14000);
+connect (fail_admin_con1,$IP,nosuper,,mysql,$admin_port);
 
---echo ## Start connections admin_con_root1,2,3 at 14000
+--echo ## Start connections admin_con_root1,2,3 at ADMIN_PORT
 --echo ## This will succeed since root has SUPER ACL
 let $i=1;
 while($i<=3) {
-  connect (admin_con_root$i,$IP,root,,mysql,14000);
+  connect (admin_con_root$i,$IP,root,,mysql,$admin_port);
   inc $i;
 }
 
@@ -92,12 +99,12 @@ show processlist;
 --error ER_CON_COUNT_ERROR
 connect (fail_non_admin_con_root,$IP,root,,mysql,);
 
---echo ## Start connections admin_con_root4,5,6,7,8 at 14000
+--echo ## Start connections admin_con_root4,5,6,7,8 at ADMIN_PORT
 --echo ## This will succeed since admin port is handled separately
 --echo ## and it is not limited by either @@max-connections or @@max-user-connections
 let $i=4;
 while ($i<=8) {
-  connect (admin_con_root$i,$IP,root,,mysql,14000);
+  connect (admin_con_root$i,$IP,root,,mysql,$admin_port);
   inc $i;
 }
 

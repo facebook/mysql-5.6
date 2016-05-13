@@ -18,11 +18,11 @@ root
 root
 super1
 super2
-## Start a connection fail_admin_con1 at 14000 with new user nosuper
+## Start a connection fail_admin_con1 at ADMIN_PORT with new user nosuper
 ## This will fail since this user doesn't have SUPER ACL
-connect(::1,nosuper,,mysql,14000,MASTER_SOCKET);
+connect(::1,nosuper,,mysql,ADMIN_PORT,MASTER_SOCKET);
 ERROR 42000: Access denied; you need (at least one of) the SUPER privilege(s) for this operation
-## Start connections admin_con_root1,2,3 at 14000
+## Start connections admin_con_root1,2,3 at ADMIN_PORT
 ## This will succeed since root has SUPER ACL
 ## Switch to admin_con_root1
 select user from mysql.user order by 1 asc;
@@ -84,7 +84,7 @@ Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
 ## This will fail due to the limit of the max number of connections
 connect(::1,root,,mysql,MASTER_PORT,MASTER_SOCKET);
 ERROR HY000: Too many connections
-## Start connections admin_con_root4,5,6,7,8 at 14000
+## Start connections admin_con_root4,5,6,7,8 at ADMIN_PORT
 ## This will succeed since admin port is handled separately
 ## and it is not limited by either @@max-connections or @@max-user-connections
 ## Switch to default connection
@@ -200,11 +200,11 @@ root
 root
 super1
 super2
-## Start a connection fail_admin_con1 at 14000 with new user nosuper
+## Start a connection fail_admin_con1 at ADMIN_PORT with new user nosuper
 ## This will fail since this user doesn't have SUPER ACL
-connect(0:0:0:0:0:0:0:1,nosuper,,mysql,14000,MASTER_SOCKET);
+connect(0:0:0:0:0:0:0:1,nosuper,,mysql,ADMIN_PORT,MASTER_SOCKET);
 ERROR 42000: Access denied; you need (at least one of) the SUPER privilege(s) for this operation
-## Start connections admin_con_root1,2,3 at 14000
+## Start connections admin_con_root1,2,3 at ADMIN_PORT
 ## This will succeed since root has SUPER ACL
 ## Switch to admin_con_root1
 select user from mysql.user order by 1 asc;
@@ -266,7 +266,7 @@ Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
 ## This will fail due to the limit of the max number of connections
 connect(0:0:0:0:0:0:0:1,root,,mysql,MASTER_PORT,MASTER_SOCKET);
 ERROR HY000: Too many connections
-## Start connections admin_con_root4,5,6,7,8 at 14000
+## Start connections admin_con_root4,5,6,7,8 at ADMIN_PORT
 ## This will succeed since admin port is handled separately
 ## and it is not limited by either @@max-connections or @@max-user-connections
 ## Switch to default connection
@@ -382,11 +382,11 @@ root
 root
 super1
 super2
-## Start a connection fail_admin_con1 at 14000 with new user nosuper
+## Start a connection fail_admin_con1 at ADMIN_PORT with new user nosuper
 ## This will fail since this user doesn't have SUPER ACL
-connect(0000:0000:0000:0000:0000:0000:0000:0001,nosuper,,mysql,14000,MASTER_SOCKET);
+connect(0000:0000:0000:0000:0000:0000:0000:0001,nosuper,,mysql,ADMIN_PORT,MASTER_SOCKET);
 ERROR 42000: Access denied; you need (at least one of) the SUPER privilege(s) for this operation
-## Start connections admin_con_root1,2,3 at 14000
+## Start connections admin_con_root1,2,3 at ADMIN_PORT
 ## This will succeed since root has SUPER ACL
 ## Switch to admin_con_root1
 select user from mysql.user order by 1 asc;
@@ -448,7 +448,7 @@ Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
 ## This will fail due to the limit of the max number of connections
 connect(0000:0000:0000:0000:0000:0000:0000:0001,root,,mysql,MASTER_PORT,MASTER_SOCKET);
 ERROR HY000: Too many connections
-## Start connections admin_con_root4,5,6,7,8 at 14000
+## Start connections admin_con_root4,5,6,7,8 at ADMIN_PORT
 ## This will succeed since admin port is handled separately
 ## and it is not limited by either @@max-connections or @@max-user-connections
 ## Switch to default connection
