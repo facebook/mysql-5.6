@@ -41,12 +41,13 @@ class Rdb_key_def;
 class Rdb_field_packing;
 class Rdb_cf_manager;
 class Rdb_ddl_manager;
+struct Rdb_make_unpack_field;
 
 /*
   C-style "virtual table" allowing different handling of packing logic based
   on the field type. See Rdb_field_packing::setup() implementation.
   */
-using rdb_make_unpack_info_t=  uint (*)(Rdb_field_packing *fpi,
+using rdb_make_unpack_info_t=  uint (*)(Rdb_make_unpack_field *upf,
                                     const Field *field, uchar *dst);
 using rdb_index_field_unpack_t= int (*)(Rdb_field_packing *fpi, Field *field,
                                     uchar *field_ptr,
@@ -90,7 +91,6 @@ enum {
   UNPACK_FAILURE= 1,
   UNPACK_INFO_MISSING= 2,
 };
-
 
 /*
   An object of this class represents information about an index in an SQL
@@ -346,7 +346,10 @@ public:
   rocksdb::ColumnFamilyHandle *get_cf() const { return m_cf_handle; }
 
   /* Check if keypart #kp can be unpacked from index tuple */
-  bool can_unpack(uint kp) const;
+  inline bool can_unpack(uint kp) const;
+  /* Check if keypart #kp needs unpack info */
+  inline bool has_unpack_info(uint kp) const;
+  inline Rdb_make_unpack_field get_make_unpack_field(uint kp) const;
 
   /* Check if given table has a primary key */
   static bool table_has_hidden_pk(const TABLE* table);
@@ -447,6 +450,12 @@ extern mysql_mutex_t rdb_collation_data_mutex;
 extern std::array<const Rdb_collation_codec*, MY_ALL_CHARSETS_SIZE>
   rdb_collation_data;
 
+struct Rdb_make_unpack_field
+{
+  const Rdb_collation_codec* m_charset_codec;
+  rdb_make_unpack_info_t m_make_unpack_info_func;
+};
+
 class Rdb_field_packing
 {
 public:
@@ -466,17 +475,9 @@ public:
     Valid only for VARCHAR fields.
   */
   const CHARSET_INFO *m_varchar_charset;
-  const Rdb_collation_codec* m_charset_codec;
+  struct Rdb_make_unpack_field m_make_unpack_field;
 
   rdb_index_field_pack_t m_pack_func;
-
-  /*
-    Pack function is assumed to be:
-     - store NULL-byte, if needed
-     - call field->make_sort_key();
-    If you neeed to unpack, you should also call
-  */
-  rdb_make_unpack_info_t m_make_unpack_info_func;
 
   /*
     This function takes
@@ -522,11 +523,76 @@ public:
   void fill_hidden_pk_val(uchar **dst, longlong hidden_pk_id) const;
 };
 
+/*
+  Descriptor telling how to decode/encode a field to on-disk record storage
+  format. Not all information is in the structure yet, but eventually we
+  want to have as much as possible there to avoid virtual calls.
+
+  For encoding/decoding of index tuples, see Rdb_key_def.
+  */
+class Rdb_field_encoder
+{
+ public:
+  /*
+    STORE_NONE is set when a column can be decoded solely from their
+    mem-comparable form.
+    STORE_SOME is set when a column can be decoded from their mem-comparable
+    form plus unpack_info.
+    STORE_ALL is set when a column cannot be decoded, so its original value
+    must be stored in the PK records.
+    */
+  enum STORAGE_TYPE {
+    STORE_NONE,
+    STORE_SOME,
+    STORE_ALL,
+  };
+  STORAGE_TYPE m_storage_type;
+
+  uint m_null_offset;
+  uint16 m_field_index;
+
+  uchar m_null_mask;  // 0 means the field cannot be null
+
+  my_core::enum_field_types m_field_type;
+
+  uint m_pack_length_in_rec;
+
+  bool maybe_null() const { return m_null_mask != 0; }
+
+  bool uses_variable_len_encoding() const
+  {
+    return (m_field_type == MYSQL_TYPE_BLOB ||
+            m_field_type == MYSQL_TYPE_VARCHAR);
+  }
+
+  struct Rdb_make_unpack_field m_make_unpack_field;
+};
+
 inline Field* Rdb_key_def::get_table_field_for_part_no(TABLE *table,
                                                        uint part_no) const
 {
   DBUG_ASSERT(part_no < get_key_parts());
   return m_pack_info[part_no].get_field_in_table(table);
+}
+
+inline bool Rdb_key_def::can_unpack(uint kp) const
+{
+  DBUG_ASSERT(kp < m_key_parts);
+  return (m_pack_info[kp].m_unpack_func != nullptr);
+}
+
+inline bool Rdb_key_def::has_unpack_info(uint kp) const
+{
+  DBUG_ASSERT(kp < m_key_parts);
+  return (m_pack_info[kp].
+          m_make_unpack_field.
+          m_make_unpack_info_func != nullptr);
+}
+
+inline Rdb_make_unpack_field Rdb_key_def::get_make_unpack_field(uint kp) const
+{
+  DBUG_ASSERT(has_unpack_info(kp));
+  return m_pack_info[kp].m_make_unpack_field;
 }
 
 /*

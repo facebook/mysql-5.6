@@ -163,6 +163,7 @@ struct Rdb_table_handler
 class Rdb_key_def;
 class Rdb_tbl_def;
 class Rdb_transaction;
+class Rdb_field_encoder;
 
 const char *const rocksdb_hton_name= "ROCKSDB";
 
@@ -284,6 +285,11 @@ class ha_rocksdb: public my_core::handler
     TRUE <=> Primary Key columns can be decoded from the index
   */
   mutable bool m_pk_can_be_decoded;
+
+  /*
+   TRUE <=> Some fields in the PK may require unpack_info.
+  */
+  bool m_maybe_unpack_info;
 
   uchar *m_pk_tuple; /* Buffer for storing PK in KeyTupleFormat */
   uchar *m_pk_packed_tuple; /* Buffer for storing PK in StorageFormat */
@@ -429,52 +435,17 @@ class ha_rocksdb: public my_core::handler
   void set_last_rowkey(const uchar *old_data);
 
   /*
-    Descriptor telling how to decode/encode a field to on-disk record storage
-    format. Not all information is in the structure yet, but eventually we
-    want to have as much as possible there to avoid virtual calls.
-
-    For encoding/decoding of index tuples, see Rdb_key_def.
-  */
-  typedef struct st_field_encoder
-  {
-    /*
-      This is set to true for columns of Primary Key that can be decoded from
-      their mem-comparable form.
-      Since we can get them from the key part of RocksDB key->value pair, we
-      don't need to store them in the value part.
-    */
-    bool m_dont_store;
-
-    uint m_null_offset;
-    uint16 m_field_index;
-
-    uchar m_null_mask;  // 0 means the field cannot be null
-
-    my_core::enum_field_types m_field_type;
-
-    uint m_pack_length_in_rec;
-
-    bool maybe_null() const { return m_null_mask != 0; }
-
-    bool uses_variable_len_encoding() const
-    {
-      return (m_field_type == MYSQL_TYPE_BLOB ||
-              m_field_type == MYSQL_TYPE_VARCHAR);
-    }
-  } FIELD_ENCODER;
-
-  /*
     Array of table->s->fields elements telling how to store fields in the
     record.
   */
-  FIELD_ENCODER *m_encoder_arr;
+  Rdb_field_encoder *m_encoder_arr;
 
   /* Describes instructions on how to decode the field */
   class READ_FIELD
   {
    public:
-    /* Points to FIELD_ENCODER describing the field */
-    FIELD_ENCODER* m_field_enc;
+    /* Points to Rdb_field_encoder describing the field */
+    Rdb_field_encoder* m_field_enc;
     /* if true, decode the field, otherwise skip it */
     bool  m_decode;
     /* Skip this many bytes before reading (or skipping) this field */
@@ -497,6 +468,7 @@ class ha_rocksdb: public my_core::handler
   */
   uint m_null_bytes_in_rec;
 
+  void get_storage_type(Rdb_field_encoder *encoder, uint kp);
   void setup_field_converters();
 
   // the buffer size should be at least 2*Rdb_key_def::INDEX_NUMBER_SIZE
@@ -517,6 +489,11 @@ class ha_rocksdb: public my_core::handler
     Update stats
   */
   void update_stats(void);
+
+  /*
+    Helper for convert_record_to_storage_format for writing unpack_info.
+  */
+  void write_unpack_info(void);
 
 public:
   /*
