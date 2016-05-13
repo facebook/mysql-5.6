@@ -4,3 +4,4 @@
 --innodb_flush_log_at_trx_commit=2
 --force-restart
 --innodb_buffer_pool_size=512M
+--innodb_log_file_size=128M
