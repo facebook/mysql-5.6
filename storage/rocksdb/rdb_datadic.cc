@@ -547,12 +547,13 @@ uint Rdb_key_def::pack_record(TABLE *tbl, uchar *pack_buffer,
   DBUG_ASSERT(pack_buffer != nullptr);
   DBUG_ASSERT(record != nullptr);
   DBUG_ASSERT(packed_tuple != nullptr);
+  DBUG_ASSERT_IFF(unpack_info, unpack_info_len);
 
   uchar *tuple= packed_tuple;
   uchar *unpack_end= unpack_info;
   uchar *unpack_len_ptr= nullptr;
   const bool hidden_pk_exists= table_has_hidden_pk(tbl);
-  DBUG_ASSERT((m_index_type == INDEX_TYPE_SECONDARY) || unpack_info == nullptr);
+  DBUG_ASSERT_IMP(m_index_type != INDEX_TYPE_SECONDARY, unpack_info == nullptr);
 
   rdb_netbuf_store_index(tuple, m_index_number);
   tuple += INDEX_NUMBER_SIZE;
@@ -627,12 +628,15 @@ uint Rdb_key_def::pack_record(TABLE *tbl, uchar *pack_buffer,
     DBUG_EXECUTE_IF("myrocks_enable_sk_unpack_info",
                     override_check= true;);
     /* Make "unpack info" to be stored in the value */
-    if (unpack_end && m_pack_info[i].m_make_unpack_info_func &&
+    if (unpack_end &&
+        m_pack_info[i].m_make_unpack_field.m_make_unpack_info_func &&
         (override_check ||
          m_kv_format_version >= SECONDARY_FORMAT_VERSION_UNPACK_INFO))
     {
-      uint len= m_pack_info[i].m_make_unpack_info_func(&m_pack_info[i], field,
-                                                       unpack_end);
+      uint len= m_pack_info[i].m_make_unpack_field.
+        m_make_unpack_info_func(&m_pack_info[i].m_make_unpack_field,
+                                field, unpack_end);
+      DBUG_ASSERT(static_cast<int>(len) <= m_pack_info[i].m_max_image_len);
       unpack_end += len;
     }
     field->move_field_offset(-ptr_diff);
@@ -859,15 +863,14 @@ int Rdb_key_def::unpack_record(TABLE *table, uchar *buf,
   const bool is_hidden_pk= (m_index_type == INDEX_TYPE_HIDDEN_PRIMARY);
   const bool hidden_pk_exists= table_has_hidden_pk(table);
   const bool secondary_key= (m_index_type == INDEX_TYPE_SECONDARY);
+  // There is no checksuming data after unpack_info for primary keys, because
+  // the layout there is different. The checksum is verified in
+  // ha_rocksdb::convert_record_from_storage_format instead.
+  DBUG_ASSERT_IMP(!secondary_key, !verify_checksums);
 
-  // Unpack info is available only to secondary keys right now.
-  if (secondary_key)
+  if (unpack_info)
   {
     unp_reader= Rdb_string_reader(unpack_info);
-  }
-  else
-  {
-    DBUG_ASSERT(unpack_info == nullptr);
   }
 
   // Old Field methods expected the record pointer to be at tbl->record[0].
@@ -884,8 +887,7 @@ int Rdb_key_def::unpack_record(TABLE *table, uchar *buf,
   // For secondary keys, we expect the value field to contain unpack data and
   // checksum data in that order. One or both can be missing, but they cannot
   // be reordered.
-  bool has_unpack_info= secondary_key &&
-    unp_reader.remaining_bytes() &&
+  bool has_unpack_info= unp_reader.remaining_bytes() &&
     *unp_reader.get_current_ptr() == RDB_UNPACK_DATA_TAG;
   if (has_unpack_info && !unp_reader.read(RDB_UNPACK_HEADER_SIZE))
   {
@@ -913,7 +915,10 @@ int Rdb_key_def::unpack_record(TABLE *table, uchar *buf,
 
     Field *field= fpi->get_field_in_table(table);
 
-    if (fpi->m_unpack_func && (secondary_key || !fpi->m_make_unpack_info_func))
+    bool do_unpack= secondary_key ||
+      !fpi->m_make_unpack_field.m_make_unpack_info_func ||
+      (m_kv_format_version >= Rdb_key_def::PRIMARY_FORMAT_VERSION_UNPACK_INFO);
+    if (fpi->m_unpack_func && do_unpack)
     {
       /* It is possible to unpack this column. Do it. */
 
@@ -940,18 +945,14 @@ int Rdb_key_def::unpack_record(TABLE *table, uchar *buf,
       }
 
       // If we need unpack info, but there is none, tell the unpack function
-      // this by passing unp_reader as nullptr.
+      // this by passing unp_reader as nullptr. If we never read unpack_info
+      // during unpacking anyway, then there won't an error.
       int res;
-      if (!has_unpack_info && fpi->m_make_unpack_info_func)
-      {
-        res= fpi->m_unpack_func(fpi, field, field->ptr + ptr_diff,
-                                &reader, nullptr);
-      }
-      else
-      {
-        res= fpi->m_unpack_func(fpi, field, field->ptr + ptr_diff,
-                                &reader, &unp_reader);
-      }
+      bool maybe_missing_unpack= !has_unpack_info &&
+        fpi->m_make_unpack_field.m_make_unpack_info_func;
+      res= fpi->m_unpack_func(fpi, field, field->ptr + ptr_diff,
+                              &reader,
+                              maybe_missing_unpack ? nullptr : &unp_reader);
 
       if (res)
         return res;
@@ -1025,13 +1026,6 @@ int Rdb_key_def::unpack_record(TABLE *table, uchar *buf,
     return 1;
 
   return 0;
-}
-
-
-bool Rdb_key_def::can_unpack(uint kp) const
-{
-  return (m_pack_info[kp].m_unpack_func != nullptr) &&
-    m_pack_info[kp].m_make_unpack_info_func == nullptr;
 }
 
 bool Rdb_key_def::table_has_hidden_pk(const TABLE* table)
@@ -1547,7 +1541,7 @@ static int rdb_unpack_binary_or_utf8_varchar(
 */
 
 static uint rdb_make_unpack_unknown(
-    Rdb_field_packing *fpi MY_ATTRIBUTE((__unused__)),
+    Rdb_make_unpack_field *upf MY_ATTRIBUTE((__unused__)),
     const Field *field, uchar *dst)
 {
   memcpy(dst, field->ptr, field->pack_length());
@@ -1589,7 +1583,7 @@ static int rdb_unpack_unknown(Rdb_field_packing *fpi, Field *field,
 */
 
 static uint rdb_make_unpack_unknown_varchar(
-    Rdb_field_packing *fpi MY_ATTRIBUTE((__unused__)),
+    Rdb_make_unpack_field *upf MY_ATTRIBUTE((__unused__)),
     const Field *field, uchar *dst)
 {
   auto f= static_cast<const Field_varstring *>(field);
@@ -1682,10 +1676,10 @@ static uint rdb_read_unpack_simple(Rdb_bit_reader *reader,
   Function of type rdb_make_unpack_info_t
 */
 
-static uint rdb_make_unpack_simple_varchar(Rdb_field_packing *fpi,
+static uint rdb_make_unpack_simple_varchar(Rdb_make_unpack_field *upf,
                                            const Field *field, uchar *dst)
 {
-  const Rdb_collation_codec* codec= fpi->m_charset_codec;
+  const Rdb_collation_codec* codec= upf->m_charset_codec;
   auto f= static_cast<const Field_varstring *>(field);
   uchar *src= f->ptr + f->length_bytes;
   size_t src_len= f->length_bytes == 1 ? (uint) *f->ptr : uint2korr(f->ptr);
@@ -1705,7 +1699,7 @@ static int rdb_unpack_simple_varchar(Rdb_field_packing *fpi, Field *field,
                                      Rdb_string_reader *reader,
                                      Rdb_string_reader *unp_reader)
 {
-  const Rdb_collation_codec* codec= fpi->m_charset_codec;
+  const Rdb_collation_codec* codec= fpi->m_make_unpack_field.m_charset_codec;
   const uchar *ptr;
   size_t len= 0;
   bool finished= false;
@@ -1778,11 +1772,11 @@ static int rdb_unpack_simple_varchar(Rdb_field_packing *fpi, Field *field,
   Function of type rdb_make_unpack_info_t
 */
 
-static uint rdb_make_unpack_simple(Rdb_field_packing *fpi,
+static uint rdb_make_unpack_simple(Rdb_make_unpack_field *upf,
                                    const Field *field, uchar *dst)
 {
   uchar *src= field->ptr;
-  const Rdb_collation_codec* codec= fpi->m_charset_codec;
+  const Rdb_collation_codec* codec= upf->m_charset_codec;
   Rdb_bit_writer bit_writer(dst);
   return rdb_write_unpack_simple(&bit_writer, codec, src, field->pack_length());
 }
@@ -1800,7 +1794,7 @@ static int rdb_unpack_simple(Rdb_field_packing *fpi,
   const uchar *ptr;
   dst += fpi->m_field_data_offset;
   uint len = fpi->m_max_image_len;
-  const Rdb_collation_codec* codec= fpi->m_charset_codec;
+  const Rdb_collation_codec* codec= fpi->m_make_unpack_field.m_charset_codec;
   Rdb_bit_reader bit_reader(unp_reader);
 
   if (!(ptr= (const uchar*)reader->read(len)))
@@ -1907,7 +1901,7 @@ bool Rdb_field_packing::setup(Field *field, uint keynr_arg, uint key_part_arg)
 
   m_maybe_null= field ? field->real_maybe_null() : false;
   m_unpack_func= nullptr;
-  m_make_unpack_info_func= nullptr;
+  m_make_unpack_field.m_make_unpack_info_func= nullptr;
   m_unpack_data_len= 0;
   m_field_data_offset= 0;
 
@@ -2007,16 +2001,18 @@ bool Rdb_field_packing::setup(Field *field, uint keynr_arg, uint key_part_arg)
 
       if ((codec= rdb_init_collation_mapping(cs)) != nullptr)
       {
-        m_make_unpack_info_func= codec->m_make_unpack_info_func[idx];
+        m_make_unpack_field.m_make_unpack_info_func=
+          codec->m_make_unpack_info_func[idx];
         m_unpack_func= codec->m_unpack_func[idx];
-        m_charset_codec= codec;
+        m_make_unpack_field.m_charset_codec= codec;
       }
       else if (use_unknown_collation)
       {
-        m_make_unpack_info_func= is_varchar ? rdb_make_unpack_unknown_varchar :
-          rdb_make_unpack_unknown;
-        m_unpack_func= is_varchar ? rdb_unpack_unknown_varchar :
-          rdb_unpack_unknown;
+        m_make_unpack_field.m_make_unpack_info_func=
+          is_varchar ? rdb_make_unpack_unknown_varchar
+                     : rdb_make_unpack_unknown;
+        m_unpack_func= is_varchar ? rdb_unpack_unknown_varchar
+                                  : rdb_unpack_unknown;
       }
       else
       {
