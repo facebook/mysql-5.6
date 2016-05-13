@@ -79,6 +79,24 @@ namespace myrocks {
 #endif  // SHIP_ASSERT
 
 /*
+  Assert a implies b.
+  If a is true, then b must be true.
+  If a is false, then the value is b does not matter.
+*/
+#ifndef DBUG_ASSERT_IMP
+#define DBUG_ASSERT_IMP(a, b) DBUG_ASSERT(!(a) || (b))
+#endif
+
+/*
+  Assert a if and only if b.
+  a and b must be both true or both false.
+*/
+#ifndef DBUG_ASSERT_IFF
+#define DBUG_ASSERT_IFF(a, b) \
+  DBUG_ASSERT(static_cast<bool>(a) == static_cast<bool>(b))
+#endif
+
+/*
   Helper function to get an NULL terminated uchar* out of a given MySQL String.
 */
 
