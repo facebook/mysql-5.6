@@ -5348,6 +5348,15 @@ sub mysqld_arguments ($$$) {
     mtr_add_arg($args, "%s", "--core-file");
   }
 
+  if ( $found_skip_core )
+  {
+    # "--skip-core-file" is supported as a mysqld command line argument,
+    # to make sure it works, passing in "--core-file" first to enable
+    # core dump, then passing in "--skip-core-file" to disable it
+    mtr_add_arg($args, "%s", "--core-file");
+    mtr_add_arg($args, "%s", "--skip-core-file");
+  }
+
   # Set the default value to false so that the full core will be dumped
   if ( !$innodb_dump_core_without_large_mem_buf)
   {

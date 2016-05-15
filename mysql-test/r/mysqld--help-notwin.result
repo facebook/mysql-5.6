@@ -1541,6 +1541,7 @@ completion-type NO_CHAIN
 concurrent-insert AUTO
 connect-timeout 10
 console FALSE
+core-file TRUE
 date-format %Y-%m-%d
 datetime-format %Y-%m-%d %H:%i:%s
 default-storage-engine InnoDB

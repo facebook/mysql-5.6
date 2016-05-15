@@ -1,0 +1,1 @@
+--source include/mysqld_core_dump_without_large_mem_buf.inc

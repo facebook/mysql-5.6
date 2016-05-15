@@ -8616,7 +8616,7 @@ struct my_option my_long_options[]=
   {"console", OPT_CONSOLE, "Write error output on screen; don't remove the console window on windows.",
    &opt_console, &opt_console, 0, GET_BOOL, NO_ARG, 0, 0, 0,
    0, 0, 0},
-  {"core-file", OPT_WANT_CORE, "Write core on errors.", 0, 0, 0, GET_NO_ARG,
+  {"core-file", 0, "Write core on errors.", &opt_core_file, &opt_core_file, 0, GET_BOOL,
    NO_ARG, 0, 0, 0, 0, 0, 0},
   /* default-storage-engine should have "MyISAM" as def_value. Instead
      of initializing it here it is done in init_common_variables() due
@@ -10425,9 +10425,6 @@ mysqld_get_one_option(int optid,
   case (int) OPT_SKIP_RESOLVE:
     opt_skip_name_resolve= 1;
     opt_specialflag|=SPECIAL_NO_RESOLVE;
-    break;
-  case (int) OPT_WANT_CORE:
-    opt_core_file = TRUE;
     break;
   case (int) OPT_SKIP_STACK_TRACE:
     test_flags|=TEST_NO_STACKTRACE;

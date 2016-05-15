@@ -155,7 +155,7 @@ log_notice () {
 }
 
 eval_log_error () {
-  cmd="$1"
+  local cmd="$1"
   case $logging in
     file)
       if [ -w / -o "$USER" = "root" ]; then
@@ -894,8 +894,11 @@ do
   cmd="$cmd "`shell_quote_string "$i"`
 done
 cmd="$cmd $args"
+cmd_skip_core="$cmd --skip-core-file"
 # Avoid 'nohup: ignoring input' warning
-test -n "$NOHUP_NICENESS" && cmd="$cmd < /dev/null"
+test -n "$NOHUP_NICENESS" && cmd="$cmd < /dev/null" \
+                          && cmd_skip_core="$cmd_skip_core < /dev/null"
+cmd_saved="$cmd"
 
 log_notice "Starting $MYSQLD daemon with databases from $DATADIR"
 
@@ -905,6 +908,9 @@ fast_restart=0
 max_fast_restarts=5
 # flag whether a usable sleep command exists
 have_sleep=1
+
+skip_core=0
+last_crash=0
 
 while true
 do
@@ -957,6 +963,31 @@ do
     break
   fi
 
+  # The current time in seconds since Epoch
+  cur_crash=`date +%s`
+  interval=`expr $cur_crash - $last_crash`
+  if test $skip_core -eq 0
+  then
+      if test $interval -lt 86400
+      then
+          # Make sure no more than two cores dumped within 24 hours
+          skip_core=1
+          cmd_saved="$cmd"
+          cmd="$cmd_skip_core"
+          log_notice "mysqld will be restarted with --skip-core-file"
+      fi
+  else
+      if test $interval -gt 86400
+      then
+          # Allow core dump
+          skip_core=0
+          cur_crash=0
+          cmd_skip_core="$cmd"
+          cmd="$cmd_saved"
+          log_notice "mysqld will be restarted without --skip-core-file"
+      fi
+  fi
+  last_crash=$cur_crash
 
   # sanity check if time reading is sane and there's sleep
   if test $end_time -gt 0 -a $have_sleep -gt 0
