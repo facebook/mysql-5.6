@@ -1,0 +1,9 @@
+# Shutdown server
+# Restart server with --log-error
+# Get the full path name of the PID file
+# Expecting a "crash", but don't restart the server until it is told to
+# Expected max core size is 3584 MB
+# Perl: Sent a SIGSEGV to mysqld to dump a core.
+# Perl: Didn't find the core file!
+# Make server restart
+# Wait for server to be back online

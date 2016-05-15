@@ -84,10 +84,10 @@ if ($found_core) {
   if ($core_size_good) {
     print "# Perl: OK! Found the core file and it's small!\n";
   } else {
-    print "# Perl: Failed! Found the core file but it's too big ($core_size)!\n";
+    print "# Perl: Found the core file but it's too big ($core_size)!\n";
   }
 } else {
-  print "# Perl: Failed! Didn't find the core file!\n";
+  print "# Perl: Didn't find the core file!\n";
 }
 
 EOF
