@@ -27,8 +27,8 @@ insert into t1 (i) values
 # connection default
 show transaction_list;
 Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin
-#	mysqluser1	localhost	test	Sleep	State	#	#	#	0	1
-#	root	localhost	test	Query	State	#	#	#	1	1
+#	mysqluser1	localhost	test	Command	State	#	#	#	0	1
+#	root	localhost	test	Command	State	#	#	#	1	1
 # Check OK: Statement_seconds and Transaction_seconds match.
 # Check OK: Command_seconds is larger than Transaction_seconds.
 # Check OK: Transaction is not read_only
@@ -45,8 +45,8 @@ commit;
 # connection default
 show transaction_list;
 Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin
-#	mysqluser1	localhost	test	Sleep	State	#	#	#	0	1
-#	root	localhost	test	Query	State	#	#	#	1	1
+#	mysqluser1	localhost	test	Command	State	#	#	#	0	1
+#	root	localhost	test	Command	State	#	#	#	1	1
 # Check OK: Transaction_seconds is larger than Statement_seconds.
 # Check OK: Command_seconds is equal to or larger than Transaction_seconds.
 # Check OK: Transaction_seconds is increasing.
@@ -67,8 +67,8 @@ count(*)
 # connection default
 show transaction_list;
 Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin
-#	mysqluser1	localhost	test	Sleep	State	#	#	#	1	1
-#	root	localhost	test	Query	State	#	#	#	1	1
+#	mysqluser1	localhost	test	Command	State	#	#	#	1	1
+#	root	localhost	test	Command	State	#	#	#	1	1
 # Check OK: Statement_seconds and Transaction_seconds match.
 # Check OK: Command_seconds is larger than Transaction_seconds.
 # Check OK: Command_seconds is increasing.
@@ -85,8 +85,8 @@ insert into t1 (i) select i from t1 where id > 6 AND id < 20;
 # connection default
 show transaction_list;
 Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin
-#	mysqluser1	localhost	test	Sleep	State	#	#	#	0	1
-#	root	localhost	test	Query	State	#	#	#	1	1
+#	mysqluser1	localhost	test	Command	State	#	#	#	0	1
+#	root	localhost	test	Command	State	#	#	#	1	1
 # Check OK: Statement_seconds and Transaction_seconds match.
 # Check OK: Command_seconds is larger than Transaction_seconds.
 # Check OK: Command_seconds is increasing.
