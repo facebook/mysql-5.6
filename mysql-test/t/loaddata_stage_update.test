@@ -46,7 +46,6 @@ set DEBUG_SYNC= 'end WAIT_FOR go TIMEOUT 43200';
 let $wait_condition=select COUNT(*) = 1 from information_schema.processlist where INFO like 'load data infile%' and STATE like '%end%';
 --source include/wait_condition.inc
 set DEBUG_SYNC= 'now SIGNAL go';
-set DEBUG_SYNC='RESET';
 
 --connection default
 --reap

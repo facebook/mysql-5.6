@@ -20,7 +20,6 @@ load data infile '../../std_data/loaddata7.dat' into table tb1 fields terminated
 "Wait in the stage of end"
 connection connection1;
 set DEBUG_SYNC= 'now SIGNAL go';
-set DEBUG_SYNC='RESET';
 connection default;
 drop table tb1;
 set DEBUG_SYNC= 'RESET';
