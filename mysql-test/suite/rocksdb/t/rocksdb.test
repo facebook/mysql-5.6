@@ -1868,6 +1868,24 @@ UNLOCK TABLES;
 DROP TABLE t1;
 
 --echo #
+--echo # Issue#250: MyRocks/Innodb different output from query with order by on table with index and decimal type
+--echo #
+
+CREATE TABLE t1(
+  c1 DECIMAL(65,0) UNSIGNED NOT NULL, 
+  c2 DECIMAL(65,0) SIGNED NULL, 
+  c3 INT, 
+  INDEX idx(c1,c2)
+);
+INSERT INTO t1 VALUES (0,'1999',5);
+SELECT * FROM t1 force index(idx) WHERE c1 <> '1' ORDER BY c1 DESC;
+--echo # This must not use ICP. when/if MyRocks supports index-only for
+--echo #   DECIMAL, switch this testcase to use another datatype
+--replace_column 9 #
+explain SELECT * FROM t1  force index(idx) WHERE c1 <> '1' ORDER BY c1 DESC;
+drop table t1;
+
+--echo #
 --echo # Issue#267: MyRocks issue with no matching min/max row and count(*)
 --echo #
 CREATE TABLE t1(c1 INT UNSIGNED, c2 INT SIGNED, INDEX idx2(c2));

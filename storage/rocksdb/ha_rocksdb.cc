@@ -3556,8 +3556,14 @@ const char **ha_rocksdb::bas_ext() const
 bool ha_rocksdb::init_with_fields()
 {
   uint pk= table_share->primary_key;
-  uint key_parts= table_share->key_info[pk].user_defined_key_parts;
-  check_keyread_allowed(pk /*PK*/, key_parts-1, true);
+  if (pk != MAX_KEY)
+  {
+    uint key_parts= table_share->key_info[pk].user_defined_key_parts;
+    check_keyread_allowed(pk /*PK*/, key_parts-1, true);
+  }
+  else
+    m_pk_can_be_decoded= false;
+
   cached_table_flags= table_flags();
   return false; /* Ok */
 }
