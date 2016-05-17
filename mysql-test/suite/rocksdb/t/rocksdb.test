@@ -71,7 +71,7 @@ insert into t1 values (2,2);
 select * from t1;
 
 --echo # Check that we can create another table and insert there
-create table t2 (a varchar(10) primary key, b varchar(10)) engine=rocksdb;
+create table t2 (a varchar(10) primary key, b varchar(10)) engine=rocksdb default charset=latin1;
 insert into t2 value ('abc','def');
 insert into t2 value ('hijkl','mnopq');
 select * from t2;
@@ -178,7 +178,7 @@ drop table t7;
 --echo #
 --echo # Check if DELETEs work
 --echo # 
-create table t8 (a varchar(10) primary key, col1 varchar(12)) engine=rocksdb;
+create table t8 (a varchar(10) primary key, col1 varchar(12)) engine=rocksdb default charset=latin1;
 
 insert into t8 values 
  ('one', 'eins'),
@@ -536,7 +536,7 @@ create table t30 (
   key1 varchar(16) not null, 
   col1 varchar(16) not null,
   key(key1)
-) engine=rocksdb;
+) engine=rocksdb default charset=latin1;
 
 insert into t30 values ('row1', 'row1-key', 'row1-data');
 insert into t30 values ('row2', 'row2-key', 'row2-data');
@@ -1268,7 +1268,7 @@ create table t1 (
   pk int primary key, 
   col1 varchar(255),
   key(col1)
-) engine=rocksdb;
+) engine=rocksdb default charset=latin1;
 insert into t1 select a, repeat('123456789ABCDEF-', 15) from t0;
 select * from t1 where pk=3;
 drop table t0, t1;
@@ -1288,7 +1288,7 @@ CREATE TABLE t1 (
   time bigint(20) unsigned NOT NULL DEFAULT '0',
   version int(11) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (link_type,id1,id2)
-) engine=rocksdb;
+) engine=rocksdb default charset=latin1;
 
 insert into t1 select a,a,a,1,a,a,a from t0;
 
@@ -1668,10 +1668,10 @@ drop table t1;
 --echo #Index on blob column
 SET @old_mode = @@sql_mode;
 SET sql_mode = 'strict_all_tables';
-create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(c, b(255))) engine=rocksdb;
+create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(c, b(255))) engine=rocksdb default charset=latin1;
 drop table t1;
 set global rocksdb_large_prefix=1;
-create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(b(1255))) engine=rocksdb;
+create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(b(1255))) engine=rocksdb default charset=latin1;
 set global rocksdb_large_prefix=0;
 insert into t1 values (1, '1abcde', '1abcde'), (2, '2abcde', '2abcde'), (3, '3abcde', '3abcde');
 select * from t1;
@@ -1872,25 +1872,21 @@ DROP TABLE t1;
 
 --echo #
 --echo # Issue#250: MyRocks/Innodb different output from query with order by on table with index and decimal type
---echo #  (the test was changed to use VARCHAR, because DECIMAL now supports index-only, and this issue 
---echo #   needs a datype that doesn't support index-inly)
+--echo #  (the issue needs a datype that doesn't support index-only)
 --echo #
-
---disable_testcase BUG#888003
 CREATE TABLE t1(
-  c1 varchar(10) character set utf8 collate utf8_general_ci NOT NULL, 
-  c2 varchar(10) character set utf8 collate utf8_general_ci, 
-  c3 INT, 
+  c1 ENUM('c1-val1','c1-val2','c1-val3') NOT NULL,
+  c2 ENUM('c2-val1','c2-val2','c2-val3'),
+  c3 INT,
   INDEX idx(c1,c2)
 );
 INSERT INTO t1 VALUES ('c1-val1','c2-val1',5);
-INSERT INTO t1 VALUES ('c1-val2','c2-val3',6);
+INSERT INTO t1 VALUES ('c1-val2','c2-val2',6);
 INSERT INTO t1 VALUES ('c1-val3','c2-val3',7);
 SELECT * FROM t1 force index(idx) WHERE c1 <> 'c1-val2' ORDER BY c1 DESC;
 --replace_column 10 # 11 #
 explain SELECT * FROM t1  force index(idx) WHERE c1 <> '1' ORDER BY c1 DESC;
 drop table t1;
---enable_testcase
 
 --echo #
 --echo # Issue#267: MyRocks issue with no matching min/max row and count(*)

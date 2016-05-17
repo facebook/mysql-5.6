@@ -47,7 +47,7 @@ Table	Create Table
 t0	CREATE TABLE `t0` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 drop table t0;
 create table t1 (a int primary key, b int) engine=rocksdb;
 insert into t1 values (1,1);
@@ -57,7 +57,7 @@ a	b
 1	1
 2	2
 # Check that we can create another table and insert there
-create table t2 (a varchar(10) primary key, b varchar(10)) engine=rocksdb;
+create table t2 (a varchar(10) primary key, b varchar(10)) engine=rocksdb default charset=latin1;
 insert into t2 value ('abc','def');
 insert into t2 value ('hijkl','mnopq');
 select * from t2;
@@ -184,7 +184,7 @@ drop table t7;
 #
 # Check if DELETEs work
 # 
-create table t8 (a varchar(10) primary key, col1 varchar(12)) engine=rocksdb;
+create table t8 (a varchar(10) primary key, col1 varchar(12)) engine=rocksdb default charset=latin1;
 insert into t8 values 
 ('one', 'eins'),
 ('two', 'zwei'),
@@ -518,7 +518,7 @@ pk varchar(16) not null primary key,
 key1 varchar(16) not null, 
 col1 varchar(16) not null,
 key(key1)
-) engine=rocksdb;
+) engine=rocksdb default charset=latin1;
 insert into t30 values ('row1', 'row1-key', 'row1-data');
 insert into t30 values ('row2', 'row2-key', 'row2-data');
 insert into t30 values ('row3', 'row3-key', 'row3-data');
@@ -1477,7 +1477,7 @@ create table t1 (i int primary key auto_increment) engine=RocksDB;
 insert into t1 values (null),(null);
 show table status like 't1';
 Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
-t1	ROCKSDB	10	Fixed	1000	0	#	0	0	0	3	#	#	NULL	latin1_swedish_ci	NULL		
+t1	ROCKSDB	10	Fixed	1000	0	#	0	0	0	3	#	#	NULL	utf8mb4_0900_ai_ci	NULL		
 drop table t1;
 #
 # Fix Issue #4: Crash when using pseudo-unique keys
@@ -1891,7 +1891,7 @@ create table t1 (
 pk int primary key, 
 col1 varchar(255),
 key(col1)
-) engine=rocksdb;
+) engine=rocksdb default charset=latin1;
 insert into t1 select a, repeat('123456789ABCDEF-', 15) from t0;
 select * from t1 where pk=3;
 pk	col1
@@ -1911,7 +1911,7 @@ data varchar(255) NOT NULL DEFAULT '',
 time bigint(20) unsigned NOT NULL DEFAULT '0',
 version int(11) unsigned NOT NULL DEFAULT '0',
 PRIMARY KEY (link_type,id1,id2)
-) engine=rocksdb;
+) engine=rocksdb default charset=latin1;
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -2410,10 +2410,10 @@ SET @old_mode = @@sql_mode;
 SET sql_mode = 'strict_all_tables';
 Warnings:
 Warning	3135	'NO_ZERO_DATE', 'NO_ZERO_IN_DATE' and 'ERROR_FOR_DIVISION_BY_ZERO' sql modes should be used with strict mode. They will be merged with strict mode in a future release.
-create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(c, b(255))) engine=rocksdb;
+create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(c, b(255))) engine=rocksdb default charset=latin1;
 drop table t1;
 set global rocksdb_large_prefix=1;
-create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(b(1255))) engine=rocksdb;
+create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(b(1255))) engine=rocksdb default charset=latin1;
 set global rocksdb_large_prefix=0;
 insert into t1 values (1, '1abcde', '1abcde'), (2, '2abcde', '2abcde'), (3, '3abcde', '3abcde');
 select * from t1;
@@ -2602,7 +2602,7 @@ r2	CREATE TABLE `r2` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `value` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 begin;
 insert into r1 values (10, 1);
 commit;
@@ -2626,7 +2626,7 @@ r2	CREATE TABLE `r2` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `value` int(11) DEFAULT NULL,
   KEY `i` (`id`)
-) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 begin;
 insert into r1 values (10, 1);
 commit;
@@ -2657,9 +2657,27 @@ UNLOCK TABLES;
 DROP TABLE t1;
 #
 # Issue#250: MyRocks/Innodb different output from query with order by on table with index and decimal type
-#  (the test was changed to use VARCHAR, because DECIMAL now supports index-only, and this issue 
-#   needs a datype that doesn't support index-inly)
+#  (the issue needs a datype that doesn't support index-only)
 #
+CREATE TABLE t1(
+c1 ENUM('c1-val1','c1-val2','c1-val3') NOT NULL,
+c2 ENUM('c2-val1','c2-val2','c2-val3'),
+c3 INT,
+INDEX idx(c1,c2)
+);
+INSERT INTO t1 VALUES ('c1-val1','c2-val1',5);
+INSERT INTO t1 VALUES ('c1-val2','c2-val2',6);
+INSERT INTO t1 VALUES ('c1-val3','c2-val3',7);
+SELECT * FROM t1 force index(idx) WHERE c1 <> 'c1-val2' ORDER BY c1 DESC;
+c1	c2	c3
+c1-val3	c2-val3	7
+c1-val1	c2-val1	5
+explain SELECT * FROM t1  force index(idx) WHERE c1 <> '1' ORDER BY c1 DESC;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	idx	idx	3	NULL	#	#	Using where; Backward index scan
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1`,`test`.`t1`.`c2` AS `c2`,`test`.`t1`.`c3` AS `c3` from `test`.`t1` FORCE INDEX (`idx`) where (`test`.`t1`.`c1` <> '1') order by `test`.`t1`.`c1` desc
+drop table t1;
 #
 # Issue#267: MyRocks issue with no matching min/max row and count(*)
 #
@@ -2677,7 +2695,7 @@ CREATE TABLE t1(a INT AUTO_INCREMENT KEY);
 INSERT INTO t1 VALUES(0),(-1),(0);
 SHOW TABLE STATUS LIKE 't1';
 Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
-t1	ROCKSDB	10	Fixed	1000	0	0	0	0	0	3	#	#	NULL	latin1_swedish_ci	NULL		
+t1	ROCKSDB	10	Fixed	1000	0	0	0	0	0	3	#	#	NULL	utf8mb4_0900_ai_ci	NULL		
 SELECT * FROM t1;
 a
 -1
@@ -2688,7 +2706,7 @@ CREATE TABLE t1(a INT AUTO_INCREMENT KEY);
 INSERT INTO t1 VALUES(0),(10),(0);
 SHOW TABLE STATUS LIKE 't1';
 Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
-t1	ROCKSDB	10	Fixed	1000	0	0	0	0	0	12	#	#	NULL	latin1_swedish_ci	NULL		
+t1	ROCKSDB	10	Fixed	1000	0	0	0	0	0	12	#	#	NULL	utf8mb4_0900_ai_ci	NULL		
 SELECT * FROM t1;
 a
 1
