@@ -6,7 +6,11 @@ INSERT INTO invalid_values VALUES('\'aaa\'');
 SET @start_global_value = @@global.ROCKSDB_PERF_CONTEXT_LEVEL;
 SELECT @start_global_value;
 @start_global_value
-0
+-1
+SET @start_session_value = @@session.ROCKSDB_PERF_CONTEXT_LEVEL;
+SELECT @start_session_value;
+@start_session_value
+-1
 '# Setting to valid values in global scope#'
 "Trying to set variable @@global.ROCKSDB_PERF_CONTEXT_LEVEL to 1"
 SET @@global.ROCKSDB_PERF_CONTEXT_LEVEL   = 1;
@@ -17,7 +21,7 @@ SELECT @@global.ROCKSDB_PERF_CONTEXT_LEVEL;
 SET @@global.ROCKSDB_PERF_CONTEXT_LEVEL = DEFAULT;
 SELECT @@global.ROCKSDB_PERF_CONTEXT_LEVEL;
 @@global.ROCKSDB_PERF_CONTEXT_LEVEL
-0
+-1
 "Trying to set variable @@global.ROCKSDB_PERF_CONTEXT_LEVEL to 1024"
 SET @@global.ROCKSDB_PERF_CONTEXT_LEVEL   = 1024;
 SELECT @@global.ROCKSDB_PERF_CONTEXT_LEVEL;
@@ -27,20 +31,42 @@ SELECT @@global.ROCKSDB_PERF_CONTEXT_LEVEL;
 SET @@global.ROCKSDB_PERF_CONTEXT_LEVEL = DEFAULT;
 SELECT @@global.ROCKSDB_PERF_CONTEXT_LEVEL;
 @@global.ROCKSDB_PERF_CONTEXT_LEVEL
-0
-"Trying to set variable @@session.ROCKSDB_PERF_CONTEXT_LEVEL to 444. It should fail because it is not session."
-SET @@session.ROCKSDB_PERF_CONTEXT_LEVEL   = 444;
-ERROR HY000: Variable 'rocksdb_perf_context_level' is a GLOBAL variable and should be set with SET GLOBAL
+-1
+'# Setting to valid values in session scope#'
+"Trying to set variable @@session.ROCKSDB_PERF_CONTEXT_LEVEL to 1"
+SET @@session.ROCKSDB_PERF_CONTEXT_LEVEL   = 1;
+SELECT @@session.ROCKSDB_PERF_CONTEXT_LEVEL;
+@@session.ROCKSDB_PERF_CONTEXT_LEVEL
+1
+"Setting the session scope variable back to default"
+SET @@session.ROCKSDB_PERF_CONTEXT_LEVEL = DEFAULT;
+SELECT @@session.ROCKSDB_PERF_CONTEXT_LEVEL;
+@@session.ROCKSDB_PERF_CONTEXT_LEVEL
+-1
+"Trying to set variable @@session.ROCKSDB_PERF_CONTEXT_LEVEL to 1024"
+SET @@session.ROCKSDB_PERF_CONTEXT_LEVEL   = 1024;
+SELECT @@session.ROCKSDB_PERF_CONTEXT_LEVEL;
+@@session.ROCKSDB_PERF_CONTEXT_LEVEL
+1024
+"Setting the session scope variable back to default"
+SET @@session.ROCKSDB_PERF_CONTEXT_LEVEL = DEFAULT;
+SELECT @@session.ROCKSDB_PERF_CONTEXT_LEVEL;
+@@session.ROCKSDB_PERF_CONTEXT_LEVEL
+-1
 '# Testing with invalid values in global scope #'
 "Trying to set variable @@global.ROCKSDB_PERF_CONTEXT_LEVEL to 'aaa'"
 SET @@global.ROCKSDB_PERF_CONTEXT_LEVEL   = 'aaa';
 Got one of the listed errors
 SELECT @@global.ROCKSDB_PERF_CONTEXT_LEVEL;
 @@global.ROCKSDB_PERF_CONTEXT_LEVEL
-0
+-1
 SET @@global.ROCKSDB_PERF_CONTEXT_LEVEL = @start_global_value;
 SELECT @@global.ROCKSDB_PERF_CONTEXT_LEVEL;
 @@global.ROCKSDB_PERF_CONTEXT_LEVEL
-0
+-1
+SET @@session.ROCKSDB_PERF_CONTEXT_LEVEL = @start_session_value;
+SELECT @@session.ROCKSDB_PERF_CONTEXT_LEVEL;
+@@session.ROCKSDB_PERF_CONTEXT_LEVEL
+-1
 DROP TABLE valid_values;
 DROP TABLE invalid_values;
