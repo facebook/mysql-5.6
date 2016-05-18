@@ -817,7 +817,7 @@ int Rdb_ddl_scanner::add_table(Rdb_tbl_def *tdef)
 
   for (uint i= 0; i < tdef->m_key_count; i++)
   {
-    const std::shared_ptr<const Rdb_key_def>& kd= tdef->m_key_descr[i];
+    const std::shared_ptr<const Rdb_key_def>& kd= tdef->m_key_descr_arr[i];
     DBUG_ASSERT(kd != nullptr);
 
     field[3]->store(kd->m_name.c_str(), kd->m_name.size(), system_charset_info);

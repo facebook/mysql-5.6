@@ -3736,7 +3736,7 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
   }
   m_lock_rows= RDB_LOCK_NONE;
 
-  m_key_descr_arr= m_tbl_def->m_key_descr;
+  m_key_descr_arr= m_tbl_def->m_key_descr_arr;
 
   uint key_len= 0;
   m_pk_descr= m_key_descr_arr[pk_index(table, m_tbl_def)];
@@ -3994,7 +3994,7 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
   m_key_descr_arr= new std::shared_ptr<Rdb_key_def>[n_keys];
 
   m_tbl_def->m_key_count= n_keys;
-  m_tbl_def->m_key_descr= m_key_descr_arr;
+  m_tbl_def->m_key_descr_arr= m_key_descr_arr;
 
   /*
      The first loop checks the index parameters and creates
@@ -7376,7 +7376,7 @@ int ha_rocksdb::delete_table(const char *tablename)
   Rdb_tbl_def *tbl = get_table_if_exists(tablename);
   if (!tbl)
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
-  dict_manager.add_drop_table(tbl->m_key_descr, tbl->m_key_count, batch);
+  dict_manager.add_drop_table(tbl->m_key_descr_arr, tbl->m_key_count, batch);
 
   /*
     Remove the table entry in data dictionary (this will also remove it from
@@ -7408,7 +7408,7 @@ void ha_rocksdb::remove_rows(Rdb_tbl_def *tbl)
   */
   for (uint i= 0; i < tbl->m_key_count ; i++)
   {
-    const std::shared_ptr<const Rdb_key_def>& kd= tbl->m_key_descr[i];
+    const std::shared_ptr<const Rdb_key_def>& kd= tbl->m_key_descr_arr[i];
     kd->get_infimum_key(reinterpret_cast<uchar*>(key_buf), &key_len);
 
     rocksdb::Slice table_key(key_buf, key_len);
@@ -7464,9 +7464,9 @@ int ha_rocksdb::rename_table(const char *from, const char *to)
 
     for (uint i= 0; i < tdef->m_key_count; i++)
     {
-      DBUG_ASSERT(tdef->m_key_descr != nullptr);
+      DBUG_ASSERT(tdef->m_key_descr_arr != nullptr);
 
-      if (tdef->m_key_descr[i]->m_is_auto_cf)
+      if (tdef->m_key_descr_arr[i]->m_is_auto_cf)
       {
         my_error(ER_NOT_SUPPORTED_YET, MYF(0),
                  "ALTER TABLE on table with per-index CF");
@@ -7988,7 +7988,7 @@ bool ha_rocksdb::prepare_inplace_alter_table(
     new_n_keys += 1;
   }
 
-  std::shared_ptr<Rdb_key_def>* old_key_descr= m_tbl_def->m_key_descr;
+  std::shared_ptr<Rdb_key_def>* old_key_descr= m_tbl_def->m_key_descr_arr;
   std::shared_ptr<Rdb_key_def>* new_key_descr=
       new std::shared_ptr<Rdb_key_def>[new_n_keys];
 
@@ -8023,7 +8023,7 @@ bool ha_rocksdb::prepare_inplace_alter_table(
     DBUG_RETURN(1);
   }
 
-  new_tdef->m_key_descr= new_key_descr;
+  new_tdef->m_key_descr_arr= new_key_descr;
 
   ha_alter_info->handler_ctx= new Rdb_inplace_alter_ctx(
     new_tdef, old_key_descr, new_key_descr, old_n_keys, new_n_keys,
@@ -8148,7 +8148,7 @@ bool ha_rocksdb::commit_inplace_alter_table(
     dict_manager.add_drop_index(ctx->m_dropped_index_ids, batch);
 
     m_tbl_def= ctx->m_new_tdef;
-    m_key_descr_arr= m_tbl_def->m_key_descr;
+    m_key_descr_arr= m_tbl_def->m_key_descr_arr;
     m_pk_descr= m_key_descr_arr[pk_index(altered_table, m_tbl_def)];
 
     dict_manager.lock();
