@@ -373,8 +373,9 @@ class ha_rocksdb: public my_core::handler
   int m_dupp_errkey;
 
   int create_key_defs(TABLE *table_arg, const char *db_table, const uint len,
-                      HA_CREATE_INFO *create_info)
-      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+                      HA_CREATE_INFO *create_info, Rdb_tbl_def *tbl_def_arg,
+                      Rdb_tbl_def *old_tbl_def_arg= nullptr)
+      MY_ATTRIBUTE((__nonnull__(2, 3, 5, 6), __warn_unused_result__));
   int secondary_index_read(const int keyno, uchar *buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   void setup_iterator_for_rnd_scan();
@@ -703,6 +704,13 @@ public:
     Default implementation from cancel_pushed_idx_cond() suits us
   */
 private:
+  struct key_def_cf_info
+  {
+    rocksdb::ColumnFamilyHandle* cf_handle;
+    bool is_reverse_cf;
+    bool is_auto_cf;
+  };
+
   struct update_row_info
   {
     Rdb_transaction* tx;
@@ -713,6 +721,20 @@ private:
     longlong         hidden_pk_id;
     bool             skip_unique_check;
   };
+
+  int create_cfs(TABLE *table_arg, const char *db_table,
+                 Rdb_tbl_def *tbl_def_arg,
+                 std::array<struct key_def_cf_info, MAX_INDEXES + 1>* cfs);
+
+
+  int create_key_def(TABLE *table_arg, uint i, const Rdb_tbl_def* tbl_def_arg,
+                     std::shared_ptr<Rdb_key_def>* new_key_def,
+                     const struct key_def_cf_info& cf_info);
+
+  int create_inplace_key_defs(TABLE *table_arg,
+                       Rdb_tbl_def *tbl_def_arg,
+                       Rdb_tbl_def *old_tbl_def_arg,
+                       const std::array<key_def_cf_info, MAX_INDEXES + 1>& cfs);
 
   int index_first_intern(uchar *buf)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
@@ -778,13 +800,6 @@ private:
     MY_ATTRIBUTE((__nonnull__));
   bool contains_foreign_key(THD* thd)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-
-  bool prepare_drop_index_inplace(TABLE *altered_table,
-      my_core::Alter_inplace_info *ha_alter_info, Rdb_tbl_def* new_tdef,
-      std::shared_ptr<Rdb_key_def>* old_key_descr,
-      std::shared_ptr<Rdb_key_def>* new_key_descr,
-      uint old_n_keys, uint new_n_keys,
-      std::unordered_set<GL_INDEX_ID>* dropped_index_ids);
 public:
   int index_init(uint idx, bool sorted) MY_ATTRIBUTE((__warn_unused_result__));
   int index_end() MY_ATTRIBUTE((__warn_unused_result__));
