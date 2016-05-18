@@ -724,7 +724,8 @@ class Rdb_tbl_def
   void check_if_is_mysql_system_table();
 
 public:
-  Rdb_tbl_def() : m_key_descr(nullptr), m_hidden_pk_val(1), m_auto_incr_val(1)
+  Rdb_tbl_def()
+  : m_key_descr_arr(nullptr), m_hidden_pk_val(1), m_auto_incr_val(1)
     {}
   ~Rdb_tbl_def();
 
@@ -735,7 +736,7 @@ public:
   uint m_key_count;
 
   /* Array of index descriptors */
-  std::shared_ptr<Rdb_key_def>*m_key_descr;
+  std::shared_ptr<Rdb_key_def>* m_key_descr_arr;
 
   std::atomic<longlong> m_hidden_pk_val;
   std::atomic<longlong> m_auto_incr_val;
