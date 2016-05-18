@@ -343,7 +343,6 @@ static uint64_t rocksdb_index_type;
 static char rocksdb_background_sync;
 static uint32_t rocksdb_debug_optimizer_n_rows;
 static my_bool rocksdb_debug_optimizer_no_zero_cardinality;
-static uint32_t rocksdb_perf_context_level;
 static uint32_t rocksdb_wal_recovery_mode;
 static uint32_t rocksdb_access_hint_on_compaction_start;
 static char * compact_cf_name;
@@ -499,12 +498,11 @@ static MYSQL_SYSVAR_ENUM(info_log_level,
   nullptr, rocksdb_set_rocksdb_info_log_level,
   rocksdb::InfoLogLevel::ERROR_LEVEL, &info_log_level_typelib);
 
-static MYSQL_SYSVAR_UINT(perf_context_level,
-  rocksdb_perf_context_level,
+static MYSQL_THDVAR_INT(perf_context_level,
   PLUGIN_VAR_RQCMDARG,
   "Perf Context Level for rocksdb internal timer stat collection",
-  nullptr, nullptr, rocksdb::kDisable,
-  /* min */ 0L, /* max */ UINT_MAX, 0);
+  nullptr, nullptr, -1,
+  /* min */ -1, /* max */ INT_MAX, 0);
 
 static MYSQL_SYSVAR_UINT(wal_recovery_mode,
   rocksdb_wal_recovery_mode,
@@ -1928,12 +1926,33 @@ static int rocksdb_recover(handlerton* hton, XID* xid_list, uint len,
   return 0;
 }
 
+static inline uint32_t rocksdb_perf_context_level(THD* thd)
+{
+  int session_perf_context_level= THDVAR(thd, perf_context_level);
+  if (session_perf_context_level >= 0) {
+    return session_perf_context_level;
+  }
+
+  // Fallback to global thdvar, if session specific one was not set to a
+  // valid value
+  int global_perf_context_level= THDVAR(nullptr, perf_context_level);
+  if (global_perf_context_level >= 0) {
+    return global_perf_context_level;
+  }
+
+  return rocksdb::kDisable;
+}
+
+static inline bool rocksdb_perf_context_level_enabled(THD* thd)
+{
+  return rocksdb_perf_context_level(thd) != rocksdb::kDisable;
+}
 
 static int rocksdb_commit(handlerton* hton, THD* thd, bool commit_tx, bool)
 {
   DBUG_ENTER("rocksdb_commit");
 
-  Rdb_perf_context_guard guard(rocksdb_perf_context_level != rocksdb::kDisable);
+  Rdb_perf_context_guard guard(rocksdb_perf_context_level_enabled(thd));
 
   /* note: h->external_lock(F_UNLCK) is called after this function is called) */
 
@@ -1975,7 +1994,7 @@ static int rocksdb_commit(handlerton* hton, THD* thd, bool commit_tx, bool)
 
 static int rocksdb_rollback(handlerton* hton, THD* thd, bool rollback_tx)
 {
-  Rdb_perf_context_guard guard(rocksdb_perf_context_level != rocksdb::kDisable);
+  Rdb_perf_context_guard guard(rocksdb_perf_context_level_enabled(thd));
 
   Rdb_transaction*& tx= get_tx_from_thd(thd);
   if (tx != nullptr)
@@ -2285,7 +2304,7 @@ static int rocksdb_start_tx_and_assign_read_view(
         char**  gtid_executed,  /* out: Gtids logged until last commit */
         int*    gtid_executed_length)   /*out: Length of gtid_executed string */
 {
-  Rdb_perf_context_guard guard(rocksdb_perf_context_level != rocksdb::kDisable);
+  Rdb_perf_context_guard guard(rocksdb_perf_context_level_enabled(thd));
 
   ulong const tx_isolation = my_core::thd_tx_isolation(thd);
 
@@ -4915,7 +4934,7 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
   m_sec_key_match_prefix= nullptr;
   stats.rows_requested++;
 
-  Rdb_io_perf_guard io_guard(&m_io_perf, rocksdb_perf_context_level);
+  Rdb_io_perf_guard io_guard(&m_io_perf, rocksdb_perf_context_level(ha_thd()));
 
   if (active_index == table->s->primary_key &&
       find_flag == HA_READ_KEY_EXACT && using_full_key)
@@ -5456,7 +5475,7 @@ int ha_rocksdb::index_next(uchar *buf)
   if (m_key_descr_arr[active_index]->m_is_reverse_cf)
     moves_forward= false;
 
-  Rdb_io_perf_guard io_guard(&m_io_perf, rocksdb_perf_context_level);
+  Rdb_io_perf_guard io_guard(&m_io_perf, rocksdb_perf_context_level(ha_thd()));
   int rc= index_next_with_direction(buf, moves_forward);
   if (rc == HA_ERR_KEY_NOT_FOUND)
     rc = HA_ERR_END_OF_FILE;
@@ -5470,7 +5489,7 @@ int ha_rocksdb::index_prev(uchar *buf)
   if (m_key_descr_arr[active_index]->m_is_reverse_cf)
     moves_forward= true;
 
-  Rdb_io_perf_guard io_guard(&m_io_perf, rocksdb_perf_context_level);
+  Rdb_io_perf_guard io_guard(&m_io_perf, rocksdb_perf_context_level(ha_thd()));
   int rc= index_next_with_direction(buf, moves_forward);
   if (rc == HA_ERR_KEY_NOT_FOUND)
     rc = HA_ERR_END_OF_FILE;
@@ -5510,7 +5529,7 @@ int ha_rocksdb::index_next_with_direction(uchar *buf, bool move_forward)
 
 int ha_rocksdb::index_first(uchar *buf)
 {
-  Rdb_io_perf_guard io_guard(&m_io_perf, rocksdb_perf_context_level);
+  Rdb_io_perf_guard io_guard(&m_io_perf, rocksdb_perf_context_level(ha_thd()));
   m_sec_key_match_prefix= nullptr;
   int rc= m_key_descr_arr[active_index]->m_is_reverse_cf ?
       index_last_intern(buf) : index_first_intern(buf);
@@ -5522,7 +5541,7 @@ int ha_rocksdb::index_first(uchar *buf)
 
 int ha_rocksdb::index_last(uchar *buf)
 {
-  Rdb_io_perf_guard io_guard(&m_io_perf, rocksdb_perf_context_level);
+  Rdb_io_perf_guard io_guard(&m_io_perf, rocksdb_perf_context_level(ha_thd()));
   m_sec_key_match_prefix= nullptr;
   int rc= m_key_descr_arr[active_index]->m_is_reverse_cf ?
       index_first_intern(buf) : index_last_intern(buf);
@@ -5863,7 +5882,7 @@ int ha_rocksdb::write_row(uchar *buf)
   DBUG_ASSERT(buf == table->record[0]);
   DBUG_ASSERT(m_lock_rows == RDB_LOCK_WRITE);
 
-  Rdb_io_perf_guard io_guard(&m_io_perf, rocksdb_perf_context_level);
+  Rdb_io_perf_guard io_guard(&m_io_perf, rocksdb_perf_context_level(ha_thd()));
 
   /*
     Note: "buf == table->record[0]" is copied from innodb. I am not aware of
@@ -6388,7 +6407,7 @@ int ha_rocksdb::rnd_init(bool scan)
 {
   DBUG_ENTER("ha_rocksdb::rnd_init");
 
-  Rdb_io_perf_guard io_guard(&m_io_perf, rocksdb_perf_context_level);
+  Rdb_io_perf_guard io_guard(&m_io_perf, rocksdb_perf_context_level(ha_thd()));
 
   Rdb_transaction *tx= get_or_create_tx(table->in_use);
   setup_read_decoders();
@@ -6415,7 +6434,7 @@ int ha_rocksdb::rnd_init(bool scan)
 int ha_rocksdb::rnd_next(uchar *buf)
 {
   int rc;
-  Rdb_io_perf_guard io_guard(&m_io_perf, rocksdb_perf_context_level);
+  Rdb_io_perf_guard io_guard(&m_io_perf, rocksdb_perf_context_level(ha_thd()));
   for (;;)
   {
     rc= rnd_next_with_direction(buf, true);
@@ -6599,7 +6618,7 @@ int ha_rocksdb::delete_row(const uchar *buf)
 {
   DBUG_ENTER("ha_rocksdb::delete_row");
 
-  Rdb_io_perf_guard io_guard(&m_io_perf, rocksdb_perf_context_level);
+  Rdb_io_perf_guard io_guard(&m_io_perf, rocksdb_perf_context_level(ha_thd()));
 
   set_last_rowkey(buf);
 
@@ -6906,7 +6925,8 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
 
   int rv= 0;
   {  // begin life scope for io_guard
-    Rdb_io_perf_guard io_guard(&m_io_perf, rocksdb_perf_context_level);
+    Rdb_io_perf_guard io_guard(
+      &m_io_perf, rocksdb_perf_context_level(ha_thd()));
     rv= update_write_row(old_data, new_data, false);
   }  // end life scope for io_guard
 
@@ -7043,7 +7063,7 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
 
-  Rdb_io_perf_guard io_guard(&m_io_perf, rocksdb_perf_context_level);
+  Rdb_io_perf_guard io_guard(&m_io_perf, rocksdb_perf_context_level(ha_thd()));
 
   if (lock_type == F_UNLCK)
   {
