@@ -6496,7 +6496,8 @@ default_collation:
         ;
 
 db_read_only:
-          read_only_opt equal boolean_val
+          read_only_opt { /* Ignored */ }
+        | read_only_opt equal boolean_val
           {
             /* read_only = false */
             Lex->create_info.db_read_only= enum_db_read_only::DB_READ_ONLY_NO;

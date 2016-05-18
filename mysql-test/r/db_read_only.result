@@ -791,6 +791,24 @@ show create database test_db_opt;
 Database	Create Database
 test_db_opt	CREATE DATABASE `test_db_opt` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY */
 drop database test_db_opt;
+create database test_db_opt /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY*/;
+show create database test_db_opt;
+Database	Create Database
+test_db_opt	CREATE DATABASE `test_db_opt` /*!40100 DEFAULT CHARACTER SET latin1 */
+alter database test_db_opt read_only;
+show create database test_db_opt;
+Database	Create Database
+test_db_opt	CREATE DATABASE `test_db_opt` /*!40100 DEFAULT CHARACTER SET latin1 */
+drop database test_db_opt;
+create database test_db_opt /*!40100 DEFAULT CHARACTER SET latin1 SUPER_READ_ONLY*/;
+show create database test_db_opt;
+Database	Create Database
+test_db_opt	CREATE DATABASE `test_db_opt` /*!40100 DEFAULT CHARACTER SET latin1 */
+alter database test_db_opt super_read_only;
+show create database test_db_opt;
+Database	Create Database
+test_db_opt	CREATE DATABASE `test_db_opt` /*!40100 DEFAULT CHARACTER SET latin1 */
+drop database test_db_opt;
 connection default;
 alter database test read_only = false;
 show create database test;
