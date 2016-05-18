@@ -198,6 +198,22 @@ show create database test_db_opt;
 drop database test_db_opt;
 
 #
+# [super_]read_only is ignored in create database comment
+# and is ignored in alter without assignment
+#
+create database test_db_opt /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY*/;
+show create database test_db_opt;
+alter database test_db_opt read_only;
+show create database test_db_opt;
+drop database test_db_opt;
+
+create database test_db_opt /*!40100 DEFAULT CHARACTER SET latin1 SUPER_READ_ONLY*/;
+show create database test_db_opt;
+alter database test_db_opt super_read_only;
+show create database test_db_opt;
+drop database test_db_opt;
+
+#
 # cleanup
 #
 --echo connection default;
