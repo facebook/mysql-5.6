@@ -4202,65 +4202,119 @@ static bool is_table_in_collation_exception_list(const std::string& table_name)
   table is created. The structures will be shared by all TABLE* objects.
 
   @param
-    table_arg  Table with definition
-    db_table   "dbname.tablename"
-    len        strlen of the above
+    table_arg        Table with definition
+    db_table         "dbname.tablename"
+    len              strlen of the above
+    tbl_def_arg      tbl_def whose key_descr is being created/populated
+    old_tbl_def_arg  tbl_def from which keys are being copied over from
+                     (for use during inplace alter)
 
   @return
     0      - Ok
     other  - error, either given table ddl is not supported by rocksdb or OOM.
 */
-
 int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
-                                const uint len, HA_CREATE_INFO *create_info)
+                                const uint len, HA_CREATE_INFO *create_info,
+                                Rdb_tbl_def *tbl_def_arg,
+                                Rdb_tbl_def *old_tbl_def_arg /* = nullptr */)
 {
   DBUG_ASSERT(table_arg != nullptr);
   DBUG_ASSERT(db_table != nullptr);
   DBUG_ASSERT(create_info != nullptr);
   DBUG_ASSERT(table_arg->s != nullptr);
 
-  uint i;
   DBUG_ENTER("ha_rocksdb::create_key_defs");
-  uint n_keys= table_arg->s->keys;
 
-  // These need to be one greater than MAX_INDEXES since the user can create
-  // MAX_INDEXES secondary keys and no primary key which would cause us
-  // to generate a hidden one.
-  std::array<rocksdb::ColumnFamilyHandle*, MAX_INDEXES + 1> cf_handles;
-  std::array<bool, MAX_INDEXES + 1> is_cf_reverse;
-  std::array<bool, MAX_INDEXES + 1> is_auto_cf;
-
-  bool write_err= false;
-  std::unique_ptr<rocksdb::WriteBatch> wb= dict_manager.begin();
-  rocksdb::WriteBatch *batch= wb.get();
-
-  /* Create table/key descriptions and put them into the data dictionary */
-  m_tbl_def= new Rdb_tbl_def;
+  uint i;
+  tbl_def_arg->set_name(db_table, len);
 
   /*
-    If no primary key found, create a hidden PK and place it inside table
-    definition
+    These need to be one greater than MAX_INDEXES since the user can create
+    MAX_INDEXES secondary keys and no primary key which would cause us
+    to generate a hidden one.
   */
-  if (has_hidden_pk(table_arg))
+  std::array<key_def_cf_info, MAX_INDEXES + 1> cfs;
+
+  /*
+    NOTE: All new column families must be created before new index numbers are
+    allocated to each key definition. See below for more details.
+    http://github.com/MySQLOnRocksDB/mysql-5.6/issues/86#issuecomment-138515501
+  */
+  if (create_cfs(table_arg, db_table, tbl_def_arg, &cfs))
   {
-    n_keys += 1;
+    DBUG_RETURN(1);
+  };
+
+  if (!old_tbl_def_arg)
+  {
+    /*
+      old_tbl_def doesn't exist. this means we are in the process of creating
+      a new table.
+
+      Get the index numbers (this will update the next_index_number)
+      and create Rdb_key_def structures.
+    */
+    for (i= 0; i < tbl_def_arg->m_key_count; i++)
+    {
+      if (create_key_def(table_arg, i, tbl_def_arg,
+                         &m_key_descr_arr[i], cfs[i]))
+      {
+        DBUG_RETURN(1);
+      }
+    }
+  }
+  else
+  {
+    /*
+      old_tbl_def exists.  This means we are creating a new tbl_def as part of
+      in-place alter table.  Copy over existing keys from the old_tbl_def and
+      generate the necessary new key definitions if any.
+    */
+    if (create_inplace_key_defs(table_arg, tbl_def_arg, old_tbl_def_arg, cfs))
+    {
+      DBUG_RETURN(1);
+    }
   }
 
-  m_key_descr_arr= new std::shared_ptr<Rdb_key_def>[n_keys];
+  DBUG_RETURN(0);
+}
 
-  m_tbl_def->m_key_count= n_keys;
-  m_tbl_def->m_key_descr_arr= m_key_descr_arr;
+/*
+  Checks index parameters and creates column families needed for storing data
+  in rocksdb if necessary.
+
+  @param in
+    table_arg     Table with definition
+    db_table      Table name
+    tbl_def_arg   Table def structure being populated
+
+  @param out
+    cfs           CF info for each key definition in 'key_info' order
+
+  @return
+    0      - Ok
+    other  - error
+*/
+int ha_rocksdb::create_cfs(TABLE *table_arg, const char *db_table,
+                      Rdb_tbl_def *tbl_def_arg,
+                      std::array<struct key_def_cf_info, MAX_INDEXES + 1>* cfs)
+{
+  DBUG_ASSERT(table_arg != nullptr);
+  DBUG_ASSERT(db_table != nullptr);
+  DBUG_ASSERT(table_arg->s != nullptr);
+
+  DBUG_ENTER("ha_rocksdb::create_cfs");
 
   /*
-     The first loop checks the index parameters and creates
-     column families if necessary.
+    The first loop checks the index parameters and creates
+    column families if necessary.
   */
-  for (i= 0; i < m_tbl_def->m_key_count; i++)
+  for (uint i= 0; i < tbl_def_arg->m_key_count; i++)
   {
     rocksdb::ColumnFamilyHandle* cf_handle;
 
     if (rocksdb_strict_collation_check &&
-        !is_hidden_pk(i, table_arg, m_tbl_def))
+        !is_hidden_pk(i, table_arg, tbl_def_arg))
     {
       for (uint part= 0; part < table_arg->key_info[i].actual_key_parts; part++)
       {
@@ -4283,7 +4337,7 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
                           db_table,
                           table_arg->key_info[i].key_part[part].field->field_name,
                           collation_err.c_str());
-          goto error;
+          DBUG_RETURN(1);
         }
       }
     }
@@ -4294,9 +4348,9 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
     */
     const char *comment;
     const char *key_name;
-    if (is_hidden_pk(i, table_arg, m_tbl_def)) {
+    if (is_hidden_pk(i, table_arg, tbl_def_arg)) {
       comment= nullptr;
-      key_name= const_cast<char*>(HIDDEN_PK_NAME);
+      key_name= HIDDEN_PK_NAME;
     } else {
       comment= table_arg->key_info[i].comment.str;
       key_name= table_arg->key_info[i].name;
@@ -4306,87 +4360,196 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
     {
       my_error(ER_NOT_SUPPORTED_YET, MYF(0),
                "column family name looks like a typo of $per_index_cf");
-      goto error;
+      DBUG_RETURN(1);
     }
     /* Prevent create from using the system column family */
     if (comment && strcmp(DEFAULT_SYSTEM_CF_NAME, comment) == 0)
     {
       my_error(ER_WRONG_ARGUMENTS, MYF(0),
                "column family not valid for storing index data");
-      goto error;
+      DBUG_RETURN(1);
     }
     bool is_auto_cf_flag;
-    cf_handle= cf_manager.get_or_create_cf(rdb, comment, db_table,
+    cf_handle = cf_manager.get_or_create_cf(rdb, comment, db_table,
                                            key_name,
                                            &is_auto_cf_flag);
     if (!cf_handle)
-      goto error;
+      DBUG_RETURN(1);
 
-    cf_handles[i]= cf_handle;
-    is_cf_reverse[i]= Rdb_cf_manager::is_cf_name_reverse(comment);
-    is_auto_cf[i]= is_auto_cf_flag;
+    auto& cf = (*cfs)[i];
+    cf.cf_handle = cf_handle;
+    cf.is_reverse_cf = Rdb_cf_manager::is_cf_name_reverse(comment);
+    cf.is_auto_cf = is_auto_cf_flag;
   }
 
-  /*
-    Get the index numbers (this will update the next_index_number)
-    and create Rdb_key_def structures.
-  */
-  for (i= 0; i < m_tbl_def->m_key_count; i++)
-  {
-    uint index_id= ddl_manager.get_and_update_next_number(&dict_manager);
-    uint16_t index_dict_version= Rdb_key_def::INDEX_INFO_VERSION_LATEST;
-    uchar index_type;
-    uint16_t kv_version;
+  DBUG_RETURN(0);
+}
 
-    if (is_hidden_pk(i, table_arg, m_tbl_def))
+/*
+  Create key definition needed for storing data in rocksdb during ADD index
+  inplace operations.
+
+  @param in
+    table_arg         Table with definition
+    tbl_def_arg       New table def structure being populated
+    old_tbl_def_arg   Old(current) table def structure
+    cfs               Struct array which contains column family information
+
+  @return
+    0      - Ok
+    other  - error, either given table ddl is not supported by rocksdb or OOM.
+*/
+int ha_rocksdb::create_inplace_key_defs(TABLE *table_arg,
+                       Rdb_tbl_def *tbl_def_arg,
+                       Rdb_tbl_def *old_tbl_def_arg,
+                       const std::array<key_def_cf_info, MAX_INDEXES + 1>& cfs)
+{
+  DBUG_ASSERT(table_arg != nullptr);
+  DBUG_ASSERT(tbl_def_arg != nullptr);
+  DBUG_ASSERT(old_tbl_def_arg != nullptr);
+
+  DBUG_ENTER("create_key_def");
+
+  std::shared_ptr<Rdb_key_def>* old_key_descr=
+      old_tbl_def_arg->m_key_descr_arr;
+  std::shared_ptr<Rdb_key_def>* new_key_descr=
+      tbl_def_arg->m_key_descr_arr;
+
+  std::unordered_map<std::string, uint> name_pos;
+  uint i;
+
+  for (i= 0; i < old_tbl_def_arg->m_key_count; i++)
+  {
+    name_pos[old_key_descr[i]->m_name] = i;
+  }
+
+  for (i= 0; i < tbl_def_arg->m_key_count; i++)
+  {
+    const char* key_name;
+    if (is_hidden_pk(i, table_arg, tbl_def_arg))
     {
-      index_type= Rdb_key_def::INDEX_TYPE_HIDDEN_PRIMARY;
-      kv_version= Rdb_key_def::PRIMARY_FORMAT_VERSION_LATEST;
-    }
-    else if (i == table_arg->s->primary_key)
-    {
-      index_type= Rdb_key_def::INDEX_TYPE_PRIMARY;
-      kv_version= Rdb_key_def::PRIMARY_FORMAT_VERSION_LATEST;
+      key_name= HIDDEN_PK_NAME;
     }
     else
     {
-      index_type= Rdb_key_def::INDEX_TYPE_SECONDARY;
-      kv_version= Rdb_key_def::SECONDARY_FORMAT_VERSION_LATEST;
-    }
-
-    const char *key_name;
-    if (is_hidden_pk(i, table_arg, m_tbl_def)) {
-      key_name= HIDDEN_PK_NAME;
-    } else {
       key_name= table_arg->key_info[i].name;
     }
 
-    m_key_descr_arr[i]= std::make_shared<Rdb_key_def>(
-        index_id, i, cf_handles[i], index_dict_version, index_type,
-        kv_version, is_cf_reverse[i], is_auto_cf[i], key_name);
+    auto it = name_pos.find(key_name);
+    if (it != name_pos.end())
+    {
+      /*
+        Found matching index in old table definition, so copy it over to the
+        new one created.
+      */
+      const std::shared_ptr<Rdb_key_def>& okd=
+          old_key_descr[it->second];
+
+      uint16 index_dict_version= 0;
+      uchar index_type= 0;
+      uint16 kv_version= 0;
+      GL_INDEX_ID gl_index_id= okd->get_gl_index_id();
+      if (!dict_manager.get_index_info(gl_index_id, &index_dict_version,
+                           &index_type, &kv_version))
+      {
+        // NO_LINT_DEBUG
+        sql_print_error("RocksDB: Could not get index information "
+                        "for Index Number (%u,%u), table %s",
+                        gl_index_id.cf_id, gl_index_id.index_id,
+                        old_tbl_def_arg->m_dbname_tablename.c_ptr_safe());
+        DBUG_RETURN(1);
+      }
+
+      /*
+        We can't use the copy constructor because we need to update the
+        keynr within the pack_info for each field and the keyno of the keydef
+        itself.
+      */
+      new_key_descr[i]= std::make_shared<Rdb_key_def>(
+          okd->get_index_number(),
+          i,
+          okd->get_cf(),
+          index_dict_version,
+          index_type,
+          kv_version,
+          okd->m_is_reverse_cf,
+          okd->m_is_auto_cf,
+          okd->m_name.c_str(),
+          dict_manager.get_stats(gl_index_id));
+    }
+    else if (create_key_def(table_arg, i, tbl_def_arg,
+                            &new_key_descr[i], cfs[i]))
+    {
+      DBUG_RETURN(1);
+    }
+
+    DBUG_ASSERT(new_key_descr[i] != nullptr);
+    new_key_descr[i]->setup(table_arg, tbl_def_arg);
   }
 
-  m_pk_descr= m_key_descr_arr[pk_index(table_arg, m_tbl_def)];
-
-  m_tbl_def->set_name(db_table, len);
-  dict_manager.lock();
-  write_err= ddl_manager.put_and_write(m_tbl_def, batch)
-             || dict_manager.commit(batch);
-  dict_manager.unlock();
-
-  if (write_err)
-    goto error;
-
   DBUG_RETURN(0);
-
-error:
-  /* Delete what we have allocated so far */
-  delete m_tbl_def;
-  m_tbl_def= nullptr;
-
-  DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
 }
 
+/*
+  Create key definition needed for storing data in rocksdb.
+  This can be called either during CREATE table or doing ADD index operations.
+
+  @param in
+    table_arg     Table with definition
+    i             Position of index being created inside table_arg->key_info
+    tbl_def_arg   Table def structure being populated
+    cf_info       Struct which contains column family information
+
+  @param out
+    new_key_def  Newly created index definition.
+
+  @return
+    0      - Ok
+    other  - error, either given table ddl is not supported by rocksdb or OOM.
+*/
+int ha_rocksdb::create_key_def(TABLE *table_arg, uint i,
+                               const Rdb_tbl_def* tbl_def_arg,
+                               std::shared_ptr<Rdb_key_def>* new_key_def,
+                               const struct key_def_cf_info& cf_info)
+{
+  DBUG_ENTER("create_key_def");
+  DBUG_ASSERT(new_key_def != nullptr);
+  DBUG_ASSERT(*new_key_def == nullptr);
+
+  uint index_id= ddl_manager.get_and_update_next_number(&dict_manager);
+  uint16_t index_dict_version= Rdb_key_def::INDEX_INFO_VERSION_LATEST;
+  uchar index_type;
+  uint16_t kv_version;
+
+  if (is_hidden_pk(i, table_arg, tbl_def_arg))
+  {
+    index_type= Rdb_key_def::INDEX_TYPE_HIDDEN_PRIMARY;
+    kv_version= Rdb_key_def::PRIMARY_FORMAT_VERSION_LATEST;
+  }
+  else if (i == table_arg->s->primary_key)
+  {
+    index_type= Rdb_key_def::INDEX_TYPE_PRIMARY;
+    kv_version= Rdb_key_def::PRIMARY_FORMAT_VERSION_LATEST;
+  }
+  else
+  {
+    index_type= Rdb_key_def::INDEX_TYPE_SECONDARY;
+    kv_version= Rdb_key_def::SECONDARY_FORMAT_VERSION_LATEST;
+  }
+
+  const char *key_name;
+  if (is_hidden_pk(i, table_arg, m_tbl_def)) {
+    key_name= HIDDEN_PK_NAME;
+  } else {
+    key_name= table_arg->key_info[i].name;
+  }
+
+  *new_key_def= std::make_shared<Rdb_key_def>(
+      index_id, i, cf_info.cf_handle, index_dict_version, index_type,
+      kv_version, cf_info.is_reverse_cf, cf_info.is_auto_cf, key_name);
+
+  DBUG_RETURN(0);
+}
 
 int rdb_normalize_tablename(const char *tablename,
                             StringBuffer<256> *strbuf)
@@ -4596,9 +4759,43 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
     }
   }
 
+  bool write_err= false;
+  std::unique_ptr<rocksdb::WriteBatch> wb= dict_manager.begin();
+  rocksdb::WriteBatch *batch= wb.get();
+
+  /* Create table/key descriptions and put them into the data dictionary */
+  m_tbl_def= new Rdb_tbl_def;
+
+  uint n_keys= table_arg->s->keys;
+
+  /*
+    If no primary key found, create a hidden PK and place it inside table
+    definition
+  */
+  if (has_hidden_pk(table_arg))
+  {
+    n_keys += 1;
+  }
+
+  m_key_descr_arr= new std::shared_ptr<Rdb_key_def>[n_keys];
+  m_tbl_def->m_key_count= n_keys;
+  m_tbl_def->m_key_descr_arr= m_key_descr_arr;
+
   if ((res= create_key_defs(table_arg, strbuf.ptr(), strbuf.length(),
-                            create_info)))
-    DBUG_RETURN(res);
+                            create_info, m_tbl_def)))
+    goto error;
+
+  m_pk_descr= m_key_descr_arr[pk_index(table_arg, m_tbl_def)];
+
+  dict_manager.lock();
+  write_err= ddl_manager.put_and_write(m_tbl_def, batch)
+             || dict_manager.commit(batch);
+  dict_manager.unlock();
+
+  if (write_err)
+  {
+    goto error;
+  }
 
   if (create_info->auto_increment_value)
      m_tbl_def->m_auto_incr_val= create_info->auto_increment_value;
@@ -4618,6 +4815,14 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
   }
   */
   DBUG_RETURN(0);
+
+error:
+  /* Delete what we have allocated so far */
+  delete m_tbl_def;
+  m_tbl_def= nullptr;
+  m_key_descr_arr= nullptr;
+
+  DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
 }
 
 
@@ -8387,8 +8592,7 @@ bool ha_rocksdb::prepare_inplace_alter_table(
       new std::shared_ptr<Rdb_key_def>[new_n_keys];
 
   Rdb_tbl_def* new_tdef= new Rdb_tbl_def;
-  new_tdef->set_name(m_tbl_def->m_dbname_tablename.c_ptr(),
-                     m_tbl_def->m_dbname_tablename.length());
+  new_tdef->m_key_descr_arr= new_key_descr;
   new_tdef->m_key_count= new_n_keys;
   new_tdef->m_auto_incr_val=
     m_tbl_def->m_auto_incr_val.load(std::memory_order_relaxed);
@@ -8397,13 +8601,31 @@ bool ha_rocksdb::prepare_inplace_alter_table(
 
   std::unordered_set<GL_INDEX_ID> dropped_index_ids;
 
+  /* Determine which(if any) key definition(s) need to be dropped */
+  for (uint i= 0; i < ha_alter_info->index_drop_count; i++)
+  {
+    const KEY* key = ha_alter_info->index_drop_buffer[i];
+    for (uint j= 0; j < old_n_keys; j++)
+    {
+      if (!old_key_descr[j]->m_name.compare(key->name))
+      {
+        dropped_index_ids.insert(old_key_descr[j]->get_gl_index_id());
+        break;
+      }
+    }
+  }
+
+  DBUG_ASSERT(dropped_index_ids.size() == ha_alter_info->index_drop_count);
+
   /* Check if indexes need to be dropped */
   if (ha_alter_info->handler_flags &
      (my_core::Alter_inplace_info::DROP_INDEX |
       my_core::Alter_inplace_info::DROP_UNIQUE_INDEX)
-     && prepare_drop_index_inplace(altered_table, ha_alter_info, new_tdef,
-          old_key_descr, new_key_descr, old_n_keys, new_n_keys,
-          &dropped_index_ids))
+     && create_key_defs(altered_table,
+                        m_tbl_def->m_dbname_tablename.c_ptr(),
+                        m_tbl_def->m_dbname_tablename.length(),
+                        ha_alter_info->create_info,
+                        new_tdef, m_tbl_def))
   {
     /* Delete the new key descriptors */
     for (uint i= 0; i < new_n_keys; i++) {
@@ -8416,8 +8638,6 @@ bool ha_rocksdb::prepare_inplace_alter_table(
     delete[] new_key_descr;
     DBUG_RETURN(1);
   }
-
-  new_tdef->m_key_descr_arr= new_key_descr;
 
   ha_alter_info->handler_ctx= new Rdb_inplace_alter_ctx(
     new_tdef, old_key_descr, new_key_descr, old_n_keys, new_n_keys,
@@ -8559,77 +8779,6 @@ bool ha_rocksdb::commit_inplace_alter_table(
     rdb_drop_idx_thread.signal();
   }
 
-  DBUG_RETURN(0);
-}
-
-bool ha_rocksdb::prepare_drop_index_inplace(
-    TABLE *altered_table, my_core::Alter_inplace_info *ha_alter_info,
-    Rdb_tbl_def* new_tdef, std::shared_ptr<Rdb_key_def>* old_key_descr,
-    std::shared_ptr<Rdb_key_def>* new_key_descr, uint old_n_keys,
-    uint new_n_keys, std::unordered_set<GL_INDEX_ID>* dropped_index_ids)
-{
-  DBUG_ENTER("prepare_drop_index_inplace");
-
-  /* Determine which key definition(s) need to be dropped */
-  for (uint i= 0; i < ha_alter_info->index_drop_count; i++)
-  {
-    const KEY* key = ha_alter_info->index_drop_buffer[i];
-    for (uint j= 0; j < old_n_keys; j++)
-    {
-      if (!strcmp((old_key_descr[j]->m_name).c_str(), key->name))
-      {
-        dropped_index_ids->insert(old_key_descr[j]->get_gl_index_id());
-        break;
-      }
-    }
-  }
-
-  DBUG_ASSERT(dropped_index_ids->size() == ha_alter_info->index_drop_count);
-
-  uint kd_index= 0;
-  for (uint i= 0; i < old_n_keys; i++)
-  {
-    const std::shared_ptr<Rdb_key_def>& okd= old_key_descr[i];
-    uint16 index_dict_version= 0;
-    uchar index_type= 0;
-    uint16 kv_version= 0;
-    GL_INDEX_ID gl_index_id= okd->get_gl_index_id();
-    if (!dict_manager.get_index_info(gl_index_id, &index_dict_version,
-                         &index_type, &kv_version))
-    {
-      // NO_LINT_DEBUG
-      sql_print_error("RocksDB: Could not get index information "
-                      "for Index Number (%u,%u), table %s",
-                      gl_index_id.cf_id, gl_index_id.index_id,
-                      m_tbl_def->m_dbname_tablename.c_ptr_safe());
-      DBUG_RETURN(1);
-    }
-
-    if (!dropped_index_ids->count(gl_index_id))
-    {
-      /*
-        We can't use the copy constructor because we need to update the
-        keynr within the pack_info for each field and the keyno of the keydef
-        itself.
-      */
-      new_key_descr[kd_index]= std::make_shared<Rdb_key_def>(
-          okd->get_index_number(),
-          kd_index,
-          okd->get_cf(),
-          index_dict_version,
-          index_type,
-          kv_version,
-          okd->m_is_reverse_cf,
-          okd->m_is_auto_cf,
-          okd->m_name.c_str(),
-          dict_manager.get_stats(gl_index_id));
-
-      new_key_descr[kd_index]->setup(altered_table, new_tdef);
-      kd_index++;
-    }
-  }
-
-  DBUG_ASSERT(kd_index == new_n_keys);
   DBUG_RETURN(0);
 }
 
