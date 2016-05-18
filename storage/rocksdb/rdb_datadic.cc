@@ -1613,18 +1613,18 @@ Rdb_tbl_def::~Rdb_tbl_def()
 {
   auto ddl_manager= get_ddl_manager();
   /* Don't free key definitions */
-  if (m_key_descr)
+  if (m_key_descr_arr)
   {
     for (uint i= 0; i < m_key_count; i++) {
-      if (ddl_manager && m_key_descr[i]) {
-        ddl_manager->erase_index_num(m_key_descr[i]->get_gl_index_id());
+      if (ddl_manager && m_key_descr_arr[i]) {
+        ddl_manager->erase_index_num(m_key_descr_arr[i]->get_gl_index_id());
       }
 
-      m_key_descr[i] = nullptr;
+      m_key_descr_arr[i]= nullptr;
     }
 
-    delete[] m_key_descr;
-    m_key_descr = nullptr;
+    delete[] m_key_descr_arr;
+    m_key_descr_arr= nullptr;
   }
 }
 
@@ -1649,7 +1649,7 @@ bool Rdb_tbl_def::put_dict(Rdb_dict_manager* dict, rocksdb::WriteBatch *batch,
 
   for (uint i = 0; i < m_key_count; i++)
   {
-    const std::shared_ptr<const Rdb_key_def>& kd = m_key_descr[i];
+    const std::shared_ptr<const Rdb_key_def>& kd= m_key_descr_arr[i];
 
     uchar flags =
       (kd->m_is_reverse_cf ? Rdb_key_def::REVERSE_CF_FLAG : 0) |
@@ -2075,7 +2075,7 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager *dict_arg,
       return true;
     }
     tdef->m_key_count= real_val_size / (Rdb_key_def::PACKED_SIZE*2);
-    tdef->m_key_descr= new std::shared_ptr<Rdb_key_def>[tdef->m_key_count];
+    tdef->m_key_descr_arr= new std::shared_ptr<Rdb_key_def>[tdef->m_key_count];
 
     ptr= reinterpret_cast<const uchar*>(val.data());
     int version= rdb_netbuf_read_uint16(&ptr);
@@ -2129,7 +2129,7 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager *dict_arg,
         initialization requires that there is an open TABLE* where we could
         look at Field* objects and set max_length and other attributes
       */
-      tdef->m_key_descr[keyno]=
+      tdef->m_key_descr_arr[keyno]=
           std::make_shared<Rdb_key_def>(gl_index_id.index_id, keyno, cfh,
                                         m_index_dict_version,
                                         m_index_type, kv_version,
@@ -2206,7 +2206,7 @@ std::shared_ptr<Rdb_key_def> Rdb_ddl_manager::safe_find(GL_INDEX_ID gl_index_id)
                           false);
     if (table_def && it->second.second < table_def->m_key_count)
     {
-      auto& kd = table_def->m_key_descr[it->second.second];
+      auto& kd= table_def->m_key_descr_arr[it->second.second];
       if (kd->max_storage_fmt_length() != 0)
       {
         ret = kd;
@@ -2229,7 +2229,7 @@ const std::shared_ptr<Rdb_key_def>& Rdb_ddl_manager::find(
                           false);
     if (table_def) {
       if (it->second.second < table_def->m_key_count) {
-        return table_def->m_key_descr[it->second.second];
+        return table_def->m_key_descr_arr[it->second.second];
       }
     }
   }
@@ -2351,7 +2351,7 @@ int Rdb_ddl_manager::put(Rdb_tbl_def *tbl, bool lock)
   result= my_hash_insert(&m_ddl_hash, reinterpret_cast<uchar*>(tbl));
 
   for (uint keyno= 0; keyno < tbl->m_key_count; keyno++) {
-    m_index_num_to_keydef[tbl->m_key_descr[keyno]->get_gl_index_id()]=
+    m_index_num_to_keydef[tbl->m_key_descr_arr[keyno]->get_gl_index_id()]=
       std::make_pair(
         std::basic_string<uchar>(
           rdb_mysql_str_to_uchar_str(&tbl->m_dbname_tablename),
@@ -2414,9 +2414,9 @@ bool Rdb_ddl_manager::rename(uchar *from, uint from_len,
   new_rec->m_key_count= rec->m_key_count;
   new_rec->m_auto_incr_val=
     rec->m_auto_incr_val.load(std::memory_order_relaxed);
-  new_rec->m_key_descr= rec->m_key_descr;
+  new_rec->m_key_descr_arr= rec->m_key_descr_arr;
   // so that it's not free'd when deleting the old rec
-  rec->m_key_descr= nullptr;
+  rec->m_key_descr_arr= nullptr;
 
   // Create a new key
   rdb_netbuf_store_index(new_buf, Rdb_key_def::DDL_ENTRY_INDEX_START_NUMBER);
@@ -2672,8 +2672,8 @@ void Rdb_binlog_manager::update_slave_gtid_info(
     }
     DBUG_ASSERT(m_slave_gtid_info_tbl.load()->m_key_count == 1);
 
-    const std::shared_ptr<const Rdb_key_def>& kd =
-        m_slave_gtid_info_tbl.load()->m_key_descr[0];
+    const std::shared_ptr<const Rdb_key_def>& kd=
+        m_slave_gtid_info_tbl.load()->m_key_descr_arr[0];
     String value;
 
     // Build key
