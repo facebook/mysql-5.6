@@ -21,6 +21,7 @@
 
 /* C++ standard header files */
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 /* MySQL header files */
@@ -38,10 +39,16 @@
 #include "rocksdb/utilities/write_batch_with_index.h"
 
 /* MyRocks header files */
+#include "./rdb_perf_context.h"
 #include "./rdb_utils.h"
-#include "rdb_perf_context.h"
-#include <unordered_set>
 
+
+/**
+  @note MyRocks Coding Conventions:
+  MyRocks code follows the baseline MySQL coding conventions, available at
+  http://dev.mysql.com/doc/internals/en/coding-guidelines.html, with several
+  refinements (@see /storage/rocksdb/README file).
+*/
 
 namespace myrocks {
 
@@ -144,17 +151,9 @@ typedef struct st_rocksdb_share {
   Rdb_atomic_perf_counters table_perf_context;
 } ROCKSDB_SHARE;
 
-typedef enum io_error_type {
-  ROCKSDB_IO_ERROR_TX_COMMIT,
-  ROCKSDB_IO_ERROR_DICT_COMMIT,
-  ROCKSDB_IO_ERROR_BG_THREAD
-} ROCKSDB_IO_ERROR_TYPES;
-
-void rocksdb_handle_io_error(rocksdb::Status status, enum io_error_type type);
 
 class Rdb_key_def;
 class Rdb_tbl_def;
-class Row_lock;
 class Rdb_transaction;
 
 const char *const rocksdb_hton_name= "ROCKSDB";

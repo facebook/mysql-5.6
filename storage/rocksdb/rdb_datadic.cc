@@ -1617,7 +1617,7 @@ void Rdb_field_packing::fill_hidden_pk_val(uchar **dst,
 
 Rdb_tbl_def::~Rdb_tbl_def()
 {
-  auto ddl_manager= get_ddl_manager();
+  auto ddl_manager= rdb_get_ddl_manager();
   /* Don't free key definitions */
   if (m_key_descr_arr)
   {
@@ -1805,9 +1805,9 @@ int Rdb_validate_tbls::add_table(Rdb_tbl_def* tdef)
   DBUG_ASSERT(tdef != nullptr);
 
   /* Parse the m_dbname_tablename for the different elements */
-  if (rocksdb_split_normalized_tablename(tdef->m_dbname_tablename.ptr(),
-                                         &dbname_buff, &tablename_buff,
-                                         &partition_buff) != 0)
+  if (rdb_split_normalized_tablename(tdef->m_dbname_tablename.ptr(),
+                                     &dbname_buff, &tablename_buff,
+                                     &partition_buff) != 0)
   {
     return 1;
   }
@@ -2277,7 +2277,9 @@ void Rdb_ddl_manager::adjust_stats(
   bool should_save_stats = !m_stats2store.empty();
   mysql_rwlock_unlock(&m_rwlock);
   if (should_save_stats)
-    request_save_stats();
+  {
+    rdb_request_save_stats();
+  }
 }
 
 void Rdb_ddl_manager::persist_stats(bool sync)
@@ -2670,7 +2672,8 @@ void Rdb_binlog_manager::update_slave_gtid_info(
     // pointer to it via m_slave_gtid_info_tbl.
     if (!m_slave_gtid_info_tbl.load()) {
       m_slave_gtid_info_tbl.store(
-        get_ddl_manager()->find((const uchar*)("mysql.slave_gtid_info"), 21));
+        rdb_get_ddl_manager()->find((const uchar*)("mysql.slave_gtid_info"),
+                                    21));
     }
     if (!m_slave_gtid_info_tbl.load()) {
       // slave_gtid_info table is not present. Simply return.
@@ -2781,7 +2784,9 @@ int Rdb_dict_manager::commit(rocksdb::WriteBatch *batch, bool sync)
   rocksdb::Status s= m_db->Write(options, batch);
   res= !s.ok(); // we return true when something failed
   if (res)
-    rocksdb_handle_io_error(s, ROCKSDB_IO_ERROR_DICT_COMMIT);
+  {
+    rdb_handle_io_error(s, RDB_IO_ERROR_DICT_COMMIT);
+  }
   batch->Clear();
   return res;
 }

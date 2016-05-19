@@ -157,11 +157,15 @@ mysql_mutex_t background_mutex;
 mysql_mutex_t stop_cond_mutex;
 mysql_rwlock_t collation_exception_list_rwlock;
 mysql_cond_t stop_cond;
-struct background_thread_control {
-  bool stop = false;
-  bool save_stats = false;
+namespace  // anonymous namespace = not visible outside this source file
+{
+struct Rdb_background_thread_control
+{
+  bool m_stop= false;
+  bool m_save_stats= false;
 };
-background_thread_control bg_control;
+}  // anonymous namespace
+Rdb_background_thread_control rdb_bg_control;
 
 // List of table names (using regex) that are exceptions to the strict
 // collation check requirement.
@@ -177,7 +181,7 @@ static const char* const ERRSTR_ROLLBACK_ONLY
 static void
 rocksdb_flush_all_memtables()
 {
-  Rdb_cf_manager& cf_manager = rocksdb_get_cf_manager();
+  Rdb_cf_manager& cf_manager= rdb_get_cf_manager();
   for (auto cf_handle : cf_manager.get_all_cf()) {
     rdb->Flush(rocksdb::FlushOptions(), cf_handle);
   }
@@ -1501,7 +1505,7 @@ public:
     rocksdb::Status s= m_rocksdb_tx->Commit();
     if (!s.ok())
     {
-      rocksdb_handle_io_error(s, ROCKSDB_IO_ERROR_TX_COMMIT);
+      rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
       res= true;
     }
 
@@ -2469,7 +2473,7 @@ static void rocksdb_update_table_stats(
   memset(&page_stats, 0, sizeof(page_stats));
   memset(&comp_stats, 0, sizeof(comp_stats));
 
-  tablenames= get_share_names();
+  tablenames= rdb_get_open_table_names();
 
   for (auto it : tablenames)
   {
@@ -2479,7 +2483,7 @@ static void rocksdb_update_table_stats(
     char tablename_sys[NAME_LEN + 1];
     bool is_partition;
 
-    if (rocksdb_normalize_tablename(it.c_str(), &buf)) {
+    if (rdb_normalize_tablename(it.c_str(), &buf)) {
       /* Function needs to return void because of the interface and we've
        * detected an error which shouldn't happen. There's no way to let
        * caller know that something failed.
@@ -2488,9 +2492,11 @@ static void rocksdb_update_table_stats(
       return;
     }
 
-    if (rocksdb_split_normalized_tablename(buf.c_ptr(), &dbname, &tablename,
-                                           &partname))
+    if (rdb_split_normalized_tablename(buf.c_ptr(), &dbname, &tablename,
+                                       &partname))
+    {
       continue;
+    }
 
     is_partition= (partname.length() != 0);
 
@@ -2948,7 +2954,7 @@ static int rocksdb_done_func(void *p)
   // a flush that can stall due to background threads being stopped. As long
   // as these keys are stored in a WAL file, they can be retrieved on restart.
   mysql_mutex_lock(&stop_cond_mutex);
-  bg_control.stop = true;
+  rdb_bg_control.m_stop = true;
   mysql_cond_signal(&stop_cond);
   mysql_mutex_unlock(&stop_cond_mutex);
 
@@ -3055,7 +3061,7 @@ error:
 }
 
 
-std::vector<std::string> get_share_names(void)
+std::vector<std::string> rdb_get_open_table_names(void)
 {
   int i;
   ROCKSDB_SHARE *share;
@@ -3820,7 +3826,7 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
     it's ok to discard it
   */
   StringBuffer<256> fullname;
-  if (rocksdb_normalize_tablename(name, &fullname)) {
+  if (rdb_normalize_tablename(name, &fullname)) {
     return HA_ERR_INTERNAL_ERROR;
   }
 
@@ -4206,8 +4212,8 @@ error:
 }
 
 
-int rocksdb_normalize_tablename(const char *tablename,
-                                StringBuffer<256> *strbuf)
+int rdb_normalize_tablename(const char *tablename,
+                            StringBuffer<256> *strbuf)
 {
   DBUG_ASSERT(tablename != nullptr);
   DBUG_ASSERT(strbuf != nullptr);
@@ -4298,17 +4304,17 @@ bool ha_rocksdb::contains_foreign_key(THD* thd)
   @param partitionbuf returns partition suffix if there is one
   @return 0 on success, non-zero on failure to split
 */
-int rocksdb_split_normalized_tablename(const char *fullname,
-                                       StringBuffer<256> *dbbuf,
-                                       StringBuffer<256> *tablebuf,
-                                       StringBuffer<256> *partitionbuf)
+int rdb_split_normalized_tablename(const char *fullname,
+                                   StringBuffer<256> *dbbuf,
+                                   StringBuffer<256> *tablebuf,
+                                   StringBuffer<256> *partitionbuf)
 {
   DBUG_ASSERT(fullname != nullptr);
   DBUG_ASSERT(dbbuf != nullptr);
   DBUG_ASSERT(tablebuf != nullptr);
   DBUG_ASSERT(partitionbuf != nullptr);
 
-#define PARTITION_STR "#P#"
+#define RDB_PARTITION_STR "#P#"
 
   /* Normalize returns dbname.tablename */
   const char *tb= strstr(fullname, ".");
@@ -4320,12 +4326,12 @@ int rocksdb_split_normalized_tablename(const char *fullname,
   dbbuf->append(fullname, tb - fullname);
   tb++;
 
-  const char *pt= strstr(tb, PARTITION_STR);
+  const char *pt= strstr(tb, RDB_PARTITION_STR);
 
   if (pt)
   {
     tablebuf->append(tb, pt - tb);
-    pt += sizeof(PARTITION_STR);
+    pt += sizeof(RDB_PARTITION_STR);
     partitionbuf->append(pt);
   }
   else
@@ -4369,7 +4375,7 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
         DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
       }
     } else {
-      if (rocksdb_normalize_tablename(name, &strbuf)) {
+      if (rdb_normalize_tablename(name, &strbuf)) {
         DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
       }
       my_printf_error(ER_UNKNOWN_ERROR,
@@ -4386,8 +4392,10 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
     passes strings like "./test/t14#P#p0" for individual partitions,
     while table_arg->s->table_name has none of that.
   */
-  if (rocksdb_normalize_tablename(name, &strbuf))
+  if (rdb_normalize_tablename(name, &strbuf))
+  {
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+  }
 
   if (contains_foreign_key(thd))
   {
@@ -7353,7 +7361,7 @@ void* drop_index_thread(void*)
           {
             break;
           }
-          rocksdb_handle_io_error(status, ROCKSDB_IO_ERROR_BG_THREAD);
+          rdb_handle_io_error(status, RDB_IO_ERROR_BG_THREAD);
         }
         status = rdb->CompactRange(
             compact_range_options, cfh, &range.start, &range.limit);
@@ -7363,7 +7371,7 @@ void* drop_index_thread(void*)
           {
             break;
           }
-          rocksdb_handle_io_error(status, ROCKSDB_IO_ERROR_BG_THREAD);
+          rdb_handle_io_error(status, RDB_IO_ERROR_BG_THREAD);
         }
         std::unique_ptr<rocksdb::Iterator> it(
           rdb->NewIterator(read_opts, cfh));
@@ -7415,7 +7423,7 @@ Rdb_tbl_def* ha_rocksdb::get_table_if_exists(const char* tablename)
   DBUG_ASSERT(tablename != nullptr);
 
   StringBuffer<256> strbuf;
-  if (rocksdb_normalize_tablename(tablename, &strbuf))
+  if (rdb_normalize_tablename(tablename, &strbuf))
   {
     // We were not passed table name?
     DBUG_ASSERT(0);
@@ -7507,11 +7515,15 @@ int ha_rocksdb::rename_table(const char *from, const char *to)
   StringBuffer<256> from_str;
   StringBuffer<256> to_str;
 
-  if (rocksdb_normalize_tablename(from, &from_str))
+  if (rdb_normalize_tablename(from, &from_str))
+  {
     return HA_ERR_INTERNAL_ERROR;
+  }
 
-  if (rocksdb_normalize_tablename(to, &to_str))
+  if (rdb_normalize_tablename(to, &to_str))
+  {
     return HA_ERR_INTERNAL_ERROR;
+  }
 
   /* Check if any index has a per-index column family */
   {
@@ -7781,7 +7793,7 @@ int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
   }
 
   // for analyze statements, force flush on memtable to get accurate cardinality
-  Rdb_cf_manager& cf_manager = rocksdb_get_cf_manager();
+  Rdb_cf_manager& cf_manager= rdb_get_cf_manager();
   if (thd != nullptr && THDVAR(thd, flush_memtable_on_analyze) &&
       !rocksdb_pause_background_work)
   {
@@ -8562,16 +8574,16 @@ void* background_thread(void*)
       &stop_cond, &stop_cond_mutex, &ts_next_sync);
     // make sure that no program error is returned
     DBUG_ASSERT(ret == 0 || ret == ETIMEDOUT);
-    auto local_bg_control = bg_control;
-    bg_control = background_thread_control();
+    auto local_bg_control= rdb_bg_control;
+    rdb_bg_control= Rdb_background_thread_control();
     mysql_mutex_unlock(&stop_cond_mutex);
 
-    if (local_bg_control.stop)
+    if (local_bg_control.m_stop)
     {
       break;
     }
 
-    if (local_bg_control.save_stats)
+    if (local_bg_control.m_save_stats)
     {
       ddl_manager.persist_stats();
     }
@@ -8585,7 +8597,7 @@ void* background_thread(void*)
         DBUG_ASSERT(!db_options.allow_mmap_writes);
         rocksdb::Status s= rdb->SyncWAL();
         if (!s.ok())
-          rocksdb_handle_io_error(s, ROCKSDB_IO_ERROR_BG_THREAD);
+          rdb_handle_io_error(s, RDB_IO_ERROR_BG_THREAD);
       }
       ts_next_sync.tv_sec = ts.tv_sec+1;
     }
@@ -8676,17 +8688,17 @@ bool can_use_bloom_filter(THD *thd,
 }
 
 /* For modules that need access to the global data structures */
-rocksdb::DB *rocksdb_get_rdb()
+rocksdb::DB *rdb_get_rocksdb_db()
 {
   return rdb;
 }
 
-Rdb_cf_manager& rocksdb_get_cf_manager()
+Rdb_cf_manager& rdb_get_cf_manager()
 {
   return cf_manager;
 }
 
-rocksdb::BlockBasedTableOptions& rocksdb_get_table_options()
+rocksdb::BlockBasedTableOptions& rdb_get_table_options()
 {
   return table_options;
 }
@@ -8709,13 +8721,13 @@ int rdb_get_table_perf_counters(const char *tablename,
 }
 
 
-void rocksdb_handle_io_error(rocksdb::Status status, enum io_error_type type)
+void rdb_handle_io_error(rocksdb::Status status, RDB_IO_ERROR_TYPE err_type)
 {
   if (status.IsIOError())
   {
-    switch (type) {
-    case ROCKSDB_IO_ERROR_TX_COMMIT:
-    case ROCKSDB_IO_ERROR_DICT_COMMIT:
+    switch (err_type) {
+    case RDB_IO_ERROR_TX_COMMIT:
+    case RDB_IO_ERROR_DICT_COMMIT:
     {
       sql_print_error("RocksDB: Failed to write to WAL - status %d, %s",
                       status.code(), status.ToString().c_str());
@@ -8723,7 +8735,7 @@ void rocksdb_handle_io_error(rocksdb::Status status, enum io_error_type type)
       abort_with_stack_traces();
       break;
     }
-    case ROCKSDB_IO_ERROR_BG_THREAD:
+    case RDB_IO_ERROR_BG_THREAD:
     {
       sql_print_warning("RocksDB: BG Thread failed to write to RocksDB "
                         "- status %d, %s", status.code(),
@@ -8746,8 +8758,8 @@ void rocksdb_handle_io_error(rocksdb::Status status, enum io_error_type type)
   }
   else if (!status.ok())
   {
-    switch (type) {
-    case ROCKSDB_IO_ERROR_DICT_COMMIT:
+    switch (err_type) {
+    case RDB_IO_ERROR_DICT_COMMIT:
     {
       sql_print_error("RocksDB: Failed to write to WAL (dictionary) - "
                       "status %d, %s",
@@ -8765,17 +8777,17 @@ void rocksdb_handle_io_error(rocksdb::Status status, enum io_error_type type)
   }
 }
 
-Rdb_dict_manager *get_dict_manager(void)
+Rdb_dict_manager *rdb_get_dict_manager(void)
 {
   return &dict_manager;
 }
 
-Rdb_ddl_manager *get_ddl_manager(void)
+Rdb_ddl_manager *rdb_get_ddl_manager(void)
 {
   return &ddl_manager;
 }
 
-Rdb_binlog_manager *get_binlog_manager(void)
+Rdb_binlog_manager *rdb_get_binlog_manager(void)
 {
   return &binlog_manager;
 }
@@ -8879,10 +8891,10 @@ rocksdb_set_collation_exception_list(THD*                     thd,
   *static_cast<const char**>(var_ptr) = val;
 }
 
-void request_save_stats()
+void rdb_request_save_stats()
 {
   mysql_mutex_lock(&stop_cond_mutex);
-  bg_control.save_stats= true;
+  rdb_bg_control.m_save_stats= true;
   mysql_mutex_unlock(&stop_cond_mutex);
 }
 
