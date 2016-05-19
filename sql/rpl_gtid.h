@@ -2870,7 +2870,7 @@ int gtid_acquire_ownership_multiple(THD *thd);
 #endif // ifndef MYSQL_CLIENT
 class binlog_cmp {
   public:
-  bool operator() (std::string s1, std::string s2) {
+  bool operator() (std::string s1, std::string s2) const {
     return (s1.length() != s2.length()) ? (s1.length() < s2.length()) :
                                           (s1 < s2);
   }
