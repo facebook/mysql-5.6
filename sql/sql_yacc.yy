@@ -13301,7 +13301,7 @@ show_param:
             if (prepare_schema_table(YYTHD, lex, $4, SCH_COLUMNS))
               MYSQL_YYABORT;
           }
-        | master_or_binary LOGS_SYM
+        | master_or_binary LOGS_SYM gtid_bool
           {
             Lex->sql_command = SQLCOM_SHOW_BINLOGS;
           }
@@ -13509,6 +13509,16 @@ show_param:
             Lex->sql_command = SQLCOM_SHOW_CREATE_EVENT;
           }
         ;
+
+gtid_bool:
+         /* empty */
+         {
+           Lex->with_gtid = false;
+         }
+         | WITH GTID_SYM
+         {
+           Lex->with_gtid = true;
+         }
 
 opt_show_engine_status_param:
         /* Empty */

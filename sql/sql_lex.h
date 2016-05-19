@@ -1718,6 +1718,11 @@ public:
   bool uses_stored_routines() const
   { return sroutines_list.elements != 0; }
 
+  /**
+    for SHOW BINARY|MASTER LOGS, true iff WITH GTID specified
+  */
+  bool with_gtid;
+
 private:
 
   /**

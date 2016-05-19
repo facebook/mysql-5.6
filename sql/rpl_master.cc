@@ -2613,11 +2613,12 @@ bool show_master_status(THD* thd)
 
   @param thd Pointer to THD object for the client thread executing the
   statement.
+  @param with_gtid Whether to include previous_gtid_set (default false)
 
   @retval FALSE success
   @retval TRUE failure
 */
-bool show_binlogs(THD* thd)
+bool show_binlogs(THD* thd, bool with_gtid)
 {
   IO_CACHE *index_file;
   LOG_INFO cur;
@@ -2638,6 +2639,9 @@ bool show_binlogs(THD* thd)
   field_list.push_back(new Item_empty_string("Log_name", 255));
   field_list.push_back(new Item_return_int("File_size", 20,
                                            MYSQL_TYPE_LONGLONG));
+  if (with_gtid)
+    field_list.push_back(new Item_empty_string("Prev_gtid_set",
+                            0)); // max_size seems not to matter
   if (protocol->send_result_set_metadata(&field_list,
                             Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
     DBUG_RETURN(TRUE);
@@ -2689,6 +2693,24 @@ bool show_binlogs(THD* thd)
       }
     }
     protocol->store(file_length);
+
+    if (with_gtid)
+    {
+      auto previous_gtid_set_map = mysql_bin_log.get_previous_gtid_set_map();
+      Sid_map sid_map(NULL);
+      Gtid_set gtid_set(&sid_map, NULL);
+      auto gtid_str = previous_gtid_set_map->at(std::string(fname));
+      if (!gtid_str.empty()) // if GTID enabled
+      {
+        gtid_set.add_gtid_encoding((const uchar*)gtid_str.c_str(),
+                                 gtid_str.length(), NULL);
+        char *buf;
+        gtid_set.to_string(&buf, &Gtid_set::commented_string_format);
+        protocol->store(buf, strlen(buf), &my_charset_bin);
+        free(buf);
+      }
+    }
+
     if (protocol->write())
     {
       DBUG_PRINT("info", ("stopping dump thread because protocol->write failed at line %d", __LINE__));
