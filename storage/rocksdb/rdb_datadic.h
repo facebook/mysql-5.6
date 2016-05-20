@@ -340,8 +340,7 @@ class Rdb_key_def
 public:
   /* Convert a key from KeyTupleFormat to mem-comparable form */
   uint pack_index_tuple(TABLE *tbl, uchar *pack_buffer, uchar *packed_tuple,
-                        const uchar *key_tuple, key_part_map keypart_map,
-                        bool should_store_checksums) const;
+                        const uchar *key_tuple, key_part_map keypart_map) const;
 
   /* Convert a key from Table->record format to mem-comparable form */
   uint pack_record(TABLE *tbl, uchar *pack_buffer, const uchar *record,
