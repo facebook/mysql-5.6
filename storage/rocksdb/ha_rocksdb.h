@@ -42,6 +42,12 @@
 #include "./rdb_perf_context.h"
 #include "./rdb_utils.h"
 
+/**
+  @note MyRocks Coding Conventions:
+  MyRocks code follows the baseline MySQL coding conventions, available at
+  http://dev.mysql.com/doc/internals/en/coding-guidelines.html, with several
+  refinements (@see /storage/rocksdb/README file).
+*/
 
 /**
   @note MyRocks Coding Conventions:
@@ -133,23 +139,26 @@ inline bool looks_like_per_index_cf_typo(const char *name)
 }
 
 
-/** @brief
-  ROCKSDB_SHARE is a structure that will be shared among all open handlers.
-  This example implements the minimum of what you will probably need.
+/**
+  @brief
+  Rdb_table_handler is a reference-counted structure storing information for
+  each open table. All the objects are stored in a global hash map.
 
   //TODO: join this with Rdb_tbl_def ?
 */
-typedef struct st_rocksdb_share {
-  char *table_name;
-  uint table_name_length,use_count;
-  //mysql_mutex_t mutex;
+struct Rdb_table_handler
+{
+  char                     *m_table_name;
+  uint                      m_table_name_length;
+  int                       m_ref_count;
 
-  THR_LOCK lock;
+  my_core::THR_LOCK         m_thr_lock;   ///< MySQL latch needed by m_db_lock
 
   /* Stores cumulative table statistics */
-  my_io_perf_atomic_t io_perf_read;
-  Rdb_atomic_perf_counters table_perf_context;
-} ROCKSDB_SHARE;
+  my_io_perf_atomic_t       m_io_perf_read;
+  Rdb_atomic_perf_counters  m_table_perf_context;
+};
+
 
 
 class Rdb_key_def;
@@ -239,14 +248,16 @@ namespace std {
 
 namespace myrocks {
 
-/** @brief
-  Class definition for the storage engine
+/**
+  @brief
+  Class definition for ROCKSDB storage engine plugin handler
 */
 
-class ha_rocksdb: public handler
+class ha_rocksdb: public my_core::handler
 {
-  THR_LOCK_DATA m_lock;      ///< MySQL lock
-  ROCKSDB_SHARE *m_share;    ///< Shared lock info
+  my_core::THR_LOCK_DATA m_db_lock;     ///< MySQL database lock
+
+  Rdb_table_handler *m_table_handler;   ///< Open table handler
 
   /* Iterator used for range scans and for full table/index scans */
   rocksdb::Iterator *m_scan_it;
@@ -386,15 +397,15 @@ class ha_rocksdb: public handler
     m_scan_it= nullptr;
   }
 
-  int get_row_by_rowid(uchar *buf, const char *pk_tuple,
-    const uint pk_tuple_size)
+  int get_row_by_rowid(uchar *buf, const char *rowid,
+                       const uint rowid_size)
     __attribute__((__nonnull__, __warn_unused_result__));
-  int get_row_by_rowid(uchar *buf, const uchar *pk_tuple,
-    const uint pk_tuple_size)
+  int get_row_by_rowid(uchar *buf, const uchar *rowid,
+                       const uint rowid_size)
     __attribute__((__nonnull__, __warn_unused_result__))
   {
-    return get_row_by_rowid(buf, reinterpret_cast<const char *>(pk_tuple),
-                            pk_tuple_size);
+    return get_row_by_rowid(buf, reinterpret_cast<const char *>(rowid),
+                            rowid_size);
   }
 
   void update_auto_incr_val();
@@ -492,7 +503,7 @@ class ha_rocksdb: public handler
 
   /*
     Perf timers for data reads
-   */
+  */
   Rdb_io_perf m_io_perf;
 
   /*
@@ -597,7 +608,7 @@ public:
                                          uchar *buf)
     __attribute__((__nonnull__, __warn_unused_result__));
 
-  void convert_record_to_storage_format(const char *pk_packed_tuple,
+  void convert_record_to_storage_format(const uchar *pk_packed_tuple,
                                         const size_t pk_packed_size,
                                         rocksdb::Slice *packed_rec)
     __attribute__((__nonnull__));
@@ -860,6 +871,7 @@ public:
   virtual bool rpl_lookup_rows();
 
  private:
+  /* Flags tracking if we are inside different replication operation */
   bool m_in_rpl_delete_rows;
   bool m_in_rpl_update_rows;
 };

@@ -21,6 +21,9 @@
 /* MySQL header files */
 #include "./sql_string.h"
 
+/* RocksDB header files */
+#include "rocksdb/slice.h"
+
 namespace myrocks {
 
 /*
@@ -79,7 +82,7 @@ namespace myrocks {
   Helper function to get an NULL terminated uchar* out of a given MySQL String.
 */
 
-inline uchar* rdb_mysql_str_to_uchar_str(my_core::String * str)
+inline uchar* rdb_mysql_str_to_uchar_str(my_core::String *str)
 {
   DBUG_ASSERT(str != nullptr);
   return reinterpret_cast<uchar*>(str->c_ptr());
@@ -90,9 +93,20 @@ inline uchar* rdb_mysql_str_to_uchar_str(my_core::String * str)
   given STL string.
 */
 
-inline const uchar* rdb_std_str_to_uchar_ptr(const std::string & str)
+inline const uchar* rdb_std_str_to_uchar_ptr(const std::string &str)
 {
   return reinterpret_cast<const uchar*>(str.data());
+}
+
+/*
+  Helper function to get plain (not necessary NULL terminated) uchar* out of a
+  given RocksDB item.
+*/
+
+inline const uchar* rdb_slice_to_uchar_ptr(const rocksdb::Slice *item)
+{
+  DBUG_ASSERT(item != nullptr);
+  return reinterpret_cast<const uchar*>(item->data());
 }
 
 /*
