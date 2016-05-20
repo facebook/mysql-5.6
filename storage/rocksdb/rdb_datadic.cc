@@ -442,8 +442,7 @@ uint Rdb_key_def::get_primary_key_tuple(TABLE *table,
 
 uint Rdb_key_def::pack_index_tuple(TABLE *tbl, uchar *pack_buffer,
                                    uchar *packed_tuple, const uchar *key_tuple,
-                                   key_part_map keypart_map,
-                                   bool should_store_checksums) const
+                                   key_part_map keypart_map) const
 {
   DBUG_ASSERT(tbl != nullptr);
   DBUG_ASSERT(pack_buffer != nullptr);
@@ -460,7 +459,7 @@ uint Rdb_key_def::pack_index_tuple(TABLE *tbl, uchar *pack_buffer,
 
   /* Then, convert the record into a mem-comparable form */
   return pack_record(tbl, pack_buffer, tbl->record[0], packed_tuple, nullptr,
-                     nullptr, should_store_checksums, 0, n_used_parts);
+                     nullptr, false, 0, n_used_parts);
 }
 
 
