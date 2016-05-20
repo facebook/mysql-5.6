@@ -108,10 +108,6 @@ static handler *rocksdb_create_handler(my_core::handlerton *hton,
                                        my_core::TABLE_SHARE *table_arg,
                                        my_core::MEM_ROOT *mem_root);
 
-static void* background_thread(void* not_used_arg MY_ATTRIBUTE((__unused__)));
-static void* drop_index_thread(void* not_used_arg MY_ATTRIBUTE((__unused__)));
-static void signal_drop_index_thread(bool stop_thread= false);
-static
 bool can_use_bloom_filter(THD *thd,
                           const std::shared_ptr<const Rdb_key_def>& kd,
                           const rocksdb::Slice &eq_cond,
@@ -146,23 +142,58 @@ Rdb_cf_manager cf_manager;
 Rdb_ddl_manager ddl_manager;
 Rdb_binlog_manager binlog_manager;
 
-mysql_mutex_t background_mutex;
-mysql_mutex_t stop_cond_mutex;
-mysql_mutex_t collation_exception_list_mutex;
-mysql_cond_t stop_cond;
+
+/**
+  MyRocks background thread control
+  N.B. This is on top of RocksDB's own background threads
+       (@see rocksdb::CancelAllBackgroundWork())
+*/
 namespace  // anonymous namespace = not visible outside this source file
 {
-struct Rdb_background_thread_control
+struct Rdb_background_thread
 {
-  bool m_stop= false;
-  bool m_save_stats= false;
+  struct st_control
+  {
+    bool m_stop= false;
+    bool m_save_stats= false;
+
+    void reset()
+    {
+      *this= st_control();
+    }
+  };
+
+  mysql_mutex_t   m_mutex;
+  mysql_mutex_t   m_stop_mutex;
+  mysql_cond_t    m_stop_cond;
+  st_control      m_control;
+  pthread_t       m_handle;
+
+  void stop_signal()
+  {
+    mysql_mutex_lock(&m_stop_mutex);
+    m_control.m_stop= true;
+    mysql_cond_signal(&m_stop_cond);
+    mysql_mutex_unlock(&m_stop_mutex);
+  }
+
+  void request_save_stats()
+  {
+    mysql_mutex_lock(&m_stop_mutex);
+    m_control.m_save_stats= true;
+    mysql_mutex_unlock(&m_stop_mutex);
+  }
+
+  static void* thread_func(void* not_used_arg MY_ATTRIBUTE((__unused__)));
 };
 }  // anonymous namespace
-Rdb_background_thread_control rdb_bg_control;
+static Rdb_background_thread rdb_bg_thread;
+
 
 // List of table names (using regex) that are exceptions to the strict
 // collation check requirement.
 std::vector<std::string> collation_exception_list;
+mysql_mutex_t collation_exception_list_mutex;
 
 static const char* const ERRSTR_ROLLBACK_ONLY
   = "This transaction was rolled back and cannot be "
@@ -309,18 +340,13 @@ rocksdb_force_flush_memtable_now(THD* thd,
   rocksdb_flush_all_memtables();
 }
 
-static void
-rocksdb_drop_index_wakeup_thread(THD* thd,
-                                 struct st_mysql_sys_var* var,
-                                 void* var_ptr,
-                                 const void* save)
-{
-  if (*static_cast<const bool*>(save)) {
-    signal_drop_index_thread();
-  }
-}
+static void rocksdb_drop_index_wakeup_thread(
+    my_core::THD* thd MY_ATTRIBUTE((__unused__)),
+    struct st_mysql_sys_var* var MY_ATTRIBUTE((__unused__)),
+    void* var_ptr MY_ATTRIBUTE((__unused__)),
+    const void* save);
 
-static my_bool rocksdb_pause_background_work = 0;
+static my_bool rocksdb_pause_background_work= 0;
 static mysql_mutex_t sysvar_mutex;
 
 static void
@@ -337,7 +363,7 @@ rocksdb_set_pause_background_work(THD* thd,
     } else {
       rdb->ContinueBackgroundWork();
     }
-    rocksdb_pause_background_work = pause_requested;
+    rocksdb_pause_background_work= pause_requested;
   }
   mysql_mutex_unlock(&sysvar_mutex);
 }
@@ -766,7 +792,6 @@ static MYSQL_SYSVAR_ULONG(wal_bytes_per_sync,
   nullptr, nullptr, db_options.wal_bytes_per_sync,
   /* min */ 0L, /* max */ LONG_MAX, 0);
 
-
 static MYSQL_SYSVAR_BOOL(enable_thread_tracking,
   *reinterpret_cast<my_bool*>(&db_options.enable_thread_tracking),
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -1176,12 +1201,9 @@ uchar* Rdb_open_tables_map::get_hash_key(
 */
 PSI_stage_info stage_waiting_on_row_lock= { 0, "Waiting for row lock", 0};
 
-pthread_t background_thread_handle;
-pthread_t drop_index_thread_handle;
-
 #ifdef HAVE_PSI_INTERFACE
-static PSI_thread_key key_thread_background;
-static PSI_thread_key key_thread_drop_index;
+static PSI_thread_key rdb_background_psi_thread_key;
+static PSI_thread_key rdb_drop_index_psi_thread_key;
 
 static PSI_stage_info *all_rocksdb_stages[]=
 {
@@ -1189,37 +1211,39 @@ static PSI_stage_info *all_rocksdb_stages[]=
 };
 
 
-static PSI_mutex_key rdb_psi_open_tbls_mutex_key,
-  key_mutex_background, key_mutex_stop_background,
-  key_mutex_drop_index, key_drop_index_interrupt_mutex,
+static my_core::PSI_mutex_key rdb_psi_open_tbls_mutex_key,
+  rdb_background_psi_mutex_key, rdb_stop_bg_psi_mutex_key,
+  rdb_drop_index_psi_mutex_key, rdb_interrupt_drop_index_psi_mutex_key,
   key_mutex_tx_list, key_mutex_collation_exception_list,
   key_mutex_sysvar;
 
 static PSI_mutex_info all_rocksdb_mutexes[]=
 {
   { &rdb_psi_open_tbls_mutex_key, "rocksdb open tables", PSI_FLAG_GLOBAL},
-  { &key_mutex_background, "background", PSI_FLAG_GLOBAL},
-  { &key_mutex_stop_background, "stop background", PSI_FLAG_GLOBAL},
-  { &key_mutex_drop_index, "drop index", PSI_FLAG_GLOBAL},
-  { &key_drop_index_interrupt_mutex, "drop index interrupt", PSI_FLAG_GLOBAL},
+  { &rdb_background_psi_mutex_key, "background", PSI_FLAG_GLOBAL},
+  { &rdb_stop_bg_psi_mutex_key, "stop background", PSI_FLAG_GLOBAL},
+  { &rdb_drop_index_psi_mutex_key, "drop index", PSI_FLAG_GLOBAL},
+  { &rdb_interrupt_drop_index_psi_mutex_key, "drop index interrupt",
+      PSI_FLAG_GLOBAL},
   { &key_mutex_tx_list, "tx_list", PSI_FLAG_GLOBAL},
   { &key_mutex_collation_exception_list, "collation_exception_list",
       PSI_FLAG_GLOBAL},
   { &key_mutex_sysvar, "setting sysvar", PSI_FLAG_GLOBAL},
 };
 
-PSI_cond_key key_cond_stop, key_drop_index_interrupt_cond;
+PSI_cond_key rdb_stop_bg_psi_cond_key, rdb_drop_index_interrupt_psi_cond_key;
 
 static PSI_cond_info all_rocksdb_conds[]=
 {
-  { &key_cond_stop, "cond_stop", PSI_FLAG_GLOBAL},
-  { &key_drop_index_interrupt_cond, "cond_stop_drop_index", PSI_FLAG_GLOBAL},
+  { &rdb_stop_bg_psi_cond_key, "cond_stop_background", PSI_FLAG_GLOBAL},
+  { &rdb_drop_index_interrupt_psi_cond_key, "cond_stop_drop_index",
+      PSI_FLAG_GLOBAL},
 };
 
 static PSI_thread_info all_rocksdb_threads[]=
 {
-  { &key_thread_background, "background", PSI_FLAG_GLOBAL},
-  { &key_thread_drop_index, "drop index", PSI_FLAG_GLOBAL},
+  { &rdb_background_psi_thread_key, "background", PSI_FLAG_GLOBAL},
+  { &rdb_drop_index_psi_thread_key, "drop index", PSI_FLAG_GLOBAL},
 };
 
 static void init_rocksdb_psi_keys()
@@ -1245,10 +1269,38 @@ static void init_rocksdb_psi_keys()
 }
 #endif
 
-static mysql_mutex_t drop_index_mutex;
-static mysql_mutex_t drop_index_interrupt_mutex;
-static mysql_cond_t drop_index_interrupt_cond;
-static bool stop_drop_index_thread;
+
+/*
+  Drop index thread control
+*/
+
+namespace  // anonymous namespace = not visible outside this source file
+{
+struct Rdb_drop_index_thread
+{
+  mysql_mutex_t   m_mutex;
+  mysql_mutex_t   m_interrupt_mutex;
+  mysql_cond_t    m_interrupt_cond;
+  bool            m_stop;
+  pthread_t       m_handle;
+
+  void signal(bool stop_thread= false);
+
+  static void* thread_func(void* not_used_arg MY_ATTRIBUTE((__unused__)));
+};
+}  // anonymous namespace
+static Rdb_drop_index_thread rdb_drop_idx_thread;
+
+static void rocksdb_drop_index_wakeup_thread(
+    my_core::THD* thd MY_ATTRIBUTE((__unused__)),
+    struct st_mysql_sys_var* var MY_ATTRIBUTE((__unused__)),
+    void* var_ptr MY_ATTRIBUTE((__unused__)),
+    const void* save)
+{
+  if (*static_cast<const bool*>(save)) {
+    rdb_drop_idx_thread.signal();
+  }
+}
 
 static inline uint32_t rocksdb_perf_context_level(THD* thd)
 {
@@ -2557,9 +2609,10 @@ static void rocksdb_update_table_stats(
       Table stats expects our database and table name to be in system encoding,
       not filename format. Convert before calling callback.
      */
-    filename_to_tablename(dbname.c_ptr(), dbname_sys, sizeof(dbname_sys));
-    filename_to_tablename(tablename.c_ptr(), tablename_sys,
-                          sizeof(tablename_sys));
+    my_core::filename_to_tablename(dbname.c_ptr(), dbname_sys,
+                                   sizeof(dbname_sys));
+    my_core::filename_to_tablename(tablename.c_ptr(), tablename_sys,
+                                   sizeof(tablename_sys));
     (*cb)(dbname_sys, tablename_sys, is_partition, &io_perf_read, &io_perf,
           &io_perf, &io_perf, &io_perf, &page_stats, &comp_stats, 0, 0,
           rocksdb_hton_name);
@@ -2640,13 +2693,15 @@ static int rocksdb_init_func(void *p)
   rocksdb_hton= (handlerton *)p;
   mysql_mutex_init(rdb_psi_open_tbls_mutex_key, &rdb_open_tables.m_mutex,
                    MY_MUTEX_INIT_FAST);
-  mysql_mutex_init(key_mutex_background, &background_mutex, MY_MUTEX_INIT_FAST);
-  mysql_mutex_init(key_mutex_stop_background, &stop_cond_mutex,
+  mysql_mutex_init(rdb_background_psi_mutex_key, &rdb_bg_thread.m_mutex,
+                   MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(rdb_stop_bg_psi_mutex_key, &rdb_bg_thread.m_stop_mutex,
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_mutex_collation_exception_list,
                    &collation_exception_list_mutex, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_mutex_sysvar, &sysvar_mutex, MY_MUTEX_INIT_FAST);
-  mysql_cond_init(key_cond_stop, &stop_cond, nullptr);
+  mysql_cond_init(rdb_stop_bg_psi_cond_key, &rdb_bg_thread.m_stop_cond,
+                  nullptr);
   rdb_open_tables.init_hash();
   Rdb_transaction::init_mutex();
 
@@ -2673,22 +2728,19 @@ static int rocksdb_init_func(void *p)
                        HTON_SUPPORTS_EXTENDED_KEYS |
                        HTON_CAN_RECREATE;
 
-  mysql_mutex_init(key_mutex_drop_index, &drop_index_mutex, MY_MUTEX_INIT_FAST);
-  mysql_mutex_init(key_drop_index_interrupt_mutex, &drop_index_interrupt_mutex,
+  mysql_mutex_init(rdb_drop_index_psi_mutex_key, &rdb_drop_idx_thread.m_mutex,
                    MY_MUTEX_INIT_FAST);
-  mysql_mutex_init(key_drop_index_interrupt_mutex, &drop_index_interrupt_mutex,
+  mysql_mutex_init(rdb_interrupt_drop_index_psi_mutex_key,
+                   &rdb_drop_idx_thread.m_interrupt_mutex,
                    MY_MUTEX_INIT_FAST);
-  mysql_cond_init(key_drop_index_interrupt_cond, &drop_index_interrupt_cond,
+  mysql_cond_init(rdb_drop_index_interrupt_psi_cond_key,
+                  &rdb_drop_idx_thread.m_interrupt_cond,
                   nullptr);
 
   DBUG_ASSERT(!mysqld_embedded);
 
   rocksdb_stats= rocksdb::CreateDBStatistics();
-  db_options.statistics = rocksdb_stats;
-
-  std::vector<std::string> cf_names;
-
-  rocksdb::Status status;
+  db_options.statistics= rocksdb_stats;
 
   if (rocksdb_rate_limiter_bytes_per_sec != 0) {
     rate_limiter.reset(rocksdb::NewGenericRateLimiter(
@@ -2725,6 +2777,8 @@ static int rocksdb_init_func(void *p)
     DBUG_RETURN(1);
   }
 
+  std::vector<std::string> cf_names;
+  rocksdb::Status status;
   status= rocksdb::DB::ListColumnFamilies(db_options, rocksdb_datadir,
                                           &cf_names);
   if (!status.ok())
@@ -2933,10 +2987,10 @@ static int rocksdb_init_func(void *p)
     DBUG_RETURN(1);
   }
 
-  auto err = mysql_thread_create(
-    key_thread_background, &background_thread_handle,
+  auto err= mysql_thread_create(
+    rdb_background_psi_thread_key, &rdb_bg_thread.m_handle,
     nullptr,
-    background_thread, nullptr
+    Rdb_background_thread::thread_func, nullptr
   );
   if (err != 0) {
     sql_print_error("RocksDB: Couldn't start the background thread: (errno=%d)",
@@ -2945,11 +2999,11 @@ static int rocksdb_init_func(void *p)
     DBUG_RETURN(1);
   }
 
-  stop_drop_index_thread = false;
-  err = mysql_thread_create(
-    key_thread_drop_index, &drop_index_thread_handle,
+  rdb_drop_idx_thread.m_stop= false;
+  err= mysql_thread_create(
+    rdb_drop_index_psi_thread_key, &rdb_drop_idx_thread.m_handle,
     nullptr,
-    drop_index_thread, nullptr
+    Rdb_drop_index_thread::thread_func, nullptr
   );
   if (err != 0) {
     sql_print_error("RocksDB: Couldn't start the drop index thread: (errno=%d)",
@@ -2978,7 +3032,7 @@ static int rocksdb_done_func(void *p)
   DBUG_ENTER("rocksdb_done_func");
 
   // signal the drop index thread to stop
-  signal_drop_index_thread(true);
+  rdb_drop_idx_thread.signal(true);
 
   // Flush all memtables for not lose data, even if WAL is disabled.
   rocksdb_flush_all_memtables();
@@ -2991,13 +3045,10 @@ static int rocksdb_done_func(void *p)
   // memtable, but since the memtables were just flushed, it should not trigger
   // a flush that can stall due to background threads being stopped. As long
   // as these keys are stored in a WAL file, they can be retrieved on restart.
-  mysql_mutex_lock(&stop_cond_mutex);
-  rdb_bg_control.m_stop = true;
-  mysql_cond_signal(&stop_cond);
-  mysql_mutex_unlock(&stop_cond_mutex);
+  rdb_bg_thread.stop_signal();
 
   // Wait for the background thread to finish.
-  auto err = pthread_join(background_thread_handle, nullptr);
+  auto err= pthread_join(rdb_bg_thread.m_handle, nullptr);
   if (err != 0) {
     // We'll log the message and continue because we're shutting down and
     // continuation is the optimal strategy.
@@ -3007,7 +3058,7 @@ static int rocksdb_done_func(void *p)
   }
 
   // Wait for the drop index thread to finish.
-  err = pthread_join(drop_index_thread_handle, nullptr);
+  err= pthread_join(rdb_drop_idx_thread.m_handle, nullptr);
   if (err != 0) {
     // NO_LINT_DEBUG
     sql_print_error("RocksDB: Couldn't stop the index thread: (errno=%d)",
@@ -7388,20 +7439,22 @@ rocksdb::Range ha_rocksdb::get_range(
   return myrocks::get_range(m_key_descr_arr[i], buf);
 }
 
-void signal_drop_index_thread(bool stop_thread)
+
+void Rdb_drop_index_thread::signal(bool stop_thread)
 {
-  mysql_mutex_lock(&drop_index_interrupt_mutex);
+  mysql_mutex_lock(&m_interrupt_mutex);
   if (stop_thread) {
-    stop_drop_index_thread = true;
+    m_stop= true;
   }
-  mysql_cond_signal(&drop_index_interrupt_cond);
-  mysql_mutex_unlock(&drop_index_interrupt_mutex);
+  mysql_cond_signal(&m_interrupt_cond);
+  mysql_mutex_unlock(&m_interrupt_mutex);
 }
 
-void* drop_index_thread(void*)
+void* Rdb_drop_index_thread::thread_func(
+    void* not_used_arg MY_ATTRIBUTE((__unused__)))
 {
-  mysql_mutex_lock(&drop_index_mutex);
-  mysql_mutex_lock(&drop_index_interrupt_mutex);
+  mysql_mutex_lock(&rdb_drop_idx_thread.m_mutex);
+  mysql_mutex_lock(&rdb_drop_idx_thread.m_interrupt_mutex);
 
   for (;;) {
     // "stop_drop_index_thread = true" might be set by shutdown command
@@ -7409,7 +7462,7 @@ void* drop_index_thread(void*)
     // (i.e. while executing expensive Seek()). To prevent drop_index_thread
     // from entering long cond_timedwait, checking if stop_drop_index_thread
     // is true or not is needed, with drop_index_interrupt_mutex held.
-    if (stop_drop_index_thread) {
+    if (rdb_drop_idx_thread.m_stop) {
       break;
     }
 
@@ -7420,14 +7473,14 @@ void* drop_index_thread(void*)
       : 60; // filtering
 
     auto ret MY_ATTRIBUTE((__unused__)) = mysql_cond_timedwait(
-                                    &drop_index_interrupt_cond,
-                                    &drop_index_interrupt_mutex, &ts);
-    if (stop_drop_index_thread) {
+        &rdb_drop_idx_thread.m_interrupt_cond,
+        &rdb_drop_idx_thread.m_interrupt_mutex, &ts);
+    if (rdb_drop_idx_thread.m_stop) {
       break;
     }
     // make sure, no program error is returned
     DBUG_ASSERT(ret == 0 || ret == ETIMEDOUT);
-    mysql_mutex_unlock(&drop_index_interrupt_mutex);
+    mysql_mutex_unlock(&rdb_drop_idx_thread.m_interrupt_mutex);
 
     std::vector<GL_INDEX_ID> indices;
     dict_manager.get_drop_indexes_ongoing(&indices);
@@ -7516,11 +7569,11 @@ void* drop_index_thread(void*)
         dict_manager.done_drop_indexes(finished);
       }
     }
-    mysql_mutex_lock(&drop_index_interrupt_mutex);
+    mysql_mutex_lock(&rdb_drop_idx_thread.m_interrupt_mutex);
   }
 
-  mysql_mutex_unlock(&drop_index_interrupt_mutex);
-  mysql_mutex_unlock(&drop_index_mutex);
+  mysql_mutex_unlock(&rdb_drop_idx_thread.m_interrupt_mutex);
+  mysql_mutex_unlock(&rdb_drop_idx_thread.m_mutex);
 
   return nullptr;
 }
@@ -7566,7 +7619,8 @@ int ha_rocksdb::delete_table(const char *tablename)
   ddl_manager.remove(tbl, batch, true);
   if (dict_manager.commit(batch))
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
-  signal_drop_index_thread();
+
+  rdb_drop_idx_thread.signal();
 
   DBUG_RETURN(0);
 }
@@ -7849,13 +7903,14 @@ void ha_rocksdb::update_create_info(HA_CREATE_INFO *create_info)
 }
 
 /**
+  @brief
   Doing manual compaction on OPTIMIZE TABLE in RocksDB.
   Compaction itself is executed by background thread in RocksDB, but
   CompactRange() waits until compaction completes so this function
   may take a long time.
   Since RocksDB dataset is allocated per index id, OPTIMIZE TABLE
   triggers manual compaction for all indexes of the table.
-
+  @details
   Compaction range is from the beginning of the index id to
   the first row of the next index id. When using reverse order
   column family, the first row of the next index id should be
@@ -8347,7 +8402,7 @@ bool ha_rocksdb::commit_inplace_alter_table(
     }
     dict_manager.unlock();
 
-    signal_drop_index_thread();
+    rdb_drop_idx_thread.signal();
   }
 
   DBUG_RETURN(0);
@@ -8665,9 +8720,10 @@ static SHOW_VAR rocksdb_status_vars[]= {
 };
 
 
-void* background_thread(void*)
+void* Rdb_background_thread::thread_func(
+    void* not_used_arg MY_ATTRIBUTE((__unused__)))
 {
-  mysql_mutex_lock(&background_mutex);
+  mysql_mutex_lock(&rdb_bg_thread.m_mutex);
 
   timespec ts_next_sync;
   clock_gettime(CLOCK_REALTIME, &ts_next_sync);
@@ -8676,14 +8732,14 @@ void* background_thread(void*)
   for (;;)
   {
     // wait for 1 second or until we received a condition to stop the thread
-    mysql_mutex_lock(&stop_cond_mutex);
+    mysql_mutex_lock(&rdb_bg_thread.m_stop_mutex);
     auto ret MY_ATTRIBUTE((__unused__)) = mysql_cond_timedwait(
-      &stop_cond, &stop_cond_mutex, &ts_next_sync);
+      &rdb_bg_thread.m_stop_cond, &rdb_bg_thread.m_stop_mutex, &ts_next_sync);
     // make sure that no program error is returned
     DBUG_ASSERT(ret == 0 || ret == ETIMEDOUT);
-    auto local_bg_control= rdb_bg_control;
-    rdb_bg_control= Rdb_background_thread_control();
-    mysql_mutex_unlock(&stop_cond_mutex);
+    auto local_bg_control= rdb_bg_thread.m_control;
+    rdb_bg_thread.m_control.reset();
+    mysql_mutex_unlock(&rdb_bg_thread.m_stop_mutex);
 
     if (local_bg_control.m_stop)
     {
@@ -8695,9 +8751,11 @@ void* background_thread(void*)
       ddl_manager.persist_stats();
     }
 
+    // Flush the WAL if need be but don't do it more frequent
+    // than once per second
     timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
-    if (ts.tv_sec-ts_next_sync.tv_sec >= 1)
+    if (ts.tv_sec - ts_next_sync.tv_sec >= 1)
     {
       if (rdb && rocksdb_background_sync)
       {
@@ -8706,14 +8764,14 @@ void* background_thread(void*)
         if (!s.ok())
           rdb_handle_io_error(s, RDB_IO_ERROR_BG_THREAD);
       }
-      ts_next_sync.tv_sec = ts.tv_sec+1;
+      ts_next_sync.tv_sec= ts.tv_sec + 1;
     }
   }
 
   // save remaining stats which might've left unsaved
   ddl_manager.persist_stats();
 
-  mysql_mutex_unlock(&background_mutex);
+  mysql_mutex_unlock(&rdb_bg_thread.m_mutex);
 
   return nullptr;
 }
@@ -9029,11 +9087,9 @@ rocksdb_set_collation_exception_list(THD*                     thd,
   *static_cast<const char**>(var_ptr) = val;
 }
 
-void rdb_request_save_stats()
+void rdb_queue_save_stats_request()
 {
-  mysql_mutex_lock(&stop_cond_mutex);
-  rdb_bg_control.m_save_stats= true;
-  mysql_mutex_unlock(&stop_cond_mutex);
+  rdb_bg_thread.request_save_stats();
 }
 
 void ha_rocksdb::rpl_before_delete_rows()

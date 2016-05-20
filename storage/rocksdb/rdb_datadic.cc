@@ -2260,25 +2260,29 @@ void Rdb_ddl_manager::set_stats(
 
 void Rdb_ddl_manager::adjust_stats(
   const std::vector<Rdb_index_stats>& new_data,
-  const std::vector<Rdb_index_stats>& deleted_data
-) {
+  const std::vector<Rdb_index_stats>& deleted_data)
+{
   mysql_rwlock_wrlock(&m_rwlock);
   int i = 0;
-  for (const auto& data : {new_data, deleted_data}) {
-    for (const auto& src : data) {
-      auto keydef = find(src.m_gl_index_id);
-      if (keydef) {
+  for (const auto& data : {new_data, deleted_data})
+  {
+    for (const auto& src : data)
+    {
+      auto keydef= find(src.m_gl_index_id);
+      if (keydef)
+      {
         keydef->m_stats.merge(src, i == 0, keydef->max_storage_fmt_length());
         m_stats2store[keydef->m_stats.m_gl_index_id] = keydef->m_stats;
       }
     }
     i++;
   }
-  bool should_save_stats = !m_stats2store.empty();
+  bool should_save_stats= !m_stats2store.empty();
   mysql_rwlock_unlock(&m_rwlock);
   if (should_save_stats)
   {
-    rdb_request_save_stats();
+    // Queue an async persist_stats(false) call to the background thread.
+    rdb_queue_save_stats_request();
   }
 }
 
