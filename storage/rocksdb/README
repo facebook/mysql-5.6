@@ -14,6 +14,10 @@ Several refinements:
   1. We introduced "RDB" as the super-short abbreviation for "RocksDB". We will
      use it as a name prefix, with different capitalization (see below), to ease
      up code navigation with ctags and grep.
+     N.B. For ease of matching, we'll keep the variables and functions dealing
+          with sysvars as close as possible to the outside visible names of
+          sysvars, which start with "rocksdb_" prefix, the outward storage
+          engine name.
   2. The names for classes, interfaces, and C++ structures (which act as
      classes), start with prefix "Rdb_".
      NB: For historical reasons, we'll keep the "ha_<storage_engine_name>" class
