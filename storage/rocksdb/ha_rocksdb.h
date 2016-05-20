@@ -294,7 +294,7 @@ class ha_rocksdb: public my_core::handler
     Temporary buffers for storing the key part of the Key/Value pair
     for secondary indexes.
   */
-  uchar *m_sec_key_packed_tuple;
+  uchar *m_sk_packed_tuple;
 
   /*
     Temporary buffers for storing end key part of the Key/Value pair.
@@ -307,24 +307,24 @@ class ha_rocksdb: public my_core::handler
     is currently not used (always empty).
 
     TODO: why does ha_rocksdb::open() assume that an upper bound of the size of
-    this buffer is max_packed_sec_key_len? This is technically true currently,
+    this buffer is max_packed_sk_len? This is technically true currently,
     but doesn't look meaningful.
   */
-  uchar *m_sec_key_tails;
+  uchar *m_sk_tails;
 
   /*
     ha_rockdb->index_read_map(.. HA_READ_KEY_EXACT or similar) will save here
     mem-comparable form of the index lookup tuple.
   */
-  uchar *m_sec_key_match_prefix;
-  uint m_sec_key_match_length;
+  uchar *m_sk_match_prefix;
+  uint m_sk_match_length;
 
   /* Buffer space for the above */
-  uchar *m_sec_key_match_prefix_buf;
+  uchar *m_sk_match_prefix_buf;
 
   /* Second buffers, used by UPDATE. */
-  uchar *m_sec_key_packed_tuple_old;
-  uchar *m_sec_key_tails_old;
+  uchar *m_sk_packed_tuple_old;
+  uchar *m_sk_tails_old;
 
   /*
     Temporary space for packing VARCHARs (we provide it to
@@ -385,7 +385,7 @@ class ha_rocksdb: public my_core::handler
     setup_scan_iterator(kd, slice, false, false, 0);
   }
   bool is_ascending(const std::shared_ptr<const Rdb_key_def>& keydef,
-                    enum ha_rkey_function find_flag)
+                    enum ha_rkey_function find_flag) const
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   void setup_scan_iterator(const std::shared_ptr<const Rdb_key_def>& kd,
                            rocksdb::Slice *slice, const bool use_all_keys,
@@ -606,8 +606,7 @@ public:
                                          uchar *buf)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
-  void convert_record_to_storage_format(const uchar *pk_packed_tuple,
-                                        const size_t pk_packed_size,
+  void convert_record_to_storage_format(const rocksdb::Slice& pk_packed_slice,
                                         rocksdb::Slice *packed_rec)
     MY_ATTRIBUTE((__nonnull__));
 
@@ -704,6 +703,17 @@ public:
     Default implementation from cancel_pushed_idx_cond() suits us
   */
 private:
+  struct update_row_info
+  {
+    Rdb_transaction* tx;
+    const uchar*     new_data;
+    const uchar*     old_data;
+    rocksdb::Slice   new_pk_slice;
+    rocksdb::Slice   old_pk_slice;
+    longlong         hidden_pk_id;
+    bool             skip_unique_check;
+  };
+
   int index_first_intern(uchar *buf)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   int index_last_intern(uchar *buf)
@@ -714,13 +724,25 @@ private:
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   void calc_updated_indexes();
-  int update_write_row(const uchar *old_data, uchar *new_data,
+  int update_write_row(const uchar *old_data, const uchar *new_data,
                        const bool skip_unique_check)
     MY_ATTRIBUTE((__warn_unused_result__));
+  int get_pk_for_update(struct update_row_info* row_info);
+  int check_and_lock_unique_pk(uint key_id,
+                               const struct update_row_info& row_info,
+                               bool* found, bool* pk_changed);
+  int check_and_lock_sk(uint key_id, const struct update_row_info& row_info,
+                        bool* found) const;
+  int check_uniqueness_and_lock(const struct update_row_info& row_info,
+                                bool* pk_changed);
+  int update_pk(uint key_id, const struct update_row_info& row_info,
+                bool pk_changed);
+  int update_sk(uint key_id, const struct update_row_info& row_info);
+  int update_indexes(const struct update_row_info& row_info, bool pk_changed);
 
   int read_key_exact(const std::shared_ptr<const Rdb_key_def>& kd,
                      rocksdb::Iterator* iter, bool using_full_key,
-                     const rocksdb::Slice& key_slice)
+                     const rocksdb::Slice& key_slice) const
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   int read_before_key(const std::shared_ptr<const Rdb_key_def>& kd,
                       bool using_full_key, const rocksdb::Slice& key_slice)
