@@ -2859,7 +2859,7 @@ int handler::ha_rnd_init(bool scan)
               m_lock_type != F_UNLCK);
   DBUG_ASSERT(inited == NONE || (inited == RND && scan));
 
-  if (is_using_prohibited_gap_locks(table, false))
+  if (scan && is_using_prohibited_gap_locks(table, false))
   {
     DBUG_RETURN(HA_ERR_LOCK_DEADLOCK);
   }
