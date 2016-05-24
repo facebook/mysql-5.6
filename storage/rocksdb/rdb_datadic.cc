@@ -2830,7 +2830,7 @@ void Rdb_dict_manager::add_or_update_index_cf_mapping(
   rocksdb::Slice key= rocksdb::Slice((char*)key_buf, sizeof(key_buf));
 
   uchar* ptr= value_buf;
-  rdb_netbuf_store_uint16(ptr, Rdb_key_def::INDEX_INFO_VERSION_GLOBAL_ID);
+  rdb_netbuf_store_uint16(ptr, Rdb_key_def::INDEX_INFO_VERSION_LATEST);
   ptr+= 2;
   rdb_netbuf_store_byte(ptr, m_index_type);
   ptr+= 1;
@@ -2871,6 +2871,7 @@ bool Rdb_dict_manager::get_index_info(const GL_INDEX_ID &gl_index_id,
                                       uint16_t *kv_version)
 {
   bool found= false;
+  bool error= false;
   std::string value;
   uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE*3]= {0};
   dump_index_id(key_buf, Rdb_key_def::INDEX_INFO, gl_index_id);
@@ -2882,9 +2883,12 @@ bool Rdb_dict_manager::get_index_info(const GL_INDEX_ID &gl_index_id,
     const uchar* val= (const uchar*)value.c_str();
     const uchar* ptr= val;
     *m_index_dict_version= rdb_netbuf_to_uint16(val);
+    *kv_version= 0;
+    *m_index_type= 0;
     ptr+= 2;
     switch (*m_index_dict_version) {
 
+    case Rdb_key_def::INDEX_INFO_VERSION_VERIFY_KV_FORMAT:
     case Rdb_key_def::INDEX_INFO_VERSION_GLOBAL_ID:
       *m_index_type= rdb_netbuf_to_byte(ptr);
       ptr+= 1;
@@ -2893,14 +2897,35 @@ bool Rdb_dict_manager::get_index_info(const GL_INDEX_ID &gl_index_id,
       break;
 
     default:
-        sql_print_error("RocksDB: Found invalid version number %u from "
-                        "data dictionary. This should never happen "
-                        "and possibly a bug.",
-                        *m_index_dict_version);
-        abort_with_stack_traces();
+      error= true;
+      break;
+    }
+
+    switch (*m_index_type)
+    {
+    case Rdb_key_def::INDEX_TYPE_PRIMARY:
+    case Rdb_key_def::INDEX_TYPE_HIDDEN_PRIMARY:
+      error= *kv_version > Rdb_key_def::PRIMARY_FORMAT_VERSION_LATEST;
+      break;
+    case Rdb_key_def::INDEX_TYPE_SECONDARY:
+      error= *kv_version > Rdb_key_def::SECONDARY_FORMAT_VERSION_LATEST;
+      break;
+    default:
+      error= true;
       break;
     }
   }
+
+  if (error)
+  {
+    // NO_LINT_DEBUG
+    sql_print_error("RocksDB: Found invalid key version number (%u, %u, %u) "
+                    "from data dictionary. This should never happen "
+                    "and it may be a bug.", *m_index_dict_version,
+                    *m_index_type, *kv_version);
+    abort_with_stack_traces();
+  }
+
   return found;
 }
 
