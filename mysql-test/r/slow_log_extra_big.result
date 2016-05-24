@@ -32,12 +32,12 @@ drop table big_table_slow;
 # and verify the rest are correct.
 #
 select * from log_output;
-Rows_sent	Rows_examined	Errno	Killed	Bytes_received	Bytes_sent	Read_first	Read_last	Read_key	Read_next	Read_prev	Read_rnd	Read_rnd_next	RocksDB_key_skipped	RocksDB_del_skipped	Sort_merge_passes	Sort_range_count	Sort_rows	Sort_scan_count	Created_tmp_disk_tables
-1	20000	0	0	0	67	1	0	1	20000	0	0	0	0	0	0	0	0	0	0
-1	20000	0	0	0	67	1	0	1	20000	0	0	0	0	0	0	0	0	0	0
-1	499	0	0	0	65	0	0	1	499	0	0	0	0	0	0	0	0	0	0
-1	1	0	0	0	314	0	0	1	0	0	0	0	0	0	0	0	0	0	0
-1	15000	0	0	0	67	0	0	1	15000	0	0	0	0	0	0	0	0	0	0
-1	20000	0	0	0	67	1	0	1	20000	0	0	0	0	0	0	0	0	0	0
+Rows_sent	Rows_examined	Errno	Killed	Bytes_received	Bytes_sent	Read_first	Read_last	Read_key	Read_next	Read_prev	Read_rnd	Read_rnd_next	RocksDB_key_skipped	RocksDB_del_skipped	Sort_merge_passes	Sort_range_count	Sort_rows	Sort_scan_count	Created_tmp_disk_tables	Tmp_table_bytes_written
+1	20000	0	0	0	67	1	0	1	20000	0	0	0	0	0	0	0	0	0	0	0
+1	20000	0	0	0	67	1	0	1	20000	0	0	0	0	0	0	0	0	0	0	0
+1	499	0	0	0	65	0	0	1	499	0	0	0	0	0	0	0	0	0	0	0
+1	1	0	0	0	314	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0
+1	15000	0	0	0	67	0	0	1	15000	0	0	0	0	0	0	0	0	0	0	0
+1	20000	0	0	0	67	1	0	1	20000	0	0	0	0	0	0	0	0	0	0	0
 if the following is not 1 you need to adjust the file_lines_count variable
 1

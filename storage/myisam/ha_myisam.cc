@@ -1660,8 +1660,9 @@ void ha_myisam::inc_tmp_table_bytes_written() {
   if (table->s->tmp_table != NO_TMP_TABLE &&
       table->s->tmp_table != SYSTEM_TMP_TABLE)
   {
-    my_atomic_add64((longlong*)&tmp_table_bytes_written,
-                    file->data_file_written);
+    THD *thd= (THD *)table->in_use;
+    if (thd)
+      thd->status_var.tmp_table_bytes_written+= file->data_file_written;
   }
 }
 

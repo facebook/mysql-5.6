@@ -125,9 +125,62 @@ select i, c, count(*) from t2 group by i, c having count(*) > 1;
 
 drop table t1;
 drop table t2;
+drop temporary table tm;
 
 --let $prevSize = $nextSize
 --let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
 --disable_query_log
 --eval select $nextSize = $prevSize as "no increase"
+--enable_query_log
+
+# Test whether variable is session level.
+#
+create temporary table tm(i int, c char(255)) engine=myisam;
+
+# First record session and global variable on con1
+connect(con1, localhost, root,,);
+connection con1;
+--let $con1PrevSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--let $globalPrevSize = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+
+# Second, do some work on default connection.
+connection default;
+insert into tm values (1, 'asdf');
+
+# Third, check variables on con1
+connection con1;
+--let $con1NextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--let $globalNextSize = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--disable_query_log
+--eval select $con1NextSize = $con1PrevSize as "no increase"
+--eval select $globalNextSize > $globalPrevSize as "increased"
+--enable_query_log
+
+connection default;
+drop temporary table tm;
+
+
+# Test whether the global variable is monotonically increasing even when
+# session go away.
+
+# Record global status in default connection.
+--let $globalPrevSize = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+
+# Do work in con1
+connection con1;
+create temporary table tm(i int, c char(255)) engine=myisam;
+insert into tm values (1, 'asdf');
+--let $globalNextSize = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--disable_query_log
+--eval select $globalNextSize > $globalPrevSize as "increased"
+--enable_query_log
+
+disconnect con1;
+--source include/wait_until_disconnected.inc
+
+connection default;
+--let $globalPrevSize = $globalNextSize
+--let $globalNextSize = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--disable_query_log
+--eval select $globalNextSize >= $globalPrevSize as "no decrease"
 --enable_query_log

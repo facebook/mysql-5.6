@@ -814,6 +814,8 @@ typedef struct system_status_var
   ulonglong max_statement_time_set;
   ulonglong max_statement_time_set_failed;
 
+  ulonglong tmp_table_bytes_written;
+
   /*
     Number of statements sent from the client
   */
