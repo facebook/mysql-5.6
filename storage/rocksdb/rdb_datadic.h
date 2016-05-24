@@ -507,11 +507,20 @@ public:
   };
 
   // Index info version.  Introduce newer versions when changing the
-  // INDEX_INFO layout
+  // INDEX_INFO layout. Update INDEX_INFO_VERSION_LATEST to point to the
+  // latest version number.
   enum {
     INDEX_INFO_VERSION_INITIAL= 1,    // Obsolete
     INDEX_INFO_VERSION_KV_FORMAT,
     INDEX_INFO_VERSION_GLOBAL_ID,
+    // There is no change to data format in this version, but this version
+    // verifies KV format version, whereas previous versions do not. A version
+    // bump is needed to prevent older binaries from skipping the KV version
+    // check inadvertently.
+    INDEX_INFO_VERSION_VERIFY_KV_FORMAT,
+    // This should point to latest. For now, we are still on the old format,
+    // but we want to "upgrade" eventually.
+    INDEX_INFO_VERSION_LATEST= INDEX_INFO_VERSION_GLOBAL_ID,
   };
 
   // MyRocks index types
@@ -524,7 +533,13 @@ public:
   // Key/Value format version for each index type
   enum {
     PRIMARY_FORMAT_VERSION_INITIAL= 10,
+    // This change the PK format to include unpack_info. It also adds the
+    // ability for the DECMIAL type to be decoded from its memcomparable form.
+    PRIMARY_FORMAT_VERSION_UNPACK_INFO= 11,
+    PRIMARY_FORMAT_VERSION_LATEST= PRIMARY_FORMAT_VERSION_INITIAL,
+
     SECONDARY_FORMAT_VERSION_INITIAL= 10,
+    SECONDARY_FORMAT_VERSION_LATEST= SECONDARY_FORMAT_VERSION_INITIAL,
   };
 
   void setup(TABLE *table, Rdb_tbl_def *tbl_def);
