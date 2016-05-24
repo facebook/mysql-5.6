@@ -51,5 +51,19 @@ increased
 1
 drop table t1;
 drop table t2;
+drop temporary table tm;
 no increase
+1
+create temporary table tm(i int, c char(255)) engine=myisam;
+insert into tm values (1, 'asdf');
+no increase
+1
+increased
+1
+drop temporary table tm;
+create temporary table tm(i int, c char(255)) engine=myisam;
+insert into tm values (1, 'asdf');
+increased
+1
+no decrease
 1

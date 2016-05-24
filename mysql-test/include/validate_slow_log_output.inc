@@ -49,10 +49,11 @@ foreach $line (@lines) {
         Sort_range_count:\s(\d+).*
         Sort_rows:\s(\d+).*
         Sort_scan_count:\s(\d+).*
-        Created_tmp_disk_tables:\s(\d+).*/x;
+        Created_tmp_disk_tables:\s(\d+).*
+        Tmp_table_bytes_written:\s(\d+).*/x;
     # Write the comma-deliminated data to the temporary file
     print TMP "$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,".
-              "$11,$12,$13,$14,$15,$16,$17,$18,$19,$20\n";
+              "$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21\n";
   }
 }
 close FILE;
@@ -67,7 +68,8 @@ create table log_output(Rows_sent int, Rows_examined int, Errno int,
                         Read_rnd_next int, RocksDB_key_skipped int,
                         RocksDB_del_skipped int, Sort_merge_passes int,
                         Sort_range_count int, Sort_rows int,
-                        Sort_scan_count int, Created_tmp_disk_tables int);
+                        Sort_scan_count int, Created_tmp_disk_tables int,
+                        Tmp_table_bytes_written int);
 load data infile 'indata.tmp' into table log_output
     fields terminated by ',' lines terminated by '\n';
 --enable_query_log
