@@ -4312,29 +4312,29 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
   for (i= 0; i < m_tbl_def->m_key_count; i++)
   {
     uint index_id= ddl_manager.get_and_update_next_number(&dict_manager);
-    uint16_t index_dict_version= Rdb_key_def::INDEX_INFO_VERSION_GLOBAL_ID;
+    uint16_t index_dict_version= Rdb_key_def::INDEX_INFO_VERSION_LATEST;
     uchar index_type;
     uint16_t kv_version;
 
     if (is_hidden_pk(i, table_arg, m_tbl_def))
     {
       index_type= Rdb_key_def::INDEX_TYPE_HIDDEN_PRIMARY;
-      kv_version= Rdb_key_def::PRIMARY_FORMAT_VERSION_INITIAL;
+      kv_version= Rdb_key_def::PRIMARY_FORMAT_VERSION_LATEST;
     }
     else if (i == table_arg->s->primary_key)
     {
       index_type= Rdb_key_def::INDEX_TYPE_PRIMARY;
-      kv_version= Rdb_key_def::PRIMARY_FORMAT_VERSION_INITIAL;
+      kv_version= Rdb_key_def::PRIMARY_FORMAT_VERSION_LATEST;
     }
     else
     {
       index_type= Rdb_key_def::INDEX_TYPE_SECONDARY;
-      kv_version= Rdb_key_def::SECONDARY_FORMAT_VERSION_INITIAL;
+      kv_version= Rdb_key_def::SECONDARY_FORMAT_VERSION_LATEST;
     }
 
     const char *key_name;
     if (is_hidden_pk(i, table_arg, m_tbl_def)) {
-      key_name= const_cast<char*>(HIDDEN_PK_NAME);
+      key_name= HIDDEN_PK_NAME;
     } else {
       key_name= table_arg->key_info[i].name;
     }
