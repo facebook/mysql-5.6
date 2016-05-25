@@ -63,6 +63,6 @@ final class FacebookMySQLDiffCreatedListener extends PhutilEventListener {
     // execution of this section of code.
     require($full_diff_det_path);
 
-    StartSandCastleBuild(/* not used */ false, $diffID, $username);
+    StartSandCastleBuild($diffID, $username);
   }
 }
