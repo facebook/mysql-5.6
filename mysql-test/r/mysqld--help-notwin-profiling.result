@@ -1014,8 +1014,7 @@ The following options may be given as the first argument:
  BlockBasedTableOptions::block_size_deviation for RocksDB
  --rocksdb-bulk-load Use bulk-load mode for inserts. This enables both
  rocksdb_skip_unique_check and
- rocksdb_commit_in_the_middle. This parameter will be
- deprecated in future release.
+ rocksdb_commit_in_the_middle.
  --rocksdb-bulk-load-size=# 
  Max #records in a batch for bulk-load mode
  --rocksdb-bytes-per-sync=# 
