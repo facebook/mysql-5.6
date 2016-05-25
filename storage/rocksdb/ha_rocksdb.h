@@ -40,6 +40,7 @@
 
 /* MyRocks header files */
 #include "./rdb_perf_context.h"
+#include "./rdb_sst_info.h"
 #include "./rdb_utils.h"
 
 /**
@@ -387,16 +388,19 @@ class ha_rocksdb: public my_core::handler
   my_core::key_map m_update_scope;
   bool m_update_scope_is_valid;
 
+  /* SST information used for bulk loading the primary key */
+  std::shared_ptr<Rdb_sst_info> m_sst_info;
+
   /*
     MySQL index number for duplicate key error
   */
   int m_dupp_errkey;
 
   int create_key_defs(const TABLE *table_arg, const std::string& db_table,
-                      HA_CREATE_INFO *create_info, Rdb_tbl_def *tbl_def_arg,
+                      Rdb_tbl_def *tbl_def_arg,
                       const TABLE *old_table_arg= nullptr,
                       const Rdb_tbl_def *old_tbl_def_arg= nullptr)
-      MY_ATTRIBUTE((__nonnull__(2, 4, 5), __warn_unused_result__));
+      MY_ATTRIBUTE((__nonnull__(2, 4), __warn_unused_result__));
   int secondary_index_read(const int keyno, uchar *buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   void setup_iterator_for_rnd_scan();
@@ -526,7 +530,12 @@ public:
   int m_checksums_pct;
 
   ha_rocksdb(my_core::handlerton *hton, my_core::TABLE_SHARE *table_arg);
-  ~ha_rocksdb() {}
+  ~ha_rocksdb()
+  {
+    int err MY_ATTRIBUTE((__unused__));
+    err= finalize_bulk_load();
+    DBUG_ASSERT(err == 0);
+  }
 
   /** @brief
     The name that will be used for display purposes.
@@ -773,17 +782,29 @@ private:
   int get_pk_for_update(struct update_row_info* row_info);
   int check_and_lock_unique_pk(uint key_id,
                                const struct update_row_info& row_info,
-                               bool* found, bool* pk_changed);
+                               bool* found, bool* pk_changed)
+    MY_ATTRIBUTE((__warn_unused_result__));
   int check_and_lock_sk(uint key_id, const struct update_row_info& row_info,
-                        bool* found) const;
+                        bool* found) const
+    MY_ATTRIBUTE((__warn_unused_result__));
   int check_uniqueness_and_lock(const struct update_row_info& row_info,
-                                bool* pk_changed);
+                                bool* pk_changed)
+    MY_ATTRIBUTE((__warn_unused_result__));
+  bool over_bulk_load_threshold(int* err)
+    MY_ATTRIBUTE((__warn_unused_result__));
+  int bulk_load_pk(Rdb_transaction* tx, uint key_id,
+                   rocksdb::ColumnFamilyHandle* cf, const rocksdb::Slice& key,
+                   const rocksdb::Slice& value)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   int update_pk(uint key_id, const struct update_row_info& row_info,
-                bool pk_changed);
+                bool pk_changed)
+    MY_ATTRIBUTE((__warn_unused_result__));
   int update_sk(const TABLE* table_arg,
                 const std::shared_ptr<const Rdb_key_def>& kd,
-                const struct update_row_info& row_info);
-  int update_indexes(const struct update_row_info& row_info, bool pk_changed);
+                const struct update_row_info& row_info)
+    MY_ATTRIBUTE((__warn_unused_result__));
+  int update_indexes(const struct update_row_info& row_info, bool pk_changed)
+    MY_ATTRIBUTE((__warn_unused_result__));
 
   int read_key_exact(const std::shared_ptr<const Rdb_key_def>& kd,
                      rocksdb::Iterator* iter, bool using_full_key,
@@ -930,6 +951,8 @@ public:
   bool commit_inplace_alter_table(TABLE *altered_table,
                                   my_core::Alter_inplace_info *ha_alter_info,
                                   bool commit);
+
+  int finalize_bulk_load() MY_ATTRIBUTE((__warn_unused_result__));
 
  public:
   virtual void rpl_before_delete_rows() override;
