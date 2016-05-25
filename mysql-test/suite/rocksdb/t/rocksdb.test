@@ -781,13 +781,16 @@ drop table t45;
 
 --echo #
 --echo # Check Bulk loading
+--echo # Bulk loading used to overwrite existing data
+--echo # Now it fails if there is data overlap with what
+--echo # already exists
 --echo #
 show variables like 'rocksdb%';
 create table t47 (pk int primary key, col1 varchar(12)) engine=rocksdb;
 insert into t47 values (1, 'row1');
 insert into t47 values (2, 'row2');
 set rocksdb_bulk_load=1;
-insert into t47 values (1, 'row1-NEW'),(2, 'row2-NEW');
+insert into t47 values (3, 'row3'),(4, 'row4');
 set rocksdb_bulk_load=0;
 select * from t47;
 drop table t47;

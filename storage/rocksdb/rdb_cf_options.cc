@@ -312,6 +312,19 @@ bool Rdb_cf_options::set_override(const std::string &override_config)
   return true;
 }
 
+const rocksdb::Comparator* Rdb_cf_options::get_cf_comparator(
+    const std::string& cf_name)
+{
+  if (Rdb_cf_manager::is_cf_name_reverse(cf_name.c_str()))
+  {
+    return &s_rev_pk_comparator;
+  }
+  else
+  {
+    return &s_pk_comparator;
+  }
+}
+
 void Rdb_cf_options::get_cf_options(const std::string &cf_name,
                                     rocksdb::ColumnFamilyOptions *opts)
 {
@@ -321,10 +334,7 @@ void Rdb_cf_options::get_cf_options(const std::string &cf_name,
   get(cf_name, opts);
 
   // Set the comparator according to 'rev:'
-  if (Rdb_cf_manager::is_cf_name_reverse(cf_name.c_str()))
-    opts->comparator= &s_rev_pk_comparator;
-  else
-    opts->comparator= &s_pk_comparator;
+  opts->comparator= get_cf_comparator(cf_name);
 }
 
 }  // namespace myrocks

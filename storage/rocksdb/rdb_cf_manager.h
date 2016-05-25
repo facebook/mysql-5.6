@@ -32,9 +32,6 @@
 
 namespace myrocks {
 
-void get_per_index_cf_name(const std::string& db_table_name,
-                           const char *index_name, std::string *res);
-
 /*
   We need a Column Family (CF) manager. Its functions:
   - create column families (synchronized, don't create the same twice)

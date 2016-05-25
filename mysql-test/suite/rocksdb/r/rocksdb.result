@@ -851,6 +851,9 @@ drop table t45;
 ERROR 42S02: Unknown table 'test.t45'
 #
 # Check Bulk loading
+# Bulk loading used to overwrite existing data
+# Now it fails if there is data overlap with what
+# already exists
 #
 show variables like 'rocksdb%';
 Variable_name	Value
@@ -951,12 +954,14 @@ create table t47 (pk int primary key, col1 varchar(12)) engine=rocksdb;
 insert into t47 values (1, 'row1');
 insert into t47 values (2, 'row2');
 set rocksdb_bulk_load=1;
-insert into t47 values (1, 'row1-NEW'),(2, 'row2-NEW');
+insert into t47 values (3, 'row3'),(4, 'row4');
 set rocksdb_bulk_load=0;
 select * from t47;
 pk	col1
-1	row1-NEW
-2	row2-NEW
+1	row1
+2	row2
+3	row3
+4	row4
 drop table t47;
 #
 # Fix TRUNCATE over empty table (transaction is committed when it wasn't
