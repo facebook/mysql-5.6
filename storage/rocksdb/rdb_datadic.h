@@ -699,8 +699,7 @@ class Rdb_ddl_manager
   Rdb_dict_manager *m_dict= nullptr;
   my_core::HASH m_ddl_hash;  // Contains Rdb_tbl_def elements
   // maps index id to <table_name, index number>
-  std::map<GL_INDEX_ID, std::pair<std::string, uint>>
-    m_index_num_to_keydef;
+  std::map<GL_INDEX_ID, std::pair<std::string, uint>> m_index_num_to_keydef;
   mysql_rwlock_t m_rwlock;
 
   Rdb_seq_generator m_sequence;
