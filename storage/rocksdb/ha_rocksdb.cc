@@ -353,6 +353,11 @@ rocksdb_set_collation_exception_list(THD*                     thd,
                                      void*                    var_ptr,
                                      const void*              save);
 
+static void
+rocksdb_set_bulk_load(THD*                     thd,
+                      struct st_mysql_sys_var* var MY_ATTRIBUTE((__unused__)),
+                      void*                    var_ptr,
+                      const void*              save);
 //////////////////////////////////////////////////////////////////////////////
 // Options definitions
 //////////////////////////////////////////////////////////////////////////////
@@ -453,9 +458,8 @@ static MYSQL_THDVAR_ULONG(lock_wait_timeout, PLUGIN_VAR_RQCMDARG,
 
 static MYSQL_THDVAR_BOOL(bulk_load, PLUGIN_VAR_RQCMDARG,
   "Use bulk-load mode for inserts. This enables both "
-  "rocksdb_skip_unique_check and rocksdb_commit_in_the_middle. "
-  "This parameter will be deprecated in future release.",
-  nullptr, nullptr, FALSE);
+  "rocksdb_skip_unique_check and rocksdb_commit_in_the_middle.",
+  nullptr, rocksdb_set_bulk_load, FALSE);
 
 static MYSQL_THDVAR_BOOL(skip_unique_check, PLUGIN_VAR_RQCMDARG,
   "Skip unique constraint checking", nullptr, nullptr, FALSE);
@@ -1687,6 +1691,43 @@ public:
     return m_read_opts.snapshot != nullptr;
   }
 
+ private:
+  // The tables we are currently loading.  In a partitioned table this can
+  // have more than one entry
+  std::unordered_set<ha_rocksdb*> m_curr_bulk_load;
+
+ public:
+  int finish_bulk_load()
+  {
+    int rc= 0;
+
+    std::unordered_set<ha_rocksdb*>::iterator it;
+    while ((it = m_curr_bulk_load.begin()) != m_curr_bulk_load.end())
+    {
+      int rc2= (*it)->finalize_bulk_load();
+      if (rc2 != 0 && rc == 0)
+      {
+        rc= rc2;
+      }
+    }
+
+    DBUG_ASSERT(m_curr_bulk_load.size() == 0);
+
+    return rc;
+  }
+
+  void start_bulk_load(ha_rocksdb* bulk_load)
+  {
+    auto res MY_ATTRIBUTE((__unused__))= m_curr_bulk_load.insert(bulk_load);
+    DBUG_ASSERT(res.second);  // Assert that we inserted the value
+  }
+
+  void end_bulk_load(ha_rocksdb* bulk_load)
+  {
+    m_curr_bulk_load.erase(bulk_load);
+  }
+
+
   /*
     Flush the data accumulated so far. This assumes we're doing a bulk insert.
 
@@ -1706,9 +1747,10 @@ public:
       return false;
 
     /* Commit the current transaction */
-    bool res;
-    if ((res= commit_no_binlog()))
-      return res;
+    if (commit_no_binlog())
+    {
+      return true;
+    }
 
     /* Start another one */
     start_tx();
@@ -2053,8 +2095,20 @@ static Rdb_transaction *get_or_create_tx(THD *thd)
 static int rocksdb_close_connection(handlerton* hton, THD* thd)
 {
   Rdb_transaction*& tx= get_tx_from_thd(thd);
-  delete tx;
-  tx= nullptr;
+  if (tx != nullptr)
+  {
+    int rc= tx->finish_bulk_load();
+    if (rc != 0)
+    {
+      // NO_LINT_DEBUG
+      sql_print_error("RocksDB: Error %d finalizing last SST file while "
+                      "disconnecting", rc);
+      abort_with_stack_traces();
+    }
+
+    delete tx;
+    tx= nullptr;
+  }
   return 0;
 }
 
@@ -3110,6 +3164,8 @@ static int rocksdb_init_func(void *p)
     rdb_open_tables.free_hash();
     DBUG_RETURN(1);
   }
+
+  Rdb_sst_info::init(rdb);
 
   /*
     Enable auto compaction, things needed for compaction filter are finished
@@ -4507,14 +4563,12 @@ static bool is_table_in_collation_exception_list(const std::string& table_name)
 */
 int ha_rocksdb::create_key_defs(const TABLE *table_arg,
                                 const std::string& db_table,
-                                HA_CREATE_INFO *create_info,
                                 Rdb_tbl_def *tbl_def_arg,
                                 const TABLE *old_table_arg /* = nullptr */,
                                 const Rdb_tbl_def *old_tbl_def_arg
                                 /* = nullptr */)
 {
   DBUG_ASSERT(table_arg != nullptr);
-  DBUG_ASSERT(create_info != nullptr);
   DBUG_ASSERT(table_arg->s != nullptr);
 
   DBUG_ENTER("ha_rocksdb::create_key_defs");
@@ -5158,7 +5212,7 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
   m_tbl_def->m_key_count= n_keys;
   m_tbl_def->m_key_descr_arr= m_key_descr_arr;
 
-  if ((res= create_key_defs(table_arg, str, create_info, m_tbl_def)))
+  if ((res= create_key_defs(table_arg, str, m_tbl_def)))
   {
     goto error;
   }
@@ -7112,10 +7166,70 @@ int ha_rocksdb::check_uniqueness_and_lock(
   return 0;
 }
 
+int ha_rocksdb::bulk_load_pk(Rdb_transaction* tx, uint key_id,
+                             rocksdb::ColumnFamilyHandle* cf,
+                             const rocksdb::Slice& key,
+                             const rocksdb::Slice& value)
+{
+  DBUG_ASSERT(cf != nullptr);
+
+  if (m_sst_info == nullptr)
+  {
+    const std::shared_ptr<const Rdb_key_def>& kd= m_key_descr_arr[key_id];
+
+    m_sst_info=
+        std::make_shared<Rdb_sst_info>(rdb, m_table_handler->m_table_name,
+                                       kd->get_name(), cf, rocksdb_db_options);
+    tx->start_bulk_load(this);
+  }
+
+  DBUG_ASSERT(m_sst_info != nullptr);
+
+  int rc= m_sst_info->put(key, value);
+  if (rc != 0)
+  {
+    my_printf_error(ER_UNKNOWN_ERROR,
+                    "Failed to add a key to sst file writer(%s)", MYF(0),
+                    m_sst_info->error_message().c_str());
+    rc= HA_ERR_INTERNAL_ERROR;
+  }
+
+  return rc;
+}
+
+int ha_rocksdb::finalize_bulk_load()
+{
+  int rc= 0;
+
+  if (m_sst_info != nullptr)
+  {
+    rc= m_sst_info->commit();
+    if (rc != 0)
+    {
+      my_printf_error(ER_UNKNOWN_ERROR,
+                      "Failed to commit bulk loaded sst file to the "
+                      "data store (%s)",
+                      MYF(0), m_sst_info->error_message().c_str());
+      rc= HA_ERR_INTERNAL_ERROR;
+    }
+
+    m_sst_info= nullptr;
+
+    Rdb_transaction *tx= get_or_create_tx(ha_thd());
+    if (tx != nullptr)
+    {
+      tx->end_bulk_load(this);
+    }
+  }
+
+  return rc;
+}
+
 int ha_rocksdb::update_pk(uint key_id, const struct update_row_info& row_info,
                           bool pk_changed)
 {
-  if (!is_hidden_pk(key_id, table, m_tbl_def) && pk_changed)
+  bool hidden_pk= is_hidden_pk(key_id, table, m_tbl_def);
+  if (!hidden_pk && pk_changed)
   {
     const std::shared_ptr<const Rdb_key_def>& kd= m_key_descr_arr[key_id];
 
@@ -7138,8 +7252,22 @@ int ha_rocksdb::update_pk(uint key_id, const struct update_row_info& row_info,
   rocksdb::Slice value_slice;
   convert_record_to_storage_format(row_info.new_pk_slice, &value_slice);
 
+  int rc= 0;
+  int err= 0;
   auto cf= m_pk_descr->get_cf();
-  if (row_info.skip_unique_check)
+  if (THDVAR(table->in_use, bulk_load) && !hidden_pk)
+  {
+    /*
+      Write the primary key directly to an SST file using an SstFileWriter
+     */
+    rc= bulk_load_pk(row_info.tx, key_id, cf, row_info.new_pk_slice,
+                     value_slice);
+    if (rc == 0)
+    {
+      rc= err;
+    }
+  }
+  else if (row_info.skip_unique_check)
   {
     /*
       It is responsibility of the user to make sure that the data being
@@ -7166,15 +7294,17 @@ int ha_rocksdb::update_pk(uint key_id, const struct update_row_info& row_info,
       {
         errkey= table->s->primary_key;
         m_dupp_errkey= errkey;
-        return HA_ERR_FOUND_DUPP_KEY;
+        rc = HA_ERR_FOUND_DUPP_KEY;
       }
-
-      return row_info.tx->set_status_error(table->in_use, s, m_pk_descr,
+      else
+      {
+        rc = row_info.tx->set_status_error(table->in_use, s, m_pk_descr,
                                            m_tbl_def);
+      }
     }
   }
 
-  return 0;
+  return rc;
 }
 
 int ha_rocksdb::update_sk(const TABLE* table_arg,
@@ -9054,7 +9184,6 @@ bool ha_rocksdb::prepare_inplace_alter_table(
       my_core::Alter_inplace_info::ADD_INDEX)
      && create_key_defs(altered_table,
                         m_tbl_def->m_dbname_tablename,
-                        ha_alter_info->create_info,
                         new_tdef, table, m_tbl_def))
   {
     /* Delete the new key descriptors */
@@ -10022,6 +10151,29 @@ rocksdb_set_collation_exception_list(THD*                     thd,
   mysql_mutex_unlock(&collation_exception_list_mutex);
 
   *static_cast<const char**>(var_ptr) = val;
+}
+
+void
+rocksdb_set_bulk_load(THD*                     thd,
+                      struct st_mysql_sys_var* var MY_ATTRIBUTE((__unused__)),
+                      void*                    var_ptr,
+                      const void*              save)
+{
+  Rdb_transaction*& tx= get_tx_from_thd(thd);
+
+  if (tx != nullptr)
+  {
+    int rc= tx->finish_bulk_load();
+    if (rc != 0)
+    {
+      // NO_LINT_DEBUG
+      sql_print_error("RocksDB: Error %d finalizing last SST file while "
+                      "setting bulk loading variable", rc);
+      abort_with_stack_traces();
+    }
+  }
+
+  *static_cast<bool*>(var_ptr) = *static_cast<const bool*>(save);
 }
 
 void rdb_queue_save_stats_request()
