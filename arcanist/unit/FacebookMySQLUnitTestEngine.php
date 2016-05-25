@@ -10,19 +10,17 @@ final class FacebookMySQLUnitTestEngine extends ArcanistBaseUnitTestEngine {
   }
 
   public function run() {
-    if ($this->getEnableAsyncTests()) {
-      // 'arc diff' workflow.
-      // If Sandcastle is being used then no work is necessary here because
-      // the code for submitting a diff will take care of creating necessary
-      // properties and if we'll create the property here as well then it'll
-      // override everything specified earlier.
-      return array();
-    } else {
+    if (!$this->getEnableAsyncTests()) {
       // 'arc unit' workflow - not (yet) supported.
       $console = PhutilConsole::getConsole();
       $console->writeOut("No 'arc unit' integration implemented.\n");
-
-      return array();
     }
+
+    // 'arc diff' workflow.
+    // If Sandcastle is being used then no work is necessary here because
+    // the code for submitting a diff will take care of creating necessary
+    // properties and if we'll create the property here as well then it'll
+    // override everything specified earlier.
+    return array();
   }
 }
