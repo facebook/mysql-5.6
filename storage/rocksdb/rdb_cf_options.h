@@ -54,6 +54,9 @@ class Rdb_cf_options
     return m_default_cf_opts;
   }
 
+  static const rocksdb::Comparator* get_cf_comparator(
+    const std::string& cf_name);
+
   void get_cf_options(
     const std::string &cf_name,
     rocksdb::ColumnFamilyOptions *opts) MY_ATTRIBUTE((__nonnull__));
