@@ -829,7 +829,9 @@ eval kill query $con1_id;
 --reap
 set @var2= to_seconds(now());
 
-select (@var2 -@var1) < 400;
+# We expect the time to kill query in con1 should be below
+# rocksdb_lock_wait_timeout (5000).
+select (@var2 -@var1) < 2000;
 
 --connection default
 --disconnect con1
