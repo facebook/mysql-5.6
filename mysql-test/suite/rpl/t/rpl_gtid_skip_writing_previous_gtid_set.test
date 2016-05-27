@@ -15,12 +15,18 @@ FLUSH LOGS;
 -- let $assert_cond= GTID_IS_EQUAL(@@GLOBAL.GTID_EXECUTED, "$master_uuid:1-3")
 -- source include/assert.inc
 
+connection slave;
+source include/stop_slave.inc;
+-- connection master
 -- let $rpl_server_number= 1
 -- let $rpl_start_with_gtids= 1
 -- let $rpl_server_parameters= --debug=d,skip_writing_previous_gtids_log_event
 -- source include/rpl_restart_server.inc
 -- let $rpl_server_parameters=
 -- source include/rpl_restart_server.inc
+connection slave;
+source include/start_slave.inc;
+-- connection master
 
 -- let $assert_text = gtid set on master after restart with skip_writing_previous_gtids_log_event.
 -- let $assert_cond= GTID_IS_EQUAL(@@GLOBAL.GTID_EXECUTED, "$master_uuid:1-3")
