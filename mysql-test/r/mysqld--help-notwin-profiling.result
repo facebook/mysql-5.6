@@ -1170,6 +1170,9 @@ The following options may be given as the first argument:
  --rocksdb-perf-context-level=# 
  Perf Context Level for rocksdb internal timer stat
  collection
+ --rocksdb-pin-l0-filter-and-index-blocks-in-cache 
+ pin_l0_filter_and_index_blocks_in_cache for RocksDB
+ (Defaults to on; use --skip-rocksdb-pin-l0-filter-and-index-blocks-in-cache to disable.)
  --rocksdb-rate-limiter-bytes-per-sec=# 
  DBOptions::rate_limiter bytes_per_sec for RocksDB
  --rocksdb-records-in-range=# 
@@ -1856,6 +1859,7 @@ rocksdb-pause-background-work FALSE
 rocksdb-perf-context ON
 rocksdb-perf-context-global ON
 rocksdb-perf-context-level -1
+rocksdb-pin-l0-filter-and-index-blocks-in-cache TRUE
 rocksdb-rate-limiter-bytes-per-sec 0
 rocksdb-records-in-range 0
 rocksdb-rpl-lookup-rows TRUE
