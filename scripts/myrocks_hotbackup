@@ -26,7 +26,8 @@ opts = None
 rocksdb_files = ['MANIFEST', 'CURRENT', 'OPTIONS']
 rocksdb_data_suffix = '.sst'
 rocksdb_wal_suffix = '.log'
-exclude_files = ['auto.cnf', 'ibdata1', 'ib_logfile0', 'ib_logfile1']
+exclude_files = ['master.info', 'relay-log.info', 'worker-relay-log.info',
+                 'auto.cnf', 'gaplock.log', 'ibdata', 'ib_logfile']
 wdt_bin = 'wdt'
 
 def is_manifest(fname):
@@ -86,7 +87,13 @@ class MiscFilesProcessor():
           self.process_file(rel_path)
     logger.info("Traversing misc files from data directory..")
     for f in self.get_files(""):
-      if f not in exclude_files:
+      should_skip = False
+      for e in exclude_files:
+        if f.startswith(e) or f.endswith(e):
+          logger.info("Skipping %s", f)
+          should_skip = True
+          break
+      if not should_skip:
         self.process_file(f)
 
   def match(self, filename):
