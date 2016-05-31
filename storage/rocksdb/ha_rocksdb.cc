@@ -810,6 +810,21 @@ static MYSQL_SYSVAR_BOOL(cache_index_and_filter_blocks,
   "BlockBasedTableOptions::cache_index_and_filter_blocks for RocksDB",
   nullptr, nullptr, true);
 
+// When pin_l0_filter_and_index_blocks_in_cache is true, RocksDB will  use the
+// LRU cache, but will always keep the filter & idndex block's handle checked
+// out (=won't call ShardedLRUCache::Release), plus the parsed out objects
+// the LRU cache will never push flush them out, hence they're pinned.
+//
+// This fixes the mutex contention between :ShardedLRUCache::Lookup and
+// ShardedLRUCache::Release which reduced the QPS ratio (QPS using secondary
+// index / QPS using PK).
+static MYSQL_SYSVAR_BOOL(pin_l0_filter_and_index_blocks_in_cache,
+  *reinterpret_cast<my_bool*>(
+    &table_options.pin_l0_filter_and_index_blocks_in_cache),
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "pin_l0_filter_and_index_blocks_in_cache for RocksDB",
+  nullptr, nullptr, true);
+
 static MYSQL_SYSVAR_ENUM(index_type,
   rocksdb_index_type,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -1115,6 +1130,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
 
   MYSQL_SYSVAR(block_cache_size),
   MYSQL_SYSVAR(cache_index_and_filter_blocks),
+  MYSQL_SYSVAR(pin_l0_filter_and_index_blocks_in_cache),
   MYSQL_SYSVAR(index_type),
   MYSQL_SYSVAR(hash_index_allow_collision),
   MYSQL_SYSVAR(no_block_cache),
