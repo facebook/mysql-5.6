@@ -44,7 +44,7 @@ int main(int argc, char** argv)
   params.m_window= 10;
 
   myrocks::Rdb_tbl_prop_coll coll(nullptr, params, 0,
-    MYROCKS_DEFAULT_SAMPLE_PCT);
+      RDB_DEFAULT_TBL_STATS_SAMPLE_PCT);
 
   putKeys(&coll, 2, true, 2);     // [xx]
   putKeys(&coll, 3, false, 2);    // [xxo]
