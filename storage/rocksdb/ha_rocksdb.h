@@ -87,9 +87,9 @@ const char * const PER_INDEX_CF_NAME = "$per_index_cf";
   Default, minimal valid, and maximum valid sampling rate values when collecting
   statistics about table.
 */
-#define MYROCKS_DEFAULT_SAMPLE_PCT                       10
-#define MYROCKS_SAMPLE_PCT_MIN                            1
-#define MYROCKS_SAMPLE_PCT_MAX                          100
+#define RDB_DEFAULT_TBL_STATS_SAMPLE_PCT                 10
+#define RDB_TBL_STATS_SAMPLE_PCT_MIN                      1
+#define RDB_TBL_STATS_SAMPLE_PCT_MAX                    100
 
 /*
   Default and maximum values for rocksdb-compaction-sequential-deletes and

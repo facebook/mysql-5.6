@@ -299,16 +299,16 @@ bool Rdb_tbl_prop_coll::NeedCompact() const {
 bool Rdb_tbl_prop_coll::ShouldCollectStats() {
   // Zero means that we'll use all the keys to update statistics.
   if (!m_table_stats_sampling_pct ||
-      MYROCKS_SAMPLE_PCT_MAX == m_table_stats_sampling_pct) {
+      RDB_TBL_STATS_SAMPLE_PCT_MAX == m_table_stats_sampling_pct) {
     return true;
   }
 
   int val = rand_r(&m_seed) %
-      (MYROCKS_SAMPLE_PCT_MAX - MYROCKS_SAMPLE_PCT_MIN + 1) +
-      MYROCKS_SAMPLE_PCT_MIN;
+      (RDB_TBL_STATS_SAMPLE_PCT_MAX - RDB_TBL_STATS_SAMPLE_PCT_MIN + 1) +
+      RDB_TBL_STATS_SAMPLE_PCT_MIN;
 
-  DBUG_ASSERT(val >= MYROCKS_SAMPLE_PCT_MIN);
-  DBUG_ASSERT(val <= MYROCKS_SAMPLE_PCT_MAX);
+  DBUG_ASSERT(val >= RDB_TBL_STATS_SAMPLE_PCT_MIN);
+  DBUG_ASSERT(val <= RDB_TBL_STATS_SAMPLE_PCT_MAX);
 
   return val <= m_table_stats_sampling_pct;
 }
