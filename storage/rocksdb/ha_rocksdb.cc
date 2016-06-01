@@ -117,8 +117,6 @@ bool can_use_bloom_filter(THD *thd,
 ///////////////////////////////////////////////////////////
 // Parameters and settings
 ///////////////////////////////////////////////////////////
-extern const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT;
-
 static char * rocksdb_default_cf_options;
 static char * rocksdb_override_cf_options;
 Rdb_cf_options rocksdb_cf_options_map;
@@ -347,16 +345,16 @@ static void rocksdb_drop_index_wakeup_thread(
     const void* save);
 
 static my_bool rocksdb_pause_background_work= 0;
-static mysql_mutex_t sysvar_mutex;
+static mysql_mutex_t rdb_sysvars_mutex;
 
-static void
-rocksdb_set_pause_background_work(THD* thd,
-                                 struct st_mysql_sys_var* var,
-                                 void* var_ptr,
-                                 const void* save)
+static void rocksdb_set_pause_background_work(
+    my_core::THD* thd MY_ATTRIBUTE((__unused__)),
+    struct st_mysql_sys_var* var MY_ATTRIBUTE((__unused__)),
+    void* var_ptr MY_ATTRIBUTE((__unused__)),
+    const void* save)
 {
-  mysql_mutex_lock(&sysvar_mutex);
-  bool pause_requested = *static_cast<const bool*>(save);
+  mysql_mutex_lock(&rdb_sysvars_mutex);
+  bool pause_requested= *static_cast<const bool*>(save);
   if (rocksdb_pause_background_work != pause_requested) {
     if (pause_requested) {
       rdb->PauseBackgroundWork();
@@ -365,26 +363,26 @@ rocksdb_set_pause_background_work(THD* thd,
     }
     rocksdb_pause_background_work= pause_requested;
   }
-  mysql_mutex_unlock(&sysvar_mutex);
+  mysql_mutex_unlock(&rdb_sysvars_mutex);
 }
 
 static void
-set_compaction_options(THD* thd,
-                       struct st_mysql_sys_var* var,
-                       void* var_ptr,
-                       const void* save);
+rocksdb_set_compaction_options(THD* thd,
+                               struct st_mysql_sys_var* var,
+                               void* var_ptr,
+                               const void* save);
 
 static void
-myrocks_set_table_stats_sampling_pct(THD* thd,
+rocksdb_set_table_stats_sampling_pct(THD* thd,
                                      struct st_mysql_sys_var* var,
                                      void* var_ptr,
                                      const void* save);
 
 static void
-set_rate_limiter_bytes_per_sec(THD*                     thd,
-                               struct st_mysql_sys_var* var,
-                               void*                    var_ptr,
-                               const void*              save);
+rocksdb_set_rate_limiter_bytes_per_sec(THD*                     thd,
+                                       struct st_mysql_sys_var* var,
+                                       void*                    var_ptr,
+                                       const void*              save);
 
 static void
 rocksdb_set_collation_exception_list(THD*                     thd,
@@ -462,11 +460,11 @@ rocksdb_set_rocksdb_info_log_level(THD* thd,
                                    void* var_ptr,
                                    const void* save)
 {
-  mysql_mutex_lock(&sysvar_mutex);
+  mysql_mutex_lock(&rdb_sysvars_mutex);
   rocksdb_info_log_level = *static_cast<const uint64_t*>(save);
   db_options.info_log->SetInfoLogLevel(
       static_cast<const rocksdb::InfoLogLevel>(rocksdb_info_log_level));
-  mysql_mutex_unlock(&sysvar_mutex);
+  mysql_mutex_unlock(&rdb_sysvars_mutex);
 }
 
 static const char* index_type_names[] = {
@@ -548,7 +546,7 @@ static MYSQL_SYSVAR_ULONGLONG(rate_limiter_bytes_per_sec,
   rocksdb_rate_limiter_bytes_per_sec,
   PLUGIN_VAR_RQCMDARG,
   "DBOptions::rate_limiter bytes_per_sec for RocksDB",
-  nullptr, set_rate_limiter_bytes_per_sec, /* default */ 0L,
+  nullptr, rocksdb_set_rate_limiter_bytes_per_sec, /* default */ 0L,
   /* min */ 0L, /* max */ MAX_RATE_LIMITER_BYTES_PER_SEC, 0);
 
 static MYSQL_SYSVAR_ENUM(info_log_level,
@@ -1002,7 +1000,8 @@ static MYSQL_SYSVAR_LONGLONG(
   rocksdb_compaction_sequential_deletes,
   PLUGIN_VAR_RQCMDARG,
   "RocksDB will trigger compaction for the file if it has more than this number sequential deletes per window",
-  nullptr, set_compaction_options, DEFAULT_COMPACTION_SEQUENTIAL_DELETES,
+  nullptr, rocksdb_set_compaction_options,
+  DEFAULT_COMPACTION_SEQUENTIAL_DELETES,
   /* min */ 0L, /* max */ MAX_COMPACTION_SEQUENTIAL_DELETES, 0);
 
 static MYSQL_SYSVAR_LONGLONG(
@@ -1010,7 +1009,8 @@ static MYSQL_SYSVAR_LONGLONG(
   rocksdb_compaction_sequential_deletes_window,
   PLUGIN_VAR_RQCMDARG,
   "Size of the window for counting rocksdb_compaction_sequential_deletes",
-  nullptr, set_compaction_options, DEFAULT_COMPACTION_SEQUENTIAL_DELETES_WINDOW,
+  nullptr, rocksdb_set_compaction_options,
+  DEFAULT_COMPACTION_SEQUENTIAL_DELETES_WINDOW,
   /* min */ 0L, /* max */ MAX_COMPACTION_SEQUENTIAL_DELETES_WINDOW, 0);
 
 static MYSQL_SYSVAR_LONGLONG(
@@ -1018,7 +1018,7 @@ static MYSQL_SYSVAR_LONGLONG(
   rocksdb_compaction_sequential_deletes_file_size,
   PLUGIN_VAR_RQCMDARG,
   "Minimum file size required for compaction_sequential_deletes",
-  nullptr, set_compaction_options, 0L,
+  nullptr, rocksdb_set_compaction_options, 0L,
   /* min */ -1L, /* max */ LONGLONG_MAX, 0);
 
 static MYSQL_SYSVAR_BOOL(compaction_sequential_deletes_count_sd,
@@ -1063,16 +1063,16 @@ static MYSQL_SYSVAR_UINT(
   PLUGIN_VAR_RQCMDARG,
   "Percentage of entries to sample when collecting statistics about table "
   "properties. Specify either 0 to sample everything or percentage ["
-  STRINGIFY_ARG(MYROCKS_SAMPLE_PCT_MIN) ".."
-  STRINGIFY_ARG(MYROCKS_SAMPLE_PCT_MAX) "]. " "By default "
-  STRINGIFY_ARG(MYROCKS_DEFAULT_SAMPLE_PCT) "% of entries are "
+  STRINGIFY_ARG(RDB_TBL_STATS_SAMPLE_PCT_MIN) ".."
+  STRINGIFY_ARG(RDB_TBL_STATS_SAMPLE_PCT_MAX) "]. " "By default "
+  STRINGIFY_ARG(RDB_DEFAULT_TBL_STATS_SAMPLE_PCT) "% of entries are "
   "sampled.",
-  nullptr, myrocks_set_table_stats_sampling_pct, /* default */
-  MYROCKS_DEFAULT_SAMPLE_PCT, /* everything */ 0,
-  /* max */ MYROCKS_SAMPLE_PCT_MAX, 0);
+  nullptr, rocksdb_set_table_stats_sampling_pct, /* default */
+  RDB_DEFAULT_TBL_STATS_SAMPLE_PCT, /* everything */ 0,
+  /* max */ RDB_TBL_STATS_SAMPLE_PCT_MAX, 0);
 
-const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT=4194304;
-const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE= 100;
+static const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT= 4194304;
+static const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE= 100;
 
 static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(lock_wait_timeout),
@@ -1231,7 +1231,7 @@ static my_core::PSI_mutex_key rdb_psi_open_tbls_mutex_key,
   rdb_background_psi_mutex_key, rdb_stop_bg_psi_mutex_key,
   rdb_drop_index_psi_mutex_key, rdb_interrupt_drop_index_psi_mutex_key,
   key_mutex_tx_list, key_mutex_collation_exception_list,
-  key_mutex_sysvar;
+  rdb_sysvars_psi_mutex_key;
 
 static PSI_mutex_info all_rocksdb_mutexes[]=
 {
@@ -1244,7 +1244,7 @@ static PSI_mutex_info all_rocksdb_mutexes[]=
   { &key_mutex_tx_list, "tx_list", PSI_FLAG_GLOBAL},
   { &key_mutex_collation_exception_list, "collation_exception_list",
       PSI_FLAG_GLOBAL},
-  { &key_mutex_sysvar, "setting sysvar", PSI_FLAG_GLOBAL},
+  { &rdb_sysvars_psi_mutex_key, "setting sysvar", PSI_FLAG_GLOBAL},
 };
 
 PSI_cond_key rdb_stop_bg_psi_cond_key, rdb_drop_index_interrupt_psi_cond_key;
@@ -2715,7 +2715,8 @@ static int rocksdb_init_func(void *p)
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_mutex_collation_exception_list,
                    &collation_exception_list_mutex, MY_MUTEX_INIT_FAST);
-  mysql_mutex_init(key_mutex_sysvar, &sysvar_mutex, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(rdb_sysvars_psi_mutex_key, &rdb_sysvars_mutex,
+                   MY_MUTEX_INIT_FAST);
   mysql_cond_init(rdb_stop_bg_psi_cond_key, &rdb_bg_thread.m_stop_cond,
                   nullptr);
   rdb_open_tables.init_hash();
@@ -2840,15 +2841,16 @@ static int rocksdb_init_func(void *p)
         &ddl_manager
       );
 
-    set_compaction_options(nullptr, nullptr, nullptr, nullptr);
+    rocksdb_set_compaction_options(nullptr, nullptr, nullptr, nullptr);
 
-    mysql_mutex_lock(&sysvar_mutex);
+    mysql_mutex_lock(&rdb_sysvars_mutex);
 
-    DBUG_ASSERT(rocksdb_table_stats_sampling_pct <= MYROCKS_SAMPLE_PCT_MAX);
+    DBUG_ASSERT(rocksdb_table_stats_sampling_pct
+                <= RDB_TBL_STATS_SAMPLE_PCT_MAX);
     properties_collector_factory->SetTableStatsSamplingPct(
       rocksdb_table_stats_sampling_pct);
 
-    mysql_mutex_unlock(&sysvar_mutex);
+    mysql_mutex_unlock(&rdb_sysvars_mutex);
   }
 
   if (!rocksdb_cf_options_map.init(ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT,
@@ -3091,7 +3093,7 @@ static int rocksdb_done_func(void *p)
   rdb_open_tables.free_hash();
   mysql_mutex_destroy(&collation_exception_list_mutex);
   mysql_mutex_destroy(&rdb_open_tables.m_mutex);
-  mysql_mutex_destroy(&sysvar_mutex);
+  mysql_mutex_destroy(&rdb_sysvars_mutex);
   Rdb_transaction::term_mutex();
 
   ddl_manager.cleanup();
@@ -8000,7 +8002,7 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *min_key,
     // no stats. Most likely, this is memtable-only table.
     // Query for the range size including memtable.
     rows = 1;
-    disk_size = ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE;
+    disk_size= ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE;
     rdb->GetApproximateSizes(
       kd->get_cf(),
       &r, 1,
@@ -9110,10 +9112,11 @@ Rdb_binlog_manager *rdb_get_binlog_manager(void)
 
 
 void
-set_compaction_options(THD* thd,
-                       struct st_mysql_sys_var* var,
-                       void* var_ptr,
-                       const void* save)
+rocksdb_set_compaction_options(
+    my_core::THD*               thd     MY_ATTRIBUTE((__unused__)),
+    my_core::st_mysql_sys_var*  var     MY_ATTRIBUTE((__unused__)),
+    void*                       var_ptr,
+    const void*                 save)
 {
   if (var_ptr && save) {
     *(uint64_t*)var_ptr = *(const uint64_t*) save;
@@ -9128,15 +9131,15 @@ set_compaction_options(THD* thd,
   }
 }
 
-void
-myrocks_set_table_stats_sampling_pct(THD* thd,
-                                     struct st_mysql_sys_var* var,
-                                     void* var_ptr,
-                                     const void* save)
+void rocksdb_set_table_stats_sampling_pct(
+    my_core::THD*               thd     MY_ATTRIBUTE((__unused__)),
+    my_core::st_mysql_sys_var*  var     MY_ATTRIBUTE((__unused__)),
+    void*                       var_ptr MY_ATTRIBUTE((__unused__)),
+    const void*                 save)
 {
-  mysql_mutex_lock(&sysvar_mutex);
+  mysql_mutex_lock(&rdb_sysvars_mutex);
 
-  uint32_t new_val = *static_cast<const uint32_t*>(save);
+  uint32_t new_val= *static_cast<const uint32_t*>(save);
 
   if (new_val != rocksdb_table_stats_sampling_pct) {
     rocksdb_table_stats_sampling_pct = new_val;
@@ -9147,7 +9150,7 @@ myrocks_set_table_stats_sampling_pct(THD* thd,
     }
   }
 
-  mysql_mutex_unlock(&sysvar_mutex);
+  mysql_mutex_unlock(&rdb_sysvars_mutex);
 }
 
 /*
@@ -9160,12 +9163,13 @@ myrocks_set_table_stats_sampling_pct(THD* thd,
   storage/innobase/handler/ha_innodb.cc).
 */
 void
-set_rate_limiter_bytes_per_sec(THD*                     thd,
-                               struct st_mysql_sys_var* var,
-                               void*                    var_ptr,
-                               const void*              save)
+rocksdb_set_rate_limiter_bytes_per_sec(
+    my_core::THD*               thd,
+    my_core::st_mysql_sys_var*  var     MY_ATTRIBUTE((__unused__)),
+    void*                       var_ptr MY_ATTRIBUTE((__unused__)),
+    const void*                 save)
 {
-  uint64_t new_val = *static_cast<const uint64_t*>(save);
+  uint64_t new_val= *static_cast<const uint64_t*>(save);
   if (new_val == 0 || rocksdb_rate_limiter_bytes_per_sec == 0)
   {
     /*
