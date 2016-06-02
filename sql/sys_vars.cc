@@ -566,7 +566,7 @@ static Sys_var_mybool Sys_send_error_before_closing_timed_out_connection(
        "send_error_before_closing_timed_out_connection",
        "Send error before closing connections due to timeout.",
        GLOBAL_VAR(send_error_before_closing_timed_out_connection),
-       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+       CMD_LINE(OPT_ARG), DEFAULT(TRUE));
 
 static Sys_var_mybool Sys_allow_document_type(
        "allow_document_type",
