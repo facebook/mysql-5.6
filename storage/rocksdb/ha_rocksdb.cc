@@ -1527,7 +1527,9 @@ public:
       m_rocksdb_tx->SetLockTimeout(m_timeout_sec * 1000);
   }
 
-  ulonglong get_n_writes() { return m_write_count; }
+  ulonglong get_write_count() const { return m_write_count; }
+
+  ulonglong get_lock_count() const { return m_lock_count; }
 
   void release_lock(rocksdb::ColumnFamilyHandle* column_family,
                     const std::string &rowkey)
@@ -1553,7 +1555,7 @@ public:
 
   bool commit()
   {
-    if (get_n_writes() == 0)
+    if (get_write_count() == 0)
     {
       rollback();
       return false;
@@ -1704,7 +1706,7 @@ public:
   */
   bool flush_batch()
   {
-    if (get_n_writes() == 0)
+    if (get_write_count() == 0)
       return false;
 
     /* Commit the current transaction */
@@ -2313,9 +2315,11 @@ class Rdb_snapshot_status : public Rdb_tx_list_walker
       THD* thd = tx->get_thd();
 
       m_data += format_string("---SNAPSHOT, ACTIVE %lld sec\n"
-                              "MySQL thread id %lu, OS thread handle %p\n",
+                              "MySQL thread id %lu, OS thread handle %p\n"
+                              "lock count %llu, write count %llu\n",
                               curr_time - snapshot_timestamp,
-                              my_core::thd_get_thread_id(thd), thd);
+                              my_core::thd_get_thread_id(thd), thd,
+                              tx->get_lock_count(), tx->get_write_count());
     }
   }
 };
@@ -6076,7 +6080,7 @@ bool ha_rocksdb::do_bulk_commit(Rdb_transaction *tx)
 {
   DBUG_ASSERT(tx != nullptr);
   return commit_in_the_middle() &&
-         tx->get_n_writes() >= THDVAR(table->in_use, bulk_load_size) &&
+         tx->get_write_count() >= THDVAR(table->in_use, bulk_load_size) &&
          tx->flush_batch();
 }
 
