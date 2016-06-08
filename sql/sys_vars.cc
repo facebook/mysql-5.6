@@ -5458,3 +5458,20 @@ static Sys_var_mybool Sys_use_db_uuid(
         "while creating the database or using an alter command. If no UUID is "
         "associated with a database, server_uuid is used.",
          GLOBAL_VAR(use_db_uuid), CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
+#ifdef HAVE_REPLICATION
+static Sys_var_uint Sys_unique_check_lag_threshold(
+       "unique_check_lag_threshold",
+       "Automatically enable skip_unique_check when lag exceeds this threshold "
+        "(0 [default] to disable, only affects RocksDB).",
+       GLOBAL_VAR(unique_check_lag_threshold),
+       CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, UINT_MAX), DEFAULT(0),
+       BLOCK_SIZE(1));
+
+static Sys_var_uint Sys_unique_check_lag_reset_threshold(
+       "unique_check_lag_reset_threshold",
+       "Stop enabling skip_unique_check when lag drops below this threshold.",
+       GLOBAL_VAR(unique_check_lag_reset_threshold),
+       CMD_LINE(REQUIRED_ARG), VALID_RANGE(1, UINT_MAX), DEFAULT(2),
+       BLOCK_SIZE(1));
+#endif

@@ -5369,6 +5369,10 @@ restart:
         DBUG_ASSERT(tbl->reginfo.x_lock_type == TL_X_LOCK_REGULAR);
     }
 
+    /* Pass through skip_unique_check to handler */
+    if (thd->rli_slave && tbl)
+      tbl->file->set_skip_unique_check(thd->skip_unique_check());
+
   }
 
 err:

@@ -447,6 +447,10 @@ public:
     if (gaq_index == c_rli->gaq->size)
       gaq_index= val;
   };
+  bool get_skip_unique_check()
+  {
+    return c_rli->skip_unique_check;
+  }
   bool is_table_idempotent(const std::string &table) const override
   {
     return c_rli ? c_rli->is_table_idempotent(table) : false;

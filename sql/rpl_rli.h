@@ -310,6 +310,9 @@ public:
 
   time_t last_master_timestamp;
 
+  // cache value for sql thread
+  time_t penultimate_master_timestamp;
+
 #define PEAK_LAG_MAX_SECS 512
   time_t peak_lag_last[PEAK_LAG_MAX_SECS];
   ulong events_since_last_sample;
@@ -956,6 +959,11 @@ public:
     return rli_description_event;
   }
 
+  virtual bool get_skip_unique_check()
+  {
+    return skip_unique_check;
+  }
+
   /**
     adaptation for the slave applier to specific master versions.
   */
@@ -1034,6 +1042,8 @@ private:
   bool long_find_row_note_printed;
 
 public:
+  // store value to propagate to handler in open_tables
+  bool skip_unique_check;
   /*
     Set of tables for which slave-exec-mode is considered IDEMPOTENT.
     This is modified only during sql thread startup. This set is read by

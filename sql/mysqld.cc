@@ -9072,6 +9072,14 @@ static int show_flushstatustime(THD *thd, SHOW_VAR *var, char *buff)
 #endif
 
 #ifdef HAVE_REPLICATION
+static int show_skip_unique_check(THD *thd, SHOW_VAR *var, char *buff)
+{
+  var->type= SHOW_BOOL;
+  var->value= buff;
+  *((bool *)buff)= active_mi && active_mi->rli->skip_unique_check;
+  return 0;
+}
+
 static int show_slave_running(THD *thd, SHOW_VAR *var, char *buff)
 {
   var->type= SHOW_MY_BOOL;
@@ -9804,6 +9812,9 @@ SHOW_VAR status_vars[]= {
   {"Select_range",             (char*) offsetof(STATUS_VAR, select_range_count), SHOW_LONGLONG_STATUS},
   {"Select_range_check",       (char*) offsetof(STATUS_VAR, select_range_check_count), SHOW_LONGLONG_STATUS},
   {"Select_scan",	       (char*) offsetof(STATUS_VAR, select_scan_count), SHOW_LONGLONG_STATUS},
+#ifdef HAVE_REPLICATION
+  {"Skip_unique_check",        (char*) &show_skip_unique_check, SHOW_FUNC},
+#endif
   {"Slave_open_temp_tables",   (char*) &slave_open_temp_tables, SHOW_INT},
 #ifdef HAVE_REPLICATION
   {"Slave_retried_transactions",(char*) &show_slave_retried_trans, SHOW_FUNC},

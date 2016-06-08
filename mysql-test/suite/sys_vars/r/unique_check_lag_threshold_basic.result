@@ -1,0 +1,67 @@
+SET @start_value = @@global.unique_check_lag_threshold;
+SELECT @start_value;
+@start_value
+0
+SET @@global.unique_check_lag_threshold = DEFAULT;
+SELECT @@global.unique_check_lag_threshold = 0;
+@@global.unique_check_lag_threshold = 0
+1
+SET @@global.unique_check_lag_threshold = 42;
+SELECT @@global.unique_check_lag_threshold;
+@@global.unique_check_lag_threshold
+42
+SET @@global.unique_check_lag_threshold = 0;
+SELECT @@global.unique_check_lag_threshold;
+@@global.unique_check_lag_threshold
+0
+SET @@global.unique_check_lag_threshold = ON;
+ERROR 42000: Incorrect argument type to variable 'unique_check_lag_threshold'
+SET @@global.unique_check_lag_threshold = TRUEF;
+ERROR 42000: Incorrect argument type to variable 'unique_check_lag_threshold'
+SET @@global.unique_check_lag_threshold = TRUE_F;
+ERROR 42000: Incorrect argument type to variable 'unique_check_lag_threshold'
+SET @@global.unique_check_lag_threshold = FALSE0;
+ERROR 42000: Incorrect argument type to variable 'unique_check_lag_threshold'
+SET @@global.unique_check_lag_threshold = OON;
+ERROR 42000: Incorrect argument type to variable 'unique_check_lag_threshold'
+SET @@global.unique_check_lag_threshold = ONN;
+ERROR 42000: Incorrect argument type to variable 'unique_check_lag_threshold'
+SET @@global.unique_check_lag_threshold = OOFF;
+ERROR 42000: Incorrect argument type to variable 'unique_check_lag_threshold'
+SET @@global.unique_check_lag_threshold = 0FF;
+ERROR 42000: Incorrect argument type to variable 'unique_check_lag_threshold'
+SET @@global.unique_check_lag_threshold = ' ';
+ERROR 42000: Incorrect argument type to variable 'unique_check_lag_threshold'
+SET @@global.unique_check_lag_threshold = " ";
+ERROR 42000: Incorrect argument type to variable 'unique_check_lag_threshold'
+SET @@global.unique_check_lag_threshold = '';
+ERROR 42000: Incorrect argument type to variable 'unique_check_lag_threshold'
+SET @@session.unique_check_lag_threshold = 0;
+ERROR HY000: Variable 'unique_check_lag_threshold' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.unique_check_lag_threshold;
+ERROR HY000: Variable 'unique_check_lag_threshold' is a GLOBAL variable
+SELECT * 
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='unique_check_lag_threshold';
+VARIABLE_NAME	VARIABLE_VALUE
+UNIQUE_CHECK_LAG_THRESHOLD	0
+SET @@global.unique_check_lag_threshold = 1;
+SELECT @@unique_check_lag_threshold = @@global.reset_seconds_behind_master;
+@@unique_check_lag_threshold = @@global.reset_seconds_behind_master
+1
+SET unique_check_lag_threshold = 1;
+ERROR HY000: Variable 'unique_check_lag_threshold' is a GLOBAL variable and should be set with SET GLOBAL
+SET local.unique_check_lag_threshold = 0;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'unique_check_lag_threshold = 0' at line 1
+SELECT local.unique_check_lag_threshold;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.unique_check_lag_threshold = 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'unique_check_lag_threshold = 1' at line 1
+SELECT global.unique_check_lag_threshold;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT unique_check_lag_threshold = @@session.reset_seconds_behind_master;
+ERROR 42S22: Unknown column 'unique_check_lag_threshold' in 'field list'
+SET @@global.unique_check_lag_threshold = @start_value;
+SELECT @@global.unique_check_lag_threshold;
+@@global.unique_check_lag_threshold
+0

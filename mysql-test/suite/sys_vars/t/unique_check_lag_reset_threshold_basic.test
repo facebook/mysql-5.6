@@ -1,0 +1,108 @@
+--source include/load_sysvars.inc
+
+##################################################################
+#           START OF unique_check_lag_reset_threshold TESTS           #
+##################################################################
+
+################################################################################
+# Saving initial value of unique_check_lag_reset_threshold in a temporary variable  #
+################################################################################
+
+SET @start_value = @@global.unique_check_lag_reset_threshold;
+SELECT @start_value;
+
+###############################################
+#     Verify default value of variable        #
+###############################################
+
+SET @@global.unique_check_lag_reset_threshold = DEFAULT;
+SELECT @@global.unique_check_lag_reset_threshold = 2;
+
+##########################################################################
+#     Change the value of unique_check_lag_reset_threshold to a valid value   #
+##########################################################################
+
+SET @@global.unique_check_lag_reset_threshold = 42;
+SELECT @@global.unique_check_lag_reset_threshold;
+SET @@global.unique_check_lag_reset_threshold = 0;
+SELECT @@global.unique_check_lag_reset_threshold;
+
+#########################################################################
+#    Change the value of unique_check_lag_reset_threshold to invalid value   #
+#########################################################################
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.unique_check_lag_reset_threshold = ON;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.unique_check_lag_reset_threshold = TRUEF;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.unique_check_lag_reset_threshold = TRUE_F;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.unique_check_lag_reset_threshold = FALSE0;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.unique_check_lag_reset_threshold = OON;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.unique_check_lag_reset_threshold = ONN;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.unique_check_lag_reset_threshold = OOFF;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.unique_check_lag_reset_threshold = 0FF;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.unique_check_lag_reset_threshold = ' ';
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.unique_check_lag_reset_threshold = " ";
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.unique_check_lag_reset_threshold = '';
+
+#########################################################################
+#   Test if accessing session unique_check_lag_reset_threshold gives error   #
+#########################################################################
+
+--Error ER_GLOBAL_VARIABLE
+SET @@session.unique_check_lag_reset_threshold = 0;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.unique_check_lag_reset_threshold;
+
+##############################################################################
+# Check if the value in GLOBAL Tables matches values in variable             #
+##############################################################################
+
+SELECT * 
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='unique_check_lag_reset_threshold';
+
+##############################################################################
+#    Check if accessing variable with SESSION,LOCAL and without SCOPE points #
+#    to same session variable                                                #
+##############################################################################
+
+SET @@global.unique_check_lag_reset_threshold = 1;
+SELECT @@unique_check_lag_reset_threshold = @@global.reset_seconds_behind_master;
+
+###############################################################################
+#   Check if unique_check_lag_reset_threshold can be accessed with and without     #
+#   @@ sign                                                                   #
+###############################################################################
+--Error ER_GLOBAL_VARIABLE
+SET unique_check_lag_reset_threshold = 1;
+--Error ER_PARSE_ERROR
+SET local.unique_check_lag_reset_threshold = 0;
+--Error ER_UNKNOWN_TABLE
+SELECT local.unique_check_lag_reset_threshold;
+--Error ER_PARSE_ERROR
+SET global.unique_check_lag_reset_threshold = 1;
+--Error ER_UNKNOWN_TABLE
+SELECT global.unique_check_lag_reset_threshold;
+--Error ER_BAD_FIELD_ERROR
+SELECT unique_check_lag_reset_threshold = @@session.reset_seconds_behind_master;
+
+##############################
+#   Restore initial value    #
+##############################
+
+SET @@global.unique_check_lag_reset_threshold = @start_value;
+SELECT @@global.unique_check_lag_reset_threshold;
+
+#########################################################
+#     END OF unique_check_lag_reset_threshold TESTS          #
+#########################################################

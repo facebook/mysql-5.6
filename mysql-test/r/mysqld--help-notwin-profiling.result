@@ -1470,6 +1470,13 @@ The following options may be given as the first argument:
  --transaction-read-only 
  Default transaction access mode. True if transactions are
  read-only.
+ --unique-check-lag-reset-threshold=# 
+ Stop enabling skip_unique_check when lag drops below this
+ threshold.
+ --unique-check-lag-threshold=# 
+ Automatically enable skip_unique_check when lag exceeds
+ this threshold (0 [default] to disable, only affects
+ RocksDB).
  --updatable-views-with-limit=name 
  YES = Don't issue an error message (warning only) if a
  VIEW without presence of a key of the underlying table is
@@ -1954,6 +1961,8 @@ transaction-alloc-block-size 8192
 transaction-isolation REPEATABLE-READ
 transaction-prealloc-size 4096
 transaction-read-only FALSE
+unique-check-lag-reset-threshold 2
+unique-check-lag-threshold 0
 updatable-views-with-limit YES
 use-db-uuid FALSE
 use-fbson-input-format FALSE

@@ -2205,6 +2205,7 @@ public:
   virtual double scan_time()
   { return ulonglong2double(stats.data_file_length) / IO_SIZE + 2; }
 
+  virtual void set_skip_unique_check(bool skip) {}
 
 /**
    The cost of reading a set of ranges from the table using an index

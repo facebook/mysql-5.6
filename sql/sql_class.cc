@@ -5313,6 +5313,7 @@ void THD::time_out_user_resource_limits()
 
   DBUG_VOID_RETURN;
 }
+
 /**
   Determine if binlogging is disabled for this session
   @retval 0 if the current statement binlogging is disabled
@@ -5324,4 +5325,9 @@ bool THD::is_current_stmt_binlog_disabled() const
 {
   return (!(variables.option_bits & OPTION_BIN_LOG) ||
           !mysql_bin_log.is_open());
+}
+
+bool THD::skip_unique_check()
+{
+  return rli_slave && rli_slave->get_skip_unique_check();
 }

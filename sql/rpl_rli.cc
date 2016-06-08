@@ -108,6 +108,7 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery
    sql_force_rotate_relay(false),
    slave_has_caughtup(true),
    last_master_timestamp(0),
+   penultimate_master_timestamp(0),
    events_since_last_sample(0),
    slave_skip_counter(0),
    abort_pos_wait(0), until_condition(UNTIL_NONE),
@@ -129,7 +130,8 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery
    mts_group_status(MTS_NOT_IN_GROUP), reported_unsafe_warning(false),
    rli_description_event(NULL),
    sql_delay(0), sql_delay_end(0), m_flags(0), row_stmt_start_timestamp(0),
-   long_find_row_note_printed(false)
+   long_find_row_note_printed(false),
+   skip_unique_check(false)
 {
   DBUG_ENTER("Relay_log_info::Relay_log_info");
 
@@ -341,7 +343,10 @@ void Relay_log_info::reset_notified_checkpoint(ulong shift, time_t new_ts,
       will assign the current time to last_master_timestamp instead.
     */
     if (new_ts > last_master_timestamp)
+    {
+      penultimate_master_timestamp= last_master_timestamp;
       last_master_timestamp= std::min(time(nullptr), new_ts);
+    }
 
     if (need_data_lock)
       mysql_mutex_unlock(&data_lock);

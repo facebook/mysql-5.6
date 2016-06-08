@@ -4611,6 +4611,8 @@ public:
 
   std::shared_ptr<st_ac_node> ac_node;
 
+  // propagate value from rli
+  bool skip_unique_check();
 };
 
 /**

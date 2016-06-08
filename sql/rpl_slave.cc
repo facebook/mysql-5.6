@@ -81,6 +81,8 @@ my_bool replicate_same_server_id;
 ulonglong relay_log_space_limit = 0;
 uint rpl_receive_buffer_size = 0;
 my_bool reset_seconds_behind_master = TRUE;
+uint unique_check_lag_threshold;
+uint unique_check_lag_reset_threshold;
 
 const char *relay_log_index= 0;
 const char *relay_log_basename= 0;
@@ -4498,7 +4500,7 @@ static int exec_relay_log_event(THD* thd, Relay_log_info* rli)
   /*
     UNTIL_SQL_AFTER_GTIDS requires special handling since we have to check
     whether the until_condition is satisfied *before* the SQL threads goes on
-    a wait inside next_event() for the relay log to grow. This is reuired since
+    a wait inside next_event() for the relay log to grow. This is required since
     if we have already applied the last event in the waiting set but since he
     check happens only at the start of the next event we may end up waiting
     forever the next event is not available or is delayed.
@@ -4559,6 +4561,7 @@ static int exec_relay_log_event(THD* thd, Relay_log_info* rli)
 
       if (tentative_last_master_timestamp > rli->last_master_timestamp)
       {
+        rli->penultimate_master_timestamp= rli->last_master_timestamp;
         rli->last_master_timestamp= std::min(tentative_last_master_timestamp,
             time(nullptr));
       }
@@ -6561,6 +6564,19 @@ log '%s' at position %s, relay log '%s' position: %s", rli->get_rpl_log_name(),
       saved_skip= 0;
     }
     
+    long lag= (!rli->penultimate_master_timestamp ||
+      ((reset_seconds_behind_master && (rli->mi->get_master_log_pos() ==
+      rli->get_group_master_log_pos()) && (!strcmp(
+      rli->mi->get_master_log_name(), rli->get_group_master_log_name()))) ||
+      rli->slave_has_caughtup)) ? 0 : max(0L, ((long)(time(0) -
+      rli->penultimate_master_timestamp) - rli->mi->clock_diff_with_master));
+    // unique key checks are allowed to be disabled only with row format
+    if (unique_check_lag_threshold > 0 && lag > unique_check_lag_threshold
+        && thd->variables.binlog_format == BINLOG_FORMAT_ROW)
+      rli->skip_unique_check= true;
+    if (lag < unique_check_lag_reset_threshold)
+      rli->skip_unique_check= false;
+
     if (exec_relay_log_event(thd,rli))
     {
       DBUG_PRINT("info", ("exec_relay_log_event() failed"));
