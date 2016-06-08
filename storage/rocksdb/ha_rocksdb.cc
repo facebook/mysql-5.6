@@ -3430,7 +3430,8 @@ ha_rocksdb::ha_rocksdb(my_core::handlerton *hton,
     m_pack_buffer(nullptr), m_lock_rows(RDB_LOCK_NONE),
     m_keyread_only(FALSE), m_encoder_arr(nullptr),
     m_row_checksums_checked(0),
-    m_in_rpl_delete_rows(false), m_in_rpl_update_rows(false)
+    m_in_rpl_delete_rows(false), m_in_rpl_update_rows(false),
+    m_force_skip_unique_check(false)
 {}
 
 
@@ -6325,7 +6326,12 @@ bool ha_rocksdb::can_use_single_delete(uint index)
 bool ha_rocksdb::skip_unique_check()
 {
   return THDVAR(table->in_use, bulk_load) ||
-         THDVAR(table->in_use, skip_unique_check);
+         THDVAR(table->in_use, skip_unique_check) || m_force_skip_unique_check;
+}
+
+void ha_rocksdb::set_skip_unique_check(bool skip)
+{
+  m_force_skip_unique_check= skip;
 }
 
 bool ha_rocksdb::commit_in_the_middle()
