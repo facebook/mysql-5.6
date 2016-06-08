@@ -303,6 +303,9 @@ public:
 
   time_t last_master_timestamp;
 
+  // cache value for sql thread
+  time_t penultimate_master_timestamp;
+
 #define PEAK_LAG_MAX_SECS 512
   time_t peak_lag_last[PEAK_LAG_MAX_SECS];
   ulong events_since_last_sample;
@@ -947,6 +950,11 @@ public:
     return rli_description_event;
   }
 
+  virtual bool get_skip_unique_check()
+  {
+    return skip_unique_check;
+  }
+
   /**
     adaptation for the slave applier to specific master versions.
   */
@@ -1030,6 +1038,10 @@ private:
     SLAVE must be executed and the problem fixed manually.
    */
   bool error_on_rli_init_info;
+
+public:
+  // store value to propagate to handler in open_tables
+  bool skip_unique_check;
 };
 
 bool mysql_show_relaylog_events(THD* thd);

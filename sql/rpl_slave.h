@@ -245,6 +245,8 @@ extern my_bool opt_log_slave_updates;
 extern char *opt_slave_skip_errors;
 extern ulonglong relay_log_space_limit;
 extern my_bool reset_seconds_behind_master;
+extern uint unique_check_lag_threshold;
+extern uint unique_check_lag_reset_threshold;
 
 extern const char *relay_log_index;
 extern const char *relay_log_basename;

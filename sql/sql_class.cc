@@ -5308,3 +5308,8 @@ void THD::time_out_user_resource_limits()
 
   DBUG_VOID_RETURN;
 }
+
+bool THD::skip_unique_check()
+{
+  return rli_slave && rli_slave->get_skip_unique_check();
+}

@@ -447,6 +447,10 @@ public:
     if (gaq_index == c_rli->gaq->size)
       gaq_index= val;
   };
+  bool get_skip_unique_check()
+  {
+    return c_rli->skip_unique_check;
+  }
 
 protected:
 
