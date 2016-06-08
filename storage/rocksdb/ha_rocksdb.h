@@ -417,6 +417,7 @@ class ha_rocksdb: public my_core::handler
   bool can_use_single_delete(uint index)
     MY_ATTRIBUTE((__warn_unused_result__));
   bool skip_unique_check() MY_ATTRIBUTE((__warn_unused_result__));
+  void set_skip_unique_check(bool skip) override;
   bool commit_in_the_middle() MY_ATTRIBUTE((__warn_unused_result__));
   bool do_bulk_commit(Rdb_transaction *tx)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
@@ -914,6 +915,8 @@ public:
   /* Flags tracking if we are inside different replication operation */
   bool m_in_rpl_delete_rows;
   bool m_in_rpl_update_rows;
+
+  bool m_force_skip_unique_check;
 };
 
 /*
