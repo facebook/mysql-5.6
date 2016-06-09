@@ -1,5 +1,3 @@
-SET SESSION rocksdb_write_sync=true;
-SET SESSION rocksdb_write_disable_wal=false;
 DROP TABLE IF EXISTS t1;
 create table t1 (a int primary key, msg varchar(255)) engine=rocksdb;
 SET SESSION debug="d,crash_commit_after_prepare";
@@ -20,4 +18,24 @@ a	msg
 3	men
 4	cars
 5	foo
+SET GLOBAL ROCKSDB_DISABLE_2PC = ON;
+SET SESSION debug="d,crash_commit_after_log";
+insert into t1 values (6, 'shipz'), (7, 'tankz');
+select * from t1;
+a	msg
+2	catz
+3	men
+4	cars
+5	foo
+SET GLOBAL ROCKSDB_DISABLE_2PC = ON;
+SET SESSION debug="d,crash_commit_after";
+insert into t1 values (8, 'space'), (9, 'time');
+select * from t1;
+a	msg
+2	catz
+3	men
+4	cars
+5	foo
+8	space
+9	time
 drop table t1;

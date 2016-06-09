@@ -372,6 +372,7 @@ static char * rocksdb_compact_cf_name;
 static char * rocksdb_checkpoint_name;
 static my_bool rocksdb_signal_drop_index_thread;
 static my_bool rocksdb_strict_collation_check= 1;
+static my_bool rocksdb_disable_2pc= 0;
 static char * rocksdb_strict_collation_exceptions;
 static my_bool rocksdb_collect_sst_properties= 1;
 static my_bool rocksdb_force_flush_memtable_now_var= 0;
@@ -927,6 +928,12 @@ static MYSQL_SYSVAR_BOOL(pause_background_work,
   "Disable all rocksdb background operations",
   nullptr, rocksdb_set_pause_background_work, FALSE);
 
+static MYSQL_SYSVAR_BOOL(disable_2pc,
+  rocksdb_disable_2pc,
+  PLUGIN_VAR_RQCMDARG,
+  "Disable two phase commit for MyRocks",
+  nullptr, nullptr, TRUE);
+
 static MYSQL_SYSVAR_BOOL(strict_collation_check,
   rocksdb_strict_collation_check,
   PLUGIN_VAR_RQCMDARG,
@@ -1131,6 +1138,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(compact_cf),
   MYSQL_SYSVAR(signal_drop_index_thread),
   MYSQL_SYSVAR(pause_background_work),
+  MYSQL_SYSVAR(disable_2pc),
   MYSQL_SYSVAR(strict_collation_check),
   MYSQL_SYSVAR(strict_collation_exceptions),
   MYSQL_SYSVAR(collect_sst_properties),
@@ -1351,6 +1359,7 @@ class Rdb_transaction
   bool m_is_delayed_snapshot= false;
   bool m_tx_read_only= false;
   bool m_rollback_only= false;
+  bool m_is_two_phase= false;
 
   THD* m_thd= nullptr;
 
@@ -1555,7 +1564,12 @@ public:
     {
       my_core::thd_binlog_pos(m_thd, &m_mysql_log_file_name,
                               &m_mysql_log_offset, &m_mysql_gtid);
-      rocksdb::WriteBatch *batch= m_rocksdb_tx->GetCommitTimeWriteBatch();
+      rocksdb::WriteBatch *batch= nullptr;
+      if (is_two_phase()) {
+        batch= m_rocksdb_tx->GetCommitTimeWriteBatch();
+      } else {
+        batch= m_rocksdb_tx->GetWriteBatch()->GetWriteBatch();
+      }
       binlog_manager.update(m_mysql_log_file_name,
                             m_mysql_log_offset,
                             m_mysql_gtid, batch);
@@ -1823,6 +1837,7 @@ public:
     write_opts.disableWAL= THDVAR(m_thd, write_disable_wal);
     write_opts.ignore_missing_column_families=
       THDVAR(m_thd, write_ignore_missing_column_families);
+    m_is_two_phase= !rocksdb_disable_2pc;
 
     /*
       If m_rocksdb_reuse_tx is null this will create a new transaction object.
@@ -1913,6 +1928,11 @@ public:
   bool is_tx_read_only() const
   {
     return m_tx_read_only;
+  }
+
+  bool is_two_phase() const
+  {
+    return m_is_two_phase;
   }
 
   void set_tx_read_only(bool val)
@@ -2089,11 +2109,14 @@ static int rocksdb_prepare(handlerton* hton, THD* thd, bool prepare_tx,
       binlog_manager.update_slave_gtid_info(it.id, it.db, it.gtid, write_batch);
     }
 
-    XID xid;
-    thd_get_xid(thd, reinterpret_cast<MYSQL_XID*>(&xid));
-    if (!tx->prepare(rdb_xid_to_string(xid))) {
-      return 1;
+    if (tx->is_two_phase()) {
+      XID xid;
+      thd_get_xid(thd, reinterpret_cast<MYSQL_XID*>(&xid));
+      if (!tx->prepare(rdb_xid_to_string(xid))) {
+        return 1;
+      }
     }
+
     DEBUG_SYNC(thd, "rocksdb.prepared");
   }
 
