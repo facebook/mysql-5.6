@@ -56,6 +56,7 @@
 #include "./rdb_datadic.h"
 #include "./rdb_i_s.h"
 #include "./rdb_mutex_wrapper.h"
+#include "./rdb_threads.h"
 
 #ifdef TARGET_OS_LINUX
 extern my_bool cachedev_enabled;
@@ -143,48 +144,10 @@ Rdb_binlog_manager binlog_manager;
 
 /**
   MyRocks background thread control
-  N.B. This is on top of RocksDB's own background threads
+  N.B. This is besides RocksDB's own background threads
        (@see rocksdb::CancelAllBackgroundWork())
 */
-namespace  // anonymous namespace = not visible outside this source file
-{
-struct Rdb_background_thread
-{
-  struct st_control
-  {
-    bool m_stop= false;
-    bool m_save_stats= false;
 
-    void reset()
-    {
-      *this= st_control();
-    }
-  };
-
-  mysql_mutex_t   m_mutex;
-  mysql_mutex_t   m_stop_mutex;
-  mysql_cond_t    m_stop_cond;
-  st_control      m_control;
-  pthread_t       m_handle;
-
-  void stop_signal()
-  {
-    mysql_mutex_lock(&m_stop_mutex);
-    m_control.m_stop= true;
-    mysql_cond_signal(&m_stop_cond);
-    mysql_mutex_unlock(&m_stop_mutex);
-  }
-
-  void request_save_stats()
-  {
-    mysql_mutex_lock(&m_stop_mutex);
-    m_control.m_save_stats= true;
-    mysql_mutex_unlock(&m_stop_mutex);
-  }
-
-  static void* thread_func(void* not_used_arg MY_ATTRIBUTE((__unused__)));
-};
-}  // anonymous namespace
 static Rdb_background_thread rdb_bg_thread;
 
 
@@ -1228,7 +1191,7 @@ PSI_stage_info stage_waiting_on_row_lock= { 0, "Waiting for row lock", 0};
 
 #ifdef HAVE_PSI_INTERFACE
 static PSI_thread_key rdb_background_psi_thread_key;
-static PSI_thread_key rdb_drop_index_psi_thread_key;
+static PSI_thread_key rdb_drop_idx_psi_thread_key;
 
 static PSI_stage_info *all_rocksdb_stages[]=
 {
@@ -1237,40 +1200,35 @@ static PSI_stage_info *all_rocksdb_stages[]=
 
 
 static my_core::PSI_mutex_key rdb_psi_open_tbls_mutex_key,
-  rdb_background_psi_mutex_key, rdb_stop_bg_psi_mutex_key,
-  rdb_drop_index_psi_mutex_key, rdb_interrupt_drop_index_psi_mutex_key,
+  rdb_signal_bg_psi_mutex_key, rdb_signal_drop_idx_psi_mutex_key,
   key_mutex_tx_list, key_mutex_collation_exception_list,
   rdb_sysvars_psi_mutex_key, rdb_collation_data_mutex_key;
 
 static PSI_mutex_info all_rocksdb_mutexes[]=
 {
-  { &rdb_psi_open_tbls_mutex_key, "rocksdb open tables", PSI_FLAG_GLOBAL},
-  { &rdb_background_psi_mutex_key, "background", PSI_FLAG_GLOBAL},
-  { &rdb_stop_bg_psi_mutex_key, "stop background", PSI_FLAG_GLOBAL},
-  { &rdb_drop_index_psi_mutex_key, "drop index", PSI_FLAG_GLOBAL},
-  { &rdb_interrupt_drop_index_psi_mutex_key, "drop index interrupt",
-      PSI_FLAG_GLOBAL},
-  { &rdb_collation_data_mutex_key, "collation data init",
-      PSI_FLAG_GLOBAL},
+  { &rdb_psi_open_tbls_mutex_key, "open tables", PSI_FLAG_GLOBAL},
+  { &rdb_signal_bg_psi_mutex_key, "stop background", PSI_FLAG_GLOBAL},
+  { &rdb_signal_drop_idx_psi_mutex_key, "signal drop index", PSI_FLAG_GLOBAL},
+  { &rdb_collation_data_mutex_key, "collation data init", PSI_FLAG_GLOBAL},
   { &key_mutex_tx_list, "tx_list", PSI_FLAG_GLOBAL},
   { &key_mutex_collation_exception_list, "collation_exception_list",
       PSI_FLAG_GLOBAL},
   { &rdb_sysvars_psi_mutex_key, "setting sysvar", PSI_FLAG_GLOBAL},
 };
 
-PSI_cond_key rdb_stop_bg_psi_cond_key, rdb_drop_index_interrupt_psi_cond_key;
+PSI_cond_key rdb_signal_bg_psi_cond_key, rdb_signal_drop_idx_psi_cond_key;
 
 static PSI_cond_info all_rocksdb_conds[]=
 {
-  { &rdb_stop_bg_psi_cond_key, "cond_stop_background", PSI_FLAG_GLOBAL},
-  { &rdb_drop_index_interrupt_psi_cond_key, "cond_stop_drop_index",
+  { &rdb_signal_bg_psi_cond_key, "cond signal background", PSI_FLAG_GLOBAL},
+  { &rdb_signal_drop_idx_psi_cond_key, "cond signal drop index",
       PSI_FLAG_GLOBAL},
 };
 
 static PSI_thread_info all_rocksdb_threads[]=
 {
   { &rdb_background_psi_thread_key, "background", PSI_FLAG_GLOBAL},
-  { &rdb_drop_index_psi_thread_key, "drop index", PSI_FLAG_GLOBAL},
+  { &rdb_drop_idx_psi_thread_key, "drop index", PSI_FLAG_GLOBAL},
 };
 
 static void init_rocksdb_psi_keys()
@@ -1298,24 +1256,9 @@ static void init_rocksdb_psi_keys()
 
 
 /*
-  Drop index thread control
+  Drop index thread's control
 */
 
-namespace  // anonymous namespace = not visible outside this source file
-{
-struct Rdb_drop_index_thread
-{
-  mysql_mutex_t   m_mutex;
-  mysql_mutex_t   m_interrupt_mutex;
-  mysql_cond_t    m_interrupt_cond;
-  bool            m_stop;
-  pthread_t       m_handle;
-
-  void signal(bool stop_thread= false);
-
-  static void* thread_func(void* not_used_arg MY_ATTRIBUTE((__unused__)));
-};
-}  // anonymous namespace
 static Rdb_drop_index_thread rdb_drop_idx_thread;
 
 static void rocksdb_drop_index_wakeup_thread(
@@ -2724,18 +2667,21 @@ static int rocksdb_init_func(void *p)
   rocksdb_hton= (handlerton *)p;
   mysql_mutex_init(rdb_psi_open_tbls_mutex_key, &rdb_open_tables.m_mutex,
                    MY_MUTEX_INIT_FAST);
-  mysql_mutex_init(rdb_background_psi_mutex_key, &rdb_bg_thread.m_mutex,
-                   MY_MUTEX_INIT_FAST);
-  mysql_mutex_init(rdb_stop_bg_psi_mutex_key, &rdb_bg_thread.m_stop_mutex,
-                   MY_MUTEX_INIT_FAST);
+#ifdef HAVE_PSI_INTERFACE
+  rdb_bg_thread.init(rdb_signal_bg_psi_mutex_key,
+                     rdb_signal_bg_psi_cond_key);
+  rdb_drop_idx_thread.init(rdb_signal_drop_idx_psi_mutex_key,
+                           rdb_signal_drop_idx_psi_cond_key);
+#else
+  rdb_bg_thread.init();
+  rdb_drop_idx_thread.init();
+#endif
   mysql_mutex_init(rdb_collation_data_mutex_key, &rdb_collation_data_mutex,
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_mutex_collation_exception_list,
                    &collation_exception_list_mutex, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(rdb_sysvars_psi_mutex_key, &rdb_sysvars_mutex,
                    MY_MUTEX_INIT_FAST);
-  mysql_cond_init(rdb_stop_bg_psi_cond_key, &rdb_bg_thread.m_stop_cond,
-                  nullptr);
   rdb_open_tables.init_hash();
   Rdb_transaction::init_mutex();
 
@@ -2761,15 +2707,6 @@ static int rocksdb_init_func(void *p)
   rocksdb_hton->flags= HTON_TEMPORARY_NOT_SUPPORTED |
                        HTON_SUPPORTS_EXTENDED_KEYS |
                        HTON_CAN_RECREATE;
-
-  mysql_mutex_init(rdb_drop_index_psi_mutex_key, &rdb_drop_idx_thread.m_mutex,
-                   MY_MUTEX_INIT_FAST);
-  mysql_mutex_init(rdb_interrupt_drop_index_psi_mutex_key,
-                   &rdb_drop_idx_thread.m_interrupt_mutex,
-                   MY_MUTEX_INIT_FAST);
-  mysql_cond_init(rdb_drop_index_interrupt_psi_cond_key,
-                  &rdb_drop_idx_thread.m_interrupt_cond,
-                  nullptr);
 
   DBUG_ASSERT(!mysqld_embedded);
 
@@ -3025,10 +2962,10 @@ static int rocksdb_init_func(void *p)
     DBUG_RETURN(1);
   }
 
-  auto err= mysql_thread_create(
-    rdb_background_psi_thread_key, &rdb_bg_thread.m_handle,
-    nullptr,
-    Rdb_background_thread::thread_func, nullptr
+  auto err= rdb_bg_thread.create_thread(
+#ifdef HAVE_PSI_INTERFACE
+    rdb_background_psi_thread_key
+#endif
   );
   if (err != 0) {
     sql_print_error("RocksDB: Couldn't start the background thread: (errno=%d)",
@@ -3037,11 +2974,10 @@ static int rocksdb_init_func(void *p)
     DBUG_RETURN(1);
   }
 
-  rdb_drop_idx_thread.m_stop= false;
-  err= mysql_thread_create(
-    rdb_drop_index_psi_thread_key, &rdb_drop_idx_thread.m_handle,
-    nullptr,
-    Rdb_drop_index_thread::thread_func, nullptr
+  err= rdb_drop_idx_thread.create_thread(
+#ifdef HAVE_PSI_INTERFACE
+    rdb_drop_idx_psi_thread_key
+#endif
   );
   if (err != 0) {
     sql_print_error("RocksDB: Couldn't start the drop index thread: (errno=%d)",
@@ -3083,10 +3019,10 @@ static int rocksdb_done_func(void *p)
   // memtable, but since the memtables were just flushed, it should not trigger
   // a flush that can stall due to background threads being stopped. As long
   // as these keys are stored in a WAL file, they can be retrieved on restart.
-  rdb_bg_thread.stop_signal();
+  rdb_bg_thread.signal(true);
 
   // Wait for the background thread to finish.
-  auto err= pthread_join(rdb_bg_thread.m_handle, nullptr);
+  auto err= rdb_bg_thread.join();
   if (err != 0) {
     // We'll log the message and continue because we're shutting down and
     // continuation is the optimal strategy.
@@ -3096,7 +3032,7 @@ static int rocksdb_done_func(void *p)
   }
 
   // Wait for the drop index thread to finish.
-  err= pthread_join(rdb_drop_idx_thread.m_handle, nullptr);
+  err= rdb_drop_idx_thread.join();
   if (err != 0) {
     // NO_LINT_DEBUG
     sql_print_error("RocksDB: Couldn't stop the index thread: (errno=%d)",
@@ -7866,29 +7802,21 @@ rocksdb::Range ha_rocksdb::get_range(
 }
 
 
-void Rdb_drop_index_thread::signal(bool stop_thread)
-{
-  mysql_mutex_lock(&m_interrupt_mutex);
-  if (stop_thread) {
-    m_stop= true;
-  }
-  mysql_cond_signal(&m_interrupt_cond);
-  mysql_mutex_unlock(&m_interrupt_mutex);
-}
+/*
+  Drop index thread's main logic
+*/
 
-void* Rdb_drop_index_thread::thread_func(
-    void* not_used_arg MY_ATTRIBUTE((__unused__)))
+void Rdb_drop_index_thread::run()
 {
-  mysql_mutex_lock(&rdb_drop_idx_thread.m_mutex);
-  mysql_mutex_lock(&rdb_drop_idx_thread.m_interrupt_mutex);
+  mysql_mutex_lock(&m_signal_mutex);
 
   for (;;) {
-    // "stop_drop_index_thread = true" might be set by shutdown command
-    // after drop_index_thread releases drop_index_interrupt_mutex
+    // The stop flag might be set by shutdown command
+    // after drop_index_thread releases signal_mutex
     // (i.e. while executing expensive Seek()). To prevent drop_index_thread
-    // from entering long cond_timedwait, checking if stop_drop_index_thread
+    // from entering long cond_timedwait, checking if stop flag
     // is true or not is needed, with drop_index_interrupt_mutex held.
-    if (rdb_drop_idx_thread.m_stop) {
+    if (m_stop) {
       break;
     }
 
@@ -7899,14 +7827,13 @@ void* Rdb_drop_index_thread::thread_func(
       : 60; // filtering
 
     auto ret MY_ATTRIBUTE((__unused__)) = mysql_cond_timedwait(
-        &rdb_drop_idx_thread.m_interrupt_cond,
-        &rdb_drop_idx_thread.m_interrupt_mutex, &ts);
-    if (rdb_drop_idx_thread.m_stop) {
+        &m_signal_cond, &m_signal_mutex, &ts);
+    if (m_stop) {
       break;
     }
     // make sure, no program error is returned
     DBUG_ASSERT(ret == 0 || ret == ETIMEDOUT);
-    mysql_mutex_unlock(&rdb_drop_idx_thread.m_interrupt_mutex);
+    mysql_mutex_unlock(&m_signal_mutex);
 
     std::vector<GL_INDEX_ID> indices;
     dict_manager.get_drop_indexes_ongoing(&indices);
@@ -7995,14 +7922,12 @@ void* Rdb_drop_index_thread::thread_func(
         dict_manager.done_drop_indexes(finished);
       }
     }
-    mysql_mutex_lock(&rdb_drop_idx_thread.m_interrupt_mutex);
+    mysql_mutex_lock(&m_signal_mutex);
   }
 
-  mysql_mutex_unlock(&rdb_drop_idx_thread.m_interrupt_mutex);
-  mysql_mutex_unlock(&rdb_drop_idx_thread.m_mutex);
-
-  return nullptr;
+  mysql_mutex_unlock(&m_signal_mutex);
 }
+
 
 Rdb_tbl_def* ha_rocksdb::get_table_if_exists(const char* tablename)
 {
@@ -9087,11 +9012,12 @@ static SHOW_VAR rocksdb_status_vars[]= {
 };
 
 
-void* Rdb_background_thread::thread_func(
-    void* not_used_arg MY_ATTRIBUTE((__unused__)))
-{
-  mysql_mutex_lock(&rdb_bg_thread.m_mutex);
+/*
+  Background thread's main logic
+*/
 
+void Rdb_background_thread::run()
+{
   timespec ts_next_sync;
   clock_gettime(CLOCK_REALTIME, &ts_next_sync);
   ts_next_sync.tv_sec++;
@@ -9099,21 +9025,22 @@ void* Rdb_background_thread::thread_func(
   for (;;)
   {
     // wait for 1 second or until we received a condition to stop the thread
-    mysql_mutex_lock(&rdb_bg_thread.m_stop_mutex);
+    mysql_mutex_lock(&m_signal_mutex);
     auto ret MY_ATTRIBUTE((__unused__)) = mysql_cond_timedwait(
-      &rdb_bg_thread.m_stop_cond, &rdb_bg_thread.m_stop_mutex, &ts_next_sync);
+        &m_signal_cond, &m_signal_mutex, &ts_next_sync);
     // make sure that no program error is returned
     DBUG_ASSERT(ret == 0 || ret == ETIMEDOUT);
-    auto local_bg_control= rdb_bg_thread.m_control;
-    rdb_bg_thread.m_control.reset();
-    mysql_mutex_unlock(&rdb_bg_thread.m_stop_mutex);
+    bool local_stop= m_stop;
+    bool local_save_stats= m_save_stats;
+    reset();
+    mysql_mutex_unlock(&m_signal_mutex);
 
-    if (local_bg_control.m_stop)
+    if (local_stop)
     {
       break;
     }
 
-    if (local_bg_control.m_save_stats)
+    if (local_save_stats)
     {
       ddl_manager.persist_stats();
     }
@@ -9137,10 +9064,6 @@ void* Rdb_background_thread::thread_func(
 
   // save remaining stats which might've left unsaved
   ddl_manager.persist_stats();
-
-  mysql_mutex_unlock(&rdb_bg_thread.m_mutex);
-
-  return nullptr;
 }
 
 
