@@ -38,6 +38,7 @@ SET(ROCKSDB_SOURCES
   rdb_perf_context.cc rdb_perf_context.h
   rdb_mutex_wrapper.cc rdb_mutex_wrapper.h
   rdb_utils.cc rdb_utils.h rdb_buff.h
+  rdb_threads.cc rdb_threads.h
   ${ROCKSDB_LIB_SOURCES}
 )
 
