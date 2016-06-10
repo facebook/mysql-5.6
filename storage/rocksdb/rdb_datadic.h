@@ -357,6 +357,10 @@ public:
   void report_checksum_mismatch(bool is_key, const char *data,
                                 size_t data_size) const;
 
+  /* Check if index is at least pk_min if it is a PK,
+    or at least sk_min if SK.*/
+  bool index_format_min_check(int pk_min, int sk_min) const;
+
 private:
 
 #ifndef DBUG_OFF
@@ -518,7 +522,8 @@ private:
   uint m_keynr;
   uint m_key_part;
 public:
-  bool setup(Field *field, uint keynr_arg, uint key_part_arg);
+  bool setup(const Rdb_key_def *key_descr, const Field *field,
+             uint keynr_arg, uint key_part_arg, uint16 key_length);
   Field *get_field_in_table(TABLE *tbl) const;
   void fill_hidden_pk_val(uchar **dst, longlong hidden_pk_id) const;
 };
