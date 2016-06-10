@@ -5860,6 +5860,13 @@ add_group_and_distinct_keys(JOIN *join, JOIN_TAB *join_tab)
     join->sort_and_group= 1;
     cause= "indexed_distinct_aggregate";
   }
+  else if (join->thd->optimizer_switch_flag(OPTIMIZER_SKIP_SCAN) &&
+           join->conds && join->primary_tables == 1)
+  {
+    join->conds->walk(&Item::collect_item_field_processor, 0,
+                      (uchar*) &indexed_fields);
+    cause= "skip_scan";
+  }
   else
     return;
 

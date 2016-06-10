@@ -1,0 +1,3 @@
+
+let $engine=innodb;
+--source include/loose_index_scans.inc

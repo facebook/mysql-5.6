@@ -1524,6 +1524,11 @@ bool Explain_join::explain_extra()
         if (push_extra(ET_USING_INDEX_FOR_GROUP_BY, buff))
           return true;
       }
+      else if (quick_type == QUICK_SELECT_I::QS_TYPE_SKIP_SCAN)
+      {
+        if (push_extra(ET_USING_INDEX_FOR_SKIP_SCAN))
+          return true;
+      }
       else
       {
         if (push_extra(ET_USING_INDEX))

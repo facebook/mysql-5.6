@@ -1,0 +1,3 @@
+
+let $engine=myisam;
+--source include/loose_index_scans.inc

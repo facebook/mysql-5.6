@@ -39,6 +39,7 @@ static const char *traditional_extra_tags[ET_total]=
   "Open_full_table",                   // ET_OPEN_FULL_TABLE
   "Scanned",                           // ET_SCANNED_DATABASES
   "Using index for group-by",          // ET_USING_INDEX_FOR_GROUP_BY
+  "Using index for skip scan",         // ET_USING_INDEX_FOR_SKIP_SCAN,
   "Distinct",                          // ET_DISTINCT
   "LooseScan",                         // ET_LOOSESCAN
   "Start temporary",                   // ET_START_TEMPORARY
