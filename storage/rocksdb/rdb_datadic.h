@@ -577,13 +577,13 @@ inline Field* Rdb_key_def::get_table_field_for_part_no(TABLE *table,
 
 inline bool Rdb_key_def::can_unpack(uint kp) const
 {
-  DBUG_ASSSERT(kp < m_key_parts);
+  DBUG_ASSERT(kp < m_key_parts);
   return (m_pack_info[kp].m_unpack_func != nullptr);
 }
 
 inline bool Rdb_key_def::has_unpack_info(uint kp) const
 {
-  DBUG_ASSSERT(kp < m_key_parts);
+  DBUG_ASSERT(kp < m_key_parts);
   return (m_pack_info[kp].
           m_make_unpack_field.
           m_make_unpack_info_func != nullptr);
