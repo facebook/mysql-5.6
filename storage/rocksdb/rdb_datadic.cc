@@ -205,7 +205,7 @@ void Rdb_key_def::setup(TABLE *tbl, Rdb_tbl_def *tbl_def)
     if (is_hidden_pk)
     {
       Field *field= nullptr;
-      m_pack_info[dst_i].setup(field, keyno_to_set, 0);
+      m_pack_info[dst_i].setup(this, field, keyno_to_set, 0, 0);
       m_pack_info[dst_i].m_unpack_data_offset= unpack_len;
       max_len    += m_pack_info[dst_i].m_max_image_len;
       max_part_len= std::max(max_part_len, m_pack_info[dst_i].m_max_image_len);
@@ -243,7 +243,8 @@ void Rdb_key_def::setup(TABLE *tbl, Rdb_tbl_def *tbl_def)
         if (field && field->real_maybe_null())
           max_len +=1;  // NULL-byte
 
-        m_pack_info[dst_i].setup(field, keyno_to_set, keypart_to_set);
+        m_pack_info[dst_i].setup(this, field, keyno_to_set, keypart_to_set,
+                                 key_part ? key_part->length : 0);
         m_pack_info[dst_i].m_unpack_data_offset= unpack_len;
 
         if (pk_info)
@@ -1047,6 +1048,21 @@ void Rdb_key_def::report_checksum_mismatch(bool is_key, const char *data,
                   (uint64_t)data_size, buf.c_str());
 
   my_error(ER_INTERNAL_ERROR, MYF(0), "Record checksum mismatch");
+}
+
+bool Rdb_key_def::index_format_min_check(int pk_min, int sk_min) const
+{
+  switch (m_index_type)
+  {
+    case INDEX_TYPE_PRIMARY:
+    case INDEX_TYPE_HIDDEN_PRIMARY:
+      return (m_kv_format_version >= pk_min);
+    case INDEX_TYPE_SECONDARY:
+      return (m_kv_format_version >= sk_min);
+    default:
+      DBUG_ASSERT(0);
+      return false;
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -1891,7 +1907,9 @@ static const Rdb_collation_codec *rdb_init_collation_mapping(
     FALSE -  Otherwise
 */
 
-bool Rdb_field_packing::setup(Field *field, uint keynr_arg, uint key_part_arg)
+bool Rdb_field_packing::setup(const Rdb_key_def *key_descr, const Field *field,
+                              uint keynr_arg, uint key_part_arg,
+                              uint16 key_length)
 {
   int res= false;
   enum_field_types type= field ? field->real_type() : MYSQL_TYPE_LONGLONG;
@@ -1945,6 +1963,36 @@ bool Rdb_field_packing::setup(Field *field, uint keynr_arg, uint key_part_arg)
       */
       m_unpack_func= rdb_unpack_newdate;
       return true;
+    case MYSQL_TYPE_TINY_BLOB:
+    case MYSQL_TYPE_MEDIUM_BLOB:
+    case MYSQL_TYPE_LONG_BLOB:
+    case MYSQL_TYPE_BLOB:
+    {
+      bool override_check= false;
+      DBUG_EXECUTE_IF("myrocks_enable_blob_fix",
+                      override_check= true;);
+
+      if (override_check ||
+          (key_descr &&
+           key_descr->index_format_min_check(
+             Rdb_key_def::PRIMARY_FORMAT_VERSION_UNPACK_INFO,
+             Rdb_key_def::SECONDARY_FORMAT_VERSION_UNPACK_INFO)))
+      {
+        // The my_charset_bin collation is special in that it will consider
+        // shorter strings sorting as less than longer strings.
+        //
+        // See Field_blob::make_sort_key for details.
+        m_max_image_len= key_length +
+          (field->charset() == &my_charset_bin
+           ? reinterpret_cast<const Field_blob*>(field)->pack_length_no_ptr()
+           : 0);
+        // Return false because indexes on text/blob will always require
+        // a prefix. With a prefix, the optimizer will not be able to do an
+        // index-only scan since there may be content occuring after the prefix
+        // length.
+        return false;
+      }
+    }
     default:
       break;
   }
@@ -1966,7 +2014,7 @@ bool Rdb_field_packing::setup(Field *field, uint keynr_arg, uint key_part_arg)
   {
     m_varchar_charset= cs;
     m_field_data_offset=
-        reinterpret_cast<Field_varstring*>(field)->length_bytes;
+        reinterpret_cast<const Field_varstring*>(field)->length_bytes;
     m_skip_func= rdb_skip_variable_length;
     m_pack_func= rdb_pack_with_varchar_encoding;
     m_max_image_len=
