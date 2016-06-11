@@ -8282,7 +8282,7 @@ void Field_blob::make_sort_key(uchar *to,uint length)
   uchar *blob;
   uint blob_length=get_length();
 
-  if (!blob_length)
+  if (!blob_length && field_charset->pad_char == 0)
     memset(to, 0, length);
   else
   {
