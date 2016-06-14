@@ -8295,19 +8295,20 @@ void Field_blob::make_sort_key(uchar *to,uint length)
       */
       length-= packlength;
       pos= to+length;
+      uint key_length= MY_MIN(blob_length, length);
 
       switch (packlength) {
       case 1:
-        *pos= (char) blob_length;
+        *pos= (char) key_length;
         break;
       case 2:
-        mi_int2store(pos, blob_length);
+        mi_int2store(pos, key_length);
         break;
       case 3:
-        mi_int3store(pos, blob_length);
+        mi_int3store(pos, key_length);
         break;
       case 4:
-        mi_int4store(pos, blob_length);
+        mi_int4store(pos, key_length);
         break;
       }
     }

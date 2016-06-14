@@ -247,10 +247,10 @@ INSERT INTO t1 set c = concat(repeat('x',28),'g','w');
 SELECT c from t1 ORDER BY c, id;
 c
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxrx
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxsy
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxgw
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxrx
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxsy
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxgw
