@@ -1392,6 +1392,9 @@ static int rdb_unpack_utf8_str(
       return UNPACK_FAILURE;
     dst += res;
   }
+
+  cset->cset->fill(cset, reinterpret_cast<char *>(dst),
+                   dst_end - dst, cset->pad_char);
   return UNPACK_SUCCESS;
 }
 
