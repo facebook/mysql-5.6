@@ -15,75 +15,26 @@ CREATE TABLE t2 (id1 INT, id2 INT, id3 INT,
                  PRIMARY KEY (id1, id2, id3),
                  UNIQUE KEY (id3, id1) COMMENT 'rev:cf') ENGINE=ROCKSDB;
 
-let $max_table = 2;
 
---disable_query_log
-let $table = 1;
-while ($table <= $max_table) {
-  let $max = 9;
-  let $i = 2;
-  while ($i <= $max) {
-    let $insert = INSERT INTO t$table VALUES ($i, $i, $i);
-    eval $insert;
-    inc $i;
-  }
-  inc $table;
-}
---enable_query_log
+--source suite/rocksdb/include/dup_key_update.inc
 
-let $table = 1;
-while ($table <= $max_table) {
-  let $i = 1;
-  let $j = 9;
-  while ($i <= $max) {
-    
-    let $insert = INSERT INTO t$table VALUES ($i, $i, $i) ON DUPLICATE KEY UPDATE id2 = $j;
-    eval $insert;
+# Cleanup
+DROP TABLE t1;
+DROP TABLE t2;
 
-    let $select = SELECT * FROM t$table WHERE id1 = $i;
-    eval $select;
+CREATE TABLE t1 (id1 varchar(128) CHARACTER SET latin1 COLLATE latin1_bin,
+                 id2 varchar(256) CHARACTER SET utf8 COLLATE utf8_bin,
+                 id3 varchar(200) CHARACTER SET latin1 COLLATE latin1_swedish_ci,
+                 PRIMARY KEY (id1, id2, id3),
+                 UNIQUE KEY (id3, id1)) ENGINE=ROCKSDB;
 
-    let $select = SELECT * FROM t$table FORCE INDEX (id3) WHERE id3 = $i;
-    eval $select;
+CREATE TABLE t2 (id1 varchar(128) CHARACTER SET latin1 COLLATE latin1_bin,
+                 id2 varchar(256) CHARACTER SET utf8 COLLATE utf8_bin,
+                 id3 varchar(200) CHARACTER SET latin1 COLLATE latin1_swedish_ci,
+                 PRIMARY KEY (id1, id2, id3),
+                 UNIQUE KEY (id3, id1) COMMENT 'rev:cf') ENGINE=ROCKSDB;
 
-    inc $j;
-
-    let $insert = INSERT INTO t$table VALUES ($i, $i, $i) ON DUPLICATE KEY UPDATE id2 = $j;
-    eval $insert;
-
-    let $select = SELECT * FROM t$table WHERE id1 = $i;
-    eval $select;
-
-    let $select = SELECT * FROM t$table FORCE INDEX (id3) WHERE id3 = $i;
-    eval $select;
-
-    inc $j;
-
-    let $insert = INSERT INTO t$table VALUES ($i, $i, $i) ON DUPLICATE KEY UPDATE id2 = $j;
-    eval $insert;
-
-    let $select = SELECT * FROM t$table WHERE id1 = $i;
-    eval $select;
-
-    let $select = SELECT * FROM t$table FORCE INDEX (id3) WHERE id3 = $i;
-    eval $select;
-
-    inc $j;
-
-    inc $i;
-    inc $i;
-    inc $i;
-    inc $i;
-  }
-
-  let $select = SELECT * FROM t$table;
-  eval $select;
-
-  let $select = SELECT * FROM t$table FORCE INDEX (id3);
-  eval $select;
-
-  inc $table;
-}
+--source suite/rocksdb/include/dup_key_update.inc
 
 # Cleanup
 DROP TABLE t1;
