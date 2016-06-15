@@ -5462,10 +5462,7 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
                                key_part_map keypart_map,
                                enum ha_rkey_function find_flag)
 {
-  int rc= index_read_map_impl(buf, key, keypart_map, find_flag, nullptr);
-  if (rc == HA_ERR_KEY_NOT_FOUND)
-    rc = HA_ERR_END_OF_FILE;
-  return rc;
+  return index_read_map_impl(buf, key, keypart_map, find_flag, nullptr);
 }
 
 /*
