@@ -1330,7 +1330,6 @@ int rdb_unpack_newdate(
 {
   const char* from;
   DBUG_ASSERT(fpi->m_max_image_len == 3);
-  DBUG_ASSERT(fpi->m_field_data_offset == 0);
 
   if (!(from= reader->read(3)))
     return UNPACK_FAILURE; /* Mem-comparable image doesn't have enough bytes */
@@ -1358,7 +1357,7 @@ static int rdb_unpack_binary_str(
   if (!(from= reader->read(fpi->m_max_image_len)))
     return UNPACK_FAILURE; /* Mem-comparable image doesn't have enough bytes */
 
-  memcpy(to + fpi->m_field_data_offset, from, fpi->m_max_image_len);
+  memcpy(to, from, fpi->m_max_image_len);
   return UNPACK_SUCCESS;
 }
 
@@ -1371,7 +1370,7 @@ static int rdb_unpack_binary_str(
 
 static int rdb_unpack_utf8_str(
     Rdb_field_packing *fpi, Field *field,
-    uchar *field_ptr,
+    uchar *dst,
     Rdb_string_reader *reader,
     Rdb_string_reader *unp_reader MY_ATTRIBUTE((__unused__)))
 {
@@ -1381,7 +1380,6 @@ static int rdb_unpack_utf8_str(
     return UNPACK_FAILURE; /* Mem-comparable image doesn't have enough bytes */
 
   const uchar *src_end= src + fpi->m_max_image_len;
-  uchar *dst= field_ptr + fpi->m_field_data_offset;
   uchar *dst_end= dst + field->pack_length();
 
   while (src < src_end)
@@ -1467,8 +1465,9 @@ static int rdb_unpack_binary_or_utf8_varchar(
   const uchar *ptr;
   size_t len= 0;
   bool finished= false;
-  dst += fpi->m_field_data_offset;
+  uchar *d0= dst;
   Field_varstring* field_var= (Field_varstring*)field;
+  dst += field_var->length_bytes;
   // How much we can unpack
   size_t dst_len= field_var->pack_length() - field_var->length_bytes;
   uchar *dst_end= dst + dst_len;
@@ -1542,12 +1541,12 @@ static int rdb_unpack_binary_or_utf8_varchar(
   /* Save the length */
   if (field_var->length_bytes == 1)
   {
-    field->ptr[0]= len;
+    d0[0]= len;
   }
   else
   {
     DBUG_ASSERT(field_var->length_bytes == 2);
-    int2store(field->ptr, len);
+    int2store(d0, len);
   }
   return UNPACK_SUCCESS;
 }
@@ -1574,7 +1573,6 @@ static int rdb_unpack_unknown(Rdb_field_packing *fpi, Field *field,
                               Rdb_string_reader *unp_reader)
 {
   const uchar *ptr;
-  dst += fpi->m_field_data_offset;
   uint len = fpi->m_unpack_data_len;
   // We don't use anything from the key, so skip over it.
   if (rdb_skip_max_length(fpi, field, reader))
@@ -1619,8 +1617,9 @@ static int rdb_unpack_unknown_varchar(Rdb_field_packing *fpi, Field *field,
                                       Rdb_string_reader *unp_reader)
 {
   const uchar *ptr;
-  dst += fpi->m_field_data_offset;
+  uchar *d0= dst;
   auto f= static_cast<Field_varstring *>(field);
+  dst += f->length_bytes;
   uint len_bytes= f->length_bytes;
   // We don't use anything from the key, so skip over it.
   if (rdb_skip_variable_length(fpi, field, reader))
@@ -1635,7 +1634,7 @@ static int rdb_unpack_unknown_varchar(Rdb_field_packing *fpi, Field *field,
   }
   if ((ptr= (const uchar*)unp_reader->read(len_bytes)))
   {
-    memcpy(field->ptr, ptr, len_bytes);
+    memcpy(d0, ptr, len_bytes);
     uint len= len_bytes == 1 ? (uint) *ptr : uint2korr(ptr);
     if ((ptr= (const uchar*)unp_reader->read(len)))
     {
@@ -1719,10 +1718,11 @@ static int rdb_unpack_simple_varchar(Rdb_field_packing *fpi, Field *field,
   const uchar *ptr;
   size_t len= 0;
   bool finished= false;
-  dst += fpi->m_field_data_offset;
+  uchar *d0= dst;
   Field_varstring* field_var= static_cast<Field_varstring*>(field);
   // For simple collations, char_length is also number of bytes.
   DBUG_ASSERT((size_t)fpi->m_max_image_len >= field_var->char_length());
+  dst += field_var->length_bytes;
   // How much we can unpack
   size_t dst_len= field_var->pack_length() - field_var->length_bytes;
   Rdb_bit_reader bit_reader(unp_reader);
@@ -1774,12 +1774,12 @@ static int rdb_unpack_simple_varchar(Rdb_field_packing *fpi, Field *field,
   /* Save the length */
   if (field_var->length_bytes == 1)
   {
-    field->ptr[0]= len;
+    d0[0]= len;
   }
   else
   {
     DBUG_ASSERT(field_var->length_bytes == 2);
-    int2store(field->ptr, len);
+    int2store(d0, len);
   }
   return UNPACK_SUCCESS;
 }
@@ -1808,7 +1808,6 @@ static int rdb_unpack_simple(Rdb_field_packing *fpi,
                              Rdb_string_reader *unp_reader)
 {
   const uchar *ptr;
-  dst += fpi->m_field_data_offset;
   uint len = fpi->m_max_image_len;
   const Rdb_collation_codec* codec= fpi->m_make_unpack_field.m_charset_codec;
   Rdb_bit_reader bit_reader(unp_reader);
@@ -1921,7 +1920,6 @@ bool Rdb_field_packing::setup(const Rdb_key_def *key_descr, const Field *field,
   m_unpack_func= nullptr;
   m_make_unpack_field.m_make_unpack_info_func= nullptr;
   m_unpack_data_len= 0;
-  m_field_data_offset= 0;
 
   /* Calculate image length. By default, is is pack_length() */
   m_max_image_len= field ? field->pack_length() :
@@ -2013,8 +2011,6 @@ bool Rdb_field_packing::setup(const Rdb_key_def *key_descr, const Field *field,
   if (is_varchar)
   {
     m_varchar_charset= cs;
-    m_field_data_offset=
-        reinterpret_cast<const Field_varstring*>(field)->length_bytes;
     m_skip_func= rdb_skip_variable_length;
     m_pack_func= rdb_pack_with_varchar_encoding;
     m_max_image_len=
