@@ -470,9 +470,6 @@ public:
   int m_unpack_data_len;
   int m_unpack_data_offset;
 
-  /* Offset of field data in table->record[i] from field->ptr. */
-  int m_field_data_offset;
-
   bool m_maybe_null; /* TRUE <=> NULL-byte is stored */
 
   /*
