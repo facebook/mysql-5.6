@@ -89,6 +89,7 @@ MAX_ROWS_PER_REQ = 10
 
 # global variable checked by threads to determine if the test is stopping
 TEST_STOP = False
+LOADERS_READY = 0
 
 # global monotonically increasing request id counter
 REQUEST_ID = 1
@@ -117,6 +118,7 @@ def is_connection_error(exc):
           error_code == MySQLdb.constants.CR.CONN_HOST_ERROR or
           error_code == MySQLdb.constants.CR.SERVER_LOST or
           error_code == MySQLdb.constants.CR.SERVER_GONE_ERROR or
+          error_code == MySQLdb.constants.ER.QUERY_INTERRUPTED or
           error_code == MySQLdb.constants.ER.SERVER_SHUTDOWN)
 
 def is_deadlock_error(exc):
@@ -239,6 +241,41 @@ class WorkerThread(threading.Thread):
 
     if isolation_level is None or persist:
       self.isolation_level = isolation_level
+
+# periodically kills the server
+class ReaperWorker(WorkerThread):
+  def __init__(self):
+    WorkerThread.__init__(self, 'reaper')
+    self.start()
+    self.kills = 0
+
+  def finish(self):
+    logging.info('complete with %d kills' % self.kills)
+    if self.con:
+      self.con.close()
+
+  def get_server_pid(self):
+    execute(self.cur, "SELECT @@pid_file")
+    if self.cur.rowcount != 1:
+      raise TestError("Unable to retrieve pid_file")
+    return int(open(self.cur.fetchone()[0]).read())
+
+  def runme(self):
+    global TEST_STOP
+    time_remain = random.randint(10, 30)
+    while not TEST_STOP:
+      if time_remain > 0:
+        time_remain -= 1
+        time.sleep(1)
+        continue
+      if self.reconnect():
+        raise Exception("Unable to connect to MySQL server")
+      logging.info('killing server...')
+      with open(OPTIONS.expect_file, 'w+') as expect_file:
+        expect_file.write('restart')
+      os.kill(self.get_server_pid(), signal.SIGTERM)
+      self.kills += 1
+      time_remain = random.randint(0, 30) + OPTIONS.reap_delay;
 
 # runs initially to populate the table with the given number of rows
 class PopulateWorker(WorkerThread):
@@ -660,7 +697,7 @@ class LoadGenWorker(WorkerThread):
       logging.info("Processed %d transactions so far" % self.loop_num)
 
   def runme(self):
-    global TEST_STOP
+    global TEST_STOP, LOADERS_READY
 
     self.start_time = time.time()
     if self.reconnect():
@@ -671,6 +708,7 @@ class LoadGenWorker(WorkerThread):
 
     logging.info("Starting load generator")
     reconnected = False
+    LOADERS_READY += 1
 
     while self.loop_num < self.num_requests and not TEST_STOP:
       try:
@@ -887,6 +925,13 @@ if  __name__ == '__main__':
   parser.add_argument('-v, --verbose', dest='verbose', action='store_true',
                       help="enable debug logging")
 
+  parser.add_argument('-E, --expect-file', dest='expect_file', default=None,
+                      help="expect file for server restart")
+
+  parser.add_argument('-D, --reap-delay', dest='reap_delay', type=int,
+                      default=0,
+                      help="seconds to sleep after each server reap")
+
   OPTIONS = parser.parse_args()
 
   if OPTIONS.verbose:
@@ -958,8 +1003,15 @@ if  __name__ == '__main__':
   for i in xrange(OPTIONS.num_checkers):
     checkers.append(CheckerWorker(i))
 
+  while LOADERS_READY < OPTIONS.num_loaders:
+    time.sleep(0.5)
+
+  if OPTIONS.expect_file and OPTIONS.reap_delay > 0:
+    logging.info('Starting reaper')
+    checkers.append(ReaperWorker())
+
   workers_failed = 0
-  workers_failed += wait_for_workers(loaders, OPTIONS.num_checkers)
+  workers_failed += wait_for_workers(loaders, len(checkers))
 
   if TEST_STOP:
     logging.error("Detected test failure, aborting")
