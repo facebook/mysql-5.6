@@ -12,9 +12,14 @@ let $exec =
   python $MYSQL_BASEDIR/mysql-test/suite/rocksdb_stress/t/load_generator.py
   -L $MYSQL_TMP_DIR/load_generator.log -H $master_host -t $table
   -P $MASTER_MYPORT -n $num_records -m $max_records
-  -l $num_loaders -c $num_checkers -r $num_requests;
+  -l $num_loaders -c $num_checkers -r $num_requests
+  -E $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+  -D $reap_delay;
 
 exec $exec;
+
+enable_reconnect;
+source include/wait_until_connected_again.inc;
 
 --let $master_checksum = query_get_value(CHECKSUM TABLE $table, Checksum, 1)
 
