@@ -527,8 +527,10 @@ static MYSQL_SYSVAR_ENUM(info_log_level,
 static MYSQL_THDVAR_INT(perf_context_level,
   PLUGIN_VAR_RQCMDARG,
   "Perf Context Level for rocksdb internal timer stat collection",
-  nullptr, nullptr, -1,
-  /* min */ -1, /* max */ INT_MAX, 0);
+  nullptr, nullptr,
+  /* default */ rocksdb::PerfLevel::kUninitialized,
+  /* min */ rocksdb::PerfLevel::kUninitialized,
+  /* max */ rocksdb::PerfLevel::kEnableTime, 0);
 
 static MYSQL_SYSVAR_UINT(wal_recovery_mode,
   rocksdb_wal_recovery_mode,
@@ -1274,9 +1276,10 @@ static void rocksdb_drop_index_wakeup_thread(
 
 static inline uint32_t rocksdb_perf_context_level(THD* thd)
 {
+  DBUG_ASSERT(thd != nullptr);
+
   int session_perf_context_level= THDVAR(thd, perf_context_level);
-  if (session_perf_context_level >= 0)
-  {
+  if (session_perf_context_level > rocksdb::PerfLevel::kUninitialized) {
     return session_perf_context_level;
   }
 
@@ -1284,13 +1287,13 @@ static inline uint32_t rocksdb_perf_context_level(THD* thd)
     Fallback to global thdvar, if session specific one was not set to a valid
     value.
   */
+
   int global_perf_context_level= THDVAR(nullptr, perf_context_level);
-  if (global_perf_context_level >= 0)
-  {
+  if (global_perf_context_level > rocksdb::PerfLevel::kUninitialized) {
     return global_perf_context_level;
   }
 
-  return 0;
+  return rocksdb::PerfLevel::kDisable;
 }
 
 /*
