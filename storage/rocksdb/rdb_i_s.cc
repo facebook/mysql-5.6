@@ -441,8 +441,6 @@ static int rdb_i_s_cfoptions_fill_table(
           opts.purge_redundant_kvs_while_flush ? "ON" : "OFF"},
       {"VERIFY_CHECKSUM_IN_COMPACTION",
           opts.verify_checksums_in_compaction ? "ON" : "OFF"},
-      {"FILTER_DELETES",
-          opts.filter_deletes ? "ON" : "OFF"},
       {"MAX_SEQUENTIAL_SKIP_IN_ITERATIONS",
           std::to_string(opts.max_sequential_skip_in_iterations)},
       {"MEMTABLE_FACTORY",
