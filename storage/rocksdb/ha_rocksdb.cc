@@ -530,7 +530,7 @@ static MYSQL_THDVAR_INT(perf_context_level,
   nullptr, nullptr,
   /* default */ rocksdb::PerfLevel::kUninitialized,
   /* min */ rocksdb::PerfLevel::kUninitialized,
-  /* max */ rocksdb::PerfLevel::kEnableTime, 0);
+  /* max */ rocksdb::PerfLevel::kOutOfBounds - 1, 0);
 
 static MYSQL_SYSVAR_UINT(wal_recovery_mode,
   rocksdb_wal_recovery_mode,
