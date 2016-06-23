@@ -1497,6 +1497,11 @@ public:
 
   ulonglong get_lock_count() const { return m_lock_count; }
 
+  void set_sync(bool sync)
+  {
+    m_rocksdb_tx->GetWriteOptions()->sync= sync;
+  }
+
   void release_lock(rocksdb::ColumnFamilyHandle* column_family,
                     const std::string &rowkey)
   {
@@ -1945,7 +1950,6 @@ public:
   {
     // Create a notifier that can be called when a snapshot gets generated.
     m_notifier = std::make_shared<Rdb_snapshot_notifier>(this);
-
     mysql_mutex_lock(&s_tx_list_mutex);
     s_tx_list.insert(this);
     mysql_mutex_unlock(&s_tx_list_mutex);
@@ -2084,9 +2088,21 @@ static std::string rdb_xid_to_string(const XID& src)
 
 
 /**
-  Doing nothing at prepare() on master. But defining handler::prepare() is
-  needed for Xid binlog event to be written at commit.
+  Called by hton->flush_logs after MySQL group commit prepares a set of
+  transactions.
+*/
+static bool rocksdb_flush_wal(handlerton* hton MY_ATTRIBUTE((__unused__)),
+                              ulonglong target_lsn MY_ATTRIBUTE((__unused__)))
+{
+  DBUG_ASSERT(rdb != nullptr);
+  rocksdb::Status s= rdb->SyncWAL();
+  if (!s.ok()) {
+    return 1;
+  }
+  return 0;
+}
 
+/**
   For a slave, prepare() updates the slave_gtid_info table which tracks the
   replication progress.
 */
@@ -2110,10 +2126,19 @@ static int rocksdb_prepare(handlerton* hton, THD* thd, bool prepare_tx,
     }
 
     if (tx->is_two_phase()) {
+      if (thd->durability_property == HA_IGNORE_DURABILITY || async) {
+        tx->set_sync(false);
+      }
       XID xid;
       thd_get_xid(thd, reinterpret_cast<MYSQL_XID*>(&xid));
       if (!tx->prepare(rdb_xid_to_string(xid))) {
         return 1;
+      }
+      if (thd->durability_property == HA_IGNORE_DURABILITY) {
+        /**
+          we set the log sequence as '1' just to trigger hton->flush_logs
+        */
+        thd_store_lsn(thd, 1, DB_TYPE_ROCKSDB);
       }
     }
 
@@ -2848,6 +2873,7 @@ static int rocksdb_init_func(void *p)
   rocksdb_hton->savepoint_rollback_can_release_mdl=
     rocksdb_rollback_to_savepoint_can_release_mdl;
   rocksdb_hton->update_table_stats = rocksdb_update_table_stats;
+  rocksdb_hton->flush_logs= rocksdb_flush_wal;
 
   rocksdb_hton->flags= HTON_TEMPORARY_NOT_SUPPORTED |
                        HTON_SUPPORTS_EXTENDED_KEYS |
