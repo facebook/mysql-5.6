@@ -4369,6 +4369,18 @@ int ha_rocksdb::create_cfs(TABLE *table_arg, const char *db_table,
 
   DBUG_ENTER("ha_rocksdb::create_cfs");
 
+  StringBuffer<256> dbname, tablename, partname;
+  char tablename_sys[NAME_LEN + 1];
+
+  if (rdb_split_normalized_tablename(db_table, &dbname, &tablename,
+                                     &partname))
+  {
+    DBUG_RETURN(1);
+  }
+
+  my_core::filename_to_tablename(tablename.c_ptr(), tablename_sys,
+                                 sizeof(tablename_sys));
+
   /*
     The first loop checks the index parameters and creates
     column families if necessary.
@@ -4384,7 +4396,7 @@ int ha_rocksdb::create_cfs(TABLE *table_arg, const char *db_table,
       {
         if (!rdb_is_index_collation_supported(
             table_arg->key_info[i].key_part[part].field) &&
-            !is_table_in_collation_exception_list(table_arg->s->table_name.str))
+            !is_table_in_collation_exception_list(tablename_sys))
         {
           std::string collation_err;
           for (auto coll : RDB_INDEX_COLLATIONS)
@@ -8805,7 +8817,6 @@ bool ha_rocksdb::commit_inplace_alter_table(
     bool commit)
 {
   DBUG_ENTER("commit_inplace_alter_table");
-  DBUG_ASSERT(ha_alter_info->handler_ctx);
   Rdb_inplace_alter_ctx* ctx=
     static_cast<Rdb_inplace_alter_ctx*> (ha_alter_info->handler_ctx);
 
