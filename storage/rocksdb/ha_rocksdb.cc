@@ -3571,7 +3571,7 @@ bool ha_rocksdb::init_with_fields()
 void ha_rocksdb::write_unpack_info()
 {
   if (m_pk_descr->m_kv_format_version >=
-      Rdb_key_def::PRIMARY_FORMAT_VERSION_UNPACK_INFO &&
+      Rdb_key_def::PRIMARY_FORMAT_VERSION_UPDATE1 &&
       m_maybe_unpack_info)
   {
     uint offset= m_null_bytes_in_rec;
@@ -3885,7 +3885,7 @@ int ha_rocksdb::convert_record_from_storage_format(const rocksdb::Slice *key,
   }
 
   if (m_maybe_unpack_info && m_pk_descr->m_kv_format_version >=
-      Rdb_key_def::PRIMARY_FORMAT_VERSION_UNPACK_INFO)
+      Rdb_key_def::PRIMARY_FORMAT_VERSION_UPDATE1)
   {
     unpack_info= reader.read(RDB_UNPACK_HEADER_SIZE);
 
@@ -4070,13 +4070,36 @@ int ha_rocksdb::convert_record_from_storage_format(const rocksdb::Slice *key,
   return 0;
 }
 
+
 void ha_rocksdb::get_storage_type(Rdb_field_encoder *encoder, uint kp)
 {
+  Field *field= table->key_info[table->s->primary_key].key_part[kp].field;
+
+  if (field->real_type() == MYSQL_TYPE_NEWDECIMAL)
+  {
+    // Index-only is supported for DECIMAL columns.
+    // A DECIMAL value can be restored from its mem-comparable form.
+    // This works for both the old data format and the new data format.
+    if (m_pk_descr->m_kv_format_version >=
+        Rdb_key_def::PRIMARY_FORMAT_VERSION_UPDATE1)
+    {
+      // New format, don't store Decimal value in the row.
+      encoder->m_storage_type= Rdb_field_encoder::STORE_NONE;
+    }
+    else
+    {
+      // Old format. Pretend there's no way to unpack the decimal from
+      // its mem-comparable form.
+      encoder->m_storage_type= Rdb_field_encoder::STORE_ALL;
+    }
+    return;
+  }
+
   if (m_pk_descr->m_kv_format_version >=
-      Rdb_key_def::PRIMARY_FORMAT_VERSION_UNPACK_INFO)
+      Rdb_key_def::PRIMARY_FORMAT_VERSION_UPDATE1)
   {
     // STORE_SOME uses unpack_info, so our key must be of version
-    // higher than PRIMARY_FORMAT_VERSION_UNPACK_INFO to use this
+    // higher than PRIMARY_FORMAT_VERSION_UPDATE1 to use this
     // feature.
     if (m_pk_descr->has_unpack_info(kp))
     {
@@ -4785,7 +4808,12 @@ int ha_rocksdb::create_key_def(const TABLE *table_arg, uint i,
   else if (i == table_arg->s->primary_key)
   {
     index_type= Rdb_key_def::INDEX_TYPE_PRIMARY;
-    kv_version= Rdb_key_def::PRIMARY_FORMAT_VERSION_LATEST;
+    uint16 pk_latest_version= Rdb_key_def::PRIMARY_FORMAT_VERSION_LATEST;
+    DBUG_EXECUTE_IF("myrocks_data_format_decimal_index_only",
+                    {pk_latest_version=
+                       Rdb_key_def::PRIMARY_FORMAT_VERSION_UPDATE1;
+                    });
+    kv_version= pk_latest_version;
   }
   else
   {
