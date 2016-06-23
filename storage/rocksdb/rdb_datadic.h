@@ -332,9 +332,12 @@ public:
   // Key/Value format version for each index type
   enum {
     PRIMARY_FORMAT_VERSION_INITIAL= 10,
-    // This change the PK format to include unpack_info. It also adds the
-    // ability for the DECMIAL type to be decoded from its memcomparable form.
-    PRIMARY_FORMAT_VERSION_UNPACK_INFO= 11,
+    // This change includes:
+    //  - For columns that can be unpacked with unpack_info, PK
+    //    stores the unpack_info.
+    //  - DECIMAL datatype is no longer stored in the row (because
+    //    it can be decoded from its mem-comparable form)
+    PRIMARY_FORMAT_VERSION_UPDATE1= 11,
     PRIMARY_FORMAT_VERSION_LATEST= PRIMARY_FORMAT_VERSION_INITIAL,
 
     SECONDARY_FORMAT_VERSION_INITIAL= 10,
