@@ -918,7 +918,7 @@ int Rdb_key_def::unpack_record(TABLE *table, uchar *buf,
 
     bool do_unpack= secondary_key ||
       !fpi->m_make_unpack_field.m_make_unpack_info_func ||
-      (m_kv_format_version >= Rdb_key_def::PRIMARY_FORMAT_VERSION_UNPACK_INFO);
+      (m_kv_format_version >= Rdb_key_def::PRIMARY_FORMAT_VERSION_UPDATE1);
     if (fpi->m_unpack_func && do_unpack)
     {
       /* It is possible to unpack this column. Do it. */
@@ -1947,6 +1947,14 @@ bool Rdb_field_packing::setup(const Rdb_key_def *key_descr, const Field *field,
       m_unpack_func= rdb_unpack_float;
       return true;
 
+    case MYSQL_TYPE_NEWDECIMAL:
+      /*
+        Decimal is packed with Field_new_decimal::make_sort_key, which just
+        does memcpy.
+        Unpacking decimal values was supported only after fix for issue#253,
+        because of that ha_rocksdb::get_storage_type() handles decimal values
+        in a special way.
+      */
     case MYSQL_TYPE_DATETIME2:
     case MYSQL_TYPE_TIMESTAMP2:
       /* These are packed with Field_temporal_with_date_and_timef::make_sort_key */
@@ -1976,7 +1984,7 @@ bool Rdb_field_packing::setup(const Rdb_key_def *key_descr, const Field *field,
       if (override_check ||
           (key_descr &&
            key_descr->index_format_min_check(
-             Rdb_key_def::PRIMARY_FORMAT_VERSION_UNPACK_INFO,
+             Rdb_key_def::PRIMARY_FORMAT_VERSION_UPDATE1,
              Rdb_key_def::SECONDARY_FORMAT_VERSION_UNPACK_INFO)))
       {
         // The my_charset_bin collation is special in that it will consider
@@ -3376,8 +3384,15 @@ bool Rdb_dict_manager::get_index_info(const GL_INDEX_ID &gl_index_id,
     {
     case Rdb_key_def::INDEX_TYPE_PRIMARY:
     case Rdb_key_def::INDEX_TYPE_HIDDEN_PRIMARY:
-      error= *kv_version > Rdb_key_def::PRIMARY_FORMAT_VERSION_LATEST;
+    {
+      uint16 pk_latest_version= Rdb_key_def::PRIMARY_FORMAT_VERSION_LATEST;
+      DBUG_EXECUTE_IF("myrocks_data_format_decimal_index_only",
+                      {pk_latest_version=
+                         Rdb_key_def::PRIMARY_FORMAT_VERSION_UPDATE1;
+                      });
+      error= *kv_version > pk_latest_version;
       break;
+    }
     case Rdb_key_def::INDEX_TYPE_SECONDARY:
       error= *kv_version > Rdb_key_def::SECONDARY_FORMAT_VERSION_LATEST;
       break;
