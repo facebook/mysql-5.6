@@ -16,11 +16,6 @@ select
 A.a, B.a, C.a, 1234
 from t0 A, t0 B, t0 C;
 set global rocksdb_force_flush_memtable_now=1;
-# This shows AVG_ROW_LENGTH =~ 72 bytes. 
-select  TABLE_ROWS, AVG_ROW_LENGTH, DATA_LENGTH
-from information_schema.tables where table_schema=database() and table_name='t1';
-TABLE_ROWS	AVG_ROW_LENGTH	DATA_LENGTH
-1000	71	71954
 # The following shows the PK format version used by the current server:
 select table_name,index_name,kv_format_version from information_schema.ROCKSDB_DDL 
 where TABLE_SCHEMA=database() AND table_name='t1';
@@ -43,11 +38,8 @@ select
 A.a, B.a, C.a, 1234
 from t0 A, t0 B, t0 C;
 set global rocksdb_force_flush_memtable_now=1;
-# This shows AVG_ROW_LENGTH =~ 24 bytes. 
-select TABLE_ROWS, AVG_ROW_LENGTH, DATA_LENGTH
-from information_schema.tables where table_schema=database() and table_name='t2';
-TABLE_ROWS	AVG_ROW_LENGTH	DATA_LENGTH
-1000	24	24264
+larger
+1
 # This should show the new PK data fromat
 select table_name,index_name,kv_format_version from information_schema.ROCKSDB_DDL 
 where TABLE_SCHEMA=database() AND table_name='t2';
