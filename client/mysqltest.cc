@@ -50,6 +50,7 @@
 #include <welcome_copyright_notice.h> // ORACLE_WELCOME_COPYRIGHT_NOTICE
 
 #include <algorithm>
+#include <string>
 
 #include "blind_fwrite.h"
 

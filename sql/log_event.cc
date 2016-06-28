@@ -5002,7 +5002,7 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
         MODE_NO_DIR_IN_CREATE on this machine; you don't want it to propagate
         elsewhere (you don't want all slaves to start ignoring the dirs).
       */
-      if (sql_mode_inited)
+      if (sql_mode_inited) {
         thd->variables.sql_mode=
           (sql_mode_t) ((thd->variables.sql_mode & MODE_NO_DIR_IN_CREATE) |
                        (sql_mode & ~(ulonglong) MODE_NO_DIR_IN_CREATE));
@@ -5010,6 +5010,8 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
         // this server, even if it isn't set on the master.
         if (global_system_variables.sql_mode & MODE_NO_UNSIGNED_SUBTRACTION)
           thd->variables.sql_mode |= MODE_NO_UNSIGNED_SUBTRACTION;
+      }
+
       if (charset_inited)
       {
         if (rli->cached_charset_compare(charset))
