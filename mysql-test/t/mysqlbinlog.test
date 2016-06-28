@@ -315,6 +315,9 @@ FLUSH LOGS;
 --exec $MYSQL_BINLOG $MYSQLD_DATADIR/master-bin.000017 >/dev/null 2>/dev/null
 --exec $MYSQL_BINLOG --force-if-open $MYSQLD_DATADIR/master-bin.000017 >/dev/null 2>/dev/null
 
+# Test --print-gtids with gtids disabled
+--exec $MYSQL_BINLOG --force-if-open --print-gtids $MYSQLD_DATADIR/master-bin.000017 2>&1 1>&-
+
 --echo Bug#31611 Security risk with BINLOG statement
 
 SET BINLOG_FORMAT=ROW;
