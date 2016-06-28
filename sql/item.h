@@ -662,7 +662,7 @@ typedef void (*Cond_traverser) (const Item *item, void *arg);
 // This class is the arguments for the partial update
 class Save_in_field_args : public Sql_alloc {
  public:
-  enum class FuncType : char {
+  enum class FuncType : signed char {
     FUNC_UNKNOWN = -1,
     FUNC_SET,
     FUNC_UNSET,
