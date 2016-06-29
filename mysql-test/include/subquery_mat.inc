@@ -1457,8 +1457,13 @@ eval $query;
 ALTER TABLE t1 MODIFY a VARCHAR(332) CHARACTER SET UTF8;
 --enable_warnings
 
+#
+# Optimizer statistics must be updated synchronously here because background
+# updates makes the explain query afterwards non-deterministic, depending on
+# whether the background update got to run or not before the explain is
+# executed.
+#
 ANALYZE TABLE t1;
-
 # Now subquery materialization can be used, and result is still correct:
 eval EXPLAIN $query;
 eval $query;
