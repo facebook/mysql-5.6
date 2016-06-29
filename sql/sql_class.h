@@ -52,6 +52,7 @@
 #include "sql_data_change.h"
 #include "my_atomic.h"
 
+#include <openssl/ossl_typ.h>
 #include <openssl/pem.h>
 
 #define FLAGSTR(V,F) ((V)&(F)?#F" ":"")
