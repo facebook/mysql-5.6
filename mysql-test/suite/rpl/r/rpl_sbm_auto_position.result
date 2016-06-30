@@ -1,0 +1,16 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/stop_slave.inc
+change master to master_heartbeat_period=0.1;
+include/start_slave.inc
+create table t1(a int primary key) engine=innodb;
+set global debug = '+d,delay_dump_thread_after_hb';
+include/rpl_restart_server.inc [server_number=2]
+include/start_slave.inc
+NULL
+set global debug = '-d,delay_dump_thread_after_hb';
+drop table t1;
+include/rpl_end.inc
