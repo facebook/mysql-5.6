@@ -651,6 +651,10 @@ static int send_heartbeat_event(NET* net, String* packet,
   {
     DBUG_RETURN(-1);
   }
+  DBUG_EXECUTE_IF("delay_dump_thread_after_hb",
+    static int counter = 0;
+    if (!counter++) my_sleep(1000 * 1000 * 10);
+  );
   DBUG_RETURN(0);
 }
 

@@ -1,0 +1,40 @@
+source include/master-slave.inc;
+source include/have_gtid.inc;
+source include/have_debug.inc;
+source include/have_binlog_format_statement.inc;
+source include/not_valgrind.inc;
+
+connection slave;
+source include/stop_slave.inc;
+change master to master_heartbeat_period=0.1;
+source include/start_slave.inc;
+
+connection master;
+create table t1(a int primary key) engine=innodb;
+let $i = 10000;
+disable_query_log;
+while ($i)
+{
+  eval insert into t1 values($i);
+  dec $i;
+}
+enable_query_log;
+sync_slave_with_master;
+
+connection master;
+set global debug = '+d,delay_dump_thread_after_hb';
+
+# Restart server and check SBM
+let $rpl_server_number=2;
+source include/rpl_restart_server.inc;
+
+connection slave;
+source include/start_slave.inc;
+let $sbm= query_get_value("SHOW SLAVE STATUS", Seconds_Behind_Master, 1);
+echo $sbm;
+
+connection master;
+set global debug = '-d,delay_dump_thread_after_hb';
+drop table t1;
+
+source include/rpl_end.inc;

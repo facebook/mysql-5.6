@@ -3364,8 +3364,19 @@ bool show_slave_status(THD* thd, Master_info* mi)
         rli->slave_has_caughup is a special flag to say
         "consider we have caught up" to update the seconds behind master.
       */
-        protocol->store((longlong)(mi->rli->slave_has_caughtup ?
-                                   0 : max(0L, time_diff)));
+        switch (mi->rli->slave_has_caughtup) {
+          case Enum_slave_caughtup::NONE:
+            protocol->store_null();
+            break;
+          case Enum_slave_caughtup::YES:
+            protocol->store(0LL);
+            break;
+          case Enum_slave_caughtup::NO:
+            protocol->store((longlong)(max(0L, time_diff)));
+            break;
+          default:
+            DBUG_ASSERT(0);
+        }
       }
       protocol->store((longlong) (max(0L, mi->rli->peak_lag(now))));
     }
@@ -4547,7 +4558,7 @@ static int exec_relay_log_event(THD* thd, Relay_log_info* rli)
                   PREVIOUS_GTIDS_LOG_EVENT);
 
       // Set the flag to say that "the slave has not yet caught up"
-      rli->slave_has_caughtup= false;
+      rli->slave_has_caughtup= Enum_slave_caughtup::NO;
       /*
         To avoid spiky second behind master, we here keeps last_master_timestamp
         monotonic for the non-parallel execution cases. In other words, we only
@@ -6568,8 +6579,9 @@ log '%s' at position %s, relay log '%s' position: %s", rli->get_rpl_log_name(),
       ((reset_seconds_behind_master && (rli->mi->get_master_log_pos() ==
       rli->get_group_master_log_pos()) && (!strcmp(
       rli->mi->get_master_log_name(), rli->get_group_master_log_name()))) ||
-      rli->slave_has_caughtup)) ? 0 : max(0L, ((long)(time(0) -
-      rli->penultimate_master_timestamp) - rli->mi->clock_diff_with_master));
+      rli->slave_has_caughtup == Enum_slave_caughtup::YES)) ? 0 :
+        max(0L, ((long)(time(0) - rli->penultimate_master_timestamp)
+                  - rli->mi->clock_diff_with_master));
     // unique key checks are allowed to be disabled only with row format
     if (unique_check_lag_threshold > 0 && lag > unique_check_lag_threshold
         && thd->variables.binlog_format == BINLOG_FORMAT_ROW)
@@ -8178,7 +8190,7 @@ static Log_event* next_event(Relay_log_info* rli)
            Relay-log nor to process by Workers.
         */
         if (!rli->is_parallel_exec() && reset_seconds_behind_master)
-          rli->slave_has_caughtup= true;
+          rli->slave_has_caughtup= Enum_slave_caughtup::YES;
 
         DBUG_ASSERT(rli->relay_log.get_open_count() ==
                     rli->cur_log_old_open_count);
@@ -8299,7 +8311,7 @@ static Log_event* next_event(Relay_log_info* rli)
             // More to the empty relay-log all assigned events done so reset it.
             // Reset the flag of slave_has_caught_up
             if (rli->gaq->empty() && reset_seconds_behind_master)
-              rli->slave_has_caughtup= true;
+              rli->slave_has_caughtup= Enum_slave_caughtup::YES;
 
             if (DBUG_EVALUATE_IF("check_slave_debug_group", 1, 0))
               period= 10000000ULL;

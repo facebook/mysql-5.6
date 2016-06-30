@@ -30,6 +30,12 @@ struct RPL_TABLE_LIST;
 class Master_info;
 extern uint sql_slave_skip_counter;
 
+enum class Enum_slave_caughtup {
+  NONE,
+  YES,
+  NO,
+};
+
 /*******************************************************************************
 Replication SQL Thread
 
@@ -304,9 +310,10 @@ public:
   bool sql_force_rotate_relay;
   /*
     A flag to say "consider we have caught up" when calculating seconds behind
-    the master
+    the master. This value is initialized to NONE during startup and SBM is
+    set to NULL. If slave_has_caughtup is YES, SBM is set to 0.
   */
-  bool slave_has_caughtup;
+  Enum_slave_caughtup slave_has_caughtup;
 
   time_t last_master_timestamp;
 

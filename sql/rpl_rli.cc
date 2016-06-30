@@ -106,7 +106,7 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery
    gtid_set(global_sid_map, global_sid_lock),
    log_space_total(0), ignore_log_space_limit(0),
    sql_force_rotate_relay(false),
-   slave_has_caughtup(true),
+   slave_has_caughtup(Enum_slave_caughtup::NONE),
    last_master_timestamp(0),
    penultimate_master_timestamp(0),
    events_since_last_sample(0),
@@ -335,7 +335,7 @@ void Relay_log_info::reset_notified_checkpoint(ulong shift, time_t new_ts,
       mysql_mutex_assert_owner(&data_lock);
 
     // Set the flag to say that "the slave has not yet caught up"
-    slave_has_caughtup= false;
+    slave_has_caughtup= Enum_slave_caughtup::NO;
     /*
       Note that we only skip assigning new_ts to last_master_timestamp when
       new_ts is smaller than last_master_timestamp to avoid a sudden spike on
