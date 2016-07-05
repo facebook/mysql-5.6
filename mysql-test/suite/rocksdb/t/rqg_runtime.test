@@ -1,6 +1,9 @@
 --source include/have_rocksdb.inc
 
 call mtr.add_suppression("Did not write failed ");
+call mtr.add_suppression("Can't open and lock privilege tables");
+
+SET @ORIG_EVENT_SCHEDULER = @@EVENT_SCHEDULER;
 
 # mysql.user and mysql.tables_priv are modified by the
 # tests, so they need to be restored to the original
@@ -46,3 +49,5 @@ DROP TABLE IF EXISTS test.executors;
 DROP DATABASE IF EXISTS testdb_N;
 DROP DATABASE IF EXISTS testdb_S;
 --enable_warnings
+
+SET GLOBAL EVENT_SCHEDULER = @ORIG_EVENT_SCHEDULER;
