@@ -38,7 +38,7 @@ BEGIN;
 insert into r1 values (5,5,5,5,5,5,5,5);
 update r1 set value1=value1+100 where id1=1 and id2=1 and id3='1';
 
---exec $MYSQL_DUMP --skip-comments --single-transaction --master-data=2 --print-ordering-key --rocksdb --order-by-primary-desc test
+--exec $MYSQL_DUMP --skip-comments --single-transaction --master-data=2 --print-ordering-key --rocksdb --order-by-primary-desc --rocksdb_bulk_load test
 
 rollback;
 
