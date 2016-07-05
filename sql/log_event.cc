@@ -11462,6 +11462,8 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli)
   ulong estimated_rows= 0;
   ulong processed_rows= 1;
 
+  ulonglong init_timer = my_timer_now();
+
   if (opt_bin_log)
   {
     enum_gtid_statement_status state= gtid_pre_statement_checks(thd);
@@ -11994,6 +11996,8 @@ AFTER_MAIN_EXEC_ROW_LOOP:
     */
     m_curr_row = saved_m_curr_row;
   } // if (table)
+
+  command_slave_seconds += my_timer_since(init_timer);
 
   if (error)
   {
