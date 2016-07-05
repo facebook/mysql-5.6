@@ -1,4 +1,6 @@
 call mtr.add_suppression("Did not write failed ");
+call mtr.add_suppression("Can't open and lock privilege tables");
+SET @ORIG_EVENT_SCHEDULER = @@EVENT_SCHEDULER;
 CREATE TABLE mysql.user_temp LIKE mysql.user;
 INSERT mysql.user_temp SELECT * FROM mysql.user;
 CREATE TABLE mysql.tables_priv_temp LIKE mysql.tables_priv;
@@ -24,3 +26,4 @@ DROP TABLE mysql.tables_priv_temp;
 DROP TABLE IF EXISTS test.executors;
 DROP DATABASE IF EXISTS testdb_N;
 DROP DATABASE IF EXISTS testdb_S;
+SET GLOBAL EVENT_SCHEDULER = @ORIG_EVENT_SCHEDULER;
