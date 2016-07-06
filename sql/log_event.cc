@@ -3099,7 +3099,11 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli)
       ret_worker->checkpoint_notified= TRUE;
     }
     ptr_group->checkpoint_seqno= rli->checkpoint_seqno;
-    ptr_group->ts= when.tv_sec + (time_t) exec_time; // Seconds_behind_master related
+    if (is_relay_log_event())
+      ptr_group->ts= 0;
+    else
+      ptr_group->ts=
+        when.tv_sec + (time_t) exec_time; // Seconds_behind_master related
     rli->checkpoint_seqno++;
     /*
       Coordinator should not use the main memroot however its not
