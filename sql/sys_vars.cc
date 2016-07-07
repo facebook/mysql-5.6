@@ -829,12 +829,17 @@ static Sys_var_enum Sys_binlog_format(
        NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(binlog_format_check),
        ON_UPDATE(fix_binlog_format_after_update));
 
-static const char *binlog_row_image_names[]= {"MINIMAL", "NOBLOB", "FULL", NullS};
+static const char *binlog_row_image_names[]=
+       {"MINIMAL", "NOBLOB", "FULL", "COMPLETE", NullS};
+
 static Sys_var_enum Sys_binlog_row_image(
        "binlog_row_image",
-       "Controls whether rows should be logged in 'FULL', 'NOBLOB' or "
-       "'MINIMAL' formats. 'FULL', means that all columns in the before "
-       "and after image are logged. 'NOBLOB', means that mysqld avoids logging "
+       "Controls whether rows should be logged in 'FULL', 'COMPLETE',"
+       "'NOBLOB' or 'MINIMAL' formats. 'FULL', means that all columns "
+       "in the before and after image are logged. 'COMPLETE', means "
+       "that all columns in the before "
+       "and only changed columns in the after image are logged."
+       "'NOBLOB', means that mysqld avoids logging "
        "blob columns whenever possible (eg, blob column was not changed or "
        "is not part of primary key). 'MINIMAL', means that a PK equivalent (PK "
        "columns or full row if there is no PK in the table) is logged in the "

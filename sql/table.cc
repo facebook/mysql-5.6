@@ -5771,6 +5771,11 @@ void TABLE::mark_columns_needed_for_update()
   binlog_row_image= FULL
     - all columns in the read_set
     - all columns in the write_set
+
+  binlog_row_image= COMPLETE
+    - all columns in the read_set
+    - This marks all fields where a value was specified
+      in the write_set
     
   This marking is done without resetting the original 
   bitmaps. This means that we will strip extra fields in
@@ -5778,7 +5783,7 @@ void TABLE::mark_columns_needed_for_update()
   we only want to log a PK and we needed other fields for
   execution).
  */
-void TABLE::mark_columns_per_binlog_row_image()
+void TABLE::mark_columns_per_binlog_row_image(bool is_insert)
 {
   DBUG_ENTER("mark_columns_per_binlog_row_image");
   DBUG_ASSERT(read_set->bitmap);
@@ -5805,6 +5810,12 @@ void TABLE::mark_columns_per_binlog_row_image()
         if (s->primary_key < MAX_KEY)
           bitmap_set_all(read_set);
         bitmap_set_all(write_set);
+        break;
+      case BINLOG_ROW_IMAGE_COMPLETE:
+        if (s->primary_key < MAX_KEY)
+            bitmap_set_all(read_set);
+        if (is_insert)
+            bitmap_set_all(write_set);
         break;
       case BINLOG_ROW_IMAGE_NOBLOB:
         /* for every field that is not set, mark it unless it is a blob */
@@ -6055,7 +6066,7 @@ void TABLE::use_index(int key_to_save)
 
 void TABLE::mark_columns_needed_for_insert()
 {
-  mark_columns_per_binlog_row_image();
+  mark_columns_per_binlog_row_image(true);
   if (triggers)
   {
     /*
