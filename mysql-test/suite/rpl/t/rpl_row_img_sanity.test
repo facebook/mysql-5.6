@@ -75,7 +75,7 @@ DROP TABLE t;
 #
 
 -- connection master
-SET @img_types= 'MINIMAL NOBLOB FULL';
+SET @img_types= 'MINIMAL NOBLOB FULL COMPLETE';
 while (`SELECT HEX(@img_types) != HEX('')`)
 {
   -- disable_query_log
@@ -134,7 +134,7 @@ while (`SELECT HEX(@img_types) != HEX('')`)
     -- source include/rpl_row_img_parts_master_slave.inc
 
     -- let $row_img_query= INSERT INTO t(c1,c3) VALUES (10,"a")
-    if (`SELECT @@binlog_row_image = "FULL" or @@binlog_row_image = "NOBLOB"`)
+    if (`SELECT @@binlog_row_image = "FULL" or @@binlog_row_image = "NOBLOB" or @@binlog_row_image = "COMPLETE"`)
     {
       -- let $row_img_expected_master= | 1:10 2:NULL 3:'a'
     }
@@ -149,7 +149,7 @@ while (`SELECT HEX(@img_types) != HEX('')`)
     # the delayed inserts also marks the correct write set (it has its
     # own sort of table object).
     -- let $row_img_query= INSERT DELAYED INTO t(c1,c3) VALUES (100,"a")
-    if (`SELECT @@binlog_row_image = "FULL" or @@binlog_row_image = "NOBLOB"`)
+    if (`SELECT @@binlog_row_image = "FULL" or @@binlog_row_image = "NOBLOB" or @@binlog_row_image = "COMPLETE"`)
     {
       -- let $row_img_expected_master= | 1:100 2:NULL 3:'a'
     }
@@ -161,7 +161,7 @@ while (`SELECT HEX(@img_types) != HEX('')`)
     -- source include/rpl_row_img_parts_master_slave.inc
 
     -- let $row_img_query= INSERT INTO t(c1) VALUES (1000)
-    if (`SELECT @@binlog_row_image = "FULL"`)
+    if (`SELECT @@binlog_row_image = "FULL" or @@binlog_row_image = "COMPLETE"`)
     {
       -- let $row_img_expected_master= | 1:1000 2:NULL 3:NULL
     } 
@@ -177,7 +177,7 @@ while (`SELECT HEX(@img_types) != HEX('')`)
     -- source include/rpl_row_img_parts_master_slave.inc
 
     -- let $row_img_query= INSERT DELAYED INTO t(c1) VALUES (10000)
-    if (`SELECT @@binlog_row_image = "FULL"`)
+    if (`SELECT @@binlog_row_image = "FULL" or @@binlog_row_image = "COMPLETE"`)
     {
       -- let $row_img_expected_master= | 1:10000 2:NULL 3:NULL
     } 
@@ -193,7 +193,7 @@ while (`SELECT HEX(@img_types) != HEX('')`)
     -- source include/rpl_row_img_parts_master_slave.inc
 
     -- let $row_img_query= UPDATE t SET c1=2 WHERE c1=1
-    if (`SELECT @@binlog_row_image = "FULL" OR (SELECT '$index_type' IN ('NONE', 'K', 'UK'))`)
+    if (`SELECT @@binlog_row_image = "FULL" or @@binlog_row_image = "COMPLETE" OR (SELECT '$index_type' IN ('NONE', 'K', 'UK'))`)
     {
       -- let $bi= 1:1 2:2 3:'a'
     }
@@ -219,7 +219,7 @@ while (`SELECT HEX(@img_types) != HEX('')`)
       -- let $ai= 1:2 2:2
     }
 
-    if (`SELECT @@binlog_row_image = "MINIMAL"`)
+    if (`SELECT @@binlog_row_image = "MINIMAL" or @@binlog_row_image = "COMPLETE"`)
     {
       -- let $ai= 1:2
     }
@@ -231,7 +231,7 @@ while (`SELECT HEX(@img_types) != HEX('')`)
 
     -- let $row_img_query= DELETE FROM t WHERE c2=2
     # no key, simple key or unique key nullable
-    if (`SELECT @@binlog_row_image = "FULL" OR (SELECT '$index_type' IN ('NONE', 'K', 'UK'))`)
+    if (`SELECT @@binlog_row_image = "FULL" OR (SELECT @@binlog_row_image = "COMPLETE") OR (SELECT '$index_type' IN ('NONE', 'K', 'UK'))`)
     {
       -- let $row_img_expected_master= 1:2 2:2 3:'a' |
     }
@@ -271,7 +271,7 @@ while (`SELECT HEX(@img_types) != HEX('')`)
 ###  on logged images. Further description is inline.
 
 -- connection master
-SET @img_types= 'MINIMAL NOBLOB FULL';
+SET @img_types= 'MINIMAL NOBLOB FULL COMPLETE';
 while (`SELECT HEX(@img_types) != HEX('')`)
 {
   -- disable_query_log
@@ -285,7 +285,7 @@ while (`SELECT HEX(@img_types) != HEX('')`)
   -- connection master
 
   # ASSERTIONS:
-  # UPDATE (MINIMAL,NOBLOB,FULL)
+  # UPDATE (MINIMAL,NOBLOB,FULL,COMPLETE)
   #  - on slave, columns that are not in master's BI but are in slave's
   #    PKE are in slave's BI
 
@@ -311,7 +311,7 @@ while (`SELECT HEX(@img_types) != HEX('')`)
   {
     -- let $row_img_expected_slave = 1:1 2:1000 | 1:2 2:1000
   }
-  if (`SELECT @@binlog_row_image = "MINIMAL"`)
+  if (`SELECT @@binlog_row_image = "MINIMAL" OR (SELECT @@binlog_row_image = "COMPLETE")`)
   {
     -- let $row_img_expected_slave = 1:1 2:1000 | 1:2
   }

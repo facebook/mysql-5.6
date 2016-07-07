@@ -1,0 +1,43 @@
+#Want to skip this test from daily Valgrind execution
+--source include/no_valgrind_without_big.inc
+
+--let $rpl_topology= 1->2->3
+--source include/rpl_init.inc
+-- source include/have_binlog_format_row.inc
+
+-- connection server_1
+-- source include/have_innodb.inc
+SET @old_binlog_row_image= @@binlog_row_image;
+-- connection server_2
+-- source include/have_innodb.inc
+SET @old_binlog_row_image= @@binlog_row_image;
+-- connection server_3
+-- source include/have_innodb.inc
+SET @old_binlog_row_image= @@binlog_row_image;
+-- connection server_1
+
+#
+# Tests COMPLETE image against a mix of MyISAM and InnoDB engines on
+# each of the three servers.
+#
+
+-- let $row_img_set=server_1:COMPLETE:N,server_2:COMPLETE:Y,server_3:COMPLETE:Y
+-- source include/rpl_row_img_set.inc
+
+-- let $row_img_test_script= extra/rpl_tests/rpl_row_img_diff_indexes.test
+-- source include/rpl_row_img_general_loop.inc
+
+# restore original
+-- connection server_1
+SET GLOBAL binlog_row_image= @old_binlog_row_image;
+SET SESSION binlog_row_image= @old_binlog_row_image;
+-- connection server_2
+SET GLOBAL binlog_row_image= @old_binlog_row_image;
+SET SESSION binlog_row_image= @old_binlog_row_image;
+-- connection server_3
+SET GLOBAL binlog_row_image= @old_binlog_row_image;
+SET SESSION binlog_row_image= @old_binlog_row_image;
+-- connection server_1
+
+--source include/rpl_end.inc
+

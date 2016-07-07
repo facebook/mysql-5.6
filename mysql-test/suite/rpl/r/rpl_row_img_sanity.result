@@ -37,7 +37,7 @@ UPDATE t SET c1=2 WHERE c1=1;;
 DELETE FROM t;;
 DROP TABLE t;
 include/sync_slave_sql_with_master.inc
-SET @img_types= 'MINIMAL NOBLOB FULL';
+SET @img_types= 'MINIMAL NOBLOB FULL COMPLETE';
 CON: 'master', IMG: 'MINIMAL', RESTART SLAVE: 'N'
 Variable_name	Value
 binlog_row_image	MINIMAL
@@ -332,7 +332,105 @@ UPDATE t SET c1=2 WHERE c1=1;
 DELETE FROM t WHERE c2=2;
 DROP TABLE t;
 include/sync_slave_sql_with_master.inc
-SET @img_types= 'MINIMAL NOBLOB FULL';
+CON: 'master', IMG: 'COMPLETE', RESTART SLAVE: 'N'
+Variable_name	Value
+binlog_row_image	COMPLETE
+CON: 'slave', IMG: 'COMPLETE', RESTART SLAVE: 'Y'
+include/stop_slave.inc
+include/start_slave.inc
+Variable_name	Value
+binlog_row_image	COMPLETE
+ITERATIONS: row_img: COMPLETE, indexes: UK-NOT-NULL
+include/rpl_reset.inc
+CREATING TABLE IN master WITH INDEX 'UK-NOT-NULL'
+CREATE TABLE t (c1 int NOT NULL, c2 int, c3 blob, unique key(c1));
+include/sync_slave_sql_with_master.inc
+INSERT INTO t VALUES (1,2,"a");
+INSERT INTO t(c1,c3) VALUES (10,"a");
+INSERT DELAYED INTO t(c1,c3) VALUES (100,"a");
+Warnings:
+Warning	1287	'INSERT DELAYED' is deprecated and will be removed in a future release. Please use INSERT instead
+INSERT INTO t(c1) VALUES (1000);
+INSERT DELAYED INTO t(c1) VALUES (10000);
+Warnings:
+Warning	1287	'INSERT DELAYED' is deprecated and will be removed in a future release. Please use INSERT instead
+UPDATE t SET c1=2 WHERE c1=1;
+DELETE FROM t WHERE c2=2;
+DROP TABLE t;
+include/sync_slave_sql_with_master.inc
+ITERATIONS: row_img: COMPLETE, indexes: PK
+include/rpl_reset.inc
+CREATING TABLE IN master WITH INDEX 'PK'
+CREATE TABLE t (c1 int, c2 int, c3 blob, primary key(c1));
+include/sync_slave_sql_with_master.inc
+INSERT INTO t VALUES (1,2,"a");
+INSERT INTO t(c1,c3) VALUES (10,"a");
+INSERT DELAYED INTO t(c1,c3) VALUES (100,"a");
+Warnings:
+Warning	1287	'INSERT DELAYED' is deprecated and will be removed in a future release. Please use INSERT instead
+INSERT INTO t(c1) VALUES (1000);
+INSERT DELAYED INTO t(c1) VALUES (10000);
+Warnings:
+Warning	1287	'INSERT DELAYED' is deprecated and will be removed in a future release. Please use INSERT instead
+UPDATE t SET c1=2 WHERE c1=1;
+DELETE FROM t WHERE c2=2;
+DROP TABLE t;
+include/sync_slave_sql_with_master.inc
+ITERATIONS: row_img: COMPLETE, indexes: UK
+include/rpl_reset.inc
+CREATING TABLE IN master WITH INDEX 'UK'
+CREATE TABLE t (c1 int, c2 int, c3 blob, unique key(c1));
+include/sync_slave_sql_with_master.inc
+INSERT INTO t VALUES (1,2,"a");
+INSERT INTO t(c1,c3) VALUES (10,"a");
+INSERT DELAYED INTO t(c1,c3) VALUES (100,"a");
+Warnings:
+Warning	1287	'INSERT DELAYED' is deprecated and will be removed in a future release. Please use INSERT instead
+INSERT INTO t(c1) VALUES (1000);
+INSERT DELAYED INTO t(c1) VALUES (10000);
+Warnings:
+Warning	1287	'INSERT DELAYED' is deprecated and will be removed in a future release. Please use INSERT instead
+UPDATE t SET c1=2 WHERE c1=1;
+DELETE FROM t WHERE c2=2;
+DROP TABLE t;
+include/sync_slave_sql_with_master.inc
+ITERATIONS: row_img: COMPLETE, indexes: K
+include/rpl_reset.inc
+CREATING TABLE IN master WITH INDEX 'K'
+CREATE TABLE t (c1 int, c2 int, c3 blob, key(c1));
+include/sync_slave_sql_with_master.inc
+INSERT INTO t VALUES (1,2,"a");
+INSERT INTO t(c1,c3) VALUES (10,"a");
+INSERT DELAYED INTO t(c1,c3) VALUES (100,"a");
+Warnings:
+Warning	1287	'INSERT DELAYED' is deprecated and will be removed in a future release. Please use INSERT instead
+INSERT INTO t(c1) VALUES (1000);
+INSERT DELAYED INTO t(c1) VALUES (10000);
+Warnings:
+Warning	1287	'INSERT DELAYED' is deprecated and will be removed in a future release. Please use INSERT instead
+UPDATE t SET c1=2 WHERE c1=1;
+DELETE FROM t WHERE c2=2;
+DROP TABLE t;
+include/sync_slave_sql_with_master.inc
+ITERATIONS: row_img: COMPLETE, indexes: NONE
+include/rpl_reset.inc
+CREATING TABLE IN master WITH INDEX 'NONE'
+CREATE TABLE t (c1 int, c2 int, c3 blob);
+include/sync_slave_sql_with_master.inc
+INSERT INTO t VALUES (1,2,"a");
+INSERT INTO t(c1,c3) VALUES (10,"a");
+INSERT DELAYED INTO t(c1,c3) VALUES (100,"a");
+Warnings:
+Warning	1287	'INSERT DELAYED' is deprecated and will be removed in a future release. Please use INSERT instead
+INSERT INTO t(c1) VALUES (1000);
+INSERT DELAYED INTO t(c1) VALUES (10000);
+Warnings:
+Warning	1287	'INSERT DELAYED' is deprecated and will be removed in a future release. Please use INSERT instead
+UPDATE t SET c1=2 WHERE c1=1;
+DELETE FROM t WHERE c2=2;
+DROP TABLE t;
+include/sync_slave_sql_with_master.inc
+SET @img_types= 'MINIMAL NOBLOB FULL COMPLETE';
 CON: 'master', IMG: 'MINIMAL', RESTART SLAVE: 'N'
 Variable_name	Value
 binlog_row_image	MINIMAL
@@ -374,6 +472,19 @@ include/start_slave.inc
 Variable_name	Value
 binlog_row_image	FULL
 ITERATIONS: row_img: FULL
+include/rpl_reset.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_reset.inc
+CON: 'master', IMG: 'COMPLETE', RESTART SLAVE: 'N'
+Variable_name	Value
+binlog_row_image	COMPLETE
+CON: 'slave', IMG: 'COMPLETE', RESTART SLAVE: 'Y'
+include/stop_slave.inc
+include/start_slave.inc
+Variable_name	Value
+binlog_row_image	COMPLETE
+ITERATIONS: row_img: COMPLETE
 include/rpl_reset.inc
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc

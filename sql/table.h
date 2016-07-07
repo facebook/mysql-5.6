@@ -1336,7 +1336,7 @@ public:
   void mark_columns_needed_for_update(bool mark_binlog_columns);
   void mark_columns_needed_for_delete(void);
   void mark_columns_needed_for_insert(void);
-  void mark_columns_per_binlog_row_image(void);
+  void mark_columns_per_binlog_row_image(bool is_insert = false);
   inline void column_bitmaps_set(MY_BITMAP *read_set_arg,
                                  MY_BITMAP *write_set_arg)
   {
