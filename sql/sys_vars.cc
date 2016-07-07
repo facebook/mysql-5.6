@@ -5494,3 +5494,17 @@ static Sys_var_uint Sys_unique_check_lag_reset_threshold(
        CMD_LINE(REQUIRED_ARG), VALID_RANGE(1, UINT_MAX), DEFAULT(2),
        BLOCK_SIZE(1));
 #endif
+
+static Sys_var_ulong Sys_select_into_file_fsync_size(
+       "select_into_file_fsync_size",
+       "Do an fsync to disk when the buffer grows by these many bytes "
+       "for SELECT INTO OUTFILE",
+       SESSION_VAR(select_into_file_fsync_size), CMD_LINE(OPT_ARG),
+       VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1024));
+
+static Sys_var_uint Sys_select_into_file_fsync_timeout(
+       "select_into_file_fsync_timeout",
+       "The timeout/sleep in milliseconds after each fsync with "
+       "SELECT INTO OUTFILE",
+       SESSION_VAR(select_into_file_fsync_timeout), CMD_LINE(OPT_ARG),
+       VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1));

@@ -2789,6 +2789,12 @@ select_to_file::~select_to_file()
 select_export::~select_export()
 {
   thd->set_sent_row_count(row_count);
+
+  DBUG_EXECUTE_IF("print_select_file_fsync_stats", {
+      // NO_LINT_DEBUG
+      fprintf(stderr, "[select_to_file][fsync_count] %u\n", n_fsyncs);
+    }
+  );
 }
 
 
@@ -3198,6 +3204,26 @@ bool select_export::send_data(List<Item> &items)
   if (my_b_write(&cache,(uchar*) exchange->line_term->ptr(),
 		 exchange->line_term->length()))
     goto err;
+
+  /* fsync the file after every select_into_file_fsync_size bytes
+     optionally sleep */
+  if (thd->variables.select_into_file_fsync_size) {
+    my_off_t cur_fsize = my_b_tell(&cache);
+    if (cur_fsize - last_fsync_off >=
+        thd->variables.select_into_file_fsync_size) {
+      if (flush_io_cache(&cache) || mysql_file_sync(cache.file, MYF(MY_WME)))
+        goto err;
+      else {
+#ifndef DBUG_OFF
+        n_fsyncs++;
+#endif
+        last_fsync_off = cur_fsize;
+        if (thd->variables.select_into_file_fsync_timeout)
+          my_sleep(thd->variables.select_into_file_fsync_timeout * 1000);
+      }
+    }
+  }
+
   DBUG_RETURN(0);
 err:
   DBUG_RETURN(1);

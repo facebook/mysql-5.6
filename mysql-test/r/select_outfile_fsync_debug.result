@@ -1,0 +1,10 @@
+drop table if exists t2;
+SET SESSION select_into_file_fsync_size=262144;
+SET GLOBAL debug = '+d,print_select_file_fsync_stats';
+CREATE TABLE t2 (a TEXT, b TEXT) ENGINE=INNODB;
+SELECT *
+INTO OUTFILE "../../tmp/t2.txt"
+FROM t2;
+[select_to_file][fsync_count] 128
+DROP TABLE t2;
+SET GLOBAL debug = '-d,print_select_file_fsync_stats';

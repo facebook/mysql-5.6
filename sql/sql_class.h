@@ -743,6 +743,9 @@ typedef struct system_variables
   my_bool gap_lock_write_log;
 
   ulong protocol_mode;
+
+  ulong select_into_file_fsync_size;
+  uint select_into_file_fsync_timeout;
 } SV;
 
 
@@ -5081,9 +5084,18 @@ protected:
   IO_CACHE cache;
   ha_rows row_count;
   char path[FN_REFLEN];
+  my_off_t last_fsync_off;
+#ifndef DBUG_OFF
+  uint n_fsyncs;
+#endif
 
 public:
-  select_to_file(sql_exchange *ex) :exchange(ex), file(-1),row_count(0L)
+  select_to_file(sql_exchange *ex)
+    :exchange(ex),
+     file(-1), row_count(0L), last_fsync_off(0L)
+#ifndef DBUG_OFF
+     , n_fsyncs(0)
+#endif
   { path[0]=0; }
   ~select_to_file();
   void send_error(uint errcode,const char *err);
