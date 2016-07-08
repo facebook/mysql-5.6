@@ -289,6 +289,7 @@ public:
     DDL_DROP_INDEX_ONGOING=       5,
     INDEX_STATISTICS=             6,
     MAX_INDEX_ID=                 7,
+    DDL_CREATE_INDEX_ONGOING=     8,
     END_DICT_INDEX_ID=          255
   };
 
@@ -300,6 +301,7 @@ public:
     BINLOG_INFO_INDEX_NUMBER_VERSION= 1,
     DDL_DROP_INDEX_ONGOING_VERSION= 1,
     MAX_INDEX_ID_VERSION= 1,
+    DDL_CREATE_INDEX_ONGOING_VERSION= 1,
     // Version for index stats is stored in IndexStats struct
   };
 
@@ -826,7 +828,11 @@ private:
   value: index_id
   index_id is 4 bytes
 
-   Data dictionary operations are atomic inside RocksDB. For example,
+  8. Ongoing create index entry
+  key: Rdb_key_def::DDL_CREATE_INDEX_ONGOING(0x8) + cf_id + index_id
+  value: version
+
+  Data dictionary operations are atomic inside RocksDB. For example,
   when creating a table with two indexes, it is necessary to call Put
   three times. They have to be atomic. Rdb_dict_manager has a wrapper function
   begin() and commit() to make it easier to do atomic operations.
@@ -903,19 +909,73 @@ public:
                     const uint cf_flags);
   bool get_cf_flags(const uint cf_id, uint *cf_flags);
 
-  /* Functions for fast DROP TABLE/INDEX */
-  void get_drop_indexes_ongoing(std::vector<GL_INDEX_ID> *gl_index_ids);
-  bool is_drop_index_ongoing(GL_INDEX_ID gl_index_id);
-  void start_drop_index_ongoing(rocksdb::WriteBatch* batch,
-                                GL_INDEX_ID gl_index_id);
-  void end_drop_index_ongoing(rocksdb::WriteBatch* batch,
-                              GL_INDEX_ID gl_index_id);
+  /* Functions for fast CREATE/DROP TABLE/INDEX */
+  void get_ongoing_index_operation(std::vector<GL_INDEX_ID>* gl_index_ids,
+                                   Rdb_key_def::DATA_DICT_TYPE dd_type);
+  bool is_index_operation_ongoing(const GL_INDEX_ID& gl_index_id,
+                                  Rdb_key_def::DATA_DICT_TYPE dd_type);
+  void start_ongoing_index_operation(rocksdb::WriteBatch* batch,
+                                     const GL_INDEX_ID& gl_index_id,
+                                     Rdb_key_def::DATA_DICT_TYPE dd_type);
+  void end_ongoing_index_operation(rocksdb::WriteBatch* batch,
+                                   const GL_INDEX_ID& gl_index_id,
+                                   Rdb_key_def::DATA_DICT_TYPE dd_type);
   bool is_drop_index_empty();
   void add_drop_table(std::shared_ptr<Rdb_key_def>* key_descr, uint32 n_keys,
                       rocksdb::WriteBatch *batch);
   void add_drop_index(const std::unordered_set<GL_INDEX_ID>& gl_index_ids,
                       rocksdb::WriteBatch *batch);
-  void done_drop_indexes(const std::unordered_set<GL_INDEX_ID>& gl_index_ids);
+  void add_create_index(const std::unordered_set<GL_INDEX_ID>& gl_index_ids,
+                        rocksdb::WriteBatch *batch);
+  void finish_indexes_operation(
+      const std::unordered_set<GL_INDEX_ID>& gl_index_ids,
+      Rdb_key_def::DATA_DICT_TYPE dd_type);
+  void rollback_ongoing_index_creation();
+
+  inline void get_ongoing_drop_indexes(std::vector<GL_INDEX_ID>* gl_index_ids)
+  {
+    get_ongoing_index_operation(gl_index_ids,
+                                Rdb_key_def::DDL_DROP_INDEX_ONGOING);
+  }
+  inline void get_ongoing_create_indexes(std::vector<GL_INDEX_ID>* gl_index_ids)
+  {
+    get_ongoing_index_operation(gl_index_ids,
+                                Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
+  }
+  inline void start_drop_index(rocksdb::WriteBatch *wb,
+                               const GL_INDEX_ID&  gl_index_id)
+  {
+    start_ongoing_index_operation(wb, gl_index_id,
+                                  Rdb_key_def::DDL_DROP_INDEX_ONGOING);
+  }
+  inline void start_create_index(rocksdb::WriteBatch *wb,
+                                 const GL_INDEX_ID& gl_index_id)
+  {
+    start_ongoing_index_operation(wb, gl_index_id,
+                                  Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
+  }
+  inline void finish_drop_indexes(
+      const std::unordered_set<GL_INDEX_ID>& gl_index_ids)
+  {
+    finish_indexes_operation(gl_index_ids,
+                             Rdb_key_def::DDL_DROP_INDEX_ONGOING);
+  }
+  inline void finish_create_indexes(
+      const std::unordered_set<GL_INDEX_ID>& gl_index_ids)
+  {
+    finish_indexes_operation(gl_index_ids,
+                             Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
+  }
+  inline bool is_drop_index_ongoing(const GL_INDEX_ID& gl_index_id)
+  {
+    return is_index_operation_ongoing(gl_index_id,
+                                      Rdb_key_def::DDL_DROP_INDEX_ONGOING);
+  }
+  inline bool is_create_index_ongoing(const GL_INDEX_ID& gl_index_id)
+  {
+    return is_index_operation_ongoing(gl_index_id,
+                                      Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
+  }
 
   bool get_max_index_id(uint32_t *index_id);
   bool update_max_index_id(rocksdb::WriteBatch* batch,

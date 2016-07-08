@@ -7948,7 +7948,7 @@ void Rdb_drop_index_thread::run()
     mysql_mutex_unlock(&m_signal_mutex);
 
     std::vector<GL_INDEX_ID> indices;
-    dict_manager.get_drop_indexes_ongoing(&indices);
+    dict_manager.get_ongoing_drop_indexes(&indices);
     if (!indices.empty()) {
       std::unordered_set<GL_INDEX_ID> finished;
       rocksdb::ReadOptions read_opts;
@@ -8031,7 +8031,7 @@ void Rdb_drop_index_thread::run()
       }
 
       if (!finished.empty()) {
-        dict_manager.done_drop_indexes(finished);
+        dict_manager.finish_drop_indexes(finished);
       }
     }
     mysql_mutex_lock(&m_signal_mutex);
