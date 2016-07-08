@@ -88,3 +88,36 @@ insert into t1(a,b) values(1,7);
 select a from t1 where a in (select a from t1 where a in (select b from t2));
 a
 drop table t1, t2;
+#
+# Issue #260: altering name to invalid value leaves table unaccessible
+#
+CREATE TABLE t1 (c1 INT NOT NULL, c2 CHAR(5)) PARTITION BY HASH(c1) PARTITIONS 4;
+INSERT INTO t1 VALUES(1,'a');
+RENAME TABLE t1 TO db3.t3;
+ERROR HY000: Error on rename of './test/t1' to './db3/t3' (errno: 122 - Internal (unspecified) error in handler)
+SELECT * FROM t1;
+c1	c2
+1	a
+SHOW TABLES;
+Tables_in_test
+t1
+RENAME TABLE t1 TO test.t3;
+SELECT * FROM t3;
+c1	c2
+1	a
+SHOW TABLES;
+Tables_in_test
+t3
+CREATE DATABASE db3;
+USE test;
+RENAME TABLE t3 to db3.t2;
+USE db3;
+SELECT * FROM t2;
+c1	c2
+1	a
+SHOW TABLES;
+Tables_in_db3
+t2
+DROP TABLE t2;
+use test;
+DROP DATABASE db3;
