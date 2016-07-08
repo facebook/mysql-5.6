@@ -39,8 +39,9 @@ int rdb_normalize_tablename(const std::string& tablename, std::string* str)
   __attribute__((__nonnull__, __warn_unused_result__));
 
 int rdb_split_normalized_tablename(const std::string& fullname, std::string *db,
-                                   std::string *table, std::string *partition)
-  __attribute__((__nonnull__, __warn_unused_result__));
+                                   std::string *table = nullptr,
+                                   std::string *partition = nullptr)
+  __attribute__((__warn_unused_result__));
 
 std::vector<std::string> rdb_get_open_table_names(void);
 

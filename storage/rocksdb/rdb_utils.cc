@@ -24,6 +24,9 @@
 /* C standard header files */
 #include <ctype.h>
 
+/* MyRocks header files */
+#include "./ha_rocksdb.h"
+
 namespace myrocks {
 
 /*
@@ -285,6 +288,24 @@ std::string rdb_hexdump(const char *data, std::size_t data_len,
   }
 
   return str;
+}
+
+
+/*
+  Attempt to access the database subdirectory to see if it exists
+*/
+bool rdb_database_exists(const std::string& db_name)
+{
+  std::string dir = std::string(mysql_real_data_home) + FN_DIRSEP + db_name;
+  struct st_my_dir* dir_info = my_dir(dir.c_str(),
+                                      MYF(MY_DONT_SORT | MY_WANT_STAT));
+  if (dir_info == nullptr)
+  {
+    return false;
+  }
+
+  my_dirend(dir_info);
+  return true;
 }
 
 }  // namespace myrocks
