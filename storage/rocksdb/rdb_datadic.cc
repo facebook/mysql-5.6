@@ -3209,6 +3209,8 @@ bool Rdb_dict_manager::init(rocksdb::DB *rdb_dict, Rdb_cf_manager *cf_manager)
     reinterpret_cast<char*>(m_key_buf_max_index_id),
     Rdb_key_def::INDEX_NUMBER_SIZE);
   resume_drop_indexes();
+  rollback_ongoing_index_creation();
+
   return (m_system_cfh == nullptr);
 }
 
@@ -3423,26 +3425,36 @@ bool Rdb_dict_manager::get_cf_flags(const uint32_t cf_id, uint32_t *cf_flags)
 
 /*
   Returning index ids that were marked as deleted (via DROP TABLE) but
-  still not removed by drop_index_thread yet
+  still not removed by drop_index_thread yet, or indexes that are marked as
+  ongoing creation.
  */
-void Rdb_dict_manager::get_drop_indexes_ongoing(
-    std::vector<GL_INDEX_ID>* gl_index_ids)
+void Rdb_dict_manager::get_ongoing_index_operation(
+    std::vector<GL_INDEX_ID>* gl_index_ids,
+    Rdb_key_def::DATA_DICT_TYPE dd_type)
 {
-  uchar drop_index_buf[Rdb_key_def::INDEX_NUMBER_SIZE];
-  rdb_netbuf_store_uint32(drop_index_buf, Rdb_key_def::DDL_DROP_INDEX_ONGOING);
-  rocksdb::Slice drop_index_slice((char*)drop_index_buf,
-                                  Rdb_key_def::INDEX_NUMBER_SIZE);
+  DBUG_ASSERT(dd_type == Rdb_key_def::DDL_DROP_INDEX_ONGOING ||
+              dd_type == Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
+
+  uchar index_buf[Rdb_key_def::INDEX_NUMBER_SIZE];
+  rdb_netbuf_store_uint32(index_buf, dd_type);
+  rocksdb::Slice index_slice(reinterpret_cast<char*>(index_buf),
+                             Rdb_key_def::INDEX_NUMBER_SIZE);
 
   rocksdb::Iterator* it= new_iterator();
-  for (it->Seek(drop_index_slice); it->Valid(); it->Next())
+  for (it->Seek(index_slice); it->Valid(); it->Next())
   {
     rocksdb::Slice key= it->key();
     const uchar* ptr= (const uchar*)key.data();
 
-    if (key.size() != Rdb_key_def::INDEX_NUMBER_SIZE * 3)
-      break;
+    /*
+      Ongoing drop/create index operations require key to be of the form:
+      dd_type + cf_id + index_id (== INDEX_NUMBER_SIZE * 3)
 
-    if (rdb_netbuf_to_uint32(ptr) != Rdb_key_def::DDL_DROP_INDEX_ONGOING)
+      This may need to be changed in the future if we want to process a new
+      ddl_type with different format.
+    */
+    if (key.size() != Rdb_key_def::INDEX_NUMBER_SIZE * 3 ||
+        rdb_netbuf_to_uint32(ptr) != dd_type)
     {
       break;
     }
@@ -3460,15 +3472,21 @@ void Rdb_dict_manager::get_drop_indexes_ongoing(
 }
 
 /*
-  Returning true if index_id is delete ongoing (marked as deleted via
-  DROP TABLE but drop_index_thread has not wiped yet) or not.
+  Returning true if index_id is create/delete ongoing (undergoing creation or
+  marked as deleted via DROP TABLE but drop_index_thread has not wiped yet)
+  or not.
  */
-bool Rdb_dict_manager::is_drop_index_ongoing(GL_INDEX_ID gl_index_id)
+bool Rdb_dict_manager::is_index_operation_ongoing(
+      const GL_INDEX_ID& gl_index_id,
+      Rdb_key_def::DATA_DICT_TYPE dd_type)
 {
+  DBUG_ASSERT(dd_type == Rdb_key_def::DDL_DROP_INDEX_ONGOING ||
+              dd_type == Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
+
   bool found= false;
   std::string value;
   uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE*3]= {0};
-  dump_index_id(key_buf, Rdb_key_def::DDL_DROP_INDEX_ONGOING, gl_index_id);
+  dump_index_id(key_buf, dd_type, gl_index_id);
   rocksdb::Slice key= rocksdb::Slice((char*)key_buf, sizeof(key_buf));
 
   rocksdb::Status status= get_value(key, &value);
@@ -3481,16 +3499,32 @@ bool Rdb_dict_manager::is_drop_index_ongoing(GL_INDEX_ID gl_index_id)
 
 /*
   Adding index_id to data dictionary so that the index id is removed
-  by drop_index_thread
+  by drop_index_thread, or to track online index creation.
  */
-void Rdb_dict_manager::start_drop_index_ongoing(rocksdb::WriteBatch* batch,
-                                                GL_INDEX_ID gl_index_id)
+void Rdb_dict_manager::start_ongoing_index_operation(
+    rocksdb::WriteBatch* batch,
+    const GL_INDEX_ID& gl_index_id,
+    Rdb_key_def::DATA_DICT_TYPE dd_type)
 {
+  DBUG_ASSERT(dd_type == Rdb_key_def::DDL_DROP_INDEX_ONGOING ||
+              dd_type == Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
+
   uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE*3]= {0};
   uchar value_buf[Rdb_key_def::VERSION_SIZE]= {0};
-  dump_index_id(key_buf, Rdb_key_def::DDL_DROP_INDEX_ONGOING, gl_index_id);
-  rdb_netbuf_store_uint16(value_buf,
-                          Rdb_key_def::DDL_DROP_INDEX_ONGOING_VERSION);
+  dump_index_id(key_buf, dd_type, gl_index_id);
+
+  // version as needed
+  if (dd_type == Rdb_key_def::DDL_DROP_INDEX_ONGOING)
+  {
+    rdb_netbuf_store_uint16(value_buf,
+                            Rdb_key_def::DDL_DROP_INDEX_ONGOING_VERSION);
+  }
+  else
+  {
+    rdb_netbuf_store_uint16(value_buf,
+                            Rdb_key_def::DDL_CREATE_INDEX_ONGOING_VERSION);
+  }
+
   rocksdb::Slice key= rocksdb::Slice((char*)key_buf, sizeof(key_buf));
   rocksdb::Slice value= rocksdb::Slice((char*)value_buf, sizeof(value_buf));
   batch->Put(m_system_cfh, key, value);
@@ -3500,10 +3534,14 @@ void Rdb_dict_manager::start_drop_index_ongoing(rocksdb::WriteBatch* batch,
   Removing index_id from data dictionary to confirm drop_index_thread
   completed dropping entire key/values of the index_id
  */
-void Rdb_dict_manager::end_drop_index_ongoing(rocksdb::WriteBatch* batch,
-                                              GL_INDEX_ID gl_index_id)
+void Rdb_dict_manager::end_ongoing_index_operation(rocksdb::WriteBatch* batch,
+                                          const GL_INDEX_ID& gl_index_id,
+                                          Rdb_key_def::DATA_DICT_TYPE dd_type)
 {
-  delete_with_prefix(batch, Rdb_key_def::DDL_DROP_INDEX_ONGOING, gl_index_id);
+  DBUG_ASSERT(dd_type == Rdb_key_def::DDL_DROP_INDEX_ONGOING ||
+              dd_type == Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
+
+  delete_with_prefix(batch, dd_type, gl_index_id);
 }
 
 /*
@@ -3512,9 +3550,9 @@ void Rdb_dict_manager::end_drop_index_ongoing(rocksdb::WriteBatch* batch,
  */
 bool Rdb_dict_manager::is_drop_index_empty()
 {
-  std::vector<GL_INDEX_ID> index_ids;
-  get_drop_indexes_ongoing(&index_ids);
-  return index_ids.empty();
+  std::vector<GL_INDEX_ID> gl_index_ids;
+  get_ongoing_drop_indexes(&gl_index_ids);
+  return gl_index_ids.empty();
 }
 
 /*
@@ -3544,30 +3582,56 @@ void Rdb_dict_manager::add_drop_index(
     const std::unordered_set<GL_INDEX_ID>& gl_index_ids,
     rocksdb::WriteBatch *batch)
 {
-  for (auto gl_index_id : gl_index_ids)
+  for (const auto& gl_index_id : gl_index_ids)
   {
     log_start_drop_index(gl_index_id, "Begin");
-    start_drop_index_ongoing(batch, gl_index_id);
+    start_drop_index(batch, gl_index_id);
+  }
+}
+
+/*
+  Called during inplace index creation operations. Logging messages
+  that adding indexes started, and updates data dictionary with all associated
+  indexes to be added.
+ */
+void Rdb_dict_manager::add_create_index(
+    const std::unordered_set<GL_INDEX_ID>& gl_index_ids,
+    rocksdb::WriteBatch *batch)
+{
+  for (const auto& gl_index_id : gl_index_ids)
+  {
+    // NO_LINT_DEBUG
+    sql_print_information("RocksDB: Begin index creation (%u,%u)",
+                           gl_index_id.cf_id, gl_index_id.index_id);
+    start_create_index(batch, gl_index_id);
   }
 }
 
 /*
   This function is supposed to be called by drop_index_thread, when it
-  finished dropping any index.
+  finished dropping any index, or at the completion of online index creation.
  */
-void Rdb_dict_manager::done_drop_indexes(
-    const std::unordered_set<GL_INDEX_ID>& gl_index_ids)
+void Rdb_dict_manager::finish_indexes_operation(
+    const std::unordered_set<GL_INDEX_ID>& gl_index_ids,
+    Rdb_key_def::DATA_DICT_TYPE dd_type)
 {
+  DBUG_ASSERT(dd_type == Rdb_key_def::DDL_DROP_INDEX_ONGOING ||
+              dd_type == Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
+
   std::unique_ptr<rocksdb::WriteBatch> wb= begin();
   rocksdb::WriteBatch *batch= wb.get();
 
-  for (auto gl_index_id : gl_index_ids)
+  for (const auto& gl_index_id : gl_index_ids)
   {
-    if (is_drop_index_ongoing(gl_index_id))
+    if (is_index_operation_ongoing(gl_index_id, dd_type))
     {
-      sql_print_information("RocksDB: Finished filtering dropped index (%u,%u)",
-                            gl_index_id.cf_id, gl_index_id.index_id);
-      end_drop_index_ongoing(batch, gl_index_id);
+      // NO_LINT_DEBUG
+      sql_print_information("RocksDB: Finished %s (%u,%u)",
+        dd_type == Rdb_key_def::DDL_DROP_INDEX_ONGOING ?
+          "filtering dropped index" : "index creation",
+        gl_index_id.cf_id, gl_index_id.index_id);
+
+      end_ongoing_index_operation(batch, gl_index_id, dd_type);
       delete_index_info(batch, gl_index_id);
     }
   }
@@ -3582,12 +3646,12 @@ void Rdb_dict_manager::done_drop_indexes(
 void Rdb_dict_manager::resume_drop_indexes()
 {
   std::vector<GL_INDEX_ID> gl_index_ids;
-  get_drop_indexes_ongoing(&gl_index_ids);
+  get_ongoing_drop_indexes(&gl_index_ids);
 
   uint max_index_id_in_dict= 0;
   get_max_index_id(&max_index_id_in_dict);
 
-  for (auto gl_index_id : gl_index_ids)
+  for (const auto& gl_index_id : gl_index_ids)
   {
     log_start_drop_index(gl_index_id, "Resume");
     if (max_index_id_in_dict < gl_index_id.index_id)
@@ -3602,6 +3666,28 @@ void Rdb_dict_manager::resume_drop_indexes()
   }
 }
 
+void Rdb_dict_manager::rollback_ongoing_index_creation()
+{
+  std::unique_ptr<rocksdb::WriteBatch> wb= begin();
+  rocksdb::WriteBatch *batch= wb.get();
+
+  std::vector<GL_INDEX_ID> gl_index_ids;
+  get_ongoing_create_indexes(&gl_index_ids);
+
+  for (const auto& gl_index_id : gl_index_ids)
+  {
+    // NO_LINT_DEBUG
+    sql_print_information("RocksDB: Removing incomplete create index (%u,%u)",
+                           gl_index_id.cf_id, gl_index_id.index_id);
+
+    start_drop_index(batch, gl_index_id);
+    end_ongoing_index_operation(batch, gl_index_id,
+                                Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
+  }
+
+  commit(batch);
+}
+
 void Rdb_dict_manager::log_start_drop_table(
     const std::shared_ptr<Rdb_key_def>* key_descr,
     uint32 n_keys,
@@ -3611,7 +3697,6 @@ void Rdb_dict_manager::log_start_drop_table(
     log_start_drop_index(key_descr[i]->get_gl_index_id(), log_action);
   }
 }
-
 
 void Rdb_dict_manager::log_start_drop_index(GL_INDEX_ID gl_index_id,
                                             const char* log_action)
