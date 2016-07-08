@@ -751,7 +751,8 @@ static int rdb_i_s_global_info_fill_table(
 
   /* DDL_DROP_INDEX_ONGOING */
   std::vector<GL_INDEX_ID> gl_index_ids;
-  dict_manager->get_drop_indexes_ongoing(&gl_index_ids);
+  dict_manager->get_ongoing_index_operation(&gl_index_ids,
+      Rdb_key_def::DDL_DROP_INDEX_ONGOING);
   char cf_id_index_buf[CF_ID_INDEX_BUF_LEN]= {0};
   for (auto gl_index_id : gl_index_ids) {
     snprintf(cf_id_index_buf, CF_ID_INDEX_BUF_LEN, "cf_id:%u,index_id:%u",
