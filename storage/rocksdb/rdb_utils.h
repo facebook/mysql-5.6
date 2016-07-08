@@ -160,4 +160,9 @@ std::string rdb_hexdump(const char *data, std::size_t data_len,
                         std::size_t maxsize = 0)
   MY_ATTRIBUTE((__nonnull__));
 
+/*
+  Helper function to see if a database exists
+ */
+bool rdb_database_exists(const std::string& db_name);
+
 }  // namespace myrocks

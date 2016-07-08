@@ -93,3 +93,29 @@ insert into t1(a,b) values(1,7);
 select a from t1 where a in (select a from t1 where a in (select b from t2));
 
 drop table t1, t2;
+
+--echo #
+--echo # Issue #260: altering name to invalid value leaves table unaccessible
+--echo #
+CREATE TABLE t1 (c1 INT NOT NULL, c2 CHAR(5)) PARTITION BY HASH(c1) PARTITIONS 4;
+INSERT INTO t1 VALUES(1,'a');
+--error ER_ERROR_ON_RENAME
+RENAME TABLE t1 TO db3.t3;
+SELECT * FROM t1;
+SHOW TABLES;
+# try it again to the same database
+RENAME TABLE t1 TO test.t3;
+SELECT * FROM t3;
+SHOW TABLES;
+# now try it again but with another existing database
+CREATE DATABASE db3;
+USE test;
+RENAME TABLE t3 to db3.t2;
+USE db3;
+SELECT * FROM t2;
+SHOW TABLES;
+# cleanup
+DROP TABLE t2;
+use test;
+DROP DATABASE db3;
+
