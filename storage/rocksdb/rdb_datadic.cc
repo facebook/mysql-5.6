@@ -2314,7 +2314,7 @@ bool Rdb_validate_tbls::check_frm_file(
 {
   /* Check this .frm file to see what engine it uses */
   String fullfilename(fullpath.c_str(), &my_charset_bin);
-  fullfilename.append("/");
+  fullfilename.append(FN_DIRSEP);
   fullfilename.append(tablename.c_str());
   fullfilename.append(".frm");
 
