@@ -4929,10 +4929,6 @@ int rdb_split_normalized_tablename(const std::string& fullname,
                                    std::string* table,
                                    std::string* partition)
 {
-  DBUG_ASSERT(db!= nullptr);
-  DBUG_ASSERT(table!= nullptr);
-  DBUG_ASSERT(partition!= nullptr);
-
 #define RDB_PARTITION_STR "#P#"
 
   /* Normalize returns dbname.tablename */
@@ -4944,17 +4940,28 @@ int rdb_split_normalized_tablename(const std::string& fullname,
     return HA_ERR_INTERNAL_ERROR;
   }
 
-  *db = fullname.substr(0, dotpos);
+  if (db != nullptr)
+  {
+    *db = fullname.substr(0, dotpos);
+  }
+
   dotpos++;
 
   size_t partpos = fullname.find_first_of(RDB_PARTITION_STR, dotpos);
 
   if (partpos != std::string::npos)
   {
-    *table = fullname.substr(dotpos, partpos - dotpos);
-    *partition = fullname.substr(partpos + sizeof(RDB_PARTITION_STR));
+    if (table != nullptr)
+    {
+      *table = fullname.substr(dotpos, partpos - dotpos);
+    }
+
+    if (partition != nullptr)
+    {
+      *partition = fullname.substr(partpos + sizeof(RDB_PARTITION_STR));
+    }
   }
-  else
+  else if (table != nullptr)
   {
     *table = fullname.substr(dotpos);
   }
@@ -8348,13 +8355,24 @@ int ha_rocksdb::rename_table(const char *from, const char *to)
   bool write_err= false;
   std::string from_str;
   std::string to_str;
+  std::string from_db;
+  std::string to_db;
 
-  if (rdb_normalize_tablename(from, &from_str))
+  if (rdb_normalize_tablename(from, &from_str) ||
+      rdb_split_normalized_tablename(from_str, &from_db))
   {
     return HA_ERR_INTERNAL_ERROR;
   }
 
-  if (rdb_normalize_tablename(to, &to_str))
+  if (rdb_normalize_tablename(to, &to_str) ||
+      rdb_split_normalized_tablename(to_str, &to_db))
+  {
+    return HA_ERR_INTERNAL_ERROR;
+  }
+
+  // If the user changed the database part of the name then validate that the
+  // 'to' database exists.
+  if (from_db != to_db && !rdb_database_exists(to_db))
   {
     return HA_ERR_INTERNAL_ERROR;
   }
