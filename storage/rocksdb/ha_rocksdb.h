@@ -394,6 +394,7 @@ class ha_rocksdb: public my_core::handler
 
   int create_key_defs(const TABLE *table_arg, const std::string& db_table,
                       HA_CREATE_INFO *create_info, Rdb_tbl_def *tbl_def_arg,
+                      const TABLE *old_table_arg= nullptr,
                       const Rdb_tbl_def *old_tbl_def_arg= nullptr)
       MY_ATTRIBUTE((__nonnull__(2, 4, 5), __warn_unused_result__));
   int secondary_index_read(const int keyno, uchar *buf)
@@ -485,6 +486,9 @@ class ha_rocksdb: public my_core::handler
 
   void get_storage_type(Rdb_field_encoder *encoder, uint kp);
   void setup_field_converters();
+  int alloc_key_buffers(const TABLE* table_arg, const Rdb_tbl_def* tbl_def_arg)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  void free_key_buffers();
 
   // the buffer size should be at least 2*Rdb_key_def::INDEX_NUMBER_SIZE
   rocksdb::Range get_range(int i, uchar buf[]) const;
@@ -605,6 +609,14 @@ public:
                                         rocksdb::Slice *packed_rec)
     MY_ATTRIBUTE((__nonnull__));
 
+  static const char* get_key_name(const uint index, const TABLE* table_arg,
+                                  const Rdb_tbl_def* tbl_def_arg)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+
+  static const char* get_key_comment(const uint index, const TABLE* table_arg,
+                                     const Rdb_tbl_def* tbl_def_arg)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+
   static bool is_hidden_pk(const uint index, const TABLE* table_arg,
                            const Rdb_tbl_def* tbl_def_arg)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
@@ -719,17 +731,31 @@ private:
   int create_cfs(const TABLE *table_arg, const std::string& db_table,
                  Rdb_tbl_def *tbl_def_arg,
                  std::array<struct key_def_cf_info, MAX_INDEXES + 1>* cfs);
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
 
   int create_key_def(const TABLE *table_arg, uint i,
                      const Rdb_tbl_def* tbl_def_arg,
                      std::shared_ptr<Rdb_key_def>* new_key_def,
                      const struct key_def_cf_info& cf_info);
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   int create_inplace_key_defs(const TABLE *table_arg,
                        Rdb_tbl_def *tbl_def_arg,
+                       const TABLE *old_table_arg,
                        const Rdb_tbl_def *old_tbl_def_arg,
                        const std::array<key_def_cf_info, MAX_INDEXES + 1>& cfs);
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+
+  std::unordered_map<std::string, uint> get_old_key_positions(
+                      const TABLE* table_arg,
+                      const Rdb_tbl_def* tbl_def_arg,
+                      const TABLE* old_table_arg,
+                      const Rdb_tbl_def* old_tbl_def_arg)
+    MY_ATTRIBUTE((__nonnull__));
+
+  int compare_key_parts(const KEY* old_key, const KEY* new_key);
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   int index_first_intern(uchar *buf)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
@@ -754,7 +780,9 @@ private:
                                 bool* pk_changed);
   int update_pk(uint key_id, const struct update_row_info& row_info,
                 bool pk_changed);
-  int update_sk(uint key_id, const struct update_row_info& row_info);
+  int update_sk(const TABLE* table_arg,
+                const std::shared_ptr<const Rdb_key_def>& kd,
+                const struct update_row_info& row_info);
   int update_indexes(const struct update_row_info& row_info, bool pk_changed);
 
   int read_key_exact(const std::shared_ptr<const Rdb_key_def>& kd,
@@ -801,6 +829,10 @@ private:
     MY_ATTRIBUTE((__nonnull__));
   bool contains_foreign_key(THD* thd)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+
+  int inplace_populate_sk(const TABLE* table_arg,
+      const std::unordered_set<std::shared_ptr<Rdb_key_def>>& indexes);
+
 public:
   int index_init(uint idx, bool sorted) MY_ATTRIBUTE((__warn_unused_result__));
   int index_end() MY_ATTRIBUTE((__warn_unused_result__));
@@ -935,8 +967,14 @@ struct Rdb_inplace_alter_ctx : public my_core::inplace_alter_handler_ctx
   /* Stores the new number of key definitions */
   const uint m_new_n_keys;
 
+  /* Stores the added key glids */
+  std::unordered_set<std::shared_ptr<Rdb_key_def>> m_added_indexes;
+
   /* Stores the dropped key glids */
   std::unordered_set<GL_INDEX_ID> m_dropped_index_ids;
+
+  /* Stores number of keys to add */
+  const uint m_n_added_keys;
 
   /* Stores number of keys to drop */
   const uint m_n_dropped_keys;
@@ -944,12 +982,16 @@ struct Rdb_inplace_alter_ctx : public my_core::inplace_alter_handler_ctx
   Rdb_inplace_alter_ctx(
       Rdb_tbl_def* new_tdef, std::shared_ptr<Rdb_key_def>* old_key_descr,
       std::shared_ptr<Rdb_key_def>* new_key_descr, uint old_n_keys,
-      uint new_n_keys, std::unordered_set<GL_INDEX_ID> dropped_index_ids,
-      uint n_dropped_keys) :
+      uint new_n_keys,
+      std::unordered_set<std::shared_ptr<Rdb_key_def>> added_indexes,
+      std::unordered_set<GL_INDEX_ID> dropped_index_ids,
+      uint n_added_keys, uint n_dropped_keys) :
     my_core::inplace_alter_handler_ctx(), m_new_tdef(new_tdef),
     m_old_key_descr(old_key_descr), m_new_key_descr(new_key_descr),
     m_old_n_keys(old_n_keys), m_new_n_keys(new_n_keys),
+    m_added_indexes(added_indexes),
     m_dropped_index_ids(dropped_index_ids),
+    m_n_added_keys(n_added_keys),
     m_n_dropped_keys(n_dropped_keys)
   {
   }

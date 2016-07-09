@@ -4206,6 +4206,113 @@ void ha_rocksdb::setup_field_converters()
   m_null_bytes_in_rec= null_bytes;
 }
 
+int ha_rocksdb::alloc_key_buffers(const TABLE* table_arg,
+                                  const Rdb_tbl_def* tbl_def_arg)
+{
+  DBUG_ENTER("ha_rocksdb::alloc_key_buffers");
+  DBUG_ASSERT(m_pk_tuple == nullptr);
+
+  std::shared_ptr<Rdb_key_def>* kd_arr= tbl_def_arg->m_key_descr_arr;
+
+  uint key_len= 0;
+  m_pk_descr= kd_arr[pk_index(table_arg, tbl_def_arg)];
+  if (has_hidden_pk(table_arg))
+  {
+    m_pk_key_parts= 1;
+  }
+  else
+  {
+    m_pk_key_parts=
+        table->key_info[table->s->primary_key].user_defined_key_parts;
+    key_len= table->key_info[table->s->primary_key].key_length;
+  }
+
+  // move this into get_table_handler() ??
+  m_pk_descr->setup(table_arg, tbl_def_arg);
+
+  m_pk_tuple= reinterpret_cast<uchar*>(my_malloc(key_len, MYF(0)));
+  if (m_pk_tuple == nullptr)
+  {
+    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+  }
+
+  uint pack_key_len= m_pk_descr->max_storage_fmt_length();
+  m_pk_packed_tuple= reinterpret_cast<uchar*>(my_malloc(pack_key_len, MYF(0)));
+  if (m_pk_packed_tuple == nullptr)
+  {
+    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+  }
+
+  /* Sometimes, we may use m_sk_packed_tuple for storing packed PK */
+  uint max_packed_sk_len= pack_key_len;
+  for (uint i= 0; i < table_arg->s->keys; i++)
+  {
+    if (i == table_arg->s->primary_key) /* Primary key was processed above */
+      continue;
+
+    // TODO: move this into get_table_handler() ??
+    kd_arr[i]->setup(table_arg, tbl_def_arg);
+
+    uint packed_len= kd_arr[i]->max_storage_fmt_length();
+    if (packed_len > max_packed_sk_len)
+    {
+      max_packed_sk_len= packed_len;
+    }
+  }
+
+  size_t tails_size= max_packed_sk_len + RDB_CHECKSUM_CHUNK_SIZE +
+    RDB_UNPACK_HEADER_SIZE;
+
+  if (!(m_sk_packed_tuple=
+         reinterpret_cast<uchar*>(my_malloc(max_packed_sk_len, MYF(0)))) ||
+      !(m_sk_match_prefix_buf=
+         reinterpret_cast<uchar*>(my_malloc(max_packed_sk_len, MYF(0)))) ||
+      !(m_sk_packed_tuple_old=
+         reinterpret_cast<uchar*>(my_malloc(max_packed_sk_len, MYF(0)))) ||
+      !(m_end_key_packed_tuple=
+         reinterpret_cast<uchar*>(my_malloc(max_packed_sk_len, MYF(0)))) ||
+      !((m_sk_tails=
+         reinterpret_cast<uchar*>(my_malloc(tails_size, MYF(0))))) ||
+      !((m_sk_tails_old=
+         reinterpret_cast<uchar*>(my_malloc(tails_size, MYF(0))))) ||
+      !((m_pack_buffer=
+         reinterpret_cast<uchar*>(my_malloc(max_packed_sk_len, MYF(0))))))
+  {
+    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+  }
+
+  DBUG_RETURN(0);
+}
+
+void ha_rocksdb::free_key_buffers()
+{
+  my_free(m_pk_tuple);
+  m_pk_tuple= nullptr;
+
+  my_free(m_pk_packed_tuple);
+  m_pk_packed_tuple= nullptr;
+
+  my_free(m_sk_packed_tuple);
+  m_sk_packed_tuple= nullptr;
+
+  my_free(m_sk_match_prefix_buf);
+  m_sk_match_prefix_buf= nullptr;
+
+  my_free(m_sk_packed_tuple_old);
+  m_sk_packed_tuple_old= nullptr;
+
+  my_free(m_end_key_packed_tuple);
+  m_end_key_packed_tuple= nullptr;
+
+  my_free(m_sk_tails);
+  m_sk_tails= nullptr;
+
+  my_free(m_sk_tails_old);
+  m_sk_tails_old= nullptr;
+
+  my_free(m_pack_buffer);
+  m_pack_buffer= nullptr;
+}
 
 int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
 {
@@ -4231,7 +4338,8 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
     it's ok to discard it
   */
   std::string fullname;
-  if (rdb_normalize_tablename(name, &fullname)) {
+  if (rdb_normalize_tablename(name, &fullname))
+  {
     return HA_ERR_INTERNAL_ERROR;
   }
 
@@ -4239,40 +4347,13 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
   if (m_tbl_def == nullptr)
   {
     my_error(ER_INTERNAL_ERROR, MYF(0),
-             "Attempt to open a table that is not present in RocksDB-SE data dictionary");
+        "Attempt to open a table that is not present in RocksDB-SE data "
+        "dictionary");
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
   m_lock_rows= RDB_LOCK_NONE;
 
   m_key_descr_arr= m_tbl_def->m_key_descr_arr;
-
-  uint key_len= 0;
-  m_pk_descr= m_key_descr_arr[pk_index(table, m_tbl_def)];
-  if (has_hidden_pk(table))
-  {
-    m_pk_key_parts= 1;
-  }
-  else
-  {
-    m_pk_key_parts=
-        table->key_info[table->s->primary_key].user_defined_key_parts;
-    key_len= table->key_info[table->s->primary_key].key_length;
-  }
-
-  m_pk_descr->setup(table, m_tbl_def);  // move this into get_table_handler() ??
-
-  m_pk_tuple= reinterpret_cast<uchar*>(my_malloc(key_len, MYF(0)));
-  if (m_pk_tuple == nullptr)
-  {
-    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
-  }
-
-  uint pack_key_len= m_pk_descr->max_storage_fmt_length();
-  m_pk_packed_tuple= reinterpret_cast<uchar*>(my_malloc(pack_key_len, MYF(0)));
-  if (m_pk_packed_tuple == nullptr)
-  {
-    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
-  }
 
   /*
     Full table scan actually uses primary key
@@ -4281,45 +4362,13 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
   */
   key_used_on_scan= table->s->primary_key;
 
-  /* Sometimes, we may use m_sk_packed_tuple for storing packed PK */
-  uint max_packed_sk_len= pack_key_len;
-  for (uint i= 0; i < table->s->keys; i++)
+  int err;
+  if ((err = alloc_key_buffers(table, m_tbl_def)))
   {
-    if (i == table->s->primary_key) /* Primary key was processed above */
-      continue;
-
-    // TODO: move this into get_table_handler() ??
-    m_key_descr_arr[i]->setup(table, m_tbl_def);
-
-    uint packed_len= m_key_descr_arr[i]->max_storage_fmt_length();
-    if (packed_len > max_packed_sk_len)
-    {
-      max_packed_sk_len= packed_len;
-    }
+    DBUG_RETURN(err);
   }
 
   setup_field_converters();
-
-  size_t tails_size= max_packed_sk_len + RDB_CHECKSUM_CHUNK_SIZE +
-    RDB_UNPACK_HEADER_SIZE;
-
-  if (!(m_sk_packed_tuple=
-         reinterpret_cast<uchar*>(my_malloc(max_packed_sk_len, MYF(0)))) ||
-      !(m_sk_match_prefix_buf=
-         reinterpret_cast<uchar*>(my_malloc(max_packed_sk_len, MYF(0)))) ||
-      !(m_sk_packed_tuple_old=
-         reinterpret_cast<uchar*>(my_malloc(max_packed_sk_len, MYF(0)))) ||
-      !(m_end_key_packed_tuple=
-         reinterpret_cast<uchar*>(my_malloc(max_packed_sk_len, MYF(0)))) ||
-      !((m_sk_tails=
-         reinterpret_cast<uchar*>(my_malloc(tails_size, MYF(0))))) ||
-      !((m_sk_tails_old=
-         reinterpret_cast<uchar*>(my_malloc(tails_size, MYF(0))))) ||
-      !((m_pack_buffer=
-         reinterpret_cast<uchar*>(my_malloc(max_packed_sk_len, MYF(0))))))
-  {
-    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
-  }
 
   info(HA_STATUS_NO_LOCK | HA_STATUS_VARIABLE | HA_STATUS_CONST);
 
@@ -4354,32 +4403,7 @@ int ha_rocksdb::close(void)
   m_pk_descr= nullptr;
   m_key_descr_arr= nullptr;
 
-  my_free(m_pk_tuple);
-  m_pk_tuple= nullptr;
-
-  my_free(m_pk_packed_tuple);
-  m_pk_packed_tuple= nullptr;
-
-  my_free(m_sk_packed_tuple);
-  m_sk_packed_tuple= nullptr;
-
-  my_free(m_sk_match_prefix_buf);
-  m_sk_match_prefix_buf= nullptr;
-
-  my_free(m_sk_packed_tuple_old);
-  m_sk_packed_tuple_old= nullptr;
-
-  my_free(m_end_key_packed_tuple);
-  m_end_key_packed_tuple= nullptr;
-
-  my_free(m_sk_tails);
-  m_sk_tails= nullptr;
-
-  my_free(m_sk_tails_old);
-  m_sk_tails_old= nullptr;
-
-  my_free(m_pack_buffer);
-  m_pack_buffer= nullptr;
+  free_key_buffers();
 
   my_free(m_encoder_arr);
   m_encoder_arr= nullptr;
@@ -4485,7 +4509,9 @@ int ha_rocksdb::create_key_defs(const TABLE *table_arg,
                                 const std::string& db_table,
                                 HA_CREATE_INFO *create_info,
                                 Rdb_tbl_def *tbl_def_arg,
-                                const Rdb_tbl_def *old_tbl_def_arg /* = null */)
+                                const TABLE *old_table_arg /* = nullptr */,
+                                const Rdb_tbl_def *old_tbl_def_arg
+                                /* = nullptr */)
 {
   DBUG_ASSERT(table_arg != nullptr);
   DBUG_ASSERT(create_info != nullptr);
@@ -4538,7 +4564,8 @@ int ha_rocksdb::create_key_defs(const TABLE *table_arg,
       in-place alter table.  Copy over existing keys from the old_tbl_def and
       generate the necessary new key definitions if any.
     */
-    if (create_inplace_key_defs(table_arg, tbl_def_arg, old_tbl_def_arg, cfs))
+    if (create_inplace_key_defs(table_arg, tbl_def_arg, old_table_arg,
+                                old_tbl_def_arg, cfs))
     {
       DBUG_RETURN(1);
     }
@@ -4625,15 +4652,8 @@ int ha_rocksdb::create_cfs(const TABLE *table_arg, const std::string& db_table,
       index comment has Column Family name. If there was no comment, we get
       NULL, and it means use the default column family.
     */
-    const char *comment;
-    const char *key_name;
-    if (is_hidden_pk(i, table_arg, tbl_def_arg)) {
-      comment= nullptr;
-      key_name= HIDDEN_PK_NAME;
-    } else {
-      comment= table_arg->key_info[i].comment.str;
-      key_name= table_arg->key_info[i].name;
-    }
+    const char *comment = get_key_comment(i, table_arg, tbl_def_arg);
+    const char *key_name = get_key_name(i, table_arg, tbl_def_arg);
 
     if (looks_like_per_index_cf_typo(comment))
     {
@@ -4680,6 +4700,7 @@ int ha_rocksdb::create_cfs(const TABLE *table_arg, const std::string& db_table,
 */
 int ha_rocksdb::create_inplace_key_defs(const TABLE *table_arg,
                        Rdb_tbl_def *tbl_def_arg,
+                       const TABLE *old_table_arg,
                        const Rdb_tbl_def *old_tbl_def_arg,
                        const std::array<key_def_cf_info, MAX_INDEXES + 1>& cfs)
 {
@@ -4693,29 +4714,15 @@ int ha_rocksdb::create_inplace_key_defs(const TABLE *table_arg,
       old_tbl_def_arg->m_key_descr_arr;
   std::shared_ptr<Rdb_key_def>* new_key_descr=
       tbl_def_arg->m_key_descr_arr;
+  std::unordered_map<std::string, uint> old_key_pos =
+    get_old_key_positions(table_arg, tbl_def_arg, old_table_arg,
+                          old_tbl_def_arg);
 
-  std::unordered_map<std::string, uint> name_pos;
   uint i;
-
-  for (i= 0; i < old_tbl_def_arg->m_key_count; i++)
-  {
-    name_pos[old_key_descr[i]->m_name] = i;
-  }
-
   for (i= 0; i < tbl_def_arg->m_key_count; i++)
   {
-    const char* key_name;
-    if (is_hidden_pk(i, table_arg, tbl_def_arg))
-    {
-      key_name= HIDDEN_PK_NAME;
-    }
-    else
-    {
-      key_name= table_arg->key_info[i].name;
-    }
-
-    auto it = name_pos.find(key_name);
-    if (it != name_pos.end())
+    auto it = old_key_pos.find(get_key_name(i, table_arg, tbl_def_arg));
+    if (it != old_key_pos.end())
     {
       /*
         Found matching index in old table definition, so copy it over to the
@@ -4764,6 +4771,92 @@ int ha_rocksdb::create_inplace_key_defs(const TABLE *table_arg,
 
     DBUG_ASSERT(new_key_descr[i] != nullptr);
     new_key_descr[i]->setup(table_arg, tbl_def_arg);
+  }
+
+  DBUG_RETURN(0);
+}
+
+std::unordered_map<std::string, uint> ha_rocksdb::get_old_key_positions(
+    const TABLE* table_arg,
+    const Rdb_tbl_def* tbl_def_arg,
+    const TABLE* old_table_arg,
+    const Rdb_tbl_def* old_tbl_def_arg)
+{
+  DBUG_ASSERT(table_arg != nullptr);
+  DBUG_ASSERT(old_table_arg != nullptr);
+  DBUG_ASSERT(tbl_def_arg != nullptr);
+  DBUG_ASSERT(old_tbl_def_arg != nullptr);
+
+  DBUG_ENTER("get_old_key_positions");
+
+  std::shared_ptr<Rdb_key_def>* old_key_descr=
+      old_tbl_def_arg->m_key_descr_arr;
+  std::unordered_map<std::string, uint> old_key_pos;
+  std::unordered_map<std::string, uint> new_key_pos;
+  uint i;
+
+  for (i= 0; i < tbl_def_arg->m_key_count; i++)
+  {
+    new_key_pos[get_key_name(i, table_arg, tbl_def_arg)] = i;
+  }
+
+  for (i= 0; i < old_tbl_def_arg->m_key_count; i++)
+  {
+    if (is_hidden_pk(i, old_table_arg, old_tbl_def_arg))
+    {
+      old_key_pos[old_key_descr[i]->m_name] = i;
+      continue;
+    }
+
+    /*
+      In case of matching key name, need to check key parts of keys as well,
+      in case a simultaneous drop + add is performed, where the key name is the
+      same but the key parts are different.
+
+      Example:
+      CREATE TABLE t1 (a INT, b INT, KEY ka(a)) ENGINE=RocksDB;
+      ALTER TABLE t1 DROP INDEX ka, ADD INDEX ka(b), ALGORITHM=INPLACE;
+    */
+    const KEY* old_key = &old_table_arg->key_info[i];
+    auto it = new_key_pos.find(old_key->name);
+    if (it == new_key_pos.end())
+    {
+      continue;
+    }
+
+    KEY* new_key = &table_arg->key_info[it->second];
+
+    if (!compare_key_parts(old_key, new_key))
+    {
+      old_key_pos[old_key->name] = i;
+    }
+  }
+
+  DBUG_RETURN(old_key_pos);
+}
+
+/* Check two keys to ensure that key parts within keys match */
+int ha_rocksdb::compare_key_parts(const KEY* old_key, const KEY* new_key)
+{
+  DBUG_ASSERT(old_key != nullptr);
+  DBUG_ASSERT(new_key != nullptr);
+
+  DBUG_ENTER("compare_key_parts");
+
+  /* Skip if key parts do not match, as it is a different key */
+  if (new_key->user_defined_key_parts != old_key->user_defined_key_parts)
+  {
+    DBUG_RETURN(1);
+  }
+
+  /* Check to see that key parts themselves match */
+  for (uint i= 0; i < old_key->user_defined_key_parts; i++)
+  {
+    if (strcmp(old_key->key_part[i].field->field_name,
+               new_key->key_part[i].field->field_name) != 0)
+    {
+      DBUG_RETURN(1);
+    }
   }
 
   DBUG_RETURN(0);
@@ -4821,13 +4914,7 @@ int ha_rocksdb::create_key_def(const TABLE *table_arg, uint i,
     kv_version= Rdb_key_def::SECONDARY_FORMAT_VERSION_LATEST;
   }
 
-  const char *key_name;
-  if (is_hidden_pk(i, table_arg, m_tbl_def)) {
-    key_name= HIDDEN_PK_NAME;
-  } else {
-    key_name= table_arg->key_info[i].name;
-  }
-
+  const char *key_name = get_key_name(i, table_arg, m_tbl_def);
   *new_key_def= std::make_shared<Rdb_key_def>(
       index_id, i, cf_info.cf_handle, index_dict_version, index_type,
       kv_version, cf_info.is_reverse_cf, cf_info.is_auto_cf, key_name);
@@ -6291,8 +6378,10 @@ int ha_rocksdb::index_next_with_direction(uchar *buf, bool move_forward)
   int rc;
   DBUG_ENTER("ha_rocksdb::index_next");
 
-  if (active_index == table->s->primary_key)
+  if (active_index == pk_index(table, m_tbl_def))
+  {
     rc= rnd_next_with_direction(buf, move_forward);
+  }
   else
   {
     if (m_skip_scan_it_next_call)
@@ -6671,6 +6760,32 @@ bool ha_rocksdb::is_pk(const uint index, const TABLE* table_arg,
          is_hidden_pk(index, table_arg, tbl_def_arg);
 }
 
+const char* ha_rocksdb::get_key_name(const uint index, const TABLE* table_arg,
+                                     const Rdb_tbl_def* tbl_def_arg)
+{
+  DBUG_ASSERT(table_arg != nullptr);
+
+  if (is_hidden_pk(index, table_arg, tbl_def_arg))
+  {
+    return HIDDEN_PK_NAME;
+  }
+
+  return table_arg->key_info[index].name;
+}
+
+const char* ha_rocksdb::get_key_comment(const uint index,
+                                        const TABLE* table_arg,
+                                        const Rdb_tbl_def* tbl_def_arg)
+{
+  DBUG_ASSERT(table_arg != nullptr);
+
+  if (is_hidden_pk(index, table_arg, tbl_def_arg))
+  {
+    return nullptr;
+  }
+
+  return table_arg->key_info[index].comment.str;
+}
 
 int ha_rocksdb::write_row(uchar *buf)
 {
@@ -7062,7 +7177,9 @@ int ha_rocksdb::update_pk(uint key_id, const struct update_row_info& row_info,
   return 0;
 }
 
-int ha_rocksdb::update_sk(uint key_id, const struct update_row_info& row_info)
+int ha_rocksdb::update_sk(const TABLE* table_arg,
+                          const std::shared_ptr<const Rdb_key_def>& kd,
+                          const struct update_row_info& row_info)
 {
   int new_packed_size;
   int new_key_tail_size;
@@ -7074,6 +7191,7 @@ int ha_rocksdb::update_sk(uint key_id, const struct update_row_info& row_info)
   rocksdb::Slice new_value_slice;
   rocksdb::Slice old_key_slice;
 
+  uint key_id = kd->get_keyno();
   /*
     Can skip updating this key if none of the key fields have changed.
   */
@@ -7084,8 +7202,7 @@ int ha_rocksdb::update_sk(uint key_id, const struct update_row_info& row_info)
 
   bool store_checksums= should_store_checksums();
 
-  const std::shared_ptr<const Rdb_key_def>& kd= m_key_descr_arr[key_id];
-  new_packed_size= kd->pack_record(table, m_pack_buffer, row_info.new_data,
+  new_packed_size= kd->pack_record(table_arg, m_pack_buffer, row_info.new_data,
                                    m_sk_packed_tuple, m_sk_tails,
                                    &new_key_tail_size, store_checksums,
                                    row_info.hidden_pk_id);
@@ -7093,7 +7210,8 @@ int ha_rocksdb::update_sk(uint key_id, const struct update_row_info& row_info)
   if (row_info.old_data != nullptr)
   {
     // The old value
-    old_packed_size= kd->pack_record(table, m_pack_buffer, row_info.old_data,
+    old_packed_size= kd->pack_record(table_arg, m_pack_buffer,
+                                     row_info.old_data,
                                      m_sk_packed_tuple_old, m_sk_tails_old,
                                      &old_key_tail_size, store_checksums,
                                      row_info.hidden_pk_id);
@@ -7145,7 +7263,7 @@ int ha_rocksdb::update_sk(uint key_id, const struct update_row_info& row_info)
   */
   rocksdb::WriteBatchBase *write_batch;
   if ((row_info.tx->m_ddl_transaction &&
-       !(table->key_info[key_id].flags & HA_NOSAME)) ||
+       !(table_arg->key_info[key_id].flags & HA_NOSAME)) ||
       row_info.skip_unique_check)
   {
     write_batch= row_info.tx->get_blind_write_batch();
@@ -7172,13 +7290,14 @@ int ha_rocksdb::update_indexes(const struct update_row_info& row_info,
 
   for (uint key_id= 0; key_id < m_tbl_def->m_key_count; key_id++)
   {
+    const std::shared_ptr<const Rdb_key_def>& kd= m_key_descr_arr[key_id];
     if (is_pk(key_id, table, m_tbl_def))
     {
       rc= update_pk(key_id, row_info, pk_changed);
     }
     else
     {
-      rc= update_sk(key_id, row_info);
+      rc= update_sk(table, kd, row_info);
     }
 
     if (rc != 0)
@@ -8866,7 +8985,8 @@ my_core::enum_alter_inplace_result ha_rocksdb::check_if_supported_inplace_alter(
 
   if (ha_alter_info->handler_flags &
       ~(my_core::Alter_inplace_info::DROP_INDEX |
-       my_core::Alter_inplace_info::DROP_UNIQUE_INDEX))
+        my_core::Alter_inplace_info::DROP_UNIQUE_INDEX |
+        my_core::Alter_inplace_info::ADD_INDEX))
   {
       DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
   }
@@ -8908,6 +9028,7 @@ bool ha_rocksdb::prepare_inplace_alter_table(
 {
   DBUG_ENTER("prepare_inplace_alter_table");
   uint n_dropped_keys= ha_alter_info->index_drop_count;
+  uint n_added_keys= ha_alter_info->index_add_count;
   uint old_n_keys= m_tbl_def->m_key_count;
   uint new_n_keys= altered_table->s->keys;
   if (has_hidden_pk(altered_table))
@@ -8927,13 +9048,39 @@ bool ha_rocksdb::prepare_inplace_alter_table(
   new_tdef->m_hidden_pk_val=
     m_tbl_def->m_hidden_pk_val.load(std::memory_order_relaxed);
 
+  if (ha_alter_info->handler_flags &
+     (my_core::Alter_inplace_info::DROP_INDEX |
+      my_core::Alter_inplace_info::DROP_UNIQUE_INDEX |
+      my_core::Alter_inplace_info::ADD_INDEX)
+     && create_key_defs(altered_table,
+                        m_tbl_def->m_dbname_tablename,
+                        ha_alter_info->create_info,
+                        new_tdef, table, m_tbl_def))
+  {
+    /* Delete the new key descriptors */
+    delete[] new_key_descr;
+
+    /*
+      Explicitly mark as nullptr so we don't accidentally remove entries
+      from data dictionary on cleanup (or cause double delete[]).
+    */
+    new_tdef->m_key_descr_arr= nullptr;
+    delete new_tdef;
+    DBUG_RETURN(1);
+  }
+
+  std::unordered_set<std::shared_ptr<Rdb_key_def>> added_indexes;
   std::unordered_set<GL_INDEX_ID> dropped_index_ids;
 
+  uint i;
+  uint j;
+  const KEY* key;
+
   /* Determine which(if any) key definition(s) need to be dropped */
-  for (uint i= 0; i < ha_alter_info->index_drop_count; i++)
+  for (i = 0; i < ha_alter_info->index_drop_count; i++)
   {
     const KEY* key = ha_alter_info->index_drop_buffer[i];
-    for (uint j= 0; j < old_n_keys; j++)
+    for (j = 0; j < old_n_keys; j++)
     {
       if (!old_key_descr[j]->m_name.compare(key->name))
       {
@@ -8945,30 +9092,26 @@ bool ha_rocksdb::prepare_inplace_alter_table(
 
   DBUG_ASSERT(dropped_index_ids.size() == ha_alter_info->index_drop_count);
 
-  /* Check if indexes need to be dropped */
-  if (ha_alter_info->handler_flags &
-     (my_core::Alter_inplace_info::DROP_INDEX |
-      my_core::Alter_inplace_info::DROP_UNIQUE_INDEX)
-     && create_key_defs(altered_table,
-                        m_tbl_def->m_dbname_tablename,
-                        ha_alter_info->create_info,
-                        new_tdef, m_tbl_def))
+  /* Determine which(if any) key definitions(s) need to be added */
+  for (i = 0; i < ha_alter_info->index_add_count; i++)
   {
-    /* Delete the new key descriptors */
-    for (uint i= 0; i < new_n_keys; i++) {
-      if (new_key_descr[i])
+    key = &ha_alter_info->key_info_buffer[
+          ha_alter_info->index_add_buffer[i]];
+    for (j = 0; j < new_n_keys; j++)
+    {
+      if (!new_key_descr[j]->m_name.compare(key->name))
       {
-        new_key_descr[i] = nullptr;
+        added_indexes.insert(new_key_descr[j]);
+        break;
       }
     }
-
-    delete[] new_key_descr;
-    DBUG_RETURN(1);
   }
+
+  DBUG_ASSERT(added_indexes.size() == ha_alter_info->index_add_count);
 
   ha_alter_info->handler_ctx= new Rdb_inplace_alter_ctx(
     new_tdef, old_key_descr, new_key_descr, old_n_keys, new_n_keys,
-    dropped_index_ids, n_dropped_keys);
+    added_indexes, dropped_index_ids, n_added_keys, n_dropped_keys);
 
   DBUG_RETURN(0);
 }
@@ -8993,12 +9136,120 @@ bool ha_rocksdb::prepare_inplace_alter_table(
   @retval   true              Error
   @retval   false             Success
 */
-bool ha_rocksdb::inplace_alter_table(TABLE* /* altered_table */,
+bool ha_rocksdb::inplace_alter_table(TABLE* altered_table,
                                   my_core::Alter_inplace_info *ha_alter_info)
 {
   /* Do nothing for now */
   DBUG_ENTER("inplace_alter_table");
   DBUG_ASSERT(ha_alter_info->handler_ctx);
+
+  Rdb_inplace_alter_ctx* ctx=
+    static_cast<Rdb_inplace_alter_ctx*> (ha_alter_info->handler_ctx);
+
+  if (ha_alter_info->handler_flags & my_core::Alter_inplace_info::ADD_INDEX)
+  {
+    /*
+      Buffers need to be set up again to account for new, possibly longer
+      secondary keys.
+    */
+    free_key_buffers();
+    if (alloc_key_buffers(altered_table, ctx->m_new_tdef))
+    {
+      DBUG_RETURN(1);
+    }
+
+    /* Populate all new secondary keys by scanning primary key */
+    if (inplace_populate_sk(altered_table, ctx->m_added_indexes))
+    {
+      DBUG_RETURN(1);
+    }
+  }
+  DBUG_EXECUTE_IF("myrocks_simulate_index_create_rollback", DBUG_RETURN(1););
+
+  DBUG_RETURN(0);
+}
+
+/**
+ Scan the Primary Key index entries and populate the new secondary keys.
+*/
+int ha_rocksdb::inplace_populate_sk(const TABLE* new_table_arg,
+      const std::unordered_set<std::shared_ptr<Rdb_key_def>>& indexes)
+{
+  DBUG_ENTER("ha_rocksdb::inplace_populate_sk");
+  std::unique_ptr<rocksdb::WriteBatch> wb= dict_manager.begin();
+  rocksdb::WriteBatch *batch= wb.get();
+
+  /* Update the data dictionary */
+  std::unordered_set<GL_INDEX_ID> create_index_ids;
+  for (auto& index : indexes)
+  {
+    create_index_ids.insert(index->get_gl_index_id());
+  }
+  dict_manager.add_create_index(create_index_ids, batch);
+  dict_manager.commit(batch);
+
+  /*
+    Note: We pass in the currently existing table + tbl_def object here, as the
+    pk index position may have changed in the case of hidden primary keys.
+  */
+  uint pk= pk_index(table, m_tbl_def);
+  ha_index_init(pk, true);
+
+  const bool hidden_pk_exists = has_hidden_pk(table);
+  struct update_row_info row_info;
+
+  row_info.tx = get_or_create_tx(table->in_use);
+  row_info.new_data = table->record[0];
+  row_info.old_data = nullptr;
+  /* TODO(alexyang): no support for unique secondary keys yet */
+  row_info.skip_unique_check = skip_unique_check();
+
+  int res;
+  for (res = index_first(table->record[0]); res == 0;
+       res = index_next(table->record[0]))
+  {
+    for (auto& index : indexes)
+    {
+      if (hidden_pk_exists &&
+          read_hidden_pk_id_from_rowkey(&row_info.hidden_pk_id))
+      {
+        // NO_LINT_DEBUG
+        sql_print_error("Error retrieving hidden pk id.");
+        ha_index_end();
+        DBUG_RETURN(1);
+      }
+
+      res = update_sk(new_table_arg, index, row_info);
+      if (res != 0)
+      {
+        // NO_LINT_DEBUG
+        sql_print_error("Failed to create new secondary key entry.");
+        ha_index_end();
+        DBUG_RETURN(res);
+      }
+
+      if (do_bulk_commit(row_info.tx))
+      {
+        // NO_LINT_DEBUG
+        sql_print_error("Bulk commit failed during index creation.");
+        ha_index_end();
+        DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+      }
+    }
+  }
+
+  if (res != 0 && res != HA_ERR_END_OF_FILE)
+  {
+    // NO_LINT_DEBUG
+    sql_print_error("Error retrieving index entry from primary key.");
+    ha_index_end();
+    DBUG_RETURN(1);
+  }
+
+  DBUG_EXECUTE_IF("crash_during_online_index_creation", DBUG_SUICIDE(););
+
+  ha_index_end();
+
   DBUG_RETURN(0);
 }
 
@@ -9039,19 +9290,25 @@ bool ha_rocksdb::commit_inplace_alter_table(
     my_core::Alter_inplace_info *ha_alter_info,
     bool commit)
 {
-  DBUG_ENTER("commit_inplace_alter_table");
-  Rdb_inplace_alter_ctx* ctx=
+  Rdb_inplace_alter_ctx* ctx0=
     static_cast<Rdb_inplace_alter_ctx*> (ha_alter_info->handler_ctx);
+
+  DBUG_ENTER("commit_inplace_alter_table");
 
   /*
     IMPORTANT: When rollback is requested, mysql will abort with
     an assertion failure. That means every failed commit during inplace alter
-    table will result in a fatal error on the server.
+    table will result in a fatal error on the server. Indexes ongoing creation
+    will be detected when the server restarts, and dropped.
+
+    For partitioned tables, a rollback call to this function (commit == false)
+    is done for each partition.  A successful commit call only executes once
+    for all partitions.
   */
   if (!commit)
   {
     /* If ctx has not been created yet, nothing to do here */
-    if (!ctx)
+    if (!ctx0)
     {
       DBUG_RETURN(0);
     }
@@ -9061,47 +9318,98 @@ bool ha_rocksdb::commit_inplace_alter_table(
       erase the mappings inside the ddl_manager, as the old_key_descr is still
       using them.
     */
-    if (ctx->m_new_key_descr)
+    if (ctx0->m_new_key_descr)
     {
       /* Delete the new key descriptors */
-      for (uint i= 0; i < ctx->m_new_n_keys; i++) {
-        if (ctx->m_new_key_descr[i])
-        {
-          ctx->m_new_key_descr[i] = nullptr;
-        }
+      for (uint i = 0; i < ctx0->m_new_tdef->m_key_count; i++)
+      {
+        ctx0->m_new_key_descr[i]= nullptr;
       }
 
-      delete[] ctx->m_new_key_descr;
-      ctx->m_new_key_descr = nullptr;
+      delete[] ctx0->m_new_key_descr;
+      ctx0->m_new_key_descr = nullptr;
+      ctx0->m_new_tdef->m_key_descr_arr = nullptr;
+
+      delete ctx0->m_new_tdef;
     }
 
     DBUG_RETURN(0);
   }
 
+  DBUG_ASSERT(ctx0);
+
+  /*
+    For partitioned tables, we need to commit all changes to all tables at
+    once, unlike in the other inplace alter API methods.
+  */
+  inplace_alter_handler_ctx** ctx_array;
+  inplace_alter_handler_ctx*  ctx_single[2];
+
+  if (ha_alter_info->group_commit_ctx)
+  {
+    DBUG_EXECUTE_IF("crash_during_index_creation_partition",
+                    DBUG_SUICIDE(););
+    ctx_array = ha_alter_info->group_commit_ctx;
+  }
+  else
+  {
+    ctx_single[0] = ctx0;
+    ctx_single[1] = nullptr;
+    ctx_array = ctx_single;
+  }
+
+  DBUG_ASSERT(ctx0 == ctx_array[0]);
+  ha_alter_info->group_commit_ctx = nullptr;
+
   if (ha_alter_info->handler_flags &
       (my_core::Alter_inplace_info::DROP_INDEX |
-       my_core::Alter_inplace_info::DROP_UNIQUE_INDEX))
+       my_core::Alter_inplace_info::DROP_UNIQUE_INDEX |
+       my_core::Alter_inplace_info::ADD_INDEX))
   {
     std::unique_ptr<rocksdb::WriteBatch> wb= dict_manager.begin();
     rocksdb::WriteBatch *batch= wb.get();
+    std::unordered_set<GL_INDEX_ID> create_index_ids;
 
-    dict_manager.add_drop_index(ctx->m_dropped_index_ids, batch);
-
-    m_tbl_def= ctx->m_new_tdef;
+    m_tbl_def= ctx0->m_new_tdef;
     m_key_descr_arr= m_tbl_def->m_key_descr_arr;
     m_pk_descr= m_key_descr_arr[pk_index(altered_table, m_tbl_def)];
 
     dict_manager.lock();
-    if (ddl_manager.put_and_write(ctx->m_new_tdef, batch) ||
-        dict_manager.commit(batch))
+    for (inplace_alter_handler_ctx** pctx = ctx_array; *pctx; pctx++)
+    {
+      Rdb_inplace_alter_ctx* ctx= static_cast<Rdb_inplace_alter_ctx*> (*pctx);
+
+      /* Mark indexes to be dropped */
+      dict_manager.add_drop_index(ctx->m_dropped_index_ids, batch);
+
+      for (auto& index : ctx->m_added_indexes)
+      {
+        create_index_ids.insert(index->get_gl_index_id());
+      }
+
+      if (ddl_manager.put_and_write(ctx->m_new_tdef, batch))
+      {
+        /*
+          Failed to write new entry into data dictionary, this should never
+          happen.
+        */
+        DBUG_ASSERT(0);
+      }
+    }
+
+    if (dict_manager.commit(batch))
     {
       /*
         Should never reach here. We assume MyRocks will abort if commit fails.
       */
       DBUG_ASSERT(0);
     }
+
     dict_manager.unlock();
 
+    /* Mark ongoing create indexes as finished/remove from data dictionary */
+    dict_manager.finish_indexes_operation(create_index_ids,
+        Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
     rdb_drop_idx_thread.signal();
   }
 
