@@ -140,7 +140,7 @@ public:
                         const uchar *key_tuple, key_part_map keypart_map) const;
 
   /* Convert a key from Table->record format to mem-comparable form */
-  uint pack_record(TABLE *tbl, uchar *pack_buffer, const uchar *record,
+  uint pack_record(const TABLE *tbl, uchar *pack_buffer, const uchar *record,
                    uchar *packed_tuple, uchar *unpack_info,
                    int *unpack_info_len, bool should_store_checksums,
                    longlong hidden_pk_id= 0, uint n_key_parts= 0,
@@ -210,6 +210,11 @@ public:
                             const rocksdb::Slice &prefix) const
   {
     return covers_key(value) && !cmp_full_keys(value, prefix);
+  }
+
+  uint32 get_keyno() const
+  {
+    return m_keyno;
   }
 
   uint32 get_index_number() const
@@ -526,7 +531,7 @@ private:
 public:
   bool setup(const Rdb_key_def *key_descr, const Field *field,
              uint keynr_arg, uint key_part_arg, uint16 key_length);
-  Field *get_field_in_table(TABLE *tbl) const;
+  Field *get_field_in_table(const TABLE *tbl) const;
   void fill_hidden_pk_val(uchar **dst, longlong hidden_pk_id) const;
 };
 
