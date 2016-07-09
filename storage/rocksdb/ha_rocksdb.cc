@@ -2919,7 +2919,7 @@ static int rocksdb_init_func(void *p)
   }
   cf_manager.init(&rocksdb_cf_options_map, &cf_handles);
 
-  if (dict_manager.init(rdb, &cf_manager))
+  if (dict_manager.init(rdb->GetBaseDB(), &cf_manager))
   {
     // NO_LINT_DEBUG
     sql_print_error("RocksDB: Failed to initialize data dictionary.");
