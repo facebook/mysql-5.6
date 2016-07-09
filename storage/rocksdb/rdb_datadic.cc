@@ -537,7 +537,7 @@ int Rdb_key_def::successor(uchar *packed_tuple, uint len)
     Length of the packed tuple
 */
 
-uint Rdb_key_def::pack_record(TABLE *tbl, uchar *pack_buffer,
+uint Rdb_key_def::pack_record(const TABLE *tbl, uchar *pack_buffer,
                               const uchar *record, uchar *packed_tuple,
                               uchar *unpack_info, int *unpack_info_len,
                               bool should_store_checksums,
@@ -2079,7 +2079,7 @@ bool Rdb_field_packing::setup(const Rdb_key_def *key_descr, const Field *field,
 }
 
 
-Field *Rdb_field_packing::get_field_in_table(TABLE *tbl) const
+Field *Rdb_field_packing::get_field_in_table(const TABLE *tbl) const
 {
   return tbl->key_info[m_keynr].key_part[m_key_part].field;
 }
@@ -3647,6 +3647,10 @@ void Rdb_dict_manager::finish_indexes_operation(
         gl_index_id.cf_id, gl_index_id.index_id);
 
       end_ongoing_index_operation(batch, gl_index_id, dd_type);
+    }
+
+    if (dd_type == Rdb_key_def::DDL_DROP_INDEX_ONGOING)
+    {
       delete_index_info(batch, gl_index_id);
     }
   }
