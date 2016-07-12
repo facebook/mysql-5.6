@@ -377,10 +377,10 @@ class ha_rocksdb: public my_core::handler
   */
   int m_dupp_errkey;
 
-  int create_key_defs(TABLE *table_arg, const char *db_table, const uint len,
+  int create_key_defs(const TABLE *table_arg, const std::string& db_table,
                       HA_CREATE_INFO *create_info, Rdb_tbl_def *tbl_def_arg,
-                      Rdb_tbl_def *old_tbl_def_arg= nullptr)
-      MY_ATTRIBUTE((__nonnull__(2, 3, 5, 6), __warn_unused_result__));
+                      const Rdb_tbl_def *old_tbl_def_arg= nullptr)
+      MY_ATTRIBUTE((__nonnull__(2, 4, 5), __warn_unused_result__));
   int secondary_index_read(const int keyno, uchar *buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   void setup_iterator_for_rnd_scan();
@@ -699,18 +699,19 @@ private:
     bool             skip_unique_check;
   };
 
-  int create_cfs(TABLE *table_arg, const char *db_table,
+  int create_cfs(const TABLE *table_arg, const std::string& db_table,
                  Rdb_tbl_def *tbl_def_arg,
                  std::array<struct key_def_cf_info, MAX_INDEXES + 1>* cfs);
 
 
-  int create_key_def(TABLE *table_arg, uint i, const Rdb_tbl_def* tbl_def_arg,
+  int create_key_def(const TABLE *table_arg, uint i,
+                     const Rdb_tbl_def* tbl_def_arg,
                      std::shared_ptr<Rdb_key_def>* new_key_def,
                      const struct key_def_cf_info& cf_info);
 
-  int create_inplace_key_defs(TABLE *table_arg,
+  int create_inplace_key_defs(const TABLE *table_arg,
                        Rdb_tbl_def *tbl_def_arg,
-                       Rdb_tbl_def *old_tbl_def_arg,
+                       const Rdb_tbl_def *old_tbl_def_arg,
                        const std::array<key_def_cf_info, MAX_INDEXES + 1>& cfs);
 
   int index_first_intern(uchar *buf)
