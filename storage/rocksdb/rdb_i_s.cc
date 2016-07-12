@@ -90,7 +90,7 @@ static int rdb_i_s_cfstats_fill_table(
       Only the cf name is important. Whether it was generated automatically
       does not matter, so is_automatic is ignored.
     */
-    cfh= cf_manager.get_cf(cf_name.c_str(), nullptr, nullptr, &is_automatic);
+    cfh= cf_manager.get_cf(cf_name.c_str(), "", nullptr, &is_automatic);
     if (cfh == nullptr)
       continue;
 
@@ -242,17 +242,16 @@ static int rdb_i_s_perf_context_fill_table(
   DBUG_ENTER("rdb_i_s_perf_context_fill_table");
 
   std::vector<std::string> tablenames= rdb_get_open_table_names();
-  for (auto it : tablenames)
+  for (const auto& it : tablenames)
   {
-    StringBuffer<256> buf, dbname, tablename, partname;
+    std::string str, dbname, tablename, partname;
     Rdb_perf_counters counters;
 
-    if (rdb_normalize_tablename(it.c_str(), &buf)) {
+    if (rdb_normalize_tablename(it, &str)) {
       return HA_ERR_INTERNAL_ERROR;
     }
 
-    if (rdb_split_normalized_tablename(buf.c_ptr(), &dbname, &tablename,
-                                       &partname))
+    if (rdb_split_normalized_tablename(str, &dbname, &tablename, &partname))
     {
       continue;
     }
@@ -264,18 +263,20 @@ static int rdb_i_s_perf_context_fill_table(
 
     DBUG_ASSERT(field != nullptr);
 
-    field[0]->store(dbname.c_ptr(), dbname.length(), system_charset_info);
-    field[1]->store(tablename.c_ptr(), tablename.length(), system_charset_info);
-    if (partname.length() == 0)
+    field[0]->store(dbname.c_str(), dbname.size(), system_charset_info);
+    field[1]->store(tablename.c_str(), tablename.size(), system_charset_info);
+    if (partname.size() == 0)
+    {
       field[2]->set_null();
+    }
     else
     {
       field[2]->set_notnull();
-      field[2]->store(partname.c_ptr(), partname.length(),
-                      system_charset_info);
+      field[2]->store(partname.c_str(), partname.size(), system_charset_info);
     }
 
-    for (int i= 0; i < PC_MAX_IDX; i++) {
+    for (int i= 0; i < PC_MAX_IDX; i++)
+    {
       field[3]->store(rdb_pc_stat_types[i].c_str(), rdb_pc_stat_types[i].size(),
                       system_charset_info);
       field[4]->store(counters.m_value[i], true);
@@ -791,11 +792,11 @@ int Rdb_ddl_scanner::add_table(Rdb_tbl_def *tdef)
   DBUG_ASSERT(tdef != nullptr);
 
   int ret= 0;
-  StringBuffer<256> dbname, tablename, partname;
+  std::string dbname, tablename, partname;
 
   /* Some special tables such as drop_index have different names, ignore them */
-  if (rdb_split_normalized_tablename(tdef->m_dbname_tablename.c_ptr(),
-                                     &dbname, &tablename, &partname))
+  if (rdb_split_normalized_tablename(tdef->m_dbname_tablename, &dbname,
+                                     &tablename, &partname))
   {
     return 0;
   }
@@ -804,8 +805,8 @@ int Rdb_ddl_scanner::add_table(Rdb_tbl_def *tdef)
   Field** field= m_table->field;
   DBUG_ASSERT(field != nullptr);
 
-  field[0]->store(dbname.c_ptr(), dbname.length(), system_charset_info);
-  field[1]->store(tablename.c_ptr(), tablename.length(), system_charset_info);
+  field[0]->store(dbname.c_str(), dbname.size(), system_charset_info);
+  field[1]->store(tablename.c_str(), tablename.size(), system_charset_info);
   if (partname.length() == 0)
   {
     field[2]->set_null();
@@ -813,7 +814,7 @@ int Rdb_ddl_scanner::add_table(Rdb_tbl_def *tdef)
   else
   {
     field[2]->set_notnull();
-    field[2]->store(partname.c_ptr(), partname.length(), system_charset_info);
+    field[2]->store(partname.c_str(), partname.size(), system_charset_info);
   }
 
   for (uint i= 0; i < tdef->m_key_count; i++)

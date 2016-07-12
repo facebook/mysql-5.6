@@ -35,14 +35,11 @@ enum RDB_IO_ERROR_TYPE {
 
 void rdb_handle_io_error(rocksdb::Status status, RDB_IO_ERROR_TYPE err_type);
 
-int rdb_normalize_tablename(const char *tablename,
-                            StringBuffer<256> *strbuf)
+int rdb_normalize_tablename(const std::string& tablename, std::string* str)
   MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
-int rdb_split_normalized_tablename(const char *fullname,
-                                   StringBuffer<256> *dbbuf,
-                                   StringBuffer<256> *tablebuf,
-                                   StringBuffer<256> *partitionbuf)
+int rdb_split_normalized_tablename(const std::string& fullname, std::string *db,
+                                   std::string *table, std::string *partition)
   MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
 std::vector<std::string> rdb_get_open_table_names(void);
