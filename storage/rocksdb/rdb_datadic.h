@@ -341,7 +341,7 @@ public:
     SECONDARY_FORMAT_VERSION_LATEST= SECONDARY_FORMAT_VERSION_INITIAL,
   };
 
-  void setup(TABLE *table, Rdb_tbl_def *tbl_def);
+  void setup(const TABLE *table, const Rdb_tbl_def *tbl_def);
 
   rocksdb::ColumnFamilyHandle *get_cf() const { return m_cf_handle; }
 
@@ -617,7 +617,7 @@ public:
   ~Rdb_tbl_def();
 
   /* Stores 'dbname.tablename' */
-  StringBuffer<64> m_dbname_tablename;
+  std::string m_dbname_tablename;
 
   /* Number of indexes */
   uint m_key_count;
@@ -634,7 +634,10 @@ public:
   bool put_dict(Rdb_dict_manager *dict, rocksdb::WriteBatch *batch,
                 uchar *key, size_t keylen);
 
-  void set_name(const char *name, size_t len);
+  void set_name(const char *name, size_t len) {
+    set_name(std::string(name, len));
+  }
+  void set_name(const std::string& name);
   void set_name(const rocksdb::Slice& slice, size_t pos = 0) {
     set_name(slice.data() + pos, slice.size() - pos);
   }
@@ -686,7 +689,7 @@ class Rdb_ddl_manager
   Rdb_dict_manager *m_dict= nullptr;
   my_core::HASH m_ddl_hash;  // Contains Rdb_tbl_def elements
   // maps index id to <table_name, index number>
-  std::map<GL_INDEX_ID, std::pair<std::basic_string<uchar>, uint>>
+  std::map<GL_INDEX_ID, std::pair<std::string, uint>>
     m_index_num_to_keydef;
   mysql_rwlock_t m_rwlock;
 
@@ -702,7 +705,7 @@ public:
 
   void cleanup();
 
-  Rdb_tbl_def* find(const uchar *table_name, uint len, bool lock= true);
+  Rdb_tbl_def* find(const std::string& table_name, bool lock= true);
   const std::shared_ptr<Rdb_key_def>& find(GL_INDEX_ID gl_index_id);
   std::shared_ptr<Rdb_key_def> safe_find(GL_INDEX_ID gl_index_id);
   void set_stats(
@@ -716,7 +719,7 @@ public:
   /* Modify the mapping and write it to on-disk storage */
   int put_and_write(Rdb_tbl_def *key_descr, rocksdb::WriteBatch *batch);
   void remove(Rdb_tbl_def *rec, rocksdb::WriteBatch *batch, bool lock= true);
-  bool rename(uchar *from, uint from_len, uchar *to, uint to_len,
+  bool rename(const std::string& from, const std::string& to,
               rocksdb::WriteBatch *batch);
 
   uint get_and_update_next_number(Rdb_dict_manager *dict)
@@ -732,8 +735,8 @@ private:
   int put(Rdb_tbl_def *key_descr, bool lock= true);
 
   /* Helper functions to be passed to my_core::HASH object */
-  static uchar* get_hash_key(Rdb_tbl_def *rec, size_t *length,
-                             my_bool not_used MY_ATTRIBUTE((unused)));
+  static const uchar* get_hash_key(Rdb_tbl_def *rec, size_t *length,
+                                   my_bool not_used MY_ATTRIBUTE((unused)));
   static void free_hash_elem(void* data);
 
   bool validate_schemas();

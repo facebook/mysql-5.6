@@ -119,7 +119,7 @@ Rdb_key_def::~Rdb_key_def()
   m_pack_info = nullptr;
 }
 
-void Rdb_key_def::setup(TABLE *tbl, Rdb_tbl_def *tbl_def)
+void Rdb_key_def::setup(const TABLE *tbl, const Rdb_tbl_def *tbl_def)
 {
   DBUG_ASSERT(tbl != nullptr);
   DBUG_ASSERT(tbl_def != nullptr);
@@ -2187,12 +2187,10 @@ void Rdb_tbl_def::check_if_is_mysql_system_table()
     "information_schema",
   };
 
-  const char *dotpos= strstr(m_dbname_tablename.c_ptr(), ".");
-  DBUG_ASSERT(dotpos != nullptr);
+  size_t dotpos= m_dbname_tablename.find_first_of('.');
+  DBUG_ASSERT(dotpos != std::string::npos);
 
-  std::string dbname;
-  dbname.assign(m_dbname_tablename.c_ptr(),
-                dotpos - m_dbname_tablename.c_ptr());
+  std::string dbname = m_dbname_tablename.substr(0, dotpos);
 
   m_is_mysql_system_table= false;
   for (uint ii = 0; ii < array_elements(system_dbs); ii++) {
@@ -2202,13 +2200,12 @@ void Rdb_tbl_def::check_if_is_mysql_system_table()
   }
 }
 
-void Rdb_tbl_def::set_name(const char *name, size_t len)
+void Rdb_tbl_def::set_name(const std::string& name)
 {
-  m_dbname_tablename.append(name, len);
+  m_dbname_tablename.append(name);
 
   check_if_is_mysql_system_table();
 }
-
 
 /*
   Static function of type my_hash_get_key that gets invoked by
@@ -2216,12 +2213,12 @@ void Rdb_tbl_def::set_name(const char *name, size_t len)
   It manufactures a key (db+table name in our case) from a record
   (Rdb_tbl_def in our case).
 */
-uchar* Rdb_ddl_manager::get_hash_key(
+const uchar* Rdb_ddl_manager::get_hash_key(
   Rdb_tbl_def *rec, size_t *length,
   my_bool not_used MY_ATTRIBUTE((__unused__)))
 {
-  *length= rec->m_dbname_tablename.length();
-  return rdb_mysql_str_to_uchar_str(&rec->m_dbname_tablename);
+  *length= rec->m_dbname_tablename.size();
+  return reinterpret_cast<const uchar*>(rec->m_dbname_tablename.c_str());
 }
 
 
@@ -2277,24 +2274,21 @@ struct Rdb_validate_tbls : public Rdb_tables_scanner
 */
 int Rdb_validate_tbls::add_table(Rdb_tbl_def* tdef)
 {
-  StringBuffer<256>  dbname_buff;
-  StringBuffer<256>  tablename_buff;
-  StringBuffer<256>  partition_buff;
+  std::string dbname;
+  std::string tablename;
+  std::string partition;
 
   DBUG_ASSERT(tdef != nullptr);
 
   /* Parse the m_dbname_tablename for the different elements */
-  if (rdb_split_normalized_tablename(tdef->m_dbname_tablename.ptr(),
-                                     &dbname_buff, &tablename_buff,
-                                     &partition_buff) != 0)
+  if (rdb_split_normalized_tablename(tdef->m_dbname_tablename, &dbname,
+                                     &tablename, &partition) != 0)
   {
     return 1;
   }
 
   /* Add the database/table into the list */
-  std::string dbname = std::string(dbname_buff.ptr());
-  std::string tablename = std::string(tablename_buff.ptr());
-  bool        is_partition = partition_buff.length() != 0;
+  bool is_partition = partition.size() != 0;
   m_list[dbname].insert(tbl_info_t(tablename, is_partition));
 
   return 0;
@@ -2556,7 +2550,7 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager *dict_arg,
     if (real_val_size % Rdb_key_def::PACKED_SIZE*2)
     {
       sql_print_error("RocksDB: Table_store: invalid keylist for table %s",
-                      tdef->m_dbname_tablename.c_ptr_safe());
+                      tdef->m_dbname_tablename.c_str());
       return true;
     }
     tdef->m_key_count= real_val_size / (Rdb_key_def::PACKED_SIZE*2);
@@ -2586,7 +2580,7 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager *dict_arg,
         sql_print_error("RocksDB: Could not get index information "
                         "for Index Number (%u,%u), table %s",
                         gl_index_id.cf_id, gl_index_id.index_id,
-                        tdef->m_dbname_tablename.c_ptr_safe());
+                        tdef->m_dbname_tablename.c_str());
         return true;
       }
       if (max_index_id_in_dict < gl_index_id.index_id)
@@ -2602,7 +2596,7 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager *dict_arg,
         sql_print_error("RocksDB: Could not get Column Family Flags "
                         "for CF Number %d, table %s",
                         gl_index_id.cf_id,
-                        tdef->m_dbname_tablename.c_ptr_safe());
+                        tdef->m_dbname_tablename.c_str());
         return true;
       }
 
@@ -2659,18 +2653,23 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager *dict_arg,
 }
 
 
-Rdb_tbl_def* Rdb_ddl_manager::find(const uchar *table_name,
-                                   uint table_name_len,
-                                   bool lock)
+Rdb_tbl_def* Rdb_ddl_manager::find(const std::string& table_name, bool lock)
 {
-  Rdb_tbl_def *rec;
   if (lock)
+  {
     mysql_rwlock_rdlock(&m_rwlock);
-  rec= reinterpret_cast<Rdb_tbl_def*>(my_hash_search(&m_ddl_hash,
-                                      table_name,
-                                      table_name_len));
+  }
+
+  Rdb_tbl_def* rec= reinterpret_cast<Rdb_tbl_def*>(
+      my_hash_search(&m_ddl_hash,
+                     reinterpret_cast<const uchar*>(table_name.c_str()),
+                     table_name.size()));
+
   if (lock)
+  {
     mysql_rwlock_unlock(&m_rwlock);
+  }
+
   return rec;
 }
 
@@ -2687,8 +2686,7 @@ std::shared_ptr<Rdb_key_def> Rdb_ddl_manager::safe_find(GL_INDEX_ID gl_index_id)
   auto it= m_index_num_to_keydef.find(gl_index_id);
   if (it != m_index_num_to_keydef.end())
   {
-    auto table_def = find(it->second.first.data(), it->second.first.size(),
-                          false);
+    auto table_def = find(it->second.first, false);
     if (table_def && it->second.second < table_def->m_key_count)
     {
       auto& kd= table_def->m_key_descr_arr[it->second.second];
@@ -2710,8 +2708,7 @@ const std::shared_ptr<Rdb_key_def>& Rdb_ddl_manager::find(
 {
   auto it= m_index_num_to_keydef.find(gl_index_id);
   if (it != m_index_num_to_keydef.end()) {
-    auto table_def = find(it->second.first.data(), it->second.first.size(),
-                          false);
+    auto table_def = find(it->second.first, false);
     if (table_def) {
       if (it->second.second < table_def->m_key_count) {
         return table_def->m_key_descr_arr[it->second.second];
@@ -2799,9 +2796,9 @@ int Rdb_ddl_manager::put_and_write(Rdb_tbl_def *tbl,
   rdb_netbuf_store_index(buf, Rdb_key_def::DDL_ENTRY_INDEX_START_NUMBER);
   pos+= Rdb_key_def::INDEX_NUMBER_SIZE;
 
-  memcpy(buf + pos, tbl->m_dbname_tablename.ptr(),
-         tbl->m_dbname_tablename.length());
-  pos += tbl->m_dbname_tablename.length();
+  memcpy(buf + pos, tbl->m_dbname_tablename.c_str(),
+         tbl->m_dbname_tablename.size());
+  pos += tbl->m_dbname_tablename.size();
 
   int res;
   if ((res= tbl->put_dict(m_dict, batch, buf, pos)))
@@ -2831,9 +2828,7 @@ int Rdb_ddl_manager::put(Rdb_tbl_def *tbl, bool lock)
   if (lock)
     mysql_rwlock_wrlock(&m_rwlock);
 
-  rec= reinterpret_cast<Rdb_tbl_def*>(
-          find(rdb_mysql_str_to_uchar_str(&tbl->m_dbname_tablename),
-               tbl->m_dbname_tablename.length(), false));
+  rec= reinterpret_cast<Rdb_tbl_def*>(find(tbl->m_dbname_tablename, false));
   if (rec)
   {
     // this will free the old record.
@@ -2843,13 +2838,7 @@ int Rdb_ddl_manager::put(Rdb_tbl_def *tbl, bool lock)
 
   for (uint keyno= 0; keyno < tbl->m_key_count; keyno++) {
     m_index_num_to_keydef[tbl->m_key_descr_arr[keyno]->get_gl_index_id()]=
-      std::make_pair(
-        std::basic_string<uchar>(
-          rdb_mysql_str_to_uchar_str(&tbl->m_dbname_tablename),
-          tbl->m_dbname_tablename.length()
-        ),
-        keyno
-      );
+      std::make_pair(tbl->m_dbname_tablename, keyno);
   }
 
   if (lock)
@@ -2870,9 +2859,9 @@ void Rdb_ddl_manager::remove(Rdb_tbl_def *tbl,
   rdb_netbuf_store_index(buf, Rdb_key_def::DDL_ENTRY_INDEX_START_NUMBER);
   pos+= Rdb_key_def::INDEX_NUMBER_SIZE;
 
-  memcpy(buf + pos, tbl->m_dbname_tablename.ptr(),
-         tbl->m_dbname_tablename.length());
-  pos += tbl->m_dbname_tablename.length();
+  memcpy(buf + pos, tbl->m_dbname_tablename.c_str(),
+         tbl->m_dbname_tablename.size());
+  pos += tbl->m_dbname_tablename.size();
 
   rocksdb::Slice tkey((char*)buf, pos);
   m_dict->delete_key(batch, tkey);
@@ -2885,8 +2874,7 @@ void Rdb_ddl_manager::remove(Rdb_tbl_def *tbl,
 }
 
 
-bool Rdb_ddl_manager::rename(uchar *from, uint from_len,
-                             uchar *to, uint to_len,
+bool Rdb_ddl_manager::rename(const std::string& from, const std::string& to,
                              rocksdb::WriteBatch *batch)
 {
   Rdb_tbl_def *rec;
@@ -2896,12 +2884,14 @@ bool Rdb_ddl_manager::rename(uchar *from, uint from_len,
   uint new_pos= 0;
 
   mysql_rwlock_wrlock(&m_rwlock);
-  if (!(rec= reinterpret_cast<Rdb_tbl_def*>(find(from, from_len, false))))
+  if (!(rec= find(from, false)))
+  {
     goto err;
+  }
 
   new_rec= new Rdb_tbl_def;
 
-  new_rec->set_name(reinterpret_cast<char*>(to), to_len);
+  new_rec->set_name(to);
   new_rec->m_key_count= rec->m_key_count;
   new_rec->m_auto_incr_val=
     rec->m_auto_incr_val.load(std::memory_order_relaxed);
@@ -2913,9 +2903,9 @@ bool Rdb_ddl_manager::rename(uchar *from, uint from_len,
   rdb_netbuf_store_index(new_buf, Rdb_key_def::DDL_ENTRY_INDEX_START_NUMBER);
   new_pos+= Rdb_key_def::INDEX_NUMBER_SIZE;
 
-  memcpy(new_buf + new_pos, new_rec->m_dbname_tablename.ptr(),
-         new_rec->m_dbname_tablename.length());
-  new_pos += new_rec->m_dbname_tablename.length();
+  memcpy(new_buf + new_pos, new_rec->m_dbname_tablename.c_str(),
+         new_rec->m_dbname_tablename.size());
+  new_pos += new_rec->m_dbname_tablename.size();
 
   // Create a key to add
   if (new_rec->put_dict(m_dict, batch, new_buf, new_pos))
@@ -3155,8 +3145,7 @@ void Rdb_binlog_manager::update_slave_gtid_info(
     // pointer to it via m_slave_gtid_info_tbl.
     if (!m_slave_gtid_info_tbl.load()) {
       m_slave_gtid_info_tbl.store(
-        rdb_get_ddl_manager()->find((const uchar*)("mysql.slave_gtid_info"),
-                                    21));
+        rdb_get_ddl_manager()->find("mysql.slave_gtid_info"));
     }
     if (!m_slave_gtid_info_tbl.load()) {
       // slave_gtid_info table is not present. Simply return.
@@ -3213,7 +3202,7 @@ bool Rdb_dict_manager::init(rocksdb::DB *rdb_dict, Rdb_cf_manager *cf_manager)
   m_db= rdb_dict;
   bool is_automatic;
   m_system_cfh= cf_manager->get_or_create_cf(m_db, DEFAULT_SYSTEM_CF_NAME,
-                                             nullptr, nullptr, &is_automatic);
+                                             "", nullptr, &is_automatic);
   rdb_netbuf_store_index(m_key_buf_max_index_id,
                          Rdb_key_def::MAX_INDEX_ID);
   m_key_slice_max_index_id= rocksdb::Slice(
