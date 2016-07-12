@@ -32,8 +32,8 @@
 
 namespace myrocks {
 
-void get_per_index_cf_name(const char *db_table_name, const char *index_name,
-                           std::string *res);
+void get_per_index_cf_name(const std::string& db_table_name,
+                           const char *index_name, std::string *res);
 
 /*
   We need a Column Family (CF) manager. Its functions:
@@ -57,8 +57,8 @@ class Rdb_cf_manager
   mutable mysql_mutex_t m_mutex;
 
   static
-  void get_per_index_cf_name(const char *db_table_name, const char *index_name,
-                             std::string *res);
+  void get_per_index_cf_name(const std::string& db_table_name,
+                             const char *index_name, std::string *res);
 
   Rdb_cf_options* m_cf_options= nullptr;
 
@@ -78,15 +78,13 @@ public:
     - cf_name=nullptr means use default column family
     - cf_name=_auto_ means use 'dbname.tablename.indexname'
   */
-  rocksdb::ColumnFamilyHandle* get_or_create_cf(rocksdb::DB *rdb,
-                                                const char *cf_name,
-                                                const char *db_table_name,
-                                                const char *index_name,
-                                                bool *is_automatic);
+  rocksdb::ColumnFamilyHandle* get_or_create_cf(
+      rocksdb::DB *rdb, const char *cf_name, const std::string& db_table_name,
+      const char *index_name, bool *is_automatic);
 
   /* Used by table open */
   rocksdb::ColumnFamilyHandle* get_cf(const char *cf_name,
-                                      const char *db_table_name,
+                                      const std::string& db_table_name,
                                       const char *index_name,
                                       bool *is_automatic) const;
 
