@@ -77,17 +77,14 @@ void Rdb_cf_manager::cleanup()
   @param res  OUT  Column Family name
 */
 
-void Rdb_cf_manager::get_per_index_cf_name(const char *db_table_name,
+void Rdb_cf_manager::get_per_index_cf_name(const std::string& db_table_name,
                                            const char *index_name,
                                            std::string *res)
 {
-  DBUG_ASSERT(db_table_name != nullptr);
   DBUG_ASSERT(index_name != nullptr);
   DBUG_ASSERT(res != nullptr);
 
-  res->assign(db_table_name);
-  res->append(".");
-  res->append(index_name);
+  *res = db_table_name + "." + index_name;
 }
 
 
@@ -101,7 +98,7 @@ void Rdb_cf_manager::get_per_index_cf_name(const char *db_table_name,
 rocksdb::ColumnFamilyHandle*
 Rdb_cf_manager::get_or_create_cf(rocksdb::DB *rdb,
                                  const char *cf_name,
-                                 const char *db_table_name,
+                                 const std::string& db_table_name,
                                  const char *index_name,
                                  bool *is_automatic)
 {
@@ -166,7 +163,7 @@ Rdb_cf_manager::get_or_create_cf(rocksdb::DB *rdb,
 
 rocksdb::ColumnFamilyHandle*
 Rdb_cf_manager::get_cf(const char *cf_name,
-                       const char *db_table_name,
+                       const std::string& db_table_name,
                        const char *index_name,
                        bool *is_automatic) const
 {
