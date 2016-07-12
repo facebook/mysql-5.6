@@ -180,7 +180,7 @@ rocksdb_compact_column_family(THD* thd,
 {
   if (const char* cf = *static_cast<const char*const*>(save)) {
     bool is_automatic;
-    auto cfh = cf_manager.get_cf(cf, nullptr, nullptr, &is_automatic);
+    auto cfh = cf_manager.get_cf(cf, "", nullptr, &is_automatic);
     if (cfh != nullptr && rdb != nullptr) {
       sql_print_information("RocksDB: Manual compaction of column family: %s\n", cf);
       rdb->CompactRange(rocksdb::CompactRangeOptions(), cfh, nullptr, nullptr);
@@ -1410,7 +1410,7 @@ public:
         */
       my_core::thd_mark_transaction_to_rollback(thd, false /*just statement*/);
       m_detailed_error.copy(timeout_message("index",
-                                            tbl_def->m_dbname_tablename.c_ptr(),
+                                            tbl_def->m_dbname_tablename.c_str(),
                                             kd->get_name().c_str()));
 
       return HA_ERR_LOCK_WAIT_TIMEOUT;
@@ -2327,7 +2327,7 @@ static bool rocksdb_show_status(handlerton*		hton,
         Only the cf name is important. Whether it was generated automatically
         does not matter, so is_automatic is ignored.
       */
-      cfh= cf_manager.get_cf(cf_name.c_str(), nullptr, nullptr, &is_automatic);
+      cfh= cf_manager.get_cf(cf_name.c_str(), "", nullptr, &is_automatic);
       if (cfh == nullptr)
         continue;
 
@@ -2532,15 +2532,15 @@ static void rocksdb_update_table_stats(
 
   tablenames= rdb_open_tables.get_table_names();
 
-  for (auto it : tablenames)
+  for (const auto& it : tablenames)
   {
     Rdb_table_handler *table_handler;
-    StringBuffer<256> buf, dbname, tablename, partname;
+    std::string str, dbname, tablename, partname;
     char dbname_sys[NAME_LEN + 1];
     char tablename_sys[NAME_LEN + 1];
     bool is_partition;
 
-    if (rdb_normalize_tablename(it.c_str(), &buf)) {
+    if (rdb_normalize_tablename(it, &str)) {
       /* Function needs to return void because of the interface and we've
        * detected an error which shouldn't happen. There's no way to let
        * caller know that something failed.
@@ -2549,13 +2549,12 @@ static void rocksdb_update_table_stats(
       return;
     }
 
-    if (rdb_split_normalized_tablename(buf.c_ptr(), &dbname, &tablename,
-                                       &partname))
+    if (rdb_split_normalized_tablename(str, &dbname, &tablename, &partname))
     {
       continue;
     }
 
-    is_partition= (partname.length() != 0);
+    is_partition= (partname.size() != 0);
 
     table_handler= rdb_open_tables.get_table_handler(it.c_str());
     if (table_handler == nullptr)
@@ -2586,9 +2585,9 @@ static void rocksdb_update_table_stats(
       Table stats expects our database and table name to be in system encoding,
       not filename format. Convert before calling callback.
      */
-    my_core::filename_to_tablename(dbname.c_ptr(), dbname_sys,
+    my_core::filename_to_tablename(dbname.c_str(), dbname_sys,
                                    sizeof(dbname_sys));
-    my_core::filename_to_tablename(tablename.c_ptr(), tablename_sys,
+    my_core::filename_to_tablename(tablename.c_str(), tablename_sys,
                                    sizeof(tablename_sys));
     (*cb)(dbname_sys, tablename_sys, is_partition, &io_perf_read, &io_perf,
           &io_perf, &io_perf, &io_perf, &page_stats, &comp_stats, 0, 0,
@@ -4025,13 +4024,12 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
     note: m_pk_descr may be non-NULL here, when using partitions. It seems,
     it's ok to discard it
   */
-  StringBuffer<256> fullname;
+  std::string fullname;
   if (rdb_normalize_tablename(name, &fullname)) {
     return HA_ERR_INTERNAL_ERROR;
   }
 
-  m_tbl_def= ddl_manager.find(rdb_mysql_str_to_uchar_str(&fullname),
-                              fullname.length());
+  m_tbl_def= ddl_manager.find(fullname);
   if (m_tbl_def == nullptr)
   {
     my_error(ER_INTERNAL_ERROR, MYF(0),
@@ -4277,20 +4275,20 @@ static bool is_table_in_collation_exception_list(const std::string& table_name)
     0      - Ok
     other  - error, either given table ddl is not supported by rocksdb or OOM.
 */
-int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
-                                const uint len, HA_CREATE_INFO *create_info,
+int ha_rocksdb::create_key_defs(const TABLE *table_arg,
+                                const std::string& db_table,
+                                HA_CREATE_INFO *create_info,
                                 Rdb_tbl_def *tbl_def_arg,
-                                Rdb_tbl_def *old_tbl_def_arg /* = nullptr */)
+                                const Rdb_tbl_def *old_tbl_def_arg /* = null */)
 {
   DBUG_ASSERT(table_arg != nullptr);
-  DBUG_ASSERT(db_table != nullptr);
   DBUG_ASSERT(create_info != nullptr);
   DBUG_ASSERT(table_arg->s != nullptr);
 
   DBUG_ENTER("ha_rocksdb::create_key_defs");
 
   uint i;
-  tbl_def_arg->set_name(db_table, len);
+  tbl_def_arg->set_name(db_table);
 
   /*
     These need to be one greater than MAX_INDEXES since the user can create
@@ -4359,17 +4357,16 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
     0      - Ok
     other  - error
 */
-int ha_rocksdb::create_cfs(TABLE *table_arg, const char *db_table,
+int ha_rocksdb::create_cfs(const TABLE *table_arg, const std::string& db_table,
                       Rdb_tbl_def *tbl_def_arg,
                       std::array<struct key_def_cf_info, MAX_INDEXES + 1>* cfs)
 {
   DBUG_ASSERT(table_arg != nullptr);
-  DBUG_ASSERT(db_table != nullptr);
   DBUG_ASSERT(table_arg->s != nullptr);
 
   DBUG_ENTER("ha_rocksdb::create_cfs");
 
-  StringBuffer<256> dbname, tablename, partname;
+  std::string dbname, tablename, partname;
   char tablename_sys[NAME_LEN + 1];
 
   if (rdb_split_normalized_tablename(db_table, &dbname, &tablename,
@@ -4378,7 +4375,7 @@ int ha_rocksdb::create_cfs(TABLE *table_arg, const char *db_table,
     DBUG_RETURN(1);
   }
 
-  my_core::filename_to_tablename(tablename.c_ptr(), tablename_sys,
+  my_core::filename_to_tablename(tablename.c_str(), tablename_sys,
                                  sizeof(tablename_sys));
 
   /*
@@ -4410,7 +4407,7 @@ int ha_rocksdb::create_cfs(TABLE *table_arg, const char *db_table,
           my_printf_error(ER_UNKNOWN_ERROR,
                           "Unsupported collation on string indexed "
                           "column %s.%s Use binary collation (%s).", MYF(0),
-                          db_table,
+                          db_table.c_str(),
                           table_arg->key_info[i].key_part[part].field->field_name,
                           collation_err.c_str());
           DBUG_RETURN(1);
@@ -4475,9 +4472,9 @@ int ha_rocksdb::create_cfs(TABLE *table_arg, const char *db_table,
     0      - Ok
     other  - error, either given table ddl is not supported by rocksdb or OOM.
 */
-int ha_rocksdb::create_inplace_key_defs(TABLE *table_arg,
+int ha_rocksdb::create_inplace_key_defs(const TABLE *table_arg,
                        Rdb_tbl_def *tbl_def_arg,
-                       Rdb_tbl_def *old_tbl_def_arg,
+                       const Rdb_tbl_def *old_tbl_def_arg,
                        const std::array<key_def_cf_info, MAX_INDEXES + 1>& cfs)
 {
   DBUG_ASSERT(table_arg != nullptr);
@@ -4532,7 +4529,7 @@ int ha_rocksdb::create_inplace_key_defs(TABLE *table_arg,
         sql_print_error("RocksDB: Could not get index information "
                         "for Index Number (%u,%u), table %s",
                         gl_index_id.cf_id, gl_index_id.index_id,
-                        old_tbl_def_arg->m_dbname_tablename.c_ptr_safe());
+                        old_tbl_def_arg->m_dbname_tablename.c_str());
         DBUG_RETURN(1);
       }
 
@@ -4583,7 +4580,7 @@ int ha_rocksdb::create_inplace_key_defs(TABLE *table_arg,
     0      - Ok
     other  - error, either given table ddl is not supported by rocksdb or OOM.
 */
-int ha_rocksdb::create_key_def(TABLE *table_arg, uint i,
+int ha_rocksdb::create_key_def(const TABLE *table_arg, uint i,
                                const Rdb_tbl_def* tbl_def_arg,
                                std::shared_ptr<Rdb_key_def>* new_key_def,
                                const struct key_def_cf_info& cf_info)
@@ -4627,28 +4624,25 @@ int ha_rocksdb::create_key_def(TABLE *table_arg, uint i,
   DBUG_RETURN(0);
 }
 
-int rdb_normalize_tablename(const char *tablename,
-                            StringBuffer<256> *strbuf)
+int rdb_normalize_tablename(const std::string& tablename,
+                            std::string* strbuf)
 {
-  DBUG_ASSERT(tablename != nullptr);
   DBUG_ASSERT(strbuf != nullptr);
-  DBUG_ASSERT(tablename[0] == '.' && tablename[1] == '/');
 
-  tablename += 2;
-
-  const char *p= tablename;
-  for (; *p != '/'; p++)
+  if (tablename.size() < 2 || tablename[0] != '.' || tablename[1] != '/')
   {
-    if (*p =='\0')
-    {
-      DBUG_ASSERT(0); // We were not passed table name?
-      return HA_ERR_INTERNAL_ERROR ;
-    }
+    DBUG_ASSERT(0);  // We were not passed table name?
+    return HA_ERR_INTERNAL_ERROR;
   }
 
-  strbuf->append(tablename, p - tablename);
-  strbuf->append('.');
-  strbuf->append(p + 1);
+  size_t pos = tablename.find_first_of('/', 2);
+  if (pos == std::string::npos)
+  {
+    DBUG_ASSERT(0);  // We were not passed table name?
+    return HA_ERR_INTERNAL_ERROR;
+  }
+
+  *strbuf = tablename.substr(2, pos - 2) + "." + tablename.substr(pos + 1);
 
   return 0;
 }
@@ -4719,38 +4713,40 @@ bool ha_rocksdb::contains_foreign_key(THD* thd)
   @param partitionbuf returns partition suffix if there is one
   @return 0 on success, non-zero on failure to split
 */
-int rdb_split_normalized_tablename(const char *fullname,
-                                   StringBuffer<256> *dbbuf,
-                                   StringBuffer<256> *tablebuf,
-                                   StringBuffer<256> *partitionbuf)
+int rdb_split_normalized_tablename(const std::string& fullname,
+                                   std::string* db,
+                                   std::string* table,
+                                   std::string* partition)
 {
-  DBUG_ASSERT(fullname != nullptr);
-  DBUG_ASSERT(dbbuf != nullptr);
-  DBUG_ASSERT(tablebuf != nullptr);
-  DBUG_ASSERT(partitionbuf != nullptr);
+  DBUG_ASSERT(db!= nullptr);
+  DBUG_ASSERT(table!= nullptr);
+  DBUG_ASSERT(partition!= nullptr);
 
 #define RDB_PARTITION_STR "#P#"
 
   /* Normalize returns dbname.tablename */
-  const char *tb= strstr(fullname, ".");
+  size_t dotpos = fullname.find_first_of('.');
 
   /* Invalid table name? */
-  if (tb == nullptr)
-    return HA_ERR_INTERNAL_ERROR;
-
-  dbbuf->append(fullname, tb - fullname);
-  tb++;
-
-  const char *pt= strstr(tb, RDB_PARTITION_STR);
-
-  if (pt)
+  if (dotpos == std::string::npos)
   {
-    tablebuf->append(tb, pt - tb);
-    pt += sizeof(RDB_PARTITION_STR);
-    partitionbuf->append(pt);
+    return HA_ERR_INTERNAL_ERROR;
+  }
+
+  *db = fullname.substr(0, dotpos);
+  dotpos++;
+
+  size_t partpos = fullname.find_first_of(RDB_PARTITION_STR, dotpos);
+
+  if (partpos != std::string::npos)
+  {
+    *table = fullname.substr(dotpos, partpos - dotpos);
+    *partition = fullname.substr(partpos + sizeof(RDB_PARTITION_STR));
   }
   else
-    tablebuf->append(tb);
+  {
+    *table = fullname.substr(dotpos);
+  }
 
   return 0;
 }
@@ -4779,7 +4775,7 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
                        HA_CREATE_INFO *create_info)
 {
   int res;
-  StringBuffer<256> strbuf;
+  std::string str;
   DBUG_ENTER("ha_rocksdb::create");
 
   THD *thd = my_core::thd_get_current_thd();
@@ -4790,14 +4786,14 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
         DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
       }
     } else {
-      if (rdb_normalize_tablename(name, &strbuf)) {
+      if (rdb_normalize_tablename(name, &str)) {
         DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
       }
       my_printf_error(ER_UNKNOWN_ERROR,
         "Table '%s' does not exist, but metadata information exists inside "
         "MyRocks. This is a sign of data inconsistency. Please check if "
         "'%s.frm' exists, and try to restore it if it does not exist.",
-        MYF(0), strbuf.c_ptr(), name);
+        MYF(0), str.c_str(), name);
       DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
     }
   }
@@ -4807,7 +4803,7 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
     passes strings like "./test/t14#P#p0" for individual partitions,
     while table_arg->s->table_name has none of that.
   */
-  if (rdb_normalize_tablename(name, &strbuf))
+  if (rdb_normalize_tablename(name, &str))
   {
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
@@ -4857,9 +4853,10 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
   m_tbl_def->m_key_count= n_keys;
   m_tbl_def->m_key_descr_arr= m_key_descr_arr;
 
-  if ((res= create_key_defs(table_arg, strbuf.ptr(), strbuf.length(),
-                            create_info, m_tbl_def)))
+  if ((res= create_key_defs(table_arg, str, create_info, m_tbl_def)))
+  {
     goto error;
+  }
 
   m_pk_descr= m_key_descr_arr[pk_index(table_arg, m_tbl_def)];
 
@@ -8048,15 +8045,15 @@ Rdb_tbl_def* ha_rocksdb::get_table_if_exists(const char* tablename)
 {
   DBUG_ASSERT(tablename != nullptr);
 
-  StringBuffer<256> strbuf;
-  if (rdb_normalize_tablename(tablename, &strbuf))
+  std::string str;
+  if (rdb_normalize_tablename(tablename, &str))
   {
     // We were not passed table name?
     DBUG_ASSERT(0);
     return nullptr;
   }
-  return ddl_manager.find(reinterpret_cast<uchar*>(strbuf.c_ptr()),
-                          strbuf.length());
+
+  return ddl_manager.find(str);
 }
 
 /*
@@ -8139,8 +8136,8 @@ int ha_rocksdb::rename_table(const char *from, const char *to)
   DBUG_ASSERT(to != nullptr);
 
   bool write_err= false;
-  StringBuffer<256> from_str;
-  StringBuffer<256> to_str;
+  std::string from_str;
+  std::string to_str;
 
   if (rdb_normalize_tablename(from, &from_str))
   {
@@ -8164,7 +8161,7 @@ int ha_rocksdb::rename_table(const char *from, const char *to)
       it has been opened by this statement), and check is_auto_cf there.
     */
     Rdb_tbl_def *tdef;
-    if (!(tdef= ddl_manager.find((uchar*)from_str.c_ptr(), from_str.length())))
+    if (!(tdef= ddl_manager.find(from_str)))
       return HA_ERR_INTERNAL_ERROR;
 
     for (uint i= 0; i < tdef->m_key_count; i++)
@@ -8183,8 +8180,7 @@ int ha_rocksdb::rename_table(const char *from, const char *to)
   std::unique_ptr<rocksdb::WriteBatch> wb= dict_manager.begin();
   rocksdb::WriteBatch *batch= wb.get();
   dict_manager.lock();
-  write_err= ddl_manager.rename((uchar*)from_str.ptr(), from_str.length(),
-                         (uchar*)to_str.ptr(), to_str.length(), batch)
+  write_err= ddl_manager.rename(from_str, to_str, batch)
              || dict_manager.commit(batch);
   dict_manager.unlock();
 
@@ -8726,8 +8722,7 @@ bool ha_rocksdb::prepare_inplace_alter_table(
      (my_core::Alter_inplace_info::DROP_INDEX |
       my_core::Alter_inplace_info::DROP_UNIQUE_INDEX)
      && create_key_defs(altered_table,
-                        m_tbl_def->m_dbname_tablename.c_ptr(),
-                        m_tbl_def->m_dbname_tablename.length(),
+                        m_tbl_def->m_dbname_tablename,
                         ha_alter_info->create_info,
                         new_tdef, m_tbl_def))
   {
