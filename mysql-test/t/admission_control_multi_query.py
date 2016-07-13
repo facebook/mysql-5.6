@@ -76,8 +76,9 @@ def run_admin_checks(args):
         cursor.execute("show status like '%admission%'")
         rows = cursor.fetchall()
         if int(rows[1][1]) > max_running_queries:
-            raise Exception('Current running queries is more than ' \
-                            'max_running_queries')
+            raise Exception('Current running queries %s is more than ' \
+                            'max_running_queries %d' % (rows[1][1],
+                             max_running_queries))
 
 class worker_thread(threading.Thread):
     def __init__(self, args, admin):
