@@ -110,8 +110,11 @@ real_sleep 5;
 connection slave2;
 rollback;
 
-connection slave;
-source include/check_slave_is_running.inc;
+disable_result_log; # Required to avoid warnings from start-slave
+source include/start_slave.inc;
+enable_result_log;
+connection master;
+sync_slave_with_master;
 # Verify table data
 select * from t3;
 

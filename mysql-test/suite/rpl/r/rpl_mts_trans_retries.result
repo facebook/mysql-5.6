@@ -80,7 +80,7 @@ update t3 set b = 3 where a = 2;
 update t3 set b = 4 where a >= 2;
 include/start_slave.inc
 rollback;
-include/check_slave_is_running.inc
+include/start_slave.inc
 select * from t3;
 a	b
 1	1
