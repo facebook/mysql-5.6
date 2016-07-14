@@ -104,6 +104,7 @@ function build_libarchive()
         -DCMAKE_DISABLE_FIND_PACKAGE_LZMA=TRUE \
         -DCMAKE_DISABLE_FIND_PACKAGE_LibXml2=TRUE \
         -DCMAKE_DISABLE_FIND_PACKAGE_EXPAT=TRUE \
+        -DENABLE_TRACE=0 \
         -DENABLE_CPIO=OFF \
         -DENABLE_OPENSSL=OFF \
         -DENABLE_TAR=OFF \
@@ -177,6 +178,7 @@ case "$type" in
                 -DMYSQL_UNIX_ADDR="/var/lib/mysql/mysql.sock" \
                 -DBUILD_CONFIG=mysql_release \
                 -DMYSQL_USER="mysql" \
+                -DENABLE_DTRACE=0 \
                 -DWITH_FAST_MUTEXES=1 \
                 -DWITH_EXTRA_CHARSETS=all \
                 -DWITH_EMBEDDED_SERVER=1 \
