@@ -1870,6 +1870,8 @@ sub check_args {
         exit(1);
     }
 
+    my $command_line = "$0 @ARGV";
+
     # read command line options
     $rcode = GetOptions('compress' => \$option_compress,
 	    		'compress-threads=i' => \$option_compress_threads,
@@ -1915,7 +1917,17 @@ sub check_args {
                         'safe-slave-backup' => \$option_safe_slave_backup,
                         'safe-slave-backup-timeout=i' => \$option_safe_slave_backup_timeout,
     );
-                        
+
+    # x'out password for ps command (-pas is the guaranteed unique prefix )
+    my $pos_pwd = index($command_line, "-pas");
+    if ($pos_pwd != -1) {
+        $pos_pwd = index($command_line, $option_mysql_password, $pos_pwd + 4);
+        my $pwlen = length($option_mysql_password);
+        #  might not work if password is a substring of "sword", but thats an extreme case
+        substr($command_line, $pos_pwd, $pwlen) =  "x" x 8;
+        $0 = $command_line;
+    }
+
     if (!$rcode) {
         # failed to read options
         print STDERR "$prefix Bad command line arguments\n";
