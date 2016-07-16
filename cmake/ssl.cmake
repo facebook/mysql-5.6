@@ -106,7 +106,13 @@ MACRO (MYSQL_CHECK_SSL)
     # Verify version number. Version information looks like:
     #   #define OPENSSL_VERSION_NUMBER 0x1000103fL
     # Encoded as MNNFFPPS: major minor fix patch status
-    FILE(STRINGS "${OPENSSL_INCLUDE_DIR}/openssl/opensslv.h"
+    if(EXISTS "${OPENSSL_INCLUDE_DIR}/openssl/base.h")
+      SET(SSL_VERSION_FILE "${OPENSSL_INCLUDE_DIR}/openssl/base.h")
+    else()
+      SET(SSL_VERSION_FILE "${OPENSSL_INCLUDE_DIR}/openssl/opensslv.h")
+    endif()
+
+    FILE(STRINGS "${SSL_VERSION_FILE}"
       OPENSSL_VERSION_NUMBER
       REGEX "^#[ ]*define[\t ]+OPENSSL_VERSION_NUMBER[\t ]+0x[0-9].*"
     )

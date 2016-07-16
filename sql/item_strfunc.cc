@@ -57,6 +57,8 @@ C_MODE_START
 #include "../mysys/my_static.h"			// For soundex_map
 C_MODE_END
 
+#include <openssl/des.h>
+
 using std::min;
 using std::max;
 
@@ -909,7 +911,11 @@ String *Item_func_des_encrypt::val_str(String *str)
     memset(&ivec, 0, sizeof(ivec));
     EVP_BytesToKey(EVP_des_ede3_cbc(),EVP_md5(),NULL,
 		   (uchar*) keystr->ptr(), (int) keystr->length(),
+#ifdef OPENSSL_IS_BORINGSSL
+		   1, (uchar*) &keyblock,ivec.bytes);
+#else
 		   1, (uchar*) &keyblock,ivec);
+#endif
     DES_set_key_unchecked(&keyblock.key1,&keyschedule.ks1);
     DES_set_key_unchecked(&keyblock.key2,&keyschedule.ks2);
     DES_set_key_unchecked(&keyblock.key3,&keyschedule.ks3);
@@ -1001,7 +1007,11 @@ String *Item_func_des_decrypt::val_str(String *str)
     memset(&ivec, 0, sizeof(ivec));
     EVP_BytesToKey(EVP_des_ede3_cbc(),EVP_md5(),NULL,
 		   (uchar*) keystr->ptr(),(int) keystr->length(),
+#ifdef OPENSSL_IS_BORINGSSL
+		   1,(uchar*) &keyblock,ivec.bytes);
+#else
 		   1,(uchar*) &keyblock,ivec);
+#endif
     // Here we set all 64-bit keys (56 effective) one by one
     DES_set_key_unchecked(&keyblock.key1,&keyschedule.ks1);
     DES_set_key_unchecked(&keyblock.key2,&keyschedule.ks2);

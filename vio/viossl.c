@@ -451,7 +451,6 @@ static int ssl_init(SSL **out_ssl,
   }
 
   DBUG_PRINT("info", ("ssl: 0x%lx timeout: %ld", (long) ssl, timeout));
-  SSL_clear(ssl);
   SSL_SESSION_set_timeout(SSL_get_session(ssl), timeout);
   SSL_set_fd(ssl, sd);
 #if !defined(HAVE_YASSL) && defined(SSL_OP_NO_COMPRESSION)
@@ -616,7 +615,7 @@ static int ssl_do(struct st_VioSSLFd *ptr,
     DBUG_RETURN(-1);
   }
 
-  DBUG_PRINT("info", ("reused session: %ld", SSL_session_reused(ssl)));
+  DBUG_PRINT("info", ("reused session: %ld", (long)SSL_session_reused(ssl)));
   int r = ssl_finish(ssl, vio);
   DBUG_RETURN(r ? -1 : 0);
 }

@@ -6613,7 +6613,11 @@ mysql_options4(MYSQL *mysql,enum mysql_option option,
 
      // Increment the reference count
     if (!take_ownership && ssl_session != NULL)
+#ifdef OPENSSL_IS_BORINGSSL
+      SSL_SESSION_up_ref(ssl_session);
+#else
       CRYPTO_add(&ssl_session->references, 1, CRYPTO_LOCK_SSL_SESSION);
+#endif
 
     if (mysql->options.extension->ssl_session)
       SSL_SESSION_free((SSL_SESSION*)mysql->options.extension->ssl_session);
