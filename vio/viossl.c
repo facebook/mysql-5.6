@@ -616,7 +616,7 @@ static int ssl_do(struct st_VioSSLFd *ptr,
     DBUG_RETURN(-1);
   }
 
-  DBUG_PRINT("info", ("reused session: %ld", SSL_session_reused(ssl)));
+  DBUG_PRINT("info", ("reused session: %ld", (long)SSL_session_reused(ssl)));
   int r = ssl_finish(ssl, vio);
   DBUG_RETURN(r ? -1 : 0);
 }

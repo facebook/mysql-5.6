@@ -82,22 +82,28 @@ aes_evp_type(const my_aes_opmode mode)
   {
   case my_aes_128_ecb:    return EVP_aes_128_ecb();
   case my_aes_128_cbc:    return EVP_aes_128_cbc();
+#ifndef OPENSSL_IS_BORINGSSL
   case my_aes_128_cfb1:   return EVP_aes_128_cfb1();
   case my_aes_128_cfb8:   return EVP_aes_128_cfb8();
   case my_aes_128_cfb128: return EVP_aes_128_cfb128();
   case my_aes_128_ofb:    return EVP_aes_128_ofb();
+#endif
   case my_aes_192_ecb:    return EVP_aes_192_ecb();
   case my_aes_192_cbc:    return EVP_aes_192_cbc();
+#ifndef OPENSSL_IS_BORINGSSL
   case my_aes_192_cfb1:   return EVP_aes_192_cfb1();
   case my_aes_192_cfb8:   return EVP_aes_192_cfb8();
   case my_aes_192_cfb128: return EVP_aes_192_cfb128();
   case my_aes_192_ofb:    return EVP_aes_192_ofb();
+#endif
   case my_aes_256_ecb:    return EVP_aes_256_ecb();
   case my_aes_256_cbc:    return EVP_aes_256_cbc();
+#ifndef OPENSSL_IS_BORINGSSL
   case my_aes_256_cfb1:   return EVP_aes_256_cfb1();
   case my_aes_256_cfb8:   return EVP_aes_256_cfb8();
   case my_aes_256_cfb128: return EVP_aes_256_cfb128();
   case my_aes_256_ofb:    return EVP_aes_256_ofb();
+#endif
   default: return NULL;
   }
 }
@@ -125,7 +131,7 @@ int my_aes_encrypt(const unsigned char *source, uint32 source_length,
   if (!EVP_EncryptUpdate(&ctx, dest, &u_len, source, source_length))
     goto aes_error;                             /* Error */
 
-  if (!EVP_EncryptFinal(&ctx, dest + u_len, &f_len))
+  if (!EVP_EncryptFinal_ex(&ctx, dest + u_len, &f_len))
     goto aes_error;                             /* Error */
 
   EVP_CIPHER_CTX_cleanup(&ctx);

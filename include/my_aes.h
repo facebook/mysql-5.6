@@ -35,7 +35,7 @@ enum my_aes_opmode
    my_aes_128_cbc,
    my_aes_192_cbc,
    my_aes_256_cbc,
-#ifndef HAVE_YASSL
+#if !defined(OPENSSL_IS_BORINGSSL) && !defined(HAVE_YASSL)
    my_aes_128_cfb1,
    my_aes_192_cfb1,
    my_aes_256_cfb1,
@@ -52,7 +52,7 @@ enum my_aes_opmode
 };
 
 #define MY_AES_BEGIN my_aes_128_ecb
-#ifdef HAVE_YASSL
+#if defined(HAVE_YASSL) || defined(OPENSSL_IS_BORINGSSL)
 #define MY_AES_END my_aes_256_cbc
 #else
 #define MY_AES_END my_aes_256_ofb
