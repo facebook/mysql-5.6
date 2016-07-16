@@ -1,5 +1,6 @@
 # On windows, the socket instrumentation calls are different
 --source include/not_windows.inc
+--source include/not_boringssl.inc
 
 # Save the initial number of concurrent sessions
 --source include/count_sessions.inc

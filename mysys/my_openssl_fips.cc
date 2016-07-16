@@ -28,6 +28,11 @@
 #include "my_openssl_fips.h"
 #include <assert.h>
 #include <openssl/err.h>
+#include <openssl/crypto.h> // FIPS_mode() in BoringSSL
+
+#if defined(OPENSSL_IS_BORINGSSL) && (BORINGSSL_API_VERSION < 16)
+int FIPS_mode_set(int on) { return on == FIPS_mode(); }
+#endif
 
 #if OPENSSL_VERSION_NUMBER < 0x10002000L
 #include <openssl/ec.h>

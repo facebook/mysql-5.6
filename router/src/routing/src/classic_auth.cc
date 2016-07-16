@@ -84,7 +84,7 @@ using Rsa = std::unique_ptr<RSA, OsslDeleter<RSA>>;
 stdx::expected<std::string, std::error_code>
 AuthBase::public_key_from_ssl_ctx_as_pem(SSL_CTX *ssl_ctx) {
 #if OPENSSL_VERSION_NUMBER >= ROUTER_OPENSSL_VERSION(1, 0, 2)
-#if OPENSSL_VERSION_NUMBER >= ROUTER_OPENSSL_VERSION(1, 1, 0)
+#if OPENSSL_VERSION_NUMBER >= ROUTER_OPENSSL_VERSION(1, 1, 0) && (!defined(OPENSSL_IS_BORINGSSL) || BORINGSSL_API_VERSION >= 17)
   const auto *pubkey = X509_get0_pubkey(SSL_CTX_get0_certificate(ssl_ctx));
 #elif OPENSSL_VERSION_NUMBER >= ROUTER_OPENSSL_VERSION(1, 0, 2)
   EvpPkey pubkey_managed(X509_get_pubkey(SSL_CTX_get0_certificate(ssl_ctx)));

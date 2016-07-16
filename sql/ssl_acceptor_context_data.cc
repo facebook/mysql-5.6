@@ -167,7 +167,7 @@ Ssl_acceptor_context_data::Ssl_acceptor_context_data(
                                          : SSL_SESS_CACHE_OFF);
       SSL_CTX_set_timeout(ssl_acceptor_fd_->ssl_context,
                           current_tls_session_cache_timeout_);
-#ifdef HAVE_TLSv13
+#if defined(HAVE_TLSv13) && (!defined(OPENSSL_IS_BORINGSSL) || BORINGSSL_API_VERSION >= 17)
       /* Turn off server's ticket sending for TLS 1.3 if requested */
       if (!current_tls_session_cache_mode_ && !(ssl_flags & SSL_OP_NO_TLSv1_3))
         SSL_CTX_set_num_tickets(ssl_acceptor_fd_->ssl_context, 0);

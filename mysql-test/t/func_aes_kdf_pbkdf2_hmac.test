@@ -1,3 +1,4 @@
+--source include/not_boringssl.inc
 --echo # Tests of the AES KDF functionality
 
 --echo #### AES_ENCRYPT return type

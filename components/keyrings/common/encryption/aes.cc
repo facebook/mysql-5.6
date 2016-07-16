@@ -74,6 +74,7 @@ const EVP_CIPHER *aes_evp_type(const Keyring_aes_opmode mode) {
       return EVP_aes_256_ecb();
     case Keyring_aes_opmode::keyring_aes_256_cbc:
       return EVP_aes_256_cbc();
+#ifndef OPENSSL_IS_BORINGSSL
     case Keyring_aes_opmode::keyring_aes_256_cfb1:
       return EVP_aes_256_cfb1();
     case Keyring_aes_opmode::keyring_aes_256_cfb8:
@@ -82,6 +83,7 @@ const EVP_CIPHER *aes_evp_type(const Keyring_aes_opmode mode) {
       return EVP_aes_256_cfb128();
     case Keyring_aes_opmode::keyring_aes_256_ofb:
       return EVP_aes_256_ofb();
+#endif
     case Keyring_aes_opmode::keyring_aes_opmode_invalid:
       [[fallthrough]];
     default:
@@ -180,7 +182,8 @@ aes_return_status aes_encrypt(const unsigned char *source,
   if (!EVP_CIPHER_CTX_set_padding(ctx, padding)) return AES_ENCRYPTION_ERROR;
   if (!EVP_EncryptUpdate(ctx, dest, &u_len, source, source_length))
     return AES_ENCRYPTION_ERROR;
-  if (!EVP_EncryptFinal(ctx, dest + u_len, &f_len)) return AES_ENCRYPTION_ERROR;
+  if (!EVP_EncryptFinal_ex(ctx, dest + u_len, &f_len))
+    return AES_ENCRYPTION_ERROR;
 
   /* All is well */
   *encrypted_length = static_cast<size_t>(u_len + f_len);

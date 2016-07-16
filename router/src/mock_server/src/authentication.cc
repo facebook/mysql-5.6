@@ -56,7 +56,7 @@ static std::optional<std::vector<uint8_t>> scramble(
   // in case of empty password, the hash is empty too
   if (password.size() == 0) return std::vector<uint8_t>{};
 
-  const auto digest_size = EVP_MD_size(digest_func);
+  const size_t digest_size = EVP_MD_size(digest_func);
 
 #if OPENSSL_VERSION_NUMBER >= 0x1010000fL
   std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> digest_ctx(
@@ -98,7 +98,7 @@ static std::optional<std::vector<uint8_t>> scramble(
   if (!ok) return std::nullopt;
 
   // scramble the hashed password with the nonce
-  for (int i = 0; i < digest_size; ++i) {
+  for (size_t i = 0; i < digest_size; ++i) {
     hashed_password[i] ^= double_hashed_password[i];
   }
 

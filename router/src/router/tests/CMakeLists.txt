@@ -29,6 +29,7 @@ SET(TEST_MODULE router)
 # - their dependencies are properly defined.
 # - fast edit-compile-test cycles for single tests
 
+IF(NOT WITH_BORINGSSL)
 ADD_HARNESS_TEST_FILE(test_certificate_generator.cc
   MODULE ${TEST_MODULE}
   LIB_DEPENDS
@@ -53,6 +54,7 @@ ADD_HARNESS_TEST_FILE(test_certificate_handler.cc
     $<TARGET_PROPERTY:router_lib,INCLUDE_DIRECTORIES>
     ../src/
   SYSTEM_INCLUDE_DIRS ${GMOCK_INCLUDE_DIRS})
+ENDIF()
 
 ADD_HARNESS_TEST_FILE(test_uri.cc
   MODULE ${TEST_MODULE}
@@ -206,6 +208,7 @@ SET_TARGET_PROPERTIES(
   PROPERTIES
   COMPILE_DEFINITIONS ROUTER_LIB_STATIC_DEFINE=1)
 
+IF(NOT WITH_BORINGSSL)
 ADD_HARNESS_TEST_FILE(test_config_generator.cc
   MODULE ${TEST_MODULE}
   LIB_DEPENDS
@@ -219,6 +222,7 @@ ADD_HARNESS_TEST_FILE(test_config_generator.cc
     ../../../tests/helpers/
     ../src/
   SYSTEM_INCLUDE_DIRS ${GMOCK_INCLUDE_DIRS})
+ENDIF()
 
 ADD_HARNESS_TEST_FILE(test_mysqlrouter_app.cc
   MODULE ${TEST_MODULE}

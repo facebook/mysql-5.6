@@ -270,6 +270,7 @@ stdx::expected<X509Cert, std::error_code> CertificateGenerator::generate_x509(
   X509V3_set_ctx(&v3ctx, ca_cert ? ca_cert : cert.get(), cert.get(), nullptr,
                  nullptr, 0);
 
+#ifndef OPENSSL_IS_BORINGSSL
   // Add CA:TRUE / CA:FALSE information
   OsslUniquePtr<X509_EXTENSION> ext{
       X509V3_EXT_conf_nid(nullptr, &v3ctx, NID_basic_constraints,
@@ -280,6 +281,10 @@ stdx::expected<X509Cert, std::error_code> CertificateGenerator::generate_x509(
         make_error_code(cert_errc::cert_set_v3_extensions_failed));
   }
   X509_add_ext(cert.get(), ext.get(), -1);
+#else
+  return stdx::make_unexpected(
+      make_error_code(cert_errc::cert_set_v3_extensions_failed));
+#endif
 
   // Sign using SHA256
   if (!X509_sign(cert.get(), ca_cert ? ca_pkey : pkey, EVP_sha256())) {

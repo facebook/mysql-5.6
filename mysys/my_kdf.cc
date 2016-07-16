@@ -25,6 +25,10 @@
  along with this program; if not, write to the Free Software
  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
+#include <openssl/opensslv.h>
+
+#if !defined(OPENSSL_IS_BORINGSSL) || BORINGSSL_API_VERSION >= 17
+
 #include "mysys/my_kdf.h"
 
 #include <openssl/evp.h>
@@ -191,3 +195,5 @@ int Key_pbkdf2_hmac_function::derive_key(const unsigned char *key,
                           iterations_, EVP_sha512(), key_size, rkey);
   return res ? 0 : 1;
 }
+
+#endif // #if !defined(OPENSSL_IS_BORINGSSL) || BORINGSSL_API_VERSION >= 11

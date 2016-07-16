@@ -620,6 +620,9 @@ XError Connection_impl::get_ssl_error(const int error_id) {
   return XError(CR_SSL_CONNECTION_ERROR, buffer);
 }
 
+#if defined(OPENSSL_IS_BORINGSSL) && (BORINGSSL_API_VERSION < 16)
+#include "my_openssl_fips.h" // FIPS_mode_set
+#endif
 XError Connection_impl::activate_tls() {
   if (nullptr == m_vio) return get_socket_error(SOCKET_ECONNRESET);
 

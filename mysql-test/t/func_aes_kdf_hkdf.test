@@ -1,3 +1,4 @@
+--source include/not_boringssl.inc
 --source include/have_tlsv13.inc
 
 --echo # Tests of the AES KDF hkdf functionality

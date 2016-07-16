@@ -38,4 +38,8 @@ int test_ssl_fips_mode(char err_string[OPENSSL_ERROR_LENGTH]);
 void fips_deinit();
 void fips_init();
 
+#if defined(OPENSSL_IS_BORINGSSL) && (BORINGSSL_API_VERSION < 16)
+int FIPS_mode_set(int on);
+#endif
+
 #endif /* ifndef my_openssl_fips_h_ */

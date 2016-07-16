@@ -23049,6 +23049,10 @@ static void test_wl13075() {
   int rc;
   myheader("test_wl13075");
 
+ #if defined(OPENSSL_IS_BORINGSSL)
+  return; // errors with SSL_SESSION_is_resumable() called from mysql_get_ssl_session_data()
+ #endif
+
   /* check that we're on an SSL connection */
   const char *cipher = mysql_get_ssl_cipher(mysql);
   DIE_UNLESS(cipher != nullptr);

@@ -5812,6 +5812,8 @@ static int init_thread_environment() {
   return 0;
 }
 
+#if !defined(OPENSSL_IS_BORINGSSL)
+
 static PSI_memory_key key_memory_openssl = PSI_NOT_INSTRUMENTED;
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
@@ -5841,8 +5843,10 @@ static void my_openssl_free(void *ptr FILE_LINE_ARGS) {
   return my_std_free(ptr);
 #endif  // !_WIN32
 }
+#endif /* !defined(OPENSSL_IS_BORINGSSL) */
 
 static void init_ssl() {
+#if !defined(OPENSSL_IS_BORINGSSL)
 #if defined(HAVE_PSI_MEMORY_INTERFACE)
   static PSI_memory_info all_openssl_memory[] = {
       {&key_memory_openssl, "openssl_malloc", 0, 0,
@@ -5855,6 +5859,7 @@ static void init_ssl() {
   if (ret == 0)
     LogErr(WARNING_LEVEL, ER_SSL_MEMORY_INSTRUMENTATION_INIT_FAILED,
            "CRYPTO_set_mem_functions");
+#endif /* !defined(OPENSSL_IS_BORINGSSL) */
   ssl_start();
 }
 

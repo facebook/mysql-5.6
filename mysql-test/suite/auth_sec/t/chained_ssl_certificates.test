@@ -71,7 +71,7 @@ CREATE USER 'user1'@'%' REQUIRE SSL;
 --enable_reconnect
 --source include/wait_until_connected_again.inc
 
---replace_regex /SSL connection error: error:.*:SSL routines:.*:certificate verify failed/SSL connection error: error:ERRCODE:SSL routines:ERRMSG:certificate verify failed/
+--replace_regex /SSL connection error: error:.*:SSL routines:.*:certificate verify failed/SSL connection error: error:ERRCODE:SSL routines:ERRMSG:certificate verify failed/ /SSL connection error: error:.*:SSL routines:OPENSSL_internal:CERTIFICATE_VERIFY_FAILED/SSL connection error: error:ERRCODE:SSL routines:ERRMSG:certificate verify failed/
 --error 1
 --exec $MYSQL --host=localhost -P $MASTER_MYPORT --user=user1 --ssl-mode=VERIFY_CA --ssl-ca=$MYSQL_TEST_DIR/std_data/bug27491518/unrelated_root.crt --ssl-cert=$MYSQL_TEST_DIR/std_data/bug27491518/client_to_root.cachain --ssl-key=$MYSQL_TEST_DIR/std_data/bug27491518/client.key -e "SHOW STATUS LIKE 'ssl_cipher'" 2>&1
 
