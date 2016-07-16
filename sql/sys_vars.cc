@@ -6387,6 +6387,17 @@ enum SHOW_COMP_OPTION Sys_var_have_func::dummy_;
 static Sys_var_have_func Sys_have_openssl("have_openssl", "have_openssl",
                                           have_ssl_func, DEPRECATED_VAR(""));
 
+static SHOW_COMP_OPTION have_boringssl_func(THD *thd MY_ATTRIBUTE((unused))) {
+#if defined(OPENSSL_IS_BORINGSSL)
+  return SHOW_OPTION_YES;
+#else
+  return SHOW_OPTION_NO;
+#endif
+}
+
+static Sys_var_have_func Sys_have_boringssl("have_boringssl", "have_boringssl",
+                                            have_boringssl_func);
+
 static Sys_var_have Sys_have_profiling(
     "have_profiling", "have_profiling",
     READ_ONLY NON_PERSIST GLOBAL_VAR(have_profiling), NO_CMD_LINE,

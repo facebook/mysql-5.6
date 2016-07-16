@@ -198,15 +198,24 @@ MACRO (MYSQL_CHECK_SSL)
       MESSAGE(STATUS "OPENSSL_APPLINK_C ${OPENSSL_APPLINK_C}")
     ENDIF()
 
+    # "_pic" suffix isn't a standard convention so probe for both with and
+    # without, preferring with _pic
     FIND_LIBRARY(OPENSSL_LIBRARY
-                 NAMES ssl libssl ssleay32 ssleay32MD
+      NAMES ssl${PIC_EXT} libssl${PIC_EXT} ssleay32${PIC_EXT} ssleay32MD${PIC_EXT}
+            ssl libssl ssleay32 ssleay32MD
                  HINTS ${OPENSSL_ROOT_DIR}/lib)
     FIND_LIBRARY(CRYPTO_LIBRARY
-                 NAMES crypto libcrypto libeay32
+      NAMES crypto${PIC_EXT} libcrypto${PIC_EXT} libeay32${PIC_EXT}
+            crypto libcrypto libeay32
                  HINTS ${OPENSSL_ROOT_DIR}/lib)
 
     IF(OPENSSL_INCLUDE_DIR)
-      FILE(STRINGS "${OPENSSL_INCLUDE_DIR}/openssl/opensslv.h"
+      if(EXISTS "${OPENSSL_INCLUDE_DIR}/openssl/base.h")
+        SET(SSL_VERSION_FILE "${OPENSSL_INCLUDE_DIR}/openssl/base.h")
+      else()
+        SET(SSL_VERSION_FILE "${OPENSSL_INCLUDE_DIR}/openssl/opensslv.h")
+      endif()
+      FILE(STRINGS "${SSL_VERSION_FILE}"
         OPENSSL_MAJOR_VERSION
         REGEX "^#[ ]*define[\t ]+OPENSSL_VERSION_MAJOR[\t ]+[0-9].*"
         )

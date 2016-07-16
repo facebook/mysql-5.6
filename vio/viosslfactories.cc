@@ -552,6 +552,10 @@ void ssl_start() {
   }
 }
 
+#if defined(OPENSSL_IS_BORINGSSL) && (BORINGSSL_API_VERSION < 16)
+int FIPS_mode_set(int on) { return on == FIPS_mode(); }
+#endif
+
 /**
   Set fips mode in openssl library,
   When we set fips mode ON/STRICT, it will perform following operations:
@@ -753,7 +757,8 @@ static struct st_VioSSLFd *new_VioSSLFd(
     return nullptr;
   }
 
-#ifdef HAVE_TLSv13
+// BoringSSL doesn't support SSL_CTX_set_ciphersuites
+#if defined(HAVE_TLSv13) && !defined(OPENSSL_IS_BORINGSSL)
   /*
     Set OpenSSL TLS v1.3 ciphersuites.
     Note that an empty list is permissible.
@@ -888,7 +893,12 @@ static struct st_VioSSLFd *new_VioSSLFd(
       (not valid IP address), call X509_VERIFY_PARAM_set1_host().
     */
     if (1 != X509_VERIFY_PARAM_set1_ip_asc(param, server_host)) {
+#if defined(OPENSSL_IS_BORINGSSL)
+      if (1 != X509_VERIFY_PARAM_set1_host(param, server_host,
+                                           strlen(server_host))) {
+#else
       if (1 != X509_VERIFY_PARAM_set1_host(param, server_host, 0)) {
+#endif
         *error = SSL_INITERR_X509_VERIFY_PARAM;
         goto error;
       }
@@ -897,6 +907,9 @@ static struct st_VioSSLFd *new_VioSSLFd(
 #endif
 
   SSL_CTX_set_options(ssl_fd->ssl_context, ssl_ctx_options);
+  if (!is_client) {
+    SSL_CTX_set_session_cache_mode(ssl_fd->ssl_context, SSL_SESS_CACHE_OFF);
+  }
 
   DBUG_PRINT("exit", ("OK 1"));
 

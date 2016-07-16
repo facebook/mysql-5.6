@@ -19,5 +19,5 @@ c9f0f895fb98ab9159f51fd0297e236d
 SET @@global.ssl_fips_mode = 'ON';
 ERROR HY000: SSL fips mode error: Openssl is not fips enabled
 ##Test: Start the server with SSL FIPS mode ON, server will throw error and abort.
-Pattern "(FIPS_mode_set:fips mode not supported|FIPS_module_mode_set:fingerprint does not match)" found
+Pattern "(FIPS_mode_set:fips mode not supported|FIPS_module_mode_set:fingerprint does not match|SSL fips mode error: error:00000000:invalid library)" found
 Restart server with FIPS mode OFF.

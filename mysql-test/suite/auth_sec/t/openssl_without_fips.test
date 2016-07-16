@@ -65,7 +65,7 @@ let $restart_file = $MYSQLTEST_VARDIR/tmp/mysqld.1.expect;
 --source include/wait_until_disconnected.inc
 --error 1
 --exec $MYSQLD_CMD --loose-console --ssl-fips-mode=ON > $error_log 2>&1
-let SEARCH_PATTERN = (FIPS_mode_set:fips mode not supported|FIPS_module_mode_set:fingerprint does not match);
+let SEARCH_PATTERN = (FIPS_mode_set:fips mode not supported|FIPS_module_mode_set:fingerprint does not match|SSL fips mode error: error:00000000:invalid library);
 --source include/search_pattern.inc
 --remove_file $error_log
 

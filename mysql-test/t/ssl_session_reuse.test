@@ -1,4 +1,5 @@
 --source include/have_openssl.inc
+--source include/not_boringssl.inc
 --source include/force_restart.inc
 
 --echo # test ssl session reuse

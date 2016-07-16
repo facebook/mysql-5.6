@@ -622,6 +622,10 @@ XError Connection_impl::get_ssl_error(const int error_id) {
   return XError(CR_SSL_CONNECTION_ERROR, buffer);
 }
 
+#if defined(OPENSSL_IS_BORINGSSL) && (BORINGSSL_API_VERSION < 16)
+int FIPS_mode_set(int on) { return on == FIPS_mode(); }
+#endif
+
 /**
   Set fips mode in openssl library,
   When we set fips mode ON/STRICT, it will perform following operations:

@@ -2708,6 +2708,82 @@
 }
 
 #
+# BoringSSL suppressions
+#
+{
+   built_in_curve_scalar_field_monts_init leaks global instance of data intentionally
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:built_in_curve_scalar_field_monts_init
+   fun:pthread_once
+   fun:CRYPTO_once
+   fun:ec_group_new_from_data
+   fun:EC_GROUP_new_by_curve_name
+   fun:EC_KEY_new_by_curve_name
+   ...
+}
+
+{
+   TLS data on main thread is not cleaned up properly
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:err_get_state
+   ...
+   fun:main
+}
+
+{
+   BoringSSL opt_ssl_key and locks are static, or TLS data on main
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:OPENSSL_malloc
+   ...
+   fun:SslAcceptorContext::SslAcceptorContext
+   fun:SslAcceptorContext::singleton_init
+   fun:init_ssl_communication
+   fun:mysqld_main
+   fun:main
+}
+
+{
+   TLS data on main thread is not cleaned up properly
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:err_get_state
+   ...
+   fun:kill_server_thread
+   ...
+}
+
+{
+   TLS data on main thread is not cleaned up properly (mysqltest client)
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:err_get_state
+   ...
+   fun:_ZL26mysql_real_connect_wrapperP8st_mysqlPKcS2_S2_S2_jS2_m
+}
+
+{
+   TLS data on main thread is not cleaned up properly (mysql_client_test)
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:RAND_bytes
+   ...
+   fun:_ZL14client_connectmjb
+}
+
+#
 # RocksDB Storage Engine suppressions
 #
 

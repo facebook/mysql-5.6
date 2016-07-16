@@ -32,6 +32,8 @@ generated_random_password_length
 generated_random_password_length
 group_replication_consistency
 group_replication_consistency
+have_boringssl
+have_boringssl
 init_replica
 init_replica
 init_slave

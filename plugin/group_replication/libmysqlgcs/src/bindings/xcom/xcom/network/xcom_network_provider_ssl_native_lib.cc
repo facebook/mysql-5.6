@@ -236,7 +236,7 @@ static int configure_ssl_algorithms(SSL_CTX *ssl_ctx, const char *cipher,
       SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1;
   char cipher_list[SSL_CIPHER_LIST_SIZE] = {0};
   long ssl_ctx_flags = -1;
-#ifdef HAVE_TLSv13
+#if defined(HAVE_TLSv13) && !defined(OPENSSL_IS_BORINGSSL)
   int tlsv1_3_enabled = 0;
 #endif /* HAVE_TLSv13 */
 
@@ -261,7 +261,8 @@ static int configure_ssl_algorithms(SSL_CTX *ssl_ctx, const char *cipher,
 
   SSL_CTX_set_options(ssl_ctx, ssl_ctx_options);
 
-#ifdef HAVE_TLSv13
+// BoringSSL doesn't support SSL_CTX_set_ciphersuites
+#if defined(HAVE_TLSv13) && !defined(OPENSSL_IS_BORINGSSL)
   tlsv1_3_enabled = ((ssl_ctx_options & SSL_OP_NO_TLSv1_3) == 0);
   if (tlsv1_3_enabled) {
     /* Set OpenSSL TLS v1.3 ciphersuites.
@@ -320,6 +321,10 @@ error:
   if (dh) DH_free(dh);
   return 1;
 }
+
+#if defined(OPENSSL_IS_BORINGSSL) && (BORINGSSL_API_VERSION < 16)
+int FIPS_mode_set(int on) { return on == FIPS_mode(); }
+#endif
 
 #define OPENSSL_ERROR_LENGTH 512
 static int configure_ssl_fips_mode(const int fips_mode) {

@@ -100,10 +100,12 @@
 
 struct MEM_ROOT;
 
+#if !defined(OPENSSL_IS_BORINGSSL)
 #include <openssl/err.h>
 #include <openssl/pem.h>
 #include <openssl/rsa.h>
 #include <openssl/x509v3.h>
+#endif /* OPENSSL_IS_BORINGSSL */
 
 /**
    @file sql_authentication.cc
@@ -5198,8 +5200,6 @@ class X509_gen {
                    uint32_t notbefore, uint32_t notafter, bool self_sign = true,
                    X509 *ca_x509 = nullptr, EVP_PKEY *ca_pkey = nullptr) {
     X509 *x509 = X509_new();
-    X509_EXTENSION *ext = nullptr;
-    X509V3_CTX v3ctx;
     X509_NAME *name = nullptr;
 
     assert(cn.length() <= MAX_CN_NAME_LENGTH);
@@ -5235,18 +5235,25 @@ class X509_gen {
             x509, self_sign ? name : X509_get_subject_name(ca_x509)))
       goto err;
 
-    /** Add X509v3 extensions */
-    X509V3_set_ctx(&v3ctx, self_sign ? x509 : ca_x509, x509, nullptr, nullptr,
-                   0);
+#ifndef OPENSSL_IS_BORINGSSL
+    {
+      X509_EXTENSION *ext = nullptr;
+      X509V3_CTX v3ctx;
 
-    /** Add CA:TRUE / CA:FALSE inforamation */
-    if (!(ext = X509V3_EXT_conf_nid(
-              nullptr, &v3ctx, NID_basic_constraints,
-              self_sign ? const_cast<char *>("critical,CA:TRUE")
-                        : const_cast<char *>("critical,CA:FALSE"))))
-      goto err;
-    X509_add_ext(x509, ext, -1);
-    X509_EXTENSION_free(ext);
+      /** Add X509v3 extensions */
+      X509V3_set_ctx(&v3ctx, self_sign ? x509 : ca_x509, x509, nullptr, nullptr,
+                     0);
+
+      /** Add CA:TRUE / CA:FALSE inforamation */
+      if (!(ext = X509V3_EXT_conf_nid(
+                nullptr, &v3ctx, NID_basic_constraints,
+                self_sign ? const_cast<char *>("critical,CA:TRUE")
+                          : const_cast<char *>("critical,CA:FALSE"))))
+        goto err;
+      X509_add_ext(x509, ext, -1);
+      X509_EXTENSION_free(ext);
+    }
+#endif
 
     /** Sign using SHA256 */
     if (!X509_sign(x509, self_sign ? pkey : ca_pkey, EVP_sha256())) goto err;

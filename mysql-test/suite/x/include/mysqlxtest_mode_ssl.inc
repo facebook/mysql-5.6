@@ -67,7 +67,9 @@ let $restart_parameters=restart:
 
 let $ERROR1=Failed to verify the server certificate.*;
 let $ERROR2=error.*certificate verify failed.*;
-let $ERROR_REGEX=/$ERROR1|$ERROR2/error: SSL certificate validation failure (code 2026)/;
+# ERROR3 for boringssl
+let $ERROR3=error.*CERTIFICATE_VERIFY_FAILED.*;
+let $ERROR_REGEX=/$ERROR1|$ERROR2|$ERROR3/error: SSL certificate validation failure (code 2026)/;
 --replace_regex $ERROR_REGEX
 --exec $MYSQLXTEST_SSLCA_TEST --expect-error CR_SSL_CONNECTION_ERROR $USE_SOCKET -v%EXPECT%=ON --ssl-mode=verify_identity  2>&1
 

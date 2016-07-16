@@ -54,7 +54,7 @@ exec $MYSQLXTEST
 exec $MYSQLXTEST
     --tls-version=TLSv1.2 --ssl-mode=REQUIRED --history-protocol false
     -u user3_mysqlx --password='auth_string3' --plain-auth
-    --ssl-cipher="DHE-RSA-AES256-SHA" --ssl-key=$MYSQL_TEST_DIR/std_data/client-key.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/client-cert.pem
+    --ssl-cipher="ECDHE-RSA-AES256-SHA" --ssl-key=$MYSQL_TEST_DIR/std_data/client-key.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/client-cert.pem
     --file=$MYSQL_TMP_DIR/mysqlx-connection-info.tmp 2>&1;
 
 --error 1

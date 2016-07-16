@@ -52,7 +52,8 @@ std::string base64_encode(const void *binary, size_t length) {
   BIO_write(b64.get(), binary, static_cast<int>(length));
   if (BIO_flush(b64.get()) != 1) return {};
   const char *encoded;
-  const size_t result_length = BIO_get_mem_data(sink, &encoded);
+  const size_t result_length =
+      BIO_get_mem_data(sink, const_cast<char **>(&encoded));
   return {encoded, result_length};
 }
 
