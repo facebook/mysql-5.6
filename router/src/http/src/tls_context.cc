@@ -230,7 +230,8 @@ TlsContext::InfoCallback TlsContext::info_callback() const {
 }
 
 int TlsContext::security_level() const {
-#if OPENSSL_VERSION_NUMBER >= ROUTER_OPENSSL_VERSION(1, 1, 0)
+#if OPENSSL_VERSION_NUMBER >= ROUTER_OPENSSL_VERSION(1, 1, 0) && \
+    !defined(OPENSSL_IS_BORINGSSL)
   return SSL_CTX_get_security_level(ssl_ctx_.get());
 #else
   return 0;

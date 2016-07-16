@@ -71,6 +71,9 @@ RESET SLAVE FOR CHANNEL 'my_channel';
 --let $assert_cond = "[SELECT TLS_CIPHERSUITES FROM performance_schema.replication_connection_configuration where CHANNEL_NAME = \'my_channel\']" = "TLS_AES_128_CCM_8_SHA256"
 --source include/assert.inc
 
+# Doesn't work with BoringSSL
+if (0)
+{
 --echo ########################################################################
 --echo # 4. Check replication with TLSv1.3 and different ciphersuite on master
 --echo #    and slave will fail.
@@ -112,6 +115,7 @@ CHANGE MASTER TO MASTER_TLS_CIPHERSUITES=NULL FOR CHANNEL 'my_channel';
 
 --source include/start_slave.inc
 --source include/stop_slave.inc
+}
 
 --source include/rpl_connection_master.inc
 SET @@GLOBAL.tls_version= @tls_version_saved;

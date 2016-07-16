@@ -38,13 +38,15 @@
 #include "openssl_version.h"
 #include "tls_error.h"
 
-#if OPENSSL_VERSION_NUMBER < ROUTER_OPENSSL_VERSION(1, 1, 0)
+#if OPENSSL_VERSION_NUMBER < ROUTER_OPENSSL_VERSION(1, 1, 0) || \
+    defined(OPENSSL_IS_BORINGSSL)
 #define RSA_bits(rsa) BN_num_bits(rsa->n)
 #define DH_bits(dh) BN_num_bits(dh->p)
 #endif
 
 // type == decltype(BN_num_bits())
-#if OPENSSL_VERSION_NUMBER >= ROUTER_OPENSSL_VERSION(1, 0, 2)
+#if OPENSSL_VERSION_NUMBER >= ROUTER_OPENSSL_VERSION(1, 0, 2) && \
+    !defined(OPENSSL_IS_BORINGSSL)
 constexpr int kMinRsaKeySize{2048};
 #endif
 constexpr int kMinDhKeySize{1024};
@@ -88,7 +90,8 @@ void TlsServerContext::load_key_and_cert(const std::string &cert_chain_file,
                      "' failed");
     }
   }
-#if OPENSSL_VERSION_NUMBER >= ROUTER_OPENSSL_VERSION(1, 0, 2)
+#if OPENSSL_VERSION_NUMBER >= ROUTER_OPENSSL_VERSION(1, 0, 2) && \
+    !defined(OPENSSL_IS_BORINGSSL)
   // openssl 1.0.1 has no SSL_CTX_get0_certificate() and doesn't allow
   // to access ctx->cert->key->x509 as cert_st is opaque to us.
 
@@ -167,7 +170,8 @@ void TlsServerContext::init_tmp_dh(const std::string &dh_params) {
     }
 
   } else {
-#if OPENSSL_VERSION_NUMBER >= ROUTER_OPENSSL_VERSION(1, 1, 0)
+#if OPENSSL_VERSION_NUMBER >= ROUTER_OPENSSL_VERSION(1, 1, 0) && \
+    !defined(OPENSSL_IS_BORINGSSL)
     dh2048.reset(DH_get_2048_256());
 #else
     /*

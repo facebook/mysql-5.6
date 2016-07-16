@@ -4873,6 +4873,7 @@ static Sys_var_ulong Sys_max_statement_time(
     HINT_UPDATEABLE SESSION_VAR(max_execution_time), CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1));
 
+#if !defined(OPENSSL_IS_BORINGSSL)
 static bool update_fips_mode(sys_var *, THD *, enum_var_type) {
   char ssl_err_string[OPENSSL_ERROR_LENGTH] = {'\0'};
   if (set_fips_mode(opt_ssl_fips_mode, ssl_err_string) != 1) {
@@ -4883,6 +4884,7 @@ static bool update_fips_mode(sys_var *, THD *, enum_var_type) {
     return false;
   }
 }
+#endif
 
 static const char *ssl_fips_mode_names[] = {"OFF", "ON", "STRICT", nullptr};
 static Sys_var_enum Sys_ssl_fips_mode(
@@ -4891,7 +4893,13 @@ static Sys_var_enum Sys_ssl_fips_mode(
     "permitted values are: OFF, ON, STRICT",
     GLOBAL_VAR(opt_ssl_fips_mode), CMD_LINE(REQUIRED_ARG, OPT_SSL_FIPS_MODE),
     ssl_fips_mode_names, DEFAULT(0), NO_MUTEX_GUARD, NOT_IN_BINLOG,
-    ON_CHECK(nullptr), ON_UPDATE(update_fips_mode), nullptr);
+    ON_CHECK(nullptr),
+#if !defined(OPENSSL_IS_BORINGSSL)
+    ON_UPDATE(update_fips_mode),
+#else
+    ON_UPDATE(nullptr),
+#endif
+    nullptr);
 
 static Sys_var_bool Sys_auto_generate_certs(
     "auto_generate_certs",
@@ -5864,6 +5872,17 @@ enum SHOW_COMP_OPTION Sys_var_have_func::dummy_;
 
 static Sys_var_have_func Sys_have_openssl("have_openssl", "have_openssl",
                                           have_ssl_func);
+
+static SHOW_COMP_OPTION have_boringssl_func(THD *thd MY_ATTRIBUTE((unused))) {
+#if defined(OPENSSL_IS_BORINGSSL)
+  return SHOW_OPTION_YES;
+#else
+  return SHOW_OPTION_NO;
+#endif
+}
+
+static Sys_var_have_func Sys_have_boringssl("have_boringssl", "have_boringssl",
+                                            have_boringssl_func);
 
 static Sys_var_have Sys_have_profiling(
     "have_profiling", "have_profiling",

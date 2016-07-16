@@ -5326,7 +5326,7 @@ static int init_thread_environment() {
   return 0;
 }
 
-#if !defined(__sun)
+#if !defined(__sun) && !defined(OPENSSL_IS_BORINGSSL)
 /* TODO: remove the !defined(__sun) when bug 23285559 is out of the picture */
 
 static PSI_memory_key key_memory_openssl = PSI_NOT_INSTRUMENTED;
@@ -5347,7 +5347,7 @@ static void my_openssl_free(void *ptr FILE_LINE_ARGS) { return my_free(ptr); }
 #endif /* !defined(__sun) */
 
 static void init_ssl() {
-#if !defined(__sun)
+#if !defined(__sun) && !defined(OPENSSL_IS_BORINGSSL)
 #if defined(HAVE_PSI_MEMORY_INTERFACE)
   static PSI_memory_info all_openssl_memory[] = {
       {&key_memory_openssl, "openssl_malloc", 0, 0,
@@ -5365,12 +5365,14 @@ static void init_ssl() {
 }
 
 static int init_ssl_communication() {
+#if !defined(OPENSSL_IS_BORINGSSL)
   char ssl_err_string[OPENSSL_ERROR_LENGTH] = {'\0'};
   int ret_fips_mode = set_fips_mode(opt_ssl_fips_mode, ssl_err_string);
   if (ret_fips_mode != 1) {
     LogErr(ERROR_LEVEL, ER_SSL_FIPS_MODE_ERROR, ssl_err_string);
     return 1;
   }
+#endif
   if (SslAcceptorContext::singleton_init(opt_use_ssl)) return 1;
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L

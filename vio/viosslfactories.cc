@@ -547,6 +547,7 @@ void ssl_start() {
   }
 }
 
+#if !defined(OPENSSL_IS_BORINGSSL)
 /**
   Set fips mode in openssl library,
   When we set fips mode ON/STRICT, it will perform following operations:
@@ -600,6 +601,7 @@ EXIT:
   @returns openssl current fips mode
 */
 uint get_fips_mode() { return FIPS_mode(); }
+#endif
 
 long process_tls_version(const char *tls_version) {
   const char *separator = ",";
@@ -709,7 +711,7 @@ static struct st_VioSSLFd *new_VioSSLFd(
     return nullptr;
   }
 
-#ifdef HAVE_TLSv13
+#if defined(HAVE_TLSv13)
   /*
     Set OpenSSL TLS v1.3 ciphersuites.
     Note that an empty list is permissible.
@@ -826,6 +828,9 @@ static struct st_VioSSLFd *new_VioSSLFd(
 #endif /* OPENSSL_VERSION_NUMBER < 0x10002000L */
 
   SSL_CTX_set_options(ssl_fd->ssl_context, ssl_ctx_options);
+  if (!is_client) {
+    SSL_CTX_set_session_cache_mode(ssl_fd->ssl_context, SSL_SESS_CACHE_OFF);
+  }
 
   DBUG_PRINT("exit", ("OK 1"));
 

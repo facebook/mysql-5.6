@@ -7,13 +7,13 @@ if (!$crllen)
 
 --echo # test --crl for the client : should connect
 --replace_result $MYSQL_TEST_DIR MYSQL_TEST_DIR
---exec $MYSQL --ssl-mode=VERIFY_CA --ssl-ca=$MYSQL_TEST_DIR/std_data/crl-ca-cert.pem --ssl-key=$MYSQL_TEST_DIR/std_data/crl-client-key.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/crl-client-cert.pem test --ssl-crl=$MYSQL_TEST_DIR/std_data/crl-client-revoked.crl -e "SHOW VARIABLES like '%ssl%';"
+--exec $MYSQL --ssl-mode=VERIFY_CA --ssl-ca=$MYSQL_TEST_DIR/std_data/crl-ca-cert.pem --ssl-key=$MYSQL_TEST_DIR/std_data/crl-client-key.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/crl-client-cert.pem test --ssl-crl=$MYSQL_TEST_DIR/std_data/crl-client-revoked.crl -e "SELECT VARIABLE_NAME AS Variable_name, VARIABLE_VALUE AS Value FROM performance_schema.global_variables WHERE VARIABLE_NAME LIKE '%ssl%' AND VARIABLE_NAME NOT LIKE 'have_boringssl' ORDER BY VARIABLE_NAME;"
 
 --echo # test --crlpath for the client : should connect
 --replace_result $MYSQL_TEST_DIR MYSQL_TEST_DIR
---exec $MYSQL --ssl-mode=VERIFY_CA --ssl-ca=$MYSQL_TEST_DIR/std_data/crl-ca-cert.pem --ssl-key=$MYSQL_TEST_DIR/std_data/crl-client-key.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/crl-client-cert.pem --ssl-crlpath=$MYSQL_TEST_DIR/std_data/crldir test -e "SHOW VARIABLES like '%ssl%';"
+--exec $MYSQL --ssl-mode=VERIFY_CA --ssl-ca=$MYSQL_TEST_DIR/std_data/crl-ca-cert.pem --ssl-key=$MYSQL_TEST_DIR/std_data/crl-client-key.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/crl-client-cert.pem --ssl-crlpath=$MYSQL_TEST_DIR/std_data/crldir test -e "SELECT VARIABLE_NAME AS Variable_name, VARIABLE_VALUE AS Value FROM performance_schema.global_variables WHERE VARIABLE_NAME LIKE '%ssl%' AND VARIABLE_NAME NOT LIKE 'have_boringssl' ORDER BY VARIABLE_NAME;"
 
 --echo # try logging in with a certificate in the server's --ssl-crlpath : should fail
 --replace_result $MYSQL_TEST_DIR MYSQL_TEST_DIR
 --error 1
---exec $MYSQL --ssl-mode=VERIFY_CA --ssl-ca=$MYSQL_TEST_DIR/std_data/crl-ca-cert.pem --ssl-key=$MYSQL_TEST_DIR/std_data/crl-client-revoked-key.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/crl-client-revoked-cert.pem test -e "SHOW VARIABLES like '%ssl%';"
+--exec $MYSQL --ssl-mode=VERIFY_CA --ssl-ca=$MYSQL_TEST_DIR/std_data/crl-ca-cert.pem --ssl-key=$MYSQL_TEST_DIR/std_data/crl-client-revoked-key.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/crl-client-revoked-cert.pem test -e "SELECT VARIABLE_NAME AS Variable_name, VARIABLE_VALUE AS Value FROM performance_schema.global_variables WHERE VARIABLE_NAME LIKE '%ssl%' AND VARIABLE_NAME NOT LIKE 'have_boringssl' ORDER BY VARIABLE_NAME;"

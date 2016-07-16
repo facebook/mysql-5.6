@@ -503,6 +503,18 @@ ENDIF()
 
 INCLUDE(CMakePushCheckState)
 
+OPTION(DISABLE_SHARED
+ "Don't build shared libraries, compile code as position-dependent" OFF)
+IF(DISABLE_SHARED)
+  MESSAGE("Dynamic plugins are disabled.")
+ENDIF()
+
+IF(NOT DISABLE_SHARED)
+  SET(PIC_EXT "_pic")
+ELSE()
+  SET(PIC_EXT "")
+ENDIF()
+
 # Add macros
 INCLUDE(pkg-config)
 INCLUDE(character_sets)

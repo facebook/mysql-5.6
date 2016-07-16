@@ -2664,3 +2664,54 @@
    fun:getpwuid_r@@GLIBC_2.2.5
    ...
 }
+
+#
+# BoringSSL suppressions
+#
+{
+   built_in_curve_scalar_field_monts_init leaks global instance of data intentionally
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:built_in_curve_scalar_field_monts_init
+   fun:pthread_once
+   fun:CRYPTO_once
+   fun:ec_group_new_from_data
+   fun:EC_GROUP_new_by_curve_name
+   fun:EC_KEY_new_by_curve_name
+   ...
+}
+
+{
+   TLS data on main thread is not cleaned up properly
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:err_get_state
+   ...
+   fun:main
+}
+
+{
+   TLS data on main thread is not cleaned up properly
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:err_get_state
+   ...
+   fun:kill_server_thread
+   ...
+}
+
+{
+   TLS data on main thread is not cleaned up properly (mysqltest client)
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:err_get_state
+   ...
+   fun:_ZL26mysql_real_connect_wrapperP8st_mysqlPKcS2_S2_S2_jS2_m
+}

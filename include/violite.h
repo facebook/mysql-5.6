@@ -284,7 +284,9 @@ struct st_VioSSLFd *new_VioSSLConnectorFd(
 
 long process_tls_version(const char *tls_version);
 
+#if !defined(OPENSSL_IS_BORINGSSL)
 int set_fips_mode(const uint fips_mode, char *err_string);
+#endif
 
 uint get_fips_mode();
 

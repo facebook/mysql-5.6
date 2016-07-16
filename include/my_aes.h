@@ -44,7 +44,9 @@ enum my_aes_opmode {
   my_aes_256_ecb,
   my_aes_128_cbc,
   my_aes_192_cbc,
-  my_aes_256_cbc,
+  my_aes_256_cbc
+#if !defined(OPENSSL_IS_BORINGSSL)
+  ,
   my_aes_128_cfb1,
   my_aes_192_cfb1,
   my_aes_256_cfb1,
@@ -57,10 +59,15 @@ enum my_aes_opmode {
   my_aes_128_ofb,
   my_aes_192_ofb,
   my_aes_256_ofb
+#endif
 };
 
 #define MY_AES_BEGIN my_aes_128_ecb
+#if defined(OPENSSL_IS_BORINGSSL)
+#define MY_AES_END my_aes_256_cbc
+#else
 #define MY_AES_END my_aes_256_ofb
+#endif
 
 /* If bad data discovered during decoding */
 #define MY_AES_BAD_DATA -1
