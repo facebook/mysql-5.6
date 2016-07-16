@@ -523,7 +523,7 @@ XError Connection_impl::get_ssl_error(const int error_id) {
   return XError(CR_SSL_CONNECTION_ERROR, buffer);
 }
 
-#ifndef HAVE_WOLFSSL
+#if !defined(HAVE_WOLFSSL) && !defined(OPENSSL_IS_BORINGSSL)
 /**
   Set fips mode in openssl library,
   When we set fips mode ON/STRICT, it will perform following operations:
@@ -573,7 +573,7 @@ XError Connection_impl::activate_tls() {
   if (!m_context->m_ssl_config.is_configured())
     return XError{CR_SSL_CONNECTION_ERROR, ER_TEXT_TLS_NOT_CONFIGURATED};
 
-#ifndef HAVE_WOLFSSL
+#if !defined(HAVE_WOLFSSL) && !defined(OPENSSL_IS_BORINGSSL)
   char err_string[OPENSSL_ERROR_LENGTH] = {'\0'};
   if (set_fips_mode((int)m_context->m_ssl_config.m_ssl_fips_mode, err_string) !=
       1) {

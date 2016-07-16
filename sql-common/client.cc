@@ -7894,7 +7894,8 @@ int STDCALL mysql_options(MYSQL *mysql, enum mysql_option option,
 #endif
       break;
     case MYSQL_OPT_SSL_FIPS_MODE: {
-#if defined(HAVE_OPENSSL) && !defined(HAVE_WOLFSSL)
+#if defined(HAVE_OPENSSL) && !defined(HAVE_WOLFSSL) && \
+    !defined(OPENSSL_IS_BORINGSSL)
       char ssl_err_string[OPENSSL_ERROR_LENGTH] = {'\0'};
       ENSURE_EXTENSIONS_PRESENT(&mysql->options);
       mysql->options.extension->ssl_fips_mode = *static_cast<const uint *>(arg);
@@ -7906,7 +7907,8 @@ int STDCALL mysql_options(MYSQL *mysql, enum mysql_option option,
             "Set Fips mode ON/STRICT failed, detail: '%s'.", ssl_err_string);
         DBUG_RETURN(1);
       }
-#endif  // defined(HAVE_OPENSSL) && !defined(HAVE_WOLFSSL)
+#endif  // defined(HAVE_OPENSSL) && !defined(HAVE_WOLFSSL) &&
+        // !defined(OPENSSL_IS_BORINGSSL)
     } break;
     case MYSQL_OPT_SSL_MODE:
 #if defined(HAVE_OPENSSL)

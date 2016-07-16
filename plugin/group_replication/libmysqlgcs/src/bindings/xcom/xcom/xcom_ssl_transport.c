@@ -297,7 +297,7 @@ error:
   return 1;
 }
 
-#ifndef HAVE_WOLFSSL
+#if !defined(HAVE_WOLFSSL) && !defined(OPENSSL_IS_BORINGSSL)
 #define OPENSSL_ERROR_LENGTH 512
 static int configure_ssl_fips_mode(const uint fips_mode) {
   int rc = -1;
@@ -521,7 +521,7 @@ int xcom_init_ssl(const char *server_key_file, const char *server_cert_file,
   int verify_server = SSL_VERIFY_NONE;
   int verify_client = SSL_VERIFY_NONE;
 
-#ifndef HAVE_WOLFSSL
+#if !defined(HAVE_WOLFSSL) && !defined(OPENSSL_IS_BORINGSSL)
   if (configure_ssl_fips_mode(ssl_fips_mode) != 1) {
     G_ERROR("Error setting the ssl fips mode");
     goto error;

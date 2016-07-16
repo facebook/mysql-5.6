@@ -504,7 +504,7 @@ void ssl_start() {
   }
 }
 
-#ifndef HAVE_WOLFSSL
+#if !defined(HAVE_WOLFSSL) && !defined(OPENSSL_IS_BORINGSSL)
 /**
   Set fips mode in openssl library,
   When we set fips mode ON/STRICT, it will perform following operations:
@@ -779,6 +779,9 @@ static struct st_VioSSLFd *new_VioSSLFd(
   DH_free(dh);
 
   SSL_CTX_set_options(ssl_fd->ssl_context, ssl_ctx_options);
+  if (!is_client) {
+    SSL_CTX_set_session_cache_mode(ssl_fd->ssl_context, SSL_SESS_CACHE_OFF);
+  }
 
   /* set IO functions used by wolfSSL */
 #ifdef HAVE_WOLFSSL

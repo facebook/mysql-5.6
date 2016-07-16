@@ -1,5 +1,6 @@
 --source include/have_ssl.inc
 --source include/have_64bit.inc
+-- source include/not_openssl.inc
 
 CREATE USER u1@localhost IDENTIFIED BY 'secret' REQUIRE SSL;
 GRANT SELECT ON test.* TO u1@localhost;

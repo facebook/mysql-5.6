@@ -4960,7 +4960,8 @@ static int init_thread_environment() {
   return 0;
 }
 
-#if !defined(HAVE_WOLFSSL) && defined(HAVE_OPENSSL) && !defined(__sun)
+#if !defined(HAVE_WOLFSSL) && defined(HAVE_OPENSSL) && !defined(__sun) && \
+  !defined(OPENSSL_IS_BORINGSSL)
 /* TODO: remove the !defined(__sun) when bug 23285559 is out of the picture */
 
 static PSI_memory_key key_memory_openssl = PSI_NOT_INSTRUMENTED;
@@ -4982,7 +4983,7 @@ static void my_openssl_free(void *ptr FILE_LINE_ARGS) { return my_free(ptr); }
 
 static void init_ssl() {
 #ifdef HAVE_OPENSSL
-#if !defined(HAVE_WOLFSSL) && !defined(__sun)
+#if !defined(HAVE_WOLFSSL) && !defined(__sun) && !defined(OPENSSL_IS_BORINGSSL)
 #if defined(HAVE_PSI_MEMORY_INTERFACE)
   static PSI_memory_info all_openssl_memory[] = {
       {&key_memory_openssl, "openssl_malloc", 0, 0,
@@ -5001,7 +5002,7 @@ static void init_ssl() {
 }
 
 static int init_ssl_communication() {
-#ifndef HAVE_WOLFSSL
+#if !defined(HAVE_WOLFSSL) && !defined(OPENSSL_IS_BORINGSSL)
   char ssl_err_string[OPENSSL_ERROR_LENGTH] = {'\0'};
   int ret_fips_mode = set_fips_mode(opt_ssl_fips_mode, ssl_err_string);
   if (ret_fips_mode != 1) {

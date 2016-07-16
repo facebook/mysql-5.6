@@ -527,7 +527,6 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
     }
 
     DBUG_PRINT("info", ("ssl: %p timeout: %ld", ssl, timeout));
-    SSL_clear(ssl);
     SSL_SESSION_set_timeout(SSL_get_session(ssl), timeout);
     SSL_set_fd(ssl, sd);
 #if !defined(HAVE_WOLFSSL) && defined(SSL_OP_NO_COMPRESSION)
@@ -548,7 +547,7 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
       else
         for (j = 0; j < n; j++) {
           SSL_COMP *c = sk_SSL_COMP_value(ssl_comp_methods, j);
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(OPENSSL_IS_BORINGSSL)
           DBUG_PRINT("info", ("  %d: %s\n", c->id, c->name));
 #else  /* OPENSSL_VERSION_NUMBER < 0x10100000L */
           DBUG_PRINT("info",
