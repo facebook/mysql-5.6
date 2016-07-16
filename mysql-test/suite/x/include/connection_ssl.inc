@@ -167,8 +167,8 @@ callmacro Assert_status_variable
 	Mysqlx_ssl_version
 	%OPTION_TLS_VERSION%;
 
-# Use either option with which mysqlxtest was started or the default one: DHE-RSA-AES256-SHA
--->stmtsql SELECT IF(""="%OPTION_SSL_CIPHER%","DHE-RSA-AES256-SHA","%OPTION_SSL_CIPHER%") as Value;
+# Use either option with which mysqlxtest was started or the default one: ECDHE-RSA-AES256-SHA
+-->stmtsql SELECT IF(""="%OPTION_SSL_CIPHER%","ECDHE-RSA-AES256-SHA","%OPTION_SSL_CIPHER%") as Value;
 -->recvtovar %EXPECTED_SSL_CIPHER% Value
 
 callmacro Assert_status_variable
@@ -511,7 +511,7 @@ exec $MYSQLXTEST_VERIFY_SSL --expect-error ER_ACCESS_DENIED_ERROR -u user7_mysql
 --echo # VIII.5
 expr $SSL_CONNECTION_MADE= $SSL_CONNECTION_MADE + $INCREMENT;
 exec $MYSQLXTEST_VERIFY_SSL --expect-error ER_ACCESS_DENIED_ERROR -u user7_mysqlx
-	--ssl-cipher='DHE-RSA-AES256-SHA' $CLIENT_SSL_CA $CLIENT_SSL_KEY $CLIENT_SSL_CERT 2>&1;
+	--ssl-cipher='ECDHE-RSA-AES256-SHA' $CLIENT_SSL_CA $CLIENT_SSL_KEY $CLIENT_SSL_CERT 2>&1;
 
 --echo
 --echo
@@ -575,4 +575,3 @@ DROP USER user6_mysqlx@localhost;
 DROP USER user7_mysqlx@localhost;
 
 SET GLOBAL mysqlx_connect_timeout = DEFAULT;
-

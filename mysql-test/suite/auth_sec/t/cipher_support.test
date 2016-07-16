@@ -57,10 +57,13 @@ TRUNCATE TABLE cipher_data.d;
 TRUNCATE TABLE cipher_data.n;
 TRUNCATE TABLE cipher_data.b;
 
+# BoringSSL removed ECDHE-RSA-AES128-SHA256, ECDHE-RSA-AES256-SHA384
+# at https://github.com/google/boringssl/commit/6e678eeb6e
+
 INSERT INTO cipher_data.p VALUES ('["ECDHE-RSA-AES128-GCM-SHA256",
-                                    "ECDHE-RSA-AES128-SHA256"]');
+                                    "ECDHE-RSA-AES128-SHA"]');
 INSERT INTO cipher_data.a VALUES ('["ECDHE-RSA-AES256-GCM-SHA384",
-                                    "ECDHE-RSA-AES256-SHA384"]');
+                                    "ECDHE-RSA-AES256-SHA"]');
 INSERT INTO cipher_data.d VALUES ('["ECDHE-RSA-AES128-SHA",
                                     "ECDHE-RSA-AES256-SHA"]');
 INSERT INTO cipher_data.b VALUES ('["ECDHE-RSA-DES-CBC3-SHA",
@@ -82,6 +85,11 @@ TRUNCATE TABLE cipher_data.d;
 TRUNCATE TABLE cipher_data.n;
 TRUNCATE TABLE cipher_data.b;
 
+if (0)
+{
+# BoringSSL removed DHE-RSA-AES256-GCM-SHA384, DHE-RSA-AES128-GCM-SHA256
+# at https://github.com/google/boringssl/commit/7e06de5d2d
+
 INSERT INTO cipher_data.a VALUES ('["DHE-RSA-AES256-GCM-SHA384",
                                     "DHE-RSA-AES128-GCM-SHA256",
                                     "DHE-RSA-AES256-SHA256",
@@ -93,6 +101,7 @@ INSERT INTO cipher_data.n VALUES ('["DHE-RSA-CAMELLIA256-SHA",
 INSERT INTO cipher_data.b VALUES ('["DHE-RSA-DES-CBC3-SHA"]');
 
 --source suite/auth_sec/include/cipher_test.inc
+}
 
 --echo
 --echo #-----------------------------------------------------------------------
@@ -137,10 +146,13 @@ TRUNCATE TABLE cipher_data.d;
 TRUNCATE TABLE cipher_data.n;
 TRUNCATE TABLE cipher_data.b;
 
+# BoringSSL removed ECDHE-ECDSA-AES128-SHA256, ECDHE-ECDSA-AES256-SHA384
+# at https://github.com/google/boringssl/commit/6e678eeb6e
+
 INSERT INTO cipher_data.p VALUES ('["ECDHE-ECDSA-AES256-GCM-SHA384",
                                     "ECDHE-ECDSA-AES128-GCM-SHA256",
-                                    "ECDHE-ECDSA-AES128-SHA256"]');
-INSERT INTO cipher_data.a VALUES ('["ECDHE-ECDSA-AES256-SHA384"]');
+                                    "ECDHE-ECDSA-AES128-SHA"]');
+INSERT INTO cipher_data.a VALUES ('["ECDHE-ECDSA-AES256-SHA"]');
 INSERT INTO cipher_data.d VALUES ('["ECDHE-ECDSA-AES256-SHA",
                                     "ECDHE-ECDSA-AES128-SHA"]');
 INSERT INTO cipher_data.b VALUES ('["ECDHE-ECDSA-DES-CBC3-SHA",

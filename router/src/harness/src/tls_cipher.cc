@@ -104,7 +104,7 @@ stdx::expected<size_t, std::error_code> TlsCipher::encrypt(
   if (1 != EVP_EncryptInit(ctx, cipher_, rkey.data(), iv) ||
       1 != EVP_CIPHER_CTX_set_padding(ctx, padding) ||
       1 != EVP_EncryptUpdate(ctx, dst, &updated_len, src, src_size) ||
-      1 != EVP_EncryptFinal(ctx, dst + updated_len, &final_len)) {
+      1 != EVP_EncryptFinal_ex(ctx, dst + updated_len, &final_len)) {
     return stdx::make_unexpected(make_error_code(std::errc::invalid_argument));
   }
 
@@ -139,7 +139,7 @@ stdx::expected<size_t, std::error_code> TlsCipher::decrypt(
   if (1 != EVP_DecryptInit(ctx, cipher_, rkey.data(), iv) ||
       1 != EVP_CIPHER_CTX_set_padding(ctx, padding) ||
       1 != EVP_DecryptUpdate(ctx, dst, &updated_len, src, src_size) ||
-      1 != EVP_DecryptFinal(ctx, dst + updated_len, &final_len)) {
+      1 != EVP_DecryptFinal_ex(ctx, dst + updated_len, &final_len)) {
     return stdx::make_unexpected(make_error_code(std::errc::invalid_argument));
   }
 

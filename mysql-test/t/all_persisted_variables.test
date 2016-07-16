@@ -51,6 +51,7 @@ let $total_excluded_vars=`SELECT COUNT(*) FROM performance_schema.global_variabl
 'default_collation_for_utf8mb4_init',
 'group_replication_plugin_hooks',
 'gtid_committed',
+'have_boringssl',
 'innodb_buffer_pool_populate',
 'per_user_session_var_user_name_delimiter',
 '_list_end_'

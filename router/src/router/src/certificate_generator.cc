@@ -128,6 +128,7 @@ CertificateGenerator::generate_x509(const evp_key_unique_ptr_t &pkey,
   X509V3_set_ctx(&v3ctx, ca_cert ? ca_cert.get() : cert.get(), cert.get(),
                  nullptr, nullptr, 0);
 
+#ifndef OPENSSL_IS_BORINGSSL
   // Add CA:TRUE / CA:FALSE information
   x509_extension_unique_ptr_t ext{
       X509V3_EXT_conf_nid(nullptr, &v3ctx, NID_basic_constraints,
@@ -138,6 +139,10 @@ CertificateGenerator::generate_x509(const evp_key_unique_ptr_t &pkey,
         make_error_code(cert_errc::cert_set_v3_extensions_failed));
   }
   X509_add_ext(cert.get(), ext.get(), -1);
+#else
+  return stdx::make_unexpected(
+      make_error_code(cert_errc::cert_set_v3_extensions_failed));
+#endif
 
   // Sign using SHA256
   if (!X509_sign(cert.get(), ca_cert ? ca_pkey.get() : pkey.get(),

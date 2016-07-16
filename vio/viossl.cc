@@ -479,7 +479,7 @@ static ssize_t ssl_handshake_loop(Vio *vio, SSL *ssl, ssl_handshake_func_t func,
   return ret;
 }
 
-#ifdef HAVE_PSI_SOCKET_INTERFACE
+#if defined(HAVE_PSI_SOCKET_INTERFACE) && !defined(OPENSSL_IS_BORINGSSL)
 long pfs_ssl_bio_callback_ex(BIO *b, int oper, const char * /* argp */,
                              size_t len, int /* argi */, long /* argl */,
                              int ret, size_t *processed) {
@@ -561,7 +561,7 @@ long pfs_ssl_bio_callback_ex(BIO *b, int oper, const char * /* argp */,
 }
 #endif /* HAVE_PSI_SOCKET_INTERFACE */
 
-#ifdef HAVE_PSI_SOCKET_INTERFACE
+#if defined(HAVE_PSI_SOCKET_INTERFACE) && !defined(OPENSSL_IS_BORINGSSL)
 #ifndef HAVE_BIO_SET_CALLBACK_EX
 /**
   Forward openSSL old style callback to openSSL 1.1.1 style callback.
@@ -585,7 +585,7 @@ long pfs_ssl_bio_callback(BIO *b, int oper, const char *argp, int argi,
 #endif /* HAVE_BIO_SET_CALLBACK_EX */
 #endif /* HAVE_PSI_SOCKET_INTERFACE */
 
-#ifdef HAVE_PSI_SOCKET_INTERFACE
+#if defined(HAVE_PSI_SOCKET_INTERFACE) && !defined(OPENSSL_IS_BORINGSSL)
 static void pfs_ssl_setup_instrumentation(Vio *vio, const SSL *ssl) {
   BIO *rbio = SSL_get_rbio(ssl);
   DBUG_ASSERT(rbio != nullptr);
@@ -656,7 +656,6 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
     }
 
     DBUG_PRINT("info", ("ssl: %p timeout: %ld", ssl, timeout));
-    SSL_clear(ssl);
     SSL_SESSION_set_timeout(SSL_get_session(ssl), timeout);
     SSL_set_fd(ssl, sd);
 #if defined(SSL_OP_NO_COMPRESSION)
@@ -676,7 +675,7 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
       else
         for (j = 0; j < n; j++) {
           SSL_COMP *c = sk_SSL_COMP_value(ssl_comp_methods, j);
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(OPENSSL_IS_BORINGSSL)
           DBUG_PRINT("info", ("  %d: %s\n", c->id, c->name));
 #else  /* OPENSSL_VERSION_NUMBER < 0x10100000L */
           DBUG_PRINT("info",
@@ -688,7 +687,7 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
 
     *sslptr = ssl;
 
-#ifdef HAVE_PSI_SOCKET_INTERFACE
+#if defined(HAVE_PSI_SOCKET_INTERFACE) && !defined(OPENSSL_IS_BORINGSSL)
     pfs_ssl_setup_instrumentation(vio, ssl);
 #endif /* HAVE_PSI_SOCKET_INTERFACE */
 
