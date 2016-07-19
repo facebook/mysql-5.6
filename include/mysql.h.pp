@@ -168,6 +168,10 @@ enum enum_mysql_set_option
   MYSQL_OPTION_MULTI_STATEMENTS_ON,
   MYSQL_OPTION_MULTI_STATEMENTS_OFF
 };
+enum enum_session_state_type
+{
+  SESSION_TRACK_GTIDS= 3
+};
 my_bool my_net_init(NET *net, Vio* vio);
 void my_net_local_init(NET *net);
 void net_end(NET *net);
@@ -491,6 +495,7 @@ typedef struct st_mysql
   enum mysql_async_operation_status async_op_status;
   size_t async_query_length;
   enum mysql_async_query_state_enum async_query_state;
+  char *recv_gtid;
 } MYSQL;
 typedef mysql_state_machine_status (*csm_function)(mysql_csm_context*);
 typedef struct st_mysql_res {

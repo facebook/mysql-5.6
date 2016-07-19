@@ -850,6 +850,17 @@ static Sys_var_enum Sys_binlog_row_image(
        NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
        ON_UPDATE(NULL));
 
+static const char *session_track_gtids_names[]=
+{ "OFF", "OWN_GTID", /*"ALL_GTIDS",*/ NullS };
+static Sys_var_enum Sys_session_track_gtids(
+    "session_track_gtids",
+    "Controls the amount of global transaction ids to be "
+    "included in the response packet sent by the server."
+    "(Default: OFF).",
+    SESSION_VAR(session_track_gtids), CMD_LINE(REQUIRED_ARG),
+    session_track_gtids_names, DEFAULT(OFF),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
 static bool binlog_direct_check(sys_var *self, THD *thd, set_var *var)
 {
   if (check_has_super(self, thd, var))

@@ -197,6 +197,12 @@ enum enum_server_command
 /* Don't close the connection for a connection with expired password. */
 #define CLIENT_CAN_HANDLE_EXPIRED_PASSWORDS (1UL << 22)
 
+/**
+  Capable of handling server state change information. Its a hint to the
+  server to include the state change information in Ok packet.
+*/
+#define CLIENT_SESSION_TRACK (1UL << 23)
+
 #define CLIENT_SSL_VERIFY_SERVER_CERT (1UL << 30)
 #define CLIENT_REMEMBER_OPTIONS (1UL << 31)
 
@@ -232,6 +238,7 @@ enum enum_server_command
                            | CLIENT_CONNECT_ATTRS \
                            | CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA \
                            | CLIENT_CAN_HANDLE_EXPIRED_PASSWORDS \
+                           | CLIENT_SESSION_TRACK \
 )
 
 /*
@@ -290,6 +297,11 @@ enum enum_server_command
 */
 #define SERVER_STATUS_IN_TRANS_READONLY 8192
 
+/**
+  This status flag, when on, implies that one of the state information has
+  changed on the server because of the execution of the last statement.
+*/
+#define SERVER_SESSION_STATE_CHANGED (1UL << 14)
 
 /**
   Server status flags that must be cleared when starting
@@ -628,6 +640,15 @@ enum enum_mysql_set_option
 {
   MYSQL_OPTION_MULTI_STATEMENTS_ON,
   MYSQL_OPTION_MULTI_STATEMENTS_OFF
+};
+
+/*
+   Type of state change information that the server can include in the Ok
+   packet. Only GTIDS have been backported so far.
+*/
+enum enum_session_state_type
+{
+  SESSION_TRACK_GTIDS= 3
 };
 
 #define net_new_transaction(net) ((net)->pkt_nr=0)

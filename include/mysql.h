@@ -372,6 +372,9 @@ typedef struct st_mysql
 
   /* If a query is running, this is its state  */
   enum mysql_async_query_state_enum async_query_state;
+
+  /* GTID specified in OK packet */
+  char *recv_gtid;
 } MYSQL;
 
 /* The state function type */

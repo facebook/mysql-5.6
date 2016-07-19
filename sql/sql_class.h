@@ -154,6 +154,12 @@ enum enum_admission_control_filter {
   ADMISSION_CONTROL_END = 64
 };
 
+enum enum_session_track_gtids {
+  OFF= 0,
+  OWN_GTID= 1/*,
+  ALL_GTIDS= 2 not ported*/
+};
+
 #define IS_BIT_SET(val, n) ((val) & (1 << (n)))
 
 /* Bits for different SQL modes modes (including ANSI mode) */
@@ -722,6 +728,7 @@ typedef struct system_variables
 
   Gtid_specification gtid_next;
   Gtid_set_or_null gtid_next_list;
+  ulong session_track_gtids;
   /**
     Compatibility option to mark the pre MySQL-5.6.4 temporals columns using
     the old format using comments for SHOW CREATE TABLE and in I_S.COLUMNS
@@ -2780,6 +2787,10 @@ private:
   /**@}*/
 
 public:
+  const char *get_trans_gtid() const {
+    return m_trans_gtid;
+  }
+
   void issue_unsafe_warnings();
 
   uint get_binlog_table_maps() const {

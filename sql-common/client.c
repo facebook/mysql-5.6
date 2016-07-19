@@ -929,6 +929,7 @@ void free_old_query(MYSQL *mysql)
   mysql->field_count= 0;			/* For API */
   mysql->warning_count= 0;
   mysql->info= 0;
+  mysql->recv_gtid= NULL;
   DBUG_VOID_RETURN;
 }
 
@@ -1012,6 +1013,15 @@ my_bool opt_flush_ok_packet(MYSQL *mysql, my_bool *is_ok_packet)
     {
       mysql->warning_count=uint2korr(pos);
       pos+=2;
+    }
+
+    if (mysql->server_capabilities & CLIENT_SESSION_TRACK)
+    {
+      pos += net_field_length_ll(&pos); /* info string */
+      if (mysql->server_status & SERVER_SESSION_STATE_CHANGED)
+      {
+        pos += net_field_length_ll(&pos); /* gtid string */
+      }
     }
   }
   return FALSE;
@@ -5744,8 +5754,22 @@ get_info:
     }
     DBUG_PRINT("info",("status: %u  warning_count: %u",
 		       mysql->server_status, mysql->warning_count));
-    if (pos < mysql->net.read_pos+length && net_field_length(&pos))
+    if (mysql->server_capabilities & CLIENT_SESSION_TRACK)
+    {
+      size_t info_len= net_field_length_ll(&pos); /* info string */
+      mysql->info= info_len ? (char*) pos : NULL;
+      pos+=info_len;
+      if (mysql->server_status & SERVER_SESSION_STATE_CHANGED)
+      {
+        size_t gtid_len= net_field_length_ll(&pos); /* gtid string */
+        mysql->recv_gtid=(char*) pos;
+        pos += gtid_len;
+      }
+    }
+    else if (pos < mysql->net.read_pos+length && net_field_length(&pos))
       mysql->info=(char*) pos;
+    DBUG_PRINT("info",("info: %s  gtid: %s",
+		       mysql->info, mysql->recv_gtid));
     DBUG_RETURN(0);
   }
 #ifdef MYSQL_CLIENT
@@ -5829,8 +5853,22 @@ get_info:
       }
       DBUG_PRINT("info",("status: %u  warning_count: %u",
                          mysql->server_status, mysql->warning_count));
-      if (pos < mysql->net.read_pos+length && net_field_length(&pos))
+      if (mysql->server_capabilities & CLIENT_SESSION_TRACK)
+      {
+        size_t info_len= net_field_length_ll(&pos); /* info string */
+        mysql->info= info_len ? (char*) pos : NULL;
+        pos+=info_len;
+        if (mysql->server_status & SERVER_SESSION_STATE_CHANGED)
+        {
+          size_t gtid_len= net_field_length_ll(&pos); /* gtid string */
+          mysql->recv_gtid=(char*) pos;
+          pos += gtid_len;
+        }
+      }
+      else if (pos < mysql->net.read_pos+length && net_field_length(&pos))
         mysql->info=(char*) pos;
+      DBUG_PRINT("info",("info: %s  gtid: %s",
+                 mysql->info, mysql->recv_gtid));
       DBUG_PRINT("exit",("ok"));
       *ret = 0;
       DBUG_RETURN(NET_ASYNC_COMPLETE);

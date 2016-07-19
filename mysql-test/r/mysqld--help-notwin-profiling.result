@@ -1281,6 +1281,10 @@ The following options may be given as the first argument:
  --server-id=#       Uniquely identifies the server instance in the community
  of replication partners
  --server-id-bits=#  Set number of significant bits in server-id
+ --session-track-gtids=name 
+ Controls the amount of global transaction ids to be
+ included in the response packet sent by the
+ server.(Default: OFF).
  --show-old-temporals 
  When this option is enabled, the pre-5.6.4 temporal types
  will be marked in the 'SHOW CREATE TABLE' and
@@ -1923,6 +1927,7 @@ select-into-file-fsync-timeout 0
 send-error-before-closing-timed-out-connection TRUE
 server-id 0
 server-id-bits 32
+session-track-gtids OFF
 show-old-temporals FALSE
 show-slave-auth-info FALSE
 simplified-binlog-gtid-recovery FALSE
