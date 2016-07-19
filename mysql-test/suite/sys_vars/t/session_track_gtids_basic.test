@@ -1,0 +1,64 @@
+--source include/load_sysvars.inc
+
+##################################################################
+#           START OF session_track_gtids TESTS           #
+##################################################################
+
+################################################################################
+# Saving initial value of session_track_gtids in a temporary variable  #
+################################################################################
+
+SET @start_value = @@session.session_track_gtids;
+SELECT @start_value;
+
+###############################################
+#     Verify default value of variable        #
+###############################################
+
+SET @@session.session_track_gtids = DEFAULT;
+SELECT @@session.session_track_gtids = 'OFF';
+
+##########################################################################
+#     Change the value of session_track_gtids to a valid value   #
+##########################################################################
+
+SET @@session.session_track_gtids = OWN_GTID;
+SELECT @@session.session_track_gtids;
+SET @@session.session_track_gtids = OFF;
+SELECT @@session.session_track_gtids;
+
+#########################################################################
+#    Change the value of session_track_gtids to invalid value   #
+#########################################################################
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.session_track_gtids = ON;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.session_track_gtids = ALL_GTIDS;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.session_track_gtids = ' ';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.session_track_gtids = " ";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.session_track_gtids = '';
+
+###############################################################################
+#   Check if session_track_gtids can be accessed with and without     #
+#   @@ sign                                                                   #
+###############################################################################
+SET session_track_gtids = OWN_GTID;
+--Error ER_PARSE_ERROR
+SET local.session_track_gtids = OFF;
+--Error ER_UNKNOWN_TABLE
+SELECT local.session_track_gtids;
+
+##############################
+#   Restore initial value    #
+##############################
+
+SET @@session.session_track_gtids = @start_value;
+SELECT @@session.session_track_gtids;
+
+#########################################################
+#     END OF session_track_gtids TESTS          #
+#########################################################

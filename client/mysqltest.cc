@@ -275,6 +275,9 @@ static my_bool disallow_async_client = FALSE;
 static my_bool use_async_client = FALSE;
 static my_bool enable_async_client = FALSE;
 
+// print gtid included in OK packet
+static my_bool show_ok_gtid = FALSE;
+
 static MYSQL_ROW
 mysql_fetch_row_wrapper(MYSQL_RES* res)
 {
@@ -480,13 +483,18 @@ mysql_send_query_wrapper(MYSQL* mysql, const char* query, ulong length)
     return mysql_send_query(mysql, query, length);
 }
 
+static void say(const char *fmt, ...);
 static my_bool
 mysql_read_query_result_wrapper(MYSQL *mysql)
 {
+  my_bool ret;
   if (enable_async_client)
-    return async_mysql_read_query_result_wrapper(mysql);
+    ret= async_mysql_read_query_result_wrapper(mysql);
   else
-    return mysql_read_query_result(mysql);
+    ret= mysql_read_query_result(mysql);
+  if (show_ok_gtid && mysql->recv_gtid)
+    say("Gtid: %s\n", mysql->recv_gtid);
+  return ret;
 }
 
 static int
@@ -738,6 +746,7 @@ enum enum_commands {
   Q_QUERY_ATTRS_ADD,
   Q_QUERY_ATTRS_DELETE,
   Q_QUERY_ATTRS_RESET,
+  Q_SHOW_OK_GTID,
   Q_UNKNOWN,			       /* Unknown command.   */
   Q_COMMENT,			       /* Comments, ignored. */
   Q_COMMENT_WITH_COMMAND,
@@ -845,6 +854,7 @@ const char *command_names[]=
   "query_attrs_add",
   "query_attrs_delete",
   "query_attrs_reset",
+  "show_ok_gtid",
 
   0
 };
@@ -1175,6 +1185,17 @@ void handle_error(struct st_command*,
                   const char *err_sqlstate, DYNAMIC_STRING *ds);
 void handle_no_error(struct st_command*);
 void revert_properties();
+static void say(const char *fmt, ...)
+{
+  char *buf;
+  va_list ap;
+  va_start(ap, fmt);
+  if (vasprintf(&buf, fmt, ap) < 0)
+    die("Out of memory");
+  replace_dynstr_append(&ds_res, buf);
+  free(buf);
+  va_end(ap);
+}
 
 #ifdef EMBEDDED_LIBRARY
 
@@ -9837,6 +9858,10 @@ int main(int argc, char **argv)
         break;
       case Q_QUERY_ATTRS_RESET:
         mysql_options(&cur_con->mysql, MYSQL_OPT_QUERY_ATTR_RESET, 0);
+        break;
+
+      case Q_SHOW_OK_GTID:
+        show_ok_gtid = TRUE;
         break;
 
       default:

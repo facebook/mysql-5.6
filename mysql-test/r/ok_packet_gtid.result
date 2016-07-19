@@ -1,0 +1,11 @@
+CREATE TABLE t1 (c1 INT) Engine=InnoDB;
+INSERT INTO t1 VALUES (1);
+set session_track_gtids=own_gtid;
+INSERT INTO t1 VALUES (2);
+Gtid: uuid:3
+BEGIN;
+INSERT INTO t1 VALUES (3);
+INSERT INTO t1 VALUES (4);
+COMMIT;
+Gtid: uuid:4
+DROP TABLE t1;

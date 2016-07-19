@@ -1,0 +1,13 @@
+--let $uuid= `SELECT @@server_uuid`
+--show_ok_gtid
+CREATE TABLE t1 (c1 INT) Engine=InnoDB;
+INSERT INTO t1 VALUES (1);
+set session_track_gtids=own_gtid;
+-- replace_result $uuid uuid
+INSERT INTO t1 VALUES (2);
+BEGIN;
+INSERT INTO t1 VALUES (3);
+INSERT INTO t1 VALUES (4);
+-- replace_result $uuid uuid
+COMMIT;
+DROP TABLE t1;

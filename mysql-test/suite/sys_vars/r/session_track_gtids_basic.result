@@ -1,0 +1,35 @@
+SET @start_value = @@session.session_track_gtids;
+SELECT @start_value;
+@start_value
+OFF
+SET @@session.session_track_gtids = DEFAULT;
+SELECT @@session.session_track_gtids = 'OFF';
+@@session.session_track_gtids = 'OFF'
+1
+SET @@session.session_track_gtids = OWN_GTID;
+SELECT @@session.session_track_gtids;
+@@session.session_track_gtids
+OWN_GTID
+SET @@session.session_track_gtids = OFF;
+SELECT @@session.session_track_gtids;
+@@session.session_track_gtids
+OFF
+SET @@session.session_track_gtids = ON;
+ERROR 42000: Variable 'session_track_gtids' can't be set to the value of 'ON'
+SET @@session.session_track_gtids = ALL_GTIDS;
+ERROR 42000: Variable 'session_track_gtids' can't be set to the value of 'ALL_GTIDS'
+SET @@session.session_track_gtids = ' ';
+ERROR 42000: Variable 'session_track_gtids' can't be set to the value of ' '
+SET @@session.session_track_gtids = " ";
+ERROR 42000: Variable 'session_track_gtids' can't be set to the value of ' '
+SET @@session.session_track_gtids = '';
+ERROR 42000: Variable 'session_track_gtids' can't be set to the value of ''
+SET session_track_gtids = OWN_GTID;
+SET local.session_track_gtids = OFF;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'session_track_gtids = OFF' at line 1
+SELECT local.session_track_gtids;
+ERROR 42S02: Unknown table 'local' in field list
+SET @@session.session_track_gtids = @start_value;
+SELECT @@session.session_track_gtids;
+@@session.session_track_gtids
+OFF
