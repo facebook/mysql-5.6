@@ -369,7 +369,6 @@ static char * rocksdb_compact_cf_name;
 static char * rocksdb_checkpoint_name;
 static my_bool rocksdb_signal_drop_index_thread;
 static my_bool rocksdb_strict_collation_check= 1;
-static my_bool rocksdb_disable_2pc= 0;
 static char * rocksdb_strict_collation_exceptions;
 static my_bool rocksdb_collect_sst_properties= 1;
 static my_bool rocksdb_force_flush_memtable_now_var= 0;
@@ -925,12 +924,6 @@ static MYSQL_SYSVAR_BOOL(pause_background_work,
   "Disable all rocksdb background operations",
   nullptr, rocksdb_set_pause_background_work, FALSE);
 
-static MYSQL_SYSVAR_BOOL(disable_2pc,
-  rocksdb_disable_2pc,
-  PLUGIN_VAR_RQCMDARG,
-  "Disable two phase commit for MyRocks",
-  nullptr, nullptr, TRUE);
-
 static MYSQL_SYSVAR_BOOL(strict_collation_check,
   rocksdb_strict_collation_check,
   PLUGIN_VAR_RQCMDARG,
@@ -1135,7 +1128,6 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(compact_cf),
   MYSQL_SYSVAR(signal_drop_index_thread),
   MYSQL_SYSVAR(pause_background_work),
-  MYSQL_SYSVAR(disable_2pc),
   MYSQL_SYSVAR(strict_collation_check),
   MYSQL_SYSVAR(strict_collation_exceptions),
   MYSQL_SYSVAR(collect_sst_properties),
@@ -1365,7 +1357,6 @@ class Rdb_transaction
   bool m_is_delayed_snapshot= false;
   bool m_tx_read_only= false;
   bool m_rollback_only= false;
-  bool m_is_two_phase= false;
 
   THD* m_thd= nullptr;
 
@@ -1503,11 +1494,6 @@ public:
 
   ulonglong get_lock_count() const { return m_lock_count; }
 
-  void set_sync(bool sync)
-  {
-    m_rocksdb_tx->GetWriteOptions()->sync= sync;
-  }
-
   void release_lock(rocksdb::ColumnFamilyHandle* column_family,
                     const std::string &rowkey)
   {
@@ -1515,25 +1501,6 @@ public:
     {
       m_rocksdb_tx->UndoGetForUpdate(column_family, rocksdb::Slice(rowkey));
     }
-  }
-
-  bool prepare(const rocksdb::TransactionName& name)
-  {
-    rocksdb::Status s;
-    s= m_rocksdb_tx->SetName(name);
-    if (!s.ok())
-    {
-      rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
-      return false;
-    }
-
-    s= m_rocksdb_tx->Prepare();
-    if (!s.ok())
-    {
-      rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
-      return false;
-    }
-    return true;
   }
 
   bool commit_or_rollback()
@@ -1575,15 +1542,9 @@ public:
     {
       my_core::thd_binlog_pos(m_thd, &m_mysql_log_file_name,
                               &m_mysql_log_offset, &m_mysql_gtid);
-      rocksdb::WriteBatch *batch= nullptr;
-      if (is_two_phase()) {
-        batch= m_rocksdb_tx->GetCommitTimeWriteBatch();
-      } else {
-        batch= m_rocksdb_tx->GetWriteBatch()->GetWriteBatch();
-      }
       binlog_manager.update(m_mysql_log_file_name,
                             m_mysql_log_offset,
-                            m_mysql_gtid, batch);
+                            m_mysql_gtid, m_rocksdb_tx->GetWriteBatch());
       return commit_no_binlog();
     }
   }
@@ -1848,7 +1809,6 @@ public:
     write_opts.disableWAL= THDVAR(m_thd, write_disable_wal);
     write_opts.ignore_missing_column_families=
       THDVAR(m_thd, write_ignore_missing_column_families);
-    m_is_two_phase= !rocksdb_disable_2pc;
 
     /*
       If m_rocksdb_reuse_tx is null this will create a new transaction object.
@@ -1941,11 +1901,6 @@ public:
     return m_tx_read_only;
   }
 
-  bool is_two_phase() const
-  {
-    return m_is_two_phase;
-  }
-
   void set_tx_read_only(bool val)
   {
     m_tx_read_only= val;
@@ -1956,6 +1911,7 @@ public:
   {
     // Create a notifier that can be called when a snapshot gets generated.
     m_notifier = std::make_shared<Rdb_snapshot_notifier>(this);
+
     mysql_mutex_lock(&s_tx_list_mutex);
     s_tx_list.insert(this);
     mysql_mutex_unlock(&s_tx_list_mutex);
@@ -2064,51 +2020,10 @@ static int rocksdb_close_connection(handlerton* hton, THD* thd)
   return 0;
 }
 
-/*
- * Serializes an xid to a string so that it can
- * be used as a rocksdb transaction name
- */
-static std::string rdb_xid_to_string(const XID& src)
-{
-  DBUG_ASSERT(src.gtrid_length >= 0 && src.gtrid_length <= MAXGTRIDSIZE);
-  DBUG_ASSERT(src.bqual_length >= 0 && src.bqual_length <= MAXBQUALSIZE);
-
-  std::string buf;
-  buf.reserve(RDB_XIDHDR_LEN + src.gtrid_length + src.bqual_length);
-
-  /*
-   * expand formatID to fill 8 bytes if it doesn't already
-   * then reinterpret bit pattern as unsigned and store in network order
-   */
-  uchar fidbuf[RDB_FORMATID_SZ];
-  int64 signed_fid8= src.formatID;
-  uint64 raw_fid8= *reinterpret_cast<uint64*>(&signed_fid8);
-  rdb_netbuf_store_uint64(fidbuf, raw_fid8);
-  buf.append(reinterpret_cast<const char*>(fidbuf), RDB_FORMATID_SZ);
-
-  buf.push_back(src.gtrid_length);
-  buf.push_back(src.bqual_length);
-  buf.append(src.data, (src.gtrid_length) + (src.bqual_length));
-  return buf;
-}
-
-
 /**
-  Called by hton->flush_logs after MySQL group commit prepares a set of
-  transactions.
-*/
-static bool rocksdb_flush_wal(handlerton* hton __attribute__((__unused__)),
-                              ulonglong target_lsn __attribute__((__unused__)))
-{
-  DBUG_ASSERT(rdb != nullptr);
-  rocksdb::Status s= rdb->SyncWAL();
-  if (!s.ok()) {
-    return 1;
-  }
-  return 0;
-}
+  Doing nothing at prepare() on master. But defining handler::prepare() is
+  needed for Xid binlog event to be written at commit.
 
-/**
   For a slave, prepare() updates the slave_gtid_info table which tracks the
   replication progress.
 */
@@ -2130,25 +2045,6 @@ static int rocksdb_prepare(handlerton* hton, THD* thd, bool prepare_tx,
       rocksdb::WriteBatchBase* write_batch = tx->get_blind_write_batch();
       binlog_manager.update_slave_gtid_info(it.id, it.db, it.gtid, write_batch);
     }
-
-    if (tx->is_two_phase()) {
-      if (thd->durability_property == HA_IGNORE_DURABILITY || async) {
-        tx->set_sync(false);
-      }
-      XID xid;
-      thd_get_xid(thd, reinterpret_cast<MYSQL_XID*>(&xid));
-      if (!tx->prepare(rdb_xid_to_string(xid))) {
-        return 1;
-      }
-      if (thd->durability_property == HA_IGNORE_DURABILITY) {
-        /**
-          we set the log sequence as '1' just to trigger hton->flush_logs
-        */
-        thd_store_lsn(thd, 1, DB_TYPE_ROCKSDB);
-      }
-    }
-
-    DEBUG_SYNC(thd, "rocksdb.prepared");
   }
 
   return 0;
@@ -2160,56 +2056,12 @@ static int rocksdb_prepare(handlerton* hton, THD* thd, bool prepare_tx,
 */
 static int rocksdb_commit_by_xid(handlerton* hton,	XID* xid)
 {
-  auto name= rdb_xid_to_string(*xid);
-  rocksdb::Transaction *trx= rdb->GetTransactionByName(name);
-  if (trx == nullptr) {
-    return 1;
-  }
-  rocksdb::Status s= trx->Commit();
-  if (!s.ok()) {
-    return 1;
-  }
-  delete trx;
   return 0;
 }
 
-static int rocksdb_rollback_by_xid(handlerton* hton __attribute__((__unused__)),
-                                   XID* xid)
+static int rocksdb_rollback_by_xid(handlerton* hton,	XID* xid)
 {
-  auto name= rdb_xid_to_string(*xid);
-  rocksdb::Transaction *trx= rdb->GetTransactionByName(name);
-  if (trx == nullptr) {
-    return 1;
-  }
-  rocksdb::Status s= trx->Rollback();
-  if (!s.ok()) {
-    return 1;
-  }
-  delete trx;
   return 0;
-}
-
-/**
-  Rebuilds an XID from a serialized version stored in a string.
-*/
-static void rdb_xid_from_string(const std::string& src, XID *dst)
-{
-  DBUG_ASSERT(dst != nullptr);
-  uint offset= 0;
-  uint64 raw_fid8=
-    rdb_netbuf_to_uint64(reinterpret_cast<const uchar*>(src.data()));
-  int64 signed_fid8= *reinterpret_cast<int64*>(&raw_fid8);
-  dst->formatID= signed_fid8;
-  offset += RDB_FORMATID_SZ;
-  dst->gtrid_length= src.at(offset);
-  offset += RDB_GTRID_SZ;
-  dst->bqual_length= src.at(offset);
-  offset += RDB_BQUAL_SZ;
-
-  DBUG_ASSERT(dst->gtrid_length >= 0 && dst->gtrid_length <= MAXGTRIDSIZE);
-  DBUG_ASSERT(dst->bqual_length >= 0 && dst->bqual_length <= MAXBQUALSIZE);
-
-  src.copy(dst->data, (dst->gtrid_length)+(dst->bqual_length), RDB_XIDHDR_LEN);
 }
 
 /**
@@ -2239,27 +2091,7 @@ static int rocksdb_recover(handlerton* hton, XID* xid_list, uint len,
       }
     }
   }
-
-  if (len == 0 || xid_list == nullptr)
-  {
-    return 0;
-  }
-
-  std::vector<rocksdb::Transaction*> trans_list;
-  rdb->GetAllPreparedTransactions(&trans_list);
-
-  uint count= 0;
-  for (auto& trans : trans_list)
-  {
-    if (count >= len)
-    {
-      break;
-    }
-    auto name= trans->GetName();
-    rdb_xid_from_string(name, &xid_list[count]);
-    count++;
-  }
-  return count;
+  return 0;
 }
 
 static int rocksdb_commit(handlerton* hton, THD* thd, bool commit_tx, bool)
@@ -2879,7 +2711,6 @@ static int rocksdb_init_func(void *p)
   rocksdb_hton->savepoint_rollback_can_release_mdl=
     rocksdb_rollback_to_savepoint_can_release_mdl;
   rocksdb_hton->update_table_stats = rocksdb_update_table_stats;
-  rocksdb_hton->flush_logs= rocksdb_flush_wal;
 
   rocksdb_hton->flags= HTON_TEMPORARY_NOT_SUPPORTED |
                        HTON_SUPPORTS_EXTENDED_KEYS |
