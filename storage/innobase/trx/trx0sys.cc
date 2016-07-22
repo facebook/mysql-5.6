@@ -344,33 +344,46 @@ trx_sys_print_mysql_master_log_pos(void)
 		return;
 	}
 
+	/*
+	  This information never seems to be used, but we have some databases
+	  in that have invalid data here - the log offset is
+	  0xFFFFFFFD00000000 and the file name is non-ascii.  Since this
+	  never seems to be used we are going to just skip the rest of the
+	  work if this condition occurs.
+	 */
+	ulong log_offset_high;
+	ulong log_offset_low;
+	const char* log_file_name;
+	log_offset_high = mach_read_from_4(sys_header
+					   + TRX_SYS_MYSQL_MASTER_LOG_INFO
+					   + TRX_SYS_MYSQL_LOG_OFFSET_HIGH);
+	log_offset_low = mach_read_from_4(sys_header
+					  + TRX_SYS_MYSQL_MASTER_LOG_INFO
+					  + TRX_SYS_MYSQL_LOG_OFFSET_LOW);
+	if (log_offset_high == 0xFFFFFFFD && log_offset_low == 0x00000000) {
+		log_file_name = "";
+	}
+	else {
+		log_file_name = (const char*) sys_header
+				+ TRX_SYS_MYSQL_MASTER_LOG_INFO
+				+ TRX_SYS_MYSQL_LOG_NAME;
+	}
+
+	// NO_LINT_DEBUG
 	fprintf(stderr,
 		"InnoDB: In a MySQL replication slave the last"
 		" master binlog file\n"
 		"InnoDB: position %lu %lu, file name %s\n",
-		(ulong) mach_read_from_4(sys_header
-					 + TRX_SYS_MYSQL_MASTER_LOG_INFO
-					 + TRX_SYS_MYSQL_LOG_OFFSET_HIGH),
-		(ulong) mach_read_from_4(sys_header
-					 + TRX_SYS_MYSQL_MASTER_LOG_INFO
-					 + TRX_SYS_MYSQL_LOG_OFFSET_LOW),
-		sys_header + TRX_SYS_MYSQL_MASTER_LOG_INFO
-		+ TRX_SYS_MYSQL_LOG_NAME);
+		log_offset_high, log_offset_low, log_file_name);
 	/* Copy the master log position info to global variables we can
 	use in ha_innobase.cc to initialize glob_mi to right values */
 
-	ut_memcpy(trx_sys_mysql_master_log_name,
-		  sys_header + TRX_SYS_MYSQL_MASTER_LOG_INFO
-		  + TRX_SYS_MYSQL_LOG_NAME,
+	ut_memcpy(trx_sys_mysql_master_log_name, log_file_name,
 		  TRX_SYS_MYSQL_LOG_NAME_LEN);
 
 	trx_sys_mysql_master_log_pos
-		= (((ib_int64_t) mach_read_from_4(
-			    sys_header + TRX_SYS_MYSQL_MASTER_LOG_INFO
-			    + TRX_SYS_MYSQL_LOG_OFFSET_HIGH)) << 32)
-		+ ((ib_int64_t) mach_read_from_4(
-			   sys_header + TRX_SYS_MYSQL_MASTER_LOG_INFO
-			   + TRX_SYS_MYSQL_LOG_OFFSET_LOW));
+		= (((ib_int64_t) log_offset_high) << 32)
+		+ ((ib_int64_t) log_offset_low);
 	mtr_commit(&mtr);
 }
 
