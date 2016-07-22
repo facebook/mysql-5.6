@@ -247,7 +247,8 @@ while($i<=$n) {
 
 --echo #########################################################################
 --echo ###
---echo ### (1.6) With pirmary key: Encountering locked rows after at least one match already (covering index) with NOWAIT
+--echo ### (1.6) With pirmary key: Encountering locked rows after at least
+--echo ###       one match already (covering index) with NOWAIT
 --echo ###
 --echo #########################################################################
 
@@ -276,6 +277,59 @@ let $i=1;
 while($i<=$n) {
   connection con$i;
   commit;
+  inc $i;
+}
+
+
+--echo #########################################################################
+--echo ###
+--echo ### (1.7) Stored procedures
+--echo ###
+--echo #########################################################################
+
+DELIMITER |;
+CREATE PROCEDURE sp1(OUT p_id INT)
+BEGIN
+  START TRANSACTION;
+  SELECT id INTO p_id FROM t2 LIMIT 1 FOR UPDATE;
+END|
+DELIMITER ;|
+
+DELIMITER |;
+CREATE PROCEDURE sp2(OUT p_id INT)
+BEGIN
+  START TRANSACTION;
+  SELECT id INTO p_id FROM t2 LIMIT 1 FOR UPDATE SKIP LOCKED;
+END|
+DELIMITER ;|
+
+DELIMITER |;
+CREATE PROCEDURE sp3(OUT p_id INT)
+BEGIN
+  START TRANSACTION;
+  SELECT id INTO p_id FROM t2 WHERE x > 0 LIMIT 1 FOR UPDATE SKIP LOCKED;
+END|
+DELIMITER ;|
+
+let $i=1;
+while($i<=$n) {
+  connection con$i;
+  eval CALL sp$i(@id);
+  SELECT @id;
+  inc $i;
+}
+
+let $i=1;
+while($i<=$n) {
+  connection con$i;
+  commit;
+  inc $i;
+}
+
+connection default;
+let $i=1;
+while($i<=$n) {
+  eval drop procedure sp$i;
   inc $i;
 }
 
@@ -1773,9 +1827,18 @@ connection default;
 
 --echo #########################################################################
 --echo ###
---echo ### (8) Job queue 0 : job0
+--echo ### (8) Job queue 0 : job0 -- Single Queue with TX_ISOLATION = READ COMMITTED
 --echo ###
 --echo #########################################################################
+
+# Table `job0` represents job queues.
+#    -- If `queue` is always 0 then this is a single job queue
+#    -- If `queue` can be multiple values then this table represents multiple job queues
+# -- Each record corresponds to a job. `id` is the primary key.
+# -- A job can be claimed if its `status` is 0 and `owner` is NULL
+# -- A job is claimed if its `status` is 1 and `owner` is not NULL
+# -- Multiple workers (transactions) try to claim a given number e.g. 5 jobs in the queue concurrently
+# -- KEY `queue_status_owner` : Makes sure the job claiming query is index lookup
 
 CREATE TABLE `job0` (
   `id` int unsigned NOT NULL,
@@ -1790,21 +1853,9 @@ CREATE TABLE `job0` (
 --disable_result_log
 
 let $id=0;
-let $queue=0;
-while ($queue<100) {
-  let $i=0;
-  while ($i<20) {
-    let $j=0;
-    while ($j<4) {
-      --eval INSERT INTO job0 VALUES ($id, $queue, 0, NULL);
-      inc $id;
-      inc $j;
-    }
-    --eval INSERT INTO job0 VALUES ($id, $queue, 999, 999);
+while ($id<1000) {
+    --eval INSERT INTO job0 VALUES ($id, 0, 0, NULL);
     inc $id;
-    inc $i;
-  }
-  inc $queue;
 }
 
 --enable_query_log
@@ -1812,28 +1863,49 @@ while ($queue<100) {
 
 select count(*) from job0;
 
-let $queue=0;
-let $i=0;
-while($i<$num) {
-  let $j=0;
-  while ($j<5) {
-    inc $i;
-    connection c$i;
-    set autocommit=0;
+let $limit=5;
+let $use_in=0;
+let $id=0;
+let $i=1;
+while($i<=$num) {
+  --echo ### connection c$i
+  connection c$i;
+  set autocommit=0;
 
-    let $id = query_get_value('SELECT id FROM job0 WHERE queue = $queue AND status = 0 AND owner is NULL LIMIT 1 FOR UPDATE SKIP LOCKED', 'id', 1);
+  SELECT @@SESSION.TX_ISOLATION;
+  SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+  SELECT @@SESSION.TX_ISOLATION;
 
-    --echo Claim the $j-th available job id from queue $queue ==> id = $id
+  eval SELECT id FROM job0 WHERE queue = 0 AND status = 0 AND owner is NULL LIMIT $limit FOR UPDATE SKIP LOCKED;
 
-    eval SELECT id, queue, status, owner FROM job0 WHERE id = $id;
+  let $start = $id;
+  inc $id;
 
-    eval UPDATE job0 SET status = 1, owner = $queue WHERE id = $id;
+  let $id2 = $id;
+  inc $id;
 
-    eval SELECT * FROM job0 WHERE id = $id;
+  let $id3 = $id;
+  inc $id;
 
-    inc $j;
+  let $id4 = $id;
+  inc $id;
+
+  let $end = $id;
+  inc $id;
+
+  let $next = $id;
+
+  if($i<=10) {
+    eval UPDATE job0 SET status = 1, owner = $i WHERE id IN ($start, $id2, $id3, $id4, $end);
+    eval SELECT id, queue, status, owner FROM job0 WHERE id IN ($start, $id2, $id3, $id4, $end);
   }
-  inc $queue;
+
+  if($i>10) {
+    eval UPDATE job0 SET status = 1, owner = $i WHERE id >= $start and id < $next;
+    eval SELECT id, queue, status, owner FROM job0 WHERE id >= $start and id < $next;
+  }
+
+  inc $i;
 }
 
 --disable_query_log
@@ -1843,6 +1915,8 @@ let $i=1;
 while($i<=$num) {
   connection c$i;
   commit;
+  SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+  SELECT @@SESSION.TX_ISOLATION;
   inc $i;
 }
 
@@ -1973,10 +2047,11 @@ CREATE TABLE `job2_to_reviewer` (
 let $id=10001;
 let $created=1000001;
 
+let $queue_num=2;
 let $queue=0;
-while ($queue<200) {
+while ($queue<$queue_num) {
   let $i=0;
-  while ($i<10) {
+  while ($i<500) {
     eval INSERT INTO job2_index VALUES ($id, 1, 1, NULL, $queue, 0, $created, 0, 0);
     eval INSERT INTO job2_to_reviewer VALUES (NULL, 1, 0);
 
@@ -1991,19 +2066,54 @@ while ($queue<200) {
 --enable_result_log
 
 let $i=1;
+let $queue=0;
+
+let $q1_id=10001;
+let $q2_id=10501;
+
 while($i<=$num) {
+  --echo ### connection c$i
   connection c$i;
   set autocommit=0;
 
-  --echo Claim 5 jobs in queue $i
-  eval UPDATE job2_index, (SELECT id FROM job2_index
-                           WHERE queue=$i AND status IN (1) AND owner IS NULL
-                           ORDER BY priority ASC, created ASC
-                           LIMIT 5 FOR UPDATE SKIP LOCKED) unassigned_jobs
-       SET owner=$i, updated=$i
-       WHERE job2_index.id=unassigned_jobs.id;
+  SELECT @@SESSION.TX_ISOLATION;
+  SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+  SELECT @@SESSION.TX_ISOLATION;
 
-  eval select * from job2_index where owner = $i and updated = $i;
+  --echo ### claim 5 jobs in queue $queue
+
+####################################################################
+#
+# 'Error 1205 Lock wait timeout exceeded' will occur if sub-query is used
+#
+#
+# eval UPDATE job2_index, (SELECT id FROM job2_index
+#                          WHERE queue=$queue AND status IN (1) AND owner IS NULL
+#                          ORDER BY priority ASC, created ASC
+#                          LIMIT 5 FOR UPDATE SKIP LOCKED) unassigned_jobs
+#      SET owner=$i, updated=$i
+#      WHERE job2_index.id=unassigned_jobs.id;
+#
+#
+# explain extended
+# UPDATE job2_index, (SELECT id FROM job2_index
+#                     WHERE queue=0 AND status IN (1) AND owner IS NULL
+#                     ORDER BY priority ASC, created ASC
+#                     LIMIT 5 FOR UPDATE SKIP LOCKED) unassigned_jobs
+# SET owner=1, updated=1
+# WHERE job2_index.id=unassigned_jobs.id;
+#
+# id  select_type  table        type    possible_keys   key      key_len  ref                 rows  filtered  Extra
+# 1   PRIMARY      <derived2>   ALL     NULL            NULL     NULL     NULL                5     100.00    NULL
+# 1   PRIMARY      job2_index   eq_ref  PRIMARY         PRIMARY  8        unassigned_jobs.id  1     100.00    NULL
+# 2   DERIVED      job2_index   ref     status,owner,assignquery2,assignquery,queue_job_owners  assignquery2  20  const,const,const  499  100.00  Using where
+#
+####################################################################
+
+  eval SELECT id FROM job2_index
+       WHERE queue=$queue AND status IN (1) AND owner IS NULL
+       ORDER BY priority ASC, created ASC
+       LIMIT 5 FOR UPDATE SKIP LOCKED;
 
 ####################################################################
 #
@@ -2011,59 +2121,43 @@ while($i<=$num) {
 # test/job2_index.assignquery2 is used perfectly so the updates on
 # the adjacent queues won't block each other.
 #
-# See what happens if 'created DESC' is used in the queries below.
+# 'Error 1205 Lock wait timeout exceeded' will occur if 'created DESC' is used
 #
 ####################################################################
 
-  inc $i;
-}
+  if ($queue == 0) {
+    let $id1 = $q1_id;
+    inc $q1_id;
+    let $id2 = $q1_id;
+    inc $q1_id;
+    let $id3 = $q1_id;
+    inc $q1_id;
+    let $id4 = $q1_id;
+    inc $q1_id;
+    let $id5 = $q1_id;
+    inc $q1_id;
+    eval UPDATE job2_index SET owner=$i, updated=$i WHERE job2_index.id IN ($id1, $id2, $id3, $id4, $id5);
+  }
 
---disable_query_log
---disable_result_log
+  if ($queue == 1) {
+    let $id1 = $q2_id;
+    inc $q2_id;
+    inc $q2_id;
+    inc $q2_id;
+    inc $q2_id;
+    let $id5 = $q2_id;
+    inc $q2_id;
+    eval UPDATE job2_index SET owner=$i, updated=$i WHERE job2_index.id >= $id1 and job2_index.id <= $id5;
+  }
 
-let $i=1;
-while($i<=$num) {
-  connection c$i;
-  commit;
-  inc $i;
-}
+  eval select * from job2_index where owner = $i and updated = $i;
 
---enable_query_log
---enable_result_log
-
---echo Restore the original data for table job2_index
-connection default;
-UPDATE job2_index SET owner=NULL, updated=0 WHERE owner IS NOT NULL;
-
-let $v=1001;
-let $i=1;
-while($i<=$num) {
-  connection c$i;
-  set autocommit=0;
-
-  --echo Claim 5 jobs in queue $i
-  eval UPDATE job2_index, (SELECT id FROM job2_index
-                           WHERE queue=$i AND status IN (1) AND owner IS NULL
-                           ORDER BY priority ASC, created DESC
-                           LIMIT 5 FOR UPDATE SKIP LOCKED) unassigned_jobs
-       SET owner=$v, updated=$v
-       WHERE job2_index.id=unassigned_jobs.id;
-
-  eval select * from job2_index where owner = $v and updated = $v;
-
-####################################################################
-#
-# If $i is increased only by 1 below, the following error will occur:
-# Error 1205: Lock wait timeout exceeded; try restarting transaction:
-#             Timeout on record in index: test/job2_index.assignquery2
-# This is casued by the 'created DESC' in the ORDER BY clause
-#
-####################################################################
+  inc $queue;
+  if($queue >= $queue_num) {
+    let $queue = 0;
+  }
 
   inc $i;
-  inc $i;
-
-  inc $v;
 }
 
 --disable_query_log
