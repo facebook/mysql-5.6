@@ -234,6 +234,10 @@ new_VioSSLFd(const char *key_file, const char *cert_file,
   }
 
   SSL_CTX_set_options(ssl_fd->ssl_context, ssl_ctx_options);
+  if (!is_client)
+  {
+    SSL_CTX_set_session_cache_mode(ssl_fd->ssl_context, SSL_SESS_CACHE_OFF);
+  }
 
   /*
     Set the ciphers that can be used

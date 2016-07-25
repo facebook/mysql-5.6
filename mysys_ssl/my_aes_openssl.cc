@@ -32,6 +32,7 @@ const char *my_aes_opmode_names[]=
   "aes-128-cbc",
   "aes-192-cbc",
   "aes-256-cbc",
+#ifndef OPENSSL_IS_BORINGSSL
   "aes-128-cfb1",
   "aes-192-cfb1",
   "aes-256-cfb1",
@@ -44,6 +45,7 @@ const char *my_aes_opmode_names[]=
   "aes-128-ofb",
   "aes-192-ofb",
   "aes-256-ofb",
+#endif
   NULL /* needed for the type enumeration */
 };
 
@@ -57,6 +59,7 @@ static uint my_aes_opmode_key_sizes_impl[]=
   128 /* aes-128-cbc */,
   192 /* aes-192-cbc */,
   256 /* aes-256-cbc */,
+#ifndef OPENSSL_IS_BORINGSSL
   128 /* aes-128-cfb1 */,
   192 /* aes-192-cfb1 */,
   256 /* aes-256-cfb1 */,
@@ -69,6 +72,7 @@ static uint my_aes_opmode_key_sizes_impl[]=
   128 /* aes-128-ofb */,
   192 /* aes-192-ofb */,
   256 /* aes-256-ofb */
+#endif
 };
 
 uint *my_aes_opmode_key_sizes= my_aes_opmode_key_sizes_impl;

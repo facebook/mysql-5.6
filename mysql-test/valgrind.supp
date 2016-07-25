@@ -990,11 +990,7 @@
    fun:ec_group_new_from_data
    fun:EC_GROUP_new_by_curve_name
    fun:EC_KEY_new_by_curve_name
-   fun:new_VioSSLFd
-   fun:new_VioSSLAcceptorFd
-   fun:_Z8init_sslv
-   fun:_Z11mysqld_mainiPPc
-   fun:main
+   ...
 }
 
 {

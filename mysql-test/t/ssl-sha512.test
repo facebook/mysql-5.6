@@ -1,4 +1,5 @@
 -- source include/not_embedded.inc
+-- source include/not_openssl.inc
 
 CREATE USER u1@localhost IDENTIFIED BY 'secret';
 GRANT SELECT ON test.* TO u1@localhost REQUIRE SSL;
