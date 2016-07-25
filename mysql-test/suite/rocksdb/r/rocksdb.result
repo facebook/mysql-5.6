@@ -926,6 +926,7 @@ rocksdb_pin_l0_filter_and_index_blocks_in_cache	ON
 rocksdb_rate_limiter_bytes_per_sec	0
 rocksdb_read_free_rpl_tables	
 rocksdb_records_in_range	50
+rocksdb_rpl_skip_tx_api	OFF
 rocksdb_seconds_between_stat_computes	3600
 rocksdb_signal_drop_index_thread	OFF
 rocksdb_skip_bloom_filter_on_read	OFF

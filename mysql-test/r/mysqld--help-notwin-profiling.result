@@ -1205,6 +1205,9 @@ The following options may be given as the first argument:
  --rocksdb-records-in-range=# 
  Used to override the result of records_in_range(). Set to
  a positive number to override
+ --rocksdb-rpl-skip-tx-api 
+ Use write batches for replication thread instead of tx
+ api
  --rocksdb-seconds-between-stat-computes=# 
  Sets a number of seconds to wait between optimizer stats
  recomputation. Only changed indexes will be refreshed.
@@ -1912,6 +1915,7 @@ rocksdb-pin-l0-filter-and-index-blocks-in-cache TRUE
 rocksdb-rate-limiter-bytes-per-sec 0
 rocksdb-read-free-rpl-tables (No default value)
 rocksdb-records-in-range 0
+rocksdb-rpl-skip-tx-api FALSE
 rocksdb-seconds-between-stat-computes 3600
 rocksdb-signal-drop-index-thread FALSE
 rocksdb-skip-bloom-filter-on-read FALSE
