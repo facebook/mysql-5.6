@@ -7326,14 +7326,11 @@ bool AC::admission_control_enter(THD* thd, const std::string& entity) {
     mysql_rwlock_unlock(&LOCK_ac);
   }
   thd->proc_info = prev_proc_info;
-  if (!error)
-    ++total_running_queries;
   return error;
 }
 
 void AC::wait_for_signal(THD* thd, std::shared_ptr<st_ac_node>& ac_node,
                          std::shared_ptr<Ac_info> ac_info) {
-  ++total_waiting_queries;
   PSI_stage_info old_stage;
   mysql_mutex_lock(&ac_node->lock);
   /**
@@ -7352,7 +7349,6 @@ void AC::wait_for_signal(THD* thd, std::shared_ptr<st_ac_node>& ac_node,
   // Spurious wake-ups are rare and fine in this design.
   mysql_cond_wait(&ac_node->cond, &ac_node->lock);
   thd->EXIT_COND(&old_stage);
-  --total_waiting_queries;
 }
 
 /**
@@ -7387,7 +7383,6 @@ void AC::admission_control_exit(THD* thd, const std::string& entity) {
   }
   mysql_rwlock_unlock(&LOCK_ac);
   thd->proc_info = prev_proc_info;
-  --total_running_queries;
 }
 
 /*

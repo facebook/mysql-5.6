@@ -4657,7 +4657,6 @@ class AC {
   };
 #endif
 
-  std::atomic<ulong> total_running_queries, total_waiting_queries;
   std::atomic<ulonglong> total_aborted_queries;
 
 public:
@@ -4669,8 +4668,6 @@ public:
     mysql_rwlock_init(key_rwlock_LOCK_ac, &LOCK_ac);
     max_running_queries = 0;
     max_waiting_queries = 0;
-    total_running_queries = 0;
-    total_waiting_queries = 0;
     total_aborted_queries = 0;
   }
 
@@ -4772,11 +4769,33 @@ public:
   ulonglong get_total_aborted_queries() const {
     return total_aborted_queries;
   }
-  ulong get_total_running_queries() const {
-    return total_running_queries;
+  ulong get_total_running_queries() {
+    ulonglong res= 0;
+    mysql_rwlock_rdlock(&LOCK_ac);
+    for (auto it : ac_map)
+    {
+      auto &ac_info = it.second;
+      mysql_mutex_lock(&ac_info->lock);
+      res += ac_info->queue.size() < max_running_queries ?
+        ac_info->queue.size() : max_running_queries;
+      mysql_mutex_unlock(&ac_info->lock);
+    }
+    mysql_rwlock_unlock(&LOCK_ac);
+    return res;
   }
-  ulong get_total_waiting_queries() const {
-    return total_waiting_queries;
+  ulong get_total_waiting_queries() {
+    ulonglong res= 0;
+    mysql_rwlock_rdlock(&LOCK_ac);
+    for (auto it : ac_map)
+    {
+      auto &ac_info = it.second;
+      mysql_mutex_lock(&ac_info->lock);
+      if (ac_info->queue.size() > max_running_queries)
+        res += ac_info->queue.size() - max_running_queries;
+      mysql_mutex_unlock(&ac_info->lock);
+    }
+    mysql_rwlock_unlock(&LOCK_ac);
+    return res;
   }
 };
 
