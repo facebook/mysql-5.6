@@ -188,6 +188,8 @@ struct Rdb_table_handler
 class Rdb_key_def;
 class Rdb_tbl_def;
 class Rdb_transaction;
+class Rdb_transaction_impl;
+class Rdb_writebatch_impl;
 class Rdb_field_encoder;
 
 const char *const rocksdb_hton_name= "ROCKSDB";
