@@ -408,6 +408,7 @@ static uint32_t rocksdb_validate_tables = 1;
 static char * rocksdb_datadir;
 static uint32_t rocksdb_table_stats_sampling_pct;
 static my_bool rocksdb_enable_bulk_load_api= 1;
+static my_bool rpl_skip_tx_api_var= 0;
 
 std::atomic<uint64_t> rocksdb_snapshot_conflict_errors(0);
 
@@ -504,6 +505,13 @@ static MYSQL_THDVAR_STR(read_free_rpl_tables,
   PLUGIN_VAR_RQCMDARG|PLUGIN_VAR_MEMALLOC,
   "List of tables that will use read-free replication on the slave "
   "(i.e. not lookup a row during replication)", nullptr, nullptr, "");
+
+static MYSQL_SYSVAR_BOOL(
+  rpl_skip_tx_api,
+  rpl_skip_tx_api_var,
+  PLUGIN_VAR_RQCMDARG,
+  "Use write batches for replication thread instead of tx api", nullptr,
+  nullptr, FALSE);
 
 static MYSQL_THDVAR_BOOL(skip_bloom_filter_on_read, PLUGIN_VAR_RQCMDARG,
   "Skip using bloom filter for reads", nullptr, nullptr, FALSE);
@@ -1100,6 +1108,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(skip_unique_check),
   MYSQL_SYSVAR(commit_in_the_middle),
   MYSQL_SYSVAR(read_free_rpl_tables),
+  MYSQL_SYSVAR(rpl_skip_tx_api),
   MYSQL_SYSVAR(bulk_load_size),
   MYSQL_SYSVAR(enable_bulk_load_api),
   MYSQL_SYSVAR(skip_bloom_filter_on_read),
@@ -1395,27 +1404,15 @@ class Rdb_snapshot_notifier : public rocksdb::TransactionNotifier
   }
 };
 
-/*
-  This is a rocksdb connection. Its members represent the current transaction,
-  which consists of:
-  - the snapshot
-  - the changes we've made but are not seeing yet.
-
-  The changes are made to individual tables, which store them here and then
-  this object commits them on commit.
+/* This is the base class for transactions when interacting with rocksdb.
 */
 class Rdb_transaction
 {
+ protected:
   ulonglong m_write_count= 0;
   ulonglong m_lock_count= 0;
 
-  rocksdb::Transaction *m_rocksdb_tx= nullptr;
-  rocksdb::Transaction *m_rocksdb_reuse_tx= nullptr;
-
-  bool m_is_tx_failed= false;
   bool m_is_delayed_snapshot= false;
-  bool m_tx_read_only= false;
-  bool m_rollback_only= false;
   bool m_is_two_phase= false;
 
   THD* m_thd= nullptr;
@@ -1425,15 +1422,35 @@ class Rdb_transaction
   static std::multiset<Rdb_transaction*> s_tx_list;
   static mysql_mutex_t s_tx_list_mutex;
 
+  Rdb_io_perf* m_tbl_io_perf;
+
+  bool m_tx_read_only= false;
+
+  int m_timeout_sec; /* Cached value of @@rocksdb_lock_wait_timeout */
+
+  /* Maximum number of locks the transaction can have */
+  ulonglong m_max_row_locks;
+
+  bool m_is_tx_failed= false;
+  bool m_rollback_only= false;
+
   std::shared_ptr<Rdb_snapshot_notifier> m_notifier;
 
-  Rdb_io_perf *m_tbl_io_perf;
+  // This should be used only when updating binlog information.
+  virtual rocksdb::WriteBatchBase* get_write_batch()= 0;
+  virtual bool commit_no_binlog()= 0;
+  virtual rocksdb::Iterator *get_iterator(
+    const rocksdb::ReadOptions &options,
+    rocksdb::ColumnFamilyHandle* column_family)= 0;
+
 
 public:
   const char* m_mysql_log_file_name;
   my_off_t m_mysql_log_offset;
   const char* m_mysql_gtid;
   String m_detailed_error;
+  int64_t m_snapshot_timestamp= 0;
+  bool m_ddl_transaction;
 
   static void init_mutex()
   {
@@ -1449,14 +1466,10 @@ public:
   static void walk_tx_list(Rdb_tx_list_walker* walker)
   {
     mysql_mutex_lock(&s_tx_list_mutex);
-
-    for (auto it = s_tx_list.begin(); it != s_tx_list.end(); it++)
-      walker->process_tran(*it);
-
+    for (auto it : s_tx_list)
+      walker->process_tran(it);
     mysql_mutex_unlock(&s_tx_list_mutex);
   }
-
-  void set_tx_failed(bool failed_arg) { m_is_tx_failed= failed_arg; }
 
   int set_status_error(THD *thd, const rocksdb::Status &s,
                        const std::shared_ptr<const Rdb_key_def>& kd,
@@ -1491,13 +1504,6 @@ public:
     my_error(ER_INTERNAL_ERROR, MYF(0), s.ToString().c_str());
     return HA_ERR_INTERNAL_ERROR;
   }
-
-  int m_timeout_sec; /* Cached value of @@rocksdb_lock_wait_timeout */
-
-  /* Maximum number of locks the transaction can have */
-  ulonglong m_max_row_locks;
-
-  bool m_ddl_transaction;
 
   THD* get_thd() const { return m_thd; }
 
@@ -1547,46 +1553,21 @@ public:
   {
     m_timeout_sec= timeout_sec_arg;
     m_max_row_locks= max_row_locks_arg;
-    if (m_rocksdb_tx)
-      m_rocksdb_tx->SetLockTimeout(m_timeout_sec * 1000);
+    set_lock_timeout(timeout_sec_arg);
   }
+
+  virtual void set_lock_timeout(int timeout_sec_arg)= 0;
 
   ulonglong get_write_count() const { return m_write_count; }
 
   ulonglong get_lock_count() const { return m_lock_count; }
 
-  void set_sync(bool sync)
-  {
-    m_rocksdb_tx->GetWriteOptions()->sync= sync;
-  }
+  virtual void set_sync(bool sync)= 0;
 
-  void release_lock(rocksdb::ColumnFamilyHandle* column_family,
-                    const std::string &rowkey)
-  {
-    if (!THDVAR(m_thd, lock_scanned_rows))
-    {
-      m_rocksdb_tx->UndoGetForUpdate(column_family, rocksdb::Slice(rowkey));
-    }
-  }
+  virtual void release_lock(rocksdb::ColumnFamilyHandle* column_family,
+                            const std::string& rowkey)= 0;
 
-  bool prepare(const rocksdb::TransactionName& name)
-  {
-    rocksdb::Status s;
-    s= m_rocksdb_tx->SetName(name);
-    if (!s.ok())
-    {
-      rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
-      return false;
-    }
-
-    s= m_rocksdb_tx->Prepare();
-    if (!s.ok())
-    {
-      rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
-      return false;
-    }
-    return true;
-  }
+  virtual bool prepare(const rocksdb::TransactionName& name)= 0;
 
   bool commit_or_rollback()
   {
@@ -1627,71 +1608,14 @@ public:
     {
       my_core::thd_binlog_pos(m_thd, &m_mysql_log_file_name,
                               &m_mysql_log_offset, &m_mysql_gtid);
-      rocksdb::WriteBatch *batch= nullptr;
-      if (is_two_phase()) {
-        batch= m_rocksdb_tx->GetCommitTimeWriteBatch();
-      } else {
-        batch= m_rocksdb_tx->GetWriteBatch()->GetWriteBatch();
-      }
       binlog_manager.update(m_mysql_log_file_name,
                             m_mysql_log_offset,
-                            m_mysql_gtid, batch);
+                            m_mysql_gtid, get_write_batch());
       return commit_no_binlog();
     }
   }
 
- private:
-  void release_tx(void)
-  {
-    // We are done with the current active transaction object.  Preserve it
-    // for later reuse.
-    DBUG_ASSERT(m_rocksdb_reuse_tx == nullptr);
-    m_rocksdb_reuse_tx= m_rocksdb_tx;
-    m_rocksdb_tx= nullptr;
-  }
-
-  bool commit_no_binlog()
-  {
-    bool res= false;
-    release_snapshot();
-    rocksdb::Status s= m_rocksdb_tx->Commit();
-    if (!s.ok())
-    {
-      rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
-      res= true;
-    }
-
-    /* Save the transaction object to be reused */
-    release_tx();
-
-    m_write_count= 0;
-    m_lock_count= 0;
-    set_tx_read_only(false);
-    m_rollback_only= false;
-    return res;
-  }
-
- public:
-  void rollback()
-  {
-    m_write_count= 0;
-    m_lock_count= 0;
-    m_ddl_transaction= false;
-    if (m_rocksdb_tx)
-    {
-      release_snapshot();
-      /* This will also release all of the locks: */
-      m_rocksdb_tx->Rollback();
-
-      /* Save the transaction object to be reused */
-      release_tx();
-
-      set_tx_read_only(false);
-      m_rollback_only= false;
-    }
-  }
-
-  int64_t m_snapshot_timestamp= 0;
+  virtual void rollback()= 0;
 
   void snapshot_created(const rocksdb::Snapshot *snapshot)
   {
@@ -1700,47 +1624,10 @@ public:
     m_is_delayed_snapshot = false;
   }
 
-  void acquire_snapshot(bool acquire_now)
-  {
-    if (m_read_opts.snapshot == nullptr) {
-      if (is_tx_read_only()) {
-        snapshot_created(rdb->GetSnapshot());
-      }
-      else if (acquire_now) {
-        m_rocksdb_tx->SetSnapshot();
-        snapshot_created(m_rocksdb_tx->GetSnapshot());
-      }
-      else if (!m_is_delayed_snapshot) {
-        m_rocksdb_tx->SetSnapshotOnNextOperation(m_notifier);
-        m_is_delayed_snapshot = true;
-      }
-    }
-  }
+  virtual void acquire_snapshot(bool acquire_now)= 0;
+  virtual void release_snapshot()= 0;
 
-  void release_snapshot()
-  {
-    bool need_clear = m_is_delayed_snapshot;
-
-    if (m_read_opts.snapshot != nullptr)
-    {
-      m_snapshot_timestamp = 0;
-      if (is_tx_read_only())
-      {
-        rdb->ReleaseSnapshot(m_read_opts.snapshot);
-        need_clear = false;
-      }
-      else
-      {
-        need_clear = true;
-      }
-      m_read_opts.snapshot = nullptr;
-    }
-
-    if (need_clear && m_rocksdb_tx != nullptr)
-      m_rocksdb_tx->ClearSnapshot();
-  }
-
-  bool has_snapshot()
+  bool has_snapshot() const
   {
     return m_read_opts.snapshot != nullptr;
   }
@@ -1804,7 +1691,6 @@ public:
     SHIP_ASSERT(0);
   }
 
-
   /*
     Flush the data accumulated so far. This assumes we're doing a bulk insert.
 
@@ -1825,88 +1711,40 @@ public:
 
     /* Commit the current transaction */
     if (commit_no_binlog())
-    {
       return true;
-    }
 
     /* Start another one */
     start_tx();
     return false;
   }
 
-  const char *err_too_many_locks=
-    "Number of locks held by the transaction exceeded @@rocksdb_max_row_locks";
+  virtual rocksdb::Status put(rocksdb::ColumnFamilyHandle* column_family,
+                              const rocksdb::Slice& key,
+                              const rocksdb::Slice& value)= 0;
+  virtual rocksdb::Status delete_key(rocksdb::ColumnFamilyHandle* column_family,
+                                     const rocksdb::Slice& key)= 0;
+  virtual rocksdb::Status single_delete(
+    rocksdb::ColumnFamilyHandle* column_family,
+    const rocksdb::Slice& key)= 0;
 
-  rocksdb::Status put(rocksdb::ColumnFamilyHandle* column_family,
-                      const rocksdb::Slice& key, const rocksdb::Slice& value)
-  {
-    ++m_write_count;
-    ++m_lock_count;
-    if (m_write_count > m_max_row_locks || m_lock_count > m_max_row_locks)
-      return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
-    return m_rocksdb_tx->Put(column_family, key, value);
-  }
+  virtual bool has_modifications() const= 0;
 
-  rocksdb::Status delete_key(rocksdb::ColumnFamilyHandle* column_family,
-                             const rocksdb::Slice& key)
-  {
-    ++m_write_count;
-    ++m_lock_count;
-    if (m_write_count > m_max_row_locks || m_lock_count > m_max_row_locks)
-      return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
-    return m_rocksdb_tx->Delete(column_family, key);
-  }
-
-  rocksdb::Status single_delete(rocksdb::ColumnFamilyHandle* column_family,
-                                const rocksdb::Slice& key)
-  {
-    ++m_write_count;
-    ++m_lock_count;
-    if (m_write_count > m_max_row_locks || m_lock_count > m_max_row_locks)
-      return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
-    return m_rocksdb_tx->SingleDelete(column_family, key);
-  }
-
-  bool has_modifications() const
-  {
-    return m_rocksdb_tx->GetWriteBatch() &&
-           m_rocksdb_tx->GetWriteBatch()->GetWriteBatch() &&
-           m_rocksdb_tx->GetWriteBatch()->GetWriteBatch()->Count() > 0;
-  }
-
-  /*
-    Return a WriteBatch that one can write to. The writes will skip any
-    transaction locking. The writes WILL be visible to the transaction.
-  */
-  rocksdb::WriteBatchBase* get_indexed_write_batch()
-  {
-    ++m_write_count;
-    return m_rocksdb_tx->GetWriteBatch();
-  }
-
+  virtual rocksdb::WriteBatchBase* get_indexed_write_batch()= 0;
   /*
     Return a WriteBatch that one can write to. The writes will skip any
     transaction locking. The writes will NOT be visible to the transaction.
   */
   rocksdb::WriteBatchBase* get_blind_write_batch()
   {
-    ++m_write_count;
-    return m_rocksdb_tx->GetWriteBatch()->GetWriteBatch();
+    return get_indexed_write_batch()->GetWriteBatch();
   }
 
-  rocksdb::Status get(rocksdb::ColumnFamilyHandle* column_family,
-                      const rocksdb::Slice& key, std::string* value) const
-  {
-    return m_rocksdb_tx->Get(m_read_opts, column_family, key, value);
-  }
-
-  rocksdb::Status get_for_update(rocksdb::ColumnFamilyHandle* column_family,
-                                 const rocksdb::Slice& key, std::string* value)
-  {
-    if (++m_lock_count > m_max_row_locks)
-      return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
-    return m_rocksdb_tx->GetForUpdate(m_read_opts, column_family, key, value);
-  }
+  virtual rocksdb::Status get(rocksdb::ColumnFamilyHandle* column_family,
+                              const rocksdb::Slice& key,
+                              std::string* value) const= 0;
+  virtual rocksdb::Status get_for_update(
+    rocksdb::ColumnFamilyHandle* column_family,
+    const rocksdb::Slice& key, std::string* value)= 0;
 
   rocksdb::Iterator *get_iterator(rocksdb::ColumnFamilyHandle* column_family,
                                   bool skip_bloom_filter,
@@ -1940,86 +1778,17 @@ public:
     {
       options.snapshot= nullptr;
     }
-    rocksdb::Iterator* rocksdb_it= m_rocksdb_tx->GetIterator(options,
-                                                             column_family);
-    return rocksdb_it;
+    return get_iterator(options, column_family);
   }
 
-  bool is_tx_started()
-  {
-    return (m_rocksdb_tx != nullptr);
-  }
+  virtual bool is_tx_started() const= 0;
+  virtual void start_tx()= 0;
+  virtual void start_stmt()= 0;
+  virtual void rollback_stmt()= 0;
 
-  void start_tx()
-  {
-    rocksdb::TransactionOptions tx_opts;
-    rocksdb::WriteOptions write_opts;
-    tx_opts.set_snapshot= false;
-    tx_opts.lock_timeout= m_timeout_sec * 1000;
+  void set_tx_failed(bool failed_arg) { m_is_tx_failed= failed_arg; }
 
-    write_opts.sync= THDVAR(m_thd, write_sync);
-    write_opts.disableWAL= THDVAR(m_thd, write_disable_wal);
-    write_opts.ignore_missing_column_families=
-      THDVAR(m_thd, write_ignore_missing_column_families);
-    m_is_two_phase= !rocksdb_disable_2pc;
-
-    /*
-      If m_rocksdb_reuse_tx is null this will create a new transaction object.
-      Otherwise it will reuse the existing one.
-    */
-    m_rocksdb_tx= rdb->BeginTransaction(write_opts, tx_opts,
-                                        m_rocksdb_reuse_tx);
-    m_rocksdb_reuse_tx= nullptr;
-
-    m_read_opts= rocksdb::ReadOptions();
-
-    m_ddl_transaction= false;
-  }
-
-  /*
-    Start a statement inside a multi-statement transaction.
-
-    @todo: are we sure this is called once (and not several times) per
-    statement start?
-
-    For hooking to start of statement that is its own transaction, see
-    ha_rocksdb::external_lock().
-  */
-  void start_stmt()
-  {
-    // Set the snapshot to delayed acquisition (SetSnapshotOnNextOperation)
-    acquire_snapshot(false);
-    m_rocksdb_tx->SetSavePoint();
-  }
-
-  /*
-    This must be called when last statement is rolled back, but the transaction
-    continues
-  */
-  void rollback_stmt()
-  {
-    /* TODO: here we must release the locks taken since the start_stmt() call */
-    if (m_rocksdb_tx)
-    {
-      const rocksdb::Snapshot *org_snapshot = m_rocksdb_tx->GetSnapshot();
-      m_rocksdb_tx->RollbackToSavePoint();
-
-      const rocksdb::Snapshot *cur_snapshot = m_rocksdb_tx->GetSnapshot();
-      if (org_snapshot != cur_snapshot)
-      {
-        if (org_snapshot != nullptr)
-          m_snapshot_timestamp = 0;
-
-        m_read_opts.snapshot = cur_snapshot;
-        if (cur_snapshot != nullptr)
-          rdb->GetEnv()->GetCurrentTime(&m_snapshot_timestamp);
-        else
-          m_is_delayed_snapshot = true;
-      }
-    }
-  }
-
-  bool can_prepare()
+  bool can_prepare() const
   {
     if (m_rollback_only)
     {
@@ -2064,32 +1833,537 @@ public:
     m_tx_read_only= val;
   }
 
-  explicit Rdb_transaction(THD *thd) : m_rocksdb_tx(nullptr), m_thd(thd),
-                                       m_tbl_io_perf(nullptr)
+  explicit Rdb_transaction(THD *thd): m_thd(thd), m_tbl_io_perf(nullptr)
   {
-    // Create a notifier that can be called when a snapshot gets generated.
-    m_notifier = std::make_shared<Rdb_snapshot_notifier>(this);
     mysql_mutex_lock(&s_tx_list_mutex);
     s_tx_list.insert(this);
     mysql_mutex_unlock(&s_tx_list_mutex);
   }
 
-  virtual ~Rdb_transaction()
-  {
-    rollback();
-
+  virtual ~Rdb_transaction() {
     mysql_mutex_lock(&s_tx_list_mutex);
     s_tx_list.erase(this);
     mysql_mutex_unlock(&s_tx_list_mutex);
+  }
+};
 
-    // Theoretically the notifier could outlive the Rdb_transaction (because
-    // of the shared_ptr), so let it know it can't reference the transaction
-    // anymore.
+/*
+  This is a rocksdb transaction. Its members represent the current transaction,
+  which consists of:
+  - the snapshot
+  - the changes we've made but are not seeing yet.
+
+  The changes are made to individual tables, which store them here and then
+  this object commits them on commit.
+*/
+class Rdb_transaction_impl : public Rdb_transaction
+{
+  rocksdb::Transaction *m_rocksdb_tx= nullptr;
+  rocksdb::Transaction *m_rocksdb_reuse_tx= nullptr;
+
+ public:
+  void set_lock_timeout(int timeout_sec_arg) override
+  {
+    if (m_rocksdb_tx)
+      m_rocksdb_tx->SetLockTimeout(m_timeout_sec * 1000);
+  }
+
+  void set_sync(bool sync) override
+  {
+    m_rocksdb_tx->GetWriteOptions()->sync= sync;
+  }
+
+  void release_lock(rocksdb::ColumnFamilyHandle* column_family,
+                    const std::string &rowkey) override
+  {
+    if (!THDVAR(m_thd, lock_scanned_rows))
+    {
+      m_rocksdb_tx->UndoGetForUpdate(column_family, rocksdb::Slice(rowkey));
+    }
+  }
+
+ private:
+  void release_tx(void)
+  {
+    // We are done with the current active transaction object.  Preserve it
+    // for later reuse.
+    DBUG_ASSERT(m_rocksdb_reuse_tx == nullptr);
+    m_rocksdb_reuse_tx= m_rocksdb_tx;
+    m_rocksdb_tx= nullptr;
+  }
+
+  bool prepare(const rocksdb::TransactionName& name) override
+  {
+    rocksdb::Status s;
+    s= m_rocksdb_tx->SetName(name);
+    if (!s.ok())
+    {
+      rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
+      return false;
+    }
+
+    s= m_rocksdb_tx->Prepare();
+    if (!s.ok())
+    {
+      rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
+      return false;
+    }
+    return true;
+  }
+
+  bool commit_no_binlog() override
+  {
+    bool res= false;
+    release_snapshot();
+    rocksdb::Status s= m_rocksdb_tx->Commit();
+    if (!s.ok())
+    {
+      rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
+      res= true;
+    }
+
+    /* Save the transaction object to be reused */
+    release_tx();
+
+    m_write_count= 0;
+    m_lock_count= 0;
+    set_tx_read_only(false);
+    m_rollback_only= false;
+    return res;
+  }
+
+ public:
+  void rollback() override
+  {
+    m_write_count= 0;
+    m_lock_count= 0;
+    m_ddl_transaction= false;
+    if (m_rocksdb_tx)
+    {
+      release_snapshot();
+      /* This will also release all of the locks: */
+      m_rocksdb_tx->Rollback();
+
+      /* Save the transaction object to be reused */
+      release_tx();
+
+      set_tx_read_only(false);
+      m_rollback_only= false;
+    }
+  }
+
+  void acquire_snapshot(bool acquire_now) override
+  {
+    if (m_read_opts.snapshot == nullptr) {
+      if (is_tx_read_only()) {
+        snapshot_created(rdb->GetSnapshot());
+      }
+      else if (acquire_now) {
+        m_rocksdb_tx->SetSnapshot();
+        snapshot_created(m_rocksdb_tx->GetSnapshot());
+      }
+      else if (!m_is_delayed_snapshot) {
+        m_rocksdb_tx->SetSnapshotOnNextOperation(m_notifier);
+        m_is_delayed_snapshot = true;
+      }
+    }
+  }
+
+  void release_snapshot() override
+  {
+    bool need_clear = m_is_delayed_snapshot;
+
+    if (m_read_opts.snapshot != nullptr)
+    {
+      m_snapshot_timestamp = 0;
+      if (is_tx_read_only())
+      {
+        rdb->ReleaseSnapshot(m_read_opts.snapshot);
+        need_clear = false;
+      }
+      else
+      {
+        need_clear = true;
+      }
+      m_read_opts.snapshot = nullptr;
+    }
+
+    if (need_clear && m_rocksdb_tx != nullptr)
+      m_rocksdb_tx->ClearSnapshot();
+  }
+
+  bool has_snapshot()
+  {
+    return m_read_opts.snapshot != nullptr;
+  }
+
+  const char *err_too_many_locks=
+    "Number of locks held by the transaction exceeded @@rocksdb_max_row_locks";
+
+  rocksdb::Status put(rocksdb::ColumnFamilyHandle* column_family,
+                      const rocksdb::Slice& key,
+                      const rocksdb::Slice& value) override
+  {
+    ++m_write_count;
+    ++m_lock_count;
+    if (m_write_count > m_max_row_locks || m_lock_count > m_max_row_locks)
+      return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
+    return m_rocksdb_tx->Put(column_family, key, value);
+  }
+
+  rocksdb::Status delete_key(rocksdb::ColumnFamilyHandle* column_family,
+                             const rocksdb::Slice& key) override
+  {
+    ++m_write_count;
+    ++m_lock_count;
+    if (m_write_count > m_max_row_locks || m_lock_count > m_max_row_locks)
+      return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
+    return m_rocksdb_tx->Delete(column_family, key);
+  }
+
+  rocksdb::Status single_delete(rocksdb::ColumnFamilyHandle* column_family,
+                                const rocksdb::Slice& key) override
+  {
+    ++m_write_count;
+    ++m_lock_count;
+    if (m_write_count > m_max_row_locks || m_lock_count > m_max_row_locks)
+      return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
+    return m_rocksdb_tx->SingleDelete(column_family, key);
+  }
+
+  bool has_modifications() const override
+  {
+    return m_rocksdb_tx->GetWriteBatch() &&
+           m_rocksdb_tx->GetWriteBatch()->GetWriteBatch() &&
+           m_rocksdb_tx->GetWriteBatch()->GetWriteBatch()->Count() > 0;
+  }
+
+  rocksdb::WriteBatchBase* get_write_batch() override
+  {
+    if (is_two_phase())
+    {
+      return m_rocksdb_tx->GetCommitTimeWriteBatch();
+    }
+    return m_rocksdb_tx->GetWriteBatch()->GetWriteBatch();
+  }
+
+  /*
+    Return a WriteBatch that one can write to. The writes will skip any
+    transaction locking. The writes WILL be visible to the transaction.
+  */
+  rocksdb::WriteBatchBase* get_indexed_write_batch() override
+  {
+    ++m_write_count;
+    return m_rocksdb_tx->GetWriteBatch();
+  }
+
+  rocksdb::Status get(rocksdb::ColumnFamilyHandle* column_family,
+                      const rocksdb::Slice& key,
+                      std::string* value) const override
+  {
+    return m_rocksdb_tx->Get(m_read_opts, column_family, key, value);
+  }
+
+  rocksdb::Status get_for_update(rocksdb::ColumnFamilyHandle* column_family,
+                                 const rocksdb::Slice& key,
+                                 std::string* value) override
+  {
+    if (++m_lock_count > m_max_row_locks)
+      return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
+    return m_rocksdb_tx->GetForUpdate(m_read_opts, column_family, key, value);
+  }
+
+  rocksdb::Iterator *get_iterator(const rocksdb::ReadOptions &options,
+                                 rocksdb::ColumnFamilyHandle* column_family)
+                                 override
+  {
+    return m_rocksdb_tx->GetIterator(options, column_family);
+  }
+
+  bool is_tx_started() const override
+  {
+    return (m_rocksdb_tx != nullptr);
+  }
+
+  void start_tx() override
+  {
+    rocksdb::TransactionOptions tx_opts;
+    rocksdb::WriteOptions write_opts;
+    tx_opts.set_snapshot= false;
+    tx_opts.lock_timeout= m_timeout_sec * 1000;
+
+    write_opts.sync= THDVAR(m_thd, write_sync);
+    write_opts.disableWAL= THDVAR(m_thd, write_disable_wal);
+    write_opts.ignore_missing_column_families=
+      THDVAR(m_thd, write_ignore_missing_column_families);
+    m_is_two_phase= !rocksdb_disable_2pc;
+
+    /*
+      If m_rocksdb_reuse_tx is null this will create a new transaction object.
+      Otherwise it will reuse the existing one.
+    */
+    m_rocksdb_tx= rdb->BeginTransaction(write_opts, tx_opts,
+                                        m_rocksdb_reuse_tx);
+    m_rocksdb_reuse_tx= nullptr;
+
+    m_read_opts= rocksdb::ReadOptions();
+
+    m_ddl_transaction= false;
+  }
+
+  /*
+    Start a statement inside a multi-statement transaction.
+
+    @todo: are we sure this is called once (and not several times) per
+    statement start?
+
+    For hooking to start of statement that is its own transaction, see
+    ha_rocksdb::external_lock().
+  */
+  void start_stmt() override
+  {
+    // Set the snapshot to delayed acquisition (SetSnapshotOnNextOperation)
+    acquire_snapshot(false);
+    m_rocksdb_tx->SetSavePoint();
+  }
+
+  /*
+    This must be called when last statement is rolled back, but the transaction
+    continues
+  */
+  void rollback_stmt() override
+  {
+    /* TODO: here we must release the locks taken since the start_stmt() call */
+    if (m_rocksdb_tx)
+    {
+      const rocksdb::Snapshot *org_snapshot = m_rocksdb_tx->GetSnapshot();
+      m_rocksdb_tx->RollbackToSavePoint();
+
+      const rocksdb::Snapshot *cur_snapshot = m_rocksdb_tx->GetSnapshot();
+      if (org_snapshot != cur_snapshot)
+      {
+        if (org_snapshot != nullptr)
+          m_snapshot_timestamp = 0;
+
+        m_read_opts.snapshot = cur_snapshot;
+        if (cur_snapshot != nullptr)
+          rdb->GetEnv()->GetCurrentTime(&m_snapshot_timestamp);
+        else
+          m_is_delayed_snapshot = true;
+      }
+    }
+  }
+
+  explicit Rdb_transaction_impl(THD *thd) :
+    Rdb_transaction(thd), m_rocksdb_tx(nullptr)
+  {
+    // Create a notifier that can be called when a snapshot gets generated.
+    m_notifier = std::make_shared<Rdb_snapshot_notifier>(this);
+  }
+
+  virtual ~Rdb_transaction_impl()
+  {
+    rollback();
+
+    // Theoretically the notifier could outlive the Rdb_transaction_impl
+    // (because of the shared_ptr), so let it know it can't reference
+    // the transaction anymore.
     m_notifier->detach();
 
     // Free any transaction memory that is still hanging around.
     delete m_rocksdb_reuse_tx;
     DBUG_ASSERT(m_rocksdb_tx == nullptr);
+  }
+};
+
+/* This is a rocksdb write batch. This class doesn't hold or wait on any
+   transaction locks (skips rocksdb transaction API) thus giving better
+   performance. The commit is done through rdb->GetBaseDB()->Commit().
+
+   Currently this is only used for replication threads which are guaranteed
+   to be non-conflicting. Any further usage of this class should completely
+   be thought thoroughly.
+*/
+class Rdb_writebatch_impl : public Rdb_transaction
+{
+  rocksdb::WriteBatchWithIndex* m_batch;
+  rocksdb::WriteOptions write_opts;
+  // Called after commit/rollback.
+  void reset()
+  {
+    m_batch->Clear();
+    m_read_opts = rocksdb::ReadOptions();
+    m_ddl_transaction= false;
+  }
+ private:
+  bool prepare(const rocksdb::TransactionName& name) override
+  {
+    return true;
+  }
+
+  bool commit_no_binlog() override
+  {
+    bool res= false;
+    release_snapshot();
+    rocksdb::Status s= rdb->GetBaseDB()->Write(write_opts,
+                                               m_batch->GetWriteBatch());
+    if (!s.ok())
+    {
+      rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
+      res= true;
+    }
+    reset();
+
+    m_write_count= 0;
+    set_tx_read_only(false);
+    m_rollback_only= false;
+    return res;
+  }
+ public:
+  void set_lock_timeout(int timeout_sec_arg) override
+  {
+    // Nothing to do here.
+  }
+
+  void set_sync(bool sync) override
+  {
+    write_opts.sync= sync;
+  }
+
+  void release_lock(rocksdb::ColumnFamilyHandle* column_family,
+                    const std::string &rowkey) override
+  {
+    // Nothing to do here since we don't hold any row locks.
+  }
+
+  void rollback() override
+  {
+    m_write_count= 0;
+    m_lock_count= 0;
+    release_snapshot();
+
+    reset();
+    set_tx_read_only(false);
+    m_rollback_only= false;
+  }
+
+  void acquire_snapshot(bool acquire_now) override
+  {
+    if (m_read_opts.snapshot == nullptr)
+      snapshot_created(rdb->GetSnapshot());
+  }
+
+  void release_snapshot() override
+  {
+    if (m_read_opts.snapshot != nullptr)
+    {
+      rdb->ReleaseSnapshot(m_read_opts.snapshot);
+      m_read_opts.snapshot = nullptr;
+    }
+  }
+
+  rocksdb::Status put(rocksdb::ColumnFamilyHandle* column_family,
+                      const rocksdb::Slice& key,
+                      const rocksdb::Slice& value) override
+  {
+    ++m_write_count;
+    m_batch->Put(column_family, key, value);
+    // Note Put/Delete in write batch doesn't return any error code. We simply
+    // return OK here.
+    return rocksdb::Status::OK();
+  }
+
+  rocksdb::Status delete_key(rocksdb::ColumnFamilyHandle* column_family,
+                             const rocksdb::Slice& key) override
+  {
+    ++m_write_count;
+    m_batch->Delete(column_family, key);
+    return rocksdb::Status::OK();
+  }
+
+  rocksdb::Status single_delete(rocksdb::ColumnFamilyHandle* column_family,
+                                const rocksdb::Slice& key) override
+  {
+    ++m_write_count;
+    m_batch->SingleDelete(column_family, key);
+    return rocksdb::Status::OK();
+  }
+
+  bool has_modifications() const override
+  {
+    return m_batch->GetWriteBatch()->Count() > 0;
+  }
+
+  rocksdb::WriteBatchBase* get_write_batch() override
+  {
+    return m_batch;
+  }
+
+  rocksdb::WriteBatchBase* get_indexed_write_batch() override
+  {
+    ++m_write_count;
+    return m_batch;
+  }
+
+  rocksdb::Status get(rocksdb::ColumnFamilyHandle* column_family,
+                      const rocksdb::Slice& key,
+                      std::string* value) const override
+  {
+    return m_batch->GetFromBatchAndDB(
+      rdb, m_read_opts, column_family, key, value);
+  }
+
+  rocksdb::Status get_for_update(rocksdb::ColumnFamilyHandle* column_family,
+                                 const rocksdb::Slice& key,
+                                 std::string* value) override
+  {
+    return get(column_family, key, value);
+  }
+
+  rocksdb::Iterator *get_iterator(const rocksdb::ReadOptions &options,
+                                  rocksdb::ColumnFamilyHandle* column_family)
+                                  override
+  {
+    auto it = rdb->NewIterator(options);
+    return m_batch->NewIteratorWithBase(it);
+  }
+
+  bool is_tx_started() const override
+  {
+    return (m_batch != nullptr);
+  }
+
+  void start_tx() override
+  {
+    reset();
+    write_opts.sync= THDVAR(m_thd, write_sync);
+    write_opts.disableWAL= THDVAR(m_thd, write_disable_wal);
+    write_opts.ignore_missing_column_families=
+      THDVAR(m_thd, write_ignore_missing_column_families);
+  }
+
+  void start_stmt() override
+  {
+    m_batch->SetSavePoint();
+  }
+
+  void rollback_stmt() override
+  {
+    if (m_batch)
+      m_batch->RollbackToSavePoint();
+  }
+
+  explicit Rdb_writebatch_impl(THD *thd) :
+    Rdb_transaction(thd), m_batch(nullptr)
+  {
+    m_batch = new rocksdb::WriteBatchWithIndex(rocksdb::BytewiseComparator(),
+                                               0 , true);
+  }
+
+  virtual ~Rdb_writebatch_impl()
+  {
+    rollback();
+    delete m_batch;
   }
 };
 
@@ -2153,13 +2427,18 @@ static Rdb_transaction *get_or_create_tx(THD *thd)
   // TODO: this is called too many times.. O(#rows)
   if (tx == nullptr)
   {
-    tx= new Rdb_transaction(thd);
-    tx->set_params(THDVAR(thd, lock_wait_timeout), THDVAR(thd, max_row_locks));
+    if (rpl_skip_tx_api_var && thd->rli_slave)
+      tx= new Rdb_writebatch_impl(thd);
+    else
+      tx= new Rdb_transaction_impl(thd);
+    tx->set_params(THDVAR(thd, lock_wait_timeout),
+                   THDVAR(thd, max_row_locks));
     tx->start_tx();
   }
   else
   {
-    tx->set_params(THDVAR(thd, lock_wait_timeout), THDVAR(thd, max_row_locks));
+    tx->set_params(THDVAR(thd, lock_wait_timeout),
+                   THDVAR(thd, max_row_locks));
     if (!tx->is_tx_started())
     {
       tx->start_tx();
@@ -2417,7 +2696,7 @@ static int rocksdb_commit(handlerton* hton, THD* thd, bool commit_tx, bool)
         We get here when committing a statement within a transaction.
 
         We don't need to do anything here. tx->start_stmt() will notify
-        Rdb_transaction that another statement has started.
+        Rdb_transaction_impl that another statement has started.
       */
       tx->set_tx_failed(false);
     }
