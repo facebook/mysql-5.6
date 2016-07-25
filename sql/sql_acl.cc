@@ -2257,7 +2257,7 @@ bool change_password(THD *thd, const char *host, const char *user,
   }
   mysql_mutex_assert_owner(&acl_cache->lock);
   table->use_all_columns();
-  DBUG_ASSERT(host != '\0');
+  DBUG_ASSERT(host != NULL);
   table->field[MYSQL_USER_FIELD_HOST]->store(host, strlen(host),
                                              system_charset_info);
   table->field[MYSQL_USER_FIELD_USER]->store(user, strlen(user),
