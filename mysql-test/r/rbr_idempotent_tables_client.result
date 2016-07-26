@@ -1,0 +1,8 @@
+set @@global.rbr_idempotent_tables= 't1';
+create table t1 (a int primary key) engine=InnoDB;
+insert into t1 values(1);
+flush logs;
+insert into t1 values(2);
+flush logs;
+set @@global.rbr_idempotent_tables= '';
+drop table t1;

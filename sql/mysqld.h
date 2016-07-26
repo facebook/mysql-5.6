@@ -286,13 +286,6 @@ extern MYSQL_PLUGIN_IMPORT bool volatile abort_loop;
 extern bool in_bootstrap;
 extern my_bool opt_bootstrap;
 extern char *opt_rbr_idempotent_tables;
-/*
-  Global set of tables for which slave-exec-mode is considered IDEMPOTENT.
-  This is modified only during sql thread startup.
-
-  This set is accessed by sql threads.
-*/
-extern std::unordered_set<std::string> rbr_idempotent_tables;
 extern uint connection_count;
 extern ulong opt_srv_fatal_semaphore_timeout;
 extern my_bool opt_safe_user_create;

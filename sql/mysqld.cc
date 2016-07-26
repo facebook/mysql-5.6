@@ -479,7 +479,6 @@ my_bool opt_show_slave_auth_info;
 my_bool opt_log_slave_updates= 0;
 char *opt_slave_skip_errors;
 char *opt_rbr_idempotent_tables;
-std::unordered_set<std::string> rbr_idempotent_tables;
 my_bool opt_slave_allow_batching= 0;
 
 /**
