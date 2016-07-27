@@ -454,7 +454,7 @@ static int rdb_i_s_cfoptions_fill_table(
       {"MEMTABLE_PREFIX_BLOOM_BITS_RATIO",
           std::to_string(opts.memtable_prefix_bloom_size_ratio)},
       {"MEMTABLE_PREFIX_BLOOM_HUGE_PAGE_TLB_SIZE",
-          std::to_string(opts.memtable_prefix_bloom_huge_page_tlb_size)},
+          std::to_string(opts.memtable_huge_page_size)},
       {"BLOOM_LOCALITY", std::to_string(opts.bloom_locality)},
       {"MAX_SUCCESSIVE_MERGES",
           std::to_string(opts.max_successive_merges)},
