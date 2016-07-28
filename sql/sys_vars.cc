@@ -1629,7 +1629,7 @@ static Sys_var_mybool Sys_gap_lock_write_log(
        SESSION_VAR(gap_lock_write_log), CMD_LINE(OPT_ARG),
        DEFAULT(false));
 
-static bool set_gap_lock_exception_list(sys_var *, THD *, enum_var_type)
+bool set_gap_lock_exception_list(sys_var *, THD *, enum_var_type)
 {
   if (!opt_gap_lock_exception_list)
     gap_lock_exception_list.clear();

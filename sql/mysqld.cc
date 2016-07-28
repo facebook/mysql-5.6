@@ -10822,6 +10822,8 @@ static int get_options(int *argc_ptr, char ***argv_ptr, my_bool logging)
   /* Set global MyISAM variables from delay_key_write_options */
   fix_delay_key_write(0, 0, OPT_GLOBAL);
 
+  set_gap_lock_exception_list(0, 0, OPT_GLOBAL);
+
 #ifndef EMBEDDED_LIBRARY
   if (mysqld_chroot)
     set_root(mysqld_chroot);
