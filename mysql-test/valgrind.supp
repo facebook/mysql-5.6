@@ -1012,6 +1012,5 @@
    ...
    fun:err_get_state
    ...
-   fun:mysql_real_connect
+   fun:_ZL26mysql_real_connect_wrapperP8st_mysqlPKcS2_S2_S2_jS2_m
 }
-
