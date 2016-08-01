@@ -391,10 +391,16 @@ static size_t ssl_handshake_loop(Vio *vio, SSL *ssl,
     if (vio->ssl_is_nonblocking) {
       socket_errno = SOCKET_EWOULDBLOCK;
       switch (event) {
-        case VIO_IO_EVENT_READ:  DBUG_RETURN(VIO_SOCKET_WANT_READ);
-        case VIO_IO_EVENT_WRITE: DBUG_RETURN(VIO_SOCKET_WANT_WRITE);
-        default:                 DBUG_RETURN(VIO_SOCKET_ERROR);
+        case VIO_IO_EVENT_READ:
+          ret = VIO_SOCKET_WANT_READ;
+          break;
+        case VIO_IO_EVENT_WRITE:
+          ret = VIO_SOCKET_WANT_WRITE;
+          break;
+        default:
+          ret = VIO_SOCKET_ERROR;
       }
+      break;
     }
 
     /* Wait for I/O so that the handshake can proceed. */

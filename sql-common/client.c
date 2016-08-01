@@ -127,6 +127,7 @@ const char 	*def_shared_memory_base_name= default_shared_memory_base_name;
 static void mysql_close_free_options(MYSQL *mysql);
 static void mysql_close_free(MYSQL *mysql);
 static void mysql_prune_stmt_list(MYSQL *mysql);
+static void mysql_close_free_connect_context(MYSQL *mysql);
 
 CHARSET_INFO *default_client_charset_info = &my_charset_latin1;
 
@@ -3172,6 +3173,7 @@ static int send_change_user_packet_nonblocking(
     DBUG_RETURN(NET_ASYNC_NOT_READY);
   }
   my_free(ctx->change_user_buff);
+  ctx->change_user_buff = NULL;
 
   *result = error;
   DBUG_RETURN(NET_ASYNC_COMPLETE);
@@ -3614,6 +3616,7 @@ static net_async_status send_client_reply_packet_nonblocking(
 end:
   *result = error;
   my_free(ctx->change_user_buff);
+  ctx->change_user_buff = NULL;
 
   DBUG_RETURN(NET_ASYNC_COMPLETE);
 }
@@ -4000,6 +4003,7 @@ run_plugin_auth_nonblocking(MYSQL *mysql, char *data, uint data_len,
   if (ret == STATE_MACHINE_FAILED ||
       ret == STATE_MACHINE_DONE) {
     my_free(ctx);
+    mysql->connect_context->auth_context = NULL;
   }
 
   DBUG_RETURN(ret);
@@ -5575,6 +5579,18 @@ static void mysql_close_free(MYSQL *mysql)
   mysql->host_info= mysql->user= mysql->passwd= mysql->db= 0;
 }
 
+static void mysql_close_free_connect_context(MYSQL *mysql) {
+  if (mysql && mysql->connect_context) {
+    if (mysql->connect_context->auth_context) {
+      if (mysql->connect_context->auth_context->change_user_buff) {
+        my_free(mysql->connect_context->auth_context->change_user_buff);
+      }
+      my_free(mysql->connect_context->auth_context);
+    }
+    my_free(mysql->connect_context);
+    mysql->connect_context = NULL;
+  }
+}
 
 /**
   For use when the connection to the server has been lost (in which case 
@@ -5685,6 +5701,7 @@ void STDCALL mysql_close(MYSQL *mysql)
     if (mysql->thd)
       (*mysql->methods->free_embedded_thd)(mysql);
 #endif
+    mysql_close_free_connect_context(mysql);
     if (mysql->free_me)
       my_free(mysql);
   }
