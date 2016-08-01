@@ -7,6 +7,10 @@
 # Internal Facebook Howtoeven static analyzer uses this directory.
 /.howtoeven/*
 
+# Files used in Facebook's internal testing system
+/.arcrc
+/tools
+
 # Ignores for files resulting from building in place:
 *-t
 *.a
