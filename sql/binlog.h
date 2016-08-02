@@ -20,6 +20,7 @@
 #include "log_event.h"
 #include "log.h"
 #include "rpl_gtid.h"
+#include <list>
 
 extern ulong rpl_read_size;
 extern char *histogram_step_size_binlog_fsync;
@@ -686,6 +687,8 @@ public:
   void make_log_name(char* buf, const char* log_ident);
   bool is_active(const char* log_file_name);
   int remove_logs_from_index(LOG_INFO* linfo, bool need_update_threads);
+  int remove_deleted_logs_from_index(bool need_lock_index,
+                                     bool need_update_threads);
   int rotate(bool force_rotate, bool* check_purge);
   void purge();
   int rotate_and_purge(THD* thd, bool force_rotate);
@@ -725,6 +728,10 @@ public:
   int register_create_index_entry(const char* entry);
   int purge_index_entry(THD *thd, ulonglong *decrease_log_space,
                         bool need_lock_index);
+  int purge_logs_in_list(std::list<std::string>& delete_list,
+                         THD *thd,
+                         ulonglong *decrease_log_space,
+                         bool need_lock_index);
   bool reset_logs(THD* thd);
   void close(uint exiting);
 

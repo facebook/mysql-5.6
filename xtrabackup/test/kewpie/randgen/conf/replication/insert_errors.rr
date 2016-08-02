@@ -13,7 +13,7 @@ crash_types:
 	SET debug='+d,crash_create_after_update_index' |
 	SET debug='+d,crash_before_purge_logs' |
 	SET debug='+d,crash_purge_before_update_index' |
-	SET debug='+d,crash_purge_critical_after_update_index' |
+	SET debug='+d,crash_purge_critical_before_update_index' |
 	SET debug='+d,crash_purge_non_critical_after_update_index' |
 	SET debug='+d,crash_before_writing_xid'
 ;

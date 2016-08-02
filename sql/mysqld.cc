@@ -5678,6 +5678,14 @@ a file name for --log-bin-index option", opt_binlog_index_name);
     {
       unireg_abort(1);
     }
+    /*
+      Remove entries of logs from the index that were deleted from
+      the file system but not from the index due to a crash.
+    */
+    if (mysql_bin_log.remove_deleted_logs_from_index(TRUE, TRUE) == LOG_INFO_IO)
+    {
+      unireg_abort(1);
+    }
   }
 
   if (opt_bin_log)
