@@ -7227,6 +7227,8 @@ ER_GIT_HASH
 ER_CONNECTION_TIMEOUT
   eng "Closed connection: idle timeout after %us"
 
+ER_OPTION_PREVENTS_STATEMENT_EXTRA_INFO
+  eng "The MySQL server is running with the %s option so it cannot execute this statement. %s"
 #
 #  End of 5.6 error messages.
 #

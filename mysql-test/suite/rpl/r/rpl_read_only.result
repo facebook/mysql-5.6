@@ -118,9 +118,9 @@ a
 2004
 2005
 insert into t1 values(1006);
-ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement
+ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement. Current master_host: 127.0.0.1, master_port: MASTER_PORT
 insert into t2 values(2006);
-ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement
+ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement. Current master_host: 127.0.0.1, master_port: MASTER_PORT
 drop user test;
 drop table t1;
 drop table t2;
