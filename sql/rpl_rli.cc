@@ -1927,6 +1927,16 @@ a file name for --relay-log-index option.", opt_relaylog_index_name);
       sql_print_error("Failed in open_index_file() called from Relay_log_info::rli_init_info().");
       DBUG_RETURN(1);
     }
+    /*
+      Remove entries of logs from the index that were deleted from
+      the file system but not from the index due to a crash.
+    */
+    if (relay_log.remove_deleted_logs_from_index(TRUE, FALSE) == LOG_INFO_IO)
+    {
+      sql_print_error("Failed in remove_deleted_logs_from_index()"
+                      " called from Relay_log_info::rli_init_info().");
+      DBUG_RETURN(1);
+    }
 #ifndef DBUG_OFF
     global_sid_lock->wrlock();
     gtid_set.dbug_print("set of GTIDs in relay log before initialization");

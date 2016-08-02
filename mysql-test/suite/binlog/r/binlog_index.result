@@ -67,9 +67,9 @@ SELECT @index;
 master-bin.000004
 master-bin.000005
 
-# crash_purge_critical_after_update_index
+# crash_purge_critical_before_update_index
 flush logs;
-SET SESSION debug="+d,crash_purge_critical_after_update_index";
+SET SESSION debug="+d,crash_purge_critical_before_update_index";
 purge binary logs TO 'master-bin.000006';
 ERROR HY000: Lost connection to MySQL server during query
 SET @index=LOAD_FILE('MYSQLTEST_VARDIR/mysqld.1/data//master-bin.index');

@@ -126,11 +126,11 @@ file_exists $MYSQLD_DATADIR/master-bin.000003;
 -- replace_regex /\.[\\\/]master/master/
 SELECT @index;
 
---echo # crash_purge_critical_after_update_index
+--echo # crash_purge_critical_before_update_index
 flush logs;
 
 --exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
-SET SESSION debug="+d,crash_purge_critical_after_update_index";
+SET SESSION debug="+d,crash_purge_critical_before_update_index";
 --error 2013
 purge binary logs TO 'master-bin.000006';
 
