@@ -5535,7 +5535,7 @@ have_partitioning:
             if (!plugin_is_ready(&partition_name, MYSQL_STORAGE_ENGINE_PLUGIN))
             {
               my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0),
-                      "--skip-partition");
+                      "--skip-partition", "");
               MYSQL_YYABORT;
             }
 #else

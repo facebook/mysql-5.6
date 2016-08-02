@@ -264,4 +264,6 @@ inline bool is_supported_parser_charset(const CHARSET_INFO *cs)
 
 extern "C" bool sqlcom_can_generate_row_events(enum enum_sql_command command);
 
+void get_active_master_info(std::string *str);
+
 #endif /* SQL_PARSE_INCLUDED */

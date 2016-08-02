@@ -1482,7 +1482,7 @@ static bool event_scheduler_check(sys_var *self, THD *thd, set_var *var)
   if (Events::opt_event_scheduler == Events::EVENTS_DISABLED)
   {
     my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0),
-             "--event-scheduler=DISABLED or --skip-grant-tables");
+             "--event-scheduler=DISABLED or --skip-grant-tables", "");
     return true;
   }
   return false;
@@ -5524,3 +5524,10 @@ static Sys_var_uint Sys_select_into_file_fsync_timeout(
        "SELECT INTO OUTFILE",
        SESSION_VAR(select_into_file_fsync_timeout), CMD_LINE(OPT_ARG),
        VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1));
+
+static Sys_var_charptr Sys_read_only_error_msg_extra(
+       "read_only_error_msg_extra",
+       "Set this variable to print out extra error information, "
+       "which will be appended to read_only error messages.",
+       GLOBAL_VAR(opt_read_only_error_msg_extra), CMD_LINE(OPT_ARG),
+       IN_SYSTEM_CHARSET, DEFAULT(""), NO_MUTEX_GUARD, NOT_IN_BINLOG);

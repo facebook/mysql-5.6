@@ -297,6 +297,7 @@ extern ulong slave_run_triggers_for_rbr;
 extern ulonglong slave_type_conversions_options;
 extern ulonglong admission_control_filter;
 extern my_bool read_only, opt_readonly, super_read_only, opt_super_readonly;
+extern char* opt_read_only_error_msg_extra;
 extern my_bool send_error_before_closing_timed_out_connection;
 extern my_bool allow_document_type;
 extern my_bool block_create_myisam;

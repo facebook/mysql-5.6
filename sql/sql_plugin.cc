@@ -1857,7 +1857,7 @@ bool mysql_install_plugin(THD *thd, const LEX_STRING *name, const LEX_STRING *dl
 
   if (opt_noacl)
   {
-    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables");
+    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables", "");
     DBUG_RETURN(TRUE);
   }
 
@@ -1965,7 +1965,7 @@ bool mysql_uninstall_plugin(THD *thd, const LEX_STRING *name)
 
   if (opt_noacl)
   {
-    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables");
+    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables", "");
     DBUG_RETURN(TRUE);
   }
 

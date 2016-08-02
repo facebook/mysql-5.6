@@ -215,7 +215,8 @@ lock_tables_check(THD *thd, TABLE **tables, uint count, uint flags)
       if (t->reginfo.lock_type >= TL_WRITE_ALLOW_WRITE && check_ro(thd))
       {
         my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0),
-                 opt_super_readonly ? "--read-only (super)" : "--read-only");
+                 opt_super_readonly ? "--read-only (super)" : "--read-only",
+                 "");
         DBUG_RETURN(1);
       }
     }

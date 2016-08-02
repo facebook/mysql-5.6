@@ -439,7 +439,8 @@ int mysql_load(THD *thd,sql_exchange *ex,TABLE_LIST *table_list,
 
         sql_print_error("LOAD DATA INFILE in the slave SQL Thread can only read from --slave-load-tmpdir. " \
                         "Please, report a bug.");
-        my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--slave-load-tmpdir");
+        my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--slave-load-tmpdir",
+                 "");
         DBUG_RETURN(TRUE);
       }
 #else
@@ -452,7 +453,7 @@ int mysql_load(THD *thd,sql_exchange *ex,TABLE_LIST *table_list,
     else if (!is_secure_file_path(name))
     {
       /* Read only allowed from within dir specified by secure_file_priv */
-      my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--secure-file-priv");
+      my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--secure-file-priv", "");
       DBUG_RETURN(TRUE);
     }
 
