@@ -8785,24 +8785,14 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *min_key,
   auto rows = kd->m_stats.m_rows;
   if (rows == 0 || disk_size == 0)
   {
-    // no stats. Most likely, this is memtable-only table.
-    // Query for the range size including memtable.
-    rows = 1;
+    rows= 1;
     disk_size= ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE;
-    rdb->GetApproximateSizes(
-      kd->get_cf(),
-      &r, 1,
-      &sz, true);
   }
-  else
-  {
-    // Have stats, query for size which doesn't include memtable.
-    rdb->GetApproximateSizes(
-      kd->get_cf(),
-      &r, 1,
-      &sz);
-  }
-
+  // Getting statistics, including from Memtables
+  rdb->GetApproximateSizes(
+    kd->get_cf(),
+    &r, 1,
+    &sz, true);
   ret = rows*sz/disk_size;
 
   /*
