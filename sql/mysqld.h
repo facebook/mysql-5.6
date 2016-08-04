@@ -1373,7 +1373,7 @@ extern mysql_rwlock_t LOCK_use_ssl;
 extern mysql_mutex_t LOCK_server_started;
 extern mysql_cond_t COND_server_started;
 extern mysql_rwlock_t LOCK_grant, LOCK_sys_init_connect, LOCK_sys_init_slave;
-extern mysql_rwlock_t LOCK_system_variables_hash, LOCK_gap_lock_exceptions;
+extern mysql_rwlock_t LOCK_system_variables_hash;
 extern mysql_cond_t COND_manager;
 extern int32 num_thread_running;
 extern my_atomic_rwlock_t thread_running_lock;

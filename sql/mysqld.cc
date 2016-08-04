@@ -902,7 +902,6 @@ mysql_rwlock_t LOCK_use_ssl;
 #endif
 mysql_rwlock_t LOCK_grant, LOCK_sys_init_connect, LOCK_sys_init_slave;
 mysql_rwlock_t LOCK_system_variables_hash;
-mysql_rwlock_t LOCK_gap_lock_exceptions;
 mysql_cond_t COND_thread_count;
 pthread_t signal_thread;
 pthread_attr_t connection_attrib;
@@ -2195,6 +2194,8 @@ void clean_up(bool print_message)
 #endif
   free_list(opt_plugin_load_list_ptr);
 
+  delete gap_lock_exceptions;
+
   if (THR_THD)
     (void) pthread_key_delete(THR_THD);
 
@@ -2268,7 +2269,6 @@ static void clean_up_mutexes()
   mysql_rwlock_destroy(&LOCK_sys_init_slave);
   mysql_mutex_destroy(&LOCK_global_system_variables);
   mysql_rwlock_destroy(&LOCK_system_variables_hash);
-  mysql_rwlock_destroy(&LOCK_gap_lock_exceptions);
   mysql_mutex_destroy(&LOCK_uuid_generator);
   mysql_mutex_destroy(&LOCK_sql_rand);
   mysql_mutex_destroy(&LOCK_prepared_stmt_count);
@@ -5078,8 +5078,12 @@ static int init_thread_environment()
 #endif
   mysql_rwlock_init(key_rwlock_LOCK_sys_init_connect, &LOCK_sys_init_connect);
   mysql_rwlock_init(key_rwlock_LOCK_sys_init_slave, &LOCK_sys_init_slave);
-  mysql_rwlock_init(key_rwlock_LOCK_gap_lock_exceptions,
-                    &LOCK_gap_lock_exceptions);
+#if defined(HAVE_PSI_INTERFACE)
+  gap_lock_exceptions = new Regex_list_handler(
+      key_rwlock_LOCK_gap_lock_exceptions);
+#else
+  gap_lock_exceptions = new Regex_list_handler();
+#endif
   mysql_rwlock_init(key_rwlock_LOCK_grant, &LOCK_grant);
   mysql_cond_init(key_COND_thread_count, &COND_thread_count, NULL);
   mysql_cond_init(key_COND_connection_count, &COND_connection_count, NULL);
