@@ -173,12 +173,23 @@ rocksdb_flush_all_memtables()
 }
 
 static void
+rocksdb_compact_column_family_stub(THD* thd,
+                                   struct st_mysql_sys_var* var,
+                                   void* var_ptr,
+                                   const void* save)
+{
+}
+
+static int
 rocksdb_compact_column_family(THD* thd,
                               struct st_mysql_sys_var* var,
                               void* var_ptr,
-                              const void* save)
+                              struct st_mysql_value* value)
 {
-  if (const char* cf = *static_cast<const char*const*>(save)) {
+  char buff[STRING_BUFFER_USUAL_SIZE];
+  int  len = sizeof(buff);
+
+  if (const char* cf = value->val_str(value, buff, &len)) {
     bool is_automatic;
     auto cfh = cf_manager.get_cf(cf, "", nullptr, &is_automatic);
     if (cfh != nullptr && rdb != nullptr) {
@@ -186,6 +197,7 @@ rocksdb_compact_column_family(THD* thd,
       rdb->CompactRange(rocksdb::CompactRangeOptions(), cfh, nullptr, nullptr);
     }
   }
+  return 0;
 }
 
 ///////////////////////////////////////////////////////////
@@ -292,13 +304,22 @@ rocksdb_create_checkpoint_stub(THD* thd,
 }
 
 static void
+rocksdb_force_flush_memtable_now_stub(THD* thd,
+                                      struct st_mysql_sys_var* var,
+                                      void* var_ptr,
+                                      const void* save)
+{
+}
+
+static int
 rocksdb_force_flush_memtable_now(THD* thd,
                                  struct st_mysql_sys_var* var,
                                  void* var_ptr,
-                                 const void* save)
+                                 struct st_mysql_value* value)
 {
   sql_print_information("RocksDB: Manual memtable flush\n");
   rocksdb_flush_all_memtables();
+  return 0;
 }
 
 static void rocksdb_drop_index_wakeup_thread(
@@ -913,7 +934,7 @@ static MYSQL_SYSVAR_BOOL(debug_optimizer_no_zero_cardinality,
 static MYSQL_SYSVAR_STR(compact_cf, rocksdb_compact_cf_name,
   PLUGIN_VAR_RQCMDARG,
   "Compact column family",
-  nullptr, rocksdb_compact_column_family, "");
+  rocksdb_compact_column_family, rocksdb_compact_column_family_stub, "");
 
 static MYSQL_SYSVAR_STR(create_checkpoint, rocksdb_checkpoint_name,
   PLUGIN_VAR_RQCMDARG,
@@ -962,7 +983,8 @@ static MYSQL_SYSVAR_BOOL(
   rocksdb_force_flush_memtable_now_var,
   PLUGIN_VAR_RQCMDARG,
   "Forces memstore flush which may block all write requests so be careful",
-  nullptr, rocksdb_force_flush_memtable_now, FALSE);
+  rocksdb_force_flush_memtable_now,
+  rocksdb_force_flush_memtable_now_stub, FALSE);
 
 static MYSQL_THDVAR_BOOL(
   flush_memtable_on_analyze,
