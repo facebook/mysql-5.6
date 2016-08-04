@@ -1,4 +1,5 @@
 --source include/master-slave.inc
+--source include/have_binlog_format_row.inc
 --source include/not_embedded.inc
 
 call mtr.add_suppression("Slave SQL: Could not execute Write_rows event on table test.t1");
@@ -21,6 +22,8 @@ INSERT INTO t1 VALUES(2, 0);
 INSERT INTO t1 VALUES(3, 0);
 
 connection master;
+sync_slave_with_master;
+connection master;
 INSERT INTO t1 VALUES(1, 1);
 
 connection slave;
@@ -31,8 +34,9 @@ set global reset_seconds_behind_master=0;
 --source include/stop_slave_io.inc
 
 connection master;
-insert into t1 values (4,0);
+INSERT INTO t1 values (4,0);
 --sleep 11
+INSERT INTO t1 VALUES(2, 1);
 
 connection slave;
 --source include/start_slave_io.inc
@@ -40,10 +44,7 @@ connection slave;
 connection master;
 sync_slave_with_master;
 
-connection master;
-INSERT INTO t1 VALUES(2, 1);
-sync_slave_with_master;
-
+connection slave;
 set global reset_seconds_behind_master=1;
 
 connection master;

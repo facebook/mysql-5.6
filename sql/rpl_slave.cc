@@ -6391,7 +6391,9 @@ log '%s' at position %s, relay log '%s' position: %s", rli->get_rpl_log_name(),
       rli->slave_has_caughtup == Enum_slave_caughtup::YES)) ? 0 :
         max(0L, ((long)(time(0) - rli->penultimate_master_timestamp)
                   - rli->mi->clock_diff_with_master));
-    if (unique_check_lag_threshold > 0 && lag > unique_check_lag_threshold)
+    // unique key checks are allowed to be disabled only with row format
+    if (unique_check_lag_threshold > 0 && lag > unique_check_lag_threshold
+        && thd->variables.binlog_format == BINLOG_FORMAT_ROW)
       rli->skip_unique_check= true;
     if (lag < unique_check_lag_reset_threshold)
       rli->skip_unique_check= false;
