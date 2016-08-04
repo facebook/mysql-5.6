@@ -1279,7 +1279,7 @@ The following options may be given as the first argument:
  --server-id=#       Uniquely identifies the server instance in the community
  of replication partners
  --server-id-bits=#  Set number of significant bits in server-id
- --session-track-gtids=name
+ --session-track-gtids=name 
  Controls the amount of global transaction ids to be
  included in the response packet sent by the
  server.(Default: OFF).
