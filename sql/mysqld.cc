@@ -1589,7 +1589,6 @@ mysql_mutex_t LOCK_replica_trans_dep_tracker;
 mysql_mutex_t LOCK_log_throttle_qni;
 mysql_rwlock_t LOCK_sys_init_connect, LOCK_sys_init_replica;
 mysql_rwlock_t LOCK_system_variables_hash;
-mysql_rwlock_t LOCK_gap_lock_exceptions;
 my_thread_handle signal_thread_id;
 sigset_t mysqld_signal_mask;
 my_thread_attr_t connection_attrib;
@@ -2661,6 +2660,8 @@ static void clean_up(bool print_message) {
   free_list(opt_early_plugin_load_list_ptr);
   free_list(opt_plugin_load_list_ptr);
 
+  delete gap_lock_exceptions;
+
   /*
     Is this the best place for components deinit? It may be changed when new
     dependencies are discovered, possibly being divided into separate points
@@ -2715,7 +2716,6 @@ static void clean_up_mutexes() {
   mysql_rwlock_destroy(&LOCK_sys_init_replica);
   mysql_mutex_destroy(&LOCK_global_system_variables);
   mysql_rwlock_destroy(&LOCK_system_variables_hash);
-  mysql_rwlock_destroy(&LOCK_gap_lock_exceptions);
   mysql_mutex_destroy(&LOCK_uuid_generator);
   mysql_mutex_destroy(&LOCK_sql_rand);
   mysql_mutex_destroy(&LOCK_prepared_stmt_count);
@@ -5286,8 +5286,13 @@ static int init_thread_environment() {
                    &LOCK_password_reuse_interval, MY_MUTEX_INIT_FAST);
   mysql_rwlock_init(key_rwlock_LOCK_sys_init_connect, &LOCK_sys_init_connect);
   mysql_rwlock_init(key_rwlock_LOCK_sys_init_replica, &LOCK_sys_init_replica);
-  mysql_rwlock_init(key_rwlock_LOCK_gap_lock_exceptions,
-                    &LOCK_gap_lock_exceptions);
+#if defined(HAVE_PSI_INTERFACE)
+  gap_lock_exceptions =
+      new Regex_list_handler(key_rwlock_LOCK_gap_lock_exceptions);
+#else
+  gap_lock_exceptions = new Regex_list_handler();
+#endif
+
   mysql_cond_init(key_COND_manager, &COND_manager);
   mysql_mutex_init(key_LOCK_server_started, &LOCK_server_started,
                    MY_MUTEX_INIT_FAST);

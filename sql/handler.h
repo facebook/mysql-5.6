@@ -3915,12 +3915,6 @@ class Handler_share {
   virtual ~Handler_share() = default;
 };
 
-extern std::vector<std::string> gap_lock_exception_list;
-bool is_table_in_list(const std::string &table_name,
-                      const std::vector<std::string> &table_list,
-                      mysql_rwlock_t *lock);
-std::vector<std::string> split(const std::string &input, char delimiter);
-
 /**
   Wrapper for struct ft_hints.
 */
@@ -7441,5 +7435,7 @@ class Regex_list_handler {
 
 void warn_about_bad_patterns(const Regex_list_handler *regex_list_handler,
                              const char *name);
+
+extern Regex_list_handler *gap_lock_exceptions;
 
 #endif /* HANDLER_INCLUDED */
