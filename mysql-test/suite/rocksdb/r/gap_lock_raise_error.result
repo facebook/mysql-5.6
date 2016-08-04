@@ -535,4 +535,6 @@ DROP DATABASE mysqlslap;
 SET GLOBAL gap_lock_log_file='<GAP_LOCK_ORIG>';
 SET GLOBAL gap_lock_log_file='<GAP_LOCK>';
 flush general logs;
+SET GLOBAL gap_lock_exceptions="[a-b,abc\\";
+Invalid pattern in gap_lock_exceptions: [a-b,abc\
 SET GLOBAL gap_lock_exceptions=@save_gap_lock_exceptions;
