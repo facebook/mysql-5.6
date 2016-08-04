@@ -907,7 +907,6 @@ extern mysql_cond_t COND_manager;
 extern mysql_rwlock_t LOCK_sys_init_connect;
 extern mysql_rwlock_t LOCK_sys_init_replica;
 extern mysql_rwlock_t LOCK_system_variables_hash;
-extern mysql_rwlock_t LOCK_gap_lock_exceptions;
 
 extern ulong opt_ssl_fips_mode;
 
