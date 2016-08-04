@@ -204,6 +204,8 @@ ulong total_ha_2pc = 0;
 /* size of savepoint storage area (see ha_init) */
 ulong savepoint_alloc_size = 0;
 
+Regex_list_handler* gap_lock_exceptions;
+
 static const LEX_CSTRING sys_table_aliases[] = {{STRING_WITH_LEN("INNOBASE")},
                                                 {STRING_WITH_LEN("INNODB")},
                                                 {STRING_WITH_LEN("NDB")},
@@ -213,8 +215,6 @@ static const LEX_CSTRING sys_table_aliases[] = {{STRING_WITH_LEN("INNOBASE")},
                                                 {STRING_WITH_LEN("MERGE")},
                                                 {STRING_WITH_LEN("MRG_MYISAM")},
                                                 {NullS, 0}};
-
-std::vector<std::string> gap_lock_exception_list;
 
 const char *ha_row_type[] = {"",
                              "FIXED",
@@ -8158,33 +8158,6 @@ std::vector<std::string> split(const std::string& input, char delimiter)
   return elems;
 }
 
-bool is_table_in_list(const std::string& table_name,
-                      const std::vector<std::string>& table_list,
-                      mysql_rwlock_t* lock)
-{
-  bool result = false;
-
-  // Make sure no one else changes the list while we are accessing it.
-  mysql_rwlock_rdlock(lock);
-
-  // See if this table name matches any in the list
-  for (const auto& e: table_list)
-  {
-    // Use regular expressions for the match
-    if (std::regex_match(table_name, std::regex(e)))
-    {
-      // This table name matches
-      result = true;
-      break;
-    }
-  }
-
-  // Release the mutex
-  mysql_rwlock_unlock(lock);
-
-  return result;
-}
-
 bool can_hold_read_locks_on_select(THD *thd, thr_lock_type lock_type)
 {
   return (lock_type == TL_READ_WITH_SHARED_LOCKS
@@ -8217,8 +8190,7 @@ bool handler::is_using_prohibited_gap_locks(TABLE *table,
       && !is_acl_ddl_query(thd->lex->sql_command)
       && (thd->lex->table_count >= 2 || thd->in_multi_stmt_transaction_mode())
       && can_hold_locks_on_trans(thd, lock_type)
-      && !is_table_in_list(table_name, gap_lock_exception_list,
-                           &LOCK_gap_lock_exceptions))
+      && !gap_lock_exceptions->matches(table_name))
   {
     query_logger.gap_lock_log_write(thd, COM_QUERY, thd->query().str, thd->query().length);
     if (thd->variables.gap_lock_raise_error)
@@ -9156,4 +9128,3 @@ void warn_about_bad_patterns(const Regex_list_handler* regex_list_handler,
   sql_print_warning("Invalid pattern in %s: %s", name,
                     regex_list_handler->bad_pattern().c_str());
 }
-
