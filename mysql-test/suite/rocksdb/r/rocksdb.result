@@ -916,6 +916,8 @@ rocksdb_max_open_files	-1
 rocksdb_max_row_locks	1073741824
 rocksdb_max_subcompactions	1
 rocksdb_max_total_wal_size	0
+rocksdb_merge_buf_size	67108864
+rocksdb_merge_combine_read_size	1073741824
 rocksdb_new_table_reader_for_compaction_inputs	OFF
 rocksdb_no_block_cache	OFF
 rocksdb_override_cf_options	

@@ -74,6 +74,12 @@ class Rdb_pk_comparator : public rocksdb::Comparator
 
 class Rdb_rev_comparator : public rocksdb::Comparator
 {
+ public:
+  static int bytewise_compare(const rocksdb::Slice& a, const rocksdb::Slice& b)
+  {
+    return -Rdb_pk_comparator::bytewise_compare(a, b);
+  }
+
   int Compare(const rocksdb::Slice& a, const rocksdb::Slice& b) const override
   {
     return -Rdb_pk_comparator::bytewise_compare(a, b);
