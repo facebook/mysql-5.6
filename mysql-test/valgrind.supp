@@ -1005,6 +1005,18 @@
 }
 
 {
+   TLS data on main thread is not cleaned up properly
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:err_get_state
+   ...
+   fun:kill_server_thread
+   ...
+}
+
+{
    TLS data on main thread is not cleaned up properly (mysqltest client)
    Memcheck:Leak
    match-leak-kinds: reachable
