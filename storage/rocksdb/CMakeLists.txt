@@ -35,6 +35,7 @@ SET(ROCKSDB_SOURCES
   properties_collector.cc properties_collector.h
   event_listener.cc event_listener.h
   rdb_i_s.cc rdb_i_s.h
+  rdb_index_merge.cc rdb_index_merge.h
   rdb_perf_context.cc rdb_perf_context.h
   rdb_mutex_wrapper.cc rdb_mutex_wrapper.h
   rdb_sst_info.cc rdb_sst_info.h
