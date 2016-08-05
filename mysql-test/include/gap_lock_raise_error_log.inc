@@ -14,6 +14,11 @@ update gap4 set a= (select 2+max(a) from gap5 where gap5.pk between 1 and 3 and 
 --exec cat $gap_lock_log_file | grep 'select 2' | wc -l
 --exec cat $gap_lock_log_file | grep 'select 3' | wc -l
 
+# No bogus logs
+--exec cat $gap_lock_log_file | grep -e 'started with' -e 'Tcp port:' -e 'Argument' | wc -l
+flush logs;
+--exec cat $gap_lock_log_file | grep -e 'started with' -e 'Tcp port:' -e 'Argument' | wc -l
+
 rollback;
 
 

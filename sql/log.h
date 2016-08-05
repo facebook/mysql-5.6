@@ -378,7 +378,7 @@ public:
                 key_file_gap_lock_log,
 #endif
                 generate_name(log_name, "-gaplock.log", 0, buf),
-                LOG_NORMAL, 0, WRITE_CACHE);
+                LOG_UNKNOWN, 0, WRITE_CACHE);
   }
 
 private:

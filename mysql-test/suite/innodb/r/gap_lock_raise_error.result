@@ -30,6 +30,9 @@ update gap4 set a= (select 2+max(a) from gap5 where gap5.pk between 1 and 3 and 
 update gap4 set a= (select 3+max(a) from gap5 where gap5.pk between 1 and 3 and gap5.b=gap4.b);
 1
 1
+0
+flush logs;
+0
 rollback;
 set gap_lock_write_log = @save_gap_lock_write_log;
 set gap_lock_raise_error = @save_gap_lock_raise_error;
