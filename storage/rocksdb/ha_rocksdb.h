@@ -20,6 +20,7 @@
 #endif
 
 /* C++ standard header files */
+#include <set>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -39,6 +40,8 @@
 #include "rocksdb/utilities/write_batch_with_index.h"
 
 /* MyRocks header files */
+#include "./rdb_comparator.h"
+#include "./rdb_index_merge.h"
 #include "./rdb_perf_context.h"
 #include "./rdb_sst_info.h"
 #include "./rdb_utils.h"
@@ -161,7 +164,6 @@ inline bool looks_like_per_index_cf_typo(const char *name)
 {
   return (name && name[0]=='$' && strcmp(name, PER_INDEX_CF_NAME));
 }
-
 
 /**
   @brief
@@ -760,7 +762,6 @@ private:
                  std::array<struct key_def_cf_info, MAX_INDEXES + 1>* cfs);
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
-
   int create_key_def(const TABLE *table_arg, uint i,
                      const Rdb_tbl_def* tbl_def_arg,
                      std::shared_ptr<Rdb_key_def>* new_key_def,
@@ -810,11 +811,13 @@ private:
     MY_ATTRIBUTE((__warn_unused_result__));
   bool over_bulk_load_threshold(int* err)
     MY_ATTRIBUTE((__warn_unused_result__));
-  int bulk_load_pk(Rdb_transaction* tx, uint key_id,
-                   rocksdb::ColumnFamilyHandle* cf, const rocksdb::Slice& key,
-                   const rocksdb::Slice& value)
+  int bulk_load_key(Rdb_transaction* tx,
+                    const std::shared_ptr<const Rdb_key_def>& kd,
+                    const rocksdb::Slice& key,
+                    const rocksdb::Slice& value)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-  int update_pk(uint key_id, const struct update_row_info& row_info,
+  int update_pk(const std::shared_ptr<const Rdb_key_def>& kd,
+                const struct update_row_info& row_info,
                 bool pk_changed)
     MY_ATTRIBUTE((__warn_unused_result__));
   int update_sk(const TABLE* table_arg,

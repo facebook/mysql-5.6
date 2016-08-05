@@ -25,6 +25,7 @@
 
 /* C++ standard header files */
 #include <set>
+#include <queue>
 #include <string>
 #include <vector>
 
@@ -33,6 +34,7 @@
 #include "./my_bit.h"
 #include "./my_stacktrace.h"
 #include "./sql_table.h"
+#include <mysys_err.h>
 #include <mysql/psi/mysql_table.h>
 #include <mysql/thread_pool_priv.h>
 
@@ -51,9 +53,9 @@
 #include "./logger.h"
 #include "./rdb_cf_manager.h"
 #include "./rdb_cf_options.h"
-#include "./rdb_comparator.h"
 #include "./rdb_datadic.h"
 #include "./rdb_i_s.h"
+#include "./rdb_index_merge.h"
 #include "./rdb_mutex_wrapper.h"
 #include "./rdb_threads.h"
 
@@ -528,6 +530,22 @@ static MYSQL_THDVAR_BOOL(lock_scanned_rows, PLUGIN_VAR_RQCMDARG,
 static MYSQL_THDVAR_ULONG(bulk_load_size, PLUGIN_VAR_RQCMDARG,
   "Max #records in a batch for bulk-load mode",
   nullptr, nullptr, /*default*/ 1000, /*min*/ 1, /*max*/ 1024*1024*1024, 0);
+
+static MYSQL_THDVAR_ULONGLONG(merge_buf_size, PLUGIN_VAR_RQCMDARG,
+  "Size to allocate for merge sort buffers written out to disk "
+  "during inplace index creation.",
+  nullptr, nullptr,
+  /* default (64MB) */  (ulonglong) 67108864,
+  /* min (100B) */ 100,
+  /* max */ SIZE_T_MAX, 1);
+
+static MYSQL_THDVAR_ULONGLONG(merge_combine_read_size, PLUGIN_VAR_RQCMDARG,
+  "Size that we have to work with during combine (reading from disk) phase of "
+  "external sort during fast index creation.",
+  nullptr, nullptr,
+  /* default (1GB) */ (ulonglong) 1073741824,
+  /* min (100B) */ 100,
+  /* max */ SIZE_T_MAX, 1);
 
 static MYSQL_SYSVAR_BOOL(create_if_missing,
   *reinterpret_cast<my_bool*>(&rocksdb_db_options.create_if_missing),
@@ -1110,7 +1128,9 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(read_free_rpl_tables),
   MYSQL_SYSVAR(rpl_skip_tx_api),
   MYSQL_SYSVAR(bulk_load_size),
+  MYSQL_SYSVAR(merge_buf_size),
   MYSQL_SYSVAR(enable_bulk_load_api),
+  MYSQL_SYSVAR(merge_combine_read_size),
   MYSQL_SYSVAR(skip_bloom_filter_on_read),
 
   MYSQL_SYSVAR(create_if_missing),
@@ -1209,7 +1229,6 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
 
   MYSQL_SYSVAR(validate_tables),
   MYSQL_SYSVAR(table_stats_sampling_pct),
-
   nullptr
 };
 
@@ -7542,17 +7561,16 @@ int ha_rocksdb::check_uniqueness_and_lock(
   return 0;
 }
 
-int ha_rocksdb::bulk_load_pk(Rdb_transaction* tx, uint key_id,
-                             rocksdb::ColumnFamilyHandle* cf,
-                             const rocksdb::Slice& key,
-                             const rocksdb::Slice& value)
+int ha_rocksdb::bulk_load_key(Rdb_transaction* tx,
+                              const std::shared_ptr<const Rdb_key_def>& kd,
+                              const rocksdb::Slice& key,
+                              const rocksdb::Slice& value)
 {
+  rocksdb::ColumnFamilyHandle* cf= kd->get_cf();
   DBUG_ASSERT(cf != nullptr);
 
   if (m_sst_info == nullptr)
   {
-    const std::shared_ptr<const Rdb_key_def>& kd= m_key_descr_arr[key_id];
-
     m_sst_info=
         std::make_shared<Rdb_sst_info>(rdb, m_table_handler->m_table_name,
                                        kd->get_name(), cf, rocksdb_db_options);
@@ -7601,14 +7619,14 @@ int ha_rocksdb::finalize_bulk_load()
   return rc;
 }
 
-int ha_rocksdb::update_pk(uint key_id, const struct update_row_info& row_info,
+int ha_rocksdb::update_pk(const std::shared_ptr<const Rdb_key_def>& kd,
+                          const struct update_row_info& row_info,
                           bool pk_changed)
 {
+  uint key_id= kd->get_keyno();
   bool hidden_pk= is_hidden_pk(key_id, table, m_tbl_def);
   if (!hidden_pk && pk_changed)
   {
-    const std::shared_ptr<const Rdb_key_def>& kd= m_key_descr_arr[key_id];
-
     /*
       The old key needs to be deleted.
     */
@@ -7638,8 +7656,8 @@ int ha_rocksdb::update_pk(uint key_id, const struct update_row_info& row_info,
     /*
       Write the primary key directly to an SST file using an SstFileWriter
      */
-    rc= bulk_load_pk(row_info.tx, key_id, cf, row_info.new_pk_slice,
-                     value_slice);
+    rc= bulk_load_key(row_info.tx, kd, row_info.new_pk_slice,
+                      value_slice);
   }
   else if (row_info.skip_unique_check)
   {
@@ -7796,7 +7814,7 @@ int ha_rocksdb::update_indexes(const struct update_row_info& row_info,
     const std::shared_ptr<const Rdb_key_def>& kd= m_key_descr_arr[key_id];
     if (is_pk(key_id, table, m_tbl_def))
     {
-      rc= update_pk(key_id, row_info, pk_changed);
+      rc= update_pk(kd, row_info, pk_changed);
     }
     else
     {
@@ -9503,7 +9521,7 @@ my_core::enum_alter_inplace_result ha_rocksdb::check_if_supported_inplace_alter(
         my_core::Alter_inplace_info::DROP_UNIQUE_INDEX |
         my_core::Alter_inplace_info::ADD_INDEX))
   {
-      DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
+    DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
   }
 
   DBUG_RETURN(my_core::HA_ALTER_INPLACE_SHARED_LOCK_AFTER_PREPARE);
@@ -9700,69 +9718,163 @@ int ha_rocksdb::inplace_populate_sk(const TABLE* new_table_arg,
   dict_manager.add_create_index(create_index_ids, batch);
   dict_manager.commit(batch);
 
-  /*
-    Note: We pass in the currently existing table + tbl_def object here, as the
-    pk index position may have changed in the case of hidden primary keys.
-  */
-  uint pk= pk_index(table, m_tbl_def);
-  ha_index_init(pk, true);
-
   const bool hidden_pk_exists = has_hidden_pk(table);
-  struct update_row_info row_info;
 
-  row_info.tx = get_or_create_tx(table->in_use);
-  row_info.new_data = table->record[0];
-  row_info.old_data = nullptr;
-  /* TODO(alexyang): no support for unique secondary keys yet */
-  row_info.skip_unique_check = skip_unique_check();
+  int res= 0;
+  Rdb_transaction *tx= get_or_create_tx(table->in_use);
 
-  int res;
-  for (res = index_first(table->record[0]); res == 0;
-       res = index_next(table->record[0]))
+  /*
+    There is one specific scenario where m_sst_info may not be nullptr. This
+    happens if the handler we're using happens to be the handler where the PK
+    bulk load was done on. The sequence of events that lead to this is as
+    follows (T1 is PK bulk load, T2 is SK alter table):
+
+    T1: Execute last INSERT statement
+    T1: Return TABLE and handler object back to Table_cache_manager
+    T1: Close connection
+    T2: Execute ALTER statement
+    T2: Take same TABLE/handler from Table_cache_manager
+    T2: Call closefrm which will call finalize_bulk_load on every other open
+        table/handler *except* the one it's on.
+    T2: Acquire stale snapshot of PK
+    T1: Call finalize_bulk_load
+
+    This is rare because usually, closefrm will call the destructor (and thus
+    finalize_bulk_load) on the handler where PK bulk load is done. However, if
+    the thread ids of the bulk load thread and the alter thread differ by a
+    multiple of table_cache_instances (8 by default), then they hash to the
+    same bucket in Table_cache_manager and the alter thread will not not call
+    the destructor on the handler it is holding. Thus, its m_sst_info will not
+    be nullptr.
+
+    At this point, it is safe to refresh the snapshot because we know all other
+    open handlers have been closed at this point, and the one we're on is the
+    only one left.
+  */
+  if (m_sst_info != nullptr)
   {
-    for (auto& index : indexes)
+    if ((res= finalize_bulk_load()))
     {
+      DBUG_RETURN(res);
+    }
+    tx->commit();
+  }
+
+  ulonglong rdb_merge_buf_size= THDVAR(ha_thd(), merge_buf_size);
+  ulonglong rdb_merge_combine_read_size= THDVAR(ha_thd(),
+      merge_combine_read_size);
+
+  for (auto& index : indexes)
+  {
+    const rocksdb::Comparator* index_comp= index->get_cf()->GetComparator();
+    Rdb_index_merge rdb_merge(rdb_merge_buf_size, rdb_merge_combine_read_size,
+                              index_comp);
+
+    if ((res= rdb_merge.init()))
+    {
+      DBUG_RETURN(res);
+    }
+
+    /*
+      Note: We pass in the currently existing table + tbl_def object here,
+      as the pk index position may have changed in the case of hidden primary
+      keys.
+    */
+    uint pk= pk_index(table, m_tbl_def);
+    ha_index_init(pk, true);
+
+    /* Scan each record in the primary key in order */
+    for (res = index_first(table->record[0]); res == 0;
+         res = index_next(table->record[0]))
+    {
+      longlong hidden_pk_id= 0;
       if (hidden_pk_exists &&
-          read_hidden_pk_id_from_rowkey(&row_info.hidden_pk_id))
+          read_hidden_pk_id_from_rowkey(&hidden_pk_id))
       {
         // NO_LINT_DEBUG
         sql_print_error("Error retrieving hidden pk id.");
         ha_index_end();
-        DBUG_RETURN(1);
+        DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
       }
 
-      res = update_sk(new_table_arg, index, row_info);
-      if (res != 0)
+      /* Create new secondary index entry */
+      int new_packed_size= index->pack_record(new_table_arg, m_pack_buffer,
+                                              table->record[0],
+                                              m_sk_packed_tuple, &m_sk_tails,
+                                              should_store_checksums(),
+                                              hidden_pk_id);
+
+      rocksdb::Slice key= rocksdb::Slice(
+          reinterpret_cast<const char*>(m_sk_packed_tuple), new_packed_size);
+      rocksdb::Slice val= rocksdb::Slice(
+          reinterpret_cast<const char*>(m_sk_tails.ptr()),
+          m_sk_tails.get_current_pos());
+
+      /*
+        Add record to offset tree in preparation for writing out to
+        disk in sorted chunks.
+      */
+      if ((res= rdb_merge.add(key, val)))
       {
-        // NO_LINT_DEBUG
-        sql_print_error("Failed to create new secondary key entry.");
         ha_index_end();
         DBUG_RETURN(res);
       }
+    }
 
-      if (do_bulk_commit(row_info.tx))
+    if (res != HA_ERR_END_OF_FILE)
+    {
+      // NO_LINT_DEBUG
+      sql_print_error("Error retrieving index entry from primary key.");
+      ha_index_end();
+      DBUG_RETURN(res);
+    }
+
+    ha_index_end();
+
+    /*
+      Perform an n-way merge of n sorted buffers on disk, then writes all
+      results to RocksDB via SSTFileWriter API.
+    */
+    rocksdb::Slice merge_key;
+    rocksdb::Slice merge_val;
+    while ((res= rdb_merge.next(&merge_key, &merge_val)) == 0)
+    {
+      /*
+        Insert key and slice to SST via SSTFileWriter API.
+      */
+      if ((res= bulk_load_key(tx, index, merge_key, merge_val)))
       {
-        // NO_LINT_DEBUG
-        sql_print_error("Bulk commit failed during index creation.");
-        ha_index_end();
-        DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+        break;
       }
+    }
+
+    /*
+      Here, res == -1 means that we are finished, while > 0 means an error
+      occurred.
+    */
+    if (res > 0)
+    {
+      // NO_LINT_DEBUG
+      sql_print_error("Error while bulk loading keys in external merge sort.");
+      DBUG_RETURN(res);
+    }
+
+    if ((res= tx->finish_bulk_load()))
+    {
+      // NO_LINT_DEBUG
+      sql_print_error("Error finishing bulk load.");
+      DBUG_RETURN(res);
     }
   }
 
-  if (res != 0 && res != HA_ERR_END_OF_FILE)
-  {
-    // NO_LINT_DEBUG
-    sql_print_error("Error retrieving index entry from primary key.");
-    ha_index_end();
-    DBUG_RETURN(1);
-  }
+  /*
+    Explicitly tell jemalloc to clean up any unused dirty pages at this point.
+    See https://reviews.facebook.net/D63723 for more details.
+  */
+  purge_all_jemalloc_arenas();
 
   DBUG_EXECUTE_IF("crash_during_online_index_creation", DBUG_SUICIDE(););
-
-  ha_index_end();
-
-  DBUG_RETURN(0);
+  DBUG_RETURN(res);
 }
 
 /**
