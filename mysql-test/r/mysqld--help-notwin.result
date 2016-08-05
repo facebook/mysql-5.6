@@ -1169,6 +1169,13 @@ The following options may be given as the first argument:
  DBOptions::max_subcompactions for RocksDB
  --rocksdb-max-total-wal-size=# 
  DBOptions::max_total_wal_size for RocksDB
+ --rocksdb-merge-buf-size=# 
+ Size to allocate for merge sort buffers written out to
+ disk during inplace index creation.
+ --rocksdb-merge-combine-read-size=# 
+ Size that we have to work with during combine (reading
+ from disk) phase of external sort during fast index
+ creation.
  --rocksdb-new-table-reader-for-compaction-inputs 
  DBOptions::new_table_reader_for_compaction_inputs for
  RocksDB
@@ -1900,6 +1907,8 @@ rocksdb-max-open-files -1
 rocksdb-max-row-locks 1073741824
 rocksdb-max-subcompactions 1
 rocksdb-max-total-wal-size 0
+rocksdb-merge-buf-size 67108864
+rocksdb-merge-combine-read-size 1073741824
 rocksdb-new-table-reader-for-compaction-inputs FALSE
 rocksdb-no-block-cache FALSE
 rocksdb-override-cf-options 
