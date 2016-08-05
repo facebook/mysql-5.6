@@ -9443,8 +9443,14 @@ bool ha_rocksdb::commit_inplace_alter_table(
     if (ctx0->m_new_key_descr)
     {
       /* Delete the new key descriptors */
+      for (uint i = 0; i < ctx0->m_new_tdef->m_key_count; i++)
+      {
+        ctx0->m_new_key_descr[i]= nullptr;
+      }
+
       delete[] ctx0->m_new_key_descr;
       ctx0->m_new_key_descr = nullptr;
+      ctx0->m_new_tdef->m_key_descr_arr = nullptr;
 
       delete ctx0->m_new_tdef;
     }
