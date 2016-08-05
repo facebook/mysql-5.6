@@ -11730,6 +11730,7 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli)
 
     if (m_binlog_only)
     {
+      reset_log_pos();
       // We are inside a transaction which should not be applied to
       // the storage engine, so write these row events to the binlog and exit.
       // Table map events are necessary before every row event.
