@@ -10,20 +10,15 @@ SELECT @start_global_value;
 SHOW STATUS LIKE '%Latency_histogram_binlog_fsync_%';
 Variable_name	Value
 Latency_histogram_binlog_fsync_0-128us	0
-Latency_histogram_binlog_fsync_128-256us	0
-Latency_histogram_binlog_fsync_256-384us	0
-Latency_histogram_binlog_fsync_384-512us	0
-Latency_histogram_binlog_fsync_512-640us	0
-Latency_histogram_binlog_fsync_640-768us	0
-Latency_histogram_binlog_fsync_768-896us	0
-Latency_histogram_binlog_fsync_896-1024us	0
-Latency_histogram_binlog_fsync_1024-1152us	0
-Latency_histogram_binlog_fsync_1152-1280us	0
-Latency_histogram_binlog_fsync_1280-1408us	0
-Latency_histogram_binlog_fsync_1408-1536us	0
-Latency_histogram_binlog_fsync_1536-1664us	0
-Latency_histogram_binlog_fsync_1664-1792us	0
-Latency_histogram_binlog_fsync_1792-1920us	0
+Latency_histogram_binlog_fsync_128-384us	0
+Latency_histogram_binlog_fsync_384-896us	0
+Latency_histogram_binlog_fsync_896-1920us	0
+Latency_histogram_binlog_fsync_1920-3968us	0
+Latency_histogram_binlog_fsync_3968-8064us	0
+Latency_histogram_binlog_fsync_8064-16256us	0
+Latency_histogram_binlog_fsync_16256-32640us	0
+Latency_histogram_binlog_fsync_32640-65408us	0
+Latency_histogram_binlog_fsync_65408-130944us	0
 SET @@GLOBAL.histogram_step_size_binlog_fsync='16us';
 select @@GLOBAL.histogram_step_size_binlog_fsync;
 @@GLOBAL.histogram_step_size_binlog_fsync

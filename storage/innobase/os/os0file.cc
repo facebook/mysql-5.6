@@ -6380,25 +6380,23 @@ os_aio_print_histogram(
 {
 	size_t i;
 	ulonglong bucket_lower_display, bucket_upper_display;
+  ulonglong itr_step_size = current_histogram->step_size;
 	for(i = 0, bucket_lower_display = 0; i < NUMBER_OF_HISTOGRAM_BINS;
 									++i)  {
 	/* The following calculates the units on the fly
 	 * to be displayed in the output */
-		bucket_upper_display = my_timer_to_microseconds_ulonglong(
-				current_histogram->step_size) +
+		bucket_upper_display =
+	my_timer_to_microseconds_ulonglong(itr_step_size) +
 				bucket_lower_display;
-		if (bucket_upper_display < 1000)  {
-			fprintf(file, "Bucket %llu to %llu us\t",
-			bucket_lower_display, bucket_upper_display);
-		}
-		else if (bucket_upper_display < 1000000)  {
+
+    bool ms_ok = (bucket_lower_display % 1000 == 0) &&
+		 (bucket_upper_display % 1000 == 0);
+    if (ms_ok) {
 			fprintf(file, "Bucket %llu to %llu ms\t",
 			bucket_lower_display/1000, bucket_upper_display/1000);
-		}
-		else  {
-			fprintf(file, "Bucket %llu to %llu s\t",
-			bucket_lower_display/1000000,
-			bucket_upper_display/1000000);
+    } else {
+			fprintf(file, "Bucket %llu to %llu us\t",
+			bucket_lower_display, bucket_upper_display);
 		}
 
 		fprintf(file, "%llu\n",
@@ -6406,6 +6404,7 @@ os_aio_print_histogram(
 			i));
 
 		bucket_lower_display = bucket_upper_display;
+    itr_step_size *= current_histogram->step_ratio;
 	}
 }
 
