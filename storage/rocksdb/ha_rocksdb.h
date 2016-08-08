@@ -373,6 +373,9 @@ class ha_rocksdb: public my_core::handler
   /* TRUE means we are accessing the first row after a snapshot was created */
   bool m_rnd_scan_is_new_snapshot;
 
+  /* TRUE means the replication slave will use Read Free Replication */
+  bool m_use_read_free_rpl;
+
   /**
     @brief
     This is a bitmap of indexes (i.e. a set) whose keys (in future, values) may
@@ -946,12 +949,14 @@ public:
 
   int finalize_bulk_load() MY_ATTRIBUTE((__warn_unused_result__));
 
+  void set_use_read_free_rpl(const char* whitelist);
+
  public:
   virtual void rpl_before_delete_rows() override;
   virtual void rpl_after_delete_rows() override;
   virtual void rpl_before_update_rows() override;
   virtual void rpl_after_update_rows() override;
-  virtual bool rpl_lookup_rows();
+  virtual bool use_read_free_rpl();
 
  private:
   /* Flags tracking if we are inside different replication operation */
