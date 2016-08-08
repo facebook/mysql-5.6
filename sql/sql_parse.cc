@@ -9920,6 +9920,12 @@ int get_active_master_info(std::string *str_ptr)
       *str_ptr += active_mi->host;
       *str_ptr += ", master_port: ";
       *str_ptr += std::to_string(active_mi->port);
+      const char *extra_str = opt_read_only_error_msg_extra;
+      if (extra_str && extra_str[0])
+      {
+        *str_ptr += ". ";
+        *str_ptr += extra_str;
+      }
       return ER_OPTION_PREVENTS_STATEMENT_EXTRA_INFO;
     }
 #endif
