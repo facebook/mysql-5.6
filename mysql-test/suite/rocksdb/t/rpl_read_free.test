@@ -19,7 +19,7 @@ insert into t1 values (1,1), (2,2), (3,3), (4,4);
 --let $diff_tables= master:t1, slave:t1
 
 --echo
---echo # regular update/delete. With rpl_lookup_rows=false, rocksdb_rows_read does not increase on slaves
+--echo # regular update/delete. With rocks_read_free_rpl_tables=.*, rocksdb_rows_read does not increase on slaves
 --echo
 connection slave;
 call save_read_stats();
@@ -34,7 +34,7 @@ select * from t1;
 
 
 --echo
---echo # "rpl_lookup_rows=false" makes "row not found error" not happen anymore
+--echo # "rocks_read_free_rpl_tables=.*" makes "row not found error" not happen anymore
 --echo
 connection slave;
 --source include/stop_slave.inc
@@ -193,9 +193,109 @@ call get_read_stats();
 connection master;
 --source include/diff_tables.inc
 
+#--echo
+#--echo # some tables with read-free replication on and some with it off
+#--echo # secondary keys lose rows
+#--echo
+# The configuration is set up so the slave will do read-free replication on
+# all tables starting with 't'
+connection master;
+--echo [on master]
+create table t2 (id int primary key, i1 int, i2 int, value int, index(i1), index(i2));
+create table u2 (id int primary key, i1 int, i2 int, value int, index(i1), index(i2));
+insert into t2 values (1,1,1,1),(2,2,2,2),(3,3,3,3);
+insert into u2 values (1,1,1,1),(2,2,2,2),(3,3,3,3);
+--source include/sync_slave_sql_with_master.inc
+
+# make a mismatch between the slave and the master
+connection slave;
+--echo [on slave]
+delete from t2 where id <= 2;
+delete from u2 where id <= 2;
+
+# make changes on the master
+connection master;
+--echo [on master]
+update t2 set i2=100, value=100 where id=1;
+update u2 set i2=100, value=100 where id=1;
+
+connection slave;
+--echo [on slave]
+call mtr.add_suppression("Slave SQL.*Could not execute Update_rows event on table test.u2.*Error_code.*");
+call mtr.add_suppression("Slave: Can't find record in 'u2'.*");
+# wait until we have the expected error
+--let $slave_sql_errno= convert_error(ER_KEY_NOT_FOUND)
+--source include/wait_for_slave_sql_error.inc
+
+# query the t2 table on the slave
+connection slave;
+select count(*) from t2 force index(primary);
+select count(*) from t2 force index(i1);
+select count(*) from t2 force index(i2);
+select * from t2 where id=1;
+select i1 from t2 where i1=1;
+select i2 from t2 where i2=100;
+
+# query the u2 table on the slave
+select count(*) from u2 force index(primary);
+select count(*) from u2 force index(i1);
+select count(*) from u2 force index(i2);
+select * from u2 where id=1;
+select i1 from u2 where i1=1;
+select i2 from u2 where i2=100;
+
+# the slave replication thread stopped because of the errors;
+# cleanup the problem and restart it
+--disable_query_log
+insert into u2 values(1,1,1,1), (2,2,2,2);
+start slave sql_thread;
+--source include/wait_for_slave_sql_to_start.inc
+--enable_query_log
+
+--echo
+--echo # some tables with read-free replication on and some with it off
+--echo # secondary keys have extra rows
+--echo
+connection master;
+--echo [on master]
+create table t3 (id int primary key, i1 int, i2 int, value int, index(i1), index(i2));
+create table u3 (id int primary key, i1 int, i2 int, value int, index(i1), index(i2));
+insert into t3 values (1,1,1,1),(2,2,2,2),(3,3,3,3);
+insert into u3 values (1,1,1,1),(2,2,2,2),(3,3,3,3);
+--source include/sync_slave_sql_with_master.inc
+
+# make a mismatch between the slave and the master
+connection slave;
+--echo [on slave]
+update t3 set i1=100 where id=1;
+update u3 set i1=100 where id=1;
+
+# make changes on the master
+connection master;
+--echo [on master]
+delete from t3 where id=1;
+delete from u3 where id=1;
+
+# make sure the slave is caught up
+--source include/sync_slave_sql_with_master.inc
+
+# query the t3 table on the slave
+connection slave;
+--echo [on slave]
+select count(*) from t3 force index(primary);
+select count(*) from t3 force index(i1);
+select count(*) from t3 force index(i2);
+select i1 from t3 where i1=100;
+
+# query the u3 table on the slave
+select count(*) from u3 force index(primary);
+select count(*) from u3 force index(i1);
+select count(*) from u3 force index(i2);
+select i1 from u3 where i1=100;
+
 # cleanup
 connection master;
-drop table t1;
+drop table t1, t2, t3, u2, u3;
 --source drop_stats_procedure.inc
 
 --source include/rpl_end.inc
