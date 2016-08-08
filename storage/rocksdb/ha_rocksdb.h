@@ -689,8 +689,7 @@ public:
     MY_ATTRIBUTE((__warn_unused_result__));;
 
   virtual double scan_time() { return (double) (stats.records+stats.deleted) / 20.0+10; }
-  virtual double read_time(uint, uint, ha_rows rows)
-  { return (double) rows /  20.0+1; }
+  virtual double read_time(uint, uint, ha_rows rows) override;
 
   int open(const char *name, int mode, uint test_if_locked)
     MY_ATTRIBUTE((__warn_unused_result__));
