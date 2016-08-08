@@ -1196,12 +1196,12 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-rocksdb-pin-l0-filter-and-index-blocks-in-cache to disable.)
  --rocksdb-rate-limiter-bytes-per-sec=# 
  DBOptions::rate_limiter bytes_per_sec for RocksDB
+ --rocksdb-read-free-rpl-tables=name 
+ List of tables that will use read-free replication on the
+ slave (i.e. not lookup a row during replication)
  --rocksdb-records-in-range=# 
  Used to override the result of records_in_range(). Set to
  a positive number to override
- --rocksdb-rpl-lookup-rows 
- Lookup a row on replication slave
- (Defaults to on; use --skip-rocksdb-rpl-lookup-rows to disable.)
  --rocksdb-seconds-between-stat-computes=# 
  Sets a number of seconds to wait between optimizer stats
  recomputation. Only changed indexes will be refreshed.
@@ -1904,8 +1904,8 @@ rocksdb-perf-context-global ON
 rocksdb-perf-context-level 0
 rocksdb-pin-l0-filter-and-index-blocks-in-cache TRUE
 rocksdb-rate-limiter-bytes-per-sec 0
+rocksdb-read-free-rpl-tables (No default value)
 rocksdb-records-in-range 0
-rocksdb-rpl-lookup-rows TRUE
 rocksdb-seconds-between-stat-computes 3600
 rocksdb-signal-drop-index-thread FALSE
 rocksdb-skip-bloom-filter-on-read FALSE

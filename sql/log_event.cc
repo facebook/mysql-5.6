@@ -10287,7 +10287,7 @@ Rows_log_event::decide_row_lookup_algorithm_and_key()
   // row lookup not needed
   if (event_type == WRITE_ROWS_EVENT ||
      ((event_type == DELETE_ROWS_EVENT || event_type == UPDATE_ROWS_EVENT) &&
-      get_flags(COMPLETE_ROWS_F) && !m_table->file->rpl_lookup_rows()))
+      get_flags(COMPLETE_ROWS_F) && m_table->file->use_read_free_rpl()))
     DBUG_VOID_RETURN;
 
   if (!(slave_rows_search_algorithms_options & SLAVE_ROWS_INDEX_SCAN))
@@ -11897,7 +11897,7 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli)
         DBUG_ASSERT(get_general_type_code() == WRITE_ROWS_EVENT ||
                     ((get_general_type_code() == DELETE_ROWS_EVENT ||
                     get_general_type_code() == UPDATE_ROWS_EVENT) &&
-                    !m_table->file->rpl_lookup_rows()));
+                    m_table->file->use_read_free_rpl()));
 
         /* No need to scan for rows, just apply it */
         do_apply_row_ptr= &Rows_log_event::do_apply_row;

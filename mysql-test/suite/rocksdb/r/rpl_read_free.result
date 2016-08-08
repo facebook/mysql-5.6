@@ -34,7 +34,7 @@ create table t1 (id int primary key, value int);
 insert into t1 values (1,1), (2,2), (3,3), (4,4);
 include/sync_slave_sql_with_master.inc
 
-# regular update/delete. With rpl_lookup_rows=false, rocksdb_rows_read does not increase on slaves
+# regular update/delete. With rocks_read_free_rpl_tables=.*, rocksdb_rows_read does not increase on slaves
 
 call save_read_stats();
 update t1 set value=value+1 where id=1;
@@ -60,7 +60,7 @@ id	value
 2	2
 3	3
 
-# "rpl_lookup_rows=false" makes "row not found error" not happen anymore
+# "rocks_read_free_rpl_tables=.*" makes "row not found error" not happen anymore
 
 include/stop_slave.inc
 delete from t1 where id in (2, 3);
@@ -225,7 +225,97 @@ rows_updated
 rows_deleted
 5000
 include/diff_tables.inc [master:t1, slave:t1]
-drop table t1;
+[on master]
+create table t2 (id int primary key, i1 int, i2 int, value int, index(i1), index(i2));
+create table u2 (id int primary key, i1 int, i2 int, value int, index(i1), index(i2));
+insert into t2 values (1,1,1,1),(2,2,2,2),(3,3,3,3);
+insert into u2 values (1,1,1,1),(2,2,2,2),(3,3,3,3);
+include/sync_slave_sql_with_master.inc
+[on slave]
+delete from t2 where id <= 2;
+delete from u2 where id <= 2;
+[on master]
+update t2 set i2=100, value=100 where id=1;
+update u2 set i2=100, value=100 where id=1;
+[on slave]
+call mtr.add_suppression("Slave SQL.*Could not execute Update_rows event on table test.u2.*Error_code.*");
+call mtr.add_suppression("Slave: Can't find record in 'u2'.*");
+include/wait_for_slave_sql_error.inc [errno=1032]
+select count(*) from t2 force index(primary);
+count(*)
+2
+select count(*) from t2 force index(i1);
+count(*)
+1
+select count(*) from t2 force index(i2);
+count(*)
+2
+select * from t2 where id=1;
+id	i1	i2	value
+1	1	100	100
+select i1 from t2 where i1=1;
+i1
+select i2 from t2 where i2=100;
+i2
+100
+select count(*) from u2 force index(primary);
+count(*)
+1
+select count(*) from u2 force index(i1);
+count(*)
+1
+select count(*) from u2 force index(i2);
+count(*)
+1
+select * from u2 where id=1;
+id	i1	i2	value
+select i1 from u2 where i1=1;
+i1
+select i2 from u2 where i2=100;
+i2
+include/wait_for_slave_sql_to_start.inc
+
+# some tables with read-free replication on and some with it off
+# secondary keys have extra rows
+
+[on master]
+create table t3 (id int primary key, i1 int, i2 int, value int, index(i1), index(i2));
+create table u3 (id int primary key, i1 int, i2 int, value int, index(i1), index(i2));
+insert into t3 values (1,1,1,1),(2,2,2,2),(3,3,3,3);
+insert into u3 values (1,1,1,1),(2,2,2,2),(3,3,3,3);
+include/sync_slave_sql_with_master.inc
+[on slave]
+update t3 set i1=100 where id=1;
+update u3 set i1=100 where id=1;
+[on master]
+delete from t3 where id=1;
+delete from u3 where id=1;
+include/sync_slave_sql_with_master.inc
+[on slave]
+select count(*) from t3 force index(primary);
+count(*)
+2
+select count(*) from t3 force index(i1);
+count(*)
+3
+select count(*) from t3 force index(i2);
+count(*)
+2
+select i1 from t3 where i1=100;
+i1
+100
+select count(*) from u3 force index(primary);
+count(*)
+2
+select count(*) from u3 force index(i1);
+count(*)
+2
+select count(*) from u3 force index(i2);
+count(*)
+2
+select i1 from u3 where i1=100;
+i1
+drop table t1, t2, t3, u2, u3;
 drop procedure save_read_stats;
 drop procedure get_read_stats;
 include/rpl_end.inc

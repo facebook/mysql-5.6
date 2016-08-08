@@ -3473,10 +3473,10 @@ public:
      Determine whether the storage engine asks for row-based replication that
      may skip the lookup of the old row image.
 
-     @return true if old rows should be read (the default)
-             false if old rows should not be read
+     @return true if old rows should not be read
+             false if old rows should be read (the default)
    */
-  virtual bool rpl_lookup_rows() { return true; }
+  virtual bool use_read_free_rpl() { return false; }
   /*
      Storage engine hooks to be called before and after row write, delete, and
      update events
