@@ -10235,6 +10235,15 @@ bool ha_rocksdb::rpl_lookup_rows()
     has_hidden_pk(table) || THDVAR(ha_thd(), rpl_lookup_rows);
 }
 
+double ha_rocksdb::read_time(uint index, uint ranges, ha_rows rows)
+{
+  if (index != table->s->primary_key) {
+    /* Non covering index range scan */
+    return(handler::read_time(index, ranges, rows));
+  }
+  return (rows/20.0) + 1;
+}
+
 }  // namespace myrocks
 
 /*

@@ -587,7 +587,7 @@ row4	row4-key	row4-data
 explain 
 select * from t30 where key1 in ('row2-key','row4-key');
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t30	ALL	key1	NULL	NULL	NULL	#	Using where
+1	SIMPLE	t30	range	key1	key1	18	NULL	#	Using index condition
 select * from t30 where key1 in ('row2-key','row4-key');
 pk	key1	col1
 row2	row2-key	row2-data
@@ -595,7 +595,7 @@ row4	row4-key	row4-data
 explain 
 select key1 from t30 where key1 in ('row2-key','row4-key');
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t30	index	key1	key1	18	NULL	#	Using where; Using index
+1	SIMPLE	t30	range	key1	key1	18	NULL	#	Using where; Using index
 select key1 from t30 where key1 in ('row2-key','row4-key');
 key1
 row2-key
@@ -923,7 +923,7 @@ rocksdb_pause_background_work	ON
 rocksdb_perf_context_level	0
 rocksdb_pin_l0_filter_and_index_blocks_in_cache	ON
 rocksdb_rate_limiter_bytes_per_sec	0
-rocksdb_records_in_range	0
+rocksdb_records_in_range	50
 rocksdb_rpl_lookup_rows	ON
 rocksdb_seconds_between_stat_computes	3600
 rocksdb_signal_drop_index_thread	OFF
@@ -1114,7 +1114,7 @@ fifty-five
 explain 
 select key1 from t4 where key1 between 's' and 'u';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t4	index	key1	key1	13	NULL	#	Using where; Using index
+1	SIMPLE	t4	range	key1	key1	13	NULL	#	Using where; Using index
 select key1 from t4 where key1 between 's' and 'u';
 key1
 threee
@@ -1824,7 +1824,7 @@ explain
 select kp1,kp2 from t1 force index (kp1) 
 where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	kp1	kp1	11	NULL	#	Using where; Using index
+1	SIMPLE	t1	range	kp1	kp1	6	NULL	#	Using where; Using index
 select kp1,kp2 from t1 force index (kp1) 
 where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
 kp1	kp2
@@ -1847,7 +1847,7 @@ explain
 select kp1,kp2 from t2 force index (kp1) 
 where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	index	kp1	kp1	10	NULL	#	Using where; Using index
+1	SIMPLE	t2	range	kp1	kp1	5	NULL	#	Using where; Using index
 select kp1,kp2 from t2 force index (kp1) 
 where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
 kp1	kp2
@@ -1884,7 +1884,7 @@ explain
 select kp1,kp2 from t1 force index (kp1) 
 where kp1 between '2015-01-01' and '2015-01-05';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	kp1	kp1	9	NULL	#	Using where; Using index
+1	SIMPLE	t1	range	kp1	kp1	4	NULL	#	Using where; Using index
 select kp1,kp2 from t1 force index (kp1) 
 where kp1 between '2015-01-01' and '2015-01-05';
 kp1	kp2
@@ -1907,7 +1907,7 @@ explain
 select kp1,kp2 from t2 force index (kp1) 
 where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	index	kp1	kp1	8	NULL	#	Using where; Using index
+1	SIMPLE	t2	range	kp1	kp1	3	NULL	#	Using where; Using index
 select kp1,kp2 from t2 force index (kp1) 
 where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
 kp1	kp2
@@ -1946,7 +1946,7 @@ explain
 select kp1,kp2 from t1 force index (kp1) 
 where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	kp1	kp1	10	NULL	#	Using where; Using index
+1	SIMPLE	t1	range	kp1	kp1	5	NULL	#	Using where; Using index
 select kp1,kp2 from t1 force index (kp1) 
 where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
 kp1	kp2
@@ -1969,7 +1969,7 @@ explain
 select kp1,kp2 from t2 force index (kp1) 
 where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	index	kp1	kp1	9	NULL	#	Using where; Using index
+1	SIMPLE	t2	range	kp1	kp1	4	NULL	#	Using where; Using index
 select kp1,kp2 from t2 force index (kp1) 
 where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
 kp1	kp2
@@ -2008,7 +2008,7 @@ explain
 select kp1,kp2 from t1 force index (kp1) 
 where kp1 between '09:01:00' and '09:05:00';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	kp1	kp1	9	NULL	#	Using where; Using index
+1	SIMPLE	t1	range	kp1	kp1	4	NULL	#	Using where; Using index
 select kp1,kp2 from t1 force index (kp1) 
 where kp1 between '09:01:00' and '09:05:00';
 kp1	kp2
@@ -2031,7 +2031,7 @@ explain
 select kp1,kp2 from t2 force index (kp1) 
 where kp1 between '09:01:00' and '09:05:00';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	index	kp1	kp1	8	NULL	#	Using where; Using index
+1	SIMPLE	t2	range	kp1	kp1	3	NULL	#	Using where; Using index
 select kp1,kp2 from t2 force index (kp1) 
 where kp1 between '09:01:00' and '09:05:00';
 kp1	kp2
@@ -2069,7 +2069,7 @@ explain
 select kp1,kp2 from t1 force index (kp1) 
 where kp1 between '2016' and '2020';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	kp1	kp1	7	NULL	#	Using where; Using index
+1	SIMPLE	t1	range	kp1	kp1	2	NULL	#	Using where; Using index
 select kp1,kp2 from t1 force index (kp1) 
 where kp1 between '2016' and '2020';
 kp1	kp2
@@ -2092,7 +2092,7 @@ explain
 select kp1,kp2 from t2 force index (kp1) 
 where kp1 between '2016' and '2020';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	index	kp1	kp1	6	NULL	#	Using where; Using index
+1	SIMPLE	t2	range	kp1	kp1	1	NULL	#	Using where; Using index
 select kp1,kp2 from t2 force index (kp1) 
 where kp1 between '2016' and '2020';
 kp1	kp2
@@ -2200,7 +2200,7 @@ SELECT * FROM t2 WHERE c1 > 4294967295 ORDER BY c1,c6;
 c1	c2	c3	c4	c5	c6	c7
 EXPLAIN SELECT * FROM t2 WHERE c1 > 4294967295 ORDER BY c1,c6;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
+1	SIMPLE	t2	range	PRIMARY	PRIMARY	4	NULL	50	Using where
 drop table t2;
 #
 # Issue #135: register transaction was not being called for statement
