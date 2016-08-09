@@ -411,6 +411,7 @@ static uint32_t rocksdb_validate_tables = 1;
 static char * rocksdb_datadir;
 static uint32_t rocksdb_table_stats_sampling_pct;
 
+std::atomic<uint64_t> rocksdb_snapshot_conflict_errors(0);
 
 static rocksdb::DBOptions rdb_init_rocksdb_db_options(void)
 {
@@ -1452,6 +1453,7 @@ public:
     }
     if (s.IsBusy())
     {
+      rocksdb_snapshot_conflict_errors++;
       return HA_ERR_LOCK_DEADLOCK;
     }
     /* TODO: who returns HA_ERR_ROCKSDB_TOO_MANY_LOCKS now?? */
@@ -9791,6 +9793,9 @@ static SHOW_VAR rocksdb_status_vars[]= {
   DEF_STATUS_VAR(number_superversion_releases),
   DEF_STATUS_VAR(number_superversion_cleanups),
   DEF_STATUS_VAR(number_block_not_compressed),
+  DEF_STATUS_VAR_PTR("snapshot_conflict_errors",
+                     &rocksdb_snapshot_conflict_errors,
+                     SHOW_LONGLONG),
   DEF_STATUS_VAR_PTR("number_stat_computes", &rocksdb_number_stat_computes, SHOW_LONGLONG),
   DEF_STATUS_VAR_PTR("number_sst_entry_put", &rocksdb_num_sst_entry_put,
                      SHOW_LONGLONG),
