@@ -838,8 +838,8 @@ The following options may be given as the first argument:
  --profiling-history-size=# 
  Limit of query profiling memory
  --protocol-mode=name 
- Syntax: protocol-mode=mode[,mode[,mode...]]. See the
- manual for the complete list of valid protocol modes
+ Syntax: protocol-mode=mode. See the manual for the
+ complete list of valid protocol modes
  --query-alloc-block-size=# 
  Allocation block size for query parsing and execution
  --query-cache-limit=# 

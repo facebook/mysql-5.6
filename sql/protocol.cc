@@ -769,7 +769,7 @@ store_result_set_metadata_object_names(THD *thd,
     in the result set metadata if the appropriate protocol mode is
     set. Otherwise, use standard metadata.
   */
-  if (thd->variables.protocol_mode & PROTO_MODE_MINIMAL_OBJECT_NAMES_IN_RSMD)
+  if (thd->variables.protocol_mode == PROTO_MODE_MINIMAL_OBJECT_NAMES_IN_RSMD)
     metadata= minimal_metadata;
   else
     metadata= standard_metadata;

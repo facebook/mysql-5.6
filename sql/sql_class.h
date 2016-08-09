@@ -185,8 +185,13 @@ enum enum_session_track_gtids {
 #define MODE_NO_ENGINE_SUBSTITUTION     (MODE_HIGH_NOT_PRECEDENCE*2)
 #define MODE_PAD_CHAR_TO_FULL_LENGTH    (ULL(1) << 31)
 
-/* Minimal object names in the result set metadata. */
-#define PROTO_MODE_MINIMAL_OBJECT_NAMES_IN_RSMD    (ULL(1) << 0)
+enum enum_protocol_mode
+{
+  /* Default. */
+  PROTO_MODE_OFF= 0,
+  /* Minimal object names in the result set metadata. */
+  PROTO_MODE_MINIMAL_OBJECT_NAMES_IN_RSMD= 1,
+};
 
 extern char internal_table_name[2];
 extern char empty_c_string[1];
