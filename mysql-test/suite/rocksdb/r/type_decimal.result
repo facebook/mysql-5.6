@@ -4,6 +4,8 @@ drop table if exists t1, t2;
 # 
 create table t0(a int);
 insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+# First, make the server to create a dataset in the old format:
+set session debug= '+d,MYROCKS_FORMAT_VERSION_INITIAL';
 create table t1 (
 pk1 decimal(32,16), 
 pk2 decimal(32,16),
@@ -15,19 +17,32 @@ insert into t1
 select 
 A.a, B.a, C.a, 1234
 from t0 A, t0 B, t0 C;
+#
+# Looking at the table size, one can tell that the data is stored using
+# old format:
+#
 set global rocksdb_force_flush_memtable_now=1;
-# The following shows the PK format version used by the current server:
-select table_name,index_name,kv_format_version from information_schema.ROCKSDB_DDL 
+# Check the format version:
+select table_name,index_name,kv_format_version 
+from information_schema.ROCKSDB_DDL 
 where TABLE_SCHEMA=database() AND table_name='t1';
 table_name	index_name	kv_format_version
 t1	PRIMARY	10
 flush tables;
+set session debug= '-d,MYROCKS_FORMAT_VERSION_INITIAL';
+# Check that the new server reads the data in the old format:
+select * from t1 order by pk1,pk2,pk3 limit 5;
+pk1	pk2	pk3	a
+0.0000000000000000	0.0000000000000000	0.0000000000000000	1234
+0.0000000000000000	0.0000000000000000	1.0000000000000000	1234
+0.0000000000000000	0.0000000000000000	2.0000000000000000	1234
+0.0000000000000000	0.0000000000000000	3.0000000000000000	1234
+0.0000000000000000	0.0000000000000000	4.0000000000000000	1234
 #
 # Ok, now, enable the new data format:
 #
-set session debug= '+d,myrocks_data_format_decimal_index_only';
 create table t2 (
-pk1 decimal(32,16), 
+pk1 decimal(32,16),
 pk2 decimal(32,16),
 pk3 decimal(32,16),
 a smallint not null,
@@ -59,8 +74,6 @@ pk1	pk2	pk3	a
 0.0000000000000000	0.0000000000000000	1.0000000000000000	1234
 0.0000000000000000	0.0000000000000000	2.0000000000000000	1234
 drop table t1,t2;
-# Set the data format back.
-set session debug= '-d,myrocks_data_format_decimal_index_only';
 drop table t0;
 #
 # Check that DECIMAL datatype supports 'index-only' scans and is decoded correctly.
