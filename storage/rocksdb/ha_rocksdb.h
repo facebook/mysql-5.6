@@ -248,6 +248,8 @@ struct st_export_stats {
 
 }  // namespace myrocks
 
+#include "./rdb_buff.h"
+
 /* Provide hash function for GL_INDEX_ID so we can include it in sets */
 namespace std {
   template <>
@@ -323,15 +325,8 @@ class ha_rocksdb: public my_core::handler
   */
   uchar *m_end_key_packed_tuple;
 
-  /*
-    Same as above, but it stores the value part. It holds unpack info which
-    is currently not used (always empty).
-
-    TODO: why does ha_rocksdb::open() assume that an upper bound of the size of
-    this buffer is max_packed_sk_len? This is technically true currently,
-    but doesn't look meaningful.
-  */
-  uchar *m_sk_tails;
+  Rdb_string_writer m_sk_tails;
+  Rdb_string_writer m_pk_unpack_info;
 
   /*
     ha_rockdb->index_read_map(.. HA_READ_KEY_EXACT or similar) will save here
@@ -345,7 +340,7 @@ class ha_rocksdb: public my_core::handler
 
   /* Second buffers, used by UPDATE. */
   uchar *m_sk_packed_tuple_old;
-  uchar *m_sk_tails_old;
+  Rdb_string_writer m_sk_tails_old;
 
   /*
     Temporary space for packing VARCHARs (we provide it to
@@ -513,11 +508,6 @@ class ha_rocksdb: public my_core::handler
   */
   void update_stats(void);
 
-  /*
-    Helper for convert_record_to_storage_format for writing unpack_info.
-  */
-  void write_unpack_info(void);
-
 public:
   /*
     Controls whether writes include checksums. This is updated from the session variable
@@ -615,6 +605,7 @@ public:
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   void convert_record_to_storage_format(const rocksdb::Slice& pk_packed_slice,
+                                        Rdb_string_writer *pk_unpack_info,
                                         rocksdb::Slice *packed_rec)
     MY_ATTRIBUTE((__nonnull__));
 
@@ -732,6 +723,10 @@ private:
     const uchar*     old_data;
     rocksdb::Slice   new_pk_slice;
     rocksdb::Slice   old_pk_slice;
+
+    // "unpack_info" data for the new PK value
+    Rdb_string_writer *new_pk_unpack_info;
+
     longlong         hidden_pk_id;
     bool             skip_unique_check;
   };
