@@ -41,14 +41,41 @@ class Rdb_key_def;
 class Rdb_field_packing;
 class Rdb_cf_manager;
 class Rdb_ddl_manager;
-struct Rdb_make_unpack_field;
+
+/*
+  @brief
+  Field packing context.
+  The idea is to ensure that a call to rdb_index_field_pack_t function
+  is followed by a call to rdb_make_unpack_info_t.
+
+  @detail
+  For some datatypes, unpack_info is produced as a side effect of
+  rdb_index_field_pack_t function call.
+  For other datatypes, packing is just calling make_sort_key(), while
+  rdb_make_unpack_info_t is a custom function.
+  In order to accommodate both cases, we require both calls to be made and
+  unpack_info is passed as context data between the two.
+*/
+class Rdb_pack_field_context
+{
+ public:
+  explicit Rdb_pack_field_context(Rdb_string_writer *writer_arg) :
+    writer(writer_arg)
+  {}
+
+  // NULL means we're not producing unpack_info.
+  Rdb_string_writer *writer;
+};
+
+struct Rdb_collation_codec;
 
 /*
   C-style "virtual table" allowing different handling of packing logic based
   on the field type. See Rdb_field_packing::setup() implementation.
   */
-using rdb_make_unpack_info_t=  uint (*)(Rdb_make_unpack_field *upf,
-                                    const Field *field, uchar *dst);
+using rdb_make_unpack_info_t=  void (*)(const Rdb_collation_codec *codec,
+                                    const Field *field,
+                                    Rdb_pack_field_context *pack_ctx);
 using rdb_index_field_unpack_t= int (*)(Rdb_field_packing *fpi, Field *field,
                                     uchar *field_ptr,
                                     Rdb_string_reader *reader,
@@ -57,7 +84,8 @@ using rdb_index_field_skip_t=   int (*)(const Rdb_field_packing *fpi,
                                     const Field *field,
                                     Rdb_string_reader *reader);
 using rdb_index_field_pack_t=  void (*)(Rdb_field_packing *fpi, Field *field,
-                                    uchar* buf, uchar **dst);
+                                    uchar* buf, uchar **dst,
+                                    Rdb_pack_field_context *pack_ctx);
 
 const uint RDB_INVALID_KEY_LEN= uint(-1);
 
@@ -141,8 +169,8 @@ public:
 
   /* Convert a key from Table->record format to mem-comparable form */
   uint pack_record(const TABLE *tbl, uchar *pack_buffer, const uchar *record,
-                   uchar *packed_tuple, uchar *unpack_info,
-                   int *unpack_info_len, bool should_store_checksums,
+                   uchar *packed_tuple, Rdb_string_writer *unpack_info,
+                   bool should_store_checksums,
                    longlong hidden_pk_id= 0, uint n_key_parts= 0,
                    uint *n_null_fields= nullptr) const;
   /* Pack the hidden primary key into mem-comparable form. */
@@ -322,9 +350,8 @@ public:
     // bump is needed to prevent older binaries from skipping the KV version
     // check inadvertently.
     INDEX_INFO_VERSION_VERIFY_KV_FORMAT,
-    // This should point to latest. For now, we are still on the old format,
-    // but we want to "upgrade" eventually.
-    INDEX_INFO_VERSION_LATEST= INDEX_INFO_VERSION_GLOBAL_ID,
+    // This normally point to the latest (currently it does).
+    INDEX_INFO_VERSION_LATEST= INDEX_INFO_VERSION_VERIFY_KV_FORMAT,
   };
 
   // MyRocks index types
@@ -342,13 +369,14 @@ public:
     //    stores the unpack_info.
     //  - DECIMAL datatype is no longer stored in the row (because
     //    it can be decoded from its mem-comparable form)
+    //  - VARCHAR-columns use endspace-padding.
     PRIMARY_FORMAT_VERSION_UPDATE1= 11,
-    PRIMARY_FORMAT_VERSION_LATEST= PRIMARY_FORMAT_VERSION_INITIAL,
+    PRIMARY_FORMAT_VERSION_LATEST= PRIMARY_FORMAT_VERSION_UPDATE1,
 
     SECONDARY_FORMAT_VERSION_INITIAL= 10,
     // This change the SK format to include unpack_info.
-    SECONDARY_FORMAT_VERSION_UNPACK_INFO= 11,
-    SECONDARY_FORMAT_VERSION_LATEST= SECONDARY_FORMAT_VERSION_INITIAL,
+    SECONDARY_FORMAT_VERSION_UPDATE1= 11,
+    SECONDARY_FORMAT_VERSION_LATEST= SECONDARY_FORMAT_VERSION_UPDATE1,
   };
 
   void setup(const TABLE *table, const Rdb_tbl_def *tbl_def);
@@ -359,7 +387,6 @@ public:
   inline bool can_unpack(uint kp) const;
   /* Check if keypart #kp needs unpack info */
   inline bool has_unpack_info(uint kp) const;
-  inline Rdb_make_unpack_field get_make_unpack_field(uint kp) const;
 
   /* Check if given table has a primary key */
   static bool table_has_hidden_pk(const TABLE* table);
@@ -450,6 +477,7 @@ private:
 struct Rdb_collation_codec
 {
   const my_core::CHARSET_INFO *m_cs;
+  // The first element unpacks VARCHAR(n), the second one - CHAR(n).
   std::array<rdb_make_unpack_info_t, 2> m_make_unpack_info_func;
   std::array<rdb_index_field_unpack_t, 2> m_unpack_func;
 
@@ -461,14 +489,10 @@ struct Rdb_collation_codec
 };
 
 extern mysql_mutex_t rdb_collation_data_mutex;
+extern mysql_mutex_t rdb_mem_cmp_space_mutex;
 extern std::array<const Rdb_collation_codec*, MY_ALL_CHARSETS_SIZE>
   rdb_collation_data;
 
-struct Rdb_make_unpack_field
-{
-  const Rdb_collation_codec* m_charset_codec;
-  rdb_make_unpack_info_t m_make_unpack_info_func;
-};
 
 class Rdb_field_packing
 {
@@ -486,9 +510,33 @@ public:
     Valid only for VARCHAR fields.
   */
   const CHARSET_INFO *m_varchar_charset;
-  struct Rdb_make_unpack_field m_make_unpack_field;
+
+  // (Valid when Variable Length Space Padded Encoding is used):
+  uint m_segment_size;  // size of segment used
+
+  // number of bytes used to store number of trimmed (or added)
+  // spaces in the upack_info
+  bool m_unpack_info_uses_two_bytes;
+
+  const std::vector<uchar>* space_xfrm;
+  size_t space_xfrm_len;
+  size_t space_mb_len;
+
+  const Rdb_collation_codec* m_charset_codec;
+
+  /*
+    @return TRUE: this field makes use of unpack_info.
+  */
+  bool uses_unpack_info() const
+  {
+    return (m_make_unpack_info_func != nullptr);
+  }
+
+  /* TRUE means unpack_info stores the original field value */
+  bool m_unpack_info_stores_value;
 
   rdb_index_field_pack_t m_pack_func;
+  rdb_make_unpack_info_t m_make_unpack_info_func;
 
   /*
     This function takes
@@ -576,8 +624,6 @@ class Rdb_field_encoder
     return (m_field_type == MYSQL_TYPE_BLOB ||
             m_field_type == MYSQL_TYPE_VARCHAR);
   }
-
-  struct Rdb_make_unpack_field m_make_unpack_field;
 };
 
 inline Field* Rdb_key_def::get_table_field_for_part_no(TABLE *table,
@@ -596,16 +642,9 @@ inline bool Rdb_key_def::can_unpack(uint kp) const
 inline bool Rdb_key_def::has_unpack_info(uint kp) const
 {
   DBUG_ASSERT(kp < m_key_parts);
-  return (m_pack_info[kp].
-          m_make_unpack_field.
-          m_make_unpack_info_func != nullptr);
+  return m_pack_info[kp].uses_unpack_info();
 }
 
-inline Rdb_make_unpack_field Rdb_key_def::get_make_unpack_field(uint kp) const
-{
-  DBUG_ASSERT(has_unpack_info(kp));
-  return m_pack_info[kp].m_make_unpack_field;
-}
 
 /*
   A table definition. This is an entry in the mapping

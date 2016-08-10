@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <string>
+#include <vector>
 
 namespace myrocks {
 
@@ -268,6 +269,30 @@ class Rdb_string_reader
     return res;
   }
 
+  bool read_uint8(uint* res)
+  {
+    const uchar *p;
+    if (!(p= reinterpret_cast<const uchar*>(read(1))))
+      return true;  // error
+    else
+    {
+      *res= *p;
+      return false;  // Ok
+    }
+  }
+
+  bool read_uint16(uint* res)
+  {
+    const uchar *p;
+    if (!(p= reinterpret_cast<const uchar*>(read(2))))
+      return true;  // error
+    else
+    {
+      *res= rdb_netbuf_to_uint16(p);
+      return false;  // Ok
+    }
+  }
+
   uint remaining_bytes() const { return m_len; }
 
   /*
@@ -278,18 +303,83 @@ class Rdb_string_reader
   const char *get_current_ptr() const { return m_ptr; }
 };
 
+
+/*
+  @brief
+  A buffer one can write the data to.
+
+  @detail
+  Suggested usage pattern:
+
+    writer->clear();
+    writer->write_XXX(...);
+    ...
+    // Ok, writer->ptr() points to the data written so far,
+    // and writer->get_current_pos() is the length of the data
+
+*/
+
+class Rdb_string_writer
+{
+  std::vector<uchar> m_data;
+ public:
+  void clear() { m_data.clear(); }
+  void write_uint8(uint val)
+  {
+    m_data.push_back(static_cast<uchar>(val));
+  }
+
+  void write_uint16(uint val)
+  {
+    auto size= m_data.size();
+    m_data.resize(size + 2);
+    rdb_netbuf_store_uint16(m_data.data() + size, val);
+  }
+
+  void write_uint32(uint val)
+  {
+    auto size= m_data.size();
+    m_data.resize(size + 4);
+    rdb_netbuf_store_uint32(m_data.data() + size, val);
+  }
+
+  void write(uchar *new_data, size_t len)
+  {
+    m_data.insert(m_data.end(), new_data, new_data + len);
+  }
+
+  uchar* ptr() { return m_data.data(); }
+  size_t get_current_pos() const { return m_data.size(); }
+
+  void write_uint8_at(size_t pos, uint new_val)
+  {
+    // This function will only overwrite what was written
+    DBUG_ASSERT(pos < get_current_pos());
+    m_data.data()[pos]= new_val;
+  }
+
+  void write_uint16_at(size_t pos, uint new_val)
+  {
+    // This function will only overwrite what was written
+    DBUG_ASSERT(pos < get_current_pos() && (pos + 1) < get_current_pos());
+    rdb_netbuf_store_uint16(m_data.data() + pos, new_val);
+  }
+};
+
+
+/*
+   A helper class for writing bits into Rdb_string_writer.
+
+   The class assumes (but doesn't check) that nobody tries to write
+   anything to the Rdb_string_writer that it is writing to.
+*/
 class Rdb_bit_writer
 {
-  uchar* m_ptr;
-  uint m_len;
+  Rdb_string_writer *m_writer;
   uchar m_offset;
  public:
-  // TODO(mung): Writing into a buffer without length checking is not ideal.
-  // There should be a Rdb_string_writer class that Rdb_bit_writer can wrap
-  // around (similar to the reader case).
-  explicit Rdb_bit_writer(uchar *ptr)
-    : m_ptr(ptr),
-      m_len(0),
+  explicit Rdb_bit_writer(Rdb_string_writer* writer_arg)
+    : m_writer(writer_arg),
       m_offset(0)
   {
   }
@@ -302,19 +392,17 @@ class Rdb_bit_writer
     {
       if (m_offset == 0)
       {
-        m_ptr[m_len++]= 0;
+        m_writer->write_uint8(0);
       }
       // number of bits to put in this byte
       uint bits = std::min(size, (uint)(8 - m_offset));
-      m_ptr[m_len - 1] |=
+      uchar *last_byte= m_writer->ptr() + m_writer->get_current_pos() - 1;
+      *last_byte |=
         (uchar) ((value >> (size - bits)) & ((1 << bits) - 1)) << m_offset;
       size -= bits;
       m_offset = (m_offset + bits) & 0x7;
     }
   }
-
-  uchar* get_ptr() const { return m_ptr; }
-  uint get_len() const { return m_len; }
 };
 
 class Rdb_bit_reader
