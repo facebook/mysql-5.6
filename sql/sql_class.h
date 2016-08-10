@@ -4638,6 +4638,8 @@ public:
 
   // propagate value from rli
   bool skip_unique_check();
+  // protected by LOCK_thd_data
+  std::string row_query;
 };
 
 /**

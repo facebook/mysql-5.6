@@ -2212,10 +2212,21 @@ static void set_thread_info_common(thread_info *thd_info, THD *thd, THD *tmp,
   thd_info->rows_examined= tmp->get_examined_row_count();
   thd_info->rows_sent= tmp->get_sent_row_count();
   /* Lock THD mutex that protects its data when looking at it. */
-  if (tmp->query())
+  const char* query = NULL;
+  uint length = 0;
+  if (!tmp->row_query.empty())
   {
-    uint length= min<uint>(max_query_length, tmp->query_length());
-    char *q= thd->strmake(tmp->query(),length);
+    query = tmp->row_query.c_str();
+    length = tmp->row_query.length();
+  }
+  else if (tmp->query())
+  {
+    query = tmp->query();
+    length = tmp->query_length();
+  }
+  if (query) {
+    length= min<uint>(max_query_length, length);
+    char *q= thd->strmake(query,length);
     /* Safety: in case strmake failed, we set length to 0. */
     thd_info->query_string=
       CSET_STRING(q, q ? length : 0, tmp->query_charset());

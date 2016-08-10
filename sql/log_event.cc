@@ -12060,6 +12060,9 @@ end:
    if (thd->slave_thread)
      free_root(thd->mem_root, MYF(MY_KEEP_PREALLOC));
   }
+  mysql_mutex_lock(&thd->LOCK_thd_data);
+  thd->row_query.clear();
+  mysql_mutex_unlock(&thd->LOCK_thd_data);
   DBUG_RETURN(error);
 
 err:

@@ -4348,11 +4348,42 @@ private:
   int unpack_current_row(const Relay_log_info *const rli,
                          MY_BITMAP const *cols)
   { 
+    mysql_mutex_lock(&thd->LOCK_thd_data);
     DBUG_ASSERT(m_table);
+    // For a update event we should not clear the query when unpacking after
+    // image. This can be checked using the cols parameter.
+    if (cols != &m_cols_ai)
+      thd->row_query.clear();
+
+    Log_event_type type = get_type_code();
+    if (type == WRITE_ROWS_EVENT || type == WRITE_ROWS_EVENT_V1)
+      thd->row_query = "INSERT INTO ";
+    else if (type == DELETE_ROWS_EVENT || type == DELETE_ROWS_EVENT_V1)
+      thd->row_query = "DELETE FROM ";
+    else
+    {
+      DBUG_ASSERT(type == UPDATE_ROWS_EVENT || type == UPDATE_ROWS_EVENT_V1);
+      if (cols != &m_cols_ai)
+      {
+        thd->row_query = "UPDATE ";
+      }
+    }
+
+    if (cols != &m_cols_ai)
+    {
+      thd->row_query.append(m_table->s->db.str, m_table->s->db.length);
+      thd->row_query.append(".");
+      thd->row_query.append(m_table->s->table_name.str,
+                            m_table->s->table_name.length);
+      thd->row_query.append(" ");
+    }
 
     ASSERT_OR_RETURN_ERROR(m_curr_row <= m_rows_end, HA_ERR_CORRUPT_EVENT);
-    return ::unpack_row(rli, m_table, m_width, m_curr_row, cols,
-                                   &m_curr_row_end, &m_master_reclength, m_rows_end);
+    int res = ::unpack_row(rli, m_table, m_width, m_curr_row, cols,
+                           &m_curr_row_end, &m_master_reclength, m_rows_end,
+                           &thd->row_query);
+    mysql_mutex_unlock(&thd->LOCK_thd_data);
+    return res;
   }
 
   /*
