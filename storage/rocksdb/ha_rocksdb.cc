@@ -1236,6 +1236,7 @@ static PSI_stage_info *all_rocksdb_stages[]=
 static my_core::PSI_mutex_key rdb_psi_open_tbls_mutex_key,
   rdb_signal_bg_psi_mutex_key, rdb_signal_drop_idx_psi_mutex_key,
   rdb_collation_data_mutex_key,
+  rdb_mem_cmp_space_mutex_key,
   key_mutex_tx_list, rdb_sysvars_psi_mutex_key;
 
 static PSI_mutex_info all_rocksdb_mutexes[]=
@@ -1244,6 +1245,8 @@ static PSI_mutex_info all_rocksdb_mutexes[]=
   { &rdb_signal_bg_psi_mutex_key, "stop background", PSI_FLAG_GLOBAL},
   { &rdb_signal_drop_idx_psi_mutex_key, "signal drop index", PSI_FLAG_GLOBAL},
   { &rdb_collation_data_mutex_key, "collation data init", PSI_FLAG_GLOBAL},
+  { &rdb_mem_cmp_space_mutex_key, "collation space char data init",
+    PSI_FLAG_GLOBAL},
   { &key_mutex_tx_list, "tx_list", PSI_FLAG_GLOBAL},
   { &rdb_sysvars_psi_mutex_key, "setting sysvar", PSI_FLAG_GLOBAL},
 };
@@ -2927,6 +2930,9 @@ static int rocksdb_init_func(void *p)
 #endif
   mysql_mutex_init(rdb_collation_data_mutex_key, &rdb_collation_data_mutex,
                    MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(rdb_mem_cmp_space_mutex_key, &rdb_mem_cmp_space_mutex,
+                   MY_MUTEX_INIT_FAST);
+
   mysql_rwlock_init(key_rwlock_collation_exception_list,
                    &collation_exception_list_rwlock);
   mysql_mutex_init(rdb_sysvars_psi_mutex_key, &rdb_sysvars_mutex,
@@ -3303,6 +3309,7 @@ static int rocksdb_done_func(void *p)
   mysql_mutex_destroy(&rdb_open_tables.m_mutex);
   mysql_mutex_destroy(&rdb_sysvars_mutex);
   mysql_mutex_destroy(&rdb_collation_data_mutex);
+  mysql_mutex_destroy(&rdb_mem_cmp_space_mutex);
   Rdb_transaction::term_mutex();
 
   for (auto& it : rdb_collation_data)
@@ -3613,9 +3620,9 @@ ha_rocksdb::ha_rocksdb(my_core::handlerton *hton,
     m_pk_can_be_decoded(false),
     m_maybe_unpack_info(false),
     m_pk_tuple(nullptr), m_pk_packed_tuple(nullptr),
-    m_sk_packed_tuple(nullptr), m_sk_tails(nullptr),
+    m_sk_packed_tuple(nullptr),
     m_sk_match_prefix(nullptr), m_sk_match_prefix_buf(nullptr),
-    m_sk_packed_tuple_old(nullptr), m_sk_tails_old(nullptr),
+    m_sk_packed_tuple_old(nullptr),
     m_pack_buffer(nullptr), m_lock_rows(RDB_LOCK_NONE),
     m_keyread_only(FALSE), m_encoder_arr(nullptr),
     m_row_checksums_checked(0),
@@ -3649,48 +3656,6 @@ bool ha_rocksdb::init_with_fields()
   return false; /* Ok */
 }
 
-void ha_rocksdb::write_unpack_info()
-{
-  if (m_pk_descr->m_kv_format_version >=
-      Rdb_key_def::PRIMARY_FORMAT_VERSION_UPDATE1 &&
-      m_maybe_unpack_info)
-  {
-    uint offset= m_null_bytes_in_rec;
-    // We need to iterate over fields that require unpack_info first, so that
-    // unpack_info appears at the beginning of the storage record.
-    uint packed_key_len= m_pk_descr->max_storage_fmt_length();
-    m_storage_record.reserve(packed_key_len + RDB_UNPACK_HEADER_SIZE);
-    m_storage_record[offset]= RDB_UNPACK_DATA_TAG;
-    uint unpack_info_len_offset= offset + 1;
-    offset+= RDB_UNPACK_HEADER_SIZE;
-
-    uint unpack_len= 0;
-    for (uint i= 0; i < table->s->fields; i++)
-    {
-      if (m_encoder_arr[i].m_storage_type != Rdb_field_encoder::STORE_SOME)
-      {
-        continue;
-      }
-
-      Rdb_make_unpack_field& upf= m_encoder_arr[i].m_make_unpack_field;
-
-      DBUG_ASSERT(upf.m_make_unpack_info_func != nullptr);
-
-      Field *field= table->field[i];
-      uint len= upf.m_make_unpack_info_func(&upf, field,
-        reinterpret_cast<uchar *>(&m_storage_record[offset]));
-      DBUG_ASSERT(len <= (uint)m_encoder_arr[i].m_pack_length_in_rec);
-      unpack_len += len;
-      offset+= len;
-    }
-    DBUG_ASSERT(offset ==
-                m_null_bytes_in_rec + unpack_len + RDB_UNPACK_HEADER_SIZE);
-    m_storage_record.length(offset);
-    rdb_netbuf_store_uint16(
-      reinterpret_cast<uchar *>(&m_storage_record[unpack_info_len_offset]),
-      unpack_len + RDB_UNPACK_HEADER_SIZE);
-  }
-}
 
 /**
   Convert record from table->record[0] form into a form that can be written
@@ -3703,14 +3668,25 @@ void ha_rocksdb::write_unpack_info()
 
 void ha_rocksdb::convert_record_to_storage_format(
     const rocksdb::Slice& pk_packed_slice,
+    Rdb_string_writer *pk_unpack_info,
     rocksdb::Slice *packed_rec)
 {
+  DBUG_ASSERT_IMP(m_maybe_unpack_info, pk_unpack_info);
   m_storage_record.length(0);
+
   /* All NULL bits are initially 0 */
   m_storage_record.fill(m_null_bytes_in_rec, 0);
 
-  // Write unpack info (if needed).
-  write_unpack_info();
+  // If a primary key may have non-empty unpack_info for certain values,
+  // (m_maybe_unpack_info=TRUE), we write the unpack_info block. The block
+  // itself was prepared in Rdb_key_def::pack_record.
+  if (m_maybe_unpack_info &&
+      m_pk_descr->m_kv_format_version >=
+      Rdb_key_def::PRIMARY_FORMAT_VERSION_UPDATE1)
+  {
+    m_storage_record.append(reinterpret_cast<char*>(pk_unpack_info->ptr()),
+                            pk_unpack_info->get_current_pos());
+  }
 
   for (uint i=0; i < table->s->fields; i++)
   {
@@ -4186,8 +4162,6 @@ void ha_rocksdb::get_storage_type(Rdb_field_encoder *encoder, uint kp)
     {
       DBUG_ASSERT(m_pk_descr->can_unpack(kp));
       encoder->m_storage_type= Rdb_field_encoder::STORE_SOME;
-      encoder->m_make_unpack_field=
-        m_pk_descr->get_make_unpack_field(kp);
       m_maybe_unpack_info= true;
     }
     else if (m_pk_descr->can_unpack(kp))
@@ -4341,9 +4315,6 @@ int ha_rocksdb::alloc_key_buffers(const TABLE* table_arg,
     }
   }
 
-  size_t tails_size= max_packed_sk_len + RDB_CHECKSUM_CHUNK_SIZE +
-    RDB_UNPACK_HEADER_SIZE;
-
   if (!(m_sk_packed_tuple=
          reinterpret_cast<uchar*>(my_malloc(max_packed_sk_len, MYF(0)))) ||
       !(m_sk_match_prefix_buf=
@@ -4352,10 +4323,6 @@ int ha_rocksdb::alloc_key_buffers(const TABLE* table_arg,
          reinterpret_cast<uchar*>(my_malloc(max_packed_sk_len, MYF(0)))) ||
       !(m_end_key_packed_tuple=
          reinterpret_cast<uchar*>(my_malloc(max_packed_sk_len, MYF(0)))) ||
-      !((m_sk_tails=
-         reinterpret_cast<uchar*>(my_malloc(tails_size, MYF(0))))) ||
-      !((m_sk_tails_old=
-         reinterpret_cast<uchar*>(my_malloc(tails_size, MYF(0))))) ||
       !((m_pack_buffer=
          reinterpret_cast<uchar*>(my_malloc(max_packed_sk_len, MYF(0))))))
   {
@@ -4384,12 +4351,6 @@ void ha_rocksdb::free_key_buffers()
 
   my_free(m_end_key_packed_tuple);
   m_end_key_packed_tuple= nullptr;
-
-  my_free(m_sk_tails);
-  m_sk_tails= nullptr;
-
-  my_free(m_sk_tails_old);
-  m_sk_tails_old= nullptr;
 
   my_free(m_pack_buffer);
   m_pack_buffer= nullptr;
@@ -4957,16 +4918,21 @@ int ha_rocksdb::create_key_def(const TABLE *table_arg, uint i,
   {
     index_type= Rdb_key_def::INDEX_TYPE_PRIMARY;
     uint16 pk_latest_version= Rdb_key_def::PRIMARY_FORMAT_VERSION_LATEST;
-    DBUG_EXECUTE_IF("myrocks_data_format_decimal_index_only",
+    DBUG_EXECUTE_IF("MYROCKS_FORMAT_VERSION_INITIAL",
                     {pk_latest_version=
-                       Rdb_key_def::PRIMARY_FORMAT_VERSION_UPDATE1;
+                       Rdb_key_def::PRIMARY_FORMAT_VERSION_INITIAL;
                     });
     kv_version= pk_latest_version;
   }
   else
   {
     index_type= Rdb_key_def::INDEX_TYPE_SECONDARY;
-    kv_version= Rdb_key_def::SECONDARY_FORMAT_VERSION_LATEST;
+    uint16 sk_latest_version= Rdb_key_def::SECONDARY_FORMAT_VERSION_LATEST;
+    DBUG_EXECUTE_IF("MYROCKS_FORMAT_VERSION_INITIAL",
+                    {sk_latest_version=
+                       Rdb_key_def::SECONDARY_FORMAT_VERSION_INITIAL;
+                    });
+    kv_version= sk_latest_version;
   }
 
   const char *key_name = get_key_name(i, table_arg, m_tbl_def);
@@ -6204,7 +6170,7 @@ int ha_rocksdb::check(THD* thd, HA_CHECK_OPT* check_opt)
         /* Check if we get the same PK value */
         uint packed_size= m_pk_descr->pack_record(
             table, m_pack_buffer, table->record[0], m_pk_packed_tuple, nullptr,
-            nullptr, false, hidden_pk_id);
+            false, hidden_pk_id);
         if (packed_size != rowkey_copy.length() ||
             memcmp(m_pk_packed_tuple, rowkey_copy.ptr(), packed_size))
         {
@@ -6215,11 +6181,9 @@ int ha_rocksdb::check(THD* thd, HA_CHECK_OPT* check_opt)
         }
 
         /* Check if we get the same secondary key value */
-        int tail_size;
         packed_size= m_key_descr_arr[keyno]->pack_record(
             table, m_pack_buffer, table->record[0], m_sk_packed_tuple,
-            m_sk_tails, &tail_size, false,
-            hidden_pk_id);
+            &m_sk_tails, false, hidden_pk_id);
         if (packed_size != sec_key_copy.length() ||
             memcmp(m_sk_packed_tuple, sec_key_copy.ptr(), packed_size))
         {
@@ -6898,8 +6862,7 @@ void ha_rocksdb::set_last_rowkey(const uchar *old_data)
   if (old_data && !rpl_lookup_rows())
   {
     int old_pk_size= m_pk_descr->pack_record(
-        table, m_pack_buffer, old_data, m_pk_packed_tuple, nullptr, nullptr,
-        false);
+        table, m_pack_buffer, old_data, m_pk_packed_tuple, nullptr, false);
     m_last_rowkey.copy((const char*)m_pk_packed_tuple, old_pk_size,
                        &my_charset_bin);
   }
@@ -6916,9 +6879,13 @@ int ha_rocksdb::get_pk_for_update(struct update_row_info* row_info)
   if (!has_hidden_pk(table))
   {
     row_info->hidden_pk_id= 0;
+
+    row_info->new_pk_unpack_info= &m_pk_unpack_info;
+
     size= m_pk_descr->pack_record(table, m_pack_buffer, row_info->new_data,
-                                  m_pk_packed_tuple, nullptr, nullptr,
-                                  should_store_checksums());
+                                  m_pk_packed_tuple,
+                                  row_info->new_pk_unpack_info,
+                                  false);
   }
   else if (row_info->old_data == nullptr)
   {
@@ -7043,7 +7010,7 @@ int ha_rocksdb::check_and_lock_sk(uint key_id,
     include the extended fields.
   */
   int size= kd->pack_record(table, m_pack_buffer, row_info.new_data,
-                            m_sk_packed_tuple, nullptr, nullptr, false, 0,
+                            m_sk_packed_tuple, nullptr, false, 0,
                             user_defined_key_parts, &n_null_fields);
   if (n_null_fields > 0)
   {
@@ -7064,8 +7031,8 @@ int ha_rocksdb::check_and_lock_sk(uint key_id,
   if (row_info.old_data != nullptr)
   {
     size= kd->pack_record(table, m_pack_buffer, row_info.old_data,
-                          m_sk_packed_tuple_old, nullptr, nullptr,
-                          false, row_info.hidden_pk_id,
+                          m_sk_packed_tuple_old, nullptr, false,
+                          row_info.hidden_pk_id,
                           user_defined_key_parts);
     rocksdb::Slice old_slice= rocksdb::Slice(
         (const char*)m_sk_packed_tuple_old, size);
@@ -7257,7 +7224,9 @@ int ha_rocksdb::update_pk(uint key_id, const struct update_row_info& row_info,
   }
 
   rocksdb::Slice value_slice;
-  convert_record_to_storage_format(row_info.new_pk_slice, &value_slice);
+  convert_record_to_storage_format(row_info.new_pk_slice,
+                                   row_info.new_pk_unpack_info,
+                                   &value_slice);
 
   int rc= 0;
   int err= 0;
@@ -7319,10 +7288,7 @@ int ha_rocksdb::update_sk(const TABLE* table_arg,
                           const struct update_row_info& row_info)
 {
   int new_packed_size;
-  int new_key_tail_size;
-
   int old_packed_size;
-  int old_key_tail_size;
 
   rocksdb::Slice new_key_slice;
   rocksdb::Slice new_value_slice;
@@ -7340,8 +7306,8 @@ int ha_rocksdb::update_sk(const TABLE* table_arg,
   bool store_checksums= should_store_checksums();
 
   new_packed_size= kd->pack_record(table_arg, m_pack_buffer, row_info.new_data,
-                                   m_sk_packed_tuple, m_sk_tails,
-                                   &new_key_tail_size, store_checksums,
+                                   m_sk_packed_tuple, &m_sk_tails,
+                                   store_checksums,
                                    row_info.hidden_pk_id);
 
   if (row_info.old_data != nullptr)
@@ -7349,8 +7315,8 @@ int ha_rocksdb::update_sk(const TABLE* table_arg,
     // The old value
     old_packed_size= kd->pack_record(table_arg, m_pack_buffer,
                                      row_info.old_data,
-                                     m_sk_packed_tuple_old, m_sk_tails_old,
-                                     &old_key_tail_size, store_checksums,
+                                     m_sk_packed_tuple_old, &m_sk_tails_old,
+                                     store_checksums,
                                      row_info.hidden_pk_id);
 
     /*
@@ -7368,10 +7334,11 @@ int ha_rocksdb::update_sk(const TABLE* table_arg,
       account)
     */
     if (old_packed_size == new_packed_size &&
-        old_key_tail_size == new_key_tail_size &&
+        m_sk_tails_old.get_current_pos() == m_sk_tails.get_current_pos() &&
         memcmp(m_sk_packed_tuple_old, m_sk_packed_tuple,
                old_packed_size) == 0 &&
-        memcmp(m_sk_tails_old, m_sk_tails, old_key_tail_size) == 0)
+        memcmp(m_sk_tails_old.ptr(), m_sk_tails.ptr(),
+               m_sk_tails.get_current_pos()) == 0)
     {
       return 0;
     }
@@ -7413,7 +7380,8 @@ int ha_rocksdb::update_sk(const TABLE* table_arg,
   new_key_slice= rocksdb::Slice(
       reinterpret_cast<const char*>(m_sk_packed_tuple), new_packed_size);
   new_value_slice= rocksdb::Slice(
-      reinterpret_cast<const char*>(m_sk_tails), new_key_tail_size);
+      reinterpret_cast<const char*>(m_sk_tails.ptr()),
+      m_sk_tails.get_current_pos());
 
   write_batch->Put(kd->get_cf(), new_key_slice, new_value_slice);
 
@@ -7456,6 +7424,7 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
   row_info.old_data= old_data;
   row_info.new_data= new_data;
   row_info.skip_unique_check= skip_unique_check;
+  row_info.new_pk_unpack_info= nullptr;
 
   DBUG_ENTER("ha_rocksdb::write_row_common");
 
@@ -7833,7 +7802,7 @@ int ha_rocksdb::delete_row(const uchar *buf)
       int packed_size;
       const std::shared_ptr<const Rdb_key_def>& kd= m_key_descr_arr[i];
       packed_size= kd->pack_record(table, m_pack_buffer, buf, m_sk_packed_tuple,
-                                   nullptr, nullptr, false, hidden_pk_id);
+                                   nullptr, false, hidden_pk_id);
       rocksdb::Slice secondary_key_slice(
          reinterpret_cast<const char*>(m_sk_packed_tuple), packed_size);
       /* Deleting on secondary key doesn't need any locks: */
@@ -8017,8 +7986,7 @@ void ha_rocksdb::position(const uchar *record)
     cannot be restored from its mem-comparable form in the secondary indexes).
   */
   uint packed_size= m_pk_descr->pack_record(table, m_pack_buffer, record,
-                                            ref, nullptr, nullptr, false,
-                                            hidden_pk_id);
+                                            ref, nullptr, false, hidden_pk_id);
 
   /*
     It could be that mem-comparable form of PK occupies less than ref_length

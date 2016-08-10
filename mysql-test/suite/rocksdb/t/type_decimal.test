@@ -11,6 +11,8 @@ drop table if exists t1, t2;
 create table t0(a int);
 insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
 
+--echo # First, make the server to create a dataset in the old format:
+set session debug= '+d,MYROCKS_FORMAT_VERSION_INITIAL';
 create table t1 (
   pk1 decimal(32,16), 
   pk2 decimal(32,16),
@@ -23,22 +25,32 @@ select
   A.a, B.a, C.a, 1234
 from t0 A, t0 B, t0 C;
 
+--echo #
+--echo # Looking at the table size, one can tell that the data is stored using
+--echo # old format:
+--echo #
 set global rocksdb_force_flush_memtable_now=1;
 
 --let $data_length_old = query_get_value("select DATA_LENGTH from information_schema.tables where table_schema=database() and table_name='t1'", DATA_LENGTH, 1)
 
---echo # The following shows the PK format version used by the current server:
-select table_name,index_name,kv_format_version from information_schema.ROCKSDB_DDL 
+--echo # Check the format version:
+select table_name,index_name,kv_format_version 
+from information_schema.ROCKSDB_DDL 
 where TABLE_SCHEMA=database() AND table_name='t1';
 
 flush tables;
+ 
+set session debug= '-d,MYROCKS_FORMAT_VERSION_INITIAL';
+--source include/restart_mysqld.inc
+
+--echo # Check that the new server reads the data in the old format:
+select * from t1 order by pk1,pk2,pk3 limit 5;
 
 --echo #
 --echo # Ok, now, enable the new data format:
 --echo #
-set session debug= '+d,myrocks_data_format_decimal_index_only';
 create table t2 (
-  pk1 decimal(32,16), 
+  pk1 decimal(32,16),
   pk2 decimal(32,16),
   pk3 decimal(32,16),
   a smallint not null,
@@ -66,8 +78,6 @@ select * from t2 limit 3;
 select * from t1 limit 3;
 
 drop table t1,t2;
---echo # Set the data format back.
-set session debug= '-d,myrocks_data_format_decimal_index_only';
 drop table t0;
 
 --echo #
