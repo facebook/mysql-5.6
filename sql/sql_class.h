@@ -3822,6 +3822,8 @@ class THD : public MDL_context_owner,
  public:
   /* connection timeout error message */
   char *conn_timeout_err_msg;
+  /* protected by LOCK_thd_query */
+  std::string row_query;
 
   /**
     Initialize the optimizer cost model.
