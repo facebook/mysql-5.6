@@ -123,6 +123,7 @@ static my_bool  verbose= 0, opt_no_create_info= 0, opt_no_data= 0,
                 opt_order_by_primary_desc=0,
                 opt_view_error= 1;
 static my_bool insert_pat_inited= 0, debug_info_flag= 0, debug_check_flag= 0;
+static my_bool opt_enable_checksum_table = 0;
 static ulong opt_max_allowed_packet, opt_net_buffer_length;
 static MYSQL mysql_connection,*mysql=0;
 static DYNAMIC_STRING insert_pat;
@@ -642,6 +643,10 @@ static struct my_option my_long_options[] =
    "Default authentication client-side plugin to use.",
    &opt_default_auth, &opt_default_auth, 0,
    GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+  {"enable_checksum_table", OPT_ENABLE_CHECKSUM_TABLE,
+   "Flag that enables the checksums of all tables to be generated.",
+   &opt_enable_checksum_table, &opt_enable_checksum_table, 0,
+   GET_BOOL, OPT_ARG, 0, 0, 0, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}
 };
 
@@ -1103,6 +1108,17 @@ static int get_options(int *argc, char ***argv)
     return(EX_USAGE);
   }
 
+  /*
+   --enable_checksum_table is not supported if --tab (-T) is enabled
+  */
+  if (path && opt_enable_checksum_table)
+  {
+    /* NO_LINT_DEBUG */
+    fprintf(stderr,
+            "%s: --opt_enable_checksum_table is not supported when --tab(-T) "
+            "option is specified.\n", my_progname);
+    return(EX_USAGE);
+  }
   /* We don't delete master logs if slave data option */
   if (opt_slave_data)
   {
@@ -3911,6 +3927,7 @@ static void dump_table(char *table, char *db)
   MYSQL_RES     *res = NULL;
   MYSQL_FIELD   *field;
   MYSQL_ROW     row;
+  ha_checksum crc= 0;
   DBUG_ENTER("dump_table");
 
 
@@ -4162,6 +4179,7 @@ static void dump_table(char *table, char *db)
 
     while ((row= mysql_fetch_row(res)))
     {
+      ha_checksum row_crc= 0;
       uint i;
       ulong *lengths= mysql_fetch_lengths(res);
       rownr++;
@@ -4201,6 +4219,11 @@ static void dump_table(char *table, char *db)
       {
         int is_blob;
         ulong length= lengths[i];
+
+        if (row[i] && opt_enable_checksum_table)
+        {
+          row_crc= my_checksum(row_crc, (uchar *)row[i], length);
+        }
 
         if (!(field= mysql_fetch_field(res)))
           die(EX_CONSCHECK,
@@ -4401,6 +4424,11 @@ static void dump_table(char *table, char *db)
         fputs(");\n", md_result_file);
         check_io(md_result_file);
       }
+      if (opt_enable_checksum_table)
+      {
+        // Cumulate the crc for the table
+        crc+= row_crc;
+      }
     }
 
 
@@ -4461,6 +4489,13 @@ static void dump_table(char *table, char *db)
     print_comment(md_result_file, 0,
                   "\n--\n-- Rows found for %s: %lu\n--\n",
                   table, rownr);
+    if (opt_enable_checksum_table)
+    {
+      print_comment(md_result_file, 0,
+                    "\n--\n-- Checksum for %s: %u\n--\n\n",
+                    table,
+                    crc);
+    }
   }
   if (opt_single_transaction) {
     mysql_real_query(mysql, STRING_WITH_LEN("ROLLBACK TO SAVEPOINT mysqldump"));

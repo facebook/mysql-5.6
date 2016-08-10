@@ -1,0 +1,41 @@
+################################################################################
+# Testing the mysqldump with --enable-table-checksum option
+################################################################################
+
+--disable_warnings
+DROP TABLE IF EXISTS table1;
+DROP TABLE IF EXISTS table2;
+drop database if exists database1;
+--enable_warnings
+
+CREATE DATABASE database1;
+USE database1;
+CREATE TABLE table1(a INT);
+CREATE TABLE table2(a VARCHAR(255));
+
+INSERT INTO table1 VALUES (1);
+INSERT INTO table1 VALUES (2);
+INSERT INTO table1 VALUES (3);
+
+INSERT INTO table2 VALUES ('abcdefg');
+INSERT INTO table2 VALUES ('hijklmn');
+INSERT INTO table2 VALUES ('opqrstu');
+
+--echo ==== Running 'replace_regex' on Server/mysqldump Versions ====
+--echo ==== mysqlbinlog with --skip-empty-trans database1 ====
+--replace_regex /-- Server version.*/-- SERVER VERSION/ /-- MySQL dump.*[)]/-- MYSQLDUMP VERSION/
+--exec $MYSQL_DUMP --skip-dump-date --enable-checksum-table database1 
+
+--echo ==== mysqlbinlog with --skip-empty-trans table with two options ====
+--replace_regex /-- Server version.*/-- SERVER VERSION/ /-- MySQL dump.*[)]/-- MYSQLDUMP VERSION/
+--exec $MYSQL_DUMP --skip-dump-date --enable-checksum-table --databases database1 --tables table1
+--replace_regex /-- Server version.*/-- SERVER VERSION/ /-- MySQL dump.*[)]/-- MYSQLDUMP VERSION/
+--exec $MYSQL_DUMP --skip-dump-date --enable-checksum-table database1 table1
+
+--echo ==== mysqlbinlog with --skip-empty-trans and --tab ====
+--error 1
+--exec $MYSQL_DUMP --skip-dump-date --enable-checksum-table database1 --tab='/home/abc' 
+
+DROP TABLE table1;
+DROP TABLE table2;
+drop database database1;
