@@ -34,7 +34,7 @@ int unpack_row(Relay_log_info const *rli,
                TABLE *table, uint const colcnt,
                uchar const *const row_data, MY_BITMAP const *cols,
                uchar const **const curr_row_end, ulong *const master_reclength,
-               uchar const *const row_end);
+               uchar const *const row_end, std::string* row_query= nullptr);
 
 // Fill table's record[0] with default values.
 int prepare_record(TABLE *const table, const MY_BITMAP *cols, const bool check);
