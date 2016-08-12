@@ -694,7 +694,7 @@ int ReplSemiSyncMaster::commitTrx(const char* trx_wait_binlog_name,
                  & stage_waiting_for_semi_sync_ack_from_slave,
                  & old_stage);
 
-  if (getMasterEnabled() && trx_wait_binlog_name)
+  if (getMasterEnabled() && trx_wait_binlog_name && entry)
   {
     struct timespec start_ts;
     struct timespec abstime;

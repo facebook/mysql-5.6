@@ -49,6 +49,12 @@ while ($j < $m)
   while ($i < $n)
   {
     --connection con$i
+    let $val = `select round(rand()*10)`;
+    if ($val == 10)
+    {
+      set global rpl_semi_sync_master_enabled= 0;
+      set global rpl_semi_sync_master_enabled= 1;
+    }
     --send
     --eval INSERT INTO t$i VALUES(2)
     --inc $i
