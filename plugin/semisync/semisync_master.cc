@@ -728,7 +728,7 @@ int ReplSemiSyncMaster::commitTrx(const char* trx_wait_binlog_name,
       }
 #endif /* __WIN__ */
 
-    while (is_on())
+    while (is_on() && entry)
     {
       if (reply_file_name_inited_)
       {
