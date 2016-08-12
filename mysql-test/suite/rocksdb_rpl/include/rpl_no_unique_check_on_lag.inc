@@ -66,7 +66,6 @@ connection slave;
 --echo #
 
 connection master;
-set global rocksdb_skip_unique_check = 0;
 DROP TABLE t1;
 eval set global reset_seconds_behind_master=$rsbm;
 --source include/rpl_end.inc
