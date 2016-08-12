@@ -5371,7 +5371,7 @@ restart:
 
     /* Pass through skip_unique_check to handler */
     if (thd->rli_slave && tbl)
-      tbl->file->set_skip_unique_check(thd->skip_unique_check());
+      tbl->file->set_force_skip_unique_check(thd->skip_unique_check());
 
   }
 
