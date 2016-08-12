@@ -13,14 +13,11 @@ phutil_register_library_map(array(
     'FacebookInnoDBTabLinter' => 'lint/linter/FacebookInnoDBTabLinter.php',
     'FacebookMySQLArcanistConfiguration' => 'arcanist/FacebookMySQLArcanistConfiguration.php',
     'FacebookMySQLAssertUsageLinter' => 'lint/linter/FacebookMySQLAssertUsageLinter.php',
-    'FacebookMySQLDiffCreatedListener' => 'unit/FacebookMySQLDiffCreatedListener.php',
     'FacebookMySQLLintEngine' => 'lint/FacebookMySQLLintEngine.php',
     'FacebookMySQLLinter' => 'lint/linter/FacebookMySQLLinter.php',
     'FacebookMySQLPrintfLinter' => 'lint/linter/FacebookMySQLPrintfLinter.php',
-    'FacebookMySQLUnitTestEngine' => 'unit/FacebookMySQLUnitTestEngine.php',
     'FacebookMySQLWhitespaceLinter' => 'lint/linter/FacebookMySQLWhitespaceLinter.php',
     'FbcodeCppLinter' => 'lint/linter/FbcodeCppLinter.php',
-    'FacebookMySQLHowtoevenLinter' => '../../tools/arcanist/lint/linter/FacebookMySQLHowtoevenLinter.php',
   ),
   'function' =>
   array(
@@ -30,13 +27,10 @@ phutil_register_library_map(array(
     'FacebookInnoDBTabLinter' => 'ArcanistLinter',
     'FacebookMySQLArcanistConfiguration' => 'ArcanistConfiguration',
     'FacebookMySQLAssertUsageLinter' => 'ArcanistLinter',
-    'FacebookMySQLDiffCreatedListener' => 'PhutilEventListener',
     'FacebookMySQLLintEngine' => 'ArcanistLintEngine',
     'FacebookMySQLLinter' => 'ArcanistLinter',
     'FacebookMySQLPrintfLinter' => 'ArcanistLinter',
-    'FacebookMySQLUnitTestEngine' => 'ArcanistBaseUnitTestEngine',
     'FacebookMySQLWhitespaceLinter' => 'ArcanistLinter',
     'FbcodeCppLinter' => 'ArcanistLinter',
-    'FacebookMySQLHowtoevenLinter' => 'ArcanistLinter',
   ),
 ));
