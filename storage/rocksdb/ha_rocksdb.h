@@ -376,6 +376,12 @@ class ha_rocksdb: public my_core::handler
   /* TRUE means the replication slave will use Read Free Replication */
   bool m_use_read_free_rpl;
 
+  /*
+    TRUE means we should skip unique key checks for this table if the
+    replication lag gets too large
+   */
+  bool m_skip_unique_check;
+
   /**
     @brief
     This is a bitmap of indexes (i.e. a set) whose keys (in future, values) may
@@ -440,7 +446,7 @@ class ha_rocksdb: public my_core::handler
   bool can_use_single_delete(uint index)
     MY_ATTRIBUTE((__warn_unused_result__));
   bool skip_unique_check() MY_ATTRIBUTE((__warn_unused_result__));
-  void set_skip_unique_check(bool skip) override;
+  void set_force_skip_unique_check(bool skip) override;
   bool commit_in_the_middle() MY_ATTRIBUTE((__warn_unused_result__));
   bool do_bulk_commit(Rdb_transaction *tx)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
@@ -950,6 +956,7 @@ public:
   int finalize_bulk_load() MY_ATTRIBUTE((__warn_unused_result__));
 
   void set_use_read_free_rpl(const char* whitelist);
+  void set_skip_unique_check_tables(const char* whitelist);
 
  public:
   virtual void rpl_before_delete_rows() override;

@@ -480,8 +480,13 @@ static MYSQL_THDVAR_BOOL(bulk_load, PLUGIN_VAR_RQCMDARG,
   "rocksdb_skip_unique_check and rocksdb_commit_in_the_middle.",
   nullptr, rocksdb_set_bulk_load, FALSE);
 
+static MYSQL_THDVAR_STR(skip_unique_check_tables,
+  PLUGIN_VAR_RQCMDARG|PLUGIN_VAR_MEMALLOC,
+  "Skip unique constraint checking for the specified tables", nullptr, nullptr,
+  ".*");
+
 static MYSQL_THDVAR_BOOL(skip_unique_check, PLUGIN_VAR_RQCMDARG,
-  "Skip unique constraint checking", nullptr, nullptr, FALSE);
+  "Skip unique constraint checking for all tables", nullptr, nullptr, FALSE);
 
 static MYSQL_THDVAR_BOOL(commit_in_the_middle, PLUGIN_VAR_RQCMDARG,
   "Commit rows implicitly every rocksdb_bulk_load_size, on bulk load/insert, "
@@ -1084,6 +1089,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(max_row_locks),
   MYSQL_SYSVAR(lock_scanned_rows),
   MYSQL_SYSVAR(bulk_load),
+  MYSQL_SYSVAR(skip_unique_check_tables),
   MYSQL_SYSVAR(skip_unique_check),
   MYSQL_SYSVAR(commit_in_the_middle),
   MYSQL_SYSVAR(read_free_rpl_tables),
@@ -1255,12 +1261,15 @@ static PSI_mutex_info all_rocksdb_mutexes[]=
 
 static PSI_rwlock_key key_rwlock_collation_exception_list;
 static PSI_rwlock_key key_rwlock_read_free_rpl_tables;
+static PSI_rwlock_key key_rwlock_skip_unique_check_tables;
 
 static PSI_rwlock_info all_rocksdb_rwlocks[]=
 {
   { &key_rwlock_collation_exception_list, "collation_exception_list",
       PSI_FLAG_GLOBAL},
   { &key_rwlock_read_free_rpl_tables, "read_free_rpl_tables", PSI_FLAG_GLOBAL},
+  { &key_rwlock_skip_unique_check_tables, "skip_unique_check_tables",
+      PSI_FLAG_GLOBAL},
 };
 
 PSI_cond_key rdb_signal_bg_psi_cond_key, rdb_signal_drop_idx_psi_cond_key;
@@ -4374,6 +4383,8 @@ void ha_rocksdb::free_key_buffers()
 
 void ha_rocksdb::set_use_read_free_rpl(const char* whitelist)
 {
+  DBUG_ASSERT(whitelist != nullptr);
+
 #if defined(HAVE_PSI_INTERFACE)
   Regex_list_handler regex_handler(key_rwlock_read_free_rpl_tables);
 #else
@@ -4386,6 +4397,24 @@ void ha_rocksdb::set_use_read_free_rpl(const char* whitelist)
   }
 
   m_use_read_free_rpl = regex_handler.matches(m_tbl_def->base_tablename());
+}
+
+void ha_rocksdb::set_skip_unique_check_tables(const char* whitelist)
+{
+  DBUG_ASSERT(whitelist != nullptr);
+
+#if defined(HAVE_PSI_INTERFACE)
+  Regex_list_handler regex_handler(key_rwlock_skip_unique_check_tables);
+#else
+  Regex_list_handler regex_handler;
+#endif
+
+  if (!regex_handler.set_patterns(whitelist))
+  {
+    warn_about_bad_patterns(&regex_handler, "skip_unique_check_tables");
+  }
+
+  m_skip_unique_check= regex_handler.matches(m_tbl_def->base_tablename());
 }
 
 int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
@@ -4468,6 +4497,9 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
 
   /* Determine at open whether we can use Read Free Replication or not */
   set_use_read_free_rpl(THDVAR(ha_thd(), read_free_rpl_tables));
+
+  /* Determine at open whether we should skip unique checks for this table */
+  set_skip_unique_check_tables(THDVAR(ha_thd(), skip_unique_check_tables));
 
   DBUG_RETURN(0);
 }
@@ -6743,11 +6775,20 @@ bool ha_rocksdb::can_use_single_delete(uint index)
 
 bool ha_rocksdb::skip_unique_check()
 {
+  /*
+    We want to skip unique checks if:
+      1) bulk_load is on
+      2) this table is in the whitelist of tables to skip and the replication
+         lag has reached a large enough value (see unique_check_lag_threshold
+         and unique_check_lage_reset_threshold)
+      3) the user set rocksdb_skip_unique_check
+  */
   return THDVAR(table->in_use, bulk_load) ||
-         THDVAR(table->in_use, skip_unique_check) || m_force_skip_unique_check;
+         (m_force_skip_unique_check && m_skip_unique_check) ||
+         THDVAR(table->in_use, skip_unique_check);
 }
 
-void ha_rocksdb::set_skip_unique_check(bool skip)
+void ha_rocksdb::set_force_skip_unique_check(bool skip)
 {
   m_force_skip_unique_check= skip;
 }

@@ -26,7 +26,6 @@ include/wait_for_slave_sql_error_and_skip.inc [errno=1062]
 #
 # Cleanup
 #
-set global rocksdb_skip_unique_check = 0;
 DROP TABLE t1;
 set global reset_seconds_behind_master=1;
 include/rpl_end.inc
