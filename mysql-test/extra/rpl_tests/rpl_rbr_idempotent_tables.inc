@@ -1,8 +1,4 @@
-include/master-slave.inc
-Warnings:
-Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
-Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
-[connection master]
+connection master;
 call mtr.add_suppression('Slave SQL:.* Could not execute Write_rows event '
                          'on table test.test_table2');
 call mtr.add_suppression('The slave coordinator and worker threads are stopped,'
@@ -11,22 +7,45 @@ create table test_table1 (a int primary key);
 create table test_table2 (a int primary key);
 insert into test_table1 values(1);
 insert into test_table2 values(1);
+
+sync_slave_with_master;
 set @old_var = @@global.rbr_idempotent_tables;
-include/stop_slave_sql.inc
+source include/stop_slave_sql.inc;
 set @@global.rbr_idempotent_tables='test_table1';
-include/start_slave_sql.inc
+source include/start_slave_sql.inc;
+
+connection slave;
 insert into test_table1 values(2);
 insert into test_table2 values(2);
+
+connection master;
+# Slave SQL thread doesn't hit duplicate key error.
 insert into test_table1 values(2);
-include/rpl_restart_server.inc [server_number=2 parameters: --rbr_idempotent_tables=test_table1,test_table3]
-include/start_slave.inc
+
+sync_slave_with_master;
+let $rpl_server_parameters= --rbr_idempotent_tables=test_table1,test_table3;
+let $rpl_server_number=2;
+source include/rpl_restart_server.inc;
+
+connection slave;
+source include/start_slave.inc;
 insert into test_table1 values(3);
+connection master;
+# Slave SQL thread doesn't hit duplicate key error after restart.
 insert into test_table1 values(3);
-include/stop_slave_sql.inc
+
+sync_slave_with_master;
+source include/stop_slave_sql.inc;
 set @@global.rbr_idempotent_tables = @old_var;
-include/start_slave_sql.inc
+source include/start_slave_sql.inc;
+
+connection master;
 insert into test_table2 values(2);
-include/wait_for_slave_sql_error_and_skip.inc [errno=1062]
+
+# Verify slave hits duplicate key on tables that are not ignored.
+let $slave_sql_errno = convert_error(ER_DUP_ENTRY);
+source include/wait_for_slave_sql_error_and_skip.inc;
+
+connection master;
 drop table test_table1;
 drop table test_table2;
-include/rpl_end.inc

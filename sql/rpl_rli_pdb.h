@@ -451,6 +451,10 @@ public:
   {
     return c_rli->skip_unique_check;
   }
+  bool is_table_idempotent(const std::string &table) const override
+  {
+    return c_rli ? c_rli->is_table_idempotent(table) : false;
+  }
 
 protected:
 

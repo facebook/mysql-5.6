@@ -1055,7 +1055,7 @@ public:
     sql threads.
   */
   std::unordered_set<std::string> rbr_idempotent_tables;
-  bool is_table_idempotent(const std::string &table) const
+  virtual bool is_table_idempotent(const std::string &table) const
   {
     return rbr_idempotent_tables.find(table) !=
            rbr_idempotent_tables.end();
