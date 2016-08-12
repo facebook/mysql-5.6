@@ -2935,9 +2935,6 @@ mysql_execute_command(THD *thd,
   DBUG_ASSERT(!lex->describe || is_explainable_query(lex->sql_command));
 
   thd->stmt_start = *statement_start_time;
-  // if last statement is a real transaction, restart trx timer
-  if (thd->is_real_trans)
-    thd->trx_time = 0;
 
   if (unlikely(lex->is_broken()))
   {
@@ -5925,10 +5922,13 @@ finish:
       trans_commit_stmt(thd, lex->async_commit);
       thd->get_stmt_da()->set_overwrite_status(false);
 
-      // record Statement_seconds
-      thd->stmt_time = my_timer_since(*statement_start_time);
-      // add to Transaction_seconds
-      thd->trx_time += thd->stmt_time;
+      if (thd->is_real_trans)
+        // reset trx timer at the end of a transaction
+        thd->trx_time = 0;
+      else
+        // add the current statement_time to transaction_time of an open
+        // transaction
+        thd->trx_time += my_timer_since(*statement_start_time);
     }
   }
 

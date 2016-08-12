@@ -29,11 +29,16 @@ show transaction_list;
 Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin
 #	mysqluser1	localhost	test	Command	State	#	#	#	0	1
 #	root	localhost	test	Command	State	#	#	#	1	1
-# Check OK: Statement_seconds and Transaction_seconds match.
+select statement_seconds from information_schema.transaction_list where Id = conn_a;
+statement_seconds
+0.000000
+# Check OK: Transaction_seconds is not reset for open transactions.
 # Check OK: Command_seconds is larger than Transaction_seconds.
 # Check OK: Transaction is not read_only
 # Check OK: sql_log_bin = 1
-# Check OK: show session $conn_a status like 'Statement_seconds'
+show session conn_a status like 'Statement_seconds';
+Variable_name	Value
+Statement_seconds	0.000000
 # Check OK: show session $conn_a status like 'Transaction_seconds'
 # Check OK: show session $conn_a status like 'Command_seconds'
 # connection a
@@ -47,12 +52,19 @@ show transaction_list;
 Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin
 #	mysqluser1	localhost	test	Command	State	#	#	#	0	1
 #	root	localhost	test	Command	State	#	#	#	1	1
-# Check OK: Transaction_seconds is larger than Statement_seconds.
-# Check OK: Command_seconds is equal to or larger than Transaction_seconds.
-# Check OK: Transaction_seconds is increasing.
+select statement_seconds from information_schema.transaction_list where Id = conn_a;
+statement_seconds
+0.000000
+select transaction_seconds from information_schema.transaction_list where Id = conn_a;
+transaction_seconds
+0.000000
 # Check OK: Command_seconds is increasing.
-# Check OK: show session $conn_a status like 'Statement_seconds'
-# Check OK: show session $conn_a status like 'Transaction_seconds'
+show session conn_a status like 'Statement_seconds';
+Variable_name	Value
+Statement_seconds	0.000000
+show session conn_a status like 'Transaction_seconds';
+Variable_name	Value
+Transaction_seconds	0.000000
 # Check OK: show session $conn_a status like 'Command_seconds'
 # connection a
 begin;
@@ -61,16 +73,17 @@ select count(*) from t1;
 count(*)
 33
 rollback;
-select count(*) from t1;
-count(*)
-20
 # connection default
 show transaction_list;
 Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin
 #	mysqluser1	localhost	test	Command	State	#	#	#	1	1
 #	root	localhost	test	Command	State	#	#	#	1	1
-# Check OK: Statement_seconds and Transaction_seconds match.
-# Check OK: Command_seconds is larger than Transaction_seconds.
+select statement_seconds from information_schema.transaction_list where Id = conn_a;
+statement_seconds
+0.000000
+select transaction_seconds from information_schema.transaction_list where Id = conn_a;
+transaction_seconds
+0.000000
 # Check OK: Command_seconds is increasing.
 # Check OK: (Autocommit) Transaction is read_only
 # Check OK: sql_log_bin = 1
@@ -87,8 +100,12 @@ show transaction_list;
 Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin
 #	mysqluser1	localhost	test	Command	State	#	#	#	0	1
 #	root	localhost	test	Command	State	#	#	#	1	1
-# Check OK: Statement_seconds and Transaction_seconds match.
-# Check OK: Command_seconds is larger than Transaction_seconds.
+select statement_seconds from information_schema.transaction_list where Id = conn_a;
+statement_seconds
+0.000000
+select transaction_seconds from information_schema.transaction_list where Id = conn_a;
+transaction_seconds
+0.000000
 # Check OK: Command_seconds is increasing.
 
 ##
@@ -104,5 +121,16 @@ select sleep(10);
 # connection a
 sleep(10)
 0
+# connection default
+show transaction_list;
+Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin
+#	mysqluser1	localhost	test	Command	State	#	#	#	0	1
+#	root	localhost	test	Command	State	#	#	#	1	1
+select statement_seconds from information_schema.transaction_list where Id = conn_a;
+statement_seconds
+0.000000
+select transaction_seconds from information_schema.transaction_list where Id = conn_a;
+transaction_seconds
+0.000000
 drop user mysqluser1;
 drop table t1;

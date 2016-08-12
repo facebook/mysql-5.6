@@ -35,19 +35,21 @@ connection default;
 --sorted_result
 show transaction_list;
 
-let $stmt_secs_1 = `select statement_seconds from information_schema.transaction_list where Id = $conn_a`;
-let $trx_secs_1 = `select transaction_seconds from information_schema.transaction_list where id = $conn_a`;
+# Statement_seconds will be reset at every query
+--replace_regex /Id = [0-9]*/Id = conn_a/
+eval select statement_seconds from information_schema.transaction_list where Id = $conn_a;
+
+let $trx_secs_1 = `select transaction_seconds from information_schema.transaction_list where Id = $conn_a`;
 let $cmd_secs_1 = `select command_seconds from information_schema.transaction_list where id = $conn_a`;
 let $read_only = `select read_only from information_schema.transaction_list where id = $conn_a`;
 let $sql_log_bin = `select sql_log_bin from information_schema.transaction_list where id = $conn_a`;
 
-# For the first statment in a transaction: Statement_seconds should match
-# Transaction_seconds (use delta to avoid test flakiness).
-if (`select abs($trx_secs_1 - $stmt_secs_1) > 0.000001`)
+# For an open transation, Transaction_seconds should not be zero
+if ($trx_secs_1 == 0)
 {
-  --die Statement_seconds and Transaction_seconds not match.
+  --die Transaction_seconds is reset
 }
---echo # Check OK: Statement_seconds and Transaction_seconds match.
+--echo # Check OK: Transaction_seconds is not reset for open transactions.
 if (`select $trx_secs_1 > $cmd_secs_1`)
 {
   --die Transaction_seconds is larger than Command_seconds.
@@ -65,13 +67,10 @@ if ($sql_log_bin == 0)
 --echo # Check OK: sql_log_bin = 1
 
 # Verify SHOW STATUS
-let $show_stmt_secs = query_get_value(
-  show session $conn_a status like 'Statement_seconds', Value, 1);
-if (`select abs($stmt_secs_1 - $show_stmt_secs) > 0.000001`)
-{
-  --die SHOW STATUS of Statement_seconds not match.
-}
---echo # Check OK: show session \$conn_a status like 'Statement_seconds'
+
+# Statement_seconds will be reset at every query
+--replace_regex /session [0-9]*/session conn_a/
+eval show session $conn_a status like 'Statement_seconds';
 
 let $show_trx_secs = query_get_value(
   show session $conn_a status like 'Transaction_seconds', Value, 1);
@@ -102,50 +101,31 @@ connection default;
 --sorted_result
 show transaction_list;
 
-let $stmt_secs_2 = `select statement_seconds from information_schema.transaction_list where Id = $conn_a`;
-let $trx_secs_2 = `select transaction_seconds from information_schema.transaction_list where id = $conn_a`;
+# Statement_seconds will be reset at every query
+--replace_regex /Id = [0-9]*/Id = conn_a/
+eval select statement_seconds from information_schema.transaction_list where Id = $conn_a;
+
+# Transaction_seconds will be reset at the end of each transaction
+--replace_regex /Id = [0-9]*/Id = conn_a/
+eval select transaction_seconds from information_schema.transaction_list where Id = $conn_a;
+
 let $cmd_secs_2 = `select command_seconds from information_schema.transaction_list where id = $conn_a`;
 
-# Statement_seconds should always smaller than Transaction_seconds.
-if (`select $stmt_secs_2 > $trx_secs_2`)
-{
-  --die Statement_seconds is larger than Transaction_seconds.
-}
---echo # Check OK: Transaction_seconds is larger than Statement_seconds.
-# Transaction_seconds should always smaller than Command_seconds.
-if (`select $trx_secs_2 > $cmd_secs_2`)
-{
-  --die Transaction_seconds is larger than Command_seconds.
-}
---echo # Check OK: Command_seconds is equal to or larger than Transaction_seconds.
-# Both Transaction_seconds and Command_seconds should accumulate
-if (`select $trx_secs_1 > $trx_secs_2`)
-{
-  --die Transaction_seconds is not increasing.
-}
---echo # Check OK: Transaction_seconds is increasing.
 if (`select $cmd_secs_1 > $cmd_secs_2`)
 {
-  --die Transaction_seconds is not increasing.
+  --die Command_seconds is not increasing.
 }
 --echo # Check OK: Command_seconds is increasing.
 
 # Verify SHOW STATUS again after transaction
-let $show_stmt_secs = query_get_value(
-  show session $conn_a status like 'Statement_seconds', Value, 1);
-if (`select abs($stmt_secs_2 - $show_stmt_secs) > 0.000001`)
-{
-  --die SHOW STATUS of Statement_seconds not match.
-}
---echo # Check OK: show session \$conn_a status like 'Statement_seconds'
 
-let $show_trx_secs = query_get_value(
-  show session $conn_a status like 'Transaction_seconds', Value, 1);
-if (`select abs($trx_secs_2 - $show_trx_secs) > 0.000001`)
-{
-  --die SHOW STATUS of Transaction_seconds not match.
-}
---echo # Check OK: show session \$conn_a status like 'Transaction_seconds'
+# Statement_seconds will be reset at every query
+--replace_regex /session [0-9]*/session conn_a/
+eval show session $conn_a status like 'Statement_seconds';
+
+# Transaction_seconds will be reset at the end of each transaction
+--replace_regex /session [0-9]*/session conn_a/
+eval show session $conn_a status like 'Transaction_seconds';
 
 let $show_cmd_secs = query_get_value(
   show session $conn_a status like 'Command_seconds', Value, 1);
@@ -162,7 +142,6 @@ begin;
 insert into t1 (i) select i from t1 where id > 6 AND id < 20;
 select count(*) from t1;
 rollback;
-select count(*) from t1;
 
 --echo # connection default
 connection default;
@@ -171,24 +150,18 @@ connection default;
 --sorted_result
 show transaction_list;
 
-let $stmt_secs_1 = `select statement_seconds from information_schema.transaction_list where Id = $conn_a`;
-let $trx_secs_1 = `select transaction_seconds from information_schema.transaction_list where id = $conn_a`;
+# Statement_seconds will be reset at every query
+--replace_regex /Id = [0-9]*/Id = conn_a/
+eval select statement_seconds from information_schema.transaction_list where Id = $conn_a;
+
+# Transaction_seconds will be reset at the end of each transaction
+--replace_regex /Id = [0-9]*/Id = conn_a/
+eval select transaction_seconds from information_schema.transaction_list where Id = $conn_a;
+
 let $cmd_secs_1 = `select command_seconds from information_schema.transaction_list where id = $conn_a`;
 let $read_only = `select read_only from information_schema.transaction_list where id = $conn_a`;
 let $sql_log_bin = `select sql_log_bin from information_schema.transaction_list where id = $conn_a`;
 
-# After rollback, transaction is done. Statement_seconds and
-# Transaction_seconds should match again.
-if (`select abs($stmt_secs_1 - $trx_secs_1) > 0.000001`)
-{
-  --die Statement_seconds and Transaction_seconds not match.
-}
---echo # Check OK: Statement_seconds and Transaction_seconds match.
-if (`select $trx_secs_1 > $cmd_secs_1`)
-{
-  --die Transaction_seconds is larger than Command_seconds.
-}
---echo # Check OK: Command_seconds is larger than Transaction_seconds.
 if (`select $cmd_secs_2 > $cmd_secs_1`)
 {
   --die Transaction_seconds is not increasing.
@@ -226,23 +199,16 @@ connection default;
 --sorted_result
 show transaction_list;
 
-let $stmt_secs_2 = `select statement_seconds from information_schema.transaction_list where Id = $conn_a`;
-let $trx_secs_2 = `select transaction_seconds from information_schema.transaction_list where id = $conn_a`;
+# Statement_seconds will be reset at every query
+--replace_regex /Id = [0-9]*/Id = conn_a/
+eval select statement_seconds from information_schema.transaction_list where Id = $conn_a;
+
+# Transaction_seconds will be reset at the end of each transaction (auto commit)
+--replace_regex /Id = [0-9]*/Id = conn_a/
+eval select transaction_seconds from information_schema.transaction_list where Id = $conn_a;
+
 let $cmd_secs_2 = `select command_seconds from information_schema.transaction_list where id = $conn_a`;
 
-# Single statement transaction: Transaction_seconds will reset and
-# Statement_seconds should match Transaction_seconds again.
-if (`select abs($stmt_secs_2 - $trx_secs_2) > 0.000001`)
-{
-  --die Statement_seconds and Transaction_seconds not match.
-}
---echo # Check OK: Statement_seconds and Transaction_seconds match.
-# Transaction_seconds should always smaller than Command_seconds.
-if (`select $trx_secs_2 > $cmd_secs_2`)
-{
-  --die Transaction_seconds is larger than Command_seconds.
-}
---echo # Check OK: Command_seconds is larger than Transaction_seconds.
 # Command_seconds continue to increase
 if (`select $cmd_secs_1 > $cmd_secs_2`)
 {
@@ -296,7 +262,23 @@ if (`select $cmd_secs_1 > $cmd_secs_2`)
 
 --echo # connection a
 connection a;
+# After reap, both Statement_transaction and Transaction_seconds should be reset
 reap;
+
+--echo # connection default
+connection default;
+--replace_column 1 # 3 localhost 6 State 7 # 8 # 9 #
+--replace_result Query Command Sleep Command
+--sorted_result
+show transaction_list;
+
+# Statement_seconds will be reset at every query
+--replace_regex /Id = [0-9]*/Id = conn_a/
+eval select statement_seconds from information_schema.transaction_list where Id = $conn_a;
+
+# Transaction_seconds will be reset at the end of each transaction (auto commit)
+--replace_regex /Id = [0-9]*/Id = conn_a/
+eval select transaction_seconds from information_schema.transaction_list where Id = $conn_a;
 
 # cleanup
 connection default;

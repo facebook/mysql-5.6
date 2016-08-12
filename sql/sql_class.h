@@ -2436,8 +2436,6 @@ public:
   bool rw_trans = false;
   /* record the current statement start time */
   ulonglong stmt_start;
-  /* record the current statement time */
-  ulonglong stmt_time;
   /* record the transaction time (including in-fly) */
   ulonglong trx_time;
 

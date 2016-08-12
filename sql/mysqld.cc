@@ -9080,7 +9080,7 @@ static int show_stmt_time(THD *thd, SHOW_VAR *var, char *buff)
   if (thd->stmt_start)
     *((longlong *)buff) = (longlong)(my_timer_since(thd->stmt_start));
   else
-    *((longlong *)buff) = (longlong)(thd->stmt_time);
+    *((longlong *)buff) = (longlong)0;
   return 0;
 }
 

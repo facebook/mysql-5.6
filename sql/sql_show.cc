@@ -2139,7 +2139,7 @@ static time_stat_tuple get_thd_time_stats(THD *thd)
   }
   else
   {
-    stmt_secs = my_timer_to_seconds(thd->stmt_time);
+    stmt_secs = 0; // not in the mid of any statement execution
     trx_secs = my_timer_to_seconds(thd->trx_time);
     cmd_secs = my_timer_to_seconds(thd->status_var.command_time);
   }
