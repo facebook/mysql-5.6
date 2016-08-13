@@ -4583,7 +4583,9 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log,
                               ulonglong *decrease_log_space,
                               bool auto_purge)
 {
-  int error= 0, no_of_log_files_to_purge= 0, no_of_log_files_purged= 0;
+  int error= 0, error_index= 0,
+      no_of_log_files_to_purge= 0,
+      no_of_log_files_purged= 0;
   int no_of_threads_locking_log= 0;
   bool exit_loop= 0;
   LOG_INFO log_info;
@@ -4645,22 +4647,8 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log,
 
   DBUG_EXECUTE_IF("crash_purge_before_update_index", DBUG_SUICIDE(););
 
-  // Update gtid_state->lost_gtids
-  if (gtid_mode > 0 && !is_relay_log)
-  {
-    global_sid_lock->wrlock();
-    error= init_gtid_sets(NULL,
-                       const_cast<Gtid_set *>(gtid_state->get_lost_gtids()),
-                       NULL,
-                       opt_master_verify_checksum,
-                       false/*false=don't need lock*/);
-    global_sid_lock->unlock();
-    if (error)
-      goto err;
-  }
-
   /* Read each entry from the list and delete the file. */
-  if ((error= purge_logs_in_list(delete_list, thd, decrease_log_space,
+  if ((error_index= purge_logs_in_list(delete_list, thd, decrease_log_space,
                                  false/*need_lock_index=false*/)))
     sql_print_error("MYSQL_BIN_LOG::purge_logs failed to"
                     " process registered files that would be purged.");
@@ -4677,10 +4665,25 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log,
 
   DBUG_EXECUTE_IF("crash_purge_non_critical_after_update_index", DBUG_SUICIDE(););
 
+  // Update gtid_state->lost_gtids
+  if (gtid_mode > 0 && !is_relay_log)
+  {
+    global_sid_lock->wrlock();
+    error= init_gtid_sets(NULL,
+                       const_cast<Gtid_set *>(gtid_state->get_lost_gtids()),
+                       NULL,
+                       opt_master_verify_checksum,
+                       false/*false=don't need lock*/);
+    global_sid_lock->unlock();
+    if (error)
+      goto err;
+  }
+
 err:
   if (need_lock_index)
     mysql_mutex_unlock(&LOCK_index);
 
+  error = error ? error : error_index;
   DBUG_RETURN(error);
 }
 

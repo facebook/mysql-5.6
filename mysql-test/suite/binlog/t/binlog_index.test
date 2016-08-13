@@ -411,9 +411,11 @@ purge binary logs TO 'master-bin.000014';
 -- source include/wait_until_connected_again.inc
 -- disable_reconnect
 
--- echo # Test the index file is complete, although is not purged successfully.
+-- echo # Test if both the index file and binlogs are in sync
 -- source include/show_binary_logs.inc
+-- error 1
 file_exists $MYSQLD_DATADIR/master-bin.000012;
+-- error 1
 file_exists $MYSQLD_DATADIR/master-bin.000013;
 file_exists $MYSQLD_DATADIR/master-bin.000014;
 

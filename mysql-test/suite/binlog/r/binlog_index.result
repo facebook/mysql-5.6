@@ -312,11 +312,9 @@ SET SESSION debug="+d,fault_injection_copy_part_file";
 purge binary logs TO 'master-bin.000014';
 ERROR HY000: Lost connection to MySQL server during query
 # Restart the master server
-# Test the index file is complete, although is not purged successfully.
+# Test if both the index file and binlogs are in sync
 show binary logs;
 Log_name	File_size
-master-bin.000012	#
-master-bin.000013	#
 master-bin.000014	#
 master-bin.000015	#
 master-bin.000016	#
