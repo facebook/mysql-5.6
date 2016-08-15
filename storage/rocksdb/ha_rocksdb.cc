@@ -1455,7 +1455,7 @@ public:
         */
       my_core::thd_mark_transaction_to_rollback(thd, false /*just statement*/);
       m_detailed_error.copy(timeout_message("index",
-                                            tbl_def->m_dbname_tablename.c_str(),
+                                            tbl_def->full_tablename().c_str(),
                                             kd->get_name().c_str()));
 
       return HA_ERR_LOCK_WAIT_TIMEOUT;
@@ -4534,7 +4534,6 @@ static bool rdb_is_index_collation_supported(const my_core::Field *field)
     other  - error, either given table ddl is not supported by rocksdb or OOM.
 */
 int ha_rocksdb::create_key_defs(const TABLE *table_arg,
-                                const std::string& db_table,
                                 Rdb_tbl_def *tbl_def_arg,
                                 const TABLE *old_table_arg /* = nullptr */,
                                 const Rdb_tbl_def *old_tbl_def_arg
@@ -4546,7 +4545,6 @@ int ha_rocksdb::create_key_defs(const TABLE *table_arg,
   DBUG_ENTER("ha_rocksdb::create_key_defs");
 
   uint i;
-  tbl_def_arg->set_name(db_table);
 
   /*
     These need to be one greater than MAX_INDEXES since the user can create
@@ -4560,7 +4558,7 @@ int ha_rocksdb::create_key_defs(const TABLE *table_arg,
     allocated to each key definition. See below for more details.
     http://github.com/MySQLOnRocksDB/mysql-5.6/issues/86#issuecomment-138515501
   */
-  if (create_cfs(table_arg, db_table, tbl_def_arg, &cfs))
+  if (create_cfs(table_arg, tbl_def_arg, &cfs))
   {
     DBUG_RETURN(1);
   };
@@ -4616,8 +4614,7 @@ int ha_rocksdb::create_key_defs(const TABLE *table_arg,
     0      - Ok
     other  - error
 */
-int ha_rocksdb::create_cfs(const TABLE *table_arg, const std::string& db_table,
-                      Rdb_tbl_def *tbl_def_arg,
+int ha_rocksdb::create_cfs(const TABLE *table_arg, Rdb_tbl_def *tbl_def_arg,
                       std::array<struct key_def_cf_info, MAX_INDEXES + 1>* cfs)
 {
   DBUG_ASSERT(table_arg != nullptr);
@@ -4625,17 +4622,10 @@ int ha_rocksdb::create_cfs(const TABLE *table_arg, const std::string& db_table,
 
   DBUG_ENTER("ha_rocksdb::create_cfs");
 
-  std::string dbname, tablename, partname;
   char tablename_sys[NAME_LEN + 1];
 
-  if (rdb_split_normalized_tablename(db_table, &dbname, &tablename,
-                                     &partname))
-  {
-    DBUG_RETURN(1);
-  }
-
-  my_core::filename_to_tablename(tablename.c_str(), tablename_sys,
-                                 sizeof(tablename_sys));
+  my_core::filename_to_tablename(tbl_def_arg->base_tablename().c_str(),
+                                 tablename_sys, sizeof(tablename_sys));
 
   /*
     The first loop checks the index parameters and creates
@@ -4666,7 +4656,7 @@ int ha_rocksdb::create_cfs(const TABLE *table_arg, const std::string& db_table,
           my_printf_error(ER_UNKNOWN_ERROR,
                           "Unsupported collation on string indexed "
                           "column %s.%s Use binary collation (%s).", MYF(0),
-                          db_table.c_str(),
+                          tbl_def_arg->full_tablename().c_str(),
                           table_arg->key_info[i].key_part[part].field->field_name,
                           collation_err.c_str());
           DBUG_RETURN(1);
@@ -4695,9 +4685,9 @@ int ha_rocksdb::create_cfs(const TABLE *table_arg, const std::string& db_table,
       DBUG_RETURN(1);
     }
     bool is_auto_cf_flag;
-    cf_handle = cf_manager.get_or_create_cf(rdb, comment, db_table,
-                                           key_name,
-                                           &is_auto_cf_flag);
+    cf_handle = cf_manager.get_or_create_cf(rdb, comment,
+                                            tbl_def_arg->full_tablename(),
+                                            key_name, &is_auto_cf_flag);
     if (!cf_handle)
       DBUG_RETURN(1);
 
@@ -4768,7 +4758,7 @@ int ha_rocksdb::create_inplace_key_defs(const TABLE *table_arg,
         sql_print_error("RocksDB: Could not get index information "
                         "for Index Number (%u,%u), table %s",
                         gl_index_id.cf_id, gl_index_id.index_id,
-                        old_tbl_def_arg->m_dbname_tablename.c_str());
+                        old_tbl_def_arg->full_tablename().c_str());
         DBUG_RETURN(1);
       }
 
@@ -5172,7 +5162,7 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
   rocksdb::WriteBatch *batch= wb.get();
 
   /* Create table/key descriptions and put them into the data dictionary */
-  m_tbl_def= new Rdb_tbl_def;
+  m_tbl_def= new Rdb_tbl_def(str);
 
   uint n_keys= table_arg->s->keys;
 
@@ -5189,7 +5179,7 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
   m_tbl_def->m_key_count= n_keys;
   m_tbl_def->m_key_descr_arr= m_key_descr_arr;
 
-  if ((res= create_key_defs(table_arg, str, m_tbl_def)))
+  if ((res= create_key_defs(table_arg, m_tbl_def)))
   {
     goto error;
   }
@@ -9151,7 +9141,7 @@ bool ha_rocksdb::prepare_inplace_alter_table(
   std::shared_ptr<Rdb_key_def>* new_key_descr=
       new std::shared_ptr<Rdb_key_def>[new_n_keys];
 
-  Rdb_tbl_def* new_tdef= new Rdb_tbl_def;
+  Rdb_tbl_def* new_tdef= new Rdb_tbl_def(m_tbl_def->full_tablename());
   new_tdef->m_key_descr_arr= new_key_descr;
   new_tdef->m_key_count= new_n_keys;
   new_tdef->m_auto_incr_val=
@@ -9163,9 +9153,7 @@ bool ha_rocksdb::prepare_inplace_alter_table(
      (my_core::Alter_inplace_info::DROP_INDEX |
       my_core::Alter_inplace_info::DROP_UNIQUE_INDEX |
       my_core::Alter_inplace_info::ADD_INDEX)
-     && create_key_defs(altered_table,
-                        m_tbl_def->m_dbname_tablename,
-                        new_tdef, table, m_tbl_def))
+     && create_key_defs(altered_table, new_tdef, table, m_tbl_def))
   {
     /* Delete the new key descriptors */
     delete[] new_key_descr;
