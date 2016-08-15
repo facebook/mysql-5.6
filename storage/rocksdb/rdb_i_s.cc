@@ -793,21 +793,18 @@ int Rdb_ddl_scanner::add_table(Rdb_tbl_def *tdef)
   DBUG_ASSERT(tdef != nullptr);
 
   int ret= 0;
-  std::string dbname, tablename, partname;
-
-  /* Some special tables such as drop_index have different names, ignore them */
-  if (rdb_split_normalized_tablename(tdef->m_dbname_tablename, &dbname,
-                                     &tablename, &partname))
-  {
-    return 0;
-  }
 
   DBUG_ASSERT(m_table != nullptr);
   Field** field= m_table->field;
   DBUG_ASSERT(field != nullptr);
 
+  const std::string& dbname= tdef->base_dbname();
   field[0]->store(dbname.c_str(), dbname.size(), system_charset_info);
+
+  const std::string& tablename= tdef->base_tablename();
   field[1]->store(tablename.c_str(), tablename.size(), system_charset_info);
+
+  const std::string& partname= tdef->base_partition();
   if (partname.length() == 0)
   {
     field[2]->set_null();
