@@ -91,3 +91,13 @@ c1
 Asdf
 bbbb 
 drop table t;
+set session rocksdb_verify_checksums = on;
+create table t (id int primary key, email varchar(100), KEY email_i (email(30))) engine=rocksdb default charset=latin1;
+insert into t values (1, '                                  a');
+explain select 'email_i' as index_name, count(*) AS count from t force index(email_i);
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t	index	NULL	email_i	33	NULL	#	Using index
+select 'email_i' as index_name, count(*) AS count from t force index(email_i);
+index_name	count
+email_i	1
+drop table t;

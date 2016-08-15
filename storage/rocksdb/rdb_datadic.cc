@@ -2128,7 +2128,10 @@ rdb_make_unpack_simple_varchar(const Rdb_collation_codec* codec,
   uchar *src= f->ptr + f->length_bytes;
   uint src_len= f->length_bytes == 1 ? (uint) *f->ptr : uint2korr(f->ptr);
   Rdb_bit_writer bit_writer(pack_ctx->writer);
-  rdb_write_unpack_simple(&bit_writer, codec, src, src_len);
+  // The std::min compares characters with bytes, but for simple collations,
+  // mbmaxlen = 1.
+  rdb_write_unpack_simple(&bit_writer, codec, src,
+                          std::min(f->char_length(), src_len));
 }
 
 /*
@@ -2150,6 +2153,8 @@ rdb_unpack_simple_varchar_space_pad(Rdb_field_packing *fpi, Field *field,
   bool finished= false;
   uchar *d0= dst;
   Field_varstring* field_var= static_cast<Field_varstring*>(field);
+  // For simple collations, char_length is also number of bytes.
+  DBUG_ASSERT((size_t)fpi->m_max_image_len >= field_var->char_length());
   uchar *dst_end= dst + field_var->pack_length();
   dst += field_var->length_bytes;
   Rdb_bit_reader bit_reader(unp_reader);
