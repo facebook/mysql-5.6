@@ -657,16 +657,39 @@ inline bool Rdb_key_def::has_unpack_info(uint kp) const
 
 class Rdb_tbl_def
 {
+ private:
   void check_if_is_mysql_system_table();
-
-public:
-  Rdb_tbl_def()
-  : m_key_descr_arr(nullptr), m_hidden_pk_val(1), m_auto_incr_val(1)
-    {}
-  ~Rdb_tbl_def();
 
   /* Stores 'dbname.tablename' */
   std::string m_dbname_tablename;
+
+  /* Store the db name, table name, and partition name */
+  std::string m_dbname;
+  std::string m_tablename;
+  std::string m_partition;
+
+  void set_name(const std::string& name);
+
+ public:
+  explicit Rdb_tbl_def(const std::string& name) :
+      m_key_descr_arr(nullptr), m_hidden_pk_val(1), m_auto_incr_val(1)
+  {
+    set_name(name);
+  }
+
+  Rdb_tbl_def(const char* name, size_t len) :
+      m_key_descr_arr(nullptr), m_hidden_pk_val(1), m_auto_incr_val(1)
+  {
+    set_name(std::string(name, len));
+  }
+
+  explicit Rdb_tbl_def(const rocksdb::Slice& slice, size_t pos= 0) :
+      m_key_descr_arr(nullptr), m_hidden_pk_val(1), m_auto_incr_val(1)
+  {
+    set_name(std::string(slice.data() + pos, slice.size() - pos));
+  }
+
+  ~Rdb_tbl_def();
 
   /* Number of indexes */
   uint m_key_count;
@@ -683,13 +706,10 @@ public:
   bool put_dict(Rdb_dict_manager *dict, rocksdb::WriteBatch *batch,
                 uchar *key, size_t keylen);
 
-  void set_name(const char *name, size_t len) {
-    set_name(std::string(name, len));
-  }
-  void set_name(const std::string& name);
-  void set_name(const rocksdb::Slice& slice, size_t pos = 0) {
-    set_name(slice.data() + pos, slice.size() - pos);
-  }
+  const std::string& full_tablename() const { return m_dbname_tablename; }
+  const std::string& base_dbname() const { return m_dbname; }
+  const std::string& base_tablename() const { return m_tablename; }
+  const std::string& base_partition() const { return m_partition; }
 };
 
 

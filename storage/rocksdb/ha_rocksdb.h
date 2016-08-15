@@ -391,11 +391,10 @@ class ha_rocksdb: public my_core::handler
   */
   int m_dupp_errkey;
 
-  int create_key_defs(const TABLE *table_arg, const std::string& db_table,
-                      Rdb_tbl_def *tbl_def_arg,
+  int create_key_defs(const TABLE *table_arg, Rdb_tbl_def *tbl_def_arg,
                       const TABLE *old_table_arg= nullptr,
                       const Rdb_tbl_def *old_tbl_def_arg= nullptr)
-      MY_ATTRIBUTE((__nonnull__(2, 4), __warn_unused_result__));
+      MY_ATTRIBUTE((__nonnull__(2, 3), __warn_unused_result__));
   int secondary_index_read(const int keyno, uchar *buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   void setup_iterator_for_rnd_scan();
@@ -731,8 +730,7 @@ private:
     bool             skip_unique_check;
   };
 
-  int create_cfs(const TABLE *table_arg, const std::string& db_table,
-                 Rdb_tbl_def *tbl_def_arg,
+  int create_cfs(const TABLE *table_arg, Rdb_tbl_def *tbl_def_arg,
                  std::array<struct key_def_cf_info, MAX_INDEXES + 1>* cfs);
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
