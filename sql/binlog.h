@@ -727,7 +727,7 @@ public:
   int register_create_index_entry(const char* entry);
   int purge_index_entry(THD *thd, ulonglong *decrease_log_space,
                         bool need_lock_index);
-  int purge_logs_in_list(std::list<LOG_INFO>& delete_list,
+  int purge_logs_in_list(std::list<std::string>& delete_list,
                          THD *thd,
                          ulonglong *decrease_log_space,
                          bool need_lock_index);

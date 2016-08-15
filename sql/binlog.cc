@@ -4590,7 +4590,7 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log,
   bool exit_loop= 0;
   LOG_INFO log_info;
   THD *thd= current_thd;
-  std::list<LOG_INFO> delete_list;
+  std::list<std::string> delete_list;
 
   DBUG_ENTER("purge_logs");
   DBUG_PRINT("info",("to_log= %s",to_log));
@@ -4639,7 +4639,7 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log,
     }
     no_of_log_files_purged++;
 
-    delete_list.push_back(log_info);
+    delete_list.push_back(std::string(log_info.log_file_name));
 
     if (find_next_log(&log_info, false/*need_lock_index=false*/) || exit_loop)
       break;
@@ -4675,8 +4675,6 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log,
                        opt_master_verify_checksum,
                        false/*false=don't need lock*/);
     global_sid_lock->unlock();
-    if (error)
-      goto err;
   }
 
 err:
@@ -4787,7 +4785,7 @@ int MYSQL_BIN_LOG::purge_index_entry(THD *thd, ulonglong *decrease_log_space,
   int error= 0;
   LOG_INFO log_info;
   LOG_INFO check_log_info;
-  std::list<LOG_INFO> delete_list;
+  std::list<std::string> delete_list;
 
   DBUG_ENTER("MYSQL_BIN_LOG:purge_index_entry");
 
@@ -4855,7 +4853,7 @@ int MYSQL_BIN_LOG::purge_index_entry(THD *thd, ulonglong *decrease_log_space,
            */
         ha_binlog_index_purge_file(current_thd, log_info.log_file_name);
       }
-      delete_list.push_back(log_info);
+      delete_list.push_back(std::string(log_info.log_file_name));
     }
   }
 
@@ -4881,7 +4879,7 @@ err:
     LOG_INFO_FATAL           If any other than ENOENT error from
                              mysql_file_stat() or mysql_file_delete()
 */
-int MYSQL_BIN_LOG::purge_logs_in_list(std::list<LOG_INFO>& delete_list,
+int MYSQL_BIN_LOG::purge_logs_in_list(std::list<std::string>& delete_list,
                                       THD *thd,
                                       ulonglong *decrease_log_space,
                                       bool need_lock_index)
@@ -4891,9 +4889,9 @@ int MYSQL_BIN_LOG::purge_logs_in_list(std::list<LOG_INFO>& delete_list,
 
   DBUG_ENTER("MYSQL_BIN_LOG:purge_logs_in_list");
 
-  for (auto& log_info: delete_list)
+  for (auto& log_file_name: delete_list)
   {
-    if (!mysql_file_stat(m_key_file_log, log_info.log_file_name, &s, MYF(0)))
+    if (!mysql_file_stat(m_key_file_log, log_file_name.c_str(), &s, MYF(0)))
     {
       if (my_errno == ENOENT) 
       {
@@ -4905,10 +4903,10 @@ int MYSQL_BIN_LOG::purge_logs_in_list(std::list<LOG_INFO>& delete_list,
         {
           push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,
                               ER_LOG_PURGE_NO_FILE, ER(ER_LOG_PURGE_NO_FILE),
-                              log_info.log_file_name);
+                              log_file_name.c_str());
         }
         sql_print_information("Failed to execute mysql_file_stat on file '%s'",
-			      log_info.log_file_name);
+			      log_file_name.c_str());
         my_errno= 0;
       }
       else
@@ -4924,7 +4922,7 @@ int MYSQL_BIN_LOG::purge_logs_in_list(std::list<LOG_INFO>& delete_list,
                               "consider examining correspondence "
                               "of your binlog index file "
                               "to the actual binlog files",
-                              log_info.log_file_name);
+                              log_file_name.c_str());
         }
         else
         {
@@ -4932,7 +4930,7 @@ int MYSQL_BIN_LOG::purge_logs_in_list(std::list<LOG_INFO>& delete_list,
                                 "consider examining correspondence "
                                 "of your binlog index file "
                                 "to the actual binlog files",
-                                log_info.log_file_name);
+                                log_file_name.c_str());
         }
         error= LOG_INFO_FATAL;
         break;
@@ -4940,8 +4938,8 @@ int MYSQL_BIN_LOG::purge_logs_in_list(std::list<LOG_INFO>& delete_list,
     }
     else
     {
-      DBUG_PRINT("info",("purging %s",log_info.log_file_name));
-      if (!mysql_file_delete(key_file_binlog, log_info.log_file_name, MYF(0)))
+      DBUG_PRINT("info",("purging %s",log_file_name.c_str()));
+      if (!mysql_file_delete(key_file_binlog, log_file_name.c_str(), MYF(0)))
       {
         if (decrease_log_space)
           *decrease_log_space-= s.st_size;
@@ -4954,10 +4952,10 @@ int MYSQL_BIN_LOG::purge_logs_in_list(std::list<LOG_INFO>& delete_list,
           {
             push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,
                 ER_LOG_PURGE_NO_FILE, ER(ER_LOG_PURGE_NO_FILE),
-                                log_info.log_file_name);
+                                log_file_name.c_str());
           }
           sql_print_information("Failed to delete file '%s'",
-                                  log_info.log_file_name);
+                                  log_file_name.c_str());
           my_errno= 0;
         }
         else
@@ -4970,7 +4968,7 @@ int MYSQL_BIN_LOG::purge_logs_in_list(std::list<LOG_INFO>& delete_list,
                 "consider examining correspondence "
                 "of your binlog index file "
                 "to the actual binlog files",
-                log_info.log_file_name);
+                log_file_name.c_str());
           }
           else
           {
@@ -4978,7 +4976,7 @@ int MYSQL_BIN_LOG::purge_logs_in_list(std::list<LOG_INFO>& delete_list,
                 "consider examining correspondence "
                 "of your binlog index file "
                 "to the actual binlog files",
-                log_info.log_file_name);
+                log_file_name.c_str());
           }
           if (my_errno == EMFILE)
           {
