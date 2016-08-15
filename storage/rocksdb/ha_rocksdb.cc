@@ -1734,8 +1734,8 @@ public:
   {
     int rc= 0;
 
-    for (auto it = m_curr_bulk_load.begin(); it != m_curr_bulk_load.end();
-         it++)
+    std::unordered_set<ha_rocksdb*>::iterator it;
+    while ((it = m_curr_bulk_load.begin()) != m_curr_bulk_load.end())
     {
       int rc2= (*it)->finalize_bulk_load();
       if (rc2 != 0 && rc == 0)
@@ -1744,7 +1744,7 @@ public:
       }
     }
 
-    m_curr_bulk_load.clear();
+    DBUG_ASSERT(m_curr_bulk_load.size() == 0);
 
     return rc;
   }
@@ -1753,6 +1753,11 @@ public:
   {
     auto res __attribute__((__unused__))= m_curr_bulk_load.insert(bulk_load);
     DBUG_ASSERT(res.second);  // Assert that we inserted the value
+  }
+
+  void end_bulk_load(ha_rocksdb* bulk_load)
+  {
+    m_curr_bulk_load.erase(bulk_load);
   }
 
 
@@ -7199,6 +7204,12 @@ int ha_rocksdb::finalize_bulk_load()
     }
 
     m_sst_info= nullptr;
+
+    Rdb_transaction *tx= get_or_create_tx(ha_thd());
+    if (tx != nullptr)
+    {
+      tx->end_bulk_load(this);
+    }
   }
 
   return rc;

@@ -520,7 +520,12 @@ public:
   int m_checksums_pct;
 
   ha_rocksdb(my_core::handlerton *hton, my_core::TABLE_SHARE *table_arg);
-  ~ha_rocksdb() {}
+  ~ha_rocksdb()
+  {
+    int err __attribute__((__unused__));
+    err= finalize_bulk_load();
+    DBUG_ASSERT(err == 0);
+  }
 
   /** @brief
     The name that will be used for display purposes.
