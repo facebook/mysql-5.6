@@ -42,7 +42,6 @@ eval select * from gap1 order by id1 desc, id2 desc, id3 desc
 --error ER_UNKNOWN_ERROR
 eval select * from gap1 force index(i) where c1=1 $select_lock;
 # unique index lookup
---error ER_UNKNOWN_ERROR
 eval select * from gap3 force index(ui) where value=1 $select_lock;
 # primary key lookup
 eval select * from gap1 where id1=1 and id2=1 and id3=1 $select_lock;

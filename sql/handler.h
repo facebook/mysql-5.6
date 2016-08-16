@@ -2446,11 +2446,11 @@ protected:
     return index_read_last(buf, key, key_len);
   }
   bool is_using_full_key(key_part_map keypart_map, uint actual_key_parts);
-  bool is_using_full_primary_key(uint active_index,
+  bool is_using_full_unique_key(uint active_index,
                                  key_part_map keypart_map,
                                  enum ha_rkey_function find_flag);
   bool is_using_prohibited_gap_locks(TABLE *table,
-                                     bool using_full_primary_key);
+                                     bool using_full_unique_key);
 public:
   virtual int read_range_first(const key_range *start_key,
                                const key_range *end_key,

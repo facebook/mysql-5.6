@@ -2978,7 +2978,7 @@ int handler::ha_index_read_map(uchar *buf, const uchar *key,
               m_lock_type != F_UNLCK);
   DBUG_ASSERT(inited == INDEX);
 
-  if (is_using_prohibited_gap_locks(table, is_using_full_primary_key(
+  if (is_using_prohibited_gap_locks(table, is_using_full_unique_key(
                                       active_index, keypart_map, find_flag)))
   {
     DBUG_RETURN(HA_ERR_LOCK_DEADLOCK);
@@ -3024,7 +3024,7 @@ int handler::ha_index_read_idx_map(uchar *buf, uint index, const uchar *key,
               m_lock_type != F_UNLCK);
   DBUG_ASSERT(end_range == NULL);
 
-  if (is_using_prohibited_gap_locks(table, is_using_full_primary_key(
+  if (is_using_prohibited_gap_locks(table, is_using_full_unique_key(
                                       index, keypart_map, find_flag)))
   {
     return HA_ERR_LOCK_DEADLOCK;
@@ -3122,16 +3122,16 @@ bool handler::is_using_full_key(key_part_map keypart_map,
                         - 1));
 }
 
-bool handler::is_using_full_primary_key(uint index,
+bool handler::is_using_full_unique_key(uint index,
                                         key_part_map keypart_map,
                                         enum ha_rkey_function find_flag)
 {
   return (is_using_full_key(keypart_map,
                             table->key_info[index].actual_key_parts)
-          && index == table->s->primary_key
-          && find_flag == HA_READ_KEY_EXACT);
+          && find_flag == HA_READ_KEY_EXACT
+          && (index == table->s->primary_key
+              || (table->key_info[index].flags & HA_NOSAME)));
 }
-
 
 /**
   Reads the last row via index.
@@ -7956,13 +7956,13 @@ bool handler::is_using_prohibited_gap_locks(TABLE *table,
     if (thd->variables.gap_lock_raise_error)
     {
       my_printf_error(ER_UNKNOWN_ERROR,
-                      "Using Gap Lock without full primary key in multi-table "
+                      "Using Gap Lock without full unique key in multi-table "
                       "or multi-statement transactions is not "
                       "allowed. You need either 1: Execute 'SET SESSION "
                       "gap_lock_raise_error=0' if you are sure that "
                       "your application does not rely on Gap Lock. "
                       "2: Rewrite queries to use "
-                      "all primary key columns in WHERE equal conditions. "
+                      "all unique key columns in WHERE equal conditions. "
                       "3: Rewrite to single-table, single-statement "
                       "transaction.  Query: %s",
                       MYF(0), thd->query());

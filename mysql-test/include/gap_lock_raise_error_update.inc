@@ -64,3 +64,25 @@ select * from gap1, gap2 limit 1 for update;
 --error ER_UNKNOWN_ERROR
 select * from gap1 a, gap1 b limit 1 for update;
 
+# unique secondary key
+create table u1(
+ c1 int,
+ c2 int,
+ c3 int,
+ c4 int,
+ primary key (c1, c2, c3),
+ unique key (c3, c1)
+);
+set session gap_lock_raise_error=1;
+begin;
+insert into u1 values (1,1,1,1);
+commit;
+begin;
+insert into u1 values (1,2,1,1) on duplicate key update c4=10;
+commit;
+begin;
+select * from u1 where c3=1 and c1 = 1 for update;
+--error ER_UNKNOWN_ERROR
+select * from u1 where c3=1 for update;
+commit;
+drop table u1;

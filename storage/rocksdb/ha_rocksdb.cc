@@ -5774,7 +5774,7 @@ int ha_rocksdb::read_range_first(const key_range *start_key,
   else
   {
     if (is_using_prohibited_gap_locks(table,
-                                      is_using_full_primary_key(
+                                      is_using_full_unique_key(
                                         active_index,
                                         start_key->keypart_map,
                                         start_key->flag)))
