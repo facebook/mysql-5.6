@@ -987,6 +987,17 @@
 }
 
 {
+   Still reachable for once-per-process initializations
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:_ZN7rocksdb12_GLOBAL__N_18PosixEnv*
+   fun:_ZN7rocksdb3Env7DefaultEv
+   fun:_ZN7rocksdb9DBOptionsC1Ev
+   fun:_ZN7myrocksL27rdb_init_rocksdb_db_optionsEv
+}
+
+{
    Still reachable for thread local storage initialization (SetHandle)
    Memcheck:Leak
    match-leak-kinds: reachable
