@@ -5260,7 +5260,7 @@ pthread_handler_t handle_slave_worker(void *arg)
   ulong i = 0;
   struct slave_job_item _item, *job_item= &_item;
   /* Buffer lifetime extends across the entire runtime of the THD handle. */
-  static char proc_info_buf[256]= {0};
+  char proc_info_buf[256]= {0};
 
   my_thread_init();
   DBUG_ENTER("handle_slave_worker");
