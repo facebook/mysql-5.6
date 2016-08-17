@@ -53,6 +53,14 @@ EOF
 
 --file_exists $file
 
+# Make sure a snapshot held by another user doesn't block the bulk load
+connect (other,localhost,root,,);
+set session transaction isolation level repeatable read;
+select * from information_schema.rocksdb_dbstats where stat_type='DB_NUM_SNAPSHOTS';
+start transaction with consistent snapshot;
+select * from information_schema.rocksdb_dbstats where stat_type='DB_NUM_SNAPSHOTS';
+
+connection default;
 set rocksdb_bulk_load=1;
 set rocksdb_bulk_load_size=100000;
 --disable_query_log
@@ -97,4 +105,6 @@ EOF
 # Show the files do not exist
 --list_files $datadir *$tmpext
 
+# Cleanup
+disconnect other;
 DROP TABLE t1, t2, t3;
