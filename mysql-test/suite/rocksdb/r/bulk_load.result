@@ -3,6 +3,14 @@ CREATE TABLE t1(pk CHAR(5) PRIMARY KEY, a char(30), b char(30), key(a)) COLLATE 
 CREATE TABLE t2(pk CHAR(5) PRIMARY KEY, a char(30), b char(30), key(a)) COLLATE 'latin1_bin';
 CREATE TABLE t3(pk CHAR(5) PRIMARY KEY, a char(30), b char(30), key(a)) COLLATE 'latin1_bin'
   PARTITION BY KEY() PARTITIONS 4;
+set session transaction isolation level repeatable read;
+select * from information_schema.rocksdb_dbstats where stat_type='DB_NUM_SNAPSHOTS';
+STAT_TYPE	VALUE
+DB_NUM_SNAPSHOTS	0
+start transaction with consistent snapshot;
+select * from information_schema.rocksdb_dbstats where stat_type='DB_NUM_SNAPSHOTS';
+STAT_TYPE	VALUE
+DB_NUM_SNAPSHOTS	1
 set rocksdb_bulk_load=1;
 set rocksdb_bulk_load_size=100000;
 LOAD DATA INFILE <input_file> INTO TABLE t1;
