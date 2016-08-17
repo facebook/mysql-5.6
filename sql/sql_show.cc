@@ -2091,7 +2091,7 @@ public:
   CSET_STRING query_string;
   ulong rows_examined, rows_sent;
   // time measurements for transaction list
-  my_decimal stmt_secs, trx_secs, cmd_secs;
+  double stmt_secs, trx_secs, cmd_secs;
   // tracking the thread's transaction
   bool rw_trans, sql_log_bin;
 };
@@ -2212,18 +2212,11 @@ static void set_thread_info_transaction_list(thread_info *thd_info, THD *tmp)
 {
   auto time_stats = get_thd_time_stats(tmp);
   /* Statement_seconds */
-  double2my_decimal(E_DEC_FATAL_ERROR, std::get<0>(time_stats),
-                    &thd_info->stmt_secs);
-  thd_info->stmt_secs.frac = 6;
+  thd_info->stmt_secs = std::get<0>(time_stats);
   /* Transaction_seconds */
-  double2my_decimal(E_DEC_FATAL_ERROR, std::get<1>(time_stats),
-                    &thd_info->trx_secs);
-  thd_info->trx_secs.frac = 6;
+  thd_info->trx_secs = std::get<1>(time_stats);
   /* Command_seconds */
-  double2my_decimal(E_DEC_FATAL_ERROR, std::get<2>(time_stats),
-                    &thd_info->cmd_secs);
-  thd_info->cmd_secs.frac = 6;
-
+  thd_info->cmd_secs = std::get<2>(time_stats);
   /* rw_trans */
   thd_info->rw_trans = tmp->rw_trans;
   /* sql_log_bin */
@@ -2267,13 +2260,12 @@ static void setup_field_list_transaction_list(List<Item> *field_list)
   setup_field_list_common(field_list);
   field_list->push_back(field=new Item_empty_string("State",30));
   field->maybe_null=1;
-  my_decimal tmp_buf;
-  field_list->push_back(new Item_decimal(NAME_STRING("Statement_seconds"),
-        &tmp_buf, 6, 65));
-  field_list->push_back(new Item_decimal(NAME_STRING("Transaction_seconds"),
-        &tmp_buf, 6, 65));
-  field_list->push_back(new Item_decimal(NAME_STRING("Command_seconds"),
-        &tmp_buf, 6, 65));
+  field_list->push_back(new Item_float(NAME_STRING("Statement_seconds"),
+        0, 6, 65));
+  field_list->push_back(new Item_float(NAME_STRING("Transaction_seconds"),
+        0, 6, 65));
+  field_list->push_back(new Item_float(NAME_STRING("Command_seconds"),
+        0, 6, 65));
   field_list->push_back(new Item_int(NAME_STRING("Read_only"), 0, 1));
   field_list->push_back(new Item_int(NAME_STRING("Sql_log_bin"), 0, 1));
 }
@@ -2312,9 +2304,11 @@ static void store_result_field_transaction_list(Protocol *protocol,
 {
   store_result_field_thread_info_common(protocol, thd_info);
   protocol->store(thd_info->state_info, system_charset_info);
-  protocol->store_decimal(&thd_info->stmt_secs);
-  protocol->store_decimal(&thd_info->trx_secs);
-  protocol->store_decimal(&thd_info->cmd_secs);
+  char buff[65]; // buffer to hold the float field with max length 65
+  String tmp_str(buff, sizeof(buff), system_charset_info);
+  protocol->store(thd_info->stmt_secs, 6, &tmp_str);
+  protocol->store(thd_info->trx_secs, 6, &tmp_str);
+  protocol->store(thd_info->cmd_secs, 6, &tmp_str);
   protocol->store((longlong) (!thd_info->rw_trans)); /* Read_only */
   protocol->store((longlong) thd_info->sql_log_bin);
 }

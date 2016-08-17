@@ -5922,16 +5922,15 @@ finish:
       trans_commit_stmt(thd, lex->async_commit);
       thd->get_stmt_da()->set_overwrite_status(false);
 
-      if (thd->is_real_trans)
-        // reset trx timer at the end of a transaction
-        thd->trx_time = 0;
-      else
-        // add the current statement_time to transaction_time of an open
-        // transaction
+      // add current statement_time to transaction_time in an open transaction
+      if (!thd->is_real_trans)
         thd->trx_time += my_timer_since(*statement_start_time);
     }
   }
 
+  // reset trx timer at the end of a transaction
+  if (thd->is_real_trans)
+    thd->trx_time = 0;
   // Reset statement start time
   thd->stmt_start = 0;
   lex->unit.cleanup();
