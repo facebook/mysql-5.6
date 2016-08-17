@@ -114,7 +114,9 @@ rocksdb::Status Rdb_sst_file::commit()
   {
     std::vector<std::string> files = { m_name };
     // Add the file to the database
-    s= m_db->AddFile(m_cf, files, true);
+    // Set the skip_snapshot_check parameter to true since no one
+    // should be accessing the table we are bulk loading
+    s= m_db->AddFile(m_cf, files, true, true);
   }
 
   delete m_sst_file_writer;
