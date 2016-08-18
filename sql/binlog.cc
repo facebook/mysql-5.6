@@ -2483,14 +2483,6 @@ bool show_binlog_cache(THD *thd)
             const char *ev_buf =
                 (const char *)cache_snapshot.read_pos + hdr_offs;
             uint event_len= uint4korr(ev_buf + EVENT_LEN_OFFSET);
-            const char *ev_data = ev_buf+LOG_EVENT_HEADER_LEN;
-            int2store(ev_data+ST_BINLOG_VER_OFFSET,binlog_ver);
-
-            if (binlog_ver != description_event->binlog_version)
-            {
-              delete description_event;
-              description_event = new Format_description_log_event(binlog_ver);
-            }
 
             // move to next event header
             hdr_offs += event_len;

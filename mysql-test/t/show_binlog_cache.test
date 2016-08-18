@@ -146,6 +146,16 @@ connection a;
 
 rollback;
 
+--echo #Verify Intvar_log_event are valid after running show binlog cache
+create table incr(id bigint(20) not null auto_increment,
+                  name varchar(100) default null, primary key(id));
+begin;
+insert into incr set name = "foo";
+
+show binlog cache;
+show binlog cache;
+commit;
+
 --echo #connection master
 connection master;
 
@@ -154,5 +164,6 @@ set @@global.binlog_cache_size = @save_binlog_cache_size;
 # cleanup
 drop table mysqltest1;
 drop user mysqluser1;
+drop table incr;
 
 --source include/rpl_end.inc

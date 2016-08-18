@@ -117,8 +117,25 @@ Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
 Query	###	use `test`; insert into mysqltest1 values (10)
 #connection a
 rollback;
+#Verify Intvar_log_event are valid after running show binlog cache
+create table incr(id bigint(20) not null auto_increment,
+name varchar(100) default null, primary key(id));
+begin;
+insert into incr set name = "foo";
+show binlog cache;
+Event_type	Server_id	Info
+Query	1	BEGIN
+Intvar	1	INSERT_ID=1
+Query	1	use `test`; insert into incr set name = "foo"
+show binlog cache;
+Event_type	Server_id	Info
+Query	1	BEGIN
+Intvar	1	INSERT_ID=1
+Query	1	use `test`; insert into incr set name = "foo"
+commit;
 #connection master
 set @@global.binlog_cache_size = @save_binlog_cache_size;
 drop table mysqltest1;
 drop user mysqluser1;
+drop table incr;
 include/rpl_end.inc
