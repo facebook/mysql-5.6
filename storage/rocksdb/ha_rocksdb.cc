@@ -7245,19 +7245,14 @@ int ha_rocksdb::update_pk(uint key_id, const struct update_row_info& row_info,
                                    &value_slice);
 
   int rc= 0;
-  int err= 0;
   auto cf= m_pk_descr->get_cf();
-  if (THDVAR(table->in_use, bulk_load) && !hidden_pk)
+  if (false && THDVAR(table->in_use, bulk_load) && !hidden_pk)
   {
     /*
       Write the primary key directly to an SST file using an SstFileWriter
      */
     rc= bulk_load_pk(row_info.tx, key_id, cf, row_info.new_pk_slice,
                      value_slice);
-    if (rc == 0)
-    {
-      rc= err;
-    }
   }
   else if (row_info.skip_unique_check)
   {
