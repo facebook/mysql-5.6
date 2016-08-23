@@ -407,6 +407,7 @@ static long long rocksdb_compaction_sequential_deletes_file_size= 0l;
 static uint32_t rocksdb_validate_tables = 1;
 static char * rocksdb_datadir;
 static uint32_t rocksdb_table_stats_sampling_pct;
+static my_bool rocksdb_enable_bulk_load_api= 1;
 
 std::atomic<uint64_t> rocksdb_snapshot_conflict_errors(0);
 
@@ -479,6 +480,12 @@ static MYSQL_THDVAR_BOOL(bulk_load, PLUGIN_VAR_RQCMDARG,
   "Use bulk-load mode for inserts. This enables both "
   "rocksdb_skip_unique_check and rocksdb_commit_in_the_middle.",
   nullptr, rocksdb_set_bulk_load, FALSE);
+
+static MYSQL_SYSVAR_BOOL(enable_bulk_load_api,
+  rocksdb_enable_bulk_load_api,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "Enables using SstFileWriter for bulk loading",
+  nullptr, nullptr, rocksdb_enable_bulk_load_api);
 
 static MYSQL_THDVAR_STR(skip_unique_check_tables,
   PLUGIN_VAR_RQCMDARG|PLUGIN_VAR_MEMALLOC,
@@ -1094,6 +1101,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(commit_in_the_middle),
   MYSQL_SYSVAR(read_free_rpl_tables),
   MYSQL_SYSVAR(bulk_load_size),
+  MYSQL_SYSVAR(enable_bulk_load_api),
   MYSQL_SYSVAR(skip_bloom_filter_on_read),
 
   MYSQL_SYSVAR(create_if_missing),
@@ -1740,14 +1748,14 @@ public:
  private:
   // The tables we are currently loading.  In a partitioned table this can
   // have more than one entry
-  std::unordered_set<ha_rocksdb*> m_curr_bulk_load;
+  std::vector<ha_rocksdb*> m_curr_bulk_load;
 
  public:
   int finish_bulk_load()
   {
     int rc= 0;
 
-    std::unordered_set<ha_rocksdb*>::iterator it;
+    std::vector<ha_rocksdb*>::iterator it;
     while ((it = m_curr_bulk_load.begin()) != m_curr_bulk_load.end())
     {
       int rc2= (*it)->finalize_bulk_load();
@@ -1764,13 +1772,36 @@ public:
 
   void start_bulk_load(ha_rocksdb* bulk_load)
   {
-    auto res MY_ATTRIBUTE((__unused__))= m_curr_bulk_load.insert(bulk_load);
-    DBUG_ASSERT(res.second);  // Assert that we inserted the value
+    /*
+     If we already have an open bulk load of a table and the name doesn't
+     match the current one, close out the currently running one.  This allows
+     multiple bulk loads to occur on a partitioned table, but then closes
+     them all out when we switch to another table.
+    */
+    if (!m_curr_bulk_load.empty() &&
+        !bulk_load->same_table(*m_curr_bulk_load[0]))
+    {
+      auto res= finish_bulk_load();
+      SHIP_ASSERT(res == 0);
+    }
+
+    m_curr_bulk_load.push_back(bulk_load);
   }
 
   void end_bulk_load(ha_rocksdb* bulk_load)
   {
-    m_curr_bulk_load.erase(bulk_load);
+    for (auto it = m_curr_bulk_load.begin(); it != m_curr_bulk_load.end();
+         it++)
+    {
+      if (*it == bulk_load)
+      {
+        m_curr_bulk_load.erase(it);
+        return;
+      }
+    }
+
+    // Should not reach here
+    SHIP_ASSERT(0);
   }
 
 
@@ -3664,6 +3695,11 @@ static const char *ha_rocksdb_exts[] = {
 const char **ha_rocksdb::bas_ext() const
 {
   return ha_rocksdb_exts;
+}
+
+bool ha_rocksdb::same_table(const ha_rocksdb& other) const
+{
+  return m_tbl_def->base_tablename() == other.m_tbl_def->base_tablename();
 }
 
 bool ha_rocksdb::init_with_fields()
@@ -7309,7 +7345,8 @@ int ha_rocksdb::update_pk(uint key_id, const struct update_row_info& row_info,
 
   int rc= 0;
   auto cf= m_pk_descr->get_cf();
-  if (false && THDVAR(table->in_use, bulk_load) && !hidden_pk)
+  if (rocksdb_enable_bulk_load_api && THDVAR(table->in_use, bulk_load) &&
+      !hidden_pk)
   {
     /*
       Write the primary key directly to an SST file using an SstFileWriter
