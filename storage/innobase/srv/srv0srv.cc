@@ -240,6 +240,8 @@ ulint	srv_buf_pool_old_size	= 0;
 ulint	srv_buf_pool_base_size	= 0;
 /* current size in kilobytes */
 UNIV_INTERN ulint	srv_buf_pool_curr_size	= 0;
+/* dump that may % of each buffer pool during BP dump */
+UNIV_INTERN ulong srv_buf_pool_dump_pct;
 /* requested size (number) */
 UNIV_INTERN ulint	srv_sync_pool_size	= 1024;
 /* size in bytes */

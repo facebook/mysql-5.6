@@ -230,6 +230,16 @@ buf_dump(
 			continue;
 		}
 
+		if (srv_buf_pool_dump_pct != 100) {
+			ut_ad(srv_buf_pool_dump_pct < 100);
+
+			n_pages = n_pages * srv_buf_pool_dump_pct / 100;
+
+			if (n_pages == 0) {
+				n_pages = 1;
+			}
+		}
+
 		dump = static_cast<buf_dump_t*>(
 			ut_malloc(n_pages * sizeof(*dump))) ;
 
@@ -244,9 +254,9 @@ buf_dump(
 			return;
 		}
 
-		for (bpage = UT_LIST_GET_LAST(buf_pool->LRU), j = 0;
-		     bpage != NULL;
-		     bpage = UT_LIST_GET_PREV(LRU, bpage), j++) {
+		for (bpage = UT_LIST_GET_FIRST(buf_pool->LRU), j = 0;
+			bpage != NULL && j < n_pages;
+			bpage = UT_LIST_GET_NEXT(LRU, bpage), j++) {
 
 			ut_a(buf_page_in_file(bpage));
 

@@ -17971,6 +17971,11 @@ static MYSQL_SYSVAR_BOOL(dump_core_without_large_mem_buf,
   "Disable with --skip-innodb-dump-core-without-large-mem-buf.",
   NULL, NULL, TRUE);
 
+static MYSQL_SYSVAR_ULONG(buffer_pool_dump_pct, srv_buf_pool_dump_pct,
+  PLUGIN_VAR_RQCMDARG,
+  "Dump only the hottest N% of each buffer pool, defaults to 100",
+  NULL, NULL, 100, 1, 100, 0);
+
 #ifdef UNIV_DEBUG
 static MYSQL_SYSVAR_STR(buffer_pool_evict, srv_buffer_pool_evict,
   PLUGIN_VAR_RQCMDARG,
@@ -18645,6 +18650,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(buffer_pool_dump_now),
   MYSQL_SYSVAR(buffer_pool_dump_at_shutdown),
   MYSQL_SYSVAR(dump_core_without_large_mem_buf),
+  MYSQL_SYSVAR(buffer_pool_dump_pct),
   MYSQL_SYSVAR(evicted_pages_sampling_ratio),
   MYSQL_SYSVAR(buffer_pool_resizing_timeout),
   MYSQL_SYSVAR(histogram_step_size_async_read),
