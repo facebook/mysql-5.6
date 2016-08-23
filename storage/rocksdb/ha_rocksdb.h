@@ -548,6 +548,12 @@ public:
    */
   const char **bas_ext() const;
 
+  /*
+    See if this is the same base table - this should only be true for different
+    partitions of the same table.
+  */
+  bool same_table(const ha_rocksdb& other) const;
+
   /** @brief
     This is a list of flags that indicate what functionality the storage engine
     implements. The current table flags are documented in handler.h
