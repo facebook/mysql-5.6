@@ -33,6 +33,7 @@
 namespace myrocks {
 
 class Rdb_sst_file {
+ private:
   Rdb_sst_file(const Rdb_sst_file& p)= delete;
   Rdb_sst_file& operator=(const Rdb_sst_file& p)= delete;
 
@@ -41,10 +42,14 @@ class Rdb_sst_file {
   const rocksdb::DBOptions&    m_db_options;
   rocksdb::SstFileWriter*      m_sst_file_writer;
   std::string                  m_name;
+  bool                         m_tracing;
+
+  std::string generateKey(const std::string& key);
 
  public:
   Rdb_sst_file(rocksdb::DB* db, rocksdb::ColumnFamilyHandle* cf,
-               const rocksdb::DBOptions& db_options, const std::string& name);
+               const rocksdb::DBOptions& db_options, const std::string& name,
+               bool tracing);
   ~Rdb_sst_file();
 
   rocksdb::Status open();
@@ -53,6 +58,7 @@ class Rdb_sst_file {
 };
 
 class Rdb_sst_info {
+ private:
   Rdb_sst_info(const Rdb_sst_info& p)= delete;
   Rdb_sst_info& operator=(const Rdb_sst_info& p)= delete;
 
@@ -73,6 +79,7 @@ class Rdb_sst_info {
   bool                         m_finished;
 #endif
   Rdb_sst_file*                m_sst_file;
+  bool                         m_tracing;
 
   int open_new_sst_file();
   void close_curr_sst_file();
@@ -87,7 +94,7 @@ class Rdb_sst_info {
  public:
   Rdb_sst_info(rocksdb::DB* db, const std::string& tablename,
                const std::string& indexname, rocksdb::ColumnFamilyHandle* cf,
-               const rocksdb::DBOptions& db_options);
+               const rocksdb::DBOptions& db_options, bool tracing);
   ~Rdb_sst_info();
 
   int put(const rocksdb::Slice& key, const rocksdb::Slice& value);
