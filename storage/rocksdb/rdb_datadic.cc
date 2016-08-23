@@ -2793,6 +2793,32 @@ bool Rdb_field_packing::setup(const Rdb_key_def *key_descr, const Field *field,
         res= false;  // Indicate that index-only reads are not possible
       }
     }
+
+    // Make an adjustment: unpacking partially covered columns is not
+    // possible. field->table is populated when called through
+    // Rdb_key_def::setup, but not during ha_rocksdb::index_flags.
+    if (field->table)
+    {
+      // Get the original Field object and compare lengths. If this key part is
+      // a prefix of a column, then we can't do index-only scans.
+      if (field->table->field[field->field_index]->field_length != key_length)
+      {
+        m_unpack_func= nullptr;
+        m_make_unpack_info_func= nullptr;
+        m_unpack_info_stores_value= false;
+        res= false;
+      }
+    }
+    else
+    {
+      if (field->field_length != key_length)
+      {
+        m_unpack_func= nullptr;
+        m_make_unpack_info_func= nullptr;
+        m_unpack_info_stores_value= false;
+        res= false;
+      }
+    }
   }
   return res;
 }

@@ -52,3 +52,11 @@ insert into t1 values (2, 'ab\0','ab0');
 select pk, hex(col1), col2 from t1 force index(col1) order by col1;
 select pk, hex(col1), col2 from t1 ignore index(col1) order by col1;
 drop table t1;
+
+# Issue #306 - Do not store trailing spaces for prefixed keys.
+create table t (id int primary key, email varchar(100), KEY email_i (email(30)));
+insert into t values (1, 'abcabcabcabcabcabcabcabcabcabcabc  ');
+--replace_column 9 #
+explain select 'email_i' as index_name, count(*) AS count from t force index(email_i);
+select 'email_i' as index_name, count(*) AS count from t force index(email_i);
+drop table t;

@@ -5239,7 +5239,8 @@ bool ha_rocksdb::check_keyread_allowed(uint inx, uint part, bool all_parts) cons
   KEY *key_info= &table_share->key_info[inx];
 
   Rdb_field_packing dummy1;
-  res= dummy1.setup(nullptr, key_info->key_part[part].field, inx, part, 0);
+  res= dummy1.setup(nullptr, key_info->key_part[part].field, inx, part,
+                    key_info->key_part[part].length);
 
   if (res && all_parts)
   {
@@ -5249,7 +5250,7 @@ bool ha_rocksdb::check_keyread_allowed(uint inx, uint part, bool all_parts) cons
       if ((field= key_info->key_part[i].field))
       {
         Rdb_field_packing dummy;
-        if (!dummy.setup(nullptr, field, inx, i, 0))
+        if (!dummy.setup(nullptr, field, inx, i, key_info->key_part[i].length))
         {
           /* Cannot do index-only reads for this column */
           res= false;
