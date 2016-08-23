@@ -38,12 +38,13 @@ namespace myrocks {
 
 Rdb_sst_file::Rdb_sst_file(rocksdb::DB* db, rocksdb::ColumnFamilyHandle* cf,
                            const rocksdb::DBOptions& db_options,
-                           const std::string& name) :
+                           const std::string& name, bool tracing) :
   m_db(db),
   m_cf(cf),
   m_db_options(db_options),
   m_sst_file_writer(nullptr),
-  m_name(name)
+  m_name(name),
+  m_tracing(tracing)
 {
   DBUG_ASSERT(db != nullptr);
   DBUG_ASSERT(cf != nullptr);
@@ -83,6 +84,13 @@ rocksdb::Status Rdb_sst_file::open()
       new rocksdb::SstFileWriter(env_options, options, comparator);
 
   s= m_sst_file_writer->Open(m_name);
+  if (m_tracing)
+  {
+    // NO_LINT_DEBUG
+    sql_print_information("SST Tracing: Open(%s) returned %s", m_name.c_str(),
+                          s.ok() ? "ok" : "not ok");
+  }
+
   if (!s.ok())
   {
     delete m_sst_file_writer;
@@ -101,22 +109,68 @@ rocksdb::Status Rdb_sst_file::put(const rocksdb::Slice& key,
   return m_sst_file_writer->Add(key, value);
 }
 
+std::string Rdb_sst_file::generateKey(const std::string& key)
+{
+  static char const hexdigit[]= {
+    '0', '1', '2', '3', '4', '5', '6', '7',
+    '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
+  };
+
+  std::string res;
+
+  res.reserve(key.size() * 2);
+
+  for (auto ch : key)
+  {
+    res += hexdigit[((uint8_t) ch) >> 4];
+    res += hexdigit[((uint8_t) ch) & 0x0F];
+  }
+
+  return res;
+}
+
 // This function is run by the background thread
 rocksdb::Status Rdb_sst_file::commit()
 {
   DBUG_ASSERT(m_sst_file_writer != nullptr);
 
   rocksdb::Status s;
+  rocksdb::ExternalSstFileInfo fileinfo;
 
   // Close out the sst file
-  s= m_sst_file_writer->Finish();
+  s= m_sst_file_writer->Finish(&fileinfo);
+  if (m_tracing)
+  {
+    // NO_LINT_DEBUG
+    sql_print_information("SST Tracing: Finish returned %s",
+                          s.ok() ? "ok" : "not ok");
+  }
+
   if (s.ok())
   {
+    if (m_tracing)
+    {
+      // NO_LINT_DEBUG
+      sql_print_information("SST Tracing: Adding file %s, smallest key: %s, "
+                            "largest key: %s, file size: %" PRIu64 ", "
+                            "num_entries: %" PRIu64, fileinfo.file_path.c_str(),
+                            generateKey(fileinfo.smallest_key).c_str(),
+                            generateKey(fileinfo.largest_key).c_str(),
+                            fileinfo.file_size, fileinfo.num_entries);
+    }
+
     std::vector<std::string> files = { m_name };
     // Add the file to the database
     // Set the skip_snapshot_check parameter to true since no one
     // should be accessing the table we are bulk loading
     s= m_db->AddFile(m_cf, files, true, true);
+    if (m_tracing)
+    {
+      // NO_LINT_DEBUG
+      sql_print_information("SST Tracing: AddFile(%s) returned %s",
+                            fileinfo.file_path.c_str(),
+                            s.ok() ? "ok" : "not ok");
+    }
   }
 
   delete m_sst_file_writer;
@@ -128,7 +182,8 @@ rocksdb::Status Rdb_sst_file::commit()
 Rdb_sst_info::Rdb_sst_info(rocksdb::DB* db, const std::string& tablename,
                            const std::string& indexname,
                            rocksdb::ColumnFamilyHandle* cf,
-                           const rocksdb::DBOptions& db_options) :
+                           const rocksdb::DBOptions& db_options,
+                           bool tracing) :
   m_db(db),
   m_cf(cf),
   m_db_options(db_options),
@@ -142,7 +197,8 @@ Rdb_sst_info::Rdb_sst_info(rocksdb::DB* db, const std::string& tablename,
   m_thread(nullptr),
   m_finished(false),
 #endif
-  m_sst_file(nullptr)
+  m_sst_file(nullptr),
+  m_tracing(tracing)
 {
   m_prefix= db->GetName() + "/";
 
@@ -191,7 +247,7 @@ int Rdb_sst_info::open_new_sst_file()
   std::string name= m_prefix + std::to_string(m_sst_count++) + m_suffix;
 
   // Create the new sst file object
-  m_sst_file= new Rdb_sst_file(m_db, m_cf, m_db_options, name);
+  m_sst_file= new Rdb_sst_file(m_db, m_cf, m_db_options, name, m_tracing);
 
   // Open the sst file
   rocksdb::Status s= m_sst_file->open();
