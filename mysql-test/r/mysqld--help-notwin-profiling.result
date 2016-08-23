@@ -1104,6 +1104,9 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-rocksdb-disable-2pc to disable.)
  --rocksdb-disabledatasync 
  DBOptions::disableDataSync for RocksDB
+ --rocksdb-enable-bulk-load-api 
+ Enables using SstFileWriter for bulk loading
+ (Defaults to on; use --skip-rocksdb-enable-bulk-load-api to disable.)
  --rocksdb-enable-thread-tracking 
  DBOptions::enable_thread_tracking for RocksDB
  --rocksdb-enable-write-thread-adaptive-yield 
@@ -1871,6 +1874,7 @@ rocksdb-default-cf-options
 rocksdb-delete-obsolete-files-period-micros 21600000000
 rocksdb-disable-2pc TRUE
 rocksdb-disabledatasync FALSE
+rocksdb-enable-bulk-load-api TRUE
 rocksdb-enable-thread-tracking FALSE
 rocksdb-enable-write-thread-adaptive-yield FALSE
 rocksdb-error-if-exists FALSE
