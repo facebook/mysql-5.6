@@ -1250,6 +1250,9 @@ The following options may be given as the first argument:
  statistics about table properties. Specify either 0 to
  sample everything or percentage [1..100]. By default 10%
  of entries are sampled.
+ --rocksdb-trace-sst-api 
+ Generate trace output in the log for each call to the
+ SstFileWriter
  --rocksdb-unsafe-for-binlog 
  Allowing statement based binary logging which may break
  consistency
@@ -1943,6 +1946,7 @@ rocksdb-strict-collation-check TRUE
 rocksdb-strict-collation-exceptions (No default value)
 rocksdb-table-cache-numshardbits 6
 rocksdb-table-stats-sampling-pct 10
+rocksdb-trace-sst-api FALSE
 rocksdb-unsafe-for-binlog FALSE
 rocksdb-use-adaptive-mutex FALSE
 rocksdb-use-fsync FALSE
