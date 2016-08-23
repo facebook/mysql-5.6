@@ -371,3 +371,8 @@ SELECT COUNT(*) FROM t1;
 COUNT(*)
 100
 DROP TABLE t1;
+CREATE TABLE t1 (a INT, b TEXT);
+ALTER TABLE t1 ADD KEY kb(b(10));
+ERROR HY000: Unsupported collation on string indexed column test.t1.b Use binary collation (binary, latin1_bin, utf8_bin).
+ALTER TABLE t1 ADD PRIMARY KEY(a);
+DROP TABLE t1;

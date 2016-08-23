@@ -9168,6 +9168,12 @@ bool ha_rocksdb::prepare_inplace_alter_table(
   {
     /* Delete the new key descriptors */
     delete[] new_key_descr;
+
+    /*
+      Explicitly mark as nullptr so we don't accidentally remove entries
+      from data dictionary on cleanup (or cause double delete[]).
+    */
+    new_tdef->m_key_descr_arr= nullptr;
     delete new_tdef;
     DBUG_RETURN(1);
   }

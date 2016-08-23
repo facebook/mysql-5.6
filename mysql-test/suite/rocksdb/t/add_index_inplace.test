@@ -279,3 +279,12 @@ SELECT COUNT(*) FROM t1;
 
 DROP TABLE t1;
 
+# test failure in prepare phase (due to collation)
+CREATE TABLE t1 (a INT, b TEXT);
+
+--error 1105
+ALTER TABLE t1 ADD KEY kb(b(10));
+ALTER TABLE t1 ADD PRIMARY KEY(a);
+DROP TABLE t1;
+
+
