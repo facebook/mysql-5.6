@@ -170,6 +170,8 @@ class Filesort_info {
   Filesort_buffer filesort_buffer;
 
  public:
+  bool file_size_exceeded; /* If filesort exceeded max file size */
+
   Merge_chunk_array merge_chunks;  ///< Array of chunk descriptors
 
   Addon_fields *addon_fields{nullptr};  ///< Addon field descriptors.
