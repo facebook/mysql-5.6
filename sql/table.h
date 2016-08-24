@@ -328,6 +328,7 @@ class Filesort_info
 
 public:
   IO_CACHE *io_cache;           /* If sorted through filesort */
+  bool      file_size_exceeded; /* If filesort exceeded max file size */
   uchar     *buffpek;           /* Buffer for buffpek structures */
   uint      buffpek_len;        /* Max number of buffpeks in the buffer */
   uchar     *addon_buf;         /* Pointer to a buffer if sorted with fields */

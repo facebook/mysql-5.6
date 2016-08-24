@@ -245,6 +245,7 @@ ha_rows filesort(THD *thd, TABLE *table, Filesort *filesort,
   table_sort.addon_length= param.addon_length;
   table_sort.addon_field= param.addon_field;
   table_sort.unpack= unpack_addon_fields;
+  table_sort.file_size_exceeded= false;
   if (param.addon_field &&
       !(table_sort.addon_buf=
         (uchar *) my_malloc(param.addon_length, MYF(MY_WME))))
@@ -448,7 +449,8 @@ ha_rows filesort(THD *thd, TABLE *table, Filesort *filesort,
   {
     int kill_errno= thd->killed_errno();
     DBUG_ASSERT(thd->is_error() || kill_errno ||
-                thd->killed == THD::ABORT_QUERY);
+                thd->killed == THD::ABORT_QUERY ||
+                table_sort.file_size_exceeded);
     my_printf_error(ER_FILSORT_ABORT,
                     "%s: %s",
                     MYF(ME_ERROR + ME_WAITTANG),
@@ -903,6 +905,7 @@ write_keys(Sort_param *param, Filesort_info *fs_info, uint count,
   size_t rec_length;
   uchar **end;
   BUFFPEK buffpek;
+  THD *thd= current_thd;
   DBUG_ENTER("write_keys");
 
   rec_length= param->rec_length;
@@ -922,8 +925,17 @@ write_keys(Sort_param *param, Filesort_info *fs_info, uint count,
     count=(uint) param->max_rows;               /* purecov: inspected */
   buffpek.count=(ha_rows) count;
   for (end=sort_keys+count ; sort_keys != end ; sort_keys++)
+  {
     if (my_b_write(tempfile, (uchar*) *sort_keys, (uint) rec_length))
       goto err;
+    if (thd->variables.filesort_max_file_size > 0 &&
+        tempfile->pos_in_file > thd->variables.filesort_max_file_size)
+    {
+      fs_info->file_size_exceeded= true;
+      my_error(ER_FILESORT_MAX_FILE_SIZE_EXCEEDED, MYF(0));
+      goto err;
+    }
+  }
   if (my_b_write(buffpek_pointers, (uchar*) &buffpek, sizeof(buffpek)))
     goto err;
   DBUG_RETURN(0);

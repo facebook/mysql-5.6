@@ -276,6 +276,9 @@ The following options may be given as the first argument:
  --fatal-semaphore-timeout=# 
  Maximum number of seconds that semaphore times out in
  innodb.
+ --filesort-max-file-size=# 
+ The max size of a file to use for filesort. Raise an
+ error when this is exceeded. 0 means no limit.
  --flush             Flush MyISAM tables to disk between SQL commands
  --flush-time=#      A dedicated thread is created to flush all tables at the
  given interval
@@ -1605,6 +1608,7 @@ expire-logs-days 0
 explicit-defaults-for-timestamp FALSE
 external-locking FALSE
 fatal-semaphore-timeout 600
+filesort-max-file-size 0
 flush FALSE
 flush-time 0
 ft-boolean-syntax + -><()~*:""&|
