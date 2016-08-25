@@ -2805,7 +2805,7 @@ bool Rdb_field_packing::setup(const Rdb_key_def *key_descr, const Field *field,
       {
         m_unpack_func= nullptr;
         m_make_unpack_info_func= nullptr;
-        m_unpack_info_stores_value= false;
+        m_unpack_info_stores_value= true;
         res= false;
       }
     }
@@ -2815,7 +2815,7 @@ bool Rdb_field_packing::setup(const Rdb_key_def *key_descr, const Field *field,
       {
         m_unpack_func= nullptr;
         m_make_unpack_info_func= nullptr;
-        m_unpack_info_stores_value= false;
+        m_unpack_info_stores_value= true;
         res= false;
       }
     }
