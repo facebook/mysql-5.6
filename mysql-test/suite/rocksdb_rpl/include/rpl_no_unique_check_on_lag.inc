@@ -1,6 +1,7 @@
 --source include/master-slave.inc
 --source include/have_binlog_format_row.inc
 --source include/not_embedded.inc
+--source include/not_valgrind.inc
 
 call mtr.add_suppression("Slave SQL: Could not execute Write_rows event on table test.t1");
 call mtr.add_suppression(".*Worker.*failed executing transaction");
