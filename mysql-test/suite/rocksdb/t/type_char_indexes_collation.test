@@ -134,3 +134,9 @@ insert into t values (1, '                                  a');
 explain select 'email_i' as index_name, count(*) AS count from t force index(email_i);
 select 'email_i' as index_name, count(*) AS count from t force index(email_i);
 drop table t;
+
+# Test varchar with length greater than 255
+create table t (id int primary key, email varchar(767), KEY email_i (email)) engine=rocksdb default charset=latin1;
+insert into t values (1, REPEAT('a', 700));
+select 'email_i' as index_name, count(*) AS count from t force index(email_i);
+drop table t;

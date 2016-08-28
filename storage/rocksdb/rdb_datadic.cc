@@ -2072,7 +2072,7 @@ static int rdb_unpack_unknown_varchar(Rdb_field_packing *fpi, Field *field,
 */
 static void rdb_write_unpack_simple(Rdb_bit_writer *writer,
                                     const Rdb_collation_codec *codec,
-                                    const uchar *src, uchar src_len)
+                                    const uchar *src, size_t src_len)
 {
   for (uint i= 0; i < src_len; i++)
   {
@@ -2083,7 +2083,7 @@ static void rdb_write_unpack_simple(Rdb_bit_writer *writer,
 
 static uint rdb_read_unpack_simple(Rdb_bit_reader *reader,
                                    const Rdb_collation_codec *codec,
-                                   const uchar *src, uchar src_len,
+                                   const uchar *src, size_t src_len,
                                    uchar *dst)
 {
   for (uint i= 0; i < src_len; i++)
@@ -2126,12 +2126,12 @@ rdb_make_unpack_simple_varchar(const Rdb_collation_codec* codec,
 {
   auto f= static_cast<const Field_varstring *>(field);
   uchar *src= f->ptr + f->length_bytes;
-  uint src_len= f->length_bytes == 1 ? (uint) *f->ptr : uint2korr(f->ptr);
+  size_t src_len= f->length_bytes == 1 ? (uint) *f->ptr : uint2korr(f->ptr);
   Rdb_bit_writer bit_writer(pack_ctx->writer);
   // The std::min compares characters with bytes, but for simple collations,
   // mbmaxlen = 1.
   rdb_write_unpack_simple(&bit_writer, codec, src,
-                          std::min(f->char_length(), src_len));
+                          std::min((size_t)f->char_length(), src_len));
 }
 
 /*
