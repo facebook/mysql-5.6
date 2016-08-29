@@ -7242,6 +7242,9 @@ ER_CAPACITY_EXCEEDED_IN_RANGE_OPTIMIZER
 ER_FILESORT_MAX_FILE_SIZE_EXCEEDED
   eng "Filesort file is too big"
 
+ER_SLAVE_GTID_INFO_WITHOUT_ROCKSDB
+  eng "slave_gtid_info can be set to OPTIMIZED only with RocksDB engine."
+
 #
 #  End of 5.6 error messages.
 #

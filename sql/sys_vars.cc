@@ -5440,7 +5440,14 @@ static Sys_var_mybool Sys_gtid_precommit("gtid_precommit",
     GLOBAL_VAR(opt_gtid_precommit),
     CMD_LINE(OPT_ARG), DEFAULT(FALSE));
 
-#endif // HAVE_REPLICATION
+static bool check_slave_gtid_info(sys_var *self, THD *thd, set_var *var) {
+  if (var->save_result.ulonglong_value == SLAVE_GTID_INFO_OPTIMIZED &&
+      strcasecmp(default_storage_engine, "rocksdb")) {
+    my_error(ER_SLAVE_GTID_INFO_WITHOUT_ROCKSDB, MYF(0));
+    return true;
+  }
+  return false;
+}
 
 static Sys_var_enum Sys_slave_gtid_info(
        "slave_gtid_info",
@@ -5448,7 +5455,9 @@ static Sys_var_enum Sys_slave_gtid_info(
        "is OPTIMIZED, updating the table is done inside storage engines to "
        "avoid MySQL layer's performance overhead",
        GLOBAL_VAR(slave_gtid_info), CMD_LINE(REQUIRED_ARG),
-       slave_gtid_info_names, DEFAULT(SLAVE_GTID_INFO_ON));
+       slave_gtid_info_names, DEFAULT(SLAVE_GTID_INFO_ON), NO_MUTEX_GUARD,
+       NOT_IN_BINLOG, ON_CHECK(check_slave_gtid_info));
+#endif // HAVE_REPLICATION
 
 static Sys_var_mybool Sys_disconnect_on_expired_password(
        "disconnect_on_expired_password",

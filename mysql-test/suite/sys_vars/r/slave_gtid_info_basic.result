@@ -28,9 +28,10 @@ select @@global.slave_gtid_info;
 @@global.slave_gtid_info
 OFF
 set global slave_gtid_info = "OPTIMIZED";
+ERROR HY000: slave_gtid_info can be set to OPTIMIZED only with RocksDB engine.
 select @@global.slave_gtid_info;
 @@global.slave_gtid_info
-OPTIMIZED
+OFF
 set global gtid_mode = "INVALID";
 ERROR HY000: Variable 'gtid_mode' is a read only variable
 set global slave_gtid_info = @start_global_value;

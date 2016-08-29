@@ -48,7 +48,6 @@ Created 3/26/1996 Heikki Tuuri
 #include "flashcache_ioctl.h"
 extern my_bool cachedev_enabled;
 #endif /* TARGET_OS_LINUX */
-#include "api0api.h"
 
 /** Dummy session used currently in MySQL interface */
 extern sess_t*	trx_dummy_sess;
@@ -241,7 +240,7 @@ trx_commit_for_mysql(
 /**********************************************************************//**
 Does the transaction prepare for MySQL. */
 UNIV_INTERN
-dberr_t
+void
 trx_prepare_for_mysql(
 /*==================*/
 	trx_t*	trx,	/*!< in/out: trx handle */
@@ -1155,10 +1154,6 @@ struct trx_t{
 	/*------------------------------*/
 	char detailed_error[256];	/*!< detailed error message for last
 					error, or empty. */
-	/* These tuples are used in updating slave_gtid_info table */
-	ib_tpl_t new_tpl;
-	ib_tpl_t old_tpl;
-	ib_tpl_t search_tpl;
 };
 
 /* Transaction isolation levels (trx->isolation_level) */

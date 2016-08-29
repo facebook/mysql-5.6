@@ -14981,10 +14981,7 @@ innobase_xa_prepare(
 
 		ut_ad(trx_is_registered_for_2pc(trx));
 
-		dberr_t err = trx_prepare_for_mysql(trx, async);
-		if (err != DB_SUCCESS) {
-			return(convert_error_code_to_mysql(err, 0, NULL));
-		}
+		trx_prepare_for_mysql(trx, async);
 		error = 0;
 	} else {
 		/* We just mark the SQL statement ended and do not do a

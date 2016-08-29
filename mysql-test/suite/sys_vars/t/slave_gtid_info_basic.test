@@ -18,6 +18,7 @@ set global slave_gtid_info = "ON";
 select @@global.slave_gtid_info;
 set global slave_gtid_info = "OFF";
 select @@global.slave_gtid_info;
+--error ER_SLAVE_GTID_INFO_WITHOUT_ROCKSDB
 set global slave_gtid_info = "OPTIMIZED";
 select @@global.slave_gtid_info;
 
