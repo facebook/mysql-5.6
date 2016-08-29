@@ -1611,7 +1611,9 @@ my_net_read(NET *net)
     net->remain_in_buf= (ulong) (buf_length - start_of_packet);
     len = ((ulong) (start_of_packet - first_packet_offset) - NET_HEADER_SIZE -
            multi_byte_packet);
-    net->save_char= net->read_pos[len];	/* Must be saved */
+    if (net->remain_in_buf) {
+      net->save_char= net->read_pos[len + multi_byte_packet];
+    }
     net->read_pos[len]=0;		/* Safeguard for mysql_use_result */
   }
 #endif /* HAVE_COMPRESS */
