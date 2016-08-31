@@ -125,7 +125,6 @@ static enum enum_remote_proto {
 } opt_remote_proto= BINLOG_LOCAL;
 static char *opt_remote_proto_str= 0;
 static char *database= 0;
-static string cur_database= "";
 static char *output_file= 0;
 static my_bool force_opt= 0, short_form= 0;
 static my_bool debug_info_flag, debug_check_flag;
@@ -173,6 +172,20 @@ Sid_map *global_sid_map= NULL;
 Checkable_rwlock *global_sid_lock= NULL;
 Gtid_set *gtid_set_included= NULL;
 Gtid_set *gtid_set_excluded= NULL;
+
+/**
+ * Used for --opt_skip_empty_trans
+ */
+static bool empty_begin_query_ev = false;
+static Log_event* begin_query_ev_cache = nullptr;
+static string cur_database= "";
+
+enum class Check_database_decision : char {
+  EMPTY_EVENT_DATABASE = 2,
+  CHANGED = 1,
+  OK = 0,
+  ERROR = -1
+};
 
 
 /**
@@ -849,31 +862,88 @@ static bool shall_skip_gtids(Log_event* ev, Gtid *cached_gtid)
 }
 
 /**
+  Helper function that prints the cached begin query event to the output
+
+  @param[in] print_event_info print event info pointer
+
+  @retval True   OK
+  @retval False  ERROR
+*/
+static bool print_cached_begin_query(PRINT_EVENT_INFO *print_event_info)
+{
+  begin_query_ev_cache->print(result_file, print_event_info);
+  auto head = &print_event_info->head_cache;
+  if (head->error == -1) {
+     return false;
+  }
+  return true;
+}
+
+/**
   Checks whether a given event within a transaction has changed the database
   that the current transaction is operating on. If the event within a
   transaction has changed the database of the current transaction, an error
   message will be issued. This check is only valid when --skip-empty-trans
-  is specified.
+  is specified. This function also will check and print the previous cached
+  BEGIN event since it's possible that the previous BEGIN event doesn't carry
+  a session database name.
 
   @param[in] ev_database the database that the current event is operating on.
-  @retval TRUE if the database of the current transaction has been changed by
+  @param[in] print_event_info print event info pointer
+
+  @retval CHANGED if the database of the current transaction has been changed by
   the current event.
-  @retval FALSE if the database of the current transaction has not been changed
+  @retval OK if the database of the current transaction has not been changed
   by the current event.
+  @retval ERROR if there is an error on writing the cached BEGIN event out.
 */
-static bool ev_database_changed(const string &ev_database)
+static Check_database_decision ev_database_changed(
+    const string &ev_database,
+    PRINT_EVENT_INFO *print_event_info)
 {
-  const char cur_database_error_msg[]= "The database used for the current "
-                                       "transaction has been changed since "
-                                       "BEGIN. This is not supported!";
   if (opt_skip_empty_trans //When --skip-empty-trans is enabled
-      && in_transaction //When the event is within a transaction
-      && cur_database != ev_database) //When the event database is changed
+      && in_transaction) //When the event is within a transaction
   {
-    error(cur_database_error_msg);
-    return TRUE;
+    /**
+      This function is called at every event that carries a database name other
+      than BEGIN query. So the ev_database name should not be empty
+     */
+    if (ev_database.empty()) {
+      error("The current event does not carry a session database name. This is "
+            "not supported");
+      return Check_database_decision::EMPTY_EVENT_DATABASE;
+    }
+    /**
+      If the previous BEGIN query doesn't have a database name, we change the
+      current transaction's database name to the ev_database, and also flush
+      the previous BEGIN event if it should not be skipped.
+     */
+    if (empty_begin_query_ev && cur_database.empty())
+    {
+      cur_database = ev_database;
+      // This should be always valid
+      assert(begin_query_ev_cache != nullptr);
+      if (!shall_skip_database(cur_database.c_str()) &&
+          !print_cached_begin_query(print_event_info))
+      {
+        return Check_database_decision::ERROR;
+      }
+      return Check_database_decision::OK;
+    }
+    // When the event database is changed
+    if (cur_database != ev_database)
+    {
+      error("The database used for the current "
+            "transaction has been changed since "
+            "BEGIN. This is not supported! The database "
+            "of the current transaction that is updated from the "
+            "BEGIN query event is: %s, however, the current event's "
+            "database is: %s", cur_database.c_str(), ev_database.c_str());
+
+      return Check_database_decision::CHANGED;
+    }
   }
-  return FALSE;
+  return Check_database_decision::OK;
 }
 
 // Helper for next function
@@ -987,8 +1057,11 @@ Exit_status process_event(PRINT_EVENT_INFO *print_event_info, Log_event *ev,
       bool starts_group= ((Query_log_event*) ev)->starts_group();
 
       if (!starts_group &&
-          ev_database_changed(string(((Query_log_event*) ev)->db)))
+          ev_database_changed(string(((Query_log_event*) ev)->db),
+                              print_event_info) != Check_database_decision::OK)
+      {
         goto err;
+      }
 
       for (uint i= 0; i < buff_ev.elements; i++) 
       {
@@ -1046,6 +1119,15 @@ Exit_status process_event(PRINT_EVENT_INFO *print_event_info, Log_event *ev,
         if (opt_skip_empty_trans)
         {
           bool skip= shall_skip_database(cur_database.c_str());
+          // Turn off the flag at end of transaction
+          empty_begin_query_ev = false;
+          // Delete and reset the cache pointer
+          if (begin_query_ev_cache)
+          {
+            delete begin_query_ev_cache;
+            begin_query_ev_cache = nullptr;
+          }
+          // Reset the database tracking as well
           cur_database= "";
           if (skip)
             break;
@@ -1072,6 +1154,18 @@ Exit_status process_event(PRINT_EVENT_INFO *print_event_info, Log_event *ev,
            * cleared at the COMMIT/ROLLBACK of a transaction.
            */
           cur_database= string(((Query_log_event*) ev)->db);
+
+          if (cur_database.empty()) {
+            // Mark the flag
+            empty_begin_query_ev = true;
+            // The cache should definitely be cleared
+            assert(begin_query_ev_cache == nullptr);
+            // Cache the new BEGIN event
+            begin_query_ev_cache = ev;
+            // Do not destroy, we will handle the detroy ourselves
+            destroy_evt = FALSE;
+            break;
+          }
           /*
            * skip the BEGIN query of the extra databases when the option
            * --skip-empty-trans is enabled
@@ -1130,8 +1224,11 @@ Exit_status process_event(PRINT_EVENT_INFO *print_event_info, Log_event *ev,
     {
       Create_file_log_event* ce= (Create_file_log_event*)ev;
 
-      if (ev_database_changed(string(ce->db)))
+      if (ev_database_changed(string(ce->db), print_event_info)
+          != Check_database_decision::OK)
+      {
         goto err;
+      }
 
       /*
         We test if this event has to be ignored. If yes, we don't save
@@ -1319,8 +1416,11 @@ Exit_status process_event(PRINT_EVENT_INFO *print_event_info, Log_event *ev,
       Execute_load_query_log_event *exlq= (Execute_load_query_log_event*)ev;
       char *fname= load_processor.grab_fname(exlq->file_id);
 
-      if (ev_database_changed(string(exlq->db)))
+      if (ev_database_changed(string(exlq->db), print_event_info)
+          != Check_database_decision::OK)
+      {
         goto err;
+      }
 
       if (shall_skip_database(exlq->db))
         print_event_info->skipped_event_in_transaction= true;
@@ -1350,8 +1450,11 @@ Exit_status process_event(PRINT_EVENT_INFO *print_event_info, Log_event *ev,
     {
       Table_map_log_event *map= ((Table_map_log_event *)ev);
 
-      if (ev_database_changed(string(map->get_db_name())))
+      if (ev_database_changed(string(map->get_db_name()), print_event_info)
+          != Check_database_decision::OK)
+      {
         goto err;
+      }
 
       if (shall_skip_database(map->get_db_name()))
       {
@@ -1519,7 +1622,16 @@ Exit_status process_event(PRINT_EVENT_INFO *print_event_info, Log_event *ev,
       if (opt_skip_empty_trans)
       {
         bool skip= shall_skip_database(cur_database.c_str());
+        // Reset current transaction's database name tracking
         cur_database= "";
+        // Reset the flag
+        empty_begin_query_ev = false;
+        // Delete and reset the cached BEGIN event
+        if (begin_query_ev_cache)
+        {
+          delete begin_query_ev_cache;
+          begin_query_ev_cache = nullptr;
+        }
         if (skip)
           break;
       }
@@ -1986,7 +2098,13 @@ static void cleanup()
     delete (pop_event_array.event);
   }
   delete_dynamic(&buff_ev);
-  
+  /*
+    The begin_query_ev_cache should always be deleted during a reset, in other
+    words, if it's not reset, we need to delete it
+   */
+  if (begin_query_ev_cache) {
+    delete begin_query_ev_cache;
+  }
   delete glob_description_event;
   if (mysql)
     mysql_close(mysql);
