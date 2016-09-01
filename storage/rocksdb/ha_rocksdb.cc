@@ -5060,16 +5060,21 @@ int rdb_split_normalized_tablename(const std::string& fullname,
                                    std::string* table,
                                    std::string* partition)
 {
+  DBUG_ASSERT(!fullname.empty());
+
 #define RDB_PARTITION_STR "#P#"
 
-  /* Normalize returns dbname.tablename */
-  size_t dotpos = fullname.find_first_of('.');
+  /* Normalize returns dbname.tablename. */
+  size_t dotpos = fullname.find('.');
 
   /* Invalid table name? */
   if (dotpos == std::string::npos)
   {
     return HA_ERR_INTERNAL_ERROR;
   }
+
+  // Table must have a database name associated with it.
+  DBUG_ASSERT(dotpos > 0);
 
   if (db != nullptr)
   {
@@ -5078,10 +5083,13 @@ int rdb_split_normalized_tablename(const std::string& fullname,
 
   dotpos++;
 
-  size_t partpos = fullname.find_first_of(RDB_PARTITION_STR, dotpos);
+  size_t partpos = fullname.find(RDB_PARTITION_STR, dotpos,
+    strlen(RDB_PARTITION_STR));
 
   if (partpos != std::string::npos)
   {
+    DBUG_ASSERT(partpos >= dotpos);
+
     if (table != nullptr)
     {
       *table = fullname.substr(dotpos, partpos - dotpos);
@@ -5089,7 +5097,7 @@ int rdb_split_normalized_tablename(const std::string& fullname,
 
     if (partition != nullptr)
     {
-      *partition = fullname.substr(partpos + sizeof(RDB_PARTITION_STR));
+      *partition = fullname.substr(partpos + strlen(RDB_PARTITION_STR));
     }
   }
   else if (table != nullptr)
