@@ -2897,14 +2897,14 @@ dict_index_add_col(
 		buf = my_strdup(document_path, MYF(0));
 	}
 	dict_mem_index_add_field(index, col_name,
-		prefix_len, doc_path_tpye, buf,
-				 doc_path_col);
+		prefix_len, doc_path_tpye, buf, doc_path_col);
 
 	field = dict_index_get_nth_field(index, index->n_def - 1);
 
 	field->col = col;
 	field->fixed_len = (unsigned int) dict_col_get_fixed_size(
-		col, dict_table_is_comp(table));
+		field->doc_path_col ? field->doc_path_col : col,
+		dict_table_is_comp(table));
 
 	if (prefix_len && field->fixed_len > prefix_len) {
 		field->fixed_len = (unsigned int) prefix_len;
