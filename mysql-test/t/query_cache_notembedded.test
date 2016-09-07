@@ -1,5 +1,6 @@
 -- source include/have_query_cache.inc
 -- source include/not_embedded.inc
+-- source include/not_compress.inc
 
 # Save the initial number of concurrent sessions
 --source include/count_sessions.inc

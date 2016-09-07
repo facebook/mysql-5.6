@@ -8,6 +8,9 @@
 --source include/no_protocol.inc
 --source ../include/wait_for_pfs_thread_count.inc
 --source include/have_QC_Disabled.inc
+# Compression with async can affect the number of calls
+# to recv, which affects this test
+--source include/not_compress.inc
 
 --disable_query_log
 

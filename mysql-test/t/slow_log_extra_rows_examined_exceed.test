@@ -3,6 +3,7 @@
 #
 
 --source include/have_innodb.inc
+--source include/not_compress.inc
 
 set @my_slow_logname = @@global.slow_query_log_file;
 set global slow_query_log_file = "slow_log_extra_rows_examined_exceed-slow.log";

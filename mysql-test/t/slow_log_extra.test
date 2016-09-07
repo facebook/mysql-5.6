@@ -3,6 +3,7 @@
 #
 
 --source include/have_innodb.inc
+--source include/not_compress.inc
 
 # Just in case slow_log_extra-slow.log already exists, delete it first.
 --perl

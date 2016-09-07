@@ -37,6 +37,7 @@
 # difference between standard statement execution and execution via
 # prepared statement.
 --source include/no_protocol.inc
+--source include/not_compress.inc
 
 
 #===================================

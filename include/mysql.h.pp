@@ -109,12 +109,16 @@ typedef struct st_net {
   net_read_query_result_status async_read_query_result_status;
   net_async_read_packet_state async_packet_read_state;
   size_t async_packet_length;
+  size_t async_packet_uncompressed_length;
+  size_t multi_packet_offset;
   unsigned char *async_write_headers;
   struct iovec* async_write_vector;
   size_t async_write_vector_size;
   size_t async_write_vector_current;
-  unsigned char inline_async_write_header[4 + 3 + 1 + 1];
+  unsigned char inline_async_write_header[4 + 3 + 4 + 1 + 1];
   struct iovec inline_async_write_vector[3];
+  unsigned char** compressed_write_buffers;
+  size_t compressed_buffers_size;
   unsigned long async_multipacket_read_saved_whereb;
   unsigned long async_multipacket_read_total_len;
   my_bool async_multipacket_read_started;
