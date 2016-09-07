@@ -6074,7 +6074,6 @@ sub start_mysqltest ($) {
 
   mtr_add_arg($args, "--timer-file=%s/log/timer", $opt_vardir);
 
-  if ( $opt_compress )
   {
     mtr_add_arg($args, "--compress");
   }

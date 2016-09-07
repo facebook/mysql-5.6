@@ -9,6 +9,9 @@
 # Save the initial number of concurrent sessions
 --source include/count_sessions.inc
 
+# Compression affects bytes sent/received
+--source include/not_compress.inc
+
 --disable_warnings
 drop table if exists userstats;
 --enable_warnings

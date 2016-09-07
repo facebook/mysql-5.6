@@ -1,6 +1,9 @@
 # embedded can't make more than one connection
 --source include/not_embedded.inc
 --source include/have_ssl_communication.inc
+# This test checks the packet number off the
+# network which is affected by compressed protocol
+--source include/not_compress.inc
 
 --source connection_timeout_server_error_header.inc
 

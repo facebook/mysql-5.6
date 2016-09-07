@@ -648,7 +648,9 @@ cli_safe_read_nonblocking(MYSQL *mysql, ulong* res)
   }
 
   net->where_b = net->async_multipacket_read_saved_whereb;
-  net->read_pos = net->buff + net->where_b;
+  if (!net->compress) {
+    net->read_pos = net->buff + net->where_b;
+  }
 
   DBUG_PRINT("info", ("total nb read: %lu", net->async_multipacket_read_total_len));
   *res = cli_safe_read_complete(mysql, net->async_multipacket_read_total_len);
