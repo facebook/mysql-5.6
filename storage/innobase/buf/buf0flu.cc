@@ -2638,6 +2638,12 @@ DECLARE_THREAD(buf_flush_page_cleaner_thread)(
 	sweep and we'll come out of the loop leaving behind dirty pages
 	in the flush_list */
 	buf_flush_wait_batch_end(NULL, BUF_FLUSH_LIST);
+
+	/* It is necessary to wait for lru manager thread to complete
+	so we have a guarantee that there will be no further LRU
+	flush batches. We will wait for the last LRU flush batch
+	to complete before exiting. */
+	wait_for_buf_lru_manager_to_complete();
 	buf_flush_wait_LRU_batch_end();
 
 	bool	success;
@@ -2881,3 +2887,18 @@ buf_flush_get_dirty_pages_count(
 	return(count);
 }
 #endif /* UNIV_DEBUG */
+
+UNIV_INTERN
+void
+wait_for_buf_lru_manager_to_complete() {
+	ulint count = 0;
+	while (buf_lru_manager_is_active) {
+		++count;
+		os_thread_sleep(100000);
+		if (srv_print_verbose_log && count > 600) {
+			ib_logf(IB_LOG_LEVEL_INFO,
+				"Waiting for lru_manager thread to exit.");
+			count = 0;
+		}
+	}
+}
