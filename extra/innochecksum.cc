@@ -39,6 +39,7 @@
 #include <m_string.h>
 #include <welcome_copyright_notice.h> /* ORACLE_WELCOME_COPYRIGHT_NOTICE */
 #include <string.h>
+#include <dirent.h>
 
 /* Only parts of these files are included from the InnoDB codebase.
 The parts not included are excluded by #ifndef UNIV_INNOCHECKSUM. */
@@ -74,6 +75,9 @@ The parts not included are excluded by #ifndef UNIV_INNOCHECKSUM. */
 #undef min
 
 #include <unordered_map>
+#include <unordered_set>
+
+typedef std::unordered_set<std::string> TOKEN_SET_TYPE;
 
 /* Global variables */
 static my_bool verbose;
@@ -91,6 +95,12 @@ static ulong n_merge;
 ulong srv_page_size;              /* replaces declaration in srv0srv.c */
 static ulong physical_page_size;  /* Page size in bytes on disk. */
 static ulong logical_page_size;   /* Page size when uncompressed. */
+static my_bool recursive;
+static char* data_dir;
+static char* databases;
+static char* tables;
+static ullint space;
+static bool found_space;
 
 int n_undo_state_active;
 int n_undo_state_cached;
@@ -167,8 +177,9 @@ get_page_size(
   byte* buf,                    /*!< in: buffer used to read the page */
   ulong* logical_page_size,     /*!< out: Logical/Uncompressed page size */
   ulong* physical_page_size,    /*!< out: Physical/Commpressed page size */
-  bool* compressed)             /*!< out: whether the tablespace is
+  bool* compressed,             /*!< out: whether the tablespace is
                                 compressed */
+  ulint *ptr_space_id)          /*!< out: space id */
 {
   ulong flags;
 
@@ -189,6 +200,7 @@ get_page_size(
 
   rewind(f);
 
+  *ptr_space_id = mach_read_from_4(buf + FIL_PAGE_DATA + FSP_SPACE_ID);
   flags = mach_read_from_4(buf + FIL_PAGE_DATA + FSP_SPACE_FLAGS);
 
   /* srv_page_size is used by InnoDB code as UNIV_PAGE_SIZE */
@@ -289,7 +301,7 @@ static struct my_option innochecksum_options[] =
     &verbose, &verbose, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
   {"debug", 'd', "Debug mode (prints checksums for each page, implies verbose).",
     &debug, &debug, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
-  {"debug", 'u', "Skip corrupt pages.",
+  {"skip-corrupt", 'u', "Skip corrupt pages.",
     &skip_corrupt, &skip_corrupt, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
   {"count", 'c', "Print the count of pages in the file.",
     &just_count, &just_count, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
@@ -310,6 +322,21 @@ static struct my_option innochecksum_options[] =
   {"merge", 'm', "leaf page count if merge given number of consecutive pages",
    &n_merge, &n_merge, 0, GET_ULONG, REQUIRED_ARG,
    0, 0, (longlong)10L, 0, 1, 0},
+  {"recursive", 'r', "if specified, innochecksum will check all databases in "
+    "the directory specified by -D (--data-dir). "
+    "Must be used together with -D.",
+    &recursive, &recursive, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
+  {"data-dir", 'D', "Specify the data directory to search for tables.",
+    &data_dir, &data_dir, 0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+  {"databases", 0, "Check all tables in the specified databases "
+    "(comma separated). Must be used together with -D.",
+    &databases, &databases, 0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+  {"tables", 0, "Check the specfied tables (comma separated). "
+    "Must be used together with -D and --databases.",
+    &tables, &tables, 0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+  {"space", 'S', "Check the table of this space id. "
+    "Must be used together with -D and either -r or --databases",
+    &space, &space, 0, GET_ULL, REQUIRED_ARG, 0, 0, ULONGLONG_MAX, 0, 1, 0},
   {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}
 };
 
@@ -325,7 +352,9 @@ static void usage(void)
   print_version();
   puts(ORACLE_WELCOME_COPYRIGHT_NOTICE("2000"));
   printf("InnoDB offline file checksum utility.\n");
-  printf("Usage: %s [-c] [-s <start page>] [-e <end page>] [-p <page>] [-v] [-d] <filename>\n", my_progname);
+  printf("Usage: %s [-c] [-s <start page>] [-e <end page>] [-p <page>] [-v] "
+         "[-d] [-r] [-D <data directory>] [--databases=<db1,db2>] "
+         "[--tables=<tb1,tb2>] [-S <space id>] <filename>\n", my_progname);
   my_print_help(innochecksum_options);
   my_print_variables(innochecksum_options);
 }
@@ -372,14 +401,26 @@ static int get_options(
   if ((ho_error=handle_options(argc, argv, innochecksum_options, innochecksum_get_one_option)))
     exit(ho_error);
 
-  /* The next arg must be the filename */
-  if (!*argc)
+  /* If data_dir is not specified, the next arg must be the filename */
+  if (!*argc && (!data_dir || !*data_dir))
   {
+    fprintf(stderr, "Error: data directory or file name missing\n");
     usage();
     return 1;
   }
   return 0;
 } /* get_options */
+
+/* Parse database names and table names separated by comma */
+static void parse_name_tokens(TOKEN_SET_TYPE &hs, char *cstr)
+{
+  char *token = strtok(cstr, ",");
+  while (token)
+  {
+    hs.insert(token);
+    token = strtok(NULL, ",");
+  }
+}
 
 /*********************************************************************//**
 Gets the file page type.
@@ -718,10 +759,57 @@ print_stats()
        }
 }
 
-int main(int argc, char **argv)
+/* Opens the file and return the file handler.
+ * If psize is provided, it also get and save the file size in psize.
+ */
+FILE * check_file_open(const char *filename, size_t *psize)
 {
-  FILE* f;                       /* our input file */
-  char* filename;                /* our input filename. */
+  FILE* f = NULL;                      /* our input file */
+
+  /* stat, to get file size. */
+#ifdef __WIN__
+  struct _stat64 st;
+#else
+  struct stat st;
+#endif
+
+  /* The file name is not optional */
+  if (*filename == '\0')
+  {
+    fprintf(stderr, "Error; File name missing\n");
+    return 0;
+  }
+
+  /* if psize is provide, stat the file to get the file size */
+  if (psize)
+  {
+    /* stat the file to get size */
+#ifdef __WIN__
+    if (_stat64(filename, &st))
+#else
+    if (stat(filename, &st))
+#endif
+    {
+      fprintf(stderr, "Error; %s cannot be found\n", filename);
+      return 0;
+    }
+    *psize= st.st_size;
+  }
+
+  /* Open the file for reading */
+  f= open_file(filename);
+  if (f == NULL) {
+    return 0;
+  }
+
+  return f;
+}
+
+/* Checksum one data file */
+int check_file(FILE *f, unsigned long long size,
+               const char *filename,  /* for verbose info */
+               const char *tablename) /* for print only */
+{
   unsigned char big_buf[UNIV_PAGE_SIZE_MAX*2]; /* Buffer to store pages read */
   unsigned char *buf = (unsigned char*)ut_align_down(big_buf
                        + UNIV_PAGE_SIZE_MAX, UNIV_PAGE_SIZE_MAX);
@@ -737,60 +825,24 @@ int main(int argc, char **argv)
   dual_crc crc32s;               /* struct for the two forms of crc32c */
 
                                  /* ulints for checksum storage */
-  /* stat, to get file size. */
-#ifdef __WIN__
-  struct _stat64 st;
-#else
-  struct stat st;
-#endif
-  unsigned long long int size;   /* size of file (has to be 64 bits) */
   ulint pages;                   /* number of pages in file */
   off_t offset= 0;
   bool compressed;
 
-  printf("InnoDB offline file checksum utility.\n");
-
-  ut_crc32_init();
-
-  MY_INIT(argv[0]);
-
-  if (get_options(&argc,&argv))
-    exit(1);
-
-  if (verbose)
-    my_print_variables(innochecksum_options);
-
-  /* The file name is not optional */
-  filename = *argv;
-  if (*filename == '\0')
-  {
-    fprintf(stderr, "Error; File name missing\n");
-    return 1;
-  }
-
-  /* stat the file to get size and page count */
-#ifdef __WIN__
-  if (_stat64(filename, &st))
-#else
-  if (stat(filename, &st))
-#endif
-  {
-    fprintf(stderr, "Error; %s cannot be found\n", filename);
-    return 1;
-  }
-  size= st.st_size;
-
-  /* Open the file for reading */
-  f= open_file(filename);
-  if (f == NULL) {
-    return 1;
-  }
-
+  ulint space_id = 0;
   if (!get_page_size(f, buf, &logical_page_size, &physical_page_size,
-                     &compressed))
+                     &compressed, &space_id))
   {
     return 1;
   }
+
+  /* filter by space id */
+  found_space = (space && space == space_id);
+  if (space && space != space_id)
+    return 0;
+
+  if (tablename)
+    printf("Checking table '%s':\n", tablename);
 
   if (compressed)
   {
@@ -802,6 +854,9 @@ int main(int argc, char **argv)
     printf("Table is uncompressed\n");
     printf("Page size is %lu\n", physical_page_size);
   }
+
+  if (space_id) /* not all files has space id */
+    printf("Table space id is %lu\n", space_id);
 
   pages= (ulint) (size / physical_page_size);
 
@@ -966,3 +1021,247 @@ int main(int argc, char **argv)
   return 0;
 }
 
+/* Recursively check the data files in the directory.
+ * If filter is provided, only check the tables in the filter
+ *
+ * The function will return 1 (error) only if any table fails the checksum,
+ * i.e. if check_file fails
+ */
+int check_dir(string &database, TOKEN_SET_TYPE *filter)
+{
+  DIR *p_dir;
+  struct dirent *p_dirent;
+
+  string db_dir = data_dir;
+  db_dir += FN_LIBCHAR;
+  db_dir += database;
+  p_dir = opendir(db_dir.c_str());
+  if (!p_dir)
+  {
+    fprintf(stderr, "Error: cannot open directory '%s'\n", db_dir.c_str());
+    return 0;
+  }
+
+  string fn, tablespace, tablename;
+  while ((p_dirent = readdir(p_dir)))
+  {
+    if (strcmp(p_dirent->d_name, ".") == 0 ||
+        strcmp(p_dirent->d_name, "..") == 0)
+      continue;
+
+    // get physical file full name
+    fn = p_dirent->d_name;
+    std::size_t pos = fn.find_last_of(".");
+    // get tablespace (file) name without the extension (e.g. .ibd)
+    tablespace = fn.substr(0, pos);
+    // get the table name. In case of partition tables, the table name is
+    // appended by "#P#p[0-9]"
+    tablename = tablespace.substr(0, tablespace.find_first_of("#"));
+    /* check if the data file is ibd type and if it is in filter */
+    if (fn.substr(pos + 1) != "ibd" ||
+        (filter && filter->find(tablename) == filter->end()))
+        continue;
+
+    /* full file path */
+    fn = db_dir + FN_LIBCHAR + fn;
+    struct stat statinfo;
+    if (stat(fn.c_str(), &statinfo))
+    {
+      // If the file cannot be read, skip it
+      fprintf(stderr, "Error; %s cannot be found\n", fn.c_str());
+      continue;
+    }
+    if (S_ISREG(statinfo.st_mode))
+    {
+      // get "database/table" string for printing purpose
+      tablespace = database + FN_LIBCHAR + tablespace;
+      FILE *f = check_file_open(fn.c_str(), NULL);
+      if (f && check_file(f, statinfo.st_size, fn.c_str(), tablespace.c_str()))
+      {
+        fclose(f);
+        closedir(p_dir);
+        return 1;
+      }
+      else if (f)
+      {
+        fclose(f);
+        // if we found the space id, stop
+        if (found_space)
+          break;
+      }
+    }
+  }
+
+  closedir(p_dir);
+  return 0;
+}
+
+int check_recursive()
+{
+  DIR *p_dir;
+  struct dirent *p_dirent;
+
+  TOKEN_SET_TYPE hs_dbs;
+  TOKEN_SET_TYPE hs_tbs;
+
+  // Parse --databases param
+  if (databases && *databases)
+  {
+    parse_name_tokens(hs_dbs, databases);
+    if (!hs_dbs.empty() && recursive)
+    {
+      fprintf(stderr, "Warning: databases and recursive both are specified. "
+              "Recursive will be ignored\n");
+      recursive = 0;
+    }
+  }
+
+  if (hs_dbs.empty() && !recursive)
+  {
+    fprintf(stderr, "Error: either '--databases' or '--recursive' must be "
+            "specified");
+    return 1;
+  }
+
+  // Parse --tables param
+  if (tables && *tables)
+    parse_name_tokens(hs_tbs, tables);
+
+  if (!hs_dbs.empty() && !hs_tbs.empty())
+  {
+    // Both --databases and --tables are not empty
+    // check all the combanation of databases and tables
+    for (auto db: hs_dbs)
+    {
+      for (auto tbl: hs_tbs)
+      {
+        string tn = db + FN_LIBCHAR + tbl;
+        string fn = data_dir;
+        fn += FN_LIBCHAR;
+        fn += tn + ".ibd";
+        size_t size;
+        FILE *f = check_file_open(fn.c_str(), &size);
+        // If the DB+Table leads to a valid file, check it
+        if (f && check_file(f, size, fn.c_str(), tn.c_str()))
+        {
+          fclose(f);
+          return 1;
+        }
+        else if (f)
+        {
+          fclose(f);
+          // if we found the space id, stop
+          if (found_space)
+            return 0;
+        }
+      }
+    }
+  }
+  else if (!hs_dbs.empty())
+  {
+    // Only --databases is specified
+    // check all tables in the specified databases
+    for (auto db: hs_dbs)
+    {
+      if (check_dir(db, NULL))
+        return 1;
+      else if (found_space)
+        return 0;
+    }
+  }
+  else
+  {
+    // either --databases is empty or both --databases and --tables are empty
+    fprintf(stderr, "Warning: innochecksum is going to check every database "
+           "on the server. This may take a while ... \n");
+
+    p_dir = opendir(data_dir);
+    if (!p_dir)
+    {
+      fprintf(stderr, "Error: cannot open data directory '%s'\n", data_dir);
+      return 1;
+    }
+
+    string db, dn;
+    struct stat statinfo;
+    int ret = 0;
+    while ((p_dirent = readdir(p_dir)))
+    {
+      if (strcmp(p_dirent->d_name, ".") == 0 ||
+          strcmp(p_dirent->d_name, "..") == 0)
+        continue;
+
+      dn = data_dir;
+      dn += FN_LIBCHAR;
+      dn += p_dirent->d_name;
+      if (stat(dn.c_str(), &statinfo))
+      {
+        // If we cannot read into the file/directory, skip it
+        fprintf(stderr, "Error; %s cannot be found\n", dn.c_str());
+        continue;
+      }
+      if (S_ISDIR(statinfo.st_mode))
+      {
+        db = p_dirent->d_name;
+        if (check_dir(db, hs_tbs.empty()? NULL : &hs_tbs))
+        {
+          ret = 1;
+          break;
+        }
+        else if (found_space)
+        {
+          // if we found the space id, stop
+          ret = 0;
+          break;
+        }
+      }
+    }
+    closedir(p_dir);
+    return ret;
+  }
+
+  return 0;
+}
+
+int main(int argc, char **argv)
+{
+  printf("InnoDB offline file checksum utility.\n");
+
+  ut_crc32_init();
+
+  MY_INIT(argv[0]);
+
+  if (get_options(&argc,&argv))
+    return 1;
+
+  if (verbose)
+    my_print_variables(innochecksum_options);
+
+  // check single file
+  if (*argv)
+  {
+    if (data_dir)
+      fprintf(stderr, "Warning: file name and data-dir both are provided. "
+              "data-dir will be ignored.\n");
+    /* size of file (has to be 64 bits) */
+    size_t size;
+    FILE *f = check_file_open(*argv, &size);
+    if (f && check_file(f, size, *argv, NULL))
+    {
+      fclose(f);
+      return 1;
+    }
+    else if (f)
+    {
+      fclose(f);
+      return 0;
+    }
+    return 1;
+  }
+
+  // recursively check data-dir
+  if (check_recursive())
+    return 1;
+
+  return 0;
+}

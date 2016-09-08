@@ -11,6 +11,7 @@ Variables (--variable-name=value)
 and boolean options {FALSE|TRUE}  Value (after reading options)
 --------------------------------- ----------------------------------------
 verbose                           TRUE
+skip-corrupt                      FALSE
 count                             FALSE
 start-page                        0
 end-page                          0
@@ -18,8 +19,14 @@ page                              0
 per-page-details                  FALSE
 leaf                              FALSE
 merge                             0
+recursive                         FALSE
+data-dir                          (No default value)
+databases                         (No default value)
+tables                            (No default value)
+space                             0
 Table is uncompressed
-Page size is 16384K
+Page size is 16384
+Table space id is 7
 file tab1.ibd = 114688 bytes (7 pages)...
 InnoChecksum; checking pages in range 0 to 6
 0	bad checksum

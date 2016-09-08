@@ -22,14 +22,14 @@ affiliates. Other names may be trademarks of their respective
 owners.
 
 InnoDB offline file checksum utility.
-Usage: innochecksum [-c] [-s <start page>] [-e <end page>] [-p <page>] [-v] [-d] <filename>
+Usage: innochecksum [-c] [-s <start page>] [-e <end page>] [-p <page>] [-v] [-d] [-r] [-D <data directory>] [--databases=<db1,db2>] [--tables=<tb1,tb2>] [-S <space id>] <filename>
   -?, --help          Displays this help and exits.
   -I, --info          Synonym for --help.
   -V, --version       Displays version information and exits.
   -v, --verbose       Verbose (prints progress every 5 seconds).
   -d, --debug         Debug mode (prints checksums for each page, implies
                       verbose).
-  -u, --debug         Skip corrupt pages.
+  -u, --skip-corrupt  Skip corrupt pages.
   -c, --count         Print the count of pages in the file.
   -s, --start-page=#  Start on this page number (0 based).
   -e, --end-page=#    End at this page number (0 based).
@@ -39,11 +39,22 @@ Usage: innochecksum [-c] [-s <start page>] [-e <end page>] [-p <page>] [-v] [-d]
   -l, --leaf          Examine leaf index pages
   -m, --merge=#       leaf page count if merge given number of consecutive
                       pages
+  -r, --recursive     if specified, innochecksum will check all databases in
+                      the directory specified by -D (--data-dir). Must be used
+                      together with -D.
+  -D, --data-dir=name Specify the data directory to search for tables.
+  --databases=name    Check all tables in the specified databases (comma
+                      separated). Must be used together with -D.
+  --tables=name       Check the specfied tables (comma separated). Must be used
+                      together with -D and --databases.
+  -S, --space=#       Check the table of this space id. Must be used together
+                      with -D and either -r or --databases
 
 Variables (--variable-name=value)
 and boolean options {FALSE|TRUE}  Value (after reading options)
 --------------------------------- ----------------------------------------
 verbose                           FALSE
+skip-corrupt                      FALSE
 count                             FALSE
 start-page                        0
 end-page                          0
@@ -51,13 +62,115 @@ page                              0
 per-page-details                  FALSE
 leaf                              FALSE
 merge                             0
+recursive                         FALSE
+data-dir                          (No default value)
+databases                         (No default value)
+tables                            (No default value)
+space                             0
 [3]:# check the short option for "count" and exit
 InnoDB offline file checksum utility.
 Table is compressed
-Key block size is #K
+Key block size is #
+Table space id is #
+#
+# Test parames -D, --databases, --tables
+InnoDB offline file checksum utility.
+Checking table 'test/t1':
+Table is compressed
+Key block size is 1024
+Table space id is 7
+5120
+# Test parames -D, --databases
+InnoDB offline file checksum utility.
+Checking table 'test/t1':
+Table is compressed
+Key block size is 1024
+Table space id is 7
+5120
+# Test parames -D, --databases
+InnoDB offline file checksum utility.
+Checking table 'mysql/innodb_table_stats':
+Table is uncompressed
+Page size is 16384
+Table space id is 1
+6
+Checking table 'mysql/innodb_index_stats':
+Table is uncompressed
+Page size is 16384
+Table space id is 2
+6
+Checking table 'mysql/slave_relay_log_info':
+Table is uncompressed
+Page size is 16384
+Table space id is 3
+6
+Checking table 'mysql/slave_master_info':
+Table is uncompressed
+Page size is 16384
+Table space id is 4
+6
+Checking table 'mysql/slave_worker_info':
+Table is uncompressed
+Page size is 16384
+Table space id is 5
+6
+Checking table 'mysql/slave_gtid_info':
+Table is uncompressed
+Page size is 16384
+Table space id is 6
+6
+Checking table 'test/t1':
+Table is compressed
+Key block size is 1024
+Table space id is 7
+5120
+# Test parames -D, -r, --tables
+InnoDB offline file checksum utility.
+Checking table 'test/t1':
+Table is compressed
+Key block size is 1024
+Table space id is 7
+5120
+# Test parames -D, -r, --tables
+InnoDB offline file checksum utility.
+Checking table 'mysql/innodb_table_stats':
+Table is uncompressed
+Page size is 16384
+Table space id is 1
+6
+Checking table 'test/t1':
+Table is compressed
+Key block size is 1024
+Table space id is 7
+5120
+# Test parames -D, --space
+InnoDB offline file checksum utility.
+Checking table 'test/t1':
+Table is compressed
+Key block size is 1024
+Table space id is 7
+5120
+# Restart the DB server
+# Test partitioned tables
+CREATE TABLE t2 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, j LONGBLOB)
+PARTITION BY KEY(id) PARTITIONS 2;
+INSERT INTO t2 (j) SELECT j from t1;
+# stop the server
+# Test parames -D, -r, --tables
+InnoDB offline file checksum utility.
+Checking table 'test/t##P#p#':
+Table is uncompressed
+Page size is #
+Table space id is #
+#
+Checking table 'test/t##P#p#':
+Table is uncompressed
+Page size is #
+Table space id is #
 #
 # Restart the DB server
 DROP TABLE t1;
+DROP TABLE t2;
 [5]:# Check the innochecksum for compressed table t1 with different key_block_size
 # Test for KEY_BLOCK_SIZE=1
 ===> Testing  size=1
@@ -67,89 +180,14 @@ insert into t1 values(2,"AM");
 insert into t1 values(3,"COMPRESSED");
 InnoDB offline file checksum utility.
 Table is compressed
-Key block size is 1024K
+Key block size is 1024
+Table space id is 10
 0	bad checksum
 1	FIL_PAGE_INDEX
 0	FIL_PAGE_UNDO_LOG
 1	FIL_PAGE_INODE
 0	FIL_PAGE_IBUF_FREE_LIST
 60	FIL_PAGE_TYPE_ALLOCATED
-1	FIL_PAGE_IBUF_BITMAP
-0	FIL_PAGE_TYPE_SYS
-0	FIL_PAGE_TYPE_TRX_SYS
-1	FIL_PAGE_TYPE_FSP_HDR
-0	FIL_PAGE_TYPE_XDES
-0	FIL_PAGE_TYPE_BLOB
-0	FIL_PAGE_TYPE_ZBLOB
-0	FIL_PAGE_TYPE_DBLWR_HEADER
-0	other
-0	max index_id
-undo type: 0 insert, 0 update, 0 other
-undo state: 0 active, 0 cached, 0 to_free, 0 to_purge, 0 prepared, 0 other
-index_id	#pages		#leaf_pages	#recs_per_page	#bytes_per_page
-25		1		1		3		85
-
-index_id	page_data_bytes_histgram(empty,...,oversized)
-25		0	1	0	0	0	0	0	0	0	0	0	0
-select * from t1;
-id	msg
-1	I
-2	AM
-3	COMPRESSED
-drop table t1;
-# Test for KEY_BLOCK_SIZE=2
-===> Testing  size=2
-CREATE TABLE t1(id INT AUTO_INCREMENT PRIMARY KEY, msg VARCHAR(255)) ENGINE=INNODB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2;
-insert into t1 values(1,"I");
-insert into t1 values(2,"AM");
-insert into t1 values(3,"COMPRESSED");
-InnoDB offline file checksum utility.
-Table is compressed
-Key block size is 2048K
-0	bad checksum
-1	FIL_PAGE_INDEX
-0	FIL_PAGE_UNDO_LOG
-1	FIL_PAGE_INODE
-0	FIL_PAGE_IBUF_FREE_LIST
-28	FIL_PAGE_TYPE_ALLOCATED
-1	FIL_PAGE_IBUF_BITMAP
-0	FIL_PAGE_TYPE_SYS
-0	FIL_PAGE_TYPE_TRX_SYS
-1	FIL_PAGE_TYPE_FSP_HDR
-0	FIL_PAGE_TYPE_XDES
-0	FIL_PAGE_TYPE_BLOB
-0	FIL_PAGE_TYPE_ZBLOB
-0	FIL_PAGE_TYPE_DBLWR_HEADER
-0	other
-0	max index_id
-undo type: 0 insert, 0 update, 0 other
-undo state: 0 active, 0 cached, 0 to_free, 0 to_purge, 0 prepared, 0 other
-index_id	#pages		#leaf_pages	#recs_per_page	#bytes_per_page
-26		1		1		3		85
-
-index_id	page_data_bytes_histgram(empty,...,oversized)
-26		0	1	0	0	0	0	0	0	0	0	0	0
-select * from t1;
-id	msg
-1	I
-2	AM
-3	COMPRESSED
-drop table t1;
-# Test for for KEY_BLOCK_SIZE=4
-===> Testing  size=4
-CREATE TABLE t1(id INT AUTO_INCREMENT PRIMARY KEY, msg VARCHAR(255)) ENGINE=INNODB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4;
-insert into t1 values(1,"I");
-insert into t1 values(2,"AM");
-insert into t1 values(3,"COMPRESSED");
-InnoDB offline file checksum utility.
-Table is compressed
-Key block size is 4096K
-0	bad checksum
-1	FIL_PAGE_INDEX
-0	FIL_PAGE_UNDO_LOG
-1	FIL_PAGE_INODE
-0	FIL_PAGE_IBUF_FREE_LIST
-12	FIL_PAGE_TYPE_ALLOCATED
 1	FIL_PAGE_IBUF_BITMAP
 0	FIL_PAGE_TYPE_SYS
 0	FIL_PAGE_TYPE_TRX_SYS
@@ -173,21 +211,22 @@ id	msg
 2	AM
 3	COMPRESSED
 drop table t1;
-# Test for for KEY_BLOCK_SIZE=8
-===> Testing  size=8
-CREATE TABLE t1(id INT AUTO_INCREMENT PRIMARY KEY, msg VARCHAR(255)) ENGINE=INNODB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+# Test for KEY_BLOCK_SIZE=2
+===> Testing  size=2
+CREATE TABLE t1(id INT AUTO_INCREMENT PRIMARY KEY, msg VARCHAR(255)) ENGINE=INNODB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2;
 insert into t1 values(1,"I");
 insert into t1 values(2,"AM");
 insert into t1 values(3,"COMPRESSED");
 InnoDB offline file checksum utility.
 Table is compressed
-Key block size is 8192K
+Key block size is 2048
+Table space id is 11
 0	bad checksum
 1	FIL_PAGE_INDEX
 0	FIL_PAGE_UNDO_LOG
 1	FIL_PAGE_INODE
 0	FIL_PAGE_IBUF_FREE_LIST
-4	FIL_PAGE_TYPE_ALLOCATED
+28	FIL_PAGE_TYPE_ALLOCATED
 1	FIL_PAGE_IBUF_BITMAP
 0	FIL_PAGE_TYPE_SYS
 0	FIL_PAGE_TYPE_TRX_SYS
@@ -211,6 +250,84 @@ id	msg
 2	AM
 3	COMPRESSED
 drop table t1;
+# Test for for KEY_BLOCK_SIZE=4
+===> Testing  size=4
+CREATE TABLE t1(id INT AUTO_INCREMENT PRIMARY KEY, msg VARCHAR(255)) ENGINE=INNODB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4;
+insert into t1 values(1,"I");
+insert into t1 values(2,"AM");
+insert into t1 values(3,"COMPRESSED");
+InnoDB offline file checksum utility.
+Table is compressed
+Key block size is 4096
+Table space id is 12
+0	bad checksum
+1	FIL_PAGE_INDEX
+0	FIL_PAGE_UNDO_LOG
+1	FIL_PAGE_INODE
+0	FIL_PAGE_IBUF_FREE_LIST
+12	FIL_PAGE_TYPE_ALLOCATED
+1	FIL_PAGE_IBUF_BITMAP
+0	FIL_PAGE_TYPE_SYS
+0	FIL_PAGE_TYPE_TRX_SYS
+1	FIL_PAGE_TYPE_FSP_HDR
+0	FIL_PAGE_TYPE_XDES
+0	FIL_PAGE_TYPE_BLOB
+0	FIL_PAGE_TYPE_ZBLOB
+0	FIL_PAGE_TYPE_DBLWR_HEADER
+0	other
+0	max index_id
+undo type: 0 insert, 0 update, 0 other
+undo state: 0 active, 0 cached, 0 to_free, 0 to_purge, 0 prepared, 0 other
+index_id	#pages		#leaf_pages	#recs_per_page	#bytes_per_page
+29		1		1		3		85
+
+index_id	page_data_bytes_histgram(empty,...,oversized)
+29		0	1	0	0	0	0	0	0	0	0	0	0
+select * from t1;
+id	msg
+1	I
+2	AM
+3	COMPRESSED
+drop table t1;
+# Test for for KEY_BLOCK_SIZE=8
+===> Testing  size=8
+CREATE TABLE t1(id INT AUTO_INCREMENT PRIMARY KEY, msg VARCHAR(255)) ENGINE=INNODB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+insert into t1 values(1,"I");
+insert into t1 values(2,"AM");
+insert into t1 values(3,"COMPRESSED");
+InnoDB offline file checksum utility.
+Table is compressed
+Key block size is 8192
+Table space id is 13
+0	bad checksum
+1	FIL_PAGE_INDEX
+0	FIL_PAGE_UNDO_LOG
+1	FIL_PAGE_INODE
+0	FIL_PAGE_IBUF_FREE_LIST
+4	FIL_PAGE_TYPE_ALLOCATED
+1	FIL_PAGE_IBUF_BITMAP
+0	FIL_PAGE_TYPE_SYS
+0	FIL_PAGE_TYPE_TRX_SYS
+1	FIL_PAGE_TYPE_FSP_HDR
+0	FIL_PAGE_TYPE_XDES
+0	FIL_PAGE_TYPE_BLOB
+0	FIL_PAGE_TYPE_ZBLOB
+0	FIL_PAGE_TYPE_DBLWR_HEADER
+0	other
+0	max index_id
+undo type: 0 insert, 0 update, 0 other
+undo state: 0 active, 0 cached, 0 to_free, 0 to_purge, 0 prepared, 0 other
+index_id	#pages		#leaf_pages	#recs_per_page	#bytes_per_page
+30		1		1		3		85
+
+index_id	page_data_bytes_histgram(empty,...,oversized)
+30		0	1	0	0	0	0	0	0	0	0	0	0
+select * from t1;
+id	msg
+1	I
+2	AM
+3	COMPRESSED
+drop table t1;
 SET innodb_strict_mode=OFF;
 # Test for KEY_BLOCK_SIZE=16
 ===> Testing  size=16
@@ -220,7 +337,8 @@ insert into t1 values(2,"AM");
 insert into t1 values(3,"COMPRESSED");
 InnoDB offline file checksum utility.
 Table is compressed
-Key block size is 16384K
+Key block size is 16384
+Table space id is 14
 0	bad checksum
 1	FIL_PAGE_INDEX
 0	FIL_PAGE_UNDO_LOG
@@ -240,10 +358,10 @@ Key block size is 16384K
 undo type: 0 insert, 0 update, 0 other
 undo state: 0 active, 0 cached, 0 to_free, 0 to_purge, 0 prepared, 0 other
 index_id	#pages		#leaf_pages	#recs_per_page	#bytes_per_page
-29		1		1		3		85
+31		1		1		3		85
 
 index_id	page_data_bytes_histgram(empty,...,oversized)
-29		0	1	0	0	0	0	0	0	0	0	0	0
+31		0	1	0	0	0	0	0	0	0	0	0	0
 select * from t1;
 id	msg
 1	I

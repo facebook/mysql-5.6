@@ -53,10 +53,45 @@ EOF
 --replace_regex /[0-9]+/#/
 --exec $INNOCHECKSUM -c $MYSQLD_DATADIR/test/t1.ibd
 
+--echo # Test parames -D, --databases, --tables
+--exec $INNOCHECKSUM -D $MYSQLD_DATADIR --databases=test --tables=t1 -c
+
+--echo # Test parames -D, --databases
+--exec $INNOCHECKSUM -D $MYSQLD_DATADIR --databases=test -c
+
+--echo # Test parames -D, --databases
+--exec $INNOCHECKSUM -D $MYSQLD_DATADIR --databases=test,mysql -c
+
+--echo # Test parames -D, -r, --tables
+--exec $INNOCHECKSUM -D $MYSQLD_DATADIR -r --tables=t1 -c
+
+--echo # Test parames -D, -r, --tables
+--exec $INNOCHECKSUM -D $MYSQLD_DATADIR -r --tables=t1,innodb_table_stats -c
+
+--echo # Test parames -D, --space
+--exec $INNOCHECKSUM -D $MYSQLD_DATADIR -r --space=7 -c
+
+--echo # Restart the DB server
+--source include/start_mysqld.inc
+
+--echo # Test partitioned tables
+CREATE TABLE t2 (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, j LONGBLOB)
+PARTITION BY KEY(id) PARTITIONS 2;
+INSERT INTO t2 (j) SELECT j from t1;
+
+--echo # stop the server
+--source include/shutdown_mysqld.inc
+
+--echo # Test parames -D, -r, --tables
+# Order of checking partitioned files is not deterministic. Adding mask
+--replace_regex /[0-9]+/#/
+--exec $INNOCHECKSUM -D $MYSQLD_DATADIR -r --tables=t2 -c
+
 --echo # Restart the DB server
 --source include/start_mysqld.inc
 
 DROP TABLE t1;
+DROP TABLE t2;
 
 --echo [5]:# Check the innochecksum for compressed table t1 with different key_block_size
 --echo # Test for KEY_BLOCK_SIZE=1
