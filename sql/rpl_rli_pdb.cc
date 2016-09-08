@@ -2234,7 +2234,6 @@ struct slave_job_item* pop_jobs_item(Slave_worker *worker,
         clear_current_group_events(worker, worker->c_rli, true);
       }
       worker->wq_empty_waits++;
-      thd->reset_query();
       thd->ENTER_COND(&worker->jobs_cond, &worker->jobs_lock,
                                &stage_slave_waiting_event_from_coordinator,
                                &old_stage);
