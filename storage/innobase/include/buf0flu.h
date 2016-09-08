@@ -326,6 +326,10 @@ buf_flush_get_dirty_pages_count(
 
 #endif /* !UNIV_HOTBACKUP */
 
+UNIV_INTERN
+void
+wait_for_buf_lru_manager_to_complete();
+
 #ifndef UNIV_NONINL
 #include "buf0flu.ic"
 #endif
