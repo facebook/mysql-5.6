@@ -46,7 +46,6 @@ ENDIF()
 MYSQL_ADD_EXECUTABLE(mysqltest_embedded ../../client/mysqltest.cc)
 TARGET_LINK_LIBRARIES(mysqltest_embedded mysqlserver)
 
-
 IF(CMAKE_GENERATOR MATCHES "Xcode")
 # It does not seem possible to tell Xcode the resulting target might need
 # to be linked with C++ runtime. The project needs to have at least one C++
@@ -79,3 +78,31 @@ IF(NOT INSTALL_LAYOUT MATCHES "SVR4")
   SET_TARGET_PROPERTIES(mysql_client_test_embedded PROPERTIES ENABLE_EXPORTS TRUE)
   ENDIF()
 ENDIF()
+
+#
+# Necessary to make sure that we can use the jemalloc API calls. We need to do
+# this for every binary which which will link to MyRocks. The trick here is to
+# use the linker flags which already get set in WITH_MYSQLD_LDFLAGS because
+# `mysqld` itself sets options for jemalloc. This way we don't have to define
+# a separate flag for every binary.
+#
+GET_TARGET_PROPERTY(mysqltest_embedded LINK_FLAGS PREV_LINK_FLAGS)
+IF(NOT PREV_LINK_FLAGS)
+  SET(PREV_LINK_FLAGS)
+ENDIF()
+SET_TARGET_PROPERTIES(mysqltest_embedded PROPERTIES LINK_FLAGS
+"${PREV_LINK_FLAGS} ${WITH_MYSQLD_LDFLAGS}")
+
+GET_TARGET_PROPERTY(mysql_embedded LINK_FLAGS PREV_LINK_FLAGS)
+IF(NOT PREV_LINK_FLAGS)
+  SET(PREV_LINK_FLAGS)
+ENDIF()
+SET_TARGET_PROPERTIES(mysql_embedded PROPERTIES LINK_FLAGS
+"${PREV_LINK_FLAGS} ${WITH_MYSQLD_LDFLAGS}")
+
+GET_TARGET_PROPERTY(mysql_client_test_embedded LINK_FLAGS PREV_LINK_FLAGS)
+IF(NOT PREV_LINK_FLAGS)
+  SET(PREV_LINK_FLAGS)
+ENDIF()
+SET_TARGET_PROPERTIES(mysql_client_test_embedded PROPERTIES LINK_FLAGS
+"${PREV_LINK_FLAGS} ${WITH_MYSQLD_LDFLAGS}")
