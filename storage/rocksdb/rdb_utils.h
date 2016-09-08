@@ -24,6 +24,10 @@
 /* RocksDB header files */
 #include "rocksdb/slice.h"
 
+#ifdef HAVE_JEMALLOC
+  #include <jemalloc/jemalloc.h>
+#endif
+
 namespace myrocks {
 
 /*
@@ -125,6 +129,40 @@ inline const uchar* rdb_slice_to_uchar_ptr(const rocksdb::Slice *item)
 {
   DBUG_ASSERT(item != nullptr);
   return reinterpret_cast<const uchar*>(item->data());
+}
+
+/*
+  Call this function in cases when you can't rely on garbage collector and need
+  to explicitly purge all unused dirty pages. This should be a relatively rare
+  scenario for cases where it has been verified that this intervention has
+  noticeable benefits.
+*/
+inline int purge_all_jemalloc_arenas()
+{
+#ifdef HAVE_JEMALLOC
+  unsigned narenas = 0;
+  size_t sz = sizeof(unsigned);
+  char name[25] = { 0 };
+
+  // Get the number of arenas first. Please see `jemalloc` documentation for
+  // all the various options.
+  int result = mallctl("arenas.narenas", &narenas, &sz, nullptr, 0);
+
+  // `mallctl` returns 0 on success and we really want caller to know if all the
+  // trickery actually works.
+  if (result) {
+    return result;
+  }
+
+  // Form the command to be passed to `mallctl` and purge all the unused dirty
+  // pages.
+  snprintf(name, sizeof(name) / sizeof(char), "arena.%d.purge", narenas);
+  result = mallctl(name, nullptr, nullptr, nullptr, 0);
+
+  return result;
+#else
+  return EXIT_SUCCESS;
+#endif
 }
 
 /*
