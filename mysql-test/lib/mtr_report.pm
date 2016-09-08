@@ -334,6 +334,9 @@ sub mtr_report_stats ($$;$) {
       print "Check of testcase failed for: ";
       print join(" ", keys %check_testcases);
       print "\n\n";
+
+      # fb-mysql considers this a problem, unlike upstream.
+      $found_problems= 1;
     }
   }
 
