@@ -5,20 +5,22 @@ gtid-mode=on
 enforce-gtid-consistency
 log-slave-updates
 innodb
+replicate-same-server-id
 
 [mysqld.2]
 gtid-mode=on
 enforce-gtid-consistency
 log-slave-updates
 innodb
+replicate-same-server-id
 
 [mysqld.3]
 gtid-mode=on
 enforce-gtid-consistency
 log-slave-updates
 innodb
+replicate-same-server-id
 
 [ENV]
 SERVER_MYPORT_3=		@mysqld.3.port
 SERVER_MYSOCK_3=		@mysqld.3.socket
-

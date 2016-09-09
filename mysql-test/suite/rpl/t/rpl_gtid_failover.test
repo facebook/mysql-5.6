@@ -73,6 +73,97 @@ insert into t1 values (NULL, 2); # won't be seen by S3 until it connects to S2
 --source include/start_slave.inc
 
 #
+# Check M1 fetching GTIDs it has lost.
+#
+
+--connection server_1
+--let $server_1_uuid= query_get_value(SELECT @@SERVER_UUID, @@SERVER_UUID, 1)
+--replace_result $server_1_uuid server_1_uuid
+select @@global.gtid_executed;
+
+# Disconnect S3
+--connection server_3
+--replace_result $server_1_uuid server_1_uuid
+select @@global.gtid_executed;
+--let $saved_gtid_executed=query_get_value(select @@global.gtid_executed, @@global.gtid_executed, 1)
+--source include/stop_slave.inc
+
+# Create some gtids that will be 'lost'.
+--connection server_1
+insert into t1 values (NULL, 3);
+insert into t1 values (NULL, 4);
+
+--let $sync_slave_connection= server_2
+--source include/sync_slave_sql_with_master.inc
+--source include/stop_slave.inc
+
+#
+# Mimic a non-durable master losing some gtids.
+#
+--connection server_1
+# Current set is 1-5
+--replace_result $server_1_uuid server_1_uuid
+select @@global.gtid_executed;
+
+# Remove evidence of 4-5 from M1
+set @@sql_log_bin=0;
+reset master;
+delete from t1 where b in (3, 4);
+--replace_result $server_1_uuid server_1_uuid
+--eval set @@global.gtid_purged = '$saved_gtid_executed'
+set @@sql_log_bin=1;
+--replace_result $server_1_uuid server_1_uuid
+select @@global.gtid_executed;
+
+#
+# Failover old master, M1, to new master, S2
+#
+# server_1 was never a slave, so we need to do a bit more configuration.
+--replace_result $SERVER_MYPORT_2 SERVER_MYPORT_2
+--eval CHANGE MASTER TO MASTER_HOST = '127.0.0.1', MASTER_PORT = $SERVER_MYPORT_2, MASTER_USER = 'root', MASTER_AUTO_POSITION = 1, MASTER_CONNECT_RETRY = 1;
+--source include/start_slave.inc
+
+--connection server_2
+--let $server_2_uuid= query_get_value(SELECT @@SERVER_UUID, @@SERVER_UUID, 1)
+
+# New master takes a transaction
+insert into t1 values (NULL, 5);
+
+#
+# Show all servers can Sync gtids and table contents.
+#
+--let $sync_slave_connection= server_1
+--let $use_gtids= 1
+--source include/sync_slave_sql_with_master.inc
+
+# Verify server_1 replicated its lost gtids, 4-5
+--replace_result $server_1_uuid server_1_uuid $server_2_uuid server_2_uuid
+select @@global.gtid_executed;
+
+--connection server_3
+--source include/start_slave.inc
+
+--connection server_2
+--let $sync_slave_connection= server_3
+--let $use_gtids= 1
+--source include/sync_slave_sql_with_master.inc
+--replace_result $server_1_uuid server_1_uuid $server_2_uuid server_2_uuid
+select @@global.gtid_executed;
+
+--let $diff_tables= server_1:test.t1, server_2:test.t1, server_3:test.t1
+--source include/diff_tables.inc
+
+#
+# Restore M1 -> S2 -> S3
+#
+--connection server_1
+--source include/stop_slave.inc
+reset slave all;
+
+--connection server_2
+--source include/start_slave.inc
+
+#
 # Clean up
 #
 --echo *** Clean up ***
