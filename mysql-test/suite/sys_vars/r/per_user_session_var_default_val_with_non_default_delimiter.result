@@ -4,17 +4,17 @@ Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
-tao2:tao3:root:tx_isolation=read-committed,gap_lock_raise_error=0,gap_lock_write_log=0,big_tables=1,tao1:bulk_insert_buffer_size=16M,gap_lock_raise_error=0,gap_lock_write_log=0,auto_increment_increment=12345,long_query_time=123.45
+tao:2#tao:3#root#tx_isolation=read-committed,gap_lock_raise_error=0,gap_lock_write_log=0,big_tables=1,tao:1#bulk_insert_buffer_size=16M,gap_lock_raise_error=0,gap_lock_write_log=0,auto_increment_increment=12345,long_query_time=123.45
 SELECT @@GLOBAL.per_user_session_var_default_val;
 @@GLOBAL.per_user_session_var_default_val
-tao2:tao3:root:tx_isolation=read-committed,gap_lock_raise_error=0,gap_lock_write_log=0,big_tables=1,tao1:bulk_insert_buffer_size=16M,gap_lock_raise_error=0,gap_lock_write_log=0,auto_increment_increment=12345,long_query_time=123.45
+tao:2#tao:3#root#tx_isolation=read-committed,gap_lock_raise_error=0,gap_lock_write_log=0,big_tables=1,tao:1#bulk_insert_buffer_size=16M,gap_lock_raise_error=0,gap_lock_write_log=0,auto_increment_increment=12345,long_query_time=123.45
 ## create non-super users tao1, tao2, and tao3
-create user tao1@localhost;
-create user tao2@localhost;
-create user tao3@localhost;
+create user `tao:1`@localhost;
+create user `tao:2`@localhost;
+create user `tao:3`@localhost;
 ## create super users tao4 and tao5
-grant all privileges on *.* to tao4@localhost identified by password '' with grant option;
-grant all privileges on *.* to tao5@localhost identified by password '' with grant option;
+grant all privileges on *.* to `tao:4`@localhost identified by password '' with grant option;
+grant all privileges on *.* to `tao:5`@localhost identified by password '' with grant option;
 flush user_resources;
 ## (1) Initial non-empty value
 ## create connection batch 1
@@ -25,10 +25,10 @@ SELECT @@GLOBAL.per_user_session_var_default_val;
 NULL
 ## create connection batch 2
 ## (3) Non-empty value
-SET GLOBAL per_user_session_var_default_val="tao1:tao2:tao3:tao4:tx_isolation=serializable,big_tables=1,auto_increment_increment=12345,long_query_time=123.45,bulk_insert_buffer_size=1G,tao5:root:binlog_format=row";
+SET GLOBAL per_user_session_var_default_val="tao:1#tao:2#tao:3#tao:4#tx_isolation=serializable,big_tables=1,auto_increment_increment=12345,long_query_time=123.45,bulk_insert_buffer_size=1G,tao:5#root#binlog_format=row";
 SELECT @@GLOBAL.per_user_session_var_default_val;
 @@GLOBAL.per_user_session_var_default_val
-tao1:tao2:tao3:tao4:tx_isolation=serializable,big_tables=1,auto_increment_increment=12345,long_query_time=123.45,bulk_insert_buffer_size=1G,tao5:root:binlog_format=row
+tao:1#tao:2#tao:3#tao:4#tx_isolation=serializable,big_tables=1,auto_increment_increment=12345,long_query_time=123.45,bulk_insert_buffer_size=1G,tao:5#root#binlog_format=row
 ## create connection batch 3
 ## (4) NULL value
 SET GLOBAL per_user_session_var_default_val = NULL;
@@ -37,10 +37,10 @@ SELECT @@GLOBAL.per_user_session_var_default_val;
 NULL
 ## create connection batch 4
 ## (5) Non-empty value
-SET GLOBAL per_user_session_var_default_val="tao1:tx_isolation=READ-UNCOMMITTED,tao2:tao3:gap_lock_raise_error=FALSE,root:gap_lock_write_log=off,tao4:big_tables=1,auto_increment_increment=12345,long_query_time=123.45,tao5:binlog_format=MIXED,bulk_insert_buffer_size=32M";
+SET GLOBAL per_user_session_var_default_val="tao:1#tx_isolation=READ-UNCOMMITTED,tao:2#tao:3#gap_lock_raise_error=FALSE,root#gap_lock_write_log=off,tao:4#big_tables=1,auto_increment_increment=12345,long_query_time=123.45,tao:5#binlog_format=MIXED,bulk_insert_buffer_size=32M";
 SELECT @@GLOBAL.per_user_session_var_default_val;
 @@GLOBAL.per_user_session_var_default_val
-tao1:tx_isolation=READ-UNCOMMITTED,tao2:tao3:gap_lock_raise_error=FALSE,root:gap_lock_write_log=off,tao4:big_tables=1,auto_increment_increment=12345,long_query_time=123.45,tao5:binlog_format=MIXED,bulk_insert_buffer_size=32M
+tao:1#tx_isolation=READ-UNCOMMITTED,tao:2#tao:3#gap_lock_raise_error=FALSE,root#gap_lock_write_log=off,tao:4#big_tables=1,auto_increment_increment=12345,long_query_time=123.45,tao:5#binlog_format=MIXED,bulk_insert_buffer_size=32M
 ## create connection batch 5
 ## (6) Empty value
 SET GLOBAL per_user_session_var_default_val = "";
@@ -49,10 +49,10 @@ SELECT @@GLOBAL.per_user_session_var_default_val;
 
 ## create connection batch 6
 ## (7) Restored initial non-empty value
-SET @@global.per_user_session_var_default_val = "tao2:tao3:root:tx_isolation=read-committed,gap_lock_raise_error=0,gap_lock_write_log=0,big_tables=1,tao1:bulk_insert_buffer_size=16M,gap_lock_raise_error=0,gap_lock_write_log=0,auto_increment_increment=12345,long_query_time=123.45";
+SET @@global.per_user_session_var_default_val = "tao:2#tao:3#root#tx_isolation=read-committed,gap_lock_raise_error=0,gap_lock_write_log=0,big_tables=1,tao:1#bulk_insert_buffer_size=16M,gap_lock_raise_error=0,gap_lock_write_log=0,auto_increment_increment=12345,long_query_time=123.45";
 SELECT @@global.per_user_session_var_default_val;
 @@global.per_user_session_var_default_val
-tao2:tao3:root:tx_isolation=read-committed,gap_lock_raise_error=0,gap_lock_write_log=0,big_tables=1,tao1:bulk_insert_buffer_size=16M,gap_lock_raise_error=0,gap_lock_write_log=0,auto_increment_increment=12345,long_query_time=123.45
+tao:2#tao:3#root#tx_isolation=read-committed,gap_lock_raise_error=0,gap_lock_write_log=0,big_tables=1,tao:1#bulk_insert_buffer_size=16M,gap_lock_raise_error=0,gap_lock_write_log=0,auto_increment_increment=12345,long_query_time=123.45
 ## create connection batch 7
 ##
 ## Session variables of all the connections
@@ -2346,9 +2346,9 @@ STATEMENT	STATEMENT
 SELECT @@GLOBAL.bulk_insert_buffer_size, @@SESSION.bulk_insert_buffer_size;
 @@GLOBAL.bulk_insert_buffer_size	@@SESSION.bulk_insert_buffer_size
 8388608	8388608
-drop user tao1@localhost;
-drop user tao2@localhost;
-drop user tao3@localhost;
-drop user tao4@localhost;
-drop user tao5@localhost;
+drop user `tao:1`@localhost;
+drop user `tao:2`@localhost;
+drop user `tao:3`@localhost;
+drop user `tao:4`@localhost;
+drop user `tao:5`@localhost;
 include/rpl_end.inc
