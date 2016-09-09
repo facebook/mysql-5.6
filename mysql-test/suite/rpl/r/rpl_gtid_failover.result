@@ -25,6 +25,49 @@ include/sync_slave_sql_with_master.inc
 include/diff_tables.inc [server_1:test.t1, server_2:test.t1, server_3:test.t1]
 change master to master_port=SERVER_MYPORT_1;
 include/start_slave.inc
+select @@global.gtid_executed;
+@@global.gtid_executed
+server_1_uuid:1-3
+select @@global.gtid_executed;
+@@global.gtid_executed
+server_1_uuid:1-3
+include/stop_slave.inc
+insert into t1 values (NULL, 3);
+insert into t1 values (NULL, 4);
+include/sync_slave_sql_with_master.inc
+include/stop_slave.inc
+select @@global.gtid_executed;
+@@global.gtid_executed
+server_1_uuid:1-5
+set @@sql_log_bin=0;
+reset master;
+delete from t1 where b in (3, 4);
+set @@global.gtid_purged = 'server_1_uuid:1-3';
+set @@sql_log_bin=1;
+select @@global.gtid_executed;
+@@global.gtid_executed
+server_1_uuid:1-3
+CHANGE MASTER TO MASTER_HOST = '127.0.0.1', MASTER_PORT = SERVER_MYPORT_2, MASTER_USER = 'root', MASTER_AUTO_POSITION = 1, MASTER_CONNECT_RETRY = 1;;
+Warnings:
+Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+include/start_slave.inc
+insert into t1 values (NULL, 5);
+include/sync_slave_sql_with_master.inc
+select @@global.gtid_executed;
+@@global.gtid_executed
+server_1_uuid:1-5,
+server_2_uuid:1
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+select @@global.gtid_executed;
+@@global.gtid_executed
+server_1_uuid:1-5,
+server_2_uuid:1
+include/diff_tables.inc [server_1:test.t1, server_2:test.t1, server_3:test.t1]
+include/stop_slave.inc
+reset slave all;
+include/start_slave.inc
 *** Clean up ***
 DROP TABLE t1;
 include/rpl_sync.inc
