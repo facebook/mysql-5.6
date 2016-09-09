@@ -686,6 +686,8 @@ The following options may be given as the first argument:
  --peak-lag-time=#   The time frame peak lag is measured within, in seconds.
  --per-user-session-var-default-val[=name] 
  Per user session variable default value
+ --per-user-session-var-user-name-delimiter[=name] 
+ Per user session variable user name delimiter
  --performance-schema 
  Enable the performance schema.
  (Defaults to on; use --skip-performance-schema to disable.)
@@ -1776,6 +1778,7 @@ part-scan-max 10
 peak-lag-sample-rate 100
 peak-lag-time 60
 per-user-session-var-default-val (No default value)
+per-user-session-var-user-name-delimiter (No default value)
 performance-schema TRUE
 performance-schema-accounts-size -1
 performance-schema-consumer-events-stages-current FALSE

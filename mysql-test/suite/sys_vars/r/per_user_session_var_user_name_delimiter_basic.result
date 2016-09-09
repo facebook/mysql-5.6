@@ -1,0 +1,25 @@
+SELECT @@global.per_user_session_var_user_name_delimiter;
+@@global.per_user_session_var_user_name_delimiter
+NULL
+SELECT @@session.per_user_session_var_user_name_delimiter;
+ERROR HY000: Variable 'per_user_session_var_user_name_delimiter' is a GLOBAL variable
+SHOW GLOBAL VARIABLES LIKE 'per_user_session_var_user_name_delimiter';
+Variable_name	Value
+per_user_session_var_user_name_delimiter	
+SHOW SESSION VARIABLES LIKE 'per_user_session_var_user_name_delimiter';
+Variable_name	Value
+per_user_session_var_user_name_delimiter	
+SELECT *
+FROM information_schema.global_variables
+WHERE variable_name='per_user_session_var_user_name_delimiter';
+VARIABLE_NAME	VARIABLE_VALUE
+PER_USER_SESSION_VAR_USER_NAME_DELIMITER	
+SELECT *
+FROM information_schema.session_variables
+WHERE variable_name='per_user_session_var_user_name_delimiter';
+VARIABLE_NAME	VARIABLE_VALUE
+PER_USER_SESSION_VAR_USER_NAME_DELIMITER	
+SET GLOBAL per_user_session_var_user_name_delimiter=';';
+ERROR HY000: Variable 'per_user_session_var_user_name_delimiter' is a read only variable
+SET SESSION per_user_session_var_user_name_delimiter=";";
+ERROR HY000: Variable 'per_user_session_var_user_name_delimiter' is a read only variable
