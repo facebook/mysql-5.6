@@ -4727,7 +4727,8 @@ int ha_rocksdb::create_cfs(const TABLE *table_arg, Rdb_tbl_def *tbl_def_arg,
     rocksdb::ColumnFamilyHandle* cf_handle;
 
     if (rocksdb_strict_collation_check &&
-        !is_hidden_pk(i, table_arg, tbl_def_arg))
+        !is_hidden_pk(i, table_arg, tbl_def_arg) &&
+        tbl_def_arg->base_tablename().find(tmp_file_prefix) != 0)
     {
       for (uint part= 0; part < table_arg->key_info[i].actual_key_parts; part++)
       {

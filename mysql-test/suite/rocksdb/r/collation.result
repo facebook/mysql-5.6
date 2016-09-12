@@ -96,5 +96,14 @@ CREATE TABLE t1 (id INT primary key, value varchar(50), index(value)) engine=roc
 DROP TABLE t1;
 CREATE TABLE u1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
 ERROR HY000: Unsupported collation on string indexed column test.u1.value Use binary collation (binary, latin1_bin, utf8_bin).
-SET GLOBAL rocksdb_strict_collation_exceptions=null;
+SET GLOBAL rocksdb_strict_collation_exceptions='t1';
+CREATE TABLE t1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb;
+ALTER TABLE t1 AUTO_INCREMENT=1;
+DROP TABLE t1;
+CREATE TABLE t2 (id INT primary key, value varchar(50), index(value)) engine=rocksdb;
+ERROR HY000: Unsupported collation on string indexed column test.t2.value Use binary collation (binary, latin1_bin, utf8_bin).
+CREATE TABLE t2 (id INT primary key, value varchar(50)) engine=rocksdb;
+ALTER TABLE t2 ADD INDEX(value);
+ERROR HY000: Unsupported collation on string indexed column test.t2.value Use binary collation (binary, latin1_bin, utf8_bin).
+DROP TABLE t2;
 SET GLOBAL rocksdb_strict_collation_exceptions=@start_global_value;
