@@ -8314,17 +8314,6 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
 
-  if (my_core::thd_tx_isolation(thd) < ISO_READ_COMMITTED ||
-      my_core::thd_tx_isolation(thd) > ISO_REPEATABLE_READ)
-  {
-    my_printf_error(ER_UNKNOWN_ERROR,
-                    "MyRocks supports only READ COMMITTED and REPEATABLE READ "
-                    "isolation levels. Please change from current isolation "
-                    "level %s",
-                    MYF(0), tx_isolation_names[my_core::thd_tx_isolation(thd)]);
-    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
-  }
-
   if (lock_type == F_UNLCK)
   {
     Rdb_transaction* tx= get_or_create_tx(thd);
@@ -8345,6 +8334,18 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
   }
   else
   {
+    if (my_core::thd_tx_isolation(thd) < ISO_READ_COMMITTED ||
+        my_core::thd_tx_isolation(thd) > ISO_REPEATABLE_READ)
+    {
+      my_printf_error(ER_UNKNOWN_ERROR,
+                      "MyRocks supports only READ COMMITTED and "
+                      "REPEATABLE READ isolation levels. "
+                      "Please change from current isolation "
+                      "level %s",
+                      MYF(0),
+                      tx_isolation_names[my_core::thd_tx_isolation(thd)]);
+      DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+    }
     /*
       It's nice to do the following on start of every statement. The problem
       is, handler->start_stmt() is not called for INSERTs.
