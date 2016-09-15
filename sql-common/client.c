@@ -1098,11 +1098,6 @@ cli_flush_use_result_nonblocking(MYSQL *mysql)
       break;
     }
   }
-  /* after flushing the result, set the socket back to blocking. */
-  if (mysql->net.vio && !vio_is_blocking(mysql->net.vio))
-  {
-    vio_set_blocking(mysql->net.vio, TRUE);
-  }
   DBUG_RETURN(NET_ASYNC_COMPLETE);
 }
 
@@ -6183,19 +6178,8 @@ mysql_fetch_row_core(MYSQL_RES *res, MYSQL_ROW* row, my_bool use_nonblocking);
 
 net_async_status STDCALL
 mysql_fetch_row_nonblocking(MYSQL_RES *res, MYSQL_ROW* row) {
-  MYSQL *mysql = res->handle;
   *row = NULL;
-  net_async_status ret = mysql_fetch_row_core(res, row, TRUE);
-  if (ret == NET_ASYNC_COMPLETE &&
-      mysql &&
-      row &&
-      *row == NULL &&
-      mysql->net.vio &&
-      !vio_is_blocking(mysql->net.vio))
-  {
-    vio_set_blocking(mysql->net.vio, TRUE);
-  }
-  return ret;
+  return mysql_fetch_row_core(res, row, TRUE);
 }
 
 MYSQL_ROW STDCALL
