@@ -148,6 +148,15 @@ const char * const PER_INDEX_CF_NAME = "$per_index_cf";
 */
 #define ROCKSDB_SIZEOF_HIDDEN_PK_COLUMN sizeof(longlong)
 
+/*
+  MyRocks specific error codes. NB! Please make sure that you will update
+  HA_ERR_ROCKSDB_LAST when adding new ones.
+*/
+#define HA_ERR_ROCKSDB_UNIQUE_NOT_SUPPORTED   (HA_ERR_LAST + 1)
+#define HA_ERR_ROCKSDB_PK_REQUIRED            (HA_ERR_LAST + 2)
+#define HA_ERR_ROCKSDB_TOO_MANY_LOCKS         (HA_ERR_LAST + 3)
+#define HA_ERR_ROCKSDB_LAST                   HA_ERR_ROCKSDB_TOO_MANY_LOCKS
+
 inline bool looks_like_per_index_cf_typo(const char *name)
 {
   return (name && name[0]=='$' && strcmp(name, PER_INDEX_CF_NAME));
