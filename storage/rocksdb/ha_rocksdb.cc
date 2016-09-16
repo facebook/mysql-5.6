@@ -4559,36 +4559,43 @@ int ha_rocksdb::close(void)
   DBUG_RETURN(0);
 }
 
-/*
-  MyRocks specific error codes.
-*/
-const int HA_ERR_ROCKSDB_UNIQUE_NOT_SUPPORTED=  HA_ERR_LAST+1;
-const int HA_ERR_ROCKSDB_PK_REQUIRED=           HA_ERR_LAST+2;
-const int HA_ERR_ROCKSDB_TOO_MANY_LOCKS=        HA_ERR_LAST+3;
-
 bool ha_rocksdb::get_error_message(const int error, String *buf)
 {
-  DBUG_ASSERT(error >= HA_ERR_FIRST);
-  DBUG_ASSERT(error <= HA_ERR_LAST);
+  static_assert(HA_ERR_ROCKSDB_LAST > HA_ERR_FIRST,
+    "HA_ERR_ROCKSDB_LAST > HA_ERR_FIRST");
+  static_assert(HA_ERR_ROCKSDB_LAST > HA_ERR_LAST,
+    "HA_ERR_ROCKSDB_LAST > HA_ERR_LAST");
+
+  DBUG_ASSERT(error > 0);
+  DBUG_ASSERT(error <= HA_ERR_ROCKSDB_LAST);
   DBUG_ASSERT(buf != nullptr);
 
   Rdb_transaction* tx = get_tx_from_thd(ha_thd());
+  bool temp_error = false;
 
-  if (error == HA_ERR_ROCKSDB_PK_REQUIRED)
-    buf->append("Table must have a PRIMARY KEY");
-  else if (error == HA_ERR_ROCKSDB_UNIQUE_NOT_SUPPORTED)
-    buf->append("Unique indexes are not supported");
-  else if (error == HA_ERR_ROCKSDB_TOO_MANY_LOCKS)
-    buf->append("Number of locks held reached @@rocksdb_max_row_locks");
-  else if (error == HA_ERR_LOCK_WAIT_TIMEOUT)
-  {
-    DBUG_ASSERT(tx != nullptr);
-    buf->append(tx->m_detailed_error);
-    return TRUE;
+  switch (error) {
+    case HA_ERR_ROCKSDB_PK_REQUIRED:
+      buf->append("Table must have a PRIMARY KEY.");
+      break;
+    case HA_ERR_ROCKSDB_UNIQUE_NOT_SUPPORTED:
+      buf->append("Unique indexes are not supported.");
+      break;
+    case HA_ERR_ROCKSDB_TOO_MANY_LOCKS:
+      buf->append("Number of locks held reached @@rocksdb_max_row_locks.");
+      break;
+    case HA_ERR_LOCK_WAIT_TIMEOUT:
+      DBUG_ASSERT(tx != nullptr);
+      buf->append(tx->m_detailed_error);
+      temp_error = true;
+      break;
+    default:
+      // We can be called with the values which are < HA_ERR_FIRST because most
+      // MySQL internal functions will just return 1 in case of an error.
+      break;
   }
-  return FALSE; /* not a temporary error */
-}
 
+  return temp_error;
+}
 
 /* MyRocks supports only the following collations for indexed columns */
 static const std::set<const my_core::CHARSET_INFO *> RDB_INDEX_COLLATIONS=
