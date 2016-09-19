@@ -1899,5 +1899,25 @@ INSERT INTO t1 VALUES(2,null);
 SELECT count(*) as total_rows, min(c2) as min_value FROM t1;
 DROP TABLE t1;
 
+--echo #
+--echo # Issue#263: MyRocks auto_increment skips values if you insert a negative value
+--echo #
+# We have slightly different behavior regarding auto-increment values than
+# InnoDB, so the results of the SHOW TABLE STATUS command will be slightly
+# different.  InnoDB will reserve 3 values but only use 2 of them (because
+# the user hard-coded a -1 as the second value).  MyRocks will only reserve
+# the values as needed, so only 2 values will be used.  This means that the
+# SHOW TABLE STATUS in InnoDB will indicate that the next auto-increment
+# value is 4 while MyRocks will show it as 3.
+CREATE TABLE t1(a INT AUTO_INCREMENT KEY);
+INSERT INTO t1 VALUES(0),(-1),(0);
+SHOW TABLE STATUS LIKE 't1';
+SELECT * FROM t1;
+DROP TABLE t1;
+CREATE TABLE t1(a INT AUTO_INCREMENT KEY);
+INSERT INTO t1 VALUES(0),(10),(0);
+SHOW TABLE STATUS LIKE 't1';
+SELECT * FROM t1;
+DROP TABLE t1;
 
 SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;
