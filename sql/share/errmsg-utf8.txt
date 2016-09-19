@@ -7230,9 +7230,6 @@ ER_CONNECTION_TIMEOUT
 ER_OPTION_PREVENTS_STATEMENT_EXTRA_INFO
   eng "The MySQL server is running with the %s option so it cannot execute this statement. %s"
 
-ER_VARIABLE_NOT_SETTABLE_WITHOUT_READ_ONLY
-  eng "The system variable %.200s can only be set in read-only (super) status."
-
 ER_CAPACITY_EXCEEDED
   eng "Memory capacity of %llu bytes for '%s' exceeded. %s"
 

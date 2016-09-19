@@ -1,8 +1,7 @@
 --source include/not_embedded.inc
 
-# Cannot set the value if server is not in read_only
---error ER_VARIABLE_NOT_SETTABLE_WITHOUT_READ_ONLY
-set @@global.read_only_error_msg_extra='Not in read_only';
+set @@global.read_only_error_msg_extra='Custom message before read_only';
+select @@global.read_only_error_msg_extra;
 
 set global read_only = true;
 set @@global.read_only_error_msg_extra = default;

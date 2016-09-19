@@ -1,5 +1,7 @@
-set @@global.read_only_error_msg_extra='Not in read_only';
-ERROR HY000: The system variable read_only_error_msg_extra can only be set in read-only (super) status.
+set @@global.read_only_error_msg_extra='Custom message before read_only';
+select @@global.read_only_error_msg_extra;
+@@global.read_only_error_msg_extra
+Custom message before read_only
 set global read_only = true;
 set @@global.read_only_error_msg_extra = default;
 select @@global.read_only_error_msg_extra;
