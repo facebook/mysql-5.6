@@ -2423,4 +2423,29 @@ SELECT count(*) as total_rows, min(c2) as min_value FROM t1;
 total_rows	min_value
 2	NULL
 DROP TABLE t1;
+#
+# Issue#263: MyRocks auto_increment skips values if you insert a negative value
+#
+CREATE TABLE t1(a INT AUTO_INCREMENT KEY);
+INSERT INTO t1 VALUES(0),(-1),(0);
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Fixed	1000	0	0	0	0	0	3	NULL	NULL	NULL	latin1_swedish_ci	NULL		
+SELECT * FROM t1;
+a
+-1
+1
+2
+DROP TABLE t1;
+CREATE TABLE t1(a INT AUTO_INCREMENT KEY);
+INSERT INTO t1 VALUES(0),(10),(0);
+SHOW TABLE STATUS LIKE 't1';
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+t1	ROCKSDB	10	Fixed	1000	0	0	0	0	0	12	NULL	NULL	NULL	latin1_swedish_ci	NULL		
+SELECT * FROM t1;
+a
+1
+10
+11
+DROP TABLE t1;
 SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;

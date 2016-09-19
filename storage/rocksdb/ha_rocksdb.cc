@@ -9045,12 +9045,23 @@ void ha_rocksdb::get_auto_increment(ulonglong offset, ulonglong increment,
                                     ulonglong *first_value,
                                     ulonglong *nb_reserved_values)
 {
-  if (!nb_desired_values)
-    nb_desired_values= 1;
-
-  *first_value= (m_tbl_def->m_auto_incr_val += nb_desired_values) -
-      nb_desired_values;
-  *nb_reserved_values= nb_desired_values;
+  /*
+    MySQL has a somewhat complicated way of handling the auto-increment value.
+    The first time get_auto_increment is called for a statement,
+    nb_desired_values is the estimate for how many values will be needed.  The
+    engine can then reserve some values, and those will be automatically used
+    by MySQL, until a hard-coded value shows up in the insert statement, after
+    which MySQL again calls this function to reset its starting value.
+   *
+    For simplicity we will just ignore nb_desired_values - we aren't going to
+    reserve any extra values for a multi-insert statement.  Each row will
+    simply acquire the next value as needed and we will always tell MySQL that
+    we only reserved 1 value.  Since we are using an atomic value for
+    m_auto_incr_val this should be safe - if we had to grab a mutex, doing
+    an actual reserve of some values might be a better solution.
+   */
+  *first_value= m_tbl_def->m_auto_incr_val++;
+  *nb_reserved_values= 1;
 }
 
 
