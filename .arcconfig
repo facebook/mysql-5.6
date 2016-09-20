@@ -1,7 +1,7 @@
 {
-  "project_id" : "mysql",
-  "phabricator.uri" : "https://reviews.facebook.net/api/",
-  "repository.callsign" : "MYSQLFIVESIX",
+  "project_id" : "mysql-5.6",
+  "phabricator.uri" : "https://phabricator.fb.com/api/",
+  "repository.callsign" : "MYSQL",
   "load" : [ "arcanist/" ],
   "arcanist_configuration" : "FacebookMySQLArcanistConfiguration",
   "lint.engine" : "FacebookMySQLLintEngine",
