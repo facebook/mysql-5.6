@@ -9284,6 +9284,12 @@ int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
   int num_sst= 0;
   // group stats per index id
   std::unordered_map<GL_INDEX_ID, Rdb_index_stats> stats;
+  for (auto it : ids_to_check)
+  {
+    // Initialize the stats to 0. If there are no files that contain
+    // this gl_index_id, then 0 should be stored for the cached stats.
+    stats[it] = Rdb_index_stats(it);
+  }
   for (auto it : props)
   {
     std::vector<Rdb_index_stats> sst_stats;
