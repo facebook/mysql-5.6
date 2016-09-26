@@ -79,13 +79,13 @@ insert into t1 values (NULL, 2); # won't be seen by S3 until it connects to S2
 --connection server_1
 --let $server_1_uuid= query_get_value(SELECT @@SERVER_UUID, @@SERVER_UUID, 1)
 --replace_result $server_1_uuid server_1_uuid
-select @@global.gtid_executed;
+select @@global.gtid_executed order by 1;
 
 # Disconnect S3
 --connection server_3
 --replace_result $server_1_uuid server_1_uuid
-select @@global.gtid_executed;
---let $saved_gtid_executed=query_get_value(select @@global.gtid_executed, @@global.gtid_executed, 1)
+select @@global.gtid_executed order by 1;
+--let $saved_gtid_executed=query_get_value(select @@global.gtid_executed order by 1, @@global.gtid_executed, 1)
 --source include/stop_slave.inc
 
 # Create some gtids that will be 'lost'.
@@ -103,7 +103,7 @@ insert into t1 values (NULL, 4);
 --connection server_1
 # Current set is 1-5
 --replace_result $server_1_uuid server_1_uuid
-select @@global.gtid_executed;
+select @@global.gtid_executed order by 1;
 
 # Remove evidence of 4-5 from M1
 set @@sql_log_bin=0;
@@ -113,7 +113,7 @@ delete from t1 where b in (3, 4);
 --eval set @@global.gtid_purged = '$saved_gtid_executed'
 set @@sql_log_bin=1;
 --replace_result $server_1_uuid server_1_uuid
-select @@global.gtid_executed;
+select @@global.gtid_executed order by 1;
 
 #
 # Failover old master, M1, to new master, S2
@@ -138,7 +138,7 @@ insert into t1 values (NULL, 5);
 
 # Verify server_1 replicated its lost gtids, 4-5
 --replace_result $server_1_uuid server_1_uuid $server_2_uuid server_2_uuid
-select @@global.gtid_executed;
+select @@global.gtid_executed order by 1;
 
 --connection server_3
 --source include/start_slave.inc
@@ -148,7 +148,7 @@ select @@global.gtid_executed;
 --let $use_gtids= 1
 --source include/sync_slave_sql_with_master.inc
 --replace_result $server_1_uuid server_1_uuid $server_2_uuid server_2_uuid
-select @@global.gtid_executed;
+select @@global.gtid_executed order by 1;
 
 --let $diff_tables= server_1:test.t1, server_2:test.t1, server_3:test.t1
 --source include/diff_tables.inc
