@@ -834,7 +834,9 @@ set @var2= to_seconds(now());
 
 # We expect the time to kill query in con1 should be below
 # rocksdb_lock_wait_timeout (5000).
-select (@var2 -@var1) < 2000;
+--echo "[Jay Edgar] I've updated this query to help determine why it is sometimes failing"
+--echo "(t13541934).  If you get an error here (i.e. not 'passed') notify me."
+select if ((@var2 - @var1) < 1000, "passed", (@var2 - @var1)) as 'result';
 
 --connection default
 --disconnect con1
