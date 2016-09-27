@@ -991,9 +991,11 @@ kill query $con1_id;
 connection con1;
 ERROR 70100: Query execution was interrupted
 set @var2= to_seconds(now());
-select (@var2 -@var1) < 2000;
-(@var2 -@var1) < 2000
-1
+"[Jay Edgar] I've updated this query to help determine why it is sometimes failing"
+"(t13541934).  If you get an error here (i.e. not 'passed') notify me."
+select if ((@var2 - @var1) < 1000, "passed", (@var2 - @var1)) as 'result';
+result
+passed
 connection default;
 disconnect con1;
 commit;
