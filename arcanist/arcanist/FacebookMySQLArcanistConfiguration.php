@@ -12,7 +12,7 @@ class FacebookMySQLArcanistConfiguration extends ArcanistConfiguration {
       // At this point we have determined that we aren't running in the
       // environment where there's a `tools` directory at the same level as
       // MySQL source code. Let's check if we're inside Sandcastle first.
-      if (getenv("SANDCASTLE_NEXUS")) {
+      if (getenv("SANDCASTLE")) {
         $using_sandcastle = TRUE;
         $tools_config_file = self::pathInSandcastle(
           $working_copy, '.arcconfig');
