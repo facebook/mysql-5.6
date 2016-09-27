@@ -4,7 +4,7 @@
 class FacebookMySQLArcanistConfiguration extends ArcanistConfiguration {
   // This hook is called just after this class is instantiated.
   public function updateConfig($working_copy, $configuration_manager) {
-    $using_sandcastle = FALSE;
+    $using_sandcastle = getenv("SANDCASTLE");
     $console = PhutilConsole::getConsole();
 
     $tools_config_file = self::pathInTools($working_copy, '.arcconfig');
@@ -12,8 +12,7 @@ class FacebookMySQLArcanistConfiguration extends ArcanistConfiguration {
       // At this point we have determined that we aren't running in the
       // environment where there's a `tools` directory at the same level as
       // MySQL source code. Let's check if we're inside Sandcastle first.
-      if (getenv("SANDCASTLE")) {
-        $using_sandcastle = TRUE;
+      if ($using_sandcastle) {
         $tools_config_file = self::pathInSandcastle(
           $working_copy, '.arcconfig');
         $console->writeOut(
@@ -26,6 +25,11 @@ class FacebookMySQLArcanistConfiguration extends ArcanistConfiguration {
 
         return;
       }
+    } elseif (!$using_sandcastle) {
+      $configuration_manager->setRuntimeConfig("lint.engine", "FacebookMySQLLintEngine");
+      $configuration_manager->setRuntimeConfig("lint.cpplint.prefix", "rocksdb/arcanist_util/cpp_linter/");
+      $configuration_manager->setRuntimeConfig("lint.cpplint.options", "--filter=-build/include_order,-whitespace/braces,-whitespace/newline");
+      $console->writeOut("Running outside Sandcastle, linters are now enabled.");
     }
 
     $tools_config_data = Filesystem::readFile($tools_config_file);
