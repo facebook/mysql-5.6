@@ -8916,7 +8916,7 @@ int ha_rocksdb::delete_table(const char *tablename)
   /* Find the table in the hash */
   Rdb_tbl_def *tbl = get_table_if_exists(tablename);
   if (!tbl)
-    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+    DBUG_RETURN(HA_ERR_NO_SUCH_TABLE);
   dict_manager.add_drop_table(tbl->m_key_descr_arr, tbl->m_key_count, batch);
 
   /*
