@@ -18,6 +18,7 @@ create table db1.t1 (
 --let $rpl_server_number= 2
 --source include/rpl_stop_server.inc
 
+--let LOAD_DONE_INDICATOR_FILE=$MYSQLTEST_VARDIR/tmp/xb_data_load_done
 --exec suite/xtrabackup/include/xb_load_data_and_run.sh 2>&1
 
 --let $rpl_server_number= 2
@@ -37,6 +38,7 @@ if($num_rows > 20000) {
   echo Number of rows($num_rows) is more than 20000;
 }
 
+--exec suite/xtrabackup/include/xb_wait_for_background_load.sh 2>&1
 --source suite/xtrabackup/include/xb_setup_replication_and_sync.inc
 
 connection server_2;
