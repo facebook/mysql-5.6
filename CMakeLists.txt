@@ -126,6 +126,7 @@ ENDIF()
 #cmake on 64bit windows/mac/solaris doesn't set CMAKE_SYSTEM_PROCESSOR correctly
 SET(MYSQL_MACHINE_TYPE ${CMAKE_SYSTEM_PROCESSOR})
 
+SET(MYSQL_COMPILER_TYPE ${CMAKE_CXX_COMPILER_ID})
 
 # Include the platform-specific file. To allow exceptions, this code
 # looks for files in order of how specific they are. If there is, for

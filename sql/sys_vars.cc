@@ -3760,6 +3760,26 @@ static Sys_var_charptr Sys_version_comment(
        READ_ONLY GLOBAL_VAR(server_version_comment_ptr), NO_CMD_LINE,
        IN_SYSTEM_CHARSET, DEFAULT(MYSQL_COMPILATION_COMMENT));
 
+static char *server_version_compile_compiler_ptr;
+static Sys_var_charptr Sys_version_compile_compiler(
+       "version_compile_compiler", "version_compile_compiler",
+       READ_ONLY GLOBAL_VAR(server_version_compile_compiler_ptr), NO_CMD_LINE,
+       IN_SYSTEM_CHARSET, DEFAULT(COMPILER_TYPE));
+
+static uint server_version_compile_compiler_major;
+static Sys_var_uint Sys_version_compile_compiler_major(
+       "version_compile_compiler_major", "version_compile_compiler_major",
+       READ_ONLY GLOBAL_VAR(server_version_compile_compiler_major), NO_CMD_LINE,
+       VALID_RANGE(0, UINT_MAX), DEFAULT(MYSQL_COMPILER_MAJOR_VERSION),
+       BLOCK_SIZE(1));
+
+static uint server_version_compile_compiler_minor;
+static Sys_var_uint Sys_version_compile_compiler_minor(
+       "version_compile_compiler_minor", "version_compile_compiler_minor",
+       READ_ONLY GLOBAL_VAR(server_version_compile_compiler_minor), NO_CMD_LINE,
+       VALID_RANGE(0, UINT_MAX), DEFAULT(MYSQL_COMPILER_MINOR_VERSION),
+       BLOCK_SIZE(1));
+
 static char *server_version_compile_machine_ptr;
 static Sys_var_charptr Sys_version_compile_machine(
        "version_compile_machine", "version_compile_machine",
