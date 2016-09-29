@@ -1,4 +1,5 @@
 --source include/have_rocksdb.inc
+--source include/have_fullregex.inc
 
 SET @start_global_value = @@global.ROCKSDB_STRICT_COLLATION_EXCEPTIONS;
 
@@ -151,35 +152,30 @@ ALTER TABLE t2 ADD INDEX(value);
 DROP TABLE t2;
 
 
-# These tests have been temporarily removed because they fail when the server
-# is compiled using GCC 4.8 as full regular expression handling was added
-# in GCC 4.9.  We need to add the ability to detect if full regex is
-# available before re-enabling them.
+# test invalid regex (missing end bracket)
+--exec echo "" >$MYSQLTEST_VARDIR/log/mysqld.1.err
+SET GLOBAL rocksdb_strict_collation_exceptions="[a-b";
+--exec grep "Invalid pattern" $MYSQLTEST_VARDIR/log/mysqld.1.err | cut -d] -f2
+--error ER_UNKNOWN_ERROR
+CREATE TABLE a (id INT PRIMARY KEY, value varchar(50), index(value)) engine=rocksdb charset utf8;
+SET GLOBAL rocksdb_strict_collation_exceptions="[a-b]";
+CREATE TABLE a (id INT PRIMARY KEY, value varchar(50), index(value)) engine=rocksdb charset utf8;
+CREATE TABLE b (id INT PRIMARY KEY, value varchar(50), index(value)) engine=rocksdb charset utf8;
+--error ER_UNKNOWN_ERROR
+CREATE TABLE c (id INT PRIMARY KEY, value varchar(50), index(value)) engine=rocksdb charset utf8;
+DROP TABLE a, b;
 
-## test invalid regex (missing end bracket)
-#--exec echo "" >$MYSQLTEST_VARDIR/log/mysqld.1.err
-#SET GLOBAL rocksdb_strict_collation_exceptions="[a-b";
-#--exec grep -A 1 "Invalid pattern" $MYSQLTEST_VARDIR/log/mysqld.1.err | cut -d] -f2
-#--error ER_UNKNOWN_ERROR
-#CREATE TABLE a (id INT PRIMARY KEY, value varchar(50), index(value)) engine=rocksdb charset utf8;
-#SET GLOBAL rocksdb_strict_collation_exceptions="[a-b]";
-#CREATE TABLE a (id INT PRIMARY KEY, value varchar(50), index(value)) engine=rocksdb charset utf8;
-#CREATE TABLE b (id INT PRIMARY KEY, value varchar(50), index(value)) engine=rocksdb charset utf8;
-#--error ER_UNKNOWN_ERROR
-#CREATE TABLE c (id INT PRIMARY KEY, value varchar(50), index(value)) engine=rocksdb charset utf8;
-#DROP TABLE a, b;
-
-## test invalid regex (trailing escape)
-#--exec echo "" >$MYSQLTEST_VARDIR/log/mysqld.1.err
-#SET GLOBAL rocksdb_strict_collation_exceptions="abc\\";
-#--exec grep -A 1 "Invalid pattern" $MYSQLTEST_VARDIR/log/mysqld.1.err | cut -d] -f2
-#--error ER_UNKNOWN_ERROR
-#CREATE TABLE abc (id INT PRIMARY KEY, value varchar(50), index(value)) engine=rocksdb charset utf8;
-#SET GLOBAL rocksdb_strict_collation_exceptions="abc";
-#CREATE TABLE abc (id INT PRIMARY KEY, value varchar(50), index(value)) engine=rocksdb charset utf8;
-#--error ER_UNKNOWN_ERROR
-#CREATE TABLE abcd (id INT PRIMARY KEY, value varchar(50), index(value)) engine=rocksdb charset utf8;
-#DROP TABLE abc;
+# test invalid regex (trailing escape)
+--exec echo "" >$MYSQLTEST_VARDIR/log/mysqld.1.err
+SET GLOBAL rocksdb_strict_collation_exceptions="abc\\";
+--exec grep "Invalid pattern" $MYSQLTEST_VARDIR/log/mysqld.1.err | cut -d] -f2
+--error ER_UNKNOWN_ERROR
+CREATE TABLE abc (id INT PRIMARY KEY, value varchar(50), index(value)) engine=rocksdb charset utf8;
+SET GLOBAL rocksdb_strict_collation_exceptions="abc";
+CREATE TABLE abc (id INT PRIMARY KEY, value varchar(50), index(value)) engine=rocksdb charset utf8;
+--error ER_UNKNOWN_ERROR
+CREATE TABLE abcd (id INT PRIMARY KEY, value varchar(50), index(value)) engine=rocksdb charset utf8;
+DROP TABLE abc;
 
 # test bad regex (null caused a crash) - Issue 493
 SET GLOBAL rocksdb_strict_collation_exceptions=null;
