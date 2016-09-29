@@ -1227,4 +1227,14 @@ typedef struct
 } lldiv_t;
 #endif
 
+#if defined(__GNUC__)
+#  define MYSQL_COMPILER_MAJOR_VERSION __GNUC__
+#  define MYSQL_COMPILER_MINOR_VERSION __GNUC_MINOR__
+#elif defined(_MSC_VER)
+#  define MYSQL_COMPILER_MAJOR_VERSION (_MSC_VER / 100)
+#  define MYSQL_COMPILER_MINOR_VERSION (_MSC_VER % 100)
+#else
+#  error Need to figure out how to get major/minor versions for this compiler
+#endif
+
 #endif  // MY_GLOBAL_INCLUDED
