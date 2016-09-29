@@ -482,6 +482,9 @@ static MYSQL_THDVAR_ULONG(lock_wait_timeout, PLUGIN_VAR_RQCMDARG,
   "Number of seconds to wait for lock",
   nullptr, nullptr, /*default*/ 1, /*min*/ 1, /*max*/ 1024*1024*1024, 0);
 
+static MYSQL_THDVAR_BOOL(deadlock_detect, PLUGIN_VAR_RQCMDARG,
+  "Enables deadlock detection", nullptr, nullptr, FALSE);
+
 static MYSQL_THDVAR_BOOL(trace_sst_api, PLUGIN_VAR_RQCMDARG,
   "Generate trace output in the log for each call to the SstFileWriter",
   nullptr, nullptr, FALSE);
@@ -1132,6 +1135,7 @@ static const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE= 100;
 
 static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(lock_wait_timeout),
+  MYSQL_SYSVAR(deadlock_detect),
   MYSQL_SYSVAR(max_row_locks),
   MYSQL_SYSVAR(lock_scanned_rows),
   MYSQL_SYSVAR(bulk_load),
@@ -1528,6 +1532,14 @@ public:
 
       return HA_ERR_LOCK_WAIT_TIMEOUT;
     }
+
+    if (s.IsDeadlock())
+    {
+      my_core::thd_mark_transaction_to_rollback(thd,
+                                                false /* just statement */);
+      return HA_ERR_LOCK_DEADLOCK;
+    }
+
     if (s.IsBusy())
     {
       rocksdb_snapshot_conflict_errors++;
@@ -1541,7 +1553,11 @@ public:
       }
       return HA_ERR_LOCK_DEADLOCK;
     }
-    /* TODO: who returns HA_ERR_ROCKSDB_TOO_MANY_LOCKS now?? */
+
+    if (s.IsLockLimit())
+    {
+      return HA_ERR_ROCKSDB_TOO_MANY_LOCKS;
+    }
 
     my_error(ER_INTERNAL_ERROR, MYF(0), s.ToString().c_str());
     return HA_ERR_INTERNAL_ERROR;
@@ -2039,9 +2055,6 @@ class Rdb_transaction_impl : public Rdb_transaction
     return m_read_opts.snapshot != nullptr;
   }
 
-  const char *err_too_many_locks=
-    "Number of locks held by the transaction exceeded @@rocksdb_max_row_locks";
-
   rocksdb::Status put(rocksdb::ColumnFamilyHandle* column_family,
                       const rocksdb::Slice& key,
                       const rocksdb::Slice& value) override
@@ -2049,7 +2062,7 @@ class Rdb_transaction_impl : public Rdb_transaction
     ++m_write_count;
     ++m_lock_count;
     if (m_write_count > m_max_row_locks || m_lock_count > m_max_row_locks)
-      return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
+      return rocksdb::Status::Aborted(rocksdb::Status::kLockLimit);
     return m_rocksdb_tx->Put(column_family, key, value);
   }
 
@@ -2059,7 +2072,7 @@ class Rdb_transaction_impl : public Rdb_transaction
     ++m_write_count;
     ++m_lock_count;
     if (m_write_count > m_max_row_locks || m_lock_count > m_max_row_locks)
-      return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
+      return rocksdb::Status::Aborted(rocksdb::Status::kLockLimit);
     return m_rocksdb_tx->Delete(column_family, key);
   }
 
@@ -2069,7 +2082,7 @@ class Rdb_transaction_impl : public Rdb_transaction
     ++m_write_count;
     ++m_lock_count;
     if (m_write_count > m_max_row_locks || m_lock_count > m_max_row_locks)
-      return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
+      return rocksdb::Status::Aborted(rocksdb::Status::kLockLimit);
     return m_rocksdb_tx->SingleDelete(column_family, key);
   }
 
@@ -2111,7 +2124,7 @@ class Rdb_transaction_impl : public Rdb_transaction
                                  std::string* value) override
   {
     if (++m_lock_count > m_max_row_locks)
-      return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
+      return rocksdb::Status::Aborted(rocksdb::Status::kLockLimit);
     return m_rocksdb_tx->GetForUpdate(m_read_opts, column_family, key, value);
   }
 
@@ -2133,6 +2146,7 @@ class Rdb_transaction_impl : public Rdb_transaction
     rocksdb::WriteOptions write_opts;
     tx_opts.set_snapshot= false;
     tx_opts.lock_timeout= m_timeout_sec * 1000;
+    tx_opts.deadlock_detect= THDVAR(m_thd, deadlock_detect);
 
     write_opts.sync= THDVAR(m_thd, write_sync);
     write_opts.disableWAL= THDVAR(m_thd, write_disable_wal);

@@ -887,6 +887,7 @@ rocksdb_create_if_missing	ON
 rocksdb_create_missing_column_families	OFF
 rocksdb_datadir	./.rocksdb
 rocksdb_db_write_buffer_size	0
+rocksdb_deadlock_detect	OFF
 rocksdb_debug_optimizer_no_zero_cardinality	ON
 rocksdb_default_cf_options	
 rocksdb_delete_obsolete_files_period_micros	21600000000
@@ -1297,7 +1298,7 @@ insert into t1 select (@a:=@a+1), 1234 from information_schema.session_variables
 set @tmp1= @@rocksdb_max_row_locks;
 set rocksdb_max_row_locks= 20;
 update t1 set a=a+10;
-ERROR HY000: Internal error: Operation aborted: Number of locks held by the transaction exceeded @@rocksdb_max_row_locks
+ERROR HY000: Got error 196 'Number of locks held reached @@rocksdb_max_row_locks.' from ROCKSDB
 DROP TABLE t1;
 # 
 # Test AUTO_INCREMENT behavior problem,
