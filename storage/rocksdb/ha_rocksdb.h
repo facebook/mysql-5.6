@@ -976,7 +976,7 @@ public:
   int finalize_bulk_load() __attribute__((__warn_unused_result__));
 
   void set_use_read_free_rpl(const char* whitelist);
-  void set_skip_unique_check(const char* whitelist);
+  void set_skip_unique_check_tables(const char* whitelist);
 
  public:
   virtual void rpl_before_delete_rows() override;
