@@ -420,16 +420,15 @@ class ha_rocksdb: public my_core::handler
   int secondary_index_read(const int keyno, uchar *buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   void setup_iterator_for_rnd_scan();
-  void setup_scan_iterator(const std::shared_ptr<const Rdb_key_def>& kd,
-                           rocksdb::Slice *slice)
+  void setup_scan_iterator(const Rdb_key_def& kd, rocksdb::Slice *slice)
       MY_ATTRIBUTE((__nonnull__))
   {
     setup_scan_iterator(kd, slice, false, false, 0);
   }
-  bool is_ascending(const std::shared_ptr<const Rdb_key_def>& keydef,
+  bool is_ascending(const Rdb_key_def& keydef,
                     enum ha_rkey_function find_flag) const
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-  void setup_scan_iterator(const std::shared_ptr<const Rdb_key_def>& kd,
+  void setup_scan_iterator(const Rdb_key_def& kd,
                            rocksdb::Slice *slice, const bool use_all_keys,
                            const bool is_ascending, const uint eq_cond_len)
     MY_ATTRIBUTE((__nonnull__));
@@ -812,33 +811,33 @@ private:
   bool over_bulk_load_threshold(int* err)
     MY_ATTRIBUTE((__warn_unused_result__));
   int bulk_load_key(Rdb_transaction* tx,
-                    const std::shared_ptr<const Rdb_key_def>& kd,
+                    const Rdb_key_def& kd,
                     const rocksdb::Slice& key,
                     const rocksdb::Slice& value)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-  int update_pk(const std::shared_ptr<const Rdb_key_def>& kd,
+  int update_pk(const Rdb_key_def& kd,
                 const struct update_row_info& row_info,
                 bool pk_changed)
     MY_ATTRIBUTE((__warn_unused_result__));
   int update_sk(const TABLE* table_arg,
-                const std::shared_ptr<const Rdb_key_def>& kd,
+                const Rdb_key_def& kd,
                 const struct update_row_info& row_info)
     MY_ATTRIBUTE((__warn_unused_result__));
   int update_indexes(const struct update_row_info& row_info, bool pk_changed)
     MY_ATTRIBUTE((__warn_unused_result__));
 
-  int read_key_exact(const std::shared_ptr<const Rdb_key_def>& kd,
+  int read_key_exact(const Rdb_key_def& kd,
                      rocksdb::Iterator* iter, bool using_full_key,
                      const rocksdb::Slice& key_slice) const
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-  int read_before_key(const std::shared_ptr<const Rdb_key_def>& kd,
+  int read_before_key(const Rdb_key_def& kd,
                       bool using_full_key, const rocksdb::Slice& key_slice)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-  int read_after_key(const std::shared_ptr<const Rdb_key_def>& kd,
+  int read_after_key(const Rdb_key_def& kd,
                      bool using_full_key, const rocksdb::Slice& key_slice)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
-  int position_to_correct_key(const std::shared_ptr<const Rdb_key_def>& kd,
+  int position_to_correct_key(const Rdb_key_def& kd,
                               enum ha_rkey_function find_flag,
                               bool full_key_match, const uchar* key,
                               key_part_map keypart_map,
@@ -849,17 +848,17 @@ private:
   int read_row_from_primary_key(uchar* buf)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   int read_row_from_secondary_key(uchar* buf,
-                                  const std::shared_ptr<const Rdb_key_def>& kd,
+                                  const Rdb_key_def& kd,
                                   bool move_forward)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   int try_keyonly_read_from_sk(uchar* buf,
-      const std::shared_ptr<const Rdb_key_def>& kd,
+      const Rdb_key_def& kd,
       const rocksdb::Slice& key,
       const rocksdb::Slice& value,
       uint rowid_size)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
-  int calc_eq_cond_len(const std::shared_ptr<const Rdb_key_def>& kd,
+  int calc_eq_cond_len(const Rdb_key_def& kd,
                        enum ha_rkey_function find_flag,
                        const rocksdb::Slice& slice, int bytes_changed_by_succ,
                        const key_range *end_key, uint* end_key_packed_size)
