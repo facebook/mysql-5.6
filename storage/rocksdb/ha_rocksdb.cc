@@ -3264,7 +3264,6 @@ static int rocksdb_init_func(void *p)
   init_rocksdb_psi_keys();
 #endif
 
-  // We should assert that this pointer is valid.
   rocksdb_hton= (handlerton *)p;
   mysql_mutex_init(rdb_psi_open_tbls_mutex_key, &rdb_open_tables.m_mutex,
                    MY_MUTEX_INIT_FAST);
