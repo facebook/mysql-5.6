@@ -811,18 +811,17 @@ int Rdb_ddl_scanner::add_table(Rdb_tbl_def *tdef)
 
   for (uint i= 0; i < tdef->m_key_count; i++)
   {
-    const std::shared_ptr<const Rdb_key_def>& kd= tdef->m_key_descr_arr[i];
-    DBUG_ASSERT(kd != nullptr);
+    const Rdb_key_def& kd= *tdef->m_key_descr_arr[i];
 
-    field[3]->store(kd->m_name.c_str(), kd->m_name.size(), system_charset_info);
+    field[3]->store(kd.m_name.c_str(), kd.m_name.size(), system_charset_info);
 
-    GL_INDEX_ID gl_index_id = kd->get_gl_index_id();
+    GL_INDEX_ID gl_index_id = kd.get_gl_index_id();
     field[4]->store(gl_index_id.cf_id, true);
     field[5]->store(gl_index_id.index_id, true);
-    field[6]->store(kd->m_index_type, true);
-    field[7]->store(kd->m_kv_format_version, true);
+    field[6]->store(kd.m_index_type, true);
+    field[7]->store(kd.m_kv_format_version, true);
 
-    std::string cf_name= kd->get_cf()->GetName();
+    std::string cf_name= kd.get_cf()->GetName();
     field[8]->store(cf_name.c_str(), cf_name.size(), system_charset_info);
 
     ret= my_core::schema_table_store_record(m_thd, m_table);
