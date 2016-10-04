@@ -24,6 +24,7 @@
 
 /* RocksDB includes */
 #include "rocksdb/table.h"
+#include "rocksdb/utilities/transaction_db.h"
 
 namespace myrocks {
 
@@ -58,7 +59,7 @@ void rdb_queue_save_stats_request();
   Access to singleton objects.
 */
 
-rocksdb::DB *rdb_get_rocksdb_db();
+rocksdb::TransactionDB *rdb_get_rocksdb_db();
 
 class Rdb_cf_manager;
 Rdb_cf_manager& rdb_get_cf_manager();
