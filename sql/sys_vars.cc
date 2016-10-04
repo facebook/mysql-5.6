@@ -3174,13 +3174,14 @@ static Sys_var_set Slave_type_conversions(
 const char *admission_control_filter_names[]=
        {"ALTER", "BEGIN", "COMMIT", "CREATE", "DELETE", "DROP",
         "INSERT", "LOAD", "SELECT", "SET", "REPLACE", "ROLLBACK", "TRUNCATE",
-        "UPDATE", 0};
+        "UPDATE", "SHOW", 0};
 static Sys_var_set Admission_control_options(
        "admission_control_filter",
        "Commands that are skipped in admission control checks. The legal "
        "values are: "
        "ALTER, BEGIN, COMMIT, CREATE, DELETE, DROP, INSERT, LOAD, "
-       "SELECT, SET, REPLACE, ROLLBACK, TRUNCATE, UPDATE and empty string",
+       "SELECT, SET, REPLACE, ROLLBACK, TRUNCATE, UPDATE, SHOW "
+       "and empty string",
        GLOBAL_VAR(admission_control_filter), CMD_LINE(REQUIRED_ARG),
        admission_control_filter_names,
        DEFAULT(0));

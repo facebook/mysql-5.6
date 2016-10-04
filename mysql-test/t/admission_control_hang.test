@@ -34,7 +34,7 @@ while($i)
 }
 
 connection default;
-set @@global.admission_control_filter = 'ALTER,BEGIN,COMMIT,CREATE,DELETE,DROP,INSERT,LOAD,SELECT,SET,REPLACE,TRUNCATE,UPDATE';
+set @@global.admission_control_filter = 'ALTER,BEGIN,COMMIT,CREATE,DELETE,DROP,INSERT,LOAD,SELECT,SET,REPLACE,TRUNCATE,UPDATE,SHOW';
 
 # Verify the commands filtered above run fine.
 connection con6;
@@ -49,6 +49,7 @@ delete from t3;
 set @val = 1;
 truncate table t3;
 drop table t3;
+SHOW TABLES LIKE 't2';
 
 connection default;
 set @@global.admission_control_filter = 'ROLLBACK';

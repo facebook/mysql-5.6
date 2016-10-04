@@ -16,7 +16,7 @@ The following options may be given as the first argument:
  Commands that are skipped in admission control checks.
  The legal values are: ALTER, BEGIN, COMMIT, CREATE,
  DELETE, DROP, INSERT, LOAD, SELECT, SET, REPLACE,
- ROLLBACK, TRUNCATE, UPDATE and empty string
+ ROLLBACK, TRUNCATE, UPDATE, SHOW and empty string
  --allow-document-type 
  Allows document type when parsing queries, creating and
  altering tables.
