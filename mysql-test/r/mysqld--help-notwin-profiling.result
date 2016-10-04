@@ -1151,6 +1151,10 @@ The following options may be given as the first argument:
  updated
  --rocksdb-lock-wait-timeout=# 
  Number of seconds to wait for lock
+ --rocksdb-locks[=name] 
+ Enable or disable ROCKSDB_LOCKS plugin. Possible values
+ are ON, OFF, FORCE (don't start if the plugin fails to
+ load).
  --rocksdb-log-file-time-to-roll=# 
  DBOptions::log_file_time_to_roll for RocksDB
  --rocksdb-manifest-preallocation-size=# 
@@ -1900,6 +1904,7 @@ rocksdb-is-fd-close-on-exec TRUE
 rocksdb-keep-log-file-num 1000
 rocksdb-lock-scanned-rows FALSE
 rocksdb-lock-wait-timeout 1
+rocksdb-locks ON
 rocksdb-log-file-time-to-roll 0
 rocksdb-manifest-preallocation-size 4194304
 rocksdb-max-background-compactions 1

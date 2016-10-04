@@ -28,12 +28,14 @@
 #include "rocksdb/memtablerep.h"
 #include "rocksdb/merge_operator.h"
 #include "rocksdb/slice_transform.h"
+#include "rocksdb/utilities/transaction_db.h"
 
 /* MyRocks header files */
 #include "./ha_rocksdb.h"
 #include "./ha_rocksdb_proto.h"
 #include "./rdb_cf_manager.h"
 #include "./rdb_datadic.h"
+#include "./rdb_utils.h"
 
 namespace myrocks {
 
@@ -1040,6 +1042,72 @@ static int rdb_i_s_index_file_map_init(void *p)
   DBUG_RETURN(0);
 }
 
+/* Fill the information_schema.rocksdb_index_file_map virtual table */
+static int rdb_i_s_lock_info_fill_table(
+    my_core::THD        *thd,
+    my_core::TABLE_LIST *tables,
+    my_core::Item       *cond MY_ATTRIBUTE((__unused__)))
+{
+  DBUG_ASSERT(thd != nullptr);
+  DBUG_ASSERT(tables != nullptr);
+  DBUG_ASSERT(tables->table != nullptr);
+
+  int ret = 0;
+
+  DBUG_ENTER("rdb_i_s_lock_info_fill_table");
+
+  rocksdb::TransactionDB *rdb= rdb_get_rocksdb_db();
+  DBUG_ASSERT(rdb != nullptr);
+
+  /* cf id -> rocksdb::KeyLockInfo */
+  std::unordered_multimap<uint32_t, rocksdb::KeyLockInfo> lock_info =
+    rdb->GetLockStatusData();
+
+  for (auto it = lock_info.begin(); it != lock_info.end(); it++) {
+    uint32_t cf_id = it->first;
+    rocksdb::KeyLockInfo key_lock_info = it->second;
+    tables->table->field[0]->store(cf_id, true);
+    tables->table->field[1]->store(key_lock_info.id, true);
+
+    auto key_hexstr = rdb_hexdump(key_lock_info.key.c_str(),
+                                  key_lock_info.key.length(), FN_REFLEN);
+    tables->table->field[2]->store(key_hexstr.c_str(), key_hexstr.size(),
+                                   system_charset_info);
+
+    /* Tell MySQL about this row in the virtual table */
+    ret= my_core::schema_table_store_record(thd, tables->table);
+    if (ret != 0) {
+      break;
+    }
+  }
+
+  DBUG_RETURN(ret);
+}
+
+static ST_FIELD_INFO rdb_i_s_lock_info_fields_info[] =
+{
+  ROCKSDB_FIELD_INFO("COLUMN_FAMILY_ID", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
+  ROCKSDB_FIELD_INFO("TRANSACTION_ID", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
+  ROCKSDB_FIELD_INFO("KEY", FN_REFLEN+1, MYSQL_TYPE_STRING, 0),
+  ROCKSDB_FIELD_INFO_END
+};
+
+/* Initialize the information_schema.rocksdb_lock_info virtual table */
+static int rdb_i_s_lock_info_init(void *p)
+{
+  my_core::ST_SCHEMA_TABLE *schema;
+
+  DBUG_ENTER("rdb_i_s_lock_info_init");
+  DBUG_ASSERT(p != nullptr);
+
+  schema= (my_core::ST_SCHEMA_TABLE*) p;
+
+  schema->fields_info= rdb_i_s_lock_info_fields_info;
+  schema->fill_table= rdb_i_s_lock_info_fill_table;
+
+  DBUG_RETURN(0);
+}
+
 static int rdb_i_s_deinit(void *p MY_ATTRIBUTE((__unused__)))
 {
   DBUG_ENTER("rdb_i_s_deinit");
@@ -1185,4 +1253,20 @@ struct st_mysql_plugin rdb_i_s_index_file_map=
   0,                                  /* flags */
 };
 
+struct st_mysql_plugin rdb_i_s_lock_info=
+{
+  MYSQL_INFORMATION_SCHEMA_PLUGIN,
+  &rdb_i_s_info,
+  "ROCKSDB_LOCKS",
+  "Facebook",
+  "RocksDB lock information",
+  PLUGIN_LICENSE_GPL,
+  rdb_i_s_lock_info_init,
+  nullptr,
+  0x0001,                             /* version number (0.1) */
+  nullptr,                            /* status variables */
+  nullptr,                            /* system variables */
+  nullptr,                            /* config options */
+  0,                                  /* flags */
+};
 }  // namespace myrocks
