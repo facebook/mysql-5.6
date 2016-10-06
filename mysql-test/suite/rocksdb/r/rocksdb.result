@@ -985,7 +985,7 @@ insert into t49 values (1,10),(2,20);
 begin;
 update t49 set a = 100 where pk = 1;
 connect  con1,localhost,root,,;
-set rocksdb_lock_wait_timeout=5000;
+set rocksdb_lock_wait_timeout=60;
 set @var1= to_seconds(now());
 update t49 set a = 1000 where pk = 1;
 connect  con2,localhost,root,,;
@@ -993,9 +993,7 @@ kill query $con1_id;
 connection con1;
 ERROR 70100: Query execution was interrupted
 set @var2= to_seconds(now());
-"[Jay Edgar] I've updated this query to help determine why it is sometimes failing"
-"(t13541934).  If you get an error here (i.e. not 'passed') notify me."
-select if ((@var2 - @var1) < 1000, "passed", (@var2 - @var1)) as 'result';
+select if ((@var2 - @var1) < 60, "passed", (@var2 - @var1)) as 'result';
 result
 passed
 connection default;
