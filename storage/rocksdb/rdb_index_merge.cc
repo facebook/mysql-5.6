@@ -64,13 +64,15 @@ int Rdb_index_merge::init()
     to disk. They will be written to disk sorted. A sorted tree is used to
     keep track of the offset of each record within the unsorted buffer.
   */
-  m_rec_buf_unsorted= std::make_shared<merge_buf_info>(m_merge_buf_size);
+  m_rec_buf_unsorted= std::shared_ptr<merge_buf_info>(
+      new merge_buf_info(m_merge_buf_size));
 
   /*
     Allocate output buffer that will contain sorted block that is written to
     disk.
   */
-  m_output_buf= std::make_shared<merge_buf_info>(m_merge_buf_size);
+  m_output_buf= std::shared_ptr<merge_buf_info>(
+      new merge_buf_info(m_merge_buf_size));
 
   return 0;
 }
