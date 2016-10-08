@@ -1,69 +1,193 @@
---disable_abort_on_error ONCE
---remove_file $MYSQLTEST_VARDIR/tmp/operator_document_contains.test
+# Test of CONTAINS on document types
 
-# Create a test file for CONTAINS. Switching of the operands is needed and replace SUBDOC with CONTAINS
-perl;
-  use strict;
-  my $in = "suite/json/include/operator_document_subdoc.inc";
-  open(my $ifh => $in) or die "Could not open file '$in' $!";
+--disable_warnings
+drop table if exists t1, t2, t3;
+drop view if exists v1;
+--enable_warnings
 
-  my $out = "$ENV{MYSQLTEST_VARDIR}/tmp/operator_document_contains.test";
-  open(my $ofh, ">", $out) or die "Could not open file '$out' $!";
-  
-  while(my $line = <$ifh>) {
-    if (substr($line, 0, 1) eq "#" || index($line, "SUBDOC") == -1) {
-      print $ofh $line;
-      next;
-    }
+SET @start_allow_DOCUMENT_type = @@global.allow_DOCUMENT_type;
+SELECT @start_allow_DOCUMENT_type;
 
-    # Change operator to CONTAINS and remove newline
-    $line =~ s/SUBDOC/CONTAINS/g;
-    $line =~ s/;\n//g;
-    my @list = split / /, $line;
-    my @new_list = ();
-    my $seen_document = 0;
+# Populate t1 with data
+CREATE TABLE t1 ( a int NOT null,
+       b char (10) NOT null,
+       doc DOCUMENT) engine=innodb;
 
-    foreach (@list) {
-      if (index($_, "DOCUMENT") != -1) {
-        $seen_document = 1;
-        push (@new_list, $_);
-      } elsif ($seen_document) {
-        @new_list[-1] = join " ", @new_list[-1], $_;  
-      } else {
-        push (@new_list, $_);
-      }
+insert into t1 values (1,'@1','{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761, "state":"CA" }, "intstr":"1001", "dt":"1001" }');
+insert into t1 values (2,'@2','{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" }, "int64":2222222220123456789, "intstr":"1002", "dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789" }');
+insert into t1 values (3,'@3','{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" }, "double":3.94065645841246, "dt":"2014-11-01" }');
+insert into t1 values (4,'@1','{ "id":104, "name":"Don", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" }, "Children":["Alex", "Bob", "Charlie"] }');
+insert into t1 values (5,'@2','{ "id":105, "name":"Evan", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98764, "state":"WA" }, "dt":"2014-11-11 11:59:59" }');
+insert into t1 values (8,'@1','{ "id":108, "address":{ "zipcode":98768 } }');
+insert into t1 values (7,'@3','{ "id":104, "address":{ "zipcode":98767, "state":"NY" } }');
+insert into t1 values (6,'@2','{ "id":106, "address":{ "zipcode":98766 } }');
 
-      if (index($_, ")") != -1) {
-        $seen_document = 0;
-      }
-    }
+# Populate t2 with data
+CREATE TABLE t2 ( a int NOT null,
+       b char (10) NOT null,
+       doc DOCUMENT) engine=innodb;
+insert into t2 values (8,'@1','{ "id":108, "address":{ "zipcode":98761} }');
+insert into t2 values (7,'@3','{ "id":104, "address":{ "state":"NY", "zipcode":98767 } }');
+insert into t2 values (6,'@2','{ "id":106, "address":{"zipcode":98766, "state":"CA"} }');
+insert into t2 values (6,'@2','{ "id":110, "address":{"zipcode":98767, "state":"NY"}, "addr":{"zipcode":98767, "state":"NY"}}');
 
-    # Set offset of operands from operator depending on position of NOT
-    my ($op_index) = grep { @new_list[$_] ~~ "CONTAINS" } 0..$#new_list;
-    my $offset = 1;
-    if (@new_list[$op_index - 1] eq "NOT") {
-      $offset = 2;
-    }
+# True comparisons
+SELECT DOCUMENT('{}') CONTAINS DOCUMENT('{}');
+SELECT DOCUMENT('{"k":"v"}') CONTAINS DOCUMENT('{}');
+SELECT DOCUMENT('{"k1":"v1", "k2":"v2"}') CONTAINS DOCUMENT('{"k1": "v1"}');
+SELECT DOCUMENT('{"k1":"v1", "k2":"v2"}') CONTAINS DOCUMENT('{"k2": "v2"}');
+SELECT DOCUMENT('{"k3": [1, 2], "k2":"v2", "k1":"v1"}') CONTAINS DOCUMENT('{"k1": "v1", "k2":"v2"}');
+SELECT DOCUMENT('{"k2": 1, "k1":{"foo":"bar"}}') CONTAINS DOCUMENT('{"k1": {"foo":"bar"}}');
+SELECT DOCUMENT('{"k1":"value123", "k2":"v2"}') CONTAINS DOCUMENT('{"k1":"v%23"}');
+SELECT DOCUMENT('{"k2":"v2", "k1":"value123"}') CONTAINS DOCUMENT('{"k1":"va_ue123"}');
+SELECT DOCUMENT('{"k":"%"}') CONTAINS DOCUMENT('{"k":"\\\\%"}');
+SELECT DOCUMENT('{"k":"_"}') CONTAINS DOCUMENT('{"k":"\\\\_"}');
+SELECT DOCUMENT('{}') NOT CONTAINS DOCUMENT('{"k":"v"}');
+SELECT DOCUMENT('[]') NOT CONTAINS DOCUMENT('{}');
+SELECT DOCUMENT('[]') NOT CONTAINS DOCUMENT('[]');
+SELECT DOCUMENT('{"k": [1, 2, 3]}') NOT CONTAINS DOCUMENT('[1, 2, 3]');
+SELECT DOCUMENT('{"k":{}}') NOT CONTAINS DOCUMENT('{"k":{"k1":"v1"}}');
+SELECT DOCUMENT('{"k1":"v%23", "k2":"v2"}') NOT CONTAINS DOCUMENT('{"k1":"value123"}');
+SELECT DOCUMENT('{"k1":"va_ue123", "k2":"v2"}') NOT CONTAINS DOCUMENT('{"k1":"value123"}');
 
-    # Swap operands
-    (@new_list[$op_index - $offset], @new_list[$op_index + 1]) = 
-      (@new_list[$op_index + 1], @new_list[$op_index - $offset]);
+# False comparisons
+SELECT DOCUMENT('{}') CONTAINS DOCUMENT('{"k":"v"}');
+SELECT DOCUMENT('[]') CONTAINS DOCUMENT('{}');
+SELECT DOCUMENT('[]') CONTAINS DOCUMENT('[]');
+SELECT DOCUMENT('{"k": [1, 2, 3]}') CONTAINS DOCUMENT('[1, 2, 3]');
+SELECT DOCUMENT('{"k":{}}') CONTAINS DOCUMENT('{"k":{"k1":"v1"}}');
+SELECT DOCUMENT('{"k1":"v%23", "k2":"v2"}') CONTAINS DOCUMENT('{"k1":"value123"}');
+SELECT DOCUMENT('{"k1":"va_ue123", "k2":"v2"}') CONTAINS DOCUMENT('{"k1":"value123"}');
+SELECT DOCUMENT('{}') NOT CONTAINS DOCUMENT('{}');
+SELECT DOCUMENT('{"k":"v"}') NOT CONTAINS DOCUMENT('{}');
+SELECT DOCUMENT('{"k1":"v1", "k2":"v2"}') NOT CONTAINS DOCUMENT('{"k1": "v1"}');
+SELECT DOCUMENT('{"k1":"v1", "k2":"v2"}') NOT CONTAINS DOCUMENT('{"k2": "v2"}');
+SELECT DOCUMENT('{"k3": [1, 2], "k2":"v2", "k1":"v1"}') NOT CONTAINS DOCUMENT('{"k1": "v1", "k2":"v2"}');
+SELECT DOCUMENT('{"k2": 1, "k1":{"foo":"bar"}}') NOT CONTAINS DOCUMENT('{"k1": {"foo":"bar"}}');
+SELECT DOCUMENT('{"k1":"value123", "k2":"v2"}') NOT CONTAINS DOCUMENT('{"k1":"v%23"}');
+SELECT DOCUMENT('{"k2":"v2", "k1":"value123"}') NOT CONTAINS DOCUMENT('{"k1":"va_ue123"}');
+SELECT DOCUMENT('{"k":"%"}') NOT CONTAINS DOCUMENT('{"k":"\\\\%"}');
+SELECT DOCUMENT('{"k":"_"}') NOT CONTAINS DOCUMENT('{"k":"\\\\_"}');
 
-    # Account for subqueries by adding parantheses and alias
-    if (@new_list[$op_index - $offset] =~ /\)\)$/ || (@new_list[$op_index - $offset] =~ /\)$/ &&
-      index(@new_list[$op_index - $offset], "DOCUMENT") == -1)) 
-    {
-      chop(@new_list[$op_index - $offset]);
-      @new_list[$op_index + 1] = @new_list[$op_index + 1].")";
-    }
+# Invalid comparisons (NOT DOCUMENT types)
+--error ER_WRONG_ARGUMENTS
+SELECT '{}' CONTAINS DOCUMENT('{}');
+--error ER_WRONG_ARGUMENTS
+SELECT DOCUMENT('{}') CONTAINS '{}';
+--error ER_WRONG_ARGUMENTS
+SELECT 1 CONTAINS DOCUMENT('{}');
+--error ER_WRONG_ARGUMENTS
+SELECT DOCUMENT('{}') CONTAINS 1;
+--error ER_WRONG_ARGUMENTS
+SELECT '{}' CONTAINS doc FROM t1;
+--error ER_WRONG_ARGUMENTS
+SELECT doc CONTAINS '{}' FROM t1;
+--error ER_WRONG_ARGUMENTS
+SELECT 1 CONTAINS doc FROM t1;
+--error ER_WRONG_ARGUMENTS
+SELECT doc CONTAINS 1 FROM t1;
+--error ER_WRONG_ARGUMENTS
+SELECT '{}' CONTAINS doc.address FROM t1;
+--error ER_WRONG_ARGUMENTS
+SELECT doc.address CONTAINS '{}' FROM t1;
+--error ER_WRONG_ARGUMENTS
+SELECT 1 CONTAINS doc.address FROM t1;
+--error ER_WRONG_ARGUMENTS
+SELECT doc.address CONTAINS 1 FROM t1;
 
-    print $ofh join(" ", @new_list).";\n";
-  }
+# Test doc columns, doc paths, DOCUMENT() as left/right operand of comparison
+SELECT DOCUMENT('{"k":"v"}') CONTAINS DOCUMENT('{}');
+SELECT doc.address CONTAINS DOCUMENT('{"state":"NY"}') FROM t2;
+SELECT doc CONTAINS DOCUMENT('{"id":108}') FROM t2;
+SELECT DOCUMENT('{"zipcode":98761, "k":"v"}') CONTAINS doc.address FROM t2;
+SELECT doc.addr CONTAINS doc.address FROM t2;
+SELECT doc CONTAINS doc.address FROM t2;
+SELECT DOCUMENT('{ "id":108, "address":{ "zipcode":98761}, "k":"v"}') CONTAINS doc FROM t2;
+SELECT doc.address CONTAINS doc FROM t2;
+SELECT doc CONTAINS doc FROM t2;
 
-  close($ofh);
-  close($ifh);
-EOF
+# Test combinations of doc column, doc paths, DOCUMENT() in WHERE clause
+SELECT doc.id FROM t2 WHERE DOCUMENT('{"k":"v"}') CONTAINS DOCUMENT('{}');
+SELECT doc.id FROM t2 WHERE doc.address CONTAINS DOCUMENT('{"state":"NY"}');
+SELECT doc.id FROM t2 WHERE doc CONTAINS DOCUMENT('{"id":108}');
+SELECT doc.id FROM t2 WHERE DOCUMENT('{"zipcode":98761, "k":"v"}') CONTAINS doc.address;
+SELECT doc.id FROM t2 WHERE doc.addr CONTAINS doc.address;
+SELECT doc.id FROM t2 WHERE doc CONTAINS doc.address;
+SELECT doc.id FROM t2 WHERE DOCUMENT('{ "id":108, "address":{ "zipcode":98761}, "k":"v"}') CONTAINS doc;
+SELECT doc.id FROM t2 WHERE doc.address CONTAINS doc;
+SELECT doc.id FROM t2 WHERE doc CONTAINS doc;
+SELECT b FROM t1 WHERE doc.address CONTAINS DOCUMENT('{"state": "WA"}');
+SELECT doc.name FROM t1 WHERE doc NOT CONTAINS DOCUMENT('{"name": "Evan"}');
 
---source $MYSQLTEST_VARDIR/tmp/operator_document_contains.test
---disable_abort_on_error ONCE
---remove_file $MYSQLTEST_VARDIR/tmp/operator_document_contains.test
+# Test combinations of doc column, doc paths, DOCUMENT() in HAVING clause
+SELECT doc.id FROM t2 HAVING DOCUMENT('{"k":"v"}') CONTAINS DOCUMENT('{}');
+SELECT doc.address FROM t2 HAVING doc.address CONTAINS DOCUMENT('{"state":"NY"}');
+SELECT doc FROM t2 HAVING doc CONTAINS DOCUMENT('{"id":108}');
+SELECT doc.address FROM t2 HAVING DOCUMENT('{"zipcode":98761, "k":"v"}') CONTAINS doc.address;
+SELECT doc.address, doc.addr FROM t2 HAVING doc.addr CONTAINS doc.address;
+SELECT doc, doc.address FROM t2 HAVING doc CONTAINS doc.address;
+SELECT doc FROM t2 HAVING DOCUMENT('{ "id":108, "address":{ "zipcode":98761}, "k":"v"}') CONTAINS doc;
+SELECT doc, doc.address FROM t2 HAVING doc.address CONTAINS doc;
+SELECT doc FROM t2 HAVING doc CONTAINS doc;
+SELECT doc.address FROM t1 HAVING doc.address CONTAINS DOCUMENT('{"state": "WA"}');
+SELECT doc FROM t1 HAVING doc NOT CONTAINS DOCUMENT('{"name": "Evan"}');
+
+SELECT MIN(doc.id) AS alias1, doc.address AS alias2 FROM t1 WHERE a > 3 HAVING alias2 CONTAINS DOCUMENT('{"state": "WA"}');
+
+# Test CONTAINS with JOIN
+SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON DOCUMENT('{"k":"v"}') CONTAINS DOCUMENT('{}');
+SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON t2.doc.address CONTAINS DOCUMENT('{"state":"NY"}');
+SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON t2.doc CONTAINS DOCUMENT('{"id":108}');
+SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON DOCUMENT('{"zipcode":98761, "k":"v"}') CONTAINS t2.doc.address;
+SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON t2.doc.addr CONTAINS t1.doc.address;
+SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON t2.doc CONTAINS t1.doc.address;
+SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON DOCUMENT('{ "id":108, "address":{ "zipcode":98761}, "k":"v"}') CONTAINS t2.doc;
+SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON t2.doc.address CONTAINS t1.doc;
+SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON t2.doc CONTAINS t1.doc;
+SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON t1.doc.address CONTAINS t2.doc.address;
+SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON t1.doc.address NOT CONTAINS t2.doc.address;
+
+# Test CONTAINS with subqueries
+SELECT doc.id FROM (SELECT * FROM t2 WHERE DOCUMENT('{"k":"v"}') CONTAINS DOCUMENT('{}')) temp;
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc.address CONTAINS DOCUMENT('{"state":"NY"}')) temp;
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc CONTAINS DOCUMENT('{"id":108}')) temp;
+SELECT doc.id FROM (SELECT * FROM t2 WHERE DOCUMENT('{"zipcode":98761, "k":"v"}') CONTAINS doc.address) temp;
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc.addr CONTAINS doc.address) temp;
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc CONTAINS doc.address) temp;
+SELECT doc.id FROM (SELECT * FROM t2 WHERE DOCUMENT('{ "id":108, "address":{ "zipcode":98761}, "k":"v"}') CONTAINS doc) temp;
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc.address CONTAINS doc) temp;
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc CONTAINS doc) temp;
+SELECT temp.doc.id FROM (SELECT * FROM t2 WHERE DOCUMENT('{"zipcode":98761, "foo":"bar"}') CONTAINS doc.address) temp;
+SELECT temp.doc.id FROM (SELECT * FROM t2 WHERE DOCUMENT('{"zipcode":98761, "foo":"bar"}') NOT CONTAINS doc.address) temp;
+
+# Test CONTAINS with views
+CREATE VIEW v1 AS (SELECT * FROM t2 WHERE DOCUMENT('{"zipcode":98761, "foo":"bar"}') CONTAINS doc.address);
+SELECT * from v1;
+DROP VIEW v1;
+
+CREATE VIEW v1 AS (SELECT * FROM t2 WHERE DOCUMENT('{"zipcode":98761, "foo":"bar"}') NOT CONTAINS doc.address);
+SELECT * from v1;
+DROP VIEW v1;
+
+# Populate t3 with data
+CREATE TABLE t3 ( a int NOT null,
+       b char (10) NOT null,
+       doc DOCUMENT) engine=innodb;
+insert into t3 values (1,'@1','{ "id":101, "addr":{"state":"California", "zipcode":94306}}');
+insert into t3 values (2,'@2','{ "id":102, "addr":{"symbol":"%", "k":"v"}}');
+insert into t3 values (3,'@3','{ "id":103, "addr":{"symbol":"_", "k":"v"}}');
+insert into t3 values (4,'@4','{ "id":104, "k1":{"k3":"v3", "k2": ["wildcard", "array"]}}');
+
+# Test CONTAINS with regex wildcards
+SELECT doc.id FROM t3 WHERE doc CONTAINS DOCUMENT('{"addr":{"state":"Ca%a", "zipcode":94306}}');
+SELECT doc.id FROM t3 WHERE doc CONTAINS DOCUMENT('{"id":101, "addr":{"state":"Ca%ni_", "zipcode":94306}}');
+SELECT doc.id FROM t3 WHERE doc.addr CONTAINS DOCUMENT('{"state":"C%nia"}');
+SELECT doc.id FROM t3 WHERE doc.addr CONTAINS DOCUMENT('{"state":"C_lifornia"}');
+SELECT doc.id FROM t3 WHERE doc.k1 CONTAINS DOCUMENT('{"k2": ["wi%rd", "arr_y"] }');
+SELECT doc.id FROM t3 WHERE doc.addr CONTAINS DOCUMENT('{"symbol":"\\\\%"}');
+SELECT doc.id FROM t3 WHERE doc.addr CONTAINS DOCUMENT('{"symbol":"\\\\_"}');
+SELECT doc.id FROM t3 WHERE doc CONTAINS DOCUMENT('{"i_":101, "addr":{"state":"Ca%ni_"}}');
+SELECT doc.id FROM t3 WHERE doc.addr CONTAINS DOCUMENT('{"s%te":"C_lifornia"}');
+
+drop table t1, t2, t3;
+exit;
