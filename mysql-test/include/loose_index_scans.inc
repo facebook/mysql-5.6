@@ -1,3 +1,4 @@
+set optimizer_switch='index_merge_sort_union=off';
 eval create table t (a int, b int, c int, d int, e int, primary key(a, b, c, d), key(b, d)) engine=$engine;
 
 --disable_query_log
@@ -136,3 +137,4 @@ set optimizer_trace = 'enabled=off';
 set optimizer_switch= 'skip_scan=off';
 
 drop table t;
+set optimizer_switch='index_merge_sort_union=on';

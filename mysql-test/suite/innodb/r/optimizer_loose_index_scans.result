@@ -1,3 +1,4 @@
+set optimizer_switch='index_merge_sort_union=off';
 create table t (a int, b int, c int, d int, e int, primary key(a, b, c, d), key(b, d)) engine=innodb;
 analyze table t;
 Table	Op	Msg_type	Msg_text
@@ -222,7 +223,7 @@ count(*)
 1
 explain select a, b, c, d from t where a = 5 or b = 2 and d >= 98;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t	index_merge	PRIMARY,b	b,PRIMARY	8,4	NULL	#	Using sort_union(b,PRIMARY); Using where
+1	SIMPLE	t	index	PRIMARY,b	b	8	NULL	#	Using where; Using index
 select count(*) from information_schema.optimizer_trace where trace like '%no_range_tree%';
 count(*)
 1
@@ -277,3 +278,4 @@ count(*)
 set optimizer_trace = 'enabled=off';
 set optimizer_switch= 'skip_scan=off';
 drop table t;
+set optimizer_switch='index_merge_sort_union=on';
