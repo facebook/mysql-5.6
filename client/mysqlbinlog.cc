@@ -758,12 +758,13 @@ static bool shall_skip_database(const char *log_dbname)
   according to the include-gtids, exclude-gtids and
   skip-gtids options.
 
-  @param ev Pointer to the event to be checked.
+  @param[in] ev Pointer to the event to be checked.
+  @param[out] cached_gtid Store the gtid here
 
   @return true if the event should be filtered out,
           false, otherwise.
 */
-static bool shall_skip_gtids(Log_event* ev)
+static bool shall_skip_gtids(Log_event* ev, Gtid *cached_gtid)
 {
   bool filtered= false;
 
@@ -773,6 +774,7 @@ static bool shall_skip_gtids(Log_event* ev)
     case ANONYMOUS_GTID_LOG_EVENT:
     {
        Gtid_log_event *gtid= (Gtid_log_event *) ev;
+       cached_gtid->set(gtid->get_sidno(true), gtid->get_gno());
        if (opt_include_gtids_str != NULL)
        {
          filtered= filtered ||
@@ -793,6 +795,13 @@ static bool shall_skip_gtids(Log_event* ev)
     /* Skip previous gtids if --skip-gtids is set. */
     case PREVIOUS_GTIDS_LOG_EVENT:
       filtered= opt_skip_gtids;
+      if (opt_print_gtids)
+      {
+        Previous_gtids_log_event *pgev = (Previous_gtids_log_event *) ev;
+        global_sid_lock->rdlock();
+        pgev->add_to_set(gtid_set_excluded);
+        global_sid_lock->unlock();
+      }
     break;
 
     /*
@@ -1032,7 +1041,7 @@ Exit_status process_event(PRINT_EVENT_INFO *print_event_info, Log_event *ev,
 
     DBUG_PRINT("debug", ("event_type: %s", ev->get_type_str()));
 
-    if (shall_skip_gtids(ev))
+    if (shall_skip_gtids(ev, &cached_gtid))
       goto end;
 
     switch (ev_type) {
@@ -1597,9 +1606,6 @@ Exit_status process_event(PRINT_EVENT_INFO *print_event_info, Log_event *ev,
       if (head->error == -1)
         goto err;
 
-      Gtid_log_event *gtid= (Gtid_log_event *) ev;
-      cached_gtid.set(gtid->get_sidno(true), gtid->get_gno());
-
       break;
     }
     case XID_EVENT:
@@ -1688,14 +1694,6 @@ Exit_status process_event(PRINT_EVENT_INFO *print_event_info, Log_event *ev,
                 "any case. If you want to exclude or include transactions, "
                 "you should use the options --exclude-gtids or "
                 "--include-gtids, respectively, instead.");
-
-      if (opt_print_gtids)
-      {
-        Previous_gtids_log_event *pgev = (Previous_gtids_log_event *) ev;
-        global_sid_lock->rdlock();
-        pgev->add_to_set(gtid_set_excluded);
-        global_sid_lock->unlock();
-      }
 
       /* fall through */
     default:
