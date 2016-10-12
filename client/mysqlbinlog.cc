@@ -125,6 +125,8 @@ static enum enum_remote_proto {
 } opt_remote_proto= BINLOG_LOCAL;
 static char *opt_remote_proto_str= 0;
 static char *database= 0;
+static char *opt_filter_table= 0;
+static char *opt_rewrite_table= 0;
 static char *output_file= 0;
 static my_bool force_opt= 0, short_form= 0;
 static my_bool debug_info_flag, debug_check_flag;
@@ -218,6 +220,7 @@ static char *opt_include_gtids_str= NULL,
 static char *opt_index_file_str = NULL;
 Gtid_set_map previous_gtid_set_map;
 static my_bool opt_skip_gtids= 0;
+static my_bool opt_skip_rows_query= 0;
 static my_bool opt_skip_empty_trans= 0;
 static bool filter_based_on_gtids= false;
 
@@ -750,6 +753,23 @@ static bool shall_skip_database(const char *log_dbname)
   return one_database &&
          (log_dbname != NULL) &&
          strcmp(log_dbname, database);
+}
+
+/**
+  Indicates whether the given table should be filtered out,
+  according to the --table and --database option.
+
+  @param db_name    database name
+  @param table_name table_name
+
+  @return nonzero if the database.table with the given name should be
+  filtered out, 0 otherwise.
+*/
+static bool shall_skip_table(const char* db_name, const char *table_name)
+{
+  return shall_skip_database(db_name) ||
+         (opt_filter_table && table_name &&
+          strcmp(table_name, opt_filter_table));
 }
 
 
@@ -1456,7 +1476,7 @@ Exit_status process_event(PRINT_EVENT_INFO *print_event_info, Log_event *ev,
         goto err;
       }
 
-      if (shall_skip_database(map->get_db_name()))
+      if (shall_skip_table(map->get_db_name(), map->get_table_name()))
       {
         print_event_info->skipped_event_in_transaction= true;
         print_event_info->m_table_map_ignored.set_table(map->get_table_id(), map);
@@ -1577,7 +1597,72 @@ Exit_status process_event(PRINT_EVENT_INFO *print_event_info, Log_event *ev,
         goto err;
       }
 
-      ev->print(result_file, print_event_info);
+      if (ev_type == TABLE_MAP_EVENT && opt_rewrite_table)
+      {
+        Table_map_log_event *t_ev = (Table_map_log_event *) ev;
+
+        assert(opt_filter_table &&
+               !strcmp(opt_filter_table, t_ev->get_table_name()));
+
+        size_t old_len = strlen(t_ev->get_table_name());
+        size_t new_len = strlen(opt_rewrite_table);
+
+        // We need to modify the underlying buffer so the raw event has
+        // modified table name. First build a new buffer with the new size.
+        size_t new_data_written = ev->data_written - old_len + new_len;
+        char *new_buf = (char*) my_malloc(new_data_written,
+                                          MYF(MY_WME));
+
+        if (!new_buf)
+        {
+          error("Got fatal error allocating memory.");
+          goto err;
+        }
+
+        // The first part of the buffer will remain the same except the length.
+        ulong tbl_offset = LOG_EVENT_HEADER_LEN + // Common header length
+                           TABLE_MAP_HEADER_LEN + // Table map header length
+                           1 + // 1 for db name size
+                           strlen(t_ev->get_db_name()) + // length of db name
+                           1; // 1 for null termination.
+
+        memcpy(new_buf, ev->temp_buf, tbl_offset);
+        int4store(new_buf + EVENT_LEN_OFFSET, new_data_written);
+        char *ptr = new_buf + tbl_offset;
+
+        // Set the new length.
+        *ptr++ = (char) new_len;
+        // Copy new table name.
+        memcpy(ptr, opt_rewrite_table, new_len);
+        ptr += new_len;
+        *ptr++ = 0; // null termination
+
+        // Copy remaining buffer contents.
+        ulong offset = tbl_offset +
+                       1 + // 1 for table name size
+                       old_len + // length of table name
+                       1; // 1 for null termination.
+
+        memcpy(ptr, ev->temp_buf + offset, ev->data_written - offset);
+
+        // Change the event's table name. This affects comment output only.
+        t_ev->set_table(opt_rewrite_table);
+
+        // Use the new buffer.
+        char *buf_old = ev->temp_buf;
+        ev->register_temp_buf(new_buf);
+
+        ev->print(result_file, print_event_info);
+
+        // Switch to the old buffer.
+        ev->register_temp_buf(buf_old);
+
+        my_free(new_buf);
+        new_buf = nullptr;
+      }
+      else if (!opt_skip_rows_query || ev_type != ROWS_QUERY_LOG_EVENT)
+        ev->print(result_file, print_event_info);
+
       print_event_info->have_unflushed_events= TRUE;
       /* Flush head and body cache to result_file */
       if (stmt_end)
@@ -1758,7 +1843,19 @@ static struct my_option my_long_options[] =
   {"database", 'd', "List entries for just this database (local log only).",
    &database, &database, 0, GET_STR_ALLOC, REQUIRED_ARG,
    0, 0, 0, 0, 0, 0},
-  {"skip-empty-trans", OPT_MYSQLBINLOG_SKIP_EMPTY_TRANS,
+  {"table", OPT_FILTER_TABLE, "List entries for all tables matching this name. "
+   "If --database is used, this will list entries for only one table",
+   &opt_filter_table, &opt_filter_table, 0, GET_STR_ALLOC, REQUIRED_ARG,
+   0, 0, 0, 0, 0, 0},
+  {"rewrite-to-table", OPT_REWRITE_TABLE, "Rewrite table map log events of "
+   "--table with this value",
+   &opt_rewrite_table, &opt_rewrite_table, 0, GET_STR_ALLOC, REQUIRED_ARG,
+   0, 0, 0, 0, 0, 0},
+  {"skip-row-query-events", OPT_SKIP_ROWS_QUERY,
+   "Skip rows query log events.",
+   &opt_skip_rows_query, &opt_skip_rows_query, 0,
+   GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
+  {"skip-empty-trans", OPT_SKIP_EMPTY_TRANS,
    "Do not print empty transactions from databases other than the "
    "selected database, requires --database "
    "and --skip-gtids to be specified.",
@@ -3511,6 +3608,9 @@ static int args_post_process(void)
     if (one_database)
       warning("The --database option is ignored with --raw mode");
 
+    if (opt_filter_table)
+      warning("The --table option is ignored with --raw mode");
+
     if (opt_remote_proto == BINLOG_LOCAL)
     {
       error("You need to set --read-from-remote-master={BINLOG_DUMP_NON_GTID, "
@@ -3578,6 +3678,8 @@ static int args_post_process(void)
     }
   }
 
+  global_sid_lock->unlock();
+
   if (opt_skip_empty_trans != 0 && (database == NULL || opt_skip_gtids == 0))
   {
     error("--skip_empty_trans requires --database and "
@@ -3585,7 +3687,10 @@ static int args_post_process(void)
     DBUG_RETURN(ERROR_STOP);
   }
 
-  global_sid_lock->unlock();
+  if (opt_rewrite_table && !opt_filter_table)
+  {
+    error("--rewrite-to-table requires --table");
+  }
 
 #ifndef DBUG_OFF
   if (connection_server_id == 0 && stop_never)

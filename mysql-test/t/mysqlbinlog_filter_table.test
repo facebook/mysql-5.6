@@ -1,0 +1,62 @@
+source include/have_log_bin.inc;
+source include/have_binlog_format_row.inc;
+
+connection default;
+let $datadir = `select @@datadir`;
+
+create table t1 (a int primary key, b int, c text);
+create table dummy (a int primary key);
+create table t1_new (a int, b int, d text, c text);
+create database test2;
+create table test2.dummy (a int primary key);
+create table test2.t1 (a int primary key, b int, c text);
+
+flush logs;
+
+begin;
+insert into t1 values (1, 2, "test"), (2, 4, "test");
+insert into dummy values(1), (2);
+commit;
+
+begin;
+insert into t1 values(3, 6, "test");
+insert into test2.dummy values(1), (2);
+insert into test2.t1 values(3, 6, "test");
+commit;
+
+# Verify filtering is done on only one table if --table and --database is used
+exec $MYSQL_BINLOG --force-if-open --table=t1 --rewrite-to-table=t1_new --database=test $datadir/master-bin.000002 | $MYSQL test 2>&1;
+select * from t1_new;
+
+echo == Verify that the contents of other tables are not modified ==;
+select * from t1;
+select * from dummy;
+select * from test2.dummy;
+select * from test2.t1;
+
+flush logs;
+
+begin;
+update t1 set b=100;
+delete from dummy where a = 1;
+commit;
+
+begin;
+delete from t1 where a=1;
+delete from test2.dummy where a = 1;
+commit;
+
+exec $MYSQL_BINLOG --force-if-open --table=t1 --rewrite-to-table=t1_new --database=test $datadir/master-bin.000003 | $MYSQL test 2>&1;
+select * from t1_new;
+
+echo == Verify that the contents of other tables are not modified ==;
+select * from t1;
+select * from dummy;
+select * from test2.dummy;
+select * from test2.t1;
+
+echo == Cleanup ==;
+drop table t1;
+drop table dummy;
+drop table t1_new;
+drop database test2;

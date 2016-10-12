@@ -3998,6 +3998,11 @@ public:
 
 #ifdef MYSQL_CLIENT
   virtual void print(FILE *file, PRINT_EVENT_INFO *print_event_info);
+  void set_table(const char* opt_rewrite_table)
+  {
+    m_tblnam = opt_rewrite_table;
+    m_tbllen = strlen(opt_rewrite_table);
+  }
 #endif
 
 
