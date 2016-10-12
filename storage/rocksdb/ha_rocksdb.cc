@@ -63,6 +63,8 @@
 extern my_bool cachedev_enabled;
 #endif /* TARGET_OS_LINUX */
 
+// Random comment.
+
 // Internal MySQL APIs not exposed in any header.
 extern "C"
 {
