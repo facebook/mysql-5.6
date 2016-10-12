@@ -1206,6 +1206,9 @@ The following options may be given as the first argument:
  --rocksdb-pin-l0-filter-and-index-blocks-in-cache 
  pin_l0_filter_and_index_blocks_in_cache for RocksDB
  (Defaults to on; use --skip-rocksdb-pin-l0-filter-and-index-blocks-in-cache to disable.)
+ --rocksdb-print-snapshot-conflict-queries 
+ Logging queries that got snapshot conflict errors into
+ *.err log
  --rocksdb-rate-limiter-bytes-per-sec=# 
  DBOptions::rate_limiter bytes_per_sec for RocksDB
  --rocksdb-read-free-rpl-tables=name 
@@ -1923,6 +1926,7 @@ rocksdb-perf-context ON
 rocksdb-perf-context-global ON
 rocksdb-perf-context-level 0
 rocksdb-pin-l0-filter-and-index-blocks-in-cache TRUE
+rocksdb-print-snapshot-conflict-queries FALSE
 rocksdb-rate-limiter-bytes-per-sec 0
 rocksdb-read-free-rpl-tables (No default value)
 rocksdb-records-in-range 0
