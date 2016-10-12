@@ -925,6 +925,7 @@ rocksdb_paranoid_checks	ON
 rocksdb_pause_background_work	ON
 rocksdb_perf_context_level	0
 rocksdb_pin_l0_filter_and_index_blocks_in_cache	ON
+rocksdb_print_snapshot_conflict_queries	OFF
 rocksdb_rate_limiter_bytes_per_sec	0
 rocksdb_read_free_rpl_tables	
 rocksdb_records_in_range	50
