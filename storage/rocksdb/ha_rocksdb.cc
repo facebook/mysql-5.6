@@ -33,6 +33,7 @@
 #include "./debug_sync.h"
 #include "./my_bit.h"
 #include "./my_stacktrace.h"
+#include "./sql_audit.h"
 #include "./sql_table.h"
 #include <mysys_err.h>
 #include <mysql/psi/mysql_table.h>
@@ -411,6 +412,7 @@ static char * rocksdb_datadir;
 static uint32_t rocksdb_table_stats_sampling_pct;
 static my_bool rocksdb_enable_bulk_load_api= 1;
 static my_bool rpl_skip_tx_api_var= 0;
+static my_bool rocksdb_print_snapshot_conflict_queries= 0;
 
 std::atomic<uint64_t> rocksdb_snapshot_conflict_errors(0);
 
@@ -1070,6 +1072,12 @@ static MYSQL_SYSVAR_BOOL(compaction_sequential_deletes_count_sd,
   "Counting SingleDelete as rocksdb_compaction_sequential_deletes",
   nullptr, nullptr, rocksdb_compaction_sequential_deletes_count_sd);
 
+static MYSQL_SYSVAR_BOOL(print_snapshot_conflict_queries,
+  rocksdb_print_snapshot_conflict_queries,
+  PLUGIN_VAR_RQCMDARG,
+  "Logging queries that got snapshot conflict errors into *.err log",
+  nullptr, nullptr, rocksdb_print_snapshot_conflict_queries);
+
 static MYSQL_THDVAR_INT(checksums_pct,
   PLUGIN_VAR_RQCMDARG,
   "How many percentages of rows to be checksummed",
@@ -1219,6 +1227,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(compaction_sequential_deletes_window),
   MYSQL_SYSVAR(compaction_sequential_deletes_file_size),
   MYSQL_SYSVAR(compaction_sequential_deletes_count_sd),
+  MYSQL_SYSVAR(print_snapshot_conflict_queries),
 
   MYSQL_SYSVAR(datadir),
   MYSQL_SYSVAR(create_checkpoint),
@@ -1516,6 +1525,14 @@ public:
     if (s.IsBusy())
     {
       rocksdb_snapshot_conflict_errors++;
+      if (rocksdb_print_snapshot_conflict_queries)
+      {
+        char user_host_buff[MAX_USER_HOST_SIZE + 1];
+        make_user_name(thd, user_host_buff);
+        // NO_LINT_DEBUG
+        sql_print_warning("Got snapshot conflict errors: User: %s "
+                          "Query: %s", user_host_buff, thd->query());
+      }
       return HA_ERR_LOCK_DEADLOCK;
     }
     /* TODO: who returns HA_ERR_ROCKSDB_TOO_MANY_LOCKS now?? */
