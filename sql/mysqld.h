@@ -943,6 +943,7 @@ extern my_bool read_only_slave;
 extern ulong sql_slave_skip_counter_usage;
 extern ulonglong rbr_unsafe_queries;
 extern my_bool use_db_uuid;
+extern my_bool separate_conn_handling_thread;
 
 enum enum_gtid_mode
 {

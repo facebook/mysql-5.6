@@ -5579,3 +5579,12 @@ static Sys_var_charptr Sys_read_only_error_msg_extra(
        "which will be appended to read_only error messages.",
        GLOBAL_VAR(opt_read_only_error_msg_extra), CMD_LINE(OPT_ARG),
        IN_SYSTEM_CHARSET, DEFAULT(""), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+#ifndef EMBEDDED_LIBRARY
+static Sys_var_mybool Sys_offload_conn_handling(
+       "separate_conn_handling_thread",
+       "Use a separate thread from the accept thread "
+       "to offload connection handling",
+       READ_ONLY GLOBAL_VAR(separate_conn_handling_thread),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+#endif
