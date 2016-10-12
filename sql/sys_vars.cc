@@ -63,6 +63,7 @@
 
 #include "log_event.h"
 #include "binlog.h"
+#include "global_threads.h"
 
 #ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
 #include "../storage/perfschema/pfs_server.h"
@@ -5625,5 +5626,18 @@ static Sys_var_uint Sys_num_conn_handling_threads(
        "Use these many threads to offload accept threads",
        READ_ONLY GLOBAL_VAR(num_conn_handling_threads), CMD_LINE(OPT_ARG),
        VALID_RANGE(1, 10), DEFAULT(1), BLOCK_SIZE(1));
+#endif
 
+#ifdef SHARDED_LOCKING
+static Sys_var_mybool Sys_use_sharded_locks(
+       "use_lock_sharding",
+       "Use sharding to reduce contention on certain high-contention locks",
+       READ_ONLY GLOBAL_VAR(gl_lock_sharding),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
+static Sys_var_uint Sys_num_lock_shards(
+       "num_sharded_locks",
+       "How many shards to use to reduce lock-contention",
+       READ_ONLY GLOBAL_VAR(num_sharded_locks), CMD_LINE(OPT_ARG),
+       VALID_RANGE(1, 16), DEFAULT(4), BLOCK_SIZE(1));
 #endif

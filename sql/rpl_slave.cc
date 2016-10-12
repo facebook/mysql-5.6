@@ -3405,9 +3405,8 @@ static int init_slave_thread(THD* thd, SLAVE_THD_TYPE thd_type)
   thd->enable_slow_log= opt_log_slow_slave_statements;
   set_slave_thread_options(thd);
   thd->client_capabilities = CLIENT_LOCAL_FILES;
-  mysql_mutex_lock(&LOCK_thread_count);
+
   thd->variables.pseudo_thread_id= thd->set_new_thread_id();
-  mysql_mutex_unlock(&LOCK_thread_count);
 
   DBUG_EXECUTE_IF("simulate_io_slave_error_on_init",
                   simulate_error|= (1 << SLAVE_THD_IO););
@@ -4790,10 +4789,10 @@ pthread_handler_t handle_slave_io(void *arg)
     goto err;
   }
 
-  mysql_mutex_lock(&LOCK_thread_count);
+  mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
   add_global_thread(thd);
   thd_added= true;
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
 
   mi->slave_running = 1;
   mi->abort_slave = 0;
@@ -5285,10 +5284,10 @@ pthread_handler_t handle_slave_worker(void *arg)
   }
   thd->init_for_queries(w);
 
-  mysql_mutex_lock(&LOCK_thread_count);
+  mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
   add_global_thread(thd);
   thd_added= true;
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
 
   if (w->update_is_transactional())
   {
@@ -6196,10 +6195,10 @@ pthread_handler_t handle_slave_sql(void *arg)
   thd->temporary_tables = rli->save_temporary_tables; // restore temp tables
   set_thd_in_use_temporary_tables(rli);   // (re)set sql_thd in use for saved temp tables
 
-  mysql_mutex_lock(&LOCK_thread_count);
+  mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
   add_global_thread(thd);
   thd_added= true;
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
 
   /* MTS: starting the worker pool */
   if (slave_start_workers(rli, rli->opt_slave_parallel_workers, &mts_inited) != 0)

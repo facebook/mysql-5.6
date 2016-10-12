@@ -1856,7 +1856,7 @@ static int log_in_use(const char* log_name)
   if (current_thd)
     DEBUG_SYNC(current_thd,"purge_logs_after_lock_index_before_thread_count");
 #endif
-  mysql_mutex_lock(&LOCK_thread_count);
+  mutex_lock_all_shards(SHARDED(&LOCK_thread_count));
 
   Thread_iterator it= global_thread_list_begin();
   Thread_iterator end= global_thread_list_end();
@@ -1877,7 +1877,7 @@ static int log_in_use(const char* log_name)
     }
   }
 
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_all_shards(SHARDED(&LOCK_thread_count));
   return thread_count;
 }
 
@@ -2278,9 +2278,9 @@ bool show_binlog_events(THD *thd, MYSQL_BIN_LOG *binary_log)
       goto err;
     }
 
-    mysql_mutex_lock(&LOCK_thread_count);
+    mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
     thd->current_linfo = &linfo;
-    mysql_mutex_unlock(&LOCK_thread_count);
+    mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
 
     if ((file=open_binlog_file(&log, linfo.log_file_name, &errmsg)) < 0)
       goto err;
@@ -2391,9 +2391,9 @@ err:
   else
     my_eof(thd);
 
-  mysql_mutex_lock(&LOCK_thread_count);
+  mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
   thd->current_linfo = 0;
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
   thd->variables.max_allowed_packet= old_max_allowed_packet;
   DBUG_RETURN(ret);
 }
@@ -2888,7 +2888,7 @@ err:
 
 static void adjust_linfo_offsets(my_off_t purge_offset)
 {
-  mysql_mutex_lock(&LOCK_thread_count);
+  mutex_lock_all_shards(SHARDED(&LOCK_thread_count));
 
   Thread_iterator it= global_thread_list_begin();
   Thread_iterator end= global_thread_list_end();
@@ -2910,7 +2910,7 @@ static void adjust_linfo_offsets(my_off_t purge_offset)
       mysql_mutex_unlock(&linfo->lock);
     }
   }
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_all_shards(SHARDED(&LOCK_thread_count));
 }
 
 /**

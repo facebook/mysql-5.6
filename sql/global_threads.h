@@ -18,9 +18,17 @@
 
 #include <my_global.h>
 #include <my_pthread.h>
+#include <thread_iterator.h>
+#include <shardedlocks.h>
 #include <set>
+#include <vector>
 
 class THD;
+
+#ifdef SHARDED_LOCKING
+extern std::vector<mysql_mutex_t> LOCK_thread_count_sharded;
+extern std::vector<mysql_mutex_t> LOCK_thd_remove_sharded;
+#endif
 
 extern mysql_mutex_t LOCK_thread_count;
 extern mysql_mutex_t LOCK_thd_remove;
@@ -52,7 +60,7 @@ extern mysql_cond_t COND_thread_count;
   avoid any parallel modification to the set and will release the lock at the
   end of the function.
  */
-typedef std::set<THD*>::iterator Thread_iterator;
+
 Thread_iterator global_thread_list_begin();
 Thread_iterator global_thread_list_end();
 void copy_global_thread_list(std::set<THD*> *new_copy);

@@ -22,6 +22,7 @@
 #include <set>
 #include <cmath>
 #include <cstring>
+#include <atomic>
 
 #include "sql_priv.h"
 #include "unireg.h"
@@ -724,7 +725,7 @@ ulong max_prepared_stmt_count;
 */
 ulong prepared_stmt_count=0;
 my_thread_id thread_id_counter=1;
-uint64 total_thread_ids=0;
+std::atomic<uint64_t> total_thread_ids(0);
 const my_thread_id reserved_thread_id=0;
 
 ulong current_pid;
@@ -898,6 +899,15 @@ pthread_key(THD*, THR_THD);
 mysql_mutex_t LOCK_global_table_stats;
 mysql_mutex_t LOCK_thread_created;
 mysql_mutex_t LOCK_thread_count, LOCK_thd_remove;
+
+#ifdef SHARDED_LOCKING
+std::vector<mysql_mutex_t> LOCK_thread_count_sharded;
+std::vector<mysql_mutex_t> LOCK_thd_remove_sharded;
+static ShardedThreads *global_thread_list = NULL;
+#else
+static std::set<THD*> *global_thread_list = NULL;
+#endif
+
 mysql_mutex_t
   LOCK_status, LOCK_error_log, LOCK_uuid_generator,
   LOCK_delayed_insert, LOCK_delayed_status, LOCK_delayed_create,
@@ -991,7 +1001,6 @@ int show_rsa_public_key(THD *thd, SHOW_VAR *var, char *buff);
 #endif
 
 static volatile sig_atomic_t global_thread_count= 0;
-static std::set<THD*> *global_thread_list= NULL;
 std::set<my_thread_id> *global_thread_id_list= NULL;
 
 ulong max_blocked_pthreads= 0;
@@ -1018,38 +1027,60 @@ static void delete_global_thread_list()
 
 Thread_iterator global_thread_list_begin()
 {
-  mysql_mutex_assert_owner(&LOCK_thread_count);
+  mutex_assert_owner_all_shards(SHARDED(&LOCK_thread_count));
   return global_thread_list->begin();
 }
 
 Thread_iterator global_thread_list_end()
 {
-  mysql_mutex_assert_owner(&LOCK_thread_count);
+  mutex_assert_owner_all_shards(SHARDED(&LOCK_thread_count));
   return global_thread_list->end();
 }
 
 void copy_global_thread_list(std::set<THD*> *new_copy)
 {
-  mysql_mutex_assert_owner(&LOCK_thd_remove);
-  mysql_mutex_lock(&LOCK_thread_count);
+  mutex_assert_owner_all_shards(SHARDED(&LOCK_thd_remove));
+  mutex_lock_all_shards(SHARDED(&LOCK_thread_count));
+
+#ifndef SHARDED_LOCKING
   *new_copy= *global_thread_list;
-  mysql_mutex_unlock(&LOCK_thread_count);
+#else
+  std::set<THD*> tmp;
+  Thread_iterator itr = global_thread_list->begin();
+  Thread_iterator end = global_thread_list->end();
+  for (; itr != end; ++itr) {
+    tmp.insert(*itr);
+  }
+  *new_copy = tmp;
+#endif
+
+  mutex_unlock_all_shards(SHARDED(&LOCK_thread_count));
 }
 
 void copy_global_thread_list_sorted(
     std::set<THD *, bool (*)(const THD *, const THD *)> *new_copy)
 {
-  mysql_mutex_assert_owner(&LOCK_thd_remove);
-  mysql_mutex_lock(&LOCK_thread_count);
+  mutex_assert_owner_all_shards(SHARDED(&LOCK_thd_remove));
+  mutex_lock_all_shards(SHARDED(&LOCK_thread_count));
+
+#ifndef SHARDED_LOCKING
   for (auto thd : *global_thread_list)
     new_copy->insert(thd);
-  mysql_mutex_unlock(&LOCK_thread_count);
+#else
+  Thread_iterator itr = global_thread_list->begin();
+  Thread_iterator end = global_thread_list->end();
+  for (; itr != end; ++itr) {
+    new_copy->insert(*itr);
+  }
+#endif
+
+  mutex_unlock_all_shards(SHARDED(&LOCK_thread_count));
 }
 
 void add_global_thread(THD *thd)
 {
   DBUG_PRINT("info", ("add_global_thread %p", thd));
-  mysql_mutex_assert_owner(&LOCK_thread_count);
+  mutex_assert_owner_shard(SHARDED(&LOCK_thread_count), thd);
   const bool have_thread=
     global_thread_list->find(thd) != global_thread_list->end();
   if (!have_thread)
@@ -1063,10 +1094,10 @@ void add_global_thread(THD *thd)
 
 void remove_global_thread(THD *thd)
 {
-  DBUG_PRINT("info", ("remove_global_thread %p current_linfo %p conn_count: %d",
-                      thd, thd->current_linfo, (int)connection_count));
-  mysql_mutex_lock(&LOCK_thd_remove);
-  mysql_mutex_lock(&LOCK_thread_count);
+  DBUG_PRINT("info", ("remove_global_thread %p current_linfo %p",
+                      thd, thd->current_linfo));
+  mutex_lock_shard(SHARDED(&LOCK_thd_remove), thd);
+  mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
   DBUG_ASSERT(thd->release_resources_done());
   /*
     Used by binlog_reset_master.  It would be cleaner to use
@@ -1082,9 +1113,9 @@ void remove_global_thread(THD *thd)
   // Removing a THD that was never added is an error.
   DBUG_ASSERT(1 == num_erased);
 
-  mysql_mutex_unlock(&LOCK_thd_remove);
+  mutex_unlock_shard(SHARDED(&LOCK_thd_remove), thd);
   mysql_cond_broadcast(&COND_thread_count);
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
 }
 
 uint get_thread_count()
@@ -1646,10 +1677,11 @@ static void close_connections(void)
   sql_print_information("Giving %d client threads a chance to die gracefully",
                         static_cast<int>(get_thread_count()));
 
-  mysql_mutex_lock(&LOCK_thread_count);
+  mutex_lock_all_shards(SHARDED(&LOCK_thread_count));
 
-  Thread_iterator it= global_thread_list->begin();
-  for (; it != global_thread_list->end(); ++it)
+  Thread_iterator it= global_thread_list_begin();
+  Thread_iterator end= global_thread_list_end();
+  for (; it != end; ++it)
   {
     THD *tmp= *it;
     DBUG_PRINT("quit",("Informing thread %u that it's time to die",
@@ -1685,7 +1717,7 @@ static void close_connections(void)
     }
     mysql_mutex_unlock(&tmp->LOCK_thd_data);
   }
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_all_shards(SHARDED(&LOCK_thread_count));
 
   Events::deinit();
 
@@ -1703,8 +1735,10 @@ static void close_connections(void)
       sleep(1);
       dump_thread_kill_retries--;
     }
-    mysql_mutex_lock(&LOCK_thread_count);
-    for (it= global_thread_list->begin(); it != global_thread_list->end(); ++it)
+    mutex_lock_all_shards(SHARDED(&LOCK_thread_count));
+    Thread_iterator it= global_thread_list_begin();
+    Thread_iterator end= global_thread_list_end();
+    for (; it != end; ++it)
     {
       THD *tmp= *it;
       DBUG_PRINT("quit",("Informing dump thread %u that it's time to die",
@@ -1730,7 +1764,7 @@ static void close_connections(void)
         mysql_mutex_unlock(&tmp->LOCK_thd_data);
       }
     }
-    mysql_mutex_unlock(&LOCK_thread_count);
+    mutex_unlock_all_shards(SHARDED(&LOCK_thread_count));
   }
   if (get_thread_count() > 0)
     sleep(2);         // Give threads time to die
@@ -1754,8 +1788,10 @@ static void close_connections(void)
 
 #ifndef __bsdi__ // Bug in BSDI kernel
   DBUG_PRINT("quit", ("Locking LOCK_thread_count"));
-  mysql_mutex_lock(&LOCK_thread_count);
-  for (it= global_thread_list->begin(); it != global_thread_list->end(); ++it)
+  mutex_lock_all_shards(SHARDED(&LOCK_thread_count));
+  it= global_thread_list_begin();
+  end= global_thread_list_end();
+  for (; it != end; ++it)
   {
     THD *tmp= *it;
     if (tmp->vio_ok())
@@ -1769,7 +1805,7 @@ static void close_connections(void)
     }
   }
   DBUG_PRINT("quit",("Unlocking LOCK_thread_count"));
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_all_shards(SHARDED(&LOCK_thread_count));
 #endif // Bug in BSDI kernel
 
   /* All threads has now been aborted */
@@ -2279,6 +2315,12 @@ static void clean_up_mutexes()
   mysql_rwlock_destroy(&LOCK_grant);
   mysql_mutex_destroy(&LOCK_thread_created);
   mysql_mutex_destroy(&LOCK_thread_count);
+#ifdef SHARDED_LOCKING
+  for (uint ii = 0; ii < num_sharded_locks; ii++) {
+    mysql_mutex_destroy(&LOCK_thread_count_sharded[ii]);
+    mysql_mutex_destroy(&LOCK_thd_remove_sharded[ii]);
+  }
+#endif
   mysql_mutex_destroy(&LOCK_log_throttle_qni);
   mysql_mutex_destroy(&LOCK_status);
   mysql_mutex_destroy(&LOCK_delayed_insert);
@@ -3009,7 +3051,7 @@ void dec_connection_count_locked()
  */
 void destroy_thd(THD *thd)
 {
-  mysql_mutex_assert_not_owner(&LOCK_thread_count);
+  mutex_assert_not_owner_shard(SHARDED(&LOCK_thread_count), thd);
   delete thd;
 }
 
@@ -3044,9 +3086,10 @@ static void do_backoff(int* num_backoffs) // num_backoffs is initialized to 0
                  (ie, caller should return, not abort with pthread_exit())
 */
 
-static bool block_until_new_connection_locked()
+static bool block_until_new_connection()
 {
-  mysql_mutex_assert_owner(&LOCK_thread_count);
+  mysql_mutex_lock(&LOCK_thread_count);
+  dec_connection_count_locked();
   if (blocked_pthread_count < max_blocked_pthreads &&
       !abort_loop && !kill_blocked_pthreads_flag)
   {
@@ -3076,6 +3119,7 @@ static bool block_until_new_connection_locked()
       DBUG_ASSERT(!waiting_thd_list->empty());
       thd= waiting_thd_list->front();
       waiting_thd_list->pop_front();
+      mysql_mutex_unlock(&LOCK_thread_count);
       DBUG_PRINT("info", ("waiting_thd_list->pop %p", thd));
 
       thd->thread_stack= (char*) &thd;          // For store_globals
@@ -3098,10 +3142,13 @@ static bool block_until_new_connection_locked()
       */
       thd->mysys_var->abort= 0;
       thd->thr_create_utime= thd->start_utime= my_micro_time();
+      mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
       add_global_thread(thd);
+      mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
       return true;
     }
   }
+  mysql_mutex_unlock(&LOCK_thread_count);
   return false;
 }
 
@@ -3148,12 +3195,11 @@ bool one_thread_per_connection_end(THD *thd, bool block_pthread)
   PSI_THREAD_CALL(delete_current_thread)();
 #endif
 
-  mysql_mutex_lock(&LOCK_thread_count);
   // Decrement connection count while holding LOCK_thread_count
-  dec_connection_count_locked();
   if (block_pthread)
-    block_pthread= block_until_new_connection_locked();
-  mysql_mutex_unlock(&LOCK_thread_count);
+    block_pthread= block_until_new_connection();
+  else
+    dec_connection_count();
 
   if (block_pthread)
     DBUG_RETURN(false);                         // Pthread is reused
@@ -5107,6 +5153,16 @@ static int init_thread_environment()
   mysql_mutex_init(key_LOCK_thread_created,
                    &LOCK_thread_created, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_thread_count, &LOCK_thread_count, MY_MUTEX_INIT_FAST);
+#ifdef SHARDED_LOCKING
+  LOCK_thread_count_sharded.resize(num_sharded_locks);
+  LOCK_thd_remove_sharded.resize(num_sharded_locks);
+  for (uint ii = 0; ii < num_sharded_locks; ii++) {
+    mysql_mutex_init(key_LOCK_thread_count,
+      &LOCK_thread_count_sharded[ii], MY_MUTEX_INIT_FAST);
+    mysql_mutex_init(key_LOCK_thd_remove,
+      &LOCK_thd_remove_sharded[ii], MY_MUTEX_INIT_FAST);
+  }
+#endif
   mysql_mutex_init(key_LOCK_status, &LOCK_status, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_thd_remove,
                    &LOCK_thd_remove, MY_MUTEX_INIT_FAST);
@@ -7653,9 +7709,9 @@ static void bootstrap(MYSQL_FILE *file)
   my_net_init(&thd->net,(st_vio*) 0);
   thd->max_client_packet_length= thd->net.max_packet;
   thd->security_ctx->master_access= ~(ulong)0;
-  mysql_mutex_lock(&LOCK_thread_count);
+
   thd->variables.pseudo_thread_id= thd->set_new_thread_id();
-  mysql_mutex_unlock(&LOCK_thread_count);
+
 
   in_bootstrap= TRUE;
 
@@ -7733,10 +7789,10 @@ void inc_thread_created(void)
 
 void handle_connection_in_main_thread(THD *thd)
 {
-  mysql_mutex_assert_owner(&LOCK_thread_count);
+  mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
   max_blocked_pthreads= 0;      // Safety
   add_global_thread(thd);
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
   thd->start_utime= my_micro_time();
   do_handle_one_connection(thd);
 }
@@ -7748,7 +7804,7 @@ void handle_connection_in_main_thread(THD *thd)
 
 void create_thread_to_handle_connection(THD *thd)
 {
-  mysql_mutex_assert_owner(&LOCK_thread_count);
+  mysql_mutex_lock(&LOCK_thread_count);
   if (blocked_pthread_count >  wake_pthread)
   {
     /* Wake up blocked pthread */
@@ -7767,10 +7823,10 @@ void create_thread_to_handle_connection(THD *thd)
         con_threads_wait, con_threads_new));
     }
 #endif
+    mysql_mutex_unlock(&LOCK_thread_count);
   }
   else
   {
-
 #if !defined(DBUG_OFF)
     con_threads_new++;
     if (con_threads_new % 10000 == 0) {
@@ -7781,7 +7837,7 @@ void create_thread_to_handle_connection(THD *thd)
         con_threads_wait, con_threads_new));
     }
 #endif
-
+    mysql_mutex_unlock(&LOCK_thread_count);
     char error_message_buff[MYSQL_ERRMSG_SIZE];
     /* Create new thread to handle connection */
     int error;
@@ -7801,8 +7857,7 @@ void create_thread_to_handle_connection(THD *thd)
         sql_print_error("Can't create thread to handle request (errno= %d)",
                         error);
       thd->killed= THD::KILL_CONNECTION;      // Safety
-      dec_connection_count_locked();
-      mysql_mutex_unlock(&LOCK_thread_count);
+      dec_connection_count();
 
       statistic_increment(aborted_connects,&LOCK_status);
       statistic_increment(connection_errors_internal, &LOCK_status);
@@ -7815,9 +7870,10 @@ void create_thread_to_handle_connection(THD *thd)
       return;
       /* purecov: end */
     }
+    mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
     add_global_thread(thd);
+    mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
   }
-  mysql_mutex_unlock(&LOCK_thread_count);
   DBUG_PRINT("info",("Thread created"));
 }
 
@@ -7896,6 +7952,7 @@ static void create_new_thread(THD *thd)
     max_used_connections= connection_count;
 
   /* Start a new thread to handle connection. */
+  mysql_mutex_unlock(&LOCK_thread_count);
 
   /*
     The initialization of thread_id is done in create_embedded_thd() for
@@ -10474,7 +10531,12 @@ static int mysql_init_variables(void)
   my_atomic_rwlock_init(&thread_running_lock);
   my_atomic_rwlock_init(&write_query_running_lock);
   strmov(server_version, MYSQL_SERVER_VERSION);
+#ifdef SHARDED_LOCKING
+  global_thread_list= new ShardedThreads(num_sharded_locks);
+#else
   global_thread_list= new std::set<THD*>;
+#endif
+
   global_thread_id_list= new std::set<my_thread_id>;
   global_thread_id_list->insert(reserved_thread_id);
   waiting_thd_list= new std::list<THD*>;

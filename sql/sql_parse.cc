@@ -923,10 +923,10 @@ void do_handle_bootstrap(THD *thd)
     goto end;
   }
 
-  mysql_mutex_lock(&LOCK_thread_count);
+  mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
   thd_added= true;
   add_global_thread(thd);
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
 
   handle_bootstrap_impl(thd);
 
@@ -9906,7 +9906,7 @@ THD* get_opt_thread_with_data_lock(THD *thd, ulong thread_id)
   const char *user = thd->security_ctx->master_access & PROCESS_ACL ?
                        NullS : thd->security_ctx->priv_user;
 
-  mysql_mutex_lock(&LOCK_thread_count);
+  mutex_lock_all_shards(SHARDED(&LOCK_thread_count));
   Thread_iterator it= global_thread_list_begin();
   Thread_iterator end= global_thread_list_end();
   for (; it != end && !found; ++it)
@@ -9940,7 +9940,7 @@ THD* get_opt_thread_with_data_lock(THD *thd, ulong thread_id)
         my_error(ER_SHOW_DENIED_ERROR, MYF(0), thread_id);
     }
   }
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_all_shards(SHARDED(&LOCK_thread_count));
   if (!found)
     my_error(ER_NO_SUCH_THREAD, MYF(0), thread_id);
 

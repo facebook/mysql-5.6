@@ -552,6 +552,11 @@
 #cmakedefine CYBOZU 1
 #cmakedefine OPTIMIZER_TRACE 1
 #cmakedefine USE_SYMDIR 1
+/*
+ * turn this off if you don't want
+ * sharded locking to reduce contention
+*/
+#define SHARDED_LOCKING 1
 
 /*
    InnoDB config options

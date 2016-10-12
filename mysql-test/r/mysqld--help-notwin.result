@@ -624,6 +624,8 @@ The following options may be given as the first argument:
  Use these many threads to offload accept threads
  --num-sharded-listen-sockets[=#] 
  Use more than 1 socket to listen on the same mysqld port
+ --num-sharded-locks[=#] 
+ How many shards to use to reduce lock-contention
  --old               Use compatible behavior
  --old-alter-table   Use old, non-optimized alter table
  --old-passwords=#   Determine which hash algorithm to use when generating
@@ -1562,6 +1564,8 @@ The following options may be given as the first argument:
  Uses FBSON format as document type output.
  --use-socket-sharding 
  Use multiple listen sockets on the same mysqld port
+ --use-lock-sharding Use sharding to reduce contention on certain
+ high-contention locks
  -u, --user=name     Run mysqld daemon as user.
  --validate-user-plugins 
  Turns on additional validation of authentication plugins
@@ -1771,6 +1775,7 @@ net-write-timeout 60
 new FALSE
 num-conn-handling-threads 1
 num-sharded-listen-sockets 1
+num-sharded-locks 4
 old FALSE
 old-alter-table FALSE
 old-passwords 0
@@ -2055,6 +2060,7 @@ use-db-uuid FALSE
 use-fbson-input-format FALSE
 use-fbson-output-format FALSE
 use-socket-sharding FALSE
+use-lock-sharding FALSE
 validate-user-plugins TRUE
 verbose TRUE
 wait-timeout 28800

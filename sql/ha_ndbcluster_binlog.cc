@@ -6437,9 +6437,7 @@ ndb_binlog_thread_func(void *arg)
   /* We need to set thd->thread_id before thd->store_globals, or it will
      set an invalid value for thd->variables.pseudo_thread_id.
   */
-  mysql_mutex_lock(&LOCK_thread_count);
   thd->set_new_thread_id();
-  mysql_mutex_unlock(&LOCK_thread_count);
 
   thd->thread_stack= (char*) &thd; /* remember where our stack is */
   if (thd->store_globals())
@@ -6478,9 +6476,9 @@ ndb_binlog_thread_func(void *arg)
   pthread_detach_this_thread();
   thd->real_id= pthread_self();
   thd->capture_system_thread_id();
-  mysql_mutex_lock(&LOCK_thread_count);
+  mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
   add_global_thread(thd);
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
   thd->lex->start_transaction_opt= 0;
 
 
@@ -7217,14 +7215,14 @@ restart_cluster_failure:
               */
               if (thd->killed)
               {
-                (void) mysql_mutex_lock(&LOCK_thread_count);
+                mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
                 volatile THD::killed_state killed= thd->killed;
                 /* We are cleaning up, allow for flushing last epoch */
                 thd->killed= THD::NOT_KILLED;
                 ndb_binlog_index_table__write_rows(thd, rows);
                 /* Restore kill flag */
                 thd->killed= killed;
-                (void) mysql_mutex_unlock(&LOCK_thread_count);
+                mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
               }
             }
           }

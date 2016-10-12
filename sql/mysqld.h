@@ -21,6 +21,7 @@
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
+#include <atomic>
 
 #include "my_global.h" /* MYSQL_PLUGIN_IMPORT, FN_REFLEN, FN_EXTLEN */
 #include "sql_bitmap.h"                         /* Bitmap */
@@ -881,7 +882,7 @@ extern const double log_10[309];
 extern ulonglong keybuff_size;
 extern ulonglong thd_startup_options;
 extern my_thread_id thread_id_counter;
-extern uint64 total_thread_ids;
+extern std::atomic<uint64_t> total_thread_ids;
 extern const my_thread_id reserved_thread_id;
 extern ulong binlog_cache_use, binlog_cache_disk_use;
 extern ulong binlog_stmt_cache_use, binlog_stmt_cache_disk_use;
@@ -1055,6 +1056,8 @@ extern int log_datagram_sock;
 /* flashcache */
 extern int cachedev_fd;
 
+extern uint num_sharded_locks;
+extern my_bool gl_lock_sharding;
 /*
   THR_MALLOC is a key which will be used to set/get MEM_ROOT** for a thread,
   using my_pthread_setspecific_ptr()/my_thread_getspecific_ptr().

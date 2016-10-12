@@ -711,9 +711,7 @@ void init_embedded_mysql(MYSQL *mysql, int client_flag)
 void *create_embedded_thd(int client_flag)
 {
   THD * thd= new THD;
-  mysql_mutex_lock(&LOCK_thread_count);
   thd->variables.pseudo_thread_id= thd->set_new_thread_id();
-  mysql_mutex_unlock(&LOCK_thread_count);
 
   thd->thread_stack= (char*) &thd;
   if (thd->store_globals())
@@ -746,9 +744,9 @@ void *create_embedded_thd(int client_flag)
   thd->data_tail= &thd->first_data;
   memset(&thd->net, 0, sizeof(thd->net));
 
-  mysql_mutex_lock(&LOCK_thread_count);
+  mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
   add_global_thread(thd);
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
   thd->mysys_var= 0;
   return thd;
 err:

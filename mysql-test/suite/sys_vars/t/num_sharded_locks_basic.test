@@ -1,0 +1,17 @@
+SELECT @@GLOBAL.num_sharded_locks;
+--echo 4 Expected
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SET @@GLOBAL.num_sharded_locks=2;
+--echo Expected error 'Read only variable'
+SELECT @@GLOBAL.num_sharded_locks;
+--echo 4 Expected
+SELECT @@num_sharded_locks = @@GLOBAL.num_sharded_locks;
+--echo 1 Expected
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT COUNT(@@local.num_sharded_locks);
+--echo Expected error 'Variable is a GLOBAL variable'
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT COUNT(@@SESSION.num_sharded_locks);
+--echo Expected error 'Variable is a GLOBAL variable'
+SELECT @@GLOBAL.num_sharded_locks;
+--echo 4 Expected

@@ -32,6 +32,7 @@
 #include "sql_base.h"                    // lock_table_names, tdc_remove_table
 #include "sql_handler.h"                 // mysql_ha_rm_tables
 #include "global_threads.h"              // LOCK_thd_remove
+#include "shardedlocks.h"                // sharded locks
 #include <mysys_err.h>
 #include "sp.h"
 #include "events.h"
@@ -299,11 +300,11 @@ static void del_thd_db_read_only(my_dbopt_t *opt)
   // We only need to update the existing threads (and block removing threads)
   // For new threads, they will initialize the local hash maps propoerly
   std::set<THD*> global_thread_list_copy;
-  mysql_mutex_lock(&LOCK_thd_remove);
+  mutex_lock_all_shards(SHARDED(&LOCK_thd_remove));
   copy_global_thread_list(&global_thread_list_copy);
 
-  Thread_iterator it= global_thread_list_copy.begin();
-  Thread_iterator end= global_thread_list_copy.end();
+  std::set<THD*>::iterator it= global_thread_list_copy.begin();
+  std::set<THD*>::iterator end= global_thread_list_copy.end();
   for (; it != end; ++it)
   {
     THD *tmp= *it;
@@ -314,7 +315,7 @@ static void del_thd_db_read_only(my_dbopt_t *opt)
     mysql_mutex_unlock(&tmp->LOCK_thd_db_read_only_hash);
   }
 
-  mysql_mutex_unlock(&LOCK_thd_remove);
+  mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
 
   DBUG_VOID_RETURN;
 }
@@ -424,11 +425,11 @@ static void update_thd_db_read_only(const char *path, uchar db_read_only)
   // We only need to update the existing threads (and block removing threads)
   // For new threads, they will initialize the local hash maps propoerly
   std::set<THD*> global_thread_list_copy;
-  mysql_mutex_lock(&LOCK_thd_remove);
+  mutex_lock_all_shards(SHARDED(&LOCK_thd_remove));
   copy_global_thread_list(&global_thread_list_copy);
 
-  Thread_iterator it= global_thread_list_copy.begin();
-  Thread_iterator end= global_thread_list_copy.end();
+  std::set<THD*>::iterator it= global_thread_list_copy.begin();
+  std::set<THD*>::iterator end= global_thread_list_copy.end();
   for (; it != end; ++it)
   {
     THD *tmp= *it;
@@ -458,7 +459,7 @@ static void update_thd_db_read_only(const char *path, uchar db_read_only)
     mysql_mutex_unlock(&tmp->LOCK_thd_db_read_only_hash);
   }
 
-  mysql_mutex_unlock(&LOCK_thd_remove);
+  mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
   mysql_rwlock_unlock(&LOCK_dboptions);
 
   DBUG_VOID_RETURN;
