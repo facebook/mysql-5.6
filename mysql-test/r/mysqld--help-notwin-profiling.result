@@ -620,6 +620,10 @@ The following options may be given as the first argument:
  Number of seconds to wait for a block to be written to a
  connection before aborting the write
  -n, --new           Use very new possible "unsafe" functions
+ --num-conn-handling-threads[=#] 
+ Use these many threads to offload accept threads
+ --num-sharded-listen-sockets[=#] 
+ Use more than 1 socket to listen on the same mysqld port
  --old               Use compatible behavior
  --old-alter-table   Use old, non-optimized alter table
  --old-passwords=#   Determine which hash algorithm to use when generating
@@ -1558,6 +1562,8 @@ The following options may be given as the first argument:
  document fields received through row based replication.
  --use-fbson-output-format 
  Uses FBSON format as document type output.
+ --use-socket-sharding 
+ Use multiple listen sockets on the same mysqld port
  -u, --user=name     Run mysqld daemon as user.
  --validate-user-plugins 
  Turns on additional validation of authentication plugins
@@ -1765,6 +1771,8 @@ net-read-timeout 30
 net-retry-count 10
 net-write-timeout 60
 new FALSE
+num-conn-handling-threads 1
+num-sharded-listen-sockets 1
 old FALSE
 old-alter-table FALSE
 old-passwords 0
@@ -2049,6 +2057,7 @@ updatable-views-with-limit YES
 use-db-uuid FALSE
 use-fbson-input-format FALSE
 use-fbson-output-format FALSE
+use-socket-sharding FALSE
 validate-user-plugins TRUE
 verbose TRUE
 wait-timeout 28800

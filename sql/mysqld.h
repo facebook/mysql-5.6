@@ -944,6 +944,9 @@ extern ulong sql_slave_skip_counter_usage;
 extern ulonglong rbr_unsafe_queries;
 extern my_bool use_db_uuid;
 extern my_bool separate_conn_handling_thread;
+extern uint num_sharded_sockets;
+extern uint num_conn_handling_threads;
+extern my_bool gl_socket_sharding;
 
 enum enum_gtid_mode
 {

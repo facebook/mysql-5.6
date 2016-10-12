@@ -67,8 +67,10 @@
 #include <atomic>
 #include <type_traits>
 #include <cassert>
+#ifndef DBUG_OFF
 #include "my_global.h"
 #include "my_pthread.h"
+#endif
 
 
 /**

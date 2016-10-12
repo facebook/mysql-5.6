@@ -5581,10 +5581,49 @@ static Sys_var_charptr Sys_read_only_error_msg_extra(
        IN_SYSTEM_CHARSET, DEFAULT(""), NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
 #ifndef EMBEDDED_LIBRARY
+#if defined(HAVE_SOREUSEPORT)
+static Sys_var_mybool Sys_use_socket_sharding(
+       "use_socket_sharding",
+       "Use multiple listen sockets on the same mysqld port",
+       READ_ONLY GLOBAL_VAR(gl_socket_sharding),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
+// This variable controls the number of threads that
+// mysqld can use to poll for and accept incoming client connections.
+// Under the hood it uses the kernel feature SO_REUSEPORT to
+// bind multiple sockets onto the same listen port.
+// Benchmarking has shown that on linux, 3 ports give almost
+// linear increase in connection accept rates from the kernel
+// and beyond 4 there is not much improvement.
+static Sys_var_uint Sys_num_sharded_sockets(
+       "num_sharded_listen_sockets",
+       "Use more than 1 socket to listen on the same mysqld port",
+       READ_ONLY GLOBAL_VAR(num_sharded_sockets), CMD_LINE(OPT_ARG),
+       VALID_RANGE(1, 10), DEFAULT(1), BLOCK_SIZE(1));
+#endif
+
 static Sys_var_mybool Sys_offload_conn_handling(
        "separate_conn_handling_thread",
        "Use a separate thread from the accept thread "
        "to offload connection handling",
        READ_ONLY GLOBAL_VAR(separate_conn_handling_thread),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
+// This variable controls the number of threads that mysqld will use
+// to do the heavy lifting of creating connection datastructures
+// These threads are "dedicated_conn_handling_threads"
+// When socket sharding is used, connections will be accepted by
+// soreusethread and then sent to dedicated_conn_handling_thread
+// to prep the connection datastructures.
+// If socket sharding is not used we should limit this value to 1
+// as the kernel accept rate is not high enough to need more than
+// 1 thread.  If socket sharding is using 4 threads, then a
+// typical value of 2-4 is good enough. We have not seen any
+// improvement in mysqld connection rate beyond a value of 2.
+static Sys_var_uint Sys_num_conn_handling_threads(
+       "num_conn_handling_threads",
+       "Use these many threads to offload accept threads",
+       READ_ONLY GLOBAL_VAR(num_conn_handling_threads), CMD_LINE(OPT_ARG),
+       VALID_RANGE(1, 10), DEFAULT(1), BLOCK_SIZE(1));
+
 #endif

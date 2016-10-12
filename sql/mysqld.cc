@@ -312,7 +312,6 @@ extern "C" sig_handler handle_fatal_signal(int sig);
 #define ENABLE_TEMP_POOL 0
 #endif
 
-#define NUM_SHARDED_SOCKETS 1
 class SOCKET_PACKET {
 
 public:
@@ -323,6 +322,7 @@ public:
 
   SOCKET_PACKET() : is_admin(false), is_unix_sock(false) { }
 };
+
 static std::vector<mpsc_queue_t<SOCKET_PACKET>* > sockets_list;
 
 #if !defined(EMBEDDED_LIBRARY)
@@ -330,8 +330,14 @@ static std::vector<mpsc_queue_t<SOCKET_PACKET>* > sockets_list;
 static uint64_t con_threads_count= 0;
 static uint64_t con_threads_new= 0;
 static uint64_t con_threads_wait= 0;
+static uint64_t dropped_conns= 0;
 #endif
 my_bool separate_conn_handling_thread= 0;
+my_bool gl_socket_sharding= 0;
+uint num_sharded_sockets= 1;
+uint num_conn_handling_threads= 1;
+static std::vector<MYSQL_SOCKET> ip_sharded_sockets;
+std::atomic<uint64_t> send_q_index(0);
 #endif
 
 /* Constants */
@@ -1477,8 +1483,12 @@ static void set_server_version(void);
 static int init_thread_environment();
 static char *get_relative_path(const char *path);
 static int fix_paths(void);
-void handle_connections_sockets(bool admin, int64_t socket_index = -1);
+void handle_connections_sockets(bool admin,
+  const MYSQL_SOCKET *socket_ptr= NULL);
 pthread_handler_t dedicated_conn_handling_thread(void *arg);
+#if defined(HAVE_SOREUSEPORT)
+pthread_handler_t soreusethread(void *arg);
+#endif
 #ifdef _WIN32
 pthread_handler_t handle_connections_sockets_thread(void *arg);
 #endif
@@ -2538,7 +2548,7 @@ static MYSQL_SOCKET create_socket(const struct addrinfo *addrinfo_list,
 /**
    Activate usage of a tcp port
 */
-static MYSQL_SOCKET activate_tcp_port(uint port)
+static MYSQL_SOCKET activate_tcp_port(uint port, my_bool socket_sharding= 0)
 {
   int arg;
   int   ret;
@@ -2681,6 +2691,14 @@ static MYSQL_SOCKET activate_tcp_port(uint port)
                                  (char*)&arg,sizeof(arg));
 #endif /* __WIN__ */
 
+#if defined(HAVE_SOREUSEPORT)
+  if (socket_sharding) {
+    int  reuseport = 1;
+    (void)mysql_socket_setsockopt(tmp_ip_sock, SOL_SOCKET, SO_REUSEPORT,
+      (const void *) &reuseport, sizeof(int));
+  }
+#endif
+
 #ifdef IPV6_V6ONLY
    /*
      For interoperability with older clients, IPv6 socket should
@@ -2766,15 +2784,27 @@ static void network_init(void)
 
   if (!opt_disable_networking && !opt_bootstrap)
   {
-    if (mysqld_port != 0)
-      ip_sock= activate_tcp_port(mysqld_port);
+    if (mysqld_port != 0) {
+      ip_sock= activate_tcp_port(mysqld_port, gl_socket_sharding);
+
+#if defined(HAVE_SOREUSEPORT)
+      if (gl_socket_sharding) {
+        ip_sharded_sockets.resize(num_sharded_sockets);
+        ip_sharded_sockets[0] = ip_sock;
+        for(uint sid = 1; sid < num_sharded_sockets; sid++) {
+          ip_sharded_sockets[sid] = activate_tcp_port(mysqld_port, 1);
+        }
+      }
+#endif
+    }
+
     if (mysqld_admin_port != 0)
       admin_ip_sock = activate_tcp_port(mysqld_admin_port);
 
     if (separate_conn_handling_thread)
     {
-      sockets_list.resize(NUM_SHARDED_SOCKETS);
-      for (size_t ii = 0; ii < NUM_SHARDED_SOCKETS; ii++)
+      sockets_list.resize(num_conn_handling_threads);
+      for (uint ii = 0; ii < num_conn_handling_threads; ii++)
         sockets_list[ii] = new mpsc_queue_t<SOCKET_PACKET>;
     }
   }
@@ -6652,25 +6682,59 @@ static void handle_connections_sockets_all()
     }
   }
 
+  pthread_t hThread;
+#if defined(HAVE_SOREUSEPORT)
+  if (gl_socket_sharding) {
+    if (mysql_socket_getfd(ip_sock) != INVALID_SOCKET &&
+        !opt_disable_networking)
+    {
+      for (uint tid = 1; tid < num_sharded_sockets; tid++) {
+        handler_count++;
+        if ((error= mysql_thread_create(key_thread_handle_con_sockets,
+                      &hThread, &connection_attrib,
+                      soreusethread, reinterpret_cast<void*>(tid))))
+        {
+          // NO_LINT_DEBUG
+          sql_print_warning("Can't create thread to handle TCP/IP"
+                            " (errno= %d)", error);
+          handler_count--;
+        }
+      }
+    }
+#if defined(ALTER_THREAD_NAMES)
+    pthread_t self = pthread_self();
+    pthread_setname_np(self, "soreuse_0");
+#endif
+  }
+#endif
+
   if (separate_conn_handling_thread)
   {
-    handler_count++;
-    pthread_t hThread;
-    if ((error= mysql_thread_create(key_thread_handle_con_sockets,
-      &hThread, &connection_attrib,
-      dedicated_conn_handling_thread, reinterpret_cast<void*>(0))))
-    {
-      // NO_LINT_DEBUG
-      sql_print_warning("Can't create dedicated thread to handle TCP/IP"
-                        " (errno= %d)", error);
-      handler_count--;
+    for (uint chid = 0; chid < num_conn_handling_threads; chid++) {
+      handler_count++;
+      if ((error= mysql_thread_create(key_thread_handle_con_sockets,
+        &hThread, &connection_attrib,
+        dedicated_conn_handling_thread, reinterpret_cast<void*>(chid))))
+      {
+        // NO_LINT_DEBUG
+        sql_print_warning("Can't create dedicated thread to handle TCP/IP"
+                                " (errno= %d)", error);
+        handler_count--;
+      }
     }
   }
+
+  MYSQL_SOCKET *socket_ptr = NULL;
+#if defined(HAVE_SOREUSEPORT)
+  if (gl_socket_sharding) {
+    socket_ptr = &ip_sharded_sockets[0];
+  }
+#endif
 
   mysql_mutex_unlock(&LOCK_thread_count);
 
   // handle regular connections to UNIX socket and TCP socket in main thread.
-  handle_connections_sockets(false);
+  handle_connections_sockets(false, socket_ptr);
 
   mysql_mutex_lock(&LOCK_thread_count);
 
@@ -7758,9 +7822,6 @@ void create_thread_to_handle_connection(THD *thd)
 }
 
 
-#if !defined(DBUG_OFF)
-static uint64_t dropped_conns= 0;
-#endif
 
 /**
   Create new thread to handle incoming connection.
@@ -7871,7 +7932,7 @@ inline void kill_broken_server()
 
 #ifndef EMBEDDED_LIBRARY
 
-void handle_connections_sockets(bool admin, int64_t socket_index)
+void handle_connections_sockets(bool admin, const MYSQL_SOCKET *socket_ptr)
 {
   MYSQL_SOCKET sock= mysql_socket_invalid();
   MYSQL_SOCKET new_sock= mysql_socket_invalid();
@@ -7911,8 +7972,10 @@ void handle_connections_sockets(bool admin, int64_t socket_index)
   (void) socket_flags;
   (void) admin_ip_flags;
 
+  MYSQL_SOCKET cur_ip_sock = (socket_ptr == NULL) ? ip_sock : *socket_ptr;
   if (admin)
   {
+    DBUG_ASSERT(socket_ptr == NULL);
     if (mysql_socket_getfd(admin_ip_sock) != INVALID_SOCKET)
     {
       mysql_socket_set_thread_owner(admin_ip_sock);
@@ -7924,12 +7987,12 @@ void handle_connections_sockets(bool admin, int64_t socket_index)
   }
   else
   {
-    if (mysql_socket_getfd(ip_sock) != INVALID_SOCKET)
+    if (mysql_socket_getfd(cur_ip_sock) != INVALID_SOCKET)
     {
-      mysql_socket_set_thread_owner(ip_sock);
-      setup_fds(ip_sock);
+      mysql_socket_set_thread_owner(cur_ip_sock);
+      setup_fds(cur_ip_sock);
 #ifdef HAVE_FCNTL
-      ip_flags = fcntl(mysql_socket_getfd(ip_sock), F_GETFL, 0);
+      ip_flags = fcntl(mysql_socket_getfd(cur_ip_sock), F_GETFL, 0);
 #endif
     }
 
@@ -8001,9 +8064,9 @@ void handle_connections_sockets(bool admin, int64_t socket_index)
     }
     else
 #endif // HAVE_SYS_UN_H
-    if (!admin && FD_ISSET(mysql_socket_getfd(ip_sock), &readFDs))
+    if (!admin && FD_ISSET(mysql_socket_getfd(cur_ip_sock), &readFDs))
     {
-      sock = ip_sock;
+      sock = cur_ip_sock;
       flags= ip_flags;
     }
     else
@@ -8104,16 +8167,15 @@ void handle_connections_sockets(bool admin, int64_t socket_index)
 #endif /* HAVE_LIBWRAP */
 
     if (!admin && separate_conn_handling_thread)  {
-      int64_t pool_index = (socket_index != -1) ? socket_index : 0;
-
       SOCKET_PACKET pkt;
       pkt.new_sock = new_sock;
       pkt.is_admin = admin;
       pkt.is_unix_sock = (mysql_socket_getfd(sock)
         == mysql_socket_getfd(unix_sock));
 
-      DBUG_ASSERT(pool_index < NUM_SHARDED_SOCKETS);
-      sockets_list[pool_index]->enqueue(pkt);
+      // round robin
+      uint64_t qidx = send_q_index++;
+      sockets_list[qidx % num_conn_handling_threads]->enqueue(pkt);
     } else {
 
     /*
@@ -8166,18 +8228,42 @@ void handle_connections_sockets(bool admin, int64_t socket_index)
   DBUG_VOID_RETURN;
 }
 
+#if defined(HAVE_SOREUSEPORT)
+pthread_handler_t soreusethread(void *arg)
+{
+  my_thread_init();
+  uint64_t sid = reinterpret_cast<uint64_t>(arg);
+  DBUG_ASSERT(sid < ip_sharded_sockets.size());
+  const MYSQL_SOCKET *socket_ptr = &ip_sharded_sockets[sid];
+
+#if defined(ALTER_THREAD_NAMES)
+  pthread_t self = pthread_self();
+  char xn[16];
+  std::snprintf(xn, sizeof(xn), "soreuse_%d", (int)sid);
+  (void)pthread_setname_np(self, xn);
+#endif
+
+  handle_connections_sockets(false, socket_ptr);
+
+  mysql_mutex_lock(&LOCK_thread_count);
+  handler_count--;
+  mysql_cond_broadcast(&COND_thread_count);
+  mysql_mutex_unlock(&LOCK_thread_count);
+  my_thread_end();
+  return 0;
+}
+#endif
+
 pthread_handler_t dedicated_conn_handling_thread(void *arg)
 {
   my_thread_init();
-  int64_t sid = reinterpret_cast<int64_t>(arg);
-  if (sid == -1) {
-    sid = 0;
-  }
+  uint64_t sid = reinterpret_cast<uint64_t>(arg);
+#if defined(ALTER_THREAD_NAMES)
   pthread_t self = pthread_self();
-
   char xn[16];
   std::snprintf(xn, sizeof(xn), "ded_conn_h_%d", (int)sid);
   pthread_setname_np(self, xn);
+#endif
 
   int num_backoffs = 0;
   while (!abort_loop) {
