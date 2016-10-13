@@ -748,6 +748,9 @@ enum enum_commands {
   Q_QUERY_ATTRS_DELETE,
   Q_QUERY_ATTRS_RESET,
   Q_SHOW_OK_GTID,
+  Q_CONN_ATTRS_ADD,
+  Q_CONN_ATTRS_DELETE,
+  Q_CONN_ATTRS_RESET,
   Q_UNKNOWN,			       /* Unknown command.   */
   Q_COMMENT,			       /* Comments, ignored. */
   Q_COMMENT_WITH_COMMAND,
@@ -828,7 +831,6 @@ const char *command_names[]=
   "copy_file",
   "perl",
   "die",
-               
   /* Don't execute any more commands, compare result */
   "exit",
   "skip",
@@ -856,6 +858,9 @@ const char *command_names[]=
   "query_attrs_delete",
   "query_attrs_reset",
   "show_ok_gtid",
+  "conn_attrs_add",
+  "conn_attrs_delete",
+  "conn_attrs_reset",
 
   0
 };
@@ -6654,6 +6659,52 @@ void do_query_attrs_delete(struct st_command *command)
 }
 
 
+void do_conn_attrs_add(struct st_command *command)
+{
+  int error;
+  static DYNAMIC_STRING key;
+  static DYNAMIC_STRING value;
+  const struct command_arg conn_attrs_args[] = {
+    { "key", ARG_STRING, TRUE, &key, "Key for connection attributes" },
+    { "value", ARG_STRING, TRUE, &value, "Value for connection attributes" }
+  };
+  DBUG_ENTER("do_conn_attrs_add");
+
+  check_command_args(command, command->first_argument,
+                     conn_attrs_args,
+                     sizeof(conn_attrs_args)/sizeof(struct command_arg),
+                     ' ');
+
+  error= mysql_options4(&cur_con->mysql, MYSQL_OPT_CONNECT_ATTR_ADD,
+                        key.str, value.str);
+  handle_command_error(command, error);
+  dynstr_free(&key);
+  dynstr_free(&value);
+  DBUG_VOID_RETURN;
+}
+
+
+void do_conn_attrs_delete(struct st_command *command)
+{
+  int error;
+  static DYNAMIC_STRING key;
+  const struct command_arg conn_attrs_args[] = {
+    { "key", ARG_STRING, TRUE, &key, "Key for connection attributes" },
+  };
+  DBUG_ENTER("do_conn_attrs_delete");
+
+  check_command_args(command, command->first_argument,
+                     conn_attrs_args,
+                     sizeof(conn_attrs_args)/sizeof(struct command_arg),
+                     ' ');
+
+  error= mysql_options(&cur_con->mysql, MYSQL_OPT_CONNECT_ATTR_DELETE, key.str);
+  handle_command_error(command, error);
+  dynstr_free(&key);
+  DBUG_VOID_RETURN;
+}
+
+
 void do_delimiter(struct st_command* command)
 {
   char* p= command->first_argument;
@@ -9871,6 +9922,16 @@ int main(int argc, char **argv)
         break;
       case Q_QUERY_ATTRS_RESET:
         mysql_options(&cur_con->mysql, MYSQL_OPT_QUERY_ATTR_RESET, 0);
+        break;
+
+      case Q_CONN_ATTRS_ADD:
+        do_conn_attrs_add(command);
+        break;
+      case Q_CONN_ATTRS_DELETE:
+        do_conn_attrs_delete(command);
+        break;
+      case Q_CONN_ATTRS_RESET:
+        mysql_options(&cur_con->mysql, MYSQL_OPT_CONNECT_ATTR_RESET, 0);
         break;
 
       case Q_SHOW_OK_GTID:

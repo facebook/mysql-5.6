@@ -509,6 +509,7 @@ void init_update_queries(void)
   sql_command_flags[SQLCOM_SHOW_ENGINE_TRX]=  CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_PROCESSLIST]= CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_TRANSACTION_LIST]= CF_STATUS_COMMAND;
+  sql_command_flags[SQLCOM_SHOW_CONNECTION_ATTRIBUTES]= CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_GRANTS]=      CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE_DB]=   CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE]=  CF_STATUS_COMMAND;
@@ -1660,26 +1661,6 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
   {
     size_t attrs_len= net_field_length((uchar**) &packet);
     thd->set_query_attrs(CSET_STRING(packet, attrs_len, thd->charset()));
-
-    DBUG_EXECUTE_IF("print_query_attr", {
-        char* cur= packet;
-        size_t len;
-
-        // NO_LINT_DEBUG
-        fprintf(stderr, "[query-attrs][list]\n");
-        while (cur < packet + attrs_len)
-        {
-          len= net_field_length((uchar**) &cur);
-          // NO_LINT_DEBUG
-          fprintf(stderr, "[query-attrs][key] %.*s\n", (int)len, cur);
-          cur+= len;
-          len= net_field_length((uchar**) &cur);
-          // NO_LINT_DEBUG
-          fprintf(stderr, "[query-attrs][value] %.*s\n", (int)len, cur);
-          cur+= len;
-        }
-      }
-    );
     // Fall through to COM_QUERY
   }
   case COM_QUERY:
@@ -4495,6 +4476,16 @@ end_with_restore_list:
         check_global_access(thd, PROCESS_ACL))
       break;
     mysqld_list_transactions(thd,
+			  (thd->security_ctx->master_access & PROCESS_ACL ?
+                           NullS :
+                           thd->security_ctx->priv_user),
+                          lex->verbose);
+    break;
+  case SQLCOM_SHOW_CONNECTION_ATTRIBUTES:
+    if (!thd->security_ctx->priv_user[0] &&
+        check_global_access(thd, PROCESS_ACL))
+      break;
+    mysqld_list_connection_attrs(thd,
 			  (thd->security_ctx->master_access & PROCESS_ACL ?
                            NullS :
                            thd->security_ctx->priv_user),
@@ -7567,6 +7558,7 @@ static bool filter_command(enum_sql_command sql_command)
     case SQLCOM_SHOW_RELAYLOG_EVENTS:
     case SQLCOM_SHOW_ENGINE_TRX:
     case SQLCOM_SHOW_MEMORY_STATUS:
+    case SQLCOM_SHOW_CONNECTION_ATTRIBUTES:
       return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_SHOW);
 
     default:

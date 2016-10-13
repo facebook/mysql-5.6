@@ -4545,12 +4545,67 @@ public:
 
   void mark_transaction_to_rollback(bool all);
 
-  void set_query_attrs(const CSET_STRING &arg) { query_attrs_string= arg; }
-  void reset_query_attrs() { set_query_attrs(CSET_STRING()); }
+  void set_query_attrs(const CSET_STRING &arg)
+  {
+    query_attrs_string= arg;
+    set_attrs_map(query_attrs_string.str(), query_attrs_string.length(),
+        query_attrs_map, true);
+  }
+  void reset_query_attrs()
+  {
+    query_attrs_string= CSET_STRING();
+    query_attrs_map.clear();
+  }
   inline char *query_attrs() const { return query_attrs_string.str(); }
   inline uint32 query_attrs_length() const
   {
     return query_attrs_string.length();
+  }
+
+  void set_connection_attrs(const char *attrs, size_t length)
+  {
+    mysql_mutex_lock(&LOCK_thd_data);
+    set_attrs_map(attrs, length, connection_attrs_map, false);
+    mysql_mutex_unlock(&LOCK_thd_data);
+  }
+
+  std::unordered_map<std::string, std::string> query_attrs_map;
+  std::unordered_map<std::string, std::string> connection_attrs_map;
+
+private:
+  void set_attrs_map(const char *ptr, size_t length,
+                     std::unordered_map<std::string, std::string> &attrs_map,
+                     bool is_query)
+  {
+    const char *end = ptr + length;
+
+    const char *key, *value;
+    size_t klen, vlen;
+
+    if (is_query)
+      DBUG_EXECUTE_IF("print_query_attr", {
+          // NO_LINT_DEBUG
+          fprintf(stderr, "[query-attrs][list]\n");
+      });
+
+    attrs_map.clear();
+    while (ptr < end)
+    {
+      klen = net_field_length((uchar**) &ptr);
+      key = ptr;
+      ptr += klen;
+      vlen = net_field_length((uchar**) &ptr);
+      value = ptr;
+      ptr += vlen;
+      attrs_map[std::string(key, klen)] = std::string(value, vlen);
+      if (is_query)
+        DBUG_EXECUTE_IF("print_query_attr", {
+            // NO_LINT_DEBUG
+            fprintf(stderr, "[query-attrs][key] %.*s\n", (int)klen, key);
+            // NO_LINT_DEBUG
+            fprintf(stderr, "[query-attrs][value] %.*s\n", (int)vlen, value);
+        });
+    }
   }
 
 private:

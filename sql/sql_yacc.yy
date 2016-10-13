@@ -1329,6 +1329,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  CONCURRENT
 %token  CONDITION_SYM                 /* SQL-2003-R, SQL-2008-R */
 %token  CONNECTION_SYM
+%token  CONNECTION_ATTRIBUTES_SYM
 %token  CONSISTENT_SYM
 %token  CONSTRAINT                    /* SQL-2003-R */
 %token  CONSTRAINT_CATALOG_SYM        /* SQL-2003-N */
@@ -13389,6 +13390,8 @@ show_param:
           { Lex->sql_command= SQLCOM_SHOW_PROCESSLIST;}
         | opt_full TRANSACTION_LIST_SYM
           { Lex->sql_command= SQLCOM_SHOW_TRANSACTION_LIST;}
+        | opt_full CONNECTION_ATTRIBUTES_SYM
+          { Lex->sql_command= SQLCOM_SHOW_CONNECTION_ATTRIBUTES;}
         | opt_var_type  VARIABLES wild_and_where
           {
             LEX *lex= Lex;
@@ -14966,6 +14969,7 @@ keyword_sp:
         | COMPRESSED_SYM           {}
         | CONCURRENT               {}
         | CONNECTION_SYM           {}
+        | CONNECTION_ATTRIBUTES_SYM {}
         | CONSISTENT_SYM           {}
         | CONSTRAINT_CATALOG_SYM   {}
         | CONSTRAINT_SCHEMA_SYM    {}

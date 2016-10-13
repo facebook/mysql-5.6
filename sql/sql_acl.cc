@@ -9894,181 +9894,44 @@ static bool
 read_client_connect_attrs(char **ptr, size_t *max_bytes_available,
                           const CHARSET_INFO *from_cs)
 {
+  DBUG_ENTER ("read_client_connect_attrs");
   size_t length, length_length;
   char *ptr_save;
   /* not enough bytes to hold the length */
   if (*max_bytes_available < 1)
-    return true;
+    DBUG_RETURN(1);
 
   /* read the length */
   ptr_save= *ptr;
   length= net_field_length_ll((uchar **) ptr);
   length_length= *ptr - ptr_save;
   if (*max_bytes_available < length_length)
-    return true;
+    DBUG_RETURN(1);
 
   *max_bytes_available-= length_length;
 
   /* length says there're more data than can fit into the packet */
   if (length > *max_bytes_available)
-    return true;
+    DBUG_RETURN(1);
 
   /* impose an artificial length limit of 64k */
   if (length > 65535)
-    return true;
+    DBUG_RETURN(1);
+
+  // saving connection attributes
+  THD *thd = current_thd;
+  thd->set_connection_attrs(*ptr, length);
 
 #ifdef HAVE_PSI_THREAD_INTERFACE
   if (PSI_THREAD_CALL(set_thread_connect_attrs)(*ptr, length, from_cs) && log_warnings)
     sql_print_warning("Connection attributes of length %lu were truncated",
                       (unsigned long) length);
 #endif
-  return false;
+  DBUG_RETURN(0);
 }
 
 
 #endif
-
-/* the packet format is described in send_change_user_packet() */
-static bool parse_com_change_user_packet(MPVIO_EXT *mpvio, uint packet_length)
-{
-  NET *net= mpvio->net;
-
-  char *user= (char*) net->read_pos;
-  char *end= user + packet_length;
-  /* Safe because there is always a trailing \0 at the end of the packet */
-  char *passwd= strend(user) + 1;
-  uint user_len= passwd - user - 1;
-  char *db= passwd;
-  char db_buff[NAME_LEN + 1];                 // buffer to store db in utf8
-  char user_buff[USERNAME_LENGTH + 1];	      // buffer to store user in utf8
-  uint dummy_errors;
-
-  DBUG_ENTER ("parse_com_change_user_packet");
-  if (passwd >= end)
-  {
-    my_message(ER_UNKNOWN_COM_ERROR, ER(ER_UNKNOWN_COM_ERROR), MYF(0));
-    DBUG_RETURN (1);
-  }
-
-  /*
-    Old clients send null-terminated string as password; new clients send
-    the size (1 byte) + string (not null-terminated). Hence in case of empty
-    password both send '\0'.
-
-    This strlen() can't be easily deleted without changing protocol.
-
-    Cast *passwd to an unsigned char, so that it doesn't extend the sign for
-    *passwd > 127 and become 2**32-127+ after casting to uint.
-  */
-  uint passwd_len= (mpvio->client_capabilities & CLIENT_SECURE_CONNECTION ?
-                    (uchar) (*passwd++) : strlen(passwd));
-
-  db+= passwd_len + 1;
-  /*
-    Database name is always NUL-terminated, so in case of empty database
-    the packet must contain at least the trailing '\0'.
-  */
-  if (db >= end)
-  {
-    my_message(ER_UNKNOWN_COM_ERROR, ER(ER_UNKNOWN_COM_ERROR), MYF(0));
-    DBUG_RETURN (1);
-  }
-
-  uint db_len= strlen(db);
-
-  char *ptr= db + db_len + 1;
-
-  if (ptr + 1 < end)
-  {
-    if (mpvio->charset_adapter->init_client_charset(uint2korr(ptr)))
-      DBUG_RETURN(1);
-  }
-
-  /* Convert database and user names to utf8 */
-  db_len= copy_and_convert(db_buff, sizeof(db_buff) - 1, system_charset_info,
-                           db, db_len, mpvio->charset_adapter->charset(),
-                           &dummy_errors);
-  db_buff[db_len]= 0;
-
-  user_len= copy_and_convert(user_buff, sizeof(user_buff) - 1,
-                                  system_charset_info, user, user_len,
-                                  mpvio->charset_adapter->charset(),
-                                  &dummy_errors);
-  user_buff[user_len]= 0;
-
-  /* we should not free mpvio->user here: it's saved by dispatch_command() */
-  if (!(mpvio->auth_info.user_name= my_strndup(user_buff, user_len, MYF(MY_WME))))
-    return 1;
-  mpvio->auth_info.user_name_length= user_len;
-
-  if (make_lex_string_root(mpvio->mem_root, 
-                           &mpvio->db, db_buff, db_len, 0) == 0)
-    DBUG_RETURN(1); /* The error is set by make_lex_string(). */
-
-  if (!initialized)
-  {
-    // if mysqld's been started with --skip-grant-tables option
-    strmake(mpvio->auth_info.authenticated_as, 
-            mpvio->auth_info.user_name, USERNAME_LENGTH);
-
-    mpvio->status= MPVIO_EXT::SUCCESS;
-    DBUG_RETURN(0);
-  }
-
-#ifndef NO_EMBEDDED_ACCESS_CHECKS
-  if (find_mpvio_user(mpvio))
-  {
-    DBUG_RETURN(1);
-  }
-
-  char *client_plugin;
-  if (mpvio->client_capabilities & CLIENT_PLUGIN_AUTH)
-  {
-    client_plugin= ptr + 2;
-    if (client_plugin >= end)
-    {
-      my_message(ER_UNKNOWN_COM_ERROR, ER(ER_UNKNOWN_COM_ERROR), MYF(0));
-      DBUG_RETURN(1);
-    }
-  }
-  else
-  {
-    if (mpvio->client_capabilities & CLIENT_SECURE_CONNECTION)
-      client_plugin= native_password_plugin_name.str;
-    else
-    {
-      client_plugin=  old_password_plugin_name.str;
-      /*
-        For a passwordless accounts we use native_password_plugin.
-        But when an old 4.0 client connects to it, we change it to
-        old_password_plugin, otherwise MySQL will think that server 
-        and client plugins don't match.
-      */
-      if (mpvio->acl_user->salt_len == 0)
-        mpvio->acl_user_plugin= old_password_plugin_name;
-    }
-  }
-
-  size_t bytes_remaining_in_packet= end - ptr;
-
-  if ((mpvio->client_capabilities & CLIENT_CONNECT_ATTRS) &&
-      read_client_connect_attrs(&ptr, &bytes_remaining_in_packet,
-                                mpvio->charset_adapter->charset()))
-    return packet_error;
-
-  DBUG_PRINT("info", ("client_plugin=%s, restart", client_plugin));
-  /* 
-    Remember the data part of the packet, to present it to plugin in 
-    read_packet() 
-  */
-  mpvio->cached_client_reply.pkt= passwd;
-  mpvio->cached_client_reply.pkt_len= passwd_len;
-  mpvio->cached_client_reply.plugin= client_plugin;
-  mpvio->status= MPVIO_EXT::RESTART;
-#endif
-
-  DBUG_RETURN (0);
-}
 
 #ifndef EMBEDDED_LIBRARY
 /** Get a string according to the protocol of the underlying buffer. */
@@ -10275,8 +10138,162 @@ char *get_41_lenc_string(char **buffer,
   *buffer+= *string_length + 1;
   return str;
 }
+
+static get_proto_string_func_t get_proto_string_func(MPVIO_EXT *mpvio)
+{
+  return mpvio->client_capabilities & CLIENT_PROTOCOL_41?
+    get_41_protocol_string : get_40_protocol_string;
+}
 #endif // EMBEDDED LIBRARY
 
+/* the packet format is described in send_change_user_packet() */
+static bool parse_com_change_user_packet(MPVIO_EXT *mpvio, uint packet_length)
+{
+  NET *net= mpvio->net;
+
+  char *user= (char*) net->read_pos;
+  char *end= user + packet_length;
+  /* Safe because there is always a trailing \0 at the end of the packet */
+  char *passwd= strend(user) + 1;
+  uint user_len= passwd - user - 1;
+  char *db= passwd;
+  char db_buff[NAME_LEN + 1];                 // buffer to store db in utf8
+  char user_buff[USERNAME_LENGTH + 1];	      // buffer to store user in utf8
+  uint dummy_errors;
+
+  DBUG_ENTER ("parse_com_change_user_packet");
+  if (passwd >= end)
+  {
+    my_message(ER_UNKNOWN_COM_ERROR, ER(ER_UNKNOWN_COM_ERROR), MYF(0));
+    DBUG_RETURN (1);
+  }
+
+  /*
+    Old clients send null-terminated string as password; new clients send
+    the size (1 byte) + string (not null-terminated). Hence in case of empty
+    password both send '\0'.
+
+    This strlen() can't be easily deleted without changing protocol.
+
+    Cast *passwd to an unsigned char, so that it doesn't extend the sign for
+    *passwd > 127 and become 2**32-127+ after casting to uint.
+  */
+  uint passwd_len= (mpvio->client_capabilities & CLIENT_SECURE_CONNECTION ?
+                    (uchar) (*passwd++) : strlen(passwd));
+
+  db+= passwd_len + 1;
+  /*
+    Database name is always NUL-terminated, so in case of empty database
+    the packet must contain at least the trailing '\0'.
+  */
+  if (db >= end)
+  {
+    my_message(ER_UNKNOWN_COM_ERROR, ER(ER_UNKNOWN_COM_ERROR), MYF(0));
+    DBUG_RETURN (1);
+  }
+
+  uint db_len= strlen(db);
+
+  char *ptr= db + db_len + 1;
+
+  if (ptr + 1 < end)
+  {
+    if (mpvio->charset_adapter->init_client_charset(uint2korr(ptr)))
+      DBUG_RETURN(1);
+  }
+
+  /* Convert database and user names to utf8 */
+  db_len= copy_and_convert(db_buff, sizeof(db_buff) - 1, system_charset_info,
+                           db, db_len, mpvio->charset_adapter->charset(),
+                           &dummy_errors);
+  db_buff[db_len]= 0;
+
+  user_len= copy_and_convert(user_buff, sizeof(user_buff) - 1,
+                                  system_charset_info, user, user_len,
+                                  mpvio->charset_adapter->charset(),
+                                  &dummy_errors);
+  user_buff[user_len]= 0;
+
+  /* we should not free mpvio->user here: it's saved by dispatch_command() */
+  if (!(mpvio->auth_info.user_name= my_strndup(user_buff, user_len, MYF(MY_WME))))
+    return 1;
+  mpvio->auth_info.user_name_length= user_len;
+
+  if (make_lex_string_root(mpvio->mem_root,
+                           &mpvio->db, db_buff, db_len, 0) == 0)
+    DBUG_RETURN(1); /* The error is set by make_lex_string(). */
+
+  if (!initialized)
+  {
+    // if mysqld's been started with --skip-grant-tables option
+    strmake(mpvio->auth_info.authenticated_as,
+            mpvio->auth_info.user_name, USERNAME_LENGTH);
+
+    mpvio->status= MPVIO_EXT::SUCCESS;
+    DBUG_RETURN(0);
+  }
+
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+  if (find_mpvio_user(mpvio))
+  {
+    DBUG_RETURN(1);
+  }
+
+  ptr += 2;
+  DBUG_ASSERT(ptr <= end);
+  char *client_plugin;
+  size_t bytes_remaining_in_packet= ptr<end ? end-ptr : 0;
+  if (mpvio->client_capabilities & CLIENT_PLUGIN_AUTH)
+  {
+    size_t client_plugin_len= 0;
+    get_proto_string_func_t get_string = get_proto_string_func(mpvio);
+    client_plugin= get_string(&ptr, &bytes_remaining_in_packet,
+                              &client_plugin_len);
+    if (client_plugin == NULL)
+    {
+      my_message(ER_UNKNOWN_COM_ERROR, ER(ER_UNKNOWN_COM_ERROR), MYF(0));
+      DBUG_RETURN(1);
+    }
+  }
+  else
+  {
+    if (mpvio->client_capabilities & CLIENT_SECURE_CONNECTION)
+      client_plugin= native_password_plugin_name.str;
+    else
+    {
+      client_plugin=  old_password_plugin_name.str;
+      /*
+        For a passwordless accounts we use native_password_plugin.
+        But when an old 4.0 client connects to it, we change it to
+        old_password_plugin, otherwise MySQL will think that server
+        and client plugins don't match.
+      */
+      if (mpvio->acl_user->salt_len == 0)
+        mpvio->acl_user_plugin= old_password_plugin_name;
+    }
+  }
+
+  DBUG_ASSERT(ptr <= end);
+  bytes_remaining_in_packet= ptr<end ? end-ptr : 0;
+
+  if ((mpvio->client_capabilities & CLIENT_CONNECT_ATTRS) &&
+      read_client_connect_attrs(&ptr, &bytes_remaining_in_packet,
+                                mpvio->charset_adapter->charset()))
+    return packet_error;
+
+  DBUG_PRINT("info", ("client_plugin=%s, restart", client_plugin));
+  /*
+    Remember the data part of the packet, to present it to plugin in
+    read_packet()
+  */
+  mpvio->cached_client_reply.pkt= passwd;
+  mpvio->cached_client_reply.pkt_len= passwd_len;
+  mpvio->cached_client_reply.plugin= client_plugin;
+  mpvio->status= MPVIO_EXT::RESTART;
+#endif
+
+  DBUG_RETURN (0);
+}
 
 /* the packet format is described in send_client_reply_packet() */
 static ulong parse_client_handshake_packet(MPVIO_EXT *mpvio,
@@ -10453,12 +10470,7 @@ skip_to_ssl:
     of the packet, the string is not null terminated. Do not assume
     that the returned string is always null terminated.
   */
-  get_proto_string_func_t get_string;
-
-  if (mpvio->client_capabilities & CLIENT_PROTOCOL_41)
-    get_string= get_41_protocol_string;
-  else
-    get_string= get_40_protocol_string;
+  get_proto_string_func_t get_string = get_proto_string_func(mpvio);
 
   /*
     When the ability to change default plugin require that the initial password
