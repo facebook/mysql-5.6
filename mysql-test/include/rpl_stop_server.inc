@@ -50,8 +50,8 @@ if ($rpl_debug)
 --exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.$rpl_server_number.expect
 
 # Send shutdown to the connected server and give
-# it 14 seconds to die before zapping it
---let $shutdown_server_timeout= 14
+# it 30 seconds to die before zapping it
+--let $shutdown_server_timeout= 30
 if ($rpl_force_stop)
 {
    # if force_stop is set, shutdown server immediately(equal to killing the server)

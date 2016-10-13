@@ -20,7 +20,7 @@ static uint32_t hash6432shift(uint64_t key)
   key = key ^ (key >> 11);
   key = key + (key << 6);
   key = key ^ (key >> 22);
-  return (int) key;
+  return (uint32_t) key;
 }
 
 static size_t get_mutex_shard(const THD *thd) {
@@ -29,15 +29,20 @@ static size_t get_mutex_shard(const THD *thd) {
 }
 
 std::pair<ShardedThreads::t_setitr, bool> ShardedThreads::insert(THD*& value ) {
-  return m_thread_list[get_mutex_shard(value)].insert(value);
+  size_t sv = get_mutex_shard(value);
+  DBUG_ASSERT(sv < m_thread_list.size());
+  return m_thread_list[sv].insert(value);
 }
 
 size_t ShardedThreads::erase(THD*& value) {
-  return m_thread_list[get_mutex_shard(value)].erase(value);
+  size_t sv = get_mutex_shard(value);
+  DBUG_ASSERT(sv < m_thread_list.size());
+  return m_thread_list[sv].erase(value);
 }
 
 Thread_iterator ShardedThreads::find(THD *value) {
-   uint sv = get_mutex_shard(value);
+  size_t sv = get_mutex_shard(value);
+  DBUG_ASSERT(sv < m_thread_list.size());
    auto itr = m_thread_list[sv].find(value);
    if (itr != m_thread_list[sv].end()) {
      return Thread_iterator(this, sv, itr);
