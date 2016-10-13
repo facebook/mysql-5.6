@@ -103,7 +103,6 @@
 #include <sys/prctl.h>
 #endif
 
-// Innocent comment.
 #ifdef TARGET_OS_LINUX
 #include <mntent.h>
 #include <sys/statfs.h>
