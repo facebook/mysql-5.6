@@ -1495,14 +1495,16 @@ int ha_commit_trans(THD *thd, bool all, bool async,
     if (rw_trans && check_ro(thd) && !ignore_global_read_lock)
     {
       std::string extra_info;
-      int nr = get_active_master_info(&extra_info);
+      get_active_master_info(&extra_info);
       if (opt_super_readonly)
       {
-        my_error(nr, MYF(0), "--read-only (super)", extra_info.c_str());
+        my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--read-only (super)",
+            extra_info.c_str());
       }
       else
       {
-        my_error(nr, MYF(0), "--read-only", extra_info.c_str());
+        my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--read-only",
+            extra_info.c_str());
       }
       ha_rollback_trans(thd, all);
       error= 1;

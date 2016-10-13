@@ -42,9 +42,9 @@ insert into t1 values(1002);
 insert into t2 values(2002);
 *** On regular USER connection ***
 insert into t1 values(1003);
-ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement
+ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement. 
 insert into t2 values(2003);
-ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement
+ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement. 
 *** SUPER USER COMMIT (must succeed) *** 
 COMMIT;
 *** regular USER COMMIT (must succeed - nothing to commit) *** 

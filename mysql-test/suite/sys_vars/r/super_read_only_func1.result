@@ -23,7 +23,7 @@ a
 2
 # write into table t1, should not succeed
 insert into t1(a) values(3);
-ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement
+ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement. 
 drop table t1;
 drop user normal_user;
 set global read_only= 1;

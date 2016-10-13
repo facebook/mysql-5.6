@@ -462,7 +462,8 @@ bool mysql_create_or_drop_trigger(THD *thd, TABLE_LIST *tables, bool create)
     if (check_ro(thd))
     {
         my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0),
-                 opt_super_readonly ? "--read-only (super)" : "--read-only");
+                 opt_super_readonly ? "--read-only (super)" : "--read-only",
+                 "");
         goto end;
     }
 

@@ -115,20 +115,20 @@ select * from t2;
 # Non root user can not write on the slave
 connection slave2;
 --replace_result $MASTER_MYPORT MASTER_PORT
---error ER_OPTION_PREVENTS_STATEMENT_EXTRA_INFO
+--error ER_OPTION_PREVENTS_STATEMENT
 insert into t1 values(1006);
 --replace_result $MASTER_MYPORT MASTER_PORT
---error ER_OPTION_PREVENTS_STATEMENT_EXTRA_INFO
+--error ER_OPTION_PREVENTS_STATEMENT
 insert into t2 values(2006);
 # set extra info for the error message
 connection slave2_root;
 set global read_only_error_msg_extra = "This is a custom message";
 connection slave2;
 --replace_result $MASTER_MYPORT MASTER_PORT
---error ER_OPTION_PREVENTS_STATEMENT_EXTRA_INFO
+--error ER_OPTION_PREVENTS_STATEMENT
 insert into t1 values(1006);
 --replace_result $MASTER_MYPORT MASTER_PORT
---error ER_OPTION_PREVENTS_STATEMENT_EXTRA_INFO
+--error ER_OPTION_PREVENTS_STATEMENT
 insert into t2 values(2006);
 connection slave2_root;
 set global read_only_error_msg_extra = default;
