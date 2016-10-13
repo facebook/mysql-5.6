@@ -1,0 +1,117 @@
+desc information_schema.connection_attributes;
+Field	Type	Null	Key	Default	Extra
+ID	bigint(21) unsigned	NO		0	
+ATTR_NAME	longtext	YES		NULL	
+ATTR_VALUE	longtext	YES		NULL	
+show connection_attributes;
+Id	Attr_Name	Attr_Value
+conn_root	_client_name	#
+conn_root	_client_version	#
+conn_root	_os	#
+conn_root	_pid	#
+conn_root	_platform	#
+conn_root	program_name	#
+select * from information_schema.connection_attributes;
+ID	ATTR_NAME	ATTR_VALUE
+conn_root	_client_name	#
+conn_root	_client_version	#
+conn_root	_os	#
+conn_root	_pid	#
+conn_root	_platform	#
+conn_root	program_name	#
+create user mysqluser1;
+select * from information_schema.connection_attributes;
+ID	ATTR_NAME	ATTR_VALUE
+conn_a	_client_name	#
+conn_a	_client_version	#
+conn_a	_os	#
+conn_a	_pid	#
+conn_a	_platform	#
+conn_a	program_name	#
+show connection_attributes;
+Id	Attr_Name	Attr_Value
+conn_a	_client_name	#
+conn_a	_client_version	#
+conn_a	_os	#
+conn_a	_pid	#
+conn_a	_platform	#
+conn_a	program_name	#
+# connection default
+select * from information_schema.connection_attributes;
+ID	ATTR_NAME	ATTR_VALUE
+conn_a	_client_name	#
+conn_a	_client_version	#
+conn_a	_os	#
+conn_a	_pid	#
+conn_a	_platform	#
+conn_a	program_name	#
+conn_root	_client_name	#
+conn_root	_client_version	#
+conn_root	_os	#
+conn_root	_pid	#
+conn_root	_platform	#
+conn_root	program_name	#
+show connection_attributes;
+Id	Attr_Name	Attr_Value
+conn_a	_client_name	#
+conn_a	_client_version	#
+conn_a	_os	#
+conn_a	_pid	#
+conn_a	_platform	#
+conn_a	program_name	#
+conn_root	_client_name	#
+conn_root	_client_version	#
+conn_root	_os	#
+conn_root	_pid	#
+conn_root	_platform	#
+conn_root	program_name	#
+select * from information_schema.connection_attributes where Id = conn_root;
+ID	ATTR_NAME	ATTR_VALUE
+conn_root	_client_name	#
+conn_root	_client_version	#
+conn_root	_os	#
+conn_root	_pid	#
+conn_root	_platform	#
+conn_root	program_name	#
+select * from information_schema.connection_attributes where Id = conn_a;
+ID	ATTR_NAME	ATTR_VALUE
+conn_a	_client_name	#
+conn_a	_client_version	#
+conn_a	_os	#
+conn_a	_pid	#
+conn_a	_platform	#
+conn_a	program_name	#
+show connection_attributes;
+Id	Attr_Name	Attr_Value
+conn_a	_client_name	#
+conn_a	_client_version	#
+conn_a	_os	#
+conn_a	_pid	#
+conn_a	_platform	#
+conn_a	foo	#
+conn_a	foo+	#
+conn_a	program_name	#
+select * from information_schema.connection_attributes
+where Id = conn_a and Attr_Name like 'foo%';
+ID	ATTR_NAME	ATTR_VALUE
+conn_a	foo	bar
+conn_a	foo+	bar+
+show connection_attributes;
+Id	Attr_Name	Attr_Value
+conn_a	_client_name	#
+conn_a	_client_version	#
+conn_a	_os	#
+conn_a	_pid	#
+conn_a	_platform	#
+conn_a	foo+	#
+conn_a	program_name	#
+select * from information_schema.connection_attributes
+where Id = conn_a and Attr_Name like 'foo%';
+ID	ATTR_NAME	ATTR_VALUE
+conn_a	foo+	bar+
+show connection_attributes;
+Id	Attr_Name	Attr_Value
+select * from information_schema.connection_attributes;
+ID	ATTR_NAME	ATTR_VALUE
+# connection default
+drop user mysqluser1;

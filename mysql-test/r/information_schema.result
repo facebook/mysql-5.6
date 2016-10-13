@@ -72,6 +72,7 @@ PARTITIONS
 PLUGINS
 PROCESSLIST
 TRANSACTION_LIST
+CONNECTION_ATTRIBUTES
 PROFILING
 REFERENTIAL_CONSTRAINTS
 ROUTINES
@@ -827,6 +828,8 @@ information_schema	PARTITIONS	SUBPARTITION_EXPRESSION
 information_schema	PARTITIONS	PARTITION_DESCRIPTION
 information_schema	PLUGINS	PLUGIN_DESCRIPTION
 information_schema	PROCESSLIST	INFO
+information_schema	CONNECTION_ATTRIBUTES	ATTR_NAME
+information_schema	CONNECTION_ATTRIBUTES	ATTR_VALUE
 information_schema	ROUTINES	DTD_IDENTIFIER
 information_schema	ROUTINES	ROUTINE_DEFINITION
 information_schema	ROUTINES	ROUTINE_COMMENT
@@ -924,7 +927,7 @@ table_schema IN ('mysql', 'INFORMATION_SCHEMA', 'test', 'mysqltest')
 AND table_name not like 'ndb%' AND table_name not like 'innodb_%'  AND table_name not like 'rocksdb_%'
 GROUP BY TABLE_SCHEMA;
 table_schema	count(*)
-information_schema	39
+information_schema	40
 mysql	26
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
@@ -1370,6 +1373,7 @@ COLLATIONS	information_schema.COLLATIONS	1
 COLLATION_CHARACTER_SET_APPLICABILITY	information_schema.COLLATION_CHARACTER_SET_APPLICABILITY	1
 COLUMNS	information_schema.COLUMNS	1
 COLUMN_PRIVILEGES	information_schema.COLUMN_PRIVILEGES	1
+CONNECTION_ATTRIBUTES	information_schema.CONNECTION_ATTRIBUTES	1
 DB_STATISTICS	information_schema.DB_STATISTICS	1
 ENGINES	information_schema.ENGINES	1
 ERROR_STATISTICS	information_schema.ERROR_STATISTICS	1

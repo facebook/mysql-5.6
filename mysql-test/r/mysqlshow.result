@@ -81,6 +81,7 @@ DROP TABLE t1, t2;
 | COLLATION_CHARACTER_SET_APPLICABILITY |
 | COLUMNS                               |
 | COLUMN_PRIVILEGES                     |
+| CONNECTION_ATTRIBUTES                 |
 | DB_STATISTICS                         |
 | ENGINES                               |
 | ERROR_STATISTICS                      |
@@ -159,6 +160,7 @@ DROP TABLE t1, t2;
 | COLLATION_CHARACTER_SET_APPLICABILITY |
 | COLUMNS                               |
 | COLUMN_PRIVILEGES                     |
+| CONNECTION_ATTRIBUTES                 |
 | DB_STATISTICS                         |
 | ENGINES                               |
 | ERROR_STATISTICS                      |
