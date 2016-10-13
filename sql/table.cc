@@ -1522,7 +1522,7 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
         {
           error= 8;
           my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0),
-                   "--skip-partition");
+                   "--skip-partition", "");
           goto err;
         }
         plugin_unlock(NULL, share->db_plugin);

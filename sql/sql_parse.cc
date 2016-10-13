@@ -3135,14 +3135,16 @@ mysql_execute_command(THD *thd,
     if (deny_updates_if_read_only_option(thd, all_tables))
     {
       std::string extra_info;
-      int nr = get_active_master_info(&extra_info);
+      get_active_master_info(&extra_info);
       if (opt_super_readonly)
       {
-        my_error(nr, MYF(0), "--read-only (super)", extra_info.c_str());
+        my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--read-only (super)",
+            extra_info.c_str());
       }
       else
       {
-        my_error(nr, MYF(0), "--read-only", extra_info.c_str());
+        my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--read-only",
+            extra_info.c_str());
       }
       DBUG_RETURN(-1);
     }
@@ -3166,13 +3168,13 @@ mysql_execute_command(THD *thd,
      push_warning_printf(thd, Sql_condition::WARN_LEVEL_NOTE,
        ER_OPTION_PREVENTS_STATEMENT,
        ER(ER_OPTION_PREVENTS_STATEMENT),
-       "--allow_noncurrent_db_rw=LOG_WARN");
+       "--allow_noncurrent_db_rw=LOG_WARN", "");
     }
     if (ret == 3) /* For OFF */
     {
       /* Error message to user */
       my_error(ER_OPTION_PREVENTS_STATEMENT,  MYF(0),
-               "--allow_noncurrent_db_rw=OFF");
+               "--allow_noncurrent_db_rw=OFF", "");
       DBUG_RETURN(-1);
     }
 #ifdef HAVE_REPLICATION
@@ -4132,14 +4134,16 @@ end_with_restore_list:
       if (check_ro(thd) && some_non_temp_table_to_be_updated(thd, all_tables))
       {
         std::string extra_info;
-        int nr = get_active_master_info(&extra_info);
+        get_active_master_info(&extra_info);
         if (opt_super_readonly)
         {
-          my_error(nr, MYF(0), "--read-only (super)", extra_info.c_str());
+          my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--read-only (super)",
+              extra_info.c_str());
         }
         else
         {
-          my_error(nr, MYF(0), "--read-only", extra_info.c_str());
+          my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--read-only",
+              extra_info.c_str());
         }
 	break;
       }
@@ -5715,7 +5719,7 @@ create_sp_error:
 #ifndef EMBEDDED_LIBRARY
     mysql_client_binlog_statement(thd);
 #else /* EMBEDDED_LIBRARY */
-    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "embedded");
+    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "embedded", "");
 #endif /* EMBEDDED_LIBRARY */
     break;
   }
@@ -9953,11 +9957,7 @@ THD* get_opt_thread_with_data_lock(THD *thd, ulong thread_id)
 
 // This function will generate the string containing current master host and
 // port info if available.
-//
-// Return value:
-//   ER_OPTION_PREVENTS_STATEMENT_EXTRA_INFO, if master info is available.
-//   ER_OPTION_PREVENTS_STATEMENT, if master info is not available.
-int get_active_master_info(std::string *str_ptr)
+void get_active_master_info(std::string *str_ptr)
 {
 #ifdef HAVE_REPLICATION
     if (str_ptr && active_mi && active_mi->host && active_mi->host[0])
@@ -9972,8 +9972,6 @@ int get_active_master_info(std::string *str_ptr)
         *str_ptr += ". ";
         *str_ptr += extra_str;
       }
-      return ER_OPTION_PREVENTS_STATEMENT_EXTRA_INFO;
     }
 #endif
-    return ER_OPTION_PREVENTS_STATEMENT;
 }

@@ -2100,7 +2100,7 @@ int check_change_password(THD *thd, const char *host, const char *user,
 {
   if (!initialized)
   {
-    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables");
+    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables", "");
     return(1);
   }
   if (!thd->slave_thread &&
@@ -3336,7 +3336,7 @@ static int replace_db_table(TABLE *table, const char *db,
 
   if (!initialized)
   {
-    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables");
+    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables", "");
     DBUG_RETURN(-1);
   }
 
@@ -3485,7 +3485,7 @@ replace_proxies_priv_table(THD *thd, TABLE *table, const LEX_USER *user,
 
   if (!initialized)
   {
-    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables");
+    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables", "");
     DBUG_RETURN(-1);
   }
 
@@ -4241,7 +4241,7 @@ static int replace_routine_table(THD *thd, GRANT_NAME *grant_name,
 
   if (!initialized)
   {
-    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables");
+    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables", "");
     DBUG_RETURN(-1);
   }
 
@@ -4379,7 +4379,7 @@ int mysql_table_grant(THD *thd, TABLE_LIST *table_list,
   if (!initialized)
   {
     my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0),
-             "--skip-grant-tables");	/* purecov: inspected */
+             "--skip-grant-tables", "");	/* purecov: inspected */
     DBUG_RETURN(TRUE);				/* purecov: inspected */
   }
   if (rights & ~TABLE_ACLS)
@@ -4722,7 +4722,7 @@ bool mysql_routine_grant(THD *thd, TABLE_LIST *table_list, bool is_proc,
   if (!initialized)
   {
     my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0),
-             "--skip-grant-tables");
+             "--skip-grant-tables", "");
     DBUG_RETURN(TRUE);
   }
   if (rights & ~PROC_ACLS)
@@ -4999,7 +4999,7 @@ bool mysql_grant(THD *thd, const char *db, List <LEX_USER> &list,
   if (!initialized)
   {
     my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0),
-             "--skip-grant-tables");	/* purecov: tested */
+             "--skip-grant-tables", "");	/* purecov: tested */
     DBUG_RETURN(TRUE);				/* purecov: tested */
   }
 
@@ -6330,7 +6330,7 @@ bool mysql_show_grants(THD *thd,LEX_USER *lex_user)
   LINT_INIT(acl_user);
   if (!initialized)
   {
-    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables");
+    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables", "");
     DBUG_RETURN(TRUE);
   }
 
@@ -6865,7 +6865,7 @@ open_grant_tables(THD *thd, TABLE_LIST *tables, bool *transactional_tables)
 
   if (!initialized)
   {
-    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables");
+    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables", "");
     DBUG_RETURN(-1);
   }
 
@@ -8011,7 +8011,7 @@ bool mysql_user_password_expire(THD *thd, List <LEX_USER> &list)
 
   if (!initialized)
   {
-    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables");
+    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables", "");
     DBUG_RETURN(true);
   }
   tables.init_one_table("mysql", 5, "user", 4, "user", TL_WRITE);
@@ -8652,7 +8652,7 @@ acl_check_proxy_grant_access(THD *thd, const char *host, const char *user,
                       (int) with_grant));
   if (!initialized)
   {
-    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables");
+    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables", "");
     DBUG_RETURN(1);
   }
 

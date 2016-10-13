@@ -176,7 +176,7 @@ bool trans_begin(THD *thd, uint flags, bool* need_ok, handlerton *hton)
     if (check_ro(thd))
     {
       my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0),
-               opt_super_readonly ? "--read-only (super)" : "--read-only");
+               opt_super_readonly ? "--read-only (super)" : "--read-only", "");
       DBUG_RETURN(true);
     }
     thd->tx_read_only= false;
