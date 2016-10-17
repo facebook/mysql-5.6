@@ -22,17 +22,17 @@ INSERT INTO table2 VALUES ('hijklmn');
 INSERT INTO table2 VALUES ('opqrstu');
 
 --echo ==== Running 'replace_regex' on Server/mysqldump Versions ====
---echo ==== mysqlbinlog with --skip-empty-trans database1 ====
+--echo ==== mysqldump with --enable-checksum-table database1 ====
 --replace_regex /-- Server version.*/-- SERVER VERSION/ /-- MySQL dump.*[)]/-- MYSQLDUMP VERSION/
 --exec $MYSQL_DUMP --skip-dump-date --enable-checksum-table database1 
 
---echo ==== mysqlbinlog with --skip-empty-trans table with two options ====
+--echo ==== mysqldump with --enable-checksum-table with two options ====
 --replace_regex /-- Server version.*/-- SERVER VERSION/ /-- MySQL dump.*[)]/-- MYSQLDUMP VERSION/
 --exec $MYSQL_DUMP --skip-dump-date --enable-checksum-table --databases database1 --tables table1
 --replace_regex /-- Server version.*/-- SERVER VERSION/ /-- MySQL dump.*[)]/-- MYSQLDUMP VERSION/
 --exec $MYSQL_DUMP --skip-dump-date --enable-checksum-table database1 table1
 
---echo ==== mysqlbinlog with --skip-empty-trans and --tab ====
+--echo ==== mysqldump with --enable-checksum-table and --tab ====
 --error 1
 --exec $MYSQL_DUMP --skip-dump-date --enable-checksum-table database1 --tab='/home/abc' 
 
