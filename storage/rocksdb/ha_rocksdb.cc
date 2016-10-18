@@ -7592,6 +7592,7 @@ int ha_rocksdb::bulk_load_key(Rdb_transaction* tx,
                                        kd.get_name(), cf, rocksdb_db_options,
                                        THDVAR(ha_thd(), trace_sst_api));
     tx->start_bulk_load(this);
+    m_bulk_load_tx= tx;
   }
 
   DBUG_ASSERT(m_sst_info != nullptr);
@@ -7626,11 +7627,8 @@ int ha_rocksdb::finalize_bulk_load()
 
     m_sst_info= nullptr;
 
-    Rdb_transaction *tx= get_or_create_tx(ha_thd());
-    if (tx != nullptr)
-    {
-      tx->end_bulk_load(this);
-    }
+    m_bulk_load_tx->end_bulk_load(this);
+    m_bulk_load_tx= nullptr;
   }
 
   return rc;
