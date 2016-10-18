@@ -407,6 +407,9 @@ class ha_rocksdb: public my_core::handler
 
   /* SST information used for bulk loading the primary key */
   std::shared_ptr<Rdb_sst_info> m_sst_info;
+  Rdb_transaction *m_bulk_load_tx;
+  /* Mutex to protect finalizing bulk load */
+  mysql_mutex_t m_bulk_load_mutex;
 
   /*
     MySQL index number for duplicate key error
@@ -545,6 +548,7 @@ public:
     int err MY_ATTRIBUTE((__unused__));
     err= finalize_bulk_load();
     DBUG_ASSERT(err == 0);
+    mysql_mutex_destroy(&m_bulk_load_mutex);
   }
 
   /** @brief
