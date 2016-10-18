@@ -281,6 +281,47 @@ ALTER TABLE t1 ADD KEY kb(b(10));
 ERROR HY000: Unsupported collation on string indexed column test.t1.b Use binary collation (binary, latin1_bin, utf8_bin).
 ALTER TABLE t1 ADD PRIMARY KEY(a);
 DROP TABLE t1;
+set global rocksdb_bulk_load=1;
+# Establish connection con1 (user=root)
+# Switch to connection con1
+show global variables like 'rocksdb_bulk_load';
+Variable_name	Value
+rocksdb_bulk_load	ON
+show session variables like 'rocksdb_bulk_load';
+Variable_name	Value
+rocksdb_bulk_load	ON
+CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE = ROCKSDB;
+INSERT INTO t1 VALUES (1,1);
+# Disconnecting on con1
+# Establish connection con2 (user=root)
+# Switch to connection con2
+ALTER TABLE t1 ADD INDEX kj(j), ALGORITHM=INPLACE;
+SELECT COUNT(*) FROM t1 FORCE INDEX(PRIMARY);
+COUNT(*)
+1
+SELECT COUNT(*) FROM t1 FORCE INDEX(kj);
+COUNT(*)
+1
+DROP TABLE t1;
+# Establish connection con1 (user=root)
+# Establish connection con2 (user=root)
+# Switch to connection con1
+CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE = ROCKSDB;
+set rocksdb_bulk_load=1;
+INSERT INTO t1 VALUES (1,1);
+# Switch to connection con2
+SELECT COUNT(*) FROM t1 FORCE INDEX(PRIMARY);
+COUNT(*)
+0
+ALTER TABLE t1 ADD INDEX kj(j), ALGORITHM=INPLACE;
+SELECT COUNT(*) FROM t1 FORCE INDEX(PRIMARY);
+COUNT(*)
+1
+SELECT COUNT(*) FROM t1 FORCE INDEX(kj);
+COUNT(*)
+1
+set global rocksdb_bulk_load=0;
+DROP TABLE t1;
 SET @prior_rocksdb_merge_combine_read_size= @@rocksdb_merge_combine_read_size;
 SET @prior_rocksdb_strict_collation_check= @@rocksdb_strict_collation_check;
 SET @prior_rocksdb_merge_buf_size = @@rocksdb_merge_buf_size;
