@@ -2890,12 +2890,13 @@ class Rdb_snapshot_status : public Rdb_tx_list_walker
       rdb->GetEnv()->GetCurrentTime(&curr_time);
 
       THD* thd = tx->get_thd();
-
+      char    buffer[1024];
+      thd_security_context(thd, buffer, sizeof buffer, 0);
       m_data += format_string("---SNAPSHOT, ACTIVE %lld sec\n"
-                              "MySQL thread id %lu, OS thread handle %p\n"
+                              "%s\n"
                               "lock count %llu, write count %llu\n",
                               curr_time - snapshot_timestamp,
-                              my_core::thd_get_thread_id(thd), thd,
+                              buffer,
                               tx->get_lock_count(), tx->get_write_count());
     }
   }
