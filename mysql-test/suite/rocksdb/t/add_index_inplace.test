@@ -175,6 +175,77 @@ ALTER TABLE t1 ADD KEY kb(b(10));
 ALTER TABLE t1 ADD PRIMARY KEY(a);
 DROP TABLE t1;
 
+# make sure race condition between connection close and alter on another
+# connection is handled
+
+set global rocksdb_bulk_load=1;
+
+--echo # Establish connection con1 (user=root)
+connect (con1,localhost,root,,);
+
+--echo # Switch to connection con1
+connection con1;
+
+show global variables like 'rocksdb_bulk_load';
+show session variables like 'rocksdb_bulk_load';
+
+CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE = ROCKSDB;
+
+INSERT INTO t1 VALUES (1,1);
+
+# Disconnect connection 1, this starts the code path that will call
+# rocksdb_close_connection, ending the bulk load.
+--echo # Disconnecting on con1
+disconnect con1;
+
+--echo # Establish connection con2 (user=root)
+connect (con2,localhost,root,,);
+--echo # Switch to connection con2
+connection con2;
+
+# when alter table happens, it tries to close all other TABLE instances
+# when acquiring the exclusive lock for alter table (this happens in SQL layer)
+# make sure bulk_load now handles this possible race condition properly
+ALTER TABLE t1 ADD INDEX kj(j), ALGORITHM=INPLACE;
+
+SELECT COUNT(*) FROM t1 FORCE INDEX(PRIMARY);
+SELECT COUNT(*) FROM t1 FORCE INDEX(kj);
+
+DROP TABLE t1;
+disconnect con2;
+
+# make sure implicilty closing the alter from another session works
+
+--echo # Establish connection con1 (user=root)
+connect (con1,localhost,root,,);
+--echo # Establish connection con2 (user=root)
+connect (con2,localhost,root,,);
+
+--echo # Switch to connection con1
+connection con1;
+
+CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE = ROCKSDB;
+
+set rocksdb_bulk_load=1;
+INSERT INTO t1 VALUES (1,1);
+
+--echo # Switch to connection con2
+connection con2;
+
+# here, the bulk load hasn't been completed yet, and we are in conn2
+# therefore select count returns 0
+SELECT COUNT(*) FROM t1 FORCE INDEX(PRIMARY);
+
+# implicilty close the table from connection 2
+ALTER TABLE t1 ADD INDEX kj(j), ALGORITHM=INPLACE;
+
+SELECT COUNT(*) FROM t1 FORCE INDEX(PRIMARY);
+SELECT COUNT(*) FROM t1 FORCE INDEX(kj);
+
+set global rocksdb_bulk_load=0;
+
+DROP TABLE t1;
+
 connection default;
 
 

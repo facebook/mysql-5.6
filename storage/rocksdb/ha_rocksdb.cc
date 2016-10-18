@@ -28,6 +28,7 @@
 #include <queue>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 /* MySQL includes */
 #include "./debug_sync.h"
@@ -4001,11 +4002,14 @@ ha_rocksdb::ha_rocksdb(my_core::handlerton *hton,
     m_sk_match_prefix(nullptr), m_sk_match_prefix_buf(nullptr),
     m_sk_packed_tuple_old(nullptr),
     m_pack_buffer(nullptr), m_lock_rows(RDB_LOCK_NONE),
-    m_keyread_only(FALSE), m_encoder_arr(nullptr),
+    m_keyread_only(FALSE), m_bulk_load_tx(nullptr), m_encoder_arr(nullptr),
     m_row_checksums_checked(0),
     m_in_rpl_delete_rows(false), m_in_rpl_update_rows(false),
     m_force_skip_unique_check(false)
-{}
+{
+  // TODO(alexyang): create a valid PSI_mutex_key for this mutex
+  mysql_mutex_init(0, &m_bulk_load_mutex, MY_MUTEX_INIT_FAST);
+}
 
 
 static const char *ha_rocksdb_exts[] = {
@@ -7591,6 +7595,7 @@ int ha_rocksdb::bulk_load_key(Rdb_transaction* tx,
                                        kd.get_name(), cf, rocksdb_db_options,
                                        THDVAR(ha_thd(), trace_sst_api));
     tx->start_bulk_load(this);
+    m_bulk_load_tx= tx;
   }
 
   DBUG_ASSERT(m_sst_info != nullptr);
@@ -7611,6 +7616,19 @@ int ha_rocksdb::finalize_bulk_load()
 {
   int rc= 0;
 
+  /* Skip if there are no possible ongoing bulk loads */
+  if (m_sst_info == nullptr && m_bulk_load_tx == nullptr)
+  {
+    return rc;
+  }
+
+  mysql_mutex_lock(&m_bulk_load_mutex);
+
+  /*
+    We need this check because it's possible that m_sst_info has been
+    flushed and cleared by another thread by the time the mutex has been
+    acquired.
+  */
   if (m_sst_info != nullptr)
   {
     rc= m_sst_info->commit();
@@ -7624,14 +7642,11 @@ int ha_rocksdb::finalize_bulk_load()
     }
 
     m_sst_info= nullptr;
-
-    Rdb_transaction *tx= get_or_create_tx(ha_thd());
-    if (tx != nullptr)
-    {
-      tx->end_bulk_load(this);
-    }
+    m_bulk_load_tx->end_bulk_load(this);
+    m_bulk_load_tx= nullptr;
   }
 
+  mysql_mutex_unlock(&m_bulk_load_mutex);
   return rc;
 }
 
