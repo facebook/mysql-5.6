@@ -4002,7 +4002,7 @@ ha_rocksdb::ha_rocksdb(my_core::handlerton *hton,
     m_sk_match_prefix(nullptr), m_sk_match_prefix_buf(nullptr),
     m_sk_packed_tuple_old(nullptr),
     m_pack_buffer(nullptr), m_lock_rows(RDB_LOCK_NONE),
-    m_keyread_only(FALSE), m_encoder_arr(nullptr),
+    m_keyread_only(FALSE), m_bulk_load_tx(nullptr), m_encoder_arr(nullptr),
     m_row_checksums_checked(0),
     m_in_rpl_delete_rows(false), m_in_rpl_update_rows(false),
     m_force_skip_unique_check(false)
