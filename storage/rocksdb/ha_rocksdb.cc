@@ -18,6 +18,7 @@
 #pragma implementation        // gcc: Class implementation
 #endif
 
+// Yes!
 #define MYSQL_SERVER 1
 
 /* The C++ file's header */
