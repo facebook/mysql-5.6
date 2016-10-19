@@ -1,0 +1,1 @@
+--log_bin --binlog_format=ROW --log_column_names=ON

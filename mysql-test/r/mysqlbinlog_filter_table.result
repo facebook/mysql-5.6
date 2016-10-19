@@ -1,0 +1,70 @@
+create table t1 (a int primary key, b int, c text);
+create table dummy (a int primary key);
+create table t1_new (a int, b int, d text, c text);
+create database test2;
+create table test2.dummy (a int primary key);
+create table test2.t1 (a int primary key, b int, c text);
+flush logs;
+begin;
+insert into t1 values (1, 2, "test"), (2, 4, "test");
+insert into dummy values(1), (2);
+commit;
+begin;
+insert into t1 values(3, 6, "test");
+insert into test2.dummy values(1), (2);
+insert into test2.t1 values(3, 6, "test");
+commit;
+select * from t1_new;
+a	b	d	c
+1	2	NULL	test
+2	4	NULL	test
+3	6	NULL	test
+== Verify that the contents of other tables are not modified ==
+select * from t1;
+a	b	c
+1	2	test
+2	4	test
+3	6	test
+select * from dummy;
+a
+1
+2
+select * from test2.dummy;
+a
+1
+2
+select * from test2.t1;
+a	b	c
+3	6	test
+flush logs;
+begin;
+update t1 set b=100;
+delete from dummy where a = 1;
+commit;
+begin;
+delete from t1 where a=1;
+delete from test2.dummy where a = 1;
+commit;
+select * from t1_new;
+a	b	d	c
+2	100	NULL	test
+3	100	NULL	test
+== Verify that the contents of other tables are not modified ==
+select * from t1;
+a	b	c
+2	100	test
+3	100	test
+select * from dummy;
+a
+2
+select * from test2.dummy;
+a
+2
+select * from test2.t1;
+a	b	c
+3	6	test
+== Cleanup ==
+drop table t1;
+drop table dummy;
+drop table t1_new;
+drop database test2;

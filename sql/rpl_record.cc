@@ -156,6 +156,41 @@ pack_row(TABLE *table, MY_BITMAP const* cols,
 #endif
 
 #if !defined(MYSQL_CLIENT) && defined(HAVE_REPLICATION)
+static void insert_row_fields(std::string* row_query, TABLE* table)
+{
+  static uint32_t max_field_len= 100;
+  row_query->append("(");
+  String buf;
+#ifndef DBUG_OFF
+  uint index= 0;
+#endif
+  for (Field **ptr=table->field; *ptr; ptr++)
+  {
+#ifndef DBUG_OFF
+    // Set the read bit to avoid assertions in val_str().
+    bool flip= false;
+    if (table->read_set && !bitmap_is_set(table->read_set, index))
+    {
+      flip= true;
+      bitmap_flip_bit(table->read_set, index);
+    }
+#endif
+    String *s = (*ptr)->val_str(&buf, &buf);
+    if (!s)
+      row_query->append("NULL");
+    else
+      row_query->append(s->ptr(), min(max_field_len, s->length()));
+    row_query->append(",");
+#ifndef DBUG_OFF
+    if (flip)
+      bitmap_flip_bit(table->read_set, index);
+    ++index;
+#endif
+  }
+  if (row_query->back() == ',')
+    row_query->back() = ')';
+}
+
 /**
    Unpack a row into @c table->record[0].
 
@@ -181,6 +216,8 @@ pack_row(TABLE *table, MY_BITMAP const* cols,
    @param row_end
                   Pointer to variable that will hold the value of the
                   end position for the data in the row event
+   @param row_query
+                  Append the fields to this string
 
    @retval 0 No error
 
@@ -195,7 +232,8 @@ int unpack_row_with_column_info(TABLE *table, uint const colcnt,
                                 ulong *const master_reclength,
                                 uchar const *const row_end,
                                 table_def* tabledef,
-                                TABLE *conv_table)
+                                TABLE *conv_table,
+                                std::string* row_query)
 {
   DBUG_ENTER("unpack_row_with_column_info");
   uchar const *null_bits= row_data;
@@ -273,6 +311,9 @@ int unpack_row_with_column_info(TABLE *table, uint const colcnt,
     }
     ++null_bit_index;
   }
+
+  insert_row_fields(row_query, table);
+
   *current_row_end = pack_ptr;
   if (master_reclength)
   {
@@ -318,6 +359,9 @@ int unpack_row_with_column_info(TABLE *table, uint const colcnt,
                   Pointer to variable that will hold the value of the
                   end position for the data in the row event
 
+   @param row_query
+                  Append the fields to this string
+
    @retval 0 No error
 
    @retval HA_ERR_GENERIC
@@ -328,7 +372,7 @@ unpack_row(Relay_log_info const *rli,
            TABLE *table, uint const colcnt,
            uchar const *const row_data, MY_BITMAP const *cols,
            uchar const **const current_row_end, ulong *const master_reclength,
-           uchar const *const row_end)
+           uchar const *const row_end, std::string* row_query)
 {
   DBUG_ENTER("unpack_row");
   DBUG_ASSERT(row_data);
@@ -382,7 +426,8 @@ unpack_row(Relay_log_info const *rli,
   {
     DBUG_RETURN(unpack_row_with_column_info(table, colcnt, row_data, cols,
                                             current_row_end, master_reclength,
-                                            row_end, tabledef, conv_table));
+                                            row_end, tabledef, conv_table,
+                                            row_query));
   }
 
   for (field_ptr= begin_ptr ; field_ptr < end_ptr && *field_ptr ; ++field_ptr)
@@ -568,6 +613,7 @@ unpack_row(Relay_log_info const *rli,
     }
   }
 
+  insert_row_fields(row_query, table);
   /*
     We should now have read all the null bytes, otherwise something is
     really wrong.

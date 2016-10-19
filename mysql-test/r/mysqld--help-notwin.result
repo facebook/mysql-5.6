@@ -1149,6 +1149,10 @@ The following options may be given as the first argument:
  updated
  --rocksdb-lock-wait-timeout=# 
  Number of seconds to wait for lock
+ --rocksdb-locks[=name] 
+ Enable or disable ROCKSDB_LOCKS plugin. Possible values
+ are ON, OFF, FORCE (don't start if the plugin fails to
+ load).
  --rocksdb-log-file-time-to-roll=# 
  DBOptions::log_file_time_to_roll for RocksDB
  --rocksdb-manifest-preallocation-size=# 
@@ -1202,6 +1206,9 @@ The following options may be given as the first argument:
  --rocksdb-pin-l0-filter-and-index-blocks-in-cache 
  pin_l0_filter_and_index_blocks_in_cache for RocksDB
  (Defaults to on; use --skip-rocksdb-pin-l0-filter-and-index-blocks-in-cache to disable.)
+ --rocksdb-print-snapshot-conflict-queries 
+ Logging queries that got snapshot conflict errors into
+ *.err log
  --rocksdb-rate-limiter-bytes-per-sec=# 
  DBOptions::rate_limiter bytes_per_sec for RocksDB
  --rocksdb-read-free-rpl-tables=name 
@@ -1243,6 +1250,9 @@ The following options may be given as the first argument:
  statistics about table properties. Specify either 0 to
  sample everything or percentage [1..100]. By default 10%
  of entries are sampled.
+ --rocksdb-trace-sst-api 
+ Generate trace output in the log for each call to the
+ SstFileWriter
  --rocksdb-unsafe-for-binlog 
  Allowing statement based binary logging which may break
  consistency
@@ -1897,6 +1907,7 @@ rocksdb-is-fd-close-on-exec TRUE
 rocksdb-keep-log-file-num 1000
 rocksdb-lock-scanned-rows FALSE
 rocksdb-lock-wait-timeout 1
+rocksdb-locks ON
 rocksdb-log-file-time-to-roll 0
 rocksdb-manifest-preallocation-size 4194304
 rocksdb-max-background-compactions 1
@@ -1918,6 +1929,7 @@ rocksdb-perf-context ON
 rocksdb-perf-context-global ON
 rocksdb-perf-context-level 0
 rocksdb-pin-l0-filter-and-index-blocks-in-cache TRUE
+rocksdb-print-snapshot-conflict-queries FALSE
 rocksdb-rate-limiter-bytes-per-sec 0
 rocksdb-read-free-rpl-tables (No default value)
 rocksdb-records-in-range 0
@@ -1934,6 +1946,7 @@ rocksdb-strict-collation-check TRUE
 rocksdb-strict-collation-exceptions (No default value)
 rocksdb-table-cache-numshardbits 6
 rocksdb-table-stats-sampling-pct 10
+rocksdb-trace-sst-api FALSE
 rocksdb-unsafe-for-binlog FALSE
 rocksdb-use-adaptive-mutex FALSE
 rocksdb-use-fsync FALSE
