@@ -2644,7 +2644,7 @@ public:
   int binlog_update_row(TABLE* table, bool is_transactional,
                         const uchar *old_data, const uchar *new_data,
                         const uchar* extra_row_info);
-  void binlog_prepare_row_images(TABLE* table);
+  void binlog_prepare_row_images(TABLE* table, bool is_update);
 
   void set_server_id(uint32 sid) { server_id = sid; }
 

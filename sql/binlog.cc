@@ -9452,7 +9452,7 @@ int THD::binlog_update_row(TABLE* table, bool is_trans,
      not needed for binlogging. This is done according to the:
      binlog-row-image option.
    */
-  binlog_prepare_row_images(table);
+  binlog_prepare_row_images(table, true);
 
   size_t const before_maxlen = max_row_length(table, before_record);
   size_t const after_maxlen  = max_row_length(table, after_record);
@@ -9518,7 +9518,7 @@ int THD::binlog_delete_row(TABLE* table, bool is_trans,
      not needed for binlogging. This is done according to the:
      binlog-row-image option.
    */
-  binlog_prepare_row_images(table);
+  binlog_prepare_row_images(table, false);
 
   /* 
      Pack records into format for transfer. We are allocating more
@@ -9550,17 +9550,18 @@ int THD::binlog_delete_row(TABLE* table, bool is_trans,
   return error;
 }
 
-void THD::binlog_prepare_row_images(TABLE *table) 
+void THD::binlog_prepare_row_images(TABLE *table, bool is_update)
 {
   DBUG_ENTER("THD::binlog_prepare_row_images");
   /** 
-    Remove from read_set spurious columns. The write_set has been
+    Remove spurious columns. The write_set has been partially
     handled before in table->mark_columns_needed_for_update. 
    */
 
   DBUG_PRINT_BITSET("debug", "table->read_set (before preparing): %s", table->read_set);
   THD *thd= table->in_use;
 
+  /* Handle the read set */
   /** 
     if there is a primary key in the table (ie, user declared PK or a
     non-null unique index) and we dont want to ship the entire image,
@@ -9606,6 +9607,44 @@ void THD::binlog_prepare_row_images(TABLE *table)
     /* set the temporary read_set */
     table->column_bitmaps_set_no_signal(&table->tmp_set,
                                         table->write_set);
+  }
+
+  /* Now, handle the write set */
+  if (is_update &&
+      thd->variables.binlog_row_image != BINLOG_ROW_IMAGE_FULL &&
+      !ha_check_storage_engine_flag(table->s->db_type(),
+                                    HTON_NO_BINLOG_ROW_OPT))
+  {
+    /**
+      Just to be sure that tmp_write_set is currently not in use as
+      the write_set already.
+    */
+    DBUG_ASSERT(table->write_set != &table->tmp_write_set);
+
+    bitmap_copy(&table->tmp_write_set, table->write_set);
+
+    for (Field **ptr=table->field ; *ptr ; ptr++)
+    {
+      Field *field= (*ptr);
+      if (bitmap_is_set(&table->tmp_write_set, field->field_index))
+      {
+        /* When image type is NOBLOB, we prune only BLOB fields */
+        if (thd->variables.binlog_row_image == BINLOG_ROW_IMAGE_NOBLOB &&
+            field->type() != MYSQL_TYPE_BLOB)
+          continue;
+
+        /* compare null bit */
+        if (field->is_null() && field->is_null_in_record(table->record[1]))
+            bitmap_clear_bit(&table->tmp_write_set, field->field_index);
+
+        /* compare content, only if fields are not set to NULL */
+        else if (!field->is_null() &&
+                 !field->cmp_binary_offset(table->s->rec_buff_length))
+          bitmap_clear_bit(&table->tmp_write_set, field->field_index);
+      }
+    }
+    table->column_bitmaps_set_no_signal(table->read_set,
+                                        &table->tmp_write_set);
   }
 
   DBUG_PRINT_BITSET("debug", "table->read_set (after preparing): %s", table->read_set);

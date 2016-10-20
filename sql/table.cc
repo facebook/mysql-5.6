@@ -2646,7 +2646,7 @@ partititon_err:
   /* Allocate bitmaps */
 
   bitmap_size= share->column_bitmap_size;
-  if (!(bitmaps= (uchar*) alloc_root(&outparam->mem_root, bitmap_size*3)))
+  if (!(bitmaps= (uchar*) alloc_root(&outparam->mem_root, bitmap_size*4)))
     goto err;
   bitmap_init(&outparam->def_read_set,
               (my_bitmap_map*) bitmaps, share->fields, FALSE);
@@ -2654,6 +2654,8 @@ partititon_err:
               (my_bitmap_map*) (bitmaps+bitmap_size), share->fields, FALSE);
   bitmap_init(&outparam->tmp_set,
               (my_bitmap_map*) (bitmaps+bitmap_size*2), share->fields, FALSE);
+  bitmap_init(&outparam->tmp_write_set,
+              (my_bitmap_map*) (bitmaps+bitmap_size*3), share->fields, FALSE);
   outparam->default_column_bitmaps();
 
   /* The table struct is now initialized;  Open the table */
