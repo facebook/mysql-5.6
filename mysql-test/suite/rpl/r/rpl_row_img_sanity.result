@@ -534,6 +534,9 @@ include/rpl_reset.inc
 include/sync_slave_sql_with_master.inc
 ####### MINIMAL OTHER PARTICULAR SCENARIO ######
 include/sync_slave_sql_with_master.inc
+####### MINIMAL AND COMPLETE PARTICULAR SCENARIO SETTING SAME VALUE ######
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
 CON: 'master', IMG: 'NOBLOB', RESTART SLAVE: 'N'
 Variable_name	Value
 binlog_row_image	NOBLOB
@@ -575,6 +578,9 @@ include/rpl_reset.inc
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 include/rpl_reset.inc
+####### MINIMAL AND COMPLETE PARTICULAR SCENARIO SETTING SAME VALUE ######
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
 ################## SPECIAL CASES #########################
 include/rpl_reset.inc
 CON: 'master', IMG: 'NOBLOB', RESTART SLAVE: 'N'
