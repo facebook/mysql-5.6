@@ -28,6 +28,7 @@
 
 /* RocksDB header files */
 #include "rocksdb/db.h"
+#include "rocksdb/options.h"
 
 /* MyRocks header files */
 #include "./ha_rocksdb.h"
@@ -159,11 +160,16 @@ rocksdb::Status Rdb_sst_file::commit()
                             fileinfo.file_size, fileinfo.num_entries);
     }
 
-    std::vector<std::string> files = { m_name };
     // Add the file to the database
-    // Set the skip_snapshot_check parameter to true since no one
+    // Set the snapshot_consistency parameter to false since no one
     // should be accessing the table we are bulk loading
-    s= m_db->AddFile(m_cf, files, true, true);
+    rocksdb::IngestExternalFileOptions opts;
+    opts.move_files = true;
+    opts.snapshot_consistency = false;
+    opts.allow_global_seqno = false;
+    opts.allow_blocking_flush = false;
+    s= m_db->IngestExternalFile(m_cf, { m_name }, opts);
+
     if (m_tracing)
     {
       // NO_LINT_DEBUG
