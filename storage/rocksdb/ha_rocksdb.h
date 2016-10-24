@@ -441,6 +441,11 @@ class ha_rocksdb: public my_core::handler
     m_scan_it= nullptr;
   }
 
+  rocksdb::Status get_for_update(Rdb_transaction* tx,
+                                 rocksdb::ColumnFamilyHandle* column_family,
+                                 const rocksdb::Slice& key,
+                                 std::string* value) const;
+
   int get_row_by_rowid(uchar *buf, const char *rowid,
                        const uint rowid_size)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
