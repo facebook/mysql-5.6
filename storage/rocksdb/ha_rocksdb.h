@@ -412,6 +412,7 @@ class ha_rocksdb: public my_core::handler
   bool m_update_scope_is_valid;
 
   /* SST information used for bulk loading the primary key */
+  std::atomic<bool> m_finalizing_bulk_load;
   std::shared_ptr<Rdb_sst_info> m_sst_info;
   Rdb_transaction *m_bulk_load_tx;
 
