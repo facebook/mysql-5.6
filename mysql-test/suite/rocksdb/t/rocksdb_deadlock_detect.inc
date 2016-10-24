@@ -9,12 +9,39 @@ set global rocksdb_lock_wait_timeout = 100000;
 set global rocksdb_deadlock_detect = ON;
 
 create table t (i int primary key);
+create table r1 (id int primary key, value int);
+insert into r1 values (1,1),(2,2),(3,3),(4,4),(5,5),(6,6),(7,7),(8,8),(9,9),(10,10);
+create table r2 like r1;
+insert into r2 select * from r1;
 
+# deadlock on scanned locking reads
 connect (con1,localhost,root,,);
+begin;
+update r2 set value=100 where id=9;
+
+connect (con2,localhost,root,,);
+begin;
+update r1 set value=100 where id=8;
+--send select * from r2 for update;
+
+connection con1;
+let $wait_condition =
+select count(*) = 1 as c from information_schema.processlist where
+state = "Waiting for row lock" and
+info = "select * from r2 for update";
+--error ER_LOCK_DEADLOCK
+select * from r1 for update;
+rollback;
+
+connection con2;
+--reap;
+rollback;
+
+connection con1;
 begin;
 insert into t values (1);
 
-connect (con2,localhost,root,,);
+connection con2;
 begin;
 insert into t values (2);
 
@@ -54,4 +81,4 @@ disconnect con3;
 
 set global rocksdb_lock_wait_timeout = @prior_rocksdb_lock_wait_timeout;
 set global rocksdb_deadlock_detect = @prior_rocksdb_deadlock_detect;
-drop table t;
+drop table t,r1,r2;

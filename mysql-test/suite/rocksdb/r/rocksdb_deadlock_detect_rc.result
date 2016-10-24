@@ -3,6 +3,30 @@ set @prior_rocksdb_deadlock_detect = @@rocksdb_deadlock_detect;
 set global rocksdb_lock_wait_timeout = 100000;
 set global rocksdb_deadlock_detect = ON;
 create table t (i int primary key);
+create table r1 (id int primary key, value int);
+insert into r1 values (1,1),(2,2),(3,3),(4,4),(5,5),(6,6),(7,7),(8,8),(9,9),(10,10);
+create table r2 like r1;
+insert into r2 select * from r1;
+begin;
+update r2 set value=100 where id=9;
+begin;
+update r1 set value=100 where id=8;
+select * from r2 for update;;
+select * from r1 for update;
+ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
+rollback;
+id	value
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+7	7
+8	8
+9	9
+10	10
+rollback;
 begin;
 insert into t values (1);
 begin;
@@ -22,4 +46,4 @@ i
 3
 set global rocksdb_lock_wait_timeout = @prior_rocksdb_lock_wait_timeout;
 set global rocksdb_deadlock_detect = @prior_rocksdb_deadlock_detect;
-drop table t;
+drop table t,r1,r2;
