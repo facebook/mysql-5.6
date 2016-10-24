@@ -2080,6 +2080,39 @@ enum process_list_type
   SHOW_CONNECTION_ATTRS
 };
 
+// stores one connection attribute
+struct connection_attr :public Sql_alloc
+{
+  CSET_STRING key_string;
+  CSET_STRING val_string;
+
+  explicit connection_attr(const char *key, const char *val, CHARSET_INFO *cs,
+                           THD *thd)
+  {
+    DBUG_ASSERT(key);
+    DBUG_ASSERT(val);
+    DBUG_ASSERT(cs);
+    DBUG_ASSERT(thd);
+
+    size_t key_len = strlen(key);
+    size_t val_len = strlen(val);
+    char *k = thd->strmake(key, key_len);
+    char *v = thd->strmake(val, val_len);
+    key_string= CSET_STRING(k, k ? key_len : 0, cs);
+    val_string= CSET_STRING(v, v ? val_len : 0, cs);
+  }
+};
+
+static uchar *
+connection_attrs_get_key(const uchar *data, size_t *len_ret,
+                         my_bool __attribute__((unused)))
+{
+  connection_attr *ca= (connection_attr *) data;
+
+  *len_ret= ca->key_string.length();
+  return (uchar *) ca->key_string.str();
+}
+
 class thread_info
 {
 public:
@@ -2103,7 +2136,7 @@ public:
   // tracking the thread's transaction
   bool rw_trans, sql_log_bin;
   // connection attributes
-  std::unordered_map<std::string, std::string> connection_attrs_map;
+  HASH connection_attrs_hash;
 };
 
 static const char *thread_state_info(THD *tmp)
@@ -2247,9 +2280,25 @@ static void set_thread_info_transaction_list(thread_info *thd_info, THD *tmp)
 static void set_thread_info_connection_attrs(thread_info *thd_info, THD *thd,
                                              THD *tmp)
 {
-  mysql_mutex_lock(&tmp->LOCK_thd_data);
-  thd_info->connection_attrs_map = tmp->connection_attrs_map;
-  mysql_mutex_unlock(&tmp->LOCK_thd_data);
+  if (!my_hash_init(&thd_info->connection_attrs_hash, system_charset_info,
+                    16, 0, 0, (my_hash_get_key)connection_attrs_get_key,
+                    NULL /* free_element */, 0))
+  {
+    mysql_mutex_lock(&tmp->LOCK_thd_data);
+    for (const auto &attr : tmp->connection_attrs_map)
+    {
+      // HASH element is allocated and freed with mem_root
+      connection_attr *ca=
+        new (thd->mem_root) connection_attr(attr.first.c_str(),
+                                            attr.second.c_str(),
+                                            system_charset_info, thd);
+      if (ca)
+        my_hash_insert(&thd_info->connection_attrs_hash, (uchar*) ca);
+    }
+    mysql_mutex_unlock(&tmp->LOCK_thd_data);
+  }
+  else
+    my_hash_clear(&thd_info->connection_attrs_hash);
 }
 
 static void setup_field_list_common(List<Item> *field_list)
@@ -2354,19 +2403,27 @@ static void store_result_field_transaction_list(Protocol *protocol,
 static void store_result_field_connection_attrs(Protocol *protocol,
                                                 thread_info *thd_info)
 {
-  // each attribute pair will correspond to a row
-  for (const auto &attribute : thd_info->connection_attrs_map)
+  if (my_hash_inited(&thd_info->connection_attrs_hash))
   {
-    protocol->prepare_for_resend();
-    /* ID */
-    protocol->store((ulonglong) thd_info->thread_id);
-    // ATTR_NAME
-    protocol->store(attribute.first.c_str(), system_charset_info);
-    // ATTR_VALUE
-    protocol->store(attribute.second.c_str(), system_charset_info);
+    // each attribute pair will correspond to a row
+    for (uint idx= 0; idx < thd_info->connection_attrs_hash.records; ++idx)
+    {
+      const connection_attr *attribute=
+        (const connection_attr*) my_hash_const_element(
+            &thd_info->connection_attrs_hash, idx);
 
-    if (protocol->write())
-      break;
+      protocol->prepare_for_resend();
+      /* ID */
+      protocol->store((ulonglong) thd_info->thread_id);
+      // ATTR_NAME
+      protocol->store(attribute->key_string.str(), system_charset_info);
+      // ATTR_VALUE
+      protocol->store(attribute->val_string.str(), system_charset_info);
+
+      if (protocol->write())
+        break;
+    }
+    my_hash_free(&thd_info->connection_attrs_hash);
   }
 }
 
