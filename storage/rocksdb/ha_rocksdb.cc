@@ -3640,6 +3640,18 @@ static int rocksdb_init_func(void *p)
     rdb->PauseBackgroundWork();
   }
 
+  // NO_LINT_DEBUG
+  sql_print_information("RocksDB: global statistics using %s indexer",
+      STRINGIFY_ARG(RDB_INDEXER));
+#if defined(HAVE_SCHED_GETCPU)
+  if (sched_getcpu() == -1)
+  {
+    // NO_LINT_DEBUG
+    sql_print_information("RocksDB: sched_getcpu() failed - "
+        "global statistics will use thread_id_indexer_t instead");
+  }
+#endif
+
   sql_print_information("RocksDB instance opened");
   DBUG_RETURN(0);
 }
