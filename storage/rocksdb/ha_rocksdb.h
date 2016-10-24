@@ -237,13 +237,19 @@ enum operation_type {
   ROWS_MAX
 };
 
+#if defined(HAVE_SCHED_GETCPU)
+#define RDB_INDEXER get_sched_indexer_t
+#else
+#define RDB_INDEXER thread_id_indexer_t
+#endif
+
 /* Global statistics struct used inside MyRocks */
 struct st_global_stats {
-  ib_counter_t<ulonglong, 64> rows[ROWS_MAX];
+  ib_counter_t<ulonglong, 64, RDB_INDEXER> rows[ROWS_MAX];
 
   // system_rows_ stats are only for system
   // tables. They are not counted in rows_* stats.
-  ib_counter_t<ulonglong, 64> system_rows[ROWS_MAX];
+  ib_counter_t<ulonglong, 64, RDB_INDEXER> system_rows[ROWS_MAX];
 };
 
 /* Struct used for exporting status to MySQL */
