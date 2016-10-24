@@ -6,6 +6,11 @@ IF (NOT EXISTS "${CMAKE_SOURCE_DIR}/rocksdb/Makefile")
   MESSAGE(SEND_ERROR "Missing Makefile in rocksdb directory. Try \"git submodule update\".")
 ENDIF()
 
+CHECK_FUNCTION_EXISTS(sched_getcpu  HAVE_SCHED_GETCPU)
+IF(HAVE_SCHED_GETCPU)
+  ADD_DEFINITIONS(-DHAVE_SCHED_GETCPU=1)
+ENDIF()
+
 # get a list of rocksdb library source files
 # run with env -i to avoid passing variables
 EXECUTE_PROCESS(
