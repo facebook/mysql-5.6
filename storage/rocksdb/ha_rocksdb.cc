@@ -1539,8 +1539,7 @@ public:
                                                 false /* just statement */);
       return HA_ERR_LOCK_DEADLOCK;
     }
-
-    if (s.IsBusy())
+    else if (s.IsBusy())
     {
       rocksdb_snapshot_conflict_errors++;
       if (rocksdb_print_snapshot_conflict_queries)
@@ -2125,6 +2124,7 @@ class Rdb_transaction_impl : public Rdb_transaction
   {
     if (++m_lock_count > m_max_row_locks)
       return rocksdb::Status::Aborted(rocksdb::Status::kLockLimit);
+
     return m_rocksdb_tx->GetForUpdate(m_read_opts, column_family, key, value);
   }
 
@@ -6734,6 +6734,27 @@ void dbug_dump_database(rocksdb::DB *db)
   fclose(out);
 }
 
+rocksdb::Status ha_rocksdb::get_for_update(
+    Rdb_transaction*             tx,
+    rocksdb::ColumnFamilyHandle* column_family,
+    const rocksdb::Slice&        key,
+    std::string*                 value) const
+{
+  rocksdb::Status s= tx->get_for_update(column_family, key, value);
+
+  // If we have a lock conflict and we are running in READ COMMITTTED mode
+  // release and reacquire the snapshot and then retry the get_for_update().
+  if (s.IsBusy() && !s.IsDeadlock() &&
+      my_core::thd_tx_isolation(ha_thd()) == ISO_READ_COMMITTED)
+  {
+    tx->release_snapshot();
+    tx->acquire_snapshot(false);
+
+    s= tx->get_for_update(column_family, key, value);
+  }
+
+  return s;
+}
 
 /*
   Given a rowid (i.e. packed PK) as a parameter, get the record.
@@ -6779,7 +6800,9 @@ int ha_rocksdb::get_row_by_rowid(uchar *buf, const char *rowid,
     s= tx->get(m_pk_descr->get_cf(), key_slice, &m_retrieved_record);
   }
   else
-    s= tx->get_for_update(m_pk_descr->get_cf(), key_slice, &m_retrieved_record);
+  {
+    s= get_for_update(tx, m_pk_descr->get_cf(), key_slice, &m_retrieved_record);
+  }
 
   if (!s.IsNotFound() && !s.ok())
   {
@@ -7406,9 +7429,8 @@ int ha_rocksdb::check_and_lock_unique_pk(uint key_id,
     2) T1 Get(empty) -> T1 Put(insert, not committed yet) -> T2 Get(empty)
        -> T2 Put(insert, blocked) -> T1 commit -> T2 commit(overwrite)
   */
-  rocksdb::Status s= row_info.tx->get_for_update(m_pk_descr->get_cf(),
-                                                 row_info.new_pk_slice,
-                                                 &m_retrieved_record);
+  rocksdb::Status s= get_for_update(row_info.tx, m_pk_descr->get_cf(),
+                                    row_info.new_pk_slice, &m_retrieved_record);
   if (!s.ok() && !s.IsNotFound())
   {
     return row_info.tx->set_status_error(table->in_use, s,
@@ -7529,8 +7551,8 @@ int ha_rocksdb::check_and_lock_sk(uint key_id,
     psergey-todo: we just need to take lock, lookups not needed:
   */
   std::string dummy_value;
-  rocksdb::Status s= row_info.tx->get_for_update(kd.get_cf(), new_slice,
-                                                 &dummy_value);
+  rocksdb::Status s= get_for_update(row_info.tx, kd.get_cf(), new_slice,
+                                    &dummy_value);
   if (!s.ok() && !s.IsNotFound())
   {
     return row_info.tx->set_status_error(table->in_use, s, kd, m_tbl_def);
@@ -8097,65 +8119,79 @@ int ha_rocksdb::rnd_next_with_direction(uchar *buf, bool move_forward)
     DBUG_RETURN(HA_ERR_END_OF_FILE);
   }
 
-  if (m_skip_scan_it_next_call)
+  for ( ; ; )
   {
-    m_skip_scan_it_next_call= false;
-  }
-  else
-  {
-    if (move_forward)
-      m_scan_it->Next();  /* this call cannot fail */
+    if (m_skip_scan_it_next_call)
+    {
+      m_skip_scan_it_next_call= false;
+    }
     else
-      m_scan_it->Prev();  /* this call cannot fail */
-  }
+    {
+      if (move_forward)
+        m_scan_it->Next();  /* this call cannot fail */
+      else
+        m_scan_it->Prev();  /* this call cannot fail */
+    }
 
-  if (m_scan_it->Valid())
-  {
+    if (!m_scan_it->Valid())
+    {
+      rc= HA_ERR_END_OF_FILE;
+      break;
+    }
+
     /* check if we're out of this table */
     rocksdb::Slice key= m_scan_it->key();
     if (!m_pk_descr->covers_key(key))
     {
       rc= HA_ERR_END_OF_FILE;
+      break;
+    }
+
+    if (m_lock_rows != RDB_LOCK_NONE)
+    {
+      /*
+        Lock the row we've just read.
+
+        Now we call get_for_update which will 1) Take a lock and 2) Will fail
+        if the row was deleted since the snapshot was taken.
+      */
+      Rdb_transaction *tx= get_or_create_tx(table->in_use);
+      DEBUG_SYNC(ha_thd(), "rocksdb_concurrent_delete");
+      rocksdb::Status s= get_for_update(tx, m_pk_descr->get_cf(), key,
+                                        &m_retrieved_record);
+      if (s.IsNotFound() &&
+          my_core::thd_tx_isolation(ha_thd()) == ISO_READ_COMMITTED)
+      {
+        // This occurs if we accessed a row, tried to lock it, failed,
+        // released and reacquired the snapshot (because of READ COMMITTED
+        // mode) and the row was deleted by someone else in the meantime.
+        // If so, we just want to move on to the next row.
+        continue;
+      }
+
+      if (!s.ok())
+      {
+        DBUG_RETURN(tx->set_status_error(table->in_use, s, *m_pk_descr,
+                                         m_tbl_def));
+      }
+
+      // If we called get_for_update() use the value from that call not from
+      // the iterator as it may be stale since we don't have a snapshot
+      // when m_lock_rows is not RDB_LOCK_NONE.
+      m_last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
+      rc= convert_record_from_storage_format(&key, buf);
     }
     else
     {
-      if (m_lock_rows != RDB_LOCK_NONE)
-      {
-        /*
-          Lock the row we've just read.
-
-          Now we call get_for_update which will 1) Take a lock and 2) Will fail
-          if the row was deleted since the snapshot was taken.
-        */
-        Rdb_transaction *tx= get_or_create_tx(table->in_use);
-        DEBUG_SYNC(ha_thd(), "rocksdb_concurrent_delete");
-        rocksdb::Status s= tx->get_for_update(m_pk_descr->get_cf(), key,
-                                              &m_retrieved_record);
-        if (!s.ok())
-        {
-          DBUG_RETURN(tx->set_status_error(table->in_use, s, *m_pk_descr,
-                                           m_tbl_def));
-        }
-
-        // If we called get_for_update() use the value from that call not from
-        // the iterator as it may be stale since we don't have a snapshot
-        // when m_lock_rows is not RDB_LOCK_NONE.
-        m_last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
-        rc= convert_record_from_storage_format(&key, buf);
-      }
-      else
-      {
-        // Use the value from the iterator
-        rocksdb::Slice value= m_scan_it->value();
-        m_last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
-        rc= convert_record_from_storage_format(&key, &value, buf);
-      }
-
-      table->status= 0;
+      // Use the value from the iterator
+      rocksdb::Slice value= m_scan_it->value();
+      m_last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
+      rc= convert_record_from_storage_format(&key, &value, buf);
     }
+
+    table->status= 0;
+    break;
   }
-  else
-    rc= HA_ERR_END_OF_FILE;
 
   if (!rc) {
     stats.rows_read++;
