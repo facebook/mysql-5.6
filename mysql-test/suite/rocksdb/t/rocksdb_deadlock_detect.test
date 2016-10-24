@@ -26,9 +26,21 @@ connection con1;
 --send select * from t where i = 2 for update
 
 connection con2;
+let $wait_condition =
+select count(*) = 1 as c from information_schema.processlist where
+state = "Waiting for row lock" and
+info = "select * from t where i = 2 for update";
+--source include/wait_condition.inc
+
 --send select * from t where i = 3 for update
 
 connection con3;
+let $wait_condition =
+select count(*) = 1 as c from information_schema.processlist where
+state = "Waiting for row lock" and
+info = "select * from t where i = 3 for update";
+--source include/wait_condition.inc
+
 select * from t;
 --error ER_LOCK_DEADLOCK
 insert into t values (4), (1);
