@@ -119,6 +119,18 @@ int Rdb_index_merge::add(const rocksdb::Slice& key,
                      key.size() + val.size();
   if (total_offset >= m_rec_buf_unsorted->total_size)
   {
+    /*
+      If the offset tree is empty here, that means that the proposed key to
+      add is too large for the buffer.
+    */
+    if (m_offset_tree.empty())
+    {
+      // NO_LINT_DEBUG
+      sql_print_error("Sort buffer size is too small to process merge. "
+                      "Please set merge buffer size to a higher value.");
+      return HA_ERR_INTERNAL_ERROR;
+    }
+
     if (merge_buf_write())
     {
       // NO_LINT_DEBUG
