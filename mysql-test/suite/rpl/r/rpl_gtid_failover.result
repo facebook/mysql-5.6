@@ -51,12 +51,12 @@ include/start_slave.inc
 insert into t1 values (NULL, 5);
 include/sync_slave_sql_with_master.inc
 @@global.gtid_executed
-server_1_uuid:1-5,
+server_1_uuid:1-5
 server_2_uuid:1
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 @@global.gtid_executed
-server_1_uuid:1-5,
+server_1_uuid:1-5
 server_2_uuid:1
 include/diff_tables.inc [server_1:test.t1, server_2:test.t1, server_3:test.t1]
 include/stop_slave.inc
