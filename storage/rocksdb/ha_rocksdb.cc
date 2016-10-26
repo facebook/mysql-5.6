@@ -4030,14 +4030,14 @@ ha_rocksdb::ha_rocksdb(my_core::handlerton *hton,
     m_sk_match_prefix(nullptr), m_sk_match_prefix_buf(nullptr),
     m_sk_packed_tuple_old(nullptr),
     m_pack_buffer(nullptr), m_lock_rows(RDB_LOCK_NONE),
-    m_keyread_only(FALSE), m_finalizing_bulk_load(false),
-    m_bulk_load_tx(nullptr), m_encoder_arr(nullptr),
+    m_keyread_only(FALSE), m_bulk_load_tx(nullptr), m_encoder_arr(nullptr),
     m_row_checksums_checked(0),
     m_in_rpl_delete_rows(false), m_in_rpl_update_rows(false),
     m_force_skip_unique_check(false)
 {
+  // TODO(alexyang): create a valid PSI_mutex_key for this mutex
+  mysql_mutex_init(0, &m_bulk_load_mutex, MY_MUTEX_INIT_FAST);
 }
-
 
 
 static const char *ha_rocksdb_exts[] = {
@@ -7671,16 +7671,12 @@ int ha_rocksdb::finalize_bulk_load()
     return rc;
   }
 
-  bool expected;
-  while (!m_finalizing_bulk_load.compare_exchange_weak(expected= false, true))
-  {
-    /* Loops until we change m_finalizing_bulk_load from false to true */
-  }
+  mysql_mutex_lock(&m_bulk_load_mutex);
 
   /*
-    We need this check because it's possible that sst_info has been
-    flushed and cleared by another thread after m_finalizing_bulk_load is
-    released.
+    We need this check because it's possible that m_sst_info has been
+    flushed and cleared by another thread by the time the mutex has been
+    acquired.
   */
   if (m_sst_info != nullptr)
   {
@@ -7699,12 +7695,7 @@ int ha_rocksdb::finalize_bulk_load()
     m_bulk_load_tx= nullptr;
   }
 
-  /*
-    m_sst_info is now nullptr, so we can release m_finalizing_bulk_load so
-    other threads can move on.
-  */
-  m_finalizing_bulk_load= false;
-
+  mysql_mutex_unlock(&m_bulk_load_mutex);
   return rc;
 }
 
