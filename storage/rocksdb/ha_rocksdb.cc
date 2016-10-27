@@ -20,8 +20,6 @@
 
 #define MYSQL_SERVER 1
 
-// One more comment.
-
 /* The C++ file's header */
 #include "./ha_rocksdb.h"
 
@@ -3305,8 +3303,6 @@ static int rocksdb_init_func(void *p)
 #endif
 
   rocksdb_hton= (handlerton *)p;
-  DBUG_ASSERT(rocksdb_hton != nullptr);
-
   mysql_mutex_init(rdb_psi_open_tbls_mutex_key, &rdb_open_tables.m_mutex,
                    MY_MUTEX_INIT_FAST);
 #ifdef HAVE_PSI_INTERFACE
