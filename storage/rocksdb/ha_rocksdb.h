@@ -237,13 +237,19 @@ enum operation_type {
   ROWS_MAX
 };
 
+#if defined(HAVE_SCHED_GETCPU)
+#define RDB_INDEXER get_sched_indexer_t
+#else
+#define RDB_INDEXER thread_id_indexer_t
+#endif
+
 /* Global statistics struct used inside MyRocks */
 struct st_global_stats {
-  ib_counter_t<ulonglong, 64> rows[ROWS_MAX];
+  ib_counter_t<ulonglong, 64, RDB_INDEXER> rows[ROWS_MAX];
 
   // system_rows_ stats are only for system
   // tables. They are not counted in rows_* stats.
-  ib_counter_t<ulonglong, 64> system_rows[ROWS_MAX];
+  ib_counter_t<ulonglong, 64, RDB_INDEXER> system_rows[ROWS_MAX];
 };
 
 /* Struct used for exporting status to MySQL */
@@ -408,6 +414,8 @@ class ha_rocksdb: public my_core::handler
   /* SST information used for bulk loading the primary key */
   std::shared_ptr<Rdb_sst_info> m_sst_info;
   Rdb_transaction *m_bulk_load_tx;
+  /* Mutex to protect finalizing bulk load */
+  mysql_mutex_t m_bulk_load_mutex;
 
   /*
     MySQL index number for duplicate key error
@@ -438,6 +446,11 @@ class ha_rocksdb: public my_core::handler
     delete m_scan_it;
     m_scan_it= nullptr;
   }
+
+  rocksdb::Status get_for_update(Rdb_transaction* tx,
+                                 rocksdb::ColumnFamilyHandle* column_family,
+                                 const rocksdb::Slice& key,
+                                 std::string* value) const;
 
   int get_row_by_rowid(uchar *buf, const char *rowid,
                        const uint rowid_size)
@@ -546,6 +559,7 @@ public:
     int err __attribute__((__unused__));
     err= finalize_bulk_load();
     DBUG_ASSERT(err == 0);
+    mysql_mutex_destroy(&m_bulk_load_mutex);
   }
 
   /** @brief

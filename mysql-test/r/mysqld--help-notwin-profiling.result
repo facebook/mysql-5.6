@@ -686,6 +686,8 @@ The following options may be given as the first argument:
  --peak-lag-time=#   The time frame peak lag is measured within, in seconds.
  --per-user-session-var-default-val[=name] 
  Per user session variable default value
+ --per-user-session-var-user-name-delimiter[=name] 
+ Per user session variable user name delimiter
  --performance-schema 
  Enable the performance schema.
  (Defaults to on; use --skip-performance-schema to disable.)
@@ -1087,6 +1089,8 @@ The following options may be given as the first argument:
  --rocksdb-ddl[=name] 
  Enable or disable ROCKSDB_DDL plugin. Possible values are
  ON, OFF, FORCE (don't start if the plugin fails to load).
+ --rocksdb-deadlock-detect 
+ Enables deadlock detection
  --rocksdb-debug-optimizer-n-rows=# 
  Test only to override rocksdb estimates of table size in
  a memtable
@@ -1774,6 +1778,7 @@ part-scan-max 10
 peak-lag-sample-rate 100
 peak-lag-time 60
 per-user-session-var-default-val (No default value)
+per-user-session-var-user-name-delimiter (No default value)
 performance-schema TRUE
 performance-schema-accounts-size -1
 performance-schema-consumer-events-stages-current FALSE
@@ -1810,7 +1815,7 @@ performance-schema-max-rwlock-instances -1
 performance-schema-max-socket-classes 10
 performance-schema-max-socket-instances -1
 performance-schema-max-stage-classes 150
-performance-schema-max-statement-classes 177
+performance-schema-max-statement-classes 178
 performance-schema-max-table-handles -1
 performance-schema-max-table-instances -1
 performance-schema-max-thread-classes 50
@@ -1888,6 +1893,7 @@ rocksdb-datadir ./.rocksdb
 rocksdb-db-write-buffer-size 0
 rocksdb-dbstats ON
 rocksdb-ddl ON
+rocksdb-deadlock-detect FALSE
 rocksdb-debug-optimizer-n-rows 0
 rocksdb-debug-optimizer-no-zero-cardinality TRUE
 rocksdb-default-cf-options 

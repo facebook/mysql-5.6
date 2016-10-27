@@ -1,0 +1,101 @@
+#
+# CONNECTION_ATTRIBUTES
+#
+
+desc information_schema.connection_attributes;
+
+let $conn_root = query_get_value(SHOW processlist,Id,1);
+
+--sorted_result
+--replace_column 3 #
+--replace_result $conn_root conn_root
+show connection_attributes;
+
+--sorted_result
+--replace_column 3 #
+--replace_result $conn_root conn_root
+select * from information_schema.connection_attributes;
+
+create user mysqluser1;
+connect (a,localhost,mysqluser1,,);
+let $conn_a = query_get_value(SHOW processlist,Id,1);
+
+--sorted_result
+--replace_column 3 #
+--replace_result $conn_a conn_a
+select * from information_schema.connection_attributes;
+
+--sorted_result
+--replace_column 3 #
+--replace_result $conn_a conn_a
+show connection_attributes;
+
+--echo # connection default
+connection default;
+
+--sorted_result
+--replace_column 3 #
+--replace_result $conn_root conn_root $conn_a conn_a
+select * from information_schema.connection_attributes;
+
+--sorted_result
+--replace_column 3 #
+--replace_result $conn_root conn_root $conn_a conn_a
+show connection_attributes;
+
+--sorted_result
+--replace_column 3 #
+--replace_regex /Id = [0-9]*/Id = conn_root/
+--replace_result $conn_root conn_root
+eval select * from information_schema.connection_attributes where Id = $conn_root;
+
+--sorted_result
+--replace_column 3 #
+--replace_regex /Id = [0-9]*/Id = conn_a/
+--replace_result $conn_a conn_a
+eval select * from information_schema.connection_attributes where Id = $conn_a;
+
+connection a;
+conn_attrs_add foo bar;
+conn_attrs_add foo+ bar+;
+
+# change user command to re-send connection attributes
+change_user mysqluser1;
+--sorted_result
+--replace_column 3 #
+--replace_result $conn_root conn_root $conn_a conn_a
+show connection_attributes;
+
+--sorted_result
+--replace_regex /Id = [0-9]*/Id = conn_a/
+--replace_result $conn_a conn_a
+eval select * from information_schema.connection_attributes
+where Id = $conn_a and Attr_Name like 'foo%';
+
+conn_attrs_delete foo;
+# change user command to re-send connection attributes
+change_user mysqluser1;
+--sorted_result
+--replace_column 3 #
+--replace_result $conn_root conn_root $conn_a conn_a
+show connection_attributes;
+
+--sorted_result
+--replace_regex /Id = [0-9]*/Id = conn_a/
+--replace_result $conn_a conn_a
+eval select * from information_schema.connection_attributes
+where Id = $conn_a and Attr_Name like 'foo%';
+
+conn_attrs_reset;
+# change user command to re-send connection attributes
+change_user mysqluser1;
+
+# empty results
+show connection_attributes;
+select * from information_schema.connection_attributes;
+
+# cleanup
+--echo # connection default
+connection default;
+disconnect a;
+drop user mysqluser1;

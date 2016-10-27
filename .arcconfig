@@ -1,11 +1,8 @@
 {
-  "project_id" : "mysql",
-  "phabricator.uri" : "https://reviews.facebook.net/api/",
-  "repository.callsign" : "MYSQLFIVESIX",
+  "project_id" : "mysql-5.6",
+  "phabricator.uri" : "https://phabricator.fb.com/api/",
+  "repository.callsign" : "MYSQL",
   "load" : [ "arcanist/" ],
   "arcanist_configuration" : "FacebookMySQLArcanistConfiguration",
-  "lint.engine" : "FacebookMySQLLintEngine",
-  "lint.cpplint.prefix" : "rocksdb/arcanist_util/cpp_linter/",
-  "lint.cpplint.options" : "--filter=-build/include_order,-whitespace/braces,-whitespace/newline",
   "git.default-relative-commit" : "HEAD^"
 }

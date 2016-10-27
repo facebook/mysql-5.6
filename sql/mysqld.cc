@@ -934,7 +934,9 @@ char *opt_binlog_index_name;
 char *mysql_home_ptr, *pidfile_name_ptr, *shutdownfile_name_ptr;
 char *binlog_file_basedir_ptr;
 char *binlog_index_basedir_ptr;
-char *per_user_session_var_default_val_ptr;
+char *per_user_session_var_default_val_ptr=0;
+char *per_user_session_var_user_name_delimiter_ptr=nullptr;
+static const char default_per_user_session_var_user_name_delimiter=':';
 /** Initial command line arguments (count), after load_defaults().*/
 static int defaults_argc;
 /**
@@ -4331,6 +4333,7 @@ SHOW_VAR com_status_vars[]= {
   {"show_binlogs",         (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_SHOW_BINLOGS]), SHOW_LONG_STATUS},
   {"show_charsets",        (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_SHOW_CHARSETS]), SHOW_LONG_STATUS},
   {"show_collations",      (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_SHOW_COLLATIONS]), SHOW_LONG_STATUS},
+  {"show_connection_attributes",(char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_SHOW_CONNECTION_ATTRIBUTES]), SHOW_LONG_STATUS},
   {"show_create_db",       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_SHOW_CREATE_DB]), SHOW_LONG_STATUS},
   {"show_create_event",    (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_SHOW_CREATE_EVENT]), SHOW_LONG_STATUS},
   {"show_create_func",     (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_SHOW_CREATE_FUNC]), SHOW_LONG_STATUS},
@@ -6216,6 +6219,16 @@ bool Per_user_session_variables::store(User_session_vars_sp& per_user_vars,
 /**
    Static method
 */
+char Get_per_user_session_var_user_name_delimiter()
+{
+  if (per_user_session_var_user_name_delimiter_ptr &&
+      strlen(per_user_session_var_user_name_delimiter_ptr) > 0)
+  {
+    return per_user_session_var_user_name_delimiter_ptr[0];
+  }
+  return default_per_user_session_var_user_name_delimiter;
+}
+
 bool Per_user_session_variables::init_do(User_session_vars_sp& per_user_vars,
                                          const char *sys_var_str)
 {
@@ -6231,7 +6244,9 @@ bool Per_user_session_variables::init_do(User_session_vars_sp& per_user_vars,
 
   std::string key, val;
 
-  static const char *delimiters = ":=,";
+  char user_name_delimiter = Get_per_user_session_var_user_name_delimiter();
+  char delimiters[4] = { '\0', '=', ',', '\0' };
+  delimiters[0] = user_name_delimiter;
   static const char *invalid_tokens = " \t\"\\/';";
   const char *p = sys_var_str;
   const char *prev = p;
@@ -6241,8 +6256,8 @@ bool Per_user_session_variables::init_do(User_session_vars_sp& per_user_vars,
   */
   while (*p)
   {
-    /* Get a token in the forms of "foo:", "bar=", "baz,",
-       or the last one in the form of "tail" */
+    /* Assume the user name delimiter is ':'. Get a token in the forms of
+       "foo:", "bar=", "baz,", or the last one in the form of "tail" */
     while (*p && !strchr(delimiters, *p))
     {
       /* Return immediately if invalid tokens are seen */
@@ -6254,7 +6269,7 @@ bool Per_user_session_variables::init_do(User_session_vars_sp& per_user_vars,
     if (p == prev)
       return false;
 
-    if (*p == ':')
+    if (*p == user_name_delimiter)
     {
       /* Return if we have a key with no value */
       if (!key.empty())
@@ -6382,6 +6397,8 @@ bool Per_user_session_variables::set_thd(THD *thd)
 
 void Per_user_session_variables::print()
 {
+  char name_delimiter = Get_per_user_session_var_user_name_delimiter();
+
   /* Read-lock */
   mysql_rwlock_rdlock(&LOCK_per_user_session_var);
 
@@ -6391,12 +6408,12 @@ void Per_user_session_variables::print()
          it1 != per_user_session_vars->end();
          ++it1)
     {
-      std::string msg = it1->first + ":";
+      std::string msg = it1->first + name_delimiter;
       for (auto it2 = it1->second->begin();
            it2 != it1->second->end();
            ++it2)
       {
-        if (msg.back() != ':')
+        if (msg.back() != name_delimiter)
           msg += ",";
         msg += it2->first + "=" + it2->second;
       }

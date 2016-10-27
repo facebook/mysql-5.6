@@ -1170,7 +1170,8 @@ public:
   const char	*alias;            	  /* alias or table name */
   uchar		*null_flags;
   my_bitmap_map	*bitmap_init_value;
-  MY_BITMAP     def_read_set, def_write_set, tmp_set; /* containers */
+  MY_BITMAP     def_read_set, def_write_set; /* containers */
+  MY_BITMAP     tmp_set, tmp_write_set; /* containers */
   MY_BITMAP     *read_set, *write_set;          /* Active column sets */
   /*
    The ID of the query that opened and is using this table. Has different

@@ -547,6 +547,13 @@ static Sys_var_long Sys_pfs_connect_attrs_size(
 #endif /* EMBEDDED_LIBRARY */
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
 
+static Sys_var_charptr Sys_per_user_session_var_user_name_delimiter(
+       "per_user_session_var_user_name_delimiter",
+       "Per user session variable user name delimiter",
+       READ_ONLY GLOBAL_VAR(per_user_session_var_user_name_delimiter_ptr),
+       CMD_LINE(OPT_ARG), IN_FS_CHARSET, DEFAULT(0),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
 static bool check_per_user_session_var(sys_var *self, THD *thd,
                                        set_var *var)
 {

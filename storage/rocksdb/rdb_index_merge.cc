@@ -119,6 +119,18 @@ int Rdb_index_merge::add(const rocksdb::Slice& key,
                      key.size() + val.size();
   if (total_offset >= m_rec_buf_unsorted->total_size)
   {
+    /*
+      If the offset tree is empty here, that means that the proposed key to
+      add is too large for the buffer.
+    */
+    if (m_offset_tree.empty())
+    {
+      // NO_LINT_DEBUG
+      sql_print_error("Sort buffer size is too small to process merge. "
+                      "Please set merge buffer size to a higher value.");
+      return HA_ERR_INTERNAL_ERROR;
+    }
+
     if (merge_buf_write())
     {
       // NO_LINT_DEBUG
@@ -480,10 +492,22 @@ int Rdb_index_merge::merge_heap_entry::read_rec(rocksdb::Slice *key,
                                                 rocksdb::Slice *val)
 {
   const uchar* block_ptr= block;
+  const auto orig_offset = chunk_info->curr_offset;
+  const auto orig_block = block;
 
   /* Read key at block offset into key slice and the value into value slice*/
-  if (read_slice(key, &block_ptr) != 0 || read_slice(val, &block_ptr) != 0)
+  if (read_slice(key, &block_ptr) != 0)
   {
+    return 1;
+  }
+
+  chunk_info->curr_offset += (uintptr_t) block_ptr - (uintptr_t) block;
+  block += (uintptr_t) block_ptr - (uintptr_t) block;
+
+  if (read_slice(val, &block_ptr) != 0)
+  {
+    chunk_info->curr_offset= orig_offset;
+    block= orig_block;
     return 1;
   }
 

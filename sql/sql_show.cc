@@ -2072,6 +2072,47 @@ view_store_create_info(THD *thd, TABLE_LIST *table, String *buff)
   returns for each thread: thread id, user, host, db, command, info
 ****************************************************************************/
 
+// types of show command with process list
+enum process_list_type
+{
+  SHOW_PROCESS_LIST,
+  SHOW_TRANSACTION_LIST,
+  SHOW_CONNECTION_ATTRS
+};
+
+// stores one connection attribute
+struct connection_attr :public Sql_alloc
+{
+  CSET_STRING key_string;
+  CSET_STRING val_string;
+
+  explicit connection_attr(const char *key, const char *val, CHARSET_INFO *cs,
+                           THD *thd)
+  {
+    DBUG_ASSERT(key);
+    DBUG_ASSERT(val);
+    DBUG_ASSERT(cs);
+    DBUG_ASSERT(thd);
+
+    size_t key_len = strlen(key);
+    size_t val_len = strlen(val);
+    char *k = thd->strmake(key, key_len);
+    char *v = thd->strmake(val, val_len);
+    key_string= CSET_STRING(k, k ? key_len : 0, cs);
+    val_string= CSET_STRING(v, v ? val_len : 0, cs);
+  }
+};
+
+static uchar *
+connection_attrs_get_key(const uchar *data, size_t *len_ret,
+                         my_bool __attribute__((unused)))
+{
+  connection_attr *ca= (connection_attr *) data;
+
+  *len_ret= ca->key_string.length();
+  return (uchar *) ca->key_string.str();
+}
+
 class thread_info
 {
 public:
@@ -2094,6 +2135,8 @@ public:
   double stmt_secs, trx_secs, cmd_secs;
   // tracking the thread's transaction
   bool rw_trans, sql_log_bin;
+  // connection attributes
+  HASH connection_attrs_hash;
 };
 
 static const char *thread_state_info(THD *tmp)
@@ -2234,6 +2277,30 @@ static void set_thread_info_transaction_list(thread_info *thd_info, THD *tmp)
   thd_info->sql_log_bin = tmp->variables.sql_log_bin;
 }
 
+static void set_thread_info_connection_attrs(thread_info *thd_info, THD *thd,
+                                             THD *tmp)
+{
+  if (!my_hash_init(&thd_info->connection_attrs_hash, system_charset_info,
+                    16, 0, 0, (my_hash_get_key)connection_attrs_get_key,
+                    NULL /* free_element */, 0))
+  {
+    mysql_mutex_lock(&tmp->LOCK_thd_data);
+    for (const auto &attr : tmp->connection_attrs_map)
+    {
+      // HASH element is allocated and freed with mem_root
+      connection_attr *ca=
+        new (thd->mem_root) connection_attr(attr.first.c_str(),
+                                            attr.second.c_str(),
+                                            system_charset_info, thd);
+      if (ca)
+        my_hash_insert(&thd_info->connection_attrs_hash, (uchar*) ca);
+    }
+    mysql_mutex_unlock(&tmp->LOCK_thd_data);
+  }
+  else
+    my_hash_clear(&thd_info->connection_attrs_hash);
+}
+
 static void setup_field_list_common(List<Item> *field_list)
 {
   Item *field;
@@ -2281,6 +2348,15 @@ static void setup_field_list_transaction_list(List<Item> *field_list)
   field_list->push_back(new Item_int(NAME_STRING("Sql_log_bin"), 0, 1));
 }
 
+static void setup_field_list_connection_attrs(List<Item> *field_list)
+{
+  Item *field;
+  field_list->push_back(
+      new Item_int(NAME_STRING("Id"), 0, MY_INT64_NUM_DECIMAL_DIGITS));
+  field_list->push_back(field=new Item_empty_string("Attr_Name",30));
+  field_list->push_back(field=new Item_empty_string("Attr_Value",30));
+}
+
 static void store_result_field_thread_info_common(Protocol *protocol,
                                                   thread_info *thd_info)
 {
@@ -2324,22 +2400,57 @@ static void store_result_field_transaction_list(Protocol *protocol,
   protocol->store((longlong) thd_info->sql_log_bin);
 }
 
+static void store_result_field_connection_attrs(Protocol *protocol,
+                                                thread_info *thd_info)
+{
+  if (my_hash_inited(&thd_info->connection_attrs_hash))
+  {
+    // each attribute pair will correspond to a row
+    for (uint idx= 0; idx < thd_info->connection_attrs_hash.records; ++idx)
+    {
+      const connection_attr *attribute=
+        (const connection_attr*) my_hash_const_element(
+            &thd_info->connection_attrs_hash, idx);
+
+      protocol->prepare_for_resend();
+      /* ID */
+      protocol->store((ulonglong) thd_info->thread_id);
+      // ATTR_NAME
+      protocol->store(attribute->key_string.str(), system_charset_info);
+      // ATTR_VALUE
+      protocol->store(attribute->val_string.str(), system_charset_info);
+
+      if (protocol->write())
+        break;
+    }
+    my_hash_free(&thd_info->connection_attrs_hash);
+  }
+}
+
+// Check if the user has the privilege to access the thread
+static bool access_thread(const char *user, THD *thd)
+{
+  Security_context *thd_sctx= thd->security_ctx;
+  return ((thd->vio_ok() || thd->system_thread) &&
+          (!user || (!thd->system_thread && thd_sctx->user &&
+                     !strcmp(thd_sctx->user, user))));
+}
+
 /* Return false if the current row (process) is skipped */
 static bool fill_fields_process_common(THD *thd, THD *tmp, TABLE *table,
                                        char *user, CHARSET_INFO *cs,
                                        struct st_my_thread_var *&mysys_var)
 {
+  // if the user cannot access the tmp thread, skip the thread
+  if (!access_thread(user, tmp))
+    return false;
+
   Security_context *tmp_sctx= tmp->security_ctx;
   const char *val, *db;
 
-  if ((!tmp->vio_ok() && !tmp->system_thread) ||
-      (user && (tmp->system_thread || !tmp_sctx->user ||
-                strcmp(tmp_sctx->user, user))))
-    return false;
-
   restore_record(table, s->default_values);
-  /* ID */
 
+  /* ID */
   table->field[0]->store((ulonglong) tmp->thread_id(), TRUE);
   /* USER */
   val= tmp_sctx->user ? tmp_sctx->user :
@@ -2460,8 +2571,38 @@ static bool fill_fields_transaction_list(THD *thd, THD *tmp, TABLE *table,
   return true;
 }
 
+static void fill_fields_connection_attrs(THD *thd, THD *tmp, TABLE *table,
+                                         char *user, CHARSET_INFO *cs)
+{
+  // if the user cannot access the tmp thread, skip the thread
+  if (!access_thread(user, tmp))
+    return;
+
+  mysql_mutex_lock(&tmp->LOCK_thd_data);
+  // each attribute pair will correspond to a row
+  for (const auto &attribute : tmp->connection_attrs_map)
+  {
+    /* ID */
+    table->field[0]->store((ulonglong) tmp->thread_id(), TRUE);
+
+    // ATTR_NAME
+    size_t width= min<size_t>(PROCESS_LIST_WIDTH, attribute.first.size());
+    table->field[1]->store(attribute.first.c_str(), width, cs);
+    table->field[1]->set_notnull();
+
+    // ATTR_VALUE
+    width= min<size_t>(PROCESS_LIST_WIDTH, attribute.second.size());
+    table->field[2]->store(attribute.second.c_str(), width, cs);
+    table->field[2]->set_notnull();
+
+    if (schema_table_store_record(thd, table))
+      break;
+  }
+  mysql_mutex_unlock(&tmp->LOCK_thd_data);
+}
+
 void mysqld_list_process_trx_helper(THD *thd, const char *user, bool verbose,
-                                    bool transaction_list)
+                                    process_list_type type)
 {
   List<Item> field_list;
   Mem_root_array<thread_info*, true> thread_infos(thd->mem_root);
@@ -2469,16 +2610,45 @@ void mysqld_list_process_trx_helper(THD *thd, const char *user, bool verbose,
 			   PROCESS_LIST_WIDTH);
   Protocol *protocol= thd->protocol;
   const char *dbug_name __attribute__((__unused__));
-  if (transaction_list)
-    dbug_name = "mysqld_list_transactions";
-  else
-    dbug_name = "mysqld_list_processes";
+  switch (type)
+  {
+    case process_list_type::SHOW_TRANSACTION_LIST:
+      dbug_name = "mysqld_list_transactions";
+      break;
+
+    case process_list_type::SHOW_CONNECTION_ATTRS:
+      dbug_name = "mysqld_list_connection_attrs";
+      break;
+
+    case process_list_type::SHOW_PROCESS_LIST:
+      dbug_name = "mysqld_list_processes";
+      break;
+
+    default:
+      /* not supported type */
+      DBUG_ASSERT(0);
+  }
   DBUG_ENTER(dbug_name);
 
-  if (transaction_list)
-    setup_field_list_transaction_list(&field_list);
-  else
-    setup_field_list_processlist(&field_list, max_query_length);
+  switch (type)
+  {
+    case process_list_type::SHOW_TRANSACTION_LIST:
+      setup_field_list_transaction_list(&field_list);
+      break;
+
+    case process_list_type::SHOW_CONNECTION_ATTRS:
+      setup_field_list_connection_attrs(&field_list);
+      break;
+
+    case process_list_type::SHOW_PROCESS_LIST:
+      setup_field_list_processlist(&field_list, max_query_length);
+      break;
+
+    default:
+      /* not supported type */
+      DBUG_ASSERT(0);
+  }
+
   if (protocol->send_result_set_metadata(&field_list,
         Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
     DBUG_VOID_RETURN;
@@ -2500,19 +2670,30 @@ void mysqld_list_process_trx_helper(THD *thd, const char *user, bool verbose,
 
     DEBUG_SYNC(thd,"after_copying_threads");
     thread_infos.reserve(get_thread_count());
-    for (auto tmp: global_thread_list_copy)
+    for (const auto &tmp: global_thread_list_copy)
     {
-      Security_context *tmp_sctx= tmp->security_ctx;
-      if ((tmp->vio_ok() || tmp->system_thread) &&
-          (!user || (!tmp->system_thread && tmp_sctx->user &&
-                     !strcmp(tmp_sctx->user, user))))
+      if (access_thread(user, tmp))
       {
         thread_info *thd_info= new thread_info;
         set_thread_info_common(thd_info, thd, tmp, max_query_length);
-        if (transaction_list)
-          set_thread_info_transaction_list(thd_info, tmp);
-        else
-          thd_info->start_time= tmp->start_time.tv_sec;
+        switch (type)
+        {
+          case process_list_type::SHOW_TRANSACTION_LIST:
+            set_thread_info_transaction_list(thd_info, tmp);
+            break;
+
+          case process_list_type::SHOW_CONNECTION_ATTRS:
+            set_thread_info_connection_attrs(thd_info, thd, tmp);
+            break;
+
+          case process_list_type::SHOW_PROCESS_LIST:
+            thd_info->start_time= tmp->start_time.tv_sec;
+            break;
+
+          default:
+            /* not supported type */
+            DBUG_ASSERT(0);
+        }
         thread_infos.push_back(thd_info);
       }
     }
@@ -2524,10 +2705,27 @@ void mysqld_list_process_trx_helper(THD *thd, const char *user, bool verbose,
   {
     thread_info *thd_info= thread_infos.at(ix);
     protocol->prepare_for_resend();
-    if (transaction_list)
-      store_result_field_transaction_list(protocol, thd_info);
-    else
-      store_result_field_processlist(protocol, thd_info, now);
+    switch (type)
+    {
+      case process_list_type::SHOW_TRANSACTION_LIST:
+        store_result_field_transaction_list(protocol, thd_info);
+        break;
+
+      case process_list_type::SHOW_CONNECTION_ATTRS:
+        store_result_field_connection_attrs(protocol, thd_info);
+        // connection attr records are already written in the store function,
+        // so we continue to next thd (for-loop)
+        continue;
+
+      case process_list_type::SHOW_PROCESS_LIST:
+        store_result_field_processlist(protocol, thd_info, now);
+        break;
+
+      default:
+        /* not supported type */
+        DBUG_ASSERT(0);
+    }
+
     if (protocol->write())
       break; /* purecov: inspected */
   }
@@ -2536,17 +2734,31 @@ void mysqld_list_process_trx_helper(THD *thd, const char *user, bool verbose,
 }
 
 int fill_schema_process_trx_helper(THD *thd, TABLE_LIST *tables, Item *cond,
-                                   bool transaction_list)
+                                   process_list_type type)
 {
   TABLE *table= tables->table;
   CHARSET_INFO *cs= system_charset_info;
   char *user;
   time_t now= my_time(0);
   const char *dbug_name __attribute__((__unused__));
-  if (transaction_list)
-    dbug_name = "fill_transaction_list";
-  else
-    dbug_name = "fill_process_list";
+  switch (type)
+  {
+    case process_list_type::SHOW_TRANSACTION_LIST:
+      dbug_name = "fill_transaction_list";
+      break;
+
+    case process_list_type::SHOW_CONNECTION_ATTRS:
+      dbug_name = "fill_connection_attrs";
+      break;
+
+    case process_list_type::SHOW_PROCESS_LIST:
+      dbug_name = "fill_process_list";
+      break;
+
+    default:
+      /* not supported type */
+      DBUG_ASSERT(0);
+  }
   DBUG_ENTER(dbug_name);
 
   user= thd->security_ctx->master_access & PROCESS_ACL ?
@@ -2566,25 +2778,36 @@ int fill_schema_process_trx_helper(THD *thd, TABLE_LIST *tables, Item *cond,
     mysql_mutex_lock(&LOCK_thd_remove);
     copy_global_thread_list_sorted(&global_thread_list_copy);
 
-    if (!transaction_list)
+    if (type == process_list_type::SHOW_PROCESS_LIST)
     {
       DEBUG_SYNC(thd,"fill_schema_processlist_after_copying_threads");
     }
 
-    for (auto tmp: global_thread_list_copy)
+    bool store = false;
+    for (const auto &tmp: global_thread_list_copy)
     {
-      if (transaction_list)
+      switch (type)
       {
-        if (!fill_fields_transaction_list(thd, tmp, table, user, cs))
+        case process_list_type::SHOW_TRANSACTION_LIST:
+          store = fill_fields_transaction_list(thd, tmp, table, user, cs);
+          break;
+
+        case process_list_type::SHOW_CONNECTION_ATTRS:
+          fill_fields_connection_attrs(thd, tmp, table, user, cs);
+          // connection attr records already stored,
+          // so continue to next thd (for-loop)
           continue;
-      }
-      else
-      {
-        if (!fill_fields_processlist(thd, tmp, table, user, cs, now))
-          continue;
+
+        case process_list_type::SHOW_PROCESS_LIST:
+          store = fill_fields_processlist(thd, tmp, table, user, cs, now);
+          break;
+
+        default:
+          /* not supported type */
+          DBUG_ASSERT(0);
       }
 
-      if (schema_table_store_record(thd, table))
+      if (store && schema_table_store_record(thd, table))
       {
         mysql_mutex_unlock(&LOCK_thd_remove);
         DBUG_RETURN(1);
@@ -2596,29 +2819,47 @@ int fill_schema_process_trx_helper(THD *thd, TABLE_LIST *tables, Item *cond,
   DBUG_RETURN(0);
 }
 /****************************************************************************
-  Main functions for processlist and transaction_list
+  Main functions for processlist, transaction_list, connection_attrs
     mysqld_list_processes, mysqld_list_transactions,
-    fill_schema_processlist, fill_schema_transaction_list
+    mysqld_list_connection_attrs
+    fill_schema_processlist, fill_schema_transaction_list,
+    fill_schema_connection_attrs
 ****************************************************************************/
 
 void mysqld_list_processes(THD *thd,const char *user, bool verbose)
 {
-  mysqld_list_process_trx_helper(thd, user, verbose, false);
+  mysqld_list_process_trx_helper(thd, user, verbose,
+      process_list_type::SHOW_PROCESS_LIST);
 }
 
 void mysqld_list_transactions(THD *thd,const char *user, bool verbose)
 {
-  mysqld_list_process_trx_helper(thd, user, verbose, true);
+  mysqld_list_process_trx_helper(thd, user, verbose,
+      process_list_type::SHOW_TRANSACTION_LIST);
+}
+
+void mysqld_list_connection_attrs(THD *thd,const char *user, bool verbose)
+{
+  mysqld_list_process_trx_helper(thd, user, verbose,
+      process_list_type::SHOW_CONNECTION_ATTRS);
 }
 
 int fill_schema_processlist(THD* thd, TABLE_LIST* tables, Item* cond)
 {
-  return fill_schema_process_trx_helper(thd, tables, cond, false);
+  return fill_schema_process_trx_helper(thd, tables, cond,
+            process_list_type::SHOW_PROCESS_LIST);
 }
 
 int fill_schema_transaction_list(THD* thd, TABLE_LIST* tables, Item* cond)
 {
-  return fill_schema_process_trx_helper(thd, tables, cond, true);
+  return fill_schema_process_trx_helper(thd, tables, cond,
+            process_list_type::SHOW_TRANSACTION_LIST);
+}
+
+int fill_schema_connection_attrs(THD* thd, TABLE_LIST* tables, Item* cond)
+{
+  return fill_schema_process_trx_helper(thd, tables, cond,
+            process_list_type::SHOW_CONNECTION_ATTRS);
 }
 
 int fill_schema_authinfo(THD* thd, TABLE_LIST* tables, Item* cond)
@@ -8631,6 +8872,16 @@ ST_FIELD_INFO processlist_fields_info[]=
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
+ST_FIELD_INFO connection_attrs_fields_info[]=
+{
+  {"ID", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "Id", SKIP_OPEN_TABLE},
+  {"ATTR_NAME", PROCESS_LIST_INFO_WIDTH, MYSQL_TYPE_STRING, 0, 1,
+   "ATTR_NAME", SKIP_OPEN_TABLE},
+  {"ATTR_VALUE", PROCESS_LIST_INFO_WIDTH, MYSQL_TYPE_STRING, 0, 1,
+   "ATTR_VALUE", SKIP_OPEN_TABLE},
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
+};
+
 ST_FIELD_INFO authinfo_fields_info[]=
 {
   {"ID", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "Id", SKIP_OPEN_TABLE},
@@ -8864,6 +9115,9 @@ ST_SCHEMA_TABLE schema_tables[]=
    fill_schema_processlist, make_old_format, 0, -1, -1, 0, 0},
   {"TRANSACTION_LIST", transaction_list_fields_info, create_schema_table,
    fill_schema_transaction_list, make_old_format, 0, -1, -1, 0, 0},
+  {"CONNECTION_ATTRIBUTES", connection_attrs_fields_info,
+   create_schema_table, fill_schema_connection_attrs,
+   make_old_format, 0, -1, -1, 0, 0},
   {"PROFILING", query_profile_statistics_info, create_schema_table,
     fill_query_profile_statistics_info, make_profile_table_for_show, 
     NULL, -1, -1, false, 0},
