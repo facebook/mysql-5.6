@@ -7239,6 +7239,8 @@ ER_FILESORT_MAX_FILE_SIZE_EXCEEDED
 ER_SLAVE_GTID_INFO_WITHOUT_ROCKSDB
   eng "slave_gtid_info can be set to OPTIMIZED only with RocksDB engine."
 
+ER_MULTI_TENANCY_MAX_CONNECTION
+  eng "Maximum connections reached for `%s`"
 #
 #  End of 5.6 error messages.
 #
