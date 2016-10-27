@@ -20,9 +20,6 @@
 #include <string>
 #include <vector>
 
-#if 1
-#endif
-
 namespace myrocks {
 
 /*
