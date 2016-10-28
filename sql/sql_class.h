@@ -4452,7 +4452,8 @@ public:
   {
     set_query(CSET_STRING(query_arg, query_length_arg, charset()));
   }
-  void set_query(const CSET_STRING &str); /* Mutex protected */
+  void set_query(const CSET_STRING &str,
+                 bool need_lock = true); /* Mutex protected */
   void reset_query()               /* Mutex protected */
   { set_query(CSET_STRING()); }
   void set_query_and_id(char *query_arg, uint32 query_length_arg,

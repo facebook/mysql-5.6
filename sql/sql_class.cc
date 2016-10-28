@@ -4924,11 +4924,13 @@ void THD::set_command(enum enum_server_command command)
 
 /** Assign a new value to thd->query.  */
 
-void THD::set_query(const CSET_STRING &string_arg)
+void THD::set_query(const CSET_STRING &string_arg, bool need_lock)
 {
-  mysql_mutex_lock(&LOCK_thd_data);
+  if (need_lock)
+    mysql_mutex_lock(&LOCK_thd_data);
   set_query_inner(string_arg);
-  mysql_mutex_unlock(&LOCK_thd_data);
+  if (need_lock)
+    mysql_mutex_unlock(&LOCK_thd_data);
 
 #ifdef HAVE_PSI_THREAD_INTERFACE
   PSI_THREAD_CALL(set_thread_info)(query(), query_length());
