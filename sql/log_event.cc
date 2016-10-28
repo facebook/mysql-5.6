@@ -14116,6 +14116,11 @@ Rows_query_log_event::Rows_query_log_event(const char *buf, uint event_len,
 
 Rows_query_log_event::~Rows_query_log_event()
 {
+#if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
+  // reset the the query set during do_apply_event() before freeing up
+  // the m_rows_query.
+  thd->reset_query();
+#endif
   my_free(m_rows_query);
 }
 
