@@ -1539,8 +1539,7 @@ public:
                                                 false /* just statement */);
       return HA_ERR_LOCK_DEADLOCK;
     }
-
-    if (s.IsBusy())
+    else if (s.IsBusy())
     {
       rocksdb_snapshot_conflict_errors++;
       if (rocksdb_print_snapshot_conflict_queries)
@@ -6758,7 +6757,8 @@ rocksdb::Status ha_rocksdb::get_for_update(
 
   // If we have a lock conflict and we are running in READ COMMITTTED mode
   // release and reacquire the snapshot and then retry the get_for_update().
-  if (s.IsBusy() && my_core::thd_tx_isolation(ha_thd()) == ISO_READ_COMMITTED)
+  if (s.IsBusy() && !s.IsDeadlock() &&
+      my_core::thd_tx_isolation(ha_thd()) == ISO_READ_COMMITTED)
   {
     tx->release_snapshot();
     tx->acquire_snapshot(false);
