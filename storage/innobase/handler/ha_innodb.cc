@@ -618,7 +618,6 @@ static MYSQL_THDVAR_ULONG(force_index_records_in_range,
   nullptr, nullptr, 0,
   /* min */ 0, /* max */ ULONG_MAX, 0);
 
-
 static SHOW_VAR innodb_status_variables[]= {
   {"adaptive_hash_hits",
   (char*) &export_vars.innodb_hash_searches,		  SHOW_LONG},
@@ -11648,7 +11647,8 @@ ha_innobase::records_in_range(
 	if (table->force_index) {
 		ha_rows force_rows = THDVAR(ha_thd(), force_index_records_in_range);
 		if (force_rows) {
-			DBUG_RETURN(force_rows);
+			n_rows = force_rows;
+			goto func_exit;
 		}
 	}
 
