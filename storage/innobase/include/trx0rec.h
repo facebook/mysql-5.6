@@ -127,6 +127,14 @@ trx_undo_rec_get_row_ref(
 	dtuple_t**	ref,	/*!< out, own: row reference */
 	mem_heap_t*	heap);	/*!< in: memory heap from which the memory
 				needed is allocated */
+
+/** Reads from an undo log record the table ID
+@param[in]	undo_rec	Undo log record
+@return the table ID */
+table_id_t
+trx_undo_rec_get_table_id(const trx_undo_rec_t* undo_rec)
+	__attribute__((nonnull, warn_unused_result));
+
 /*******************************************************************//**
 Skips a row reference from an undo log record.
 @return	pointer to remaining part of undo record */

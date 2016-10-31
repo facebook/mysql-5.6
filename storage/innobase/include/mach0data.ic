@@ -549,6 +549,94 @@ mach_ull_parse_compressed(
 
 	return(ptr + 4);
 }
+
+/** Read a 32-bit integer in a compressed form.
+@param[in,out]	b	pointer to memory where to read;
+advanced by the number of bytes consumed
+@return unsigned value */
+UNIV_INLINE
+ib_uint32_t
+mach_read_next_compressed(
+	const byte**	b)
+{
+	ulint	val = mach_read_from_1(*b);
+
+	if (val < 0x80) {
+		/* 0nnnnnnn (7 bits) */
+		++*b;
+	} else if (val < 0xC0) {
+		/* 10nnnnnn nnnnnnnn (14 bits) */
+		val = mach_read_from_2(*b) & 0x3FFF;
+		ut_ad(val > 0x7F);
+		*b += 2;
+	} else if (val < 0xE0) {
+		/* 110nnnnn nnnnnnnn nnnnnnnn (21 bits) */
+		val = mach_read_from_3(*b) & 0x1FFFFF;
+		ut_ad(val > 0x3FFF);
+		*b += 3;
+	} else if (val < 0xF0) {
+		/* 1110nnnn nnnnnnnn nnnnnnnn nnnnnnnn (28 bits) */
+		val = mach_read_from_4(*b) & 0xFFFFFFF;
+		ut_ad(val > 0x1FFFFF);
+		*b += 4;
+	} else {
+		/* 11110000 nnnnnnnn nnnnnnnn nnnnnnnn nnnnnnnn (32 bits) */
+		ut_ad(val == 0xF0);
+		val = mach_read_from_4(*b + 1);
+		ut_ad(val > 0xFFFFFFF);
+		*b += 5;
+	}
+
+	return(static_cast<ib_uint32_t>(val));
+}
+
+/** Read a 64-bit integer in a compressed form.
+@param[in,out]	b	pointer to memory where to read;
+advanced by the number of bytes consumed
+@return unsigned value */
+UNIV_INLINE
+ib_uint64_t
+mach_read_next_much_compressed(
+	const byte**	b)
+{
+	ib_uint64_t	val = mach_read_from_1(*b);
+
+	if (val < 0x80) {
+		/* 0nnnnnnn (7 bits) */
+		++*b;
+	} else if (val < 0xC0) {
+		/* 10nnnnnn nnnnnnnn (14 bits) */
+		val = mach_read_from_2(*b) & 0x3FFF;
+		ut_ad(val > 0x7F);
+		*b += 2;
+	} else if (val < 0xE0) {
+		/* 110nnnnn nnnnnnnn nnnnnnnn (21 bits) */
+		val = mach_read_from_3(*b) & 0x1FFFFF;
+		ut_ad(val > 0x3FFF);
+		*b += 3;
+	} else if (val < 0xF0) {
+		/* 1110nnnn nnnnnnnn nnnnnnnn nnnnnnnn (28 bits) */
+		val = mach_read_from_4(*b) & 0xFFFFFFF;
+		ut_ad(val > 0x1FFFFF);
+		*b += 4;
+	} else if (val == 0xF0) {
+		/* 11110000 nnnnnnnn nnnnnnnn nnnnnnnn nnnnnnnn (32 bits) */
+		val = mach_read_from_4(*b + 1);
+		ut_ad(val > 0xFFFFFFF);
+		*b += 5;
+	} else {
+		/* 11111111 followed by up to 64 bits */
+		ut_ad(val == 0xFF);
+		++*b;
+		val = mach_read_next_compressed(b);
+		ut_ad(val > 0);
+		val <<= 32;
+		val |= mach_read_next_compressed(b);
+	}
+
+	return(val);
+}
+
 #ifndef UNIV_HOTBACKUP
 /*********************************************************//**
 Reads a double. It is stored in a little-endian format.

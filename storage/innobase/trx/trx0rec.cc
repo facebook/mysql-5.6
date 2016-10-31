@@ -416,6 +416,21 @@ trx_undo_rec_get_row_ref(
 	return(ptr);
 }
 
+/** Reads from an undo log record the table ID
+@param[in]	undo_rec	Undo log record
+@return the table ID */
+table_id_t
+trx_undo_rec_get_table_id(const trx_undo_rec_t* undo_rec)
+{
+	const byte*	ptr = undo_rec + 3;
+
+	/* Skip the UNDO number */
+	mach_read_next_much_compressed(&ptr);
+
+	/* Read the table ID */
+	return(mach_read_next_much_compressed(&ptr));
+}
+
 /*******************************************************************//**
 Skips a row reference from an undo log record.
 @return	pointer to remaining part of undo record */
