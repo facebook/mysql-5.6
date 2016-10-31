@@ -9811,7 +9811,45 @@ int ha_rocksdb::inplace_populate_sk(const TABLE* new_table_arg,
   const bool hidden_pk_exists = has_hidden_pk(table);
 
   int res= 0;
-  Rdb_transaction *tx;
+  Rdb_transaction *tx= get_or_create_tx(table->in_use);
+
+  /*
+    There is one specific scenario where m_sst_info may not be nullptr. This
+    happens if the handler we're using happens to be the handler where the PK
+    bulk load was done on. The sequence of events that lead to this is as
+    follows (T1 is PK bulk load, T2 is SK alter table):
+
+    T1: Execute last INSERT statement
+    T1: Return TABLE and handler object back to Table_cache_manager
+    T1: Close connection
+    T2: Execute ALTER statement
+    T2: Take same TABLE/handler from Table_cache_manager
+    T2: Call closefrm which will call finalize_bulk_load on every other open
+        table/handler *except* the one it's on.
+    T2: Acquire stale snapshot of PK
+    T1: Call finalize_bulk_load
+
+    This is rare because usually, closefrm will call the destructor (and thus
+    finalize_bulk_load) on the handler where PK bulk load is done. However, if
+    the thread ids of the bulk load thread and the alter thread differ by a
+    multiple of table_cache_instances (8 by default), then they hash to the
+    same bucket in Table_cache_manager and the alter thread will not not call
+    the destructor on the handler it is holding. Thus, its m_sst_info will not
+    be nullptr.
+
+    At this point, it is safe to refresh the snapshot because we know all other
+    open handlers have been closed at this point, and the one we're on is the
+    only one left.
+  */
+  if (m_sst_info != nullptr)
+  {
+    if ((res= finalize_bulk_load()))
+    {
+      DBUG_RETURN(res);
+    }
+    tx->commit();
+  }
+
   ulonglong rdb_merge_buf_size= THDVAR(ha_thd(), merge_buf_size);
   ulonglong rdb_merge_combine_read_size= THDVAR(ha_thd(),
       merge_combine_read_size);
@@ -9881,7 +9919,6 @@ int ha_rocksdb::inplace_populate_sk(const TABLE* new_table_arg,
       DBUG_RETURN(res);
     }
 
-    tx= get_or_create_tx(table->in_use);
     ha_index_end();
 
     /*
