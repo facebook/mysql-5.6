@@ -1,0 +1,14 @@
+--source include/have_innodb.inc
+
+SET GLOBAL innodb_force_index_records_in_range = 128;
+SELECT @@GLOBAL.innodb_force_index_records_in_range;
+SET SESSION innodb_force_index_records_in_range=1000000;
+SELECT @@SESSION.innodb_force_index_records_in_range;
+SET SESSION innodb_force_index_records_in_range=0;
+SELECT @@SESSION.innodb_force_index_records_in_range;
+SET SESSION innodb_force_index_records_in_range=16384;
+SELECT @@SESSION.innodb_force_index_records_in_range;
+SET GLOBAL innodb_force_index_records_in_range=-1;
+SELECT @@GLOBAL.innodb_force_index_records_in_range;
+SET GLOBAL innodb_force_index_records_in_range = default;
+SELECT @@GLOBAL.innodb_force_index_records_in_range;
