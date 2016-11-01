@@ -25,6 +25,7 @@
 #include <my_bitmap.h>
 #include "rpl_slave.h"
 #include "rpl_gtid.h"
+#include <queue>
 
 /**
   Legends running throughout the module:
@@ -49,6 +50,12 @@ typedef struct st_db_worker_hash_entry
    */
   long usage;
   /*
+    This is the number of job items this database processed since
+    the last checkpoint, see @ mts_checkpoint_routine.
+    This should also be modified under slave_worker_hash_lock
+   */
+  ulong load;
+  /*
     The list of temp tables belonging to @ db database is
     attached to an assigned @c worker to become its thd->temporary_tables.
     The list is updated with every ddl incl CREATE, DROP.
@@ -65,8 +72,44 @@ typedef struct st_db_worker_hash_entry
 
 } db_worker_hash_entry;
 
+/*
+  Used in priority queue to find least occupied worker
+  see @ rebalance_workers
+*/
+typedef struct worker_load
+{
+  Slave_worker *worker;
+  std::vector<db_worker_hash_entry*> db_entries;
+  long load;
+
+  worker_load(Slave_worker *worker, long load)
+  {
+    this->worker = worker;
+    this->load = load;
+  }
+
+  worker_load(Slave_worker *worker): worker_load(worker, 0) { }
+
+  bool operator >(const worker_load& other) const
+  {
+    return this->load > other.load;
+  }
+} worker_load;
+
+extern HASH mapping_db_to_worker;
+extern bool inited_hash_workers;
+
+#ifdef HAVE_PSI_INTERFACE
+extern PSI_mutex_key key_mutex_slave_worker_hash;
+extern PSI_cond_key key_cond_slave_worker_hash;
+#endif
+
+extern mysql_mutex_t slave_worker_hash_lock;
+extern mysql_cond_t slave_worker_hash_cond;
+
 bool init_hash_workers(ulong slave_parallel_workers);
 void destroy_hash_workers(Relay_log_info*);
+void rebalance_workers(Relay_log_info *rli);
 Slave_worker *map_db_to_worker(const char *dbname, Relay_log_info *rli,
                                db_worker_hash_entry **ptr_entry,
                                bool need_temp_tables, Slave_worker *w);
