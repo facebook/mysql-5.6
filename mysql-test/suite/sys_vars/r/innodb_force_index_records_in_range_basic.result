@@ -1,0 +1,26 @@
+SET GLOBAL innodb_force_index_records_in_range = 128;
+SELECT @@GLOBAL.innodb_force_index_records_in_range;
+@@GLOBAL.innodb_force_index_records_in_range
+128
+SET SESSION innodb_force_index_records_in_range=1000000;
+SELECT @@SESSION.innodb_force_index_records_in_range;
+@@SESSION.innodb_force_index_records_in_range
+1000000
+SET SESSION innodb_force_index_records_in_range=0;
+SELECT @@SESSION.innodb_force_index_records_in_range;
+@@SESSION.innodb_force_index_records_in_range
+0
+SET SESSION innodb_force_index_records_in_range=16384;
+SELECT @@SESSION.innodb_force_index_records_in_range;
+@@SESSION.innodb_force_index_records_in_range
+16384
+SET GLOBAL innodb_force_index_records_in_range=-1;
+Warnings:
+Warning	1292	Truncated incorrect innodb_force_index_records_in_ra value: '-1'
+SELECT @@GLOBAL.innodb_force_index_records_in_range;
+@@GLOBAL.innodb_force_index_records_in_range
+0
+SET GLOBAL innodb_force_index_records_in_range = default;
+SELECT @@GLOBAL.innodb_force_index_records_in_range;
+@@GLOBAL.innodb_force_index_records_in_range
+0

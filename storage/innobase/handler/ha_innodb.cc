@@ -714,6 +714,12 @@ static MYSQL_THDVAR_BOOL(stats_on_metadata,
   "statistics. (OFF by default)",
   NULL, NULL, FALSE);
 
+static MYSQL_THDVAR_ULONG(force_index_records_in_range,
+  PLUGIN_VAR_RQCMDARG,
+  "Used to override the result of records_in_range() when FORCE INDEX is used.",
+  nullptr, nullptr, 0,
+  /* min */ 0, /* max */ ULONG_MAX, 0);
+
 static SHOW_VAR innodb_status_variables[]= {
   {"adaptive_hash_hits",
   (char*) &export_vars.innodb_hash_searches,		  SHOW_LONG},
@@ -11779,6 +11785,14 @@ ha_innobase::records_in_range(
 
 	prebuilt->trx->op_info = (char*)"estimating records in index range";
 
+	if (table->force_index) {
+		ha_rows force_rows = THDVAR(ha_thd(), force_index_records_in_range);
+		if (force_rows) {
+			n_rows = force_rows;
+			goto func_exit;
+		}
+	}
+
 	/* In case MySQL calls this in the middle of a SELECT query, release
 	possible adaptive hash latch to avoid deadlocks of threads */
 
@@ -18879,6 +18893,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
 #ifndef DBUG_OFF
   MYSQL_SYSVAR(force_recovery_crash),
 #endif /* !DBUG_OFF */
+  MYSQL_SYSVAR(force_index_records_in_range),
   MYSQL_SYSVAR(ft_cache_size),
   MYSQL_SYSVAR(ft_total_cache_size),
   MYSQL_SYSVAR(ft_result_cache_limit),
