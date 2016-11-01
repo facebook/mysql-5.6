@@ -1338,7 +1338,7 @@ trx_write_serialisation_history(
 			trx->mysql_log_file_name,
 			trx->mysql_log_offset,
 			TRX_SYS_MYSQL_LOG_INFO, mtr,
-			trx->mysql_gtid);
+			trx->mysql_max_gtid);
 
 		trx->mysql_log_file_name = NULL;
 		trx->mysql_gtid = NULL;

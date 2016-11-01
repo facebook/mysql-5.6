@@ -140,6 +140,7 @@ static std::shared_ptr<Rdb_tbl_prop_coll_factory>
 Rdb_dict_manager dict_manager;
 Rdb_cf_manager cf_manager;
 Rdb_ddl_manager ddl_manager;
+const char* m_mysql_gtid;
 Rdb_binlog_manager binlog_manager;
 
 
@@ -1486,6 +1487,7 @@ public:
   const char* m_mysql_log_file_name;
   my_off_t m_mysql_log_offset;
   const char* m_mysql_gtid;
+  const char* m_mysql_max_gtid;
   String m_detailed_error;
   int64_t m_snapshot_timestamp= 0;
   bool m_ddl_transaction;
@@ -1672,10 +1674,11 @@ public:
     else
     {
       my_core::thd_binlog_pos(m_thd, &m_mysql_log_file_name,
-                              &m_mysql_log_offset, &m_mysql_gtid);
+                              &m_mysql_log_offset, &m_mysql_gtid,
+                              &m_mysql_max_gtid);
       binlog_manager.update(m_mysql_log_file_name,
                             m_mysql_log_offset,
-                            m_mysql_gtid, get_write_batch());
+                            m_mysql_max_gtid, get_write_batch());
       return commit_no_binlog();
     }
   }
@@ -2697,7 +2700,8 @@ static void rdb_xid_from_string(const std::string& src, XID *dst)
   The info is needed for crash safe slave/master to work.
 */
 static int rocksdb_recover(handlerton* hton, XID* xid_list, uint len,
-                           char* binlog_file, my_off_t* binlog_pos)
+                           char* binlog_file, my_off_t* binlog_pos,
+                           Gtid* binlog_max_gtid)
 {
   if (binlog_file && binlog_pos)
   {
@@ -2714,6 +2718,9 @@ static int rocksdb_recover(handlerton* hton, XID* xid_list, uint len,
                 " file name %s\n", pos, file_buf);
         if (*gtid_buf)
         {
+          global_sid_lock->rdlock();
+          binlog_max_gtid->parse(global_sid_map, gtid_buf);
+          global_sid_lock->unlock();
           fprintf(stderr, "RocksDB: Last MySQL Gtid %s\n", gtid_buf);
         }
       }
