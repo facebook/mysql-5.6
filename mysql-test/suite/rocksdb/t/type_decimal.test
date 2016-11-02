@@ -105,7 +105,7 @@ insert into t1 select pk+200, 9.0, 9.0, 'extra-data' from t1;
 insert into t1 select pk+1000, 9.0, 9.0, 'extra-data' from t1;
 insert into t1 select pk+10000, 9.0, 9.0, 'extra-data' from t1;
 insert into t1 select pk+100000, 9.0, 9.0, 'extra-data' from t1;
-analyze table t1;
+set global rocksdb_force_flush_memtable_now=true;
 
 --echo # The following can't use index-only:
 --replace_column 9 #
