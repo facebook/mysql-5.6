@@ -1,0 +1,42 @@
+SET @start_log_legacy_user = @@global.log_legacy_user;
+SELECT @start_log_legacy_user;
+@start_log_legacy_user
+0
+SET @@global.log_legacy_user = DEFAULT;
+SELECT @@global.log_legacy_user;
+@@global.log_legacy_user
+0
+SET @@global.log_legacy_user = false;
+SELECT @@global.log_legacy_user;
+@@global.log_legacy_user
+0
+SET @@global.log_legacy_user = true;
+SELECT @@global.log_legacy_user;
+@@global.log_legacy_user
+1
+SET @@global.log_legacy_user = 1;
+SELECT @@global.log_legacy_user;
+@@global.log_legacy_user
+1
+SET @@global.log_legacy_user = 0;
+SELECT @@global.log_legacy_user;
+@@global.log_legacy_user
+0
+SET @@global.log_legacy_user = -1;
+ERROR 42000: Variable 'log_legacy_user' can't be set to the value of '-1'
+SELECT @@global.log_legacy_user;
+@@global.log_legacy_user
+0
+SET @@global.log_legacy_user = 100;
+ERROR 42000: Variable 'log_legacy_user' can't be set to the value of '100'
+SELECT @@global.log_legacy_user;
+@@global.log_legacy_user
+0
+SET @@session.log_legacy_user = 10;
+ERROR HY000: Variable 'log_legacy_user' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.log_legacy_user;
+ERROR HY000: Variable 'log_legacy_user' is a GLOBAL variable
+SET @@global.log_legacy_user = @start_log_legacy_user;
+SELECT @@global.log_legacy_user;
+@@global.log_legacy_user
+0

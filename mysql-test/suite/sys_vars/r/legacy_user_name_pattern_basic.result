@@ -1,0 +1,14 @@
+set @saved_legacy_user_name_pattern = @@global.legacy_user_name_pattern;
+set @@global.legacy_user_name_pattern = default;
+select @@global.legacy_user_name_pattern;
+@@global.legacy_user_name_pattern
+NULL
+set @@global.legacy_user_name_pattern='%';
+set @@global.legacy_user_name_pattern='^[^:]+$';
+set @@global.legacy_user_name_pattern=1;
+ERROR 42000: Incorrect argument type to variable 'legacy_user_name_pattern'
+select @@session.legacy_user_name_pattern;
+ERROR HY000: Variable 'legacy_user_name_pattern' is a GLOBAL variable
+set @@session.legacy_user_name_pattern=':';
+ERROR HY000: Variable 'legacy_user_name_pattern' is a GLOBAL variable and should be set with SET GLOBAL
+set global legacy_user_name_pattern = @saved_legacy_user_name_pattern;

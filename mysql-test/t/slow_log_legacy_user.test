@@ -1,0 +1,72 @@
+#
+# Test log_legacy_user
+#
+
+--source include/have_fullregex.inc
+--source include/have_innodb.inc
+
+# Just in case slow_log_wait_time-slow.log already exists, delete it first.
+--remove_files_wildcard $MYSQLTEST_VARDIR/mysqld.1/data slow_log_legacy_user-slow.log
+
+set @my_slow_logname = @@global.slow_query_log_file;
+set global slow_query_log_file = "slow_log_legacy_user-slow.log";
+
+set @my_log_legacy_user = @@global.log_legacy_user;
+set global log_legacy_user = TRUE;
+set @my_legacy_user_name_pattern = @@global.legacy_user_name_pattern;
+
+# set the name pattern to indicate the name doesn't contain ':'
+set global legacy_user_name_pattern = '^[^:]+$';
+
+--echo # legacy_user1
+create user legacy_user1@localhost;
+--echo # connection conn1
+connect (conn1, localhost, legacy_user1,,);
+
+--echo # connection default
+connection default;
+
+# set the name pattern to indicate the name doesn't contain '%'
+--echo # change legacy_user_name_pattern
+set global legacy_user_name_pattern = '^[^%]+$';
+--echo # legacy%user2
+create user `legacy_user2`@localhost;
+--echo # connection conn2
+connect (conn2, localhost, legacy_user2,,);
+
+--echo # connection default
+connection default;
+
+--echo
+--echo # Check the slow log result.
+--perl
+my $found = 0;
+open FILE, "$ENV{'MYSQLTEST_VARDIR'}/mysqld.1/data/slow_log_legacy_user-slow.log" or die;
+my @lines = <FILE>;
+foreach $line (@lines) {
+  if ($line =~ /^LEGACY_USER:/) {
+    $found = 1;
+    print $line
+  }
+}
+# (test failure) print the log if we didn't find any legacy user
+if (!$found) {
+  print "**Legacy user not found in slow log**\n";
+  seek FILE, 0, 0;
+  while (<FILE>) {
+    print $_;
+  }
+}
+close FILE
+EOF
+
+--echo
+--echo # clean up
+disconnect conn1;
+drop user `legacy_user1`@localhost;
+disconnect conn2;
+drop user `legacy_user2`@localhost;
+
+set @@global.slow_query_log_file = @my_slow_logname;
+set @@global.legacy_user_name_pattern = @my_legacy_user_name_pattern;
+set @@global.log_legacy_user = @my_log_legacy_user;
