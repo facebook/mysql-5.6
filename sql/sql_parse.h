@@ -174,7 +174,7 @@ inline THD* find_thd_from_id(my_thread_id id)
 {
   THD *tmp= NULL;
 
-  mysql_mutex_lock(&LOCK_thread_count);
+  mutex_lock_all_shards(SHARDED(&LOCK_thread_count));
   Thread_iterator it= global_thread_list_begin();
   Thread_iterator end= global_thread_list_end();
   for (; it != end; ++it)
@@ -188,7 +188,7 @@ inline THD* find_thd_from_id(my_thread_id id)
       break;
     }
   }
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_all_shards(SHARDED(&LOCK_thread_count));
 
   return tmp;
 }

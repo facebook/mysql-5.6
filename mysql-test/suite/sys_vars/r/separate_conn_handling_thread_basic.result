@@ -1,0 +1,25 @@
+SELECT @@GLOBAL.separate_conn_handling_thread;
+@@GLOBAL.separate_conn_handling_thread
+0
+0 Expected
+SET @@GLOBAL.separate_conn_handling_thread=0;
+ERROR HY000: Variable 'separate_conn_handling_thread' is a read only variable
+Expected error 'Read only variable'
+SELECT @@GLOBAL.separate_conn_handling_thread;
+@@GLOBAL.separate_conn_handling_thread
+0
+0 Expected
+SELECT @@separate_conn_handling_thread = @@GLOBAL.separate_conn_handling_thread;
+@@separate_conn_handling_thread = @@GLOBAL.separate_conn_handling_thread
+1
+1 Expected
+SELECT COUNT(@@local.separate_conn_handling_thread);
+ERROR HY000: Variable 'separate_conn_handling_thread' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SELECT COUNT(@@SESSION.separate_conn_handling_thread);
+ERROR HY000: Variable 'separate_conn_handling_thread' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SELECT @@GLOBAL.separate_conn_handling_thread;
+@@GLOBAL.separate_conn_handling_thread
+0
+0 Expected

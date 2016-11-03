@@ -620,6 +620,12 @@ The following options may be given as the first argument:
  Number of seconds to wait for a block to be written to a
  connection before aborting the write
  -n, --new           Use very new possible "unsafe" functions
+ --num-conn-handling-threads[=#] 
+ Use these many threads to offload accept threads
+ --num-sharded-listen-sockets[=#] 
+ Use more than 1 socket to listen on the same mysqld port
+ --num-sharded-locks[=#] 
+ How many shards to use to reduce lock-contention
  --old               Use compatible behavior
  --old-alter-table   Use old, non-optimized alter table
  --old-passwords=#   Determine which hash algorithm to use when generating
@@ -1321,6 +1327,9 @@ The following options may be given as the first argument:
  --send-error-before-closing-timed-out-connection 
  Send error before closing connections due to timeout.
  (Defaults to on; use --skip-send-error-before-closing-timed-out-connection to disable.)
+ --separate-conn-handling-thread 
+ Use a separate thread from the accept thread to offload
+ connection handling
  --server-id=#       Uniquely identifies the server instance in the community
  of replication partners
  --server-id-bits=#  Set number of significant bits in server-id
@@ -1555,6 +1564,10 @@ The following options may be given as the first argument:
  document fields received through row based replication.
  --use-fbson-output-format 
  Uses FBSON format as document type output.
+ --use-lock-sharding Use sharding to reduce contention on certain
+ high-contention locks
+ --use-socket-sharding 
+ Use multiple listen sockets on the same mysqld port
  -u, --user=name     Run mysqld daemon as user.
  --validate-user-plugins 
  Turns on additional validation of authentication plugins
@@ -1762,6 +1775,9 @@ net-read-timeout 30
 net-retry-count 10
 net-write-timeout 60
 new FALSE
+num-conn-handling-threads 1
+num-sharded-listen-sockets 1
+num-sharded-locks 4
 old FALSE
 old-alter-table FALSE
 old-passwords 0
@@ -1981,6 +1997,7 @@ secure-file-priv (No default value)
 select-into-file-fsync-size 0
 select-into-file-fsync-timeout 0
 send-error-before-closing-timed-out-connection TRUE
+separate-conn-handling-thread FALSE
 server-id 0
 server-id-bits 32
 session-track-gtids OFF
@@ -2045,6 +2062,8 @@ updatable-views-with-limit YES
 use-db-uuid FALSE
 use-fbson-input-format FALSE
 use-fbson-output-format FALSE
+use-lock-sharding FALSE
+use-socket-sharding FALSE
 validate-user-plugins TRUE
 verbose TRUE
 wait-timeout 28800

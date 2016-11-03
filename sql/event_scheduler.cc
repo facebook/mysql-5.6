@@ -135,9 +135,9 @@ post_init_event_thread(THD *thd)
   }
 
   inc_thread_running();
-  mysql_mutex_lock(&LOCK_thread_count);
+  mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
   add_global_thread(thd);
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
   return FALSE;
 }
 
@@ -193,9 +193,7 @@ pre_init_event_thread(THD* thd)
   thd->slave_thread= 0;
   thd->variables.option_bits|= OPTION_AUTO_IS_NULL;
   thd->client_capabilities|= CLIENT_MULTI_RESULTS;
-  mysql_mutex_lock(&LOCK_thread_count);
   thd->variables.pseudo_thread_id= thd->set_new_thread_id();
-  mysql_mutex_unlock(&LOCK_thread_count);
 
   /*
     Guarantees that we will see the thread in SHOW PROCESSLIST though its
@@ -709,13 +707,13 @@ Event_scheduler::workers_count()
   uint count= 0;
 
   DBUG_ENTER("Event_scheduler::workers_count");
-  mysql_mutex_lock(&LOCK_thread_count);
+  mutex_lock_all_shards(SHARDED(&LOCK_thread_count));
   Thread_iterator it= global_thread_list_begin();
   Thread_iterator end= global_thread_list_end();
   for (; it != end; ++it)
     if ((*it)->system_thread == SYSTEM_THREAD_EVENT_WORKER)
       ++count;
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_all_shards(SHARDED(&LOCK_thread_count));
   DBUG_PRINT("exit", ("%d", count));
   DBUG_RETURN(count);
 }

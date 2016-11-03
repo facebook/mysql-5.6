@@ -131,6 +131,7 @@ SET(SQL_SHARED_SOURCES
   sql_bootstrap.cc
   sql_cache.cc
   sql_class.cc
+  shardedlocks.cc
   sql_connect.cc
   sql_crypt.cc
   sql_cursor.cc

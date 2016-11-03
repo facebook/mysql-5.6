@@ -1253,9 +1253,9 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
     GOTO_ERR;
   }
 
-  mysql_mutex_lock(&LOCK_thread_count);
+  mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
   thd->current_linfo = &linfo;
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
 
   if ((file=open_binlog_file(&log, log_file_name, &errmsg)) < 0)
   {
@@ -2261,9 +2261,9 @@ end:
     (void) RUN_HOOK(binlog_transmit, transmit_stop, (thd, flags));
   my_eof(thd);
   THD_STAGE_INFO(thd, stage_waiting_to_finalize_termination);
-  mysql_mutex_lock(&LOCK_thread_count);
+  mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
   thd->current_linfo = 0;
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
   thd->variables.max_allowed_packet= old_max_allowed_packet;
   /* Undo any calls done by processlist_slave_offset */
   thd->set_query(orig_query, orig_query_length);
@@ -2304,9 +2304,9 @@ err:
     this mutex will make sure that it never tried to update our linfo
     after we return from this stack frame
   */
-  mysql_mutex_lock(&LOCK_thread_count);
+  mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
   thd->current_linfo = 0;
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
   if (file >= 0)
     mysql_file_close(file, MYF(MY_WME));
   thd->variables.max_allowed_packet= old_max_allowed_packet;
@@ -2374,7 +2374,7 @@ void kill_zombie_dump_threads(THD *thd)
   if (slave_uuid.length() == 0 && thd->server_id == 0)
     return;
 
-  mysql_mutex_lock(&LOCK_thread_count);
+  mutex_lock_all_shards(SHARDED(&LOCK_thread_count));
   THD *tmp= NULL;
   Thread_iterator it= global_thread_list_begin();
   Thread_iterator end= global_thread_list_end();
@@ -2409,7 +2409,7 @@ void kill_zombie_dump_threads(THD *thd)
       }
     }
   }
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_all_shards(SHARDED(&LOCK_thread_count));
   if (tmp)
   {
     /*
@@ -2447,7 +2447,7 @@ void kill_zombie_dump_threads(THD *thd)
 */
 void kill_all_dump_threads()
 {
-  mysql_mutex_lock(&LOCK_thread_count);
+  mutex_lock_all_shards(SHARDED(&LOCK_thread_count));
   THD *tmp= NULL;
   Thread_iterator it= global_thread_list_begin();
   Thread_iterator end= global_thread_list_end();
@@ -2462,7 +2462,7 @@ void kill_all_dump_threads()
       mysql_mutex_unlock(&tmp->LOCK_thd_data);
     }
   }
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_all_shards(SHARDED(&LOCK_thread_count));
 }
 
 

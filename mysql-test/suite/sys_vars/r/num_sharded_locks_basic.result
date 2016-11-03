@@ -1,0 +1,25 @@
+SELECT @@GLOBAL.num_sharded_locks;
+@@GLOBAL.num_sharded_locks
+4
+4 Expected
+SET @@GLOBAL.num_sharded_locks=2;
+ERROR HY000: Variable 'num_sharded_locks' is a read only variable
+Expected error 'Read only variable'
+SELECT @@GLOBAL.num_sharded_locks;
+@@GLOBAL.num_sharded_locks
+4
+4 Expected
+SELECT @@num_sharded_locks = @@GLOBAL.num_sharded_locks;
+@@num_sharded_locks = @@GLOBAL.num_sharded_locks
+1
+1 Expected
+SELECT COUNT(@@local.num_sharded_locks);
+ERROR HY000: Variable 'num_sharded_locks' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SELECT COUNT(@@SESSION.num_sharded_locks);
+ERROR HY000: Variable 'num_sharded_locks' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SELECT @@GLOBAL.num_sharded_locks;
+@@GLOBAL.num_sharded_locks
+4
+4 Expected

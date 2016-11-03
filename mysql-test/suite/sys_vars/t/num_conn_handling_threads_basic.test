@@ -1,0 +1,17 @@
+SELECT @@GLOBAL.num_conn_handling_threads;
+--echo 1 Expected
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SET @@GLOBAL.num_conn_handling_threads=2;
+--echo Expected error 'Read only variable'
+SELECT @@GLOBAL.num_conn_handling_threads;
+--echo 1 Expected
+SELECT @@num_conn_handling_threads = @@GLOBAL.num_conn_handling_threads;
+--echo 1 Expected
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT COUNT(@@local.num_conn_handling_threads);
+--echo Expected error 'Variable is a GLOBAL variable'
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT COUNT(@@SESSION.num_conn_handling_threads);
+--echo Expected error 'Variable is a GLOBAL variable'
+SELECT @@GLOBAL.num_conn_handling_threads;
+--echo 1 Expected
