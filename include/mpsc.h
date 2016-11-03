@@ -89,8 +89,8 @@ public:
   mpsc_queue_t() :
     _head(reinterpret_cast<buffer_node_t*>(new buffer_node_aligned_t)),
     _tail(_head.load(std::memory_order_relaxed))
-#ifndef DBUG_OFF
-    , m_single_consumer_check(false)
+#if !defined(DBUG_OFF)
+    , dequeue_in_use(false)
 #endif
   {
     buffer_node_t* front = _head.load(std::memory_order_relaxed);
@@ -105,6 +105,7 @@ public:
     delete front;
   }
 
+  // multi -producer single consumer queue where enqueue is thread safe
   void enqueue(const T& input)
   {
     buffer_node_t* node =
@@ -116,33 +117,27 @@ public:
     prev_head->next.store(node, std::memory_order_release);
   }
 
+  // only 1 thread should dequeu this queue. We break the assumption only in
+  // the destructor where we expect all consumers have flushed out
+  // hence the assert.
   bool dequeue(T& output)
   {
-#ifndef DBUG_OFF
-    // this is a best effort check that deque happens
-    // in single thread to obey MPSC restrictions.
-    // There is a race condition which we ignore when
-    // the first time dequeue happens from multiple threads
-    // and the threads are trying to initialize m_single_consumer_check
-    if (!m_single_consumer_check)
-    {
-      thread_id = my_thread_dbug_id();
-      m_single_consumer_check = true;
-    } else
-      DBUG_ASSERT(thread_id == my_thread_dbug_id());
-#endif
+    // Make sure it was false before
+    DBUG_ASSERT(!dequeue_in_use.exchange(true));
 
     buffer_node_t* tail = _tail.load(std::memory_order_relaxed);
     buffer_node_t* next = tail->next.load(std::memory_order_acquire);
 
-    if (next == nullptr) {
-      return false;
+    bool result = false;
+    if (next != nullptr) {
+      output = next->data;
+      _tail.store(next, std::memory_order_release);
+      delete tail;
+      result = true;
     }
 
-    output = next->data;
-    _tail.store(next, std::memory_order_release);
-    delete tail;
-    return true;
+    DBUG_ASSERT(dequeue_in_use.exchange(false)); // Make sure it was true before
+    return result;
   }
 
 private:
@@ -156,9 +151,8 @@ private:
   mpsc_queue_t(const mpsc_queue_t&)=delete;
   void operator=(const mpsc_queue_t&)=delete;
 
-#ifndef DBUG_OFF
-  bool m_single_consumer_check;
-  my_thread_id thread_id;
+#if !defined(DBUG_OFF)
+  std::atomic<bool> dequeue_in_use;
 #endif
 };
 
