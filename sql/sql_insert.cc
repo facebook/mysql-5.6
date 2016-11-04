@@ -2832,12 +2832,12 @@ pthread_handler_t handle_delayed_insert(void *arg)
 
   pthread_detach_this_thread();
   /* Add thread to THD list so that's it's visible in 'show processlist' */
-  mysql_mutex_lock(&LOCK_thread_count);
+  mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
   thd->variables.pseudo_thread_id= thd->set_new_thread_id();
   thd->set_current_time();
   add_global_thread(thd);
   thd->killed=abort_loop ? THD::KILL_CONNECTION : THD::NOT_KILLED;
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
 
   mysql_thread_set_psi_id(thd->thread_id());
 

@@ -731,6 +731,15 @@ int main()
 }"
 TIME_T_UNSIGNED)
 
+CHECK_C_SOURCE_COMPILES("
+#include <sys/socket.h>
+
+int main() {
+    int optval = 1;
+    setsockopt(0, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(int));
+    return 0;
+}"
+HAVE_SOREUSEPORT)
 
 CHECK_C_SOURCE_COMPILES("
 #ifdef _WIN32

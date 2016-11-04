@@ -33,12 +33,12 @@
 #define MYSQL_SERVER 1
 #include <scheduler.h>
 #include <debug_sync.h>
+#include <thread_iterator.h>
 #include <sql_profile.h>
 #include <table.h>
 #include "field.h"
 #include <set>
 
-typedef std::set<THD*>::iterator Thread_iterator;
 /* Needed to get access to scheduler variables */
 void* thd_get_scheduler_data(THD *thd);
 void thd_set_scheduler_data(THD *thd, void *data);

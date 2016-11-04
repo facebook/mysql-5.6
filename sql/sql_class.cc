@@ -403,7 +403,7 @@ thd_slave_gtid_info(const THD *thd,
 void thd_new_connection_setup(THD *thd, char *stack_start)
 {
   DBUG_ENTER("thd_new_connection_setup");
-  mysql_mutex_assert_owner(&LOCK_thread_count);
+  mutex_assert_owner_shard(SHARDED(&LOCK_thread_count), thd);
 #ifdef HAVE_PSI_INTERFACE
   thd_set_psi(thd,
               PSI_THREAD_CALL(new_thread)
@@ -414,7 +414,7 @@ void thd_new_connection_setup(THD *thd, char *stack_start)
     my_micro_time();
 
   add_global_thread(thd);
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
 
   DBUG_PRINT("info", ("init new connection. thd: 0x%lx fd: %d",
           (ulong)thd, mysql_socket_getfd(thd->net.vio->mysql_socket)));
@@ -1558,36 +1558,18 @@ void THD::change_user(void)
 
 my_thread_id THD::set_new_thread_id()
 {
-  my_thread_id new_id;
-  mysql_mutex_assert_owner(&LOCK_thread_count);
-
+/*
   DBUG_EXECUTE_IF("skip_to_largest_thread_id", {
-      thread_id_counter= std::numeric_limits<uint32_t>::max();
+      total_thread_ids.store(std::numeric_limits<uint32_t>::max());
     }
   );
   DBUG_EXECUTE_IF("skip_to_second_largest_thread_id", {
-      thread_id_counter= std::numeric_limits<uint32_t>::max() - 1;
+      total_thread_ids.store(std::numeric_limits<uint32_t>::max() - 1);
     }
   );
-  do {
-    new_id= thread_id_counter++;
-  } while (!global_thread_id_list->insert(new_id).second);
-  m_thread_id= new_id;
-  total_thread_ids++;
-
+*/
+  m_thread_id = my_thread_id(++total_thread_ids);
   return m_thread_id;
-}
-
-void THD::release_thread_id() {
-  // Some temporary THDs are never given a proper ID.
-  if (m_thread_id != reserved_thread_id) {
-    mysql_mutex_lock(&LOCK_thread_count);
-    const size_t num_erased __attribute__((unused)) =
-      global_thread_id_list->erase(m_thread_id);
-    // Assert if the ID was not found in the list.
-    DBUG_ASSERT(num_erased == 1);
-    mysql_mutex_unlock(&LOCK_thread_count);
-  }
 }
 
 /*
@@ -1673,10 +1655,8 @@ void THD::cleanup(void)
  */
 void THD::release_resources()
 {
-  mysql_mutex_assert_not_owner(&LOCK_thread_count);
+  mutex_assert_not_owner_shard(SHARDED(&LOCK_thread_count), this);
   DBUG_ASSERT(m_release_resources_done == false);
-
-  release_thread_id();
 
   mysql_mutex_lock(&LOCK_status);
   add_to_status(&global_status_var, &status_var);
@@ -1724,7 +1704,7 @@ void THD::release_resources()
 
 THD::~THD()
 {
-  mysql_mutex_assert_not_owner(&LOCK_thread_count);
+  mutex_assert_not_owner_shard(SHARDED(&LOCK_thread_count), this);
   THD_CHECK_SENTRY(this);
   DBUG_ENTER("~THD()");
   DBUG_PRINT("info", ("THD dtor, this %p", this));

@@ -1,0 +1,25 @@
+SELECT @@GLOBAL.use_socket_sharding;
+@@GLOBAL.use_socket_sharding
+0
+0 Expected
+SET @@GLOBAL.use_socket_sharding=0;
+ERROR HY000: Variable 'use_socket_sharding' is a read only variable
+Expected error 'Read only variable'
+SELECT @@GLOBAL.use_socket_sharding;
+@@GLOBAL.use_socket_sharding
+0
+0 Expected
+SELECT @@use_socket_sharding = @@GLOBAL.use_socket_sharding;
+@@use_socket_sharding = @@GLOBAL.use_socket_sharding
+1
+1 Expected
+SELECT COUNT(@@local.use_socket_sharding);
+ERROR HY000: Variable 'use_socket_sharding' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SELECT COUNT(@@SESSION.use_socket_sharding);
+ERROR HY000: Variable 'use_socket_sharding' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SELECT @@GLOBAL.use_socket_sharding;
+@@GLOBAL.use_socket_sharding
+0
+0 Expected

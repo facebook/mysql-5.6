@@ -1,0 +1,17 @@
+SELECT @@GLOBAL.use_lock_sharding;
+--echo 0 Expected
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SET @@GLOBAL.use_lock_sharding=0;
+--echo Expected error 'Read only variable'
+SELECT @@GLOBAL.use_lock_sharding;
+--echo 0 Expected
+SELECT @@use_lock_sharding = @@GLOBAL.use_lock_sharding;
+--echo 1 Expected
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT COUNT(@@local.use_lock_sharding);
+--echo Expected error 'Variable is a GLOBAL variable'
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT COUNT(@@SESSION.use_lock_sharding);
+--echo Expected error 'Variable is a GLOBAL variable'
+SELECT @@GLOBAL.use_lock_sharding;
+--echo 0 Expected

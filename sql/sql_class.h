@@ -3245,7 +3245,6 @@ public:
   my_thread_id thread_id() const
   { return m_thread_id; }
   my_thread_id set_new_thread_id();
-  void release_thread_id();
 
 #ifdef TARGET_OS_LINUX
   pid_t      system_thread_id;

@@ -37,6 +37,8 @@
 #include "sql_acl.h"     // TABLE_ACLS, check_grant, DB_ACLS, acl_get,
                          // check_grant_db
 #include "filesort.h"    // filesort_free_buffers
+#include "shardedlocks.h" // sharded lock for LOCK_thd_remove
+                          // LOCK_thread_counter
 #include "sp.h"
 #include "sp_head.h"
 #include "sp_pcontext.h"
@@ -2665,7 +2667,7 @@ void mysqld_list_process_trx_helper(THD *thd, const char *user, bool verbose,
       removal from global_thread_list is blocked as LOCK_thd_remove
       mutex is not released yet
      */
-    mysql_mutex_lock(&LOCK_thd_remove);
+    mutex_lock_all_shards(SHARDED(&LOCK_thd_remove));
     copy_global_thread_list_sorted(&global_thread_list_copy);
 
     DEBUG_SYNC(thd,"after_copying_threads");
@@ -2697,7 +2699,7 @@ void mysqld_list_process_trx_helper(THD *thd, const char *user, bool verbose,
         thread_infos.push_back(thd_info);
       }
     }
-    mysql_mutex_unlock(&LOCK_thd_remove);
+    mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
   }
 
   time_t now= my_time(0);
@@ -2775,7 +2777,7 @@ int fill_schema_process_trx_helper(THD *thd, TABLE_LIST *tables, Item *cond,
       removal from global_thread_list is blocked as LOCK_thd_remove
       mutex is not released yet
      */
-    mysql_mutex_lock(&LOCK_thd_remove);
+    mutex_lock_all_shards(SHARDED(&LOCK_thd_remove));
     copy_global_thread_list_sorted(&global_thread_list_copy);
 
     if (type == process_list_type::SHOW_PROCESS_LIST)
@@ -2809,11 +2811,11 @@ int fill_schema_process_trx_helper(THD *thd, TABLE_LIST *tables, Item *cond,
 
       if (store && schema_table_store_record(thd, table))
       {
-        mysql_mutex_unlock(&LOCK_thd_remove);
+        mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
         DBUG_RETURN(1);
       }
     }
-    mysql_mutex_unlock(&LOCK_thd_remove);
+    mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
   }
 
   DBUG_RETURN(0);
@@ -2887,11 +2889,11 @@ int fill_schema_authinfo(THD* thd, TABLE_LIST* tables, Item* cond)
     removal from global_thread_list is blocked as LOCK_thd_remove
     mutex is not released yet
   */
-  mysql_mutex_lock(&LOCK_thd_remove);
+  mutex_lock_all_shards(SHARDED(&LOCK_thd_remove));
   copy_global_thread_list(&global_thread_list_copy);
 
-  Thread_iterator it= global_thread_list_copy.begin();
-  Thread_iterator end= global_thread_list_copy.end();
+  std::set<THD*>::iterator it= global_thread_list_copy.begin();
+  std::set<THD*>::iterator end= global_thread_list_copy.end();
   for (; it != end; ++it) {
     THD* tmp= *it;
     Security_context *tmp_sctx= tmp->security_ctx;
@@ -2951,12 +2953,12 @@ int fill_schema_authinfo(THD* thd, TABLE_LIST* tables, Item* cond)
 #endif
 
     if (schema_table_store_record(thd, table)) {
-      mysql_mutex_unlock(&LOCK_thd_remove);
+      mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
       DBUG_RETURN(1);
     }
   }
 
-  mysql_mutex_unlock(&LOCK_thd_remove);
+  mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
   DBUG_RETURN(0);
 }
 
@@ -3415,7 +3417,7 @@ void calc_sum_of_all_status(STATUS_VAR *to)
 {
   DBUG_ENTER("calc_sum_of_all_status");
 
-  mysql_mutex_lock(&LOCK_thread_count);
+  mutex_lock_all_shards(SHARDED(&LOCK_thread_count));
 
   Thread_iterator it= global_thread_list_begin();
   Thread_iterator end= global_thread_list_end();
@@ -3426,7 +3428,7 @@ void calc_sum_of_all_status(STATUS_VAR *to)
   for (; it != end; ++it)
     add_to_status(to, &(*it)->status_var);
   
-  mysql_mutex_unlock(&LOCK_thread_count);
+  mutex_unlock_all_shards(SHARDED(&LOCK_thread_count));
   DBUG_VOID_RETURN;
 }
 

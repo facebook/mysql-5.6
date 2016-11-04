@@ -87,9 +87,7 @@ handler_create_thd(
 	}
 
 	my_net_init(&thd->net,(st_vio*) 0);
-	mysql_mutex_lock(&LOCK_thread_count);
 	thd->variables.pseudo_thread_id= thd->set_new_thread_id();
-	mysql_mutex_unlock(&LOCK_thread_count);
 	thd->thread_stack = reinterpret_cast<char*>(&thd);
 	thd->store_globals();
 
