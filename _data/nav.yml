@@ -1,0 +1,17 @@
+- title: Docs
+  href: /docs/
+  category: docs
+
+- title: Top Level
+  href: /top-level-example.html
+  category: top-level
+
+- title: Blog
+  href: /blog/
+  category: blog
+
+- title: Facebook
+  href: http://www.facebook.com/
+  category: facebook
+
+# If a category does not exist in your Jekyll template or code, it is just ignored. Just like `facebook` here.
