@@ -1,6 +1,6 @@
-- title: Grouping 1
+- title: Quick Start
   items:
-  - id: hello-world
+  - id: getting-started
 
 # n title:, 1 items: per title:, n id: per items:
 # - title: A

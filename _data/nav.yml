@@ -2,6 +2,10 @@
   href: /docs/
   category: docs
 
+- title: GitHub
+  href: https://github.com/facebook/mysql-5.6
+  category: github
+
 - title: Top Level
   href: /top-level-example.html
   category: top-level

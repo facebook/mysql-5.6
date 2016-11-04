@@ -1,9 +1,9 @@
 # Site settings
 permalink: /blog/:year/:month/:day/:title.html
-title: ProjectName
-tagline: This is a brief one-liner about the project
+title: MyRocks
+tagline: A RocksDB storage engine with MySQL
 description: >
-  This is a longer description of the project, a bit of a sales-pitch with a bit of technical information included.
+  Use RocksDB as backend storage and still benefit from all the features in MySQL
 fbappid: "1615782811974223"
 gacode: "UA-12345-6"
 
@@ -35,7 +35,7 @@ ghrepo: "facebook/Site-Templates"
 # Use these color settings to determine your colour scheme for the site.
 color:
   # primary should be a vivid color that reflects the project's brand
-  primary: "#3b5998"
+  primary: "#0f2647"
   # secondary should be a subtle light or dark color used on page backgrounds
   secondary: "#f9f9f9"
   # Use the following to specify whether the previous two colours are 'light'
