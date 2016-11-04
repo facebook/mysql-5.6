@@ -1846,7 +1846,7 @@ class Regex_list_handler
 
   char m_delimiter;
   std::string m_bad_pattern_str;
-  const std::regex* m_pattern;
+  std::unique_ptr<const std::regex> m_pattern;
 
   mutable mysql_rwlock_t m_rwlock;
 
@@ -1871,7 +1871,6 @@ class Regex_list_handler
   ~Regex_list_handler()
   {
     mysql_rwlock_destroy(&m_rwlock);
-    delete m_pattern;
   }
 
   // Set the list of patterns
