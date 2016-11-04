@@ -1,4 +1,4 @@
-## User Documentation for YOUR PROJECT
+## User Documentation for MyRocks
 
 This directory will contain the user and feature documentation for YOUR PROJECT. The documentation will be hosted on GitHub pages.
 
@@ -12,7 +12,7 @@ The requirements for running a GitHub pages site locally is described in [GitHub
 
 > If you have run the site before, you can start with step 1 and then move on to step 5.
 
-1. Ensure that you are in the `YOUR-PROJECT/docs` directory in your local repo clone (i.e., the same directory where this `README.md` exists). The below RubyGems commands, etc. must be run from there.
+1. Ensure that you are in the same branch (e.g., `gh-pages-dev`, `gh-pages` or whatever branch you use for these docs), and the same directory where this `README.md` exists. The below RubyGems commands, etc. must be run from there.
 
 1. Make sure you have Ruby and [RubyGems](https://rubygems.org/) installed.
 
@@ -29,7 +29,7 @@ The requirements for running a GitHub pages site locally is described in [GitHub
 1. Install the project's dependencies
 
     ```
-    # run this in the 'docs' directory
+    # run this in the same directory as this README.md
     bundle install
     ```
 
