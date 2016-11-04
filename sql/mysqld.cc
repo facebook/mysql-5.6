@@ -3104,22 +3104,22 @@ static void mysql_pause() {
 // lockless mpsc backoff
 static void do_backoff(int* num_backoffs) // num_backoffs is initialized to 0
 {
-    if (*num_backoffs < 10)
-        mysql_pause();
-    else if (*num_backoffs < 20)
-        for (int i = 0; i != 50; i++)
-           _mm_pause();
-    else if (*num_backoffs < 22)
-        pthread_yield();
-    else if (*num_backoffs < 24)
-        my_sleep(0);
-    else if (*num_backoffs < 26)
-        // 1 millisecond
-        my_sleep(1000);
-    else
-        // 10 milliseconds
-        my_sleep(10000);
-    (*num_backoffs)++;
+  if (*num_backoffs < 10)
+    mysql_pause();
+  else if (*num_backoffs < 20)
+    for (int i = 0; i != 50; i++)
+      mysql_pause();
+  else if (*num_backoffs < 22)
+    pthread_yield();
+  else if (*num_backoffs < 24)
+    my_sleep(0);
+  else if (*num_backoffs < 26)
+    // 1 millisecond
+    my_sleep(1000);
+  else
+    // 10 milliseconds
+    my_sleep(10000);
+  (*num_backoffs)++;
 }
 #endif
 
