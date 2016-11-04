@@ -44,6 +44,11 @@ ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
 select * from t;
 i
 3
+rollback;
+i
+rollback;
+i
+rollback;
 set global rocksdb_lock_wait_timeout = @prior_rocksdb_lock_wait_timeout;
 set global rocksdb_deadlock_detect = @prior_rocksdb_deadlock_detect;
 drop table t,r1,r2;
