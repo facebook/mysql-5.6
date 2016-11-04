@@ -8219,11 +8219,7 @@ bool Regex_list_handler::set_patterns(const std::string& pattern_str)
     // Note that this means the delimiter can not be part of a regular
     // expression.  This is currently not a problem as we are using the comma
     // character as a delimiter and commas are not valid in table names.
-    const std::regex* pattern= new std::regex(norm_pattern);
-
-    // Free any existing regex information and setup the new one
-    delete m_pattern;
-    m_pattern= pattern;
+    m_pattern.reset(new std::regex(norm_pattern));
   }
   catch (const std::regex_error& e)
   {
