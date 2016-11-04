@@ -10526,6 +10526,12 @@ To see what values a running MySQL server is using, type\n\
 static void init_sharding_variables()
 {
 #ifdef SHARDED_LOCKING
+  if (!gl_lock_sharding && num_sharded_locks != 1) {
+    //NO_LINT_DEBUG
+    sql_print_information("Setting num_sharded_locks=1 as sharding is OFF");
+    num_sharded_locks = 1;
+  }
+
   LOCK_thread_count_sharded.resize(num_sharded_locks);
   LOCK_thd_remove_sharded.resize(num_sharded_locks);
   for (uint ii = 0; ii < num_sharded_locks; ii++) {
