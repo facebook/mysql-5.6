@@ -25,10 +25,11 @@ update r1 set value=100 where id=8;
 --send select * from r2 for update;
 
 connection con1;
+# TODO(mung): Rewrite the wait conditions to use rocksdb_trx once we have that
+# available instead of counting locks.
 let $wait_condition =
-select count(*) = 1 as c from information_schema.processlist where
-state = "Waiting for row lock" and
-info = "select * from r2 for update";
+select count(*) = 10 from information_schema.rocksdb_locks;
+--source include/wait_condition.inc
 --error ER_LOCK_DEADLOCK
 select * from r1 for update;
 rollback;
@@ -73,6 +74,15 @@ select * from t;
 insert into t values (4), (1);
 --echo # Statement should be rolled back
 select * from t;
+rollback;
+
+connection con2;
+--reap
+rollback;
+
+connection con1;
+--reap
+rollback;
 
 connection default;
 disconnect con1;
