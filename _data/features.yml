@@ -1,19 +1,19 @@
-- title: Feature 1
+- title: Faster Replication
   text: |
-        This is a description of the feature which **can** use [markdown](#).
-  image: images/android.svg
+        No random reads for updating secondary keys, except for unique indexes. The Read-Free Replication option does away with random reads when updating primary keys, regardless of uniqueness, with a row-based binary logging format.
+  image:
 
-- title: Feature 2
+- title: Faster Data Loading
   text: |
-        This is another description of a feature.
-  image: images/apple.svg
-  
-- title: Feature 3
+        MyRocks writes data directly onto the bottommost level, which avoids all compaction overheads when you enable faster data loading for a session.
+  image:
+
+- title: Greater Efficiency
   text: |
-        This is another description of a feature.
-  image: images/facebook.png
+        Better read efficiency, better write efficiency, and better space efficiency for better performance.
+  image:
 
 - title: Feature 4
   text: |
         This is another description of a feature.
-  image: images/instagram.png
+  image: 
