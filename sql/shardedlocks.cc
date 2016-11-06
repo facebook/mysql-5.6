@@ -40,14 +40,30 @@ size_t ShardedThreads::erase(THD*& value) {
   return m_thread_list[sv].erase(value);
 }
 
+bool ShardedThreads::find_bool(THD *value) {
+  size_t sv = get_mutex_shard(value);
+  DBUG_ASSERT(sv < m_thread_list.size());
+  auto itr = m_thread_list[sv].find(value);
+
+  return itr != m_thread_list[sv].end();
+}
+
 Thread_iterator ShardedThreads::find(THD *value) {
   size_t sv = get_mutex_shard(value);
   DBUG_ASSERT(sv < m_thread_list.size());
-   auto itr = m_thread_list[sv].find(value);
-   if (itr != m_thread_list[sv].end()) {
-     return Thread_iterator(this, sv, itr);
-   } else
-     return end();
+  auto itr = m_thread_list[sv].find(value);
+
+  // in find we cannot return the global end
+  // because we only hold the lock for the shard.
+  return Thread_iterator(this, sv, itr);
+}
+
+// "find" should check equality with the end of the shard
+Thread_iterator ShardedThreads::shardend(THD *value) {
+  size_t sv = get_mutex_shard(value);
+  DBUG_ASSERT(sv < m_thread_list.size());
+
+  return Thread_iterator(this, sv, m_thread_list[sv].end());
 }
 
 Thread_iterator::Thread_iterator(ShardedThreads *st,

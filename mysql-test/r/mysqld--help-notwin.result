@@ -1775,7 +1775,7 @@ net-write-timeout 60
 new FALSE
 num-conn-handling-threads 1
 num-sharded-listen-sockets 1
-num-sharded-locks 4
+num-sharded-locks 1
 old FALSE
 old-alter-table FALSE
 old-passwords 0

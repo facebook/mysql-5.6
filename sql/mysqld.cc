@@ -1082,8 +1082,7 @@ void add_global_thread(THD *thd)
 {
   DBUG_PRINT("info", ("add_global_thread %p", thd));
   mutex_assert_owner_shard(SHARDED(&LOCK_thread_count), thd);
-  const bool have_thread=
-    global_thread_list->find(thd) != global_thread_list->end();
+  bool have_thread= global_thread_list->find_bool(thd);
   if (!have_thread)
   {
     ++global_thread_count;
@@ -7927,6 +7926,12 @@ void create_thread_to_handle_connection(THD *thd)
     thread_created++;
     DBUG_PRINT("info",(("creating thread %u"), thd->thread_id()));
     thd->prior_thr_create_utime= thd->start_utime= my_micro_time();
+
+    // hold the sharded lock before creating the thread and release
+    // it after adding the thread to global thread list, otherwise
+    // remove_global_thread can get called before the thread
+    // has been added to global list.
+    mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
     if ((error= mysql_thread_create(key_thread_one_connection,
                                     &thd->real_id, &connection_attrib,
                                     handle_one_connection,
@@ -7953,7 +7958,6 @@ void create_thread_to_handle_connection(THD *thd)
       return;
       /* purecov: end */
     }
-    mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
     add_global_thread(thd);
     mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
   }

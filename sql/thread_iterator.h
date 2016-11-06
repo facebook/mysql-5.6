@@ -59,6 +59,8 @@ class ShardedThreads {
 
    Thread_iterator find(THD *thd);
 
+   bool find_bool(THD *thd);
+
    Thread_iterator begin() {
       return Thread_iterator(this, 0, m_thread_list[0].begin());
    }
@@ -66,6 +68,8 @@ class ShardedThreads {
    Thread_iterator end() {
      return Thread_iterator(this, m_size - 1, m_thread_list[m_size-1].end());
    }
+
+   Thread_iterator shardend(THD *thd);
 };
 #else
 typedef std::set<THD*>::iterator Thread_iterator;
