@@ -55,8 +55,6 @@ The requirements for running a GitHub pages site locally is described in [GitHub
 
     > We use `bundle exec` instead of running straight `jekyll` because `bundle exec` will always use the version of Jekyll from our `Gemfile`. Just running `jekyll` will use the system version and may not necessarily be compatible.
 
-    > The `_config_local_dev` file overrides some URL settings that you might be using in production to allow you to test links, etc. locally.
-
     - To run using an actual IP address, you can use `--host=0.0.0.0`
 
     ```
