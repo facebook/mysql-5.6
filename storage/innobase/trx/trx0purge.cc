@@ -45,6 +45,8 @@ Created 3/26/1996 Heikki Tuuri
 #include "os0thread.h"
 #include "srv0mon.h"
 #include "mtr0log.h"
+#include <vector>
+#include <unordered_map>
 
 /** Maximum allowable purge history length.  <=0 means 'infinite'. */
 UNIV_INTERN ulong		srv_max_purge_lag = 0;
@@ -971,6 +973,9 @@ trx_purge_attach_undo_recs(
 	ulint		i = 0;
 	ulint		n_pages_handled = 0;
 	ulint		n_thrs = UT_LIST_GET_LEN(purge_sys->query->thrs);
+	mem_heap_t*	heap = purge_sys->heap;
+	ulint		free_thr = 0;
+	std::vector<que_thr_t*> run_thrs;
 
 	ut_a(n_purge_threads > 0);
 
@@ -991,33 +996,26 @@ trx_purge_attach_undo_recs(
 		ut_a(node->done);
 
 		node->done = FALSE;
+		run_thrs.push_back(thr);
 	}
 
 	/* There should never be fewer nodes than threads, the inverse
 	however is allowed because we only use purge threads as needed. */
 	ut_a(i == n_purge_threads);
 
-	/* Fetch and parse the UNDO records. The UNDO records are added
-	to a per purge node vector. */
-	thr = UT_LIST_GET_FIRST(purge_sys->query->thrs);
-	ut_a(n_thrs > 0 && thr != NULL);
+	ut_a(n_thrs > 0);
 
 	ut_ad(trx_purge_check_limit());
 
-	i = 0;
+	std::unordered_map<table_id_t, que_thr_t*> table_thr;
 
 	for (;;) {
 		purge_node_t*		node;
 		trx_purge_rec_t*	purge_rec;
 
-		ut_a(!thr->is_active);
-
-		/* Get the purge node. */
-		node = (purge_node_t*) thr->child;
-		ut_a(que_node_get_type(node) == QUE_NODE_PURGE);
 
 		purge_rec = static_cast<trx_purge_rec_t*>(
-			mem_heap_zalloc(node->heap, sizeof(*purge_rec)));
+			mem_heap_zalloc(heap, sizeof(*purge_rec)));
 
 		/* Track the max {trx_id, undo_no} for truncating the
 		UNDO logs once we have purged the records. */
@@ -1031,9 +1029,27 @@ trx_purge_attach_undo_recs(
 
 		/* Fetch the next record, and advance the purge_sys->iter. */
 		purge_rec->undo_rec = trx_purge_fetch_next_rec(
-			&purge_rec->roll_ptr, &n_pages_handled, node->heap);
+			&purge_rec->roll_ptr, &n_pages_handled, heap);
 
-		if (purge_rec->undo_rec != NULL) {
+		if (purge_rec->undo_rec == &trx_purge_dummy_rec) {
+			continue;
+		} else if (purge_rec->undo_rec != NULL) {
+
+			table_id_t table_id =
+				trx_undo_rec_get_table_id(purge_rec->undo_rec);
+
+			auto it = table_thr.find(table_id);
+			if (it == table_thr.end()) {
+				thr = run_thrs[free_thr++ % n_purge_threads];
+				table_thr.emplace(table_id, thr);
+			} else {
+				thr = it->second;
+			}
+
+			ut_a(thr != NULL && !thr->is_active);
+			/* Get the purge node. */
+			node = (purge_node_t*) thr->child;
+			ut_a(que_node_get_type(node) == QUE_NODE_PURGE);
 
 			if (node->undo_recs == NULL) {
 				node->undo_recs = ib_vector_create(
@@ -1053,14 +1069,6 @@ trx_purge_attach_undo_recs(
 		} else {
 			break;
 		}
-
-		thr = UT_LIST_GET_NEXT(thrs, thr);
-
-		if (!(++i % n_purge_threads)) {
-			thr = UT_LIST_GET_FIRST(purge_sys->query->thrs);
-		}
-
-		ut_a(thr != NULL);
 	}
 
 	ut_ad(trx_purge_check_limit());
