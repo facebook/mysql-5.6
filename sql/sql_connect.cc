@@ -274,6 +274,13 @@ void release_user_connection(THD *thd) {
   const USER_CONN *uc = thd->get_user_connect();
   DBUG_ENTER("release_user_connection");
 
+  if (!thd->m_main_security_ctx.check_access(SUPER_ACL)) {
+    mysql_mutex_lock(&LOCK_user_conn);
+    // this is non-super user, decrement nonsuper_connections
+    nonsuper_connections--;
+    mysql_mutex_unlock(&LOCK_user_conn);
+  }
+
   if (uc) {
     mysql_mutex_lock(&LOCK_user_conn);
     DBUG_ASSERT(uc->connections > 0);

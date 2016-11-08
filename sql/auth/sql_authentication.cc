@@ -3466,6 +3466,21 @@ int acl_authenticate(THD *thd, enum_server_command command) {
                       thd->password ? "yes" : "no", sctx->master_access(),
                       mpvio.db.str));
 
+  if (!thd->m_main_security_ctx.check_access(SUPER_ACL)) {
+    mysql_mutex_lock(&LOCK_user_conn);
+    // this is non-super user, increment nonsuper_connections
+    nonsuper_connections++;
+    const bool limit_reached = nonsuper_connections > max_nonsuper_connections;
+    mysql_mutex_unlock(&LOCK_user_conn);
+
+    if (max_nonsuper_connections &&
+        limit_reached) {  // max_nonsuper_connections limit reached
+      release_user_connection(thd);
+      my_error(ER_CON_COUNT_ERROR, MYF(0));
+      DBUG_RETURN(1);
+    }
+  }
+
   if (command == COM_CONNECT &&
       check_restrictions_for_com_connect_command(thd)) {
     release_user_connection(thd);

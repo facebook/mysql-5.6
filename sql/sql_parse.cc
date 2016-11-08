@@ -1678,6 +1678,12 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         PSI_THREAD_CALL(notify_session_change_user)(thd->get_psi());
 #endif /* HAVE_PSI_THREAD_INTERFACE */
 
+        if (!save_security_ctx.check_access(SUPER_ACL)) {
+          mysql_mutex_lock(&LOCK_user_conn);
+          // previous user was a non-super user, decrement nonsuper_connections
+          nonsuper_connections--;
+          mysql_mutex_unlock(&LOCK_user_conn);
+        }
         if (save_user_connect) decrease_user_connections(save_user_connect);
         mysql_mutex_lock(&thd->LOCK_thd_data);
         my_free(const_cast<char *>(save_db.str));
