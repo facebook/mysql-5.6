@@ -3,7 +3,7 @@ permalink: /blog/:year/:month/:day/:title.html
 title: MyRocks
 tagline: A RocksDB storage engine with MySQL
 description: >
-  Use RocksDB as backend storage and still benefit from all the features in MySQL
+  Benefit from all the features of MySQL while using RocksDB as backend storage
 fbappid: "1615782811974223"
 gacode: "UA-12345-6"
 
