@@ -11409,7 +11409,8 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
   bool global_max = false;
   if (uc &&
       (uc->user_resources.conn_per_hour || uc->user_resources.user_conn ||
-       global_system_variables.max_user_connections) &&
+       global_system_variables.max_user_connections ||
+       max_nonsuper_connections) &&
       check_for_max_user_connections(thd, uc, &global_max))
   {
     fix_user_conn(thd, global_max); // Undo work by get_or_create_user_conn

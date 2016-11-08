@@ -673,6 +673,7 @@ typedef struct system_variables
   ulong updatable_views_with_limit;
   uint max_user_connections;
   ulong my_aes_mode;
+  uint max_nonsuper_connections;
 
   /**
     In slave thread we need to know in behalf of which

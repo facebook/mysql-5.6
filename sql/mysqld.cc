@@ -677,6 +677,7 @@ ulong specialflag=0;
 ulong binlog_cache_use= 0, binlog_cache_disk_use= 0;
 ulong binlog_stmt_cache_use= 0, binlog_stmt_cache_disk_use= 0;
 ulong max_connections, max_connect_errors;
+uint max_nonsuper_connections;
 ulong opt_max_running_queries, opt_max_waiting_queries;
 AC *db_ac;
 ulong rpl_stop_slave_timeout= LONG_TIMEOUT;
@@ -1500,6 +1501,7 @@ struct st_VioSSLFd *ssl_acceptor_fd;
   by LOCK_thread_count
 */
 uint connection_count= 0;
+uint nonsuper_connections= 0;
 mysql_cond_t COND_connection_count;
 
 /* Function declarations */

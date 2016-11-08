@@ -2283,6 +2283,14 @@ static Sys_var_max_user_conn Sys_max_user_connections(
        VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
        NOT_IN_BINLOG, ON_CHECK(session_readonly));
 
+static Sys_var_uint Sys_max_nonsuper_connections(
+       "max_nonsuper_connections",
+       "The maximum number of total active connections for non-super user "
+       "(0 = no limit)",
+       GLOBAL_VAR(max_nonsuper_connections), CMD_LINE(REQUIRED_ARG),
+       VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+       NOT_IN_BINLOG);
+
 static Sys_var_ulong Sys_max_tmp_tables(
        "max_tmp_tables",
        "Maximum number of temporary tables a client can keep open at a time",

@@ -1617,7 +1617,14 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
       /* we've authenticated new user */
       if (save_user_connect)
-	decrease_user_connections(save_user_connect);
+        decrease_user_connections(save_user_connect);
+      if (!(save_security_ctx.master_access & SUPER_ACL))
+      {
+        // previous user was a non-super user, decrement nonsuper_connections
+        mysql_mutex_lock(&LOCK_user_conn);
+        nonsuper_connections--;
+        mysql_mutex_unlock(&LOCK_user_conn);
+      }
 #endif /* NO_EMBEDDED_ACCESS_CHECKS */
       mysql_mutex_lock(&thd->LOCK_thd_data);
       my_free(save_db);
