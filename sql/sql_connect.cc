@@ -80,6 +80,11 @@ void fix_user_conn(THD *thd, bool global_max)
   if (thd->net.vio->type == VIO_TYPE_SSL) {
     us->connections_ssl_total.dec();
   }
+  if (!(thd->main_security_ctx.master_access & SUPER_ACL))
+  {
+    // this is non-super user, decrement nonsuper_connections
+    nonsuper_connections--;
+  }
 
   if (global_max)
     us->connections_denied_max_global.inc();
@@ -139,6 +144,11 @@ int get_or_create_user_conn(THD *thd, const char *user,
   if (thd->net.vio->type == VIO_TYPE_SSL) {
     uc->user_stats.connections_ssl_total.inc();
   }
+  if (!(thd->main_security_ctx.master_access & SUPER_ACL))
+  {
+    // this is non-super user, increment nonsuper_connections
+    nonsuper_connections++;
+  }
 end:
   mysql_mutex_unlock(&LOCK_user_conn);
   return return_val;
@@ -172,6 +182,22 @@ int check_for_max_user_connections(THD *thd, USER_CONN *uc, bool *global_max)
   *global_max= false;
 
   mysql_mutex_lock(&LOCK_user_conn);
+  if (max_nonsuper_connections &&
+      !(thd->main_security_ctx.master_access & SUPER_ACL) &&
+      nonsuper_connections > max_nonsuper_connections)
+  {
+    DBUG_PRINT("info",
+        ("max_nonsuper_connections: %d, "
+         "nonsuper_connections: %d",
+         max_nonsuper_connections,
+         nonsuper_connections));
+
+    // max_nonsuper_connections limit reached
+    my_error(ER_CON_COUNT_ERROR, MYF(0));
+    *global_max = true;
+    error=1;
+    goto end;
+  }
   if (global_system_variables.max_user_connections &&
       !uc->user_resources.user_conn &&
       global_system_variables.max_user_connections < (uint) uc->connections &&
@@ -263,6 +289,11 @@ void release_user_connection(THD *thd)
     mysql_mutex_lock(&LOCK_user_conn);
     DBUG_ASSERT(uc->connections > 0);
     thd->decrement_user_connections_counter();
+    if (!(thd->main_security_ctx.master_access & SUPER_ACL))
+    {
+      // this is non-super user, decrement nonsuper_connections
+      nonsuper_connections--;
+    }
     /* To preserve data in uc->user_stats, delete is no longer done */
     mysql_mutex_unlock(&LOCK_user_conn);
     thd->set_user_connect(NULL);
