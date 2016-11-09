@@ -1031,7 +1031,9 @@ trx_purge_attach_undo_recs(
 		purge_rec->undo_rec = trx_purge_fetch_next_rec(
 			&purge_rec->roll_ptr, &n_pages_handled, heap);
 
-		if (purge_rec->undo_rec != NULL) {
+		if (purge_rec->undo_rec == &trx_purge_dummy_rec) {
+			continue;
+		} else if (purge_rec->undo_rec != NULL) {
 
 			table_id_t table_id =
 				trx_undo_rec_get_table_id(purge_rec->undo_rec);
