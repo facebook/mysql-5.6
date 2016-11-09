@@ -63,6 +63,29 @@
 namespace myrocks {
 
 /*
+ * class for exporting transaction information for
+ * information_schema.rocksdb_trx
+ */
+struct Rdb_trx_info {
+  std::string name;
+  ulonglong trx_id;
+  ulonglong write_count;
+  ulonglong lock_count;
+  int timeout_sec;
+  std::string state;
+  ulonglong waiting_trx_id;
+  int is_replication;
+  int skip_trx_api;
+  int read_only;
+  int deadlock_detect;
+  int num_ongoing_bulk_load;
+  ulong thread_id;
+  std::string query_str;
+};
+
+std::vector<Rdb_trx_info> rdb_get_all_trx_info();
+
+/*
   This is
   - the name of the default Column Family (the CF which stores indexes which
     didn't explicitly specify which CF they are in)
