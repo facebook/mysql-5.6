@@ -37,8 +37,9 @@
 	flex-flow: row wrap;
 }
 .blockImage {
-	max-width: 150px;
-	width: 50%;
+  max-height: 175px;
+  height: 50%;
+  max-width: 150px;
 }
 .imageAlignTop .blockImage {
 	margin-bottom: 20px;

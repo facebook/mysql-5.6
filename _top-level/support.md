@@ -16,7 +16,11 @@ questions, find answers, and report issues.
 
 ### Facebook Group
 
-<!-- <https://www.facebook.com/groups/rocksdb.dev/> -->
+<https://www.facebook.com/groups/mysqlonrocksdb/>
+
+### MyRocks Mailing List
+
+<https://groups.google.com/forum/#!forum/myrocks-dev>
 
 ### FAQ
 

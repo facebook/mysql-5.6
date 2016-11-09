@@ -1,16 +1,16 @@
 - title: Greater Space Efficiency
   text: |
-        MyRocks has 2x better compresion, meaning you use less storage. MyRocks implements Prefix Key Encoding and Zero-filling row metadata to reduce space.
-  image:
+        MyRocks has 2x better compression compared to compressed InnoDB, 3-4x better compression compared to uncompressed InnoDB, meaning you use less space.
+  image: /images/disk.png
 - title: Greater Writing Efficiency
   text: |
-        MyRocks has a 10x less write amplification, giving you better endurance of flash storage and imporving overall throughpput.
-  image:
+        MyRocks has a 10x less write amplification caompared to InnoDB, giving you better endurance of flash storage and imporving overall throughpput.
+  image: /images/database.png
 - title: Faster Replication
   text: |
         No random reads for updating secondary keys, except for unique indexes. The Read-Free Replication option does away with random reads when updating primary keys, regardless of uniqueness, with a row-based binary logging format.
-  image:
+  image: /images/copy.png
 - title: Faster Data Loading
   text: |
         MyRocks writes data directly onto the bottommost level, which avoids all compaction overheads when you enable faster data loading for a session.
-  image:
+  image: /images/cogwheel.png

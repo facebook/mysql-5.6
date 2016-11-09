@@ -197,11 +197,31 @@ The example shows some important features and limitations in MyRocks. For limita
 
 >Currently, you can't enable both InnoDB and MyRocks storage engines at the same time because it won't work in production.
 
-There is no online migration framework to move data between storage engines, but you will obviously want this to happen without downtime, losing data, or returning inaccurate results.  The migration will move logical data from the source MySQL server with the InnoDB engine and load it into the destination MySQL server with the MyRocks engine concurrent with a continuous data integrity verification.
+There is no online migration framework to move data between storage engines, but you will obviously want this to happen without downtime, losing data, or returning inaccurate results.  You need to move logical data from the source MySQL server with the InnoDB engine and load it into the destination MySQL server with the MyRocks engine.
 
+1. Create an empty MyRocks instance with MyRocks tables.
+2. Copy all the database and table schemas from the source to the destination.
+3. Dump each table to a file using `SELECT INTO OUTFILE`.
+4. Send the files to the destination and load them using `LOAD DATA INFILE`.
 
+To speed the loading process on the destination, it is recommended to use the following options:
 
+```sql
+--sql_log_bin=0
+--foreign_key_checks=0
+--unique_checks=0
+--rocksdb_compaction_sequential_deletes=0
+--rocksdb_compaction_sequential_deletes_window=0
+--rocksdb_write_disable_wal=1
+--rocksdb_bulk_load=1
+--rocksdb_skip_unique_check=1
+--rocksdb_commit_in_the_middle=1
+--rocksdb_max_background_flushes=12
+--rocksdb_max_background_compactions=12
+--rocksdb_base_background_compactions=12
+```
 
+>Note the above options are safe in migration scenarios. However, it is not recommended to use them elsewhere.
 
 <br />
 
