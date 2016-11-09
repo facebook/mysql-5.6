@@ -79,6 +79,7 @@ struct Rdb_trx_info {
   int read_only;
   int deadlock_detect;
   int num_ongoing_bulk_load;
+  ulong thread_id;
 };
 
 std::vector<Rdb_trx_info> rdb_get_all_trx_info();

@@ -2962,6 +2962,9 @@ class Rdb_trx_info_aggregator : public Rdb_tx_list_walker
       {rocksdb::Transaction::ROLLEDBACK, "ROLLEDBACK"},
     };
 
+    THD* thd = tx->get_thd();
+    ulong thread_id = thd_thread_id(thd);
+
     if (tx->is_writebatch_trx()) {
       auto wb_impl = static_cast<const Rdb_writebatch_impl*>(tx);
       DBUG_ASSERT(wb_impl);
@@ -2976,7 +2979,8 @@ class Rdb_trx_info_aggregator : public Rdb_tx_list_walker
                             1, /* skip_trx_api */
                             wb_impl->is_tx_read_only(),
                             0, /* deadlock detection */
-                            wb_impl->num_ongoing_bulk_load()});
+                            wb_impl->num_ongoing_bulk_load(),
+                            thread_id});
     } else {
       auto tx_impl= static_cast<const Rdb_transaction_impl*>(tx);
       DBUG_ASSERT(tx_impl);
@@ -2986,7 +2990,6 @@ class Rdb_trx_info_aggregator : public Rdb_tx_list_walker
         return;
       }
 
-      THD* thd = tx->get_thd();
       auto state_it = state_map.find(rdb_trx->GetState());
       DBUG_ASSERT(state_it != state_map.end());
       int is_replication = (thd->rli_slave != nullptr);
@@ -3002,7 +3005,8 @@ class Rdb_trx_info_aggregator : public Rdb_tx_list_walker
                             0, /* skip_trx_api */
                             tx_impl->is_tx_read_only(),
                             rdb_trx->IsDeadlockDetect(),
-                            tx_impl->num_ongoing_bulk_load()});
+                            tx_impl->num_ongoing_bulk_load(),
+                            thread_id});
       }
   }
 };
