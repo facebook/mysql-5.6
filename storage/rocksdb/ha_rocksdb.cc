@@ -1490,6 +1490,12 @@ public:
   int64_t m_snapshot_timestamp= 0;
   bool m_ddl_transaction;
 
+  /*
+    for distinction between rdb_transaction_impl and rdb_writebatch_impl
+    when using walk tx list
+  */
+  virtual bool is_writebatch_trx() const = 0;
+
   static void init_mutex()
   {
     mysql_mutex_init(key_mutex_tx_list, &s_tx_list_mutex, MY_MUTEX_INIT_FAST);
@@ -1616,6 +1622,8 @@ public:
   virtual void set_lock_timeout(int timeout_sec_arg)= 0;
 
   ulonglong get_write_count() const { return m_write_count; }
+
+  int get_timeout_sec() const { return m_timeout_sec; }
 
   ulonglong get_lock_count() const { return m_lock_count; }
 
@@ -1746,6 +1754,11 @@ public:
 
     // Should not reach here
     SHIP_ASSERT(0);
+  }
+
+  int num_ongoing_bulk_load() const
+  {
+    return m_curr_bulk_load.size();
   }
 
   /*
@@ -1938,6 +1951,8 @@ class Rdb_transaction_impl : public Rdb_transaction
       m_rocksdb_tx->UndoGetForUpdate(column_family, rocksdb::Slice(rowkey));
     }
   }
+
+  virtual bool is_writebatch_trx() const override { return false; }
 
  private:
   void release_tx(void)
@@ -2135,6 +2150,8 @@ class Rdb_transaction_impl : public Rdb_transaction
     return m_rocksdb_tx->GetIterator(options, column_family);
   }
 
+  const rocksdb::Transaction* get_rdb_trx() const { return m_rocksdb_tx; }
+
   bool is_tx_started() const override
   {
     return (m_rocksdb_tx != nullptr);
@@ -2276,6 +2293,8 @@ class Rdb_writebatch_impl : public Rdb_transaction
     return res;
   }
  public:
+  bool is_writebatch_trx() const override { return true; }
+
   void set_lock_timeout(int timeout_sec_arg) override
   {
     // Nothing to do here.
@@ -2917,6 +2936,100 @@ class Rdb_snapshot_status : public Rdb_tx_list_walker
   }
 };
 
+/**
+ * @brief
+ * walks through all non-replication transactions and copies
+ * out relevant information for information_schema.rocksdb_trx
+ */
+class Rdb_trx_info_aggregator : public Rdb_tx_list_walker
+{
+ private:
+  std::vector<Rdb_trx_info> *m_trx_info;
+
+ public:
+  explicit Rdb_trx_info_aggregator(std::vector<Rdb_trx_info> *trx_info) :
+                          m_trx_info(trx_info) {}
+
+  void process_tran(const Rdb_transaction *tx) override
+  {
+    static const std::map<int, std::string> state_map = {
+      {rocksdb::Transaction::STARTED, "STARTED"},
+      {rocksdb::Transaction::AWAITING_PREPARE, "AWAITING_PREPARE"},
+      {rocksdb::Transaction::PREPARED, "PREPARED"},
+      {rocksdb::Transaction::AWAITING_COMMIT, "AWAITING_COMMIT"},
+      {rocksdb::Transaction::COMMITED, "COMMITED"},
+      {rocksdb::Transaction::AWAITING_ROLLBACK, "AWAITING_ROLLBACK"},
+      {rocksdb::Transaction::ROLLEDBACK, "ROLLEDBACK"},
+    };
+
+    THD* thd = tx->get_thd();
+    ulong thread_id = thd_thread_id(thd);
+
+    if (tx->is_writebatch_trx()) {
+      auto wb_impl = static_cast<const Rdb_writebatch_impl*>(tx);
+      DBUG_ASSERT(wb_impl);
+      m_trx_info->push_back({"", /* name */
+                            0, /* trx_id */
+                            wb_impl->get_write_count(),
+                            0, /* lock_count */
+                            0, /* timeout_sec */
+                            "", /* state */
+                            0, /* waiting_trx_id */
+                            1, /*is_replication */
+                            1, /* skip_trx_api */
+                            wb_impl->is_tx_read_only(),
+                            0, /* deadlock detection */
+                            wb_impl->num_ongoing_bulk_load(),
+                            thread_id,
+                            "" /* query string */ });
+    } else {
+      auto tx_impl= static_cast<const Rdb_transaction_impl*>(tx);
+      DBUG_ASSERT(tx_impl);
+      const rocksdb::Transaction *rdb_trx = tx_impl->get_rdb_trx();
+
+      if (rdb_trx == nullptr) {
+        return;
+      }
+
+      std::string query_str;
+      LEX_STRING* lex_str = thd_query_string(thd);
+      if (lex_str != nullptr && lex_str->str != nullptr) {
+         query_str = std::string(lex_str->str);
+      }
+
+      auto state_it = state_map.find(rdb_trx->GetState());
+      DBUG_ASSERT(state_it != state_map.end());
+      int is_replication = (thd->rli_slave != nullptr);
+
+      m_trx_info->push_back({rdb_trx->GetName(),
+                            rdb_trx->GetID(),
+                            tx_impl->get_write_count(),
+                            tx_impl->get_lock_count(),
+                            tx_impl->get_timeout_sec(),
+                            state_it->second,
+                            rdb_trx->GetWaitingTxn(nullptr, nullptr),
+                            is_replication,
+                            0, /* skip_trx_api */
+                            tx_impl->is_tx_read_only(),
+                            rdb_trx->IsDeadlockDetect(),
+                            tx_impl->num_ongoing_bulk_load(),
+                            thread_id,
+                            query_str});
+      }
+  }
+};
+
+/*
+  returns a vector of info for all non-replication threads
+  for use by information_schema.rocksdb_trx
+*/
+std::vector<Rdb_trx_info> rdb_get_all_trx_info() {
+  std::vector<Rdb_trx_info> trx_info;
+  Rdb_trx_info_aggregator trx_info_agg(&trx_info);
+  Rdb_transaction::walk_tx_list(&trx_info_agg);
+  return trx_info;
+}
+
 /* Generate the snapshot status table */
 static bool rocksdb_show_snapshot_status(handlerton*    hton,
                                          THD*           thd,
@@ -2926,7 +3039,7 @@ static bool rocksdb_show_snapshot_status(handlerton*    hton,
 
   Rdb_transaction::walk_tx_list(&showStatus);
 
-  // Send the result data back to MySQL */
+  /* Send the result data back to MySQL */
   return print_stats(thd, "SNAPSHOTS", "rocksdb", showStatus.getResult(),
       stat_print);
 }
@@ -10821,5 +10934,6 @@ myrocks::rdb_i_s_cfoptions,
 myrocks::rdb_i_s_global_info,
 myrocks::rdb_i_s_ddl,
 myrocks::rdb_i_s_index_file_map,
-myrocks::rdb_i_s_lock_info
+myrocks::rdb_i_s_lock_info,
+myrocks::rdb_i_s_trx_info
 mysql_declare_plugin_end;
