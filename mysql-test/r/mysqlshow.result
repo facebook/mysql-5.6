@@ -137,6 +137,7 @@ DROP TABLE t1, t2;
 | ROCKSDB_LOCKS                         |
 | ROCKSDB_PERF_CONTEXT                  |
 | ROCKSDB_PERF_CONTEXT_GLOBAL           |
+| ROCKSDB_TRX                           |
 | ROUTINES                              |
 | SCHEMATA                              |
 | SCHEMA_PRIVILEGES                     |
@@ -216,6 +217,7 @@ DROP TABLE t1, t2;
 | ROCKSDB_LOCKS                         |
 | ROCKSDB_PERF_CONTEXT                  |
 | ROCKSDB_PERF_CONTEXT_GLOBAL           |
+| ROCKSDB_TRX                           |
 | ROUTINES                              |
 | SCHEMATA                              |
 | SCHEMA_PRIVILEGES                     |

@@ -1268,6 +1268,9 @@ The following options may be given as the first argument:
  --rocksdb-trace-sst-api 
  Generate trace output in the log for each call to the
  SstFileWriter
+ --rocksdb-trx[=name] 
+ Enable or disable ROCKSDB_TRX plugin. Possible values are
+ ON, OFF, FORCE (don't start if the plugin fails to load).
  --rocksdb-unsafe-for-binlog 
  Allowing statement based binary logging which may break
  consistency
@@ -1976,6 +1979,7 @@ rocksdb-strict-collation-exceptions (No default value)
 rocksdb-table-cache-numshardbits 6
 rocksdb-table-stats-sampling-pct 10
 rocksdb-trace-sst-api FALSE
+rocksdb-trx ON
 rocksdb-unsafe-for-binlog FALSE
 rocksdb-use-adaptive-mutex FALSE
 rocksdb-use-fsync FALSE
