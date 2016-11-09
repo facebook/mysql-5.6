@@ -1141,6 +1141,9 @@ static int rdb_i_s_trx_info_fill_table(
     tables->table->field[10]->store(info.deadlock_detect, false);
     tables->table->field[11]->store(info.num_ongoing_bulk_load, false);
     tables->table->field[12]->store(info.thread_id, true);
+    tables->table->field[13]->store(info.query_str.c_str(), info.query_str.length(),
+                                   system_charset_info);
+
 
     /* Tell MySQL about this row in the virtual table */
     ret= my_core::schema_table_store_record(thd, tables->table);
@@ -1171,6 +1174,7 @@ static ST_FIELD_INFO rdb_i_s_trx_info_fields_info[] =
   ROCKSDB_FIELD_INFO("NUM_ONGOING_BULKLOAD", sizeof(uint32_t),
                      MYSQL_TYPE_LONG, 0),
   ROCKSDB_FIELD_INFO("THREAD_ID", sizeof(ulong), MYSQL_TYPE_LONG, 0),
+  ROCKSDB_FIELD_INFO("QUERY", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
   ROCKSDB_FIELD_INFO_END
 };
 

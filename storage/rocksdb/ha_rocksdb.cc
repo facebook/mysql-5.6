@@ -2980,7 +2980,8 @@ class Rdb_trx_info_aggregator : public Rdb_tx_list_walker
                             wb_impl->is_tx_read_only(),
                             0, /* deadlock detection */
                             wb_impl->num_ongoing_bulk_load(),
-                            thread_id});
+                            thread_id,
+                            "" /* query string */ });
     } else {
       auto tx_impl= static_cast<const Rdb_transaction_impl*>(tx);
       DBUG_ASSERT(tx_impl);
@@ -2988,6 +2989,12 @@ class Rdb_trx_info_aggregator : public Rdb_tx_list_walker
 
       if (rdb_trx == nullptr) {
         return;
+      }
+
+      std::string query_str;
+      LEX_STRING* lex_str = thd_query_string(thd);
+      if (lex_str != nullptr && lex_str->str != nullptr) {
+         query_str = std::string(lex_str->str);
       }
 
       auto state_it = state_map.find(rdb_trx->GetState());
@@ -3006,7 +3013,8 @@ class Rdb_trx_info_aggregator : public Rdb_tx_list_walker
                             tx_impl->is_tx_read_only(),
                             rdb_trx->IsDeadlockDetect(),
                             tx_impl->num_ongoing_bulk_load(),
-                            thread_id});
+                            thread_id,
+                            query_str});
       }
   }
 };
@@ -3031,7 +3039,7 @@ static bool rocksdb_show_snapshot_status(handlerton*    hton,
 
   Rdb_transaction::walk_tx_list(&showStatus);
 
-  // Send the result data back to MySQL */
+  /* Send the result data back to MySQL */
   return print_stats(thd, "SNAPSHOTS", "rocksdb", showStatus.getResult(),
       stat_print);
 }
