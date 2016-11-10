@@ -12,6 +12,7 @@
 
 - title: Facebook
   href: http://www.facebook.com/
-  category: facebook
+  category: external
 
-# If a category does not exist in your Jekyll template or code, it is just ignored. Just like `facebook` here.
+# Use external for external links not associated with the paths of the current site.
+# If a category is external, site urls, for example, are not prepended to the href, etc.
