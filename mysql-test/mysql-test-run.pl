@@ -6072,7 +6072,7 @@ sub start_mysqltest ($) {
 
   if ( $opt_async_client )
   {
-    mtr_add_arg($args, "--async-client");
+    #  mtr_add_arg($args, "--async-client");
   }
 
   if ( $opt_sleep )
