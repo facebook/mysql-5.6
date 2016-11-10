@@ -1942,6 +1942,7 @@ CREATE TABLE t2 (id1 bigint(20),
 
 
 set rocksdb_commit_in_the_middle=1;
+SET @save_rocksdb_bulk_load_size= @@rocksdb_bulk_load_size;
 set rocksdb_bulk_load_size = 100;
 
 --disable_query_log
@@ -1956,6 +1957,8 @@ while ($j)
 
 DELETE t2, t1 FROM t2 LEFT JOIN t1 ON t2.id2 = t1.id2 AND t2.id1 = t1.id1 WHERE t2.id1 = 0;
 
+SET rocksdb_bulk_load_size= @save_rocksdb_bulk_load_size;
+SET rocksdb_commit_in_the_middle=0;
 DROP TABLE t1, t2;
 
 
