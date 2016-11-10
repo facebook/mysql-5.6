@@ -325,6 +325,9 @@ class ha_rocksdb: public my_core::handler
   /* Whether m_scan_it was created with skip_bloom=true */
   bool m_scan_it_skips_bloom;
 
+  /* The key index into m_key_descr_arr that m_scan_it used */
+  uint m_scan_it_kd;
+
   Rdb_tbl_def *m_tbl_def;
 
   /* Primary Key encoder from KeyTupleFormat to StorageFormat */
@@ -457,6 +460,8 @@ class ha_rocksdb: public my_core::handler
   {
     setup_scan_iterator(kd, slice, false, false, 0);
   }
+  void setup_scan_iterator(const Rdb_key_def& kd, rocksdb::Slice *slice,
+                           bool skip_bloom) __attribute__((__nonnull__));
   bool is_ascending(const Rdb_key_def& keydef,
                     enum ha_rkey_function find_flag) const
     __attribute__((__nonnull__, __warn_unused_result__));
