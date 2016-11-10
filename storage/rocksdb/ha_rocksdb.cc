@@ -4133,8 +4133,8 @@ static handler* rocksdb_create_handler(my_core::handlerton *hton,
 ha_rocksdb::ha_rocksdb(my_core::handlerton *hton,
                        my_core::TABLE_SHARE *table_arg)
   : handler(hton, table_arg), m_table_handler(nullptr), m_scan_it(nullptr),
-    m_scan_it_skips_bloom(false), m_tbl_def(nullptr),
-    m_pk_descr(nullptr), m_key_descr_arr(nullptr),
+    m_scan_it_skips_bloom(false), m_scan_it_snapshot(nullptr),
+    m_tbl_def(nullptr), m_pk_descr(nullptr), m_key_descr_arr(nullptr),
     m_pk_can_be_decoded(false),
     m_maybe_unpack_info(false),
     m_pk_tuple(nullptr), m_pk_packed_tuple(nullptr),
@@ -7331,26 +7331,9 @@ bool ha_rocksdb::commit_in_the_middle()
 bool ha_rocksdb::do_bulk_commit(Rdb_transaction *tx)
 {
   DBUG_ASSERT(tx != nullptr);
-  bool ret= false;
-
-  if (commit_in_the_middle() &&
-      tx->get_write_count() >= THDVAR(table->in_use, bulk_load_size))
-  {
-    String prev_key;
-    if (m_scan_it) {
-      prev_key.copy(m_scan_it->key().data(), m_scan_it->key().size(), &my_charset_bin);
-    }
-    rocksdb::Slice prev_slice = { prev_key.ptr(), prev_key.length() };
-
-    ret= tx->flush_batch();
-    if (m_scan_it) {
-      release_scan_iterator();
-      setup_scan_iterator(*m_key_descr_arr[m_scan_it_kd],
-                          &prev_slice, m_scan_it_skips_bloom);
-    }
-  }
-
-  return ret;
+  return commit_in_the_middle() &&
+         tx->get_write_count() >= THDVAR(table->in_use, bulk_load_size) &&
+         tx->flush_batch();
 }
 
 /*
@@ -8123,22 +8106,18 @@ void ha_rocksdb::setup_scan_iterator(
     const bool is_ascending,
     const uint eq_cond_len)
 {
+  DBUG_ASSERT(slice != nullptr);
   DBUG_ASSERT(slice->size() >= eq_cond_len);
 
-  rocksdb::Slice eq_cond(slice->data(), eq_cond_len);
-  setup_scan_iterator(kd, slice, !can_use_bloom_filter(ha_thd(), kd, eq_cond,
-                                                       use_all_keys,
-                                                       is_ascending));
-}
-
-void ha_rocksdb::setup_scan_iterator(
-    const Rdb_key_def& kd,
-    rocksdb::Slice *slice,
-    bool skip_bloom)
-{
-  DBUG_ASSERT(slice != nullptr);
-
   Rdb_transaction *tx= get_or_create_tx(table->in_use);
+
+  bool skip_bloom= true;
+
+  rocksdb::Slice eq_cond(slice->data(), eq_cond_len);
+  if (can_use_bloom_filter(ha_thd(), kd, eq_cond, use_all_keys, is_ascending))
+  {
+    skip_bloom= false;
+  }
 
   /*
     In some cases, setup_scan_iterator() is called multiple times from
@@ -8164,25 +8143,37 @@ void ha_rocksdb::setup_scan_iterator(
   if (!m_scan_it)
   {
     bool fill_cache= !THDVAR(ha_thd(), skip_fill_cache);
-    m_scan_it= tx->get_iterator(kd.get_cf(), skip_bloom, fill_cache);
-    m_scan_it_skips_bloom= skip_bloom;
-
-    for (uint i= 0; i < m_tbl_def->m_key_count; i++)
+    if (commit_in_the_middle())
     {
-      if (&kd == m_key_descr_arr[i].get())
-      {
-        m_scan_it_kd= i;
+      DBUG_ASSERT(m_scan_it_snapshot == nullptr);
+      m_scan_it_snapshot= rdb->GetSnapshot();
 
-        /*
-          Seek() will "Position at the first key in the source that at or past target".
-          The operation cannot fail.
-        */
-        m_scan_it->Seek(*slice);
-        return;
-      }
+      auto read_opts = rocksdb::ReadOptions();
+      read_opts.snapshot= m_scan_it_snapshot;
+      m_scan_it= rdb->NewIterator(read_opts);
     }
-    // The kd passed in must be in m_key_descr_arr.
-    SHIP_ASSERT(0);
+    else
+    {
+      m_scan_it= tx->get_iterator(kd.get_cf(), skip_bloom, fill_cache);
+    }
+    m_scan_it_skips_bloom= skip_bloom;
+  }
+  /*
+    Seek() will "Position at the first key in the source that at or past target".
+    The operation cannot fail.
+  */
+  m_scan_it->Seek(*slice);
+}
+
+void ha_rocksdb::release_scan_iterator()
+{
+  delete m_scan_it;
+  m_scan_it= nullptr;
+
+  if (m_scan_it_snapshot)
+  {
+    rdb->ReleaseSnapshot(m_scan_it_snapshot);
+    m_scan_it_snapshot= nullptr;
   }
 }
 

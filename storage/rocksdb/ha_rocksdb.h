@@ -325,8 +325,7 @@ class ha_rocksdb: public my_core::handler
   /* Whether m_scan_it was created with skip_bloom=true */
   bool m_scan_it_skips_bloom;
 
-  /* The key index into m_key_descr_arr that m_scan_it used */
-  uint m_scan_it_kd;
+  const rocksdb::Snapshot *m_scan_it_snapshot;
 
   Rdb_tbl_def *m_tbl_def;
 
@@ -460,8 +459,6 @@ class ha_rocksdb: public my_core::handler
   {
     setup_scan_iterator(kd, slice, false, false, 0);
   }
-  void setup_scan_iterator(const Rdb_key_def& kd, rocksdb::Slice *slice,
-                           bool skip_bloom) __attribute__((__nonnull__));
   bool is_ascending(const Rdb_key_def& keydef,
                     enum ha_rkey_function find_flag) const
     __attribute__((__nonnull__, __warn_unused_result__));
@@ -469,11 +466,7 @@ class ha_rocksdb: public my_core::handler
                            rocksdb::Slice *slice, const bool use_all_keys,
                            const bool is_ascending, const uint eq_cond_len)
     __attribute__((__nonnull__));
-  void release_scan_iterator(void)
-  {
-    delete m_scan_it;
-    m_scan_it= nullptr;
-  }
+  void release_scan_iterator(void);
 
   rocksdb::Status get_for_update(Rdb_transaction* tx,
                                  rocksdb::ColumnFamilyHandle* column_family,
