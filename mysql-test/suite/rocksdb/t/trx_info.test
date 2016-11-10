@@ -11,7 +11,7 @@ insert into t1 values (2);
 set autocommit=0;
 select * from t1 for update;
 
---replace_column 1 _TRX_ID_ 3 _NAME_ 7 _TIMEOUT_
+--replace_column 1 _TRX_ID_ 3 _NAME_ 7 _TIMEOUT_ 13 _THREAD_ID_
 select * from information_schema.rocksdb_trx;
 
 DROP TABLE t1;
