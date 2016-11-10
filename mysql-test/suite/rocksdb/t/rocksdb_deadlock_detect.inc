@@ -16,19 +16,19 @@ insert into r2 select * from r1;
 
 # deadlock on scanned locking reads
 connect (con1,localhost,root,,);
+let $con1= `SELECT CONNECTION_ID()`;
 begin;
 update r2 set value=100 where id=9;
 
 connect (con2,localhost,root,,);
+let $con2= `SELECT CONNECTION_ID()`;
 begin;
 update r1 set value=100 where id=8;
 --send select * from r2 for update;
 
 connection con1;
-# TODO(mung): Rewrite the wait conditions to use rocksdb_trx once we have that
-# available instead of counting locks.
 let $wait_condition =
-select count(*) = 10 from information_schema.rocksdb_locks;
+`SELECT CONCAT('select count(*) = 1 from information_schema.rocksdb_trx where THREAD_ID = ', '$con2', ' and WAITING_TXN_ID != 0')`;
 --source include/wait_condition.inc
 --error ER_LOCK_DEADLOCK
 select * from r1 for update;
@@ -55,18 +55,14 @@ connection con1;
 
 connection con2;
 let $wait_condition =
-select count(*) = 1 as c from information_schema.processlist where
-state = "Waiting for row lock" and
-info = "select * from t where i = 2 for update";
+`SELECT CONCAT('select count(*) = 1 from information_schema.rocksdb_trx where THREAD_ID = ', '$con1', ' and WAITING_TXN_ID != 0')`;
 --source include/wait_condition.inc
 
 --send select * from t where i = 3 for update
 
 connection con3;
 let $wait_condition =
-select count(*) = 1 as c from information_schema.processlist where
-state = "Waiting for row lock" and
-info = "select * from t where i = 3 for update";
+`SELECT CONCAT('select count(*) = 1 from information_schema.rocksdb_trx where THREAD_ID = ', '$con2', ' and WAITING_TXN_ID != 0')`;
 --source include/wait_condition.inc
 
 select * from t;
