@@ -5,7 +5,7 @@
     img: static/images/facebook.png
   - name: Percona
     url: https://www.percona.com
-    img:
+    img: static/images/percona-logo.png
   - name: MariaDB
     url: https://mariadb.org
-    img: 
+    img: static/images/mariadb-logo.png

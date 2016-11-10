@@ -7,12 +7,7 @@ permalink: /docs/getting-started.html
 
 ## Overview
 
-MyRocks came about because of a wanting to use MySQL features with [RocksDB](http://rocksdb.org/). RocksDB is optimized for fast, low-latency storage, and MyRocks is focused on keeping the storage savings efficient.
-
-MyRocks gives users better read efficiency, better write efficiency, and better space efficiency for better performance on flash storage.
-
-
-For more information about MyRocks implementation at Facebook, see [MyRocks: A space- and write-optimized MySQL database](https://code.facebook.com/posts/190251048047090/myrocks-a-space-and-write-optimized-mysql-database/.)
+MyRocks is an open source project that integrates [RocksDB](http://rocksdb.org/) as a new MySQL storage engine.  It gives users better read efficiency, better write efficiency, and better space efficiency for better performance on flash storage.
 
 ## Supported Platforms
 

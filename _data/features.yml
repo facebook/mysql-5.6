@@ -4,7 +4,7 @@
   image: /images/disk.png
 - title: Greater Writing Efficiency
   text: |
-        MyRocks has a 10x less write amplification caompared to InnoDB, giving you better endurance of flash storage and imporving overall throughpput.
+        MyRocks has a 10x less write amplification compared to InnoDB, giving you better endurance of flash storage and improving overall throughpput.
   image: /images/database.png
 - title: Faster Replication
   text: |
@@ -13,4 +13,4 @@
 - title: Faster Data Loading
   text: |
         MyRocks writes data directly onto the bottommost level, which avoids all compaction overheads when you enable faster data loading for a session.
-  image: /images/cogwheel.png
+  image: /images/gear.png
