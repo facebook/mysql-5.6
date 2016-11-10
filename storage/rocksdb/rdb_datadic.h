@@ -170,14 +170,14 @@ public:
   /* Convert a key from Table->record format to mem-comparable form */
   uint pack_record(const TABLE *tbl, uchar *pack_buffer, const uchar *record,
                    uchar *packed_tuple, Rdb_string_writer *unpack_info,
-                   bool should_store_checksums,
+                   bool should_store_row_debug_checksums,
                    longlong hidden_pk_id= 0, uint n_key_parts= 0,
                    uint *n_null_fields= nullptr) const;
   /* Pack the hidden primary key into mem-comparable form. */
   uint pack_hidden_pk(longlong hidden_pk_id,
                       uchar *packed_tuple) const;
   int unpack_record(TABLE *table, uchar *buf, const rocksdb::Slice *packed_key,
-                    const rocksdb::Slice *unpack_info, bool verify_checksums)
+                    const rocksdb::Slice *unpack_info, bool verify_row_debug_checksums)
     const;
 
   static bool unpack_info_has_checksum(const rocksdb::Slice& unpack_info);
