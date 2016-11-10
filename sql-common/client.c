@@ -3389,6 +3389,10 @@ static int run_ssl_connect(MCPVIO_EXT *mpvio, my_bool *error) {
   NET *net= &mysql->net;
   Vio *vio = net->vio;
 
+  // we need the ssl connection to be done in non blocking not to block
+  // indefinitelly if server is not reachable
+  vio_set_blocking(vio, FALSE);
+
   struct st_mysql_options *options= &mysql->options;
   // Init all the SSL parts, from FD to ssl pointer, this is the init phase
   // for both sync and async ssl connect.

@@ -180,6 +180,9 @@ size_t vio_ssl_read(Vio *vio, uchar *buf, size_t size)
   {
     enum enum_vio_io_event event;
 
+    // Verify the socket is non blocking.
+    DBUG_ASSERT(!vio_is_blocking(vio));
+
 #ifndef HAVE_YASSL
     /*
       OpenSSL: check that the SSL thread's error queue is cleared. Otherwise
@@ -227,6 +230,9 @@ size_t vio_ssl_write(Vio *vio, const uchar *buf, size_t size)
   while (1)
   {
     enum enum_vio_io_event event;
+
+    // Verify the socket is non blocking.
+    DBUG_ASSERT(!vio_is_blocking(vio));
 
 #ifndef HAVE_YASSL
     /*
@@ -656,10 +662,11 @@ my_bool vio_ssl_has_data(Vio *vio)
 
 int vio_ssl_set_blocking(Vio *vio, my_bool status)
 {
+  DBUG_ENTER("vio_ssl_set_blocking");
   int ret;
-  ret = vio_set_blocking(vio, status);
+  ret = vio_set_blocking(vio, FALSE);
   vio->ssl_is_nonblocking = !status;
-  return ret;
+  DBUG_RETURN(ret);
 }
 
 #endif /* HAVE_OPENSSL */
