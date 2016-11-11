@@ -4133,6 +4133,10 @@ int main(int argc, char** argv)
     char *encountered_gtids = gtid_set_excluded->to_string();
     if (encountered_gtids)
     {
+      // Replace new lines with spaces. Easy for parsing the output.
+      for (char *ptr = encountered_gtids; *ptr; ++ptr) {
+        if (*ptr == '\n') *ptr = ' ';
+      }
       fprintf(stderr, "Executed gtids: %s\n", encountered_gtids);
       my_free(encountered_gtids);
     }
