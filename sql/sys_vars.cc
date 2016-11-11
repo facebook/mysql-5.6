@@ -1699,6 +1699,13 @@ static Sys_var_charptr Sys_gap_lock_exceptions(
        NOT_IN_BINLOG, ON_CHECK(nullptr),
        ON_UPDATE(set_gap_lock_exception_list));
 
+static Sys_var_mybool Sys_legacy_global_read_lock_mode(
+       "legacy_global_read_lock_mode",
+       "Uses the legacy global read lock mode which will block setting global "
+       "read lock when a long transaction is running",
+       GLOBAL_VAR(legacy_global_read_lock_mode),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
 static Sys_var_mybool Sys_ignore_builtin_innodb(
        "ignore_builtin_innodb",
        "IGNORED. This option will be removed in future releases. "
@@ -2780,8 +2787,10 @@ static bool fix_read_only(sys_var *self, THD *thd, enum_var_type type)
   read_only= opt_readonly;
   mysql_mutex_unlock(&LOCK_global_system_variables);
 
-  if (thd->global_read_lock.lock_global_read_lock(thd))
+  if (legacy_global_read_lock_mode &&
+      thd->global_read_lock.lock_global_read_lock(thd)) {
     goto end_with_mutex_unlock;
+  }
 
   if ((result= thd->global_read_lock.make_global_read_lock_block_commit(thd)))
     goto end_with_read_lock;

@@ -1069,16 +1069,21 @@ void Global_read_lock::unlock_global_read_lock(THD *thd)
 {
   DBUG_ENTER("unlock_global_read_lock");
 
-  DBUG_ASSERT(m_mdl_global_shared_lock && m_state);
+  DBUG_ASSERT(m_state);
 
   if (m_mdl_blocks_commits_lock)
   {
     thd->mdl_context.release_lock(m_mdl_blocks_commits_lock);
     m_mdl_blocks_commits_lock= NULL;
   }
-  thd->mdl_context.release_lock(m_mdl_global_shared_lock);
-  my_atomic_add32(&Global_read_lock::m_active_requests, -1);
-  m_mdl_global_shared_lock= NULL;
+
+  if (m_mdl_global_shared_lock)
+  {
+    thd->mdl_context.release_lock(m_mdl_global_shared_lock);
+    my_atomic_add32(&Global_read_lock::m_active_requests, -1);
+    m_mdl_global_shared_lock= NULL;
+  }
+
   m_state= GRL_NONE;
   DBUG_VOID_RETURN;
 }
@@ -1104,11 +1109,14 @@ bool Global_read_lock::make_global_read_lock_block_commit(THD *thd)
   MDL_request mdl_request;
   DBUG_ENTER("make_global_read_lock_block_commit");
   /*
-    If we didn't succeed lock_global_read_lock(), or if we already suceeded
+    If we didn't succeed lock_global_read_lock() and are running in legacy
+    global lock mode, or if we already suceeded
     make_global_read_lock_block_commit(), do nothing.
   */
-  if (m_state != GRL_ACQUIRED)
+  if ((legacy_global_read_lock_mode && m_state == GRL_NONE) ||
+      m_state == GRL_ACQUIRED_AND_BLOCKS_COMMIT) {
     DBUG_RETURN(0);
+  }
 
   mdl_request.init(MDL_key::COMMIT, "", "", MDL_SHARED, MDL_EXPLICIT);
 

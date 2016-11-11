@@ -371,6 +371,7 @@ extern char pidfile_name[FN_REFLEN], system_time_zone[30], *opt_init_file;
 extern char default_logfile_name[FN_REFLEN];
 extern char log_error_file[FN_REFLEN], *opt_tc_log_file;
 extern char *opt_gap_lock_exception_list;
+extern my_bool legacy_global_read_lock_mode;
 
 extern my_bool log_legacy_user;
 extern const char *opt_legacy_user_name_pattern;

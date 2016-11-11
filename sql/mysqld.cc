@@ -824,6 +824,7 @@ char mysql_real_data_home[FN_REFLEN],
      mysql_charsets_dir[FN_REFLEN],
      *opt_init_file, *opt_tc_log_file;
 char *opt_gap_lock_exception_list;
+my_bool legacy_global_read_lock_mode = FALSE;
 char *lc_messages_dir_ptr, *log_error_file_ptr;
 char mysql_unpacked_real_data_home[FN_REFLEN];
 int mysql_unpacked_real_data_home_len;
