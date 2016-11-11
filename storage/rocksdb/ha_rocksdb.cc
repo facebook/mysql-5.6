@@ -4133,8 +4133,8 @@ static handler* rocksdb_create_handler(my_core::handlerton *hton,
 ha_rocksdb::ha_rocksdb(my_core::handlerton *hton,
                        my_core::TABLE_SHARE *table_arg)
   : handler(hton, table_arg), m_table_handler(nullptr), m_scan_it(nullptr),
-    m_scan_it_skips_bloom(false), m_tbl_def(nullptr),
-    m_pk_descr(nullptr), m_key_descr_arr(nullptr),
+    m_scan_it_skips_bloom(false), m_scan_it_snapshot(nullptr),
+    m_tbl_def(nullptr), m_pk_descr(nullptr), m_key_descr_arr(nullptr),
     m_pk_can_be_decoded(false),
     m_maybe_unpack_info(false),
     m_pk_tuple(nullptr), m_pk_packed_tuple(nullptr),
@@ -8143,7 +8143,20 @@ void ha_rocksdb::setup_scan_iterator(
   if (!m_scan_it)
   {
     bool fill_cache= !THDVAR(ha_thd(), skip_fill_cache);
-    m_scan_it= tx->get_iterator(kd.get_cf(), skip_bloom, fill_cache);
+    if (commit_in_the_middle())
+    {
+      DBUG_ASSERT(m_scan_it_snapshot == nullptr);
+      m_scan_it_snapshot= rdb->GetSnapshot();
+
+      auto read_opts = rocksdb::ReadOptions();
+      read_opts.total_order_seek = true; // TODO: set based on WHERE conditions
+      read_opts.snapshot= m_scan_it_snapshot;
+      m_scan_it= rdb->NewIterator(read_opts, kd.get_cf());
+    }
+    else
+    {
+      m_scan_it= tx->get_iterator(kd.get_cf(), skip_bloom, fill_cache);
+    }
     m_scan_it_skips_bloom= skip_bloom;
   }
   /*
@@ -8153,6 +8166,17 @@ void ha_rocksdb::setup_scan_iterator(
   m_scan_it->Seek(*slice);
 }
 
+void ha_rocksdb::release_scan_iterator()
+{
+  delete m_scan_it;
+  m_scan_it= nullptr;
+
+  if (m_scan_it_snapshot)
+  {
+    rdb->ReleaseSnapshot(m_scan_it_snapshot);
+    m_scan_it_snapshot= nullptr;
+  }
+}
 
 void ha_rocksdb::setup_iterator_for_rnd_scan()
 {
