@@ -2732,9 +2732,6 @@ static bool fix_read_only(sys_var *self, THD *thd, enum_var_type type)
   read_only= opt_readonly;
   mysql_mutex_unlock(&LOCK_global_system_variables);
 
-  if (thd->global_read_lock.lock_global_read_lock(thd))
-    goto end_with_mutex_unlock;
-
   if ((result= thd->global_read_lock.make_global_read_lock_block_commit(thd)))
     goto end_with_read_lock;
 
@@ -2746,7 +2743,6 @@ static bool fix_read_only(sys_var *self, THD *thd, enum_var_type type)
  end_with_read_lock:
   /* Release the lock */
   thd->global_read_lock.unlock_global_read_lock(thd);
- end_with_mutex_unlock:
   mysql_mutex_lock(&LOCK_global_system_variables);
  end:
   super_read_only= opt_super_readonly;
