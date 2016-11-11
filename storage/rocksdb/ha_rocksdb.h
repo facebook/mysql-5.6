@@ -325,6 +325,8 @@ class ha_rocksdb: public my_core::handler
   /* Whether m_scan_it was created with skip_bloom=true */
   bool m_scan_it_skips_bloom;
 
+  const rocksdb::Snapshot *m_scan_it_snapshot;
+
   Rdb_tbl_def *m_tbl_def;
 
   /* Primary Key encoder from KeyTupleFormat to StorageFormat */
@@ -464,11 +466,7 @@ class ha_rocksdb: public my_core::handler
                            rocksdb::Slice *slice, const bool use_all_keys,
                            const bool is_ascending, const uint eq_cond_len)
     MY_ATTRIBUTE((__nonnull__));
-  void release_scan_iterator(void)
-  {
-    delete m_scan_it;
-    m_scan_it= nullptr;
-  }
+  void release_scan_iterator(void);
 
   rocksdb::Status get_for_update(Rdb_transaction* tx,
                                  rocksdb::ColumnFamilyHandle* column_family,
