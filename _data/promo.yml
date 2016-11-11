@@ -2,5 +2,5 @@
 # your site's homepage. Full list of plugins are shown
 
 - type: button
-  href: docs/getting-started.html
+  href: docs/getting-started/
   text: Get started

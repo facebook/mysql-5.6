@@ -2,12 +2,14 @@
 docid: getting-started
 title: Getting Started
 layout: docs
-permalink: /docs/getting-started.html
+permalink: /docs/getting-started/
 ---
 
 ## Overview
 
-MyRocks is an open source project that integrates [RocksDB](http://rocksdb.org/) as a new MySQL storage engine.  It gives users better read efficiency, better write efficiency, and better space efficiency for better performance on flash storage.
+MyRocks is an open source project that integrates with [RocksDB](http://rocksdb.org/) as a new MySQL storage engine.  It gives users better read efficiency, better write efficiency, and better space efficiency for better performance on flash storage.
+
+This Getting Started page provides information on MyRocks' [supported platforms](/docs/getting-started/#supported-platforms), [installing](/docs/getting-started/#installation) and [creating your first table](/docs/getting-started/#create-a-rocksdb-table), and [migrating from InnoDB](/docs/getting-started/#migrating-from-innodb-to-myrocks-in-production).
 
 ## Supported Platforms
 
@@ -34,7 +36,7 @@ Best effort is made to support the following OSs:
 
 ## Installation
 
-### Build MyRocks from Source
+### 1. Build MyRocks from Source
 
 ##### *Setting up Prerequisites*
 
@@ -129,7 +131,7 @@ cd linkbench;
 mvn clean package -P fast-test
 ```
 
-### Set up my.cnf
+### 2. Set up my.cnf
 
 To enable a RocksDB storage engine, you need to set at least the following parameters in the my.cnf file:
 
@@ -149,19 +151,19 @@ binlog-format=ROW
 
 Statement-based binary logging is allowed on a replication slave, but not on a master because MyRocks doesn't support next-key locking.
 
-### Initialize the database with mysql_install_db
+### 3. Initialize the database with mysql_install_db
 
 ```bash
 mysql_install_db --defaults-file=/path/to/my.cnf
 ```
 
-### Start mysqld
+### 4. Start mysqld
 
 ```bash
 mysqld_safe --defaults-file=/path/to/my.cnf
 ```
 
-### Create a RocksDB table
+### 5. Create a RocksDB table
 
 *Example*
 
@@ -184,7 +186,7 @@ KEY `id1_type` (`id1`,`link_type`,`visibility`,`time`,`version`,`data`) COMMENT 
 The example shows some important features and limitations in MyRocks. For limitations, please read [MyRocks Limitations](https://github.com/facebook/mysql-5.6/wiki/MyRocks-limitations) for details.
 
 * MyRocks data is stored in RocksDB, per index basis. RocksDB internally allocates a *Column Family* to store indexes. By default, all data is stored in the *default* column family. You can change the column family by setting an index comment. In this example, Primary Key is stored in the `cf_link_pk` column family, and the `id1_type` index data is stored in the `rev:cf_link_id1_type` column family.
-* MyRocks has a feature called *Reverse Column Family*. Reverse Column Family is useful if the index is mainly used for a descending scan (ORDER BY .. DESC). You can configure the Reverse Column Family by setting "rev:" before the column family name. In this example, `id1_type` belongs to the Reverse Column Family.
+* MyRocks has a feature called *Reverse Column Family*. Reverse Column Family is useful if the index is mainly used for a descending scan (ORDER BY .. DESC). You can configure the Reverse Column Family by setting `rev:` before the column family name. In this example, `id1_type` belongs to the Reverse Column Family.
 
 <br />
 

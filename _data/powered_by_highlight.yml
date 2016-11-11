@@ -3,9 +3,3 @@
   - name: Facebook
     url: https://facebook.com
     img: static/images/facebook.png
-  - name: Percona
-    url: https://www.percona.com
-    img: static/images/percona-logo.png
-  - name: MariaDB
-    url: https://mariadb.org
-    img: static/images/mariadb-logo.png

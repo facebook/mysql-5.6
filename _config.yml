@@ -18,7 +18,8 @@ gacode: "UA-12345-6"
 # This was also be set to the right thing automatically for local development
 # https://github.com/blog/2277-what-s-new-in-github-pages-with-jekyll-3-3
 # http://jekyllrb.com/news/2016/10/06/jekyll-3-3-is-here/
-url: "http://example.com"
+url: "http://facebook.github.io/"
+baseurl: "mysql-5.6"
 
 # Note: There are new filters in Jekyll 3.3 to help with absolute and relative urls
 # absolute_url
@@ -29,7 +30,7 @@ url: "http://example.com"
 #https://github.com/blog/2277-what-s-new-in-github-pages-with-jekyll-3-3
 
 # The GitHub repo for your project
-ghrepo: "facebook/Site-Templates"
+ghrepo: "facebook/mysql-5.6"
 
 # Use these color settings to determine your colour scheme for the site.
 color:

@@ -10,12 +10,8 @@
   href: /support.html
   category: support
 
-- title: Blog
-  href: /blog/
-  category: blog
-
 - title: Facebook
-  href: http://www.facebook.com/
+  href: https://www.facebook.com/groups/mysqlonrocksdb/
   category: external
 
 # Use external for external links not associated with the paths of the current site.
