@@ -45,6 +45,8 @@ COMMIT;
 UNLOCK TABLES;
 DELETE from t1;
 FLUSH STATUS;
+SET @save_legacy_global_read_lock_mode = @@global.legacy_global_read_lock_mode;
+SET @@global.legacy_global_read_lock_mode = 1;
 connection con1;
 INSERT INTO t1 (a) select sleep(3) ;
 connection default;
@@ -59,6 +61,7 @@ a
 0
 connection default;
 SET GLOBAL read_only=0;
+SET @@global.legacy_global_read_lock_mode = @save_legacy_global_read_lock_mode;
 UNLOCK TABLES;
 DROP TABLE t1;
 DROP USER test@localhost;
