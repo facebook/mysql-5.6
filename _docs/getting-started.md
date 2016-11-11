@@ -131,7 +131,7 @@ cd linkbench;
 mvn clean package -P fast-test
 ```
 
-### 2. Set up my.cnf
+### 2. Set up `my.cnf`
 
 To enable a RocksDB storage engine, you need to set at least the following parameters in the my.cnf file:
 
@@ -147,17 +147,17 @@ log-bin
 binlog-format=ROW
 ```
 
->Currently, you can't enable both InnoDB and MyRocks storage engines at the same time because it won't work in production.
+>If you want to use both InnoDB and MyRocks within the same instance, set `allow-multiple-engines` and remove `skip-innodb` in `my.cnf`. Using mixed storage engines is not recommended in production because it is not really transactional, but it's okay for experimental purposes.
 
 Statement-based binary logging is allowed on a replication slave, but not on a master because MyRocks doesn't support next-key locking.
 
-### 3. Initialize the database with mysql_install_db
+### 3. Initialize the database with `mysql_install_db`
 
 ```bash
 mysql_install_db --defaults-file=/path/to/my.cnf
 ```
 
-### 4. Start mysqld
+### 4. Start `mysqld`
 
 ```bash
 mysqld_safe --defaults-file=/path/to/my.cnf
@@ -192,7 +192,7 @@ The example shows some important features and limitations in MyRocks. For limita
 
 ## Migrating from InnoDB to MyRocks in production
 
->Currently, you can't enable both InnoDB and MyRocks storage engines at the same time because it won't work in production.
+>If you want to use both InnoDB and MyRocks within the same instance, set `allow-multiple-engines` and remove `skip-innodb` in `my.cnf`. Using mixed storage engines is not recommended in production because it is not really transactional, but it's okay for experimental purposes.
 
 There is no online migration framework to move data between storage engines, but you will obviously want this to happen without downtime, losing data, or returning inaccurate results.  You need to move logical data from the source MySQL server with the InnoDB engine and load it into the destination MySQL server with the MyRocks engine.
 
