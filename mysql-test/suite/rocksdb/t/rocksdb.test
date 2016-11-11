@@ -1924,4 +1924,42 @@ SHOW TABLE STATUS LIKE 't1';
 SELECT * FROM t1;
 DROP TABLE t1;
 
+--echo #
+--echo # Issue #411: Setting rocksdb_commit_in_the_middle commits transaction
+--echo # without releasing iterator
+--echo #
+
+CREATE TABLE t1 (id1 bigint(20),
+                 id2 bigint(20),
+                 id3 bigint(20),
+                 PRIMARY KEY (id1, id2, id3))
+                 DEFAULT CHARSET=latin1;
+
+CREATE TABLE t2 (id1 bigint(20),
+                 id2 bigint(20),
+                 PRIMARY KEY (id1, id2))
+                 DEFAULT CHARSET=latin1;
+
+
+set rocksdb_commit_in_the_middle=1;
+SET @save_rocksdb_bulk_load_size= @@rocksdb_bulk_load_size;
+set rocksdb_bulk_load_size = 100;
+
+--disable_query_log
+let $j = 10000;
+while ($j)
+{
+  --eval insert into t1 (id1, id2, id3) values (0, $j, 0);
+  --eval insert into t2 (id1, id2) values (0, $j);
+  dec $j;
+}
+--enable_query_log
+
+DELETE t2, t1 FROM t2 LEFT JOIN t1 ON t2.id2 = t1.id2 AND t2.id1 = t1.id1 WHERE t2.id1 = 0;
+
+SET rocksdb_bulk_load_size= @save_rocksdb_bulk_load_size;
+SET rocksdb_commit_in_the_middle=0;
+DROP TABLE t1, t2;
+
+
 SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;
