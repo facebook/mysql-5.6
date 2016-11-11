@@ -2454,4 +2454,24 @@ a
 10
 11
 DROP TABLE t1;
+#
+# Issue #411: Setting rocksdb_commit_in_the_middle commits transaction
+# without releasing iterator
+#
+CREATE TABLE t1 (id1 bigint(20),
+id2 bigint(20),
+id3 bigint(20),
+PRIMARY KEY (id1, id2, id3))
+DEFAULT CHARSET=latin1;
+CREATE TABLE t2 (id1 bigint(20),
+id2 bigint(20),
+PRIMARY KEY (id1, id2))
+DEFAULT CHARSET=latin1;
+set rocksdb_commit_in_the_middle=1;
+SET @save_rocksdb_bulk_load_size= @@rocksdb_bulk_load_size;
+set rocksdb_bulk_load_size = 100;
+DELETE t2, t1 FROM t2 LEFT JOIN t1 ON t2.id2 = t1.id2 AND t2.id1 = t1.id1 WHERE t2.id1 = 0;
+SET rocksdb_bulk_load_size= @save_rocksdb_bulk_load_size;
+SET rocksdb_commit_in_the_middle=0;
+DROP TABLE t1, t2;
 SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;
