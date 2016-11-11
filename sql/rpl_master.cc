@@ -30,6 +30,7 @@
 #include <errno.h>
 #include <sys/socket.h>
 #include "binlog.h"
+#include "rpl_slave.h"
 
 int max_binlog_dump_events = 0; // unlimited
 my_bool opt_sporadic_binlog_dump_fail = 0;
@@ -614,11 +615,22 @@ static int send_heartbeat_event(NET* net, String* packet,
   char header[LOG_EVENT_HEADER_LEN];
   my_bool do_checksum= checksum_alg_arg != BINLOG_CHECKSUM_ALG_OFF &&
     checksum_alg_arg != BINLOG_CHECKSUM_ALG_UNDEF;
-  /*
-    'when' (the timestamp) is set to 0 so that slave could distinguish between
-    real and fake Rotate events (if necessary)
-  */
-  memset(header, 0, 4);  // when
+
+  mysql_mutex_lock(&LOCK_active_mi);
+  // case: if this is the master set timestamp to now
+  // otherwise set the timestamp to last_master_timestamp
+  if (active_mi && active_mi->host[0] && active_mi->rli)
+  {
+    mysql_mutex_lock(&active_mi->rli->data_lock);
+    memcpy(header, &(active_mi->rli->last_master_timestamp), 4);
+    mysql_mutex_unlock(&active_mi->rli->data_lock);
+  }
+  else
+  {
+    time_t now= time(0);
+    memcpy(header, &now, 4);
+  }
+  mysql_mutex_unlock(&LOCK_active_mi);
 
   header[EVENT_TYPE_OFFSET] = HEARTBEAT_LOG_EVENT;
 
