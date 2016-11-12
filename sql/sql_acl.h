@@ -447,4 +447,6 @@ int set_default_auth_plugin(char *, int);
 /** controls the extra checks on plugin availability for mysql.user records */
 extern my_bool validate_user_plugins;
 
+extern Regex_list_handler *legacy_user_name_pattern;
+
 #endif /* SQL_ACL_INCLUDED */

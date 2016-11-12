@@ -1,0 +1,27 @@
+set @my_slow_logname = @@global.slow_query_log_file;
+set global slow_query_log_file = "slow_log_legacy_user-slow.log";
+set @my_log_legacy_user = @@global.log_legacy_user;
+set global log_legacy_user = TRUE;
+set @my_legacy_user_name_pattern = @@global.legacy_user_name_pattern;
+set global legacy_user_name_pattern = '^[^:]+$';
+# legacy_user1
+create user legacy_user1@localhost;
+# connection conn1
+# connection default
+# change legacy_user_name_pattern
+set global legacy_user_name_pattern = '^[^%]+$';
+# legacy%user2
+create user `legacy_user2`@localhost;
+# connection conn2
+# connection default
+
+# Check the slow log result.
+LEGACY_USER: legacy_user1@localhost on test;
+LEGACY_USER: legacy_user2@localhost on test;
+
+# clean up
+drop user `legacy_user1`@localhost;
+drop user `legacy_user2`@localhost;
+set @@global.slow_query_log_file = @my_slow_logname;
+set @@global.legacy_user_name_pattern = @my_legacy_user_name_pattern;
+set @@global.log_legacy_user = @my_log_legacy_user;

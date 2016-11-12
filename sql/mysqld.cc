@@ -474,6 +474,10 @@ ulong log_warnings;
 uint host_cache_size;
 ulonglong tmp_table_rpl_max_file_size;
 
+my_bool log_legacy_user;
+const char *opt_legacy_user_name_pattern;
+Regex_list_handler *legacy_user_name_pattern;
+
 #if defined(_WIN32) && !defined(EMBEDDED_LIBRARY)
 ulong slow_start_timeout;
 #endif
@@ -2292,6 +2296,7 @@ void clean_up(bool print_message)
   free_list(opt_plugin_load_list_ptr);
 
   delete gap_lock_exceptions;
+  delete legacy_user_name_pattern;
 
   if (THR_THD)
     (void) pthread_key_delete(THR_THD);
@@ -5287,8 +5292,13 @@ static int init_thread_environment()
 #if defined(HAVE_PSI_INTERFACE)
   gap_lock_exceptions = new Regex_list_handler(
       key_rwlock_LOCK_gap_lock_exceptions);
+  // use the normalized delimiter as legacy_user_name only has one pattern
+  legacy_user_name_pattern = new Regex_list_handler(
+      key_rwlock_LOCK_legacy_user_name_pattern, '|');
 #else
   gap_lock_exceptions = new Regex_list_handler();
+  // use the normalized delimiter as legacy_user_name only has one pattern
+  legacy_user_name_pattern = new Regex_list_handler('|');
 #endif
   mysql_rwlock_init(key_rwlock_LOCK_grant, &LOCK_grant);
   mysql_cond_init(key_COND_thread_count, &COND_thread_count, NULL);
@@ -11397,6 +11407,7 @@ static int get_options(int *argc_ptr, char ***argv_ptr, my_bool logging)
   fix_delay_key_write(0, 0, OPT_GLOBAL);
 
   set_gap_lock_exception_list(0, 0, OPT_GLOBAL);
+  set_legacy_user_name_pattern(0, 0, OPT_GLOBAL);
 
 #ifndef EMBEDDED_LIBRARY
   if (mysqld_chroot)
@@ -12246,7 +12257,8 @@ static PSI_mutex_info all_server_mutexes[]=
 PSI_rwlock_key key_rwlock_LOCK_grant, key_rwlock_LOCK_logger,
   key_rwlock_LOCK_sys_init_connect, key_rwlock_LOCK_sys_init_slave,
   key_rwlock_LOCK_system_variables_hash, key_rwlock_query_cache_query_lock,
-  key_rwlock_global_sid_lock, key_rwlock_LOCK_gap_lock_exceptions;
+  key_rwlock_global_sid_lock, key_rwlock_LOCK_gap_lock_exceptions,
+  key_rwlock_LOCK_legacy_user_name_pattern;
 
 PSI_rwlock_key key_rwlock_Trans_delegate_lock;
 PSI_rwlock_key key_rwlock_Binlog_storage_delegate_lock;
@@ -12272,6 +12284,7 @@ static PSI_rwlock_info all_server_rwlocks[]=
   { &key_rwlock_LOCK_sys_init_connect, "LOCK_sys_init_connect", PSI_FLAG_GLOBAL},
   { &key_rwlock_LOCK_sys_init_slave, "LOCK_sys_init_slave", PSI_FLAG_GLOBAL},
   { &key_rwlock_LOCK_gap_lock_exceptions, "LOCK_gap_lock_exceptions", PSI_FLAG_GLOBAL},
+  { &key_rwlock_LOCK_legacy_user_name_pattern, "LOCK_legacy_user_name_pattern", PSI_FLAG_GLOBAL},
   { &key_rwlock_LOCK_system_variables_hash, "LOCK_system_variables_hash", PSI_FLAG_GLOBAL},
   { &key_rwlock_query_cache_query_lock, "Query_cache_query::lock", 0},
   { &key_rwlock_global_sid_lock, "gtid_commit_rollback", PSI_FLAG_GLOBAL},

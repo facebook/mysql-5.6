@@ -11216,6 +11216,23 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
       general_log_print(thd, command, (char*) "%s@%s on %s",
                         mpvio.auth_info.user_name, mpvio.auth_info.host_or_ip,
                         mpvio.db.str ? mpvio.db.str : (char*) "");
+
+    if (log_legacy_user && opt_legacy_user_name_pattern)
+    {
+      if (legacy_user_name_pattern->matches(mpvio.auth_info.user_name))
+      {
+        /* Log the legacy user */
+        std::string output= std::string("LEGACY_USER: ") +
+          mpvio.auth_info.user_name + "@" + mpvio.auth_info.host_or_ip;
+        if (mpvio.db.str != nullptr)
+          output += std::string(" on ") + mpvio.db.str;
+
+        bool save_enable_slow_log = thd->enable_slow_log;
+        thd->enable_slow_log = true;
+        slow_log_print(thd, output.c_str(), output.size(), &(thd->status_var));
+        thd->enable_slow_log = save_enable_slow_log;
+      }
+    }
   }
 
   if (res == CR_OK && !mpvio.can_authenticate())

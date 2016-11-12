@@ -1,0 +1,34 @@
+--source include/not_embedded.inc
+
+SET @start_log_legacy_user = @@global.log_legacy_user;
+SELECT @start_log_legacy_user;
+
+SET @@global.log_legacy_user = DEFAULT;
+SELECT @@global.log_legacy_user;
+
+SET @@global.log_legacy_user = false;
+SELECT @@global.log_legacy_user;
+
+SET @@global.log_legacy_user = true;
+SELECT @@global.log_legacy_user;
+
+SET @@global.log_legacy_user = 1;
+SELECT @@global.log_legacy_user;
+
+SET @@global.log_legacy_user = 0;
+SELECT @@global.log_legacy_user;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_legacy_user = -1;
+SELECT @@global.log_legacy_user;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_legacy_user = 100;
+SELECT @@global.log_legacy_user;
+
+--ERROR ER_GLOBAL_VARIABLE
+SET @@session.log_legacy_user = 10;
+--ERROR ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.log_legacy_user;
+
+SET @@global.log_legacy_user = @start_log_legacy_user;
+SELECT @@global.log_legacy_user;

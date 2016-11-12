@@ -1648,21 +1648,28 @@ static Sys_var_mybool Sys_gap_lock_write_log(
        SESSION_VAR(gap_lock_write_log), CMD_LINE(OPT_ARG),
        DEFAULT(false));
 
-bool set_gap_lock_exception_list(sys_var *, THD *, enum_var_type)
+static bool set_regex_list_handler(Regex_list_handler *rlh,
+                                   const char *regex_pattern,
+                                   const char *list_name)
 {
-  const char* str = opt_gap_lock_exception_list;
-
-  if (str == nullptr)
+  if (regex_pattern == nullptr)
   {
-    str = "";
+    regex_pattern = "";
   }
 
-  if (!gap_lock_exceptions->set_patterns(str))
+  if (!rlh->set_patterns(regex_pattern))
   {
-    warn_about_bad_patterns(gap_lock_exceptions, "gap_lock_exceptions");
+    warn_about_bad_patterns(rlh, list_name);
   }
 
   return false;
+}
+
+bool set_gap_lock_exception_list(sys_var *, THD *, enum_var_type)
+{
+  return set_regex_list_handler(gap_lock_exceptions,
+                                opt_gap_lock_exception_list,
+                                "gap_lock_exceptions");
 }
 static Sys_var_charptr Sys_gap_lock_exceptions(
        "gap_lock_exceptions",
@@ -5658,3 +5665,23 @@ static Sys_var_uint Sys_num_lock_shards(
        READ_ONLY GLOBAL_VAR(num_sharded_locks), CMD_LINE(OPT_ARG),
        VALID_RANGE(1, 16), DEFAULT(4), BLOCK_SIZE(1));
 #endif
+
+static Sys_var_mybool Sys_log_legacy_user(
+       "log_legacy_user",
+       "Log legacy user names in slow query log.",
+       GLOBAL_VAR(log_legacy_user),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
+bool set_legacy_user_name_pattern(sys_var *, THD *, enum_var_type)
+{
+  return set_regex_list_handler(legacy_user_name_pattern,
+                                opt_legacy_user_name_pattern,
+                                "legacy_user_name_pattern");
+}
+static Sys_var_charptr Sys_legacy_user_name_pattern(
+       "legacy_user_name_pattern",
+       "Regex pattern string of a legacy user name",
+       GLOBAL_VAR(opt_legacy_user_name_pattern), CMD_LINE(OPT_ARG),
+       IN_SYSTEM_CHARSET, DEFAULT(0), nullptr,
+       NOT_IN_BINLOG, ON_CHECK(nullptr),
+       ON_UPDATE(set_legacy_user_name_pattern));
