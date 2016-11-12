@@ -1,17 +1,17 @@
 - title: Docs
-  href: /docs/
+  href: /docs/getting-started/
   category: docs
 
-- title: Top Level
-  href: /top-level-example.html
-  category: top-level
+- title: GitHub
+  href: https://github.com/facebook/mysql-5.6
+  category: github
 
-- title: Blog
-  href: /blog/
-  category: blog
+- title: Support
+  href: /support.html
+  category: support
 
 - title: Facebook
-  href: http://www.facebook.com/
+  href: https://www.facebook.com/groups/mysqlonrocksdb/
   category: external
 
 # Use external for external links not associated with the paths of the current site.
