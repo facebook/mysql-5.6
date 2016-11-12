@@ -24,4 +24,4 @@ questions, find answers, and report issues.
 
 ### FAQ
 
-Check out a list of [commonly asked questions](/docs/support/faq) about MyRocks.
+Check out a list of [commonly asked questions]({{ '/docs/support/faq' | absolute_url }}) about MyRocks.
