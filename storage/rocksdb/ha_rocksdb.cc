@@ -9983,7 +9983,15 @@ int ha_rocksdb::inplace_populate_sk(const TABLE* new_table_arg,
     {
       DBUG_RETURN(res);
     }
-    tx->commit();
+
+    if (commit_in_the_middle())
+    {
+      release_scan_iterator();
+    }
+    else
+    {
+      tx->commit();
+    }
   }
 
   ulonglong rdb_merge_buf_size= THDVAR(ha_thd(), merge_buf_size);
