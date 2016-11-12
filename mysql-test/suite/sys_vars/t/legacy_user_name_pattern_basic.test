@@ -1,0 +1,20 @@
+--source include/not_embedded.inc
+--source include/load_sysvars.inc
+--source include/have_fullregex.inc
+
+set @saved_legacy_user_name_pattern = @@global.legacy_user_name_pattern;
+set @@global.legacy_user_name_pattern = default;
+select @@global.legacy_user_name_pattern;
+
+set @@global.legacy_user_name_pattern='%';
+set @@global.legacy_user_name_pattern='^[^:]+$';
+
+--error ER_WRONG_TYPE_FOR_VAR
+set @@global.legacy_user_name_pattern=1;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.legacy_user_name_pattern;
+--error ER_GLOBAL_VARIABLE
+set @@session.legacy_user_name_pattern=':';
+
+set global legacy_user_name_pattern = @saved_legacy_user_name_pattern;
