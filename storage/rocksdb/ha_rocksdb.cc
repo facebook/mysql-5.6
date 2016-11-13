@@ -8149,8 +8149,9 @@ void ha_rocksdb::setup_scan_iterator(
       m_scan_it_snapshot= rdb->GetSnapshot();
 
       auto read_opts = rocksdb::ReadOptions();
+      read_opts.total_order_seek = true; // TODO: set based on WHERE conditions
       read_opts.snapshot= m_scan_it_snapshot;
-      m_scan_it= rdb->NewIterator(read_opts);
+      m_scan_it= rdb->NewIterator(read_opts, kd.get_cf());
     }
     else
     {
