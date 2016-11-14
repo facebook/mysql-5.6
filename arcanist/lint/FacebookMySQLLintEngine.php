@@ -102,6 +102,14 @@ class FacebookMySQLLintEngine extends ArcanistLintEngine {
           ->setPaths($myrocks_cpp_paths);
     }
 
+    // All paths in mysql-test that have a .test or .result extension
+    $mysql_test_paths = preg_grep('/mysql-test\/.*\.(test|result)$/', $paths);
+
+    // This linter validates that new .test files (in mysql-test/) have
+    // have matchine .result files
+    $linters[] = id(new FacebookMySQLTestResultLinter())
+        ->setPaths($mysql_test_paths);
+
     return $linters;
   }
 }
