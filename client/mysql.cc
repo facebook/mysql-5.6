@@ -2195,7 +2195,7 @@ static int read_and_execute(bool interactive)
 	&& !ml_comment && !in_string && (com= find_command(line)))
     {
       if ((*com->func)(&glob_buffer,line) > 0)
-       break;
+	break;
       if (glob_buffer.is_empty())		// If buffer was emptied
 	in_string=0;
 #ifdef HAVE_READLINE
