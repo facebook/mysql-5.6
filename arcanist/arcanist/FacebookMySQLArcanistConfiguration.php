@@ -25,12 +25,15 @@ class FacebookMySQLArcanistConfiguration extends ArcanistConfiguration {
 
         return;
       }
-    } elseif (!$using_sandcastle) {
-      $configuration_manager->setRuntimeConfig("lint.engine", "FacebookMySQLLintEngine");
-      $configuration_manager->setRuntimeConfig("lint.cpplint.prefix", "rocksdb/arcanist_util/cpp_linter/");
-      $configuration_manager->setRuntimeConfig("lint.cpplint.options", "--filter=-build/include_order,-whitespace/braces,-whitespace/newline");
-      $console->writeOut("Running outside Sandcastle, linters are now enabled.");
     }
+
+    $configuration_manager->setRuntimeConfig("lint.engine",
+      "FacebookMySQLLintEngine");
+    $configuration_manager->setRuntimeConfig("lint.cpplint.prefix",
+      "rocksdb/arcanist_util/cpp_linter/");
+    $configuration_manager->setRuntimeConfig("lint.cpplint.options",
+      "--filter=-build/include_order,-whitespace/braces,-whitespace/newline");
+    $console->writeOut("Linters are enabled.\n");
 
     $tools_config_data = Filesystem::readFile($tools_config_file);
     $tools_config = json_decode($tools_config_data, true);
