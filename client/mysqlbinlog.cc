@@ -3047,7 +3047,7 @@ connected:
             if ((rev->ident_len != logname_len) ||
                 memcmp(rev->new_log_ident, logname, logname_len))
             {
-	      reset_temp_buf_and_delete(rev);
+              reset_temp_buf_and_delete(rev);
               DBUG_RETURN(OK_CONTINUE);
             }
             /*
@@ -3056,7 +3056,7 @@ connected:
               log. If we are running with to_last_remote_log, we print it,
               because it serves as a useful marker between binlogs then.
             */
-	    reset_temp_buf_and_delete(rev);
+            reset_temp_buf_and_delete(rev);
             continue;
           }
           /*
@@ -3163,7 +3163,7 @@ connected:
         }
         if (ev)
         {
-          reset_temp_buf_and_delete(rev);
+          reset_temp_buf_and_delete(ev);
         }
       }
       else
