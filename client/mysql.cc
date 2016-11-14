@@ -285,6 +285,7 @@ static int com_nopager(String *str, char*), com_pager(String *str, char*),
 #endif
 
 static int read_and_execute(bool interactive);
+static void configure_ssl(MYSQL* mysql);
 static int sql_connect(char *host,char *database,char *user,char *password,
 		       uint silent);
 static const char *server_version_string(MYSQL *mysql);
@@ -1501,6 +1502,7 @@ sig_handler handle_kill_signal(int sig)
   mysql_options(kill_mysql, MYSQL_OPT_CONNECT_ATTR_RESET, 0);
   mysql_options4(kill_mysql, MYSQL_OPT_CONNECT_ATTR_ADD,
                  "program_name", "mysql");
+  configure_ssl(kill_mysql);
   if (!mysql_connect_ssl_check(kill_mysql, current_host, current_user,
                                opt_password, "", opt_mysql_port,
                                opt_mysql_unix_port, 0, opt_ssl_required))
@@ -4761,23 +4763,9 @@ sql_real_connect(char *host,char *database,char *user,char *password,
     mysql_options(&mysql, MYSQL_SECURE_AUTH, (char *) &opt_secure_auth);
   if (using_opt_local_infile)
     mysql_options(&mysql,MYSQL_OPT_LOCAL_INFILE, (char*) &opt_local_infile);
-#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
-  if (opt_use_ssl)
-  {
-    if (ssl_context)
-      mysql_options(&mysql, MYSQL_OPT_SSL_CONTEXT, ssl_context);
-    else {
-      mysql_ssl_set(&mysql, opt_ssl_key, opt_ssl_cert, opt_ssl_ca,
-        opt_ssl_capath, opt_ssl_cipher);
-      mysql_options(&mysql, MYSQL_OPT_SSL_CRL, opt_ssl_crl);
-      mysql_options(&mysql, MYSQL_OPT_SSL_CRLPATH, opt_ssl_crlpath);
-    }
-    if (ssl_session)
-      mysql_options4(&mysql, MYSQL_OPT_SSL_SESSION, ssl_session, FALSE);
-  }
-  mysql_options(&mysql,MYSQL_OPT_SSL_VERIFY_SERVER_CERT,
-                (char*)&opt_ssl_verify_server_cert);
-#endif
+
+  configure_ssl(&mysql);
+
   if (opt_protocol)
     mysql_options(&mysql,MYSQL_OPT_PROTOCOL,(char*)&opt_protocol);
 #ifdef HAVE_SMEM
@@ -4910,6 +4898,26 @@ sql_real_connect(char *host,char *database,char *user,char *password,
   return 0;
 }
 
+static void
+configure_ssl(MYSQL* mysql) {
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+  if (opt_use_ssl)
+  {
+    if (ssl_context)
+      mysql_options(mysql, MYSQL_OPT_SSL_CONTEXT, ssl_context);
+    else {
+      mysql_ssl_set(mysql, opt_ssl_key, opt_ssl_cert, opt_ssl_ca,
+          opt_ssl_capath, opt_ssl_cipher);
+      mysql_options(mysql, MYSQL_OPT_SSL_CRL, opt_ssl_crl);
+      mysql_options(mysql, MYSQL_OPT_SSL_CRLPATH, opt_ssl_crlpath);
+    }
+    if (ssl_session)
+      mysql_options4(mysql, MYSQL_OPT_SSL_SESSION, ssl_session, FALSE);
+  }
+  mysql_options(mysql,MYSQL_OPT_SSL_VERIFY_SERVER_CERT,
+                  (char*)&opt_ssl_verify_server_cert);
+#endif
+}
 
 static int
 sql_connect(char *host,char *database,char *user,char *password,uint silent)
