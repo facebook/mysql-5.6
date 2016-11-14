@@ -2194,9 +2194,9 @@ static int read_and_execute(bool interactive)
     if ((named_cmds || glob_buffer.is_empty())
 	&& !ml_comment && !in_string && (com= find_command(line)))
     {
-      if ((*com->func)(&glob_buffer,line) > 0) {
+      if ((*com->func)(&glob_buffer,line) > 0)
         break;
-      }
+      
       if (glob_buffer.is_empty())		// If buffer was emptied
 	in_string=0;
 #ifdef HAVE_READLINE
@@ -4899,23 +4899,23 @@ sql_real_connect(char *host,char *database,char *user,char *password,
 
 static void
 configure_ssl(MYSQL* mysql) {
-  #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
-    if (opt_use_ssl)
-    {
-      if (ssl_context)
-        mysql_options(mysql, MYSQL_OPT_SSL_CONTEXT, ssl_context);
-      else {
-        mysql_ssl_set(mysql, opt_ssl_key, opt_ssl_cert, opt_ssl_ca,
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+  if (opt_use_ssl)
+  {
+    if (ssl_context)
+      mysql_options(mysql, MYSQL_OPT_SSL_CONTEXT, ssl_context);
+    else {
+      mysql_ssl_set(mysql, opt_ssl_key, opt_ssl_cert, opt_ssl_ca,
           opt_ssl_capath, opt_ssl_cipher);
-        mysql_options(mysql, MYSQL_OPT_SSL_CRL, opt_ssl_crl);
-        mysql_options(mysql, MYSQL_OPT_SSL_CRLPATH, opt_ssl_crlpath);
-      }
-      if (ssl_session)
-        mysql_options4(mysql, MYSQL_OPT_SSL_SESSION, ssl_session, FALSE);
+      mysql_options(mysql, MYSQL_OPT_SSL_CRL, opt_ssl_crl);
+      mysql_options(mysql, MYSQL_OPT_SSL_CRLPATH, opt_ssl_crlpath);
     }
-    mysql_options(mysql,MYSQL_OPT_SSL_VERIFY_SERVER_CERT,
+    if (ssl_session)
+      mysql_options4(mysql, MYSQL_OPT_SSL_SESSION, ssl_session, FALSE);
+  }
+  mysql_options(mysql,MYSQL_OPT_SSL_VERIFY_SERVER_CERT,
                   (char*)&opt_ssl_verify_server_cert);
-  #endif
+#endif
 }
 
 static int
