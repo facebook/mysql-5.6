@@ -1092,12 +1092,12 @@ static MYSQL_THDVAR_INT(checksums_pct,
   nullptr, nullptr, 100,
   /* min */ 0, /* max */ 100, 0);
 
-static MYSQL_THDVAR_BOOL(store_checksums,
+static MYSQL_THDVAR_BOOL(store_row_debug_checksums,
   PLUGIN_VAR_RQCMDARG,
   "Include checksums when writing index/table records",
   nullptr, nullptr, false /* default value */);
 
-static MYSQL_THDVAR_BOOL(verify_checksums,
+static MYSQL_THDVAR_BOOL(verify_row_debug_checksums,
   PLUGIN_VAR_RQCMDARG,
   "Verify checksums when reading index/table records",
   nullptr, nullptr, false /* default value */);
@@ -1243,8 +1243,8 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(create_checkpoint),
 
   MYSQL_SYSVAR(checksums_pct),
-  MYSQL_SYSVAR(store_checksums),
-  MYSQL_SYSVAR(verify_checksums),
+  MYSQL_SYSVAR(store_row_debug_checksums),
+  MYSQL_SYSVAR(verify_row_debug_checksums),
 
   MYSQL_SYSVAR(validate_tables),
   MYSQL_SYSVAR(table_stats_sampling_pct),
@@ -4272,7 +4272,7 @@ void ha_rocksdb::convert_record_to_storage_format(
     }
   }
 
-  if (should_store_checksums())
+  if (should_store_row_debug_checksums())
   {
     uint32_t key_crc32= my_core::crc32(0,
                                        rdb_slice_to_uchar_ptr(&pk_packed_slice),
@@ -4301,7 +4301,7 @@ void ha_rocksdb::convert_record_to_storage_format(
   @detail
     Two special cases when we still unpack all fields:
     - When this table is being updated (m_lock_rows==RDB_LOCK_WRITE).
-    - When @@rocksdb_verify_checksums is ON (In this mode, we need to read all
+    - When @@rocksdb_verify_row_debug_checksums is ON (In this mode, we need to read all
       fields to find whether there is a row checksum at the end. We could skip
       the fields instead of decoding them, but currently we do decoding.)
 
@@ -4324,7 +4324,7 @@ void ha_rocksdb::setup_read_decoders()
       continue;
     }
 
-    if (m_lock_rows == RDB_LOCK_WRITE || m_verify_checksums ||
+    if (m_lock_rows == RDB_LOCK_WRITE || m_verify_row_debug_checksums ||
         bitmap_is_set(table->read_set, table->field[i]->field_index))
     {
       // We will need to decode this field
@@ -4609,7 +4609,7 @@ int ha_rocksdb::convert_record_from_storage_format(const rocksdb::Slice *key,
     }
   }
 
-  if (m_verify_checksums)
+  if (m_verify_row_debug_checksums)
   {
     if (reader.remaining_bytes() == RDB_CHECKSUM_CHUNK_SIZE &&
         reader.read(1)[0] == RDB_CHECKSUM_DATA_TAG)
@@ -4983,7 +4983,7 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
 
     Initialize the necessary variables for them:
   */
-  m_verify_checksums= false;
+  m_verify_row_debug_checksums= false;
 
   /* TODO: move the following to where TABLE_SHARE is opened: */
   if (table->found_next_number_field)
@@ -6169,7 +6169,7 @@ int ha_rocksdb::try_keyonly_read_from_sk(uchar* buf,
     const rocksdb::Slice& value,
     const uint rowid_size)
 {
-  int res= kd.unpack_record(table, buf, &key, &value, m_verify_checksums);
+  int res= kd.unpack_record(table, buf, &key, &value, m_verify_row_debug_checksums);
   uint size= rowid_size;
   if (res == UNPACK_INFO_MISSING)
   {
@@ -6663,8 +6663,8 @@ int ha_rocksdb::check(THD* thd, HA_CHECK_OPT* check_opt)
   // Rdb_transaction *tx= get_or_create_tx(table->in_use);
   // tx->snapshot= nullptr;
 
-  bool save_verify_checksums= m_verify_checksums;
-  m_verify_checksums= true;
+  bool save_verify_row_debug_checksums= m_verify_row_debug_checksums;
+  m_verify_row_debug_checksums= true;
 
   /* For each secondary index, check that we can get a PK value from it */
   // NO_LINT_DEBUG
@@ -6803,7 +6803,7 @@ print_and_error:
   }
   extra(HA_EXTRA_NO_KEYREAD);
 
-  m_verify_checksums= save_verify_checksums;
+  m_verify_row_debug_checksums= save_verify_row_debug_checksums;
   /*
     TODO: we should check also for PK records that are missing in the secondary
     indexes.
@@ -6812,7 +6812,7 @@ print_and_error:
   */
   return HA_ADMIN_OK;
 error:
-  m_verify_checksums= save_verify_checksums;
+  m_verify_row_debug_checksums= save_verify_row_debug_checksums;
   ha_index_or_rnd_end();
   extra(HA_EXTRA_NO_KEYREAD);
   return HA_ADMIN_CORRUPT;
@@ -7911,11 +7911,11 @@ int ha_rocksdb::update_sk(const TABLE* table_arg,
     return 0;
   }
 
-  bool store_checksums= should_store_checksums();
+  bool store_row_debug_checksums= should_store_row_debug_checksums();
 
   new_packed_size= kd.pack_record(table_arg, m_pack_buffer, row_info.new_data,
                                    m_sk_packed_tuple, &m_sk_tails,
-                                   store_checksums,
+                                   store_row_debug_checksums,
                                    row_info.hidden_pk_id);
 
   if (row_info.old_data != nullptr)
@@ -7924,7 +7924,7 @@ int ha_rocksdb::update_sk(const TABLE* table_arg,
     old_packed_size= kd.pack_record(table_arg, m_pack_buffer,
                                      row_info.old_data,
                                      m_sk_packed_tuple_old, &m_sk_tails_old,
-                                     store_checksums,
+                                     store_row_debug_checksums,
                                      row_info.hidden_pk_id);
 
     /*
@@ -8823,8 +8823,8 @@ THR_LOCK_DATA **ha_rocksdb::store_lock(THD *thd,
 
 void ha_rocksdb::read_thd_vars(THD *thd)
 {
-  m_store_checksums= THDVAR(thd, store_checksums);
-  m_verify_checksums= THDVAR(thd, verify_checksums);
+  m_store_row_debug_checksums= THDVAR(thd, store_row_debug_checksums);
+  m_verify_row_debug_checksums= THDVAR(thd, verify_row_debug_checksums);
   m_checksums_pct= THDVAR(thd, checksums_pct);
 }
 
@@ -10027,7 +10027,7 @@ int ha_rocksdb::inplace_populate_sk(const TABLE* new_table_arg,
       int new_packed_size= index->pack_record(new_table_arg, m_pack_buffer,
                                               table->record[0],
                                               m_sk_packed_tuple, &m_sk_tails,
-                                              should_store_checksums(),
+                                              should_store_row_debug_checksums(),
                                               hidden_pk_id);
 
       rocksdb::Slice key= rocksdb::Slice(
