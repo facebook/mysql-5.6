@@ -127,7 +127,7 @@ select c1 from t;
 drop table t;
 
 # Test varchar keyparts with key prefix
-set session rocksdb_verify_checksums = on;
+set session rocksdb_verify_row_debug_checksums = on;
 create table t (id int primary key, email varchar(100), KEY email_i (email(30))) engine=rocksdb default charset=latin1;
 insert into t values (1, '                                  a');
 --replace_column 9 #
