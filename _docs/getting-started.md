@@ -9,7 +9,7 @@ permalink: /docs/getting-started/
 
 MyRocks is an open source project that integrates with [RocksDB](http://rocksdb.org/) as a new MySQL storage engine.  It gives users better read efficiency, better write efficiency, and better space efficiency for better performance on flash storage.
 
-This Getting Started page provides information on MyRocks' [supported platforms](/docs/getting-started/#supported-platforms), [installing](/docs/getting-started/#installation) and [creating your first table](/docs/getting-started/#create-a-rocksdb-table), and [migrating from InnoDB](/docs/getting-started/#migrating-from-innodb-to-myrocks-in-production).
+This Getting Started page provides information on MyRocks' [supported platforms](/mysql-5.6/docs/getting-started/#supported-platforms), [installing](/mysql-5.6/docs/getting-started/#installation) and [creating your first table](/mysql-5.6/docs/getting-started/#create-a-rocksdb-table), and [migrating from InnoDB](/mysql-5.6/docs/getting-started/#migrating-from-innodb-to-myrocks-in-production).
 
 ## Supported Platforms
 
