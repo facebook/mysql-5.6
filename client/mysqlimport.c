@@ -418,27 +418,29 @@ static void lock_table(MYSQL *mysql, int tablecount, char **raw_tablename)
 }
 
 
-
-
-static MYSQL *db_connect(char *host, char *database,
-                         char *user, char *passwd)
+static MYSQL* do_init(MYSQL* mysql)
 {
-  MYSQL *mysql;
-  if (verbose)
-    fprintf(stdout, "Connecting to %s\n", host ? host : "localhost");
   if (opt_use_threads && !lock_tables)
   {
     pthread_mutex_lock(&init_mutex);
-    if (!(mysql= mysql_init(NULL)))
-    {
-      pthread_mutex_unlock(&init_mutex);
-      return 0;
-    }
+    mysql= mysql_init(mysql);
     pthread_mutex_unlock(&init_mutex);
   }
   else
-    if (!(mysql= mysql_init(NULL)))
-      return 0;
+  {
+    mysql= mysql_init(mysql);
+  }
+
+  return mysql;
+}
+
+
+static void db_connect(const char *host, const char *database,
+                       const char *user, const char *passwd,
+                       MYSQL *mysql)
+{
+  if (verbose)
+    fprintf(stdout, "Connecting to %s\n", host ? host : "localhost");
   if (opt_compress)
     mysql_options(mysql,MYSQL_OPT_COMPRESS,NullS);
   if (opt_local_file)
@@ -495,7 +497,6 @@ static MYSQL *db_connect(char *host, char *database,
     ignore_errors=0;
     db_error(mysql);
   }
-  return mysql;
 }
 
 
@@ -596,10 +597,11 @@ pthread_handler_t worker_thread(void *arg)
   if (mysql_thread_init())
     goto error;
   
-  if (!(mysql= db_connect(current_host,current_db,current_user,opt_password)))
-  {
+  /* per-thread client init */
+  if (!(mysql= do_init(NULL)))
     goto error;
-  }
+
+  db_connect(current_host,current_db,current_user,opt_password, mysql);
 
   if (mysql_query(mysql, "/*!40101 set @@character_set_database=binary */;"))
   {
@@ -630,6 +632,7 @@ error:
 
 int main(int argc, char **argv)
 {
+  MYSQL mysql;
   int error=0;
   char **argv_to_free;
   MY_INIT(argv[0]);
@@ -646,6 +649,9 @@ int main(int argc, char **argv)
     free_defaults(argv_to_free);
     return(1);
   }
+
+  /* initialize client in the main thread*/
+  do_init(&mysql);
 
   if (opt_use_threads && !lock_tables)
   {
@@ -727,26 +733,20 @@ int main(int argc, char **argv)
   }
   else
   {
-    MYSQL *mysql= 0;
-    if (!(mysql= db_connect(current_host,current_db,current_user,opt_password)))
+    db_connect(current_host,current_db,current_user,opt_password, &mysql);
+    if (mysql_query(&mysql, "/*!40101 set @@character_set_database=binary */;"))
     {
-      free_defaults(argv_to_free);
-      return(1); /* purecov: deadcode */
-    }
-
-    if (mysql_query(mysql, "/*!40101 set @@character_set_database=binary */;"))
-    {
-      db_error(mysql); /* We shall countinue here, if --force was given */
+      db_error(&mysql); /* We shall countinue here, if --force was given */
       return(1);
     }
 
     if (lock_tables)
-      lock_table(mysql, argc, argv);
+      lock_table(&mysql, argc, argv);
     for (; *argv != NULL; argv++)
-      if ((error= write_to_table(*argv, mysql)))
+      if ((error= write_to_table(*argv, &mysql)))
         if (exitcode == 0)
           exitcode= error;
-    db_disconnect(current_host, mysql);
+    db_disconnect(current_host, &mysql);
   }
   my_free(opt_password);
 #ifdef HAVE_SMEM
