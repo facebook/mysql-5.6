@@ -31,7 +31,7 @@ class FacebookMySQLArcanistConfiguration extends ArcanistConfiguration {
     $configuration_manager->setRuntimeConfig("lint.engine",
       "FacebookMySQLLintEngine");
     $configuration_manager->setRuntimeConfig("lint.cpplint.prefix",
-      $project_root . "/rocksdb/arcanist_util/cpp_linter/");
+      $project_root . "/arcanist/lint/cpp_linter/");
     $configuration_manager->setRuntimeConfig("lint.cpplint.options",
       "--filter=-build/include_order,-whitespace/braces,-whitespace/newline");
     $console->writeOut("Linters are enabled.\n");
