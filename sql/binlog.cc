@@ -2762,18 +2762,35 @@ bool MYSQL_BIN_LOG::open_index_file(const char *index_file_name_arg,
     return TRUE;
   }
 
-  /*
-    We need move crash_safe_index_file to index_file if the index_file
-    does not exist and crash_safe_index_file exists when mysqld server
-    restarts.
-  */
-  if (my_access(index_file_name, F_OK) &&
-      !my_access(crash_safe_index_file_name, F_OK) &&
-      my_rename(crash_safe_index_file_name, index_file_name, MYF(MY_WME)))
+  // case: crash_safe_index_file exists
+  if (!my_access(crash_safe_index_file_name, F_OK))
   {
-    sql_print_error("MYSQL_BIN_LOG::open_index_file failed to "
-                    "move crash_safe_index_file to index file.");
-    return TRUE;
+    /*
+      We need move crash_safe_index_file to index_file if the index_file
+      does not exist or delete it if the index_file exists when mysqld server
+      restarts.
+    */
+
+    // case: index_file does not exist
+    if (my_access(index_file_name, F_OK))
+    {
+      if (my_rename(crash_safe_index_file_name, index_file_name, MYF(MY_WME)))
+      {
+        sql_print_error("MYSQL_BIN_LOG::open_index_file failed to "
+            "move crash_safe_index_file to index_file.");
+        return TRUE;
+      }
+
+    }
+    else
+    {
+      if (my_delete(crash_safe_index_file_name, MYF(MY_WME)))
+      {
+        sql_print_error("MYSQL_BIN_LOG::open_index_file failed to "
+            "delete crash_safe_index_file.");
+        return TRUE;
+      }
+    }
   }
 
   if ((index_file_nr= mysql_file_open(m_key_file_log_index,
