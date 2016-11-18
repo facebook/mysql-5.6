@@ -18706,6 +18706,9 @@ ER_BINLOG_INDEX_PREV_GTID_OUTOFMEMORY
 ER_BINLOG_INDEX_PREV_GTID_CORRUPT
   eng "MYSQL_BINLOG::init_gtid_sets failed because previous gtid set of binlog %s is corrupted in the index file"
 
+ER_BINLOG_CANT_DELETE_TMP_INDEX
+  eng "%s failed to delete the crash safe index file."
+
 #
 # End of 8.0 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error

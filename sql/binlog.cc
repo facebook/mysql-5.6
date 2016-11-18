@@ -3599,18 +3599,30 @@ bool MYSQL_BIN_LOG::open_index_file(const char *index_file_name_arg,
     goto end;
   }
 
-  /*
-    We need move crash_safe_index_file to index_file if the index_file
-    does not exist and crash_safe_index_file exists when mysqld server
-    restarts.
-  */
-  if (my_access(index_file_name, F_OK) &&
-      !my_access(crash_safe_index_file_name, F_OK) &&
-      my_rename(crash_safe_index_file_name, index_file_name, MYF(MY_WME))) {
-    LogErr(ERROR_LEVEL, ER_BINLOG_CANT_MOVE_TMP_TO_INDEX,
-           "MYSQL_BIN_LOG::open_index_file");
-    error = true;
-    goto end;
+  // case: crash_safe_index_file exists
+  if (!my_access(crash_safe_index_file_name, F_OK)) {
+    /*
+      We need to move crash_safe_index_file to index_file if the index_file
+      does not exist or delete it if the index_file exists when mysqld server
+      restarts.
+    */
+
+    // case: index_file does not exist
+    if (my_access(index_file_name, F_OK)) {
+      if (my_rename(crash_safe_index_file_name, index_file_name, MYF(MY_WME))) {
+        LogErr(ERROR_LEVEL, ER_BINLOG_CANT_MOVE_TMP_TO_INDEX,
+               "MYSQL_BIN_LOG::open_index_file");
+        error = true;
+        goto end;
+      }
+    } else {
+      if (my_delete(crash_safe_index_file_name, MYF(MY_WME))) {
+        LogErr(ERROR_LEVEL, ER_BINLOG_CANT_DELETE_TMP_INDEX,
+               "MYSQL_BIN_LOG::open_index_file");
+        error = true;
+        goto end;
+      }
+    }
   }
 
   if ((index_file_nr = mysql_file_open(m_key_file_log_index, index_file_name,
