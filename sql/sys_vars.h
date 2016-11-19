@@ -91,7 +91,9 @@ extern my_bool opt_log_global_var_changes;
   do { \
     const char *format = FORMAT(fmt); \
     const char *user = (char *)thd->security_ctx->user; \
-    const char *host = (char *)thd->security_ctx->get_host()->ptr(); \
+    const char *host = thd->security_ctx->host_or_ip[0] ? \
+                       thd->security_ctx->host_or_ip : \
+                       (char *)thd->security_ctx->get_host()->ptr(); \
     sql_print_information(format, name.str, old_val, new_val, user, host); \
   } while (0)
 
