@@ -44,7 +44,6 @@ class Rdb_cf_options
   void get(const std::string &cf_name, rocksdb::ColumnFamilyOptions *opts);
 
   bool init(
-    size_t default_write_buffer_size,
     const rocksdb::BlockBasedTableOptions& table_options,
     std::shared_ptr<rocksdb::TablePropertiesCollectorFactory> prop_coll_factory,
     const char * default_cf_options,
