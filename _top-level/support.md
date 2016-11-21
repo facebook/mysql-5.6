@@ -11,12 +11,15 @@ Don't hesitate to ask questions if you are having trouble with MyRocks.
 
 ### GitHub issues
 
-The [GitHub issues](https://github.com/facebook/mysql-5.6/issues) page is a good place to ask
-questions, find answers, and report issues.
+Use [GitHub issues](https://github.com/facebook/mysql-5.6/issues) to report bugs, issues and feature requests for the MyRocks codebase.
+
+### Email List
+
+Use the [MyRocks Google Groups forum](https://groups.google.com/forum/#!forum/myrocks-dev) for general questions and discussion about MyRocks.
 
 ### Facebook Group
 
-<https://www.facebook.com/groups/mysqlonrocksdb/>
+The [MyRocks Facebook group](https://www.facebook.com/groups/mysqlonrocksdb/) provides general MyRocks announcements. You can also use this as an alternative if the email list does not answer your question(s).
 
 ### MyRocks Mailing List
 
