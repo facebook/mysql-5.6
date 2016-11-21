@@ -7401,6 +7401,18 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
     mi->received_heartbeats++;
     mi->last_heartbeat= my_time(0);
 
+    /*
+      Update the last_master_timestamp if the heartbeat from the master
+      has a greater timestamp value, this makes sure last_master_timestamp
+      is always monotonically increasing
+    */
+    mysql_mutex_lock(&mi->rli->data_lock);
+    if (hb.when.tv_sec > mi->rli->last_master_timestamp)
+    {
+      mi->rli->penultimate_master_timestamp= rli->last_master_timestamp;
+      mi->rli->last_master_timestamp= hb.when.tv_sec;
+    }
+    mysql_mutex_unlock(&mi->rli->data_lock);
 
     /*
       During GTID protocol, if the master skips transactions,
