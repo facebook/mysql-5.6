@@ -46,11 +46,22 @@ MACRO (MYSQL_CHECK_ZLIB_WITH_COMPRESS)
       SET(WITH_ZLIB "bundled"  CACHE STRING "By default use bundled zlib on this platform")
     ENDIF()
   ENDIF()
-  
+
+  # See if WITH_ZLIB is of the form </path/to/custom/libz.so>. This approach
+  # should be used if you want to build against custom libz.so and not the
+  # bundled one.
+  FILE(GLOB WITH_CUSTOM_LIBZ_PATH ${WITH_ZLIB}/libz.so)
+  IF (WITH_CUSTOM_LIBZ_PATH)
+    SET(WITH_ZLIB_PATH ${WITH_ZLIB} CACHE PATH "Path to custom libz.so")
+  ENDIF()
+
   # See if WITH_ZLIB is of the form </path/to/custom/installation>
   FILE(GLOB WITH_ZLIB_HEADER ${WITH_ZLIB}/include/zlib.h)
   IF (WITH_ZLIB_HEADER)
-    SET(WITH_ZLIB_PATH ${WITH_ZLIB} CACHE PATH "path to custom ZLIB installation")
+    SET(WITH_ZLIB_PATH ${WITH_ZLIB} CACHE PATH "Path to custom ZLIB installation")
+    # If there's also a full distribution at the same location as libz.so
+    # then use it.
+    SET(WITH_CUSTOM_LIBZ_PATH FALSE CACHE INTERNAL "Invalidate custom libz.so usage")
   ENDIF()
 
   IF(WITH_ZLIB STREQUAL "bundled")
@@ -70,7 +81,7 @@ MACRO (MYSQL_CHECK_ZLIB_WITH_COMPRESS)
       NAMES include/zlib.h
     )
 
-    IF(ZLIB_ROOT_DIR)
+    IF(ZLIB_ROOT_DIR AND NOT WITH_CUSTOM_LIBZ_PATH)
       INCLUDE(CheckFunctionExists)
       SET(CMAKE_REQUIRED_LIBRARIES z)
       CHECK_FUNCTION_EXISTS(crc32 HAVE_CRC32)
@@ -95,6 +106,15 @@ MACRO (MYSQL_CHECK_ZLIB_WITH_COMPRESS)
         SET(ZLIB_FOUND FALSE CACHE INTERNAL "Zlib found but not usable")
         MESSAGE(SEND_ERROR "system zlib found but not usable")
       ENDIF()
+    ELSEIF(WITH_CUSTOM_LIBZ_PATH)
+      # Even if custom location for libz.so was specified then we need headers
+      # to build MySQL. The only place we can get them reliably is the bundled
+      # distribution. This of course means that there's a potential for a
+      # mismatch between the actual implementation and headers. However, that's
+      # the risk one takes with specifying custom libz.so.
+      SET(ZLIB_LIBRARY "${WITH_ZLIB}/libz.so")
+      SET(ZLIB_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/zlib)
+      SET(ZLIB_FOUND TRUE CACHE INTERNAL "Zlib found")
     ENDIF()
     IF(NOT ZLIB_FOUND)
       MYSQL_USE_BUNDLED_ZLIB()
