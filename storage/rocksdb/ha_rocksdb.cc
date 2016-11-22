@@ -10363,7 +10363,6 @@ struct rocksdb_status_counters_t {
   uint64_t number_multiget_bytes_read;
   uint64_t number_deletes_filtered;
   uint64_t number_merge_failures;
-  uint64_t sequence_number;
   uint64_t bloom_filter_prefix_checked;
   uint64_t bloom_filter_prefix_useful;
   uint64_t number_reseeks_iteration;
@@ -10420,7 +10419,6 @@ DEF_SHOW_FUNC(number_multiget_keys_read, NUMBER_MULTIGET_KEYS_READ)
 DEF_SHOW_FUNC(number_multiget_bytes_read, NUMBER_MULTIGET_BYTES_READ)
 DEF_SHOW_FUNC(number_deletes_filtered, NUMBER_FILTERED_DELETES)
 DEF_SHOW_FUNC(number_merge_failures, NUMBER_MERGE_FAILURES)
-DEF_SHOW_FUNC(sequence_number, SEQUENCE_NUMBER)
 DEF_SHOW_FUNC(bloom_filter_prefix_checked, BLOOM_FILTER_PREFIX_CHECKED)
 DEF_SHOW_FUNC(bloom_filter_prefix_useful, BLOOM_FILTER_PREFIX_USEFUL)
 DEF_SHOW_FUNC(number_reseeks_iteration, NUMBER_OF_RESEEKS_IN_ITERATION)
@@ -10513,7 +10511,6 @@ static SHOW_VAR rocksdb_status_vars[]= {
   DEF_STATUS_VAR(number_multiget_bytes_read),
   DEF_STATUS_VAR(number_deletes_filtered),
   DEF_STATUS_VAR(number_merge_failures),
-  DEF_STATUS_VAR(sequence_number),
   DEF_STATUS_VAR(bloom_filter_prefix_checked),
   DEF_STATUS_VAR(bloom_filter_prefix_useful),
   DEF_STATUS_VAR(number_reseeks_iteration),
