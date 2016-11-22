@@ -9571,7 +9571,7 @@ int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
   DBUG_RETURN(0);
 }
 
-void ha_rocksdb::get_auto_increment(ulonglong offset, ulonglong increment,
+void ha_rocksdb::get_auto_increment(ulonglong off, ulonglong inc,
                                     ulonglong nb_desired_values,
                                     ulonglong *first_value,
                                     ulonglong *nb_reserved_values)
@@ -9591,7 +9591,49 @@ void ha_rocksdb::get_auto_increment(ulonglong offset, ulonglong increment,
     m_auto_incr_val this should be safe - if we had to grab a mutex, doing
     an actual reserve of some values might be a better solution.
    */
-  *first_value= m_tbl_def->m_auto_incr_val++;
+  DEBUG_SYNC(ha_thd(), "rocksdb.autoinc_vars");
+
+  if (off > inc)
+  {
+    off= 1;
+  }
+
+  // Local variable reference to simplify code below
+  std::atomic<longlong>& auto_incr= m_tbl_def->m_auto_incr_val;
+
+  if (inc == 1 && off == 1)
+  {
+    // Optimization for the standard case where we are always simply
+    // incrementing from the last position
+    *first_value= auto_incr++;
+  }
+  else
+  {
+    // The next value can be more complicated if either `inc` or 'off' is not 1
+    longlong new_val;
+    longlong last_val= auto_incr;
+
+    // Loop until we can correctly update the atomic value
+    do
+    {
+      // Calculate the next value in the auto increment series:
+      //   offset + N * increment
+      // where N is 0, 1, 2, ...
+      //
+      // For further information please visit:
+      // http://dev.mysql.com/doc/refman/5.7/en/replication-options-master.html
+      new_val= ((last_val + (inc - off) - 1) / inc) * inc + off;
+
+      // Attempt to store the new value (plus 1 since m_auto_incr_val contains
+      // the next available value) into the atomic value.  If the current
+      // value no longer matches what we have in 'last_val' this will fail and
+      // we will repeat the loop (`last_val` will automatically get updated
+      // with the current value).
+    } while (!auto_incr.compare_exchange_weak(last_val, new_val + 1));
+
+    *first_value= new_val;
+  }
+
   *nb_reserved_values= 1;
 }
 
