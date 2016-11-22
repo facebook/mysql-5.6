@@ -58,6 +58,9 @@
 #include "sql_tmp_table.h" // Tmp tables
 #include "sql_optimizer.h" // JOIN
 #include "global_threads.h"
+#include "rpl_mi.h"
+#include "rpl_rli.h"
+#include "rpl_rli_pdb.h"
 
 #include <algorithm>
 using std::max;
@@ -2976,6 +2979,46 @@ int fill_schema_authinfo(THD* thd, TABLE_LIST* tables, Item* cond)
   mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
   DBUG_RETURN(0);
 }
+
+#ifdef HAVE_REPLICATION
+int fill_slave_db_load(THD* thd, TABLE_LIST* tables, Item* cond)
+{
+  DBUG_ENTER("fill_slave_db_load");
+  int error= 0;
+  TABLE *table= tables->table;
+  CHARSET_INFO *cs= system_charset_info;
+
+  if (!inited_hash_workers)
+  {
+    DBUG_RETURN(error);
+  }
+
+  mysql_mutex_lock(&slave_worker_hash_lock);
+  for (uint i= 0; i < mapping_db_to_worker.records; ++i)
+  {
+    db_worker_hash_entry *entry=
+      (db_worker_hash_entry*) my_hash_element(&mapping_db_to_worker, i);
+
+    restore_record(table, s->default_values);
+
+    /* ID */
+    if (entry->db) table->field[0]->store(entry->db, strlen(entry->db), cs);
+    /* Worker */
+    if (entry->worker) table->field[1]->store(entry->worker->id, TRUE);
+    /* Load */
+    table->field[2]->store(entry->load, TRUE);
+
+    if (schema_table_store_record(thd, table))
+    {
+      error= 1;
+      break;
+    }
+  }
+  mysql_mutex_unlock(&slave_worker_hash_lock);
+
+  DBUG_RETURN(error);
+}
+#endif
 
 /*****************************************************************************
   Status functions
@@ -8912,6 +8955,17 @@ ST_FIELD_INFO authinfo_fields_info[]=
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
+ST_FIELD_INFO slave_db_load_fields_info[]=
+{
+  {"DB", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, "Database",
+   SKIP_OPEN_TABLE},
+  {"WORKER", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "Worker ID",
+   SKIP_OPEN_TABLE},
+  {"DB_LOAD", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "DB Load",
+   SKIP_OPEN_TABLE},
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
+};
+
 ST_FIELD_INFO plugin_fields_info[]=
 {
   {"PLUGIN_NAME", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, "Name",
@@ -9192,6 +9246,10 @@ ST_SCHEMA_TABLE schema_tables[]=
    OPEN_VIEW_ONLY|OPTIMIZE_I_S_TABLE},
   {"AUTHINFO", authinfo_fields_info, create_schema_table,
    fill_schema_authinfo, make_old_format, 0, -1, -1, 0, 0},
+#ifdef HAVE_REPLICATION
+  {"SLAVE_DB_LOAD", slave_db_load_fields_info, create_schema_table,
+   fill_slave_db_load, 0, 0, -1, -1, 0, 0},
+#endif
   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 };
 

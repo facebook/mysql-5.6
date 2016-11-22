@@ -143,6 +143,7 @@ DROP TABLE t1, t2;
 | SCHEMA_PRIVILEGES                     |
 | SESSION_STATUS                        |
 | SESSION_VARIABLES                     |
+| SLAVE_DB_LOAD                         |
 | STATISTICS                            |
 | TABLES                                |
 | TABLESPACES                           |
@@ -223,6 +224,7 @@ DROP TABLE t1, t2;
 | SCHEMA_PRIVILEGES                     |
 | SESSION_STATUS                        |
 | SESSION_VARIABLES                     |
+| SLAVE_DB_LOAD                         |
 | STATISTICS                            |
 | TABLES                                |
 | TABLESPACES                           |

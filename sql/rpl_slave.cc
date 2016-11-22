@@ -5962,6 +5962,13 @@ bool mts_checkpoint_routine(Relay_log_info *rli, ulonglong period,
   if (cnt == 0)
     goto end;
 
+  // case: rebalance workers should be called only when the current event
+  // in the coordinator is a begin or gtid event
+  if (!force && opt_mts_dynamic_rebalance == TRUE &&
+      !rli->curr_group_seen_begin && !rli->curr_group_seen_gtid)
+  {
+    rebalance_workers(rli);
+  }
 
   /* TODO: 
      to turn the least occupied selection in terms of jobs pieces
@@ -5973,6 +5980,19 @@ bool mts_checkpoint_routine(Relay_log_info *rli, ulonglong period,
     set_dynamic(&rli->least_occupied_workers, (uchar*) &w_i->jobs.len, w_i->id);
   };
   sort_dynamic(&rli->least_occupied_workers, (qsort_cmp) ulong_cmp);
+
+  if (DBUG_EVALUATE_IF("skip_checkpoint_load_reset", 0, 1))
+  {
+    // reset the database load
+    mysql_mutex_lock(&slave_worker_hash_lock);
+    for (uint i= 0; i < mapping_db_to_worker.records; ++i)
+    {
+      db_worker_hash_entry *entry=
+        (db_worker_hash_entry*) my_hash_element(&mapping_db_to_worker, i);
+      entry->load= 0;
+    }
+    mysql_mutex_unlock(&slave_worker_hash_lock);
+  }
 
   if (need_data_lock)
     mysql_mutex_lock(&rli->data_lock);
@@ -8122,7 +8142,10 @@ static Log_event* next_event(Relay_log_info* rli)
          MTS checkpoint in the successful read branch 
       */
       bool force= (rli->checkpoint_seqno > (rli->checkpoint_group - 1));
-      if (rli->is_parallel_exec() && (opt_mts_checkpoint_period != 0 || force))
+      bool period_check= opt_mts_checkpoint_period != 0 &&
+                         !rli->curr_group_seen_begin &&
+                         !rli->curr_group_seen_gtid;
+      if (rli->is_parallel_exec() && (period_check || force))
       {
         ulonglong period= static_cast<ulonglong>(opt_mts_checkpoint_period * 1000000ULL);
         mysql_mutex_unlock(&rli->data_lock);
