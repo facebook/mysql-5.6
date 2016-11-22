@@ -114,10 +114,6 @@ source include/rpl_start_server.inc;
 connection master;
 DROP TABLE t1;
 
-# Sync slaves
-sync_slave_with_master slave;
-sync_slave_with_master slave_2;
-
 connection slave;
 STOP SLAVE;
 eval CHANGE MASTER TO MASTER_HEARTBEAT_PERIOD=$old_slave_heartbeat_period;
