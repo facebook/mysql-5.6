@@ -579,6 +579,13 @@ The following options may be given as the first argument:
  --min-examined-row-limit=# 
  Don't write queries to slow log that examine fewer rows
  than that
+ --mts-dynamic-rebalance 
+ Shuffle DB's within workers periodically for load
+ balancing
+ --mts-imbalance-threshold[=#] 
+ Threshold to trigger worker thread rebalancing. This
+ parameter denotes the percent load on the most loaded
+ worker.
  --multi-range-count=# 
  Number of key ranges to request at once. This variable
  has no effect, and is deprecated. It will be removed in a
@@ -1771,6 +1778,8 @@ memlock FALSE
 metadata-locks-cache-size 1024
 metadata-locks-hash-instances 256
 min-examined-row-limit 0
+mts-dynamic-rebalance FALSE
+mts-imbalance-threshold 90
 multi-range-count 256
 myisam-block-size 1024
 myisam-data-pointer-size 6
