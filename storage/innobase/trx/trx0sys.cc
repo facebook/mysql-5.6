@@ -78,6 +78,8 @@ here. */
 UNIV_INTERN char	trx_sys_mysql_bin_log_name[TRX_SYS_MYSQL_LOG_NAME_LEN];
 /** Binlog file position, or -1 if unknown */
 UNIV_INTERN ib_int64_t	trx_sys_mysql_bin_log_pos	= -1;
+/** Binlog max gitd */
+UNIV_INTERN char	trx_sys_mysql_bin_log_max_gtid[TRX_SYS_MYSQL_GTID_LEN];
 /* @} */
 #endif /* !UNIV_HOTBACKUP */
 
@@ -206,7 +208,7 @@ trx_sys_update_mysql_binlog_offset(
 	ulint		field,	/*!< in: offset of the MySQL log info field in
 				the trx sys header */
 	mtr_t*		mtr,	/*!< in: mtr */
-	const char* 	gtid)	/*!< in: Gtid of the transaction */
+	const char*	max_gtid)	/*!< in: Max Gtid seen till this transaction */
 {
 	trx_sysf_t*	sys_header;
 
@@ -252,17 +254,20 @@ trx_sys_update_mysql_binlog_offset(
 			 + TRX_SYS_MYSQL_LOG_OFFSET_LOW,
 			 (ulint)(offset & 0xFFFFFFFFUL),
 			 MLOG_4BYTES, mtr);
-	if (gtid)
+	if (max_gtid)
 	{
-		size_t gtid_length = ut_strlen(gtid);
+		size_t gtid_length = ut_strlen(max_gtid);
 		if (gtid_length >= TRX_SYS_MYSQL_GTID_LEN) {
 			/* This should not happen */
 			DBUG_ASSERT(0);
 			return;
 		}
-		/* Write Gtid string */
-		mlog_write_string(sys_header + field + TRX_SYS_MYSQL_GTID,
-				  (byte*)gtid, 1 + gtid_length, mtr);
+		if (0 != strcmp((char*) (sys_header + field + TRX_SYS_MYSQL_GTID),
+					max_gtid)) {
+			/* Write Gtid string */
+			mlog_write_string(sys_header + field + TRX_SYS_MYSQL_GTID,
+					(byte*)max_gtid, 1 + gtid_length, mtr);
+		}
 	}
 }
 
@@ -313,10 +318,12 @@ trx_sys_print_mysql_binlog_offset(void)
 		trx_sys_mysql_bin_log_pos_high, trx_sys_mysql_bin_log_pos_low,
 		trx_sys_mysql_bin_log_name);
 
+	ut_strlcpy(trx_sys_mysql_bin_log_max_gtid,
+		  (const char*)sys_header + TRX_SYS_MYSQL_LOG_INFO
+		  + TRX_SYS_MYSQL_GTID, TRX_SYS_MYSQL_GTID_LEN);
+
 	fprintf(stderr,
-		"InnoDB: Last MySQL Gtid %s\n",
-		sys_header + TRX_SYS_MYSQL_LOG_INFO +
-		TRX_SYS_MYSQL_GTID);
+		"InnoDB: Last MySQL Gtid %s\n", trx_sys_mysql_bin_log_max_gtid);
 	mtr_commit(&mtr);
 }
 

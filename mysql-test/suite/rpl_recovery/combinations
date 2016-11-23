@@ -1,0 +1,12 @@
+[row]
+binlog-format=row
+
+[row-idempotent-recovery]
+binlog-format=row
+slave_use_idempotent_for_recovery=yes
+
+[stmt]
+binlog-format=statement
+
+[mix]
+binlog-format=mixed

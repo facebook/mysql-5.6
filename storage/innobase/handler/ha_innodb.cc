@@ -1452,7 +1452,8 @@ innobase_xa_recover(
 	XID*		xid_list,	/*!< in/out: prepared transactions */
 	uint		len,		/*!< in: number of slots in xid_list */
 	char*		binlog_file,	/*!< in/out: Last valid binlog file */
-	my_off_t*	binlog_pos);	/*!< in/out: Last valid binlog pos */
+	my_off_t*	binlog_pos,	/*!< in/out: Last valid binlog pos */
+	Gtid*	binlog_max_gtid);	/*!< in/out: Max valid binlog gtid */
 /*******************************************************************//**
 This function is used to commit one X/Open XA distributed transaction
 which is in the prepared state
@@ -4420,10 +4421,12 @@ retry:
                 If the binary log is not enabled, or the transaction
                 is not written to the binary log, the file name will
                 be a NULL pointer. */
+
                 unsigned long long pos;
                 thd_binlog_pos(thd, &trx->mysql_log_file_name, &pos,
-                               &trx->mysql_gtid);
+									 &trx->mysql_gtid, &trx->mysql_max_gtid);
                 trx->mysql_log_offset= static_cast<ib_int64_t>(pos);
+
 		/* Don't do write + flush right now. For group commit
 		to work we want to do the flush later. */
 		trx->flush_log_later = TRUE;
@@ -15045,10 +15048,11 @@ innobase_xa_recover(
 	XID*		xid_list,/*!< in/out: prepared transactions */
 	uint		len,	/*!< in: number of slots in xid_list */
 	char*		binlog_file,	/*!< in/out: Last valid binlog file */
-	my_off_t*	binlog_pos)	/*!< in/out: Last valid binlog pos */
+	my_off_t*	binlog_pos,	/*!< in/out: Last valid binlog pos */
+	Gtid*	binlog_max_gtid)	/*!< in/out: Max valid binlog gtid*/
 {
 	DBUG_ASSERT(hton == innodb_hton_ptr);
-	if (binlog_file && binlog_pos &&
+	if (binlog_file && binlog_pos && binlog_max_gtid &&
 		is_binlog_advanced(binlog_file, *binlog_pos,
 			trx_sys_mysql_bin_log_name,
 			trx_sys_mysql_bin_log_pos))
@@ -15056,6 +15060,9 @@ innobase_xa_recover(
 		ut_memcpy(binlog_file, trx_sys_mysql_bin_log_name, FN_REFLEN);
 		binlog_file[FN_REFLEN] = 0;
 		*binlog_pos = trx_sys_mysql_bin_log_pos;
+    global_sid_lock->rdlock();
+    binlog_max_gtid->parse(global_sid_map, trx_sys_mysql_bin_log_max_gtid);
+    global_sid_lock->unlock();
 	}
 	if (len == 0 || xid_list == NULL) {
 
