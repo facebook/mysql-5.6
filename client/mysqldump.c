@@ -235,15 +235,25 @@ LIST *skipped_keys_list;
 
 #define FBOBJ_FBTYPE_FIELD 1
 #define ASSOC_TYPE_FIELD 4
+#define HASHOUT_APP_ID_FIELD 1
+#define FBID_FBTYPE_FIELD 1
+#define FBID_IS_DELETED_FIELD 4
 
 HASH fbobj_assoc_stats;
+
+typedef enum {
+  FBOBJ= 0,
+  ASSOC= 1,
+  HASHOUT= 2,
+  FBID= 3,
+} field_type_t;
 
 typedef struct type_stat {
   uchar* type;
   int type_len;
   ulong count;
   ulong space;
-  int field_type;
+  field_type_t field_type;
 } TYPE_STAT;
 
 static uchar *type_stat_get_key(TYPE_STAT *fbts, size_t *length,
@@ -365,9 +375,10 @@ static struct my_option my_long_options[] =
    &opt_slave_data, &opt_slave_data, 0,
    GET_UINT, OPT_ARG, 0, 0, MYSQL_OPT_SLAVE_DATA_COMMENTED_SQL, 0, 0, 0},
   {"dump-fbobj-assoc-stats", OPT_DUMP_FBOBJ_STATS,
-   "Calculate and output total size per type for fbobjects and assocs to the "
-   "given filename. The format in the file is tab separated values in the "
-   "form: fbobject/assoc, type, row count, size in bytes",
+   "Calculate and output total size per type for fbobjects, assocs, fbids "
+   "and hashouts to the given filename. The format in the file is tab "
+   "separated values in the form: fbobject/assoc/fbid/hashout, "
+   "type(+is_deleted for fbid), row count, size in bytes",
    &opt_dump_fbobj_assoc_stats, &opt_dump_fbobj_assoc_stats, 0,
    GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
   {"events", 'E', "Dump events.",
@@ -3937,6 +3948,7 @@ static void dump_table(char *table, char *db)
   my_bool gather_stats= 0;
   uint num_fields;
   uint stat_field_offset= 0;
+  field_type_t stat_field_type= FBOBJ;
   MYSQL_RES     *res = NULL;
   MYSQL_FIELD   *field;
   MYSQL_ROW     row;
@@ -3989,19 +4001,35 @@ static void dump_table(char *table, char *db)
   }
 
   /*
-    Dump stats for fbobj_* and assoc_* tables, but excluding assoc_count and
-    assoc_info_queue.
+    Dump stats for fbobj_*, fbid, the top hashout and assoc_* tables, but
+    excluding assoc_count and assoc_info_queue.
   */
   if (opt_dump_fbobj_assoc_stats) {
     if (strncmp(table, "fbobj_", 6) == 0) {
       gather_stats= 1;
       stat_field_offset= FBOBJ_FBTYPE_FIELD;
+      stat_field_type= FBOBJ;
     }
     else if (strncmp(table, "assoc_", 6) == 0
              && (strcmp(table, "assoc_count") != 0)
              && (strcmp(table, "assoc_info_queue") != 0)) {
       gather_stats= 1;
       stat_field_offset= ASSOC_TYPE_FIELD;
+      stat_field_type= ASSOC;
+    }
+    else if (strcmp(table, "fbid") == 0) {
+      gather_stats= 1;
+      stat_field_offset= FBID_FBTYPE_FIELD;
+      stat_field_type= FBID;
+    }
+    else if (strcmp(table, "hashout_short_url") == 0
+             || (strcmp(table, "hashout") == 0)
+             || (strcmp(table, "hashout_xid_crow") == 0)
+             || (strcmp(table, "hashout_xid") == 0)
+             || (strcmp(table, "hashout_udid") == 0)) {
+      gather_stats= 1;
+      stat_field_offset= HASHOUT_APP_ID_FIELD;
+      stat_field_type= HASHOUT;
     }
     /* Protect against new tables that may not have the right schema. */
     if (num_fields < stat_field_offset) {
@@ -4190,25 +4218,62 @@ static void dump_table(char *table, char *db)
       ha_checksum row_crc= 0;
       uint i;
       ulong *lengths= mysql_fetch_lengths(res);
+      uint num_columns= mysql_num_fields(res);
       rownr++;
       if (gather_stats) {
         row_length= 0;
         for (i= 0; i < mysql_num_fields(res); i++)
           row_length += lengths[i];
-        bucket= (TYPE_STAT*)my_hash_search(&fbobj_assoc_stats,
-                                            (uchar*)row[stat_field_offset],
-                                            lengths[stat_field_offset]);
-        if (!bucket) {
-          bucket= (TYPE_STAT*) malloc(sizeof(TYPE_STAT));
-          bucket->type= (uchar*)my_strdup(row[stat_field_offset],MYF(MY_FAE));
-          bucket->type_len= lengths[stat_field_offset];
-          bucket->count= 0;
-          bucket->space= 0;
-          bucket->field_type= stat_field_offset;
-          my_hash_insert(&fbobj_assoc_stats,(uchar*) bucket);
+        /* For fbid table, concatenate is_deleted to type*/
+        if (stat_field_type == FBID) {
+          if (num_columns <= FBID_IS_DELETED_FIELD) {
+            fprintf(fbobj_assoc_stats_file,
+                    "-- FBID table has less than 5 columns.\n");
+          } else {
+            char type[(strlen(row[stat_field_offset]) +
+                       strlen(row[FBID_IS_DELETED_FIELD]))];
+            strcpy(type, row[stat_field_offset]);
+            strcat(type, row[FBID_IS_DELETED_FIELD]);
+            uint length= (lengths[stat_field_offset] +
+                          lengths[FBID_IS_DELETED_FIELD]);
+            bucket= (TYPE_STAT*)my_hash_search(&fbobj_assoc_stats,
+                                                (uchar*)type,
+                                                length);
+            if (!bucket) {
+              bucket= (TYPE_STAT*) malloc(sizeof(TYPE_STAT));
+              bucket->type= (uchar*)my_strdup(type,MYF(MY_FAE));
+              bucket->type_len= length;
+              bucket->count= 0;
+              bucket->space= 0;
+              bucket->field_type= stat_field_type;
+              my_hash_insert(&fbobj_assoc_stats,(uchar*) bucket);
+            }
+            bucket->count++;
+            bucket->space += row_length;
+          }
+        } else {
+          if (num_columns <= stat_field_offset) {
+            fprintf(fbobj_assoc_stats_file,
+                    "-- %s table has less than %d columns.\n",
+                    table, stat_field_offset+1);
+          } else {
+            bucket= (TYPE_STAT*)my_hash_search(&fbobj_assoc_stats,
+                                                (uchar*)row[stat_field_offset],
+                                                lengths[stat_field_offset]);
+            if (!bucket) {
+              bucket= (TYPE_STAT*) malloc(sizeof(TYPE_STAT));
+              bucket->type= (uchar*)my_strdup(row[stat_field_offset],
+                                              MYF(MY_FAE));
+              bucket->type_len= lengths[stat_field_offset];
+              bucket->count= 0;
+              bucket->space= 0;
+              bucket->field_type= stat_field_type;
+              my_hash_insert(&fbobj_assoc_stats,(uchar*) bucket);
+            }
+            bucket->count++;
+            bucket->space += row_length;
+          }
         }
-        bucket->count++;
-        bucket->space += row_length;
       }
       if (!extended_insert && !opt_xml)
       {
@@ -4442,13 +4507,12 @@ static void dump_table(char *table, char *db)
 
     if (gather_stats) {
       TYPE_STAT* stat;
-      fprintf(fbobj_assoc_stats_file, "-- Dumping FBObj/Assoc stats for: %s\n",
-              table);
+      fprintf(fbobj_assoc_stats_file, "-- Dumping FBObj/Assoc/Fbid/Hashout "
+              "stats for: %s\n", table);
       for (uint i= 0; i < fbobj_assoc_stats.records; i++) {
         stat= (TYPE_STAT*) my_hash_element(&fbobj_assoc_stats, i);
-        fprintf(fbobj_assoc_stats_file,"%s\t%s\t%lu\t%lu\n",
-                stat->field_type == FBOBJ_FBTYPE_FIELD ? "fbobj" : "assoc",
-                stat->type, stat->count, stat->space);
+        fprintf(fbobj_assoc_stats_file,"%d\t%s\t%lu\t%lu\n",
+                stat->field_type, stat->type, stat->count, stat->space);
       }
       my_hash_reset(&fbobj_assoc_stats);
     }

@@ -112,11 +112,11 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dumping FBObj/Assoc stats for: fbobj_test
-fbobj	3	1	73
-fbobj	2	2	116
--- Dumping FBObj/Assoc stats for: assoc_test
-assoc	5	2	230
-assoc	1	1	145
+-- Dumping FBObj/Assoc/Fbid/Hashout stats for: fbobj_test
+0	3	1	73
+0	2	2	116
+-- Dumping FBObj/Assoc/Fbid/Hashout stats for: assoc_test
+1	5	2	230
+1	1	1	145
 -- FBObj/Assoc stats dump completed.
 DROP DATABASE fbobj_test;
