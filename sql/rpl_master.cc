@@ -622,13 +622,13 @@ static int send_heartbeat_event(NET* net, String* packet,
   if (active_mi && active_mi->host[0] && active_mi->rli)
   {
     mysql_mutex_lock(&active_mi->rli->data_lock);
-    memcpy(header, &(active_mi->rli->last_master_timestamp), 4);
+    int4store(header, active_mi->rli->last_master_timestamp);
     mysql_mutex_unlock(&active_mi->rli->data_lock);
   }
   else
   {
     time_t now= time(0);
-    memcpy(header, &now, 4);
+    int4store(header, now);
   }
   mysql_mutex_unlock(&LOCK_active_mi);
 
