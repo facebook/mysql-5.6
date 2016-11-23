@@ -475,6 +475,7 @@ public:
   */
   char engine_binlog_file[FN_REFLEN + 1];
   my_off_t engine_binlog_pos;
+  Gtid engine_binlog_max_gtid;
 
 #ifdef HAVE_PSI_INTERFACE
   void set_psi_keys(PSI_mutex_key key_LOCK_index,
@@ -805,6 +806,17 @@ typedef struct st_load_file_info
   my_off_t last_pos_in_file;
   bool wrote_create_file, log_delayed;
 } LOAD_FILE_INFO;
+
+typedef struct st_xid_to_gtid
+{
+  my_xid x;
+  Gtid gtid;
+  st_xid_to_gtid()
+  {
+    x= 0;
+    gtid.clear();
+  }
+} XID_TO_GTID;
 
 extern my_bool opt_process_can_disable_bin_log;
 

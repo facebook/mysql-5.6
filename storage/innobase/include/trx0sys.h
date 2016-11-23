@@ -64,6 +64,8 @@ here. */
 extern char		trx_sys_mysql_bin_log_name[];
 /** Binlog file position, or -1 if unknown */
 extern ib_int64_t	trx_sys_mysql_bin_log_pos;
+/** Binlog file max gtid */
+extern char	trx_sys_mysql_bin_log_max_gtid[];
 /* @} */
 
 /** The transaction system */
@@ -294,7 +296,7 @@ trx_sys_update_mysql_binlog_offset(
 	ulint		field,	/*!< in: offset of the MySQL log info field in
 				the trx sys header */
 	mtr_t*		mtr,	/*!< in: mtr */
-	const char*	gtid);	/*!< in: Gtid of the transaction */
+	const char*	max_gtid);	/*!< in: Max Gtid seen till this transaction */
 /*****************************************************************//**
 Prints to stderr the MySQL binlog offset info in the trx system header if
 the magic number shows it valid. */

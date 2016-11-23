@@ -174,6 +174,10 @@ public:
   */
   bool is_relay_log_recovery;
 
+  Gtid recovery_max_engine_gtid;
+  Sid_map *recovery_sid_map;
+  Checkable_rwlock *recovery_sid_lock;
+
   DYNAMIC_ARRAY gtid_infos;
   // global hash to store the slave gtid_info repositories mapped by db names.
   HASH map_db_to_gtid_info;

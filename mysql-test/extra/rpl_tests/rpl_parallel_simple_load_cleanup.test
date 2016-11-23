@@ -1,0 +1,18 @@
+#
+# Cleanup after rpl_parallel_simple_load.test
+#
+
+if ($databases == '')
+{
+  let $databases = 16;
+}
+connection master;
+
+let $i = $databases;
+while($i)
+{
+  dec $i;
+  eval drop database test$i;
+}
+
+sync_slave_with_master;

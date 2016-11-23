@@ -373,9 +373,10 @@ extern "C"
 void thd_binlog_pos(const THD *thd,
                     const char **file_var,
                     unsigned long long *pos_var,
-                    const char **gtid_var)
+                    const char **gtid_var,
+                    const char **max_gtid_var)
 {
-  thd->get_trans_pos(file_var, pos_var, gtid_var);
+  thd->get_trans_pos(file_var, pos_var, gtid_var, max_gtid_var);
 }
 
 void
@@ -955,6 +956,7 @@ THD::THD(bool enable_plugins)
    m_trans_fixed_log_file(NULL),
    m_trans_end_pos(0),
    m_trans_gtid(NULL),
+   m_trans_max_gtid(NULL),
    table_map_for_update(0),
    arg_of_last_insert_id_function(FALSE),
    first_successful_insert_id_in_prev_stmt(0),
@@ -1117,6 +1119,7 @@ THD::THD(bool enable_plugins)
   binlog_next_event_pos.file_name= NULL;
   binlog_next_event_pos.pos= 0;
   trans_gtid[0] = 0;
+  trans_max_gtid[0] = 0;
 
   timer= NULL;
   timer_cache= NULL;
@@ -4590,6 +4593,117 @@ extern "C" void thd_wait_end(MYSQL_THD thd)
 }
 #endif
 #endif // INNODB_COMPATIBILITY_HOOKS */
+
+/**
+  Functions to set and get transaction position.
+
+  These functions are used to set the transaction position for the
+  transaction written when committing this transaction. They also
+  extract the max gtid of all executed transactions
+  */
+/**@{*/
+void THD::set_trans_pos(const char *file, my_off_t pos,
+                        const Cached_group *gtid_group)
+{
+  DBUG_ENTER("THD::set_trans_pos");
+  DBUG_ASSERT(((file == 0) && (pos == 0)) || ((file != 0) && (pos != 0)));
+  if (file)
+  {
+    DBUG_PRINT("enter", ("file: %s, pos: %llu", file, pos));
+    // Only the file name should be used, not the full path
+    m_trans_log_file= file + dirname_length(file);
+    if (!m_trans_fixed_log_file)
+      m_trans_fixed_log_file= (char*) alloc_root(&main_mem_root, FN_REFLEN+1);
+    DBUG_ASSERT(strlen(m_trans_log_file) <= FN_REFLEN);
+    strcpy(m_trans_fixed_log_file, m_trans_log_file);
+  }
+  else
+  {
+    m_trans_log_file= NULL;
+    m_trans_fixed_log_file= NULL;
+  }
+
+  m_trans_end_pos= pos;
+
+  if (gtid_group)
+  {
+    global_sid_lock->rdlock();
+    gtid_group->spec.to_string(global_sid_map, trans_gtid);
+    global_sid_lock->unlock();
+    m_trans_gtid= trans_gtid;
+
+    if (gtid_group->
+        spec.gtid.greater_than(mysql_bin_log.engine_binlog_max_gtid) ||
+        mysql_bin_log.engine_binlog_max_gtid.sidno !=
+        gtid_group->spec.gtid.sidno)
+    {
+      mysql_bin_log.engine_binlog_max_gtid= gtid_group->spec.gtid;
+    }
+
+    global_sid_lock->rdlock();
+    mysql_bin_log.engine_binlog_max_gtid.
+      to_string(global_sid_map, trans_max_gtid);
+    global_sid_lock->unlock();
+    m_trans_max_gtid= trans_max_gtid;
+  }
+  else
+    m_trans_gtid= NULL;
+
+  DBUG_PRINT("return", ("m_trans_log_file: %s, m_trans_fixed_log_file: %s, "
+             "m_trans_end_pos: %llu, m_trans_gtid: %s, m_trans_max_gtid: %s",
+             m_trans_log_file, m_trans_fixed_log_file,
+             m_trans_end_pos, m_trans_gtid, m_trans_max_gtid));
+  DBUG_VOID_RETURN;
+}
+
+void THD::get_trans_pos(const char **file_var, my_off_t *pos_var,
+                        const char **gtid_var, const char **max_gtid_var) const
+{
+  DBUG_ENTER("THD::get_trans_pos");
+  if (file_var)
+    *file_var = m_trans_log_file;
+  if (pos_var)
+    *pos_var= m_trans_end_pos;
+  if (gtid_var)
+    *gtid_var = m_trans_gtid;
+  if (max_gtid_var)
+    *max_gtid_var = m_trans_max_gtid;
+  DBUG_PRINT("return", ("file: %s, pos: %llu",
+             file_var ? *file_var : "<none>",
+             pos_var ? *pos_var : 0));
+  DBUG_VOID_RETURN;
+}
+
+void THD::get_trans_fixed_pos(const char **file_var, my_off_t *pos_var) const
+{
+  DBUG_ENTER("THD::get_trans_fixed_pos");
+  if (file_var)
+    *file_var = m_trans_fixed_log_file;
+  if (pos_var)
+    *pos_var= m_trans_end_pos;
+  DBUG_PRINT("return", ("file: %s, pos: %llu",
+             file_var ? *file_var : "<none>",
+             pos_var ? *pos_var : 0));
+  DBUG_VOID_RETURN;
+}
+
+void THD::append_slave_gtid_info(uint id, const char* db, const char* gtid)
+{
+  slave_gtid_infos.push_back(st_slave_gtid_info{id, db, gtid});
+}
+
+std::vector<st_slave_gtid_info> THD::get_slave_gtid_info() const
+{
+  return slave_gtid_infos;
+}
+
+void THD::clear_slave_gtid_info()
+{
+  slave_gtid_infos.clear();
+}
+
+/**@}*/
+
 
 /****************************************************************************
   Handling of statement states in functions and triggers.

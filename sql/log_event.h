@@ -48,6 +48,7 @@
 #include "rpl_filter.h"
 #include "rpl_gtid_info.h"
 #include "key.h"                                /* key_copy, compare_keys */
+#include "mysqld.h"
 #endif
 
 /* Forward declarations */
@@ -1146,7 +1147,9 @@ public:
     A storage to cache the global system variable's value.
     Handling of a separate event will be governed its member.
   */
-  ulong slave_exec_mode;
+#ifndef MYSQL_CLIENT
+  ulong slave_exec_mode= slave_exec_mode_options;
+#endif
 
   /**
     Defines the type of the cache, if any, where the event will be
@@ -4605,6 +4608,10 @@ public:
   // This variable is set to TRUE for row log events which needs be logged
   // to binlog but should not be applied to the storage engine.
   my_bool m_binlog_only = FALSE;
+
+  // This is set to TRUE when idempotent mode is used for recovery. When TRUE
+  // the event is written to the binlog event if there were idempotent errors.
+  my_bool m_force_binlog_idempotent= FALSE;
 };
 
 /**

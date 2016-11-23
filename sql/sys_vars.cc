@@ -3157,6 +3157,19 @@ static Sys_var_enum Slave_exec_mode(
        "between the master and the slave",
        GLOBAL_VAR(slave_exec_mode_options), CMD_LINE(REQUIRED_ARG),
        slave_exec_mode_names, DEFAULT(SLAVE_EXEC_MODE_STRICT));
+static const char *slave_use_idempotent_for_recovery_names[]=
+       {"NO", "YES", 0};
+static Sys_var_enum Slave_use_idempotent_for_recovery(
+       "slave_use_idempotent_for_recovery",
+       "Modes for how replication events should be executed during recovery. "
+       "Legal values are NO (default) and YES. YES means "
+       "replication will not stop for operations that are idempotent. "
+       "Note that binlog format must be ROW and GTIDs should be enabled "
+       "for this option to have effect.",
+       GLOBAL_VAR(slave_use_idempotent_for_recovery_options),
+       CMD_LINE(REQUIRED_ARG),
+       slave_use_idempotent_for_recovery_names,
+       DEFAULT(SLAVE_USE_IDEMPOTENT_FOR_RECOVERY_NO));
 static const char *slave_run_triggers_for_rbr_names[]=
   {"NO", "YES", "LOGGING", 0};
 static Sys_var_enum Slave_run_triggers_for_rbr(

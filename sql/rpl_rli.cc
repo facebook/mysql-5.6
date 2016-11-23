@@ -179,6 +179,10 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery
   force_flush_postponed_due_to_split_trans= false;
   init_gtid_infos();
 
+  recovery_max_engine_gtid.clear();
+  recovery_sid_lock= new Checkable_rwlock;
+  recovery_sid_map= new Sid_map(recovery_sid_lock);
+
   DBUG_VOID_RETURN;
 }
 
@@ -240,6 +244,11 @@ Relay_log_info::~Relay_log_info()
   set_rli_description_event(NULL);
   last_retrieved_gtid.clear();
   deinit_gtid_infos();
+
+  delete recovery_sid_lock;
+  recovery_sid_lock= NULL;
+  delete recovery_sid_map;
+  recovery_sid_map= NULL;
 
   DBUG_VOID_RETURN;
 }
@@ -1193,7 +1202,9 @@ int Relay_log_info::inc_group_relay_log_pos(ulonglong log_pos,
      of DDL statements. currently ddl are not transactional but if made
      transactional, the flush to replication tables should be forced.
   */
-  if (ends_group && (error = flush_gtid_infos(false)))
+  if (ends_group &&
+      !info_thd->is_enabled_idempotent_recovery() &&
+      (error = flush_gtid_infos(false)))
     goto err;
   else if (!curr_group_seen_begin && part_event
              && (error = flush_gtid_infos(true)))

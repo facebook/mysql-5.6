@@ -23,6 +23,7 @@
 #else
 
 #include "binlog.h"
+#include "sql_handler.h"
 #include "sql_priv.h"
 #include "unireg.h"
 #include "my_global.h" // REQUIRED by log_event.h > m_string.h > my_bitmap.h
@@ -3196,6 +3197,7 @@ int Log_event::apply_event(Relay_log_info *rli)
      database are stored in slave_gtid_info table for crash safe slave.
   */
   if ((rli->part_event = contains_partition_info(false)) && gtid_mode > 0 &&
+      !thd->is_enabled_idempotent_recovery() &&
       rli != thd->rli_fake)
   {
     Mts_db_names mts_dbs;
@@ -3298,7 +3300,8 @@ int Log_event::apply_event(Relay_log_info *rli)
     }
   }
 
-  if (is_row_log_event() && rli != thd->rli_fake)
+  if (is_row_log_event() && rli != thd->rli_fake &&
+      !thd->is_enabled_idempotent_recovery())
   {
     Rows_log_event *row_ev = (Rows_log_event *) this;
     if (seq_execution && !rli->gtid_infos.elements &&
@@ -3392,8 +3395,30 @@ int Log_event::apply_event(Relay_log_info *rli)
         DBUG_ASSERT(actual_exec_mode == EVENT_EXEC_ASYNC);
       }
     }
+
+    // check if idempotent mode is required (used after crash recovery)
+    if (is_row_log_event() && rli->last_gtid[0] &&
+        thd->is_enabled_idempotent_recovery() &&
+        !rli->recovery_max_engine_gtid.empty())
+    {
+      Gtid current_gtid;
+      global_sid_lock->rdlock();
+      current_gtid.parse(global_sid_map, rli->last_gtid);
+      global_sid_lock->unlock();
+
+      if (current_gtid.sidno == rli->recovery_max_engine_gtid.sidno &&
+          current_gtid.gno <= rli->recovery_max_engine_gtid.gno)
+      {
+        DBUG_PRINT("info", ("Setting idempotent mode for gtid %s",
+              rli->last_gtid));
+        slave_exec_mode= SLAVE_EXEC_MODE_IDEMPOTENT;
+        ((Rows_log_event*)this)->m_force_binlog_idempotent= TRUE;
+      }
+    }
+
     thd->print_proc_info("Executing %s event at position %lu",
                          get_type_str(), log_pos);
+
     int error = do_apply_event(rli);
     if (is_gtid_event(this))
     {
@@ -7848,7 +7873,8 @@ int Xid_log_event::do_apply_event(Relay_log_info const *rli)
                       rli_ptr->get_group_relay_log_name(),
                       rli_ptr->get_group_relay_log_pos()));
 
-  if ((error = rli_ptr->flush_gtid_infos(true, true)))
+  if (!thd->is_enabled_idempotent_recovery() &&
+      (error = rli_ptr->flush_gtid_infos(true, true)))
     goto err;
 
   DBUG_EXECUTE_IF("crash_after_update_pos_before_apply",
@@ -11829,8 +11855,6 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli)
     else
       bitmap_intersect(table->write_set, after_image);
 
-    this->slave_exec_mode= slave_exec_mode_options; // fix the mode
-
     // Do event specific preparations
     error= do_before_row_operations(rli);
 
@@ -11999,6 +12023,32 @@ AFTER_MAIN_EXEC_ROW_LOOP:
       lock wait timeout.
     */
     m_curr_row = saved_m_curr_row;
+
+    // Idempotent recovery is enabled so we log this event
+    // NOTE: error will be set to 0 in handle_idempotent_and_ignored_errors()
+    // if there was an idempotent error
+    if (m_force_binlog_idempotent && !error)
+    {
+      DBUG_ASSERT(slave_exec_mode == SLAVE_EXEC_MODE_IDEMPOTENT);
+      DBUG_ASSERT(thd->is_enabled_idempotent_recovery());
+
+      // reset all the pending rows that might have been added while applying
+      // the row events, we will directly write the relay log event
+      thd->binlog_reset_pending_rows_event(table->file->has_transactions());
+      reset_log_pos();
+
+      // Table map events are necessary before every row event.
+      if (table->file->write_locked_table_maps(thd))
+        error= HA_ERR_RBR_LOGGING_FAILED;
+      else
+      {
+        // Use the table_id of this server.
+        m_table_id = m_table->s->table_map_id;
+        error= mysql_bin_log.write_event(this, table->file->has_transactions() ?
+                                         Log_event::EVENT_TRANSACTIONAL_CACHE :
+                                         Log_event::EVENT_STMT_CACHE);
+      }
+    }
   } // if (table)
 
   command_slave_seconds += my_timer_since(init_timer);
@@ -12048,6 +12098,11 @@ end:
                    const_cast<Relay_log_info*>(rli)->get_rpl_log_name(),
                    (ulong) log_pos);
      }
+   }
+   else if (m_force_binlog_idempotent == TRUE)
+   {
+     // This is end row update in the current statment.
+     thd->clear_binlog_table_maps();
    }
    /* We are at end of the statement (STMT_END_F flag), lets clean
      the memory which was used from thd's mem_root now.

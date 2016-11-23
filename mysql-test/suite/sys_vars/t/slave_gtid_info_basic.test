@@ -1,4 +1,5 @@
 --source include/not_embedded.inc
+--source include/not_slave_use_idempotent_for_recovery.inc
 
 SET @start_global_value = @@global.slave_gtid_info;
 SELECT @start_global_value;

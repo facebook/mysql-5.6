@@ -118,6 +118,10 @@ enum enum_slave_exec_mode { SLAVE_EXEC_MODE_STRICT,
                             SLAVE_EXEC_MODE_SEMI_STRICT,
                             SLAVE_EXEC_MODE_LAST_BIT };
 
+enum enum_slave_use_idempotent_for_recovery {
+  SLAVE_USE_IDEMPOTENT_FOR_RECOVERY_NO,
+  SLAVE_USE_IDEMPOTENT_FOR_RECOVERY_YES};
+
 enum enum_slave_run_triggers_for_rbr { SLAVE_RUN_TRIGGERS_FOR_RBR_NO,
                                        SLAVE_RUN_TRIGGERS_FOR_RBR_YES,
                                        SLAVE_RUN_TRIGGERS_FOR_RBR_LOGGING};
@@ -2666,6 +2670,8 @@ public:
   }
   int binlog_flush_pending_rows_event(bool stmt_end, bool is_transactional);
 
+  void binlog_reset_pending_rows_event(bool is_transactional);
+
   /**
     Determine the binlog format of the current statement.
 
@@ -2681,6 +2687,14 @@ public:
   }
 
   bool is_current_stmt_binlog_disabled() const;
+
+  /**
+    Determine if the recovery in idempotent mode is enabled
+   */
+  bool is_enabled_idempotent_recovery() const {
+    return gtid_mode > 0 && variables.binlog_format == BINLOG_FORMAT_ROW &&
+           slave_use_idempotent_for_recovery_options;
+  }
 
   /** Tells whether the given optimizer_switch flag is on */
   inline bool optimizer_switch_flag(ulonglong flag) const
@@ -2784,8 +2798,11 @@ private:
   const char *m_trans_log_file;
   char *m_trans_fixed_log_file;
   my_off_t m_trans_end_pos;
+  Gtid m_max_gtid;
   const char *m_trans_gtid;
+  const char *m_trans_max_gtid;
   char trans_gtid[Gtid::MAX_TEXT_LENGTH + 1];
+  char trans_max_gtid[Gtid::MAX_TEXT_LENGTH + 1];
   std::vector<st_slave_gtid_info> slave_gtid_infos;
   /**@}*/
 
@@ -3330,88 +3347,14 @@ public:
    */
   /**@{*/
   void set_trans_pos(const char *file, my_off_t pos,
-                     const Cached_group *gtid_group)
-  {
-    DBUG_ENTER("THD::set_trans_pos");
-    DBUG_ASSERT(((file == 0) && (pos == 0)) || ((file != 0) && (pos != 0)));
-    if (file)
-    {
-      DBUG_PRINT("enter", ("file: %s, pos: %llu", file, pos));
-      // Only the file name should be used, not the full path
-      m_trans_log_file= file + dirname_length(file);
-      if (!m_trans_fixed_log_file)
-        m_trans_fixed_log_file= (char*) alloc_root(&main_mem_root, FN_REFLEN+1);
-      DBUG_ASSERT(strlen(m_trans_log_file) <= FN_REFLEN);
-      strcpy(m_trans_fixed_log_file, m_trans_log_file);
-    }
-    else
-    {
-      m_trans_log_file= NULL;
-      m_trans_fixed_log_file= NULL;
-    }
-
-    m_trans_end_pos= pos;
-
-    if (gtid_group)
-    {
-      global_sid_lock->rdlock();
-      gtid_group->spec.to_string(global_sid_map, trans_gtid);
-      global_sid_lock->unlock();
-      m_trans_gtid = trans_gtid;
-    }
-    else
-      m_trans_gtid = NULL;
-
-    DBUG_PRINT("return", ("m_trans_log_file: %s, m_trans_fixed_log_file: %s, "
-                          "m_trans_end_pos: %llu m_trans_gtid: %s",
-                          m_trans_log_file, m_trans_fixed_log_file,
-                          m_trans_end_pos, m_trans_gtid));
-    DBUG_VOID_RETURN;
-  }
-
+                     const Cached_group *gtid_group);
   void get_trans_pos(const char **file_var, my_off_t *pos_var,
-                     const char **gtid_var) const
-  {
-    DBUG_ENTER("THD::get_trans_pos");
-    if (file_var)
-      *file_var = m_trans_log_file;
-    if (pos_var)
-      *pos_var= m_trans_end_pos;
-    if (gtid_var)
-      *gtid_var = m_trans_gtid;
-    DBUG_PRINT("return", ("file: %s, pos: %llu",
-                          file_var ? *file_var : "<none>",
-                          pos_var ? *pos_var : 0));
-    DBUG_VOID_RETURN;
-  }
-
-  void get_trans_fixed_pos(const char **file_var, my_off_t *pos_var) const
-  {
-    DBUG_ENTER("THD::get_trans_fixed_pos");
-    if (file_var)
-      *file_var = m_trans_fixed_log_file;
-    if (pos_var)
-      *pos_var= m_trans_end_pos;
-    DBUG_PRINT("return", ("file: %s, pos: %llu",
-                          file_var ? *file_var : "<none>",
-                          pos_var ? *pos_var : 0));
-    DBUG_VOID_RETURN;
-  }
-
-  void append_slave_gtid_info(uint id, const char* db, const char* gtid) {
-    slave_gtid_infos.push_back(st_slave_gtid_info{id, db, gtid});
-  }
-
-  std::vector<st_slave_gtid_info> get_slave_gtid_info() const {
-    return slave_gtid_infos;
-  }
-
-  void clear_slave_gtid_info() {
-    slave_gtid_infos.clear();
-  }
-
+                     const char **gtid_var, const char **max_gtid_var) const;
+  void get_trans_fixed_pos(const char **file_var, my_off_t *pos_var) const;
+  void append_slave_gtid_info(uint id, const char* db, const char* gtid);
+  std::vector<st_slave_gtid_info> get_slave_gtid_info() const;
+  void clear_slave_gtid_info();
   /**@}*/
-
 
   /*
     Error code from committing or rolling back the transaction.

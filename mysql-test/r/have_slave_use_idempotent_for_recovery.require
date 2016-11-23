@@ -1,0 +1,2 @@
+Variable_name	Value
+slave_use_idempotent_for_recovery	YES

@@ -455,6 +455,8 @@ int init_slave()
     rli->get_event_relay_log_name(),
     (ulong) rli->get_event_relay_log_pos()));
 
+  rli->recovery_max_engine_gtid= mysql_bin_log.engine_binlog_max_gtid;
+
   if (active_mi->host[0] &&
       mysql_bin_log.engine_binlog_pos != ULONGLONG_MAX &&
       mysql_bin_log.engine_binlog_file[0] &&

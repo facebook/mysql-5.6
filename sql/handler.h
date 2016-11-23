@@ -30,6 +30,7 @@
 #include "thr_lock.h"          /* thr_lock_type, THR_LOCK_DATA */
 #include "sql_cache.h"
 #include "structs.h"                            /* SHOW_COMP_OPTION */
+#include "rpl_gtid.h"         /* GTID */
 
 #include <my_global.h>
 #include <my_compare.h>
@@ -894,8 +895,8 @@ struct handlerton
    int  (*commit)(handlerton *hton, THD *thd, bool all, bool async);
    int  (*rollback)(handlerton *hton, THD *thd, bool all);
    int  (*prepare)(handlerton *hton, THD *thd, bool all, bool async);
-   int  (*recover)(handlerton *hton, XID *xid_list, uint len,
-                   char *binlog_file, my_off_t *binlog_pos);
+   int  (*recover)(handlerton *hton, XID *xid_list, uint len, char *binlog_file,
+                   my_off_t *binlog_pos, Gtid *binlog_max_gtid);
    int  (*commit_by_xid)(handlerton *hton, XID *xid);
    int  (*rollback_by_xid)(handlerton *hton, XID *xid);
    void *(*create_cursor_read_view)(handlerton *hton, THD *thd);
@@ -3690,7 +3691,7 @@ int ha_commit_trans(THD *thd, bool all, bool async,
 int ha_rollback_trans(THD *thd, bool all);
 int ha_prepare(THD *thd);
 int ha_recover(HASH *commit_list, char *binlog_file = NULL,
-               my_off_t *binlog_pos = NULL);
+               my_off_t *binlog_pos = NULL, Gtid *binlog_max_gtid = NULL);
 
 /*
  transactions: interface to low-level handlerton functions. These are

@@ -457,6 +457,15 @@ public:
     DBUG_RETURN(oldpos);
   }
 
+  /**
+    Remove the pending event.
+   */
+  int remove_pending_event() {
+    delete m_pending;
+    m_pending= NULL;
+    return 0;
+  }
+
   /*
     Cache to store data before copying it to the binary log.
   */
@@ -494,14 +503,6 @@ protected:
     return 0;
   }
 
-  /**
-    Remove the pending event.
-   */
-  int remove_pending_event() {
-    delete m_pending;
-    m_pending= NULL;
-    return 0;
-  }
   struct Flags {
     /*
       Defines if this is either a trx-cache or stmt-cache, respectively, a
@@ -2681,6 +2682,7 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period)
   */
   index_file_name[0] = 0;
   engine_binlog_file[0] = 0;
+  engine_binlog_max_gtid.clear();
   memset(&index_file, 0, sizeof(index_file));
   memset(&purge_index_file, 0, sizeof(purge_index_file));
   memset(&crash_safe_index_file, 0, sizeof(crash_safe_index_file));
@@ -6818,7 +6820,8 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name)
       HASH xids;
       my_hash_init(&xids, &my_charset_bin, TC_LOG_PAGE_SIZE/3, 0,
                    sizeof(my_xid), 0, 0, MYF(0));
-      error= ha_recover(&xids, engine_binlog_file, &engine_binlog_pos);
+      error= ha_recover(&xids, engine_binlog_file, &engine_binlog_pos,
+                        &engine_binlog_max_gtid);
       my_hash_free(&xids);
     }
 
@@ -7907,6 +7910,12 @@ int MYSQL_BIN_LOG::recover(IO_CACHE *log, Format_description_log_event *fdle,
   HASH xids;
   MEM_ROOT mem_root;
   /*
+    Prepared transasctions are committed by XID during recovery but we need
+    to track the max GTID so we maintain a map from XID to GTID and update
+    the max GTID after committing by XID
+  */
+  XID_TO_GTID xid_to_gtid;
+  /*
     The flag is used for handling the case that a transaction
     is partially written to the binlog.
   */
@@ -7926,19 +7935,25 @@ int MYSQL_BIN_LOG::recover(IO_CACHE *log, Format_description_log_event *fdle,
         !strcmp(((Query_log_event*)ev)->query, "BEGIN"))
       in_transaction= TRUE;
 
-    if (ev->get_type_code() == QUERY_EVENT &&
+    else if (ev->get_type_code() == QUERY_EVENT &&
         !strcmp(((Query_log_event*)ev)->query, "COMMIT"))
     {
       DBUG_ASSERT(in_transaction == TRUE);
       in_transaction= FALSE;
+    }
+    else if (is_gtid_event(ev))
+    {
+      xid_to_gtid.gtid.set(((Gtid_log_event*) ev)->get_sidno(true),
+                           ((Gtid_log_event*) ev)->get_gno());
     }
     else if (ev->get_type_code() == XID_EVENT)
     {
       DBUG_ASSERT(in_transaction == TRUE);
       in_transaction= FALSE;
       Xid_log_event *xev=(Xid_log_event *)ev;
-      uchar *x= (uchar *) memdup_root(&mem_root, (uchar*) &xev->xid,
-                                      sizeof(xev->xid));
+      xid_to_gtid.x= xev->xid;
+      uchar *x= (uchar *) memdup_root(&mem_root, (uchar*) &xid_to_gtid,
+                                      sizeof(xid_to_gtid));
       if (!x || my_hash_insert(&xids, x))
         goto err2;
     }
@@ -7985,7 +8000,8 @@ int MYSQL_BIN_LOG::recover(IO_CACHE *log, Format_description_log_event *fdle,
     delete ev;
   }
 
-  if (ha_recover(&xids, engine_binlog_file, &engine_binlog_pos))
+  if (ha_recover(&xids, engine_binlog_file, &engine_binlog_pos,
+                 &engine_binlog_max_gtid))
     goto err2;
 
   free_root(&mem_root, MYF(0));
@@ -9701,6 +9717,22 @@ int THD::binlog_flush_pending_rows_event(bool stmt_end, bool is_transactional)
   }
 
   DBUG_RETURN(error);
+}
+
+
+void THD::binlog_reset_pending_rows_event(bool is_transactional)
+{
+  DBUG_ENTER("THD::binlog_reset_pending_rows_event");
+  binlog_cache_mngr *const cache_mngr= thd_get_cache_mngr(this);
+  if (!cache_mngr)
+    DBUG_VOID_RETURN;
+
+  binlog_cache_data *cache_data=
+    cache_mngr->get_binlog_cache_data(is_transactional);
+  DBUG_ASSERT(cache_data != NULL);
+  cache_data->remove_pending_event();
+  DBUG_ASSERT(binlog_get_pending_rows_event(is_transactional) == NULL);
+  DBUG_VOID_RETURN;
 }
 
 

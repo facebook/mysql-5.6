@@ -651,6 +651,7 @@ bool Slave_worker::commit_positions(Log_event *ev, Slave_job_group* ptr_g, bool 
   );
 
   if (gtid_mode > 0 && worker_last_gtid[0] != 0 &&
+      !info_thd->is_enabled_idempotent_recovery() &&
       !ev->is_relay_log_event())
   {
     for (uint i = 0; i < worker_gtid_infos.elements; i++)
@@ -2475,7 +2476,9 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
   worker->set_master_log_pos(ev->log_pos);
   worker->set_gaq_index(ev->mts_group_idx);
 
-  if (gtid_mode > 0 && ev->contains_partition_info(false))
+  if (gtid_mode > 0 &&
+      !thd->is_enabled_idempotent_recovery() &&
+      ev->contains_partition_info(false))
   {
     Mts_db_names mts_dbs;
     // Comments on handling of OVER_MAX_DBS_IN_EVENT_MTS is in
@@ -2525,11 +2528,31 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
     }
   }
 
-  if (ev->is_row_log_event())
+  if (ev->is_row_log_event() && !thd->is_enabled_idempotent_recovery())
   {
     Rows_log_event *row_ev = (Rows_log_event *) ev;
     if (!worker->worker_gtid_infos.elements && gtid_mode > 0)
       row_ev->m_binlog_only = TRUE;
+  }
+
+  // Check if idempotent mode is required (used after crash recovery)
+  if (ev->is_row_log_event() && worker->worker_last_gtid[0] &&
+      thd->is_enabled_idempotent_recovery() &&
+      !rli->recovery_max_engine_gtid.empty())
+  {
+    Gtid current_gtid;
+    rli->recovery_sid_lock->rdlock();
+    current_gtid.parse(rli->recovery_sid_map, worker->worker_last_gtid);
+    rli->recovery_sid_lock->unlock();
+
+    if (current_gtid.sidno == rli->recovery_max_engine_gtid.sidno &&
+        current_gtid.gno <= rli->recovery_max_engine_gtid.gno)
+    {
+      DBUG_PRINT("info", ("Setting idempotent mode for gtid %s",
+                            worker->worker_last_gtid));
+      ev->slave_exec_mode= SLAVE_EXEC_MODE_IDEMPOTENT;
+      ((Rows_log_event*)ev)->m_force_binlog_idempotent= TRUE;
+    }
   }
 
   thd->print_proc_info("Executing %s event at position %lu",
