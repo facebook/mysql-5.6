@@ -904,6 +904,9 @@ private:
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   void read_thd_vars(THD *thd)
     MY_ATTRIBUTE((__nonnull__));
+  const char* thd_rocksdb_tmpdir()
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+
   bool contains_foreign_key(THD* thd)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
