@@ -3728,12 +3728,12 @@ void Rdb_binlog_manager::cleanup()
   write succeeded or not is not possible here.
   @param binlog_name   Binlog name
   @param binlog_pos    Binlog pos
-  @param binlog_gtid   Binlog GTID
+  @param binlog_gtid   Binlog max GTID
   @param batch         WriteBatch
 */
 void Rdb_binlog_manager::update(const char* binlog_name,
                                 const my_off_t binlog_pos,
-                                const char* binlog_gtid,
+                                const char* binlog_max_gtid,
                                 rocksdb::WriteBatchBase* batch)
 {
   if (binlog_name && binlog_pos)
@@ -3742,7 +3742,7 @@ void Rdb_binlog_manager::update(const char* binlog_name,
     uchar  value_buf[1024];
     m_dict->put_key(batch, m_key_slice,
                     pack_value(value_buf, binlog_name,
-                               binlog_pos, binlog_gtid));
+                               binlog_pos, binlog_max_gtid));
   }
 }
 
