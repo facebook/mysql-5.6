@@ -834,7 +834,7 @@ public:
   bool init(Rdb_dict_manager *dict);
   void cleanup();
   void update(const char* binlog_name, const my_off_t binlog_pos,
-              const char* binlog_gtid, rocksdb::WriteBatchBase* batch);
+              const char* binlog_max_gtid, rocksdb::WriteBatchBase* batch);
   bool read(char* binlog_name, my_off_t* binlog_pos, char* binlog_gtid);
   void update_slave_gtid_info(uint id, const char* db, const char* gtid,
                               rocksdb::WriteBatchBase *write_batch);
