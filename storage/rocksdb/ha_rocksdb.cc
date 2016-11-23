@@ -501,6 +501,11 @@ static MYSQL_SYSVAR_BOOL(enable_bulk_load_api,
   "Enables using SstFileWriter for bulk loading",
   nullptr, nullptr, rocksdb_enable_bulk_load_api);
 
+static MYSQL_THDVAR_STR(tmpdir,
+  PLUGIN_VAR_OPCMDARG|PLUGIN_VAR_MEMALLOC,
+  "Directory for temporary files during DDL operations.",
+  nullptr, nullptr, "");
+
 static MYSQL_THDVAR_STR(skip_unique_check_tables,
   PLUGIN_VAR_RQCMDARG|PLUGIN_VAR_MEMALLOC,
   "Skip unique constraint checking for the specified tables", nullptr, nullptr,
@@ -1149,6 +1154,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(bulk_load_size),
   MYSQL_SYSVAR(merge_buf_size),
   MYSQL_SYSVAR(enable_bulk_load_api),
+  MYSQL_SYSVAR(tmpdir),
   MYSQL_SYSVAR(merge_combine_read_size),
   MYSQL_SYSVAR(skip_bloom_filter_on_read),
 
@@ -8835,6 +8841,21 @@ void ha_rocksdb::read_thd_vars(THD *thd)
   m_checksums_pct= THDVAR(thd, checksums_pct);
 }
 
+const char* ha_rocksdb::thd_rocksdb_tmpdir()
+{
+  const char* tmp_dir = THDVAR(ha_thd(), tmpdir);
+
+  /*
+    We want to treat an empty string as nullptr, in these cases DDL operations
+    will use the default --tmpdir passed to mysql instead.
+  */
+  if (tmp_dir != nullptr && *tmp_dir == '\0') {
+    tmp_dir= nullptr;
+  }
+
+  return(tmp_dir);
+}
+
 int ha_rocksdb::external_lock(THD *thd, int lock_type)
 {
   int res= 0;
@@ -10042,7 +10063,8 @@ int ha_rocksdb::inplace_populate_sk(const TABLE* new_table_arg,
   for (auto& index : indexes)
   {
     const rocksdb::Comparator* index_comp= index->get_cf()->GetComparator();
-    Rdb_index_merge rdb_merge(rdb_merge_buf_size, rdb_merge_combine_read_size,
+    Rdb_index_merge rdb_merge(thd_rocksdb_tmpdir(), rdb_merge_buf_size,
+                              rdb_merge_combine_read_size,
                               index_comp);
 
     if ((res= rdb_merge.init()))
