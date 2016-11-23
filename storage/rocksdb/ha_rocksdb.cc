@@ -10043,7 +10043,8 @@ int ha_rocksdb::inplace_populate_sk(const TABLE* new_table_arg,
   for (auto& index : indexes)
   {
     const rocksdb::Comparator* index_comp= index->get_cf()->GetComparator();
-    Rdb_index_merge rdb_merge(rdb_merge_buf_size, rdb_merge_combine_read_size,
+    Rdb_index_merge rdb_merge(rocksdb_datadir, rdb_merge_buf_size,
+                              rdb_merge_combine_read_size,
                               index_comp);
 
     if ((res= rdb_merge.init()))
