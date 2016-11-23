@@ -943,6 +943,7 @@ rocksdb_strict_collation_check	OFF
 rocksdb_strict_collation_exceptions	
 rocksdb_table_cache_numshardbits	6
 rocksdb_table_stats_sampling_pct	10
+rocksdb_tmpdir	
 rocksdb_trace_sst_api	OFF
 rocksdb_unsafe_for_binlog	OFF
 rocksdb_use_adaptive_mutex	OFF

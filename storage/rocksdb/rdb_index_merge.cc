@@ -17,15 +17,20 @@
 /* This C++ file's header file */
 #include "./rdb_index_merge.h"
 
+/* MySQL header files */
+#include "../sql/sql_class.h"
+
 /* MyRocks header files */
 #include "./ha_rocksdb.h"
 #include "./rdb_datadic.h"
 
 namespace myrocks {
 
-Rdb_index_merge::Rdb_index_merge(const ulonglong merge_buf_size,
+Rdb_index_merge::Rdb_index_merge(const char* tmpfile_path,
+                                 const ulonglong merge_buf_size,
                                  const ulonglong merge_combine_read_size,
                                  const rocksdb::Comparator* comparator) :
+  m_tmpfile_path(tmpfile_path),
   m_merge_buf_size(merge_buf_size),
   m_merge_combine_read_size(merge_combine_read_size),
   m_comparator(comparator),
@@ -84,7 +89,16 @@ int Rdb_index_merge::merge_file_create()
 {
   DBUG_ASSERT(m_merge_file.fd == -1);
 
-  int fd = mysql_tmpfile("myrocks");
+  int fd;
+  /* If no path set for tmpfile, use mysql_tmpdir by default */
+  if (m_tmpfile_path == nullptr)
+  {
+    fd = mysql_tmpfile("myrocks");
+  }
+  else
+  {
+    fd = mysql_tmpfile_path(m_tmpfile_path, "myrocks");
+  }
 
   if (fd < 0)
   {
