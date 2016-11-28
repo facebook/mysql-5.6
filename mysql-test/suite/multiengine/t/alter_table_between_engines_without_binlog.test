@@ -1,0 +1,12 @@
+--source include/have_innodb_and_rocksdb.inc
+--source include/have_no_log_bin.inc
+
+# Alter a table to move it from InnoDB to RocksDB
+--let $src_engine=InnoDB
+--let $dst_engine=RocksDB
+--source alter_table_between_engines.inc
+
+# Alter a table to move it from RocksDB to InnoDB
+--let $src_engine=RocksDB
+--let $dst_engine=InnoDB
+--source alter_table_between_engines.inc
