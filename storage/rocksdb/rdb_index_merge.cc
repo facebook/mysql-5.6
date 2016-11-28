@@ -86,7 +86,16 @@ int Rdb_index_merge::merge_file_create()
 {
   DBUG_ASSERT(m_merge_file.fd == -1);
 
-  int fd = mysql_tmpfile_path(m_tmpfile_path, "myrocks");
+  int fd;
+  /* If no path set for tmpfile, use mysql_tmpdir by default */
+  if (m_tmpfile_path == nullptr)
+  {
+    fd = mysql_tmpfile("myrocks");
+  }
+  else
+  {
+    fd = mysql_tmpfile_path(m_tmpfile_path, "myrocks");
+  }
 
   if (fd < 0)
   {
