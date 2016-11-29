@@ -41,7 +41,6 @@ Rdb_pk_comparator Rdb_cf_options::s_pk_comparator;
 Rdb_rev_comparator Rdb_cf_options::s_rev_pk_comparator;
 
 bool Rdb_cf_options::init(
-  size_t default_write_buffer_size,
   const rocksdb::BlockBasedTableOptions& table_options,
   std::shared_ptr<rocksdb::TablePropertiesCollectorFactory> prop_coll_factory,
   const char * default_cf_options,
@@ -50,7 +49,6 @@ bool Rdb_cf_options::init(
   m_default_cf_opts.comparator = &s_pk_comparator;
   m_default_cf_opts.compaction_filter_factory.reset(
     new Rdb_compact_filter_factory);
-  m_default_cf_opts.write_buffer_size = default_write_buffer_size;
 
   m_default_cf_opts.table_factory.reset(
     rocksdb::NewBlockBasedTableFactory(table_options));
