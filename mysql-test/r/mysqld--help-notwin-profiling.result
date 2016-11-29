@@ -1914,7 +1914,7 @@ rocksdb-allow-mmap-writes FALSE
 rocksdb-allow-os-buffer TRUE
 rocksdb-background-sync FALSE
 rocksdb-base-background-compactions 1
-rocksdb-block-cache-size 8388608
+rocksdb-block-cache-size 536870912
 rocksdb-block-restart-interval 16
 rocksdb-block-size 4096
 rocksdb-block-size-deviation 10
