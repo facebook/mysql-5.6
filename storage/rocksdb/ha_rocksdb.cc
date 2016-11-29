@@ -849,7 +849,7 @@ static MYSQL_SYSVAR_BOOL(enable_thread_tracking,
 static MYSQL_SYSVAR_LONGLONG(block_cache_size, rocksdb_block_cache_size,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "block_cache size for RocksDB",
-  nullptr, nullptr, /* RocksDB's default is 8 MB: */ 8*1024*1024L,
+  nullptr, nullptr, 512*1024*1024L,
   /* min */ 1024L, /* max */ LONGLONG_MAX, /* Block size */1024L);
 
 static MYSQL_SYSVAR_BOOL(cache_index_and_filter_blocks,
@@ -1136,7 +1136,6 @@ static MYSQL_SYSVAR_UINT(
   RDB_DEFAULT_TBL_STATS_SAMPLE_PCT, /* everything */ 0,
   /* max */ RDB_TBL_STATS_SAMPLE_PCT_MAX, 0);
 
-static const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT= 4194304;
 static const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE= 100;
 
 static struct st_mysql_sys_var* rocksdb_system_variables[]= {
@@ -3581,7 +3580,7 @@ static int rocksdb_init_func(void *p)
     mysql_mutex_unlock(&rdb_sysvars_mutex);
   }
 
-  if (!rocksdb_cf_options_map.init(ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT,
+  if (!rocksdb_cf_options_map.init(
                                    rocksdb_tbl_options,
                                    properties_collector_factory,
                                    rocksdb_default_cf_options,
