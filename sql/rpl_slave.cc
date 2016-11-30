@@ -5402,6 +5402,53 @@ int check_temp_dir(char* tmp_file)
   DBUG_RETURN(0);
 }
 
+static std::pair<ulong, ulonglong> cleanup_worker_jobs(Slave_worker *w)
+{
+  ulong                   ii= 0;
+  ulong                   current_event_index;
+  ulong                   purge_cnt= 0;
+  ulonglong               purge_size= 0;
+  struct slave_job_item   job_item;
+  std::vector<Log_event*> log_event_free_list;
+
+  mysql_mutex_lock(&w->jobs_lock);
+
+  log_event_free_list.reserve(w->jobs.avail);
+
+  current_event_index = std::max(w->last_current_event_index,
+                                 w->current_event_index);
+  while (de_queue(&w->jobs, &job_item))
+  {
+    DBUG_ASSERT(job_item.data);
+
+    Log_event* log_event= static_cast<Log_event*>(job_item.data);
+
+    ii++;
+    if (ii > current_event_index)
+    {
+      purge_size += log_event->data_written;
+      purge_cnt++;
+    }
+
+    // Save the freeing for outside the mutex
+    log_event_free_list.push_back(log_event);
+  }
+
+  DBUG_ASSERT(w->jobs.len == 0);
+
+  mysql_mutex_unlock(&w->jobs_lock);
+
+  // Do all the freeing outside the mutex since freeing causes destructors to
+  // be called and some destructors acquire locks which can cause deadlock
+  // scenarios if we are holding this mutex.
+  for (Log_event* log_event : log_event_free_list)
+  {
+    delete log_event;
+  }
+
+  // Return the number and size of the purged events
+  return std::make_pair(purge_cnt, purge_size);
+}
 /*
   Worker thread for the parallel execution of the replication events.
 */
@@ -5414,9 +5461,6 @@ pthread_handler_t handle_slave_worker(void *arg)
   Relay_log_info* rli= w->c_rli;
   ulong purge_cnt= 0;
   ulonglong purge_size= 0;
-  ulong current_event_index = 0;
-  ulong i = 0;
-  struct slave_job_item _item, *job_item= &_item;
   /* Buffer lifetime extends across the entire runtime of the THD handle. */
   char proc_info_buf[256]= {0};
 
@@ -5480,25 +5524,7 @@ pthread_handler_t handle_slave_worker(void *arg)
   thd->clear_error();
   w->cleanup_context(thd, error);
 
-  mysql_mutex_lock(&w->jobs_lock);
-
-  current_event_index = max(w->last_current_event_index,
-                            w->current_event_index);
-  while(de_queue(&w->jobs, job_item))
-  {
-    i++;
-    if (i > current_event_index)
-    {
-      purge_size += ((Log_event*) (job_item->data))->data_written;
-      purge_cnt++;
-    }
-    DBUG_ASSERT(job_item->data);
-    delete static_cast<Log_event*>(job_item->data);
-  }
-
-  DBUG_ASSERT(w->jobs.len == 0);
-
-  mysql_mutex_unlock(&w->jobs_lock);
+  std::tie(purge_cnt, purge_size)= cleanup_worker_jobs(w);
 
   mysql_mutex_lock(&rli->pending_jobs_lock);
   rli->pending_jobs -= purge_cnt;
