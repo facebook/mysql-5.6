@@ -2856,20 +2856,47 @@ static std::string format_string(
   std::string res;
   va_list     args;
   va_list     args_copy;
+  char        static_buff[256];
 
   va_start(args, format);
   va_copy(args_copy, args);
 
-  size_t len = vsnprintf(nullptr, 0, format, args) + 1;
+  // Calculate how much space we will need
+  int len = vsnprintf(nullptr, 0, format, args);
   va_end(args);
 
-  if (len == 0) {
+  if (len < 0)
+  {
+    res = std::string("<format error>");
+  }
+  else if (len == 0)
+  {
+    // Shortcut for an empty string
     res = std::string("");
   }
-  else {
-    char buff[len];
+  else
+  {
+    // For short enough output use a static buffer
+    char*                   buff= static_buff;
+    std::unique_ptr<char[]> dynamic_buff= nullptr;
+
+    len++;  // Add one for null terminator
+
+    // for longer output use an allocated buffer
+    if (static_cast<uint>(len) > sizeof(static_buff))
+    {
+      dynamic_buff.reset(new char[len]);
+      buff= dynamic_buff.get();
+    }
+
+    // Now re-do the vsnprintf with the buffer which is now large enough
     (void) vsnprintf(buff, len, format, args_copy);
 
+    // Convert to a std::string.  Note we could have created a std::string
+    // large enough and then converted the buffer to a 'char*' and created
+    // the output in place.  This would probably work but feels like a hack.
+    // Since this isn't code that needs to be super-performant we are going
+    // with this 'safer' method.
     res = std::string(buff);
   }
 
