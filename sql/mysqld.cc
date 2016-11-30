@@ -76,6 +76,7 @@
 #include "debug_sync.h"
 #include "sql_callback.h"
 #include "opt_trace_context.h"
+#include "sql_multi_tenancy.h"
 
 #include "global_threads.h"
 #include "mysqld.h"
@@ -686,7 +687,8 @@ ulong binlog_stmt_cache_use= 0, binlog_stmt_cache_disk_use= 0;
 ulong max_connections, max_connect_errors;
 uint max_nonsuper_connections;
 ulong opt_max_running_queries, opt_max_waiting_queries;
-AC *db_ac;
+my_bool opt_admission_control_by_trx= 0;
+extern AC *db_ac;
 ulong rpl_stop_slave_timeout= LONG_TIMEOUT;
 my_bool log_bin_use_v1_row_events= 0;
 bool thread_cache_size_specified= false;

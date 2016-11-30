@@ -46,6 +46,7 @@
 #endif
 #include "debug_sync.h"
 #include "sql_show.h"
+#include "sql_multi_tenancy.h"
 
 #define MAX_DROP_TABLE_Q_LEN      1024
 
