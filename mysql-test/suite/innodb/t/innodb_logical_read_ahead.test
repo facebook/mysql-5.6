@@ -5,12 +5,14 @@
 
 --disable_warnings
 DROP TABLE if exists t1;
+DROP TABLE if exists aios;
 --enable_warnings
 
 let $page_size = query_get_value(SELECT @@innodb_page_size, @@innodb_page_size, 1);
 
-# Create table.
+# Create tables.
 CREATE TABLE t1 (a INT NOT NULL PRIMARY KEY AUTO_INCREMENT, b VARCHAR(256)) ENGINE=INNODB;
+CREATE TABLE aios (a INT NOT NULL PRIMARY KEY);
 
 # Populate table.
 INSERT INTO t1 VALUES (0, REPEAT('a',256));
@@ -33,7 +35,10 @@ INSERT INTO t1 SELECT 0, b FROM t1;
 
 --source include/restart_mysqld.inc
 
-show global status like "innodb_buffered_aio_submitted";
+let $aios = `select variable_value from information_schema.global_status where variable_name='innodb_buffered_aio_submitted'`;
+--disable_query_log
+eval INSERT INTO aios VALUES ($aios);
+--enable_query_log
 show global status like "innodb_logical_read_ahead_misses";
 show global status like "innodb_logical_read_ahead_prefetched";
 show global status like "innodb_logical_read_ahead_in_buf_pool";
@@ -47,7 +52,7 @@ checksum table t1;
 
 # the asynchronous io submits must be nonzero and equal
 # to the innodb_logical_read_ahead_prefetched.
-select t1.variable_value=t2.variable_value prefetched_equals_submitted from information_schema.global_status t1, information_schema.global_status t2 where t1.variable_name = 'innodb_logical_read_ahead_prefetched' and t2.variable_name='innodb_buffered_aio_submitted';
+eval select t1.variable_value=t2.variable_value-fixup.a prefetched_equals_submitted from information_schema.global_status t1, information_schema.global_status t2, aios fixup where t1.variable_name = 'innodb_logical_read_ahead_prefetched' and t2.variable_name='innodb_buffered_aio_submitted';
 
 # there should be no misses, all pages must have been
 # prefetched by the logical read ahead.
@@ -75,3 +80,4 @@ if ($page_size == 32768)
 eval select variable_value < $expected from information_schema.global_status where variable_name="innodb_logical_read_ahead_in_buf_pool";
 
 DROP TABLE t1;
+DROP TABLE aios;
