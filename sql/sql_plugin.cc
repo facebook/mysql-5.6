@@ -36,6 +36,7 @@
 #include <mysql/plugin_validate_password.h>
 #include "my_default.h"
 #include "debug_sync.h"
+#include <mysql/plugin_multi_tenancy.h>
 
 #include <algorithm>
 
@@ -78,7 +79,8 @@ const LEX_STRING plugin_type_names[MYSQL_MAX_PLUGIN_TYPE_NUM]=
   { C_STRING_WITH_LEN("AUDIT") },
   { C_STRING_WITH_LEN("REPLICATION") },
   { C_STRING_WITH_LEN("AUTHENTICATION") },
-  { C_STRING_WITH_LEN("VALIDATE PASSWORD") }
+  { C_STRING_WITH_LEN("VALIDATE PASSWORD") },
+  { C_STRING_WITH_LEN("MULTI TENANCY") }
 };
 
 extern int initialize_schema_table(st_plugin_int *plugin);
@@ -87,6 +89,9 @@ extern int finalize_schema_table(st_plugin_int *plugin);
 extern int initialize_audit_plugin(st_plugin_int *plugin);
 extern int finalize_audit_plugin(st_plugin_int *plugin);
 
+extern int initialize_multi_tenancy_plugin(st_plugin_int *plugin);
+extern int finalize_multi_tenancy_plugin(st_plugin_int *plugin);
+
 /*
   The number of elements in both plugin_type_initialize and
   plugin_type_deinitialize should equal to the number of plugins
@@ -94,14 +99,30 @@ extern int finalize_audit_plugin(st_plugin_int *plugin);
 */
 plugin_type_init plugin_type_initialize[MYSQL_MAX_PLUGIN_TYPE_NUM]=
 {
-  0,ha_initialize_handlerton,0,0,initialize_schema_table,
-  initialize_audit_plugin,0,0,0
+  0,
+  ha_initialize_handlerton,
+  0,
+  0,
+  initialize_schema_table,
+  initialize_audit_plugin,
+  0,
+  0,
+  0,
+  initialize_multi_tenancy_plugin
 };
 
 plugin_type_init plugin_type_deinitialize[MYSQL_MAX_PLUGIN_TYPE_NUM]=
 {
-  0,ha_finalize_handlerton,0,0,finalize_schema_table,
-  finalize_audit_plugin,0,0,0
+  0,
+  ha_finalize_handlerton,
+  0,
+  0,
+  finalize_schema_table,
+  finalize_audit_plugin,
+  0,
+  0,
+  0,
+  finalize_multi_tenancy_plugin
 };
 
 #ifdef HAVE_DLOPEN
@@ -128,7 +149,8 @@ static int min_plugin_info_interface_version[MYSQL_MAX_PLUGIN_TYPE_NUM]=
   MYSQL_AUDIT_INTERFACE_VERSION,
   MYSQL_REPLICATION_INTERFACE_VERSION,
   MYSQL_AUTHENTICATION_INTERFACE_VERSION,
-  MYSQL_VALIDATE_PASSWORD_INTERFACE_VERSION
+  MYSQL_VALIDATE_PASSWORD_INTERFACE_VERSION,
+	MYSQL_MULTI_TENANCY_INTERFACE_VERSION
 };
 static int cur_plugin_info_interface_version[MYSQL_MAX_PLUGIN_TYPE_NUM]=
 {
@@ -140,7 +162,8 @@ static int cur_plugin_info_interface_version[MYSQL_MAX_PLUGIN_TYPE_NUM]=
   MYSQL_AUDIT_INTERFACE_VERSION,
   MYSQL_REPLICATION_INTERFACE_VERSION,
   MYSQL_AUTHENTICATION_INTERFACE_VERSION,
-  MYSQL_VALIDATE_PASSWORD_INTERFACE_VERSION
+  MYSQL_VALIDATE_PASSWORD_INTERFACE_VERSION,
+	MYSQL_MULTI_TENANCY_INTERFACE_VERSION
 };
 
 /* support for Services */
@@ -2819,15 +2842,18 @@ void plugin_thdvar_init(THD *thd, bool enable_plugins)
 {
   plugin_ref old_table_plugin= thd->variables.table_plugin;
   plugin_ref old_temp_table_plugin= thd->variables.temp_table_plugin;
+  plugin_ref old_multi_tenancy_plugin= thd->variables.multi_tenancy_plugin;
   DBUG_ENTER("plugin_thdvar_init");
   
   thd->variables.table_plugin= NULL;
   thd->variables.temp_table_plugin= NULL;
+  thd->variables.multi_tenancy_plugin= NULL;
   cleanup_variables(thd, &thd->variables);
   
   thd->variables= global_system_variables;
   thd->variables.table_plugin= NULL;
   thd->variables.temp_table_plugin= NULL;
+  thd->variables.multi_tenancy_plugin= NULL;
 
   /* we are going to allocate these lazily */
   thd->variables.dynamic_variables_version= 0;
@@ -2843,6 +2869,10 @@ void plugin_thdvar_init(THD *thd, bool enable_plugins)
     thd->variables.temp_table_plugin=
       my_intern_plugin_lock(NULL, global_system_variables.temp_table_plugin);
     intern_plugin_unlock(NULL, old_temp_table_plugin);
+    if (global_system_variables.multi_tenancy_plugin)
+      thd->variables.multi_tenancy_plugin= my_intern_plugin_lock(NULL,
+          global_system_variables.multi_tenancy_plugin);
+    intern_plugin_unlock(NULL, old_multi_tenancy_plugin);
     mysql_mutex_unlock(&LOCK_plugin);
   }
   DBUG_VOID_RETURN;
@@ -2856,8 +2886,10 @@ static void unlock_variables(THD *thd, struct system_variables *vars)
 {
   intern_plugin_unlock(NULL, vars->table_plugin);
   intern_plugin_unlock(NULL, vars->temp_table_plugin);
+  intern_plugin_unlock(NULL, vars->multi_tenancy_plugin);
   vars->table_plugin= NULL;
   vars->temp_table_plugin= NULL;
+	vars->multi_tenancy_plugin= NULL;
 }
 
 
@@ -2874,6 +2906,7 @@ static void cleanup_variables(THD *thd, struct system_variables *vars)
 
   DBUG_ASSERT(vars->table_plugin == NULL);
   DBUG_ASSERT(vars->temp_table_plugin == NULL);
+  DBUG_ASSERT(vars->multi_tenancy_plugin == NULL);
 
   my_free(vars->dynamic_variables_ptr);
   vars->dynamic_variables_ptr= NULL;

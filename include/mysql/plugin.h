@@ -87,7 +87,8 @@ typedef struct st_mysql_xid MYSQL_XID;
 #define MYSQL_REPLICATION_PLUGIN     6	/* The replication plugin type */
 #define MYSQL_AUTHENTICATION_PLUGIN  7  /* The authentication plugin type */
 #define MYSQL_VALIDATE_PASSWORD_PLUGIN  8   /* validate password plugin type */
-#define MYSQL_MAX_PLUGIN_TYPE_NUM    9  /* The number of plugin types   */
+#define MYSQL_MULTI_TENANCY_PLUGIN   9  /* The multi-tenancy plugin type */
+#define MYSQL_MAX_PLUGIN_TYPE_NUM    10 /* The number of plugin types   */
 
 /* We use the following strings to define licenses for plugins */
 #define PLUGIN_LICENSE_PROPRIETARY 0

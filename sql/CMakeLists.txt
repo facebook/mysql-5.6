@@ -153,6 +153,7 @@ SET(SQL_SHARED_SOURCES
   sql_load.cc
   sql_locale.cc
   sql_manager.cc
+  sql_multi_tenancy.cc
   sql_optimizer.cc
   sql_parse.cc
   sql_partition.cc

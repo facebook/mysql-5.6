@@ -733,6 +733,19 @@ static int check_connection(THD *thd)
     reset_host_connect_errors(thd->main_security_ctx.get_ip()->ptr());
   }
 
+  if (auth_rc == 0 &&
+      multi_tenancy_add_connection(thd, thd->connection_attrs_map))
+  {
+    const char *entity = "";
+    // if the connection is rejected by multi-tenancy plugin, the entity value
+    // should be set to tell us what limit has been reached.
+    auto iter = thd->connection_attrs_map.find(multi_tenancy_entity_str);
+    if (iter != thd->connection_attrs_map.end())
+      entity = iter->second.c_str();
+    my_error(ER_MULTI_TENANCY_MAX_CONNECTION, MYF(0), entity);
+    return 1;
+  }
+
   return auth_rc;
 }
 
@@ -1150,6 +1163,8 @@ void do_handle_one_connection(THD *thd_arg)
       }
     }
     thd_update_net_stats(thd);
+    // release connection in multi_tenancy plugin
+    multi_tenancy_close_connection(thd, thd->connection_attrs_map);
     end_connection(thd);
 
 end_thread:

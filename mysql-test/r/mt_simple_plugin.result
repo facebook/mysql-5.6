@@ -1,0 +1,61 @@
+install plugin mt_simple soname 'mt_simple.so';
+select * from information_schema.plugins where plugin_name like 'mt_simple';
+PLUGIN_NAME	PLUGIN_VERSION	PLUGIN_STATUS	PLUGIN_TYPE	PLUGIN_TYPE_VERSION	PLUGIN_LIBRARY	PLUGIN_LIBRARY_VERSION	PLUGIN_AUTHOR	PLUGIN_DESCRIPTION	PLUGIN_LICENSE	LOAD_OPTION
+MT_SIMPLE	1.0	ACTIVE	MULTI TENANCY	1.0	mt_simple.so	1.4	Tian Xia	Simple multi_tenancy	GPL	ON
+show global variables like 'mt_simple_%';
+Variable_name	Value
+mt_simple_on	ON
+show global status like 'mt_simple_%';
+Variable_name	Value
+mt_simple_open_conns	0
+mt_simple_open_db_conns	0
+mt_simple_open_role_conns	0
+mt_simple_running_queries	0
+create table t1(a text, b text);
+drop table t1;
+show global status like 'mt_simple_%';
+Variable_name	Value
+mt_simple_open_conns	10
+mt_simple_open_db_conns	0
+mt_simple_open_role_conns	0
+mt_simple_running_queries	0
+set global mt_simple_on = 0;
+show global status like 'mt_simple_%';
+Variable_name	Value
+mt_simple_open_conns	10
+mt_simple_open_db_conns	0
+mt_simple_open_role_conns	0
+mt_simple_running_queries	0
+set global mt_simple_on = 1;
+show global status like 'mt_simple_%';
+Variable_name	Value
+mt_simple_open_conns	0
+mt_simple_open_db_conns	0
+mt_simple_open_role_conns	0
+mt_simple_running_queries	0
+uninstall plugin mt_simple;
+Warnings:
+Warning	1620	Plugin is busy and will be uninstalled on shutdown
+select * from information_schema.plugins where plugin_name like 'mt_simple';
+PLUGIN_NAME	PLUGIN_VERSION	PLUGIN_STATUS	PLUGIN_TYPE	PLUGIN_TYPE_VERSION	PLUGIN_LIBRARY	PLUGIN_LIBRARY_VERSION	PLUGIN_AUTHOR	PLUGIN_DESCRIPTION	PLUGIN_LICENSE	LOAD_OPTION
+MT_SIMPLE	1.0	DELETED	MULTI TENANCY	1.0	mt_simple.so	1.4	Tian Xia	Simple multi_tenancy	GPL	ON
+show global variables like 'mt_simple_%';
+Variable_name	Value
+mt_simple_on	ON
+show global status like 'mt_simple_%';
+Variable_name	Value
+mt_simple_open_conns	0
+mt_simple_open_db_conns	0
+mt_simple_open_role_conns	0
+mt_simple_running_queries	0
+show global variables like 'mt_simple_%';
+Variable_name	Value
+mt_simple_on	ON
+show global status like 'mt_simple_%';
+Variable_name	Value
+mt_simple_open_conns	0
+mt_simple_open_db_conns	0
+mt_simple_open_role_conns	0
+mt_simple_running_queries	0
+select * from information_schema.plugins where plugin_name like 'mt_simple';
+PLUGIN_NAME	PLUGIN_VERSION	PLUGIN_STATUS	PLUGIN_TYPE	PLUGIN_TYPE_VERSION	PLUGIN_LIBRARY	PLUGIN_LIBRARY_VERSION	PLUGIN_AUTHOR	PLUGIN_DESCRIPTION	PLUGIN_LICENSE	LOAD_OPTION

@@ -115,6 +115,114 @@ connection default;
 --echo Verify the waiting queries received wakeup signal.
 select count(*) from t1;
 
+set @save_admission_control_by_trx = @@global.admission_control_by_trx;
+select @save_admission_control_by_trx;
+--echo # By default, open transaction has no effect on running queries
+disable_query_log;
+disable_result_log;
+let $i= 10; # max_running_queries is 10
+while($i)
+{
+  connection con$i;
+  # 10 Open transactions
+  begin;
+  select count(*) from t1;
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+# query will succeed
+connection con11;
+select count(*) from t1;
+
+--echo # Test: open transactions will take slots in running queries,
+--echo #       and will not be blocked
+connection default;
+set @@global.admission_control_by_trx = true;
+SELECT @@global.admission_control_by_trx;
+disable_query_log;
+disable_result_log;
+let $i= 10; # max_running_queries is 10
+while($i)
+{
+  connection con$i;
+  # Open transactions will take up slots in running queue
+  begin;
+  select count(*) from t1;
+  dec $i;
+}
+let $i= 16; # max_waiting_queries is 6
+while ($i != 10)
+{
+  # These queries will be in waiting queue
+  connection con$i;
+  send select count(*) from t1;
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+
+connection default;
+let $wait_timeout= 300;
+let $wait_condition=
+  select count(*)=6 from information_schema.processlist where state='waiting for admission';
+source include/wait_condition.inc;
+
+--echo Open transaction is able to continue running queries
+disable_query_log;
+disable_result_log;
+let $i= 10;
+while($i)
+{
+  connection con$i;
+  select count(*) from t1;
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+
+connect (con_max_wait, localhost, test_user,,test_db);
+echo connection con_max_wait;
+connection con_max_wait;
+--echo New queries will be rejected
+error ER_DB_ADMISSION_CONTROL;
+select * from t1;
+--echo New transactions will be rejected
+error ER_DB_ADMISSION_CONTROL;
+begin;
+disconnect con_max_wait;
+
+--echo Committing a transaction will free up the running query slots
+disable_query_log;
+let $i= 10;
+while($i)
+{
+  connection con$i;
+  commit;
+  dec $i;
+}
+enable_query_log;
+
+--echo The waiting queries will be unblocked
+disable_query_log;
+disable_result_log;
+let $i= 16;
+while ($i != 10)
+{
+  connection con$i;
+  reap;
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+
+# restore admission_control_by_trx
+connection default;
+set @@global.admission_control_by_trx = @save_admission_control_by_trx;
+select @@global.admission_control_by_trx;
+--echo # End of open transaction test
+
+connection default;
 --echo Run parallel load and drop the database.
 # Verify the waiting queries will receive the signal from DROP DATABASE
 # and exit with appropriate error ER_NO_SUCH_TABLE. max_waiting_queries=0

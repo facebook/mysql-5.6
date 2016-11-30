@@ -42,7 +42,6 @@
 class THD;
 struct handlerton;
 class Time_zone;
-class AC;
 
 struct scheduler_functions;
 
@@ -198,7 +197,6 @@ private:
   lsn_map **maps;
 };
 
-extern AC* db_ac;
 /*
   This forward declaration is used from C files where the real
   definition is included before.  Since C does not allow repeated
@@ -908,6 +906,7 @@ extern MYSQL_PLUGIN_IMPORT ulong max_connections;
 extern ulong max_digest_length;
 extern ulong max_connect_errors, connect_timeout;
 extern ulong opt_max_running_queries, opt_max_waiting_queries;
+extern my_bool opt_admission_control_by_trx;
 extern my_bool opt_slave_allow_batching;
 extern my_bool allow_slave_start;
 extern LEX_CSTRING reason_slave_blocked;

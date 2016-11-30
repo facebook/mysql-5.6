@@ -60,6 +60,7 @@
 #include "sql_show.h"                           // opt_ignore_db_dirs
 #include "table_cache.h"                        // Table_cache_manager
 #include "my_aes.h" // my_aes_opmode_names
+#include "sql_multi_tenancy.h"
 
 #include "log_event.h"
 #include "binlog.h"
@@ -3227,6 +3228,12 @@ static Sys_var_set Admission_control_options(
        GLOBAL_VAR(admission_control_filter), CMD_LINE(REQUIRED_ARG),
        admission_control_filter_names,
        DEFAULT(0));
+
+static Sys_var_mybool Sys_admission_control_by_trx(
+       "admission_control_by_trx",
+       "Allow open transactions to go through admission control",
+       GLOBAL_VAR(opt_admission_control_by_trx), CMD_LINE(OPT_ARG),
+       DEFAULT(FALSE));
 
 static Sys_var_mybool Sys_slave_sql_verify_checksum(
        "slave_sql_verify_checksum",

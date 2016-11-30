@@ -113,6 +113,7 @@
 
 #include "sql_db.h"      // init_thd_db_read_only
                          // is_thd_db_read_only_by_name
+#include "sql_multi_tenancy.h"
 
 #ifdef HAVE_JEMALLOC
 #ifndef EMBEDDED_LIBRARY
@@ -1564,6 +1565,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
     status_var_increment(thd->status_var.com_stat[SQLCOM_CHANGE_DB]);
     thd->convert_string(&tmp, system_charset_info,
 			packet, packet_length, thd->charset());
+
     if (!mysql_change_db(thd, &tmp, FALSE))
     {
       general_log_write(thd, command, thd->db, thd->db_length);
@@ -1704,11 +1706,11 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
     if (parser_state.init(thd, thd->query(), thd->query_length()))
       break;
 
-    my_bool exit_admission_control = FALSE;
-    // thd->db can be changed. So make a copy here.
-    std::string db = thd->db ? std::string(thd->db) : "";
+    // This is for admission control backward compatibility. Eventually this
+    // will be set in in the query attributes.
+    thd->query_attrs_map[multi_tenancy_entity_db] = thd->db ? thd->db : "";
     mysql_parse(thd, thd->query(), thd->query_length(), &parser_state,
-                &last_timer, &async_commit, db, &exit_admission_control);
+                &last_timer, &async_commit);
 
     while (!thd->killed && (parser_state.m_lip.found_semicolon != NULL) &&
            ! thd->is_error())
@@ -1792,10 +1794,13 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
       parser_state.reset(beginning_of_next_stmt, length);
       /* TODO: set thd->lex->sql_command to SQLCOM_END here */
       mysql_parse(thd, beginning_of_next_stmt, length, &parser_state,
-                  &last_timer, &async_commit, db, &exit_admission_control);
+                  &last_timer, &async_commit);
     }
-    if (exit_admission_control)
-      db_ac->admission_control_exit(thd, db);
+    if (thd->is_in_ac && (!opt_admission_control_by_trx || thd->is_real_trans))
+    {
+      multi_tenancy_exit_query(thd, thd->query_attrs_map);
+      thd->is_in_ac = false;
+    }
 
     DBUG_PRINT("info",("query ready"));
     break;
@@ -4517,9 +4522,45 @@ end_with_restore_list:
   case SQLCOM_CHANGE_DB:
   {
     LEX_STRING db_str= { (char *) select_lex->db, strlen(select_lex->db) };
+    bool add_conn = false, release_conn = false;
+    // use a new map before we actually change the db successfully
+    std::unordered_map<std::string, std::string> attrs_map;
+    std::string old_db;
+    if (!thd->db || strcmp(thd->db, select_lex->db))
+    {
+      add_conn = true;
+      attrs_map[multi_tenancy_entity_db] = select_lex->db;
+      if (thd->db)
+      {
+        release_conn = true;
+        old_db = thd->db;
+      }
+    }
+
+    // check resource if we can switch the connection to another database
+    if (add_conn && multi_tenancy_add_connection(thd, attrs_map))
+    {
+      my_error(ER_MULTI_TENANCY_MAX_CONNECTION, MYF(0), select_lex->db);
+      goto error;
+    }
 
     if (!mysql_change_db(thd, &db_str, FALSE))
+    {
+      // release old connection resource in multi-tenancy plugin
+      if (release_conn)
+      {
+        attrs_map[multi_tenancy_entity_db] = old_db;
+        multi_tenancy_close_connection(thd, attrs_map);
+      }
+      // now update the connection attributes to reflect the new entity
+      thd->update_connection_attrs(attrs_map);
       my_ok(thd);
+    }
+    else if (add_conn)
+    {
+      // release connection resource in multi-tenancy plugin
+      multi_tenancy_close_connection(thd, attrs_map);
+    }
 
     break;
   }
@@ -7305,274 +7346,6 @@ static bool throttle_query_if_needed(THD* thd)
   DBUG_RETURN(false);
 }
 
-/**
-   @param thd THD structure.
-   @param entity current session's entity.
-
-   Applies admission control checks for the entity. Outline of
-   the steps in this function:
-   1. Error out if we crossed the max waiting limit.
-   2. Put the thd in a queue.
-   3. If we crossed the max running limit then wait for signal from threads
-      that completed their query execution.
-
-   @return False Run this query.
-           True  maximum waiting queries limit reached. Error out this query.
-*/
-bool AC::admission_control_enter(THD* thd, const std::string& entity) {
-  bool error = false;
-  const char* prev_proc_info = thd->proc_info;
-  THD_STAGE_INFO(thd, stage_admission_control_enter);
-  bool release_lock_ac = true;
-  // Unlock this before waiting.
-  mysql_rwlock_rdlock(&LOCK_ac);
-  if (max_running_queries) {
-    auto it = ac_map.find(entity);
-    if (it == ac_map.end()) {
-      // New DB.
-      mysql_rwlock_unlock(&LOCK_ac);
-      insert(entity);
-      mysql_rwlock_rdlock(&LOCK_ac);
-      it = ac_map.find(entity);
-    }
-
-    if (!thd->ac_node) {
-      // Both THD and the admission control queue will share the object
-      // created here.
-      thd->ac_node = std::make_shared<st_ac_node>();
-    }
-    auto ac_info = it->second;
-    mysql_mutex_lock(&ac_info->lock);
-    if (ac_info->queue.size() >= max_running_queries) {
-      if (max_waiting_queries &&
-          ac_info->queue.size() >= max_running_queries + max_waiting_queries) {
-        ++total_aborted_queries;
-        // We reached max waiting limit. Error out
-        mysql_mutex_unlock(&ac_info->lock);
-        error = true;
-      } else {
-        ac_info->queue.push_back(thd->ac_node);
-        ++ac_info->waiting_queries;
-        /**
-          Inserting or deleting in std::map will not invalidate existing
-          iterators except of course if the current iterator is erased. If the
-          db corresponding to this iterator is getting dropped, these waiting
-          queries are given signal to abort before the iterator
-          is erased. See AC::remove().
-          So, we don't need LOCK_ac here. The motivation to unlock the read lock
-          is that waiting queries here shouldn't block other operations
-          modifying ac_map or max_running_queries/max_waiting_queries.
-        */
-        mysql_rwlock_unlock(&LOCK_ac);
-        release_lock_ac = false;
-        wait_for_signal(thd, thd->ac_node, ac_info);
-        --ac_info->waiting_queries;
-      }
-    } else {
-      // We are below the max running limit.
-      ac_info->queue.push_back(thd->ac_node);
-      mysql_mutex_unlock(&ac_info->lock);
-    }
-  }
-  if (release_lock_ac) {
-    mysql_rwlock_unlock(&LOCK_ac);
-  }
-  thd->proc_info = prev_proc_info;
-  return error;
-}
-
-void AC::wait_for_signal(THD* thd, std::shared_ptr<st_ac_node>& ac_node,
-                         std::shared_ptr<Ac_info> ac_info) {
-  PSI_stage_info old_stage;
-  mysql_mutex_lock(&ac_node->lock);
-  /**
-    The locking order followed during admission_control_enter() is
-    lock ac_info
-    lock ac_node
-    unlock ac_info
-    unlock ac_node
-    The locks are interleaved to avoid possible races which makes
-    this waiting thread miss the signal from admission_control_exit().
-  */
-  mysql_mutex_unlock(&ac_info->lock);
-  thd->ENTER_COND(&ac_node->cond, &ac_node->lock,
-                  &stage_waiting_for_admission,
-                  &old_stage);
-  // Spurious wake-ups are rare and fine in this design.
-  mysql_cond_wait(&ac_node->cond, &ac_node->lock);
-  thd->EXIT_COND(&old_stage);
-}
-
-/**
-  @param thd THD structure
-  @param entity current session's entity
-
-  Signals one waiting thread. Pops out the first THD in the queue.
-*/
-void AC::admission_control_exit(THD* thd, const std::string& entity) {
-  const char* prev_proc_info = thd->proc_info;
-  THD_STAGE_INFO(thd, stage_admission_control_exit);
-  mysql_rwlock_rdlock(&LOCK_ac);
-  auto it = ac_map.find(entity);
-  if (it != ac_map.end()) {
-    auto ac_info = it->second.get();
-    mysql_mutex_lock(&ac_info->lock);
-    if (max_running_queries &&
-        ac_info->queue.size() > max_running_queries) {
-      signal(ac_info->queue[max_running_queries]);
-    }
-    // The queue is empty if max_running_queries is toggled to 0
-    // when this THD is inside admission_control_enter().
-    if (ac_info->queue.size())
-    {
-      /**
-        The popped value here doesn't necessarily give the ac_node of the
-        current THD. It is better if the popped value is not accessed at all.
-      */
-      ac_info->queue.pop_front();
-    }
-    mysql_mutex_unlock(&ac_info->lock);
-  }
-  mysql_rwlock_unlock(&LOCK_ac);
-  thd->proc_info = prev_proc_info;
-}
-
-/*
-  @param sql_command command the thread is currently executing
-
-  @return true Skips the current query in admission control
-          false Admission control checks are applied for this query
-*/
-static bool filter_command(enum_sql_command sql_command)
-{
-  switch (sql_command) {
-    case SQLCOM_ALTER_TABLE:
-    case SQLCOM_ALTER_DB:
-    case SQLCOM_ALTER_PROCEDURE:
-    case SQLCOM_ALTER_FUNCTION:
-    case SQLCOM_ALTER_TABLESPACE:
-    case SQLCOM_ALTER_SERVER:
-    case SQLCOM_ALTER_EVENT:
-    case SQLCOM_ALTER_DB_UPGRADE:
-    case SQLCOM_ALTER_USER:
-    case SQLCOM_RENAME_TABLE:
-    case SQLCOM_RENAME_USER:
-      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_ALTER);
-
-    case SQLCOM_BEGIN:
-      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_BEGIN);
-
-    case SQLCOM_COMMIT:
-      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_COMMIT);
-
-    case SQLCOM_CREATE_TABLE:
-    case SQLCOM_CREATE_INDEX:
-    case SQLCOM_CREATE_DB:
-    case SQLCOM_CREATE_FUNCTION:
-    case SQLCOM_CREATE_USER:
-    case SQLCOM_CREATE_PROCEDURE:
-    case SQLCOM_CREATE_SPFUNCTION:
-    case SQLCOM_CREATE_VIEW:
-    case SQLCOM_CREATE_TRIGGER:
-    case SQLCOM_CREATE_SERVER:
-    case SQLCOM_CREATE_EVENT:
-      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_CREATE);
-
-    case SQLCOM_DELETE:
-    case SQLCOM_DELETE_MULTI:
-      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_DELETE);
-
-    case SQLCOM_DROP_TABLE:
-    case SQLCOM_DROP_INDEX:
-    case SQLCOM_DROP_DB:
-    case SQLCOM_DROP_FUNCTION:
-    case SQLCOM_DROP_USER:
-    case SQLCOM_DROP_PROCEDURE:
-    case SQLCOM_DROP_VIEW:
-    case SQLCOM_DROP_TRIGGER:
-    case SQLCOM_DROP_SERVER:
-    case SQLCOM_DROP_EVENT:
-      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_DROP);
-
-    case SQLCOM_INSERT:
-    case SQLCOM_INSERT_SELECT:
-      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_INSERT);
-
-    case SQLCOM_LOAD:
-      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_LOAD);
-
-    case SQLCOM_SELECT:
-      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_SELECT);
-
-    case SQLCOM_SET_OPTION:
-      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_SET);
-
-    case SQLCOM_REPLACE:
-    case SQLCOM_REPLACE_SELECT:
-      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_REPLACE);
-
-    case SQLCOM_ROLLBACK:
-      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_ROLLBACK);
-
-    case SQLCOM_TRUNCATE:
-      return IS_BIT_SET(admission_control_filter,  ADMISSION_CONTROL_TRUNCATE);
-
-    case SQLCOM_UPDATE:
-    case SQLCOM_UPDATE_MULTI:
-      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_UPDATE);
-
-    case SQLCOM_SHOW_DATABASES:
-    case SQLCOM_SHOW_TABLES:
-    case SQLCOM_SHOW_FIELDS:
-    case SQLCOM_SHOW_KEYS:
-    case SQLCOM_SHOW_VARIABLES:
-    case SQLCOM_SHOW_STATUS:
-    case SQLCOM_SHOW_ENGINE_LOGS:
-    case SQLCOM_SHOW_ENGINE_STATUS:
-    case SQLCOM_SHOW_ENGINE_MUTEX:
-    case SQLCOM_SHOW_PROCESSLIST:
-    case SQLCOM_SHOW_TRANSACTION_LIST:
-    case SQLCOM_SHOW_MASTER_STAT:
-    case SQLCOM_SHOW_SLAVE_STAT:
-    case SQLCOM_SHOW_GRANTS:
-    case SQLCOM_SHOW_CREATE:
-    case SQLCOM_SHOW_CHARSETS:
-    case SQLCOM_SHOW_COLLATIONS:
-    case SQLCOM_SHOW_CREATE_DB:
-    case SQLCOM_SHOW_TABLE_STATUS:
-    case SQLCOM_SHOW_TRIGGERS:
-    case SQLCOM_SHOW_BINLOGS:
-    case SQLCOM_SHOW_OPEN_TABLES:
-    case SQLCOM_SHOW_SLAVE_HOSTS:
-    case SQLCOM_SHOW_BINLOG_EVENTS:
-    case SQLCOM_SHOW_BINLOG_CACHE:
-    case SQLCOM_SHOW_WARNS:
-    case SQLCOM_SHOW_ERRORS:
-    case SQLCOM_SHOW_STORAGE_ENGINES:
-    case SQLCOM_SHOW_PRIVILEGES:
-    case SQLCOM_SHOW_CREATE_PROC:
-    case SQLCOM_SHOW_CREATE_FUNC:
-    case SQLCOM_SHOW_STATUS_PROC:
-    case SQLCOM_SHOW_STATUS_FUNC:
-    case SQLCOM_SHOW_PROC_CODE:
-    case SQLCOM_SHOW_FUNC_CODE:
-    case SQLCOM_SHOW_PLUGINS:
-    case SQLCOM_SHOW_CREATE_EVENT:
-    case SQLCOM_SHOW_EVENTS:
-    case SQLCOM_SHOW_CREATE_TRIGGER:
-    case SQLCOM_SHOW_PROFILE:
-    case SQLCOM_SHOW_PROFILES:
-    case SQLCOM_SHOW_RELAYLOG_EVENTS:
-    case SQLCOM_SHOW_ENGINE_TRX:
-    case SQLCOM_SHOW_MEMORY_STATUS:
-    case SQLCOM_SHOW_CONNECTION_ATTRIBUTES:
-      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_SHOW);
-
-    default:
-      return false;
-  }
-}
-
 /*
   When you modify mysql_parse(), you may need to mofify
   mysql_test_parse_for_slave() in this same file.
@@ -7586,8 +7359,6 @@ static bool filter_command(enum_sql_command sql_command)
   @param       length  Length of the query text
   @param[out]  found_semicolon For multi queries, position of the character of
                                the next query in the query text.
-  @param[in]  db
-              database name used for admission control checks
   @param[in, out] exit_admission_control
               Set to TRUE when admission control limits are applied and
               query is allowed to run. This flag is TRUE if the THD entered
@@ -7597,9 +7368,7 @@ static bool filter_command(enum_sql_command sql_command)
 
 void mysql_parse(THD *thd, char *rawbuf, uint length,
                  Parser_state *parser_state, ulonglong *last_timer,
-                 my_bool* async_commit,
-                 const std::string &db,
-                 my_bool* exit_admission_control)
+                 my_bool* async_commit)
 {
   int error MY_ATTRIBUTE((unused));
   ulonglong statement_start_time;
@@ -7742,39 +7511,16 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
             error= 1;
           }
           else {
-            bool admission_check= false;
-            /**
-              Admission control checks are skipped in the following
-              scenarios.
-              1. The query is run by super user
-              2. The THD is a replication thread
-              3. If this is a multi query packet and the THD already entered
-                 admission control
-              4. No database is set for this session
-              5. Admission control checks are turned off by setting
-                 max_running_queries=0
-              6. If the command is filtered from admission checks
-            */
-            if (!(thd->security_ctx->master_access & SUPER_ACL) &&
-                !thd->rli_slave &&
-                exit_admission_control && !(*exit_admission_control) &&
-                !db.empty() &&
-                db_ac->get_max_running_queries() &&
-                !filter_command(thd->lex->sql_command)) {
-              admission_check= true;
-            }
-
-            if (admission_check &&
-                db_ac->admission_control_enter(thd, db)) {
+            if (multi_tenancy_admit_query(thd, thd->query_attrs_map))
+            {
               my_error(ER_DB_ADMISSION_CONTROL, MYF(0),
-                       db_ac->get_max_waiting_queries(), thd->db);
+                       db_ac->get_max_waiting_queries(),
+                       thd->query_attrs_map[multi_tenancy_entity_db].c_str());
               error= 1;
-            } else {
+            }
+            else
               error = mysql_execute_command(thd, &statement_start_time,
                                             last_timer);
-              if (exit_admission_control && admission_check)
-                *exit_admission_control = TRUE;
-            }
           }
           if (error == 0 &&
               thd->variables.gtid_next.type == GTID_GROUP &&

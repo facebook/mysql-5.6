@@ -1,0 +1,93 @@
+--source include/have_mt_simple.inc
+
+--replace_regex /\.dll/.so/
+eval install plugin mt_simple soname '$MT_SIMPLE';
+select * from information_schema.plugins where plugin_name like 'mt_simple';
+show global variables like 'mt_simple_%';
+show global status like 'mt_simple_%';
+
+# queries for sanity
+create table t1(a text, b text);
+drop table t1;
+
+# Add 10 connections
+disable_query_log;
+disable_result_log;
+let $i= 10;
+while ($i)
+{
+  connect (con$i, localhost, root,,);
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+
+connection default;
+show global status like 'mt_simple_%';
+
+# now turn off the plugin
+set global mt_simple_on = 0;
+
+# add more connections which should not be counted by mt_simple
+disable_query_log;
+disable_result_log;
+let $i= 20;
+while ($i > 10)
+{
+  connect (con$i, localhost, root,,);
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+
+connection default;
+show global status like 'mt_simple_%';
+set global mt_simple_on = 1;
+
+disable_query_log;
+disable_result_log;
+let $i= 20;
+while ($i)
+{
+  disconnect con$i;
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+
+connection default;
+# wait for the connections being disconnected
+let $wait_condition=
+  select count(*)=1 from information_schema.processlist;
+source include/wait_condition.inc;
+
+show global status like 'mt_simple_%';
+
+# uninstall will set the plugin to DELETED state
+# and will be unloaded when during server restart
+uninstall plugin mt_simple;
+select * from information_schema.plugins where plugin_name like 'mt_simple';
+
+show global variables like 'mt_simple_%';
+show global status like 'mt_simple_%';
+
+# Since the plugin is in DELETED state, new connections will not use mt_simple
+disable_query_log;
+disable_result_log;
+let $i= 10;
+while ($i)
+{
+  connect (con$i, localhost, root,,);
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+
+connection default;
+show global variables like 'mt_simple_%';
+show global status like 'mt_simple_%';
+
+# restart server
+--source include/restart_mysqld.inc
+# after restart, the plugin should be unloaded
+select * from information_schema.plugins where plugin_name like 'mt_simple';

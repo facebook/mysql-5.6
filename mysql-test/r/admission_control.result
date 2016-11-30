@@ -30,6 +30,35 @@ Verify the waiting queries received wakeup signal.
 select count(*) from t1;
 count(*)
 15
+set @save_admission_control_by_trx = @@global.admission_control_by_trx;
+select @save_admission_control_by_trx;
+@save_admission_control_by_trx
+0
+# By default, open transaction has no effect on running queries
+select count(*) from t1;
+count(*)
+15
+# Test: open transactions will take slots in running queries,
+#       and will not be blocked
+set @@global.admission_control_by_trx = true;
+SELECT @@global.admission_control_by_trx;
+@@global.admission_control_by_trx
+1
+Open transaction is able to continue running queries
+connection con_max_wait
+New queries will be rejected
+select * from t1;
+ERROR HY000: Maximum waiting queries 6 reached for database `test_db`
+New transactions will be rejected
+begin;
+ERROR HY000: Maximum waiting queries 6 reached for database `test_db`
+Committing a transaction will free up the running query slots
+The waiting queries will be unblocked
+set @@global.admission_control_by_trx = @save_admission_control_by_trx;
+select @@global.admission_control_by_trx;
+@@global.admission_control_by_trx
+0
+# End of open transaction test
 Run parallel load and drop the database.
 set @@global.max_waiting_queries=0;
 Cleanup.
