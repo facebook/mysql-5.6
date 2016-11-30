@@ -7,6 +7,8 @@
 # slave_2 is between 0 and heartbeat period. We then kill the master and
 # check if the lag on slave_2 keeps increasing.
 
+source include/not_valgrind.inc;
+
 let $rpl_server_count= 3;
 let $rpl_topology= 1->2->3;
 source include/rpl_init.inc;
