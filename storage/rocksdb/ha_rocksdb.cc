@@ -46,7 +46,6 @@
 #include "rocksdb/slice_transform.h"
 #include "rocksdb/utilities/checkpoint.h"
 #include "rocksdb/utilities/convenience.h"
-#include "rocksdb/utilities/flashcache.h"
 #include "rocksdb/utilities/memory_util.h"
 
 /* MyRocks includes */
@@ -60,10 +59,6 @@
 #include "./rdb_index_merge.h"
 #include "./rdb_mutex_wrapper.h"
 #include "./rdb_threads.h"
-
-#ifdef TARGET_OS_LINUX
-extern my_bool cachedev_enabled;
-#endif /* TARGET_OS_LINUX */
 
 // Internal MySQL APIs not exposed in any header.
 extern "C"
@@ -3652,33 +3647,6 @@ static int rocksdb_init_func(void *p)
 
   rocksdb::Options main_opts(rocksdb_db_options,
                              rocksdb_cf_options_map.get_defaults());
-
-  /*
-    Flashcache configuration:
-    When running on Flashcache, mysqld opens Flashcache device before
-    initializing storage engines, and setting file descriptor at
-    cachedev_fd global variable.
-    RocksDB has Flashcache-aware configuration. When this is enabled,
-    RocksDB adds background threads into Flashcache blacklists, which
-    makes sense for Flashcache use cases.
-  */
-  if (cachedev_enabled)
-  {
-    flashcache_aware_env=
-      rocksdb::NewFlashcacheAwareEnv(rocksdb::Env::Default(),
-                                     cachedev_fd);
-    if (flashcache_aware_env.get() == nullptr)
-    {
-      // NO_LINT_DEBUG
-      sql_print_error("RocksDB: Failed to open flashcache device at fd %d",
-                      cachedev_fd);
-      rdb_open_tables.free_hash();
-      DBUG_RETURN(1);
-    }
-    sql_print_information("RocksDB: Disabling flashcache on background "
-                          "writer threads, fd %d", cachedev_fd);
-    main_opts.env= flashcache_aware_env.get();
-  }
 
   main_opts.env->SetBackgroundThreads(main_opts.max_background_flushes,
                                       rocksdb::Env::Priority::HIGH);
