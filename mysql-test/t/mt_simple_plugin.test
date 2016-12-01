@@ -56,6 +56,11 @@ enable_query_log;
 enable_result_log;
 
 connection default;
+# wait for the connections being disconnected
+let $wait_condition=
+  select count(*)=1 from information_schema.processlist;
+source include/wait_condition.inc;
+
 show global status like 'mt_simple_%';
 
 # uninstall will set the plugin to DELETED state
