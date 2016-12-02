@@ -2,6 +2,7 @@
 
 source include/master-slave.inc;
 source include/have_debug.inc;
+source include/not_mts_dependency_replication.inc;
 
 let rpl_server_number=2;
 source include/rpl_restart_server.inc;

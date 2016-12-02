@@ -6,3 +6,8 @@ binlog-format=statement
 
 [mix]
 binlog-format=mixed
+
+[dep]
+binlog-format=row
+slave_use_idempotent_for_recovery=yes
+mts_dependency_replication=true

@@ -890,6 +890,56 @@ int my_b_event_read(IO_CACHE* file, uchar *buf, int buflen)
 #endif
 #ifndef MYSQL_CLIENT
 #ifdef HAVE_REPLICATION
+void Log_event::do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev)
+{
+  DBUG_ENTER("Log_event::do_add_to_dag");
+
+  if (ev->get_begin_event())
+  {
+    DBUG_ASSERT(rli->prev_event != NULL);
+    rli->dag.add_dependency(rli->prev_event, ev);
+  }
+  else
+  {
+    if (!(get_type_code() == INTVAR_EVENT ||
+          get_type_code() == RAND_EVENT ||
+          get_type_code() == USER_VAR_EVENT ||
+          get_type_code() == BEGIN_LOAD_QUERY_EVENT ||
+          get_type_code() == APPEND_BLOCK_EVENT ||
+          is_ignorable_event()))
+    {
+      char llbuff[22];
+      llstr(rli->get_event_relay_log_pos(), llbuff);
+      my_error(ER_MTS_CANT_PARALLEL, MYF(0),
+               get_type_str(), rli->get_event_relay_log_name(), llbuff,
+               "the event is a part of a group that is unsupported in "
+               "the parallel execution mode");
+    }
+    else
+    {
+      sql_print_information(
+          "Got independent event %s, master binlog position: %s:%llu",
+          get_type_str(), rli->get_group_master_log_name(),
+          rli->get_group_master_log_pos());
+
+      // make this a sync group in the DAG, this is our safest option
+      rli->dag_sync_group= true;
+      for (auto& node : DAG<Log_event_wrapper*>::node_set(rli->dag.get_tail()))
+      {
+        if (node->is_end_event)
+          rli->dag.add_dependency(node, ev);
+      }
+
+      DBUG_ASSERT(rli->dag.get_tail().size() == 1 &&
+                  rli->dag.get_tail().count(ev) == 1);
+
+      ev->is_begin_event= true;
+    }
+  }
+
+  DBUG_VOID_RETURN;
+}
+
 inline int Log_event::do_apply_event_worker(Slave_worker *w)
 { 
   return do_apply_event(w);
@@ -3164,6 +3214,162 @@ bool Log_event::is_row_log_event()
   return false;
 }
 
+/*
+  Adds an event to the DAG
+*/
+void Log_event::add_to_dag(Relay_log_info *rli)
+{
+  DBUG_ENTER("Log_event::add_to_dag");
+
+  // wait if DAG has reached full capacity
+  mysql_mutex_lock(&rli->dag_full_mutex);
+  while (rli->dag_full)
+  {
+    mysql_cond_wait(&rli->dag_full_cond, &rli->dag_full_mutex);
+  }
+  mysql_mutex_unlock(&rli->dag_full_mutex);
+
+  rli->dag_wrlock();
+
+  Log_event_wrapper *ev= new Log_event_wrapper(this, rli->current_begin_event);
+  do_add_to_dag(rli, ev);
+
+  DBUG_ASSERT(!rli->dag.is_empty() || ev->is_begin_event);
+
+  if (starts_group())
+  {
+    rli->curr_group_seen_begin= true;
+    rli->mts_end_group_sets_max_dbs= true;
+  }
+  else if (is_gtid_event(this))
+    rli->curr_group_seen_gtid= true;
+  else if (rli->part_event)
+  {
+    rli->mts_end_group_sets_max_dbs= false;
+    Mts_db_names mts_dbs;
+    get_mts_dbs(&mts_dbs);
+    if (mts_dbs.num == OVER_MAX_DBS_IN_EVENT_MTS)
+    {
+      // make this a sync group in the DAG
+      rli->dag_sync_group= true;
+      auto begin_event= ev->is_begin_event ? ev : ev->get_begin_event();
+      DBUG_ASSERT(begin_event != NULL);
+      for (auto& node : DAG<Log_event_wrapper*>::node_set(rli->dag.get_tail()))
+      {
+        if (node->is_end_event && node != ev)
+          rli->dag.add_dependency(node, begin_event);
+      }
+    }
+  }
+
+  if (ev->is_begin_event) do_post_begin_event(rli, ev);
+
+  DBUG_ASSERT((ev->is_begin_event ? ev : ev->get_begin_event()) ==
+              rli->current_begin_event);
+
+  if (ev->is_end_event) do_post_end_event(rli, ev);
+
+  DBUG_ASSERT(ev->is_begin_event ||
+              rli->dag.path_exists(ev->get_begin_event(), ev));
+
+  mts_group_idx= rli->gaq->assigned_group_index;
+
+  rli->prev_event= ev;
+
+  // case: this event is ready to be executed
+  if (rli->dag.get_parents(ev).empty()) ev->signal();
+
+  rli->dag_unlock();
+
+  // broadcast a change in DAG
+  mysql_mutex_lock(&rli->dag_changed_mutex);
+  rli->dag_changed= true;
+  mysql_cond_broadcast(&rli->dag_changed_cond);
+  mysql_mutex_unlock(&rli->dag_changed_mutex);
+
+  // DAG not empty anymore!
+  mysql_mutex_lock(&rli->dag_empty_mutex);
+  rli->dag_empty= false;
+  mysql_mutex_unlock(&rli->dag_empty_mutex);
+
+  DBUG_VOID_RETURN;
+}
+
+/**
+  Encapsulation for things to be done after adding a begin-event to DAG
+*/
+void Log_event::do_post_begin_event(Relay_log_info *rli, Log_event_wrapper *ev)
+{
+  DBUG_ASSERT(ev->is_begin_event);
+
+  rli->tables_accessed_by_group.clear();
+
+  // update rli state
+  rli->current_begin_event= ev;
+  rli->mts_groups_assigned++;
+
+  // insert a group representative in the GAQ
+  Slave_job_group group;
+  group.reset(log_pos, rli->mts_groups_assigned);
+  group.group_master_log_name=
+    my_strdup(rli->get_group_master_log_name(), MYF(MY_WME));
+  rli->gaq->assigned_group_index= rli->gaq->en_queue((void *) &group);
+}
+
+/**
+  Encapsulation for things to be done after adding an end-event to DAG
+*/
+void Log_event::do_post_end_event(Relay_log_info *rli, Log_event_wrapper *ev)
+{
+  DBUG_ASSERT(ev->is_end_event);
+
+  // populate table->last trx penultimate event map
+  // NOTE: we store the end event for a single event trx
+  for (auto& table_id : rli->tables_accessed_by_group)
+    rli->dag_table_last_penultimate_event[table_id]= rli->prev_event ?
+                                                     rli->prev_event : ev;
+
+  // case: this group needs to be executed in isolation
+  if (rli->dag_sync_group)
+  {
+    DBUG_ASSERT(rli->dag.get_tail().count(ev));
+    rli->dag.set_sync_node(ev);
+    rli->dag_sync_group= false;
+  }
+
+  // admission control in DAG
+  mysql_mutex_lock(&rli->dag_full_mutex);
+  ++rli->dag_num_groups;
+  if (rli->dag_num_groups >= opt_mts_dependency_size) rli->dag_full= true;
+  mysql_mutex_unlock(&rli->dag_full_mutex);
+
+  // update rli state
+  rli->current_begin_event= NULL;
+  rli->prev_event= NULL;
+  rli->mts_group_status= Relay_log_info::MTS_END_GROUP;
+  rli->curr_group_seen_begin = rli->curr_group_seen_gtid = false;
+
+  // update coordinates in GAQ
+  Slave_job_group *ptr_group=
+    rli->gaq->get_job_group(rli->gaq->assigned_group_index);
+
+  ptr_group->group_relay_log_name=
+    my_strdup(rli->get_event_relay_log_name(), MYF(MY_WME));
+  ptr_group->checkpoint_log_name=
+    my_strdup(rli->get_group_master_log_name(), MYF(MY_WME));
+  ptr_group->checkpoint_relay_log_name=
+    my_strdup(rli->get_group_relay_log_name(), MYF(MY_WME));
+  ptr_group->checkpoint_log_pos= rli->get_group_master_log_pos();
+  ptr_group->checkpoint_relay_log_pos= rli->get_group_relay_log_pos();
+
+  ptr_group->checkpoint_seqno= rli->checkpoint_seqno;
+  rli->checkpoint_seqno++;
+
+  // seconds_behind_master related
+  if (is_relay_log_event()) ptr_group->ts= 0;
+  else ptr_group->ts= when.tv_sec + (time_t) exec_time;
+}
+
 /**
    Scheduling event to execute in parallel or execute it directly.
    In MTS case the event gets associated with either Coordinator or a
@@ -3192,13 +3398,14 @@ int Log_event::apply_event(Relay_log_info *rli)
   bool seq_execution = (!parallel || actual_exec_mode != EVENT_EXEC_PARALLEL);
 
   rli->ends_group = ends_group();
+  rli->part_event = contains_partition_info(rli->mts_end_group_sets_max_dbs);
+
   /**
      Check if the current event changes any databases. Last gtid executed per
      database are stored in slave_gtid_info table for crash safe slave.
   */
-  if ((rli->part_event = contains_partition_info(false)) && gtid_mode > 0 &&
-      !thd->is_enabled_idempotent_recovery() &&
-      rli != thd->rli_fake)
+  if (rli->part_event && gtid_mode > 0 && rli != thd->rli_fake &&
+      !thd->is_enabled_idempotent_recovery())
   {
     Mts_db_names mts_dbs;
     // OVER_MAX_DBS_IN_EVENT_MTS is used for special queries like 'flush tables'
@@ -3441,7 +3648,7 @@ int Log_event::apply_event(Relay_log_info *rli)
               */
               (rli->curr_group_seen_begin && rli->curr_group_seen_gtid
                && ends_group()) ||
-              rli->last_assigned_worker ||
+              rli->last_assigned_worker || opt_mts_dependency_replication ||
               /*
                 Begin_load_query can be logged w/o db info and within
                 Begin/Commit. That's a pattern forcing sequential
@@ -3451,12 +3658,12 @@ int Log_event::apply_event(Relay_log_info *rli)
                dynamic_array_ptr(&rli->curr_group_da,
                                  rli->curr_group_da.elements - 1))-> 
               get_type_code() == BEGIN_LOAD_QUERY_EVENT);
-
   worker= NULL;
   rli->mts_group_status= Relay_log_info::MTS_IN_GROUP;
 
-  worker= (Relay_log_info*)
-    (rli->last_assigned_worker= get_slave_worker(rli));
+  if (!opt_mts_dependency_replication)
+    worker= (Relay_log_info*)
+      (rli->last_assigned_worker= get_slave_worker(rli));
 
 #ifndef DBUG_OFF
   if (rli->last_assigned_worker)
@@ -4755,7 +4962,8 @@ void Query_log_event::print(FILE* file, PRINT_EVENT_INFO* print_event_info)
 */
 void Query_log_event::attach_temp_tables_worker(THD *thd)
 {
-  if (!is_mts_worker(thd) || (ends_group() || starts_group()))
+  if (opt_mts_dependency_replication || !is_mts_worker(thd) ||
+      (ends_group() || starts_group()))
     return;
   
   // in over max-db:s case just one special partition is locked
@@ -4781,7 +4989,7 @@ void Query_log_event::attach_temp_tables_worker(THD *thd)
 */
 void Query_log_event::detach_temp_tables_worker(THD *thd)
 {
-  if (!is_mts_worker(thd))
+  if (opt_mts_dependency_replication || !is_mts_worker(thd))
     return;
 
   int parts= ((mts_accessed_dbs == OVER_MAX_DBS_IN_EVENT_MTS) ?
@@ -4858,6 +5066,89 @@ void Query_log_event::detach_temp_tables_worker(THD *thd)
                 !mts_assigned_partitions[i]->temporary_tables->prev);
   }
 #endif
+}
+
+void Query_log_event::do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev)
+{
+  DBUG_ENTER("Query_log_event::do_add_to_dag");
+
+  if (starts_group())
+  {
+    if (!rli->current_begin_event)
+    {
+      DBUG_ASSERT(ev->get_begin_event() == NULL);
+      rli->dag.add_node(ev);
+      rli->current_begin_event= ev;
+      ev->is_begin_event= true;
+    }
+    else
+    {
+      DBUG_ASSERT(rli->prev_event != NULL);
+      rli->dag.add_dependency(rli->prev_event, ev);
+    }
+  }
+  else if (ends_group())
+  {
+    DBUG_ASSERT(rli->prev_event != NULL);
+    DBUG_ASSERT(ev->get_begin_event() != NULL);
+    DBUG_ASSERT(!ev->get_begin_event()->whole_group_in_dag);
+
+    rli->dag.add_dependency(rli->prev_event, ev);
+    ev->is_end_event= true;
+    ev->get_begin_event()->whole_group_in_dag= true;
+  }
+  else
+  {
+    // case: DML, DDL statement which are logged without BEGIN and COMMIT
+    if (!rli->curr_group_seen_begin)
+    {
+      ev->is_end_event= true;
+      if (ev->get_begin_event())
+      {
+        DBUG_ASSERT(
+            rli->curr_group_seen_gtid ||
+            ev->get_begin_event()->get_raw_event()->get_type_code() ==
+                INTVAR_EVENT ||
+            ev->get_begin_event()->get_raw_event()->get_type_code() ==
+                RAND_EVENT ||
+            ev->get_begin_event()->get_raw_event()->get_type_code() ==
+                USER_VAR_EVENT ||
+            ev->get_begin_event()->get_raw_event()->get_type_code() ==
+                BEGIN_LOAD_QUERY_EVENT ||
+            ev->get_begin_event()->get_raw_event()->get_type_code() ==
+                APPEND_BLOCK_EVENT ||
+            is_ignorable_event());
+        DBUG_ASSERT(rli->prev_event != NULL);
+        rli->dag.add_dependency(rli->prev_event, ev);
+        ev->get_begin_event()->whole_group_in_dag= true;
+      }
+      else
+      {
+        rli->dag.add_node(ev);
+        ev->is_begin_event= true;
+        ev->whole_group_in_dag= true;
+      }
+    }
+    else
+    {
+        DBUG_ASSERT(rli->prev_event != NULL);
+        rli->dag.add_dependency(rli->prev_event, ev);
+    }
+
+    rli->dag_sync_group= true;
+    auto begin_event= ev->is_begin_event ? ev : ev->get_begin_event();
+    DBUG_ASSERT(begin_event != NULL);
+
+    for (auto& node : DAG<Log_event_wrapper*>::node_set(rli->dag.get_tail()))
+    {
+      if (node->is_end_event && node != ev)
+        rli->dag.add_dependency(node, begin_event);
+    }
+    DBUG_ASSERT(rli->dag.get_tail().size() == 1 &&
+                rli->dag.get_tail().count(ev) == 1);
+  }
+
+  DBUG_VOID_RETURN;
 }
 
 /*
@@ -5167,23 +5458,27 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
              because we received a Query_log_event which generated rows.
              If master's binlog format was ROW all row generating events would
              be sent as Row_log_events */
+
+          const char *option_name= NULL;
           if (thd->is_enabled_idempotent_recovery())
           {
-            rli->report(ERROR_LEVEL, ER_MTS_INCONSISTENT_DATA,
-                        "Master's binlog format is not ROW but idempotent "
-                        "recovery is enabled on the slave. Idempotent "
-                        "recovery should only be used when master's binlog "
-                        "format is ROW.");
-            thd->is_slave_error= 1;
-            goto end;
+            option_name= "slave_use_idempotent_for_recovery";
           }
           else if (rpl_skip_tx_api)
           {
+            option_name= "rpl_skip_tx_api";
+          }
+          else if (opt_mts_dependency_replication)
+          {
+            option_name= "mts_dependency_replication";
+          }
+
+          if (option_name != NULL)
+          {
             rli->report(ERROR_LEVEL, ER_MTS_INCONSISTENT_DATA,
-                        "Master's binlog format is not ROW but "
-                        "rpl_skip_tx_api is enabled on the slave. "
-                        "rpl_skip_tx_api recovery should only be used "
-                        "when master's binlog format is ROW.");
+                "Master's binlog format is not ROW but %s is enabled on the "
+                "slave, this should only be used when master's binlog format "
+                "is ROW.", option_name);
             thd->is_slave_error= 1;
             goto end;
           }
@@ -7728,6 +8023,22 @@ bool Xid_log_event::do_commit(THD *thd)
     status_var_increment(thd->status_var.com_stat[SQLCOM_COMMIT]);
 
   return error;
+}
+
+void Xid_log_event::do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev)
+{
+  DBUG_ENTER("Xid_log_event::do_add_to_dag");
+
+  DBUG_ASSERT(rli->prev_event != NULL);
+  DBUG_ASSERT(ev->get_begin_event() != NULL);
+  DBUG_ASSERT(!ev->get_begin_event()->whole_group_in_dag);
+
+  rli->dag.add_dependency(rli->prev_event, ev);
+
+  ev->is_end_event= true;
+  ev->get_begin_event()->whole_group_in_dag= true;
+
+  DBUG_VOID_RETURN;
 }
 
 /**
@@ -11512,6 +11823,55 @@ static void restore_empty_query_table_list(LEX *lex)
   lex->query_tables_last= &lex->query_tables;
 }
 
+void Rows_log_event::do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev)
+{
+  DBUG_ENTER("Rows_log_event::do_add_to_dag");
+
+  // case: we have recorded the last trx's penultimate event for this table,
+  // and it exists in the DAG
+  if (rli->dag_table_last_penultimate_event.find(get_table_id()) !=
+      rli->dag_table_last_penultimate_event.end() &&
+      rli->dag.exists(rli->dag_table_last_penultimate_event[get_table_id()]))
+  {
+    Log_event_wrapper *last_penultimate_event=
+      rli->dag_table_last_penultimate_event[get_table_id()];
+
+    // add dependency last penultimate ev -> ev
+    rli->dag.add_dependency(last_penultimate_event, ev);
+
+    /*
+       NOTE: Why penultimate event?
+       We can depend on any event for the last trx after which can guarantee
+       that all row locks of that trx have been taken. This is required for
+       trx retries which could cause deadlocks between DAG dependencies and
+       engine level row locks. By depending on the penultimate event we can
+       guarantee that this event will be executed only after the last trx has
+       locked all its rows, so the last trx could retry any number of times
+       without causing a deadlock. Penultimate event works better than end
+       events because end events are usually where commit happens and depending
+       on commits basically serializes these trxs.
+    */
+
+    DBUG_ASSERT(rli->dag.exists(ev->get_begin_event()));
+
+    // case: last penultimate event's begin event exists in the DAG
+    if (rli->dag.exists(last_penultimate_event->get_begin_event()))
+    {
+      // add dependency between start events
+      // NOTE: This prevents starvation in the slave worker threads. This
+      // dependency makes sure that the trx containing @last_penultimate_event
+      // is pulled out before the current trx.
+      rli->dag.add_dependency(last_penultimate_event->get_begin_event(),
+                              ev->get_begin_event());
+    }
+  }
+  DBUG_ASSERT(rli->prev_event != NULL);
+  rli->dag.add_dependency(rli->prev_event, ev);
+  rli->tables_accessed_by_group.insert(get_table_id());
+
+  DBUG_VOID_RETURN;
+}
+
 int Rows_log_event::do_apply_event(Relay_log_info const *rli)
 {
   DBUG_ENTER("Rows_log_event::do_apply_event(Relay_log_info*)");
@@ -14550,6 +14910,15 @@ bool Gtid_log_event::write_data_header(IO_CACHE *file)
 #endif // MYSQL_SERVER
 
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
+void Gtid_log_event::do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev)
+{
+  DBUG_ENTER("Gtid_log_event::do_add_to_dag");
+  DBUG_ASSERT(ev->get_begin_event() == NULL);
+  rli->dag.add_node(ev);
+  ev->is_begin_event= true;
+  DBUG_VOID_RETURN;
+}
+
 int Gtid_log_event::do_apply_event(Relay_log_info const *rli)
 {
   DBUG_ENTER("Gtid_log_event::do_apply_event");

@@ -1875,7 +1875,7 @@ void Slave_worker::do_report(loglevel level, int err_code, const char *msg,
            as indicated by its running_status so synchronization can't succeed.
 */
 
-int wait_for_workers_to_finish(Relay_log_info const *rli, Slave_worker *ignore)
+int wait_for_workers_to_finish(Relay_log_info *rli, Slave_worker *ignore)
 {
   uint ret= 0;
   HASH *hash= &mapping_db_to_worker;
@@ -1892,54 +1892,66 @@ int wait_for_workers_to_finish(Relay_log_info const *rli, Slave_worker *ignore)
                           const_cast<Relay_log_info*>(rli)->get_event_relay_log_name(),
                           llbuf);
 
-  for (uint i= 0, ret= 0; i < hash->records; i++)
+  if (opt_mts_dependency_replication)
   {
-    db_worker_hash_entry *entry;
-
-    mysql_mutex_lock(&slave_worker_hash_lock);
-
-    entry= (db_worker_hash_entry*) my_hash_element(hash, i);
-
-    DBUG_ASSERT(entry);
-
-    // the ignore Worker retains its active resources
-    if (ignore && entry->worker == ignore && entry->usage > 0)
+    // wait till DAG is empty
+    mysql_mutex_lock(&rli->dag_empty_mutex);
+    while (!rli->dag_empty)
+      mysql_cond_wait(&rli->dag_empty_cond, &rli->dag_empty_mutex);
+    mysql_mutex_unlock(&rli->dag_empty_mutex);
+  }
+  else
+  {
+    for (uint i= 0, ret= 0; i < hash->records; i++)
     {
-      mysql_mutex_unlock(&slave_worker_hash_lock);
-      continue;
-    }
+      db_worker_hash_entry *entry;
 
-    if (entry->usage > 0 && !thd->killed)
-    {
-      PSI_stage_info old_stage;
-      Slave_worker *w_entry= entry->worker;
+      mysql_mutex_lock(&slave_worker_hash_lock);
 
-      entry->worker= NULL; // mark Worker to signal when  usage drops to 0
-      thd->ENTER_COND(&slave_worker_hash_cond,
-                      &slave_worker_hash_lock,
-                      &stage_slave_waiting_worker_to_release_partition,
-                      &old_stage);
-      do
+      entry= (db_worker_hash_entry*) my_hash_element(hash, i);
+
+      DBUG_ASSERT(entry);
+
+      // the ignore Worker retains its active resources
+      if (ignore && entry->worker == ignore && entry->usage > 0)
       {
-        mysql_cond_wait(&slave_worker_hash_cond, &slave_worker_hash_lock);
-        DBUG_PRINT("info",
-                   ("Either got awakened of notified: "
-                    "entry %p, usage %lu, worker %lu",
-                    entry, entry->usage, w_entry->id));
-      } while (entry->usage != 0 && !thd->killed);
-      entry->worker= w_entry; // restoring last association, needed only for assert
-      thd->EXIT_COND(&old_stage);
-      ret++;
+        mysql_mutex_unlock(&slave_worker_hash_lock);
+        continue;
+      }
+
+      if (entry->usage > 0 && !thd->killed)
+      {
+        PSI_stage_info old_stage;
+        Slave_worker *w_entry= entry->worker;
+
+        entry->worker= NULL; // mark Worker to signal when  usage drops to 0
+        thd->ENTER_COND(&slave_worker_hash_cond,
+                        &slave_worker_hash_lock,
+                        &stage_slave_waiting_worker_to_release_partition,
+                        &old_stage);
+        do
+        {
+          mysql_cond_wait(&slave_worker_hash_cond, &slave_worker_hash_lock);
+          DBUG_PRINT("info",
+                     ("Either got awakened of notified: "
+                      "entry %p, usage %lu, worker %lu",
+                      entry, entry->usage, w_entry->id));
+        } while (entry->usage != 0 && !thd->killed);
+        // restoring last association, needed only for assert
+        entry->worker= w_entry;
+        thd->EXIT_COND(&old_stage);
+        ret++;
+      }
+      else
+      {
+        mysql_mutex_unlock(&slave_worker_hash_lock);
+      }
+      // resources relocation
+      mts_move_temp_tables_to_thd(thd, entry->temporary_tables);
+      entry->temporary_tables= NULL;
+      if (entry->worker->running_status != Slave_worker::RUNNING)
+        cant_sync= TRUE;
     }
-    else
-    {
-      mysql_mutex_unlock(&slave_worker_hash_lock);
-    }
-    // resources relocation
-    mts_move_temp_tables_to_thd(thd, entry->temporary_tables);
-    entry->temporary_tables= NULL;
-    if (entry->worker->running_status != Slave_worker::RUNNING)
-      cant_sync= TRUE;
   }
 
   if (!ignore)
@@ -2063,7 +2075,7 @@ bool append_item_to_jobs(slave_job_item *job_item,
   PSI_stage_info old_stage;
 
 
-  DBUG_ASSERT(thd == current_thd);
+  DBUG_ASSERT(opt_mts_dependency_replication || thd == current_thd);
 
   if (ev_size > rli->mts_pending_jobs_size_max)
   {
@@ -2408,6 +2420,16 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
   }
   worker->current_event_index++;
   ev= static_cast<Log_event*>(job_item->data);
+
+  if (opt_mts_dependency_replication)
+  {
+    Slave_job_group *ptr_g= rli->gaq->get_job_group(ev->mts_group_idx);
+    ptr_g->worker= worker;
+    ptr_g->worker_id= worker->id;
+    ptr_g->shifted= worker->bitmap_shifted;
+    worker->bitmap_shifted= 0;
+  }
+
   thd->server_id = ev->server_id;
   thd->set_time();
   thd->lex->current_select= 0;
@@ -2417,6 +2439,7 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
   ev->worker= worker;
 
   DBUG_PRINT("slave_worker_exec_job:", ("W_%lu <- job item: %p data: %p thd: %p", worker->id, job_item, ev, thd));
+  part_event= ev->contains_partition_info(worker->end_group_sets_max_dbs);
 
   if (ev->starts_group())
   {
@@ -2425,35 +2448,37 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
   }
   else if (!is_gtid_event(ev))
   {
-    if ((part_event=
-         ev->contains_partition_info(worker->end_group_sets_max_dbs)))
+    if (part_event)
     {
-      uint num_dbs=  ev->mts_number_dbs();
-      DYNAMIC_ARRAY *ep= &worker->curr_group_exec_parts;
-
-      if (num_dbs == OVER_MAX_DBS_IN_EVENT_MTS)
-        num_dbs= 1;
-
-      DBUG_ASSERT(num_dbs > 0);
-
-      for (uint k= 0; k < num_dbs; k++)
+      if (!opt_mts_dependency_replication)
       {
-        bool found= FALSE;
+        uint num_dbs=  ev->mts_number_dbs();
+        DYNAMIC_ARRAY *ep= &worker->curr_group_exec_parts;
 
-        for (uint i= 0; i < ep->elements && !found; i++)
+        if (num_dbs == OVER_MAX_DBS_IN_EVENT_MTS)
+          num_dbs= 1;
+
+        DBUG_ASSERT(num_dbs > 0);
+
+        for (uint k= 0; k < num_dbs; k++)
         {
-          found=
-            *((db_worker_hash_entry **) dynamic_array_ptr(ep, i)) ==
-            ev->mts_assigned_partitions[k];
-        }
-        if (!found)
-        {
-          /*
-            notice, can't assert
-            DBUG_ASSERT(ev->mts_assigned_partitions[k]->worker == worker);
-            since entry could be marked as wanted by other worker.
-          */
-          insert_dynamic(ep, (uchar*) &ev->mts_assigned_partitions[k]);
+          bool found= FALSE;
+
+          for (uint i= 0; i < ep->elements && !found; i++)
+          {
+            found=
+              *((db_worker_hash_entry **) dynamic_array_ptr(ep, i)) ==
+              ev->mts_assigned_partitions[k];
+          }
+          if (!found)
+          {
+            /*
+              notice, can't assert
+              DBUG_ASSERT(ev->mts_assigned_partitions[k]->worker == worker);
+              since entry could be marked as wanted by other worker.
+            */
+            insert_dynamic(ep, (uchar*) &ev->mts_assigned_partitions[k]);
+          }
         }
       }
       worker->end_group_sets_max_dbs= false;
@@ -2528,7 +2553,8 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
     }
   }
 
-  if (ev->is_row_log_event() && !thd->is_enabled_idempotent_recovery())
+  if (ev->is_row_log_event() &&
+      !thd->is_enabled_idempotent_recovery())
   {
     Rows_log_event *row_ev = (Rows_log_event *) ev;
     if (!worker->worker_gtid_infos.elements && gtid_mode > 0)
@@ -2658,7 +2684,7 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
   // encountering a terminal event, so add a check for end_event and
   // temporary error.
   if ((worker->current_event_index > worker->last_current_event_index) ||
-      (end_event && worker->trans_retries == 1 && temporary_error))
+       (end_event && worker->trans_retries == 1 && temporary_error))
     slave_worker_update_pending_events(rli, ev);
 err:
   if (error)

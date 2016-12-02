@@ -7317,6 +7317,9 @@ ER_NP_WRONG_ARGUMENTS
 ER_NP_FAILED
   eng "Native procedure failed. (code: %d, msg: '%-.192s', query '%-.192s')"
 
+ER_CANT_SET_DEPENDENCY_REPLICATION_WITHOUT_IDEMPOTENT_RECOVERY
+  eng "@@GLOBAL.MTS_DEPENDENCY_REPLICATION cannot be set when @@GLOBAL.SLAVE_USE_IDEMPOTENT_FOR_RECOVERY = NO"
+
 #
 #  End of 5.6 error messages.
 #

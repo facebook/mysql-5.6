@@ -76,9 +76,13 @@ int Slave_reporting_capability::has_temporary_error(THD *thd,
   */
   // SQL threads may hit temporary error with XID_EVENT while updating
   // slave_gtid_info table during transaction prepare phase.
+  // Since slave_gtid_info table is not used if
+  // slave_use_idempotent_for_recovery is enabled, we don't consider COMMIT
+  // errors temporary if idempotent recovery is on.
   if (slave_trans_retries &&
       (error == ER_LOCK_DEADLOCK || error == ER_LOCK_WAIT_TIMEOUT ||
-       error == ER_ERROR_DURING_COMMIT))
+       (!thd->is_enabled_idempotent_recovery() &&
+        error == ER_ERROR_DURING_COMMIT)))
     DBUG_RETURN(1);
 
   /*

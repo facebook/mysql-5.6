@@ -55,10 +55,13 @@
 #include "rpl_rli_pdb.h"
 #include "global_threads.h"
 
+#include <thread>
+
 #ifdef HAVE_REPLICATION
 
 #include "rpl_tblmap.h"
 #include "debug_sync.h"
+#include "dependency_slave_worker.h"
 
 using std::min;
 using std::max;
@@ -4125,7 +4128,12 @@ apply_event_and_update_pos(Log_event** ptr_ev, THD* thd, Relay_log_info* rli)
 
     if (!exec_res && (ev->worker != rli))
     {
-      if (ev->worker)
+      if (opt_mts_dependency_replication)
+      {
+        DBUG_ASSERT(ev->worker == NULL);
+        ev->add_to_dag(rli);
+      }
+      else if (ev->worker)
       {
         Slave_job_item item= {ev}, *job_item= &item;
         Slave_worker *w= (Slave_worker *) ev->worker;
@@ -5546,9 +5554,16 @@ pthread_handler_t handle_slave_worker(void *arg)
 
   DBUG_ASSERT(thd->is_slave_error == 0);
 
-  while (!error)
+  if (opt_mts_dependency_replication)
   {
+    static_cast<Dependency_slave_worker*>(w)->start();
+  }
+  else
+  {
+    while (!error)
+    {
       error= slave_worker_exec_job(w, rli);
+    }
   }
 
 #if defined(FLUSH_REP_INFO)
@@ -6032,33 +6047,38 @@ bool mts_checkpoint_routine(Relay_log_info *rli, ulonglong period,
   // case: rebalance workers should be called only when the current event
   // in the coordinator is a begin or gtid event
   if (!force && opt_mts_dynamic_rebalance == TRUE &&
+      !opt_mts_dependency_replication &&
       !rli->curr_group_seen_begin && !rli->curr_group_seen_gtid)
   {
     rebalance_workers(rli);
   }
 
-  /* TODO: 
-     to turn the least occupied selection in terms of jobs pieces
-  */
-  for (uint i= 0; i < rli->workers.elements; i++)
+  if (!opt_mts_dependency_replication)
   {
-    Slave_worker *w_i;
-    get_dynamic(&rli->workers, (uchar *) &w_i, i);
-    set_dynamic(&rli->least_occupied_workers, (uchar*) &w_i->jobs.len, w_i->id);
-  };
-  sort_dynamic(&rli->least_occupied_workers, (qsort_cmp) ulong_cmp);
-
-  if (DBUG_EVALUATE_IF("skip_checkpoint_load_reset", 0, 1))
-  {
-    // reset the database load
-    mysql_mutex_lock(&slave_worker_hash_lock);
-    for (uint i= 0; i < mapping_db_to_worker.records; ++i)
+    /* TODO:
+       to turn the least occupied selection in terms of jobs pieces
+    */
+    for (uint i= 0; i < rli->workers.elements; i++)
     {
-      db_worker_hash_entry *entry=
-        (db_worker_hash_entry*) my_hash_element(&mapping_db_to_worker, i);
-      entry->load= 0;
+      Slave_worker *w_i;
+      get_dynamic(&rli->workers, (uchar *) &w_i, i);
+      set_dynamic(&rli->least_occupied_workers,
+                  (uchar*) &w_i->jobs.len, w_i->id);
+    };
+    sort_dynamic(&rli->least_occupied_workers, (qsort_cmp) ulong_cmp);
+
+    if (DBUG_EVALUATE_IF("skip_checkpoint_load_reset", 0, 1))
+    {
+      // reset the database load
+      mysql_mutex_lock(&slave_worker_hash_lock);
+      for (uint i= 0; i < mapping_db_to_worker.records; ++i)
+      {
+        db_worker_hash_entry *entry=
+          (db_worker_hash_entry*) my_hash_element(&mapping_db_to_worker, i);
+        entry->load= 0;
+      }
+      mysql_mutex_unlock(&slave_worker_hash_lock);
     }
-    mysql_mutex_unlock(&slave_worker_hash_lock);
   }
 
   if (need_data_lock)
@@ -6310,28 +6330,105 @@ void slave_stop_workers(Relay_log_info *rli, bool *mts_inited)
                            Relay_log_info::UNTIL_NONE)?
                            rli->mts_groups_assigned:0;
 
-  for (i= rli->workers.elements - 1; i >= 0; i--)
+  if (opt_mts_dependency_replication)
   {
-    Slave_worker *w;
-    struct slave_job_item item= {NULL}, *job_item= &item;
-    get_dynamic((DYNAMIC_ARRAY*)&rli->workers, (uchar*) &w, i);
-    mysql_mutex_lock(&w->jobs_lock);
-    //Inform all workers to stop
-    if (w->running_status != Slave_worker::RUNNING)
+    for (;;)
     {
-      mysql_mutex_unlock(&w->jobs_lock);
-      continue;
+      PSI_stage_info old_stage;
+      const auto WAIT_FOR_DAG_EMPTY= 2;
+      struct timespec dag_empty_timeout;
+      set_timespec(dag_empty_timeout, WAIT_FOR_DAG_EMPTY);
+
+      // timed wait till DAG is empty
+      mysql_mutex_lock(&rli->dag_empty_mutex);
+      thd->ENTER_COND(&rli->dag_empty_cond, &rli->dag_empty_mutex,
+          &stage_slave_waiting_workers_to_exit, &old_stage);
+
+      if (!rli->dag_empty)
+        mysql_cond_timedwait(&rli->dag_empty_cond,
+                             &rli->dag_empty_mutex,
+                             &dag_empty_timeout);
+
+      thd->EXIT_COND(&old_stage);
+
+      // check if workers already bailed due to error
+      bool workers_errored_out= true;
+      for (int i= rli->workers.elements - 1; i >= 0; i--)
+      {
+        Slave_worker *w;
+        get_dynamic((DYNAMIC_ARRAY*)&rli->workers, (uchar*) &w, i);
+        mysql_mutex_lock(&w->jobs_lock);
+        if (w->running_status == Slave_worker::RUNNING)
+        {
+          workers_errored_out= false;
+          mysql_mutex_unlock(&w->jobs_lock);
+          break;
+        }
+        mysql_mutex_unlock(&w->jobs_lock);
+      }
+      if (workers_errored_out) break;
+
+      // If *all* nodes in the head of the DAG are group start nodes whose
+      // whole group is not yet in the DAG we can discard them because that
+      // condition cannot be satisfied now that the SQL thread is stopped
+      rli->dag_rdlock();
+      bool good_to_break= true;
+      for (auto& node : rli->dag.get_head())
+      {
+        if (!node->is_begin_event || node->whole_group_in_dag)
+        {
+          good_to_break= false;
+          break;
+        }
+      }
+      rli->dag_unlock();
+      if (good_to_break) break;
     }
 
-    w->running_status= Slave_worker::STOP;
-    (void) set_max_updated_index_on_stop(w, job_item, w->current_event_index);
-    mysql_cond_signal(&w->jobs_cond);
+    // set all workers as STOP_ACCEPTED
+    for (i= rli->workers.elements - 1; i >= 0; i--)
+    {
+      Slave_worker *w;
+      get_dynamic((DYNAMIC_ARRAY*)&rli->workers, (uchar*) &w, i);
+      mysql_mutex_lock(&w->jobs_lock);
+      if (w->running_status != Slave_worker::RUNNING)
+      {
+        mysql_mutex_unlock(&w->jobs_lock);
+        continue;
+      }
+      w->running_status= Slave_worker::STOP_ACCEPTED;
+      mysql_mutex_unlock(&w->jobs_lock);
+    }
+    // signal threads waiting for events
+    mysql_mutex_lock(&rli->dag_changed_mutex);
+    mysql_cond_broadcast(&rli->dag_changed_cond);
+    mysql_mutex_unlock(&rli->dag_changed_mutex);
+  }
+  else
+  {
+    for (i= rli->workers.elements - 1; i >= 0; i--)
+    {
+      Slave_worker *w;
+      struct slave_job_item item= {NULL}, *job_item= &item;
+      get_dynamic((DYNAMIC_ARRAY*)&rli->workers, (uchar*) &w, i);
+      mysql_mutex_lock(&w->jobs_lock);
+      //Inform all workers to stop
+      if (w->running_status != Slave_worker::RUNNING)
+      {
+        mysql_mutex_unlock(&w->jobs_lock);
+        continue;
+      }
 
-    mysql_mutex_unlock(&w->jobs_lock);
+      w->running_status= Slave_worker::STOP;
+      (void) set_max_updated_index_on_stop(w, job_item, w->current_event_index);
+      mysql_cond_signal(&w->jobs_cond);
 
-    if (log_warnings > 1)
-      sql_print_information("Notifying Worker %lu to exit, thd %p", w->id,
-                            w->info_thd);
+      mysql_mutex_unlock(&w->jobs_lock);
+
+      if (log_warnings > 1)
+        sql_print_information("Notifying Worker %lu to exit, thd %p", w->id,
+                              w->info_thd);
+    }
   }
 
   thd_proc_info(thd, "Waiting for workers to exit");
@@ -6769,6 +6866,7 @@ llstr(rli->get_group_master_log_pos(), llbuff));
   */
   thd->clear_error();
   rli->cleanup_context(thd, 1);
+  if (opt_mts_dependency_replication) rli->clear_dag();
   /*
     Some extra safety, which should not been needed (normally, event deletion
     should already have done these assignments (each event which sets these
@@ -6830,7 +6928,6 @@ llstr(rli->get_group_master_log_pos(), llbuff));
   pthread_exit(0);
   return 0;                             // Avoid compiler warnings
 }
-
 
 /*
   process_io_create_file()
@@ -8180,7 +8277,8 @@ static Log_event* next_event(Relay_log_info* rli)
                           llstr(rli->get_event_relay_log_pos(),llbuf2)));
 
       DBUG_ASSERT(my_b_tell(cur_log) >= BIN_LOG_HEADER_SIZE);
-      DBUG_ASSERT(my_b_tell(cur_log) == rli->get_event_relay_log_pos() || rli->is_parallel_exec());
+      DBUG_ASSERT(my_b_tell(cur_log) == rli->get_event_relay_log_pos() ||
+                  rli->is_parallel_exec());
 
       DBUG_PRINT("info", ("next_event group master %s %lu group relay %s %lu event %s %lu\n",
         rli->get_group_master_log_name(),
@@ -8227,7 +8325,8 @@ static Log_event* next_event(Relay_log_info* rli)
       bool period_check= opt_mts_checkpoint_period != 0 &&
                          !rli->curr_group_seen_begin &&
                          !rli->curr_group_seen_gtid;
-      if (rli->is_parallel_exec() && (period_check || force))
+      if (rli->is_parallel_exec() &&
+          (period_check || force))
       {
         ulonglong period= static_cast<ulonglong>(opt_mts_checkpoint_period * 1000000ULL);
         mysql_mutex_unlock(&rli->data_lock);
@@ -8406,7 +8505,8 @@ static Log_event* next_event(Relay_log_info* rli)
         mysql_cond_broadcast(&rli->log_space_cond);
         // Note that wait_for_update_relay_log unlocks lock_log !
 
-        if (rli->is_parallel_exec() && (opt_mts_checkpoint_period != 0 ||
+        if (rli->is_parallel_exec() &&
+            (opt_mts_checkpoint_period != 0 ||
             DBUG_EVALUATE_IF("check_slave_debug_group", 1, 0)))
         {
           int ret= 0;
@@ -8426,7 +8526,8 @@ static Log_event* next_event(Relay_log_info* rli)
             mysql_mutex_lock(log_lock);
             // More to the empty relay-log all assigned events done so reset it.
             // Reset the flag of slave_has_caught_up
-            if (rli->gaq->empty() && reset_seconds_behind_master)
+            if (rli->gaq->empty() &&
+                reset_seconds_behind_master)
               rli->slave_has_caughtup= Enum_slave_caughtup::YES;
 
             if (DBUG_EVALUATE_IF("check_slave_debug_group", 1, 0))

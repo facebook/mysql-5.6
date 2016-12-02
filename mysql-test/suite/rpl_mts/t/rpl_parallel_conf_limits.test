@@ -12,6 +12,7 @@
 --source include/master-slave.inc
 # no support for Query-log-event in this test
 --source include/have_binlog_format_row.inc
+--source include/not_mts_dependency_replication.inc
 
 connection slave;
 

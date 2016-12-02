@@ -33,6 +33,7 @@
 #  TODO: convert this file into two tests for either value of 
 #        @@global.slave_run_query_in_parallel
 --source include/have_binlog_format_row.inc
+--source include/not_mts_dependency_replication.inc
 
 connection slave;
 

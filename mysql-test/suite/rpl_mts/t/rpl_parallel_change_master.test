@@ -11,6 +11,7 @@
 # so it made to be run in ROW format that is the way the bug is reported.
 --source include/have_binlog_format_row.inc
 --source include/have_innodb.inc
+--source include/not_mts_dependency_replication.inc
 
 --connection slave
 call mtr.add_suppression("Slave SQL: .*Could not execute Write_rows event on table d1.t1; Duplicate entry '13' for key 'a'");
