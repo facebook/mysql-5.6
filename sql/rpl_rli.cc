@@ -183,6 +183,14 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery
   recovery_sid_lock= new Checkable_rwlock;
   recovery_sid_map= new Sid_map(recovery_sid_lock);
 
+  mysql_rwlock_init(0, &dag_lock);
+  mysql_cond_init(0, &dag_changed_cond, NULL);
+  mysql_mutex_init(0, &dag_changed_mutex, MY_MUTEX_INIT_FAST);
+  mysql_cond_init(0, &dag_full_cond, NULL);
+  mysql_mutex_init(0, &dag_full_mutex, MY_MUTEX_INIT_FAST);
+  mysql_cond_init(0, &dag_empty_cond, NULL);
+  mysql_mutex_init(0, &dag_empty_mutex, MY_MUTEX_INIT_FAST);
+
   DBUG_VOID_RETURN;
 }
 
@@ -249,6 +257,14 @@ Relay_log_info::~Relay_log_info()
   recovery_sid_lock= NULL;
   delete recovery_sid_map;
   recovery_sid_map= NULL;
+
+  mysql_rwlock_destroy(&dag_lock);
+  mysql_cond_destroy(&dag_changed_cond);
+  mysql_mutex_destroy(&dag_changed_mutex);
+  mysql_cond_destroy(&dag_full_cond);
+  mysql_mutex_destroy(&dag_full_mutex);
+  mysql_cond_destroy(&dag_empty_cond);
+  mysql_mutex_destroy(&dag_empty_mutex);
 
   DBUG_VOID_RETURN;
 }

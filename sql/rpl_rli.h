@@ -26,6 +26,11 @@
 #include "binlog.h"                      /* MYSQL_BIN_LOG */
 #include "sql_class.h"                   /* THD */
 
+#if defined(HAVE_REPLICATION) && !defined(MYSQL_CLIENT)
+#include "dag.h"
+#include "log_event_wrapper.h"
+#endif // HAVE_REPLICATION and !MYSQL_CLIENT
+
 struct RPL_TABLE_LIST;
 class Master_info;
 extern uint sql_slave_skip_counter;
@@ -1077,6 +1082,83 @@ public:
     return rbr_idempotent_tables.find(table) !=
            rbr_idempotent_tables.end();
   }
+
+#if defined(HAVE_REPLICATION) && !defined(MYSQL_CLIENT)
+  /* Related to dependency tracking */
+
+  // DAG of events
+  DAG<Log_event_wrapper*> dag;
+  mysql_rwlock_t dag_lock;
+
+  // Mutex-condition pair to notify any change in the DAG
+  mysql_cond_t dag_changed_cond;
+  mysql_mutex_t dag_changed_mutex;
+  bool dag_changed= false;
+
+  // Mutex-condition pair to notify when DAG is/is not full
+  mysql_cond_t dag_full_cond;
+  mysql_mutex_t dag_full_mutex;
+  bool dag_full= false;
+  ulonglong dag_num_groups= 0;
+
+  // Mutex-condition pair to notify when DAG is/is not empty
+  mysql_cond_t dag_empty_cond;
+  mysql_mutex_t dag_empty_mutex;
+  bool dag_empty= true;
+
+  Log_event_wrapper *prev_event= NULL;
+  Log_event_wrapper *current_begin_event= NULL;
+  bool dag_sync_group= false;
+
+  inline void dag_rdlock()
+  {
+    mysql_rwlock_rdlock(&dag_lock);
+  }
+
+  inline void dag_wrlock()
+  {
+    mysql_rwlock_wrlock(&dag_lock);
+  }
+
+  inline void dag_unlock()
+  {
+    mysql_rwlock_unlock(&dag_lock);
+  }
+
+  inline void clear_dag()
+  {
+    dag_wrlock();
+    while(!dag.get_head().empty())
+    {
+      for (auto& node : DAG<Log_event_wrapper*>::node_set(dag.get_head()))
+      {
+        dag.remove_head_node(node);
+        delete node;
+      }
+    }
+
+    prev_event= NULL;
+    current_begin_event= NULL;
+
+    DBUG_ASSERT(dag.is_empty());
+
+    dag_unlock();
+
+    mysql_mutex_lock(&dag_empty_mutex);
+    dag_empty= true;
+    mysql_cond_broadcast(&dag_empty_cond);
+    mysql_mutex_unlock(&dag_empty_mutex);
+
+    mysql_mutex_lock(&dag_full_mutex);
+    dag_full= false;
+    dag_num_groups= 0;
+    mysql_mutex_unlock(&dag_full_mutex);
+
+    mysql_mutex_lock(&dag_changed_mutex);
+    dag_changed= false;
+    mysql_mutex_unlock(&dag_changed_mutex);
+  }
+#endif // HAVE_REPLICATION and !MYSQL_CLIENT
 };
 
 bool mysql_show_relaylog_events(THD* thd);
