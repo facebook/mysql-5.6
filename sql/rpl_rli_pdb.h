@@ -114,7 +114,7 @@ Slave_worker *map_db_to_worker(const char *dbname, Relay_log_info *rli,
                                db_worker_hash_entry **ptr_entry,
                                bool need_temp_tables, Slave_worker *w);
 Slave_worker *get_least_occupied_worker(DYNAMIC_ARRAY *workers);
-int wait_for_workers_to_finish(Relay_log_info const *rli,
+int wait_for_workers_to_finish(Relay_log_info *rli,
                                Slave_worker *ignore= NULL);
 
 #define SLAVE_INIT_DBS_IN_GROUP 4     // initial allocation for CGEP dynarray

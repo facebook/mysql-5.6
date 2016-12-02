@@ -92,14 +92,14 @@ Dependency_slave_worker::get_next_event(Log_event_wrapper *event)
 // Returns true if the group executed successfully
 bool Dependency_slave_worker::execute_group()
 {
+  int err= 0;
   std::vector<Log_event_wrapper*> events;
-  bool ret= true;
 
   Log_event_wrapper *ev= get_begin_event();
   Log_event_wrapper *next_ev= NULL;
 
   // case: we didn't execute the group
-  if (!ev) ret= false;
+  if (!ev) err= 1;
 
   /**
     Here's what is happening in the loop:
@@ -113,19 +113,26 @@ bool Dependency_slave_worker::execute_group()
       we just remove them from the DAG. We do this to avoid a zombie grp in DAG.
    */
 
-  while(ev)
+  while (ev)
   {
     // case: this is the first time we're seeing this event, trx retries can
     // cause the same event to be encountered again
     if (current_event_index == events.size()) events.push_back(ev);
 
-    // TODO:differentiate between type of errors
-    if (ret && execute_event(ev)) ret= false;
+    if (!err && (err= execute_event(ev)))
+    {
+      // case: append error, so we need to clean up the event here
+      if (err == 1)
+      {
+        delete ev->get_raw_event();
+        ev->set_raw_event(NULL);
+      }
+    }
 
     // case: temporary error hence trx retries, see @slave_worker_ends_group
     // when a temporary error is detected, @current_event_index is reset to
     // retry the trx from the beginning
-    if (ret && trans_retries && current_event_index < events.size())
+    if (!err && trans_retries && current_event_index < events.size())
     {
       ev= events[current_event_index];
       continue;
@@ -139,7 +146,7 @@ bool Dependency_slave_worker::execute_group()
   // cleanup
   for (auto& event : events) delete event;
 
-  return ret && running_status == RUNNING;
+  return err == 0 && running_status == RUNNING;
 }
 
 inline int Dependency_slave_worker::execute_event(Log_event_wrapper *ev)
@@ -156,7 +163,7 @@ inline int Dependency_slave_worker::execute_event(Log_event_wrapper *ev)
     Slave_job_item item= { ev->get_raw_event() };
     if (append_item_to_jobs(&item, this, c_rli)) return 1;
   }
-  return ev->execute(this, this->info_thd, c_rli);
+  return ev->execute(this, this->info_thd, c_rli) == 0 ? 0 : -1;
 }
 
 void Dependency_slave_worker::remove_event(Log_event_wrapper *ev)
@@ -185,6 +192,16 @@ void Dependency_slave_worker::remove_event(Log_event_wrapper *ev)
     c_rli->dag_empty= true;
     mysql_cond_signal(&c_rli->dag_empty_cond);
     mysql_mutex_unlock(&c_rli->dag_empty_mutex);
+  }
+
+  // clean up other DAG related structures in rli
+  for (auto it= c_rli->dag_table_last_penultimate_event.cbegin();
+            it != c_rli->dag_table_last_penultimate_event.cend();)
+  {
+    if (it->second == ev)
+      c_rli->dag_table_last_penultimate_event.erase(it++);
+    else
+      ++it;
   }
 
   c_rli->dag_unlock();
@@ -223,6 +240,10 @@ Dependency_slave_worker::Dependency_slave_worker(Relay_log_info *rli
 
 void Dependency_slave_worker::start()
 {
+  DBUG_ASSERT(c_rli->dag.is_empty() &&
+              dag_table_last_penultimate_event.empty() &&
+              tables_accessed_by_group.empty());
+
   while (execute_group())
   {
     // admission control for DAG
@@ -230,7 +251,8 @@ void Dependency_slave_worker::start()
     DBUG_ASSERT(c_rli->dag_num_groups > 0);
     --c_rli->dag_num_groups;
     // case: signal if DAG has space
-    if (c_rli->dag_full)
+    if (c_rli->dag_full && c_rli->dag_num_groups <
+        (opt_mts_dependency_size * opt_mts_dependency_refill_threshold / 100))
     {
       c_rli->dag_full= false;
       mysql_cond_signal(&c_rli->dag_full_cond);

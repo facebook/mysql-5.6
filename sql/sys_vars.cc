@@ -5080,6 +5080,39 @@ static Sys_var_double Sys_mts_imbalance_threshold(
        GLOBAL_VAR(opt_mts_imbalance_threshold),
        CMD_LINE(OPT_ARG), VALID_RANGE(0, 100), DEFAULT(90));
 
+static bool
+check_mts_dependency_replication(sys_var *self, THD *thd, set_var *var)
+{
+  if (!slave_use_idempotent_for_recovery_options)
+  {
+    my_error(ER_CANT_SET_DEPENDENCY_REPLICATION_WITHOUT_IDEMPOTENT_RECOVERY,
+             MYF(0));
+    return true;
+  }
+  return false;
+}
+
+static Sys_var_mybool Sys_mts_dependency_replication(
+       "mts_dependency_replication",
+       "Use dependency based replication",
+       GLOBAL_VAR(opt_mts_dependency_replication),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(check_mts_dependency_replication), ON_UPDATE(0));
+
+static Sys_var_ulonglong Sys_mts_dependency_size(
+       "mts_dependency_size",
+       "Max size of the dependency buffer",
+       GLOBAL_VAR(opt_mts_dependency_size), CMD_LINE(OPT_ARG),
+       VALID_RANGE(0, ULONGLONG_MAX), DEFAULT(1000), BLOCK_SIZE(1));
+
+static Sys_var_double Sys_mts_dependency_refill_threshold(
+       "mts_dependency_refill_threshold",
+       "Capacity in percentage at which to start refilling the dependency "
+       "buffer",
+       GLOBAL_VAR(opt_mts_dependency_refill_threshold), CMD_LINE(OPT_ARG),
+       VALID_RANGE(0, 100), DEFAULT(60));
+
 static Sys_var_ulonglong Sys_mts_pending_jobs_size_max(
        "slave_pending_jobs_size_max",
        "Max size of Slave Worker queues holding yet not applied events."

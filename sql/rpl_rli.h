@@ -1090,6 +1090,13 @@ public:
   DAG<Log_event_wrapper*> dag;
   mysql_rwlock_t dag_lock;
 
+  /* Mapping from table to penultimate (for multi event trx)/end event of the
+     last trx that updated that table */
+  std::unordered_map<ulonglong, Log_event_wrapper*>
+                                             dag_table_last_penultimate_event;
+  /* Set of all tables accessed by the current group */
+  std::unordered_set<ulonglong> tables_accessed_by_group;
+
   // Mutex-condition pair to notify any change in the DAG
   mysql_cond_t dag_changed_cond;
   mysql_mutex_t dag_changed_mutex;
@@ -1142,6 +1149,8 @@ public:
 
     DBUG_ASSERT(dag.is_empty());
 
+    dag_table_last_penultimate_event.clear();
+    tables_accessed_by_group.clear();
     dag_unlock();
 
     mysql_mutex_lock(&dag_empty_mutex);

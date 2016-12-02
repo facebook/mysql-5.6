@@ -58,6 +58,8 @@ typedef struct st_db_worker_hash_entry db_worker_hash_entry;
 #if defined(HAVE_REPLICATION) && !defined(MYSQL_CLIENT)
 int ignored_error_code(int err_code);
 #endif
+class Log_event_wrapper;
+
 #define PREFIX_SQL_LOAD "SQL_LOAD-"
 
 /**
@@ -1542,6 +1544,17 @@ private:
     flags |= LOG_EVENT_MTS_ISOLATE_F;
   }
 
+  /**
+     Encapsulation for things to be done after adding terminal events to DAG
+     @see Log_event::add_to_dag
+  */
+  void do_post_begin_event(Relay_log_info *rli, Log_event_wrapper *ev);
+  void do_post_end_event(Relay_log_info *rli, Log_event_wrapper *ev);
+
+  /**
+     Called by @add_to_dag and overloaded if required
+  */
+  virtual void do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev);
 
 public:
 
@@ -1580,6 +1593,12 @@ public:
              FASE  otherwise
   */
   virtual bool ends_group()   { return FALSE; }
+
+  /**
+     Adds events to a DAG according to write-write dependencies
+     see @mts_dag_replication
+  */
+  void add_to_dag(Relay_log_info *rli);
 
   /**
      Apply the event to the database.
@@ -2271,6 +2290,7 @@ public:
 public:        /* !!! Public in this patch to allow old usage */
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
   virtual enum_skip_reason do_shall_skip(Relay_log_info *rli);
+  virtual void do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev);
   virtual int do_apply_event(Relay_log_info const *rli);
   virtual int do_update_pos(Relay_log_info *rli);
 
@@ -3003,6 +3023,7 @@ class Xid_log_event: public Log_event
   virtual bool ends_group() { return TRUE; }
 private:
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
+  virtual void do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev);
   virtual int do_apply_event(Relay_log_info const *rli);
   virtual int do_apply_event_worker(Slave_worker *rli);
   enum_skip_reason do_shall_skip(Relay_log_info *rli);
@@ -4433,6 +4454,7 @@ private:
 private:
 
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
+  virtual void do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev);
   virtual int do_apply_event(Relay_log_info const *rli);
   virtual int do_update_pos(Relay_log_info *rli);
   virtual enum_skip_reason do_shall_skip(Relay_log_info *rli);
@@ -5136,6 +5158,7 @@ public:
 #endif
 
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
+  void do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev);
   int do_apply_event(Relay_log_info const *rli);
   int do_update_pos(Relay_log_info *rli);
   void set_last_gtid(char *last_gtid);

@@ -17,6 +17,7 @@
 #include "sql_priv.h"
 #include "rpl_slave.h"
 #include "rpl_info_factory.h"
+#include "dependency_slave_worker.h"
 
 /*
   Defines meta information on diferent repositories.
@@ -420,7 +421,8 @@ Slave_worker *Rpl_info_factory::create_worker(uint rli_option, uint worker_id,
   char *pos= strmov(worker_file_data.name, worker_file_data.pattern);
   sprintf(pos, "%u", worker_id + 1);
 
-  if (!(worker= new Slave_worker(rli
+  if (opt_mts_dependency_replication)
+    worker= new Dependency_slave_worker(rli
 #ifdef HAVE_PSI_INTERFACE
                                  ,&key_relay_log_info_run_lock,
                                  &key_relay_log_info_data_lock,
@@ -431,9 +433,22 @@ Slave_worker *Rpl_info_factory::create_worker(uint rli_option, uint worker_id,
                                  &key_relay_log_info_stop_cond,
                                  &key_relay_log_info_sleep_cond
 #endif
-                                 , worker_id
-                                )))
-    goto err;
+                              , worker_id);
+  else
+    worker= new Slave_worker(rli
+#ifdef HAVE_PSI_INTERFACE
+                              ,&key_relay_log_info_run_lock,
+                              &key_relay_log_info_data_lock,
+                              &key_relay_log_info_sleep_lock,
+                              &key_relay_log_info_thd_lock,
+                              &key_relay_log_info_data_cond,
+                              &key_relay_log_info_start_cond,
+                              &key_relay_log_info_stop_cond,
+                              &key_relay_log_info_sleep_cond
+#endif
+                              , worker_id);
+
+  if (!worker) goto err;
 
 
   if(init_repositories(worker_table_data, worker_file_data, rli_option,

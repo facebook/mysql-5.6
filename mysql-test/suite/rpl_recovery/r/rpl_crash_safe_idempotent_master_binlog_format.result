@@ -3,12 +3,12 @@ Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
-call mtr.add_suppression("Master's binlog format is not ROW but idempotent recovery is enabled on the slave");
+call mtr.add_suppression("Master's binlog format is not ROW");
 create table t1(a int);
 set session binlog_format=STATEMENT;
 insert into t1 values(1);
 include/wait_for_slave_sql_error.inc [errno=1756]
-Last_SQL_Error = 'Master's binlog format is not ROW but idempotent recovery is enabled on the slave. Idempotent recovery should only be used when master's binlog format is ROW.'
+Last_SQL_Error = 'Master's binlog format is not ROW but slave_use_idempotent_for_recovery is enabled on the slave, this should only be used when master's binlog format is ROW.'
 "Table after error"
 select * from t1;
 a
