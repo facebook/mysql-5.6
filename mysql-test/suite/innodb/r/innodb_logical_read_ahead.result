@@ -17,9 +17,6 @@ INSERT INTO t1 SELECT 0, b FROM t1;
 INSERT INTO t1 SELECT 0, b FROM t1;
 INSERT INTO t1 SELECT 0, b FROM t1;
 INSERT INTO t1 SELECT 0, b FROM t1;
-show global status like "innodb_buffered_aio_submitted";
-Variable_name	Value
-Innodb_buffered_aio_submitted	0
 show global status like "innodb_logical_read_ahead_misses";
 Variable_name	Value
 Innodb_logical_read_ahead_misses	0
@@ -35,7 +32,6 @@ SET SESSION innodb_lra_sleep=100;
 checksum table t1;
 Table	Checksum
 test.t1	2920207201
-select t1.variable_value=t2.variable_value prefetched_equals_submitted from information_schema.global_status t1, information_schema.global_status t2 where t1.variable_name = 'innodb_logical_read_ahead_prefetched' and t2.variable_name='innodb_buffered_aio_submitted';
 prefetched_equals_submitted
 1
 show global status like "innodb_logical_read_ahead_misses";
