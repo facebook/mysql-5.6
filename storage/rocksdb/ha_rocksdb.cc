@@ -1817,7 +1817,7 @@ public:
                               std::string* value) const= 0;
   virtual rocksdb::Status get_for_update(
     rocksdb::ColumnFamilyHandle* column_family,
-    const rocksdb::Slice& key, std::string* value)= 0;
+    const rocksdb::Slice& key, std::string* value, bool exclusive)= 0;
 
   rocksdb::Iterator *get_iterator(rocksdb::ColumnFamilyHandle* column_family,
                                   bool skip_bloom_filter,
@@ -2138,12 +2138,13 @@ class Rdb_transaction_impl : public Rdb_transaction
 
   rocksdb::Status get_for_update(rocksdb::ColumnFamilyHandle* column_family,
                                  const rocksdb::Slice& key,
-                                 std::string* value) override
+                                 std::string* value, bool exclusive) override
   {
     if (++m_lock_count > m_max_row_locks)
       return rocksdb::Status::Aborted(rocksdb::Status::kLockLimit);
 
-    return m_rocksdb_tx->GetForUpdate(m_read_opts, column_family, key, value);
+    return m_rocksdb_tx->GetForUpdate(m_read_opts, column_family, key, value,
+                                      exclusive);
   }
 
   rocksdb::Iterator *get_iterator(const rocksdb::ReadOptions &options,
@@ -2393,7 +2394,7 @@ class Rdb_writebatch_impl : public Rdb_transaction
 
   rocksdb::Status get_for_update(rocksdb::ColumnFamilyHandle* column_family,
                                  const rocksdb::Slice& key,
-                                 std::string* value) override
+                                 std::string* value, bool exclusive) override
   {
     return get(column_family, key, value);
   }
@@ -3008,7 +3009,8 @@ class Rdb_trx_info_aggregator : public Rdb_tx_list_walker
                             0, /* lock_count */
                             0, /* timeout_sec */
                             "", /* state */
-                            0, /* waiting_trx_id */
+                            "", /* waiting_key */
+                            0, /* waiting_cf_id */
                             1, /*is_replication */
                             1, /* skip_trx_api */
                             wb_impl->is_tx_read_only(),
@@ -3034,6 +3036,9 @@ class Rdb_trx_info_aggregator : public Rdb_tx_list_walker
       auto state_it = state_map.find(rdb_trx->GetState());
       DBUG_ASSERT(state_it != state_map.end());
       int is_replication = (thd->rli_slave != nullptr);
+      uint32_t waiting_cf_id;
+      std::string waiting_key;
+      rdb_trx->GetWaitingTxns(&waiting_cf_id, &waiting_key),
 
       m_trx_info->push_back({rdb_trx->GetName(),
                             rdb_trx->GetID(),
@@ -3041,7 +3046,8 @@ class Rdb_trx_info_aggregator : public Rdb_tx_list_walker
                             tx_impl->get_lock_count(),
                             tx_impl->get_timeout_sec(),
                             state_it->second,
-                            rdb_trx->GetWaitingTxn(nullptr, nullptr),
+                            waiting_key,
+                            waiting_cf_id,
                             is_replication,
                             0, /* skip_trx_api */
                             tx_impl->is_tx_read_only(),
@@ -6884,7 +6890,10 @@ rocksdb::Status ha_rocksdb::get_for_update(
     const rocksdb::Slice&        key,
     std::string*                 value) const
 {
-  rocksdb::Status s= tx->get_for_update(column_family, key, value);
+  DBUG_ASSERT(m_lock_rows != RDB_LOCK_NONE);
+  bool exclusive = m_lock_rows != RDB_LOCK_READ;
+
+  rocksdb::Status s= tx->get_for_update(column_family, key, value, exclusive);
 
   // If we have a lock conflict and we are running in READ COMMITTTED mode
   // release and reacquire the snapshot and then retry the get_for_update().
@@ -6894,7 +6903,7 @@ rocksdb::Status ha_rocksdb::get_for_update(
     tx->release_snapshot();
     tx->acquire_snapshot(false);
 
-    s= tx->get_for_update(column_family, key, value);
+    s= tx->get_for_update(column_family, key, value, exclusive);
   }
 
   return s;
@@ -8780,7 +8789,7 @@ THR_LOCK_DATA **ha_rocksdb::store_lock(THD *thd,
         The following logic was copied directly from
         ha_innobase::store_lock_with_x_type() in
         storage/innobase/handler/ha_innodb.cc and causes MyRocks to leave
-        locks in place on rows that are in a table that is not beint updated.
+        locks in place on rows that are in a table that is not being updated.
       */
       uint sql_command = my_core::thd_sql_command(thd);
       if ((lock_type == TL_READ && in_lock_tables) ||
