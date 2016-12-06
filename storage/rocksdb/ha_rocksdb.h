@@ -73,7 +73,8 @@ struct Rdb_trx_info {
   ulonglong lock_count;
   int timeout_sec;
   std::string state;
-  ulonglong waiting_trx_id;
+  std::string waiting_key;
+  ulonglong waiting_cf_id;
   int is_replication;
   int skip_trx_api;
   int read_only;

@@ -1042,7 +1042,7 @@ static int rdb_i_s_index_file_map_init(void *p)
   DBUG_RETURN(0);
 }
 
-/* Fill the information_schema.rocksdb_index_file_map virtual table */
+/* Fill the information_schema.rocksdb_locks virtual table */
 static int rdb_i_s_lock_info_fill_table(
     my_core::THD        *thd,
     my_core::TABLE_LIST *tables,
@@ -1063,21 +1063,26 @@ static int rdb_i_s_lock_info_fill_table(
   std::unordered_multimap<uint32_t, rocksdb::KeyLockInfo> lock_info =
     rdb->GetLockStatusData();
 
-  for (auto it = lock_info.begin(); it != lock_info.end(); it++) {
-    uint32_t cf_id = it->first;
-    rocksdb::KeyLockInfo key_lock_info = it->second;
-    tables->table->field[0]->store(cf_id, true);
-    tables->table->field[1]->store(key_lock_info.id, true);
-
+  for (const auto& lock : lock_info) {
+    uint32_t cf_id = lock.first;
+    const auto& key_lock_info = lock.second;
     auto key_hexstr = rdb_hexdump(key_lock_info.key.c_str(),
                                   key_lock_info.key.length(), FN_REFLEN);
-    tables->table->field[2]->store(key_hexstr.c_str(), key_hexstr.size(),
-                                   system_charset_info);
 
-    /* Tell MySQL about this row in the virtual table */
-    ret= my_core::schema_table_store_record(thd, tables->table);
-    if (ret != 0) {
-      break;
+    for (auto id : key_lock_info.ids) {
+      tables->table->field[0]->store(cf_id, true);
+      tables->table->field[1]->store(id, true);
+
+      tables->table->field[2]->store(key_hexstr.c_str(), key_hexstr.size(),
+                                     system_charset_info);
+      tables->table->field[3]->store(key_lock_info.exclusive ? "X" : "S",
+                                     1, system_charset_info);
+
+      /* Tell MySQL about this row in the virtual table */
+      ret= my_core::schema_table_store_record(thd, tables->table);
+      if (ret != 0) {
+        break;
+      }
     }
   }
   DBUG_RETURN(ret);
@@ -1088,6 +1093,7 @@ static ST_FIELD_INFO rdb_i_s_lock_info_fields_info[] =
   ROCKSDB_FIELD_INFO("COLUMN_FAMILY_ID", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
   ROCKSDB_FIELD_INFO("TRANSACTION_ID", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
   ROCKSDB_FIELD_INFO("KEY", FN_REFLEN+1, MYSQL_TYPE_STRING, 0),
+  ROCKSDB_FIELD_INFO("MODE", 32, MYSQL_TYPE_STRING, 0),
   ROCKSDB_FIELD_INFO_END
 };
 
@@ -1126,6 +1132,8 @@ static int rdb_i_s_trx_info_fill_table(
   for (const auto &info : all_trx_info) {
     auto name_hexstr = rdb_hexdump(info.name.c_str(), info.name.length(),
                                    NAME_LEN);
+    auto key_hexstr = rdb_hexdump(info.waiting_key.c_str(),
+                                  info.waiting_key.length(), FN_REFLEN);
     tables->table->field[0]->store(info.trx_id, true);
     tables->table->field[1]->store(info.state.c_str(), info.state.length(),
                                    system_charset_info);
@@ -1134,15 +1142,18 @@ static int rdb_i_s_trx_info_fill_table(
     tables->table->field[3]->store(info.write_count, true);
     tables->table->field[4]->store(info.lock_count, true);
     tables->table->field[5]->store(info.timeout_sec, false);
-    tables->table->field[6]->store(info.waiting_trx_id, true);
-    tables->table->field[7]->store(info.is_replication, false);
-    tables->table->field[8]->store(info.skip_trx_api, false);
-    tables->table->field[9]->store(info.read_only, false);
-    tables->table->field[10]->store(info.deadlock_detect, false);
-    tables->table->field[11]->store(info.num_ongoing_bulk_load, false);
-    tables->table->field[12]->store(info.thread_id, true);
-    tables->table->field[13]->store(info.query_str.c_str(), info.query_str.length(),
+    tables->table->field[6]->store(key_hexstr.c_str(), key_hexstr.length(),
                                    system_charset_info);
+    tables->table->field[7]->store(info.waiting_cf_id, true);
+    tables->table->field[8]->store(info.is_replication, false);
+    tables->table->field[9]->store(info.skip_trx_api, false);
+    tables->table->field[10]->store(info.read_only, false);
+    tables->table->field[11]->store(info.deadlock_detect, false);
+    tables->table->field[12]->store(info.num_ongoing_bulk_load, false);
+    tables->table->field[13]->store(info.thread_id, true);
+    tables->table->field[14]->store(info.query_str.c_str(),
+                                    info.query_str.length(),
+                                    system_charset_info);
 
 
     /* Tell MySQL about this row in the virtual table */
@@ -1164,8 +1175,9 @@ static ST_FIELD_INFO rdb_i_s_trx_info_fields_info[] =
   ROCKSDB_FIELD_INFO("WRITE_COUNT", sizeof(ulonglong), MYSQL_TYPE_LONGLONG, 0),
   ROCKSDB_FIELD_INFO("LOCK_COUNT", sizeof(ulonglong), MYSQL_TYPE_LONGLONG, 0),
   ROCKSDB_FIELD_INFO("TIMEOUT_SEC", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
-  ROCKSDB_FIELD_INFO("WAITING_TXN_ID", sizeof(ulonglong),
-                     MYSQL_TYPE_LONGLONG, 0),
+  ROCKSDB_FIELD_INFO("WAITING_KEY", FN_REFLEN+1, MYSQL_TYPE_STRING, 0),
+  ROCKSDB_FIELD_INFO("WAITING_COLUMN_FAMILY_ID", sizeof(uint32_t),
+                     MYSQL_TYPE_LONG, 0),
   ROCKSDB_FIELD_INFO("IS_REPLICATION", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
   ROCKSDB_FIELD_INFO("SKIP_TRX_API", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
   ROCKSDB_FIELD_INFO("READ_ONLY", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
