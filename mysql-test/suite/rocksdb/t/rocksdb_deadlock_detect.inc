@@ -28,7 +28,7 @@ update r1 set value=100 where id=8;
 
 connection con1;
 let $wait_condition =
-`SELECT CONCAT('select count(*) = 1 from information_schema.rocksdb_trx where THREAD_ID = ', '$con2', ' and WAITING_TXN_ID != 0')`;
+`SELECT CONCAT('select count(*) = 1 from information_schema.rocksdb_trx where THREAD_ID = ', '$con2', ' and WAITING_KEY != ""')`;
 --source include/wait_condition.inc
 --error ER_LOCK_DEADLOCK
 select * from r1 for update;
@@ -55,14 +55,14 @@ connection con1;
 
 connection con2;
 let $wait_condition =
-`SELECT CONCAT('select count(*) = 1 from information_schema.rocksdb_trx where THREAD_ID = ', '$con1', ' and WAITING_TXN_ID != 0')`;
+`SELECT CONCAT('select count(*) = 1 from information_schema.rocksdb_trx where THREAD_ID = ', '$con1', ' and WAITING_KEY != ""')`;
 --source include/wait_condition.inc
 
 --send select * from t where i = 3 for update
 
 connection con3;
 let $wait_condition =
-`SELECT CONCAT('select count(*) = 1 from information_schema.rocksdb_trx where THREAD_ID = ', '$con2', ' and WAITING_TXN_ID != 0')`;
+`SELECT CONCAT('select count(*) = 1 from information_schema.rocksdb_trx where THREAD_ID = ', '$con2', ' and WAITING_KEY != ""')`;
 --source include/wait_condition.inc
 
 select * from t;

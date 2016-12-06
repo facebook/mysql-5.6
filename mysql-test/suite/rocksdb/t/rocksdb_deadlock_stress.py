@@ -22,14 +22,19 @@ def is_deadlock_error(exc):
     return (error_code == MySQLdb.constants.ER.LOCK_DEADLOCK)
 
 def get_query(table_name, idx):
-  r = random.randint(1, 3);
-  if r == 1:
-    return """SELECT * from %s WHERE a = %d FOR UPDATE""" % (table_name, idx)
-  elif r == 2:
-    return """INSERT INTO %s VALUES (%d, 1)
-              ON DUPLICATE KEY UPDATE b=b+1""" % (table_name, idx)
+  # Let's assume that even indexes will always be acquireable, to make
+  # deadlock detection more interesting.
+  if idx % 2 == 0:
+    return """SELECT * from %s WHERE a = %d LOCK IN SHARE MODE""" % (table_name, idx)
   else:
-    return """DELETE from %s WHERE a = %d""" % (table_name, idx)
+    r = random.randint(1, 3);
+    if r == 1:
+      return """SELECT * from %s WHERE a = %d FOR UPDATE""" % (table_name, idx)
+    elif r == 2:
+      return """INSERT INTO %s VALUES (%d, 1)
+                ON DUPLICATE KEY UPDATE b=b+1""" % (table_name, idx)
+    else:
+      return """DELETE from %s WHERE a = %d""" % (table_name, idx)
 
 class Worker(threading.Thread):
   def __init__(self, con, table_name, num_iters):
