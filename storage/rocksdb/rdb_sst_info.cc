@@ -82,7 +82,7 @@ rocksdb::Status Rdb_sst_file::open()
   rocksdb::Options options(m_db_options, cf_descr.options);
 
   m_sst_file_writer=
-      new rocksdb::SstFileWriter(env_options, options, comparator);
+      new rocksdb::SstFileWriter(env_options, options, comparator, m_cf);
 
   s= m_sst_file_writer->Open(m_name);
   if (m_tracing)
