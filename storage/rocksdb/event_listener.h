@@ -32,9 +32,15 @@ class Rdb_event_listener : public rocksdb::EventListener
     rocksdb::DB *db, const rocksdb::CompactionJobInfo& ci) override;
   void OnFlushCompleted(
     rocksdb::DB* db, const rocksdb::FlushJobInfo& flush_job_info) override;
+  void OnExternalFileIngested(
+    rocksdb::DB* db, const rocksdb::ExternalFileIngestionInfo& ingestion_info)
+    override;
 
  private:
   Rdb_ddl_manager* m_ddl_manager;
+
+  void update_index_stats(
+    const rocksdb::TableProperties& props);
 };
 
 }  // namespace myrocks
