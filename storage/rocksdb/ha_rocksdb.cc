@@ -10599,17 +10599,23 @@ static SHOW_VAR rocksdb_status_vars[]= {
 
 void Rdb_background_thread::run()
 {
+  // How many seconds to wait till flushing the WAL next time.
+  const int WAKE_UP_INTERVAL = 1;
+
   timespec ts_next_sync;
   clock_gettime(CLOCK_REALTIME, &ts_next_sync);
-  ts_next_sync.tv_sec++;
+  ts_next_sync.tv_sec += WAKE_UP_INTERVAL;
 
   for (;;)
   {
-    // wait for 1 second or until we received a condition to stop the thread
+    // Wait until the next timeout or until we receive a signal to stop the
+    // thread. Request to stop the thread should only be triggered when the
+    // storage engine is being unloaded.
     mysql_mutex_lock(&m_signal_mutex);
     auto ret MY_ATTRIBUTE((__unused__)) = mysql_cond_timedwait(
-        &m_signal_cond, &m_signal_mutex, &ts_next_sync);
-    // make sure that no program error is returned
+      &m_signal_cond, &m_signal_mutex, &ts_next_sync);
+
+    // Check that we receive only the expected error codes.
     DBUG_ASSERT(ret == 0 || ret == ETIMEDOUT);
     bool local_stop= m_stop;
     bool local_save_stats= m_save_stats;
@@ -10618,29 +10624,36 @@ void Rdb_background_thread::run()
 
     if (local_stop)
     {
+      // If we're here then that's because condition variable was signaled by
+      // another thread and we're shutting down. Break out the loop to make
+      // sure that shutdown thread can proceed.
       break;
     }
+
+    // This path should be taken only when the timer expired.
+    DBUG_ASSERT(ret == ETIMEDOUT);
 
     if (local_save_stats)
     {
       ddl_manager.persist_stats();
     }
 
-    // Flush the WAL if need be but don't do it more frequent
-    // than once per second
     timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
-    if (ts.tv_sec - ts_next_sync.tv_sec >= 1)
+
+    // Flush the WAL.
+    if (rdb && rocksdb_background_sync)
     {
-      if (rdb && rocksdb_background_sync)
-      {
-        DBUG_ASSERT(!rocksdb_db_options.allow_mmap_writes);
-        rocksdb::Status s= rdb->SyncWAL();
-        if (!s.ok())
-          rdb_handle_io_error(s, RDB_IO_ERROR_BG_THREAD);
+      DBUG_ASSERT(!rocksdb_db_options.allow_mmap_writes);
+      rocksdb::Status s= rdb->SyncWAL();
+      if (!s.ok()) {
+        rdb_handle_io_error(s, RDB_IO_ERROR_BG_THREAD);
       }
-      ts_next_sync.tv_sec= ts.tv_sec + 1;
     }
+
+    // Set the next timestamp for mysql_cond_timedwait() (which ends up calling
+    // pthread_cond_timedwait()) to wait on.
+    ts_next_sync.tv_sec= ts.tv_sec + WAKE_UP_INTERVAL;
   }
 
   // save remaining stats which might've left unsaved
