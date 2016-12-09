@@ -10628,7 +10628,6 @@ void Rdb_background_thread::run()
       // If we're here then that's because condition variable was signaled by
       // another thread and we're shutting down. Break out the loop to make
       // sure that shutdown thread can proceed.
-      DBUG_ASSERT(ret == 0);
       break;
     }
 
