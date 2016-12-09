@@ -3878,6 +3878,12 @@ sub do_before_run_mysqltest($)
     # if script decided to run mysqltest cluster _is_ installed ok
     $ENV{'NDB_STATUS_OK'} = "YES";
   }
+
+  # Clear out the 'restart_opts' setting
+  foreach my $mysqld ( mysqlds() )
+  {
+    delete $mysqld->{'restart_opts'};
+  }
 }
 
 
