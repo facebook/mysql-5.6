@@ -1,6 +1,6 @@
 ---
 layout: home
-title: Home
+title: MyRocks | A RocksDB storage engine with MySQL
 id: home
 ---
 
