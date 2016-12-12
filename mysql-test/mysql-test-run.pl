@@ -3680,6 +3680,7 @@ sub mysql_install_db {
         $temp_extra_opt =~ /--innodb-log-file-size/ || 
         $temp_extra_opt =~ /--skip-innodb/ ||
         $temp_extra_opt =~ /--rocksdb/ ||
+        $temp_extra_opt =~ /--allow-multiple-engines/ ||
         $temp_extra_opt =~ /--default-tmp-storage-engine/ ||
         $temp_extra_opt =~ /--default-storage-engine/) {
       mtr_add_arg($args, $extra_opt);

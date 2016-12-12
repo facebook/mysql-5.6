@@ -2903,9 +2903,10 @@ int TC_LOG_MMAP::open(const char *opt_name)
     pg->state=PS_POOL;
     mysql_mutex_init(key_PAGE_lock, &pg->lock, MY_MUTEX_INIT_FAST);
     mysql_cond_init(key_PAGE_cond, &pg->cond, 0);
-    pg->start=(my_xid *)(data + i*tc_log_page_size);
-    pg->end=(my_xid *)(pg->start + tc_log_page_size);
     pg->size=pg->free=tc_log_page_size/sizeof(my_xid);
+    pg->start=(my_xid *)(data + i*tc_log_page_size);
+    pg->end=pg->start + pg->size;
+    pg->ptr= pg->start;
   }
   pages[0].size=pages[0].free=
                 (tc_log_page_size-TC_LOG_HEADER_SIZE)/sizeof(my_xid);
@@ -3025,7 +3026,7 @@ TC_LOG::enum_result TC_LOG_MMAP::commit(THD *thd, bool all, bool async)
   my_xid xid= thd->transaction.xid_state.xid.get_my_xid();
 
   if (all && xid)
-    if ((cookie= log_xid(thd, xid, async)))
+    if (!(cookie= log_xid(thd, xid, async)))
       DBUG_RETURN(RESULT_ABORTED);    // Failed to log the transaction
 
   if (ha_commit_low(thd, all, async))
@@ -3166,7 +3167,11 @@ int TC_LOG_MMAP::sync()
   /* marking 'syncing' slot free */
   mysql_mutex_lock(&LOCK_sync);
   syncing=0;
-  mysql_cond_signal(&active->cond);        // wake up a new syncer
+  if (active)
+  {
+    mysql_cond_signal(&active->cond);        // wake up a new syncer
+  }
+
   mysql_mutex_unlock(&LOCK_sync);
   return err;
 }
