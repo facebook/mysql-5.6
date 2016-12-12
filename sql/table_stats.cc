@@ -41,7 +41,7 @@ clear_table_stats_counters(TABLE_STATS* table_stats)
     table_stats->indexes[x].rows_index_first.clear();
     table_stats->indexes[x].rows_index_next.clear();
 
-    my_io_perf_atomic_init(&(table_stats->indexes[x].io_perf_read));
+    table_stats->indexes[x].io_perf_read.init();
   }
 
   table_stats->queries_used.clear();
@@ -53,11 +53,11 @@ clear_table_stats_counters(TABLE_STATS* table_stats)
   table_stats->rows_index_first.clear();
   table_stats->rows_index_next.clear();
 
-  my_io_perf_atomic_init(&table_stats->io_perf_read);
-  my_io_perf_atomic_init(&table_stats->io_perf_write);
-  my_io_perf_atomic_init(&table_stats->io_perf_read_blob);
-  my_io_perf_atomic_init(&table_stats->io_perf_read_primary);
-  my_io_perf_atomic_init(&table_stats->io_perf_read_secondary);
+  table_stats->io_perf_read.init();
+  table_stats->io_perf_write.init();
+  table_stats->io_perf_read_blob.init();
+  table_stats->io_perf_read_primary.init();
+  table_stats->io_perf_read_secondary.init();
   table_stats->index_inserts.clear();
   table_stats->queries_empty.clear();
   table_stats->comment_bytes.clear();
@@ -365,17 +365,6 @@ ST_FIELD_INFO table_stats_fields_info[]=
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
-void copy_io_perf_with_races(my_io_perf_atomic_t *out, my_io_perf_t *in)
-{
-  out->bytes.set_maybe(in->bytes);
-  out->requests.set_maybe(in->requests);
-  out->svc_time.set_maybe(in->svc_time);
-  out->svc_time_max.set_maybe(in->svc_time_max);
-  out->wait_time.set_maybe(in->wait_time);
-  out->wait_time_max.set_maybe(in->wait_time_max);
-  out->slow_ios.set_maybe(in->slow_ios);
-}
-
 void copy_page_stats_with_races(page_stats_atomic_t *out, page_stats_t *in)
 {
   out->n_pages_read.set_maybe(in->n_pages_read);
@@ -424,11 +413,11 @@ void fill_table_stats_cb(const char *db,
 
   if (is_partition) {
     if (stats->should_update) {
-      my_io_perf_sum_atomic_helper(&stats->io_perf_read, r);
-      my_io_perf_sum_atomic_helper(&stats->io_perf_write, w);
-      my_io_perf_sum_atomic_helper(&stats->io_perf_read_blob, r_blob);
-      my_io_perf_sum_atomic_helper(&stats->io_perf_read_primary, r_primary);
-      my_io_perf_sum_atomic_helper(&stats->io_perf_read_secondary, r_secondary);
+      stats->io_perf_read.sum(*r);
+      stats->io_perf_write.sum(*w);
+      stats->io_perf_read_blob.sum(*r_blob);
+      stats->io_perf_read_primary.sum(*r_primary);
+      stats->io_perf_read_secondary.sum(*r_secondary);
       my_page_stats_sum_atomic(&stats->page_stats, page_stats);
       // page_size would be the same for all partition
       stats->comp_stats.page_size.set_maybe(comp_stats->page_size);
@@ -441,11 +430,11 @@ void fill_table_stats_cb(const char *db,
     }
   }
   /* These assignments allow for races. That is OK. */
-  copy_io_perf_with_races(&stats->io_perf_read, r);
-  copy_io_perf_with_races(&stats->io_perf_write, w);
-  copy_io_perf_with_races(&stats->io_perf_read_blob, r_blob);
-  copy_io_perf_with_races(&stats->io_perf_read_primary, r_primary);
-  copy_io_perf_with_races(&stats->io_perf_read_secondary, r_secondary);
+  stats->io_perf_read.set_maybe(*r);
+  stats->io_perf_write.set_maybe(*w);
+  stats->io_perf_read_blob.set_maybe(*r_blob);
+  stats->io_perf_read_primary.set_maybe(*r_primary);
+  stats->io_perf_read_secondary.set_maybe(*r_secondary);
 
   copy_page_stats_with_races(&stats->page_stats, page_stats);
 
