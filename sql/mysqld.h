@@ -38,6 +38,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include "atomic_stat.h"
+#include "my_io_perf.h"
 
 class THD;
 struct handlerton;
@@ -505,30 +506,6 @@ struct comp_stats_atomic_struct {
 /** Compression statistics, atomic */
 typedef struct comp_stats_atomic_struct comp_stats_atomic_t;
 
-/* Struct used for IO performance counters within a single thread */
-struct my_io_perf_struct {
-  ulonglong bytes;
-  ulonglong requests;
-  ulonglong svc_time; /*!< time to do read or write operation */
-  ulonglong svc_time_max;
-  ulonglong wait_time; /*!< total time in the request array */
-  ulonglong wait_time_max;
-  ulonglong slow_ios; /*!< requests that take too long */
-};
-typedef struct my_io_perf_struct my_io_perf_t;
-
-/* Struct used for IO performance counters, shared among multiple threads */
-struct my_io_perf_atomic_struct {
-  atomic_stat<ulonglong> bytes;
-  atomic_stat<ulonglong> requests;
-  atomic_stat<ulonglong> svc_time; /*!< time to do read or write operation */
-  atomic_stat<ulonglong> svc_time_max;
-  atomic_stat<ulonglong> wait_time; /*!< total time in the request array */
-  atomic_stat<ulonglong> wait_time_max;
-  atomic_stat<ulonglong> slow_ios; /*!< requests that take too long */
-};
-typedef struct my_io_perf_atomic_struct my_io_perf_atomic_t;
-
 /* struct used in per page type stats in IS.table_stats */
 struct page_stats_struct {
   /*!< number read operations of all pages at given space*/
@@ -566,22 +543,6 @@ typedef struct page_stats_atomic_struct page_stats_atomic_t;
 
 /* Per-table operation and IO statistics */
 
-/* Initialize an my_io_perf_t struct. */
-static inline void my_io_perf_init(my_io_perf_t* perf) {
-  memset(perf, 0, sizeof(*perf));
-}
-
-/* Initialize an my_io_perf_atomic_t struct. */
-static inline void my_io_perf_atomic_init(my_io_perf_atomic_t* perf) {
-  perf->bytes.clear();
-  perf->requests.clear();
-  perf->svc_time.clear();
-  perf->svc_time_max.clear();
-  perf->wait_time.clear();
-  perf->wait_time_max.clear();
-  perf->slow_ios.clear();
-}
-
 /* Accumulate per-table compression stats helper function */
 void my_comp_stats_sum_atomic(comp_stats_atomic_t* sum,
                               comp_stats_t* comp_stats);
@@ -590,34 +551,6 @@ void my_comp_stats_sum_atomic(comp_stats_atomic_t* sum,
 void my_page_stats_sum_atomic(page_stats_atomic_t* sum,
                               page_stats_t* page_stats);
 
-/* Returns a - b in diff */
-void my_io_perf_diff(my_io_perf_t* diff,
-                     const my_io_perf_t* a, const my_io_perf_t* b);
-/* Accumulates io perf values */
-void my_io_perf_sum(my_io_perf_t* sum, const my_io_perf_t* perf);
-
-/* Accumulates io perf values using atomic operations */
-void my_io_perf_sum_atomic(
-  my_io_perf_atomic_t* sum,
-  ulonglong bytes,
-  ulonglong requests,
-  ulonglong svc_time,
-  ulonglong wait_time,
-  ulonglong slow_ios);
-
-/* Accumulates io perf values using atomic operations */
-static inline void my_io_perf_sum_atomic_helper(
-  my_io_perf_atomic_t* sum,
-  const my_io_perf_t* perf)
-{
-  my_io_perf_sum_atomic(
-    sum,
-    perf->bytes,
-    perf->requests,
-    perf->svc_time,
-    perf->wait_time,
-    perf->slow_ios);
-}
 
 /* Histogram struct to track various latencies */
 #define NUMBER_OF_HISTOGRAM_BINS 10

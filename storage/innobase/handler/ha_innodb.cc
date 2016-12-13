@@ -1877,13 +1877,13 @@ ha_innobase::init_trx_table_stats(
 	trx_t*	trx,	/* out: transaction handle */
 	bool	write)	/* in: true for a write operation */
 {
-	my_io_perf_init(&trx->table_io_perf.read);
-	my_io_perf_init(&trx->table_io_perf.read_blob);
-	my_io_perf_init(&trx->table_io_perf.read_primary);
-	my_io_perf_init(&trx->table_io_perf.read_secondary);
+	trx->table_io_perf.read.init();
+	trx->table_io_perf.read_blob.init();
+	trx->table_io_perf.read_primary.init();
+	trx->table_io_perf.read_secondary.init();
 
 	if (write) {
-		my_io_perf_init(&trx->table_io_perf.write);
+		trx->table_io_perf.write.init();
 		trx->table_io_perf.index_inserts = 0;
 	}
 
@@ -1900,31 +1900,28 @@ ha_innobase::update_stats_from_trx(
 	trx_t*	trx,	/* in: transaction handle */
 	bool	write)	/* in: true for a write operation */
 {
-	my_io_perf_sum(&stats.table_io_perf_read, &trx->table_io_perf.read);
-	my_io_perf_sum(&stats.table_io_perf_read_blob, &trx->table_io_perf.read_blob);
-	my_io_perf_sum(&stats.table_io_perf_read_primary,
-		       &trx->table_io_perf.read_primary);
-	my_io_perf_sum(&stats.table_io_perf_read_secondary,
-		       &trx->table_io_perf.read_secondary);
+	stats.table_io_perf_read.sum(trx->table_io_perf.read);
+	stats.table_io_perf_read_blob.sum(trx->table_io_perf.read_blob);
+	stats.table_io_perf_read_primary.sum(trx->table_io_perf.read_primary);
+	stats.table_io_perf_read_secondary.sum(trx->table_io_perf.read_secondary);
 	if (ha_partition_stats != NULL)
 	{
-		my_io_perf_sum(&(ha_partition_stats->table_io_perf_read),
-		               &trx->table_io_perf.read);
-		my_io_perf_sum(&(ha_partition_stats->table_io_perf_read_blob),
-		               &trx->table_io_perf.read_blob);
-		my_io_perf_sum(&(ha_partition_stats->table_io_perf_read_primary),
-		               &trx->table_io_perf.read_primary);
-		my_io_perf_sum(&(ha_partition_stats->table_io_perf_read_secondary),
-		               &trx->table_io_perf.read_secondary);
+		ha_partition_stats->table_io_perf_read.sum(trx->table_io_perf.read);
+		ha_partition_stats->table_io_perf_read_blob.sum(
+                   trx->table_io_perf.read_blob);
+		ha_partition_stats->table_io_perf_read_primary.sum(
+                   trx->table_io_perf.read_primary);
+		ha_partition_stats->table_io_perf_read_secondary.sum(
+		               trx->table_io_perf.read_secondary);
 	}
 
 	if (write) {
-		my_io_perf_sum(&stats.table_io_perf_write, &trx->table_io_perf.write);
+		stats.table_io_perf_write.sum(trx->table_io_perf.write);
 		stats.index_inserts += trx->table_io_perf.index_inserts;
 		if (ha_partition_stats != NULL)
 		{
-			my_io_perf_sum(&(ha_partition_stats->table_io_perf_write),
-				       &trx->table_io_perf.write);
+			ha_partition_stats->table_io_perf_write.sum(
+				       trx->table_io_perf.write);
 			ha_partition_stats->index_inserts += trx->table_io_perf.index_inserts;
 		}
 	}

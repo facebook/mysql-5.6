@@ -2787,11 +2787,11 @@ void ha_statistics::reset_table_stats()
   rows_read = rows_requested = index_inserts = 0;
   rows_index_first = rows_index_next = 0;
   key_skipped = delete_skipped = 0;
-  my_io_perf_init(&table_io_perf_read);
-  my_io_perf_init(&table_io_perf_write);
-  my_io_perf_init(&table_io_perf_read_blob);
-  my_io_perf_init(&table_io_perf_read_primary);
-  my_io_perf_init(&table_io_perf_read_secondary);
+  table_io_perf_read.init();
+  table_io_perf_write.init();
+  table_io_perf_read_blob.init();
+  table_io_perf_read_primary.init();
+  table_io_perf_read_secondary.init();
 }
 
 
@@ -7387,8 +7387,7 @@ void handler::update_global_table_stats(THD *thd)
       table_stats->indexes[ix].rows_read.inc(stats.rows_read);
       table_stats->indexes[ix].rows_requested.inc(stats.rows_requested);
 
-      my_io_perf_sum_atomic_helper(&(table_stats->indexes[ix].io_perf_read),
-                                                        &stats.table_io_perf_read);
+      table_stats->indexes[ix].io_perf_read.sum(stats.table_io_perf_read);
 
       table_stats->indexes[ix].rows_index_first.inc(stats.rows_index_first);
       table_stats->indexes[ix].rows_index_next.inc(stats.rows_index_next);
@@ -7405,13 +7404,11 @@ void handler::update_global_table_stats(THD *thd)
 
   if (thd)
   {
-    my_io_perf_sum(&thd->io_perf_read, &stats.table_io_perf_read);
-    my_io_perf_sum(&thd->io_perf_write, &stats.table_io_perf_write);
-    my_io_perf_sum(&thd->io_perf_read_blob, &stats.table_io_perf_read_blob);
-    my_io_perf_sum(&thd->io_perf_read_primary,
-                   &stats.table_io_perf_read_primary);
-    my_io_perf_sum(&thd->io_perf_read_secondary,
-                   &stats.table_io_perf_read_secondary);
+    thd->io_perf_read.sum(stats.table_io_perf_read);
+    thd->io_perf_write.sum(stats.table_io_perf_write);
+    thd->io_perf_read_blob.sum(stats.table_io_perf_read_blob);
+    thd->io_perf_read_primary.sum(stats.table_io_perf_read_primary);
+    thd->io_perf_read_secondary.sum(stats.table_io_perf_read_secondary);
 
     thd->status_var.read_requests = thd->io_perf_read.requests;
     thd->status_var.read_time = thd->io_perf_read.svc_time;
