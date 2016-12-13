@@ -24,6 +24,9 @@ class Rdb_ddl_manager;
 class Rdb_event_listener : public rocksdb::EventListener
 {
  public:
+  Rdb_event_listener(const Rdb_event_listener&) = delete;
+  Rdb_event_listener& operator=(const Rdb_event_listener&) = delete;
+
   explicit Rdb_event_listener(Rdb_ddl_manager* ddl_manager) :
       m_ddl_manager(ddl_manager) {
   }

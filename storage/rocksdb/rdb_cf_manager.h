@@ -60,6 +60,10 @@ class Rdb_cf_manager
   Rdb_cf_options* m_cf_options= nullptr;
 
 public:
+  Rdb_cf_manager(const Rdb_cf_manager&) = delete;
+  Rdb_cf_manager& operator=(const Rdb_cf_manager&) = delete;
+  Rdb_cf_manager() = default;
+
   static bool is_cf_name_reverse(const char *name);
 
   /*
