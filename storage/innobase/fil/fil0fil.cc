@@ -1576,11 +1576,11 @@ fil_space_create(
 		    ut_fold_string(name), space);
 	space->is_in_unflushed_spaces = false;
 
-	my_io_perf_init(&(space->io_perf2.read));
-	my_io_perf_init(&(space->io_perf2.write));
-	my_io_perf_init(&(space->io_perf2.read_blob));
-	my_io_perf_init(&(space->io_perf2.read_primary));
-	my_io_perf_init(&(space->io_perf2.read_secondary));
+	space->io_perf2.read.init();
+	space->io_perf2.write.init();
+	space->io_perf2.read_blob.init();
+	space->io_perf2.read_primary.init();
+	space->io_perf2.read_secondary.init();
 	memset(&(space->io_perf2.page_stats), 0,
 	       sizeof space->io_perf2.page_stats);
 	memset(&(space->stats.comp_stats), 0, sizeof space->stats.comp_stats);
@@ -2013,11 +2013,11 @@ fil_init(
 
 	fil_system->max_n_open = max_n_open;
 
-	my_io_perf_init(&io_perf_doublewrite.read);
-	my_io_perf_init(&io_perf_doublewrite.write);
-	my_io_perf_init(&io_perf_doublewrite.read_blob);
-	my_io_perf_init(&io_perf_doublewrite.read_primary);
-	my_io_perf_init(&io_perf_doublewrite.read_secondary);
+	io_perf_doublewrite.read.init();
+	io_perf_doublewrite.write.init();
+	io_perf_doublewrite.read_blob.init();
+	io_perf_doublewrite.read_primary.init();
+	io_perf_doublewrite.read_secondary.init();
 	memset(&io_perf_doublewrite.page_stats, 0,
 		sizeof(io_perf_doublewrite.page_stats));
 	memset(&comp_stats_doublewrite, 0, sizeof(comp_stats_doublewrite));

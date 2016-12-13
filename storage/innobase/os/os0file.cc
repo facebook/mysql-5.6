@@ -4174,7 +4174,7 @@ os_aio_init(
 
 	srv_reset_io_thread_op_info();
 	for (ulint i = 0; i < (2 + n_read_segs + n_write_segs); i++) {
-		my_io_perf_init(&os_aio_perf[i]);
+		os_aio_perf[i].init();
 		os_aio_thread_buffer[i] = 0;
 		os_aio_thread_buffer_size[i] = 0;
 	}
@@ -4199,11 +4199,11 @@ os_aio_init(
 	latency_histogram_init(&histogram_fsync,
 		       innobase_histogram_step_size_fsync);
 
-	my_io_perf_init(&os_async_read_perf);
-	my_io_perf_init(&os_async_write_perf);
+	os_async_read_perf.init();
+	os_async_write_perf.init();
 
-	my_io_perf_init(&os_sync_read_perf);
-	my_io_perf_init(&os_sync_write_perf);
+	os_sync_read_perf.init();
+	os_sync_write_perf.init();
 
 	os_aio_read_array = os_aio_array_create(
 		n_read_segs * n_per_seg, n_read_segs);
@@ -4237,8 +4237,8 @@ os_aio_init(
 
 		os_aio_ibuf_array = os_aio_array_create(n_per_seg, 1);
 
-		my_io_perf_init(&os_log_write_perf);
-		my_io_perf_init(&os_double_write_perf);
+		os_log_write_perf.init();
+		os_double_write_perf.init();
 
 		if (os_aio_ibuf_array == NULL) {
 			return(FALSE);

@@ -1249,10 +1249,10 @@ void init_user_stats(USER_STATS *user_stats)
 {
   DBUG_ENTER("init_user_stats");
 
-  my_io_perf_atomic_init(&(user_stats->io_perf_read));
-  my_io_perf_atomic_init(&(user_stats->io_perf_read_blob));
-  my_io_perf_atomic_init(&(user_stats->io_perf_read_primary));
-  my_io_perf_atomic_init(&(user_stats->io_perf_read_secondary));
+  user_stats->io_perf_read.init();
+  user_stats->io_perf_read_blob.init();
+  user_stats->io_perf_read_primary.init();
+  user_stats->io_perf_read_secondary.init();
 
   user_stats->binlog_bytes_written.clear();
   user_stats->binlog_disk_reads.clear();
@@ -1368,20 +1368,17 @@ update_user_stats_after_statement(USER_STATS *us,
     us->rows_index_first.inc(thd->rows_index_first);
     us->rows_index_next.inc(thd->rows_index_next);
 
-    my_io_perf_diff(&diff_io_perf, &thd->io_perf_read, start_perf_read);
-    my_io_perf_diff(&diff_io_perf_blob, &thd->io_perf_read_blob,
-                    start_perf_read_blob);
-    my_io_perf_diff(&diff_io_perf_primary, &thd->io_perf_read_primary,
-                    start_perf_read_primary);
-    my_io_perf_diff(&diff_io_perf_secondary, &thd->io_perf_read_secondary,
-                    start_perf_read_secondary);
+    diff_io_perf.diff(thd->io_perf_read, *start_perf_read);
+    diff_io_perf_blob.diff(thd->io_perf_read_blob, *start_perf_read_blob);
+    diff_io_perf_primary.diff(thd->io_perf_read_primary,
+                    *start_perf_read_primary);
+    diff_io_perf_secondary.diff(thd->io_perf_read_secondary,
+                    *start_perf_read_secondary);
 
-    my_io_perf_sum_atomic_helper(&(us->io_perf_read), &diff_io_perf);
-    my_io_perf_sum_atomic_helper(&(us->io_perf_read_blob), &diff_io_perf_blob);
-    my_io_perf_sum_atomic_helper(&(us->io_perf_read_primary),
-                                 &diff_io_perf_primary);
-    my_io_perf_sum_atomic_helper(&(us->io_perf_read_secondary),
-                                 &diff_io_perf_secondary);
+    us->io_perf_read.sum(diff_io_perf);
+    us->io_perf_read_blob.sum(diff_io_perf_blob);
+    us->io_perf_read_primary.sum(diff_io_perf_primary);
+    us->io_perf_read_secondary.sum(diff_io_perf_secondary);
   }
   else
   {
