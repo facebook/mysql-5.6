@@ -35,6 +35,10 @@ namespace myrocks {
 class Rdb_pk_comparator : public rocksdb::Comparator
 {
  public:
+  Rdb_pk_comparator(const Rdb_pk_comparator&) = delete;
+  Rdb_pk_comparator& operator=(const Rdb_pk_comparator&) = delete;
+  Rdb_pk_comparator() = default;
+
   static int bytewise_compare(const rocksdb::Slice& a, const rocksdb::Slice& b)
   {
     size_t a_size= a.size();
@@ -75,6 +79,10 @@ class Rdb_pk_comparator : public rocksdb::Comparator
 class Rdb_rev_comparator : public rocksdb::Comparator
 {
  public:
+  Rdb_rev_comparator(const Rdb_rev_comparator&) = delete;
+  Rdb_rev_comparator& operator=(const Rdb_rev_comparator&) = delete;
+  Rdb_rev_comparator() = default;
+
   static int bytewise_compare(const rocksdb::Slice& a, const rocksdb::Slice& b)
   {
     return -Rdb_pk_comparator::bytewise_compare(a, b);
