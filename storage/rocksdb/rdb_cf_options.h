@@ -41,6 +41,10 @@ namespace myrocks {
 class Rdb_cf_options
 {
  public:
+  Rdb_cf_options(const Rdb_cf_options&) = delete;
+  Rdb_cf_options& operator=(const Rdb_cf_options&) = delete;
+  Rdb_cf_options() = default;
+
   void get(const std::string &cf_name, rocksdb::ColumnFamilyOptions *opts);
 
   bool init(

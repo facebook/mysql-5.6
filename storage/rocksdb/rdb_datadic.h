@@ -59,6 +59,9 @@ class Rdb_ddl_manager;
 class Rdb_pack_field_context
 {
  public:
+  Rdb_pack_field_context(const Rdb_pack_field_context&) = delete;
+  Rdb_pack_field_context& operator=(const Rdb_pack_field_context&) = delete;
+
   explicit Rdb_pack_field_context(Rdb_string_writer *writer_arg) :
     writer(writer_arg)
   {}
@@ -288,6 +291,7 @@ public:
     return m_name;
   }
 
+  Rdb_key_def& operator=(const Rdb_key_def&) = delete;
   Rdb_key_def(const Rdb_key_def& k);
   Rdb_key_def(uint indexnr_arg, uint keyno_arg,
               rocksdb::ColumnFamilyHandle* cf_handle_arg,
@@ -497,6 +501,10 @@ extern std::array<const Rdb_collation_codec*, MY_ALL_CHARSETS_SIZE>
 class Rdb_field_packing
 {
 public:
+  Rdb_field_packing(const Rdb_field_packing&) = delete;
+  Rdb_field_packing& operator=(const Rdb_field_packing&) = delete;
+  Rdb_field_packing() = default;
+
   /* Length of mem-comparable image of the field, in bytes */
   int m_max_image_len;
 
@@ -593,6 +601,8 @@ public:
 class Rdb_field_encoder
 {
  public:
+  Rdb_field_encoder(const Rdb_field_encoder&) = delete;
+  Rdb_field_encoder& operator=(const Rdb_field_encoder&) = delete;
   /*
     STORE_NONE is set when a column can be decoded solely from their
     mem-comparable form.
@@ -671,6 +681,9 @@ class Rdb_tbl_def
   void set_name(const std::string& name);
 
  public:
+  Rdb_tbl_def(const Rdb_tbl_def&) = delete;
+  Rdb_tbl_def& operator=(const Rdb_tbl_def&) = delete;
+
   explicit Rdb_tbl_def(const std::string& name) :
       m_key_descr_arr(nullptr), m_hidden_pk_val(1), m_auto_incr_val(1)
   {
@@ -724,6 +737,10 @@ class Rdb_seq_generator
 
   mysql_mutex_t m_mutex;
 public:
+  Rdb_seq_generator(const Rdb_seq_generator&) = delete;
+  Rdb_seq_generator& operator=(const Rdb_seq_generator&) = delete;
+  Rdb_seq_generator() = default;
+
   void init(uint initial_number)
   {
     mysql_mutex_init(0 , &m_mutex, MY_MUTEX_INIT_FAST);
@@ -770,6 +787,10 @@ class Rdb_ddl_manager
   const std::shared_ptr<Rdb_key_def>& find(
       GL_INDEX_ID gl_index_id);
 public:
+  Rdb_ddl_manager(const Rdb_ddl_manager&) = delete;
+  Rdb_ddl_manager& operator=(const Rdb_ddl_manager&) = delete;
+  Rdb_ddl_manager() {}
+
   /* Load the data dictionary from on-disk storage */
   bool init(Rdb_dict_manager *dict_arg, Rdb_cf_manager *cf_manager,
             uint32_t validate_tables);
@@ -831,6 +852,10 @@ private:
 class Rdb_binlog_manager
 {
 public:
+  Rdb_binlog_manager(const Rdb_binlog_manager&) = delete;
+  Rdb_binlog_manager& operator=(const Rdb_binlog_manager&) = delete;
+  Rdb_binlog_manager() = default;
+
   bool init(Rdb_dict_manager *dict);
   void cleanup();
   void update(const char* binlog_name, const my_off_t binlog_pos,
@@ -931,6 +956,10 @@ private:
   void log_start_drop_index(GL_INDEX_ID gl_index_id,
                             const char* log_action);
 public:
+  Rdb_dict_manager(const Rdb_dict_manager&) = delete;
+  Rdb_dict_manager& operator=(const Rdb_dict_manager&) = delete;
+  Rdb_dict_manager() = default;
+
   bool init(rocksdb::DB *rdb_dict, Rdb_cf_manager *cf_manager);
 
   inline void cleanup()

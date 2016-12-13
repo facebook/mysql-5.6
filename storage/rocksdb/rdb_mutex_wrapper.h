@@ -71,6 +71,8 @@ class Rdb_mutex: public rocksdb::TransactionDBMutex {
 
 
 class Rdb_cond_var: public rocksdb::TransactionDBCondVar {
+  Rdb_cond_var(const Rdb_cond_var&) = delete;
+  Rdb_cond_var& operator=(const Rdb_cond_var&) = delete;
  public:
   Rdb_cond_var();
   virtual ~Rdb_cond_var();
@@ -117,6 +119,9 @@ class Rdb_cond_var: public rocksdb::TransactionDBCondVar {
 
 class Rdb_mutex_factory : public rocksdb::TransactionDBMutexFactory {
  public:
+  Rdb_mutex_factory(const Rdb_mutex_factory&) = delete;
+  Rdb_mutex_factory& operator=(const Rdb_mutex_factory&) = delete;
+  Rdb_mutex_factory() {}
    /*
      Override parent class's virtual methods of interrest.
    */
