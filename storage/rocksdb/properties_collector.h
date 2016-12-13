@@ -153,6 +153,9 @@ class Rdb_tbl_prop_coll : public rocksdb::TablePropertiesCollector
 class Rdb_tbl_prop_coll_factory
     : public rocksdb::TablePropertiesCollectorFactory {
  public:
+  Rdb_tbl_prop_coll_factory(const Rdb_tbl_prop_coll_factory&) = delete;
+  Rdb_tbl_prop_coll_factory& operator=(const Rdb_tbl_prop_coll_factory&) = delete;
+
   explicit Rdb_tbl_prop_coll_factory(Rdb_ddl_manager* ddl_manager)
     : m_ddl_manager(ddl_manager) {
   }
