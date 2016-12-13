@@ -1432,6 +1432,9 @@ class Rdb_snapshot_notifier : public rocksdb::TransactionNotifier
   void SnapshotCreated(const rocksdb::Snapshot *snapshot) override;
 
  public:
+  Rdb_snapshot_notifier(const Rdb_snapshot_notifier&) = delete;
+  Rdb_snapshot_notifier& operator=(const Rdb_snapshot_notifier&) = delete;
+
   explicit Rdb_snapshot_notifier(Rdb_transaction* owning_tx)
     : m_owning_tx(owning_tx) {}
 
@@ -2471,6 +2474,9 @@ class Rdb_perf_context_guard
   THD *m_thd;
 
  public:
+  Rdb_perf_context_guard(const Rdb_perf_context_guard&) = delete;
+  Rdb_perf_context_guard& operator=(const Rdb_perf_context_guard&) = delete;
+
   explicit Rdb_perf_context_guard(THD *thd) : m_thd(thd)
   {
     Rdb_transaction*& tx= get_tx_from_thd(m_thd);

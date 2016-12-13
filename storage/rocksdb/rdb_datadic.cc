@@ -875,7 +875,8 @@ int Rdb_key_def::unpack_record(TABLE *table, uchar *buf,
                                bool verify_row_debug_checksums) const
 {
   Rdb_string_reader reader(packed_key);
-  Rdb_string_reader unp_reader("");
+  Rdb_string_reader unp_reader= Rdb_string_reader::read_or_empty(unpack_info);
+
   const bool is_hidden_pk= (m_index_type == INDEX_TYPE_HIDDEN_PRIMARY);
   const bool hidden_pk_exists= table_has_hidden_pk(table);
   const bool secondary_key= (m_index_type == INDEX_TYPE_SECONDARY);
@@ -883,11 +884,6 @@ int Rdb_key_def::unpack_record(TABLE *table, uchar *buf,
   // the layout there is different. The checksum is verified in
   // ha_rocksdb::convert_record_from_storage_format instead.
   DBUG_ASSERT_IMP(!secondary_key, !verify_row_debug_checksums);
-
-  if (unpack_info)
-  {
-    unp_reader= Rdb_string_reader(unpack_info);
-  }
 
   // Old Field methods expected the record pointer to be at tbl->record[0].
   // The quick and easy way to fix this was to pass along the offset
@@ -2306,6 +2302,10 @@ const int RDB_SPACE_XFRM_SIZE= 32;
 class Rdb_charset_space_info
 {
  public:
+  Rdb_charset_space_info(const Rdb_charset_space_info&) = delete;
+  Rdb_charset_space_info& operator=(const Rdb_charset_space_info&) = delete;
+  Rdb_charset_space_info() = default;
+
   // A few strxfrm'ed space characters, at least RDB_SPACE_XFRM_SIZE bytes
   std::vector<uchar> spaces_xfrm;
 
