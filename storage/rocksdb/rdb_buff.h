@@ -223,7 +223,20 @@ class Rdb_string_reader
 {
   const char* m_ptr;
   uint m_len;
+ private:
+  Rdb_string_reader& operator=(const Rdb_string_reader&) = default;
  public:
+  Rdb_string_reader(const Rdb_string_reader&) = default;
+  /* named constructor */
+  static Rdb_string_reader read_or_empty(const rocksdb::Slice *slice)
+  {
+    if (!slice) {
+      return Rdb_string_reader("");
+    } else {
+      return Rdb_string_reader(slice);
+    }
+  }
+
   explicit Rdb_string_reader(const std::string &str)
   {
     m_len= str.length();
@@ -323,6 +336,10 @@ class Rdb_string_writer
 {
   std::vector<uchar> m_data;
  public:
+  Rdb_string_writer(const Rdb_string_writer&) = delete;
+  Rdb_string_writer& operator=(const Rdb_string_writer&) = delete;
+  Rdb_string_writer() = default;
+
   void clear() { m_data.clear(); }
   void write_uint8(uint val)
   {
@@ -378,6 +395,9 @@ class Rdb_bit_writer
   Rdb_string_writer *m_writer;
   uchar m_offset;
  public:
+  Rdb_bit_writer(const Rdb_bit_writer&) = delete;
+  Rdb_bit_writer& operator=(const Rdb_bit_writer&) = delete;
+
   explicit Rdb_bit_writer(Rdb_string_writer* writer_arg)
     : m_writer(writer_arg),
       m_offset(0)
@@ -412,6 +432,9 @@ class Rdb_bit_reader
   uint m_ret;
   Rdb_string_reader *m_reader;
  public:
+  Rdb_bit_reader(const Rdb_bit_reader&) = delete;
+  Rdb_bit_reader& operator=(const Rdb_bit_reader&) = delete;
+
   explicit Rdb_bit_reader(Rdb_string_reader *reader)
     : m_cur(nullptr),
       m_offset(0),

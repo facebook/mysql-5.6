@@ -91,7 +91,10 @@ struct Rdb_atomic_perf_counters
 */
 class Rdb_perf_counters
 {
+  Rdb_perf_counters(const Rdb_perf_counters&) = delete;
+  Rdb_perf_counters& operator=(const Rdb_perf_counters&) = delete;
  public:
+  Rdb_perf_counters() = default;
   uint64_t m_value[PC_MAX_IDX];
 
   void load(const Rdb_atomic_perf_counters &atomic_counters);
@@ -110,6 +113,9 @@ class Rdb_io_perf
   ha_statistics *m_stats= nullptr;
 
  public:
+  Rdb_io_perf(const Rdb_io_perf&) = delete;
+  Rdb_io_perf& operator=(const Rdb_io_perf&) = delete;
+
   void init(Rdb_atomic_perf_counters *atomic_counters,
             my_io_perf_atomic_t *shared_io_perf_read,
             ha_statistics *stats)
