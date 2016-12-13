@@ -208,7 +208,7 @@ void Rdb_io_perf::end_and_record(uint32_t perf_context_level)
   {
     my_io_perf_t io_perf_read;
 
-    my_io_perf_init(&io_perf_read);
+    io_perf_read.init();
     io_perf_read.bytes= rocksdb::perf_context.block_read_byte;
     io_perf_read.requests= rocksdb::perf_context.block_read_count;
 
@@ -219,8 +219,8 @@ void Rdb_io_perf::end_and_record(uint32_t perf_context_level)
     io_perf_read.svc_time_max= io_perf_read.svc_time=
         rocksdb::perf_context.block_read_time;
 
-    my_io_perf_sum_atomic_helper(m_shared_io_perf_read, &io_perf_read);
-    my_io_perf_sum(&m_stats->table_io_perf_read, &io_perf_read);
+    m_shared_io_perf_read->sum(io_perf_read);
+    m_stats->table_io_perf_read.sum(io_perf_read);
   }
 
   if (m_stats) {
