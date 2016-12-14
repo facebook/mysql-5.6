@@ -167,7 +167,6 @@ Rdb_cf_manager::get_cf(const char *cf_name,
                        const char *index_name,
                        bool *is_automatic) const
 {
-  DBUG_ASSERT(cf_name != nullptr);
   DBUG_ASSERT(is_automatic != nullptr);
 
   rocksdb::ColumnFamilyHandle* cf_handle;
