@@ -9533,19 +9533,18 @@ int ha_rocksdb::optimize(THD *thd, HA_CHECK_OPT* check_opt)
   return rc;
 }
 
-int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
+int ha_rocksdb::calculate_stats(const TABLE* table_arg, THD* thd,
+    HA_CHECK_OPT* check_opt)
 {
-  DBUG_ENTER("ha_rocksdb::analyze");
-
-  if (!table)
-    DBUG_RETURN(1);
+  DBUG_ENTER("ha_rocksdb::calculate_stats");
 
   // find per column family key ranges which need to be queried
   std::unordered_map<rocksdb::ColumnFamilyHandle*, std::vector<rocksdb::Range>>
     ranges;
   std::unordered_set<GL_INDEX_ID> ids_to_check;
-  std::vector<uchar> buf(table->s->keys * 2 * Rdb_key_def::INDEX_NUMBER_SIZE);
-  for (uint i = 0; i < table->s->keys; i++)
+  std::vector<uchar> buf(table_arg->s->keys * 2 *
+      Rdb_key_def::INDEX_NUMBER_SIZE);
+  for (uint i = 0; i < table_arg->s->keys; i++)
   {
     auto bufp = &buf[i * 2 * Rdb_key_def::INDEX_NUMBER_SIZE];
     const Rdb_key_def& kd= *m_key_descr_arr[i];
@@ -9618,6 +9617,16 @@ int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
   ddl_manager.persist_stats(true);
 
   DBUG_RETURN(0);
+}
+
+int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
+{
+  DBUG_ENTER("ha_rocksdb::analyze");
+
+  if (!table)
+    DBUG_RETURN(1);
+
+  DBUG_RETURN(calculate_stats(table, thd, check_opt));
 }
 
 void ha_rocksdb::get_auto_increment(ulonglong off, ulonglong inc,
@@ -10352,6 +10361,20 @@ bool ha_rocksdb::commit_inplace_alter_table(
     /* Mark ongoing create indexes as finished/remove from data dictionary */
     dict_manager.finish_indexes_operation(create_index_ids,
         Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
+
+    /*
+      We need to recalculate the index stats here manually.  The reason is that
+      the secondary index does not exist inside
+      m_index_num_to_keydef until it is committed to the data dictionary, which
+      prevents us from updating the stats normally as the ddl_manager cannot
+      find the proper gl_index_ids yet during adjust_stats calls.
+    */
+    if (calculate_stats(altered_table, nullptr, nullptr))
+    {
+      /* Failed to update index statistics, should never happen */
+      DBUG_ASSERT(0);
+    }
+
     rdb_drop_idx_thread.signal();
   }
 
