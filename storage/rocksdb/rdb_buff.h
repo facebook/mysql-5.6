@@ -64,6 +64,8 @@ inline void rdb_netstr_append_uint16(my_core::String *out_netstr, uint16 val)
 
 inline void rdb_netbuf_store_uint64(uchar *dst_netbuf, uint64 n)
 {
+  DBUG_ASSERT(dst_netbuf != nullptr);
+
   // Convert from host byte order (usually Little Endian) to network byte order
   // (Big Endian).
   uint64 net_val= htobe64(n);
@@ -362,6 +364,7 @@ class Rdb_string_writer
 
   void write(uchar *new_data, size_t len)
   {
+    DBUG_ASSERT(new_data != nullptr);
     m_data.insert(m_data.end(), new_data, new_data + len);
   }
 
