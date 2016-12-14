@@ -997,6 +997,8 @@ public:
     MY_ATTRIBUTE((__warn_unused_result__));
   int analyze(THD* thd, HA_CHECK_OPT* check_opt)
     MY_ATTRIBUTE((__warn_unused_result__));
+  int calculate_stats(const TABLE* table_arg, THD* thd, HA_CHECK_OPT* check_opt)
+    MY_ATTRIBUTE((__warn_unused_result__));
 
   enum_alter_inplace_result check_if_supported_inplace_alter(
     TABLE *altered_table,
