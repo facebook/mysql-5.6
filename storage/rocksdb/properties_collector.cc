@@ -56,6 +56,8 @@ Rdb_tbl_prop_coll::Rdb_tbl_prop_coll(
     m_seed(time(nullptr)),
     m_card_adj_extra(1.)
 {
+  DBUG_ASSERT(ddl_manager != nullptr);
+
   // We need to adjust the index cardinality numbers based on the sampling
   // rate so that the output of "SHOW INDEX" command will reflect reality
   // more closely. It will still be an approximation, just a better one.
@@ -248,6 +250,8 @@ Rdb_tbl_prop_coll::Finish(
   uint64_t num_sst_entry_singledelete = 0;
   uint64_t num_sst_entry_merge = 0;
   uint64_t num_sst_entry_other = 0;
+
+  DBUG_ASSERT(properties != nullptr);
 
   for (auto it = m_stats.begin(); it != m_stats.end(); it++)
   {
@@ -506,6 +510,8 @@ void Rdb_index_stats::merge(
   const Rdb_index_stats& s, bool increment, int64_t estimated_data_len)
 {
   std::size_t i;
+
+  DBUG_ASSERT(estimated_data_len >= 0);
 
   m_gl_index_id = s.m_gl_index_id;
   if (m_distinct_keys_per_prefix.size() < s.m_distinct_keys_per_prefix.size())

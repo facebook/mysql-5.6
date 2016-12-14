@@ -46,6 +46,9 @@ bool Rdb_cf_options::init(
   const char * default_cf_options,
   const char * override_cf_options)
 {
+  DBUG_ASSERT(default_cf_options != nullptr);
+  DBUG_ASSERT(override_cf_options != nullptr);
+
   m_default_cf_opts.comparator = &s_pk_comparator;
   m_default_cf_opts.compaction_filter_factory.reset(
     new Rdb_compact_filter_factory);
