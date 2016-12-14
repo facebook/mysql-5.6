@@ -3473,6 +3473,7 @@ void Rdb_ddl_manager::set_stats(
     const auto& keydef = find(src.second.m_gl_index_id);
     if (keydef) {
       keydef->m_stats = src.second;
+      m_stats2store[keydef->m_stats.m_gl_index_id] = keydef->m_stats;
     }
   }
   mysql_rwlock_unlock(&m_rwlock);
