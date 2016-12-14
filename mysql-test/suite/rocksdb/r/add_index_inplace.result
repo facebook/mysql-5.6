@@ -357,3 +357,9 @@ DROP TABLE t1;
 SET session rocksdb_merge_buf_size = @prior_rocksdb_merge_buf_size;
 SET session rocksdb_merge_combine_read_size = @prior_rocksdb_merge_combine_read_size;
 SET global rocksdb_strict_collation_check = @prior_rocksdb_strict_collation_check;
+CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE = ROCKSDB;
+set global rocksdb_force_flush_memtable_now=1;
+ALTER TABLE t1 ADD INDEX kj(j), ALGORITHM=INPLACE;
+larger
+1
+DROP TABLE t1;
