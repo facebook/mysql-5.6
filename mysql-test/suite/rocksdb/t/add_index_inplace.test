@@ -273,3 +273,40 @@ DROP TABLE t1;
 SET session rocksdb_merge_buf_size = @prior_rocksdb_merge_buf_size;
 SET session rocksdb_merge_combine_read_size = @prior_rocksdb_merge_combine_read_size;
 SET global rocksdb_strict_collation_check = @prior_rocksdb_strict_collation_check;
+
+# Test to make sure index statistics are updating properly
+CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE = ROCKSDB;
+
+--disable_query_log
+let $max = 100;
+let $i = 1;
+while ($i <= $max) {
+  let $insert = INSERT INTO t1 VALUES ($i, $i);
+  inc $i;
+  eval $insert;
+}
+--enable_query_log
+
+set global rocksdb_force_flush_memtable_now=1;
+
+--let $data_length_old = query_get_value("select INDEX_LENGTH from information_schema.tables where table_schema=database() and table_name='t1'", INDEX_LENGTH, 1)
+
+## uncomment to see the actual values
+#--replace_column 8 #
+#SHOW TABLE STATUS WHERE name LIKE 't1';
+
+# Now do an alter and see what happens
+ALTER TABLE t1 ADD INDEX kj(j), ALGORITHM=INPLACE;
+
+--let $data_length_new = query_get_value("select INDEX_LENGTH from information_schema.tables where table_schema=database() and table_name='t1'", INDEX_LENGTH, 1)
+--disable_query_log
+--eval select $data_length_old < $data_length_new as "larger"
+--enable_query_log
+
+## uncomment to see the actual values
+#--replace_column 8 #
+#SHOW TABLE STATUS WHERE name LIKE 't1';
+
+DROP TABLE t1;
+
+
