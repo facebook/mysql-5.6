@@ -37,19 +37,20 @@ class Rdb_sst_file {
   Rdb_sst_file(const Rdb_sst_file& p)= delete;
   Rdb_sst_file& operator=(const Rdb_sst_file& p)= delete;
 
-  rocksdb::DB*                 m_db;
-  rocksdb::ColumnFamilyHandle* m_cf;
-  const rocksdb::DBOptions&    m_db_options;
-  rocksdb::SstFileWriter*      m_sst_file_writer;
-  std::string                  m_name;
-  bool                         m_tracing;
+  rocksdb::DB* const                  m_db;
+  rocksdb::ColumnFamilyHandle* const  m_cf;
+  const rocksdb::DBOptions&           m_db_options;
+  rocksdb::SstFileWriter*             m_sst_file_writer;
+  const std::string                   m_name;
+  const bool                          m_tracing;
 
   std::string generateKey(const std::string& key);
 
  public:
-  Rdb_sst_file(rocksdb::DB* db, rocksdb::ColumnFamilyHandle* cf,
+  Rdb_sst_file(rocksdb::DB* const db,
+               rocksdb::ColumnFamilyHandle* const cf,
                const rocksdb::DBOptions& db_options, const std::string& name,
-               bool tracing);
+               const bool tracing);
   ~Rdb_sst_file();
 
   rocksdb::Status open();
@@ -62,24 +63,24 @@ class Rdb_sst_info {
   Rdb_sst_info(const Rdb_sst_info& p)= delete;
   Rdb_sst_info& operator=(const Rdb_sst_info& p)= delete;
 
-  rocksdb::DB*                 m_db;
-  rocksdb::ColumnFamilyHandle* m_cf;
-  const rocksdb::DBOptions&    m_db_options;
-  uint64_t                     m_curr_size;
-  uint64_t                     m_max_size;
-  uint                         m_sst_count;
-  std::string                  m_error_msg;
-  std::string                  m_prefix;
-  static std::string           m_suffix;
+  rocksdb::DB* const                  m_db;
+  rocksdb::ColumnFamilyHandle* const  m_cf;
+  const rocksdb::DBOptions&           m_db_options;
+  uint64_t                            m_curr_size;
+  uint64_t                            m_max_size;
+  uint                                m_sst_count;
+  std::string                         m_error_msg;
+  std::string                         m_prefix;
+  static std::string                  m_suffix;
 #if defined(RDB_SST_INFO_USE_THREAD)
-  std::queue<Rdb_sst_file*>    m_queue;
-  std::mutex                   m_mutex;
-  std::condition_variable      m_cond;
-  std::thread*                 m_thread;
-  bool                         m_finished;
+  std::queue<Rdb_sst_file*>           m_queue;
+  std::mutex                          m_mutex;
+  std::condition_variable             m_cond;
+  std::thread*                        m_thread;
+  bool                                m_finished;
 #endif
-  Rdb_sst_file*                m_sst_file;
-  bool                         m_tracing;
+  Rdb_sst_file*                       m_sst_file;
+  const bool                          m_tracing;
 
   int open_new_sst_file();
   void close_curr_sst_file();
@@ -92,9 +93,10 @@ class Rdb_sst_info {
 #endif
 
  public:
-  Rdb_sst_info(rocksdb::DB* db, const std::string& tablename,
-               const std::string& indexname, rocksdb::ColumnFamilyHandle* cf,
-               const rocksdb::DBOptions& db_options, bool tracing);
+  Rdb_sst_info(rocksdb::DB* const db, const std::string& tablename,
+               const std::string& indexname,
+               rocksdb::ColumnFamilyHandle* const cf,
+               const rocksdb::DBOptions& db_options, const bool &tracing);
   ~Rdb_sst_info();
 
   int put(const rocksdb::Slice& key, const rocksdb::Slice& value);
@@ -102,7 +104,7 @@ class Rdb_sst_info {
 
   const std::string& error_message() const { return m_error_msg; }
 
-  static void init(rocksdb::DB* db);
+  static void init(const rocksdb::DB* const db);
 };
 
 }  // namespace myrocks

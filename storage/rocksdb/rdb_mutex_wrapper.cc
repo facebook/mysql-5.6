@@ -45,7 +45,7 @@ Rdb_cond_var::~Rdb_cond_var() {
   mysql_cond_destroy(&m_cond);
 }
 
-Status Rdb_cond_var::Wait(std::shared_ptr<TransactionDBMutex> mutex_arg) {
+Status Rdb_cond_var::Wait(const std::shared_ptr<TransactionDBMutex> mutex_arg) {
   return WaitFor(mutex_arg, BIG_TIMEOUT);
 }
 
@@ -65,7 +65,7 @@ Status Rdb_cond_var::Wait(std::shared_ptr<TransactionDBMutex> mutex_arg) {
 */
 
 Status
-Rdb_cond_var::WaitFor(std::shared_ptr<TransactionDBMutex> mutex_arg,
+Rdb_cond_var::WaitFor(const std::shared_ptr<TransactionDBMutex> mutex_arg,
                       int64_t timeout_micros)
 {
   auto *mutex_obj= reinterpret_cast<Rdb_mutex*>(mutex_arg.get());
@@ -200,7 +200,7 @@ Status Rdb_mutex::TryLockFor(int64_t timeout_time MY_ATTRIBUTE((__unused__)))
 
 
 #ifndef STANDALONE_UNITTEST
-void Rdb_mutex::set_unlock_action(PSI_stage_info *old_stage_arg)
+void Rdb_mutex::set_unlock_action(const PSI_stage_info* const old_stage_arg)
 {
   DBUG_ASSERT(old_stage_arg != nullptr);
 
@@ -217,7 +217,8 @@ void Rdb_mutex::UnLock() {
 #ifndef STANDALONE_UNITTEST
   if (m_old_stage_info.count(current_thd) > 0)
   {
-    std::shared_ptr<PSI_stage_info> old_stage = m_old_stage_info[current_thd];
+    const std::shared_ptr<PSI_stage_info> old_stage =
+      m_old_stage_info[current_thd];
     m_old_stage_info.erase(current_thd);
     /* The following will call mysql_mutex_unlock */
     THD_EXIT_COND(current_thd, old_stage.get());
