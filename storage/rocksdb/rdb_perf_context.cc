@@ -96,7 +96,7 @@ std::string rdb_pc_stat_types[]=
     idx++;                                                          \
   } while (0)
 
-static void harvest_diffs(Rdb_atomic_perf_counters *counters)
+static void harvest_diffs(Rdb_atomic_perf_counters * const counters)
 {
   // (C) These should be in the same order as the PC enum
   size_t idx= 0;
@@ -151,7 +151,7 @@ static void harvest_diffs(Rdb_atomic_perf_counters *counters)
 
 static Rdb_atomic_perf_counters rdb_global_perf_counters;
 
-void rdb_get_global_perf_counters(Rdb_perf_counters *counters)
+void rdb_get_global_perf_counters(Rdb_perf_counters* const counters)
 {
   DBUG_ASSERT(counters != nullptr);
 
@@ -165,9 +165,9 @@ void Rdb_perf_counters::load(const Rdb_atomic_perf_counters &atomic_counters)
   }
 }
 
-bool Rdb_io_perf::start(uint32_t perf_context_level)
+bool Rdb_io_perf::start(const uint32_t perf_context_level)
 {
-  rocksdb::PerfLevel perf_level=
+  const rocksdb::PerfLevel perf_level=
     static_cast<rocksdb::PerfLevel>(perf_context_level);
 
   if (rocksdb::GetPerfLevel() != perf_level)
@@ -185,9 +185,9 @@ bool Rdb_io_perf::start(uint32_t perf_context_level)
   return true;
 }
 
-void Rdb_io_perf::end_and_record(uint32_t perf_context_level)
+void Rdb_io_perf::end_and_record(const uint32_t perf_context_level)
 {
-  rocksdb::PerfLevel perf_level=
+  const rocksdb::PerfLevel perf_level=
     static_cast<rocksdb::PerfLevel>(perf_context_level);
 
   if (perf_level == rocksdb::kDisable)
