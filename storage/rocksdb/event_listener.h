@@ -27,12 +27,12 @@ class Rdb_event_listener : public rocksdb::EventListener
   Rdb_event_listener(const Rdb_event_listener&) = delete;
   Rdb_event_listener& operator=(const Rdb_event_listener&) = delete;
 
-  explicit Rdb_event_listener(Rdb_ddl_manager* ddl_manager) :
+  explicit Rdb_event_listener(Rdb_ddl_manager* const ddl_manager) :
       m_ddl_manager(ddl_manager) {
   }
 
   void OnCompactionCompleted(
-    rocksdb::DB *db, const rocksdb::CompactionJobInfo& ci) override;
+    rocksdb::DB* db, const rocksdb::CompactionJobInfo& ci) override;
   void OnFlushCompleted(
     rocksdb::DB* db, const rocksdb::FlushJobInfo& flush_job_info) override;
   void OnExternalFileIngested(
