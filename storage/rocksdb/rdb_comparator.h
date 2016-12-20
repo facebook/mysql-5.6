@@ -41,9 +41,9 @@ class Rdb_pk_comparator : public rocksdb::Comparator
 
   static int bytewise_compare(const rocksdb::Slice& a, const rocksdb::Slice& b)
   {
-    size_t a_size= a.size();
-    size_t b_size= b.size();
-    size_t len= (a_size < b_size) ? a_size : b_size;
+    const size_t a_size= a.size();
+    const size_t b_size= b.size();
+    const size_t len= (a_size < b_size) ? a_size : b_size;
     int res;
 
     if ((res= memcmp(a.data(), b.data(), len)))

@@ -45,13 +45,13 @@ class Rdb_cf_options
   Rdb_cf_options& operator=(const Rdb_cf_options&) = delete;
   Rdb_cf_options() = default;
 
-  void get(const std::string &cf_name, rocksdb::ColumnFamilyOptions *opts);
+  void get(const std::string &cf_name, rocksdb::ColumnFamilyOptions* const opts);
 
   bool init(
     const rocksdb::BlockBasedTableOptions& table_options,
     std::shared_ptr<rocksdb::TablePropertiesCollectorFactory> prop_coll_factory,
-    const char * default_cf_options,
-    const char * override_cf_options);
+    const char* const default_cf_options,
+    const char* const override_cf_options);
 
   const rocksdb::ColumnFamilyOptions& get_defaults() const {
     return m_default_cf_opts;
@@ -62,20 +62,21 @@ class Rdb_cf_options
 
   void get_cf_options(
     const std::string &cf_name,
-    rocksdb::ColumnFamilyOptions *opts) MY_ATTRIBUTE((__nonnull__));
+    rocksdb::ColumnFamilyOptions* const opts) MY_ATTRIBUTE((__nonnull__));
 
  private:
   bool set_default(const std::string &default_config);
   bool set_override(const std::string &overide_config);
 
   /* Helper string manipulation functions */
-  static void skip_spaces(const std::string& input, size_t* pos);
-  static bool find_column_family(const std::string& input, size_t* pos,
-                                 std::string* key);
-  static bool find_options(const std::string& input, size_t* pos,
-                           std::string* options);
-  static bool find_cf_options_pair(const std::string& input, size_t* pos,
-                                   std::string* cf, std::string* opt_str);
+  static void skip_spaces(const std::string& input, size_t* const pos);
+  static bool find_column_family(const std::string& input, size_t* const pos,
+                                 std::string* const key);
+  static bool find_options(const std::string& input, size_t* const pos,
+                           std::string* const options);
+  static bool find_cf_options_pair(const std::string& input, size_t* const pos,
+                                   std::string* const cf,
+                                   std::string* const opt_str);
 
  private:
   static Rdb_pk_comparator s_pk_comparator;

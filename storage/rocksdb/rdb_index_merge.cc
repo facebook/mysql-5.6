@@ -26,10 +26,10 @@
 
 namespace myrocks {
 
-Rdb_index_merge::Rdb_index_merge(const char* tmpfile_path,
-                                 const ulonglong merge_buf_size,
-                                 const ulonglong merge_combine_read_size,
-                                 const rocksdb::Comparator* comparator) :
+Rdb_index_merge::Rdb_index_merge(const char* const tmpfile_path,
+                                 const ulonglong &merge_buf_size,
+                                 const ulonglong &merge_combine_read_size,
+                                 const rocksdb::Comparator* const comparator) :
   m_tmpfile_path(tmpfile_path),
   m_merge_buf_size(merge_buf_size),
   m_merge_combine_read_size(merge_combine_read_size),
@@ -128,7 +128,8 @@ int Rdb_index_merge::add(const rocksdb::Slice& key,
     Check if sort buffer is going to be out of space, if so write it
     out to disk in sorted order using offset tree.
   */
-  uint total_offset= RDB_MERGE_CHUNK_LEN + m_rec_buf_unsorted->curr_offset +
+  const uint total_offset=
+                     RDB_MERGE_CHUNK_LEN + m_rec_buf_unsorted->curr_offset +
                      RDB_MERGE_KEY_DELIMITER + RDB_MERGE_VAL_DELIMITER +
                      key.size() + val.size();
   if (total_offset >= m_rec_buf_unsorted->total_size)
@@ -153,7 +154,7 @@ int Rdb_index_merge::add(const rocksdb::Slice& key,
     }
   }
 
-  ulonglong rec_offset= m_rec_buf_unsorted->curr_offset;
+  const ulonglong rec_offset= m_rec_buf_unsorted->curr_offset;
 
   /*
     Store key and value in temporary unsorted in memory buffer pointed to by
@@ -187,7 +188,7 @@ int Rdb_index_merge::merge_buf_write()
     Iterate through the offset tree.  Should be ordered by the secondary key
     at this point.
   */
-  for (auto& rec : m_offset_tree)
+  for (const auto& rec : m_offset_tree)
   {
     DBUG_ASSERT(m_output_buf->curr_offset <= m_merge_buf_size);
 
@@ -266,13 +267,13 @@ int Rdb_index_merge::merge_heap_prepare()
   /* Allocate buffers for each chunk */
   for (ulonglong i = 0; i < m_merge_file.num_sort_buffers; i++)
   {
-    auto entry= std::make_shared<merge_heap_entry>(m_comparator);
+    const auto entry= std::make_shared<merge_heap_entry>(m_comparator);
 
     /*
       Read chunk_size bytes from each chunk on disk, and place inside
       respective chunk buffer.
     */
-    size_t total_size=
+    const size_t total_size=
       entry->prepare(m_merge_file.fd, i * m_merge_buf_size, chunk_size);
 
     if (total_size == (size_t) - 1)
@@ -303,7 +304,7 @@ int Rdb_index_merge::merge_heap_prepare()
 /**
   Create and/or iterate through keys in the merge heap.
 */
-int Rdb_index_merge::next(rocksdb::Slice* key, rocksdb::Slice* val)
+int Rdb_index_merge::next(rocksdb::Slice* const key, rocksdb::Slice* const val)
 {
   /*
     If table fits in one sort buffer, we can optimize by writing
@@ -320,7 +321,7 @@ int Rdb_index_merge::next(rocksdb::Slice* key, rocksdb::Slice* val)
       return -1;
     }
 
-    auto rec= m_offset_tree.begin();
+    const auto rec= m_offset_tree.begin();
 
     /* Read record from offset */
     merge_read_rec(rec->block, key, val);
@@ -360,8 +361,8 @@ int Rdb_index_merge::next(rocksdb::Slice* key, rocksdb::Slice* val)
 /**
   Get current top record from the heap.
 */
-void Rdb_index_merge::merge_heap_top(rocksdb::Slice* key,
-                                     rocksdb::Slice* val)
+void Rdb_index_merge::merge_heap_top(rocksdb::Slice* const key,
+                                     rocksdb::Slice* const val)
 {
   DBUG_ASSERT(!m_merge_min_heap.empty());
 
@@ -376,8 +377,8 @@ void Rdb_index_merge::merge_heap_top(rocksdb::Slice* key,
 
   Returns -1 when there are no more records in the heap.
 */
-int Rdb_index_merge::merge_heap_pop_and_get_next(rocksdb::Slice* key,
-                                                 rocksdb::Slice* val)
+int Rdb_index_merge::merge_heap_pop_and_get_next(rocksdb::Slice* const key,
+                                                 rocksdb::Slice* const val)
 {
   /*
     Make a new reference to shared ptr so it doesn't get destroyed
@@ -458,7 +459,7 @@ int Rdb_index_merge::merge_buf_info::read_next_chunk_from_disk(File fd)
   }
 
   /* Overwrite the old block */
-  size_t bytes_read= my_read(fd, block.get(), block_len, MYF(MY_WME));
+  const size_t bytes_read= my_read(fd, block.get(), block_len, MYF(MY_WME));
   if (bytes_read == (size_t) -1)
   {
     // NO_LINT_DEBUG
@@ -474,8 +475,8 @@ int Rdb_index_merge::merge_buf_info::read_next_chunk_from_disk(File fd)
   Get records from offset within sort buffer and compare them.
   Sort by least to greatest.
 */
-int Rdb_index_merge::merge_record_compare(const uchar* a_block,
-    const uchar* b_block,
+int Rdb_index_merge::merge_record_compare(const uchar* const a_block,
+    const uchar* const b_block,
     const rocksdb::Comparator* const comparator)
 {
   return comparator->Compare(as_slice(a_block), as_slice(b_block));
@@ -485,9 +486,9 @@ int Rdb_index_merge::merge_record_compare(const uchar* a_block,
   Given an offset in a merge sort buffer, read out the keys + values.
   After this, block will point to the next record in the buffer.
 **/
-void Rdb_index_merge::merge_read_rec(const uchar* block,
-                                    rocksdb::Slice* key,
-                                    rocksdb::Slice* val)
+void Rdb_index_merge::merge_read_rec(const uchar* const block,
+                                    rocksdb::Slice* const key,
+                                    rocksdb::Slice* const val)
 {
   /* Read key at block offset into key slice and the value into value slice*/
   read_slice(key, block);
@@ -502,8 +503,8 @@ void Rdb_index_merge::read_slice(rocksdb::Slice* slice, const uchar* block_ptr)
   *slice= rocksdb::Slice(reinterpret_cast<const char*>(block_ptr), slice_len);
 }
 
-int Rdb_index_merge::merge_heap_entry::read_rec(rocksdb::Slice *key,
-                                                rocksdb::Slice *val)
+int Rdb_index_merge::merge_heap_entry::read_rec(rocksdb::Slice* const key,
+                                                rocksdb::Slice* const val)
 {
   const uchar* block_ptr= block;
   const auto orig_offset = chunk_info->curr_offset;
@@ -531,7 +532,7 @@ int Rdb_index_merge::merge_heap_entry::read_rec(rocksdb::Slice *key,
   return 0;
 }
 
-int Rdb_index_merge::merge_heap_entry::read_slice(rocksdb::Slice* slice,
+int Rdb_index_merge::merge_heap_entry::read_slice(rocksdb::Slice* const slice,
                                                   const uchar** block_ptr)
 {
   if (!chunk_info->has_space(RDB_MERGE_REC_DELIMITER))
@@ -555,7 +556,7 @@ size_t Rdb_index_merge::merge_heap_entry::prepare(File fd, ulonglong f_offset,
                                                   ulonglong chunk_size)
 {
   chunk_info= std::make_shared<merge_buf_info>(chunk_size);
-  size_t res = chunk_info->prepare(fd, f_offset);
+  const size_t res = chunk_info->prepare(fd, f_offset);
   if (res != (size_t) - 1)
   {
     block= chunk_info->block.get() + RDB_MERGE_CHUNK_LEN;
@@ -580,7 +581,7 @@ size_t Rdb_index_merge::merge_buf_info::prepare(File fd, ulonglong f_offset)
     return (size_t) - 1;
   }
 
-  size_t bytes_read= my_read(fd, block.get(), total_size, MYF(MY_WME));
+  const size_t bytes_read= my_read(fd, block.get(), total_size, MYF(MY_WME));
   if (bytes_read == (size_t) - 1)
   {
     // NO_LINT_DEBUG
@@ -641,4 +642,3 @@ void Rdb_index_merge::merge_reset()
 }
 
 }  // namespace myrocks
-
