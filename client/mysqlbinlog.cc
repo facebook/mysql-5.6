@@ -182,7 +182,7 @@ static bool empty_begin_query_ev = false;
 static Log_event* begin_query_ev_cache = nullptr;
 static string cur_database= "";
 
-enum class Check_database_decision : char {
+enum class Check_database_decision : signed char {
   EMPTY_EVENT_DATABASE = 2,
   CHANGED = 1,
   OK = 0,
