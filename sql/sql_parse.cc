@@ -1098,6 +1098,7 @@ bool do_command(THD *thd)
     goto out;
   }
 
+  THD_STAGE_INFO(thd, stage_init);
   packet= (char*) net->read_pos;
   /*
     'packet_length' contains length of data, as it was stored in packet
