@@ -631,9 +631,7 @@ uint Rdb_key_def::pack_record(const TABLE* const tbl, uchar* const pack_buffer,
 
     const bool create_unpack_info=
       (unpack_info &&  // we were requested to generate unpack_info
-       m_pack_info[i].uses_unpack_info() &&  // and this keypart uses it
-       index_format_min_check(PRIMARY_FORMAT_VERSION_UPDATE1,
-                              SECONDARY_FORMAT_VERSION_UPDATE1));
+       m_pack_info[i].uses_unpack_info());  // and this keypart uses it
     Rdb_pack_field_context pack_ctx(unpack_info);
 
     // Set the offset for methods which do not take an offset as an argument
@@ -933,10 +931,7 @@ int Rdb_key_def::unpack_record(TABLE* const table, uchar* const buf,
 
     Field* const field= fpi->get_field_in_table(table);
 
-    const bool do_unpack= secondary_key ||
-      !fpi->uses_unpack_info() ||
-      (m_kv_format_version >= Rdb_key_def::PRIMARY_FORMAT_VERSION_UPDATE1);
-    if (fpi->m_unpack_func && do_unpack)
+    if (fpi->m_unpack_func)
     {
       /* It is possible to unpack this column. Do it. */
 
@@ -2602,10 +2597,7 @@ bool Rdb_field_packing::setup(const Rdb_key_def* const key_descr,
     case MYSQL_TYPE_LONG_BLOB:
     case MYSQL_TYPE_BLOB:
     {
-      if (key_descr &&
-          key_descr->index_format_min_check(
-            Rdb_key_def::PRIMARY_FORMAT_VERSION_UPDATE1,
-            Rdb_key_def::SECONDARY_FORMAT_VERSION_UPDATE1))
+      if (key_descr)
       {
         // The my_charset_bin collation is special in that it will consider
         // shorter strings sorting as less than longer strings.
@@ -2682,33 +2674,19 @@ bool Rdb_field_packing::setup(const Rdb_key_def* const key_descr,
 
       if (is_varchar)
       {
-        if (!key_descr ||
-            key_descr->index_format_min_check(
-                Rdb_key_def::PRIMARY_FORMAT_VERSION_UPDATE1,
-                Rdb_key_def::SECONDARY_FORMAT_VERSION_UPDATE1))
-        {
-          // VARCHARs
-          // - are compared as if they were space-padded
-          // - but are not actually space-padded (reading the value back
-          //   produces the original value, without the padding)
-          m_unpack_func= rdb_unpack_binary_or_utf8_varchar_space_pad;
-          m_skip_func= rdb_skip_variable_space_pad;
-          m_pack_func= rdb_pack_with_varchar_space_pad;
-          m_make_unpack_info_func= rdb_dummy_make_unpack_info;
-          m_segment_size= get_segment_size_from_collation(cs);
-          m_max_image_len=
-              (max_image_len_before_chunks/(m_segment_size-1) + 1) *
-              m_segment_size;
-          rdb_get_mem_comparable_space(cs, &space_xfrm, &space_xfrm_len,
-                                       &space_mb_len);
-        }
-        else
-        {
-          // Older variant where VARCHARs were not compared as space-padded:
-          m_unpack_func= rdb_unpack_binary_or_utf8_varchar;
-          m_skip_func= rdb_skip_variable_length;
-          m_pack_func= rdb_pack_with_varchar_encoding;
-        }
+        // VARCHARs - are compared as if they were space-padded - but are
+        // not actually space-padded (reading the value back produces the
+        // original value, without the padding)
+        m_unpack_func= rdb_unpack_binary_or_utf8_varchar_space_pad;
+        m_skip_func= rdb_skip_variable_space_pad;
+        m_pack_func= rdb_pack_with_varchar_space_pad;
+        m_make_unpack_info_func= rdb_dummy_make_unpack_info;
+        m_segment_size= get_segment_size_from_collation(cs);
+        m_max_image_len=
+          (max_image_len_before_chunks/(m_segment_size-1) + 1) *
+          m_segment_size;
+        rdb_get_mem_comparable_space(cs, &space_xfrm, &space_xfrm_len,
+                                     &space_mb_len);
       }
       else
       {
@@ -2730,15 +2708,6 @@ bool Rdb_field_packing::setup(const Rdb_key_def* const key_descr,
 
       if (is_varchar)
       {
-        if (cs->levels_for_order != 1)
-        {
-          //  NO_LINT_DEBUG
-          sql_print_warning("RocksDB: you're trying to create an index "
-                            "with a multi-level collation %s", cs->name);
-          //  NO_LINT_DEBUG
-          sql_print_warning("MyRocks will handle this collation internally "
-                            " as if it had a NO_PAD attribute.");
-        }
         // VARCHAR requires space-padding for doing comparisons
         //
         // The check for cs->levels_for_order is to catch
@@ -2748,11 +2717,7 @@ bool Rdb_field_packing::setup(const Rdb_key_def* const key_descr,
         // either.
         // Currently we handle these collations as NO_PAD, even if they have
         // PAD_SPACE attribute.
-        if ((!key_descr ||
-              key_descr->index_format_min_check(
-                Rdb_key_def::PRIMARY_FORMAT_VERSION_UPDATE1,
-                Rdb_key_def::SECONDARY_FORMAT_VERSION_UPDATE1)) &&
-            cs->levels_for_order == 1)
+        if (cs->levels_for_order == 1)
         {
           m_pack_func= rdb_pack_with_varchar_space_pad;
           m_skip_func= rdb_skip_variable_space_pad;
@@ -2765,6 +2730,12 @@ bool Rdb_field_packing::setup(const Rdb_key_def* const key_descr,
         }
         else
         {
+          //  NO_LINT_DEBUG
+          sql_print_warning("RocksDB: you're trying to create an index "
+                            "with a multi-level collation %s", cs->name);
+          //  NO_LINT_DEBUG
+          sql_print_warning("MyRocks will handle this collation internally "
+                            " as if it had a NO_PAD attribute.");
           m_pack_func= rdb_pack_with_varchar_encoding;
           m_skip_func= rdb_skip_variable_length;
         }
