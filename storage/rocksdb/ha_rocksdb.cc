@@ -4260,9 +4260,7 @@ void ha_rocksdb::convert_record_to_storage_format(
   // If a primary key may have non-empty unpack_info for certain values,
   // (m_maybe_unpack_info=TRUE), we write the unpack_info block. The block
   // itself was prepared in Rdb_key_def::pack_record.
-  if (m_maybe_unpack_info &&
-      m_pk_descr->m_kv_format_version >=
-      Rdb_key_def::PRIMARY_FORMAT_VERSION_UPDATE1)
+  if (m_maybe_unpack_info)
   {
     m_storage_record.append(reinterpret_cast<char*>(pk_unpack_info->ptr()),
                             pk_unpack_info->get_current_pos());
@@ -4523,8 +4521,7 @@ int ha_rocksdb::convert_record_from_storage_format(
     return HA_ERR_INTERNAL_ERROR;
   }
 
-  if (m_maybe_unpack_info && m_pk_descr->m_kv_format_version >=
-      Rdb_key_def::PRIMARY_FORMAT_VERSION_UPDATE1)
+  if (m_maybe_unpack_info)
   {
     unpack_info= reader.read(RDB_UNPACK_HEADER_SIZE);
 
@@ -4714,53 +4711,16 @@ int ha_rocksdb::convert_record_from_storage_format(
 void ha_rocksdb::get_storage_type(Rdb_field_encoder* const encoder,
                                   const uint &kp)
 {
-  Field* const field= table->key_info[table->s->primary_key].key_part[kp].field;
-
-  if (field->real_type() == MYSQL_TYPE_NEWDECIMAL)
+  // STORE_SOME uses unpack_info.
+  if (m_pk_descr->has_unpack_info(kp))
   {
-    // Index-only is supported for DECIMAL columns.
-    // A DECIMAL value can be restored from its mem-comparable form.
-    // This works for both the old data format and the new data format.
-    if (m_pk_descr->m_kv_format_version >=
-        Rdb_key_def::PRIMARY_FORMAT_VERSION_UPDATE1)
-    {
-      // New format, don't store Decimal value in the row.
-      encoder->m_storage_type= Rdb_field_encoder::STORE_NONE;
-    }
-    else
-    {
-      // Old format. Pretend there's no way to unpack the decimal from
-      // its mem-comparable form.
-      encoder->m_storage_type= Rdb_field_encoder::STORE_ALL;
-    }
-    return;
+    DBUG_ASSERT(m_pk_descr->can_unpack(kp));
+    encoder->m_storage_type= Rdb_field_encoder::STORE_SOME;
+    m_maybe_unpack_info= true;
   }
-
-  if (m_pk_descr->m_kv_format_version >=
-      Rdb_key_def::PRIMARY_FORMAT_VERSION_UPDATE1)
+  else if (m_pk_descr->can_unpack(kp))
   {
-    // STORE_SOME uses unpack_info, so our key must be of version
-    // higher than PRIMARY_FORMAT_VERSION_UPDATE1 to use this
-    // feature.
-    if (m_pk_descr->has_unpack_info(kp))
-    {
-      DBUG_ASSERT(m_pk_descr->can_unpack(kp));
-      encoder->m_storage_type= Rdb_field_encoder::STORE_SOME;
-      m_maybe_unpack_info= true;
-    }
-    else if (m_pk_descr->can_unpack(kp))
-    {
-      encoder->m_storage_type= Rdb_field_encoder::STORE_NONE;
-    }
-  }
-  else
-  {
-    // For old versions, we can only store none if there is no
-    // unpack_info (and it's unpackable).
-    if (m_pk_descr->can_unpack(kp) && !m_pk_descr->has_unpack_info(kp))
-    {
-      encoder->m_storage_type= Rdb_field_encoder::STORE_NONE;
-    }
+    encoder->m_storage_type= Rdb_field_encoder::STORE_NONE;
   }
 }
 
@@ -5554,20 +5514,12 @@ int ha_rocksdb::create_key_def(const TABLE* const table_arg, const uint &i,
   {
     index_type= Rdb_key_def::INDEX_TYPE_PRIMARY;
     uint16 pk_latest_version= Rdb_key_def::PRIMARY_FORMAT_VERSION_LATEST;
-    DBUG_EXECUTE_IF("MYROCKS_FORMAT_VERSION_INITIAL",
-                    {pk_latest_version=
-                       Rdb_key_def::PRIMARY_FORMAT_VERSION_INITIAL;
-                    });
     kv_version= pk_latest_version;
   }
   else
   {
     index_type= Rdb_key_def::INDEX_TYPE_SECONDARY;
     uint16 sk_latest_version= Rdb_key_def::SECONDARY_FORMAT_VERSION_LATEST;
-    DBUG_EXECUTE_IF("MYROCKS_FORMAT_VERSION_INITIAL",
-                    {sk_latest_version=
-                       Rdb_key_def::SECONDARY_FORMAT_VERSION_INITIAL;
-                    });
     kv_version= sk_latest_version;
   }
 
