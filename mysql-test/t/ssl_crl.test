@@ -27,7 +27,7 @@ if (!$crllen)
 --echo #               PATH SUBSTITUTION
 --echo #
 
---let $mysql_test_dir_path= `SELECT REPLACE('$MYSQL_TEST_DIR', '$HOME', '~')`
+--let $mysql_test_dir_path= `SELECT IF ('$MYSQL_TEST_DIR' LIKE '/data/users/%', REPLACE('$MYSQL_TEST_DIR', '/data/users/', '~/../'), REPLACE('$MYSQL_TEST_DIR', '$HOME', '~'))`
 
 --echo # try to connect with '--ssl-crl' option using tilde home directoy
 --echo # path substitution : should connect
