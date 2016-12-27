@@ -205,6 +205,8 @@ rocksdb_compact_column_family(THD* const thd,
 namespace  // anonymous namespace = not visible outside this source file
 {
 
+const ulong TABLE_HASH_SIZE= 32;
+
 struct Rdb_open_tables_map
 {
   /* Hash table used to track the handlers of open tables */
@@ -214,7 +216,8 @@ struct Rdb_open_tables_map
 
   void init_hash(void)
   {
-    (void) my_hash_init(&m_hash, my_core::system_charset_info, 32, 0, 0,
+    (void) my_hash_init(&m_hash, my_core::system_charset_info, TABLE_HASH_SIZE,
+                        0, 0,
                         (my_hash_get_key) Rdb_open_tables_map::get_hash_key,
                         0, 0);
   }
@@ -255,7 +258,7 @@ static int rocksdb_create_checkpoint(
     void* const save MY_ATTRIBUTE((__unused__)),
     struct st_mysql_value* const value)
 {
-  char buf[512];
+  char buf[FN_REFLEN];
   int len = sizeof(buf);
   const char* const checkpoint_dir_raw= value->val_str(value, buf, &len);
   if (checkpoint_dir_raw) {
@@ -478,10 +481,23 @@ static TYPELIB index_type_typelib = {
   nullptr
 };
 
+const ulong RDB_MAX_LOCK_WAIT_SECONDS= 1024*1024*1024;
+const ulong RDB_MAX_ROW_LOCKS= 1024*1024*1024;
+const ulong RDB_DEFAULT_BULK_LOAD_SIZE= 1000;
+const ulong RDB_MAX_BULK_LOAD_SIZE= 1024*1024*1024;
+const size_t RDB_DEFAULT_MERGE_BUF_SIZE= 64*1024*1024;
+const size_t RDB_MIN_MERGE_BUF_SIZE= 100;
+const size_t RDB_DEFAULT_MERGE_COMBINE_READ_SIZE= 1024*1024*1024;
+const size_t RDB_MIN_MERGE_COMBINE_READ_SIZE= 100;
+const int64 RDB_DEFAULT_BLOCK_CACHE_SIZE= 512*1024*1024;
+const int64 RDB_MIN_BLOCK_CACHE_SIZE= 1024;
+const int RDB_MAX_CHECKSUMS_PCT= 100;
+
 //TODO: 0 means don't wait at all, and we don't support it yet?
 static MYSQL_THDVAR_ULONG(lock_wait_timeout, PLUGIN_VAR_RQCMDARG,
   "Number of seconds to wait for lock",
-  nullptr, nullptr, /*default*/ 1, /*min*/ 1, /*max*/ 1024*1024*1024, 0);
+  nullptr, nullptr, /*default*/ 1, /*min*/ 1,
+  /*max*/ RDB_MAX_LOCK_WAIT_SECONDS, 0);
 
 static MYSQL_THDVAR_BOOL(deadlock_detect, PLUGIN_VAR_RQCMDARG,
   "Enables deadlock detection", nullptr, nullptr, FALSE);
@@ -536,8 +552,10 @@ static MYSQL_THDVAR_BOOL(skip_bloom_filter_on_read, PLUGIN_VAR_RQCMDARG,
 
 static MYSQL_THDVAR_ULONG(max_row_locks, PLUGIN_VAR_RQCMDARG,
   "Maximum number of locks a transaction can have",
-  nullptr, nullptr, /*default*/ 1024*1024*1024, /*min*/ 1,
-  /*max*/ 1024*1024*1024, 0);
+  nullptr, nullptr,
+  /*default*/ RDB_MAX_ROW_LOCKS,
+  /*min*/ 1,
+  /*max*/ RDB_MAX_ROW_LOCKS, 0);
 
 static MYSQL_THDVAR_BOOL(lock_scanned_rows, PLUGIN_VAR_RQCMDARG,
   "Take and hold locks on rows that are scanned but not updated",
@@ -545,22 +563,25 @@ static MYSQL_THDVAR_BOOL(lock_scanned_rows, PLUGIN_VAR_RQCMDARG,
 
 static MYSQL_THDVAR_ULONG(bulk_load_size, PLUGIN_VAR_RQCMDARG,
   "Max #records in a batch for bulk-load mode",
-  nullptr, nullptr, /*default*/ 1000, /*min*/ 1, /*max*/ 1024*1024*1024, 0);
+  nullptr, nullptr,
+  /*default*/ RDB_DEFAULT_BULK_LOAD_SIZE,
+  /*min*/ 1,
+  /*max*/ RDB_MAX_BULK_LOAD_SIZE, 0);
 
 static MYSQL_THDVAR_ULONGLONG(merge_buf_size, PLUGIN_VAR_RQCMDARG,
   "Size to allocate for merge sort buffers written out to disk "
   "during inplace index creation.",
   nullptr, nullptr,
-  /* default (64MB) */  (ulonglong) 67108864,
-  /* min (100B) */ 100,
+  /* default (64MB) */ RDB_DEFAULT_MERGE_BUF_SIZE,
+  /* min (100B) */ RDB_MIN_MERGE_BUF_SIZE,
   /* max */ SIZE_T_MAX, 1);
 
 static MYSQL_THDVAR_ULONGLONG(merge_combine_read_size, PLUGIN_VAR_RQCMDARG,
   "Size that we have to work with during combine (reading from disk) phase of "
   "external sort during fast index creation.",
   nullptr, nullptr,
-  /* default (1GB) */ (ulonglong) 1073741824,
-  /* min (100B) */ 100,
+  /* default (1GB) */ RDB_DEFAULT_MERGE_COMBINE_READ_SIZE,
+  /* min (100B) */ RDB_MIN_MERGE_COMBINE_READ_SIZE,
   /* max */ SIZE_T_MAX, 1);
 
 static MYSQL_SYSVAR_BOOL(create_if_missing,
@@ -616,8 +637,10 @@ static MYSQL_SYSVAR_UINT(wal_recovery_mode,
   rocksdb_wal_recovery_mode,
   PLUGIN_VAR_RQCMDARG,
   "DBOptions::wal_recovery_mode for RocksDB",
-  nullptr, nullptr, 2,
-  /* min */ 0L, /* max */ 3, 0);
+  nullptr, nullptr,
+  /* default */ (uint) rocksdb::WALRecoveryMode::kPointInTimeRecovery,
+  /* min */ (uint) rocksdb::WALRecoveryMode::kTolerateCorruptedTailRecords,
+  /* max */ (uint) rocksdb::WALRecoveryMode::kSkipAnyCorruptedRecords, 0);
 
 static MYSQL_SYSVAR_ULONG(compaction_readahead_size,
   rocksdb_db_options.compaction_readahead_size,
@@ -637,8 +660,10 @@ static MYSQL_SYSVAR_UINT(access_hint_on_compaction_start,
   rocksdb_access_hint_on_compaction_start,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "DBOptions::access_hint_on_compaction_start for RocksDB",
-  nullptr, nullptr, 1,
-  /* min */ 0L, /* max */ 3, 0);
+  nullptr, nullptr,
+  /* default */ (uint) rocksdb::Options::AccessHint::NORMAL,
+  /* min */ (uint) rocksdb::Options::AccessHint::NONE,
+  /* max */ (uint) rocksdb::Options::AccessHint::WILLNEED, 0);
 
 static MYSQL_SYSVAR_BOOL(allow_concurrent_memtable_write,
   *reinterpret_cast<my_bool*>(
@@ -855,8 +880,10 @@ static MYSQL_SYSVAR_BOOL(enable_thread_tracking,
 static MYSQL_SYSVAR_LONGLONG(block_cache_size, rocksdb_block_cache_size,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "block_cache size for RocksDB",
-  nullptr, nullptr, 512*1024*1024L,
-  /* min */ 1024L, /* max */ LONGLONG_MAX, /* Block size */1024L);
+  nullptr, nullptr,
+  /* default */ RDB_DEFAULT_BLOCK_CACHE_SIZE,
+  /* min */ RDB_MIN_BLOCK_CACHE_SIZE,
+  /* max */ LONGLONG_MAX, /* Block size */ RDB_MIN_BLOCK_CACHE_SIZE);
 
 static MYSQL_SYSVAR_BOOL(cache_index_and_filter_blocks,
   *reinterpret_cast<my_bool*>(
@@ -1101,8 +1128,8 @@ static MYSQL_SYSVAR_BOOL(print_snapshot_conflict_queries,
 static MYSQL_THDVAR_INT(checksums_pct,
   PLUGIN_VAR_RQCMDARG,
   "How many percentages of rows to be checksummed",
-  nullptr, nullptr, 100,
-  /* min */ 0, /* max */ 100, 0);
+  nullptr, nullptr, RDB_MAX_CHECKSUMS_PCT,
+  /* min */ 0, /* max */ RDB_MAX_CHECKSUMS_PCT, 0);
 
 static MYSQL_THDVAR_BOOL(store_row_debug_checksums,
   PLUGIN_VAR_RQCMDARG,
@@ -1964,7 +1991,7 @@ class Rdb_transaction_impl : public Rdb_transaction
   void set_lock_timeout(int timeout_sec_arg) override
   {
     if (m_rocksdb_tx)
-      m_rocksdb_tx->SetLockTimeout(m_timeout_sec * 1000);
+      m_rocksdb_tx->SetLockTimeout(rdb_convert_sec_to_ms(m_timeout_sec));
   }
 
   void set_sync(bool sync) override
@@ -2194,7 +2221,7 @@ class Rdb_transaction_impl : public Rdb_transaction
     rocksdb::TransactionOptions tx_opts;
     rocksdb::WriteOptions write_opts;
     tx_opts.set_snapshot= false;
-    tx_opts.lock_timeout= m_timeout_sec * 1000;
+    tx_opts.lock_timeout= rdb_convert_sec_to_ms(m_timeout_sec);
     tx_opts.deadlock_detect= THDVAR(m_thd, deadlock_detect);
 
     write_opts.sync= THDVAR(m_thd, write_sync);
@@ -6812,18 +6839,22 @@ int ha_rocksdb::check(THD* const thd, HA_CHECK_OPT* const check_opt)
 print_and_error:
         {
           std::string buf;
-          buf = rdb_hexdump(rowkey_copy.ptr(), rowkey_copy.length(), 1000);
+          const std::size_t max_hex_string_len= 1000;
+
+          buf = rdb_hexdump(rowkey_copy.ptr(), rowkey_copy.length(),
+                            max_hex_string_len);
           // NO_LINT_DEBUG
           sql_print_error("CHECKTABLE %s:   rowkey: %s", table_name,
                           buf.c_str());
 
           buf= rdb_hexdump(m_retrieved_record.data(), m_retrieved_record.size(),
-                           1000);
+                           max_hex_string_len);
           // NO_LINT_DEBUG
           sql_print_error("CHECKTABLE %s:   record: %s", table_name,
                           buf.c_str());
 
-          buf = rdb_hexdump(sec_key_copy.ptr(), sec_key_copy.length(), 1000);
+          buf = rdb_hexdump(sec_key_copy.ptr(), sec_key_copy.length(),
+                            max_hex_string_len);
           // NO_LINT_DEBUG
           sql_print_error("CHECKTABLE %s:   index: %s", table_name,
                           buf.c_str());
