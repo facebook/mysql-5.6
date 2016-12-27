@@ -217,8 +217,14 @@ int Rdb_index_merge::merge_buf_write()
     return HA_ERR_INTERNAL_ERROR;
   }
 
+  /*
+    Add a file sync call here to flush the data out. Otherwise, the filesystem
+    cache can flush out all of the files at the same time, causing a write
+    burst.
+  */
   if (my_write(m_merge_file.fd, m_output_buf->block.get(),
-        m_output_buf->total_size, MYF(MY_WME | MY_NABP)))
+        m_output_buf->total_size, MYF(MY_WME | MY_NABP)) ||
+      mysql_file_sync(m_merge_file.fd, MYF(MY_WME)))
   {
     // NO_LINT_DEBUG
     sql_print_error("Error writing sorted merge buffer to disk.");
