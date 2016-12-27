@@ -414,6 +414,7 @@ static my_bool rpl_skip_tx_api_var= 0;
 static my_bool rocksdb_print_snapshot_conflict_queries= 0;
 
 std::atomic<uint64_t> rocksdb_snapshot_conflict_errors(0);
+std::atomic<uint64_t> rocksdb_wal_group_syncs(0);
 
 static rocksdb::DBOptions rdb_init_rocksdb_db_options(void)
 {
@@ -2612,6 +2613,7 @@ static bool rocksdb_flush_wal(
                             ulonglong target_lsn MY_ATTRIBUTE((__unused__)))
 {
   DBUG_ASSERT(rdb != nullptr);
+  rocksdb_wal_group_syncs++;
   const rocksdb::Status s= rdb->SyncWAL();
   if (!s.ok()) {
     return 1;
@@ -2651,7 +2653,8 @@ static int rocksdb_prepare(handlerton* const hton, THD* const thd,
       if (!tx->prepare(rdb_xid_to_string(xid))) {
         return 1;
       }
-      if (thd->durability_property == HA_IGNORE_DURABILITY) {
+      if (thd->durability_property == HA_IGNORE_DURABILITY
+          && THDVAR(thd, write_sync)) {
         /**
           we set the log sequence as '1' just to trigger hton->flush_logs
         */
@@ -10609,6 +10612,9 @@ static SHOW_VAR rocksdb_status_vars[]= {
   DEF_STATUS_VAR(number_block_not_compressed),
   DEF_STATUS_VAR_PTR("snapshot_conflict_errors",
                      &rocksdb_snapshot_conflict_errors,
+                     SHOW_LONGLONG),
+  DEF_STATUS_VAR_PTR("wal_group_syncs",
+                     &rocksdb_wal_group_syncs,
                      SHOW_LONGLONG),
   DEF_STATUS_VAR_PTR("number_stat_computes", &rocksdb_number_stat_computes, SHOW_LONGLONG),
   DEF_STATUS_VAR_PTR("number_sst_entry_put", &rocksdb_num_sst_entry_put,
