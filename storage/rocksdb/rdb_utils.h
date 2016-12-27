@@ -16,6 +16,7 @@
 #pragma once
 
 /* C++ standard header files */
+#include <chrono>
 #include <string>
 
 /* MySQL header files */
@@ -118,6 +119,15 @@ inline uchar* rdb_mysql_str_to_uchar_str(my_core::String *str)
 inline const uchar* rdb_std_str_to_uchar_ptr(const std::string &str)
 {
   return reinterpret_cast<const uchar*>(str.data());
+}
+
+/*
+  Helper function to convert seconds to milliseconds.
+*/
+
+constexpr int rdb_convert_sec_to_ms(int sec)
+{
+  return std::chrono::milliseconds(std::chrono::seconds(sec)).count();
 }
 
 /*
