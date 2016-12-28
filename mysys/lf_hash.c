@@ -394,7 +394,7 @@ int lf_hash_insert(LF_HASH *hash, LF_PINS *pins, const void *data)
   node->key= hash_key(hash, (uchar *)(node+1), &node->keylen);
   hashnr= calc_hash(hash, node->key, node->keylen);
   bucket= hashnr % hash->size;
-  el= _lf_dynarray_lvalue(&hash->array, bucket);
+  el= (LF_SLIST * volatile*) _lf_dynarray_lvalue(&hash->array, bucket);
   if (unlikely(!el))
     return -1;
   if (*el == NULL && unlikely(initialize_bucket(hash, el, bucket, pins)))
@@ -432,7 +432,7 @@ int lf_hash_delete(LF_HASH *hash, LF_PINS *pins, const void *key, uint keylen)
 
   bucket= hashnr % hash->size;
   lf_rwlock_by_pins(pins);
-  el= _lf_dynarray_lvalue(&hash->array, bucket);
+  el= (LF_SLIST * volatile*) _lf_dynarray_lvalue(&hash->array, bucket);
   if (unlikely(!el))
     return -1;
   /*
@@ -471,7 +471,7 @@ void *lf_hash_search(LF_HASH *hash, LF_PINS *pins, const void *key, uint keylen)
 
   bucket= hashnr % hash->size;
   lf_rwlock_by_pins(pins);
-  el= _lf_dynarray_lvalue(&hash->array, bucket);
+  el= (LF_SLIST * volatile*) _lf_dynarray_lvalue(&hash->array, bucket);
   if (unlikely(!el))
     return MY_ERRPTR;
   if (*el == NULL && unlikely(initialize_bucket(hash, el, bucket, pins)))
@@ -495,7 +495,8 @@ static int initialize_bucket(LF_HASH *hash, LF_SLIST * volatile *node,
   uint parent= my_clear_highest_bit(bucket);
   LF_SLIST *dummy= (LF_SLIST *)my_malloc(sizeof(LF_SLIST), MYF(MY_WME));
   LF_SLIST **tmp= 0, *cur;
-  LF_SLIST * volatile *el= _lf_dynarray_lvalue(&hash->array, parent);
+  LF_SLIST * volatile *el;
+  el= (LF_SLIST * volatile*) _lf_dynarray_lvalue(&hash->array, parent);
   if (unlikely(!el || !dummy))
     return -1;
   if (*el == NULL && bucket &&
@@ -658,7 +659,7 @@ void *lf_hash_random_match(LF_HASH *hash, LF_PINS *pins,
   bucket= hashnr % hash->size;
   rev_hashnr= my_reverse_bits(hashnr);
 
-  el= lf_dynarray_lvalue(&hash->array, bucket);
+  el= (LF_SLIST * volatile *) lf_dynarray_lvalue(&hash->array, bucket);
   if (unlikely(!el))
     return MY_ERRPTR;
   /*
@@ -690,7 +691,7 @@ void *lf_hash_random_match(LF_HASH *hash, LF_PINS *pins,
       twice we stop once we reach element from which we have begun our
       first search.
     */
-    el= lf_dynarray_lvalue(&hash->array, 0);
+    el= (LF_SLIST * volatile *) lf_dynarray_lvalue(&hash->array, 0);
     if (unlikely(!el))
       return MY_ERRPTR;
     res= lfind_match(el, 1, rev_hashnr, match, &cursor, pins);
@@ -790,7 +791,7 @@ int debug_hash_count_elements(LF_HASH *hash, LF_PINS *pins)
   int bucket;
   for (bucket= 0; bucket < hash->size; bucket++)
   {
-    el= _lf_dynarray_lvalue(&hash->array, bucket);
+    el= (LF_SLIST* volatile*) _lf_dynarray_lvalue(&hash->array, bucket);
     if (el)
     {
       int CNT= debug_lcount(el, &dummy, pins);

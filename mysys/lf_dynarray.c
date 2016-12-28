@@ -56,7 +56,7 @@ static void recursive_free(void **alloc, int level)
   {
     int i;
     for (i= 0; i < LF_DYNARRAY_LEVEL_LENGTH; i++)
-      recursive_free(alloc[i], level-1);
+      recursive_free((void**) alloc[i], level-1);
     my_free(alloc);
   }
   else
@@ -67,7 +67,7 @@ void lf_dynarray_destroy(LF_DYNARRAY *array)
 {
   int i;
   for (i= 0; i < LF_DYNARRAY_LEVELS; i++)
-    recursive_free(array->level[i], i);
+    recursive_free((void**) array->level[i], i);
   my_atomic_rwlock_destroy(&array->lock);
 }
 
@@ -123,9 +123,10 @@ void *_lf_dynarray_lvalue(LF_DYNARRAY *array, uint idx)
   if (!(ptr= *ptr_ptr))
   {
     uchar *alloc, *data;
-    alloc= my_malloc(LF_DYNARRAY_LEVEL_LENGTH * array->size_of_element +
-                     MY_MAX(array->size_of_element, sizeof(void *)),
-                     MYF(MY_WME|MY_ZEROFILL));
+    alloc= (uchar*) my_malloc(LF_DYNARRAY_LEVEL_LENGTH *
+                              array->size_of_element +
+                              MY_MAX(array->size_of_element, sizeof(void *)),
+                              MYF(MY_WME|MY_ZEROFILL));
     if (unlikely(!alloc))
       return(NULL);
     /* reserve the space for free() address */
