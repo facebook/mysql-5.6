@@ -776,11 +776,17 @@ static MYSQL_SYSVAR_ULONG(manifest_preallocation_size,
   nullptr, nullptr, rocksdb_db_options.manifest_preallocation_size,
   /* min */ 0L, /* max */ LONG_MAX, 0);
 
-static MYSQL_SYSVAR_BOOL(allow_os_buffer,
-  *reinterpret_cast<my_bool*>(&rocksdb_db_options.allow_os_buffer),
+static MYSQL_SYSVAR_BOOL(use_direct_reads,
+  *reinterpret_cast<my_bool*>(&rocksdb_db_options.use_direct_reads),
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-  "DBOptions::allow_os_buffer for RocksDB",
-  nullptr, nullptr, rocksdb_db_options.allow_os_buffer);
+  "DBOptions::use_direct_reads for RocksDB",
+  nullptr, nullptr, rocksdb_db_options.use_direct_reads);
+
+static MYSQL_SYSVAR_BOOL(use_direct_writes,
+  *reinterpret_cast<my_bool*>(&rocksdb_db_options.use_direct_writes),
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::use_direct_writes for RocksDB",
+  nullptr, nullptr, rocksdb_db_options.use_direct_writes);
 
 static MYSQL_SYSVAR_BOOL(allow_mmap_reads,
   *reinterpret_cast<my_bool*>(&rocksdb_db_options.allow_mmap_reads),
@@ -1181,7 +1187,8 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(wal_ttl_seconds),
   MYSQL_SYSVAR(wal_size_limit_mb),
   MYSQL_SYSVAR(manifest_preallocation_size),
-  MYSQL_SYSVAR(allow_os_buffer),
+  MYSQL_SYSVAR(use_direct_reads),
+  MYSQL_SYSVAR(use_direct_writes),
   MYSQL_SYSVAR(allow_mmap_reads),
   MYSQL_SYSVAR(allow_mmap_writes),
   MYSQL_SYSVAR(is_fd_close_on_exec),
@@ -3582,12 +3589,22 @@ static int rocksdb_init_func(void* const p)
       (rocksdb_access_hint_on_compaction_start);
 
   if (rocksdb_db_options.allow_mmap_reads &&
-     !rocksdb_db_options.allow_os_buffer)
+      rocksdb_db_options.use_direct_reads)
   {
-    // allow_mmap_reads implies allow_os_buffer and RocksDB will not open if
-    // mmap_reads is on and os_buffer is off.   (NO_LINT_DEBUG)
-    sql_print_error("RocksDB: Can't disable allow_os_buffer "
-                    "if allow_mmap_reads is enabled\n");
+    // allow_mmap_reads implies !use_direct_reads and RocksDB will not open if
+    // mmap_reads and direct_reads are both on.   (NO_LINT_DEBUG)
+    sql_print_error("RocksDB: Can't enable both use_direct_reads "
+                    "and allow_mmap_reads\n");
+    rdb_open_tables.free_hash();
+    DBUG_RETURN(1);
+  }
+
+  if (rocksdb_db_options.allow_mmap_writes &&
+      rocksdb_db_options.use_direct_writes)
+  {
+    // See above comment for allow_mmap_reads. (NO_LINT_DEBUG)
+    sql_print_error("RocksDB: Can't enable both use_direct_writes "
+                    "and allow_mmap_writes\n");
     rdb_open_tables.free_hash();
     DBUG_RETURN(1);
   }

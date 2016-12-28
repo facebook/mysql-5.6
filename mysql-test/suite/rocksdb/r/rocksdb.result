@@ -862,7 +862,6 @@ rocksdb_advise_random_on_open	ON
 rocksdb_allow_concurrent_memtable_write	ON
 rocksdb_allow_mmap_reads	OFF
 rocksdb_allow_mmap_writes	OFF
-rocksdb_allow_os_buffer	ON
 rocksdb_background_sync	OFF
 rocksdb_base_background_compactions	1
 rocksdb_block_cache_size	536870912
@@ -947,6 +946,8 @@ rocksdb_tmpdir
 rocksdb_trace_sst_api	OFF
 rocksdb_unsafe_for_binlog	OFF
 rocksdb_use_adaptive_mutex	OFF
+rocksdb_use_direct_reads	OFF
+rocksdb_use_direct_writes	OFF
 rocksdb_use_fsync	OFF
 rocksdb_validate_tables	1
 rocksdb_verify_row_debug_checksums	OFF
