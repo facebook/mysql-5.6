@@ -1032,9 +1032,6 @@ The following options may be given as the first argument:
  DBOptions::allow_mmap_reads for RocksDB
  --rocksdb-allow-mmap-writes 
  DBOptions::allow_mmap_writes for RocksDB
- --rocksdb-allow-os-buffer 
- DBOptions::allow_os_buffer for RocksDB
- (Defaults to on; use --skip-rocksdb-allow-os-buffer to disable.)
  --rocksdb-background-sync 
  turns on background syncs for RocksDB
  --rocksdb-base-background-compactions=# 
@@ -1290,6 +1287,10 @@ The following options may be given as the first argument:
  consistency
  --rocksdb-use-adaptive-mutex 
  DBOptions::use_adaptive_mutex for RocksDB
+ --rocksdb-use-direct-reads 
+ DBOptions::use_direct_reads for RocksDB
+ --rocksdb-use-direct-writes 
+ DBOptions::use_direct_writes for RocksDB
  --rocksdb-use-fsync DBOptions::use_fsync for RocksDB
  --rocksdb-validate-tables=# 
  Verify all .frm files match all RocksDB tables (0 means
@@ -1911,7 +1912,6 @@ rocksdb-advise-random-on-open TRUE
 rocksdb-allow-concurrent-memtable-write TRUE
 rocksdb-allow-mmap-reads FALSE
 rocksdb-allow-mmap-writes FALSE
-rocksdb-allow-os-buffer TRUE
 rocksdb-background-sync FALSE
 rocksdb-base-background-compactions 1
 rocksdb-block-cache-size 536870912
@@ -2007,6 +2007,8 @@ rocksdb-trace-sst-api FALSE
 rocksdb-trx ON
 rocksdb-unsafe-for-binlog FALSE
 rocksdb-use-adaptive-mutex FALSE
+rocksdb-use-direct-reads FALSE
+rocksdb-use-direct-writes FALSE
 rocksdb-use-fsync FALSE
 rocksdb-validate-tables 1
 rocksdb-verify-row-debug-checksums FALSE
