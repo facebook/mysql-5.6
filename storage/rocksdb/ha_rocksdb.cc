@@ -6839,22 +6839,20 @@ int ha_rocksdb::check(THD* const thd, HA_CHECK_OPT* const check_opt)
 print_and_error:
         {
           std::string buf;
-          const std::size_t max_hex_string_len= 1000;
-
           buf = rdb_hexdump(rowkey_copy.ptr(), rowkey_copy.length(),
-                            max_hex_string_len);
+                            RDB_MAX_HEXDUMP_LEN);
           // NO_LINT_DEBUG
           sql_print_error("CHECKTABLE %s:   rowkey: %s", table_name,
                           buf.c_str());
 
           buf= rdb_hexdump(m_retrieved_record.data(), m_retrieved_record.size(),
-                           max_hex_string_len);
+                           RDB_MAX_HEXDUMP_LEN);
           // NO_LINT_DEBUG
           sql_print_error("CHECKTABLE %s:   record: %s", table_name,
                           buf.c_str());
 
           buf = rdb_hexdump(sec_key_copy.ptr(), sec_key_copy.length(),
-                            max_hex_string_len);
+                            RDB_MAX_HEXDUMP_LEN);
           // NO_LINT_DEBUG
           sql_print_error("CHECKTABLE %s:   index: %s", table_name,
                           buf.c_str());
