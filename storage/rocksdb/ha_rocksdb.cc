@@ -1612,6 +1612,10 @@ public:
       return HA_ERR_ROCKSDB_TOO_MANY_LOCKS;
     }
 
+    if (s.IsIOError() || s.IsCorruption())
+    {
+      rdb_handle_io_error(s, RDB_IO_ERROR_GENERAL);
+    }
     my_error(ER_INTERNAL_ERROR, MYF(0), s.ToString().c_str());
     return HA_ERR_INTERNAL_ERROR;
   }
@@ -10879,6 +10883,14 @@ void rdb_handle_io_error(rocksdb::Status status, RDB_IO_ERROR_TYPE err_type)
                         status.ToString().c_str());
       break;
     }
+    case RDB_IO_ERROR_GENERAL:
+    {
+      sql_print_error("RocksDB: Failed on I/O - status %d, %s",
+                      status.code(), status.ToString().c_str());
+      sql_print_error("RocksDB: Aborting on I/O error.");
+      abort_with_stack_traces();
+      break;
+    }
     default:
       DBUG_ASSERT(0);
       break;
@@ -10906,7 +10918,7 @@ void rdb_handle_io_error(rocksdb::Status status, RDB_IO_ERROR_TYPE err_type)
       break;
     }
     default:
-      sql_print_warning("RocksDB: Failed to write to RocksDB "
+      sql_print_warning("RocksDB: Failed to read/write in RocksDB "
                         "- status %d, %s", status.code(),
                         status.ToString().c_str());
       break;
