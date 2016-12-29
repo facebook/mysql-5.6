@@ -1027,7 +1027,6 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-rocksdb-advise-random-on-open to disable.)
  --rocksdb-allow-concurrent-memtable-write 
  DBOptions::allow_concurrent_memtable_write for RocksDB
- (Defaults to on; use --skip-rocksdb-allow-concurrent-memtable-write to disable.)
  --rocksdb-allow-mmap-reads 
  DBOptions::allow_mmap_reads for RocksDB
  --rocksdb-allow-mmap-writes 
@@ -1132,7 +1131,6 @@ The following options may be given as the first argument:
  DBOptions::enable_thread_tracking for RocksDB
  --rocksdb-enable-write-thread-adaptive-yield 
  DBOptions::enable_write_thread_adaptive_yield for RocksDB
- (Defaults to on; use --skip-rocksdb-enable-write-thread-adaptive-yield to disable.)
  --rocksdb-error-if-exists 
  DBOptions::error_if_exists for RocksDB
  --rocksdb-flush-memtable-on-analyze 
@@ -1909,7 +1907,7 @@ reset-seconds-behind-master TRUE
 rocksdb ON
 rocksdb-access-hint-on-compaction-start 1
 rocksdb-advise-random-on-open TRUE
-rocksdb-allow-concurrent-memtable-write TRUE
+rocksdb-allow-concurrent-memtable-write FALSE
 rocksdb-allow-mmap-reads FALSE
 rocksdb-allow-mmap-writes FALSE
 rocksdb-background-sync FALSE
@@ -1949,7 +1947,7 @@ rocksdb-disable-2pc TRUE
 rocksdb-disabledatasync FALSE
 rocksdb-enable-bulk-load-api TRUE
 rocksdb-enable-thread-tracking FALSE
-rocksdb-enable-write-thread-adaptive-yield TRUE
+rocksdb-enable-write-thread-adaptive-yield FALSE
 rocksdb-error-if-exists FALSE
 rocksdb-flush-memtable-on-analyze TRUE
 rocksdb-force-flush-memtable-now FALSE

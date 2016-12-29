@@ -670,14 +670,14 @@ static MYSQL_SYSVAR_BOOL(allow_concurrent_memtable_write,
       &rocksdb_db_options.allow_concurrent_memtable_write),
   PLUGIN_VAR_RQCMDARG,
   "DBOptions::allow_concurrent_memtable_write for RocksDB",
-  nullptr, nullptr, rocksdb_db_options.allow_concurrent_memtable_write);
+  nullptr, nullptr, false);
 
 static MYSQL_SYSVAR_BOOL(enable_write_thread_adaptive_yield,
   *reinterpret_cast<my_bool*>(
       &rocksdb_db_options.enable_write_thread_adaptive_yield),
   PLUGIN_VAR_RQCMDARG,
   "DBOptions::enable_write_thread_adaptive_yield for RocksDB",
-  nullptr, nullptr, rocksdb_db_options.enable_write_thread_adaptive_yield);
+  nullptr, nullptr, false);
 
 static MYSQL_SYSVAR_INT(max_open_files,
   rocksdb_db_options.max_open_files,
