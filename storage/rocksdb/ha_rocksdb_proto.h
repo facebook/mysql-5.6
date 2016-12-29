@@ -31,7 +31,8 @@ namespace myrocks {
 enum RDB_IO_ERROR_TYPE {
   RDB_IO_ERROR_TX_COMMIT,
   RDB_IO_ERROR_DICT_COMMIT,
-  RDB_IO_ERROR_BG_THREAD
+  RDB_IO_ERROR_BG_THREAD,
+  RDB_IO_ERROR_GENERAL
 };
 
 void rdb_handle_io_error(rocksdb::Status status, RDB_IO_ERROR_TYPE err_type);
