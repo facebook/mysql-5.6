@@ -1053,7 +1053,7 @@ void Rdb_key_def::report_checksum_mismatch(const bool &is_key,
   sql_print_error("Checksum mismatch in %s of key-value pair for index 0x%x",
                    is_key? "key" : "value", get_index_number());
 
-  const std::string buf = rdb_hexdump(data, data_size, 1000);
+  const std::string buf = rdb_hexdump(data, data_size, RDB_MAX_HEXDUMP_LEN);
   // NO_LINT_DEBUG
   sql_print_error("Data with incorrect checksum (%" PRIu64 " bytes): %s",
                   (uint64_t)data_size, buf.c_str());
@@ -3226,11 +3226,12 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager* const dict_arg,
                            Rdb_cf_manager* const cf_manager,
                            const uint32_t &validate_tables)
 {
+  const ulong TABLE_HASH_SIZE= 32;
   m_dict= dict_arg;
   mysql_rwlock_init(0, &m_rwlock);
   (void) my_hash_init(&m_ddl_hash,
                       /*system_charset_info*/ &my_charset_bin,
-                      32, 0, 0,
+                      TABLE_HASH_SIZE, 0, 0,
                       (my_hash_get_key) Rdb_ddl_manager::get_hash_key,
                       Rdb_ddl_manager::free_hash_elem,
                       0);
@@ -3724,7 +3725,8 @@ void Rdb_binlog_manager::update(const char* const binlog_name,
   if (binlog_name && binlog_pos)
   {
     // max binlog length (512) + binlog pos (4) + binlog gtid (57) < 1024
-    uchar  value_buf[1024];
+    const size_t RDB_MAX_BINLOG_INFO_LEN= 1024;
+    uchar  value_buf[RDB_MAX_BINLOG_INFO_LEN];
     m_dict->put_key(batch, m_key_slice,
                     pack_value(value_buf, binlog_name,
                                binlog_pos, binlog_max_gtid));
@@ -3781,10 +3783,10 @@ rocksdb::Slice Rdb_binlog_manager::pack_value(uchar* const buf,
   pack_len += Rdb_key_def::VERSION_SIZE;
 
   // store binlog file name length
-  DBUG_ASSERT(strlen(binlog_name) <= 65535);
+  DBUG_ASSERT(strlen(binlog_name) <= FN_REFLEN);
   const uint16_t binlog_name_len = strlen(binlog_name);
   rdb_netbuf_store_uint16(buf+pack_len, binlog_name_len);
-  pack_len += 2;
+  pack_len += sizeof(uint16);
 
   // store binlog file name
   memcpy(buf+pack_len, binlog_name, binlog_name_len);
@@ -3792,13 +3794,13 @@ rocksdb::Slice Rdb_binlog_manager::pack_value(uchar* const buf,
 
   // store binlog pos
   rdb_netbuf_store_uint32(buf+pack_len, binlog_pos);
-  pack_len += 4;
+  pack_len += sizeof(uint32);
 
   // store binlog gtid length.
   // If gtid was not set, store 0 instead
   const uint16_t binlog_gtid_len = binlog_gtid? strlen(binlog_gtid) : 0;
   rdb_netbuf_store_uint16(buf+pack_len, binlog_gtid_len);
-  pack_len += 2;
+  pack_len += sizeof(uint16);
 
   if (binlog_gtid_len > 0)
   {
@@ -3835,7 +3837,7 @@ bool Rdb_binlog_manager::unpack_value(const uchar* const value,
 
   // read binlog file name length
   const uint16_t binlog_name_len= rdb_netbuf_to_uint16(value+pack_len);
-  pack_len += 2;
+  pack_len += sizeof(uint16);
   if (binlog_name_len)
   {
     // read and set binlog name
@@ -3845,11 +3847,11 @@ bool Rdb_binlog_manager::unpack_value(const uchar* const value,
 
     // read and set binlog pos
     *binlog_pos= rdb_netbuf_to_uint32(value+pack_len);
-    pack_len += 4;
+    pack_len += sizeof(uint32);
 
     // read gtid length
     const uint16_t binlog_gtid_len= rdb_netbuf_to_uint16(value+pack_len);
-    pack_len += 2;
+    pack_len += sizeof(uint16);
     if (binlog_gtid && binlog_gtid_len > 0)
     {
       // read and set gtid
