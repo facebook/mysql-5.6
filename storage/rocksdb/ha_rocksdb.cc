@@ -3538,6 +3538,8 @@ static int rocksdb_init_func(void* const p)
 #endif
 
   rocksdb_hton= (handlerton *)p;
+  SHIP_ASSERT(rocksdb_hton != nullptr);
+
   mysql_mutex_init(rdb_psi_open_tbls_mutex_key, &rdb_open_tables.m_mutex,
                    MY_MUTEX_INIT_FAST);
 #ifdef HAVE_PSI_INTERFACE
