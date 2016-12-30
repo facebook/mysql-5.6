@@ -35,7 +35,7 @@ PSI_stage_info stage_waiting_on_row_lock2= { 0, "Waiting for row lock", 0};
 static const int64_t MICROSECS= 1000*1000;
 // A timeout as long as one full non-leap year worth of microseconds is as
 // good as infinite timeout.
-static const int64_t BIG_TIMEOUT= MICROSECS * 60 * 60 * 24 * 7 * 365;
+static const int64_t BIG_TIMEOUT= MICROSECS * 60 * 60 * 24 * 365;
 
 Rdb_cond_var::Rdb_cond_var() {
   mysql_cond_init(0, &m_cond, nullptr);
