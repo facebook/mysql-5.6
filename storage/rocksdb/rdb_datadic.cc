@@ -227,11 +227,13 @@ void Rdb_key_def::setup(const TABLE* const tbl,
 
         if (simulating_extkey && !hidden_pk_exists)
         {
+          DBUG_ASSERT(secondary_key);
           /* Check if this field is already present in the key definition */
           bool found= false;
           for (uint j= 0; j < key_info->actual_key_parts; j++)
           {
-            if (field->field_index == key_info->key_part[j].field->field_index)
+            if (field->field_index == key_info->key_part[j].field->field_index &&
+                key_part->length == key_info->key_part[j].length)
             {
               found= true;
               break;
