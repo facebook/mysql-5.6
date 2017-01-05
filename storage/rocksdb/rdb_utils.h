@@ -102,6 +102,18 @@ namespace myrocks {
 #endif
 
 /*
+  Intent behind this macro is to avoid manually typing the function name every
+  time we want to add the debugging statement and use the compiler for this
+  work. This avoids typical refactoring problems when one renames a function,
+  but the tracing message doesn't get updated.
+
+  We could use __func__ or __FUNCTION__ macros, but __PRETTY_FUNCTION__
+  contains the signature of the function as well as its bare name and provides
+  therefore more context when interpreting the logs.
+*/
+#define DBUG_ENTER_FUNC() DBUG_ENTER(__PRETTY_FUNCTION__)
+
+/*
   Generic constant.
 */
 const size_t RDB_MAX_HEXDUMP_LEN= 1000;
