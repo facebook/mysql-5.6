@@ -15,6 +15,7 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
 /* C++ standard header files */
+#include <map>
 #include <string>
 #include <vector>
 
@@ -849,6 +850,75 @@ static int rdb_i_s_global_info_fill_table(
   DBUG_RETURN(ret);
 }
 
+/*
+  Support for INFORMATION_SCHEMA.ROCKSDB_COMPACTION_STATS dynamic table
+ */
+static int rdb_i_s_compact_stats_fill_table(
+    my_core::THD *thd,
+    my_core::TABLE_LIST *tables,
+    my_core::Item *cond MY_ATTRIBUTE((__unused__)))
+{
+  DBUG_ASSERT(thd != nullptr);
+  DBUG_ASSERT(tables != nullptr);
+
+  DBUG_ENTER("rdb_i_s_global_compact_stats_table");
+
+  int ret= 0;
+
+  rocksdb::DB *rdb= rdb_get_rocksdb_db();
+  Rdb_cf_manager& cf_manager= rdb_get_cf_manager();
+  DBUG_ASSERT(rdb != nullptr);
+
+  for (auto cf_name : cf_manager.get_cf_names())
+  {
+    rocksdb::ColumnFamilyHandle* cfh;
+    bool is_automatic;
+    /*
+       Only the cf name is important. Whether it was generated automatically
+       does not matter, so is_automatic is ignored.
+    */
+    cfh= cf_manager.get_cf(cf_name.c_str(), "", nullptr, &is_automatic);
+    if (cfh == nullptr) {
+      continue;
+    }
+    std::map<std::string, double> props;
+    bool bool_ret MY_ATTRIBUTE((__unused__));
+    bool_ret = rdb->GetMapProperty(cfh, "rocksdb.cfstats", &props);
+    DBUG_ASSERT(bool_ret);
+
+    for (auto const& prop_ent : props) {
+      std::string prop_name = prop_ent.first;
+      double value = prop_ent.second;
+      std::size_t del_pos = prop_name.find('.');
+      DBUG_ASSERT(del_pos != std::string::npos);
+      std::string level_str = prop_name.substr(0, del_pos);
+      std::string type_str = prop_name.substr(del_pos + 1);
+
+      Field **field= tables->table->field;
+      DBUG_ASSERT(field != nullptr);
+      field[0]->store(cf_name.c_str(), cf_name.size(), system_charset_info);
+      field[1]->store(level_str.c_str(), level_str.size(), system_charset_info);
+      field[2]->store(type_str.c_str(), type_str.size(), system_charset_info);
+      field[3]->store(value, true);
+
+      ret |= my_core::schema_table_store_record(thd, tables->table);
+      if (ret != 0) {
+        DBUG_RETURN(ret);
+      }
+    }
+  }
+
+  DBUG_RETURN(ret);
+}
+
+static ST_FIELD_INFO rdb_i_s_compact_stats_fields_info[] =
+{
+  ROCKSDB_FIELD_INFO("CF_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  ROCKSDB_FIELD_INFO("LEVEL", FN_REFLEN+1, MYSQL_TYPE_STRING, 0),
+  ROCKSDB_FIELD_INFO("TYPE", FN_REFLEN+1, MYSQL_TYPE_STRING, 0),
+  ROCKSDB_FIELD_INFO("VALUE", sizeof(double), MYSQL_TYPE_DOUBLE, 0),
+  ROCKSDB_FIELD_INFO_END
+};
 
 namespace  // anonymous namespace = not visible outside this source file
 {
@@ -1012,6 +1082,21 @@ static int rdb_i_s_global_info_init(void* const p)
 
   schema->fields_info= rdb_i_s_global_info_fields_info;
   schema->fill_table= rdb_i_s_global_info_fill_table;
+
+  DBUG_RETURN(0);
+}
+
+static int rdb_i_s_compact_stats_init(void *p)
+{
+  my_core::ST_SCHEMA_TABLE *schema;
+
+  DBUG_ENTER("rdb_i_s_compact_stats_init");
+  DBUG_ASSERT(p != nullptr);
+
+  schema= reinterpret_cast<my_core::ST_SCHEMA_TABLE*>(p);
+
+  schema->fields_info= rdb_i_s_compact_stats_fields_info;
+  schema->fill_table= rdb_i_s_compact_stats_fill_table;
 
   DBUG_RETURN(0);
 }
@@ -1490,6 +1575,23 @@ struct st_mysql_plugin rdb_i_s_global_info=
   "RocksDB global info",
   PLUGIN_LICENSE_GPL,
   rdb_i_s_global_info_init,
+  rdb_i_s_deinit,
+  0x0001,                             /* version number (0.1) */
+  nullptr,                            /* status variables */
+  nullptr,                            /* system variables */
+  nullptr,                            /* config options */
+  0,                                  /* flags */
+};
+
+struct st_mysql_plugin rdb_i_s_compact_stats=
+{
+  MYSQL_INFORMATION_SCHEMA_PLUGIN,
+  &rdb_i_s_info,
+  "ROCKSDB_COMPACTION_STATS",
+  "Facebook",
+  "RocksDB compaction stats",
+  PLUGIN_LICENSE_GPL,
+  rdb_i_s_compact_stats_init,
   rdb_i_s_deinit,
   0x0001,                             /* version number (0.1) */
   nullptr,                            /* status variables */
