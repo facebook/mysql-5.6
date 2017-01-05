@@ -1044,9 +1044,8 @@ The following options may be given as the first argument:
  BlockBasedTableOptions::block_size for RocksDB
  --rocksdb-block-size-deviation=# 
  BlockBasedTableOptions::block_size_deviation for RocksDB
- --rocksdb-bulk-load Use bulk-load mode for inserts. This enables both
- rocksdb_skip_unique_check and
- rocksdb_commit_in_the_middle.
+ --rocksdb-bulk-load Use bulk-load mode for inserts. This disables
+ unique_checks and enables rocksdb_commit_in_the_middle.
  --rocksdb-bulk-load-size=# 
  Max #records in a batch for bulk-load mode
  --rocksdb-bytes-per-sync=# 
@@ -1255,8 +1254,6 @@ The following options may be given as the first argument:
  Skip using bloom filter for reads
  --rocksdb-skip-fill-cache 
  Skip filling block cache on read requests
- --rocksdb-skip-unique-check 
- Skip unique constraint checking for all tables
  --rocksdb-skip-unique-check-tables=name 
  Skip unique constraint checking for the specified tables
  --rocksdb-stats-dump-period-sec=# 
@@ -1997,7 +1994,6 @@ rocksdb-seconds-between-stat-computes 3600
 rocksdb-signal-drop-index-thread FALSE
 rocksdb-skip-bloom-filter-on-read FALSE
 rocksdb-skip-fill-cache FALSE
-rocksdb-skip-unique-check FALSE
 rocksdb-skip-unique-check-tables (No default value)
 rocksdb-stats-dump-period-sec 600
 rocksdb-store-row-debug-checksums FALSE
