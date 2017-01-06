@@ -5,6 +5,7 @@ from optparse import OptionParser
 import collections
 import signal
 import os
+import stat
 import sys
 import re
 import commands
@@ -28,6 +29,7 @@ rocksdb_data_suffix = '.sst'
 rocksdb_wal_suffix = '.log'
 exclude_files = ['master.info', 'relay-log.info', 'worker-relay-log.info',
                  'auto.cnf', 'gaplock.log', 'ibdata', 'ib_logfile']
+exclude_logs = ['slocket']
 wdt_bin = 'wdt'
 
 def is_manifest(fname):
@@ -107,7 +109,7 @@ class MiscFilesProcessor():
     dirs = [ d for d in os.listdir(self.datadir) \
             if not os.path.isfile(os.path.join(self.datadir,d))]
     for db in dirs:
-      if not db.startswith('.'):
+      if not db.startswith('.') and not self._is_log_socket(db):
         dbs.append(db)
     return dbs
 
@@ -115,6 +117,12 @@ class MiscFilesProcessor():
     dbdir = self.datadir + "/" + db
     return [ f for f in os.listdir(dbdir) \
             if os.path.isfile(os.path.join(dbdir,f))]
+
+  def _is_log_socket(self, item):
+      mode = os.stat(os.path.join(self.datadir, item)).st_mode
+      if item in exclude_logs and stat.S_ISSOCK(mode):
+        return True
+      return False
 
 
 class MySQLBackup(MiscFilesProcessor):
