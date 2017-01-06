@@ -1230,6 +1230,9 @@ The following options may be given as the first argument:
  --rocksdb-perf-context-level=# 
  Perf Context Level for rocksdb internal timer stat
  collection
+ --rocksdb-persistent-cache-path=name 
+ Path for BlockBasedTableOptions::persistent_cache for
+ RocksDB
  --rocksdb-pin-l0-filter-and-index-blocks-in-cache 
  pin_l0_filter_and_index_blocks_in_cache for RocksDB
  (Defaults to on; use --skip-rocksdb-pin-l0-filter-and-index-blocks-in-cache to disable.)
@@ -1987,6 +1990,7 @@ rocksdb-pause-background-work FALSE
 rocksdb-perf-context ON
 rocksdb-perf-context-global ON
 rocksdb-perf-context-level 0
+rocksdb-persistent-cache-path 
 rocksdb-pin-l0-filter-and-index-blocks-in-cache TRUE
 rocksdb-print-snapshot-conflict-queries FALSE
 rocksdb-rate-limiter-bytes-per-sec 0
