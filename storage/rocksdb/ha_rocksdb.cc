@@ -1215,6 +1215,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(use_fsync),
   MYSQL_SYSVAR(wal_dir),
   MYSQL_SYSVAR(persistent_cache_path),
+  MYSQL_SYSVAR(persistent_cache_size),
   MYSQL_SYSVAR(delete_obsolete_files_period_micros),
   MYSQL_SYSVAR(base_background_compactions),
   MYSQL_SYSVAR(max_background_compactions),
@@ -3717,8 +3718,11 @@ static int rocksdb_init_func(void* const p)
 
   if (rocksdb_persistent_cache_size > 0) {
     std::shared_ptr<rocksdb::PersistentCache> pcache;
-    rocksdb::NewPersistentCache(rocksdb::Env::Default(), std::string(rocksdb_persistent_cache_path), rocksdb_persistent_cache_size, myrocks_logger, true, &pcache);
-    rocksdb_tbl_options.persistent_cache=pcache;
+    rocksdb::NewPersistentCache(rocksdb::Env::Default(),
+                                std::string(rocksdb_persistent_cache_path),
+                                rocksdb_persistent_cache_size,
+                                myrocks_logger, true, &pcache);
+    rocksdb_tbl_options.persistent_cache = pcache;
   }
 
   if (!rocksdb_cf_options_map.init(
