@@ -719,7 +719,7 @@ static MYSQL_SYSVAR_STR(persistent_cache_path,
 
 static MYSQL_SYSVAR_ULONG(persistent_cache_size,
   rocksdb_persistent_cache_size,
-  PLUGIN_VAR_RQCMDARG,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "Size of cache for BlockBasedTableOptions::persistent_cache for RocksDB",
   nullptr, nullptr, rocksdb_persistent_cache_size,
   /* min */ 0L, /* max */ ULONG_MAX, 0);
@@ -3723,6 +3723,9 @@ static int rocksdb_init_func(void* const p)
                                 rocksdb_persistent_cache_size,
                                 myrocks_logger, true, &pcache);
     rocksdb_tbl_options.persistent_cache = pcache;
+  } else if (strlen(rocksdb_persistent_cache_path)) {
+    sql_print_error("RocksDB: Must specify rocksdb_persistent_cache_size");
+    DBUG_RETURN(1);
   }
 
   if (!rocksdb_cf_options_map.init(
