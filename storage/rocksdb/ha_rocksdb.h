@@ -590,15 +590,25 @@ public:
   /** @brief
     The name that will be used for display purposes.
    */
-  const char *table_type() const { return rocksdb_hton_name; }
+  const char *table_type() const override
+  {
+    DBUG_ENTER_FUNC();
+
+    DBUG_RETURN(rocksdb_hton_name);
+  }
 
   /* The following is only used by SHOW KEYS: */
-  const char *index_type(uint inx) { return "LSMTREE"; }
+  const char *index_type(uint inx) override
+  {
+    DBUG_ENTER_FUNC();
+
+    DBUG_RETURN("LSMTREE");
+  }
 
   /** @brief
     The file extensions.
    */
-  const char **bas_ext() const;
+  const char **bas_ext() const override;
 
   /*
     See if this is the same base table - this should only be true for different
@@ -612,6 +622,8 @@ public:
   */
   ulonglong table_flags() const override
   {
+    DBUG_ENTER_FUNC();
+
     /*
       HA_BINLOG_STMT_CAPABLE
         We are saying that this engine is just statement capable to have
@@ -621,12 +633,12 @@ public:
         If we don't set it, filesort crashes, because it assumes rowids are
         1..8 byte numbers
     */
-    return HA_BINLOG_ROW_CAPABLE | HA_BINLOG_STMT_CAPABLE |
+    DBUG_RETURN(HA_BINLOG_ROW_CAPABLE | HA_BINLOG_STMT_CAPABLE |
            HA_REC_NOT_IN_SEQ | HA_CAN_INDEX_BLOBS |
            (m_pk_can_be_decoded? HA_PRIMARY_KEY_IN_READ_INDEX : 0) |
            HA_PRIMARY_KEY_REQUIRED_FOR_POSITION |
            HA_NULL_IN_KEY |
-           HA_PARTIAL_COLUMN_READ;
+           HA_PARTIAL_COLUMN_READ);
   }
 
   bool init_with_fields() override;
@@ -641,16 +653,20 @@ public:
     If all_parts is set, MySQL wants to know the flags for the combined
     index, up to and including 'part'.
   */
-  ulong index_flags(uint inx, uint part, bool all_parts) const;
+  ulong index_flags(uint inx, uint part, bool all_parts) const override;
 
-  const key_map * keys_to_use_for_scanning()
+  const key_map * keys_to_use_for_scanning() override
   {
-    return &key_map_full;
+    DBUG_ENTER_FUNC();
+
+    DBUG_RETURN(&key_map_full);
   }
 
-  bool primary_key_is_clustered()
+  bool primary_key_is_clustered() override
   {
-    return true;
+    DBUG_ENTER_FUNC();
+
+    DBUG_RETURN(true);
   }
 
   bool should_store_row_debug_checksums() const
@@ -658,7 +674,7 @@ public:
     return m_store_row_debug_checksums && (rand() % 100 < m_checksums_pct);
   }
 
-  int rename_table(const char* const from, const char* const to)
+  int rename_table(const char* const from, const char* const to) override
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   int convert_record_from_storage_format(const rocksdb::Slice* const key,
@@ -704,11 +720,34 @@ public:
     send. Return *real* limits of your storage engine here; MySQL will do
     min(your_limits, MySQL_limits) automatically.
    */
-  uint max_supported_record_length() const { return HA_MAX_REC_LENGTH; }
+  uint max_supported_record_length() const override
+  {
+    DBUG_ENTER_FUNC();
 
-  uint max_supported_keys()          const { return MAX_INDEXES; }
-  uint max_supported_key_parts()     const { return MAX_REF_PARTS; }
-  uint max_supported_key_part_length() const { return 2048; }
+    DBUG_RETURN(HA_MAX_REC_LENGTH);
+  }
+
+  uint max_supported_keys() const override
+  {
+    DBUG_ENTER_FUNC();
+
+    DBUG_RETURN(MAX_INDEXES);
+  }
+
+  uint max_supported_key_parts() const override
+  {
+    DBUG_ENTER_FUNC();
+
+    DBUG_RETURN(MAX_REF_PARTS);
+  }
+
+  uint max_supported_key_part_length() const override
+  {
+    DBUG_ENTER_FUNC();
+
+    DBUG_RETURN(2048);
+  }
+
   /** @brief
     unireg.cc will call this to make sure that the storage engine can handle
     the data it is about to send. Return *real* limits of your storage engine
@@ -718,47 +757,65 @@ public:
     There is no need to implement ..._key_... methods if your engine doesn't
     support indexes.
    */
-  uint max_supported_key_length()    const { return 16*1024; /* just to return something*/ }
+  uint max_supported_key_length() const override
+  {
+    DBUG_ENTER_FUNC();
+
+    DBUG_RETURN(16 * 1024); /* just to return something*/
+  }
 
   /**
     TODO: return actual upper bound of number of records in the table.
     (e.g. save number of records seen on full table scan and/or use file size
     as upper bound)
   */
-  ha_rows estimate_rows_upper_bound() { return HA_POS_ERROR; }
+  ha_rows estimate_rows_upper_bound() override
+  {
+    DBUG_ENTER_FUNC();
+
+    DBUG_RETURN(HA_POS_ERROR);
+  }
 
   /* At the moment, we're ok with default handler::index_init() implementation. */
   int index_read_map(uchar* const buf, const uchar* const key,
                      key_part_map keypart_map,
-                     enum ha_rkey_function find_flag);
+                     enum ha_rkey_function find_flag) override
     MY_ATTRIBUTE((__warn_unused_result__));
 
   int index_read_map_impl(uchar* const buf, const uchar* const key,
                           key_part_map keypart_map,
                           enum ha_rkey_function find_flag,
                           const key_range* end_key)
-    MY_ATTRIBUTE((__warn_unused_result__));;
+    MY_ATTRIBUTE((__warn_unused_result__));
 
   int index_read_last_map(uchar* const buf, const uchar* const key,
-                          key_part_map keypart_map)
-    MY_ATTRIBUTE((__warn_unused_result__));;
+                          key_part_map keypart_map) override
+    MY_ATTRIBUTE((__warn_unused_result__));
 
   int read_range_first(const key_range* const start_key,
                        const key_range* const end_key,
-                       bool eq_range, bool sorted)
-    MY_ATTRIBUTE((__warn_unused_result__));;
+                       bool eq_range, bool sorted) override
+    MY_ATTRIBUTE((__warn_unused_result__));
 
-  virtual double scan_time() { return (double) (stats.records+stats.deleted) / 20.0+10; }
+  virtual double scan_time() override
+  {
+    DBUG_ENTER_FUNC();
+
+    DBUG_RETURN(static_cast<double>((stats.records + stats.deleted) / 20.0
+      + 10));
+  }
+
   virtual double read_time(uint, uint, ha_rows rows) override;
 
-  int open(const char* const name, int mode, uint test_if_locked)
+  int open(const char* const name, int mode, uint test_if_locked) override
     MY_ATTRIBUTE((__warn_unused_result__));
-  int close(void) MY_ATTRIBUTE((__warn_unused_result__));
+  int close(void) override MY_ATTRIBUTE((__warn_unused_result__));
 
-  int write_row(uchar* const buf) MY_ATTRIBUTE((__warn_unused_result__));
-  int update_row(const uchar* const old_data, uchar* const new_data)
+  int write_row(uchar* const buf) override
     MY_ATTRIBUTE((__warn_unused_result__));
-  int delete_row(const uchar* const buf)
+  int update_row(const uchar* const old_data, uchar* const new_data) override
+    MY_ATTRIBUTE((__warn_unused_result__));
+  int delete_row(const uchar* const buf) override
     MY_ATTRIBUTE((__warn_unused_result__));
   rocksdb::Status delete_or_singledelete(uint index,
                                          Rdb_transaction* const tx,
@@ -766,15 +823,19 @@ public:
                                          const rocksdb::Slice& key)
     MY_ATTRIBUTE((__warn_unused_result__));
 
-  int index_next(uchar* const buf) MY_ATTRIBUTE((__warn_unused_result__));
+  int index_next(uchar* const buf) override
+    MY_ATTRIBUTE((__warn_unused_result__));
   int index_next_with_direction(uchar* const buf, bool move_forward)
     MY_ATTRIBUTE((__warn_unused_result__));
-  int index_prev(uchar* const buf) MY_ATTRIBUTE((__warn_unused_result__));
+  int index_prev(uchar* const buf) override
+    MY_ATTRIBUTE((__warn_unused_result__));
 
-  int index_first(uchar* const buf) MY_ATTRIBUTE((__warn_unused_result__));
-  int index_last(uchar* const buf) MY_ATTRIBUTE((__warn_unused_result__));
+  int index_first(uchar* const buf) override
+    MY_ATTRIBUTE((__warn_unused_result__));
+  int index_last(uchar* const buf) override
+    MY_ATTRIBUTE((__warn_unused_result__));
 
-  class Item* idx_cond_push(uint keyno, class Item* const idx_cond);
+  class Item* idx_cond_push(uint keyno, class Item* const idx_cond) override;
   /*
     Default implementation from cancel_pushed_idx_cond() suits us
   */
@@ -930,10 +991,11 @@ private:
       const std::unordered_set<std::shared_ptr<Rdb_key_def>>& indexes);
 
 public:
-  int index_init(uint idx, bool sorted) MY_ATTRIBUTE((__warn_unused_result__));
-  int index_end() MY_ATTRIBUTE((__warn_unused_result__));
+  int index_init(uint idx, bool sorted) override
+    MY_ATTRIBUTE((__warn_unused_result__));
+  int index_end() override MY_ATTRIBUTE((__warn_unused_result__));
 
-  void unlock_row();
+  void unlock_row() override;
 
   /** @brief
     Unlike index_init(), rnd_init() can be called two consecutive times
@@ -943,75 +1005,81 @@ public:
     cursor to the start of the table; no need to deallocate and allocate
     it again. This is a required method.
   */
-  int rnd_init(bool scan) MY_ATTRIBUTE((__warn_unused_result__));
-  int rnd_end() MY_ATTRIBUTE((__warn_unused_result__));
+  int rnd_init(bool scan) override MY_ATTRIBUTE((__warn_unused_result__));
+  int rnd_end() override MY_ATTRIBUTE((__warn_unused_result__));
 
-  int rnd_next(uchar* const buf) MY_ATTRIBUTE((__warn_unused_result__));
+  int rnd_next(uchar* const buf) override
+    MY_ATTRIBUTE((__warn_unused_result__));
   int rnd_next_with_direction(uchar* const buf, bool move_forward)
     MY_ATTRIBUTE((__warn_unused_result__));
 
-  int rnd_pos(uchar* const buf, uchar* const pos)
+  int rnd_pos(uchar* const buf, uchar* const pos) override
     MY_ATTRIBUTE((__warn_unused_result__));
-  void position(const uchar* const record);
+  void position(const uchar* const record) override;
   int info(uint) override;
 
   /* This function will always return success, therefore no annotation related
    * to checking the return value. Can't change the signature because it's
    * required by the interface. */
-  int extra(enum ha_extra_function operation);
+  int extra(enum ha_extra_function operation) override;
 
-  int start_stmt(THD* const thd, thr_lock_type lock_type)
+  int start_stmt(THD* const thd, thr_lock_type lock_type) override
     MY_ATTRIBUTE((__warn_unused_result__));
-  int external_lock(THD* const thd, int lock_type)
+  int external_lock(THD* const thd, int lock_type) override
     MY_ATTRIBUTE((__warn_unused_result__));
-  int delete_all_rows(ha_rows* const nrows) MY_ATTRIBUTE((__warn_unused_result__));
-  int truncate() MY_ATTRIBUTE((__warn_unused_result__));
+  int truncate() override MY_ATTRIBUTE((__warn_unused_result__));
 
   int reset() override
   {
+    DBUG_ENTER_FUNC();
+
     /* Free blob data */
     m_retrieved_record.clear();
-    return 0;
+
+    DBUG_RETURN(0);
   }
 
-  int check(THD* const thd, HA_CHECK_OPT* const check_opt)
+  int check(THD* const thd, HA_CHECK_OPT* const check_opt) override
     MY_ATTRIBUTE((__warn_unused_result__));
   void remove_rows(Rdb_tbl_def* const tbl);
   ha_rows records_in_range(uint inx, key_range* const min_key,
-                           key_range* const max_key)
+                           key_range* const max_key) override
     MY_ATTRIBUTE((__warn_unused_result__));
-  int delete_table(const char* const from) MY_ATTRIBUTE((__warn_unused_result__));
+  int delete_table(const char* const from) override
+    MY_ATTRIBUTE((__warn_unused_result__));
   int create(const char* const name, TABLE* const form,
-             HA_CREATE_INFO* const create_info)
+             HA_CREATE_INFO* const create_info) override
     MY_ATTRIBUTE((__warn_unused_result__));
   bool check_if_incompatible_data(HA_CREATE_INFO* const info,
-                                  uint table_changes)
+                                  uint table_changes) override
     MY_ATTRIBUTE((__warn_unused_result__));
 
   THR_LOCK_DATA **store_lock(THD* const thd, THR_LOCK_DATA **to,
-                             enum thr_lock_type lock_type)
+                             enum thr_lock_type lock_type) override
     MY_ATTRIBUTE((__warn_unused_result__));
 
   my_bool register_query_cache_table(THD* const thd, char* const table_key,
                                      uint key_length,
                                      qc_engine_callback* const engine_callback,
-                                     ulonglong* const engine_data)
+                                     ulonglong* const engine_data) override
   {
+    DBUG_ENTER_FUNC();
+
     /* Currently, we don't support query cache */
-    return FALSE;
+    DBUG_RETURN(FALSE);
   }
 
-  bool get_error_message(const int error, String* const buf)
+  bool get_error_message(const int error, String* const buf) override
     MY_ATTRIBUTE((__nonnull__));
 
   void get_auto_increment(ulonglong offset, ulonglong increment,
                           ulonglong nb_desired_values,
                           ulonglong* const first_value,
-                          ulonglong* const nb_reserved_values);
-  void update_create_info(HA_CREATE_INFO* const create_info);
-  int optimize(THD* const thd, HA_CHECK_OPT* const check_opt)
+                          ulonglong* const nb_reserved_values) override;
+  void update_create_info(HA_CREATE_INFO* const create_info) override;
+  int optimize(THD* const thd, HA_CHECK_OPT* const check_opt) override
     MY_ATTRIBUTE((__warn_unused_result__));
-  int analyze(THD* const thd, HA_CHECK_OPT* const check_opt)
+  int analyze(THD* const thd, HA_CHECK_OPT* const check_opt) override
     MY_ATTRIBUTE((__warn_unused_result__));
   int calculate_stats(const TABLE* const table_arg, THD* const thd,
                       HA_CHECK_OPT* const check_opt)
@@ -1022,14 +1090,16 @@ public:
     my_core::Alter_inplace_info* const ha_alter_info) override;
 
   bool prepare_inplace_alter_table(TABLE* const altered_table,
-                              my_core::Alter_inplace_info* const ha_alter_info);
+                              my_core::Alter_inplace_info* const ha_alter_info)
+                              override;
 
   bool inplace_alter_table(TABLE* const altered_table,
-                           my_core::Alter_inplace_info* const ha_alter_info);
+                           my_core::Alter_inplace_info* const ha_alter_info)
+                           override;
 
   bool commit_inplace_alter_table(TABLE* const altered_table,
                               my_core::Alter_inplace_info* const ha_alter_info,
-                              bool commit);
+                              bool commit) override;
 
   int finalize_bulk_load() MY_ATTRIBUTE((__warn_unused_result__));
 
