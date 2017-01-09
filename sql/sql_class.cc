@@ -1586,6 +1586,10 @@ void THD::cleanup(void)
   DEBUG_SYNC(this, "thd_cleanup_start");
 
   killed= KILL_CONNECTION;
+  if (lex)
+  {
+    lex->sql_command= SQLCOM_END;
+  }
 #ifdef ENABLE_WHEN_BINLOG_WILL_BE_ABLE_TO_PREPARE
   if (transaction.xid_state.xa_state == XA_PREPARED)
   {

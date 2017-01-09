@@ -1,0 +1,50 @@
+--source include/master-slave.inc
+--source include/have_innodb.inc
+# see http://bugs.mysql.com/bug.php?id=79596
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+--let sock_file= query_get_value(SELECT @@socket, @@socket, 1)
+
+--write_file $MYSQL_TMP_DIR/command.sh
+echo "drop table if exists test.t1;"
+echo "create table test.t1 (a int) engine=innodb;"
+echo "insert into test.t1 set a = 111;"
+echo "begin;"
+echo "insert into test.t1 set a = 222;"
+echo "savepoint ss;"
+echo "rollback to savepoint ss;"
+sleep 10
+EOF
+
+--write_file $MYSQL_TMP_DIR/kill_mysql.sh
+socket=$1
+ps aux | grep "mysql -uroot --socket=$socket" | grep -v grep | wc -l
+pid=`ps aux | grep "mysql -uroot --socket=$socket" | grep -v grep | awk '{print $2}'`
+kill -9 $pid
+ps aux | grep "mysql -uroot --socket=$socket" | grep -v grep | wc -l
+EOF
+
+--write_file $MYSQL_TMP_DIR/do_query.sh
+socket=$1
+$MYSQL_TMP_DIR/command.sh | mysql -uroot --socket=$socket &
+sleep 2
+$MYSQL_TMP_DIR/kill_mysql.sh $socket
+EOF
+
+--chmod 0755 $MYSQL_TMP_DIR/command.sh
+--chmod 0755 $MYSQL_TMP_DIR/kill_mysql.sh
+--chmod 0755 $MYSQL_TMP_DIR/do_query.sh
+--exec $MYSQL_TMP_DIR/do_query.sh $sock_file
+
+select * from test.t1;
+
+connection slave;
+select * from test.t1;
+
+connection master;
+drop table t1;
+
+--source include/rpl_end.inc
