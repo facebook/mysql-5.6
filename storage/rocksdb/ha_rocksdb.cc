@@ -4244,7 +4244,7 @@ ha_rocksdb::ha_rocksdb(my_core::handlerton* const hton,
     m_pk_can_be_decoded(false),
     m_maybe_unpack_info(false),
     m_pk_tuple(nullptr), m_pk_packed_tuple(nullptr),
-    m_sk_packed_tuple(nullptr),
+    m_sk_packed_tuple(nullptr), m_end_key_packed_tuple(nullptr),
     m_sk_match_prefix(nullptr), m_sk_match_prefix_buf(nullptr),
     m_sk_packed_tuple_old(nullptr),
     m_pack_buffer(nullptr), m_lock_rows(RDB_LOCK_NONE),
@@ -4873,6 +4873,9 @@ int ha_rocksdb::alloc_key_buffers(const TABLE* const table_arg,
   std::shared_ptr<Rdb_key_def>* const kd_arr= tbl_def_arg->m_key_descr_arr;
 
   uint key_len= 0;
+  uint max_packed_sk_len= 0;
+  uint pack_key_len= 0;
+
   m_pk_descr= kd_arr[pk_index(table_arg, tbl_def_arg)];
   if (has_hidden_pk(table_arg))
   {
@@ -4891,18 +4894,18 @@ int ha_rocksdb::alloc_key_buffers(const TABLE* const table_arg,
   m_pk_tuple= reinterpret_cast<uchar*>(my_malloc(key_len, MYF(0)));
   if (m_pk_tuple == nullptr)
   {
-    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+    goto error;
   }
 
-  const uint pack_key_len= m_pk_descr->max_storage_fmt_length();
+  pack_key_len= m_pk_descr->max_storage_fmt_length();
   m_pk_packed_tuple= reinterpret_cast<uchar*>(my_malloc(pack_key_len, MYF(0)));
   if (m_pk_packed_tuple == nullptr)
   {
-    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+    goto error;
   }
 
   /* Sometimes, we may use m_sk_packed_tuple for storing packed PK */
-  uint max_packed_sk_len= pack_key_len;
+  max_packed_sk_len= pack_key_len;
   for (uint i= 0; i < table_arg->s->keys; i++)
   {
     if (i == table_arg->s->primary_key) /* Primary key was processed above */
@@ -4929,10 +4932,18 @@ int ha_rocksdb::alloc_key_buffers(const TABLE* const table_arg,
       !((m_pack_buffer=
          reinterpret_cast<uchar*>(my_malloc(max_packed_sk_len, MYF(0))))))
   {
-    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+    goto error;
   }
 
   DBUG_RETURN(0);
+
+error:
+  // If we're here then this means that at some point above an allocation may
+  // have failed. To avoid any resource leaks and maintain a clear contract
+  // we'll clean up before returning the error code.
+  free_key_buffers();
+
+  DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
 }
 
 void ha_rocksdb::free_key_buffers()
@@ -4999,11 +5010,13 @@ int ha_rocksdb::open(const char* const name, int mode, uint test_if_locked)
 {
   DBUG_ENTER_FUNC();
 
-  if (m_table_handler != nullptr)
+  if (close())
   {
-    rdb_open_tables.release_table_handler(m_table_handler);
+    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
+
   m_table_handler= rdb_open_tables.get_table_handler(name);
+
   if (m_table_handler == nullptr)
   {
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
@@ -5014,10 +5027,6 @@ int ha_rocksdb::open(const char* const name, int mode, uint test_if_locked)
   m_io_perf.init(&m_table_handler->m_table_perf_context,
                  &m_table_handler->m_io_perf_read, &stats);
 
-  /*
-    note: m_pk_descr may be non-NULL here, when using partitions. It seems,
-    it's ok to discard it
-  */
   std::string fullname;
   if (rdb_normalize_tablename(name, &fullname))
   {
@@ -5043,8 +5052,10 @@ int ha_rocksdb::open(const char* const name, int mode, uint test_if_locked)
   */
   key_used_on_scan= table->s->primary_key;
 
-  int err;
-  if ((err = alloc_key_buffers(table, m_tbl_def)))
+  // close() above has already called free_key_buffers(). No need to do it here.
+  int err = alloc_key_buffers(table, m_tbl_def);
+
+  if (err)
   {
     DBUG_RETURN(err);
   }
@@ -5080,7 +5091,10 @@ int ha_rocksdb::open(const char* const name, int mode, uint test_if_locked)
     load_auto_incr_value();
 
   if (has_hidden_pk(table) && load_hidden_pk_value())
+  {
+    free_key_buffers();
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+  }
 
   /* Index block size in MyRocks: used by MySQL in query optimization */
   stats.block_size = rocksdb_tbl_options.block_size;
@@ -5107,8 +5121,11 @@ int ha_rocksdb::close(void)
   my_free(m_encoder_arr);
   m_encoder_arr= nullptr;
 
-  rdb_open_tables.release_table_handler(m_table_handler);
-  m_table_handler= nullptr;
+  if (m_table_handler != nullptr)
+  {
+    rdb_open_tables.release_table_handler(m_table_handler);
+    m_table_handler= nullptr;
+  }
 
   DBUG_RETURN(0);
 }
@@ -10176,17 +10193,24 @@ bool ha_rocksdb::inplace_alter_table(TABLE* const altered_table,
       secondary keys.
     */
     free_key_buffers();
-    if (alloc_key_buffers(altered_table, ctx->m_new_tdef))
+
+    DBUG_ASSERT(ctx != nullptr);
+
+    int err = alloc_key_buffers(altered_table, ctx->m_new_tdef);
+
+    if (err)
     {
-      DBUG_RETURN(1);
+      DBUG_RETURN(err);
     }
 
-    /* Populate all new secondary keys by scanning primary key */
+    /* Populate all new secondary keys by scanning the primary key. */
     if (inplace_populate_sk(altered_table, ctx->m_added_indexes))
     {
+      free_key_buffers();
       DBUG_RETURN(1);
     }
   }
+
   DBUG_EXECUTE_IF("myrocks_simulate_index_create_rollback", DBUG_RETURN(1););
 
   DBUG_RETURN(0);
