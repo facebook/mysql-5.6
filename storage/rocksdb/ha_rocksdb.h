@@ -493,6 +493,7 @@ class ha_rocksdb : public my_core::handler {
       __attribute__((__warn_unused_result__));
   bool skip_unique_check() const __attribute__((__warn_unused_result__));
   void set_force_skip_unique_check(bool skip) override;
+  bool get_slave_skip_tx_api() override;
   bool commit_in_the_middle() __attribute__((__warn_unused_result__));
   bool do_bulk_commit(Rdb_transaction *const tx)
       __attribute__((__nonnull__, __warn_unused_result__));

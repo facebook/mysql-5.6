@@ -2256,6 +2256,8 @@ public:
 
   virtual void set_force_skip_unique_check(bool skip) {}
 
+  virtual bool get_slave_skip_tx_api() { return false; }
+
 /**
    The cost of reading a set of ranges from the table using an index
    to access it.
