@@ -43,6 +43,7 @@
 /* RocksDB includes */
 #include "rocksdb/compaction_filter.h"
 #include "rocksdb/rate_limiter.h"
+#include "rocksdb/persistent_cache.h"
 #include "rocksdb/slice_transform.h"
 #include "rocksdb/utilities/checkpoint.h"
 #include "rocksdb/utilities/convenience.h"
@@ -388,8 +389,11 @@ static long long rocksdb_block_cache_size;
 /* Use unsigned long long instead of uint64_t because of MySQL compatibility */
 static unsigned long long  // NOLINT(runtime/int)
     rocksdb_rate_limiter_bytes_per_sec;
+static unsigned long  // NOLINT(runtime/int)
+    rocksdb_persistent_cache_size;
 static uint64_t rocksdb_info_log_level;
 static char * rocksdb_wal_dir;
+static char * rocksdb_persistent_cache_path;
 static uint64_t rocksdb_index_type;
 static char rocksdb_background_sync;
 static uint32_t rocksdb_debug_optimizer_n_rows;
@@ -706,6 +710,19 @@ static MYSQL_SYSVAR_STR(wal_dir, rocksdb_wal_dir,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "DBOptions::wal_dir for RocksDB",
   nullptr, nullptr, rocksdb_db_options.wal_dir.c_str());
+
+static MYSQL_SYSVAR_STR(persistent_cache_path,
+  rocksdb_persistent_cache_path,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "Path for BlockBasedTableOptions::persistent_cache for RocksDB",
+  nullptr, nullptr, "");
+
+static MYSQL_SYSVAR_ULONG(persistent_cache_size,
+  rocksdb_persistent_cache_size,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "Size of cache for BlockBasedTableOptions::persistent_cache for RocksDB",
+  nullptr, nullptr, rocksdb_persistent_cache_size,
+  /* min */ 0L, /* max */ ULONG_MAX, 0);
 
 static MYSQL_SYSVAR_ULONG(delete_obsolete_files_period_micros,
   rocksdb_db_options.delete_obsolete_files_period_micros,
@@ -1197,6 +1214,8 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(disabledatasync),
   MYSQL_SYSVAR(use_fsync),
   MYSQL_SYSVAR(wal_dir),
+  MYSQL_SYSVAR(persistent_cache_path),
+  MYSQL_SYSVAR(persistent_cache_size),
   MYSQL_SYSVAR(delete_obsolete_files_period_micros),
   MYSQL_SYSVAR(base_background_compactions),
   MYSQL_SYSVAR(max_background_compactions),
@@ -3698,6 +3717,18 @@ static int rocksdb_init_func(void* const p)
       rocksdb_table_stats_sampling_pct);
 
     mysql_mutex_unlock(&rdb_sysvars_mutex);
+  }
+
+  if (rocksdb_persistent_cache_size > 0) {
+    std::shared_ptr<rocksdb::PersistentCache> pcache;
+    rocksdb::NewPersistentCache(rocksdb::Env::Default(),
+                                std::string(rocksdb_persistent_cache_path),
+                                rocksdb_persistent_cache_size,
+                                myrocks_logger, true, &pcache);
+    rocksdb_tbl_options.persistent_cache = pcache;
+  } else if (strlen(rocksdb_persistent_cache_path)) {
+    sql_print_error("RocksDB: Must specify rocksdb_persistent_cache_size");
+    DBUG_RETURN(1);
   }
 
   if (!rocksdb_cf_options_map.init(
