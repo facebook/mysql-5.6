@@ -299,11 +299,16 @@ class RocksDBBackup():
 
 class MySQLUtil:
   @staticmethod
-  def connect(user, password, port):
-    dbh = MySQLdb.Connect(user=user,
-                          passwd=password,
-                          port=port,
-                          host="127.0.0.1")
+  def connect(user, password, port, socket=None):
+    if socket:
+      dbh = MySQLdb.Connect(user=user,
+                            passwd=password,
+                            unix_socket=socket)
+    else:
+      dbh = MySQLdb.Connect(user=user,
+                            passwd=password,
+                            port=port,
+                            host="127.0.0.1")
     return dbh
 
   @staticmethod
@@ -347,7 +352,10 @@ class BackupRunner:
         raise Exception("Currently only streaming backup is supported.")
 
       snapshot_dir = opts.checkpoint_directory + '/' + str(backup_round)
-      dbh= MySQLUtil.connect(opts.mysql_user, opts.mysql_password, opts.mysql_port)
+      dbh = MySQLUtil.connect(opts.mysql_user,
+                              opts.mysql_password,
+                              opts.mysql_port,
+                              opts.mysql_socket)
       if not self.datadir:
         self.datadir = MySQLUtil.get_datadir(dbh)
         logger.info("Set datadir: %s", self.datadir)
@@ -412,7 +420,8 @@ class WDTBackup:
       snapshot_dir = os.path.join(opts.checkpoint_directory, str(backup_round))
       dbh = MySQLUtil.connect(opts.mysql_user,
                               opts.mysql_password,
-                              opts.mysql_port)
+                              opts.mysql_port,
+                              opts.mysql_socket)
       logger.info("Creating checkpoint at %s", snapshot_dir)
       MySQLUtil.create_checkpoint(dbh, snapshot_dir)
       logger.info("Created checkpoint at %s", snapshot_dir)
@@ -559,6 +568,9 @@ def parse_options():
   parser.add_option('-P', '--port', type='int', dest='mysql_port',
                     default=3306,
                     help='MySQL port number')
+  parser.add_option('-S', '--socket', type='string', dest='mysql_socket',
+                    default=None,
+                    help='MySQL socket path. Takes precedence over --port.')
   parser.add_option('-m', '--move_back', action='store_true', dest='move_back',
                     default=False,
                     help='Moving MyRocks backup files to proper locations.')
