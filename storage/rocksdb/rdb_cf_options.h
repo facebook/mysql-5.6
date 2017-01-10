@@ -23,6 +23,7 @@
 /* RocksDB header files */
 #include "rocksdb/table.h"
 #include "rocksdb/utilities/options_util.h"
+#include "rocksdb/slice_transform.h"
 
 /* MyRocks header files */
 #include "./rdb_comparator.h"
@@ -41,6 +42,10 @@ namespace myrocks {
 class Rdb_cf_options
 {
  public:
+  /* Cache the prefix extractor for each cf here since it is immutable */
+  std::unordered_map<std::string, const rocksdb::SliceTransform*>
+    m_cf_to_prefix_extractor;
+
   Rdb_cf_options(const Rdb_cf_options&) = delete;
   Rdb_cf_options& operator=(const Rdb_cf_options&) = delete;
   Rdb_cf_options() = default;

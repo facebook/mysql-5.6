@@ -10778,8 +10778,10 @@ bool can_use_bloom_filter(THD *thd,
     return can_use;
   }
 
-  rocksdb::Options opt = rdb->GetOptions(kd.get_cf());
-  if (opt.prefix_extractor)
+  const rocksdb::SliceTransform* rdb_prefix_extractor=
+    rocksdb_cf_options_map.m_cf_to_prefix_extractor[kd.get_cf()->GetName()];
+
+  if (rdb_prefix_extractor)
   {
     /*
       This is an optimized use case for CappedPrefixTransform.
@@ -10799,11 +10801,11 @@ bool can_use_bloom_filter(THD *thd,
       shorter require all parts of the key to be available
       for the short key match.
     */
-    if (use_all_keys && opt.prefix_extractor->InRange(eq_cond))
+    if (use_all_keys && rdb_prefix_extractor->InRange(eq_cond))
       can_use= true;
     else if (!is_ascending)
       can_use= false;
-    else if (opt.prefix_extractor->SameResultWhenAppended(eq_cond))
+    else if (rdb_prefix_extractor->SameResultWhenAppended(eq_cond))
       can_use= true;
     else
       can_use= false;

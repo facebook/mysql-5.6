@@ -337,6 +337,12 @@ void Rdb_cf_options::get_cf_options(const std::string &cf_name,
 
   // Set the comparator according to 'rev:'
   opts->comparator= get_cf_comparator(cf_name);
+
+  // Cache the prefix extractor so it can be referenced later
+  if (opts->prefix_extractor)
+  {
+    m_cf_to_prefix_extractor[cf_name]= opts->prefix_extractor.get();
+  }
 }
 
 }  // namespace myrocks
