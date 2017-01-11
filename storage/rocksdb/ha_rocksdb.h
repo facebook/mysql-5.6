@@ -397,6 +397,10 @@ class ha_rocksdb: public my_core::handler
   uchar *m_sk_packed_tuple_old;
   Rdb_string_writer m_sk_tails_old;
 
+  /* Buffers used for duplicate checking during unique_index_creation */
+  uchar *m_dup_sk_packed_tuple;
+  uchar *m_dup_sk_packed_tuple_old;
+
   /*
     Temporary space for packing VARCHARs (we provide it to
     pack_record()/pack_index_tuple() calls).
@@ -553,7 +557,8 @@ class ha_rocksdb: public my_core::handler
   void get_storage_type(Rdb_field_encoder* const encoder, const uint &kp);
   void setup_field_converters();
   int alloc_key_buffers(const TABLE* const table_arg,
-                        const Rdb_tbl_def* const tbl_def_arg)
+                        const Rdb_tbl_def* const tbl_def_arg,
+                        bool alloc_alter_buffers= false)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   void free_key_buffers();
 
@@ -872,21 +877,49 @@ private:
     bool             skip_unique_check;
   };
 
+  /*
+    Used to check for duplicate entries during fast unique secondary index
+    creation.
+  */
+  struct unique_sk_buf_info
+  {
+    bool sk_buf_switch= false;
+    rocksdb::Slice sk_memcmp_key;
+    rocksdb::Slice sk_memcmp_key_old;
+    uchar *dup_sk_buf;
+    uchar *dup_sk_buf_old;
+
+    /*
+      This method is meant to be called back to back during inplace creation
+      of unique indexes.  It will switch between two buffers, which
+      will each store the memcmp form of secondary keys, which are then
+      converted to slices in sk_memcmp_key or sk_memcmp_key_old.
+
+      Switching buffers on each iteration allows us to retain the
+      sk_memcmp_key_old value for duplicate comparison.
+    */
+    inline uchar* swap_and_get_sk_buf()
+    {
+      sk_buf_switch = !sk_buf_switch;
+      return sk_buf_switch ? dup_sk_buf : dup_sk_buf_old;
+    }
+  };
+
   int create_cfs(const TABLE* const table_arg, Rdb_tbl_def* const tbl_def_arg,
-        std::array<struct key_def_cf_info, MAX_INDEXES + 1>* const cfs) const;
+        std::array<struct key_def_cf_info, MAX_INDEXES + 1>* const cfs) const
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   int create_key_def(const TABLE* const table_arg, const uint &i,
                      const Rdb_tbl_def* const tbl_def_arg,
                      std::shared_ptr<Rdb_key_def>* const new_key_def,
-                     const struct key_def_cf_info& cf_info) const;
+                     const struct key_def_cf_info& cf_info) const
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   int create_inplace_key_defs(const TABLE* const table_arg,
                 Rdb_tbl_def* vtbl_def_arg,
                 const TABLE* const old_table_arg,
                 const Rdb_tbl_def* const old_tbl_def_arg,
-                const std::array<key_def_cf_info, MAX_INDEXES + 1>& cfs) const;
+                const std::array<key_def_cf_info, MAX_INDEXES + 1>& cfs) const
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   std::unordered_map<std::string, uint> get_old_key_positions(
@@ -927,6 +960,10 @@ private:
     MY_ATTRIBUTE((__warn_unused_result__));
   bool over_bulk_load_threshold(int* err)
     MY_ATTRIBUTE((__warn_unused_result__));
+  int check_duplicate_sk(const TABLE* table_arg, const Rdb_key_def& index,
+                         const rocksdb::Slice* key,
+                         struct unique_sk_buf_info* sk_info)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   int bulk_load_key(Rdb_transaction* const tx,
                     const Rdb_key_def& kd,
                     const rocksdb::Slice& key,
@@ -991,8 +1028,9 @@ private:
   bool contains_foreign_key(THD* const thd)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
-  int inplace_populate_sk(const TABLE* const table_arg,
-      const std::unordered_set<std::shared_ptr<Rdb_key_def>>& indexes);
+  int inplace_populate_sk(TABLE* const table_arg,
+      const std::unordered_set<std::shared_ptr<Rdb_key_def>>& indexes)
+    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
 public:
   int index_init(uint idx, bool sorted) override

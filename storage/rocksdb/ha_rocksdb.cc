@@ -4281,7 +4281,8 @@ ha_rocksdb::ha_rocksdb(my_core::handlerton* const hton,
     m_pk_tuple(nullptr), m_pk_packed_tuple(nullptr),
     m_sk_packed_tuple(nullptr), m_end_key_packed_tuple(nullptr),
     m_sk_match_prefix(nullptr), m_sk_match_prefix_buf(nullptr),
-    m_sk_packed_tuple_old(nullptr),
+    m_sk_packed_tuple_old(nullptr), m_dup_sk_packed_tuple(nullptr),
+    m_dup_sk_packed_tuple_old(nullptr),
     m_pack_buffer(nullptr), m_lock_rows(RDB_LOCK_NONE),
     m_keyread_only(FALSE), m_bulk_load_tx(nullptr), m_encoder_arr(nullptr),
     m_row_checksums_checked(0),
@@ -4539,6 +4540,12 @@ void dbug_modify_key_varchar8(String &on_disk_rec)
   on_disk_rec.append(res.data(), res.size());
 }
 
+void dbug_create_err_inplace_alter()
+{
+  my_printf_error(ER_UNKNOWN_ERROR,
+                  "Intentional failure in inplace alter occurred.",
+                  MYF(0));
+}
 #endif
 
 
@@ -4898,7 +4905,8 @@ void ha_rocksdb::setup_field_converters()
 }
 
 int ha_rocksdb::alloc_key_buffers(const TABLE* const table_arg,
-                                  const Rdb_tbl_def* const tbl_def_arg)
+                                  const Rdb_tbl_def* const tbl_def_arg,
+                                  bool alloc_alter_buffers)
 {
   DBUG_ENTER_FUNC();
 
@@ -4970,6 +4978,19 @@ int ha_rocksdb::alloc_key_buffers(const TABLE* const table_arg,
     goto error;
   }
 
+  /*
+    If inplace alter is happening, allocate special buffers for unique
+    secondary index duplicate checking.
+  */
+  if (alloc_alter_buffers &&
+      (!(m_dup_sk_packed_tuple=
+         reinterpret_cast<uchar*>(my_malloc(max_packed_sk_len, MYF(0)))) ||
+      !(m_dup_sk_packed_tuple_old=
+         reinterpret_cast<uchar*>(my_malloc(max_packed_sk_len, MYF(0))))))
+  {
+    goto error;
+  }
+
   DBUG_RETURN(HA_EXIT_SUCCESS);
 
 error:
@@ -5003,6 +5024,12 @@ void ha_rocksdb::free_key_buffers()
 
   my_free(m_pack_buffer);
   m_pack_buffer= nullptr;
+
+  my_free(m_dup_sk_packed_tuple);
+  m_dup_sk_packed_tuple= nullptr;
+
+  my_free(m_dup_sk_packed_tuple_old);
+  m_dup_sk_packed_tuple_old= nullptr;
 }
 
 void ha_rocksdb::set_use_read_free_rpl(const char* const whitelist)
@@ -7903,6 +7930,35 @@ int ha_rocksdb::check_uniqueness_and_lock(
   return HA_EXIT_SUCCESS;
 }
 
+int ha_rocksdb::check_duplicate_sk(const TABLE* table_arg,
+    const Rdb_key_def& index, const rocksdb::Slice* key,
+    struct unique_sk_buf_info* sk_info)
+{
+  uint n_null_fields= 0;
+  const rocksdb::Comparator* index_comp= index.get_cf()->GetComparator();
+
+  /* Get proper SK buffer. */
+  uchar* sk_buf= sk_info->swap_and_get_sk_buf();
+
+  /* Get memcmp form of sk without extended pk tail */
+  uint sk_memcmp_size= index.get_memcmp_sk_parts(table_arg,
+      *key, sk_buf, &n_null_fields);
+
+  sk_info->sk_memcmp_key= rocksdb::Slice(
+      reinterpret_cast<char*>(sk_buf), sk_memcmp_size);
+
+  if (sk_info->sk_memcmp_key_old.size() > 0 &&
+      n_null_fields == 0 &&
+      index_comp->Compare(sk_info->sk_memcmp_key,
+                          sk_info->sk_memcmp_key_old) == 0)
+  {
+    return 1;
+  }
+
+  sk_info->sk_memcmp_key_old= sk_info->sk_memcmp_key;
+  return 0;
+}
+
 int ha_rocksdb::bulk_load_key(Rdb_transaction* const tx,
                               const Rdb_key_def& kd,
                               const rocksdb::Slice& key,
@@ -9239,7 +9295,7 @@ void Rdb_drop_index_thread::run()
     DBUG_ASSERT(ret == 0 || ret == ETIMEDOUT);
     mysql_mutex_unlock(&m_signal_mutex);
 
-    std::vector<GL_INDEX_ID> indices;
+    std::unordered_set<GL_INDEX_ID> indices;
     dict_manager.get_ongoing_drop_indexes(&indices);
     if (!indices.empty()) {
       std::unordered_set<GL_INDEX_ID> finished;
@@ -10015,7 +10071,7 @@ bool ha_rocksdb::is_ascending(const Rdb_key_def& kd,
 */
 
 my_core::enum_alter_inplace_result ha_rocksdb::check_if_supported_inplace_alter(
-  TABLE* /* altered_table */,
+  TABLE* altered_table,
   my_core::Alter_inplace_info* const ha_alter_info)
 {
   DBUG_ENTER_FUNC();
@@ -10025,7 +10081,16 @@ my_core::enum_alter_inplace_result ha_rocksdb::check_if_supported_inplace_alter(
   if (ha_alter_info->handler_flags &
       ~(my_core::Alter_inplace_info::DROP_INDEX |
         my_core::Alter_inplace_info::DROP_UNIQUE_INDEX |
-        my_core::Alter_inplace_info::ADD_INDEX))
+        my_core::Alter_inplace_info::ADD_INDEX |
+        my_core::Alter_inplace_info::ADD_UNIQUE_INDEX))
+  {
+    DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
+  }
+
+  /* We don't support unique keys on table w/ no primary keys */
+  if ((ha_alter_info->handler_flags &
+       my_core::Alter_inplace_info::ADD_UNIQUE_INDEX) &&
+      has_hidden_pk(altered_table))
   {
     DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
   }
@@ -10095,7 +10160,8 @@ bool ha_rocksdb::prepare_inplace_alter_table(
   if (ha_alter_info->handler_flags &
      (my_core::Alter_inplace_info::DROP_INDEX |
       my_core::Alter_inplace_info::DROP_UNIQUE_INDEX |
-      my_core::Alter_inplace_info::ADD_INDEX)
+      my_core::Alter_inplace_info::ADD_INDEX |
+      my_core::Alter_inplace_info::ADD_UNIQUE_INDEX)
      && create_key_defs(altered_table, new_tdef, table, m_tbl_def))
   {
     /* Delete the new key descriptors */
@@ -10107,6 +10173,10 @@ bool ha_rocksdb::prepare_inplace_alter_table(
     */
     new_tdef->m_key_descr_arr= nullptr;
     delete new_tdef;
+
+    my_printf_error(ER_UNKNOWN_ERROR,
+                    "MyRocks failed creating new key definitions during alter.",
+                    MYF(0));
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
@@ -10189,7 +10259,8 @@ bool ha_rocksdb::inplace_alter_table(TABLE* const altered_table,
   Rdb_inplace_alter_ctx* const ctx=
     static_cast<Rdb_inplace_alter_ctx*> (ha_alter_info->handler_ctx);
 
-  if (ha_alter_info->handler_flags & my_core::Alter_inplace_info::ADD_INDEX)
+  if (ha_alter_info->handler_flags & (my_core::Alter_inplace_info::ADD_INDEX |
+       my_core::Alter_inplace_info::ADD_UNIQUE_INDEX))
   {
     /*
       Buffers need to be set up again to account for new, possibly longer
@@ -10199,23 +10270,35 @@ bool ha_rocksdb::inplace_alter_table(TABLE* const altered_table,
 
     DBUG_ASSERT(ctx != nullptr);
 
-    int err = alloc_key_buffers(altered_table, ctx->m_new_tdef);
-
-    if (err)
+    /*
+      If adding unique index, allocate special buffers for duplicate checking.
+    */
+    int err;
+    if ((err= alloc_key_buffers(altered_table, ctx->m_new_tdef,
+        ha_alter_info->handler_flags &
+        my_core::Alter_inplace_info::ADD_UNIQUE_INDEX)))
     {
+      my_printf_error(ER_UNKNOWN_ERROR,
+                      "MyRocks failed allocating key buffers during alter.",
+                      MYF(0));
       DBUG_RETURN(err);
     }
 
     /* Populate all new secondary keys by scanning the primary key. */
-    if (inplace_populate_sk(altered_table, ctx->m_added_indexes))
+    if ((err= inplace_populate_sk(altered_table, ctx->m_added_indexes)))
     {
-      free_key_buffers();
+      my_printf_error(ER_UNKNOWN_ERROR,
+                      "MyRocks failed populating secondary key during alter.",
+                      MYF(0));
       DBUG_RETURN(HA_EXIT_FAILURE);
     }
   }
 
   DBUG_EXECUTE_IF("myrocks_simulate_index_create_rollback",
-    DBUG_RETURN(HA_EXIT_FAILURE););
+                  {
+                    dbug_create_err_inplace_alter();
+                    DBUG_RETURN(HA_EXIT_FAILURE);
+                  };);
 
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
@@ -10223,7 +10306,7 @@ bool ha_rocksdb::inplace_alter_table(TABLE* const altered_table,
 /**
  Scan the Primary Key index entries and populate the new secondary keys.
 */
-int ha_rocksdb::inplace_populate_sk(const TABLE* const new_table_arg,
+int ha_rocksdb::inplace_populate_sk(TABLE* const new_table_arg,
       const std::unordered_set<std::shared_ptr<Rdb_key_def>>& indexes)
 {
   DBUG_ENTER_FUNC();
@@ -10289,6 +10372,9 @@ int ha_rocksdb::inplace_populate_sk(const TABLE* const new_table_arg,
   for (const auto& index : indexes)
   {
     const rocksdb::Comparator* index_comp= index->get_cf()->GetComparator();
+    bool is_unique_index= new_table_arg->key_info[index->get_keyno()].flags &
+                          HA_NOSAME;
+
     Rdb_index_merge rdb_merge(thd_rocksdb_tmpdir(), rdb_merge_buf_size,
                               rdb_merge_combine_read_size,
                               index_comp);
@@ -10361,8 +10447,37 @@ int ha_rocksdb::inplace_populate_sk(const TABLE* const new_table_arg,
     */
     rocksdb::Slice merge_key;
     rocksdb::Slice merge_val;
+
+    struct unique_sk_buf_info sk_info;
+    sk_info.dup_sk_buf = m_dup_sk_packed_tuple;
+    sk_info.dup_sk_buf_old = m_dup_sk_packed_tuple_old;
+
     while ((res= rdb_merge.next(&merge_key, &merge_val)) == 0)
     {
+      /* Perform uniqueness check if needed */
+      if (is_unique_index)
+      {
+        if (check_duplicate_sk(new_table_arg, *index, &merge_key, &sk_info))
+        {
+          /*
+            Duplicate entry found when trying to create unique secondary key.
+            We need to unpack the record into new_table_arg->record[0] as it
+            is used inside print_keydup_error so that the error message shows
+            the duplicate record.
+          */
+          if (index->unpack_record(new_table_arg, new_table_arg->record[0],
+                &merge_key, nullptr,  m_verify_row_debug_checksums))
+          {
+            /* Should never reach here */
+            DBUG_ASSERT(0);
+          }
+
+          print_keydup_error(new_table_arg,
+              &new_table_arg->key_info[index->get_keyno()], MYF(0));
+          DBUG_RETURN(ER_DUP_ENTRY);
+        }
+      }
+
       /*
         Insert key and slice to SST via SSTFileWriter API.
       */
@@ -10484,6 +10599,9 @@ bool ha_rocksdb::commit_inplace_alter_table(
       delete ctx0->m_new_tdef;
     }
 
+    /* Rollback any partially created indexes */
+    dict_manager.rollback_ongoing_index_creation();
+
     DBUG_RETURN(HA_EXIT_SUCCESS);
   }
 
@@ -10515,7 +10633,8 @@ bool ha_rocksdb::commit_inplace_alter_table(
   if (ha_alter_info->handler_flags &
       (my_core::Alter_inplace_info::DROP_INDEX |
        my_core::Alter_inplace_info::DROP_UNIQUE_INDEX |
-       my_core::Alter_inplace_info::ADD_INDEX))
+       my_core::Alter_inplace_info::ADD_INDEX |
+       my_core::Alter_inplace_info::ADD_UNIQUE_INDEX))
   {
     const std::unique_ptr<rocksdb::WriteBatch> wb= dict_manager.begin();
     rocksdb::WriteBatch* const batch= wb.get();

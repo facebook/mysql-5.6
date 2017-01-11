@@ -264,11 +264,20 @@ public:
     return gl_index_id;
   }
 
+  int read_memcmp_key_part(const TABLE* table_arg,
+                           Rdb_string_reader* reader,
+                           const uint part_num) const;
+
   /* Must only be called for secondary keys: */
   uint get_primary_key_tuple(const TABLE* const tbl,
                              const Rdb_key_def& pk_descr,
                              const rocksdb::Slice* const key,
                              uchar* const pk_buffer) const;
+
+  uint get_memcmp_sk_parts(const TABLE *table,
+                               const rocksdb::Slice& key,
+                               uchar *sk_buffer,
+                               uint *n_null_fields) const;
 
   /* Return max length of mem-comparable form */
   uint max_storage_fmt_length() const
@@ -1026,8 +1035,9 @@ public:
   bool get_cf_flags(const uint &cf_id, uint* const cf_flags) const;
 
   /* Functions for fast CREATE/DROP TABLE/INDEX */
-  void get_ongoing_index_operation(std::vector<GL_INDEX_ID>* gl_index_ids,
-                                   Rdb_key_def::DATA_DICT_TYPE dd_type) const;
+  void get_ongoing_index_operation(
+      std::unordered_set<GL_INDEX_ID>* gl_index_ids,
+      Rdb_key_def::DATA_DICT_TYPE dd_type) const;
   bool is_index_operation_ongoing(const GL_INDEX_ID& gl_index_id,
                                   Rdb_key_def::DATA_DICT_TYPE dd_type) const;
   void start_ongoing_index_operation(rocksdb::WriteBatch* batch,
@@ -1049,14 +1059,14 @@ public:
       Rdb_key_def::DATA_DICT_TYPE dd_type) const;
   void rollback_ongoing_index_creation() const;
 
-  inline void
-  get_ongoing_drop_indexes(std::vector<GL_INDEX_ID>* gl_index_ids) const
+  inline void get_ongoing_drop_indexes(
+      std::unordered_set<GL_INDEX_ID>* gl_index_ids) const
   {
     get_ongoing_index_operation(gl_index_ids,
                                 Rdb_key_def::DDL_DROP_INDEX_ONGOING);
   }
-  inline void
-  get_ongoing_create_indexes(std::vector<GL_INDEX_ID>* gl_index_ids) const
+  inline void get_ongoing_create_indexes(
+      std::unordered_set<GL_INDEX_ID>* gl_index_ids) const
   {
     get_ongoing_index_operation(gl_index_ids,
                                 Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
