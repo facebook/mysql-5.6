@@ -45,12 +45,6 @@ Rdb_index_merge::~Rdb_index_merge()
     Close tmp file, we don't need to worry about deletion, mysql handles it.
   */
   my_close(m_merge_file.fd, MYF(MY_WME));
-
-  /* There should be no records left in the offset tree */
-  DBUG_ASSERT(m_offset_tree.empty());
-
-  /* There should be no pointers left on the merge heap */
-  DBUG_ASSERT(m_merge_min_heap.empty());
 }
 
 int Rdb_index_merge::init()
