@@ -146,6 +146,7 @@ enum enum_admission_control_filter {
   ADMISSION_CONTROL_TRUNCATE,
   ADMISSION_CONTROL_UPDATE,
   ADMISSION_CONTROL_SHOW,
+  ADMISSION_CONTROL_USE,
   ADMISSION_CONTROL_END = 64
 };
 
@@ -4457,14 +4458,6 @@ public:
   {
     mysql_mutex_lock(&LOCK_thd_data);
     set_attrs_map(attrs, length, connection_attrs_map, false);
-    mysql_mutex_unlock(&LOCK_thd_data);
-  }
-  void update_connection_attrs(
-      const std::unordered_map<std::string, std::string> &attrs_map)
-  {
-    mysql_mutex_lock(&LOCK_thd_data);
-    for (const auto &attrs : attrs_map)
-      connection_attrs_map[attrs.first] = attrs.second;
     mysql_mutex_unlock(&LOCK_thd_data);
   }
 

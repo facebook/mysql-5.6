@@ -13,11 +13,34 @@ Threads waiting for admission will have appropriate state set in processlist.
 Super user is exempted from admission control checks.
 select * from t1;
 a
+set @@global.admission_control_filter = 'USE';
+select @@global.admission_control_filter;
+@@global.admission_control_filter
+USE
 Maximum waiting queries reached. So this would hit an error.
+use test_db;
+select * from t1||||
+ERROR HY000: Maximum waiting queries 5 reached for database `test_db`
+Maximum waiting queries reached. So this would hit an error.
+use test;
+create table t1_test(aaa int);
+insert into t1_test values (1);
+select aaa from t1_test;
+drop table t1_test;
+use test_db;
+select * from t1||||
+aaa
+1
+ERROR HY000: Maximum waiting queries 5 reached for database `test_db`
+use test_db;
 select * from t1;
 ERROR HY000: Maximum waiting queries 5 reached for database `test_db`
+set @@global.admission_control_filter = default;
+select @@global.admission_control_filter;
+@@global.admission_control_filter
+
 Check status variables
-1, 10, 5
+3, 11, 5
 Filled up queues on one db doesn't affect queries on other db.
 use test;
 set @@global.max_waiting_queries=6;

@@ -33,8 +33,6 @@ static int number_of_conns;
 static int number_of_queries;
 // Number of conns with db in conn attrs
 static int number_of_db_conns;
-// Number of conns with role in conn attrs
-static int number_of_role_conns;
 
 extern LEX_STRING INFORMATION_SCHEMA_NAME;
 extern LEX_STRING PERFORMANCE_SCHEMA_DB_NAME;
@@ -80,7 +78,6 @@ static int mt_simple_plugin_init(MYSQL_PLUGIN plugin_ref)
   number_of_conns = 0;
   number_of_queries = 0;
   number_of_db_conns = 0;
-  number_of_role_conns = 0;
   my_plugin_log_message(&plugin_info_ptr, MY_INFORMATION_LEVEL,
                         "mt_simple plugin initiated");
   return(0);
@@ -102,7 +99,9 @@ static int mt_simple_plugin_deinit(void *arg __attribute__((unused)))
  * Increment stats
  */
 static MT_RETURN_TYPE mt_simple_request_resource(
-    MYSQL_THD thd, MT_RESOURCE_TYPE type, const ATTRS_MAP_T *resource_attr)
+    MYSQL_THD thd,
+    MT_RESOURCE_TYPE type,
+    const MT_RESOURCE_ATTRS *resource_attrs)
 {
   if (!plugin_on)
     return MT_RETURN_TYPE::MULTI_TENANCY_RET_FALLBACK;
@@ -111,24 +110,21 @@ static MT_RETURN_TYPE mt_simple_request_resource(
   {
     case MT_RESOURCE_TYPE::MULTI_TENANCY_RESOURCE_CONNECTION:
       {
-        if (!resource_attr)
+        if (!resource_attrs)
           break;
 
-        auto iter_db = resource_attr->find("db");
-        auto iter_role = resource_attr->find("role");
+        const char *db = resource_attrs->database;
         // ignore system schemas
-        if (iter_db != resource_attr->end())
+        if (db &&
+            strcmp(db, INFORMATION_SCHEMA_NAME.str) &&
+            strcmp(db, PERFORMANCE_SCHEMA_DB_NAME.str) &&
+            strcmp(db, MYSQL_SCHEMA_NAME.str))
         {
-          const char *db = iter_db->second.c_str();
-          if (strcmp(db, INFORMATION_SCHEMA_NAME.str) &&
-              strcmp(db, PERFORMANCE_SCHEMA_DB_NAME.str) &&
-              strcmp(db, MYSQL_SCHEMA_NAME.str))
             my_atomic_add32(&number_of_db_conns, 1);
         }
-        else if (iter_role != resource_attr->end())
-            my_atomic_add32(&number_of_role_conns, 1);
-        else
-            my_atomic_add32(&number_of_conns, 1);
+
+        // add to the total conns
+        my_atomic_add32(&number_of_conns, 1);
 
         break;
       }
@@ -151,7 +147,9 @@ static MT_RETURN_TYPE mt_simple_request_resource(
  * Decrement stats
  */
 static MT_RETURN_TYPE mt_simple_release_resource(
-    MYSQL_THD thd, MT_RESOURCE_TYPE type, const ATTRS_MAP_T *resource_attr)
+    MYSQL_THD thd,
+    MT_RESOURCE_TYPE type,
+    const MT_RESOURCE_ATTRS *resource_attrs)
 {
   if (!plugin_on)
     return MT_RETURN_TYPE::MULTI_TENANCY_RET_FALLBACK;
@@ -160,23 +158,21 @@ static MT_RETURN_TYPE mt_simple_release_resource(
   {
     case MT_RESOURCE_TYPE::MULTI_TENANCY_RESOURCE_CONNECTION:
       {
-        if (!resource_attr)
+        if (!resource_attrs)
           break;
 
-        auto iter_db = resource_attr->find("db");
-        auto iter_role = resource_attr->find("role");
+        const char *db = resource_attrs->database;
         // ignore system schemas
-        if (iter_db != resource_attr->end() && number_of_db_conns > 0)
+        if (!db && number_of_db_conns > 0)
         {
-          const char *db = iter_db->second.c_str();
           if (strcmp(db, INFORMATION_SCHEMA_NAME.str) &&
               strcmp(db, PERFORMANCE_SCHEMA_DB_NAME.str) &&
               strcmp(db, MYSQL_SCHEMA_NAME.str))
             my_atomic_add32(&number_of_db_conns, -1);
         }
-        else if (iter_role != resource_attr->end() && number_of_role_conns > 0)
-            my_atomic_add32(&number_of_role_conns, -1);
-        else if (number_of_conns > 0)
+
+        // decrement total conns
+        if (number_of_conns > 0)
             my_atomic_add32(&number_of_conns, -1);
 
         break;
@@ -223,9 +219,6 @@ static struct st_mysql_show_var simple_status[]=
     SHOW_INT },
   { "mt_simple_open_db_conns",
     (char *) &number_of_db_conns,
-    SHOW_INT },
-  { "mt_simple_open_role_conns",
-    (char *) &number_of_role_conns,
     SHOW_INT },
   { "mt_simple_running_queries",
     (char *) &number_of_queries,

@@ -53,14 +53,52 @@ let $wait_condition=
 source include/wait_condition.inc;
 --echo Super user is exempted from admission control checks.
 select * from t1;
-connect (con_max_wait, localhost, test_user,,test_db);
+
+# set filter to bypass USE statement
+set @@global.admission_control_filter = 'USE';
+select @@global.admission_control_filter;
+
+# Test failure case
+# Default db is intentionally not set when creating the connection
+connect (con_max_wait, localhost, test_user,,);
 connection con_max_wait;
+
+# Test multi-statement packet with use statement.
+delimiter ||||;
 --echo Maximum waiting queries reached. So this would hit an error.
-error ER_DB_ADMISSION_CONTROL;
+--error ER_DB_ADMISSION_CONTROL
+# switch the session's default db to test_db, which (the use statement) should
+# be bypassed in admission control. The select statement will fail.
+use test_db;
+select * from t1||||
+
+# Query will only fail on test_db, but not on test
+--echo Maximum waiting queries reached. So this would hit an error.
+--error ER_DB_ADMISSION_CONTROL
+use test;
+create table t1_test(aaa int);
+insert into t1_test values (1);
+select aaa from t1_test;
+drop table t1_test;
+use test_db;
+select * from t1||||
+
+delimiter ;||||
+
+# USE is ok
+use test_db;
+
+# Single statement
+--error ER_DB_ADMISSION_CONTROL
 select * from t1;
+
 disconnect con_max_wait;
 
 connection default;
+# reset admission_control_filter
+set @@global.admission_control_filter = default;
+select @@global.admission_control_filter;
+
 --echo Check status variables
 let $aborted_queries = query_get_value(show global status like "Database_admission_control_aborted_queries", Value, 1);
 let $running_queries = query_get_value(show global status like "Database_admission_control_running_queries", Value, 1);
