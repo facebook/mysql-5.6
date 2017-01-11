@@ -41,13 +41,10 @@
  * See sql_multi_tenancy.cc for implementation.
  */
 
-#define multi_tenancy_entity_str "entity"
-#define multi_tenancy_entity_db "db"
-
-extern int multi_tenancy_add_connection(THD *thd, ATTRS_MAP_T &attr_map);
-extern int multi_tenancy_close_connection(THD *thd, ATTRS_MAP_T &attr_map);
-extern int multi_tenancy_admit_query(THD *thd, ATTRS_MAP_T &attr_map);
-extern int multi_tenancy_exit_query(THD *thd, ATTRS_MAP_T &attr_map);
+extern int multi_tenancy_add_connection(THD *, const MT_RESOURCE_ATTRS *);
+extern int multi_tenancy_close_connection(THD *, const MT_RESOURCE_ATTRS *);
+extern int multi_tenancy_admit_query(THD *, const MT_RESOURCE_ATTRS *);
+extern int multi_tenancy_exit_query(THD *, const MT_RESOURCE_ATTRS *);
 
 
 /**
@@ -250,8 +247,8 @@ public:
     return res;
   }
 
-  bool admission_control_enter(THD*, ATTRS_MAP_T&);
-  void admission_control_exit(THD*, ATTRS_MAP_T&);
+  bool admission_control_enter(THD*, const MT_RESOURCE_ATTRS *);
+  void admission_control_exit(THD*, const MT_RESOURCE_ATTRS *);
   void wait_for_signal(THD*, std::shared_ptr<st_ac_node>&,
                        std::shared_ptr<Ac_info> ac_info);
 

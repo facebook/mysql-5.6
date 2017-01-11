@@ -15,6 +15,12 @@ update t1 set a=2 where a=1;
 update t1 set a=2 where a=1;
 update t1 set a=2 where a=1;
 update t1 set a=2 where a=1;
+set @@global.admission_control_filter = 'USE';
+select @@global.admission_control_filter;
+@@global.admission_control_filter
+USE
+use test;
+use test_db;
 set @@global.admission_control_filter = 'ALTER,BEGIN,COMMIT,CREATE,DELETE,DROP,INSERT,LOAD,SELECT,SET,REPLACE,TRUNCATE,UPDATE,SHOW,ROLLBACK';
 select @@global.admission_control_filter;
 @@global.admission_control_filter

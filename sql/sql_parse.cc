@@ -1707,9 +1707,6 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
     if (parser_state.init(thd, thd->query(), thd->query_length()))
       break;
 
-    // This is for admission control backward compatibility. Eventually this
-    // will be set in in the query attributes.
-    thd->query_attrs_map[multi_tenancy_entity_db] = thd->db ? thd->db : "";
     mysql_parse(thd, thd->query(), thd->query_length(), &parser_state,
                 &last_timer, &async_commit);
 
@@ -1799,7 +1796,12 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
     }
     if (thd->is_in_ac && (!opt_admission_control_by_trx || thd->is_real_trans))
     {
-      multi_tenancy_exit_query(thd, thd->query_attrs_map);
+      MT_RESOURCE_ATTRS attrs = {
+        &thd->connection_attrs_map,
+        &thd->query_attrs_map,
+        thd->db
+      };
+      multi_tenancy_exit_query(thd, &attrs);
       thd->is_in_ac = false;
     }
 
@@ -4523,44 +4525,58 @@ end_with_restore_list:
   case SQLCOM_CHANGE_DB:
   {
     LEX_STRING db_str= { (char *) select_lex->db, strlen(select_lex->db) };
-    bool add_conn = false, release_conn = false;
-    // use a new map before we actually change the db successfully
-    std::unordered_map<std::string, std::string> attrs_map;
-    std::string old_db;
+    MT_RESOURCE_ATTRS attrs = {
+      &thd->connection_attrs_map,
+      &thd->query_attrs_map,
+      nullptr
+    };
+    const char *old_db = nullptr;
     if (!thd->db || strcmp(thd->db, select_lex->db))
     {
-      add_conn = true;
-      attrs_map[multi_tenancy_entity_db] = select_lex->db;
+      attrs.database = select_lex->db;
       if (thd->db)
       {
-        release_conn = true;
         old_db = thd->db;
       }
+      // since we are changing the session db and the query is part of
+      // multi-statement packet, we need to reset admission control so the new
+      // queries won't bypass the new db'sadmission control.
+      if (thd->is_in_ac)
+      {
+        // if the thd is already in admission control for the previous
+        // database, we need to release it before resetting the value.
+        MT_RESOURCE_ATTRS attrs = {
+          &thd->connection_attrs_map,
+          &thd->query_attrs_map,
+          thd->db
+        };
+        multi_tenancy_exit_query(thd, &attrs);
+      }
+      thd->is_in_ac = false;
     }
 
     // check resource if we can switch the connection to another database
-    if (add_conn && multi_tenancy_add_connection(thd, attrs_map))
+    if (attrs.database && multi_tenancy_add_connection(thd, &attrs))
     {
-      my_error(ER_MULTI_TENANCY_MAX_CONNECTION, MYF(0), select_lex->db);
+      my_error(ER_MULTI_TENANCY_MAX_CONNECTION, MYF(0), attrs.database);
       goto error;
     }
 
     if (!mysql_change_db(thd, &db_str, FALSE))
     {
       // release old connection resource in multi-tenancy plugin
-      if (release_conn)
+      if (old_db)
       {
-        attrs_map[multi_tenancy_entity_db] = old_db;
-        multi_tenancy_close_connection(thd, attrs_map);
+        attrs.database = old_db;
+        multi_tenancy_close_connection(thd, &attrs);
       }
-      // now update the connection attributes to reflect the new entity
-      thd->update_connection_attrs(attrs_map);
       my_ok(thd);
     }
-    else if (add_conn)
+    else if (attrs.database)
     {
-      // release connection resource in multi-tenancy plugin
-      multi_tenancy_close_connection(thd, attrs_map);
+      // failed to add the new conn. release connection resource in
+      // multi-tenancy plugin
+      multi_tenancy_close_connection(thd, &attrs);
     }
 
     break;
@@ -7512,11 +7528,16 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
             error= 1;
           }
           else {
-            if (multi_tenancy_admit_query(thd, thd->query_attrs_map))
+            MT_RESOURCE_ATTRS attrs = {
+              &thd->connection_attrs_map,
+              &thd->query_attrs_map,
+              thd->db
+            };
+            if (multi_tenancy_admit_query(thd, &attrs))
             {
               my_error(ER_DB_ADMISSION_CONTROL, MYF(0),
-                       db_ac->get_max_waiting_queries(),
-                       thd->query_attrs_map[multi_tenancy_entity_db].c_str());
+                  db_ac->get_max_waiting_queries(),
+                  thd->db? thd->db:"unknown database");
               error= 1;
             }
             else

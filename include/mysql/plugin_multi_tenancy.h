@@ -57,14 +57,23 @@ typedef enum enum_multi_tenancy_resource_type MT_RESOURCE_TYPE;
 typedef enum enum_multi_tenancy_return_type MT_RETURN_TYPE;
 typedef std::unordered_map<std::string, std::string> ATTRS_MAP_T;
 
+struct multi_tenancy_resource_attributes
+{
+  const ATTRS_MAP_T *connection_attrs_map;
+  const ATTRS_MAP_T *query_attrs_map;
+  const char *database;
+};
+
+typedef struct multi_tenancy_resource_attributes MT_RESOURCE_ATTRS;
+
 // Plugin descriptor struct
 struct st_mysql_multi_tenancy
 {
   int interface_version;
   MT_RETURN_TYPE (*request_resource)
-    (MYSQL_THD, MT_RESOURCE_TYPE type, const ATTRS_MAP_T *);
+    (MYSQL_THD, MT_RESOURCE_TYPE, const MT_RESOURCE_ATTRS *);
   MT_RETURN_TYPE (*release_resource)
-    (MYSQL_THD, MT_RESOURCE_TYPE type, const ATTRS_MAP_T *);
+    (MYSQL_THD, MT_RESOURCE_TYPE, const MT_RESOURCE_ATTRS *);
 };
 
 #endif

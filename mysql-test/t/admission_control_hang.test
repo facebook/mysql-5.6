@@ -33,6 +33,15 @@ while($i)
   dec $i;
 }
 
+# Test filter USE statement
+connection default;
+set @@global.admission_control_filter = 'USE';
+select @@global.admission_control_filter;
+
+connection con6;
+use test;
+use test_db;
+
 connection default;
 set @@global.admission_control_filter = 'ALTER,BEGIN,COMMIT,CREATE,DELETE,DROP,INSERT,LOAD,SELECT,SET,REPLACE,TRUNCATE,UPDATE,SHOW,ROLLBACK';
 select @@global.admission_control_filter;

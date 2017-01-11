@@ -155,6 +155,9 @@ static bool filter_command(enum_sql_command sql_command)
     case SQLCOM_SHOW_CONNECTION_ATTRIBUTES:
       return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_SHOW);
 
+    case SQLCOM_CHANGE_DB:
+      return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_USE);
+
     default:
       return false;
   }
@@ -169,7 +172,7 @@ static bool filter_command(enum_sql_command sql_command)
  *
  * @return 0 if the connection is added, 1 if rejected
  */
-int multi_tenancy_add_connection(THD *thd, ATTRS_MAP_T &attr_map)
+int multi_tenancy_add_connection(THD *thd, const MT_RESOURCE_ATTRS *attrs)
 {
   int ret = 0;
   st_mysql_multi_tenancy *data= NULL;
@@ -179,11 +182,10 @@ int multi_tenancy_add_connection(THD *thd, ATTRS_MAP_T &attr_map)
     mysql_mutex_lock(&thd->LOCK_thd_data);
     data = plugin_data(thd->variables.multi_tenancy_plugin,
                        struct st_mysql_multi_tenancy *);
-    ret = (int) data->
-      request_resource(
+    ret = (int) data->request_resource(
         thd,
         MT_RESOURCE_TYPE::MULTI_TENANCY_RESOURCE_CONNECTION,
-        &attr_map);
+        attrs);
     mysql_mutex_unlock(&thd->LOCK_thd_data);
 
     // plugin is turned off
@@ -203,7 +205,7 @@ int multi_tenancy_add_connection(THD *thd, ATTRS_MAP_T &attr_map)
  *
  * @return 0 if successful, 1 if otherwise
  */
-int multi_tenancy_close_connection(THD *thd, ATTRS_MAP_T &attr_map)
+int multi_tenancy_close_connection(THD *thd, const MT_RESOURCE_ATTRS *attrs)
 {
   st_mysql_multi_tenancy *data= NULL;
   if (thd->variables.multi_tenancy_plugin)
@@ -214,7 +216,7 @@ int multi_tenancy_close_connection(THD *thd, ATTRS_MAP_T &attr_map)
     data->release_resource(
         thd,
         MT_RESOURCE_TYPE::MULTI_TENANCY_RESOURCE_CONNECTION,
-        &attr_map);
+        attrs);
     mysql_mutex_unlock(&thd->LOCK_thd_data);
   }
 
@@ -230,39 +232,35 @@ int multi_tenancy_close_connection(THD *thd, ATTRS_MAP_T &attr_map)
  *
  * @return 0 if the query is admitted, 1 if otherwise
  */
-int multi_tenancy_admit_query(THD *thd, ATTRS_MAP_T &attr_map)
+int multi_tenancy_admit_query(THD *thd, const MT_RESOURCE_ATTRS *attrs)
 {
   bool admission_check= false;
 
-  auto entity_iter = attr_map.find(multi_tenancy_entity_db);
-  if (entity_iter == attr_map.end())
-    return 0; // no limiting
-
-  /**
-    Admission control checks are skipped in the following
-    scenarios.
-    1. The query is run by super user
-    2. The THD is a replication thread
-    3. If this is a multi query packet, or is part of a transaction (controlled
-       by global var opt_admission_control_by_trx), and the THD already entered
-       admission control
-    4. No database is set for this session
-    5. Admission control checks are turned off by setting
-       max_running_queries=0
-    6. If the command is filtered from admission checks
-  */
+  /*
+   * Admission control check will be enforced if ALL of the following
+   * conditions are satisfied
+   *  1. The query is run by regular (non-super) user
+   *  2. The THD is not a replication thread
+   *  3. The query is not part of a transaction (controlled by global var
+   *     opt_admission_control_by_trx), nor the THD is already in an admission
+   *     control (e.g. part of a multi query packet)
+   *  4. Session database is set for THD
+   *  5. sys var max_running_queries > 0
+   *  6. The command is not filtered by admission_control_filter
+   */
   if (!(thd->security_ctx->master_access & SUPER_ACL) && /* 1 */
       !thd->rli_slave && /* 2 */
       ((!opt_admission_control_by_trx || thd->is_real_trans) &&
        !thd->is_in_ac) && /* 3 */
-      !entity_iter->second.empty() && /* 4 */
+      attrs->database && /* 4 */
       db_ac->get_max_running_queries() && /* 5 */
       !filter_command(thd->lex->sql_command) /* 6 */
-     ) {
+     )
+  {
     admission_check= true;
   }
 
-  if (admission_check && db_ac->admission_control_enter(thd, attr_map))
+  if (admission_check && db_ac->admission_control_enter(thd, attrs))
     return 1;
 
   if (admission_check)
@@ -280,12 +278,12 @@ int multi_tenancy_admit_query(THD *thd, ATTRS_MAP_T &attr_map)
  *
  * @return 0 if successful, 1 if otherwise
  */
-int multi_tenancy_exit_query(THD *thd, ATTRS_MAP_T &attr_map)
+int multi_tenancy_exit_query(THD *thd, const MT_RESOURCE_ATTRS *attrs)
 {
-  if (attr_map.find(multi_tenancy_entity_db) == attr_map.end())
+  if (!attrs->database)
     return 0; // no limiting
 
-  db_ac->admission_control_exit(thd, attr_map);
+  db_ac->admission_control_exit(thd, attrs);
   return 0;
 }
 
@@ -339,22 +337,22 @@ int finalize_multi_tenancy_plugin(st_plugin_int *plugin_int)
 #else /* EMBEDDED_LIBRARY */
 
 
-int multi_tenancy_add_connection(THD *thd, ATTRS_MAP_T &attr_map)
+int multi_tenancy_add_connection(THD *thd, const MT_RESOURCE_ATTRS *attrs)
 {
   return 1;
 }
 
-int multi_tenancy_close_connection(THD *thd, ATTRS_MAP_T &attr_map)
+int multi_tenancy_close_connection(THD *thd, const MT_RESOURCE_ATTRS *attrs)
 {
   return 1;
 }
 
-int multi_tenancy_admit_query(THD *thd, ATTRS_MAP_T &attr_map)
+int multi_tenancy_admit_query(THD *thd, const MT_RESOURCE_ATTRS *attrs)
 {
   return 1;
 }
 
-int multi_tenancy_exit_query(THD *thd, ATTRS_MAP_T &attr_map)
+int multi_tenancy_exit_query(THD *thd, const MT_RESOURCE_ATTRS *attrs)
 {
   return 1;
 }
@@ -378,23 +376,26 @@ int finalize_multi_tenancy_plugin(st_plugin_int *plugin)
 AC *db_ac; // admission control object
 
 /**
-   @param thd THD structure.
-   @param entity current session's entity.
-
-   Applies admission control checks for the entity. Outline of
-   the steps in this function:
-   1. Error out if we crossed the max waiting limit.
-   2. Put the thd in a queue.
-   3. If we crossed the max running limit then wait for signal from threads
-      that completed their query execution.
-
-   @return False Run this query.
+ * @param thd THD structure.
+ * @param attrs session resource attributes
+ *
+ * Applies admission control checks for the entity. Outline of
+ * the steps in this function:
+ * 1. Error out if we crossed the max waiting limit.
+ * 2. Put the thd in a queue.
+ * 3. If we crossed the max running limit then wait for signal from threads
+ *    that completed their query execution.
+ *
+ * Note current implementation assumes the admission control entity is
+ * database. We will lift the assumption and implement the entity logic in
+ * multitenancy plugin.
+ *
+ * @return False Run this query.
            True  maximum waiting queries limit reached. Error out this query.
 */
-bool AC::admission_control_enter(THD* thd, ATTRS_MAP_T &attr_map) {
+bool AC::admission_control_enter(THD* thd, const MT_RESOURCE_ATTRS *attrs) {
   bool error = false;
-  DBUG_ASSERT(attr_map.find(multi_tenancy_entity_db) != attr_map.end());
-  const std::string &entity = attr_map.at(multi_tenancy_entity_db);
+  std::string entity = attrs->database;
   const char* prev_proc_info = thd->proc_info;
   THD_STAGE_INFO(thd, stage_admission_control_enter);
   bool release_lock_ac = true;
@@ -427,7 +428,7 @@ bool AC::admission_control_enter(THD* thd, ATTRS_MAP_T &attr_map) {
       ret = data->request_resource(
           thd,
           MT_RESOURCE_TYPE::MULTI_TENANCY_RESOURCE_QUERY,
-          &attr_map);
+          attrs);
     }
     // if plugin is disabled, fallback to check global query limit
     if (ret == MT_RETURN_TYPE::MULTI_TENANCY_RET_FALLBACK)
@@ -514,13 +515,12 @@ void AC::wait_for_signal(THD* thd, std::shared_ptr<st_ac_node>& ac_node,
 
 /**
   @param thd THD structure
-  @param entity current session's entity
+  @param attrs session resource attributes
 
   Signals one waiting thread. Pops out the first THD in the queue.
 */
-void AC::admission_control_exit(THD* thd, ATTRS_MAP_T &attr_map) {
-  DBUG_ASSERT(attr_map.find(multi_tenancy_entity_db) != attr_map.end());
-  const std::string &entity = attr_map.at(multi_tenancy_entity_db);
+void AC::admission_control_exit(THD* thd, const MT_RESOURCE_ATTRS *attrs) {
+  std::string entity = attrs->database;
   const char* prev_proc_info = thd->proc_info;
   THD_STAGE_INFO(thd, stage_admission_control_exit);
   mysql_rwlock_rdlock(&LOCK_ac);
@@ -537,7 +537,7 @@ void AC::admission_control_exit(THD* thd, ATTRS_MAP_T &attr_map) {
       data->release_resource(
           thd,
           MT_RESOURCE_TYPE::MULTI_TENANCY_RESOURCE_QUERY,
-          &attr_map);
+          attrs);
     }
     if (max_running_queries &&
         ac_info->queue.size() > max_running_queries) {
