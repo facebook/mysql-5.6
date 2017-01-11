@@ -962,12 +962,6 @@ private:
                                   const Rdb_key_def& kd,
                                   bool move_forward)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-  int try_keyonly_read_from_sk(uchar* buf,
-      const Rdb_key_def& kd,
-      const rocksdb::Slice& key,
-      const rocksdb::Slice& value,
-      uint rowid_size)
-    MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   int calc_eq_cond_len(const Rdb_key_def& kd,
                        const enum ha_rkey_function &find_flag,
