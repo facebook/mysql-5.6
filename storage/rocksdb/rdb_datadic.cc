@@ -877,8 +877,6 @@ size_t Rdb_key_def::key_length(const TABLE* const table,
   @return
     UNPACK_SUCCESS - Ok
     UNPACK_FAILURE - Data format error.
-    UNPACK_INFO_MISSING - Unpack info was unavailable and was required for
-                          unpacking.
 */
 
 int Rdb_key_def::unpack_record(TABLE* const table, uchar* const buf,
@@ -1995,11 +1993,9 @@ static int rdb_unpack_unknown(Rdb_field_packing* const fpi, Field* const field,
   {
     return UNPACK_FAILURE;
   }
-  // Unpack info is needed but none available.
-  if (len > 0 && unp_reader == nullptr)
-  {
-    return UNPACK_INFO_MISSING;
-  }
+
+  DBUG_ASSERT_IMP(len > 0, unp_reader != nullptr);
+
   if ((ptr= (const uchar*)unp_reader->read(len)))
   {
     memcpy(dst, ptr, len);
@@ -2053,12 +2049,10 @@ static int rdb_unpack_unknown_varchar(Rdb_field_packing* const fpi,
   {
     return UNPACK_FAILURE;
   }
-  // Unpack info is needed but none available.
+
   DBUG_ASSERT(len_bytes > 0);
-  if (unp_reader == nullptr)
-  {
-    return UNPACK_INFO_MISSING;
-  }
+  DBUG_ASSERT(unp_reader != nullptr);
+
   if ((ptr= (const uchar*)unp_reader->read(len_bytes)))
   {
     memcpy(d0, ptr, len_bytes);
@@ -2098,11 +2092,7 @@ static uint rdb_read_unpack_simple(Rdb_bit_reader* const reader,
     if (codec->m_dec_size[src[i]] > 0)
     {
       uint *ret;
-      // Unpack info is needed but none available.
-      if (reader == nullptr)
-      {
-        return UNPACK_INFO_MISSING;
-      }
+      DBUG_ASSERT(reader != nullptr);
 
       if ((ret= reader->read(codec->m_dec_size[src[i]])) == nullptr)
       {
@@ -2170,10 +2160,7 @@ rdb_unpack_simple_varchar_space_pad(Rdb_field_packing* const fpi,
 
   uint space_padding_bytes= 0;
   uint extra_spaces;
-  if (!unp_reader)
-  {
-    return UNPACK_INFO_MISSING;
-  }
+  DBUG_ASSERT(unp_reader != nullptr);
 
   if ((fpi->m_unpack_info_uses_two_bytes?
        unp_reader->read_uint16(&extra_spaces):

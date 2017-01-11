@@ -6251,13 +6251,11 @@ int ha_rocksdb::read_row_from_secondary_key(uchar* const buf,
     pk_size= kd.get_primary_key_tuple(table, *m_pk_descr, &rkey,
                                        m_pk_packed_tuple);
     const rocksdb::Slice& value= m_scan_it->value();
-    if (pk_size == RDB_INVALID_KEY_LEN)
+    if (pk_size == RDB_INVALID_KEY_LEN ||
+        kd.unpack_record(table, buf, &rkey, &value,
+                         m_verify_row_debug_checksums))
     {
       rc= HA_ERR_INTERNAL_ERROR;
-    }
-    else
-    {
-      rc= try_keyonly_read_from_sk(buf, kd, rkey, value, pk_size);
     }
   }
   else
@@ -6290,42 +6288,6 @@ int ha_rocksdb::read_row_from_secondary_key(uchar* const buf,
 
   return rc;
 }
-
-/**
-  @note
-    Some data types require unpack_info in order to do index-only reads.
-
-    However, support for this may have been added after the database was built.
-    This means that we need to support the case where unpack_info is not
-    available. In this case, we should just do a primary key lookup.
-*/
-int ha_rocksdb::try_keyonly_read_from_sk(uchar* buf,
-    const Rdb_key_def& kd,
-    const rocksdb::Slice& key,
-    const rocksdb::Slice& value,
-    const uint rowid_size)
-{
-  const int res=
-    kd.unpack_record(table, buf, &key, &value, m_verify_row_debug_checksums);
-  uint size= rowid_size;
-  if (res == UNPACK_INFO_MISSING)
-  {
-    // If we can't unpack, then do a PK lookup.
-    if (rowid_size == RDB_INVALID_KEY_LEN)
-    {
-      size= kd.get_primary_key_tuple(
-              table, *m_pk_descr, &key, m_pk_packed_tuple);
-    }
-    return get_row_by_rowid(buf, m_pk_packed_tuple, size);
-  }
-  else if (res == UNPACK_FAILURE)
-  {
-    return HA_ERR_INTERNAL_ERROR;
-  }
-  DBUG_ASSERT(res == UNPACK_SUCCESS);
-  return res;
-}
-
 
 /**
   @note
@@ -6408,7 +6370,7 @@ int ha_rocksdb::secondary_index_read(const int keyno, uchar* const buf)
     /* Check if we've ran out of records of this index */
     if (m_key_descr_arr[keyno]->covers_key(key))
     {
-      int rc;
+      int rc= 0;
 
       //TODO: We could here check if we have ran out of range we're scanning
       const uint size= m_key_descr_arr[keyno]->get_primary_key_tuple(
@@ -6423,8 +6385,12 @@ int ha_rocksdb::secondary_index_read(const int keyno, uchar* const buf)
       if (m_keyread_only && m_lock_rows == RDB_LOCK_NONE &&
           !has_hidden_pk(table))
       {
-        rc= try_keyonly_read_from_sk(buf, *m_key_descr_arr[keyno],
-                                     key, m_scan_it->value(), size);
+        rocksdb::Slice value= m_scan_it->value();
+        if (m_key_descr_arr[keyno]->unpack_record(table, buf, &key, &value,
+                                                  m_verify_row_debug_checksums))
+        {
+          return HA_ERR_INTERNAL_ERROR;
+        }
       }
       else
       {
@@ -6752,7 +6718,8 @@ int ha_rocksdb::find_icp_matching_index_rec(const bool &move_forward,
       }
 
       const rocksdb::Slice value= m_scan_it->value();
-      if (try_keyonly_read_from_sk(buf, kd, rkey, value, RDB_INVALID_KEY_LEN))
+      if (kd.unpack_record(table, buf, &rkey, &value,
+                           m_verify_row_debug_checksums))
       {
         return HA_ERR_INTERNAL_ERROR;
       }
