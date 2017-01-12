@@ -121,7 +121,8 @@ static my_bool  verbose= 0, opt_no_create_info= 0, opt_no_data= 0,
                 opt_alltspcs=0, opt_notspcs= 0, opt_drop_trigger= 0,
                 opt_secure_auth= 1, opt_rocksdb= 0, opt_rocksdb_bulk_load= 0,
                 opt_order_by_primary_desc=0,
-                opt_view_error= 1;
+                opt_view_error= 1,
+                opt_ignore_views = 0;
 static my_bool insert_pat_inited= 0, debug_info_flag= 0, debug_check_flag= 0;
 static my_bool opt_enable_checksum_table = 0;
 static ulong opt_max_allowed_packet, opt_net_buffer_length;
@@ -657,6 +658,10 @@ static struct my_option my_long_options[] =
   {"enable_checksum_table", OPT_ENABLE_CHECKSUM_TABLE,
    "Flag that enables the checksums of all tables to be generated.",
    &opt_enable_checksum_table, &opt_enable_checksum_table, 0,
+   GET_BOOL, OPT_ARG, 0, 0, 0, 0, 0, 0},
+  {"ignore-views", OPT_IGNORE_VIEWS,
+   "Skip dumping table views.",
+   &opt_ignore_views, &opt_ignore_views, 0,
    GET_BOOL, OPT_ARG, 0, 0, 0, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}
 };
@@ -5269,6 +5274,9 @@ static my_bool dump_all_views_in_db(char *database)
   char hash_key[2*NAME_LEN+2];  /* "db.tablename" */
   char *afterdot;
 
+  if (opt_ignore_views)
+    return 0;
+
   afterdot= strmov(hash_key, database);
   *afterdot++= '.';
 
@@ -5940,7 +5948,11 @@ char check_if_ignore_table(const char *table_name, char *table_type)
     DBUG_RETURN(result);
   }
   if (!(row[1]))
+  {
     strmake(table_type, "VIEW", NAME_LEN-1);
+    if (opt_ignore_views)
+      result = IGNORE_TABLE;
+  }
   else
   {
     /*
