@@ -16,6 +16,9 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 #pragma once
 
+/* C++ standard header files */
+#include <string>
+
 /* MySQL includes */
 #include "./my_global.h"
 #include <mysql/psi/mysql_table.h>
@@ -50,10 +53,11 @@ class Rdb_thread
   void init(my_core::PSI_mutex_key  stop_bg_psi_mutex_key,
             my_core::PSI_cond_key   stop_bg_psi_cond_key);
   int create_thread(
+            const std::string& thread_name,
             my_core::PSI_thread_key background_psi_thread_key);
 #else
   void init();
-  int create_thread();
+  int create_thread(const std::string& thread_name);
 #endif
 
   virtual void run(void) = 0;
