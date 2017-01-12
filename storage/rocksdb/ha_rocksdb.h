@@ -1030,7 +1030,7 @@ public:
     /* Free blob data */
     m_retrieved_record.clear();
 
-    DBUG_RETURN(0);
+    DBUG_RETURN(HA_EXIT_SUCCESS);
   }
 
   int check(THD* const thd, HA_CHECK_OPT* const check_opt) override

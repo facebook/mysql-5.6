@@ -114,6 +114,22 @@ namespace myrocks {
 #define DBUG_ENTER_FUNC() DBUG_ENTER(__PRETTY_FUNCTION__)
 
 /*
+  Error handling pattern used across MySQL abides by the following rules: "All
+  functions that can report an error (usually an allocation error), should
+  return 0/FALSE/false on success, 1/TRUE/true on failure."
+
+  https://dev.mysql.com/doc/internals/en/additional-suggestions.html has more
+  details.
+
+  To increase the comprehension and readability of MyRocks codebase we'll use
+  constants similar to ones from C standard (EXIT_SUCCESS and EXIT_FAILURE) to
+  make sure that both failure and success paths are clearly identifiable. The
+  definitions of FALSE and TRUE come from <my_global.h>.
+*/
+#define HA_EXIT_SUCCESS FALSE
+#define HA_EXIT_FAILURE TRUE
+
+/*
   Generic constant.
 */
 const size_t RDB_MAX_HEXDUMP_LEN= 1000;
