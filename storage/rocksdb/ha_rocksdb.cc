@@ -3861,7 +3861,9 @@ static int rocksdb_init_func(void* const p)
   }
 
   auto err= rdb_bg_thread.create_thread(
+    BG_THREAD_NAME
 #ifdef HAVE_PSI_INTERFACE
+    ,
     rdb_background_psi_thread_key
 #endif
   );
@@ -3873,7 +3875,9 @@ static int rocksdb_init_func(void* const p)
   }
 
   err= rdb_drop_idx_thread.create_thread(
+    INDEX_THREAD_NAME
 #ifdef HAVE_PSI_INTERFACE
+    ,
     rdb_drop_idx_psi_thread_key
 #endif
   );
