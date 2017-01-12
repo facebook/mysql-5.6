@@ -782,10 +782,10 @@ int Rdb_key_def::compare_keys(
 
   // Skip the index number
   if ((!reader1.read(INDEX_NUMBER_SIZE)))
-    return 1;
+    return HA_EXIT_FAILURE;
 
   if ((!reader2.read(INDEX_NUMBER_SIZE)))
-    return 1;
+    return HA_EXIT_FAILURE;
 
   for (uint i= 0; i < m_key_parts ; i++)
   {
@@ -794,13 +794,16 @@ int Rdb_key_def::compare_keys(
     {
       const auto nullp1= reader1.read(1);
       const auto nullp2= reader2.read(1);
+
       if (nullp1 == nullptr || nullp2 == nullptr)
-        return 1; //error
+      {
+        return HA_EXIT_FAILURE;
+      }
 
       if (*nullp1 != *nullp2)
       {
         *column_index = i;
-        return 0;
+        return HA_EXIT_SUCCESS;
       }
 
       if (*nullp1 == 0)
@@ -814,25 +817,25 @@ int Rdb_key_def::compare_keys(
     const auto before_skip2 = reader2.get_current_ptr();
     DBUG_ASSERT(fpi->m_skip_func);
     if (fpi->m_skip_func(fpi, nullptr, &reader1))
-      return 1;
+      return HA_EXIT_FAILURE;
     if (fpi->m_skip_func(fpi, nullptr, &reader2))
-      return 1;
+      return HA_EXIT_FAILURE;
     const auto size1 = reader1.get_current_ptr() - before_skip1;
     const auto size2 = reader2.get_current_ptr() - before_skip2;
     if (size1 != size2)
     {
       *column_index = i;
-      return 0;
+      return HA_EXIT_SUCCESS;
     }
 
     if (memcmp(before_skip1, before_skip2, size1) != 0) {
       *column_index = i;
-      return 0;
+      return HA_EXIT_SUCCESS;
     }
   }
 
   *column_index = m_key_parts;
-  return 0;
+  return HA_EXIT_SUCCESS;
 
 }
 
@@ -903,7 +906,7 @@ int Rdb_key_def::unpack_record(TABLE* const table, uchar* const buf,
   // Skip the index number
   if ((!reader.read(INDEX_NUMBER_SIZE)))
   {
-    return 1;
+    return HA_EXIT_FAILURE;
   }
 
   // For secondary keys, we expect the value field to contain unpack data and
@@ -913,7 +916,7 @@ int Rdb_key_def::unpack_record(TABLE* const table, uchar* const buf,
     *unp_reader.get_current_ptr() == RDB_UNPACK_DATA_TAG;
   if (has_unpack_info && !unp_reader.read(RDB_UNPACK_HEADER_SIZE))
   {
-    return 1;
+    return HA_EXIT_FAILURE;
   }
 
   for (uint i= 0; i < m_key_parts ; i++)
@@ -930,7 +933,7 @@ int Rdb_key_def::unpack_record(TABLE* const table, uchar* const buf,
       DBUG_ASSERT(fpi->m_unpack_func);
       if (fpi->m_skip_func(fpi, nullptr, &reader))
       {
-        return 1;
+        return HA_EXIT_FAILURE;
       }
       continue;
     }
@@ -945,7 +948,7 @@ int Rdb_key_def::unpack_record(TABLE* const table, uchar* const buf,
       {
         const char* nullp;
         if (!(nullp= reader.read(1)))
-          return 1;
+          return HA_EXIT_FAILURE;
         if (*nullp == 0)
         {
           /* Set the NULL-bit of this field */
@@ -960,7 +963,7 @@ int Rdb_key_def::unpack_record(TABLE* const table, uchar* const buf,
         else if (*nullp == 1)
           field->set_notnull(ptr_diff);
         else
-          return 1;
+          return HA_EXIT_FAILURE;
       }
 
       // If we need unpack info, but there is none, tell the unpack function
@@ -982,7 +985,7 @@ int Rdb_key_def::unpack_record(TABLE* const table, uchar* const buf,
       {
         const char* nullp;
         if (!(nullp= reader.read(1)))
-          return 1;
+          return HA_EXIT_FAILURE;
         if (*nullp == 0)
         {
           /* This is a NULL value */
@@ -990,10 +993,10 @@ int Rdb_key_def::unpack_record(TABLE* const table, uchar* const buf,
         }
         /* If NULL marker is not '0', it can be only '1'  */
         if (*nullp != 1)
-          return 1;
+          return HA_EXIT_FAILURE;
       }
       if (fpi->m_skip_func(fpi, field, &reader))
-        return 1;
+        return HA_EXIT_FAILURE;
     }
   }
 
@@ -1023,7 +1026,7 @@ int Rdb_key_def::unpack_record(TABLE* const table, uchar* const buf,
       {
         report_checksum_mismatch(true, packed_key->data(),
                                  packed_key->size());
-        return 1;
+        return HA_EXIT_FAILURE;
       }
 
       if (stored_val_chksum != computed_val_chksum)
@@ -1031,7 +1034,7 @@ int Rdb_key_def::unpack_record(TABLE* const table, uchar* const buf,
         report_checksum_mismatch(
             false, unpack_info->data(),
             unpack_info->size() - RDB_CHECKSUM_CHUNK_SIZE);
-        return 1;
+        return HA_EXIT_FAILURE;
       }
     }
     else
@@ -1041,9 +1044,9 @@ int Rdb_key_def::unpack_record(TABLE* const table, uchar* const buf,
   }
 
   if (reader.remaining_bytes())
-    return 1;
+    return HA_EXIT_FAILURE;
 
-  return 0;
+  return HA_EXIT_SUCCESS;
 }
 
 bool Rdb_key_def::table_has_hidden_pk(const TABLE* const table)
@@ -1096,8 +1099,8 @@ int rdb_skip_max_length(const Rdb_field_packing* const fpi,
                         Rdb_string_reader* const reader)
 {
   if (!reader->read(fpi->m_max_image_len))
-    return 1;
-  return 0;
+    return HA_EXIT_FAILURE;
+  return HA_EXIT_SUCCESS;
 }
 
 /*
@@ -1142,7 +1145,7 @@ static int rdb_skip_variable_length(
 
     if (used_bytes > RDB_ESCAPE_LENGTH - 1 || used_bytes > dst_len)
     {
-      return 1; /* cannot store that much, invalid data */
+      return HA_EXIT_FAILURE; /* cannot store that much, invalid data */
     }
 
     if (used_bytes < RDB_ESCAPE_LENGTH - 1)
@@ -1155,10 +1158,10 @@ static int rdb_skip_variable_length(
 
   if (!finished)
   {
-    return 1;
+    return HA_EXIT_FAILURE;
   }
 
-  return 0;
+  return HA_EXIT_SUCCESS;
 }
 
 const int VARCHAR_CMP_LESS_THAN_SPACES = 1;
@@ -1204,7 +1207,7 @@ static int rdb_skip_variable_space_pad(
       {
         // The segment is full of data but the table field can't hold that
         // much! This must be data corruption.
-        return 1;
+        return HA_EXIT_FAILURE;
       }
       dst_len -= (fpi->m_segment_size-1);
     }
@@ -1212,10 +1215,10 @@ static int rdb_skip_variable_space_pad(
     {
       // Encountered a value that's none of the VARCHAR_CMP* constants
       // It's data corruption.
-      return 1;
+      return HA_EXIT_FAILURE;
     }
   }
-  return finished? 0: 1;
+  return finished ? HA_EXIT_SUCCESS : HA_EXIT_FAILURE;
 }
 
 
@@ -3010,7 +3013,7 @@ int Rdb_validate_tbls::add_table(Rdb_tbl_def* tdef)
   m_list[tdef->base_dbname()].insert(
       tbl_info_t(tdef->base_tablename(), is_partition));
 
-  return 0;
+  return HA_EXIT_SUCCESS;
 }
 
 /*
@@ -3533,7 +3536,7 @@ int Rdb_ddl_manager::put_and_write(Rdb_tbl_def* const tbl,
   {
     return res;
   }
-  return 0;
+  return HA_EXIT_SUCCESS;
 }
 
 
@@ -3984,7 +3987,7 @@ int Rdb_dict_manager::commit(rocksdb::WriteBatch* const batch, const bool &sync)
 const
 {
   if (!batch)
-    return 1;
+    return HA_EXIT_FAILURE;
   int res= 0;
   rocksdb::WriteOptions options;
   options.sync= sync;

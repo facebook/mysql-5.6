@@ -1021,7 +1021,7 @@ int Rdb_ddl_scanner::add_table(Rdb_tbl_def *tdef)
     if (ret)
       return ret;
   }
-  return 0;
+  return HA_EXIT_SUCCESS;
 }
 
 static int rdb_i_s_ddl_fill_table(my_core::THD* const thd,
