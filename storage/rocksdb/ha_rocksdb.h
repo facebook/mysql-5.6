@@ -112,6 +112,16 @@ const char * const HIDDEN_PK_NAME= "HIDDEN_PK_ID";
 const char * const PER_INDEX_CF_NAME = "$per_index_cf";
 
 /*
+  Name for the background thread.
+*/
+const char* const BG_THREAD_NAME = "myrocks-bg";
+
+/*
+  Name for the drop index thread.
+*/
+const char* const INDEX_THREAD_NAME = "myrocks-index";
+
+/*
   Default, minimal valid, and maximum valid sampling rate values when collecting
   statistics about table.
 */

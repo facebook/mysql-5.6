@@ -58,13 +58,31 @@ void Rdb_thread::uninit()
 
 
 int Rdb_thread::create_thread(
+    const std::string& thread_name
 #ifdef HAVE_PSI_INTERFACE
+    ,
     PSI_thread_key background_psi_thread_key
 #endif
   )
 {
-  return mysql_thread_create(background_psi_thread_key,
-                             &m_handle, nullptr, thread_func, this);
+  DBUG_ASSERT(!thread_name.empty());
+
+  int err= mysql_thread_create(background_psi_thread_key, &m_handle, nullptr,
+    thread_func, this);
+
+  if (!err)
+  {
+    /*
+      mysql_thread_create() ends up doing some work underneath and setting the
+      thread name as "my-func". This isn't what we want. Our intent is to name
+      the threads according to their purpose so that when displayed under the
+      debugger then they'll be more easily identifiable. Therefore we'll reset
+      the name if thread was successfully created.
+    */
+    err= pthread_setname_np(m_handle, thread_name.c_str());
+  }
+
+  return err;
 }
 
 
