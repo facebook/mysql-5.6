@@ -364,6 +364,7 @@ static char *rocksdb_persistent_cache_path;
 static uint64_t rocksdb_index_type;
 static char rocksdb_background_sync;
 static uint32_t rocksdb_debug_optimizer_n_rows;
+static my_bool rocksdb_force_compute_memtable_stats;
 static my_bool rocksdb_debug_optimizer_no_zero_cardinality;
 static uint32_t rocksdb_wal_recovery_mode;
 static uint32_t rocksdb_access_hint_on_compaction_start;
@@ -1001,6 +1002,12 @@ static MYSQL_SYSVAR_UINT(
     "Test only to override rocksdb estimates of table size in a memtable",
     nullptr, nullptr, 0, /* min */ 0, /* max */ INT_MAX, 0);
 
+static MYSQL_SYSVAR_BOOL(force_compute_memtable_stats,
+    rocksdb_force_compute_memtable_stats,
+    PLUGIN_VAR_RQCMDARG,
+    "Force to always compute memtable stats",
+    nullptr, nullptr, TRUE);
+
 static MYSQL_SYSVAR_BOOL(
     debug_optimizer_no_zero_cardinality,
     rocksdb_debug_optimizer_no_zero_cardinality, PLUGIN_VAR_RQCMDARG,
@@ -1099,6 +1106,7 @@ static MYSQL_SYSVAR_BOOL(
     rocksdb_compaction_sequential_deletes_count_sd, PLUGIN_VAR_RQCMDARG,
     "Counting SingleDelete as rocksdb_compaction_sequential_deletes", nullptr,
     nullptr, rocksdb_compaction_sequential_deletes_count_sd);
+
 
 static MYSQL_SYSVAR_BOOL(
     print_snapshot_conflict_queries, rocksdb_print_snapshot_conflict_queries,
@@ -1255,6 +1263,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(records_in_range),
     MYSQL_SYSVAR(force_index_records_in_range),
     MYSQL_SYSVAR(debug_optimizer_n_rows),
+    MYSQL_SYSVAR(force_compute_memtable_stats),
     MYSQL_SYSVAR(debug_optimizer_no_zero_cardinality),
 
     MYSQL_SYSVAR(compact_cf),
@@ -7915,20 +7924,33 @@ int ha_rocksdb::info(uint flag) {
       update_stats();
     }
 
-    if (stats.records == 0) {
-      // most likely, the table is in memtable
-      // try to deduce from GetApproximateSizes
+    // if number of records is hardcoded, we do not want to force computation
+    // of memtable cardinalities
+    if (stats.records == 0 ||
+        (rocksdb_force_compute_memtable_stats &&
+         rocksdb_debug_optimizer_n_rows == 0))
+    {
+      // First, compute SST files stats
       uchar buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2];
       auto r = get_range(pk_index(table, m_tbl_def), buf);
       uint64_t sz = 0;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-      rdb->GetApproximateSizes(m_pk_descr->get_cf(), &r, 1, &sz, true);
-#pragma GCC diagnostic pop
+      uint8_t include_flags = rocksdb::DB::INCLUDE_FILES;
+      // recompute SST files stats only if records count is 0
+    if (stats.records == 0) {
+        rdb->GetApproximateSizes(m_pk_descr->get_cf(), &r, 1, &sz,
+                                 include_flags);
+        stats.records+= sz/ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE;
+        stats.data_file_length+= sz;
+      }
 
-      stats.records = sz / ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE;
-      stats.data_file_length = sz;
+      // Second, compute memtable stats
+      uint64_t memtableCount;
+      uint64_t memtableSize;
+      rdb->GetApproximateMemTableStats(m_pk_descr->get_cf(), r,
+                                            &memtableCount, &memtableSize);
+      stats.records += memtableCount;
+      stats.data_file_length += memtableSize;
 
       if (rocksdb_debug_optimizer_n_rows > 0)
         stats.records = rocksdb_debug_optimizer_n_rows;
@@ -8739,10 +8761,12 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *const min_key,
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   // Getting statistics, including from Memtables
-  rdb->GetApproximateSizes(kd.get_cf(), &r, 1, &sz, true);
-#pragma GCC diagnostic pop
-
+  uint8_t include_flags = rocksdb::DB::INCLUDE_FILES;
+  rdb->GetApproximateSizes(kd.get_cf(), &r, 1, &sz, include_flags);
   ret = rows * sz / disk_size;
+  uint64_t memTableCount;
+  rdb->GetApproximateMemTableStats(kd.get_cf(), r, &memTableCount, &sz);
+  ret += memTableCount;
 
   /*
     GetApproximateSizes() gives estimates so ret might exceed stats.records.
