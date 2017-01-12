@@ -428,8 +428,8 @@ std::string Rdb_index_stats::materialize(
 /**
   @brief
   Reads an array of Rdb_index_stats from a string.
-  @return 1 if it detects any inconsistency in the input
-  @return 0 if completes successfully
+  @return HA_EXIT_FAILURE if it detects any inconsistency in the input
+  @return HA_EXIT_SUCCESS if completes successfully
 */
 int Rdb_index_stats::unmaterialize(
   const std::string& s, std::vector<Rdb_index_stats>* const ret)
@@ -441,7 +441,7 @@ int Rdb_index_stats::unmaterialize(
 
   if (p+2 > p2)
   {
-    return 1;
+    return HA_EXIT_FAILURE;
   }
 
   const int version= rdb_netbuf_read_uint16(&p);
@@ -474,7 +474,7 @@ int Rdb_index_stats::unmaterialize(
   {
     if (p+needed > p2)
     {
-      return 1;
+      return HA_EXIT_FAILURE;
     }
     rdb_netbuf_read_gl_index(&p, &stats.m_gl_index_id);
     stats.m_data_size=            rdb_netbuf_read_uint64(&p);
@@ -491,7 +491,7 @@ int Rdb_index_stats::unmaterialize(
     if (p+stats.m_distinct_keys_per_prefix.size()
         *sizeof(stats.m_distinct_keys_per_prefix[0]) > p2)
     {
-      return 1;
+      return HA_EXIT_FAILURE;
     }
     for (std::size_t i= 0; i < stats.m_distinct_keys_per_prefix.size(); i++)
     {
@@ -499,7 +499,7 @@ int Rdb_index_stats::unmaterialize(
     }
     ret->push_back(stats);
   }
-  return 0;
+  return HA_EXIT_SUCCESS;
 }
 
 /*
