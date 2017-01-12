@@ -105,6 +105,7 @@
 /* ignore table flags */
 #define IGNORE_NONE 0x00 /* no ignore */
 #define IGNORE_DATA 0x01 /* don't dump data for this table */
+#define IGNORE_TABLE 0x02
 
 #define MYSQL_UNIVERSAL_CLIENT_CHARSET "utf8mb4"
 
@@ -137,7 +138,7 @@ static bool verbose = 0, opt_no_create_info = 0, opt_no_data = 0, quick = 1,
             opt_comments_used = 0, opt_alltspcs = 0, opt_notspcs = 0,
             opt_drop_trigger = 0, opt_network_timeout = 0,
             stats_tables_included = 0, column_statistics = false,
-            opt_print_ordering_key = 0;
+            opt_print_ordering_key = 0, opt_ignore_views = 0;
 static bool insert_pat_inited = 0, debug_info_flag = 0, debug_check_flag = 0;
 static ulong opt_max_allowed_packet, opt_net_buffer_length;
 static MYSQL mysql_connection, *mysql = 0;
@@ -394,6 +395,9 @@ static struct my_option my_long_options[] = {
      "be specified with both database and table names, e.g., "
      "--ignore-table=database.table.",
      0, 0, 0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+    {"ignore-views", OPT_IGNORE_VIEWS, "Skip dumping table views.",
+     &opt_ignore_views, &opt_ignore_views, 0, GET_BOOL, OPT_ARG, 0, 0, 0, 0, 0,
+     0},
     {"include-master-host-port", OPT_MYSQLDUMP_INCLUDE_MASTER_HOST_PORT,
      "Adds 'MASTER_HOST=<host>, MASTER_PORT=<port>' to 'CHANGE MASTER TO..' "
      "in dump produced with --dump-slave.",
@@ -2621,6 +2625,10 @@ static uint get_table_structure(char *table, char *db, char *table_type,
 
   *ignore_flag = check_if_ignore_table(table, table_type);
 
+  if (*ignore_flag & IGNORE_TABLE) {
+    DBUG_RETURN(0);
+  }
+
   /*
     for mysql.innodb_table_stats, mysql.innodb_index_stats tables we
     dont dump DDL
@@ -4607,6 +4615,8 @@ static bool dump_all_views_in_db(char *database) {
   char hash_key[2 * NAME_LEN + 2]; /* "db.tablename" */
   char *afterdot;
 
+  if (opt_ignore_views) return 0;
+
   afterdot = my_stpcpy(hash_key, database);
   *afterdot++ = '.';
 
@@ -5171,9 +5181,12 @@ char check_if_ignore_table(const char *table_name, char *table_type) {
     mysql_free_result(res);
     DBUG_RETURN(result); /* assume table is ok */
   }
-  if (!(row[1]))
+  if (!(row[1])) {
     strmake(table_type, "VIEW", NAME_LEN - 1);
-  else {
+    if (opt_ignore_views) {
+      result = IGNORE_TABLE;
+    }
+  } else {
     strmake(table_type, row[1], NAME_LEN - 1);
 
     /*  If these two types, we want to skip dumping the table. */
