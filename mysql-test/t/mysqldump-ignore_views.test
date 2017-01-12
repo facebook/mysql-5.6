@@ -1,0 +1,24 @@
+################################################################################
+# Testing the mysqldump with --ignore-views option
+################################################################################
+
+--disable_warnings
+DROP TABLE IF EXISTS table1;
+drop database if exists database1;
+--enable_warnings
+
+CREATE DATABASE database1;
+USE database1;
+CREATE TABLE table1(a INT);
+CREATE VIEW v1 AS SELECT * FROM table1;
+
+INSERT INTO table1 VALUES (1);
+INSERT INTO table1 VALUES (2);
+INSERT INTO table1 VALUES (3);
+
+--echo ==== Running 'replace_regex' on Server/mysqldump Versions ====
+--echo ==== mysqldump with --ignore-views database1 ====
+--replace_regex /-- Server version.*/-- SERVER VERSION/ /-- MySQL dump.*[)]/-- MYSQLDUMP VERSION/
+--exec $MYSQL_DUMP --skip-dump-date --ignore-views database1 
+
+drop database database1;

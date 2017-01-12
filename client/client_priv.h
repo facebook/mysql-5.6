@@ -180,6 +180,7 @@ enum options_client {
   OPT_TIMEOUT,
   OPT_RECEIVE_BUFFER_SIZE,
   OPT_LONG_QUERY_TIME,
+  OPT_IGNORE_VIEWS,
   /* Add new option above this */
   OPT_MAX_CLIENT_OPTION
 };
