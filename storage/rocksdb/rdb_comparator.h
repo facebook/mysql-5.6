@@ -24,6 +24,9 @@
 /* RocksDB header files */
 #include "rocksdb/comparator.h"
 
+/* MyRocks header files */
+#include "./rdb_utils.h"
+
 namespace myrocks {
 
 /*
@@ -54,7 +57,7 @@ class Rdb_pk_comparator : public rocksdb::Comparator
     {
       return a_size < b_size? -1 : 1;
     }
-    return 0;
+    return HA_EXIT_SUCCESS;
   }
 
   /* Override virtual methods of interest */
