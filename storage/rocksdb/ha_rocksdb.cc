@@ -382,6 +382,12 @@ rocksdb_set_bulk_load(THD*                     thd,
                       struct st_mysql_sys_var* var MY_ATTRIBUTE((__unused__)),
                       void*                    var_ptr,
                       const void*              save);
+
+static void
+rocksdb_set_max_background_compactions(THD* thd,
+                                       struct st_mysql_sys_var* const var,
+                                       void* const var_ptr,
+                                       const void* const save);
 //////////////////////////////////////////////////////////////////////////////
 // Options definitions
 //////////////////////////////////////////////////////////////////////////////
@@ -740,9 +746,10 @@ static MYSQL_SYSVAR_INT(base_background_compactions,
 
 static MYSQL_SYSVAR_INT(max_background_compactions,
   rocksdb_db_options.max_background_compactions,
-  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  PLUGIN_VAR_RQCMDARG,
   "DBOptions::max_background_compactions for RocksDB",
-  nullptr, nullptr, rocksdb_db_options.max_background_compactions,
+  nullptr, rocksdb_set_max_background_compactions,
+  rocksdb_db_options.max_background_compactions,
   /* min */ 1, /* max */ MAX_BACKGROUND_COMPACTIONS, 0);
 
 static MYSQL_SYSVAR_INT(max_background_flushes,
@@ -11330,6 +11337,23 @@ rocksdb_set_bulk_load(THD* const thd,
   }
 
   *static_cast<bool*>(var_ptr) = *static_cast<const bool*>(save);
+}
+
+static void
+rocksdb_set_max_background_compactions(THD* thd,
+                                       struct st_mysql_sys_var* const var,
+                                       void* const var_ptr,
+                                       const void* const save)
+{
+  DBUG_ASSERT(save != nullptr);
+
+  mysql_mutex_lock(&rdb_sysvars_mutex);
+  rocksdb_db_options.max_background_compactions=
+    *static_cast<const int*>(save);
+  rocksdb_db_options.env->SetBackgroundThreads(
+      rocksdb_db_options.max_background_compactions,
+      rocksdb::Env::Priority::LOW);
+  mysql_mutex_unlock(&rdb_sysvars_mutex);
 }
 
 void rdb_queue_save_stats_request()
