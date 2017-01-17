@@ -1127,6 +1127,8 @@ THD::THD(bool enable_plugins)
   gis_debug= 0;
 #endif
 
+  ec= NULL;
+
   m_token_array= NULL;
   if (max_digest_length > 0)
   {
@@ -1772,6 +1774,8 @@ THD::~THD()
 
   if (prepared_engine)
     delete prepared_engine;
+
+  delete ec;
 
   free_root(&main_mem_root, MYF(0));
 

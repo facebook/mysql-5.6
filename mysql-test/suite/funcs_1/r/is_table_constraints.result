@@ -70,6 +70,7 @@ def	mysql	PRIMARY	mysql	help_topic
 def	mysql	name	mysql	help_topic
 def	mysql	PRIMARY	mysql	innodb_index_stats
 def	mysql	PRIMARY	mysql	innodb_table_stats
+def	mysql	PRIMARY	mysql	native_proc
 def	mysql	PRIMARY	mysql	ndb_binlog_index
 def	mysql	PRIMARY	mysql	plugin
 def	mysql	PRIMARY	mysql	proc

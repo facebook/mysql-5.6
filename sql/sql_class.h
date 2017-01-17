@@ -104,6 +104,7 @@ class Rows_log_event;
 class Sroutine_hash_entry;
 class User_level_lock;
 class user_var_entry;
+class ExecutionContextImpl;
 
 struct st_thd_timer;
 
@@ -4627,6 +4628,9 @@ public:
   bool skip_unique_check();
   // protected by LOCK_thd_data
   std::string row_query;
+
+  // ExecutionContextImpl is used for native procedures.
+  ExecutionContextImpl *ec;
 };
 
 /*

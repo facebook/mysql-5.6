@@ -115,6 +115,8 @@
                          // is_thd_db_read_only_by_name
 #include "sql_multi_tenancy.h"
 
+#include "native_procedure_priv.h"
+
 #ifdef HAVE_JEMALLOC
 #ifndef EMBEDDED_LIBRARY
 #include <jemalloc/jemalloc.h>
@@ -553,6 +555,8 @@ void init_update_queries(void)
   sql_command_flags[SQLCOM_REVOKE_ALL]=        CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_OPTIMIZE]=          CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_CREATE_FUNCTION]=   CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
+  sql_command_flags[SQLCOM_CREATE_NPROCEDURE]= CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
+  sql_command_flags[SQLCOM_DROP_NPROCEDURE]=   CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_CREATE_PROCEDURE]=  CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_CREATE_SPFUNCTION]= CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_DROP_PROCEDURE]=    CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
@@ -686,6 +690,8 @@ void init_update_queries(void)
   sql_command_flags[SQLCOM_ALTER_SERVER]|=     CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_DROP_SERVER]|=      CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_CREATE_FUNCTION]|=  CF_DISALLOW_IN_RO_TRANS;
+  sql_command_flags[SQLCOM_CREATE_NPROCEDURE]|=CF_DISALLOW_IN_RO_TRANS;
+  sql_command_flags[SQLCOM_DROP_NPROCEDURE]|=  CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_CREATE_PROCEDURE]|= CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_CREATE_SPFUNCTION]|=CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_DROP_PROCEDURE]|=   CF_DISALLOW_IN_RO_TRANS;
@@ -1799,6 +1805,30 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
 #endif
 
     MYSQL_SET_STATEMENT_TEXT(thd->m_statement_psi, thd->query(), thd->query_length());
+
+    if (query_len > 1 && query_ptr[0] == '%')
+    {
+      general_log_write(thd, command, thd->query(), thd->query_length());
+      MT_RESOURCE_ATTRS attrs = {
+        &thd->connection_attrs_map,
+        &thd->query_attrs_map,
+        thd->db
+      };
+
+      if (multi_tenancy_admit_query(thd, &attrs))
+      {
+        my_error(ER_DB_ADMISSION_CONTROL, MYF(0),
+                 db_ac->get_max_waiting_queries(),
+                 thd->db ? thd->db : "unknown database");
+      }
+      else
+      {
+        native_procedure(thd, query_ptr + 1, query_len - 1);
+        multi_tenancy_exit_query(thd, &attrs);
+        thd->is_in_ac = false;
+      }
+      break;
+    }
 
     Parser_state parser_state;
     if (parser_state.init(thd, thd->query(), thd->query_length()))
@@ -4983,6 +5013,32 @@ end_with_restore_list:
       break;
 #ifdef HAVE_DLOPEN
     if (!(res = mysql_create_function(thd, &lex->udf)))
+      my_ok(thd);
+#else
+    my_error(ER_CANT_OPEN_LIBRARY, MYF(0), lex->udf.dl, 0, "feature disabled");
+    res= TRUE;
+#endif
+    break;
+  }
+  case SQLCOM_CREATE_NPROCEDURE:
+  {
+    if (check_access(thd, INSERT_ACL, "mysql", NULL, NULL, 1, 0))
+      break;
+#ifdef HAVE_DLOPEN
+    if (!(res = mysql_create_native_procedure(thd, &lex->np)))
+      my_ok(thd);
+#else
+    my_error(ER_CANT_OPEN_LIBRARY, MYF(0), lex->udf.dl, 0, "feature disabled");
+    res= TRUE;
+#endif
+    break;
+  }
+  case SQLCOM_DROP_NPROCEDURE:
+  {
+    if (check_access(thd, INSERT_ACL, "mysql", NULL, NULL, 1, 0))
+      break;
+#ifdef HAVE_DLOPEN
+    if (!(res = mysql_drop_native_procedure(thd, &lex->np)))
       my_ok(thd);
 #else
     my_error(ER_CANT_OPEN_LIBRARY, MYF(0), lex->udf.dl, 0, "feature disabled");

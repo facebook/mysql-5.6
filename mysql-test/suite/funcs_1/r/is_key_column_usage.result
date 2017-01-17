@@ -100,6 +100,7 @@ def	mysql	PRIMARY	def	mysql	innodb_index_stats	index_name
 def	mysql	PRIMARY	def	mysql	innodb_index_stats	stat_name
 def	mysql	PRIMARY	def	mysql	innodb_table_stats	database_name
 def	mysql	PRIMARY	def	mysql	innodb_table_stats	table_name
+def	mysql	PRIMARY	def	mysql	native_proc	name
 def	mysql	PRIMARY	def	mysql	ndb_binlog_index	epoch
 def	mysql	PRIMARY	def	mysql	ndb_binlog_index	orig_server_id
 def	mysql	PRIMARY	def	mysql	ndb_binlog_index	orig_epoch

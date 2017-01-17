@@ -7305,6 +7305,18 @@ ER_RDB_TTL_DURATION_FORMAT
 ER_PER_INDEX_CF_DEPRECATED
   eng "The per-index column family option has been deprecated"
 
+ER_NP_PROCEDURE_EXISTS
+  eng "Native procedure '%-.192s' exists."
+
+ER_NP_UNKNOWN_PROCEDURE
+  eng "Unknown native procedure. '%-.192s'"
+
+ER_NP_WRONG_ARGUMENTS
+  eng "Incorrect arguments to native procedure. (query '%-.192s')"
+
+ER_NP_FAILED
+  eng "Native procedure failed. (code: %d, msg: '%-.192s', query '%-.192s')"
+
 #
 #  End of 5.6 error messages.
 #
