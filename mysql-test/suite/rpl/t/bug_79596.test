@@ -6,11 +6,11 @@
 drop table if exists t1;
 --enable_warnings
 
+create table t1 (a int) engine=innodb;
+
 --let sock_file= query_get_value(SELECT @@socket, @@socket, 1)
 
 --write_file $MYSQL_TMP_DIR/command.sh
-echo "drop table if exists test.t1;"
-echo "create table test.t1 (a int) engine=innodb;"
 echo "insert into test.t1 set a = 111;"
 echo "begin;"
 echo "insert into test.t1 set a = 222;"
