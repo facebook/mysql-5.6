@@ -15,6 +15,7 @@ mysql.help_relation                                OK
 mysql.help_topic                                   OK
 mysql.innodb_index_stats                           OK
 mysql.innodb_table_stats                           OK
+mysql.native_proc                                  OK
 mysql.ndb_binlog_index                             OK
 mysql.plugin                                       OK
 mysql.proc                                         OK
@@ -52,6 +53,7 @@ status   : OK
 mysql.innodb_table_stats
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
+mysql.native_proc                                  OK
 mysql.ndb_binlog_index                             OK
 mysql.plugin                                       OK
 mysql.proc                                         OK
@@ -91,6 +93,7 @@ mysql.help_relation                                OK
 mysql.help_topic                                   OK
 mysql.innodb_index_stats                           OK
 mysql.innodb_table_stats                           OK
+mysql.native_proc                                  OK
 mysql.ndb_binlog_index                             OK
 mysql.plugin                                       OK
 mysql.proc                                         OK
@@ -126,6 +129,7 @@ status   : OK
 mysql.innodb_table_stats
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
+mysql.native_proc                                  Table is already up to date
 mysql.ndb_binlog_index                             Table is already up to date
 mysql.plugin                                       Table is already up to date
 mysql.proc                                         Table is already up to date

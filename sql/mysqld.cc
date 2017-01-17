@@ -77,6 +77,7 @@
 #include "sql_callback.h"
 #include "opt_trace_context.h"
 #include "sql_multi_tenancy.h"
+#include "native_procedure_priv.h"
 
 #include "global_threads.h"
 #include "mysqld.h"
@@ -2224,6 +2225,7 @@ void clean_up(bool print_message)
     udf_free();
 #endif
   }
+  native_procedure_destroy();
   table_def_start_shutdown();
   plugin_shutdown();
   ha_end();
@@ -4382,6 +4384,8 @@ SHOW_VAR com_status_vars[]= {
   {"create_table",         (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_CREATE_TABLE]), SHOW_LONG_STATUS},
   {"create_trigger",       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_CREATE_TRIGGER]), SHOW_LONG_STATUS},
   {"create_udf",           (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_CREATE_FUNCTION]), SHOW_LONG_STATUS},
+  {"create_native_proc",   (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_CREATE_NPROCEDURE]), SHOW_LONG_STATUS},
+  {"drop_native_proc",     (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_DROP_NPROCEDURE]), SHOW_LONG_STATUS},
   {"create_user",          (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_CREATE_USER]), SHOW_LONG_STATUS},
   {"create_view",          (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_CREATE_VIEW]), SHOW_LONG_STATUS},
   {"dealloc_sql",          (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_DEALLOCATE_PREPARE]), SHOW_LONG_STATUS},
@@ -7260,6 +7264,7 @@ int mysqld_main(int argc, char **argv)
     udf_init();
 #endif
   }
+  native_procedure_init();
 
   init_status_vars();
   /* If running with bootstrap, do not start replication. */

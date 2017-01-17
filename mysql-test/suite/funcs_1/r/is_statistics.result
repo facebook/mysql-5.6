@@ -111,6 +111,7 @@ def	mysql	innodb_index_stats	mysql	PRIMARY
 def	mysql	innodb_index_stats	mysql	PRIMARY
 def	mysql	innodb_table_stats	mysql	PRIMARY
 def	mysql	innodb_table_stats	mysql	PRIMARY
+def	mysql	native_proc	mysql	PRIMARY
 def	mysql	ndb_binlog_index	mysql	PRIMARY
 def	mysql	ndb_binlog_index	mysql	PRIMARY
 def	mysql	ndb_binlog_index	mysql	PRIMARY

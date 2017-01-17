@@ -100,6 +100,7 @@ SET(SQL_SHARED_SOURCES
   mdl.cc
   mf_iocache.cc
   my_decimal.cc
+  native_procedure.cc
   net_serv.cc
   opt_explain.cc
   opt_explain_traditional.cc
@@ -441,6 +442,13 @@ IF(WIN32 OR HAVE_DLOPEN AND NOT DISABLE_SHARED)
     SET_TARGET_PROPERTIES(udf_example
       PROPERTIES LINK_FLAGS "${CMAKE_SHARED_LIBRARY_C_FLAGS}")
   ENDIF()
+ENDIF()
+
+IF(NOT WIN32 AND HAVE_DLOPEN AND NOT DISABLE_SHARED)
+  ADD_LIBRARY(np_example MODULE np_example.cc)
+  SET_TARGET_PROPERTIES(np_example PROPERTIES PREFIX "")
+  SET_TARGET_PROPERTIES(np_example
+    PROPERTIES LINK_FLAGS "${CMAKE_SHARED_LIBRARY_C_FLAGS}")
 ENDIF()
 
 FOREACH(tool glibtoolize libtoolize aclocal autoconf autoheader automake gtar 

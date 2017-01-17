@@ -12,6 +12,7 @@ help_relation
 help_topic
 innodb_index_stats
 innodb_table_stats
+native_proc
 ndb_binlog_index
 plugin
 proc
@@ -51,6 +52,7 @@ help_relation
 help_topic
 innodb_index_stats
 innodb_table_stats
+native_proc
 ndb_binlog_index
 plugin
 proc
@@ -106,6 +108,7 @@ help_relation
 help_topic
 innodb_index_stats
 innodb_table_stats
+native_proc
 ndb_binlog_index
 plugin
 proc

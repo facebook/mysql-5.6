@@ -103,6 +103,7 @@ help_category
 help_keyword
 help_relation
 help_topic
+native_proc
 plugin
 proc
 procs_priv
@@ -838,6 +839,7 @@ information_schema	TRIGGERS	ACTION_CONDITION
 information_schema	TRIGGERS	ACTION_STATEMENT
 information_schema	VIEWS	VIEW_DEFINITION
 information_schema	AUTHINFO	INFO
+mysql	native_proc	lua
 select table_name, column_name, data_type from information_schema.columns
 where table_schema not like 'performance_schema'
   and data_type = 'datetime'
@@ -929,7 +931,7 @@ AND table_name not like 'ndb%' AND table_name not like 'innodb_%'  AND table_nam
 GROUP BY TABLE_SCHEMA;
 table_schema	count(*)
 information_schema	41
-mysql	26
+mysql	27
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
 begin

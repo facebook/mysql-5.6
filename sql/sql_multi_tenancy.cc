@@ -56,6 +56,7 @@ static bool filter_command(enum_sql_command sql_command)
     case SQLCOM_CREATE_INDEX:
     case SQLCOM_CREATE_DB:
     case SQLCOM_CREATE_FUNCTION:
+    case SQLCOM_CREATE_NPROCEDURE:
     case SQLCOM_CREATE_USER:
     case SQLCOM_CREATE_PROCEDURE:
     case SQLCOM_CREATE_SPFUNCTION:
@@ -73,6 +74,7 @@ static bool filter_command(enum_sql_command sql_command)
     case SQLCOM_DROP_INDEX:
     case SQLCOM_DROP_DB:
     case SQLCOM_DROP_FUNCTION:
+    case SQLCOM_DROP_NPROCEDURE:
     case SQLCOM_DROP_USER:
     case SQLCOM_DROP_PROCEDURE:
     case SQLCOM_DROP_VIEW:

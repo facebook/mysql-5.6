@@ -1603,6 +1603,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  NAMES_SYM                     /* SQL-2003-N */
 %token  NAME_SYM                      /* SQL-2003-N */
 %token  NATIONAL_SYM                  /* SQL-2003-R */
+%token  NATIVE_SYM
 %token  NATURAL                       /* SQL-2003-R */
 %token  NCHAR_STRING
 %token  NCHAR_SYM                     /* SQL-2003-R */
@@ -2124,7 +2125,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
         view_algorithm view_or_trigger_or_sp_or_event
         definer_tail no_definer_tail
         view_suid view_tail view_list_opt view_list view_select
-        view_check_option trigger_tail sp_tail sf_tail udf_tail event_tail mc_key_list
+        view_check_option np_tail trigger_tail sp_tail sf_tail udf_tail event_tail mc_key_list
         install uninstall partition_entry binlog_base64_event
         init_key_options normal_key_options normal_key_opts all_key_opt
         spatial_key_options fulltext_key_options normal_key_opt
@@ -12486,6 +12487,13 @@ drop:
             spname->init_qname(thd);
             lex->spname= spname;
           }
+        | DROP NATIVE_SYM PROCEDURE_SYM if_exists ident
+          {
+            LEX *lex=Lex;
+            lex->sql_command = SQLCOM_DROP_NPROCEDURE;
+            lex->drop_if_exists= $4;
+            lex->np.name = $5.str;
+          }
         | DROP PROCEDURE_SYM if_exists sp_name
           {
             LEX *lex=Lex;
@@ -15119,6 +15127,7 @@ keyword_sp:
         | NAME_SYM                 {}
         | NAMES_SYM                {}
         | NATIONAL_SYM             {}
+        | NATIVE_SYM               {}
         | NCHAR_SYM                {}
         | NDBCLUSTER_SYM           {}
         | NEXT_SYM                 {}
@@ -16844,6 +16853,7 @@ definer_tail:
 no_definer_tail:
           view_tail
         | trigger_tail
+        | np_tail
         | sp_tail
         | sf_tail
         | udf_tail
@@ -17156,6 +17166,19 @@ udf_tail:
             lex->udf.name = $3;
             lex->udf.returns=(Item_result) $5;
             lex->udf.dl=$7.str;
+          }
+        ;
+
+np_tail:
+          NATIVE_SYM PROCEDURE_SYM ident
+          SONAME_SYM TEXT_STRING_sys
+          {
+            THD *thd= YYTHD;
+            LEX *lex= thd->lex;
+
+            lex->sql_command = SQLCOM_CREATE_NPROCEDURE;
+            lex->np.name = $3.str;
+            lex->np.dl=$5.str;
           }
         ;
 

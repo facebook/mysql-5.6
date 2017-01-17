@@ -28,6 +28,7 @@
 #include "mem_root_array.h"
 #include "sql_alter.h"                // Alter_info
 #include "item_sum_hll.h"
+#include "native_procedure_priv.h"
 
 /* YACC and LEX Definitions */
 
@@ -2373,6 +2374,7 @@ struct LEX: public Query_tables_list
   Create_field	      *last_field;
   Item_sum *in_sum_func;
   udf_func udf;
+  native_proc np;
   HA_CHECK_OPT   check_opt;			// check/repair options
   HA_CREATE_INFO create_info;
   KEY_CREATE_INFO key_create_info;

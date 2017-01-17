@@ -52,9 +52,11 @@ SET(HEADERS
   sslopt-vars.h
   sslopt-case.h
   sql_common.h
+  native_procedure.h
   keycache.h
   m_ctype.h
   my_attribute.h 
+  my_base.h
   my_compiler.h
   mysql_com_server.h
   my_byteorder.h

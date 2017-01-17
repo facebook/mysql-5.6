@@ -403,6 +403,7 @@ static SYMBOL symbols[] = {
   { "NAME",             SYM(NAME_SYM)},
   { "NAMES",		SYM(NAMES_SYM)},
   { "NATIONAL",		SYM(NATIONAL_SYM)},
+  { "NATIVE",		SYM(NATIVE_SYM)},
   { "NATURAL",		SYM(NATURAL)},
   { "NDB",              SYM(NDBCLUSTER_SYM)},
   { "NDBCLUSTER",       SYM(NDBCLUSTER_SYM)},

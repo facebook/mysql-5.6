@@ -3137,7 +3137,7 @@ SET DEBUG_SYNC='now SIGNAL go';
 # Previously that resulted in deadlock with con1 over t1,
 # but now t1 is skipped and a warning is issued
 COUNT(*)
-60
+61
 Warnings:
 Warning	1194	Table 't1' is marked as crashed and should be repaired
 # Finish XA txn 'test2' to release SR on t2 so that con1
