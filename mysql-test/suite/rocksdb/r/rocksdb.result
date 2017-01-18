@@ -890,8 +890,8 @@ rocksdb_deadlock_detect	OFF
 rocksdb_debug_optimizer_no_zero_cardinality	ON
 rocksdb_default_cf_options	
 rocksdb_delete_obsolete_files_period_micros	21600000000
-rocksdb_disable_2pc	ON
 rocksdb_disabledatasync	OFF
+rocksdb_enable_2pc	ON
 rocksdb_enable_bulk_load_api	ON
 rocksdb_enable_thread_tracking	OFF
 rocksdb_enable_write_thread_adaptive_yield	OFF
