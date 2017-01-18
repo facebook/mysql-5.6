@@ -410,7 +410,7 @@ static char * rocksdb_compact_cf_name;
 static char * rocksdb_checkpoint_name;
 static my_bool rocksdb_signal_drop_index_thread;
 static my_bool rocksdb_strict_collation_check= 1;
-static my_bool rocksdb_disable_2pc= 0;
+static my_bool rocksdb_enable_2pc= 0;
 static char * rocksdb_strict_collation_exceptions;
 static my_bool rocksdb_collect_sst_properties= 1;
 static my_bool rocksdb_force_flush_memtable_now_var= 0;
@@ -1061,10 +1061,10 @@ static MYSQL_SYSVAR_BOOL(pause_background_work,
   "Disable all rocksdb background operations",
   nullptr, rocksdb_set_pause_background_work, FALSE);
 
-static MYSQL_SYSVAR_BOOL(disable_2pc,
-  rocksdb_disable_2pc,
+static MYSQL_SYSVAR_BOOL(enable_2pc,
+  rocksdb_enable_2pc,
   PLUGIN_VAR_RQCMDARG,
-  "Disable two phase commit for MyRocks",
+  "Enable two phase commit for MyRocks",
   nullptr, nullptr, TRUE);
 
 static MYSQL_SYSVAR_BOOL(strict_collation_check,
@@ -1287,7 +1287,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(compact_cf),
   MYSQL_SYSVAR(signal_drop_index_thread),
   MYSQL_SYSVAR(pause_background_work),
-  MYSQL_SYSVAR(disable_2pc),
+  MYSQL_SYSVAR(enable_2pc),
   MYSQL_SYSVAR(strict_collation_check),
   MYSQL_SYSVAR(strict_collation_exceptions),
   MYSQL_SYSVAR(collect_sst_properties),
@@ -2254,7 +2254,7 @@ class Rdb_transaction_impl : public Rdb_transaction
     write_opts.disableWAL= THDVAR(m_thd, write_disable_wal);
     write_opts.ignore_missing_column_families=
       THDVAR(m_thd, write_ignore_missing_column_families);
-    m_is_two_phase= !rocksdb_disable_2pc;
+    m_is_two_phase= rocksdb_enable_2pc;
 
     /*
       If m_rocksdb_reuse_tx is null this will create a new transaction object.
