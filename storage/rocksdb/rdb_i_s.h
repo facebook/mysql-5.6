@@ -32,5 +32,4 @@ extern struct st_mysql_plugin rdb_i_s_ddl;
 extern struct st_mysql_plugin rdb_i_s_index_file_map;
 extern struct st_mysql_plugin rdb_i_s_lock_info;
 extern struct st_mysql_plugin rdb_i_s_trx_info;
-}  // namespace myrocks
-
+} // namespace myrocks
