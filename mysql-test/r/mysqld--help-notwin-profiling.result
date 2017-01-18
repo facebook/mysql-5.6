@@ -1233,7 +1233,7 @@ The following options may be given as the first argument:
  --rocksdb-persistent-cache-path=name 
  Path for BlockBasedTableOptions::persistent_cache for
  RocksDB
- --rocksdb-persistent-cache-size=# 
+ --rocksdb-persistent-cache-size-mb=# 
  Size of cache for
  BlockBasedTableOptions::persistent_cache for RocksDB
  --rocksdb-pin-l0-filter-and-index-blocks-in-cache 
@@ -1994,7 +1994,7 @@ rocksdb-perf-context ON
 rocksdb-perf-context-global ON
 rocksdb-perf-context-level 0
 rocksdb-persistent-cache-path 
-rocksdb-persistent-cache-size 0
+rocksdb-persistent-cache-size-mb 0
 rocksdb-pin-l0-filter-and-index-blocks-in-cache TRUE
 rocksdb-print-snapshot-conflict-queries FALSE
 rocksdb-rate-limiter-bytes-per-sec 0
