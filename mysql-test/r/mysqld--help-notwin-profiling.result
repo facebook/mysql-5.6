@@ -1124,11 +1124,11 @@ The following options may be given as the first argument:
  --rocksdb-delete-obsolete-files-period-micros=# 
  DBOptions::delete_obsolete_files_period_micros for
  RocksDB
- --rocksdb-disable-2pc 
- Disable two phase commit for MyRocks
- (Defaults to on; use --skip-rocksdb-disable-2pc to disable.)
  --rocksdb-disabledatasync 
  DBOptions::disableDataSync for RocksDB
+ --rocksdb-enable-2pc 
+ Enable two phase commit for MyRocks
+ (Defaults to on; use --skip-rocksdb-enable-2pc to disable.)
  --rocksdb-enable-bulk-load-api 
  Enables using SstFileWriter for bulk loading
  (Defaults to on; use --skip-rocksdb-enable-bulk-load-api to disable.)
@@ -1954,8 +1954,8 @@ rocksdb-debug-optimizer-n-rows 0
 rocksdb-debug-optimizer-no-zero-cardinality TRUE
 rocksdb-default-cf-options 
 rocksdb-delete-obsolete-files-period-micros 21600000000
-rocksdb-disable-2pc TRUE
 rocksdb-disabledatasync FALSE
+rocksdb-enable-2pc TRUE
 rocksdb-enable-bulk-load-api TRUE
 rocksdb-enable-thread-tracking FALSE
 rocksdb-enable-write-thread-adaptive-yield FALSE
