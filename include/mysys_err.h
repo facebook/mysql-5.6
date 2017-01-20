@@ -22,8 +22,10 @@ extern "C" {
 
 #define GLOBERRS (EE_ERROR_LAST - EE_ERROR_FIRST + 1) /* Nr of global errors */
 #define EE(X)    (globerrs[(X) - EE_ERROR_FIRST])
+#define EE_NAME(X) (globerrnames[(X) - EE_ERROR_FIRST])
 
 extern const char *globerrs[];  /* my_error_messages is here */
+extern const char *globerrnames[];  /* symbolic_errno is here */
 
 /* Error message numbers in global map */
 /*

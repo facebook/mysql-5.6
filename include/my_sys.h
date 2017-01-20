@@ -653,6 +653,7 @@ extern void     my_osmaperr(unsigned long last_error);
 #endif
 
 extern void init_glob_errs(void);
+extern void init_glob_err_names(void);
 extern const char** get_global_errmsgs();
 extern void wait_for_free_space(const char *filename, int errors);
 extern FILE *my_fopen(const char *FileName,int Flags,myf MyFlags);

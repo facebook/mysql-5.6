@@ -82,6 +82,7 @@ my_bool my_init(void)
     my_umask_dir= (int) (atoi_octal(str) | 0700);
 
   init_glob_errs();
+  init_glob_err_names();
 
   instrumented_stdin.m_file= stdin;
   instrumented_stdin.m_psi= NULL;       /* not yet instrumented */
