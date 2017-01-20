@@ -638,6 +638,7 @@ extern void my_osmaperr(unsigned long last_error);
 #endif
 
 extern const char *get_global_errmsg(int nr);
+extern const char *get_global_errname(int nr);
 extern void wait_for_free_space(const char *filename, int errors);
 extern FILE *my_fopen(const char *FileName, int Flags, myf MyFlags);
 extern FILE *my_fdopen(File Filedes, const char *name, int Flags, myf MyFlags);
