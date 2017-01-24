@@ -7864,7 +7864,12 @@ int ha_rocksdb::info(uint flag) {
       uchar buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2];
       auto r = get_range(pk_index(table, m_tbl_def), buf);
       uint64_t sz = 0;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
       rdb->GetApproximateSizes(m_pk_descr->get_cf(), &r, 1, &sz, true);
+#pragma GCC diagnostic pop
+
       stats.records = sz / ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE;
       stats.data_file_length = sz;
 
@@ -8673,8 +8678,13 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *const min_key,
     rows = 1;
     disk_size = ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE;
   }
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   // Getting statistics, including from Memtables
   rdb->GetApproximateSizes(kd.get_cf(), &r, 1, &sz, true);
+#pragma GCC diagnostic pop
+
   ret = rows * sz / disk_size;
 
   /*
