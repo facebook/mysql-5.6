@@ -4493,6 +4493,17 @@ end_with_restore_list:
       // since we are changing the session db and the query is part of
       // multi-statement packet, we need to reset admission control so the new
       // queries won't bypass the new db'sadmission control.
+      if (thd->is_in_ac)
+      {
+        // if the thd is already in admission control for the previous
+        // database, we need to release it before resetting the value.
+        MT_RESOURCE_ATTRS attrs = {
+          &thd->connection_attrs_map,
+          &thd->query_attrs_map,
+          thd->db
+        };
+        multi_tenancy_exit_query(thd, &attrs);
+      }
       thd->is_in_ac = false;
     }
 

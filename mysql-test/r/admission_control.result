@@ -40,7 +40,7 @@ select @@global.admission_control_filter;
 @@global.admission_control_filter
 
 Check status variables
-3, 11, 5
+3, 10, 5
 Filled up queues on one db doesn't affect queries on other db.
 use test;
 set @@global.max_waiting_queries=6;
