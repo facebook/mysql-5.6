@@ -2404,7 +2404,6 @@ Rows_log_event::print_verbose_one_row(IO_CACHE *file, table_def *td,
   const uchar *value0= value;
   const uchar *null_bits= value;
   uint null_bit_index= 0;
-  char typestr[64]= "";
 
   /*
     Skip metadata bytes which gives the information about nullabity of master
@@ -2416,6 +2415,7 @@ Rows_log_event::print_verbose_one_row(IO_CACHE *file, table_def *td,
   
   for (size_t i= 0; i < td->size(); i ++)
   {
+    char typestr[64]= "";
     int is_null= (null_bits[null_bit_index / 8] 
                   >> (null_bit_index % 8))  & 0x01;
 
