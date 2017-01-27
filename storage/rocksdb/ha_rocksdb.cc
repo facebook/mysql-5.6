@@ -351,7 +351,7 @@ static long long rocksdb_block_cache_size;
 static unsigned long long // NOLINT(runtime/int)
     rocksdb_rate_limiter_bytes_per_sec;
 static unsigned long // NOLINT(runtime/int)
-    rocksdb_persistent_cache_size;
+    rocksdb_persistent_cache_size_mb;
 static uint64_t rocksdb_info_log_level;
 static char *rocksdb_wal_dir;
 static char *rocksdb_persistent_cache_path;
@@ -662,10 +662,10 @@ static MYSQL_SYSVAR_STR(
     nullptr, "");
 
 static MYSQL_SYSVAR_ULONG(
-    persistent_cache_size, rocksdb_persistent_cache_size,
+    persistent_cache_size_mb, rocksdb_persistent_cache_size_mb,
     PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
     "Size of cache for BlockBasedTableOptions::persistent_cache for RocksDB",
-    nullptr, nullptr, rocksdb_persistent_cache_size,
+    nullptr, nullptr, rocksdb_persistent_cache_size_mb,
     /* min */ 0L, /* max */ ULONG_MAX, 0);
 
 static MYSQL_SYSVAR_ULONG(
@@ -1174,7 +1174,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(use_fsync),
     MYSQL_SYSVAR(wal_dir),
     MYSQL_SYSVAR(persistent_cache_path),
-    MYSQL_SYSVAR(persistent_cache_size),
+    MYSQL_SYSVAR(persistent_cache_size_mb),
     MYSQL_SYSVAR(delete_obsolete_files_period_micros),
     MYSQL_SYSVAR(base_background_compactions),
     MYSQL_SYSVAR(max_background_compactions),
@@ -3394,14 +3394,15 @@ static int rocksdb_init_func(void *const p) {
     mysql_mutex_unlock(&rdb_sysvars_mutex);
   }
 
-  if (rocksdb_persistent_cache_size > 0) {
+  if (rocksdb_persistent_cache_size_mb > 0) {
     std::shared_ptr<rocksdb::PersistentCache> pcache;
+    uint64_t cache_size_bytes = rocksdb_persistent_cache_size_mb * 1024 * 1024;
     rocksdb::NewPersistentCache(
         rocksdb::Env::Default(), std::string(rocksdb_persistent_cache_path),
-        rocksdb_persistent_cache_size, myrocks_logger, true, &pcache);
+        cache_size_bytes, myrocks_logger, true, &pcache);
     rocksdb_tbl_options.persistent_cache = pcache;
   } else if (strlen(rocksdb_persistent_cache_path)) {
-    sql_print_error("RocksDB: Must specify rocksdb_persistent_cache_size");
+    sql_print_error("RocksDB: Must specify rocksdb_persistent_cache_size_mb");
     DBUG_RETURN(1);
   }
 
