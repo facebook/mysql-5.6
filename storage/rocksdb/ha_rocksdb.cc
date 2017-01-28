@@ -6749,10 +6749,6 @@ void ha_rocksdb::set_force_skip_unique_check(bool skip) {
   DBUG_VOID_RETURN;
 }
 
-bool ha_rocksdb::get_slave_skip_tx_api() {
-  return rpl_skip_tx_api_var;
-}
-
 bool ha_rocksdb::commit_in_the_middle() {
   return THDVAR(table->in_use, bulk_load) ||
          THDVAR(table->in_use, commit_in_the_middle);

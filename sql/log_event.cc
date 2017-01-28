@@ -5166,39 +5166,6 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
         last_timer = init_timer;
         mysql_parse(thd, thd->query(), thd->query_length(), &parser_state,
                     &last_timer, NULL);
-
-        if (thd->get_row_count_func())
-        {
-          /* At this point we know that the master's binlog_format is NOT ROW
-             because we received a Query_log_event which generated rows.
-             If master's binlog format was ROW all row generating events would
-             be sent as Row_log_events */
-          if (thd->is_enabled_idempotent_recovery())
-          {
-            rli->report(ERROR_LEVEL, ER_MTS_INCONSISTENT_DATA,
-                        "Master's binlog format is not ROW but idempotent "
-                        "recovery is enabled on the slave. Idempotent "
-                        "recovery should only be used when master's binlog "
-                        "format is ROW.");
-            thd->is_slave_error= 1;
-            goto end;
-          }
-          else if (thd->lex->query_tables &&
-                   thd->lex->query_tables->table &&
-                   thd->lex->query_tables->table->file &&
-                   thd->lex->query_tables->table->file->
-                     get_slave_skip_tx_api())
-          {
-            rli->report(ERROR_LEVEL, ER_MTS_INCONSISTENT_DATA,
-                        "Master's binlog format is not ROW but "
-                        "rocksdb_rpl_skip_tx_api is enabled on the slave. "
-                        "rocksdb_rpl_skip_tx_api recovery should only be used "
-                        "when master's binlog format is ROW.");
-            thd->is_slave_error= 1;
-            goto end;
-          }
-        }
-
         /* Finalize server status flags after executing a statement. */
         thd->update_server_status();
         command_slave_seconds += my_timer_since(init_timer);
