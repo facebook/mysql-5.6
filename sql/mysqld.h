@@ -851,6 +851,7 @@ extern ulonglong opt_mts_pending_jobs_size_max;
 extern uint max_user_connections;
 extern uint max_nonsuper_connections;
 extern ulong rpl_stop_slave_timeout;
+extern my_bool rpl_skip_tx_api;
 extern my_bool log_bin_use_v1_row_events;
 extern ulong what_to_log,flush_time;
 extern ulong max_prepared_stmt_count, prepared_stmt_count;
