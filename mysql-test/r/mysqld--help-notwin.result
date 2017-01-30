@@ -1773,6 +1773,8 @@ The following options may be given as the first argument:
  --rpl-send-buffer-size=# 
  The size of output buffer for the socket used during
  sending events to a slave.
+ --rpl-skip-tx-api   Use write batches for replication thread instead of tx
+ api
  --rpl-slave-flow-control 
  If this is set then underrun and overrun based flow
  control between coordinator and worker threads in slave
@@ -2639,6 +2641,7 @@ rocksdb-write-policy write_committed
 rpl-read-size 8192
 rpl-receive-buffer-size 2097152
 rpl-send-buffer-size 2097152
+rpl-skip-tx-api FALSE
 rpl-slave-flow-control TRUE
 rpl-stop-slave-timeout 31536000
 rpl-wait-for-semi-sync-ack FALSE

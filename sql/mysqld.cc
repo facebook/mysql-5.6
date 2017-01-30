@@ -1254,6 +1254,7 @@ ulong max_nonsuper_connections = 0, nonsuper_connections = 0;
 ulong opt_max_running_queries, opt_max_waiting_queries;
 ulong rpl_stop_slave_timeout = LONG_TIMEOUT;
 bool rpl_slave_flow_control = true;
+bool rpl_skip_tx_api = false;
 bool log_bin_use_v1_row_events = 0;
 bool thread_cache_size_specified = false;
 bool host_cache_size_specified = false;

@@ -4790,6 +4790,8 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
             option_name = "slave_use_idempotent_for_recovery";
           } else if (is_mts_parallel_type_dependency(rli)) {
             option_name = "slave_parallel_type=DEPENDENCY";
+          } else if (rpl_skip_tx_api) {
+            option_name = "rpl_skip_tx_api";
           }
 
           if (option_name != nullptr) {
