@@ -1833,6 +1833,11 @@ static Sys_var_ulong Sys_rpl_stop_slave_timeout(
        "warning.",
        GLOBAL_VAR(rpl_stop_slave_timeout), CMD_LINE(REQUIRED_ARG),
        VALID_RANGE(2, LONG_TIMEOUT), DEFAULT(LONG_TIMEOUT), BLOCK_SIZE(1));
+
+static Sys_var_mybool Sys_rpl_skip_tx_api(
+       "rpl_skip_tx_api",
+       "Use write batches for replication thread instead of tx api",
+       GLOBAL_VAR(rpl_skip_tx_api), CMD_LINE(OPT_ARG), DEFAULT(FALSE));
 /*
   alias for binlogging_imposible_mode as per the appropriate naming
   convention

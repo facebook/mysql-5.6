@@ -1250,9 +1250,6 @@ The following options may be given as the first argument:
  --rocksdb-records-in-range=# 
  Used to override the result of records_in_range(). Set to
  a positive number to override
- --rocksdb-rpl-skip-tx-api 
- Use write batches for replication thread instead of tx
- api
  --rocksdb-seconds-between-stat-computes=# 
  Sets a number of seconds to wait between optimizer stats
  recomputation. Only changed indexes will be refreshed.
@@ -1335,6 +1332,8 @@ The following options may be given as the first argument:
  --rpl-send-buffer-size=# 
  The size of output buffer for the socket used during
  sending events to a slave.
+ --rpl-skip-tx-api   Use write batches for replication thread instead of tx
+ api
  --rpl-stop-slave-timeout=# 
  Timeout in seconds to wait for slave to stop before
  returning a warning.
@@ -2000,7 +1999,6 @@ rocksdb-print-snapshot-conflict-queries FALSE
 rocksdb-rate-limiter-bytes-per-sec 0
 rocksdb-read-free-rpl-tables (No default value)
 rocksdb-records-in-range 0
-rocksdb-rpl-skip-tx-api FALSE
 rocksdb-seconds-between-stat-computes 3600
 rocksdb-signal-drop-index-thread FALSE
 rocksdb-skip-bloom-filter-on-read FALSE
@@ -2035,6 +2033,7 @@ rpl-event-buffer-size 1048576
 rpl-read-size 8192
 rpl-receive-buffer-size 2097152
 rpl-send-buffer-size 2097152
+rpl-skip-tx-api FALSE
 rpl-stop-slave-timeout 604800
 safe-user-create FALSE
 secure-auth TRUE
