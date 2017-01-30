@@ -378,7 +378,6 @@ static uint32_t rocksdb_validate_tables = 1;
 static char *rocksdb_datadir;
 static uint32_t rocksdb_table_stats_sampling_pct;
 static my_bool rocksdb_enable_bulk_load_api = 1;
-static my_bool rpl_skip_tx_api_var = 0;
 static my_bool rocksdb_print_snapshot_conflict_queries = 0;
 
 std::atomic<uint64_t> rocksdb_snapshot_conflict_errors(0);
@@ -484,11 +483,6 @@ static MYSQL_THDVAR_STR(
     "List of tables that will use read-free replication on the slave "
     "(i.e. not lookup a row during replication)",
     nullptr, nullptr, "");
-
-static MYSQL_SYSVAR_BOOL(
-    rpl_skip_tx_api, rpl_skip_tx_api_var, PLUGIN_VAR_RQCMDARG,
-    "Use write batches for replication thread instead of tx api", nullptr,
-    nullptr, FALSE);
 
 static MYSQL_THDVAR_BOOL(skip_bloom_filter_on_read, PLUGIN_VAR_RQCMDARG,
                          "Skip using bloom filter for reads", nullptr, nullptr,
@@ -1161,7 +1155,6 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(trace_sst_api),
     MYSQL_SYSVAR(commit_in_the_middle),
     MYSQL_SYSVAR(read_free_rpl_tables),
-    MYSQL_SYSVAR(rpl_skip_tx_api),
     MYSQL_SYSVAR(bulk_load_size),
     MYSQL_SYSVAR(merge_buf_size),
     MYSQL_SYSVAR(enable_bulk_load_api),
@@ -2374,7 +2367,7 @@ static Rdb_transaction *get_or_create_tx(THD *const thd) {
   Rdb_transaction *&tx = get_tx_from_thd(thd);
   // TODO: this is called too many times.. O(#rows)
   if (tx == nullptr) {
-    if (rpl_skip_tx_api_var && thd->rli_slave)
+    if (rpl_skip_tx_api && thd->rli_slave)
       tx = new Rdb_writebatch_impl(thd);
     else
       tx = new Rdb_transaction_impl(thd);
