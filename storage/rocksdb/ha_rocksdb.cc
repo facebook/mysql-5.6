@@ -10003,27 +10003,65 @@ int rdb_get_table_perf_counters(const char *const tablename,
   return HA_EXIT_SUCCESS;
 }
 
-void rdb_handle_io_error(rocksdb::Status status, RDB_IO_ERROR_TYPE err_type) {
+const char *get_rdb_io_error_string(const RDB_IO_ERROR_TYPE err_type) {
+  // If this assertion fails then this means that a member has been either added
+  // to or removed from RDB_IO_ERROR_TYPE enum and this function needs to be
+  // changed to return the appropriate value.
+  static_assert(RDB_IO_ERROR_LAST == 4, "Please handle all the error types.");
+
+  switch (err_type) {
+  case RDB_IO_ERROR_TYPE::RDB_IO_ERROR_TX_COMMIT:
+    return "RDB_IO_ERROR_TX_COMMIT";
+  case RDB_IO_ERROR_TYPE::RDB_IO_ERROR_DICT_COMMIT:
+    return "RDB_IO_ERROR_DICT_COMMIT";
+  case RDB_IO_ERROR_TYPE::RDB_IO_ERROR_BG_THREAD:
+    return "RDB_IO_ERROR_BG_THREAD";
+  case RDB_IO_ERROR_TYPE::RDB_IO_ERROR_GENERAL:
+    return "RDB_IO_ERROR_GENERAL";
+  default:
+    DBUG_ASSERT(false);
+    return "(unknown)";
+  }
+}
+
+// In case of core dump generation we want this function NOT to be optimized
+// so that we can capture as much data as possible to debug the root cause
+// more efficiently.
+#pragma GCC push_options
+#pragma GCC optimize("O0")
+
+void rdb_handle_io_error(const rocksdb::Status status,
+                         const RDB_IO_ERROR_TYPE err_type) {
   if (status.IsIOError()) {
     switch (err_type) {
     case RDB_IO_ERROR_TX_COMMIT:
     case RDB_IO_ERROR_DICT_COMMIT: {
-      sql_print_error("RocksDB: Failed to write to WAL - status %d, %s",
-                      status.code(), status.ToString().c_str());
-      sql_print_error("RocksDB: Aborting on WAL write error.");
+      /* NO_LINT_DEBUG */
+      sql_print_error("MyRocks: failed to write to WAL. Error type = %s, "
+                      "status code = %d, status = %s",
+                      get_rdb_io_error_string(err_type), status.code(),
+                      status.ToString().c_str());
+      /* NO_LINT_DEBUG */
+      sql_print_error("MyRocks: aborting on WAL write error.");
       abort_with_stack_traces();
       break;
     }
     case RDB_IO_ERROR_BG_THREAD: {
-      sql_print_warning("RocksDB: BG Thread failed to write to RocksDB "
-                        "- status %d, %s",
-                        status.code(), status.ToString().c_str());
+      /* NO_LINT_DEBUG */
+      sql_print_warning("MyRocks: BG thread failed to write to RocksDB. "
+                        "Error type = %s, status code = %d, status = %s",
+                        get_rdb_io_error_string(err_type), status.code(),
+                        status.ToString().c_str());
       break;
     }
     case RDB_IO_ERROR_GENERAL: {
-      sql_print_error("RocksDB: Failed on I/O - status %d, %s", status.code(),
+      /* NO_LINT_DEBUG */
+      sql_print_error("MyRocks: failed on I/O. Error type = %s, "
+                      "status code = %d, status = %s",
+                      get_rdb_io_error_string(err_type), status.code(),
                       status.ToString().c_str());
-      sql_print_error("RocksDB: Aborting on I/O error.");
+      /* NO_LINT_DEBUG */
+      sql_print_error("MyRocks: aborting on I/O error.");
       abort_with_stack_traces();
       break;
     }
@@ -10033,29 +10071,38 @@ void rdb_handle_io_error(rocksdb::Status status, RDB_IO_ERROR_TYPE err_type) {
     }
   } else if (status.IsCorruption()) {
     /* NO_LINT_DEBUG */
-    sql_print_error("RocksDB: Data Corruption detected! %d, %s", status.code(),
+    sql_print_error("MyRocks: data corruption detected! Error type = %s, "
+                    "status code = %d, status = %s",
+                    get_rdb_io_error_string(err_type), status.code(),
                     status.ToString().c_str());
     /* NO_LINT_DEBUG */
-    sql_print_error("RocksDB: Aborting because of data corruption.");
+    sql_print_error("MyRocks: aborting because of data corruption.");
     abort_with_stack_traces();
   } else if (!status.ok()) {
     switch (err_type) {
     case RDB_IO_ERROR_DICT_COMMIT: {
-      sql_print_error("RocksDB: Failed to write to WAL (dictionary) - "
-                      "status %d, %s",
-                      status.code(), status.ToString().c_str());
-      sql_print_error("RocksDB: Aborting on WAL write error.");
+      /* NO_LINT_DEBUG */
+      sql_print_error("MyRocks: failed to write to WAL (dictionary). "
+                      "Error type = %s, status code = %d, status = %s",
+                      get_rdb_io_error_string(err_type), status.code(),
+                      status.ToString().c_str());
+      /* NO_LINT_DEBUG */
+      sql_print_error("MyRocks: aborting on WAL write error.");
       abort_with_stack_traces();
       break;
     }
     default:
-      sql_print_warning("RocksDB: Failed to read/write in RocksDB "
-                        "- status %d, %s",
-                        status.code(), status.ToString().c_str());
+      /* NO_LINT_DEBUG */
+      sql_print_warning("MyRocks: failed to read/write in RocksDB. "
+                        "Error type = %s, status code = %d, status = %s",
+                        get_rdb_io_error_string(err_type), status.code(),
+                        status.ToString().c_str());
       break;
     }
   }
 }
+
+#pragma GCC pop_options
 
 Rdb_dict_manager *rdb_get_dict_manager(void) { return &dict_manager; }
 
