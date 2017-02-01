@@ -32,10 +32,14 @@ enum RDB_IO_ERROR_TYPE {
   RDB_IO_ERROR_TX_COMMIT,
   RDB_IO_ERROR_DICT_COMMIT,
   RDB_IO_ERROR_BG_THREAD,
-  RDB_IO_ERROR_GENERAL
+  RDB_IO_ERROR_GENERAL,
+  RDB_IO_ERROR_LAST
 };
 
-void rdb_handle_io_error(rocksdb::Status status, RDB_IO_ERROR_TYPE err_type);
+const char *get_rdb_io_error_string(const RDB_IO_ERROR_TYPE err_type);
+
+void rdb_handle_io_error(const rocksdb::Status status,
+                         const RDB_IO_ERROR_TYPE err_type);
 
 int rdb_normalize_tablename(const std::string &tablename, std::string *str)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
