@@ -5160,7 +5160,7 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
         mysql_parse(thd, thd->query(), thd->query_length(), &parser_state,
                     &last_timer, NULL);
 
-        if (sqlcom_can_generate_row_events(thd) &&
+        if (sqlcom_can_generate_row_events(thd->lex->sql_command) &&
             thd->get_row_count_func() > 0)
         {
           /* At this point we know that the master's binlog_format is NOT ROW
