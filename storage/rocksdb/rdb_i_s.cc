@@ -1063,7 +1063,8 @@ enum {
   ENTRY_DELETES,
   ENTRY_SINGLEDELETES,
   ENTRY_MERGES,
-  ENTRY_OTHERS
+  ENTRY_OTHERS,
+  DISTINCT_KEYS_PREFIX
 };
 } // namespace RDB_INDEX_FILE_MAP_FIELD
 
@@ -1086,6 +1087,8 @@ static ST_FIELD_INFO rdb_i_s_index_file_map_fields_info[] = {
                        MYSQL_TYPE_LONGLONG, 0),
     ROCKSDB_FIELD_INFO("ENTRY_MERGES", sizeof(int64_t), MYSQL_TYPE_LONGLONG, 0),
     ROCKSDB_FIELD_INFO("ENTRY_OTHERS", sizeof(int64_t), MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO("DISTINCT_KEYS_PREFIX", MAX_REF_PARTS * 25,
+                       MYSQL_TYPE_STRING, 0),
     ROCKSDB_FIELD_INFO_END};
 
 /* Fill the information_schema.rocksdb_index_file_map virtual table */
@@ -1155,6 +1158,19 @@ static int rdb_i_s_index_file_map_fill_table(
               it.m_entry_merges, true);
           field[RDB_INDEX_FILE_MAP_FIELD::ENTRY_OTHERS]->store(
               it.m_entry_others, true);
+          std::string distinct_keys_prefix;
+
+          for (size_t i = 0; i < it.m_distinct_keys_per_prefix.size(); i++) {
+            if (i > 0) {
+              distinct_keys_prefix += ",";
+            }
+            distinct_keys_prefix +=
+                std::to_string(it.m_distinct_keys_per_prefix[i]);
+          }
+
+          field[RDB_INDEX_FILE_MAP_FIELD::DISTINCT_KEYS_PREFIX]->store(
+              distinct_keys_prefix.data(), distinct_keys_prefix.size(),
+              system_charset_info);
 
           /* Tell MySQL about this row in the virtual table */
           ret = my_core::schema_table_store_record(thd, tables->table);
