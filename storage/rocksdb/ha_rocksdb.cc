@@ -7197,6 +7197,13 @@ int ha_rocksdb::finalize_bulk_load() {
   if (m_sst_info != nullptr) {
     rc = m_sst_info->commit();
     if (rc != 0) {
+      /*
+        Log the error immediately here in case the server crashes before
+        mysql prints via my_printf_error.
+      */
+      sql_print_error("Failed to commit bulk loaded sst file to the "
+                "data store (%s)", m_sst_info->error_message().c_str());
+
       my_printf_error(ER_UNKNOWN_ERROR,
                       "Failed to commit bulk loaded sst file to the "
                       "data store (%s)",
