@@ -20,6 +20,8 @@
 #include <string>
 
 /* MySQL header files */
+#include "../sql/log.h"
+#include "./my_stacktrace.h"
 #include "./sql_string.h"
 
 /* RocksDB header files */
@@ -201,6 +203,26 @@ inline int purge_all_jemalloc_arenas() {
 #else
   return EXIT_SUCCESS;
 #endif
+}
+
+/*
+  Helper function to check the result of locking or unlocking a mutex. We'll
+  intentionally abort in case of a failure because it's better to terminate
+  the process instead of continuing in an undefined state and corrupting data
+  as a result.
+*/
+inline void check_mutex_call_result(const char *function_name,
+                                    const int result) {
+  if (unlikely(result)) {
+    /* NO_LINT_DEBUG */
+    sql_print_error("Locking or unlocking a mutex inside %s failed with an "
+                    "error code %d.",
+                    function_name, result);
+
+    // This will hopefully result in a meaningful stack trace which we can use
+    // to efficiently debug the root cause.
+    abort_with_stack_traces();
+  }
 }
 
 /*
