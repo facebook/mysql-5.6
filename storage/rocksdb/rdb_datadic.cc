@@ -3128,6 +3128,8 @@ void Rdb_ddl_manager::adjust_stats(
     for (const auto &src : data) {
       const auto &keydef = find(src.m_gl_index_id);
       if (keydef) {
+        keydef->m_stats.m_distinct_keys_per_prefix.resize(
+            keydef->get_key_parts());
         keydef->m_stats.merge(src, i == 0, keydef->max_storage_fmt_length());
         m_stats2store[keydef->m_stats.m_gl_index_id] = keydef->m_stats;
       }
