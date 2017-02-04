@@ -8771,6 +8771,7 @@ int ha_rocksdb::calculate_stats(const TABLE *const table_arg, THD *const thd,
   std::unordered_map<rocksdb::ColumnFamilyHandle *, std::vector<rocksdb::Range>>
       ranges;
   std::unordered_set<GL_INDEX_ID> ids_to_check;
+  std::unordered_map<GL_INDEX_ID, uint> ids_to_keyparts;
   std::vector<uchar> buf(table_arg->s->keys * 2 *
                          Rdb_key_def::INDEX_NUMBER_SIZE);
   for (uint i = 0; i < table_arg->s->keys; i++) {
@@ -8778,6 +8779,7 @@ int ha_rocksdb::calculate_stats(const TABLE *const table_arg, THD *const thd,
     const Rdb_key_def &kd = *m_key_descr_arr[i];
     ranges[kd.get_cf()].push_back(get_range(i, bufp));
     ids_to_check.insert(kd.get_gl_index_id());
+    ids_to_keyparts[kd.get_gl_index_id()] = kd.get_key_parts();
   }
 
   // for analyze statements, force flush on memtable to get accurate cardinality
@@ -8807,6 +8809,8 @@ int ha_rocksdb::calculate_stats(const TABLE *const table_arg, THD *const thd,
     // Initialize the stats to 0. If there are no files that contain
     // this gl_index_id, then 0 should be stored for the cached stats.
     stats[it] = Rdb_index_stats(it);
+    DBUG_ASSERT(ids_to_keyparts.count(it) > 0);
+    stats[it].m_distinct_keys_per_prefix.resize(ids_to_keyparts[it]);
   }
   for (const auto &it : props) {
     std::vector<Rdb_index_stats> sst_stats;
