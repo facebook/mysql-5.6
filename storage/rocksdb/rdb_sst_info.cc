@@ -221,7 +221,7 @@ int Rdb_sst_info::open_new_sst_file() {
   // Open the sst file
   const rocksdb::Status s = m_sst_file->open();
   if (!s.ok()) {
-    set_error_msg(s.ToString());
+    set_error_msg(m_sst_file->get_name(), s.ToString());
     delete m_sst_file;
     m_sst_file = nullptr;
     return HA_EXIT_FAILURE;
@@ -255,7 +255,7 @@ void Rdb_sst_info::close_curr_sst_file() {
 #else
   const rocksdb::Status s = m_sst_file->commit();
   if (!s.ok()) {
-    set_error_msg(s.ToString());
+    set_error_msg(m_sst_file->get_name(), s.ToString());
   }
 
   delete m_sst_file;
@@ -293,7 +293,7 @@ int Rdb_sst_info::put(const rocksdb::Slice &key, const rocksdb::Slice &value) {
   // Add the key/value to the current sst file
   const rocksdb::Status s = m_sst_file->put(key, value);
   if (!s.ok()) {
-    set_error_msg(s.ToString());
+    set_error_msg(m_sst_file->get_name(), s.ToString());
     return HA_EXIT_FAILURE;
   }
 
@@ -329,16 +329,18 @@ int Rdb_sst_info::commit() {
   return HA_EXIT_SUCCESS;
 }
 
-void Rdb_sst_info::set_error_msg(const std::string &msg) {
+void Rdb_sst_info::set_error_msg(const std::string &sst_file_name,
+                                 const std::string &msg) {
 #if defined(RDB_SST_INFO_USE_THREAD)
   // Both the foreground and background threads can set the error message
   // so lock the mutex to protect it.  We only want the first error that
   // we encounter.
   const std::lock_guard<std::mutex> guard(m_mutex);
 #endif
-  my_printf_error(ER_UNKNOWN_ERROR, "bulk load error: %s", MYF(0), msg.c_str());
+  my_printf_error(ER_UNKNOWN_ERROR, "[%s] bulk load error: %s", MYF(0),
+      sst_file_name.c_str(), msg.c_str());
   if (m_error_msg.empty()) {
-    m_error_msg = msg;
+    m_error_msg = "[" + sst_file_name + "] " + msg;
   }
 }
 
@@ -366,7 +368,7 @@ void Rdb_sst_info::run_thread() {
       // Close out the sst file and add it to the database
       const rocksdb::Status s = sst_file->commit();
       if (!s.ok()) {
-        set_error_msg(s.ToString());
+        set_error_msg(sst_file->get_name(), s.ToString());
       }
 
       delete sst_file;
