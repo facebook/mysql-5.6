@@ -17336,13 +17336,17 @@ innobase_fts_close_ranking(
 {
 	fts_result_t*	result;
 
+	trx_t*		trx;
+
+	trx = ((NEW_FT_INFO*) fts_hdl)->ft_prebuilt->trx;
+
 	result = ((NEW_FT_INFO*) fts_hdl)->ft_result;
 
 	fts_query_free_result(result);
 
 	my_free((uchar*) fts_hdl);
 
-	buf_pool_reference_end(((NEW_FT_INFO*) fts_hdl)->ft_prebuilt->trx);
+	buf_pool_reference_end(trx);
 
 	return;
 }
