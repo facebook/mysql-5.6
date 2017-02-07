@@ -17,6 +17,7 @@
 
 #include "rpl_gtid.h"
 
+// Another comment.
 
 /*
 const size_t Uuid::TEXT_LENGTH;
