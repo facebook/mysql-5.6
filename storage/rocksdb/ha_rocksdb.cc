@@ -6812,11 +6812,15 @@ bool ha_rocksdb::skip_unique_check() const {
       2) this table is in the whitelist of tables to skip and the replication
          lag has reached a large enough value (see unique_check_lag_threshold
          and unique_check_lage_reset_threshold)
-      3) the user set unique_checks option to 0
+      3) the user set unique_checks option to 0, and the table does not have
+         any indexes. If the table has secondary keys, then those might becomes
+         inconsisted/corrupted
   */
   return THDVAR(table->in_use, bulk_load) ||
          (m_force_skip_unique_check && m_skip_unique_check) ||
-         my_core::thd_test_options(table->in_use, OPTION_RELAXED_UNIQUE_CHECKS);
+         (my_core::thd_test_options(table->in_use,
+                                    OPTION_RELAXED_UNIQUE_CHECKS) &&
+          m_tbl_def->m_key_count == 1);
 }
 
 void ha_rocksdb::set_force_skip_unique_check(bool skip) {
