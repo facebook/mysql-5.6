@@ -3592,7 +3592,7 @@ static int rocksdb_done_func(void *const p) {
   // signal the drop index thread to stop
   rdb_drop_idx_thread.signal(true);
 
-  // Flush all memtables for not lose data, even if WAL is disabled.
+  // Flush all memtables for not losing data, even if WAL is disabled.
   rocksdb_flush_all_memtables();
 
   // Stop all rocksdb background work
