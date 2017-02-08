@@ -2037,7 +2037,6 @@ rpl-skip-tx-api FALSE
 rpl-stop-slave-timeout 604800
 safe-user-create FALSE
 secure-auth TRUE
-secure-file-priv (No default value)
 select-into-file-fsync-size 0
 select-into-file-fsync-timeout 0
 send-error-before-closing-timed-out-connection TRUE
