@@ -30,6 +30,7 @@ username	event_name	nesting_event_type
 user2	stage/sql/Waiting for table metadata lock	STATEMENT
 username	event_name	nesting_event_type
 user2	stage/sql/init	STATEMENT
+user2	stage/sql/init	STATEMENT
 user2	stage/sql/checking permissions	STATEMENT
 user2	stage/sql/checking permissions	STATEMENT
 user2	stage/sql/init	STATEMENT
