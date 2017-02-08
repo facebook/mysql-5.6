@@ -116,10 +116,9 @@ void Rdb_key_def::setup(const TABLE *const tbl,
   const bool hidden_pk_exists = table_has_hidden_pk(tbl);
   const bool secondary_key = (m_index_type == INDEX_TYPE_SECONDARY);
   if (!m_maxlength) {
-    check_mutex_call_result(__PRETTY_FUNCTION__, mysql_mutex_lock(&m_mutex));
+    RDB_MUTEX_LOCK_CHECK(m_mutex);
     if (m_maxlength != 0) {
-      check_mutex_call_result(__PRETTY_FUNCTION__,
-                              mysql_mutex_unlock(&m_mutex));
+      RDB_MUTEX_UNLOCK_CHECK(m_mutex);
       return;
     }
 
@@ -281,7 +280,7 @@ void Rdb_key_def::setup(const TABLE *const tbl,
      */
     m_maxlength = max_len;
 
-    check_mutex_call_result(__PRETTY_FUNCTION__, mysql_mutex_unlock(&m_mutex));
+    RDB_MUTEX_UNLOCK_CHECK(m_mutex);
   }
 }
 
@@ -2142,8 +2141,7 @@ static void rdb_get_mem_comparable_space(const CHARSET_INFO *const cs,
                                          size_t *const mb_len) {
   DBUG_ASSERT(cs->number < MY_ALL_CHARSETS_SIZE);
   if (!rdb_mem_comparable_space[cs->number].get()) {
-    check_mutex_call_result(__PRETTY_FUNCTION__,
-                            mysql_mutex_lock(&rdb_mem_cmp_space_mutex));
+    RDB_MUTEX_LOCK_CHECK(rdb_mem_cmp_space_mutex);
     if (!rdb_mem_comparable_space[cs->number].get()) {
       // Upper bound of how many bytes can be occupied by multi-byte form of a
       // character in any charset.
@@ -2169,8 +2167,7 @@ static void rdb_get_mem_comparable_space(const CHARSET_INFO *const cs,
       }
       rdb_mem_comparable_space[cs->number].reset(info);
     }
-    check_mutex_call_result(__PRETTY_FUNCTION__,
-                            mysql_mutex_unlock(&rdb_mem_cmp_space_mutex));
+    RDB_MUTEX_UNLOCK_CHECK(rdb_mem_cmp_space_mutex);
   }
 
   *xfrm = &rdb_mem_comparable_space[cs->number]->spaces_xfrm;
@@ -2194,8 +2191,8 @@ rdb_init_collation_mapping(const my_core::CHARSET_INFO *const cs) {
   const Rdb_collation_codec *codec = rdb_collation_data[cs->number];
 
   if (codec == nullptr && rdb_is_collation_supported(cs)) {
-    check_mutex_call_result(__PRETTY_FUNCTION__,
-                            mysql_mutex_lock(&rdb_collation_data_mutex));
+    RDB_MUTEX_LOCK_CHECK(rdb_collation_data_mutex);
+
     codec = rdb_collation_data[cs->number];
     if (codec == nullptr) {
       Rdb_collation_codec *cur = nullptr;
@@ -2239,8 +2236,8 @@ rdb_init_collation_mapping(const my_core::CHARSET_INFO *const cs) {
         rdb_collation_data[cs->number] = cur;
       }
     }
-    check_mutex_call_result(__PRETTY_FUNCTION__,
-                            mysql_mutex_unlock(&rdb_collation_data_mutex));
+
+    RDB_MUTEX_UNLOCK_CHECK(rdb_collation_data_mutex);
   }
 
   return codec;
@@ -4138,7 +4135,7 @@ uint Rdb_seq_generator::get_and_update_next_number(
   DBUG_ASSERT(dict != nullptr);
 
   uint res;
-  check_mutex_call_result(__PRETTY_FUNCTION__, mysql_mutex_lock(&m_mutex));
+  RDB_MUTEX_LOCK_CHECK(m_mutex);
 
   res = m_next_number++;
 
@@ -4149,7 +4146,7 @@ uint Rdb_seq_generator::get_and_update_next_number(
   dict->update_max_index_id(batch, res);
   dict->commit(batch);
 
-  check_mutex_call_result(__PRETTY_FUNCTION__, mysql_mutex_unlock(&m_mutex));
+  RDB_MUTEX_UNLOCK_CHECK(m_mutex);
 
   return res;
 }
