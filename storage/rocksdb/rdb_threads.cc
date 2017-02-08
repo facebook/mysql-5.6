@@ -76,14 +76,15 @@ int Rdb_thread::create_thread(const std::string &thread_name
 }
 
 void Rdb_thread::signal(const bool &stop_thread) {
-  check_mutex_call_result(__PRETTY_FUNCTION__,
-                          mysql_mutex_lock(&m_signal_mutex));
+  RDB_MUTEX_LOCK_CHECK(m_signal_mutex);
+
   if (stop_thread) {
     m_stop = true;
   }
+
   mysql_cond_signal(&m_signal_cond);
-  check_mutex_call_result(__PRETTY_FUNCTION__,
-                          mysql_mutex_unlock(&m_signal_mutex));
+
+  RDB_MUTEX_UNLOCK_CHECK(m_signal_mutex);
 }
 
 } // namespace myrocks

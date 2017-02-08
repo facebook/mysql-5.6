@@ -338,7 +338,7 @@ void Rdb_sst_info::set_error_msg(const std::string &sst_file_name,
   const std::lock_guard<std::mutex> guard(m_mutex);
 #endif
   my_printf_error(ER_UNKNOWN_ERROR, "[%s] bulk load error: %s", MYF(0),
-      sst_file_name.c_str(), msg.c_str());
+                  sst_file_name.c_str(), msg.c_str());
   if (m_error_msg.empty()) {
     m_error_msg = "[" + sst_file_name + "] " + msg;
   }

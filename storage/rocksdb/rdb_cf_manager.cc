@@ -98,7 +98,8 @@ Rdb_cf_manager::get_or_create_cf(rocksdb::DB *const rdb, const char *cf_name,
 
   rocksdb::ColumnFamilyHandle *cf_handle;
 
-  check_mutex_call_result(__PRETTY_FUNCTION__, mysql_mutex_lock(&m_mutex));
+  RDB_MUTEX_LOCK_CHECK(m_mutex);
+
   *is_automatic = false;
   if (cf_name == nullptr)
     cf_name = DEFAULT_CF_NAME;
@@ -134,7 +135,8 @@ Rdb_cf_manager::get_or_create_cf(rocksdb::DB *const rdb, const char *cf_name,
       cf_handle = nullptr;
     }
   }
-  check_mutex_call_result(__PRETTY_FUNCTION__, mysql_mutex_unlock(&m_mutex));
+
+  RDB_MUTEX_UNLOCK_CHECK(m_mutex);
 
   return cf_handle;
 }
@@ -160,7 +162,7 @@ Rdb_cf_manager::get_cf(const char *cf_name, const std::string &db_table_name,
   rocksdb::ColumnFamilyHandle *cf_handle;
 
   *is_automatic = false;
-  check_mutex_call_result(__PRETTY_FUNCTION__, mysql_mutex_lock(&m_mutex));
+  RDB_MUTEX_LOCK_CHECK(m_mutex);
   if (cf_name == nullptr)
     cf_name = DEFAULT_CF_NAME;
 
@@ -174,7 +176,7 @@ Rdb_cf_manager::get_cf(const char *cf_name, const std::string &db_table_name,
   const auto it = m_cf_name_map.find(cf_name);
   cf_handle = (it != m_cf_name_map.end()) ? it->second : nullptr;
 
-  check_mutex_call_result(__PRETTY_FUNCTION__, mysql_mutex_unlock(&m_mutex));
+  RDB_MUTEX_UNLOCK_CHECK(m_mutex);
 
   return cf_handle;
 }
@@ -182,11 +184,11 @@ Rdb_cf_manager::get_cf(const char *cf_name, const std::string &db_table_name,
 rocksdb::ColumnFamilyHandle *Rdb_cf_manager::get_cf(const uint32_t &id) const {
   rocksdb::ColumnFamilyHandle *cf_handle = nullptr;
 
-  check_mutex_call_result(__PRETTY_FUNCTION__, mysql_mutex_lock(&m_mutex));
+  RDB_MUTEX_LOCK_CHECK(m_mutex);
   const auto it = m_cf_id_map.find(id);
   if (it != m_cf_id_map.end())
     cf_handle = it->second;
-  check_mutex_call_result(__PRETTY_FUNCTION__, mysql_mutex_unlock(&m_mutex));
+  RDB_MUTEX_UNLOCK_CHECK(m_mutex);
 
   return cf_handle;
 }
@@ -194,11 +196,12 @@ rocksdb::ColumnFamilyHandle *Rdb_cf_manager::get_cf(const uint32_t &id) const {
 std::vector<std::string> Rdb_cf_manager::get_cf_names(void) const {
   std::vector<std::string> names;
 
-  check_mutex_call_result(__PRETTY_FUNCTION__, mysql_mutex_lock(&m_mutex));
+  RDB_MUTEX_LOCK_CHECK(m_mutex);
   for (auto it : m_cf_name_map) {
     names.push_back(it.first);
   }
-  check_mutex_call_result(__PRETTY_FUNCTION__, mysql_mutex_unlock(&m_mutex));
+  RDB_MUTEX_UNLOCK_CHECK(m_mutex);
+
   return names;
 }
 
@@ -206,11 +209,13 @@ std::vector<rocksdb::ColumnFamilyHandle *>
 Rdb_cf_manager::get_all_cf(void) const {
   std::vector<rocksdb::ColumnFamilyHandle *> list;
 
-  check_mutex_call_result(__PRETTY_FUNCTION__, mysql_mutex_lock(&m_mutex));
+  RDB_MUTEX_LOCK_CHECK(m_mutex);
+
   for (auto it : m_cf_id_map) {
     list.push_back(it.second);
   }
-  check_mutex_call_result(__PRETTY_FUNCTION__, mysql_mutex_unlock(&m_mutex));
+
+  RDB_MUTEX_UNLOCK_CHECK(m_mutex);
 
   return list;
 }

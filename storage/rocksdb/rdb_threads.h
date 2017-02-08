@@ -92,11 +92,11 @@ public:
   virtual void run() override;
 
   void request_save_stats() {
-    check_mutex_call_result(__PRETTY_FUNCTION__,
-                            mysql_mutex_lock(&m_signal_mutex));
+    RDB_MUTEX_LOCK_CHECK(m_signal_mutex);
+
     m_save_stats = true;
-    check_mutex_call_result(__PRETTY_FUNCTION__,
-                            mysql_mutex_unlock(&m_signal_mutex));
+
+    RDB_MUTEX_UNLOCK_CHECK(m_signal_mutex);
   }
 };
 
