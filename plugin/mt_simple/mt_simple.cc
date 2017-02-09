@@ -162,25 +162,31 @@ static MT_RETURN_TYPE mt_simple_release_resource(
           break;
 
         const char *db = resource_attrs->database;
+        int val = my_atomic_load32(&number_of_db_conns);
         // ignore system schemas
-        if (!db && number_of_db_conns > 0)
+        if (!db && val > 0)
         {
           if (strcmp(db, INFORMATION_SCHEMA_NAME.str) &&
               strcmp(db, PERFORMANCE_SCHEMA_DB_NAME.str) &&
               strcmp(db, MYSQL_SCHEMA_NAME.str))
+            // decrement number_of_db_conns
             my_atomic_add32(&number_of_db_conns, -1);
         }
 
-        // decrement total conns
-        if (number_of_conns > 0)
-            my_atomic_add32(&number_of_conns, -1);
+        // load total conns
+        val = my_atomic_load32(&number_of_conns);
+        if (val > 0) {
+          //decrement total conns
+          my_atomic_add32(&number_of_conns, -1);
+        }
 
         break;
       }
 
     case MT_RESOURCE_TYPE::MULTI_TENANCY_RESOURCE_QUERY:
       {
-        if (number_of_queries > 0)
+        int val = my_atomic_load32(&number_of_queries);
+        if (val > 0)
           my_atomic_add32(&number_of_queries, -1);
         break;
       }
