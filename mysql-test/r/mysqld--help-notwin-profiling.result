@@ -1121,6 +1121,8 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-rocksdb-debug-optimizer-no-zero-cardinality to disable.)
  --rocksdb-default-cf-options=name 
  default cf options for RocksDB
+ --rocksdb-delayed-write-rate=# 
+ DBOptions::delayed_write_rate
  --rocksdb-delete-obsolete-files-period-micros=# 
  DBOptions::delete_obsolete_files_period_micros for
  RocksDB
@@ -1952,6 +1954,7 @@ rocksdb-deadlock-detect FALSE
 rocksdb-debug-optimizer-n-rows 0
 rocksdb-debug-optimizer-no-zero-cardinality TRUE
 rocksdb-default-cf-options 
+rocksdb-delayed-write-rate 2097152
 rocksdb-delete-obsolete-files-period-micros 21600000000
 rocksdb-disabledatasync FALSE
 rocksdb-enable-2pc TRUE
