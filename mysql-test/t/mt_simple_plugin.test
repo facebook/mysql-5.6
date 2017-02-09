@@ -44,9 +44,12 @@ connection default;
 show global status like 'mt_simple_%';
 set global mt_simple_on = 1;
 
+# disconnect 10 connections first
+# note: disconnect all 20 connection may have race causing the open_conns to
+# become -1. The dummy plugin mt_simple does not guarantee concurrency.
 disable_query_log;
 disable_result_log;
-let $i= 20;
+let $i= 10;
 while ($i)
 {
   disconnect con$i;
@@ -58,11 +61,24 @@ enable_result_log;
 connection default;
 # wait for the connections being disconnected
 let $wait_condition=
-  select count(*)=1 from information_schema.processlist;
+  select count(*)=11 from information_schema.processlist;
 source include/wait_condition.inc;
 
 show global status like 'mt_simple_%';
 
+# disconnect the rest 10 connections
+disable_query_log;
+disable_result_log;
+let $i= 20;
+while ($i > 10)
+{
+  disconnect con$i;
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+
+connection default;
 # uninstall will set the plugin to DELETED state
 # and will be unloaded when during server restart
 uninstall plugin mt_simple;
