@@ -30,7 +30,7 @@
 // Resource isolation types that a multi-tenancy plugin will handle.
 // Currently connection and query limits are two resource types. More will be
 // supported in the future.
-enum class enum_multi_tenancy_resource_type
+enum class enum_multi_tenancy_resource_type : int32_t
 {
   MULTI_TENANCY_RESOURCE_CONNECTION,
   MULTI_TENANCY_RESOURCE_QUERY,
@@ -43,7 +43,7 @@ enum class enum_multi_tenancy_resource_type
 // - WAIT: may need to wait for resource to be freed up
 // - REJECT: resource cannot be granted
 // - FALLBACK: plugin is disabled
-enum class enum_multi_tenancy_return_type
+enum class enum_multi_tenancy_return_type : int32_t
 {
   MULTI_TENANCY_RET_ACCEPT = 0,
   MULTI_TENANCY_RET_WAIT,
@@ -70,10 +70,51 @@ typedef struct multi_tenancy_resource_attributes MT_RESOURCE_ATTRS;
 struct st_mysql_multi_tenancy
 {
   int interface_version;
+
+  /*
+   * Request resource
+   * @param THD structure
+   * @param resource type
+   * @param resource attribute map
+   *
+   * @return enum_multi_tenancy_return_type
+   */
   MT_RETURN_TYPE (*request_resource)
     (MYSQL_THD, MT_RESOURCE_TYPE, const MT_RESOURCE_ATTRS *);
+
+  /*
+   * Release resource
+   * @param THD structure
+   * @param resource type
+   * @param resource attribute map
+   *
+   * @return enum_multi_tenancy_return_type
+   */
   MT_RETURN_TYPE (*release_resource)
     (MYSQL_THD, MT_RESOURCE_TYPE, const MT_RESOURCE_ATTRS *);
+
+  /*
+   * Get entity name
+   * @param THD structure
+   * @param resource type
+   * @param resource attribute map
+   *
+   * @return entity name string
+   */
+  std::string (*get_entity_name)
+    (MYSQL_THD, MT_RESOURCE_TYPE, const MT_RESOURCE_ATTRS *);
+
+  /*
+   * Get entity name
+   * @param THD structure
+   * @param resource type
+   * @param entity Resource entity name
+   * @param Resource limit of the entity (output)
+   *
+   * @return current count. -1 if the entity is not found
+   */
+  int (*get_resource_counter)
+    (MYSQL_THD, MT_RESOURCE_TYPE, const char *, int *);
 };
 
 #endif

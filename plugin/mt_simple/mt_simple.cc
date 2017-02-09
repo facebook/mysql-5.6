@@ -27,6 +27,10 @@
  */
 
 
+// Prefix of the databases that mt_simple keeps track of
+static constexpr const char *db_prefix = "test";
+static constexpr const int prefix_len = strlen(db_prefix);
+
 // Number of open connections
 static int number_of_conns;
 // Number of running queries
@@ -114,11 +118,7 @@ static MT_RETURN_TYPE mt_simple_request_resource(
           break;
 
         const char *db = resource_attrs->database;
-        // ignore system schemas
-        if (db &&
-            strcmp(db, INFORMATION_SCHEMA_NAME.str) &&
-            strcmp(db, PERFORMANCE_SCHEMA_DB_NAME.str) &&
-            strcmp(db, MYSQL_SCHEMA_NAME.str))
+        if (db && !strncmp(db, db_prefix, prefix_len))
         {
             my_atomic_add32(&number_of_db_conns, 1);
         }
@@ -163,19 +163,16 @@ static MT_RETURN_TYPE mt_simple_release_resource(
 
         const char *db = resource_attrs->database;
         int val = my_atomic_load32(&number_of_db_conns);
-        // ignore system schemas
-        if (!db && val > 0)
+        if (db && !strncmp(db, db_prefix, prefix_len) && val > 0)
         {
-          if (strcmp(db, INFORMATION_SCHEMA_NAME.str) &&
-              strcmp(db, PERFORMANCE_SCHEMA_DB_NAME.str) &&
-              strcmp(db, MYSQL_SCHEMA_NAME.str))
-            // decrement number_of_db_conns
-            my_atomic_add32(&number_of_db_conns, -1);
+          // decrement number_of_db_conns
+          my_atomic_add32(&number_of_db_conns, -1);
         }
 
         // load total conns
         val = my_atomic_load32(&number_of_conns);
-        if (val > 0) {
+        if (val > 0)
+        {
           //decrement total conns
           my_atomic_add32(&number_of_conns, -1);
         }
@@ -198,6 +195,68 @@ static MT_RETURN_TYPE mt_simple_release_resource(
   return MT_RETURN_TYPE::MULTI_TENANCY_RET_ACCEPT;
 }
 
+
+static std::string mt_simple_get_entity_name(
+    MYSQL_THD thd,
+    MT_RESOURCE_TYPE type,
+    const MT_RESOURCE_ATTRS *resource_attrs)
+{
+  std::string entity;
+
+  if (plugin_on && resource_attrs->database)
+  {
+    entity = resource_attrs->database;
+  }
+
+  return entity;
+}
+
+
+static int mt_simple_get_resource_counter(
+    MYSQL_THD thd,
+    MT_RESOURCE_TYPE type,
+    const char *entity,
+    int *limit)
+{
+  *limit = 0;
+
+  if (!plugin_on)
+    return -1;
+
+  if (!entity)
+    return -1;
+
+  // In real plugins, the counter will reflect the value per entity, e.g.
+  // resource_attrs->database. For mt_simple, this returns the total count.
+  switch(type)
+  {
+    case MT_RESOURCE_TYPE::MULTI_TENANCY_RESOURCE_CONNECTION:
+      {
+        if (!strncmp(entity, db_prefix, prefix_len))
+        {
+          *limit = max_connections;
+          return my_atomic_load32(&number_of_db_conns);
+        }
+        break;
+      }
+
+    case MT_RESOURCE_TYPE::MULTI_TENANCY_RESOURCE_QUERY:
+      {
+        if (!strncmp(entity, db_prefix, prefix_len))
+        {
+          return my_atomic_load32(&number_of_queries);
+        }
+        break;
+      }
+
+    default:
+      return -1;
+  }
+
+  return -1;
+}
+
+
 /*
  * Plugin type-specific descriptor
  */
@@ -205,7 +264,9 @@ static struct st_mysql_multi_tenancy mt_simple_descriptor=
 {
   MYSQL_MULTI_TENANCY_INTERFACE_VERSION, /* interface version    */
   mt_simple_request_resource,
-  mt_simple_release_resource
+  mt_simple_release_resource,
+  mt_simple_get_entity_name,
+  mt_simple_get_resource_counter
 };
 
 

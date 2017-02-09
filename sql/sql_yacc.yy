@@ -1340,6 +1340,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  CONTINUE_SYM                  /* SQL-2003-R */
 %token  CONVERT_SYM                   /* SQL-2003-N */
 %token  COUNT_SYM                     /* SQL-2003-N */
+%token  COUNTERS_SYM
 %token  CPU_SYM
 %token  CREATE                        /* SQL-2003-R */
 %token  CROSS                         /* SQL-2003-R */
@@ -1709,6 +1710,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  REQUIRE_SYM
 %token  RESET_SYM
 %token  RESIGNAL_SYM                  /* SQL-2003-R */
+%token  RESOURCE_SYM
 %token  RESOURCES
 %token  RESTORE_SYM
 %token  RESTRICT
@@ -13392,6 +13394,8 @@ show_param:
           { Lex->sql_command= SQLCOM_SHOW_TRANSACTION_LIST;}
         | opt_full CONNECTION_ATTRIBUTES_SYM
           { Lex->sql_command= SQLCOM_SHOW_CONNECTION_ATTRIBUTES;}
+        | RESOURCE_SYM COUNTERS_SYM opt_entity
+          { Lex->sql_command= SQLCOM_SHOW_RESOURCE_COUNTERS; }
         | opt_var_type  VARIABLES wild_and_where
           {
             LEX *lex= Lex;
@@ -13573,6 +13577,14 @@ opt_db:
 opt_full:
           /* empty */ { Lex->verbose=0; }
         | FULL        { Lex->verbose=1; }
+        ;
+
+opt_entity:
+          /* empty */
+          {
+            memset(&Lex->resource_entity, 0, sizeof(Lex->resource_entity));
+          }
+        | FOR_SYM TEXT_STRING_sys { Lex->resource_entity=$2; }
         ;
 
 from_or_in:
@@ -14969,12 +14981,13 @@ keyword_sp:
         | COMPRESSED_SYM           {}
         | CONCURRENT               {}
         | CONNECTION_SYM           {}
-        | CONNECTION_ATTRIBUTES_SYM {}
+        | CONNECTION_ATTRIBUTES_SYM{}
         | CONSISTENT_SYM           {}
         | CONSTRAINT_CATALOG_SYM   {}
         | CONSTRAINT_SCHEMA_SYM    {}
         | CONSTRAINT_NAME_SYM      {}
         | CONTEXT_SYM              {}
+        | COUNTERS_SYM             {}
         | CPU_SYM                  {}
         | CUBE_SYM                 {}
         /*
@@ -15160,6 +15173,7 @@ keyword_sp:
         | REORGANIZE_SYM           {}
         | REPEATABLE_SYM           {}
         | REPLICATION              {}
+        | RESOURCE_SYM             {}
         | RESOURCES                {}
         | RESUME_SYM               {}
         | RETURNED_SQLSTATE_SYM    {}

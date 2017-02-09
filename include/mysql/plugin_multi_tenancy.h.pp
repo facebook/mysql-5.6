@@ -268,13 +268,13 @@ void mysql_bin_log_unlock_commits(char* binlog_file,
                                   unsigned long long* binlog_pos,
                                   char** gtid_executed,
                                   int* gtid_executed_length);
-enum class enum_multi_tenancy_resource_type
+enum class enum_multi_tenancy_resource_type : int32_t
 {
   MULTI_TENANCY_RESOURCE_CONNECTION,
   MULTI_TENANCY_RESOURCE_QUERY,
   MULTI_TENANCY_NUM_RESOURCE_TYPES
 };
-enum class enum_multi_tenancy_return_type
+enum class enum_multi_tenancy_return_type : int32_t
 {
   MULTI_TENANCY_RET_ACCEPT = 0,
   MULTI_TENANCY_RET_WAIT,
@@ -299,4 +299,8 @@ struct st_mysql_multi_tenancy
     (void*, MT_RESOURCE_TYPE, const MT_RESOURCE_ATTRS *);
   MT_RETURN_TYPE (*release_resource)
     (void*, MT_RESOURCE_TYPE, const MT_RESOURCE_ATTRS *);
+  std::string (*get_entity_name)
+    (void*, MT_RESOURCE_TYPE, const MT_RESOURCE_ATTRS *);
+  int (*get_resource_counter)
+    (void*, MT_RESOURCE_TYPE, const char *, int *);
 };

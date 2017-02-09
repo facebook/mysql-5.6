@@ -45,7 +45,13 @@ extern int multi_tenancy_add_connection(THD *, const MT_RESOURCE_ATTRS *);
 extern int multi_tenancy_close_connection(THD *, const MT_RESOURCE_ATTRS *);
 extern int multi_tenancy_admit_query(THD *, const MT_RESOURCE_ATTRS *);
 extern int multi_tenancy_exit_query(THD *, const MT_RESOURCE_ATTRS *);
-
+extern std::string multi_tenancy_get_entity(
+    THD *, MT_RESOURCE_TYPE type, const MT_RESOURCE_ATTRS *);
+extern std::string multi_tenancy_get_entity_counter(
+    THD *thd, MT_RESOURCE_TYPE type, const MT_RESOURCE_ATTRS *,
+    const char *entity_name, int *limit, int *count);
+extern void multi_tenancy_show_resource_counters(
+    THD *thd, const MT_RESOURCE_ATTRS *, const char *entity);
 
 /**
   Per-thread information used in admission control.
