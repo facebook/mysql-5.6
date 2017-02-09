@@ -518,6 +518,7 @@ void init_update_queries(void)
   sql_command_flags[SQLCOM_SHOW_PROCESSLIST]= CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_TRANSACTION_LIST]= CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CONNECTION_ATTRIBUTES]= CF_STATUS_COMMAND;
+  sql_command_flags[SQLCOM_SHOW_RESOURCE_COUNTERS]= CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_GRANTS]=      CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE_DB]=   CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE]=  CF_STATUS_COMMAND;
@@ -4542,6 +4543,20 @@ end_with_restore_list:
                            thd->security_ctx->priv_user),
                           lex->verbose);
     break;
+  case SQLCOM_SHOW_RESOURCE_COUNTERS:
+    {
+      if (!thd->security_ctx->priv_user[0] &&
+          check_global_access(thd, PROCESS_ACL))
+        break;
+      MT_RESOURCE_ATTRS attrs = {
+        &thd->connection_attrs_map,
+        &thd->query_attrs_map,
+        thd->db
+      };
+      multi_tenancy_show_resource_counters(
+          thd, &attrs, lex->resource_entity.str);
+      break;
+    }
   case SQLCOM_SHOW_PRIVILEGES:
     res= mysqld_show_privileges(thd);
     break;

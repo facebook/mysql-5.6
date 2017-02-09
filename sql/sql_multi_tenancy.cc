@@ -153,6 +153,7 @@ static bool filter_command(enum_sql_command sql_command)
     case SQLCOM_SHOW_ENGINE_TRX:
     case SQLCOM_SHOW_MEMORY_STATUS:
     case SQLCOM_SHOW_CONNECTION_ATTRIBUTES:
+    case SQLCOM_SHOW_RESOURCE_COUNTERS:
       return IS_BIT_SET(admission_control_filter, ADMISSION_CONTROL_SHOW);
 
     case SQLCOM_CHANGE_DB:
@@ -168,7 +169,7 @@ static bool filter_command(enum_sql_command sql_command)
  * Add a connection in multi-tenancy plugin
  *
  * @param thd THD structure
- * @param attr_map connection attribute map
+ * @param attrs Resource attributes
  *
  * @return 0 if the connection is added, 1 if rejected
  */
@@ -201,7 +202,7 @@ int multi_tenancy_add_connection(THD *thd, const MT_RESOURCE_ATTRS *attrs)
  * Release a connection in multi-tenancy plugin
  *
  * @param thd THD structure
- * @param attr_map connection attribute map
+ * @param attrs Resource attributes
  *
  * @return 0 if successful, 1 if otherwise
  */
@@ -228,7 +229,7 @@ int multi_tenancy_close_connection(THD *thd, const MT_RESOURCE_ATTRS *attrs)
  * Admit a query based on database entity
  *
  * @param thd THD structure
- * @param attr_map Query attribute map for the query
+ * @param attrs Resource attributes
  *
  * @return 0 if the query is admitted, 1 if otherwise
  */
@@ -274,7 +275,7 @@ int multi_tenancy_admit_query(THD *thd, const MT_RESOURCE_ATTRS *attrs)
  * Exit a query based on database entity
  *
  * @param thd THD structure
- * @param attr_map Query attribute map for the query
+ * @param attrs Resource attributes
  *
  * @return 0 if successful, 1 if otherwise
  */
@@ -285,6 +286,81 @@ int multi_tenancy_exit_query(THD *thd, const MT_RESOURCE_ATTRS *attrs)
 
   db_ac->admission_control_exit(thd, attrs);
   return 0;
+}
+
+
+/*
+ * Get the resource entity (e.g. db or user) from multi-tenancy plugin
+ *
+ * @param thd THD structure
+ * @param type Resource type
+ * @param attrs Resource attributes
+ *
+ * @return resource entity name. Emtpy string if no plugin is installed.
+ */
+std::string multi_tenancy_get_entity(
+    THD *thd, MT_RESOURCE_TYPE type, const MT_RESOURCE_ATTRS *attrs)
+{
+  std::string entity;
+  st_mysql_multi_tenancy *data= NULL;
+  if (thd->variables.multi_tenancy_plugin)
+  {
+    mysql_mutex_lock(&thd->LOCK_thd_data);
+    data = plugin_data(thd->variables.multi_tenancy_plugin,
+                       struct st_mysql_multi_tenancy *);
+    entity = data->get_entity_name(thd, type, attrs);
+    mysql_mutex_unlock(&thd->LOCK_thd_data);
+  }
+
+  return entity;
+}
+
+
+/*
+ * Get the resource counter of database or user from multi-tenancy plugin
+ *
+ * @param thd THD structure
+ * @param type Resource type
+ * @param attrs Resource attributes
+ * @param entity_name Resource entity name if not null
+ * @param limit Resource limit of the entity (output)
+ * @param count Resource current count of the entity (output)
+ *
+ * @return current count. 0 if no plugin is installed.
+ */
+std::string multi_tenancy_get_entity_counter(
+    THD *thd, MT_RESOURCE_TYPE type, const MT_RESOURCE_ATTRS *attrs,
+    const char *entity_name, int *limit, int *count)
+{
+  *limit = 0;
+  *count = -1;
+  std::string entity;
+  st_mysql_multi_tenancy *data= NULL;
+  if (thd->variables.multi_tenancy_plugin)
+  {
+    mysql_mutex_lock(&thd->LOCK_thd_data);
+
+    data = plugin_data(thd->variables.multi_tenancy_plugin,
+                       struct st_mysql_multi_tenancy *);
+
+    if (entity_name)
+    {
+      entity = entity_name;
+    }
+    else
+    {
+      entity = data->get_entity_name(thd, type, attrs);
+    }
+
+    if (!entity.empty())
+    {
+      *count = data->get_resource_counter(thd, type, entity.c_str(), limit);
+    }
+
+    mysql_mutex_unlock(&thd->LOCK_thd_data);
+  }
+
+  return entity;
 }
 
 
@@ -370,7 +446,95 @@ int finalize_multi_tenancy_plugin(st_plugin_int *plugin)
 }
 
 
+std::string multi_tenancy_get_entity(
+    THD *thd, MT_RESOURCE_TYPE type, const MT_RESOURCE_ATTRS *attrs)
+{
+  return std::string("");
+}
+
+
+std::string multi_tenancy_get_entity_counter(
+    THD *thd, MT_RESOURCE_TYPE type, const MT_RESOURCE_ATTRS *attrs,
+    const char *entity, int *limit, int *count)
+{
+  *limit = 0;
+  *count = -1;
+  return std::string("");
+}
+
+
 #endif /* EMBEDDED_LIBRARY */
+
+
+/*
+ * Helper function: write a counter row to output
+ */
+static void store_counter(Protocol *protocol,
+                          THD *thd,
+                          MT_RESOURCE_TYPE type,
+                          const char * type_str,
+                          const MT_RESOURCE_ATTRS *attrs,
+                          const char *entity_str)
+{
+  int limit;
+  int count;
+  std::string entity = multi_tenancy_get_entity_counter(
+        thd, type, attrs, entity_str, &limit, &count);
+  if (!entity.empty() && count >= 0)
+  {
+    protocol->prepare_for_resend();
+    protocol->store(entity.c_str(), system_charset_info);
+    protocol->store(type_str, system_charset_info);
+    protocol->store_long((longlong) limit);
+    protocol->store_long((longlong) count);
+    protocol->write();
+  }
+}
+
+/*
+ * Show resource counters if there is any.
+ * This is called for the command "SHOW RESOURCE COUNTERS".
+ *
+ * @param thd THD structure
+ * @param attrs Resource attributes to get entity
+ * @param entity Resource entity name if provided
+ *
+ * @return counter per type, or empty set if no plugin is installed
+ */
+void multi_tenancy_show_resource_counters(
+    THD *thd, const MT_RESOURCE_ATTRS *attrs, const char *entity)
+{
+  List<Item> field_list;
+  field_list.push_back(new Item_empty_string("Entity Name",NAME_LEN));
+  field_list.push_back(new Item_empty_string("Resource Type",NAME_LEN));
+  field_list.push_back(new Item_return_int("Resource Limit",
+        MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG));
+  field_list.push_back(new Item_return_int("Current Count",
+        MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG));
+
+  Protocol *protocol= thd->protocol;
+  if (protocol->send_result_set_metadata(&field_list,
+        Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
+    return;
+
+  // connection counter
+  store_counter(protocol,
+                thd,
+                MT_RESOURCE_TYPE::MULTI_TENANCY_RESOURCE_CONNECTION,
+                "connection",
+                attrs,
+                entity);
+
+  // query counter
+  store_counter(protocol,
+                thd,
+                MT_RESOURCE_TYPE::MULTI_TENANCY_RESOURCE_QUERY,
+                "query",
+                attrs,
+                entity);
+
+  my_eof(thd);
+}
 
 
 AC *db_ac; // admission control object
