@@ -1138,6 +1138,10 @@ The following options may be given as the first argument:
  DBOptions::enable_write_thread_adaptive_yield for RocksDB
  --rocksdb-error-if-exists 
  DBOptions::error_if_exists for RocksDB
+ --rocksdb-flush-log-at-trx-commit=# 
+ Sync on transaction commit. Similar to
+ innodb_flush_log_at_trx_commit. 1: sync on commit, 0,2:
+ not sync on commit
  --rocksdb-flush-memtable-on-analyze 
  Forces memtable flush on ANALZYE table to get accurate
  cardinality
@@ -1307,7 +1311,8 @@ The following options may be given as the first argument:
  --rocksdb-wal-dir=name 
  DBOptions::wal_dir for RocksDB
  --rocksdb-wal-recovery-mode=# 
- DBOptions::wal_recovery_mode for RocksDB
+ DBOptions::wal_recovery_mode for RocksDB. Default is
+ kAbsoluteConsistency
  --rocksdb-wal-size-limit-mb=# 
  DBOptions::WAL_size_limit_MB for RocksDB
  --rocksdb-wal-ttl-seconds=# 
@@ -1319,8 +1324,6 @@ The following options may be given as the first argument:
  WriteOptions::disableWAL for RocksDB
  --rocksdb-write-ignore-missing-column-families 
  WriteOptions::ignore_missing_column_families for RocksDB
- --rocksdb-write-sync 
- WriteOptions::sync for RocksDB
  --rpl-event-buffer-size=# 
  The size of the preallocated event buffer for slave
  connections that avoids calls to malloc & free for events
@@ -1959,6 +1962,7 @@ rocksdb-enable-bulk-load-api TRUE
 rocksdb-enable-thread-tracking FALSE
 rocksdb-enable-write-thread-adaptive-yield FALSE
 rocksdb-error-if-exists FALSE
+rocksdb-flush-log-at-trx-commit 1
 rocksdb-flush-memtable-on-analyze TRUE
 rocksdb-force-flush-memtable-now FALSE
 rocksdb-force-index-records-in-range 0
@@ -2022,13 +2026,12 @@ rocksdb-validate-tables 1
 rocksdb-verify-row-debug-checksums FALSE
 rocksdb-wal-bytes-per-sync 0
 rocksdb-wal-dir 
-rocksdb-wal-recovery-mode 2
+rocksdb-wal-recovery-mode 1
 rocksdb-wal-size-limit-mb 0
 rocksdb-wal-ttl-seconds 0
 rocksdb-whole-key-filtering TRUE
 rocksdb-write-disable-wal FALSE
 rocksdb-write-ignore-missing-column-families FALSE
-rocksdb-write-sync FALSE
 rpl-event-buffer-size 1048576
 rpl-read-size 8192
 rpl-receive-buffer-size 2097152
