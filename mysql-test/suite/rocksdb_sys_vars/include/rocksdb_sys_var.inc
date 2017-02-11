@@ -26,7 +26,7 @@ if (!$read_only)
     --eval SET @@global.$sys_var   = $value
     --eval SELECT @@global.$sys_var
     --let $v=`SELECT @@global.$sys_var`
-    --source suite/sys_vars/inc/correctboolvalue.inc
+    --source ./correctboolvalue.inc
     if (!$sticky)
     {
       if ($v != $int_value)
@@ -56,7 +56,7 @@ if (!$read_only)
       --eval SET @@session.$sys_var   = $value
       --eval SELECT @@session.$sys_var
       --let $v=`SELECT @@session.$sys_var`
-      --source suite/sys_vars/inc/correctboolvalue.inc
+      --source ./correctboolvalue.inc
       if (!$sticky)
       {
         if ($v != $int_value)
