@@ -1783,6 +1783,7 @@ public:
   ulonglong rows_inserted;	/* count rows inserted */
   ulonglong rows_updated;	/* count rows updated */
   ulonglong rows_deleted;	/* count rows deleted */
+  ulonglong rows_deleted_blind;	/* count rows blindly deleted */
   ulonglong rows_read;		/* count row read attempts that return a row */
   ulonglong rows_requested;	/* count row read attempts, successful or not */
 
