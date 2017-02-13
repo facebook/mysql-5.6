@@ -258,6 +258,7 @@ enum operation_type {
   ROWS_INSERTED,
   ROWS_READ,
   ROWS_UPDATED,
+  ROWS_DELETED_BLIND,
   ROWS_MAX
 };
 
@@ -282,6 +283,7 @@ struct st_export_stats {
   ulonglong rows_inserted;
   ulonglong rows_read;
   ulonglong rows_updated;
+  ulonglong rows_deleted_blind;
 
   ulonglong system_rows_deleted;
   ulonglong system_rows_inserted;
@@ -474,13 +476,13 @@ class ha_rocksdb : public my_core::handler {
                  const rocksdb::Slice &key, std::string *const value) const;
 
   int get_row_by_rowid(uchar *const buf, const char *const rowid,
-                       const uint rowid_size)
+                       const uint rowid_size, const bool skip_lookup = false)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   int get_row_by_rowid(uchar *const buf, const uchar *const rowid,
-                       const uint rowid_size)
+                       const uint rowid_size, const bool skip_lookup = false)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__)) {
     return get_row_by_rowid(buf, reinterpret_cast<const char *>(rowid),
-                            rowid_size);
+                            rowid_size, skip_lookup);
   }
 
   void update_auto_incr_val();
@@ -491,6 +493,7 @@ class ha_rocksdb : public my_core::handler {
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   bool can_use_single_delete(const uint &index) const
       MY_ATTRIBUTE((__warn_unused_result__));
+  bool is_blind_delete_enabled();
   bool skip_unique_check() const MY_ATTRIBUTE((__warn_unused_result__));
   void set_force_skip_unique_check(bool skip) override;
   bool commit_in_the_middle() MY_ATTRIBUTE((__warn_unused_result__));
