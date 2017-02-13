@@ -864,6 +864,7 @@ rocksdb_allow_mmap_reads	OFF
 rocksdb_allow_mmap_writes	OFF
 rocksdb_background_sync	OFF
 rocksdb_base_background_compactions	1
+rocksdb_blind_delete_primary_key	OFF
 rocksdb_block_cache_size	536870912
 rocksdb_block_restart_interval	16
 rocksdb_block_size	4096
@@ -909,6 +910,7 @@ rocksdb_lock_scanned_rows	OFF
 rocksdb_lock_wait_timeout	1
 rocksdb_log_file_time_to_roll	0
 rocksdb_manifest_preallocation_size	4194304
+rocksdb_master_skip_tx_api	OFF
 rocksdb_max_background_compactions	1
 rocksdb_max_background_flushes	1
 rocksdb_max_log_file_size	0
@@ -1410,6 +1412,7 @@ rocksdb_rows_deleted	#
 rocksdb_rows_inserted	#
 rocksdb_rows_read	#
 rocksdb_rows_updated	#
+rocksdb_rows_deleted_blind	#
 rocksdb_system_rows_deleted	#
 rocksdb_system_rows_inserted	#
 rocksdb_system_rows_read	#
@@ -1482,6 +1485,7 @@ ROCKSDB_ROWS_DELETED
 ROCKSDB_ROWS_INSERTED
 ROCKSDB_ROWS_READ
 ROCKSDB_ROWS_UPDATED
+ROCKSDB_ROWS_DELETED_BLIND
 ROCKSDB_SYSTEM_ROWS_DELETED
 ROCKSDB_SYSTEM_ROWS_INSERTED
 ROCKSDB_SYSTEM_ROWS_READ
@@ -1556,6 +1560,7 @@ ROCKSDB_ROWS_DELETED
 ROCKSDB_ROWS_INSERTED
 ROCKSDB_ROWS_READ
 ROCKSDB_ROWS_UPDATED
+ROCKSDB_ROWS_DELETED_BLIND
 ROCKSDB_SYSTEM_ROWS_DELETED
 ROCKSDB_SYSTEM_ROWS_INSERTED
 ROCKSDB_SYSTEM_ROWS_READ
