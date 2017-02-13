@@ -484,6 +484,12 @@ static MYSQL_THDVAR_BOOL(
     "update and delete",
     nullptr, nullptr, FALSE);
 
+static MYSQL_THDVAR_BOOL(
+    blind_delete_primary_key, PLUGIN_VAR_RQCMDARG,
+    "Deleting rows by primary key lookup, without reading rows (Blind Deletes)."
+    " Blind delete is disabled if the table has secondary key",
+    nullptr, nullptr, FALSE);
+
 static MYSQL_THDVAR_STR(
     read_free_rpl_tables, PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
     "List of tables that will use read-free replication on the slave "
@@ -1113,6 +1119,11 @@ static MYSQL_THDVAR_BOOL(verify_row_debug_checksums, PLUGIN_VAR_RQCMDARG,
                          "Verify checksums when reading index/table records",
                          nullptr, nullptr, false /* default value */);
 
+static MYSQL_THDVAR_BOOL(master_skip_tx_api, PLUGIN_VAR_RQCMDARG,
+                         "Skipping holding any lock on row access. "
+                         "Not effective on slave.",
+                         nullptr, nullptr, false);
+
 static MYSQL_SYSVAR_UINT(
     validate_tables, rocksdb_validate_tables,
     PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -1163,6 +1174,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(skip_unique_check_tables),
     MYSQL_SYSVAR(trace_sst_api),
     MYSQL_SYSVAR(commit_in_the_middle),
+    MYSQL_SYSVAR(blind_delete_primary_key),
     MYSQL_SYSVAR(read_free_rpl_tables),
     MYSQL_SYSVAR(bulk_load_size),
     MYSQL_SYSVAR(merge_buf_size),
@@ -1268,6 +1280,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(checksums_pct),
     MYSQL_SYSVAR(store_row_debug_checksums),
     MYSQL_SYSVAR(verify_row_debug_checksums),
+    MYSQL_SYSVAR(master_skip_tx_api),
 
     MYSQL_SYSVAR(validate_tables),
     MYSQL_SYSVAR(table_stats_sampling_pct),
@@ -2378,10 +2391,15 @@ static Rdb_transaction *get_or_create_tx(THD *const thd) {
   Rdb_transaction *&tx = get_tx_from_thd(thd);
   // TODO: this is called too many times.. O(#rows)
   if (tx == nullptr) {
-    if (rpl_skip_tx_api && thd->rli_slave)
+    if ((rpl_skip_tx_api && thd->rli_slave) ||
+        (THDVAR(thd, master_skip_tx_api) && !thd->rli_slave))
+    {
       tx = new Rdb_writebatch_impl(thd);
+    }
     else
+    {
       tx = new Rdb_transaction_impl(thd);
+    }
     tx->set_params(THDVAR(thd, lock_wait_timeout), THDVAR(thd, max_row_locks));
     tx->start_tx();
   } else {
@@ -5917,8 +5935,10 @@ int ha_rocksdb::index_read_map_impl(uchar *const buf, const uchar *const key,
     */
     const uint size = kd.pack_index_tuple(table, m_pack_buffer,
                                           m_pk_packed_tuple, key, keypart_map);
-    rc = get_row_by_rowid(buf, m_pk_packed_tuple, size);
-    if (!rc) {
+    bool skip_lookup = is_blind_delete_enabled();
+    rc = get_row_by_rowid(buf, m_pk_packed_tuple, size,
+                          skip_lookup);
+    if (!rc && !skip_lookup) {
       stats.rows_read++;
       stats.rows_index_first++;
       update_row_stats(ROWS_READ);
@@ -6351,6 +6371,17 @@ rocksdb::Status ha_rocksdb::get_for_update(
   return s;
 }
 
+bool ha_rocksdb::is_blind_delete_enabled()
+{
+  THD *thd = ha_thd();
+  return (THDVAR(thd, blind_delete_primary_key) &&
+          thd->lex->sql_command == SQLCOM_DELETE &&
+          thd->lex->table_count == 1 &&
+          table->s->keys == 1 &&
+          !has_hidden_pk(table) &&
+          !thd->rli_slave);
+}
+
 /*
   Given a rowid (i.e. packed PK) as a parameter, get the record.
 
@@ -6360,7 +6391,8 @@ rocksdb::Status ha_rocksdb::get_for_update(
 */
 
 int ha_rocksdb::get_row_by_rowid(uchar *const buf, const char *const rowid,
-                                 const uint rowid_size) {
+                                 const uint rowid_size,
+                                 const bool skip_lookup) {
   DBUG_ENTER_FUNC();
 
   DBUG_ASSERT(buf != nullptr);
@@ -6385,6 +6417,16 @@ int ha_rocksdb::get_row_by_rowid(uchar *const buf, const char *const rowid,
 
   bool found;
   rocksdb::Status s;
+
+  /* Pretend row found without looking up */
+  if (skip_lookup)
+  {
+    stats.rows_deleted_blind++;
+    update_row_stats(ROWS_DELETED_BLIND);
+    m_last_rowkey.copy((const char *)rowid, rowid_size, &my_charset_bin);
+    table->status = 0;
+    DBUG_RETURN(0);
+  }
 
   if (m_lock_rows == RDB_LOCK_NONE) {
     tx->acquire_snapshot(true);
@@ -9768,6 +9810,7 @@ static void myrocks_update_status() {
   export_stats.rows_inserted = global_stats.rows[ROWS_INSERTED];
   export_stats.rows_read = global_stats.rows[ROWS_READ];
   export_stats.rows_updated = global_stats.rows[ROWS_UPDATED];
+  export_stats.rows_deleted_blind = global_stats.rows[ROWS_DELETED_BLIND];
 
   export_stats.system_rows_deleted = global_stats.system_rows[ROWS_DELETED];
   export_stats.system_rows_inserted = global_stats.system_rows[ROWS_INSERTED];
@@ -9783,6 +9826,8 @@ static SHOW_VAR myrocks_status_variables[] = {
     DEF_STATUS_VAR_FUNC("rows_read", &export_stats.rows_read, SHOW_LONGLONG),
     DEF_STATUS_VAR_FUNC("rows_updated", &export_stats.rows_updated,
                         SHOW_LONGLONG),
+    DEF_STATUS_VAR_FUNC("rows_deleted_blind",
+                        &export_stats.rows_deleted_blind, SHOW_LONGLONG),
     DEF_STATUS_VAR_FUNC("system_rows_deleted",
                         &export_stats.system_rows_deleted, SHOW_LONGLONG),
     DEF_STATUS_VAR_FUNC("system_rows_inserted",
