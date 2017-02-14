@@ -924,7 +924,10 @@ void Optimize_table_order::best_access_path(
   }
 
   if ((s->table->file->ha_table_flags() & HA_TABLE_SCAN_ON_INDEX) &&    //(3)
-      !s->table->covering_keys.is_clear_all() && best_key &&            //(3)
+      best_key &&                                                       //(3)
+      (!s->table->covering_keys.is_clear_all() ||
+       (s->table->file->primary_key_is_clustered() &&
+        s->table->s->primary_key == best_key->key)) &&                  //(3)
       (!s->quick ||                                                     //(3)
        (s->quick->get_type() == QUICK_SELECT_I::QS_TYPE_ROR_INTERSECT &&//(3)
         best < s->quick->read_time)))                                   //(3)
