@@ -78,15 +78,14 @@ void mysql_audit_general_log(THD *thd, const char *cmd, uint cmdlen,
     ha_rows resultrows= 0;
     longlong affectrows= 0;
     int error_code= 0; 
-    char user_buff[MAX_USER_HOST_SIZE + 1];
     uint userlen, databaselen, queryattrlen;
     const char *user, *database, *queryattr;
     time_t time= (time_t) thd->start_time.tv_sec;
 
     if (thd)
     {
-      user= user_buff;
-      userlen= make_user_name(thd, user_buff);
+      user= thd->security_ctx->user;
+      userlen= strlen(thd->security_ctx->user);
       if (!query_len)
       {
         /* no query specified, fetch from THD */
@@ -165,7 +164,6 @@ void mysql_audit_general(THD *thd, uint event_subtype,
     uint msglen= msg ? strlen(msg) : 0;
     uint userlen, databaselen, queryattrlen;
     const char *user, *database, *queryattr;
-    char user_buff[MAX_USER_HOST_SIZE];
     CSET_STRING query;
     MYSQL_LEX_STRING ip, host, external_user, sql_command;
     // Result rows will hold the number of rows sent to the client.
@@ -187,8 +185,8 @@ void mysql_audit_general(THD *thd, uint event_subtype,
                            thd->rewritten_query.charset());
       else
         query= thd->query_string;
-      user= user_buff;
-      userlen= make_user_name(thd, user_buff);
+      user= thd->security_ctx->user;
+      userlen= strlen(thd->security_ctx->user);
       affectrows= thd->get_row_count_func();
       resultrows= thd->get_sent_row_count();
       ip.str= (char *) thd->security_ctx->get_ip()->ptr();
