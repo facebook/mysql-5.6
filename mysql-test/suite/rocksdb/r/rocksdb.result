@@ -889,6 +889,7 @@ rocksdb_db_write_buffer_size	0
 rocksdb_deadlock_detect	OFF
 rocksdb_debug_optimizer_no_zero_cardinality	ON
 rocksdb_default_cf_options	
+rocksdb_delayed_write_rate	2097152
 rocksdb_delete_obsolete_files_period_micros	21600000000
 rocksdb_disabledatasync	OFF
 rocksdb_enable_2pc	ON
