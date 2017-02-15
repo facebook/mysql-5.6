@@ -1,6 +1,9 @@
 # Skip the test in embedded mode
 --source include/not_embedded.inc
 
+# Disable async client for this test
+--disable_async_client
+
 # Make sure that connection_control plugin can be loaded
 --source ../inc/have_connection_control_plugin.inc
 --source ../inc/have_test_plugin.inc
