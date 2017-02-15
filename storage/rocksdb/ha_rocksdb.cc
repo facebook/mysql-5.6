@@ -651,13 +651,6 @@ static MYSQL_SYSVAR_ULONG(max_total_wal_size,
                           /* min */ 0L, /* max */ LONG_MAX, 0);
 
 static MYSQL_SYSVAR_BOOL(
-    disabledatasync,
-    *reinterpret_cast<my_bool *>(&rocksdb_db_options.disableDataSync),
-    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-    "DBOptions::disableDataSync for RocksDB", nullptr, nullptr,
-    rocksdb_db_options.disableDataSync);
-
-static MYSQL_SYSVAR_BOOL(
     use_fsync, *reinterpret_cast<my_bool *>(&rocksdb_db_options.use_fsync),
     PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
     "DBOptions::use_fsync for RocksDB", nullptr, nullptr,
@@ -1187,7 +1180,6 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(info_log_level),
     MYSQL_SYSVAR(max_open_files),
     MYSQL_SYSVAR(max_total_wal_size),
-    MYSQL_SYSVAR(disabledatasync),
     MYSQL_SYSVAR(use_fsync),
     MYSQL_SYSVAR(wal_dir),
     MYSQL_SYSVAR(persistent_cache_path),
