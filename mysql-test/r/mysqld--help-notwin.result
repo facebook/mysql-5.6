@@ -1952,7 +1952,7 @@ rocksdb-deadlock-detect FALSE
 rocksdb-debug-optimizer-n-rows 0
 rocksdb-debug-optimizer-no-zero-cardinality TRUE
 rocksdb-default-cf-options 
-rocksdb-delayed-write-rate 2097152
+rocksdb-delayed-write-rate 16777216
 rocksdb-delete-obsolete-files-period-micros 21600000000
 rocksdb-enable-2pc TRUE
 rocksdb-enable-bulk-load-api TRUE
