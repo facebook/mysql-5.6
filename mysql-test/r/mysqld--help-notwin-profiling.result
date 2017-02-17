@@ -1150,6 +1150,9 @@ The following options may be given as the first argument:
  Forces memtable flush on ANALZYE table to get accurate
  cardinality
  (Defaults to on; use --skip-rocksdb-flush-memtable-on-analyze to disable.)
+ --rocksdb-force-compute-memtable-stats
+ Force to always compute memtable stats
+ (Defaults to on; use --skip-rocksdb-force-compute-memtable-stats to disable.)
  --rocksdb-force-flush-memtable-now 
  Forces memstore flush which may block all write requests
  so be careful
@@ -1972,6 +1975,7 @@ rocksdb-enable-write-thread-adaptive-yield FALSE
 rocksdb-error-if-exists FALSE
 rocksdb-flush-log-at-trx-commit 1
 rocksdb-flush-memtable-on-analyze TRUE
+rocksdb-force-compute-memtable-stats TRUE
 rocksdb-force-flush-memtable-now FALSE
 rocksdb-force-index-records-in-range 0
 rocksdb-global-info ON
