@@ -85,7 +85,7 @@ void mysql_audit_general_log(THD *thd, const char *cmd, uint cmdlen,
     if (thd)
     {
       user= thd->security_ctx->user;
-      userlen= strlen(thd->security_ctx->user);
+      userlen= thd->security_ctx->user ? strlen(thd->security_ctx->user) : 0;
       if (!query_len)
       {
         /* no query specified, fetch from THD */
@@ -186,7 +186,7 @@ void mysql_audit_general(THD *thd, uint event_subtype,
       else
         query= thd->query_string;
       user= thd->security_ctx->user;
-      userlen= strlen(thd->security_ctx->user);
+      userlen= thd->security_ctx->user ? strlen(thd->security_ctx->user) : 0;
       affectrows= thd->get_row_count_func();
       resultrows= thd->get_sent_row_count();
       ip.str= (char *) thd->security_ctx->get_ip()->ptr();
