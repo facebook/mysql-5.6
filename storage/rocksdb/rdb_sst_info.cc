@@ -191,6 +191,10 @@ Rdb_sst_info::Rdb_sst_info(rocksdb::DB *const db, const std::string &tablename,
     m_prefix += normalized_table + "_" + indexname + "_";
   }
 
+  // Unique filename generated to prevent collisions when the same table
+  // is loaded in parallel
+  m_prefix += std::to_string(m_prefix_counter.fetch_add(1)) + "_";
+
   rocksdb::ColumnFamilyDescriptor cf_descr;
   const rocksdb::Status s = m_cf->GetDescriptor(&cf_descr);
   if (!s.ok()) {
@@ -414,5 +418,6 @@ void Rdb_sst_info::init(const rocksdb::DB *const db) {
   my_dirend(dir_info);
 }
 
+std::atomic<uint64_t> Rdb_sst_info::m_prefix_counter(0);
 std::string Rdb_sst_info::m_suffix = ".bulk_load.tmp";
 } // namespace myrocks
