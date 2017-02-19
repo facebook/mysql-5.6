@@ -17,6 +17,7 @@
 #pragma once
 
 /* C++ standard header files */
+#include <atomic>
 #include <condition_variable>
 #include <mutex>
 #include <queue>
@@ -71,6 +72,7 @@ private:
   uint m_sst_count;
   std::string m_error_msg;
   std::string m_prefix;
+  static std::atomic<uint64_t> m_prefix_counter;
   static std::string m_suffix;
 #if defined(RDB_SST_INFO_USE_THREAD)
   std::queue<Rdb_sst_file *> m_queue;
