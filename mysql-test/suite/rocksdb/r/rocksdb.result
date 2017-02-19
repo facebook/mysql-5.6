@@ -969,12 +969,25 @@ insert into t47 values (2, 'row2');
 set rocksdb_bulk_load=1;
 insert into t47 values (3, 'row3'),(4, 'row4');
 set rocksdb_bulk_load=0;
+connect  con1,localhost,root,,;
+set rocksdb_bulk_load=1;
+insert into t47 values (10, 'row10'),(11, 'row11');
+connection default;
+set rocksdb_bulk_load=1;
+insert into t47 values (100, 'row100'),(101, 'row101');
+disconnect con1;
+connection default;
+set rocksdb_bulk_load=0;
 select * from t47;
 pk	col1
 1	row1
 2	row2
 3	row3
 4	row4
+10	row10
+11	row11
+100	row100
+101	row101
 drop table t47;
 #
 # Fix TRUNCATE over empty table (transaction is committed when it wasn't
