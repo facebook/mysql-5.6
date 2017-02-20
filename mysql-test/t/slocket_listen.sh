@@ -14,7 +14,7 @@ dirname=`dirname "$0"`
 
 ###########################################################################
 
-function log_debug {
+log_debug() {
   echo $1 >> $log_file
 }
 
