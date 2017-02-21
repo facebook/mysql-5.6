@@ -122,6 +122,34 @@ const char *const BG_THREAD_NAME = "myrocks-bg";
 const char *const INDEX_THREAD_NAME = "myrocks-index";
 
 /*
+  Separator between partition name and the qualifier. Sample usage:
+
+  - p0_cfname=foo
+  - p3_tts_col=bar
+*/
+const char RDB_PER_PARTITION_QUALIFIER_NAME_SEP = '_';
+
+/*
+  Separator between qualifier name and value. Sample usage:
+
+  - p0_cfname=foo
+  - p3_tts_col=bar
+*/
+const char RDB_PER_PARTITION_QUALIFIER_VALUE_SEP = '=';
+
+/*
+  Separator between multiple qualifier assignments. Sample usage:
+
+  - p0_cfname=foo;p1_cfname=bar;p2_cfname=baz
+*/
+const char RDB_QUALIFIER_SEP = ';';
+
+/*
+  Qualifier name for a custom per partition column family.
+*/
+const char *const RDB_CF_NAME_QUALIFIER = "cfname";
+
+/*
   Default, minimal valid, and maximum valid sampling rate values when collecting
   statistics about table.
 */
@@ -673,20 +701,18 @@ public:
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   int convert_blob_from_storage_format(my_core::Field_blob *const blob,
-                                       Rdb_string_reader *const   reader,
-                                       bool                       decode)
+                                       Rdb_string_reader *const reader,
+                                       bool decode)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   int convert_varchar_from_storage_format(
-                                my_core::Field_varstring *const field_var,
-                                Rdb_string_reader *const        reader,
-                                bool                            decode)
+      my_core::Field_varstring *const field_var,
+      Rdb_string_reader *const reader, bool decode)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
-  int convert_field_from_storage_format(my_core::Field *const    field,
+  int convert_field_from_storage_format(my_core::Field *const field,
                                         Rdb_string_reader *const reader,
-                                        bool                     decode,
-                                        uint                     len)
+                                        bool decode, uint len)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   int convert_record_from_storage_format(const rocksdb::Slice *const key,
@@ -702,6 +728,17 @@ public:
                                         Rdb_string_writer *const pk_unpack_info,
                                         rocksdb::Slice *const packed_rec)
       MY_ATTRIBUTE((__nonnull__));
+
+  static const std::string gen_cf_name_qualifier_for_partition(
+    const std::string &s);
+
+  static const std::vector<std::string> parse_into_tokens(const std::string &s,
+                                                          const char delim);
+
+  static const std::string generate_cf_name(const uint index,
+    const TABLE *const table_arg,
+    const Rdb_tbl_def *const tbl_def_arg,
+    bool *per_part_match_found);
 
   static const char *get_key_name(const uint index,
                                   const TABLE *const table_arg,
@@ -849,6 +886,7 @@ private:
     rocksdb::ColumnFamilyHandle *cf_handle;
     bool is_reverse_cf;
     bool is_auto_cf;
+    bool is_per_partition_cf;
   };
 
   struct update_row_info {
