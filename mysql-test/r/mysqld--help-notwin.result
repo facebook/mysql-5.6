@@ -1148,7 +1148,7 @@ The following options may be given as the first argument:
  Forces memtable flush on ANALZYE table to get accurate
  cardinality
  (Defaults to on; use --skip-rocksdb-flush-memtable-on-analyze to disable.)
- --rocksdb-force-compute-memtable-stats
+ --rocksdb-force-compute-memtable-stats 
  Force to always compute memtable stats
  (Defaults to on; use --skip-rocksdb-force-compute-memtable-stats to disable.)
  --rocksdb-force-flush-memtable-now 
