@@ -1756,7 +1756,7 @@ key1 int,
 PRIMARY KEY (id),
 index (key1) comment 'test.t1.key1'
 ) engine=rocksdb;
-ERROR HY000: Column Family Flag is different from existing flag. Assign a new CF flag, or do not change existing CF flag.
+ERROR HY000: Column family ('test.t1.key1') flag (0) is different from an existing flag (2). Assign a new CF flag, or do not change existing CF flag.
 create table t1_err (
 id int not null,
 key1 int,
@@ -1782,7 +1782,7 @@ key1 int,
 PRIMARY KEY (id),
 index (key1) comment '$per_idnex_cf'
 )engine=rocksdb;
-ERROR 42000: This version of MySQL doesn't yet support 'column family name looks like a typo of $per_index_cf'
+ERROR 42000: This version of MySQL doesn't yet support 'column family name looks like a typo of $per_index_cf.'
 #
 # Issue #22: SELECT ... FOR UPDATE takes a long time
 #

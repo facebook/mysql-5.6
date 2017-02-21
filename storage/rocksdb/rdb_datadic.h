@@ -299,7 +299,7 @@ public:
               rocksdb::ColumnFamilyHandle *cf_handle_arg,
               uint16_t index_dict_version_arg, uchar index_type_arg,
               uint16_t kv_format_version_arg, bool is_reverse_cf_arg,
-              bool is_auto_cf_arg, const char *name,
+              bool is_auto_cf_arg, bool is_per_partition_cf, const char *name,
               Rdb_index_stats stats = Rdb_index_stats());
   ~Rdb_key_def();
 
@@ -315,7 +315,12 @@ public:
   enum {
     REVERSE_CF_FLAG = 1,
     AUTO_CF_FLAG = 2,
+    PER_PARTITION_CF_FLAG = 4,
   };
+
+  // Set of flags to ignore when comparing two CF-s and determining if
+  // they're same.
+  static const uint CF_FLAGS_TO_IGNORE = PER_PARTITION_CF_FLAG;
 
   // Data dictionary types
   enum DATA_DICT_TYPE {
@@ -426,6 +431,10 @@ public:
   bool m_is_reverse_cf;
 
   bool m_is_auto_cf;
+
+  /* If true, then column family is created per partition. */
+  bool m_is_per_partition_cf;
+
   std::string m_name;
   mutable Rdb_index_stats m_stats;
 
@@ -888,7 +897,7 @@ private:
 
   3. CF id => CF flags
   key: Rdb_key_def::CF_DEFINITION(0x3) + cf_id
-  value: version, {is_reverse_cf, is_auto_cf}
+  value: version, {is_reverse_cf, is_auto_cf, is_per_partition_cf}
   cf_flags is 4 bytes in total.
 
   4. Binlog entry (updated at commit)
