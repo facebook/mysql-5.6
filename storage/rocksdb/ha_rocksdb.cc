@@ -4804,7 +4804,7 @@ int ha_rocksdb::create_key_defs(
   */
   if (create_cfs(table_arg, tbl_def_arg, &cfs)) {
     DBUG_RETURN(HA_EXIT_FAILURE);
-  };
+  }
 
   if (!old_tbl_def_arg) {
     /*
@@ -4858,6 +4858,7 @@ int ha_rocksdb::create_cfs(
 
   DBUG_ASSERT(table_arg != nullptr);
   DBUG_ASSERT(table_arg->s != nullptr);
+  DBUG_ASSERT(tbl_def_arg != nullptr);
 
   char tablename_sys[NAME_LEN + 1];
 
@@ -4897,35 +4898,53 @@ int ha_rocksdb::create_cfs(
       }
     }
 
-    /*
-      index comment has Column Family name. If there was no comment, we get
-      NULL, and it means use the default column family.
-    */
-    const char *const comment = get_key_comment(i, table_arg, tbl_def_arg);
+    // Internal consistency check to make sure that data in TABLE and
+    // Rdb_tbl_def structures matches. Either both are missing or both are
+    // specified. Yes, this is critical enough to make it into SHIP_ASSERT.
+    SHIP_ASSERT(!table_arg->part_info == tbl_def_arg->base_partition().empty());
+
+    // Generate the name for the column family to use.
+    bool per_part_match_found = false;
+    std::string cf_name = generate_cf_name(i, table_arg, tbl_def_arg,
+      &per_part_match_found);
+
     const char *const key_name = get_key_name(i, table_arg, tbl_def_arg);
 
-    if (looks_like_per_index_cf_typo(comment)) {
+    if (looks_like_per_index_cf_typo(cf_name.c_str())) {
       my_error(ER_NOT_SUPPORTED_YET, MYF(0),
-               "column family name looks like a typo of $per_index_cf");
+               "column family name looks like a typo of $per_index_cf.");
       DBUG_RETURN(HA_EXIT_FAILURE);
     }
-    /* Prevent create from using the system column family */
-    if (comment && strcmp(DEFAULT_SYSTEM_CF_NAME, comment) == 0) {
+
+    // Prevent create from using the system column family.
+    if (!cf_name.empty() && strcmp(DEFAULT_SYSTEM_CF_NAME,
+                                   cf_name.c_str()) == 0) {
       my_error(ER_WRONG_ARGUMENTS, MYF(0),
-               "column family not valid for storing index data");
+               "column family not valid for storing index data.");
       DBUG_RETURN(HA_EXIT_FAILURE);
     }
+
     bool is_auto_cf_flag;
+
+    // Here's how `get_or_create_cf` will use the input parameters:
+    //
+    // `cf_name` - will be used as a CF name.
+    // `key_name` - will be only used in case of "$per_index_cf".
     cf_handle =
-        cf_manager.get_or_create_cf(rdb, comment, tbl_def_arg->full_tablename(),
-                                    key_name, &is_auto_cf_flag);
-    if (!cf_handle)
+        cf_manager.get_or_create_cf(rdb, cf_name.c_str(),
+                                    tbl_def_arg->full_tablename(), key_name,
+                                    &is_auto_cf_flag);
+
+    if (!cf_handle) {
       DBUG_RETURN(HA_EXIT_FAILURE);
+    }
 
     auto &cf = (*cfs)[i];
+
     cf.cf_handle = cf_handle;
-    cf.is_reverse_cf = Rdb_cf_manager::is_cf_name_reverse(comment);
+    cf.is_reverse_cf = Rdb_cf_manager::is_cf_name_reverse(cf_name.c_str());
     cf.is_auto_cf = is_auto_cf_flag;
+    cf.is_per_partition_cf = per_part_match_found;
   }
 
   DBUG_RETURN(HA_EXIT_SUCCESS);
@@ -4995,7 +5014,8 @@ int ha_rocksdb::create_inplace_key_defs(
       new_key_descr[i] = std::make_shared<Rdb_key_def>(
           okd.get_index_number(), i, okd.get_cf(), index_dict_version,
           index_type, kv_version, okd.m_is_reverse_cf, okd.m_is_auto_cf,
-          okd.m_name.c_str(), dict_manager.get_stats(gl_index_id));
+          okd.m_is_per_partition_cf, okd.m_name.c_str(),
+          dict_manager.get_stats(gl_index_id));
     } else if (create_key_def(table_arg, i, tbl_def_arg, &new_key_descr[i],
                               cfs[i])) {
       DBUG_RETURN(HA_EXIT_FAILURE);
@@ -5131,7 +5151,8 @@ int ha_rocksdb::create_key_def(const TABLE *const table_arg, const uint &i,
   const char *const key_name = get_key_name(i, table_arg, m_tbl_def);
   *new_key_def = std::make_shared<Rdb_key_def>(
       index_id, i, cf_info.cf_handle, index_dict_version, index_type,
-      kv_version, cf_info.is_reverse_cf, cf_info.is_auto_cf, key_name);
+      kv_version, cf_info.is_reverse_cf, cf_info.is_auto_cf,
+      cf_info.is_per_partition_cf, key_name);
 
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
@@ -6862,14 +6883,30 @@ bool ha_rocksdb::is_pk(const uint index, const TABLE *const table_arg,
          is_hidden_pk(index, table_arg, tbl_def_arg);
 }
 
+/*
+  Formats the string and returns the column family name assignment part for a
+  specific partition.
+*/
+const std::string ha_rocksdb::gen_cf_name_qualifier_for_partition(
+        const std::string& prefix) {
+  DBUG_ASSERT(!prefix.empty());
+
+  return prefix + RDB_PER_PARTITION_QUALIFIER_NAME_SEP + RDB_CF_NAME_QUALIFIER
+    + RDB_PER_PARTITION_QUALIFIER_VALUE_SEP;
+}
+
 const char *ha_rocksdb::get_key_name(const uint index,
                                      const TABLE *const table_arg,
                                      const Rdb_tbl_def *const tbl_def_arg) {
   DBUG_ASSERT(table_arg != nullptr);
+  DBUG_ASSERT(tbl_def_arg != nullptr);
 
   if (is_hidden_pk(index, table_arg, tbl_def_arg)) {
     return HIDDEN_PK_NAME;
   }
+
+  DBUG_ASSERT(table_arg->key_info != nullptr);
+  DBUG_ASSERT(table_arg->key_info[index].name != nullptr);
 
   return table_arg->key_info[index].name;
 }
@@ -6878,12 +6915,82 @@ const char *ha_rocksdb::get_key_comment(const uint index,
                                         const TABLE *const table_arg,
                                         const Rdb_tbl_def *const tbl_def_arg) {
   DBUG_ASSERT(table_arg != nullptr);
+  DBUG_ASSERT(tbl_def_arg != nullptr);
 
   if (is_hidden_pk(index, table_arg, tbl_def_arg)) {
     return nullptr;
   }
 
+  DBUG_ASSERT(table_arg->key_info != nullptr);
+
   return table_arg->key_info[index].comment.str;
+}
+
+const std::string ha_rocksdb::generate_cf_name(const uint index,
+                                        const TABLE *const table_arg,
+                                        const Rdb_tbl_def *const tbl_def_arg,
+                                        bool  *per_part_match_found) {
+  DBUG_ASSERT(table_arg != nullptr);
+  DBUG_ASSERT(tbl_def_arg != nullptr);
+  DBUG_ASSERT(per_part_match_found != nullptr);
+
+  // When creating CF-s the caller needs to know if there was a custom CF name
+  // specified for a given paritition.
+  *per_part_match_found = false;
+
+  // Index comment is used to define the column family name specification(s).
+  // If there was no comment, we get an emptry string, and it means "use the
+  // default column family".
+  const char *const comment = get_key_comment(index, table_arg, tbl_def_arg);
+
+  // `get_key_comment` can return `nullptr`, that's why this.
+  std::string key_comment = comment ? comment : "";
+
+  // If table has partitions then we need to check if user has requested to
+  // create a column family with a specific name on a per partition basis.
+  if (table_arg->part_info != nullptr) {
+    std::string partition_name = tbl_def_arg->base_partition();
+    DBUG_ASSERT(!partition_name.empty());
+
+    // Let's fetch the comment for a index and check if there's a custom key
+    // name specified for a partition we are handling.
+    std::vector<std::string> v = myrocks::parse_into_tokens(key_comment,
+                                                   RDB_QUALIFIER_SEP);
+    std::string part_to_search = gen_cf_name_qualifier_for_partition(
+      partition_name);
+    DBUG_ASSERT(!part_to_search.empty());
+
+    // Basic O(N) search for a matching assignment. At most we expect maybe
+    // ten or so elements here.
+    for (const auto &it : v) {
+      if (it.substr(0, part_to_search.length()) == part_to_search) {
+        // We found a prefix match. Try to parse it as an assignment.
+        std::vector<std::string> tokens = myrocks::parse_into_tokens(it,
+          RDB_PER_PARTITION_QUALIFIER_VALUE_SEP);
+
+        // We found a custom name, it was in the form we expected it to be.
+        // Return that instead of whatever we initially wanted to return. In
+        // a case below the `foo` part will be returned to the caller.
+        //
+        // p3_cfname=foo
+        //
+        // If no value was specified then we'll return an empty string which
+        // later gets translated into using a default CF.
+        if (tokens.size() == 2) {
+          *per_part_match_found = true;
+          return tokens[1];
+        } else {
+          return "";
+        }
+      }
+    }
+
+    // At this point we tried to search for a custom CF name for a partition,
+    // but none was specified. Therefore default one will be used.
+    return "";
+  }
+
+  return key_comment;
 }
 
 int ha_rocksdb::write_row(uchar *const buf) {

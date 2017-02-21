@@ -32,10 +32,7 @@ namespace myrocks {
 bool Rdb_cf_manager::is_cf_name_reverse(const char *const name) {
   /* nullptr means the default CF is used.. (TODO: can the default CF be
    * reverse?) */
-  if (name && !strncmp(name, "rev:", 4))
-    return true;
-  else
-    return false;
+  return (name && !strncmp(name, "rev:", 4));
 }
 
 void Rdb_cf_manager::init(
@@ -93,15 +90,20 @@ Rdb_cf_manager::get_or_create_cf(rocksdb::DB *const rdb, const char *cf_name,
   DBUG_ASSERT(rdb != nullptr);
   DBUG_ASSERT(is_automatic != nullptr);
 
-  rocksdb::ColumnFamilyHandle *cf_handle;
+  rocksdb::ColumnFamilyHandle *cf_handle = nullptr;
 
   RDB_MUTEX_LOCK_CHECK(m_mutex);
 
   *is_automatic = false;
-  if (cf_name == nullptr)
+
+  if (cf_name == nullptr || *cf_name == '\0') {
     cf_name = DEFAULT_CF_NAME;
+  }
+
+  DBUG_ASSERT(cf_name != nullptr);
 
   std::string per_index_name;
+
   if (!strcmp(cf_name, PER_INDEX_CF_NAME)) {
     get_per_index_cf_name(db_table_name, index_name, &per_index_name);
     cf_name = per_index_name.c_str();
@@ -109,15 +111,17 @@ Rdb_cf_manager::get_or_create_cf(rocksdb::DB *const rdb, const char *cf_name,
   }
 
   const auto it = m_cf_name_map.find(cf_name);
-  if (it != m_cf_name_map.end())
+
+  if (it != m_cf_name_map.end()) {
     cf_handle = it->second;
-  else {
+  } else {
     /* Create a Column Family. */
     const std::string cf_name_str(cf_name);
     rocksdb::ColumnFamilyOptions opts;
     m_cf_options->get_cf_options(cf_name_str, &opts);
 
-    sql_print_information("RocksDB: creating column family %s",
+    // NO_LINT_DEBUG
+    sql_print_information("RocksDB: creating a column family %s",
                           cf_name_str.c_str());
     sql_print_information("    write_buffer_size=%ld", opts.write_buffer_size);
     sql_print_information("    target_file_size_base=%" PRIu64,
@@ -125,6 +129,7 @@ Rdb_cf_manager::get_or_create_cf(rocksdb::DB *const rdb, const char *cf_name,
 
     const rocksdb::Status s =
         rdb->CreateColumnFamily(opts, cf_name_str, &cf_handle);
+
     if (s.ok()) {
       m_cf_name_map[cf_handle->GetName()] = cf_handle;
       m_cf_id_map[cf_handle->GetID()] = cf_handle;
@@ -159,19 +164,29 @@ Rdb_cf_manager::get_cf(const char *cf_name, const std::string &db_table_name,
   rocksdb::ColumnFamilyHandle *cf_handle;
 
   *is_automatic = false;
+
   RDB_MUTEX_LOCK_CHECK(m_mutex);
-  if (cf_name == nullptr)
+
+  if (cf_name == nullptr) {
     cf_name = DEFAULT_CF_NAME;
+  }
 
   std::string per_index_name;
+
   if (!strcmp(cf_name, PER_INDEX_CF_NAME)) {
     get_per_index_cf_name(db_table_name, index_name, &per_index_name);
+    DBUG_ASSERT(!per_index_name.empty());
     cf_name = per_index_name.c_str();
     *is_automatic = true;
   }
 
   const auto it = m_cf_name_map.find(cf_name);
   cf_handle = (it != m_cf_name_map.end()) ? it->second : nullptr;
+
+  if (!cf_handle) {
+    // NO_LINT_DEBUG
+    sql_print_warning("Column family '%s' not found.", cf_name);
+  }
 
   RDB_MUTEX_UNLOCK_CHECK(m_mutex);
 
