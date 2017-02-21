@@ -9382,6 +9382,15 @@ int ha_rocksdb::inplace_populate_sk(
   dict_manager.add_create_index(create_index_ids, batch);
   dict_manager.commit(batch);
 
+  /*
+    Add uncommitted key definitons to ddl_manager.  We need to do this
+    so that the property collector can find this keydef when it needs to
+    update stats.  The property collector looks for the keydef in the
+    data dictionary, but it won't be there yet since this key definition
+    is still in the creation process.
+  */
+  ddl_manager.add_uncommitted_keydefs(indexes);
+
   const bool hidden_pk_exists = has_hidden_pk(table);
 
   int res = 0;
@@ -9634,6 +9643,9 @@ bool ha_rocksdb::commit_inplace_alter_table(
       delete ctx0->m_new_tdef;
     }
 
+    /* Remove uncommitted key definitons from ddl_manager */
+    ddl_manager.remove_uncommitted_keydefs(ctx0->m_added_indexes);
+
     /* Rollback any partially created indexes */
     dict_manager.rollback_ongoing_index_creation();
 
@@ -9693,6 +9705,12 @@ bool ha_rocksdb::commit_inplace_alter_table(
         */
         DBUG_ASSERT(0);
       }
+
+      /*
+        Remove uncommitted key definitons from ddl_manager, as they are now
+        committed into the data dictionary.
+      */
+      ddl_manager.remove_uncommitted_keydefs(ctx->m_added_indexes);
     }
 
     if (dict_manager.commit(batch)) {
