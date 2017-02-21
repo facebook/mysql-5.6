@@ -2692,6 +2692,24 @@ void Rdb_ddl_manager::erase_index_num(const GL_INDEX_ID &gl_index_id) {
   m_index_num_to_keydef.erase(gl_index_id);
 }
 
+void Rdb_ddl_manager::add_uncommitted_keydefs(
+    const std::unordered_set<std::shared_ptr<Rdb_key_def>> &indexes) {
+  mysql_rwlock_wrlock(&m_rwlock);
+  for (const auto &index : indexes) {
+    m_index_num_to_uncommitted_keydef[index->get_gl_index_id()] = index;
+  }
+  mysql_rwlock_unlock(&m_rwlock);
+}
+
+void Rdb_ddl_manager::remove_uncommitted_keydefs(
+    const std::unordered_set<std::shared_ptr<Rdb_key_def>> &indexes) {
+  mysql_rwlock_wrlock(&m_rwlock);
+  for (const auto &index : indexes) {
+    m_index_num_to_uncommitted_keydef.erase(index->get_gl_index_id());
+  }
+  mysql_rwlock_unlock(&m_rwlock);
+}
+
 namespace // anonymous namespace = not visible outside this source file
 {
 struct Rdb_validate_tbls : public Rdb_tables_scanner {
@@ -3081,6 +3099,14 @@ Rdb_ddl_manager::safe_find(GL_INDEX_ID gl_index_id) {
         ret = kd;
       }
     }
+  } else {
+    auto it = m_index_num_to_uncommitted_keydef.find(gl_index_id);
+    if (it != m_index_num_to_uncommitted_keydef.end()) {
+      const auto &kd = it->second;
+      if (kd->max_storage_fmt_length() != 0) {
+        ret = kd;
+      }
+    }
   }
 
   mysql_rwlock_unlock(&m_rwlock);
@@ -3098,6 +3124,11 @@ Rdb_ddl_manager::find(GL_INDEX_ID gl_index_id) {
       if (it->second.second < table_def->m_key_count) {
         return table_def->m_key_descr_arr[it->second.second];
       }
+    }
+  } else {
+    auto it = m_index_num_to_uncommitted_keydef.find(gl_index_id);
+    if (it != m_index_num_to_uncommitted_keydef.end()) {
+      return it->second;
     }
   }
 

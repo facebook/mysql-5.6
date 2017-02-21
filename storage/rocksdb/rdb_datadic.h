@@ -740,8 +740,13 @@ interface Rdb_tables_scanner {
 class Rdb_ddl_manager {
   Rdb_dict_manager *m_dict = nullptr;
   my_core::HASH m_ddl_hash; // Contains Rdb_tbl_def elements
-  // maps index id to <table_name, index number>
+  // Maps index id to <table_name, index number>
   std::map<GL_INDEX_ID, std::pair<std::string, uint>> m_index_num_to_keydef;
+
+  // Maps index id to key definitons not yet committed to data dictionary.
+  // This is mainly used to store key definitions during ALTER TABLE.
+  std::map<GL_INDEX_ID, std::shared_ptr<Rdb_key_def>>
+    m_index_num_to_uncommitted_keydef;
   mysql_rwlock_t m_rwlock;
 
   Rdb_seq_generator m_sequence;
@@ -787,6 +792,10 @@ public:
   int scan_for_tables(Rdb_tables_scanner *tables_scanner);
 
   void erase_index_num(const GL_INDEX_ID &gl_index_id);
+  void add_uncommitted_keydefs(
+      const std::unordered_set<std::shared_ptr<Rdb_key_def>> &indexes);
+  void remove_uncommitted_keydefs(
+      const std::unordered_set<std::shared_ptr<Rdb_key_def>> &indexes);
 
 private:
   /* Put the data into in-memory table (only) */
