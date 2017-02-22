@@ -9655,6 +9655,8 @@ bool ha_rocksdb::commit_inplace_alter_table(
   Rdb_inplace_alter_ctx *const ctx0 =
       static_cast<Rdb_inplace_alter_ctx *>(ha_alter_info->handler_ctx);
 
+  DEBUG_SYNC(ha_thd(), "rocksdb.commit_in_place_alter_table");
+
   /*
     IMPORTANT: When rollback is requested, mysql will abort with
     an assertion failure. That means every failed commit during inplace alter
