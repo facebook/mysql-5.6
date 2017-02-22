@@ -267,6 +267,8 @@ extern CHARSET_INFO *error_message_charset_info;
 
 extern CHARSET_INFO *character_set_filesystem;
 
+extern const char* mysql_compression_lib_names[3];
+
 extern MY_BITMAP temp_pool;
 extern bool opt_large_files, server_id_supplied;
 extern bool opt_update_log, opt_bin_log, opt_error_log;
@@ -295,6 +297,7 @@ extern ulong opt_srv_fatal_semaphore_timeout;
 extern my_bool opt_safe_user_create;
 extern my_bool opt_safe_show_db, opt_local_infile, opt_myisam_use_mmap;
 extern my_bool opt_slave_compressed_protocol, use_temp_pool;
+extern ulong opt_slave_compression_lib;
 extern ulong slave_exec_mode_options;
 extern ulong slave_use_idempotent_for_recovery_options;
 extern ulong slave_run_triggers_for_rbr;
@@ -374,6 +377,7 @@ extern my_bool opt_log_slow_extra;
 extern ulonglong binlog_fsync_count;
 
 extern uint net_compression_level;
+extern uint zstd_net_compression_level;
 
 extern ulong relay_io_connected;
 

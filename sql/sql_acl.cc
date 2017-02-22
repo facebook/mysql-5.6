@@ -9930,6 +9930,20 @@ read_client_connect_attrs(char **ptr, size_t *max_bytes_available,
   DBUG_RETURN(0);
 }
 
+// We don't need to worry about obtaining a lock here because the connection
+// attributes are written in only one location, and that is during
+// initialization. Since this is also the writer thread, we are sure the map
+// is safe to read
+static void parse_compression_connect_attr(NET *net, THD *thd) {
+  auto it = thd->connection_attrs_map.find("compression_lib");
+  if (it != thd->connection_attrs_map.end()) {
+    net->comp_lib = get_client_compression_enum(it->second.c_str());
+  } else {
+    // When no lib is specified, default to zlib for backwards compatibility
+    net->comp_lib = MYSQL_COMPRESSION_ZLIB;
+  }
+}
+
 
 #endif
 
@@ -10563,6 +10577,8 @@ skip_to_ssl:
       read_client_connect_attrs(&end, &bytes_remaining_in_packet,
                                 mpvio->charset_adapter->charset()))
     return packet_error;
+
+  parse_compression_connect_attr(net, current_thd);
 
   char db_buff[NAME_LEN + 1];           // buffer to store db in utf8
   char user_buff[USERNAME_LENGTH + 1];	// buffer to store user in utf8

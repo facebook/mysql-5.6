@@ -74,6 +74,12 @@ struct st_vio;
 typedef struct st_vio Vio;
 struct ssl_st;
 typedef struct ssl_st SSL;
+enum mysql_compression_lib {
+  MYSQL_COMPRESSION_ZLIB,
+  MYSQL_COMPRESSION_ZSTD
+};
+typedef struct ZSTD_CCtx_s ZSTD_CCtx;
+typedef struct ZSTD_DCtx_s ZSTD_DCtx;
 typedef struct st_net {
   Vio *vio;
   unsigned char *buff,*buff_end,*write_pos,*read_pos;
@@ -91,6 +97,9 @@ typedef struct st_net {
   my_bool unused2;
   my_bool compress;
   my_bool unused3;
+  enum mysql_compression_lib comp_lib;
+  ZSTD_CCtx *cctx;
+  ZSTD_DCtx *dctx;
   unsigned char *unused;
   unsigned int last_errno;
   unsigned char error;
@@ -383,7 +392,8 @@ enum mysql_option
   MYSQL_OPT_READ_TIMEOUT_MS,
   MYSQL_OPT_WRITE_TIMEOUT_MS,
   MYSQL_OPT_SSL_SESSION,
-  MYSQL_OPT_SSL_CONTEXT
+  MYSQL_OPT_SSL_CONTEXT,
+  MYSQL_OPT_COMP_LIB
 };
 struct st_mysql_options_extention;
 struct st_mysql_options {

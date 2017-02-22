@@ -17,6 +17,7 @@
 #define _my_sys_h
 
 #include "my_global.h"                  /* C_MODE_START, C_MODE_END */
+#include <mysql_com.h>
 
 C_MODE_START
 
@@ -856,12 +857,15 @@ static inline char *safe_strdup_root(MEM_ROOT *root, const char *str)
 }
 extern char *strmake_root(MEM_ROOT *root,const char *str,size_t len);
 extern void *memdup_root(MEM_ROOT *root,const void *str, size_t len);
-extern my_bool my_compress(uchar *, size_t *, size_t *, uint level);
+extern my_bool my_compress(NET *, uchar *,
+                           size_t *, size_t *, uint level);
 extern void set_memroot_max_capacity(MEM_ROOT *mem_root, size_t size);
 extern void set_memroot_error_reporting(MEM_ROOT *mem_root,
                                        my_bool report_error);
-extern my_bool my_uncompress(uchar *, size_t , size_t *);
-extern uchar *my_compress_alloc(const uchar *packet, size_t *len,
+extern my_bool my_uncompress(NET *, uchar *,
+                             size_t , size_t *);
+extern uchar *my_compress_alloc(NET *net,
+                                const uchar *packet, size_t *len,
                                 size_t *complen, uint level);
 extern int packfrm(uchar *, size_t, uchar **, size_t *);
 extern int unpackfrm(uchar **, size_t *, const uchar *);

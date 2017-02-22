@@ -49,6 +49,10 @@
 
 #include <algorithm>
 
+#ifdef HAVE_ZSTD_COMPRESS
+#include <zstd.h>
+#endif
+
 using std::min;
 using std::max;
 
@@ -116,6 +120,11 @@ my_bool my_net_init(NET *net, Vio* vio)
   net->write_pos=net->read_pos = net->buff;
   net->last_error[0]=0;
   net->compress=0; net->reading_or_writing=0;
+  net->comp_lib = MYSQL_COMPRESSION_ZLIB;
+#ifdef HAVE_ZSTD_COMPRESS
+  net->cctx = NULL;
+  net->dctx = NULL;
+#endif
   net->where_b = net->remain_in_buf=0;
   net->last_errno=0;
   net->unused= 0;
@@ -146,6 +155,12 @@ void net_end(NET *net)
   DBUG_ENTER("net_end");
 #ifdef HAVE_COMPRESS
   reset_packet_write_state(net);
+#endif
+#ifdef HAVE_ZSTD_COMPRESS
+  ZSTD_freeCCtx(net->cctx);
+  ZSTD_freeDCtx(net->dctx);
+  net->cctx = NULL;
+  net->dctx = NULL;
 #endif
   my_free(net->buff);
   net->buff=0;
@@ -946,7 +961,8 @@ compress_packet(NET *net, const uchar *packet, size_t *length)
   memcpy(compr_packet + header_length, packet, *length);
 
   /* Compress the encapsulated packet. */
-  if (my_compress(compr_packet + header_length, length, &compr_length,
+  if (my_compress(net, compr_packet + header_length,
+                  length, &compr_length,
                   net_compression_level))
   {
     /*
@@ -1441,7 +1457,7 @@ end:
 
   if (net->compress) {
     *complen = net->async_packet_uncompressed_length;
-    if (my_uncompress(net->buff + net->where_b,
+    if (my_uncompress(net, net->buff + net->where_b,
                       net->async_packet_length, complen)) {
       net->error = 2; // caller will close socket
       net->last_errno = ER_NET_UNCOMPRESS_ERROR;
@@ -1826,7 +1842,7 @@ my_net_read(NET *net)
         MYSQL_NET_READ_DONE(1, 0);
         return packet_error;
       }
-      if (my_uncompress(net->buff + net->where_b, packet_len,
+      if (my_uncompress(net, net->buff + net->where_b, packet_len,
                         &complen))
       {
         net->error= 2;			/* caller will close socket */

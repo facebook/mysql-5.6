@@ -136,6 +136,7 @@ void mysql_client_plugin_deinit();
 struct st_mysql_client_plugin;
 extern struct st_mysql_client_plugin *mysql_client_builtins[];
 uchar * send_client_connect_attrs(MYSQL *mysql, uchar *buf);
+enum mysql_compression_lib get_client_compression_enum(const char* comp_lib);
 extern my_bool libmysql_cleartext_plugin_enabled;
 
 #ifdef	__cplusplus

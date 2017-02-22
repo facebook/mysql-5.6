@@ -508,6 +508,7 @@ my_bool opt_skip_slave_start = 0; ///< If set, slave is not autostarted
 my_bool opt_reckless_slave = 0;
 my_bool opt_enable_named_pipe= 0;
 my_bool opt_local_infile, opt_slave_compressed_protocol;
+ulong opt_slave_compression_lib;
 my_bool opt_safe_user_create = 0;
 my_bool opt_show_slave_auth_info;
 my_bool opt_log_slave_updates= 0;
@@ -579,6 +580,7 @@ ulonglong
   histogram_binlog_group_commit_values[NUMBER_OF_COUNTER_HISTOGRAM_BINS];
 
 uint net_compression_level = 6;
+uint zstd_net_compression_level = 3;
 
 #if defined(ENABLED_DEBUG_SYNC)
 MYSQL_PLUGIN_IMPORT uint    opt_debug_sync_timeout= 0;
