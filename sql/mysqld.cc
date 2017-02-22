@@ -461,6 +461,7 @@ ulonglong log_output_options;
 my_bool opt_log_queries_not_using_indexes= 0;
 my_bool opt_disable_working_set_size = 0;
 ulong opt_log_throttle_queries_not_using_indexes= 0;
+ulong opt_log_throttle_legacy_user= 0;
 bool opt_error_log= IF_WIN(1,0);
 bool opt_disable_networking=0, opt_skip_show_db=0;
 bool opt_skip_name_resolve=0;
@@ -947,6 +948,7 @@ mysql_mutex_t LOCK_prepared_stmt_count;
 mysql_mutex_t LOCK_sql_slave_skip_counter;
 mysql_mutex_t LOCK_slave_net_timeout;
 mysql_mutex_t LOCK_log_throttle_qni;
+mysql_mutex_t LOCK_log_throttle_legacy;
 #ifdef HAVE_OPENSSL
 mysql_mutex_t LOCK_des_key_file;
 mysql_rwlock_t LOCK_use_ssl;
@@ -2369,6 +2371,7 @@ static void clean_up_mutexes()
   }
 #endif
   mysql_mutex_destroy(&LOCK_log_throttle_qni);
+  mysql_mutex_destroy(&LOCK_log_throttle_legacy);
   mysql_mutex_destroy(&LOCK_status);
   mysql_mutex_destroy(&LOCK_delayed_insert);
   mysql_mutex_destroy(&LOCK_delayed_status);
@@ -5201,6 +5204,8 @@ static int init_thread_environment()
                    &LOCK_connection_count, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_log_throttle_qni,
                    &LOCK_log_throttle_qni, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_log_throttle_legacy,
+                   &LOCK_log_throttle_legacy, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_global_table_stats,
                    &LOCK_global_table_stats, MY_MUTEX_INIT_FAST);
 #ifdef HAVE_OPENSSL
@@ -12067,6 +12072,7 @@ PSI_mutex_key
   key_LOCK_error_messages, key_LOG_INFO_lock, key_LOCK_thread_count,
   key_LOCK_global_table_stats,
   key_LOCK_log_throttle_qni,
+  key_LOCK_log_throttle_legacy,
   key_gtid_info_run_lock,
   key_gtid_info_data_lock,
   key_gtid_info_sleep_lock,
@@ -12175,6 +12181,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_thread_count, "LOCK_thread_count", PSI_FLAG_GLOBAL},
   { &key_LOCK_thd_remove, "LOCK_thd_remove", PSI_FLAG_GLOBAL},
   { &key_LOCK_log_throttle_qni, "LOCK_log_throttle_qni", PSI_FLAG_GLOBAL},
+  { &key_LOCK_log_throttle_legacy, "LOCK_log_throttle_legacy", PSI_FLAG_GLOBAL},
   { &key_LOCK_global_table_stats, "LOCK_global_table_stats", PSI_FLAG_GLOBAL},
   { &key_gtid_ensure_index_mutex, "Gtid_state", PSI_FLAG_GLOBAL},
   { &key_LOCK_thread_created, "LOCK_thread_created", PSI_FLAG_GLOBAL },

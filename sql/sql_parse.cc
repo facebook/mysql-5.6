@@ -269,6 +269,13 @@ Slow_log_throttle log_throttle_qni(&opt_log_throttle_queries_not_using_indexes,
                                    "throttle: %10lu 'index "
                                    "not used' warning(s) suppressed.");
 
+Slow_log_throttle log_throttle_legacy(&opt_log_throttle_legacy_user,
+                                      &LOCK_log_throttle_legacy,
+                                      Log_throttle::LOG_THROTTLE_WINDOW_SIZE,
+                                      slow_log_print,
+                                      "throttle: %10lu 'legacy user' "
+                                      "warning(s) suppressed.");
+
 
 #ifdef HAVE_REPLICATION
 /**
@@ -3205,6 +3212,35 @@ mysql_execute_command(THD *thd,
       my_error(ER_OPTION_PREVENTS_STATEMENT,  MYF(0),
                "--allow_noncurrent_db_rw=OFF", "");
       DBUG_RETURN(-1);
+    }
+    /* check for legacy user */
+    if (thd->security_ctx->user &&
+        log_legacy_user &&
+        opt_legacy_user_name_pattern)
+    {
+      bool match = legacy_user_name_pattern->matches(thd->security_ctx->user);
+      if (!log_throttle_legacy.log(thd, match)) // not suppressed
+      {
+        /* log the legacy user name */
+        auto output= std::string("LEGACY_USER: ") + thd->security_ctx->user;
+        if (thd->security_ctx->host_or_ip)
+        {
+          // log the hostname or ip
+          output += std::string("@") + thd->security_ctx->host_or_ip;
+        }
+        if (thd->db)
+        {
+          /* log the session DB */
+          output += std::string(" on ") + thd->db;
+        }
+        if (thd->query_length())
+        {
+          /* log the query */
+          output += ", query: ";
+          output += std::string(thd->query(), thd->query_length());
+        }
+        slow_log_print(thd, output.c_str(), output.size(), &(thd->status_var));
+      }
     }
 #ifdef HAVE_REPLICATION
   } /* endif unlikely slave */

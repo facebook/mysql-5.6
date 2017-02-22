@@ -22,6 +22,8 @@ set global legacy_user_name_pattern = '^[^:]+$';
 create user legacy_user1@localhost;
 --echo # connection conn1
 connect (conn1, localhost, legacy_user1,,);
+select 11;
+select 12;
 
 --echo # connection default
 connection default;
@@ -29,10 +31,33 @@ connection default;
 # set the name pattern to indicate the name doesn't contain '%'
 --echo # change legacy_user_name_pattern
 set global legacy_user_name_pattern = '^[^%]+$';
---echo # legacy%user2
+--echo # legacy_user2
 create user `legacy_user2`@localhost;
 --echo # connection conn2
 connect (conn2, localhost, legacy_user2,,);
+select 21;
+select 22;
+
+--echo # connection default
+connection default;
+
+select @@global.log_throttle_legacy_user;
+set @my_log_throttle_legacy_user = @@global.log_throttle_legacy_user;
+
+# Now let us throttle the logging to 1 per minute
+set global log_throttle_legacy_user = 1;
+
+--echo # connection conn1
+connection conn1;
+select 13;
+# this query will not be logged in the slow log
+select 14;
+
+# wait for 60 seconds for the next throttle window
+real_sleep 60;
+
+# this query will go into the slow log again
+select 15;
 
 --echo # connection default
 connection default;
@@ -46,6 +71,9 @@ my @lines = <FILE>;
 foreach $line (@lines) {
   if ($line =~ /^LEGACY_USER:/) {
     $found = 1;
+    print $line
+  } elsif ($line =~ /^throttle:/) {
+    # print the suppression message
     print $line
   }
 }
@@ -70,3 +98,4 @@ drop user `legacy_user2`@localhost;
 set @@global.slow_query_log_file = @my_slow_logname;
 set @@global.legacy_user_name_pattern = @my_legacy_user_name_pattern;
 set @@global.log_legacy_user = @my_log_legacy_user;
+set @@global.log_throttle_legacy_user = @my_log_throttle_legacy_user;
