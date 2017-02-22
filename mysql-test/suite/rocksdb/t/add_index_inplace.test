@@ -341,29 +341,3 @@ while ($i <= $max) {
 #SHOW TABLE STATUS WHERE name LIKE 't1';
 
 DROP TABLE t1;
-
-# Test that fast secondary index creation updates cardinality properly
-CREATE TABLE t1 (i INT PRIMARY KEY, j INT) ENGINE = ROCKSDB;
-INSERT INTO t1 VALUES (1,2), (2,4), (3,6), (4,8), (5,10);
-ALTER TABLE t1 ADD INDEX kj(j), ALGORITHM=INPLACE;
-
-# Flush memtable out to SST
-SET GLOBAL rocksdb_force_flush_memtable_now = 1;
-
-# Return the data for the primary key of t1
---replace_column 1 # 2 # 3 SSTNAME 5 # 6 # 7 # 8 # 9 #
-SELECT * FROM INFORMATION_SCHEMA.ROCKSDB_INDEX_FILE_MAP
-WHERE INDEX_NUMBER =
-    (SELECT INDEX_NUMBER FROM INFORMATION_SCHEMA.ROCKSDB_DDL
-     WHERE TABLE_NAME = 't1' AND INDEX_NAME = "PRIMARY");
-
-# Return the data for the secondary index of t1
---replace_column 1 # 2 # 3 SSTNAME 5 # 6 # 7 # 8 # 9 #
-SELECT * FROM INFORMATION_SCHEMA.ROCKSDB_INDEX_FILE_MAP
-WHERE INDEX_NUMBER =
-    (SELECT INDEX_NUMBER FROM INFORMATION_SCHEMA.ROCKSDB_DDL
-     WHERE TABLE_NAME = 't1' AND INDEX_NAME = "kj");
-
-# cleanup
-DROP TABLE t1;
-
