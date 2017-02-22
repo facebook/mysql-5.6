@@ -368,6 +368,7 @@ INCLUDE(CMakePushCheckState)
 INCLUDE(character_sets)
 INCLUDE(cpu_info)
 INCLUDE(zlib)
+INCLUDE(zstd)
 INCLUDE(lz4)
 INCLUDE(lzma)
 INCLUDE(re2)
@@ -915,6 +916,8 @@ MYSQL_CHECK_LIBEVENT()
 MYSQL_CHECK_LZ4()
 # Add lzma library
 MYSQL_CHECK_LZMA()
+# Add zstd library
+MYSQL_CHECK_ZSTD()
 # Add re2 library
 MYSQL_CHECK_RE2()
 # Add icu library

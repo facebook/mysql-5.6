@@ -54,6 +54,8 @@
 #include "mysqld_error.h"
 #include "violite.h"
 
+#include <zstd.h>
+
 using std::max;
 using std::min;
 
@@ -148,6 +150,9 @@ bool my_net_init(NET *net, Vio *vio) {
   net->last_error[0] = 0;
   net->compress = 0;
   net->reading_or_writing = 0;
+  net->comp_lib = MYSQL_COMPRESSION_ZLIB;
+  net->cctx = nullptr;
+  net->dctx = nullptr;
   net->where_b = net->remain_in_buf = 0;
   net->last_errno = 0;
 #ifdef MYSQL_SERVER
@@ -172,6 +177,10 @@ bool my_net_init(NET *net, Vio *vio) {
 void net_end(NET *net) {
   DBUG_ENTER("net_end");
   reset_packet_write_state(net);
+  ZSTD_freeCCtx(net->cctx);
+  ZSTD_freeDCtx(net->dctx);
+  net->cctx = nullptr;
+  net->dctx = nullptr;
   my_free(net->buff);
   net->buff = 0;
   DBUG_VOID_RETURN;
@@ -1168,7 +1177,7 @@ static uchar *compress_packet(NET *net, const uchar *packet, size_t *length) {
   memcpy(compr_packet + header_length, packet, *length);
 
   /* Compress the encapsulated packet. */
-  if (my_compress(compr_packet + header_length, length, &compr_length,
+  if (my_compress(net, compr_packet + header_length, length, &compr_length,
                   net_compression_level)) {
     /*
       If the length of the compressed packet is larger than the
@@ -1604,7 +1613,7 @@ end:
 
   if (net->compress) {
     *complen = net->async_packet_uncompressed_length;
-    if (my_uncompress(net->buff + net->where_b, net->async_packet_length,
+    if (my_uncompress(net, net->buff + net->where_b, net->async_packet_length,
                       complen)) {
       net->error = 2;  // caller will close socket
       net->last_errno = ER_NET_UNCOMPRESS_ERROR;
@@ -1971,7 +1980,7 @@ ulong my_net_read(NET *net) {
       if ((packet_len = net_read_packet(net, &complen)) == packet_error) {
         return packet_error;
       }
-      if (my_uncompress(net->buff + net->where_b, packet_len, &complen)) {
+      if (my_uncompress(net, net->buff + net->where_b, packet_len, &complen)) {
         net->error = 2; /* caller will close socket */
         net->last_errno = ER_NET_UNCOMPRESS_ERROR;
 #ifdef MYSQL_SERVER

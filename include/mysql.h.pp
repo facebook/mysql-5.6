@@ -130,6 +130,9 @@ enum net_async_block_state {
   NET_NONBLOCKING_READ = 20140,
   NET_NONBLOCKING_WRITE = 20150
 };
+enum mysql_compression_lib { MYSQL_COMPRESSION_ZLIB, MYSQL_COMPRESSION_ZSTD };
+typedef struct ZSTD_CCtx_s ZSTD_CCtx;
+typedef struct ZSTD_DCtx_s ZSTD_DCtx;
 typedef struct NET {
   struct Vio * vio;
   unsigned char *buff, *buff_end, *write_pos, *read_pos;
@@ -143,6 +146,9 @@ typedef struct NET {
   unsigned char reading_or_writing;
   unsigned char save_char;
   bool compress;
+  enum mysql_compression_lib comp_lib;
+  ZSTD_CCtx *cctx;
+  ZSTD_DCtx *dctx;
   unsigned int last_errno;
   unsigned char error;
   char last_error[512];
@@ -465,7 +471,8 @@ enum mysql_option {
   MYSQL_OPT_SSL_FIPS_MODE,
   MYSQL_OPT_SSL_SESSION,
   MYSQL_OPT_SSL_CONTEXT,
-  MYSQL_OPT_NET_RECEIVE_BUFFER_SIZE
+  MYSQL_OPT_NET_RECEIVE_BUFFER_SIZE,
+  MYSQL_OPT_COMP_LIB
 };
 struct st_mysql_options_extention;
 struct st_mysql_options {

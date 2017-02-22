@@ -148,6 +148,7 @@ enum enum_server_operational_state {
 };
 enum_server_operational_state get_server_state();
 
+extern const char *mysql_compression_lib_names[3];
 extern bool opt_large_files, server_id_supplied;
 extern bool opt_bin_log;
 extern bool opt_log_slave_updates;
@@ -168,6 +169,7 @@ extern bool opt_initialize;
 extern bool opt_safe_user_create;
 extern bool opt_local_infile, opt_myisam_use_mmap;
 extern bool opt_slave_compressed_protocol;
+extern ulong opt_slave_compression_lib;
 extern ulong slave_exec_mode_options;
 extern Rpl_global_filter rpl_global_filter;
 extern int32_t opt_regexp_time_limit;
@@ -319,6 +321,7 @@ extern ulonglong relay_io_bytes, relay_sql_bytes;
 extern ulonglong relay_sql_wait_time;
 
 extern uint net_compression_level;
+extern uint zstd_net_compression_level;
 
 /* SHOW STATS var: Name of current timer */
 extern const char *timer_in_use;

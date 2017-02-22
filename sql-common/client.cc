@@ -6047,6 +6047,17 @@ static mysql_state_machine_status csm_begin_connect(mysql_csm_context *ctx) {
   DBUG_RETURN(STATE_MACHINE_CONTINUE);
 }
 
+const char *mysql_compression_lib_names[] = {"zlib", "zstd", NullS};
+enum mysql_compression_lib get_client_compression_enum(const char *lib) {
+  for (unsigned int i = 0; mysql_compression_lib_names[i]; i++) {
+    if (strcmp(lib, mysql_compression_lib_names[i]) == 0) {
+      return (enum mysql_compression_lib)i;
+    }
+  }
+
+  return MYSQL_COMPRESSION_ZLIB;
+}
+
 /*
   Complete the connection itself, setting options on the now-connected socket.
 */
@@ -6104,6 +6115,13 @@ static mysql_state_machine_status csm_complete_connect(mysql_csm_context *ctx) {
     DBUG_RETURN(STATE_MACHINE_FAILED);
   }
   vio_keepalive(net->vio, true);
+
+  auto &connect_attrs = mysql->options.extension->connection_attributes->hash;
+  auto it = connect_attrs.find("compression_lib");
+  if (it != connect_attrs.end()) {
+    const string &value = it->second;
+    net->comp_lib = get_client_compression_enum(value.c_str());
+  }
 
   /* If user set read_timeout, let it override the default */
   if (mysql->options.read_timeout)
@@ -7595,6 +7613,17 @@ int STDCALL mysql_options(MYSQL *mysql, enum mysql_option option,
     case MYSQL_OPT_WRITE_TIMEOUT:
       mysql->options.write_timeout = *(uint *)arg;
       break;
+    case MYSQL_OPT_COMP_LIB: {
+      mysql_options(mysql, MYSQL_OPT_CONNECT_ATTR_DELETE, "compression_lib");
+      const char *lib_name = "zlib";
+      if (reinterpret_cast<enum mysql_compression_lib &>(arg) ==
+          MYSQL_COMPRESSION_ZSTD) {
+        lib_name = "zstd";
+      }
+      mysql_options4(mysql, MYSQL_OPT_CONNECT_ATTR_ADD, "compression_lib",
+                     lib_name);
+      break;
+    }
     case MYSQL_OPT_COMPRESS:
       mysql->options.compress = 1; /* Remember for connect */
       mysql->options.client_flag |= CLIENT_COMPRESS;

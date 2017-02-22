@@ -7721,8 +7721,10 @@ static int connect_to_master(THD *thd, MYSQL *mysql, Master_info *mi,
   mi->events_until_exit = disconnect_slave_event_count;
 #endif
   ulong client_flag = CLIENT_REMEMBER_OPTIONS;
-  if (opt_slave_compressed_protocol)
+  if (opt_slave_compressed_protocol) {
     client_flag |= CLIENT_COMPRESS; /* We will use compression */
+    mysql_options(mysql, MYSQL_OPT_COMP_LIB, (void *)opt_slave_compression_lib);
+  }
 
   /* Always reset public key to remove cached copy */
   mysql_reset_server_public_key();

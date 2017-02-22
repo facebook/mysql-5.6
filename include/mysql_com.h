@@ -874,6 +874,11 @@ enum net_async_block_state {
   NET_NONBLOCKING_WRITE = 20150
 };
 
+enum mysql_compression_lib { MYSQL_COMPRESSION_ZLIB, MYSQL_COMPRESSION_ZSTD };
+
+typedef struct ZSTD_CCtx_s ZSTD_CCtx;
+typedef struct ZSTD_DCtx_s ZSTD_DCtx;
+
 typedef struct NET {
   MYSQL_VIO vio;
   unsigned char *buff, *buff_end, *write_pos, *read_pos;
@@ -892,6 +897,9 @@ typedef struct NET {
   unsigned char reading_or_writing;
   unsigned char save_char;
   bool compress;
+  enum mysql_compression_lib comp_lib;
+  ZSTD_CCtx *cctx;
+  ZSTD_DCtx *dctx;
   unsigned int last_errno;
   unsigned char error;
   /** Client library error message buffer. Actually belongs to struct MYSQL. */

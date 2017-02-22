@@ -1,0 +1,60 @@
+MACRO (FIND_SYSTEM_ZSTD)
+  FIND_PATH(PATH_TO_ZSTD NAMES zstd/zstd.h)
+  FIND_LIBRARY(ZSTD_SYSTEM_LIBRARY NAMES zstd)
+  IF (PATH_TO_ZSTD AND ZSTD_SYSTEM_LIBRARY)
+    SET(SYSTEM_ZSTD_FOUND 1)
+    SET(ZSTD_INCLUDE_DIR ${PATH_TO_ZSTD})
+    SET(ZSTD_LIBRARY ${ZSTD_SYSTEM_LIBRARY})
+    MESSAGE(STATUS "ZSTD_INCLUDE_DIR ${ZSTD_INCLUDE_DIR}")
+    MESSAGE(STATUS "ZSTD_LIBRARY ${ZSTD_LIBRARY}")
+  ENDIF()
+ENDMACRO()
+
+IF (NOT WITH_ZSTD)
+  SET(WITH_ZSTD "system" CACHE STRING "By default use system zstd library")
+ENDIF()
+
+MACRO (MYSQL_CHECK_ZSTD)
+  # See if WITH_ZSTD is of the form </path/to/custom/installation>
+  FILE(GLOB WITH_ZSTD_HEADER ${WITH_ZSTD}/include/zstd.h)
+  IF (WITH_ZSTD_HEADER)
+    SET(WITH_ZSTD_PATH ${WITH_ZSTD}
+      CACHE PATH "Path to custom ZSTD installation")
+  ENDIF()
+
+  IF(WITH_ZSTD STREQUAL "system")
+    FIND_SYSTEM_ZSTD()
+    IF (NOT SYSTEM_ZSTD_FOUND)
+      MESSAGE(FATAL_ERROR "Cannot find system zstd libraries.")
+    ENDIF()
+  ELSEIF(WITH_ZSTD_PATH)
+    # First search in WITH_ZSTD_PATH.
+    FIND_PATH(ZSTD_ROOT_DIR
+      NAMES include/zstd.h
+      NO_CMAKE_PATH
+      NO_CMAKE_ENVIRONMENT_PATH
+      HINTS ${WITH_ZSTD_PATH}
+    )
+
+    # Then search in standard places (if not found above).
+    FIND_PATH(ZSTD_ROOT_DIR
+      NAMES include/zstd.h
+    )
+
+    FIND_PATH(ZSTD_INCLUDE_DIR
+      NAMES zstd.h
+      HINTS ${ZSTD_ROOT_DIR}/include
+    )
+
+    FIND_LIBRARY(ZSTD_LIBRARY
+      NAMES zstd
+      HINTS ${ZSTD_ROOT_DIR}/lib)
+    IF(ZSTD_INCLUDE_DIR AND ZSTD_LIBRARY)
+      MESSAGE(STATUS "ZSTD_INCLUDE_DIR = ${ZSTD_INCLUDE_DIR}")
+      MESSAGE(STATUS "ZSTD_LIBRARY = ${ZSTD_LIBRARY}")
+    ELSE()
+    ENDIF()
+  ELSE()
+    MESSAGE(FATAL_ERROR "Cannot find appropriate libraries for zstd.")
+  ENDIF()
+ENDMACRO()

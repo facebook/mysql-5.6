@@ -1776,6 +1776,30 @@ static bool find_mpvio_user(THD *thd, MPVIO_EXT *mpvio) {
   DBUG_RETURN(0);
 }
 
+static void parse_compression_connect_attr(NET *net, const char *ptr,
+                                           size_t len) {
+  const char *end = ptr + len;
+  const char *key, *value;
+  size_t klen, vlen;
+
+  // When no lib is specified, default to zlib for backwards compatibility
+  net->comp_lib = MYSQL_COMPRESSION_ZLIB;
+
+  while (ptr < end) {
+    klen = net_field_length((uchar **)&ptr);
+    key = ptr;
+    ptr += klen;
+    vlen = net_field_length((uchar **)&ptr);
+    value = ptr;
+    ptr += vlen;
+
+    if (strncmp("compression_lib", key, klen) == 0) {
+      net->comp_lib =
+          get_client_compression_enum(std::string(value, vlen).c_str());
+    }
+  }
+}
+
 static bool read_client_connect_attrs(char **ptr, size_t *max_bytes_available,
                                       MPVIO_EXT *mpvio MY_ATTRIBUTE((unused))) {
   size_t length, length_length;
@@ -1797,6 +1821,8 @@ static bool read_client_connect_attrs(char **ptr, size_t *max_bytes_available,
 
   /* impose an artificial length limit of 64k */
   if (length > 65535) return true;
+
+  parse_compression_connect_attr(mpvio->protocol->get_net(), *ptr, length);
 
 #ifdef HAVE_PSI_THREAD_INTERFACE
   MYSQL_SERVER_AUTH_INFO *auth_info = &mpvio->auth_info;

@@ -953,6 +953,7 @@ bool opt_initialize = 0;
 bool opt_skip_slave_start = 0;  ///< If set, slave is not autostarted
 bool opt_enable_named_pipe = 0;
 bool opt_local_infile, opt_slave_compressed_protocol;
+ulong opt_slave_compression_lib;
 bool opt_safe_user_create = 0;
 bool opt_show_slave_auth_info;
 bool opt_log_slave_updates = 0;
@@ -992,6 +993,7 @@ bool opt_myisam_use_mmap = 0;
 bool offline_mode = 0;
 uint opt_large_page_size = 0;
 uint net_compression_level = 6;
+uint zstd_net_compression_level = 3;
 uint default_password_lifetime = 0;
 volatile bool password_require_current = false;
 
