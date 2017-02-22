@@ -87,6 +87,7 @@ TARGET_LINK_LIBRARIES(pfs_connect_attr-t mysys)
 TARGET_LINK_LIBRARIES(pfs_connect_attr-t vio ${SSL_LIBRARIES})
 TARGET_LINK_LIBRARIES(pfs_connect_attr-t strings dbug mysys ${ZLIB_LIBRARY})
 TARGET_LINK_LIBRARIES(pfs_connect_attr-t mytap perfschema ${ICU_LIBRARIES})
+TARGET_LINK_LIBRARIES(pfs_connect_attr-t mysqlclient)
 
 # ADD_EXECUTABLE(pfs_benchmark-t pfs_benchmark-t.cc pfs_benchmark_helper.cc)
 # TARGET_LINK_LIBRARIES(pfs_benchmark-t mytap perfschema mysys pfs_server_stubs)

@@ -174,6 +174,7 @@ ADD_CONVENIENCE_LIBRARY(mysys ${MYSYS_SOURCES}
   mytime
   strings
   ${ZLIB_LIBRARY}
+  ${ZSTD_LIBRARY}
   ${LIBNSL}
   ${LIBM}
   ${LIBRT}
