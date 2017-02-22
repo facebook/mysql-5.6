@@ -7,17 +7,56 @@ set global legacy_user_name_pattern = '^[^:]+$';
 # legacy_user1
 create user legacy_user1@localhost;
 # connection conn1
+select 11;
+11
+11
+select 12;
+12
+12
 # connection default
 # change legacy_user_name_pattern
 set global legacy_user_name_pattern = '^[^%]+$';
-# legacy%user2
+# legacy_user2
 create user `legacy_user2`@localhost;
 # connection conn2
+select 21;
+21
+21
+select 22;
+22
+22
+# connection default
+select @@global.log_throttle_legacy_user;
+@@global.log_throttle_legacy_user
+0
+set @my_log_throttle_legacy_user = @@global.log_throttle_legacy_user;
+set global log_throttle_legacy_user = 1;
+# connection conn1
+select 13;
+13
+13
+select 14;
+14
+14
+select 15;
+15
+15
 # connection default
 
 # Check the slow log result.
-LEGACY_USER: legacy_user1@localhost on test;
-LEGACY_USER: legacy_user2@localhost on test;
+LEGACY_USER: root@localhost on test, query: create user legacy_user1@localhost;
+LEGACY_USER: legacy_user1@localhost on test, query: select 11;
+LEGACY_USER: legacy_user1@localhost on test, query: select 12;
+LEGACY_USER: root@localhost on test, query: set global legacy_user_name_pattern = '^[^%]+$';
+LEGACY_USER: root@localhost on test, query: create user `legacy_user2`@localhost;
+LEGACY_USER: legacy_user2@localhost on test, query: select 21;
+LEGACY_USER: legacy_user2@localhost on test, query: select 22;
+LEGACY_USER: root@localhost on test, query: select @@global.log_throttle_legacy_user;
+LEGACY_USER: root@localhost on test, query: set @my_log_throttle_legacy_user = @@global.log_throttle_legacy_user;
+LEGACY_USER: root@localhost on test, query: set global log_throttle_legacy_user = 1;
+LEGACY_USER: legacy_user1@localhost on test, query: select 13;
+throttle:          1 'legacy user' warning(s) suppressed.;
+LEGACY_USER: legacy_user1@localhost on test, query: select 15;
 
 # clean up
 drop user `legacy_user1`@localhost;
@@ -25,3 +64,4 @@ drop user `legacy_user2`@localhost;
 set @@global.slow_query_log_file = @my_slow_logname;
 set @@global.legacy_user_name_pattern = @my_legacy_user_name_pattern;
 set @@global.log_legacy_user = @my_log_legacy_user;
+set @@global.log_throttle_legacy_user = @my_log_throttle_legacy_user;
