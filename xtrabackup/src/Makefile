@@ -44,6 +44,7 @@ ifeq "$(wildcard $(MYSQL_ROOT_DIR)/zlib/.libs/libzlt.a)" ""
 else
 5.6: LIBZ= $(MYSQL_ROOT_DIR)/zlib/.libs/libzlt.a
 endif
+5.6: LIBZSTD= $(ZSTD_PATH)/libzstd_pic.a
 
 5.6: MYSQLOBJS = $(MYSQL_ROOT_DIR)/libmysqld/libmysqld.a
 ifeq ($(shell uname -s),Linux)
@@ -73,7 +74,7 @@ xtrabackup.o: xtrabackup.cc xb_regex.h
 
 $(TARGET): $(XTRABACKUPCCOBJS) $(XTRABACKUPCOBJS) $(INNODBOBJS) $(MYSQLOBJS) $(LIBARCHIVE_A)
 	$(CXX) $(CXXFLAGS) $(XTRABACKUPCCOBJS) $(XTRABACKUPCOBJS) $(INNODBOBJS) $(MYSQLOBJS) $(LIBS) $(LIBZ) \
-	$(LIBARCHIVE_A) -o $(TARGET)
+	$(LIBZSTD) $(LIBARCHIVE_A) -o $(TARGET)
 
 clean:
 	rm -f $(XTRABACKUPCCOBJS) $(XTRABACKUPCOBJS) $(XBSTREAMOBJS) xtrabackup xtrabackup_* 

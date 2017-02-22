@@ -24,6 +24,12 @@ INCLUDE_DIRECTORIES(
   ${ZLIB_INCLUDE_DIR})
 ADD_DEFINITIONS(${SSL_DEFINES})
 
+IF(NOT "$ENV{WITH_ZSTD}" STREQUAL "")
+ SET(ZSTD_LIBRARY $ENV{WITH_ZSTD}/libzstd_pic.a)
+ ADD_DEFINITIONS(-DZSTD)
+ ADD_DEFINITIONS(-DHAVE_ZSTD_COMPRESS)
+ENDIF()
+
 SET(CLIENT_API_FUNCTIONS
 get_tty_password
 handle_options
@@ -178,7 +184,7 @@ ELSE()
   SET(STATIC_MERGE_LIBS clientlib dbug strings vio mysys mysys_ssl ${LIBDL})
 ENDIF()
 
-SET(LIBS ${STATIC_MERGE_LIBS} ${ZLIB_LIBRARY} ${SSL_LIBRARIES})
+SET(LIBS ${STATIC_MERGE_LIBS} ${ZLIB_LIBRARY} ${ZSTD_LIBRARY} ${SSL_LIBRARIES})
 
 #
 # On Windows platform client library includes the client-side 
@@ -192,7 +198,7 @@ ENDIF()
 
 # Merge several convenience libraries into one big fbmysqlclient
 MERGE_LIBRARIES(fbmysqlclient STATIC ${STATIC_MERGE_LIBS} COMPONENT Development)
-TARGET_LINK_LIBRARIES(fbmysqlclient ${ZLIB_LIBRARY} ${SSL_LIBRARIES})
+TARGET_LINK_LIBRARIES(fbmysqlclient ${ZLIB_LIBRARY} ${ZSTD_LIBRARY} ${SSL_LIBRARIES})
 
 # Visual Studio users need debug  static library for debug projects
 IF(MSVC)

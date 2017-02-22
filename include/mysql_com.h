@@ -429,6 +429,14 @@ typedef struct ssl_st SSL;
 #define NET_HEADER_SIZE 4		/* standard header size */
 #define COMP_HEADER_SIZE 3		/* compression header extra size */
 
+enum mysql_compression_lib {
+  MYSQL_COMPRESSION_ZLIB,
+  MYSQL_COMPRESSION_ZSTD
+};
+
+typedef struct ZSTD_CCtx_s ZSTD_CCtx;
+typedef struct ZSTD_DCtx_s ZSTD_DCtx;
+
 typedef struct st_net {
 #if !defined(CHECK_EMBEDDED_DIFFERENCES) || !defined(EMBEDDED_LIBRARY)
   Vio *vio;
@@ -452,6 +460,9 @@ typedef struct st_net {
   my_bool unused2; /* Please remove with the next incompatible ABI change */
   my_bool compress;
   my_bool unused3; /* Please remove with the next incompatible ABI change. */
+  enum mysql_compression_lib comp_lib;
+  ZSTD_CCtx *cctx;
+  ZSTD_DCtx *dctx;
   /*
     Pointer to query object in query cache, do not equal NULL (0) for
     queries in cache that have not stored its results yet
