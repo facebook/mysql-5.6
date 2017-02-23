@@ -74,19 +74,18 @@ struct Rdb_collation_codec;
   C-style "virtual table" allowing different handling of packing logic based
   on the field type. See Rdb_field_packing::setup() implementation.
   */
-using rdb_make_unpack_info_t = void (*)(const Rdb_collation_codec *codec,
-                                        const Field *field,
-                                        Rdb_pack_field_context *pack_ctx);
-using rdb_index_field_unpack_t = int (*)(Rdb_field_packing *fpi, Field *field,
-                                         uchar *field_ptr,
-                                         Rdb_string_reader *reader,
-                                         Rdb_string_reader *unpack_reader);
-using rdb_index_field_skip_t = int (*)(const Rdb_field_packing *fpi,
-                                       const Field *field,
-                                       Rdb_string_reader *reader);
-using rdb_index_field_pack_t = void (*)(Rdb_field_packing *fpi, Field *field,
-                                        uchar *buf, uchar **dst,
-                                        Rdb_pack_field_context *pack_ctx);
+using rdb_make_unpack_info_t =
+    void (Rdb_key_def::*)(const Rdb_collation_codec *codec, const Field *field,
+                          Rdb_pack_field_context *pack_ctx) const;
+using rdb_index_field_unpack_t = int (Rdb_key_def::*)(
+    Rdb_field_packing *fpi, Field *field, uchar *field_ptr,
+    Rdb_string_reader *reader, Rdb_string_reader *unpack_reader) const;
+using rdb_index_field_skip_t =
+    int (Rdb_key_def::*)(const Rdb_field_packing *fpi, const Field *field,
+                         Rdb_string_reader *reader) const;
+using rdb_index_field_pack_t =
+    void (Rdb_key_def::*)(Rdb_field_packing *fpi, Field *field, uchar *buf,
+                          uchar **dst, Rdb_pack_field_context *pack_ctx) const;
 
 const uint RDB_INVALID_KEY_LEN = uint(-1);
 
@@ -167,13 +166,11 @@ public:
                         uchar *const packed_tuple, const uchar *const key_tuple,
                         const key_part_map &keypart_map) const;
 
-  uchar *pack_field(Field *const             field,
-                    Rdb_field_packing       *pack_info,
-                    uchar *                  tuple,
-                    uchar *const             packed_tuple,
-                    uchar *const             pack_buffer,
+  uchar *pack_field(Field *const field, Rdb_field_packing *pack_info,
+                    uchar *tuple, uchar *const packed_tuple,
+                    uchar *const pack_buffer,
                     Rdb_string_writer *const unpack_info,
-                    uint *const              n_null_fields) const;
+                    uint *const n_null_fields) const;
   /* Convert a key from Table->record format to mem-comparable form */
   uint pack_record(const TABLE *const tbl, uchar *const pack_buffer,
                    const uchar *const record, uchar *const packed_tuple,
@@ -380,12 +377,22 @@ public:
     //    it can be decoded from its mem-comparable form)
     //  - VARCHAR-columns use endspace-padding.
     PRIMARY_FORMAT_VERSION_UPDATE1 = 11,
-    PRIMARY_FORMAT_VERSION_LATEST = PRIMARY_FORMAT_VERSION_UPDATE1,
+    // This change includes:
+    //  - Binary encoded variable length fields have a new format that avoids
+    //    an inefficient where data that was a multiple of 8 bytes in length
+    //    had an extra 9 bytes of encoded data.
+    PRIMARY_FORMAT_VERSION_UPDATE2 = 12,
+    PRIMARY_FORMAT_VERSION_LATEST = PRIMARY_FORMAT_VERSION_UPDATE2,
 
     SECONDARY_FORMAT_VERSION_INITIAL = 10,
     // This change the SK format to include unpack_info.
     SECONDARY_FORMAT_VERSION_UPDATE1 = 11,
-    SECONDARY_FORMAT_VERSION_LATEST = SECONDARY_FORMAT_VERSION_UPDATE1,
+    // This change includes:
+    //  - Binary encoded variable length fields have a new format that avoids
+    //    an inefficient where data that was a multiple of 8 bytes in length
+    //    had an extra 9 bytes of encoded data.
+    SECONDARY_FORMAT_VERSION_UPDATE2 = 12,
+    SECONDARY_FORMAT_VERSION_LATEST = SECONDARY_FORMAT_VERSION_UPDATE2,
   };
 
   void setup(const TABLE *const table, const Rdb_tbl_def *const tbl_def);
@@ -407,7 +414,126 @@ public:
     or at least sk_min if SK.*/
   bool index_format_min_check(const int &pk_min, const int &sk_min) const;
 
-private:
+  void pack_with_make_sort_key(
+      Rdb_field_packing *const fpi, Field *const field,
+      uchar *buf MY_ATTRIBUTE((__unused__)), uchar **dst,
+      Rdb_pack_field_context *const pack_ctx MY_ATTRIBUTE((__unused__))) const;
+
+  void pack_with_varchar_encoding(
+      Rdb_field_packing *const fpi, Field *const field, uchar *buf, uchar **dst,
+      Rdb_pack_field_context *const pack_ctx MY_ATTRIBUTE((__unused__))) const;
+
+  void
+  pack_with_varchar_space_pad(Rdb_field_packing *const fpi, Field *const field,
+                              uchar *buf, uchar **dst,
+                              Rdb_pack_field_context *const pack_ctx) const;
+
+  int unpack_integer(Rdb_field_packing *const fpi, Field *const field,
+                     uchar *const to, Rdb_string_reader *const reader,
+                     Rdb_string_reader *const unp_reader
+                         MY_ATTRIBUTE((__unused__))) const;
+
+  int unpack_double(Rdb_field_packing *const fpi MY_ATTRIBUTE((__unused__)),
+                    Field *const field MY_ATTRIBUTE((__unused__)),
+                    uchar *const field_ptr, Rdb_string_reader *const reader,
+                    Rdb_string_reader *const unp_reader
+                        MY_ATTRIBUTE((__unused__))) const;
+
+  int unpack_float(Rdb_field_packing *const fpi,
+                   Field *const field MY_ATTRIBUTE((__unused__)),
+                   uchar *const field_ptr, Rdb_string_reader *const reader,
+                   Rdb_string_reader *const unp_reader
+                       MY_ATTRIBUTE((__unused__))) const;
+
+  int unpack_binary_str(Rdb_field_packing *const fpi, Field *const field,
+                        uchar *const to, Rdb_string_reader *const reader,
+                        Rdb_string_reader *const unp_reader
+                            MY_ATTRIBUTE((__unused__))) const;
+
+  int unpack_binary_or_utf8_varchar(
+      Rdb_field_packing *const fpi, Field *const field, uchar *dst,
+      Rdb_string_reader *const reader,
+      Rdb_string_reader *const unp_reader MY_ATTRIBUTE((__unused__))) const;
+
+  int unpack_binary_or_utf8_varchar_space_pad(
+      Rdb_field_packing *const fpi, Field *const field, uchar *dst,
+      Rdb_string_reader *const reader,
+      Rdb_string_reader *const unp_reader) const;
+
+  int unpack_newdate(Rdb_field_packing *const fpi,
+                     Field *const field MY_ATTRIBUTE((__unused__)),
+                     uchar *const field_ptr, Rdb_string_reader *const reader,
+                     Rdb_string_reader *const unp_reader
+                         MY_ATTRIBUTE((__unused__))) const;
+
+  int unpack_utf8_str(Rdb_field_packing *const fpi, Field *const field,
+                      uchar *dst, Rdb_string_reader *const reader,
+                      Rdb_string_reader *const unp_reader
+                          MY_ATTRIBUTE((__unused__))) const;
+
+  int unpack_unknown_varchar(Rdb_field_packing *const fpi, Field *const field,
+                             uchar *dst, Rdb_string_reader *const reader,
+                             Rdb_string_reader *const unp_reader) const;
+
+  int unpack_simple_varchar_space_pad(
+      Rdb_field_packing *const fpi, Field *const field, uchar *dst,
+      Rdb_string_reader *const reader,
+      Rdb_string_reader *const unp_reader) const;
+
+  int unpack_simple(Rdb_field_packing *const fpi,
+                    Field *const field MY_ATTRIBUTE((__unused__)),
+                    uchar *const dst, Rdb_string_reader *const reader,
+                    Rdb_string_reader *const unp_reader) const;
+
+  int unpack_unknown(Rdb_field_packing *const fpi, Field *const field,
+                     uchar *const dst, Rdb_string_reader *const reader,
+                     Rdb_string_reader *const unp_reader) const;
+
+  int unpack_floating_point(uchar *const dst, Rdb_string_reader *const reader,
+                            const size_t &size, const int &exp_digit,
+                            const uchar *const zero_pattern,
+                            const uchar *const zero_val,
+                            void (*swap_func)(uchar *, const uchar *)) const;
+
+  void make_unpack_simple_varchar(const Rdb_collation_codec *const codec,
+                                  const Field *const field,
+                                  Rdb_pack_field_context *const pack_ctx) const;
+
+  void make_unpack_simple(const Rdb_collation_codec *const codec,
+                          const Field *const field,
+                          Rdb_pack_field_context *const pack_ctx) const;
+
+  void make_unpack_unknown(
+      const Rdb_collation_codec *codec MY_ATTRIBUTE((__unused__)),
+      const Field *const field, Rdb_pack_field_context *const pack_ctx) const;
+
+  void make_unpack_unknown_varchar(
+      const Rdb_collation_codec *const codec MY_ATTRIBUTE((__unused__)),
+      const Field *const field, Rdb_pack_field_context *const pack_ctx) const;
+
+  void dummy_make_unpack_info(
+      const Rdb_collation_codec *codec MY_ATTRIBUTE((__unused__)),
+      const Field *field MY_ATTRIBUTE((__unused__)),
+      Rdb_pack_field_context *pack_ctx MY_ATTRIBUTE((__unused__))) const;
+
+  int skip_max_length(const Rdb_field_packing *const fpi,
+                      const Field *const field MY_ATTRIBUTE((__unused__)),
+                      Rdb_string_reader *const reader) const;
+
+  int skip_variable_length(
+      const Rdb_field_packing *const fpi MY_ATTRIBUTE((__unused__)),
+      const Field *const field, Rdb_string_reader *const reader) const;
+
+  int skip_variable_space_pad(const Rdb_field_packing *const fpi,
+                              const Field *const field,
+                              Rdb_string_reader *const reader) const;
+
+  inline bool use_legacy_varbinary_format() const {
+    return !index_format_min_check(PRIMARY_FORMAT_VERSION_UPDATE2,
+                                   SECONDARY_FORMAT_VERSION_UPDATE2);
+  }
+
+ private:
 #ifndef DBUG_OFF
   inline bool is_storage_available(const int &offset, const int &needed) const {
     const int storage_length = static_cast<int>(max_storage_fmt_length());
@@ -422,7 +548,17 @@ private:
 
   rocksdb::ColumnFamilyHandle *m_cf_handle;
 
-public:
+  void pack_legacy_variable_format(const uchar *src, size_t src_len,
+                                   uchar **dst) const;
+
+  void pack_variable_format(const uchar *src, size_t src_len,
+                            uchar **dst) const;
+
+  uint calc_unpack_legacy_variable_format(uchar flag, bool *done) const;
+
+  uint calc_unpack_variable_format(uchar flag, bool *done) const;
+
+ public:
   uint16_t m_index_dict_version;
   uchar m_index_type;
   /* KV format version for the index id */
