@@ -1,0 +1,36 @@
+SET @start_value= @@global.log_throttle_legacy_user;
+SET @@global.log_throttle_legacy_user= DEFAULT;
+SELECT @@global.log_throttle_legacy_user;
+@@global.log_throttle_legacy_user
+0
+SET @@global.log_throttle_legacy_user= 1000;
+SELECT @@global.log_throttle_legacy_user;
+@@global.log_throttle_legacy_user
+1000
+SET @@global.log_throttle_legacy_user= -1;
+Warnings:
+Warning	1292	Truncated incorrect log_throttle_legacy_user value: '-1'
+SELECT @@global.log_throttle_legacy_user;
+@@global.log_throttle_legacy_user
+0
+SET @@global.log_throttle_legacy_user= 5;
+SELECT @@global.log_throttle_legacy_user;
+@@global.log_throttle_legacy_user
+5
+SET @@global.log_throttle_legacy_user= OFF;
+ERROR 42000: Incorrect argument type to variable 'log_throttle_legacy_user'
+SELECT @@global.log_throttle_legacy_user;
+@@global.log_throttle_legacy_user
+5
+SET @@global.log_throttle_legacy_user= ON;
+ERROR 42000: Incorrect argument type to variable 'log_throttle_legacy_user'
+SELECT @@global.log_throttle_legacy_user;
+@@global.log_throttle_legacy_user
+5
+SET GLOBAL log_throttle_legacy_user= 0.01;
+ERROR 42000: Incorrect argument type to variable 'log_throttle_legacy_user'
+SET SESSION log_throttle_legacy_user= 0;
+ERROR HY000: Variable 'log_throttle_legacy_user' is a GLOBAL variable and should be set with SET GLOBAL
+SET LOCAL log_throttle_legacy_user= 0;
+ERROR HY000: Variable 'log_throttle_legacy_user' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@global.log_throttle_legacy_user= @start_value;

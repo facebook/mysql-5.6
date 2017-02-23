@@ -99,7 +99,7 @@ static ulong find_set(TYPELIB *lib, const char *x, size_t length,
                       char **err_pos, uint *err_len);
 static char *alloc_query_str(ulong size);
 
-static my_bool default_engine_rocksdb(MYSQL *mysql_con);
+static my_bool default_engine(MYSQL *mysql_con, const char *engine);
 static void field_escape(DYNAMIC_STRING* in, const char *from);
 static my_bool  verbose= 0, opt_no_create_info= 0, opt_no_data= 0,
                 quick= 1, extended_insert= 1,
@@ -186,6 +186,8 @@ static my_bool server_supports_sql_no_fcache= FALSE;
 
 static my_bool opt_innodb_optimize_keys= FALSE;
 static my_bool opt_print_ordering_key= FALSE;
+
+static my_bool opt_innodb_stats_on_metadata= FALSE;
 
 /*
 Dynamic_string wrapper functions. In this file use these
@@ -445,6 +447,12 @@ static struct my_option my_long_options[] =
    "dumping the data.",
    &opt_innodb_optimize_keys, &opt_innodb_optimize_keys, 0, GET_BOOL, NO_ARG,
    0, 0, 0, 0, 0, 0},
+  {"innodb-stats-on-metadata", OPT_INNODB_STATS_ON_METADATA,
+   "Update non-persistent statistics during metadata statements such as SHOW "
+   "TABLE STATUS, or when accessing the INFORMATION_SCHEMA.TABLES or "
+   "INFORMATION_SCHEMA.STATISTICS tables",
+   &opt_innodb_stats_on_metadata, &opt_innodb_stats_on_metadata, 0, GET_BOOL,
+   NO_ARG, 0, 0, 0, 0, 0, 0},
   {"print-ordering-key", OPT_PRINT_ORDERING_KEY,
    "Print the key used for ordering rows in the dumpfile",
    &opt_print_ordering_key, &opt_print_ordering_key, 0 , GET_BOOL, NO_ARG,
@@ -1814,6 +1822,15 @@ static int connect_to_db(char *host, char *user,char *passwd)
   {
     my_snprintf(buff, sizeof(buff), "SET session long_query_time=%lu",
         opt_long_query_time);
+    if (mysql_query_with_error_report(mysql, 0, buff))
+      DBUG_RETURN(1);
+  }
+
+  /* set innodb_stats_on_metadata if the default engine is InnoDB */
+  if (opt_innodb_stats_on_metadata && default_engine(mysql, "InnoDB"))
+  {
+    my_snprintf(buff, sizeof(buff), "SET session innodb_stats_on_metadata=%u",
+        opt_innodb_stats_on_metadata);
     if (mysql_query_with_error_report(mysql, 0, buff))
       DBUG_RETURN(1);
   }
@@ -5786,7 +5803,7 @@ static int start_transaction(MYSQL *mysql_con, char* filename_out,
     if (!ignore_errors)
       exit(EX_MYSQLERR);
   }
-  my_bool use_rocksdb= opt_rocksdb || default_engine_rocksdb(mysql_con);
+  my_bool use_rocksdb= opt_rocksdb || default_engine(mysql_con, "ROCKSDB");
 
   if (use_rocksdb &&
       mysql_query_with_error_report(mysql_con, 0,
@@ -6231,13 +6248,17 @@ static my_bool add_set_gtid_purged(MYSQL *mysql_con)
   return FALSE;  /*success */
 }
 
-static my_bool default_engine_rocksdb(MYSQL *mysql_con)
+/*
+ * check if the default engine matches $engine
+ * Return TRUE if it matches, otherwise return FALSE
+ */
+static my_bool default_engine(MYSQL *mysql_con, const char *engine)
 {
   MYSQL_RES  *res;
   MYSQL_ROW  row;
   char       *val= 0;
   char buf[32], query[64];
-  my_bool rocksdb= FALSE;
+  my_bool match= FALSE;
 
   my_snprintf(query, sizeof(query), "SHOW VARIABLES LIKE %s",
               quote_for_like("default_storage_engine", buf));
@@ -6246,12 +6267,12 @@ static my_bool default_engine_rocksdb(MYSQL *mysql_con)
 
   row = mysql_fetch_row(res);
   val = row ? (char*)row[1] : NULL;
-  if (val && !strcmp(val, "ROCKSDB"))
+  if (val && !strcmp(val, engine))
   {
-    rocksdb= TRUE;
+    match= TRUE;
   }
   mysql_free_result(res);
-  return rocksdb;
+  return match;
 }
 
 /**

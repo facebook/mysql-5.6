@@ -478,6 +478,12 @@ The following options may be given as the first argument:
  transactions that affect more than one storage engine,
  when binary log is disabled).
  --log-tc-size=#     Size of transaction coordinator log.
+ --log-throttle-legacy-user[=#] 
+ Log at most this many 'LEGACY_USER' entries per minute to
+ the slow log. Any further warnings will be condensed into
+ a single summary line. A value of 0 disables throttling.
+ Option has no effect unless --log_legacy_user and
+ --legacy_user_name_pattern are both set.
  --log-throttle-queries-not-using-indexes[=#] 
  Log at most this many 'not using index' warnings per
  minute to the slow log. Any further warnings will be
@@ -1770,6 +1776,7 @@ log-slow-extra FALSE
 log-slow-slave-statements FALSE
 log-tc tc.log
 log-tc-size 24576
+log-throttle-legacy-user 0
 log-throttle-queries-not-using-indexes 0
 log-warnings 1
 long-query-time 10
