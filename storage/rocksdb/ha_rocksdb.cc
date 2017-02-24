@@ -8452,6 +8452,37 @@ ha_rocksdb::get_range(const int &i,
   return myrocks::get_range(*m_key_descr_arr[i], buf);
 }
 
+static bool is_myrocks_index_empty(
+  rocksdb::ColumnFamilyHandle *cfh, const bool is_reverse_cf,
+  const rocksdb::ReadOptions &read_opts,
+  const uint index_id)
+{
+  bool index_removed = false;
+  uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE] = {0};
+  rdb_netbuf_store_uint32(key_buf, index_id);
+  const rocksdb::Slice key =
+    rocksdb::Slice(reinterpret_cast<char *>(key_buf), sizeof(key_buf));
+  std::unique_ptr<rocksdb::Iterator> it(rdb->NewIterator(read_opts, cfh));
+  it->Seek(key);
+  if (is_reverse_cf) {
+    if (!it->Valid()) {
+      it->SeekToLast();
+    } else {
+      it->Prev();
+    }
+  }
+  if (!it->Valid()) {
+    index_removed = true;
+  } else {
+    if (memcmp(it->key().data(), key_buf,
+        Rdb_key_def::INDEX_NUMBER_SIZE)) {
+      // Key does not have same prefix
+      index_removed = true;
+    }
+  }
+  return index_removed;
+}
+
 /*
   Drop index thread's main logic
 */
@@ -8504,11 +8535,11 @@ void Rdb_drop_index_thread::run() {
         DBUG_ASSERT(cfh);
         const bool is_reverse_cf = cf_flags & Rdb_key_def::REVERSE_CF_FLAG;
 
-        bool index_removed = false;
-        uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE] = {0};
-        rdb_netbuf_store_uint32(key_buf, d.index_id);
-        const rocksdb::Slice key =
-            rocksdb::Slice((char *)key_buf, sizeof(key_buf));
+        if (is_myrocks_index_empty(cfh, is_reverse_cf, read_opts, d.index_id))
+        {
+          finished.insert(d);
+          continue;
+        }
         uchar buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2];
         rocksdb::Range range = get_range(d.index_id, buf, is_reverse_cf ? 1 : 0,
                                          is_reverse_cf ? 0 : 1);
@@ -8532,25 +8563,8 @@ void Rdb_drop_index_thread::run() {
           }
           rdb_handle_io_error(status, RDB_IO_ERROR_BG_THREAD);
         }
-        std::unique_ptr<rocksdb::Iterator> it(rdb->NewIterator(read_opts, cfh));
-        it->Seek(key);
-        if (is_reverse_cf) {
-          if (!it->Valid()) {
-            it->SeekToLast();
-          } else {
-            it->Prev();
-          }
-        }
-        if (!it->Valid()) {
-          index_removed = true;
-        } else {
-          if (memcmp(it->key().data(), key_buf,
-                     Rdb_key_def::INDEX_NUMBER_SIZE)) {
-            // Key does not have same prefix
-            index_removed = true;
-          }
-        }
-        if (index_removed) {
+        if (is_myrocks_index_empty(cfh, is_reverse_cf, read_opts, d.index_id))
+        {
           finished.insert(d);
         }
       }
