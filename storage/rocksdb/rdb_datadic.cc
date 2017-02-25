@@ -515,6 +515,50 @@ int Rdb_key_def::successor(uchar *const packed_tuple, const uint &len) {
   return changed;
 }
 
+uchar *Rdb_key_def::pack_field(
+  Field *const             field,
+  Rdb_field_packing       *pack_info,
+  uchar *                  tuple,
+  uchar *const             packed_tuple,
+  uchar *const             pack_buffer,
+  Rdb_string_writer *const unpack_info,
+  uint *const              n_null_fields) const
+{
+  if (field->real_maybe_null()) {
+    DBUG_ASSERT(is_storage_available(tuple - packed_tuple, 1));
+    if (field->is_real_null()) {
+      /* NULL value. store '\0' so that it sorts before non-NULL values */
+      *tuple++ = 0;
+      /* That's it, don't store anything else */
+      if (n_null_fields)
+        (*n_null_fields)++;
+      return tuple;
+    } else {
+      /* Not a NULL value. Store '1' */
+      *tuple++ = 1;
+    }
+  }
+
+  const bool create_unpack_info =
+      (unpack_info &&  // we were requested to generate unpack_info
+       pack_info->uses_unpack_info());  // and this keypart uses it
+  Rdb_pack_field_context pack_ctx(unpack_info);
+
+  // Set the offset for methods which do not take an offset as an argument
+  DBUG_ASSERT(is_storage_available(tuple - packed_tuple,
+                                   pack_info->m_max_image_len));
+
+  pack_info->m_pack_func(pack_info, field, pack_buffer, &tuple, &pack_ctx);
+
+  /* Make "unpack info" to be stored in the value */
+  if (create_unpack_info) {
+    pack_info->m_make_unpack_info_func(pack_info->m_charset_codec, field,
+                                       &pack_ctx);
+  }
+
+  return tuple;
+}
+
 /**
   Get index columns from the record and pack them into mem-comparable form.
 
@@ -595,45 +639,21 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
     Field *const field = m_pack_info[i].get_field_in_table(tbl);
     DBUG_ASSERT(field != nullptr);
 
-    // Old Field methods expected the record pointer to be at tbl->record[0].
-    // The quick and easy way to fix this was to pass along the offset
-    // for the pointer.
-    const my_ptrdiff_t ptr_diff = record - tbl->record[0];
+    uint field_offset = field->ptr - tbl->record[0];
+    uint null_offset = field->null_offset(tbl->record[0]);
+    bool maybe_null = field->real_maybe_null();
+    field->move_field(const_cast<uchar*>(record) + field_offset,
+        maybe_null ? const_cast<uchar*>(record) + null_offset : nullptr,
+        field->null_bit);
+    // WARNING! Don't return without restoring field->ptr and field->null_ptr
 
-    if (field->real_maybe_null()) {
-      DBUG_ASSERT(is_storage_available(tuple - packed_tuple, 1));
-      if (field->is_real_null(ptr_diff)) {
-        /* NULL value. store '\0' so that it sorts before non-NULL values */
-        *tuple++ = 0;
-        /* That's it, don't store anything else */
-        if (n_null_fields)
-          (*n_null_fields)++;
-        continue;
-      } else {
-        /* Not a NULL value. Store '1' */
-        *tuple++ = 1;
-      }
-    }
+    tuple = pack_field(field, &m_pack_info[i], tuple, packed_tuple, pack_buffer,
+                       unpack_info, n_null_fields);
 
-    const bool create_unpack_info =
-        (unpack_info && // we were requested to generate unpack_info
-         m_pack_info[i].uses_unpack_info()); // and this keypart uses it
-    Rdb_pack_field_context pack_ctx(unpack_info);
-
-    // Set the offset for methods which do not take an offset as an argument
-    DBUG_ASSERT(is_storage_available(tuple - packed_tuple,
-                                     m_pack_info[i].m_max_image_len));
-    field->move_field_offset(ptr_diff);
-
-    m_pack_info[i].m_pack_func(&m_pack_info[i], field, pack_buffer, &tuple,
-                               &pack_ctx);
-
-    /* Make "unpack info" to be stored in the value */
-    if (create_unpack_info) {
-      m_pack_info[i].m_make_unpack_info_func(m_pack_info[i].m_charset_codec,
-                                             field, &pack_ctx);
-    }
-    field->move_field_offset(-ptr_diff);
+    // Restore field->ptr and field->null_ptr
+    field->move_field(tbl->record[0] + field_offset,
+                      maybe_null ? tbl->record[0] + null_offset : nullptr,
+                      field->null_bit);
   }
 
   if (unpack_info) {
@@ -824,6 +844,35 @@ size_t Rdb_key_def::key_length(const TABLE *const table,
   return key.size() - reader.remaining_bytes();
 }
 
+int Rdb_key_def::unpack_field(
+    Rdb_field_packing *const fpi,
+    Field *const             field,
+    Rdb_string_reader*       reader,
+    const uchar *const       default_value,
+    Rdb_string_reader*       unp_reader) const
+{
+  if (fpi->m_maybe_null) {
+    const char *nullp;
+    if (!(nullp = reader->read(1))) {
+      return HA_EXIT_FAILURE;
+    }
+
+    if (*nullp == 0) {
+      /* Set the NULL-bit of this field */
+      field->set_null();
+      /* Also set the field to its default value */
+      memcpy(field->ptr, default_value, field->pack_length());
+      return HA_EXIT_SUCCESS;
+    } else if (*nullp == 1) {
+      field->set_notnull();
+    } else {
+      return HA_EXIT_FAILURE;
+    }
+  }
+
+  return fpi->m_unpack_func(fpi, field, field->ptr, reader, unp_reader);
+}
+
 /*
   Take mem-comparable form and unpack_info and unpack it to Table->record
 
@@ -849,11 +898,6 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
   // the layout there is different. The checksum is verified in
   // ha_rocksdb::convert_record_from_storage_format instead.
   DBUG_ASSERT_IMP(!secondary_key, !verify_row_debug_checksums);
-
-  // Old Field methods expected the record pointer to be at tbl->record[0].
-  // The quick and easy way to fix this was to pass along the offset
-  // for the pointer.
-  const my_ptrdiff_t ptr_diff = buf - table->record[0];
 
   // Skip the index number
   if ((!reader.read(INDEX_NUMBER_SIZE))) {
@@ -891,35 +935,31 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
     if (fpi->m_unpack_func) {
       /* It is possible to unpack this column. Do it. */
 
-      if (fpi->m_maybe_null) {
-        const char *nullp;
-        if (!(nullp = reader.read(1)))
-          return HA_EXIT_FAILURE;
-        if (*nullp == 0) {
-          /* Set the NULL-bit of this field */
-          field->set_null(ptr_diff);
-          /* Also set the field to its default value */
-          uint field_offset = field->ptr - table->record[0];
-          memcpy(buf + field_offset, table->s->default_values + field_offset,
-                 field->pack_length());
-          continue;
-        } else if (*nullp == 1)
-          field->set_notnull(ptr_diff);
-        else
-          return HA_EXIT_FAILURE;
-      }
+      uint field_offset = field->ptr - table->record[0];
+      uint null_offset = field->null_offset();
+      bool maybe_null = field->real_maybe_null();
+      field->move_field(buf + field_offset,
+                        maybe_null ? buf + null_offset : nullptr,
+                        field->null_bit);
+      // WARNING! Don't return without restoring field->ptr and field->null_ptr
 
       // If we need unpack info, but there is none, tell the unpack function
       // this by passing unp_reader as nullptr. If we never read unpack_info
       // during unpacking anyway, then there won't an error.
       const bool maybe_missing_unpack =
           !has_unpack_info && fpi->uses_unpack_info();
-      const int res =
-          fpi->m_unpack_func(fpi, field, field->ptr + ptr_diff, &reader,
+      int res = unpack_field(fpi, field, &reader,
+                             table->s->default_values + field_offset,
                              maybe_missing_unpack ? nullptr : &unp_reader);
 
-      if (res)
+      // Restore field->ptr and field->null_ptr
+      field->move_field(table->record[0] + field_offset,
+                        maybe_null ? table->record[0] + null_offset : nullptr,
+                        field->null_bit);
+
+      if (res) {
         return res;
+      }
     } else {
       /* It is impossible to unpack the column. Skip it. */
       if (fpi->m_maybe_null) {
