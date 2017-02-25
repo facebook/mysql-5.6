@@ -167,6 +167,13 @@ public:
                         uchar *const packed_tuple, const uchar *const key_tuple,
                         const key_part_map &keypart_map) const;
 
+  uchar *pack_field(Field *const             field,
+                    Rdb_field_packing       *pack_info,
+                    uchar *                  tuple,
+                    uchar *const             packed_tuple,
+                    uchar *const             pack_buffer,
+                    Rdb_string_writer *const unpack_info,
+                    uint *const              n_null_fields) const;
   /* Convert a key from Table->record format to mem-comparable form */
   uint pack_record(const TABLE *const tbl, uchar *const pack_buffer,
                    const uchar *const record, uchar *const packed_tuple,
@@ -177,6 +184,11 @@ public:
   /* Pack the hidden primary key into mem-comparable form. */
   uint pack_hidden_pk(const longlong &hidden_pk_id,
                       uchar *const packed_tuple) const;
+  int unpack_field(Rdb_field_packing *const fpi,
+                   Field *const             field,
+                   Rdb_string_reader*       reader,
+                   const uchar *const       default_value,
+                   Rdb_string_reader*       unp_reader) const;
   int unpack_record(TABLE *const table, uchar *const buf,
                     const rocksdb::Slice *const packed_key,
                     const rocksdb::Slice *const unpack_info,
