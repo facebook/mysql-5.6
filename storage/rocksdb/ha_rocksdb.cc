@@ -10388,7 +10388,7 @@ void rocksdb_set_collation_exception_list(THD *const thd,
                                           const void *const save) {
   const char *const val = *static_cast<const char *const *>(save);
 
-  rdb_set_collation_exception_list(val);
+  rdb_set_collation_exception_list(val == nullptr ? "" : val);
 
   *static_cast<const char **>(var_ptr) = val;
 }
