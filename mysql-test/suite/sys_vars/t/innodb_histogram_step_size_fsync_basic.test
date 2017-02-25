@@ -82,6 +82,10 @@ SET @@GLOBAL.innodb_histogram_step_size_fsync='32s.';
 SET @@GLOBAL.innodb_histogram_step_size_fsync='s';
 --echo Expected error 'Variable cannot be set to this value';
 
+SET @@GLOBAL.innodb_histogram_step_size_fsync=null;
+select @@GLOBAL.innodb_histogram_step_size_fsync;
+--echo NULL Expected
+
 SET @@GLOBAL.innodb_histogram_step_size_fsync='16.5us';
 select @@GLOBAL.innodb_histogram_step_size_fsync;
 --echo 16.5us Expected

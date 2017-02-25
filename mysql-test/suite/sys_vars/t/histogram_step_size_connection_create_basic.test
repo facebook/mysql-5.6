@@ -84,6 +84,10 @@ SET @@GLOBAL.histogram_step_size_connection_create='32s.';
 SET @@GLOBAL.histogram_step_size_connection_create='s';
 --echo Expected error 'Variable cannot be set to this value';
 
+SET @@GLOBAL.histogram_step_size_connection_create=null;
+select @@GLOBAL.histogram_step_size_connection_create;
+--echo NULL Expected
+
 SET @@GLOBAL.histogram_step_size_connection_create='16.5us';
 select @@GLOBAL.histogram_step_size_connection_create;
 --echo 16.5us Expected

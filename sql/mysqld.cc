@@ -3758,6 +3758,9 @@ ulonglong latency_histogram_get_count(latency_histogram* current_histogram,
 */
 int histogram_validate_step_size_string(const char* step_size_with_unit)
 {
+  if (step_size_with_unit == nullptr)
+    return 0;
+
   int ret = 0;
   char *histogram_unit = NULL;
   double histogram_step_size = strtod(step_size_with_unit, &histogram_unit);
