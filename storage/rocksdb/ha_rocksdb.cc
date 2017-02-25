@@ -4175,6 +4175,92 @@ int ha_rocksdb::convert_record_from_storage_format(
   return convert_record_from_storage_format(key, &retrieved_rec_slice, buf);
 }
 
+int ha_rocksdb::convert_blob_from_storage_format(
+  my_core::Field_blob *const blob,
+  Rdb_string_reader *const   reader,
+  bool                       decode)
+{
+  /* Get the number of bytes needed to store length*/
+  const uint length_bytes = blob->pack_length() - portable_sizeof_char_ptr;
+
+  const char *data_len_str;
+  if (!(data_len_str = reader->read(length_bytes))) {
+    return HA_ERR_INTERNAL_ERROR;
+  }
+
+  memcpy(blob->ptr, data_len_str, length_bytes);
+
+  const uint32 data_len = blob->get_length(
+      reinterpret_cast<const uchar*>(data_len_str), length_bytes,
+      table->s->db_low_byte_first);
+  const char *blob_ptr;
+  if (!(blob_ptr = reader->read(data_len))) {
+    return HA_ERR_INTERNAL_ERROR;
+  }
+
+  if (decode) {
+    // set 8-byte pointer to 0, like innodb does (relevant for 32-bit
+    // platforms)
+    memset(blob->ptr + length_bytes, 0, 8);
+    memcpy(blob->ptr + length_bytes, &blob_ptr, sizeof(uchar **));
+  }
+
+  return HA_EXIT_SUCCESS;
+}
+
+int ha_rocksdb::convert_varchar_from_storage_format(
+  my_core::Field_varstring *const field_var,
+  Rdb_string_reader *const        reader,
+  bool                            decode)
+{
+  const char *data_len_str;
+  if (!(data_len_str = reader->read(field_var->length_bytes)))
+    return HA_ERR_INTERNAL_ERROR;
+
+  uint data_len;
+  /* field_var->length_bytes is 1 or 2 */
+  if (field_var->length_bytes == 1) {
+    data_len = (uchar)data_len_str[0];
+  } else {
+    DBUG_ASSERT(field_var->length_bytes == 2);
+    data_len = uint2korr(data_len_str);
+  }
+
+  if (data_len > field_var->field_length) {
+    /* The data on disk is longer than table DDL allows? */
+    return HA_ERR_INTERNAL_ERROR;
+  }
+
+  if (!reader->read(data_len)) {
+    return HA_ERR_INTERNAL_ERROR;
+  }
+
+  if (decode) {
+    memcpy(field_var->ptr, data_len_str, field_var->length_bytes + data_len);
+  }
+
+  return HA_EXIT_SUCCESS;
+}
+
+int ha_rocksdb::convert_field_from_storage_format(
+  my_core::Field *const    field,
+  Rdb_string_reader *const reader,
+  bool                     decode,
+  uint                     len)
+{
+  const char *data_bytes;
+  if (len > 0) {
+    if ((data_bytes = reader->read(len)) == nullptr) {
+      return HA_ERR_INTERNAL_ERROR;
+    }
+
+    if (decode)
+      memcpy(field->ptr, data_bytes, len);
+  }
+
+  return HA_EXIT_SUCCESS;
+}
+
 /*
   @brief
   Unpack the record in this->m_retrieved_record and this->m_last_rowkey from
@@ -4206,7 +4292,6 @@ int ha_rocksdb::convert_record_from_storage_format(
   DBUG_ASSERT(buf != nullptr);
 
   Rdb_string_reader reader(value);
-  const my_ptrdiff_t ptr_diff = buf - table->record[0];
 
   /*
     Decode PK fields from the key
@@ -4246,6 +4331,7 @@ int ha_rocksdb::convert_record_from_storage_format(
     return HA_ERR_INTERNAL_ERROR;
   }
 
+  int err = HA_EXIT_SUCCESS;
   for (auto it = m_decoders_vect.begin(); it != m_decoders_vect.end(); it++) {
     const Rdb_field_encoder *const field_dec = it->m_field_enc;
     const bool decode = it->m_decode;
@@ -4259,89 +4345,49 @@ int ha_rocksdb::convert_record_from_storage_format(
     if (it->m_skip && !reader.read(it->m_skip))
       return HA_ERR_INTERNAL_ERROR;
 
+    uint field_offset = field->ptr - table->record[0];
+    uint null_offset = field->null_offset();
+    bool maybe_null = field->real_maybe_null();
+    field->move_field(buf + field_offset,
+                      maybe_null ? buf + null_offset : nullptr,
+                      field->null_bit);
+    // WARNING! - Don't return before restoring field->ptr and field->null_ptr!
+
     if (isNull) {
       if (decode) {
         /* This sets the NULL-bit of this record */
-        field->set_null(ptr_diff);
+        field->set_null();
         /*
           Besides that, set the field value to default value. CHECKSUM TABLE
           depends on this.
         */
-        uint field_offset = field->ptr - table->record[0];
-        memcpy(buf + field_offset, table->s->default_values + field_offset,
+        memcpy(field->ptr, table->s->default_values + field_offset,
                field->pack_length());
       }
-      continue;
     } else {
-      if (decode)
-        field->set_notnull(ptr_diff);
+      if (decode) {
+        field->set_notnull();
+      }
+
+      if (field_dec->m_field_type == MYSQL_TYPE_BLOB) {
+        err = convert_blob_from_storage_format(
+            (my_core::Field_blob *) field, &reader, decode);
+      } else if (field_dec->m_field_type == MYSQL_TYPE_VARCHAR) {
+        err = convert_varchar_from_storage_format(
+            (my_core::Field_varstring *) field, &reader, decode);
+      } else {
+        err = convert_field_from_storage_format(
+            field, &reader, decode, field_dec->m_pack_length_in_rec);
+      }
     }
 
-    if (field_dec->m_field_type == MYSQL_TYPE_BLOB) {
-      my_core::Field_blob *const blob = (my_core::Field_blob *)field;
-      /* Get the number of bytes needed to store length*/
-      const uint length_bytes = blob->pack_length() - portable_sizeof_char_ptr;
+    // Restore field->ptr and field->null_ptr
+    field->move_field(table->record[0] + field_offset,
+                      maybe_null ? table->record[0] + null_offset : nullptr,
+                      field->null_bit);
 
-      blob->move_field_offset(ptr_diff);
-
-      const char *data_len_str;
-      if (!(data_len_str = reader.read(length_bytes))) {
-        blob->move_field_offset(-ptr_diff);
-        return HA_ERR_INTERNAL_ERROR;
-      }
-
-      memcpy(blob->ptr, data_len_str, length_bytes);
-
-      const uint32 data_len = blob->get_length(
-          (uchar *)data_len_str, length_bytes, table->s->db_low_byte_first);
-      const char *blob_ptr;
-      if (!(blob_ptr = reader.read(data_len))) {
-        blob->move_field_offset(-ptr_diff);
-        return HA_ERR_INTERNAL_ERROR;
-      }
-
-      if (decode) {
-        // set 8-byte pointer to 0, like innodb does (relevant for 32-bit
-        // platforms)
-        memset(blob->ptr + length_bytes, 0, 8);
-        memcpy(blob->ptr + length_bytes, &blob_ptr, sizeof(uchar **));
-        blob->move_field_offset(-ptr_diff);
-      }
-    } else if (field_dec->m_field_type == MYSQL_TYPE_VARCHAR) {
-      Field_varstring *const field_var = (Field_varstring *)field;
-      const char *data_len_str;
-      if (!(data_len_str = reader.read(field_var->length_bytes)))
-        return HA_ERR_INTERNAL_ERROR;
-
-      uint data_len;
-      /* field_var->length_bytes is 1 or 2 */
-      if (field_var->length_bytes == 1) {
-        data_len = (uchar)data_len_str[0];
-      } else {
-        DBUG_ASSERT(field_var->length_bytes == 2);
-        data_len = uint2korr(data_len_str);
-      }
-      if (data_len > field->field_length) {
-        /* The data on disk is longer than table DDL allows? */
-        return HA_ERR_INTERNAL_ERROR;
-      }
-      if (!reader.read(data_len))
-        return HA_ERR_INTERNAL_ERROR;
-
-      if (decode) {
-        memcpy(field_var->ptr + ptr_diff, data_len_str,
-               field_var->length_bytes + data_len);
-      }
-    } else {
-      const char *data_bytes;
-      const uint len = field_dec->m_pack_length_in_rec;
-      if (len > 0) {
-        if ((data_bytes = reader.read(len)) == nullptr) {
-          return HA_ERR_INTERNAL_ERROR;
-        }
-        if (decode)
-          memcpy(field->ptr + ptr_diff, data_bytes, len);
-      }
+    if (err != HA_EXIT_SUCCESS) {
+      return err;
     }
   }
 
