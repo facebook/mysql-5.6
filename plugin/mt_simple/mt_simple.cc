@@ -28,8 +28,8 @@
 
 
 // Prefix of the databases that mt_simple keeps track of
-static constexpr const char *db_prefix = "test";
-static constexpr const int prefix_len = strlen(db_prefix);
+static const char *db_prefix = "test";
+static int prefix_len = strlen(db_prefix);
 
 // Number of open connections
 static int number_of_conns;
