@@ -677,8 +677,8 @@ static MYSQL_SYSVAR_STR(
 static MYSQL_SYSVAR_ULONG(
     persistent_cache_size_mb, rocksdb_persistent_cache_size_mb,
     PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-    "Size of cache for BlockBasedTableOptions::persistent_cache for RocksDB",
-    nullptr, nullptr, rocksdb_persistent_cache_size_mb,
+    "Size of cache in MB for BlockBasedTableOptions::persistent_cache "
+    "for RocksDB", nullptr, nullptr, rocksdb_persistent_cache_size_mb,
     /* min */ 0L, /* max */ ULONG_MAX, 0);
 
 static MYSQL_SYSVAR_ULONG(
@@ -3434,7 +3434,7 @@ static int rocksdb_init_func(void *const p) {
 
   if (rocksdb_persistent_cache_size_mb > 0) {
     std::shared_ptr<rocksdb::PersistentCache> pcache;
-    uint64_t cache_size_bytes = rocksdb_persistent_cache_size_mb * 1024 * 1024;
+    uint64_t cache_size_bytes= rocksdb_persistent_cache_size_mb * 1024 * 1024;
     rocksdb::NewPersistentCache(
         rocksdb::Env::Default(), std::string(rocksdb_persistent_cache_path),
         cache_size_bytes, myrocks_logger, true, &pcache);
