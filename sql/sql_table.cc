@@ -2022,10 +2022,12 @@ err:
   }
 
 end:
+#ifdef WITH_PARTITION_STORAGE_ENGINE
   if (old_part_info)
   {
     lpt->table->file->set_part_info(old_part_info, false);
   }
+#endif
   DBUG_RETURN(error);
 }
 
