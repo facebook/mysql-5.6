@@ -75,6 +75,11 @@ Expected error 'Variable cannot be set to this value';
 SET @@GLOBAL.histogram_step_size_binlog_fsync='s';
 ERROR 42000: Variable 'histogram_step_size_binlog_fsync' can't be set to the value of 's'
 Expected error 'Variable cannot be set to this value';
+SET @@GLOBAL.histogram_step_size_binlog_fsync=null;
+select @@GLOBAL.histogram_step_size_binlog_fsync;
+@@GLOBAL.histogram_step_size_binlog_fsync
+NULL
+NULL Expected
 SET @@GLOBAL.histogram_step_size_binlog_fsync='16.5us';
 select @@GLOBAL.histogram_step_size_binlog_fsync;
 @@GLOBAL.histogram_step_size_binlog_fsync
