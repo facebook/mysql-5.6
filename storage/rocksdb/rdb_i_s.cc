@@ -256,7 +256,7 @@ static int rdb_i_s_perf_context_fill_table(
     Rdb_perf_counters counters;
 
     if (rdb_normalize_tablename(it, &str)) {
-      return HA_ERR_INTERNAL_ERROR;
+      DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
     }
 
     if (rdb_split_normalized_tablename(str, &dbname, &tablename, &partname)) {
@@ -811,7 +811,7 @@ static int rdb_i_s_compact_stats_fill_table(
   DBUG_ASSERT(thd != nullptr);
   DBUG_ASSERT(tables != nullptr);
 
-  DBUG_ENTER("rdb_i_s_global_compact_stats_table");
+  DBUG_ENTER_FUNC();
 
   int ret = 0;
 
@@ -1025,7 +1025,7 @@ static int rdb_i_s_global_info_init(void *const p) {
 static int rdb_i_s_compact_stats_init(void *p) {
   my_core::ST_SCHEMA_TABLE *schema;
 
-  DBUG_ENTER("rdb_i_s_compact_stats_init");
+  DBUG_ENTER_FUNC();
   DBUG_ASSERT(p != nullptr);
 
   schema = reinterpret_cast<my_core::ST_SCHEMA_TABLE *>(p);
