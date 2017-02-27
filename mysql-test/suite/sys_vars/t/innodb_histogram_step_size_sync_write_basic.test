@@ -84,6 +84,10 @@ SET @@GLOBAL.innodb_histogram_step_size_sync_write='32s.';
 SET @@GLOBAL.innodb_histogram_step_size_sync_write='s';
 --echo Expected error 'Variable cannot be set to this value';
 
+SET @@GLOBAL.innodb_histogram_step_size_sync_write=null;
+select @@GLOBAL.innodb_histogram_step_size_sync_write;
+--echo NULL Expected
+
 SET @@GLOBAL.innodb_histogram_step_size_sync_write='16.5us';
 select @@GLOBAL.innodb_histogram_step_size_sync_write;
 --echo 16.5us Expected
