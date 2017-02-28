@@ -3746,6 +3746,7 @@ void Rdb_dict_manager::add_cf_flags(rocksdb::WriteBatch *const batch,
 void Rdb_dict_manager::delete_index_info(rocksdb::WriteBatch *batch,
                                          const GL_INDEX_ID &gl_index_id) const {
   delete_with_prefix(batch, Rdb_key_def::INDEX_INFO, gl_index_id);
+  delete_with_prefix(batch, Rdb_key_def::INDEX_STATISTICS, gl_index_id);
 }
 
 bool Rdb_dict_manager::get_index_info(const GL_INDEX_ID &gl_index_id,
