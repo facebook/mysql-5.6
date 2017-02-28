@@ -604,4 +604,21 @@ static inline bool check_if_only_end_space(const CHARSET_INFO *cs, char *str,
 bool
 validate_string(const CHARSET_INFO *cs, const char *str, uint32 length,
                 size_t *valid_length, bool *length_error);
+
+inline String timeout_message(const char *command, const char *name1,
+                              const char *name2)
+{
+    String msg;
+    msg.append("Timeout on ");
+    msg.append(command);
+    msg.append(": ");
+    msg.append(name1);
+    if (name2 && name2[0])
+    {
+      msg.append(".");
+      msg.append(name2);
+    }
+    return msg;
+}
+
 #endif /* SQL_STRING_INCLUDED */
