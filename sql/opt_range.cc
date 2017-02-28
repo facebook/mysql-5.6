@@ -7939,7 +7939,7 @@ static SEL_ARG *
 key_or(RANGE_OPT_PARAM *param, SEL_ARG *key1, SEL_ARG *key2)
 {
 
-  if (param->has_errors())
+  if (param != nullptr && param->has_errors())
     return 0;
 
   if (key1 == NULL || key1->type == SEL_ARG::ALWAYS)
