@@ -342,6 +342,14 @@ IF (MERGE_UNITTESTS)
     gunit_large strings dbug regex mysys)
   TARGET_LINK_LIBRARIES(merge_large_tests-t sql binlog rpl master slave sql)
 
+  # Necessary to make sure that we can use the jemalloc API calls.
+  GET_TARGET_PROPERTY(merge_large_tests-t LINK_FLAGS PREV_LINK_FLAGS)
+  IF(NOT PREV_LINK_FLAGS)
+    SET(PREV_LINK_FLAGS)
+  ENDIF()
+  SET_TARGET_PROPERTIES(merge_large_tests-t PROPERTIES LINK_FLAGS
+  "${PREV_LINK_FLAGS} ${WITH_MYSQLD_LDFLAGS}")
+
   ADD_TEST(merge_large_tests merge_large_tests-t)
   ADD_TEST(merge_small_tests merge_small_tests-t)
 
