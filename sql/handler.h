@@ -3764,7 +3764,4 @@ void print_keydup_error(TABLE *table, KEY *key, const char *msg, myf errflag);
 void print_keydup_error(TABLE *table, KEY *key, myf errflag);
 void warn_fk_constraint_violation(THD *thd, TABLE *table, int error);
 
-String timeout_message(const char *command, const char *name1,
-                       const char *name2);
-
 #endif /* HANDLER_INCLUDED */

@@ -3876,23 +3876,6 @@ void print_keydup_error(TABLE *table, KEY *key, myf errflag)
 }
 
 
-String timeout_message(const char *command, const char *name1,
-                       const char *name2)
-{
-    String msg;
-    msg.append("Timeout on ");
-    msg.append(command);
-    msg.append(": ");
-    msg.append(name1);
-    if (name2 && name2[0])
-    {
-      msg.append(".");
-      msg.append(name2);
-    }
-    return msg;
-}
-
-
 /**
   Print error that we got from handler function.
 
