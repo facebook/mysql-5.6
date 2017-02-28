@@ -52,7 +52,6 @@ protected:
     for (uint i= 0; i < MAX_THREADS; ++i)
     {
       initializer[i].SetUp();
-      initializer[i].thd()->thread_id= i + 1;
     }
 
     ::testing::FLAGS_gtest_death_test_style = "threadsafe";
