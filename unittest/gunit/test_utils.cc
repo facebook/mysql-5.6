@@ -94,6 +94,8 @@ void Server_initializer::SetUp()
   mysql_mutex_unlock(&LOCK_thread_count);
 
   my_pthread_setspecific_ptr(THR_THD, m_thd);
+
+  init_user_stats(&other_user_stats);
 }
 
 void Server_initializer::TearDown()
