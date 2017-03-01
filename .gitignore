@@ -139,6 +139,7 @@ sql/sql_yacc.h
 sql/gen_lex_hash
 sql/lex_hash.h
 sql/mysql_tzinfo_to_sql
+source_downloads
 storage/heap/hp_test1
 storage/heap/hp_test2
 storage/myisam/myisam_ftdump
