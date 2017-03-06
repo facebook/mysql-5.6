@@ -761,7 +761,6 @@ public:
   static bool is_pk(const uint index, const TABLE *table_arg,
                     const Rdb_tbl_def *tbl_def_arg)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-
   /** @brief
     unireg.cc will call max_supported_record_length(), max_supported_keys(),
     max_supported_key_parts(), uint max_supported_key_length()
@@ -1006,10 +1005,8 @@ private:
   int read_before_key(const Rdb_key_def &kd, const bool &using_full_key,
                       const rocksdb::Slice &key_slice)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-  int read_after_key(const Rdb_key_def &kd, const bool &using_full_key,
-                     const rocksdb::Slice &key_slice)
+  int read_after_key(const Rdb_key_def &kd, const rocksdb::Slice &key_slice)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-
   int position_to_correct_key(
       const Rdb_key_def &kd, const enum ha_rkey_function &find_flag,
       const bool &full_key_match, const uchar *const key,
