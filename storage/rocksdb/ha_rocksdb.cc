@@ -3611,6 +3611,16 @@ static int rocksdb_done_func(void *const p) {
   DBUG_RETURN(error);
 }
 
+static inline void rocksdb_smart_seek(bool seek_backward,
+                                      rocksdb::Iterator *const iter,
+                                      const rocksdb::Slice &key_slice) {
+  if (seek_backward) {
+    iter->SeekForPrev(key_slice);
+  } else {
+    iter->Seek(key_slice);
+  }
+}
+
 /**
   @brief
   Example of simple lock controls. The "table_handler" it creates is a
@@ -5491,15 +5501,7 @@ int ha_rocksdb::read_key_exact(const Rdb_key_def &kd,
       index_tuple= lookup_tuple.
     lookup_tuple may be a prefix of the index.
   */
-  if (kd.m_is_reverse_cf) {
-    if (!full_key_match) {
-      if (!iter->Valid())
-        iter->SeekToLast();
-      else
-        iter->Prev();
-    }
-  }
-
+  rocksdb_smart_seek(kd.m_is_reverse_cf, iter, key_slice);
   if (!iter->Valid() || !kd.value_matches_prefix(iter->key(), key_slice)) {
     /*
       Got a record that is not equal to the lookup value, or even a record
@@ -5517,24 +5519,20 @@ int ha_rocksdb::read_before_key(const Rdb_key_def &kd,
     We are looking for record with the biggest t.key such that
     t.key < lookup_tuple.
   */
-  if (kd.m_is_reverse_cf) {
-    if (m_scan_it->Valid() && full_key_match &&
-        kd.value_matches_prefix(m_scan_it->key(), key_slice)) {
-      /* We are using full key and we've hit an exact match */
+  rocksdb_smart_seek(!kd.m_is_reverse_cf, m_scan_it, key_slice);
+  if (m_scan_it->Valid() && full_key_match &&
+      kd.value_matches_prefix(m_scan_it->key(), key_slice)) {
+    /* We are using full key and we've hit an exact match */
+    if (kd.m_is_reverse_cf) {
       m_scan_it->Next();
-    }
-  } else {
-    if (m_scan_it->Valid())
+    } else {
       m_scan_it->Prev();
-    else
-      m_scan_it->SeekToLast();
+    }
   }
-
   return m_scan_it->Valid() ? HA_EXIT_SUCCESS : HA_ERR_KEY_NOT_FOUND;
 }
 
 int ha_rocksdb::read_after_key(const Rdb_key_def &kd,
-                               const bool &full_key_match,
                                const rocksdb::Slice &key_slice) {
   /*
     We are looking for the first record such that
@@ -5544,22 +5542,7 @@ int ha_rocksdb::read_after_key(const Rdb_key_def &kd,
     with HA_READ_AFTER_KEY, $GT = '>',
     with HA_READ_KEY_OR_NEXT, $GT = '>='
   */
-  if (kd.m_is_reverse_cf) {
-    if (!m_scan_it->Valid()) {
-      m_scan_it->SeekToLast();
-    } else {
-      /*
-        We should step back
-         - when not using full extended key
-         - when using full extended key and when we've got an exact match
-      */
-      if (!full_key_match ||
-          !kd.value_matches_prefix(m_scan_it->key(), key_slice)) {
-        m_scan_it->Prev();
-      }
-    }
-  }
-
+  rocksdb_smart_seek(kd.m_is_reverse_cf, m_scan_it, key_slice);
   return m_scan_it->Valid() ? HA_EXIT_SUCCESS : HA_ERR_KEY_NOT_FOUND;
 }
 
@@ -5588,7 +5571,7 @@ int ha_rocksdb::position_to_correct_key(const Rdb_key_def &kd,
     break;
   case HA_READ_AFTER_KEY:
   case HA_READ_KEY_OR_NEXT:
-    rc = read_after_key(kd, full_key_match, key_slice);
+    rc = read_after_key(kd, key_slice);
     if (rc == 0 && !kd.covers_key(m_scan_it->key())) {
       /* The record we've got is not from this index */
       rc = HA_ERR_KEY_NOT_FOUND;
@@ -6628,6 +6611,7 @@ int ha_rocksdb::index_first_intern(uchar *const buf) {
   for (;;) {
     setup_scan_iterator(kd, &index_key, false, !kd.m_is_reverse_cf,
                         Rdb_key_def::INDEX_NUMBER_SIZE);
+    m_scan_it->Seek(index_key);
     m_skip_scan_it_next_call = true;
 
     rc = index_next_with_direction(buf, true);
@@ -6723,21 +6707,7 @@ int ha_rocksdb::index_last_intern(uchar *const buf) {
   for (;;) {
     setup_scan_iterator(kd, &index_key, false, kd.m_is_reverse_cf,
                         Rdb_key_def::INDEX_NUMBER_SIZE);
-
-    if (!m_scan_it->Valid()) {
-      /*
-        RocksDB keyspace has no records that follow our index. It could be, our
-        index is the last in the keyspace. Navigate to last record in the
-        keyspace.
-      */
-      m_scan_it->SeekToLast();
-    } else {
-      /*
-        Iterator is pointing at some record right after the end of the index.
-        Move one record back.
-      */
-      m_scan_it->Prev();
-    }
+    m_scan_it->SeekForPrev(index_key);
     m_skip_scan_it_next_call = false;
 
     if (is_pk(active_index, table, m_tbl_def)) {
@@ -7628,7 +7598,7 @@ int ha_rocksdb::update_write_row(const uchar *const old_data,
 }
 
 /*
-  Open a cursor and position it at the passed record
+  Open a cursor
 */
 
 void ha_rocksdb::setup_scan_iterator(const Rdb_key_def &kd,
@@ -7688,12 +7658,6 @@ void ha_rocksdb::setup_scan_iterator(const Rdb_key_def &kd,
     }
     m_scan_it_skips_bloom = skip_bloom;
   }
-  /*
-    Seek() will "Position at the first key in the source that at or past
-    target".
-    The operation cannot fail.
-  */
-  m_scan_it->Seek(*slice);
 }
 
 void ha_rocksdb::release_scan_iterator() {
@@ -7717,6 +7681,7 @@ void ha_rocksdb::setup_iterator_for_rnd_scan() {
   rocksdb::Slice table_key((const char *)m_pk_packed_tuple, key_size);
 
   setup_scan_iterator(*m_pk_descr, &table_key);
+  m_scan_it->Seek(table_key);
   m_skip_scan_it_next_call = true;
 }
 
@@ -8491,14 +8456,7 @@ static bool is_myrocks_index_empty(
   const rocksdb::Slice key =
     rocksdb::Slice(reinterpret_cast<char *>(key_buf), sizeof(key_buf));
   std::unique_ptr<rocksdb::Iterator> it(rdb->NewIterator(read_opts, cfh));
-  it->Seek(key);
-  if (is_reverse_cf) {
-    if (!it->Valid()) {
-      it->SeekToLast();
-    } else {
-      it->Prev();
-    }
-  }
+  rocksdb_smart_seek(is_reverse_cf, it.get(), key);
   if (!it->Valid()) {
     index_removed = true;
   } else {
@@ -10183,11 +10141,8 @@ bool can_use_bloom_filter(THD *thd, const Rdb_key_def &kd,
       shorter require all parts of the key to be available
       for the short key match.
     */
-    if (use_all_keys && prefix_extractor->InRange(eq_cond))
-      can_use = true;
-    else if (!is_ascending)
-      can_use = false;
-    else if (prefix_extractor->SameResultWhenAppended(eq_cond))
+    if ((use_all_keys && prefix_extractor->InRange(eq_cond))
+        || prefix_extractor->SameResultWhenAppended(eq_cond))
       can_use = true;
     else
       can_use = false;
