@@ -58,18 +58,18 @@ do
 done
 
 # get current default branch by querying github
-webscalesql_branch="$(curl --silent https://api.github.com/repos/facebook/mysql-5.6 | grep 'default_branch')"
-if [ ! "$webscalesql_branch" ]
+fbmysql_branch="$(curl --silent https://api.github.com/repos/facebook/mysql-5.6 | grep 'default_branch')"
+if [ ! "$fbmysql_branch" ]
 then
-  webscalesql_branch="$(curl --silent -x fwdproxy:8080 https://api.github.com/repos/facebook/mysql-5.6 | grep 'default_branch')"
+  fbmysql_branch="$(curl --silent -x fwdproxy:8080 https://api.github.com/repos/facebook/mysql-5.6 | grep 'default_branch')"
 fi
-webscalesql_branch=$(echo "$webscalesql_branch" | sed 's/.* "//' | tr -d '",')
+fbmysql_branch=$(echo "$fbmysql_branch" | sed 's/.* "//' | tr -d '",')
 current_branch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
 
-if [ "$webscalesql_branch" != "$current_branch" ] &&
+if [ "$fbmysql_branch" != "$current_branch" ] &&
 ([ "$url" == "$dev_remote_ssh" ] || [ "$url" == "$dev_remote_https" ])
 then
-    echo >&2 "[POLICY] Please direct all pushes to the dev branch $webscalesql_branch, the current branch you are pushing to ($current_branch) is incorrect."
+    echo >&2 "[POLICY] Please direct all pushes to the dev branch $fbmysql_branch, the current branch you are pushing to ($current_branch) is incorrect."
     status=1
 fi
 

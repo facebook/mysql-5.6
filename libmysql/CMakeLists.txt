@@ -190,13 +190,13 @@ IF(WIN32)
   LIST(APPEND LIBS auth_win_client)
 ENDIF()
 
-# Merge several convenience libraries into one big webscalesqlclient
-MERGE_LIBRARIES(webscalesqlclient STATIC ${STATIC_MERGE_LIBS} COMPONENT Development)
-TARGET_LINK_LIBRARIES(webscalesqlclient ${ZLIB_LIBRARY} ${SSL_LIBRARIES})
+# Merge several convenience libraries into one big fbmysqlclient
+MERGE_LIBRARIES(fbmysqlclient STATIC ${STATIC_MERGE_LIBS} COMPONENT Development)
+TARGET_LINK_LIBRARIES(fbmysqlclient ${ZLIB_LIBRARY} ${SSL_LIBRARIES})
 
 # Visual Studio users need debug  static library for debug projects
 IF(MSVC)
- INSTALL_DEBUG_TARGET(webscalesqlclient DESTINATION ${INSTALL_LIBDIR}/debug)
+ INSTALL_DEBUG_TARGET(fbmysqlclient DESTINATION ${INSTALL_LIBDIR}/debug)
  INSTALL_DEBUG_TARGET(clientlib DESTINATION ${INSTALL_LIBDIR}/debug)
 ENDIF()
 
@@ -221,14 +221,14 @@ IF(UNIX)
 ENDIF()
 
 IF(UNIX)
-  GET_TARGET_NAME(webscalesqlclient lib_name)
-  INSTALL_SYMLINK(webscalesqlclient
-    ${lib_name} ${CMAKE_STATIC_LIBRARY_PREFIX}webscalesqlclient_r.a
+  GET_TARGET_NAME(fbmysqlclient lib_name)
+  INSTALL_SYMLINK(fbmysqlclient
+    ${lib_name} ${CMAKE_STATIC_LIBRARY_PREFIX}fbmysqlclient_r.a
     ${INSTALL_LIBDIR} Development)
 ENDIF()
 
 IF(NOT DISABLE_SHARED)
-  # Merge several convenience libraries into one big webscalesqlclient
+  # Merge several convenience libraries into one big fbmysqlclient
   # and link them together into shared library.
   MERGE_LIBRARIES(libmysql SHARED ${LIBS}
     EXPORTS ${CLIENT_API_FUNCTIONS}
@@ -241,9 +241,9 @@ IF(NOT DISABLE_SHARED)
       SET(OS_SHARED_LIB_VERSION
         "${SHARED_LIB_MAJOR_VERSION}.${SHARED_LIB_MINOR_VERSION}.0")
     ENDIF()
-    # Name of shared library is webscalesqlclient on Unix
+    # Name of shared library is fbmysqlclient on Unix
     SET_TARGET_PROPERTIES(libmysql PROPERTIES 
-      OUTPUT_NAME webscalesqlclient
+      OUTPUT_NAME fbmysqlclient
       VERSION "${OS_SHARED_LIB_VERSION}" 
       SOVERSION "${SHARED_LIB_MAJOR_VERSION}")
     IF(WITH_SYMVER16)
@@ -271,12 +271,12 @@ IF(NOT DISABLE_SHARED)
     ENDIF() 
     # clean direct output needs to be set several targets have the same name
     #(mysqlclient in this case)
-    SET_TARGET_PROPERTIES(webscalesqlclient PROPERTIES CLEAN_DIRECT_OUTPUT 1)
+    SET_TARGET_PROPERTIES(fbmysqlclient PROPERTIES CLEAN_DIRECT_OUTPUT 1)
     SET_TARGET_PROPERTIES(libmysql PROPERTIES CLEAN_DIRECT_OUTPUT 1)
 
-    # Install links to libwebscalesqlclient.so (client_r)
+    # Install links to libfbmysqlclient.so (client_r)
     GET_VERSIONED_LIBNAME(
-      "${CMAKE_SHARED_LIBRARY_PREFIX}webscalesqlclient_r"
+      "${CMAKE_SHARED_LIBRARY_PREFIX}fbmysqlclient_r"
       "${CMAKE_SHARED_LIBRARY_SUFFIX}"
       ""
       linkname)
@@ -290,7 +290,7 @@ IF(NOT DISABLE_SHARED)
     LIST(REMOVE_DUPLICATES OS_SHARED_LIB_SYMLINKS)
     FOREACH(ver ${OS_SHARED_LIB_SYMLINKS})
       GET_VERSIONED_LIBNAME(
-        "${CMAKE_SHARED_LIBRARY_PREFIX}webscalesqlclient_r"
+        "${CMAKE_SHARED_LIBRARY_PREFIX}fbmysqlclient_r"
         "${CMAKE_SHARED_LIBRARY_SUFFIX}"
         "${ver}"
         linkname)

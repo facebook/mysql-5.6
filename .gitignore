@@ -60,8 +60,6 @@ include/probes_mysql_dtrace.h
 include/sql_state.h
 info_macros.cmake
 libmysql/libmysql.ver
-libmysql/merge_archives_webscalesqlclient.cmake
-libmysql/webscalesqlclient_depends.c
 libmysql*/merge_archives_mysql*.cmake
 libmysql*/mysql*_depends.c
 libmysql*/libmysql*_exports_file.cc
