@@ -4,21 +4,21 @@ CREATE TABLE t1(
 pk CHAR(5),
 a CHAR(30),
 b CHAR(30),
-PRIMARY KEY(pk) COMMENT "cf1",
+PRIMARY KEY(pk) COMMENT "rev:cf1",
 KEY(a)
 ) COLLATE 'latin1_bin';
 CREATE TABLE t2(
 pk CHAR(5),
 a CHAR(30),
 b CHAR(30),
-PRIMARY KEY(pk) COMMENT "cf1",
+PRIMARY KEY(pk) COMMENT "rev:cf1",
 KEY(a)
 ) COLLATE 'latin1_bin';
 CREATE TABLE t3(
 pk CHAR(5),
 a CHAR(30),
 b CHAR(30),
-PRIMARY KEY(pk) COMMENT "cf1",
+PRIMARY KEY(pk) COMMENT "rev:cf1",
 KEY(a)
 ) COLLATE 'latin1_bin' PARTITION BY KEY() PARTITIONS 4;
 set session transaction isolation level repeatable read;
