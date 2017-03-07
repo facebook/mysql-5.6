@@ -20,6 +20,7 @@
 /* C++ standard header files */
 #include <cstdio>
 #include <string>
+#include <utility>
 #include <vector>
 
 /* MySQL header files */
@@ -37,17 +38,17 @@
 
 namespace myrocks {
 
-Rdb_sst_file::Rdb_sst_file(rocksdb::DB *const db,
-                           rocksdb::ColumnFamilyHandle *const cf,
-                           const rocksdb::DBOptions &db_options,
-                           const std::string &name, const bool tracing)
+Rdb_sst_file_ordered::Rdb_sst_file::Rdb_sst_file(
+    rocksdb::DB *const db, rocksdb::ColumnFamilyHandle *const cf,
+    const rocksdb::DBOptions &db_options, const std::string &name,
+    const bool tracing)
     : m_db(db), m_cf(cf), m_db_options(db_options), m_sst_file_writer(nullptr),
-      m_name(name), m_tracing(tracing) {
+      m_name(name), m_tracing(tracing), m_comparator(cf->GetComparator()) {
   DBUG_ASSERT(db != nullptr);
   DBUG_ASSERT(cf != nullptr);
 }
 
-Rdb_sst_file::~Rdb_sst_file() {
+Rdb_sst_file_ordered::Rdb_sst_file::~Rdb_sst_file() {
   // Make sure we clean up
   delete m_sst_file_writer;
   m_sst_file_writer = nullptr;
@@ -58,7 +59,7 @@ Rdb_sst_file::~Rdb_sst_file() {
   std::remove(m_name.c_str());
 }
 
-rocksdb::Status Rdb_sst_file::open() {
+rocksdb::Status Rdb_sst_file_ordered::Rdb_sst_file::open() {
   DBUG_ASSERT(m_sst_file_writer == nullptr);
 
   rocksdb::ColumnFamilyDescriptor cf_descr;
@@ -69,13 +70,11 @@ rocksdb::Status Rdb_sst_file::open() {
   }
 
   // Create an sst file writer with the current options and comparator
-  const rocksdb::Comparator *comparator = m_cf->GetComparator();
-
   const rocksdb::EnvOptions env_options(m_db_options);
   const rocksdb::Options options(m_db_options, cf_descr.options);
 
   m_sst_file_writer =
-      new rocksdb::SstFileWriter(env_options, options, comparator, m_cf);
+      new rocksdb::SstFileWriter(env_options, options, m_comparator, m_cf);
 
   s = m_sst_file_writer->Open(m_name);
   if (m_tracing) {
@@ -92,15 +91,17 @@ rocksdb::Status Rdb_sst_file::open() {
   return s;
 }
 
-rocksdb::Status Rdb_sst_file::put(const rocksdb::Slice &key,
-                                  const rocksdb::Slice &value) {
+rocksdb::Status
+Rdb_sst_file_ordered::Rdb_sst_file::put(const rocksdb::Slice &key,
+                                        const rocksdb::Slice &value) {
   DBUG_ASSERT(m_sst_file_writer != nullptr);
 
   // Add the specified key/value to the sst file writer
   return m_sst_file_writer->Add(key, value);
 }
 
-std::string Rdb_sst_file::generateKey(const std::string &key) {
+std::string
+Rdb_sst_file_ordered::Rdb_sst_file::generateKey(const std::string &key) {
   static char const hexdigit[] = {'0', '1', '2', '3', '4', '5', '6', '7',
                                   '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
 
@@ -117,7 +118,7 @@ std::string Rdb_sst_file::generateKey(const std::string &key) {
 }
 
 // This function is run by the background thread
-rocksdb::Status Rdb_sst_file::commit() {
+rocksdb::Status Rdb_sst_file_ordered::Rdb_sst_file::commit() {
   DBUG_ASSERT(m_sst_file_writer != nullptr);
 
   rocksdb::Status s;
@@ -165,6 +166,146 @@ rocksdb::Status Rdb_sst_file::commit() {
   m_sst_file_writer = nullptr;
 
   return s;
+}
+
+void Rdb_sst_file_ordered::Rdb_sst_stack::push(const rocksdb::Slice &key,
+                                               const rocksdb::Slice &value) {
+  if (m_buffer == nullptr) {
+    m_buffer = new char[m_buffer_size];
+  }
+
+  // Put the actual key and value data unto our stack
+  size_t key_offset = m_offset;
+  memcpy(m_buffer + m_offset, key.data(), key.size());
+  m_offset += key.size();
+  memcpy(m_buffer + m_offset, value.data(), value.size());
+  m_offset += value.size();
+
+  // Push just the offset, the key length and the value length onto the stack
+  m_stack.push(std::make_tuple(key_offset, key.size(), value.size()));
+}
+
+std::pair<rocksdb::Slice, rocksdb::Slice>
+Rdb_sst_file_ordered::Rdb_sst_stack::top() {
+  size_t offset, key_len, value_len;
+  // Pop the next item off the internal stack
+  std::tie(offset, key_len, value_len) = m_stack.top();
+
+  // Make slices from the offset (first), key length (second), and value
+  // length (third)
+  DBUG_ASSERT(m_buffer != nullptr);
+  rocksdb::Slice key(m_buffer + offset, key_len);
+  rocksdb::Slice value(m_buffer + offset + key_len, value_len);
+
+  return std::make_pair(key, value);
+}
+
+Rdb_sst_file_ordered::Rdb_sst_file_ordered(
+    rocksdb::DB *const db, rocksdb::ColumnFamilyHandle *const cf,
+    const rocksdb::DBOptions &db_options, const std::string &name,
+    const bool tracing, size_t max_size)
+    : m_use_stack(false), m_first(true), m_stack(max_size),
+      m_file(db, cf, db_options, name, tracing) {
+  m_stack.reset();
+}
+
+rocksdb::Status Rdb_sst_file_ordered::apply_first() {
+  rocksdb::Slice first_key_slice(m_first_key);
+  rocksdb::Slice first_value_slice(m_first_value);
+  rocksdb::Status s;
+
+  if (m_use_stack) {
+    // Put the first key onto the stack
+    m_stack.push(first_key_slice, first_value_slice);
+  } else {
+    // Put the first key into the SST
+    s = m_file.put(first_key_slice, first_value_slice);
+    if (!s.ok()) {
+      return s;
+    }
+  }
+
+  // Clear out the 'first' strings for next key/value
+  m_first_key.clear();
+  m_first_value.clear();
+
+  return s;
+}
+
+rocksdb::Status Rdb_sst_file_ordered::put(const rocksdb::Slice &key,
+                                          const rocksdb::Slice &value) {
+  rocksdb::Status s;
+
+  // If this is the first key, just store a copy of the key and value
+  if (m_first) {
+    m_first_key = key.ToString();
+    m_first_value = value.ToString();
+    m_first = false;
+    return rocksdb::Status::OK();
+  }
+
+  // If the first key is not empty we must be the second key.  Compare the
+  // new key with the first key to determine if the data will go straight
+  // the SST or be put on the stack to be retrieved later.
+  if (!m_first_key.empty()) {
+    rocksdb::Slice first_key_slice(m_first_key);
+    int cmp = m_file.compare(first_key_slice, key);
+    DBUG_ASSERT(cmp != 0);
+    m_use_stack = (cmp > 0);
+
+    // Apply the first key to the stack or SST
+    s = apply_first();
+    if (!s.ok()) {
+      return s;
+    }
+  }
+
+  // Put this key on the stack or into the SST
+  if (m_use_stack) {
+    m_stack.push(key, value);
+  } else {
+    s = m_file.put(key, value);
+  }
+
+  return s;
+}
+
+rocksdb::Status Rdb_sst_file_ordered::commit() {
+  rocksdb::Status s;
+
+  // Make sure we get the first key if it was the only key given to us.
+  if (!m_first_key.empty()) {
+    s = apply_first();
+    if (!s.ok()) {
+      return s;
+    }
+  }
+
+  if (m_use_stack) {
+    rocksdb::Slice key;
+    rocksdb::Slice value;
+
+    // We are ready to commit, pull each entry off the stack (which reverses
+    // the original data) and send it to the SST file.
+    while (!m_stack.empty()) {
+      std::tie(key, value) = m_stack.top();
+      s = m_file.put(key, value);
+      if (!s.ok()) {
+        return s;
+      }
+
+      m_stack.pop();
+    }
+
+    // We have pulled everything off the stack, reset for the next time
+    m_stack.reset();
+    m_use_stack = false;
+  }
+
+  // reset m_first
+  m_first = true;
+
+  return m_file.commit();
 }
 
 Rdb_sst_info::Rdb_sst_info(rocksdb::DB *const db, const std::string &tablename,
@@ -220,7 +361,8 @@ int Rdb_sst_info::open_new_sst_file() {
   const std::string name = m_prefix + std::to_string(m_sst_count++) + m_suffix;
 
   // Create the new sst file object
-  m_sst_file = new Rdb_sst_file(m_db, m_cf, m_db_options, name, m_tracing);
+  m_sst_file = new Rdb_sst_file_ordered(m_db, m_cf, m_db_options,
+                                        name, m_tracing, m_max_size);
 
   // Open the sst file
   const rocksdb::Status s = m_sst_file->open();
@@ -273,7 +415,7 @@ void Rdb_sst_info::close_curr_sst_file() {
 int Rdb_sst_info::put(const rocksdb::Slice &key, const rocksdb::Slice &value) {
   int rc;
 
-  if (m_curr_size >= m_max_size) {
+  if (m_curr_size + key.size() + value.size() >= m_max_size) {
     // The current sst file has reached its maximum, close it out
     close_curr_sst_file();
 
@@ -355,15 +497,15 @@ void Rdb_sst_info::thread_fcn(void *object) {
 }
 
 void Rdb_sst_info::run_thread() {
-  const std::unique_lock<std::mutex> lk(m_mutex);
+  std::unique_lock<std::mutex> lk(m_mutex);
 
   do {
     // Wait for notification or 1 second to pass
     m_cond.wait_for(lk, std::chrono::seconds(1));
 
-    // Inner loop pulls off all Rdb_sst_file entries and processes them
+    // Inner loop pulls off all Rdb_sst_file_ordered entries and processes them
     while (!m_queue.empty()) {
-      const Rdb_sst_file *const sst_file = m_queue.front();
+      Rdb_sst_file_ordered *const sst_file = m_queue.front();
       m_queue.pop();
 
       // Release the lock - we don't want to hold it while committing the file
