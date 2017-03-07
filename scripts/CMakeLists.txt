@@ -309,7 +309,7 @@ MACRO(EXTRACT_LINK_LIBRARIES target var)
   ENDIF()
 ENDMACRO()
 
-EXTRACT_LINK_LIBRARIES(webscalesqlclient CLIENT_LIBS)
+EXTRACT_LINK_LIBRARIES(fbmysqlclient CLIENT_LIBS)
 EXTRACT_LINK_LIBRARIES(mysqlserver LIBS)
 
 # mysql_config evaluates ${LIBDL}, we want to avoid it

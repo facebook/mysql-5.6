@@ -111,10 +111,12 @@ fi
 
 # Create options 
 # We intentionally add a space to the beginning and end of lib strings, simplifies replace later
-libs=" $ldflags -L$pkglibdir @RPATH_OPTION@ -lwebscalesqlclient @ZLIB_DEPS@ @NON_THREADED_LIBS@"
+libs=" $ldflags -L$pkglibdir @RPATH_OPTION@ "
+libs="$libs -lfbmysqlclient @ZLIB_DEPS@ @NON_THREADED_LIBS@ "
 libs="$libs @openssl_libs@ @STATIC_NSS_FLAGS@ "
 libs="$libs @QUOTED_CMAKE_C_LINK_FLAGS@"
-libs_r=" $ldflags -L$pkglibdir @RPATH_OPTION@ -lfbmysqlclient @ZLIB_DEPS@ @CLIENT_LIBS@ @openssl_libs@ "
+libs_r=" $ldflags -L$pkglibdir @RPATH_OPTION@ "
+libs_r="$libs_r -lfbmysqlclient @ZLIB_DEPS@ @CLIENT_LIBS@ @openssl_libs@ "
 libs_r="$libs_r @QUOTED_CMAKE_C_LINK_FLAGS@"
 embedded_libs=" $ldflags -L$pkglibdir @RPATH_OPTION@ -lmysqld @LIBDL@ @ZLIB_DEPS@ @LIBS@ @WRAPLIBS@ @openssl_libs@ "
 embedded_libs="$embedded_libs @QUOTED_CMAKE_CXX_LINK_FLAGS@"
