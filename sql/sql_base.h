@@ -302,6 +302,8 @@ void update_global_db_stats_access(unsigned char db_stats_index,
 void init_global_db_stats(void);
 void free_global_db_stats(void);
 void reset_global_db_stats(void);
+bool global_table_stats_lock(void);
+void global_table_stats_unlock(bool acquired);
 extern ST_FIELD_INFO db_stats_fields_info[];
 int fill_db_stats(THD *thd, TABLE_LIST *tables, Item *cond);
 

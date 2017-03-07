@@ -5195,7 +5195,7 @@ static int init_thread_environment()
   mysql_mutex_init(key_LOCK_log_throttle_legacy,
                    &LOCK_log_throttle_legacy, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_global_table_stats,
-                   &LOCK_global_table_stats, MY_MUTEX_INIT_FAST);
+                   &LOCK_global_table_stats, MY_MUTEX_INIT_ERRCHK);
 #ifdef HAVE_OPENSSL
   mysql_mutex_init(key_LOCK_des_key_file,
                    &LOCK_des_key_file, MY_MUTEX_INIT_FAST);
