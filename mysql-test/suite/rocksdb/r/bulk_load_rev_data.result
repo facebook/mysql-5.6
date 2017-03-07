@@ -1,5 +1,5 @@
 DROP TABLE IF EXISTS t1, t2, t3;
-Data will be ordered in ascending order
+Data will be ordered in descending order
 CREATE TABLE t1(
 pk CHAR(5),
 a CHAR(30),
