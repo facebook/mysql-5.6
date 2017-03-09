@@ -24,6 +24,7 @@
 /* MyRocks header files */
 #include "./ha_rocksdb.h"
 #include "./ha_rocksdb_proto.h"
+#include "./rdb_psi.h"
 
 namespace myrocks {
 
@@ -37,14 +38,10 @@ bool Rdb_cf_manager::is_cf_name_reverse(const char *const name) {
     return false;
 }
 
-#ifdef HAVE_PSI_INTERFACE
-static PSI_mutex_key ex_key_cfm;
-#endif
-
 void Rdb_cf_manager::init(
     Rdb_cf_options *const cf_options,
     std::vector<rocksdb::ColumnFamilyHandle *> *const handles) {
-  mysql_mutex_init(ex_key_cfm, &m_mutex, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(rdb_cfm_mutex_key, &m_mutex, MY_MUTEX_INIT_FAST);
 
   DBUG_ASSERT(cf_options != nullptr);
   DBUG_ASSERT(handles != nullptr);
