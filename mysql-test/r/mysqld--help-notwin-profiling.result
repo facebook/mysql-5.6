@@ -1254,7 +1254,7 @@ The following options may be given as the first argument:
  Path for BlockBasedTableOptions::persistent_cache for
  RocksDB
  --rocksdb-persistent-cache-size-mb=# 
- Size of cache for
+ Size of cache in MB for
  BlockBasedTableOptions::persistent_cache for RocksDB
  --rocksdb-pin-l0-filter-and-index-blocks-in-cache 
  pin_l0_filter_and_index_blocks_in_cache for RocksDB
