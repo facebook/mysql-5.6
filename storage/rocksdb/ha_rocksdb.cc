@@ -5377,20 +5377,6 @@ int ha_rocksdb::create(const char *const name, TABLE *const table_arg,
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
 
-  /*
-    TODO(alexyang): Temporarily disable unique indexes support when there is no
-    Primary Key
-  */
-  for (uint keyno = 0; keyno < table_arg->s->keys; keyno++) {
-    if ((table_arg->key_info[keyno].flags & HA_NOSAME) &&
-        has_hidden_pk(table_arg)) {
-      my_printf_error(ER_UNKNOWN_ERROR, "Unique index support is disabled when "
-                                        "the table has no primary key. ",
-                      MYF(0));
-      DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
-    }
-  }
-
   bool write_err = false;
   const std::unique_ptr<rocksdb::WriteBatch> wb = dict_manager.begin();
   rocksdb::WriteBatch *const batch = wb.get();
@@ -7162,8 +7148,8 @@ int ha_rocksdb::check_and_lock_sk(const uint &key_id,
   */
   if (row_info.old_data != nullptr) {
     size = kd.pack_record(table, m_pack_buffer, row_info.old_data,
-                          m_sk_packed_tuple_old, nullptr, false,
-                          row_info.hidden_pk_id, user_defined_key_parts);
+                          m_sk_packed_tuple_old, nullptr, false, 0,
+                          user_defined_key_parts);
     const rocksdb::Slice old_slice =
         rocksdb::Slice((const char *)m_sk_packed_tuple_old, size);
 
