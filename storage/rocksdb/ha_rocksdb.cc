@@ -6652,13 +6652,13 @@ int ha_rocksdb::index_first_intern(uchar *const buf) {
      (n+1)      <---- Doesn't exist, but would be here.
      (n+1)-smth, or no value at all
 
-   RocksDB's Iterator::Seek($val) seeks to "at $val or first value that's
-   greater". We can't see to "(n)-ccc" directly, because we don't know what
+   RocksDB's Iterator::SeekForPrev($val) seeks to "at $val or last value that's
+   smaller". We can't seek to "(n)-ccc" directly, because we don't know what
    is the value of 'ccc' (the biggest record with prefix (n)). Instead, we seek
    to "(n+1)", which is the least possible value that's greater than any value
-   in index #n. Then we step one record back.
+   in index #n.
 
-   So, need to:  it->Seek(n+1) || it->SeekToLast(); it->Prev();
+   So, need to:  it->SeekForPrev(n+1)
 
    A backward-ordered keyspace:
 
@@ -6669,7 +6669,7 @@ int ha_rocksdb::index_first_intern(uchar *const buf) {
       ( n ) <--- Doesn't exist, but would be here.
       (n-1)-smth, or no value at all
 
-   So, need to:  it->Seek(n) || it->SeekToLast(); it->Prev();
+   So, need to:  it->SeekForPrev(n)
 */
 
 int ha_rocksdb::index_last_intern(uchar *const buf) {
