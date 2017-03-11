@@ -110,7 +110,7 @@ static handler *rocksdb_create_handler(my_core::handlerton *hton,
 
 bool can_use_bloom_filter(THD *thd, const Rdb_key_def &kd,
                           const rocksdb::Slice &eq_cond,
-                          const bool use_all_keys, bool is_ascending);
+                          const bool use_all_keys);
 
 ///////////////////////////////////////////////////////////
 // Parameters and settings
@@ -6017,8 +6017,7 @@ int ha_rocksdb::index_read_map_impl(uchar *const buf, const uchar *const key,
       This will open the iterator and position it at a record that's equal or
       greater than the lookup tuple.
     */
-    setup_scan_iterator(kd, &slice, use_all_keys, is_ascending(kd, find_flag),
-                        eq_cond_len);
+    setup_scan_iterator(kd, &slice, use_all_keys, eq_cond_len);
 
     /*
       Once we are positioned on from above, move to the position we really
@@ -6609,8 +6608,7 @@ int ha_rocksdb::index_first_intern(uchar *const buf) {
   // Loop as long as we get a deadlock error AND we end up creating the
   // snapshot here (i.e. it did not exist prior to this)
   for (;;) {
-    setup_scan_iterator(kd, &index_key, false, !kd.m_is_reverse_cf,
-                        Rdb_key_def::INDEX_NUMBER_SIZE);
+    setup_scan_iterator(kd, &index_key, false, Rdb_key_def::INDEX_NUMBER_SIZE);
     m_scan_it->Seek(index_key);
     m_skip_scan_it_next_call = true;
 
@@ -6705,8 +6703,7 @@ int ha_rocksdb::index_last_intern(uchar *const buf) {
   // Loop as long as we get a deadlock error AND we end up creating the
   // snapshot here (i.e. it did not exist prior to this)
   for (;;) {
-    setup_scan_iterator(kd, &index_key, false, kd.m_is_reverse_cf,
-                        Rdb_key_def::INDEX_NUMBER_SIZE);
+    setup_scan_iterator(kd, &index_key, false, Rdb_key_def::INDEX_NUMBER_SIZE);
     m_scan_it->SeekForPrev(index_key);
     m_skip_scan_it_next_call = false;
 
@@ -7198,8 +7195,7 @@ int ha_rocksdb::check_and_lock_sk(const uint &key_id,
     The bloom filter may need to be disabled for this lookup.
   */
   const bool total_order_seek = !can_use_bloom_filter(
-      ha_thd(), kd, new_slice, all_parts_used,
-      is_ascending(*m_key_descr_arr[key_id], HA_READ_KEY_EXACT));
+      ha_thd(), kd, new_slice, all_parts_used);
   const bool fill_cache = !THDVAR(ha_thd(), skip_fill_cache);
 
   /*
@@ -7604,7 +7600,6 @@ int ha_rocksdb::update_write_row(const uchar *const old_data,
 void ha_rocksdb::setup_scan_iterator(const Rdb_key_def &kd,
                                      rocksdb::Slice *const slice,
                                      const bool use_all_keys,
-                                     const bool is_ascending,
                                      const uint eq_cond_len) {
   DBUG_ASSERT(slice != nullptr);
   DBUG_ASSERT(slice->size() >= eq_cond_len);
@@ -7614,7 +7609,7 @@ void ha_rocksdb::setup_scan_iterator(const Rdb_key_def &kd,
   bool skip_bloom = true;
 
   const rocksdb::Slice eq_cond(slice->data(), eq_cond_len);
-  if (can_use_bloom_filter(ha_thd(), kd, eq_cond, use_all_keys, is_ascending)) {
+  if (can_use_bloom_filter(ha_thd(), kd, eq_cond, use_all_keys)) {
     skip_bloom = false;
   }
 
@@ -9146,47 +9141,6 @@ enum icp_result ha_rocksdb::check_index_cond() const {
   return pushed_idx_cond->val_int() ? ICP_MATCH : ICP_NO_MATCH;
 }
 
-/**
-  Checking if an index is used for ascending scan or not
-
-  @detail
-  Currently RocksDB does not support bloom filter for
-  prefix lookup + descending scan, but supports bloom filter for
-  prefix lookup + ascending scan. This function returns true if
-  the scan pattern is absolutely ascending.
-  @param kd
-  @param find_flag
-*/
-bool ha_rocksdb::is_ascending(const Rdb_key_def &kd,
-                              enum ha_rkey_function find_flag) const {
-  bool is_ascending;
-  switch (find_flag) {
-  case HA_READ_KEY_EXACT: {
-    is_ascending = !kd.m_is_reverse_cf;
-    break;
-  }
-  case HA_READ_PREFIX: {
-    is_ascending = true;
-    break;
-  }
-  case HA_READ_KEY_OR_NEXT:
-  case HA_READ_AFTER_KEY: {
-    is_ascending = !kd.m_is_reverse_cf;
-    break;
-  }
-  case HA_READ_KEY_OR_PREV:
-  case HA_READ_BEFORE_KEY:
-  case HA_READ_PREFIX_LAST:
-  case HA_READ_PREFIX_LAST_OR_PREV: {
-    is_ascending = kd.m_is_reverse_cf;
-    break;
-  }
-  default:
-    is_ascending = false;
-  }
-  return is_ascending;
-}
-
 /*
   Checks if inplace alter is supported for a given operation.
 */
@@ -10116,7 +10070,7 @@ void Rdb_background_thread::run() {
 */
 bool can_use_bloom_filter(THD *thd, const Rdb_key_def &kd,
                           const rocksdb::Slice &eq_cond,
-                          const bool use_all_keys, bool is_ascending) {
+                          const bool use_all_keys) {
   bool can_use = false;
 
   if (THDVAR(thd, skip_bloom_filter_on_read)) {
