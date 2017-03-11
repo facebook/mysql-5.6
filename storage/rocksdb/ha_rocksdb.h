@@ -490,14 +490,14 @@ class ha_rocksdb : public my_core::handler {
   void setup_iterator_for_rnd_scan();
   void setup_scan_iterator(const Rdb_key_def &kd, rocksdb::Slice *const slice)
       MY_ATTRIBUTE((__nonnull__)) {
-    setup_scan_iterator(kd, slice, false, false, 0);
+    setup_scan_iterator(kd, slice, false, 0);
   }
   bool is_ascending(const Rdb_key_def &keydef,
                     enum ha_rkey_function find_flag) const
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   void setup_scan_iterator(const Rdb_key_def &kd, rocksdb::Slice *slice,
-                           const bool use_all_keys, const bool is_ascending,
-                           const uint eq_cond_len) MY_ATTRIBUTE((__nonnull__));
+                           const bool use_all_keys, const uint eq_cond_len)
+      MY_ATTRIBUTE((__nonnull__));
   void release_scan_iterator(void);
 
   rocksdb::Status
