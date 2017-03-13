@@ -21,6 +21,7 @@
 #include <array>
 #include <string>
 #include <vector>
+#include <sstream>
 
 /* C standard header files */
 #include <ctype.h>
