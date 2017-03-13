@@ -1280,6 +1280,9 @@ The following options may be given as the first argument:
  Skip filling block cache on read requests
  --rocksdb-skip-unique-check-tables=name 
  Skip unique constraint checking for the specified tables
+ --rocksdb-sst-mgr-rate-bytes-per-sec=# 
+ DBOptions::sst_file_manager rate_bytes_per_sec for
+ RocksDB
  --rocksdb-stats-dump-period-sec=# 
  DBOptions::stats_dump_period_sec for RocksDB
  --rocksdb-store-row-debug-checksums 
@@ -2031,6 +2034,7 @@ rocksdb-signal-drop-index-thread FALSE
 rocksdb-skip-bloom-filter-on-read FALSE
 rocksdb-skip-fill-cache FALSE
 rocksdb-skip-unique-check-tables (No default value)
+rocksdb-sst-mgr-rate-bytes-per-sec 67108864
 rocksdb-stats-dump-period-sec 600
 rocksdb-store-row-debug-checksums FALSE
 rocksdb-strict-collation-check TRUE
