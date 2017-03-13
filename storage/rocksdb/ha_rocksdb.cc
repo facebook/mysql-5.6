@@ -333,6 +333,11 @@ static void rocksdb_set_rate_limiter_bytes_per_sec(THD *thd,
                                                    void *var_ptr,
                                                    const void *save);
 
+static void rocksdb_set_sst_mgr_rate_bytes_per_sec(THD *thd,
+                                                   struct st_mysql_sys_var *var,
+                                                   void *var_ptr,
+                                                   const void *save);
+
 static void rocksdb_set_delayed_write_rate(THD *thd,
                                            struct st_mysql_sys_var *var,
                                            void *var_ptr, const void *save);
@@ -356,10 +361,12 @@ static void rocksdb_set_max_background_compactions(
 //////////////////////////////////////////////////////////////////////////////
 static long long rocksdb_block_cache_size;
 /* Use unsigned long long instead of uint64_t because of MySQL compatibility */
-static unsigned long long // NOLINT(runtime/int)
+static unsigned long long  // NOLINT(runtime/int)
     rocksdb_rate_limiter_bytes_per_sec;
+static unsigned long long  // NOLINT(runtime/int)
+    rocksdb_sst_mgr_rate_bytes_per_sec;
 static unsigned long long rocksdb_delayed_write_rate;
-static unsigned long // NOLINT(runtime/int)
+static unsigned long  // NOLINT(runtime/int)
     rocksdb_persistent_cache_size_mb;
 static uint64_t rocksdb_info_log_level;
 static char *rocksdb_wal_dir;
@@ -576,6 +583,14 @@ static MYSQL_SYSVAR_ULONGLONG(
     PLUGIN_VAR_RQCMDARG, "DBOptions::rate_limiter bytes_per_sec for RocksDB",
     nullptr, rocksdb_set_rate_limiter_bytes_per_sec, /* default */ 0L,
     /* min */ 0L, /* max */ MAX_RATE_LIMITER_BYTES_PER_SEC, 0);
+
+static MYSQL_SYSVAR_ULONGLONG(
+    sst_mgr_rate_bytes_per_sec, rocksdb_sst_mgr_rate_bytes_per_sec,
+    PLUGIN_VAR_RQCMDARG,
+    "DBOptions::sst_file_manager rate_bytes_per_sec for RocksDB", nullptr,
+    rocksdb_set_sst_mgr_rate_bytes_per_sec,
+    /* default */ DEFAULT_SST_MGR_RATE_BYTES_PER_SEC,
+    /* min */ 0L, /* max */ UINT64_MAX, 0);
 
 static MYSQL_SYSVAR_ULONGLONG(delayed_write_rate, rocksdb_delayed_write_rate,
                               PLUGIN_VAR_RQCMDARG,
@@ -1198,6 +1213,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(error_if_exists),
     MYSQL_SYSVAR(paranoid_checks),
     MYSQL_SYSVAR(rate_limiter_bytes_per_sec),
+    MYSQL_SYSVAR(sst_mgr_rate_bytes_per_sec),
     MYSQL_SYSVAR(delayed_write_rate),
     MYSQL_SYSVAR(info_log_level),
     MYSQL_SYSVAR(max_open_files),
@@ -3330,6 +3346,12 @@ static int rocksdb_init_func(void *const p) {
     rdb_open_tables.free_hash();
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
+
+  rocksdb_db_options.sst_file_manager.reset(
+      NewSstFileManager(rocksdb_db_options.env));
+
+  rocksdb_db_options.sst_file_manager->SetDeleteRateBytesPerSecond(
+      rocksdb_sst_mgr_rate_bytes_per_sec);
 
   std::vector<std::string> cf_names;
   rocksdb::Status status;
@@ -10376,6 +10398,25 @@ void rocksdb_set_rate_limiter_bytes_per_sec(
     rocksdb_rate_limiter->SetBytesPerSecond(new_val);
   }
 }
+
+void rocksdb_set_sst_mgr_rate_bytes_per_sec(
+    my_core::THD *const thd,
+    my_core::st_mysql_sys_var *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr MY_ATTRIBUTE((__unused__)), const void *const save) {
+  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
+
+  const uint64_t new_val = *static_cast<const uint64_t *>(save);
+
+  if (new_val != rocksdb_sst_mgr_rate_bytes_per_sec) {
+    rocksdb_sst_mgr_rate_bytes_per_sec = new_val;
+
+    rocksdb_db_options.sst_file_manager->SetDeleteRateBytesPerSecond(
+      rocksdb_sst_mgr_rate_bytes_per_sec);
+  }
+
+  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
+}
+
 
 void rocksdb_set_delayed_write_rate(THD *thd, struct st_mysql_sys_var *var,
                                     void *var_ptr, const void *save) {

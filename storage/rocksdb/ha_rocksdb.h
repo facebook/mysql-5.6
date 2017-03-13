@@ -34,6 +34,7 @@
 /* RocksDB header files */
 #include "rocksdb/cache.h"
 #include "rocksdb/perf_context.h"
+#include "rocksdb/sst_file_manager.h"
 #include "rocksdb/statistics.h"
 #include "rocksdb/utilities/options_util.h"
 #include "rocksdb/utilities/transaction_db.h"
@@ -182,6 +183,11 @@ const char *const RDB_CF_NAME_QUALIFIER = "cfname";
 
 #define DEFAULT_SUBCOMPACTIONS 1
 #define MAX_SUBCOMPACTIONS 64
+
+/*
+  Default value for rocksdb_sst_mgr_rate_bytes_per_sec = 64 MB.
+*/
+#define DEFAULT_SST_MGR_RATE_BYTES_PER_SEC (64 * 1024 * 1024)
 
 /*
   Defines the field sizes for serializing XID object to a string representation.
