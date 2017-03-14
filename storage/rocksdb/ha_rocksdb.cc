@@ -25,6 +25,7 @@
 
 /* C++ standard header files */
 #include <algorithm>
+#include <limits>
 #include <queue>
 #include <set>
 #include <string>
@@ -3749,7 +3750,12 @@ void ha_rocksdb::update_auto_incr_val() {
 
   my_bitmap_map *const old_map =
       dbug_tmp_use_all_columns(table, table->read_set);
-  new_val = field->val_int() + 1;
+  new_val = field->val_int();
+  // don't increment if we would wrap around
+  if (new_val != std::numeric_limits<longlong>::max()) {
+    new_val++;
+  }
+
   dbug_tmp_restore_column_map(table->read_set, old_map);
 
   longlong auto_incr_val = m_tbl_def->m_auto_incr_val;
@@ -9021,27 +9027,61 @@ void ha_rocksdb::get_auto_increment(ulonglong off, ulonglong inc,
     off = 1;
   }
 
+  longlong new_val;
+
   // Local variable reference to simplify code below
   std::atomic<longlong> &auto_incr = m_tbl_def->m_auto_incr_val;
 
   if (inc == 1 && off == 1) {
     // Optimization for the standard case where we are always simply
     // incrementing from the last position
-    *first_value = auto_incr++;
+
+    // Use CAS operation in a loop to make sure automically get the next auto
+    // increment value while ensuring tha we don't wrap around to a negative
+    // number.
+    new_val = auto_incr;
+    while (new_val != std::numeric_limits<longlong>::max()) {
+      if (auto_incr.compare_exchange_weak(new_val, new_val + 1)) {
+        break;
+      }
+    }
   } else {
     // The next value can be more complicated if either `inc` or 'off' is not 1
-    longlong new_val;
     longlong last_val = auto_incr;
 
     // Loop until we can correctly update the atomic value
     do {
+      if (((last_val - off) / inc) ==
+          (std::numeric_limits<longlong>::max() - off) / inc) {
+        // The 'last_val' value is already equal to or larger than the largest
+        // value in the sequence.  Continuing would wrap around (technically
+        // the behavior would be undefined).  What should we do?
+        // We could:
+        //   1) set the new value to the last possible number in our sequence
+        //      as described above.  The problem with this is that this
+        //      number could be smaller than a value in an existing row.
+        //   2) set the new value to the largest possible number.  This number
+        //      may not be in our sequence, but it is guaranteed to be equal
+        //      to or larger than any other value already inserted.
+        //
+        //  For now I'm going to take option @2.
+        new_val = std::numeric_limits<longlong>::max();
+        auto_incr = new_val;  // Store the largest value into auto_incr
+        break;
+      }
+
       // Calculate the next value in the auto increment series:
       //   offset + N * increment
       // where N is 0, 1, 2, ...
       //
       // For further information please visit:
       // http://dev.mysql.com/doc/refman/5.7/en/replication-options-master.html
-      new_val = ((last_val + (inc - off) - 1) / inc) * inc + off;
+      //
+      // The following is confusing so here is an explanation:
+      // To get the next number in the sequence above you subtract out
+      // the offset, calculate the next sequence (N * increment) and then add
+      // the offset back in.
+      new_val = (((last_val - off) + (inc - 1)) / inc) * inc + off;
 
       // Attempt to store the new value (plus 1 since m_auto_incr_val contains
       // the next available value) into the atomic value.  If the current
@@ -9049,10 +9089,9 @@ void ha_rocksdb::get_auto_increment(ulonglong off, ulonglong inc,
       // we will repeat the loop (`last_val` will automatically get updated
       // with the current value).
     } while (!auto_incr.compare_exchange_weak(last_val, new_val + 1));
-
-    *first_value = new_val;
   }
 
+  *first_value = new_val;
   *nb_reserved_values = 1;
 }
 
