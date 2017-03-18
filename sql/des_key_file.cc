@@ -13,6 +13,7 @@
    along with this program; if not, write to the Free Software Foundation,
    51 Franklin Street, Suite 500, Boston, MA 02110-1335 USA */
 
+#include <cinttypes>
 #include "my_global.h"          // HAVE_*
 #include "sql_priv.h"
 #include "des_key_file.h"       // st_des_keyschedule, st_des_keyblock

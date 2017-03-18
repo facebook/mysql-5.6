@@ -74,6 +74,11 @@ bool use_slave_mask = 0;
 MY_BITMAP slave_error_mask;
 char slave_skip_error_names[SHOW_VAR_FUNC_BUFF_SIZE];
 
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+// Function removed after OpenSSL 1.1.0
+#define ERR_remove_state(x)
+#endif
+
 static unsigned long stop_wait_timeout;
 char* slave_load_tmpdir = 0;
 Master_info *active_mi= 0;

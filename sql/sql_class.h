@@ -53,9 +53,6 @@
 #include "sql_data_change.h"
 #include "my_atomic.h"
 
-#include <openssl/ossl_typ.h>
-#include <openssl/pem.h>
-
 #define FLAGSTR(V,F) ((V)&(F)?#F" ":"")
 
 /**
@@ -4543,20 +4540,21 @@ private:
   }
 
 private:
-  BUF_MEM *connection_certificate_buf;
+  char* connection_certificate_buf;
+  int connection_certificate_buf_len;
 #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
   void reset_connection_certificate();
 public:
   void set_connection_certificate();
   const char *connection_certificate() const;
   uint32 connection_certificate_length() const;
-  // The caller should take ownership of the BUF_MEM pointer.  If display is
+  // The caller should take ownership of the char pointer.  If display is
   // set to true, the buffer will contain the certificate encoded in a human
   // readable format, which can be used for display in information schema.
   // Otherwise, it is encoded in the PEM format.
   //
-  // Free this using the function BUF_MEM_free.
-  BUF_MEM *get_peer_cert_info(bool display);
+  // Free this using the function my_free.
+  char *get_peer_cert_info(bool display, int *cert_len);
 #endif
 
 #ifndef DBUG_OFF

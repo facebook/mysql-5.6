@@ -5138,26 +5138,27 @@ void THD::get_definer(LEX_USER *definer)
 #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
 void THD::set_connection_certificate() {
   DBUG_ASSERT(connection_certificate_buf == nullptr);
-  connection_certificate_buf = get_peer_cert_info(false);
+  connection_certificate_buf = get_peer_cert_info(
+    false, &connection_certificate_buf_len);
 }
 
 void THD::reset_connection_certificate() {
   if (connection_certificate_buf) {
-    BUF_MEM_free(connection_certificate_buf);
+    my_free(connection_certificate_buf);
     connection_certificate_buf = nullptr;
+    connection_certificate_buf_len = 0;
   }
 }
 
 const char *THD::connection_certificate() const {
-  return connection_certificate_buf ?
-    connection_certificate_buf->data : nullptr;
+  return connection_certificate_buf;
 }
 
 uint32 THD::connection_certificate_length() const {
-  return connection_certificate_buf ? connection_certificate_buf->length : 0;
+  return connection_certificate_buf ? connection_certificate_buf_len : 0;
 }
 
-BUF_MEM *THD::get_peer_cert_info(bool display)
+char *THD::get_peer_cert_info(bool display, int *cert_len)
 {
   if (!vio_ok() || !net.vio->ssl_arg) {
     return NULL;
@@ -5193,19 +5194,22 @@ BUF_MEM *THD::get_peer_cert_info(bool display)
     return NULL;
   }
 
-  // decouple buffer and close bio object
-  BUF_MEM *bufmem;
-  BIO_get_mem_ptr(bio, &bufmem);
-  (void) BIO_set_close(bio, BIO_NOCLOSE);
-  BIO_free(bio);
-  X509_free(cert);
+  int buflen = BIO_pending(bio);
+  char *cert_buf = (char *)my_malloc(buflen, MYF(MY_WME));
+  *cert_len = BIO_read(bio, cert_buf, buflen);
 
-  if (bufmem->length) {
-    return bufmem;
+  if (*cert_len == -1) {
+    *cert_len = 0;
+    my_free(cert_buf);
+    BIO_free(bio);
+    X509_free(cert);
+    return NULL;
   }
 
-  BUF_MEM_free(bufmem);
-  return NULL;
+  DBUG_ASSERT(*cert_len <= buflen);
+  BIO_free(bio);
+  X509_free(cert);
+  return cert_buf;
 }
 #endif
 

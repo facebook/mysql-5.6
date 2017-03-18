@@ -28,6 +28,7 @@
 */
 
 /* May include caustic 3rd-party defs. Use early, so it can override nothing. */
+#include <cinttypes>
 #include "sha2.h"
 #include "my_global.h"                          // HAVE_*
 
