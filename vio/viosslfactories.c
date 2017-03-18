@@ -17,6 +17,11 @@
 
 #ifdef HAVE_OPENSSL
 
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+// Function removed after OpenSSL 1.1.0
+#define ERR_remove_state(x)
+#endif
+
 /*
   Diffie-Hellman key.
   Generated using: >openssl dhparam -5 -C 2048
@@ -65,9 +70,15 @@ static DH *get_dh2048(void)
   DH *dh;
   if ((dh=DH_new()))
   {
-    dh->p=BN_bin2bn(dh2048_p,sizeof(dh2048_p),NULL);
-    dh->g=BN_bin2bn(dh2048_g,sizeof(dh2048_g),NULL);
+    BIGNUM *p = BN_bin2bn(dh2048_p,sizeof(dh2048_p),NULL);
+    BIGNUM *g = BN_bin2bn(dh2048_g,sizeof(dh2048_g),NULL);
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+    dh->p=p;
+    dh->g=g;
     if (! dh->p || ! dh->g)
+#else
+    if (!DH_set0_pqg(dh, p, NULL, g))
+#endif
     {
       DH_free(dh);
       dh=0;
@@ -203,6 +214,7 @@ static openssl_lock_t *openssl_stdlocks;
 /*OpenSSL callback functions for multithreading. We implement all the functions
   as we are using our own locking mechanism.
 */
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
 static void openssl_lock(int mode, openssl_lock_t *lock,
                          const char *file MY_ATTRIBUTE((unused)),
                          int line MY_ATTRIBUTE((unused)))
@@ -291,6 +303,7 @@ static unsigned long openssl_id_function()
 {
   return (unsigned long) pthread_self();
 }
+#endif
 
 //End of mutlithreading callback functions
 
@@ -315,11 +328,15 @@ static void init_ssl_locks()
 
 static void set_lock_callback_functions(my_bool init)
 {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
   CRYPTO_set_locking_callback(init ? openssl_lock_function : NULL);
   CRYPTO_set_id_callback(init ? openssl_id_function : NULL);
   CRYPTO_set_dynlock_create_callback(init ? openssl_dynlock_create : NULL);
   CRYPTO_set_dynlock_destroy_callback(init ? openssl_dynlock_destroy : NULL);
   CRYPTO_set_dynlock_lock_callback(init ? openssl_lock : NULL);
+#else
+  (void)init;
+#endif
 }
 
 static void init_lock_callback_functions()

@@ -30,7 +30,7 @@
 #define __STDC_FORMAT_MACROS
 #endif
 
-#include <inttypes.h>
+#include <cinttypes>
 #include <iostream>
 
 namespace fbson {

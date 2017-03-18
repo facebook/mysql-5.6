@@ -32,7 +32,6 @@ The interface to the operating system file i/o primitives
 Created 10/21/1995 Heikki Tuuri
 *******************************************************/
 
-#define BIT63_NEEDED
 #include "mysqld.h"
 #include "os0file.h"
 

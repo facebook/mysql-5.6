@@ -145,6 +145,11 @@ extern "C" {
 #endif
 #endif
 
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+// Function removed after OpenSSL 1.1.0
+#define ERR_remove_state(x)
+#endif
+
 using std::min;
 using std::max;
 using std::vector;
@@ -5241,7 +5246,11 @@ bool init_ssl()
 {
 #ifdef HAVE_OPENSSL
 #ifndef HAVE_YASSL
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
   CRYPTO_malloc_init();
+#else
+  OPENSSL_malloc_init();
+#endif // OPENSSL_VERSION_NUMBER
 #endif
   ssl_start();
 #ifndef EMBEDDED_LIBRARY

@@ -2953,10 +2953,11 @@ int fill_schema_authinfo(THD* thd, TABLE_LIST* tables, Item* cond)
     const char* cert = NULL;
     size_t certlen = 0;
 #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
-    BUF_MEM *bufmem = tmp->get_peer_cert_info(/* display */ true);
+    int tmp_len;
+    char *bufmem = tmp->get_peer_cert_info(/* display */ true, &tmp_len);
     if (bufmem != nullptr) {
-      cert = bufmem->data;
-      certlen = bufmem->length;
+      cert = bufmem;
+      certlen = tmp_len;
     }
 #endif
 
@@ -2967,7 +2968,7 @@ int fill_schema_authinfo(THD* thd, TABLE_LIST* tables, Item* cond)
     }
 
 #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
-    BUF_MEM_free(bufmem);
+    my_free(bufmem);
 #endif
 
     if (schema_table_store_record(thd, table)) {

@@ -2677,7 +2677,11 @@ static my_bool ssl_check_SAN_IPADD(Vio* vio, GENERAL_NAME* gn_entry)
       DBUG_PRINT("info", ("alternative ip address in cert: %s", unused_ip));
 
       /* Check ipv4 and ipv6 addresses */
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
       char* data= (char*) ASN1_STRING_data(gn_entry->d.ia5);
+#else
+      char* data= (char*) ASN1_STRING_get0_data(gn_entry->d.ia5);
+#endif
       int   length= ASN1_STRING_length(gn_entry->d.ia5);
 
       struct sockaddr* sa= (struct sockaddr*) &vio->remote;
@@ -6898,7 +6902,7 @@ mysql_options4(MYSQL *mysql,enum mysql_option option,
 
      // Increment the reference count
     if (!take_ownership && ssl_session != NULL)
-#ifdef OPENSSL_IS_BORINGSSL
+#if defined(OPENSSL_IS_BORINGSSL) || OPENSSL_VERSION_NUMBER >= 0x10100000L
       SSL_SESSION_up_ref(ssl_session);
 #else
       CRYPTO_add(&ssl_session->references, 1, CRYPTO_LOCK_SSL_SESSION);
