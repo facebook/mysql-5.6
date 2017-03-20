@@ -43,9 +43,11 @@
 
 /* RocksDB includes */
 #include "rocksdb/compaction_filter.h"
+#include "rocksdb/env.h"
 #include "rocksdb/persistent_cache.h"
 #include "rocksdb/rate_limiter.h"
 #include "rocksdb/slice_transform.h"
+#include "rocksdb/thread_status.h"
 #include "rocksdb/utilities/checkpoint.h"
 #include "rocksdb/utilities/convenience.h"
 #include "rocksdb/utilities/memory_util.h"
@@ -863,8 +865,7 @@ static MYSQL_SYSVAR_BOOL(
     enable_thread_tracking,
     *reinterpret_cast<my_bool *>(&rocksdb_db_options.enable_thread_tracking),
     PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-    "DBOptions::enable_thread_tracking for RocksDB", nullptr, nullptr,
-    rocksdb_db_options.enable_thread_tracking);
+    "DBOptions::enable_thread_tracking for RocksDB", nullptr, nullptr, true);
 
 static MYSQL_SYSVAR_LONGLONG(block_cache_size, rocksdb_block_cache_size,
                              PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -2938,7 +2939,42 @@ static bool rocksdb_show_status(handlerton *const hton, THD *const thd,
     snprintf(buf, sizeof(buf), "\nDefault Cache Capacity: %lu",
              internal_cache_count * kDefaultInternalCacheSize);
     str.append(buf);
-    res |= print_stats(thd, "Memory_Stats", "rocksdb", str, stat_print);
+    res |= print_stats(thd, "MEMORY_STATS", "rocksdb", str, stat_print);
+
+    /* Show the background thread status */
+    std::vector<rocksdb::ThreadStatus> thread_list;
+    rocksdb::Status s = rdb->GetEnv()->GetThreadList(&thread_list);
+
+    if (!s.ok()) {
+      sql_print_error("RocksDB: Returned error (%s) from GetThreadList.\n",
+                      s.ToString().c_str());
+      res |= true;
+    } else {
+      /* For each background thread retrieved, print out its information */
+      for (auto &it : thread_list) {
+        /* Only look at background threads. Ignore user threads, if any. */
+        if (it.thread_type > rocksdb::ThreadStatus::LOW_PRIORITY) {
+          continue;
+        }
+
+        str = "\nthread_type: " + it.GetThreadTypeName(it.thread_type) +
+              "\ncf_name: " + it.cf_name +
+              "\noperation_type: " + it.GetOperationName(it.operation_type) +
+              "\noperation_stage: " +
+              it.GetOperationStageName(it.operation_stage) +
+              "\nelapsed_time_ms: " +
+              it.MicrosToString(it.op_elapsed_micros);
+        for (auto &it_props :
+          it.InterpretOperationProperties(it.operation_type,
+                                          it.op_properties)) {
+          str += "\n" + it_props.first + ": " + std::to_string(it_props.second);
+        }
+        str += "\nstate_type: " + it.GetStateName(it.state_type);
+
+        res |= print_stats(thd, "BG_THREADS", std::to_string(it.thread_id),
+                           str, stat_print);
+      }
+    }
   } else if (stat_type == HA_ENGINE_TRX) {
     /* Handle the SHOW ENGINE ROCKSDB TRANSACTION STATUS command */
     res |= rocksdb_show_snapshot_status(hton, thd, stat_print);
