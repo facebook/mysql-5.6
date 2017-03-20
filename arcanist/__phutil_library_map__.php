@@ -12,6 +12,7 @@ phutil_register_library_map(array(
   array(
     'FacebookInnoDBTabLinter' => 'lint/linter/FacebookInnoDBTabLinter.php',
     'FacebookMySQLArcanistConfiguration' => 'arcanist/FacebookMySQLArcanistConfiguration.php',
+    'FacebookMySQLArcanistLandcastleWorkflow' => 'workflows/FacebookMySQLArcanistLandcastleWorkflow.php',
     'FacebookMySQLAssertUsageLinter' => 'lint/linter/FacebookMySQLAssertUsageLinter.php',
     'FacebookMySQLLintEngine' => 'lint/FacebookMySQLLintEngine.php',
     'FacebookMySQLLinter' => 'lint/linter/FacebookMySQLLinter.php',
@@ -27,6 +28,7 @@ phutil_register_library_map(array(
   array(
     'FacebookInnoDBTabLinter' => 'ArcanistLinter',
     'FacebookMySQLArcanistConfiguration' => 'ArcanistConfiguration',
+    'FacebookMySQLArcanistLandcastleWorkflow' => 'ArcanistBaseWorkflow',
     'FacebookMySQLAssertUsageLinter' => 'ArcanistLinter',
     'FacebookMySQLLintEngine' => 'ArcanistLintEngine',
     'FacebookMySQLLinter' => 'ArcanistLinter',
