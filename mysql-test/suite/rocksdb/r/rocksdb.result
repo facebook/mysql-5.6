@@ -894,7 +894,7 @@ rocksdb_delayed_write_rate	16777216
 rocksdb_delete_obsolete_files_period_micros	21600000000
 rocksdb_enable_2pc	ON
 rocksdb_enable_bulk_load_api	ON
-rocksdb_enable_thread_tracking	OFF
+rocksdb_enable_thread_tracking	ON
 rocksdb_enable_write_thread_adaptive_yield	OFF
 rocksdb_error_if_exists	OFF
 rocksdb_flush_log_at_trx_commit	1
