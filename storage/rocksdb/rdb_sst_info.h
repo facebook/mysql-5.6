@@ -31,6 +31,9 @@
 #include "rocksdb/db.h"
 #include "rocksdb/sst_file_writer.h"
 
+/* MyRocks header files */
+#include "./rdb_utils.h"
+
 // #define RDB_SST_INFO_USE_THREAD /* uncomment to use threads */
 
 namespace myrocks {
@@ -121,7 +124,7 @@ class Rdb_sst_info {
   uint64_t m_curr_size;
   uint64_t m_max_size;
   uint m_sst_count;
-  std::string m_error_msg;
+  std::atomic<int> m_background_error;
   std::string m_prefix;
   static std::atomic<uint64_t> m_prefix_counter;
   static std::string m_suffix;
@@ -137,7 +140,8 @@ class Rdb_sst_info {
 
   int open_new_sst_file();
   void close_curr_sst_file();
-  void set_error_msg(const std::string &sst_file_name, const std::string &msg);
+  void set_error_msg(const std::string &sst_file_name,
+                     const rocksdb::Status &s);
 
 #if defined(RDB_SST_INFO_USE_THREAD)
   void run_thread();
@@ -155,7 +159,22 @@ class Rdb_sst_info {
   int put(const rocksdb::Slice &key, const rocksdb::Slice &value);
   int commit();
 
-  const std::string &error_message() const { return m_error_msg; }
+  bool have_background_error() { return m_background_error != 0; }
+
+  int get_and_reset_background_error() {
+    int ret = m_background_error;
+    while (!m_background_error.compare_exchange_weak(ret, HA_EXIT_SUCCESS)) {
+      // Do nothing
+    }
+
+    return ret;
+  }
+
+  void set_background_error(int code) {
+    int expected = HA_EXIT_SUCCESS;
+    // Only assign 'code' into the error if it is already 0, otherwise ignore it
+    m_background_error.compare_exchange_strong(expected, code);
+  }
 
   static void init(const rocksdb::DB *const db);
 };
