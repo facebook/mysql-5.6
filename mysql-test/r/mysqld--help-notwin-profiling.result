@@ -1977,7 +1977,7 @@ rocksdb-delayed-write-rate 16777216
 rocksdb-delete-obsolete-files-period-micros 21600000000
 rocksdb-enable-2pc TRUE
 rocksdb-enable-bulk-load-api TRUE
-rocksdb-enable-thread-tracking FALSE
+rocksdb-enable-thread-tracking TRUE
 rocksdb-enable-write-thread-adaptive-yield FALSE
 rocksdb-error-if-exists FALSE
 rocksdb-flush-log-at-trx-commit 1
