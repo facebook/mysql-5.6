@@ -255,8 +255,9 @@ static int rdb_i_s_perf_context_fill_table(
     std::string str, dbname, tablename, partname;
     Rdb_perf_counters counters;
 
-    if (rdb_normalize_tablename(it, &str)) {
-      DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+    int rc = rdb_normalize_tablename(it, &str);
+    if (rc != HA_EXIT_SUCCESS) {
+      DBUG_RETURN(rc);
     }
 
     if (rdb_split_normalized_tablename(str, &dbname, &tablename, &partname)) {

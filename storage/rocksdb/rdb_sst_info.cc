@@ -314,7 +314,7 @@ Rdb_sst_info::Rdb_sst_info(rocksdb::DB *const db, const std::string &tablename,
                            const rocksdb::DBOptions &db_options,
                            const bool &tracing)
     : m_db(db), m_cf(cf), m_db_options(db_options), m_curr_size(0),
-      m_sst_count(0), m_error_msg(""),
+      m_sst_count(0), m_background_error(HA_EXIT_SUCCESS),
 #if defined(RDB_SST_INFO_USE_THREAD)
       m_queue(), m_mutex(), m_cond(), m_thread(nullptr), m_finished(false),
 #endif
@@ -367,10 +367,10 @@ int Rdb_sst_info::open_new_sst_file() {
   // Open the sst file
   const rocksdb::Status s = m_sst_file->open();
   if (!s.ok()) {
-    set_error_msg(m_sst_file->get_name(), s.ToString());
+    set_error_msg(m_sst_file->get_name(), s);
     delete m_sst_file;
     m_sst_file = nullptr;
-    return HA_EXIT_FAILURE;
+    return HA_ERR_ROCKSDB_BULK_LOAD;
   }
 
   m_curr_size = 0;
@@ -401,7 +401,8 @@ void Rdb_sst_info::close_curr_sst_file() {
 #else
   const rocksdb::Status s = m_sst_file->commit();
   if (!s.ok()) {
-    set_error_msg(m_sst_file->get_name(), s.ToString());
+    set_error_msg(m_sst_file->get_name(), s);
+    set_background_error(HA_ERR_ROCKSDB_BULK_LOAD);
   }
 
   delete m_sst_file;
@@ -421,8 +422,8 @@ int Rdb_sst_info::put(const rocksdb::Slice &key, const rocksdb::Slice &value) {
 
     // While we are here, check to see if we have had any errors from the
     // background thread - we don't want to wait for the end to report them
-    if (!m_error_msg.empty()) {
-      return HA_EXIT_FAILURE;
+    if (have_background_error()) {
+      return get_and_reset_background_error();
     }
   }
 
@@ -439,8 +440,8 @@ int Rdb_sst_info::put(const rocksdb::Slice &key, const rocksdb::Slice &value) {
   // Add the key/value to the current sst file
   const rocksdb::Status s = m_sst_file->put(key, value);
   if (!s.ok()) {
-    set_error_msg(m_sst_file->get_name(), s.ToString());
-    return HA_EXIT_FAILURE;
+    set_error_msg(m_sst_file->get_name(), s);
+    return HA_ERR_ROCKSDB_BULK_LOAD;
   }
 
   m_curr_size += key.size() + value.size();
@@ -468,25 +469,36 @@ int Rdb_sst_info::commit() {
 #endif
 
   // Did we get any errors?
-  if (!m_error_msg.empty()) {
-    return HA_EXIT_FAILURE;
+  if (have_background_error()) {
+    return get_and_reset_background_error();
   }
 
   return HA_EXIT_SUCCESS;
 }
 
 void Rdb_sst_info::set_error_msg(const std::string &sst_file_name,
-                                 const std::string &msg) {
+                                 const rocksdb::Status &s) {
 #if defined(RDB_SST_INFO_USE_THREAD)
   // Both the foreground and background threads can set the error message
   // so lock the mutex to protect it.  We only want the first error that
   // we encounter.
   const std::lock_guard<std::mutex> guard(m_mutex);
 #endif
-  my_printf_error(ER_UNKNOWN_ERROR, "[%s] bulk load error: %s", MYF(0),
-                  sst_file_name.c_str(), msg.c_str());
-  if (m_error_msg.empty()) {
-    m_error_msg = "[" + sst_file_name + "] " + msg;
+  if (s.IsInvalidArgument() &&
+      strcmp(s.getState(), "Keys must be added in order") == 0) {
+    my_printf_error(ER_KEYS_OUT_OF_ORDER,
+                    "Rows must be inserted in primary key order "
+                    "during bulk load operation",
+                    MYF(0));
+  } else if (s.IsInvalidArgument() &&
+             strcmp(s.getState(), "Global seqno is required, but disabled") ==
+                 0) {
+    my_printf_error(ER_OVERLAPPING_KEYS, "Rows inserted during bulk load "
+                                         "must not overlap existing rows",
+                    MYF(0));
+  } else {
+    my_printf_error(ER_UNKNOWN_ERROR, "[%s] bulk load error: %s", MYF(0),
+                    sst_file_name.c_str(), s.ToString().c_str());
   }
 }
 
@@ -514,7 +526,8 @@ void Rdb_sst_info::run_thread() {
       // Close out the sst file and add it to the database
       const rocksdb::Status s = sst_file->commit();
       if (!s.ok()) {
-        set_error_msg(sst_file->get_name(), s.ToString());
+        set_error_msg(sst_file->get_name(), s);
+        set_background_error(HA_ERR_ROCKSDB_BULK_LOAD);
       }
 
       delete sst_file;

@@ -903,7 +903,7 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
 
   // Skip the index number
   if ((!reader.read(INDEX_NUMBER_SIZE))) {
-    return HA_EXIT_FAILURE;
+    return HA_ERR_ROCKSDB_CORRUPT_DATA;
   }
 
   // For secondary keys, we expect the value field to contain unpack data and
@@ -913,7 +913,7 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
       unp_reader.remaining_bytes() &&
       *unp_reader.get_current_ptr() == RDB_UNPACK_DATA_TAG;
   if (has_unpack_info && !unp_reader.read(RDB_UNPACK_HEADER_SIZE)) {
-    return HA_EXIT_FAILURE;
+    return HA_ERR_ROCKSDB_CORRUPT_DATA;
   }
 
   for (uint i = 0; i < m_key_parts; i++) {
@@ -927,7 +927,7 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
         is_hidden_pk) {
       DBUG_ASSERT(fpi->m_unpack_func);
       if (fpi->m_skip_func(fpi, nullptr, &reader)) {
-        return HA_EXIT_FAILURE;
+        return HA_ERR_ROCKSDB_CORRUPT_DATA;
       }
       continue;
     }
@@ -960,24 +960,24 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
                         field->null_bit);
 
       if (res) {
-        return res;
+        return HA_ERR_ROCKSDB_CORRUPT_DATA;
       }
     } else {
       /* It is impossible to unpack the column. Skip it. */
       if (fpi->m_maybe_null) {
         const char *nullp;
         if (!(nullp = reader.read(1)))
-          return HA_EXIT_FAILURE;
+          return HA_ERR_ROCKSDB_CORRUPT_DATA;
         if (*nullp == 0) {
           /* This is a NULL value */
           continue;
         }
         /* If NULL marker is not '0', it can be only '1'  */
         if (*nullp != 1)
-          return HA_EXIT_FAILURE;
+          return HA_ERR_ROCKSDB_CORRUPT_DATA;
       }
       if (fpi->m_skip_func(fpi, field, &reader))
-        return HA_EXIT_FAILURE;
+        return HA_ERR_ROCKSDB_CORRUPT_DATA;
     }
   }
 
@@ -1003,13 +1003,13 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
 
       if (stored_key_chksum != computed_key_chksum) {
         report_checksum_mismatch(true, packed_key->data(), packed_key->size());
-        return HA_EXIT_FAILURE;
+        return HA_ERR_ROCKSDB_CHECKSUM_MISMATCH;
       }
 
       if (stored_val_chksum != computed_val_chksum) {
         report_checksum_mismatch(false, unpack_info->data(),
                                  unpack_info->size() - RDB_CHECKSUM_CHUNK_SIZE);
-        return HA_EXIT_FAILURE;
+        return HA_ERR_ROCKSDB_CHECKSUM_MISMATCH;
       }
     } else {
       /* The checksums are present but we are not checking checksums */
@@ -1017,7 +1017,7 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
   }
 
   if (reader.remaining_bytes())
-    return HA_EXIT_FAILURE;
+    return HA_ERR_ROCKSDB_CORRUPT_DATA;
 
   return HA_EXIT_SUCCESS;
 }
@@ -2665,11 +2665,8 @@ bool Rdb_tbl_def::put_dict(Rdb_dict_manager *const dict,
       flags &= ~Rdb_key_def::CF_FLAGS_TO_IGNORE;
 
       if (existing_cf_flags != flags) {
-        my_printf_error(ER_UNKNOWN_ERROR,
-                        "Column family ('%s') flag (%d) is different from an "
-                        "existing flag (%d). Assign a new CF flag, or do not "
-                        "change existing CF flag.", MYF(0), cf_name.c_str(),
-                        flags, existing_cf_flags);
+        my_error(ER_CF_DIFFERENT, MYF(0), cf_name.c_str(), flags,
+                 existing_cf_flags);
         return true;
       }
     } else {
