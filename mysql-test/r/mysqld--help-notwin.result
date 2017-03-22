@@ -1142,6 +1142,7 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-rocksdb-enable-bulk-load-api to disable.)
  --rocksdb-enable-thread-tracking 
  DBOptions::enable_thread_tracking for RocksDB
+ (Defaults to on; use --skip-rocksdb-enable-thread-tracking to disable.)
  --rocksdb-enable-write-thread-adaptive-yield 
  DBOptions::enable_write_thread_adaptive_yield for RocksDB
  --rocksdb-error-if-exists 
@@ -1415,6 +1416,8 @@ The following options may be given as the first argument:
  after every #th milli-seconds.
  --slave-compressed-protocol 
  Use compression on master/slave protocol
+ --slave-compression-lib[=name] 
+ Compression library for replication stream
  --slave-exec-mode=name 
  Modes for how replication events should be executed.
  Legal values are STRICT (default) and IDEMPOTENT. In
@@ -1632,6 +1635,9 @@ The following options may be given as the first argument:
  statistics
  --write-query-throttling-limit[=#] 
  Start throttling writes if running mutation queries high.
+ --zstd-net-compression-level[=#] 
+ Compression level for compressed protocol when zstd
+ library is selected. Valid values 0-22.
 
 Variables (--variable-name=value)
 abort-slave-event-count 0
@@ -2076,6 +2082,7 @@ slave-allow-batching FALSE
 slave-checkpoint-group 512
 slave-checkpoint-period 300
 slave-compressed-protocol FALSE
+slave-compression-lib zlib
 slave-exec-mode STRICT
 slave-gtid-info ON
 slave-max-allowed-packet 1073741824
@@ -2133,6 +2140,7 @@ verbose TRUE
 wait-timeout 28800
 working-duration 3600
 write-query-throttling-limit 0
+zstd-net-compression-level 3
 
 To see what values a running MySQL server is using, type
 'mysqladmin variables' instead of 'mysqld --verbose --help'.
