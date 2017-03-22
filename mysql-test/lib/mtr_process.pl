@@ -81,16 +81,16 @@ sub mtr_ping_port ($) {
 
   mtr_debug("Pinging server (port: $port)...");
 
-  if ( connect(SOCK, $paddr) )
+  if ( bind(SOCK, $paddr) )
   {
     close(SOCK);                        # FIXME check error?
-    mtr_verbose("USED");
-    return 1;
+    mtr_verbose("FREE");
+    return 0;
   }
   else
   {
-    mtr_verbose("FREE");
-    return 0;
+    mtr_verbose("USED");
+    return 1;
   }
 }
 
