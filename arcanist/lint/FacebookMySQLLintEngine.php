@@ -51,6 +51,16 @@ class FacebookMySQLLintEngine extends ArcanistLintEngine {
       // FbcodeCppLinter runs flint
       // Run on all C++ files that are in MyRocks (include 'storage/rocksdb')
       $linters[] = id(new FbcodeCppLinter())->setPaths($myrocks_cpp_paths);
+      // FacebookMySQLClangFormatLinter
+      $clang_format_linter = id(new FacebookMySQLClangFormatLinter());
+      $linters[] = $clang_format_linter;
+
+      foreach ($myrocks_cpp_paths as $path) {
+        $clang_format_linter->addPath($path);
+        $clang_format_linter->addData($path, $this->loadData($path));
+        $clang_format_linter->setPathChangedLines(
+            $path, $this->getPathChangedLines($path));
+      }
     }
 
     // This linter calls git diff to see the old data and gives warnings about
