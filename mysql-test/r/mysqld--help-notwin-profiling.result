@@ -1313,6 +1313,8 @@ The following options may be given as the first argument:
  --rocksdb-unsafe-for-binlog 
  Allowing statement based binary logging which may break
  consistency
+ --rocksdb-update-cf-options=name 
+ Option updates per column family for RocksDB
  --rocksdb-use-adaptive-mutex 
  DBOptions::use_adaptive_mutex for RocksDB
  --rocksdb-use-direct-reads 
@@ -2048,6 +2050,7 @@ rocksdb-tmpdir (No default value)
 rocksdb-trace-sst-api FALSE
 rocksdb-trx ON
 rocksdb-unsafe-for-binlog FALSE
+rocksdb-update-cf-options (No default value)
 rocksdb-use-adaptive-mutex FALSE
 rocksdb-use-direct-reads FALSE
 rocksdb-use-direct-writes FALSE
