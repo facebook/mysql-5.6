@@ -118,8 +118,9 @@ bool can_use_bloom_filter(THD *thd, const Rdb_key_def &kd,
 ///////////////////////////////////////////////////////////
 // Parameters and settings
 ///////////////////////////////////////////////////////////
-static char *rocksdb_default_cf_options;
-static char *rocksdb_override_cf_options;
+static char *rocksdb_default_cf_options = nullptr;
+static char *rocksdb_override_cf_options = nullptr;
+static char *rocksdb_update_cf_options = nullptr;
 Rdb_cf_options rocksdb_cf_options_map;
 
 ///////////////////////////////////////////////////////////
@@ -339,6 +340,11 @@ static void rocksdb_set_collation_exception_list(THD *thd,
                                                  struct st_mysql_sys_var *var,
                                                  void *var_ptr,
                                                  const void *save);
+
+void rocksdb_set_update_cf_options(THD *thd,
+                                   struct st_mysql_sys_var *var,
+                                   void *var_ptr,
+                                   const void *save);
 
 static void
 rocksdb_set_bulk_load(THD *thd,
@@ -964,6 +970,13 @@ static MYSQL_SYSVAR_STR(override_cf_options, rocksdb_override_cf_options,
                         "option overrides per cf for RocksDB", nullptr, nullptr,
                         "");
 
+static MYSQL_SYSVAR_STR(update_cf_options, rocksdb_update_cf_options,
+                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC |
+                        PLUGIN_VAR_ALLOCATED,
+                        "Option updates per column family for RocksDB",
+                        nullptr, rocksdb_set_update_cf_options,
+                        nullptr);
+
 static MYSQL_SYSVAR_BOOL(background_sync, rocksdb_background_sync,
                          PLUGIN_VAR_RQCMDARG,
                          "turns on background syncs for RocksDB", nullptr,
@@ -1260,6 +1273,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
 
     MYSQL_SYSVAR(default_cf_options),
     MYSQL_SYSVAR(override_cf_options),
+    MYSQL_SYSVAR(update_cf_options),
 
     MYSQL_SYSVAR(background_sync),
 
@@ -10440,6 +10454,111 @@ static void rocksdb_set_max_background_compactions(
   rocksdb_db_options.env->SetBackgroundThreads(
       rocksdb_db_options.max_background_compactions,
       rocksdb::Env::Priority::LOW);
+
+  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
+}
+
+void rocksdb_set_update_cf_options(THD *const /* unused */,
+                                   struct st_mysql_sys_var *const /* unused */,
+                                   void *const var_ptr,
+                                   const void *const save) {
+  const char *const val = *static_cast<const char *const *>(save);
+
+  if (!val) {
+    // NO_LINT_DEBUG
+    sql_print_warning("MyRocks: NULL is not a valid option for updates to "
+                      "column family settings.");
+    return;
+  }
+
+  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
+
+  DBUG_ASSERT(val != nullptr);
+
+  // Do the real work of applying the changes.
+  Rdb_cf_options::Name_to_config_t option_map;
+
+  // Basic sanity checking and parsing the options into a map. If this fails
+  // then there's no point to proceed.
+  if (!Rdb_cf_options::parse_cf_options(val, &option_map)) {
+    *reinterpret_cast<char**>(var_ptr) = nullptr;
+
+    // NO_LINT_DEBUG
+    sql_print_warning("MyRocks: failed to parse the updated column family "
+                      "options = '%s'.", val);
+    RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
+    return;
+  }
+
+  // For each CF we have, see if we need to update any settings.
+  for (const auto &cf_name : cf_manager.get_cf_names()) {
+    DBUG_ASSERT(!cf_name.empty());
+
+    bool is_automatic = false;
+
+    rocksdb::ColumnFamilyHandle *cfh = cf_manager.get_cf(cf_name.c_str(),
+      "", nullptr, &is_automatic);
+    DBUG_ASSERT(cfh != nullptr);
+
+    const auto it = option_map.find(cf_name);
+    std::string per_cf_options = (it != option_map.end()) ? it->second : "";
+
+    if (!per_cf_options.empty()) {
+      Rdb_cf_options::Name_to_config_t opt_map;
+      rocksdb::Status s = rocksdb::StringToMap(per_cf_options, &opt_map);
+
+      if (s != rocksdb::Status::OK()) {
+        // NO_LINT_DEBUG
+        sql_print_warning("MyRocks: failed to convert the options for column "
+                          "family '%s' to a map. %s", cf_name.c_str(),
+                          s.ToString().c_str());
+      } else {
+        DBUG_ASSERT(rdb != nullptr);
+
+        // Finally we can apply the options.
+        s = rdb->SetOptions(cfh, opt_map);
+
+        if (s != rocksdb::Status::OK()) {
+          // NO_LINT_DEBUG
+          sql_print_warning("MyRocks: failed to apply the options for column "
+                            "family '%s'. %s", cf_name.c_str(),
+                            s.ToString().c_str());
+        } else {
+          // NO_LINT_DEBUG
+          sql_print_information("MyRocks: options for column family '%s' "
+                                "have been successfully updated.",
+                                cf_name.c_str());
+
+          // Make sure that data is internally consistent as well and update
+          // the CF options. This is necessary also to make sure that the CF
+          // options will be correctly reflected in the relevant table:
+          // ROCKSDB_CF_OPTIONS in INFORMATION_SCHEMA.
+          rocksdb::ColumnFamilyOptions cf_options = rdb->GetOptions(cfh);
+          std::string updated_options;
+
+          s = rocksdb::GetStringFromColumnFamilyOptions(&updated_options,
+                                                        cf_options);
+
+          DBUG_ASSERT(s == rocksdb::Status::OK());
+          DBUG_ASSERT(!updated_options.empty());
+
+          rocksdb_cf_options_map.update(cf_name, updated_options);
+        }
+      }
+    }
+  }
+
+  // Reset the pointers regardless of how much success we had with updating
+  // the CF options. This will results in consistent behavior and avoids
+  // dealing with cases when only a subset of CF-s was successfully updated.
+  if (val) {
+    *reinterpret_cast<char**>(var_ptr) = my_strdup(val,  MYF(0));
+  } else {
+    *reinterpret_cast<char**>(var_ptr) = nullptr;
+  }
+
+  // Our caller (`plugin_var_memalloc_global_update`) will call `my_free` to
+  // free up resources used before.
 
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
