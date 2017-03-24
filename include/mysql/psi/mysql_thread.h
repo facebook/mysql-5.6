@@ -1281,12 +1281,14 @@ static inline int inline_mysql_thread_create(
 {
   int result;
   result= PSI_THREAD_CALL(spawn_thread)(key, thread, attr, start_routine, arg);
+#ifdef __linux__
   if (result == 0) {
     char t_name[T_NAME_LEN] = {0};
     pthread_setname_np(*thread,
       my_pthread_strip_name(
         t_name, sizeof(t_name), MYSQLD_T_NAME_PREFIX, name));
   }
+#endif
   return result;
 }
 
@@ -1303,12 +1305,14 @@ static inline int named_pthread_create(
 {
   int result;
   result= pthread_create(thread, attr, start_routine, arg);
+#ifdef __linux__
   if (result == 0) {
     char t_name[T_NAME_LEN] = {0};
     pthread_setname_np(*thread,
       my_pthread_strip_name(
         t_name, sizeof(t_name), MYSQLD_T_NAME_PREFIX, name));
   }
+#endif
   return result;
 }
 #endif

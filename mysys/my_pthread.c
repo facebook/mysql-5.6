@@ -539,7 +539,10 @@ char* my_pthread_strip_name(
   const char *underscore;
   while (!done && *name != '\0')
   {
-    underscore = strchrnul(name, '_');
+    underscore = strchr(name, '_');
+    if (underscore == NULL) {
+      underscore = name + strlen(name);
+    }
     size_t len = underscore - name;
     if (len > 0 && !skip_word(name, len))
     {
