@@ -3842,11 +3842,12 @@ int ha_rocksdb::load_hidden_pk_value() {
       Decode PK field from the key
     */
     longlong hidden_pk_id = 0;
-    if (read_hidden_pk_id_from_rowkey(&hidden_pk_id)) {
+    auto err = read_hidden_pk_id_from_rowkey(&hidden_pk_id);
+    if (err) {
       if (is_new_snapshot) {
         tx->release_snapshot();
       }
-      return HA_ERR_ROCKSDB_CORRUPT_DATA;
+      return err;
     }
 
     hidden_pk_id++;
@@ -3887,12 +3888,13 @@ int ha_rocksdb::read_hidden_pk_id_from_rowkey(longlong *const hidden_pk_id) {
   // Get hidden primary key from old key slice
   Rdb_string_reader reader(&rowkey_slice);
   if ((!reader.read(Rdb_key_def::INDEX_NUMBER_SIZE)))
-    return HA_EXIT_FAILURE;
+    return HA_ERR_ROCKSDB_CORRUPT_DATA;
 
   const int length = Field_longlong::PACK_LENGTH;
   const uchar *from = reinterpret_cast<const uchar *>(reader.read(length));
   if (from == nullptr) {
-    return HA_EXIT_FAILURE; /* Mem-comparable image doesn't have enough bytes */
+    /* Mem-comparable image doesn't have enough bytes */
+    return HA_ERR_ROCKSDB_CORRUPT_DATA;
   }
 
   *hidden_pk_id = rdb_netbuf_read_uint64(&from);
@@ -4668,8 +4670,9 @@ void ha_rocksdb::set_skip_unique_check_tables(const char *const whitelist) {
 int ha_rocksdb::open(const char *const name, int mode, uint test_if_locked) {
   DBUG_ENTER_FUNC();
 
-  if (close()) {
-    DBUG_ASSERT(0);  // Current implementation can't fail
+  int err = close();
+  if (err) {
+    DBUG_RETURN(err);
   }
 
   m_table_handler = rdb_open_tables.get_table_handler(name);
@@ -4684,7 +4687,7 @@ int ha_rocksdb::open(const char *const name, int mode, uint test_if_locked) {
                  &m_table_handler->m_io_perf_read, &stats);
 
   std::string fullname;
-  int err = rdb_normalize_tablename(name, &fullname);
+  err = rdb_normalize_tablename(name, &fullname);
   if (err != HA_EXIT_SUCCESS) {
     DBUG_RETURN(err);
   }
@@ -5493,21 +5496,21 @@ int ha_rocksdb::create(const char *const name, TABLE *const table_arg,
     DBUG_RETURN(HA_ERR_ROCKSDB_TABLE_INDEX_DIRECTORY_NOT_SUPPORTED);
   }
 
-  int res;
   std::string str;
+  int err;
 
   THD *const thd = my_core::thd_get_current_thd();
 
   if (get_table_if_exists(name)) {
     if (thd->lex->sql_command == SQLCOM_TRUNCATE) {
-      res = delete_table(name);
-      if (res != HA_EXIT_SUCCESS) {
-        DBUG_RETURN(res);
+      err = delete_table(name);
+      if (err != HA_EXIT_SUCCESS) {
+        DBUG_RETURN(err);
       }
     } else {
-      res = rdb_normalize_tablename(name, &str);
-      if (res != HA_EXIT_SUCCESS) {
-        DBUG_RETURN(res);
+      err = rdb_normalize_tablename(name, &str);
+      if (err != HA_EXIT_SUCCESS) {
+        DBUG_RETURN(err);
       }
       my_error(ER_METADATA_INCONSISTENCY, MYF(0), str.c_str(), name);
       DBUG_RETURN(HA_ERR_ROCKSDB_CORRUPT_DATA);
@@ -5519,9 +5522,9 @@ int ha_rocksdb::create(const char *const name, TABLE *const table_arg,
     passes strings like "./test/t14#P#p0" for individual partitions,
     while table_arg->s->table_name has none of that.
   */
-  res = rdb_normalize_tablename(name, &str);
-  if (res != HA_EXIT_SUCCESS) {
-    DBUG_RETURN(res);
+  err = rdb_normalize_tablename(name, &str);
+  if (err != HA_EXIT_SUCCESS) {
+    DBUG_RETURN(err);
   }
 
   if (contains_foreign_key(thd)) {
@@ -5550,21 +5553,27 @@ int ha_rocksdb::create(const char *const name, TABLE *const table_arg,
   m_tbl_def->m_key_count = n_keys;
   m_tbl_def->m_key_descr_arr = m_key_descr_arr;
 
-  res = create_key_defs(table_arg, m_tbl_def);
-  if (res != HA_EXIT_SUCCESS) {
+  err = create_key_defs(table_arg, m_tbl_def);
+  if (err != HA_EXIT_SUCCESS) {
     goto error;
   }
 
   m_pk_descr = m_key_descr_arr[pk_index(table_arg, m_tbl_def)];
 
   dict_manager.lock();
-  res =
-      ddl_manager.put_and_write(m_tbl_def, batch) || dict_manager.commit(batch);
-  dict_manager.unlock();
-
-  if (res != HA_EXIT_SUCCESS) {
+  err = ddl_manager.put_and_write(m_tbl_def, batch);
+  if (err != HA_EXIT_SUCCESS) {
+    dict_manager.unlock();
     goto error;
   }
+
+  err = dict_manager.commit(batch);
+  if (err != HA_EXIT_SUCCESS) {
+    dict_manager.unlock();
+    goto error;
+  }
+
+  dict_manager.unlock();
 
   if (create_info->auto_increment_value)
     m_tbl_def->m_auto_incr_val = create_info->auto_increment_value;
@@ -5591,7 +5600,7 @@ error:
   m_tbl_def = nullptr;
   m_key_descr_arr = nullptr;
 
-  DBUG_RETURN(res);
+  DBUG_RETURN(err);
 }
 
 /**
@@ -6272,10 +6281,10 @@ int ha_rocksdb::find_icp_matching_index_rec(const bool &move_forward,
       }
 
       const rocksdb::Slice value = m_scan_it->value();
-      int rc = kd.unpack_record(table, buf, &rkey, &value,
-                                m_verify_row_debug_checksums);
-      if (rc != HA_EXIT_SUCCESS) {
-        return rc;
+      int err = kd.unpack_record(table, buf, &rkey, &value,
+                                 m_verify_row_debug_checksums);
+      if (err != HA_EXIT_SUCCESS) {
+        return err;
       }
 
       const enum icp_result icp_status = check_index_cond();
@@ -7226,8 +7235,9 @@ int ha_rocksdb::get_pk_for_update(struct update_row_info *const row_info) {
     */
     size = row_info->old_pk_slice.size();
     memcpy(m_pk_packed_tuple, row_info->old_pk_slice.data(), size);
-    if (read_hidden_pk_id_from_rowkey(&row_info->hidden_pk_id)) {
-      return HA_ERR_ROCKSDB_CORRUPT_DATA;
+    int err = read_hidden_pk_id_from_rowkey(&row_info->hidden_pk_id);
+    if (err) {
+      return err;
     }
   }
 
@@ -7512,7 +7522,6 @@ int ha_rocksdb::finalize_bulk_load() {
   */
   if (m_sst_info != nullptr) {
     rc = m_sst_info->commit();
-
     m_sst_info = nullptr;
     m_bulk_load_tx->end_bulk_load(this);
     m_bulk_load_tx = nullptr;
@@ -8094,9 +8103,12 @@ int ha_rocksdb::delete_row(const uchar *const buf) {
   }
 
   longlong hidden_pk_id = 0;
-  if (m_tbl_def->m_key_count > 1 && has_hidden_pk(table) &&
-      read_hidden_pk_id_from_rowkey(&hidden_pk_id))
-    DBUG_RETURN(HA_ERR_ROCKSDB_CORRUPT_DATA);
+  if (m_tbl_def->m_key_count > 1 && has_hidden_pk(table)) {
+    int err = read_hidden_pk_id_from_rowkey(&hidden_pk_id);
+    if (err) {
+      DBUG_RETURN(err);
+    }
+  }
 
   // Delete the record for every secondary index
   for (uint i = 0; i < m_tbl_def->m_key_count; i++) {
@@ -8808,8 +8820,10 @@ int ha_rocksdb::delete_table(const char *const tablename) {
     the persistent data dictionary).
   */
   ddl_manager.remove(tbl, batch, true);
-  if (dict_manager.commit(batch))
-    DBUG_RETURN(HA_ERR_ROCKSDB_COMMIT_FAILED);
+  int err = dict_manager.commit(batch);
+  if (err) {
+    DBUG_RETURN(err);
+  }
 
   rdb_drop_idx_thread.signal();
 
@@ -9646,6 +9660,7 @@ int ha_rocksdb::inplace_populate_sk(
     TABLE *const new_table_arg,
     const std::unordered_set<std::shared_ptr<Rdb_key_def>> &indexes) {
   DBUG_ENTER_FUNC();
+  int res = HA_EXIT_SUCCESS;
 
   const std::unique_ptr<rocksdb::WriteBatch> wb = dict_manager.begin();
   rocksdb::WriteBatch *const batch = wb.get();
@@ -9656,7 +9671,10 @@ int ha_rocksdb::inplace_populate_sk(
     create_index_ids.insert(index->get_gl_index_id());
   }
   dict_manager.add_create_index(create_index_ids, batch);
-  dict_manager.commit(batch);
+  res = dict_manager.commit(batch);
+  if (res != HA_EXIT_SUCCESS) {
+    return res;
+  }
 
   /*
     Add uncommitted key definitons to ddl_manager.  We need to do this
@@ -9669,7 +9687,6 @@ int ha_rocksdb::inplace_populate_sk(
 
   const bool hidden_pk_exists = has_hidden_pk(table);
 
-  int res = 0;
   Rdb_transaction *tx = get_or_create_tx(table->in_use);
 
   /*
@@ -9735,11 +9752,12 @@ int ha_rocksdb::inplace_populate_sk(
     for (res = index_first(table->record[0]); res == 0;
          res = index_next(table->record[0])) {
       longlong hidden_pk_id = 0;
-      if (hidden_pk_exists && read_hidden_pk_id_from_rowkey(&hidden_pk_id)) {
+      if (hidden_pk_exists &&
+          (res = read_hidden_pk_id_from_rowkey(&hidden_pk_id))) {
         // NO_LINT_DEBUG
         sql_print_error("Error retrieving hidden pk id.");
         ha_index_end();
-        DBUG_RETURN(HA_ERR_ROCKSDB_CORRUPT_DATA);
+        DBUG_RETURN(res);
       }
 
       /* Create new secondary index entry */
