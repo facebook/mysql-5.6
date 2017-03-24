@@ -3678,8 +3678,8 @@ rocksdb::Iterator *Rdb_dict_manager::new_iterator() const {
 int Rdb_dict_manager::commit(rocksdb::WriteBatch *const batch,
                              const bool &sync) const {
   if (!batch)
-    return HA_EXIT_FAILURE;
-  int res = 0;
+    return HA_ERR_ROCKSDB_COMMIT_FAILED;
+  int res = HA_EXIT_SUCCESS;
   rocksdb::WriteOptions options;
   options.sync = sync;
   rocksdb::Status s = m_db->Write(options, batch);
