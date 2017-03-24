@@ -9831,9 +9831,7 @@ struct rocksdb_status_counters_t {
   uint64_t no_file_closes;
   uint64_t no_file_opens;
   uint64_t no_file_errors;
-  uint64_t l0_slowdown_micros;
-  uint64_t memtable_compaction_micros;
-  uint64_t l0_num_files_stall_micros;
+  uint64_t stall_micros;
   uint64_t rate_limit_delay_millis;
   uint64_t num_iterators;
   uint64_t number_multiget_get;
@@ -9887,9 +9885,7 @@ DEF_SHOW_FUNC(bytes_read, BYTES_READ)
 DEF_SHOW_FUNC(no_file_closes, NO_FILE_CLOSES)
 DEF_SHOW_FUNC(no_file_opens, NO_FILE_OPENS)
 DEF_SHOW_FUNC(no_file_errors, NO_FILE_ERRORS)
-DEF_SHOW_FUNC(l0_slowdown_micros, STALL_L0_SLOWDOWN_MICROS)
-DEF_SHOW_FUNC(memtable_compaction_micros, STALL_MEMTABLE_COMPACTION_MICROS)
-DEF_SHOW_FUNC(l0_num_files_stall_micros, STALL_L0_NUM_FILES_MICROS)
+DEF_SHOW_FUNC(stall_micros, STALL_MICROS)
 DEF_SHOW_FUNC(rate_limit_delay_millis, RATE_LIMIT_DELAY_MILLIS)
 DEF_SHOW_FUNC(num_iterators, NO_ITERATORS)
 DEF_SHOW_FUNC(number_multiget_get, NUMBER_MULTIGET_CALLS)
@@ -9981,9 +9977,7 @@ static SHOW_VAR rocksdb_status_vars[] = {
     DEF_STATUS_VAR(no_file_closes),
     DEF_STATUS_VAR(no_file_opens),
     DEF_STATUS_VAR(no_file_errors),
-    DEF_STATUS_VAR(l0_slowdown_micros),
-    DEF_STATUS_VAR(memtable_compaction_micros),
-    DEF_STATUS_VAR(l0_num_files_stall_micros),
+    DEF_STATUS_VAR(stall_micros),
     DEF_STATUS_VAR(rate_limit_delay_millis),
     DEF_STATUS_VAR(num_iterators),
     DEF_STATUS_VAR(number_multiget_get),
