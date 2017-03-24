@@ -423,7 +423,7 @@ int Rdb_sst_info::put(const rocksdb::Slice &key, const rocksdb::Slice &value) {
     // While we are here, check to see if we have had any errors from the
     // background thread - we don't want to wait for the end to report them
     if (have_background_error()) {
-      return get_background_error();
+      return get_and_reset_background_error();
     }
   }
 
@@ -470,7 +470,7 @@ int Rdb_sst_info::commit() {
 
   // Did we get any errors?
   if (have_background_error()) {
-    return get_background_error();
+    return get_and_reset_background_error();
   }
 
   return HA_EXIT_SUCCESS;

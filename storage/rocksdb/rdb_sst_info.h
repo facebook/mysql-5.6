@@ -161,7 +161,7 @@ class Rdb_sst_info {
 
   bool have_background_error() { return m_background_error != 0; }
 
-  int get_background_error() {
+  int get_and_reset_background_error() {
     int ret = m_background_error;
     while (!m_background_error.compare_exchange_weak(ret, HA_EXIT_SUCCESS)) {
       // Do nothing
