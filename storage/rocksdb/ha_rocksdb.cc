@@ -409,8 +409,9 @@ static rocksdb::DBOptions rdb_init_rocksdb_db_options(void) {
   return o;
 }
 
-static rocksdb::DBOptions rocksdb_db_options = rdb_init_rocksdb_db_options();
+/* DBOptions contains Statistics and needs to be destructed last */
 static rocksdb::BlockBasedTableOptions rocksdb_tbl_options;
+static rocksdb::DBOptions rocksdb_db_options = rdb_init_rocksdb_db_options();
 
 static std::shared_ptr<rocksdb::RateLimiter> rocksdb_rate_limiter;
 
