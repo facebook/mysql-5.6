@@ -10373,11 +10373,21 @@ void rocksdb_set_sst_mgr_rate_bytes_per_sec(
 
 void rocksdb_set_delayed_write_rate(THD *thd, struct st_mysql_sys_var *var,
                                     void *var_ptr, const void *save) {
+  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
   const uint64_t new_val = *static_cast<const uint64_t *>(save);
   if (rocksdb_delayed_write_rate != new_val) {
     rocksdb_delayed_write_rate = new_val;
-    rocksdb_db_options.delayed_write_rate = new_val;
+    rocksdb::Status s =
+        rdb->SetDBOptions({{"delayed_write_rate", std::to_string(new_val)}});
+
+    if (!s.ok()) {
+      /* NO_LINT_DEBUG */
+      sql_print_warning("MyRocks: failed to update delayed_write_rate. "
+                        "status code = %d, status = %s",
+                        s.code(), s.ToString().c_str());
+    }
   }
+  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
 void rdb_set_collation_exception_list(const char *const exception_list) {
