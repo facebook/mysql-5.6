@@ -326,6 +326,8 @@ The following options may be given as the first argument:
  gtid_executed set before flushing binlog from cache to
  file.
  -?, --help          Display this help and exit.
+ --high-priority-ddl Setting this flag will allow DDL commands to kill
+ conflicting connections (effective for admin user only).
  --histogram-step-size-binlog-fsync=name 
  Step size of the Histogram which is used to track binlog
  fsync latencies.
@@ -1735,6 +1737,7 @@ group-concat-max-len 1024
 gtid-mode OFF
 gtid-precommit FALSE
 help TRUE
+high-priority-ddl FALSE
 histogram-step-size-binlog-fsync 16ms
 histogram-step-size-binlog-group-commit 1
 histogram-step-size-connection-create 16ms

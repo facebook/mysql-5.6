@@ -117,6 +117,7 @@ public:
    */
   virtual bool notify_shared_lock(MDL_context_owner *in_use,
                                   bool needs_thr_lock_abort) = 0;
+  virtual bool kill_shared_locks(MDL_context_owner *in_use) = 0;
 };
 
 /**
