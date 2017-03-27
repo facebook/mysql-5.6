@@ -4,6 +4,14 @@
 -- source include/rpl_reset.inc
 -- source include/have_debug.inc
 
+--disable_query_log
+connection slave;
+set @save_sql_log_bin=@@sql_log_bin;
+set sql_log_bin=0;
+call mtr.add_suppression("Slave SQL: Request to stop slave SQL Thread received while applying a group that has non-transactional changes");
+set sql_log_bin=@save_sql_log_bin;
+--enable_query_log
+
 -- connection master
 -- let $master_uuid= `SELECT @@SERVER_UUID`
 create table t1(a int);
