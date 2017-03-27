@@ -1,0 +1,132 @@
+create user test_user1@localhost;
+grant all on test to test_user1@localhost;
+create user test_user2@localhost;
+grant all on test to test_user2@localhost;
+set lock_wait_timeout = 2;
+drop table if exists t1, t1_new;
+create table t1 (i int) engine=InnoDB;
+insert into t1 values (1), (2), (3);
+connection: con1
+lock tables t1 read;
+connection: default
+describe t1;
+Field	Type	Null	Key	Default	Extra
+i	int(11)	YES		NULL	
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+<Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+<Id>	test_user2	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+select @@high_priority_ddl;
+@@high_priority_ddl
+0
+alter table t1 modify i bigint;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
+set high_priority_ddl = 1;
+select @@high_priority_ddl;
+@@high_priority_ddl
+1
+lock tables t1 write;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
+alter table t1 modify i bigint;
+describe t1;
+Field	Type	Null	Key	Default	Extra
+i	bigint(20)	YES		NULL	
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+<Id>	test_user2	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+select i from t1;
+i
+1
+2
+3
+connection: con2
+begin;
+insert into t1 values (4);
+select i from t1;
+i
+1
+2
+3
+4
+connection: default
+describe t1;
+Field	Type	Null	Key	Default	Extra
+i	bigint(20)	YES		NULL	
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+<Id>	test_user2	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+alter table t1 rename t1_new;
+describe t1_new;
+Field	Type	Null	Key	Default	Extra
+i	bigint(20)	YES		NULL	
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+select i from t1_new;
+i
+1
+2
+3
+connection: con1
+lock tables t1_new write;
+connection: default
+drop table t1_new;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1_new
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+<Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+connection: con1
+unlock tables;
+lock tables t1_new read;
+begin;
+insert into t1_new values (4);
+connection: default
+describe t1_new;
+Field	Type	Null	Key	Default	Extra
+i	bigint(20)	YES		NULL	
+select i from t1_new;
+i
+1
+2
+3
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+<Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+drop table t1_new;
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+create table t1 (i int) engine=InnoDB;
+insert into t1 values (1), (2), (3);
+connection: con1
+lock tables t1 read;
+connection: con2
+set lock_wait_timeout = 2;
+describe t1;
+Field	Type	Null	Key	Default	Extra
+i	int(11)	YES		NULL	
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+<Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+<Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+set high_priority_ddl = 1;
+select @@high_priority_ddl;
+@@high_priority_ddl
+1
+alter table t1 modify i bigint;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
+describe t1;
+Field	Type	Null	Key	Default	Extra
+i	int(11)	YES		NULL	
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+<Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+<Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+drop table t1;
+drop user test_user1@localhost;
+drop user test_user2@localhost;

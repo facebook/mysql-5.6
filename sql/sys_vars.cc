@@ -5760,3 +5760,10 @@ static Sys_var_ulong Sys_log_throttle_legacy_user(
        NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(0),
        ON_UPDATE(update_log_throttle_legacy_user));
+
+static Sys_var_mybool Sys_high_priority_ddl(
+       "high_priority_ddl",
+       "Setting this flag will allow DDL commands to kill conflicting "
+       "connections (effective for admin user only).",
+       SESSION_VAR(high_priority_ddl),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));

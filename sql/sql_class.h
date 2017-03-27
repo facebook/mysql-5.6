@@ -765,6 +765,8 @@ typedef struct system_variables
 
   ulong select_into_file_fsync_size;
   uint select_into_file_fsync_timeout;
+
+  my_bool high_priority_ddl;
 } SV;
 
 
@@ -3675,6 +3677,21 @@ public:
    */
   virtual bool notify_shared_lock(MDL_context_owner *ctx_in_use,
                                   bool needs_thr_lock_abort);
+  /**
+    This function is similar to notify_shared_lock that is used to kill
+    blocking threads which hold shared MDL locks.
+    Invoked when acquiring an exclusive lock, for each thread that
+    has a conflicting shared metadata lock.
+
+    @note The current thread must hold an upgradable MDL lock, and must be a
+    super user to kill other threads.
+
+    @param ctx_in_use           The MDL context owner (thread) to wake up.
+
+    @retval  TRUE   if the blocking thread is killed
+    @retval  FALSE  No thread is killed
+   */
+  virtual bool kill_shared_locks(MDL_context_owner *in_use);
 
   // End implementation of MDL_context_owner interface.
 

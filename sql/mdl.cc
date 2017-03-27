@@ -453,6 +453,7 @@ public:
 
   virtual bool needs_notification(const MDL_ticket *ticket) const = 0;
   virtual void notify_conflicting_locks(MDL_context *ctx) = 0;
+  virtual bool kill_conflicting_locks(MDL_context *ctx) { return false; }
 
   virtual bitmap_t hog_lock_types_bitmap() const = 0;
 
@@ -621,6 +622,8 @@ public:
     return (ticket->get_type() >= MDL_SHARED_NO_WRITE);
   }
   virtual void notify_conflicting_locks(MDL_context *ctx);
+  /* kill_conflicting_locks only applies to object locks (override) */
+  virtual bool kill_conflicting_locks(MDL_context *ctx);
 
   /*
     To prevent starvation, these lock types that are only granted
@@ -2149,6 +2152,32 @@ void MDL_object_lock::notify_conflicting_locks(MDL_context *ctx)
   }
 }
 
+/**
+ * Killing conflicting connections that holding shared locks
+ *
+ * @param  ctx  MDL_context for current thread.
+ *
+ * @retval  TRUE   all of blocking thread have been killed
+ * @retval  FALSE  Not all blocking threads are killed
+ */
+bool MDL_object_lock::kill_conflicting_locks(MDL_context *ctx)
+{
+  Ticket_iterator it(m_granted);
+  MDL_ticket *conflicting_ticket;
+
+  while ((conflicting_ticket= it++))
+  {
+    if (conflicting_ticket->get_ctx() != ctx &&
+        conflicting_ticket->get_type() < MDL_SHARED_UPGRADABLE)
+    {
+      MDL_context *conflicting_ctx= conflicting_ticket->get_ctx();
+      // if any conflicting thread is not killed, stop and just return false
+      if (!ctx->get_owner()->kill_shared_locks(conflicting_ctx->get_owner()))
+        return false;
+    }
+  }
+  return true;
+}
 
 /**
   Notify threads holding scoped IX locks which conflict with a pending S lock.
@@ -2274,6 +2303,28 @@ MDL_context::acquire_lock(MDL_request *mdl_request, ulong lock_wait_timeout)
   else
     wait_status= m_wait.timed_wait(m_owner, &abs_timeout, TRUE,
                                    mdl_request->key.get_wait_state_name());
+
+  if (wait_status == MDL_wait::TIMEOUT &&
+      ticket->get_type() >= MDL_SHARED_UPGRADABLE)
+  {
+    /*
+     * If an upgradable shared metadata lock request (potentially from DDL) is
+     * blocked and timed out, we may be able to kill the blocking connections
+     * if the request is from a DDL command, and then retry a short wait.
+     * Note: any lock >= MDL_SHARED_UPGRADABLE may be upgraded to X lock.
+     */
+    mysql_prlock_wrlock(&lock->m_rwlock);
+    bool retry_shortwait= lock->kill_conflicting_locks(this);
+    mysql_prlock_unlock(&lock->m_rwlock);
+    /* If the requester was able to kill any conflicting lock, let's retry. */
+    if (retry_shortwait)
+    {
+      m_wait.reset_status();
+      set_timespec(abs_timeout, 1); // retry a short wait of 1 second
+      wait_status= m_wait.timed_wait(m_owner, &abs_timeout, TRUE,
+                                     mdl_request->key.get_wait_state_name());
+    }
+  }
 
   done_waiting_for();
 

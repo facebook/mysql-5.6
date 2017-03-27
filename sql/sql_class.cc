@@ -2041,6 +2041,30 @@ bool THD::notify_shared_lock(MDL_context_owner *ctx_in_use,
 }
 
 
+bool THD::kill_shared_locks(MDL_context_owner *ctx_in_use)
+{
+  THD *in_use= ctx_in_use->get_thd();
+
+  // Only allow super user with ddl command to kill blocking threads
+  if (this->variables.high_priority_ddl &&
+      this->security_ctx->master_access & SUPER_ACL &&
+      is_ddl_command(lex->sql_command))
+  {
+    mysql_mutex_lock(&in_use->LOCK_thd_data);
+    /* process the kill only if thread is not already undergoing any kill
+       connection.
+    */
+    if (in_use->killed != THD::KILL_CONNECTION)
+    {
+      in_use->awake(THD::KILL_CONNECTION);
+    }
+    mysql_mutex_unlock(&in_use->LOCK_thd_data);
+    return true;
+  }
+  return false;
+}
+
+
 /*
   Remember the location of thread info, the structure needed for
   sql_alloc() and the structure for the net buffer
