@@ -10,8 +10,10 @@ insert into t1 values(1);
 insert into t1 values(2);
 FLUSH LOGS;
 include/assert.inc [gtid set on master.]
+include/stop_slave.inc
 include/rpl_restart_server.inc [server_number=1 gtids=on parameters: --debug=d,skip_writing_previous_gtids_log_event]
 include/rpl_restart_server.inc [server_number=1 gtids=on]
+include/start_slave.inc
 include/assert.inc [gtid set on master after restart with skip_writing_previous_gtids_log_event.]
 include/start_slave.inc
 include/assert.inc [gtid set on slave.]
