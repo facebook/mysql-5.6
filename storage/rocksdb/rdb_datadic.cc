@@ -3102,8 +3102,7 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager *const dict_arg,
   m_sequence.init(max_index_id_in_dict + 1);
 
   if (!it->status().ok()) {
-    const std::string s = it->status().ToString();
-    sql_print_error("RocksDB: Table_store: load error: %s", s.c_str());
+    rdb_log_status_error(it->status(), "Table_store load error");
     return true;
   }
   delete it;
