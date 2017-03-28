@@ -246,6 +246,10 @@ static int rocksdb_create_checkpoint(
                             checkpoint_dir.c_str());
       rocksdb::Checkpoint *checkpoint;
       auto status = rocksdb::Checkpoint::Create(rdb, &checkpoint);
+      // We can only return HA_EXIT_FAILURE/HA_EXIT_SUCCESS here which is why
+      // the return code is ignored, but by calling into rdb_error_to_mysql,
+      // it will call my_error for us, which will propogate up to the client.
+      int rc __attribute__((__unused__));
       if (status.ok()) {
         status = checkpoint->CreateCheckpoint(checkpoint_dir.c_str());
         delete checkpoint;
@@ -255,11 +259,10 @@ static int rocksdb_create_checkpoint(
               checkpoint_dir.c_str());
           return HA_EXIT_SUCCESS;
         } else {
-          rdb_log_status_error(status,
-                               "Failed to create checkpoint directory.");
+          rc = ha_rocksdb::rdb_error_to_mysql(status);
         }
       } else {
-        rdb_log_status_error(status, "Failed to initialize checkpoint.");
+        rc = ha_rocksdb::rdb_error_to_mysql(status);
       }
     }
   }
