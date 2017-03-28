@@ -882,8 +882,8 @@ int Rdb_key_def::unpack_field(
     not all indexes support this
 
   @return
-    UNPACK_SUCCESS - Ok
-    UNPACK_FAILURE - Data format error.
+    HA_EXIT_SUCCESS    OK
+    other              HA_ERR error code
 */
 
 int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
@@ -959,7 +959,7 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
                         maybe_null ? table->record[0] + null_offset : nullptr,
                         field->null_bit);
 
-      if (res) {
+      if (res != UNPACK_SUCCESS) {
         return HA_ERR_ROCKSDB_CORRUPT_DATA;
       }
     } else {
