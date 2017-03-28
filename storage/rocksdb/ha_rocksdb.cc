@@ -246,6 +246,10 @@ static int rocksdb_create_checkpoint(
                             checkpoint_dir.c_str());
       rocksdb::Checkpoint *checkpoint;
       auto status = rocksdb::Checkpoint::Create(rdb, &checkpoint);
+      // We can only return HA_EXIT_FAILURE/HA_EXIT_SUCCESS here which is why
+      // the return code is ignored, but by calling into rdb_error_to_mysql,
+      // it will call my_error for us, which will propogate up to the client.
+      int rc __attribute__((__unused__));
       if (status.ok()) {
         status = checkpoint->CreateCheckpoint(checkpoint_dir.c_str());
         delete checkpoint;
@@ -255,13 +259,10 @@ static int rocksdb_create_checkpoint(
               checkpoint_dir.c_str());
           return HA_EXIT_SUCCESS;
         } else {
-          my_error(ER_CREATE_CHECKPOINT_DIRECTORY, MYF(0), status.code(),
-                   status.ToString().c_str());
+          rc = ha_rocksdb::rdb_error_to_mysql(status);
         }
       } else {
-        const std::string err_text(status.ToString());
-        my_error(ER_INITIALIZE_CHECKPOINT, MYF(0), status.code(),
-                 err_text.c_str());
+        rc = ha_rocksdb::rdb_error_to_mysql(status);
       }
     }
   }
@@ -1130,7 +1131,6 @@ static MYSQL_SYSVAR_BOOL(
     "Counting SingleDelete as rocksdb_compaction_sequential_deletes", nullptr,
     nullptr, rocksdb_compaction_sequential_deletes_count_sd);
 
-
 static MYSQL_SYSVAR_BOOL(
     print_snapshot_conflict_queries, rocksdb_print_snapshot_conflict_queries,
     PLUGIN_VAR_RQCMDARG,
@@ -1526,15 +1526,11 @@ public:
       return HA_ERR_LOCK_DEADLOCK;
     }
 
-    if (s.IsLockLimit()) {
-      return HA_ERR_ROCKSDB_TOO_MANY_LOCKS;
-    }
-
     if (s.IsIOError() || s.IsCorruption()) {
       rdb_handle_io_error(s, RDB_IO_ERROR_GENERAL);
     }
-    my_error(ER_INTERNAL_ERROR, MYF(0), s.ToString().c_str());
-    return HA_ERR_INTERNAL_ERROR;
+
+    return ha_rocksdb::rdb_error_to_mysql(s);
   }
 
   THD *get_thd() const { return m_thd; }
@@ -2419,6 +2415,7 @@ static bool rocksdb_flush_wal(handlerton *const hton MY_ATTRIBUTE((__unused__)),
   rocksdb_wal_group_syncs++;
   const rocksdb::Status s = rdb->SyncWAL();
   if (!s.ok()) {
+    rdb_log_status_error(s);
     return HA_EXIT_FAILURE;
   }
   return HA_EXIT_SUCCESS;
@@ -2481,6 +2478,7 @@ static int rocksdb_commit_by_xid(handlerton *const hton, XID *const xid) {
   }
   const rocksdb::Status s = trx->Commit();
   if (!s.ok()) {
+    rdb_log_status_error(s);
     return HA_EXIT_FAILURE;
   }
   delete trx;
@@ -2497,6 +2495,7 @@ rocksdb_rollback_by_xid(handlerton *const hton MY_ATTRIBUTE((__unused__)),
   }
   const rocksdb::Status s = trx->Rollback();
   if (!s.ok()) {
+    rdb_log_status_error(s);
     return HA_EXIT_FAILURE;
   }
   delete trx;
@@ -3368,10 +3367,8 @@ static int rocksdb_init_func(void *const p) {
       sql_print_information(
           "RocksDB:   assuming that we're creating a new database");
     } else {
-      std::string err_text = status.ToString();
-      sql_print_error("RocksDB: Error listing column families: %s",
-                      err_text.c_str());
       rdb_open_tables.free_hash();
+      rdb_log_status_error(status, "Error listing column families");
       DBUG_RETURN(HA_EXIT_FAILURE);
     }
   } else
@@ -3419,7 +3416,7 @@ static int rocksdb_init_func(void *const p) {
     rocksdb_tbl_options.persistent_cache = pcache;
   } else if (strlen(rocksdb_persistent_cache_path)) {
     sql_print_error("RocksDB: Must specify rocksdb_persistent_cache_size_mb");
-    DBUG_RETURN(1);
+    DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
   if (!rocksdb_cf_options_map.init(
@@ -3477,10 +3474,8 @@ static int rocksdb_init_func(void *const p) {
   // We won't start if we'll determine that there's a chance of data corruption
   // because of incompatible options.
   if (!status.ok()) {
-    // NO_LINT_DEBUG
-    sql_print_error("RocksDB: compatibility check against existing database "
-                    "options failed. %s",
-                    status.ToString().c_str());
+    rdb_log_status_error(
+        status, "Compatibility check against existing database options failed");
     rdb_open_tables.free_hash();
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
@@ -3489,8 +3484,7 @@ static int rocksdb_init_func(void *const p) {
       main_opts, tx_db_options, rocksdb_datadir, cf_descr, &cf_handles, &rdb);
 
   if (!status.ok()) {
-    std::string err_text = status.ToString();
-    sql_print_error("RocksDB: Error opening instance: %s", err_text.c_str());
+    rdb_log_status_error(status, "Error opening instance");
     rdb_open_tables.free_hash();
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
@@ -3532,9 +3526,7 @@ static int rocksdb_init_func(void *const p) {
   status = rdb->EnableAutoCompaction(compaction_enabled_cf_handles);
 
   if (!status.ok()) {
-    const std::string err_text = status.ToString();
-    // NO_LINT_DEBUG
-    sql_print_error("RocksDB: Error enabling compaction: %s", err_text.c_str());
+    rdb_log_status_error(status, "Error enabling compaction");
     rdb_open_tables.free_hash();
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
@@ -4791,8 +4783,6 @@ int ha_rocksdb::close(void) {
 
 static const char *rdb_error_messages[] = {
     "Table must have a PRIMARY KEY.",
-    "Number of locks held reached @@rocksdb_max_row_locks.",
-    "Lock timed out",
     "Specifying DATA DIRECTORY for an individual table is not supported.",
     "Specifying INDEX DIRECTORY for an individual table is not supported.",
     "RocksDB commit failed.",
@@ -4802,6 +4792,21 @@ static const char *rdb_error_messages[] = {
     "Invalid table.",
     "Could not access RocksDB properties.",
     "File I/O error during merge/sort operation.",
+    "RocksDB status: not found.",
+    "RocksDB status: corruption.",
+    "RocksDB status: invalid argument.",
+    "RocksDB status: io error.",
+    "RocksDB status: no space.",
+    "RocksDB status: merge in progress.",
+    "RocksDB status: incomplete.",
+    "RocksDB status: shutdown in progress.",
+    "RocksDB status: timed out.",
+    "RocksDB status: aborted.",
+    "RocksDB status: lock limit reached.",
+    "RocksDB status: busy.",
+    "RocksDB status: deadlock.",
+    "RocksDB status: expired.",
+    "RocksDB status: try again.",
 };
 
 static_assert((sizeof(rdb_error_messages) / sizeof(rdb_error_messages[0])) ==
@@ -4836,6 +4841,79 @@ bool ha_rocksdb::get_error_message(const int error, String *const buf) {
   // an error.
 
   DBUG_RETURN(false);
+}
+
+/*
+  Generalized way to convert RocksDB status errors into MySQL error code, and
+  print error message.
+
+  Each error code below maps to a RocksDB status code found in:
+  rocksdb/include/rocksdb/status.h
+*/
+int ha_rocksdb::rdb_error_to_mysql(const rocksdb::Status &s,
+                                   const char *opt_msg) {
+  DBUG_ASSERT(!s.ok());
+
+  int err;
+  switch (s.code()) {
+  case rocksdb::Status::Code::kOk:
+    err = HA_EXIT_SUCCESS;
+    break;
+  case rocksdb::Status::Code::kNotFound:
+    err = HA_ERR_ROCKSDB_STATUS_NOT_FOUND;
+    break;
+  case rocksdb::Status::Code::kCorruption:
+    err = HA_ERR_ROCKSDB_STATUS_CORRUPTION;
+    break;
+  case rocksdb::Status::Code::kNotSupported:
+    err = HA_ERR_ROCKSDB_STATUS_NOT_SUPPORTED;
+    break;
+  case rocksdb::Status::Code::kInvalidArgument:
+    err = HA_ERR_ROCKSDB_STATUS_INVALID_ARGUMENT;
+    break;
+  case rocksdb::Status::Code::kIOError:
+    err = (s.IsNoSpace()) ? HA_ERR_ROCKSDB_STATUS_NO_SPACE
+                          : HA_ERR_ROCKSDB_STATUS_IO_ERROR;
+    break;
+  case rocksdb::Status::Code::kMergeInProgress:
+    err = HA_ERR_ROCKSDB_STATUS_MERGE_IN_PROGRESS;
+    break;
+  case rocksdb::Status::Code::kIncomplete:
+    err = HA_ERR_ROCKSDB_STATUS_INCOMPLETE;
+    break;
+  case rocksdb::Status::Code::kShutdownInProgress:
+    err = HA_ERR_ROCKSDB_STATUS_SHUTDOWN_IN_PROGRESS;
+    break;
+  case rocksdb::Status::Code::kTimedOut:
+    err = HA_ERR_ROCKSDB_STATUS_TIMED_OUT;
+    break;
+  case rocksdb::Status::Code::kAborted:
+    err = (s.IsLockLimit()) ? HA_ERR_ROCKSDB_STATUS_LOCK_LIMIT
+                            : HA_ERR_ROCKSDB_STATUS_ABORTED;
+    break;
+  case rocksdb::Status::Code::kBusy:
+    err = (s.IsDeadlock()) ? HA_ERR_ROCKSDB_STATUS_DEADLOCK
+                           : HA_ERR_ROCKSDB_STATUS_BUSY;
+    break;
+  case rocksdb::Status::Code::kExpired:
+    err = HA_ERR_ROCKSDB_STATUS_EXPIRED;
+    break;
+  case rocksdb::Status::Code::kTryAgain:
+    err = HA_ERR_ROCKSDB_STATUS_TRY_AGAIN;
+    break;
+  default:
+    DBUG_ASSERT(0);
+    return -1;
+  }
+
+  if (opt_msg) {
+    my_error(ER_RDB_STATUS_MSG, MYF(0), opt_msg, s.code(),
+             s.ToString().c_str());
+  } else {
+    my_error(ER_RDB_STATUS_GENERAL, MYF(0), s.code(), s.ToString().c_str());
+  }
+
+  return err;
 }
 
 /* MyRocks supports only the following collations for indexed columns */
@@ -8121,7 +8199,7 @@ int ha_rocksdb::info(uint flag) {
 
       uint8_t include_flags = rocksdb::DB::INCLUDE_FILES;
       // recompute SST files stats only if records count is 0
-    if (stats.records == 0) {
+      if (stats.records == 0) {
         rdb->GetApproximateSizes(m_pk_descr->get_cf(), &r, 1, &sz,
                                  include_flags);
         stats.records+= sz/ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE;
@@ -8576,7 +8654,7 @@ static bool is_myrocks_index_empty(
   uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE] = {0};
   rdb_netbuf_store_uint32(key_buf, index_id);
   const rocksdb::Slice key =
-    rocksdb::Slice(reinterpret_cast<char *>(key_buf), sizeof(key_buf));
+      rocksdb::Slice(reinterpret_cast<char *>(key_buf), sizeof(key_buf));
   std::unique_ptr<rocksdb::Iterator> it(rdb->NewIterator(read_opts, cfh));
   rocksdb_smart_seek(is_reverse_cf, it.get(), key);
   if (!it->Valid()) {
@@ -9054,20 +9132,18 @@ int ha_rocksdb::optimize(THD *const thd, HA_CHECK_OPT *const check_opt) {
   DBUG_ASSERT(thd != nullptr);
   DBUG_ASSERT(check_opt != nullptr);
 
-  int rc = HA_ADMIN_OK;
   for (uint i = 0; i < table->s->keys; i++) {
     uchar buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2];
     auto range = get_range(i, buf);
-    if (!rdb->CompactRange(rocksdb::CompactRangeOptions(),
-                           m_key_descr_arr[i]->get_cf(), &range.start,
-                           &range.limit)
-             .ok()) {
-      rc = HA_ADMIN_FAILED;
-      break;
+    const rocksdb::Status s = rdb->CompactRange(rocksdb::CompactRangeOptions(),
+                                                m_key_descr_arr[i]->get_cf(),
+                                                &range.start, &range.limit);
+    if (!s.ok()) {
+      DBUG_RETURN(rdb_error_to_mysql(s));
     }
   }
 
-  DBUG_RETURN(rc);
+  DBUG_RETURN(HA_EXIT_SUCCESS);
 }
 
 int ha_rocksdb::calculate_stats(const TABLE *const table_arg, THD *const thd,
@@ -9105,8 +9181,10 @@ int ha_rocksdb::calculate_stats(const TABLE *const table_arg, THD *const thd,
     const auto status = rdb->GetPropertiesOfTablesInRange(
         it.first, &it.second[0], it.second.size(), &props);
     DBUG_ASSERT(props.size() >= old_size);
-    if (!status.ok())
-      DBUG_RETURN(HA_ERR_ROCKSDB_PROPERTIES);
+    if (!status.ok()) {
+      DBUG_RETURN(
+          rdb_error_to_mysql(status, "Could not access RocksDB properties"));
+    }
   }
 
   int num_sst = 0;
@@ -10367,30 +10445,18 @@ void rdb_handle_io_error(const rocksdb::Status status,
     switch (err_type) {
     case RDB_IO_ERROR_TX_COMMIT:
     case RDB_IO_ERROR_DICT_COMMIT: {
-      /* NO_LINT_DEBUG */
-      sql_print_error("MyRocks: failed to write to WAL. Error type = %s, "
-                      "status code = %d, status = %s",
-                      get_rdb_io_error_string(err_type), status.code(),
-                      status.ToString().c_str());
+      rdb_log_status_error(status, "failed to write to WAL");
       /* NO_LINT_DEBUG */
       sql_print_error("MyRocks: aborting on WAL write error.");
       abort_with_stack_traces();
       break;
     }
     case RDB_IO_ERROR_BG_THREAD: {
-      /* NO_LINT_DEBUG */
-      sql_print_warning("MyRocks: BG thread failed to write to RocksDB. "
-                        "Error type = %s, status code = %d, status = %s",
-                        get_rdb_io_error_string(err_type), status.code(),
-                        status.ToString().c_str());
+      rdb_log_status_error(status, "BG thread failed to write to RocksDB");
       break;
     }
     case RDB_IO_ERROR_GENERAL: {
-      /* NO_LINT_DEBUG */
-      sql_print_error("MyRocks: failed on I/O. Error type = %s, "
-                      "status code = %d, status = %s",
-                      get_rdb_io_error_string(err_type), status.code(),
-                      status.ToString().c_str());
+      rdb_log_status_error(status, "failed on I/O");
       /* NO_LINT_DEBUG */
       sql_print_error("MyRocks: aborting on I/O error.");
       abort_with_stack_traces();
@@ -10401,33 +10467,21 @@ void rdb_handle_io_error(const rocksdb::Status status,
       break;
     }
   } else if (status.IsCorruption()) {
-    /* NO_LINT_DEBUG */
-    sql_print_error("MyRocks: data corruption detected! Error type = %s, "
-                    "status code = %d, status = %s",
-                    get_rdb_io_error_string(err_type), status.code(),
-                    status.ToString().c_str());
+    rdb_log_status_error(status, "data corruption detected!");
     /* NO_LINT_DEBUG */
     sql_print_error("MyRocks: aborting because of data corruption.");
     abort_with_stack_traces();
   } else if (!status.ok()) {
     switch (err_type) {
     case RDB_IO_ERROR_DICT_COMMIT: {
-      /* NO_LINT_DEBUG */
-      sql_print_error("MyRocks: failed to write to WAL (dictionary). "
-                      "Error type = %s, status code = %d, status = %s",
-                      get_rdb_io_error_string(err_type), status.code(),
-                      status.ToString().c_str());
+      rdb_log_status_error(status, "Failed to write to WAL (dictionary)");
       /* NO_LINT_DEBUG */
       sql_print_error("MyRocks: aborting on WAL write error.");
       abort_with_stack_traces();
       break;
     }
     default:
-      /* NO_LINT_DEBUG */
-      sql_print_warning("MyRocks: failed to read/write in RocksDB. "
-                        "Error type = %s, status code = %d, status = %s",
-                        get_rdb_io_error_string(err_type), status.code(),
-                        status.ToString().c_str());
+      rdb_log_status_error(status, "Failed to read/write in RocksDB");
       break;
     }
   }
@@ -10520,12 +10574,11 @@ void rocksdb_set_sst_mgr_rate_bytes_per_sec(
     rocksdb_sst_mgr_rate_bytes_per_sec = new_val;
 
     rocksdb_db_options.sst_file_manager->SetDeleteRateBytesPerSecond(
-      rocksdb_sst_mgr_rate_bytes_per_sec);
+        rocksdb_sst_mgr_rate_bytes_per_sec);
   }
 
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
-
 
 void rocksdb_set_delayed_write_rate(THD *thd, struct st_mysql_sys_var *var,
                                     void *var_ptr, const void *save) {
