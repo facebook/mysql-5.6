@@ -283,8 +283,44 @@ static void rocksdb_force_flush_memtable_now_stub(
 static int rocksdb_force_flush_memtable_now(
     THD *const thd, struct st_mysql_sys_var *const var, void *const var_ptr,
     struct st_mysql_value *const value) {
-  sql_print_information("RocksDB: Manual memtable flush\n");
+  sql_print_information("RocksDB: Manual memtable flush.");
   rocksdb_flush_all_memtables();
+  return HA_EXIT_SUCCESS;
+}
+
+static void rocksdb_force_flush_memtable_and_lzero_now_stub(
+    THD *const thd, struct st_mysql_sys_var *const var, void *const var_ptr,
+    const void *const save) {}
+
+static int rocksdb_force_flush_memtable_and_lzero_now(
+    THD *const thd, struct st_mysql_sys_var *const var, void *const var_ptr,
+    struct st_mysql_value *const value) {
+  sql_print_information("RocksDB: Manual memtable and L0 flush.");
+  rocksdb_flush_all_memtables();
+
+  const Rdb_cf_manager &cf_manager = rdb_get_cf_manager();
+  const rocksdb::CompactionOptions c_options = rocksdb::CompactionOptions();
+  for (const auto &cf_handle : cf_manager.get_all_cf()) {
+    rocksdb::ColumnFamilyMetaData metadata;
+    rdb->GetColumnFamilyMetaData(cf_handle, &metadata);
+
+    DBUG_ASSERT(metadata.levels[0].level == 0);
+    std::vector<std::string> file_names;
+    for (auto &file : metadata.levels[0].files) {
+      file_names.emplace_back(file.db_path + file.name);
+    }
+
+    if (!file_names.empty()) {
+      rocksdb::Status s;
+      s = rdb->CompactFiles(c_options, cf_handle, file_names, 1);
+
+      if (!s.ok() && !s.IsAborted()) {
+        rdb_handle_io_error(s, RDB_IO_ERROR_GENERAL);
+        return HA_EXIT_FAILURE;
+      }
+    }
+  }
+
   return HA_EXIT_SUCCESS;
 }
 
@@ -385,6 +421,7 @@ static my_bool rocksdb_enable_2pc = 0;
 static char *rocksdb_strict_collation_exceptions;
 static my_bool rocksdb_collect_sst_properties = 1;
 static my_bool rocksdb_force_flush_memtable_now_var = 0;
+static my_bool rocksdb_force_flush_memtable_and_lzero_now_var = 0;
 static uint64_t rocksdb_number_stat_computes = 0;
 static uint32_t rocksdb_seconds_between_stat_computes = 3600;
 static long long rocksdb_compaction_sequential_deletes = 0l;
@@ -1086,6 +1123,13 @@ static MYSQL_SYSVAR_BOOL(
     rocksdb_force_flush_memtable_now, rocksdb_force_flush_memtable_now_stub,
     FALSE);
 
+static MYSQL_SYSVAR_BOOL(
+    force_flush_memtable_and_lzero_now,
+    rocksdb_force_flush_memtable_and_lzero_now_var, PLUGIN_VAR_RQCMDARG,
+    "Acts similar to force_flush_memtable_now, but also compacts all L0 files.",
+    rocksdb_force_flush_memtable_and_lzero_now,
+    rocksdb_force_flush_memtable_and_lzero_now_stub, FALSE);
+
 static MYSQL_THDVAR_BOOL(
     flush_memtable_on_analyze, PLUGIN_VAR_RQCMDARG,
     "Forces memtable flush on ANALZYE table to get accurate cardinality",
@@ -1299,6 +1343,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(strict_collation_exceptions),
     MYSQL_SYSVAR(collect_sst_properties),
     MYSQL_SYSVAR(force_flush_memtable_now),
+    MYSQL_SYSVAR(force_flush_memtable_and_lzero_now),
     MYSQL_SYSVAR(flush_memtable_on_analyze),
     MYSQL_SYSVAR(seconds_between_stat_computes),
 
