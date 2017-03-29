@@ -2929,6 +2929,12 @@ static bool rocksdb_show_status(handlerton *const hton, THD *const thd,
   if (stat_type == HA_ENGINE_STATUS) {
     std::string str;
 
+    /* Global DB Statistics */
+    if (rocksdb_stats) {
+      res |= print_stats(thd, "STATISTICS", "rocksdb",
+                         rocksdb_stats->ToString(), stat_print);
+    }
+
     /* Per DB stats */
     if (rdb->GetProperty("rocksdb.dbstats", &str)) {
       res |= print_stats(thd, "DBSTATS", "rocksdb", str, stat_print);
