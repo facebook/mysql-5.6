@@ -10,6 +10,7 @@ PARTITION BY KEY(l) PARTITIONS 4;
 SET GLOBAL rocksdb_force_flush_memtable_now=1;
 SHOW ENGINE rocksdb STATUS;
 Type	Name	Status
+STATISTICS	#	#
 DBSTATS	#	#
 CF_COMPACTION	#	#
 CF_COMPACTION	#	#
