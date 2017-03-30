@@ -314,7 +314,7 @@ static int rocksdb_force_flush_memtable_and_lzero_now(
       rocksdb::Status s;
       s = rdb->CompactFiles(c_options, cf_handle, file_names, 1);
 
-      if (!s.ok()) {
+      if (!s.ok() && !s.IsAborted()) {
         rdb_handle_io_error(s, RDB_IO_ERROR_GENERAL);
         return HA_EXIT_FAILURE;
       }
