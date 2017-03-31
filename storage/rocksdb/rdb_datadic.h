@@ -84,8 +84,8 @@ using rdb_index_field_skip_t =
     int (Rdb_key_def::*)(const Rdb_field_packing *fpi, const Field *field,
                          Rdb_string_reader *reader) const;
 using rdb_index_field_pack_t =
-    void (Rdb_key_def::*)(Rdb_field_packing *fpi, Field *field, uchar **dst,
-                          Rdb_pack_field_context *pack_ctx) const;
+    void (Rdb_key_def::*)(Rdb_field_packing *fpi, Field *field, uchar *buf,
+                          uchar **dst, Rdb_pack_field_context *pack_ctx) const;
 
 const uint RDB_INVALID_KEY_LEN = uint(-1);
 
@@ -168,6 +168,7 @@ public:
 
   uchar *pack_field(Field *const field, Rdb_field_packing *pack_info,
                     uchar *tuple, uchar *const packed_tuple,
+                    uchar *const pack_buffer,
                     Rdb_string_writer *const unpack_info,
                     uint *const n_null_fields) const;
   /* Convert a key from Table->record format to mem-comparable form */
@@ -414,16 +415,17 @@ public:
   bool index_format_min_check(const int &pk_min, const int &sk_min) const;
 
   void pack_with_make_sort_key(
-      Rdb_field_packing *const fpi, Field *const field, uchar **dst,
+      Rdb_field_packing *const fpi, Field *const field,
+      uchar *buf MY_ATTRIBUTE((__unused__)), uchar **dst,
       Rdb_pack_field_context *const pack_ctx MY_ATTRIBUTE((__unused__))) const;
 
   void pack_with_varchar_encoding(
-      Rdb_field_packing *const fpi, Field *const field, uchar **dst,
+      Rdb_field_packing *const fpi, Field *const field, uchar *buf, uchar **dst,
       Rdb_pack_field_context *const pack_ctx MY_ATTRIBUTE((__unused__))) const;
 
   void
   pack_with_varchar_space_pad(Rdb_field_packing *const fpi, Field *const field,
-                              uchar **dst,
+                              uchar *buf, uchar **dst,
                               Rdb_pack_field_context *const pack_ctx) const;
 
   int unpack_integer(Rdb_field_packing *const fpi, Field *const field,
@@ -545,9 +547,6 @@ public:
   uchar m_index_number_storage_form[INDEX_NUMBER_SIZE];
 
   rocksdb::ColumnFamilyHandle *m_cf_handle;
-
-  // Temporary buffer used for packing data
-  mutable uchar *m_pack_buffer;
 
   void pack_legacy_variable_format(const uchar *src, size_t src_len,
                                    uchar **dst) const;
