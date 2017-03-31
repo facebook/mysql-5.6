@@ -7,13 +7,13 @@ permalink: /docs/support/faq.html
 
 ## What is MyRocks?
 
-MyRocks came about because of a wanting to use MySQL features with [RocksDB](http://rocksdb.org/) implementations at Facebook. RocksDB is optimized for fast, low-latency storage, and MyRocks is aimed at keeping the storage savings efficient.
+MyRocks came about because of a desire to use MySQL features with [RocksDB](http://rocksdb.org/) implementations at Facebook. RocksDB is optimized for fast, low-latency storage and is aimed at keeping the storage savings efficient.
 
-MyRock's efficiency focuses on better space efficiency, better write efficiency, and better read efficiency.  
+MyRock's efficiency is a result of improvements in storage, and reading and writing data. This means:  
 
-* Better space efficiency means using less SSD storage.  
-* Better write efficiency means SSD endurance.  
-* Better read efficiency comes from more available IO capacity for handling queries.
+* Less SSD storage space required (*space efficiency*)
+* Increased SSD endurance (*write efficiency*)
+* More available IO capacity for handling queries (*read efficiency*)
 
 The library is maintained by the Facebook Database Engineering Team and is based on the Oracle MySQL 5.6 database.
 

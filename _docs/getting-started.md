@@ -7,11 +7,13 @@ permalink: /docs/getting-started/
 
 ## Overview
 
-MyRocks is a MySQL storage engine that integrates with [RocksDB](http://rocksdb.org/). It gives users better read efficiency, better write efficiency, and better space efficiency for better performance on flash storage.
+MyRocks is a MySQL storage engine that integrates with [RocksDB](http://rocksdb.org/). It provides improved flash storage performance through efficiencies in reading, writing, and storing data.
 
-This Getting Started page provides information on MyRocks' [supported platforms](/mysql-5.6/docs/getting-started/#supported-platforms), [installing](/mysql-5.6/docs/getting-started/#installation) and [creating your first table](/mysql-5.6/docs/getting-started/#create-a-rocksdb-table), and [migrating from InnoDB](/mysql-5.6/docs/getting-started/#migrating-from-innodb-to-myrocks-in-production).
+This Getting Started page provides information on MyRocks' [supported platforms](/mysql-5.6/docs/getting-started/#supported-platforms), [installation](/mysql-5.6/docs/getting-started/#installation) (including [creating your first table](/mysql-5.6/docs/getting-started/#create-a-rocksdb-table)), and [migrating from InnoDB](/mysql-5.6/docs/getting-started/#migrating-from-innodb-to-myrocks-in-production).
 
-## Supported Platforms
+<h2>
+  <a name="supported-platforms">Supported Platforms</a>
+</h2>
 
 The officially supported subset of platforms are:
 
@@ -34,7 +36,9 @@ Best effort is made to support the following OSs:
 
 <br />
 
-## Installation
+<h2>
+  <a name="installation">Installation</a>
+</h2>
 
 ### 1. Build MyRocks from Source
 
@@ -163,7 +167,9 @@ mysql_install_db --defaults-file=/path/to/my.cnf
 mysqld_safe --defaults-file=/path/to/my.cnf
 ```
 
-### 5. Create a RocksDB table
+<h3>
+  <a name="create-a-rocksdb-table">5. Create a RocksDB table</a>
+</h3>
 
 *Example*
 
@@ -190,7 +196,9 @@ The example shows some important features and limitations in MyRocks. For limita
 
 <br />
 
-## Migrating from InnoDB to MyRocks in production
+<h2>
+  <a name="migrating-from-innodb-to-myrocks-in-production">Migrating from InnoDB to MyRocks in production</a>
+</h2>
 
 >If you want to use both InnoDB and MyRocks within the same instance, set `allow-multiple-engines` and remove `skip-innodb` in `my.cnf`. Using mixed storage engines is not recommended in production because it is not really transactional, but it's okay for experimental purposes.
 
