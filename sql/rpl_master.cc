@@ -2712,6 +2712,8 @@ bool show_binlogs(THD* thd, bool with_gtid)
         gtid_set.to_string(&buf, &Gtid_set::commented_string_format);
         protocol->store(buf, strlen(buf), &my_charset_bin);
         free(buf);
+      } else {
+        protocol->store("", 0, &my_charset_bin);
       }
     }
 
