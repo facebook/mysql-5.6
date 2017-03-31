@@ -58,7 +58,7 @@ Rdb_key_def::Rdb_key_def(uint indexnr_arg, uint keyno_arg,
                          bool is_auto_cf_arg, bool is_per_partition_cf_arg,
                          const char *_name, Rdb_index_stats _stats)
     : m_index_number(indexnr_arg), m_cf_handle(cf_handle_arg),
-      m_pack_buffer(nullptr), m_index_dict_version(index_dict_version_arg),
+      m_index_dict_version(index_dict_version_arg),
       m_index_type(index_type_arg), m_kv_format_version(kv_format_version_arg),
       m_is_reverse_cf(is_reverse_cf_arg), m_is_auto_cf(is_auto_cf_arg),
       m_is_per_partition_cf(is_per_partition_cf_arg), m_name(_name),
@@ -73,8 +73,7 @@ Rdb_key_def::Rdb_key_def(uint indexnr_arg, uint keyno_arg,
 
 Rdb_key_def::Rdb_key_def(const Rdb_key_def &k)
     : m_index_number(k.m_index_number), m_cf_handle(k.m_cf_handle),
-      m_pack_buffer(nullptr), m_is_reverse_cf(k.m_is_reverse_cf),
-      m_is_auto_cf(k.m_is_auto_cf),
+      m_is_reverse_cf(k.m_is_reverse_cf), m_is_auto_cf(k.m_is_auto_cf),
       m_is_per_partition_cf(k.m_is_per_partition_cf), m_name(k.m_name),
       m_stats(k.m_stats), m_pk_part_no(k.m_pk_part_no),
       m_pack_info(k.m_pack_info), m_keyno(k.m_keyno),
@@ -520,6 +519,7 @@ int Rdb_key_def::successor(uchar *const packed_tuple, const uint &len) {
 
 uchar *Rdb_key_def::pack_field(Field *const field, Rdb_field_packing *pack_info,
                                uchar *tuple, uchar *const packed_tuple,
+                               uchar *const pack_buffer,
                                Rdb_string_writer *const unpack_info,
                                uint *const n_null_fields) const {
   if (field->real_maybe_null()) {
@@ -546,7 +546,8 @@ uchar *Rdb_key_def::pack_field(Field *const field, Rdb_field_packing *pack_info,
   DBUG_ASSERT(is_storage_available(tuple - packed_tuple,
                                    pack_info->m_max_image_len));
 
-  (this->*pack_info->m_pack_func)(pack_info, field, &tuple, &pack_ctx);
+  (this->*pack_info->m_pack_func)(pack_info, field, pack_buffer, &tuple,
+                                  &pack_ctx);
 
   /* Make "unpack info" to be stored in the value */
   if (create_unpack_info) {
@@ -626,8 +627,6 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
     unpack_info->write_uint16(0);
   }
 
-  m_pack_buffer = pack_buffer;
-
   for (uint i = 0; i < n_key_parts; i++) {
     // Fill hidden pk id into the last key part for secondary keys for tables
     // with no pk
@@ -647,16 +646,14 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
         field->null_bit);
     // WARNING! Don't return without restoring field->ptr and field->null_ptr
 
-    tuple = pack_field(field, &m_pack_info[i], tuple, packed_tuple, unpack_info,
-                       n_null_fields);
+    tuple = pack_field(field, &m_pack_info[i], tuple, packed_tuple, pack_buffer,
+                       unpack_info, n_null_fields);
 
     // Restore field->ptr and field->null_ptr
     field->move_field(tbl->record[0] + field_offset,
                       maybe_null ? tbl->record[0] + null_offset : nullptr,
                       field->null_bit);
   }
-
-  m_pack_buffer = nullptr;
 
   if (unpack_info) {
     const size_t len = unpack_info->get_current_pos();
@@ -730,7 +727,8 @@ uint Rdb_key_def::pack_hidden_pk(const longlong &hidden_pk_id,
 */
 
 void Rdb_key_def::pack_with_make_sort_key(
-    Rdb_field_packing *const fpi, Field *const field, uchar **dst,
+    Rdb_field_packing *const fpi, Field *const field,
+    uchar *const buf MY_ATTRIBUTE((__unused__)), uchar **dst,
     Rdb_pack_field_context *const pack_ctx MY_ATTRIBUTE((__unused__))) const {
   DBUG_ASSERT(fpi != nullptr);
   DBUG_ASSERT(field != nullptr);
@@ -1545,11 +1543,10 @@ void Rdb_key_def::pack_variable_format(
 */
 
 void Rdb_key_def::pack_with_varchar_encoding(
-    Rdb_field_packing *const fpi, Field *const field, uchar **dst,
+    Rdb_field_packing *const fpi, Field *const field, uchar *buf, uchar **dst,
     Rdb_pack_field_context *const pack_ctx MY_ATTRIBUTE((__unused__))) const {
   const CHARSET_INFO *const charset = field->charset();
   Field_varstring *const field_var = (Field_varstring *)field;
-  uchar *buf = m_pack_buffer;
 
   const size_t value_length = (field_var->length_bytes == 1)
                                   ? (uint)*field->ptr
@@ -1657,12 +1654,11 @@ static const int RDB_TRIMMED_CHARS_OFFSET = 8;
 */
 
 void Rdb_key_def::pack_with_varchar_space_pad(
-    Rdb_field_packing *const fpi, Field *const field, uchar **dst,
+    Rdb_field_packing *const fpi, Field *const field, uchar *buf, uchar **dst,
     Rdb_pack_field_context *const pack_ctx) const {
   Rdb_string_writer *const unpack_info = pack_ctx->writer;
   const CHARSET_INFO *const charset = field->charset();
   const auto field_var = static_cast<Field_varstring *>(field);
-  uchar *buf = m_pack_buffer;
 
   const size_t value_length = (field_var->length_bytes == 1)
                                   ? (uint)*field->ptr
