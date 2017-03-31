@@ -1044,43 +1044,6 @@
    ...
 }
 
-{
-   RocksDB column families are never freed, so ThreadStatus maintains them
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   ...
-   fun:_ZN7rocksdb19ThreadStatusUpdater19NewColumnFamilyInfoEPKvRKSsS2_S4_
-   ...
-}
-
-{
-   RocksDB column families are never freed, so ThreadStatus maintains them
-   Memcheck:Leak
-   ...
-   fun:_Z41__static_initialization_and_destruction_0ii
-   fun:_GLOBAL__sub_I__ZN7rocksdb24kDefaultColumnFamilyNameE
-   fun:__libc_csu_init
-   ...
-}
-
-{
-   RocksDB column families are never freed, so ThreadStatus maintains them
-   Memcheck:Leak
-   ...
-   fun:_ZN7myrocksL17rocksdb_init_funcEPv
-   fun:_Z24ha_initialize_handlertonP13st_plugin_int
-   ...
-}
-
-{
-   RocksDB column families are never freed, so ThreadStatus maintains them
-   Memcheck:Leak
-   ...
-   fun:_ZN7myrocks14Rdb_cf_manager16get_or_create_cfEPN7rocksdb2DBEPKcRKSsS5_Pb
-   fun:_ZNK7myrocks10ha_rocksdb10create_cfsEPK5TABLEPNS_11Rdb_tbl_defEPSt5arrayINS0_15key_def_cf_infoELm65EE
-   ...
-}
-
 #
 # BoringSSL suppressions
 #
