@@ -2910,7 +2910,7 @@ connected:
     Log_event *ev= NULL;
     Log_event_type type= UNKNOWN_EVENT;
 
-    len= cli_safe_read(mysql);
+    len= cli_safe_read(mysql, NULL);
     if (len == packet_error)
     {
       uint mysql_error_number= mysql_errno(mysql);

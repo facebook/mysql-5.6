@@ -96,8 +96,6 @@ extern void query_cache_insert(const char *packet, ulong length,
 #include "mysql_com_server.h"
 #endif
 
-#define MAX_PACKET_LENGTH (256L*256L*256L-1)
-
 static my_bool net_write_buff(NET *, const uchar *, ulong);
 static uchar *compress_packet(NET *net, const uchar *packet, size_t *length);
 static void reset_packet_write_state(NET *net);

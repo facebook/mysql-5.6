@@ -135,6 +135,9 @@ CHARSET_INFO *default_client_charset_info = &my_charset_latin1;
 unsigned int mysql_server_last_errno;
 char mysql_server_last_error[MYSQL_ERRMSG_SIZE];
 
+/* forward declaration */
+static int read_one_row(MYSQL *mysql,uint fields,MYSQL_ROW row, ulong *lengths);
+
 /**
   Convert the connect timeout option to a timeout value for VIO
   functions (vio_socket_connect() and vio_io_wait()).
@@ -596,20 +599,82 @@ err:
 #endif
 
 /* Helper for cli_safe_read and cli_safe_read_nonblocking */
-static ulong cli_safe_read_complete(MYSQL *mysql, ulong len);
-net_async_status cli_safe_read_nonblocking(MYSQL *mysql, ulong* res);
+static ulong cli_safe_read_complete(MYSQL *mysql, ulong len,
+                                    my_bool parse_ok, my_bool *is_data_packet);
+
+/**
+  Read Ok packet along with the server state change information.
+*/
+void read_ok_ex(MYSQL *mysql, ulong length)
+{
+  uchar *pos;
+
+  pos= mysql->net.read_pos + 1;
+
+  /* affected rows */
+  mysql->affected_rows= net_field_length_ll(&pos);
+  /* insert id */
+  mysql->insert_id= net_field_length_ll(&pos);
+
+  DBUG_PRINT("info",("affected_rows: %lu  insert_id: %lu",
+                     (ulong) mysql->affected_rows,
+                     (ulong) mysql->insert_id));
+
+  /* server status */
+  mysql->server_status= uint2korr(pos);
+  pos += 2;
+
+  if (protocol_41(mysql))
+  {
+    mysql->warning_count=uint2korr(pos);
+    pos += 2;
+  } else
+    mysql->warning_count= 0;                    /* MySQL 4.0 protocol */
+
+  DBUG_PRINT("info",("status: %u  warning_count: %u",
+                     mysql->server_status, mysql->warning_count));
+
+  if (mysql->server_capabilities & CLIENT_SESSION_TRACK)
+  {
+    size_t info_len= net_field_length_ll(&pos); /* info string */
+    mysql->info= info_len ? (char*) pos : NULL;
+    pos+=info_len;
+    if (mysql->server_status & SERVER_SESSION_STATE_CHANGED)
+    {
+      size_t gtid_len= net_field_length_ll(&pos); /* gtid string */
+      mysql->recv_gtid=(char*) pos;
+      pos += gtid_len;
+    }
+  }
+  else if (pos < mysql->net.read_pos+length && net_field_length(&pos))
+    mysql->info=(char*) pos;
+  else
+    mysql->info=NULL;
+
+  DBUG_PRINT("info",("info: %s  gtid: %s",
+         mysql->info, mysql->recv_gtid));
+  return;
+}
+
 
 /**
   Read a packet from server. Give error message if socket was down
   or packet is an error message
-
-  @retval  packet_error    An error occurred during reading.
-                           Error message is set.
-  @retval  
+  @param[IN]    mysql           connection handle
+  @param[IN]    parse_ok        if set to TRUE then parse OK packet
+                                if it is received
+  @param[OUT]   is_data_packet
+                                if set to TRUE then packet received is
+                                a "data packet", that is not OK or ERR
+                                packet or EOF in case of old servers
+  @retval  The length of the packet that was read or packet_error in
+           case of error. In case of error its description is stored
+            in mysql handle.
 */
 
 ulong
-cli_safe_read(MYSQL *mysql)
+cli_safe_read_with_ok(MYSQL *mysql, my_bool parse_ok,
+                      my_bool *is_data_packet)
 {
   NET *net= &mysql->net;
   ulong len=0;
@@ -617,12 +682,12 @@ cli_safe_read(MYSQL *mysql)
   if (net->vio != 0)
     len=my_net_read(net);
 
-  return cli_safe_read_complete(mysql, len);
+  return cli_safe_read_complete(mysql, len, parse_ok, is_data_packet);
 }
 
-
 net_async_status
-cli_safe_read_nonblocking(MYSQL *mysql, ulong* res)
+cli_safe_read_with_ok_nonblocking(MYSQL *mysql, ulong* res, my_bool parse_ok,
+                                  my_bool *is_data_packet)
 {
   NET *net= &mysql->net;
   ulong len=0, complen=0;
@@ -653,7 +718,8 @@ cli_safe_read_nonblocking(MYSQL *mysql, ulong* res)
   }
 
   DBUG_PRINT("info", ("total nb read: %lu", net->async_multipacket_read_total_len));
-  *res = cli_safe_read_complete(mysql, net->async_multipacket_read_total_len);
+  *res = cli_safe_read_complete(mysql, net->async_multipacket_read_total_len,
+                                parse_ok, is_data_packet);
 
   net->async_multipacket_read_started = FALSE;
   net->async_multipacket_read_saved_whereb = 0;
@@ -661,10 +727,25 @@ cli_safe_read_nonblocking(MYSQL *mysql, ulong* res)
   DBUG_RETURN(NET_ASYNC_COMPLETE);
 }
 
-static ulong cli_safe_read_complete(MYSQL *mysql, ulong len)
+/*
+ * Async MySQL Client does not have support for CLIENT_DEPRECATE_EOF
+ * implemented, so we are not setting it in the CLIENT_CAPABILITIES.
+ * This function checks if CLIENT_DEPRECATE_EOF was present in both
+ * server and client flags.
+ * */
+static my_bool client_deprecate_eof_enabled(MYSQL *mysql) {
+  return (mysql->server_capabilities & CLIENT_DEPRECATE_EOF) &&
+          (mysql->client_flag & CLIENT_DEPRECATE_EOF);
+}
+
+static ulong cli_safe_read_complete(MYSQL *mysql, ulong len,
+                                    my_bool parse_ok, my_bool *is_data_packet)
 {
   NET *net= &mysql->net;
   DBUG_ENTER(__func__);
+
+  if (is_data_packet)
+    *is_data_packet= FALSE;
 
   if (len == packet_error || len == 0)
   {
@@ -731,8 +812,80 @@ static ulong cli_safe_read_complete(MYSQL *mysql, ulong len)
                         net->last_error));
     DBUG_RETURN(packet_error);
   }
+  else
+  {
+    /* if it is OK packet irrespective of new/old server */
+    if (net->read_pos[0] == 0)
+    {
+      if (parse_ok)
+      {
+        read_ok_ex(mysql, len);
+        DBUG_RETURN(len);
+      }
+    }
+    /*
+      Now we have a data packet, unless it is OK packet starting with
+      0xFE - we detect that case below.
+    */
+    if (is_data_packet)
+      *is_data_packet= TRUE;
+    /*
+       For a packet starting with 0xFE detect if it is OK packet or a
+       huge data packet. Note that old servers do not send OK packets
+       starting with 0xFE.
+    */
+    if (client_deprecate_eof_enabled(mysql) &&
+        (net->read_pos[0] == 254))
+    {
+      /* detect huge data packet */
+      if (len > MAX_PACKET_LENGTH)
+        DBUG_RETURN(len);
+      /* otherwise we have OK packet starting with 0xFE */
+      if (is_data_packet)
+        *is_data_packet= FALSE;
+      /* parse it if requested */
+      if (parse_ok)
+        read_ok_ex(mysql, len);
+      DBUG_RETURN(len);
+    }
+    /* for old client detect EOF packet */
+    if (!client_deprecate_eof_enabled(mysql) &&
+        (net->read_pos[0] == 254) && (len < 8))
+    {
+      if (is_data_packet)
+        *is_data_packet= FALSE;
+    }
+  }
   DBUG_RETURN(len);
 }
+
+
+/**
+  Read a packet from server. Give error message if connection was broken or
+  ERR packet was received. Detect if the packet received was an OK, ERR or
+  something else (a "data packet").
+
+  @param[IN]  mysql           connection handle
+  @param[OUT] is_data_packet
+                              if set to TRUE then the packet received
+                              was a "data packet".
+
+  @retval The length of the packet that was read or packet_error in case of
+          error. In case of error its description is stored in mysql handle.
+*/
+ulong cli_safe_read(MYSQL *mysql, my_bool *is_data_packet)
+{
+  return cli_safe_read_with_ok(mysql, 0, is_data_packet);
+}
+
+
+net_async_status
+cli_safe_read_nonblocking(MYSQL *mysql, ulong* res,
+                          my_bool *is_data_packet)
+{
+  return cli_safe_read_with_ok_nonblocking(mysql, res, 0, is_data_packet);
+}
+
 
 void free_rows(MYSQL_DATA *cur)
 {
@@ -822,8 +975,8 @@ cli_advanced_command(MYSQL *mysql, enum enum_server_command command,
   }
   result=0;
   if (!skip_check)
-    result= ((mysql->packet_length=cli_safe_read(mysql)) == packet_error ?
-	     1 : 0);
+    result= ((mysql->packet_length=cli_safe_read_with_ok(mysql, 1, NULL)) ==
+            packet_error ? 1 : 0);
 end:
   DBUG_PRINT("exit",("result: %d", result));
   DBUG_RETURN(result);
@@ -907,7 +1060,8 @@ cli_advanced_command_nonblocking(MYSQL *mysql, enum enum_server_command command,
 
   if (net->async_send_command_status == NET_ASYNC_SEND_COMMAND_READ_STATUS) {
     ulong pkt_len;
-    net_async_status status = cli_safe_read_nonblocking(mysql, &pkt_len);
+    net_async_status status = cli_safe_read_with_ok_nonblocking(mysql,
+                              &pkt_len, 1, NULL);
     if (status == NET_ASYNC_NOT_READY) {
       DBUG_RETURN(NET_ASYNC_NOT_READY);
     }
@@ -948,12 +1102,13 @@ void free_old_query(MYSQL *mysql)
 my_bool flush_one_result(MYSQL *mysql)
 {
   ulong packet_length;
+  my_bool is_data_packet;
 
   DBUG_ASSERT(mysql->status != MYSQL_STATUS_READY);
 
   do
   {
-    packet_length= cli_safe_read(mysql);
+    packet_length= cli_safe_read(mysql, &is_data_packet);
     /*
       There is an error reading from the connection,
       or (sic!) there were no error and no
@@ -966,16 +1121,22 @@ my_bool flush_one_result(MYSQL *mysql)
     if (packet_length == packet_error)
       return TRUE;
   }
-  while (packet_length > 8 || mysql->net.read_pos[0] != 254);
+  while (mysql->net.read_pos[0] == 0 || is_data_packet);
 
-  /* Analyze EOF packet of the result set. */
+  /* Analyse final OK packet (EOF packet if it is old client) */
 
   if (protocol_41(mysql))
   {
     char *pos= (char*) mysql->net.read_pos + 1;
-    mysql->warning_count=uint2korr(pos);
-    pos+=2;
-    mysql->server_status=uint2korr(pos);
+    if (client_deprecate_eof_enabled(mysql) &&
+        !is_data_packet)
+      read_ok_ex(mysql, packet_length);
+    else
+    {
+      mysql->warning_count= uint2korr(pos);
+      pos+=2;
+      mysql->server_status=uint2korr(pos);
+    }
     pos+=2;
   }
   return FALSE;
@@ -992,7 +1153,8 @@ my_bool flush_one_result(MYSQL *mysql)
 
 my_bool opt_flush_ok_packet(MYSQL *mysql, my_bool *is_ok_packet)
 {
-  ulong packet_length= cli_safe_read(mysql);
+  my_bool is_data_packet;
+  ulong packet_length= cli_safe_read(mysql, &is_data_packet);
 
   if (packet_length == packet_error)
     return TRUE;
@@ -1000,32 +1162,15 @@ my_bool opt_flush_ok_packet(MYSQL *mysql, my_bool *is_ok_packet)
   /* cli_safe_read always reads a non-empty packet. */
   DBUG_ASSERT(packet_length);
 
-  *is_ok_packet= mysql->net.read_pos[0] == 0;
+  *is_ok_packet= ((mysql->net.read_pos[0] == 0) ||
+                  (client_deprecate_eof_enabled(mysql) &&
+                   mysql->net.read_pos[0] == 254 &&
+                   packet_length < MAX_PACKET_LENGTH));
   if (*is_ok_packet)
   {
-    uchar *pos= mysql->net.read_pos + 1;
-
-    net_field_length_ll(&pos); /* affected rows */
-    net_field_length_ll(&pos); /* insert id */
-
-    mysql->server_status=uint2korr(pos);
-    pos+=2;
-
-    if (protocol_41(mysql))
-    {
-      mysql->warning_count=uint2korr(pos);
-      pos+=2;
-    }
-
-    if (mysql->server_capabilities & CLIENT_SESSION_TRACK)
-    {
-      pos += net_field_length_ll(&pos); /* info string */
-      if (mysql->server_status & SERVER_SESSION_STATE_CHANGED)
-      {
-        pos += net_field_length_ll(&pos); /* gtid string */
-      }
-    }
+    read_ok_ex(mysql, packet_length);
   }
+
   return FALSE;
 }
 
@@ -1066,8 +1211,21 @@ static void cli_flush_use_result(MYSQL *mysql, my_bool flush_all_results)
       with EOF packet, and result set data, again terminated with
       EOF packet. Read and flush them.
     */
-    if (flush_one_result(mysql) || flush_one_result(mysql))
-      DBUG_VOID_RETURN;                         /* An error occurred. */
+    if (!client_deprecate_eof_enabled(mysql))
+    {
+      if (flush_one_result(mysql))
+        DBUG_VOID_RETURN;                         /* An error occurred. */
+    }
+    else
+    {
+      if ((mysql->fields= cli_read_metadata(mysql,
+                       mysql->net.read_pos[0], protocol_41(mysql) ? 7:5)))
+        free_root(&mysql->field_alloc,MYF(0));
+      else
+        DBUG_VOID_RETURN;
+    }
+    if (flush_one_result(mysql))
+      DBUG_VOID_RETURN;
   }
 
   DBUG_VOID_RETURN;
@@ -1076,11 +1234,13 @@ static void cli_flush_use_result(MYSQL *mysql, my_bool flush_all_results)
 static net_async_status
 cli_flush_use_result_nonblocking(MYSQL *mysql)
 {
+  my_bool is_data_packet;
   DBUG_ENTER(__func__);
   while(1)
   {
     ulong pkt_len;
-    if (cli_safe_read_nonblocking(mysql, &pkt_len) == NET_ASYNC_NOT_READY)
+    if (cli_safe_read_nonblocking(mysql, &pkt_len,
+                                  &is_data_packet) == NET_ASYNC_NOT_READY)
     {
       DBUG_RETURN(NET_ASYNC_NOT_READY);
     }
@@ -1631,126 +1791,221 @@ static void cli_fetch_lengths(ulong *to, MYSQL_ROW column,
   }
 }
 
+/**
+  Read field metadata from field descriptor and store it in MYSQL_FIELD struct.
+  String values in MYSQL_FIELD are allocated in a given allocator root.
+
+  @param mysql          connection handle
+  @param alloc          memory allocator root
+  @param default_value  flag telling if default values should be read from
+                        descriptor
+  @param server_capabilities  protocol capability flags which determine format
+                              of the descriptor
+  @param row            field descriptor
+  @param field          address of MYSQL_FIELD structure to store metadata in.
+
+  @returns 0 on success.
+*/
+
+int
+unpack_field(MYSQL *mysql, MEM_ROOT *alloc, my_bool default_value,
+             uint server_capabilities, MYSQL_ROWS *row, MYSQL_FIELD *field)
+{
+  ulong lengths[9];                      /* Max length of each field */
+  DBUG_ENTER("unpack_field");
+
+  if (!field)
+  {
+    set_mysql_error(mysql, CR_UNKNOWN_ERROR, unknown_sqlstate);
+    DBUG_RETURN(1);
+  }
+
+  memset(field, 0, sizeof(MYSQL_FIELD));
+
+  if (server_capabilities & CLIENT_PROTOCOL_41)
+  {
+    uchar *pos;
+    /* fields count may be wrong */
+    cli_fetch_lengths(&lengths[0], row->data, default_value ? 8 : 7);
+    field->catalog=   strmake_root(alloc,(char*) row->data[0], lengths[0]);
+    field->db=        strmake_root(alloc,(char*) row->data[1], lengths[1]);
+    field->table=     strmake_root(alloc,(char*) row->data[2], lengths[2]);
+    field->org_table= strmake_root(alloc,(char*) row->data[3], lengths[3]);
+    field->name=      strmake_root(alloc,(char*) row->data[4], lengths[4]);
+    field->org_name=  strmake_root(alloc,(char*) row->data[5], lengths[5]);
+
+    field->catalog_length=  lengths[0];
+    field->db_length=   lengths[1];
+    field->table_length=  lengths[2];
+    field->org_table_length=  lengths[3];
+    field->name_length= lengths[4];
+    field->org_name_length= lengths[5];
+
+    /* Unpack fixed length parts */
+    if (lengths[6] != 12)
+    {
+      /* malformed packet. signal an error. */
+      set_mysql_error(mysql, CR_MALFORMED_PACKET, unknown_sqlstate);
+      DBUG_RETURN(1);
+    }
+
+    pos= (uchar*) row->data[6];
+    field->charsetnr= uint2korr(pos);
+    field->length=  (uint) uint4korr(pos+2);
+    field->type=  (enum enum_field_types) pos[6];
+    field->flags= uint2korr(pos+7);
+    field->decimals=  (uint) pos[9];
+
+    if (IS_NUM(field->type))
+      field->flags|= NUM_FLAG;
+    if (default_value && row->data[7])
+    {
+      field->def=strmake_root(alloc,(char*) row->data[7], lengths[7]);
+      field->def_length= lengths[7];
+    }
+    else
+      field->def=0;
+    field->max_length= 0;
+  }
+#ifndef DELETE_SUPPORT_OF_4_0_PROTOCOL
+  else
+  {
+    cli_fetch_lengths(&lengths[0], row->data, default_value ? 6 : 5);
+    field->org_table= field->table=  strdup_root(alloc,(char*) row->data[0]);
+    field->name=   strdup_root(alloc,(char*) row->data[1]);
+    field->length= (uint) uint3korr((uchar*) row->data[2]);
+    field->type=   (enum enum_field_types) (uchar) row->data[3][0];
+
+    field->catalog=(char*)  "";
+    field->db=     (char*)  "";
+    field->catalog_length= 0;
+    field->db_length= 0;
+    field->org_table_length=  field->table_length=  lengths[0];
+    field->name_length= lengths[1];
+
+    if (server_capabilities & CLIENT_LONG_FLAG)
+    {
+      field->flags=   uint2korr((uchar*) row->data[4]);
+      field->decimals=(uint) (uchar) row->data[4][2];
+    }
+    else
+    {
+      field->flags=   (uint) (uchar) row->data[4][0];
+      field->decimals=(uint) (uchar) row->data[4][1];
+    }
+    if (IS_NUM(field->type))
+      field->flags|= NUM_FLAG;
+    if (default_value && row->data[5])
+    {
+      field->def=strdup_root(alloc,(char*) row->data[5]);
+      field->def_length= lengths[5];
+    }
+    else
+      field->def=0;
+    field->max_length= 0;
+  }
+#endif /* DELETE_SUPPORT_OF_4_0_PROTOCOL */
+  DBUG_RETURN(0);
+}
+
 /***************************************************************************
   Change field rows to field structs
 ***************************************************************************/
 
 MYSQL_FIELD *
-unpack_fields(MYSQL *mysql, MYSQL_DATA *data,MEM_ROOT *alloc,uint fields,
-	      my_bool default_value, uint server_capabilities)
+unpack_fields(MYSQL *mysql, MYSQL_ROWS *data,MEM_ROOT *alloc,uint fields,
+        my_bool default_value, uint server_capabilities)
 {
-  MYSQL_ROWS	*row;
-  MYSQL_FIELD	*field,*result;
-  ulong lengths[9];				/* Max of fields */
+  MYSQL_ROWS   *row;
+  MYSQL_FIELD  *field,*result;
   DBUG_ENTER("unpack_fields");
 
   field= result= (MYSQL_FIELD*) alloc_root(alloc,
-					   (uint) sizeof(*field)*fields);
+                          (uint) sizeof(*field)*fields);
   if (!result)
   {
-    free_rows(data);				/* Free old data */
     set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
     DBUG_RETURN(0);
   }
   memset(field, 0, sizeof(MYSQL_FIELD)*fields);
-  if (server_capabilities & CLIENT_PROTOCOL_41)
+  for (row=data; row ; row = row->next,field++)
   {
-    /* server is 4.1, and returns the new field result format */
-    for (row=data->data; row ; row = row->next,field++)
+    /* fields count may be wrong */
+    DBUG_ASSERT((uint) (field - result) < fields);
+    if (unpack_field(mysql, alloc, default_value, server_capabilities,
+                     row, field))
     {
-      uchar *pos;
-      /* fields count may be wrong */
-      DBUG_ASSERT((uint) (field - result) < fields);
-      cli_fetch_lengths(&lengths[0], row->data, default_value ? 8 : 7);
-      field->catalog=   strmake_root(alloc,(char*) row->data[0], lengths[0]);
-      field->db=        strmake_root(alloc,(char*) row->data[1], lengths[1]);
-      field->table=     strmake_root(alloc,(char*) row->data[2], lengths[2]);
-      field->org_table= strmake_root(alloc,(char*) row->data[3], lengths[3]);
-      field->name=      strmake_root(alloc,(char*) row->data[4], lengths[4]);
-      field->org_name=  strmake_root(alloc,(char*) row->data[5], lengths[5]);
-
-      field->catalog_length=	lengths[0];
-      field->db_length=		lengths[1];
-      field->table_length=	lengths[2];
-      field->org_table_length=	lengths[3];
-      field->name_length=	lengths[4];
-      field->org_name_length=	lengths[5];
-
-      /* Unpack fixed length parts */
-      if (lengths[6] != 12)
-      {
-        /* malformed packet. signal an error. */
-        free_rows(data);			/* Free old data */
-        set_mysql_error(mysql, CR_MALFORMED_PACKET, unknown_sqlstate);
-        DBUG_RETURN(0);
-      }
-
-      pos= (uchar*) row->data[6];
-      field->charsetnr= uint2korr(pos);
-      field->length=	(uint) uint4korr(pos+2);
-      field->type=	(enum enum_field_types) pos[6];
-      field->flags=	uint2korr(pos+7);
-      field->decimals=  (uint) pos[9];
-
-      if (IS_NUM(field->type))
-        field->flags|= NUM_FLAG;
-      if (default_value && row->data[7])
-      {
-        field->def=strmake_root(alloc,(char*) row->data[7], lengths[7]);
-	field->def_length= lengths[7];
-      }
-      else
-        field->def=0;
-      field->max_length= 0;
+      DBUG_RETURN(NULL);
     }
   }
-#ifndef DELETE_SUPPORT_OF_4_0_PROTOCOL
-  else
-  {
-    /* old protocol, for backward compatibility */
-    for (row=data->data; row ; row = row->next,field++)
-    {
-      cli_fetch_lengths(&lengths[0], row->data, default_value ? 6 : 5);
-      field->org_table= field->table=  strdup_root(alloc,(char*) row->data[0]);
-      field->name=   strdup_root(alloc,(char*) row->data[1]);
-      field->length= (uint) uint3korr(row->data[2]);
-      field->type=   (enum enum_field_types) (uchar) row->data[3][0];
-
-      field->catalog=(char*)  "";
-      field->db=     (char*)  "";
-      field->catalog_length= 0;
-      field->db_length= 0;
-      field->org_table_length=	field->table_length=	lengths[0];
-      field->name_length=	lengths[1];
-
-      if (server_capabilities & CLIENT_LONG_FLAG)
-      {
-        field->flags=   uint2korr(row->data[4]);
-        field->decimals=(uint) (uchar) row->data[4][2];
-      }
-      else
-      {
-        field->flags=   (uint) (uchar) row->data[4][0];
-        field->decimals=(uint) (uchar) row->data[4][1];
-      }
-      if (IS_NUM(field->type))
-        field->flags|= NUM_FLAG;
-      if (default_value && row->data[5])
-      {
-        field->def=strdup_root(alloc,(char*) row->data[5]);
-	field->def_length= lengths[5];
-      }
-      else
-        field->def=0;
-      field->max_length= 0;
-    }
-  }
-#endif /* DELETE_SUPPORT_OF_4_0_PROTOCOL */
-  free_rows(data);				/* Free old data */
   DBUG_RETURN(result);
 }
 
-/* Read all rows (fields or data) from server */
+/**
+  Read metadata resultset from server
+
+  @param[IN]    mysql           connection handle
+  @param[IN]    field_count     total number of fields
+  @param[IN]    field           number of columns in single field descriptor
+
+  @retval an array of field rows
+
+*/
+MYSQL_FIELD *cli_read_metadata(MYSQL *mysql, ulong field_count,
+                              unsigned int field)
+{
+  ulong *len;
+  uint  f;
+  uchar *pos;
+  MYSQL_FIELD *fields, *result;
+  MYSQL_ROWS data;
+  NET *net = &mysql->net;
+
+  DBUG_ENTER("cli_read_metadata");
+
+  len= (ulong*) alloc_root(&mysql->field_alloc, sizeof(ulong)*field);
+
+  fields= result= (MYSQL_FIELD*) alloc_root(&mysql->field_alloc,
+                          (uint) sizeof(MYSQL_FIELD)*field_count);
+  if (!result)
+  {
+    set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
+    DBUG_RETURN(0);
+  }
+  memset(fields, 0, sizeof(MYSQL_FIELD)*field_count);
+
+  data.data= (MYSQL_ROW) alloc_root(&mysql->field_alloc,
+                          sizeof(char *)*(field+1));
+  memset(data.data, 0, sizeof(char *)*(field+1));
+
+  /*
+    In this below loop we read each column info as 1 single row
+    and save it in mysql->fields array
+  */
+  for (f=0 ; f < field_count ; ++f)
+  {
+    if(read_one_row(mysql, field, data.data, len) == -1)
+      DBUG_RETURN(NULL);
+    if(unpack_field(mysql, &mysql->field_alloc, 0,
+                 mysql->server_capabilities, &data, fields++))
+      DBUG_RETURN(NULL);
+  }
+  /* Read EOF packet in case of old client */
+  if (!client_deprecate_eof_enabled(mysql))
+  {
+    if (packet_error == cli_safe_read(mysql, NULL))
+      DBUG_RETURN(0);
+    pos= net->read_pos;
+    if (*pos == 254)
+    {
+      mysql->warning_count= uint2korr(pos + 1);
+      mysql->server_status= uint2korr(pos + 3);
+    }
+  }
+  DBUG_RETURN(result);
+}
+
+/* Read all rows (data) from server */
 
 MYSQL_DATA *cli_read_rows(MYSQL *mysql,MYSQL_FIELD *mysql_fields,
 			  unsigned int fields)
@@ -1763,9 +2018,10 @@ MYSQL_DATA *cli_read_rows(MYSQL *mysql,MYSQL_FIELD *mysql_fields,
   MYSQL_DATA *result;
   MYSQL_ROWS **prev_ptr,*cur;
   NET *net = &mysql->net;
+  my_bool is_data_packet;
   DBUG_ENTER("cli_read_rows");
 
-  if ((pkt_len= cli_safe_read(mysql)) == packet_error)
+  if ((pkt_len= cli_safe_read(mysql, &is_data_packet)) == packet_error)
     DBUG_RETURN(0);
   if (!(result=(MYSQL_DATA*) my_malloc(sizeof(MYSQL_DATA),
 				       MYF(MY_WME | MY_ZEROFILL))))
@@ -1781,13 +2037,10 @@ MYSQL_DATA *cli_read_rows(MYSQL *mysql,MYSQL_FIELD *mysql_fields,
 
   /*
     The last EOF packet is either a single 254 character or (in MySQL 4.1)
-    254 followed by 1-7 status bytes.
-
-    This doesn't conflict with normal usage of 254 which stands for a
-    string where the length of the string is 8 bytes. (see net_field_length())
+    254 followed by 1-7 status bytes or an OK packet starting with 0xFE
   */
 
-  while (*(cp=net->read_pos) != 254 || pkt_len >= 8)
+  while (*(cp=net->read_pos) == 0 || is_data_packet)
   {
     result->rows++;
     if (!(cur= (MYSQL_ROWS*) alloc_root(&result->alloc,
@@ -1830,19 +2083,26 @@ MYSQL_DATA *cli_read_rows(MYSQL *mysql,MYSQL_FIELD *mysql_fields,
       }
     }
     cur->data[field]=to;			/* End of last field */
-    if ((pkt_len=cli_safe_read(mysql)) == packet_error)
+    if ((pkt_len=cli_safe_read(mysql, &is_data_packet)) == packet_error)
     {
       free_rows(result);
       DBUG_RETURN(0);
     }
   }
   *prev_ptr=0;					/* last pointer is null */
-  if (pkt_len > 1)				/* MySQL 4.1 protocol */
+  /* read EOF packet or OK packet if it is new client */
+  if (pkt_len > 1)
   {
-    mysql->warning_count= uint2korr(cp+1);
-    mysql->server_status= uint2korr(cp+3);
+    if (client_deprecate_eof_enabled(mysql) &&
+        !is_data_packet)
+      read_ok_ex(mysql, pkt_len);
+    else
+    {
+      mysql->warning_count= uint2korr(cp + 1);
+      mysql->server_status= uint2korr(cp + 3);
+    }
     DBUG_PRINT("info",("status: %u  warning_count:  %u",
-		       mysql->server_status, mysql->warning_count));
+		                  mysql->server_status, mysql->warning_count));
   }
   DBUG_PRINT("exit", ("Got %lu rows", (ulong) result->rows));
   DBUG_RETURN(result);
@@ -1859,10 +2119,12 @@ cli_read_rows_nonblocking(MYSQL *mysql,
   char	*to, *end_to;
   MYSQL_ROWS *cur;
   NET *net = &mysql->net;
+  my_bool is_data_packet;
   DBUG_ENTER(__func__);
 
   *result_out = NULL;
-  if (cli_safe_read_nonblocking(mysql, &pkt_len) == NET_ASYNC_NOT_READY) {
+  if (cli_safe_read_nonblocking(mysql, &pkt_len,
+                                &is_data_packet) == NET_ASYNC_NOT_READY) {
     DBUG_RETURN(NET_ASYNC_NOT_READY);
   }
 
@@ -1945,7 +2207,8 @@ cli_read_rows_nonblocking(MYSQL *mysql,
       }
     }
     cur->data[field]=to;			/* End of last field */
-    if (cli_safe_read_nonblocking(mysql, &pkt_len) == NET_ASYNC_NOT_READY) {
+    if (cli_safe_read_nonblocking(mysql, &pkt_len,
+                                  &is_data_packet) == NET_ASYNC_NOT_READY) {
       DBUG_RETURN(NET_ASYNC_NOT_READY);
     }
     mysql->packet_length = pkt_len;
@@ -1974,19 +2237,24 @@ cli_read_rows_nonblocking(MYSQL *mysql,
 
 static int
 read_one_row_complete(MYSQL *mysql, ulong pkt_len, uint fields,
-                      MYSQL_ROW row, ulong *lengths)
+                      MYSQL_ROW row, ulong *lengths, my_bool is_data_packet)
 {
   uint field;
   ulong len;
   uchar *pos, *prev_pos, *end_pos;
   NET *net= &mysql->net;
 
-  if (pkt_len <= 8 && net->read_pos[0] == 254)
+  if (net->read_pos[0] != 0x00 && !is_data_packet)
   {
     if (pkt_len > 1)				/* MySQL 4.1 protocol */
     {
-      mysql->warning_count= uint2korr(net->read_pos+1);
-      mysql->server_status= uint2korr(net->read_pos+3);
+      if (client_deprecate_eof_enabled(mysql))
+        read_ok_ex(mysql, pkt_len);
+      else
+      {
+        mysql->warning_count= uint2korr(net->read_pos + 1);
+        mysql->server_status= uint2korr(net->read_pos+3);
+      }
     }
     return 1;				/* End of data */
   }
@@ -2030,11 +2298,13 @@ static int
 read_one_row(MYSQL *mysql,uint fields,MYSQL_ROW row, ulong *lengths)
 {
   ulong pkt_len;
+  my_bool is_data_packet;
 
-  if ((pkt_len=cli_safe_read(mysql)) == packet_error)
+  if ((pkt_len=cli_safe_read(mysql, &is_data_packet)) == packet_error)
     return -1;
 
-  return read_one_row_complete(mysql, pkt_len, fields, row, lengths);
+  return read_one_row_complete(mysql, pkt_len, fields, row, lengths,
+                              is_data_packet);
 }
 
 static net_async_status
@@ -2043,8 +2313,9 @@ read_one_row_nonblocking(MYSQL *mysql,uint fields,MYSQL_ROW row, ulong *lengths,
 {
   ulong pkt_len;
   net_async_status status;
+  my_bool is_data_packet;
 
-  status = cli_safe_read_nonblocking(mysql, &pkt_len);
+  status = cli_safe_read_nonblocking(mysql, &pkt_len, &is_data_packet);
   if (status == NET_ASYNC_NOT_READY)
     return NET_ASYNC_NOT_READY;
 
@@ -2056,7 +2327,8 @@ read_one_row_nonblocking(MYSQL *mysql,uint fields,MYSQL_ROW row, ulong *lengths,
   }
   DBUG_DUMP("read_one_row_nonblocking", (uchar*)mysql->net.read_pos, pkt_len);
 
-  *res = read_one_row_complete(mysql, pkt_len, fields, row, lengths);
+  *res = read_one_row_complete(mysql, pkt_len, fields, row, lengths,
+                              is_data_packet);
   return NET_ASYNC_COMPLETE;
 }
 
@@ -2647,12 +2919,12 @@ cli_read_query_result_nonblocking(MYSQL *mysql, my_bool *ret);
 
 int cli_read_change_user_result(MYSQL *mysql)
 {
-  return cli_safe_read(mysql);
+  return cli_safe_read(mysql, NULL);
 }
 
 net_async_status cli_read_change_user_result_nonblocking(MYSQL *mysql, ulong *out)
 {
-  return cli_safe_read_nonblocking(mysql, out);
+  return cli_safe_read_nonblocking(mysql, out, NULL);
 }
 
 static MYSQL_METHODS client_methods=
@@ -3216,6 +3488,11 @@ static void set_client_flag_from_options(MYSQL* mysql, MCPVIO_EXT *mpvio){
   mysql->client_flag= mysql->client_flag &
                       (~(CLIENT_COMPRESS | CLIENT_SSL | CLIENT_PROTOCOL_41)
                       | mysql->server_capabilities);
+
+  // Async MySQL Client does not have the CLIENT_DEPRECATE_EOF functionality
+  // supported. We will forcefully disable it.
+  if (mysql->connect_context && mysql->connect_context->non_blocking)
+    mysql->client_flag &= ~CLIENT_DEPRECATE_EOF;
 
 #ifndef HAVE_COMPRESS
   mysql->client_flag&= ~CLIENT_COMPRESS;
@@ -4263,7 +4540,7 @@ authsm_handle_second_authenticate_user(mysql_authsm_context *ctx)
   if (ctx->res != CR_OK_HANDSHAKE_COMPLETE)
   {
     /* Read what server thinks about out new auth message report */
-    if (cli_safe_read(mysql) == packet_error)
+    if (cli_safe_read(mysql, NULL) == packet_error)
     {
       if (mysql->net.last_errno == CR_SERVER_LOST)
         set_mysql_extended_error(mysql, CR_SERVER_LOST, unknown_sqlstate,
@@ -5048,12 +5325,13 @@ csm_read_greeting(mysql_csm_context *ctx)
   DBUG_ENTER(__func__);
 
   if (ctx->non_blocking) {
-    net_async_status status = cli_safe_read_nonblocking(mysql, &ctx->pkt_length);
+    net_async_status status = cli_safe_read_nonblocking(mysql,
+                                                        &ctx->pkt_length, NULL);
     if (status == NET_ASYNC_NOT_READY) {
       DBUG_RETURN(STATE_MACHINE_WOULD_BLOCK);
     }
   } else {
-    ctx->pkt_length=cli_safe_read(mysql);
+    ctx->pkt_length=cli_safe_read(mysql, NULL);
   }
 
   if (ctx->pkt_length == packet_error) {
@@ -5745,11 +6023,10 @@ static my_bool cli_read_query_result(MYSQL *mysql)
 {
   uchar *pos;
   ulong field_count;
-  MYSQL_DATA *fields;
   ulong length;
   DBUG_ENTER("cli_read_query_result");
 
-  if ((length = cli_safe_read(mysql)) == packet_error)
+  if ((length = cli_safe_read(mysql, NULL)) == packet_error)
     DBUG_RETURN(1);
   free_old_query(mysql);		/* Free old result */
 #ifdef MYSQL_CLIENT			/* Avoid warn of unused labels*/
@@ -5758,40 +6035,7 @@ get_info:
   pos=(uchar*) mysql->net.read_pos;
   if ((field_count= net_field_length(&pos)) == 0)
   {
-    mysql->affected_rows= net_field_length_ll(&pos);
-    mysql->insert_id=	  net_field_length_ll(&pos);
-    DBUG_PRINT("info",("affected_rows: %lu  insert_id: %lu",
-		       (ulong) mysql->affected_rows,
-		       (ulong) mysql->insert_id));
-    if (protocol_41(mysql))
-    {
-      mysql->server_status=uint2korr(pos); pos+=2;
-      mysql->warning_count=uint2korr(pos); pos+=2;
-    }
-    else if (mysql->server_capabilities & CLIENT_TRANSACTIONS)
-    {
-      /* MySQL 4.0 protocol */
-      mysql->server_status=uint2korr(pos); pos+=2;
-      mysql->warning_count= 0;
-    }
-    DBUG_PRINT("info",("status: %u  warning_count: %u",
-		       mysql->server_status, mysql->warning_count));
-    if (mysql->server_capabilities & CLIENT_SESSION_TRACK)
-    {
-      size_t info_len= net_field_length_ll(&pos); /* info string */
-      mysql->info= info_len ? (char*) pos : NULL;
-      pos+=info_len;
-      if (mysql->server_status & SERVER_SESSION_STATE_CHANGED)
-      {
-        size_t gtid_len= net_field_length_ll(&pos); /* gtid string */
-        mysql->recv_gtid=(char*) pos;
-        pos += gtid_len;
-      }
-    }
-    else if (pos < mysql->net.read_pos+length && net_field_length(&pos))
-      mysql->info=(char*) pos;
-    DBUG_PRINT("info",("info: %s  gtid: %s",
-		       mysql->info, mysql->recv_gtid));
+    read_ok_ex(mysql, length);
     DBUG_RETURN(0);
   }
 #ifdef MYSQL_CLIENT
@@ -5806,7 +6050,7 @@ get_info:
     }   
 
     error= handle_local_infile(mysql,(char*) pos);
-    if ((length= cli_safe_read(mysql)) == packet_error || error)
+    if ((length= cli_safe_read(mysql, NULL)) == packet_error || error)
       DBUG_RETURN(1);
     goto get_info;				/* Get info packet */
   }
@@ -5814,11 +6058,8 @@ get_info:
   if (!(mysql->server_status & SERVER_STATUS_AUTOCOMMIT))
     mysql->server_status|= SERVER_STATUS_IN_TRANS;
 
-  if (!(fields=cli_read_rows(mysql,(MYSQL_FIELD*)0, protocol_41(mysql) ? 7:5)))
-    DBUG_RETURN(1);
-  if (!(mysql->fields=unpack_fields(mysql, fields,&mysql->field_alloc,
-				    (uint) field_count,0,
-				    mysql->server_capabilities)))
+  if (!(mysql->fields=cli_read_metadata(mysql, field_count,
+                                        protocol_41(mysql) ? 7:5)))
     DBUG_RETURN(1);
   mysql->status= MYSQL_STATUS_GET_RESULT;
   mysql->field_count= (uint) field_count;
@@ -5840,7 +6081,7 @@ cli_read_query_result_nonblocking(MYSQL *mysql, my_bool *ret)
   }
 
   if (net->async_read_query_result_status == NET_ASYNC_READ_QUERY_RESULT_FIELD_COUNT) {
-    net_async_status status = cli_safe_read_nonblocking(mysql, &length);
+    net_async_status status = cli_safe_read_nonblocking(mysql, &length, NULL);
     if (status == NET_ASYNC_NOT_READY) {
       DBUG_RETURN(NET_ASYNC_NOT_READY);
     }
@@ -5857,40 +6098,7 @@ get_info:
     pos=(uchar*) mysql->net.read_pos;
     if ((field_count= net_field_length(&pos)) == 0)
     {
-      mysql->affected_rows= net_field_length_ll(&pos);
-      mysql->insert_id=	  net_field_length_ll(&pos);
-      DBUG_PRINT("info",("affected_rows: %lu  insert_id: %lu",
-                         (ulong) mysql->affected_rows,
-                         (ulong) mysql->insert_id));
-      if (protocol_41(mysql))
-      {
-        mysql->server_status=uint2korr(pos); pos+=2;
-        mysql->warning_count=uint2korr(pos); pos+=2;
-      }
-      else if (mysql->server_capabilities & CLIENT_TRANSACTIONS)
-      {
-        /* MySQL 4.0 protocol */
-        mysql->server_status=uint2korr(pos); pos+=2;
-        mysql->warning_count= 0;
-      }
-      DBUG_PRINT("info",("status: %u  warning_count: %u",
-                         mysql->server_status, mysql->warning_count));
-      if (mysql->server_capabilities & CLIENT_SESSION_TRACK)
-      {
-        size_t info_len= net_field_length_ll(&pos); /* info string */
-        mysql->info= info_len ? (char*) pos : NULL;
-        pos+=info_len;
-        if (mysql->server_status & SERVER_SESSION_STATE_CHANGED)
-        {
-          size_t gtid_len= net_field_length_ll(&pos); /* gtid string */
-          mysql->recv_gtid=(char*) pos;
-          pos += gtid_len;
-        }
-      }
-      else if (pos < mysql->net.read_pos+length && net_field_length(&pos))
-        mysql->info=(char*) pos;
-      DBUG_PRINT("info",("info: %s  gtid: %s",
-                 mysql->info, mysql->recv_gtid));
+      read_ok_ex(mysql, length);
       DBUG_PRINT("exit",("ok"));
       *ret = 0;
       DBUG_RETURN(NET_ASYNC_COMPLETE);
@@ -5909,7 +6117,7 @@ get_info:
       }
 
       error= handle_local_infile(mysql,(char*) pos);
-      if ((length= cli_safe_read(mysql)) == packet_error || error) {
+      if ((length= cli_safe_read(mysql, NULL)) == packet_error || error) {
         net->async_read_query_result_status = NET_ASYNC_READ_QUERY_RESULT_IDLE;
         *ret = 1;
         DBUG_RETURN(NET_ASYNC_COMPLETE);
@@ -5938,13 +6146,15 @@ get_info:
       DBUG_RETURN(NET_ASYNC_COMPLETE);
     }
 
-    if (!(mysql->fields=unpack_fields(mysql, fields,&mysql->field_alloc,
+    if (!(mysql->fields=unpack_fields(mysql, fields->data, &mysql->field_alloc,
                                       mysql->field_count,0,
                                       mysql->server_capabilities))) {
       net->async_read_query_result_status = NET_ASYNC_READ_QUERY_RESULT_IDLE;
       *ret = 1;
+      free_rows(fields);
       DBUG_RETURN(NET_ASYNC_COMPLETE);
     }
+    free_rows(fields);
   }
 
   mysql->status= MYSQL_STATUS_GET_RESULT;

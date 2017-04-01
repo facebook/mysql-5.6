@@ -527,7 +527,7 @@ mysql_real_connect_wrapper(MYSQL *mysql, const char *host,
                                             port, unix_socket, client_flag);
   else
     return mysql_real_connect(mysql, host, user, passwd, db, port,
-                              unix_socket, client_flag);
+                              unix_socket, client_flag | CLIENT_DEPRECATE_EOF);
 }
 static void
 mysql_free_result_wrapper(MYSQL_RES *result)
