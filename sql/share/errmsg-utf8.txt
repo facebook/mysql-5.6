@@ -7290,6 +7290,9 @@ ER_RDB_STATUS_GENERAL
 ER_RDB_STATUS_MSG
   eng "%s, Status error %d received from RocksDB: %s"
 
+ER_NET_OK_PACKET_TOO_LARGE
+  eng "OK packet too large"
+
 #
 #  End of 5.6 error messages.
 #
