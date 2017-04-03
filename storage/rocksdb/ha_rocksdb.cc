@@ -2916,23 +2916,52 @@ static bool rocksdb_show_snapshot_status(handlerton *const hton, THD *const thd,
 }
 
 /*
-  This is called for SHOW ENGINE ROCKSDB STATUS|LOGS|etc.
+  This is called for SHOW ENGINE ROCKSDB STATUS | LOGS | etc.
 
   For now, produce info about live files (which gives an imprecise idea about
-  what column families are there)
+  what column families are there).
 */
-
 static bool rocksdb_show_status(handlerton *const hton, THD *const thd,
                                 stat_print_fn *const stat_print,
                                 enum ha_stat_type stat_type) {
+  DBUG_ASSERT(hton != nullptr);
+  DBUG_ASSERT(thd != nullptr);
+  DBUG_ASSERT(stat_print != nullptr);
+
   bool res = false;
+  char buf[100] = {'\0'};
+
   if (stat_type == HA_ENGINE_STATUS) {
+    DBUG_ASSERT(rdb != nullptr);
+
     std::string str;
 
     /* Global DB Statistics */
     if (rocksdb_stats) {
-      res |= print_stats(thd, "STATISTICS", "rocksdb",
-                         rocksdb_stats->ToString(), stat_print);
+      str = rocksdb_stats->ToString();
+
+      uint64_t v = 0;
+
+      // Retrieve additional stalling related numbers from RocksDB and append
+      // them to the buffer meant for displaying detailed statistics. The intent
+      // here is to avoid adding another row to the query output because of
+      // just two numbers.
+      //
+      // NB! We're replacing hyphens with underscores in output to better match
+      // the existing naming convention.
+      if (rdb->GetIntProperty("rocksdb.is-write-stopped", &v)) {
+        snprintf(buf, sizeof(buf), "rocksdb.is_write_stopped COUNT : %lu\n", v);
+        str.append(buf);
+      }
+
+      if (rdb->GetIntProperty("rocksdb.actual-delayed-write-rate", &v)) {
+        snprintf(buf, sizeof(buf), "rocksdb.actual_delayed_write_rate "
+                                   "COUNT : %lu\n",
+                 v);
+        str.append(buf);
+      }
+
+      res |= print_stats(thd, "STATISTICS", "rocksdb", str, stat_print);
     }
 
     /* Per DB stats */
@@ -2950,11 +2979,14 @@ static bool rocksdb_show_status(handlerton *const hton, THD *const thd,
         does not matter, so is_automatic is ignored.
       */
       cfh = cf_manager.get_cf(cf_name.c_str(), "", nullptr, &is_automatic);
-      if (cfh == nullptr)
-        continue;
 
-      if (!rdb->GetProperty(cfh, "rocksdb.cfstats", &str))
+      if (cfh == nullptr) {
         continue;
+      }
+
+      if (!rdb->GetProperty(cfh, "rocksdb.cfstats", &str)) {
+        continue;
+      }
 
       res |= print_stats(thd, "CF_COMPACTION", cf_name, str, stat_print);
     }
@@ -2964,20 +2996,23 @@ static bool rocksdb_show_status(handlerton *const hton, THD *const thd,
     std::unordered_set<const rocksdb::Cache *> cache_set;
     size_t internal_cache_count = 0;
     size_t kDefaultInternalCacheSize = 8 * 1024 * 1024;
-    char buf[100];
 
     dbs.push_back(rdb);
     cache_set.insert(rocksdb_tbl_options.block_cache.get());
+
     for (const auto &cf_handle : cf_manager.get_all_cf()) {
       rocksdb::ColumnFamilyDescriptor cf_desc;
       cf_handle->GetDescriptor(&cf_desc);
       auto *const table_factory = cf_desc.options.table_factory.get();
+
       if (table_factory != nullptr) {
         std::string tf_name = table_factory->Name();
+
         if (tf_name.find("BlockBasedTable") != std::string::npos) {
           const rocksdb::BlockBasedTableOptions *const bbt_opt =
               reinterpret_cast<rocksdb::BlockBasedTableOptions *>(
                   table_factory->GetOptions());
+
           if (bbt_opt != nullptr) {
             if (bbt_opt->block_cache.get() != nullptr) {
               cache_set.insert(bbt_opt->block_cache.get());
@@ -2994,6 +3029,7 @@ static bool rocksdb_show_status(handlerton *const hton, THD *const thd,
     str.clear();
     rocksdb::MemoryUtil::GetApproximateMemoryUsageByType(dbs, cache_set,
                                                          &temp_usage_by_type);
+
     snprintf(buf, sizeof(buf), "\nMemTable Total: %lu",
              temp_usage_by_type[rocksdb::MemoryUtil::kMemTableTotal]);
     str.append(buf);
@@ -3034,11 +3070,13 @@ static bool rocksdb_show_status(handlerton *const hton, THD *const thd,
               it.GetOperationStageName(it.operation_stage) +
               "\nelapsed_time_ms: " +
               it.MicrosToString(it.op_elapsed_micros);
+
         for (auto &it_props :
           it.InterpretOperationProperties(it.operation_type,
                                           it.op_properties)) {
           str += "\n" + it_props.first + ": " + std::to_string(it_props.second);
         }
+
         str += "\nstate_type: " + it.GetStateName(it.state_type);
 
         res |= print_stats(thd, "BG_THREADS", std::to_string(it.thread_id),
