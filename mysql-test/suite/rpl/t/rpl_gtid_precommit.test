@@ -3,6 +3,7 @@
 --enable_warnings
 --source include/rpl_set_gtid_mode.inc
 --source include/have_debug.inc
+--source include/not_valgrind.inc
 --source include/have_binlog_format_row.inc
 
 connection master;
