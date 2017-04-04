@@ -452,7 +452,7 @@ static struct my_option my_long_options[] =
    "TABLE STATUS, or when accessing the INFORMATION_SCHEMA.TABLES or "
    "INFORMATION_SCHEMA.STATISTICS tables",
    &opt_innodb_stats_on_metadata, &opt_innodb_stats_on_metadata, 0, GET_BOOL,
-   NO_ARG, 0, 0, 0, 0, 0, 0},
+   NO_ARG, 1, 0, 0, 0, 0, 0},
   {"print-ordering-key", OPT_PRINT_ORDERING_KEY,
    "Print the key used for ordering rows in the dumpfile",
    &opt_print_ordering_key, &opt_print_ordering_key, 0 , GET_BOOL, NO_ARG,
