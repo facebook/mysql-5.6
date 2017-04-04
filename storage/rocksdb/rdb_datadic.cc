@@ -3806,17 +3806,35 @@ void Rdb_binlog_manager::update_slave_gtid_info(
 
 bool Rdb_dict_manager::init(rocksdb::DB *const rdb_dict,
                             Rdb_cf_manager *const cf_manager) {
+  DBUG_ASSERT(rdb_dict != nullptr);
+  DBUG_ASSERT(cf_manager != nullptr);
+
   mysql_mutex_init(0, &m_mutex, MY_MUTEX_INIT_FAST);
+
   m_db = rdb_dict;
   bool is_automatic;
+
   m_system_cfh = cf_manager->get_or_create_cf(m_db, DEFAULT_SYSTEM_CF_NAME, "",
                                               nullptr, &is_automatic);
+
   rdb_netbuf_store_index(m_key_buf_max_index_id, Rdb_key_def::MAX_INDEX_ID);
+
   m_key_slice_max_index_id =
       rocksdb::Slice(reinterpret_cast<char *>(m_key_buf_max_index_id),
                      Rdb_key_def::INDEX_NUMBER_SIZE);
+
   resume_drop_indexes();
   rollback_ongoing_index_creation();
+
+  // If system CF was created then we need to set its flags as well to make
+  // sure that CF is properly initialized.
+  if (m_system_cfh != nullptr) {
+    const std::unique_ptr<rocksdb::WriteBatch> wb = begin();
+    rocksdb::WriteBatch *const batch = wb.get();
+
+    add_cf_flags(batch, m_system_cfh->GetID(), 0);
+    commit(batch);
+  }
 
   return (m_system_cfh == nullptr);
 }
@@ -3912,6 +3930,8 @@ void Rdb_dict_manager::add_or_update_index_cf_mapping(
 void Rdb_dict_manager::add_cf_flags(rocksdb::WriteBatch *const batch,
                                     const uint32_t &cf_id,
                                     const uint32_t &cf_flags) const {
+  DBUG_ASSERT(batch != nullptr);
+
   uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2] = {0};
   uchar value_buf[Rdb_key_def::VERSION_SIZE + Rdb_key_def::INDEX_NUMBER_SIZE] =
       {0};
@@ -3995,22 +4015,31 @@ bool Rdb_dict_manager::get_index_info(const GL_INDEX_ID &gl_index_id,
 
 bool Rdb_dict_manager::get_cf_flags(const uint32_t &cf_id,
                                     uint32_t *const cf_flags) const {
+  DBUG_ASSERT(cf_flags != nullptr);
+
   bool found = false;
   std::string value;
   uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2] = {0};
+
   rdb_netbuf_store_uint32(key_buf, Rdb_key_def::CF_DEFINITION);
   rdb_netbuf_store_uint32(key_buf + Rdb_key_def::INDEX_NUMBER_SIZE, cf_id);
-  const rocksdb::Slice key = rocksdb::Slice((char *)key_buf, sizeof(key_buf));
 
+  const rocksdb::Slice key =
+      rocksdb::Slice(reinterpret_cast<char *>(key_buf), sizeof(key_buf));
   const rocksdb::Status status = get_value(key, &value);
+
   if (status.ok()) {
     const uchar *val = (const uchar *)value.c_str();
-    uint16_t version = rdb_netbuf_to_uint16(val);
+    DBUG_ASSERT(val);
+
+    const uint16_t version = rdb_netbuf_to_uint16(val);
+
     if (version == Rdb_key_def::CF_DEFINITION_VERSION) {
       *cf_flags = rdb_netbuf_to_uint32(val + Rdb_key_def::VERSION_SIZE);
       found = true;
     }
   }
+
   return found;
 }
 
