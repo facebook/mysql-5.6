@@ -5,6 +5,12 @@
 --source include/have_innodb.inc
 --source include/not_compress.inc
 
+# The test verifies the number of bytes send by server. There will be different
+# results if CLIENT_DEPRECATE_EOF flag is used or not. We need to force one
+# option in order to match the result file. Force disable deprecate eof as it's
+# supported by both sync and async mysql client.
+--disable_deprecate_eof
+
 # Just in case slow_log_extra-slow.log already exists, delete it first.
 --perl
 if (-e "$ENV{'MYSQLTEST_VARDIR'}/mysqld.1/data/slow_log_extra-slow.log") {

@@ -2,6 +2,12 @@
 # Test --log-slow-extra
 #
 
+# The test verifies the number of bytes send by server. There will be different
+# results if CLIENT_DEPRECATE_EOF flag is used or not. We need to force one
+# option in order to match the result file. Force disable deprecate eof as it's
+# supported by both sync and async mysql client.
+--disable_deprecate_eof
+
 -- source include/have_innodb.inc
 -- source include/not_compress.inc
 

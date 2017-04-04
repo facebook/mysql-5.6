@@ -144,6 +144,7 @@ uchar * send_client_connect_attrs(MYSQL *mysql, uchar *buf);
 enum mysql_compression_lib get_client_compression_enum(const char* comp_lib);
 extern my_bool libmysql_cleartext_plugin_enabled;
 void read_ok_ex(MYSQL *mysql, unsigned long len);
+my_bool client_deprecate_eof_enabled(MYSQL *mysql);
 
 #ifdef	__cplusplus
 }
