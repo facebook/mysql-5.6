@@ -71,6 +71,7 @@ Rdb_cf_manager &rdb_get_cf_manager();
 
 const rocksdb::BlockBasedTableOptions &rdb_get_table_options();
 bool rdb_is_ttl_enabled();
+bool rdb_is_ttl_read_filtering_enabled();
 
 enum operation_type : int;
 void rdb_update_global_stats(const operation_type &type, uint count,

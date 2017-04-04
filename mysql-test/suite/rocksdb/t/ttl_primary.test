@@ -6,6 +6,9 @@ DROP TABLE IF EXISTS t1;
 
 SET @@global.rocksdb_update_cf_options = 'default={disable_auto_compactions=true;};';
 
+# Disable read filtering for the duration of this test.
+set global rocksdb_enable_ttl_read_filtering=0;
+
 # Basic TTL test
 CREATE TABLE t1 (
 `a` binary(8) NOT NULL,
@@ -518,6 +521,6 @@ DROP TABLE t1;
 
 SET @@global.rocksdb_update_cf_options = 'default={disable_auto_compactions=false;};';
 SET @@global.rocksdb_update_cf_options = '';
-
+set global rocksdb_enable_ttl_read_filtering=1;
 
 

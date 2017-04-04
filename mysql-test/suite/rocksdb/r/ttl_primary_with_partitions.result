@@ -1,6 +1,7 @@
 DROP TABLE IF EXISTS t1;
 DROP TABLE IF EXISTS t2;
 SET @@global.rocksdb_update_cf_options = 'default={disable_auto_compactions=true;};';
+set global rocksdb_enable_ttl_read_filtering=0;
 CREATE TABLE t1 (
 c1 INT,
 PRIMARY KEY (`c1`)
@@ -245,3 +246,4 @@ c1
 DROP TABLE t1;
 SET @@global.rocksdb_update_cf_options = 'default={disable_auto_compactions=false;};';
 SET @@global.rocksdb_update_cf_options = '';
+set global rocksdb_enable_ttl_read_filtering=1;

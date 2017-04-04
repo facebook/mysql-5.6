@@ -1,5 +1,6 @@
 DROP TABLE IF EXISTS t1;
 SET @@global.rocksdb_update_cf_options = 'default={disable_auto_compactions=true;};';
+set global rocksdb_enable_ttl_read_filtering=0;
 CREATE TABLE t1 (
 `a` binary(8) NOT NULL,
 `b` varbinary(64) NOT NULL,
@@ -442,3 +443,4 @@ variable_value-@c
 DROP TABLE t1;
 SET @@global.rocksdb_update_cf_options = 'default={disable_auto_compactions=false;};';
 SET @@global.rocksdb_update_cf_options = '';
+set global rocksdb_enable_ttl_read_filtering=1;

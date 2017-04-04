@@ -65,6 +65,17 @@ public:
 
       if (!m_should_delete) {
         get_ttl_duration(gl_index_id, &m_ttl_duration);
+
+        /*
+          For efficiency reasons, we lazily call GetIntProperty to get the
+          oldest snapshot time, each time we find a new index to be processed.
+        */
+        rocksdb::DB *const rdb = rdb_get_rocksdb_db();
+        if (!rdb->GetIntProperty(rocksdb::DB::Properties::kOldestSnapshotTime,
+                                 &m_snapshot_timestamp) ||
+            m_snapshot_timestamp == 0) {
+          m_snapshot_timestamp = static_cast<uint64_t>(std::time(nullptr));
+        }
       }
 
       m_prev_index = gl_index_id;
@@ -124,8 +135,13 @@ public:
                              const rocksdb::Slice &existing_value) const {
     uint64 ttl_timestamp =
         rdb_netbuf_to_uint64((const uchar *)existing_value.data());
-    uint64 time_diff = std::difftime(std::time(nullptr), ttl_timestamp);
 
+    /*
+      Filter out the record only if it is older than the oldest snapshot
+      timestamp.  This prevents any rows from expiring in the middle of
+      long-running transactions.
+    */
+    uint64 time_diff = std::difftime(m_snapshot_timestamp, ttl_timestamp);
     return time_diff >= m_ttl_duration;
   }
 
@@ -142,6 +158,8 @@ public:
   mutable bool m_should_delete = false;
   // TTL duration for the current index if TTL is enabled
   mutable uint64 m_ttl_duration = 0;
+  // Oldest snapshot timestamp at the time a TTL index is discovered
+  mutable uint64_t m_snapshot_timestamp = 0;
 };
 
 class Rdb_compact_filter_factory : public rocksdb::CompactionFilterFactory {

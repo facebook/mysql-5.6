@@ -574,13 +574,15 @@ class ha_rocksdb : public my_core::handler {
                  const rocksdb::Slice &key, std::string *const value) const;
 
   int get_row_by_rowid(uchar *const buf, const char *const rowid,
-                       const uint rowid_size, const bool skip_lookup = false)
+                       const uint rowid_size, const bool skip_lookup = false,
+                       const bool skip_ttl_check = true)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   int get_row_by_rowid(uchar *const buf, const uchar *const rowid,
-                       const uint rowid_size, const bool skip_lookup = false)
+                       const uint rowid_size, const bool skip_lookup = false,
+                       const bool skip_ttl_check = true)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__)) {
     return get_row_by_rowid(buf, reinterpret_cast<const char *>(rowid),
-                            rowid_size, skip_lookup);
+                            rowid_size, skip_lookup, skip_ttl_check);
   }
 
   void update_auto_incr_val();
@@ -1035,6 +1037,10 @@ private:
                                        rocksdb::Slice *const packed_rec)
       MY_ATTRIBUTE((__nonnull__));
 
+  int should_hide_ttl_rec(const rocksdb::Slice &ttl_rec_val,
+                          const int64_t curr_ts) const
+      MY_ATTRIBUTE((__warn_unused_result__));
+
   int index_first_intern(uchar *buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   int index_last_intern(uchar *buf)
@@ -1078,20 +1084,25 @@ private:
                      const bool &pk_changed)
       MY_ATTRIBUTE((__warn_unused_result__));
 
-  int read_key_exact(const Rdb_key_def &kd, rocksdb::Iterator *const iter,
-                     const bool &using_full_key,
+  int read_key_exact(const Rdb_key_def &kd, Rdb_transaction *const tx,
+                     rocksdb::Iterator *const iter, const bool &using_full_key,
                      const rocksdb::Slice &key_slice) const
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-  int read_before_key(const Rdb_key_def &kd, const bool &using_full_key,
+  int read_before_key(const Rdb_key_def &kd, Rdb_transaction *const tx,
+                      const bool &using_full_key,
                       const rocksdb::Slice &key_slice)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-  int read_after_key(const Rdb_key_def &kd, const rocksdb::Slice &key_slice)
+  int read_after_key(const Rdb_key_def &kd, Rdb_transaction *const tx,
+                     const rocksdb::Slice &key_slice)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-  int position_to_correct_key(
-      const Rdb_key_def &kd, const enum ha_rkey_function &find_flag,
-      const bool &full_key_match, const uchar *const key,
-      const key_part_map &keypart_map, const rocksdb::Slice &key_slice,
-      bool *const move_forward) MY_ATTRIBUTE((__warn_unused_result__));
+  int position_to_correct_key(const Rdb_key_def &kd, Rdb_transaction *const tx,
+                              const enum ha_rkey_function &find_flag,
+                              const bool &full_key_match,
+                              const uchar *const key,
+                              const key_part_map &keypart_map,
+                              const rocksdb::Slice &key_slice,
+                              bool *const move_forward)
+      MY_ATTRIBUTE((__warn_unused_result__));
 
   int read_row_from_primary_key(uchar *const buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
