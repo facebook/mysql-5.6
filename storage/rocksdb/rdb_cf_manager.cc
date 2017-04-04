@@ -224,6 +224,7 @@ Rdb_cf_manager::get_all_cf(void) const {
   RDB_MUTEX_LOCK_CHECK(m_mutex);
 
   for (auto it : m_cf_id_map) {
+    DBUG_ASSERT(it.second != nullptr);
     list.push_back(it.second);
   }
 
