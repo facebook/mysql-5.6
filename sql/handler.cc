@@ -7494,7 +7494,8 @@ bool ha_show_status(THD *thd, handlerton *db_type, enum ha_stat_type stat)
     is TRUE.
 */
 
-static bool check_table_binlog_row_based(THD *thd, TABLE *table)
+static bool check_table_binlog_row_based(THD *thd, TABLE *table,
+                                         bool check_triggers)
 {
   if (table->s->cached_row_logging_check == -1)
   {
@@ -7511,7 +7512,8 @@ static bool check_table_binlog_row_based(THD *thd, TABLE *table)
           table->s->cached_row_logging_check &&
           (thd->variables.option_bits & OPTION_BIN_LOG) &&
           mysql_bin_log.is_open() &&
-          !table->pos_in_table_list->disable_sql_log_bin_triggers);
+          (!check_triggers ||
+           !table->pos_in_table_list->disable_sql_log_bin_triggers));
 }
 
 
@@ -7564,7 +7566,8 @@ int handler::write_locked_table_maps(THD *thd)
         TABLE *const table= *table_ptr;
         DBUG_PRINT("info", ("Checking table %s", table->s->table_name.str));
         if (table->current_lock == F_WRLCK &&
-            check_table_binlog_row_based(thd, table))
+            check_table_binlog_row_based(thd, table,
+                                         false /* check_triggers */))
         {
           /*
             We need to have a transactional behavior for SQLCOM_CREATE_TABLE
@@ -7612,7 +7615,7 @@ int binlog_log_row(TABLE* table,
   bool error= 0;
   THD *const thd= table->in_use;
 
-  if (check_table_binlog_row_based(thd, table))
+  if (check_table_binlog_row_based(thd, table, true /* check triggers */))
   {
     DBUG_DUMP("read_set 10", (uchar*) table->read_set->bitmap,
               (table->s->fields + 7) / 8);
