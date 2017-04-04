@@ -733,7 +733,7 @@ cli_safe_read_with_ok_nonblocking(MYSQL *mysql, ulong* res, my_bool parse_ok,
  * This function checks if CLIENT_DEPRECATE_EOF was present in both
  * server and client flags.
  * */
-static my_bool client_deprecate_eof_enabled(MYSQL *mysql) {
+my_bool client_deprecate_eof_enabled(MYSQL *mysql) {
   return (mysql->server_capabilities & CLIENT_DEPRECATE_EOF) &&
           (mysql->client_flag & CLIENT_DEPRECATE_EOF);
 }

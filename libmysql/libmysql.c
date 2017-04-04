@@ -2060,6 +2060,26 @@ static my_bool store_param(MYSQL_STMT *stmt, MYSQL_BIND *param)
   DBUG_RETURN(0);
 }
 
+static inline int add_binary_row(NET *net, MYSQL_STMT *stmt, ulong pkt_len,
+                                  MYSQL_ROWS ***prev_ptr)
+{
+  MYSQL_ROWS *row;
+  uchar *cp= net->read_pos;
+  MYSQL_DATA *result= &stmt->result;
+  if (!(row= (MYSQL_ROWS*) alloc_root(&result->alloc,
+                                      sizeof(MYSQL_ROWS) + pkt_len - 1)))
+  {
+    set_stmt_error(stmt, CR_OUT_OF_MEMORY, unknown_sqlstate, NULL);
+    return 1;
+  }
+  row->data= (MYSQL_ROW) (row+1);
+  **prev_ptr= row;
+  *prev_ptr= &row->next;
+  memcpy((char *) row->data, (char *) cp+1, pkt_len-1);
+  row->length= pkt_len;   /* To allow us to do sanity checks */
+  result->rows++;
+  return 0;
+}
 
 /*
   Auxilary function to send COM_STMT_EXECUTE packet to server and read reply.
@@ -2069,14 +2089,14 @@ static my_bool store_param(MYSQL_STMT *stmt, MYSQL_BIND *param)
 static my_bool execute(MYSQL_STMT *stmt, char *packet, ulong length)
 {
   MYSQL *mysql= stmt->mysql;
-  NET	*net= &mysql->net;
+  NET *net= &mysql->net;
   uchar buff[4 /* size of stmt id */ +
              5 /* execution flags */];
   my_bool res;
   DBUG_ENTER("execute");
   DBUG_DUMP("packet", (uchar *) packet, length);
 
-  int4store(buff, stmt->stmt_id);		/* Send stmt id to server */
+  int4store(buff, stmt->stmt_id);   /* Send stmt id to server */
   buff[4]= (char) stmt->flags;
   int4store(buff+5, 1);                         /* iteration count */
 
@@ -2084,18 +2104,20 @@ static my_bool execute(MYSQL_STMT *stmt, char *packet, ulong length)
                                     (uchar*) packet, length, 1, stmt) ||
                (*mysql->methods->read_query_result)(mysql));
 
-  if (mysql->server_status & SERVER_STATUS_CURSOR_EXISTS)
-     mysql->server_status&= ~SERVER_STATUS_CURSOR_EXISTS;
-
-  if (!res && (stmt->flags & CURSOR_TYPE_READ_ONLY) &&
-      (mysql->server_capabilities & CLIENT_DEPRECATE_EOF))
+  if (client_deprecate_eof_enabled(mysql))
   {
-    /*
-      if server responds with a cursor then COM_STMT_EXECUTE response format
-      will be <Metadata><OK>. Hence read the OK packet to get the server status
-    */
-    if (packet_error == cli_safe_read_with_ok(mysql, 1, NULL))
-      DBUG_RETURN(1);
+    if (mysql->server_status & SERVER_STATUS_CURSOR_EXISTS)
+      mysql->server_status&= ~SERVER_STATUS_CURSOR_EXISTS;
+
+    if (!res && (stmt->flags & CURSOR_TYPE_READ_ONLY))
+    {
+      /*
+        if server responds with a cursor then COM_STMT_EXECUTE response format
+        will be <Metadata><OK>. Hence read the OK packet to get server status
+        */
+      if (packet_error == cli_safe_read_with_ok(mysql, 1, NULL))
+        DBUG_RETURN(1);
+    }
   }
 
   stmt->affected_rows= mysql->affected_rows;
@@ -2106,18 +2128,8 @@ static my_bool execute(MYSQL_STMT *stmt, char *packet, ulong length)
     /*
       Don't set stmt error if stmt->mysql is NULL, as the error in this case
       has already been set by mysql_prune_stmt_list().
-
-      However, do set the error if it is CR_NET_(READ|WRITE)_INTERRUPTED.
-      WebScaleSQL added new error codes vs. upstream for timeouts to
-      disambiguate them from "server has gone away." mysql_prune_stmt_list
-      has the error hard coded to CR_SERVER_LOST for the full list of stmts.
-      Special case the new timeout errors here so that only the single stmt
-      that hit it gets the correct error. Other stmts on the connection will
-      still get the corect CR_SERVER_LOST.
     */
-    if (stmt->mysql ||
-        net->last_errno == CR_NET_READ_INTERRUPTED ||
-        net->last_errno == CR_NET_WRITE_INTERRUPTED)
+    if (stmt->mysql)
       set_stmt_errmsg(stmt, net);
     DBUG_RETURN(1);
   }
@@ -4248,7 +4260,7 @@ int cli_unbuffered_fetch(MYSQL *mysql, char **row)
   if (mysql->net.read_pos[0] != 0 && !is_data_packet)
   {
     /* in case of new client read the OK packet */
-    if (mysql->server_capabilities & CLIENT_DEPRECATE_EOF)
+    if (client_deprecate_eof_enabled(mysql))
       read_ok_ex(mysql, len);
     *row= NULL;
   }
@@ -4392,11 +4404,10 @@ int cli_read_binary_rows(MYSQL_STMT *stmt)
       /* end of data */
       *prev_ptr= 0;
       /* read warning count from OK packet or EOF packet if it is old client */
-      if (mysql->server_capabilities & CLIENT_DEPRECATE_EOF &&
-          !is_data_packet)
+      if (client_deprecate_eof_enabled(mysql) && !is_data_packet)
         read_ok_ex(mysql, pkt_len);
       else
-      mysql->warning_count= uint2korr(cp+1);
+        mysql->warning_count= uint2korr(cp + 1);
       /*
         OUT parameters result sets has SERVER_PS_OUT_PARAMS and
         SERVER_MORE_RESULTS_EXISTS flags in first EOF_Packet only.
