@@ -36,7 +36,7 @@ bool Rdb_cf_manager::is_cf_name_reverse(const char *const name) {
 }
 
 void Rdb_cf_manager::init(
-    Rdb_cf_options *const cf_options,
+    const std::shared_ptr<Rdb_cf_options> &cf_options,
     std::vector<rocksdb::ColumnFamilyHandle *> *const handles) {
   mysql_mutex_init(rdb_cfm_mutex_key, &m_mutex, MY_MUTEX_INIT_FAST);
 
@@ -58,6 +58,7 @@ void Rdb_cf_manager::cleanup() {
     delete it.second;
   }
   mysql_mutex_destroy(&m_mutex);
+  m_cf_options = nullptr;
 }
 
 /**
