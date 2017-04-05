@@ -1639,6 +1639,7 @@ int multi_update::prepare(List<Item> &not_used_values,
       table->no_keyread=1;
       table->covering_keys.clear_all();
       table->pos_in_table_list= tl;
+      table->disable_sql_log_bin_triggers= tl->disable_sql_log_bin_triggers;
       table->prepare_triggers_for_update_stmt_or_event();
     }
   }

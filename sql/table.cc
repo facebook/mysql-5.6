@@ -4035,6 +4035,7 @@ void TABLE::init(THD *thd, TABLE_LIST *tl)
   auto_increment_field_not_null= FALSE;
 
   pos_in_table_list= tl;
+  disable_sql_log_bin_triggers= tl->disable_sql_log_bin_triggers;
 
   clear_column_bitmaps();
 

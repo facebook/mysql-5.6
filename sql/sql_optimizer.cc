@@ -3212,6 +3212,7 @@ make_join_statistics(JOIN *join, TABLE_LIST *tables_arg, Item *conds,
     TABLE *const table= tables->table;
     s->table= table;
     table->pos_in_table_list= tables;
+    table->disable_sql_log_bin_triggers= tables->disable_sql_log_bin_triggers;
     error= tables->fetch_number_of_rows();
 
     DBUG_EXECUTE_IF("bug11747970_raise_error",

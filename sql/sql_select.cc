@@ -2748,6 +2748,7 @@ bool JOIN::setup_materialized_table(JOIN_TAB *tab, uint tableno,
   tab->materialize_table= join_materialize_semijoin;
 
   table->pos_in_table_list= tl;
+  table->disable_sql_log_bin_triggers= tl->disable_sql_log_bin_triggers;
   table->keys_in_use_for_query.set_all();
   sjm_pos->table= tab;
   sjm_pos->sj_strategy= SJ_OPT_NONE;
