@@ -1292,6 +1292,7 @@ public:
     close_thread_tables!!!
   */
   my_bool m_needs_reopen;
+  my_bool disable_sql_log_bin_triggers;
 private:
   bool created; /* For tmp tables. TRUE <=> tmp table has been instantiated.*/
   bool tmp_file_created; /* For tmp tables. It is TRUE when the files of the

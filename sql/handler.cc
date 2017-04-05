@@ -7511,7 +7511,7 @@ static bool check_table_binlog_row_based(THD *thd, TABLE *table)
           table->s->cached_row_logging_check &&
           (thd->variables.option_bits & OPTION_BIN_LOG) &&
           mysql_bin_log.is_open() &&
-          !table->pos_in_table_list->disable_sql_log_bin_triggers);
+          !table->disable_sql_log_bin_triggers);
 }
 
 

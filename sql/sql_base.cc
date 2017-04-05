@@ -8540,6 +8540,8 @@ bool setup_tables(THD *thd, Name_resolution_context *context,
   {
     TABLE *table= table_list->table;
     table->pos_in_table_list= table_list;
+    table->disable_sql_log_bin_triggers=
+        table_list->disable_sql_log_bin_triggers;
     if (first_select_table &&
         table_list->top_table() == first_select_table)
     {
