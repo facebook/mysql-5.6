@@ -36,7 +36,7 @@ bool Rdb_cf_manager::is_cf_name_reverse(const char *const name) {
 }
 
 void Rdb_cf_manager::init(
-    Rdb_cf_options *const cf_options,
+    std::unique_ptr<Rdb_cf_options> cf_options,
     std::vector<rocksdb::ColumnFamilyHandle *> *const handles) {
   mysql_mutex_init(rdb_cfm_mutex_key, &m_mutex, MY_MUTEX_INIT_FAST);
 
@@ -44,7 +44,7 @@ void Rdb_cf_manager::init(
   DBUG_ASSERT(handles != nullptr);
   DBUG_ASSERT(handles->size() > 0);
 
-  m_cf_options = cf_options;
+  m_cf_options = std::move(cf_options);
 
   for (auto cfh : *handles) {
     DBUG_ASSERT(cfh != nullptr);
@@ -58,6 +58,7 @@ void Rdb_cf_manager::cleanup() {
     delete it.second;
   }
   mysql_mutex_destroy(&m_mutex);
+  m_cf_options = nullptr;
 }
 
 /**

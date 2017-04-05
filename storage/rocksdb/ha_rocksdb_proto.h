@@ -69,7 +69,7 @@ rocksdb::TransactionDB *rdb_get_rocksdb_db();
 class Rdb_cf_manager;
 Rdb_cf_manager &rdb_get_cf_manager();
 
-rocksdb::BlockBasedTableOptions &rdb_get_table_options();
+const rocksdb::BlockBasedTableOptions &rdb_get_table_options();
 
 class Rdb_dict_manager;
 Rdb_dict_manager *rdb_get_dict_manager(void)
