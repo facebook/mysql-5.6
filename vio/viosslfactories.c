@@ -184,7 +184,6 @@ vio_set_cert_stuff(SSL_CTX *ctx, const char *cert_file, const char *key_file,
   DBUG_RETURN(0);
 }
 
-pthread_mutex_t ssl_init_mutex = PTHREAD_MUTEX_INITIALIZER;
 static my_bool ssl_initialized = FALSE;
 
 #ifndef HAVE_YASSL
@@ -376,6 +375,16 @@ void ssl_start()
 {
   if (!ssl_initialized)
   {
+#ifndef HAVE_YASSL
+#if !defined(OPENSSL_IS_BORINGSSL) && OPENSSL_VERSION_NUMBER < 0x10100000L
+    // if locks already initialized, don't override
+    if (CRYPTO_get_locking_callback()) {
+      DBUG_PRINT("info", ("Openssl crypto library already initialized."));
+      return;
+    }
+#endif
+#endif
+
     ssl_initialized= TRUE;
 
     SSL_library_init();
@@ -386,8 +395,8 @@ void ssl_start()
     init_ssl_locks();
     init_lock_callback_functions();
 #endif
-   }
- }
+  }
+}
 
 /************************ VioSSLFd **********************************/
 static struct st_VioSSLFd *
