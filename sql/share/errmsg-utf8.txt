@@ -7293,6 +7293,15 @@ ER_RDB_STATUS_MSG
 ER_NET_OK_PACKET_TOO_LARGE
   eng "OK packet too large"
 
+ER_RDB_TTL_UNSUPPORTED
+  eng "TTL support is currently disabled when table has secondary indexes or hidden PK."
+
+ER_RDB_TTL_COL_FORMAT
+  eng "TTL column (%s) in MyRocks must be an unsigned non-null 64-bit integer, exist inside the table, and have an accompanying ttl duration."
+
+ER_RDB_TTL_DURATION_FORMAT
+  eng "TTL duration (%s) in MyRocks must be an unsigned non-null 64-bit integer."
+
 #
 #  End of 5.6 error messages.
 #
