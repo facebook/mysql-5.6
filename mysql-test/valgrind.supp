@@ -850,7 +850,7 @@
    ...
    fun:_ZNSt6vectorIhSaIhEE6resizeEm
    fun:_ZN7myrocks17Rdb_string_writer12write_uint16ERKj
-   fun:_ZNK7myrocks11Rdb_key_def11pack_recordEPK5TABLEPhPKhS4_PNS_17Rdb_string_writerERKbRKxjPj
+   fun:_ZNK7myrocks11Rdb_key_def11pack_recordEPK5TABLEPhPKhS4_PNS_17Rdb_string_writerERKbRKxjPjSD_
    ...
    fun:_ZN12ha_partition15copy_partitionsEPyS0_
    fun:_ZN12ha_partition17change_partitionsEP24st_ha_create_informationPKcPyS4_PKhm
@@ -862,7 +862,7 @@
    match-leak-kinds: definite
    ...
    fun:_ZN6String6appendEPKcj
-   fun:_ZN7myrocks10ha_rocksdb32convert_record_to_storage_formatERKN7rocksdb5SliceEPNS_17Rdb_string_writerEPS2_
+   fun:_ZN7myrocks10ha_rocksdb32convert_record_to_storage_formatERKNS0_15update_row_infoEPN7rocksdb5SliceE
    ...
    fun:_ZN12ha_partition15copy_partitionsEPyS0_
    fun:_ZN12ha_partition17change_partitionsEP24st_ha_create_informationPKcPyS4_PKhm
