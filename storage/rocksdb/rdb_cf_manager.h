@@ -56,7 +56,7 @@ class Rdb_cf_manager {
                                     const char *const index_name,
                                     std::string *const res);
 
-  std::shared_ptr<Rdb_cf_options> m_cf_options = nullptr;
+  std::unique_ptr<Rdb_cf_options> m_cf_options = nullptr;
 
  public:
   Rdb_cf_manager(const Rdb_cf_manager &) = delete;
@@ -70,7 +70,7 @@ class Rdb_cf_manager {
     column
     families that are present in the database. The first CF is the default CF.
   */
-  void init(const std::shared_ptr<Rdb_cf_options> &cf_options,
+  void init(std::unique_ptr<Rdb_cf_options> cf_options,
             std::vector<rocksdb::ColumnFamilyHandle *> *const handles);
   void cleanup();
 
@@ -105,6 +105,11 @@ class Rdb_cf_manager {
                       rocksdb::ColumnFamilyOptions *const opts)
       MY_ATTRIBUTE((__nonnull__)) {
     m_cf_options->get_cf_options(cf_name, opts);
+  }
+
+  void update_options_map(const std::string &cf_name,
+                          const std::string &updated_options) {
+    m_cf_options->update(cf_name, updated_options);
   }
 };
 

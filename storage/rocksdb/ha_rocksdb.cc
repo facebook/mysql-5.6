@@ -121,7 +121,6 @@ bool can_use_bloom_filter(THD *thd, const Rdb_key_def &kd,
 static char *rocksdb_default_cf_options = nullptr;
 static char *rocksdb_override_cf_options = nullptr;
 static char *rocksdb_update_cf_options = nullptr;
-static std::shared_ptr<Rdb_cf_options> rocksdb_cf_options_map = nullptr;
 
 ///////////////////////////////////////////////////////////
 // Globals
@@ -3512,10 +3511,10 @@ static int rocksdb_init_func(void *const p) {
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
-  rocksdb_cf_options_map = std::make_shared<Rdb_cf_options>();
-  if (!rocksdb_cf_options_map->init(
-          *rocksdb_tbl_options, properties_collector_factory,
-          rocksdb_default_cf_options, rocksdb_override_cf_options)) {
+  std::unique_ptr<Rdb_cf_options> cf_options_map(new Rdb_cf_options());
+  if (!cf_options_map->init(*rocksdb_tbl_options, properties_collector_factory,
+                            rocksdb_default_cf_options,
+                            rocksdb_override_cf_options)) {
     // NO_LINT_DEBUG
     sql_print_error("RocksDB: Failed to initialize CF options map.");
     rdb_open_tables.free_hash();
@@ -3533,7 +3532,7 @@ static int rocksdb_init_func(void *const p) {
   sql_print_information("RocksDB: Column Families at start:");
   for (size_t i = 0; i < cf_names.size(); ++i) {
     rocksdb::ColumnFamilyOptions opts;
-    rocksdb_cf_options_map->get_cf_options(cf_names[i], &opts);
+    cf_options_map->get_cf_options(cf_names[i], &opts);
 
     sql_print_information("  cf=%s", cf_names[i].c_str());
     sql_print_information("    write_buffer_size=%ld", opts.write_buffer_size);
@@ -3552,7 +3551,7 @@ static int rocksdb_init_func(void *const p) {
   }
 
   rocksdb::Options main_opts(*rocksdb_db_options,
-                             rocksdb_cf_options_map->get_defaults());
+                             cf_options_map->get_defaults());
 
   main_opts.env->SetBackgroundThreads(main_opts.max_background_flushes,
                                       rocksdb::Env::Priority::HIGH);
@@ -3582,7 +3581,7 @@ static int rocksdb_init_func(void *const p) {
     rdb_open_tables.free_hash();
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
-  cf_manager.init(rocksdb_cf_options_map, &cf_handles);
+  cf_manager.init(std::move(cf_options_map), &cf_handles);
 
   if (dict_manager.init(rdb->GetBaseDB(), &cf_manager)) {
     // NO_LINT_DEBUG
@@ -3763,7 +3762,6 @@ static int rocksdb_done_func(void *const p) {
 #endif /* HAVE_purify */
 
   rocksdb_db_options = nullptr;
-  rocksdb_cf_options_map = nullptr;
   rocksdb_tbl_options = nullptr;
   rocksdb_stats = nullptr;
 
@@ -10952,7 +10950,7 @@ void rocksdb_set_update_cf_options(THD *const /* unused */,
           DBUG_ASSERT(s == rocksdb::Status::OK());
           DBUG_ASSERT(!updated_options.empty());
 
-          rocksdb_cf_options_map->update(cf_name, updated_options);
+          cf_manager.update_options_map(cf_name, updated_options);
         }
       }
     }
