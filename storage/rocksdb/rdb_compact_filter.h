@@ -22,6 +22,7 @@
 
 /* C++ system header files */
 #include <string>
+#include <time.h>
 
 /* RocksDB includes */
 #include "rocksdb/compaction_filter.h"
@@ -55,36 +56,87 @@ public:
     gl_index_id.index_id = rdb_netbuf_to_uint32((const uchar *)key.data());
     DBUG_ASSERT(gl_index_id.index_id >= 1);
 
-    if (gl_index_id != m_prev_index) // processing new index id
-    {
-      if (m_num_deleted > 0) {
-        m_num_deleted = 0;
-      }
+    if (gl_index_id != m_prev_index) {
+      m_num_deleted = 0;
+      m_num_expired = 0;
+
       m_should_delete =
           rdb_get_dict_manager()->is_drop_index_ongoing(gl_index_id);
+
+      if (!m_should_delete) {
+        get_ttl_duration(gl_index_id, &m_ttl_duration);
+      }
+
       m_prev_index = gl_index_id;
     }
 
     if (m_should_delete) {
       m_num_deleted++;
+      return true;
+    } else if (m_ttl_duration > 0 &&
+               should_filter_ttl_rec(key, existing_value)) {
+      m_num_expired++;
+      return true;
     }
 
-    return m_should_delete;
+    return false;
   }
 
   virtual bool IgnoreSnapshots() const override { return true; }
 
   virtual const char *Name() const override { return "Rdb_compact_filter"; }
 
-private:
+  void get_ttl_duration(const GL_INDEX_ID &gl_index_id,
+                        uint64 *ttl_duration) const {
+    DBUG_ASSERT(ttl_duration != nullptr);
+    /*
+      If key is part of system column family, it's definitely not a TTL key.
+    */
+    rocksdb::ColumnFamilyHandle *s_cf = rdb_get_dict_manager()->get_system_cf();
+    if (s_cf == nullptr || gl_index_id.cf_id == s_cf->GetID()) {
+      *ttl_duration = 0;
+      return;
+    }
+
+    uint16 m_index_dict_version = 0;
+    uchar m_index_type = 0;
+    uint16 kv_version = 0;
+    if (!rdb_get_dict_manager()->get_index_info(
+            gl_index_id, &m_index_dict_version, &m_index_type, &kv_version,
+            ttl_duration)) {
+      // NO_LINT_DEBUG
+      sql_print_error("RocksDB: Could not get index information "
+                      "for Index Number (%u,%u)",
+                      gl_index_id.cf_id, gl_index_id.index_id);
+    }
+  }
+
+  bool should_filter_ttl_rec(const rocksdb::Slice &key,
+                             const rocksdb::Slice &existing_value) const {
+    uint64 ttl_timestamp =
+        rdb_netbuf_to_uint64((const uchar *)existing_value.data());
+
+    uint64 time_diff = std::difftime(std::time(nullptr), ttl_timestamp);
+    if (time_diff >= m_ttl_duration) {
+      return true;
+    }
+
+    return false;
+  }
+
+ private:
   // Column family for this compaction filter
   const uint32_t m_cf_id;
   // Index id of the previous record
   mutable GL_INDEX_ID m_prev_index = {0, 0};
   // Number of rows deleted for the same index id
   mutable uint64 m_num_deleted = 0;
+  // Number of rows expired for the TTL index
+  mutable uint64 m_num_expired = 0;
   // Current index id should be deleted or not (should be deleted if true)
   mutable bool m_should_delete = false;
+  // TTL duration for the current index if TTL is enabled
+  mutable uint64 m_ttl_duration = 0;
 };
 
 class Rdb_compact_filter_factory : public rocksdb::CompactionFilterFactory {

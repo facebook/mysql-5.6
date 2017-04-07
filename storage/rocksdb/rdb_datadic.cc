@@ -56,14 +56,17 @@ Rdb_key_def::Rdb_key_def(uint indexnr_arg, uint keyno_arg,
                          uint16_t index_dict_version_arg, uchar index_type_arg,
                          uint16_t kv_format_version_arg, bool is_reverse_cf_arg,
                          bool is_auto_cf_arg, bool is_per_partition_cf_arg,
-                         const char *_name, Rdb_index_stats _stats)
+                         const char *_name, Rdb_index_stats _stats,
+                         uint64 ttl_duration)
     : m_index_number(indexnr_arg), m_cf_handle(cf_handle_arg),
       m_index_dict_version(index_dict_version_arg),
       m_index_type(index_type_arg), m_kv_format_version(kv_format_version_arg),
       m_is_reverse_cf(is_reverse_cf_arg), m_is_auto_cf(is_auto_cf_arg),
       m_is_per_partition_cf(is_per_partition_cf_arg), m_name(_name),
-      m_stats(_stats), m_pk_part_no(nullptr), m_pack_info(nullptr),
-      m_keyno(keyno_arg), m_key_parts(0), m_prefix_extractor(nullptr),
+      m_stats(_stats), m_ttl_duration(ttl_duration), m_ttl_column(""),
+      m_pk_part_no(nullptr), m_pack_info(nullptr), m_keyno(keyno_arg),
+      m_key_parts(0), m_ttl_pk_key_part_offset(UINT_MAX),
+      m_ttl_field_offset(UINT_MAX), m_prefix_extractor(nullptr),
       m_maxlength(0)  // means 'not intialized'
 {
   mysql_mutex_init(0, &m_mutex, MY_MUTEX_INIT_FAST);
@@ -75,9 +78,12 @@ Rdb_key_def::Rdb_key_def(const Rdb_key_def &k)
     : m_index_number(k.m_index_number), m_cf_handle(k.m_cf_handle),
       m_is_reverse_cf(k.m_is_reverse_cf), m_is_auto_cf(k.m_is_auto_cf),
       m_is_per_partition_cf(k.m_is_per_partition_cf), m_name(k.m_name),
-      m_stats(k.m_stats), m_pk_part_no(k.m_pk_part_no),
+      m_stats(k.m_stats), m_ttl_duration(k.m_ttl_duration),
+      m_ttl_column(k.m_ttl_column), m_pk_part_no(k.m_pk_part_no),
       m_pack_info(k.m_pack_info), m_keyno(k.m_keyno),
-      m_key_parts(k.m_key_parts), m_prefix_extractor(k.m_prefix_extractor),
+      m_key_parts(k.m_key_parts),
+      m_ttl_pk_key_part_offset(k.m_ttl_pk_key_part_offset),
+      m_ttl_field_offset(UINT_MAX), m_prefix_extractor(k.m_prefix_extractor),
       m_maxlength(k.m_maxlength) {
   mysql_mutex_init(0, &m_mutex, MY_MUTEX_INIT_FAST);
   rdb_netbuf_store_index(m_index_number_storage_form, m_index_number);
@@ -173,6 +179,13 @@ void Rdb_key_def::setup(const TABLE *const tbl,
     m_pack_info =
         reinterpret_cast<Rdb_field_packing *>(my_malloc(size, MYF(0)));
 
+    /*
+      Guaranteed not to error here as checks have been made already during
+      table creation.
+    */
+    Rdb_key_def::extract_ttl_col(tbl, tbl_def, &m_ttl_column,
+                                 &m_ttl_field_offset, true);
+
     size_t max_len = INDEX_NUMBER_SIZE;
     int unpack_len = 0;
     int max_part_len = 0;
@@ -245,6 +258,18 @@ void Rdb_key_def::setup(const TABLE *const tbl,
         max_part_len =
             std::max(max_part_len, m_pack_info[dst_i].m_max_image_len);
 
+        /*
+          Check key part name here, if it matches the TTL column then we store
+          the offset of the TTL key part here.
+        */
+        if (!m_ttl_column.empty() &&
+            field->check_field_name_match(m_ttl_column.c_str())) {
+          DBUG_ASSERT(field->real_type() == MYSQL_TYPE_LONGLONG);
+          DBUG_ASSERT(field->key_type() == HA_KEYTYPE_ULONGLONG);
+          DBUG_ASSERT(!field->real_maybe_null());
+          m_ttl_pk_key_part_offset = dst_i;
+        }
+
         key_part++;
         /*
           For "unique" secondary indexes, pretend they have
@@ -284,6 +309,245 @@ void Rdb_key_def::setup(const TABLE *const tbl,
 
     RDB_MUTEX_UNLOCK_CHECK(m_mutex);
   }
+}
+
+/*
+  Determine if the table has TTL enabled by parsing the table comment.
+
+  @param[IN]  table_arg
+  @param[IN]  tbl_def_arg
+  @param[OUT] ttl_duration        Default TTL value parsed from table comment
+*/
+uint Rdb_key_def::extract_ttl_duration(const TABLE *const table_arg,
+                                       const Rdb_tbl_def *const tbl_def_arg,
+                                       uint64 *ttl_duration) {
+  DBUG_ASSERT(table_arg != nullptr);
+  DBUG_ASSERT(tbl_def_arg != nullptr);
+  DBUG_ASSERT(ttl_duration != nullptr);
+  std::string table_comment(table_arg->s->comment.str,
+                            table_arg->s->comment.length);
+
+  bool ttl_duration_per_part_match_found = false;
+  std::string ttl_duration_str = Rdb_key_def::parse_comment_for_qualifier(
+      table_comment, table_arg, tbl_def_arg, &ttl_duration_per_part_match_found,
+      RDB_TTL_DURATION_QUALIFIER);
+
+  /* If we don't have a ttl duration, nothing to do here. */
+  if (ttl_duration_str.empty()) {
+    return HA_EXIT_SUCCESS;
+  }
+
+  /*
+    Catch errors where a non-integral value was used as ttl duration, strtoull
+    will return 0.
+  */
+  *ttl_duration = std::strtoull(ttl_duration_str.c_str(), nullptr, 0);
+  if (!*ttl_duration) {
+    my_error(ER_RDB_TTL_DURATION_FORMAT, MYF(0), ttl_duration_str.c_str());
+    return HA_EXIT_FAILURE;
+  }
+
+  return HA_EXIT_SUCCESS;
+}
+
+/*
+  Determine if the table has TTL enabled by parsing the table comment.
+
+  @param[IN]  table_arg
+  @param[IN]  tbl_def_arg
+  @param[OUT] ttl_column          TTL column in the table
+  @param[IN]  skip_checks         Skip validation checks (when called in
+                                  setup())
+*/
+uint Rdb_key_def::extract_ttl_col(const TABLE *const table_arg,
+                                  const Rdb_tbl_def *const tbl_def_arg,
+                                  std::string *ttl_column,
+                                  uint *ttl_field_offset, bool skip_checks) {
+  std::string table_comment(table_arg->s->comment.str,
+                            table_arg->s->comment.length);
+  /*
+    Check if there is a TTL column specified. Note that this is not required
+    and if omitted, an 8-byte ttl field will be prepended to each record
+    implicitly.
+  */
+  bool ttl_col_per_part_match_found = false;
+  std::string ttl_col_str = Rdb_key_def::parse_comment_for_qualifier(
+      table_comment, table_arg, tbl_def_arg, &ttl_col_per_part_match_found,
+      RDB_TTL_COL_QUALIFIER);
+
+  if (skip_checks) {
+    for (uint i = 0; i < table_arg->s->fields; i++) {
+      Field *const field = table_arg->field[i];
+      if (field->check_field_name_match(ttl_col_str.c_str())) {
+        *ttl_column = ttl_col_str;
+        *ttl_field_offset = i;
+      }
+    }
+    return HA_EXIT_SUCCESS;
+  }
+
+  /* Check if TTL column exists in table */
+  if (!ttl_col_str.empty()) {
+    bool found = false;
+    for (uint i = 0; i < table_arg->s->fields; i++) {
+      Field *const field = table_arg->field[i];
+      if (field->check_field_name_match(ttl_col_str.c_str()) &&
+          field->real_type() == MYSQL_TYPE_LONGLONG &&
+          field->key_type() == HA_KEYTYPE_ULONGLONG &&
+          !field->real_maybe_null()) {
+        *ttl_column = ttl_col_str;
+        *ttl_field_offset = i;
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      my_error(ER_RDB_TTL_COL_FORMAT, MYF(0), ttl_col_str.c_str());
+      return HA_EXIT_FAILURE;
+    }
+  }
+
+  return HA_EXIT_SUCCESS;
+}
+
+const std::string
+Rdb_key_def::gen_qualifier_for_table(const char *const qualifier,
+                                     const std::string &partition_name) {
+  bool has_partition = !partition_name.empty();
+  std::string qualifier_str = "";
+
+  if (!strcmp(qualifier, RDB_CF_NAME_QUALIFIER)) {
+    return has_partition ? gen_cf_name_qualifier_for_partition(partition_name)
+                         : qualifier_str + RDB_CF_NAME_QUALIFIER +
+                               RDB_QUALIFIER_VALUE_SEP;
+  } else if (!strcmp(qualifier, RDB_TTL_DURATION_QUALIFIER)) {
+    return has_partition
+               ? gen_ttl_duration_qualifier_for_partition(partition_name)
+               : qualifier_str + RDB_TTL_DURATION_QUALIFIER +
+                     RDB_QUALIFIER_VALUE_SEP;
+  } else if (!strcmp(qualifier, RDB_TTL_COL_QUALIFIER)) {
+    return has_partition ? gen_ttl_col_qualifier_for_partition(partition_name)
+                         : qualifier_str + RDB_TTL_COL_QUALIFIER +
+                               RDB_QUALIFIER_VALUE_SEP;
+  } else {
+    DBUG_ASSERT(0);
+  }
+
+  return qualifier_str;
+}
+
+/*
+  Formats the string and returns the column family name assignment part for a
+  specific partition.
+*/
+const std::string
+Rdb_key_def::gen_cf_name_qualifier_for_partition(const std::string &prefix) {
+  DBUG_ASSERT(!prefix.empty());
+
+  return prefix + RDB_PER_PARTITION_QUALIFIER_NAME_SEP + RDB_CF_NAME_QUALIFIER +
+         RDB_QUALIFIER_VALUE_SEP;
+}
+
+const std::string Rdb_key_def::gen_ttl_duration_qualifier_for_partition(
+    const std::string &prefix) {
+  DBUG_ASSERT(!prefix.empty());
+
+  return prefix + RDB_PER_PARTITION_QUALIFIER_NAME_SEP +
+         RDB_TTL_DURATION_QUALIFIER + RDB_QUALIFIER_VALUE_SEP;
+}
+
+const std::string
+Rdb_key_def::gen_ttl_col_qualifier_for_partition(const std::string &prefix) {
+  DBUG_ASSERT(!prefix.empty());
+
+  return prefix + RDB_PER_PARTITION_QUALIFIER_NAME_SEP + RDB_TTL_COL_QUALIFIER +
+         RDB_QUALIFIER_VALUE_SEP;
+}
+
+const std::string Rdb_key_def::parse_comment_for_qualifier(
+    const std::string &comment, const TABLE *const table_arg,
+    const Rdb_tbl_def *const tbl_def_arg, bool *per_part_match_found,
+    const char *const qualifier) {
+  DBUG_ASSERT(table_arg != nullptr);
+  DBUG_ASSERT(tbl_def_arg != nullptr);
+  DBUG_ASSERT(per_part_match_found != nullptr);
+  DBUG_ASSERT(qualifier != nullptr);
+
+  std::string empty_result;
+
+  // Flag which marks if partition specific options were found.
+  *per_part_match_found = false;
+
+  if (comment.empty()) {
+    return empty_result;
+  }
+
+  // Let's fetch the comment for a index and check if there's a custom key
+  // name specified for a partition we are handling.
+  std::vector<std::string> v =
+      myrocks::parse_into_tokens(comment, RDB_QUALIFIER_SEP);
+
+  std::string search_str = gen_qualifier_for_table(qualifier);
+
+  // If table has partitions then we need to check if user has requested
+  // qualifiers on a per partition basis.
+  //
+  // NOTE: this means if you specify a qualifier for a specific partition it
+  // will take precedence the 'table level' qualifier if one exists.
+  std::string search_str_part;
+  if (table_arg->part_info != nullptr) {
+    std::string partition_name = tbl_def_arg->base_partition();
+    DBUG_ASSERT(!partition_name.empty());
+    search_str_part = gen_qualifier_for_table(qualifier, partition_name);
+  }
+
+  DBUG_ASSERT(!search_str.empty());
+
+  // Basic O(N) search for a matching assignment. At most we expect maybe
+  // ten or so elements here.
+  if (!search_str_part.empty()) {
+    for (const auto &it : v) {
+      if (it.substr(0, search_str_part.length()) == search_str_part) {
+        // We found a prefix match. Try to parse it as an assignment.
+        std::vector<std::string> tokens =
+            myrocks::parse_into_tokens(it, RDB_QUALIFIER_VALUE_SEP);
+
+        // We found a custom qualifier, it was in the form we expected it to be.
+        // Return that instead of whatever we initially wanted to return. In
+        // a case below the `foo` part will be returned to the caller.
+        //
+        // p3_cfname=foo
+        //
+        // If no value was specified then we'll return an empty string which
+        // later gets translated into using a default CF.
+        if (tokens.size() == 2) {
+          *per_part_match_found = true;
+          return tokens[1];
+        } else {
+          return empty_result;
+        }
+      }
+    }
+  }
+
+  // Do this loop again, this time searching for 'table level' qualifiers if we
+  // didn't find any partition level qualifiers above.
+  for (const auto &it : v) {
+    if (it.substr(0, search_str.length()) == search_str) {
+      std::vector<std::string> tokens =
+          myrocks::parse_into_tokens(it, RDB_QUALIFIER_VALUE_SEP);
+      if (tokens.size() == 2) {
+        return tokens[1];
+      } else {
+        return empty_result;
+      }
+    }
+  }
+
+  // If we didn't find any partitioned/non-partitioned qualifiers, return an
+  // empty string.
+  return empty_result;
 }
 
 /**
@@ -571,6 +835,7 @@ uchar *Rdb_key_def::pack_field(Field *const field, Rdb_field_packing *pack_info,
     unpack_info_len  OUT  Unpack data length
     n_key_parts           Number of keyparts to process. 0 means all of them.
     n_null_fields    OUT  Number of key fields with NULL value.
+    ttl_pk_offset    OUT  Offset of the ttl column if specified and in the key
 
   @detail
     Some callers do not need the unpack information, they can pass
@@ -586,7 +851,8 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
                               Rdb_string_writer *const unpack_info,
                               const bool &should_store_row_debug_checksums,
                               const longlong &hidden_pk_id, uint n_key_parts,
-                              uint *const n_null_fields) const {
+                              uint *const n_null_fields,
+                              uint *const ttl_pk_offset) const {
   DBUG_ASSERT(tbl != nullptr);
   DBUG_ASSERT(pack_buffer != nullptr);
   DBUG_ASSERT(record != nullptr);
@@ -641,6 +907,17 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
     uint field_offset = field->ptr - tbl->record[0];
     uint null_offset = field->null_offset(tbl->record[0]);
     bool maybe_null = field->real_maybe_null();
+
+    // Save the ttl duration offset in the key so we can store it in front of
+    // the record later.
+    if (ttl_pk_offset && m_ttl_duration > 0 && i == m_ttl_pk_key_part_offset) {
+      DBUG_ASSERT(field->check_field_name_match(m_ttl_column.c_str()));
+      DBUG_ASSERT(field->real_type() == MYSQL_TYPE_LONGLONG);
+      DBUG_ASSERT(field->key_type() == HA_KEYTYPE_ULONGLONG);
+      DBUG_ASSERT(!field->real_maybe_null());
+      *ttl_pk_offset = tuple - packed_tuple;
+    }
+
     field->move_field(const_cast<uchar*>(record) + field_offset,
         maybe_null ? const_cast<uchar*>(record) + null_offset : nullptr,
         field->null_bit);
@@ -2850,9 +3127,9 @@ bool Rdb_tbl_def::put_dict(Rdb_dict_manager *const dict,
 
     rdb_netstr_append_uint32(&indexes, cf_id);
     rdb_netstr_append_uint32(&indexes, kd.m_index_number);
-    dict->add_or_update_index_cf_mapping(batch, kd.m_index_type,
-                                         kd.m_kv_format_version,
-                                         kd.m_index_number, cf_id);
+    dict->add_or_update_index_cf_mapping(
+        batch, kd.m_index_type, kd.m_kv_format_version, kd.m_index_number,
+        cf_id, kd.m_ttl_duration);
   }
 
   const rocksdb::Slice skey((char *)key, keylen);
@@ -3111,7 +3388,7 @@ bool Rdb_validate_tbls::compare_to_actual_tables(const std::string &datadir,
 
 /*
   Validate that all the tables in the RocksDB database dictionary match the .frm
-  files in the datdir
+  files in the datadir
 */
 bool Rdb_ddl_manager::validate_schemas(void) {
   bool has_errors = false;
@@ -3213,9 +3490,10 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager *const dict_arg,
       uint16 m_index_dict_version = 0;
       uchar m_index_type = 0;
       uint16 kv_version = 0;
+      uint64 ttl_duration = 0;
       uint flags = 0;
       if (!m_dict->get_index_info(gl_index_id, &m_index_dict_version,
-                                  &m_index_type, &kv_version)) {
+                                  &m_index_type, &kv_version, &ttl_duration)) {
         sql_print_error("RocksDB: Could not get index information "
                         "for Index Number (%u,%u), table %s",
                         gl_index_id.cf_id, gl_index_id.index_id,
@@ -3250,7 +3528,7 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager *const dict_arg,
           kv_version, flags & Rdb_key_def::REVERSE_CF_FLAG,
           flags & Rdb_key_def::AUTO_CF_FLAG,
           flags & Rdb_key_def::PER_PARTITION_CF_FLAG, "",
-          m_dict->get_stats(gl_index_id));
+          m_dict->get_stats(gl_index_id), ttl_duration);
     }
     put(tdef);
     i++;
@@ -3906,8 +4184,8 @@ void Rdb_dict_manager::delete_with_prefix(
 
 void Rdb_dict_manager::add_or_update_index_cf_mapping(
     rocksdb::WriteBatch *batch, const uchar m_index_type,
-    const uint16_t kv_version, const uint32_t index_id,
-    const uint32_t cf_id) const {
+    const uint16_t kv_version, const uint32_t index_id, const uint32_t cf_id,
+    const uint64 ttl_duration) const {
   uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE * 3] = {0};
   uchar value_buf[256] = {0};
   GL_INDEX_ID gl_index_id = {cf_id, index_id};
@@ -3916,11 +4194,13 @@ void Rdb_dict_manager::add_or_update_index_cf_mapping(
 
   uchar *ptr = value_buf;
   rdb_netbuf_store_uint16(ptr, Rdb_key_def::INDEX_INFO_VERSION_LATEST);
-  ptr += 2;
+  ptr += RDB_SIZEOF_INDEX_INFO_VERSION;
   rdb_netbuf_store_byte(ptr, m_index_type);
-  ptr += 1;
+  ptr += RDB_SIZEOF_INDEX_TYPE;
   rdb_netbuf_store_uint16(ptr, kv_version);
-  ptr += 2;
+  ptr += RDB_SIZEOF_KV_VERSION;
+  rdb_netbuf_store_uint64(ptr, ttl_duration);
+  ptr += ROCKSDB_SIZEOF_TTL_RECORD;
 
   const rocksdb::Slice value =
       rocksdb::Slice((char *)value_buf, ptr - value_buf);
@@ -3954,8 +4234,8 @@ void Rdb_dict_manager::delete_index_info(rocksdb::WriteBatch *batch,
 
 bool Rdb_dict_manager::get_index_info(const GL_INDEX_ID &gl_index_id,
                                       uint16_t *m_index_dict_version,
-                                      uchar *m_index_type,
-                                      uint16_t *kv_version) const {
+                                      uchar *m_index_type, uint16_t *kv_version,
+                                      uint64 *ttl_duration) const {
   bool found = false;
   bool error = false;
   std::string value;
@@ -3970,13 +4250,29 @@ bool Rdb_dict_manager::get_index_info(const GL_INDEX_ID &gl_index_id,
     *m_index_dict_version = rdb_netbuf_to_uint16(val);
     *kv_version = 0;
     *m_index_type = 0;
-    ptr += 2;
+    *ttl_duration = 0;
+    ptr += RDB_SIZEOF_INDEX_INFO_VERSION;
     switch (*m_index_dict_version) {
+    case Rdb_key_def::INDEX_INFO_VERSION_TTL:
+      /* Sanity check to prevent reading bogus into TTL record. */
+      if (value.size() !=
+          RDB_SIZEOF_INDEX_INFO_VERSION + RDB_SIZEOF_INDEX_TYPE +
+              RDB_SIZEOF_KV_VERSION + ROCKSDB_SIZEOF_TTL_RECORD) {
+        error = true;
+        break;
+      }
+      *m_index_type = rdb_netbuf_to_byte(ptr);
+      ptr += RDB_SIZEOF_INDEX_TYPE;
+      *kv_version = rdb_netbuf_to_uint16(ptr);
+      ptr += RDB_SIZEOF_KV_VERSION;
+      *ttl_duration = rdb_netbuf_to_uint64(ptr);
+      found = true;
+      break;
 
     case Rdb_key_def::INDEX_INFO_VERSION_VERIFY_KV_FORMAT:
     case Rdb_key_def::INDEX_INFO_VERSION_GLOBAL_ID:
       *m_index_type = rdb_netbuf_to_byte(ptr);
-      ptr += 1;
+      ptr += RDB_SIZEOF_INDEX_TYPE;
       *kv_version = rdb_netbuf_to_uint16(ptr);
       found = true;
       break;
@@ -4003,10 +4299,11 @@ bool Rdb_dict_manager::get_index_info(const GL_INDEX_ID &gl_index_id,
 
   if (error) {
     // NO_LINT_DEBUG
-    sql_print_error("RocksDB: Found invalid key version number (%u, %u, %u) "
-                    "from data dictionary. This should never happen "
-                    "and it may be a bug.",
-                    *m_index_dict_version, *m_index_type, *kv_version);
+    sql_print_error(
+        "RocksDB: Found invalid key version number (%u, %u, %u, %llu) "
+        "from data dictionary. This should never happen "
+        "and it may be a bug.",
+        *m_index_dict_version, *m_index_type, *kv_version, *ttl_duration);
     abort_with_stack_traces();
   }
 
@@ -4313,9 +4610,10 @@ void Rdb_dict_manager::log_start_drop_index(GL_INDEX_ID gl_index_id,
   uint16 m_index_dict_version = 0;
   uchar m_index_type = 0;
   uint16 kv_version = 0;
+  uint64 ttl_duration = 0;
 
   if (!get_index_info(gl_index_id, &m_index_dict_version, &m_index_type,
-                      &kv_version)) {
+                      &kv_version, &ttl_duration)) {
     /*
       If we don't find the index info, it could be that it's because it was a
       partially created index that isn't in the data dictionary yet that needs
