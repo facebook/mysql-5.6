@@ -1350,51 +1350,15 @@ DROP TABLE t1;
 
 --echo #
 --echo # Issue #17: Automatic per-index column families
+--echo # (Now deprecated)
 --echo #
+--error ER_PER_INDEX_CF_DEPRECATED
 create table t1 (
   id int not null,
   key1 int,
   PRIMARY KEY (id),
   index (key1) comment '$per_index_cf'
 ) engine=rocksdb;
-
---echo #Same CF ids with different CF flags
---error ER_CF_DIFFERENT
-create table t1_err (
-  id int not null,
-  key1 int,
-  PRIMARY KEY (id),
-  index (key1) comment 'test.t1.key1'
-) engine=rocksdb;
-
-create table t1_err (
-  id int not null,
-  key1 int,
-  PRIMARY KEY (id),
-  index (key1) comment 'test.t1.key2'
-) engine=rocksdb;
-drop table t1_err;
-
---echo # Unfortunately there is no way to check which column family everything goes to
-insert into t1 values (1,1);
-select * from t1;
---echo # Check that ALTER and RENAME are disallowed
---error ER_NOT_SUPPORTED_YET
-alter table t1 add col2 int;
-
---error ER_NOT_SUPPORTED_YET
-rename table t1 to t2;
-
-drop table t1;
-
---echo # Check detection of typos in \$per_index_cf
---error ER_NOT_SUPPORTED_YET
-create table t1 (
-  id int not null,
-  key1 int,
-  PRIMARY KEY (id),
-  index (key1) comment '$per_idnex_cf'
-)engine=rocksdb;
 
 
 --echo #

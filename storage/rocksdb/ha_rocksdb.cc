@@ -96,6 +96,10 @@ static st_global_stats global_stats;
 static st_export_stats export_stats;
 static st_memory_stats memory_stats;
 
+const std::string DEFAULT_CF_NAME("default");
+const std::string DEFAULT_SYSTEM_CF_NAME("__system__");
+const std::string PER_INDEX_CF_NAME("$per_index_cf");
+
 /**
   Updates row counters based on the table type and operation type.
 */
@@ -176,8 +180,7 @@ static int rocksdb_compact_column_family(THD *const thd,
   DBUG_ASSERT(value != nullptr);
 
   if (const char *const cf = value->val_str(value, buff, &len)) {
-    bool is_automatic;
-    auto cfh = cf_manager.get_cf(cf, "", nullptr, &is_automatic);
+    auto cfh = cf_manager.get_cf(cf);
     if (cfh != nullptr && rdb != nullptr) {
       sql_print_information("RocksDB: Manual compaction of column family: %s\n",
                             cf);
@@ -3028,15 +3031,7 @@ static bool rocksdb_show_status(handlerton *const hton, THD *const thd,
 
     /* Per column family stats */
     for (const auto &cf_name : cf_manager.get_cf_names()) {
-      rocksdb::ColumnFamilyHandle *cfh;
-      bool is_automatic;
-
-      /*
-        Only the cf name is important. Whether it was generated automatically
-        does not matter, so is_automatic is ignored.
-      */
-      cfh = cf_manager.get_cf(cf_name.c_str(), "", nullptr, &is_automatic);
-
+      rocksdb::ColumnFamilyHandle *cfh = cf_manager.get_cf(cf_name);
       if (cfh == nullptr) {
         continue;
       }
@@ -5311,32 +5306,17 @@ int ha_rocksdb::create_cfs(
     std::string cf_name = generate_cf_name(i, table_arg, tbl_def_arg,
       &per_part_match_found);
 
-    const char *const key_name = get_key_name(i, table_arg, tbl_def_arg);
-
-    if (looks_like_per_index_cf_typo(cf_name.c_str())) {
-      my_error(ER_NOT_SUPPORTED_YET, MYF(0),
-               "column family name looks like a typo of $per_index_cf.");
-      DBUG_RETURN(HA_EXIT_FAILURE);
-    }
-
     // Prevent create from using the system column family.
-    if (!cf_name.empty() && strcmp(DEFAULT_SYSTEM_CF_NAME,
-                                   cf_name.c_str()) == 0) {
+    if (cf_name == DEFAULT_SYSTEM_CF_NAME) {
       my_error(ER_WRONG_ARGUMENTS, MYF(0),
                "column family not valid for storing index data.");
       DBUG_RETURN(HA_EXIT_FAILURE);
     }
 
-    bool is_auto_cf_flag;
-
     // Here's how `get_or_create_cf` will use the input parameters:
     //
     // `cf_name` - will be used as a CF name.
-    // `key_name` - will be only used in case of "$per_index_cf".
-    cf_handle =
-        cf_manager.get_or_create_cf(rdb, cf_name.c_str(),
-                                    tbl_def_arg->full_tablename(), key_name,
-                                    &is_auto_cf_flag);
+    cf_handle = cf_manager.get_or_create_cf(rdb, cf_name);
 
     if (!cf_handle) {
       DBUG_RETURN(HA_EXIT_FAILURE);
@@ -5346,7 +5326,6 @@ int ha_rocksdb::create_cfs(
 
     cf.cf_handle = cf_handle;
     cf.is_reverse_cf = Rdb_cf_manager::is_cf_name_reverse(cf_name.c_str());
-    cf.is_auto_cf = is_auto_cf_flag;
     cf.is_per_partition_cf = per_part_match_found;
   }
 
@@ -5419,7 +5398,7 @@ int ha_rocksdb::create_inplace_key_defs(
       */
       new_key_descr[i] = std::make_shared<Rdb_key_def>(
           okd.get_index_number(), i, okd.get_cf(), index_dict_version,
-          index_type, kv_version, okd.m_is_reverse_cf, okd.m_is_auto_cf,
+          index_type, kv_version, okd.m_is_reverse_cf,
           okd.m_is_per_partition_cf, okd.m_name.c_str(),
           dict_manager.get_stats(gl_index_id), ttl_duration);
     } else if (create_key_def(table_arg, i, tbl_def_arg, &new_key_descr[i],
@@ -5652,8 +5631,8 @@ int ha_rocksdb::create_key_def(const TABLE *const table_arg, const uint &i,
   const char *const key_name = get_key_name(i, table_arg, m_tbl_def);
   *new_key_def = std::make_shared<Rdb_key_def>(
       index_id, i, cf_info.cf_handle, index_dict_version, index_type,
-      kv_version, cf_info.is_reverse_cf, cf_info.is_auto_cf,
-      cf_info.is_per_partition_cf, key_name, Rdb_index_stats(), ttl_duration);
+      kv_version, cf_info.is_reverse_cf, cf_info.is_per_partition_cf, key_name,
+      Rdb_index_stats(), ttl_duration);
 
   if (!ttl_column.empty()) {
     (*new_key_def)->m_ttl_column = ttl_column;
@@ -9234,32 +9213,6 @@ int ha_rocksdb::rename_table(const char *const from, const char *const to) {
     DBUG_RETURN(-1);
   }
 
-  /* Check if any index has a per-index column family */
-  {
-    /*
-      We can't check this directly, because
-      1. the object that referred to the old table has been close()d.
-      2. this ha_rocksdb object has no connection to any table at all, it has
-         been just created with (TABLE*)nullptr.
-
-      So, we have to find the old table in the ddl_manager (it's there because
-      it has been opened by this statement), and check is_auto_cf there.
-    */
-    Rdb_tbl_def *tdef;
-    if (!(tdef = ddl_manager.find(from_str)))
-      DBUG_RETURN(HA_ERR_NO_SUCH_TABLE);
-
-    for (uint i = 0; i < tdef->m_key_count; i++) {
-      DBUG_ASSERT(tdef->m_key_descr_arr != nullptr);
-
-      if (tdef->m_key_descr_arr[i]->m_is_auto_cf) {
-        my_error(ER_NOT_SUPPORTED_YET, MYF(0),
-                 "ALTER TABLE on table with per-index CF");
-        DBUG_RETURN(HA_ERR_UNSUPPORTED);
-      }
-    }
-  }
-
   const std::unique_ptr<rocksdb::WriteBatch> wb = dict_manager.begin();
   rocksdb::WriteBatch *const batch = wb.get();
   dict_manager.lock();
@@ -11093,10 +11046,7 @@ void rocksdb_set_update_cf_options(THD *const /* unused */,
   for (const auto &cf_name : cf_manager.get_cf_names()) {
     DBUG_ASSERT(!cf_name.empty());
 
-    bool is_automatic = false;
-
-    rocksdb::ColumnFamilyHandle *cfh = cf_manager.get_cf(cf_name.c_str(),
-      "", nullptr, &is_automatic);
+    rocksdb::ColumnFamilyHandle *cfh = cf_manager.get_cf(cf_name);
     DBUG_ASSERT(cfh != nullptr);
 
     const auto it = option_map.find(cf_name);

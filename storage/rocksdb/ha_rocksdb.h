@@ -94,12 +94,12 @@ std::vector<Rdb_trx_info> rdb_get_all_trx_info();
   - the name used to set the default column family parameter for per-cf
     arguments.
 */
-const char *const DEFAULT_CF_NAME = "default";
+extern const std::string DEFAULT_CF_NAME;
 
 /*
   This is the name of the Column Family used for storing the data dictionary.
 */
-const char *const DEFAULT_SYSTEM_CF_NAME = "__system__";
+extern const std::string DEFAULT_SYSTEM_CF_NAME;
 
 /*
   This is the name of the hidden primary key for tables with no pk.
@@ -108,9 +108,9 @@ const char *const HIDDEN_PK_NAME = "HIDDEN_PK_ID";
 
 /*
   Column family name which means "put this index into its own column family".
-  See Rdb_cf_manager::get_per_index_cf_name().
+  DEPRECATED!!!
 */
-const char *const PER_INDEX_CF_NAME = "$per_index_cf";
+extern const std::string PER_INDEX_CF_NAME;
 
 /*
   Name for the background thread.
@@ -274,10 +274,6 @@ const char *const RDB_TTL_COL_QUALIFIER = "ttl_col";
 #define HA_ERR_ROCKSDB_STATUS_EXPIRED (HA_ERR_LAST + 24)
 #define HA_ERR_ROCKSDB_STATUS_TRY_AGAIN (HA_ERR_LAST + 25)
 #define HA_ERR_ROCKSDB_LAST HA_ERR_ROCKSDB_STATUS_TRY_AGAIN
-
-inline bool looks_like_per_index_cf_typo(const char *const name) {
-  return (name && name[0] == '$' && strcmp(name, PER_INDEX_CF_NAME));
-}
 
 /**
   @brief
@@ -950,7 +946,6 @@ private:
   struct key_def_cf_info {
     rocksdb::ColumnFamilyHandle *cf_handle;
     bool is_reverse_cf;
-    bool is_auto_cf;
     bool is_per_partition_cf;
   };
 
