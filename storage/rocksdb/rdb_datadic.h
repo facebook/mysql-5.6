@@ -113,6 +113,13 @@ const size_t RDB_UNPACK_DATA_LEN_SIZE = sizeof(uint16_t);
 const size_t RDB_UNPACK_HEADER_SIZE =
     sizeof(RDB_UNPACK_DATA_TAG) + RDB_UNPACK_DATA_LEN_SIZE;
 
+/*
+  Data dictionary index info field sizes.
+*/
+const size_t RDB_SIZEOF_INDEX_INFO_VERSION = sizeof(uint16);
+const size_t RDB_SIZEOF_INDEX_TYPE = sizeof(uchar);
+const size_t RDB_SIZEOF_KV_VERSION = sizeof(uint16);
+
 // Possible return values for rdb_index_field_unpack_t functions.
 enum {
   UNPACK_SUCCESS = 0,
@@ -177,7 +184,8 @@ public:
                    Rdb_string_writer *const unpack_info,
                    const bool &should_store_row_debug_checksums,
                    const longlong &hidden_pk_id = 0, uint n_key_parts = 0,
-                   uint *const n_null_fields = nullptr) const;
+                   uint *const n_null_fields = nullptr,
+                   uint *const ttl_pk_offset = nullptr) const;
   /* Pack the hidden primary key into mem-comparable form. */
   uint pack_hidden_pk(const longlong &hidden_pk_id,
                       uchar *const packed_tuple) const;
@@ -272,6 +280,8 @@ public:
 
   uint get_key_parts() const { return m_key_parts; }
 
+  uint get_ttl_field_offset() const { return m_ttl_field_offset; }
+
   /*
     Get a field object for key part #part_no
 
@@ -297,7 +307,8 @@ public:
               uint16_t index_dict_version_arg, uchar index_type_arg,
               uint16_t kv_format_version_arg, bool is_reverse_cf_arg,
               bool is_auto_cf_arg, bool is_per_partition_cf, const char *name,
-              Rdb_index_stats stats = Rdb_index_stats());
+              Rdb_index_stats stats = Rdb_index_stats(),
+              uint64 ttl_duration = 0);
   ~Rdb_key_def();
 
   enum {
@@ -348,7 +359,7 @@ public:
   // INDEX_INFO layout. Update INDEX_INFO_VERSION_LATEST to point to the
   // latest version number.
   enum {
-    INDEX_INFO_VERSION_INITIAL = 1, // Obsolete
+    INDEX_INFO_VERSION_INITIAL = 1,  // Obsolete
     INDEX_INFO_VERSION_KV_FORMAT,
     INDEX_INFO_VERSION_GLOBAL_ID,
     // There is no change to data format in this version, but this version
@@ -356,8 +367,10 @@ public:
     // bump is needed to prevent older binaries from skipping the KV version
     // check inadvertently.
     INDEX_INFO_VERSION_VERIFY_KV_FORMAT,
+    // This changes the data format to include a 8 byte TTL duration for tables
+    INDEX_INFO_VERSION_TTL,
     // This normally point to the latest (currently it does).
-    INDEX_INFO_VERSION_LATEST = INDEX_INFO_VERSION_VERIFY_KV_FORMAT,
+    INDEX_INFO_VERSION_LATEST = INDEX_INFO_VERSION_TTL,
   };
 
   // MyRocks index types
@@ -382,7 +395,11 @@ public:
     //    an inefficient where data that was a multiple of 8 bytes in length
     //    had an extra 9 bytes of encoded data.
     PRIMARY_FORMAT_VERSION_UPDATE2 = 12,
-    PRIMARY_FORMAT_VERSION_LATEST = PRIMARY_FORMAT_VERSION_UPDATE2,
+    // This change includes support for TTL
+    //  - This means that when TTL is specified for the table an 8-byte TTL
+    //    field is prepended in front of each value.
+    PRIMARY_FORMAT_VERSION_TTL = 13,
+    PRIMARY_FORMAT_VERSION_LATEST = PRIMARY_FORMAT_VERSION_TTL,
 
     SECONDARY_FORMAT_VERSION_INITIAL = 10,
     // This change the SK format to include unpack_info.
@@ -396,6 +413,30 @@ public:
   };
 
   void setup(const TABLE *const table, const Rdb_tbl_def *const tbl_def);
+
+  static uint extract_ttl_duration(const TABLE *const table_arg,
+                                   const Rdb_tbl_def *const tbl_def_arg,
+                                   uint64 *ttl_duration);
+  static uint extract_ttl_col(const TABLE *const table_arg,
+                              const Rdb_tbl_def *const tbl_def_arg,
+                              std::string *ttl_column, uint *ttl_field_offset,
+                              bool skip_checks = false);
+  inline bool has_ttl() const { return m_ttl_duration > 0; }
+
+  static const std::string
+  gen_qualifier_for_table(const char *const qualifier,
+                          const std::string &partition_name = "");
+  static const std::string
+  gen_cf_name_qualifier_for_partition(const std::string &s);
+  static const std::string
+  gen_ttl_duration_qualifier_for_partition(const std::string &s);
+  static const std::string
+  gen_ttl_col_qualifier_for_partition(const std::string &s);
+
+  static const std::string parse_comment_for_qualifier(
+      const std::string &comment, const TABLE *const table_arg,
+      const Rdb_tbl_def *const tbl_def_arg, bool *per_part_match_found,
+      const char *const qualifier);
 
   rocksdb::ColumnFamilyHandle *get_cf() const { return m_cf_handle; }
 
@@ -574,7 +615,11 @@ public:
   std::string m_name;
   mutable Rdb_index_stats m_stats;
 
-private:
+  /* TTL default value and corresponding column to apply TTL to in table */
+  uint64 m_ttl_duration;
+  std::string m_ttl_column;
+
+ private:
   friend class Rdb_tbl_def; // for m_index_number above
 
   /* Number of key parts in the primary key*/
@@ -596,6 +641,18 @@ private:
     many elements are in the m_pack_info array.
   */
   uint m_key_parts;
+
+  /*
+    If TTL column is part of the PK, offset of the column within pk.
+    Default is UINT_MAX to denote that TTL col is not part of PK.
+  */
+  uint m_ttl_pk_key_part_offset;
+
+  /*
+    Index of the TTL column in table->s->fields, if it exists.
+    Default is UINT_MAX to denote that it does not exist.
+  */
+  uint m_ttl_field_offset;
 
   /* Prefix extractor for the column family of the key definiton */
   std::shared_ptr<const rocksdb::SliceTransform> m_prefix_extractor;
@@ -1028,8 +1085,9 @@ private:
 
   2. internal cf_id, index id => index information
   key: Rdb_key_def::INDEX_INFO(0x2) + cf_id + index_id
-  value: version, index_type, kv_format_version
+  value: version, index_type, kv_format_version, ttl_duration
   index_type is 1 byte, version and kv_format_version are 2 bytes.
+  ttl_duration is 8 bytes.
 
   3. CF id => CF flags
   key: Rdb_key_def::CF_DEFINITION(0x3) + cf_id
@@ -1100,6 +1158,10 @@ public:
 
   inline void unlock() { RDB_MUTEX_UNLOCK_CHECK(m_mutex); }
 
+  inline rocksdb::ColumnFamilyHandle *get_system_cf() const {
+    return m_system_cfh;
+  }
+
   /* Raw RocksDB operations */
   std::unique_ptr<rocksdb::WriteBatch> begin() const;
   int commit(rocksdb::WriteBatch *const batch, const bool &sync = true) const;
@@ -1115,13 +1177,13 @@ public:
   void add_or_update_index_cf_mapping(rocksdb::WriteBatch *batch,
                                       const uchar index_type,
                                       const uint16_t kv_version,
-                                      const uint index_id,
-                                      const uint cf_id) const;
+                                      const uint index_id, const uint cf_id,
+                                      const uint64 ttl_duration) const;
   void delete_index_info(rocksdb::WriteBatch *batch,
                          const GL_INDEX_ID &index_id) const;
   bool get_index_info(const GL_INDEX_ID &gl_index_id,
                       uint16_t *index_dict_version, uchar *index_type,
-                      uint16_t *kv_version) const;
+                      uint16_t *kv_version, uint64 *ttl_duration) const;
 
   /* CF id => CF flags */
   void add_cf_flags(rocksdb::WriteBatch *const batch, const uint &cf_id,

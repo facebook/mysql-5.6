@@ -4088,14 +4088,67 @@ bool ha_rocksdb::init_with_fields() {
   @param packed_rec      OUT  Data slice with record data.
 */
 
-void ha_rocksdb::convert_record_to_storage_format(
-    const rocksdb::Slice &pk_packed_slice,
-    Rdb_string_writer *const pk_unpack_info, rocksdb::Slice *const packed_rec) {
-  DBUG_ASSERT_IMP(m_maybe_unpack_info, pk_unpack_info);
+int ha_rocksdb::convert_record_to_storage_format(
+    const struct update_row_info &row_info, rocksdb::Slice *const packed_rec) {
+  DBUG_ASSERT_IMP(m_maybe_unpack_info, row_info.new_pk_unpack_info);
+  DBUG_ASSERT(m_pk_descr != nullptr);
+
+  const rocksdb::Slice &pk_packed_slice = row_info.new_pk_slice;
+  Rdb_string_writer *const pk_unpack_info = row_info.new_pk_unpack_info;
+  bool has_ttl = m_pk_descr->has_ttl();
+  bool has_ttl_column = !m_pk_descr->m_ttl_column.empty();
+  bool ttl_in_pk = has_ttl_column && (row_info.ttl_pk_offset != UINT_MAX);
+
   m_storage_record.length(0);
 
-  /* All NULL bits are initially 0 */
-  m_storage_record.fill(m_null_bytes_in_rec, 0);
+  if (has_ttl) {
+    /* If it's a TTL record, reserve space for 8 byte TTL value in front. */
+    m_storage_record.fill(ROCKSDB_SIZEOF_TTL_RECORD + m_null_bytes_in_rec, 0);
+
+    /*
+      If the TTL is contained within the key, we use the offset to find the
+      TTL value and place it in the beginning of the value record.
+    */
+    if (ttl_in_pk) {
+      Rdb_string_reader reader(&pk_packed_slice);
+      const char *ts;
+      if (!reader.read(row_info.ttl_pk_offset) ||
+          !(ts = reader.read(ROCKSDB_SIZEOF_TTL_RECORD))) {
+        std::string buf;
+        buf = rdb_hexdump(pk_packed_slice.data(), pk_packed_slice.size(),
+                          RDB_MAX_HEXDUMP_LEN);
+        const GL_INDEX_ID gl_index_id = m_pk_descr->get_gl_index_id();
+        // NO_LINT_DEBUG
+        sql_print_error("Decoding ttl from PK failed during insert, "
+                        "for index (%u,%u), key: %s",
+                        gl_index_id.cf_id, gl_index_id.index_id, buf.c_str());
+        return HA_EXIT_FAILURE;
+      }
+
+      char *const data = const_cast<char *>(m_storage_record.ptr());
+      memcpy(data, ts, ROCKSDB_SIZEOF_TTL_RECORD);
+
+    } else if (!has_ttl_column) {
+      /*
+        For implicitly generated TTL records we need to copy over the old
+        TTL value from the old record in the event of an update. It was stored
+        in m_ttl_bytes.
+
+        Otherwise, generate a timestamp using the current time.
+      */
+      if (!row_info.old_pk_slice.empty()) {
+        char *const data = const_cast<char *>(m_storage_record.ptr());
+        memcpy(data, m_ttl_bytes, sizeof(uint64));
+      } else {
+        uint64 ts = static_cast<uint64>(std::time(nullptr));
+        char *const data = const_cast<char *>(m_storage_record.ptr());
+        rdb_netbuf_store_uint64(reinterpret_cast<uchar *>(data), ts);
+      }
+    }
+  } else {
+    /* All NULL bits are initially 0 */
+    m_storage_record.fill(m_null_bytes_in_rec, 0);
+  }
 
   // If a primary key may have non-empty unpack_info for certain values,
   // (m_maybe_unpack_info=TRUE), we write the unpack_info block. The block
@@ -4113,7 +4166,11 @@ void ha_rocksdb::convert_record_to_storage_format(
 
     Field *const field = table->field[i];
     if (m_encoder_arr[i].maybe_null()) {
-      char *const data = (char *)m_storage_record.ptr();
+      char *data = const_cast<char *>(m_storage_record.ptr());
+      if (has_ttl) {
+        data += ROCKSDB_SIZEOF_TTL_RECORD;
+      }
+
       if (field->is_null()) {
         data[m_encoder_arr[i].m_null_offset] |= m_encoder_arr[i].m_null_mask;
         /* Don't write anything for NULL values */
@@ -4150,6 +4207,21 @@ void ha_rocksdb::convert_record_to_storage_format(
       /* Copy the field data */
       const uint len = field->pack_length_in_rec();
       m_storage_record.append(reinterpret_cast<char *>(field->ptr), len);
+
+      /*
+        Check if this is the TTL field within the table, if so store the TTL
+        in the front of the record as well here.
+      */
+      if (has_ttl && has_ttl_column &&
+          i == m_pk_descr->get_ttl_field_offset()) {
+        DBUG_ASSERT(len == ROCKSDB_SIZEOF_TTL_RECORD);
+        DBUG_ASSERT(field->real_type() == MYSQL_TYPE_LONGLONG);
+        DBUG_ASSERT(m_pk_descr->get_ttl_field_offset() != UINT_MAX);
+
+        char *const data = const_cast<char *>(m_storage_record.ptr());
+        uint64 ts = uint8korr(field->ptr);
+        rdb_netbuf_store_uint64(reinterpret_cast<uchar *>(data), ts);
+      }
     }
   }
 
@@ -4170,6 +4242,8 @@ void ha_rocksdb::convert_record_to_storage_format(
 
   *packed_rec =
       rocksdb::Slice(m_storage_record.ptr(), m_storage_record.length());
+
+  return HA_EXIT_SUCCESS;
 }
 
 /*
@@ -4405,6 +4479,12 @@ int ha_rocksdb::convert_record_from_storage_format(
   const char *unpack_info = nullptr;
   uint16 unpack_info_len = 0;
   rocksdb::Slice unpack_slice;
+
+  /* If it's a TTL record, skip the 8 byte TTL value */
+  if (m_pk_descr->has_ttl() &&
+      !(m_ttl_bytes = reader.read(ROCKSDB_SIZEOF_TTL_RECORD))) {
+    return HA_ERR_ROCKSDB_CORRUPT_DATA;
+  }
 
   /* Other fields are decoded from the value */
   const char *null_bytes = nullptr;
@@ -5262,9 +5342,11 @@ int ha_rocksdb::create_inplace_key_defs(
       uint16 index_dict_version = 0;
       uchar index_type = 0;
       uint16 kv_version = 0;
+      uint64 ttl_duration = 0;
       const GL_INDEX_ID gl_index_id = okd.get_gl_index_id();
       if (!dict_manager.get_index_info(gl_index_id, &index_dict_version,
-                                       &index_type, &kv_version)) {
+                                       &index_type, &kv_version,
+                                       &ttl_duration)) {
         // NO_LINT_DEBUG
         sql_print_error("RocksDB: Could not get index information "
                         "for Index Number (%u,%u), table %s",
@@ -5282,7 +5364,7 @@ int ha_rocksdb::create_inplace_key_defs(
           okd.get_index_number(), i, okd.get_cf(), index_dict_version,
           index_type, kv_version, okd.m_is_reverse_cf, okd.m_is_auto_cf,
           okd.m_is_per_partition_cf, okd.m_name.c_str(),
-          dict_manager.get_stats(gl_index_id));
+          dict_manager.get_stats(gl_index_id), ttl_duration);
     } else if (create_key_def(table_arg, i, tbl_def_arg, &new_key_descr[i],
                               cfs[i])) {
       DBUG_RETURN(HA_EXIT_FAILURE);
@@ -5397,6 +5479,37 @@ int ha_rocksdb::create_key_def(const TABLE *const table_arg, const uint &i,
   DBUG_ASSERT(new_key_def != nullptr);
   DBUG_ASSERT(*new_key_def == nullptr);
 
+  uint64 ttl_duration = 0;
+  std::string ttl_column;
+  uint ttl_field_offset;
+
+  uint err;
+  if ((err = Rdb_key_def::extract_ttl_duration(table_arg, tbl_def_arg,
+                                               &ttl_duration))) {
+    DBUG_RETURN(err);
+  }
+
+  if ((err = Rdb_key_def::extract_ttl_col(table_arg, tbl_def_arg, &ttl_column,
+                                          &ttl_field_offset))) {
+    DBUG_RETURN(err);
+  }
+
+  /* We don't currently support TTL on tables with secondary keys. */
+  if (ttl_duration > 0 &&
+      (table_arg->s->keys > 1 || is_hidden_pk(i, table_arg, tbl_def_arg))) {
+    my_error(ER_RDB_TTL_UNSUPPORTED, MYF(0));
+    DBUG_RETURN(HA_EXIT_FAILURE);
+  }
+
+  /*
+    If TTL duration is not specified but TTL column was specified, throw an
+    error because TTL column requires duration.
+  */
+  if (ttl_duration == 0 && !ttl_column.empty()) {
+    my_error(ER_RDB_TTL_COL_FORMAT, MYF(0), ttl_column.c_str());
+    DBUG_RETURN(HA_EXIT_FAILURE);
+  }
+
   const uint index_id = ddl_manager.get_and_update_next_number(&dict_manager);
   const uint16_t index_dict_version = Rdb_key_def::INDEX_INFO_VERSION_LATEST;
   uchar index_type;
@@ -5426,7 +5539,11 @@ int ha_rocksdb::create_key_def(const TABLE *const table_arg, const uint &i,
   *new_key_def = std::make_shared<Rdb_key_def>(
       index_id, i, cf_info.cf_handle, index_dict_version, index_type,
       kv_version, cf_info.is_reverse_cf, cf_info.is_auto_cf,
-      cf_info.is_per_partition_cf, key_name);
+      cf_info.is_per_partition_cf, key_name, Rdb_index_stats(), ttl_duration);
+
+  if (!ttl_column.empty()) {
+    (*new_key_def)->m_ttl_column = ttl_column;
+  }
 
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
@@ -7150,18 +7267,6 @@ bool ha_rocksdb::is_pk(const uint index, const TABLE *const table_arg,
          is_hidden_pk(index, table_arg, tbl_def_arg);
 }
 
-/*
-  Formats the string and returns the column family name assignment part for a
-  specific partition.
-*/
-const std::string ha_rocksdb::gen_cf_name_qualifier_for_partition(
-        const std::string& prefix) {
-  DBUG_ASSERT(!prefix.empty());
-
-  return prefix + RDB_PER_PARTITION_QUALIFIER_NAME_SEP + RDB_CF_NAME_QUALIFIER
-    + RDB_PER_PARTITION_QUALIFIER_VALUE_SEP;
-}
-
 const char *ha_rocksdb::get_key_name(const uint index,
                                      const TABLE *const table_arg,
                                      const Rdb_tbl_def *const tbl_def_arg) {
@@ -7213,51 +7318,32 @@ const std::string ha_rocksdb::generate_cf_name(const uint index,
   // `get_key_comment` can return `nullptr`, that's why this.
   std::string key_comment = comment ? comment : "";
 
-  // If table has partitions then we need to check if user has requested to
-  // create a column family with a specific name on a per partition basis.
-  if (table_arg->part_info != nullptr) {
-    std::string partition_name = tbl_def_arg->base_partition();
-    DBUG_ASSERT(!partition_name.empty());
+  std::string cf_name = Rdb_key_def::parse_comment_for_qualifier(
+      key_comment, table_arg, tbl_def_arg, per_part_match_found,
+      RDB_CF_NAME_QUALIFIER);
 
-    // Let's fetch the comment for a index and check if there's a custom key
-    // name specified for a partition we are handling.
-    std::vector<std::string> v = myrocks::parse_into_tokens(key_comment,
-                                                   RDB_QUALIFIER_SEP);
-    std::string part_to_search = gen_cf_name_qualifier_for_partition(
-      partition_name);
-    DBUG_ASSERT(!part_to_search.empty());
-
-    // Basic O(N) search for a matching assignment. At most we expect maybe
-    // ten or so elements here.
-    for (const auto &it : v) {
-      if (it.substr(0, part_to_search.length()) == part_to_search) {
-        // We found a prefix match. Try to parse it as an assignment.
-        std::vector<std::string> tokens = myrocks::parse_into_tokens(it,
-          RDB_PER_PARTITION_QUALIFIER_VALUE_SEP);
-
-        // We found a custom name, it was in the form we expected it to be.
-        // Return that instead of whatever we initially wanted to return. In
-        // a case below the `foo` part will be returned to the caller.
-        //
-        // p3_cfname=foo
-        //
-        // If no value was specified then we'll return an empty string which
-        // later gets translated into using a default CF.
-        if (tokens.size() == 2) {
-          *per_part_match_found = true;
-          return tokens[1];
-        } else {
-          return "";
-        }
-      }
-    }
-
+  if (table_arg->part_info != nullptr && !*per_part_match_found) {
     // At this point we tried to search for a custom CF name for a partition,
     // but none was specified. Therefore default one will be used.
     return "";
   }
 
-  return key_comment;
+  // If we didn't find any partitioned/non-partitioned qualifiers, return the
+  // comment itself.  NOTE: this currently handles returning the cf name
+  // specified in the index comment in the case of no partitions, which doesn't
+  // use any qualifiers at the moment. (aka its a special case)
+  if (cf_name.empty() && !key_comment.empty()) {
+    return key_comment;
+  }
+
+  return cf_name;
+}
+
+const std::string ha_rocksdb::get_table_comment(const TABLE *const table_arg) {
+  DBUG_ASSERT(table_arg != nullptr);
+  DBUG_ASSERT(table_arg->s != nullptr);
+
+  return table_arg->s->comment.str;
 }
 
 /**
@@ -7324,9 +7410,10 @@ int ha_rocksdb::get_pk_for_update(struct update_row_info *const row_info) {
 
     row_info->new_pk_unpack_info = &m_pk_unpack_info;
 
-    size = m_pk_descr->pack_record(table, m_pack_buffer, row_info->new_data,
-                                   m_pk_packed_tuple,
-                                   row_info->new_pk_unpack_info, false);
+    size =
+        m_pk_descr->pack_record(table, m_pack_buffer, row_info->new_data,
+                                m_pk_packed_tuple, row_info->new_pk_unpack_info,
+                                false, 0, 0, nullptr, &row_info->ttl_pk_offset);
   } else if (row_info->old_data == nullptr) {
     row_info->hidden_pk_id = update_hidden_pk_val();
     size =
@@ -7640,6 +7727,7 @@ int ha_rocksdb::update_pk(const Rdb_key_def &kd,
                           const bool &pk_changed) {
   const uint key_id = kd.get_keyno();
   const bool hidden_pk = is_hidden_pk(key_id, table, m_tbl_def);
+
   if (!hidden_pk && pk_changed) {
     /*
       The old key needs to be deleted.
@@ -7655,11 +7743,13 @@ int ha_rocksdb::update_pk(const Rdb_key_def &kd,
     update_auto_incr_val();
   }
 
-  rocksdb::Slice value_slice;
-  convert_record_to_storage_format(row_info.new_pk_slice,
-                                   row_info.new_pk_unpack_info, &value_slice);
-
   int rc = HA_EXIT_SUCCESS;
+  rocksdb::Slice value_slice;
+  /* Prepare the new record to be written into RocksDB */
+  if ((rc = convert_record_to_storage_format(row_info, &value_slice))) {
+    return rc;
+  }
+
   const auto cf = m_pk_descr->get_cf();
   if (rocksdb_enable_bulk_load_api && THDVAR(table->in_use, bulk_load) &&
       !hidden_pk) {
