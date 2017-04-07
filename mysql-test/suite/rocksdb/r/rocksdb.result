@@ -1755,6 +1755,7 @@ INSERT INTO t1 SET id=123, blob_col=''                ON DUPLICATE KEY UPDATE bl
 DROP TABLE t1;
 #
 # Issue #17: Automatic per-index column families
+# (Now deprecated)
 #
 create table t1 (
 id int not null,
@@ -1762,40 +1763,7 @@ key1 int,
 PRIMARY KEY (id),
 index (key1) comment '$per_index_cf'
 ) engine=rocksdb;
-#Same CF ids with different CF flags
-create table t1_err (
-id int not null,
-key1 int,
-PRIMARY KEY (id),
-index (key1) comment 'test.t1.key1'
-) engine=rocksdb;
-ERROR HY000: Column family ('test.t1.key1') flag (0) is different from an existing flag (2). Assign a new CF flag, or do not change existing CF flag.
-create table t1_err (
-id int not null,
-key1 int,
-PRIMARY KEY (id),
-index (key1) comment 'test.t1.key2'
-) engine=rocksdb;
-drop table t1_err;
-# Unfortunately there is no way to check which column family everything goes to
-insert into t1 values (1,1);
-select * from t1;
-id	key1
-1	1
-# Check that ALTER and RENAME are disallowed
-alter table t1 add col2 int;
-ERROR 42000: This version of MySQL doesn't yet support 'ALTER TABLE on table with per-index CF'
-rename table t1 to t2;
-ERROR 42000: This version of MySQL doesn't yet support 'ALTER TABLE on table with per-index CF'
-drop table t1;
-# Check detection of typos in $per_index_cf
-create table t1 (
-id int not null,
-key1 int,
-PRIMARY KEY (id),
-index (key1) comment '$per_idnex_cf'
-)engine=rocksdb;
-ERROR 42000: This version of MySQL doesn't yet support 'column family name looks like a typo of $per_index_cf.'
+ERROR HY000: The per-index column family option has been deprecated
 #
 # Issue #22: SELECT ... FOR UPDATE takes a long time
 #
