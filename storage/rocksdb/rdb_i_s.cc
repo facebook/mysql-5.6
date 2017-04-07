@@ -103,17 +103,8 @@ static int rdb_i_s_cfstats_fill_table(
   const Rdb_cf_manager &cf_manager = rdb_get_cf_manager();
 
   for (const auto &cf_name : cf_manager.get_cf_names()) {
-    rocksdb::ColumnFamilyHandle *cfh = nullptr;
-    bool is_automatic = false;
-
     DBUG_ASSERT(!cf_name.empty());
-
-    /*
-      Only the cf name is important. Whether it was generated automatically
-      does not matter, so is_automatic is ignored.
-    */
-    cfh = cf_manager.get_cf(cf_name.c_str(), "", nullptr, &is_automatic);
-
+    rocksdb::ColumnFamilyHandle *cfh = cf_manager.get_cf(cf_name);
     if (cfh == nullptr) {
       continue;
     }
@@ -920,13 +911,7 @@ static int rdb_i_s_compact_stats_fill_table(
   Rdb_cf_manager &cf_manager = rdb_get_cf_manager();
 
   for (auto cf_name : cf_manager.get_cf_names()) {
-    rocksdb::ColumnFamilyHandle *cfh;
-    bool is_automatic;
-    /*
-       Only the cf name is important. Whether it was generated automatically
-       does not matter, so is_automatic is ignored.
-    */
-    cfh = cf_manager.get_cf(cf_name.c_str(), "", nullptr, &is_automatic);
+    rocksdb::ColumnFamilyHandle *cfh = cf_manager.get_cf(cf_name);
 
     if (cfh == nullptr) {
       continue;
