@@ -406,7 +406,7 @@ static uint64_t rocksdb_info_log_level;
 static char *rocksdb_wal_dir;
 static char *rocksdb_persistent_cache_path;
 static uint64_t rocksdb_index_type;
-static char rocksdb_background_sync;
+static uint32_t rocksdb_flush_log_at_trx_commit;
 static uint32_t rocksdb_debug_optimizer_n_rows;
 static my_bool rocksdb_force_compute_memtable_stats;
 static my_bool rocksdb_debug_optimizer_no_zero_cardinality;
@@ -1023,12 +1023,8 @@ static MYSQL_SYSVAR_STR(update_cf_options, rocksdb_update_cf_options,
                         nullptr, rocksdb_set_update_cf_options,
                         nullptr);
 
-static MYSQL_SYSVAR_BOOL(background_sync, rocksdb_background_sync,
-                         PLUGIN_VAR_RQCMDARG,
-                         "turns on background syncs for RocksDB", nullptr,
-                         nullptr, FALSE);
-
-static MYSQL_THDVAR_UINT(flush_log_at_trx_commit, PLUGIN_VAR_RQCMDARG,
+static MYSQL_SYSVAR_UINT(flush_log_at_trx_commit,
+                         rocksdb_flush_log_at_trx_commit, PLUGIN_VAR_RQCMDARG,
                          "Sync on transaction commit. Similar to "
                          "innodb_flush_log_at_trx_commit. 1: sync on commit, "
                          "0,2: not sync on commit",
@@ -1328,8 +1324,6 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(override_cf_options),
     MYSQL_SYSVAR(update_cf_options),
 
-    MYSQL_SYSVAR(background_sync),
-
     MYSQL_SYSVAR(flush_log_at_trx_commit),
     MYSQL_SYSVAR(write_disable_wal),
     MYSQL_SYSVAR(write_ignore_missing_column_families),
@@ -1377,7 +1371,7 @@ static rocksdb::WriteOptions
 rdb_get_rocksdb_write_options(my_core::THD *const thd) {
   rocksdb::WriteOptions opt;
 
-  opt.sync = THDVAR(thd, flush_log_at_trx_commit) == 1;
+  opt.sync = (rocksdb_flush_log_at_trx_commit == 1);
   opt.disableWAL = THDVAR(thd, write_disable_wal);
   opt.ignore_missing_column_families =
       THDVAR(thd, write_ignore_missing_column_families);
@@ -2101,7 +2095,7 @@ public:
     tx_opts.deadlock_detect = THDVAR(m_thd, deadlock_detect);
     tx_opts.max_write_batch_size = THDVAR(m_thd, write_batch_max_bytes);
 
-    write_opts.sync = THDVAR(m_thd, flush_log_at_trx_commit) == 1;
+    write_opts.sync = (rocksdb_flush_log_at_trx_commit == 1);
     write_opts.disableWAL = THDVAR(m_thd, write_disable_wal);
     write_opts.ignore_missing_column_families =
         THDVAR(m_thd, write_ignore_missing_column_families);
@@ -2314,7 +2308,7 @@ public:
 
   void start_tx() override {
     reset();
-    write_opts.sync = THDVAR(m_thd, flush_log_at_trx_commit) == 1;
+    write_opts.sync = (rocksdb_flush_log_at_trx_commit == 1);
     write_opts.disableWAL = THDVAR(m_thd, write_disable_wal);
     write_opts.ignore_missing_column_families =
         THDVAR(m_thd, write_ignore_missing_column_families);
@@ -2506,7 +2500,7 @@ static int rocksdb_prepare(handlerton *const hton, THD *const thd,
         return HA_EXIT_FAILURE;
       }
       if (thd->durability_property == HA_IGNORE_DURABILITY &&
-          (THDVAR(thd, flush_log_at_trx_commit) == 1)) {
+          (rocksdb_flush_log_at_trx_commit == 1)) {
         /**
           we set the log sequence as '1' just to trigger hton->flush_logs
         */
@@ -10521,7 +10515,7 @@ void Rdb_background_thread::run() {
     clock_gettime(CLOCK_REALTIME, &ts);
 
     // Flush the WAL.
-    if (rdb && rocksdb_background_sync) {
+    if (rdb && (rocksdb_flush_log_at_trx_commit == 2)) {
       DBUG_ASSERT(!rocksdb_db_options->allow_mmap_writes);
       const rocksdb::Status s = rdb->SyncWAL();
       if (!s.ok()) {
