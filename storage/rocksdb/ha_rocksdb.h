@@ -136,7 +136,7 @@ const char RDB_PER_PARTITION_QUALIFIER_NAME_SEP = '_';
   - p0_cfname=foo
   - p3_tts_col=bar
 */
-const char RDB_PER_PARTITION_QUALIFIER_VALUE_SEP = '=';
+const char RDB_QUALIFIER_VALUE_SEP = '=';
 
 /*
   Separator between multiple qualifier assignments. Sample usage:
@@ -149,6 +149,16 @@ const char RDB_QUALIFIER_SEP = ';';
   Qualifier name for a custom per partition column family.
 */
 const char *const RDB_CF_NAME_QUALIFIER = "cfname";
+
+/*
+  Qualifier name for a custom per partition ttl duration.
+*/
+const char *const RDB_TTL_DURATION_QUALIFIER = "ttl_duration";
+
+/*
+  Qualifier name for a custom per partition ttl duration.
+*/
+const char *const RDB_TTL_COL_QUALIFIER = "ttl_col";
 
 /*
   Default, minimal valid, and maximum valid sampling rate values when collecting
@@ -218,6 +228,12 @@ const char *const RDB_CF_NAME_QUALIFIER = "cfname";
   static_assert() in code will validate this assumption.
 */
 #define ROCKSDB_SIZEOF_HIDDEN_PK_COLUMN sizeof(longlong)
+
+/*
+  Bytes used to store TTL, in the beginning of all records for tables with TTL
+  enabled.
+*/
+#define ROCKSDB_SIZEOF_TTL_RECORD sizeof(longlong)
 
 /*
   MyRocks specific error codes. NB! Please make sure that you will update
@@ -459,6 +475,11 @@ class ha_rocksdb : public my_core::handler {
     pack_record()/pack_index_tuple() calls).
   */
   uchar *m_pack_buffer;
+
+  /*
+    Pointer to the original TTL timestamp value (8 bytes) during UPDATE.
+  */
+  const char *m_ttl_bytes;
 
   /* rowkey of the last record we've read, in StorageFormat. */
   String m_last_rowkey;
@@ -759,14 +780,6 @@ public:
                                          uchar *const buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
-  void convert_record_to_storage_format(const rocksdb::Slice &pk_packed_slice,
-                                        Rdb_string_writer *const pk_unpack_info,
-                                        rocksdb::Slice *const packed_rec)
-      MY_ATTRIBUTE((__nonnull__));
-
-  static const std::string gen_cf_name_qualifier_for_partition(
-    const std::string &s);
-
   static const std::vector<std::string> parse_into_tokens(const std::string &s,
                                                           const char delim);
 
@@ -783,6 +796,9 @@ public:
   static const char *get_key_comment(const uint index,
                                      const TABLE *const table_arg,
                                      const Rdb_tbl_def *const tbl_def_arg)
+      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+
+  static const std::string get_table_comment(const TABLE *const table_arg)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   static bool is_hidden_pk(const uint index, const TABLE *const table_arg,
@@ -929,12 +945,23 @@ private:
     const uchar *old_data;
     rocksdb::Slice new_pk_slice;
     rocksdb::Slice old_pk_slice;
+    rocksdb::Slice old_pk_rec;
 
     // "unpack_info" data for the new PK value
     Rdb_string_writer *new_pk_unpack_info;
 
     longlong hidden_pk_id;
     bool skip_unique_check;
+
+    // In certain cases, TTL is enabled on a table, as well as an explicit TTL
+    // column.  The TTL column can be part of either the key or the value part
+    // of the record.  If it is part of the key, we store the offset here.
+    //
+    // Later on, we use this offset to store the TTL in the value part of the
+    // record, which we can then access in the compaction filter.
+    //
+    // Set to UINT_MAX by default to indicate that the TTL is not in key.
+    uint ttl_pk_offset = UINT_MAX;
   };
 
   /*
@@ -989,6 +1016,10 @@ private:
   int compare_key_parts(const KEY *const old_key,
                         const KEY *const new_key) const;
   MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+
+  int convert_record_to_storage_format(const struct update_row_info &row_info,
+                                       rocksdb::Slice *const packed_rec)
+      MY_ATTRIBUTE((__nonnull__));
 
   int index_first_intern(uchar *buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
