@@ -862,7 +862,6 @@ rocksdb_advise_random_on_open	ON
 rocksdb_allow_concurrent_memtable_write	OFF
 rocksdb_allow_mmap_reads	OFF
 rocksdb_allow_mmap_writes	OFF
-rocksdb_background_sync	OFF
 rocksdb_base_background_compactions	1
 rocksdb_blind_delete_primary_key	OFF
 rocksdb_block_cache_size	536870912

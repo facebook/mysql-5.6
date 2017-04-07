@@ -1039,8 +1039,6 @@ The following options may be given as the first argument:
  DBOptions::allow_mmap_reads for RocksDB
  --rocksdb-allow-mmap-writes 
  DBOptions::allow_mmap_writes for RocksDB
- --rocksdb-background-sync 
- turns on background syncs for RocksDB
  --rocksdb-base-background-compactions=# 
  DBOptions::base_background_compactions for RocksDB
  --rocksdb-blind-delete-primary-key 
@@ -1955,7 +1953,6 @@ rocksdb-advise-random-on-open TRUE
 rocksdb-allow-concurrent-memtable-write FALSE
 rocksdb-allow-mmap-reads FALSE
 rocksdb-allow-mmap-writes FALSE
-rocksdb-background-sync FALSE
 rocksdb-base-background-compactions 1
 rocksdb-blind-delete-primary-key FALSE
 rocksdb-block-cache-size 536870912
