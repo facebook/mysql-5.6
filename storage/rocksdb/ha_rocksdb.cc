@@ -688,7 +688,7 @@ static MYSQL_SYSVAR_BOOL(
     allow_concurrent_memtable_write,
     *reinterpret_cast<my_bool *>(
         &rocksdb_db_options.allow_concurrent_memtable_write),
-    PLUGIN_VAR_RQCMDARG,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
     "DBOptions::allow_concurrent_memtable_write for RocksDB", nullptr, nullptr,
     false);
 
@@ -696,7 +696,7 @@ static MYSQL_SYSVAR_BOOL(
     enable_write_thread_adaptive_yield,
     *reinterpret_cast<my_bool *>(
         &rocksdb_db_options.enable_write_thread_adaptive_yield),
-    PLUGIN_VAR_RQCMDARG,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
     "DBOptions::enable_write_thread_adaptive_yield for RocksDB", nullptr,
     nullptr, false);
 
