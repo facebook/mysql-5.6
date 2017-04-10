@@ -557,6 +557,11 @@ static MYSQL_THDVAR_ULONG(max_row_locks, PLUGIN_VAR_RQCMDARG,
                           /*min*/ 1,
                           /*max*/ RDB_MAX_ROW_LOCKS, 0);
 
+static MYSQL_THDVAR_ULONGLONG(
+    write_batch_max_bytes, PLUGIN_VAR_RQCMDARG,
+    "Maximum size of write batch in bytes. 0 means no limit.", nullptr, nullptr,
+    /* default */ 0, /* min */ 0, /* max */ SIZE_T_MAX, 1);
+
 static MYSQL_THDVAR_BOOL(
     lock_scanned_rows, PLUGIN_VAR_RQCMDARG,
     "Take and hold locks on rows that are scanned but not updated", nullptr,
@@ -1246,6 +1251,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(lock_wait_timeout),
     MYSQL_SYSVAR(deadlock_detect),
     MYSQL_SYSVAR(max_row_locks),
+    MYSQL_SYSVAR(write_batch_max_bytes),
     MYSQL_SYSVAR(lock_scanned_rows),
     MYSQL_SYSVAR(bulk_load),
     MYSQL_SYSVAR(skip_unique_check_tables),
@@ -2093,6 +2099,7 @@ public:
     tx_opts.set_snapshot = false;
     tx_opts.lock_timeout = rdb_convert_sec_to_ms(m_timeout_sec);
     tx_opts.deadlock_detect = THDVAR(m_thd, deadlock_detect);
+    tx_opts.max_write_batch_size = THDVAR(m_thd, write_batch_max_bytes);
 
     write_opts.sync = THDVAR(m_thd, flush_log_at_trx_commit) == 1;
     write_opts.disableWAL = THDVAR(m_thd, write_disable_wal);
