@@ -1892,6 +1892,8 @@ class Regex_list_handler
 extern Regex_list_handler* gap_lock_exceptions;
 std::unordered_set<std::string> split_into_set(const std::string& input,
                                                char delimiter);
+std::vector<std::string> split_into_vector(const std::string& input,
+                                           char delimiter);
 void warn_about_bad_patterns(const Regex_list_handler* regex_list_handler,
                              const char *name);
 

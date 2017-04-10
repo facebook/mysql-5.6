@@ -401,6 +401,10 @@ static int rdb_i_s_cfoptions_fill_table(
     rocksdb::ColumnFamilyOptions opts;
     cf_manager.get_cf_options(cf_name, &opts);
 
+    rocksdb::DB *const rdb = rdb_get_rocksdb_db();
+    const rocksdb::Options& opt = rdb->GetOptions();
+    auto tfact = opt.table_factory.get();
+
     std::vector<std::pair<std::string, std::string>> cf_option_types = {
         {"COMPARATOR", opts.comparator == nullptr
                            ? "NULL"
@@ -464,6 +468,7 @@ static int rdb_i_s_cfoptions_fill_table(
         {"MAX_SUCCESSIVE_MERGES", std::to_string(opts.max_successive_merges)},
         {"OPTIMIZE_FILTERS_FOR_HITS",
          (opts.optimize_filters_for_hits ? "ON" : "OFF")},
+        {"TABLE_FACTORY_NAME", tfact->Name()}
     };
 
     // get MAX_BYTES_FOR_LEVEL_MULTIPLIER_ADDITIONAL option value
@@ -988,6 +993,64 @@ static int rdb_i_s_ddl_fill_table(my_core::THD *const thd,
   DBUG_RETURN(ret);
 }
 
+static ST_FIELD_INFO rdb_i_s_tfoptions_fields_info[] = {
+        ROCKSDB_FIELD_INFO("CF_NAME", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
+        ROCKSDB_FIELD_INFO("OPTION_NAME", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
+        ROCKSDB_FIELD_INFO("VALUE", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
+        ROCKSDB_FIELD_INFO_END};
+
+static int rdb_i_s_tfoptions_fill_table(
+        my_core::THD *const thd, my_core::TABLE_LIST *const tables,
+        my_core::Item *const cond MY_ATTRIBUTE((__unused__))) {
+  DBUG_ENTER_FUNC();
+
+  DBUG_ASSERT(thd != nullptr);
+  DBUG_ASSERT(tables != nullptr);
+
+  bool ret;
+
+  rocksdb::DB *const rdb = rdb_get_rocksdb_db();
+  const rocksdb::Options& opt = rdb->GetOptions();
+  auto tfact = opt.table_factory.get();
+
+  Rdb_cf_manager &cf_manager = rdb_get_cf_manager();
+
+  for (const auto &cf_name : cf_manager.get_cf_names()) {
+    std::string val;
+    rocksdb::ColumnFamilyOptions opts;
+    cf_manager.get_cf_options(cf_name, &opts);
+
+    std::vector<std::pair<std::string, std::string>> tf_options;
+
+    auto table_options = split_into_vector(tfact->GetPrintableTableOptions(), '\n');
+    for(auto iter = table_options.begin(); iter != table_options.end(); ++iter){
+      std::string option = *iter;
+      int pos = option.find(":");
+      tf_options.push_back({option.substr(0, pos), option.substr(pos + 1, option.length())});
+    }
+
+    for (const auto &cf_option_type : tf_options) {
+      DBUG_ASSERT(tables->table != nullptr);
+      DBUG_ASSERT(tables->table->field != nullptr);
+
+      tables->table->field[RDB_CFOPTIONS_FIELD::CF_NAME]->store(
+              cf_name.c_str(), cf_name.size(), system_charset_info);
+      tables->table->field[RDB_CFOPTIONS_FIELD::OPTION_TYPE]->store(
+              cf_option_type.first.c_str(), cf_option_type.first.size(),
+              system_charset_info);
+      tables->table->field[RDB_CFOPTIONS_FIELD::VALUE]->store(
+              cf_option_type.second.c_str(), cf_option_type.second.size(),
+              system_charset_info);
+
+      ret = my_core::schema_table_store_record(thd, tables->table);
+
+      if (ret)
+        DBUG_RETURN(ret);
+    }
+  }
+  DBUG_RETURN(0);
+}
+
 static int rdb_i_s_ddl_init(void *const p) {
   DBUG_ENTER_FUNC();
 
@@ -1409,6 +1472,22 @@ static int rdb_i_s_trx_info_init(void *const p) {
   DBUG_RETURN(0);
 }
 
+/* Initialize the information_schema.rocksdb_tf_options virtual table */
+static int rdb_i_s_tfoptions_init(void *const p) {
+  DBUG_ENTER_FUNC();
+
+  DBUG_ASSERT(p != nullptr);
+
+  my_core::ST_SCHEMA_TABLE *schema;
+
+  schema = (my_core::ST_SCHEMA_TABLE *)p;
+
+  schema->fields_info = rdb_i_s_tfoptions_fields_info;
+  schema->fill_table = rdb_i_s_tfoptions_fill_table;
+
+  DBUG_RETURN(0);
+}
+
 static int rdb_i_s_deinit(void *p MY_ATTRIBUTE((__unused__))) {
   DBUG_ENTER_FUNC();
   DBUG_RETURN(0);
@@ -1585,6 +1664,22 @@ struct st_mysql_plugin rdb_i_s_trx_info = {
     "RocksDB transaction information",
     PLUGIN_LICENSE_GPL,
     rdb_i_s_trx_info_init,
+    nullptr,
+    0x0001,  /* version number (0.1) */
+    nullptr, /* status variables */
+    nullptr, /* system variables */
+    nullptr, /* config options */
+    0,       /* flags */
+};
+
+struct st_mysql_plugin rdb_i_s_tfoptions = {
+    MYSQL_INFORMATION_SCHEMA_PLUGIN,
+    &rdb_i_s_info,
+    "ROCKSDB_TF_OPTIONS",
+    "Facebook",
+    "RocksDB table factory options",
+    PLUGIN_LICENSE_GPL,
+    rdb_i_s_tfoptions_init,
     nullptr,
     0x0001,  /* version number (0.1) */
     nullptr, /* status variables */

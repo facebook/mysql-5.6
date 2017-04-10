@@ -11063,4 +11063,4 @@ mysql_declare_plugin(rocksdb_se){
     myrocks::rdb_i_s_cfoptions, myrocks::rdb_i_s_compact_stats,
     myrocks::rdb_i_s_global_info, myrocks::rdb_i_s_ddl,
     myrocks::rdb_i_s_index_file_map, myrocks::rdb_i_s_lock_info,
-    myrocks::rdb_i_s_trx_info mysql_declare_plugin_end;
+    myrocks::rdb_i_s_trx_info, myrocks::rdb_i_s_tfoptions mysql_declare_plugin_end;
