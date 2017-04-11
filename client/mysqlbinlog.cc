@@ -60,6 +60,7 @@
 #include "my_io.h"
 #include "my_macros.h"
 #include "my_time.h"
+#include "mysqld_error.h"
 #include "prealloced_array.h"
 #include "print_version.h"
 #include "sql/binlog_reader.h"
@@ -779,10 +780,17 @@ static bool opt_print_gtids = false;
 static bool opt_print_table_metadata;
 
 /**
- * Used for --opt_skip_empty_trans
+ * Used for --opt-skip-empty-trans
  */
 static Log_event *begin_query_ev_cache = nullptr;
 static string cur_database = "";
+
+/**
+ * Used for --opt-read-from-binlog-server
+ */
+static const std::string binlog_server_finish_err_msg =
+    "The binlog server has finished sending all available binlogs from the "
+    "HDFS and has no more binlogs to send.";
 
 enum class Check_database_decision : char {
   EMPTY_EVENT_DATABASE = 2,
@@ -817,6 +825,7 @@ static bool opt_skip_gtids = false;
 static bool opt_skip_rows_query =
     false; /* Placeholder for skip_rows_query diff */
 static bool opt_skip_empty_trans = 0;
+static bool opt_read_from_binlog_server = 0;
 static bool filter_based_on_gtids = false;
 static bool opt_require_row_format = false;
 
@@ -2163,6 +2172,11 @@ static struct my_option my_long_options[] = {
      "and --skip-gtids to be specified.",
      &opt_skip_empty_trans, &opt_skip_empty_trans, 0, GET_BOOL, NO_ARG, 0, 0, 0,
      nullptr, 0, nullptr},
+    {"read-from-binlog-server", OPT_READ_FROM_BINLOG_SERVER,
+     "Use this option if the server is a binlog server, this will allow "
+     "mysqlbinlog to understand some special error message of binlog server",
+     &opt_read_from_binlog_server, &opt_read_from_binlog_server, 0, GET_BOOL,
+     NO_ARG, 0, 0, 0, nullptr, 0, nullptr},
 #ifdef NDEBUG
     {"debug", '#', "This is a non-debug version. Catch this and exit.", 0, 0, 0,
      GET_DISABLED, OPT_ARG, 0, 0, 0, 0, 0, 0},
@@ -3098,8 +3112,32 @@ static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
     bool res{false};
     if (mysql_binlog_fetch(mysql, &rpl))  // Error packet
     {
-      error("Got error reading packet from server: %s", mysql_error(mysql));
-      return ERROR_STOP;
+      uint mysql_error_number = mysql_errno(mysql);
+      switch (mysql_error_number) {
+        case ER_MASTER_FATAL_ERROR_READING_BINLOG:
+          /**
+           * Binlog Server error printing and checking
+           * Note that we do not want the mysqlbinlog process to exit with
+           * failure when the binlog server has sent all the event
+           */
+
+          if (opt_read_from_binlog_server &&
+              std::string(mysql_error(mysql)) == binlog_server_finish_err_msg) {
+            error(
+                "Completed reading all binlogs from binlog server to binary "
+                "log %s\nServer error code: %d\nSever error message: %s",
+                logname, mysql_errno(mysql), mysql_error(mysql));
+
+            return OK_CONTINUE;
+          } else {
+            error("Failed to read binary log %s, error %d", logname,
+                  mysql_errno(mysql));
+            return ERROR_STOP;
+          }
+        default:
+          error("Got error reading packet from server: %s", mysql_error(mysql));
+          return ERROR_STOP;
+      }
     } else if (rpl.size == 0)  // EOF
       break;
 
@@ -3658,6 +3696,8 @@ static int args_post_process(void) {
     }
   }
 
+  global_sid_lock->unlock();
+
   if (opt_skip_empty_trans != 0 && (database == NULL || opt_skip_gtids == 0)) {
     error(
         "--skip_empty_trans requires --database and "
@@ -3665,7 +3705,13 @@ static int args_post_process(void) {
     return ERROR_STOP;
   }
 
-  global_sid_lock->unlock();
+  if (opt_read_from_binlog_server != 0 &&
+      opt_remote_proto != BINLOG_DUMP_GTID) {
+    error(
+        "--read-from-binlog-server requires "
+        "--read-from-remote-master=BINLOG-DUMP-GTIDS option");
+    return ERROR_STOP;
+  }
 
   if (connection_server_id == 0 && stop_never)
     error("Cannot set --server-id=0 when --stop-never is specified.");
