@@ -8004,7 +8004,7 @@ std::vector<std::string> split_into_vector(const std::string& input,
 
   // Add a possible string since the last delimiter
   if (input.length() > start)
-    elems.push_back(input.substr(start));
+    elems.emplace_back(input.substr(start));
 
   // Return the resulting list back to the caller
   return elems;
