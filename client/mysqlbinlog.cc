@@ -177,11 +177,18 @@ Gtid_set *gtid_set_included= NULL;
 Gtid_set *gtid_set_excluded= NULL;
 
 /**
- * Used for --opt_skip_empty_trans
+ * Used for --opt-skip-empty-trans
  */
 static bool empty_begin_query_ev = false;
 static Log_event* begin_query_ev_cache = nullptr;
 static string cur_database= "";
+
+/**
+ * Used for --opt-read-from-binlog-server
+ */
+static const std::string binlog_server_finish_err_msg =
+  "The binlog server has finished sending all available binlogs from the "
+  "HDFS and has no more binlogs to send.";
 
 enum class Check_database_decision : signed char {
   EMPTY_EVENT_DATABASE = 2,
@@ -223,6 +230,7 @@ Gtid_set_map previous_gtid_set_map;
 static my_bool opt_skip_gtids= 0;
 static my_bool opt_skip_rows_query= 0;
 static my_bool opt_skip_empty_trans= 0;
+static my_bool opt_read_from_binlog_server= 0;
 static bool filter_based_on_gtids= false;
 
 static bool in_transaction= false;
@@ -1879,6 +1887,11 @@ static struct my_option my_long_options[] =
    "and --skip-gtids to be specified.",
    &opt_skip_empty_trans, &opt_skip_empty_trans, 0,
    GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
+  {"read-from-binlog-server", OPT_READ_FROM_BINLOG_SERVER,
+   "Use this option if the server is a binlog server, this will allow "
+   "mysqlbinlog to understand some special error message of binlog server",
+   &opt_read_from_binlog_server, &opt_read_from_binlog_server, 0,
+   GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
 #ifndef DBUG_OFF
   {"debug", '#', "Output debug log.", &default_dbug_option,
    &default_dbug_option, 0, GET_STR, OPT_ARG, 0, 0, 0, 0, 0, 0},
@@ -2924,9 +2937,27 @@ connected:
         error("Got a packet bigger than 'slave_max_allowed_packet' bytes");
         DBUG_RETURN(ERROR_STOP);
       case ER_MASTER_FATAL_ERROR_READING_BINLOG:
-        error("Failed to read binary log %s, error %d", cur_logname,
-          mysql_errno(mysql));
-        DBUG_RETURN(ERROR_STOP);
+        /**
+         * Binlog Server error printing and checking
+         * Note that we do not want the mysqlbinlog process to exit with failure
+         * when the binlog server has sent all the event
+         */
+
+				if (opt_read_from_binlog_server &&
+            std::string(mysql_error(mysql)) == binlog_server_finish_err_msg) {
+
+          error("Completed reading all binlogs from binlog server to binary "
+                "log %s\nServer error code: %d\nSever error message: %s",
+                cur_logname,
+                mysql_errno(mysql),
+                mysql_error(mysql));
+
+          DBUG_RETURN(OK_CONTINUE);
+        } else {
+          error("Failed to read binary log %s, error %d", cur_logname,
+              mysql_errno(mysql));
+          DBUG_RETURN(ERROR_STOP);
+        }
       case ER_OUT_OF_RESOURCES:
         error("Stopping due to out-of-memory error from mysqld");
         DBUG_RETURN(ERROR_STOP);
@@ -3705,6 +3736,13 @@ static int args_post_process(void)
   {
     error("--skip_empty_trans requires --database and "
           "--skip-gtids options to be specified");
+    DBUG_RETURN(ERROR_STOP);
+  }
+
+  if (opt_read_from_binlog_server != 0 && opt_remote_proto != BINLOG_DUMP_GTID)
+  {
+    error("--read-from-binlog-server requires "
+        "--read-from-remote-master=BINLOG-DUMP-GTIDS option");
     DBUG_RETURN(ERROR_STOP);
   }
 
