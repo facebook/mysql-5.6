@@ -348,6 +348,18 @@ static void rocksdb_set_pause_background_work(
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
+static void rocksdb_set_enable_ttl(
+    my_core::THD *const thd,
+    my_core::st_mysql_sys_var *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr, const void *const save) {
+  DBUG_ASSERT(save != nullptr);
+  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
+
+  *static_cast<bool *>(var_ptr) = *static_cast<const bool *>(save);
+
+  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
+}
+
 static void rocksdb_set_compaction_options(THD *thd,
                                            struct st_mysql_sys_var *var,
                                            void *var_ptr, const void *save);
@@ -421,6 +433,7 @@ static char *rocksdb_strict_collation_exceptions;
 static my_bool rocksdb_collect_sst_properties = 1;
 static my_bool rocksdb_force_flush_memtable_now_var = 0;
 static my_bool rocksdb_force_flush_memtable_and_lzero_now_var = 0;
+static my_bool rocksdb_enable_ttl = 1;
 static uint64_t rocksdb_number_stat_computes = 0;
 static uint32_t rocksdb_seconds_between_stat_computes = 3600;
 static long long rocksdb_compaction_sequential_deletes = 0l;
@@ -1098,6 +1111,11 @@ static MYSQL_SYSVAR_BOOL(pause_background_work, rocksdb_pause_background_work,
                          "Disable all rocksdb background operations", nullptr,
                          rocksdb_set_pause_background_work, FALSE);
 
+static MYSQL_SYSVAR_BOOL(
+    enable_ttl, rocksdb_enable_ttl, PLUGIN_VAR_RQCMDARG,
+    "Disable expired ttl records from being dropped during compaction.",
+    nullptr, rocksdb_set_enable_ttl, TRUE);
+
 static MYSQL_SYSVAR_BOOL(enable_2pc, rocksdb_enable_2pc, PLUGIN_VAR_RQCMDARG,
                          "Enable two phase commit for MyRocks", nullptr,
                          nullptr, TRUE);
@@ -1346,6 +1364,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(collect_sst_properties),
     MYSQL_SYSVAR(force_flush_memtable_now),
     MYSQL_SYSVAR(force_flush_memtable_and_lzero_now),
+    MYSQL_SYSVAR(enable_ttl),
     MYSQL_SYSVAR(flush_memtable_on_analyze),
     MYSQL_SYSVAR(seconds_between_stat_computes),
 
@@ -10366,6 +10385,7 @@ static void myrocks_update_status() {
   export_stats.rows_read = global_stats.rows[ROWS_READ];
   export_stats.rows_updated = global_stats.rows[ROWS_UPDATED];
   export_stats.rows_deleted_blind = global_stats.rows[ROWS_DELETED_BLIND];
+  export_stats.rows_expired = global_stats.rows[ROWS_EXPIRED];
 
   export_stats.system_rows_deleted = global_stats.system_rows[ROWS_DELETED];
   export_stats.system_rows_inserted = global_stats.system_rows[ROWS_INSERTED];
@@ -10381,8 +10401,10 @@ static SHOW_VAR myrocks_status_variables[] = {
     DEF_STATUS_VAR_FUNC("rows_read", &export_stats.rows_read, SHOW_LONGLONG),
     DEF_STATUS_VAR_FUNC("rows_updated", &export_stats.rows_updated,
                         SHOW_LONGLONG),
-    DEF_STATUS_VAR_FUNC("rows_deleted_blind",
-                        &export_stats.rows_deleted_blind, SHOW_LONGLONG),
+    DEF_STATUS_VAR_FUNC("rows_deleted_blind", &export_stats.rows_deleted_blind,
+                        SHOW_LONGLONG),
+    DEF_STATUS_VAR_FUNC("rows_expired", &export_stats.rows_expired,
+                        SHOW_LONGLONG),
     DEF_STATUS_VAR_FUNC("system_rows_deleted",
                         &export_stats.system_rows_deleted, SHOW_LONGLONG),
     DEF_STATUS_VAR_FUNC("system_rows_inserted",
@@ -10605,6 +10627,22 @@ Rdb_cf_manager &rdb_get_cf_manager() { return cf_manager; }
 
 const rocksdb::BlockBasedTableOptions &rdb_get_table_options() {
   return *rocksdb_tbl_options;
+}
+
+bool rdb_is_ttl_enabled() { return rocksdb_enable_ttl; }
+
+void rdb_update_global_stats(const operation_type &type, uint count,
+                             bool is_system_table) {
+  DBUG_ASSERT(type < ROWS_MAX);
+  if (count == 0) {
+    return;
+  }
+
+  if (is_system_table) {
+    global_stats.system_rows[type].add(count);
+  } else {
+    global_stats.rows[type].add(count);
+  }
 }
 
 int rdb_get_table_perf_counters(const char *const tablename,

@@ -894,6 +894,7 @@ rocksdb_delete_obsolete_files_period_micros	21600000000
 rocksdb_enable_2pc	ON
 rocksdb_enable_bulk_load_api	ON
 rocksdb_enable_thread_tracking	ON
+rocksdb_enable_ttl	ON
 rocksdb_enable_write_thread_adaptive_yield	OFF
 rocksdb_error_if_exists	OFF
 rocksdb_flush_log_at_trx_commit	1
@@ -1430,6 +1431,7 @@ rocksdb_rows_inserted	#
 rocksdb_rows_read	#
 rocksdb_rows_updated	#
 rocksdb_rows_deleted_blind	#
+rocksdb_rows_expired	#
 rocksdb_system_rows_deleted	#
 rocksdb_system_rows_inserted	#
 rocksdb_system_rows_read	#
@@ -1501,6 +1503,7 @@ ROCKSDB_ROWS_INSERTED
 ROCKSDB_ROWS_READ
 ROCKSDB_ROWS_UPDATED
 ROCKSDB_ROWS_DELETED_BLIND
+ROCKSDB_ROWS_EXPIRED
 ROCKSDB_SYSTEM_ROWS_DELETED
 ROCKSDB_SYSTEM_ROWS_INSERTED
 ROCKSDB_SYSTEM_ROWS_READ
@@ -1574,6 +1577,7 @@ ROCKSDB_ROWS_INSERTED
 ROCKSDB_ROWS_READ
 ROCKSDB_ROWS_UPDATED
 ROCKSDB_ROWS_DELETED_BLIND
+ROCKSDB_ROWS_EXPIRED
 ROCKSDB_SYSTEM_ROWS_DELETED
 ROCKSDB_SYSTEM_ROWS_INSERTED
 ROCKSDB_SYSTEM_ROWS_READ
