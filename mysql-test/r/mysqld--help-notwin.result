@@ -1143,6 +1143,10 @@ The following options may be given as the first argument:
  --rocksdb-enable-thread-tracking 
  DBOptions::enable_thread_tracking for RocksDB
  (Defaults to on; use --skip-rocksdb-enable-thread-tracking to disable.)
+ --rocksdb-enable-ttl 
+ Disable expired ttl records from being dropped during
+ compaction.
+ (Defaults to on; use --skip-rocksdb-enable-ttl to disable.)
  --rocksdb-enable-write-thread-adaptive-yield 
  DBOptions::enable_write_thread_adaptive_yield for RocksDB
  --rocksdb-error-if-exists 
@@ -1991,6 +1995,7 @@ rocksdb-delete-obsolete-files-period-micros 21600000000
 rocksdb-enable-2pc TRUE
 rocksdb-enable-bulk-load-api TRUE
 rocksdb-enable-thread-tracking TRUE
+rocksdb-enable-ttl TRUE
 rocksdb-enable-write-thread-adaptive-yield FALSE
 rocksdb-error-if-exists FALSE
 rocksdb-flush-log-at-trx-commit 1
