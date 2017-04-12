@@ -70,6 +70,11 @@ class Rdb_cf_manager;
 Rdb_cf_manager &rdb_get_cf_manager();
 
 const rocksdb::BlockBasedTableOptions &rdb_get_table_options();
+bool rdb_is_ttl_enabled();
+
+enum operation_type : int;
+void rdb_update_global_stats(const operation_type &type, uint count,
+                             bool is_system_table = false);
 
 class Rdb_dict_manager;
 Rdb_dict_manager *rdb_get_dict_manager(void)

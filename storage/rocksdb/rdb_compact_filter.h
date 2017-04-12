@@ -39,7 +39,10 @@ public:
   Rdb_compact_filter &operator=(const Rdb_compact_filter &) = delete;
 
   explicit Rdb_compact_filter(uint32_t _cf_id) : m_cf_id(_cf_id) {}
-  ~Rdb_compact_filter() {}
+  ~Rdb_compact_filter() {
+    // Increment stats by num expired at the end of compaction
+    rdb_update_global_stats(ROWS_EXPIRED, m_num_expired);
+  }
 
   // keys are passed in sorted order within the same sst.
   // V1 Filter is thread safe on our usage (creating from Factory).
@@ -57,9 +60,6 @@ public:
     DBUG_ASSERT(gl_index_id.index_id >= 1);
 
     if (gl_index_id != m_prev_index) {
-      m_num_deleted = 0;
-      m_num_expired = 0;
-
       m_should_delete =
           rdb_get_dict_manager()->is_drop_index_ongoing(gl_index_id);
 
@@ -90,6 +90,15 @@ public:
                         uint64 *ttl_duration) const {
     DBUG_ASSERT(ttl_duration != nullptr);
     /*
+      If TTL is disabled set ttl_duration to 0.  This prevents the compaction
+      filter from dropping expired records.
+    */
+    if (!rdb_is_ttl_enabled()) {
+      *ttl_duration = 0;
+      return;
+    }
+
+    /*
       If key is part of system column family, it's definitely not a TTL key.
     */
     rocksdb::ColumnFamilyHandle *s_cf = rdb_get_dict_manager()->get_system_cf();
@@ -115,13 +124,9 @@ public:
                              const rocksdb::Slice &existing_value) const {
     uint64 ttl_timestamp =
         rdb_netbuf_to_uint64((const uchar *)existing_value.data());
-
     uint64 time_diff = std::difftime(std::time(nullptr), ttl_timestamp);
-    if (time_diff >= m_ttl_duration) {
-      return true;
-    }
 
-    return false;
+    return time_diff >= m_ttl_duration;
   }
 
  private:
