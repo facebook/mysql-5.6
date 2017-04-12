@@ -1,0 +1,34 @@
+# Check for mysqlbinlog ssl and compression options
+-- source include/have_compress.inc
+-- source include/have_binlog_format_statement.inc
+-- source include/have_log_bin.inc
+
+--disable_query_log
+CALL mtr.add_suppression("Unsafe statement written to the binary log using statement format since BINLOG_FORMAT = STATEMENT");
+--enable_query_log
+
+# Deletes all the binary logs
+reset master;
+
+# we need this for getting fixed timestamps inside of this test
+set timestamp=1000000000;
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+create table t1 (word varchar(20));
+
+--let $binlog_start_pos=query_get_value(SHOW MASTER STATUS, Position, 1)
+# simple test for simple statement and various events
+insert into t1 values ("abirvalg");
+flush logs;
+
+# Strangely but this works
+--disable_query_log
+select "--- --start-position --" as "";
+--enable_query_log
+--replace_regex /.*SET .*$//[i]
+--exec $MYSQL_BINLOG --short-form --local-load=$MYSQLTEST_VARDIR/tmp/ --read-from-remote-server --start-position=$binlog_start_pos --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --compress master-bin.000001
+
+drop table t1;
