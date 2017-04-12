@@ -1,0 +1,21 @@
+reset master;
+set timestamp=1000000000;
+drop table if exists t1;
+create table t1 (word varchar(20));
+insert into t1 values ("abirvalg");
+flush logs;
+
+--- --start-position --
+DELIMITER /*!*/;
+/*!\C latin1 *//*!*/;
+BEGIN
+/*!*/;
+use `test`/*!*/;
+insert into t1 values ("abirvalg")
+/*!*/;
+COMMIT
+/*!*/;
+DELIMITER ;
+# End of log file
+ROLLBACK /* added by mysqlbinlog */;
+drop table t1;
