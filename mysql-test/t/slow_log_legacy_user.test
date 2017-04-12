@@ -28,13 +28,27 @@ select 12;
 --echo # connection default
 connection default;
 
+# set the name pattern to indicate the name doesn't contain '_'
+--echo # change legacy_user_name_pattern
+set global legacy_user_name_pattern = '^[^_]+$';
+--echo # non_legacy_user
+create user `non_legacy_user`@localhost;
+--echo # connection conn2
+connect (conn2, localhost, non_legacy_user,,);
+# these should not appear in the slow log
+select 100;
+select 101;
+
+--echo # connection default
+connection default;
+
 # set the name pattern to indicate the name doesn't contain '%'
 --echo # change legacy_user_name_pattern
 set global legacy_user_name_pattern = '^[^%]+$';
 --echo # legacy_user2
 create user `legacy_user2`@localhost;
---echo # connection conn2
-connect (conn2, localhost, legacy_user2,,);
+--echo # connection conn3
+connect (conn3, localhost, legacy_user2,,);
 select 21;
 select 22;
 
@@ -93,6 +107,8 @@ EOF
 disconnect conn1;
 drop user `legacy_user1`@localhost;
 disconnect conn2;
+drop user `non_legacy_user`@localhost;
+disconnect conn3;
 drop user `legacy_user2`@localhost;
 
 set @@global.slow_query_log_file = @my_slow_logname;
