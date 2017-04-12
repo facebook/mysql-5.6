@@ -3242,7 +3242,7 @@ mysql_execute_command(THD *thd,
         opt_legacy_user_name_pattern)
     {
       bool match = legacy_user_name_pattern->matches(thd->security_ctx->user);
-      if (!log_throttle_legacy.log(thd, match)) // not suppressed
+      if (match && !log_throttle_legacy.log(thd, match)) // not suppressed
       {
         /* log the legacy user name */
         auto output= std::string("LEGACY_USER: ") + thd->security_ctx->user;
