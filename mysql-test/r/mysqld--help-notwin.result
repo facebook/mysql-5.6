@@ -1322,10 +1322,11 @@ The following options may be given as the first argument:
  Option updates per column family for RocksDB
  --rocksdb-use-adaptive-mutex 
  DBOptions::use_adaptive_mutex for RocksDB
+ --rocksdb-use-direct-io-for-flush-and-compaction 
+ DBOptions::use_direct_io_for_flush_and_compaction for
+ RocksDB
  --rocksdb-use-direct-reads 
  DBOptions::use_direct_reads for RocksDB
- --rocksdb-use-direct-writes 
- DBOptions::use_direct_writes for RocksDB
  --rocksdb-use-fsync DBOptions::use_fsync for RocksDB
  --rocksdb-validate-tables=# 
  Verify all .frm files match all RocksDB tables (0 means
@@ -2060,8 +2061,8 @@ rocksdb-trx ON
 rocksdb-unsafe-for-binlog FALSE
 rocksdb-update-cf-options (No default value)
 rocksdb-use-adaptive-mutex FALSE
+rocksdb-use-direct-io-for-flush-and-compaction FALSE
 rocksdb-use-direct-reads FALSE
-rocksdb-use-direct-writes FALSE
 rocksdb-use-fsync FALSE
 rocksdb-validate-tables 1
 rocksdb-verify-row-debug-checksums FALSE
