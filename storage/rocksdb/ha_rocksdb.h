@@ -374,6 +374,12 @@ struct st_export_stats {
   ulonglong system_rows_updated;
 };
 
+/* Struct used for exporting RocksDB memory status */
+struct st_memory_stats {
+  ulonglong memtable_total;
+  ulonglong memtable_unflushed;
+};
+
 } // namespace myrocks
 
 #include "./rdb_buff.h"
