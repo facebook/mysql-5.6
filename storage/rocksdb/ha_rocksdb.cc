@@ -10259,7 +10259,7 @@ int ha_rocksdb::inplace_populate_sk(
 
           print_keydup_error(new_table_arg,
                              &new_table_arg->key_info[index->get_keyno()],
-                             MYF(0));
+                             MYF(0), ha_thd());
           DBUG_RETURN(ER_DUP_ENTRY);
         }
       }
