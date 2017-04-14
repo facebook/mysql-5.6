@@ -26,6 +26,7 @@
 /* C++ standard header files */
 #include <algorithm>
 #include <limits>
+#include <map>
 #include <queue>
 #include <set>
 #include <string>
@@ -93,6 +94,7 @@ namespace myrocks {
 
 static st_global_stats global_stats;
 static st_export_stats export_stats;
+static st_memory_stats memory_stats;
 
 /**
   Updates row counters based on the table type and operation type.
@@ -10395,6 +10397,19 @@ static void myrocks_update_status() {
   export_stats.system_rows_updated = global_stats.system_rows[ROWS_UPDATED];
 }
 
+static void myrocks_update_memory_status() {
+  std::vector<rocksdb::DB *> dbs;
+  std::unordered_set<const rocksdb::Cache *> cache_set;
+  dbs.push_back(rdb);
+  std::map<rocksdb::MemoryUtil::UsageType, uint64_t> temp_usage_by_type;
+  rocksdb::MemoryUtil::GetApproximateMemoryUsageByType(dbs, cache_set,
+                                                       &temp_usage_by_type);
+  memory_stats.memtable_total =
+      temp_usage_by_type[rocksdb::MemoryUtil::kMemTableTotal];
+  memory_stats.memtable_unflushed =
+      temp_usage_by_type[rocksdb::MemoryUtil::kMemTableUnFlushed];
+}
+
 static SHOW_VAR myrocks_status_variables[] = {
     DEF_STATUS_VAR_FUNC("rows_deleted", &export_stats.rows_deleted,
                         SHOW_LONGLONG),
@@ -10415,11 +10430,16 @@ static SHOW_VAR myrocks_status_variables[] = {
                         SHOW_LONGLONG),
     DEF_STATUS_VAR_FUNC("system_rows_updated",
                         &export_stats.system_rows_updated, SHOW_LONGLONG),
+    DEF_STATUS_VAR_FUNC("memtable_total", &memory_stats.memtable_total,
+                        SHOW_LONGLONG),
+    DEF_STATUS_VAR_FUNC("memtable_unflushed", &memory_stats.memtable_unflushed,
+                        SHOW_LONGLONG),
 
     {NullS, NullS, SHOW_LONG}};
 
 static void show_myrocks_vars(THD *thd, SHOW_VAR *var, char *buff) {
   myrocks_update_status();
+  myrocks_update_memory_status();
   var->type = SHOW_ARRAY;
   var->value = reinterpret_cast<char *>(&myrocks_status_variables);
 }
