@@ -382,6 +382,10 @@ The following options may be given as the first argument:
  Specifies a directory to add to the ignore list when
  collecting database names from the datadir. Put a blank
  argument to reset the list accumulated so far.
+ --improved-dup-key-error 
+ Include the table name in the error text when receiving a
+ duplicate key error and log the query into a new
+ duplicate key query log file.
  --init-connect=name Command(s) that are executed for each new connection
  --init-file=name    Read SQL commands from this file at startup
  --init-slave=name   Command(s) that are executed by a slave server each time
@@ -1782,6 +1786,7 @@ histogram-step-size-update-command 16ms
 hll-data-size-log2 14
 host-cache-size 279
 ignore-builtin-innodb FALSE
+improved-dup-key-error FALSE
 init-connect 
 init-file (No default value)
 init-slave 

@@ -5839,3 +5839,10 @@ static Sys_var_mybool Sys_session_track_state_change(
        NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(0),
        ON_UPDATE(update_session_track_state_change));
+
+static Sys_var_mybool Sys_improved_dup_key_error(
+       "improved_dup_key_error",
+       "Include the table name in the error text when receiving a duplicate "
+       "key error and log the query into a new duplicate key query log file.",
+       GLOBAL_VAR(opt_improved_dup_key_error),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
