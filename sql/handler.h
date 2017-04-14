@@ -3763,8 +3763,10 @@ inline const char *table_case_name(HA_CREATE_INFO *info, const char *name)
   return ((lower_case_table_names == 2 && info->alias) ? info->alias : name);
 }
 
-void print_keydup_error(TABLE *table, KEY *key, const char *msg, myf errflag);
-void print_keydup_error(TABLE *table, KEY *key, myf errflag);
+void print_keydup_error(TABLE *table, KEY *key, const char *msg, myf errflag,
+                        const THD *thd, const char *org_table_name = nullptr);
+void print_keydup_error(TABLE *table, KEY *key, myf errflag,
+                        const THD *thd, const char *org_table_name = nullptr);
 void warn_fk_constraint_violation(THD *thd, TABLE *table, int error);
 
 #endif /* HANDLER_INCLUDED */

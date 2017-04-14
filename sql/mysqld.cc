@@ -464,6 +464,7 @@ my_bool opt_log_queries_not_using_indexes= 0;
 my_bool opt_disable_working_set_size = 0;
 ulong opt_log_throttle_queries_not_using_indexes= 0;
 ulong opt_log_throttle_legacy_user= 0;
+bool opt_improved_dup_key_error= 0;
 bool opt_error_log= IF_WIN(1,0);
 bool opt_disable_networking=0, opt_skip_show_db=0;
 bool opt_skip_name_resolve=0;

@@ -56,6 +56,8 @@ typedef struct st_innobase_share {
 /** Prebuilt structures in an InnoDB table handle used within MySQL */
 struct row_prebuilt_t;
 
+struct ha_innobase_inplace_ctx;
+
 /** The class defining a handle to an Innodb table */
 class ha_innobase: public handler
 {
@@ -304,6 +306,14 @@ class ha_innobase: public handler
 		TABLE*			altered_table,
 		Alter_inplace_info*	ha_alter_info,
 		bool			commit);
+  inline MY_ATTRIBUTE((nonnull, warn_unused_result))
+  bool commit_try_rebuild(
+    Alter_inplace_info*	ha_alter_info,
+    ha_innobase_inplace_ctx*ctx,
+    TABLE*			altered_table,
+    const TABLE*		old_table,
+    trx_t*			trx,
+    const char*		table_name);
 	/** @} */
 	bool check_if_incompatible_data(HA_CREATE_INFO *info,
 					uint table_changes);
