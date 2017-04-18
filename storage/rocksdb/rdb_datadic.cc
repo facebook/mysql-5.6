@@ -1582,7 +1582,7 @@ int Rdb_key_def::unpack_floating_point(
   // On little-endian, swap the bytes around
   swap_func(dst, tmp);
 #else
-  static_assert(swap_func == nullptr, "Assuming that no swapping is needed.");
+  DBUG_ASSERT(swap_func == nullptr);
 #endif
 
   return UNPACK_SUCCESS;
