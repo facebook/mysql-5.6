@@ -2085,6 +2085,7 @@ public:
   rocksdb::Status get(rocksdb::ColumnFamilyHandle *const column_family,
                       const rocksdb::Slice &key,
                       std::string *value) const override {
+    global_stats.queries[QUERIES_POINT].inc();
     return m_rocksdb_tx->Get(m_read_opts, column_family, key, value);
   }
 
@@ -2102,6 +2103,7 @@ public:
   rocksdb::Iterator *
   get_iterator(const rocksdb::ReadOptions &options,
                rocksdb::ColumnFamilyHandle *const column_family) override {
+    global_stats.queries[QUERIES_RANGE].inc();
     return m_rocksdb_tx->GetIterator(options, column_family);
   }
 
@@ -10395,6 +10397,9 @@ static void myrocks_update_status() {
   export_stats.system_rows_inserted = global_stats.system_rows[ROWS_INSERTED];
   export_stats.system_rows_read = global_stats.system_rows[ROWS_READ];
   export_stats.system_rows_updated = global_stats.system_rows[ROWS_UPDATED];
+
+  export_stats.queries_point = global_stats.queries[QUERIES_POINT];
+  export_stats.queries_range = global_stats.queries[QUERIES_RANGE];
 }
 
 static void myrocks_update_memory_status() {
@@ -10433,6 +10438,10 @@ static SHOW_VAR myrocks_status_variables[] = {
     DEF_STATUS_VAR_FUNC("memtable_total", &memory_stats.memtable_total,
                         SHOW_LONGLONG),
     DEF_STATUS_VAR_FUNC("memtable_unflushed", &memory_stats.memtable_unflushed,
+                        SHOW_LONGLONG),
+    DEF_STATUS_VAR_FUNC("queries_point", &export_stats.queries_point,
+                        SHOW_LONGLONG),
+    DEF_STATUS_VAR_FUNC("queries_range", &export_stats.queries_range,
                         SHOW_LONGLONG),
 
     {NullS, NullS, SHOW_LONG}};
