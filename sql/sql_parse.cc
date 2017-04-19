@@ -1437,6 +1437,73 @@ static int process_noncurrent_db_rw (THD *thd, TABLE_LIST *all_tables)
   DBUG_RETURN(0);
 }
 
+/*
+ * This function is called from both COM_INIT_DB and SQLCOM_CHANGE_DB to set
+ * the session's default database. In this function, we will check the
+ * admission control and connection limit for the new database.
+ *
+ * @retval
+ *   0   ok
+ * @retval
+ *   1   failed to set session db
+ */
+static bool set_session_db_helper(THD *thd, const LEX_STRING *new_db)
+{
+  // initialize empty attributes. only database may be set later
+  MT_RESOURCE_ATTRS attrs = {nullptr, nullptr, nullptr};
+  // save existing session db
+  std::string old_db;
+
+  if (!thd->db || strcmp(thd->db, new_db->str))
+  {
+    if (thd->db)
+    {
+      old_db = thd->db;
+    }
+    // since we are changing the session db and the query is part of
+    // multi-statement packet, we need to reset admission control so the new
+    // queries won't bypass the new db's admission control.
+    if (thd->is_in_ac)
+    {
+      // current admission control is per database
+      DBUG_ASSERT(thd->db);
+      // if the thd is already in admission control for the previous
+      // database, we need to release it before resetting the value.
+      attrs.database = thd->db;
+      multi_tenancy_exit_query(thd, &attrs);
+      thd->is_in_ac = false;
+    }
+    // now check resource if we can switch the connection to another database.
+    // Since other attributes are null, this doesn't have any effect if the
+    // throttling is not db based.
+    attrs.database = new_db->str; // set the new db in attributes
+    if (attrs.database && multi_tenancy_add_connection(thd, &attrs))
+    {
+      my_error(ER_MULTI_TENANCY_MAX_CONNECTION, MYF(0), attrs.database);
+      return true;
+    }
+  }
+
+  if (!mysql_change_db(thd, new_db, FALSE))
+  {
+    // release old connection resource in multi-tenancy plugin
+    if (!old_db.empty())
+    {
+      attrs.database = old_db.c_str();
+      multi_tenancy_close_connection(thd, &attrs);
+    }
+    return false;
+  }
+  else if (attrs.database)
+  {
+    // failed to change to the new database. release the connection resource
+    multi_tenancy_close_connection(thd, &attrs);
+  }
+
+  // mysql_change_db failed. error is set in side mysql_change_db
+  return true;
+}
+
 /**
   Perform one connection-level (COM_XXXX) command.
 
@@ -1597,7 +1664,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
     thd->convert_string(&tmp, system_charset_info,
 			packet, packet_length, thd->charset());
 
-    if (!mysql_change_db(thd, &tmp, FALSE))
+    if (!set_session_db_helper(thd, &tmp))
     {
       general_log_write(thd, command, thd->db, thd->db_length);
       my_ok(thd);
@@ -4598,59 +4665,9 @@ end_with_restore_list:
   case SQLCOM_CHANGE_DB:
   {
     LEX_STRING db_str= { (char *) select_lex->db, strlen(select_lex->db) };
-    MT_RESOURCE_ATTRS attrs = {
-      &thd->connection_attrs_map,
-      &thd->query_attrs_map,
-      nullptr
-    };
-    const char *old_db = nullptr;
-    if (!thd->db || strcmp(thd->db, select_lex->db))
-    {
-      attrs.database = select_lex->db;
-      if (thd->db)
-      {
-        old_db = thd->db;
-      }
-      // since we are changing the session db and the query is part of
-      // multi-statement packet, we need to reset admission control so the new
-      // queries won't bypass the new db'sadmission control.
-      if (thd->is_in_ac)
-      {
-        // if the thd is already in admission control for the previous
-        // database, we need to release it before resetting the value.
-        MT_RESOURCE_ATTRS attrs = {
-          &thd->connection_attrs_map,
-          &thd->query_attrs_map,
-          thd->db
-        };
-        multi_tenancy_exit_query(thd, &attrs);
-      }
-      thd->is_in_ac = false;
-    }
 
-    // check resource if we can switch the connection to another database
-    if (attrs.database && multi_tenancy_add_connection(thd, &attrs))
-    {
-      my_error(ER_MULTI_TENANCY_MAX_CONNECTION, MYF(0), attrs.database);
-      goto error;
-    }
-
-    if (!mysql_change_db(thd, &db_str, FALSE))
-    {
-      // release old connection resource in multi-tenancy plugin
-      if (old_db)
-      {
-        attrs.database = old_db;
-        multi_tenancy_close_connection(thd, &attrs);
-      }
+    if (!set_session_db_helper(thd, &db_str))
       my_ok(thd);
-    }
-    else if (attrs.database)
-    {
-      // failed to add the new conn. release connection resource in
-      // multi-tenancy plugin
-      multi_tenancy_close_connection(thd, &attrs);
-    }
 
     break;
   }

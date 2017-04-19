@@ -733,26 +733,6 @@ static int check_connection(THD *thd)
     reset_host_connect_errors(thd->main_security_ctx.get_ip()->ptr());
   }
 
-  MT_RESOURCE_ATTRS attrs = {
-    &thd->connection_attrs_map,
-    &thd->query_attrs_map,
-    thd->db
-  };
-  if (auth_rc == 0 &&
-      multi_tenancy_add_connection(thd, &attrs))
-  {
-    std::string entity = multi_tenancy_get_entity(
-        thd, MT_RESOURCE_TYPE::MULTI_TENANCY_RESOURCE_CONNECTION, &attrs);
-    if (thd->main_security_ctx.host_or_ip)
-    {
-      if (!entity.empty())
-        entity += " on ";
-      entity += thd->main_security_ctx.host_or_ip;
-    }
-    my_error(ER_MULTI_TENANCY_MAX_CONNECTION, MYF(0), entity.c_str());
-    return 1;
-  }
-
   return auth_rc;
 }
 
