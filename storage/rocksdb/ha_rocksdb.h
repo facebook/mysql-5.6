@@ -344,6 +344,8 @@ enum operation_type : int {
   ROWS_MAX
 };
 
+enum query_type : int { QUERIES_POINT = 0, QUERIES_RANGE, QUERIES_MAX };
+
 #if defined(HAVE_SCHED_GETCPU)
 #define RDB_INDEXER get_sched_indexer_t
 #else
@@ -357,6 +359,8 @@ struct st_global_stats {
   // system_rows_ stats are only for system
   // tables. They are not counted in rows_* stats.
   ib_counter_t<ulonglong, 64, RDB_INDEXER> system_rows[ROWS_MAX];
+
+  ib_counter_t<ulonglong, 64, RDB_INDEXER> queries[QUERIES_MAX];
 };
 
 /* Struct used for exporting status to MySQL */
@@ -372,6 +376,9 @@ struct st_export_stats {
   ulonglong system_rows_inserted;
   ulonglong system_rows_read;
   ulonglong system_rows_updated;
+
+  ulonglong queries_point;
+  ulonglong queries_range;
 };
 
 /* Struct used for exporting RocksDB memory status */
