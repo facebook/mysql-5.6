@@ -11467,6 +11467,40 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
     }
   }
 
+  if (command == COM_CONNECT)
+  {
+    // check if the new connection is throttled
+    MT_RESOURCE_ATTRS attrs = {
+      &thd->connection_attrs_map,
+      &thd->query_attrs_map,
+      thd->db
+    };
+    if (multi_tenancy_add_connection(thd, &attrs))
+    {
+      // connection rejected/throttled. push error message
+      std::string entity = multi_tenancy_get_entity(
+          thd, MT_RESOURCE_TYPE::MULTI_TENANCY_RESOURCE_CONNECTION, &attrs);
+      if (thd->main_security_ctx.host_or_ip)
+      {
+        if (!entity.empty())
+          entity += " on ";
+        entity += thd->main_security_ctx.host_or_ip;
+      }
+      my_error(ER_MULTI_TENANCY_MAX_CONNECTION, MYF(0), entity.c_str());
+      // decrement user connections if needed
+      USER_CONN* uc = const_cast<USER_CONN*>(thd->get_user_connect());
+      if (uc)
+      {
+        decrease_user_connections(uc);
+        uc->user_stats.errors_access_denied.inc();
+      }
+      Host_errors errors;
+      errors.m_connect= 1;
+      inc_host_errors(mpvio.ip, &errors);
+      DBUG_RETURN(1);
+    }
+  }
+
   if (mpvio.auth_info.external_user[0])
     sctx->set_external_user(my_strdup(mpvio.auth_info.external_user, MYF(0)));
 
