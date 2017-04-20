@@ -339,6 +339,7 @@ LIST OF SNAPSHOTS FOR EACH SESSION:
 MySQL thread id TID, OS thread handle PTR, query id QID localhost root ACTION
 SHOW ENGINE rocksdb TRANSACTION STATUS
 lock count 0, write count 0
+insert count 0, update count 0, delete count 0
 -----------------------------------------
 END OF ROCKSDB TRANSACTION MONITOR OUTPUT
 =========================================
