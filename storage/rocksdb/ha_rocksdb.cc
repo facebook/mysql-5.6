@@ -1489,6 +1489,9 @@ public:
 class Rdb_transaction {
 protected:
   ulonglong m_write_count = 0;
+  ulonglong m_insert_count = 0;
+  ulonglong m_update_count = 0;
+  ulonglong m_delete_count = 0;
   ulonglong m_lock_count = 0;
 
   bool m_is_delayed_snapshot = false;
@@ -1649,6 +1652,18 @@ public:
   virtual void set_lock_timeout(int timeout_sec_arg) = 0;
 
   ulonglong get_write_count() const { return m_write_count; }
+
+  ulonglong get_insert_count() const { return m_insert_count; }
+
+  ulonglong get_update_count() const { return m_update_count; }
+
+  ulonglong get_delete_count() const { return m_delete_count; }
+
+  void incr_insert_count() { ++m_insert_count; }
+
+  void incr_update_count() { ++m_update_count; }
+
+  void incr_delete_count() { ++m_delete_count; }
 
   int get_timeout_sec() const { return m_timeout_sec; }
 
@@ -1973,6 +1988,9 @@ private:
     release_tx();
 
     m_write_count = 0;
+    m_insert_count = 0;
+    m_update_count = 0;
+    m_delete_count = 0;
     m_lock_count = 0;
     set_tx_read_only(false);
     m_rollback_only = false;
@@ -1982,6 +2000,9 @@ private:
 public:
   void rollback() override {
     m_write_count = 0;
+    m_insert_count = 0;
+    m_update_count = 0;
+    m_delete_count = 0;
     m_lock_count = 0;
     m_ddl_transaction = false;
     if (m_rocksdb_tx) {
@@ -2230,6 +2251,9 @@ private:
     reset();
 
     m_write_count = 0;
+    m_insert_count = 0;
+    m_update_count = 0;
+    m_delete_count = 0;
     set_tx_read_only(false);
     m_rollback_only = false;
     return res;
@@ -2251,6 +2275,9 @@ public:
 
   void rollback() override {
     m_write_count = 0;
+    m_insert_count = 0;
+    m_update_count = 0;
+    m_delete_count = 0;
     m_lock_count = 0;
     release_snapshot();
 
@@ -2833,11 +2860,14 @@ public:
       THD *thd = tx->get_thd();
       char buffer[1024];
       thd_security_context(thd, buffer, sizeof buffer, 0);
-      m_data += format_string("---SNAPSHOT, ACTIVE %lld sec\n"
+      m_data += format_string(
+          "---SNAPSHOT, ACTIVE %lld sec\n"
                               "%s\n"
-                              "lock count %llu, write count %llu\n",
-                              curr_time - snapshot_timestamp, buffer,
-                              tx->get_lock_count(), tx->get_write_count());
+          "lock count %llu, write count %llu\n"
+          "insert count %llu, update count %llu, delete count %llu\n",
+          curr_time - snapshot_timestamp, buffer, tx->get_lock_count(),
+          tx->get_write_count(), tx->get_insert_count(), tx->get_update_count(),
+          tx->get_delete_count());
     }
   }
 };
@@ -7984,6 +8014,12 @@ int ha_rocksdb::update_write_row(const uchar *const old_data,
     DBUG_RETURN(rc);
   }
 
+  if (old_data != nullptr) {
+    row_info.tx->incr_update_count();
+  } else {
+    row_info.tx->incr_insert_count();
+  }
+
   if (do_bulk_commit(row_info.tx)) {
     DBUG_RETURN(HA_ERR_ROCKSDB_BULK_LOAD);
   }
@@ -8343,6 +8379,8 @@ int ha_rocksdb::delete_row(const uchar *const buf) {
                                                   secondary_key_slice);
     }
   }
+
+  tx->incr_delete_count();
 
   if (do_bulk_commit(tx)) {
     DBUG_RETURN(HA_ERR_ROCKSDB_BULK_LOAD);
