@@ -82,3 +82,20 @@ SHOW CREATE TABLE t1;
 DROP TABLE t1;
 
 
+# Test changing key with same name and parts from not unique to unique, should
+# fail.
+CREATE TABLE t1 (
+a INT PRIMARY KEY,
+b INT,
+c INT,
+KEY kbc(b,c)) ENGINE = ROCKSDB;
+INSERT INTO t1 (a,b,c) VALUES (1,1,1);
+INSERT INTO t1 (a,b,c) VALUES (2,2,2);
+INSERT INTO t1 (a,b,c) VALUES (3,2,2);
+
+# should cause error here, duplicate value 2-2
+--error 1062
+ALTER TABLE t1 DROP INDEX kbc, ADD UNIQUE INDEX kbc(b,c), ALGORITHM=INPLACE;
+
+DROP TABLE t1;
+
