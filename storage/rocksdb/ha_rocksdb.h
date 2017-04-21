@@ -1032,6 +1032,9 @@ private:
                         const KEY *const new_key) const;
   MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
+  int compare_keys(const KEY *const old_key, const KEY *const new_key) const
+      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+
   int convert_record_to_storage_format(const struct update_row_info &row_info,
                                        rocksdb::Slice *const packed_rec)
       MY_ATTRIBUTE((__nonnull__));

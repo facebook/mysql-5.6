@@ -5388,6 +5388,7 @@ int ha_rocksdb::create_inplace_key_defs(
   uint i;
   for (i = 0; i < tbl_def_arg->m_key_count; i++) {
     const auto &it = old_key_pos.find(get_key_name(i, table_arg, tbl_def_arg));
+
     if (it != old_key_pos.end()) {
       /*
         Found matching index in old table definition, so copy it over to the
@@ -5477,12 +5478,64 @@ std::unordered_map<std::string, uint> ha_rocksdb::get_old_key_positions(
 
     KEY *const new_key = &table_arg->key_info[it->second];
 
-    if (!compare_key_parts(old_key, new_key)) {
-      old_key_pos[old_key->name] = i;
+    /*
+      Check that the key is identical between old and new tables.
+      If not, we still need to create a new index.
+
+      The exception is if there is an index changed from unique to non-unique,
+      in these cases we don't need to rebuild as they are stored the same way in
+      RocksDB.
+    */
+    bool unique_to_non_unique =
+        ((old_key->flags ^ new_key->flags) == HA_NOSAME) &&
+        (old_key->flags & HA_NOSAME);
+
+    if (compare_keys(old_key, new_key) && !unique_to_non_unique) {
+      continue;
     }
+
+    /* Check to make sure key parts match. */
+    if (compare_key_parts(old_key, new_key)) {
+      continue;
+    }
+
+    old_key_pos[old_key->name] = i;
   }
 
   DBUG_RETURN(old_key_pos);
+}
+
+/* Check to see if two keys are identical. */
+int ha_rocksdb::compare_keys(const KEY *const old_key,
+                             const KEY *const new_key) const {
+  DBUG_ENTER_FUNC();
+
+  DBUG_ASSERT(old_key != nullptr);
+  DBUG_ASSERT(new_key != nullptr);
+
+  /* Check index name. */
+  if (strcmp(old_key->name, new_key->name) != 0) {
+    DBUG_RETURN(HA_EXIT_FAILURE);
+  }
+
+  /* If index algorithms are different then keys are different. */
+  if (old_key->algorithm != new_key->algorithm) {
+    DBUG_RETURN(HA_EXIT_FAILURE);
+  }
+
+  /* Check that the key is identical between old and new tables.  */
+  if ((old_key->flags ^ new_key->flags) & HA_KEYFLAG_MASK) {
+    DBUG_RETURN(HA_EXIT_FAILURE);
+  }
+
+  /* Check index comment. (for column family changes) */
+  std::string old_comment(old_key->comment.str, old_key->comment.length);
+  std::string new_comment(new_key->comment.str, new_key->comment.length);
+  if (old_comment.compare(new_comment) != 0) {
+    DBUG_RETURN(HA_EXIT_FAILURE);
+  }
+
+  DBUG_RETURN(HA_EXIT_SUCCESS);
 }
 
 /* Check two keys to ensure that key parts within keys match */
@@ -5502,6 +5555,11 @@ int ha_rocksdb::compare_key_parts(const KEY *const old_key,
   for (uint i = 0; i < old_key->user_defined_key_parts; i++) {
     if (strcmp(old_key->key_part[i].field->field_name,
                new_key->key_part[i].field->field_name) != 0) {
+      DBUG_RETURN(HA_EXIT_FAILURE);
+    }
+
+    /* Check if prefix index key part length has changed */
+    if (old_key->key_part[i].length != new_key->key_part[i].length) {
       DBUG_RETURN(HA_EXIT_FAILURE);
     }
   }
@@ -9758,8 +9816,6 @@ bool ha_rocksdb::prepare_inplace_alter_table(
   DBUG_ASSERT(altered_table != nullptr);
   DBUG_ASSERT(ha_alter_info != nullptr);
 
-  const uint n_dropped_keys = ha_alter_info->index_drop_count;
-  const uint n_added_keys = ha_alter_info->index_add_count;
   const uint old_n_keys = m_tbl_def->m_key_count;
   uint new_n_keys = altered_table->s->keys;
 
@@ -9767,6 +9823,7 @@ bool ha_rocksdb::prepare_inplace_alter_table(
     new_n_keys += 1;
   }
 
+  const TABLE *const old_table = table;
   std::shared_ptr<Rdb_key_def> *const old_key_descr =
       m_tbl_def->m_key_descr_arr;
   std::shared_ptr<Rdb_key_def> *const new_key_descr =
@@ -9805,33 +9862,60 @@ bool ha_rocksdb::prepare_inplace_alter_table(
 
   uint i;
   uint j;
-  const KEY *key;
 
   /* Determine which(if any) key definition(s) need to be dropped */
   for (i = 0; i < ha_alter_info->index_drop_count; i++) {
-    const KEY *const key = ha_alter_info->index_drop_buffer[i];
+    const KEY *const dropped_key = ha_alter_info->index_drop_buffer[i];
     for (j = 0; j < old_n_keys; j++) {
-      if (!old_key_descr[j]->m_name.compare(key->name)) {
+      const KEY *const old_key =
+          &old_table->key_info[old_key_descr[j]->get_keyno()];
+
+      if (!compare_keys(old_key, dropped_key)) {
         dropped_index_ids.insert(old_key_descr[j]->get_gl_index_id());
         break;
       }
     }
   }
 
-  DBUG_ASSERT(dropped_index_ids.size() == ha_alter_info->index_drop_count);
-
   /* Determine which(if any) key definitions(s) need to be added */
+  int identical_indexes_found = 0;
   for (i = 0; i < ha_alter_info->index_add_count; i++) {
-    key = &ha_alter_info->key_info_buffer[ha_alter_info->index_add_buffer[i]];
+    const KEY *const added_key =
+        &ha_alter_info->key_info_buffer[ha_alter_info->index_add_buffer[i]];
     for (j = 0; j < new_n_keys; j++) {
-      if (!new_key_descr[j]->m_name.compare(key->name)) {
-        added_indexes.insert(new_key_descr[j]);
+      const KEY *const new_key =
+          &altered_table->key_info[new_key_descr[j]->get_keyno()];
+      if (!compare_keys(new_key, added_key)) {
+        /*
+          Check for cases where an 'identical' index is being dropped and
+          re-added in a single ALTER statement.  Turn this into a no-op as the
+          index has not changed.
+
+          E.G. Unique index -> non-unique index requires no change
+
+          Note that cases where the index name remains the same but the
+          key-parts are changed is already handled in create_inplace_key_defs.
+          In these cases the index needs to be rebuilt.
+        */
+        if (dropped_index_ids.count(new_key_descr[j]->get_gl_index_id())) {
+          dropped_index_ids.erase(new_key_descr[j]->get_gl_index_id());
+          identical_indexes_found++;
+        } else {
+          added_indexes.insert(new_key_descr[j]);
+        }
+
         break;
       }
     }
   }
 
-  DBUG_ASSERT(added_indexes.size() == ha_alter_info->index_add_count);
+  const uint n_dropped_keys =
+      ha_alter_info->index_drop_count - identical_indexes_found;
+  const uint n_added_keys =
+      ha_alter_info->index_add_count - identical_indexes_found;
+  DBUG_ASSERT(dropped_index_ids.size() == n_dropped_keys);
+  DBUG_ASSERT(added_indexes.size() == n_added_keys);
+  DBUG_ASSERT(new_n_keys == (old_n_keys - n_dropped_keys + n_added_keys));
 
   ha_alter_info->handler_ctx = new Rdb_inplace_alter_ctx(
       new_tdef, old_key_descr, new_key_descr, old_n_keys, new_n_keys,
