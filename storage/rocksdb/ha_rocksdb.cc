@@ -7879,17 +7879,10 @@ int ha_rocksdb::update_pk(const Rdb_key_def &kd,
       Write the primary key directly to an SST file using an SstFileWriter
      */
     rc = bulk_load_key(row_info.tx, kd, row_info.new_pk_slice, value_slice);
-  } else if (row_info.skip_unique_check) {
+  } else if (row_info.skip_unique_check || row_info.tx->m_ddl_transaction) {
     /*
       It is responsibility of the user to make sure that the data being
       inserted doesn't violate any unique keys.
-    */
-    row_info.tx->get_blind_write_batch()->Put(cf, row_info.new_pk_slice,
-                                              value_slice);
-  } else if (row_info.tx->m_ddl_transaction) {
-    /*
-      DDL statement must check for unique key conflicts. For example:
-      ALTER TABLE tbl DROP PRIMARY KEY, ADD PRIMARY KEY(non_unique_column)
     */
     row_info.tx->get_indexed_write_batch()->Put(cf, row_info.new_pk_slice,
                                                 value_slice);
@@ -7975,30 +7968,14 @@ int ha_rocksdb::update_sk(const TABLE *const table_arg, const Rdb_key_def &kd,
                                                          old_key_slice);
   }
 
-  /*
-    We're writing a new entry for secondary key. We can skip locking; we
-    should write to
-    - WriteBatchWithIndex normally (so that transaction sees the new row)
-    - non-indexed WriteBatch, when we don't need to see the new row:
-       = when doing a DDL operation and writing to a non-unique index, or
-       = when doing a bulk load
-  */
-  rocksdb::WriteBatchBase *write_batch;
-  if ((row_info.tx->m_ddl_transaction &&
-       !(table_arg->key_info[key_id].flags & HA_NOSAME)) ||
-      row_info.skip_unique_check) {
-    write_batch = row_info.tx->get_blind_write_batch();
-  } else {
-    write_batch = row_info.tx->get_indexed_write_batch();
-  }
-
   new_key_slice = rocksdb::Slice(
       reinterpret_cast<const char *>(m_sk_packed_tuple), new_packed_size);
   new_value_slice =
       rocksdb::Slice(reinterpret_cast<const char *>(m_sk_tails.ptr()),
                      m_sk_tails.get_current_pos());
 
-  write_batch->Put(kd.get_cf(), new_key_slice, new_value_slice);
+  row_info.tx->get_indexed_write_batch()->Put(kd.get_cf(), new_key_slice,
+                                              new_value_slice);
 
   return HA_EXIT_SUCCESS;
 }
