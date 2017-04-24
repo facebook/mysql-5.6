@@ -445,6 +445,7 @@ set_system_variable(THD *thd, struct sys_var_with_base *tmp,
   if (! (var= new set_var(var_type, tmp->var, &tmp->base_name, val)))
     return TRUE;
 
+  var->thd_id= tmp->var->thd_id;
   return lex->var_list.push_back(var);
 }
 
@@ -950,12 +951,14 @@ static bool sp_create_assignment_instr(THD *thd, const char *expr_end_ptr)
 
   /* Remember option_type of the currently parsed LEX. */
   enum_var_type inner_option_type= lex->option_type;
+  ulong thd_id_opt = lex->thread_id_opt;
 
   if (sp->restore_lex(thd))
     return true;
 
   /* Copy option_type to outer lex in case it has changed. */
   thd->lex->option_type= inner_option_type;
+  lex->thread_id_opt = thd_id_opt;
 
   return false;
 }
@@ -15383,20 +15386,23 @@ option_value:
 
 option_type:
           GLOBAL_SYM  { $$=OPT_GLOBAL; }
-        | LOCAL_SYM   { $$=OPT_SESSION; }
-        | SESSION_SYM { $$=OPT_SESSION; }
-        ;
-
-opt_var_type:
-          /* empty */ { $$=OPT_SESSION; }
-        | GLOBAL_SYM  { $$=OPT_GLOBAL; }
         | LOCAL_SYM opt_var_tid { $$=OPT_SESSION; Lex->thread_id_opt=$2; }
         | SESSION_SYM opt_var_tid { $$=OPT_SESSION; Lex->thread_id_opt=$2; }
         ;
 
+opt_var_type:
+          /* empty */ { $$=OPT_SESSION; }
+        | option_type
+        ;
+
 opt_var_tid:
           /* empty */        { $$=0; }
-        | ulong_num          { $$=$1; }
+        | ulong_num
+          {
+            if ($1 <= 0)
+              MYSQL_YYABORT;
+            $$=$1;
+          }
         ;
 
 opt_var_ident_type:
@@ -15416,6 +15422,7 @@ option_value_following_option_type:
             if ($1.var && $1.var != trg_new_row_fake_var)
             {
               /* It is a system variable. */
+              $1.var->thd_id = Lex->thread_id_opt;
               if (set_system_variable(thd, &$1, lex->option_type, $3))
                 MYSQL_YYABORT;
             }
@@ -15481,6 +15488,7 @@ option_value_no_option_type:
             else if ($1.var)
             {
               /* We're not parsing SP and this is a system variable. */
+              $1.var->thd_id = Lex->thread_id_opt;
 
               if (set_system_variable(thd, &$1, lex->option_type, $4))
                 MYSQL_YYABORT;
@@ -15553,6 +15561,10 @@ option_value_no_option_type:
             {
               if (find_sys_var_null_base(thd, &tmp))
                 MYSQL_YYABORT;
+            }
+            else
+            {
+              tmp.var->thd_id = Lex->thread_id_opt;
             }
             if (set_system_variable(thd, &tmp, $3, $6))
               MYSQL_YYABORT;
@@ -15784,6 +15796,11 @@ transaction_access_mode:
           {
             THD *thd= YYTHD;
             LEX *lex=Lex;
+            if (lex->thread_id_opt > 0)
+            {
+              my_parse_error(ER(ER_SYNTAX_ERROR));
+              MYSQL_YYABORT;
+            }
             Item *item= new (thd->mem_root) Item_int((int32) $1);
             if (item == NULL)
               MYSQL_YYABORT;

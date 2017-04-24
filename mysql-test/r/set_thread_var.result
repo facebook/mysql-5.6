@@ -1,0 +1,67 @@
+set max_join_size = 1000;
+create user mysqluser1;
+set max_join_size = 1000;
+show variables like 'max_join_size';
+Variable_name	Value
+max_join_size	1000
+set max_join_size = 2000;
+show variables like 'max_join_size';
+Variable_name	Value
+max_join_size	2000
+set session $mysqluser1 max_join_size = 1001;;
+show variables like 'max_join_size';
+Variable_name	Value
+max_join_size	2000
+set session $root max_join_size = 2001;;
+show variables like 'max_join_size';
+Variable_name	Value
+max_join_size	2001
+set session max_join_size = 2002;
+show variables like 'max_join_size';
+Variable_name	Value
+max_join_size	2002
+show variables like 'max_join_size';
+Variable_name	Value
+max_join_size	1001
+set session $mysqluser1 max_join_size = 3001, session $root max_join_size = 3002;;
+show variables like 'max_join_size';
+Variable_name	Value
+max_join_size	3002
+show variables like 'max_join_size';
+Variable_name	Value
+max_join_size	3001
+set session $root max_join_size = 2003;;
+ERROR HY000: You are not owner of thread $root
+set session $mysqluser1 max_join_size = 1002;;
+show variables like 'max_join_size';
+Variable_name	Value
+max_join_size	1002
+set session max_join_size = 1003;
+show variables like 'max_join_size';
+Variable_name	Value
+max_join_size	1003
+show variables like 'max_join_size';
+Variable_name	Value
+max_join_size	3002
+set session $mysqluser1 max_join_size = 3002, max_error_count = 30, session $root max_join_size = 3003, max_error_count = 31;;
+show variables like 'max_join_size';
+Variable_name	Value
+max_join_size	3003
+show variables like 'max_error_count';
+Variable_name	Value
+max_error_count	31
+show variables like 'max_join_size';
+Variable_name	Value
+max_join_size	3002
+show variables like 'max_error_count';
+Variable_name	Value
+max_error_count	30
+set session 999 max_join_size = 9999;;
+ERROR HY000: Unknown thread id: 999
+set global 1 max_join_size = 1000;;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '1 max_join_size = 1000' at line 1
+set session -1 max_join_size = 1000;;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '-1 max_join_size = 1000' at line 1
+set session 1 transaction read write;;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'write' at line 1
+drop user mysqluser1;

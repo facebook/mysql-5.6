@@ -552,6 +552,58 @@ sys_var *intern_find_sys_var(const char *str, uint length)
 
 
 /**
+  Helper function to set variables.
+
+  Use the thd -> list<var> map to iterate over all threads
+  For each thread, for each variable in its list, perform the specified function
+
+  @param THD            Current thread
+  @param current_thd_id Thread id of the current thread
+  @param thd_var_map    Map of threads to list of variables to be updated
+  @param func           Function to be executed for each variable
+
+  @retval
+    0   ok
+  @retval
+    1   ERROR
+*/
+
+int process_set_variable_map(
+    THD *thd,
+    ulong current_thd_id,
+    std::unordered_map<ulong, List<set_var_base>>& map,
+    int (*func)(THD *, set_var_base*))
+{
+  int error = 0;
+  for (auto iter = map.begin(); error == 0 && iter != map.end(); iter++)
+  {
+    THD *var_thd = thd;
+    ulong thd_id_opt = iter->first;
+    if (thd_id_opt != current_thd_id)
+    {
+      var_thd = get_opt_thread_with_data_lock(thd, thd_id_opt);
+      if (!var_thd)
+         return 1;
+    }
+
+    set_var_base *var;
+    List_iterator_fast<set_var_base> it_vars(iter->second);
+    while ((var = it_vars++) != nullptr)
+    {
+      error = func(var_thd, var);
+      if (error != 0)
+        break;
+    }
+
+    if (thd_id_opt != current_thd_id)
+      mysql_mutex_unlock(&var_thd->LOCK_thd_data);
+  }
+
+  return error;
+}
+
+
+/**
   Execute update of all variables.
 
   First run a check of all variables that all updates will go ok.
@@ -576,20 +628,44 @@ int sql_set_variables(THD *thd, List<set_var_base> *var_list)
   int error;
   List_iterator_fast<set_var_base> it(*var_list);
   DBUG_ENTER("sql_set_variables");
+  ulong current_thd_id = thd->thread_id();
 
+  /*
+    This map stores a list of variables to be updated for each thread specified
+    by the user, essentially grouping variabled by thread ID. Variable updates
+    are processed per thread.
+  */
+  std::unordered_map<ulong, List<set_var_base>> thd_var_map;
   set_var_base *var;
+
   while ((var=it++))
   {
-    if ((error= var->check(thd)))
-      goto err;
-  }
-  if (!(error= MY_TEST(thd->is_error())))
-  {
-    it.rewind();
-    while ((var= it++))
-      error|= var->update(thd);         // Returns 0, -1 or 1
+    ulong thd_id_opt = var->thd_id;
+    if (thd_id_opt == 0)
+      thd_id_opt = current_thd_id;
+    thd_var_map[thd_id_opt].push_back(var);
   }
 
+  /* Check if the variables to be updated are valid */
+  error = process_set_variable_map(
+      thd,
+      current_thd_id,
+      thd_var_map,
+      [](THD *each_thd, set_var_base *var) { return var->check(each_thd); });
+  if (error != 0)
+    goto err;
+
+  /* If there is no error, go ahead and update the variable */
+  error = process_set_variable_map(
+      thd,
+      current_thd_id,
+      thd_var_map,
+      [](THD *each_thd, set_var_base *var) {
+        int error = MY_TEST(each_thd->is_error());
+        if (error != 0)
+          return error;
+        return var->update(each_thd);
+      });
 err:
   free_underlaid_joins(thd, &thd->lex->select_lex);
   DBUG_RETURN(error);
