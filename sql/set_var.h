@@ -56,6 +56,7 @@ class sys_var
 public:
   sys_var *next;
   LEX_CSTRING name;
+  ulong thd_id;
   enum flag_enum { GLOBAL, SESSION, ONLY_SESSION, SCOPE_MASK=1023,
                    READONLY=1024, ALLOCATED=2048, INVISIBLE=4096 };
   static const int PARSE_EARLY= 1;
@@ -195,6 +196,7 @@ protected:
 class set_var_base :public Sql_alloc
 {
 public:
+  ulong thd_id= 0;
   set_var_base() {}
   virtual ~set_var_base() {}
   virtual int check(THD *thd)=0;           /* To check privileges etc. */
