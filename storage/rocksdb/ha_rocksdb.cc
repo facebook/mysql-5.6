@@ -501,6 +501,7 @@ static void rocksdb_set_reset_stats(
     void *const var_ptr, const void *const save) {
   DBUG_ASSERT(save != nullptr);
   DBUG_ASSERT(rdb != nullptr);
+  DBUG_ASSERT(rocksdb_stats != nullptr);
 
   RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
 
@@ -511,6 +512,9 @@ static void rocksdb_set_reset_stats(
 
     // RocksDB will always return success. Let's document this assumption here
     // as well so that we'll get immediately notified when contract changes.
+    DBUG_ASSERT(s == rocksdb::Status::OK());
+
+    s = rocksdb_stats->Reset();
     DBUG_ASSERT(s == rocksdb::Status::OK());
   }
 
