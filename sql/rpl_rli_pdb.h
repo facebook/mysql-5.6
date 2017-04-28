@@ -522,5 +522,11 @@ bool set_max_updated_index_on_stop(Slave_worker *worker,
 
 TABLE* mts_move_temp_table_to_entry(TABLE*, THD*, db_worker_hash_entry*);
 TABLE* mts_move_temp_tables_to_thd(THD*, TABLE*);
+
+inline Slave_worker* get_thd_worker(THD *thd)
+{
+  return static_cast<Slave_worker *>(thd->rli_slave);
+}
+
 #endif // HAVE_REPLICATION
 #endif

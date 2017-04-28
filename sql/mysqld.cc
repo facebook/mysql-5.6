@@ -670,6 +670,7 @@ ulong opt_mts_slave_parallel_workers;
 my_bool opt_mts_dependency_replication;
 ulonglong opt_mts_dependency_size;
 double opt_mts_dependency_refill_threshold;
+my_bool opt_mts_dependency_order_commits;
 my_bool opt_mts_dynamic_rebalance;
 double opt_mts_imbalance_threshold;
 ulonglong opt_mts_pending_jobs_size_max;
@@ -11985,6 +11986,7 @@ PSI_mutex_key key_BINLOG_LOCK_sync;
 PSI_mutex_key key_BINLOG_LOCK_sync_queue;
 PSI_mutex_key key_BINLOG_LOCK_xids;
 PSI_mutex_key key_BINLOG_LOCK_binlog_end_pos;
+PSI_mutex_key key_commit_order_manager_mutex;
 PSI_mutex_key
   key_delayed_insert_mutex, key_hash_filo_lock, key_LOCK_active_mi,
   key_LOCK_connection_count, key_LOCK_crypt, key_LOCK_delayed_create,
@@ -12062,6 +12064,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_BINLOG_LOCK_sync_queue, "MYSQL_BIN_LOG::LOCK_sync_queue", 0 },
   { &key_BINLOG_LOCK_xids, "MYSQL_BIN_LOG::LOCK_xids", 0 },
   { &key_BINLOG_LOCK_binlog_end_pos, "MYSQL_BIN_LOG::LOCK_binlog_end_pos", 0 },
+  { &key_commit_order_manager_mutex, "Commit_order_manager::m_mutex", 0 },
   { &key_RELAYLOG_LOCK_commit, "MYSQL_RELAY_LOG::LOCK_commit", 0},
   { &key_RELAYLOG_LOCK_commit_queue, "MYSQL_RELAY_LOG::LOCK_commit_queue", 0 },
   { &key_RELAYLOG_LOCK_done, "MYSQL_RELAY_LOG::LOCK_done", 0 },
@@ -12193,6 +12196,7 @@ PSI_cond_key key_RELAYLOG_COND_done;
 PSI_cond_key key_BINLOG_prep_xids_cond;
 PSI_cond_key key_RELAYLOG_prep_xids_cond;
 PSI_cond_key key_gtid_ensure_index_cond;
+PSI_cond_key key_commit_order_manager_cond;
 
 static PSI_cond_info all_server_conds[]=
 {
@@ -12240,7 +12244,8 @@ static PSI_cond_info all_server_conds[]=
   { &key_gtid_info_data_cond, "Gtid_info::data_cond", 0},
   { &key_gtid_info_start_cond, "Gtid_info::start_cond", 0},
   { &key_gtid_info_stop_cond, "Gtid_info::stop_cond", 0},
-  { &key_gtid_info_sleep_cond, "Gtid_info::sleep_cond", 0}
+  { &key_gtid_info_sleep_cond, "Gtid_info::sleep_cond", 0},
+  { &key_commit_order_manager_cond, "Commit_order_manager::m_workers.cond", 0}
 };
 
 PSI_thread_key key_thread_bootstrap, key_thread_delayed_insert,
@@ -12435,6 +12440,7 @@ PSI_stage_info stage_waiting_for_query_cache_lock= { 0, "Waiting for query cache
 PSI_stage_info stage_waiting_for_the_next_event_in_relay_log= { 0, "Waiting for the next event in relay log", 0};
 PSI_stage_info stage_waiting_for_the_slave_thread_to_advance_position= { 0, "Waiting for the slave SQL thread to advance position", 0};
 PSI_stage_info stage_waiting_to_finalize_termination= { 0, "Waiting to finalize termination", 0};
+PSI_stage_info stage_worker_waiting_for_its_turn_to_commit= { 0, "Waiting for preceding transaction to commit", 0};
 PSI_stage_info stage_waiting_to_get_readlock= { 0, "Waiting to get readlock", 0};
 PSI_stage_info stage_slave_waiting_workers_to_exit= { 0, "Waiting for workers to exit", 0};
 PSI_stage_info stage_slave_waiting_worker_to_release_partition= { 0, "Waiting for Slave Worker to release partition", 0};
@@ -12544,6 +12550,7 @@ PSI_stage_info *all_server_stages[]=
   & stage_waiting_for_the_next_event_in_relay_log,
   & stage_waiting_for_the_slave_thread_to_advance_position,
   & stage_waiting_to_finalize_termination,
+  & stage_worker_waiting_for_its_turn_to_commit,
   & stage_waiting_to_get_readlock
 };
 

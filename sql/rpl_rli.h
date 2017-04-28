@@ -33,6 +33,7 @@
 
 struct RPL_TABLE_LIST;
 class Master_info;
+class Commit_order_manager;
 extern uint sql_slave_skip_counter;
 
 enum class Enum_slave_caughtup {
@@ -986,6 +987,18 @@ public:
     return rli_description_event;
   }
 
+#if defined(HAVE_REPLICATION) && !defined(MYSQL_CLIENT)
+  Commit_order_manager *get_commit_order_manager()
+  {
+    return commit_order_mngr;
+  }
+
+  void set_commit_order_manager(Commit_order_manager *mngr)
+  {
+    commit_order_mngr= mngr;
+  }
+#endif
+
   virtual bool get_skip_unique_check()
   {
     return skip_unique_check;
@@ -1012,6 +1025,12 @@ protected:
   Format_description_log_event *rli_description_event;
 
 private:
+  /*
+    Commit order manager to order commits made by its workers. In context of
+    Multi Source Replication each worker will be ordered by the coresponding
+    corrdinator's order manager.
+   */
+  Commit_order_manager* commit_order_mngr;
 
   /**
     Delay slave SQL thread by this amount, compared to master (in
@@ -1097,6 +1116,11 @@ public:
   /* Set of all tables accessed by the current group */
   std::unordered_set<ulonglong> tables_accessed_by_group;
 
+  /* Mapping from DB to start event of the last trx that updated that DB */
+  std::unordered_map<std::string, Log_event_wrapper*> dag_db_last_start_event;
+  /* Set of all DBs accessed by the current group */
+  std::unordered_set<std::string> dbs_accessed_by_group;
+
   // Mutex-condition pair to notify any change in the DAG
   mysql_cond_t dag_changed_cond;
   mysql_mutex_t dag_changed_mutex;
@@ -1151,6 +1175,8 @@ public:
 
     dag_table_last_penultimate_event.clear();
     tables_accessed_by_group.clear();
+    dag_db_last_start_event.clear();
+    dbs_accessed_by_group.clear();
     dag_unlock();
 
     mysql_mutex_lock(&dag_empty_mutex);

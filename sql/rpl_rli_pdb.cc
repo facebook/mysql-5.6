@@ -23,6 +23,7 @@
 #include "transaction.h"
 #include "debug_sync.h"
 #include <hash.h>
+#include "rpl_slave_commit_order_manager.h" // Commit_order_manager
 
 #ifndef DBUG_OFF
   ulong w_rr= 0;
@@ -268,6 +269,8 @@ int Slave_worker::init_worker(Relay_log_info * rli, ulong i)
   Slave_job_item empty= {NULL};
 
   c_rli= rli;
+  set_commit_order_manager(c_rli->get_commit_order_manager());
+
   if (rli_init_info(false) ||
       DBUG_EVALUATE_IF("inject_init_worker_init_info_fault", true, false))
     DBUG_RETURN(1);
@@ -1376,6 +1379,13 @@ void Slave_worker::slave_worker_ends_group(Log_event* ev, int &error,
     Slave_job_group *ptr_g= gaq->get_job_group(gaq_index);
 
     DBUG_ASSERT(gaq_index == ev->mts_group_idx);
+    /*
+      It guarantees that the worker is removed from order commit queue when
+      its transaction doesn't binlog anything.
+      It will break innodb group commit, but it should rarely happen.
+    */
+    if (get_commit_order_manager())
+      get_commit_order_manager()->report_commit(this);
 
     // first ever group must have relay log name
     DBUG_ASSERT(last_group_done_index != c_rli->gaq->size ||
@@ -1426,6 +1436,10 @@ void Slave_worker::slave_worker_ends_group(Log_event* ev, int &error,
       mysql_mutex_lock(&jobs_lock);
       running_status= ERROR_LEAVING;
       mysql_mutex_unlock(&jobs_lock);
+
+      // Fatal error happens, it notifies the following transaction to rollback
+      if (get_commit_order_manager())
+        get_commit_order_manager()->report_rollback(this);
 
       // Killing Coordinator to indicate eventual consistency error
       mysql_mutex_lock(&c_rli->info_thd->LOCK_thd_data);

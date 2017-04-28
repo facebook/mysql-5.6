@@ -129,6 +129,7 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery
    mts_recovery_index(0), mts_recovery_group_seen_begin(0),
    mts_group_status(MTS_NOT_IN_GROUP), reported_unsafe_warning(false),
    rli_description_event(NULL),
+   commit_order_mngr(NULL),
    sql_delay(0), sql_delay_end(0), m_flags(0), row_stmt_start_timestamp(0),
    long_find_row_note_printed(false),
    skip_unique_check(false)

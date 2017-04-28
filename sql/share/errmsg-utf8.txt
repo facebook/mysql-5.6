@@ -7320,6 +7320,9 @@ ER_NP_FAILED
 ER_CANT_SET_DEPENDENCY_REPLICATION_WITHOUT_IDEMPOTENT_RECOVERY
   eng "@@GLOBAL.MTS_DEPENDENCY_REPLICATION cannot be set when @@GLOBAL.SLAVE_USE_IDEMPOTENT_FOR_RECOVERY = NO"
 
+ER_SLAVE_WORKER_STOPPED_PREVIOUS_THD_ERROR
+  eng "Slave worker has stopped after at least one previous worker encountered an error when mts_dependency_order_commits was enabled. To preserve commit order, the last transaction executed by this thread has not been committed. When restarting the slave after fixing any failed threads, you should fix this worker as well."
+
 #
 #  End of 5.6 error messages.
 #
