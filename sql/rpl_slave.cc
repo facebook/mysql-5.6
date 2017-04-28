@@ -62,6 +62,7 @@
 #include "rpl_tblmap.h"
 #include "debug_sync.h"
 #include "dependency_slave_worker.h"
+#include "rpl_slave_commit_order_manager.h"    // Commit_order_manager
 
 using std::min;
 using std::max;
@@ -6519,6 +6520,7 @@ pthread_handler_t handle_slave_sql(void *arg)
   Relay_log_info* rli = ((Master_info*)arg)->rli;
   const char *errmsg;
   bool mts_inited= false;
+  Commit_order_manager *commit_order_mngr= NULL;
 
   /* Buffer lifetime extends across the entire runtime of the THD handle. */
   static char proc_info_buf[256]= {0};
@@ -6542,6 +6544,14 @@ pthread_handler_t handle_slave_sql(void *arg)
   mysql_mutex_lock(&rli->info_thd_lock);
   rli->info_thd= thd;
   mysql_mutex_unlock(&rli->info_thd_lock);
+
+  if (opt_mts_dependency_order_commits && opt_mts_dependency_replication &&
+      rli->opt_slave_parallel_workers > 0 &&
+      opt_bin_log && opt_log_slave_updates)
+    commit_order_mngr=
+      new Commit_order_manager(rli->opt_slave_parallel_workers);
+
+  rli->set_commit_order_manager(commit_order_mngr);
 
   /* Inform waiting threads that slave has started */
   rli->slave_run_id++;
@@ -6905,6 +6915,11 @@ llstr(rli->get_group_master_log_pos(), llbuff));
   THD_CHECK_SENTRY(thd);
   mysql_mutex_lock(&rli->info_thd_lock);
   rli->info_thd= 0;
+  if (commit_order_mngr)
+  {
+    delete commit_order_mngr;
+    rli->set_commit_order_manager(NULL);
+  }
   mysql_mutex_unlock(&rli->info_thd_lock);
   set_thd_in_use_temporary_tables(rli);  // (re)set info_thd in use for saved temp tables
 

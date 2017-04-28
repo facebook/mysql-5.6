@@ -5113,6 +5113,12 @@ static Sys_var_double Sys_mts_dependency_refill_threshold(
        GLOBAL_VAR(opt_mts_dependency_refill_threshold), CMD_LINE(OPT_ARG),
        VALID_RANGE(0, 100), DEFAULT(60));
 
+static Sys_var_mybool Sys_mts_dependency_order_commits(
+       "mts_dependency_order_commits",
+       "Commit trxs in the same order as the master (per database)",
+       GLOBAL_VAR(opt_mts_dependency_order_commits),
+       CMD_LINE(OPT_ARG), DEFAULT(TRUE));
+
 static Sys_var_ulonglong Sys_mts_pending_jobs_size_max(
        "slave_pending_jobs_size_max",
        "Max size of Slave Worker queues holding yet not applied events."

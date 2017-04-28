@@ -20,6 +20,7 @@
 #include "log_event.h"
 #include "rpl_filter.h"
 #include "rpl_rli.h"
+#include "rpl_slave_commit_order_manager.h" // Commit_order_manager
 #include "sql_plugin.h"
 #include "rpl_handler.h"
 #include "rpl_info_factory.h"
@@ -86,6 +87,14 @@ static bool binlog_savepoint_rollback_can_release_mdl(handlerton *hton,
 static int binlog_commit(handlerton *hton, THD *thd, bool all, bool async);
 static int binlog_rollback(handlerton *hton, THD *thd, bool all);
 static int binlog_prepare(handlerton *hton, THD *thd, bool all, bool async);
+
+#ifdef HAVE_REPLICATION
+static inline bool has_commit_order_manager(THD *thd)
+{
+  return is_mts_worker(thd) &&
+    thd->rli_slave->get_commit_order_manager() != NULL;
+}
+#endif
 
 
 /**
@@ -1466,6 +1475,17 @@ Stage_manager::enroll_for(StageID stage, THD *thd, mysql_mutex_t *leave_mutex,
   DBUG_ASSERT(enter_mutex);
 
   bool leader= m_queue[stage].append(thd);
+
+#ifdef HAVE_REPLICATION
+  // case: we have waited for our turn and will be committing next so unregister
+  if (stage == FLUSH_STAGE && has_commit_order_manager(thd))
+  {
+    Slave_worker *worker= dynamic_cast<Slave_worker *>(thd->rli_slave);
+    Commit_order_manager *mngr= worker->get_commit_order_manager();
+
+    mngr->unregister_trx(worker);
+  }
+#endif
 
   /*
     If the leader, lock the enter_mutex before unlocking the leave_mutex in
@@ -7717,6 +7737,23 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
     appointed itself leader for the flush phase.
   */
   DEBUG_SYNC(thd, "waiting_to_enter_flush_stage");
+#ifdef HAVE_REPLICATION
+  if (has_commit_order_manager(thd))
+  {
+    Slave_worker *worker= dynamic_cast<Slave_worker *>(thd->rli_slave);
+    Commit_order_manager *mngr= worker->get_commit_order_manager();
+
+    if (mngr->wait_for_its_turn(worker, all))
+    {
+      thd->commit_error= THD::CE_COMMIT_ERROR;
+      DBUG_RETURN(thd->commit_error);
+    }
+
+    if (change_stage(thd, Stage_manager::FLUSH_STAGE, thd, NULL, &LOCK_log))
+      DBUG_RETURN(finish_commit(thd, async));
+  }
+  else
+#endif
   if (change_stage(thd, Stage_manager::FLUSH_STAGE, thd, NULL, &LOCK_log))
   {
     DBUG_PRINT("return", ("Thread ID: %u, commit_error: %d",

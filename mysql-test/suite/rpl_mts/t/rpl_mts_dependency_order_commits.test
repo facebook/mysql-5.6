@@ -1,0 +1,50 @@
+# Tests if mts_dependency_order_commits= TRUE master's commit order is honored
+# on the slave
+
+source include/have_innodb.inc;
+source include/have_mts_dependency_replication.inc;
+source include/master-slave.inc;
+
+connection slave;
+stop slave;
+set @save.slave_parallel_workers= @@global.slave_parallel_workers;
+set @@global.slave_parallel_workers= 4;
+start slave;
+
+connection master;
+create database d1;
+create database d2;
+create table d1.t1(a int) engine=innodb;
+create table d2.t1(a int) engine=innodb;
+insert into d1.t1 values(1);
+
+sync_slave_with_master;
+#connection slave;
+# create a blocking trx on the slave
+begin;
+update d1.t1 set a = 2 where a = 1;
+
+connection master;
+update d1.t1 set a = 3 where a = 1; # this will be blocked
+insert into d2.t1 values(2); # this will be blocked on commit of the prev trx
+
+connection slave;
+let $wait_condition= SELECT COUNT(*) = 1 FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE STATE LIKE "%Waiting for preceding transaction to commit%";
+source include/wait_condition.inc;
+
+rollback; # rollback the conflicting trx
+
+connection master;
+sync_slave_with_master;
+select * from d1.t1;
+select * from d2.t1;
+
+# cleanup
+set @@global.slave_parallel_workers= @save.slave_parallel_workers;
+connection master;
+drop database d1;
+drop database d2;
+sync_slave_with_master;
+
+source include/rpl_end.inc;

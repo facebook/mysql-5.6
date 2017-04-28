@@ -864,6 +864,7 @@ extern ulong opt_mts_slave_parallel_workers;
 extern my_bool opt_mts_dependency_replication;
 extern ulonglong opt_mts_dependency_size;
 extern double opt_mts_dependency_refill_threshold;
+extern my_bool opt_mts_dependency_order_commits;
 extern my_bool opt_mts_dynamic_rebalance;
 extern double opt_mts_imbalance_threshold;
 extern ulonglong opt_mts_pending_jobs_size_max;
@@ -1046,6 +1047,7 @@ extern PSI_mutex_key key_BINLOG_LOCK_sync;
 extern PSI_mutex_key key_BINLOG_LOCK_sync_queue;
 extern PSI_mutex_key key_BINLOG_LOCK_xids;
 extern PSI_mutex_key key_BINLOG_LOCK_binlog_end_pos;
+extern PSI_mutex_key key_commit_order_manager_mutex;
 extern PSI_mutex_key
   key_delayed_insert_mutex, key_hash_filo_lock, key_LOCK_active_mi,
   key_LOCK_connection_count, key_LOCK_crypt, key_LOCK_delayed_create,
@@ -1125,6 +1127,7 @@ extern PSI_cond_key key_RELAYLOG_update_cond;
 extern PSI_cond_key key_BINLOG_prep_xids_cond;
 extern PSI_cond_key key_RELAYLOG_prep_xids_cond;
 extern PSI_cond_key key_gtid_ensure_index_cond;
+extern PSI_cond_key key_commit_order_manager_cond;
 
 extern PSI_thread_key key_thread_bootstrap, key_thread_delayed_insert,
   key_thread_handle_manager, key_thread_kill_server, key_thread_main,
@@ -1257,6 +1260,7 @@ extern PSI_stage_info stage_waiting_for_table_flush;
 extern PSI_stage_info stage_waiting_for_the_next_event_in_relay_log;
 extern PSI_stage_info stage_waiting_for_the_slave_thread_to_advance_position;
 extern PSI_stage_info stage_waiting_to_finalize_termination;
+extern PSI_stage_info stage_worker_waiting_for_its_turn_to_commit;
 extern PSI_stage_info stage_waiting_to_get_readlock;
 extern PSI_stage_info stage_slave_waiting_worker_to_release_partition;
 extern PSI_stage_info stage_slave_waiting_worker_to_free_events;

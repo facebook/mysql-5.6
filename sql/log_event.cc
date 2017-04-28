@@ -3246,9 +3246,16 @@ void Log_event::add_to_dag(Relay_log_info *rli)
   else if (rli->part_event)
   {
     rli->mts_end_group_sets_max_dbs= false;
+
+    // NOTE: we don't update @Relay_log_info::tables_accessed_by_group here
+    // because not all partition events contain table info
     Mts_db_names mts_dbs;
-    get_mts_dbs(&mts_dbs);
-    if (mts_dbs.num == OVER_MAX_DBS_IN_EVENT_MTS)
+    if (get_mts_dbs(&mts_dbs) != OVER_MAX_DBS_IN_EVENT_MTS)
+    {
+      for (int i = 0; i < mts_dbs.num; ++i)
+        rli->dbs_accessed_by_group.insert(std::string(mts_dbs.name[i]));
+    }
+    else
     {
       // make this a sync group in the DAG
       rli->dag_sync_group= true;
@@ -3303,6 +3310,7 @@ void Log_event::do_post_begin_event(Relay_log_info *rli, Log_event_wrapper *ev)
   DBUG_ASSERT(ev->is_begin_event);
 
   rli->tables_accessed_by_group.clear();
+  rli->dbs_accessed_by_group.clear();
 
   // update rli state
   rli->current_begin_event= ev;
@@ -3322,6 +3330,32 @@ void Log_event::do_post_begin_event(Relay_log_info *rli, Log_event_wrapper *ev)
 void Log_event::do_post_end_event(Relay_log_info *rli, Log_event_wrapper *ev)
 {
   DBUG_ASSERT(ev->is_end_event);
+
+  // case: gotta order commits according to master's binlog
+  if (opt_mts_dependency_order_commits)
+  {
+    for (auto& db : rli->dbs_accessed_by_group)
+    {
+      // case: we have recorded the last start event for this DB
+      // and it exists in DAG
+      if (rli->dag_db_last_start_event.find(db) !=
+          rli->dag_db_last_start_event.end() &&
+          rli->dag.exists(rli->dag_db_last_start_event[db]))
+      {
+        auto last_db_begin_event= rli->dag_db_last_start_event[db];
+
+        DBUG_ASSERT(rli->current_begin_event != NULL &&
+            last_db_begin_event != NULL &&
+            rli->dag.exists(rli->current_begin_event));
+
+        // add dependency between start events so that they're pulled in order
+        // by the slave workers
+        rli->dag.add_dependency(last_db_begin_event,
+            rli->current_begin_event);
+      }
+      rli->dag_db_last_start_event[db]= rli->current_begin_event;
+    }
+  }
 
   // populate table->last trx penultimate event map
   // NOTE: we store the end event for a single event trx

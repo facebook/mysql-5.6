@@ -1,6 +1,7 @@
 #include <my_global.h>
 #include "dependency_slave_worker.h"
 #include "log_event_wrapper.h"
+#include "rpl_slave_commit_order_manager.h"
 
 
 bool append_item_to_jobs(slave_job_item *job_item,
@@ -101,6 +102,14 @@ bool Dependency_slave_worker::execute_group()
   // case: we didn't execute the group
   if (!ev) err= 1;
 
+  // case: place ourselves in the commit order queue
+  Commit_order_manager *commit_order_mngr= get_commit_order_manager();
+  if (!err && commit_order_mngr != NULL)
+  {
+    DBUG_ASSERT(opt_mts_dependency_order_commits);
+    commit_order_mngr->register_trx(this);
+  }
+
   /**
     Here's what is happening in the loop:
     - The loop executes until all the events of the group are removed from
@@ -126,6 +135,10 @@ bool Dependency_slave_worker::execute_group()
       {
         delete ev->get_raw_event();
         ev->set_raw_event(NULL);
+        // Signal a rollback if commit ordering is enabled, we have to do
+        // this here because it's an append error, so @slave_worker_ends_group
+        // is not called
+        if (commit_order_mngr) commit_order_mngr->report_rollback(this);
       }
     }
 
@@ -204,6 +217,15 @@ void Dependency_slave_worker::remove_event(Log_event_wrapper *ev)
       ++it;
   }
 
+  for (auto it= c_rli->dag_db_last_start_event.cbegin();
+            it != c_rli->dag_db_last_start_event.cend();)
+  {
+    if (it->second == ev)
+      c_rli->dag_db_last_start_event.erase(it++);
+    else
+      ++it;
+  }
+
   c_rli->dag_unlock();
 
   // broadcast a change in the DAG
@@ -242,7 +264,9 @@ void Dependency_slave_worker::start()
 {
   DBUG_ASSERT(c_rli->dag.is_empty() &&
               dag_table_last_penultimate_event.empty() &&
-              tables_accessed_by_group.empty());
+              tables_accessed_by_group.empty() &&
+              dag_db_last_start_event.empty() &&
+              dbs_accessed_by_group.empty());
 
   while (execute_group())
   {
