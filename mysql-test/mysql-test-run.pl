@@ -164,7 +164,7 @@ our $opt_vs_config = $ENV{'MTR_VS_CONFIG'};
 
 # If you add a new suite, please check TEST_DIRS in Makefile.am.
 #
-my $DEFAULT_SUITES= "main,sys_vars,binlog,federated,rpl,rpl_recovery,innodb,innodb_fts,innodb_zip,perfschema,funcs_1,opt_trace,parts,auth_sec,connection_control,innodb_stress,json";
+my $DEFAULT_SUITES= "main,sys_vars,binlog,federated,rpl,rpl_recovery,rpl_mts,innodb,innodb_fts,innodb_zip,perfschema,funcs_1,opt_trace,parts,auth_sec,connection_control,innodb_stress,json";
 my $opt_suites;
 
 our $opt_verbose= 0;  # Verbose output, enable with --verbose
