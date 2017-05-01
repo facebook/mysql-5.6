@@ -10751,21 +10751,14 @@ bool rdb_is_ttl_enabled() { return rocksdb_enable_ttl; }
 void rdb_update_global_stats(const operation_type &type, uint count,
                              bool is_system_table) {
   DBUG_ASSERT(type < ROWS_MAX);
-
-  if (is_system_table) {
-    if (count > 1) {
-      global_stats.system_rows[type].add(count);
-    } else {
-      global_stats.system_rows[type].inc();
-    }
-
+  if (count == 0) {
     return;
   }
 
-  if (count > 1) {
-    global_stats.rows[type].add(count);
+  if (is_system_table) {
+    global_stats.system_rows[type].add(count);
   } else {
-    global_stats.rows[type].inc();
+    global_stats.rows[type].add(count);
   }
 }
 
