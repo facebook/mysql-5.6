@@ -42,7 +42,12 @@
 #include <mysql/thread_pool_priv.h>
 #include <mysys_err.h>
 
+// Both MySQL and RocksDB define the same constant. To avoid compilation errors
+// till we make the fix in RocksDB, we'll temporary undefine it here.
+#undef CACHE_LINE_SIZE
+
 /* RocksDB includes */
+#include "monitoring/histogram.h"
 #include "rocksdb/compaction_filter.h"
 #include "rocksdb/env.h"
 #include "rocksdb/persistent_cache.h"
@@ -52,6 +57,7 @@
 #include "rocksdb/utilities/checkpoint.h"
 #include "rocksdb/utilities/convenience.h"
 #include "rocksdb/utilities/memory_util.h"
+#include "util/stop_watch.h"
 
 /* MyRocks includes */
 #include "./event_listener.h"
@@ -134,6 +140,7 @@ static char *rocksdb_update_cf_options = nullptr;
 handlerton *rocksdb_hton;
 
 rocksdb::TransactionDB *rdb = nullptr;
+rocksdb::HistogramImpl *commit_latency_stats = nullptr;
 
 static std::shared_ptr<rocksdb::Statistics> rocksdb_stats;
 static std::unique_ptr<rocksdb::Env> flashcache_aware_env;
@@ -2606,35 +2613,65 @@ static int rocksdb_prepare(handlerton *const hton, THD *const thd,
  this is needed to avoid crashes in XA scenarios
 */
 static int rocksdb_commit_by_xid(handlerton *const hton, XID *const xid) {
+  DBUG_ENTER_FUNC();
+
+  DBUG_ASSERT(hton != nullptr);
+  DBUG_ASSERT(xid != nullptr);
+  DBUG_ASSERT(commit_latency_stats != nullptr);
+
+  rocksdb::StopWatchNano timer(rocksdb::Env::Default(), true);
+
   const auto name = rdb_xid_to_string(*xid);
+  DBUG_ASSERT(!name.empty());
+
   rocksdb::Transaction *const trx = rdb->GetTransactionByName(name);
+
   if (trx == nullptr) {
-    return HA_EXIT_FAILURE;
+    DBUG_RETURN(HA_EXIT_FAILURE);
   }
+
   const rocksdb::Status s = trx->Commit();
+
   if (!s.ok()) {
     rdb_log_status_error(s);
-    return HA_EXIT_FAILURE;
+    DBUG_RETURN(HA_EXIT_FAILURE);
   }
+
   delete trx;
-  return HA_EXIT_SUCCESS;
+
+  // `Add()` is implemented in a thread-safe manner.
+  commit_latency_stats->Add(timer.ElapsedNanos() / 1000);
+
+  DBUG_RETURN(HA_EXIT_SUCCESS);
 }
 
 static int
 rocksdb_rollback_by_xid(handlerton *const hton MY_ATTRIBUTE((__unused__)),
                         XID *const xid) {
+  DBUG_ENTER_FUNC();
+
+  DBUG_ASSERT(hton != nullptr);
+  DBUG_ASSERT(xid != nullptr);
+  DBUG_ASSERT(rdb != nullptr);
+
   const auto name = rdb_xid_to_string(*xid);
+
   rocksdb::Transaction *const trx = rdb->GetTransactionByName(name);
+
   if (trx == nullptr) {
-    return HA_EXIT_FAILURE;
+    DBUG_RETURN(HA_EXIT_FAILURE);
   }
+
   const rocksdb::Status s = trx->Rollback();
+
   if (!s.ok()) {
     rdb_log_status_error(s);
-    return HA_EXIT_FAILURE;
+    DBUG_RETURN(HA_EXIT_FAILURE);
   }
+
   delete trx;
-  return HA_EXIT_SUCCESS;
+
+  DBUG_RETURN(HA_EXIT_SUCCESS);
 }
 
 /**
@@ -2714,6 +2751,9 @@ static int rocksdb_commit(handlerton *const hton, THD *const thd,
 
   DBUG_ASSERT(hton != nullptr);
   DBUG_ASSERT(thd != nullptr);
+  DBUG_ASSERT(commit_latency_stats != nullptr);
+
+  rocksdb::StopWatchNano timer(rocksdb::Env::Default(), true);
 
   /* this will trigger saving of perf_context information */
   Rdb_perf_context_guard guard(thd);
@@ -2729,8 +2769,9 @@ static int rocksdb_commit(handlerton *const hton, THD *const thd,
          - For a COMMIT statement that finishes a multi-statement transaction
          - For a statement that has its own transaction
       */
-      if (tx->commit())
+      if (tx->commit()) {
         DBUG_RETURN(HA_ERR_ROCKSDB_COMMIT_FAILED);
+      }
     } else {
       /*
         We get here when committing a statement within a transaction.
@@ -2747,6 +2788,9 @@ static int rocksdb_commit(handlerton *const hton, THD *const thd,
       tx->release_snapshot();
     }
   }
+
+  // `Add()` is implemented in a thread-safe manner.
+  commit_latency_stats->Add(timer.ElapsedNanos() / 1000);
 
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
@@ -3032,6 +3076,19 @@ static bool rocksdb_show_status(handlerton *const hton, THD *const thd,
     /* Global DB Statistics */
     if (rocksdb_stats) {
       str = rocksdb_stats->ToString();
+
+      // Use the same format as internal RocksDB statistics entries to make
+      // sure that output will look unified.
+      DBUG_ASSERT(commit_latency_stats != nullptr);
+
+      snprintf(buf, sizeof(buf), "rocksdb.commit_latency statistics "
+                                 "Percentiles :=> 50 : %.2f 95 : %.2f "
+                                 "99 : %.2f 100 : %.2f\n",
+               commit_latency_stats->Percentile(50),
+               commit_latency_stats->Percentile(95),
+               commit_latency_stats->Percentile(99),
+               commit_latency_stats->Percentile(100));
+      str.append(buf);
 
       uint64_t v = 0;
 
@@ -3760,6 +3817,10 @@ static int rocksdb_init_func(void *const p) {
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
+  // Creating an instance of HistogramImpl should only happen after RocksDB
+  // has been successfully initialized.
+  commit_latency_stats = new rocksdb::HistogramImpl();
+
   sql_print_information("RocksDB instance opened");
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
@@ -3834,6 +3895,9 @@ static int rocksdb_done_func(void *const p) {
 
   delete rdb;
   rdb = nullptr;
+
+  delete commit_latency_stats;
+  commit_latency_stats = nullptr;
 
 // Disown the cache data since we're shutting down.
 // This results in memory leaks but it improved the shutdown time.
@@ -10754,6 +10818,7 @@ bool rdb_is_ttl_enabled() { return rocksdb_enable_ttl; }
 void rdb_update_global_stats(const operation_type &type, uint count,
                              bool is_system_table) {
   DBUG_ASSERT(type < ROWS_MAX);
+
   if (count == 0) {
     return;
   }
