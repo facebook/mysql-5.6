@@ -22,6 +22,8 @@
 #define ERR_remove_state(x)
 #endif
 
+#include <openssl/bio.h>
+
 /*
   Diffie-Hellman key.
   Generated using: >openssl dhparam -5 -C 2048
@@ -129,6 +131,68 @@ sslGetErrString(enum enum_ssl_init_error e)
   return ssl_error_string[e];
 }
 
+static my_bool check_same_file(const char *cert_file, const char *key_file)
+{
+  MY_STAT cert_stat;
+  MY_STAT key_stat;
+
+  if (!my_stat(cert_file, &cert_stat, MYF(0)) ||
+      !my_stat(key_file, &key_stat, MYF(0)))
+  {
+    DBUG_PRINT("error", ("Unable to stat the files."));
+    return FALSE;
+  }
+
+  return cert_stat.st_ino == key_stat.st_ino &&
+          cert_stat.st_dev == key_stat.st_dev;
+}
+
+static int vio_load_cert(SSL_CTX* ctx, const char *cert_file, BIO* bio)
+{
+  X509* cert = NULL;
+
+  if (BIO_read_filename(bio, cert_file) != 1 ||
+      !PEM_read_bio_X509(bio, &cert, NULL, NULL))
+  {
+    return 1;
+  }
+
+  int ret = SSL_CTX_use_certificate(ctx, cert);
+  X509_free(cert);
+
+  return ret <= 0;
+}
+
+static int vio_load_key(SSL_CTX* ctx, const char *key_file,
+                        my_bool same_file, BIO* bio)
+{
+  // read key file if not in same file as cert
+  if (!same_file)
+  {
+    if (BIO_read_filename(bio, key_file) != 1)
+    {
+      DBUG_PRINT("error", ("BIO_WRITE for key %s failed", key_file));
+      return 1;
+    }
+  }
+  else
+  {
+    if (BIO_reset(bio) < 0) {
+      DBUG_PRINT("error", ("BIO_reset failed ret"));
+      return 1;
+    }
+  }
+
+  EVP_PKEY* key = NULL;
+  if (!PEM_read_bio_PrivateKey(bio, &key, NULL, NULL))
+    return 1;
+
+  int ret = SSL_CTX_use_PrivateKey(ctx, key);
+  EVP_PKEY_free(key);
+
+  return ret <= 0;
+}
+
 static int
 vio_set_cert_stuff(SSL_CTX *ctx, const char *cert_file, const char *key_file,
                    enum enum_ssl_init_error* error)
@@ -137,46 +201,66 @@ vio_set_cert_stuff(SSL_CTX *ctx, const char *cert_file, const char *key_file,
   DBUG_PRINT("enter", ("ctx: 0x%lx  cert_file: %s  key_file: %s",
 		       (long) ctx, cert_file, key_file));
 
-  if (!cert_file &&  key_file)
-    cert_file= key_file;
-  
-  if (!key_file &&  cert_file)
-    key_file= cert_file;
+  *error = SSL_INITERR_NOERROR;
 
-  if (cert_file &&
-      SSL_CTX_use_certificate_chain_file(ctx, cert_file) <= 0)
+  my_bool same_file = FALSE;
+  if (cert_file == NULL) {
+    if (key_file == NULL)
+      DBUG_RETURN(0);
+
+    cert_file = key_file;
+    same_file = TRUE;
+  }
+  else if (key_file == NULL) {
+    key_file = cert_file;
+    same_file = TRUE;
+  }
+  else
+    same_file = check_same_file(key_file, cert_file);
+
+
+  const char* error_file = NULL;
+  BIO* bio = BIO_new(BIO_s_file());
+  if (bio == NULL)
+    *error = SSL_INITERR_MEMFAIL;
+  else
   {
-    *error= SSL_INITERR_CERT;
-    DBUG_PRINT("error",("%s from file '%s'", sslGetErrString(*error), cert_file));
-    DBUG_EXECUTE("error", ERR_print_errors_fp(DBUG_FILE););
-    fprintf(stderr, "SSL error: %s from '%s'\n", sslGetErrString(*error),
-            cert_file);
-    fflush(stderr);
-    DBUG_RETURN(1);
+    // load the cert
+    if (vio_load_cert(ctx, cert_file, bio))
+    {
+      *error = SSL_INITERR_CERT;
+      error_file = cert_file;
+    }
+    // load the key
+    else if (vio_load_key(ctx, key_file, same_file, bio))
+    {
+      *error = SSL_INITERR_KEY;
+      error_file = key_file;
+    }
+    /*
+      If we are using DSA, we can copy the parameters from the private key
+      Now we know that a key and cert have been set against the SSL context
+    */
+    else if (!SSL_CTX_check_private_key(ctx))
+    {
+      *error= SSL_INITERR_NOMATCH;
+    }
+
+    BIO_free_all(bio);
   }
 
-  if (key_file &&
-      SSL_CTX_use_PrivateKey_file(ctx, key_file, SSL_FILETYPE_PEM) <= 0)
+  if (*error != SSL_INITERR_NOERROR)
   {
-    *error= SSL_INITERR_KEY;
-    DBUG_PRINT("error", ("%s from file '%s'", sslGetErrString(*error), key_file));
+    char err_string[MYSQL_ERRMSG_SIZE];
+    if (error_file)
+      snprintf(err_string, sizeof(err_string), "%s from '%s'",
+              sslGetErrString(*error), error_file);
+    else
+      snprintf(err_string, sizeof(err_string), "%s", sslGetErrString(*error));
+    DBUG_PRINT("error", ("%s", err_string));
     DBUG_EXECUTE("error", ERR_print_errors_fp(DBUG_FILE););
-    fprintf(stderr, "SSL error: %s from '%s'\n", sslGetErrString(*error),
-            key_file);
-    fflush(stderr);
-    DBUG_RETURN(1);
-  }
-
-  /*
-    If we are using DSA, we can copy the parameters from the private key
-    Now we know that a key and cert have been set against the SSL context
-  */
-  if (cert_file && !SSL_CTX_check_private_key(ctx))
-  {
-    *error= SSL_INITERR_NOMATCH;
-    DBUG_PRINT("error", ("%s",sslGetErrString(*error)));
-    DBUG_EXECUTE("error", ERR_print_errors_fp(DBUG_FILE););
-    fprintf(stderr, "SSL error: %s\n", sslGetErrString(*error));
+    //NO_LINT_DEBUG
+    fprintf(stderr, "SSL error: %s\n", err_string);
     fflush(stderr);
     DBUG_RETURN(1);
   }
