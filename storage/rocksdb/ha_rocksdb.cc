@@ -9141,7 +9141,6 @@ int ha_rocksdb::remove_rows(Rdb_tbl_def *const tbl) {
   rocksdb::ReadOptions opts;
   opts.total_order_seek = true;
   Rdb_transaction *const tx = get_or_create_tx(table->in_use);
-  rocksdb::Iterator *const it = rdb->NewIterator(opts);
 
   char key_buf[MAX_KEY_LENGTH];
   uint key_len;
@@ -9153,6 +9152,9 @@ int ha_rocksdb::remove_rows(Rdb_tbl_def *const tbl) {
   for (uint i = 0; i < tbl->m_key_count; i++) {
     const Rdb_key_def &kd = *tbl->m_key_descr_arr[i];
     kd.get_infimum_key(reinterpret_cast<uchar *>(key_buf), &key_len);
+    rocksdb::ColumnFamilyHandle *cf = kd.get_cf();
+
+    std::unique_ptr<rocksdb::Iterator> it(rdb->NewIterator(opts, cf));
 
     const rocksdb::Slice table_key(key_buf, key_len);
     it->Seek(table_key);
@@ -9161,20 +9163,22 @@ int ha_rocksdb::remove_rows(Rdb_tbl_def *const tbl) {
       if (!kd.covers_key(key)) {
         break;
       }
+
       rocksdb::Status s;
-      if (can_use_single_delete(i))
-        s = rdb->SingleDelete(wo, key);
-      else
-        s = rdb->Delete(wo, key);
+      if (can_use_single_delete(i)) {
+        s = rdb->SingleDelete(wo, cf, key);
+      } else {
+        s = rdb->Delete(wo, cf, key);
+      }
+
       if (!s.ok()) {
-        delete it;
         return tx->set_status_error(table->in_use, s, *m_pk_descr, m_tbl_def);
       }
 
       it->Next();
     }
   }
-  delete it;
+
   return HA_EXIT_SUCCESS;
 }
 
