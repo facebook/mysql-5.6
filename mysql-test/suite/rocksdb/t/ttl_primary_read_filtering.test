@@ -241,5 +241,7 @@ COMMIT;
 SELECT * FROM t1;
 
 DROP TABLE t1;
+disconnect con1;
+disconnect con2;
 
 SET @@global.rocksdb_update_cf_options = '';
