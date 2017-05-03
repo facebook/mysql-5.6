@@ -108,7 +108,28 @@ extern const char *client_errors[];	/* Error messages */
 #define CR_AUTH_PLUGIN_ERR                      2061
 #define CR_NET_READ_INTERRUPTED                 2062
 #define CR_NET_WRITE_INTERRUPTED                2063
-#define CR_ERROR_LAST  /*Copy last error nr:*/  2063
+/* Facebook specific error placeholders */
+#define CR_FB_PLACEHOLDER_0                     2064
+#define CR_FB_PLACEHOLDER_1                     2065
+#define CR_FB_PLACEHOLDER_2                     2066
+#define CR_FB_PLACEHOLDER_3                     2067
+#define CR_FB_PLACEHOLDER_4                     2068
+#define CR_FB_PLACEHOLDER_5                     2069
+#define CR_FB_PLACEHOLDER_6                     2070
+#define CR_FB_PLACEHOLDER_7                     2071
+#define CR_FB_PLACEHOLDER_8                     2072
+#define CR_FB_PLACEHOLDER_9                     2073
+#define CR_FB_PLACEHOLDER_10                    2074
+#define CR_FB_PLACEHOLDER_11                    2075
+#define CR_FB_PLACEHOLDER_12                    2076
+#define CR_FB_PLACEHOLDER_13                    2077
+#define CR_FB_PLACEHOLDER_14                    2078
+#define CR_FB_PLACEHOLDER_15                    2079
+#define CR_FB_PLACEHOLDER_16                    2080
+#define CR_FB_PLACEHOLDER_17                    2081
+#define CR_FB_PLACEHOLDER_18                    2082
+#define CR_FB_PLACEHOLDER_19                    2083
+#define CR_ERROR_LAST  /*Copy last error nr:*/  2083
 /* Add error numbers before CR_ERROR_LAST and change it accordingly. */
 
 #endif /* ERRMSG_INCLUDED */
