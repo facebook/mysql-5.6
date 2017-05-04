@@ -64,10 +64,14 @@ class MiscFilesProcessor():
   datadir = None
   wildcard = r'.*\.[frm|MYD|MYI|MAD|MAI|MRG|TRG|TRN|ARM|ARZ|CSM|CSV|opt|par]'
   regex = None
+  start_backup_time = None
+  skip_check_frm_timestamp = None
 
-  def __init__(self, datadir):
+  def __init__(self, datadir, skip_check_frm_timestamp, start_backup_time):
     self.datadir = datadir
     self.regex = re.compile(self.wildcard)
+    self.skip_check_frm_timestamp = skip_check_frm_timestamp
+    self.start_backup_time = start_backup_time
 
   def process_db(self, db):
     # do nothing
@@ -77,6 +81,17 @@ class MiscFilesProcessor():
     # do nothing
     pass
 
+  def check_frm_timestamp(self, fname, path):
+    if not self.skip_check_frm_timestamp and fname.endswith('.frm'):
+      if os.path.getmtime(path) > self.start_backup_time:
+        logger.error('FRM file %s was updated after starting backups. '
+                     'Schema could have changed and the resulting copy may '
+                     'not be valid. Aborting. '
+                     '(backup time: %s, file modifled time: %s)',
+                     path, datetime.datetime.fromtimestamp(self.start_backup_time).strftime('%Y-%m-%d %H:%M:%S'),
+                     datetime.datetime.fromtimestamp(os.path.getmtime(path)).strftime('%Y-%m-%d %H:%M:%S'))
+        raise Exception("Inconsistent frm file timestamp");
+
   def process(self):
     os.chdir(self.datadir)
     for db in self.get_databases():
@@ -85,6 +100,7 @@ class MiscFilesProcessor():
       for f in self.get_files(db):
         if self.match(f):
           rel_path = os.path.join(db, f)
+          self.check_frm_timestamp(f, rel_path)
           self.process_file(rel_path)
     logger.info("Traversing misc files from data directory..")
     for f in self.get_files(""):
@@ -127,8 +143,8 @@ class MiscFilesProcessor():
 class MySQLBackup(MiscFilesProcessor):
   writer = None
 
-  def __init__(self, datadir, writer):
-    MiscFilesProcessor.__init__(self, datadir)
+  def __init__(self, datadir, writer, skip_check_frm_timestamp, start_backup_time):
+    MiscFilesProcessor.__init__(self, datadir, skip_check_frm_timestamp, start_backup_time)
     self.writer = writer
 
   def process_file(self, fname):    # overriding base class
@@ -138,8 +154,8 @@ class MySQLBackup(MiscFilesProcessor):
 class MiscFilesLinkCreator(MiscFilesProcessor):
   snapshot_dir = None
 
-  def __init__(self, datadir, snapshot_dir):
-    MiscFilesProcessor.__init__(self, datadir)
+  def __init__(self, datadir, snapshot_dir, skip_check_frm_timestamp, start_backup_time):
+    MiscFilesProcessor.__init__(self, datadir, skip_check_frm_timestamp, start_backup_time)
     self.snapshot_dir = snapshot_dir
 
   def process_db(self, db):
@@ -329,9 +345,11 @@ class MySQLUtil:
 
 class BackupRunner:
   datadir = None
+  start_backup_time = None
 
   def __init__(self, datadir):
     self.datadir = datadir
+    self.start_backup_time = time.time()
 
   def start_backup_round(self, backup_round, prev_backup):
     def signal_handler(*args):
@@ -339,7 +357,7 @@ class BackupRunner:
       if b is not None:
         logger.info("Cleaning up snapshot directory..")
         b.do_cleanup()
-      sys.exit()
+      sys.exit(1)
 
     b = None
     try:
@@ -369,7 +387,7 @@ class BackupRunner:
       if b is not None:
         logger.info("Cleaning up snapshot directory.")
         b.do_cleanup()
-      sys.exit()
+      sys.exit(1)
 
   def backup_mysql(self):
     try:
@@ -378,21 +396,24 @@ class BackupRunner:
         w = StreamWriter(opts.output_stream)
       else:
         raise Exception("Currently only streaming backup is supported.")
-      b = MySQLBackup(self.datadir, w)
+      b = MySQLBackup(self.datadir, w, opts.skip_check_frm_timestamp,
+                      self.start_backup_time)
       logger.info("Taking MySQL misc backups..")
       b.process()
       logger.info("MySQL misc backups done.")
     except Exception as e:
       logger.error(e)
       logger.error(traceback.format_exc())
-      sys.exit()
+      sys.exit(1)
 
 
 class WDTBackup:
   datadir = None
+  start_backup_time = None
 
   def __init__(self, datadir):
     self.datadir = datadir
+    self.start_backup_time = time.time()
 
   def cleanup(self, snapshot_dir, server_log):
     if server_log:
@@ -431,7 +452,9 @@ class WDTBackup:
         logger.info("Set datadir: %s", self.datadir)
 
       # create links for misc files
-      link_creator = MiscFilesLinkCreator(self.datadir, snapshot_dir)
+      link_creator = MiscFilesLinkCreator(self.datadir, snapshot_dir,
+                                          opts.skip_check_frm_timestamp,
+                                          self.start_backup_time)
       link_creator.process()
 
       current_path = os.path.join(opts.backupdir, "CURRENT")
@@ -522,7 +545,7 @@ backup_wdt_usage = ("Backup using WDT: myrocks_hotbackup "
                 "are created> --destination=<remote host name> --backup_dir="
                 "<remote directory name>. This has to be executed at the src "
                 "host.")
-backup_usage= "Backup: myrocks_hotbackup --user=root --password=pw --port=3306 --checkpoint_dir=<directory where temporary backup hard links are created> | ssh -o NoneEnabled=yes remote_server 'tar -xi -C <directory on remote server where backups will be sent>' . You need to execute backup command on a server where you take backups."
+backup_usage= "Backup: set -o pipefail; myrocks_hotbackup --user=root --password=pw --port=3306 --checkpoint_dir=<directory where temporary backup hard links are created> | ssh -o NoneEnabled=yes remote_server 'tar -xi -C <directory on remote server where backups will be sent>' . You need to execute backup command on a server where you take backups."
 move_back_usage= "Move-Back: myrocks_hotbackup --move_back --datadir=<dest mysql datadir> --rocksdb_datadir=<dest rocksdb datadir> --rocksdb_waldir=<dest rocksdb wal dir> --backup_dir=<where backup files are stored> . You need to execute move-back command on a server where backup files are sent."
 
 
@@ -584,6 +607,13 @@ def parse_options():
                     help='backup mode for WDT: Remote directory to store '
                     'backup. move_back mode: Locations where backup '
                     'files are stored.')
+  parser.add_option('-f', '--skip_check_frm_timestamp',
+                    dest='skip_check_frm_timestamp',
+                    action='store_true', default=False,
+                    help='skipping to check if frm files are updated after starting backup.')
+  parser.add_option('-D', '--debug_signal_file', type='string', dest='debug_signal_file',
+                    default=None,
+                    help='debugging purpose: waiting until the specified file is created')
 
   opts, args = parser.parse_args()
 
@@ -633,6 +663,10 @@ def start_backup():
       b.print_backup_report()
       logger.info("RocksDB Backup Done.")
       break
+  if opts.debug_signal_file:
+    while not os.path.exists(opts.debug_signal_file):
+      logger.info("Waiting until %s is created..", opts.debug_signal_file)
+      time.sleep(1)
   runner.backup_mysql()
   logger.info("All Backups Done.")
 
