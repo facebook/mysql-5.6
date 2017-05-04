@@ -18,6 +18,15 @@
 #ifdef HAVE_OPENSSL
 
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
+#define CRYPTO_num_locks() (1)
+#include <openssl/dh.h>
+#include <openssl/bn.h>
+#define ERR_free_strings()
+#define EVP_cleanup()
+#define SSL_library_init()
+#define OpenSSL_add_all_algorithms()
+#define SSL_load_error_strings()
+#define CRYPTO_cleanup_all_ex_data()
 // Function removed after OpenSSL 1.1.0
 #define ERR_remove_state(x)
 #endif

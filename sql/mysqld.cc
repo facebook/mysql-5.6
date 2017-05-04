@@ -9903,6 +9903,10 @@ end:
 
 #endif
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#define X509_get0_notBefore(x) X509_get_notBefore(x)
+#define X509_get0_notAfter(x) X509_get_notAfter(x)
+#endif
 
 /**
   Handler function for the 'ssl_get_server_not_before' variable
@@ -9923,7 +9927,7 @@ show_ssl_get_server_not_before(THD *thd, SHOW_VAR *var, char *buff)
   {
     SSL *ssl= (SSL*) thd->net.vio->ssl_arg;
     X509 *cert= SSL_get_certificate(ssl);
-    ASN1_TIME *not_before= X509_get_notBefore(cert);
+    ASN1_TIME *not_before= (ASN1_TIME *)X509_get0_notBefore(cert);
 
     var->value= my_asn1_time_to_string(not_before, buff,
                                        SHOW_VAR_FUNC_BUFF_SIZE);
@@ -9956,7 +9960,7 @@ show_ssl_get_server_not_after(THD *thd, SHOW_VAR *var, char *buff)
   {
     SSL *ssl= (SSL*) thd->net.vio->ssl_arg;
     X509 *cert= SSL_get_certificate(ssl);
-    ASN1_TIME *not_after= X509_get_notAfter(cert);
+    ASN1_TIME *not_after= (ASN1_TIME *)X509_get0_notAfter(cert);
 
     var->value= my_asn1_time_to_string(not_after, buff,
                                        SHOW_VAR_FUNC_BUFF_SIZE);
