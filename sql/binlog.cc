@@ -2683,6 +2683,7 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period)
   index_file_name[0] = 0;
   engine_binlog_file[0] = 0;
   engine_binlog_max_gtid.clear();
+  last_master_timestamp.store(0);
   memset(&index_file, 0, sizeof(index_file));
   memset(&purge_index_file, 0, sizeof(purge_index_file));
   memset(&crash_safe_index_file, 0, sizeof(crash_safe_index_file));

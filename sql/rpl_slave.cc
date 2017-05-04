@@ -4594,9 +4594,8 @@ static int exec_relay_log_event(THD* thd, Relay_log_info* rli)
 
       if (tentative_last_master_timestamp > rli->last_master_timestamp)
       {
-        rli->penultimate_master_timestamp= rli->last_master_timestamp;
-        rli->last_master_timestamp= std::min(tentative_last_master_timestamp,
-            time(nullptr));
+        rli->set_last_master_timestamp(std::min(tentative_last_master_timestamp,
+                                       time(nullptr)));
       }
       DBUG_ASSERT(rli->last_master_timestamp >= 0);
     }
@@ -7470,6 +7469,17 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
     mi->received_heartbeats++;
     mi->last_heartbeat= my_time(0);
 
+    /*
+      Update the last_master_timestamp if the heartbeat from the master
+      has a greater timestamp value, this makes sure last_master_timestamp
+      is always monotonically increasing
+    */
+    mysql_mutex_lock(&rli->data_lock);
+    if (hb.when.tv_sec > rli->last_master_timestamp)
+    {
+      rli->set_last_master_timestamp(hb.when.tv_sec);
+    }
+    mysql_mutex_unlock(&rli->data_lock);
 
     /*
       During GTID protocol, if the master skips transactions,
@@ -9166,6 +9176,8 @@ int reset_slave(THD *thd, Master_info* mi)
     sql_errno= ER_RELAY_LOG_FAIL;
     goto err;
   }
+
+  mysql_bin_log.last_master_timestamp.store(0);
 
   /* Clear master's log coordinates and associated information */
   DBUG_ASSERT(!mi->rli || !mi->rli->slave_running); // none writes in rli table

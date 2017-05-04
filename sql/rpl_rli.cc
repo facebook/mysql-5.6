@@ -353,8 +353,7 @@ void Relay_log_info::reset_notified_checkpoint(ulong shift, time_t new_ts,
     */
     if (new_ts > last_master_timestamp)
     {
-      penultimate_master_timestamp= last_master_timestamp;
-      last_master_timestamp= std::min(time(nullptr), new_ts);
+      set_last_master_timestamp(std::min(time(nullptr), new_ts));
     }
 
     if (need_data_lock)
