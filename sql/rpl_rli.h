@@ -319,10 +319,18 @@ public:
   */
   Enum_slave_caughtup slave_has_caughtup;
 
+  // NOTE: a copy is also maintained in MYSQL_BIN_LOG
   time_t last_master_timestamp;
 
   // cache value for sql thread
   time_t penultimate_master_timestamp;
+
+  void set_last_master_timestamp(time_t ts)
+  {
+    penultimate_master_timestamp= last_master_timestamp;
+    last_master_timestamp= ts;
+    mysql_bin_log.last_master_timestamp.store(last_master_timestamp);
+  }
 
 #define PEAK_LAG_MAX_SECS 512
   time_t peak_lag_last[PEAK_LAG_MAX_SECS];

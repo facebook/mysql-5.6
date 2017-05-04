@@ -477,6 +477,9 @@ public:
   my_off_t engine_binlog_pos;
   Gtid engine_binlog_max_gtid;
 
+  // copy of Relay_log_info::last_master_timestamp
+  std::atomic<time_t> last_master_timestamp;
+
 #ifdef HAVE_PSI_INTERFACE
   void set_psi_keys(PSI_mutex_key key_LOCK_index,
                     PSI_mutex_key key_LOCK_commit,
