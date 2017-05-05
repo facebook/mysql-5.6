@@ -310,10 +310,14 @@ static int rocksdb_force_flush_memtable_and_lzero_now(
   rocksdb_flush_all_memtables();
 
   const Rdb_cf_manager &cf_manager = rdb_get_cf_manager();
-  const rocksdb::CompactionOptions c_options = rocksdb::CompactionOptions();
+  rocksdb::CompactionOptions c_options = rocksdb::CompactionOptions();
+  rocksdb::ColumnFamilyMetaData metadata;
+  rocksdb::ColumnFamilyDescriptor cf_descr;
+
   for (const auto &cf_handle : cf_manager.get_all_cf()) {
-    rocksdb::ColumnFamilyMetaData metadata;
     rdb->GetColumnFamilyMetaData(cf_handle, &metadata);
+    cf_handle->GetDescriptor(&cf_descr);
+    c_options.output_file_size_limit = cf_descr.options.target_file_size_base;
 
     DBUG_ASSERT(metadata.levels[0].level == 0);
     std::vector<std::string> file_names;
