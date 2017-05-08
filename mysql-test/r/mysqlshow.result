@@ -121,6 +121,7 @@ DROP TABLE t1, t2;
 | INNODB_SYS_TABLESTATS                 |
 | INNODB_TRX                            |
 | KEY_COLUMN_USAGE                      |
+| NATIVE_PROCEDURES                     |
 | OPTIMIZER_TRACE                       |
 | PARAMETERS                            |
 | PARTITIONS                            |
@@ -203,6 +204,7 @@ DROP TABLE t1, t2;
 | INNODB_SYS_TABLESTATS                 |
 | INNODB_TRX                            |
 | KEY_COLUMN_USAGE                      |
+| NATIVE_PROCEDURES                     |
 | OPTIMIZER_TRACE                       |
 | PARAMETERS                            |
 | PARTITIONS                            |

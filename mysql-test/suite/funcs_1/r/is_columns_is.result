@@ -158,6 +158,10 @@ def	information_schema	KEY_COLUMN_USAGE	REFERENCED_TABLE_SCHEMA	10	NULL	YES	varc
 def	information_schema	KEY_COLUMN_USAGE	TABLE_CATALOG	4		NO	varchar	512	1536	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(512)			select	
 def	information_schema	KEY_COLUMN_USAGE	TABLE_NAME	6		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
 def	information_schema	KEY_COLUMN_USAGE	TABLE_SCHEMA	5		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
+def	information_schema	NATIVE_PROCEDURES	CALLS	4	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(10) unsigned			select	
+def	information_schema	NATIVE_PROCEDURES	LIBRARY	3		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
+def	information_schema	NATIVE_PROCEDURES	NAME	1		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
+def	information_schema	NATIVE_PROCEDURES	STATUS	2		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
 def	information_schema	OPTIMIZER_TRACE	INSUFFICIENT_PRIVILEGES	4	0	NO	tinyint	NULL	NULL	3	0	NULL	NULL	NULL	tinyint(1)			select	
 def	information_schema	OPTIMIZER_TRACE	MISSING_BYTES_BEYOND_MAX_MEM_SIZE	3	0	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(20)			select	
 def	information_schema	OPTIMIZER_TRACE	QUERY	1	NULL	NO	longtext	4294967295	4294967295	NULL	NULL	NULL	utf8	utf8_general_ci	longtext			select	
@@ -757,6 +761,10 @@ NULL	information_schema	KEY_COLUMN_USAGE	POSITION_IN_UNIQUE_CONSTRAINT	bigint	NU
 3.0000	information_schema	KEY_COLUMN_USAGE	REFERENCED_TABLE_SCHEMA	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	KEY_COLUMN_USAGE	REFERENCED_TABLE_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	KEY_COLUMN_USAGE	REFERENCED_COLUMN_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(64)
+3.0000	information_schema	NATIVE_PROCEDURES	NAME	varchar	192	576	utf8	utf8_general_ci	varchar(192)
+3.0000	information_schema	NATIVE_PROCEDURES	STATUS	varchar	192	576	utf8	utf8_general_ci	varchar(192)
+3.0000	information_schema	NATIVE_PROCEDURES	LIBRARY	varchar	192	576	utf8	utf8_general_ci	varchar(192)
+NULL	information_schema	NATIVE_PROCEDURES	CALLS	bigint	NULL	NULL	NULL	NULL	bigint(10) unsigned
 1.0000	information_schema	OPTIMIZER_TRACE	QUERY	longtext	4294967295	4294967295	utf8	utf8_general_ci	longtext
 1.0000	information_schema	OPTIMIZER_TRACE	TRACE	longtext	4294967295	4294967295	utf8	utf8_general_ci	longtext
 NULL	information_schema	OPTIMIZER_TRACE	MISSING_BYTES_BEYOND_MAX_MEM_SIZE	int	NULL	NULL	NULL	NULL	int(20)

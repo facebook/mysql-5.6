@@ -2,6 +2,7 @@
 #include "lock.h"
 #include "records.h"
 #include "sql_base.h"
+#include "sql_show.h"
 #include "sql_table.h"
 #include "transaction.h"
 
@@ -211,6 +212,7 @@ void native_procedure(THD *thd, const char *packet, size_t length) {
 
   mysql_rwlock_rdlock(&THR_LOCK_np);
   if (proc_map.count(proc) > 0 && proc_map[proc].enabled) {
+    proc_map[proc].count++;
     fn = proc_map[proc].proc;
   }
   mysql_rwlock_unlock(&THR_LOCK_np);
@@ -983,4 +985,40 @@ int ExecutionContextImpl::field_val_str(uint index, std::string *out) {
   String *v = m_fields[index]->val_str(&tmp);
   *out = {v->ptr(), v->length()};
   return EC_OK;
+}
+
+ST_FIELD_INFO native_procs_fields_info[] = {
+    {"NAME", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+    {"STATUS", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+    {"LIBRARY", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+    {"CALLS", 10, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+    {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}};
+
+int fill_native_procs(THD *thd, TABLE_LIST *tables, Item *cond) {
+  DBUG_ENTER("fill_native_procs");
+  int ret = 0;
+  TABLE *table = tables->table;
+  Field **fields = table->field;
+
+  mysql_rwlock_rdlock(&THR_LOCK_np);
+  for (const auto &v : proc_map) {
+    fields[0]->store(v.second.name.c_str(), v.second.name.size(),
+                     system_charset_info);
+    if (v.second.enabled) {
+      fields[1]->store("ENABLED", 7, system_charset_info);
+    } else {
+      fields[1]->store("DISABLED", 8, system_charset_info);
+    }
+    fields[2]->store(v.second.dl.c_str(), v.second.dl.size(),
+                     system_charset_info);
+    fields[3]->store(v.second.count.load(), TRUE);
+
+    if (schema_table_store_record(thd, table)) {
+      ret = -1;
+      break;
+    }
+  }
+  mysql_rwlock_unlock(&THR_LOCK_np);
+
+  DBUG_RETURN(ret);
 }
