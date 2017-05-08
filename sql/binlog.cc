@@ -5013,14 +5013,20 @@ bool MYSQL_BIN_LOG::check_write_error(THD *thd) {
 
   if (!thd->is_error()) DBUG_RETURN(checked);
 
-  switch (thd->get_stmt_da()->mysql_errno()) {
-    case ER_TRANS_CACHE_FULL:
-    case ER_STMT_CACHE_FULL:
-    case ER_ERROR_ON_WRITE:
-    case ER_BINLOG_LOGGING_IMPOSSIBLE:
-      checked = true;
-      break;
+  // Check all conditions for one that matches the expected error
+  const Sql_condition *err;
+  auto it = thd->get_stmt_da()->sql_conditions();
+  while ((err = it++) != nullptr && !checked) {
+    switch (err->mysql_errno()) {
+      case ER_TRANS_CACHE_FULL:
+      case ER_STMT_CACHE_FULL:
+      case ER_ERROR_ON_WRITE:
+      case ER_BINLOG_LOGGING_IMPOSSIBLE:
+        checked = true;
+        break;
+    }
   }
+
   DBUG_PRINT("return", ("checked: %s", YESNO(checked)));
   DBUG_RETURN(checked);
 }
