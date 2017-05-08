@@ -17,6 +17,7 @@
 #ifndef _native_procedures_priv_h
 #define _native_procedures_priv_h
 
+#include <atomic>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -32,6 +33,16 @@ struct native_proc
   void *dlhandle;
   proc_t *proc;
   bool enabled;
+  std::atomic_ullong count;
+  native_proc &operator=(const native_proc &p) {
+    name = p.name;
+    dl = p.dl;
+    dlhandle = p.dlhandle;
+    proc = p.proc;
+    enabled = p.enabled;
+    count = p.count.load();
+    return *this;
+  }
 };
 
 class ExecutionContextImpl final : public ExecutionContext {
@@ -120,4 +131,7 @@ void native_procedure(THD *thd, const char *packet, size_t length);
 int mysql_create_native_procedure(THD *thd, native_proc *np);
 int mysql_drop_native_procedure(THD *thd, native_proc *np);
 
+// For information schema.
+int fill_native_procs(THD *thd, TABLE_LIST *tables, Item *cond);
+extern ST_FIELD_INFO native_procs_fields_info[];
 #endif

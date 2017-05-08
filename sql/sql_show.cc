@@ -9167,6 +9167,8 @@ ST_SCHEMA_TABLE schema_tables[]=
   {"KEY_COLUMN_USAGE", key_column_usage_fields_info, create_schema_table,
    get_all_tables, 0, get_schema_key_column_usage_record, 4, 5, 0,
    OPTIMIZE_I_S_TABLE|OPEN_TABLE_ONLY},
+  {"NATIVE_PROCEDURES", native_procs_fields_info, create_schema_table,
+   fill_native_procs, NULL, NULL, -1, -1, false, 0},
   {"OPEN_TABLES", open_tables_fields_info, create_schema_table,
    fill_open_tables, make_old_format, 0, -1, -1, 1, 0},
 #ifdef OPTIMIZER_TRACE
