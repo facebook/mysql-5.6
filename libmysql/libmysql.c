@@ -1450,6 +1450,8 @@ my_bool cli_read_prepare_result(MYSQL *mysql, MYSQL_STMT *stmt)
     /* skip parameters data: we don't support it yet */
     if (!(cli_read_metadata(mysql, param_count, 7)))
       DBUG_RETURN(1);
+    /* free memory allocated by cli_read_metadata() for parameters data */
+    free_root(&mysql->field_alloc, MYF(0));
   }
 
   if (field_count != 0)
@@ -1457,7 +1459,8 @@ my_bool cli_read_prepare_result(MYSQL *mysql, MYSQL_STMT *stmt)
     if (!(mysql->server_status & SERVER_STATUS_AUTOCOMMIT))
       mysql->server_status|= SERVER_STATUS_IN_TRANS;
 
-    if (!(stmt->fields= cli_read_metadata(mysql, field_count, 7)))
+    if (!(stmt->fields= cli_read_metadata_ex(mysql, &stmt->mem_root,
+                                             field_count, 7)))
       DBUG_RETURN(1);
   }
   stmt->field_count=  field_count;
@@ -2093,6 +2096,9 @@ static my_bool execute(MYSQL_STMT *stmt, char *packet, ulong length)
   uchar buff[4 /* size of stmt id */ +
              5 /* execution flags */];
   my_bool res;
+  my_bool is_data_packet= FALSE;
+  ulong      pkt_len;
+  MYSQL_ROWS **prev_ptr= NULL;
   DBUG_ENTER("execute");
   DBUG_DUMP("packet", (uchar *) packet, length);
 
@@ -2112,11 +2118,27 @@ static my_bool execute(MYSQL_STMT *stmt, char *packet, ulong length)
     if (!res && (stmt->flags & CURSOR_TYPE_READ_ONLY))
     {
       /*
-        if server responds with a cursor then COM_STMT_EXECUTE response format
-        will be <Metadata><OK>. Hence read the OK packet to get server status
+        server can now respond with a cursor - then the respond will be
+        <Metadata><OK> or with binary rows result set <Metadata><row(s)><OK>.
+        The former can be the case when the prepared statement is a procedure
+        invocation, ie. call(). There also other cases. When server responds
+        with <OK> (cursor) packet we read it and get the server status. In case
+        it responds with binary row we add it to the binary rows result set
+        (the reset of the result set will be read in prepare_to_fetch_result).
         */
-      if (packet_error == cli_safe_read_with_ok(mysql, 1, NULL))
+
+      if ((pkt_len= cli_safe_read(mysql, &is_data_packet)) == packet_error)
         DBUG_RETURN(1);
+
+      if (is_data_packet)
+      {
+        DBUG_ASSERT(stmt->result.rows == 0);
+        prev_ptr= &stmt->result.data;
+        if (add_binary_row(net, stmt, pkt_len, &prev_ptr))
+          DBUG_RETURN(1);
+      }
+      else
+        read_ok_ex(mysql, pkt_len);
     }
   }
 
@@ -4367,7 +4389,7 @@ int cli_read_binary_rows(MYSQL_STMT *stmt)
   uchar      *cp;
   MYSQL      *mysql= stmt->mysql;
   MYSQL_DATA *result= &stmt->result;
-  MYSQL_ROWS *cur, **prev_ptr= &result->data;
+  MYSQL_ROWS **prev_ptr= &result->data;
   NET        *net;
   my_bool    is_data_packet;
 
@@ -4381,23 +4403,21 @@ int cli_read_binary_rows(MYSQL_STMT *stmt)
 
   net = &mysql->net;
 
+  /*
+   We could have read one row in execute() due to the lack of a cursor,
+   but one at most.
+  */
+  DBUG_ASSERT(result->rows <= 1);
+  if (result->rows == 1)
+    prev_ptr= &result->data->next;
+
   while ((pkt_len= cli_safe_read(mysql, &is_data_packet)) != packet_error)
   {
     cp= net->read_pos;
     if (*cp == 0 || is_data_packet)
     {
-      if (!(cur= (MYSQL_ROWS*) alloc_root(&result->alloc,
-                                          sizeof(MYSQL_ROWS) + pkt_len - 1)))
-      {
-        set_stmt_error(stmt, CR_OUT_OF_MEMORY, unknown_sqlstate, NULL);
+      if (add_binary_row(net, stmt, pkt_len, &prev_ptr))
         goto err;
-      }
-      cur->data= (MYSQL_ROW) (cur+1);
-      *prev_ptr= cur;
-      prev_ptr= &cur->next;
-      memcpy((char *) cur->data, (char *) cp+1, pkt_len-1);
-      cur->length= pkt_len;		/* To allow us to do sanity checks */
-      result->rows++;
     }
     else
     {
