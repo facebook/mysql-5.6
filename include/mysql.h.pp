@@ -96,6 +96,7 @@ typedef struct st_net {
   my_bool unused1;
   my_bool unused2;
   my_bool compress;
+  my_bool compress_event;
   my_bool unused3;
   enum mysql_compression_lib comp_lib;
   ZSTD_CCtx *cctx;
@@ -393,7 +394,8 @@ enum mysql_option
   MYSQL_OPT_WRITE_TIMEOUT_MS,
   MYSQL_OPT_SSL_SESSION,
   MYSQL_OPT_SSL_CONTEXT,
-  MYSQL_OPT_COMP_LIB
+  MYSQL_OPT_COMP_LIB,
+  MYSQL_OPT_COMP_EVENT
 };
 struct st_mysql_options_extention;
 struct st_mysql_options {
@@ -411,7 +413,7 @@ struct st_mysql_options {
   char *shared_memory_base_name;
   unsigned long max_allowed_packet;
   my_bool use_ssl;
-  my_bool compress,named_pipe;
+  my_bool compress,compress_event,named_pipe;
   my_bool unused1;
   my_bool unused2;
   my_bool unused3;

@@ -598,10 +598,6 @@ err:
 }
 #endif
 
-/* Helper for cli_safe_read and cli_safe_read_nonblocking */
-static ulong cli_safe_read_complete(MYSQL *mysql, ulong len,
-                                    my_bool parse_ok, my_bool *is_data_packet);
-
 /**
   Read Ok packet along with the server state change information.
 */
@@ -656,6 +652,40 @@ void read_ok_ex(MYSQL *mysql, ulong length)
   return;
 }
 
+#ifdef HAVE_COMPRESS
+/* Uncompresses the event inside @net in place */
+ulong uncompress_event(NET* net, ulong len)
+{
+  DBUG_ENTER("uncompress_event");
+  DBUG_ASSERT(net->compress_event);
+
+  DBUG_ASSERT(!(net->compress && net->compress_event));
+  DBUG_ASSERT(len > COMP_HEADER_SIZE);
+  size_t pkt_len= len - COMP_HEADER_SIZE;
+  size_t orig_len= uint3korr(net->read_pos);
+  size_t buff_len= orig_len ? orig_len : pkt_len;
+
+  net->read_pos+= COMP_HEADER_SIZE;
+
+  // case: not enough space in the buffer to store the uncompressed event
+  if (net->read_pos + buff_len > net->buff_end)
+  {
+    size_t read_pos_offset= net->read_pos - net->buff;
+    if (net_realloc(net, net->read_pos + buff_len - net->buff))
+      DBUG_RETURN(packet_error);
+    net->read_pos= net->buff + read_pos_offset;
+  }
+
+  if (my_uncompress(net, (uchar*) net->read_pos, pkt_len, &orig_len))
+  {
+    net->error= 2;
+    net->last_errno= ER_MASTER_FATAL_ERROR_READING_BINLOG;
+    DBUG_RETURN(packet_error);
+  }
+
+  DBUG_RETURN(buff_len);
+}
+#endif
 
 /**
   Read a packet from server. Give error message if socket was down
@@ -738,8 +768,8 @@ my_bool client_deprecate_eof_enabled(MYSQL *mysql) {
           (mysql->client_flag & CLIENT_DEPRECATE_EOF);
 }
 
-static ulong cli_safe_read_complete(MYSQL *mysql, ulong len,
-                                    my_bool parse_ok, my_bool *is_data_packet)
+ulong cli_safe_read_complete(MYSQL *mysql, ulong len,
+                             my_bool parse_ok, my_bool *is_data_packet)
 {
   NET *net= &mysql->net;
   DBUG_ENTER(__func__);
@@ -1419,6 +1449,7 @@ static const char *default_options[]=
   "multi-results", "multi-statements", "multi-queries", "secure-auth",
   "report-data-truncation", "plugin-dir", "default-auth",
   "bind-address", "ssl-crl", "ssl-crlpath", "enable-cleartext-plugin",
+  "compress_event",
   NullS
 };
 enum option_id {
@@ -1431,6 +1462,7 @@ enum option_id {
   OPT_multi_results, OPT_multi_statements, OPT_multi_queries, OPT_secure_auth, 
   OPT_report_data_truncation, OPT_plugin_dir, OPT_default_auth,
   OPT_bind_address, OPT_ssl_crl, OPT_ssl_crlpath, OPT_enable_cleartext_plugin,
+  OPT_compress_event,
   OPT_keep_this_one_last
 };
 
@@ -1586,6 +1618,13 @@ void mysql_read_default_options(struct st_mysql_options *options,
 	case OPT_compress:
 	  options->compress=1;
 	  options->client_flag|= CLIENT_COMPRESS;
+	  break;
+	case OPT_compress_event:
+	  options->compress_event= 1;
+	  options->client_flag|= CLIENT_COMPRESS_EVENT;
+	  // we disable packet compression if event compression is enabled
+	  options->compress= 0;
+	  options->client_flag&= ~CLIENT_COMPRESS;
 	  break;
         case OPT_password:
 	  if (opt_arg)
@@ -3509,7 +3548,8 @@ static void set_client_flag_from_options(MYSQL* mysql, MCPVIO_EXT *mpvio){
 
   /* Remove options that server doesn't support */
   mysql->client_flag= mysql->client_flag &
-                      (~(CLIENT_COMPRESS | CLIENT_SSL | CLIENT_PROTOCOL_41)
+                      (~(CLIENT_COMPRESS | CLIENT_COMPRESS_EVENT |
+                         CLIENT_SSL | CLIENT_PROTOCOL_41)
                       | mysql->server_capabilities);
 
   // Async MySQL Client does not have the CLIENT_DEPRECATE_EOF functionality
@@ -3518,7 +3558,7 @@ static void set_client_flag_from_options(MYSQL* mysql, MCPVIO_EXT *mpvio){
     mysql->client_flag &= ~CLIENT_DEPRECATE_EOF;
 
 #ifndef HAVE_COMPRESS
-  mysql->client_flag&= ~CLIENT_COMPRESS;
+  mysql->client_flag&= ~(CLIENT_COMPRESS | CLIENT_COMPRESS_EVENT);
 #endif
 }
 
@@ -5533,6 +5573,9 @@ csm_prep_select_database(mysql_csm_context *ctx)
   if (mysql->client_flag & CLIENT_COMPRESS)      /* We will use compression */
     net->compress=1;
 
+  if (mysql->client_flag & CLIENT_COMPRESS_EVENT)
+    net->compress_event=1;
+
 #ifdef CHECK_LICENSE 
   if (check_license(mysql))
     DBUG_RETURN(STATE_MACHINE_FAILED));
@@ -6582,10 +6625,17 @@ mysql_options(MYSQL *mysql,enum mysql_option option, const void *arg)
     }
     mysql_options4(mysql, MYSQL_OPT_CONNECT_ATTR_ADD,
                    "compression_lib", lib_name);
-    // Intentional fall through to enable compression
+    break;
   case MYSQL_OPT_COMPRESS:
     mysql->options.compress= 1;			/* Remember for connect */
     mysql->options.client_flag|= CLIENT_COMPRESS;
+    break;
+  case MYSQL_OPT_COMP_EVENT:
+    mysql->options.compress_event= 1;
+    mysql->options.client_flag|= CLIENT_COMPRESS_EVENT;
+    // we disable packet compression if event compression is enabled
+    mysql->options.compress= 0;
+    mysql->options.client_flag&= ~CLIENT_COMPRESS;
     break;
   case MYSQL_OPT_NAMED_PIPE:			/* This option is depricated */
     mysql->options.protocol=MYSQL_PROTOCOL_PIPE; /* Force named pipe */

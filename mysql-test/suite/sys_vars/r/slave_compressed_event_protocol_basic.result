@@ -1,0 +1,94 @@
+SET @global_start_value = @@global.slave_compressed_event_protocol;
+SELECT @global_start_value;
+@global_start_value
+0
+SET @@global.slave_compressed_event_protocol = 1;
+SET @@global.slave_compressed_event_protocol = DEFAULT;
+SELECT @@global.slave_compressed_event_protocol;
+@@global.slave_compressed_event_protocol
+0
+SET slave_compressed_event_protocol = 1;
+ERROR HY000: Variable 'slave_compressed_event_protocol' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@slave_compressed_event_protocol;
+@@slave_compressed_event_protocol
+0
+SELECT global.slave_compressed_event_protocol;
+ERROR 42S02: Unknown table 'global' in field list
+SET global slave_compressed_event_protocol = 1;
+SELECT @@global.slave_compressed_event_protocol;
+@@global.slave_compressed_event_protocol
+1
+SET @@global.slave_compressed_event_protocol = 0;
+SELECT @@global.slave_compressed_event_protocol;
+@@global.slave_compressed_event_protocol
+0
+SET @@global.slave_compressed_event_protocol = 1;
+SELECT @@global.slave_compressed_event_protocol;
+@@global.slave_compressed_event_protocol
+1
+SET @@global.slave_compressed_event_protocol = -1;
+ERROR 42000: Variable 'slave_compressed_event_protocol' can't be set to the value of '-1'
+SET @@global.slave_compressed_event_protocol = 2;
+ERROR 42000: Variable 'slave_compressed_event_protocol' can't be set to the value of '2'
+SET @@global.slave_compressed_event_protocol = "1.00";
+ERROR 42000: Variable 'slave_compressed_event_protocol' can't be set to the value of '1.00'
+SET @@global.slave_compressed_event_protocol = "Y";
+ERROR 42000: Variable 'slave_compressed_event_protocol' can't be set to the value of 'Y'
+SET @@global.slave_compressed_event_protocol = YES;
+ERROR 42000: Variable 'slave_compressed_event_protocol' can't be set to the value of 'YES'
+SET @@global.slave_compressed_event_protocol = ONN;
+ERROR 42000: Variable 'slave_compressed_event_protocol' can't be set to the value of 'ONN'
+SET @@global.slave_compressed_event_protocol = 0FF;
+ERROR 42000: Variable 'slave_compressed_event_protocol' can't be set to the value of '0FF'
+SET @@global.slave_compressed_event_protocol = ' 1';
+ERROR 42000: Variable 'slave_compressed_event_protocol' can't be set to the value of ' 1'
+SET @@global.slave_compressed_event_protocol = NO;
+ERROR 42000: Variable 'slave_compressed_event_protocol' can't be set to the value of 'NO'
+SET @@session.slave_compressed_event_protocol = 0;
+ERROR HY000: Variable 'slave_compressed_event_protocol' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@slave_compressed_event_protocol = 0;
+ERROR HY000: Variable 'slave_compressed_event_protocol' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@local.slave_compressed_event_protocol = 0;
+ERROR HY000: Variable 'slave_compressed_event_protocol' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.slave_compressed_event_protocol;
+ERROR HY000: Variable 'slave_compressed_event_protocol' is a GLOBAL variable
+SELECT @@local.slave_compressed_event_protocol;
+ERROR HY000: Variable 'slave_compressed_event_protocol' is a GLOBAL variable
+SELECT count(VARIABLE_VALUE)
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES 
+WHERE VARIABLE_NAME='slave_compressed_event_protocol';
+count(VARIABLE_VALUE)
+1
+SELECT IF(@@global.slave_compressed_event_protocol, "ON", "OFF")= VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES 
+WHERE VARIABLE_NAME='slave_compressed_event_protocol';
+IF(@@global.slave_compressed_event_protocol, "ON", "OFF")= VARIABLE_VALUE
+1
+SELECT @@global.slave_compressed_event_protocol;
+@@global.slave_compressed_event_protocol
+1
+SELECT VARIABLE_VALUE 
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES 
+WHERE VARIABLE_NAME='slave_compressed_event_protocol';
+VARIABLE_VALUE
+ON
+SET @@global.slave_compressed_event_protocol = OFF;
+SELECT @@global.slave_compressed_event_protocol;
+@@global.slave_compressed_event_protocol
+0
+SET @@global.slave_compressed_event_protocol = ON;
+SELECT @@global.slave_compressed_event_protocol;
+@@global.slave_compressed_event_protocol
+1
+SET @@global.slave_compressed_event_protocol = TRUE;
+SELECT @@global.slave_compressed_event_protocol;
+@@global.slave_compressed_event_protocol
+1
+SET @@global.slave_compressed_event_protocol = FALSE;
+SELECT @@global.slave_compressed_event_protocol;
+@@global.slave_compressed_event_protocol
+0
+SET @@global.slave_compressed_event_protocol = @global_start_value;
+SELECT @@global.slave_compressed_event_protocol;
+@@global.slave_compressed_event_protocol
+0

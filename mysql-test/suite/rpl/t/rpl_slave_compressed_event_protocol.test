@@ -1,0 +1,137 @@
+--let $rpl_topology= 1->2,1->3,1->4,1->5
+--source include/rpl_init.inc
+
+--let $rpl_connection_name= master
+--let $rpl_server_number= 1
+--source include/rpl_connect.inc
+
+--let $rpl_connection_name= slave_1
+--let $rpl_server_number= 2
+--source include/rpl_connect.inc
+
+--let $rpl_connection_name= slave_2
+--let $rpl_server_number= 3
+--source include/rpl_connect.inc
+
+--let $rpl_connection_name= slave_3
+--let $rpl_server_number= 4
+--source include/rpl_connect.inc
+
+--let $rpl_connection_name= slave_4
+--let $rpl_server_number= 5
+--source include/rpl_connect.inc
+
+--connection master
+--let $skip_cleanup= 1
+--let $sync_with_master= 0
+--source extra/rpl_tests/rpl_parallel_simple_load.test
+
+# Sync all slaves
+--connection master
+--let $sync_slave_connection= slave_1
+--source include/sync_slave_sql_with_master.inc
+
+--connection master
+--let $sync_slave_connection= slave_2
+--source include/sync_slave_sql_with_master.inc
+
+--connection master
+--let $sync_slave_connection= slave_3
+--source include/sync_slave_sql_with_master.inc
+
+--connection master
+--let $sync_slave_connection= slave_4
+--source include/sync_slave_sql_with_master.inc
+
+# Consistency check
+--connection master
+
+--let $i = $databases
+while($i)
+{
+  --dec $i
+
+  --disable_query_log
+  --disable_result_log
+  if (`select @@global.binlog_format like 'statement'`)
+  {
+    --connection master
+    --eval alter table test$i.ti_nk drop c
+  }
+  --enable_query_log
+  --enable_result_log
+
+  --connection master
+  --let $sync_slave_connection= slave_1
+  --source include/sync_slave_sql_with_master.inc
+
+  --connection master
+  --let $sync_slave_connection= slave_2
+  --source include/sync_slave_sql_with_master.inc
+
+  --connection master
+  --let $sync_slave_connection= slave_3
+  --source include/sync_slave_sql_with_master.inc
+
+  --connection master
+  --let $sync_slave_connection= slave_4
+  --source include/sync_slave_sql_with_master.inc
+
+  --let $diff_tables=master:test$i.ti_nk, slave_1:test$i.ti_nk
+  --source include/diff_tables.inc
+
+  --let $diff_tables=master:test$i.ti_nk, slave_2:test$i.ti_nk
+  --source include/diff_tables.inc
+
+  --let $diff_tables=master:test$i.ti_nk, slave_3:test$i.ti_nk
+  --source include/diff_tables.inc
+
+  --let $diff_tables=master:test$i.ti_nk, slave_4:test$i.ti_nk
+  --source include/diff_tables.inc
+}
+
+--echo "Small net buffer test"
+# This will test packet buffer re-allocation when the uncompressed event cannot
+# fit in the existing buffer
+--connection slave_2
+stop slave;
+set @save.net_buffer_length=@@global.net_buffer_length;
+set global net_buffer_length=1024;
+select @@global.net_buffer_length;
+start slave;
+--connection master
+create table test.t1(a text);
+insert into test.t1 values(REPEAT("a", 4096));
+
+# Cleanup
+--connection master
+--let $i = $databases
+while($i)
+{
+  --dec $i
+  --eval drop database test$i
+}
+
+drop table test.t1;
+--connection slave_2
+stop slave;
+set @@global.net_buffer_length=@save.net_buffer_length;
+start slave;
+
+--connection master
+--let $sync_slave_connection= slave_1
+--source include/sync_slave_sql_with_master.inc
+
+--connection master
+--let $sync_slave_connection= slave_2
+--source include/sync_slave_sql_with_master.inc
+
+--connection master
+--let $sync_slave_connection= slave_3
+--source include/sync_slave_sql_with_master.inc
+
+--connection master
+--let $sync_slave_connection= slave_4
+--source include/sync_slave_sql_with_master.inc
+
+--source include/rpl_end.inc

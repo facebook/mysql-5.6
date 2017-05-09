@@ -97,7 +97,7 @@ extern void query_cache_insert(const char *packet, ulong length,
 #endif
 
 static my_bool net_write_buff(NET *, const uchar *, ulong);
-static uchar *compress_packet(NET *net, const uchar *packet, size_t *length);
+uchar *compress_packet(NET *net, const uchar *packet, size_t *length);
 static void reset_packet_write_state(NET *net);
 
 /** Init with packet info. */
@@ -118,6 +118,7 @@ my_bool my_net_init(NET *net, Vio* vio)
   net->write_pos=net->read_pos = net->buff;
   net->last_error[0]=0;
   net->compress=0; net->reading_or_writing=0;
+  net->compress_event= 0;
   net->comp_lib = MYSQL_COMPRESSION_ZLIB;
 #ifdef HAVE_ZSTD_COMPRESS
   net->cctx = NULL;
@@ -948,7 +949,7 @@ net_write_raw_loop(NET *net, const uchar *buf, size_t count)
   @return Pointer to the (new) compressed packet.
 */
 
-static uchar *
+uchar *
 compress_packet(NET *net, const uchar *packet, size_t *length)
 {
   uchar *compr_packet;

@@ -1,0 +1,33 @@
+--source include/load_sysvars.inc
+
+SET @old_max_compressed_event_cache_size = @@global.max_compressed_event_cache_size;
+SELECT @old_max_compressed_event_cache_size;
+
+SET @@global.max_compressed_event_cache_size = DEFAULT;
+SELECT @@global.max_compressed_event_cache_size;
+
+-- echo # max_compressed_event_cache_size is a global variable.
+--error ER_GLOBAL_VARIABLE
+SET @@session.max_compressed_event_cache_size = 1;
+SELECT @@max_compressed_event_cache_size;
+
+SET @@global.max_compressed_event_cache_size = 512;
+SELECT @@global.max_compressed_event_cache_size;
+SET @@global.max_compressed_event_cache_size = 1000000;
+SELECT @@global.max_compressed_event_cache_size;
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET @@global.max_compressed_event_cache_size = 1.01;
+--error ER_WRONG_TYPE_FOR_VAR
+SET @@global.max_compressed_event_cache_size = 'ten';
+SELECT @@global.max_compressed_event_cache_size;
+-- echo # set max_compressed_event_cache_size to wrong value
+SET @@global.max_compressed_event_cache_size = 1500000;
+SELECT @@global.max_compressed_event_cache_size;
+-- echo # set max_compressed_event_cache_size to wrong value
+SET @@global.max_compressed_event_cache_size = 0;
+SELECT @@global.max_compressed_event_cache_size;
+
+
+SET @@global.max_compressed_event_cache_size = @old_max_compressed_event_cache_size;
+SELECT @@global.max_compressed_event_cache_size;

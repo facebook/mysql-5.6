@@ -1,0 +1,99 @@
+########## mysql-test\t\slave_compressed_event_protocol_basic.test ############
+#                                                                             #
+# Variable Name: slave_compressed_event_protocol                              #
+# Scope: GLOBAL                                                               #
+# Access Type: Dynamic                                                        #
+# Data Type: boolean                                                          #
+# Default Value: FALSE                                                        #
+# Range: TRUE, FALSE                                                          #
+###############################################################################
+
+--source include/not_embedded.inc
+--source include/load_sysvars.inc
+
+SET @global_start_value = @@global.slave_compressed_event_protocol;
+SELECT @global_start_value;
+
+SET @@global.slave_compressed_event_protocol = 1;
+SET @@global.slave_compressed_event_protocol = DEFAULT;
+SELECT @@global.slave_compressed_event_protocol;
+
+--Error ER_GLOBAL_VARIABLE
+SET slave_compressed_event_protocol = 1;
+SELECT @@slave_compressed_event_protocol;
+--Error ER_UNKNOWN_TABLE
+SELECT global.slave_compressed_event_protocol;
+
+SET global slave_compressed_event_protocol = 1;
+SELECT @@global.slave_compressed_event_protocol;
+
+
+SET @@global.slave_compressed_event_protocol = 0;
+SELECT @@global.slave_compressed_event_protocol;
+SET @@global.slave_compressed_event_protocol = 1;
+SELECT @@global.slave_compressed_event_protocol;
+
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.slave_compressed_event_protocol = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.slave_compressed_event_protocol = 2;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.slave_compressed_event_protocol = "1.00";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.slave_compressed_event_protocol = "Y";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.slave_compressed_event_protocol = YES;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.slave_compressed_event_protocol = ONN;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.slave_compressed_event_protocol = 0FF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.slave_compressed_event_protocol = ' 1';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.slave_compressed_event_protocol = NO;
+
+
+--Error ER_GLOBAL_VARIABLE
+SET @@session.slave_compressed_event_protocol = 0;
+--Error ER_GLOBAL_VARIABLE
+SET @@slave_compressed_event_protocol = 0;
+--Error ER_GLOBAL_VARIABLE
+SET @@local.slave_compressed_event_protocol = 0;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.slave_compressed_event_protocol;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@local.slave_compressed_event_protocol;
+
+SELECT count(VARIABLE_VALUE)
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES 
+WHERE VARIABLE_NAME='slave_compressed_event_protocol';
+
+SELECT IF(@@global.slave_compressed_event_protocol, "ON", "OFF")= VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES 
+WHERE VARIABLE_NAME='slave_compressed_event_protocol';
+SELECT @@global.slave_compressed_event_protocol;
+SELECT VARIABLE_VALUE 
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES 
+WHERE VARIABLE_NAME='slave_compressed_event_protocol';
+
+SET @@global.slave_compressed_event_protocol = OFF;
+SELECT @@global.slave_compressed_event_protocol;
+SET @@global.slave_compressed_event_protocol = ON;
+SELECT @@global.slave_compressed_event_protocol;
+
+SET @@global.slave_compressed_event_protocol = TRUE;
+SELECT @@global.slave_compressed_event_protocol;
+SET @@global.slave_compressed_event_protocol = FALSE;
+SELECT @@global.slave_compressed_event_protocol;
+
+##############################
+#   Restore initial value    #
+##############################
+
+SET @@global.slave_compressed_event_protocol = @global_start_value;
+SELECT @@global.slave_compressed_event_protocol;
+
+###############################################################
+#              END OF slave_compressed_event_protocol TESTS   #
+###############################################################

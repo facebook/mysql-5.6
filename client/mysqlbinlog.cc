@@ -104,6 +104,7 @@ static const char* default_dbug_option = "d:t:o,/tmp/mysqlbinlog.trace";
 static const char *load_default_groups[]= { "mysqlbinlog","client",0 };
 
 static my_bool opt_compress=0;
+static my_bool opt_compress_event=0;
 static my_bool one_database=0, disable_log_bin= 0;
 static my_bool opt_hexdump= 0;
 const char *base64_output_mode_names[]=
@@ -1866,6 +1867,9 @@ static struct my_option my_long_options[] =
    &charsets_dir, 0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
   {"compress", 'C', "Use compression in server/client protocol.",
    &opt_compress, &opt_compress, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
+  {"compress_event", 'E', "Use event compression in server/client protocol.",
+   &opt_compress_event, &opt_compress_event, 0, GET_BOOL, NO_ARG,
+   0, 0, 0, 0, 0, 0},
   {"database", 'd', "List entries for just this database (local log only).",
    &database, &database, 0, GET_STR_ALLOC, REQUIRED_ARG,
    0, 0, 0, 0, 0, 0},
@@ -2416,6 +2420,11 @@ static Exit_status safe_connect()
 
   if (opt_compress)
     mysql_options(mysql, MYSQL_OPT_COMPRESS, NullS);
+  if (opt_compress_event)
+    mysql_options(mysql, MYSQL_OPT_COMP_EVENT, NullS);
+  if (opt_compress && opt_compress_event)
+    warning("Both packet and event compression were enabled. Disabling packet "
+            "compression to avoid double compression.");
   if (opt_protocol)
     mysql_options(mysql, MYSQL_OPT_PROTOCOL, (char*) &opt_protocol);
   if (opt_bind_addr)
@@ -2927,8 +2936,18 @@ connected:
     const char *error_msg= NULL;
     Log_event *ev= NULL;
     Log_event_type type= UNKNOWN_EVENT;
+    len= 0;
 
-    len= cli_safe_read(mysql, NULL);
+    if (mysql->net.vio != 0)
+      len= my_net_read(&mysql->net);
+
+#ifdef HAVE_COMPRESS
+  // case: event was compressed before sending, so we have to uncompress
+  if (mysql->net.compress_event && len != 0 && len != packet_error)
+    len= uncompress_event(&mysql->net, len);
+#endif
+
+    len= cli_safe_read_complete(mysql, len, 0, NULL);
     if (len == packet_error)
     {
       uint mysql_error_number= mysql_errno(mysql);

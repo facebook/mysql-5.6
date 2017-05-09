@@ -3162,6 +3162,20 @@ static Sys_var_mybool Sys_slave_compressed_protocol(
        GLOBAL_VAR(opt_slave_compressed_protocol), CMD_LINE(OPT_ARG),
        DEFAULT(FALSE));
 
+static Sys_var_mybool Sys_slave_compressed_event_protocol(
+       "slave_compressed_event_protocol",
+       "Use event compression on master/slave protocol",
+       GLOBAL_VAR(opt_slave_compressed_event_protocol), CMD_LINE(OPT_ARG),
+       DEFAULT(FALSE));
+
+static Sys_var_ulonglong Sys_max_compressed_event_cache_size(
+       "max_compressed_event_cache_size",
+       "Max size of the compressed event cache in MB, this makes sense only "
+       "when some connected slaves are using compressed event protocol.",
+       GLOBAL_VAR(opt_max_compressed_event_cache_size), CMD_LINE(OPT_ARG),
+       VALID_RANGE(1, 1000000), DEFAULT(1),
+       BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0), ON_UPDATE(0));
+
 static Sys_var_uint Sys_general_query_throttling_limit(
        "general_query_throttling_limit", "Start throttling queries if running threads high.",
        GLOBAL_VAR(opt_general_query_throttling_limit), CMD_LINE(OPT_ARG),

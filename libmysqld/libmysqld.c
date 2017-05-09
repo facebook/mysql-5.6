@@ -165,7 +165,7 @@ mysql_real_connect(MYSQL *mysql,const char *host, const char *user,
     no compression in embedded as we don't send any data,
     and no pluggable auth, as we cannot do a client-server dialog
   */
-  client_flag&= ~(CLIENT_COMPRESS | CLIENT_PLUGIN_AUTH);
+  client_flag&= ~(CLIENT_COMPRESS | CLIENT_COMPRESS_EVENT | CLIENT_PLUGIN_AUTH);
   if (db)
     client_flag|=CLIENT_CONNECT_WITH_DB;
 
