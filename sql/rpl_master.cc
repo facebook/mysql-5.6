@@ -31,11 +31,34 @@
 #include <sys/socket.h>
 #include "binlog.h"
 #include "rpl_slave.h"
+#include <queue>
 
 int max_binlog_dump_events = 0; // unlimited
 my_bool opt_sporadic_binlog_dump_fail = 0;
 ulong rpl_event_buffer_size;
 uint rpl_send_buffer_size = 0;
+
+/* Cache for compressed events and associated structures */
+typedef std::pair<uchar*, size_t> binlog_comp_event;
+static std::unordered_map<std::string, binlog_comp_event> comp_event_cache;
+static bool comp_event_cache_inited= false;
+
+/* Cache stats, reset every minute */
+static ulonglong cache_hit_count= 0;
+static ulonglong cache_miss_count= 0;
+static time_t cache_stats_timer= 0;
+
+static mysql_mutex_t LOCK_comp_event_cache;
+#ifdef HAVE_PSI_INTERFACE
+static PSI_mutex_key key_LOCK_comp_event_cache;
+#endif
+
+// used to record the order of insertions in the cache for eviction
+static std::queue<std::pair<std::string, std::size_t>> comp_event_queue;
+
+// size of value part of the compressed event cache in MB
+static size_t comp_event_cache_size= 0;
+
 
 #ifndef DBUG_OFF
 static int binlog_dump_count = 0;
@@ -115,6 +138,41 @@ void end_slave_list()
   {
     my_hash_free(&slave_list);
     mysql_mutex_destroy(&LOCK_slave_list);
+  }
+}
+
+void init_compressed_event_cache()
+{
+  mysql_mutex_init(key_LOCK_comp_event_cache,
+                   &LOCK_comp_event_cache,
+                   MY_MUTEX_INIT_FAST);
+  comp_event_cache_inited= true;
+  cache_hit_count= cache_miss_count= 0;
+  cache_stats_timer= my_time(0);
+}
+
+void clear_compressed_event_cache()
+{
+  mysql_mutex_lock(&LOCK_comp_event_cache);
+  for (auto& entry : comp_event_cache)
+    my_free(entry.second.first);
+  comp_event_cache.clear();
+  comp_event_queue= std::queue<std::pair<std::string, std::size_t>>();
+  cache_hit_count= cache_miss_count= 0;
+  cache_stats_timer= my_time(0);
+  comp_event_cache_hit_ratio= 0;
+  mysql_mutex_unlock(&LOCK_comp_event_cache);
+}
+
+void free_compressed_event_cache()
+{
+  /* No need to protect @comp_event_cache_inited because it's changed only at
+     start and end of the server when the mutex is inited/destroyed */
+  if (comp_event_cache_inited)
+  {
+    clear_compressed_event_cache();
+    mysql_mutex_destroy(&LOCK_comp_event_cache);
+    comp_event_cache_inited= false;
   }
 }
 
@@ -345,6 +403,154 @@ static uint8 get_binlog_checksum_value_at_connect(THD * thd)
   DBUG_RETURN(ret);
 }
 
+static
+std::pair<uchar*, size_t> compress_event(NET *net, const String *packet)
+{
+  uchar* event= (uchar*) packet->ptr();
+  uchar* comp_event= NULL;
+  size_t event_len= packet->length();
+  size_t comp_event_len= packet->length();
+  static bool error_logged= false;
+
+  comp_event= (uchar *) my_malloc(event_len + COMP_HEADER_SIZE, MYF(MY_WME));
+
+  // case: malloc failed
+  if (comp_event == NULL) goto err;
+
+  // copy the original event in the buffer, compression will happen in place
+  memcpy(comp_event + COMP_HEADER_SIZE, event, event_len);
+
+  // compress the event!
+  if (my_compress(net, comp_event + COMP_HEADER_SIZE, &comp_event_len,
+                  &event_len, net_compression_level))
+  {
+    if (!error_logged)
+    {
+      sql_print_error("Event compression failed in the dump thread, sending "
+                      "uncompressed event. Out of memory. Event compression "
+                      "can be disabled by turning off "
+                      "slave_compressed_event_protocol. This error will not be "
+                      "displayed anymore.");
+      error_logged= true;
+    }
+    // error so no compression happened, see below
+    event_len= 0;
+  }
+
+  // store the length of the uncompressed event, we store 0 if no compression
+  // takes place
+  int3store(comp_event, event_len);
+
+  comp_event_len+= COMP_HEADER_SIZE;
+
+err:
+  return std::make_pair(comp_event, comp_event_len);
+}
+
+static
+std::pair<uchar*, size_t> get_compressed_event(NET *net,
+                                               const LOG_POS_COORD *coord,
+                                               const String *packet,
+                                               bool is_semi_sync_slave,
+                                               bool cache)
+{
+  if (!cache) return compress_event(net, packet);
+
+  std::string ev_key= std::string(coord->file_name).append(":")
+                      .append(std::to_string(coord->pos)).append(":")
+                      .append(std::to_string(is_semi_sync_slave)).append(":")
+                      .append(std::to_string(net->comp_lib));
+  uchar* comp_event= NULL;
+  size_t comp_event_len= packet->length();
+
+  mysql_mutex_lock(&LOCK_comp_event_cache);
+
+  if (!comp_event_cache.count(ev_key))
+  {
+    std::tie(comp_event, comp_event_len)= compress_event(net, packet);
+    if (comp_event == NULL) goto err;
+
+    const ulonglong max_cache_size_bytes=
+                              (1 << 20) * opt_max_compressed_event_cache_size;
+    if (comp_event_len < max_cache_size_bytes)
+    {
+      // old event eviction
+      while ((comp_event_cache_size + comp_event_len > max_cache_size_bytes) &&
+             !comp_event_queue.empty())
+      {
+        std::string key;
+        size_t size;
+        std::tie(key, size)= comp_event_queue.front();
+        comp_event_queue.pop();
+        DBUG_ASSERT(comp_event_cache.count(key));
+        my_free(comp_event_cache[key].first);
+        comp_event_cache.erase(key);
+        DBUG_ASSERT(comp_event_cache_size > size);
+        comp_event_cache_size-= size;
+      }
+
+      comp_event_cache[ev_key]= std::make_pair(comp_event, comp_event_len);
+      comp_event_queue.push(std::make_pair(ev_key, comp_event_len));
+      comp_event_cache_size+= comp_event_len;
+    }
+    ++cache_miss_count;
+  }
+  else
+  {
+    std::tie(comp_event, comp_event_len)= comp_event_cache[ev_key];
+    ++cache_hit_count;
+  }
+
+  // case: one minute is up since the last stats update, re-calculate
+  if (difftime(my_time(0), cache_stats_timer) >= 60)
+  {
+    comp_event_cache_hit_ratio=
+      (double) cache_hit_count / (cache_hit_count + cache_miss_count);
+    cache_hit_count= cache_miss_count= 0;
+    cache_stats_timer= my_time(0);
+  }
+
+err:
+  mysql_mutex_unlock(&LOCK_comp_event_cache);
+  return std::make_pair(comp_event, comp_event_len);
+}
+
+static
+int my_net_write_event(NET *net, const LOG_POS_COORD *coord,
+                       const String *packet, const char** errmsg, int* errnum,
+                       bool is_semi_sync_slave, bool cache= true)
+{
+  int ret= 0;
+  uchar* buff= (uchar*) packet->ptr();
+  size_t buff_len= packet->length();
+
+  DBUG_ASSERT(!(net->compress_event && net->compress));
+  if (net->compress_event)
+  {
+    std::tie(buff, buff_len)= get_compressed_event(net, coord, packet,
+                                                   is_semi_sync_slave, cache);
+    if (buff == NULL)
+    {
+      if (errmsg) *errmsg = "Couldn't compress binlog event, out of memory";
+      if (errnum) *errnum= ER_OUT_OF_RESOURCES;
+      ret= 1;
+      goto err;
+    }
+  }
+
+  if (my_net_write(net, buff, buff_len))
+  {
+    if (errmsg) *errmsg = "Failed on my_net_write()";
+    if (errnum) *errnum= ER_UNKNOWN_ERROR;
+    ret= 1;
+  }
+
+err:
+  // case: if we din't cache the compressed packet we need to deallocate it
+  if (net->compress_event && !cache) my_free(buff);
+  return ret;
+}
+
 /*
     fake_rotate_event() builds a fake (=which does not exist physically in any
     binlog) Rotate event, which contains the name of the binlog we are going to
@@ -365,6 +571,7 @@ static uint8 get_binlog_checksum_value_at_connect(THD * thd)
 
 static int fake_rotate_event(NET* net, String* packet, char* log_file_name,
                              ulonglong position, const char** errmsg,
+                             bool is_semi_sync_slave,
                              uint8 checksum_alg_arg)
 {
   DBUG_ENTER("fake_rotate_event");
@@ -413,9 +620,10 @@ static int fake_rotate_event(NET* net, String* packet, char* log_file_name,
     packet->append(b, sizeof(b));
   }
 
-  if (my_net_write(net, (uchar*) packet->ptr(), packet->length()))
+  LOG_POS_COORD coord { log_file_name, 0 };
+  if (my_net_write_event(net, &coord, packet, errmsg, NULL,
+                         is_semi_sync_slave, false))
   {
-    *errmsg = "failed on my_net_write()";
     DBUG_RETURN(-1);
   }
   DBUG_RETURN(0);
@@ -609,6 +817,7 @@ static ulonglong get_heartbeat_period(THD * thd)
 */
 static int send_heartbeat_event(NET* net, String* packet,
                                 const struct event_coordinates *coord,
+                                bool is_semi_sync_slave,
                                 uint8 checksum_alg_arg)
 {
   DBUG_ENTER("send_heartbeat_event");
@@ -648,7 +857,8 @@ static int send_heartbeat_event(NET* net, String* packet,
     packet->append(b, sizeof(b));
   }
 
-  if (my_net_write(net, (uchar*) packet->ptr(), packet->length()) ||
+  if (my_net_write_event(net, coord, packet, NULL, NULL,
+                         is_semi_sync_slave, false) ||
       net_flush(net))
   {
     DBUG_RETURN(-1);
@@ -703,7 +913,8 @@ static int send_last_skip_group_heartbeat(THD *thd, NET* net, String *packet,
     DBUG_RETURN(-1);
 
   /* Send heart beat event to the slave to update slave  threads coordinates */
-  if (send_heartbeat_event(net, packet, last_skip_coord, checksum_alg_arg))
+  if (send_heartbeat_event(net, packet, last_skip_coord,
+                           semi_sync_slave, checksum_alg_arg))
   {
     *errmsg= "Failed on my_net_write()";
     my_errno= ER_UNKNOWN_ERROR;
@@ -798,12 +1009,16 @@ bool com_binlog_dump(THD *thd, char *packet, uint packet_length)
                     packet + 10, (long) pos);
 
   my_atomic_add32(&thread_binlog_client, 1);
+  if (thd->net.compress_event)
+    my_atomic_add32(&thread_binlog_comp_event_client, 1);
   dec_thread_running();
 
   mysql_binlog_send(thd, thd->strdup(packet + 10), (my_off_t) pos, NULL, flags);
 
   inc_thread_running();
   my_atomic_add32(&thread_binlog_client, -1);
+  if (thd->net.compress_event)
+    my_atomic_add32(&thread_binlog_comp_event_client, -1);
 
   unregister_slave(thd, true, true/*need_lock_slave_list=true*/);
   /*  fake COM_QUIT -- if we get here, the thread needs to terminate */
@@ -859,6 +1074,8 @@ bool com_binlog_dump_gtid(THD *thd, char *packet, uint packet_length)
                     name, pos, gtid_string);
 
   my_atomic_add32(&thread_binlog_client, 1);
+  if (thd->net.compress_event)
+    my_atomic_add32(&thread_binlog_comp_event_client, 1);
   dec_thread_running();
 
   if ((flags & USING_START_GTID_PROTOCOL))
@@ -876,6 +1093,8 @@ bool com_binlog_dump_gtid(THD *thd, char *packet, uint packet_length)
 
   inc_thread_running();
   my_atomic_add32(&thread_binlog_client, -1);
+  if (thd->net.compress_event)
+    my_atomic_add32(&thread_binlog_comp_event_client, -1);
 
   my_free(gtid_string);
   unregister_slave(thd, true, true/*need_lock_slave_list=true*/);
@@ -1335,7 +1554,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
     and fake Rotates.
   */
   if (fake_rotate_event(net, packet, log_file_name, pos, &errmsg,
-      get_binlog_checksum_value_at_connect(current_thd)))
+        semi_sync_slave, get_binlog_checksum_value_at_connect(current_thd)))
   {
     /*
        This error code is not perfect, as fake_rotate_event() does not
@@ -1419,11 +1638,9 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
             current_checksum_alg != BINLOG_CHECKSUM_ALG_UNDEF)
           fix_checksum(packet, ev_offset);
 
-        /* send it */
-        if (my_net_write(net, (uchar*) packet->ptr(), packet->length()))
+        if (my_net_write_event(net, p_coord, packet, &errmsg,
+                               &my_errno, semi_sync_slave, false))
         {
-          errmsg = "Failed on my_net_write()";
-          my_errno= ER_UNKNOWN_ERROR;
           GOTO_ERR;
         }
 
@@ -1733,10 +1950,11 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 
       if (skip_group == false)
       {
-        if (my_net_write(net, (uchar*) packet->ptr(), packet->length()))
+        if (my_net_write_event(net, p_coord, packet, &errmsg, &my_errno,
+                               semi_sync_slave,
+                               event_type != FORMAT_DESCRIPTION_EVENT &&
+                               event_type != ROTATE_EVENT))
         {
-          errmsg = "Failed on my_net_write()";
-          my_errno= ER_UNKNOWN_ERROR;
           GOTO_ERR;
         }
         set_timespec_nsec(last_event_sent_ts, 0);
@@ -2027,7 +2245,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                 thd->EXIT_COND(&old_stage);
                 GOTO_ERR;
               }
-              if (send_heartbeat_event(net, packet, p_coord, current_checksum_alg))
+              if (send_heartbeat_event(net, packet, p_coord,
+                                       semi_sync_slave, current_checksum_alg))
               {
                 errmsg = "Failed on my_net_write()";
                 my_errno= ER_UNKNOWN_ERROR;
@@ -2153,10 +2372,11 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
               GOTO_ERR;
             }
 
-            if (my_net_write(net, (uchar*) packet->ptr(), packet->length()) )
+            if (my_net_write_event(net, p_coord, packet, &errmsg, &my_errno,
+                                   semi_sync_slave,
+                                   (event_type != FORMAT_DESCRIPTION_EVENT &&
+                                    event_type != ROTATE_EVENT)))
             {
-             errmsg = "Failed on my_net_write()";
-             my_errno= ER_UNKNOWN_ERROR;
              GOTO_ERR;
             }
             set_timespec_nsec(last_event_sent_ts, 0);
@@ -2239,7 +2459,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
       */
       if ((file=open_binlog_file(&log, log_file_name, &errmsg)) < 0 ||
           fake_rotate_event(net, packet, log_file_name, BIN_LOG_HEADER_SIZE,
-                            &errmsg, current_checksum_alg))
+                            &errmsg, semi_sync_slave, current_checksum_alg))
       {
         my_errno= ER_MASTER_FATAL_ERROR_READING_BINLOG;
         GOTO_ERR;

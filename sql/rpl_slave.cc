@@ -3836,7 +3836,7 @@ err:
 
 static ulong read_event(MYSQL* mysql, Master_info *mi, bool* suppress_warnings)
 {
-  ulong len;
+  ulong len= 0;
   DBUG_ENTER("read_event");
 
   *suppress_warnings= FALSE;
@@ -3849,7 +3849,17 @@ static ulong read_event(MYSQL* mysql, Master_info *mi, bool* suppress_warnings)
     DBUG_RETURN(packet_error);
 #endif
 
-  len= cli_safe_read(mysql, NULL);
+  if (mysql->net.vio != 0)
+    len= my_net_read(&mysql->net);
+
+#ifdef HAVE_COMPRESS
+  // case: event was compressed before sending, so we have to uncompress
+  if (mysql->net.compress_event && len != 0 && len != packet_error)
+    len= uncompress_event(&mysql->net, len);
+#endif
+
+  len= cli_safe_read_complete(mysql, len, 0, NULL);
+
   if (len == packet_error || (long) len < 1)
   {
     if (mysql_errno(mysql) == ER_NET_READ_INTERRUPTED)
@@ -7846,6 +7856,20 @@ static int connect_to_master(THD* thd, MYSQL* mysql, Master_info* mi,
   ulong client_flag= CLIENT_REMEMBER_OPTIONS;
   if (opt_slave_compressed_protocol) {
     client_flag|= CLIENT_COMPRESS;              /* We will use compression */
+    mysql_options(mysql, MYSQL_OPT_COMP_LIB, (void *)opt_slave_compression_lib);
+  }
+
+  if (opt_slave_compressed_event_protocol)
+  {
+    client_flag|= CLIENT_COMPRESS_EVENT;
+    if (opt_slave_compressed_protocol)
+    {
+      sql_print_warning("Both slave_compressed_protocol and "
+          "slave_compressed_event protocol are enabled. Disabling "
+          "slave_compressed_protocol to avoid double compression.");
+      client_flag&= ~CLIENT_COMPRESS;
+      opt_slave_compressed_protocol= FALSE;
+    }
     mysql_options(mysql, MYSQL_OPT_COMP_LIB, (void *)opt_slave_compression_lib);
   }
 

@@ -78,7 +78,7 @@ my_bool my_compress(NET *net, uchar *packet,
   {
     uchar *compbuf=my_compress_alloc(net, packet, len, complen, level);
     if (!compbuf)
-      DBUG_RETURN(*complen ? 0 : 1);
+      DBUG_RETURN(*complen ? 1 : 0);
     memcpy(packet,compbuf,*len);
     my_free(compbuf);
   }

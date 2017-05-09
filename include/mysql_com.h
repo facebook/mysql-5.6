@@ -213,11 +213,14 @@ enum enum_server_command
 /* Client no longer needs EOF packet */
 #define CLIENT_DEPRECATE_EOF (1UL << 24)
 
+/* Event compression */
+#define CLIENT_COMPRESS_EVENT (1UL << 25)
+
 #define CLIENT_SSL_VERIFY_SERVER_CERT (1UL << 30)
 #define CLIENT_REMEMBER_OPTIONS (1UL << 31)
 
 #ifdef HAVE_COMPRESS
-#define CAN_CLIENT_COMPRESS CLIENT_COMPRESS
+#define CAN_CLIENT_COMPRESS (CLIENT_COMPRESS | CLIENT_COMPRESS_EVENT)
 #else
 #define CAN_CLIENT_COMPRESS 0
 #endif
@@ -250,6 +253,7 @@ enum enum_server_command
                            | CLIENT_CAN_HANDLE_EXPIRED_PASSWORDS \
                            | CLIENT_SESSION_TRACK \
                            | CLIENT_DEPRECATE_EOF \
+                           | CLIENT_COMPRESS_EVENT \
 )
 
 /*
@@ -257,8 +261,9 @@ enum enum_server_command
   If any of the optional flags is supported by the build it will be switched
   on before sending to the client during the connection handshake.
 */
-#define CLIENT_BASIC_FLAGS (((CLIENT_ALL_FLAGS & ~CLIENT_SSL) \
+#define CLIENT_BASIC_FLAGS ((((CLIENT_ALL_FLAGS & ~CLIENT_SSL) \
                                                & ~CLIENT_COMPRESS) \
+                                               & ~CLIENT_COMPRESS_EVENT) \
                                                & ~CLIENT_SSL_VERIFY_SERVER_CERT)
 
 /**
@@ -470,6 +475,7 @@ typedef struct st_net {
   my_bool unused1; /* Please remove with the next incompatible ABI change */
   my_bool unused2; /* Please remove with the next incompatible ABI change */
   my_bool compress;
+  my_bool compress_event;
   my_bool unused3; /* Please remove with the next incompatible ABI change. */
   enum mysql_compression_lib comp_lib;
   ZSTD_CCtx *cctx;

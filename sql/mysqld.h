@@ -297,6 +297,8 @@ extern ulong opt_srv_fatal_semaphore_timeout;
 extern my_bool opt_safe_user_create;
 extern my_bool opt_safe_show_db, opt_local_infile, opt_myisam_use_mmap;
 extern my_bool opt_slave_compressed_protocol, use_temp_pool;
+extern my_bool opt_slave_compressed_event_protocol;
+extern ulonglong opt_max_compressed_event_cache_size;
 extern ulong opt_slave_compression_lib;
 extern ulong slave_exec_mode_options;
 extern ulong slave_use_idempotent_for_recovery_options;
@@ -372,6 +374,7 @@ extern my_bool log_legacy_user;
 extern const char *opt_legacy_user_name_pattern;
 
 extern int32 thread_binlog_client;
+extern int32 thread_binlog_comp_event_client;
 
 extern my_bool opt_log_slow_extra;
 extern ulonglong binlog_fsync_count;
@@ -387,6 +390,7 @@ extern ulong opt_peak_lag_sample_rate;
 extern ulong relay_io_events, relay_sql_events;
 extern ulonglong relay_io_bytes, relay_sql_bytes;
 extern ulonglong relay_sql_wait_time;
+extern double comp_event_cache_hit_ratio;
 extern my_bool recv_skip_ibuf_operations;
 
 /* SHOW STATS var: Name of current timer */

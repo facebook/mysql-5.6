@@ -125,6 +125,11 @@ cli_advanced_command(MYSQL *mysql, enum enum_server_command command,
 unsigned long cli_safe_read(MYSQL *mysql, my_bool *is_data_packet);
 unsigned long cli_safe_read_with_ok(MYSQL *mysql, my_bool parse_ok,
                                     my_bool *is_data_packet);
+unsigned long cli_safe_read_complete(MYSQL *mysql, ulong len,
+                                     my_bool parse_ok, my_bool *is_data_packet);
+#ifdef HAVE_COMPRESS
+unsigned long uncompress_event(NET* net, ulong len);
+#endif
 void net_clear_error(NET *net);
 void set_stmt_errmsg(MYSQL_STMT *stmt, NET *net);
 void set_stmt_error(MYSQL_STMT *stmt, int errcode, const char *sqlstate,

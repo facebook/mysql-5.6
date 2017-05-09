@@ -514,6 +514,8 @@ my_bool opt_skip_slave_start = 0; ///< If set, slave is not autostarted
 my_bool opt_reckless_slave = 0;
 my_bool opt_enable_named_pipe= 0;
 my_bool opt_local_infile, opt_slave_compressed_protocol;
+my_bool opt_slave_compressed_event_protocol;
+ulonglong opt_max_compressed_event_cache_size;
 ulong opt_slave_compression_lib;
 my_bool opt_safe_user_create = 0;
 my_bool opt_show_slave_auth_info;
@@ -575,6 +577,10 @@ ulonglong relay_sql_bytes= 0;
 
 /* Time the SQL thread waits for events from the IO thread */
 ulonglong relay_sql_wait_time= 0;
+
+/* Cache hit ratio when using slave_compressed_event_protocol in dump thread.
+   It is updated every minute */
+double comp_event_cache_hit_ratio= 0;
 
 /* status variables for binlog fsync histogram */
 SHOW_VAR latency_histogram_binlog_fsync[NUMBER_OF_HISTOGRAM_BINS + 1];
@@ -642,6 +648,7 @@ uint lower_case_table_names;
 ulong tc_heuristic_recover= 0;
 int32 num_thread_running;
 int32 thread_binlog_client;
+int32 thread_binlog_comp_event_client= 0;
 std::atomic<unsigned long> thread_created;
 ulong back_log, connect_timeout, concurrency, server_id;
 ulong table_cache_size, table_def_size;
@@ -2250,6 +2257,7 @@ void clean_up(bool print_message)
   free_max_user_conn();
 #ifdef HAVE_REPLICATION
   end_slave_list();
+  free_compressed_event_cache();
 #endif
   delete binlog_filter;
   delete rpl_filter;
@@ -5584,6 +5592,7 @@ static int init_server_components()
   init_thr_lock();
 #ifdef HAVE_REPLICATION
   init_slave_list();
+  init_compressed_event_cache();
 #endif
 
   /* Setup logs */
@@ -10186,6 +10195,7 @@ SHOW_VAR status_vars[]= {
   {"Rpl_seconds_update_rows",  (char*) &repl_event_times[UPDATE_ROWS_EVENT],   SHOW_TIMER},
   {"Rpl_seconds_delete_rows",  (char*) &repl_event_times[DELETE_ROWS_EVENT],   SHOW_TIMER},
   {"Rpl_seconds_incident",     (char*) &repl_event_times[INCIDENT_EVENT],      SHOW_TIMER},
+  {"Compressed_event_cache_hit_ratio", (char*) &comp_event_cache_hit_ratio, SHOW_DOUBLE},
 #endif
   {"rocksdb_git_hash",         (char*) rocksdb_git_hash, SHOW_CHAR },
   {"rocksdb_git_date",         (char*) rocksdb_git_date, SHOW_CHAR },
@@ -10260,6 +10270,7 @@ SHOW_VAR status_vars[]= {
   {"Tc_log_page_waits",        (char*) &tc_log_page_waits,      SHOW_LONG},
 #endif
   {"Threads_binlog_client",    (char*) &thread_binlog_client,   SHOW_INT},
+  {"Threads_binlog_comp_event_client", (char*) &thread_binlog_comp_event_client, SHOW_INT},
   {"Threads_cached",           (char*) &blocked_pthread_count,    SHOW_LONG_NOFLUSH},
   {"Threads_connected",        (char*) &connection_count,       SHOW_INT},
   {"Threads_created",          (char*) &show_thread_created,   SHOW_FUNC},

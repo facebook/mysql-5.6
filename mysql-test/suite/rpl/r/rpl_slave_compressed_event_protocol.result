@@ -1,0 +1,185 @@
+include/rpl_init.inc [topology=1->2,1->3,1->4,1->5]
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+include/rpl_connect.inc [creating master]
+include/rpl_connect.inc [creating slave_1]
+include/rpl_connect.inc [creating slave_2]
+include/rpl_connect.inc [creating slave_3]
+include/rpl_connect.inc [creating slave_4]
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/diff_tables.inc [master:test15.ti_nk, slave_1:test15.ti_nk]
+include/diff_tables.inc [master:test15.ti_nk, slave_2:test15.ti_nk]
+include/diff_tables.inc [master:test15.ti_nk, slave_3:test15.ti_nk]
+include/diff_tables.inc [master:test15.ti_nk, slave_4:test15.ti_nk]
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/diff_tables.inc [master:test14.ti_nk, slave_1:test14.ti_nk]
+include/diff_tables.inc [master:test14.ti_nk, slave_2:test14.ti_nk]
+include/diff_tables.inc [master:test14.ti_nk, slave_3:test14.ti_nk]
+include/diff_tables.inc [master:test14.ti_nk, slave_4:test14.ti_nk]
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/diff_tables.inc [master:test13.ti_nk, slave_1:test13.ti_nk]
+include/diff_tables.inc [master:test13.ti_nk, slave_2:test13.ti_nk]
+include/diff_tables.inc [master:test13.ti_nk, slave_3:test13.ti_nk]
+include/diff_tables.inc [master:test13.ti_nk, slave_4:test13.ti_nk]
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/diff_tables.inc [master:test12.ti_nk, slave_1:test12.ti_nk]
+include/diff_tables.inc [master:test12.ti_nk, slave_2:test12.ti_nk]
+include/diff_tables.inc [master:test12.ti_nk, slave_3:test12.ti_nk]
+include/diff_tables.inc [master:test12.ti_nk, slave_4:test12.ti_nk]
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/diff_tables.inc [master:test11.ti_nk, slave_1:test11.ti_nk]
+include/diff_tables.inc [master:test11.ti_nk, slave_2:test11.ti_nk]
+include/diff_tables.inc [master:test11.ti_nk, slave_3:test11.ti_nk]
+include/diff_tables.inc [master:test11.ti_nk, slave_4:test11.ti_nk]
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/diff_tables.inc [master:test10.ti_nk, slave_1:test10.ti_nk]
+include/diff_tables.inc [master:test10.ti_nk, slave_2:test10.ti_nk]
+include/diff_tables.inc [master:test10.ti_nk, slave_3:test10.ti_nk]
+include/diff_tables.inc [master:test10.ti_nk, slave_4:test10.ti_nk]
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/diff_tables.inc [master:test9.ti_nk, slave_1:test9.ti_nk]
+include/diff_tables.inc [master:test9.ti_nk, slave_2:test9.ti_nk]
+include/diff_tables.inc [master:test9.ti_nk, slave_3:test9.ti_nk]
+include/diff_tables.inc [master:test9.ti_nk, slave_4:test9.ti_nk]
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/diff_tables.inc [master:test8.ti_nk, slave_1:test8.ti_nk]
+include/diff_tables.inc [master:test8.ti_nk, slave_2:test8.ti_nk]
+include/diff_tables.inc [master:test8.ti_nk, slave_3:test8.ti_nk]
+include/diff_tables.inc [master:test8.ti_nk, slave_4:test8.ti_nk]
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/diff_tables.inc [master:test7.ti_nk, slave_1:test7.ti_nk]
+include/diff_tables.inc [master:test7.ti_nk, slave_2:test7.ti_nk]
+include/diff_tables.inc [master:test7.ti_nk, slave_3:test7.ti_nk]
+include/diff_tables.inc [master:test7.ti_nk, slave_4:test7.ti_nk]
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/diff_tables.inc [master:test6.ti_nk, slave_1:test6.ti_nk]
+include/diff_tables.inc [master:test6.ti_nk, slave_2:test6.ti_nk]
+include/diff_tables.inc [master:test6.ti_nk, slave_3:test6.ti_nk]
+include/diff_tables.inc [master:test6.ti_nk, slave_4:test6.ti_nk]
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/diff_tables.inc [master:test5.ti_nk, slave_1:test5.ti_nk]
+include/diff_tables.inc [master:test5.ti_nk, slave_2:test5.ti_nk]
+include/diff_tables.inc [master:test5.ti_nk, slave_3:test5.ti_nk]
+include/diff_tables.inc [master:test5.ti_nk, slave_4:test5.ti_nk]
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/diff_tables.inc [master:test4.ti_nk, slave_1:test4.ti_nk]
+include/diff_tables.inc [master:test4.ti_nk, slave_2:test4.ti_nk]
+include/diff_tables.inc [master:test4.ti_nk, slave_3:test4.ti_nk]
+include/diff_tables.inc [master:test4.ti_nk, slave_4:test4.ti_nk]
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/diff_tables.inc [master:test3.ti_nk, slave_1:test3.ti_nk]
+include/diff_tables.inc [master:test3.ti_nk, slave_2:test3.ti_nk]
+include/diff_tables.inc [master:test3.ti_nk, slave_3:test3.ti_nk]
+include/diff_tables.inc [master:test3.ti_nk, slave_4:test3.ti_nk]
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/diff_tables.inc [master:test2.ti_nk, slave_1:test2.ti_nk]
+include/diff_tables.inc [master:test2.ti_nk, slave_2:test2.ti_nk]
+include/diff_tables.inc [master:test2.ti_nk, slave_3:test2.ti_nk]
+include/diff_tables.inc [master:test2.ti_nk, slave_4:test2.ti_nk]
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/diff_tables.inc [master:test1.ti_nk, slave_1:test1.ti_nk]
+include/diff_tables.inc [master:test1.ti_nk, slave_2:test1.ti_nk]
+include/diff_tables.inc [master:test1.ti_nk, slave_3:test1.ti_nk]
+include/diff_tables.inc [master:test1.ti_nk, slave_4:test1.ti_nk]
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/diff_tables.inc [master:test0.ti_nk, slave_1:test0.ti_nk]
+include/diff_tables.inc [master:test0.ti_nk, slave_2:test0.ti_nk]
+include/diff_tables.inc [master:test0.ti_nk, slave_3:test0.ti_nk]
+include/diff_tables.inc [master:test0.ti_nk, slave_4:test0.ti_nk]
+"Small net buffer test"
+stop slave;
+set @save.net_buffer_length=@@global.net_buffer_length;
+set global net_buffer_length=1024;
+select @@global.net_buffer_length;
+@@global.net_buffer_length
+1024
+start slave;
+create table test.t1(a text);
+insert into test.t1 values(REPEAT("a", 4096));
+drop database test15;
+drop database test14;
+drop database test13;
+drop database test12;
+drop database test11;
+drop database test10;
+drop database test9;
+drop database test8;
+drop database test7;
+drop database test6;
+drop database test5;
+drop database test4;
+drop database test3;
+drop database test2;
+drop database test1;
+drop database test0;
+drop table test.t1;
+stop slave;
+set @@global.net_buffer_length=@save.net_buffer_length;
+start slave;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

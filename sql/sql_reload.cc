@@ -170,6 +170,9 @@ bool reload_acl_and_cache(THD *thd, unsigned long options,
         if (mysql_bin_log.rotate_and_purge(thd, true))
           *write_to_binlog= -1;
       }
+#ifdef HAVE_REPLICATION
+      clear_compressed_event_cache();
+#endif
     }
     if (options & REFRESH_RELAY_LOG)
     {
@@ -183,6 +186,7 @@ bool reload_acl_and_cache(THD *thd, unsigned long options,
         mysql_mutex_unlock(&active_mi->data_lock);
       }
       mysql_mutex_unlock(&LOCK_active_mi);
+      clear_compressed_event_cache();
 #endif
     }
     if (tmp_thd)
@@ -327,6 +331,7 @@ bool reload_acl_and_cache(THD *thd, unsigned long options,
       /* NOTE: my_error() has been already called by reset_master(). */
       result= 1;
     }
+    clear_compressed_event_cache();
   }
 #endif
 #ifdef HAVE_OPENSSL
@@ -355,6 +360,7 @@ bool reload_acl_and_cache(THD *thd, unsigned long options,
      my_error(ER_SLAVE_CONFIGURATION, MYF(0));
    }
    mysql_mutex_unlock(&LOCK_active_mi);
+   clear_compressed_event_cache();
  }
 #endif
  if (options & REFRESH_USER_RESOURCES)

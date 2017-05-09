@@ -1,0 +1,38 @@
+!include ../my.cnf
+
+[mysqld.1]
+log-slave-updates
+gtid-mode=ON
+enforce-gtid-consistency
+rpl_semi_sync_master_enabled= 1
+
+[mysqld.2]
+log-slave-updates
+gtid-mode=ON
+enforce-gtid-consistency
+slave_compression_lib= zstd
+
+[mysqld.3]
+log-slave-updates
+gtid-mode=ON
+enforce-gtid-consistency
+slave_compressed_event_protocol=true
+
+[mysqld.4]
+log-slave-updates
+gtid-mode=ON
+enforce-gtid-consistency
+rpl_semi_sync_slave_enabled= 1
+
+[mysqld.5]
+log-slave-updates
+gtid-mode=ON
+enforce-gtid-consistency
+slave_compressed_event_protocol=true
+rpl_semi_sync_slave_enabled= 1
+slave_compression_lib= zstd
+
+[ENV]
+SERVER_MYPORT_3= @mysqld.3.port
+SERVER_MYPORT_4= @mysqld.4.port
+SERVER_MYPORT_5= @mysqld.5.port

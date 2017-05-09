@@ -877,6 +877,8 @@ void prepare_new_connection_state(THD* thd)
   if (thd->client_capabilities & CLIENT_COMPRESS)
     thd->net.compress=1;        // Use compression
 
+  if (thd->client_capabilities & CLIENT_COMPRESS_EVENT)
+    thd->net.compress_event=1;        // Use event compression
   /*
     Much of this is duplicated in create_embedded_thd() for the
     embedded server library.

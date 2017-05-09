@@ -532,6 +532,10 @@ The following options may be given as the first argument:
  max_relay_log_size is 0
  --max-binlog-stmt-cache-size=# 
  Sets the total size of the statement cache
+ --max-compressed-event-cache-size[=#] 
+ Max size of the compressed event cache in MB, this makes
+ sense only when some connected slaves are using
+ compressed event protocol.
  --max-connect-errors=# 
  If there is more than this number of interrupted
  connections from a host this host will be blocked from
@@ -1438,6 +1442,8 @@ The following options may be given as the first argument:
  Gather workers' activities to Update progress status of
  Multi-threaded slave and flush the relay log info to disk
  after every #th milli-seconds.
+ --slave-compressed-event-protocol 
+ Use event compression on master/slave protocol
  --slave-compressed-protocol 
  Use compression on master/slave protocol
  --slave-compression-lib[=name] 
@@ -1822,6 +1828,7 @@ max-binlog-cache-size 18446744073709547520
 max-binlog-dump-events 0
 max-binlog-size 1073741824
 max-binlog-stmt-cache-size 18446744073709547520
+max-compressed-event-cache-size 1
 max-connect-errors 100
 max-connections 151
 max-delayed-threads 20
@@ -2113,6 +2120,7 @@ skip-slave-start FALSE
 slave-allow-batching FALSE
 slave-checkpoint-group 512
 slave-checkpoint-period 300
+slave-compressed-event-protocol FALSE
 slave-compressed-protocol FALSE
 slave-compression-lib zlib
 slave-exec-mode STRICT
