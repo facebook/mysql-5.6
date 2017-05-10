@@ -295,7 +295,12 @@ IF(WITH_FB_TSAN)
   # 2. We need to pass in both flags for the MY_CHECK_* function to succeed.
   # 3. Eventually -fPIC will be duplicated on the command-line, but that's OK.
   #
-  MY_SANITIZER_CHECK("-fsanitize=thread -fPIC -pie" WITH_FB_TSAN_OK)
+  IF (CMAKE_C_COMPILER_ID MATCHES "GNU" AND
+      CMAKE_CXX_COMPILER_VERSION VERSION_LESS 5)
+    MY_SANITIZER_CHECK("-fsanitize=thread -fPIC -pie" WITH_FB_TSAN_OK)
+  ELSE()
+    MY_SANITIZER_CHECK("-fsanitize=thread -fPIC" WITH_FB_TSAN_OK)
+  ENDIF()
   IF(NOT WITH_FB_TSAN_OK)
     MESSAGE(FATAL_ERROR
             "Do not know how to enable internal thread sanitizer (TSan).")
@@ -319,7 +324,12 @@ ENDIF()
 
 OPTION(WITH_UBSAN "Enable undefined behavior sanitizer" OFF)
 IF(WITH_UBSAN)
-  MY_SANITIZER_CHECK("-fsanitize=undefined" WITH_UBSAN_OK)
+  IF (CMAKE_C_COMPILER_ID MATCHES "GNU" AND
+      CMAKE_CXX_COMPILER_VERSION VERSION_LESS 5)
+    MY_SANITIZER_CHECK("-fsanitize=undefined" WITH_UBSAN_OK)
+  ELSE()
+    MY_SANITIZER_CHECK("-fsanitize=undefined -fno-sanitize=vptr" WITH_UBSAN_OK)
+  ENDIF()
   IF(NOT WITH_UBSAN_OK)
     MESSAGE(FATAL_ERROR
             "Do not know how to enable undefined behavior sanitizer (UBSan).")

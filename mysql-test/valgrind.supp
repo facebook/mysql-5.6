@@ -315,6 +315,16 @@
 }
 
 {
+   _dl_init/malloc loss record
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:_dl_init
+   ...
+}
+
+{
    init invalid write8
    Memcheck:Addr8
    fun:init
@@ -1094,6 +1104,17 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
+   ...
+   fun:err_get_state
+   ...
+   fun:main
+}
+
+{
+   TLS data on main thread is not cleaned up properly
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
    ...
    fun:err_get_state
    ...
