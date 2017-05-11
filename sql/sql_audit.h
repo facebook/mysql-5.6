@@ -135,7 +135,7 @@ void mysql_audit_general_log(THD *thd, const char *cmd, uint cmdlen,
                        error_code, time, user, userlen, cmd, cmdlen, query.str,
                        query.length, clientcs, resultrows, affectrows,
                        sql_command, host, external_user, ip, database,
-                       databaselen, queryattr, queryattrlen);
+                       databaselen, queryattr, queryattrlen, mysqld_port);
   }
 #endif
 }
@@ -223,7 +223,7 @@ void mysql_audit_general(THD *thd, uint event_subtype,
                        query.str(), query.length(), query.charset(),
                        resultrows, affectrows, sql_command, host,
                        external_user, ip, database, databaselen,
-                       queryattr, queryattrlen);
+                       queryattr, queryattrlen, mysqld_port);
   }
 #endif
 }
@@ -243,7 +243,7 @@ void mysql_audit_general(THD *thd, uint event_subtype,
   (thd)->security_ctx->get_ip()->length(),\
   (thd)->db, (thd)->db ? strlen((thd)->db) : 0,\
   (thd)->connection_certificate(),\
-  (thd)->connection_certificate_length());
+  (thd)->connection_certificate_length(), mysqld_port);
 
 
 #define MYSQL_AUDIT_NOTIFY_CONNECTION_DISCONNECT(thd, errcode)\
@@ -262,7 +262,7 @@ void mysql_audit_general(THD *thd, uint event_subtype,
   (thd)->security_ctx->get_ip()->length(),\
   (thd)->db, (thd)->db ? strlen((thd)->db) : 0,\
   (thd)->connection_certificate(),\
-  (thd)->connection_certificate_length());
+  (thd)->connection_certificate_length(), mysqld_port);
 
 #define MYSQL_AUDIT_NOTIFY_CONNECTION_CHANGE_USER(thd) mysql_audit_notify(\
   (thd), MYSQL_AUDIT_CONNECTION_CLASS, MYSQL_AUDIT_CONNECTION_CHANGE_USER,\
@@ -279,6 +279,6 @@ void mysql_audit_general(THD *thd, uint event_subtype,
   (thd)->security_ctx->get_ip()->length(),\
   (thd)->db, (thd)->db ? strlen((thd)->db) : 0,\
   (thd)->connection_certificate(),\
-  (thd)->connection_certificate_length());
+  (thd)->connection_certificate_length(), mysqld_port);
 
 #endif /* SQL_AUDIT_INCLUDED */
