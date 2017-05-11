@@ -292,6 +292,7 @@ struct mysql_event_general
   unsigned long long affected_rows;
   const char *query_attributes;
   unsigned int query_attributes_length;
+  unsigned int port;
 };
 struct mysql_event_connection
 {
@@ -314,6 +315,7 @@ struct mysql_event_connection
   unsigned int database_length;
   const char *connection_certificate;
   unsigned int connection_certificate_length;
+  unsigned int port;
 };
 struct st_mysql_audit
 {
