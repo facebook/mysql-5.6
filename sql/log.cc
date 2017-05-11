@@ -48,7 +48,12 @@ using std::min;
 using std::max;
 
 /* max size of log messages (error log, plugins' logging, general log) */
+#ifndef DBUG_OFF
+#define MAX_LOG_BUFFER_SIZE 1024 * 10
+#else
 #define MAX_LOG_BUFFER_SIZE 1024
+#endif
+
 #define MAX_TIME_SIZE 32
 
 static
