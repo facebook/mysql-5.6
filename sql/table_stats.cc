@@ -139,7 +139,7 @@ get_table_stats_by_name(const char *db_name,
   memcpy(cache_key, db_name, db_name_len + 1);
   memcpy(cache_key + db_name_len + 1, table_name, table_name_len + 1);
 
-  mysql_mutex_lock(&LOCK_global_table_stats);
+  bool table_stats_lock_acquired = global_table_stats_lock();
 
   // Get or create the TABLE_STATS object for this table.
   if (!(table_stats= (TABLE_STATS*)my_hash_search(&global_table_stats,
@@ -150,7 +150,7 @@ get_table_stats_by_name(const char *db_name,
                                                 MYF(MY_WME)))))
     {
       sql_print_error("Cannot allocate memory for TABLE_STATS.");
-      mysql_mutex_unlock(&LOCK_global_table_stats);
+      global_table_stats_unlock(table_stats_lock_acquired);
       return NULL;
     }
 
@@ -165,7 +165,7 @@ get_table_stats_by_name(const char *db_name,
     {
       sql_print_error("Cannot generate name for index stats.");
       my_free((char*)table_stats);
-      mysql_mutex_unlock(&LOCK_global_table_stats);
+      global_table_stats_unlock(table_stats_lock_acquired);
       return NULL;
     }
 
@@ -178,7 +178,7 @@ get_table_stats_by_name(const char *db_name,
       // Out of memory.
       sql_print_error("Inserting table stats failed.");
       my_free((char*)table_stats);
-      mysql_mutex_unlock(&LOCK_global_table_stats);
+      global_table_stats_unlock(table_stats_lock_acquired);
       return NULL;
     }
   }
@@ -195,14 +195,14 @@ get_table_stats_by_name(const char *db_name,
       if (set_index_stats_names(table_stats, tbl))
       {
         sql_print_error("Cannot generate name for index stats.");
-        mysql_mutex_unlock(&LOCK_global_table_stats);
+        global_table_stats_unlock(table_stats_lock_acquired);
         return NULL;
       }
     }
   }
 
 
-  mysql_mutex_unlock(&LOCK_global_table_stats);
+  global_table_stats_unlock(table_stats_lock_acquired);
 
   return table_stats;
 }
@@ -266,7 +266,7 @@ void free_global_table_stats(void)
 
 void reset_global_table_stats()
 {
-  mysql_mutex_lock(&LOCK_global_table_stats);
+  bool table_stats_lock_acquired = global_table_stats_lock();
 
   for (unsigned i = 0; i < global_table_stats.records; ++i) {
     TABLE_STATS *table_stats =
@@ -276,7 +276,7 @@ void reset_global_table_stats()
     table_stats->num_indexes= 0;
   }
 
-  mysql_mutex_unlock(&LOCK_global_table_stats);
+  global_table_stats_unlock(table_stats_lock_acquired);
 }
 
 ST_FIELD_INFO table_stats_fields_info[]=
@@ -451,7 +451,7 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 
   ha_get_table_stats(fill_table_stats_cb);
 
-  mysql_mutex_lock(&LOCK_global_table_stats);
+  bool table_stats_lock_acquired = global_table_stats_lock();
 
   for (unsigned i = 0; i < global_table_stats.records; ++i) {
     int f= 0;
@@ -636,11 +636,11 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 
     if (schema_table_store_record(thd, table))
     {
-      mysql_mutex_unlock(&LOCK_global_table_stats);
+      global_table_stats_unlock(table_stats_lock_acquired);
       DBUG_RETURN(-1);
     }
   }
-  mysql_mutex_unlock(&LOCK_global_table_stats);
+  global_table_stats_unlock(table_stats_lock_acquired);
 
   DBUG_RETURN(0);
 }
@@ -691,7 +691,7 @@ int fill_index_stats(THD *thd, TABLE_LIST *tables, Item *cond)
   DBUG_ENTER("fill_index_stats");
   TABLE* table= tables->table;
 
-  mysql_mutex_lock(&LOCK_global_table_stats);
+  bool table_stats_lock_acquired = global_table_stats_lock();
 
   for (unsigned i = 0; i < global_table_stats.records; ++i) {
     uint ix;
@@ -753,7 +753,7 @@ int fill_index_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 
       if (schema_table_store_record(thd, table))
       {
-        mysql_mutex_unlock(&LOCK_global_table_stats);
+        global_table_stats_unlock(table_stats_lock_acquired);
         DBUG_RETURN(-1);
       }
     }
@@ -761,7 +761,7 @@ int fill_index_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 
 
 
-  mysql_mutex_unlock(&LOCK_global_table_stats);
+  global_table_stats_unlock(table_stats_lock_acquired);
 
   DBUG_RETURN(0);
 }
@@ -888,7 +888,7 @@ void table_stats_rename(const char *old_name, const char *new_name)
   strsep(&old_table, "/");
   strsep(&new_table, "/");
 
-  mysql_mutex_lock(&LOCK_global_table_stats);
+  bool table_stats_lock_acquired = global_table_stats_lock();
 
   stats = (TABLE_STATS*)
               my_hash_search(&global_table_stats, (uchar*)old_key, old_len);
@@ -907,7 +907,7 @@ void table_stats_rename(const char *old_name, const char *new_name)
     }
   }
 
-  mysql_mutex_unlock(&LOCK_global_table_stats);
+  global_table_stats_unlock(table_stats_lock_acquired);
   my_free(new_key);
   my_free(old_key);
 }
@@ -939,7 +939,7 @@ void table_stats_delete(const char *old_name)
     strsep(&temp, "/");
   }
 
-  mysql_mutex_lock(&LOCK_global_table_stats);
+  bool table_stats_lock_acquired = global_table_stats_lock();
 
   old_stats = (TABLE_STATS*)
               my_hash_search(&global_table_stats, (uchar*)old_key, old_len);
@@ -948,6 +948,49 @@ void table_stats_delete(const char *old_name)
     my_hash_delete(&global_table_stats, (uchar*)old_stats);
   }
 
-  mysql_mutex_unlock(&LOCK_global_table_stats);
+  global_table_stats_unlock(table_stats_lock_acquired);
   my_free(old_key);
+}
+
+/*
+  It's possible for this mutex to be locked twice by one thread when
+  ha_myisam::write_row() errors out during a information schema query.
+
+  We use an error checking mutex here so we can handle this situation.
+  More details: https://github.com/facebook/mysql-5.6/issues/132.
+*/
+bool global_table_stats_lock() {
+/*
+  In debug mode safe_mutex is turned on, and
+  PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP is ignored.
+
+  However, safe_mutex contains information about the thread ID
+  which we can use to determine if we are re-locking the calling thread.
+
+  In release builds pthread_mutex_t is used, which respects the
+  PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP property.
+*/
+#ifndef DBUG_OFF
+  if (!pthread_equal(pthread_self(),
+                     (&(&LOCK_global_table_stats)->m_mutex)->thread))
+  {
+    mysql_mutex_lock(&LOCK_global_table_stats);
+    return false;
+  }
+
+  return true;
+#else
+  return mysql_mutex_lock(&LOCK_global_table_stats) == EDEADLK;
+#endif
+}
+
+void global_table_stats_unlock(bool acquired) {
+  /* If lock was already acquired by calling thread, do nothing. */
+  if (acquired)
+  {
+    return;
+  }
+
+  /* Otherwise, unlock the mutex */
+  mysql_mutex_unlock(&LOCK_global_table_stats);
 }
