@@ -1,0 +1,5 @@
+SET SESSION debug="+d,myisam_simulate_err_in_write_row";
+SET TMP_TABLE_SIZE=1024;
+SELECT * FROM INFORMATION_SCHEMA.TABLE_STATISTICS;
+ERROR HY000: Temporary table file is too big
+SET SESSION debug="-d,myisam_simulate_err_in_write_row";

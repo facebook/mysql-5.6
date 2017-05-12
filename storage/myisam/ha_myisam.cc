@@ -813,7 +813,7 @@ int ha_myisam::write_row(uchar *buf)
 {
   ha_statistic_increment(&SSV::ha_write_count);
 
-  DBUG_EXECUTE_IF("myisam_simulate_crash_in_write_row", {
+  DBUG_EXECUTE_IF("myisam_simulate_err_in_write_row", {
     return (my_errno= HA_ERR_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED);
   };);
 

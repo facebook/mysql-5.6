@@ -91,5 +91,5 @@ if (!$tmp) {
   SHOW SLAVE STATUS;
 }
 
-#call mtr.check_testcase();
+call mtr.check_testcase();
 --enable_query_log
