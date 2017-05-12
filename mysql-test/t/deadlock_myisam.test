@@ -1,0 +1,17 @@
+--source include/have_debug.inc
+
+# Issue https://github.com/facebook/mysql-5.6/issues/132
+SET SESSION debug="+d,myisam_simulate_err_in_write_row";
+
+# If an internal in-memory temporary table exceeds this size, MySQL "
+# will automatically convert it to an on-disk MyISAM table"
+SET TMP_TABLE_SIZE=1024;
+
+# This then causes this select statement to go into ha_myisam::write_row
+# where we have set it to error out, which previously caused a deadlock
+# due to recursive lock acquisition.
+--error 1891
+SELECT * FROM INFORMATION_SCHEMA.TABLE_STATISTICS;
+
+SET SESSION debug="-d,myisam_simulate_err_in_write_row";
+
