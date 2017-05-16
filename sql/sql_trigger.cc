@@ -937,9 +937,19 @@ static bool rm_trigger_file(char *path, const char *db,
                             const char *table_name)
 {
   build_table_filename(path, FN_REFLEN-1, db, table_name, TRG_EXT, 0);
-  return mysql_file_delete(key_file_trg, path, MYF(MY_WME));
-}
+  int rc = mysql_file_delete(key_file_trg, path, MYF(MY_WME));
+  if (rc != 0 && my_errno == ENOENT)
+  {
+    // NO_LINT_DEBUG
+    sql_print_warning(
+        "Attempt to delete the trigger file '%s' failed "
+        "because the file does not exist.  The error will be ignored.",
+        path);
+    rc = 0;
+  }
 
+  return (bool)rc;
+}
 
 /**
   Deletes the .TRN file for a trigger.
@@ -959,7 +969,18 @@ static bool rm_trigname_file(char *path, const char *db,
                              const char *trigger_name)
 {
   build_table_filename(path, FN_REFLEN - 1, db, trigger_name, TRN_EXT, 0);
-  return mysql_file_delete(key_file_trn, path, MYF(MY_WME));
+  int rc = mysql_file_delete(key_file_trn, path, MYF(MY_WME));
+  if (rc != 0 && my_errno == ENOENT)
+  {
+    // NO_LINT_DEBUG
+    sql_print_warning(
+        "Attempt to delete the trigger file '%s' failed "
+        "because the file does not exist.  The error will be ignored.",
+        path);
+    rc = 0;
+  }
+
+  return (bool)rc;
 }
 
 
