@@ -4432,7 +4432,9 @@ void ha_rocksdb::setup_read_decoders() {
       continue;
     }
 
+    // bitmap is cleared on index merge, but it still needs to decode columns
     if (m_lock_rows == RDB_LOCK_WRITE || m_verify_row_debug_checksums ||
+        bitmap_is_clear_all(table->read_set) ||
         bitmap_is_set(table->read_set, table->field[i]->field_index)) {
       // We will need to decode this field
       m_decoders_vect.push_back({&m_encoder_arr[i], true, skip_size});
