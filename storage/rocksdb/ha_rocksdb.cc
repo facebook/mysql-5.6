@@ -1582,6 +1582,12 @@ public:
   bool m_ddl_transaction;
 
   /*
+    Tracks the number of tables in use through external_lock.
+    This should not be reset during start_tx().
+  */
+  int64_t m_n_mysql_tables_in_use = 0;
+
+  /*
     for distinction between rdb_transaction_impl and rdb_writebatch_impl
     when using walk tx list
   */
@@ -8900,7 +8906,9 @@ int ha_rocksdb::external_lock(THD *const thd, int lock_type) {
     Rdb_transaction *const tx = get_or_create_tx(thd);
 
     tx->io_perf_end_and_record(&m_io_perf);
-    if (!my_core::thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN)) {
+    tx->m_n_mysql_tables_in_use--;
+    if (tx->m_n_mysql_tables_in_use == 0 &&
+        !my_core::thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN)) {
       /*
         Do like InnoDB: when we get here, it's time to commit a
         single-statement transaction.
@@ -8962,6 +8970,7 @@ int ha_rocksdb::external_lock(THD *const thd, int lock_type) {
         tx->m_ddl_transaction = true;
       }
     }
+    tx->m_n_mysql_tables_in_use++;
     rocksdb_register_tx(rocksdb_hton, thd, tx);
     tx->io_perf_start(&m_io_perf);
   }
