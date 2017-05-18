@@ -83,3 +83,27 @@ EXPLAIN UPDATE t1 SET filler1='to be deleted' WHERE key1=100 AND key2=100;
 UPDATE t1 SET filler1='to be deleted' WHERE key1=100 and key2=100;
 
 DROP TABLE t0, t1;
+
+# Issue624 - MyRocks executes index_merge query plan incorrectly
+create table t1 (key1 int, key2 int, key3 int, key (key1), key (key2), key(key3)) engine=rocksdb;
+insert into t1 values (1, 100, 100), (1, 200, 200), (1, 300, 300);
+--disable_query_log
+let $i = 1;
+while ($i <= 1000) {
+  let $insert = INSERT INTO t1 VALUES(1000,1000,1000);
+  inc $i;
+  eval $insert;
+}
+--enable_query_log
+analyze table t1;
+set global rocksdb_force_flush_memtable_now=1;
+
+--replace_column 9 #
+explain select * from t1 where key1 = 1;
+--replace_column 9 #
+explain select key1,key2 from t1 where key1 = 1 or key2 = 1;
+select * from t1 where key1 = 1;
+select key1,key2 from t1 where key1 = 1 or key2 = 1;
+
+drop table t1;
+
