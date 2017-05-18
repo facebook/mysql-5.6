@@ -39,7 +39,7 @@ INSERT INTO t1 values (9);
 
 --sorted_result
 SELECT * FROM t1;
---sleep 1
+--real_sleep 3
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='default';
 
@@ -83,7 +83,7 @@ INSERT INTO t1 values (9,9,'aaaaaaaaa');
 
 --sorted_result
 SELECT * FROM t1;
---sleep 1
+--real_sleep 2
 set global rocksdb_force_flush_memtable_now=1;
 set @@global.rocksdb_compact_cf = 'foo';
 set @@global.rocksdb_compact_cf = 'my_custom_cf';
@@ -91,7 +91,7 @@ set @@global.rocksdb_compact_cf = 'baz';
 --sorted_result
 SELECT * FROM t1;
 
---sleep 4
+--real_sleep 4
 set @@global.rocksdb_compact_cf = 'foo';
 set @@global.rocksdb_compact_cf = 'baz';
 --sorted_result
@@ -150,7 +150,7 @@ set @@global.rocksdb_compact_cf = 'baz';
 --sorted_result
 SELECT * FROM t1;
 
---sleep 5
+--real_sleep 6
 set @@global.rocksdb_compact_cf = 'foo';
 set @@global.rocksdb_compact_cf = 'baz';
 --sorted_result
@@ -190,7 +190,7 @@ INSERT INTO t1 VALUES (7, UNIX_TIMESTAMP(), "seven", null);
 INSERT INTO t1 VALUES (8, UNIX_TIMESTAMP(), "eight", null);
 INSERT INTO t1 VALUES (9, UNIX_TIMESTAMP(), "nine", null);
 set global rocksdb_force_flush_memtable_now=1;
---sleep 1
+--real_sleep 2
 set @@global.rocksdb_compact_cf = 'foo';
 set @@global.rocksdb_compact_cf = 'baz';
 set @@global.rocksdb_compact_cf = 'bar';
@@ -200,7 +200,7 @@ set @@global.rocksdb_compact_cf = 'bar';
 SELECT c1 FROM t1;
 
 # here we expect only 4,5,6 to be gone, ttl based on column c2.
---sleep 4
+--real_sleep 4
 set @@global.rocksdb_compact_cf = 'bar';
 --sorted_result
 SELECT c1 FROM t1;
@@ -230,7 +230,7 @@ INSERT INTO t1 values (1, UNIX_TIMESTAMP());
 INSERT INTO t1 values (2, UNIX_TIMESTAMP());
 INSERT INTO t1 values (3, UNIX_TIMESTAMP());
 
---sleep 1
+--real_sleep 1
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='default';
 
@@ -238,7 +238,7 @@ set global rocksdb_compact_cf='default';
 --sorted_result
 SELECT c1 FROM t1;
 
---sleep 4
+--real_sleep 5
 set global rocksdb_compact_cf='default';
 # everything should now be gone
 --sorted_result
