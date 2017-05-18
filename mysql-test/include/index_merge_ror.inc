@@ -127,8 +127,11 @@ analyze table t1;
 # One row results tests for cases where a single row matches all conditions
 explain select key1,key2 from t1 where key1=100 and key2=100;
 select key1,key2 from t1 where key1=100 and key2=100;
-explain select key1,key2,key3,key4,filler1 from t1 where key1=100 and key2=100 or key3=100 and key4=100;
-explain format=json select key1,key2,key3,key4,filler1 from t1 where key1=100 and key2=100 or key3=100 and key4=100;
+if (!$skip_ror_EXPLAIN_for_MyRocks)
+{
+  explain select key1,key2,key3,key4,filler1 from t1 where key1=100 and key2=100 or key3=100 and key4=100;
+  explain format=json select key1,key2,key3,key4,filler1 from t1 where key1=100 and key2=100 or key3=100 and key4=100;
+}
 select key1,key2,key3,key4,filler1 from t1 where key1=100 and key2=100 or key3=100 and key4=100;
 
 # Several-rows results
@@ -142,26 +145,44 @@ analyze table t1;
 -- enable_query_log
 
 #  ROR-intersection, not covering
-explain select key1,key2,filler1 from t1 where key1=100 and key2=100;
+if (!$skip_ror_EXPLAIN_for_MyRocks)
+{
+  explain select key1,key2,filler1 from t1 where key1=100 and key2=100;
+}
 select key1,key2,filler1 from t1 where key1=100 and key2=100;
 
 #  ROR-intersection, covering
-explain select key1,key2 from t1 where key1=100 and key2=100;
+if (!$skip_ror_EXPLAIN_for_MyRocks)
+{
+  explain select key1,key2 from t1 where key1=100 and key2=100;
+}
 select key1,key2 from t1 where key1=100 and key2=100;
 
 #  ROR-union of ROR-intersections
-explain select key1,key2,key3,key4 from t1 where key1=100 and key2=100 or key3=100 and key4=100;
+if (!$skip_ror_EXPLAIN_for_MyRocks)
+{
+  explain select key1,key2,key3,key4 from t1 where key1=100 and key2=100 or key3=100 and key4=100;
+}
 select key1,key2,key3,key4 from t1 where key1=100 and key2=100 or key3=100 and key4=100;
-explain select key1,key2,key3,key4,filler1 from t1 where key1=100 and key2=100 or key3=100 and key4=100;
+if (!$skip_ror_EXPLAIN_for_MyRocks)
+{
+  explain select key1,key2,key3,key4,filler1 from t1 where key1=100 and key2=100 or key3=100 and key4=100;
+}
 select key1,key2,key3,key4,filler1 from t1 where key1=100 and key2=100 or key3=100 and key4=100;
 
 #  3-way ROR-intersection
-explain select key1,key2,key3 from t1 where key1=100 and key2=100 and key3=100;
+if (!$skip_ror_EXPLAIN_for_MyRocks)
+{
+  explain select key1,key2,key3 from t1 where key1=100 and key2=100 and key3=100;
+}
 select key1,key2,key3 from t1 where key1=100 and key2=100 and key3=100;
 
 #  ROR-union(ROR-intersection, ROR-range)
 insert into t1 (key1,key2,key3,key4,filler1) values (101,101,101,101, 'key1234-101');
-explain select key1,key2,key3,key4,filler1 from t1 where key1=100 and key2=100 or key3=101;
+if (!$skip_ror_EXPLAIN_for_MyRocks)
+{
+  explain select key1,key2,key3,key4,filler1 from t1 where key1=100 and key2=100 or key3=101;
+}
 select key1,key2,key3,key4,filler1 from t1 where key1=100 and key2=100 or key3=101;
 
 # Run some ROR updates/deletes
@@ -178,7 +199,10 @@ select key1,key2,filler1 from t1 where key2=100 and key2=200;
 
 # ROR-union(ROR-intersection) with one of ROR-intersection giving empty
 # results
-explain select key1,key2,key3,key4,filler1 from t1 where key1=100 and key2=100 or key3=100 and key4=100;
+if (!$skip_ror_EXPLAIN_for_MyRocks)
+{
+  explain select key1,key2,key3,key4,filler1 from t1 where key1=100 and key2=100 or key3=100 and key4=100;
+}
 select key1,key2,key3,key4,filler1 from t1 where key1=100 and key2=100 or key3=100 and key4=100;
 
 delete from t1 where key3=100 and key4=100;
@@ -190,11 +214,17 @@ analyze table t1;
 -- enable_query_log
 
 # ROR-union with all ROR-intersections giving empty results
-explain select key1,key2,key3,key4,filler1 from t1 where key1=100 and key2=100 or key3=100 and key4=100;
+if (!$skip_ror_EXPLAIN_for_MyRocks)
+{
+  explain select key1,key2,key3,key4,filler1 from t1 where key1=100 and key2=100 or key3=100 and key4=100;
+}
 select key1,key2,key3,key4,filler1 from t1 where key1=100 and key2=100 or key3=100 and key4=100;
 
 # ROR-intersection with empty result
-explain select key1,key2 from t1 where key1=100 and key2=100;
+if (!$skip_ror_EXPLAIN_for_MyRocks)
+{
+  explain select key1,key2 from t1 where key1=100 and key2=100;
+}
 select key1,key2 from t1 where key1=100 and key2=100;
 
 # ROR-union tests with various cases.
@@ -209,7 +239,10 @@ analyze table t1;
 -- enable_result_log
 -- enable_query_log
 
-explain select key1,key2,key3,key4,filler1 from t1 where key3=200 or (key1=100 and key2=100) or key4=200;
+if (!$skip_ror_EXPLAIN_for_MyRocks)
+{
+  explain select key1,key2,key3,key4,filler1 from t1 where key3=200 or (key1=100 and key2=100) or key4=200;
+}
 select key1,key2,key3,key4,filler1 from t1 where key3=200 or (key1=100 and key2=100) or key4=200;
 
 insert into t1 (key1, key2, key3, key4, filler1) values (-1, -1, -1, 200,'key4');
@@ -220,7 +253,10 @@ analyze table t1;
 -- enable_result_log
 -- enable_query_log
 
-explain select key1,key2,key3,key4,filler1 from t1 where key3=200 or (key1=100 and key2=100) or key4=200;
+if (!$skip_ror_EXPLAIN_for_MyRocks)
+{
+  explain select key1,key2,key3,key4,filler1 from t1 where key3=200 or (key1=100 and key2=100) or key4=200;
+}
 select key1,key2,key3,key4,filler1 from t1 where key3=200 or (key1=100 and key2=100) or key4=200;
 
 insert into t1 (key1, key2, key3, key4, filler1) values (-1, -1, 200, -1,'key3');
@@ -231,7 +267,10 @@ analyze table t1;
 -- enable_result_log
 -- enable_query_log
 
-explain select key1,key2,key3,key4,filler1 from t1 where key3=200 or (key1=100 and key2=100) or key4=200;
+if (!$skip_ror_EXPLAIN_for_MyRocks)
+{
+  explain select key1,key2,key3,key4,filler1 from t1 where key3=200 or (key1=100 and key2=100) or key4=200;
+}
 select key1,key2,key3,key4,filler1 from t1 where key3=200 or (key1=100 and key2=100) or key4=200;
 
 ##
@@ -250,11 +289,20 @@ if (!$index_merge_random_rows_in_EXPLAIN)
 # Do many tests
 # Check that keys that don't improve selectivity are skipped.
 #
-
+if (!$skip_ror_EXPLAIN_for_MyRocks)
+{
 # Different value on 32 and 64 bit
+if ($random_rows_in_EXPLAIN)
+{
+  --replace_column 9 #
+}
 --replace_result sta_swt12a sta_swt21a sta_swt12a, sta_swt12a,
 explain select * from t1 where st_a=1 and swt1a=1 and swt2a=1;
 
+if ($random_rows_in_EXPLAIN)
+{
+  --replace_column 9 #
+}
 explain select * from t1 where st_b=1 and swt1b=1 and swt2b=1;
 
 if ($index_merge_random_rows_in_EXPLAIN)
@@ -311,6 +359,7 @@ if ($index_merge_random_rows_in_EXPLAIN)
 }
 explain select st_a from t1
   where st_a=1 and swt1a=1 and st_b=1 and swt1b=1 and swt1b=1;
+}
 
 drop table t0,t1;
 
