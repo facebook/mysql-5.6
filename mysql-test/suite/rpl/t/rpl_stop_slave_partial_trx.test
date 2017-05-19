@@ -1,0 +1,156 @@
+source include/master-slave.inc;
+source include/have_debug.inc;
+source include/have_debug_sync.inc;
+source include/have_binlog_format_row.inc;
+
+call mtr.add_suppression("The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state");
+
+# Create schema
+connection master;
+create database d1;
+create database d2;
+create database d3;
+create table d1.t1 (a int) engine=innodb;
+create table d2.t2 (a int) engine=myisam; # non-transactional engine
+create table d3.t3 (a int) engine=innodb; # transactional engine
+sync_slave_with_master;
+
+
+
+## Test 1: STOP SLAVE when there are pending jobs in the worker queues and there
+## is a partial transaction on a non-transactional table. The slave should wait
+## for 1 minute to complete the partial transaction before giving up.
+
+# Block all d1.t1 transactions on the slave
+connection slave;
+lock tables d1.t1 read;
+
+# Generate some load, all of these will be blocked in the slave worker queue
+connection master;
+let $num_inserts=5;
+while ($num_inserts)
+{
+  insert into d1.t1 values(1);
+  dec $num_inserts;
+}
+
+# This will stop the dump thread before sending the entire group
+set global debug= '+d,dump_thread_wait_after_send_write_rows';
+insert into d2.t2 values(1);
+
+# wait for the dump thread reach the sync point
+--let $wait_condition= select count(*)=1 from information_schema.processlist where state LIKE '%debug sync point%' and command like 'Binlog Dump%'
+--source include/wait_condition.inc
+
+connection slave;
+# unblock d1.t1
+unlock tables;
+
+# This should take at least a minute because the trx on t2 is not completely downloaded and cannot be rollbacked safely
+set @start=now();
+stop slave;
+select timestampdiff(SECOND, @start, now()) >= 60;
+start slave;
+
+connection master;
+SET DEBUG_SYNC= 'now SIGNAL signal.continue';
+# wait for the dump thread to come out of the waiting phase before resetting the signals
+--let $wait_condition= select count(*)=0 from information_schema.processlist where state LIKE '%debug sync point%' and command='Binlog Dump'
+--source include/wait_condition.inc
+SET DEBUG_SYNC= 'RESET';
+
+connection master;
+set @@global.debug= '-d,dump_thread_wait_after_send_write_rows';
+sync_slave_with_master;
+
+# Verification
+connection master;
+echo "Tables on master:"
+connection master;
+select * from d1.t1;
+select * from d2.t2;
+select * from d3.t3;
+echo "Tables on slave:"
+connection slave;
+select * from d1.t1;
+select * from d2.t2;
+select * from d3.t3;
+
+# cleanup
+connection master;
+delete from d1.t1;
+delete from d2.t2;
+delete from d3.t3;
+sync_slave_with_master;
+
+
+
+## Test 2: STOP SLAVE when there are pending jobs in the worker queues and there
+## is a partial transaction on a transactional table. The slave should stop
+## immidiately after completing all pending full transactions.
+
+# Block all d1.t1 transactions on the slave
+connection slave;
+lock tables d1.t1 read;
+
+# Generate some load, all of these will be blocked in the slave worker queue
+connection master;
+let $num_inserts=5;
+while ($num_inserts)
+{
+  insert into d1.t1 values(1);
+  dec $num_inserts;
+}
+
+# This will stop the dump thread before sending the entire group
+set global debug= '+d,dump_thread_wait_after_send_write_rows';
+insert into d3.t3 values(1);
+
+# wait for the dump thread reach the sync point
+--let $wait_condition= select count(*)=1 from information_schema.processlist where state LIKE '%debug sync point%' and command like 'Binlog Dump%'
+--source include/wait_condition.inc
+
+connection slave;
+# unblock d1.t1
+unlock tables;
+
+# Since the partial transaction is on a transactional table the slave should
+# stop as soon as is completes all pending full transactions
+set @start=now();
+stop slave;
+select timestampdiff(SECOND, @start, now()) < 60;
+start slave;
+
+connection master;
+SET DEBUG_SYNC= 'now SIGNAL signal.continue';
+# wait for the dump thread to come out of the waiting phase before resetting the signals
+--let $wait_condition= select count(*)=0 from information_schema.processlist where state LIKE '%debug sync point%' and command='Binlog Dump'
+--source include/wait_condition.inc
+SET DEBUG_SYNC= 'RESET';
+
+connection master;
+set @@global.debug= '-d,dump_thread_wait_after_send_write_rows';
+sync_slave_with_master;
+
+# Verification
+connection master;
+echo "Tables on master:"
+connection master;
+select * from d1.t1;
+select * from d2.t2;
+select * from d3.t3;
+echo "Tables on slave:"
+connection slave;
+select * from d1.t1;
+select * from d2.t2;
+select * from d3.t3;
+
+# final cleanup
+connection master;
+drop database d1;
+drop database d2;
+drop database d3;
+sync_slave_with_master;
+
+
+source include/rpl_end.inc;

@@ -1742,6 +1742,20 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
         set_timespec_nsec(last_event_sent_ts, 0);
       }
 
+      DBUG_EXECUTE_IF("dump_thread_wait_after_send_write_rows",
+                      {
+                        if (event_type == WRITE_ROWS_EVENT)
+                        {
+                          net_flush(net);
+                          const char act[]=
+                            "now "
+                            "wait_for signal.continue";
+                          DBUG_ASSERT(opt_debug_sync_timeout > 0);
+                          DBUG_ASSERT(!debug_sync_set_action(current_thd,
+                                STRING_WITH_LEN(act)));
+                        }
+                      });
+
       DBUG_EXECUTE_IF("dump_thread_wait_before_send_xid",
                       {
                         if (event_type == XID_EVENT)
