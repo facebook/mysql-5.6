@@ -146,14 +146,14 @@ void thr_lock_init(THR_LOCK *lock);
 void thr_lock_delete(THR_LOCK *lock);
 void thr_lock_data_init(THR_LOCK *lock,THR_LOCK_DATA *data,
 			void *status_param);
-enum enum_thr_lock_result thr_lock(THR_LOCK_DATA *data,
+enum enum_thr_lock_result thr_lock_nsec(THR_LOCK_DATA *data,
                                    THR_LOCK_INFO *owner,
                                    enum thr_lock_type lock_type,
-                                   ulong lock_wait_timeout);
+                                   ulonglong lock_wait_timeout_nsec);
 void thr_unlock(THR_LOCK_DATA *data);
-enum enum_thr_lock_result thr_multi_lock(THR_LOCK_DATA **data,
+enum enum_thr_lock_result thr_multi_lock_nsec(THR_LOCK_DATA **data,
                                          uint count, THR_LOCK_INFO *owner,
-                                         ulong lock_wait_timeout,
+                                         ulonglong lock_wait_timeout_nsec,
                                          THR_LOCK_DATA **error_pos);
 void thr_multi_unlock(THR_LOCK_DATA **data,uint count);
 void
@@ -161,13 +161,13 @@ thr_lock_merge_status(THR_LOCK_DATA **data, uint count);
 void thr_abort_locks(THR_LOCK *lock, my_bool upgrade_lock);
 my_bool thr_abort_locks_for_thread(THR_LOCK *lock, my_thread_id thread);
 void thr_print_locks(void);		/* For debugging */
-my_bool thr_upgrade_write_delay_lock(THR_LOCK_DATA *data,
+my_bool thr_upgrade_write_delay_lock_nsec(THR_LOCK_DATA *data,
                                      enum thr_lock_type new_lock_type,
-                                     ulong lock_wait_timeout);
+                                     ulonglong lock_wait_timeout_nsec);
 void    thr_downgrade_write_lock(THR_LOCK_DATA *data,
                                  enum thr_lock_type new_lock_type);
-my_bool thr_reschedule_write_lock(THR_LOCK_DATA *data,
-                                  ulong lock_wait_timeout);
+my_bool thr_reschedule_write_lock_nsec(THR_LOCK_DATA *data,
+                                  ulonglong lock_wait_timeout_nsec);
 void thr_set_lock_wait_callback(void (*before_wait)(void),
                                 void (*after_wait)(void));
 #ifdef	__cplusplus

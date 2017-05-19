@@ -204,7 +204,7 @@ pre_init_event_thread(THD* thd)
   thd->set_time();
 
   /* Do not use user-supplied timeout value for system threads. */
-  thd->variables.lock_wait_timeout= LONG_TIMEOUT;
+  thd->variables.lock_wait_timeout_nsec= LONG_TIMEOUT_NSEC;
 
   DBUG_VOID_RETURN;
 }

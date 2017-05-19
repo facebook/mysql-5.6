@@ -1547,8 +1547,8 @@ bool lock_db_routines(THD *thd, char *db)
                                              MDL_INTENTION_EXCLUSIVE) &&
               thd->mdl_context.is_lock_owner(MDL_key::SCHEMA, db, "",
                                              MDL_EXCLUSIVE));
-  DBUG_RETURN(thd->mdl_context.acquire_locks(&mdl_requests,
-                                             thd->variables.lock_wait_timeout));
+  DBUG_RETURN(thd->mdl_context.acquire_locks_nsec(&mdl_requests,
+                                     thd->variables.lock_wait_timeout_nsec));
 }
 
 

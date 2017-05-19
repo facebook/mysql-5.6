@@ -1851,7 +1851,8 @@ bool mysql_drop_view(THD *thd, TABLE_LIST *views, enum_drop_mode drop_mode)
     DBUG_RETURN(TRUE);
   }
 
-  if (lock_table_names(thd, views, 0, thd->variables.lock_wait_timeout, 0))
+  if (lock_table_names_nsec(thd, views, 0,
+                            thd->variables.lock_wait_timeout_nsec, 0))
     DBUG_RETURN(TRUE);
 
   for (view= views; view; view= view->next_local)

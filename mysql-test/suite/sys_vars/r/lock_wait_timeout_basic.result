@@ -11,12 +11,12 @@ SET @@global.lock_wait_timeout = 100;
 SET @@global.lock_wait_timeout = DEFAULT;
 SELECT @@global.lock_wait_timeout;
 @@global.lock_wait_timeout
-604800
+604800.000000
 SET @@session.lock_wait_timeout = 200;
 SET @@session.lock_wait_timeout = DEFAULT;
 SELECT @@session.lock_wait_timeout;
 @@session.lock_wait_timeout
-604800
+604800.000000
 '#--------------------FN_DYNVARS_002_02-------------------------#'
 SET @@global.lock_wait_timeout = @start_global_value;
 SELECT @@global.lock_wait_timeout = 604800;
@@ -27,98 +27,110 @@ SELECT @@session.lock_wait_timeout = 604800;
 @@session.lock_wait_timeout = 604800
 1
 '#--------------------FN_DYNVARS_002_03-------------------------#'
+SET @@global.lock_wait_timeout = 0;
+SELECT @@global.lock_wait_timeout;
+@@global.lock_wait_timeout
+0.000000
+SET @@global.lock_wait_timeout = 0.005;
+SELECT @@global.lock_wait_timeout;
+@@global.lock_wait_timeout
+0.005000
 SET @@global.lock_wait_timeout = 1;
 SELECT @@global.lock_wait_timeout;
 @@global.lock_wait_timeout
-1
+1.000000
+SET @@global.lock_wait_timeout = 1.23;
+SELECT @@global.lock_wait_timeout;
+@@global.lock_wait_timeout
+1.230000
 SET @@global.lock_wait_timeout = 60020;
 SELECT @@global.lock_wait_timeout;
 @@global.lock_wait_timeout
-60020
+60020.000000
 SET @@global.lock_wait_timeout = 65535;
 SELECT @@global.lock_wait_timeout;
 @@global.lock_wait_timeout
-65535
+65535.000000
 '#--------------------FN_DYNVARS_002_04-------------------------#'
+SET @@session.lock_wait_timeout = 0;
+SELECT @@session.lock_wait_timeout;
+@@session.lock_wait_timeout
+0.000000
+SET @@session.lock_wait_timeout = 0.00001;
+SELECT @@session.lock_wait_timeout;
+@@session.lock_wait_timeout
+0.000010
 SET @@session.lock_wait_timeout = 1;
 SELECT @@session.lock_wait_timeout;
 @@session.lock_wait_timeout
-1
+1.000000
+SET @@session.lock_wait_timeout = 1.23;
+SELECT @@session.lock_wait_timeout;
+@@session.lock_wait_timeout
+1.230000
 SET @@session.lock_wait_timeout = 50050;
 SELECT @@session.lock_wait_timeout;
 @@session.lock_wait_timeout
-50050
+50050.000000
 SET @@session.lock_wait_timeout = 65535;
 SELECT @@session.lock_wait_timeout;
 @@session.lock_wait_timeout
-65535
+65535.000000
 '#------------------FN_DYNVARS_002_05-----------------------#'
-SET @@global.lock_wait_timeout = 0;
-Warnings:
-Warning	1292	Truncated incorrect lock_wait_timeout value: '0'
-SELECT @@global.lock_wait_timeout;
-@@global.lock_wait_timeout
-1
 SET @@global.lock_wait_timeout = -1024;
 Warnings:
 Warning	1292	Truncated incorrect lock_wait_timeout value: '-1024'
 SELECT @@global.lock_wait_timeout;
 @@global.lock_wait_timeout
-1
+0.000000
 SET @@global.lock_wait_timeout = 604801;
 Warnings:
 Warning	1292	Truncated incorrect lock_wait_timeout value: '604801'
 SELECT @@global.lock_wait_timeout;
 @@global.lock_wait_timeout
-604800
+604800.000000
 SET @@global.lock_wait_timeout = ON;
 ERROR 42000: Incorrect argument type to variable 'lock_wait_timeout'
 SELECT @@global.lock_wait_timeout;
 @@global.lock_wait_timeout
-604800
+604800.000000
 SET @@global.lock_wait_timeout = OFF;
 ERROR 42000: Incorrect argument type to variable 'lock_wait_timeout'
 SELECT @@global.lock_wait_timeout;
 @@global.lock_wait_timeout
-604800
+604800.000000
 SET @@global.lock_wait_timeout = test;
 ERROR 42000: Incorrect argument type to variable 'lock_wait_timeout'
 SELECT @@global.lock_wait_timeout;
 @@global.lock_wait_timeout
-604800
-SET @@session.lock_wait_timeout = 0;
-Warnings:
-Warning	1292	Truncated incorrect lock_wait_timeout value: '0'
-SELECT @@session.lock_wait_timeout;
-@@session.lock_wait_timeout
-1
+604800.000000
 SET @@session.lock_wait_timeout = -2;
 Warnings:
 Warning	1292	Truncated incorrect lock_wait_timeout value: '-2'
 SELECT @@session.lock_wait_timeout;
 @@session.lock_wait_timeout
-1
+0.000000
 SET @@session.lock_wait_timeout = 604900;
 Warnings:
 Warning	1292	Truncated incorrect lock_wait_timeout value: '604900'
 SELECT @@session.lock_wait_timeout;
 @@session.lock_wait_timeout
-604800
+604800.000000
 SET @@session.lock_wait_timeout = ON;
 ERROR 42000: Incorrect argument type to variable 'lock_wait_timeout'
 SELECT @@session.lock_wait_timeout;
 @@session.lock_wait_timeout
-604800
+604800.000000
 SET @@session.lock_wait_timeout = OFF;
 ERROR 42000: Incorrect argument type to variable 'lock_wait_timeout'
 SELECT @@session.lock_wait_timeout;
 @@session.lock_wait_timeout
-604800
+604800.000000
 SET @@session.lock_wait_timeout = test;
 ERROR 42000: Incorrect argument type to variable 'lock_wait_timeout'
 SELECT @@session.lock_wait_timeout;
 @@session.lock_wait_timeout
-604800
+604800.000000
 '#------------------FN_DYNVARS_002_06-----------------------#'
 SELECT @@global.lock_wait_timeout = VARIABLE_VALUE 
 FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES 
@@ -135,13 +147,11 @@ WHERE VARIABLE_NAME='lock_wait_timeout';
 SET @@global.lock_wait_timeout = TRUE;
 SELECT @@global.lock_wait_timeout;
 @@global.lock_wait_timeout
-1
+1.000000
 SET @@global.lock_wait_timeout = FALSE;
-Warnings:
-Warning	1292	Truncated incorrect lock_wait_timeout value: '0'
 SELECT @@global.lock_wait_timeout;
 @@global.lock_wait_timeout
-1
+0.000000
 '#---------------------FN_DYNVARS_001_09----------------------#'
 SET @@global.lock_wait_timeout = 10;
 SET @@session.lock_wait_timeout = 11;
@@ -160,7 +170,7 @@ SELECT @@local.lock_wait_timeout = @@session.lock_wait_timeout;
 SET lock_wait_timeout = 1;
 SELECT @@lock_wait_timeout;
 @@lock_wait_timeout
-1
+1.000000
 SELECT local.lock_wait_timeout;
 ERROR 42S02: Unknown table 'local' in field list
 SELECT session.lock_wait_timeout;
@@ -170,8 +180,8 @@ ERROR 42S22: Unknown column 'lock_wait_timeout' in 'field list'
 SET @@global.lock_wait_timeout = @start_global_value;
 SELECT @@global.lock_wait_timeout;
 @@global.lock_wait_timeout
-604800
+604800.000000
 SET @@session.lock_wait_timeout = @start_session_value;
 SELECT @@session.lock_wait_timeout;
 @@session.lock_wait_timeout
-604800
+604800.000000

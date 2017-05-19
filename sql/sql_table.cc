@@ -2134,8 +2134,8 @@ bool mysql_rm_table(THD *thd,TABLE_LIST *tables, my_bool if_exists,
   {
     if (!thd->locked_tables_mode)
     {
-      if (lock_table_names(thd, tables, NULL,
-                           thd->variables.lock_wait_timeout, 0))
+      if (lock_table_names_nsec(thd, tables, NULL,
+                           thd->variables.lock_wait_timeout_nsec, 0))
         DBUG_RETURN(true);
       for (table= tables; table; table= table->next_local)
       {
@@ -6721,8 +6721,9 @@ static bool mysql_inplace_alter_table(THD *thd,
       Don't mark TABLE_SHARE as old in this case, as this won't allow opening
       of table by other threads during main phase of in-place ALTER TABLE.
     */
-    if (thd->mdl_context.upgrade_shared_lock(table->mdl_ticket, MDL_EXCLUSIVE,
-                                             thd->variables.lock_wait_timeout))
+    if (thd->mdl_context.upgrade_shared_lock_nsec(table->mdl_ticket,
+                            MDL_EXCLUSIVE,
+                            thd->variables.lock_wait_timeout_nsec))
       goto cleanup;
 
     tdc_remove_table(thd, TDC_RT_REMOVE_NOT_OWN_KEEP_SHARE,
@@ -6738,9 +6739,9 @@ static bool mysql_inplace_alter_table(THD *thd,
   */
   if ((inplace_supported == HA_ALTER_INPLACE_SHARED_LOCK ||
        alter_info->requested_lock == Alter_info::ALTER_TABLE_LOCK_SHARED) &&
-      thd->mdl_context.upgrade_shared_lock(table->mdl_ticket,
-                                           MDL_SHARED_NO_WRITE,
-                                           thd->variables.lock_wait_timeout))
+      thd->mdl_context.upgrade_shared_lock_nsec(table->mdl_ticket,
+                                       MDL_SHARED_NO_WRITE,
+                                       thd->variables.lock_wait_timeout_nsec))
   {
     goto cleanup;
   }
@@ -8476,8 +8477,8 @@ bool mysql_alter_table(THD *thd,char *new_db, char *new_name,
                                                  "", "",
                                                  MDL_INTENTION_EXCLUSIVE));
 
-      if (thd->mdl_context.acquire_locks(&mdl_requests,
-                                         thd->variables.lock_wait_timeout))
+      if (thd->mdl_context.acquire_locks_nsec(&mdl_requests,
+                                         thd->variables.lock_wait_timeout_nsec))
         DBUG_RETURN(true);
 
       DEBUG_SYNC(thd, "locked_table_name");
@@ -8641,8 +8642,9 @@ bool mysql_alter_table(THD *thd,char *new_db, char *new_name,
       Upgrade from MDL_SHARED_UPGRADABLE to MDL_SHARED_NO_WRITE.
       Afterwards it's safe to take the table level lock.
     */
-    if (thd->mdl_context.upgrade_shared_lock(mdl_ticket, MDL_SHARED_NO_WRITE,
-                                             thd->variables.lock_wait_timeout)
+    if (thd->mdl_context.upgrade_shared_lock_nsec(mdl_ticket,
+                                    MDL_SHARED_NO_WRITE,
+                                    thd->variables.lock_wait_timeout_nsec)
         || lock_tables(thd, table_list, alter_ctx.tables_opened, 0))
     {
       DBUG_RETURN(true);
@@ -8997,8 +8999,9 @@ bool mysql_alter_table(THD *thd,char *new_db, char *new_name,
       Note that under LOCK TABLES, we will already have SHARED_NO_READ_WRITE.
     */
     if (alter_info->requested_lock != Alter_info::ALTER_TABLE_LOCK_EXCLUSIVE &&
-        thd->mdl_context.upgrade_shared_lock(mdl_ticket, MDL_SHARED_NO_WRITE,
-                                             thd->variables.lock_wait_timeout))
+        thd->mdl_context.upgrade_shared_lock_nsec(mdl_ticket,
+                                    MDL_SHARED_NO_WRITE,
+                                    thd->variables.lock_wait_timeout_nsec))
       goto err_new_table_cleanup;
 
     DEBUG_SYNC(thd, "alter_table_copy_after_lock_upgrade");

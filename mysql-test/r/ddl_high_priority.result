@@ -2,7 +2,7 @@ create user test_user1@localhost;
 grant all on test to test_user1@localhost;
 create user test_user2@localhost;
 grant all on test to test_user2@localhost;
-set lock_wait_timeout = 2;
+set lock_wait_timeout = 0.02;
 drop table if exists t1, t1_new;
 create table t1 (i int) engine=InnoDB;
 insert into t1 values (1), (2), (3);
@@ -106,7 +106,7 @@ insert into t1 values (1), (2), (3);
 connection: con1
 lock tables t1 read;
 connection: con2
-set lock_wait_timeout = 2;
+set lock_wait_timeout = 0.02;
 describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	

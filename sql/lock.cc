@@ -308,8 +308,8 @@ MYSQL_LOCK *mysql_lock_tables(THD *thd, TABLE **tables, uint count, uint flags)
   int rc;
   MYSQL_LOCK *sql_lock;
   THR_LOCK_DATA *error_pos= NULL;
-  ulong timeout= (flags & MYSQL_LOCK_IGNORE_TIMEOUT) ?
-    LONG_TIMEOUT : thd->variables.lock_wait_timeout;
+  ulong timeout_nsec= (flags & MYSQL_LOCK_IGNORE_TIMEOUT) ?
+    LONG_TIMEOUT_NSEC : thd->variables.lock_wait_timeout_nsec;
   const char *prev_proc_info;
 
   DBUG_ENTER("mysql_lock_tables");
@@ -337,10 +337,11 @@ MYSQL_LOCK *mysql_lock_tables(THD *thd, TABLE **tables, uint count, uint flags)
          sql_lock->lock_count * sizeof(*sql_lock->locks));
 
   /* Lock on the copied half of the lock data array. */
-  rc= thr_lock_errno_to_mysql[(int) thr_multi_lock(sql_lock->locks +
+  rc= thr_lock_errno_to_mysql[(int) thr_multi_lock_nsec(sql_lock->locks +
                                                    sql_lock->lock_count,
                                                    sql_lock->lock_count,
-                                                   &thd->lock_info, timeout,
+                                                   &thd->lock_info,
+                                                   timeout_nsec,
                                                    &error_pos)];
   if (rc)
   {
@@ -846,8 +847,8 @@ bool lock_schema_name(THD *thd, const char *db)
   mdl_requests.push_front(&mdl_request);
   mdl_requests.push_front(&global_request);
 
-  if (thd->mdl_context.acquire_locks(&mdl_requests,
-                                     thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.acquire_locks_nsec(&mdl_requests,
+                                     thd->variables.lock_wait_timeout_nsec))
     return TRUE;
 
   DEBUG_SYNC(thd, "after_wait_locked_schema_name");
@@ -867,7 +868,7 @@ bool lock_schema_name(THD *thd, const char *db)
   This function assumes that no metadata locks were acquired
   before calling it. Additionally, it cannot be called while
   holding LOCK_open mutex. Both these invariants are enforced by
-  asserts in MDL_context::acquire_locks().
+  asserts in MDL_context::acquire_locks_nsec().
   To avoid deadlocks, we do not try to obtain exclusive metadata
   locks in LOCK TABLES mode, since in this mode there may be
   other metadata locks already taken by the current connection,
@@ -908,8 +909,8 @@ bool lock_object_name(THD *thd, MDL_key::enum_mdl_namespace mdl_type,
   mdl_requests.push_front(&schema_request);
   mdl_requests.push_front(&global_request);
 
-  if (thd->mdl_context.acquire_locks(&mdl_requests,
-                                     thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.acquire_locks_nsec(&mdl_requests,
+                                     thd->variables.lock_wait_timeout_nsec))
     return TRUE;
 
   DEBUG_SYNC(thd, "after_wait_locked_pname");
@@ -1032,8 +1033,8 @@ bool Global_read_lock::lock_global_read_lock(THD *thd)
     /* Increment static variable first to signal innodb memcached server
        to release mdl locks held by it */
     my_atomic_add32(&Global_read_lock::m_active_requests, 1);
-    if (thd->mdl_context.acquire_lock(&mdl_request,
-                                      thd->variables.lock_wait_timeout))
+    if (thd->mdl_context.acquire_lock_nsec(&mdl_request,
+                                      thd->variables.lock_wait_timeout_nsec))
     {
       my_atomic_add32(&Global_read_lock::m_active_requests, -1);
       DBUG_RETURN(1);
@@ -1111,8 +1112,8 @@ bool Global_read_lock::make_global_read_lock_block_commit(THD *thd)
 
   mdl_request.init(MDL_key::COMMIT, "", "", MDL_SHARED, MDL_EXPLICIT);
 
-  if (thd->mdl_context.acquire_lock(&mdl_request,
-                                    thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.acquire_lock_nsec(&mdl_request,
+                                    thd->variables.lock_wait_timeout_nsec))
     DBUG_RETURN(TRUE);
 
   m_mdl_blocks_commits_lock= mdl_request.ticket;

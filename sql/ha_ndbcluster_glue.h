@@ -61,7 +61,8 @@ static inline
 bool close_cached_tables(THD *thd, TABLE_LIST *tables, bool have_lock,
                          bool wait_for_refresh, bool wait_for_placeholders)
 {
-  return close_cached_tables(thd, tables, wait_for_refresh, LONG_TIMEOUT);
+  return close_cached_tables_nsec(thd, tables, wait_for_refresh,
+                                  LONG_TIMEOUT_NSEC);
 }
 
 /* thd has no version field anymore */

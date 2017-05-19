@@ -85,8 +85,8 @@ static int prepare_for_repair(THD *thd, TABLE_LIST *table_list,
                                  table_list->db, table_list->table_name,
                                  MDL_EXCLUSIVE, MDL_TRANSACTION);
 
-    if (lock_table_names(thd, table_list, table_list->next_global,
-                         thd->variables.lock_wait_timeout, 0))
+    if (lock_table_names_nsec(thd, table_list, table_list->next_global,
+                         thd->variables.lock_wait_timeout_nsec, 0))
       DBUG_RETURN(0);
     has_mdl_lock= TRUE;
 

@@ -738,7 +738,7 @@ bool Sql_cmd_alter_table_truncate_partition::execute(THD *thd)
 {
   int error;
   ha_partition *partition;
-  ulong timeout= thd->variables.lock_wait_timeout;
+  ulonglong timeout_nsec= thd->variables.lock_wait_timeout_nsec;
   TABLE_LIST *first_table= thd->lex->select_lex.table_list.first;
   Alter_info *alter_info= &thd->lex->alter_info;
   uint table_counter, i;
@@ -811,7 +811,8 @@ bool Sql_cmd_alter_table_truncate_partition::execute(THD *thd)
     mandates an exclusive metadata lock.
   */
   MDL_ticket *ticket= first_table->table->mdl_ticket;
-  if (thd->mdl_context.upgrade_shared_lock(ticket, MDL_EXCLUSIVE, timeout))
+  if (thd->mdl_context.upgrade_shared_lock_nsec(ticket, MDL_EXCLUSIVE,
+                                                timeout_nsec))
     DBUG_RETURN(TRUE);
 
   tdc_remove_table(thd, TDC_RT_REMOVE_NOT_OWN, first_table->db,
