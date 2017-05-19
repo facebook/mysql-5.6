@@ -416,7 +416,8 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-local-infile to disable.)
  --lock-wait-timeout=# 
  Timeout in seconds to wait for a lock before returning an
- error.
+ error. The argument will be treated as a decimal value
+ with nanosecond precision.
  --log-bin[=name]    Log update queries in binary format. Optional (but
  strongly recommended to avoid replication problems if
  server's hostname changes) argument should be the chosen

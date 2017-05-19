@@ -505,12 +505,12 @@ bool open_and_lock_for_insert_delayed(THD *thd, TABLE_LIST *table_list)
   protection_request.init(MDL_key::GLOBAL, "", "", MDL_INTENTION_EXCLUSIVE,
                           MDL_STATEMENT);
 
-  if (thd->mdl_context.acquire_lock(&protection_request,
-                                    thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.acquire_lock_nsec(&protection_request,
+                                    thd->variables.lock_wait_timeout_nsec))
     DBUG_RETURN(TRUE);
 
-  if (thd->mdl_context.acquire_lock(&table_list->mdl_request,
-                                    thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.acquire_lock_nsec(&table_list->mdl_request,
+                                    thd->variables.lock_wait_timeout_nsec))
     /*
       If a lock can't be acquired, it makes no sense to try normal insert.
       Therefore we just abort the statement.
@@ -2190,7 +2190,7 @@ public:
       delayed insert threads as any timeouts in delayed inserts
       are not communicated to the client.
     */
-    thd.variables.lock_wait_timeout= LONG_TIMEOUT;
+    thd.variables.lock_wait_timeout_nsec= LONG_TIMEOUT_NSEC;
 
     memset(&thd.net, 0, sizeof(thd.net));           // Safety
     memset(&table_list, 0, sizeof(table_list));     // Safety
@@ -3117,8 +3117,8 @@ bool Delayed_insert::handle_inserts(void)
   table->next_number_field=table->found_next_number_field;
 
   THD_STAGE_INFO(&thd, stage_upgrading_lock);
-  if (thr_upgrade_write_delay_lock(*thd.lock->locks, delayed_lock,
-                                   thd.variables.lock_wait_timeout))
+  if (thr_upgrade_write_delay_lock_nsec(*thd.lock->locks, delayed_lock,
+                                   thd.variables.lock_wait_timeout_nsec))
   {
     /*
       This can happen if thread is killed either by a shutdown
@@ -3303,8 +3303,8 @@ bool Delayed_insert::handle_inserts(void)
 	  goto err;
 	}
 	query_cache_invalidate3(&thd, table, 1);
-	if (thr_reschedule_write_lock(*thd.lock->locks,
-                                thd.variables.lock_wait_timeout))
+	if (thr_reschedule_write_lock_nsec(*thd.lock->locks,
+                                thd.variables.lock_wait_timeout_nsec))
 	{
     /* This is not known to happen. */
     my_error(ER_DELAYED_CANT_CHANGE_LOCK,MYF(ME_FATALERROR),

@@ -236,9 +236,9 @@ bool reload_acl_and_cache(THD *thd, unsigned long options,
       tmp_write_to_binlog= 0;
       if (thd->global_read_lock.lock_global_read_lock(thd))
 	return 1;                               // Killed
-      if (close_cached_tables(thd, tables,
+      if (close_cached_tables_nsec(thd, tables,
                               ((options & REFRESH_FAST) ?  FALSE : TRUE),
-                              thd->variables.lock_wait_timeout))
+                              thd->variables.lock_wait_timeout_nsec))
       {
         /*
           NOTE: my_error() has been already called by reopen_tables() within
@@ -297,10 +297,10 @@ bool reload_acl_and_cache(THD *thd, unsigned long options,
         }
       }
 
-      if (close_cached_tables(thd, tables,
+      if (close_cached_tables_nsec(thd, tables,
                               ((options & REFRESH_FAST) ?  FALSE : TRUE),
-                              (thd ? thd->variables.lock_wait_timeout :
-                               LONG_TIMEOUT)))
+                              (thd ? thd->variables.lock_wait_timeout_nsec :
+                               LONG_TIMEOUT_NSEC)))
       {
         /*
           NOTE: my_error() has been already called by reopen_tables() within
@@ -474,8 +474,8 @@ bool flush_tables_with_read_lock(THD *thd, TABLE_LIST *all_tables)
     IX and database-scope IX locks on the tables as this will make
     this statement incompatible with FLUSH TABLES WITH READ LOCK.
   */
-  if (lock_table_names(thd, all_tables, NULL,
-                       thd->variables.lock_wait_timeout,
+  if (lock_table_names_nsec(thd, all_tables, NULL,
+                       thd->variables.lock_wait_timeout_nsec,
                        MYSQL_OPEN_SKIP_SCOPED_MDL_LOCK))
     goto error;
 

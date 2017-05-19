@@ -240,8 +240,9 @@ int setup_conds(THD *thd, TABLE_LIST *tables, TABLE_LIST *leaves,
 		Item **conds);
 int setup_ftfuncs(SELECT_LEX* select);
 int init_ftfuncs(THD *thd, SELECT_LEX* select, bool no_order);
-bool lock_table_names(THD *thd, TABLE_LIST *table_list,
-                      TABLE_LIST *table_list_end, ulong lock_wait_timeout,
+bool lock_table_names_nsec(THD *thd, TABLE_LIST *table_list,
+                      TABLE_LIST *table_list_end,
+                      ulonglong lock_wait_timeout_nsec,
                       uint flags);
 bool open_tables(THD *thd, TABLE_LIST **tables, uint *counter, uint flags,
                  Prelocking_strategy *prelocking_strategy);
@@ -355,8 +356,9 @@ TABLE *open_performance_schema_table(THD *thd, TABLE_LIST *one_table,
                                      Open_tables_state *backup);
 void close_performance_schema_table(THD *thd, Open_tables_state *backup);
 
-bool close_cached_tables(THD *thd, TABLE_LIST *tables,
-                         bool wait_for_refresh, ulong timeout);
+bool close_cached_tables_nsec(THD *thd, TABLE_LIST *tables,
+                              bool wait_for_refresh,
+                              ulonglong timeout_nsec);
 bool close_cached_connection_tables(THD *thd, LEX_STRING *connect_string);
 void close_all_tables_for_name(THD *thd, TABLE_SHARE *share,
                                bool remove_from_locked_tables,
@@ -581,9 +583,9 @@ public:
     return m_start_of_statement_svp;
   }
 
-  inline ulong get_timeout() const
+  inline ulong get_timeout_nsec() const
   {
-    return m_timeout;
+    return m_timeout_nsec;
   }
 
   uint get_flags() const { return m_flags; }
@@ -613,10 +615,10 @@ private:
   TABLE_LIST *m_failed_table;
   MDL_savepoint m_start_of_statement_svp;
   /**
-    Lock timeout in seconds. Initialized to LONG_TIMEOUT when opening system
+    Lock timeout in nanoseconds. Initialized to LONG_TIMEOUT when opening system
     tables or to the "lock_wait_timeout" system variable for regular tables.
   */
-  ulong m_timeout;
+  ulonglong m_timeout_nsec;
   /* open_table() flags. */
   uint m_flags;
   /** Back off action. */

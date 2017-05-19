@@ -400,7 +400,7 @@ void table_def_start_shutdown(void)
     table_def_shutdown_in_progress= true;
     table_cache_manager.unlock_all_and_tdc();
     /* Free all cached but unused TABLEs and TABLE_SHAREs. */
-    close_cached_tables(NULL, NULL, FALSE, LONG_TIMEOUT);
+    close_cached_tables_nsec(NULL, NULL, FALSE, LONG_TIMEOUT_NSEC);
   }
 }
 
@@ -878,7 +878,7 @@ static void kill_delayed_threads_for_table(TABLE_SHARE *share)
   @param thd Thread context
   @param tables List of tables to remove from the cache
   @param wait_for_refresh Wait for a impending flush
-  @param timeout Timeout for waiting for flush to be completed.
+  @param timeout_nsec Nanosecond timeout for waiting for flush to be completed.
 
   @note THD can be NULL, but then wait_for_refresh must be FALSE
         and tables must be NULL.
@@ -891,8 +891,8 @@ static void kill_delayed_threads_for_table(TABLE_SHARE *share)
         lock taken by thread trying to obtain global read lock.
 */
 
-bool close_cached_tables(THD *thd, TABLE_LIST *tables,
-                         bool wait_for_refresh, ulong timeout)
+bool close_cached_tables_nsec(THD *thd, TABLE_LIST *tables,
+                         bool wait_for_refresh, ulonglong timeout_nsec)
 {
   bool result= FALSE;
   bool found= TRUE;
@@ -950,7 +950,7 @@ bool close_cached_tables(THD *thd, TABLE_LIST *tables,
   if (!wait_for_refresh)
     DBUG_RETURN(result);
 
-  set_timespec(abstime, timeout);
+  set_timespec_nsec(abstime, timeout_nsec);
 
   if (thd->locked_tables_mode)
   {
@@ -1112,7 +1112,7 @@ bool close_cached_connection_tables(THD *thd, LEX_STRING *connection)
   mysql_mutex_unlock(&LOCK_open);
 
   if (tables)
-    result= close_cached_tables(thd, tables, FALSE, LONG_TIMEOUT);
+    result= close_cached_tables_nsec(thd, tables, FALSE, LONG_TIMEOUT_NSEC);
 
   DBUG_RETURN(result);
 }
@@ -2304,9 +2304,9 @@ bool wait_while_table_is_used(THD *thd, TABLE *table,
                        table->s->table_name.str, (ulong) table->s,
                        table->db_stat, table->s->version));
 
-  if (thd->mdl_context.upgrade_shared_lock(
+  if (thd->mdl_context.upgrade_shared_lock_nsec(
              table->mdl_ticket, MDL_EXCLUSIVE,
-             thd->variables.lock_wait_timeout))
+             thd->variables.lock_wait_timeout_nsec))
     DBUG_RETURN(TRUE);
 
   tdc_remove_table(thd, TDC_RT_REMOVE_NOT_OWN,
@@ -2595,8 +2595,8 @@ open_table_get_mdl_lock(THD *thd, Open_table_context *ot_ctx,
     MDL_deadlock_handler mdl_deadlock_handler(ot_ctx);
 
     thd->push_internal_handler(&mdl_deadlock_handler);
-    bool result= thd->mdl_context.acquire_lock(mdl_request,
-                                               ot_ctx->get_timeout());
+    bool result= thd->mdl_context.acquire_lock_nsec(mdl_request,
+                                               ot_ctx->get_timeout_nsec());
     thd->pop_internal_handler();
 
     if (result && !ot_ctx->can_recover_from_failed_open())
@@ -2613,7 +2613,7 @@ open_table_get_mdl_lock(THD *thd, Open_table_context *ot_ctx,
 
   @param thd             Thread context.
   @param table_list      Table which share should be checked.
-  @param timeout         Timeout for waiting.
+  @param wait_timeout_nsec Nanosecond timeout for waiting.
   @param deadlock_weight Weight of this wait for deadlock detector.
 
   @retval FALSE   Success. Share is up to date or has been flushed.
@@ -2622,8 +2622,8 @@ open_table_get_mdl_lock(THD *thd, Open_table_context *ot_ctx,
 */
 
 static bool
-tdc_wait_for_old_version(THD *thd, const char *db, const char *table_name,
-                         ulong wait_timeout, uint deadlock_weight)
+tdc_wait_for_old_version_nsec(THD *thd, const char *db, const char *table_name,
+                         ulonglong wait_timeout_nsec, uint deadlock_weight)
 {
   TABLE_SHARE *share;
   bool res= FALSE;
@@ -2633,7 +2633,7 @@ tdc_wait_for_old_version(THD *thd, const char *db, const char *table_name,
       share->has_old_version())
   {
     struct timespec abstime;
-    set_timespec(abstime, wait_timeout);
+    set_timespec_nsec(abstime, wait_timeout_nsec);
     res= share->wait_for_old_version(thd, &abstime, deadlock_weight);
   }
   mysql_mutex_unlock(&LOCK_open);
@@ -2889,8 +2889,8 @@ bool open_table(THD *thd, TABLE_LIST *table_list, Open_table_context *ot_ctx)
         into request to back-off and restart process of opening tables.
       */
       thd->push_internal_handler(&mdl_deadlock_handler);
-      bool result= thd->mdl_context.acquire_lock(&protection_request,
-                                                 ot_ctx->get_timeout());
+      bool result= thd->mdl_context.acquire_lock_nsec(&protection_request,
+                                                 ot_ctx->get_timeout_nsec());
       thd->pop_internal_handler();
 
       if (result)
@@ -2939,10 +2939,10 @@ bool open_table(THD *thd, TABLE_LIST *table_list, Open_table_context *ot_ctx)
         thd->push_internal_handler(&mdl_deadlock_handler);
 
         DEBUG_SYNC(thd, "before_upgrading_lock_from_S_to_X_for_create_table");
-        bool wait_result= thd->mdl_context.upgrade_shared_lock(
+        bool wait_result= thd->mdl_context.upgrade_shared_lock_nsec(
                                  table_list->mdl_request.ticket,
                                  MDL_EXCLUSIVE,
-                                 thd->variables.lock_wait_timeout);
+                                 thd->variables.lock_wait_timeout_nsec);
 
         thd->pop_internal_handler();
         DEBUG_SYNC(thd, "after_upgrading_lock_from_S_to_X_for_create_table");
@@ -3146,9 +3146,9 @@ share_found:
       bool wait_result;
 
       thd->push_internal_handler(&mdl_deadlock_handler);
-      wait_result= tdc_wait_for_old_version(thd, table_list->db,
+      wait_result= tdc_wait_for_old_version_nsec(thd, table_list->db,
                                             table_list->table_name,
-                                            ot_ctx->get_timeout(),
+                                            ot_ctx->get_timeout_nsec(),
                                             mdl_ticket->get_deadlock_weight());
       thd->pop_internal_handler();
 
@@ -4077,8 +4077,8 @@ Open_table_context::Open_table_context(THD *thd, uint flags)
   :m_thd(thd),
    m_failed_table(NULL),
    m_start_of_statement_svp(thd->mdl_context.mdl_savepoint()),
-   m_timeout(flags & MYSQL_LOCK_IGNORE_TIMEOUT ?
-             LONG_TIMEOUT : thd->variables.lock_wait_timeout),
+   m_timeout_nsec(flags & MYSQL_LOCK_IGNORE_TIMEOUT ?
+             LONG_TIMEOUT_NSEC : thd->variables.lock_wait_timeout_nsec),
    m_flags(flags),
    m_action(OT_NO_ACTION),
    m_has_locks(thd->mdl_context.has_locks()),
@@ -4253,8 +4253,8 @@ recover_from_failed_open()
       break;
     case OT_DISCOVER:
       {
-        if ((result= lock_table_names(m_thd, m_failed_table, NULL,
-                                      get_timeout(), 0)))
+        if ((result= lock_table_names_nsec(m_thd, m_failed_table, NULL,
+                                      get_timeout_nsec(), 0)))
           break;
 
         tdc_remove_table(m_thd, TDC_RT_REMOVE_ALL, m_failed_table->db,
@@ -4274,8 +4274,8 @@ recover_from_failed_open()
       }
     case OT_REPAIR:
       {
-        if ((result= lock_table_names(m_thd, m_failed_table, NULL,
-                                      get_timeout(), 0)))
+        if ((result= lock_table_names_nsec(m_thd, m_failed_table, NULL,
+                                      get_timeout_nsec(), 0)))
           break;
 
         tdc_remove_table(m_thd, TDC_RT_REMOVE_ALL, m_failed_table->db,
@@ -4470,8 +4470,8 @@ open_and_process_routine(THD *thd, Query_tables_list *prelocking_ctx,
         MDL_deadlock_handler mdl_deadlock_handler(ot_ctx);
 
         thd->push_internal_handler(&mdl_deadlock_handler);
-        bool result= thd->mdl_context.acquire_lock(&rt->mdl_request,
-                                                   ot_ctx->get_timeout());
+        bool result= thd->mdl_context.acquire_lock_nsec(&rt->mdl_request,
+                                                   ot_ctx->get_timeout_nsec());
         thd->pop_internal_handler();
 
         if (result)
@@ -4904,7 +4904,7 @@ extern "C" uchar *schema_set_get_key(const uchar *record, size_t *length,
   @param tables_start      Start of list of tables on which upgradable locks
                            should be acquired.
   @param tables_end        End of list of tables.
-  @param lock_wait_timeout Seconds to wait before timeout.
+  @param lock_wait_timeout_nsec Nanoseconds to wait before timeout.
   @param flags             Bitmap of flags to modify how the tables will be
                            open, see open_table() description for details.
 
@@ -4913,9 +4913,9 @@ extern "C" uchar *schema_set_get_key(const uchar *record, size_t *length,
 */
 
 bool
-lock_table_names(THD *thd,
+lock_table_names_nsec(THD *thd,
                  TABLE_LIST *tables_start, TABLE_LIST *tables_end,
-                 ulong lock_wait_timeout, uint flags)
+                 ulonglong lock_wait_timeout_nsec, uint flags)
 {
   MDL_request_list mdl_requests;
   TABLE_LIST *table;
@@ -4979,7 +4979,8 @@ lock_table_names(THD *thd,
     mdl_requests.push_front(&global_request);
   }
 
-  if (thd->mdl_context.acquire_locks(&mdl_requests, lock_wait_timeout))
+  if (thd->mdl_context.acquire_locks_nsec(&mdl_requests,
+                                          lock_wait_timeout_nsec))
     return TRUE;
 
   return FALSE;
@@ -5150,8 +5151,8 @@ restart:
     else
     {
       TABLE_LIST *table;
-      if (lock_table_names(thd, *start, thd->lex->first_not_own_table(),
-                           ot_ctx.get_timeout(), flags))
+      if (lock_table_names_nsec(thd, *start, thd->lex->first_not_own_table(),
+                           ot_ctx.get_timeout_nsec(), flags))
       {
         error= TRUE;
         goto err;

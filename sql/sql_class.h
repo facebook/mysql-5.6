@@ -628,7 +628,7 @@ typedef struct system_variables
   uint  part_scan_max;
   uint  hll_data_size_log2;
   ulong join_buff_size;
-  ulong lock_wait_timeout;
+  ulonglong lock_wait_timeout_nsec;
   ulong max_allowed_packet;
   ulong max_error_count;
   ulong max_length_for_sort_data;
@@ -733,6 +733,7 @@ typedef struct system_variables
   my_bool binlog_rows_query_log_events;
 
   double long_query_time_double;
+  double lock_wait_timeout_double;
 
   my_bool pseudo_slave_mode;
 

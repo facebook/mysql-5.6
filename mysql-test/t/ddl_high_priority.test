@@ -9,7 +9,7 @@ connect (con1,localhost,test_user1,,test,,);
 connect (con2,localhost,test_user2,,test,,);
 
 connection default;
-set lock_wait_timeout = 2;
+set lock_wait_timeout = 0.02;
 
 --disable_warnings
 drop table if exists t1, t1_new;
@@ -158,7 +158,7 @@ lock tables t1 read;
 
 --echo connection: con2
 connection con2;
-set lock_wait_timeout = 2;
+set lock_wait_timeout = 0.02;
 
 describe t1;
 

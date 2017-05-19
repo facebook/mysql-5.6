@@ -11287,6 +11287,9 @@ static int get_options(int *argc_ptr, char ***argv_ptr, my_bool logging)
   global_system_variables.long_query_time= (ulonglong)
     (global_system_variables.long_query_time_double * 1e6);
 
+  global_system_variables.lock_wait_timeout_nsec= (ulonglong)
+    (global_system_variables.lock_wait_timeout_double * 1e9);
+
   if (opt_short_log_format)
     opt_specialflag|= SPECIAL_SHORT_LOG_FORMAT;
 

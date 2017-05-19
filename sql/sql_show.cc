@@ -4515,8 +4515,8 @@ try_acquire_high_prio_shared_mdl_lock(THD *thd, TABLE_LIST *table,
     error= thd->mdl_context.try_acquire_lock(&table->mdl_request);
   }
   else
-    error= thd->mdl_context.acquire_lock(&table->mdl_request,
-                                         thd->variables.lock_wait_timeout);
+    error= thd->mdl_context.acquire_lock_nsec(&table->mdl_request,
+                                         thd->variables.lock_wait_timeout_nsec);
 
   return error;
 }

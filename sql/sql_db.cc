@@ -1040,7 +1040,8 @@ bool mysql_rm_db(THD *thd,char *db,bool if_exists, bool silent)
   }
 
   /* Lock all tables and stored routines about to be dropped. */
-  if (lock_table_names(thd, tables, NULL, thd->variables.lock_wait_timeout, 0) ||
+  if (lock_table_names_nsec(thd, tables, NULL,
+                            thd->variables.lock_wait_timeout_nsec, 0) ||
       lock_db_routines(thd, db))
     goto exit;
 

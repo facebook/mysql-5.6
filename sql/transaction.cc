@@ -907,8 +907,8 @@ bool trans_xa_commit(THD *thd)
     mdl_request.init(MDL_key::COMMIT, "", "", MDL_INTENTION_EXCLUSIVE,
                      MDL_TRANSACTION);
 
-    if (thd->mdl_context.acquire_lock(&mdl_request,
-                                      thd->variables.lock_wait_timeout))
+    if (thd->mdl_context.acquire_lock_nsec(&mdl_request,
+                                      thd->variables.lock_wait_timeout_nsec))
     {
       ha_rollback_trans(thd, TRUE);
       my_error(ER_XAER_RMERR, MYF(0));
