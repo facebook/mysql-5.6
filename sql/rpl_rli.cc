@@ -417,6 +417,39 @@ err:
   DBUG_RETURN(ret);
 }
 
+bool Relay_log_info::mts_workers_queue_empty()
+{
+  Slave_worker *worker= NULL;
+  ulong ret= 0;
+  for (ulong i= 0; i< workers.elements; ++i)
+  {
+    worker= *dynamic_element(&workers, i, Slave_worker**);
+    mysql_mutex_lock(&worker->jobs_lock);
+    ret+= worker->curr_jobs;
+    mysql_mutex_unlock(&worker->jobs_lock);
+  }
+  return ret == 0;
+}
+
+/* Checks if all in-flight stmts/trx can be safely rollbacked */
+bool Relay_log_info::cannot_safely_rollback()
+{
+  if (!is_parallel_exec())
+    return info_thd->transaction.all.cannot_safely_rollback();
+
+  bool ret= false;
+  Slave_worker *worker= NULL;
+
+  for (ulong i= 0; i< workers.elements; ++i)
+  {
+    worker= *dynamic_element(&workers, i, Slave_worker**);
+    mysql_mutex_lock(&worker->jobs_lock);
+    ret= ret || worker->info_thd->transaction.all.cannot_safely_rollback();
+    mysql_mutex_unlock(&worker->jobs_lock);
+  }
+  return ret;
+}
+
 static inline int add_relay_log(Relay_log_info* rli,LOG_INFO* linfo)
 {
   MY_STAT s;

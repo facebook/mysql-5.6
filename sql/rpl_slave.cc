@@ -1838,8 +1838,13 @@ static bool sql_slave_killed(THD* thd, Relay_log_info* rli)
   if (abort_loop || thd->killed || rli->abort_slave)
   {
     rli->sql_thread_kill_accepted= true;
+    /* NOTE: In MTS mode if all workers are done and if the partial trx
+       (if any) can be rollbacked safely we can accept the kill */
+    bool can_rollback= !rli->is_mts_in_group() ||
+                       (rli->mts_workers_queue_empty() &&
+                        !rli->cannot_safely_rollback());
     is_parallel_warn= (rli->is_parallel_exec() &&
-                       (rli->is_mts_in_group() || thd->killed));
+                       (!can_rollback || thd->killed));
     /*
       Slave can execute stop being in one of two MTS or Single-Threaded mode.
       The modes define different criteria to accept the stop.
