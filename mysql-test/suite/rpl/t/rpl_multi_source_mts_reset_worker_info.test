@@ -13,6 +13,7 @@
 call mtr.add_suppression("Recovery from master pos .*");
 call mtr.add_suppression("Corrupted table mysql.slave_worker_info");
 call mtr.add_suppression("Could not delete from Slave Workers info repository");
+call mtr.add_suppression("The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state.");
 
 --source include/stop_slave.inc
 RESET SLAVE ALL;

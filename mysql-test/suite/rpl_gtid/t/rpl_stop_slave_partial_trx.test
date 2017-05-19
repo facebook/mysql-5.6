@@ -1,0 +1,154 @@
+source include/have_myisam.inc;
+source include/have_debug.inc;
+source include/have_debug_sync.inc;
+source include/have_binlog_format_row.inc;
+source include/master-slave.inc;
+
+call mtr.add_suppression("The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state");
+
+# Create schema
+create database d1;
+create database d2;
+create database d3;
+create table d1.t1 (a int) engine=innodb;
+insert into d1.t1 values(1); # add some data for update statements
+create table d2.t2 (a int) engine=myisam; # non-transactional engine
+create table d3.t3 (a int) engine=innodb; # transactional engine
+--source include/sync_slave_sql_with_master.inc
+
+
+
+## Test 1: STOP SLAVE when there are pending jobs in the worker queues and there
+## is a partial transaction on a non-transactional table. The slave should wait
+## for 1 minute to complete the partial transaction before giving up.
+
+# Block all d1.t1 transactions on the slave
+--source include/rpl_connection_slave.inc
+lock tables d1.t1 read;
+set global debug= '+d,after_executed_write_rows_event';
+
+# Generate some load, all of these will be blocked in the slave worker queue
+--source include/rpl_connection_master.inc
+let $num_updates=5;
+while ($num_updates)
+{
+  eval update d1.t1 set a= $num_updates;
+  dec $num_updates;
+}
+
+# This will stop the dump thread before sending the entire group
+set global debug= '+d,dump_thread_wait_after_send_write_rows';
+insert into d2.t2 values(1);
+
+# wait for the dump thread reach the sync point
+--let $wait_condition= select count(*)=1 from information_schema.processlist where state LIKE '%debug sync point%' and command like 'Binlog Dump%'
+--source include/wait_condition.inc
+
+--source include/rpl_connection_slave.inc
+# unblock d1.t1
+unlock tables;
+
+# This should take at least 20 seconds because the trx on t2 is not completely downloaded and cannot be rollbacked safely
+let $debug_sync_timeout= 20;  # should be equal to value of --debug_sync_timeout in rpl_stop_slave_partial_trx-master.opt file
+set debug_sync= 'now WAIT_FOR executed';
+set global debug= '-d,after_executed_write_rows_event';
+set @start=now();
+--source include/stop_slave.inc
+--eval select timestampdiff(SECOND, @start, now()) >= $debug_sync_timeout
+--source include/start_slave.inc
+
+--source include/rpl_connection_master.inc
+set debug_sync= 'now SIGNAL signal.continue';
+# wait for the dump thread to come out of the waiting phase before resetting the signals
+--let $wait_condition= select count(*)=0 from information_schema.processlist where state LIKE '%debug sync point%' and command='Binlog Dump'
+--source include/wait_condition.inc
+set debug_sync= 'RESET';
+
+--source include/rpl_connection_master.inc
+set @@global.debug= '-d,dump_thread_wait_after_send_write_rows';
+--source include/sync_slave_sql_with_master.inc
+
+# Verification
+--let $rpl_diff_statement= select * from d1.t1
+--source include/rpl_diff.inc
+--let $rpl_diff_statement= select * from d2.t2
+--source include/rpl_diff.inc
+--let $rpl_diff_statement= select * from d3.t3
+--source include/rpl_diff.inc
+
+# cleanup
+--source include/rpl_connection_master.inc
+delete from d1.t1;
+insert into d1.t1 values(1); # add some data for update statements
+delete from d2.t2;
+delete from d3.t3;
+--source include/sync_slave_sql_with_master.inc
+
+
+
+## Test 2: STOP SLAVE when there are pending jobs in the worker queues and there
+## is a partial transaction on a transactional table. The slave should stop
+## immidiately after completing all pending full transactions.
+
+# Block all d1.t1 transactions on the slave
+--source include/rpl_connection_slave.inc
+lock tables d1.t1 read;
+set global debug= '+d,after_executed_write_rows_event';
+
+# Generate some load, all of these will be blocked in the slave worker queue
+--source include/rpl_connection_master.inc
+let $num_updates=5;
+while ($num_updates)
+{
+  eval update d1.t1 set a= $num_updates;
+  dec $num_updates;
+}
+
+# This will stop the dump thread before sending the entire group
+set global debug= '+d,dump_thread_wait_after_send_write_rows';
+insert into d3.t3 values(1);
+
+# wait for the dump thread reach the sync point
+--let $wait_condition= select count(*)=1 from information_schema.processlist where state LIKE '%debug sync point%' and command like 'Binlog Dump%'
+--source include/wait_condition.inc
+
+--source include/rpl_connection_slave.inc
+# unblock d1.t1
+unlock tables;
+
+# Since the partial transaction is on a transactional table the slave should
+# stop as soon as is completes all pending full transactions
+set debug_sync= 'now WAIT_FOR executed';
+set global debug= '-d,after_executed_write_rows_event';
+set @start=now();
+--source include/stop_slave.inc
+--eval select timestampdiff(SECOND, @start, now()) < $debug_sync_timeout
+--source include/start_slave.inc
+
+--source include/rpl_connection_master.inc
+set debug_sync= 'now SIGNAL signal.continue';
+# wait for the dump thread to come out of the waiting phase before resetting the signals
+--let $wait_condition= select count(*)=0 from information_schema.processlist where state LIKE '%debug sync point%' and command='Binlog Dump'
+--source include/wait_condition.inc
+set debug_sync= 'RESET';
+
+--source include/rpl_connection_master.inc
+set global debug= '-d,dump_thread_wait_after_send_write_rows';
+--source include/sync_slave_sql_with_master.inc
+
+# Verification
+--let $rpl_diff_statement= select * from d1.t1
+--source include/rpl_diff.inc
+--let $rpl_diff_statement= select * from d2.t2
+--source include/rpl_diff.inc
+--let $rpl_diff_statement= select * from d3.t3
+--source include/rpl_diff.inc
+
+# final cleanup
+--source include/rpl_connection_master.inc
+drop database d1;
+drop database d2;
+drop database d3;
+
+
+source include/rpl_end.inc;
