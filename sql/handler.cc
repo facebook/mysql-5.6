@@ -1702,6 +1702,8 @@ int ha_rollback_trans(THD *thd, bool all)
     transaction.all.ha_list, see why in trans_register_ha()).
   */
   bool is_real_trans= all || thd->transaction.all.ha_list == NULL;
+  // Save the state of the current transaction
+  thd->is_real_trans = is_real_trans;
   DBUG_ENTER("ha_rollback_trans");
 
   /*
