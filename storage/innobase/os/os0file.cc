@@ -65,6 +65,11 @@ Created 10/21/1995 Heikki Tuuri
 #include <libaio.h>
 #endif
 
+/* Ignore posix_fadvise() on those platforms where it does not exist */
+#if defined __WIN__
+# define posix_fadvise(fd, offset, len, advice) /* nothing */
+#endif /* __WIN__ */
+
 #define max(a,b) ((a)>(b)?(a):(b))
 
 /* Configurable histogram step sizes */
@@ -1703,6 +1708,11 @@ short_warning:
 		}
 		return -1;
 	}
+#ifdef POSIX_FADV_DONTNEED
+	/* Request the filesystem to flush cached pages. Otherwise,
+	   DIRECTIO requests are serialized. */
+	posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+#endif /* POSIX_FADV_DONTNEED  */
 #endif /* defined(UNIV_SOLARIS) && defined(DIRECTIO_ON) */
 	return 0;
 }
