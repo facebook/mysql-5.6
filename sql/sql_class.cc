@@ -1681,6 +1681,14 @@ void THD::release_resources()
   mysql_mutex_lock(&LOCK_thd_data);
   m_release_resources_started = 1;
 
+  /* if we are still in admission control, release it */
+  if (is_in_ac)
+  {
+    MT_RESOURCE_ATTRS attrs = {&connection_attrs_map, &query_attrs_map, db};
+    multi_tenancy_exit_query(this, &attrs);
+    is_in_ac = false;
+  }
+
   /* Close connection */
 #ifndef EMBEDDED_LIBRARY
   if (net.vio)

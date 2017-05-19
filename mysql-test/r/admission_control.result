@@ -40,7 +40,9 @@ select @@global.admission_control_filter;
 @@global.admission_control_filter
 
 Check status variables
-3, 10, 5
+aborted_queries = 3
+running_queries = 10
+waiting_queries = 5
 Filled up queues on one db doesn't affect queries on other db.
 use test;
 set @@global.max_waiting_queries=6;
@@ -57,31 +59,51 @@ set @save_admission_control_by_trx = @@global.admission_control_by_trx;
 select @save_admission_control_by_trx;
 @save_admission_control_by_trx
 0
+set @@global.max_running_queries=5;
+set @@global.max_waiting_queries=10;
 # By default, open transaction has no effect on running queries
 select count(*) from t1;
 count(*)
 15
 # Test: open transactions will take slots in running queries,
 #       and will not be blocked
+set @@global.admission_control_filter = 'BEGIN,COMMIT,ROLLBACK';
+select @@global.admission_control_filter;
+@@global.admission_control_filter
+BEGIN,COMMIT,ROLLBACK
 set @@global.admission_control_by_trx = true;
 SELECT @@global.admission_control_by_trx;
 @@global.admission_control_by_trx
 1
 Open transaction is able to continue running queries
-connection con_max_wait
-New queries will be rejected
+connection con_max_wait;
+New queries will be rejected (waiting queue is full)
 select * from t1;
-ERROR HY000: Maximum waiting queries 6 reached for database `test_db`
-New transactions will be rejected
+ERROR HY000: Maximum waiting queries 10 reached for database `test_db`
+New transactions will be rejected (waiting queue is full)
 begin;
-ERROR HY000: Maximum waiting queries 6 reached for database `test_db`
+select * from t1;
+ERROR HY000: Maximum waiting queries 10 reached for database `test_db`
+aborted_queries will increase by 2
 Committing a transaction will free up the running query slots
 The waiting queries will be unblocked
+Check status variables
+both running_queries and waiting_queries resources should be 0 (released)
+aborted_queries = 5
+running_queries = 0
+waiting_queries = 0;
 set @@global.admission_control_by_trx = @save_admission_control_by_trx;
 select @@global.admission_control_by_trx;
 @@global.admission_control_by_trx
 0
+set @@global.admission_control_filter = default;
+select @@global.admission_control_filter;
+@@global.admission_control_filter
+
 # End of open transaction test
+reset global.max_running_queries and global.max_waiting_queries
+set @@global.max_running_queries=10;
+set @@global.max_waiting_queries=5;
 Run parallel load and drop the database.
 set @@global.max_waiting_queries=0;
 Cleanup.
