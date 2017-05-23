@@ -151,6 +151,7 @@ Rdb_cf_manager cf_manager;
 Rdb_ddl_manager ddl_manager;
 const char *m_mysql_gtid;
 Rdb_binlog_manager binlog_manager;
+Rdb_io_watchdog *io_watchdog = nullptr;
 
 /**
   MyRocks background thread control
@@ -451,6 +452,7 @@ static my_bool rocksdb_force_flush_memtable_now_var = 0;
 static my_bool rocksdb_force_flush_memtable_and_lzero_now_var = 0;
 static my_bool rocksdb_enable_ttl = 1;
 static my_bool rocksdb_reset_stats = 0;
+static uint32_t rocksdb_io_write_timeout_secs = 0;
 static uint64_t rocksdb_number_stat_computes = 0;
 static uint32_t rocksdb_seconds_between_stat_computes = 3600;
 static long long rocksdb_compaction_sequential_deletes = 0l;
@@ -528,6 +530,24 @@ static void rocksdb_set_reset_stats(
     s = rocksdb_stats->Reset();
     DBUG_ASSERT(s == rocksdb::Status::OK());
   }
+
+  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
+}
+
+static void rocksdb_set_io_write_timeout(
+    my_core::THD *const thd MY_ATTRIBUTE((__unused__)),
+    my_core::st_mysql_sys_var *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr MY_ATTRIBUTE((__unused__)), const void *const save) {
+  DBUG_ASSERT(save != nullptr);
+  DBUG_ASSERT(rdb != nullptr);
+  DBUG_ASSERT(io_watchdog != nullptr);
+
+  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
+
+  const uint32_t new_val = *static_cast<const uint32_t *>(save);
+
+  rocksdb_io_write_timeout_secs = new_val;
+  io_watchdog->reset_timeout(rocksdb_io_write_timeout_secs);
 
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
@@ -1165,6 +1185,13 @@ static MYSQL_SYSVAR_BOOL(
     "Reset the RocksDB internal statistics without restarting the DB.", nullptr,
     rocksdb_set_reset_stats, FALSE);
 
+static MYSQL_SYSVAR_UINT(io_write_timeout, rocksdb_io_write_timeout_secs,
+                         PLUGIN_VAR_RQCMDARG,
+                         "Timeout for experimental I/O watchdog.", nullptr,
+                         rocksdb_set_io_write_timeout, /* default */ 0,
+                         /* min */ 0L,
+                         /* max */ UINT_MAX, 0);
+
 static MYSQL_SYSVAR_BOOL(enable_2pc, rocksdb_enable_2pc, PLUGIN_VAR_RQCMDARG,
                          "Enable two phase commit for MyRocks", nullptr,
                          nullptr, TRUE);
@@ -1415,6 +1442,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(force_flush_memtable_and_lzero_now),
     MYSQL_SYSVAR(enable_ttl),
     MYSQL_SYSVAR(reset_stats),
+    MYSQL_SYSVAR(io_write_timeout),
     MYSQL_SYSVAR(flush_memtable_on_analyze),
     MYSQL_SYSVAR(seconds_between_stat_computes),
 
@@ -3834,7 +3862,25 @@ static int rocksdb_init_func(void *const p) {
   // has been successfully initialized.
   commit_latency_stats = new rocksdb::HistogramImpl();
 
-  sql_print_information("RocksDB instance opened");
+  // Construct a list of directories which will be monitored by I/O watchdog
+  // to make sure that we won't lose write access to them.
+  std::vector<std::string> directories;
+
+  // 1. Data directory.
+  directories.push_back(mysql_real_data_home);
+
+  // 2. Transaction logs.
+  if (myrocks::rocksdb_wal_dir && *myrocks::rocksdb_wal_dir) {
+    directories.push_back(myrocks::rocksdb_wal_dir);
+  }
+
+  io_watchdog = new Rdb_io_watchdog(directories);
+  io_watchdog->reset_timeout(rocksdb_io_write_timeout_secs);
+
+  // NO_LINT_DEBUG
+  sql_print_information("MyRocks storage engine plugin has been successfully "
+                        "initialized.");
+
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
 
@@ -3911,6 +3957,9 @@ static int rocksdb_done_func(void *const p) {
 
   delete commit_latency_stats;
   commit_latency_stats = nullptr;
+
+  delete io_watchdog;
+  io_watchdog = nullptr;
 
 // Disown the cache data since we're shutting down.
 // This results in memory leaks but it improved the shutdown time.
