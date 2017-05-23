@@ -66,6 +66,7 @@ SET(ROCKSDB_SOURCES
   event_listener.cc event_listener.h
   rdb_i_s.cc rdb_i_s.h
   rdb_index_merge.cc rdb_index_merge.h
+  rdb_io_watchdog.cc rdb_io_watchdog.h
   rdb_perf_context.cc rdb_perf_context.h
   rdb_mutex_wrapper.cc rdb_mutex_wrapper.h
   rdb_psi.h rdb_psi.cc

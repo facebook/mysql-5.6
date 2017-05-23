@@ -43,6 +43,7 @@
 /* MyRocks header files */
 #include "./rdb_comparator.h"
 #include "./rdb_index_merge.h"
+#include "./rdb_io_watchdog.h"
 #include "./rdb_perf_context.h"
 #include "./rdb_sst_info.h"
 #include "./rdb_utils.h"
