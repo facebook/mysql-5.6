@@ -862,7 +862,7 @@ rocksdb_advise_random_on_open	ON
 rocksdb_allow_concurrent_memtable_write	OFF
 rocksdb_allow_mmap_reads	OFF
 rocksdb_allow_mmap_writes	OFF
-rocksdb_base_background_compactions	1
+rocksdb_base_background_compactions	-1
 rocksdb_blind_delete_primary_key	OFF
 rocksdb_block_cache_size	536870912
 rocksdb_block_restart_interval	16
@@ -889,7 +889,7 @@ rocksdb_db_write_buffer_size	0
 rocksdb_deadlock_detect	OFF
 rocksdb_debug_optimizer_no_zero_cardinality	ON
 rocksdb_default_cf_options	
-rocksdb_delayed_write_rate	16777216
+rocksdb_delayed_write_rate	0
 rocksdb_delete_obsolete_files_period_micros	21600000000
 rocksdb_enable_2pc	ON
 rocksdb_enable_bulk_load_api	ON
@@ -913,8 +913,8 @@ rocksdb_lock_wait_timeout	1
 rocksdb_log_file_time_to_roll	0
 rocksdb_manifest_preallocation_size	4194304
 rocksdb_master_skip_tx_api	OFF
-rocksdb_max_background_compactions	1
-rocksdb_max_background_flushes	1
+rocksdb_max_background_compactions	-1
+rocksdb_max_background_flushes	-1
 rocksdb_max_log_file_size	0
 rocksdb_max_manifest_file_size	18446744073709551615
 rocksdb_max_open_files	-1
