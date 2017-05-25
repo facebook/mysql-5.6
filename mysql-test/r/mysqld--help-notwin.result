@@ -1961,7 +1961,7 @@ rocksdb-advise-random-on-open TRUE
 rocksdb-allow-concurrent-memtable-write FALSE
 rocksdb-allow-mmap-reads FALSE
 rocksdb-allow-mmap-writes FALSE
-rocksdb-base-background-compactions 1
+rocksdb-base-background-compactions -1
 rocksdb-blind-delete-primary-key FALSE
 rocksdb-block-cache-size 536870912
 rocksdb-block-restart-interval 16
@@ -1994,7 +1994,7 @@ rocksdb-deadlock-detect FALSE
 rocksdb-debug-optimizer-n-rows 0
 rocksdb-debug-optimizer-no-zero-cardinality TRUE
 rocksdb-default-cf-options 
-rocksdb-delayed-write-rate 16777216
+rocksdb-delayed-write-rate 0
 rocksdb-delete-obsolete-files-period-micros 21600000000
 rocksdb-enable-2pc TRUE
 rocksdb-enable-bulk-load-api TRUE
@@ -2021,8 +2021,8 @@ rocksdb-locks ON
 rocksdb-log-file-time-to-roll 0
 rocksdb-manifest-preallocation-size 4194304
 rocksdb-master-skip-tx-api FALSE
-rocksdb-max-background-compactions 1
-rocksdb-max-background-flushes 1
+rocksdb-max-background-compactions -1
+rocksdb-max-background-flushes -1
 rocksdb-max-log-file-size 0
 rocksdb-max-manifest-file-size 18446744073709551615
 rocksdb-max-open-files -1
