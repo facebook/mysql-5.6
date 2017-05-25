@@ -43,6 +43,18 @@ IF(UNIX)
   ENDIF()
 ENDIF()
 
+CHECK_CXX_SOURCE_COMPILES("
+#if defined(_MSC_VER) && !defined(__thread)
+#define __thread __declspec(thread)
+#endif
+int main() {
+  static __thread int tls;
+}
+" HAVE_THREAD_LOCAL)
+if(HAVE_THREAD_LOCAL)
+  ADD_DEFINITIONS(-DROCKSDB_SUPPORT_THREAD_LOCAL)
+endif()
+
 SET(ROCKSDB_SOURCES
   ha_rocksdb.cc ha_rocksdb.h ha_rocksdb_proto.h
   logger.h
