@@ -15,6 +15,8 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
 /* C++ standard header files */
+#include <algorithm>
+#include <cctype>
 #include <map>
 #include <string>
 #include <vector>
@@ -626,98 +628,24 @@ static int rdb_i_s_cfoptions_fill_table(
         {"COMPACTION_OPTION_FIFO::MAX_TABLE_FILES_SIZE",
          std::to_string(opts.compaction_options_fifo.max_table_files_size)});
 
-    // get block-based table related options
-    const rocksdb::BlockBasedTableOptions &table_options =
-        rdb_get_table_options();
+    // get table related options
+    std::vector<std::string> table_options =
+        split_into_vector(opts.table_factory->GetPrintableTableOptions(), '\n');
 
-    // get BLOCK_BASED_TABLE_FACTORY::CACHE_INDEX_AND_FILTER_BLOCKS option
-    cf_option_types.push_back(
-        {"BLOCK_BASED_TABLE_FACTORY::CACHE_INDEX_AND_FILTER_BLOCKS",
-         table_options.cache_index_and_filter_blocks ? "1" : "0"});
+    for (auto option : table_options) {
+      option.erase(std::remove(option.begin(), option.end(), ' '),
+                   option.end());
 
-    // get BLOCK_BASED_TABLE_FACTORY::INDEX_TYPE option value
-    switch (table_options.index_type) {
-    case rocksdb::BlockBasedTableOptions::kBinarySearch:
-      val = "kBinarySearch";
-      break;
-    case rocksdb::BlockBasedTableOptions::kHashSearch:
-      val = "kHashSearch";
-      break;
-    default:
-      val = "NULL";
+      int pos = option.find(":");
+      std::string option_name = option.substr(0, pos);
+      std::string option_value = option.substr(pos + 1, option.length());
+      std::transform(option_name.begin(), option_name.end(),
+                     option_name.begin(),
+                     [](unsigned char c) { return std::toupper(c); });
+
+      cf_option_types.push_back(
+          {"TABLE_FACTORY::" + option_name, option_value});
     }
-
-    cf_option_types.push_back({"BLOCK_BASED_TABLE_FACTORY::INDEX_TYPE", val});
-
-    // get BLOCK_BASED_TABLE_FACTORY::HASH_INDEX_ALLOW_COLLISION option value
-    cf_option_types.push_back(
-        {"BLOCK_BASED_TABLE_FACTORY::HASH_INDEX_ALLOW_COLLISION",
-         table_options.hash_index_allow_collision ? "ON" : "OFF"});
-
-    // get BLOCK_BASED_TABLE_FACTORY::CHECKSUM option value
-    switch (table_options.checksum) {
-    case rocksdb::kNoChecksum:
-      val = "kNoChecksum";
-      break;
-    case rocksdb::kCRC32c:
-      val = "kCRC32c";
-      break;
-    case rocksdb::kxxHash:
-      val = "kxxHash";
-      break;
-    default:
-      val = "NULL";
-    }
-
-    cf_option_types.push_back({"BLOCK_BASED_TABLE_FACTORY::CHECKSUM", val});
-
-    // get BLOCK_BASED_TABLE_FACTORY::NO_BLOCK_CACHE option value
-    cf_option_types.push_back({"BLOCK_BASED_TABLE_FACTORY::NO_BLOCK_CACHE",
-                               table_options.no_block_cache ? "ON" : "OFF"});
-
-    // get BLOCK_BASED_TABLE_FACTORY::FILTER_POLICY option
-    cf_option_types.push_back(
-        {"BLOCK_BASED_TABLE_FACTORY::FILTER_POLICY",
-         table_options.filter_policy == nullptr
-             ? "NULL"
-             : std::string(table_options.filter_policy->Name())});
-
-    // get BLOCK_BASED_TABLE_FACTORY::WHOLE_KEY_FILTERING option
-    cf_option_types.push_back({"BLOCK_BASED_TABLE_FACTORY::WHOLE_KEY_FILTERING",
-                               table_options.whole_key_filtering ? "1" : "0"});
-
-    // get BLOCK_BASED_TABLE_FACTORY::BLOCK_CACHE option
-    cf_option_types.push_back(
-        {"BLOCK_BASED_TABLE_FACTORY::BLOCK_CACHE",
-         table_options.block_cache == nullptr
-             ? "NULL"
-             : std::to_string(table_options.block_cache->GetUsage())});
-
-    // get BLOCK_BASED_TABLE_FACTORY::BLOCK_CACHE_COMPRESSED option
-    cf_option_types.push_back(
-        {"BLOCK_BASED_TABLE_FACTORY::BLOCK_CACHE_COMPRESSED",
-         table_options.block_cache_compressed == nullptr
-             ? "NULL"
-             : std::to_string(
-                   table_options.block_cache_compressed->GetUsage())});
-
-    // get BLOCK_BASED_TABLE_FACTORY::BLOCK_SIZE option
-    cf_option_types.push_back({"BLOCK_BASED_TABLE_FACTORY::BLOCK_SIZE",
-                               std::to_string(table_options.block_size)});
-
-    // get BLOCK_BASED_TABLE_FACTORY::BLOCK_SIZE_DEVIATION option
-    cf_option_types.push_back(
-        {"BLOCK_BASED_TABLE_FACTORY::BLOCK_SIZE_DEVIATION",
-         std::to_string(table_options.block_size_deviation)});
-
-    // get BLOCK_BASED_TABLE_FACTORY::BLOCK_RESTART_INTERVAL option
-    cf_option_types.push_back(
-        {"BLOCK_BASED_TABLE_FACTORY::BLOCK_RESTART_INTERVAL",
-         std::to_string(table_options.block_restart_interval)});
-
-    // get BLOCK_BASED_TABLE_FACTORY::FORMAT_VERSION option
-    cf_option_types.push_back({"BLOCK_BASED_TABLE_FACTORY::FORMAT_VERSION",
-                               std::to_string(table_options.format_version)});
 
     for (const auto &cf_option_type : cf_option_types) {
       DBUG_ASSERT(tables->table != nullptr);
