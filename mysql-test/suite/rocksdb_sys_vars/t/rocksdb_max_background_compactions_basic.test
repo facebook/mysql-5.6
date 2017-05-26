@@ -10,7 +10,7 @@ INSERT INTO invalid_values VALUES('\'abc\'');
 --let $sys_var=ROCKSDB_MAX_BACKGROUND_COMPACTIONS
 --let $read_only=0
 --let $session=0
---source suite/sys_vars/inc/rocksdb_sys_var.inc
+--source ../include/rocksdb_sys_var.inc
 
 DROP TABLE valid_values;
 DROP TABLE invalid_values;
