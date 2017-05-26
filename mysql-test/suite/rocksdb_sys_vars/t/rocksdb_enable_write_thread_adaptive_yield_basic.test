@@ -2,4 +2,4 @@
 --let $sys_var=ROCKSDB_ENABLE_WRITE_THREAD_ADAPTIVE_YIELD
 --let $read_only=1
 --let $session=0
---source suite/sys_vars/inc/rocksdb_sys_var.inc
+--source ../include/rocksdb_sys_var.inc
