@@ -97,6 +97,8 @@ Rdb_sst_file_ordered::Rdb_sst_file::put(const rocksdb::Slice &key,
   DBUG_ASSERT(m_sst_file_writer != nullptr);
 
   // Add the specified key/value to the sst file writer
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   return m_sst_file_writer->Add(key, value);
 }
 
