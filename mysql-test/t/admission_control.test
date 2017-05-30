@@ -277,8 +277,10 @@ enable_result_log;
 
 connection default;
 let $wait_timeout= 300;
+# wait for all test_user connections becoming idle.
+# Total 15-2 = 13 test_user connections (con1 & con3 were closed)
 let $wait_condition=
-  select count(*)=0 from information_schema.processlist where state='waiting for admission';
+  select count(*)=13 from information_schema.processlist where command='Sleep' and state='' and user='test_user';
 source include/wait_condition.inc;
 
 --echo Check status variables
