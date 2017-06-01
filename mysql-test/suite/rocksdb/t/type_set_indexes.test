@@ -78,7 +78,7 @@ CREATE TABLE t1 (
   c SET('01','22','23','33','34','39','40','44','50','63','64'),
   pk SET('1','2','3','4','5','6','7','8','9') PRIMARY KEY,
   UNIQUE INDEX b_a (b,a)
-) ENGINE=innodb;
+) ENGINE=rocksdb;
 
 
 SHOW INDEX IN t1;
