@@ -4097,6 +4097,13 @@ bool Rdb_dict_manager::init(rocksdb::DB *const rdb_dict,
   m_db = rdb_dict;
 
   m_system_cfh = cf_manager->get_or_create_cf(m_db, DEFAULT_SYSTEM_CF_NAME);
+  rocksdb::ColumnFamilyHandle *default_cfh =
+      cf_manager->get_cf(DEFAULT_CF_NAME);
+
+  // System CF and default CF should be initialized
+  if (m_system_cfh == nullptr || default_cfh == nullptr) {
+    return HA_EXIT_FAILURE;
+  }
 
   rdb_netbuf_store_index(m_key_buf_max_index_id, Rdb_key_def::MAX_INDEX_ID);
 
@@ -4107,17 +4114,15 @@ bool Rdb_dict_manager::init(rocksdb::DB *const rdb_dict,
   resume_drop_indexes();
   rollback_ongoing_index_creation();
 
-  // If system CF was created then we need to set its flags as well to make
-  // sure that CF is properly initialized.
-  if (m_system_cfh != nullptr) {
-    const std::unique_ptr<rocksdb::WriteBatch> wb = begin();
-    rocksdb::WriteBatch *const batch = wb.get();
+  // Initialize system CF and default CF flags
+  const std::unique_ptr<rocksdb::WriteBatch> wb = begin();
+  rocksdb::WriteBatch *const batch = wb.get();
 
-    add_cf_flags(batch, m_system_cfh->GetID(), 0);
-    commit(batch);
-  }
+  add_cf_flags(batch, m_system_cfh->GetID(), 0);
+  add_cf_flags(batch, default_cfh->GetID(), 0);
+  commit(batch);
 
-  return (m_system_cfh == nullptr);
+  return HA_EXIT_SUCCESS;
 }
 
 std::unique_ptr<rocksdb::WriteBatch> Rdb_dict_manager::begin() const {
