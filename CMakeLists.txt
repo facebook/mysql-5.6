@@ -328,7 +328,7 @@ IF(WITH_UBSAN)
       CMAKE_CXX_COMPILER_VERSION VERSION_LESS 5)
     MY_SANITIZER_CHECK("-fsanitize=undefined" WITH_UBSAN_OK)
   ELSE()
-    MY_SANITIZER_CHECK("-fsanitize=undefined -fno-sanitize=vptr" WITH_UBSAN_OK)
+    MY_SANITIZER_CHECK("-fsanitize=undefined -fno-sanitize=vptr,alignment" WITH_UBSAN_OK)
   ENDIF()
   IF(NOT WITH_UBSAN_OK)
     MESSAGE(FATAL_ERROR

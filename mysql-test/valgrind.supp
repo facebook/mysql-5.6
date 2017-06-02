@@ -1091,7 +1091,7 @@
    match-leak-kinds: reachable
    ...
    fun:built_in_curve_scalar_field_monts_init
-   fun:pthread_once
+   ...
    fun:CRYPTO_once
    fun:ec_group_new_from_data
    fun:EC_GROUP_new_by_curve_name
