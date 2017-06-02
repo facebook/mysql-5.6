@@ -869,8 +869,12 @@ net_write_buff(NET *net, const uchar *packet, ulong len)
       return net_write_packet(net, packet, len);
     /* Send out rest of the blocks as full sized blocks */
   }
-  memcpy(net->write_pos, packet, len);
-  net->write_pos+= len;
+  /* check len before memcpy so UBSan will be happy */
+  if (len)
+  {
+    memcpy(net->write_pos, packet, len);
+    net->write_pos+= len;
+  }
   return 0;
 }
 
