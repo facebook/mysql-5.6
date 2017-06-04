@@ -6334,7 +6334,7 @@ static my_bool process_set_gtid_purged(MYSQL* mysql_con)
 
     set_session_binlog(FALSE);
     if (add_set_gtid_purged(mysql_con))
-      return TRUE;
+      goto err;
   }
   else /* gtid_mode is off */
   {
@@ -6342,11 +6342,16 @@ static my_bool process_set_gtid_purged(MYSQL* mysql_con)
         opt_set_gtid_purged_mode == SET_GTID_PURGED_COMMENTED)
     {
       fprintf(stderr, "Error: Server has GTIDs disabled.\n");
-      return TRUE;
+      goto err;
     }
   }
 
+  mysql_free_result(gtid_mode_res);
   return FALSE;
+
+err:
+  mysql_free_result(gtid_mode_res);
+  return TRUE;
 }
 
 
