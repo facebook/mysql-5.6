@@ -375,6 +375,7 @@ int main(int argc, char **argv)
     {
       fprintf(stderr,"%s: Error when connecting to server: %s\n",
               my_progname,mysql_error(&mysql));
+      mysql_close(&mysql);
       free_defaults(defaults_argv);
       my_end(0);
       exit(1);
@@ -420,7 +421,6 @@ int main(int argc, char **argv)
   pthread_mutex_destroy(&sleeper_mutex);
   pthread_cond_destroy(&sleep_threshhold);
 
-  if (!opt_only_print) 
     mysql_close(&mysql); /* Close & free connection */
 
   /* now free all the strings we created */
@@ -436,6 +436,7 @@ int main(int argc, char **argv)
 #ifdef HAVE_SMEM
   my_free(shared_memory_base_name);
 #endif
+  mysql_server_end();
   free_defaults(defaults_argv);
   my_end(my_end_arg);
 
@@ -1264,7 +1265,7 @@ get_options(int *argc,char ***argv)
       fprintf(stderr, "Invalid value specified for the option "
               "'number-int-cols'\n");
       option_cleanup(str);
-      return 1;
+      DBUG_RETURN(1);
     }
     num_int_cols= atoi(str->string);
     if (str->option)
@@ -1280,7 +1281,7 @@ get_options(int *argc,char ***argv)
       fprintf(stderr, "Invalid value specified for the option "
               "'number-char-cols'\n");
       option_cleanup(str);
-      return 1;
+      DBUG_RETURN(1);
     }
     num_char_cols= atoi(str->string);
     if (str->option)
@@ -1521,7 +1522,7 @@ get_options(int *argc,char ***argv)
     if(parse_option(default_engine, &engine_options, ',') == -1)
     {
       fprintf(stderr, "Invalid value specified for the option 'engine'\n");
-      return 1;
+      DBUG_RETURN(1);
     }
   }
 
@@ -1862,6 +1863,7 @@ pthread_handler_t run_task(void *p)
   {
     fprintf(stderr,"%s: mysql_thread_init() failed ERROR : %s\n",
             my_progname, mysql_error(mysql));
+    mysql_close(mysql);
     exit(0);
   }
 
@@ -1935,6 +1937,7 @@ limit_not_met:
           {
             fprintf(stderr,"%s: Cannot run query %.*s ERROR : %s\n",
                     my_progname, (uint)length, buffer, mysql_error(mysql));
+            mysql_close(mysql);
             exit(0);
           }
         }
@@ -1945,6 +1948,7 @@ limit_not_met:
         {
           fprintf(stderr,"%s: Cannot run query %.*s ERROR : %s\n",
                   my_progname, (uint)ptr->length, ptr->string, mysql_error(mysql));
+          mysql_close(mysql);
           exit(0);
         }
       }
@@ -1983,7 +1987,6 @@ end:
   if (commit_rate)
     run_query(mysql, "COMMIT", strlen("COMMIT"));
 
-  if (!opt_only_print) 
     mysql_close(mysql);
 
   mysql_thread_end();
@@ -1993,7 +1996,9 @@ end:
   pthread_cond_signal(&count_threshhold);
   pthread_mutex_unlock(&counter_mutex);
 
-  DBUG_RETURN(0);
+  DBUG_LEAVE;
+  my_thread_end();
+  return 0;
 }
 
 int
@@ -2025,6 +2030,7 @@ parse_option(const char *origin, option_string **stmt, char delm)
 
     count++;
     strncpy(buffer, ptr, (size_t)(retstr - ptr));
+    buffer[retstr - ptr]= 0;
     if ((buffer_ptr= strchr(buffer, ':')))
     {
       char *option_ptr;
