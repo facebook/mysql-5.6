@@ -3913,6 +3913,13 @@ static bool init_previous_gtid_set_map(char *index_file_path)
                                    gtid_string_length)));
     my_free(previous_gtid_set_in_file);
   }
+
+  /*
+    Since the end_io_cache() writes to the file errors may happen.
+   */
+  if (end_io_cache(&index_file))
+    DBUG_RETURN(true);
+
   DBUG_RETURN(false);
 }
 
