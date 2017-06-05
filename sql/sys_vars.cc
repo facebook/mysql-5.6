@@ -2493,6 +2493,12 @@ static Sys_var_ulong Sys_range_optimizer_max_mem_size(
       DEFAULT(1536000),
       BLOCK_SIZE(1));
 
+static Sys_var_mybool Sys_optimizer_low_limit_heuristic(
+      "optimizer_low_limit_heuristic",
+      "Enable low limit heuristic.",
+      SESSION_VAR(optimizer_low_limit_heuristic),
+      CMD_LINE(OPT_ARG), DEFAULT(TRUE));
+
 static const char *optimizer_switch_names[]=
 {
   "index_merge", "index_merge_union", "index_merge_sort_union",
