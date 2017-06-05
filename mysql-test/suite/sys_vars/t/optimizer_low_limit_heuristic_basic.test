@@ -1,0 +1,102 @@
+--source include/load_sysvars.inc
+
+
+# Saving initial value of optimizer_low_limit_heuristic in a temporary variable
+
+SET @session_start_value = @@session.optimizer_low_limit_heuristic;
+SELECT @session_start_value;
+SET @global_start_value = @@global.optimizer_low_limit_heuristic;
+SELECT @global_start_value;
+
+# Display the DEFAULT value of optimizer_low_limit_heuristic
+
+SET @@session.optimizer_low_limit_heuristic = 0;
+SET @@session.optimizer_low_limit_heuristic = DEFAULT;
+SELECT @@session.optimizer_low_limit_heuristic;
+
+SET @@session.optimizer_low_limit_heuristic = 1;
+SET @@session.optimizer_low_limit_heuristic = DEFAULT;
+SELECT @@session.optimizer_low_limit_heuristic;
+
+
+# Check if optimizer_low_limit_heuristic can be accessed with and without @@ sign
+
+SET optimizer_low_limit_heuristic = 1;
+SELECT @@optimizer_low_limit_heuristic;
+
+--Error ER_UNKNOWN_TABLE
+SELECT session.optimizer_low_limit_heuristic;
+
+--Error ER_UNKNOWN_TABLE
+SELECT local.optimizer_low_limit_heuristic;
+
+SET session optimizer_low_limit_heuristic = 0;
+SELECT @@session.optimizer_low_limit_heuristic;
+
+# change the value of optimizer_low_limit_heuristic to a valid value
+
+SET @@session.optimizer_low_limit_heuristic = 0;
+SELECT @@session.optimizer_low_limit_heuristic;
+SET @@session.optimizer_low_limit_heuristic = 1;
+SELECT @@session.optimizer_low_limit_heuristic;
+
+
+# Change the value of optimizer_low_limit_heuristic to invalid value
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.optimizer_low_limit_heuristic = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.optimizer_low_limit_heuristic = 2;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.optimizer_low_limit_heuristic = "T";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.optimizer_low_limit_heuristic = "Y";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.optimizer_low_limit_heuristic = NO;
+
+
+# Test if accessing global optimizer_low_limit_heuristic gives error
+
+SET @@global.optimizer_low_limit_heuristic = 1;
+SELECT @@global.optimizer_low_limit_heuristic;
+SET @@global.optimizer_low_limit_heuristic = 0;
+
+
+# Check if the value in GLOBAL Table contains variable value
+
+SELECT count(VARIABLE_VALUE) FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES WHERE VARIABLE_NAME='optimizer_low_limit_heuristic';
+
+
+# Check if the value in GLOBAL Table matches value in variable
+
+SELECT IF(@@session.optimizer_low_limit_heuristic, "ON", "OFF") = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='optimizer_low_limit_heuristic';
+SELECT @@session.optimizer_low_limit_heuristic;
+SELECT VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='optimizer_low_limit_heuristic';
+
+
+# Check if ON and OFF values can be used on variable
+
+SET @@session.optimizer_low_limit_heuristic = OFF;
+SELECT @@session.optimizer_low_limit_heuristic;
+SET @@session.optimizer_low_limit_heuristic = ON;
+SELECT @@session.optimizer_low_limit_heuristic;
+
+
+# Check if TRUE and FALSE values can be used on variable
+
+SET @@session.optimizer_low_limit_heuristic = TRUE;
+SELECT @@session.optimizer_low_limit_heuristic;
+SET @@session.optimizer_low_limit_heuristic = FALSE;
+SELECT @@session.optimizer_low_limit_heuristic;
+
+
+# Restore initial value
+
+SET @@session.optimizer_low_limit_heuristic = @session_start_value;
+SELECT @@session.optimizer_low_limit_heuristic;
+SET @@global.optimizer_low_limit_heuristic = @global_start_value;
+SELECT @@global.optimizer_low_limit_heuristic;

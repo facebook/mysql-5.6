@@ -664,6 +664,9 @@ The following options may be given as the first argument:
  value is 0 then mysqld will reserve max_connections*5 or
  max_connections + table_open_cache*2 (whichever is
  larger) number of file descriptors
+ --optimizer-low-limit-heuristic 
+ Enable low limit heuristic.
+ (Defaults to on; use --skip-optimizer-low-limit-heuristic to disable.)
  --optimizer-prune-level=# 
  Controls the heuristic(s) applied during query
  optimization to prune less-promising partial plans from
@@ -1867,6 +1870,7 @@ old FALSE
 old-alter-table FALSE
 old-passwords 0
 old-style-user-limits FALSE
+optimizer-low-limit-heuristic TRUE
 optimizer-prune-level 1
 optimizer-search-depth 62
 optimizer-switch index_merge=on,index_merge_union=on,index_merge_sort_union=on,index_merge_intersection=on,engine_condition_pushdown=on,index_condition_pushdown=on,mrr=on,mrr_cost_based=on,block_nested_loop=on,batched_key_access=off,materialization=on,semijoin=on,loosescan=on,firstmatch=on,subquery_materialization_cost_based=on,use_index_extensions=on,skip_scan=off,skip_scan_cost_based=on

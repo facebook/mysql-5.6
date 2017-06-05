@@ -7942,7 +7942,8 @@ static bool make_join_select(JOIN *join, Item *cond)
                (join->select_lex->master_unit()->item &&
                 cond->used_tables() & OUTER_REF_TABLE_BIT)))
             recheck_reason= NOT_FIRST_TABLE;
-          else if (!tab->const_keys.is_clear_all() &&               // 2a
+          else if (thd->variables.optimizer_low_limit_heuristic &&
+                   !tab->const_keys.is_clear_all() &&               // 2a
                    i == join->const_tables &&                       // 2b
                    (join->unit->select_limit_cnt <
                     tab->position->records_read) &&                 // 2c
