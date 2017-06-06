@@ -11,6 +11,7 @@ create database d1;
 create database d2;
 create database d3;
 create table d1.t1 (a int) engine=innodb;
+insert into d1.t1 values(1); # add some data for update statements
 create table d2.t2 (a int) engine=myisam; # non-transactional engine
 create table d3.t3 (a int) engine=innodb; # transactional engine
 sync_slave_with_master;
@@ -24,14 +25,15 @@ sync_slave_with_master;
 # Block all d1.t1 transactions on the slave
 connection slave;
 lock tables d1.t1 read;
+set @@global.debug= '+d,after_executed_write_rows_event';
 
 # Generate some load, all of these will be blocked in the slave worker queue
 connection master;
-let $num_inserts=5;
-while ($num_inserts)
+let $num_updates=5;
+while ($num_updates)
 {
-  insert into d1.t1 values(1);
-  dec $num_inserts;
+  eval update d1.t1 set a= $num_updates;
+  dec $num_updates;
 }
 
 # This will stop the dump thread before sending the entire group
@@ -47,6 +49,8 @@ connection slave;
 unlock tables;
 
 # This should take at least a minute because the trx on t2 is not completely downloaded and cannot be rollbacked safely
+SET DEBUG_SYNC= 'now WAIT_FOR executed';
+set @@global.debug= '-d,after_executed_write_rows_event';
 set @start=now();
 stop slave;
 select timestampdiff(SECOND, @start, now()) >= 60;
@@ -79,6 +83,7 @@ select * from d3.t3;
 # cleanup
 connection master;
 delete from d1.t1;
+insert into d1.t1 values(1); # add some data for update statements
 delete from d2.t2;
 delete from d3.t3;
 sync_slave_with_master;
@@ -92,14 +97,15 @@ sync_slave_with_master;
 # Block all d1.t1 transactions on the slave
 connection slave;
 lock tables d1.t1 read;
+set @@global.debug= '+d,after_executed_write_rows_event';
 
 # Generate some load, all of these will be blocked in the slave worker queue
 connection master;
-let $num_inserts=5;
-while ($num_inserts)
+let $num_updates=5;
+while ($num_updates)
 {
-  insert into d1.t1 values(1);
-  dec $num_inserts;
+  eval update d1.t1 set a= $num_updates;
+  dec $num_updates;
 }
 
 # This will stop the dump thread before sending the entire group
@@ -116,6 +122,8 @@ unlock tables;
 
 # Since the partial transaction is on a transactional table the slave should
 # stop as soon as is completes all pending full transactions
+SET DEBUG_SYNC= 'now WAIT_FOR executed';
+set @@global.debug= '-d,after_executed_write_rows_event';
 set @start=now();
 stop slave;
 select timestampdiff(SECOND, @start, now()) < 60;
