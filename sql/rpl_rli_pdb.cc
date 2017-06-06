@@ -2565,6 +2565,17 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
   if (!skip_event || ev->get_type_code() == TABLE_MAP_EVENT)
     error= ev->do_apply_event_worker(worker);
 
+  DBUG_EXECUTE_IF("after_executed_write_rows_event",
+                  {
+                    if (ev->get_type_code() == WRITE_ROWS_EVENT)
+                    {
+                      const char act[]= "now signal executed";
+                      DBUG_ASSERT(opt_debug_sync_timeout > 0);
+                      DBUG_ASSERT(!debug_sync_set_action(thd,
+                            STRING_WITH_LEN(act)));
+                    }
+                  };);
+
   if (is_gtid_event(ev))
   {
     reset_dynamic(&worker->worker_gtid_infos);
