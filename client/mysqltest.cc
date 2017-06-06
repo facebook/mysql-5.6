@@ -10439,6 +10439,7 @@ struct st_replace_regex* init_replace_regex(char* expr)
   return res;
 
 err:
+  delete_dynamic(&res->regex_arr);
   my_free(res);
   die("Error parsing replace_regex \"%s\"", expr);
   return 0;
