@@ -39,6 +39,7 @@
 #include <regex>
 #include <vector>
 #include <unordered_set>
+#include <sql_string.h>
 
 class Alter_info;
 
@@ -1094,6 +1095,7 @@ typedef struct st_ha_create_information
                                        means it is explicitly set to default or
                                        it is not specified in alter */
   enum enum_db_read_only db_read_only;
+  String db_metadata;
   LEX_STRING connect_string;
   const char *password, *tablespace;
   LEX_STRING comment;

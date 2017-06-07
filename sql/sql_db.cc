@@ -80,6 +80,7 @@ typedef struct my_dbopt_st
   uint name_length;		/* Database length name           */
   const CHARSET_INFO *charset;	/* Database default character set */
   enum enum_db_read_only db_read_only;
+  String db_metadata; /* Metadata about the database  */
 } my_dbopt_t;
 
 
@@ -123,6 +124,8 @@ extern "C" void free_dbopt(void *dbopt);
 
 void free_dbopt(void *dbopt)
 {
+  if (dbopt)
+    ((my_dbopt_t*)dbopt)->db_metadata.free();
   my_free(dbopt);
 }
 
@@ -211,13 +214,15 @@ void my_dbopt_cleanup(void)
   DESCRIPTION
     Search a database options in the hash, usings its path.
     Fills "create" on success.
+    Creates a copy of db_metadata only if get_db_metadata is true
   
   RETURN VALUES
     0 on success.
     1 on error.
 */
 
-static my_bool get_dbopt(const char *dbname, HA_CREATE_INFO *create)
+static my_bool get_dbopt(const char *dbname, HA_CREATE_INFO *create,
+                         bool get_db_metadata)
 {
   my_dbopt_t *opt;
   uint length;
@@ -230,7 +235,8 @@ static my_bool get_dbopt(const char *dbname, HA_CREATE_INFO *create)
   {
     create->default_table_charset= opt->charset;
     create->db_read_only= opt->db_read_only;
-    error= 0;
+    if (!get_db_metadata || !create->db_metadata.copy(opt->db_metadata))
+      error= 0;
   }
   mysql_rwlock_unlock(&LOCK_dboptions);
   return error;
@@ -286,6 +292,15 @@ static my_bool put_dbopt(const char *dbname, HA_CREATE_INFO *create)
   /* Update / write options in hash */
   opt->charset= create->default_table_charset;
   opt->db_read_only= create->db_read_only;
+  /* Update db_metadata only if it has changed */
+  if (create->db_metadata.ptr())
+  {
+    /* Any previously allocated memory is handled by the String::copy function.
+       Eventually, this gets freed along with the opt objects in the
+       free_dbopt() function */
+    if (opt->db_metadata.copy(create->db_metadata))
+      error = 1;
+  }
 
 end:
   mysql_rwlock_unlock(&LOCK_dboptions);
@@ -480,12 +495,12 @@ static void update_thd_db_read_only(const char *path, uchar db_read_only)
 static bool write_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create)
 {
   register File file;
-  char buf[512]; // Should be enough for options
+  char buf[2048]; // 1024 for db_metadata and 1024 for the other options
   bool error=1;
 
   /* If db.opt doesn't exist, defaults will be loaded */
   HA_CREATE_INFO db_info;
-  load_db_opt(thd, path, &db_info);
+  load_db_opt(thd, path, &db_info, true);
 
   if (!create->default_table_charset)
   {
@@ -517,6 +532,11 @@ static bool write_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create)
                                 enum_db_read_only::DB_READ_ONLY_YES? "1":
                               create->db_read_only==
                                 enum_db_read_only::DB_READ_ONLY_SUPER? "2":"0",
+                              "\ndb-metadata=",
+                              create->db_metadata.ptr()?
+                                (const char*)(create->db_metadata.ptr()):
+                                  !db_info.db_metadata.is_empty()?
+                                    (const char*)(db_info.db_metadata.ptr()):"",
                               "\n", NullS) - buf);
 
     /* Error is written by mysql_file_write */
@@ -540,6 +560,7 @@ static bool write_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create)
   load_db_opt()
   path		Path for option file
   create	Where to store the read options
+  get_db_metadata  Create a copy of db_metadata if true
 
   DESCRIPTION
 
@@ -549,10 +570,11 @@ static bool write_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create)
 
 */
 
-bool load_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create)
+bool load_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create,
+                 bool get_db_metadata)
 {
   File file;
-  char buf[512];
+  char buf[2048]; // 1024 for db_metadata and 1024 for the other options
   DBUG_ENTER("load_db_opt");
   bool error=1;
   uint nbytes;
@@ -561,7 +583,7 @@ bool load_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create)
   create->default_table_charset= thd->variables.collation_server;
 
   /* Check if options for this database are already in the hash */
-  if (!get_dbopt(path, create))
+  if (!get_dbopt(path, create, get_db_metadata))
     DBUG_RETURN(0);
 
   /* Otherwise, load options from the .opt file */
@@ -626,6 +648,19 @@ bool load_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create)
           create->db_read_only = DB_READ_ONLY_NO;
         }
       }
+      else if (!strncmp(buf,"db-metadata", (pos-buf)))
+      {
+        /*
+          Even if get_db_metadata is true, we still need to read metadata to
+          ensure that the hash is updated
+        */
+        if (create->db_metadata.copy(pos+1, strlen(pos+1), &my_charset_bin))
+        {
+          sql_print_error("Error while loading database options: '%s':",path);
+          sql_print_error(ER(ER_DB_METADATA_READ_ERROR),pos+1);
+          create->db_metadata.free(); // Just set default value to be NULL
+        }
+      }
     }
   }
   /*
@@ -636,6 +671,9 @@ bool load_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create)
     possibility into account.
   */
   error= put_dbopt(path, create);
+  // If db_metadata is not needed, release the memory
+  if (!get_db_metadata)
+    create->db_metadata.free();
 
   end_io_cache(&cache);
 err2:
@@ -653,6 +691,7 @@ err1:
     load_db_opt_by_name()
     db_name         Database name
     db_create_info  Where to store the database options
+    get_db_metadata Create a copy of db_metadata if true
 
   DESCRIPTION
     load_db_opt_by_name() is a shortcut for load_db_opt().
@@ -676,7 +715,7 @@ err1:
 */
 
 bool load_db_opt_by_name(THD *thd, const char *db_name,
-                         HA_CREATE_INFO *db_create_info)
+                         HA_CREATE_INFO *db_create_info, bool get_db_metadata)
 {
   char db_opt_path[FN_REFLEN + 1];
 
@@ -687,7 +726,7 @@ bool load_db_opt_by_name(THD *thd, const char *db_name,
   (void) build_table_filename(db_opt_path, sizeof(db_opt_path) - 1,
                               db_name, "", MY_DB_OPT_FILE, 0);
 
-  return load_db_opt(thd, db_opt_path, db_create_info);
+  return load_db_opt(thd, db_opt_path, db_create_info, get_db_metadata);
 }
 
 
@@ -1917,7 +1956,7 @@ bool mysql_upgrade_db(THD *thd, LEX_STRING *old_db)
 
   build_table_filename(path, sizeof(path)-1,
                        old_db->str, "", MY_DB_OPT_FILE, 0);
-  if ((load_db_opt(thd, path, &create_info)))
+  if ((load_db_opt(thd, path, &create_info, true)))
     create_info.default_table_charset= thd->variables.collation_server;
 
   length= build_table_filename(path, sizeof(path)-1, old_db->str, "", "", 0);

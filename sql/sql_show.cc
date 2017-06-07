@@ -1010,7 +1010,7 @@ bool mysqld_show_create_db(THD *thd, char *dbname,
       DBUG_RETURN(TRUE);
     }
 
-    load_db_opt_by_name(thd, dbname, &create);
+    load_db_opt_by_name(thd, dbname, &create, true);
   }
   List<Item> field_list;
   field_list.push_back(new Item_empty_string("Database",NAME_CHAR_LEN));
@@ -1054,6 +1054,17 @@ bool mysqld_show_create_db(THD *thd, char *dbname,
       buffer.append(STRING_WITH_LEN(" SUPER_READ_ONLY"));
     else
       buffer.append(STRING_WITH_LEN(" READ_ONLY"));
+  }
+
+  if (!create.db_metadata.is_empty())
+  {
+    if (!enclose_comment)
+    {
+      buffer.append(STRING_WITH_LEN(" /*"));
+      enclose_comment = true;
+    }
+    buffer.append(STRING_WITH_LEN(" DB_METADATA "));
+    buffer.append(create.db_metadata.ptr());
   }
 
   if (enclose_comment)
