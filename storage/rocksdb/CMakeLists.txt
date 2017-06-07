@@ -115,7 +115,7 @@ ENDIF()
 
 SET(rocksdb_static_libs ${rocksdb_static_libs} "-lrt")
 
-MYSQL_ADD_PLUGIN(rocksdb_se ${ROCKSDB_SOURCES} STORAGE_ENGINE DEFAULT STATIC_ONLY
+MYSQL_ADD_PLUGIN(rocksdb_se ${ROCKSDB_SOURCES} STORAGE_ENGINE STATIC_ONLY
   LINK_LIBRARIES ${rocksdb_static_libs}
 )
 
