@@ -1224,10 +1224,10 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %lex-param { class THD *YYTHD }
 %pure-parser                                    /* We have threads */
 /*
-  Currently there are 182 shift/reduce conflicts.
+  Currently there are 183 shift/reduce conflicts.
   We should not introduce new conflicts any more.
 */
-%expect 182
+%expect 183
 
 /*
    Comments for TOKENS.
@@ -1367,6 +1367,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  DAY_MINUTE_SYM
 %token  DAY_SECOND_SYM
 %token  DAY_SYM                       /* SQL-2003-R */
+%token  DB_METADATA_SYM
 %token  DEALLOCATE_SYM                /* SQL-2003-R */
 %token  DECIMAL_NUM
 %token  DECIMAL_SYM                   /* SQL-2003-R */
@@ -6236,6 +6237,7 @@ create_database_option:
           default_collation {}
         | default_charset {}
         | db_read_only {}
+        | db_metadata_str {}
         ;
 
 opt_table_options:
@@ -6546,6 +6548,19 @@ db_read_only:
 read_only_opt:
           READ_ONLY_SYM { $$ = 0; }
         | SUPER_READ_ONLY_SYM { $$ = 1; }
+        ;
+
+db_metadata_str:
+          DB_METADATA_SYM opt_equal TEXT_STRING_sys
+          {
+            if ($3.length > DB_METADATA_MAX_LENGTH)
+            {
+              my_error(ER_DB_METADATA_TOO_LONG, MYF(0), DB_METADATA_MAX_LENGTH);
+              MYSQL_YYABORT;
+            }
+            Lex->create_info.db_metadata= String($3.str, $3.length,
+              &my_charset_bin);
+          }
         ;
 
 boolean_val:
@@ -14908,6 +14923,7 @@ keyword:
         | COMMENT_SYM           {}
         | COMMIT_SYM            {}
         | CONTAINS_SYM          {}
+        | DB_METADATA_SYM       {}
         | DEALLOCATE_SYM        {}
         | DEFRAGMENT_SYM        {}
         | DO_SYM                {}

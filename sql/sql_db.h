@@ -38,9 +38,11 @@ bool mysql_opt_change_db(THD *thd,
 bool my_dboptions_cache_init(void);
 void my_dboptions_cache_free(void);
 bool check_db_dir_existence(const char *db_name);
-bool load_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create);
+bool load_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create,
+                 bool get_db_metadata= false);
 bool load_db_opt_by_name(THD *thd, const char *db_name,
-                         HA_CREATE_INFO *db_create_info);
+                         HA_CREATE_INFO *db_create_info,
+                         bool get_db_metadata= false);
 const CHARSET_INFO *get_default_db_collation(THD *thd, const char *db_name);
 bool my_dbopt_init(void);
 void my_dbopt_cleanup(void);

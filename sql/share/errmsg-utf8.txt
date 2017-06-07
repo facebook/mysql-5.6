@@ -7323,6 +7323,12 @@ ER_CANT_SET_DEPENDENCY_REPLICATION_WITHOUT_IDEMPOTENT_RECOVERY
 ER_SLAVE_WORKER_STOPPED_PREVIOUS_THD_ERROR
   eng "Slave worker has stopped after at least one previous worker encountered an error when mts_dependency_order_commits was enabled. To preserve commit order, the last transaction executed by this thread has not been committed. When restarting the slave after fixing any failed threads, you should fix this worker as well."
 
+ER_DB_METADATA_TOO_LONG
+  eng "Metadata for the database is too long. Max length is %d bytes"
+
+ER_DB_METADATA_READ_ERROR
+  eng "Error reading db metadata option: '%-.64s'"
+
 #
 #  End of 5.6 error messages.
 #
