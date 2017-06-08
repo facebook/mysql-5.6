@@ -2473,7 +2473,13 @@ void mysql_sql_stmt_prepare(THD *thd)
     thd->stmt_map.erase(stmt);
   }
   else
+ {
+    /* send the boolean tracker in the OK packet when
+       @@session_track_state_change is set to ON */
+    if (thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)->is_enabled())
+      thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)->mark_as_changed(thd, NULL);
     my_ok(thd, 0L, 0L, "Statement prepared");
+  }
 
   DBUG_VOID_RETURN;
 }
@@ -2947,6 +2953,8 @@ void mysql_sql_stmt_close(THD *thd)
   else
   {
     stmt->deallocate();
+    if (thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)->is_enabled())
+      thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)->mark_as_changed(thd, NULL);
     my_ok(thd);
   }
 }

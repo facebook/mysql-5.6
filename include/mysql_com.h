@@ -680,6 +680,7 @@ enum enum_mysql_set_option
 */
 enum enum_session_state_type
 {
+  SESSION_TRACK_STATE_CHANGE,                  /* track session state changes */
   SESSION_TRACK_GTIDS= 3
 };
 
@@ -806,6 +807,7 @@ void my_thread_end(void);
 ulong STDCALL net_field_length(unsigned char **packet);
 my_ulonglong net_field_length_ll(unsigned char **packet);
 unsigned char *net_store_length(unsigned char *pkg, ulonglong length);
+unsigned int net_length_size(ulonglong num);
 #endif
 
 #ifdef __cplusplus

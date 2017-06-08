@@ -117,6 +117,7 @@ SET(SQL_SHARED_SOURCES
   records.cc
   rpl_handler.cc
   scheduler.cc 
+  session_tracker.cc
   set_var.cc 
   signal_handler.cc
   sp.cc

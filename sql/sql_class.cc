@@ -1494,6 +1494,10 @@ void THD::init(void)
   debug_sync_init_thread(this);
 #endif /* defined(ENABLED_DEBUG_SYNC) */
 
+  /* Initialize session_tracker and create all tracker objects */
+  session_tracker.init(this->charset());
+  session_tracker.enable(this);
+
   owned_gtid.sidno= 0;
   owned_gtid.gno= 0;
 }
@@ -1658,6 +1662,8 @@ void THD::cleanup(void)
   /* End the Debug Sync Facility. See debug_sync.cc. */
   debug_sync_end_thread(this);
 #endif /* defined(ENABLED_DEBUG_SYNC) */
+
+  session_tracker.deinit();
 
   cleanup_done=1;
   DBUG_VOID_RETURN;
