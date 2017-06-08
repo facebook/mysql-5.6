@@ -42,6 +42,7 @@
                                      THR_LOCK_INFO */
 #include "opt_trace_context.h"    /* Opt_trace_context */
 #include "rpl_gtid.h"
+#include "session_tracker.h"              // Session_tracker
 #include "sql_multi_tenancy.h"
 
 #include "sql_digest_stream.h"            // sql_digest_state
@@ -767,6 +768,8 @@ typedef struct system_variables
   uint select_into_file_fsync_timeout;
 
   my_bool high_priority_ddl;
+
+  my_bool session_track_state_change;
 } SV;
 
 
@@ -4612,6 +4615,9 @@ private:
   LEX_STRING invoker_user;
   LEX_STRING invoker_host;
 public:
+
+  Session_tracker session_tracker;
+
   /* connection timeout error message */
   char *conn_timeout_err_msg;
 

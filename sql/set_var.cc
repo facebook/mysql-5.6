@@ -193,9 +193,26 @@ bool sys_var::update(THD *thd, set_var *var)
     return global_update(thd, var) ||
       (on_update && on_update(this, thd, OPT_GLOBAL));
   }
-  else
-    return session_update(thd, var) ||
+  else {
+    bool ret = session_update(thd, var) ||
       (on_update && on_update(this, thd, OPT_SESSION));
+
+    /*
+      Make sure we don't session-track global variables.
+
+      WARNING: This is different than 5.7 which only tracks OPT_SESSION.
+      We want to track both SESSSION and and one-shot variable changes
+      ("for next transaction only"), tx_isolation and tx_read_only for example.
+    */
+    if (var->type != OPT_GLOBAL)
+    {
+      if ((!ret) &&
+          thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)->is_enabled())
+        thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)->mark_as_changed(thd, &var->var->name);
+    }
+
+    return ret;
+  }
 }
 
 uchar *sys_var::session_value_ptr(THD *thd, LEX_STRING *base)
@@ -737,6 +754,8 @@ int set_var_user::update(THD *thd)
     my_message(ER_SET_CONSTANTS_ONLY, ER(ER_SET_CONSTANTS_ONLY), MYF(0));
     return -1;
   }
+  if (thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)->is_enabled())
+    thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)->mark_as_changed(thd, NULL);
   return 0;
 }
 
@@ -842,6 +861,9 @@ int set_var_collation_client::update(THD *thd)
   thd->variables.character_set_results= character_set_results;
   thd->variables.collation_connection= collation_connection;
   thd->update_charset();
+
+  if (thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)->is_enabled())
+    thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)->mark_as_changed(thd, NULL);
   thd->protocol_text.init(thd);
   thd->protocol_binary.init(thd);
   return 0;
