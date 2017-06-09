@@ -676,13 +676,27 @@ enum enum_mysql_set_option
 
 /*
    Type of state change information that the server can include in the Ok
-   packet. Only GTIDS have been backported so far.
+  packet.
+  Note : 1) session_state_type shouldn't go past 255 (i.e. 1-byte boundary).
+         2) Modify the definition of SESSION_TRACK_END when a new member is
+      added.
 */
 enum enum_session_state_type
 {
+  SESSION_TRACK_SYSTEM_VARIABLES,             /* Session system variables */
+  SESSION_TRACK_SCHEMA,                       /* Current schema */
   SESSION_TRACK_STATE_CHANGE,                  /* track session state changes */
-  SESSION_TRACK_GTIDS= 3
+  SESSION_TRACK_GTIDS,
+  SESSION_TRACK_TRANSACTION_CHARACTERISTICS,  /* Transaction chistics */
+  SESSION_TRACK_TRANSACTION_STATE             /* Transaction state */
 };
+
+#define SESSION_TRACK_BEGIN SESSION_TRACK_SYSTEM_VARIABLES
+
+#define SESSION_TRACK_END SESSION_TRACK_TRANSACTION_STATE
+
+#define IS_SESSION_STATE_TYPE(T) \
+  (((int)(T) >= SESSION_TRACK_BEGIN) && ((T) <= SESSION_TRACK_END))
 
 #define net_new_transaction(net) ((net)->pkt_nr=0)
 

@@ -26,6 +26,149 @@ static const unsigned int EXTRA_ALLOC= 1024;
 
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+  This is an interface for encoding the gtids in the payload of the
+  the OK packet.
+
+  In the future we may have different types of payloads, thence we may have
+  different encoders specifications/types. This implies changing either, the
+  encoding specification code, the actual encoding procedure or both at the
+  same time.
+
+  New encoders can extend this interface/abstract class or extend
+  other encoders in the hierarchy.
+*/
+class Session_gtids_ctx_encoder
+{
+public:
+  Session_gtids_ctx_encoder() {}
+  virtual ~Session_gtids_ctx_encoder() {};
+
+  /*
+   This function SHALL encode the collected GTIDs into the buffer.
+   @param thd The session context.
+   @param buf The buffer that SHALL contain the encoded data.
+   @return false if the contents were successfully encoded, true otherwise.
+           if the return value is true, then the contents of the buffer is
+           undefined.
+   */
+  virtual bool encode(THD *thd, String& buf)= 0;
+
+  /*
+   This function SHALL return the encoding specification used in the
+   packet sent to the client. The format of the encoded data will differ
+   according to the specification set here.
+
+   @return the encoding specification code.
+   */
+  virtual ulonglong encoding_specification()= 0;
+private:
+  // not implemented
+  Session_gtids_ctx_encoder(const Session_gtids_ctx_encoder& rsc);
+  Session_gtids_ctx_encoder& operator=(const Session_gtids_ctx_encoder& rsc);
+};
+
+class Session_gtids_ctx_encoder_string : public Session_gtids_ctx_encoder
+{
+public:
+
+  Session_gtids_ctx_encoder_string() {}
+  ~Session_gtids_ctx_encoder_string() {}
+
+  ulonglong encoding_specification() { return 0; }
+
+  bool encode(THD *thd, String& buf)
+  {
+    const char *gtid= thd->get_trans_gtid();
+
+    if (gtid)
+    {
+      /*
+        No need to use net_length_size in the following two fields.
+        These are constants in this class and will both be encoded using
+        only 1 byte.
+      */
+      /* net_length_size((ulonglong)SESSION_TRACK_GTIDS); */
+      ulonglong tracker_type_enclen= 1;
+      /* net_length_size(encoding_specification()); */;
+      ulonglong encoding_spec_enclen= 1;
+      ulonglong gtids_string_len= strlen(gtid);
+      ulonglong gtids_string_len_enclen= net_length_size(gtids_string_len);
+      ulonglong entity_len= encoding_spec_enclen + gtids_string_len_enclen +
+                            gtids_string_len;
+      ulonglong entity_len_enclen= net_length_size(entity_len);
+      ulonglong total_enclen= tracker_type_enclen + entity_len_enclen +
+                              encoding_spec_enclen + gtids_string_len_enclen +
+                              gtids_string_len;
+
+      /* prepare the buffer */
+      uchar *to= (uchar *) buf.prep_append(total_enclen, EXTRA_ALLOC);
+
+     /* format of the payload is as follows:
+       [ tracker type] [len] [ encoding spec ] [gtid string len] [gtid string]
+      */
+
+      /* Session state type (SESSION_TRACK_SCHEMA) */
+      *to= (uchar) SESSION_TRACK_GTIDS; to++;
+
+      /* Length of the overall entity. */
+      to= net_store_length(to, entity_len);
+
+      /* encoding specification */
+      *to= (uchar) encoding_specification(); to++;
+
+      /* the actual gtid set string */
+      to= net_store_data(to, (uchar*) gtid, gtids_string_len);
+    }
+    return false;
+  }
+private:
+  // not implemented
+  Session_gtids_ctx_encoder_string(const Session_gtids_ctx_encoder_string& rsc);
+  Session_gtids_ctx_encoder_string& operator=(
+      const Session_gtids_ctx_encoder_string& rsc);
+};
+
+/**
+  Session_gtids_tracker
+  ---------------------------------
+  This is a tracker class that enables & manages the tracking of gtids for
+  relaying to the connectors the information needed to handle session
+  consistency.
+*/
+
+class Session_gtids_tracker : public State_tracker
+{
+private:
+  void reset();
+  Session_gtids_ctx_encoder* m_encoder;
+
+public:
+
+  /** Constructor */
+  Session_gtids_tracker() : m_encoder(NULL)
+  { }
+
+  ~Session_gtids_tracker()
+  {
+    if (m_encoder)
+      delete m_encoder;
+  }
+
+  bool is_changed(THD* thd) const override
+  { return thd->get_trans_gtid() != NULL; }
+  bool enable(THD *thd) override
+  { return update(thd); }
+  bool check(THD *thd, set_var *var) override
+  { return false; }
+  bool update(THD *thd) override;
+  bool store(THD *thd, String &buf) override;
+  void mark_as_changed(THD *thd, LEX_CSTRING *tracked_item_name) override;
+};
+
+
+///////////////////////////////////////////////////////////////////////////////
+
 /** Constructor */
 Session_state_change_tracker::Session_state_change_tracker()
 {
@@ -157,6 +300,8 @@ bool Session_state_change_tracker::is_state_changed(THD* thd)
 
 void Session_tracker::init(const CHARSET_INFO *char_set)
 {
+  m_trackers[SESSION_GTIDS_TRACKER]=
+    new (std::nothrow) Session_gtids_tracker;
   m_trackers[SESSION_STATE_CHANGE_TRACKER]=
     new (std::nothrow) Session_state_change_tracker;
 }
@@ -223,11 +368,11 @@ bool Session_tracker::enabled_any()
     false                   None of the entities being tracked has changed.
 */
 
-bool Session_tracker::changed_any()
+bool Session_tracker::changed_any(THD* thd)
 {
   for (int i= 0; i <= SESSION_TRACKER_END; i ++)
   {
-    if (m_trackers[i]->is_changed())
+    if (m_trackers[i]->is_changed(thd))
       return true;
   }
   return false;
@@ -253,7 +398,7 @@ void Session_tracker::store(THD *thd, String &buf)
   /* Get total length. */
   for (int i= 0; i <= SESSION_TRACKER_END; i ++)
   {
-    if (m_trackers[i]->is_changed())
+    if (m_trackers[i]->is_changed(thd))
       m_trackers[i]->store(thd, temp);
   }
 
@@ -265,4 +410,107 @@ void Session_tracker::store(THD *thd, String &buf)
   /* .. and then the actual info. */
   buf.append(temp);
   temp.free();
+}
+
+
+/**
+  @brief Enable/disable the tracker based on @@session_track_gtids's value.
+
+  @param thd [IN]           The thd handle.
+
+  @return
+    false (always)
+*/
+
+bool Session_gtids_tracker::update(THD *thd)
+{
+  /*
+    We are updating this using the previous value. No change needed.
+    Bailing out.
+  */
+  if (m_enabled == (thd->variables.session_track_gtids != OFF))
+    return false;
+
+  m_enabled= thd->variables.session_track_gtids != OFF &&
+             /* No need to track GTIDs for system threads. */
+             thd->system_thread == NON_SYSTEM_THREAD;
+  if (m_enabled)
+  {
+    // instantiate the encoder if needed
+    if (m_encoder == NULL)
+    {
+      /*
+       TODO: in the future, there can be a variable to control which
+       encoder instance to instantiate here.
+
+       This means that if we ever make the server encode deltas instead,
+       or compressed GTIDS we want to change the encoder instance below.
+
+       Right now, by default we instantiate the encoder that has.
+      */
+      m_encoder= new Session_gtids_ctx_encoder_string();
+    }
+  }
+  // else /* break the bridge between tracker and collector */
+  return false;
+}
+
+/**
+  @brief Store the collected gtids as length-encoded string in the specified
+         buffer.  Once the data is stored, we reset the flags related to
+         state-change (see reset()).
+
+
+  @param thd [IN]           The thd handle.
+  @paran buf [INOUT]        Buffer to store the information to.
+
+  @return
+    false                   Success
+    true                    Error
+*/
+
+bool Session_gtids_tracker::store(THD *thd, String &buf)
+{
+  if (m_encoder && m_encoder->encode(thd, buf))
+    return true;
+  reset();
+  return false;
+}
+
+/**
+  @brief Mark the tracker as changed.
+
+  @param thd               [IN]          Always null.
+  @param tracked_item_name [IN]          Always null.
+
+  @return void
+*/
+
+void Session_gtids_tracker::mark_as_changed(THD *thd MY_ATTRIBUTE((unused)),
+                                            LEX_CSTRING *tracked_item_name
+                                            MY_ATTRIBUTE((unused)))
+{
+  m_changed= true;
+}
+
+
+/**
+  @brief Reset the m_changed flag for next statement.
+
+  @return                   void
+*/
+
+void Session_gtids_tracker::reset()
+{
+  /*
+   Delete the encoder and remove the listener if this had been previously
+   deactivated.
+   */
+  if (!m_enabled && m_encoder)
+  {
+    // delete the encoder (just to free memory)
+    delete m_encoder; // if not tracking, delete the encoder
+    m_encoder= NULL;
+  }
+  m_changed= false;
 }

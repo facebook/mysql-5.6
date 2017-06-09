@@ -161,8 +161,8 @@ enum enum_admission_control_filter {
 
 enum enum_session_track_gtids {
   OFF= 0,
-  OWN_GTID= 1/*,
-  ALL_GTIDS= 2 not ported*/
+  OWN_GTID= 1,
+  //ALL_GTIDS= 2
 };
 
 #define IS_BIT_SET(val, n) ((val) & (1 << (n)))
@@ -4152,6 +4152,7 @@ public:
     are owned by this thread.
   */
   Gtid_set owned_gtid_set;
+
   my_bool should_write_gtid;
 
   /* Store lsn for engine when preparing finished. */
