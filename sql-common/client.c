@@ -108,6 +108,16 @@ my_bool	net_flush(NET *net);
 #include <sql_common.h>
 #include <mysql/client_plugin.h>
 
+#define STATE_DATA(M) \
+  (NULL != (M) ? &(MYSQL_EXTENSION_PTR(M)->state_change) : NULL)
+
+#define ADD_INFO(M, element, type)                                             \
+{                                                                              \
+  M= STATE_DATA(mysql);                                                       \
+  M->info_list[type].head_node= list_add(M->info_list[type].head_node,         \
+                                         element);                             \
+}
+
 #define native_password_plugin_name "mysql_native_password"
 #define old_password_plugin_name    "mysql_old_password"
 
@@ -598,23 +608,81 @@ err:
 }
 #endif
 
+/*
+  Free all memory acquired to store state change information.
+*/
+void free_state_change_info(MYSQL_EXTENSION *ext)
+{
+  STATE_INFO *info;
+  int i;
+
+  if (ext)
+    info= &ext->state_change;
+  else
+    return;
+
+  for (i= SESSION_TRACK_SYSTEM_VARIABLES; i <= SESSION_TRACK_END; i++)
+  {
+    if (list_length(info->info_list[i].head_node) != 0)
+    {
+      /*
+        Since nodes were multi-alloced, we don't need to free the data
+        separately. But the str member in data needs to be freed.
+      */
+      LIST *tmp_list= info->info_list[i].head_node;
+      while (tmp_list)
+      {
+  LEX_STRING *tmp= (LEX_STRING *)(tmp_list)->data;
+  if (tmp->str)
+    my_free(tmp->str);
+  tmp_list= tmp_list->next;
+      }
+      list_free(info->info_list[i].head_node, (uint) 0);
+    }
+  }
+  memset(info, 0, sizeof(STATE_INFO));
+}
+
 /**
   Read Ok packet along with the server state change information.
 */
 void read_ok_ex(MYSQL *mysql, ulong length)
 {
-  uchar *pos;
+  size_t total_len, len;
+  uchar *pos, *saved_pos;
+  my_ulonglong affected_rows, insert_id;
+
+  STATE_INFO *info= NULL;
+  enum enum_session_state_type type;
+  LIST *element= NULL;
+  LEX_STRING *data=NULL;
+
 
   pos= mysql->net.read_pos + 1;
 
-  /* affected rows */
-  mysql->affected_rows= net_field_length_ll(&pos);
-  /* insert id */
-  mysql->insert_id= net_field_length_ll(&pos);
+  affected_rows = net_field_length_ll(&pos); /* affected rows */
+  insert_id = net_field_length_ll(&pos); /* insert id */
+
+  /*
+   The following check ensures that we skip the assignment for the
+   above read fields (i.e. affected_rows and insert_id) wherein the
+   EOF packets are deprecated and the server sends OK packet instead
+   with a packet header of 0xFE (254) to identify it as an EOF packet.
+   We ignore this assignment as the valid contents of EOF packet include
+   packet marker, server status and warning count only. However, we would
+   assign these values to the connection handle if it was an OK packet
+   with a packet header of 0x00.
+  */
+  if (!((mysql->server_capabilities & CLIENT_DEPRECATE_EOF) &&
+        mysql->net.read_pos[0] == 254))
+  {
+    mysql->affected_rows= affected_rows;
+    mysql->insert_id= insert_id;
 
   DBUG_PRINT("info",("affected_rows: %lu  insert_id: %lu",
                      (ulong) mysql->affected_rows,
                      (ulong) mysql->insert_id));
+  }
 
   /* server status */
   mysql->server_status= uint2korr(pos);
@@ -629,17 +697,129 @@ void read_ok_ex(MYSQL *mysql, ulong length)
 
   DBUG_PRINT("info",("status: %u  warning_count: %u",
                      mysql->server_status, mysql->warning_count));
-
   if (mysql->server_capabilities & CLIENT_SESSION_TRACK)
   {
-    size_t info_len= net_field_length_ll(&pos); /* info string */
-    mysql->info= info_len ? (char*) pos : NULL;
-    pos+=info_len;
-    if (mysql->server_status & SERVER_SESSION_STATE_CHANGED)
+    free_state_change_info(mysql->extension);
+
+    if (pos < mysql->net.read_pos + length)
     {
-      size_t gtid_len= net_field_length_ll(&pos); /* gtid string */
-      mysql->recv_gtid=(char*) pos;
-      pos += gtid_len;
+      /* get the info field */
+      size_t length_msg_member= (size_t)net_field_length(&pos);
+      mysql->info= (length_msg_member ? (char *)pos : NULL);
+      pos += (length_msg_member);
+
+      /* read session state changes info */
+      if (mysql->server_status & SERVER_SESSION_STATE_CHANGED)
+      {
+        saved_pos= pos;
+        total_len= (size_t)net_field_length(&pos);
+        /* ensure that mysql->info is zero-terminated */
+        if (mysql->info)
+          *saved_pos= 0;
+
+        while (total_len > 0)
+        {
+          saved_pos= pos;
+          type= (enum enum_session_state_type) net_field_length(&pos);
+
+          switch (type)
+          {
+          case SESSION_TRACK_SYSTEM_VARIABLES:
+          case SESSION_TRACK_SCHEMA:
+          case SESSION_TRACK_TRANSACTION_CHARACTERISTICS:
+          case SESSION_TRACK_TRANSACTION_STATE:
+            /* not backported */
+           break;
+          case SESSION_TRACK_GTIDS:
+            if (!my_multi_malloc(MYF(0),
+              &element, sizeof(LIST),
+              &data, sizeof(LEX_STRING),
+              NullS))
+            {
+              set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
+              return;
+            }
+
+            /* Move past the total length of the changed entity. */
+            (void) net_field_length(&pos);
+
+            /* read (and ignore for now) the GTIDS encoding specification */
+            (void) net_field_length(&pos);
+
+            /*
+               For now we ignore the encoding specification, since only one
+               is supported. In the future the decoding of what comes next
+               depends on the specification code.
+               */
+
+            /* read the length of the encoded string. */
+            len= (size_t) net_field_length(&pos);
+            if(!(data->str= (char *)my_malloc(len + 1, MYF(MY_WME))))
+            {
+              set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
+              return;
+            }
+            memcpy(data->str, (char *) pos, len);
+            data->str[len] = '\0';
+            data->length= len;
+            pos += len;
+            mysql->recv_gtid= data->str;
+
+            element->data= data;
+            ADD_INFO(info, element, SESSION_TRACK_GTIDS);
+            break;
+          case SESSION_TRACK_STATE_CHANGE:
+            if (!my_multi_malloc(MYF(0),
+              &element, sizeof(LIST),
+              &data, sizeof(LEX_STRING),
+              NullS))
+            {
+              set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
+              return;
+            }
+
+            /* Get the length of the boolean tracker */
+            len= (size_t) net_field_length(&pos);
+            /* length for boolean tracker is always 1 */
+            DBUG_ASSERT(len == 1);
+            if(!(data->str= (char *)my_malloc(len, MYF(MY_WME))))
+            {
+              set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
+              return;
+            }
+            memcpy(data->str, (char *) pos, len);
+            data->length= len;
+            pos += len;
+
+            element->data= data;
+            ADD_INFO(info, element, SESSION_TRACK_STATE_CHANGE);
+
+            break;
+          default:
+            DBUG_ASSERT(type <= SESSION_TRACK_END);
+            /*
+              Unknown/unsupported type received, get the total length and move
+              past it.
+              */
+            len= (size_t) net_field_length(&pos);
+            pos += len;
+            break;
+          }
+          total_len -= (pos - saved_pos);
+        }
+        if (info)
+        {
+          for (type= SESSION_TRACK_BEGIN; type < SESSION_TRACK_END; type++)
+          {
+            if (info->info_list[type].head_node)
+            {
+              info->info_list[type].current_node=
+                info->info_list[type].head_node=
+                  list_reverse(info->info_list[type].head_node);
+            }
+          }
+        }
+      }
     }
   }
   else if (pos < mysql->net.read_pos+length && net_field_length(&pos))
@@ -2429,6 +2609,13 @@ mysql_init(MYSQL *mysql)
   mysql->options.methods_to_use= MYSQL_OPT_GUESS_CONNECTION;
   mysql->options.report_data_truncation= TRUE;  /* default */
 
+  /* Initialize extensions. */
+  if (!(mysql->extension= mysql_extension_init(mysql)))
+  {
+    set_mysql_error(NULL, CR_OUT_OF_MEMORY, unknown_sqlstate);
+    return 0;
+  }
+
   mysql->options.connect_timeout = timeout_infinite();
   mysql->options.read_timeout = timeout_infinite();
   mysql->options.write_timeout = timeout_infinite();
@@ -2455,6 +2642,33 @@ mysql_init(MYSQL *mysql)
   mysql->async_op_status = ASYNC_OP_UNSET;
   mysql->net.receive_buffer_size = 0;
   return mysql;
+}
+
+/*
+  MYSQL::extension handling (see sql_common.h for declaration
+  of st_mysql_extension structure).
+*/
+
+MYSQL_EXTENSION* mysql_extension_init(MYSQL *mysql MY_ATTRIBUTE((unused)))
+{
+  MYSQL_EXTENSION *ext;
+
+  ext= my_malloc(sizeof(MYSQL_EXTENSION), MYF(MY_WME | MY_ZEROFILL));
+  return ext;
+}
+
+
+void mysql_extension_free(struct st_mysql_extension* ext)
+{
+  if (!ext)
+    return;
+  if (ext->trace_data)
+    my_free(ext->trace_data);
+
+  // free state change related resources.
+  free_state_change_info(ext);
+
+  my_free(ext);
 }
 
 
@@ -5947,12 +6161,21 @@ static void mysql_close_free(MYSQL *mysql)
   my_free(mysql->user);
   my_free(mysql->passwd);
   my_free(mysql->db);
+
+/* Free extension if any */
+  if (mysql->extension)
+    mysql_extension_free(mysql->extension);
+
 #if defined(EMBEDDED_LIBRARY) || MYSQL_VERSION_ID >= 50100
   my_free(mysql->info_buffer);
   mysql->info_buffer= 0;
 #endif
   /* Clear pointers for better safety */
-  mysql->host_info= mysql->user= mysql->passwd= mysql->db= 0;
+  mysql->host_info= NULL;
+  mysql->user= NULL;
+  mysql->passwd= NULL;
+  mysql->db= NULL;
+  mysql->extension= NULL;
 }
 
 static void mysql_close_free_connect_context(MYSQL *mysql) {
@@ -6242,7 +6465,13 @@ get_info:
 int STDCALL
 mysql_send_query(MYSQL *mysql, const char *query, ulong length)
 {
+  STATE_INFO *info;
+
   DBUG_ENTER("mysql_send_query");
+
+  if ((info= STATE_DATA(mysql)))
+    free_state_change_info(mysql->extension);
+
   size_t query_attrs_len=
     mysql->options.extension ?
     mysql->options.extension->query_attributes_length : 0;
@@ -7017,6 +7246,95 @@ uint STDCALL mysql_errno(MYSQL *mysql)
 const char * STDCALL mysql_error(MYSQL *mysql)
 {
   return mysql ? mysql->net.last_error : mysql_server_last_error;
+}
+
+
+/**
+  Read data and its length from a LIST node.
+
+  Assumes LIST which stores data blobs in LEX_STRING structures,
+  where LEX_STRING::str is pointer to the data and LEX_STRING::length
+  is the length of this data.
+
+  If node is NULL then data and length are set to NULL and 0, respectively,
+  and function returns 0, otherwise, if data has been read from the node,
+  function returns 1.
+*/
+
+static int get_data_and_length(LIST *node, const char **data, size_t *length)
+{
+  DBUG_ASSERT(!node || node->data);
+  if (data)
+    *data= node ? ((LEX_STRING*)(node->data))->str : NULL;
+  if (length)
+    *length= node ? ((LEX_STRING*)(node->data))->length : 0;
+
+  return node ? 0 : 1;
+}
+
+
+/**
+  Get the first state change information received from the server.
+
+  @param mysql  [IN]        mysql handle
+  @param type   [IN]        state change type
+  @param data   [OUT]       buffer to store the data
+  @param length [OUT]       length of the data
+
+  @return
+    0 - Valid data stored
+    1 - No data
+*/
+
+int STDCALL mysql_session_track_get_first(MYSQL *mysql,
+                                          enum enum_session_state_type type,
+                                          const char **data,
+                                          size_t *length)
+{
+  STATE_INFO *info= STATE_DATA(mysql);
+
+  if (!info || !IS_SESSION_STATE_TYPE(type)
+            || !(info->info_list[type].head_node))
+    return get_data_and_length(NULL, data, length);
+
+  info->info_list[type].current_node= info->info_list[type].head_node;
+
+  return mysql_session_track_get_next(mysql, type, data, length);
+}
+
+
+/**
+  Get the subsequent state change information received from the server.
+
+  @param mysql  [IN]        mysql handle
+  @param type   [IN]        state change type
+  @param data   [OUT]       buffer to store the data
+  @param length [OUT]       length of the data
+
+  @return
+    0 - Valid data stored
+    1 - No data
+*/
+
+int STDCALL mysql_session_track_get_next(MYSQL *mysql,
+                                         enum enum_session_state_type type,
+                                         const char **data,
+                                         size_t *length)
+{
+  STATE_INFO *info= STATE_DATA(mysql);
+  int ret;
+
+  if (!info || !IS_SESSION_STATE_TYPE(type)
+            || !(info->info_list[type].current_node))
+    return get_data_and_length(NULL, data, length);
+
+  ret= get_data_and_length(info->info_list[type].current_node,
+                           data, length);
+
+  info->info_list[type].current_node=
+                        list_rest(info->info_list[type].current_node);
+
+  return ret;
 }
 
 

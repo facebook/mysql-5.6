@@ -29,10 +29,10 @@ typedef struct charset_info_st CHARSET_INFO;
 enum enum_session_tracker
 {
   SESSION_STATE_CHANGE_TRACKER,
+  SESSION_GTIDS_TRACKER,                         /* Tracks GTIDs */
 };
 
-#define SESSION_TRACKER_END SESSION_STATE_CHANGE_TRACKER
-
+#define SESSION_TRACKER_END SESSION_GTIDS_TRACKER
 
 /**
   State_tracker
@@ -76,7 +76,7 @@ public:
   bool is_enabled() const
   { return m_enabled; }
 
-  bool is_changed() const
+  virtual bool is_changed(THD* thd) const
   { return m_changed; }
 
   /** Called in the constructor of THD*/
@@ -151,7 +151,7 @@ public:
   bool enabled_any();
 
   /** Checks if m_changed flag is set for any of the tracker objects. */
-  bool changed_any();
+  bool changed_any(THD* thd);
 
   /**
     Stores the session state change information of all changes session state
@@ -188,15 +188,14 @@ private:
 
 public:
   Session_state_change_tracker();
-  bool enable(THD *thd);
-  bool check(THD *thd, set_var *var)
+  bool enable(THD *thd) override;
+  bool check(THD *thd, set_var *var) override
   { return false; }
-  bool update(THD *thd);
-  bool store(THD *thd, String &buf);
-  void mark_as_changed(THD *thd, LEX_CSTRING *tracked_item_name);
+  bool update(THD *thd) override;
+  bool store(THD *thd, String &buf) override;
+  void mark_as_changed(THD *thd, LEX_CSTRING *tracked_item_name) override;
   bool is_state_changed(THD*);
-  void ensure_enabled(THD *thd)
-  {}
+  void ensure_enabled(THD *thd) {}
 };
 
 #endif /* SESSION_TRACKER_INCLUDED */

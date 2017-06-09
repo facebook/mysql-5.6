@@ -226,34 +226,54 @@ bool generate_error_packet(THD *thd, uint sql_errno, const char *err,
 }
 
 /**
-  Return ok to the client.
+  Return OK to the client.
 
-  The ok packet has the following structure:
+  The OK packet has the following structure:
 
-  - 0               : Marker (1 byte)
-  - affected_rows	: Stored in 1-9 bytes
-  - id		: Stored in 1-9 bytes
-  - server_status	: Copy of thd->server_status;  Can be used by client
-  to check if we are inside an transaction.
-  New in 4.0 protocol
-  - warning_count	: Stored in 2 bytes; New in 4.1 protocol
-  - message		: Stored as packed length (1-9 bytes) + message.
-  Is not stored if no message.
+  Here 'n' denotes the length of state change information.
+
+  Bytes                Name
+  -----                ----
+  1                    [00] or [FE] the OK header
+                       [FE] is used as header for result set rows
+  1-9 (lenenc-int)     affected rows
+  1-9 (lenenc-int)     last-insert-id
+
+  if capabilities & CLIENT_PROTOCOL_41 {
+    2                  status_flags; Copy of thd->server_status; Can be used
+                       by client to check if we are inside a transaction.
+    2                  warnings (New in 4.1 protocol)
+  } elseif capabilities & CLIENT_TRANSACTIONS {
+    2                  status_flags
+  }
+
+  if capabilities & CLIENT_ACCEPTS_SERVER_STATUS_CHANGE_INFO {
+    1-9(lenenc_str)    info (message); Stored as length of the message string +
+                       message.
+    if n > 0 {
+      1-9 (lenenc_int) total length of session state change
+                       information to follow (= n)
+      n                session state change information
+    }
+  }
+  else {
+    string[EOF]          info (message); Stored as packed length (1-9 bytes) +
+                         message. Is not stored if no message.
+  }
 
   @param thd		   Thread handler
   @param server_status     The server status
   @param statement_warn_count  Total number of warnings
   @param affected_rows	   Number of rows changed by statement
   @param id		   Auto_increment id for first row (if used)
-  @param message	   Message to send to the client (Used by mysql_status)
+  @param message                 Message to send to the client
+                                 (Used by mysql_status)
   @param eof_indentifier         when true [FE] will be set in OK header
                                  else [00] will be used
 
- 
   @return
     @retval FALSE The message was successfully sent
     @retval TRUE An error occurred and the messages wasn't sent properly
-
 */
 
 #ifndef EMBEDDED_LIBRARY
@@ -264,7 +284,16 @@ net_send_ok(THD *thd,
             bool eof_identifier)
 {
   NET *net= &thd->net;
-  uchar buff[MYSQL_ERRMSG_SIZE+12+Gtid::MAX_TEXT_LENGTH],*pos;
+  uchar buff[MYSQL_ERRMSG_SIZE + 10];
+  uchar *pos, *start;
+
+  /*
+    To be used to manage the data storage in case session state change
+    information is present.
+  */
+  String store;
+  bool state_changed= false;
+
   bool error= FALSE;
   DBUG_ENTER("net_send_ok");
 
@@ -273,6 +302,8 @@ net_send_ok(THD *thd,
     DBUG_PRINT("info", ("vio present: NO"));
     DBUG_RETURN(FALSE);
   }
+
+  start = buff;
 
   /*
     Use 0xFE packet header if eof_identifier is true
@@ -284,12 +315,20 @@ net_send_ok(THD *thd,
   else
     buff[0]= 0;
 
+  /* affected rows */
   pos=net_store_length(buff+1,affected_rows);
+
+  /* last insert id */
   pos=net_store_length(pos, id);
-  if (thd->variables.session_track_gtids != OFF &&
-      (thd->client_capabilities & CLIENT_SESSION_TRACK) &&
-      thd->get_trans_gtid())
+
+  if (thd->client_capabilities & CLIENT_SESSION_TRACK &&
+      thd->session_tracker.enabled_any() &&
+      thd->session_tracker.changed_any(thd))
+  {
     server_status |= SERVER_SESSION_STATE_CHANGED;
+    state_changed= true;
+  }
+
   if (thd->client_capabilities & CLIENT_PROTOCOL_41)
   {
     DBUG_PRINT("info",
@@ -298,10 +337,11 @@ net_send_ok(THD *thd,
 		(ulong) id,
 		(uint) (server_status & 0xffff),
 		(uint) statement_warn_count));
+    /* server status */
     int2store(pos, server_status);
     pos+=2;
 
-    /* We can only return up to 65535 warnings in two bytes */
+    /* warning count: we can only return up to 65535 warnings in two bytes. */
     uint tmp= min(statement_warn_count, 65535U);
     int2store(pos, tmp);
     pos+= 2;
@@ -311,22 +351,40 @@ net_send_ok(THD *thd,
     int2store(pos, server_status);
     pos+=2;
   }
+
   thd->get_stmt_da()->set_overwrite_status(true);
 
-  if (thd->variables.session_track_gtids != OFF &&
-      (thd->client_capabilities & CLIENT_SESSION_TRACK))
+  if (thd->client_capabilities & CLIENT_SESSION_TRACK)
   {
     /* the info field */
+    if (state_changed || (message && message[0]))
     pos= net_store_data(pos, (uchar*) message, message ? strlen(message) : 0);
-    /* gtid */
-    const char *gtid= thd->get_trans_gtid();
-    pos= net_store_data(pos, (uchar*) gtid, gtid ? strlen(gtid) : 0);
+    /* session state change information */
+    if (unlikely(state_changed))
+    {
+      store.set_charset(thd->variables.collation_database);
+
+      /*
+        First append the fields collected so far. In case of malloc, memory
+        for message is also allocated here.
+      */
+      store.append((const char *)start, (pos - start), MYSQL_ERRMSG_SIZE);
+
+      /* .. and then the state change information. */
+      thd->session_tracker.store(thd, store);
+
+      start= (uchar *) store.ptr();
+      pos= start+store.length();
+    }
   }
   else if (message && message[0])
+  {
+    /* the info field, if there is a message to store */
     pos= net_store_data(pos, (uchar*) message, strlen(message));
+  }
 
   /* OK packet length will be restricted to 16777215 bytes */
-  if (((size_t) (pos - buff)) > MAX_PACKET_LENGTH)
+  if (((size_t) (pos - start)) > MAX_PACKET_LENGTH)
   {
     net->error= 1;
     net->last_errno= ER_NET_OK_PACKET_TOO_LARGE;
@@ -335,7 +393,7 @@ net_send_ok(THD *thd,
     DBUG_RETURN(1);
   }
 
-  error= my_net_write(net, buff, (size_t) (pos-buff));
+  error= my_net_write(net, start, (size_t) (pos-start));
   if (!error)
     error= net_flush(net);
 
