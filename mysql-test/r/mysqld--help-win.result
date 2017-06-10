@@ -66,6 +66,11 @@ The following options may be given as the first argument:
  When statements cannot be written to the binary log due
  to a fatal error, the server can either ignore the error
  and let the master continue, or abort.
+ --binlog-expire-logs-seconds=# 
+ If non-zero, binary logs will be purged after
+ (binlog_expire_logs_seconds + 24 * 60 * 60 *
+ expire_logs_days) seconds; possible purges happen at
+ startup and at binary log rotation
  --binlog-format=name 
  What form of binary logging the master will use: either
  ROW for row-based binary logging, STATEMENT for
@@ -235,8 +240,10 @@ The following options may be given as the first argument:
  disabled with the fast-index-creation option
  --expire-logs-days=# 
  If non-zero, binary logs will be purged after
- expire_logs_days days; possible purges happen at startup
- and at binary log rotation
+ expire_logs_days days; or (binlog_expire_logs_seconds +
+ 24 * 60 * 60 * expire_logs_days) seconds if
+ binlog_expire_logs_seconds has a non zero value; possible
+ purges happen at startup and at binary log rotation
  --explicit-defaults-for-timestamp 
  This option causes CREATE TABLE to create all TIMESTAMP
  columns as NULL with DEFAULT NULL attribute, Without this
@@ -1060,6 +1067,7 @@ binlog-direct-non-transactional-updates FALSE
 binlog-error-action IGNORE_ERROR
 binlog-format STATEMENT
 binlog-gtid-simple-recovery FALSE
+binlog-expire-logs-seconds 0
 binlog-max-flush-queue-time 0
 binlog-order-commits TRUE
 binlog-row-event-max-size 8192

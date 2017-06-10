@@ -757,7 +757,7 @@ uint sync_binlog_period= 0, sync_relaylog_period= 0,
      sync_relayloginfo_period= 0, sync_masterinfo_period= 0,
      opt_mts_checkpoint_period, opt_mts_checkpoint_group;
 ulong expire_logs_days = 0;
-
+ulong binlog_expire_logs_seconds= 0;
 /**
   Soft upper limit for number of sp_head objects that can be stored
   in the sp_cache for one connection.
@@ -6050,11 +6050,11 @@ a file name for --log-bin-index option", opt_binlog_index_name);
     binlog_index_basedir[0] = '\0';
   }
 
-
 #ifdef HAVE_REPLICATION
-  if (opt_bin_log && expire_logs_days)
+  if (opt_bin_log && (expire_logs_days || binlog_expire_logs_seconds))
   {
-    time_t purge_time= server_start_time - expire_logs_days*24*60*60;
+    time_t purge_time= server_start_time - expire_logs_days * 24 * 60 * 60 -
+                       binlog_expire_logs_seconds;
     if (purge_time >= 0)
       mysql_bin_log.purge_logs_before_date(purge_time, true);
   }
