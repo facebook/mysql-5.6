@@ -1558,7 +1558,9 @@ static Sys_var_mybool Sys_expand_fast_index_creation(
 static Sys_var_ulong Sys_expire_logs_days(
        "expire_logs_days",
        "If non-zero, binary logs will be purged after expire_logs_days "
-       "days; possible purges happen at startup and at binary log rotation",
+       "days; or (binlog_expire_logs_seconds + 24 * 60 * 60 * expire_logs_days)"
+       " seconds if binlog_expire_logs_seconds has a non zero value; "
+       "possible purges happen at startup and at binary log rotation",
        GLOBAL_VAR(expire_logs_days),
        CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, 99), DEFAULT(0), BLOCK_SIZE(1));
 
@@ -1574,6 +1576,14 @@ static Sys_var_ulong Sys_flush_time(
        GLOBAL_VAR(flush_time),
        CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, LONG_TIMEOUT),
        DEFAULT(0), BLOCK_SIZE(1));
+
+static Sys_var_ulong Sys_binlog_expire_logs_seconds(
+       "binlog_expire_logs_seconds",
+       "If non-zero, binary logs will be purged after (binlog_expire_logs_seconds + "
+       "24 * 60 * 60 * expire_logs_days) seconds; "
+       "possible purges happen at startup and at binary log rotation",
+       GLOBAL_VAR(binlog_expire_logs_seconds),
+       CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, 0xFFFFFFFF), DEFAULT(0), BLOCK_SIZE(1));
 
 static bool check_ftb_syntax(sys_var *self, THD *thd, set_var *var)
 {

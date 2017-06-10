@@ -342,6 +342,7 @@ extern ulong max_long_data_size;
 extern ulong current_pid;
 extern ulong expire_logs_days;
 extern my_bool relay_log_recovery;
+extern ulong binlog_expire_logs_seconds;
 extern uint sync_binlog_period, sync_relaylog_period,
             sync_relayloginfo_period, sync_masterinfo_period,
             opt_mts_checkpoint_period, opt_mts_checkpoint_group;
