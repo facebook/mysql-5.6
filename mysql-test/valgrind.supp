@@ -1143,3 +1143,34 @@
    ...
    fun:_ZL26mysql_real_connect_wrapperP8st_mysqlPKcS2_S2_S2_jS2_m
 }
+{
+   TLS data on main thread is not cleaned up properly
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:CRYPTO_set_thread_local
+   fun:RAND_bytes_with_additional_data.part.15
+   fun:RAND_bytes_with_additional_data
+   fun:RAND_bytes
+   fun:SSL_CTX_new
+   fun:new_VioSSLFd
+   fun:new_VioSSLAcceptorFd
+   fun:_Z8init_sslv
+   fun:_Z11mysqld_mainiPPc
+   fun:main
+}
+{
+   TLS data on main thread is not cleaned up properly
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:RAND_bytes_with_additional_data.part.15
+   fun:RAND_bytes_with_additional_data
+   fun:RAND_bytes
+   fun:SSL_CTX_new
+   fun:new_VioSSLFd
+   fun:new_VioSSLAcceptorFd
+   fun:_Z8init_sslv
+   fun:_Z11mysqld_mainiPPc
+   fun:main
+}
