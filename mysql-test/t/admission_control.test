@@ -277,8 +277,14 @@ enable_result_log;
 
 connection default;
 let $wait_timeout= 300;
-# wait for all test_user connections becoming idle.
+
 # Total 15-2 = 13 test_user connections (con1 & con3 were closed)
+# wait for con1 and con3 to be killed or disconnected
+let $wait_condition=
+  select count(*)=13 from information_schema.processlist where user='test_user';
+source include/wait_condition.inc;
+
+# wait for all test_user connections becoming idle.
 let $wait_condition=
   select count(*)=13 from information_schema.processlist where command='Sleep' and state='' and user='test_user';
 source include/wait_condition.inc;
