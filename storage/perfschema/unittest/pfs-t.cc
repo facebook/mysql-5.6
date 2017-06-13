@@ -1147,9 +1147,9 @@ void test_locker_disabled()
   ok(cond_A1 != NULL, "instrumented");
 
   file_class_A->m_enabled= true;
-  psi->create_file(file_key_A, "foo", (File) 12);
-  file_A1= (PSI_file*) lookup_file_by_name("foo");
-  ok(file_A1 != NULL, "instrumented");
+  psi->create_file(file_key_A, "foo-instrumented", (File) 12);
+  file_A1= (PSI_file*) lookup_file_by_name("foo-instrumented");
+  ok(file_A1 != NULL, "file_A1 instrumented");
 
   socket_class_A->m_enabled= true;
   socket_A1= psi->init_socket(socket_key_A, NULL, NULL, 0);
