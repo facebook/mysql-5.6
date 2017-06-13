@@ -196,9 +196,9 @@ const char *const RDB_TTL_COL_QUALIFIER = "ttl_col";
 #define MAX_SUBCOMPACTIONS 64
 
 /*
-  Default value for rocksdb_sst_mgr_rate_bytes_per_sec = 64 MB.
+  Default value for rocksdb_sst_mgr_rate_bytes_per_sec = 0 (disabled).
 */
-#define DEFAULT_SST_MGR_RATE_BYTES_PER_SEC (64 * 1024 * 1024)
+#define DEFAULT_SST_MGR_RATE_BYTES_PER_SEC 0
 
 /*
   Defines the field sizes for serializing XID object to a string representation.
