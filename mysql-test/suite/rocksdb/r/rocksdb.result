@@ -943,7 +943,7 @@ rocksdb_signal_drop_index_thread	OFF
 rocksdb_skip_bloom_filter_on_read	OFF
 rocksdb_skip_fill_cache	OFF
 rocksdb_skip_unique_check_tables	.*
-rocksdb_sst_mgr_rate_bytes_per_sec	67108864
+rocksdb_sst_mgr_rate_bytes_per_sec	0
 rocksdb_stats_dump_period_sec	600
 rocksdb_store_row_debug_checksums	OFF
 rocksdb_strict_collation_check	OFF
