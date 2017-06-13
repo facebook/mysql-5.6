@@ -2082,7 +2082,7 @@ rocksdb-signal-drop-index-thread FALSE
 rocksdb-skip-bloom-filter-on-read FALSE
 rocksdb-skip-fill-cache FALSE
 rocksdb-skip-unique-check-tables (No default value)
-rocksdb-sst-mgr-rate-bytes-per-sec 67108864
+rocksdb-sst-mgr-rate-bytes-per-sec 0
 rocksdb-stats-dump-period-sec 600
 rocksdb-store-row-debug-checksums FALSE
 rocksdb-strict-collation-check TRUE
