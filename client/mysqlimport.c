@@ -730,6 +730,7 @@ int main(int argc, char **argv)
     }
 
     my_free(worker_threads);
+    mysql_close(&mysql);
   }
   else
   {
