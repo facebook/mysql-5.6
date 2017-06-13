@@ -1432,7 +1432,7 @@ void test_file_instrumentation_leak()
 
   /* Simulate OPEN + READ of 100 bytes + CLOSE on descriptor 12 */
 
-  file_locker= psi->get_thread_file_name_locker(&file_state, file_key_A, PSI_FILE_OPEN, "AAA", NULL);
+  file_locker= psi->get_thread_file_name_locker(&file_state, file_key_A, PSI_FILE_OPEN, "AAA-instrumented", NULL);
   ok(file_locker != NULL, "locker");
   psi->start_file_open_wait(file_locker, __FILE__, __LINE__);
   psi->end_file_open_wait_and_bind_to_descriptor(file_locker, 12);
