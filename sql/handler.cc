@@ -3893,11 +3893,14 @@ void print_keydup_error(TABLE *table, KEY *key, const char *msg, myf errflag,
     //        we can.
     std::string msg_fmt = std::string(msg) + " [%-.512s]";
 
-    my_printf_error(ER_DUP_ENTRY, msg_fmt.c_str(), errflag, str.c_ptr(),
+    my_printf_error(ER_DUP_ENTRY, msg_fmt.c_str(), errflag, str.c_ptr_safe(),
                     key_name.c_str(), query.c_str());
   }
   else
-    my_printf_error(ER_DUP_ENTRY, msg, errflag, str.c_ptr(), key_name.c_str());
+  {
+    my_printf_error(ER_DUP_ENTRY, msg, errflag, str.c_ptr_safe(),
+                    key_name.c_str());
+  }
 }
 
 
