@@ -1154,10 +1154,7 @@
    fun:RAND_bytes
    fun:SSL_CTX_new
    fun:new_VioSSLFd
-   fun:new_VioSSLAcceptorFd
-   fun:_Z8init_sslv
-   fun:_Z11mysqld_mainiPPc
-   fun:main
+   ...
 }
 {
    TLS data on main thread is not cleaned up properly
@@ -1169,8 +1166,5 @@
    fun:RAND_bytes
    fun:SSL_CTX_new
    fun:new_VioSSLFd
-   fun:new_VioSSLAcceptorFd
-   fun:_Z8init_sslv
-   fun:_Z11mysqld_mainiPPc
-   fun:main
+   ...
 }
