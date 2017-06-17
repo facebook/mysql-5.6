@@ -10,6 +10,18 @@ DB_STATS* global_db_stats_array;
 static pthread_mutex_t LOCK_global_db_stats;
 unsigned char num_db_stats_entries = 0;
 
+static void
+clear_db_stats_counters(DB_STATS* db_stats)
+{
+  hyperloglog_reset(&db_stats->hll);
+  db_stats->us_user.clear();
+  db_stats->us_sys.clear();
+  db_stats->rows_deleted.clear();
+  db_stats->rows_inserted.clear();
+  db_stats->rows_read.clear();
+  db_stats->rows_updated.clear();
+}
+
 extern "C" uchar *get_key_db_stats(const uchar *ptr, size_t *length,
                                    my_bool not_used MY_ATTRIBUTE((unused)))
 {
@@ -42,28 +54,49 @@ void free_global_db_stats(void)
   my_free((char*)global_db_stats_array);
 }
 
+
+/* NULL means the global array is full and we do not keep stats for these
+ * databases.
+ */
+static DB_STATS* get_db_stats_locked(const char* db)
+{
+  if (!db)
+    return NULL;
+
+  DB_STATS* db_stats = (DB_STATS*)my_hash_search(&global_db_stats_hash,
+                                                 (uchar*)db,
+                                                 strlen(db));
+  if (!db_stats) {
+    if (num_db_stats_entries == MAX_DB_STATS_ENTRIES) {
+      return NULL;
+    }
+
+    db_stats = &global_db_stats_array[++num_db_stats_entries];
+    db_stats->index = num_db_stats_entries;
+    strcpy(db_stats->db, db);
+    hyperloglog_init(&db_stats->hll);
+    clear_db_stats_counters(db_stats);
+    my_hash_insert(&global_db_stats_hash, (uchar*)db_stats);
+  }
+  return db_stats;
+}
+
+DB_STATS* get_db_stats(const char *db) {
+  pthread_mutex_lock(&LOCK_global_db_stats);
+  DB_STATS *db_stats = get_db_stats_locked(db);
+  pthread_mutex_unlock(&LOCK_global_db_stats);
+  return db_stats;
+}
+
 /* 0 means the global array is full and we do not keep stats for these
  * databases.
  */
 unsigned char get_db_stats_index(const char* db)
 {
   pthread_mutex_lock(&LOCK_global_db_stats);
-  DB_STATS* db_stats = (DB_STATS*)my_hash_search(&global_db_stats_hash,
-                                                 (uchar*)db,
-                                                 strlen(db));
-  if (!db_stats) {
-    if (num_db_stats_entries == MAX_DB_STATS_ENTRIES) {
-      pthread_mutex_unlock(&LOCK_global_db_stats);
-      return 0;
-    }
-    db_stats = &global_db_stats_array[++num_db_stats_entries];
-    db_stats->index = num_db_stats_entries;
-    strcpy(db_stats->db, db);
-    hyperloglog_init(&db_stats->hll);
-    my_hash_insert(&global_db_stats_hash, (uchar*)db_stats);
-  }
+  DB_STATS* db_stats = get_db_stats_locked(db);
   pthread_mutex_unlock(&LOCK_global_db_stats);
-  return db_stats->index;
+  return (db_stats) ? db_stats->index : 0;
 }
 int fill_db_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 {
@@ -73,6 +106,7 @@ int fill_db_stats(THD *thd, TABLE_LIST *tables, Item *cond)
   unsigned f;
   uint current_time = (uint)(my_timer_to_seconds(my_timer_now()));
   uint since_time = current_time - thd->variables.working_duration;
+
   for (i = 0; i < num_db_stats_entries; ++i) {
     DB_STATS* db_stats = &global_db_stats_array[i + 1];
     f = 0;
@@ -84,6 +118,15 @@ int fill_db_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     } else {
       table->field[f++]->store(0);
     }
+
+    table->field[f++]->store(db_stats->us_user.load(), TRUE);
+    table->field[f++]->store(db_stats->us_sys.load(), TRUE);
+    table->field[f++]->store(db_stats->us_sys.load() +
+                             db_stats->us_user.load(), TRUE);
+    table->field[f++]->store(db_stats->rows_deleted.load(), TRUE);
+    table->field[f++]->store(db_stats->rows_inserted.load(), TRUE);
+    table->field[f++]->store(db_stats->rows_read.load(), TRUE);
+    table->field[f++]->store(db_stats->rows_updated.load(), TRUE);
 
     if (schema_table_store_record(thd, table))
     {
@@ -99,7 +142,7 @@ void reset_global_db_stats()
 
   for (unsigned i = 0; i < num_db_stats_entries; ++i) {
     DB_STATS *db_stats = &global_db_stats_array[i + 1];
-    hyperloglog_reset(&db_stats->hll);
+    clear_db_stats_counters(db_stats);
   }
 
   pthread_mutex_unlock(&LOCK_global_db_stats);
@@ -128,5 +171,19 @@ ST_FIELD_INFO db_stats_fields_info[]=
 {
   {"DB", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
   {"WORKING_SET_SIZE", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"USER_CPU", MY_INT64_NUM_DECIMAL_DIGITS,
+    MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"SYSTEM_CPU", MY_INT64_NUM_DECIMAL_DIGITS,
+    MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"CPU", MY_INT64_NUM_DECIMAL_DIGITS,
+    MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"ROWS_DELETED", MY_INT64_NUM_DECIMAL_DIGITS,
+    MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"ROWS_INSERTED", MY_INT64_NUM_DECIMAL_DIGITS,
+    MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"ROWS_READ", MY_INT64_NUM_DECIMAL_DIGITS,
+    MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"ROWS_UPDATED", MY_INT64_NUM_DECIMAL_DIGITS,
+    MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };

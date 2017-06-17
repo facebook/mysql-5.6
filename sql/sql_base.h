@@ -335,6 +335,10 @@ update_user_stats_after_statement(USER_STATS *us,
                                   my_io_perf_t *start_perf_read_blob,
                                   my_io_perf_t *start_perf_read_primary,
                                   my_io_perf_t *start_perf_read_secondary);
+void
+update_db_stats_after_statement(DB_STATS *dbstats,
+                                  THD *thd,
+                                  bool is_xid_event);
 
 /* For information_schema.error_statistics */
 extern ST_FIELD_INFO error_stats_fields_info[];

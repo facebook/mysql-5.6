@@ -43,6 +43,8 @@
 class THD;
 struct handlerton;
 class Time_zone;
+struct st_db_stats;
+typedef struct st_db_stats DB_STATS;
 
 struct scheduler_functions;
 
@@ -685,6 +687,7 @@ struct st_table_stats* get_table_stats(TABLE *table,
                                        struct handlerton *engine_type);
 
 unsigned char get_db_stats_index(const char* db);
+DB_STATS *get_db_stats(const char *db);
 void update_global_db_stats_access(unsigned char db_stats_index,
                                    uint64 space,
                                    uint64 offset);

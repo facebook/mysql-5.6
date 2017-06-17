@@ -1285,6 +1285,9 @@ void init_user_stats(USER_STATS *user_stats)
   user_stats->microseconds_select.clear();
   user_stats->microseconds_transaction.clear();
   user_stats->microseconds_update.clear();
+  user_stats->microseconds_cpu.clear();
+  user_stats->microseconds_cpu_user.clear();
+  user_stats->microseconds_cpu_sys.clear();
   user_stats->queries_empty.clear();
   user_stats->query_comment_bytes.clear();
   user_stats->relay_log_bytes_written.clear();
@@ -1379,6 +1382,20 @@ update_user_stats_after_statement(USER_STATS *us,
   {
     us->commands_transaction.inc();
     us->microseconds_transaction.inc(wall_microsecs);
+  }
+}
+
+void
+update_db_stats_after_statement(DB_STATS *dbstats,
+                                THD *thd,
+                                bool is_xid_event)
+{
+  if (!is_xid_event)
+  {
+    dbstats->rows_deleted.inc(thd->rows_deleted);
+    dbstats->rows_inserted.inc(thd->rows_inserted);
+    dbstats->rows_read.inc(thd->rows_read);
+    dbstats->rows_updated.inc(thd->rows_updated);
   }
 }
 
@@ -1586,6 +1603,10 @@ fill_one_user_stats(TABLE *table, USER_CONN *uc, USER_STATS* us,
   table->field[f++]->store(us->microseconds_select.load(), TRUE);
   table->field[f++]->store(us->microseconds_transaction.load(), TRUE);
   table->field[f++]->store(us->microseconds_update.load(), TRUE);
+  table->field[f++]->store(us->microseconds_cpu.load(), TRUE);
+  table->field[f++]->store(us->microseconds_cpu_user.load(), TRUE);
+  table->field[f++]->store(us->microseconds_cpu_sys.load(), TRUE);
+
   table->field[f++]->store(us->queries_empty.load(), TRUE);
   table->field[f++]->store(us->query_comment_bytes.load(), TRUE);
   table->field[f++]->store(us->relay_log_bytes_written.load(), TRUE);

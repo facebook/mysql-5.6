@@ -127,6 +127,15 @@
 using std::max;
 using std::min;
 
+#ifdef HAVE_SYS_RESOURCE_H
+#include <sys/resource.h>
+#endif
+
+#ifdef HAVE_GETRUSAGE
+#define RUSAGE_USEC(tv)  ((tv).tv_sec*1000*1000 + (tv).tv_usec)
+#define RUSAGE_DIFF_USEC(tv1, tv2) (RUSAGE_USEC((tv1))-RUSAGE_USEC((tv2)))
+#endif
+
 #define FLAGSTR(V,F) ((V)&(F)?#F" ":"")
 
 /**
@@ -2363,9 +2372,13 @@ done:
                                         &start_perf_read_blob,
                                         &start_perf_read_primary,
                                         &start_perf_read_secondary);
+      DB_STATS *dbstats = get_db_stats(thd->db);
+      if (dbstats)
+        update_db_stats_after_statement(dbstats, thd, command != COM_QUERY);
     }
 #endif
   }
+
   if (thd->lex->sql_command == SQLCOM_SELECT && thd->get_sent_row_count() == 0)
   {
     USER_STATS *us= thd_get_user_stats(thd);
@@ -3091,6 +3104,11 @@ mysql_execute_command(THD *thd,
   DBUG_ASSERT(!lex->describe || is_explainable_query(lex->sql_command));
 
   thd->stmt_start = *statement_start_time;
+
+#ifdef HAVE_GETRUSAGE
+    struct rusage rusage_beg;
+    getrusage(RUSAGE_THREAD, &rusage_beg);
+#endif
 
   if (unlikely(lex->is_broken()))
   {
@@ -6093,6 +6111,21 @@ finish:
   if (thd)
   {
     USER_STATS *us= thd_get_user_stats(thd);
+#ifdef HAVE_GETRUSAGE
+    DB_STATS *dbstats = get_db_stats(thd->db);
+    struct rusage rusage_end;
+    getrusage(RUSAGE_THREAD, &rusage_end);
+    ulonglong diffu=
+      RUSAGE_DIFF_USEC(rusage_end.ru_utime, rusage_beg.ru_utime);
+    ulonglong diffs=
+      RUSAGE_DIFF_USEC(rusage_end.ru_stime, rusage_beg.ru_stime);
+    if (dbstats)
+      dbstats->update_cpu_stats(diffu, diffs);
+    us->microseconds_cpu.inc(diffu+diffs);
+    us->microseconds_cpu_user.inc(diffu);
+    us->microseconds_cpu_sys.inc(diffs);
+#endif
+
     ulonglong latency = my_timer_since(*statement_start_time);
     ulonglong microsecs= (ulonglong)
       my_timer_to_microseconds(latency);
