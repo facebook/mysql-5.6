@@ -1,0 +1,74 @@
+#
+# Test IS.db_statistics for rows* counters
+#
+
+# The test verifies the number of bytes send by server. There will be different
+# results if CLIENT_DEPRECATE_EOF flag is used or not. We need to force one
+# option in order to match the result file. Force disable deprecate eof as it's
+# supported by both sync and async mysql client.
+--disable_deprecate_eof
+# create a new connection to use client flags without CLIENT_DEPRECATE_EOF
+--connect (con_1, localhost, root)
+
+# Requires privileges to be enabled
+--source include/not_embedded.inc
+
+--disable_warnings
+drop table if exists userstats;
+--enable_warnings
+
+create database dbtest1;
+create database dbtest2;
+use dbtest1;
+create table table1 (i int primary key, j int);
+
+flush statistics;
+
+--echo
+--echo At start
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted from information_schema.db_statistics where db = 'dbtest1';
+
+insert into table1 values (1,1);
+insert into table1 values (2,2);
+
+--echo
+--echo after insert
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted from information_schema.db_statistics where db = 'dbtest1';
+
+update table1 set j=2 where i=1;
+
+--echo
+--echo after update
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted from information_schema.db_statistics where db = 'dbtest1';
+
+delete from table1 where i=2;
+
+--echo
+--echo after update
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted from information_schema.db_statistics where db = 'dbtest1';
+
+use dbtest2;
+create table table2 (i int primary key, j int);
+insert into table2 values (1,1);
+
+
+--echo
+--echo after update
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted from information_schema.db_statistics where db = 'dbtest1';
+--query_vertical select rows_inserted, rows_updated, rows_deleted from information_schema.db_statistics where db = 'dbtest2';
+
+--disable_result_log
+--query_vertical select db, cpu, user_cpu, system_cpu from information_schema.db_statistics;
+--enable_result_log
+
+# Cleanup
+drop table dbtest1.table1;
+drop table dbtest2.table2;
+
+drop database dbtest1;
+drop database dbtest2;

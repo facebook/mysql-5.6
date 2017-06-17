@@ -1,0 +1,57 @@
+drop table if exists userstats;
+create database dbtest1;
+create database dbtest2;
+use dbtest1;
+create table table1 (i int primary key, j int);
+flush statistics;
+
+At start
+
+select rows_inserted, rows_updated, rows_deleted from information_schema.db_statistics where db = 'dbtest1';;
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+insert into table1 values (1,1);
+insert into table1 values (2,2);
+
+after insert
+
+select rows_inserted, rows_updated, rows_deleted from information_schema.db_statistics where db = 'dbtest1';;
+rows_inserted	2
+rows_updated	0
+rows_deleted	0
+update table1 set j=2 where i=1;
+
+after update
+
+select rows_inserted, rows_updated, rows_deleted from information_schema.db_statistics where db = 'dbtest1';;
+rows_inserted	2
+rows_updated	1
+rows_deleted	0
+delete from table1 where i=2;
+
+after update
+
+select rows_inserted, rows_updated, rows_deleted from information_schema.db_statistics where db = 'dbtest1';;
+rows_inserted	2
+rows_updated	1
+rows_deleted	1
+use dbtest2;
+create table table2 (i int primary key, j int);
+insert into table2 values (1,1);
+
+after update
+
+select rows_inserted, rows_updated, rows_deleted from information_schema.db_statistics where db = 'dbtest1';;
+rows_inserted	2
+rows_updated	1
+rows_deleted	1
+select rows_inserted, rows_updated, rows_deleted from information_schema.db_statistics where db = 'dbtest2';;
+rows_inserted	1
+rows_updated	0
+rows_deleted	0
+select db, cpu, user_cpu, system_cpu from information_schema.db_statistics;;
+drop table dbtest1.table1;
+drop table dbtest2.table2;
+drop database dbtest1;
+drop database dbtest2;

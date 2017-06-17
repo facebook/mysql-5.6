@@ -1234,6 +1234,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   bool has_transmit_started= false;
   bool gtid_event_logged = false;
   Sid_map *sid_map= slave_gtid_executed ? slave_gtid_executed->get_sid_map() : NULL;
+  USER_STATS *us= thd_get_user_stats(thd);
+  ulonglong cur_timer = my_timer_now();
 
   IO_CACHE_EX log;
   File file = -1;
@@ -1703,6 +1705,13 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                                                          STRING_WITH_LEN(act)));
                       DBUG_ASSERT(thd->killed);
                     };);
+      if (us)
+      {
+        ulonglong n_timer = my_timer_now();
+        double micro_secs = my_timer_to_microseconds(n_timer - cur_timer);
+        us->microseconds_wall.inc(micro_secs);
+        cur_timer = n_timer;
+      }
       time_t created;
       DBUG_PRINT("info", ("read_log_event returned 0 on line %d", __LINE__));
 #ifndef DBUG_OFF
@@ -2506,6 +2515,11 @@ end:
   if (heartbeat_packet_buffer != NULL)
     my_free(heartbeat_packet_buffer);
   repl_cleanup(packet, packet_buffer);
+  if (us)
+  {
+    ulonglong n_timer = my_timer_now();
+    us->microseconds_wall.inc(my_timer_to_microseconds(n_timer - cur_timer));
+  }
   DBUG_VOID_RETURN;
 
 err:
@@ -2554,6 +2568,11 @@ err:
   if (heartbeat_packet_buffer != NULL)
     my_free(heartbeat_packet_buffer);
   repl_cleanup(packet, packet_buffer);
+  if (us)
+  {
+    ulonglong n_timer = my_timer_now();
+    us->microseconds_wall.inc(my_timer_to_microseconds(n_timer - cur_timer));
+  }
   DBUG_VOID_RETURN;
 }
 

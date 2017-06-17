@@ -277,6 +277,9 @@ typedef struct st_user_stats {
   atomic_stat<ulonglong> microseconds_select;
   atomic_stat<ulonglong> microseconds_transaction;
   atomic_stat<ulonglong> microseconds_update;
+  atomic_stat<ulonglong> microseconds_cpu;
+  atomic_stat<ulonglong> microseconds_cpu_user;
+  atomic_stat<ulonglong> microseconds_cpu_sys;
   atomic_stat<ulonglong> queries_empty;
   atomic_stat<ulonglong> relay_log_bytes_written;
   atomic_stat<ulonglong> rows_deleted;
@@ -453,8 +456,21 @@ typedef struct st_table_stats {
 typedef struct st_db_stats {
   char db[NAME_LEN + 1];
   hyperloglog_t hll;
+  atomic_stat<ulonglong> us_user;
+  atomic_stat<ulonglong> us_sys;
+  atomic_stat<ulonglong> rows_deleted;  /* Number of rows deleted */
+  atomic_stat<ulonglong> rows_inserted; /* Number of rows inserted */
+  atomic_stat<ulonglong> rows_read;     /* Number of rows read for this table */
+  atomic_stat<ulonglong> rows_updated;  /* Number of rows updated */
   unsigned char index;
+
+  void update_cpu_stats(ulonglong us_u, ulonglong us_s)
+  {
+    us_user.inc(us_u);
+    us_sys.inc(us_s);
+  }
 } DB_STATS;
+
 
 	/* Bits in form->update */
 #define REG_MAKE_DUPP		1	/* Make a copy of record when read */
