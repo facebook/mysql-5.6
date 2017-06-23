@@ -360,6 +360,9 @@ static const char *xtrabackup_compress_alg = NULL;
 ibool xtrabackup_compress = FALSE;
 uint xtrabackup_compress_threads;
 
+uint slow_rm_chunk_delay = 0;
+uint slow_rm_chunk_percentage = 0;
+
 /* === metadata of backup === */
 #define XTRABACKUP_METADATA_FILENAME "xtrabackup_checkpoints"
 char metadata_type[30] = ""; /*[full-backuped|full-prepared|incremental]*/
@@ -609,7 +612,9 @@ enum options_xtrabackup
   OPT_XTRA_DEBUG_SYNC,
   OPT_INNODB_CHECKSUM_ALGORITHM,
   OPT_UNDO_TABLESPACES,
-  OPT_DEFAULTS_GROUP
+  OPT_DEFAULTS_GROUP,
+  OPT_SLOW_RM_CHUNK_DELAY,
+  OPT_SLOW_RM_CHUNK_PERCENTAGE
 };
 
 /** Possible values for system variable "innodb_checksum_algorithm". */
@@ -914,8 +919,19 @@ Disable with --skip-innodb-doublewrite.", (G_PTR*) &innobase_use_doublewrite,
   {"defaults_group", OPT_DEFAULTS_GROUP, "defaults group in config file (default \"mysqld\").",
    (G_PTR*) &defaults_group, (G_PTR*) &defaults_group,
    0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+  {"slow-rm-chunk-delay", OPT_SLOW_RM_CHUNK_DELAY,
+   "Number of seconds to delay between deleting another chunk. The default value is 0 (not used).",
+   (G_PTR*) &slow_rm_chunk_delay, (G_PTR*) &slow_rm_chunk_delay,
+   0, GET_UINT, OPT_ARG, 0, 0, UINT_MAX, 0, 0, 0},
+  {"slow-rm-chunk-percentage", OPT_SLOW_RM_CHUNK_PERCENTAGE,
+   "Percentage of each chunk from a total file size. The default value is 0 (not used).",
+   (G_PTR*) &slow_rm_chunk_percentage, (G_PTR*) &slow_rm_chunk_percentage,
+   0, GET_UINT, OPT_ARG, 0, 0, 100, 0, 0, 0},
+
+  // This entry signifies the end of options.
   { 0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}
 };
+
 
 #ifndef __WIN__
 static int debug_sync_resumed;
@@ -2928,13 +2944,64 @@ data_copy_thread_func(
 	OS_THREAD_DUMMY_RETURN;
 }
 
+static int
+slow_rm(int fd)
+{
+	ut_a(fd != XB_FILE_UNDEFINED);
+
+	if (slow_rm_chunk_delay > 0 && slow_rm_chunk_percentage > 0) {
+		ut_a(slow_rm_chunk_percentage <= 100);
+
+		off_t fsize = lseek(fd, 0, SEEK_CUR);
+
+		if (fsize < 0) {
+			msg("xtrabackup: Error (lseek): %s\n", strerror(errno));
+			return EXIT_FAILURE;
+		}
+
+		int chunk_size = (fsize / 100) * slow_rm_chunk_percentage;
+		fsize -= chunk_size;
+		ut_a(fsize >= 0);
+
+		while (fsize >= 0 && chunk_size > 0) {
+			if (ftruncate(fd, fsize)) {
+				msg("xtrabackup: Error (ftruncate): %s\n", strerror(errno));
+				return EXIT_FAILURE;
+			}
+
+			fsize -= chunk_size;
+			sleep(slow_rm_chunk_delay);
+		}
+	}
+
+	return EXIT_SUCCESS;
+}
+
+static void
+xtrabackup_safe_exit(int status)
+{
+	// This is the set of conditions under which `xtrabackup_create_tmpfile` is
+	// used to create a file descriptor which we would need to slowly truncate.
+	// Should be only called when `xtrabackup_stream_temp_logfile` fails to clean
+	// up earlier.
+	if (!xtrabackup_log_only && xtrabackup_stream &&
+			dst_log_fd != XB_FILE_UNDEFINED) {
+		slow_rm(dst_log_fd);
+	}
+
+	exit(status);
+}
+
 /***********************************************************************
 Stream the transaction log from a temporary file a specified datasink.
 @return FALSE on succees, TRUE on error. */
 static
 ibool
-xtrabackup_stream_temp_logfile(File src_file, ds_ctxt_t *ds_ctxt)
+xtrabackup_stream_temp_logfile(int *src_file_fd, ds_ctxt_t *ds_ctxt)
 {
+	ut_a(src_file_fd != nullptr);
+	ut_a(ds_ctxt != nullptr);
+
 	datasink_t	*ds = ds_ctxt->datasink;
 	uchar		*buf = NULL;
 	const size_t	buf_size = 1024 * 1024;
@@ -2945,16 +3012,16 @@ xtrabackup_stream_temp_logfile(File src_file, ds_ctxt_t *ds_ctxt)
 	msg("xtrabackup: Streaming transaction log from a temporary file...\n");
 
 #ifdef USE_POSIX_FADVISE
-	posix_fadvise(src_file, 0, 0, POSIX_FADV_SEQUENTIAL);
+	posix_fadvise(*src_file_fd, 0, 0, POSIX_FADV_SEQUENTIAL);
 #endif
 
-	if (my_seek(src_file, 0, SEEK_SET, MYF(0)) == MY_FILEPOS_ERROR) {
+	if (my_seek(*src_file_fd, 0, SEEK_SET, MYF(0)) == MY_FILEPOS_ERROR) {
 		msg("xtrabackup: error: my_seek() failed, errno = %d.\n",
 		    my_errno);
 		    goto err;
 	}
 
-	if (my_fstat(src_file, &mystat, MYF(0))) {
+	if (my_fstat(*src_file_fd, &mystat, MYF(0))) {
 		msg("xtrabackup: error: my_fstat() failed.\n");
 		goto err;
 	}
@@ -2968,9 +3035,9 @@ xtrabackup_stream_temp_logfile(File src_file, ds_ctxt_t *ds_ctxt)
 
 	buf = (uchar *) ut_malloc(buf_size);
 
-	while ((bytes = my_read(src_file, buf, buf_size, MYF(MY_WME))) > 0) {
+	while ((bytes = my_read(*src_file_fd, buf, buf_size, MYF(MY_WME))) > 0) {
 #ifdef USE_POSIX_FADVISE
-		posix_fadvise(src_file, 0, 0, POSIX_FADV_DONTNEED);
+		posix_fadvise(*src_file_fd, 0, 0, POSIX_FADV_DONTNEED);
 #endif
 		if (ds->write(dst_file, buf, bytes)) {
 			msg("xtrabackup: error: cannot write to stream "
@@ -2984,7 +3051,9 @@ xtrabackup_stream_temp_logfile(File src_file, ds_ctxt_t *ds_ctxt)
 
 	ut_free(buf);
 	ds->close(dst_file);
-	my_close(src_file, MYF(MY_WME));
+	slow_rm(*src_file_fd);
+	my_close(*src_file_fd, MYF(MY_WME));
+	*src_file_fd = XB_FILE_UNDEFINED;
 
 	msg("xtrabackup: Done.\n");
 
@@ -2995,8 +3064,11 @@ err:
 		ut_free(buf);
 	if (dst_file)
 		ds->close(dst_file);;
-	if (src_file >= 0)
-		my_close(src_file, MYF(MY_WME));
+	if (*src_file_fd >= 0) {
+		slow_rm(*src_file_fd);
+		my_close(*src_file_fd, MYF(MY_WME));
+		*src_file_fd = XB_FILE_UNDEFINED;
+	}
 	msg("xtrabackup: Failed.\n");
 	return(TRUE);
 }
@@ -3175,7 +3247,7 @@ xtrabackup_backup_func(void)
 	if (my_setwd(mysql_real_data_home,MYF(MY_WME)))
 	{
 		msg("xtrabackup: cannot my_setwd %s\n", mysql_real_data_home);
-		exit(EXIT_FAILURE);
+		xtrabackup_safe_exit(EXIT_FAILURE);
 	}
 	msg("xtrabackup: cd to %s\n", mysql_real_data_home);
 
@@ -3187,8 +3259,8 @@ xtrabackup_backup_func(void)
 	srv_read_only_mode = TRUE;
 
 	/* initialize components */
-        if(innodb_init_param())
-                exit(EXIT_FAILURE);
+	if(innodb_init_param())
+		xtrabackup_safe_exit(EXIT_FAILURE);
 
 	xb_normalize_init_values();
 
@@ -3219,7 +3291,7 @@ xtrabackup_backup_func(void)
 	} else {
 	  	msg("xtrabackup: Unrecognized value %s for "
 		    "innodb_flush_method\n", srv_file_flush_method_str);
-	  	exit(EXIT_FAILURE);
+			xtrabackup_safe_exit(EXIT_FAILURE);
 	}
 #else /* __WIN__ */
 	/* We can only use synchronous unbuffered IO on Windows for now */
@@ -3266,7 +3338,7 @@ xtrabackup_backup_func(void)
 	if (err != DB_SUCCESS) {
 		msg("xtrabackup: error: xb_data_files_init() failed with"
 		    "error code %lu\n", err);
-		exit(EXIT_FAILURE);
+		xtrabackup_safe_exit(EXIT_FAILURE);
 	}
 
 	log_init();
@@ -3279,7 +3351,7 @@ xtrabackup_backup_func(void)
 		if (err != DB_SUCCESS) {
 
 			//return((int) err);
-			exit(EXIT_FAILURE);
+			xtrabackup_safe_exit(EXIT_FAILURE);
 		}
 
 		if (log_file_created) {
@@ -3297,14 +3369,14 @@ xtrabackup_backup_func(void)
 	"xtrabackup: and start the database again.\n");
 
 			//return(DB_ERROR);
-			exit(EXIT_FAILURE);
+			xtrabackup_safe_exit(EXIT_FAILURE);
 		}
 	}
 
 	/* log_file_created must not be TRUE, if online */
 	if (log_file_created) {
 		msg("xtrabackup: Something wrong with source files...\n");
-		exit(EXIT_FAILURE);
+		xtrabackup_safe_exit(EXIT_FAILURE);
 	}
 
 	}
@@ -3315,7 +3387,7 @@ xtrabackup_backup_func(void)
 		&& (my_mkdir(xtrabackup_extra_lsndir,0777,MYF(0)) < 0)){
 		msg("xtrabackup: Error: cannot mkdir %d: %s\n",
 		    my_errno, xtrabackup_extra_lsndir);
-		exit(EXIT_FAILURE);
+		xtrabackup_safe_exit(EXIT_FAILURE);
 	}
 
 
@@ -3326,7 +3398,7 @@ xtrabackup_backup_func(void)
 		&& (my_mkdir(xtrabackup_target_dir,0777,MYF(0)) < 0)){
 		msg("xtrabackup: Error: cannot mkdir %d: %s\n",
 		    my_errno, xtrabackup_target_dir);
-		exit(EXIT_FAILURE);
+		xtrabackup_safe_exit(EXIT_FAILURE);
 	}
 
 	} else {
@@ -3363,7 +3435,7 @@ xtrabackup_backup_func(void)
 	if (err != DB_SUCCESS) {
 
 		ut_free(log_hdr_buf_);
-		exit(EXIT_FAILURE);
+		xtrabackup_safe_exit(EXIT_FAILURE);
 	}
 		
 	log_group_read_checkpoint_info(max_cp_group, max_cp_field);
@@ -3386,7 +3458,7 @@ reread_log_header:
         if (err != DB_SUCCESS) {
 
 		ut_free(log_hdr_buf_);
-                exit(EXIT_FAILURE);
+                xtrabackup_safe_exit(EXIT_FAILURE);
         }
 
         log_group_read_checkpoint_info(max_cp_group, max_cp_field);
@@ -3413,7 +3485,7 @@ reread_log_header:
 				    "xtrabackup_create_tmpfile() failed. "
 				    "(errno: %d)\n", my_errno);
 				ut_free(log_hdr_buf_);
-				exit(EXIT_FAILURE);
+				xtrabackup_safe_exit(EXIT_FAILURE);
 			}
 		} else {
 			fn_format(dst_log_path, XB_LOG_FILENAME,
@@ -3425,7 +3497,7 @@ reread_log_header:
 				msg("xtrabackup: error: cannot open %s "
 				    "(errno: %d)\n", dst_log_path, my_errno);
 				ut_free(log_hdr_buf_);
-				exit(EXIT_FAILURE);
+				xtrabackup_safe_exit(EXIT_FAILURE);
 			}
 		}
 	} else {
@@ -3434,7 +3506,7 @@ reread_log_header:
 			msg("xtrabackup: error: dup() failed (errno: %d)",
 			    errno);
 			ut_free(log_hdr_buf_);
-			exit(EXIT_FAILURE);
+			xtrabackup_safe_exit(EXIT_FAILURE);
 		}
 	}
 
@@ -3448,7 +3520,7 @@ reread_log_header:
 	if (my_write(dst_log_fd, log_hdr_buf, LOG_FILE_HDR_SIZE,
 		     MYF(MY_WME | MY_NABP))) {
 		ut_free(log_hdr_buf_);
-		exit(EXIT_FAILURE);
+		xtrabackup_safe_exit(EXIT_FAILURE);
 	}
 
 	ut_free(log_hdr_buf_);
@@ -3469,7 +3541,7 @@ reread_log_header:
 
 	/* copy log file by current position */
 	if(xtrabackup_copy_logfile(checkpoint_lsn_start, FALSE))
-		exit(EXIT_FAILURE);
+		xtrabackup_safe_exit(EXIT_FAILURE);
 
 
 	os_thread_create(log_copying_thread, NULL, &log_copying_thread_id);
@@ -3497,7 +3569,7 @@ reread_log_header:
 	if (ds_ctxt == NULL) {
 		msg("xtrabackup: Error: failed to initialize the "
 		    "datasink.\n");
-		exit(EXIT_FAILURE);
+		xtrabackup_safe_exit(EXIT_FAILURE);
 	}
 
 	if (!xtrabackup_log_only) {
@@ -3517,7 +3589,7 @@ reread_log_header:
 		if (it == NULL) {
 			msg("xtrabackup: Error: "
 			    "datafiles_iter_new() failed.\n");
-			exit(EXIT_FAILURE);
+			xtrabackup_safe_exit(EXIT_FAILURE);
 		}
 
 		/* Create data copying threads */
@@ -3572,7 +3644,7 @@ reread_log_header:
 		srv_normalize_path_for_win(suspend_path);
 
 		if (!xb_create_suspend_file(suspend_path)) {
-			exit(EXIT_FAILURE);
+			xtrabackup_safe_exit(EXIT_FAILURE);
 		}
 
 		exists = TRUE;
@@ -3626,7 +3698,7 @@ skip_last_cp:
 
 	if (!log_copying_succeed) {
 		msg("xtrabackup: Error: log_copying_thread failed.\n");
-		exit(EXIT_FAILURE);
+		xtrabackup_safe_exit(EXIT_FAILURE);
 	}
 
 	/* Signal innobackupex that log copying has stopped and it may now
@@ -3634,7 +3706,7 @@ skip_last_cp:
 	without holding the lock. */
 	if (xtrabackup_suspend_at_end &&
 	    !xb_create_suspend_file(suspend_path)) {
-		exit(EXIT_FAILURE);
+		xtrabackup_safe_exit(EXIT_FAILURE);
 	}
 
 	if(!xtrabackup_incremental) {
@@ -3666,12 +3738,13 @@ skip_last_cp:
 
 	}
 
-	/* Stream the transaction log from the temporary file */
+	// Stream the transaction log from the temporary file. This is the normal code
+	// path for dst_log_fd to be truncated and closed.
 	if (!xtrabackup_log_only && xtrabackup_stream &&
-	    xtrabackup_stream_temp_logfile(dst_log_fd, ds_ctxt)) {
+	    xtrabackup_stream_temp_logfile(&dst_log_fd, ds_ctxt)) {
 		msg("xtrabackup: Error: failed to stream the log "
 		    "from the temporary file %s", logfile_temp_path);
-		exit(EXIT_FAILURE);
+		xtrabackup_safe_exit(EXIT_FAILURE);
 	}
 
 	ds->deinit(ds_ctxt);
@@ -5790,5 +5863,5 @@ next_opt:
 
 	xb_regex_end();
 
-	exit(EXIT_SUCCESS);
+	xtrabackup_safe_exit(EXIT_SUCCESS);
 }

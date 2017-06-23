@@ -107,6 +107,8 @@ my $option_extra_lsndir = '';
 my $option_remote_host = '';
 my $option_rsync = '';
 my $option_stream = '';
+my $option_slow_rm_chunk_delay = 0;
+my $option_slow_rm_chunk_percentage = 0;
 my $stream_cmd = '';
 my $option_tmpdir = '';
 
@@ -1055,8 +1057,15 @@ sub start_ibbackup {
         $options = $options . " --parallel=$option_parallel";
     }
     if ($option_stream) {
-	$options = $options . " --stream=$option_stream";
+        $options = $options . " --stream=$option_stream";
     }
+    if ($option_slow_rm_chunk_delay) {
+        $options = $options . " --slow-rm-chunk-delay=$option_slow_rm_chunk_delay";
+    }
+    if ($option_slow_rm_chunk_percentage) {
+        $options = $options . " --slow-rm-chunk-percentage=$option_slow_rm_chunk_percentage";
+    }
+
     $cmdline = "$option_ibbackup_binary $options";
 
     # run ibbackup as a child process
@@ -1907,7 +1916,9 @@ sub check_args {
                         'extra-lsndir=s' => \$option_extra_lsndir,
                         'remote-host=s' => \$option_remote_host,
                         'stream=s' => \$option_stream,
-			'rsync' => \$option_rsync,
+                        'slow_rm_chunk_delay=i' => \$option_slow_rm_chunk_delay,
+                        'slow_rm_chunk_percentage=i' => \$option_slow_rm_chunk_percentage,
+                        'rsync' => \$option_rsync,
                         'tmpdir=s' => \$option_tmpdir,
                         'no-lock' => \$option_no_lock,
                         'ibbackup=s' => \$option_ibbackup_binary,
