@@ -6083,7 +6083,8 @@ bool mts_checkpoint_routine(Relay_log_info *rli, ulonglong period,
   // in the coordinator is a begin or gtid event
   if (!force && opt_mts_dynamic_rebalance == TRUE &&
       !opt_mts_dependency_replication &&
-      !rli->curr_group_seen_begin && !rli->curr_group_seen_gtid)
+      !rli->curr_group_seen_begin && !rli->curr_group_seen_gtid &&
+      !rli->sql_thread_kill_accepted)
   {
     rebalance_workers(rli);
   }
