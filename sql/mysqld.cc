@@ -140,7 +140,11 @@
 // Please see https://github.com/jemalloc/jemalloc/issues/325 to learn more
 // about the functionality this change enables.
 extern "C" {
+#if JEMALLOC_VERSION_MAJOR > 4
+  const char* malloc_conf = "";
+#else
   const char *malloc_conf = "purge:decay";
+#endif
 }
 
 #endif
