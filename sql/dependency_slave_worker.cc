@@ -182,8 +182,10 @@ inline int Dependency_slave_worker::execute_event(Log_event_wrapper *ev)
 void Dependency_slave_worker::remove_event(Log_event_wrapper *ev)
 {
   DBUG_ASSERT(ev->is_assigned.load() == 1U);
-  DBUG_ASSERT(c_rli->dag.exists(ev));
+
   c_rli->dag_wrlock();
+
+  DBUG_ASSERT(c_rli->dag.exists(ev));
 
   for (auto& child : c_rli->dag.get_children(ev))
   {
