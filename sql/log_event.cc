@@ -3243,7 +3243,7 @@ void Log_event::add_to_dag(Relay_log_info *rli)
   }
   else if (is_gtid_event(this))
     rli->curr_group_seen_gtid= true;
-  else if (rli->part_event)
+  else if (contains_partition_info(rli->mts_end_group_sets_max_dbs))
   {
     rli->mts_end_group_sets_max_dbs= false;
 
@@ -3432,7 +3432,7 @@ int Log_event::apply_event(Relay_log_info *rli)
   bool seq_execution = (!parallel || actual_exec_mode != EVENT_EXEC_PARALLEL);
 
   rli->ends_group = ends_group();
-  rli->part_event = contains_partition_info(rli->mts_end_group_sets_max_dbs);
+  rli->part_event = contains_partition_info(false);
 
   /**
      Check if the current event changes any databases. Last gtid executed per
