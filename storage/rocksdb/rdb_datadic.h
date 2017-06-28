@@ -332,7 +332,10 @@ public:
   // currently only used for TTL.
   enum INDEX_FLAG {
     TTL_FLAG = 1 << 0,
-    MAX_FLAG = TTL_FLAG << 1, // Marks where actual record starts
+
+    // MAX_FLAG marks where the actual record starts
+    // This flag always needs to be set to the last index flag enum.
+    MAX_FLAG = TTL_FLAG << 1,
   };
 
   // Set of flags to ignore when comparing two CF-s and determining if

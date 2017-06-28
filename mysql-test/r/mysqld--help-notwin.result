@@ -1161,6 +1161,25 @@ The following options may be given as the first argument:
  In case if cardinality is zero, overrides it with some
  value
  (Defaults to on; use --skip-rocksdb-debug-optimizer-no-zero-cardinality to disable.)
+ --rocksdb-debug-ttl-read-filter-ts=# 
+ For debugging purposes only.  Overrides the TTL read
+ filtering time to time + debug_ttl_read_filter_ts. A
+ value of 0 denotes that the variable is not set. This
+ variable is a no-op in non-debug builds.
+ --rocksdb-debug-ttl-rec-ts=# 
+ For debugging purposes only.  Overrides the TTL of
+ records to now() + debug_ttl_rec_ts.  The value can be
+ +/- to simulate a record inserted in the past vs a record
+ inserted in the 'future'. A value of 0 denotes that the
+ variable is not set. This variable is a no-op in
+ non-debug builds.
+ --rocksdb-debug-ttl-snapshot-ts=# 
+ For debugging purposes only.  Sets the snapshot during
+ compaction to now() + debug_set_ttl_snapshot_ts.  The
+ value can be +/- to simulate a snapshot in the past vs a
+ snapshot created in the 'future'. A value of 0 denotes
+ that the variable is not set. This variable is a no-op in
+ non-debug builds.
  --rocksdb-default-cf-options=name 
  default cf options for RocksDB
  --rocksdb-delayed-write-rate=# 
@@ -1186,7 +1205,7 @@ The following options may be given as the first argument:
  out during processing and in query results. Disabling
  this will allow these records to be seen, but as a result
  rows may disappear in the middle of transactions as they
- are dropped during compaction. Use with caution. 
+ are dropped during compaction. Use with caution.
  (Defaults to on; use --skip-rocksdb-enable-ttl-read-filtering to disable.)
  --rocksdb-enable-write-thread-adaptive-yield 
  DBOptions::enable_write_thread_adaptive_yield for RocksDB
@@ -2049,6 +2068,9 @@ rocksdb-ddl ON
 rocksdb-deadlock-detect FALSE
 rocksdb-debug-optimizer-n-rows 0
 rocksdb-debug-optimizer-no-zero-cardinality TRUE
+rocksdb-debug-ttl-read-filter-ts 0
+rocksdb-debug-ttl-rec-ts 0
+rocksdb-debug-ttl-snapshot-ts 0
 rocksdb-default-cf-options 
 rocksdb-delayed-write-rate 0
 rocksdb-delete-obsolete-files-period-micros 21600000000

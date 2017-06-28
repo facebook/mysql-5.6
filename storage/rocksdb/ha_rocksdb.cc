@@ -1089,7 +1089,7 @@ static MYSQL_SYSVAR_STR(update_cf_options, rocksdb_update_cf_options,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC |
                             PLUGIN_VAR_ALLOCATED,
                         "Option updates per column family for RocksDB", nullptr,
-                        rocksdb_set_update_cf_options, "");
+                        rocksdb_set_update_cf_options, nullptr);
 
 static MYSQL_SYSVAR_UINT(flush_log_at_trx_commit,
                          rocksdb_flush_log_at_trx_commit, PLUGIN_VAR_RQCMDARG,

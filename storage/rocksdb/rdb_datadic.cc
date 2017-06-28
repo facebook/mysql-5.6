@@ -3167,7 +3167,7 @@ uint32 Rdb_key_def::calculate_index_flag_offset(uint32 index_flags,
     int mask = 1 << bit;
 
     /* Exit once we've reached the proper flag */
-    if (flag == mask) {
+    if (flag & mask) {
       break;
     }
 
@@ -3176,7 +3176,7 @@ uint32 Rdb_key_def::calculate_index_flag_offset(uint32 index_flags,
     }
   }
 
-	return offset;
+  return offset;
 }
 
 void Rdb_tbl_def::check_if_is_mysql_system_table() {
