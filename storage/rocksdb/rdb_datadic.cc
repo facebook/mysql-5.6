@@ -4533,13 +4533,6 @@ void Rdb_dict_manager::finish_indexes_operation(
 
   for (const auto &gl_index_id : gl_index_ids) {
     if (is_index_operation_ongoing(gl_index_id, dd_type)) {
-      // NO_LINT_DEBUG
-      sql_print_information("RocksDB: Finished %s (%u,%u)",
-                            dd_type == Rdb_key_def::DDL_DROP_INDEX_ONGOING
-                                ? "filtering dropped index"
-                                : "index creation",
-                            gl_index_id.cf_id, gl_index_id.index_id);
-
       end_ongoing_index_operation(batch, gl_index_id, dd_type);
 
       /*
@@ -4639,8 +4632,6 @@ void Rdb_dict_manager::log_start_drop_index(GL_INDEX_ID gl_index_id,
       abort_with_stack_traces();
     }
   }
-  sql_print_information("RocksDB: %s filtering dropped index (%u,%u)",
-                        log_action, gl_index_id.cf_id, gl_index_id.index_id);
 }
 
 bool Rdb_dict_manager::get_max_index_id(uint32_t *const index_id) const {
