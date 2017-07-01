@@ -689,7 +689,7 @@ bool Protocol::send_eof(uint server_status, uint statement_warn_count)
       (thd->get_command() != COM_BINLOG_DUMP &&
       thd->get_command() != COM_BINLOG_DUMP_GTID))
     retval= net_send_ok(thd, server_status, statement_warn_count,
-                        0, 0, NULL, true);
+                        0, 0, thd->get_stmt_da()->message() , true);
   else
 #endif
     retval= net_send_eof(thd, server_status, statement_warn_count);

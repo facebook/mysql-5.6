@@ -133,6 +133,10 @@
 #endif
 #include "table_cache.h" // table_cache_manager
 
+#ifndef EMBEDDED_LIBRARY
+#include "srv_session.h"
+#endif
+
 #ifdef HAVE_JEMALLOC
 #ifndef EMBEDDED_LIBRARY
 #include <jemalloc/jemalloc.h>
@@ -2195,6 +2199,10 @@ void clean_up(bool print_message)
   DBUG_PRINT("exit",("clean_up"));
   if (cleanup_done++)
     return; /* purecov: inspected */
+
+#ifndef EMBEDDED_LIBRARY
+    Srv_session::module_deinit();
+#endif
 
   delete db_ac;
   stop_handle_manager();
@@ -7024,6 +7032,10 @@ int mysqld_main(int argc, char **argv)
 
   /* Initialize audit interface globals. Audit plugins are inited later. */
   mysql_audit_initialize();
+
+#ifndef EMBEDDED_LIBRARY
+    Srv_session::module_init();
+#endif
 
   /*
     Perform basic logger initialization logger. Should be called after

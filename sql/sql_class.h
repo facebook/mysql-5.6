@@ -107,6 +107,8 @@ class User_level_lock;
 class user_var_entry;
 class ExecutionContextImpl;
 
+class Srv_session;
+
 struct st_thd_timer;
 
 enum enum_ha_read_modes { RFIRST, RNEXT, RPREV, RLAST, RKEY, RNEXT_SAME };
@@ -2427,7 +2429,7 @@ public:
     A pointer to the stack frame of handle_one_connection(),
     which is called first in the thread for handling a client
   */
-  char	  *thread_stack;
+  const char	  *thread_stack;
 
   /**
     Currently selected catalog.
@@ -2460,6 +2462,9 @@ public:
 
   Security_context main_security_ctx;
   Security_context *security_ctx;
+
+  Security_context* security_context() const { return security_ctx; }
+  void set_security_context(Security_context *sctx) { security_ctx= sctx; }
 
   /*
     Points to info-string that we show in SHOW PROCESSLIST
@@ -4640,6 +4645,48 @@ public:
 
   // ExecutionContextImpl is used for native procedures.
   ExecutionContextImpl *ec;
+
+  bool is_a_srv_session() const { return is_a_srv_session_thd; }
+  void mark_as_srv_session() { is_a_srv_session_thd= true; }
+
+  std::shared_ptr<Srv_session> get_default_srv_session() {
+    return default_srv_session;
+  }
+
+  void set_default_srv_session(std::shared_ptr<Srv_session> session) {
+    default_srv_session = session;
+  }
+
+  void set_attached_srv_session(std::shared_ptr<Srv_session> srv_session) {
+    mysql_mutex_lock(&LOCK_thd_data);
+    attached_srv_session = srv_session;
+    mysql_mutex_unlock(&LOCK_thd_data);
+  }
+
+  // called for "show processlist" from another thread
+  std::shared_ptr<Srv_session> get_attached_srv_session() {
+    mysql_mutex_lock(&LOCK_thd_data);
+    auto srv_session = attached_srv_session;
+    mysql_mutex_unlock(&LOCK_thd_data);
+    return srv_session;
+  }
+
+private:
+  /**
+    Variable to mark if the object is part of a Srv_session object, which
+    aggregates THD.
+  */
+  bool is_a_srv_session_thd = false;
+
+  /**
+   * Set only in Conn THD points to the attached srv session.
+   * Filled in only while executing the query for the attached session.
+   * Used for printing session information in "show processlist".
+   * */
+  std::shared_ptr<Srv_session> attached_srv_session;
+
+  // Object used to optimize not creating new sessions for stateless queries.
+  std::shared_ptr<Srv_session> default_srv_session;
 };
 
 /*

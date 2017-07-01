@@ -628,6 +628,10 @@ public:
                      ulonglong last_insert_id,
                      const char *message);
 
+  void set_message(const char* fmt, ...);
+
+  void reset_message();
+
   void set_eof_status(THD *thd);
 
   void set_error_status(uint sql_errno);
@@ -654,7 +658,8 @@ public:
   enum_diagnostics_status status() const { return m_status; }
 
   const char *message() const
-  { DBUG_ASSERT(m_status == DA_ERROR || m_status == DA_OK); return m_message; }
+  { DBUG_ASSERT(m_status == DA_ERROR || m_status == DA_OK ||
+                m_status == DA_EOF); return m_message; }
 
   uint sql_errno() const
   { DBUG_ASSERT(m_status == DA_ERROR); return m_sql_errno; }

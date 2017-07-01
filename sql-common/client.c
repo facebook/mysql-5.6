@@ -6148,6 +6148,7 @@ static void mysql_close_free_options(MYSQL *mysql)
     my_free(mysql->options.extension->plugin_dir);
     my_free(mysql->options.extension->default_auth);
     my_hash_free(&mysql->options.extension->connection_attributes);
+    my_hash_free(&mysql->options.extension->query_attributes);
     my_free(mysql->options.extension);
   }
   memset(&mysql->options, 0, sizeof(mysql->options));

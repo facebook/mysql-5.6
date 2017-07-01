@@ -132,6 +132,8 @@ public:
   virtual enum enum_protocol_type type()= 0;
 
   void end_statement();
+
+  THD* get_thd() { return thd;}
 };
 
 

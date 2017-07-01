@@ -117,6 +117,8 @@
 
 #include "native_procedure_priv.h"
 
+#include "sql_parse_com_rpc.h" // handle_com_rpc, srv_session_end_statement
+
 #ifdef HAVE_JEMALLOC
 #ifndef EMBEDDED_LIBRARY
 #include <jemalloc/jemalloc.h>
@@ -1180,6 +1182,25 @@ bool do_command(THD *thd)
 
   DBUG_ASSERT(packet_length);
 
+  if (command == COM_QUERY_ATTRS) {
+    auto packet_ptr = packet+1;
+    /*
+      Save query attributes.
+     */
+    size_t attrs_len= net_field_length((uchar**) &packet_ptr);
+    thd->set_query_attrs(CSET_STRING(packet_ptr, attrs_len, thd->charset()));
+
+    bool is_rpc_query = false;
+    return_value= handle_com_rpc(thd, packet_ptr, (uint) (packet_length-1),
+                                  attrs_len, &is_rpc_query);
+    if (is_rpc_query)
+      goto out;
+    // otherwise let it fall through to dispatch_command()
+    command = COM_QUERY;
+    packet += attrs_len + 1;
+    packet_length -= (attrs_len  + 1);
+  }
+
   return_value= dispatch_command(command, thd, packet+1, (uint) (packet_length-1));
 
 out:
@@ -1540,8 +1561,8 @@ static bool set_session_db_helper(THD *thd, const LEX_STRING *new_db)
     1   request of thread shutdown, i. e. if command is
         COM_QUIT/COM_SHUTDOWN
 */
-bool dispatch_command(enum enum_server_command command, THD *thd,
-		      char* packet, uint packet_length)
+bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
+                      uint packet_length, Srv_session* srv_session)
 {
   NET *net= &thd->net;
   bool error= 0;
@@ -1779,23 +1800,14 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
     mysqld_stmt_reset(thd, packet, packet_length);
     break;
   }
-  case COM_QUERY_ATTRS:
-  {
-    size_t attrs_len= net_field_length((uchar**) &packet);
-    thd->set_query_attrs(CSET_STRING(packet, attrs_len, thd->charset()));
-    // Fall through to COM_QUERY
-  }
   case COM_QUERY:
   {
     DBUG_ASSERT(thd->m_digest == NULL);
     thd->m_digest= & thd->m_digest_state;
     thd->m_digest->reset(thd->m_token_array, max_digest_length);
 
-    /*
-      Save query attributes to be forwarded in audit plugin.
-     */
-    char* query_ptr= packet + thd->query_attrs_length();
-    size_t query_len= packet_length - thd->query_attrs_length();
+    char* query_ptr= packet;
+    size_t query_len= packet_length;
     if (alloc_query(thd, query_ptr, query_len))
       break;					// fatal error is set
     MYSQL_QUERY_START(thd->query(), thd->thread_id,
@@ -2310,6 +2322,13 @@ done:
   thd->update_server_status();
   if (thd->killed)
     thd->send_kill_message();
+
+  // if it's a COM RPC, set session id in message to be appended in OK and
+  // and mark session to be released before sending the response out.
+  if (srv_session) {
+    srv_session_end_statement(srv_session);
+  }
+
   thd->protocol->end_statement();
   query_cache_end_of_result(thd);
 

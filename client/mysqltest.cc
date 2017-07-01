@@ -3034,6 +3034,25 @@ static st_error global_error_names[] =
 
 uint get_errcode_from_name(char *, char *);
 
+static const char* RpcIdAttrPrefix = "rpc_id:";
+static int RpcIdAttrPrefix_len = strlen(RpcIdAttrPrefix);
+/*
+ * Returns the rpc id from last OK packet. It is stored in mysql->info.
+ * */
+void var_set_rpc_id(VAR *var)
+{
+  MYSQL* mysql= &cur_con->mysql;
+  const char* rpc_id= "";
+
+  if (mysql->info && strncmp(mysql->info,
+                            RpcIdAttrPrefix, RpcIdAttrPrefix_len) == 0) {
+    rpc_id = mysql->info + RpcIdAttrPrefix_len;
+    DBUG_PRINT("info", ("rpc_id: %s", rpc_id));
+  }
+
+  eval_expr(var, rpc_id, 0, false, false);
+}
+
 /*
 
   This function is useful when one needs to convert between error numbers and  error strings
@@ -3313,6 +3332,13 @@ void eval_expr(VAR *v, const char *p, const char **p_end,
       command.first_argument= command.query + len;
       command.end= (char*)*p_end;
       var_set_convert_error(&command, v);
+      DBUG_VOID_RETURN;
+    }
+    /* Check if this is a "let $var= get_rpc_id() "*/
+    if (strncmp(p, C_STRING_WITH_LEN("get_rpc_id"))==0)
+    {
+      DBUG_PRINT("info", ("execute var_set_rpc_id"));
+      var_set_rpc_id(v);
       DBUG_VOID_RETURN;
     }
   }

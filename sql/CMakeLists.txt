@@ -163,6 +163,7 @@ SET(SQL_SHARED_SOURCES
   sql_multi_tenancy.cc
   sql_optimizer.cc
   sql_parse.cc
+  sql_parse_com_rpc.cc
   sql_partition.cc
   sql_partition_admin.cc
   sql_planner.cc
@@ -175,6 +176,7 @@ SET(SQL_SHARED_SOURCES
   sql_rewrite.cc
   sql_select.cc
   sql_servers.cc
+  srv_session.cc
   sql_show.cc
   sql_signal.cc
   sql_state.c
