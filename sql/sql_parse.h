@@ -28,6 +28,7 @@ struct TABLE_LIST;
 class THD;
 class Table_ident;
 struct LEX;
+class Srv_session;
 
 enum enum_mysql_completiontype {
   ROLLBACK_RELEASE=-2, ROLLBACK=1,  ROLLBACK_AND_CHAIN=7,
@@ -114,8 +115,8 @@ int mysql_execute_command(THD *thd, ulonglong *statement_start_time,
                           ulonglong *post_parse);
 bool do_command(THD *thd);
 void do_handle_bootstrap(THD *thd);
-bool dispatch_command(enum enum_server_command command, THD *thd,
-		      char* packet, uint packet_length);
+bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
+                      uint packet_length, Srv_session* srv_session=NULL);
 void log_slow_statement(THD *thd, struct system_status_var* query_start_status);
 void log_to_datagram(THD *thd, ulonglong end_utime_of_query);
 bool write_log_to_socket(int sockfd, THD *thd, ulonglong end_utime_of_query);

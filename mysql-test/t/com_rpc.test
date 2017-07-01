@@ -1,0 +1,223 @@
+# Deprecate EOF functionality required by this test not supported
+# in async client.
+--disable_async_client
+
+create database db_default;
+create database db_rpc;
+
+create user scriptro;
+
+--echo
+--echo # Case 1: Send queries that don't change state and don't create client session
+--echo
+connect (first_conn,127.0.0.1,root,,db_default);
+select user();
+select database();
+
+# Send a query with rpc query attributes.
+query_attrs_add rpc_role scriptro;
+query_attrs_add rpc_db db_rpc;
+
+# Send query with attributes set above.
+select user();   # will return scripro
+
+# The response for previous query has the rpc_id, extract it and use it for
+# subsequent queries so they get executed in same client session.
+let $rpc_id=get_rpc_id();
+
+# Check that rpc_id is not returned in reponse.
+if ($rpc_id != "") {
+  echo Fail: Found rpc_id in response.;
+}
+
+# query attributes are used for all queries, check db name matches
+select database();  # will return db_rpc
+
+query_attrs_delete rpc_role;
+query_attrs_delete rpc_db;
+
+--echo
+--echo # Case 2: Send other stateless query with different rpc attributes
+--echo
+
+query_attrs_add rpc_role root;
+query_attrs_add rpc_db db_default;
+
+# Send query with attributes set above.
+select user();   # will return root
+
+# create table is also stateless query, should not return an rpc_id
+CREATE TABLE t2 (i int, s char (10));
+let $rpc_id=get_rpc_id();
+if ($rpc_id != "") {
+  echo Fail: Found rpc_id in response for CREATE TABLE;
+}
+
+--echo
+--echo # Send a wrong formatted rpc_id
+--echo
+connect (other_conn,127.0.0.1,root,,db_default);
+
+# add an rpc_id with a wrong format
+query_attrs_add rpc_id "123wrong_format";
+# Right now we just close the connection. TODO: send specific error messages.
+--error 2013
+SELECT 1;
+
+--echo
+--echo # Case 3: Send queries that change state and create client session
+--echo
+
+connection first_conn;
+
+SET @my_var='new_value';
+let $rpc_id=get_rpc_id();
+# Check that rpc_id is returned in response.
+if ($rpc_id == "") {
+  echo Fail: Did not find rpc_id after SET @my_var.;
+}
+
+SET SESSION wait_timeout=10;
+let $rpc_id=get_rpc_id();
+# Check that rpc_id is returned in response.
+if ($rpc_id == "") {
+  echo Fail: Did not find rpc_id after SET SESSION var.;
+}
+
+SELECT 1;
+let $rpc_id=get_rpc_id();
+if ($rpc_id != "") {
+  echo Fail: Stateless query should not have an rpc_id.;
+}
+
+BEGIN;
+let $rpc_id=get_rpc_id();
+# Check that rpc_id is returned in response.
+if ($rpc_id == "") {
+  echo Fail: Did not find rpc_id after BEGIN transaction.;
+}
+
+SELECT GET_LOCK("my_lock", 0);
+let $rpc_id=get_rpc_id();
+# Check that rpc_id is returned in response.
+if ($rpc_id == "") {
+  echo Fail: Did not find rpc_id after GET_LOCK.;
+}
+
+# getting same lock from same session will work, even if from different conn
+connect (second_conn,localhost,root,,db_rpc);
+query_attrs_add rpc_id $rpc_id;
+SELECT GET_LOCK("my_lock", 0);
+
+query_attrs_delete rpc_id;
+
+# this will fail to get the lock as it's new session and can't take the lock
+SELECT GET_LOCK("my_lock", 0);
+
+connection first_conn;
+
+CREATE TEMPORARY TABLE t1 (i int, s char (10));
+let $rpc_id=get_rpc_id();
+# Check that rpc_id is returned in response.
+if ($rpc_id == "") {
+  echo Fail: Did not find rpc_id after CREATE TEMPORARY TABLE.;
+}
+
+query_attrs_delete rpc_role;
+query_attrs_delete rpc_db;
+
+--echo
+--echo # Case 4: Create temporary table in one connection and use it in another
+--echo
+
+# Create a temporary table in second_conn and query from first_conn.
+connection second_conn;
+query_attrs_add rpc_role root;
+query_attrs_add rpc_db db_default;
+CREATE TEMPORARY TABLE t1 (i int, s char (10));
+
+let $rpc_id=get_rpc_id();
+query_attrs_add rpc_id $rpc_id;
+
+insert into t1 values(1, "a");
+
+# Disconnecting second_conn will not destroy the client_session session.
+disconnect second_conn;
+
+# Use temporary table from first_conn by sending queries in client_session.
+connection first_conn;
+--echo # Trying to access temp table before setting the session id will fail.
+--error 1146
+select * from t1;
+
+query_attrs_add rpc_id $rpc_id;
+select * from t1;
+insert into t1 values(2, "b");
+
+# Select all from a new connection as well
+connect (third_conn,127.0.0.1,root,,db_default);
+query_attrs_add rpc_id $rpc_id;
+select * from t1;
+
+--echo
+--echo # Test that LOCK TABLE creates session
+--echo
+query_attrs_delete rpc_id;
+query_attrs_delete rpc_role;
+query_attrs_delete rpc_db;
+
+query_attrs_add rpc_role root;
+query_attrs_add rpc_db db_default;
+
+LOCK TABLE t2 READ;
+let $rpc_id1=get_rpc_id();
+# Check that rpc_id is returned in response.
+if ($rpc_id1 == "") {
+  echo Fail: Did not find rpc_id after LOCK TABLE.;
+}
+query_attrs_add rpc_id $rpc_id1;
+SELECT 1;
+let $rpc_id2=get_rpc_id();
+if ($rpc_id2 != $rpc_id1) {
+  echo Fail: Did not find rpc_id while LOCK TABLE active.;
+}
+UNLOCK TABLES;
+let $rpc_id3=get_rpc_id();
+if ($rpc_id3 != "") {
+  echo Fail: Found rpc_id after UNLOCK TABLES.;
+}
+
+
+
+--echo
+--echo # Case 5: Attempt to use same session from multiple threads
+--echo
+
+# send a long select to have the rpc session in use
+query_attrs_delete rpc_id;
+query_attrs_add rpc_id $rpc_id;
+send select sleep(5);
+
+let $i= 5;
+while ($i)
+{
+  connect (con$i, 127.0.0.1, root, ,db_default);
+  dec $i;
+}
+# all these connections will get errors as session is in use
+let $i= 5;
+while($i)
+{
+  connection con$i;
+  query_attrs_add rpc_id $rpc_id;
+  --error 2013
+  select 1;
+  dec $i;
+}
+
+
+
+connection default;
+drop database db_default;
+drop database db_rpc;
+drop user scriptro;

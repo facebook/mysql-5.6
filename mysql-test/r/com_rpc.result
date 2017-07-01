@@ -1,0 +1,90 @@
+create database db_default;
+create database db_rpc;
+create user scriptro;
+
+# Case 1: Send queries that don't change state and don't create client session
+
+select user();
+user()
+root@localhost
+select database();
+database()
+db_default
+select user();
+user()
+scriptro@localhost
+select database();
+database()
+db_rpc
+
+# Case 2: Send other stateless query with different rpc attributes
+
+select user();
+user()
+root@localhost
+CREATE TABLE t2 (i int, s char (10));
+
+# Send a wrong formatted rpc_id
+
+SELECT 1;
+ERROR HY000: Lost connection to MySQL server during query
+
+# Case 3: Send queries that change state and create client session
+
+SET @my_var='new_value';
+SET SESSION wait_timeout=10;
+SELECT 1;
+1
+1
+BEGIN;
+SELECT GET_LOCK("my_lock", 0);
+GET_LOCK("my_lock", 0)
+1
+SELECT GET_LOCK("my_lock", 0);
+GET_LOCK("my_lock", 0)
+1
+SELECT GET_LOCK("my_lock", 0);
+GET_LOCK("my_lock", 0)
+0
+CREATE TEMPORARY TABLE t1 (i int, s char (10));
+
+# Case 4: Create temporary table in one connection and use it in another
+
+CREATE TEMPORARY TABLE t1 (i int, s char (10));
+insert into t1 values(1, "a");
+# Trying to access temp table before setting the session id will fail.
+select * from t1;
+ERROR 42S02: Table 'db_default.t1' doesn't exist
+select * from t1;
+i	s
+1	a
+insert into t1 values(2, "b");
+select * from t1;
+i	s
+1	a
+2	b
+
+# Test that LOCK TABLE creates session
+
+LOCK TABLE t2 READ;
+SELECT 1;
+1
+1
+UNLOCK TABLES;
+
+# Case 5: Attempt to use same session from multiple threads
+
+select sleep(5);
+select 1;
+ERROR HY000: Lost connection to MySQL server during query
+select 1;
+ERROR HY000: Lost connection to MySQL server during query
+select 1;
+ERROR HY000: Lost connection to MySQL server during query
+select 1;
+ERROR HY000: Lost connection to MySQL server during query
+select 1;
+ERROR HY000: Lost connection to MySQL server during query
+drop database db_default;
+drop database db_rpc;
+drop user scriptro;

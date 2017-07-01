@@ -61,6 +61,7 @@
 #include "global_threads.h"
 #include "mysqld.h"
 #include "sql_timer.h"                          // thd_timer_destroy
+#include "srv_session.h"
 
 #include <mysql/psi/mysql_statement.h>
 
@@ -301,7 +302,7 @@ void thd_clear_errors(THD *thd)
   @param thd              Thread object
   @param stack_start      Start of stack to set in THD object
 */
-void thd_set_thread_stack(THD *thd, char *stack_start)
+void thd_set_thread_stack(THD *thd, const char *stack_start)
 {
   thd->thread_stack= stack_start;
 }
@@ -5503,3 +5504,4 @@ bool THD::skip_unique_check()
 {
   return rli_slave && rli_slave->get_skip_unique_check();
 }
+

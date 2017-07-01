@@ -164,6 +164,7 @@ public:
   bool update(THD *thd) override;
   bool store(THD *thd, String &buf) override;
   void mark_as_changed(THD *thd, LEX_CSTRING *tracked_item_name) override;
+  bool force_enable() { return true; }
 };
 
 
@@ -189,6 +190,13 @@ bool Session_state_change_tracker::enable(THD *thd)
   m_enabled= (thd->variables.session_track_state_change)? true: false;
   return false;
 }
+
+bool Session_state_change_tracker::force_enable()
+{
+  m_enabled= true;
+  return false;
+}
+
 
 /**
   @Enable/disable the tracker based on @@session_track_state_change value.

@@ -48,7 +48,7 @@ void thd_set_psi(THD *thd, PSI_thread *psi);
 /* Interface to THD variables and functions */
 void thd_set_killed(THD *thd);
 void thd_clear_errors(THD *thd);
-void thd_set_thread_stack(THD *thd, char *stack_start);
+void thd_set_thread_stack(THD *thd, const char *stack_start);
 void thd_lock_thread_count(THD *thd);
 void thd_unlock_thread_count(THD *thd);
 void thd_close_connection(THD *thd);

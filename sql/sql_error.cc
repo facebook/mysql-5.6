@@ -404,12 +404,12 @@ Diagnostics_area::reset_diagnostics_area()
 #ifdef DBUG_OFF
   set_overwrite_status(false);
   /** Don't take chances in production */
-  m_message[0]= '\0';
   m_sql_errno= 0;
   m_affected_rows= 0;
   m_last_insert_id= 0;
   m_statement_warn_count= 0;
 #endif
+  m_message[0]= '\0';
   get_warning_info()->clear_error_condition();
   set_is_sent(false);
   /** Tiny reset in debug mode to see garbage right away */
@@ -447,6 +447,19 @@ Diagnostics_area::set_ok_status(ulonglong affected_rows,
   m_status= DA_OK;
   DBUG_VOID_RETURN;
 }
+
+
+/*
+ * Set message by printing the formatted arguments.
+ * */
+void Diagnostics_area::set_message(const char* fmt, ...) {
+  va_list args;
+  va_start(args,fmt);
+  my_vsnprintf(m_message, MYSQL_ERRMSG_SIZE, fmt, args);
+  va_end(args);
+}
+
+void Diagnostics_area::reset_message() { m_message[0]= '\0'; }
 
 
 /**

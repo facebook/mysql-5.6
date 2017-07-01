@@ -82,6 +82,8 @@ public:
   /** Called in the constructor of THD*/
   virtual bool enable(THD *thd)= 0;
 
+  virtual bool force_enable()= 0;
+
   /** To be invoked when the tracker's system variable is checked (ON_CHECK). */
   virtual bool check(THD *thd, set_var *var)= 0;
 
@@ -191,6 +193,7 @@ public:
   bool enable(THD *thd) override;
   bool check(THD *thd, set_var *var) override
   { return false; }
+  bool force_enable();
   bool update(THD *thd) override;
   bool store(THD *thd, String &buf) override;
   void mark_as_changed(THD *thd, LEX_CSTRING *tracked_item_name) override;
