@@ -13,10 +13,10 @@ describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
-<Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
-<Id>	test_user2	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
+<Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
+<Id>	test_user2	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 select @@high_priority_ddl;
 @@high_priority_ddl
 0
@@ -33,9 +33,9 @@ describe t1;
 Field	Type	Null	Key	Default	Extra
 i	bigint(20)	YES		NULL	
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
-<Id>	test_user2	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
+<Id>	test_user2	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 select i from t1;
 i
 1
@@ -55,16 +55,16 @@ describe t1;
 Field	Type	Null	Key	Default	Extra
 i	bigint(20)	YES		NULL	
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
-<Id>	test_user2	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
+<Id>	test_user2	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 alter table t1 rename t1_new;
 describe t1_new;
 Field	Type	Null	Key	Default	Extra
 i	bigint(20)	YES		NULL	
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 select i from t1_new;
 i
 1
@@ -76,9 +76,9 @@ connection: default
 drop table t1_new;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1_new
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
-<Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
+<Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 connection: con1
 unlock tables;
 lock tables t1_new read;
@@ -94,13 +94,13 @@ i
 2
 3
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
-<Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
+<Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 drop table t1_new;
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 create table t1 (i int) engine=InnoDB;
 insert into t1 values (1), (2), (3);
 connection: con1
@@ -111,9 +111,9 @@ describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
-<Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
-<Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
+<Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
+<Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 set high_priority_ddl = 1;
 select @@high_priority_ddl;
 @@high_priority_ddl
@@ -124,9 +124,9 @@ describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
-<Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
-<Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
+<Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
+<Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 drop table t1;
 drop user test_user1@localhost;
 drop user test_user2@localhost;

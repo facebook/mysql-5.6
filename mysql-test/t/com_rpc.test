@@ -10,7 +10,7 @@ create user scriptro;
 --echo
 --echo # Case 1: Send queries that don't change state and don't create client session
 --echo
-connect (first_conn,127.0.0.1,root,,db_default);
+connect (first_conn,localhost,root,,db_default);
 select user();
 select database();
 
@@ -155,7 +155,7 @@ select * from t1;
 insert into t1 values(2, "b");
 
 # Select all from a new connection as well
-connect (third_conn,127.0.0.1,root,,db_default);
+connect (third_conn,localhost,root,,db_default);
 query_attrs_add rpc_id $rpc_id;
 select * from t1;
 
@@ -201,7 +201,7 @@ send select sleep(5);
 let $i= 5;
 while ($i)
 {
-  connect (con$i, 127.0.0.1, root, ,db_default);
+  connect (con$i, localhost, root, ,db_default);
   dec $i;
 }
 # all these connections will get errors as session is in use
@@ -217,6 +217,32 @@ while($i)
 
 
 
+disconnect first_conn;
+disconnect third_conn;
+
+--echo
+--echo # Case 6: Test "show processlist" commands
+--echo
+
+# one connection without rpc for comparison of output
+connect (con6, localhost, root, ,db_default);
+send select sleep(3);
+
+# run show commands
+connection default;
+--replace_column 11 # 6 #
+--replace_regex /[1-9][0-9]*/1/
+show processlist;
+--replace_regex /[1-9][0-9]*/1/
+select * from information_schema.processlist;
+--replace_column 6 # 7 # 8 # 9 #
+--replace_regex /[1-9][0-9]*/1/
+show transaction_list;
+--replace_column 6 # 7 # 8 # 9 #
+--replace_regex /[1-9][0-9]*/1/
+select * from information_schema.transaction_list;
+
+--echo
 connection default;
 drop database db_default;
 drop database db_rpc;

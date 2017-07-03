@@ -85,6 +85,31 @@ select 1;
 ERROR HY000: Lost connection to MySQL server during query
 select 1;
 ERROR HY000: Lost connection to MySQL server during query
+
+# Case 6: Test "show processlist" commands
+
+select sleep(3);
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
+1	root	localhost	test	Query	#	init	show processlist	0	0	#	0
+1	root	localhost	db_default	Query	#	User sleep	select sleep(1)	0	0	#	1
+1	root	localhost	db_default	Query	#	User sleep	select sleep(1)	0	0	#	0
+select * from information_schema.processlist;
+ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	SRV_ID
+1	root	localhost	test	Query	0	executing	select * from information_schema.processlist	0
+1	root	localhost	db_default	Query	0	User sleep	select sleep(1)	1
+1	root	localhost	db_default	Query	0	User sleep	select sleep(1)	0
+show transaction_list;
+Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin	Srv_Id
+1	root	localhost	test	Query	#	#	#	#	1	1	0
+1	root	localhost	db_default	Query	#	#	#	#	1	1	1
+1	root	localhost	db_default	Query	#	#	#	#	1	1	0
+select * from information_schema.transaction_list;
+ID	USER	HOST	DB	COMMAND	STATE	STATEMENT_SECONDS	TRANSACTION_SECONDS	COMMAND_SECONDS	READ_ONLY	SQL_LOG_BIN	SRV_ID
+1	root	localhost	test	Query	#	#	#	#	1	1	0
+1	root	localhost	db_default	Query	#	#	#	#	1	1	1
+1	root	localhost	db_default	Query	#	#	#	#	1	1	0
+
 drop database db_default;
 drop database db_rpc;
 drop user scriptro;

@@ -46,6 +46,7 @@
 #include "sql_trigger.h"
 #include "sql_derived.h"
 #include "sql_partition.h"
+#include "srv_session.h"
 #ifdef HAVE_EVENT_SCHEDULER
 #include "events.h"
 #include "event_data_objects.h"
@@ -2157,6 +2158,7 @@ public:
   bool rw_trans, sql_log_bin;
   // connection attributes
   HASH connection_attrs_hash;
+  my_thread_id srv_session_id = 0;
 };
 
 static const char *thread_state_info(THD *tmp)
@@ -2217,49 +2219,12 @@ static bool thd_compare (const THD* p1, const THD* p2)
   return p1->thread_id() < p2->thread_id();
 }
 
-static void set_thread_info_common(thread_info *thd_info, THD *thd, THD *tmp,
-                                   ulong max_query_length)
+// THD mutex and sys_var mutex is acquired when this function is called.
+static void set_thread_info_query_safe(thread_info *thd_info,
+                              THD* thd, THD *tmp, ulong max_query_length)
 {
-  struct st_my_thread_var *mysys_var;
-  Security_context *tmp_sctx= tmp->security_ctx;
-  thd_info->thread_id=tmp->thread_id();
-  thd_info->system_thread_id= tmp->system_thread_id;
-  thd_info->user= thd->strdup(tmp_sctx->user ? tmp_sctx->user :
-                              (tmp->system_thread ?
-                               "system user" : "unauthenticated user"));
-  if (tmp->peer_port && (tmp_sctx->get_host()->length() ||
-            tmp_sctx->get_ip()->length()) && thd->security_ctx->host_or_ip[0])
-  {
-    if ((thd_info->host= (char*) thd->alloc(LIST_PROCESS_HOST_LEN+1)))
-      my_snprintf((char *) thd_info->host, LIST_PROCESS_HOST_LEN,
-        "%s:%u", tmp_sctx->host_or_ip, tmp->peer_port);
-  }
-  else
-    thd_info->host= thd->strdup(tmp_sctx->host_or_ip[0] ?
-                                tmp_sctx->host_or_ip :
-                                tmp_sctx->get_host()->length() ?
-                                tmp_sctx->get_host()->ptr() : "");
-  thd_info->command=(int) tmp->get_command();
-
-  DBUG_EXECUTE_IF("processlist_acquiring_dump_threads_LOCK_thd_data", {
-    if (thd_info->command == COM_BINLOG_DUMP ||
-        thd_info->command == COM_BINLOG_DUMP_GTID)
-      DEBUG_SYNC(thd, "processlist_after_LOCK_thd_count_before_LOCK_thd_data");
-  });
-  mysql_mutex_lock(&tmp->LOCK_thd_data);
-  if ((thd_info->db= tmp->db))             // Safe test
-    thd_info->db= thd->strdup(thd_info->db);
-  if ((mysys_var= tmp->mysys_var))
-    mysql_mutex_lock(&mysys_var->mutex);
-  thd_info->proc_info =
-      (char *)(tmp->killed == THD::KILL_CONNECTION ? "Killed" : 0);
-  thd_info->state_info= thread_state_info(tmp);
-  if (mysys_var)
-    mysql_mutex_unlock(&mysys_var->mutex);
-
   thd_info->rows_examined= tmp->get_examined_row_count();
   thd_info->rows_sent= tmp->get_sent_row_count();
-  /* Lock THD mutex that protects its data when looking at it. */
   const char* query = NULL;
   uint length = 0;
   if (!tmp->row_query.empty())
@@ -2279,11 +2244,104 @@ static void set_thread_info_common(thread_info *thd_info, THD *thd, THD *tmp,
     thd_info->query_string=
       CSET_STRING(q, q ? length : 0, tmp->query_charset());
   }
-  mysql_mutex_unlock(&tmp->LOCK_thd_data);
 }
 
-static void set_thread_info_transaction_list(thread_info *thd_info, THD *tmp)
+/*
+ * Returns the THD corresponding to the session where the query is executed.
+ * If there is an srv_session attached, it returns the srv_session thd.
+ * Otherwise it returns the conn_thd.
+ * Function is called with locks acquired in conn_thd, so if there is a
+ * srv_session attached, it will release the locks in conn_thd and acquire them
+ * in session thd.
+ * */
+static THD* get_session_thd_locked(THD* conn_thd, THD* srv_session_thd,
+                                   struct st_my_thread_var *&mysys_var)
 {
+  if (!srv_session_thd)
+    return conn_thd;
+  else
+  {
+    // unlock mutexes in conn_thd
+    if (mysys_var)
+      mysql_mutex_unlock(&mysys_var->mutex);
+
+    mysql_mutex_unlock(&conn_thd->LOCK_thd_data);
+
+    // acquire srv_session_thd mutexes
+    mysql_mutex_lock(&srv_session_thd->LOCK_thd_data);
+
+    if ((mysys_var = srv_session_thd->mysys_var) != nullptr)
+      mysql_mutex_lock(&mysys_var->mutex);
+
+    return srv_session_thd;
+  }
+}
+
+static void set_thread_info_common(thread_info *thd_info, THD *thd,
+                                   THD *conn_thd, ulong max_query_length)
+{
+  struct st_my_thread_var *mysys_var;
+  Security_context *tmp_sctx= conn_thd->security_ctx;
+
+  // ensures session thd does not get destroyed before collecting info
+  auto srv_session = conn_thd->get_attached_srv_session();
+  THD* srv_session_thd = srv_session?srv_session->get_thd():NULL;
+
+  thd_info->thread_id=conn_thd->thread_id();
+  thd_info->system_thread_id= conn_thd->system_thread_id;
+  thd_info->user= thd->strdup(tmp_sctx->user ? tmp_sctx->user :
+                              (conn_thd->system_thread ?
+                               "system user" : "unauthenticated user"));
+  if (conn_thd->peer_port && (tmp_sctx->get_host()->length() ||
+            tmp_sctx->get_ip()->length()) && thd->security_ctx->host_or_ip[0])
+  {
+    if ((thd_info->host= (char*) thd->alloc(LIST_PROCESS_HOST_LEN+1)))
+      my_snprintf((char *) thd_info->host, LIST_PROCESS_HOST_LEN,
+        "%s:%u", tmp_sctx->host_or_ip, conn_thd->peer_port);
+  }
+  else
+    thd_info->host= thd->strdup(tmp_sctx->host_or_ip[0] ?
+                                tmp_sctx->host_or_ip :
+                                tmp_sctx->get_host()->length() ?
+                                tmp_sctx->get_host()->ptr() : "");
+  thd_info->command=(int) (srv_session_thd? srv_session_thd->get_command()
+                                          : conn_thd->get_command());
+
+  DBUG_EXECUTE_IF("processlist_acquiring_dump_threads_LOCK_thd_data", {
+    if (thd_info->command == COM_BINLOG_DUMP ||
+        thd_info->command == COM_BINLOG_DUMP_GTID)
+      DEBUG_SYNC(thd, "processlist_after_LOCK_thd_count_before_LOCK_thd_data");
+  });
+  /* Lock THD mutex that protects its data when looking at it. */
+  mysql_mutex_lock(&conn_thd->LOCK_thd_data);
+  if ((thd_info->db= conn_thd->db))             // Safe test
+    thd_info->db= thd->strdup(thd_info->db);
+  if ((mysys_var= conn_thd->mysys_var))
+    mysql_mutex_lock(&mysys_var->mutex);
+  thd_info->proc_info =
+      (char *)(conn_thd->killed == THD::KILL_CONNECTION ? "Killed" : 0);
+
+  // rest of the information will be collected from session thd
+  auto session_thd = get_session_thd_locked(conn_thd, srv_session_thd,
+                                            mysys_var);
+
+  thd_info->state_info= thread_state_info(session_thd);
+  if (mysys_var)
+    mysql_mutex_unlock(&mysys_var->mutex);
+
+  set_thread_info_query_safe(thd_info, thd, session_thd, max_query_length);
+  mysql_mutex_unlock(&session_thd->LOCK_thd_data);
+
+  if (srv_session_thd)
+    thd_info->srv_session_id = srv_session_thd->thread_id();
+}
+
+static void set_thread_info_transaction_list(thread_info *thd_info,
+                                              THD *conn_thd)
+{
+  auto srv_session = conn_thd->get_attached_srv_session();
+  THD* tmp = srv_session?srv_session->get_thd():conn_thd;
+
   auto time_stats = get_thd_time_stats(tmp);
   /* Statement_seconds */
   thd_info->stmt_secs = std::get<0>(time_stats);
@@ -2350,6 +2408,8 @@ static void setup_field_list_processlist(List<Item> *field_list,
         MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG));
   field_list->push_back(new Item_int(NAME_STRING("Tid"), 0,
                                     MY_INT64_NUM_DECIMAL_DIGITS));
+  field_list->push_back(
+      new Item_int(NAME_STRING("Srv_Id"), 0, MY_INT64_NUM_DECIMAL_DIGITS));
 }
 
 static void setup_field_list_transaction_list(List<Item> *field_list)
@@ -2366,6 +2426,8 @@ static void setup_field_list_transaction_list(List<Item> *field_list)
         0, 6, 65));
   field_list->push_back(new Item_int(NAME_STRING("Read_only"), 0, 1));
   field_list->push_back(new Item_int(NAME_STRING("Sql_log_bin"), 0, 1));
+  field_list->push_back(
+      new Item_int(NAME_STRING("Srv_Id"), 0, MY_INT64_NUM_DECIMAL_DIGITS));
 }
 
 static void setup_field_list_connection_attrs(List<Item> *field_list)
@@ -2404,6 +2466,7 @@ static void store_result_field_processlist(Protocol *protocol,
   protocol->store_long((longlong) thd_info->rows_examined);
   protocol->store_long((longlong) thd_info->rows_sent);
   protocol->store((ulonglong) thd_info->system_thread_id);
+  protocol->store((ulonglong) thd_info->srv_session_id);
 }
 
 static void store_result_field_transaction_list(Protocol *protocol,
@@ -2418,6 +2481,7 @@ static void store_result_field_transaction_list(Protocol *protocol,
   protocol->store(thd_info->cmd_secs, 6, &tmp_str);
   protocol->store((longlong) (!thd_info->rw_trans)); /* Read_only */
   protocol->store((longlong) thd_info->sql_log_bin);
+  protocol->store((ulonglong) thd_info->srv_session_id);
 }
 
 static void store_result_field_connection_attrs(Protocol *protocol,
@@ -2459,7 +2523,8 @@ static bool access_thread(const char *user, THD *thd)
 /* Return false if the current row (process) is skipped */
 static bool fill_fields_process_common(THD *thd, THD *tmp, TABLE *table,
                                        char *user, CHARSET_INFO *cs,
-                                       struct st_my_thread_var *&mysys_var)
+                                       struct st_my_thread_var *&mysys_var,
+                                       enum enum_server_command command)
 {
   // if the user cannot access the tmp thread, skip the thread
   if (!access_thread(user, tmp))
@@ -2489,8 +2554,8 @@ static bool fill_fields_process_common(THD *thd, THD *tmp, TABLE *table,
     table->field[2]->store(tmp_sctx->host_or_ip,
                            strlen(tmp_sctx->host_or_ip), cs);
   DBUG_EXECUTE_IF("processlist_acquiring_dump_threads_LOCK_thd_data", {
-    if (tmp->get_command() == COM_BINLOG_DUMP ||
-        tmp->get_command() == COM_BINLOG_DUMP_GTID)
+    if (command == COM_BINLOG_DUMP ||
+        command == COM_BINLOG_DUMP_GTID)
       DEBUG_SYNC(thd, "processlist_after_LOCK_thd_count_before_LOCK_thd_data");
   });
   /* DB */
@@ -2507,25 +2572,37 @@ static bool fill_fields_process_common(THD *thd, THD *tmp, TABLE *table,
   if ((val= (char *) (tmp->killed == THD::KILL_CONNECTION? "Killed" : 0)))
     table->field[4]->store(val, strlen(val), cs);
   else
-    table->field[4]->store(command_name[tmp->get_command()].str,
-                           command_name[tmp->get_command()].length, cs);
+    table->field[4]->store(command_name[command].str,
+                           command_name[command].length, cs);
 
   return true;
 }
 
 /* Return false if the current row (process) is skipped */
-static bool fill_fields_processlist(THD *thd, THD *tmp, TABLE *table,
+static bool fill_fields_processlist(THD *thd, THD *conn_thd, TABLE *table,
                                     char *user, CHARSET_INFO *cs, time_t now)
 {
   struct st_my_thread_var *mysys_var = NULL;
-  if (!fill_fields_process_common(thd, tmp, table, user, cs, mysys_var))
+
+  // get shared_ptr to session to ensure thd does not get destroyed
+  auto srv_session = conn_thd->get_attached_srv_session();
+  THD* srv_session_thd = srv_session?srv_session->get_thd():NULL;
+
+  auto command = srv_session_thd ? srv_session_thd->get_command()
+                                 : conn_thd->get_command();
+
+  if (!fill_fields_process_common(thd, conn_thd, table, user, cs,
+                                  mysys_var, command))
     return false;
 
   const char *val;
   /* MYSQL_TIME */
-  table->field[5]->store(
-      (longlong)(tmp->start_time.tv_sec ? now - tmp->start_time.tv_sec : 0),
-      FALSE);
+  table->field[5]->store((longlong)(conn_thd->start_time.tv_sec ?
+      now - conn_thd->start_time.tv_sec : 0), FALSE);
+
+  // all other info will be collected from session thd
+  auto tmp = get_session_thd_locked(conn_thd, srv_session_thd, mysys_var);
+
   /* STATE */
   if ((val= thread_state_info(tmp)))
   {
@@ -2549,16 +2626,31 @@ static bool fill_fields_processlist(THD *thd, THD *tmp, TABLE *table,
   // unlock LOCK_thd_data (locked in fill_fields_process_common())
   mysql_mutex_unlock(&tmp->LOCK_thd_data);
 
+  if (srv_session_thd)
+    table->field[8]->store((ulonglong) srv_session_thd->thread_id(), TRUE);
+
   return true;
 }
 
 /* Return false if the current row (process) is skipped */
-static bool fill_fields_transaction_list(THD *thd, THD *tmp, TABLE *table,
+static bool fill_fields_transaction_list(THD *thd, THD *conn_thd, TABLE *table,
                                          char *user, CHARSET_INFO *cs)
 {
   struct st_my_thread_var *mysys_var = NULL;
-  if (!fill_fields_process_common(thd, tmp, table, user, cs, mysys_var))
+
+  // get shared_ptr to session to ensure thd does not get destroyed
+  auto srv_session = conn_thd->get_attached_srv_session();
+  THD* srv_session_thd = srv_session?srv_session->get_thd():NULL;
+
+  auto command = srv_session_thd ? srv_session_thd->get_command()
+                                 : conn_thd->get_command();
+
+  if (!fill_fields_process_common(thd, conn_thd, table, user, cs,
+                                  mysys_var, command))
     return false;
+
+  // all other info will be collected from session thd
+  THD* tmp = get_session_thd_locked(conn_thd, srv_session_thd, mysys_var);
 
   /* STATE */
   const char *val;
@@ -2587,6 +2679,9 @@ static bool fill_fields_transaction_list(THD *thd, THD *tmp, TABLE *table,
 
   // unlock LOCK_thd_data (locked in fill_fields_process_common())
   mysql_mutex_unlock(&tmp->LOCK_thd_data);
+
+  if (srv_session_thd)
+    table->field[11]->store((ulonglong) srv_session_thd->thread_id(), TRUE);
 
   return true;
 }
@@ -8914,6 +9009,8 @@ ST_FIELD_INFO transaction_list_fields_info[]=
     SKIP_OPEN_TABLE},
   {"SQL_LOG_BIN", 1, MYSQL_TYPE_TINY, 0, MY_I_S_UNSIGNED, "Sql_log_bin",
     SKIP_OPEN_TABLE},
+  {"SRV_ID", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "Srv_id",
+    SKIP_OPEN_TABLE},
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
@@ -8930,6 +9027,8 @@ ST_FIELD_INFO processlist_fields_info[]=
   {"STATE", 64, MYSQL_TYPE_STRING, 0, 1, "State", SKIP_OPEN_TABLE},
   {"INFO", PROCESS_LIST_INFO_WIDTH, MYSQL_TYPE_STRING, 0, 1, "Info",
    SKIP_OPEN_TABLE},
+  {"SRV_ID", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "Srv_id",
+    SKIP_OPEN_TABLE},
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
