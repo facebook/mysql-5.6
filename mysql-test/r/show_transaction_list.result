@@ -11,6 +11,7 @@ TRANSACTION_SECONDS	decimal(9,6)	NO		0.000000
 COMMAND_SECONDS	decimal(9,6)	NO		0.000000	
 READ_ONLY	tinyint(1) unsigned	NO		0	
 SQL_LOG_BIN	tinyint(1) unsigned	NO		0	
+SRV_ID	bigint(21) unsigned	NO		0	
 create table t1 (id integer not null auto_increment, i int, primary key (id))
 engine = innodb;
 create user mysqluser1;
@@ -26,9 +27,9 @@ insert into t1 (i) values
 (1),(2),(4),(5),(6),(7),(8),(9),(10),(11),(12),(13),(14);
 # connection default
 show transaction_list;
-Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin
-#	mysqluser1	localhost	test	Command	State	#	#	#	0	1
-#	root	localhost	test	Command	State	#	#	#	1	1
+Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin	Srv_Id
+#	mysqluser1	localhost	test	Command	State	#	#	#	0	1	0
+#	root	localhost	test	Command	State	#	#	#	1	1	0
 select statement_seconds from information_schema.transaction_list where Id = conn_a;
 statement_seconds
 0.000000
@@ -49,9 +50,9 @@ count(*)
 commit;
 # connection default
 show transaction_list;
-Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin
-#	mysqluser1	localhost	test	Command	State	#	#	#	0	1
-#	root	localhost	test	Command	State	#	#	#	1	1
+Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin	Srv_Id
+#	mysqluser1	localhost	test	Command	State	#	#	#	0	1	0
+#	root	localhost	test	Command	State	#	#	#	1	1	0
 select statement_seconds from information_schema.transaction_list where Id = conn_a;
 statement_seconds
 0.000000
@@ -75,9 +76,9 @@ count(*)
 rollback;
 # connection default
 show transaction_list;
-Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin
-#	mysqluser1	localhost	test	Command	State	#	#	#	1	1
-#	root	localhost	test	Command	State	#	#	#	1	1
+Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin	Srv_Id
+#	mysqluser1	localhost	test	Command	State	#	#	#	1	1	0
+#	root	localhost	test	Command	State	#	#	#	1	1	0
 select statement_seconds from information_schema.transaction_list where Id = conn_a;
 statement_seconds
 0.000000
@@ -97,9 +98,9 @@ transaction_seconds
 insert into t1 (i) select i from t1 where id > 6 AND id < 20;
 # connection default
 show transaction_list;
-Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin
-#	mysqluser1	localhost	test	Command	State	#	#	#	0	1
-#	root	localhost	test	Command	State	#	#	#	1	1
+Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin	Srv_Id
+#	mysqluser1	localhost	test	Command	State	#	#	#	0	1	0
+#	root	localhost	test	Command	State	#	#	#	1	1	0
 select statement_seconds from information_schema.transaction_list where Id = conn_a;
 statement_seconds
 0.000000
@@ -123,9 +124,9 @@ sleep(10)
 0
 # connection default
 show transaction_list;
-Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin
-#	mysqluser1	localhost	test	Command	State	#	#	#	0	1
-#	root	localhost	test	Command	State	#	#	#	1	1
+Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin	Srv_Id
+#	mysqluser1	localhost	test	Command	State	#	#	#	0	1	0
+#	root	localhost	test	Command	State	#	#	#	1	1	0
 select statement_seconds from information_schema.transaction_list where Id = conn_a;
 statement_seconds
 0.000000
