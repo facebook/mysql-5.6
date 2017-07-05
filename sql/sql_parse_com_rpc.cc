@@ -71,15 +71,13 @@ void reset_conn_thd_after_query_execution(THD* thd) {
     1  failure
 */
 bool handle_com_rpc(THD *conn_thd, char* packet, uint packet_length,
-                    size_t attrs_len, bool* is_rpc_query)
+                    bool* is_rpc_query)
 {
   DBUG_ENTER(__func__);
   std::string rpc_role, rpc_db, rpc_id;
   bool used_default_srv_session = false;
   bool ret = true;
-  Diagnostics_area * stmt_da_to_restore = NULL;
   Security_context* conn_security_ctx = NULL;
-  Vio* vio_restore = NULL;
   THD* srv_session_thd = NULL;
 
   check_for_attribute(conn_thd, RpcRoleAttr, rpc_role);
@@ -181,28 +179,17 @@ bool handle_com_rpc(THD *conn_thd, char* packet, uint packet_length,
   // we need srv_session to use connection THD for network operations
   srv_session_thd->protocol = conn_thd->protocol;
 
-  vio_restore = srv_session_thd->net.vio;
   srv_session_thd->net.vio = conn_thd->net.vio;
-
-  stmt_da_to_restore = srv_session_thd->get_stmt_da();
   srv_session_thd->set_stmt_da(conn_thd->get_stmt_da());
 
   // set srv_session THD, used by "show processlist"
   conn_thd->set_attached_srv_session(srv_session);
-
-  packet += attrs_len;
-  packet_length -= attrs_len;
 
   DBUG_PRINT("info", ("handle_com_rpc thread_thd=%p session_thd=%p "
                       "query='%.*s' query_len=%d", conn_thd, srv_session_thd,
                       packet_length, packet, packet_length));
 
   ret = srv_session->execute_query(packet, packet_length, 0);
-
-  // restore fields
-  srv_session_thd->protocol = &srv_session_thd->protocol_text;
-  srv_session_thd->set_stmt_da(stmt_da_to_restore);
-  srv_session_thd->net.vio = vio_restore;
 
   if (!ret)  // if query execution success
   {
