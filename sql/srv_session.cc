@@ -234,7 +234,10 @@ public:
     */
     auto it= collection.find(key);
     if (it != collection.end())
+    {
+      DBUG_PRINT("info", ("Removed srv session from map %d", key));
       collection.erase(it);
+    }
   }
 
   /**
@@ -301,7 +304,16 @@ std::shared_ptr<Srv_session> Srv_session::find_session(
     return nullptr;
   }
 
+  return find_session(session_id);
+}
+
+std::shared_ptr<Srv_session> Srv_session::find_session(
+    my_thread_id session_id) {
   return server_session_list.find(session_id);
+}
+
+void Srv_session::remove_session(my_thread_id session_id) {
+  server_session_list.remove(session_id);
 }
 
 bool Srv_session::store_session(std::shared_ptr<Srv_session> session) {
@@ -377,9 +389,11 @@ bool Srv_session::module_deinit()
 Srv_session::Srv_session() : state_(SRV_SESSION_CREATED)
 {
   thd_.mark_as_srv_session();
-
   // needed for Valgrind not to complain of "Conditional jump"
   thd_.net.reading_or_writing= 0;
+
+  default_vio_to_restore_ = thd_.net.vio;
+  default_stmt_to_restore_ = thd_.get_stmt_da();
 }
 
 
@@ -576,6 +590,12 @@ bool Srv_session::detach()
                      this, get_thd(), current_thd));
 
   DBUG_ASSERT(&thd_ == current_thd);
+
+  // restore fields
+  thd_.protocol = &thd_.protocol_text;
+  thd_.set_stmt_da(default_stmt_to_restore_);
+  thd_.net.vio = default_vio_to_restore_;
+
   thd_.restore_globals();
 
   set_psi(NULL);
@@ -642,6 +662,8 @@ bool Srv_session::close()
   DBUG_PRINT("info",("Session=%p THD=%p current_thd=%p",
                      this, get_thd(), current_thd));
 
+  THD *old_thd= current_thd;
+
   // attach session to thread
   attach();
 
@@ -665,6 +687,10 @@ bool Srv_session::close()
 
   // detach
   detach();
+
+  // Install back old THD object as current_thd
+  if (old_thd)
+    old_thd->store_globals();
 
   DBUG_RETURN(false);
 }
@@ -782,6 +808,8 @@ void Srv_session::switch_state_safe(srv_session_state new_state) {
   if (prev_state == SRV_SESSION_TO_BE_DETACHED) {
     wait_to_attach_.notify_all();
   }
+  DBUG_PRINT("info", ("switch session state %p from %d to %d",
+                      this, prev_state, new_state));
 }
 
 void Srv_session::switch_state(srv_session_state new_state) {

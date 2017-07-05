@@ -46,20 +46,23 @@ GET_LOCK("my_lock", 0)
 SELECT GET_LOCK("my_lock", 0);
 GET_LOCK("my_lock", 0)
 0
-CREATE TEMPORARY TABLE t1 (i int, s char (10));
+SELECT RELEASE_LOCK('my_lock');
+RELEASE_LOCK('my_lock')
+1
+CREATE TEMPORARY TABLE t3 (i int, s char (10));
 
 # Case 4: Create temporary table in one connection and use it in another
 
-CREATE TEMPORARY TABLE t1 (i int, s char (10));
-insert into t1 values(1, "a");
+CREATE TEMPORARY TABLE t3 (i int, s char (10));
+insert into t3 values(1, "a");
 # Trying to access temp table before setting the session id will fail.
-select * from t1;
-ERROR 42S02: Table 'db_default.t1' doesn't exist
-select * from t1;
+select * from t3;
+ERROR 42S02: Table 'db_default.t3' doesn't exist
+select * from t3;
 i	s
 1	a
-insert into t1 values(2, "b");
-select * from t1;
+insert into t3 values(2, "b");
+select * from t3;
 i	s
 1	a
 2	b
@@ -83,17 +86,15 @@ select 1;
 ERROR HY000: Lost connection to MySQL server during query
 select 1;
 ERROR HY000: Lost connection to MySQL server during query
-select 1;
-ERROR HY000: Lost connection to MySQL server during query
 
 # Case 6: Test "show processlist" commands
 
 select sleep(3);
 show processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
-1	root	localhost	test	Query	#	init	show processlist	0	0	#	0
-1	root	localhost	db_default	Query	#	User sleep	select sleep(1)	0	0	#	1
-1	root	localhost	db_default	Query	#	User sleep	select sleep(1)	0	0	#	0
+1	root	localhost	test	Query	0	init	show processlist	0	0	#	0
+1	root	localhost	db_default	Query	0	User sleep	select sleep(1)	0	0	#	1
+1	root	localhost	db_default	Query	0	User sleep	select sleep(1)	0	0	#	0
 select * from information_schema.processlist;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	SRV_ID
 1	root	localhost	test	Query	0	executing	select * from information_schema.processlist	0
@@ -101,34 +102,110 @@ ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	SRV_ID
 1	root	localhost	db_default	Query	0	User sleep	select sleep(1)	0
 show transaction_list;
 Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin	Srv_Id
-1	root	localhost	test	Query	#	#	#	#	1	1	0
-1	root	localhost	db_default	Query	#	#	#	#	1	1	1
-1	root	localhost	db_default	Query	#	#	#	#	1	1	0
+1	root	localhost	test	Query	0	#	#	#	1	1	0
+1	root	localhost	db_default	Query	0	#	#	#	1	1	1
+1	root	localhost	db_default	Query	0	#	#	#	1	1	0
 select * from information_schema.transaction_list;
 ID	USER	HOST	DB	COMMAND	STATE	STATEMENT_SECONDS	TRANSACTION_SECONDS	COMMAND_SECONDS	READ_ONLY	SQL_LOG_BIN	SRV_ID
-1	root	localhost	test	Query	#	#	#	#	1	1	0
-1	root	localhost	db_default	Query	#	#	#	#	1	1	1
-1	root	localhost	db_default	Query	#	#	#	#	1	1	0
+1	root	localhost	test	Query	0	#	#	#	1	1	0
+1	root	localhost	db_default	Query	0	#	#	#	1	1	1
+1	root	localhost	db_default	Query	0	#	#	#	1	1	0
+sleep(3)
+0
 
 # Case 7: Test "show srv_sessions" commands
 
 show srv_sessions;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Conn_Id
-1	root	localhost	db_default	Sleep	0	Detached	NULL	0	0	#	0
-1	root	localhost	db_default	Sleep	0	Detached	NULL	0	0	#	0
-1	root	localhost	db_default	Sleep	0	Detached	NULL	0	0	#	0
-1	root	localhost	db_default	Sleep	0	Detached	NULL	0	1	#	0
-1	root	localhost	db_default	Sleep	0	Detached	NULL	0	0	#	0
 1	root	localhost	db_default	Query	0	User sleep	select sleep(1)	0	0	#	1
+1	root	localhost	db_default	Sleep	0	Detached	NULL	0	0	#	0
+1	root	localhost	db_default	Sleep	0	Detached	NULL	0	0	#	0
+1	root	localhost	db_default	Sleep	0	Detached	NULL	1	1	#	0
+1	root	localhost	db_default	Sleep	0	Detached	NULL	0	0	#	0
 select * from information_schema.srv_sessions;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	CONN_ID
-1	root	localhost	db_default	Sleep	0	Detached	NULL	0
-1	root	localhost	db_default	Sleep	0	Detached	NULL	0
-1	root	localhost	db_default	Sleep	0	Detached	NULL	0
-1	root	localhost	db_default	Sleep	0	Detached	NULL	0
-1	root	localhost	db_default	Sleep	0	Detached	NULL	0
 1	root	localhost	db_default	Query	0	User sleep	select sleep(1)	1
+1	root	localhost	db_default	Sleep	0	Detached	NULL	0
+1	root	localhost	db_default	Sleep	0	Detached	NULL	0
+1	root	localhost	db_default	Sleep	0	Detached	NULL	0
+1	root	localhost	db_default	Sleep	0	Detached	NULL	0
 
+# Case 8: Test KILL srv_session
+
+SET @my_var='new_value';
+select * from information_schema.srv_sessions where id=rpc_id;
+ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	CONN_ID
+1	root	localhost	db_default	Sleep	0	Detached	NULL	0
+# KILL Unattached Session. It will be removed from session list.
+KILL rpc_id;
+# Srv_session should not be listed
+select * from information_schema.srv_sessions where id=rpc_id;
+ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	CONN_ID
+# Connection should not be killed
+select 1;
+1
+1
+# Trying to use the rpc_id7 will get an error
+select 1;
+ERROR HY000: Lost connection to MySQL server during query
+
+# Kill Query in Attached Session
+SELECT GET_LOCK("my_lock", 0);
+GET_LOCK("my_lock", 0)
+1
+SET @my_var='new_value';
+SELECT GET_LOCK('my_lock', 3600);
+select * from information_schema.srv_sessions where id=rpc_id;
+ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	CONN_ID
+rpc_id	root	localhost	db_default	Query	0	User lock	SELECT GET_LOCK('my_lock', 3600)	1
+select * from information_schema.processlist where SRV_ID=rpc_id;
+ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	SRV_ID
+1	root	localhost	db_default	Query	0	User lock	SELECT GET_LOCK('my_lock', 3600)	rpc_id
+KILL QUERY rpc_id;
+select * from information_schema.srv_sessions where id=rpc_id;
+ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	CONN_ID
+rpc_id	root	localhost	db_default	Sleep	0	Detached	NULL	0
+select * from information_schema.processlist where SRV_ID=rpc_id;
+ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	SRV_ID
+
+# Kill Attached Session. Will stop query and remove the session
+GET_LOCK('my_lock', 3600)
+NULL
+SELECT GET_LOCK('my_lock', 3600);
+KILL rpc_id;
+select * from information_schema.srv_sessions where id=rpc_id;
+ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	CONN_ID
+select * from information_schema.processlist where SRV_ID=rpc_id;
+ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	SRV_ID
+
+# KILL conn thd that is running an srv session query returns error.
+SET @my_var='new_value';
+SELECT GET_LOCK('my_lock', 3600);
+KILL QUERY ID;
+ERROR HY000: You are not owner of thread ID
+KILL QUERY rpc_id6;
+GET_LOCK('my_lock', 3600)
+NULL
+SELECT 1;
+1
+1
+
+# KILL for an unexisting conn thd id
+KILL rpc_id;
+ERROR HY000: Unknown thread id: rpc_id
+
+KILL rpc_id;
+KILL rpc_id;
+KILL rpc_id;
+KILL rpc_id;
+KILL rpc_id;
+KILL rpc_id;
+select count(id) from information_schema.srv_sessions;
+count(id)
+0
+select count(id) from information_schema.processlist;
+count(id)
+1
 drop database db_default;
 drop database db_rpc;
 drop user scriptro;

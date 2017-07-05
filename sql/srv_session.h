@@ -67,6 +67,8 @@ public:
   static bool module_deinit();
 
   static std::shared_ptr<Srv_session> find_session(const std::string& key);
+  static std::shared_ptr<Srv_session> find_session(my_thread_id session_id);
+  static void remove_session(my_thread_id session_id);
   static bool store_session(std::shared_ptr<Srv_session> session);
 
   static std::vector<std::shared_ptr<Srv_session>> get_sorted_sessions();
@@ -222,6 +224,10 @@ private:
 
   // Session THD
   THD thd_;
+
+  // Store the default vio and stmt_da fields to use when detaching the session
+  Vio* default_vio_to_restore_ = NULL;
+  Diagnostics_area * default_stmt_to_restore_ = NULL;
 
   // Connection THD ID.
   std::atomic_uint conn_thd_id;

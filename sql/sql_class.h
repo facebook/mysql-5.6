@@ -4671,6 +4671,11 @@ public:
     return srv_session;
   }
 
+  // called when KILL is processed, LOCK_thd_data already acquired
+ const std::shared_ptr<Srv_session> get_attached_srv_session_safe() {
+    return attached_srv_session;
+  }
+
 private:
   /**
     Variable to mark if the object is part of a Srv_session object, which

@@ -118,6 +118,7 @@
 #include "native_procedure_priv.h"
 
 #include "sql_parse_com_rpc.h" // handle_com_rpc, srv_session_end_statement
+#include "srv_session.h"
 
 #ifdef HAVE_JEMALLOC
 #ifndef EMBEDDED_LIBRARY
@@ -1190,15 +1191,17 @@ bool do_command(THD *thd)
     size_t attrs_len= net_field_length((uchar**) &packet_ptr);
     thd->set_query_attrs(CSET_STRING(packet_ptr, attrs_len, thd->charset()));
 
+    auto attrs_len_bytes = net_length_size(attrs_len);
+    packet_length -= (attrs_len_bytes + attrs_len);
+    packet += attrs_len_bytes + attrs_len; // command byte gets jumped below
+
     bool is_rpc_query = false;
-    return_value= handle_com_rpc(thd, packet_ptr, (uint) (packet_length-1),
-                                  attrs_len, &is_rpc_query);
+    return_value= handle_com_rpc(thd, packet+1, (uint) (packet_length-1),
+                                  &is_rpc_query);
     if (is_rpc_query)
       goto out;
     // otherwise let it fall through to dispatch_command()
     command = COM_QUERY;
-    packet += attrs_len + 1;
-    packet_length -= (attrs_len  + 1);
   }
 
   return_value= dispatch_command(command, thd, packet+1, (uint) (packet_length-1));
@@ -8664,9 +8667,57 @@ uint kill_one_thread(THD *thd, my_thread_id id, bool only_kill_query)
   uint error=ER_NO_SUCH_THREAD;
   DBUG_ENTER("kill_one_thread");
   DBUG_PRINT("enter", ("id=%u only_kill=%d", id, only_kill_query));
+  THD* tmp = NULL;
 
-  /* If successful we'll have LOCK_thd_data on return. */
-  THD* tmp= find_thd_from_id(id);
+  // maybe it's a srv_session id
+  std::shared_ptr<Srv_session> srv_session;
+#ifndef EMBEDDED_LIBRARY
+  srv_session = Srv_session::find_session(id);
+
+  if (srv_session)
+  {
+    if (!only_kill_query)
+    {
+      // remove session from map
+      DBUG_PRINT("info", ("Kill CONN for srv_session, removing session."));
+      Srv_session::remove_session(id);
+    }
+    // continue executing code below with conn thread id
+    auto conn_id = srv_session->get_conn_thd_id();
+    if (conn_id == 0) // session is not attached
+    {
+      DBUG_PRINT("info", ("Requested KILL of unattached srv session id=%d",
+                          srv_session->get_session_id()));
+      DBUG_RETURN(0);
+    }
+    // continue to kill the query, set only_kill_query=true as connection
+    // should still remain active
+    only_kill_query = true;
+    tmp = srv_session->get_thd();
+    mysql_mutex_lock(&tmp->LOCK_thd_data);
+    DBUG_PRINT("info", ("Found srv_session to kill conn_thid=%d", conn_id));
+  }
+#endif
+
+  if (!srv_session)
+  {
+    /* If successful we'll have LOCK_thd_data on return. */
+    tmp= find_thd_from_id(id);
+
+    // If the THD has attached, deny to execute that kill.
+    // Kill for sessions should be done using the srv session id,
+    // not the connection thd. The reason for this is that the connection thd
+    // could be running queries for another session by the time kill comes in.
+    if (tmp && tmp->get_attached_srv_session_safe())
+    {
+      DBUG_PRINT("error", ("Not allowed to kill conn with attached session"
+                            " conn_thid=%d", id));
+      mysql_mutex_unlock(&tmp->LOCK_thd_data);
+      error = ER_KILL_DENIED_ERROR;
+      tmp = NULL;
+    }
+  }
+
   if (tmp)
   {
 
