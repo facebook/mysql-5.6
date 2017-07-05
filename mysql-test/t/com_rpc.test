@@ -234,6 +234,7 @@ connection default;
 --replace_regex /[1-9][0-9]*/1/
 show processlist;
 --replace_regex /[1-9][0-9]*/1/
+--replace_column 6 0
 select * from information_schema.processlist;
 --replace_column 6 # 7 # 8 # 9 #
 --replace_regex /[1-9][0-9]*/1/
@@ -241,6 +242,19 @@ show transaction_list;
 --replace_column 6 # 7 # 8 # 9 #
 --replace_regex /[1-9][0-9]*/1/
 select * from information_schema.transaction_list;
+
+--echo
+--echo # Case 7: Test "show srv_sessions" commands
+--echo
+
+connection default;
+--replace_column 6 0 11 #
+--replace_regex /[1-9][0-9]*/1/
+show srv_sessions;
+--replace_column 6 0
+--replace_regex /[1-9][0-9]*/1/
+select * from information_schema.srv_sessions;
+
 
 --echo
 connection default;

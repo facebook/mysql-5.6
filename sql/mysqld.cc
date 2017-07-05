@@ -4502,6 +4502,7 @@ SHOW_VAR com_status_vars[]= {
   {"show_procedure_status",(char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_SHOW_STATUS_PROC]), SHOW_LONG_STATUS},
   {"show_processlist",     (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_SHOW_PROCESSLIST]), SHOW_LONG_STATUS},
   {"show_transaction_list",(char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_SHOW_TRANSACTION_LIST]), SHOW_LONG_STATUS},
+  {"show_srv_sessions",    (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_SHOW_SRV_SESSIONS]), SHOW_LONG_STATUS},
   {"show_profile",         (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_SHOW_PROFILE]), SHOW_LONG_STATUS},
   {"show_profiles",        (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_SHOW_PROFILES]), SHOW_LONG_STATUS},
   {"show_relaylog_events", (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_SHOW_RELAYLOG_EVENTS]), SHOW_LONG_STATUS},

@@ -1783,6 +1783,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  SQL_SMALL_RESULT
 %token  SQL_SYM                       /* SQL-2003-R */
 %token  SQL_THREAD
+%token  SRV_SESSIONS_SYM
 %token  SSL_SYM
 %token  STARTING
 %token  STARTS_SYM
@@ -13402,6 +13403,8 @@ show_param:
           { Lex->sql_command= SQLCOM_SHOW_TRANSACTION_LIST;}
         | opt_full CONNECTION_ATTRIBUTES_SYM
           { Lex->sql_command= SQLCOM_SHOW_CONNECTION_ATTRIBUTES;}
+        | opt_full SRV_SESSIONS_SYM
+          { Lex->sql_command= SQLCOM_SHOW_SRV_SESSIONS;}
         | RESOURCE_SYM COUNTERS_SYM opt_entity
           { Lex->sql_command= SQLCOM_SHOW_RESOURCE_COUNTERS; }
         | opt_var_type  VARIABLES wild_and_where
@@ -15217,6 +15220,7 @@ keyword_sp:
         | SQL_BUFFER_RESULT        {}
         | SQL_NO_CACHE_SYM         {}
         | SQL_THREAD               {}
+        | SRV_SESSIONS_SYM         {}
         | STARTS_SYM               {}
         | STATS_AUTO_RECALC_SYM    {}
         | STATS_PERSISTENT_SYM     {}

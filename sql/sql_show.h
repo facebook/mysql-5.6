@@ -184,6 +184,7 @@ bool mysqld_show_create_db(THD *thd, char *dbname, HA_CREATE_INFO *create);
 void mysqld_list_processes(THD *thd,const char *user,bool verbose);
 void mysqld_list_transactions(THD *thd,const char *user,bool verbose);
 void mysqld_list_connection_attrs(THD *thd,const char *user,bool verbose);
+void mysqld_list_srv_sessions(THD *thd,const char *user,bool verbose);
 int mysqld_show_status(THD *thd);
 int mysqld_show_variables(THD *thd,const char *wild);
 bool mysqld_show_storage_engines(THD *thd);

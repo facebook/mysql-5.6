@@ -110,6 +110,25 @@ ID	USER	HOST	DB	COMMAND	STATE	STATEMENT_SECONDS	TRANSACTION_SECONDS	COMMAND_SECO
 1	root	localhost	db_default	Query	#	#	#	#	1	1	1
 1	root	localhost	db_default	Query	#	#	#	#	1	1	0
 
+# Case 7: Test "show srv_sessions" commands
+
+show srv_sessions;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Conn_Id
+1	root	localhost	db_default	Sleep	0	Detached	NULL	0	0	#	0
+1	root	localhost	db_default	Sleep	0	Detached	NULL	0	0	#	0
+1	root	localhost	db_default	Sleep	0	Detached	NULL	0	0	#	0
+1	root	localhost	db_default	Sleep	0	Detached	NULL	0	1	#	0
+1	root	localhost	db_default	Sleep	0	Detached	NULL	0	0	#	0
+1	root	localhost	db_default	Query	0	User sleep	select sleep(1)	0	0	#	1
+select * from information_schema.srv_sessions;
+ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	CONN_ID
+1	root	localhost	db_default	Sleep	0	Detached	NULL	0
+1	root	localhost	db_default	Sleep	0	Detached	NULL	0
+1	root	localhost	db_default	Sleep	0	Detached	NULL	0
+1	root	localhost	db_default	Sleep	0	Detached	NULL	0
+1	root	localhost	db_default	Sleep	0	Detached	NULL	0
+1	root	localhost	db_default	Query	0	User sleep	select sleep(1)	1
+
 drop database db_default;
 drop database db_rpc;
 drop user scriptro;
