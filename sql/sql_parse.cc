@@ -4713,6 +4713,16 @@ end_with_restore_list:
                            thd->security_ctx->priv_user),
                           lex->verbose);
     break;
+  case SQLCOM_SHOW_SRV_SESSIONS:
+    if (!thd->security_ctx->priv_user[0] &&
+        check_global_access(thd, PROCESS_ACL))
+      break;
+    mysqld_list_srv_sessions(thd,
+			  (thd->security_ctx->master_access & PROCESS_ACL ?
+                           NullS :
+                           thd->security_ctx->priv_user),
+                          lex->verbose);
+    break;
   case SQLCOM_SHOW_RESOURCE_COUNTERS:
     {
       if (!thd->security_ctx->priv_user[0] &&

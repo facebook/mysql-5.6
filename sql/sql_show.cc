@@ -2098,7 +2098,8 @@ enum process_list_type
 {
   SHOW_PROCESS_LIST,
   SHOW_TRANSACTION_LIST,
-  SHOW_CONNECTION_ATTRS
+  SHOW_CONNECTION_ATTRS,
+  SHOW_SRV_SESSIONS,
 };
 
 // stores one connection attribute
@@ -2158,7 +2159,7 @@ public:
   bool rw_trans, sql_log_bin;
   // connection attributes
   HASH connection_attrs_hash;
-  my_thread_id srv_session_id = 0;
+  my_thread_id attached_thd_id = 0;
 };
 
 static const char *thread_state_info(THD *tmp)
@@ -2289,6 +2290,7 @@ static void set_thread_info_common(thread_info *thd_info, THD *thd,
 
   thd_info->thread_id=conn_thd->thread_id();
   thd_info->system_thread_id= conn_thd->system_thread_id;
+
   thd_info->user= thd->strdup(tmp_sctx->user ? tmp_sctx->user :
                               (conn_thd->system_thread ?
                                "system user" : "unauthenticated user"));
@@ -2333,7 +2335,7 @@ static void set_thread_info_common(thread_info *thd_info, THD *thd,
   mysql_mutex_unlock(&session_thd->LOCK_thd_data);
 
   if (srv_session_thd)
-    thd_info->srv_session_id = srv_session_thd->thread_id();
+    thd_info->attached_thd_id = srv_session_thd->thread_id();
 }
 
 static void set_thread_info_transaction_list(thread_info *thd_info,
@@ -2408,8 +2410,6 @@ static void setup_field_list_processlist(List<Item> *field_list,
         MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG));
   field_list->push_back(new Item_int(NAME_STRING("Tid"), 0,
                                     MY_INT64_NUM_DECIMAL_DIGITS));
-  field_list->push_back(
-      new Item_int(NAME_STRING("Srv_Id"), 0, MY_INT64_NUM_DECIMAL_DIGITS));
 }
 
 static void setup_field_list_transaction_list(List<Item> *field_list)
@@ -2466,7 +2466,24 @@ static void store_result_field_processlist(Protocol *protocol,
   protocol->store_long((longlong) thd_info->rows_examined);
   protocol->store_long((longlong) thd_info->rows_sent);
   protocol->store((ulonglong) thd_info->system_thread_id);
-  protocol->store((ulonglong) thd_info->srv_session_id);
+  protocol->store((ulonglong) thd_info->attached_thd_id);
+}
+
+static void store_result_field_srv_sessions(Protocol *protocol,
+                                            thread_info *thd_info, time_t now)
+{
+  store_result_field_thread_info_common(protocol, thd_info);
+  if (thd_info->start_time)
+    protocol->store_long ((longlong) (now - thd_info->start_time));
+  else
+    protocol->store_null();
+  protocol->store(thd_info->state_info, system_charset_info);
+  protocol->store(thd_info->query_string.str(),
+                  thd_info->query_string.charset());
+  protocol->store_long((longlong) thd_info->rows_examined);
+  protocol->store_long((longlong) thd_info->rows_sent);
+  protocol->store((ulonglong) thd_info->system_thread_id);
+  protocol->store((ulonglong) thd_info->attached_thd_id);
 }
 
 static void store_result_field_transaction_list(Protocol *protocol,
@@ -2481,7 +2498,7 @@ static void store_result_field_transaction_list(Protocol *protocol,
   protocol->store(thd_info->cmd_secs, 6, &tmp_str);
   protocol->store((longlong) (!thd_info->rw_trans)); /* Read_only */
   protocol->store((longlong) thd_info->sql_log_bin);
-  protocol->store((ulonglong) thd_info->srv_session_id);
+  protocol->store((ulonglong) thd_info->attached_thd_id);
 }
 
 static void store_result_field_connection_attrs(Protocol *protocol,
@@ -2515,7 +2532,7 @@ static void store_result_field_connection_attrs(Protocol *protocol,
 static bool access_thread(const char *user, THD *thd)
 {
   Security_context *thd_sctx= thd->security_ctx;
-  return ((thd->vio_ok() || thd->system_thread) &&
+  return ((thd->vio_ok() || thd->system_thread || thd->is_a_srv_session()) &&
           (!user || (!thd->system_thread && thd_sctx->user &&
                      !strcmp(thd_sctx->user, user))));
 }
@@ -2632,6 +2649,32 @@ static bool fill_fields_processlist(THD *thd, THD *conn_thd, TABLE *table,
   return true;
 }
 
+#ifndef EMBEDDED_LIBRARY
+static bool fill_fields_srv_session(THD *thd,
+                                    std::shared_ptr<Srv_session> srv_session,
+                                    TABLE *table, char *user, CHARSET_INFO *cs,
+                                    time_t now)
+{
+  auto srv_session_thd = srv_session->get_thd();
+
+  if (!fill_fields_processlist(thd, srv_session_thd, table, user, cs, now))
+    return false;
+
+  auto attached_conn_thid = srv_session->get_conn_thd_id();
+  if (attached_conn_thid)
+  {
+    table->field[8]->store((ulonglong) attached_conn_thid, TRUE);
+  }
+  else
+  {
+    const char* state = "Detached";
+    table->field[6]->store(state, strlen(state), cs);
+    table->field[6]->set_notnull();
+  }
+  return true;
+}
+#endif
+
 /* Return false if the current row (process) is skipped */
 static bool fill_fields_transaction_list(THD *thd, THD *conn_thd, TABLE *table,
                                          char *user, CHARSET_INFO *cs)
@@ -2716,6 +2759,24 @@ static void fill_fields_connection_attrs(THD *thd, THD *tmp, TABLE *table,
   mysql_mutex_unlock(&tmp->LOCK_thd_data);
 }
 
+void set_thread_info_srv_session(thread_info *thd_info, THD* thd,
+                                std::shared_ptr<Srv_session> srv_session,
+                                ulong max_query_length)
+{
+  auto session_thd = srv_session->get_thd();
+  auto attached_conn_thid = srv_session->get_conn_thd_id();
+
+  set_thread_info_common(thd_info, thd, session_thd, max_query_length);
+
+  thd_info->start_time= session_thd->start_time.tv_sec;
+
+  if (attached_conn_thid) {
+    thd_info->attached_thd_id= attached_conn_thid;
+  } else {
+    thd_info->state_info = "Detached";
+  }
+}
+
 void mysqld_list_process_trx_helper(THD *thd, const char *user, bool verbose,
                                     process_list_type type)
 {
@@ -2739,6 +2800,10 @@ void mysqld_list_process_trx_helper(THD *thd, const char *user, bool verbose,
       dbug_name = "mysqld_list_processes";
       break;
 
+    case process_list_type::SHOW_SRV_SESSIONS:
+      dbug_name = "mysqld_srv_sessions";
+      break;
+
     default:
       /* not supported type */
       DBUG_ASSERT(0);
@@ -2757,6 +2822,14 @@ void mysqld_list_process_trx_helper(THD *thd, const char *user, bool verbose,
 
     case process_list_type::SHOW_PROCESS_LIST:
       setup_field_list_processlist(&field_list, max_query_length);
+      field_list.push_back(
+        new Item_int(NAME_STRING("Srv_Id"), 0, MY_INT64_NUM_DECIMAL_DIGITS));
+      break;
+
+    case process_list_type::SHOW_SRV_SESSIONS:
+      setup_field_list_processlist(&field_list, max_query_length);
+      field_list.push_back(
+        new Item_int(NAME_STRING("Conn_Id"), 0, MY_INT64_NUM_DECIMAL_DIGITS));
       break;
 
     default:
@@ -2768,51 +2841,77 @@ void mysqld_list_process_trx_helper(THD *thd, const char *user, bool verbose,
         Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
     DBUG_VOID_RETURN;
 
+
   if (!thd->killed)
   {
-    /* take copy of global_thread_list, sorted by thread_id */
-    std::set<THD *, bool (*)(const THD *, const THD *)>
-      global_thread_list_copy(&thd_compare);
-    DEBUG_SYNC(thd,"before_copying_threads");
-    /*
-      Allow inserts to global_thread_list. Newly added thd
-      will not be accounted for `show processlist` and
-      removal from global_thread_list is blocked as LOCK_thd_remove
-      mutex is not released yet
-     */
-    mutex_lock_all_shards(SHARDED(&LOCK_thd_remove));
-    copy_global_thread_list_sorted(&global_thread_list_copy);
-
-    DEBUG_SYNC(thd,"after_copying_threads");
-    thread_infos.reserve(get_thread_count());
-    for (const auto &tmp: global_thread_list_copy)
+    if (type == process_list_type::SHOW_SRV_SESSIONS)
     {
-      if (access_thread(user, tmp))
+#ifndef EMBEDDED_LIBRARY
+      // copy the list of srv sessions sorted
+      auto session_list = Srv_session::get_sorted_sessions();
+      thread_infos.reserve(session_list.size());
+
+      mutex_lock_all_shards(SHARDED(&LOCK_thd_remove));
+
+      for (const auto& srv_session: session_list)
       {
-        thread_info *thd_info= new thread_info;
-        set_thread_info_common(thd_info, thd, tmp, max_query_length);
-        switch (type)
+        if (access_thread(user, srv_session->get_thd()))
         {
-          case process_list_type::SHOW_TRANSACTION_LIST:
-            set_thread_info_transaction_list(thd_info, tmp);
-            break;
-
-          case process_list_type::SHOW_CONNECTION_ATTRS:
-            set_thread_info_connection_attrs(thd_info, thd, tmp);
-            break;
-
-          case process_list_type::SHOW_PROCESS_LIST:
-            thd_info->start_time= tmp->start_time.tv_sec;
-            break;
-
-          default:
-            /* not supported type */
-            DBUG_ASSERT(0);
+          thread_info *thd_info= new thread_info;
+          set_thread_info_srv_session(thd_info, thd,
+                                      srv_session, max_query_length);
+          thread_infos.push_back(thd_info);
         }
-        thread_infos.push_back(thd_info);
       }
+      mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
+#endif // EMBEDDED_LIBRARY
     }
-    mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
+    else
+    {
+      /* take copy of global_thread_list, sorted by thread_id */
+      std::set<THD *, bool (*)(const THD *, const THD *)>
+        global_thread_list_copy(&thd_compare);
+      DEBUG_SYNC(thd,"before_copying_threads");
+      /*
+        Allow inserts to global_thread_list. Newly added thd
+        will not be accounted for `show processlist` and
+        removal from global_thread_list is blocked as LOCK_thd_remove
+        mutex is not released yet
+       */
+      mutex_lock_all_shards(SHARDED(&LOCK_thd_remove));
+      copy_global_thread_list_sorted(&global_thread_list_copy);
+
+      DEBUG_SYNC(thd,"after_copying_threads");
+      thread_infos.reserve(get_thread_count());
+      for (const auto &tmp: global_thread_list_copy)
+      {
+        if (access_thread(user, tmp))
+        {
+          thread_info *thd_info= new thread_info;
+          set_thread_info_common(thd_info, thd, tmp, max_query_length);
+          switch (type)
+          {
+            case process_list_type::SHOW_TRANSACTION_LIST:
+              set_thread_info_transaction_list(thd_info, tmp);
+              break;
+
+            case process_list_type::SHOW_CONNECTION_ATTRS:
+              set_thread_info_connection_attrs(thd_info, thd, tmp);
+              break;
+
+            case process_list_type::SHOW_PROCESS_LIST:
+              thd_info->start_time= tmp->start_time.tv_sec;
+              break;
+
+            default:
+              /* not supported type */
+              DBUG_ASSERT(0);
+          }
+          thread_infos.push_back(thd_info);
+        }
+      }
+      mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
+    }
   }
 
   time_t now= my_time(0);
@@ -2834,6 +2933,10 @@ void mysqld_list_process_trx_helper(THD *thd, const char *user, bool verbose,
 
       case process_list_type::SHOW_PROCESS_LIST:
         store_result_field_processlist(protocol, thd_info, now);
+        break;
+
+      case process_list_type::SHOW_SRV_SESSIONS:
+        store_result_field_srv_sessions(protocol, thd_info, now);
         break;
 
       default:
@@ -2870,6 +2973,10 @@ int fill_schema_process_trx_helper(THD *thd, TABLE_LIST *tables, Item *cond,
       dbug_name = "fill_process_list";
       break;
 
+    case process_list_type::SHOW_SRV_SESSIONS:
+      dbug_name = "fill_srv_sessions";
+      break;
+
     default:
       /* not supported type */
       DBUG_ASSERT(0);
@@ -2881,64 +2988,88 @@ int fill_schema_process_trx_helper(THD *thd, TABLE_LIST *tables, Item *cond,
 
   if (!thd->killed)
   {
-    /* take copy of global_thread_list, sorted by thread_id */
-    std::set<THD *, bool (*)(const THD *, const THD *)>
-      global_thread_list_copy(&thd_compare);
-    /*
-      Allow inserts to global_thread_list. Newly added thd
-      will not be accounted for `fill schema processlist` and
-      removal from global_thread_list is blocked as LOCK_thd_remove
-      mutex is not released yet
-     */
-    mutex_lock_all_shards(SHARDED(&LOCK_thd_remove));
-    copy_global_thread_list_sorted(&global_thread_list_copy);
-
-    if (type == process_list_type::SHOW_PROCESS_LIST)
+    if (type == process_list_type::SHOW_SRV_SESSIONS)
     {
-      DEBUG_SYNC(thd,"fill_schema_processlist_after_copying_threads");
-    }
+#ifndef EMBEDDED_LIBRARY
+      // copy the list of srv sessions sorted
+      auto session_list = Srv_session::get_sorted_sessions();
 
-    bool store = false;
-    for (const auto &tmp: global_thread_list_copy)
-    {
-      switch (type)
+      mutex_lock_all_shards(SHARDED(&LOCK_thd_remove));
+
+      for (const auto& srv_session: session_list)
       {
-        case process_list_type::SHOW_TRANSACTION_LIST:
-          store = fill_fields_transaction_list(thd, tmp, table, user, cs);
-          break;
+        auto store = fill_fields_srv_session(thd, srv_session,
+                                            table, user, cs, now);
+        if (store && schema_table_store_record(thd, table))
+        {
+          mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
+          DBUG_RETURN(1);
+        }
+      }
+      mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
+#endif  // EMBEDDED_LIBRARY
+    }
+    else
+    {
+      /* take copy of global_thread_list, sorted by thread_id */
+      std::set<THD *, bool (*)(const THD *, const THD *)>
+        global_thread_list_copy(&thd_compare);
+      /*
+        Allow inserts to global_thread_list. Newly added thd
+        will not be accounted for `fill schema processlist` and
+        removal from global_thread_list is blocked as LOCK_thd_remove
+        mutex is not released yet
+       */
+      mutex_lock_all_shards(SHARDED(&LOCK_thd_remove));
+      copy_global_thread_list_sorted(&global_thread_list_copy);
 
-        case process_list_type::SHOW_CONNECTION_ATTRS:
-          fill_fields_connection_attrs(thd, tmp, table, user, cs);
-          // connection attr records already stored,
-          // so continue to next thd (for-loop)
-          continue;
-
-        case process_list_type::SHOW_PROCESS_LIST:
-          store = fill_fields_processlist(thd, tmp, table, user, cs, now);
-          break;
-
-        default:
-          /* not supported type */
-          DBUG_ASSERT(0);
+      if (type == process_list_type::SHOW_PROCESS_LIST)
+      {
+        DEBUG_SYNC(thd,"fill_schema_processlist_after_copying_threads");
       }
 
-      if (store && schema_table_store_record(thd, table))
+      bool store = false;
+      for (const auto &tmp: global_thread_list_copy)
       {
-        mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
-        DBUG_RETURN(1);
+        switch (type)
+        {
+          case process_list_type::SHOW_TRANSACTION_LIST:
+            store = fill_fields_transaction_list(thd, tmp, table, user, cs);
+            break;
+
+          case process_list_type::SHOW_CONNECTION_ATTRS:
+            fill_fields_connection_attrs(thd, tmp, table, user, cs);
+            // connection attr records already stored,
+            // so continue to next thd (for-loop)
+            continue;
+
+          case process_list_type::SHOW_PROCESS_LIST:
+            store = fill_fields_processlist(thd, tmp, table, user, cs, now);
+            break;
+
+          default:
+            /* not supported type */
+            DBUG_ASSERT(0);
+        }
+
+        if (store && schema_table_store_record(thd, table))
+        {
+          mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
+          DBUG_RETURN(1);
+        }
       }
+      mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
     }
-    mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
   }
 
   DBUG_RETURN(0);
 }
 /****************************************************************************
-  Main functions for processlist, transaction_list, connection_attrs
-    mysqld_list_processes, mysqld_list_transactions,
-    mysqld_list_connection_attrs
+  Main functions for processlist, transaction_list, connection_attrs,
+    srv_sessions, mysqld_list_processes, mysqld_list_transactions,
+    mysqld_list_connection_attrs, mysqld_list_srv_sessions
     fill_schema_processlist, fill_schema_transaction_list,
-    fill_schema_connection_attrs
+    fill_schema_connection_attrs, fill_schema_srv_sessions
 ****************************************************************************/
 
 void mysqld_list_processes(THD *thd,const char *user, bool verbose)
@@ -2959,6 +3090,12 @@ void mysqld_list_connection_attrs(THD *thd,const char *user, bool verbose)
       process_list_type::SHOW_CONNECTION_ATTRS);
 }
 
+void mysqld_list_srv_sessions(THD *thd,const char *user, bool verbose)
+{
+  mysqld_list_process_trx_helper(thd, user, verbose,
+      process_list_type::SHOW_SRV_SESSIONS);
+}
+
 int fill_schema_processlist(THD* thd, TABLE_LIST* tables, Item* cond)
 {
   return fill_schema_process_trx_helper(thd, tables, cond,
@@ -2975,6 +3112,12 @@ int fill_schema_connection_attrs(THD* thd, TABLE_LIST* tables, Item* cond)
 {
   return fill_schema_process_trx_helper(thd, tables, cond,
             process_list_type::SHOW_CONNECTION_ATTRS);
+}
+
+int fill_schema_srv_sessions(THD* thd, TABLE_LIST* tables, Item* cond)
+{
+  return fill_schema_process_trx_helper(thd, tables, cond,
+            process_list_type::SHOW_SRV_SESSIONS);
 }
 
 int fill_schema_authinfo(THD* thd, TABLE_LIST* tables, Item* cond)
@@ -9032,6 +9175,24 @@ ST_FIELD_INFO processlist_fields_info[]=
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
+ST_FIELD_INFO srv_sessions_fields_info[]=
+{
+  {"ID", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "Id", SKIP_OPEN_TABLE},
+  {"USER", USERNAME_CHAR_LENGTH, MYSQL_TYPE_STRING, 0, 0, "User",
+   SKIP_OPEN_TABLE},
+  {"HOST", LIST_PROCESS_HOST_LEN,  MYSQL_TYPE_STRING, 0, 0, "Host",
+   SKIP_OPEN_TABLE},
+  {"DB", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 1, "Db", SKIP_OPEN_TABLE},
+  {"COMMAND", 16, MYSQL_TYPE_STRING, 0, 0, "Command", SKIP_OPEN_TABLE},
+  {"TIME", 7, MYSQL_TYPE_LONG, 0, 0, "Time", SKIP_OPEN_TABLE},
+  {"STATE", 64, MYSQL_TYPE_STRING, 0, 1, "State", SKIP_OPEN_TABLE},
+  {"INFO", PROCESS_LIST_INFO_WIDTH, MYSQL_TYPE_STRING, 0, 1, "Info",
+   SKIP_OPEN_TABLE},
+  {"CONN_ID", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "Conn_id",
+    SKIP_OPEN_TABLE},
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
+};
+
 ST_FIELD_INFO connection_attrs_fields_info[]=
 {
   {"ID", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "Id", SKIP_OPEN_TABLE},
@@ -9307,6 +9468,8 @@ ST_SCHEMA_TABLE schema_tables[]=
    fill_status, make_old_format, 0, 0, -1, 0, 0},
   {"SESSION_VARIABLES", variables_fields_info, create_schema_table,
    fill_variables, make_old_format, 0, 0, -1, 0, 0},
+  {"SRV_SESSIONS", srv_sessions_fields_info, create_schema_table,
+   fill_schema_srv_sessions, make_old_format, 0, -1, -1, 0, 0},
   {"STATISTICS", stat_fields_info, create_schema_table, 
    get_all_tables, make_old_format, get_schema_stat_record, 1, 2, 0,
    OPEN_TABLE_ONLY|OPTIMIZE_I_S_TABLE},

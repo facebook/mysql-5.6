@@ -377,6 +377,9 @@ bool Srv_session::module_deinit()
 Srv_session::Srv_session() : state_(SRV_SESSION_CREATED)
 {
   thd_.mark_as_srv_session();
+
+  // needed for Valgrind not to complain of "Conditional jump"
+  thd_.net.reading_or_writing= 0;
 }
 
 
