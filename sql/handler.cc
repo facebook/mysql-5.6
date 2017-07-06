@@ -4056,11 +4056,11 @@ void handler::print_error(int error, myf errflag)
   case HA_ERR_LOCK_TABLE_FULL:
     textno=ER_LOCK_TABLE_FULL;
     break;
-  case HA_ERR_LOCK_DEADLOCK:
-  {
+  case HA_ERR_LOCK_DEADLOCK: {
     String str;
     get_error_message(error, &str);
-    std :: string full_err_msg = std :: string (ER_DEFAULT(ER_LOCK_DEADLOCK)) + str.c_ptr();
+    std ::string full_err_msg =
+        std ::string(ER_DEFAULT(ER_LOCK_DEADLOCK)) + str.c_ptr();
     my_printf_error(ER_LOCK_DEADLOCK, "%s", errflag, full_err_msg.c_str());
     DBUG_VOID_RETURN;
   }
