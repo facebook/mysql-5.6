@@ -882,6 +882,7 @@ extern ulong max_binlog_size, max_relay_log_size;
 extern ulong slave_max_allowed_packet;
 extern ulong opt_binlog_rows_event_max_size;
 extern bool opt_log_only_query_comments;
+extern bool opt_binlog_trx_meta_data;
 extern bool opt_log_column_names;
 extern ulong binlog_checksum_options;
 extern const char *binlog_checksum_type_names[];

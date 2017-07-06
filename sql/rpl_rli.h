@@ -338,6 +338,9 @@ public:
     mysql_bin_log.last_master_timestamp.store(last_master_timestamp);
   }
 
+  // last master timestamp in milli seconds from trx meta data
+  std::atomic<ulonglong> last_master_timestamp_millis;
+
 #define PEAK_LAG_MAX_SECS 512
   time_t peak_lag_last[PEAK_LAG_MAX_SECS];
   ulong events_since_last_sample;
@@ -488,6 +491,8 @@ public:
   table_mapping m_table_map;      /* RBR: Mapping table-id to table */
   /* RBR: Record Rows_query log event */
   Rows_query_log_event* rows_query_ev;
+  /* Meta data about the current trx from the master */
+  std::string trx_meta_data_json;
 
   bool get_table_data(TABLE *table_arg, table_def **tabledef_var, TABLE **conv_table_var) const
   {

@@ -31,12 +31,19 @@
 #include "sql_parse.h"
 #include "rpl_mi.h"
 #include <list>
+#include <chrono>
+#include <sstream>
 #include <my_stacktrace.h>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/algorithm/string.hpp>
+#include <exception>
 
 using std::max;
 using std::min;
 using std::string;
 using std::list;
+using boost::property_tree::ptree;
 
 /* Size for IO_CACHE buffer for binlog & relay log */
 ulong rpl_read_size;
@@ -329,6 +336,8 @@ public:
     cache_log.end_of_file= saved_max_binlog_cache_size;
   }
 
+  int write_trx_meta_data(THD *thd);
+  void add_time_meta_data(THD *thd, ptree &meta_data_root);
   int finalize(THD *thd, Log_event *end_event);
   int flush(THD *thd, my_off_t *bytes, bool *wrote_xid, bool async);
   int write_event(THD *thd, Log_event *event);
@@ -1193,6 +1202,107 @@ int gtid_empty_group_log_and_cleanup(THD *thd)
 
 err:
   DBUG_RETURN(ret);
+}
+
+/**
+  This function writes meta data in JSON format as a comment in a rows query
+  event.
+
+  @see binlog_trx_meta_data
+
+  @param thd The thread whose transaction should be flushed
+  @return nonzero if an error pops up when writing to the cache.
+*/
+int
+binlog_cache_data::write_trx_meta_data(THD *thd)
+{
+  DBUG_ENTER("binlog_cache_data::write_trx_meta_data");
+  DBUG_ASSERT(opt_binlog_trx_meta_data);
+
+  ptree pt;
+  std::ostringstream buf;
+
+  // case: read existing meta data received from the master
+  if (thd->rli_slave && !thd->rli_slave->trx_meta_data_json.empty())
+  {
+    std::istringstream is(thd->rli_slave->trx_meta_data_json);
+    try {
+      read_json(is, pt);
+    } catch (std::exception& e) {
+      // NO_LINT_DEBUG
+      sql_print_error("Exception while reading meta data: %s, JSON: %s",
+                       e.what(), thd->rli_slave->trx_meta_data_json.c_str());
+      DBUG_RETURN(1);
+    }
+    // clear existing data
+    thd->rli_slave->trx_meta_data_json.clear();
+  }
+
+  // add things to the meta data
+  try {
+    add_time_meta_data(thd, pt);
+  } catch (std::exception& e) {
+      // NO_LINT_DEBUG
+      sql_print_error("Exception while adding meta data: %s", e.what());
+      DBUG_RETURN(1);
+  }
+
+  // write meta data with new stuff in the binlog
+  try {
+    write_json(buf, pt, false);
+  } catch (std::exception& e) {
+      // NO_LINT_DEBUG
+      sql_print_error("Exception while writing meta data: %s", e.what());
+      DBUG_RETURN(1);
+  }
+  std::string json = buf.str();
+  boost::trim(json);
+
+  std::string comment_str= std::string("/*")
+                           .append(TRX_META_DATA_HEADER)
+                           .append(json)
+                           .append("*/");
+
+  Rows_query_log_event e(thd, comment_str.c_str(), comment_str.length());
+  DBUG_RETURN(write_event(thd, &e));
+}
+
+/**
+  This function adds timing information in meta data JSON of rows query event.
+
+  @see binlog_cache_data::write_trx_meta_data
+
+  @param thd            The thread whose transaction should be flushed
+  @param meta_data_root Property tree object which represents the JSON
+*/
+void
+binlog_cache_data::add_time_meta_data(THD *thd, ptree &meta_data_root)
+{
+  DBUG_ENTER("binlog_cache_data::add_time_meta_data");
+  DBUG_ASSERT(opt_binlog_trx_meta_data);
+
+  // get existing timestamps
+  ptree timestamps= meta_data_root.get_child("timestamps", ptree());
+  ulonglong prev_ts= timestamps.empty() ? 0 :
+                     timestamps.back().second.get_value<ulonglong>();
+
+  // add our timestamp to the array
+  ptree timestamp;
+  ulonglong millis=
+    std::chrono::duration_cast<std::chrono::milliseconds>
+      (std::chrono::system_clock::now().time_since_epoch()).count();
+  timestamp.put("", millis);
+  timestamps.push_back(std::make_pair("", timestamp));
+
+  // update timestamps in root
+  meta_data_root.erase("timestamps");
+  meta_data_root.add_child("timestamps", timestamps);
+
+  // milliseconds behind master related
+  if (thd->rli_slave && prev_ts > 0)
+    thd->rli_slave->last_master_timestamp_millis.store(prev_ts);
+
+  DBUG_VOID_RETURN;
 }
 
 /**
@@ -8286,6 +8396,11 @@ int THD::binlog_write_table_map(TABLE *table, bool is_transactional,
 
   binlog_cache_data *cache_data=
     cache_mngr->get_binlog_cache_data(is_transactional);
+
+  // case: add meta data in the binlog
+  if (opt_binlog_trx_meta_data &&
+      (error= cache_data->write_trx_meta_data(this)))
+      DBUG_RETURN(error);
 
   if (binlog_rows_query && this->query())
   {

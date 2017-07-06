@@ -14793,6 +14793,16 @@ int Rows_query_log_event::do_apply_event(Relay_log_info const *rli)
 {
   DBUG_ENTER("Rows_query_log_event::do_apply_event");
   DBUG_ASSERT(rli->info_thd == thd);
+
+  // case: this is not a regular rows query event, it contains meta data about
+  // the transaction
+  if (has_trx_meta_data())
+  {
+    const_cast<Relay_log_info*>(rli)->trx_meta_data_json=
+                                                       extract_trx_meta_data();
+    DBUG_RETURN(0);
+  }
+
   /* Set query for writing Rows_query log event into binlog later.*/
   thd->set_query(m_rows_query, (uint32) strlen(m_rows_query));
 
