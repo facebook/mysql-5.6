@@ -4057,11 +4057,10 @@ void handler::print_error(int error, myf errflag)
     textno=ER_LOCK_TABLE_FULL;
     break;
   case HA_ERR_LOCK_DEADLOCK: {
-    String str;
+    String str, full_err_msg(ER_DEFAULT(ER_LOCK_DEADLOCK), system_charset_info);
     get_error_message(error, &str);
-    std ::string full_err_msg =
-        std ::string(ER_DEFAULT(ER_LOCK_DEADLOCK)) + str.c_ptr();
-    my_printf_error(ER_LOCK_DEADLOCK, "%s", errflag, full_err_msg.c_str());
+    full_err_msg.append(str);
+    my_printf_error(ER_LOCK_DEADLOCK, "%s", errflag, full_err_msg.c_ptr_safe());
     DBUG_VOID_RETURN;
   }
   case HA_ERR_READ_ONLY_TRANSACTION:
