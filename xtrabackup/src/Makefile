@@ -44,7 +44,7 @@ ifeq "$(wildcard $(MYSQL_ROOT_DIR)/zlib/.libs/libzlt.a)" ""
 else
 5.6: LIBZ= $(MYSQL_ROOT_DIR)/zlib/.libs/libzlt.a
 endif
-5.6: LIBZSTD= $(ZSTD_PATH)/libzstd_pic.a
+5.6: LIBZSTD= -lzstd
 
 5.6: MYSQLOBJS = $(MYSQL_ROOT_DIR)/libmysqld/libmysqld.a
 ifeq ($(shell uname -s),Linux)
