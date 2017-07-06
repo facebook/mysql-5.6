@@ -4992,6 +4992,7 @@ public:
   virtual int get_data_size() { return IGNORABLE_HEADER_LEN; }
 };
 
+const std::string TRX_META_DATA_HEADER= "::TRX_META_DATA::";
 
 class Rows_query_log_event : public Ignorable_log_event {
 public:
@@ -5031,6 +5032,27 @@ public:
   {
     return IGNORABLE_HEADER_LEN + 1 + (uint) strlen(m_rows_query);
   }
+
+  bool has_trx_meta_data() const
+  {
+    // NOTE: Meta data comment format: /*::TRX_META_DATA::{.. JSON ..}*/
+    // so to check if the event contains trx meta data we check if the string
+    // "::TRX_META_DATA::" is present after the first two "/*" characters.
+    return std::string(m_rows_query)
+      .compare(2, TRX_META_DATA_HEADER.length(), TRX_META_DATA_HEADER) == 0;
+  }
+
+  std::string extract_trx_meta_data() const
+  {
+    if (!has_trx_meta_data())
+      return std::string();
+    char *json_start= strchr(m_rows_query, '{');
+    char *json_end= strrchr(m_rows_query, '}');
+    DBUG_ASSERT(json_start < json_end);
+    size_t json_len= json_end - json_start + 1;
+    return std::string(json_start, json_len);
+  }
+
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
   virtual int do_apply_event(Relay_log_info const *rli);
 #endif

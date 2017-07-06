@@ -63,9 +63,11 @@
 #include "debug_sync.h"
 #include "dependency_slave_worker.h"
 #include "rpl_slave_commit_order_manager.h"    // Commit_order_manager
+#include <chrono>
 
 using std::min;
 using std::max;
+using namespace std::chrono;
 
 #define FLAGSTR(V,F) ((V)&(F)?#F" ":"")
 
@@ -3174,6 +3176,9 @@ bool show_slave_status(THD* thd, Master_info* mi)
                                            MYSQL_TYPE_LONGLONG));
   field_list.push_back(new Item_return_int("Lag_Peak_Over_Last_Period", 10,
                                            MYSQL_TYPE_LONGLONG));
+  if (opt_binlog_trx_meta_data)
+    field_list.push_back(new Item_return_int("Milli_Seconds_Behind_Master", 10,
+                                             MYSQL_TYPE_LONGLONG));
   field_list.push_back(new Item_empty_string("Master_SSL_Verify_Server_Cert",
                                              3));
   field_list.push_back(new Item_return_int("Last_IO_Errno", 4, MYSQL_TYPE_LONG));
@@ -3359,6 +3364,9 @@ bool show_slave_status(THD* thd, Master_info* mi)
         else
           print NULL;
     */
+
+    bool sbm_is_null= false;
+    bool sbm_is_zero= false;
     if (mi->rli->slave_running)
     {
       time_t now = time(0);
@@ -3375,6 +3383,8 @@ bool show_slave_status(THD* thd, Master_info* mi)
           protocol->store(0LL);
         else
           protocol->store_null();
+        sbm_is_zero= mi->slave_running == MYSQL_SLAVE_RUN_CONNECT;
+        sbm_is_null= !sbm_is_zero;
       }
       else
       {
@@ -3403,9 +3413,11 @@ bool show_slave_status(THD* thd, Master_info* mi)
         switch (mi->rli->slave_has_caughtup) {
           case Enum_slave_caughtup::NONE:
             protocol->store_null();
+            sbm_is_null= true;
             break;
           case Enum_slave_caughtup::YES:
             protocol->store(0LL);
+            sbm_is_zero= true;
             break;
           case Enum_slave_caughtup::NO:
             protocol->store((longlong)(max(0L, time_diff)));
@@ -3420,7 +3432,28 @@ bool show_slave_status(THD* thd, Master_info* mi)
     {
       protocol->store_null();
       protocol->store_null();
+      sbm_is_null= true;
     }
+
+    // Milli_Seconds_Behind_Master
+    if (opt_binlog_trx_meta_data)
+    {
+      if (sbm_is_null)
+        protocol->store_null();
+      else if (sbm_is_zero)
+        protocol->store(0LL);
+      else
+      {
+        ulonglong now_millis=
+          duration_cast<milliseconds>(system_clock::now().time_since_epoch())
+          .count();
+        // adjust for clock mismatch
+        now_millis-= mi->clock_diff_with_master * 1000;
+        protocol->store(now_millis -
+                        mi->rli->last_master_timestamp_millis.load());
+      }
+    }
+
     protocol->store(mi->ssl_verify_server_cert? "Yes":"No", &my_charset_bin);
 
     // Last_IO_Errno
@@ -4722,10 +4755,11 @@ static int exec_relay_log_event(THD* thd, Relay_log_info* rli)
         used to read info about the relay log's format; it will be deleted when
         the SQL thread does not need it, i.e. when this thread terminates.
         ROWS_QUERY_LOG_EVENT is destroyed at the end of the current statement
-        clean-up routine.
+        clean-up routine but ones with trx meta data are deleted here.
       */
       if (ev->get_type_code() != FORMAT_DESCRIPTION_EVENT &&
-          ev->get_type_code() != ROWS_QUERY_LOG_EVENT)
+          !(ev->get_type_code() == ROWS_QUERY_LOG_EVENT &&
+            !((Rows_query_log_event*) ev)->has_trx_meta_data()))
       {
         DBUG_PRINT("info", ("Deleting the event after it has been executed"));
         delete ev;
@@ -7609,6 +7643,7 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
     if (hb.when.tv_sec > rli->last_master_timestamp)
     {
       rli->set_last_master_timestamp(hb.when.tv_sec);
+      rli->last_master_timestamp_millis.store(hb.when.tv_sec * 1000);
     }
     mysql_mutex_unlock(&rli->data_lock);
 

@@ -147,6 +147,10 @@ The following options may be given as the first argument:
  non-transactional engines for the binary log. If you
  often use statements updating a great number of rows, you
  can increase this to get more performance
+ --binlog-trx-meta-data 
+ Log meta data about every trx in the binary log. This
+ information is logged as a comment in a Rows_query_log
+ event in JSON format.
  --binlogging-impossible-mode=name 
  On a fatal error when statements cannot be binlogged the
  behaviour can be ignore the error and let the master
@@ -1728,6 +1732,7 @@ binlog-row-event-max-size 8192
 binlog-row-image FULL
 binlog-rows-query-log-events FALSE
 binlog-stmt-cache-size 32768
+binlog-trx-meta-data FALSE
 binlogging-impossible-mode IGNORE_ERROR
 block-create-memory FALSE
 block-create-myisam FALSE

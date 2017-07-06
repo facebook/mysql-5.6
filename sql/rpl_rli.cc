@@ -192,6 +192,8 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery
   mysql_cond_init(0, &dag_empty_cond, NULL);
   mysql_mutex_init(0, &dag_empty_mutex, MY_MUTEX_INIT_FAST);
 
+  last_master_timestamp_millis.store(0);
+
   DBUG_VOID_RETURN;
 }
 
