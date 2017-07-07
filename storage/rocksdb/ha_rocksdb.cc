@@ -1706,6 +1706,7 @@ public:
                           "Query: %s",
                           user_host_buff, thd->query());
       }
+      m_detailed_error = String(" (snapshot conflict)", system_charset_info);
       return HA_ERR_LOCK_DEADLOCK;
     }
 
@@ -5338,7 +5339,7 @@ bool ha_rocksdb::get_error_message(const int error, String *const buf) {
 
   DBUG_ASSERT(buf != nullptr);
 
-  if (error == HA_ERR_LOCK_WAIT_TIMEOUT) {
+  if (error == HA_ERR_LOCK_WAIT_TIMEOUT || error == HA_ERR_LOCK_DEADLOCK) {
     Rdb_transaction *const tx = get_tx_from_thd(ha_thd());
     DBUG_ASSERT(tx != nullptr);
     buf->append(tx->m_detailed_error);
