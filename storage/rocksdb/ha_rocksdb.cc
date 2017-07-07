@@ -365,18 +365,6 @@ static void rocksdb_set_pause_background_work(
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
-static void rocksdb_set_enable_ttl(
-    my_core::THD *const thd,
-    my_core::st_mysql_sys_var *const var MY_ATTRIBUTE((__unused__)),
-    void *const var_ptr, const void *const save) {
-  DBUG_ASSERT(save != nullptr);
-  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
-
-  *static_cast<bool *>(var_ptr) = *static_cast<const bool *>(save);
-
-  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
-}
-
 static void rocksdb_set_compaction_options(THD *thd,
                                            struct st_mysql_sys_var *var,
                                            void *var_ptr, const void *save);
@@ -451,6 +439,10 @@ static my_bool rocksdb_collect_sst_properties = 1;
 static my_bool rocksdb_force_flush_memtable_now_var = 0;
 static my_bool rocksdb_force_flush_memtable_and_lzero_now_var = 0;
 static my_bool rocksdb_enable_ttl = 1;
+static my_bool rocksdb_enable_ttl_read_filtering = 1;
+static int rocksdb_debug_ttl_rec_ts = 0;
+static int rocksdb_debug_ttl_snapshot_ts = 0;
+static int rocksdb_debug_ttl_read_filter_ts = 0;
 static my_bool rocksdb_reset_stats = 0;
 static uint32_t rocksdb_io_write_timeout_secs = 0;
 static uint64_t rocksdb_number_stat_computes = 0;
@@ -1095,10 +1087,9 @@ static MYSQL_SYSVAR_STR(override_cf_options, rocksdb_override_cf_options,
 
 static MYSQL_SYSVAR_STR(update_cf_options, rocksdb_update_cf_options,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC |
-                        PLUGIN_VAR_ALLOCATED,
-                        "Option updates per column family for RocksDB",
-                        nullptr, rocksdb_set_update_cf_options,
-                        nullptr);
+                            PLUGIN_VAR_ALLOCATED,
+                        "Option updates per column family for RocksDB", nullptr,
+                        rocksdb_set_update_cf_options, nullptr);
 
 static MYSQL_SYSVAR_UINT(flush_log_at_trx_commit,
                          rocksdb_flush_log_at_trx_commit, PLUGIN_VAR_RQCMDARG,
@@ -1177,8 +1168,43 @@ static MYSQL_SYSVAR_BOOL(pause_background_work, rocksdb_pause_background_work,
 
 static MYSQL_SYSVAR_BOOL(
     enable_ttl, rocksdb_enable_ttl, PLUGIN_VAR_RQCMDARG,
-    "Disable expired ttl records from being dropped during compaction.",
-    nullptr, rocksdb_set_enable_ttl, TRUE);
+    "Enable expired TTL records to be dropped during compaction.", nullptr,
+    nullptr, TRUE);
+
+static MYSQL_SYSVAR_BOOL(
+    enable_ttl_read_filtering, rocksdb_enable_ttl_read_filtering,
+    PLUGIN_VAR_RQCMDARG,
+    "For tables with TTL, expired records are skipped/filtered out during "
+    "processing and in query results. Disabling this will allow these records "
+    "to be seen, but as a result rows may disappear in the middle of "
+    "transactions as they are dropped during compaction. Use with caution.",
+    nullptr, nullptr, TRUE);
+
+static MYSQL_SYSVAR_INT(
+    debug_ttl_rec_ts, rocksdb_debug_ttl_rec_ts, PLUGIN_VAR_RQCMDARG,
+    "For debugging purposes only.  Overrides the TTL of records to "
+    "now() + debug_ttl_rec_ts.  The value can be +/- to simulate "
+    "a record inserted in the past vs a record inserted in the 'future'. "
+    "A value of 0 denotes that the variable is not set. This variable is a "
+    "no-op in non-debug builds.",
+    nullptr, nullptr, 0, /* min */ -3600, /* max */ 3600, 0);
+
+static MYSQL_SYSVAR_INT(
+    debug_ttl_snapshot_ts, rocksdb_debug_ttl_snapshot_ts, PLUGIN_VAR_RQCMDARG,
+    "For debugging purposes only.  Sets the snapshot during compaction to "
+    "now() + debug_set_ttl_snapshot_ts.  The value can be +/- to simulate "
+    "a snapshot in the past vs a snapshot created in the 'future'. "
+    "A value of 0 denotes that the variable is not set. This variable is a "
+    "no-op in non-debug builds.",
+    nullptr, nullptr, 0, /* min */ -3600, /* max */ 3600, 0);
+
+static MYSQL_SYSVAR_INT(
+    debug_ttl_read_filter_ts, rocksdb_debug_ttl_read_filter_ts,
+    PLUGIN_VAR_RQCMDARG,
+    "For debugging purposes only.  Overrides the TTL read filtering time to "
+    "time + debug_ttl_read_filter_ts. A value of 0 denotes that the variable "
+    "is not set. This variable is a no-op in non-debug builds.",
+    nullptr, nullptr, 0, /* min */ -3600, /* max */ 3600, 0);
 
 static MYSQL_SYSVAR_BOOL(
     reset_stats, rocksdb_reset_stats, PLUGIN_VAR_RQCMDARG,
@@ -1441,6 +1467,10 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(force_flush_memtable_now),
     MYSQL_SYSVAR(force_flush_memtable_and_lzero_now),
     MYSQL_SYSVAR(enable_ttl),
+    MYSQL_SYSVAR(enable_ttl_read_filtering),
+    MYSQL_SYSVAR(debug_ttl_rec_ts),
+    MYSQL_SYSVAR(debug_ttl_snapshot_ts),
+    MYSQL_SYSVAR(debug_ttl_read_filter_ts),
     MYSQL_SYSVAR(reset_stats),
     MYSQL_SYSVAR(io_write_timeout),
     MYSQL_SYSVAR(flush_memtable_on_analyze),
@@ -3989,6 +4019,15 @@ static inline void rocksdb_smart_seek(bool seek_backward,
   }
 }
 
+static inline void rocksdb_smart_next(bool seek_backward,
+                                      rocksdb::Iterator *const iter) {
+  if (seek_backward) {
+    iter->Prev();
+  } else {
+    iter->Next();
+  }
+}
+
 /**
   @brief
   Example of simple lock controls. The "table_handler" it creates is a
@@ -4289,6 +4328,73 @@ bool ha_rocksdb::init_with_fields() {
   DBUG_RETURN(false); /* Ok */
 }
 
+/*
+  If the key is a TTL key, we may need to filter it out.
+
+  The purpose of read filtering for tables with TTL is to ensure that
+  during a transaction a key which has expired already but not removed by
+  compaction yet is not returned to the user.
+
+  Without this the user might be hit with problems such as disappearing
+  rows within a transaction, etc, because the compaction filter ignores
+  snapshots when filtering keys.
+*/
+bool ha_rocksdb::should_hide_ttl_rec(const rocksdb::Slice &ttl_rec_val,
+                                     const int64_t curr_ts) {
+  DBUG_ASSERT(m_pk_descr != nullptr);
+  DBUG_ASSERT(m_pk_descr->has_ttl());
+  DBUG_ASSERT(m_pk_descr->m_ttl_rec_offset != UINT_MAX);
+
+  /*
+    Curr_ts can only be 0 if there are no snapshots open.
+    should_hide_ttl_rec can only be called when there is >=1 snapshots, unless
+    we are filtering on the write path (single INSERT/UPDATE) in which case
+    we are passed in the current time as curr_ts.
+
+    In the event curr_ts is 0, we always decide not to filter the record. We
+    also log a warning and increment a diagnostic counter.
+  */
+  if (curr_ts == 0) {
+    update_row_stats(ROWS_HIDDEN_NO_SNAPSHOT);
+    return false;
+  }
+
+  if (!rdb_is_ttl_read_filtering_enabled() || !rdb_is_ttl_enabled()) {
+    return false;
+  }
+
+  Rdb_string_reader reader(&ttl_rec_val);
+
+  /*
+    Find where the 8-byte ttl is for each record in this index.
+  */
+  uint64 ts;
+  if (!reader.read(m_pk_descr->m_ttl_rec_offset) || reader.read_uint64(&ts)) {
+    /*
+      This condition should never be reached since all TTL records have an
+      8 byte ttl field in front. Don't filter the record out, and log an error.
+    */
+    std::string buf;
+    buf = rdb_hexdump(ttl_rec_val.data(), ttl_rec_val.size(),
+                      RDB_MAX_HEXDUMP_LEN);
+    const GL_INDEX_ID gl_index_id = m_pk_descr->get_gl_index_id();
+    // NO_LINT_DEBUG
+    sql_print_error("Decoding ttl from PK value failed, "
+                    "for index (%u,%u), val: %s",
+                    gl_index_id.cf_id, gl_index_id.index_id, buf.c_str());
+    DBUG_ASSERT(0);
+    return false;
+  }
+
+  /* Hide record if it has expired before the current snapshot time. */
+  uint64 read_filter_ts = 0;
+#ifndef NDEBUG
+  read_filter_ts += rdb_dbug_set_ttl_read_filter_ts();
+#endif
+  return ts + m_pk_descr->m_ttl_duration + read_filter_ts <=
+         static_cast<uint64>(curr_ts);
+}
+
 /**
   Convert record from table->record[0] form into a form that can be written
   into rocksdb.
@@ -4337,7 +4443,13 @@ int ha_rocksdb::convert_record_to_storage_format(
 
       char *const data = const_cast<char *>(m_storage_record.ptr());
       memcpy(data, ts, ROCKSDB_SIZEOF_TTL_RECORD);
-
+#ifndef NDEBUG
+      // Adjust for test case if needed
+      rdb_netbuf_store_uint64(
+          reinterpret_cast<uchar *>(data),
+          rdb_netbuf_to_uint64(reinterpret_cast<const uchar *>(data)) +
+              rdb_dbug_set_ttl_rec_ts());
+#endif
     } else if (!has_ttl_column) {
       /*
         For implicitly generated TTL records we need to copy over the old
@@ -4351,6 +4463,9 @@ int ha_rocksdb::convert_record_to_storage_format(
         memcpy(data, m_ttl_bytes, sizeof(uint64));
       } else {
         uint64 ts = static_cast<uint64>(std::time(nullptr));
+#ifndef NDEBUG
+        ts += rdb_dbug_set_ttl_rec_ts();
+#endif
         char *const data = const_cast<char *>(m_storage_record.ptr());
         rdb_netbuf_store_uint64(reinterpret_cast<uchar *>(data), ts);
       }
@@ -4430,6 +4545,9 @@ int ha_rocksdb::convert_record_to_storage_format(
 
         char *const data = const_cast<char *>(m_storage_record.ptr());
         uint64 ts = uint8korr(field->ptr);
+#ifndef NDEBUG
+        ts += rdb_dbug_set_ttl_rec_ts();
+#endif
         rdb_netbuf_store_uint64(reinterpret_cast<uchar *>(data), ts);
       }
     }
@@ -4693,9 +4811,13 @@ int ha_rocksdb::convert_record_from_storage_format(
   rocksdb::Slice unpack_slice;
 
   /* If it's a TTL record, skip the 8 byte TTL value */
-  if (m_pk_descr->has_ttl() &&
-      !(m_ttl_bytes = reader.read(ROCKSDB_SIZEOF_TTL_RECORD))) {
-    return HA_ERR_ROCKSDB_CORRUPT_DATA;
+  const char *ttl_bytes;
+  if (m_pk_descr->has_ttl()) {
+    if ((ttl_bytes = reader.read(ROCKSDB_SIZEOF_TTL_RECORD))) {
+      memcpy(m_ttl_bytes, ttl_bytes, ROCKSDB_SIZEOF_TTL_RECORD);
+    } else {
+      return HA_ERR_ROCKSDB_CORRUPT_DATA;
+    }
   }
 
   /* Other fields are decoded from the value */
@@ -5536,14 +5658,9 @@ int ha_rocksdb::create_inplace_key_defs(
       */
       const Rdb_key_def &okd = *old_key_descr[it->second];
 
-      uint16 index_dict_version = 0;
-      uchar index_type = 0;
-      uint16 kv_version = 0;
-      uint64 ttl_duration = 0;
       const GL_INDEX_ID gl_index_id = okd.get_gl_index_id();
-      if (!dict_manager.get_index_info(gl_index_id, &index_dict_version,
-                                       &index_type, &kv_version,
-                                       &ttl_duration)) {
+      struct Rdb_index_info index_info;
+      if (!dict_manager.get_index_info(gl_index_id, &index_info)) {
         // NO_LINT_DEBUG
         sql_print_error("RocksDB: Could not get index information "
                         "for Index Number (%u,%u), table %s",
@@ -5552,16 +5669,25 @@ int ha_rocksdb::create_inplace_key_defs(
         DBUG_RETURN(HA_EXIT_FAILURE);
       }
 
+      uint32 ttl_rec_offset =
+          Rdb_key_def::has_index_flag(index_info.m_index_flags,
+                                      Rdb_key_def::TTL_FLAG)
+              ? Rdb_key_def::calculate_index_flag_offset(
+                    index_info.m_index_flags, Rdb_key_def::TTL_FLAG)
+              : UINT_MAX;
+
       /*
         We can't use the copy constructor because we need to update the
         keynr within the pack_info for each field and the keyno of the keydef
         itself.
       */
       new_key_descr[i] = std::make_shared<Rdb_key_def>(
-          okd.get_index_number(), i, okd.get_cf(), index_dict_version,
-          index_type, kv_version, okd.m_is_reverse_cf,
+          okd.get_index_number(), i, okd.get_cf(),
+          index_info.m_index_dict_version, index_info.m_index_type,
+          index_info.m_kv_version, okd.m_is_reverse_cf,
           okd.m_is_per_partition_cf, okd.m_name.c_str(),
-          dict_manager.get_stats(gl_index_id), ttl_duration);
+          dict_manager.get_stats(gl_index_id), index_info.m_index_flags,
+          ttl_rec_offset, index_info.m_ttl_duration);
     } else if (create_key_def(table_arg, i, tbl_def_arg, &new_key_descr[i],
                               cfs[i])) {
       DBUG_RETURN(HA_EXIT_FAILURE);
@@ -5789,11 +5915,19 @@ int ha_rocksdb::create_key_def(const TABLE *const table_arg, const uint &i,
     kv_version = Rdb_key_def::PRIMARY_FORMAT_VERSION_UPDATE1;
   });
 
+  uint32 index_flags = (ttl_duration > 0 ? Rdb_key_def::TTL_FLAG : 0);
+
+  uint32 ttl_rec_offset =
+      Rdb_key_def::has_index_flag(index_flags, Rdb_key_def::TTL_FLAG)
+          ? Rdb_key_def::calculate_index_flag_offset(index_flags,
+                                                     Rdb_key_def::TTL_FLAG)
+          : UINT_MAX;
+
   const char *const key_name = get_key_name(i, table_arg, m_tbl_def);
   *new_key_def = std::make_shared<Rdb_key_def>(
       index_id, i, cf_info.cf_handle, index_dict_version, index_type,
       kv_version, cf_info.is_reverse_cf, cf_info.is_per_partition_cf, key_name,
-      Rdb_index_stats(), ttl_duration);
+      Rdb_index_stats(), index_flags, ttl_rec_offset, ttl_duration);
 
   if (!ttl_column.empty()) {
     (*new_key_def)->m_ttl_column = ttl_column;
@@ -6121,7 +6255,8 @@ bool ha_rocksdb::check_keyread_allowed(uint inx, uint part,
 int ha_rocksdb::read_key_exact(const Rdb_key_def &kd,
                                rocksdb::Iterator *const iter,
                                const bool &full_key_match,
-                               const rocksdb::Slice &key_slice) const {
+                               const rocksdb::Slice &key_slice,
+                               const int64_t ttl_filter_ts) {
   DBUG_ASSERT(iter != nullptr);
 
   /*
@@ -6130,38 +6265,63 @@ int ha_rocksdb::read_key_exact(const Rdb_key_def &kd,
     lookup_tuple may be a prefix of the index.
   */
   rocksdb_smart_seek(kd.m_is_reverse_cf, iter, key_slice);
-  if (!iter->Valid() || !kd.value_matches_prefix(iter->key(), key_slice)) {
+
+  while (iter->Valid() && kd.value_matches_prefix(iter->key(), key_slice)) {
     /*
-      Got a record that is not equal to the lookup value, or even a record
-      from another table.index.
+      If TTL is enabled we need to check if the given key has already expired
+      from the POV of the current transaction.  If it has, try going to the next
+      key.
     */
-    return HA_ERR_KEY_NOT_FOUND;
+    if (kd.has_ttl() && should_hide_ttl_rec(iter->value(), ttl_filter_ts)) {
+      rocksdb_smart_next(kd.m_is_reverse_cf, iter);
+      continue;
+    }
+
+    return HA_EXIT_SUCCESS;
   }
-  return HA_EXIT_SUCCESS;
+
+  /*
+    Got a record that is not equal to the lookup value, or even a record
+    from another table.index.
+  */
+  return HA_ERR_KEY_NOT_FOUND;
 }
 
 int ha_rocksdb::read_before_key(const Rdb_key_def &kd,
                                 const bool &full_key_match,
-                                const rocksdb::Slice &key_slice) {
+                                const rocksdb::Slice &key_slice,
+                                const int64_t ttl_filter_ts) {
   /*
     We are looking for record with the biggest t.key such that
     t.key < lookup_tuple.
   */
   rocksdb_smart_seek(!kd.m_is_reverse_cf, m_scan_it, key_slice);
-  if (m_scan_it->Valid() && full_key_match &&
-      kd.value_matches_prefix(m_scan_it->key(), key_slice)) {
-    /* We are using full key and we've hit an exact match */
-    if (kd.m_is_reverse_cf) {
-      m_scan_it->Next();
-    } else {
-      m_scan_it->Prev();
+
+  while (m_scan_it->Valid()) {
+    /*
+      We are using full key and we've hit an exact match, or...
+
+      If TTL is enabled we need to check if the given key has already expired
+      from the POV of the current transaction.  If it has, try going to the next
+      key.
+    */
+    if ((full_key_match &&
+         kd.value_matches_prefix(m_scan_it->key(), key_slice)) ||
+        (kd.has_ttl() &&
+         should_hide_ttl_rec(m_scan_it->value(), ttl_filter_ts))) {
+      rocksdb_smart_next(!kd.m_is_reverse_cf, m_scan_it);
+      continue;
     }
+
+    return HA_EXIT_SUCCESS;
   }
-  return m_scan_it->Valid() ? HA_EXIT_SUCCESS : HA_ERR_KEY_NOT_FOUND;
+
+  return HA_ERR_KEY_NOT_FOUND;
 }
 
 int ha_rocksdb::read_after_key(const Rdb_key_def &kd,
-                               const rocksdb::Slice &key_slice) {
+                               const rocksdb::Slice &key_slice,
+                               const int64_t ttl_filter_ts) {
   /*
     We are looking for the first record such that
 
@@ -6171,27 +6331,37 @@ int ha_rocksdb::read_after_key(const Rdb_key_def &kd,
     with HA_READ_KEY_OR_NEXT, $GT = '>='
   */
   rocksdb_smart_seek(kd.m_is_reverse_cf, m_scan_it, key_slice);
+
+  /*
+    If TTL is enabled we need to check if the given key has already expired
+    from the POV of the current transaction.  If it has, try going to the next
+    key.
+  */
+  while (m_scan_it->Valid() && kd.has_ttl() &&
+         should_hide_ttl_rec(m_scan_it->value(), ttl_filter_ts)) {
+    rocksdb_smart_next(kd.m_is_reverse_cf, m_scan_it);
+  }
+
   return m_scan_it->Valid() ? HA_EXIT_SUCCESS : HA_ERR_KEY_NOT_FOUND;
 }
 
-int ha_rocksdb::position_to_correct_key(const Rdb_key_def &kd,
-                                        const enum ha_rkey_function &find_flag,
-                                        const bool &full_key_match,
-                                        const uchar *const key,
-                                        const key_part_map &keypart_map,
-                                        const rocksdb::Slice &key_slice,
-                                        bool *const move_forward) {
+int ha_rocksdb::position_to_correct_key(
+    const Rdb_key_def &kd, const enum ha_rkey_function &find_flag,
+    const bool &full_key_match, const uchar *const key,
+    const key_part_map &keypart_map, const rocksdb::Slice &key_slice,
+    bool *const move_forward, const int64_t ttl_filter_ts) {
   int rc = 0;
 
   *move_forward = true;
 
   switch (find_flag) {
   case HA_READ_KEY_EXACT:
-    rc = read_key_exact(kd, m_scan_it, full_key_match, key_slice);
+    rc =
+        read_key_exact(kd, m_scan_it, full_key_match, key_slice, ttl_filter_ts);
     break;
   case HA_READ_BEFORE_KEY:
     *move_forward = false;
-    rc = read_before_key(kd, full_key_match, key_slice);
+    rc = read_before_key(kd, full_key_match, key_slice, ttl_filter_ts);
     if (rc == 0 && !kd.covers_key(m_scan_it->key())) {
       /* The record we've got is not from this index */
       rc = HA_ERR_KEY_NOT_FOUND;
@@ -6199,7 +6369,7 @@ int ha_rocksdb::position_to_correct_key(const Rdb_key_def &kd,
     break;
   case HA_READ_AFTER_KEY:
   case HA_READ_KEY_OR_NEXT:
-    rc = read_after_key(kd, key_slice);
+    rc = read_after_key(kd, key_slice, ttl_filter_ts);
     if (rc == 0 && !kd.covers_key(m_scan_it->key())) {
       /* The record we've got is not from this index */
       rc = HA_ERR_KEY_NOT_FOUND;
@@ -6222,7 +6392,7 @@ int ha_rocksdb::position_to_correct_key(const Rdb_key_def &kd,
         records with prefix=lookup, we should return the last record
         before that.
     */
-    rc = read_before_key(kd, full_key_match, key_slice);
+    rc = read_before_key(kd, full_key_match, key_slice, ttl_filter_ts);
     if (rc == 0) {
       const rocksdb::Slice &rkey = m_scan_it->key();
       if (!kd.covers_key(rkey)) {
@@ -6579,8 +6749,10 @@ int ha_rocksdb::index_read_map_impl(uchar *const buf, const uchar *const key,
     const uint size = kd.pack_index_tuple(table, m_pack_buffer,
                                           m_pk_packed_tuple, key, keypart_map);
     bool skip_lookup = is_blind_delete_enabled();
+
     rc = get_row_by_rowid(buf, m_pk_packed_tuple, size,
-                          skip_lookup);
+                          skip_lookup, false);
+
     if (!rc && !skip_lookup) {
       stats.rows_read++;
       stats.rows_index_first++;
@@ -6664,8 +6836,9 @@ int ha_rocksdb::index_read_map_impl(uchar *const buf, const uchar *const key,
       want: See storage/rocksdb/rocksdb-range-access.txt
     */
     bool move_forward;
-    rc = position_to_correct_key(kd, find_flag, using_full_key, key,
-                                 keypart_map, slice, &move_forward);
+    rc =
+        position_to_correct_key(kd, find_flag, using_full_key, key, keypart_map,
+                                slice, &move_forward, tx->m_snapshot_timestamp);
 
     if (rc) {
       /* This status is returned on any error */
@@ -7044,8 +7217,8 @@ bool ha_rocksdb::is_blind_delete_enabled()
 */
 
 int ha_rocksdb::get_row_by_rowid(uchar *const buf, const char *const rowid,
-                                 const uint rowid_size,
-                                 const bool skip_lookup) {
+                                 const uint rowid_size, const bool skip_lookup,
+                                 const bool skip_ttl_check) {
   DBUG_ENTER_FUNC();
 
   DBUG_ASSERT(buf != nullptr);
@@ -7096,10 +7269,20 @@ int ha_rocksdb::get_row_by_rowid(uchar *const buf, const char *const rowid,
 
   table->status = STATUS_NOT_FOUND;
   if (found) {
+    /* If we found the record, but it's expired, pretend we didn't find it.  */
+    if (!skip_ttl_check && m_pk_descr->has_ttl() &&
+        should_hide_ttl_rec(rocksdb::Slice(&m_retrieved_record.front(),
+                                           m_retrieved_record.size()),
+                            tx->m_snapshot_timestamp)) {
+      DBUG_RETURN(HA_ERR_KEY_NOT_FOUND);
+    }
+
     m_last_rowkey.copy((const char *)rowid, rowid_size, &my_charset_bin);
     rc = convert_record_from_storage_format(&key_slice, buf);
-    if (!rc)
+
+    if (!rc) {
       table->status = 0;
+    }
   } else {
     /*
       Note: we don't need to unlock the row. It is intentional that we keep
@@ -7750,7 +7933,7 @@ int ha_rocksdb::check_and_lock_unique_pk(const uint &key_id,
 
 int ha_rocksdb::check_and_lock_sk(const uint &key_id,
                                   const struct update_row_info &row_info,
-                                  bool *const found) const {
+                                  bool *const found) {
   DBUG_ASSERT(found != nullptr);
   *found = false;
 
@@ -7864,7 +8047,8 @@ int ha_rocksdb::check_and_lock_sk(const uint &key_id,
     in the transaction.
   */
   iter->Seek(new_slice);
-  *found = !read_key_exact(kd, iter, all_parts_used, new_slice);
+  *found = !read_key_exact(kd, iter, all_parts_used, new_slice,
+                           row_info.tx->m_snapshot_timestamp);
   delete iter;
 
   return HA_EXIT_SUCCESS;
@@ -7890,6 +8074,20 @@ int ha_rocksdb::check_uniqueness_and_lock(
 
     if (rc != HA_EXIT_SUCCESS) {
       return rc;
+    }
+
+    /*
+      If the pk key has ttl, we may need to pretend the row wasn't
+      found if it is already expired. The pk record is read into
+      m_retrieved_record by check_and_lock_unique_pk().
+    */
+    if (is_pk(key_id, table, m_tbl_def) && found && m_pk_descr->has_ttl() &&
+        should_hide_ttl_rec(rocksdb::Slice(&m_retrieved_record.front(),
+                                           m_retrieved_record.size()),
+                            (row_info.tx->m_snapshot_timestamp
+                                 ? row_info.tx->m_snapshot_timestamp
+                                 : static_cast<int64_t>(std::time(nullptr))))) {
+      found = false;
     }
 
     if (found) {
@@ -8399,6 +8597,12 @@ int ha_rocksdb::rnd_next_with_direction(uchar *const buf, bool move_forward) {
       */
       Rdb_transaction *const tx = get_or_create_tx(table->in_use);
       DEBUG_SYNC(ha_thd(), "rocksdb_concurrent_delete");
+
+      if (m_pk_descr->has_ttl() &&
+          should_hide_ttl_rec(m_scan_it->value(), tx->m_snapshot_timestamp)) {
+        continue;
+      }
+
       const rocksdb::Status s =
           get_for_update(tx, m_pk_descr->get_cf(), key, &m_retrieved_record);
       if (s.IsNotFound() &&
@@ -8423,6 +8627,13 @@ int ha_rocksdb::rnd_next_with_direction(uchar *const buf, bool move_forward) {
     } else {
       // Use the value from the iterator
       rocksdb::Slice value = m_scan_it->value();
+
+      if (m_pk_descr->has_ttl() &&
+          should_hide_ttl_rec(
+              value, get_or_create_tx(table->in_use)->m_snapshot_timestamp)) {
+        continue;
+      }
+
       m_last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
       rc = convert_record_from_storage_format(&key, &value, buf);
     }
@@ -10881,6 +11092,16 @@ const rocksdb::BlockBasedTableOptions &rdb_get_table_options() {
 }
 
 bool rdb_is_ttl_enabled() { return rocksdb_enable_ttl; }
+bool rdb_is_ttl_read_filtering_enabled() {
+  return rocksdb_enable_ttl_read_filtering;
+}
+#ifndef NDEBUG
+int rdb_dbug_set_ttl_rec_ts() { return rocksdb_debug_ttl_rec_ts; }
+int rdb_dbug_set_ttl_snapshot_ts() { return rocksdb_debug_ttl_snapshot_ts; }
+int rdb_dbug_set_ttl_read_filter_ts() {
+  return rocksdb_debug_ttl_read_filter_ts;
+}
+#endif
 
 void rdb_update_global_stats(const operation_type &type, uint count,
                              bool is_system_table) {

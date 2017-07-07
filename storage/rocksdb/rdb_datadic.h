@@ -69,6 +69,7 @@ public:
 };
 
 struct Rdb_collation_codec;
+struct Rdb_index_info;
 
 /*
   C-style "virtual table" allowing different handling of packing logic based
@@ -119,6 +120,7 @@ const size_t RDB_UNPACK_HEADER_SIZE =
 const size_t RDB_SIZEOF_INDEX_INFO_VERSION = sizeof(uint16);
 const size_t RDB_SIZEOF_INDEX_TYPE = sizeof(uchar);
 const size_t RDB_SIZEOF_KV_VERSION = sizeof(uint16);
+const size_t RDB_SIZEOF_INDEX_FLAGS = sizeof(uint32);
 
 // Possible return values for rdb_index_field_unpack_t functions.
 enum {
@@ -307,8 +309,8 @@ public:
               uint16_t index_dict_version_arg, uchar index_type_arg,
               uint16_t kv_format_version_arg, bool is_reverse_cf_arg,
               bool is_per_partition_cf, const char *name,
-              Rdb_index_stats stats = Rdb_index_stats(),
-              uint64 ttl_duration = 0);
+              Rdb_index_stats stats = Rdb_index_stats(), uint32 index_flags = 0,
+              uint32 ttl_rec_offset = UINT_MAX, uint64 ttl_duration = 0);
   ~Rdb_key_def();
 
   enum {
@@ -324,6 +326,16 @@ public:
     REVERSE_CF_FLAG = 1,
     AUTO_CF_FLAG = 2,  // Deprecated
     PER_PARTITION_CF_FLAG = 4,
+  };
+
+  // bit flags which denote myrocks specific fields stored in the record
+  // currently only used for TTL.
+  enum INDEX_FLAG {
+    TTL_FLAG = 1 << 0,
+
+    // MAX_FLAG marks where the actual record starts
+    // This flag always needs to be set to the last index flag enum.
+    MAX_FLAG = TTL_FLAG << 1,
   };
 
   // Set of flags to ignore when comparing two CF-s and determining if
@@ -369,8 +381,12 @@ public:
     INDEX_INFO_VERSION_VERIFY_KV_FORMAT,
     // This changes the data format to include a 8 byte TTL duration for tables
     INDEX_INFO_VERSION_TTL,
+    // This changes the data format to include a bitmap before the TTL duration
+    // which will indicate in the future whether TTL or other special fields
+    // are turned on or off.
+    INDEX_INFO_VERSION_FIELD_FLAGS,
     // This normally point to the latest (currently it does).
-    INDEX_INFO_VERSION_LATEST = INDEX_INFO_VERSION_TTL,
+    INDEX_INFO_VERSION_LATEST = INDEX_INFO_VERSION_FIELD_FLAGS,
   };
 
   // MyRocks index types
@@ -422,6 +438,10 @@ public:
                               std::string *ttl_column, uint *ttl_field_offset,
                               bool skip_checks = false);
   inline bool has_ttl() const { return m_ttl_duration > 0; }
+
+  static bool has_index_flag(uint32 index_flags, enum INDEX_FLAG flag);
+  static uint32 calculate_index_flag_offset(uint32 index_flags,
+                                            enum INDEX_FLAG flag);
 
   static const std::string
   gen_qualifier_for_table(const char *const qualifier,
@@ -613,8 +633,21 @@ public:
   std::string m_name;
   mutable Rdb_index_stats m_stats;
 
-  /* TTL default value and corresponding column to apply TTL to in table */
+  /*
+    Bitmap containing information about whether TTL or other special fields
+    are enabled for the given index.
+  */
+  uint32 m_index_flags_bitmap;
+
+  /*
+    Offset in the records where the 8-byte TTL is stored (UINT_MAX if no TTL)
+  */
+  uint32 m_ttl_rec_offset;
+
+  /* Default TTL duration */
   uint64 m_ttl_duration;
+
+  /* TTL column (if defined by user, otherwise implicit TTL is used) */
   std::string m_ttl_column;
 
  private:
@@ -1172,16 +1205,13 @@ public:
   rocksdb::Iterator *new_iterator() const;
 
   /* Internal Index id => CF */
-  void add_or_update_index_cf_mapping(rocksdb::WriteBatch *batch,
-                                      const uchar index_type,
-                                      const uint16_t kv_version,
-                                      const uint index_id, const uint cf_id,
-                                      const uint64 ttl_duration) const;
+  void
+  add_or_update_index_cf_mapping(rocksdb::WriteBatch *batch,
+                                 struct Rdb_index_info *const index_info) const;
   void delete_index_info(rocksdb::WriteBatch *batch,
                          const GL_INDEX_ID &index_id) const;
   bool get_index_info(const GL_INDEX_ID &gl_index_id,
-                      uint16_t *index_dict_version, uchar *index_type,
-                      uint16_t *kv_version, uint64 *ttl_duration) const;
+                      struct Rdb_index_info *const index_info) const;
 
   /* CF id => CF flags */
   void add_cf_flags(rocksdb::WriteBatch *const batch, const uint &cf_id,
@@ -1257,6 +1287,15 @@ public:
   void add_stats(rocksdb::WriteBatch *const batch,
                  const std::vector<Rdb_index_stats> &stats) const;
   Rdb_index_stats get_stats(GL_INDEX_ID gl_index_id) const;
+};
+
+struct Rdb_index_info {
+  GL_INDEX_ID m_gl_index_id;
+  uint16_t m_index_dict_version = 0;
+  uchar m_index_type = 0;
+  uint16_t m_kv_version = 0;
+  uint32 m_index_flags = 0;
+  uint64 m_ttl_duration = 0;
 };
 
 } // namespace myrocks
