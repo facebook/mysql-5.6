@@ -338,6 +338,7 @@ enum operation_type : int {
   ROWS_UPDATED,
   ROWS_DELETED_BLIND,
   ROWS_EXPIRED,
+  ROWS_HIDDEN_NO_SNAPSHOT,
   ROWS_MAX
 };
 
@@ -368,6 +369,7 @@ struct st_export_stats {
   ulonglong rows_updated;
   ulonglong rows_deleted_blind;
   ulonglong rows_expired;
+  ulonglong rows_hidden_no_snapshot;
 
   ulonglong system_rows_deleted;
   ulonglong system_rows_inserted;
@@ -491,7 +493,7 @@ class ha_rocksdb : public my_core::handler {
   /*
     Pointer to the original TTL timestamp value (8 bytes) during UPDATE.
   */
-  const char *m_ttl_bytes;
+  char m_ttl_bytes[ROCKSDB_SIZEOF_TTL_RECORD];
 
   /* rowkey of the last record we've read, in StorageFormat. */
   String m_last_rowkey;
@@ -574,13 +576,15 @@ class ha_rocksdb : public my_core::handler {
                  const rocksdb::Slice &key, std::string *const value) const;
 
   int get_row_by_rowid(uchar *const buf, const char *const rowid,
-                       const uint rowid_size, const bool skip_lookup = false)
+                       const uint rowid_size, const bool skip_lookup = false,
+                       const bool skip_ttl_check = true)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   int get_row_by_rowid(uchar *const buf, const uchar *const rowid,
-                       const uint rowid_size, const bool skip_lookup = false)
+                       const uint rowid_size, const bool skip_lookup = false,
+                       const bool skip_ttl_check = true)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__)) {
     return get_row_by_rowid(buf, reinterpret_cast<const char *>(rowid),
-                            rowid_size, skip_lookup);
+                            rowid_size, skip_lookup, skip_ttl_check);
   }
 
   void update_auto_incr_val();
@@ -1035,6 +1039,10 @@ private:
                                        rocksdb::Slice *const packed_rec)
       MY_ATTRIBUTE((__nonnull__));
 
+  bool should_hide_ttl_rec(const rocksdb::Slice &ttl_rec_val,
+                           const int64_t curr_ts)
+      MY_ATTRIBUTE((__warn_unused_result__));
+
   int index_first_intern(uchar *buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   int index_last_intern(uchar *buf)
@@ -1055,7 +1063,7 @@ private:
       MY_ATTRIBUTE((__warn_unused_result__));
   int check_and_lock_sk(const uint &key_id,
                         const struct update_row_info &row_info,
-                        bool *const found) const
+                        bool *const found)
       MY_ATTRIBUTE((__warn_unused_result__));
   int check_uniqueness_and_lock(const struct update_row_info &row_info,
                                 bool *const pk_changed)
@@ -1080,18 +1088,22 @@ private:
 
   int read_key_exact(const Rdb_key_def &kd, rocksdb::Iterator *const iter,
                      const bool &using_full_key,
-                     const rocksdb::Slice &key_slice) const
+                     const rocksdb::Slice &key_slice,
+                     const int64_t ttl_filter_ts)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   int read_before_key(const Rdb_key_def &kd, const bool &using_full_key,
-                      const rocksdb::Slice &key_slice)
+                      const rocksdb::Slice &key_slice,
+                      const int64_t ttl_filter_ts)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-  int read_after_key(const Rdb_key_def &kd, const rocksdb::Slice &key_slice)
+  int read_after_key(const Rdb_key_def &kd, const rocksdb::Slice &key_slice,
+                     const int64_t ttl_filter_ts)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   int position_to_correct_key(
       const Rdb_key_def &kd, const enum ha_rkey_function &find_flag,
       const bool &full_key_match, const uchar *const key,
       const key_part_map &keypart_map, const rocksdb::Slice &key_slice,
-      bool *const move_forward) MY_ATTRIBUTE((__warn_unused_result__));
+      bool *const move_forward, const int64_t ttl_filter_ts)
+      MY_ATTRIBUTE((__warn_unused_result__));
 
   int read_row_from_primary_key(uchar *const buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
@@ -1307,5 +1319,4 @@ private:
   Rdb_inplace_alter_ctx(const Rdb_inplace_alter_ctx &);
   Rdb_inplace_alter_ctx &operator=(const Rdb_inplace_alter_ctx &);
 };
-
 } // namespace myrocks

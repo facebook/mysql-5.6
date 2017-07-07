@@ -56,15 +56,17 @@ Rdb_key_def::Rdb_key_def(uint indexnr_arg, uint keyno_arg,
                          uint16_t index_dict_version_arg, uchar index_type_arg,
                          uint16_t kv_format_version_arg, bool is_reverse_cf_arg,
                          bool is_per_partition_cf_arg, const char *_name,
-                         Rdb_index_stats _stats, uint64 ttl_duration)
+                         Rdb_index_stats _stats, uint32 index_flags_bitmap,
+                         uint32 ttl_rec_offset, uint64 ttl_duration)
     : m_index_number(indexnr_arg), m_cf_handle(cf_handle_arg),
       m_index_dict_version(index_dict_version_arg),
       m_index_type(index_type_arg), m_kv_format_version(kv_format_version_arg),
       m_is_reverse_cf(is_reverse_cf_arg),
       m_is_per_partition_cf(is_per_partition_cf_arg), m_name(_name),
-      m_stats(_stats), m_ttl_duration(ttl_duration), m_ttl_column(""),
-      m_pk_part_no(nullptr), m_pack_info(nullptr), m_keyno(keyno_arg),
-      m_key_parts(0), m_ttl_pk_key_part_offset(UINT_MAX),
+      m_stats(_stats), m_index_flags_bitmap(index_flags_bitmap),
+      m_ttl_rec_offset(ttl_rec_offset), m_ttl_duration(ttl_duration),
+      m_ttl_column(""), m_pk_part_no(nullptr), m_pack_info(nullptr),
+      m_keyno(keyno_arg), m_key_parts(0), m_ttl_pk_key_part_offset(UINT_MAX),
       m_ttl_field_offset(UINT_MAX), m_prefix_extractor(nullptr),
       m_maxlength(0)  // means 'not intialized'
 {
@@ -77,7 +79,8 @@ Rdb_key_def::Rdb_key_def(const Rdb_key_def &k)
     : m_index_number(k.m_index_number), m_cf_handle(k.m_cf_handle),
       m_is_reverse_cf(k.m_is_reverse_cf),
       m_is_per_partition_cf(k.m_is_per_partition_cf), m_name(k.m_name),
-      m_stats(k.m_stats), m_ttl_duration(k.m_ttl_duration),
+      m_stats(k.m_stats), m_index_flags_bitmap(k.m_index_flags_bitmap),
+      m_ttl_rec_offset(k.m_ttl_rec_offset), m_ttl_duration(k.m_ttl_duration),
       m_ttl_column(k.m_ttl_column), m_pk_part_no(k.m_pk_part_no),
       m_pack_info(k.m_pack_info), m_keyno(k.m_keyno),
       m_key_parts(k.m_key_parts),
@@ -3125,9 +3128,16 @@ bool Rdb_tbl_def::put_dict(Rdb_dict_manager *const dict,
 
     rdb_netstr_append_uint32(&indexes, cf_id);
     rdb_netstr_append_uint32(&indexes, kd.m_index_number);
-    dict->add_or_update_index_cf_mapping(
-        batch, kd.m_index_type, kd.m_kv_format_version, kd.m_index_number,
-        cf_id, kd.m_ttl_duration);
+
+    struct Rdb_index_info index_info;
+    index_info.m_gl_index_id = {cf_id, kd.m_index_number};
+    index_info.m_index_dict_version = Rdb_key_def::INDEX_INFO_VERSION_LATEST;
+    index_info.m_index_type = kd.m_index_type;
+    index_info.m_kv_version = kd.m_kv_format_version;
+    index_info.m_index_flags = kd.m_index_flags_bitmap;
+    index_info.m_ttl_duration = kd.m_ttl_duration;
+
+    dict->add_or_update_index_cf_mapping(batch, &index_info);
   }
 
   const rocksdb::Slice skey((char *)key, keylen);
@@ -3135,6 +3145,38 @@ bool Rdb_tbl_def::put_dict(Rdb_dict_manager *const dict,
 
   dict->put_key(batch, skey, svalue);
   return false;
+}
+
+// Length that each index flag takes inside the record.
+// Each index in the array maps to the enum INDEX_FLAG
+static const std::array<int, 1> index_flag_lengths = {
+    {ROCKSDB_SIZEOF_TTL_RECORD}};
+
+
+bool Rdb_key_def::has_index_flag(uint32 index_flags, enum INDEX_FLAG flag) {
+  return flag & index_flags;
+}
+
+uint32 Rdb_key_def::calculate_index_flag_offset(uint32 index_flags,
+                                                enum INDEX_FLAG flag) {
+
+  DBUG_ASSERT(Rdb_key_def::has_index_flag(index_flags, flag));
+
+  uint offset = 0;
+  for (size_t bit = 0; bit < sizeof(index_flags) * CHAR_BIT; ++bit) {
+    int mask = 1 << bit;
+
+    /* Exit once we've reached the proper flag */
+    if (flag & mask) {
+      break;
+    }
+
+    if (index_flags & mask) {
+      offset += index_flag_lengths[bit];
+    }
+  }
+
+  return offset;
 }
 
 void Rdb_tbl_def::check_if_is_mysql_system_table() {
@@ -3485,13 +3527,9 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager *const dict_arg,
     for (uint keyno = 0; ptr < ptr_end; keyno++) {
       GL_INDEX_ID gl_index_id;
       rdb_netbuf_read_gl_index(&ptr, &gl_index_id);
-      uint16 m_index_dict_version = 0;
-      uchar m_index_type = 0;
-      uint16 kv_version = 0;
-      uint64 ttl_duration = 0;
       uint flags = 0;
-      if (!m_dict->get_index_info(gl_index_id, &m_index_dict_version,
-                                  &m_index_type, &kv_version, &ttl_duration)) {
+      struct Rdb_index_info index_info;
+      if (!m_dict->get_index_info(gl_index_id, &index_info)) {
         sql_print_error("RocksDB: Could not get index information "
                         "for Index Number (%u,%u), table %s",
                         gl_index_id.cf_id, gl_index_id.index_id,
@@ -3524,16 +3562,25 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager *const dict_arg,
           cf_manager->get_cf(gl_index_id.cf_id);
       DBUG_ASSERT(cfh != nullptr);
 
+      uint32 ttl_rec_offset =
+          Rdb_key_def::has_index_flag(index_info.m_index_flags,
+                                      Rdb_key_def::TTL_FLAG)
+              ? Rdb_key_def::calculate_index_flag_offset(
+                    index_info.m_index_flags, Rdb_key_def::TTL_FLAG)
+              : UINT_MAX;
+
       /*
         We can't fully initialize Rdb_key_def object here, because full
         initialization requires that there is an open TABLE* where we could
         look at Field* objects and set max_length and other attributes
       */
       tdef->m_key_descr_arr[keyno] = std::make_shared<Rdb_key_def>(
-          gl_index_id.index_id, keyno, cfh, m_index_dict_version, m_index_type,
-          kv_version, flags & Rdb_key_def::REVERSE_CF_FLAG,
+          gl_index_id.index_id, keyno, cfh, index_info.m_index_dict_version,
+          index_info.m_index_type, index_info.m_kv_version,
+          flags & Rdb_key_def::REVERSE_CF_FLAG,
           flags & Rdb_key_def::PER_PARTITION_CF_FLAG, "",
-          m_dict->get_stats(gl_index_id), ttl_duration);
+          m_dict->get_stats(gl_index_id), index_info.m_index_flags,
+          ttl_rec_offset, index_info.m_ttl_duration);
     }
     put(tdef);
     i++;
@@ -4191,23 +4238,22 @@ void Rdb_dict_manager::delete_with_prefix(
 }
 
 void Rdb_dict_manager::add_or_update_index_cf_mapping(
-    rocksdb::WriteBatch *batch, const uchar m_index_type,
-    const uint16_t kv_version, const uint32_t index_id, const uint32_t cf_id,
-    const uint64 ttl_duration) const {
+    rocksdb::WriteBatch *batch, struct Rdb_index_info *const index_info) const {
   uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE * 3] = {0};
   uchar value_buf[256] = {0};
-  GL_INDEX_ID gl_index_id = {cf_id, index_id};
-  dump_index_id(key_buf, Rdb_key_def::INDEX_INFO, gl_index_id);
+  dump_index_id(key_buf, Rdb_key_def::INDEX_INFO, index_info->m_gl_index_id);
   const rocksdb::Slice key = rocksdb::Slice((char *)key_buf, sizeof(key_buf));
 
   uchar *ptr = value_buf;
   rdb_netbuf_store_uint16(ptr, Rdb_key_def::INDEX_INFO_VERSION_LATEST);
   ptr += RDB_SIZEOF_INDEX_INFO_VERSION;
-  rdb_netbuf_store_byte(ptr, m_index_type);
+  rdb_netbuf_store_byte(ptr, index_info->m_index_type);
   ptr += RDB_SIZEOF_INDEX_TYPE;
-  rdb_netbuf_store_uint16(ptr, kv_version);
+  rdb_netbuf_store_uint16(ptr, index_info->m_kv_version);
   ptr += RDB_SIZEOF_KV_VERSION;
-  rdb_netbuf_store_uint64(ptr, ttl_duration);
+  rdb_netbuf_store_uint32(ptr, index_info->m_index_flags);
+  ptr += RDB_SIZEOF_INDEX_FLAGS;
+  rdb_netbuf_store_uint64(ptr, index_info->m_ttl_duration);
   ptr += ROCKSDB_SIZEOF_TTL_RECORD;
 
   const rocksdb::Slice value =
@@ -4240,10 +4286,12 @@ void Rdb_dict_manager::delete_index_info(rocksdb::WriteBatch *batch,
   delete_with_prefix(batch, Rdb_key_def::INDEX_STATISTICS, gl_index_id);
 }
 
-bool Rdb_dict_manager::get_index_info(const GL_INDEX_ID &gl_index_id,
-                                      uint16_t *m_index_dict_version,
-                                      uchar *m_index_type, uint16_t *kv_version,
-                                      uint64 *ttl_duration) const {
+bool Rdb_dict_manager::get_index_info(
+    const GL_INDEX_ID &gl_index_id,
+    struct Rdb_index_info *const index_info) const {
+
+  index_info->m_gl_index_id = gl_index_id;
+
   bool found = false;
   bool error = false;
   std::string value;
@@ -4255,33 +4303,50 @@ bool Rdb_dict_manager::get_index_info(const GL_INDEX_ID &gl_index_id,
   if (status.ok()) {
     const uchar *const val = (const uchar *)value.c_str();
     const uchar *ptr = val;
-    *m_index_dict_version = rdb_netbuf_to_uint16(val);
-    *kv_version = 0;
-    *m_index_type = 0;
-    *ttl_duration = 0;
+    index_info->m_index_dict_version = rdb_netbuf_to_uint16(val);
     ptr += RDB_SIZEOF_INDEX_INFO_VERSION;
-    switch (*m_index_dict_version) {
-    case Rdb_key_def::INDEX_INFO_VERSION_TTL:
-      /* Sanity check to prevent reading bogus into TTL record. */
-      if (value.size() !=
-          RDB_SIZEOF_INDEX_INFO_VERSION + RDB_SIZEOF_INDEX_TYPE +
-              RDB_SIZEOF_KV_VERSION + ROCKSDB_SIZEOF_TTL_RECORD) {
+
+    switch (index_info->m_index_dict_version) {
+    case Rdb_key_def::INDEX_INFO_VERSION_FIELD_FLAGS:
+      /* Sanity check to prevent reading bogus TTL record. */
+      if (value.size() != RDB_SIZEOF_INDEX_INFO_VERSION +
+                              RDB_SIZEOF_INDEX_TYPE + RDB_SIZEOF_KV_VERSION +
+                              RDB_SIZEOF_INDEX_FLAGS +
+                              ROCKSDB_SIZEOF_TTL_RECORD) {
         error = true;
         break;
       }
-      *m_index_type = rdb_netbuf_to_byte(ptr);
+      index_info->m_index_type = rdb_netbuf_to_byte(ptr);
       ptr += RDB_SIZEOF_INDEX_TYPE;
-      *kv_version = rdb_netbuf_to_uint16(ptr);
+      index_info->m_kv_version = rdb_netbuf_to_uint16(ptr);
       ptr += RDB_SIZEOF_KV_VERSION;
-      *ttl_duration = rdb_netbuf_to_uint64(ptr);
+      index_info->m_index_flags = rdb_netbuf_to_uint32(ptr);
+      ptr += RDB_SIZEOF_INDEX_FLAGS;
+      index_info->m_ttl_duration = rdb_netbuf_to_uint64(ptr);
+      found = true;
+      break;
+
+    case Rdb_key_def::INDEX_INFO_VERSION_TTL:
+      /* Sanity check to prevent reading bogus into TTL record. */
+      if (value.size() != RDB_SIZEOF_INDEX_INFO_VERSION +
+                              RDB_SIZEOF_INDEX_TYPE + RDB_SIZEOF_KV_VERSION +
+                              ROCKSDB_SIZEOF_TTL_RECORD) {
+        error = true;
+        break;
+      }
+      index_info->m_index_type = rdb_netbuf_to_byte(ptr);
+      ptr += RDB_SIZEOF_INDEX_TYPE;
+      index_info->m_kv_version = rdb_netbuf_to_uint16(ptr);
+      ptr += RDB_SIZEOF_KV_VERSION;
+      index_info->m_ttl_duration = rdb_netbuf_to_uint64(ptr);
       found = true;
       break;
 
     case Rdb_key_def::INDEX_INFO_VERSION_VERIFY_KV_FORMAT:
     case Rdb_key_def::INDEX_INFO_VERSION_GLOBAL_ID:
-      *m_index_type = rdb_netbuf_to_byte(ptr);
+      index_info->m_index_type = rdb_netbuf_to_byte(ptr);
       ptr += RDB_SIZEOF_INDEX_TYPE;
-      *kv_version = rdb_netbuf_to_uint16(ptr);
+      index_info->m_kv_version = rdb_netbuf_to_uint16(ptr);
       found = true;
       break;
 
@@ -4290,14 +4355,16 @@ bool Rdb_dict_manager::get_index_info(const GL_INDEX_ID &gl_index_id,
       break;
     }
 
-    switch (*m_index_type) {
+    switch (index_info->m_index_type) {
     case Rdb_key_def::INDEX_TYPE_PRIMARY:
     case Rdb_key_def::INDEX_TYPE_HIDDEN_PRIMARY: {
-      error = *kv_version > Rdb_key_def::PRIMARY_FORMAT_VERSION_LATEST;
+      error =
+          index_info->m_kv_version > Rdb_key_def::PRIMARY_FORMAT_VERSION_LATEST;
       break;
     }
     case Rdb_key_def::INDEX_TYPE_SECONDARY:
-      error = *kv_version > Rdb_key_def::SECONDARY_FORMAT_VERSION_LATEST;
+      error = index_info->m_kv_version >
+              Rdb_key_def::SECONDARY_FORMAT_VERSION_LATEST;
       break;
     default:
       error = true;
@@ -4311,7 +4378,8 @@ bool Rdb_dict_manager::get_index_info(const GL_INDEX_ID &gl_index_id,
         "RocksDB: Found invalid key version number (%u, %u, %u, %llu) "
         "from data dictionary. This should never happen "
         "and it may be a bug.",
-        *m_index_dict_version, *m_index_type, *kv_version, *ttl_duration);
+        index_info->m_index_dict_version, index_info->m_index_type,
+        index_info->m_kv_version, index_info->m_ttl_duration);
     abort_with_stack_traces();
   }
 
@@ -4608,13 +4676,8 @@ void Rdb_dict_manager::log_start_drop_table(
 
 void Rdb_dict_manager::log_start_drop_index(GL_INDEX_ID gl_index_id,
                                             const char *log_action) const {
-  uint16 m_index_dict_version = 0;
-  uchar m_index_type = 0;
-  uint16 kv_version = 0;
-  uint64 ttl_duration = 0;
-
-  if (!get_index_info(gl_index_id, &m_index_dict_version, &m_index_type,
-                      &kv_version, &ttl_duration)) {
+  struct Rdb_index_info index_info;
+  if (!get_index_info(gl_index_id, &index_info)) {
     /*
       If we don't find the index info, it could be that it's because it was a
       partially created index that isn't in the data dictionary yet that needs
