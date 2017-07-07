@@ -1677,7 +1677,7 @@ public:
                           user_host_buff, thd->query());
       }
       m_detailed_error =
-          String(" Snapshot Conflict Error", system_charset_info);
+          String(" (snapshot conflict)", system_charset_info);
       return HA_ERR_LOCK_DEADLOCK;
     }
 
