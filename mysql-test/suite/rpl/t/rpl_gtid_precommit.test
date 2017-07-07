@@ -6,6 +6,13 @@
 --source include/not_valgrind.inc
 --source include/have_binlog_format_row.inc
 
+--disable_query_log
+connect (con1,localhost,root,,);
+set sql_log_bin=0;
+call mtr.add_suppression("An error occurred during flush stage of the commit");
+disconnect con1;
+--enable_query_log
+
 connection master;
 --let $old_gtid_precommit = `SELECT @@global.gtid_precommit`
 --let $old_binlog_error_action = `SELECT @@global.binlog_error_action`
