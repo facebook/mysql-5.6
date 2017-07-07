@@ -64,7 +64,29 @@ public:
           rdb_get_dict_manager()->is_drop_index_ongoing(gl_index_id);
 
       if (!m_should_delete) {
-        get_ttl_duration(gl_index_id, &m_ttl_duration);
+        get_ttl_duration_and_offset(gl_index_id, &m_ttl_duration,
+                                    &m_ttl_offset);
+
+        if (m_ttl_duration != 0 && m_snapshot_timestamp == 0) {
+          /*
+            For efficiency reasons, we lazily call GetIntProperty to get the
+            oldest snapshot time (occurs once per compaction).
+          */
+          rocksdb::DB *const rdb = rdb_get_rocksdb_db();
+          if (!rdb->GetIntProperty(rocksdb::DB::Properties::kOldestSnapshotTime,
+                                   &m_snapshot_timestamp) ||
+              m_snapshot_timestamp == 0) {
+            m_snapshot_timestamp = static_cast<uint64_t>(std::time(nullptr));
+          }
+
+#ifndef NDEBUG
+          int snapshot_ts = rdb_dbug_set_ttl_snapshot_ts();
+          if (snapshot_ts) {
+            m_snapshot_timestamp =
+                static_cast<uint64_t>(std::time(nullptr)) + snapshot_ts;
+          }
+#endif
+        }
       }
 
       m_prev_index = gl_index_id;
@@ -86,8 +108,9 @@ public:
 
   virtual const char *Name() const override { return "Rdb_compact_filter"; }
 
-  void get_ttl_duration(const GL_INDEX_ID &gl_index_id,
-                        uint64 *ttl_duration) const {
+  void get_ttl_duration_and_offset(const GL_INDEX_ID &gl_index_id,
+                                   uint64 *ttl_duration,
+                                   uint32 *ttl_offset) const {
     DBUG_ASSERT(ttl_duration != nullptr);
     /*
       If TTL is disabled set ttl_duration to 0.  This prevents the compaction
@@ -107,26 +130,43 @@ public:
       return;
     }
 
-    uint16 m_index_dict_version = 0;
-    uchar m_index_type = 0;
-    uint16 kv_version = 0;
-    if (!rdb_get_dict_manager()->get_index_info(
-            gl_index_id, &m_index_dict_version, &m_index_type, &kv_version,
-            ttl_duration)) {
+    struct Rdb_index_info index_info;
+    if (!rdb_get_dict_manager()->get_index_info(gl_index_id, &index_info)) {
       // NO_LINT_DEBUG
       sql_print_error("RocksDB: Could not get index information "
                       "for Index Number (%u,%u)",
                       gl_index_id.cf_id, gl_index_id.index_id);
     }
+
+    *ttl_duration = index_info.m_ttl_duration;
+    if (Rdb_key_def::has_index_flag(index_info.m_index_flags,
+                                    Rdb_key_def::TTL_FLAG)) {
+      *ttl_offset = Rdb_key_def::calculate_index_flag_offset(
+          index_info.m_index_flags, Rdb_key_def::TTL_FLAG);
+    }
   }
 
   bool should_filter_ttl_rec(const rocksdb::Slice &key,
                              const rocksdb::Slice &existing_value) const {
-    uint64 ttl_timestamp =
-        rdb_netbuf_to_uint64((const uchar *)existing_value.data());
-    uint64 time_diff = std::difftime(std::time(nullptr), ttl_timestamp);
+    uint64 ttl_timestamp;
+    Rdb_string_reader reader(&existing_value);
+    if (!reader.read(m_ttl_offset) || reader.read_uint64(&ttl_timestamp)) {
+      std::string buf;
+      buf = rdb_hexdump(existing_value.data(), existing_value.size(),
+                        RDB_MAX_HEXDUMP_LEN);
+      // NO_LINT_DEBUG
+      sql_print_error("Decoding ttl from PK value failed in compaction filter, "
+                      "for index (%u,%u), val: %s",
+                      m_prev_index.cf_id, m_prev_index.index_id, buf.c_str());
+      abort_with_stack_traces();
+    }
 
-    return time_diff >= m_ttl_duration;
+    /*
+      Filter out the record only if it is older than the oldest snapshot
+      timestamp.  This prevents any rows from expiring in the middle of
+      long-running transactions.
+    */
+    return ttl_timestamp + m_ttl_duration <= m_snapshot_timestamp;
   }
 
  private:
@@ -142,6 +182,10 @@ public:
   mutable bool m_should_delete = false;
   // TTL duration for the current index if TTL is enabled
   mutable uint64 m_ttl_duration = 0;
+  // TTL offset for all records in the current index
+  mutable uint32 m_ttl_offset = 0;
+  // Oldest snapshot timestamp at the time a TTL index is discovered
+  mutable uint64_t m_snapshot_timestamp = 0;
 };
 
 class Rdb_compact_filter_factory : public rocksdb::CompactionFilterFactory {

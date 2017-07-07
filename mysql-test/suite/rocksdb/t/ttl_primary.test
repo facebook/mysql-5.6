@@ -1,10 +1,5 @@
+--source include/have_debug.inc
 --source include/have_rocksdb.inc
-
---disable_warnings
-DROP TABLE IF EXISTS t1;
---enable_warnings
-
-SET @@global.rocksdb_update_cf_options = 'default={disable_auto_compactions=true;};';
 
 # Basic TTL test
 CREATE TABLE t1 (
@@ -17,11 +12,11 @@ PRIMARY KEY (`b`,`a`,`c`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 COMMENT='ttl_duration=1;ttl_col=ts;';
 
+set global rocksdb_debug_ttl_rec_ts = -100;
 INSERT INTO t1 values ('a', 'b', 'c', UNIX_TIMESTAMP(), 'd');
 INSERT INTO t1 values ('d', 'e', 'f', UNIX_TIMESTAMP(), 'g');
+set global rocksdb_debug_ttl_rec_ts = 0;
 SELECT COUNT(*) FROM t1;
-
---real_sleep 3
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='default';
 
@@ -39,11 +34,12 @@ CREATE TABLE t1 (
 ) ENGINE=rocksdb
 COMMENT='ttl_duration=1;ttl_col=ts;';
 
+set global rocksdb_debug_ttl_rec_ts = -100;
 INSERT INTO t1 values (1, 3, UNIX_TIMESTAMP(), 5);
 INSERT INTO t1 values (2, 4, UNIX_TIMESTAMP(), 6);
+set global rocksdb_debug_ttl_rec_ts = 0;
 SELECT COUNT(*) FROM t1;
 
---real_sleep 3
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='default';
 
@@ -61,11 +57,12 @@ CREATE TABLE t1 (
 ) ENGINE=rocksdb
 COMMENT='ttl_duration=1;ttl_col=ts;';
 
+set global rocksdb_debug_ttl_rec_ts = -100;
 INSERT INTO t1 values (1, 3, 5, UNIX_TIMESTAMP());
 INSERT INTO t1 values (2, 4, 6, UNIX_TIMESTAMP());
+set global rocksdb_debug_ttl_rec_ts = 0;
 SELECT COUNT(*) FROM t1;
 
---real_sleep 3
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='default';
 
@@ -83,11 +80,12 @@ CREATE TABLE t1 (
 ) ENGINE=rocksdb
 COMMENT='ttl_duration=1;ttl_col=ts;';
 
+set global rocksdb_debug_ttl_rec_ts = -100;
 INSERT INTO t1 values (1, 3, 5, UNIX_TIMESTAMP());
 INSERT INTO t1 values (2, 4, 6, UNIX_TIMESTAMP());
+set global rocksdb_debug_ttl_rec_ts = 0;
 SELECT COUNT(*) FROM t1;
 
---real_sleep 3
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='default';
 
@@ -105,11 +103,12 @@ CREATE TABLE t1 (
 ) ENGINE=rocksdb
 COMMENT='ttl_duration=1;ttl_col=ts;';
 
+set global rocksdb_debug_ttl_rec_ts = -100;
 INSERT INTO t1 values (1, NULL, NULL, UNIX_TIMESTAMP());
 INSERT INTO t1 values (2, NULL, NULL, UNIX_TIMESTAMP());
+set global rocksdb_debug_ttl_rec_ts = 0;
 SELECT COUNT(*) FROM t1;
 
---real_sleep 3
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='default';
 
@@ -128,11 +127,12 @@ PRIMARY KEY (`a`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 COMMENT='ttl_duration=1;ttl_col=ts;';
 
+set global rocksdb_debug_ttl_rec_ts = -100;
 INSERT INTO t1 values ('a', NULL, 'bc', UNIX_TIMESTAMP(), 'd');
 INSERT INTO t1 values ('d', 'efghijk', NULL, UNIX_TIMESTAMP(), 'l');
+set global rocksdb_debug_ttl_rec_ts = 0;
 SELECT COUNT(*) FROM t1;
 
---real_sleep 3
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='default';
 
@@ -149,11 +149,12 @@ CREATE TABLE t1 (
 ) ENGINE=rocksdb
 COMMENT='ttl_duration=1;';
 
+set global rocksdb_debug_ttl_rec_ts = -100;
 INSERT INTO t1 values (1, 3, 5);
 INSERT INTO t1 values (2, 4, 6);
+set global rocksdb_debug_ttl_rec_ts = 0;
 SELECT COUNT(*) FROM t1;
 
---real_sleep 3
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='default';
 
@@ -163,23 +164,26 @@ DROP TABLE t1;
 
 # TTL field as the PK
 CREATE TABLE t1 (
+	a int,
   ts bigint(20) UNSIGNED NOT NULL,
-  PRIMARY KEY (ts)
+  PRIMARY KEY (a, ts)
 ) ENGINE=rocksdb
 COMMENT='ttl_duration=5;ttl_col=ts;';
 
-INSERT INTO t1 values (UNIX_TIMESTAMP());
---real_sleep 1
-INSERT INTO t1 values (UNIX_TIMESTAMP());
+INSERT INTO t1 values (1, UNIX_TIMESTAMP());
+INSERT INTO t1 values (2, UNIX_TIMESTAMP());
 SELECT COUNT(*) FROM t1;
 
+set global rocksdb_debug_ttl_snapshot_ts = -10;
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='default';
+set global rocksdb_debug_ttl_snapshot_ts = 0;
 # should all still be there..
 SELECT COUNT(*) FROM t1;
 
---real_sleep 5
+set global rocksdb_debug_ttl_snapshot_ts = 10;
 set global rocksdb_compact_cf='default';
+set global rocksdb_debug_ttl_snapshot_ts = 0;
 # should have filtered the rows out since ttl is passed in compaction filter
 SELECT COUNT(*) FROM t1;
 DROP TABLE t1;
@@ -195,11 +199,12 @@ CREATE TABLE t1 (
 ) ENGINE=rocksdb
 COMMENT='ttl_duration=1;ttl_col=ts;';
 
+set global rocksdb_debug_ttl_rec_ts = -100;
 INSERT INTO t1 values (1, 3, UNIX_TIMESTAMP(), 5);
 INSERT INTO t1 values (2, 4, UNIX_TIMESTAMP(), 6);
+set global rocksdb_debug_ttl_rec_ts = 0;
 SELECT COUNT(*) FROM t1;
 
---real_sleep 3
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='default';
 
@@ -218,11 +223,12 @@ PRIMARY KEY (`a`, `ts`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 COMMENT='ttl_duration=1;ttl_col=ts;';
 
+set global rocksdb_debug_ttl_rec_ts = -100;
 INSERT INTO t1 values ('a', NULL, 'bc', UNIX_TIMESTAMP(), 'd');
 INSERT INTO t1 values ('de', 'fghijk', NULL, UNIX_TIMESTAMP(), 'l');
+set global rocksdb_debug_ttl_rec_ts = 0;
 SELECT COUNT(*) FROM t1;
 
---real_sleep 3
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='default';
 
@@ -242,26 +248,31 @@ PRIMARY KEY (b,a,c)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 COMMENT='ttl_duration=10;ttl_col=ts;';
 
+set global rocksdb_debug_ttl_rec_ts = -300;
 INSERT INTO t1 values (1, 'b', 'c', UNIX_TIMESTAMP(), 'd');
 INSERT INTO t1 values (2, 'e', 'f', UNIX_TIMESTAMP(), 'g');
-
---real_sleep 5
-
+set global rocksdb_debug_ttl_rec_ts = 300;
 INSERT INTO t1 values (3, 'i', 'j', UNIX_TIMESTAMP(), 'k');
 INSERT INTO t1 values (4, 'm', 'n', UNIX_TIMESTAMP(), 'o');
+set global rocksdb_debug_ttl_rec_ts = 0;
 
+# Nothing should get removed here.
+set global rocksdb_debug_ttl_snapshot_ts = -3600;
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='default';
+set global rocksdb_debug_ttl_snapshot_ts = 0;
 --sorted_result
 SELECT a FROM t1;
 
---real_sleep 6
+# 1 and 2 should get removed here.
 set global rocksdb_compact_cf='default';
 --sorted_result
 SELECT a FROM t1;
 
---real_sleep 5
+# 3 and 4 should get removed here.
+set global rocksdb_debug_ttl_snapshot_ts = 3600;
 set global rocksdb_compact_cf='default';
+set global rocksdb_debug_ttl_snapshot_ts = 0;
 --sorted_result
 SELECT a FROM t1;
 
@@ -328,8 +339,6 @@ COMMENT='ttl_duration=500;';
 
 INSERT INTO t1 values (1);
 SELECT COUNT(*) FROM t1;
-
---real_sleep 1
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='default';
 
@@ -346,10 +355,10 @@ COMMENT='ttl_duration=100;';
 INSERT INTO t1 values (1);
 SELECT * FROM t1;
 
+set global rocksdb_debug_ttl_rec_ts = -300;
 ALTER TABLE t1 COMMENT = 'ttl_duration=1';
+set global rocksdb_debug_ttl_rec_ts = 0;
 SHOW CREATE TABLE t1;
-
---real_sleep 3
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='default';
 
@@ -381,14 +390,18 @@ INSERT INTO t1 VALUES (1,1);
 INSERT INTO t1 VALUES (2,2);
 
 ALTER TABLE t1 DROP PRIMARY KEY, ADD PRIMARY KEY(b);
+set global rocksdb_debug_ttl_snapshot_ts = -3600;
 set global rocksdb_force_flush_memtable_now=1;
---real_sleep 1
 set @@global.rocksdb_compact_cf = 'default';
+set global rocksdb_debug_ttl_snapshot_ts = 0;
+
 --sorted_result
 SELECT COUNT(*) FROM t1;
 
---real_sleep 5
+set global rocksdb_debug_ttl_snapshot_ts = 3600;
 set @@global.rocksdb_compact_cf = 'default';
+set global rocksdb_debug_ttl_snapshot_ts = 0;
+
 --sorted_result
 SELECT COUNT(*) FROM t1;
 
@@ -398,27 +411,35 @@ DROP TABLE t1;
 # (basically, it needs semicolon before and after)
 CREATE TABLE t1 (
   a bigint(20) UNSIGNED NOT NULL,
-  PRIMARY KEY (a)
+  b int,
+  PRIMARY KEY (a,b)
 ) ENGINE=rocksdb
 COMMENT='asdadfasdfsadfadf ;ttl_duration=1; asfasdfasdfadfa';
-INSERT INTO t1 values (UNIX_TIMESTAMP());
+INSERT INTO t1 values (UNIX_TIMESTAMP(), 1);
 SELECT COUNT(*) FROM t1;
 
---real_sleep 3
+set global rocksdb_debug_ttl_snapshot_ts = 3600;
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='default';
+set global rocksdb_debug_ttl_snapshot_ts = 0;
 
 SELECT COUNT(*) FROM t1;
 
 ALTER TABLE t1 COMMENT = 'adsf;;ttl_duration=5;asfasdfa;ttl_col=a;asdfasdf;';
-INSERT INTO t1 values (UNIX_TIMESTAMP());
+
+set global rocksdb_debug_ttl_rec_ts = 300;
+INSERT INTO t1 values (UNIX_TIMESTAMP(), 2);
+set global rocksdb_debug_ttl_rec_ts = 0;
 set global rocksdb_force_flush_memtable_now=1;
 
---real_sleep 1
+# nothing removed here
 set global rocksdb_compact_cf='default';
 SELECT COUNT(*) FROM t1;
---real_sleep 5
+
+# all removed here
+set global rocksdb_debug_ttl_snapshot_ts = 3600;
 set global rocksdb_compact_cf='default';
+set global rocksdb_debug_ttl_snapshot_ts = 0;
 SELECT COUNT(*) FROM t1;
 
 DROP TABLE t1;
@@ -430,12 +451,14 @@ CREATE TABLE t1 (
 ) ENGINE=rocksdb
 COMMENT='ttl_duration=5;';
 
+set global rocksdb_debug_ttl_rec_ts = -300;
 INSERT INTO t1 values (1);
 INSERT INTO t1 values (3);
 INSERT INTO t1 values (5);
---real_sleep 6
+set global rocksdb_debug_ttl_rec_ts = 300;
 INSERT INTO t1 values (7);
 INSERT INTO t1 values (9);
+set global rocksdb_debug_ttl_rec_ts = 0;
 
 UPDATE t1 SET a=a+1;
 --sorted_result
@@ -444,6 +467,7 @@ SELECT * FROM t1;
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='default';
 
+# 1,3,5 should be dropped
 --sorted_result
 SELECT * FROM t1;
 DROP TABLE t1;
@@ -456,19 +480,23 @@ CREATE TABLE t1 (
 ) ENGINE=rocksdb
 COMMENT='ttl_duration=5;ttl_col=b;';
 
+set global rocksdb_debug_ttl_rec_ts = -300;
 INSERT INTO t1 values (1, UNIX_TIMESTAMP());
 INSERT INTO t1 values (3, UNIX_TIMESTAMP());
 INSERT INTO t1 values (5, UNIX_TIMESTAMP());
 INSERT INTO t1 values (7, UNIX_TIMESTAMP());
---real_sleep 5
 
+set global rocksdb_debug_ttl_rec_ts = 300;
 UPDATE t1 SET b=UNIX_TIMESTAMP() WHERE a < 4;
+set global rocksdb_debug_ttl_rec_ts = 0;
+
 --sorted_result
 SELECT a FROM t1;
 
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='default';
 
+# 5 and 7 should be gone here
 --sorted_result
 SELECT a FROM t1;
 DROP TABLE t1;
@@ -480,11 +508,12 @@ CREATE TABLE t1 (
 ) ENGINE=rocksdb
 COMMENT='ttl_duration=1;';
 
+set global rocksdb_debug_ttl_rec_ts = -100;
 INSERT INTO t1 values (1);
 INSERT INTO t1 values (2);
 INSERT INTO t1 values (3);
+set global rocksdb_debug_ttl_rec_ts = 0;
 
---real_sleep 3
 set global rocksdb_enable_ttl=0;
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='default';
@@ -514,10 +543,5 @@ select variable_value into @c from information_schema.global_status where variab
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='default';
 select variable_value-@c from information_schema.global_status where variable_name='rocksdb_rows_expired';
+
 DROP TABLE t1;
-
-SET @@global.rocksdb_update_cf_options = 'default={disable_auto_compactions=false;};';
-SET @@global.rocksdb_update_cf_options = '';
-
-
-
