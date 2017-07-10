@@ -1,0 +1,4 @@
+--let $VARIABLE_NAME = max_slowlog_size
+--let $VARIABLE_BLOCK_SIZE = 4096
+--let $VARIABLE_MAX_VALUE = 1073741824
+--source suite/sys_vars/inc/check_global_integer.inc
