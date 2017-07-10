@@ -1695,6 +1695,7 @@ public:
     if (s.IsDeadlock()) {
       my_core::thd_mark_transaction_to_rollback(thd,
                                                 false /* just statement */);
+      m_detailed_error = String();
       return HA_ERR_LOCK_DEADLOCK;
     } else if (s.IsBusy()) {
       rocksdb_snapshot_conflict_errors++;
