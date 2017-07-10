@@ -1,0 +1,38 @@
+#
+# Bug 1416582: Slow query log is rotated before it should
+#              when using max_slowlog_size
+#
+
+SET @old_max_slowlog_size = @@global.max_slowlog_size;
+SET @old_slow_query_log = @@global.slow_query_log;
+SET @old_slow_query_log_file = @@global.slow_query_log_file;
+SET @old_long_query_time = @@long_query_time;
+SET GLOBAL max_slowlog_size=10240000;
+SET long_query_time=0;
+
+--replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
+eval SET GLOBAL slow_query_log_file='$MYSQLTEST_VARDIR/abcd';
+
+# start/stop slog log should not cause log number increment
+SET GLOBAL slow_query_log=1;
+SET GLOBAL slow_query_log=0;
+SET GLOBAL slow_query_log=1;
+SET GLOBAL slow_query_log=0;
+SET GLOBAL slow_query_log=1;
+
+# FLUSH LOGS should not cause log number increment
+FLUSH LOGS;
+FLUSH LOGS;
+FLUSH LOGS;
+
+--echo slow query log files count:
+perl;
+my @files = <$ENV{'MYSQLTEST_VARDIR'}/abcd*>;
+printf "%d\n", scalar(@files);
+EOF
+
+
+SET @@global.max_slowlog_size = @old_max_slowlog_size;
+SET @@global.slow_query_log = @old_slow_query_log;
+SET @@global.slow_query_log_file = @old_slow_query_log_file;
+SET @@long_query_time = @old_long_query_time;

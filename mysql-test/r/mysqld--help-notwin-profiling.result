@@ -589,6 +589,15 @@ The following options may be given as the first argument:
  --max-seeks-for-key=# 
  Limit assumed max number of seeks when looking up rows
  based on a key
+ --max-slowlog-files=# 
+ Maximum number of slow query log files. Used with
+ --max-slowlog-size this can be used to limit the total
+ amount of disk space used for the slow query log. Default
+ is 0, don't limit.
+ --max-slowlog-size=# 
+ Slow query log will be rotated automatically when the
+ size exceeds this value. The default is 0, don't limit
+ the size.
  --max-sort-length=# The number of bytes to use when sorting BLOB or TEXT
  values (only the first max_sort_length bytes of each
  value are used; the rest are ignored)
@@ -1906,6 +1915,8 @@ max-prepared-stmt-count 16382
 max-relay-log-size 0
 max-running-queries 0
 max-seeks-for-key 18446744073709551615
+max-slowlog-files 0
+max-slowlog-size 0
 max-sort-length 1024
 max-sp-recursion-depth 0
 max-tmp-tables 32

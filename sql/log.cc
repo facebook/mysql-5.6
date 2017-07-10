@@ -193,6 +193,8 @@ protected:
 static General_log_table_intact glt_intact;
 
 LOGGER logger;
+ulong max_slowlog_size;
+ulong max_slowlog_files;
 
 static bool test_if_number(const char *str,
 			   ulong *res, bool allow_wildcards);
@@ -1465,13 +1467,13 @@ static void setup_windows_event_source()
     nonzero if not possible to get unique filename.
 */
 
-static int find_uniq_filename(char *name)
+static int find_uniq_filename(char *name, ulong *next, bool need_next)
 {
   uint                  i;
   char                  buff[FN_REFLEN], ext_buf[FN_REFLEN];
   struct st_my_dir     *dir_info;
   reg1 struct fileinfo *file_info;
-  ulong                 max_found= 0, next= 0, number= 0;
+  ulong                 max_found= 0, number= 0;
   size_t		buf_length, length;
   char			*start, *end;
   int                   error= 0;
@@ -1511,8 +1513,8 @@ updating the index files.", max_found);
     goto end;
   }
 
-  next= max_found + 1;
-  if (sprintf(ext_buf, "%06lu", next)<0)
+  *next= (need_next || max_found == 0) ? max_found + 1 : max_found;
+  if (sprintf(ext_buf, "%06lu", *next)<0)
   {
     error= 1;
     goto end;
@@ -1533,17 +1535,17 @@ index files.", name, ext_buf, (strlen(ext_buf) + (end - name)));
     goto end;
   }
 
-  if (sprintf(end, "%06lu", next)<0)
+  if (sprintf(end, "%06lu", *next)<0)
   {
     error= 1;
     goto end;
   }
 
   /* print warning if reaching the end of available extensions. */
-  if ((next > (MAX_LOG_UNIQUE_FN_EXT - LOG_WARN_UNIQUE_FN_EXT_LEFT)))
+  if ((*next > (MAX_LOG_UNIQUE_FN_EXT - LOG_WARN_UNIQUE_FN_EXT_LEFT)))
     sql_print_warning("Next log extension: %lu. \
 Remaining log filename extensions: %lu. \
-Please consider archiving some logs.", next, (MAX_LOG_UNIQUE_FN_EXT - next));
+Please consider archiving some logs.", *next, (MAX_LOG_UNIQUE_FN_EXT - *next));
 
 end:
   DBUG_RETURN(error);
@@ -1796,7 +1798,7 @@ err:
 
 MYSQL_LOG::MYSQL_LOG()
   : name(0), write_error(FALSE), inited(FALSE), log_type(LOG_UNKNOWN),
-    log_state(LOG_CLOSED)
+    log_state(LOG_CLOSED), cur_log_ext(-1)
 #ifdef HAVE_PSI_INTERFACE
   , m_key_LOCK_log(key_LOG_LOCK_log)
 #endif
@@ -1880,11 +1882,11 @@ void MYSQL_LOG::cleanup()
 int MYSQL_LOG::generate_new_name(char *new_name, const char *log_name)
 {
   fn_format(new_name, log_name, mysql_data_home, "", 4);
-  if (log_type == LOG_BIN)
+  if (log_type == LOG_BIN || max_slowlog_size > 0)
   {
     if (!fn_ext(log_name)[0])
     {
-      if (find_uniq_filename(new_name))
+      if (find_uniq_filename(new_name, &cur_log_ext, log_type == LOG_BIN))
       {
         my_printf_error(ER_NO_UNIQUE_LOGFILE, ER(ER_NO_UNIQUE_LOGFILE),
                         MYF(ME_FATALERROR), log_name);
@@ -1894,6 +1896,27 @@ int MYSQL_LOG::generate_new_name(char *new_name, const char *log_name)
     }
   }
   return 0;
+}
+
+int MYSQL_LOG::purge_up_to(ulong to_ext, const char *log_name)
+{
+  char buff[FN_REFLEN];
+  int error= 0;
+
+  DBUG_ENTER("MYSQL_LOG::purge_up_to");
+
+  do {
+    snprintf(buff, sizeof(buff), "%s.%06lu", name, to_ext);
+    if ((error= unlink(buff)))
+    {
+      if (my_errno == ENOENT)
+        error= 0;
+      break;
+    }
+    --to_ext;
+  } while (to_ext > 0);
+
+  DBUG_RETURN(error);
 }
 
 
@@ -2080,6 +2103,7 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
                             struct system_status_var *query_start)
 {
   bool error= 0;
+  bool need_purge= false;
   char buff[80] = "";
   char start_time_buff[80] = "";
   char end_time_buff[80] = "";
@@ -2164,6 +2188,9 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
   {						// Safety agains reopen
     int tmp_errno= 0;
     char *end = buff;
+
+    if (max_slowlog_size > 0)
+      error= rotate(max_slowlog_size, &need_purge);
 
     if (!(specialflag & SPECIAL_SHORT_LOG_FORMAT))
     {
@@ -2373,10 +2400,99 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
       }
     }
   }
+  ulong save_cur_ext = cur_log_ext;
   mysql_mutex_unlock(&LOCK_log);
+
+  if (max_slowlog_files && need_purge && !error)
+  {
+    error= purge_up_to(save_cur_ext > max_slowlog_files ?
+                       save_cur_ext - max_slowlog_files : 0,
+                       log_file_name);
+  }
   DBUG_RETURN(error);
 }
 
+
+int MYSQL_QUERY_LOG::rotate(ulong max_size, bool *need_purge)
+{
+  int error;
+  DBUG_ENTER("MYSQL_QUERY_LOG::rotate");
+
+  *need_purge= false;
+  if (my_b_tell(&log_file) > max_size)
+  {
+    if ((error= new_file()))
+      DBUG_RETURN(error);
+
+    *need_purge= true;
+  }
+
+  DBUG_RETURN(0);
+}
+
+int MYSQL_QUERY_LOG::new_file()
+{
+  int error= 0, close_on_error= FALSE;
+  char new_name[FN_REFLEN], *old_name;
+
+  DBUG_ENTER("MYSQL_QUERY_LOG::new_file");
+  if (!is_open())
+  {
+    DBUG_PRINT("info",("log is closed"));
+    DBUG_RETURN(error);
+  }
+
+  mysql_mutex_assert_owner(&LOCK_log);
+
+  if (cur_log_ext == (ulong)-1)
+  {
+    strcpy(new_name, name);
+    if ((error= generate_new_name(new_name, name)))
+      goto end;
+  }
+  else
+  {
+    if (cur_log_ext == MAX_LOG_UNIQUE_FN_EXT)
+    {
+      error= 1;
+      goto end;
+    }
+    snprintf(new_name, sizeof(new_name), "%s.%06lu", name, ++cur_log_ext);
+  }
+
+  /*
+    close will try to free name and zero name pointer,
+    We saving current name value and zeroing the pointer to
+    prvent it.
+  */
+  old_name= name;
+  name= NULL;
+  close(LOG_CLOSE_TO_BE_OPENED);
+  name= old_name;
+
+  error= open(
+#ifdef HAVE_PSI_INTERFACE
+                key_file_query_log,
+#endif
+                name,
+                LOG_NORMAL, new_name, WRITE_CACHE);
+
+  my_free(old_name);
+
+end:
+
+  if (error && close_on_error /* rotate or reopen failed */)
+  {
+    sql_print_error("Could not open %s for logging (error %d). "
+                     "Turning logging off for the whole duration "
+                     "of the MySQL server process. To turn it on "
+                     "again: fix the cause, shutdown the MySQL "
+                     "server and restart it.",
+                     new_name, errno);
+  }
+
+  DBUG_RETURN(error);
+}
 
 /**
   @todo

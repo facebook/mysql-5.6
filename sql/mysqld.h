@@ -344,6 +344,8 @@ extern bool opt_using_transactions;
 extern ulong max_long_data_size;
 extern ulong current_pid;
 extern ulong expire_logs_days;
+extern ulong max_slowlog_size;
+extern ulong max_slowlog_files;
 extern my_bool relay_log_recovery;
 extern ulong binlog_expire_logs_seconds;
 extern uint sync_binlog_period, sync_relaylog_period,
