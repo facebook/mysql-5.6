@@ -297,12 +297,14 @@ public:
   volatile enum_log_state log_state;
   enum cache_type io_cache_type;
   friend class Log_event;
+  ulong cur_log_ext;
 #ifdef HAVE_PSI_INTERFACE
   /** Instrumentation key to use for file io in @c log_file */
   PSI_file_key m_log_file_key;
   /** The instrumentation key to use for @ LOCK_log. */
   PSI_mutex_key m_key_LOCK_log;
 #endif
+  int purge_up_to(ulong to_ext, const char *log_name);
 };
 
 
@@ -380,6 +382,8 @@ public:
                 generate_name(log_name, "-gaplock.log", 0, buf),
                 LOG_UNKNOWN, 0, WRITE_CACHE);
   }
+  int rotate(ulong max_size, bool *need_purge);
+  int new_file();
 
 private:
   time_t last_time;

@@ -1,0 +1,18 @@
+#
+# Test max_slowlog_size
+#
+
+SET @old = @@global.max_slowlog_size;
+SET GLOBAL max_slowlog_size = 0;
+SELECT @@global.max_slowlog_size;
+SET GLOBAL max_slowlog_size = 4096;
+SELECT @@global.max_slowlog_size;
+SET GLOBAL max_slowlog_size = 1000;
+SELECT @@global.max_slowlog_size;
+SET GLOBAL max_slowlog_size = -1;
+SELECT @@global.max_slowlog_size;
+SET GLOBAL max_slowlog_size = 1024*1024*1024;
+SELECT @@global.max_slowlog_size;
+SET GLOBAL max_slowlog_size = 1024*1024*1024+1;
+SELECT @@global.max_slowlog_size;
+SET @@global.max_slowlog_size = @old;

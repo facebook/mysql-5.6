@@ -1,0 +1,18 @@
+#
+# Test max_slowlog_files
+#
+
+SET @old = @@global.max_slowlog_files;
+SET GLOBAL max_slowlog_files = 0;
+SELECT @@global.max_slowlog_files;
+SET GLOBAL max_slowlog_files = 4096;
+SELECT @@global.max_slowlog_files;
+SET GLOBAL max_slowlog_files = 1000;
+SELECT @@global.max_slowlog_files;
+SET GLOBAL max_slowlog_files = -1;
+SELECT @@global.max_slowlog_files;
+SET GLOBAL max_slowlog_files = 102400;
+SELECT @@global.max_slowlog_files;
+SET GLOBAL max_slowlog_files = 102401;
+SELECT @@global.max_slowlog_files;
+SET @@global.max_slowlog_files = @old;
