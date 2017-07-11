@@ -1,0 +1,18 @@
+create table t (a int not null primary key) engine=rocksdb;
+begin;
+insert into t values (0);
+connect  con1,localhost,root,,;
+connection con1;
+set @@rocksdb_lock_wait_timeout=1;
+begin;
+insert into t values(0);
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on index: test.t.PRIMARY
+select INNODB_ROW_LOCK_WAIT_TIMEOUTS from information_schema.table_statistics where table_engine="ROCKSDB" and table_name="t";
+INNODB_ROW_LOCK_WAIT_TIMEOUTS
+1
+select INNODB_ROW_LOCK_WAIT_TIMEOUTS from information_schema.table_statistics where table_engine="ROCKSDB" and table_name="t";
+INNODB_ROW_LOCK_WAIT_TIMEOUTS
+1
+disconnect con1;
+connection default;
+drop table t;
