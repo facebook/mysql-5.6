@@ -344,6 +344,7 @@ fil_update_table_stats_one_cell(
 	int*		n_lock_wait_arr, /*!< in: buf for n_lock_wait stats */
 	int*		n_lock_wait_timeout_arr, /*!< in: buffer for
 						   n_lock_wait_timeout_stats */
+        int*            n_deadlock_arr, /*!< in: buffer for deadlock stats */
 	ulint		max_per_cell,	/*!< in: size of buffers */
 	void		(*cb)(const char* db,
 				const char* tbl,
@@ -357,6 +358,7 @@ fil_update_table_stats_one_cell(
 				comp_stats_t* comp_stats,
 				int n_lock_wait,
 				int n_lock_wait_timeout,
+                                int n_deadlock,
 				const char* engine),
 	char*		db_name_buf,	/*!< in: buffer for db names */
 	char*		table_name_buf,	/*!< in: buffer for table names */
@@ -395,6 +397,7 @@ fil_update_table_stats_one_cell(
 			n_lock_wait_arr[found] = space->stats.n_lock_wait;
 			n_lock_wait_timeout_arr[found] =
 				space->stats.n_lock_wait_timeout;
+                        n_deadlock_arr[found]=space->stats.n_deadlock;
 
 			strcpy(&(db_name_buf[found * (FN_LEN+1)]),
 				space->db_name);
@@ -424,6 +427,7 @@ fil_update_table_stats_one_cell(
 			 &(comp_stats_arr[report]),
 			 n_lock_wait_arr[report],
 			 n_lock_wait_timeout_arr[report],
+                         n_deadlock_arr[report],
 			 "InnoDB");
 	}
 }
@@ -447,6 +451,7 @@ fil_update_table_stats(
 			comp_stats_t* comp_stats,
 			int n_lock_wait,
 			int n_lock_wait_timeout,
+                        int n_deadlock,
 			const char* engine))
 {
 	ulint		n_cells;
@@ -461,6 +466,7 @@ fil_update_table_stats(
 	comp_stats_t*	comp_stats_arr;
 	int*		n_lock_wait_arr;
 	int*		n_lock_wait_timeout_arr;
+	int*		n_deadlock_arr;
 	char*		db_name_buf;
 	char*		table_name_buf;
 	bool*		is_partition;
@@ -541,10 +547,11 @@ fil_update_table_stats(
 	is_partition = (bool*) ut_malloc(sizeof(bool) * max_per_cell);
 	n_lock_wait_arr = (int*) ut_malloc(sizeof(int) * max_per_cell);
 	n_lock_wait_timeout_arr = (int*) ut_malloc(sizeof(int) * max_per_cell);
+	n_deadlock_arr = (int*) ut_malloc(sizeof(int) * max_per_cell);
 
 	if (!read_arr || !write_arr || !read_arr_blob || !comp_stats_arr ||
 			!table_name_buf || !db_name_buf || !is_partition ||
-			!n_lock_wait_arr || !n_lock_wait_timeout_arr) {
+			!n_lock_wait_arr || !n_lock_wait_timeout_arr || !n_deadlock_arr) {
 
 		mutex_enter(&fil_system->mutex);
 		in_progress = FALSE;
@@ -574,6 +581,8 @@ fil_update_table_stats(
 			ut_free(n_lock_wait_arr);
 		if (n_lock_wait_timeout_arr)
 			ut_free(n_lock_wait_timeout_arr);
+		if (n_deadlock_arr)
+			ut_free(n_deadlock_arr);
 
 		sql_print_error("Memory allocation failure in table stats.");
 		return;
@@ -587,6 +596,7 @@ fil_update_table_stats(
 			read_arr_primary, read_arr_secondary, page_stats_arr,
 			comp_stats_arr, n_lock_wait_arr,
 			n_lock_wait_timeout_arr,
+			n_deadlock_arr,
 			max_per_cell, cb, db_name_buf,
 			table_name_buf, is_partition);
 	}
@@ -603,6 +613,7 @@ fil_update_table_stats(
 	ut_free(is_partition);
 	ut_free(n_lock_wait_arr);
 	ut_free(n_lock_wait_timeout_arr);
+	ut_free(n_deadlock_arr);
 
 	/* Invoke the callback for doublewrite buffer IO */
 	cb("sys:innodb" /* schema */,
@@ -617,6 +628,7 @@ fil_update_table_stats(
 		 &comp_stats_doublewrite,
 		 0, /* n_lock_wait */
 		 0, /* n_lock_wait_timeout */
+                 0, /* n_deadlock */
 		 "InnoDB");
 
 	mutex_enter(&fil_system->mutex);
