@@ -440,8 +440,8 @@ void fill_table_stats_cb(const char *db,
 
   copy_comp_stats_with_races(&stats->comp_stats, comp_stats);
 
-  stats->n_lock_wait.inc(n_lock_wait);
-  stats->n_lock_wait_timeout.inc(n_lock_wait_timeout);
+  stats->n_lock_wait.set_maybe(n_lock_wait);
+  stats->n_lock_wait_timeout.set_maybe(n_lock_wait_timeout);
 }
 
 int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)

@@ -3455,7 +3455,6 @@ static void rocksdb_update_table_stats(
     io_perf_read.bytes = table_handler->m_io_perf_read.bytes.load();
     io_perf_read.requests = table_handler->m_io_perf_read.requests.load();
     lock_wait_timeout_stats = table_handler->m_lock_wait_timeout_counter.load();
-    table_handler->m_lock_wait_timeout_counter.clear();
 
     /*
       Convert from rocksdb timer to mysql timer. RocksDB values are
