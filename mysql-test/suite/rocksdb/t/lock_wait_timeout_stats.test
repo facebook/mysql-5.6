@@ -1,6 +1,3 @@
---source include/have_rocksdb.inc
-
---enable_connect_log
 create table t (a int not null primary key) engine=rocksdb;
 
 begin;
@@ -31,7 +28,7 @@ select INNODB_ROW_LOCK_WAIT_TIMEOUTS from information_schema.table_statistics wh
 select INNODB_ROW_LOCK_WAIT_TIMEOUTS from information_schema.table_statistics where table_name="t";
 
 --disconnect con1
---disconnect con2
 --connection default
+--disconnect con2
 drop table t;
 --source include/wait_until_count_sessions.inc
