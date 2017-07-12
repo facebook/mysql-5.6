@@ -288,6 +288,7 @@ struct Rdb_table_handler {
   uint m_table_name_length;
   int m_ref_count;
   atomic_stat<int> m_lock_wait_timeout_counter;
+  atomic_stat<int> m_deadlock_counter;
 
   my_core::THR_LOCK m_thr_lock; ///< MySQL latch needed by m_db_lock
 

@@ -1698,6 +1698,7 @@ public:
       my_core::thd_mark_transaction_to_rollback(thd,
                                                 false /* just statement */);
       m_detailed_error = String();
+      table_handler->m_deadlock_counter.inc();
       return HA_ERR_LOCK_DEADLOCK;
     } else if (s.IsBusy()) {
       rocksdb_snapshot_conflict_errors++;
@@ -1710,6 +1711,7 @@ public:
                           user_host_buff, thd->query());
       }
       m_detailed_error = String(" (snapshot conflict)", system_charset_info);
+      table_handler->m_deadlock_counter.inc();
       return HA_ERR_LOCK_DEADLOCK;
     }
 
@@ -3407,12 +3409,13 @@ static void rocksdb_update_table_stats(
                my_io_perf_t *r, my_io_perf_t *w, my_io_perf_t *r_blob,
                my_io_perf_t *r_primary, my_io_perf_t *r_secondary,
                page_stats_t *page_stats, comp_stats_t *comp_stats,
-               int n_lock_wait, int n_lock_wait_timeout, const char *engine)) {
+               int n_lock_wait, int n_lock_wait_timeout, int n_deadlock, const char *engine)) {
   my_io_perf_t io_perf_read;
   my_io_perf_t io_perf;
   page_stats_t page_stats;
   comp_stats_t comp_stats;
   uint lock_wait_timeout_stats;
+  uint deadlock_stats;
   std::vector<std::string> tablenames;
 
   /*
@@ -3455,6 +3458,7 @@ static void rocksdb_update_table_stats(
     io_perf_read.bytes = table_handler->m_io_perf_read.bytes.load();
     io_perf_read.requests = table_handler->m_io_perf_read.requests.load();
     lock_wait_timeout_stats = table_handler->m_lock_wait_timeout_counter.load();
+    deadlock_stats = table_handler->m_deadlock_counter.load();
 
     /*
       Convert from rocksdb timer to mysql timer. RocksDB values are
@@ -3482,7 +3486,7 @@ static void rocksdb_update_table_stats(
                                    sizeof(tablename_sys));
     (*cb)(dbname_sys, tablename_sys, is_partition, &io_perf_read, &io_perf,
           &io_perf, &io_perf, &io_perf, &page_stats, &comp_stats, 0,
-          lock_wait_timeout_stats, rocksdb_hton_name);
+          lock_wait_timeout_stats, deadlock_stats, rocksdb_hton_name);
   }
 }
 
