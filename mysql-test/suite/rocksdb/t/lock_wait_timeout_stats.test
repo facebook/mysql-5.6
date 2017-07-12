@@ -1,10 +1,5 @@
 --source include/have_rocksdb.inc
 
-#
-## MyRocks-specific tests for locking
-#
-#--source include/have_debug.inc
-
 --enable_connect_log
 create table t (a int not null primary key) engine=rocksdb;
 
@@ -15,12 +10,28 @@ insert into t values (0);
 --connect (con1,localhost,root,,)
 --connection con1
 set @@rocksdb_lock_wait_timeout=1;
+select INNODB_ROW_LOCK_WAIT_TIMEOUTS from information_schema.table_statistics where table_name="t";
 begin;
+
+--connect (con2,localhost,root,,)
+--connection con2
+set @@rocksdb_lock_wait_timeout=1;
+begin;
+
+--connection con1
 --error ER_LOCK_WAIT_TIMEOUT
 insert into t values(0);
-select INNODB_ROW_LOCK_WAIT_TIMEOUTS from information_schema.table_statistics where table_engine="ROCKSDB" and table_name="t";
-select INNODB_ROW_LOCK_WAIT_TIMEOUTS from information_schema.table_statistics where table_engine="ROCKSDB" and table_name="t";
+select INNODB_ROW_LOCK_WAIT_TIMEOUTS from information_schema.table_statistics where table_name="t";
+select INNODB_ROW_LOCK_WAIT_TIMEOUTS from information_schema.table_statistics where table_name="t";
+
+--connection con2
+--error ER_LOCK_WAIT_TIMEOUT
+insert into t values(0);
+select INNODB_ROW_LOCK_WAIT_TIMEOUTS from information_schema.table_statistics where table_name="t";
+select INNODB_ROW_LOCK_WAIT_TIMEOUTS from information_schema.table_statistics where table_name="t";
+
 --disconnect con1
+--disconnect con2
 --connection default
 drop table t;
 --source include/wait_until_count_sessions.inc
