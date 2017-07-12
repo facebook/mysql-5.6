@@ -284,18 +284,12 @@ extern ST_FIELD_INFO table_stats_fields_info[];
 extern ST_FIELD_INFO index_stats_fields_info[];
 int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond);
 int fill_index_stats(THD *thd, TABLE_LIST *tables, Item *cond);
-typedef void (*table_stats_cb)(const char *db, const char *table,
-			       bool is_partition,
-			       my_io_perf_t* r, my_io_perf_t* w,
-			       my_io_perf_t *r_blob,
-			       my_io_perf_t *r_primary,
-			       my_io_perf_t *r_secondary,
-			       page_stats_t* page_stats,
-			       comp_stats_t* comp_stats,
-			       int n_lock_wait,
-			       int n_lock_wait_timeout,
-                               int n_deadlock,
-			       const char *engine);
+typedef void (*table_stats_cb)(
+    const char *db, const char *table, bool is_partition, my_io_perf_t *r,
+    my_io_perf_t *w, my_io_perf_t *r_blob, my_io_perf_t *r_primary,
+    my_io_perf_t *r_secondary, page_stats_t *page_stats,
+    comp_stats_t *comp_stats, int n_lock_wait, int n_lock_wait_timeout,
+    int n_deadlock, const char *engine);
 
 /* For information_schema.db_statistics */
 void update_global_db_stats_access(unsigned char db_stats_index,

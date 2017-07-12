@@ -327,313 +327,275 @@ fil_write(
 
 /****************************************************************//**
 Invokes table stats callback for all entries in one cell. */
-static void
-fil_update_table_stats_one_cell(
-/*============================*/
-	ulint		cell_number,	/*!< in: cell to report */
-	my_io_perf_t*	read_arr,	/*!< in: buffer for read stats */
-	my_io_perf_t*	write_arr,	/*!< in: buffer for write stats */
-	my_io_perf_t*	read_arr_blob,	/*!< in: buf for read stats for blob */
-	my_io_perf_t*	read_arr_primary,  /*!< in: buffer for read stats for
-                                              primary index */
-	my_io_perf_t*	read_arr_secondary, /*!< in: buffer for read stats for
-                                              secondary index */
-	page_stats_t*	page_stats_arr, /*< in: buf for 'per page type' stats */
-	comp_stats_t*	comp_stats_arr, /*!< in: buffer for compression stats */
+static void fil_update_table_stats_one_cell(
+    /*============================*/
+    ulint cell_number,                /*!< in: cell to report */
+    my_io_perf_t *read_arr,           /*!< in: buffer for read stats */
+    my_io_perf_t *write_arr,          /*!< in: buffer for write stats */
+    my_io_perf_t *read_arr_blob,      /*!< in: buf for read stats for blob */
+    my_io_perf_t *read_arr_primary,   /*!< in: buffer for read stats for
+                                         primary index */
+    my_io_perf_t *read_arr_secondary, /*!< in: buffer for read stats for
+                                        secondary index */
+    page_stats_t *page_stats_arr,     /*< in: buf for 'per page type' stats */
+    comp_stats_t *comp_stats_arr,     /*!< in: buffer for compression stats */
 
-	int*		n_lock_wait_arr, /*!< in: buf for n_lock_wait stats */
-	int*		n_lock_wait_timeout_arr, /*!< in: buffer for
-						   n_lock_wait_timeout_stats */
-        int*            n_deadlock_arr, /*!< in: buffer for deadlock stats */
-	ulint		max_per_cell,	/*!< in: size of buffers */
-	void		(*cb)(const char* db,
-				const char* tbl,
-				bool is_partition,
-				my_io_perf_t *r,
-				my_io_perf_t *w,
-				my_io_perf_t *r_blob,
-				my_io_perf_t *r_primary,
-				my_io_perf_t *r_secondary,
-				page_stats_t* page_stats,
-				comp_stats_t* comp_stats,
-				int n_lock_wait,
-				int n_lock_wait_timeout,
-                                int n_deadlock,
-				const char* engine),
-	char*		db_name_buf,	/*!< in: buffer for db names */
-	char*		table_name_buf,	/*!< in: buffer for table names */
-	bool*		is_partition)	/*!< in: buffer for partition flag */
+    int *n_lock_wait_arr,         /*!< in: buf for n_lock_wait stats */
+    int *n_lock_wait_timeout_arr, /*!< in: buffer for
+                                    n_lock_wait_timeout_stats */
+    int *n_deadlock_arr,          /*!< in: buffer for deadlock stats */
+    ulint max_per_cell,           /*!< in: size of buffers */
+    void (*cb)(const char *db, const char *tbl, bool is_partition,
+               my_io_perf_t *r, my_io_perf_t *w, my_io_perf_t *r_blob,
+               my_io_perf_t *r_primary, my_io_perf_t *r_secondary,
+               page_stats_t *page_stats, comp_stats_t *comp_stats,
+               int n_lock_wait, int n_lock_wait_timeout, int n_deadlock,
+               const char *engine),
+    char *db_name_buf,    /*!< in: buffer for db names */
+    char *table_name_buf, /*!< in: buffer for table names */
+    bool *is_partition)   /*!< in: buffer for partition flag */
 {
-	ulint		n_cells;
-	hash_cell_t*	cell;
-	fil_space_t*	space;
-	ulint		found = 0;
-	ulint		report = 0;
+  ulint n_cells;
+  hash_cell_t *cell;
+  fil_space_t *space;
+  ulint found = 0;
+  ulint report = 0;
 
-	mutex_enter(&fil_system->mutex);
-	n_cells = hash_get_n_cells(fil_system->spaces);
+  mutex_enter(&fil_system->mutex);
+  n_cells = hash_get_n_cells(fil_system->spaces);
 
-	if ((cell_number + 1) > n_cells) {
-		mutex_exit(&fil_system->mutex);
-		return;
-	}
+  if ((cell_number + 1) > n_cells) {
+    mutex_exit(&fil_system->mutex);
+    return;
+  }
 
-	cell = hash_get_nth_cell(fil_system->spaces, cell_number);
-	space = static_cast<fil_space_t*>(cell->node);
+  cell = hash_get_nth_cell(fil_system->spaces, cell_number);
+  space = static_cast<fil_space_t *>(cell->node);
 
-	/* Copy out all entries for which stats must be reported */
+  /* Copy out all entries for which stats must be reported */
 
-	while (space && found < max_per_cell) {
-		if (space->stats.used) {
-			if (!space->is_partition)
-				space->stats.used = FALSE;
-			read_arr[found] = space->io_perf2.read;
-			write_arr[found] = space->io_perf2.write;
-			read_arr_blob[found] = space->io_perf2.read_blob;
-			read_arr_primary[found] = space->io_perf2.read_primary;
-			read_arr_secondary[found] = space->io_perf2.read_secondary;
-			page_stats_arr[found] = space->io_perf2.page_stats;
-			comp_stats_arr[found] = space->stats.comp_stats;
-			n_lock_wait_arr[found] = space->stats.n_lock_wait;
-			n_lock_wait_timeout_arr[found] =
-				space->stats.n_lock_wait_timeout;
-                        n_deadlock_arr[found]=space->stats.n_deadlock;
+  while (space && found < max_per_cell) {
+    if (space->stats.used) {
+      if (!space->is_partition)
+        space->stats.used = FALSE;
+      read_arr[found] = space->io_perf2.read;
+      write_arr[found] = space->io_perf2.write;
+      read_arr_blob[found] = space->io_perf2.read_blob;
+      read_arr_primary[found] = space->io_perf2.read_primary;
+      read_arr_secondary[found] = space->io_perf2.read_secondary;
+      page_stats_arr[found] = space->io_perf2.page_stats;
+      comp_stats_arr[found] = space->stats.comp_stats;
+      n_lock_wait_arr[found] = space->stats.n_lock_wait;
+      n_lock_wait_timeout_arr[found] = space->stats.n_lock_wait_timeout;
+      n_deadlock_arr[found] = space->stats.n_deadlock;
 
-			strcpy(&(db_name_buf[found * (FN_LEN+1)]),
-				space->db_name);
-			strcpy(&(table_name_buf[found * (FN_LEN+1)]),
-				space->table_name);
-			is_partition[found] = space->is_partition;
-			found++;
-		}
+      strcpy(&(db_name_buf[found * (FN_LEN + 1)]), space->db_name);
+      strcpy(&(table_name_buf[found * (FN_LEN + 1)]), space->table_name);
+      is_partition[found] = space->is_partition;
+      found++;
+    }
 
-		space = static_cast<fil_space_t*>(HASH_GET_NEXT(hash, space));
-	}
+    space = static_cast<fil_space_t *>(HASH_GET_NEXT(hash, space));
+  }
 
-	mutex_exit(&fil_system->mutex);
+  mutex_exit(&fil_system->mutex);
 
-	/* Invoke callback after releasing mutex */
+  /* Invoke callback after releasing mutex */
 
-	for (; report < found; ++report) {
-		cb(&(db_name_buf[report * (FN_LEN+1)]),
-			 &(table_name_buf[report * (FN_LEN+1)]),
-			 is_partition[report],
-			 &(read_arr[report]),
-			 &(write_arr[report]),
-			 &(read_arr_blob[report]),
-			 &(read_arr_primary[report]),
-			 &(read_arr_secondary[report]),
-			 &(page_stats_arr[report]),
-			 &(comp_stats_arr[report]),
-			 n_lock_wait_arr[report],
-			 n_lock_wait_timeout_arr[report],
-                         n_deadlock_arr[report],
-			 "InnoDB");
-	}
+  for (; report < found; ++report) {
+    cb(&(db_name_buf[report * (FN_LEN + 1)]),
+       &(table_name_buf[report * (FN_LEN + 1)]), is_partition[report],
+       &(read_arr[report]), &(write_arr[report]), &(read_arr_blob[report]),
+       &(read_arr_primary[report]), &(read_arr_secondary[report]),
+       &(page_stats_arr[report]), &(comp_stats_arr[report]),
+       n_lock_wait_arr[report], n_lock_wait_timeout_arr[report],
+       n_deadlock_arr[report], "InnoDB");
+  }
 }
 
 /****************************************************************//**
 Update stats with per-table data from InnoDB tables. */
 UNIV_INTERN
-void
-fil_update_table_stats(
-/*===================*/
-	/* per-table stats callback */
-	void (*cb)(const char* db,
-			const char* tbl,
-			bool is_partition,
-			my_io_perf_t *r,
-			my_io_perf_t *w,
-			my_io_perf_t *r_blob,
-			my_io_perf_t *r_primary,
-			my_io_perf_t *r_secondary,
-			page_stats_t *page_stats,
-			comp_stats_t* comp_stats,
-			int n_lock_wait,
-			int n_lock_wait_timeout,
-                        int n_deadlock,
-			const char* engine))
-{
-	ulint		n_cells;
-	ulint		n;
-	ulint		max_per_cell = 0;
-	my_io_perf_t*	read_arr;
-	my_io_perf_t*	write_arr;
-	my_io_perf_t*	read_arr_blob;
-	my_io_perf_t*	read_arr_primary;
-	my_io_perf_t*	read_arr_secondary;
-	page_stats_t*	page_stats_arr;
-	comp_stats_t*	comp_stats_arr;
-	int*		n_lock_wait_arr;
-	int*		n_lock_wait_timeout_arr;
-	int*		n_deadlock_arr;
-	char*		db_name_buf;
-	char*		table_name_buf;
-	bool*		is_partition;
-	static ibool	in_progress = FALSE;
+void fil_update_table_stats(
+    /*===================*/
+    /* per-table stats callback */
+    void (*cb)(const char *db, const char *tbl, bool is_partition,
+               my_io_perf_t *r, my_io_perf_t *w, my_io_perf_t *r_blob,
+               my_io_perf_t *r_primary, my_io_perf_t *r_secondary,
+               page_stats_t *page_stats, comp_stats_t *comp_stats,
+               int n_lock_wait, int n_lock_wait_timeout, int n_deadlock,
+               const char *engine)) {
+  ulint n_cells;
+  ulint n;
+  ulint max_per_cell = 0;
+  my_io_perf_t *read_arr;
+  my_io_perf_t *write_arr;
+  my_io_perf_t *read_arr_blob;
+  my_io_perf_t *read_arr_primary;
+  my_io_perf_t *read_arr_secondary;
+  page_stats_t *page_stats_arr;
+  comp_stats_t *comp_stats_arr;
+  int *n_lock_wait_arr;
+  int *n_lock_wait_timeout_arr;
+  int *n_deadlock_arr;
+  char *db_name_buf;
+  char *table_name_buf;
+  bool *is_partition;
+  static ibool in_progress = FALSE;
 
-	/* This invokes the callback to report table stats for all
-	tablespaces with the assumption that file-per-table is used.
-	If it is not used, then the callback consumer assigns all
-	load per tablespace to the first table in the tablespace.
+  /* This invokes the callback to report table stats for all
+  tablespaces with the assumption that file-per-table is used.
+  If it is not used, then the callback consumer assigns all
+  load per tablespace to the first table in the tablespace.
 
-	The code below figures out the max number of entries per
-	cell that might have data to be reported, allocates memory
-	and then calls fil_update_table_stats_one_cell to make
-	one pass over the hash table per cell and copy out data
-	for all entries per pass. This locks the fil_system mutex
-	once per pass. The mutex is not locked when the callback
-	is invoked.
+  The code below figures out the max number of entries per
+  cell that might have data to be reported, allocates memory
+  and then calls fil_update_table_stats_one_cell to make
+  one pass over the hash table per cell and copy out data
+  for all entries per pass. This locks the fil_system mutex
+  once per pass. The mutex is not locked when the callback
+  is invoked.
 
-	To avoid allocating memory per cell the alternative is an O(N*N)
-	iteration of the hash table. I prefer not to do that. */
+  To avoid allocating memory per cell the alternative is an O(N*N)
+  iteration of the hash table. I prefer not to do that. */
 
-	mutex_enter(&fil_system->mutex);
+  mutex_enter(&fil_system->mutex);
 
-	if (in_progress) {
-		/* Return rather than wait. No need for complexity */
-		mutex_exit(&fil_system->mutex);
-		return;
-	}
+  if (in_progress) {
+    /* Return rather than wait. No need for complexity */
+    mutex_exit(&fil_system->mutex);
+    return;
+  }
 
-	in_progress = TRUE;
+  in_progress = TRUE;
 
-	n_cells = hash_get_n_cells(fil_system->spaces);
+  n_cells = hash_get_n_cells(fil_system->spaces);
 
-	/* First figure out the max number of entries per cell
-	for which data is to be reported. */
+  /* First figure out the max number of entries per cell
+  for which data is to be reported. */
 
-	for (n = 0; n < n_cells; ++n) {
-		ulint		per_cell = 0;
-		hash_cell_t*	cell = hash_get_nth_cell(fil_system->spaces, n);
-		fil_space_t*	space = static_cast<fil_space_t*>(cell->node);
+  for (n = 0; n < n_cells; ++n) {
+    ulint per_cell = 0;
+    hash_cell_t *cell = hash_get_nth_cell(fil_system->spaces, n);
+    fil_space_t *space = static_cast<fil_space_t *>(cell->node);
 
-		while (space) {
-			if (space->stats.used)
-				++per_cell;
+    while (space) {
+      if (space->stats.used)
+        ++per_cell;
 
-			space = static_cast<fil_space_t*>(HASH_GET_NEXT(hash, space));
-		}
+      space = static_cast<fil_space_t *>(HASH_GET_NEXT(hash, space));
+    }
 
-		if (per_cell > max_per_cell)
-			max_per_cell = per_cell;
-	}
+    if (per_cell > max_per_cell)
+      max_per_cell = per_cell;
+  }
 
-	mutex_exit(&fil_system->mutex);
+  mutex_exit(&fil_system->mutex);
 
-	if (!max_per_cell) {
-		mutex_enter(&fil_system->mutex);
-		in_progress = FALSE;
-		mutex_exit(&fil_system->mutex);
-		return;
-	}
+  if (!max_per_cell) {
+    mutex_enter(&fil_system->mutex);
+    in_progress = FALSE;
+    mutex_exit(&fil_system->mutex);
+    return;
+  }
 
-	/* Then allocate memory for the max */
+  /* Then allocate memory for the max */
 
-	read_arr = (my_io_perf_t*) ut_malloc(sizeof(my_io_perf_t) * max_per_cell);
-	write_arr = (my_io_perf_t*) ut_malloc(sizeof(my_io_perf_t) * max_per_cell);
-	read_arr_blob = (my_io_perf_t*) ut_malloc(
-				sizeof(my_io_perf_t) * max_per_cell);
-	read_arr_primary = (my_io_perf_t*) ut_malloc(
-				sizeof(my_io_perf_t) * max_per_cell);
-	read_arr_secondary = (my_io_perf_t*) ut_malloc(
-				sizeof(my_io_perf_t) * max_per_cell);
-	page_stats_arr = (page_stats_t*) ut_malloc(
-				sizeof(page_stats_t) * max_per_cell);
-	comp_stats_arr = (comp_stats_t*) ut_malloc(
-				sizeof(comp_stats_t) * max_per_cell);
-	db_name_buf = (char*) ut_malloc((FN_LEN+1) * max_per_cell);
-	table_name_buf = (char*) ut_malloc((FN_LEN+1) * max_per_cell);
-	is_partition = (bool*) ut_malloc(sizeof(bool) * max_per_cell);
-	n_lock_wait_arr = (int*) ut_malloc(sizeof(int) * max_per_cell);
-	n_lock_wait_timeout_arr = (int*) ut_malloc(sizeof(int) * max_per_cell);
-	n_deadlock_arr = (int*) ut_malloc(sizeof(int) * max_per_cell);
+  read_arr = (my_io_perf_t *)ut_malloc(sizeof(my_io_perf_t) * max_per_cell);
+  write_arr = (my_io_perf_t *)ut_malloc(sizeof(my_io_perf_t) * max_per_cell);
+  read_arr_blob =
+      (my_io_perf_t *)ut_malloc(sizeof(my_io_perf_t) * max_per_cell);
+  read_arr_primary =
+      (my_io_perf_t *)ut_malloc(sizeof(my_io_perf_t) * max_per_cell);
+  read_arr_secondary =
+      (my_io_perf_t *)ut_malloc(sizeof(my_io_perf_t) * max_per_cell);
+  page_stats_arr =
+      (page_stats_t *)ut_malloc(sizeof(page_stats_t) * max_per_cell);
+  comp_stats_arr =
+      (comp_stats_t *)ut_malloc(sizeof(comp_stats_t) * max_per_cell);
+  db_name_buf = (char *)ut_malloc((FN_LEN + 1) * max_per_cell);
+  table_name_buf = (char *)ut_malloc((FN_LEN + 1) * max_per_cell);
+  is_partition = (bool *)ut_malloc(sizeof(bool) * max_per_cell);
+  n_lock_wait_arr = (int *)ut_malloc(sizeof(int) * max_per_cell);
+  n_lock_wait_timeout_arr = (int *)ut_malloc(sizeof(int) * max_per_cell);
+  n_deadlock_arr = (int *)ut_malloc(sizeof(int) * max_per_cell);
 
-	if (!read_arr || !write_arr || !read_arr_blob || !comp_stats_arr ||
-			!table_name_buf || !db_name_buf || !is_partition ||
-			!n_lock_wait_arr || !n_lock_wait_timeout_arr || !n_deadlock_arr) {
+  if (!read_arr || !write_arr || !read_arr_blob || !comp_stats_arr ||
+      !table_name_buf || !db_name_buf || !is_partition || !n_lock_wait_arr ||
+      !n_lock_wait_timeout_arr || !n_deadlock_arr) {
 
-		mutex_enter(&fil_system->mutex);
-		in_progress = FALSE;
-		mutex_exit(&fil_system->mutex);
+    mutex_enter(&fil_system->mutex);
+    in_progress = FALSE;
+    mutex_exit(&fil_system->mutex);
 
-		if (read_arr)
-			ut_free(read_arr);
-		if (write_arr)
-			ut_free(write_arr);
-		if (read_arr_blob)
-			ut_free(read_arr_blob);
-		if (read_arr_primary)
-			ut_free(read_arr_primary);
-		if (read_arr_secondary)
-			ut_free(read_arr_secondary);
-		if (page_stats_arr)
-			ut_free(page_stats_arr);
-		if (comp_stats_arr)
-			ut_free(comp_stats_arr);
-		if (db_name_buf)
-			ut_free(db_name_buf);
-		if (table_name_buf)
-			ut_free(table_name_buf);
-		if (is_partition)
-			ut_free(is_partition);
-		if (n_lock_wait_arr)
-			ut_free(n_lock_wait_arr);
-		if (n_lock_wait_timeout_arr)
-			ut_free(n_lock_wait_timeout_arr);
-		if (n_deadlock_arr)
-			ut_free(n_deadlock_arr);
+    if (read_arr)
+      ut_free(read_arr);
+    if (write_arr)
+      ut_free(write_arr);
+    if (read_arr_blob)
+      ut_free(read_arr_blob);
+    if (read_arr_primary)
+      ut_free(read_arr_primary);
+    if (read_arr_secondary)
+      ut_free(read_arr_secondary);
+    if (page_stats_arr)
+      ut_free(page_stats_arr);
+    if (comp_stats_arr)
+      ut_free(comp_stats_arr);
+    if (db_name_buf)
+      ut_free(db_name_buf);
+    if (table_name_buf)
+      ut_free(table_name_buf);
+    if (is_partition)
+      ut_free(is_partition);
+    if (n_lock_wait_arr)
+      ut_free(n_lock_wait_arr);
+    if (n_lock_wait_timeout_arr)
+      ut_free(n_lock_wait_timeout_arr);
+    if (n_deadlock_arr)
+      ut_free(n_deadlock_arr);
 
-		sql_print_error("Memory allocation failure in table stats.");
-		return;
-	}
+    sql_print_error("Memory allocation failure in table stats.");
+    return;
+  }
 
-	/* Then copy out the valid data one cell at a time */
+  /* Then copy out the valid data one cell at a time */
 
-	for (n = 0; n < n_cells; ++n) {
-		fil_update_table_stats_one_cell(
-			n, read_arr, write_arr, read_arr_blob,
-			read_arr_primary, read_arr_secondary, page_stats_arr,
-			comp_stats_arr, n_lock_wait_arr,
-			n_lock_wait_timeout_arr,
-			n_deadlock_arr,
-			max_per_cell, cb, db_name_buf,
-			table_name_buf, is_partition);
-	}
+  for (n = 0; n < n_cells; ++n) {
+    fil_update_table_stats_one_cell(
+        n, read_arr, write_arr, read_arr_blob, read_arr_primary,
+        read_arr_secondary, page_stats_arr, comp_stats_arr, n_lock_wait_arr,
+        n_lock_wait_timeout_arr, n_deadlock_arr, max_per_cell, cb, db_name_buf,
+        table_name_buf, is_partition);
+  }
 
-	ut_free(read_arr);
-	ut_free(write_arr);
-	ut_free(read_arr_blob);
-	ut_free(read_arr_primary);
-	ut_free(read_arr_secondary);
-	ut_free(page_stats_arr);
-	ut_free(comp_stats_arr);
-	ut_free(table_name_buf);
-	ut_free(db_name_buf);
-	ut_free(is_partition);
-	ut_free(n_lock_wait_arr);
-	ut_free(n_lock_wait_timeout_arr);
-	ut_free(n_deadlock_arr);
+  ut_free(read_arr);
+  ut_free(write_arr);
+  ut_free(read_arr_blob);
+  ut_free(read_arr_primary);
+  ut_free(read_arr_secondary);
+  ut_free(page_stats_arr);
+  ut_free(comp_stats_arr);
+  ut_free(table_name_buf);
+  ut_free(db_name_buf);
+  ut_free(is_partition);
+  ut_free(n_lock_wait_arr);
+  ut_free(n_lock_wait_timeout_arr);
+  ut_free(n_deadlock_arr);
 
-	/* Invoke the callback for doublewrite buffer IO */
-	cb("sys:innodb" /* schema */,
-		 "doublewrite" /* table */,
-		 false,
-		 &io_perf_doublewrite.read,
-		 &io_perf_doublewrite.write,
-		 &io_perf_doublewrite.read_blob,
-		 &io_perf_doublewrite.read_primary,
-		 &io_perf_doublewrite.read_secondary,
-		 &io_perf_doublewrite.page_stats,
-		 &comp_stats_doublewrite,
-		 0, /* n_lock_wait */
-		 0, /* n_lock_wait_timeout */
-                 0, /* n_deadlock */
-		 "InnoDB");
+  /* Invoke the callback for doublewrite buffer IO */
+  cb("sys:innodb" /* schema */, "doublewrite" /* table */, false,
+     &io_perf_doublewrite.read, &io_perf_doublewrite.write,
+     &io_perf_doublewrite.read_blob, &io_perf_doublewrite.read_primary,
+     &io_perf_doublewrite.read_secondary, &io_perf_doublewrite.page_stats,
+     &comp_stats_doublewrite, 0, /* n_lock_wait */
+     0,                          /* n_lock_wait_timeout */
+     0,                          /* n_deadlock */
+     "InnoDB");
 
-	mutex_enter(&fil_system->mutex);
-	in_progress = FALSE;
-	mutex_exit(&fil_system->mutex);
+  mutex_enter(&fil_system->mutex);
+  in_progress = FALSE;
+  mutex_exit(&fil_system->mutex);
 }
 
 /*******************************************************************//**

@@ -263,8 +263,8 @@ typedef struct fil_stats_struct {
 	int		n_lock_wait;	/*!< number of row lock wait */
 	int		n_lock_wait_timeout;	/*!< number of row lock
 					wait timeout */
-	int		n_deadlock;	/*!< number of deadlocks */
-	ibool		used;		/*!< cleared by fil_update_table_stats
+        int n_deadlock;                         /*!< number of deadlocks */
+        ibool		used;		/*!< cleared by fil_update_table_stats
 					and set by fil_io */
 	ulint		magic_n;	/*!< FIL_STATS_MAGIC_N */
 	unsigned char db_stats_index;
@@ -1047,16 +1047,15 @@ fil_space_get_n_reserved_extents(
 /****************************************************************//**
 Update stats with per-table data from InnoDB tables. */
 UNIV_INTERN
-void
-fil_update_table_stats(
-/*===================*/
-	/* per-table stats callback */
-	void (*cb)(const char* db, const char* tbl, bool is_partition,
-		   my_io_perf_t *r, my_io_perf_t *w, my_io_perf_t *r_blob,
-		   my_io_perf_t *r_primary, my_io_perf_t *r_secondary,
-		   page_stats_t *page_stats, comp_stats_t *comp_stats,
-		   int n_lock_wait, int n_lock_wait_timeout, int n_deadlock,
-		   const char* engine));
+void fil_update_table_stats(
+    /*===================*/
+    /* per-table stats callback */
+    void (*cb)(const char *db, const char *tbl, bool is_partition,
+               my_io_perf_t *r, my_io_perf_t *w, my_io_perf_t *r_blob,
+               my_io_perf_t *r_primary, my_io_perf_t *r_secondary,
+               page_stats_t *page_stats, comp_stats_t *comp_stats,
+               int n_lock_wait, int n_lock_wait_timeout, int n_deadlock,
+               const char *engine));
 
 /********************************************************************//**
 Reads or writes data. This operation is asynchronous (aio).
