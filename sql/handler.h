@@ -993,20 +993,15 @@ struct handlerton
                                     const char *table_name,
                                     bool is_sql_layer_system_table);
 
-  void (*update_table_stats)(void (*cb)(const char *db, const char *tbl,
-                                        bool is_partition,
-                                        my_io_perf_t *r, my_io_perf_t *w,
-                                        my_io_perf_t *r_blob,
-                                        my_io_perf_t *r_primary,
-                                        my_io_perf_t *r_secondary,
-                                        page_stats_t* page_stats,
-                                        comp_stats_t* comp_stats,
-                                        int n_lock_wait,
-                                        int n_lock_wait_timeout,
-                                        const char *engine));
+  void (*update_table_stats)(void (*cb)(
+      const char *db, const char *tbl, bool is_partition, my_io_perf_t *r,
+      my_io_perf_t *w, my_io_perf_t *r_blob, my_io_perf_t *r_primary,
+      my_io_perf_t *r_secondary, page_stats_t *page_stats,
+      comp_stats_t *comp_stats, int n_lock_wait, int n_lock_wait_timeout,
+      int n_deadlock, const char *engine));
 
-   uint32 license; /* Flag for Engine License */
-   void *data; /* Location for engines to keep personal structures */
+  uint32 license; /* Flag for Engine License */
+  void *data;     /* Location for engines to keep personal structures */
 };
 
 
@@ -3650,18 +3645,12 @@ int ha_delete_table(THD *thd, handlerton *db_type, const char *path,
 bool ha_show_status(THD *thd, handlerton *db_type, enum ha_stat_type stat);
 
 /* Get updated table statistics from all engines */
-void ha_get_table_stats(void (*cb)(const char* db, const char* tbl,
-                                   bool is_partition,
-                                   my_io_perf_t* r, my_io_perf_t* w,
-                                   my_io_perf_t* r_blob,
-                                   my_io_perf_t* r_primary,
-                                   my_io_perf_t* r_secondary,
-                                   page_stats_t* page_stats,
-                                   comp_stats_t* comp_stats,
-                                   int n_lock_wait,
-                                   int n_lock_wait_timeout,
-                                   const char* engine));
-
+void ha_get_table_stats(void (*cb)(
+    const char *db, const char *tbl, bool is_partition, my_io_perf_t *r,
+    my_io_perf_t *w, my_io_perf_t *r_blob, my_io_perf_t *r_primary,
+    my_io_perf_t *r_secondary, page_stats_t *page_stats,
+    comp_stats_t *comp_stats, int n_lock_wait, int n_lock_wait_timeout,
+    int n_deadlock, const char *engine));
 
 /* discovery */
 int ha_create_table_from_engine(THD* thd, const char *db, const char *name);

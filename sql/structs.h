@@ -446,6 +446,8 @@ typedef struct st_table_stats {
   atomic_stat<int> n_lock_wait;         /* Number of lock waits */
   atomic_stat<int> n_lock_wait_timeout; /* Number of lock wait timeouts */
 
+  atomic_stat<int> n_deadlock; /* Number of deadlocks */
+
   bool should_update; /* Set for partitioned tables so later partitions will
                          increment the perf stats. Clear after collecting
                          table stats. */

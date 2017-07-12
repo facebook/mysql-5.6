@@ -1515,17 +1515,15 @@ innobase_file_format_validate_and_set(
 
 /****************************************************************//**
 Update stats with per-table data from InnoDB tables. */
-static
-void
-innobase_update_table_stats(
-/*===============*/
-	/* per-table stats callback */
-	void (*cb)(const char* db, const char* tbl, bool is_partition,
-		   my_io_perf_t* r, my_io_perf_t* w, my_io_perf_t* r_blob,
-		   my_io_perf_t* r_primary, my_io_perf_t* r_secondary,
-		   page_stats_t* page_stats, comp_stats_t* comp_stats,
-		   int n_lock_wait, int n_lock_wait_timeout,
-		   const char* engine));
+static void innobase_update_table_stats(
+    /*===============*/
+    /* per-table stats callback */
+    void (*cb)(const char *db, const char *tbl, bool is_partition,
+               my_io_perf_t *r, my_io_perf_t *w, my_io_perf_t *r_blob,
+               my_io_perf_t *r_primary, my_io_perf_t *r_secondary,
+               page_stats_t *page_stats, comp_stats_t *comp_stats,
+               int n_lock_wait, int n_lock_wait_timeout, int n_deadlock,
+               const char *engine));
 
 /*******************************************************************//**
 This function is used to prepare an X/Open XA distributed transaction.
@@ -4339,19 +4337,16 @@ innobase_flush_logs(
 
 /****************************************************************//**
 Update stats with per-table data from InnoDB tables. */
-static
-void
-innobase_update_table_stats(
-/*===============*/
-	/* per-table stats callback */
-	void (*cb)(const char* db, const char* tbl, bool is_partition,
-		   my_io_perf_t* r, my_io_perf_t* w, my_io_perf_t* r_blob,
-		   my_io_perf_t* r_primary, my_io_perf_t* r_secondary,
-		   page_stats_t *page_stats, comp_stats_t *comp_stats,
-		   int n_lock_wait, int n_lock_wait_timeout,
-		   const char* engine))
-{
-	fil_update_table_stats(cb);
+static void innobase_update_table_stats(
+    /*===============*/
+    /* per-table stats callback */
+    void (*cb)(const char *db, const char *tbl, bool is_partition,
+               my_io_perf_t *r, my_io_perf_t *w, my_io_perf_t *r_blob,
+               my_io_perf_t *r_primary, my_io_perf_t *r_secondary,
+               page_stats_t *page_stats, comp_stats_t *comp_stats,
+               int n_lock_wait, int n_lock_wait_timeout, int n_deadlock,
+               const char *engine)) {
+  fil_update_table_stats(cb);
 }
 
 /*****************************************************************//**
