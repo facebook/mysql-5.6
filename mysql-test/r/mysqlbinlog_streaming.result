@@ -25,13 +25,6 @@ ERROR: Failed to read binary log master-bin.100001, error 1236
 set @@global.max_connections=@save_max_connections;
 
 --- Binlog Dump should not exist after killing mysqlbinlog and reaching heartbeat_period ---
-SELECT COUNT(*) FROM information_schema.processlist WHERE command like '%Binlog Dump%';
-COUNT(*)
-10
-
---- mbl_multi_kill.sh completed ---
-
---- Finished Binlog Dump wait ---
 
 --- Auto-reconnecting mysqlbinlog ---
 CREATE TABLE t1 (a INT) ENGINE=InnoDB;
