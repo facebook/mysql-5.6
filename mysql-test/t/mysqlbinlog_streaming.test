@@ -125,30 +125,34 @@ let $wait_condition= SELECT COUNT(*) = 0 FROM information_schema.processlist WHE
 select "--- Binlog Dump should not exist after killing mysqlbinlog and reaching heartbeat_period ---" as "";
 --enable_query_log
 
---write_file $MYSQL_TMP_DIR/mbl_multi_startup.sh
+--write_file $MYSQL_TMP_DIR/mbl_multi_kill.sh
 #!/bin/bash
 pids=()
 # invoking 10 mysqlbinlog clients. After 5 seconds, kill half of them with SIGTERM and the rest of them with SIGKILL.
 # in both cases, mysqlbinlog should exit and after heartbeat_period, binlog dump threads should disappear.
 for i in `seq 1 10`
 do
-$MYSQL_BINLOG $mysqlbinlog_reconnect_options --stop-never-slave-server-id=$i master-bin.000001 > /dev/null 2>$MYSQL_TMP_DIR/semisync$i.err &
+$MYSQL_BINLOG $mysqlbinlog_reconnect_options --stop-never-slave-server-id=$i master-bin.000001 > $MYSQL_TMP_DIR/semisync$i.err 2>&1 &
 p=$!
-echo $p >> $MYSQL_TMP_DIR/mbl_multi_pids
+pids=("${pids[@]}" $p)
 done
-EOF
---chmod 0755 $MYSQL_TMP_DIR/mbl_multi_startup.sh
---exec $MYSQL_TMP_DIR/mbl_multi_startup.sh
 
 # long enough sleep seconds than heartbeat_period, so that master can kill zombie binlog dump threads
---sleep 10
-SELECT COUNT(*) FROM information_schema.processlist WHERE command like '%Binlog Dump%';
+sleep 10
 
---write_file $MYSQL_TMP_DIR/mbl_multi_kill.sh
-#!/bin/bash
 # The number of Binlog Dump threads should be 10
 while :
 do
+  # Check if all mysqlbinlog processes are still alive.
+  for ((i=0; i<${#pids[@]}; ++i))
+  do
+    if ! ps -p ${pids[$i]} > /dev/null; then
+      wait ${pids[$i]}
+      echo "Exit code: $?"
+      cat $MYSQL_TMP_DIR/semisync$i.err
+    fi
+  done
+
   COUNT=`$MYSQL --user=root --host=127.0.0.1 --port=$MASTER_MYPORT -e "SELECT COUNT(*) FROM information_schema.processlist WHERE command like '%Binlog Dump%'\G" 2>> $MYSQL_TMP_DIR/mbl_multi_kill.log | grep COUNT | awk {'print $2'}`
   if [ "$COUNT" = 10 ]; then
     break
@@ -157,35 +161,25 @@ do
   fi
 done
 
-i=0
-while read p
+for ((i=0; i<${#pids[@]}; ++i))
 do
 n=$((i%2))
-i=$((i+1))
 if test $n -eq 0
 then
-  kill -TERM $p
+  kill -TERM ${pids[$i]}
 fi
 if test $n -eq 1
 then
-  kill -KILL $p
+  kill -KILL ${pids[$i]}
 fi
-done < $MYSQL_TMP_DIR/mbl_multi_pids
+done
 EOF
 --chmod 0755 $MYSQL_TMP_DIR/mbl_multi_kill.sh
 --exec $MYSQL_TMP_DIR/mbl_multi_kill.sh
 
---disable_query_log
-select "--- mbl_multi_kill.sh completed ---" as "";
---enable_query_log
-
 # if explicitly killing mysqlbinlog, they do not reconnect
 let $wait_condition= SELECT COUNT(*) = 0 FROM information_schema.processlist WHERE command like '%Binlog Dump%';
 --source include/wait_condition.inc
-
---disable_query_log
-select "--- Finished Binlog Dump wait ---" as "";
---enable_query_log
 
 --write_file $MYSQL_TMP_DIR/mbl.sh
 #!/bin/bash
