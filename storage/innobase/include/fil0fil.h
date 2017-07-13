@@ -1365,6 +1365,15 @@ fil_change_lock_wait_timeout_count(
 	int	amount);	/* in: amount by which the count changes */
 
 /*************************************************************************
+Changes count of pages on the lock wait timeout for this space. Will lock/unlock
+fil_system->mutex */
+void
+fil_change_deadlock_count(
+/*=================*/
+	ulint	space,		/* in: tablespace id for which count changes */
+	int	amount);	/* in: amount by which the count changes */
+
+/*************************************************************************
 Print tablespace data for SHOW INNODB STATUS. */
 void
 fil_print(

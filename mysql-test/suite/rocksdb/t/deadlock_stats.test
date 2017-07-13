@@ -1,11 +1,7 @@
---source include/have_rocksdb.inc
-
---enable_connect_log
-
 CREATE TABLE t1 (
                    id int primary key, 
                      value int
-                ) engine=rocksdb collate latin1_bin;
+                ) engine=rocksdb;
 insert into t1 values (1,1),(2,2),(3,3),(4,4),(5,5),(6,6),(7,7),(8,8),(9,9),(10,10);
 
 --source include/count_sessions.inc
@@ -20,6 +16,7 @@ BEGIN;
 SELECT * FROM t1 WHERE id=3;
 
 --connection default
+SELECT INNODB_DEADLOCKS from information_schema.table_statistics where table_name="t1";
 BEGIN;
 UPDATE t1 SET value=30 WHERE id=3;
 COMMIT;
@@ -27,8 +24,6 @@ COMMIT;
 --connection con1
 --error ER_LOCK_DEADLOCK
 SELECT * FROM t1 WHERE id=3 FOR UPDATE;
-SELECT INNODB_DEADLOCKS from information_schema.table_statistics where table_name="t1";
-SELECT INNODB_DEADLOCKS from information_schema.table_statistics where table_name="t1";
 SELECT INNODB_DEADLOCKS from information_schema.table_statistics where table_name="t1";
 --error ER_LOCK_DEADLOCK
 SELECT * FROM t1 WHERE id=3 FOR UPDATE;
@@ -42,7 +37,7 @@ SELECT INNODB_DEADLOCKS from information_schema.table_statistics where table_nam
 
 ROLLBACK;
 --disconnect con1
---disconnect con2
 --connection default
+--disconnect con2
 drop table t1;
 --source include/wait_until_count_sessions.inc

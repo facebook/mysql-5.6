@@ -7426,6 +7426,28 @@ fil_change_lock_wait_timeout_count(
 }
 
 /*************************************************************************
+Changes count of lock wait timeout on a row for this space. Will lock/unlock
+fil_system->mutex */
+void
+fil_change_deadlock_count(
+/*=================*/
+	ulint	id,	/* in: tablespace id for which count changes */
+	int	amount)	/* in: amount by which the count changes */
+{
+	fil_stats_t*	stats;
+	ib_mutex_t*	stats_mutex;
+
+	stats = fil_get_stats_lock_mutex_by_id(id, &stats_mutex);
+
+	if (stats) {
+		stats->used = TRUE;
+		stats->n_deadlock += amount;
+	}
+
+	mutex_exit(stats_mutex);
+}
+
+/*************************************************************************
 Print tablespace data for SHOW INNODB STATUS. */
 void
 fil_print(
