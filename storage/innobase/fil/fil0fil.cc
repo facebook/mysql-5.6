@@ -551,7 +551,8 @@ fil_update_table_stats(
 
 	if (!read_arr || !write_arr || !read_arr_blob || !comp_stats_arr ||
 			!table_name_buf || !db_name_buf || !is_partition ||
-			!n_lock_wait_arr || !n_lock_wait_timeout_arr || !n_deadlock_arr) {
+			!n_lock_wait_arr || !n_lock_wait_timeout_arr ||
+			!n_deadlock_arr) {
 
 		mutex_enter(&fil_system->mutex);
 		in_progress = FALSE;
