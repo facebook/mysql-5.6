@@ -629,7 +629,7 @@ fil_update_table_stats(
 		 &comp_stats_doublewrite,
 		 0, /* n_lock_wait */
 		 0, /* n_lock_wait_timeout */
-                 0, /* n_deadlock */
+		 0, /* n_deadlock */
 		 "InnoDB");
 
 	mutex_enter(&fil_system->mutex);
