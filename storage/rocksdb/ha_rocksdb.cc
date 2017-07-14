@@ -8182,10 +8182,14 @@ int ha_rocksdb::update_pk(const Rdb_key_def &kd,
   const uint key_id = kd.get_keyno();
   const bool hidden_pk = is_hidden_pk(key_id, table, m_tbl_def);
 
-  if (!hidden_pk && pk_changed) {
-    /*
-      The old key needs to be deleted.
-    */
+  /*
+    If the PK has changed, or if this PK uses single deletes and this is an
+    update, the old key needs to be deleted. In the single delete case, it
+    might be possible to have this sequence of keys: PUT(X), PUT(X), SD(X),
+    resulting in the first PUT(X) showing up.
+  */
+  if (!hidden_pk && (pk_changed || ((row_info.old_pk_slice.size() > 0) &&
+                                    can_use_single_delete(key_id)))) {
     const rocksdb::Status s = delete_or_singledelete(
         key_id, row_info.tx, kd.get_cf(), row_info.old_pk_slice);
     if (!s.ok()) {
