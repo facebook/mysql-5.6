@@ -7427,7 +7427,7 @@ fil_change_lock_wait_timeout_count(
 }
 
 /*************************************************************************
-Changes count of lock wait timeout on a row for this space. Will lock/unlock
+Changes count of deadlocks on a row for this space. Will lock/unlock
 fil_system->mutex */
 void
 fil_change_deadlock_count(
