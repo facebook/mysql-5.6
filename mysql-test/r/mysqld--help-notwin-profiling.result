@@ -1177,6 +1177,10 @@ The following options may be given as the first argument:
  In case if cardinality is zero, overrides it with some
  value
  (Defaults to on; use --skip-rocksdb-debug-optimizer-no-zero-cardinality to disable.)
+ --rocksdb-debug-ttl-ignore-pk 
+ For debugging purposes only. If true, compaction
+ filtering will not occur on PK TTL data. This variable is
+ a no-op in non-debug builds.
  --rocksdb-debug-ttl-read-filter-ts=# 
  For debugging purposes only.  Overrides the TTL read
  filtering time to time + debug_ttl_read_filter_ts. A
@@ -2096,6 +2100,7 @@ rocksdb-ddl ON
 rocksdb-deadlock-detect FALSE
 rocksdb-debug-optimizer-n-rows 0
 rocksdb-debug-optimizer-no-zero-cardinality TRUE
+rocksdb-debug-ttl-ignore-pk FALSE
 rocksdb-debug-ttl-read-filter-ts 0
 rocksdb-debug-ttl-rec-ts 0
 rocksdb-debug-ttl-snapshot-ts 0
