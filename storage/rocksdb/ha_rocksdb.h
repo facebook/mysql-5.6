@@ -189,8 +189,7 @@ const char *const RDB_TTL_COL_QUALIFIER = "ttl_col";
   CPU-s and derive the values from there. This however has its own set of
   problems and we'll choose simplicity for now.
 */
-#define MAX_BACKGROUND_COMPACTIONS 64
-#define MAX_BACKGROUND_FLUSHES 64
+#define MAX_BACKGROUND_JOBS 64
 
 #define DEFAULT_SUBCOMPACTIONS 1
 #define MAX_SUBCOMPACTIONS 64
