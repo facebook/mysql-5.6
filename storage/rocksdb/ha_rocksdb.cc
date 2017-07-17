@@ -404,9 +404,10 @@ rocksdb_set_bulk_load(THD *thd,
                       struct st_mysql_sys_var *var MY_ATTRIBUTE((__unused__)),
                       void *var_ptr, const void *save);
 
-static void rocksdb_set_max_background_compactions(
-    THD *thd, struct st_mysql_sys_var *const var, void *const var_ptr,
-    const void *const save);
+static void rocksdb_set_max_background_jobs(THD *thd,
+                                            struct st_mysql_sys_var *const var,
+                                            void *const var_ptr,
+                                            const void *const save);
 //////////////////////////////////////////////////////////////////////////////
 // Options definitions
 //////////////////////////////////////////////////////////////////////////////
@@ -820,29 +821,13 @@ static MYSQL_SYSVAR_ULONG(
     nullptr, rocksdb_db_options->delete_obsolete_files_period_micros,
     /* min */ 0L, /* max */ LONG_MAX, 0);
 
-static MYSQL_SYSVAR_INT(base_background_compactions,
-                        rocksdb_db_options->base_background_compactions,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                        "DBOptions::base_background_compactions for RocksDB",
-                        nullptr, nullptr,
-                        rocksdb_db_options->base_background_compactions,
-                        /* min */ -1, /* max */ MAX_BACKGROUND_COMPACTIONS, 0);
-
-static MYSQL_SYSVAR_INT(max_background_compactions,
-                        rocksdb_db_options->max_background_compactions,
+static MYSQL_SYSVAR_INT(max_background_jobs,
+                        rocksdb_db_options->max_background_jobs,
                         PLUGIN_VAR_RQCMDARG,
-                        "DBOptions::max_background_compactions for RocksDB",
-                        nullptr, rocksdb_set_max_background_compactions,
-                        rocksdb_db_options->max_background_compactions,
-                        /* min */ -1, /* max */ MAX_BACKGROUND_COMPACTIONS, 0);
-
-static MYSQL_SYSVAR_INT(max_background_flushes,
-                        rocksdb_db_options->max_background_flushes,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                        "DBOptions::max_background_flushes for RocksDB",
-                        nullptr, nullptr,
-                        rocksdb_db_options->max_background_flushes,
-                        /* min */ -1, /* max */ MAX_BACKGROUND_FLUSHES, 0);
+                        "DBOptions::max_background_jobs for RocksDB", nullptr,
+                        rocksdb_set_max_background_jobs,
+                        rocksdb_db_options->max_background_jobs,
+                        /* min */ -1, /* max */ MAX_BACKGROUND_JOBS, 0);
 
 static MYSQL_SYSVAR_UINT(max_subcompactions,
                          rocksdb_db_options->max_subcompactions,
@@ -1397,9 +1382,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(persistent_cache_path),
     MYSQL_SYSVAR(persistent_cache_size_mb),
     MYSQL_SYSVAR(delete_obsolete_files_period_micros),
-    MYSQL_SYSVAR(base_background_compactions),
-    MYSQL_SYSVAR(max_background_compactions),
-    MYSQL_SYSVAR(max_background_flushes),
+    MYSQL_SYSVAR(max_background_jobs),
     MYSQL_SYSVAR(max_log_file_size),
     MYSQL_SYSVAR(max_subcompactions),
     MYSQL_SYSVAR(log_file_time_to_roll),
@@ -3766,10 +3749,6 @@ static int rocksdb_init_func(void *const p) {
   rocksdb::Options main_opts(*rocksdb_db_options,
                              cf_options_map->get_defaults());
 
-  main_opts.env->SetBackgroundThreads(main_opts.max_background_flushes,
-                                      rocksdb::Env::Priority::HIGH);
-  main_opts.env->SetBackgroundThreads(main_opts.max_background_compactions,
-                                      rocksdb::Env::Priority::LOW);
   rocksdb::TransactionDBOptions tx_db_options;
   tx_db_options.transaction_lock_timeout = 2; // 2 seconds
   tx_db_options.custom_mutex_factory = std::make_shared<Rdb_mutex_factory>();
@@ -11367,18 +11346,30 @@ void rocksdb_set_bulk_load(THD *const thd, struct st_mysql_sys_var *const var
   *static_cast<bool *>(var_ptr) = *static_cast<const bool *>(save);
 }
 
-static void rocksdb_set_max_background_compactions(
-    THD *thd, struct st_mysql_sys_var *const var, void *const var_ptr,
-    const void *const save) {
+static void rocksdb_set_max_background_jobs(THD *thd,
+                                            struct st_mysql_sys_var *const var,
+                                            void *const var_ptr,
+                                            const void *const save) {
   DBUG_ASSERT(save != nullptr);
+  DBUG_ASSERT(rocksdb_db_options != nullptr);
+  DBUG_ASSERT(rocksdb_db_options->env != nullptr);
 
   RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
 
-  rocksdb_db_options->max_background_compactions =
-      *static_cast<const int *>(save);
-  rocksdb_db_options->env->SetBackgroundThreads(
-      rocksdb_db_options->max_background_compactions,
-      rocksdb::Env::Priority::LOW);
+  const int new_val = *static_cast<const int *>(save);
+
+  if (rocksdb_db_options->max_background_jobs != new_val) {
+    rocksdb_db_options->max_background_jobs = new_val;
+    rocksdb::Status s =
+        rdb->SetDBOptions({{"max_background_jobs", std::to_string(new_val)}});
+
+    if (!s.ok()) {
+      /* NO_LINT_DEBUG */
+      sql_print_warning("MyRocks: failed to update max_background_jobs. "
+                        "Status code = %d, status = %s.",
+                        s.code(), s.ToString().c_str());
+    }
+  }
 
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
