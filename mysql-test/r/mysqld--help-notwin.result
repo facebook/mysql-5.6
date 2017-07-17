@@ -1086,8 +1086,6 @@ The following options may be given as the first argument:
  DBOptions::allow_mmap_reads for RocksDB
  --rocksdb-allow-mmap-writes 
  DBOptions::allow_mmap_writes for RocksDB
- --rocksdb-base-background-compactions=# 
- DBOptions::base_background_compactions for RocksDB
  --rocksdb-blind-delete-primary-key 
  Deleting rows by primary key lookup, without reading rows
  (Blind Deletes). Blind delete is disabled if the table
@@ -1285,10 +1283,8 @@ The following options may be given as the first argument:
  --rocksdb-master-skip-tx-api 
  Skipping holding any lock on row access. Not effective on
  slave.
- --rocksdb-max-background-compactions=# 
- DBOptions::max_background_compactions for RocksDB
- --rocksdb-max-background-flushes=# 
- DBOptions::max_background_flushes for RocksDB
+ --rocksdb-max-background-jobs=# 
+ DBOptions::max_background_jobs for RocksDB
  --rocksdb-max-log-file-size=# 
  DBOptions::max_log_file_size for RocksDB
  --rocksdb-max-manifest-file-size=# 
@@ -2052,7 +2048,6 @@ rocksdb-advise-random-on-open TRUE
 rocksdb-allow-concurrent-memtable-write FALSE
 rocksdb-allow-mmap-reads FALSE
 rocksdb-allow-mmap-writes FALSE
-rocksdb-base-background-compactions -1
 rocksdb-blind-delete-primary-key FALSE
 rocksdb-block-cache-size 536870912
 rocksdb-block-restart-interval 16
@@ -2117,8 +2112,7 @@ rocksdb-locks ON
 rocksdb-log-file-time-to-roll 0
 rocksdb-manifest-preallocation-size 4194304
 rocksdb-master-skip-tx-api FALSE
-rocksdb-max-background-compactions -1
-rocksdb-max-background-flushes -1
+rocksdb-max-background-jobs 2
 rocksdb-max-log-file-size 0
 rocksdb-max-manifest-file-size 18446744073709551615
 rocksdb-max-open-files -1
