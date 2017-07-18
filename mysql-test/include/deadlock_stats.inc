@@ -1,56 +1,55 @@
-set rocksdb_deadlock_detect=ON;
-set rocksdb_lock_wait_timeout=2;
-create table t1 (id int primary key) engine=rocksdb;
+eval $engine_deadlock_detection;
+eval $engine_lock_wait_timeout;
+eval create table t1 (id int primary key) engine=$engine;
 insert into t1 values (1),(2);
 begin;
 select * from t1 where id=1 for update;
-id
-1
-set rocksdb_deadlock_detect=ON;
-set rocksdb_lock_wait_timeout=2;
+
+--connect (con1,localhost,root,,)
+--connection con1
+eval $engine_deadlock_detection;
+eval $engine_lock_wait_timeout;
 select row_lock_deadlocks from information_schema.table_statistics where
 table_name="t1";
-row_lock_deadlocks
-0
 begin;
 select * from t1 where id=2 for update;
-id
-2
-select * from t1 where id=1 for update;
+send select * from t1 where id=1 for update;
+
+--connection default
+--error ER_LOCK_DEADLOCK
 select * from t1 where id=2 for update;
-ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
 rollback;
-id
-1
+
+--connection con1
+reap;
 commit;
+
+--connection default
+select row_lock_deadlocks from information_schema.table_statistics where
+table_name="t1"; 
 select row_lock_deadlocks from information_schema.table_statistics where
 table_name="t1";
-row_lock_deadlocks
-1
-select row_lock_deadlocks from information_schema.table_statistics where
-table_name="t1";
-row_lock_deadlocks
-1
+
 begin;
 select * from t1 where id=1 for update;
-id
-1
+
+--connection con1
 begin;
 select * from t1 where id=2 for update;
-id
-2
-select * from t1 where id=2 for update;
+
+--connection default
+send select * from t1 where id=2 for update;
+
+--connection con1
+--error ER_LOCK_DEADLOCK
 select * from t1 where id=1 for update;
-ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
 rollback;
-id
-2
+
+--connection default
+reap;
+select row_lock_deadlocks from information_schema.table_statistics where
+table_name="t1"; 
 select row_lock_deadlocks from information_schema.table_statistics where
 table_name="t1";
-row_lock_deadlocks
-2
-select row_lock_deadlocks from information_schema.table_statistics where
-table_name="t1";
-row_lock_deadlocks
-2
+disconnect con1;
 drop table t1;

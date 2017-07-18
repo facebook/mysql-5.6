@@ -1,40 +1,4 @@
-CREATE TABLE t1 ( id int primary key, value int) engine=rocksdb;
-insert into t1 values (1,1),(2,2),(3,3),(4,4),(5,5),(6,6),(7,7),(8,8),(9,9),(10,10);
-
---source include/count_sessions.inc
---connect (con1,localhost,root,,)
---connection con1
-BEGIN;
-SELECT * FROM t1 WHERE id=3;
-
---connect (con2,localhost,root,,)
---connection con2
-BEGIN;
-SELECT * FROM t1 WHERE id=3;
-
---connection default
-SELECT ROW_LOCK_DEADLOCKS from information_schema.table_statistics where table_name="t1";
-BEGIN;
-UPDATE t1 SET value=30 WHERE id=3;
-COMMIT;
-
---connection con1
---error ER_LOCK_DEADLOCK
-SELECT * FROM t1 WHERE id=3 FOR UPDATE;
-SELECT ROW_LOCK_DEADLOCKS from information_schema.table_statistics where table_name="t1";
---error ER_LOCK_DEADLOCK
-SELECT * FROM t1 WHERE id=3 FOR UPDATE;
-SELECT ROW_LOCK_DEADLOCKS from information_schema.table_statistics where table_name="t1";
-SELECT ROW_LOCK_DEADLOCKS from information_schema.table_statistics where table_name="t1";
-
---connection con2
---error ER_LOCK_DEADLOCK
-SELECT * FROM t1 WHERE id=3 FOR UPDATE;
-SELECT ROW_LOCK_DEADLOCKS from information_schema.table_statistics where table_name="t1";
-
-ROLLBACK;
---disconnect con1
---connection default
---disconnect con2
-drop table t1;
---source include/wait_until_count_sessions.inc
+let $engine=rocksdb;
+let $engine_deadlock_detection=set rocksdb_deadlock_detect=ON;
+let $engine_lock_wait_timeout=set rocksdb_lock_wait_timeout=2;
+--source include/deadlock_stats.inc
