@@ -13,7 +13,7 @@ BEGIN;
 SELECT * FROM t1 WHERE id=3;
 
 --connection default
-SELECT INNODB_DEADLOCKS from information_schema.table_statistics where table_name="t1";
+SELECT ROW_LOCK_DEADLOCKS from information_schema.table_statistics where table_name="t1";
 BEGIN;
 UPDATE t1 SET value=30 WHERE id=3;
 COMMIT;
@@ -21,16 +21,16 @@ COMMIT;
 --connection con1
 --error ER_LOCK_DEADLOCK
 SELECT * FROM t1 WHERE id=3 FOR UPDATE;
-SELECT INNODB_DEADLOCKS from information_schema.table_statistics where table_name="t1";
+SELECT ROW_LOCK_DEADLOCKS from information_schema.table_statistics where table_name="t1";
 --error ER_LOCK_DEADLOCK
 SELECT * FROM t1 WHERE id=3 FOR UPDATE;
-SELECT INNODB_DEADLOCKS from information_schema.table_statistics where table_name="t1";
-SELECT INNODB_DEADLOCKS from information_schema.table_statistics where table_name="t1";
+SELECT ROW_LOCK_DEADLOCKS from information_schema.table_statistics where table_name="t1";
+SELECT ROW_LOCK_DEADLOCKS from information_schema.table_statistics where table_name="t1";
 
 --connection con2
 --error ER_LOCK_DEADLOCK
 SELECT * FROM t1 WHERE id=3 FOR UPDATE;
-SELECT INNODB_DEADLOCKS from information_schema.table_statistics where table_name="t1";
+SELECT ROW_LOCK_DEADLOCKS from information_schema.table_statistics where table_name="t1";
 
 ROLLBACK;
 --disconnect con1

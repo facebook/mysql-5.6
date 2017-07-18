@@ -7,7 +7,7 @@ insert into t values (0);
 --connect (con1,localhost,root,,)
 --connection con1
 set @@rocksdb_lock_wait_timeout=1;
-select INNODB_ROW_LOCK_WAIT_TIMEOUTS from information_schema.table_statistics where table_name="t";
+select ROW_LOCK_WAIT_TIMEOUTS from information_schema.table_statistics where table_name="t";
 begin;
 
 --connect (con2,localhost,root,,)
@@ -18,14 +18,14 @@ begin;
 --connection con1
 --error ER_LOCK_WAIT_TIMEOUT
 insert into t values(0);
-select INNODB_ROW_LOCK_WAIT_TIMEOUTS from information_schema.table_statistics where table_name="t";
-select INNODB_ROW_LOCK_WAIT_TIMEOUTS from information_schema.table_statistics where table_name="t";
+select ROW_LOCK_WAIT_TIMEOUTS from information_schema.table_statistics where table_name="t";
+select ROW_LOCK_WAIT_TIMEOUTS from information_schema.table_statistics where table_name="t";
 
 --connection con2
 --error ER_LOCK_WAIT_TIMEOUT
 insert into t values(0);
-select INNODB_ROW_LOCK_WAIT_TIMEOUTS from information_schema.table_statistics where table_name="t";
-select INNODB_ROW_LOCK_WAIT_TIMEOUTS from information_schema.table_statistics where table_name="t";
+select ROW_LOCK_WAIT_TIMEOUTS from information_schema.table_statistics where table_name="t";
+select ROW_LOCK_WAIT_TIMEOUTS from information_schema.table_statistics where table_name="t";
 
 --disconnect con1
 --connection default

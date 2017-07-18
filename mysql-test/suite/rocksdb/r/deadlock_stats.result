@@ -1,7 +1,4 @@
-CREATE TABLE t1 (
-id int primary key, 
-value int
-) engine=rocksdb;
+CREATE TABLE t1 ( id int primary key, value int) engine=rocksdb;
 insert into t1 values (1,1),(2,2),(3,3),(4,4),(5,5),(6,6),(7,7),(8,8),(9,9),(10,10);
 BEGIN;
 SELECT * FROM t1 WHERE id=3;
@@ -11,29 +8,29 @@ BEGIN;
 SELECT * FROM t1 WHERE id=3;
 id	value
 3	3
-SELECT INNODB_DEADLOCKS from information_schema.table_statistics where table_name="t1";
-INNODB_DEADLOCKS
+SELECT ROW_LOCK_DEADLOCKS from information_schema.table_statistics where table_name="t1";
+ROW_LOCK_DEADLOCKS
 0
 BEGIN;
 UPDATE t1 SET value=30 WHERE id=3;
 COMMIT;
 SELECT * FROM t1 WHERE id=3 FOR UPDATE;
 ERROR 40001: Deadlock found when trying to get lock; try restarting transaction (snapshot conflict)
-SELECT INNODB_DEADLOCKS from information_schema.table_statistics where table_name="t1";
-INNODB_DEADLOCKS
+SELECT ROW_LOCK_DEADLOCKS from information_schema.table_statistics where table_name="t1";
+ROW_LOCK_DEADLOCKS
 1
 SELECT * FROM t1 WHERE id=3 FOR UPDATE;
 ERROR 40001: Deadlock found when trying to get lock; try restarting transaction (snapshot conflict)
-SELECT INNODB_DEADLOCKS from information_schema.table_statistics where table_name="t1";
-INNODB_DEADLOCKS
+SELECT ROW_LOCK_DEADLOCKS from information_schema.table_statistics where table_name="t1";
+ROW_LOCK_DEADLOCKS
 2
-SELECT INNODB_DEADLOCKS from information_schema.table_statistics where table_name="t1";
-INNODB_DEADLOCKS
+SELECT ROW_LOCK_DEADLOCKS from information_schema.table_statistics where table_name="t1";
+ROW_LOCK_DEADLOCKS
 2
 SELECT * FROM t1 WHERE id=3 FOR UPDATE;
 ERROR 40001: Deadlock found when trying to get lock; try restarting transaction (snapshot conflict)
-SELECT INNODB_DEADLOCKS from information_schema.table_statistics where table_name="t1";
-INNODB_DEADLOCKS
+SELECT ROW_LOCK_DEADLOCKS from information_schema.table_statistics where table_name="t1";
+ROW_LOCK_DEADLOCKS
 3
 ROLLBACK;
 drop table t1;
