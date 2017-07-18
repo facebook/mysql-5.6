@@ -60,8 +60,8 @@ commit;
 
 --echo # Cleanup
 connection default;
-SELECT INNODB_DEADLOCKS from information_schema.table_statistics where table_name="t1";
-SELECT INNODB_DEADLOCKS from information_schema.table_statistics where table_name="t1";
+SELECT ROW_LOCK_DEADLOCKS from information_schema.table_statistics where table_name="t1";
+SELECT ROW_LOCK_DEADLOCKS from information_schema.table_statistics where table_name="t1";
 disconnect con1;
 disconnect con2;
 drop table t1;
