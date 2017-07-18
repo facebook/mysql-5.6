@@ -1,4 +1,4 @@
-create table t (a int not null primary key) engine=rocksdb;
+create table t (a int primary key) engine=rocksdb;
 
 begin;
 insert into t values (0);
