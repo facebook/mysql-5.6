@@ -224,6 +224,8 @@ while($i > 1)
   dec $i;
 }
 
+connection con1;
+reap;
 disconnect con1;
 
 --echo
@@ -232,10 +234,14 @@ disconnect con1;
 
 # one connection without rpc for comparison of output
 connect (con1, localhost, root, ,db_default);
-send select sleep(3);
+send select sleep(5);
 
 # run show commands
 connection default;
+let $wait_condition = select count(*) = 1 from information_schema.processlist
+  where state = "User sleep";
+--source include/wait_condition.inc
+
 --replace_column 11 # 6 0
 --replace_regex /[1-9][0-9]*/1/
 show processlist;
@@ -367,6 +373,9 @@ query_attrs_add rpc_id $rpc_id6;
 --send SELECT GET_LOCK('my_lock', 3600)
 
 connection default;
+let $wait_condition = select count(*) = 1 from information_schema.processlist
+  where state = "User lock";
+--source include/wait_condition.inc
 --replace_result $connection_id ID
 --error 1095
 eval KILL QUERY $connection_id;

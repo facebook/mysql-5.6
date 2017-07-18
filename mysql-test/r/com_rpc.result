@@ -86,45 +86,43 @@ select 1;
 ERROR HY000: Lost connection to MySQL server during query
 select 1;
 ERROR HY000: Lost connection to MySQL server during query
+sleep(5)
+0
 
 # Case 6: Test "show processlist" commands
 
-select sleep(3);
+select sleep(5);
 show processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
 1	root	localhost	test	Query	0	init	show processlist	0	0	#	0
-1	root	localhost	db_default	Query	0	User sleep	select sleep(1)	0	0	#	1
 1	root	localhost	db_default	Query	0	User sleep	select sleep(1)	0	0	#	0
 select * from information_schema.processlist;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	SRV_ID
 1	root	localhost	test	Query	0	executing	select * from information_schema.processlist	0
-1	root	localhost	db_default	Query	0	User sleep	select sleep(1)	1
 1	root	localhost	db_default	Query	0	User sleep	select sleep(1)	0
 show transaction_list;
 Id	User	Host	db	Command	State	Statement_seconds	Transaction_seconds	Command_seconds	Read_only	Sql_log_bin	Srv_Id
 1	root	localhost	test	Query	0	#	#	#	1	1	0
-1	root	localhost	db_default	Query	0	#	#	#	1	1	1
 1	root	localhost	db_default	Query	0	#	#	#	1	1	0
 select * from information_schema.transaction_list;
 ID	USER	HOST	DB	COMMAND	STATE	STATEMENT_SECONDS	TRANSACTION_SECONDS	COMMAND_SECONDS	READ_ONLY	SQL_LOG_BIN	SRV_ID
 1	root	localhost	test	Query	0	#	#	#	1	1	0
-1	root	localhost	db_default	Query	0	#	#	#	1	1	1
 1	root	localhost	db_default	Query	0	#	#	#	1	1	0
-sleep(3)
+sleep(5)
 0
 
 # Case 7: Test "show srv_sessions" commands
 
 show srv_sessions;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Conn_Id
-1	root	localhost	db_default	Query	0	User sleep	select sleep(1)	0	0	#	1
+1	root	localhost	db_default	Sleep	0	Detached	NULL	0	1	#	0
 1	root	localhost	db_default	Sleep	0	Detached	NULL	0	0	#	0
 1	root	localhost	db_default	Sleep	0	Detached	NULL	0	0	#	0
 1	root	localhost	db_default	Sleep	0	Detached	NULL	1	1	#	0
 1	root	localhost	db_default	Sleep	0	Detached	NULL	0	0	#	0
 select * from information_schema.srv_sessions;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	CONN_ID
-1	root	localhost	db_default	Query	0	User sleep	select sleep(1)	1
+1	root	localhost	db_default	Sleep	0	Detached	NULL	0
 1	root	localhost	db_default	Sleep	0	Detached	NULL	0
 1	root	localhost	db_default	Sleep	0	Detached	NULL	0
 1	root	localhost	db_default	Sleep	0	Detached	NULL	0
