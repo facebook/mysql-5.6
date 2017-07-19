@@ -4,11 +4,11 @@ set global innodb_lock_wait_timeout = 100000;
 set global innodb_deadlock_detect = ON;
 create table t (i int primary key) engine=innodb;
 insert into t values (1), (2), (3);
-start transaction;
+begin;
 select * from t where i=1 for update;
 i
 1
-start transaction;
+begin;
 select * from t where i=2 for update;
 i
 2
@@ -27,11 +27,11 @@ select row_lock_deadlocks from information_schema.table_statistics where
 table_name = "t";
 row_lock_deadlocks
 1
-start transaction;
+begin;
 select * from t where i=1 for update;
 i
 1
-start transaction;
+begin;
 select * from t where i=2 for update;
 i
 2

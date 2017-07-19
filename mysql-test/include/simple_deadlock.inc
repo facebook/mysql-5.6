@@ -1,9 +1,9 @@
 connection con1;
-eval $engine_start_txn;
+begin;
 select * from t where i=1 for update;
 
 connection con2;
-eval $engine_start_txn;
+begin;
 select * from t where i=2 for update;
 
 connection con1;
