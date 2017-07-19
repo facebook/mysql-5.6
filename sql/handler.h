@@ -1003,7 +1003,7 @@ struct handlerton
                                         comp_stats_t* comp_stats,
                                         int n_lock_wait,
                                         int n_lock_wait_timeout,
-                                        int n_deadlock,
+                                        int n_lock_deadlock,
                                         const char *engine));
 
    uint32 license; /* Flag for Engine License */
@@ -3661,7 +3661,7 @@ void ha_get_table_stats(void (*cb)(const char* db, const char* tbl,
                                    comp_stats_t* comp_stats,
                                    int n_lock_wait,
                                    int n_lock_wait_timeout,
-                                   int n_deadlock,
+                                   int n_lock_deadlock,
                                    const char* engine));
 
 

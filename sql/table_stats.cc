@@ -63,7 +63,7 @@ clear_table_stats_counters(TABLE_STATS* table_stats)
   table_stats->comment_bytes.clear();
   table_stats->n_lock_wait.clear();
   table_stats->n_lock_wait_timeout.clear();
-  table_stats->n_deadlock.clear();
+  table_stats->n_lock_deadlock.clear();
 
   memset(&table_stats->page_stats, 0, sizeof(table_stats->page_stats));
   memset(&table_stats->comp_stats, 0, sizeof(table_stats->comp_stats));
@@ -405,7 +405,7 @@ void fill_table_stats_cb(const char *db,
                          comp_stats_t *comp_stats,
                          int n_lock_wait,
                          int n_lock_wait_timeout,
-                         int n_deadlock,
+                         int n_lock_deadlock,
                          const char *engine)
 {
   TABLE_STATS *stats;
@@ -445,7 +445,7 @@ void fill_table_stats_cb(const char *db,
 
   stats->n_lock_wait.set_maybe(n_lock_wait);
   stats->n_lock_wait_timeout.set_maybe(n_lock_wait_timeout);
-  stats->n_deadlock.set_maybe(n_deadlock);
+  stats->n_lock_deadlock.set_maybe(n_lock_deadlock);
 }
 
 int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
@@ -489,7 +489,7 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
         table_stats->page_stats.n_pages_written_blob.load() == 0 &&
         table_stats->n_lock_wait.load() == 0 &&
         table_stats->n_lock_wait_timeout.load() == 0 &&
-        table_stats->n_deadlock.load() == 0)
+        table_stats->n_lock_deadlock.load() == 0)
     {
       continue;
     }
@@ -623,7 +623,7 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 
     table->field[f++]->store(table_stats->n_lock_wait.load(), TRUE);
     table->field[f++]->store(table_stats->n_lock_wait_timeout.load(), TRUE);
-    table->field[f++]->store(table_stats->n_deadlock.load(), TRUE);
+    table->field[f++]->store(table_stats->n_lock_deadlock.load(), TRUE);
 
     table->field[f++]->store(
       table_stats->page_stats.n_pages_read.load(), TRUE);
