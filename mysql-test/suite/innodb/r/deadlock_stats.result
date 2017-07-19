@@ -2,8 +2,6 @@ set @prior_innodb_lock_wait_timeout = @@innodb_lock_wait_timeout;
 set @prior_innodb_deadlock_detect= @@innodb_deadlock_detect;
 set global innodb_lock_wait_timeout = 100000;
 set global innodb_deadlock_detect = ON;
-select row_lock_deadlocks from information_schema.table_statistics where table_name = "t";
-row_lock_deadlocks
 create table t (i int primary key) engine=innodb;
 insert into t values (1), (2), (3);
 start transaction;
@@ -14,25 +12,19 @@ start transaction;
 select * from t where i=2 for update;
 i
 2
-start transaction;
-select * from t where i=3 for update;
-i
-3
 select * from t where i=2 for update;
-select * from t where i=3 for update;
 select * from t where i=1 for update;
 ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
 rollback;
 i
-3
-rollback;
-i
 2
 rollback;
-select row_lock_deadlocks from information_schema.table_statistics where table_name = "t";
+select row_lock_deadlocks from information_schema.table_statistics where
+table_name = "t";
 row_lock_deadlocks
 1
-select row_lock_deadlocks from information_schema.table_statistics where table_name = "t";
+select row_lock_deadlocks from information_schema.table_statistics where
+table_name = "t";
 row_lock_deadlocks
 1
 start transaction;
@@ -50,10 +42,12 @@ rollback;
 i
 2
 rollback;
-select row_lock_deadlocks from information_schema.table_statistics where table_name = "t";
+select row_lock_deadlocks from information_schema.table_statistics where
+table_name = "t";
 row_lock_deadlocks
 2
-select row_lock_deadlocks from information_schema.table_statistics where table_name = "t";
+select row_lock_deadlocks from information_schema.table_statistics where
+table_name = "t";
 row_lock_deadlocks
 2
 set global innodb_lock_wait_timeout = @prior_innodb_lock_wait_timeout;
