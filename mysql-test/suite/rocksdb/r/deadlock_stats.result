@@ -1,56 +1,61 @@
-set rocksdb_deadlock_detect=ON;
-set rocksdb_lock_wait_timeout=2;
-create table t1 (id int primary key) engine=rocksdb;
-insert into t1 values (1),(2);
-begin;
-select * from t1 where id=1 for update;
-id
-1
-set rocksdb_deadlock_detect=ON;
-set rocksdb_lock_wait_timeout=2;
-select row_lock_deadlocks from information_schema.table_statistics where
-table_name="t1";
+set @prior_rocksdb_lock_wait_timeout = @@rocksdb_lock_wait_timeout;
+set @prior_rocksdb_deadlock_detect= @@rocksdb_deadlock_detect;
+set global rocksdb_lock_wait_timeout = 100000;
+set global rocksdb_deadlock_detect = ON;
+select row_lock_deadlocks from information_schema.table_statistics where table_name = "t";
 row_lock_deadlocks
-0
+create table t (i int primary key) engine=rocksdb;
+insert into t values (1), (2), (3);
 begin;
-select * from t1 where id=2 for update;
-id
+select * from t where i=1 for update;
+i
+1
+begin;
+select * from t where i=2 for update;
+i
 2
-select * from t1 where id=1 for update;
-select * from t1 where id=2 for update;
+begin;
+select * from t where i=3 for update;
+i
+3
+select * from t where i=2 for update;
+select * from t where i=3 for update;
+select * from t where i=1 for update;
 ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
 rollback;
-id
-1
-commit;
-select row_lock_deadlocks from information_schema.table_statistics where
-table_name="t1";
-row_lock_deadlocks
-1
-select row_lock_deadlocks from information_schema.table_statistics where
-table_name="t1";
-row_lock_deadlocks
-1
-begin;
-select * from t1 where id=1 for update;
-id
-1
-begin;
-select * from t1 where id=2 for update;
-id
+i
+3
+rollback;
+i
 2
-select * from t1 where id=2 for update;
-select * from t1 where id=1 for update;
+rollback;
+select row_lock_deadlocks from information_schema.table_statistics where table_name = "t";
+row_lock_deadlocks
+1
+select row_lock_deadlocks from information_schema.table_statistics where table_name = "t";
+row_lock_deadlocks
+1
+begin;
+select * from t where i=1 for update;
+i
+1
+begin;
+select * from t where i=2 for update;
+i
+2
+select * from t where i=2 for update;
+select * from t where i=1 for update;
 ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
 rollback;
-id
+i
 2
-select row_lock_deadlocks from information_schema.table_statistics where
-table_name="t1";
+rollback;
+select row_lock_deadlocks from information_schema.table_statistics where table_name = "t";
 row_lock_deadlocks
 2
-select row_lock_deadlocks from information_schema.table_statistics where
-table_name="t1";
+select row_lock_deadlocks from information_schema.table_statistics where table_name = "t";
 row_lock_deadlocks
 2
-drop table t1;
+set global rocksdb_lock_wait_timeout = @prior_rocksdb_lock_wait_timeout;
+set global rocksdb_deadlock_detect = @prior_rocksdb_deadlock_detect;
+drop table t;

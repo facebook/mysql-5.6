@@ -1,4 +1,10 @@
 let $engine=rocksdb;
-let $engine_deadlock_detection=set rocksdb_deadlock_detect=ON;
-let $engine_lock_wait_timeout=set rocksdb_lock_wait_timeout=2;
+let $engine_start_txn=begin;
+let $prior_engine_lwt=@prior_rocksdb_lock_wait_timeout;
+let $prior_engine_dld=@prior_rocksdb_deadlock_detect;
+let $engine_lwt=@@rocksdb_lock_wait_timeout;
+let $engine_dld=@@rocksdb_deadlock_detect;
+let $raw_engine_lwt=rocksdb_lock_wait_timeout;
+let $raw_engine_dld=rocksdb_deadlock_detect;
+
 --source include/deadlock_stats.inc

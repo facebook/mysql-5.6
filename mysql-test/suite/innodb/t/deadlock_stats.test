@@ -1,4 +1,10 @@
 let $engine=innodb;
-let $engine_deadlock_detection=set global innodb_deadlock_detect=ON;
-let $engine_lock_wait_timeout=set innodb_lock_wait_timeout=3;
+let $engine_start_txn=start transaction;
+let $prior_engine_lwt=@prior_innodb_lock_wait_timeout;
+let $prior_engine_dld=@prior_innodb_deadlock_detect;
+let $engine_lwt=@@innodb_lock_wait_timeout;
+let $engine_dld=@@innodb_deadlock_detect;
+let $raw_engine_lwt=innodb_lock_wait_timeout;
+let $raw_engine_dld=innodb_deadlock_detect;
+
 --source include/deadlock_stats.inc
