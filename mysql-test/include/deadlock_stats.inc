@@ -14,7 +14,9 @@ let $con3= `SELECT CONNECTION_ID()`;
 
 
 connection default;
-select row_lock_deadlocks from information_schema.table_statistics where table_name = "t";
+select row_lock_deadlocks from information_schema.table_statistics where
+table_name = "t";
+
 eval create table t (i int primary key) engine=$engine;
 insert into t values (1), (2), (3);
 
@@ -36,11 +38,13 @@ connection con1;
 connection con2;
 if ($engine == "rocksdb"){
   let $wait_condition=
-  `select concat('select count(*) = 1 from information_schema.rocksdb_trx where THREAD_ID = ', '$con1', ' and WAITING_KEY != ""')`;
+  `select concat('select count(*) = 1 from information_schema.rocksdb_trx
+    where THREAD_ID = ', '$con1', ' and WAITING_KEY != ""')`;
 }
 if ($engine == "innodb"){
   let $wait_condition=
-  `select concat('select count(*) = 1 from information_schema.innodb_trx where trx_mysql_thread_id = $con1 and trx_state="LOCK WAIT"')`;
+  `select concat('select count(*) = 1 from information_schema.innodb_trx where
+    trx_mysql_thread_id = $con1 and trx_state="LOCK WAIT"')`;
 }
 --source include/wait_condition.inc
 
@@ -49,11 +53,13 @@ if ($engine == "innodb"){
 connection con3;
 if ($engine == "rocksdb"){
   let $wait_condition=
-  `select concat('select count(*) = 1 from information_schema.rocksdb_trx where THREAD_ID = ', '$con2', ' and WAITING_KEY != ""')`;
+  `select concat('select count(*) = 1 from information_schema.rocksdb_trx
+    where THREAD_ID = ', '$con2', ' and WAITING_KEY != ""')`;
 }
 if ($engine == "innodb"){
   let $wait_condition=
-  `select concat('select count(*) = 1 from information_schema.innodb_trx where trx_mysql_thread_id = $con2 and trx_state="LOCK WAIT"')`;
+  `select concat('select count(*) = 1 from information_schema.innodb_trx where
+    trx_mysql_thread_id = $con2 and trx_state="LOCK WAIT"')`;
 }
 --source include/wait_condition.inc
 
@@ -70,8 +76,11 @@ connection con1;
 rollback;
 
 connection con1;
-select row_lock_deadlocks from information_schema.table_statistics where table_name = "t";
-select row_lock_deadlocks from information_schema.table_statistics where table_name = "t";
+select row_lock_deadlocks from information_schema.table_statistics where
+table_name = "t";
+
+select row_lock_deadlocks from information_schema.table_statistics where
+table_name = "t";
 
 eval $engine_start_txn;
 select * from t where i=1 for update;
@@ -86,11 +95,13 @@ connection con1;
 connection con2;
 if ($engine == "rocksdb"){
   let $wait_condition=
-  `select concat('select count(*) = 1 from information_schema.rocksdb_trx where THREAD_ID = ', '$con1', ' and WAITING_KEY != ""')`;
+  `select concat('select count(*) = 1 from information_schema.rocksdb_trx
+    where THREAD_ID = ', '$con1', ' and WAITING_KEY != ""')`;
 }
 if ($engine == "innodb"){
   let $wait_condition=
-  `select concat('select count(*) = 1 from information_schema.innodb_trx where trx_mysql_thread_id = $con1 and trx_state="LOCK WAIT"')`;
+  `select concat('select count(*) = 1 from information_schema.innodb_trx where
+    trx_mysql_thread_id = $con1 and trx_state="LOCK WAIT"')`;
 }
 --source include/wait_condition.inc
 
@@ -103,8 +114,12 @@ connection con1;
 rollback;
 
 connection default;
-select row_lock_deadlocks from information_schema.table_statistics where table_name = "t";
-select row_lock_deadlocks from information_schema.table_statistics where table_name = "t";
+select row_lock_deadlocks from information_schema.table_statistics where
+table_name = "t";
+
+select row_lock_deadlocks from information_schema.table_statistics where
+table_name = "t";
+
 disconnect con1;
 disconnect con2;
 disconnect con3;
