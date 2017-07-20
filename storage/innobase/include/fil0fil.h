@@ -1368,7 +1368,7 @@ fil_change_lock_wait_timeout_count(
 Changes count of pages on the lock wait timeout for this space. Will lock/unlock
 fil_system->mutex */
 void
-fil_change_deadlock_count(
+fil_change_lock_deadlock_count(
 /*=================*/
 	ulint	space,		/* in: tablespace id for which count changes */
 	int	amount);	/* in: amount by which the count changes */
