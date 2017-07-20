@@ -1,7 +1,3 @@
 let $engine=rocksdb;
-let $engine_lwt=@@rocksdb_lock_wait_timeout;
-let $engine_dld=@@rocksdb_deadlock_detect;
-let $raw_engine_lwt=rocksdb_lock_wait_timeout;
-let $raw_engine_dld=rocksdb_deadlock_detect;
 
 --source include/deadlock_stats.inc

@@ -1,7 +1,3 @@
 let $engine=innodb;
-let $engine_lwt=@@innodb_lock_wait_timeout;
-let $engine_dld=@@innodb_deadlock_detect;
-let $raw_engine_lwt=innodb_lock_wait_timeout;
-let $raw_engine_dld=innodb_deadlock_detect;
 
 --source include/deadlock_stats.inc
