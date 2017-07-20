@@ -1,5 +1,5 @@
-set @prior_innodb_lock_wait_timeout = @@innodb_lock_wait_timeout;
-set @prior_innodb_deadlock_detect= @@innodb_deadlock_detect;
+set @prior_lock_wait_timeout = @@innodb_lock_wait_timeout;
+set @prior_deadlock_detect = @@innodb_deadlock_detect;
 set global innodb_lock_wait_timeout = 100000;
 set global innodb_deadlock_detect = ON;
 create table t (i int primary key) engine=innodb;
@@ -50,6 +50,6 @@ select row_lock_deadlocks from information_schema.table_statistics where
 table_name = "t";
 row_lock_deadlocks
 2
-set global innodb_lock_wait_timeout = @prior_innodb_lock_wait_timeout;
-set global innodb_deadlock_detect = @prior_innodb_deadlock_detect;
+set global innodb_lock_wait_timeout = @prior_lock_wait_timeout;
+set global innodb_deadlock_detect = @prior_deadlock_detect;
 drop table t;

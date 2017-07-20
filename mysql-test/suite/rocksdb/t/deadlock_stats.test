@@ -1,6 +1,4 @@
 let $engine=rocksdb;
-let $prior_engine_lwt=@prior_rocksdb_lock_wait_timeout;
-let $prior_engine_dld=@prior_rocksdb_deadlock_detect;
 let $engine_lwt=@@rocksdb_lock_wait_timeout;
 let $engine_dld=@@rocksdb_deadlock_detect;
 let $raw_engine_lwt=rocksdb_lock_wait_timeout;

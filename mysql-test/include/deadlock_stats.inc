@@ -1,5 +1,5 @@
-eval set $prior_engine_lwt = $engine_lwt;
-eval set $prior_engine_dld= $engine_dld;
+eval set @prior_lock_wait_timeout = $engine_lwt;
+eval set @prior_deadlock_detect = $engine_dld;
 eval set global $raw_engine_lwt = 100000;
 eval set global $raw_engine_dld = ON;
 
@@ -32,7 +32,7 @@ table_name = "t";
 disconnect con1;
 disconnect con2;
 
-eval set global $raw_engine_lwt = $prior_engine_lwt;
-eval set global $raw_engine_dld = $prior_engine_dld;
+eval set global $raw_engine_lwt = @prior_lock_wait_timeout;
+eval set global $raw_engine_dld = @prior_deadlock_detect;
 drop table t;
 --source include/wait_until_count_sessions.inc
