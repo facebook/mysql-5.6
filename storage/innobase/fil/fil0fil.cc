@@ -399,7 +399,7 @@ fil_update_table_stats_one_cell(
 			n_lock_wait_timeout_arr[found] =
 				space->stats.n_lock_wait_timeout;
 			n_lock_deadlock_arr[found] =
-				space->stats.n_lock_deadlock_arr;
+				space->stats.n_lock_deadlock;
 
 			strcpy(&(db_name_buf[found * (FN_LEN+1)]),
 				space->db_name);
