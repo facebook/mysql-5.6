@@ -1,7 +1,11 @@
-let $prior_set_lwt = `select concat('set @prior_lock_wait_timeout = @@', '$engine', '_lock_wait_timeout;')`;
-let $prior_set_dld = `select concat('set @prior_deadlock_detect = @@', '$engine', '_deadlock_detect;')`;
-let $global_dld = `select concat('set global ', '$engine', '_deadlock_detect = on;')`;
-let $global_lwt = `select concat('set global ', '$engine', '_lock_wait_timeout = 100000;')`;
+let $prior_set_lwt = `select concat('set @prior_lock_wait_timeout = @@',
+  '$engine', '_lock_wait_timeout;')`;
+let $prior_set_dld = `select concat('set @prior_deadlock_detect = @@',
+  '$engine', '_deadlock_detect;')`;
+let $global_dld = `select concat('set global ', '$engine',
+  '_deadlock_detect = on;')`;
+let $global_lwt = `select concat('set global ', '$engine',
+  '_lock_wait_timeout = 100000;')`;
 eval $prior_set_lwt $prior_set_dld $global_dld $global_lwt;
 
 --source include/count_sessions.inc
@@ -33,8 +37,10 @@ table_name = "t";
 disconnect con1;
 disconnect con2;
 
-let $restore_lwt = `select concat('set global ', '$engine', '_lock_wait_timeout = @prior_lock_wait_timeout;')`;
-let $restore_dld = `select concat('set global ', '$engine', '_deadlock_detect = @prior_deadlock_detect;')`;
+let $restore_lwt = `select concat('set global ', '$engine',
+  '_lock_wait_timeout = @prior_lock_wait_timeout;')`;
+let $restore_dld = `select concat('set global ', '$engine',
+  '_deadlock_detect = @prior_deadlock_detect;')`;
 eval $restore_lwt $restore_dld;
 drop table t;
 --source include/wait_until_count_sessions.inc
