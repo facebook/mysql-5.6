@@ -1,8 +1,5 @@
 --source include/have_debug.inc
-
---disable_warnings
-DROP TABLE IF EXISTS t1;
---enable_warnings
+--source include/have_rocksdb.inc
 
 # Create a table with a varbinary key with the current format and validate
 # that it sorts correctly
