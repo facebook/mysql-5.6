@@ -344,7 +344,8 @@ fil_update_table_stats_one_cell(
 	int*		n_lock_wait_arr, /*!< in: buf for n_lock_wait stats */
 	int*		n_lock_wait_timeout_arr, /*!< in: buffer for
 						   n_lock_wait_timeout_stats */
-	int*		n_lock_deadlock_arr, /*!< in: buf for n_lock_deadlock stats */
+	int*		n_lock_deadlock_arr, /*!< in: buf for 
+                                               n_lock_deadlock stats */
 	ulint		max_per_cell,	/*!< in: size of buffers */
 	void		(*cb)(const char* db,
 				const char* tbl,
@@ -397,7 +398,8 @@ fil_update_table_stats_one_cell(
 			n_lock_wait_arr[found] = space->stats.n_lock_wait;
 			n_lock_wait_timeout_arr[found] =
 				space->stats.n_lock_wait_timeout;
-			n_lock_deadlock_arr[found] = space->stats.n_lock_deadlock;
+			n_lock_deadlock_arr[found] =
+				space->stats.n_lock_deadlock_arr;
 
 			strcpy(&(db_name_buf[found * (FN_LEN+1)]),
 				space->db_name);
