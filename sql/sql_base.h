@@ -294,7 +294,7 @@ typedef void (*table_stats_cb)(const char *db, const char *table,
 			       comp_stats_t* comp_stats,
 			       int n_lock_wait,
 			       int n_lock_wait_timeout,
-			       int n_deadlock,
+			       int n_lock_deadlock,
 			       const char *engine);
 
 /* For information_schema.db_statistics */
