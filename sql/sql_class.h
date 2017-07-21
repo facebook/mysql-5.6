@@ -53,6 +53,7 @@
 #include <mysql_com_server.h>
 #include "sql_data_change.h"
 #include "my_atomic.h"
+#include "sql_db.h"
 
 #define FLAGSTR(V,F) ((V)&(F)?#F" ":"")
 
@@ -2422,6 +2423,7 @@ public:
   */
   mysql_mutex_t LOCK_thd_data;
   mysql_mutex_t LOCK_thd_db_read_only_hash;
+  mysql_mutex_t LOCK_db_metadata;
 
   /* all prepared statements and cursors of this connection */
   Statement_map stmt_map;
@@ -3225,6 +3227,7 @@ public:
   /* local hash map of db opt */
   HASH db_read_only_hash;
   const CHARSET_INFO *db_charset;
+  std::string db_metadata;
 #if defined(ENABLED_PROFILING)
   PROFILING  profiling;
 #endif
@@ -4188,7 +4191,30 @@ public:
   bool skip_gtid_rollback;
 
   /**
-    Set the current database; use deep copy of C-string.
+    Set the db_metadata string for the thread
+
+    If the current database is set for the thread, we get the db_metadata option
+    for the database and set it as a thd property. This is called whenever
+    set_db() or reset_db() are called.
+  */
+  void set_db_metadata()
+  {
+    if (db_length)
+    {
+      HA_CREATE_INFO create;
+      load_db_opt_by_name(this, db, &create, true);
+      mysql_mutex_lock(&LOCK_db_metadata);
+      if (create.db_metadata.ptr())
+        db_metadata= std::string(create.db_metadata.ptr());
+      else
+        db_metadata.clear();
+      mysql_mutex_unlock(&LOCK_db_metadata);
+    }
+  }
+
+  /**
+    Set the current database and set the db_metadata string for the thd; use
+    deep copy of C-string.
 
     @param new_db     a pointer to the new database name.
     @param new_db_len length of the new database name.
@@ -4197,12 +4223,13 @@ public:
     length. If we run out of memory, we free the current database and
     return TRUE.  This way the user will notice the error as there will be
     no current database selected (in addition to the error message set by
-    malloc).
+    malloc). Also, set the db_metadata string for the thd.
 
-    @note This operation just sets {db, db_length}. Switching the current
-    database usually involves other actions, like switching other database
-    attributes including security context. In the future, this operation
-    will be made private and more convenient interface will be provided.
+    @note This operation just sets {db, db_length} and updated db_metadata
+    string for the thd. Switching the current database usually involves other
+    actions, like switching other database attributes including security
+    context. In the future, this operation will be made private and more
+    convenient interface will be provided.
 
     @return Operation status
       @retval FALSE Success
@@ -4229,6 +4256,7 @@ public:
         db= NULL;
     }
     db_length= db ? new_db_len : 0;
+    set_db_metadata();
     mysql_mutex_unlock(&LOCK_thd_data);
     result= new_db && !db;
 #ifdef HAVE_PSI_THREAD_INTERFACE
@@ -4239,20 +4267,23 @@ public:
   }
 
   /**
-    Set the current database; use shallow copy of C-string.
+    Set the current database and set the db_metadata string for the thd; use
+    shallow copy of C-string.
 
     @param new_db     a pointer to the new database name.
     @param new_db_len length of the new database name.
 
-    @note This operation just sets {db, db_length}. Switching the current
-    database usually involves other actions, like switching other database
-    attributes including security context. In the future, this operation
-    will be made private and more convenient interface will be provided.
+    @note This operation just sets {db, db_length} and updated db_metadata
+    string for the thd. Switching the current database usually involves other
+    actions, like switching other database attributes including security
+    context. In the future, this operation will be made private and more
+    convenient interface will be provided.
   */
   void reset_db(char *new_db, size_t new_db_len)
   {
     db= new_db;
     db_length= new_db_len;
+    set_db_metadata();
 #ifdef HAVE_PSI_THREAD_INTERFACE
     PSI_THREAD_CALL(set_thread_db)(new_db, static_cast<int>(new_db_len));
 #endif

@@ -481,6 +481,43 @@ static void update_thd_db_read_only(const char *path, uchar db_read_only)
   DBUG_VOID_RETURN;
 }
 
+/* Update db_metadata in all threads using the specified database */
+static void update_thd_db_metadata(const char *db_name,
+                                       HA_CREATE_INFO *create)
+{
+  DBUG_ENTER("update_db_metadata");
+
+  uint db_name_length= strlen(db_name);
+  mysql_rwlock_rdlock(&LOCK_dboptions);
+
+  // We only need to update the existing threads (and block removing threads)
+  // which are using the specified database
+  // For new threads, they will set the string properly
+  std::set<THD*> global_thread_list_copy;
+  mutex_lock_all_shards(SHARDED(&LOCK_thd_remove));
+  copy_global_thread_list(&global_thread_list_copy);
+
+  std::set<THD*>::iterator it= global_thread_list_copy.begin();
+  std::set<THD*>::iterator end= global_thread_list_copy.end();
+  for (; it != end; ++it)
+  {
+    THD *tmp= *it;
+
+    // Update if the thread's db is the same as the specified database
+    if (db_name_length == tmp->db_length && !strcmp(db_name, tmp->db))
+    {
+      mysql_mutex_lock(&tmp->LOCK_db_metadata);
+      tmp->db_metadata= std::string(create->db_metadata.ptr());
+      mysql_mutex_unlock(&tmp->LOCK_db_metadata);
+    }
+  }
+
+  mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
+  mysql_rwlock_unlock(&LOCK_dboptions);
+
+  DBUG_VOID_RETURN;
+}
+
 /*
   Create database options file:
 
@@ -492,7 +529,8 @@ static void update_thd_db_read_only(const char *path, uchar db_read_only)
   1	Could not create file or write to it.  Error sent through my_error()
 */
 
-static bool write_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create)
+static bool write_db_opt(THD *thd, const char *db_name, const char *path,
+                         HA_CREATE_INFO *create)
 {
   register File file;
   char buf[2048]; // 1024 for db_metadata and 1024 for the other options
@@ -549,6 +587,10 @@ static bool write_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create)
    * don't need to update it across all sessions */
   if (db_info.db_read_only != create->db_read_only)
     update_thd_db_read_only(path, create->db_read_only);
+
+  /* If db_metadata is changed, update it in all threads using this database */
+  if (create->db_metadata.ptr())
+    update_thd_db_metadata(db_name, create);
 
   return error;
 }
@@ -850,7 +892,7 @@ int mysql_create_db(THD *thd, char *db, HA_CREATE_INFO *create_info,
 
   path[path_len-1]= FN_LIBCHAR;
   strmake(path+path_len, MY_DB_OPT_FILE, sizeof(path)-path_len-1);
-  if (write_db_opt(thd, path, create_info))
+  if (write_db_opt(thd, db, path, create_info))
   {
     /*
       Could not create options file.
@@ -959,7 +1001,7 @@ bool mysql_alter_db(THD *thd, const char *db, HA_CREATE_INFO *create_info)
      "table name to file name" encoding.
   */
   build_table_filename(path, sizeof(path) - 1, db, "", MY_DB_OPT_FILE, 0);
-  if ((error=write_db_opt(thd, path, create_info)))
+  if ((error=write_db_opt(thd, db, path, create_info)))
     goto exit;
 
   /* Change options if current database is being altered. */
