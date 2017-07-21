@@ -23,7 +23,7 @@ sub print_status_section_headers
     if (/^[\-]+$/) {
       $in_header = 1 - $in_header;
     } elsif ($in_header == 1) {
-      if (!/^MUTEX INFO|RW-LATCH INFO$/) {
+      if (!/^MUTEX INFO|RW-LATCH INFO|LATEST DETECTED DEADLOCK$/) {
         print "$_\n";
       }
     }
