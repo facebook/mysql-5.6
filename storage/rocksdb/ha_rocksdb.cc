@@ -1655,7 +1655,8 @@ public:
   }
 
   int set_status_error(THD *const thd, const rocksdb::Status &s,
-                       const Rdb_key_def &kd, Rdb_tbl_def *const tbl_def) {
+                       const Rdb_key_def &kd, Rdb_tbl_def *const tbl_def,
+                       Rdb_table_handler *const table_handler) {
     DBUG_ASSERT(!s.ok());
     DBUG_ASSERT(tbl_def != nullptr);
 
@@ -1671,6 +1672,7 @@ public:
       my_core::thd_mark_transaction_to_rollback(thd, false /*just statement*/);
       m_detailed_error.copy(timeout_message(
           "index", tbl_def->full_tablename().c_str(), kd.get_name().c_str()));
+      table_handler->m_lock_wait_timeout_counter.inc();
 
       return HA_ERR_LOCK_WAIT_TIMEOUT;
     }
@@ -1679,6 +1681,7 @@ public:
       my_core::thd_mark_transaction_to_rollback(thd,
                                                 false /* just statement */);
       m_detailed_error = String();
+      table_handler->m_deadlock_counter.inc();
       return HA_ERR_LOCK_DEADLOCK;
     } else if (s.IsBusy()) {
       rocksdb_snapshot_conflict_errors++;
@@ -1691,6 +1694,7 @@ public:
                           user_host_buff, thd->query());
       }
       m_detailed_error = String(" (snapshot conflict)", system_charset_info);
+      table_handler->m_deadlock_counter.inc();
       return HA_ERR_LOCK_DEADLOCK;
     }
 
@@ -3388,11 +3392,14 @@ static void rocksdb_update_table_stats(
                my_io_perf_t *r, my_io_perf_t *w, my_io_perf_t *r_blob,
                my_io_perf_t *r_primary, my_io_perf_t *r_secondary,
                page_stats_t *page_stats, comp_stats_t *comp_stats,
-               int n_lock_wait, int n_lock_wait_timeout, const char *engine)) {
+               int n_lock_wait, int n_lock_wait_timeout, int n_lock_deadlock,
+               const char *engine)) {
   my_io_perf_t io_perf_read;
   my_io_perf_t io_perf;
   page_stats_t page_stats;
   comp_stats_t comp_stats;
+  uint lock_wait_timeout_stats;
+  uint deadlock_stats;
   std::vector<std::string> tablenames;
 
   /*
@@ -3434,6 +3441,8 @@ static void rocksdb_update_table_stats(
 
     io_perf_read.bytes = table_handler->m_io_perf_read.bytes.load();
     io_perf_read.requests = table_handler->m_io_perf_read.requests.load();
+    lock_wait_timeout_stats = table_handler->m_lock_wait_timeout_counter.load();
+    deadlock_stats = table_handler->m_deadlock_counter.load();
 
     /*
       Convert from rocksdb timer to mysql timer. RocksDB values are
@@ -3460,8 +3469,8 @@ static void rocksdb_update_table_stats(
     my_core::filename_to_tablename(tablename.c_str(), tablename_sys,
                                    sizeof(tablename_sys));
     (*cb)(dbname_sys, tablename_sys, is_partition, &io_perf_read, &io_perf,
-          &io_perf, &io_perf, &io_perf, &page_stats, &comp_stats, 0, 0,
-          rocksdb_hton_name);
+          &io_perf, &io_perf, &io_perf, &page_stats, &comp_stats, 0,
+          lock_wait_timeout_stats, deadlock_stats, rocksdb_hton_name);
   }
 }
 
@@ -7244,7 +7253,8 @@ int ha_rocksdb::get_row_by_rowid(uchar *const buf, const char *const rowid,
   }
 
   if (!s.IsNotFound() && !s.ok()) {
-    DBUG_RETURN(tx->set_status_error(table->in_use, s, *m_pk_descr, m_tbl_def));
+    DBUG_RETURN(tx->set_status_error(table->in_use, s, *m_pk_descr, m_tbl_def,
+                                     m_table_handler));
   }
   found = !s.IsNotFound();
 
@@ -7904,8 +7914,8 @@ int ha_rocksdb::check_and_lock_unique_pk(const uint &key_id,
       get_for_update(row_info.tx, m_pk_descr->get_cf(), row_info.new_pk_slice,
                      &m_retrieved_record);
   if (!s.ok() && !s.IsNotFound()) {
-    return row_info.tx->set_status_error(table->in_use, s,
-                                         *m_key_descr_arr[key_id], m_tbl_def);
+    return row_info.tx->set_status_error(
+        table->in_use, s, *m_key_descr_arr[key_id], m_tbl_def, m_table_handler);
   }
 
   *found = !s.IsNotFound();
@@ -8016,7 +8026,8 @@ int ha_rocksdb::check_and_lock_sk(const uint &key_id,
   const rocksdb::Status s =
       get_for_update(row_info.tx, kd.get_cf(), new_slice, &dummy_value);
   if (!s.ok() && !s.IsNotFound()) {
-    return row_info.tx->set_status_error(table->in_use, s, kd, m_tbl_def);
+    return row_info.tx->set_status_error(table->in_use, s, kd, m_tbl_def,
+                                         m_table_handler);
   }
 
   rocksdb::Iterator *const iter = row_info.tx->get_iterator(
@@ -8172,7 +8183,8 @@ int ha_rocksdb::update_pk(const Rdb_key_def &kd,
     const rocksdb::Status s = delete_or_singledelete(
         key_id, row_info.tx, kd.get_cf(), row_info.old_pk_slice);
     if (!s.ok()) {
-      return row_info.tx->set_status_error(table->in_use, s, kd, m_tbl_def);
+      return row_info.tx->set_status_error(table->in_use, s, kd, m_tbl_def,
+                                           m_table_handler);
     }
   }
 
@@ -8210,7 +8222,7 @@ int ha_rocksdb::update_pk(const Rdb_key_def &kd,
         rc = HA_ERR_FOUND_DUPP_KEY;
       } else {
         rc = row_info.tx->set_status_error(table->in_use, s, *m_pk_descr,
-                                           m_tbl_def);
+                                           m_tbl_def, m_table_handler);
       }
     }
   }
@@ -8600,8 +8612,8 @@ int ha_rocksdb::rnd_next_with_direction(uchar *const buf, bool move_forward) {
       }
 
       if (!s.ok()) {
-        DBUG_RETURN(
-            tx->set_status_error(table->in_use, s, *m_pk_descr, m_tbl_def));
+        DBUG_RETURN(tx->set_status_error(table->in_use, s, *m_pk_descr,
+                                         m_tbl_def, m_table_handler));
       }
 
       // If we called get_for_update() use the value from that call not from
@@ -8725,7 +8737,8 @@ int ha_rocksdb::delete_row(const uchar *const buf) {
   rocksdb::Status s =
       delete_or_singledelete(index, tx, m_pk_descr->get_cf(), key_slice);
   if (!s.ok()) {
-    DBUG_RETURN(tx->set_status_error(table->in_use, s, *m_pk_descr, m_tbl_def));
+    DBUG_RETURN(tx->set_status_error(table->in_use, s, *m_pk_descr, m_tbl_def,
+                                     m_table_handler));
   }
 
   longlong hidden_pk_id = 0;
@@ -9499,7 +9512,8 @@ int ha_rocksdb::remove_rows(Rdb_tbl_def *const tbl) {
       }
 
       if (!s.ok()) {
-        return tx->set_status_error(table->in_use, s, *m_pk_descr, m_tbl_def);
+        return tx->set_status_error(table->in_use, s, *m_pk_descr, m_tbl_def,
+                                    m_table_handler);
       }
 
       it->Next();
