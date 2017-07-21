@@ -1067,6 +1067,8 @@ THD::THD(bool enable_plugins)
   mysql_mutex_init(key_LOCK_thd_data, &LOCK_thd_data, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_thd_db_read_only_hash, &LOCK_thd_db_read_only_hash,
                    MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_db_metadata, &LOCK_db_metadata,
+                   MY_MUTEX_INIT_FAST);
 
   /* Variables with default values */
   proc_info="login";
@@ -1759,6 +1761,8 @@ THD::~THD()
   mysql_mutex_unlock(&LOCK_thd_db_read_only_hash);
 
   mysql_mutex_destroy(&LOCK_thd_db_read_only_hash);
+
+  mysql_mutex_destroy(&LOCK_db_metadata);
 
 #ifndef DBUG_OFF
   dbug_sentry= THD_SENTRY_GONE;

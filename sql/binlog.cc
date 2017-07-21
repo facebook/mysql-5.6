@@ -336,8 +336,9 @@ public:
     cache_log.end_of_file= saved_max_binlog_cache_size;
   }
 
-  int write_trx_meta_data(THD *thd);
-  void add_time_meta_data(THD *thd, ptree &meta_data_root);
+  int write_trx_metadata(THD *thd);
+  void add_time_metadata(THD *thd, ptree &meta_data_root);
+  void add_db_metadata(THD *thd, ptree &meta_data_root);
   int finalize(THD *thd, Log_event *end_event);
   int flush(THD *thd, my_off_t *bytes, bool *wrote_xid, bool async);
   int write_event(THD *thd, Log_event *event,
@@ -1006,7 +1007,7 @@ int binlog_cache_data::write_event(THD *thd,
   {
     // case: write meta data event before the real event
     // see @opt_binlog_trx_meta_data
-    if (write_meta_data_event && write_trx_meta_data(thd))
+    if (write_meta_data_event && write_trx_metadata(thd))
       DBUG_RETURN(1);
 
     DBUG_EXECUTE_IF("simulate_disk_full_at_flush_pending",
@@ -1222,9 +1223,9 @@ err:
   @return nonzero if an error pops up when writing to the cache.
 */
 int
-binlog_cache_data::write_trx_meta_data(THD *thd)
+binlog_cache_data::write_trx_metadata(THD *thd)
 {
-  DBUG_ENTER("binlog_cache_data::write_trx_meta_data");
+  DBUG_ENTER("binlog_cache_data::write_trx_metadata");
   DBUG_ASSERT(opt_binlog_trx_meta_data);
 
   ptree pt;
@@ -1248,7 +1249,8 @@ binlog_cache_data::write_trx_meta_data(THD *thd)
 
   // add things to the meta data
   try {
-    add_time_meta_data(thd, pt);
+    add_time_metadata(thd, pt);
+    add_db_metadata(thd, pt);
   } catch (std::exception& e) {
       // NO_LINT_DEBUG
       sql_print_error("Exception while adding meta data: %s", e.what());
@@ -1278,15 +1280,15 @@ binlog_cache_data::write_trx_meta_data(THD *thd)
 /**
   This function adds timing information in meta data JSON of rows query event.
 
-  @see binlog_cache_data::write_trx_meta_data
+  @see binlog_cache_data::write_trx_metadata
 
   @param thd            The thread whose transaction should be flushed
   @param meta_data_root Property tree object which represents the JSON
 */
 void
-binlog_cache_data::add_time_meta_data(THD *thd, ptree &meta_data_root)
+binlog_cache_data::add_time_metadata(THD *thd, ptree &meta_data_root)
 {
-  DBUG_ENTER("binlog_cache_data::add_time_meta_data");
+  DBUG_ENTER("binlog_cache_data::add_time_metadata");
   DBUG_ASSERT(opt_binlog_trx_meta_data);
 
   // get existing timestamps
@@ -1309,6 +1311,35 @@ binlog_cache_data::add_time_meta_data(THD *thd, ptree &meta_data_root)
   // milliseconds behind master related
   if (thd->rli_slave && prev_ts > 0)
     thd->rli_slave->last_master_timestamp_millis.store(prev_ts);
+
+  DBUG_VOID_RETURN;
+}
+
+void binlog_cache_data::add_db_metadata(THD *thd, ptree &meta_data_root)
+{
+  DBUG_ENTER("binlog_cache_data::add_db_meta_data");
+  DBUG_ASSERT(opt_binlog_trx_meta_data);
+
+  if (!thd->db_metadata.empty())
+  {
+    ptree db_metadata_root;
+    mysql_mutex_lock(&thd->LOCK_db_metadata);
+    std::istringstream is(thd->db_metadata);
+    mysql_mutex_unlock(&thd->LOCK_db_metadata);
+    try {
+      read_json(is, db_metadata_root);
+    } catch (std::exception& e) {
+      // NO_LINT_DEBUG
+      sql_print_error("Exception while reading meta data: %s, JSON: %s",
+                       e.what(), thd->db_metadata.c_str());
+      DBUG_VOID_RETURN;
+    }
+    for (auto node : db_metadata_root)
+    {
+      if (!meta_data_root.get_child_optional(node.first))
+        meta_data_root.add_child(node.first, node.second);
+    }
+  }
 
   DBUG_VOID_RETURN;
 }
