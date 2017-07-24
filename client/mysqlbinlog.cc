@@ -105,14 +105,17 @@ static const char *load_default_groups[]= { "mysqlbinlog","client",0 };
 
 static my_bool opt_compress=0;
 static my_bool opt_compress_event=0;
+static char *opt_compression_lib= 0;
 static my_bool one_database=0, disable_log_bin= 0;
 static my_bool opt_hexdump= 0;
+static mysql_compression_lib compr_lib_val=MYSQL_COMPRESSION_ZLIB;
 const char *base64_output_mode_names[]=
 {"NEVER", "AUTO", "UNSPEC", "DECODE-ROWS", NullS};
 TYPELIB base64_output_mode_typelib=
   { array_elements(base64_output_mode_names) - 1, "",
     base64_output_mode_names, NULL };
 static enum_base64_output_mode opt_base64_output_mode= BASE64_OUTPUT_UNSPEC;
+
 static char *opt_base64_output_mode_str= 0;
 static my_bool opt_remote_alias= 0;
 const char *remote_proto_names[]=
@@ -1877,6 +1880,10 @@ static struct my_option my_long_options[] =
   {"compress_event", 'E', "Use event compression in server/client protocol.",
    &opt_compress_event, &opt_compress_event, 0, GET_BOOL, NO_ARG,
    0, 0, 0, 0, 0, 0},
+  {"compression-lib", OPT_COMPRESSION_LIB,
+   "Chose the compression lib {zlib, zstd}.--compress has to be used",
+   &opt_compression_lib, &opt_compression_lib, 0, GET_STR_ALLOC, REQUIRED_ARG,
+   0, 0, 0, 0, 0, 0},
   {"database", 'd', "List entries for just this database (local log only).",
    &database, &database, 0, GET_STR_ALLOC, REQUIRED_ARG,
    0, 0, 0, 0, 0, 0},
@@ -2344,6 +2351,9 @@ get_one_option(int optid, const struct my_option *opt MY_ATTRIBUTE((unused)),
     opt_base64_output_mode= (enum_base64_output_mode)
       (find_type_or_exit(argument, &base64_output_mode_typelib, opt->name)-1);
     break;
+  case OPT_COMPRESSION_LIB:
+    compr_lib_val = get_client_compression_enum(opt_compression_lib);
+    break;
   case 'v':
     if (argument == disabled_my_option)
       verbose= 0;
@@ -2425,8 +2435,6 @@ static Exit_status safe_connect()
   if (opt_default_auth && *opt_default_auth)
     mysql_options(mysql, MYSQL_DEFAULT_AUTH, opt_default_auth);
 
-  if (opt_compress)
-    mysql_options(mysql, MYSQL_OPT_COMPRESS, NullS);
   if (opt_compress_event)
     mysql_options(mysql, MYSQL_OPT_COMP_EVENT, NullS);
   if (opt_compress && opt_compress_event)
@@ -2444,6 +2452,10 @@ static Exit_status safe_connect()
                   shared_memory_base_name);
 #endif
   mysql_options(mysql, MYSQL_OPT_CONNECT_ATTR_RESET, 0);
+  if (opt_compress) {
+    mysql_options(mysql, MYSQL_OPT_COMPRESS, NullS);
+    mysql_options(mysql, MYSQL_OPT_COMP_LIB, (void *)compr_lib_val);
+  }
   mysql_options4(mysql, MYSQL_OPT_CONNECT_ATTR_ADD,
                  "program_name", "mysqlbinlog");
 
