@@ -486,6 +486,7 @@ bool volatile shutdown_in_progress;
 ulong log_warnings;
 uint host_cache_size;
 ulonglong tmp_table_rpl_max_file_size;
+ulong slave_tx_isolation;
 
 my_bool log_legacy_user;
 const char *opt_legacy_user_name_pattern;
