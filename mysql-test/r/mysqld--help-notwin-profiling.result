@@ -1571,6 +1571,8 @@ The following options may be given as the first argument:
  Number of times the slave SQL thread will retry a
  transaction in case it failed with a deadlock or elapsed
  lock wait timeout, before giving up and stopping
+ --slave-tx-isolation=name 
+ Slave thread transaction isolation level
  --slave-type-conversions=name 
  Set of slave type conversions that are enabled. Legal
  values are: ALL_LOSSY to enable lossy conversions,
@@ -2213,6 +2215,7 @@ slave-run-triggers-for-rbr NO
 slave-skip-errors (No default value)
 slave-sql-verify-checksum TRUE
 slave-transaction-retries 10
+slave-tx-isolation REPEATABLE-READ
 slave-type-conversions 
 slave-use-idempotent-for-recovery NO
 slow-launch-time 2

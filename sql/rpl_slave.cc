@@ -5559,6 +5559,9 @@ pthread_handler_t handle_slave_worker(void *arg)
   w->info_thd= thd;
   thd->thread_stack = (char*)&thd;
   mysql_mutex_unlock(&w->info_thd_lock);
+
+  w->info_thd->variables.tx_isolation=
+    static_cast<enum_tx_isolation>(slave_tx_isolation);
   
   pthread_detach_this_thread();
   if (init_slave_thread(thd, SLAVE_THD_WORKER))
@@ -6579,6 +6582,9 @@ pthread_handler_t handle_slave_sql(void *arg)
   mysql_mutex_lock(&rli->info_thd_lock);
   rli->info_thd= thd;
   mysql_mutex_unlock(&rli->info_thd_lock);
+
+  rli->info_thd->variables.tx_isolation=
+    static_cast<enum_tx_isolation>(slave_tx_isolation);
 
   if (opt_mts_dependency_order_commits && opt_mts_dependency_replication &&
       rli->opt_slave_parallel_workers > 0 &&
