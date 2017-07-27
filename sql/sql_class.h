@@ -4671,8 +4671,9 @@ public:
     return srv_session;
   }
 
-  // called when KILL is processed, LOCK_thd_data already acquired
- const std::shared_ptr<Srv_session> get_attached_srv_session_safe() {
+  // called when LOCK_thd_data already acquired
+  std::shared_ptr<Srv_session> get_attached_srv_session_safe() {
+    mysql_mutex_assert_owner(&LOCK_thd_data);
     return attached_srv_session;
   }
 
