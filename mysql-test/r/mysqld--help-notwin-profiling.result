@@ -1357,6 +1357,8 @@ The following options may be given as the first argument:
  recomputation. Only changed indexes will be refreshed.
  --rocksdb-signal-drop-index-thread 
  Wake up drop index thread
+ --rocksdb-sim-cache-size=# 
+ Simulated cache size for RocksDB
  --rocksdb-skip-bloom-filter-on-read 
  Skip using bloom filter for reads
  --rocksdb-skip-fill-cache 
@@ -2144,6 +2146,7 @@ rocksdb-records-in-range 0
 rocksdb-reset-stats FALSE
 rocksdb-seconds-between-stat-computes 3600
 rocksdb-signal-drop-index-thread FALSE
+rocksdb-sim-cache-size 0
 rocksdb-skip-bloom-filter-on-read FALSE
 rocksdb-skip-fill-cache FALSE
 rocksdb-skip-unique-check-tables (No default value)
