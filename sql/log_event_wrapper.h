@@ -21,6 +21,7 @@ class Log_event_wrapper
 
 public:
   std::atomic<uint> is_assigned; // has this event been assigned to a worker?
+  bool is_appended_to_queue; // has this event been assigned to a worker queue?
   bool is_begin_event;
   bool is_end_event;
   bool whole_group_in_dag; // entire group of this event exists in the DAG?
@@ -32,6 +33,7 @@ public:
     ready_to_execute= false;
     whole_group_in_dag= false;
     is_assigned.store(0U);
+    is_appended_to_queue= false;
     is_begin_event= false;
     is_end_event= false;
     mysql_mutex_init(0, &mutex, MY_MUTEX_INIT_FAST);
@@ -40,8 +42,8 @@ public:
 
   ~Log_event_wrapper()
   {
-    // all assigned events will be cleaned up by the workers
-    if (is_assigned.load() == 0U)
+    // case: event was not appended to a worker's queue, so we need to delete it
+    if (!is_appended_to_queue)
       delete event;
     mysql_mutex_destroy(&mutex);
     mysql_cond_destroy(&cond);
