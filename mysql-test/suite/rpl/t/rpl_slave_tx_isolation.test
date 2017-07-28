@@ -7,10 +7,18 @@ source include/master-slave.inc;
 connection slave;
 set @save_slave_tx_isolation=@@global.slave_tx_isolation;
 
+let $wait_condition=select count(*)=1 from information_schema.processlist where
+ state like 'Slave has read all relay log; waiting for the slave I/O thread%';
+source include/wait_condition.inc;
 let $sql_thread=`select id from information_schema.processlist where state
  like 'Slave has read all relay log; waiting for the slave I/O thread%'`;
+
+let $wait_condition=select count(*)=1 from information_schema.processlist where
+ state like 'Waiting for an event from Coordinator%';
+source include/wait_condition.inc;
 let $worker_thread=`select id from information_schema.processlist where state
  like 'Waiting for an event from Coordinator%'`;
+
 disable_query_log;
 eval show session $sql_thread variables like '%tx_isolation%';
 eval show session $worker_thread variables like '%tx_isolation%';
@@ -19,10 +27,19 @@ enable_query_log;
 set @@global.slave_tx_isolation='READ-COMMITTED';
 stop slave;
 start slave;
+
+let $wait_condition=select count(*)=1 from information_schema.processlist where
+ state like 'Slave has read all relay log; waiting for the slave I/O thread%';
+source include/wait_condition.inc;
 let $sql_thread=`select id from information_schema.processlist where state
  like 'Slave has read all relay log; waiting for the slave I/O thread%'`;
+
+let $wait_condition=select count(*)=1 from information_schema.processlist where
+ state like 'Waiting for an event from Coordinator%';
+source include/wait_condition.inc;
 let $worker_thread=`select id from information_schema.processlist where state
- like 'Waiting for%'`;
+ like 'Waiting for an event from Coordinator%'`;
+
 disable_query_log;
 eval show session $sql_thread variables like '%tx_isolation%';
 eval show session $worker_thread variables like '%tx_isolation%';
