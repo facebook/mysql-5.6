@@ -8,64 +8,79 @@ bool append_item_to_jobs(slave_job_item *job_item,
                          Slave_worker *w,
                          Relay_log_info *rli);
 
-inline Log_event_wrapper* Dependency_slave_worker::get_begin_event()
+bool
+Dependency_slave_worker::extract_group(std::vector<Log_event_wrapper*>& group)
 {
-  auto ret= find_begin_event();
-  if (!ret) return wait_for_begin_event();
-  return ret;
+  if (!find_group(group))
+    return wait_for_group(group);
+  return true;
 }
 
-Log_event_wrapper* Dependency_slave_worker::find_begin_event()
+bool Dependency_slave_worker::find_group(std::vector<Log_event_wrapper*>& group)
 {
   c_rli->dag_rdlock();
-  Log_event_wrapper *ret= NULL;
+  bool found= false;
+  Log_event_wrapper *ev= NULL;
 
   for (auto& event : c_rli->dag.get_head())
   {
     // NOTE: We need the whole group to exist in the DAG to avoid starvation.
-    // Dependencies between start events can be determined by other conflicting
+    // Dependencies between begin events can be determined by other conflicting
     // events between transactions, so we can't be sure if a begin event is free
     // to be executed unless the entire group is in the DAG.
+    // case: free begin event found
     if (event->is_begin_event &&
         event->whole_group_in_dag &&
         event->is_assigned.fetch_or(1U) == 0U)
     {
-      ret= event;
+      ev= event;
+      found= true;
       break;
     }
   }
 
+  // extract the rest of the group from the DAG
+  while (ev)
+  {
+    group.push_back(ev);
+    ev= get_next_event(ev);
+  }
+
   c_rli->dag_unlock();
-  return ret;
+  return found;
 }
 
-Log_event_wrapper* Dependency_slave_worker::wait_for_begin_event()
+bool
+Dependency_slave_worker::wait_for_group(std::vector<Log_event_wrapper*>& group)
 {
-  mysql_mutex_lock(&c_rli->dag_changed_mutex);
-  Log_event_wrapper *ev= NULL;
+  mysql_mutex_lock(&c_rli->dag_group_ready_mutex);
+  bool found= false;
   PSI_stage_info old_stage;
 
-  info_thd->ENTER_COND(&c_rli->dag_changed_cond, &c_rli->dag_changed_mutex,
+  info_thd->ENTER_COND(&c_rli->dag_group_ready_cond,
+                       &c_rli->dag_group_ready_mutex,
                        &stage_slave_waiting_event_from_coordinator,
                        &old_stage);
   // case: wait for a change in the DAG which brings a begin event to the head
   // of the DAG, while the slave is running
   while (!info_thd->killed && running_status == RUNNING &&
-         !(c_rli->dag_changed && (ev= find_begin_event()) != NULL))
-    mysql_cond_wait(&c_rli->dag_changed_cond, &c_rli->dag_changed_mutex);
-  c_rli->dag_changed= false;
+         !(c_rli->dag_group_ready && (found= find_group(group))))
+    mysql_cond_wait(&c_rli->dag_group_ready_cond,
+                    &c_rli->dag_group_ready_mutex);
+  c_rli->dag_group_ready= false;
 
   info_thd->EXIT_COND(&old_stage);
 
-  return ev;
+  return found;
 }
 
+// Gets the next event for the group from the DAG
+// NOTE: this method assumes that a lock is taken on the DAG
 Log_event_wrapper*
 Dependency_slave_worker::get_next_event(Log_event_wrapper *event)
 {
   if (event->is_end_event) return NULL;
 
-  c_rli->dag_rdlock();
   Log_event_wrapper *ret= NULL;
 
   Log_event_wrapper *begin_event= event->is_begin_event ?
@@ -81,8 +96,6 @@ Dependency_slave_worker::get_next_event(Log_event_wrapper *event)
     }
   }
 
-  c_rli->dag_unlock();
-
   // since the whole group must be in the DAG before execution starts, we always
   // have to find the all the events of a group in the DAG
   DBUG_ASSERT(ret != NULL);
@@ -94,17 +107,18 @@ Dependency_slave_worker::get_next_event(Log_event_wrapper *event)
 bool Dependency_slave_worker::execute_group()
 {
   int err= 0;
+  size_t last_grp_event_in_dag= 0;
   std::vector<Log_event_wrapper*> events;
+  Commit_order_manager *commit_order_mngr= get_commit_order_manager();
 
-  Log_event_wrapper *ev= get_begin_event();
-  Log_event_wrapper *next_ev= NULL;
-
-  // case: we didn't execute the group
-  if (!ev) err= 1;
+  if (!extract_group(events))
+  {
+    err= -1;
+    goto end;
+  }
 
   // case: place ourselves in the commit order queue
-  Commit_order_manager *commit_order_mngr= get_commit_order_manager();
-  if (!err && commit_order_mngr != NULL)
+  if (commit_order_mngr != NULL)
   {
     DBUG_ASSERT(opt_mts_dependency_order_commits);
     commit_order_mngr->register_trx(this);
@@ -115,54 +129,48 @@ bool Dependency_slave_worker::execute_group()
     - The loop executes until all the events of the group are removed from
       the DAG.
     - If a temporary error occurs during execution of an event, the grp is
-      rollbacked and @current_event_index is reset to 0. During retries, we get
-      events from the @events vector if we've already extracted them from DAG.
-    - If a fatal error occurs, we continue the loop until all events of the grp
-      are extracted from the DAG. We don't execute any event after a fatal err,
-      we just remove them from the DAG. We do this to avoid a zombie grp in DAG.
+      rollbacked and @current_event_index is reset to 0
+    - If a fatal error occurs we break out of the loop immidiately
    */
-
-  while (ev)
+  DBUG_ASSERT(current_event_index == 0);
+  DBUG_ASSERT(events.size() >= 1);
+  do
   {
-    // case: this is the first time we're seeing this event, trx retries can
-    // cause the same event to be encountered again
-    if (current_event_index == events.size()) events.push_back(ev);
-
-    if (!err && (err= execute_event(ev)))
+    auto ev= events[current_event_index];
+    if ((err= execute_event(ev)))
+      break;
+    // case: we are not retrying this event, i.e. this was the first time we
+    // executed this event, so we should remove it from the DAG
+    if (!trans_retries || current_event_index >= last_current_event_index)
     {
-      // case: append error, so we need to clean up the event here
-      if (err == 1)
-      {
-        delete ev->get_raw_event();
-        ev->set_raw_event(NULL);
-        // Signal a rollback if commit ordering is enabled, we have to do
-        // this here because it's an append error, so @slave_worker_ends_group
-        // is not called
-        if (commit_order_mngr) commit_order_mngr->report_rollback(this);
-      }
+      remove_event(ev);
+      ++last_grp_event_in_dag;
     }
+  // case: when grp execution succeeds both @trans_retries and
+  // @current_event_index are reset
+  } while (!(trans_retries == 0 && current_event_index == 0));
 
-    // case: temporary error hence trx retries, see @slave_worker_ends_group
-    // when a temporary error is detected, @current_event_index is reset to
-    // retry the trx from the beginning
-    if (!err && trans_retries && current_event_index < events.size())
-    {
-      ev= events[current_event_index];
-      continue;
-    }
-
-    next_ev= get_next_event(ev);
-    remove_event(ev);
-    ev= next_ev;
+  // case: error while appending to worker's internal queue
+  if (err == 1)
+  {
+    // Signal a rollback if commit ordering is enabled, we have to do
+    // this here because it's an append error, so @slave_worker_ends_group
+    // is not called
+    if (commit_order_mngr)
+      commit_order_mngr->report_rollback(this);
   }
 
+  // remove the rest of the group's events from the DAG (if any)
+  for (size_t i= last_grp_event_in_dag; i < events.size(); ++i)
+    remove_event(events[i]);
+
+end:
   // cleanup
   for (auto& event : events) delete event;
-
   return err == 0 && running_status == RUNNING;
 }
 
-inline int Dependency_slave_worker::execute_event(Log_event_wrapper *ev)
+int Dependency_slave_worker::execute_event(Log_event_wrapper *ev)
 {
   // wait for all dependencies to be satisfied
   ev->wait();
@@ -175,7 +183,9 @@ inline int Dependency_slave_worker::execute_event(Log_event_wrapper *ev)
     // easier
     Slave_job_item item= { ev->get_raw_event() };
     if (append_item_to_jobs(&item, this, c_rli)) return 1;
+    ev->is_appended_to_queue= true;
   }
+  DBUG_ASSERT(ev->is_appended_to_queue);
   return ev->execute(this, this->info_thd, c_rli) == 0 ? 0 : -1;
 }
 
@@ -187,6 +197,8 @@ void Dependency_slave_worker::remove_event(Log_event_wrapper *ev)
 
   DBUG_ASSERT(c_rli->dag.exists(ev));
 
+  bool group_ready= false;
+
   for (auto& child : c_rli->dag.get_children(ev))
   {
     // case: this event is going to be the top of the DAG, ready to be executed
@@ -196,6 +208,7 @@ void Dependency_slave_worker::remove_event(Log_event_wrapper *ev)
       DBUG_ASSERT(c_rli->dag.get_parents(child).find(ev) !=
                   c_rli->dag.get_parents(child).end());
       child->signal();
+      group_ready |= (child->is_begin_event && child->whole_group_in_dag);
     }
   }
   c_rli->dag.remove_head_node(ev);
@@ -230,11 +243,16 @@ void Dependency_slave_worker::remove_event(Log_event_wrapper *ev)
 
   c_rli->dag_unlock();
 
-  // broadcast a change in the DAG
-  mysql_mutex_lock(&c_rli->dag_changed_mutex);
-  c_rli->dag_changed= true;
-  mysql_cond_broadcast(&c_rli->dag_changed_cond);
-  mysql_mutex_unlock(&c_rli->dag_changed_mutex);
+  // case: removal of this event has brought a begin event to the head of the
+  // DAG, signal!
+  if (group_ready)
+  {
+    // broadcast a change in the DAG
+    mysql_mutex_lock(&c_rli->dag_group_ready_mutex);
+    c_rli->dag_group_ready= true;
+    mysql_cond_broadcast(&c_rli->dag_group_ready_cond);
+    mysql_mutex_unlock(&c_rli->dag_group_ready_mutex);
+  }
 }
 
 Dependency_slave_worker::Dependency_slave_worker(Relay_log_info *rli

@@ -1126,10 +1126,10 @@ public:
   /* Set of all DBs accessed by the current group */
   std::unordered_set<std::string> dbs_accessed_by_group;
 
-  // Mutex-condition pair to notify any change in the DAG
-  mysql_cond_t dag_changed_cond;
-  mysql_mutex_t dag_changed_mutex;
-  bool dag_changed= false;
+  // Mutex-condition pair to notify that a group is ready to be executed
+  mysql_cond_t dag_group_ready_cond;
+  mysql_mutex_t dag_group_ready_mutex;
+  bool dag_group_ready= false;
 
   // Mutex-condition pair to notify when DAG is/is not full
   mysql_cond_t dag_full_cond;
@@ -1194,9 +1194,9 @@ public:
     dag_num_groups= 0;
     mysql_mutex_unlock(&dag_full_mutex);
 
-    mysql_mutex_lock(&dag_changed_mutex);
-    dag_changed= false;
-    mysql_mutex_unlock(&dag_changed_mutex);
+    mysql_mutex_lock(&dag_group_ready_mutex);
+    dag_group_ready= false;
+    mysql_mutex_unlock(&dag_group_ready_mutex);
   }
 #endif // HAVE_REPLICATION and !MYSQL_CLIENT
 };

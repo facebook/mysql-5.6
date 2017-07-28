@@ -6439,9 +6439,9 @@ void slave_stop_workers(Relay_log_info *rli, bool *mts_inited)
       mysql_mutex_unlock(&w->jobs_lock);
     }
     // signal threads waiting for events
-    mysql_mutex_lock(&rli->dag_changed_mutex);
-    mysql_cond_broadcast(&rli->dag_changed_cond);
-    mysql_mutex_unlock(&rli->dag_changed_mutex);
+    mysql_mutex_lock(&rli->dag_group_ready_mutex);
+    mysql_cond_broadcast(&rli->dag_group_ready_cond);
+    mysql_mutex_unlock(&rli->dag_group_ready_mutex);
   }
   else
   {

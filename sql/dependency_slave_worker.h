@@ -8,14 +8,14 @@
 
 class Dependency_slave_worker : public Slave_worker
 {
-  Log_event_wrapper* get_begin_event();
-  Log_event_wrapper* find_begin_event();
-  Log_event_wrapper* wait_for_begin_event();
+  inline bool extract_group(std::vector<Log_event_wrapper*>& group);
+  bool find_group(std::vector<Log_event_wrapper*>& group);
+  bool wait_for_group(std::vector<Log_event_wrapper*>& group);
 
   Log_event_wrapper* get_next_event(Log_event_wrapper *event);
 
   bool execute_group();
-  int  execute_event(Log_event_wrapper *ev);
+  inline int execute_event(Log_event_wrapper *ev);
   void remove_event(Log_event_wrapper *ev);
 
 public:

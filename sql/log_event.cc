@@ -3220,13 +3220,12 @@ bool Log_event::is_row_log_event()
 void Log_event::add_to_dag(Relay_log_info *rli)
 {
   DBUG_ENTER("Log_event::add_to_dag");
+  bool group_ready= false;
 
   // wait if DAG has reached full capacity
   mysql_mutex_lock(&rli->dag_full_mutex);
   while (rli->dag_full)
-  {
     mysql_cond_wait(&rli->dag_full_cond, &rli->dag_full_mutex);
-  }
   mysql_mutex_unlock(&rli->dag_full_mutex);
 
   rli->dag_wrlock();
@@ -3286,13 +3285,19 @@ void Log_event::add_to_dag(Relay_log_info *rli)
   // case: this event is ready to be executed
   if (rli->dag.get_parents(ev).empty()) ev->signal();
 
+  group_ready= ev->is_end_event &&
+               rli->dag.get_parents(ev->get_begin_event()).empty();
+
   rli->dag_unlock();
 
-  // broadcast a change in DAG
-  mysql_mutex_lock(&rli->dag_changed_mutex);
-  rli->dag_changed= true;
-  mysql_cond_broadcast(&rli->dag_changed_cond);
-  mysql_mutex_unlock(&rli->dag_changed_mutex);
+  if (group_ready)
+  {
+    // broadcast a change in DAG
+    mysql_mutex_lock(&rli->dag_group_ready_mutex);
+    rli->dag_group_ready= true;
+    mysql_cond_broadcast(&rli->dag_group_ready_cond);
+    mysql_mutex_unlock(&rli->dag_group_ready_mutex);
+  }
 
   // DAG not empty anymore!
   mysql_mutex_lock(&rli->dag_empty_mutex);
