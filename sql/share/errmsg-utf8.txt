@@ -7326,6 +7326,9 @@ ER_SLAVE_WORKER_STOPPED_PREVIOUS_THD_ERROR
 ER_DB_METADATA_TOO_LONG
   eng "Metadata for the database is too long. Max length is %d bytes"
 
+ER_DB_METADATA_INVALID_JSON
+  eng "Invalid JSON for DB_METADATA attribute: %s."
+
 ER_DB_METADATA_READ_ERROR
   eng "Error reading db metadata option: '%-.64s'"
 
