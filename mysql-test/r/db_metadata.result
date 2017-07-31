@@ -70,6 +70,8 @@ default-character-set=utf8
 default-collation=utf8_general_ci
 db-read-only=1
 db-metadata={"shard":"test9_shard"}
+create database test10 db_metadata = "invalid_json";
+ERROR HY000: Invalid JSON for DB_METADATA attribute: invalid_json.
 alter database test3 character set ascii;
 show create database test3;
 Database	Create Database
@@ -134,7 +136,7 @@ default-character-set=utf8
 default-collation=utf8_general_ci
 db-read-only=0
 db-metadata={"shard":"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin"}
-alter database test5 db_metadata "{\"shard\":\"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin\"}";;
+alter database test5 db_metadata "{\"shard\":\"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin\"}";
 ERROR HY000: Metadata for the database is too long. Max length is 1024 bytes
 alter database test6 character set ascii db_metadata = "{\"shard\":\"test6_shard_altered\"}";
 show create database test6;
@@ -174,8 +176,10 @@ information_schema	CREATE DATABASE `information_schema` /*!40100 DEFAULT CHARACT
 show create database mysql;
 Database	Create Database
 mysql	CREATE DATABASE `mysql` /*!40100 DEFAULT CHARACTER SET latin1 */
-alter database information_schema db_metadata "{\"shard\":\"is_shard\"}";;
+alter database information_schema db_metadata "{\"shard\":\"is_shard\"}";
 ERROR 42000: Access denied for user 'root'@'localhost' to database 'information_schema'
+alter database test9 db_metadata = "invalid_json";
+ERROR HY000: Invalid JSON for DB_METADATA attribute: invalid_json.
 drop database if exists test2;
 drop database if exists test3;
 drop database if exists test4;

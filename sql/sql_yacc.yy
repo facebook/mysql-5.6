@@ -65,6 +65,9 @@ Note: YYTHD is passed as an argument to yyparse(), and subsequently to yylex().
 #include "opt_explain_traditional.h"
 #include "opt_explain_json.h"
 #include "lex_token.h"
+#include <sstream>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
 
 /* this is to get the bison compilation windows warnings out */
 #ifdef _MSC_VER
@@ -6557,6 +6560,22 @@ db_metadata_str:
             {
               my_error(ER_DB_METADATA_TOO_LONG, MYF(0), DB_METADATA_MAX_LENGTH);
               MYSQL_YYABORT;
+            }
+            /* Verify that a valid JSON is provided */
+            if ($3.length > 0)
+            {
+              boost::property_tree::ptree db_metadata_root;
+              std::istringstream is($3.str);
+              try
+              {
+                boost::property_tree::json_parser::read_json(is,
+                                                             db_metadata_root);
+              }
+              catch (std::exception)
+              {
+                my_error(ER_DB_METADATA_INVALID_JSON, MYF(0), $3.str);
+                MYSQL_YYABORT;
+              }
             }
             Lex->create_info.db_metadata= String($3.str, $3.length,
               &my_charset_bin);
