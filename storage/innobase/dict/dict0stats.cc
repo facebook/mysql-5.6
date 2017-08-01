@@ -2196,6 +2196,14 @@ found_level:
 
 		ut_ad(N_SAMPLE_PAGES(index) > 0);
 
+		/* There looks to be a possibility total_recs is 0 if the tree
+		 * only consists of delete rows, causing
+		 * dict_stats_analyze_index_for_n_prefix() to trigger a crash.
+		 * Bail out at this point if total_recs is 0. */
+		if (total_recs == 0) {
+			break;
+		}
+
 		n_diff_data_t*	data = &n_diff_data[n_prefix - 1];
 
 		data->level = level;
