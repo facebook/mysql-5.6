@@ -7,10 +7,11 @@ set @save.binlog_trx_meta_data= @@global.binlog_trx_meta_data;
 set @@global.binlog_trx_meta_data= true;
 set @save.binlog_trx_meta_data= @@global.binlog_trx_meta_data;
 set @@global.binlog_trx_meta_data= true;
-include/sync_slave_sql_with_master.inc
-include/sync_slave_sql_with_master.inc
 meta	count(*)
-# /*::TRX_META_DATA::{"timestamps":[ts]}*/	134
+# /*::TRX_META_DATA::{"timestamps":[ts]}*/	301
 meta	count(*)
-# /*::TRX_META_DATA::{"timestamps":[ts,ts]}*/	134
+# /*::TRX_META_DATA::{"timestamps":[ts,ts]}*/	301
+drop table t1;
+set @@global.binlog_trx_meta_data= @save.binlog_trx_meta_data;
+set @@global.binlog_trx_meta_data= @save.binlog_trx_meta_data;
 include/rpl_end.inc

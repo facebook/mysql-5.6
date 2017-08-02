@@ -664,7 +664,8 @@ public:
   int new_file(Format_description_log_event *extra_description_event);
 
   bool write_event(Log_event* event_info,
-                   int force_cache_type = Log_event::EVENT_INVALID_CACHE);
+                   int force_cache_type = Log_event::EVENT_INVALID_CACHE,
+                   bool write_meta_data_event= false);
   bool write_cache(THD *thd, class binlog_cache_data *binlog_cache_data,
                    bool async);
   int  do_write_cache(IO_CACHE *cache);

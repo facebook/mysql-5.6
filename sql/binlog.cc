@@ -340,7 +340,8 @@ public:
   void add_time_meta_data(THD *thd, ptree &meta_data_root);
   int finalize(THD *thd, Log_event *end_event);
   int flush(THD *thd, my_off_t *bytes, bool *wrote_xid, bool async);
-  int write_event(THD *thd, Log_event *event);
+  int write_event(THD *thd, Log_event *event,
+                  bool write_meta_data_event= false);
 
   virtual ~binlog_cache_data()
   {
@@ -981,7 +982,9 @@ static bool should_write_gtids(THD *thd) {
   return (!read_only || thd->variables.gtid_next.type == GTID_GROUP);
 }
 
-int binlog_cache_data::write_event(THD *thd, Log_event *ev)
+int binlog_cache_data::write_event(THD *thd,
+                                   Log_event *ev,
+                                   bool write_meta_data_event)
 {
   DBUG_ENTER("binlog_cache_data::write_event");
 
@@ -1001,6 +1004,11 @@ int binlog_cache_data::write_event(THD *thd, Log_event *ev)
 
   if (ev != NULL)
   {
+    // case: write meta data event before the real event
+    // see @opt_binlog_trx_meta_data
+    if (write_meta_data_event && write_trx_meta_data(thd))
+      DBUG_RETURN(1);
+
     DBUG_EXECUTE_IF("simulate_disk_full_at_flush_pending",
                   {DBUG_SET("+d,simulate_file_write_error");});
     if (ev->write(&cache_log) != 0)
@@ -5830,7 +5838,9 @@ MYSQL_BIN_LOG::flush_and_set_pending_rows_event(THD *thd,
   Write an event to the binary log.
 */
 
-bool MYSQL_BIN_LOG::write_event(Log_event *event_info, int force_cache_type)
+bool MYSQL_BIN_LOG::write_event(Log_event *event_info,
+                                int force_cache_type,
+                                bool write_meta_data_event)
 {
   THD *thd= event_info->thd;
   bool error= 1;
@@ -5980,7 +5990,7 @@ bool MYSQL_BIN_LOG::write_event(Log_event *event_info, int force_cache_type)
     /*
       Write the event.
     */
-    if (cache_data->write_event(thd, event_info) ||
+    if (cache_data->write_event(thd, event_info, write_meta_data_event) ||
         DBUG_EVALUATE_IF("injecting_fault_writing", true, false))
       goto err;
 
@@ -8397,11 +8407,6 @@ int THD::binlog_write_table_map(TABLE *table, bool is_transactional,
   binlog_cache_data *cache_data=
     cache_mngr->get_binlog_cache_data(is_transactional);
 
-  // case: add meta data in the binlog
-  if (opt_binlog_trx_meta_data &&
-      (error= cache_data->write_trx_meta_data(this)))
-      DBUG_RETURN(error);
-
   if (binlog_rows_query && this->query())
   {
     /* Write the Rows_query_log_event into binlog before the table map */
@@ -8411,7 +8416,8 @@ int THD::binlog_write_table_map(TABLE *table, bool is_transactional,
       DBUG_RETURN(error);
   }
 
-  if ((error= cache_data->write_event(this, &the_event)))
+  if ((error= cache_data->write_event(this, &the_event,
+                                      opt_binlog_trx_meta_data)))
     DBUG_RETURN(error);
 
   binlog_table_maps++;
@@ -10233,7 +10239,11 @@ int THD::binlog_query(THD::enum_binlog_query_type qtype, char const *query_arg,
         log event is written to the binary log, we pretend that no
         table maps were written.
        */
-      int error= mysql_bin_log.write_event(&qinfo);
+      int error= mysql_bin_log.write_event(&qinfo,
+                                           /* default parameter */
+                                           Log_event::EVENT_INVALID_CACHE,
+                                           /* write meta data before query? */
+                                           opt_binlog_trx_meta_data);
       binlog_table_maps= 0;
       DBUG_RETURN(error);
     }
