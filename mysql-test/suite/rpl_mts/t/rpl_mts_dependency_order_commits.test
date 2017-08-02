@@ -31,6 +31,7 @@ insert into d2.t1 values(2); # this will be blocked on commit of the prev trx
 connection slave;
 let $wait_condition= SELECT COUNT(*) = 1 FROM INFORMATION_SCHEMA.PROCESSLIST
 WHERE STATE LIKE "%Waiting for preceding transaction to commit%";
+let $wait_timeout= 120;
 source include/wait_condition.inc;
 
 rollback; # rollback the conflicting trx
