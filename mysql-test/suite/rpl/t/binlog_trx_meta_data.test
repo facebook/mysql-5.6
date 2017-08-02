@@ -1,5 +1,4 @@
 source include/master-slave.inc;
-source include/have_binlog_format_row.inc;
 
 # Enable trx meta data
 connection master;
@@ -12,15 +11,28 @@ set @@global.binlog_trx_meta_data= true;
 
 # Generate load
 connection master;
-let $skip_cleanup= 1;
-let $sync_with_master= 1;
-let $databases=2;
-let $iter=5;
-source extra/rpl_tests/rpl_parallel_simple_load.test;
+disable_result_log;
+disable_query_log;
+create table t1(a int) engine=innodb;
+# the following loop will generate 300 meta data events, 1 for each statement
+# the total number of meta data events will be 301, +1 for create stmt above
+let $iter= 100;
+while ($iter > 0)
+{
+  begin;
+  eval insert into t1 values($iter);
+  eval update t1 set a= $iter + 1;
+  delete from t1;
+  commit;
+  dec $iter;
+}
 enable_result_log;
+enable_query_log;
+sync_slave_with_master;
 
 # Check binlogs for meta data
 connection master;
+disable_query_log;
 let $MYSQLD_DATADIR = `select @@datadir`;
 let $MYSQLD_SECURE_FILE_DIR = `select @@secure_file_priv`;
 exec $MYSQL_BINLOG -v -v $MYSQLD_DATADIR/master-bin.0* | grep "::TRX_META_DATA::" | sed 's/\"[0-9]*\"/ts/g' > $MYSQLD_SECURE_FILE_DIR/meta_data.dat;
@@ -43,16 +55,12 @@ select meta, count(*) from test.meta_data;
 drop table test.meta_data;
 set sql_log_bin=1;
 remove_file $MYSQLD_SECURE_FILE_DIR/meta_data.dat;
-
-# Consistency check
-connection master;
-let $include_silent=1;
-source extra/rpl_tests/rpl_parallel_simple_load_consistency.test;
-let $include_silent=;
+enable_query_log;
 
 # Cleanup
 connection master;
-source extra/rpl_tests/rpl_parallel_simple_load_cleanup.test;
+drop table t1;
+sync_slave_with_master;
 connection slave;
 set @@global.binlog_trx_meta_data= @save.binlog_trx_meta_data;
 connection master;
