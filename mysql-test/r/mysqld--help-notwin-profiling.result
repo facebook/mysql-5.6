@@ -1269,6 +1269,9 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-rocksdb-is-fd-close-on-exec to disable.)
  --rocksdb-keep-log-file-num=# 
  DBOptions::keep_log_file_num for RocksDB
+ --rocksdb-large-prefix 
+ Support large index prefix length of 3072 bytes. If off,
+ the maximum index prefix length is 767.
  --rocksdb-lock-scanned-rows 
  Take and hold locks on rows that are scanned but not
  updated
@@ -2111,6 +2114,7 @@ rocksdb-info-log-level error_level
 rocksdb-io-write-timeout 0
 rocksdb-is-fd-close-on-exec TRUE
 rocksdb-keep-log-file-num 1000
+rocksdb-large-prefix FALSE
 rocksdb-lock-scanned-rows FALSE
 rocksdb-lock-wait-timeout 1
 rocksdb-locks ON
