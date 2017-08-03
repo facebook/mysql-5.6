@@ -1242,6 +1242,8 @@ The following options may be given as the first argument:
  --rocksdb-force-compute-memtable-stats 
  Force to always compute memtable stats
  (Defaults to on; use --skip-rocksdb-force-compute-memtable-stats to disable.)
+ --rocksdb-force-compute-memtable-stats-cachetime=# 
+ Time in usecs to cache memtable estimates
  --rocksdb-force-flush-memtable-and-lzero-now 
  Acts similar to force_flush_memtable_now, but also
  compacts all L0 files.
@@ -2117,6 +2119,7 @@ rocksdb-error-if-exists FALSE
 rocksdb-flush-log-at-trx-commit 1
 rocksdb-flush-memtable-on-analyze TRUE
 rocksdb-force-compute-memtable-stats TRUE
+rocksdb-force-compute-memtable-stats-cachetime 60000000
 rocksdb-force-flush-memtable-and-lzero-now FALSE
 rocksdb-force-flush-memtable-now FALSE
 rocksdb-force-index-records-in-range 0
