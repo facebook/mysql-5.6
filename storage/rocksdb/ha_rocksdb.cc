@@ -36,6 +36,7 @@
 #include "./debug_sync.h"
 #include "./my_bit.h"
 #include "./my_stacktrace.h"
+#include "./my_sys.h"
 #include "./sql_audit.h"
 #include "./sql_table.h"
 #include <mysql/psi/mysql_table.h>
@@ -436,6 +437,7 @@ static uint64_t rocksdb_index_type;
 static uint32_t rocksdb_flush_log_at_trx_commit;
 static uint32_t rocksdb_debug_optimizer_n_rows;
 static my_bool rocksdb_force_compute_memtable_stats;
+static uint32_t rocksdb_force_compute_memtable_stats_cachetime;
 static my_bool rocksdb_debug_optimizer_no_zero_cardinality;
 static uint32_t rocksdb_wal_recovery_mode;
 static uint32_t rocksdb_access_hint_on_compaction_start;
@@ -1170,6 +1172,13 @@ static MYSQL_SYSVAR_BOOL(force_compute_memtable_stats,
     "Force to always compute memtable stats",
     nullptr, nullptr, TRUE);
 
+static MYSQL_SYSVAR_UINT(force_compute_memtable_stats_cachetime,
+                         rocksdb_force_compute_memtable_stats_cachetime,
+                         PLUGIN_VAR_RQCMDARG,
+                         "Time in usecs to cache memtable estimates", nullptr,
+                         nullptr, /* default */ 60 * 1000 * 1000,
+                         /* min */ 0, /* max */ INT_MAX, 0);
+
 static MYSQL_SYSVAR_BOOL(
     debug_optimizer_no_zero_cardinality,
     rocksdb_debug_optimizer_no_zero_cardinality, PLUGIN_VAR_RQCMDARG,
@@ -1498,6 +1507,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(force_index_records_in_range),
     MYSQL_SYSVAR(debug_optimizer_n_rows),
     MYSQL_SYSVAR(force_compute_memtable_stats),
+    MYSQL_SYSVAR(force_compute_memtable_stats_cachetime),
     MYSQL_SYSVAR(debug_optimizer_no_zero_cardinality),
 
     MYSQL_SYSVAR(compact_cf),
@@ -9025,13 +9035,37 @@ int ha_rocksdb::info(uint flag) {
         stats.data_file_length+= sz;
       }
 
-      // Second, compute memtable stats
-      uint64_t memtableCount;
-      uint64_t memtableSize;
-      rdb->GetApproximateMemTableStats(m_pk_descr->get_cf(), r,
-                                            &memtableCount, &memtableSize);
-      stats.records += memtableCount;
-      stats.data_file_length += memtableSize;
+      // Second, compute memtable stats. This call is expensive, so cache
+      // values computed for some time.
+      uint64_t cachetime = rocksdb_force_compute_memtable_stats_cachetime;
+      uint64_t time = (cachetime == 0) ? 0 : my_micro_time();
+      if (cachetime == 0 ||
+          time > m_table_handler->m_mtcache_last_update + cachetime) {
+        uint64_t memtableCount;
+        uint64_t memtableSize;
+
+        rdb->GetApproximateMemTableStats(m_pk_descr->get_cf(), r,
+                                         &memtableCount, &memtableSize);
+
+        // Atomically update all of these fields at the same time
+        if (cachetime > 0) {
+          if (m_table_handler->m_mtcache_lock.fetch_add(
+                  1, std::memory_order_acquire) == 0) {
+            m_table_handler->m_mtcache_count = memtableCount;
+            m_table_handler->m_mtcache_size = memtableSize;
+            m_table_handler->m_mtcache_last_update = time;
+          }
+          m_table_handler->m_mtcache_lock.fetch_sub(1,
+                                                    std::memory_order_release);
+        }
+
+        stats.records += memtableCount;
+        stats.data_file_length += memtableSize;
+      } else {
+        // Cached data is still valid, so use it instead
+        stats.records += m_table_handler->m_mtcache_count;
+        stats.data_file_length += m_table_handler->m_mtcache_size;
+      }
 
       if (rocksdb_debug_optimizer_n_rows > 0)
         stats.records = rocksdb_debug_optimizer_n_rows;
