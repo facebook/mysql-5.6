@@ -159,5 +159,5 @@ SET GLOBAL slave_parallel_workers= @save_slave_parallel_workers;
 # It may generate a big delay between master and slave, that will need more time
 # to sync data
 
---let slave-timeout= 3600
+--let slave_timeout= 3600
 --source include/rpl_end.inc
