@@ -912,6 +912,7 @@ rocksdb_info_log_level	error_level
 rocksdb_io_write_timeout	0
 rocksdb_is_fd_close_on_exec	ON
 rocksdb_keep_log_file_num	1000
+rocksdb_large_prefix	OFF
 rocksdb_lock_scanned_rows	OFF
 rocksdb_lock_wait_timeout	1
 rocksdb_log_file_time_to_roll	0
@@ -2149,7 +2150,9 @@ SET @old_mode = @@sql_mode;
 SET sql_mode = 'strict_all_tables';
 create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(c, b(255))) engine=rocksdb;
 drop table t1;
+set global rocksdb_large_prefix=1;
 create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(b(1255))) engine=rocksdb;
+set global rocksdb_large_prefix=0;
 insert into t1 values (1, '1abcde', '1abcde'), (2, '2abcde', '2abcde'), (3, '3abcde', '3abcde');
 select * from t1;
 a	b	c
@@ -2170,7 +2173,7 @@ a	b	c
 3	3abcde	3abcde
 drop table t1;
 create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(b(2255))) engine=rocksdb;
-ERROR 42000: Specified key was too long; max key length is 2048 bytes
+ERROR 42000: Specified key was too long; max key length is 767 bytes
 SET sql_mode = @old_mode;
 drop table t0;
 #
