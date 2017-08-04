@@ -880,6 +880,7 @@ rocksdb_compaction_sequential_deletes	0
 rocksdb_compaction_sequential_deletes_count_sd	OFF
 rocksdb_compaction_sequential_deletes_file_size	0
 rocksdb_compaction_sequential_deletes_window	0
+rocksdb_concurrent_prepare	ON
 rocksdb_create_checkpoint	
 rocksdb_create_if_missing	ON
 rocksdb_create_missing_column_families	OFF
@@ -917,6 +918,7 @@ rocksdb_lock_scanned_rows	OFF
 rocksdb_lock_wait_timeout	1
 rocksdb_log_file_time_to_roll	0
 rocksdb_manifest_preallocation_size	4194304
+rocksdb_manual_wal_flush	ON
 rocksdb_master_skip_tx_api	OFF
 rocksdb_max_background_jobs	2
 rocksdb_max_log_file_size	0

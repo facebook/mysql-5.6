@@ -469,6 +469,8 @@ static std::unique_ptr<rocksdb::DBOptions> rdb_init_rocksdb_db_options(void) {
   o->info_log_level = rocksdb::InfoLogLevel::INFO_LEVEL;
   o->max_subcompactions = DEFAULT_SUBCOMPACTIONS;
 
+  o->concurrent_prepare = true;
+  o->manual_wal_flush = true;
   return o;
 }
 
@@ -669,6 +671,20 @@ static MYSQL_SYSVAR_BOOL(
     PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
     "DBOptions::create_if_missing for RocksDB", nullptr, nullptr,
     rocksdb_db_options->create_if_missing);
+
+static MYSQL_SYSVAR_BOOL(
+    concurrent_prepare,
+    *reinterpret_cast<my_bool *>(&rocksdb_db_options->concurrent_prepare),
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+    "DBOptions::concurrent_prepare for RocksDB", nullptr, nullptr,
+    rocksdb_db_options->concurrent_prepare);
+
+static MYSQL_SYSVAR_BOOL(
+    manual_wal_flush,
+    *reinterpret_cast<my_bool *>(&rocksdb_db_options->manual_wal_flush),
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+    "DBOptions::manual_wal_flush for RocksDB", nullptr, nullptr,
+    rocksdb_db_options->manual_wal_flush);
 
 static MYSQL_SYSVAR_BOOL(
     create_missing_column_families,
@@ -1077,12 +1093,21 @@ static MYSQL_SYSVAR_STR(update_cf_options, rocksdb_update_cf_options,
                         "Option updates per column family for RocksDB", nullptr,
                         rocksdb_set_update_cf_options, nullptr);
 
+enum rocksdb_flush_log_at_trx_commit_type : unsigned int {
+  FLUSH_LOG_NEVER = 0,
+  FLUSH_LOG_SYNC,
+  FLUSH_LOG_BACKGROUND,
+  FLUSH_LOG_MAX /* must be last */
+};
+
 static MYSQL_SYSVAR_UINT(flush_log_at_trx_commit,
                          rocksdb_flush_log_at_trx_commit, PLUGIN_VAR_RQCMDARG,
                          "Sync on transaction commit. Similar to "
                          "innodb_flush_log_at_trx_commit. 1: sync on commit, "
                          "0,2: not sync on commit",
-                         nullptr, nullptr, 1, 0, 2, 0);
+                         nullptr, nullptr, /* default */ FLUSH_LOG_SYNC,
+                         /* min */ FLUSH_LOG_NEVER,
+                         /* max */ FLUSH_LOG_BACKGROUND, 0);
 
 static MYSQL_THDVAR_BOOL(write_disable_wal, PLUGIN_VAR_RQCMDARG,
                          "WriteOptions::disableWAL for RocksDB", nullptr,
@@ -1375,6 +1400,8 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(skip_bloom_filter_on_read),
 
     MYSQL_SYSVAR(create_if_missing),
+    MYSQL_SYSVAR(concurrent_prepare),
+    MYSQL_SYSVAR(manual_wal_flush),
     MYSQL_SYSVAR(create_missing_column_families),
     MYSQL_SYSVAR(error_if_exists),
     MYSQL_SYSVAR(paranoid_checks),
@@ -1490,7 +1517,7 @@ static rocksdb::WriteOptions
 rdb_get_rocksdb_write_options(my_core::THD *const thd) {
   rocksdb::WriteOptions opt;
 
-  opt.sync = (rocksdb_flush_log_at_trx_commit == 1);
+  opt.sync = (rocksdb_flush_log_at_trx_commit == FLUSH_LOG_SYNC);
   opt.disableWAL = THDVAR(thd, write_disable_wal);
   opt.ignore_missing_column_families =
       THDVAR(thd, write_ignore_missing_column_families);
@@ -2249,7 +2276,7 @@ public:
     tx_opts.deadlock_detect = THDVAR(m_thd, deadlock_detect);
     tx_opts.max_write_batch_size = THDVAR(m_thd, write_batch_max_bytes);
 
-    write_opts.sync = (rocksdb_flush_log_at_trx_commit == 1);
+    write_opts.sync = (rocksdb_flush_log_at_trx_commit == FLUSH_LOG_SYNC);
     write_opts.disableWAL = THDVAR(m_thd, write_disable_wal);
     write_opts.ignore_missing_column_families =
         THDVAR(m_thd, write_ignore_missing_column_families);
@@ -2468,7 +2495,7 @@ public:
 
   void start_tx() override {
     reset();
-    write_opts.sync = (rocksdb_flush_log_at_trx_commit == 1);
+    write_opts.sync = (rocksdb_flush_log_at_trx_commit == FLUSH_LOG_SYNC);
     write_opts.disableWAL = THDVAR(m_thd, write_disable_wal);
     write_opts.ignore_missing_column_families =
         THDVAR(m_thd, write_ignore_missing_column_families);
@@ -2628,8 +2655,17 @@ static std::string rdb_xid_to_string(const XID &src) {
 static bool rocksdb_flush_wal(handlerton *const hton MY_ATTRIBUTE((__unused__)),
                               ulonglong target_lsn MY_ATTRIBUTE((__unused__))) {
   DBUG_ASSERT(rdb != nullptr);
-  rocksdb_wal_group_syncs++;
-  const rocksdb::Status s = rdb->SyncWAL();
+
+  rocksdb::Status s;
+  /*
+    target_lsn is set to 0 when MySQL wants to sync the wal files
+  */
+  if (target_lsn == 0 || rocksdb_flush_log_at_trx_commit != FLUSH_LOG_NEVER) {
+    rocksdb_wal_group_syncs++;
+    s = rdb->FlushWAL(target_lsn == 0 ||
+                      rocksdb_flush_log_at_trx_commit == FLUSH_LOG_SYNC);
+  }
+
   if (!s.ok()) {
     rdb_log_status_error(s);
     return HA_EXIT_FAILURE;
@@ -2668,7 +2704,7 @@ static int rocksdb_prepare(handlerton *const hton, THD *const thd,
         return HA_EXIT_FAILURE;
       }
       if (thd->durability_property == HA_IGNORE_DURABILITY &&
-          (rocksdb_flush_log_at_trx_commit == 1)) {
+          (rocksdb_flush_log_at_trx_commit != FLUSH_LOG_NEVER)) {
         /**
           we set the log sequence as '1' just to trigger hton->flush_logs
         */
@@ -11022,10 +11058,13 @@ void Rdb_background_thread::run() {
     timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
 
-    // Flush the WAL.
-    if (rdb && (rocksdb_flush_log_at_trx_commit == 2)) {
+    // Flush the WAL. Sync it for both background and never modes to copy
+    // InnoDB's behavior. For mode never, the wal file isn't even written,
+    // whereas background writes to the wal file, but issues the syncs in a
+    // background thread.
+    if (rdb && (rocksdb_flush_log_at_trx_commit != FLUSH_LOG_SYNC)) {
       DBUG_ASSERT(!rocksdb_db_options->allow_mmap_writes);
-      const rocksdb::Status s = rdb->SyncWAL();
+      const rocksdb::Status s = rdb->FlushWAL(true);
       if (!s.ok()) {
         rdb_handle_io_error(s, RDB_IO_ERROR_BG_THREAD);
       }
