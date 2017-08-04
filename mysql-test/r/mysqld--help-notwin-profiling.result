@@ -1147,6 +1147,9 @@ The following options may be given as the first argument:
  Enable or disable ROCKSDB_COMPACTION_STATS plugin.
  Possible values are ON, OFF, FORCE (don't start if the
  plugin fails to load).
+ --rocksdb-concurrent-prepare 
+ DBOptions::concurrent_prepare for RocksDB
+ (Defaults to on; use --skip-rocksdb-concurrent-prepare to disable.)
  --rocksdb-create-checkpoint=name 
  Checkpoint directory
  --rocksdb-create-if-missing 
@@ -1285,6 +1288,9 @@ The following options may be given as the first argument:
  DBOptions::log_file_time_to_roll for RocksDB
  --rocksdb-manifest-preallocation-size=# 
  DBOptions::manifest_preallocation_size for RocksDB
+ --rocksdb-manual-wal-flush 
+ DBOptions::manual_wal_flush for RocksDB
+ (Defaults to on; use --skip-rocksdb-manual-wal-flush to disable.)
  --rocksdb-master-skip-tx-api 
  Skipping holding any lock on row access. Not effective on
  slave.
@@ -2077,6 +2083,7 @@ rocksdb-compaction-sequential-deletes-count-sd FALSE
 rocksdb-compaction-sequential-deletes-file-size 0
 rocksdb-compaction-sequential-deletes-window 0
 rocksdb-compaction-stats ON
+rocksdb-concurrent-prepare TRUE
 rocksdb-create-checkpoint 
 rocksdb-create-if-missing TRUE
 rocksdb-create-missing-column-families FALSE
@@ -2120,6 +2127,7 @@ rocksdb-lock-wait-timeout 1
 rocksdb-locks ON
 rocksdb-log-file-time-to-roll 0
 rocksdb-manifest-preallocation-size 4194304
+rocksdb-manual-wal-flush TRUE
 rocksdb-master-skip-tx-api FALSE
 rocksdb-max-background-jobs 2
 rocksdb-max-log-file-size 0
