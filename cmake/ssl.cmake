@@ -282,10 +282,10 @@ MACRO (MYSQL_CHECK_SSL)
       MESSAGE(STATUS "suffixes <${CMAKE_FIND_LIBRARY_SUFFIXES}>")
     ENDIF()
     FIND_LIBRARY(OPENSSL_LIBRARY
-                 NAMES ssl libssl ssleay32 ssleay32MD
+                 NAMES ssl_pic ssl libssl ssleay32 ssleay32MD
                  HINTS ${OPENSSL_ROOT_DIR}/lib)
     FIND_LIBRARY(CRYPTO_LIBRARY
-                 NAMES crypto libcrypto libeay32
+                 NAMES crypto_pic crypto libcrypto libeay32
                  HINTS ${OPENSSL_ROOT_DIR}/lib)
     IF (WITH_SSL_PATH AND NOT APPLE AND NOT LINUX_STANDALONE)
       LIST(REVERSE CMAKE_FIND_LIBRARY_SUFFIXES)
