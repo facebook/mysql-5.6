@@ -8438,16 +8438,21 @@ int THD::binlog_write_table_map(TABLE *table, bool is_transactional,
   binlog_cache_data *cache_data=
     cache_mngr->get_binlog_cache_data(is_transactional);
 
-  if (binlog_rows_query && this->query())
+  bool write_rows_query= binlog_rows_query && this->query();
+  if (write_rows_query)
   {
     /* Write the Rows_query_log_event into binlog before the table map */
     Rows_query_log_event
       rows_query_ev(this, this->query(), this->query_length());
-    if ((error= cache_data->write_event(this, &rows_query_ev)))
+    if ((error= cache_data->write_event(this, &rows_query_ev,
+                                        opt_binlog_trx_meta_data)))
       DBUG_RETURN(error);
   }
 
   if ((error= cache_data->write_event(this, &the_event,
+                                      // write meta data only if not written
+                                      // before rows query event
+                                      !write_rows_query &&
                                       opt_binlog_trx_meta_data)))
     DBUG_RETURN(error);
 
