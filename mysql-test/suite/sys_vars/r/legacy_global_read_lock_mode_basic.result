@@ -5,7 +5,7 @@ INSERT INTO invalid_values VALUES('aaa'), ('bbb'), (3.14);
 SET @start_global_value = @@global.LEGACY_GLOBAL_READ_LOCK_MODE;
 SELECT @start_global_value;
 @start_global_value
-0
+1
 '# Setting to valid values in global scope#'
 "Trying to set variable @@global.LEGACY_GLOBAL_READ_LOCK_MODE to 1"
 SET @@global.LEGACY_GLOBAL_READ_LOCK_MODE   = 1;
@@ -16,7 +16,7 @@ SELECT @@global.LEGACY_GLOBAL_READ_LOCK_MODE;
 SET @@global.LEGACY_GLOBAL_READ_LOCK_MODE = DEFAULT;
 SELECT @@global.LEGACY_GLOBAL_READ_LOCK_MODE;
 @@global.LEGACY_GLOBAL_READ_LOCK_MODE
-0
+1
 "Trying to set variable @@global.LEGACY_GLOBAL_READ_LOCK_MODE to 0"
 SET @@global.LEGACY_GLOBAL_READ_LOCK_MODE   = 0;
 SELECT @@global.LEGACY_GLOBAL_READ_LOCK_MODE;
@@ -26,7 +26,7 @@ SELECT @@global.LEGACY_GLOBAL_READ_LOCK_MODE;
 SET @@global.LEGACY_GLOBAL_READ_LOCK_MODE = DEFAULT;
 SELECT @@global.LEGACY_GLOBAL_READ_LOCK_MODE;
 @@global.LEGACY_GLOBAL_READ_LOCK_MODE
-0
+1
 "Trying to set variable @@global.LEGACY_GLOBAL_READ_LOCK_MODE to on"
 SET @@global.LEGACY_GLOBAL_READ_LOCK_MODE   = on;
 SELECT @@global.LEGACY_GLOBAL_READ_LOCK_MODE;
@@ -36,7 +36,7 @@ SELECT @@global.LEGACY_GLOBAL_READ_LOCK_MODE;
 SET @@global.LEGACY_GLOBAL_READ_LOCK_MODE = DEFAULT;
 SELECT @@global.LEGACY_GLOBAL_READ_LOCK_MODE;
 @@global.LEGACY_GLOBAL_READ_LOCK_MODE
-0
+1
 "Trying to set variable @@global.LEGACY_GLOBAL_READ_LOCK_MODE to off"
 SET @@global.LEGACY_GLOBAL_READ_LOCK_MODE   = off;
 SELECT @@global.LEGACY_GLOBAL_READ_LOCK_MODE;
@@ -46,7 +46,7 @@ SELECT @@global.LEGACY_GLOBAL_READ_LOCK_MODE;
 SET @@global.LEGACY_GLOBAL_READ_LOCK_MODE = DEFAULT;
 SELECT @@global.LEGACY_GLOBAL_READ_LOCK_MODE;
 @@global.LEGACY_GLOBAL_READ_LOCK_MODE
-0
+1
 "Trying to set variable @@global.LEGACY_GLOBAL_READ_LOCK_MODE to true"
 SET @@global.LEGACY_GLOBAL_READ_LOCK_MODE   = true;
 SELECT @@global.LEGACY_GLOBAL_READ_LOCK_MODE;
@@ -56,7 +56,7 @@ SELECT @@global.LEGACY_GLOBAL_READ_LOCK_MODE;
 SET @@global.LEGACY_GLOBAL_READ_LOCK_MODE = DEFAULT;
 SELECT @@global.LEGACY_GLOBAL_READ_LOCK_MODE;
 @@global.LEGACY_GLOBAL_READ_LOCK_MODE
-0
+1
 "Trying to set variable @@global.LEGACY_GLOBAL_READ_LOCK_MODE to false"
 SET @@global.LEGACY_GLOBAL_READ_LOCK_MODE   = false;
 SELECT @@global.LEGACY_GLOBAL_READ_LOCK_MODE;
@@ -66,7 +66,7 @@ SELECT @@global.LEGACY_GLOBAL_READ_LOCK_MODE;
 SET @@global.LEGACY_GLOBAL_READ_LOCK_MODE = DEFAULT;
 SELECT @@global.LEGACY_GLOBAL_READ_LOCK_MODE;
 @@global.LEGACY_GLOBAL_READ_LOCK_MODE
-0
+1
 "Trying to set variable @@session.LEGACY_GLOBAL_READ_LOCK_MODE to 444."
 "It should fail because it is not session."
 SET @@session.LEGACY_GLOBAL_READ_LOCK_MODE   = 444;
@@ -77,21 +77,21 @@ SET @@global.LEGACY_GLOBAL_READ_LOCK_MODE   = aaa;
 Got one of the listed errors
 SELECT @@global.LEGACY_GLOBAL_READ_LOCK_MODE;
 @@global.LEGACY_GLOBAL_READ_LOCK_MODE
-0
+1
 "Trying to set variable @@global.LEGACY_GLOBAL_READ_LOCK_MODE to bbb"
 SET @@global.LEGACY_GLOBAL_READ_LOCK_MODE   = bbb;
 Got one of the listed errors
 SELECT @@global.LEGACY_GLOBAL_READ_LOCK_MODE;
 @@global.LEGACY_GLOBAL_READ_LOCK_MODE
-0
+1
 "Trying to set variable @@global.LEGACY_GLOBAL_READ_LOCK_MODE to 3.14"
 SET @@global.LEGACY_GLOBAL_READ_LOCK_MODE   = 3.14;
 Got one of the listed errors
 SELECT @@global.LEGACY_GLOBAL_READ_LOCK_MODE;
 @@global.LEGACY_GLOBAL_READ_LOCK_MODE
-0
+1
 SET @@global.LEGACY_GLOBAL_READ_LOCK_MODE = @start_global_value;
 SELECT @@global.LEGACY_GLOBAL_READ_LOCK_MODE;
 @@global.LEGACY_GLOBAL_READ_LOCK_MODE
-0
+1
 DROP TABLE valid_values, invalid_values;

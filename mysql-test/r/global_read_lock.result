@@ -1,6 +1,7 @@
 DROP TABLE IF EXISTS t1;
 SET @save_legacy_global_read_lock_mode = @@global.legacy_global_read_lock_mode;
 CREATE TABLE t1(a INT) Engine=InnoDB;
+SET @@global.legacy_global_read_lock_mode = 0;
 SET @save_read_only=@@global.read_only;
 SET @save_super_read_only=@@global.super_read_only;
 BEGIN WORK;
@@ -95,7 +96,7 @@ COUNT(*)
 1
 SET @@global.super_read_only = @save_super_read_only;
 SET @@global.read_only = @save_read_only;
-SET @@global.legacy_global_read_lock_mode = @save_legacy_global_read_lock_mode;
+SET @@global.legacy_global_read_lock_mode = 0;
 SET @save_read_only=@@global.read_only;
 SET @save_super_read_only=@@global.super_read_only;
 BEGIN;
@@ -111,6 +112,7 @@ The In_use column should be 0 to indicate the lock was removed
 SHOW OPEN TABLES like 't1';
 Database	Table	In_use	Name_locked
 test	t1	0	0
+SET @@global.legacy_global_read_lock_mode = @save_legacy_global_read_lock_mode;
 SET @@global.super_read_only = @save_super_read_only;
 SET @@global.read_only = @save_read_only;
 DROP TABLE t1;
