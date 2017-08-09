@@ -436,6 +436,7 @@ The following options may be given as the first argument:
  Uses the legacy global read lock mode which will block
  setting global read lock when a long transaction is
  running
+ (Defaults to on; use --skip-legacy-global-read-lock-mode to disable.)
  --legacy-user-name-pattern[=name] 
  Regex pattern string of a legacy user name
  --local-infile      Enable LOAD DATA LOCAL INFILE
@@ -1900,7 +1901,7 @@ large-pages FALSE
 lc-messages en_US
 lc-messages-dir MYSQL_SHAREDIR/
 lc-time-names en_US
-legacy-global-read-lock-mode FALSE
+legacy-global-read-lock-mode TRUE
 legacy-user-name-pattern (No default value)
 local-infile TRUE
 lock-wait-timeout 604800

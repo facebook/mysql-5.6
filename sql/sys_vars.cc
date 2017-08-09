@@ -1729,7 +1729,7 @@ static Sys_var_mybool Sys_legacy_global_read_lock_mode(
        "Uses the legacy global read lock mode which will block setting global "
        "read lock when a long transaction is running",
        GLOBAL_VAR(legacy_global_read_lock_mode),
-       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+       CMD_LINE(OPT_ARG), DEFAULT(TRUE));
 
 static Sys_var_mybool Sys_ignore_builtin_innodb(
        "ignore_builtin_innodb",

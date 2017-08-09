@@ -16,6 +16,7 @@ CREATE TABLE t1(a INT) Engine=InnoDB;
 connect(con1,localhost,root,,);
 connect(con2,localhost,root,,);
 
+SET @@global.legacy_global_read_lock_mode = 0;
 --let $legacy_mode=0
 --let $with_transactions=1
 --source global_read_lock.inc
@@ -44,7 +45,7 @@ SET @@global.legacy_global_read_lock_mode = 1;
 #
 # Save the current settings for read_only and super_read_only
 connection default;
-SET @@global.legacy_global_read_lock_mode = @save_legacy_global_read_lock_mode;
+SET @@global.legacy_global_read_lock_mode = 0;
 SET @save_read_only=@@global.read_only;
 SET @save_super_read_only=@@global.super_read_only;
 
@@ -67,6 +68,7 @@ echo The In_use column should be 0 to indicate the lock was removed;
 connection default;
 SHOW OPEN TABLES like 't1';
 
+SET @@global.legacy_global_read_lock_mode = @save_legacy_global_read_lock_mode;
 SET @@global.super_read_only = @save_super_read_only;
 SET @@global.read_only = @save_read_only;
 
