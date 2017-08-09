@@ -808,8 +808,10 @@ static ulonglong get_heartbeat_period(THD * thd)
   @param packet             buffer to store the heartbeat instance
   @param event_coordinates  binlog file name and position of the last
                             real event master sent from binlog
+  @param send_timestamp     flag enables sending the HB event with
+                                the current timestamp: time().
 
-  @note 
+  @note
     Among three essential pieces of heartbeat data Log_event::when
     is computed locally.
     The  error to send is serious and should force terminating
@@ -818,17 +820,22 @@ static ulonglong get_heartbeat_period(THD * thd)
 static int send_heartbeat_event(NET* net, String* packet,
                                 const struct event_coordinates *coord,
                                 bool is_semi_sync_slave,
-                                uint8 checksum_alg_arg)
+                                uint8 checksum_alg_arg,
+                                bool send_timestamp)
 {
   DBUG_ENTER("send_heartbeat_event");
   char header[LOG_EVENT_HEADER_LEN];
   my_bool do_checksum= checksum_alg_arg != BINLOG_CHECKSUM_ALG_OFF &&
     checksum_alg_arg != BINLOG_CHECKSUM_ALG_UNDEF;
 
-  // NOTE: if @last_master_timestamp is provided we're a slave and we use this
-  // value in the HB event otherwise we use now()
-  time_t ts= mysql_bin_log.last_master_timestamp.load();
-  if (!ts) ts= time(0);
+  time_t ts= 0;
+
+  if (send_timestamp) {
+    // NOTE: if @last_master_timestamp is provided we're a slave and we use this
+    // value in the HB event otherwise we use now()
+    ts= mysql_bin_log.last_master_timestamp.load();
+    if (!ts) ts= time(0);
+  }
   memcpy(header, &ts, 4);
 
   header[EVENT_TYPE_OFFSET] = HEARTBEAT_LOG_EVENT;
@@ -880,6 +887,15 @@ static int send_heartbeat_event(NET* net, String* packet,
    later. Note that, the caller has to send the last skipped coordinates
    to this function.
 
+   Note that this function will not send HeartBeat events that carry the current
+   timestamp. This this because this function is ONLY used to send HB update
+   when the previous transaction has been skipped. Note that HB events'
+   timestamps will be used by the slave to calculate the seconds behind master.
+
+   The only place that makes sense for the event to carry a timestamp is when
+   the master is waiting on the update and keeping sending HB events to keep
+   the connection.
+
    @param[in]      net               This master-slave network handler
    @param[in]      packet            packet that is to be sent to the slave.
    @param[in]      last_skip_coord   coordinates for last skipped transaction
@@ -904,7 +920,7 @@ static int send_last_skip_group_heartbeat(THD *thd, NET* net, String *packet,
   String save_packet;
   int save_offset= *ev_offset;
 
- /* Save the current read packet */ 
+ /* Save the current read packet */
   save_packet.swap(*packet);
 
   if (reset_transmit_packet(thd, 0, ev_offset, errmsg, observe_transmission,
@@ -912,9 +928,16 @@ static int send_last_skip_group_heartbeat(THD *thd, NET* net, String *packet,
                             semi_sync_slave))
     DBUG_RETURN(-1);
 
-  /* Send heart beat event to the slave to update slave  threads coordinates */
-  if (send_heartbeat_event(net, packet, last_skip_coord,
-                           semi_sync_slave, checksum_alg_arg))
+  /**
+   * Send heart beat event to the slave to update slave  threads coordinates
+   * Note that we will not send timestamp in these heart beat events
+   */
+  if (send_heartbeat_event(net,
+                           packet,
+                           last_skip_coord,
+                           semi_sync_slave,
+                           checksum_alg_arg,
+                           false))
   {
     *errmsg= "Failed on my_net_write()";
     my_errno= ER_UNKNOWN_ERROR;
@@ -1922,6 +1945,10 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
         // Both diff_timespec() and heartbeat_period are in nano seconds.
         time_for_hb_event= (diff_timespec(cur_clock, last_event_sent_ts) >=
                             heartbeat_period);
+        DBUG_EXECUTE_IF("send_zero_hb_event",
+                        {
+                          time_for_hb_event= true;
+                        });
       }
 
       if ((!skip_group && last_skip_group
@@ -1938,6 +1965,10 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
           is the first event to be sent to the slave. In this case, it is
           no need to send a HB event (which might have coordinates
           of previous binlog file).
+
+          This heartbeat event sending only happens when the master is in the
+          middle or has just completed skipping all the trxs. Therefore, HB
+          shouldn't carry Timestamp.
         */
 
         if (send_last_skip_group_heartbeat(thd, net, packet, p_last_skip_coord,
@@ -2210,6 +2241,10 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
               If the heartbeat is on, it is better to send a heartbeat
               event as the time_out of certain functions (Ex: master_pos_wait()
               or semi sync ack timeout) might be less than heartbeat period.
+
+              This can happen when the slave has exact same GTID as the master.
+              In this case, we still send the first HB with 0 timestamp to be
+              safe since the follow up HB with carry the right timestamp
             */
             if (skip_group)
             {
@@ -2254,8 +2289,19 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                 thd->EXIT_COND(&old_stage);
                 GOTO_ERR;
               }
-              if (send_heartbeat_event(net, packet, p_coord,
-                                       semi_sync_slave, current_checksum_alg))
+              /**
+               * HB events sent here are essentially when the master is waiting
+               * on updates and send HB to keep the connection connected.
+               *
+               * This is the only place that sending HB with Timestamp makes
+               * sense and won't break monotonic TS calculated SBM
+               */
+              if (send_heartbeat_event(net,
+                                       packet,
+                                       p_coord,
+                                       semi_sync_slave,
+                                       current_checksum_alg,
+                                       true))
               {
                 errmsg = "Failed on my_net_write()";
                 my_errno= ER_UNKNOWN_ERROR;
@@ -2357,7 +2403,11 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 
           if (!skip_group && !goto_next_binlog)
           {
-            /* If the last group was skipped, send a HB event */
+            /**
+             * If the last group was skipped, send a HB event,
+             * similarly, HB sent here should not carry TS since the last
+             * trx is skipped and we are not sure if we are waiting on update
+             */
             if (last_skip_group &&
                 send_last_skip_group_heartbeat(thd, net, packet,
                                                p_last_skip_coord, &ev_offset,

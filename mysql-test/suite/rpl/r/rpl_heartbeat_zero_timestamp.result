@@ -1,0 +1,38 @@
+include/master-slave.inc
+[connection master]
+include/rpl_set_gtid_mode.inc
+include/stop_slave.inc
+set @save.slave_parallel_workers= @@global.slave_parallel_workers;
+SET @@global.slave_parallel_workers= 4;
+CHANGE MASTER TO MASTER_AUTO_POSITION=1;
+include/start_slave.inc
+SET GLOBAL DEBUG="+d, send_zero_hb_event";
+include/sync_slave_sql_with_master.inc
+include/stop_slave.inc
+CHANGE MASTER TO MASTER_HEARTBEAT_PERIOD=0.1;
+include/start_slave.inc
+include/assert.inc [Seconds behind master should be bigger than zero after creating the lag for MTS]
+include/sync_slave_sql_with_master.inc
+include/stop_slave.inc
+SET @@global.slave_parallel_workers= 0;
+include/start_slave.inc
+include/assert.inc [Seconds behind master should be bigger than zero after creating the lag for non-MTS]
+use test4;
+drop table if exists t4;
+drop database if exists test4;
+use test3;
+drop table if exists t3;
+drop database if exists test3;
+use test2;
+drop table if exists t2;
+drop database if exists test2;
+use test1;
+drop table if exists t1;
+drop database if exists test1;
+SET GLOBAL DEBUG="-d, send_zero_hb_event";
+include/sync_slave_sql_with_master.inc
+include/stop_slave.inc
+set @@global.slave_parallel_workers= @save.slave_parallel_workers;
+CHANGE MASTER TO MASTER_HEARTBEAT_PERIOD=60.000;
+include/start_slave.inc
+include/rpl_end.inc
