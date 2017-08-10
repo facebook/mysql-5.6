@@ -105,6 +105,7 @@ drop table if exists t1;
   --echo ** do not match the WHERE condition are released.
   if ($keep_locks)
   {
+    --replace_regex /Timeout on record \(.*\)/Timeout on record/
     --error ER_LOCK_WAIT_TIMEOUT
     update t1 set eta=2 where tipo=22;
   }
@@ -204,6 +205,7 @@ drop table t1;
   --echo ** do not match the WHERE condition are released.
   if ($keep_locks)
   {
+    --replace_regex /Timeout on record \(.*\)/Timeout on record/
     --error ER_LOCK_WAIT_TIMEOUT
     update t1 set tipo=1 where tipo=2;
   }
@@ -345,6 +347,7 @@ drop table t1;
   begin;
   --echo ** Update the same range which is marked for update on thread 2; this
   --echo ** will hang because of row locks.
+  --replace_regex /Timeout on record \(.*\)/Timeout on record/
   --error ER_LOCK_WAIT_TIMEOUT
   update t1 set tipo=1 where tipo=2;
   --echo ** After the update the table will be unmodified because the previous
@@ -421,6 +424,7 @@ drop table t1;
   --echo ** do not match the WHERE condition are released.
   if ($keep_locks)
   {
+    --replace_regex /Timeout on record \(.*\)/Timeout on record/
     --error ER_LOCK_WAIT_TIMEOUT
     update t1 set tipo=11 where tipo=22;
   }
@@ -493,6 +497,7 @@ drop table t1;
   begin;
   --echo ** Selecting a range for update by table scan will be blocked
   --echo ** because of on-going transaction on thread 2.
+  --replace_regex /Timeout on record \(.*\)/Timeout on record/
   --error ER_LOCK_WAIT_TIMEOUT
   select * from t1 where tipo=1 FOR UPDATE;
   
@@ -559,6 +564,7 @@ drop table t1;
   --echo ** connection thread1
   connection thread1;
   begin;
+  --replace_regex /Timeout on record \(.*\)/Timeout on record/
   --error ER_LOCK_WAIT_TIMEOUT
   update t1 set tipo=1 where tipo=2;
   select * from t1;
@@ -629,6 +635,7 @@ drop table t1;
   --echo ** do not match the WHERE condition are released.
   if ($keep_locks)
   {
+    --replace_regex /Timeout on record \(.*\)/Timeout on record/
     --error ER_LOCK_WAIT_TIMEOUT
     update t1 set tipo=1 where tipo=22;
   }

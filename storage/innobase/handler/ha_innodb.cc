@@ -19599,6 +19599,7 @@ innobase_timeout_message(
 	const char*	name2)	 /* in: second item */
 {
   strncpy(msg, timeout_message(command, name1, name2).c_ptr_safe(), len);
+  msg[len - 1] = 0;
 }
 
 
