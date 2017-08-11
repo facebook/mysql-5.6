@@ -7997,8 +7997,12 @@ commit_stage:
   }
   semisync_queue =
     stage_manager.fetch_queue_for(Stage_manager::SEMISYNC_STAGE);
+  
+  ulonglong start_time;
+  start_time = my_timer_now();
   process_semisync_stage_queue(semisync_queue);
-
+  thd->semisync_ack_time = my_timer_since(start_time);
+  
   leave_mutex_before_commit_stage= &LOCK_semisync;
 
   /*
@@ -8026,7 +8030,9 @@ commit_stage:
       DBUG_RETURN(finish_commit(thd, async));
     }
     THD *commit_queue= stage_manager.fetch_queue_for(Stage_manager::COMMIT_STAGE);
+    start_time = my_timer_now();
     process_commit_stage_queue(thd, commit_queue, async);
+    thd->engine_commit_time = my_timer_since(start_time);
     mysql_mutex_unlock(&LOCK_commit);
     final_queue= commit_queue;
   }
