@@ -2435,8 +2435,6 @@ static Exit_status safe_connect()
   if (opt_default_auth && *opt_default_auth)
     mysql_options(mysql, MYSQL_DEFAULT_AUTH, opt_default_auth);
 
-  if (opt_compress_event)
-    mysql_options(mysql, MYSQL_OPT_COMP_EVENT, NullS);
   if (opt_compress && opt_compress_event)
     warning("Both packet and event compression were enabled. Disabling packet "
             "compression to avoid double compression.");
@@ -2454,6 +2452,10 @@ static Exit_status safe_connect()
   mysql_options(mysql, MYSQL_OPT_CONNECT_ATTR_RESET, 0);
   if (opt_compress) {
     mysql_options(mysql, MYSQL_OPT_COMPRESS, NullS);
+    mysql_options(mysql, MYSQL_OPT_COMP_LIB, (void *)compr_lib_val);
+  }
+  if (opt_compress_event) {
+    mysql_options(mysql, MYSQL_OPT_COMP_EVENT, NullS);
     mysql_options(mysql, MYSQL_OPT_COMP_LIB, (void *)compr_lib_val);
   }
   mysql_options4(mysql, MYSQL_OPT_CONNECT_ATTR_ADD,
