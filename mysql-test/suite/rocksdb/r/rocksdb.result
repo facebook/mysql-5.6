@@ -945,6 +945,7 @@ rocksdb_records_in_range	50
 rocksdb_reset_stats	OFF
 rocksdb_seconds_between_stat_computes	3600
 rocksdb_signal_drop_index_thread	OFF
+rocksdb_sim_cache_size	0
 rocksdb_skip_bloom_filter_on_read	OFF
 rocksdb_skip_fill_cache	OFF
 rocksdb_skip_unique_check_tables	.*
