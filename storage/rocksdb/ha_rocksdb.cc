@@ -57,6 +57,7 @@
 #include "rocksdb/utilities/checkpoint.h"
 #include "rocksdb/utilities/convenience.h"
 #include "rocksdb/utilities/memory_util.h"
+#include "rocksdb/utilities/sim_cache.h"
 #include "util/stop_watch.h"
 
 /* MyRocks includes */
@@ -412,6 +413,7 @@ static void rocksdb_set_max_background_jobs(THD *thd,
 // Options definitions
 //////////////////////////////////////////////////////////////////////////////
 static long long rocksdb_block_cache_size;
+static long long rocksdb_sim_cache_size;
 /* Use unsigned long long instead of uint64_t because of MySQL compatibility */
 static unsigned long long  // NOLINT(runtime/int)
     rocksdb_rate_limiter_bytes_per_sec;
@@ -1005,6 +1007,15 @@ static MYSQL_SYSVAR_LONGLONG(block_cache_size, rocksdb_block_cache_size,
                              /* max */ LONGLONG_MAX,
                              /* Block size */ RDB_MIN_BLOCK_CACHE_SIZE);
 
+static MYSQL_SYSVAR_LONGLONG(sim_cache_size, rocksdb_sim_cache_size,
+                             PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+                             "Simulated cache size for RocksDB", nullptr,
+                             nullptr,
+                             /* default */ 0,
+                             /* min */ 0,
+                             /* max */ LONGLONG_MAX,
+                             /* Block size */ 0);
+
 static MYSQL_SYSVAR_BOOL(
     cache_index_and_filter_blocks,
     *reinterpret_cast<my_bool *>(
@@ -1447,6 +1458,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(enable_write_thread_adaptive_yield),
 
     MYSQL_SYSVAR(block_cache_size),
+    MYSQL_SYSVAR(sim_cache_size),
     MYSQL_SYSVAR(cache_index_and_filter_blocks),
     MYSQL_SYSVAR(pin_l0_filter_and_index_blocks_in_cache),
     MYSQL_SYSVAR(index_type),
@@ -3732,8 +3744,17 @@ static int rocksdb_init_func(void *const p) {
       (rocksdb::BlockBasedTableOptions::IndexType)rocksdb_index_type;
 
   if (!rocksdb_tbl_options->no_block_cache) {
-    rocksdb_tbl_options->block_cache =
+    std::shared_ptr<rocksdb::Cache> block_cache =
         rocksdb::NewLRUCache(rocksdb_block_cache_size);
+    if (rocksdb_sim_cache_size > 0) {
+      // Simulated cache enabled
+      // Wrap block cache inside a simulated cache and pass it to RocksDB
+      rocksdb_tbl_options->block_cache =
+          rocksdb::NewSimCache(block_cache, rocksdb_sim_cache_size, 6);
+    } else {
+      // Pass block cache to RocksDB
+      rocksdb_tbl_options->block_cache = block_cache;
+    }
   }
   // Using newer BlockBasedTable format version for better compression
   // and better memory allocation.
