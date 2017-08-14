@@ -4891,8 +4891,9 @@ int ha_rocksdb::convert_record_from_storage_format(
   }
 
   if (m_maybe_unpack_info) {
-    unpack_info = reader.read(RDB_UNPACK_HEADER_SIZE);
-    if (!unpack_info || unpack_info[0] != RDB_UNPACK_DATA_TAG) {
+    unpack_info = reader.get_current_ptr();
+    if (!unpack_info || !Rdb_key_def::is_unpack_data_tag(unpack_info[0]) ||
+        !reader.read(Rdb_key_def::get_unpack_header_size(unpack_info[0]))) {
       return HA_ERR_ROCKSDB_CORRUPT_DATA;
     }
 
@@ -4900,7 +4901,8 @@ int ha_rocksdb::convert_record_from_storage_format(
         rdb_netbuf_to_uint16(reinterpret_cast<const uchar *>(unpack_info + 1));
     unpack_slice = rocksdb::Slice(unpack_info, unpack_info_len);
 
-    reader.read(unpack_info_len - RDB_UNPACK_HEADER_SIZE);
+    reader.read(unpack_info_len -
+                Rdb_key_def::get_unpack_header_size(unpack_info[0]));
   }
 
   int err = m_pk_descr->unpack_record(table, buf, &rowkey_slice,
@@ -5056,8 +5058,7 @@ void ha_rocksdb::setup_field_converters() {
       If hidden pk exists, we skip this check since the field will never be
       part of the hidden pk.
     */
-    if (!has_hidden_pk(table) &&
-        field->part_of_key.is_set(table->s->primary_key)) {
+    if (!has_hidden_pk(table)) {
       KEY *const pk_info = &table->key_info[table->s->primary_key];
       for (uint kp = 0; kp < pk_info->user_defined_key_parts; kp++) {
         /* key_part->fieldnr is counted from 1 */
@@ -5981,6 +5982,12 @@ int ha_rocksdb::create_key_def(const TABLE *const table_arg, const uint &i,
     kv_version = Rdb_key_def::PRIMARY_FORMAT_VERSION_UPDATE1;
   });
 
+  DBUG_EXECUTE_IF("MYROCKS_NO_COVERED_BITMAP_FORMAT", {
+    if (index_type == Rdb_key_def::INDEX_TYPE_SECONDARY) {
+      kv_version = Rdb_key_def::SECONDARY_FORMAT_VERSION_UPDATE2;
+    }
+  });
+
   uint32 index_flags = (ttl_duration > 0 ? Rdb_key_def::TTL_FLAG : 0);
 
   uint32 ttl_rec_offset =
@@ -6562,17 +6569,21 @@ int ha_rocksdb::read_row_from_secondary_key(uchar *const buf,
   int rc = 0;
   uint pk_size;
 
-  if (m_keyread_only && m_lock_rows == RDB_LOCK_NONE && !has_hidden_pk(table)) {
-    /* Get the key columns and primary key value */
-    const rocksdb::Slice &rkey = m_scan_it->key();
+  /* Get the key columns and primary key value */
+  const rocksdb::Slice &rkey = m_scan_it->key();
+  const rocksdb::Slice &value = m_scan_it->value();
+
+  bool covered_lookup =
+      m_keyread_only || kd.covers_lookup(table, &value, &m_lookup_bitmap);
+  if (covered_lookup && m_lock_rows == RDB_LOCK_NONE && !has_hidden_pk(table)) {
     pk_size =
         kd.get_primary_key_tuple(table, *m_pk_descr, &rkey, m_pk_packed_tuple);
-    const rocksdb::Slice &value = m_scan_it->value();
     if (pk_size == RDB_INVALID_KEY_LEN) {
       rc = HA_ERR_ROCKSDB_CORRUPT_DATA;
     } else {
       rc = kd.unpack_record(table, buf, &rkey, &value,
                             m_verify_row_debug_checksums);
+      global_stats.covered_secondary_key_lookups.inc();
     }
   } else {
     if (kd.m_is_reverse_cf)
@@ -6682,11 +6693,15 @@ int ha_rocksdb::secondary_index_read(const int keyno, uchar *const buf) {
       m_last_rowkey.copy((const char *)m_pk_packed_tuple, size,
                          &my_charset_bin);
 
-      if (m_keyread_only && m_lock_rows == RDB_LOCK_NONE &&
+      rocksdb::Slice value = m_scan_it->value();
+      bool covered_lookup =
+          m_keyread_only || m_key_descr_arr[keyno]->covers_lookup(
+                                table, &value, &m_lookup_bitmap);
+      if (covered_lookup && m_lock_rows == RDB_LOCK_NONE &&
           !has_hidden_pk(table)) {
-        rocksdb::Slice value = m_scan_it->value();
         rc = m_key_descr_arr[keyno]->unpack_record(
             table, buf, &key, &value, m_verify_row_debug_checksums);
+        global_stats.covered_secondary_key_lookups.inc();
       } else {
         rc = get_row_by_rowid(buf, m_pk_packed_tuple, size);
       }
@@ -8751,6 +8766,10 @@ int ha_rocksdb::index_init(uint idx, bool sorted) {
 
   setup_read_decoders();
 
+  if (!m_keyread_only) {
+    m_key_descr_arr[idx]->get_lookup_bitmap(table, &m_lookup_bitmap);
+  }
+
   // If m_lock_rows is not RDB_LOCK_NONE then we will be doing a get_for_update
   // when accessing the index, so don't acquire the snapshot right away.
   // Otherwise acquire the snapshot immediately.
@@ -8769,6 +8788,8 @@ int ha_rocksdb::index_end() {
   DBUG_ENTER_FUNC();
 
   release_scan_iterator();
+
+  bitmap_free(&m_lookup_bitmap);
 
   active_index = MAX_KEY;
   in_range_check_pushed_down = FALSE;
@@ -10912,6 +10933,9 @@ static void myrocks_update_status() {
 
   export_stats.queries_point = global_stats.queries[QUERIES_POINT];
   export_stats.queries_range = global_stats.queries[QUERIES_RANGE];
+
+  export_stats.covered_secondary_key_lookups =
+      global_stats.covered_secondary_key_lookups;
 }
 
 static void myrocks_update_memory_status() {
@@ -10954,6 +10978,9 @@ static SHOW_VAR myrocks_status_variables[] = {
     DEF_STATUS_VAR_FUNC("queries_point", &export_stats.queries_point,
                         SHOW_LONGLONG),
     DEF_STATUS_VAR_FUNC("queries_range", &export_stats.queries_range,
+                        SHOW_LONGLONG),
+    DEF_STATUS_VAR_FUNC("covered_secondary_key_lookups",
+                        &export_stats.covered_secondary_key_lookups,
                         SHOW_LONGLONG),
 
     {NullS, NullS, SHOW_LONG}};
