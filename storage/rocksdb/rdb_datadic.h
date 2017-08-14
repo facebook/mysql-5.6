@@ -106,13 +106,24 @@ const size_t RDB_CHECKSUM_CHUNK_SIZE = 2 * RDB_CHECKSUM_SIZE + 1;
 const char RDB_CHECKSUM_DATA_TAG = 0x01;
 
 /*
-  Unpack data is variable length. It is a 1 tag-byte plus a
-  two byte length field. The length field includes the header as well.
+  Unpack data is variable length. The header is 1 tag-byte plus a two byte
+  length field. The length field includes the header as well.
 */
 const char RDB_UNPACK_DATA_TAG = 0x02;
 const size_t RDB_UNPACK_DATA_LEN_SIZE = sizeof(uint16_t);
 const size_t RDB_UNPACK_HEADER_SIZE =
     sizeof(RDB_UNPACK_DATA_TAG) + RDB_UNPACK_DATA_LEN_SIZE;
+
+/*
+  This header format is 1 tag-byte plus a two byte length field plus a two byte
+  covered bitmap. The length field includes the header size.
+*/
+const char RDB_UNPACK_COVERED_DATA_TAG = 0x03;
+const size_t RDB_UNPACK_COVERED_DATA_LEN_SIZE = sizeof(uint16_t);
+const size_t RDB_COVERED_BITMAP_SIZE = sizeof(uint16_t);
+const size_t RDB_UNPACK_COVERED_HEADER_SIZE =
+    sizeof(RDB_UNPACK_COVERED_DATA_TAG) + RDB_UNPACK_COVERED_DATA_LEN_SIZE +
+    RDB_COVERED_BITMAP_SIZE;
 
 /*
   Data dictionary index info field sizes.
@@ -245,6 +256,17 @@ public:
     return true;
   }
 
+  void get_lookup_bitmap(const TABLE *table, MY_BITMAP *map) const;
+
+  bool covers_lookup(TABLE *const table,
+                     const rocksdb::Slice *const unpack_info,
+                     const MY_BITMAP *const map) const;
+
+  inline bool use_covered_bitmap_format() const {
+    return m_index_type == INDEX_TYPE_SECONDARY &&
+           m_kv_format_version >= SECONDARY_FORMAT_VERSION_UPDATE3;
+  }
+
   /*
     Return true if the passed mem-comparable key
     - is from this index, and
@@ -301,6 +323,8 @@ public:
   const rocksdb::SliceTransform *get_extractor() const {
     return m_prefix_extractor.get();
   }
+
+  static size_t get_unpack_header_size(char tag);
 
   Rdb_key_def &operator=(const Rdb_key_def &) = delete;
   Rdb_key_def(const Rdb_key_def &k);
@@ -426,6 +450,11 @@ public:
     //    had an extra 9 bytes of encoded data.
     SECONDARY_FORMAT_VERSION_UPDATE2 = 12,
     SECONDARY_FORMAT_VERSION_LATEST = SECONDARY_FORMAT_VERSION_UPDATE2,
+    // This change includes support for covering SK lookups for varchars.  A
+    // 2-byte bitmap is added after the tag-byte to unpack_info only for
+    // records which have covered varchar columns. Currently waiting before
+    // enabling in prod.
+    SECONDARY_FORMAT_VERSION_UPDATE3 = 65535,
   };
 
   void setup(const TABLE *const table, const Rdb_tbl_def *const tbl_def);
@@ -594,6 +623,10 @@ public:
                                    SECONDARY_FORMAT_VERSION_UPDATE2);
   }
 
+  static inline bool is_unpack_data_tag(char c) {
+    return c == RDB_UNPACK_DATA_TAG || c == RDB_UNPACK_COVERED_DATA_TAG;
+  }
+
  private:
 #ifndef DBUG_OFF
   inline bool is_storage_available(const int &offset, const int &needed) const {
@@ -756,6 +789,13 @@ public:
   // number of bytes used to store number of trimmed (or added)
   // spaces in the upack_info
   bool m_unpack_info_uses_two_bytes;
+
+  /*
+    True implies that an index-only read is always possible for this field.
+    False means an index-only read may be possible depending on the record and
+    field type.
+  */
+  bool m_covered;
 
   const std::vector<uchar> *space_xfrm;
   size_t space_xfrm_len;

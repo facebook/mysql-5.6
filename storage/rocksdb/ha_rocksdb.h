@@ -366,6 +366,8 @@ struct st_global_stats {
   ib_counter_t<ulonglong, 64, RDB_INDEXER> system_rows[ROWS_MAX];
 
   ib_counter_t<ulonglong, 64, RDB_INDEXER> queries[QUERIES_MAX];
+
+  ib_counter_t<ulonglong> covered_secondary_key_lookups;
 };
 
 /* Struct used for exporting status to MySQL */
@@ -385,6 +387,8 @@ struct st_export_stats {
 
   ulonglong queries_point;
   ulonglong queries_range;
+
+  ulonglong covered_secondary_key_lookups;
 };
 
 /* Struct used for exporting RocksDB memory status */
@@ -641,6 +645,13 @@ class ha_rocksdb : public my_core::handler {
 
   /* Setup field_decoders based on type of scan and table->read_set */
   void setup_read_decoders();
+
+  /*
+    For the active index, indicates which columns must be covered for the
+    current lookup to be covered. If the bitmap field is null, that means this
+    index does not cover the current lookup for any record.
+   */
+  MY_BITMAP m_lookup_bitmap = {nullptr, 0, 0, nullptr, nullptr};
 
   /*
     Number of bytes in on-disk (storage) record format that are used for
