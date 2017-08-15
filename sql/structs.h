@@ -459,6 +459,7 @@ typedef struct st_db_stats {
   hyperloglog_t hll;
   atomic_stat<ulonglong> us_user;
   atomic_stat<ulonglong> us_sys;
+  atomic_stat<ulonglong> us_tot;
   atomic_stat<ulonglong> rows_deleted;  /* Number of rows deleted */
   atomic_stat<ulonglong> rows_inserted; /* Number of rows inserted */
   atomic_stat<ulonglong> rows_read;     /* Number of rows read for this table */
@@ -469,6 +470,12 @@ typedef struct st_db_stats {
   {
     us_user.inc(us_u);
     us_sys.inc(us_s);
+    us_tot.inc(us_s + us_u);
+  }
+
+  void update_cpu_stats_tot(ulonglong us_t)
+  {
+    us_tot.inc(us_t);
   }
 } DB_STATS;
 
