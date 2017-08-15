@@ -2327,6 +2327,9 @@ struct LEX: public Query_tables_list
   /* Partition info structure filled in by PARTITION BY parse part */
   partition_info *part_info;
 
+  /* High priority DDL */
+  bool high_priority_ddl = false;
+
   /*
     The definer of the object being created (view, trigger, stored routine).
     I.e. the value of DEFINER clause.

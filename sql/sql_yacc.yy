@@ -1961,7 +1961,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
         opt_natural_language_mode opt_query_expansion
         opt_ev_status opt_ev_on_completion ev_on_completion opt_ev_comment
         ev_alter_on_schedule_completion opt_ev_rename_to opt_ev_sql_stmt
-        trg_action_time trg_event handler_step
+        trg_action_time trg_event handler_step opt_high_priority
 %type <check_type> update_exist_arg
 %type <as_type> order_as_type
 /*
@@ -2154,6 +2154,8 @@ END_OF_INPUT
 %type <NONE> sp_proc_stmt_iterate
 %type <NONE> sp_proc_stmt_open sp_proc_stmt_fetch sp_proc_stmt_close
 %type <NONE> case_stmt_specification simple_case_stmt searched_case_stmt
+
+%type <NONE> create_opt drop_opt optimize_opt truncate_opt alter_table_opt
 
 %type <num>  sp_decl_idents sp_opt_inout sp_handler_type sp_hcond_list
 %type <spcondvalue> sp_cond sp_hcond sqlstate signal_value opt_signal_value
@@ -2665,10 +2667,19 @@ master_file_def:
           }
         ;
 
+opt_high_priority:
+          /* empty */ { $$ = false; }
+        | HIGH_PRIORITY { $$ = true; }
+      ;
+
+create_opt:
+          CREATE opt_high_priority { Lex->high_priority_ddl = $2; }
+        ;
+
 /* create a table */
 
 create:
-          CREATE opt_table_options TABLE_SYM opt_if_not_exists table_ident
+          create_opt opt_table_options TABLE_SYM opt_if_not_exists table_ident
           {
             THD *thd= YYTHD;
             LEX *lex= thd->lex;
@@ -2713,7 +2724,7 @@ create:
             }
             create_table_set_open_action_and_adjust_tables(lex);
           }
-        | CREATE opt_unique INDEX_SYM ident key_alg ON table_ident
+        | create_opt opt_unique INDEX_SYM ident key_alg ON table_ident
           {
             if (add_create_index_prepare(Lex, $7))
               MYSQL_YYABORT;
@@ -2724,7 +2735,7 @@ create:
               MYSQL_YYABORT;
           }
           opt_index_lock_algorithm { }
-        | CREATE fulltext INDEX_SYM ident init_key_options ON
+        | create_opt fulltext INDEX_SYM ident init_key_options ON
           table_ident
           {
             if (add_create_index_prepare(Lex, $7))
@@ -2736,7 +2747,7 @@ create:
               MYSQL_YYABORT;
           }
           opt_index_lock_algorithm { }
-        | CREATE spatial INDEX_SYM ident init_key_options ON
+        | create_opt spatial INDEX_SYM ident init_key_options ON
           table_ident
           {
             if (add_create_index_prepare(Lex, $7))
@@ -2748,7 +2759,7 @@ create:
               MYSQL_YYABORT;
           }
           opt_index_lock_algorithm { }
-        | CREATE DATABASE opt_if_not_exists ident
+        | create_opt DATABASE opt_if_not_exists ident
           {
             Lex->create_info.default_table_charset= NULL;
             Lex->create_info.alter_default_table_charset= false;
@@ -2763,7 +2774,7 @@ create:
             lex->name= $4;
             lex->create_info.options=$3;
           }
-        | CREATE
+        | create_opt
           {
             Lex->create_view_mode= VIEW_CREATE_NEW;
             Lex->create_view_algorithm= VIEW_ALGORITHM_UNDEFINED;
@@ -7734,7 +7745,8 @@ string_list:
 */
 
 alter:
-          ALTER opt_ignore opt_load_data_fcache TABLE_SYM if_exists table_ident
+          ALTER alter_table_opt opt_load_data_fcache TABLE_SYM if_exists
+          table_ident
           {
             THD *thd= YYTHD;
             LEX *lex= thd->lex;
@@ -8517,6 +8529,11 @@ opt_ignore:
         | IGNORE_SYM { Lex->ignore= 1;}
         ;
 
+alter_table_opt:
+          opt_ignore { Lex->high_priority_ddl= 0; }
+        | HIGH_PRIORITY opt_ignore { Lex->high_priority_ddl= 1; }
+        ;
+
 opt_async_commit:
           /* empty */
           {
@@ -8909,8 +8926,12 @@ mi_check_type:
         | FOR_SYM UPGRADE_SYM { Lex->check_opt.sql_flags|= TT_FOR_UPGRADE; }
         ;
 
+optimize_opt:
+          OPTIMIZE opt_high_priority { Lex->high_priority_ddl = $2; }
+        ;
+
 optimize:
-          OPTIMIZE opt_no_write_to_binlog table_or_tables
+          optimize_opt opt_no_write_to_binlog table_or_tables
           {
             LEX *lex=Lex;
             lex->sql_command = SQLCOM_OPTIMIZE;
@@ -12447,8 +12468,12 @@ do:
   Drop : delete tables or index or user
 */
 
+drop_opt:
+          DROP opt_high_priority { Lex->high_priority_ddl = $2; }
+        ;
+
 drop:
-          DROP opt_temporary table_or_tables if_exists
+          drop_opt opt_temporary table_or_tables if_exists
           {
             LEX *lex=Lex;
             lex->sql_command = SQLCOM_DROP_TABLE;
@@ -12459,7 +12484,7 @@ drop:
           }
           table_list opt_restrict
           {}
-        | DROP INDEX_SYM ident ON table_ident {}
+        | drop_opt INDEX_SYM ident ON table_ident {}
           {
             LEX *lex=Lex;
             Alter_drop *ad= new Alter_drop(Alter_drop::KEY, $3.str);
@@ -12476,7 +12501,7 @@ drop:
               MYSQL_YYABORT;
           }
           opt_index_lock_algorithm {}
-        | DROP DATABASE if_exists ident
+        | drop_opt DATABASE if_exists ident
           {
             LEX *lex=Lex;
             lex->sql_command= SQLCOM_DROP_DB;
@@ -12548,7 +12573,7 @@ drop:
           {
             Lex->sql_command = SQLCOM_DROP_USER;
           }
-        | DROP VIEW_SYM if_exists
+        | drop_opt VIEW_SYM if_exists
           {
             LEX *lex= Lex;
             lex->sql_command= SQLCOM_DROP_VIEW;
@@ -12564,7 +12589,7 @@ drop:
             Lex->spname= $4;
             Lex->sql_command = SQLCOM_DROP_EVENT;
           }
-        | DROP TRIGGER_SYM if_exists sp_name
+        | drop_opt TRIGGER_SYM if_exists sp_name
           {
             LEX *lex= Lex;
             lex->sql_command= SQLCOM_DROP_TRIGGER;
@@ -13177,8 +13202,12 @@ opt_delete_option:
         | IGNORE_SYM   { Lex->ignore= 1; }
         ;
 
+truncate_opt:
+          TRUNCATE_SYM opt_high_priority { Lex->high_priority_ddl = $2; }
+        ;
+
 truncate:
-          TRUNCATE_SYM opt_table_sym
+          truncate_opt opt_table_sym
           {
             LEX* lex= Lex;
             lex->sql_command= SQLCOM_TRUNCATE;
