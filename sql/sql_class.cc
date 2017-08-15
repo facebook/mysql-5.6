@@ -990,7 +990,8 @@ THD::THD(bool enable_plugins)
    main_da(0, false),
    m_stmt_da(&main_da),
    conn_timeout_err_msg(NULL),
-   duplicate_slave_id(false)
+   duplicate_slave_id(false),
+   db_stats(NULL)
 {
   ulong tmp;
 

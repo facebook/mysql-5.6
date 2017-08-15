@@ -167,7 +167,7 @@
 #cmakedefine HAVE_GETPWNAM 1
 #cmakedefine HAVE_GETPWUID 1
 #cmakedefine HAVE_GETRLIMIT 1
-#cmakedefine HAVE_GETRUSAGE 1
+#cmakedefine HAVE_GETRUSAGE 0
 #cmakedefine HAVE_GETTIMEOFDAY 1
 #cmakedefine HAVE_GETWD 1
 #cmakedefine HAVE_GMTIME_R 1

@@ -134,7 +134,7 @@ using std::min;
 #include <sys/resource.h>
 #endif
 
-#ifdef HAVE_GETRUSAGE
+#if HAVE_GETRUSAGE
 #define RUSAGE_USEC(tv)  ((tv).tv_sec*1000*1000 + (tv).tv_usec)
 #define RUSAGE_DIFF_USEC(tv1, tv2) (RUSAGE_USEC((tv1))-RUSAGE_USEC((tv2)))
 #endif
@@ -2394,7 +2394,7 @@ done:
                                         &start_perf_read_blob,
                                         &start_perf_read_primary,
                                         &start_perf_read_secondary);
-      DB_STATS *dbstats = get_db_stats(thd->db);
+      DB_STATS *dbstats= thd->db_stats;
       if (dbstats)
         update_db_stats_after_statement(dbstats, thd, command != COM_QUERY);
     }
@@ -3127,9 +3127,12 @@ mysql_execute_command(THD *thd,
 
   thd->stmt_start = *statement_start_time;
 
-#ifdef HAVE_GETRUSAGE
+#if HAVE_GETRUSAGE
     struct rusage rusage_beg;
     getrusage(RUSAGE_THREAD, &rusage_beg);
+#elif HAVE_CLOCK_GETTIME
+    timespec time_beg;
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_beg);
 #endif
 
   if (unlikely(lex->is_broken()))
@@ -6143,8 +6146,8 @@ finish:
   if (thd)
   {
     USER_STATS *us= thd_get_user_stats(thd);
-#ifdef HAVE_GETRUSAGE
-    DB_STATS *dbstats = get_db_stats(thd->db);
+#if HAVE_GETRUSAGE
+    DB_STATS *dbstats= thd->db_stats;
     struct rusage rusage_end;
     getrusage(RUSAGE_THREAD, &rusage_end);
     ulonglong diffu=
@@ -6156,6 +6159,16 @@ finish:
     us->microseconds_cpu.inc(diffu+diffs);
     us->microseconds_cpu_user.inc(diffu);
     us->microseconds_cpu_sys.inc(diffs);
+#elif HAVE_CLOCK_GETTIME
+    DB_STATS *dbstats= thd->db_stats;
+    timespec time_end;
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_end);
+    ulonglong diff= diff_timespec(time_end, time_beg);
+    // convert to microseconds
+    diff /= 1000;
+    if (dbstats)
+      dbstats->update_cpu_stats_tot(diff);
+    us->microseconds_cpu.inc(diff);
 #endif
 
     ulonglong latency = my_timer_since(*statement_start_time);

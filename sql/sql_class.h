@@ -4263,6 +4263,7 @@ public:
     if (result)
       PSI_THREAD_CALL(set_thread_db)(new_db, static_cast<int>(new_db_len));
 #endif
+    db_stats= get_db_stats(db);
     return result;
   }
 
@@ -4287,6 +4288,7 @@ public:
 #ifdef HAVE_PSI_THREAD_INTERFACE
     PSI_THREAD_CALL(set_thread_db)(new_db, static_cast<int>(new_db_len));
 #endif
+    db_stats= get_db_stats(db);
   }
   /*
     Copy the current database to the argument. Use the current arena to
@@ -4724,6 +4726,9 @@ private:
 
   // Object used to optimize not creating new sessions for stateless queries.
   std::shared_ptr<Srv_session> default_srv_session;
+
+public:
+  DB_STATS *db_stats;
 };
 
 /*

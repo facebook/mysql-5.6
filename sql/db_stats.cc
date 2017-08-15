@@ -16,6 +16,7 @@ clear_db_stats_counters(DB_STATS* db_stats)
   hyperloglog_reset(&db_stats->hll);
   db_stats->us_user.clear();
   db_stats->us_sys.clear();
+  db_stats->us_tot.clear();
   db_stats->rows_deleted.clear();
   db_stats->rows_inserted.clear();
   db_stats->rows_read.clear();
@@ -82,6 +83,10 @@ static DB_STATS* get_db_stats_locked(const char* db)
 }
 
 DB_STATS* get_db_stats(const char *db) {
+  // early check for a common case to preclude lock
+  if (!db)
+    return NULL;
+
   pthread_mutex_lock(&LOCK_global_db_stats);
   DB_STATS *db_stats = get_db_stats_locked(db);
   pthread_mutex_unlock(&LOCK_global_db_stats);
@@ -121,8 +126,7 @@ int fill_db_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 
     table->field[f++]->store(db_stats->us_user.load(), TRUE);
     table->field[f++]->store(db_stats->us_sys.load(), TRUE);
-    table->field[f++]->store(db_stats->us_sys.load() +
-                             db_stats->us_user.load(), TRUE);
+    table->field[f++]->store(db_stats->us_tot.load(), TRUE);
     table->field[f++]->store(db_stats->rows_deleted.load(), TRUE);
     table->field[f++]->store(db_stats->rows_inserted.load(), TRUE);
     table->field[f++]->store(db_stats->rows_read.load(), TRUE);
