@@ -15,8 +15,10 @@ if ($engine == "rocksdb"){
   where thread_id = $con1 and waiting_key != "";
 }
 if ($engine == "innodb"){
-  let $wait_condition = select count(*) = 1 from information_schema.innodb_trx
-  where trx_mysql_thread_id = $con1 and trx_state="LOCK WAIT";
+  let $wait_condition=
+  SELECT COUNT(*) = 1 FROM information_schema.processlist
+  WHERE info = "select * from t where i=2 for update" and
+  state = "statistics";
 }
 --source include/wait_condition.inc
 
