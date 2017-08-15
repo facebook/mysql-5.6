@@ -739,7 +739,7 @@ bool is_explainable_query(enum enum_sql_command command)
   return (sql_command_flags[command] & CF_CAN_BE_EXPLAINED) != 0;
 }
 
-bool is_ddl_command(enum enum_sql_command command)
+bool support_high_priority(enum enum_sql_command command)
 {
   DBUG_ASSERT(command >= 0 && command <= SQLCOM_END);
   switch (command)
@@ -749,10 +749,10 @@ bool is_ddl_command(enum enum_sql_command command)
     case SQLCOM_DROP_TABLE:
     case SQLCOM_CREATE_INDEX:
     case SQLCOM_DROP_INDEX:
-    case SQLCOM_CREATE_DB:
-    case SQLCOM_DROP_DB:
-    case SQLCOM_ALTER_DB:
     case SQLCOM_TRUNCATE:
+    case SQLCOM_CREATE_TRIGGER:
+    case SQLCOM_DROP_TRIGGER:
+    case SQLCOM_OPTIMIZE:
       return true;
 
     default:

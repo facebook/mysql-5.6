@@ -7,7 +7,7 @@ create user test_user2@localhost;
 grant all on test to test_user2@localhost;
 
 ## Test parameters:
-## use_sys_var       = 1
+## use_sys_var       = 1;
 ## con_block         = con1
 ## con_kill          = default
 ## cmd               = alter table t1 modify i bigint;
@@ -22,7 +22,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `i` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 insert into t1 values (1), (2), (3);
 connection: con1
 lock tables t1 read;;
@@ -54,7 +54,7 @@ Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
 <Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 
 ## Test parameters:
-## use_sys_var       = 1
+## use_sys_var       = 1;
 ## con_block         = con1
 ## con_kill          = default
 ## cmd               = alter table t1 rename t1_new;
@@ -69,7 +69,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `i` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 insert into t1 values (1), (2), (3);
 connection: con1
 begin; insert into t1 values (4); select i from t1;;
@@ -112,7 +112,7 @@ i
 drop table t1_new;
 
 ## Test parameters:
-## use_sys_var       = 1
+## use_sys_var       = 1;
 ## con_block         = con1
 ## con_kill          = default
 ## cmd               = drop table t1;
@@ -127,7 +127,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `i` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 insert into t1 values (1), (2), (3);
 connection: con1
 lock tables t1 write;;
@@ -161,7 +161,7 @@ Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
 <Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 
 ## Test parameters:
-## use_sys_var       = 1
+## use_sys_var       = 1;
 ## con_block         = con1
 ## con_kill          = default
 ## cmd               = drop table t1;
@@ -176,7 +176,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `i` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 insert into t1 values (1), (2), (3);
 connection: con1
 lock tables t1 read; begin; insert into t1 values (4);;
@@ -208,7 +208,7 @@ Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
 <Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 
 ## Test parameters:
-## use_sys_var       = 1
+## use_sys_var       = 1;
 ## con_block         = con1
 ## con_kill          = con2
 ## cmd               = alter table t1 modify i bigint;
@@ -223,7 +223,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `i` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 insert into t1 values (1), (2), (3);
 connection: con1
 lock tables t1 read;;
@@ -259,7 +259,7 @@ Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
 <Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 
 ## Test parameters:
-## use_sys_var       = 1
+## use_sys_var       = 1;
 ## con_block         = con1
 ## con_kill          = default
 ## cmd               = create index idx1 on t1 (i);
@@ -274,7 +274,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `i` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 insert into t1 values (1), (2), (3);
 connection: con1
 lock tables t1 read;;
@@ -306,7 +306,7 @@ Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
 <Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 
 ## Test parameters:
-## use_sys_var       = 1
+## use_sys_var       = 1;
 ## con_block         = con1
 ## con_kill          = default
 ## cmd               = drop index idx1 on t1;
@@ -345,7 +345,7 @@ Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
 <Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 
 ## Test parameters:
-## use_sys_var       = 1
+## use_sys_var       = 1;
 ## con_block         = con1
 ## con_kill          = default
 ## cmd               = truncate t1;
@@ -360,7 +360,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `i` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 insert into t1 values (1), (2), (3);
 connection: con1
 lock tables t1 read;;
@@ -392,7 +392,7 @@ Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
 <Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 
 ## Test parameters:
-## use_sys_var       = 1
+## use_sys_var       = 1;
 ## con_block         = con1
 ## con_kill          = default
 ## cmd               = create trigger ins_sum before insert on t1 for each row set @sum = @sum + new.i;
@@ -407,7 +407,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `i` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 insert into t1 values (1), (2), (3);
 connection: con1
 lock tables t1 read;;
@@ -439,7 +439,7 @@ Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
 <Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 
 ## Test parameters:
-## use_sys_var       = 1
+## use_sys_var       = 1;
 ## con_block         = con1
 ## con_kill          = default
 ## cmd               = drop trigger ins_sum;
@@ -478,7 +478,7 @@ Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
 <Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 
 ## Test parameters:
-## use_sys_var       = 1
+## use_sys_var       = 1;
 ## con_block         = con1
 ## con_kill          = default
 ## cmd               = optimize table t1;
@@ -493,7 +493,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `i` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 insert into t1 values (1), (2), (3);
 connection: con1
 lock tables t1 read;;
@@ -521,7 +521,6 @@ lock tables t1 write;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 optimize table t1;;
 Table	Op	Msg_type	Msg_text
-test.t1	optimize	note	Table does not support optimize, doing recreate + analyze instead
 test.t1	optimize	status	OK
 set high_priority_ddl = 0;
 connection: default (for show processlist)
@@ -540,7 +539,7 @@ create user test_user2@localhost;
 grant all on test to test_user2@localhost;
 
 ## Test parameters:
-## use_sys_var       = 0
+## use_sys_var       = 0;
 ## con_block         = con1
 ## con_kill          = default
 ## cmd               = alter table t1 modify i bigint;
@@ -555,7 +554,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `i` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 insert into t1 values (1), (2), (3);
 connection: con1
 lock tables t1 read;;
@@ -580,7 +579,7 @@ Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
 <Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 
 ## Test parameters:
-## use_sys_var       = 0
+## use_sys_var       = 0;
 ## con_block         = con1
 ## con_kill          = default
 ## cmd               = alter table t1 rename t1_new;
@@ -595,7 +594,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `i` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 insert into t1 values (1), (2), (3);
 connection: con1
 begin; insert into t1 values (4); select i from t1;;
@@ -631,7 +630,7 @@ i
 drop table t1_new;
 
 ## Test parameters:
-## use_sys_var       = 0
+## use_sys_var       = 0;
 ## con_block         = con1
 ## con_kill          = default
 ## cmd               = drop table t1;
@@ -646,7 +645,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `i` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 insert into t1 values (1), (2), (3);
 connection: con1
 lock tables t1 write;;
@@ -673,7 +672,7 @@ Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
 <Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 
 ## Test parameters:
-## use_sys_var       = 0
+## use_sys_var       = 0;
 ## con_block         = con1
 ## con_kill          = default
 ## cmd               = drop table t1;
@@ -688,7 +687,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `i` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 insert into t1 values (1), (2), (3);
 connection: con1
 lock tables t1 read; begin; insert into t1 values (4);;
@@ -713,7 +712,7 @@ Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
 <Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 
 ## Test parameters:
-## use_sys_var       = 0
+## use_sys_var       = 0;
 ## con_block         = con1
 ## con_kill          = con2
 ## cmd               = alter table t1 modify i bigint;
@@ -728,7 +727,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `i` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 insert into t1 values (1), (2), (3);
 connection: con1
 lock tables t1 read;;
@@ -757,7 +756,7 @@ Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
 <Id>	test_user1	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 
 ## Test parameters:
-## use_sys_var       = 0
+## use_sys_var       = 0;
 ## con_block         = con1
 ## con_kill          = default
 ## cmd               = create index idx1 on t1 (i);
@@ -772,7 +771,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `i` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 insert into t1 values (1), (2), (3);
 connection: con1
 lock tables t1 read;;
@@ -797,7 +796,7 @@ Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
 <Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 
 ## Test parameters:
-## use_sys_var       = 0
+## use_sys_var       = 0;
 ## con_block         = con1
 ## con_kill          = default
 ## cmd               = drop index idx1 on t1;
@@ -829,7 +828,7 @@ Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
 <Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 
 ## Test parameters:
-## use_sys_var       = 0
+## use_sys_var       = 0;
 ## con_block         = con1
 ## con_kill          = default
 ## cmd               = truncate t1;
@@ -844,7 +843,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `i` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 insert into t1 values (1), (2), (3);
 connection: con1
 lock tables t1 read;;
@@ -869,7 +868,7 @@ Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
 <Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 
 ## Test parameters:
-## use_sys_var       = 0
+## use_sys_var       = 0;
 ## con_block         = con1
 ## con_kill          = default
 ## cmd               = create trigger ins_sum before insert on t1 for each row set @sum = @sum + new.i;
@@ -884,7 +883,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `i` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 insert into t1 values (1), (2), (3);
 connection: con1
 lock tables t1 read;;
@@ -909,7 +908,7 @@ Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
 <Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 
 ## Test parameters:
-## use_sys_var       = 0
+## use_sys_var       = 0;
 ## con_block         = con1
 ## con_kill          = default
 ## cmd               = drop trigger ins_sum;
@@ -941,7 +940,7 @@ Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
 <Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
 
 ## Test parameters:
-## use_sys_var       = 0
+## use_sys_var       = 0;
 ## con_block         = con1
 ## con_kill          = default
 ## cmd               = optimize table t1;
@@ -956,7 +955,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `i` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 insert into t1 values (1), (2), (3);
 connection: con1
 lock tables t1 read;;
@@ -978,7 +977,6 @@ test.t1	optimize	Error	Lock wait timeout exceeded; try restarting transaction: T
 test.t1	optimize	status	Operation failed
 optimize high_priority table t1;;
 Table	Op	Msg_type	Msg_text
-test.t1	optimize	note	Table does not support optimize, doing recreate + analyze instead
 test.t1	optimize	status	OK
 connection: default (for show processlist)
 show processlist;
