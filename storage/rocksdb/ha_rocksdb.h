@@ -505,6 +505,12 @@ class ha_rocksdb : public my_core::handler {
     Pointer to the original TTL timestamp value (8 bytes) during UPDATE.
   */
   char m_ttl_bytes[ROCKSDB_SIZEOF_TTL_RECORD];
+  /*
+    The TTL timestamp value can change if the explicit TTL column is
+    updated. If we detect this when updating the PK, we indicate it here so
+    we know we must always update any SK's.
+  */
+  bool m_ttl_bytes_updated;
 
   /* rowkey of the last record we've read, in StorageFormat. */
   String m_last_rowkey;
