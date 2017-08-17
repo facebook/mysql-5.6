@@ -158,7 +158,6 @@ static std::shared_ptr<Rdb_tbl_prop_coll_factory> properties_collector_factory;
 Rdb_dict_manager dict_manager;
 Rdb_cf_manager cf_manager;
 Rdb_ddl_manager ddl_manager;
-const char *m_mysql_gtid;
 Rdb_binlog_manager binlog_manager;
 Rdb_io_watchdog *io_watchdog = nullptr;
 
