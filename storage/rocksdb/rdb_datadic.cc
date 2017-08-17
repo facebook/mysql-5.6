@@ -75,6 +75,14 @@ Rdb_key_def::Rdb_key_def(uint indexnr_arg, uint keyno_arg,
 {
   mysql_mutex_init(0, &m_mutex, MY_MUTEX_INIT_FAST);
   rdb_netbuf_store_index(m_index_number_storage_form, m_index_number);
+  m_total_index_flags_length =
+      calculate_index_flag_offset(m_index_flags_bitmap, MAX_FLAG);
+  DBUG_ASSERT_IMP(m_index_type == INDEX_TYPE_SECONDARY &&
+                      m_kv_format_version <= SECONDARY_FORMAT_VERSION_UPDATE2,
+                  m_total_index_flags_length == 0);
+  DBUG_ASSERT_IMP(m_index_type == INDEX_TYPE_PRIMARY &&
+                      m_kv_format_version <= PRIMARY_FORMAT_VERSION_UPDATE2,
+                  m_total_index_flags_length == 0);
   DBUG_ASSERT(m_cf_handle != nullptr);
 }
 
@@ -92,6 +100,14 @@ Rdb_key_def::Rdb_key_def(const Rdb_key_def &k)
       m_maxlength(k.m_maxlength) {
   mysql_mutex_init(0, &m_mutex, MY_MUTEX_INIT_FAST);
   rdb_netbuf_store_index(m_index_number_storage_form, m_index_number);
+  m_total_index_flags_length =
+      calculate_index_flag_offset(m_index_flags_bitmap, MAX_FLAG);
+  DBUG_ASSERT_IMP(m_index_type == INDEX_TYPE_SECONDARY &&
+                      m_kv_format_version <= SECONDARY_FORMAT_VERSION_UPDATE2,
+                  m_total_index_flags_length == 0);
+  DBUG_ASSERT_IMP(m_index_type == INDEX_TYPE_PRIMARY &&
+                      m_kv_format_version <= PRIMARY_FORMAT_VERSION_UPDATE2,
+                  m_total_index_flags_length == 0);
   if (k.m_pack_info) {
     const size_t size = sizeof(Rdb_field_packing) * k.m_key_parts;
     m_pack_info =
@@ -967,14 +983,12 @@ uchar *Rdb_key_def::pack_field(Field *const field, Rdb_field_packing *pack_info,
     Length of the packed tuple
 */
 
-uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
-                              const uchar *const record,
-                              uchar *const packed_tuple,
-                              Rdb_string_writer *const unpack_info,
-                              const bool &should_store_row_debug_checksums,
-                              const longlong &hidden_pk_id, uint n_key_parts,
-                              uint *const n_null_fields,
-                              uint *const ttl_pk_offset) const {
+uint Rdb_key_def::pack_record(
+    const TABLE *const tbl, uchar *const pack_buffer, const uchar *const record,
+    uchar *const packed_tuple, Rdb_string_writer *const unpack_info,
+    const bool &should_store_row_debug_checksums, const longlong &hidden_pk_id,
+    uint n_key_parts, uint *const n_null_fields, uint *const ttl_pk_offset,
+    const char *const ttl_bytes) const {
   DBUG_ASSERT(tbl != nullptr);
   DBUG_ASSERT(pack_buffer != nullptr);
   DBUG_ASSERT(record != nullptr);
@@ -985,6 +999,7 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
                   (m_index_type == INDEX_TYPE_SECONDARY));
 
   uchar *tuple = packed_tuple;
+  size_t unpack_start_pos = size_t(-1);
   size_t unpack_len_pos = size_t(-1);
   size_t covered_bitmap_pos = size_t(-1);
   const bool hidden_pk_exists = table_has_hidden_pk(tbl);
@@ -1025,6 +1040,21 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
 
   if (unpack_info) {
     unpack_info->clear();
+
+    if (m_index_type == INDEX_TYPE_SECONDARY &&
+        m_total_index_flags_length > 0) {
+      // Reserve space for index flag fields
+      unpack_info->allocate(m_total_index_flags_length);
+
+      // Insert TTL timestamp
+      if (has_ttl() && ttl_bytes) {
+        write_index_flag_field(unpack_info,
+                               reinterpret_cast<const uchar *const>(ttl_bytes),
+                               Rdb_key_def::TTL_FLAG);
+      }
+    }
+
+    unpack_start_pos = unpack_info->get_current_pos();
     unpack_info->write_uint8(tag);
     unpack_len_pos = unpack_info->get_current_pos();
     // we don't know the total length yet, so write a zero
@@ -1103,7 +1133,7 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
   }
 
   if (unpack_info) {
-    const size_t len = unpack_info->get_current_pos();
+    const size_t len = unpack_info->get_current_pos() - unpack_start_pos;
     DBUG_ASSERT(len <= std::numeric_limits<uint16_t>::max());
 
     // Don't store the unpack_info if it has only the header (that is, there's
@@ -1113,7 +1143,7 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
     // ha_rocksdb::convert_record_to_storage_format)
     if (m_index_type == Rdb_key_def::INDEX_TYPE_SECONDARY) {
       if (len == get_unpack_header_size(tag) && !covered_bits) {
-        unpack_info->clear();
+        unpack_info->truncate(unpack_start_pos);
       } else if (store_covered_bitmap) {
         unpack_info->write_uint16_at(covered_bitmap_pos, covered_bits);
       }
@@ -1360,9 +1390,13 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
   const char *unpack_header = unp_reader.get_current_ptr();
   const bool has_unpack_info =
       unp_reader.remaining_bytes() && is_unpack_data_tag(unpack_header[0]);
-  if (has_unpack_info &&
+  if (has_unpack_info) {
+    if ((m_index_type == INDEX_TYPE_SECONDARY &&
+         m_total_index_flags_length > 0 &&
+         !unp_reader.read(m_total_index_flags_length)) ||
       !unp_reader.read(get_unpack_header_size(unpack_header[0]))) {
-    return HA_ERR_ROCKSDB_CORRUPT_DATA;
+      return HA_ERR_ROCKSDB_CORRUPT_DATA;
+    }
   }
 
   // Read the covered bitmap
@@ -3357,18 +3391,19 @@ bool Rdb_tbl_def::put_dict(Rdb_dict_manager *const dict,
 
 // Length that each index flag takes inside the record.
 // Each index in the array maps to the enum INDEX_FLAG
-static const std::array<int, 1> index_flag_lengths = {
+static const std::array<uint, 1> index_flag_lengths = {
     {ROCKSDB_SIZEOF_TTL_RECORD}};
-
 
 bool Rdb_key_def::has_index_flag(uint32 index_flags, enum INDEX_FLAG flag) {
   return flag & index_flags;
 }
 
 uint32 Rdb_key_def::calculate_index_flag_offset(uint32 index_flags,
-                                                enum INDEX_FLAG flag) {
+                                                enum INDEX_FLAG flag,
+                                                uint *const length) {
 
-  DBUG_ASSERT(Rdb_key_def::has_index_flag(index_flags, flag));
+  DBUG_ASSERT_IMP(flag != MAX_FLAG,
+                  Rdb_key_def::has_index_flag(index_flags, flag));
 
   uint offset = 0;
   for (size_t bit = 0; bit < sizeof(index_flags) * CHAR_BIT; ++bit) {
@@ -3376,6 +3411,9 @@ uint32 Rdb_key_def::calculate_index_flag_offset(uint32 index_flags,
 
     /* Exit once we've reached the proper flag */
     if (flag & mask) {
+      if (length != nullptr) {
+        *length = index_flag_lengths[bit];
+      }
       break;
     }
 
@@ -3385,6 +3423,15 @@ uint32 Rdb_key_def::calculate_index_flag_offset(uint32 index_flags,
   }
 
   return offset;
+}
+
+void Rdb_key_def::write_index_flag_field(Rdb_string_writer *const buf,
+                                         const uchar *const val,
+                                         enum INDEX_FLAG flag) const {
+  uint len;
+  uint offset = calculate_index_flag_offset(m_index_flags_bitmap, flag, &len);
+  DBUG_ASSERT(offset + len <= buf->get_current_pos());
+  memcpy(buf->ptr() + offset, val, len);
 }
 
 void Rdb_tbl_def::check_if_is_mysql_system_table() {
