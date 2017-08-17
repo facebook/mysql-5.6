@@ -198,7 +198,8 @@ public:
                    const bool &should_store_row_debug_checksums,
                    const longlong &hidden_pk_id = 0, uint n_key_parts = 0,
                    uint *const n_null_fields = nullptr,
-                   uint *const ttl_pk_offset = nullptr) const;
+                   uint *const ttl_pk_offset = nullptr,
+                   const char *const ttl_bytes = nullptr) const;
   /* Pack the hidden primary key into mem-comparable form. */
   uint pack_hidden_pk(const longlong &hidden_pk_id,
                       uchar *const packed_tuple) const;
@@ -449,7 +450,11 @@ public:
     //    an inefficient where data that was a multiple of 8 bytes in length
     //    had an extra 9 bytes of encoded data.
     SECONDARY_FORMAT_VERSION_UPDATE2 = 12,
-    SECONDARY_FORMAT_VERSION_LATEST = SECONDARY_FORMAT_VERSION_UPDATE2,
+    // This change includes support for TTL
+    //  - This means that when TTL is specified for the table an 8-byte TTL
+    //    field is prepended in front of each value.
+    SECONDARY_FORMAT_VERSION_TTL = 13,
+    SECONDARY_FORMAT_VERSION_LATEST = SECONDARY_FORMAT_VERSION_TTL,
     // This change includes support for covering SK lookups for varchars.  A
     // 2-byte bitmap is added after the tag-byte to unpack_info only for
     // records which have covered varchar columns. Currently waiting before
@@ -470,7 +475,11 @@ public:
 
   static bool has_index_flag(uint32 index_flags, enum INDEX_FLAG flag);
   static uint32 calculate_index_flag_offset(uint32 index_flags,
-                                            enum INDEX_FLAG flag);
+                                            enum INDEX_FLAG flag,
+                                            uint *const field_length = nullptr);
+  void write_index_flag_field(Rdb_string_writer *const buf,
+                              const uchar *const val,
+                              enum INDEX_FLAG flag) const;
 
   static const std::string
   gen_qualifier_for_table(const char *const qualifier,
@@ -671,6 +680,11 @@ public:
     are enabled for the given index.
   */
   uint32 m_index_flags_bitmap;
+
+  /*
+    How much space in bytes the index flag fields occupy.
+  */
+  uint32 m_total_index_flags_length;
 
   /*
     Offset in the records where the 8-byte TTL is stored (UINT_MAX if no TTL)
