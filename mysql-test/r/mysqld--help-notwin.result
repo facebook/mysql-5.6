@@ -1320,11 +1320,13 @@ The following options may be given as the first argument:
  from disk) phase of external sort during fast index
  creation.
  --rocksdb-merge-tmp-file-removal-delay-ms=# 
- Fast index creation creates several tmp files on disk
- during index creation.  Removing of these files all at
+ Fast index creation creates a large tmp file on disk
+ during index creation.  Removing this large file all at
  once when index creation is complete can cause trim
  stalls on Flash.  This variable specifies a duration to
- sleep (in milliseconds) between removing temp files.
+ sleep (in milliseconds) between calling chsize() to
+ truncate the file in chunks.  The chunk size is  the same
+ as merge_buf_size.
  --rocksdb-new-table-reader-for-compaction-inputs 
  DBOptions::new_table_reader_for_compaction_inputs for
  RocksDB
