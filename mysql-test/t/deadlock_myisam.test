@@ -10,7 +10,7 @@ SET TMP_TABLE_SIZE=1024;
 # This then causes this select statement to go into ha_myisam::write_row
 # where we have set it to error out, which previously caused a deadlock
 # due to recursive lock acquisition.
---error 1891
+--error ER_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED
 SELECT * FROM INFORMATION_SCHEMA.TABLE_STATISTICS;
 
 SET SESSION debug="-d,myisam_simulate_err_in_write_row";
