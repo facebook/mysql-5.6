@@ -1860,15 +1860,38 @@ static Sys_var_mybool Sys_local_infile(
        "local_infile", "Enable LOAD DATA LOCAL INFILE",
        GLOBAL_VAR(opt_local_infile), CMD_LINE(OPT_ARG), DEFAULT(TRUE));
 
+static void update_cached_timeout_var(ulonglong &dest, double src)
+{
+  dest = double2ulonglong(src * 1e9);
+}
+
 static bool update_cached_lock_wait_timeout(sys_var *self, THD *thd,
                                           enum_var_type type)
 {
   if (type == OPT_SESSION)
-    thd->variables.lock_wait_timeout_nsec=
-      double2ulonglong(thd->variables.lock_wait_timeout_double * 1e9);
+    update_cached_timeout_var(
+        thd->variables.lock_wait_timeout_nsec,
+        thd->variables.lock_wait_timeout_double);
   else
-    global_system_variables.lock_wait_timeout_nsec=
-      double2ulonglong(global_system_variables.lock_wait_timeout_double * 1e9);
+    update_cached_timeout_var(
+        global_system_variables.lock_wait_timeout_nsec,
+        global_system_variables.lock_wait_timeout_double);
+
+  return false;
+}
+
+static bool update_cached_high_priority_lock_wait_timeout(
+    sys_var *self, THD *thd, enum_var_type type)
+{
+  if (type == OPT_SESSION)
+    update_cached_timeout_var(
+        thd->variables.high_priority_lock_wait_timeout_nsec,
+        thd->variables.high_priority_lock_wait_timeout_double);
+  else
+    update_cached_timeout_var(
+        global_system_variables.high_priority_lock_wait_timeout_nsec,
+        global_system_variables.high_priority_lock_wait_timeout_double);
+
   return false;
 }
 
@@ -1882,6 +1905,21 @@ static Sys_var_double Sys_lock_wait_timeout(
        VALID_RANGE(0, LONG_TIMEOUT), DEFAULT(LONG_TIMEOUT),
        NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0),
        ON_UPDATE(update_cached_lock_wait_timeout));
+
+static Sys_var_double Sys_high_priority_lock_wait_timeout(
+       "high_priority_lock_wait_timeout",
+       "Timeout in seconds to wait for a lock before returning an error. "
+       "This timeout is specifically for high_priority commands (DDLs), "
+       "when a high_priority keyward is specified, or the high_priority_ddl "
+       "variable is turned on. "
+       "The argument will be treated as a decimal value with nanosecond "
+       "precision.",
+       // very small nanosecond values will effectively be no waiting
+       SESSION_VAR(high_priority_lock_wait_timeout_double),
+       CMD_LINE(REQUIRED_ARG),
+       VALID_RANGE(0, LONG_TIMEOUT), DEFAULT(1), /* default 1 second */
+       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0),
+       ON_UPDATE(update_cached_high_priority_lock_wait_timeout));
 
 #ifdef HAVE_MLOCKALL
 static Sys_var_mybool Sys_locked_in_memory(

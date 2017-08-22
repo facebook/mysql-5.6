@@ -339,6 +339,13 @@ The following options may be given as the first argument:
  -?, --help          Display this help and exit.
  --high-priority-ddl Setting this flag will allow DDL commands to kill
  conflicting connections (effective for admin user only).
+ --high-priority-lock-wait-timeout=# 
+ Timeout in seconds to wait for a lock before returning an
+ error. This timeout is specifically for high_priority
+ commands (DDLs), when a high_priority keyward is
+ specified, or the high_priority_ddl variable is turned
+ on. The argument will be treated as a decimal value with
+ nanosecond precision.
  --histogram-step-size-binlog-fsync=name 
  Step size of the Histogram which is used to track binlog
  fsync latencies.
@@ -1852,6 +1859,7 @@ gtid-mode OFF
 gtid-precommit FALSE
 help TRUE
 high-priority-ddl FALSE
+high-priority-lock-wait-timeout 1
 histogram-step-size-binlog-fsync 16ms
 histogram-step-size-binlog-group-commit 1
 histogram-step-size-connection-create 16ms
