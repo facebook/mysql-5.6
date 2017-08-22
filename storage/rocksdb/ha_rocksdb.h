@@ -22,6 +22,7 @@
 /* C++ standard header files */
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -565,6 +566,8 @@ class ha_rocksdb : public my_core::handler {
 
   /* SST information used for bulk loading the primary key */
   std::shared_ptr<Rdb_sst_info> m_sst_info;
+  /* External merge sorts for bulk load: key ID -> merge sort instance */
+  std::unordered_map<GL_INDEX_ID, Rdb_index_merge> m_key_merge;
   Rdb_transaction *m_bulk_load_tx;
   /* Mutex to protect finalizing bulk load */
   mysql_mutex_t m_bulk_load_mutex;
@@ -1106,7 +1109,8 @@ private:
                          struct unique_sk_buf_info *sk_info)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   int bulk_load_key(Rdb_transaction *const tx, const Rdb_key_def &kd,
-                    const rocksdb::Slice &key, const rocksdb::Slice &value)
+                    const rocksdb::Slice &key, const rocksdb::Slice &value,
+                    bool sort)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   void update_bytes_written(ulonglong bytes_written);
   int update_pk(const Rdb_key_def &kd, const struct update_row_info &row_info,

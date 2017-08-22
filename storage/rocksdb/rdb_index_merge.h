@@ -149,7 +149,7 @@ class Rdb_index_merge {
   const ulonglong m_merge_buf_size;
   const ulonglong m_merge_combine_read_size;
   const ulonglong m_merge_tmp_file_removal_delay;
-  const rocksdb::Comparator *m_comparator;
+  rocksdb::ColumnFamilyHandle *m_cf_handle;
   struct merge_file_info m_merge_file;
   std::shared_ptr<merge_buf_info> m_rec_buf_unsorted;
   std::shared_ptr<merge_buf_info> m_output_buf;
@@ -192,7 +192,7 @@ class Rdb_index_merge {
                   const ulonglong &merge_buf_size,
                   const ulonglong &merge_combine_read_size,
                   const ulonglong &merge_tmp_file_removal_delay,
-                  const rocksdb::Comparator *const comparator);
+                  rocksdb::ColumnFamilyHandle *cf);
   ~Rdb_index_merge();
 
   int init() MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
@@ -217,6 +217,8 @@ class Rdb_index_merge {
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   void merge_reset();
+
+  rocksdb::ColumnFamilyHandle *get_cf() const { return m_cf_handle; }
 };
 
 }  // namespace myrocks

@@ -417,6 +417,10 @@ rocksdb_set_bulk_load(THD *thd,
                       struct st_mysql_sys_var *var MY_ATTRIBUTE((__unused__)),
                       void *var_ptr, const void *save);
 
+static void rocksdb_set_bulk_load_allow_unsorted(
+    THD *thd, struct st_mysql_sys_var *var MY_ATTRIBUTE((__unused__)),
+    void *var_ptr, const void *save);
+
 static void rocksdb_set_max_background_jobs(THD *thd,
                                             struct st_mysql_sys_var *const var,
                                             void *const var_ptr,
@@ -613,6 +617,11 @@ static MYSQL_THDVAR_BOOL(
     "Use bulk-load mode for inserts. This disables "
     "unique_checks and enables rocksdb_commit_in_the_middle.",
     nullptr, rocksdb_set_bulk_load, FALSE);
+
+static MYSQL_THDVAR_BOOL(bulk_load_allow_unsorted, PLUGIN_VAR_RQCMDARG,
+                         "Allow unsorted input during bulk-load. "
+                         "Can be changed only when bulk load is disabled.",
+                         nullptr, rocksdb_set_bulk_load_allow_unsorted, FALSE);
 
 static MYSQL_SYSVAR_BOOL(enable_bulk_load_api, rocksdb_enable_bulk_load_api,
                          PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -1457,6 +1466,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(write_batch_max_bytes),
     MYSQL_SYSVAR(lock_scanned_rows),
     MYSQL_SYSVAR(bulk_load),
+    MYSQL_SYSVAR(bulk_load_allow_unsorted),
     MYSQL_SYSVAR(skip_unique_check_tables),
     MYSQL_SYSVAR(trace_sst_api),
     MYSQL_SYSVAR(commit_in_the_middle),
@@ -8419,48 +8429,113 @@ int ha_rocksdb::check_duplicate_sk(const TABLE *table_arg,
 
 int ha_rocksdb::bulk_load_key(Rdb_transaction *const tx, const Rdb_key_def &kd,
                               const rocksdb::Slice &key,
-                              const rocksdb::Slice &value) {
-  rocksdb::ColumnFamilyHandle *const cf = kd.get_cf();
+                              const rocksdb::Slice &value, bool sort) {
+  DBUG_ENTER_FUNC();
+
+  rocksdb::ColumnFamilyHandle *cf = kd.get_cf();
   DBUG_ASSERT(cf != nullptr);
 
-  if (m_sst_info == nullptr) {
-    m_sst_info = std::make_shared<Rdb_sst_info>(
-        rdb, m_table_handler->m_table_name, kd.get_name(), cf,
-        *rocksdb_db_options, THDVAR(ha_thd(), trace_sst_api));
-    tx->start_bulk_load(this);
-    m_bulk_load_tx = tx;
+  int res = HA_EXIT_SUCCESS;
+
+  if (sort) {
+    GL_INDEX_ID kd_gl_id = kd.get_gl_index_id();
+    auto it = m_key_merge.find(kd_gl_id);
+    if (it == m_key_merge.end()) {
+      m_key_merge.emplace(
+          std::piecewise_construct, std::make_tuple(kd_gl_id),
+          std::make_tuple(
+              thd_rocksdb_tmpdir(), THDVAR(ha_thd(), merge_buf_size),
+              THDVAR(ha_thd(), merge_combine_read_size),
+              THDVAR(ha_thd(), merge_tmp_file_removal_delay_ms), cf));
+      it = m_key_merge.find(kd_gl_id);
+      if ((res = it->second.init()) != 0) {
+        DBUG_RETURN(res);
+      }
+
+      if (m_bulk_load_tx == nullptr) {
+        tx->start_bulk_load(this);
+        m_bulk_load_tx = tx;
+      }
+    }
+    res = it->second.add(key, value);
+  } else {
+    if (m_sst_info == nullptr) {
+      m_sst_info = std::make_shared<Rdb_sst_info>(
+          rdb, m_table_handler->m_table_name, kd.get_name(), cf,
+          *rocksdb_db_options, THDVAR(ha_thd(), trace_sst_api));
+      tx->start_bulk_load(this);
+      m_bulk_load_tx = tx;
+    }
+
+    DBUG_ASSERT(m_sst_info != nullptr);
+
+    res = m_sst_info->put(key, value);
   }
 
-  DBUG_ASSERT(m_sst_info != nullptr);
-
-  return m_sst_info->put(key, value);
+  DBUG_RETURN(res);
 }
 
 int ha_rocksdb::finalize_bulk_load() {
-  int rc = 0;
+  DBUG_ENTER_FUNC();
+
+  DBUG_ASSERT_IMP(!m_key_merge.empty() || m_sst_info != nullptr,
+                  m_bulk_load_tx != nullptr);
 
   /* Skip if there are no possible ongoing bulk loads */
-  if (m_sst_info == nullptr && m_bulk_load_tx == nullptr) {
-    return rc;
+  if (m_key_merge.empty() && m_sst_info == nullptr &&
+      m_bulk_load_tx == nullptr) {
+    DBUG_RETURN(HA_EXIT_SUCCESS);
   }
+
+  int res = HA_EXIT_SUCCESS;
 
   RDB_MUTEX_LOCK_CHECK(m_bulk_load_mutex);
 
-  /*
-    We need this check because it's possible that m_sst_info has been
-    flushed and cleared by another thread by the time the mutex has been
-    acquired.
-  */
   if (m_sst_info != nullptr) {
-    rc = m_sst_info->commit();
+    res = m_sst_info->commit();
     m_sst_info = nullptr;
+  }
+
+  if (!m_key_merge.empty()) {
+    rocksdb::Slice merge_key;
+    rocksdb::Slice merge_val;
+    for (auto it = m_key_merge.begin(); it != m_key_merge.end(); it++) {
+      const std::string &index_name =
+          ddl_manager.safe_find(it->first)->get_name();
+      Rdb_index_merge &rdb_merge = it->second;
+      Rdb_sst_info sst_info(rdb, m_table_handler->m_table_name, index_name,
+                            rdb_merge.get_cf(), *rocksdb_db_options,
+                            THDVAR(ha_thd(), trace_sst_api));
+
+      while ((res = rdb_merge.next(&merge_key, &merge_val)) == 0) {
+        if ((res = sst_info.put(merge_key, merge_val)) != 0) {
+          break;
+        }
+      }
+      // res == -1 => finished ok; res > 0 => error
+      if (res <= 0) {
+        if ((res = sst_info.commit()) != 0) {
+          break;
+        }
+      }
+    }
+    m_key_merge.clear();
+
+    /*
+      Explicitly tell jemalloc to clean up any unused dirty pages at this point.
+      See https://reviews.facebook.net/D63723 for more details.
+    */
+    purge_all_jemalloc_arenas();
+  }
+
+  if (m_bulk_load_tx != nullptr) {
     m_bulk_load_tx->end_bulk_load(this);
     m_bulk_load_tx = nullptr;
   }
 
   RDB_MUTEX_UNLOCK_CHECK(m_bulk_load_mutex);
 
-  return rc;
+  DBUG_RETURN(res);
 }
 
 int ha_rocksdb::update_pk(const Rdb_key_def &kd,
@@ -8505,7 +8580,8 @@ int ha_rocksdb::update_pk(const Rdb_key_def &kd,
     /*
       Write the primary key directly to an SST file using an SstFileWriter
      */
-    rc = bulk_load_key(row_info.tx, kd, row_info.new_pk_slice, value_slice);
+    rc = bulk_load_key(row_info.tx, kd, row_info.new_pk_slice, value_slice,
+                       THDVAR(table->in_use, bulk_load_allow_unsorted));
   } else if (row_info.skip_unique_check || row_info.tx->m_ddl_transaction) {
     /*
       It is responsibility of the user to make sure that the data being
@@ -10737,13 +10813,12 @@ int ha_rocksdb::inplace_populate_sk(
       THDVAR(ha_thd(), merge_tmp_file_removal_delay_ms);
 
   for (const auto &index : indexes) {
-    const rocksdb::Comparator *index_comp = index->get_cf()->GetComparator();
     bool is_unique_index =
         new_table_arg->key_info[index->get_keyno()].flags & HA_NOSAME;
 
-    Rdb_index_merge rdb_merge(thd_rocksdb_tmpdir(), rdb_merge_buf_size,
-                              rdb_merge_combine_read_size,
-                              rdb_merge_tmp_file_removal_delay, index_comp);
+    Rdb_index_merge rdb_merge(
+        thd_rocksdb_tmpdir(), rdb_merge_buf_size, rdb_merge_combine_read_size,
+        rdb_merge_tmp_file_removal_delay, index->get_cf());
 
     if ((res = rdb_merge.init())) {
       DBUG_RETURN(res);
@@ -10838,7 +10913,7 @@ int ha_rocksdb::inplace_populate_sk(
       /*
         Insert key and slice to SST via SSTFileWriter API.
       */
-      if ((res = bulk_load_key(tx, *index, merge_key, merge_val))) {
+      if ((res = bulk_load_key(tx, *index, merge_key, merge_val, false))) {
         break;
       }
     }
@@ -11740,6 +11815,18 @@ void rocksdb_set_bulk_load(THD *const thd, struct st_mysql_sys_var *const var
   }
 
   *static_cast<bool *>(var_ptr) = *static_cast<const bool *>(save);
+}
+
+void rocksdb_set_bulk_load_allow_unsorted(
+    THD *const thd,
+    struct st_mysql_sys_var *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr, const void *const save) {
+  if (THDVAR(thd, bulk_load)) {
+    my_error(ER_ERROR_WHEN_EXECUTING_COMMAND, MYF(0), "SET",
+             "Cannot change this setting while bulk load is enabled");
+  } else {
+    *static_cast<bool *>(var_ptr) = *static_cast<const bool *>(save);
+  }
 }
 
 static void rocksdb_set_max_background_jobs(THD *thd,
