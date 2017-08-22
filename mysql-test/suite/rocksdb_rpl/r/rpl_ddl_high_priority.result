@@ -18,11 +18,6 @@ i
 1
 2
 3
-# set slave thread's lock_wait_timeout to a small value
-set session sql_thread lock_wait_timeout = 0.2;
-show session sql_thread variables like 'lock_wait_timeout';
-Variable_name	Value
-lock_wait_timeout	0.200000
 connection slave_block
 lock tables t1 read;
 connection master;
