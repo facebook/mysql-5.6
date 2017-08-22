@@ -2227,6 +2227,14 @@ bool
 MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
                                ulonglong lock_wait_timeout_nsec)
 {
+  THD *thd = get_thd();
+  if (thd->variables.high_priority_ddl || thd->lex->high_priority_ddl) {
+    // if this is a high priority command, use the
+    // high_priority_lock_wait_timeout_nsec
+    lock_wait_timeout_nsec =
+      thd->variables.high_priority_lock_wait_timeout_nsec;
+  }
+
   MDL_lock *lock;
   MDL_ticket *ticket= NULL;
   struct timespec abs_timeout;

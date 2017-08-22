@@ -28,6 +28,7 @@ connection: con1
 lock tables t1 read;;
 connection: default
 set lock_wait_timeout = 0.02;
+set high_priority_lock_wait_timeout = 0.02;
 describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	
@@ -80,6 +81,7 @@ i
 4
 connection: default
 set lock_wait_timeout = 0.02;
+set high_priority_lock_wait_timeout = 0.02;
 describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	
@@ -133,6 +135,7 @@ connection: con1
 lock tables t1 write;;
 connection: default
 set lock_wait_timeout = 0.02;
+set high_priority_lock_wait_timeout = 0.02;
 describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	
@@ -182,6 +185,7 @@ connection: con1
 lock tables t1 read; begin; insert into t1 values (4);;
 connection: default
 set lock_wait_timeout = 0.02;
+set high_priority_lock_wait_timeout = 0.02;
 describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	
@@ -229,6 +233,7 @@ connection: con1
 lock tables t1 read;;
 connection: con2
 set lock_wait_timeout = 0.02;
+set high_priority_lock_wait_timeout = 0.02;
 describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	
@@ -280,6 +285,7 @@ connection: con1
 lock tables t1 read;;
 connection: default
 set lock_wait_timeout = 0.02;
+set high_priority_lock_wait_timeout = 0.02;
 describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	
@@ -319,6 +325,7 @@ connection: con1
 lock tables t1 read;;
 connection: default
 set lock_wait_timeout = 0.02;
+set high_priority_lock_wait_timeout = 0.02;
 describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES	MUL	NULL	
@@ -366,6 +373,7 @@ connection: con1
 lock tables t1 read;;
 connection: default
 set lock_wait_timeout = 0.02;
+set high_priority_lock_wait_timeout = 0.02;
 describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	
@@ -413,6 +421,7 @@ connection: con1
 lock tables t1 read;;
 connection: default
 set lock_wait_timeout = 0.02;
+set high_priority_lock_wait_timeout = 0.02;
 describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	
@@ -452,6 +461,7 @@ connection: con1
 lock tables t1 read;;
 connection: default
 set lock_wait_timeout = 0.02;
+set high_priority_lock_wait_timeout = 0.02;
 describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	
@@ -499,6 +509,7 @@ connection: con1
 lock tables t1 read;;
 connection: default
 set lock_wait_timeout = 0.02;
+set high_priority_lock_wait_timeout = 0.02;
 describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	
@@ -561,6 +572,7 @@ connection: con1
 lock tables t1 read;;
 connection: default
 set lock_wait_timeout = 0.02;
+set high_priority_lock_wait_timeout = 0.02;
 describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	
@@ -606,6 +618,7 @@ i
 4
 connection: default
 set lock_wait_timeout = 0.02;
+set high_priority_lock_wait_timeout = 0.02;
 describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	
@@ -652,6 +665,7 @@ connection: con1
 lock tables t1 write;;
 connection: default
 set lock_wait_timeout = 0.02;
+set high_priority_lock_wait_timeout = 0.02;
 describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	
@@ -694,6 +708,7 @@ connection: con1
 lock tables t1 read; begin; insert into t1 values (4);;
 connection: default
 set lock_wait_timeout = 0.02;
+set high_priority_lock_wait_timeout = 0.02;
 describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	
@@ -734,6 +749,7 @@ connection: con1
 lock tables t1 read;;
 connection: con2
 set lock_wait_timeout = 0.02;
+set high_priority_lock_wait_timeout = 0.02;
 describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	
@@ -778,6 +794,7 @@ connection: con1
 lock tables t1 read;;
 connection: default
 set lock_wait_timeout = 0.02;
+set high_priority_lock_wait_timeout = 0.02;
 describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	
@@ -810,6 +827,7 @@ connection: con1
 lock tables t1 read;;
 connection: default
 set lock_wait_timeout = 0.02;
+set high_priority_lock_wait_timeout = 0.02;
 describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES	MUL	NULL	
@@ -850,6 +868,7 @@ connection: con1
 lock tables t1 read;;
 connection: default
 set lock_wait_timeout = 0.02;
+set high_priority_lock_wait_timeout = 0.02;
 describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	
@@ -890,6 +909,7 @@ connection: con1
 lock tables t1 read;;
 connection: default
 set lock_wait_timeout = 0.02;
+set high_priority_lock_wait_timeout = 0.02;
 describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	
@@ -922,6 +942,7 @@ connection: con1
 lock tables t1 read;;
 connection: default
 set lock_wait_timeout = 0.02;
+set high_priority_lock_wait_timeout = 0.02;
 describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	
@@ -962,6 +983,7 @@ connection: con1
 lock tables t1 read;;
 connection: default
 set lock_wait_timeout = 0.02;
+set high_priority_lock_wait_timeout = 0.02;
 describe t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	

@@ -76,6 +76,7 @@ if ($recreate_table) {
 --echo connection: $con_kill
 --connection $con_kill
 set lock_wait_timeout = 0.02;
+set high_priority_lock_wait_timeout = 0.02;
 
 describe t1;
 
