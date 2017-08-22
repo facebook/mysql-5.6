@@ -25,19 +25,6 @@ sync_slave_with_master;
 connection slave;
 select * from t1;
 
-let $sql_thread=`select id from information_schema.processlist where state
- like 'Slave has read all relay log; waiting for the slave I/O thread%'`;
-let $worker_thread=`select id from information_schema.processlist where state
- like 'Waiting for%'`;
-
---echo # set slave thread's lock_wait_timeout to a small value
-
---replace_regex /session [0-9]*/session sql_thread/
---eval set session $sql_thread lock_wait_timeout = 0.2
-
---replace_regex /session [0-9]*/session sql_thread/
---eval show session $sql_thread variables like 'lock_wait_timeout'
-
 --echo connection slave_block
 connection slave_block;
 
@@ -51,7 +38,7 @@ connection master;
 create high_priority index idx1 on t1 (i);
 show create table t1;
 
-# sync
+# sync. high_priority_lock_wait_timeout is 1 second by default
 sync_slave_with_master;
 
 --echo connection slave;

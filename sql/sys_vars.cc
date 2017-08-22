@@ -1910,7 +1910,7 @@ static Sys_var_double Sys_high_priority_lock_wait_timeout(
        "high_priority_lock_wait_timeout",
        "Timeout in seconds to wait for a lock before returning an error. "
        "This timeout is specifically for high_priority commands (DDLs), "
-       "when a high_priority keyward is specified, or the high_priority_ddl "
+       "when a high_priority keyword is specified, or the high_priority_ddl "
        "variable is turned on. "
        "The argument will be treated as a decimal value with nanosecond "
        "precision.",
