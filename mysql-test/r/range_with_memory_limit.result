@@ -16,7 +16,7 @@ EXPLAIN SELECT DISTINCT a FROM t1 WHERE (a, b) IN ((0, 0), (1, 1));
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	index	a	a	5	NULL	10	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SET RANGE_OPTIMIZER_MAX_MEM_SIZE= DEFAULT;
 EXPLAIN SELECT DISTINCT a FROM t1 WHERE (a, b) IN ((0, 0), (1, 1));
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
@@ -57,7 +57,7 @@ event_date	type	event_id
 1999-07-13	100600	26
 1999-07-14	100600	10
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select event_date,type,event_id from t1 WHERE type = 100601 and event_date >= "1999-07-01" AND event_date < "1999-07-15" AND (type=100600 OR type=100100) ORDER BY event_date;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE
@@ -71,7 +71,7 @@ event_date	type	event_id
 1999-07-14	100600	10
 1999-07-15	100600	16
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 drop table t1;
 CREATE TABLE t1 (
 PAPER_ID smallint(6) DEFAULT '0' NOT NULL,
@@ -106,7 +106,7 @@ YEAR	ISSUE
 1999	34
 1999	35
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 check table t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
@@ -137,7 +137,7 @@ id	parent_id	level
 7	1	1
 5	1	1
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE level = 1 AND parent_id = 1 order by id;
 id	parent_id	level
 2	1	1
@@ -147,7 +147,7 @@ id	parent_id	level
 6	1	1
 7	1	1
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 drop table t1;
 create table t1(
 Satellite		varchar(25)	not null,
@@ -163,7 +163,7 @@ select * from t1 where t1.Satellite = "OV-3" and t1.SensorMode = "PAN1" and t1.F
 Satellite	SensorMode	FullImageCornersUpperLeftLongitude	FullImageCornersUpperRightLongitude	FullImageCornersUpperRightLatitude	FullImageCornersLowerRightLatitude
 OV-3	PAN1	91	-92	40	50
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 drop table t1;
 create table t1 ( aString char(100) not null default "", key aString (aString(10)) );
 insert t1 (aString) values ( "believe in myself" ), ( "believe" ), ("baaa" ), ( "believe in love");
@@ -173,12 +173,12 @@ baaa
 believe
 believe in love
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 select * from t1 where aString > "believe in love" order by aString;
 aString
 believe in myself
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 alter table t1 drop key aString;
 select * from t1 where aString < "believe in myself" order by aString;
 aString
@@ -247,22 +247,22 @@ select count(*) from t1 where art = 'J' or art = 'j';
 count(*)
 602
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 select count(*) from t1 where art = 'j' or art = 'J';
 count(*)
 602
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 select count(*) from t1 where art = 'j';
 count(*)
 389
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 select count(*) from t1 where art = 'J';
 count(*)
 213
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 drop table t1;
 create table t1 (x int, y int, index(x), index(y));
 insert into t1 (x) values (1),(2),(3),(4),(5),(6),(7),(8),(9);
@@ -275,53 +275,53 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ref	y	y	5	const	0	NULL
 1	SIMPLE	t2	ALL	x	NULL	NULL	NULL	9	Using where; Using join buffer (Block Nested Loop)
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select * from t1, t1 t2 where t1.y = 8 and t2.x >= 7 and t2.x <= t1.y+0;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ref	y	y	5	const	0	NULL
 1	SIMPLE	t2	ALL	x	NULL	NULL	NULL	9	Using where; Using join buffer (Block Nested Loop)
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select * from t1, t1 t2 where t1.y = 2 and t2.x between t1.y-1 and t1.y+1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ref	y	y	5	const	0	NULL
 1	SIMPLE	t2	ALL	x	NULL	NULL	NULL	9	Using where; Using join buffer (Block Nested Loop)
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select * from t1, t1 t2 where t1.y = 2 and t2.x >= t1.y-1 and t2.x <= t1.y+1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ref	y	y	5	const	0	NULL
 1	SIMPLE	t2	ALL	x	NULL	NULL	NULL	9	Using where; Using join buffer (Block Nested Loop)
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select * from t1, t1 t2 where t1.y = 2 and t2.x between 0 and t1.y;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ref	y	y	5	const	0	NULL
 1	SIMPLE	t2	ALL	x	NULL	NULL	NULL	9	Using where; Using join buffer (Block Nested Loop)
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select * from t1, t1 t2 where t1.y = 2 and t2.x >= 0 and t2.x <= t1.y;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ref	y	y	5	const	0	NULL
 1	SIMPLE	t2	ALL	x	NULL	NULL	NULL	9	Using where; Using join buffer (Block Nested Loop)
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select count(*) from t1 where x in (1);
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ref	x	x	5	const	0	Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select count(*) from t1 where x in (1,2);
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	index	x	x	5	NULL	9	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 drop table t1;
 CREATE TABLE t1 (key1 int(11) NOT NULL default '0', KEY i1 (key1));
 INSERT INTO t1 VALUES (0),(0),(0),(0),(0),(1),(1);
@@ -332,16 +332,16 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t2	ref	j1	j1	4	const	0	Using index
 1	SIMPLE	t1	index	i1	i1	4	NULL	7	Using where; Using index; Using join buffer (Block Nested Loop)
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select * from t1 force index(i1), t2 force index(j1) where 
 (t1.key1 <t2.keya + 1) and t2.keya=3;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t2	ref	j1	j1	4	const	0	Using index
 1	SIMPLE	t1	index	i1	i1	4	NULL	7	Using where; Using index; Using join buffer (Block Nested Loop)
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP TABLE t1,t2;
 CREATE TABLE t1 (
 a int(11) default NULL,
@@ -358,11 +358,11 @@ EXPLAIN SELECT * FROM t1 WHERE a IN(1,2) AND b=5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ref	a,b	b	5	const	3	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE a IN(1,2) AND b=5;
 a	b
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP TABLE t1;
 CREATE TABLE t1 (a int, b int, c int, INDEX (c,a,b));
 INSERT INTO t1 VALUES (1,0,0),(1,0,0),(1,0,0);
@@ -371,12 +371,12 @@ SELECT COUNT(*) FROM t1 WHERE (c=0 and a=1) or (c=0 and b=1);
 COUNT(*)
 6
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT COUNT(*) FROM t1 WHERE (c=0 and b=1) or (c=0 and a=1);
 COUNT(*)
 6
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP TABLE t1;
 CREATE TABLE t1 ( a int not null, b int not null, INDEX ab(a,b) );
 INSERT INTO t1 VALUES (47,1), (70,1), (15,1), (15, 4);
@@ -392,7 +392,7 @@ a	b
 15	1
 47	1
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP TABLE t1;
 CREATE TABLE t1 (
 id int( 11 ) unsigned NOT NULL AUTO_INCREMENT ,
@@ -415,7 +415,7 @@ id	columnid	tableid	content	showid	line	ordinal
 13	13	1	188	1	5	0
 15	15	1	188	1	1	0
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 drop table t1;
 create  table t1 (id int(10) primary key);
 insert into t1 values (1),(2),(3),(4),(5),(6),(7),(8),(9);
@@ -425,14 +425,14 @@ id
 5
 9
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 select id from t1 where id=2 or id=5 or id=9 ;
 id
 2
 5
 9
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 drop table t1;
 create table t1 ( id1 int not null, id2 int not null, idnull int null, c char(20), primary key (id1,id2));
 insert into t1 values (0,1,NULL,"aaa"), (1,1,NULL,"aaa"), (2,1,NULL,"aaa"),
@@ -445,7 +445,7 @@ insert into t1 values (0,1,NULL,"aaa"), (1,1,NULL,"aaa"), (2,1,NULL,"aaa"),
 select a.id1, b.idnull from t1 as a, t1 as b where a.id2=1 and a.id1=1 and b.id1=a.idnull order by b.id2 desc limit 1;
 id1	idnull
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 drop table t1;
 create table t1 (
 id int not null auto_increment,
@@ -522,29 +522,29 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	uid_index	NULL	NULL	NULL	1026	Using where
 1	SIMPLE	t2	ref	uid_index	uid_index	4	test.t1.uid	38	NULL
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select * from t1, t2  where t1.uid=t2.uid AND t2.uid > 0;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	uid_index	NULL	NULL	NULL	1026	Using where
 1	SIMPLE	t2	ref	uid_index	uid_index	4	test.t1.uid	38	NULL
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select * from t1, t2  where t1.uid=t2.uid AND t1.uid != 0;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	uid_index	NULL	NULL	NULL	1026	Using where
 1	SIMPLE	t2	ref	uid_index	uid_index	4	test.t1.uid	38	NULL
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select * from t1, t2  where t1.uid=t2.uid AND t2.uid != 0;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	uid_index	NULL	NULL	NULL	1026	Using where
 1	SIMPLE	t2	ref	uid_index	uid_index	4	test.t1.uid	38	NULL
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 select * from t1, t2  where t1.uid=t2.uid AND t1.uid > 0;
 id	name	uid	id	name	uid
 1001	A	1	1001	A	1
@@ -574,8 +574,8 @@ id	name	uid	id	name	uid
 1025	Y	25	1025	Y	25
 1026	Z	26	1026	Z	26
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 select * from t1, t2  where t1.uid=t2.uid AND t1.uid != 0;
 id	name	uid	id	name	uid
 1001	A	1	1001	A	1
@@ -605,8 +605,8 @@ id	name	uid	id	name	uid
 1025	Y	25	1025	Y	25
 1026	Z	26	1026	Z	26
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 drop table t1,t2;
 create table t1 (x bigint unsigned not null);
 insert into t1(x) values (0xfffffffffffffff0);
@@ -676,7 +676,7 @@ select count(*) from t1 where x>0;
 count(*)
 2
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 select count(*) from t1 where x=0;
 count(*)
 0
@@ -684,12 +684,12 @@ select count(*) from t1 where x<0;
 count(*)
 0
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 select count(*) from t1 where x < -16;
 count(*)
 0
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 select count(*) from t1 where x = -16;
 count(*)
 0
@@ -697,7 +697,7 @@ select count(*) from t1 where x > -16;
 count(*)
 2
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 select count(*) from t1 where x = 18446744073709551601;
 count(*)
 1
@@ -710,44 +710,44 @@ explain select * from t1 where a <> -1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	index	t1i	t1i	9	NULL	2	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 select * from t1 where a <> -1;
 a
 18446744073709551614
 18446744073709551615
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select * from t1 where a > -1 or a < -1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	index	t1i	t1i	9	NULL	2	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 select * from t1 where a > -1 or a < -1;
 a
 18446744073709551614
 18446744073709551615
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select * from t1 where a > -1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	index	t1i	t1i	9	NULL	2	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 select * from t1 where a > -1;
 a
 18446744073709551614
 18446744073709551615
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select * from t1 where a < -1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	index	t1i	t1i	9	NULL	2	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 select * from t1 where a < -1;
 a
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 drop table t1;
 set names latin1;
 create table t1 (a char(10), b text, key (a)) character set latin1;
@@ -757,22 +757,22 @@ explain select * from t1 where a='aaa';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ref	a	a	11	const	0	Using index condition
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select * from t1 where a=binary 'aaa';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	a	NULL	NULL	NULL	9	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select * from t1 where a='aaa' collate latin1_bin;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	a	NULL	NULL	NULL	9	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select * from t1 where a='aaa' collate latin1_german1_ci;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	a	NULL	NULL	NULL	9	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 drop table t1;
 CREATE TABLE t1 (
 `CLIENT` char(3) character set latin1 collate latin1_bin NOT NULL default '000',
@@ -789,12 +789,12 @@ SELECT count(*) FROM t1 WHERE CLIENT='000' AND (ARG1 != ' 1' OR ARG1 != ' 2');
 count(*)
 4
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT count(*) FROM t1 WHERE CLIENT='000' AND (ARG1 != ' 2' OR ARG1 != ' 1');
 count(*)
 4
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 drop table t1;
 create table t1 (a int);
 insert into t1 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
@@ -817,7 +817,7 @@ OR ((pk4 =1) AND (((pk1 IN ( 7, 2, 1 ))) OR (pk1 =522)) AND ((pk2 IN ( 0, 2635))
 pk1	pk2	pk3	pk4	filler
 2621	2635	1000015	0	filler
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 drop table t1, t2;
 create table t1(a char(2), key(a(1)));
 insert into t1 values ('x'), ('xx');
@@ -825,12 +825,12 @@ explain select a from t1 where a > 'x';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	a	NULL	NULL	NULL	2	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 select a from t1 where a > 'x';
 a
 xx
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 drop table t1;
 CREATE TABLE t1 (
 OXID varchar(32) COLLATE latin1_german2_ci NOT NULL DEFAULT '',
@@ -865,8 +865,8 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	v	ref	OXLEFT,OXRIGHT,OXROOTID	OXROOTID	34	const	0	Using index condition
 1	SIMPLE	s	ref	OXLEFT,OXROOTID	OXROOTID	34	const	0	Using index condition; Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT s.oxid FROM t1 v, t1 s 
 WHERE s.oxrootid = 'd8c4177d09f8b11f5.52725521' AND
 v.oxrootid ='d8c4177d09f8b11f5.52725521' AND
@@ -878,8 +878,8 @@ d8c4177d225791924.30714720
 d8c4177d2380fc201.39666693
 d8c4177d24ccef970.14957924
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP TABLE t1;
 create table t1 (
 c1  char(10), c2  char(10), c3  char(10), c4  char(10),
@@ -1022,7 +1022,7 @@ and c10 in ("abcdefgh", "123456789", "qwertyuio", "asddfgh",
 "abcdefgC", "12345678C", "qwertyuiC", "asddfgC");
 c1	c2	c3	c4	c5	c6	c7	c8	c9	c10	c11	c12	c13	c14	c15	c16
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 drop table t1;
 End of 4.1 tests
 CREATE TABLE t1 (
@@ -1046,12 +1046,12 @@ EXPLAIN SELECT * FROM t1 WHERE status <> 'A' AND status <> 'B';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	status	NULL	NULL	NULL	60	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN SELECT * FROM t1 WHERE status NOT IN ('A','B');
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	status	NULL	NULL	NULL	60	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE status <> 'A' AND status <> 'B';
 id	status
 53	C
@@ -1063,7 +1063,7 @@ id	status
 59	C
 60	C
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE status NOT IN ('A','B');
 id	status
 53	C
@@ -1075,27 +1075,27 @@ id	status
 59	C
 60	C
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN SELECT status FROM t1 WHERE status <> 'A' AND status <> 'B';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	index	status	status	23	NULL	60	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN SELECT status FROM t1 WHERE status NOT IN ('A','B');
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	index	status	status	23	NULL	60	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN SELECT * FROM t1 WHERE status NOT BETWEEN 'A' AND 'B';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	status	NULL	NULL	NULL	60	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN SELECT * FROM t1 WHERE status < 'A' OR status > 'B';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	status	NULL	NULL	NULL	60	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE status NOT BETWEEN 'A' AND 'B';
 id	status
 53	C
@@ -1107,7 +1107,7 @@ id	status
 59	C
 60	C
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE status < 'A' OR status > 'B';
 id	status
 53	C
@@ -1119,7 +1119,7 @@ id	status
 59	C
 60	C
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP TABLE t1;
 CREATE TABLE  t1 (a int, b int, primary key(a,b));
 INSERT INTO  t1 VALUES
@@ -1129,32 +1129,32 @@ EXPLAIN SELECT a,b FROM t1 WHERE a < 2 and b=3;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	index	PRIMARY	PRIMARY	8	NULL	12	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN SELECT a,b FROM v1 WHERE a < 2 and b=3;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	index	PRIMARY	PRIMARY	8	NULL	12	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN SELECT a,b FROM t1 WHERE a < 2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	index	PRIMARY	PRIMARY	8	NULL	12	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN SELECT a,b FROM v1 WHERE a < 2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	index	PRIMARY	PRIMARY	8	NULL	12	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT a,b FROM t1 WHERE a < 2 and b=3;
 a	b
 1	3
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT a,b FROM v1 WHERE a < 2 and b=3;
 a	b
 1	3
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP VIEW v1;
 DROP TABLE t1;
 CREATE TABLE t1 (name varchar(15) NOT NULL, KEY idx(name));
@@ -1165,7 +1165,7 @@ Anna
 Betty
 DELETE FROM t1 WHERE name NOT LIKE 'A%a';
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1;
 name
 Anna
@@ -1180,7 +1180,7 @@ NULL
 3
 DELETE FROM t1 WHERE NOT(a <=> 2);
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1;
 a
 2
@@ -1194,22 +1194,22 @@ explain select * from t1 where a in (3,4)  and b in (1,2,3);
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	index	PRIMARY	PRIMARY	8	NULL	#	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select * from v1 where a in (3,4)  and b in (1,2,3);
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	index	PRIMARY	PRIMARY	8	NULL	#	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select * from t1 where a between 3 and 4 and b between 1 and 2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	index	PRIMARY	PRIMARY	8	NULL	#	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select * from v1 where a between 3 and 4 and b between 1 and 2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	index	PRIMARY	PRIMARY	8	NULL	#	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 drop view v1;
 drop table t1;
 create table t3 (a int);
@@ -1226,35 +1226,35 @@ explain select * from t1 where a between 'a' and 'a ';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	a	NULL	NULL	NULL	#	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select * from t1 where a = 'a' or a='a ';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	a	NULL	NULL	NULL	#	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select * from t2 where a between 'a' and 'a ';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t2	ref	a	a	13	const	#	Using index condition
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select * from t2 where a = 'a' or a='a ';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t2	ref	a	a	13	const	#	Using index condition
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 update t1 set a='b' where a<>'a';
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 explain select * from t1 where a not between 'b' and 'b';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	a	NULL	NULL	NULL	#	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 select a, hex(filler) from t1 where a not between 'b' and 'b';
 a	hex(filler)
 a	0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 drop table t1,t2,t3;
 create table t1 (a int);
 insert into t1 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
@@ -1272,7 +1272,7 @@ execute stmt1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t2	index	a	a	5	NULL	1003	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 prepare stmt1 from @a;
 execute stmt1;
 a
@@ -1280,7 +1280,7 @@ a
 13
 15
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 drop table t1, t2;
 CREATE TABLE t1 (
 id int NOT NULL DEFAULT '0',
@@ -1297,45 +1297,45 @@ id	b	c
 0	3	4
 0	3	4
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE 3 BETWEEN b AND c;
 id	b	c
 0	3	4
 0	3	4
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN  SELECT * FROM t1 WHERE b<=3 AND 3<=c;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	idx1,idx2	NULL	NULL	NULL	10	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN  SELECT * FROM t1 WHERE 3 BETWEEN b AND c;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	idx1,idx2	NULL	NULL	NULL	10	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE 0 < b OR 0 > c;
 id	b	c
 0	3	4
 0	3	4
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE 0 NOT BETWEEN b AND c;
 id	b	c
 0	3	4
 0	3	4
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN SELECT * FROM t1 WHERE 0 < b OR 0 > c;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	idx1,idx2	NULL	NULL	NULL	10	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN SELECT * FROM t1 WHERE 0 NOT BETWEEN b AND c;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	idx1,idx2	NULL	NULL	NULL	10	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP TABLE t1;
 CREATE TABLE t1 (                                      
 item char(20) NOT NULL default '',                          
@@ -1356,20 +1356,20 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ref	PRIMARY	PRIMARY	20	const	2	Using index condition
 Warnings:
 Warning	1292	Incorrect datetime value: '2005-12-01 24:00:00' for column 'started' at row 1
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE item='A1' AND started<='2005-12-01 24:00:00';
 item	started	price
 A1	2005-11-01 08:00:00	1000.000
 A1	2005-11-15 00:00:00	2000.000
 Warnings:
 Warning	1292	Incorrect datetime value: '2005-12-01 24:00:00' for column 'started' at row 1
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE item='A1' AND started<='2005-12-02 00:00:00';
 item	started	price
 A1	2005-11-01 08:00:00	1000.000
 A1	2005-11-15 00:00:00	2000.000
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP INDEX `PRIMARY` ON t1;
 EXPLAIN SELECT * FROM t1 WHERE item='A1' AND started<='2005-12-01 24:00:00';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
@@ -1405,7 +1405,7 @@ explain select * from t1 where dateval >= '2007-01-01 00:00:00' and dateval <= '
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	dateval	NULL	NULL	NULL	11	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 drop table t1;
 CREATE TABLE t1 (
 a varchar(32), index (a)
@@ -1417,12 +1417,12 @@ a
 B
 B
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN SELECT a FROM t1 WHERE a='b' OR a='B';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	index	a	a	35	NULL	7	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP TABLE t1;
 CREATE TABLE t1 (f1 TINYINT(11) UNSIGNED NOT NULL, PRIMARY KEY (f1));
 INSERT INTO t1 VALUES (127),(254),(0),(1),(255);
@@ -1430,27 +1430,27 @@ SELECT SQL_NO_CACHE COUNT(*) FROM t1 WHERE f1 < 256;
 COUNT(*)
 5
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT SQL_NO_CACHE COUNT(*) FROM t1 WHERE f1 < 256.0;
 COUNT(*)
 5
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT SQL_NO_CACHE COUNT(*) FROM t1 WHERE f1 < 255;
 COUNT(*)
 4
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT SQL_NO_CACHE COUNT(*) FROM t1 WHERE f1 < -1;
 COUNT(*)
 0
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT SQL_NO_CACHE COUNT(*) FROM t1 WHERE f1 > -1;
 COUNT(*)
 5
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP TABLE t1;
 CREATE TABLE t1 ( f1 TINYINT(11) NOT NULL, PRIMARY KEY (f1));
 INSERT INTO t1 VALUES (127),(126),(0),(-128),(-127);
@@ -1458,32 +1458,32 @@ SELECT SQL_NO_CACHE COUNT(*) FROM t1 WHERE f1 < 128;
 COUNT(*)
 5
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT SQL_NO_CACHE COUNT(*) FROM t1 WHERE f1 < 128.0;
 COUNT(*)
 5
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT SQL_NO_CACHE COUNT(*) FROM t1 WHERE f1 < 127;
 COUNT(*)
 4
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT SQL_NO_CACHE COUNT(*) FROM t1 WHERE f1 > -129;
 COUNT(*)
 5
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT SQL_NO_CACHE COUNT(*) FROM t1 WHERE f1 > -129.0;
 COUNT(*)
 5
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT SQL_NO_CACHE COUNT(*) FROM t1 WHERE f1 > -128;
 COUNT(*)
 4
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP TABLE t1;
 create table t1 (a int);
 insert into t1 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
@@ -1499,7 +1499,7 @@ explain select * from t2 where a=1000 and b<11;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t2	ref	a	a	5	const	2	Using index condition
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 drop table t1, t2;
 CREATE TABLE t1( a INT, b INT, KEY( a, b ) );
 CREATE TABLE t2( a INT, b INT, KEY( a, b ) );
@@ -1521,10 +1521,10 @@ VALUES (1, 0), (2, 0), (3, 0), (4, 0), (5, 0),
 (6, 0), (7, 0), (8, 0), (9, 0), (10, 0);
 INSERT INTO t3 SELECT * FROM t3 WHERE a = 10;
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 INSERT INTO t3 SELECT * FROM t3 WHERE a = 10;
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE
 3 <= a AND a < 5 OR 
 5 < a AND b = 3 OR
@@ -1533,7 +1533,7 @@ a	b
 5	0
 9	7
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN
 SELECT * FROM t1 WHERE
 3 <= a AND a < 5 OR 
@@ -1542,7 +1542,7 @@ SELECT * FROM t1 WHERE
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	index	a	a	10	NULL	6	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE
 3 <= a AND a < 5 OR 
 5 <= a AND b = 3 OR
@@ -1551,7 +1551,7 @@ a	b
 5	0
 9	7
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN
 SELECT * FROM t1 WHERE
 3 <= a AND a < 5 OR 
@@ -1560,7 +1560,7 @@ SELECT * FROM t1 WHERE
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	index	a	a	10	NULL	6	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE
 3 <= a AND a <= 5 OR 
 5 <= a AND b = 3 OR
@@ -1569,7 +1569,7 @@ a	b
 5	0
 9	7
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN
 SELECT * FROM t1 WHERE
 3 <= a AND a <= 5 OR 
@@ -1578,7 +1578,7 @@ SELECT * FROM t1 WHERE
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	index	a	a	10	NULL	6	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE
 3 <= a AND a <= 5 OR 
 3 <= a;
@@ -1586,7 +1586,7 @@ a	b
 5	0
 9	7
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN
 SELECT * FROM t1 WHERE
 3 <= a AND a <= 5 OR 
@@ -1594,7 +1594,7 @@ SELECT * FROM t1 WHERE
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	index	a	a	10	NULL	6	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t2 WHERE
 5 <= a AND a < 10 AND b = 1 OR
 15 <= a AND a < 20 AND b = 3
@@ -1627,7 +1627,7 @@ a	b
 19	3
 20	1
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN
 SELECT * FROM t2 WHERE
 5 <= a AND a < 10 AND b = 1 OR
@@ -1637,7 +1637,7 @@ OR
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t2	index	a	a	10	NULL	480	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t2 WHERE
 5 <= a AND a < 10 AND b = 2 OR
 15 <= a AND a < 20 AND b = 3
@@ -1675,7 +1675,7 @@ a	b
 19	3
 20	1
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN
 SELECT * FROM t2 WHERE
 5 <= a AND a < 10 AND b = 2 OR
@@ -1685,7 +1685,7 @@ OR
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t2	index	a	a	10	NULL	480	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t3 WHERE
 5 <= a AND a < 10 AND b = 3 OR 
 a < 5 OR
@@ -1701,7 +1701,7 @@ a	b
 8	0
 9	0
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN
 SELECT * FROM t3 WHERE
 5 <= a AND a < 10 AND b = 3 OR 
@@ -1710,7 +1710,7 @@ a < 10;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t3	index	a	a	10	NULL	13	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP TABLE t1, t2, t3;
 #
 # Bug #47123: Endless 100% CPU loop with STRAIGHT_JOIN
@@ -1720,7 +1720,7 @@ INSERT INTO t1 VALUES (1), (NULL);
 SELECT * FROM t1 WHERE a <> NULL and (a <> NULL or a <= NULL);
 a
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP TABLE t1;
 #
 # Bug#47925: regression of range optimizer and date comparison in 5.1.39!
@@ -1747,42 +1747,42 @@ a
 2009-09-23
 2009-09-23
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE a >= '20090923';
 a
 2009-09-23
 2009-09-23
 2009-09-23
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE a >=  20090923;
 a
 2009-09-23
 2009-09-23
 2009-09-23
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE a >= '2009-9-23';
 a
 2009-09-23
 2009-09-23
 2009-09-23
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE a >= '2009.09.23';
 a
 2009-09-23
 2009-09-23
 2009-09-23
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE a >= '2009:09:23';
 a
 2009-09-23
 2009-09-23
 2009-09-23
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 # DATE vs DATETIME
 EXPLAIN
 SELECT * FROM t2 WHERE a >= '2009/09/23';
@@ -1796,49 +1796,49 @@ a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t2 WHERE a >= '2009/09/23';
 a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t2 WHERE a >= '20090923';
 a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t2 WHERE a >=  20090923;
 a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t2 WHERE a >= '2009-9-23';
 a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t2 WHERE a >= '2009.09.23';
 a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t2 WHERE a >= '2009:09:23';
 a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 # DATETIME vs DATETIME
 EXPLAIN
 SELECT * FROM t2 WHERE a >= '2009/09/23 12:00:00';
@@ -1852,42 +1852,42 @@ a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t2 WHERE a >= '20090923120000';
 a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t2 WHERE a >=  20090923120000;
 a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t2 WHERE a >= '2009-9-23 12:00:00';
 a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t2 WHERE a >= '2009.09.23 12:00:00';
 a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t2 WHERE a >= '2009:09:23 12:00:00';
 a
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 2009-09-23 12:00:00
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 # DATETIME vs DATE
 EXPLAIN
 SELECT * FROM t1 WHERE a >= '2009/09/23 00:00:00';
@@ -1901,49 +1901,49 @@ a
 2009-09-23
 2009-09-23
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE a >= '2009/09/23 00:00:00';
 a
 2009-09-23
 2009-09-23
 2009-09-23
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE a >= '20090923000000';
 a
 2009-09-23
 2009-09-23
 2009-09-23
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE a >=  20090923000000;
 a
 2009-09-23
 2009-09-23
 2009-09-23
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE a >= '2009-9-23 00:00:00';
 a
 2009-09-23
 2009-09-23
 2009-09-23
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE a >= '2009.09.23 00:00:00';
 a
 2009-09-23
 2009-09-23
 2009-09-23
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE a >= '2009:09:23 00:00:00';
 a
 2009-09-23
 2009-09-23
 2009-09-23
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 # Test of the new get_date_from_str implementation
 # Behavior differs slightly between the trunk and mysql-pe.
 # The former may give errors for the truncated values, while the latter
@@ -2012,8 +2012,8 @@ AND t1.a = t2.a AND t1.c = t2.c;
 1
 1
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP TABLE t1, t2;
 #
 # Bug #48665: sql-bench's insert test fails due to wrong result
@@ -2034,7 +2034,7 @@ a	b
 0	0
 1	1
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP TABLE t1;
 #
 # Bug #54802: 'NOT BETWEEN' evaluation is incorrect
@@ -2045,13 +2045,13 @@ EXPLAIN SELECT * FROM t1 WHERE 2 NOT BETWEEN c_notkey AND c_key;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	c_key	NULL	NULL	NULL	3	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE 2 NOT BETWEEN c_notkey AND c_key;
 c_key	c_notkey
 1	1
 3	3
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP TABLE t1;
 #
 # Bug #57030: 'BETWEEN' evaluation is incorrect
@@ -2078,25 +2078,25 @@ SELECT * FROM t1 WHERE 10 BETWEEN 10 AND i4;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	i4_uq	NULL	NULL	NULL	3	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE 10 BETWEEN 10 AND i4;
 pk	i4
 1	10
 2	20
 3	30
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN
 SELECT * FROM t1 WHERE 10 BETWEEN i4 AND 10;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	i4_uq	NULL	NULL	NULL	3	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE 10 BETWEEN i4 AND 10;
 pk	i4
 1	10
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN
 SELECT * FROM t1 WHERE 10 BETWEEN 10 AND 10;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
@@ -2123,46 +2123,46 @@ SELECT * FROM t1 WHERE i4 BETWEEN 100 AND 0;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	i4_uq	NULL	NULL	NULL	3	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE i4 BETWEEN 100 AND 0;
 pk	i4
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN
 SELECT * FROM t1 WHERE i4 BETWEEN 10 AND 99999999999999999;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	i4_uq	NULL	NULL	NULL	3	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE i4 BETWEEN 10 AND 99999999999999999;
 pk	i4
 1	10
 2	20
 3	30
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN
 SELECT * FROM t1 WHERE i4 BETWEEN 999999999999999 AND 30;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	i4_uq	NULL	NULL	NULL	3	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE i4 BETWEEN 999999999999999 AND 30;
 pk	i4
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN
 SELECT * FROM t1 WHERE i4 BETWEEN 10 AND '20';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	i4_uq	NULL	NULL	NULL	3	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE i4 BETWEEN 10 AND '20';
 pk	i4
 1	10
 2	20
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 EXPLAIN
 SELECT * FROM t1, t1 as t2 WHERE t2.pk BETWEEN t1.i4 AND t1.i4;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
@@ -2206,7 +2206,7 @@ select count(val) from t2 force index (val)  where val > 0.1155;
 count(val)
 128
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 drop table t2, t1;
 #
 # BUG#13453382 - REGRESSION SINCE 5.1.39, RANGE OPTIMIZER WRONG
@@ -2222,7 +2222,7 @@ a	b	c
 1	1	3
 1	1	4
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 select * from t1 ignore index (primary) where a=1 and c>= 2.9;
 a	b	c
 1	1	3
@@ -2232,7 +2232,7 @@ a	b	c
 1	1	3
 1	1	4
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 select * from t1 ignore index (primary) where a=1 and c> 2.9;
 a	b	c
 1	1	3
@@ -2266,7 +2266,7 @@ AAA	AAA	AAA
 AAAA	AAAA	AAAA
 AAAAA	AAAAA	AAAAA
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE F1 > 'A    ';
 F1	F2	F3
 AA	AA	AA
@@ -2274,7 +2274,7 @@ AAA	AAA	AAA
 AAAA	AAAA	AAAA
 AAAAA	AAAAA	AAAAA
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE F1 BETWEEN 'A    ' AND 'AAAAA';
 F1	F2	F3
 A	A	A
@@ -2283,7 +2283,7 @@ AAA	AAA	AAA
 AAAA	AAAA	AAAA
 AAAAA	AAAAA	AAAAA
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE F2 BETWEEN 'A    ' AND 'AAAAA';
 F1	F2	F3
 A	A	A
@@ -2292,7 +2292,7 @@ AAA	AAA	AAA
 AAAA	AAAA	AAAA
 AAAAA	AAAAA	AAAAA
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1 WHERE F3 BETWEEN 'A    ' AND 'AAAAA';
 F1	F2	F3
 A	A	A
@@ -2318,7 +2318,7 @@ c1
 2
 3
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 Warning	1292	Truncated incorrect DOUBLE value: 'A'
 DROP TABLE t1;
 create table t1 (a int,b int,key (b),key (a),key (b,a));
@@ -2329,8 +2329,8 @@ select 1 from (select c from t1,t2 where b >= 1 and a <=> c group by 1 limit 1) 
 1
 1
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 drop table t1, t2;
 #
 # Bug #26106: Wrong plan may be chosen when there are several possible
@@ -2351,35 +2351,35 @@ INSERT INTO t1
 VALUES (2,3),(2,3),(2,3),(2,3),(2,3),(2,3),(2,3),(2,3),(2,3),(2,3);
 INSERT INTO t1 SELECT 3, 4 FROM t1 WHERE a = 2 AND b = 3;
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 INSERT INTO t1 SELECT 4, 1 FROM t1 WHERE a = 2 AND b = 3;
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 ANALYZE TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 INSERT INTO t1 VALUES (1, 2);
 INSERT INTO t1 SELECT a, b FROM t1 WHERE a=1 AND b=2;
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 INSERT INTO t1 SELECT a, b FROM t1 WHERE a=1 AND b=2;
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 INSERT INTO t1 SELECT a, b FROM t1 WHERE a=1 AND b=2;
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 INSERT INTO t1 SELECT a, b FROM t1 WHERE a=1 AND b=2;
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 INSERT INTO t1 SELECT a, b FROM t1 WHERE a=1 AND b=2;
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 INSERT INTO t1 SELECT a, b FROM t1 WHERE a=1 AND b=2;
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 INSERT INTO t1 SELECT a, b FROM t1 WHERE a=1 AND b=2;
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 # This must use range over index l, not k.
 # Update: Due to patch being reverted and minor differences in 
 #         range estimates k is selected.
@@ -2387,7 +2387,7 @@ EXPLAIN SELECT * FROM t1 WHERE a = 1 AND b >= 2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ref	k,l	l	5	const	8	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 CREATE TABLE t2( 
 a INT, 
 b INT, 
@@ -2403,32 +2403,32 @@ VALUES (2,3,3),(2,3,3),(2,3,3),(2,3,3),(2,3,3),
 (2,3,3),(2,3,3),(2,3,3),(2,3,3),(2,3,3);
 INSERT INTO t2 SELECT 3, 4, 4 FROM t2 WHERE a = 2 AND b = 3;
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 INSERT INTO t2 SELECT 4, 1, 1 FROM t2 WHERE a = 2 AND b = 3;
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 ANALYZE TABLE t2;
 Table	Op	Msg_type	Msg_text
 test.t2	analyze	status	OK
 INSERT INTO t2 VALUES (1, 2, 2);
 INSERT INTO t2 SELECT a, b, c FROM t2 WHERE a=1 AND b=2;
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 INSERT INTO t2 SELECT a, b, c FROM t2 WHERE a=1 AND b=2;
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 INSERT INTO t2 SELECT a, b, c FROM t2 WHERE a=1 AND b=2;
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 INSERT INTO t2 SELECT a, b, c FROM t2 WHERE a=1 AND b=2;
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 INSERT INTO t2 SELECT a, b, c FROM t2 WHERE a=1 AND b=2;
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 INSERT INTO t2 SELECT a, b, c FROM t2 WHERE a=1 AND b=2;
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 INSERT INTO t2 VALUES (1, 1, 2);
 # This must use range over index l, not n.
 # Update: Due to patch being reverted and minor differences in 
@@ -2437,7 +2437,7 @@ EXPLAIN SELECT * FROM t2 WHERE a = 1 AND b >= 2 AND c >= 2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t2	ref	k,l,m,n	l	5	const	8	Using index condition; Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP TABLE t1, t2;
 #
 # BUG#11765831: 'RANGE ACCESS' MAY INCORRECTLY FILTER 
@@ -2459,13 +2459,13 @@ EXPLAIN SELECT * FROM t100 WHERE I <> 6 OR (I <> 8 AND J = 5);
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t100	ALL	I	NULL	NULL	NULL	101	Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 
 SELECT * FROM t100 WHERE I <> 6 OR (I <> 8 AND J = 5);
 K	I	J
 101	8	26
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP TABLE t10,t100;
 #
 # BUG#12698916 - JOIN QUERY GIVES WRONG RESULT AT 2ND EXEC. OR
@@ -2499,13 +2499,13 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	2	NULL
 1	SIMPLE	t2	ALL	PRIMARY,col_int_key	NULL	NULL	NULL	6	Using where; Using join buffer (Block Nested Loop)
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT t1.*,t2.* FROM t1 straight_join t2
 ON t2.col_int_key = t1.col_int WHERE t2.pk < t1.pk;
 col_int	pk	col_int_key	col_varchar	pk
 1	6	1	GOOD	1
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP TABLE t1,t2;
 #
 # Bug#12694872 - 
@@ -2665,8 +2665,8 @@ field1	field2
 2009-12-01	cd
 2009-12-01	cd
 2009-12-01	cd
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 Warnings:
 ALTER TABLE t1 ENABLE KEYS;
 CREATE TABLE t2 SELECT table2.col_date_key AS field1,
@@ -2685,8 +2685,8 @@ table1.col_int_key < ( 226 + 227 ) )
 )
 ;
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t2
 WHERE (field1, field2) IN (SELECT table2.col_date_key AS field1,
 CONCAT ( table2.col_varchar_nokey, table1.col_varchar_nokey ) AS field2
@@ -2802,7 +2802,7 @@ field1	field2
 2009-12-01	cd
 2009-12-01	cd
 2009-12-01	cd
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 Warnings:
 DROP TABLE t1, t2;
 #
@@ -2820,9 +2820,9 @@ Note	1831	Duplicate index 'a_2' defined on the table 'test.t1'. This is deprecat
 INSERT INTO t1 VALUES (1,5,1),(2,4,1),(3,3,1),(4,2,1),(5,1,1);
 UPDATE t1 SET b = 0, c=1 WHERE a <=>0;
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1;
 a	b	c
 1	5	1
@@ -2848,14 +2848,14 @@ INSERT INTO t1 VALUES (154,0,NULL,0),(0,NULL,9,0),
 SELECT * FROM v2;
 f1	f2	f3	f4
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 UPDATE v2 SET f4=0, f2=NULL, f1=NULL WHERE f1 > 16 ORDER BY f1;
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM v2;
 f1	f2	f3	f4
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP TABLE t1;
 DROP VIEW v2;
 CREATE TABLE t1 (
@@ -2875,10 +2875,10 @@ f1	f2	f3	f4
 9	0	107	18
 10	0	0	0
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 UPDATE v3 SET f3=0, f4=4 WHERE f2=68 ORDER BY f1;
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM v3;
 f1	f2	f3	f4
 1	NULL	NULL	0
@@ -2886,7 +2886,7 @@ f1	f2	f3	f4
 9	0	107	18
 10	0	0	0
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP TABLE t1;
 DROP VIEW v3;
 #
@@ -2900,7 +2900,7 @@ pk
 3
 5
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP TABLE t1;
 #
 # BUG#13803810: TOO FEW ROWS RETURNED FOR RANGE ACCESS IN 
@@ -2922,7 +2922,7 @@ EXPLAIN SELECT * FROM t2 WHERE b=CAST('2001-01-01' AS DATE);
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t2	index	b	b	67	NULL	5	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t2 WHERE b=CAST('2001-01-01' AS DATE);
 b
 2001#01#01
@@ -2930,7 +2930,7 @@ b
 2001-01-01 00:00:00
 2001.01.01
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 
 # range/ref access cannot be used for any of the queries below.
 # See BUG#13814468 about 'Range checked for each record'
@@ -2940,7 +2940,7 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	2	Using temporary; Using filesort
 1	SIMPLE	t2	index	b	b	67	NULL	5	Using where; Using index; Using join buffer (Block Nested Loop)
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1, t2 WHERE a=b ORDER BY BINARY a, BINARY b;
 a	b
 2001-01-01 00:00:00	2001#01#01
@@ -2949,14 +2949,14 @@ a	b
 2001-01-01 00:00:00	2001.01.01
 2001-01-01 11:22:33	2001-01-01 11:22:33
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 
 EXPLAIN SELECT * FROM t1, t2 WHERE b=a ORDER BY BINARY a, BINARY b;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	2	Using temporary; Using filesort
 1	SIMPLE	t2	index	b	b	67	NULL	5	Using where; Using index; Using join buffer (Block Nested Loop)
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 SELECT * FROM t1, t2 WHERE b=a ORDER BY BINARY a, BINARY b;
 a	b
 2001-01-01 00:00:00	2001#01#01
@@ -2965,7 +2965,7 @@ a	b
 2001-01-01 00:00:00	2001.01.01
 2001-01-01 11:22:33	2001-01-01 11:22:33
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 
 DROP TABLE t1,t2;
 #
@@ -2993,7 +2993,7 @@ WHERE (c1 = 1 AND c2 = 1 AND c3 = 1) OR
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ref	PRIMARY	PRIMARY	4	const	7	Using where; Using index
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP TABLE t1;
 #
 # Bug#21139683: ASSERTION FAILED: TYPE_ARG == MAYBE_KEY ||
@@ -3007,7 +3007,7 @@ KEY(a(1))
 SELECT 1 FROM t1 WHERE a <> 'a' OR a <> "";
 1
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP TABLE t1;
 #
 # Bug #23259872: OPTIMIZER CHOOSES TO USE NON PRIMARY
@@ -3064,7 +3064,7 @@ AND (giant_table.flags & 0x01) = 0 AND giant_table.some_other_id = 0;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	giant_table	ref	PRIMARY,some_other_id	some_other_id	4	const	1	Using index condition; Using where
 Warnings:
-Warning	1925	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 10 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 DROP PROCEDURE p;
 DROP TABLE giant_table, t1;
 SET RANGE_OPTIMIZER_MAX_MEM_SIZE= DEFAULT;

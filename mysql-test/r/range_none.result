@@ -861,7 +861,7 @@ and c10 in ("abcdefgh", "123456789", "qwertyuio", "asddfgh",
 "abcdefgC", "12345678C", "qwertyuiC", "asddfgC");
 c1	c2	c3	c4	c5	c6	c7	c8	c9	c10	c11	c12	c13	c14	c15	c16
 Warnings:
-Warning	1925	Memory capacity of 1536000 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
+Warning	3170	Memory capacity of 1536000 bytes for 'range_optimizer_max_mem_size' exceeded. Range optimization was not done for this query.
 drop table t1;
 End of 4.1 tests
 CREATE TABLE t1 (
