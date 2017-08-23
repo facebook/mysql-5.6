@@ -7110,11 +7110,38 @@ ER_GTID_UNSAFE_BINLOG_SPLITTABLE_STATEMENT_AND_GTID_GROUP
 ER_SLAVE_HAS_MORE_GTIDS_THAN_MASTER
   eng "Slave has more GTIDs than the master has, using the master's SERVER_UUID. This may indicate that the end of the binary log was truncated or that the last binary log file was lost, e.g., after a power or disk failure when sync_binlog != 1. The master may or may not have rolled back transactions that were already replicated to the slave. Suggest to replicate any transactions that master has rolled back from slave to master, and/or commit empty transactions on master to account for transactions that have been committed on master but are not included in GTID_EXECUTED."
 
+start-error-number 3024
+
 ER_QUERY_TIMEOUT
   eng "Query execution was interrupted, max_statement_time exceeded"
 
 ER_NON_RO_SELECT_DISABLE_TIMER
   eng "Select is not a read only statement, disabling timer"
+
+start-error-number 3030
+
+ER_SLAVE_WORKER_STOPPED_PREVIOUS_THD_ERROR
+  eng "Slave worker has stopped after at least one previous worker encountered an error when mts_dependency_order_commits was enabled. To preserve commit order, the last transaction executed by this thread has not been committed. When restarting the slave after fixing any failed threads, you should fix this worker as well."
+
+start-error-number 3068
+
+ER_NET_OK_PACKET_TOO_LARGE
+  eng "OK packet too large"
+
+start-error-number 3170
+
+ER_CAPACITY_EXCEEDED
+  eng "Memory capacity of %llu bytes for '%s' exceeded. %s"
+
+ER_CAPACITY_EXCEEDED_IN_RANGE_OPTIMIZER
+  eng "Range optimization was not done for this query."
+
+
+#
+# FB MySQL error codes begin from 12000
+#
+
+start-error-number 12000
 
 ER_QUERY_THROTTLED 70101
  eng "Query execution was throttled"
@@ -7227,12 +7254,6 @@ ER_GIT_HASH
 ER_CONNECTION_TIMEOUT
   eng "Closed connection: idle timeout after %us"
 
-ER_CAPACITY_EXCEEDED
-  eng "Memory capacity of %llu bytes for '%s' exceeded. %s"
-
-ER_CAPACITY_EXCEEDED_IN_RANGE_OPTIMIZER
-  eng "Range optimization was not done for this query."
-
 ER_FILESORT_MAX_FILE_SIZE_EXCEEDED
   eng "Filesort file is too big"
 
@@ -7290,9 +7311,6 @@ ER_RDB_STATUS_GENERAL
 ER_RDB_STATUS_MSG
   eng "%s, Status error %d received from RocksDB: %s"
 
-ER_NET_OK_PACKET_TOO_LARGE
-  eng "OK packet too large"
-
 ER_RDB_TTL_UNSUPPORTED
   eng "TTL support is currently disabled when table has a hidden PK."
 
@@ -7319,9 +7337,6 @@ ER_NP_FAILED
 
 ER_CANT_SET_DEPENDENCY_REPLICATION_WITHOUT_IDEMPOTENT_RECOVERY
   eng "@@GLOBAL.MTS_DEPENDENCY_REPLICATION cannot be set when @@GLOBAL.SLAVE_USE_IDEMPOTENT_FOR_RECOVERY = NO"
-
-ER_SLAVE_WORKER_STOPPED_PREVIOUS_THD_ERROR
-  eng "Slave worker has stopped after at least one previous worker encountered an error when mts_dependency_order_commits was enabled. To preserve commit order, the last transaction executed by this thread has not been committed. When restarting the slave after fixing any failed threads, you should fix this worker as well."
 
 ER_DB_METADATA_TOO_LONG
   eng "Metadata for the database is too long. Max length is %d bytes"
