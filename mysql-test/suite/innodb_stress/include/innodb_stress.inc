@@ -47,6 +47,9 @@ call mtr.add_suppression("InnoDB: New log files created");
 # Some tests create transactions larger than the defined buffer size. Suppress
 # to test the auto-extend code path rather than increasing the buffer size.
 call mtr.add_suppression("InnoDB: The transaction log size is too large for innodb_log_buffer_size");
+
+# Suppress the warning for long wait for a semaphore
+call mtr.add_suppression("InnoDB: Warning: a long semaphore wait:");
 --enable_query_log
 
 --sync_slave_with_master
