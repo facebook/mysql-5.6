@@ -2108,6 +2108,8 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
   char start_time_buff[80] = "";
   char end_time_buff[80] = "";
   char read_time_buff[80] = "";
+  char semisync_ack_time_buff[80] = "";
+  char engine_commit_time_buff[80] = "";
   char query_time_buff[22+7], lock_time_buff[22+7];
   bool use_query_start = false;
   uint buff_len= 0;
@@ -2163,6 +2165,12 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
   /* For slow query log */
   sprintf(query_time_buff, "%.6f", ulonglong2double(query_utime)/1000000.0);
   sprintf(lock_time_buff,  "%.6f", ulonglong2double(lock_utime)/1000000.0);
+  /*Semisync ack time and Engine commit time  */
+  sprintf(semisync_ack_time_buff,"%.6f",
+          my_timer_to_seconds(thd->semisync_ack_time));
+  sprintf(engine_commit_time_buff,"%.6f",
+          my_timer_to_seconds(thd->engine_commit_time));
+
   if (opt_log_slow_extra && query_start_arg && query_start)
   {
     struct tm tm_tmp;
@@ -2236,7 +2244,8 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
                       " Created_tmp_tables: %lu"
                       " Tmp_table_bytes_written: %lu"
                       " Start: %s End: %s"
-                      " Reads: %lu Read_time: %s\n",
+                      " Reads: %lu Read_time: %s"
+                      " Semisync_ack_time: %s Engine_commit_time: %s\n",
                       query_time_buff, lock_time_buff,
                       (ulong) thd->get_sent_row_count(),
                       (ulong) thd->get_examined_row_count(),
@@ -2282,7 +2291,9 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
                       start_time_buff, end_time_buff,
                       (ulong) (thd->status_var.read_requests -
                           query_start->read_requests),
-                      read_time_buff) == (uint) -1)
+                      read_time_buff,
+                      semisync_ack_time_buff,
+                      engine_commit_time_buff) == (uint) -1)
       tmp_errno=errno;
     }
     else // don't substract query_start status
@@ -2302,7 +2313,8 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
                       " Created_tmp_tables: %lu"
                       " Tmp_table_bytes_written: %lu"
                       " Start: %s End: %s"
-                      " Reads: %lu Read_time: %s\n",
+                      " Reads: %lu Read_time: %s"
+                      " Semisync_ack_time: %s Engine_commit_time: %s\n",
                       query_time_buff, lock_time_buff,
                       (ulong) thd->get_sent_row_count(),
                       (ulong) thd->get_examined_row_count(),
@@ -2329,7 +2341,9 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
                       (ulong) thd->status_var.tmp_table_bytes_written,
                       start_time_buff, end_time_buff,
                       (ulong) thd->status_var.read_requests,
-                      read_time_buff) == (uint) -1)
+                      read_time_buff,
+                      semisync_ack_time_buff,
+                      engine_commit_time_buff) == (uint) -1)
       tmp_errno=errno;
     }
 
