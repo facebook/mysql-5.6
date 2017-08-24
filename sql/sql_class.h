@@ -2449,6 +2449,10 @@ public:
   ulonglong stmt_start = 0;
   /* record the transaction time (including in-fly) */
   ulonglong trx_time = 0;
+  /* record the semisync ack time */
+  ulonglong semisync_ack_time = 0;
+  /* record the engine commit time */
+  ulonglong engine_commit_time = 0;
 
   /* whether the session is already in admission control for queries */
   bool is_in_ac = false;
