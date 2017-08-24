@@ -1,0 +1,4 @@
+set timestamp=10;
+select unix_timestamp(), sleep(2);
+unix_timestamp()	sleep(2)
+10	0

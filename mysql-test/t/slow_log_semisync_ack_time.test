@@ -1,0 +1,7 @@
+set timestamp=10;
+select unix_timestamp(), sleep(2);
+
+let $MYSQLD_DATADIR= `select @@datadir`;
+--exec [ `grep "Semisync_ack_time:" $MYSQLD_DATADIR/../mysqld-slow.log | wc -l` -ge "1" ]
+
+--exit
