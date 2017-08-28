@@ -586,7 +586,7 @@ class ha_rocksdb : public my_core::handler {
   bool m_update_scope_is_valid;
 
   /* SST information used for bulk loading the primary key */
-  std::shared_ptr<Rdb_sst_info> m_sst_info;
+  std::unique_ptr<Rdb_sst_info> m_sst_info;
   /* External merge sorts for bulk load: key ID -> merge sort instance */
   std::unordered_map<GL_INDEX_ID, Rdb_index_merge> m_key_merge;
   Rdb_transaction *m_bulk_load_tx;
