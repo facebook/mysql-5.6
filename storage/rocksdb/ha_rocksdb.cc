@@ -8470,15 +8470,15 @@ int ha_rocksdb::bulk_load_key(Rdb_transaction *const tx, const Rdb_key_def &kd,
     }
     res = it->second.add(key, value);
   } else {
-    if (m_sst_info == nullptr) {
-      m_sst_info = std::make_shared<Rdb_sst_info>(
-          rdb, m_table_handler->m_table_name, kd.get_name(), cf,
-          *rocksdb_db_options, THDVAR(ha_thd(), trace_sst_api));
+    if (!m_sst_info) {
+      m_sst_info.reset(new Rdb_sst_info(rdb, m_table_handler->m_table_name,
+                                        kd.get_name(), cf, *rocksdb_db_options,
+                                        THDVAR(ha_thd(), trace_sst_api)));
       tx->start_bulk_load(this);
       m_bulk_load_tx = tx;
     }
 
-    DBUG_ASSERT(m_sst_info != nullptr);
+    DBUG_ASSERT(m_sst_info);
 
     res = m_sst_info->put(key, value);
   }
@@ -8489,12 +8489,11 @@ int ha_rocksdb::bulk_load_key(Rdb_transaction *const tx, const Rdb_key_def &kd,
 int ha_rocksdb::finalize_bulk_load() {
   DBUG_ENTER_FUNC();
 
-  DBUG_ASSERT_IMP(!m_key_merge.empty() || m_sst_info != nullptr,
+  DBUG_ASSERT_IMP(!m_key_merge.empty() || m_sst_info,
                   m_bulk_load_tx != nullptr);
 
   /* Skip if there are no possible ongoing bulk loads */
-  if (m_key_merge.empty() && m_sst_info == nullptr &&
-      m_bulk_load_tx == nullptr) {
+  if (m_key_merge.empty() && !m_sst_info && m_bulk_load_tx == nullptr) {
     DBUG_RETURN(HA_EXIT_SUCCESS);
   }
 
@@ -8502,9 +8501,9 @@ int ha_rocksdb::finalize_bulk_load() {
 
   RDB_MUTEX_LOCK_CHECK(m_bulk_load_mutex);
 
-  if (m_sst_info != nullptr) {
+  if (m_sst_info) {
     res = m_sst_info->commit();
-    m_sst_info = nullptr;
+    m_sst_info.reset();
   }
 
   if (!m_key_merge.empty()) {
@@ -10812,7 +10811,7 @@ int ha_rocksdb::inplace_populate_sk(
     open handlers have been closed at this point, and the one we're on is the
     only one left.
   */
-  if (m_sst_info != nullptr) {
+  if (m_sst_info) {
     if ((res = finalize_bulk_load())) {
       DBUG_RETURN(res);
     }
