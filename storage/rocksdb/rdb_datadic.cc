@@ -3945,6 +3945,20 @@ Rdb_ddl_manager::find(GL_INDEX_ID gl_index_id) {
   return empty;
 }
 
+// this method returns the name of the table based on an index id. It acquires
+// a read lock on m_rwlock.
+const std::string
+Rdb_ddl_manager::safe_get_table_name(const GL_INDEX_ID &gl_index_id) {
+  std::string ret;
+  mysql_rwlock_rdlock(&m_rwlock);
+  auto it = m_index_num_to_keydef.find(gl_index_id);
+  if (it != m_index_num_to_keydef.end()) {
+    ret = it->second.first;
+  }
+  mysql_rwlock_unlock(&m_rwlock);
+  return ret;
+}
+
 void Rdb_ddl_manager::set_stats(
     const std::unordered_map<GL_INDEX_ID, Rdb_index_stats> &stats) {
   mysql_rwlock_wrlock(&m_rwlock);
