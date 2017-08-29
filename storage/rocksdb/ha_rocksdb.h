@@ -299,6 +299,7 @@ struct Rdb_table_handler {
 
   /* Stores cumulative table statistics */
   my_io_perf_atomic_t m_io_perf_read;
+  my_io_perf_atomic_t m_io_perf_write;
   Rdb_atomic_perf_counters m_table_perf_context;
 
   /* Stores cached memtable estimate statistics */
@@ -1107,6 +1108,7 @@ private:
   int bulk_load_key(Rdb_transaction *const tx, const Rdb_key_def &kd,
                     const rocksdb::Slice &key, const rocksdb::Slice &value)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  void update_bytes_written(ulonglong bytes_written);
   int update_pk(const Rdb_key_def &kd, const struct update_row_info &row_info,
                 const bool &pk_changed) MY_ATTRIBUTE((__warn_unused_result__));
   int update_sk(const TABLE *const table_arg, const Rdb_key_def &kd,
