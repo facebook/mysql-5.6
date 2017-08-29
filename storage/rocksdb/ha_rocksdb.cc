@@ -1854,6 +1854,13 @@ public:
     }
   }
 
+  void update_bytes_written(ulonglong bytes_written) {
+    if (m_tbl_io_perf != nullptr) {
+      m_tbl_io_perf->update_bytes_written(rocksdb_perf_context_level(m_thd),
+                                          bytes_written);
+    }
+  }
+
   void set_params(int timeout_sec_arg, int max_row_locks_arg) {
     m_timeout_sec = timeout_sec_arg;
     m_max_row_locks = max_row_locks_arg;
@@ -3608,6 +3615,7 @@ static void rocksdb_update_table_stats(
                int n_lock_wait, int n_lock_wait_timeout, int n_lock_deadlock,
                const char *engine)) {
   my_io_perf_t io_perf_read;
+  my_io_perf_t io_perf_write;
   my_io_perf_t io_perf;
   page_stats_t page_stats;
   comp_stats_t comp_stats;
@@ -3622,6 +3630,7 @@ static void rocksdb_update_table_stats(
   memset(&io_perf, 0, sizeof(io_perf));
   memset(&page_stats, 0, sizeof(page_stats));
   memset(&comp_stats, 0, sizeof(comp_stats));
+  memset(&io_perf_write, 0, sizeof(io_perf_write));
 
   tablenames = rdb_open_tables.get_table_names();
 
@@ -3654,6 +3663,8 @@ static void rocksdb_update_table_stats(
 
     io_perf_read.bytes = table_handler->m_io_perf_read.bytes.load();
     io_perf_read.requests = table_handler->m_io_perf_read.requests.load();
+    io_perf_write.bytes = table_handler->m_io_perf_write.bytes.load();
+    io_perf_write.requests = table_handler->m_io_perf_write.requests.load();
     lock_wait_timeout_stats = table_handler->m_lock_wait_timeout_counter.load();
     deadlock_stats = table_handler->m_deadlock_counter.load();
 
@@ -3681,9 +3692,10 @@ static void rocksdb_update_table_stats(
                                    sizeof(dbname_sys));
     my_core::filename_to_tablename(tablename.c_str(), tablename_sys,
                                    sizeof(tablename_sys));
-    (*cb)(dbname_sys, tablename_sys, is_partition, &io_perf_read, &io_perf,
-          &io_perf, &io_perf, &io_perf, &page_stats, &comp_stats, 0,
-          lock_wait_timeout_stats, deadlock_stats, rocksdb_hton_name);
+    (*cb)(dbname_sys, tablename_sys, is_partition, &io_perf_read,
+          &io_perf_write, &io_perf, &io_perf, &io_perf, &page_stats,
+          &comp_stats, 0, lock_wait_timeout_stats, deadlock_stats,
+          rocksdb_hton_name);
   }
 }
 
@@ -4285,6 +4297,7 @@ Rdb_open_tables_map::get_table_handler(const char *const table_name) {
 
     thr_lock_init(&table_handler->m_thr_lock);
     table_handler->m_io_perf_read.init();
+    table_handler->m_io_perf_write.init();
   }
   DBUG_ASSERT(table_handler->m_ref_count >= 0);
   table_handler->m_ref_count++;
@@ -5434,7 +5447,8 @@ int ha_rocksdb::open(const char *const name, int mode, uint test_if_locked) {
   my_core::thr_lock_data_init(&m_table_handler->m_thr_lock, &m_db_lock,
                               nullptr);
   m_io_perf.init(&m_table_handler->m_table_perf_context,
-                 &m_table_handler->m_io_perf_read, &stats);
+                 &m_table_handler->m_io_perf_read,
+                 &m_table_handler->m_io_perf_write, &stats);
   Rdb_perf_context_guard guard(&m_io_perf,
                                rocksdb_perf_context_level(ha_thd()));
 
@@ -8454,6 +8468,7 @@ int ha_rocksdb::update_pk(const Rdb_key_def &kd,
                           const bool &pk_changed) {
   const uint key_id = kd.get_keyno();
   const bool hidden_pk = is_hidden_pk(key_id, table, m_tbl_def);
+  ulonglong bytes_written = 0;
 
   /*
     If the PK has changed, or if this PK uses single deletes and this is an
@@ -8468,6 +8483,8 @@ int ha_rocksdb::update_pk(const Rdb_key_def &kd,
     if (!s.ok()) {
       return row_info.tx->set_status_error(table->in_use, s, kd, m_tbl_def,
                                            m_table_handler);
+    } else {
+      bytes_written = row_info.old_pk_slice.size();
     }
   }
 
@@ -8510,6 +8527,10 @@ int ha_rocksdb::update_pk(const Rdb_key_def &kd,
     }
   }
 
+  if (rc == HA_EXIT_SUCCESS) {
+    row_info.tx->update_bytes_written(
+        bytes_written + row_info.new_pk_slice.size() + value_slice.size());
+  }
   return rc;
 }
 
@@ -8523,6 +8544,9 @@ int ha_rocksdb::update_sk(const TABLE *const table_arg, const Rdb_key_def &kd,
   rocksdb::Slice old_key_slice;
 
   const uint key_id = kd.get_keyno();
+
+  ulonglong bytes_written = 0;
+
   /*
     Can skip updating this key if none of the key fields have changed and, if
     this table has TTL, the TTL timestamp has not changed.
@@ -8581,6 +8605,8 @@ int ha_rocksdb::update_sk(const TABLE *const table_arg, const Rdb_key_def &kd,
 
     row_info.tx->get_indexed_write_batch()->SingleDelete(kd.get_cf(),
                                                          old_key_slice);
+
+    bytes_written = old_key_slice.size();
   }
 
   new_key_slice = rocksdb::Slice(
@@ -8591,6 +8617,9 @@ int ha_rocksdb::update_sk(const TABLE *const table_arg, const Rdb_key_def &kd,
 
   row_info.tx->get_indexed_write_batch()->Put(kd.get_cf(), new_key_slice,
                                               new_value_slice);
+
+  row_info.tx->update_bytes_written(bytes_written + new_key_slice.size() +
+                                    new_value_slice.size());
 
   return HA_EXIT_SUCCESS;
 }
@@ -9033,6 +9062,7 @@ int ha_rocksdb::delete_row(const uchar *const buf) {
 
   rocksdb::Slice key_slice(m_last_rowkey.ptr(), m_last_rowkey.length());
   Rdb_transaction *const tx = get_or_create_tx(table->in_use);
+  ulonglong bytes_written = 0;
 
   const uint index = pk_index(table, m_tbl_def);
   rocksdb::Status s =
@@ -9040,6 +9070,8 @@ int ha_rocksdb::delete_row(const uchar *const buf) {
   if (!s.ok()) {
     DBUG_RETURN(tx->set_status_error(table->in_use, s, *m_pk_descr, m_tbl_def,
                                      m_table_handler));
+  } else {
+    bytes_written = key_slice.size();
   }
 
   longlong hidden_pk_id = 0;
@@ -9062,6 +9094,7 @@ int ha_rocksdb::delete_row(const uchar *const buf) {
       /* Deleting on secondary key doesn't need any locks: */
       tx->get_indexed_write_batch()->SingleDelete(kd.get_cf(),
                                                   secondary_key_slice);
+      bytes_written += secondary_key_slice.size();
     }
   }
 
@@ -9072,6 +9105,7 @@ int ha_rocksdb::delete_row(const uchar *const buf) {
   }
   stats.rows_deleted++;
   update_row_stats(ROWS_DELETED);
+  tx->update_bytes_written(bytes_written);
 
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
@@ -9805,6 +9839,7 @@ int ha_rocksdb::remove_rows(Rdb_tbl_def *const tbl) {
 
   char key_buf[MAX_KEY_LENGTH];
   uint key_len;
+  ulonglong bytes_written = 0;
   /*
     Remove all records in each index.
     (This is is not crash-safe, but it doesn't matter, because bulk row
@@ -9836,10 +9871,12 @@ int ha_rocksdb::remove_rows(Rdb_tbl_def *const tbl) {
         return tx->set_status_error(table->in_use, s, *m_pk_descr, m_tbl_def,
                                     m_table_handler);
       }
-
+      bytes_written += key.size();
       it->Next();
     }
   }
+
+  tx->update_bytes_written(bytes_written);
 
   return HA_EXIT_SUCCESS;
 }
