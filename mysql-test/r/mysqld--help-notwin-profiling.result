@@ -1177,6 +1177,9 @@ The following options may be given as the first argument:
  ON, OFF, FORCE (don't start if the plugin fails to load).
  --rocksdb-deadlock-detect 
  Enables deadlock detection
+ --rocksdb-deadlock-detect-depth=# 
+ Number of transactions deadlock detection will traverse
+ through before assuming deadlock
  --rocksdb-debug-optimizer-n-rows=# 
  Test only to override rocksdb estimates of table size in
  a memtable
@@ -1309,6 +1312,8 @@ The following options may be given as the first argument:
  slave.
  --rocksdb-max-background-jobs=# 
  DBOptions::max_background_jobs for RocksDB
+ --rocksdb-max-latest-deadlocks=# 
+ Maximum number of recent deadlocks to store
  --rocksdb-max-log-file-size=# 
  DBOptions::max_log_file_size for RocksDB
  --rocksdb-max-manifest-file-size=# 
@@ -2116,6 +2121,7 @@ rocksdb-db-write-buffer-size 0
 rocksdb-dbstats ON
 rocksdb-ddl ON
 rocksdb-deadlock-detect FALSE
+rocksdb-deadlock-detect-depth 50
 rocksdb-debug-optimizer-n-rows 0
 rocksdb-debug-optimizer-no-zero-cardinality TRUE
 rocksdb-debug-ttl-ignore-pk FALSE
@@ -2156,6 +2162,7 @@ rocksdb-manifest-preallocation-size 4194304
 rocksdb-manual-wal-flush TRUE
 rocksdb-master-skip-tx-api FALSE
 rocksdb-max-background-jobs 2
+rocksdb-max-latest-deadlocks 5
 rocksdb-max-log-file-size 0
 rocksdb-max-manifest-file-size 18446744073709551615
 rocksdb-max-open-files -1
