@@ -360,7 +360,7 @@ Type	Name	Status
 SHOW ENGINE ALL MUTEX;
 SHOW ENGINE rocksdb TRANSACTION STATUS;
 Type	Name	Status
-SNAPSHOTS	rocksdb	
+rocksdb		
 ============================================================
 TIMESTAMP ROCKSDB TRANSACTION MONITOR OUTPUT
 ============================================================
@@ -368,6 +368,7 @@ TIMESTAMP ROCKSDB TRANSACTION MONITOR OUTPUT
 SNAPSHOTS
 ---------
 LIST OF SNAPSHOTS FOR EACH SESSION:
+----------LATEST DETECTED DEADLOCKS----------
 -----------------------------------------
 END OF ROCKSDB TRANSACTION MONITOR OUTPUT
 =========================================
@@ -375,7 +376,7 @@ END OF ROCKSDB TRANSACTION MONITOR OUTPUT
 START TRANSACTION WITH CONSISTENT SNAPSHOT;
 SHOW ENGINE rocksdb TRANSACTION STATUS;
 Type	Name	Status
-SNAPSHOTS	rocksdb	
+rocksdb		
 ============================================================
 TIMESTAMP ROCKSDB TRANSACTION MONITOR OUTPUT
 ============================================================
@@ -388,6 +389,7 @@ MySQL thread id TID, OS thread handle PTR, query id QID localhost root ACTION
 SHOW ENGINE rocksdb TRANSACTION STATUS
 lock count 0, write count 0
 insert count 0, update count 0, delete count 0
+----------LATEST DETECTED DEADLOCKS----------
 -----------------------------------------
 END OF ROCKSDB TRANSACTION MONITOR OUTPUT
 =========================================

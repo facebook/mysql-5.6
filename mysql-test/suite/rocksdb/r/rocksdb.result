@@ -887,6 +887,7 @@ rocksdb_create_missing_column_families	OFF
 rocksdb_datadir	./.rocksdb
 rocksdb_db_write_buffer_size	0
 rocksdb_deadlock_detect	OFF
+rocksdb_deadlock_detect_depth	50
 rocksdb_debug_optimizer_no_zero_cardinality	ON
 rocksdb_debug_ttl_ignore_pk	OFF
 rocksdb_debug_ttl_read_filter_ts	0
@@ -923,6 +924,7 @@ rocksdb_manifest_preallocation_size	4194304
 rocksdb_manual_wal_flush	ON
 rocksdb_master_skip_tx_api	OFF
 rocksdb_max_background_jobs	2
+rocksdb_max_latest_deadlocks	5
 rocksdb_max_log_file_size	0
 rocksdb_max_manifest_file_size	18446744073709551615
 rocksdb_max_open_files	-1
