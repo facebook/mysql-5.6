@@ -103,6 +103,7 @@ namespace myrocks {
 static st_global_stats global_stats;
 static st_export_stats export_stats;
 static st_memory_stats memory_stats;
+static st_io_stall_stats io_stall_stats;
 
 const std::string DEFAULT_CF_NAME("default");
 const std::string DEFAULT_SYSTEM_CF_NAME("__system__");
@@ -11328,6 +11329,81 @@ static void show_myrocks_vars(THD *thd, SHOW_VAR *var, char *buff) {
   var->value = reinterpret_cast<char *>(&myrocks_status_variables);
 }
 
+static ulonglong io_stall_prop_value(std::map<std::string, std::string> *props,
+                                     std::string key) {
+  std::map<std::string, std::string>::iterator iter =
+          props->find("io_stalls." + key);
+  if (iter != props->end()) {
+    return std::stoull(iter->second);
+  } else {
+    return 0;
+  }
+}
+
+static void update_rocksdb_stall_status() {
+  io_stall_stats = {};
+  for (const auto &cf_name : cf_manager.get_cf_names()) {
+    rocksdb::ColumnFamilyHandle *cfh = cf_manager.get_cf(cf_name);
+    if (cfh == nullptr) {
+      continue;
+    }
+
+    std::map<std::string, std::string> props;
+    if (!rdb->GetMapProperty(cfh, "rocksdb.cfstats", &props)) {
+      continue;
+    }
+
+    io_stall_stats.level0_slowdown +=
+            io_stall_prop_value(&props, "level0_slowdown");
+    io_stall_stats.level0_slowdown_with_compaction +=
+            io_stall_prop_value(&props, "level0_slowdown_with_compaction");
+    io_stall_stats.level0_numfiles +=
+            io_stall_prop_value(&props, "level0_numfiles");
+    io_stall_stats.level0_numfiles_with_compaction +=
+            io_stall_prop_value(&props, "level0_numfiles_with_compaction");
+    io_stall_stats.stop_for_pending_compaction_bytes +=
+            io_stall_prop_value(&props, "stop_for_pending_compaction_bytes");
+    io_stall_stats.slowdown_for_pending_compaction_bytes +=
+            io_stall_prop_value(&props, "slowdown_for_pending_compaction_bytes");
+    io_stall_stats.memtable_compaction +=
+            io_stall_prop_value(&props, "memtable_compaction");
+    io_stall_stats.memtable_slowdown +=
+            io_stall_prop_value(&props, "memtable_slowdown");
+    io_stall_stats.total_count +=
+            io_stall_prop_value(&props, "total_count");
+  }
+}
+
+static SHOW_VAR rocksdb_stall_status_variables[] = {
+  DEF_STATUS_VAR_FUNC("stall_level0_slowdown",
+                      &io_stall_stats.level0_slowdown, SHOW_LONGLONG),
+  DEF_STATUS_VAR_FUNC("stall_level0_slowdown_with_compaction",
+                      &io_stall_stats.level0_slowdown_with_compaction,
+                      SHOW_LONGLONG),
+  DEF_STATUS_VAR_FUNC("stall_level0_numfiles",
+                      &io_stall_stats.level0_numfiles, SHOW_LONGLONG),
+  DEF_STATUS_VAR_FUNC("stall_level0_numfiles_with_compaction",
+                      &io_stall_stats.level0_numfiles_with_compaction,
+                      SHOW_LONGLONG),
+  DEF_STATUS_VAR_FUNC("stall_stop_for_pending_compaction_bytes",
+                      &io_stall_stats.stop_for_pending_compaction_bytes,
+                      SHOW_LONGLONG),
+  DEF_STATUS_VAR_FUNC("stall_slowdown_for_pending_compaction_bytes",
+                      &io_stall_stats.slowdown_for_pending_compaction_bytes,
+                      SHOW_LONGLONG),
+  DEF_STATUS_VAR_FUNC("stall_memtable_compaction",
+                      &io_stall_stats.memtable_compaction, SHOW_LONGLONG),
+  DEF_STATUS_VAR_FUNC("stall_memtable_slowdown",
+                      &io_stall_stats.memtable_slowdown, SHOW_LONGLONG),
+  DEF_STATUS_VAR_FUNC("stall_total_count",
+                      &io_stall_stats.total_count, SHOW_LONGLONG)};
+
+static void show_rocksdb_stall_vars(THD *thd, SHOW_VAR *var, char *buff) {
+  update_rocksdb_stall_status();
+  var->type = SHOW_ARRAY;
+  var->value = reinterpret_cast<char *>(&rocksdb_stall_status_variables);
+}
+
 static SHOW_VAR rocksdb_status_vars[] = {
     DEF_STATUS_VAR(block_cache_miss),
     DEF_STATUS_VAR(block_cache_hit),
@@ -11396,6 +11472,7 @@ static SHOW_VAR rocksdb_status_vars[] = {
     DEF_STATUS_VAR_PTR("number_sst_entry_other", &rocksdb_num_sst_entry_other,
                        SHOW_LONGLONG),
     {"rocksdb", reinterpret_cast<char *>(&show_myrocks_vars), SHOW_FUNC},
+    {"rocksdb", reinterpret_cast<char *>(&show_rocksdb_stall_vars), SHOW_FUNC},
     {NullS, NullS, SHOW_LONG}};
 
 /*
