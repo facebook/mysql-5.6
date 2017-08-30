@@ -331,15 +331,13 @@ public:
   // cache value for sql thread
   time_t penultimate_master_timestamp;
 
-  void set_last_master_timestamp(time_t ts)
-  {
-    penultimate_master_timestamp= last_master_timestamp;
-    last_master_timestamp= ts;
-    mysql_bin_log.last_master_timestamp.store(last_master_timestamp);
-  }
-
   // last master timestamp in milli seconds from trx meta data
-  std::atomic<ulonglong> last_master_timestamp_millis;
+  ulonglong last_master_timestamp_millis= 0;
+
+  // milli ts for the current group
+  ulonglong group_timestamp_millis= 0;
+
+  void set_last_master_timestamp(time_t ts, ulonglong ts_millis);
 
 #define PEAK_LAG_MAX_SECS 512
   time_t peak_lag_last[PEAK_LAG_MAX_SECS];
@@ -733,7 +731,7 @@ public:
      Coordinator notifies Workers about this event. Coordinator and Workers
      maintain a bitmap of executed group that is reset with a new checkpoint. 
   */
-  void reset_notified_checkpoint(ulong, time_t, bool);
+  void reset_notified_checkpoint(ulong, time_t, ulonglong, bool);
 
   /**
      Called when gaps execution is ended so it is crash-safe

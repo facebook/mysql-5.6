@@ -31,6 +31,7 @@
 #include "rpl_info_factory.h"
 #include <mysql/plugin.h>
 #include <mysql/service_thd_wait.h>
+#include <chrono>
 
 using std::min;
 using std::max;
@@ -192,8 +193,6 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery
   mysql_cond_init(0, &dag_empty_cond, NULL);
   mysql_mutex_init(0, &dag_empty_mutex, MY_MUTEX_INIT_FAST);
 
-  last_master_timestamp_millis.store(0);
-
   DBUG_VOID_RETURN;
 }
 
@@ -307,9 +306,11 @@ void Relay_log_info::reset_notified_relay_log_change()
                          current checkpoint change.
    @param new_ts         new seconds_behind_master timestamp value
                          unless zero. Zero could be due to FD event.
+   @param new_ts_millis  new milli_seconds_behind_master timestamp value
    @param need_data_lock False if caller has locked @c data_lock
 */
 void Relay_log_info::reset_notified_checkpoint(ulong shift, time_t new_ts,
+                                               ulonglong new_ts_millis,
                                                bool need_data_lock)
 {
   /*
@@ -364,16 +365,8 @@ void Relay_log_info::reset_notified_checkpoint(ulong shift, time_t new_ts,
 
     // Set the flag to say that "the slave has not yet caught up"
     slave_has_caughtup= Enum_slave_caughtup::NO;
-    /*
-      Note that we only skip assigning new_ts to last_master_timestamp when
-      new_ts is smaller than last_master_timestamp to avoid a sudden spike on
-      second behind master. If new_ts is very big, say bigger than time(0), we
-      will assign the current time to last_master_timestamp instead.
-    */
-    if (new_ts > last_master_timestamp)
-    {
-      set_last_master_timestamp(std::min(time(nullptr), new_ts));
-    }
+
+    set_last_master_timestamp(new_ts, new_ts_millis);
 
     if (need_data_lock)
       mysql_mutex_unlock(&data_lock);
@@ -526,6 +519,36 @@ void Relay_log_info::clear_until_condition()
   until_sql_gtids.clear();
   until_sql_gtids_first_event= true;
   DBUG_VOID_RETURN;
+}
+
+/**
+ * Update the last master timestamp seen by the slave
+ * Last master timestamp is used to calculate lag (seconds/milli-seconds behind
+ * master).
+ */
+void Relay_log_info::set_last_master_timestamp(time_t ts, ulonglong ts_millis)
+{
+  auto now= std::chrono::system_clock::now().time_since_epoch();
+  auto now_sec= std::chrono::duration_cast<std::chrono::seconds>(now).count();
+  auto now_msec= std::chrono::duration_cast<std::chrono::milliseconds>(now)
+                 .count();
+
+  /*
+    Note that we only skip assigning ts to last_master_timestamp when
+    ts is smaller than last_master_timestamp to avoid a sudden spike on
+    second behind master. If ts is very big, say bigger than now(), we
+    will assign the current time to last_master_timestamp instead.
+    Same for last_master_timestamp_millis
+  */
+  if (ts > last_master_timestamp)
+  {
+    penultimate_master_timestamp= last_master_timestamp;
+    last_master_timestamp= std::min(ts, now_sec);
+    mysql_bin_log.last_master_timestamp.store(last_master_timestamp);
+  }
+
+  if (ts_millis > last_master_timestamp_millis)
+    last_master_timestamp_millis= std::min(ts_millis, (ulonglong) now_msec);
 }
 
 /**

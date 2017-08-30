@@ -3449,8 +3449,7 @@ bool show_slave_status(THD* thd, Master_info* mi)
           .count();
         // adjust for clock mismatch
         now_millis-= mi->clock_diff_with_master * 1000;
-        protocol->store(now_millis -
-                        mi->rli->last_master_timestamp_millis.load());
+        protocol->store(now_millis - mi->rli->last_master_timestamp_millis);
       }
     }
 
@@ -4649,15 +4648,27 @@ static int exec_relay_log_event(THD* thd, Relay_log_info* rli)
         last_master_timestamp if the tentative one is bigger. If the tentative
         is too big so that it's beyond current slave time, we assign the
         current time of the slave to the last_master_timestamp.
+        see @Relay_log_info::set_last_master_timestamp()
       */
       time_t tentative_last_master_timestamp=
         ev->when.tv_sec + (time_t) ev->exec_time;
 
-      if (tentative_last_master_timestamp > rli->last_master_timestamp)
+      // milli seconds behind master related for non-MTS
+      ulonglong tentative_last_master_ts_millis= 0;
+
+      // case: if trx meta data is enabled and this is a rows query event with
+      // trx meta data attempt to get the ts in milli secs
+      if (opt_binlog_trx_meta_data &&
+          ev->get_type_code() == ROWS_QUERY_LOG_EVENT &&
+          static_cast<Rows_query_log_event*>(ev)->has_trx_meta_data())
       {
-        rli->set_last_master_timestamp(std::min(tentative_last_master_timestamp,
-                                       time(nullptr)));
+        tentative_last_master_ts_millis=
+          static_cast<Rows_query_log_event*>(ev)->extract_last_timestamp();
       }
+
+      rli->set_last_master_timestamp(tentative_last_master_timestamp,
+                                     tentative_last_master_ts_millis);
+
       DBUG_ASSERT(rli->last_master_timestamp >= 0);
     }
 
@@ -6164,7 +6175,8 @@ bool mts_checkpoint_routine(Relay_log_info *rli, ulonglong period,
     cnt is zero. This value means that the checkpoint information
     will be completely reset.
   */
-  rli->reset_notified_checkpoint(cnt, rli->gaq->lwm.ts, need_data_lock);
+  rli->reset_notified_checkpoint(cnt, rli->gaq->lwm.ts, rli->gaq->lwm.ts_millis,
+                                 need_data_lock);
 
   /* end-of "Coordinator::"commit_positions" */
 
@@ -7647,11 +7659,7 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
       is always monotonically increasing
     */
     mysql_mutex_lock(&rli->data_lock);
-    if (hb.when.tv_sec > rli->last_master_timestamp)
-    {
-      rli->set_last_master_timestamp(hb.when.tv_sec);
-      rli->last_master_timestamp_millis.store(hb.when.tv_sec * 1000);
-    }
+    rli->set_last_master_timestamp(hb.when.tv_sec, hb.when.tv_sec * 1000);
     mysql_mutex_unlock(&rli->data_lock);
 
     /*

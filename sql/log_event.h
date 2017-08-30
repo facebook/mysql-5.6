@@ -5044,14 +5044,15 @@ public:
 
   std::string extract_trx_meta_data() const
   {
-    if (!has_trx_meta_data())
-      return std::string();
+    DBUG_ASSERT(has_trx_meta_data());
     char *json_start= strchr(m_rows_query, '{');
     char *json_end= strrchr(m_rows_query, '}');
     DBUG_ASSERT(json_start < json_end);
     size_t json_len= json_end - json_start + 1;
     return std::string(json_start, json_len);
   }
+
+  ulonglong extract_last_timestamp() const;
 
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
   virtual int do_apply_event(Relay_log_info const *rli);
