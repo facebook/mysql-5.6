@@ -63,6 +63,10 @@ slave_ignored_err_throttle(window_size,
 
 #include "sql_digest.h"
 
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/algorithm/string.hpp>
+
 using std::min;
 using std::max;
 
@@ -3153,8 +3157,15 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli)
     if (is_relay_log_event())
       ptr_group->ts= 0;
     else
+    {
       ptr_group->ts=
         when.tv_sec + (time_t) exec_time; // Seconds_behind_master related
+      ptr_group->ts_millis= (rli->group_timestamp_millis ?
+                             rli->group_timestamp_millis : when.tv_sec * 1000)
+                            + exec_time * 1000;
+      // reset for next group
+      rli->group_timestamp_millis= 0;
+    }
     rli->checkpoint_seqno++;
     /*
       Coordinator should not use the main memroot however its not
@@ -3405,8 +3416,17 @@ void Log_event::do_post_end_event(Relay_log_info *rli, Log_event_wrapper *ev)
   rli->checkpoint_seqno++;
 
   // seconds_behind_master related
-  if (is_relay_log_event()) ptr_group->ts= 0;
-  else ptr_group->ts= when.tv_sec + (time_t) exec_time;
+  if (is_relay_log_event())
+    ptr_group->ts= 0;
+  else
+  {
+    ptr_group->ts= when.tv_sec + (time_t) exec_time;
+    ptr_group->ts_millis= (rli->group_timestamp_millis ?
+                           rli->group_timestamp_millis : when.tv_sec * 1000)
+                          + exec_time * 1000;
+    // reset for next group
+    rli->group_timestamp_millis= 0;
+  }
 }
 
 /**
@@ -3699,6 +3719,16 @@ int Log_event::apply_event(Relay_log_info *rli)
               get_type_code() == BEGIN_LOAD_QUERY_EVENT);
   worker= NULL;
   rli->mts_group_status= Relay_log_info::MTS_IN_GROUP;
+
+  // milli-sec behind master related for MTS
+  // case: this event contains trx metadata, so save the ts in msec for the grp
+  if (opt_binlog_trx_meta_data &&
+      get_type_code() == ROWS_QUERY_LOG_EVENT &&
+      static_cast<Rows_query_log_event*>(this)->has_trx_meta_data())
+  {
+    rli->group_timestamp_millis=
+      static_cast<Rows_query_log_event*>(this)->extract_last_timestamp();
+  }
 
   if (!opt_mts_dependency_replication)
     worker= (Relay_log_info*)
@@ -7636,7 +7666,7 @@ int Rotate_log_event::do_update_pos(Relay_log_info *rli)
                         (ulong) rli->get_group_master_log_pos()));
     mysql_mutex_unlock(&rli->data_lock);
     if (rli->is_parallel_exec())
-      rli->reset_notified_checkpoint(0, 0,
+      rli->reset_notified_checkpoint(0, 0, 0,
                                      true/*need_data_lock=true*/);
 
     /*
@@ -14791,6 +14821,25 @@ Rows_query_log_event::write_data_body(IO_CACHE *file)
   */
   DBUG_RETURN(write_str_at_most_255_bytes(file, m_rows_query,
               (uint) strlen(m_rows_query)));
+}
+
+inline ulonglong Rows_query_log_event::extract_last_timestamp() const
+{
+  boost::property_tree::ptree pt;
+  std::string json= extract_trx_meta_data();
+  if (json.empty())
+    return 0;
+  std::istringstream is(json);
+  try {
+    read_json(is, pt);
+  } catch (const std::exception& e) {
+    sql_print_error("Error while parsing metadata JSON for timestamps");
+    return 0;
+  }
+
+  auto timestamps= pt.get_child("timestamps", boost::property_tree::ptree());
+  return timestamps.empty() ? 0 :
+         timestamps.back().second.get_value<ulonglong>();
 }
 
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)

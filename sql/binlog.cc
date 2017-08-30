@@ -1293,8 +1293,6 @@ binlog_cache_data::add_time_metadata(THD *thd, ptree &meta_data_root)
 
   // get existing timestamps
   ptree timestamps= meta_data_root.get_child("timestamps", ptree());
-  ulonglong prev_ts= timestamps.empty() ? 0 :
-                     timestamps.back().second.get_value<ulonglong>();
 
   // add our timestamp to the array
   ptree timestamp;
@@ -1307,10 +1305,6 @@ binlog_cache_data::add_time_metadata(THD *thd, ptree &meta_data_root)
   // update timestamps in root
   meta_data_root.erase("timestamps");
   meta_data_root.add_child("timestamps", timestamps);
-
-  // milliseconds behind master related
-  if (thd->rli_slave && prev_ts > 0)
-    thd->rli_slave->last_master_timestamp_millis.store(prev_ts);
 
   DBUG_VOID_RETURN;
 }
