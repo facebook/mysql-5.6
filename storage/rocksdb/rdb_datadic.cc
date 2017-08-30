@@ -3532,10 +3532,12 @@ struct Rdb_validate_tbls : public Rdb_tables_scanner {
 int Rdb_validate_tbls::add_table(Rdb_tbl_def *tdef) {
   DBUG_ASSERT(tdef != nullptr);
 
-  /* Add the database/table into the list */
-  bool is_partition = tdef->base_partition().size() != 0;
-  m_list[tdef->base_dbname()].insert(
-      tbl_info_t(tdef->base_tablename(), is_partition));
+  /* Add the database/table into the list that are not temp table */
+  if (tdef->base_tablename().find(tmp_file_prefix) == std::string::npos) {
+    bool is_partition = tdef->base_partition().size() != 0;
+    m_list[tdef->base_dbname()].insert(
+        tbl_info_t(tdef->base_tablename(), is_partition));
+  }
 
   return HA_EXIT_SUCCESS;
 }
@@ -3616,9 +3618,9 @@ bool Rdb_validate_tbls::scan_for_frms(const std::string &datadir,
   /* Scan through the files in the directory */
   struct fileinfo *file_info = dir_info->dir_entry;
   for (uint ii = 0; ii < dir_info->number_off_files; ii++, file_info++) {
-    /* Find .frm files that are not temp files (those that start with '#') */
+    /* Find .frm files that are not temp files (those that contain '#sql') */
     const char *ext = strrchr(file_info->name, '.');
-    if (ext != nullptr && !is_prefix(file_info->name, tmp_file_prefix) &&
+    if (ext != nullptr && strstr(file_info->name, tmp_file_prefix) == nullptr &&
         strcmp(ext, ".frm") == 0) {
       std::string tablename =
           std::string(file_info->name, ext - file_info->name);

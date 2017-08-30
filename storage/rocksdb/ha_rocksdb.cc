@@ -10002,6 +10002,8 @@ int ha_rocksdb::rename_table(const char *const from, const char *const to) {
     DBUG_RETURN(-1);
   }
 
+  DBUG_EXECUTE_IF("gen_sql_table_name", to_str = to_str + "#sql-test";);
+
   const std::unique_ptr<rocksdb::WriteBatch> wb = dict_manager.begin();
   rocksdb::WriteBatch *const batch = wb.get();
   dict_manager.lock();
