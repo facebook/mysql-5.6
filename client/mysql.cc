@@ -1323,8 +1323,6 @@ int main(int argc,char *argv[])
 	   mysql_thread_id(&mysql), server_version_string(&mysql));
   put_info((char*) glob_buffer.ptr(),INFO_INFO);
 
-  put_info(ORACLE_WELCOME_COPYRIGHT_NOTICE("2000"), INFO_INFO);
-
 #ifdef HAVE_READLINE
   initialize_readline((char*) my_progname);
   if (!status.batch && !quick && !opt_html && !opt_xml)
@@ -1393,8 +1391,6 @@ int main(int argc,char *argv[])
 
 #endif
 
-  sprintf(buff, "%s",
-	  "Type 'help;' or '\\h' for help. Type '\\c' to clear the current input statement.\n");
   put_info(buff,INFO_INFO);
   status.exit_status= read_and_execute(!status.batch);
   if (opt_outfile)
