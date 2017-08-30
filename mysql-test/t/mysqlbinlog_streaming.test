@@ -150,6 +150,7 @@ do
       wait ${pids[$i]}
       echo "Exit code: $?"
       cat $MYSQL_TMP_DIR/semisync$i.err
+      exit 1
     fi
   done
 
