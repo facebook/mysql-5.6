@@ -11329,9 +11329,10 @@ static void show_myrocks_vars(THD *thd, SHOW_VAR *var, char *buff) {
   var->value = reinterpret_cast<char *>(&myrocks_status_variables);
 }
 
-static ulonglong io_stall_prop_value(std::map<std::string, std::string> &props,
-                                     std::string &&key) {
-  std::map<std::string, std::string>::iterator iter =
+static ulonglong
+io_stall_prop_value(const std::map<std::string, std::string> &props,
+                    std::string &&key) {
+  std::map<std::string, std::string>::const_iterator iter =
       props.find("io_stalls." + key);
   if (iter != props.end()) {
     return std::stoull(iter->second);
