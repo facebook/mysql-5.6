@@ -859,8 +859,8 @@ static int rdb_i_s_compact_stats_fill_table(
       std::string value = prop_ent.second;
       std::size_t del_pos = prop_name.find('.', prefix.size());
       DBUG_ASSERT(del_pos != std::string::npos);
-      std::string level_str = prop_name.substr(prefix.size(),
-                                               del_pos - prefix.size());
+      std::string level_str =
+          prop_name.substr(prefix.size(), del_pos - prefix.size());
       std::string type_str = prop_name.substr(del_pos + 1);
 
       Field **field = tables->table->field;

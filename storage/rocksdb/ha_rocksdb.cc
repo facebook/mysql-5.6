@@ -11329,11 +11329,11 @@ static void show_myrocks_vars(THD *thd, SHOW_VAR *var, char *buff) {
   var->value = reinterpret_cast<char *>(&myrocks_status_variables);
 }
 
-static ulonglong io_stall_prop_value(std::map<std::string, std::string> *props,
-                                     std::string key) {
+static ulonglong io_stall_prop_value(std::map<std::string, std::string> &props,
+                                     std::string &&key) {
   std::map<std::string, std::string>::iterator iter =
-          props->find("io_stalls." + key);
-  if (iter != props->end()) {
+      props.find("io_stalls." + key);
+  if (iter != props.end()) {
     return std::stoull(iter->second);
   } else {
     return 0;
@@ -11354,23 +11354,24 @@ static void update_rocksdb_stall_status() {
     }
 
     io_stall_stats.level0_slowdown +=
-            io_stall_prop_value(&props, "level0_slowdown");
+        io_stall_prop_value(props, "level0_slowdown");
     io_stall_stats.level0_slowdown_with_compaction +=
-            io_stall_prop_value(&props, "level0_slowdown_with_compaction");
+        io_stall_prop_value(props, "level0_slowdown_with_compaction");
     io_stall_stats.level0_numfiles +=
-            io_stall_prop_value(&props, "level0_numfiles");
+        io_stall_prop_value(props, "level0_numfiles");
     io_stall_stats.level0_numfiles_with_compaction +=
-            io_stall_prop_value(&props, "level0_numfiles_with_compaction");
+        io_stall_prop_value(props, "level0_numfiles_with_compaction");
     io_stall_stats.stop_for_pending_compaction_bytes +=
-            io_stall_prop_value(&props, "stop_for_pending_compaction_bytes");
+        io_stall_prop_value(props, "stop_for_pending_compaction_bytes");
     io_stall_stats.slowdown_for_pending_compaction_bytes +=
-            io_stall_prop_value(&props, "slowdown_for_pending_compaction_bytes");
+        io_stall_prop_value(props, "slowdown_for_pending_compaction_bytes");
     io_stall_stats.memtable_compaction +=
-            io_stall_prop_value(&props, "memtable_compaction");
+        io_stall_prop_value(props, "memtable_compaction");
     io_stall_stats.memtable_slowdown +=
-            io_stall_prop_value(&props, "memtable_slowdown");
-    io_stall_stats.total_count +=
-            io_stall_prop_value(&props, "total_count");
+        io_stall_prop_value(props, "memtable_slowdown");
+    io_stall_stats.total_stop += io_stall_prop_value(props, "total_stop");
+    io_stall_stats.total_slowdown +=
+        io_stall_prop_value(props, "total_slowdown");
   }
 }
 
@@ -11395,8 +11396,10 @@ static SHOW_VAR rocksdb_stall_status_variables[] = {
                       &io_stall_stats.memtable_compaction, SHOW_LONGLONG),
   DEF_STATUS_VAR_FUNC("stall_memtable_slowdown",
                       &io_stall_stats.memtable_slowdown, SHOW_LONGLONG),
-  DEF_STATUS_VAR_FUNC("stall_total_count",
-                      &io_stall_stats.total_count, SHOW_LONGLONG)};
+  DEF_STATUS_VAR_FUNC("stall_total_stop",
+                      &io_stall_stats.total_stop, SHOW_LONGLONG),
+  DEF_STATUS_VAR_FUNC("stall_total_slowdown",
+                      &io_stall_stats.total_slowdown, SHOW_LONGLONG)};
 
 static void show_rocksdb_stall_vars(THD *thd, SHOW_VAR *var, char *buff) {
   update_rocksdb_stall_status();
