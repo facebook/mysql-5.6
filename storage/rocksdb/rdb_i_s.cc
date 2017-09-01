@@ -869,7 +869,7 @@ static int rdb_i_s_compact_stats_fill_table(
       field[0]->store(cf_name.c_str(), cf_name.size(), system_charset_info);
       field[1]->store(level_str.c_str(), level_str.size(), system_charset_info);
       field[2]->store(type_str.c_str(), type_str.size(), system_charset_info);
-      field[3]->store(std::stod(value), true);
+      field[3]->store(std::stod(value));
 
       ret |= static_cast<int>(
           my_core::schema_table_store_record(thd, tables->table));

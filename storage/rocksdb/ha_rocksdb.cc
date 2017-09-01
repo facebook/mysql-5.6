@@ -11331,18 +11331,21 @@ static void show_myrocks_vars(THD *thd, SHOW_VAR *var, char *buff) {
 
 static ulonglong
 io_stall_prop_value(const std::map<std::string, std::string> &props,
-                    std::string &&key) {
+                    const std::string &key) {
   std::map<std::string, std::string>::const_iterator iter =
       props.find("io_stalls." + key);
   if (iter != props.end()) {
     return std::stoull(iter->second);
   } else {
+    DBUG_PRINT("warning",
+               ("RocksDB GetMapPropery hasn't returned key=%s", key.c_str()));
+    DBUG_ASSERT(0);
     return 0;
   }
 }
 
 static void update_rocksdb_stall_status() {
-  io_stall_stats = {};
+  st_io_stall_stats local_io_stall_stats;
   for (const auto &cf_name : cf_manager.get_cf_names()) {
     rocksdb::ColumnFamilyHandle *cfh = cf_manager.get_cf(cf_name);
     if (cfh == nullptr) {
@@ -11354,52 +11357,53 @@ static void update_rocksdb_stall_status() {
       continue;
     }
 
-    io_stall_stats.level0_slowdown +=
+    local_io_stall_stats.level0_slowdown +=
         io_stall_prop_value(props, "level0_slowdown");
-    io_stall_stats.level0_slowdown_with_compaction +=
+    local_io_stall_stats.level0_slowdown_with_compaction +=
         io_stall_prop_value(props, "level0_slowdown_with_compaction");
-    io_stall_stats.level0_numfiles +=
+    local_io_stall_stats.level0_numfiles +=
         io_stall_prop_value(props, "level0_numfiles");
-    io_stall_stats.level0_numfiles_with_compaction +=
+    local_io_stall_stats.level0_numfiles_with_compaction +=
         io_stall_prop_value(props, "level0_numfiles_with_compaction");
-    io_stall_stats.stop_for_pending_compaction_bytes +=
+    local_io_stall_stats.stop_for_pending_compaction_bytes +=
         io_stall_prop_value(props, "stop_for_pending_compaction_bytes");
-    io_stall_stats.slowdown_for_pending_compaction_bytes +=
+    local_io_stall_stats.slowdown_for_pending_compaction_bytes +=
         io_stall_prop_value(props, "slowdown_for_pending_compaction_bytes");
-    io_stall_stats.memtable_compaction +=
+    local_io_stall_stats.memtable_compaction +=
         io_stall_prop_value(props, "memtable_compaction");
-    io_stall_stats.memtable_slowdown +=
+    local_io_stall_stats.memtable_slowdown +=
         io_stall_prop_value(props, "memtable_slowdown");
-    io_stall_stats.total_stop += io_stall_prop_value(props, "total_stop");
-    io_stall_stats.total_slowdown +=
+    local_io_stall_stats.total_stop += io_stall_prop_value(props, "total_stop");
+    local_io_stall_stats.total_slowdown +=
         io_stall_prop_value(props, "total_slowdown");
   }
+  io_stall_stats = local_io_stall_stats;
 }
 
 static SHOW_VAR rocksdb_stall_status_variables[] = {
-    DEF_STATUS_VAR_FUNC("stall_level0_slowdown",
+    DEF_STATUS_VAR_FUNC("stall_l0_file_count_limit_slowdowns",
                         &io_stall_stats.level0_slowdown, SHOW_LONGLONG),
-    DEF_STATUS_VAR_FUNC("stall_level0_slowdown_with_compaction",
+    DEF_STATUS_VAR_FUNC("stall_locked_l0_file_count_limit_slowdowns",
                         &io_stall_stats.level0_slowdown_with_compaction,
                         SHOW_LONGLONG),
-    DEF_STATUS_VAR_FUNC("stall_level0_numfiles",
+    DEF_STATUS_VAR_FUNC("stall_l0_file_count_limit_stops",
                         &io_stall_stats.level0_numfiles, SHOW_LONGLONG),
-    DEF_STATUS_VAR_FUNC("stall_level0_numfiles_with_compaction",
+    DEF_STATUS_VAR_FUNC("stall_locked_l0_file_count_limit_stops",
                         &io_stall_stats.level0_numfiles_with_compaction,
                         SHOW_LONGLONG),
-    DEF_STATUS_VAR_FUNC("stall_stop_for_pending_compaction_bytes",
+    DEF_STATUS_VAR_FUNC("stall_pending_compaction_limit_stops",
                         &io_stall_stats.stop_for_pending_compaction_bytes,
                         SHOW_LONGLONG),
-    DEF_STATUS_VAR_FUNC("stall_slowdown_for_pending_compaction_bytes",
+    DEF_STATUS_VAR_FUNC("stall_pending_compaction_limit_slowdowns",
                         &io_stall_stats.slowdown_for_pending_compaction_bytes,
                         SHOW_LONGLONG),
-    DEF_STATUS_VAR_FUNC("stall_memtable_compaction",
+    DEF_STATUS_VAR_FUNC("stall_memtable_limit_stops",
                         &io_stall_stats.memtable_compaction, SHOW_LONGLONG),
-    DEF_STATUS_VAR_FUNC("stall_memtable_slowdown",
+    DEF_STATUS_VAR_FUNC("stall_memtable_limit_slowdowns",
                         &io_stall_stats.memtable_slowdown, SHOW_LONGLONG),
-    DEF_STATUS_VAR_FUNC("stall_total_stop", &io_stall_stats.total_stop,
+    DEF_STATUS_VAR_FUNC("stall_total_stops", &io_stall_stats.total_stop,
                         SHOW_LONGLONG),
-    DEF_STATUS_VAR_FUNC("stall_total_slowdown", &io_stall_stats.total_slowdown,
+    DEF_STATUS_VAR_FUNC("stall_total_slowdowns", &io_stall_stats.total_slowdown,
                         SHOW_LONGLONG)};
 
 static void show_rocksdb_stall_vars(THD *thd, SHOW_VAR *var, char *buff) {
