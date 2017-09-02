@@ -3114,8 +3114,14 @@ private:
 
     /* extract table name and index names using the index id */
     std::string table_name = ddl_manager.safe_get_table_name(gl_index_id);
+    if (table_name.empty()) {
+      table_name =
+          "NOT FOUND; INDEX_ID: " + std::to_string(gl_index_id.index_id);
+    }
     auto kd = ddl_manager.safe_find(gl_index_id);
-    std::string idx_name = kd->get_name();
+    std::string idx_name =
+        (kd) ? kd->get_name()
+             : "NOT FOUND; INDEX_ID: " + std::to_string(gl_index_id.index_id);
 
     /* get the name of the column family */
     rocksdb::ColumnFamilyHandle *cfh = cf_manager.get_cf(txn.m_cf_id);
@@ -11652,7 +11658,7 @@ void rocksdb_set_delayed_write_rate(THD *thd, struct st_mysql_sys_var *var,
 void rocksdb_set_max_latest_deadlocks(THD *thd, struct st_mysql_sys_var *var,
                                       void *var_ptr, const void *save) {
   RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
-  const uint64_t new_val = *static_cast<const uint64_t *>(save);
+  const uint32_t new_val = *static_cast<const uint32_t *>(save);
   if (rocksdb_max_latest_deadlocks != new_val) {
     rocksdb_max_latest_deadlocks = new_val;
     rdb->SetDeadlockInfoBufferSize(rocksdb_max_latest_deadlocks);
