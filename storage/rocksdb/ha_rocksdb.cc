@@ -11404,7 +11404,9 @@ static SHOW_VAR rocksdb_stall_status_variables[] = {
     DEF_STATUS_VAR_FUNC("stall_total_stops", &io_stall_stats.total_stop,
                         SHOW_LONGLONG),
     DEF_STATUS_VAR_FUNC("stall_total_slowdowns", &io_stall_stats.total_slowdown,
-                        SHOW_LONGLONG)};
+                        SHOW_LONGLONG),
+    // sql_show.show_status_array uses it to exit the loop
+    {NullS, NullS, SHOW_LONG}};
 
 static void show_rocksdb_stall_vars(THD *thd, SHOW_VAR *var, char *buff) {
   update_rocksdb_stall_status();
