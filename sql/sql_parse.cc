@@ -3127,12 +3127,12 @@ mysql_execute_command(THD *thd,
 
   thd->stmt_start = *statement_start_time;
 
-#if HAVE_GETRUSAGE
-    struct rusage rusage_beg;
-    getrusage(RUSAGE_THREAD, &rusage_beg);
-#elif HAVE_CLOCK_GETTIME
+#if HAVE_CLOCK_GETTIME
     timespec time_beg;
     clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_beg);
+#elif HAVE_GETRUSAGE
+    struct rusage rusage_beg;
+    getrusage(RUSAGE_THREAD, &rusage_beg);
 #endif
 
   if (unlikely(lex->is_broken()))
@@ -6146,7 +6146,17 @@ finish:
   if (thd)
   {
     USER_STATS *us= thd_get_user_stats(thd);
-#if HAVE_GETRUSAGE
+#if HAVE_CLOCK_GETTIME
+    DB_STATS *dbstats= thd->db_stats;
+    timespec time_end;
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_end);
+    ulonglong diff= diff_timespec(time_end, time_beg);
+    // convert to microseconds
+    diff /= 1000;
+    if (dbstats)
+      dbstats->update_cpu_stats_tot(diff);
+    us->microseconds_cpu.inc(diff);
+#elif HAVE_GETRUSAGE
     DB_STATS *dbstats= thd->db_stats;
     struct rusage rusage_end;
     getrusage(RUSAGE_THREAD, &rusage_end);
@@ -6159,16 +6169,6 @@ finish:
     us->microseconds_cpu.inc(diffu+diffs);
     us->microseconds_cpu_user.inc(diffu);
     us->microseconds_cpu_sys.inc(diffs);
-#elif HAVE_CLOCK_GETTIME
-    DB_STATS *dbstats= thd->db_stats;
-    timespec time_end;
-    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_end);
-    ulonglong diff= diff_timespec(time_end, time_beg);
-    // convert to microseconds
-    diff /= 1000;
-    if (dbstats)
-      dbstats->update_cpu_stats_tot(diff);
-    us->microseconds_cpu.inc(diff);
 #endif
 
     ulonglong latency = my_timer_since(*statement_start_time);

@@ -22,7 +22,6 @@
 
 #include "sql_plugin.h"                         /* plugin_ref */
 #include "sql_const.h"                          /* MAX_REFLENGTH */
-#include "hyperloglog.h"               /* hyperloglog */
 #include "my_time.h"                   /* enum_mysql_timestamp_type */
 #include "thr_lock.h"                  /* thr_lock_type */
 #include "my_base.h"                   /* ha_rows, ha_key_alg */
@@ -456,7 +455,6 @@ typedef struct st_table_stats {
 
 typedef struct st_db_stats {
   char db[NAME_LEN + 1];
-  hyperloglog_t hll;
   atomic_stat<ulonglong> us_user;
   atomic_stat<ulonglong> us_sys;
   atomic_stat<ulonglong> us_tot;

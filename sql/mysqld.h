@@ -690,9 +690,6 @@ struct st_table_stats* get_table_stats(TABLE *table,
 
 unsigned char get_db_stats_index(const char* db);
 DB_STATS *get_db_stats(const char *db);
-void update_global_db_stats_access(unsigned char db_stats_index,
-                                   uint64 space,
-                                   uint64 offset);
 
 /**
    Per-user session variables

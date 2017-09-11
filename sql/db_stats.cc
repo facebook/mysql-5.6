@@ -13,7 +13,6 @@ unsigned char num_db_stats_entries = 0;
 static void
 clear_db_stats_counters(DB_STATS* db_stats)
 {
-  hyperloglog_reset(&db_stats->hll);
   db_stats->us_user.clear();
   db_stats->us_sys.clear();
   db_stats->us_tot.clear();
@@ -31,19 +30,13 @@ extern "C" uchar *get_key_db_stats(const uchar *ptr, size_t *length,
   return (uchar*)db_stats->db;
 }
 
-extern "C" void free_db_stats(void *p)
-{
-  DB_STATS *db_stats = (DB_STATS *)p;
-  hyperloglog_destroy(&db_stats->hll);
-}
-
 void init_global_db_stats()
 {
   pthread_mutex_init(&LOCK_global_db_stats, MY_MUTEX_INIT_FAST);
   global_db_stats_array = (DB_STATS*)my_malloc((MAX_DB_STATS_ENTRIES + 1) * sizeof(DB_STATS), MYF(MY_WME));
   if (my_hash_init(&global_db_stats_hash, system_charset_info, max_connections,
                    0, 0, (my_hash_get_key)get_key_db_stats,
-                   free_db_stats, 0)) {
+                   NULL /* free element */, 0)) {
     sql_print_error("Initializing global_db_stats failed.");
   }
 }
@@ -75,7 +68,6 @@ static DB_STATS* get_db_stats_locked(const char* db)
     db_stats = &global_db_stats_array[++num_db_stats_entries];
     db_stats->index = num_db_stats_entries;
     strcpy(db_stats->db, db);
-    hyperloglog_init(&db_stats->hll);
     clear_db_stats_counters(db_stats);
     my_hash_insert(&global_db_stats_hash, (uchar*)db_stats);
   }
@@ -109,20 +101,13 @@ int fill_db_stats(THD *thd, TABLE_LIST *tables, Item *cond)
   DBUG_ENTER("fill_db_stats");
   TABLE* table= tables->table;
   unsigned f;
-  uint current_time = (uint)(my_timer_to_seconds(my_timer_now()));
-  uint since_time = current_time - thd->variables.working_duration;
-
   for (i = 0; i < num_db_stats_entries; ++i) {
     DB_STATS* db_stats = &global_db_stats_array[i + 1];
     f = 0;
     restore_record(table, s->default_values);
     table->field[f++]->store(db_stats->db, strlen(db_stats->db),
                                system_charset_info);
-    if (!opt_disable_working_set_size) {
-      table->field[f++]->store(hyperloglog_query(&db_stats->hll, since_time));
-    } else {
       table->field[f++]->store(0);
-    }
 
     table->field[f++]->store(db_stats->us_user.load(), TRUE);
     table->field[f++]->store(db_stats->us_sys.load(), TRUE);
@@ -150,25 +135,6 @@ void reset_global_db_stats()
   }
 
   pthread_mutex_unlock(&LOCK_global_db_stats);
-}
-
-void update_global_db_stats_access(unsigned char db_stats_index,
-                                   ulonglong space,
-                                   ulonglong offset)
-{
-  if(!opt_disable_working_set_size) {
-    hyperloglog_t* hll_to_update;
-    ulonglong crc_helper[2];
-    ulonglong page_hash;
-    uint current_time_in_secs;
-
-    hll_to_update = &global_db_stats_array[db_stats_index].hll;
-    crc_helper[0] = space;
-    crc_helper[1] = offset;
-    page_hash = my_sbox_hash((uchar *)(&crc_helper[0]), 16);
-    current_time_in_secs = my_timer_to_seconds(my_timer_now());
-    hyperloglog_insert(hll_to_update, page_hash, current_time_in_secs);
-  }
 }
 
 ST_FIELD_INFO db_stats_fields_info[]=
