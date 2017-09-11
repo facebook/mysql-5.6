@@ -850,17 +850,17 @@ static int rdb_i_s_compact_stats_fill_table(
     bool_ret = rdb->GetMapProperty(cfh, "rocksdb.cfstats", &props);
     DBUG_ASSERT(bool_ret);
 
+    const std::string prop_name_prefix = "compaction.";
     for (auto const &prop_ent : props) {
-      std::string prefix = "compaction.";
       std::string prop_name = prop_ent.first;
-      if (prop_name.find(prefix) != 0) {
+      if (prop_name.find(prop_name_prefix) != 0) {
         continue;
       }
       std::string value = prop_ent.second;
-      std::size_t del_pos = prop_name.find('.', prefix.size());
+      std::size_t del_pos = prop_name.find('.', prop_name_prefix.size());
       DBUG_ASSERT(del_pos != std::string::npos);
-      std::string level_str =
-          prop_name.substr(prefix.size(), del_pos - prefix.size());
+      std::string level_str = prop_name.substr(
+          prop_name_prefix.size(), del_pos - prop_name_prefix.size());
       std::string type_str = prop_name.substr(del_pos + 1);
 
       Field **field = tables->table->field;
