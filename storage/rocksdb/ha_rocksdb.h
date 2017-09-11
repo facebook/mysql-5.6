@@ -375,7 +375,7 @@ struct st_global_stats {
 
   ib_counter_t<ulonglong, 64, RDB_INDEXER> queries[QUERIES_MAX];
 
-  ib_counter_t<ulonglong> covered_secondary_key_lookups;
+  ib_counter_t<ulonglong, 64, RDB_INDEXER> covered_secondary_key_lookups;
 };
 
 /* Struct used for exporting status to MySQL */
