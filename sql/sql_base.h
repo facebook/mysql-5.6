@@ -297,10 +297,6 @@ typedef void (*table_stats_cb)(const char *db, const char *table,
 			       int n_lock_deadlock,
 			       const char *engine);
 
-/* For information_schema.db_statistics */
-void update_global_db_stats_access(unsigned char db_stats_index,
-                                   uint64 space,
-                                   uint64 offset);
 void init_global_db_stats(void);
 void free_global_db_stats(void);
 void reset_global_db_stats(void);
