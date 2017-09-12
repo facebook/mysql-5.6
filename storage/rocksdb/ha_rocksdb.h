@@ -405,6 +405,27 @@ struct st_memory_stats {
   ulonglong memtable_unflushed;
 };
 
+/* Struct used for exporting RocksDB IO stalls stats */
+struct st_io_stall_stats {
+  ulonglong level0_slowdown;
+  ulonglong level0_slowdown_with_compaction;
+  ulonglong level0_numfiles;
+  ulonglong level0_numfiles_with_compaction;
+  ulonglong stop_for_pending_compaction_bytes;
+  ulonglong slowdown_for_pending_compaction_bytes;
+  ulonglong memtable_compaction;
+  ulonglong memtable_slowdown;
+  ulonglong total_stop;
+  ulonglong total_slowdown;
+
+  st_io_stall_stats()
+      : level0_slowdown(0), level0_slowdown_with_compaction(0),
+        level0_numfiles(0), level0_numfiles_with_compaction(0),
+        stop_for_pending_compaction_bytes(0),
+        slowdown_for_pending_compaction_bytes(0), memtable_compaction(0),
+        memtable_slowdown(0), total_stop(0), total_slowdown(0) {}
+};
+
 } // namespace myrocks
 
 #include "./rdb_buff.h"
