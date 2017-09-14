@@ -11971,6 +11971,7 @@ void rocksdb_set_update_cf_options(THD *const /* unused */,
     // NO_LINT_DEBUG
     sql_print_warning("MyRocks: NULL is not a valid option for updates to "
                       "column family settings.");
+    *reinterpret_cast<char**>(var_ptr) = nullptr;
     return;
   }
 
@@ -12051,11 +12052,7 @@ void rocksdb_set_update_cf_options(THD *const /* unused */,
   // Reset the pointers regardless of how much success we had with updating
   // the CF options. This will results in consistent behavior and avoids
   // dealing with cases when only a subset of CF-s was successfully updated.
-  if (val) {
-    *reinterpret_cast<char**>(var_ptr) = my_strdup(val,  MYF(0));
-  } else {
-    *reinterpret_cast<char**>(var_ptr) = nullptr;
-  }
+  *reinterpret_cast<char**>(var_ptr) = my_strdup(val,  MYF(0));
 
   // Our caller (`plugin_var_memalloc_global_update`) will call `my_free` to
   // free up resources used before.
