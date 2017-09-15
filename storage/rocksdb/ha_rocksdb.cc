@@ -11170,15 +11170,29 @@ struct rocksdb_status_counters_t {
   uint64_t block_cache_miss;
   uint64_t block_cache_hit;
   uint64_t block_cache_add;
+  uint64_t block_cache_add_failures;
   uint64_t block_cache_index_miss;
   uint64_t block_cache_index_hit;
+  uint64_t block_cache_index_add;
+  uint64_t block_cache_index_bytes_insert;
+  uint64_t block_cache_index_bytes_evict;
   uint64_t block_cache_filter_miss;
   uint64_t block_cache_filter_hit;
+  uint64_t block_cache_filter_add;
+  uint64_t block_cache_filter_bytes_insert;
+  uint64_t block_cache_filter_bytes_evict;
+  uint64_t block_cache_bytes_read;
+  uint64_t block_cache_bytes_write;
+  uint64_t block_cache_data_bytes_insert;
   uint64_t block_cache_data_miss;
   uint64_t block_cache_data_hit;
+  uint64_t block_cache_data_add;
   uint64_t bloom_filter_useful;
   uint64_t memtable_hit;
   uint64_t memtable_miss;
+  uint64_t get_hit_l0;
+  uint64_t get_hit_l1;
+  uint64_t get_hit_l2_and_up;
   uint64_t compaction_key_drop_new;
   uint64_t compaction_key_drop_obsolete;
   uint64_t compaction_key_drop_user;
@@ -11187,6 +11201,13 @@ struct rocksdb_status_counters_t {
   uint64_t number_keys_updated;
   uint64_t bytes_written;
   uint64_t bytes_read;
+  uint64_t number_db_seek;
+  uint64_t number_db_seek_found;
+  uint64_t number_db_next;
+  uint64_t number_db_next_found;
+  uint64_t number_db_prev;
+  uint64_t number_db_prev_found;
+  uint64_t iter_bytes_read;
   uint64_t no_file_closes;
   uint64_t no_file_opens;
   uint64_t no_file_errors;
@@ -11224,15 +11245,29 @@ static rocksdb_status_counters_t rocksdb_status_counters;
 DEF_SHOW_FUNC(block_cache_miss, BLOCK_CACHE_MISS)
 DEF_SHOW_FUNC(block_cache_hit, BLOCK_CACHE_HIT)
 DEF_SHOW_FUNC(block_cache_add, BLOCK_CACHE_ADD)
+DEF_SHOW_FUNC(block_cache_add_failures, BLOCK_CACHE_ADD_FAILURES)
 DEF_SHOW_FUNC(block_cache_index_miss, BLOCK_CACHE_INDEX_MISS)
 DEF_SHOW_FUNC(block_cache_index_hit, BLOCK_CACHE_INDEX_HIT)
+DEF_SHOW_FUNC(block_cache_index_add, BLOCK_CACHE_INDEX_ADD)
+DEF_SHOW_FUNC(block_cache_index_bytes_insert, BLOCK_CACHE_INDEX_BYTES_INSERT)
+DEF_SHOW_FUNC(block_cache_index_bytes_evict, BLOCK_CACHE_INDEX_BYTES_EVICT)
 DEF_SHOW_FUNC(block_cache_filter_miss, BLOCK_CACHE_FILTER_MISS)
 DEF_SHOW_FUNC(block_cache_filter_hit, BLOCK_CACHE_FILTER_HIT)
+DEF_SHOW_FUNC(block_cache_filter_add, BLOCK_CACHE_FILTER_ADD)
+DEF_SHOW_FUNC(block_cache_filter_bytes_insert, BLOCK_CACHE_FILTER_BYTES_INSERT)
+DEF_SHOW_FUNC(block_cache_filter_bytes_evict, BLOCK_CACHE_FILTER_BYTES_EVICT)
+DEF_SHOW_FUNC(block_cache_bytes_read, BLOCK_CACHE_BYTES_READ)
+DEF_SHOW_FUNC(block_cache_bytes_write, BLOCK_CACHE_BYTES_WRITE)
+DEF_SHOW_FUNC(block_cache_data_bytes_insert, BLOCK_CACHE_DATA_BYTES_INSERT)
 DEF_SHOW_FUNC(block_cache_data_miss, BLOCK_CACHE_DATA_MISS)
 DEF_SHOW_FUNC(block_cache_data_hit, BLOCK_CACHE_DATA_HIT)
+DEF_SHOW_FUNC(block_cache_data_add, BLOCK_CACHE_DATA_ADD)
 DEF_SHOW_FUNC(bloom_filter_useful, BLOOM_FILTER_USEFUL)
 DEF_SHOW_FUNC(memtable_hit, MEMTABLE_HIT)
 DEF_SHOW_FUNC(memtable_miss, MEMTABLE_MISS)
+DEF_SHOW_FUNC(get_hit_l0, GET_HIT_L0)
+DEF_SHOW_FUNC(get_hit_l1, GET_HIT_L1)
+DEF_SHOW_FUNC(get_hit_l2_and_up, GET_HIT_L2_AND_UP)
 DEF_SHOW_FUNC(compaction_key_drop_new, COMPACTION_KEY_DROP_NEWER_ENTRY)
 DEF_SHOW_FUNC(compaction_key_drop_obsolete, COMPACTION_KEY_DROP_OBSOLETE)
 DEF_SHOW_FUNC(compaction_key_drop_user, COMPACTION_KEY_DROP_USER)
@@ -11241,6 +11276,13 @@ DEF_SHOW_FUNC(number_keys_read, NUMBER_KEYS_READ)
 DEF_SHOW_FUNC(number_keys_updated, NUMBER_KEYS_UPDATED)
 DEF_SHOW_FUNC(bytes_written, BYTES_WRITTEN)
 DEF_SHOW_FUNC(bytes_read, BYTES_READ)
+DEF_SHOW_FUNC(number_db_seek, NUMBER_DB_SEEK)
+DEF_SHOW_FUNC(number_db_seek_found, NUMBER_DB_SEEK_FOUND)
+DEF_SHOW_FUNC(number_db_next, NUMBER_DB_NEXT)
+DEF_SHOW_FUNC(number_db_next_found, NUMBER_DB_NEXT_FOUND)
+DEF_SHOW_FUNC(number_db_prev, NUMBER_DB_PREV)
+DEF_SHOW_FUNC(number_db_prev_found, NUMBER_DB_PREV_FOUND)
+DEF_SHOW_FUNC(iter_bytes_read, ITER_BYTES_READ)
 DEF_SHOW_FUNC(no_file_closes, NO_FILE_CLOSES)
 DEF_SHOW_FUNC(no_file_opens, NO_FILE_OPENS)
 DEF_SHOW_FUNC(no_file_errors, NO_FILE_ERRORS)
@@ -11435,15 +11477,29 @@ static SHOW_VAR rocksdb_status_vars[] = {
     DEF_STATUS_VAR(block_cache_miss),
     DEF_STATUS_VAR(block_cache_hit),
     DEF_STATUS_VAR(block_cache_add),
+    DEF_STATUS_VAR(block_cache_add_failures),
     DEF_STATUS_VAR(block_cache_index_miss),
     DEF_STATUS_VAR(block_cache_index_hit),
+    DEF_STATUS_VAR(block_cache_index_add),
+    DEF_STATUS_VAR(block_cache_index_bytes_insert),
+    DEF_STATUS_VAR(block_cache_index_bytes_evict),
     DEF_STATUS_VAR(block_cache_filter_miss),
     DEF_STATUS_VAR(block_cache_filter_hit),
+    DEF_STATUS_VAR(block_cache_filter_add),
+    DEF_STATUS_VAR(block_cache_filter_bytes_insert),
+    DEF_STATUS_VAR(block_cache_filter_bytes_evict),
+    DEF_STATUS_VAR(block_cache_bytes_read),
+    DEF_STATUS_VAR(block_cache_bytes_write),
+    DEF_STATUS_VAR(block_cache_data_bytes_insert),
     DEF_STATUS_VAR(block_cache_data_miss),
     DEF_STATUS_VAR(block_cache_data_hit),
+    DEF_STATUS_VAR(block_cache_data_add),
     DEF_STATUS_VAR(bloom_filter_useful),
     DEF_STATUS_VAR(memtable_hit),
     DEF_STATUS_VAR(memtable_miss),
+    DEF_STATUS_VAR(get_hit_l0),
+    DEF_STATUS_VAR(get_hit_l1),
+    DEF_STATUS_VAR(get_hit_l2_and_up),
     DEF_STATUS_VAR(compaction_key_drop_new),
     DEF_STATUS_VAR(compaction_key_drop_obsolete),
     DEF_STATUS_VAR(compaction_key_drop_user),
@@ -11452,6 +11508,13 @@ static SHOW_VAR rocksdb_status_vars[] = {
     DEF_STATUS_VAR(number_keys_updated),
     DEF_STATUS_VAR(bytes_written),
     DEF_STATUS_VAR(bytes_read),
+    DEF_STATUS_VAR(number_db_seek),
+    DEF_STATUS_VAR(number_db_seek_found),
+    DEF_STATUS_VAR(number_db_next),
+    DEF_STATUS_VAR(number_db_next_found),
+    DEF_STATUS_VAR(number_db_prev),
+    DEF_STATUS_VAR(number_db_prev_found),
+    DEF_STATUS_VAR(iter_bytes_read),
     DEF_STATUS_VAR(no_file_closes),
     DEF_STATUS_VAR(no_file_opens),
     DEF_STATUS_VAR(no_file_errors),
