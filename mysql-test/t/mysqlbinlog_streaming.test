@@ -146,11 +146,10 @@ do
   # Check if all mysqlbinlog processes are still alive.
   for ((i=0; i<${#pids[@]}; ++i))
   do
+    # Restart process if it dies for any reason.
     if ! ps -p ${pids[$i]} > /dev/null; then
-      wait ${pids[$i]}
-      echo "Exit code: $?"
-      cat $MYSQL_TMP_DIR/semisync$i.err
-      exit 1
+      $MYSQL_BINLOG $mysqlbinlog_reconnect_options --stop-never-slave-server-id=$i master-bin.000001 > $MYSQL_TMP_DIR/semisync$i.err 2>&1 &
+      pids[$i]=$!
     fi
   done
 
