@@ -7838,6 +7838,9 @@ void create_thread_to_handle_connection(THD *thd)
                                     handle_one_connection,
                                     (void*) thd)))
     {
+      // release the lock since we will return
+      mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
+
       /* purecov: begin inspected */
       DBUG_PRINT("error",
                  ("Can't create thread to handle request (error %d)",
