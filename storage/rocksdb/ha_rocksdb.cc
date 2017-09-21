@@ -1170,7 +1170,7 @@ static MYSQL_SYSVAR_STR(update_cf_options, rocksdb_update_cf_options,
                             PLUGIN_VAR_ALLOCATED,
                         "Option updates per column family for RocksDB",
                         rocksdb_validate_update_cf_options,
-                        rocksdb_set_update_cf_options, nullptr);
+                        rocksdb_set_update_cf_options, "");
 
 enum rocksdb_flush_log_at_trx_commit_type : unsigned int {
   FLUSH_LOG_NEVER = 0,
