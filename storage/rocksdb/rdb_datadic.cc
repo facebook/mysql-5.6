@@ -1403,11 +1403,11 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
   MY_BITMAP covered_bitmap;
   my_bitmap_map covered_bits;
   uint curr_bitmap_pos = 0;
-  bitmap_init(&covered_bitmap, &covered_bits, MAX_REF_PARTS, false);
 
   const bool has_covered_bitmap =
       has_unpack_info && (unpack_header[0] == RDB_UNPACK_COVERED_DATA_TAG);
   if (has_covered_bitmap) {
+    bitmap_init(&covered_bitmap, &covered_bits, MAX_REF_PARTS, false);
     covered_bits = rdb_netbuf_to_uint16((const uchar *)unpack_header +
                                         sizeof(RDB_UNPACK_COVERED_DATA_TAG) +
                                         RDB_UNPACK_COVERED_DATA_LEN_SIZE);
