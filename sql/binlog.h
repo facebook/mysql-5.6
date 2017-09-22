@@ -20,6 +20,7 @@
 #include "log_event.h"
 #include "log.h"
 #include "rpl_gtid.h"
+#include <atomic>
 #include <list>
 
 extern ulong rpl_read_size;
@@ -613,13 +614,13 @@ public:
   {
     bytes_written = 0;
   }
-  void harvest_bytes_written(ulonglong* counter)
+  void harvest_bytes_written(std::atomic_ullong* counter)
   {
 #ifndef DBUG_OFF
     char buf1[22],buf2[22];
 #endif
     DBUG_ENTER("harvest_bytes_written");
-    (*counter)+=bytes_written;
+    counter->fetch_add(bytes_written);
     DBUG_PRINT("info",("counter: %s  bytes_written: %s", llstr(*counter,buf1),
 		       llstr(bytes_written,buf2)));
     bytes_written=0;
@@ -714,7 +715,7 @@ public:
   bool flush_and_sync(bool async, const bool force);
   int purge_logs(const char *to_log, bool included,
                  bool need_lock_index, bool need_update_threads,
-                 ulonglong *decrease_log_space, bool auto_purge);
+                 std::atomic_ullong *decrease_log_space, bool auto_purge);
   int purge_logs_before_date(time_t purge_time, bool auto_purge);
   int purge_first_log(Relay_log_info* rli, bool included);
   int set_crash_safe_index_file_name(const char *base_file_name);
@@ -731,11 +732,11 @@ public:
   int sync_purge_index_file();
   int register_purge_index_entry(const char* entry);
   int register_create_index_entry(const char* entry);
-  int purge_index_entry(THD *thd, ulonglong *decrease_log_space,
+  int purge_index_entry(THD *thd, std::atomic_ullong *decrease_log_space,
                         bool need_lock_index);
   int purge_logs_in_list(std::list<std::string>& delete_list,
                          THD *thd,
-                         ulonglong *decrease_log_space,
+                         std::atomic_ullong *decrease_log_space,
                          bool need_lock_index);
   bool reset_logs(THD* thd);
   void close(uint exiting);

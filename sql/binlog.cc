@@ -4806,7 +4806,7 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log,
                               bool included,
                               bool need_lock_index,
                               bool need_update_threads,
-                              ulonglong *decrease_log_space,
+                              std::atomic_ullong *decrease_log_space,
                               bool auto_purge)
 {
   int error= 0, error_index= 0,
@@ -5006,7 +5006,8 @@ int MYSQL_BIN_LOG::register_create_index_entry(const char *entry)
   DBUG_RETURN(register_purge_index_entry(entry));
 }
 
-int MYSQL_BIN_LOG::purge_index_entry(THD *thd, ulonglong *decrease_log_space,
+int MYSQL_BIN_LOG::purge_index_entry(THD *thd,
+                                     std::atomic_ullong *decrease_log_space,
                                      bool need_lock_index)
 {
   int error= 0;
@@ -5108,7 +5109,7 @@ err:
 */
 int MYSQL_BIN_LOG::purge_logs_in_list(std::list<std::string>& delete_list,
                                       THD *thd,
-                                      ulonglong *decrease_log_space,
+                                      std::atomic_ullong *decrease_log_space,
                                       bool need_lock_index)
 {
   MY_STAT s;
@@ -5169,7 +5170,7 @@ int MYSQL_BIN_LOG::purge_logs_in_list(std::list<std::string>& delete_list,
       if (!mysql_file_delete(key_file_binlog, log_file_name.c_str(), MYF(0)))
       {
         if (decrease_log_space)
-          *decrease_log_space-= s.st_size;
+          decrease_log_space->fetch_sub(s.st_size);
       }
       else
       {
@@ -5359,7 +5360,7 @@ int MYSQL_BIN_LOG::purge_logs_before_date(time_t purge_time, bool auto_purge)
   error= (to_log[0] ? purge_logs(to_log, true,
                                  false/*need_lock_index=false*/,
                                  true/*need_update_threads=true*/,
-                                 (ulonglong *) 0, auto_purge) : 0);
+                                 nullptr, auto_purge) : 0);
 
 err:
   mysql_mutex_unlock(&LOCK_index);

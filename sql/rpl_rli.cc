@@ -473,7 +473,7 @@ static inline int add_relay_log(Relay_log_info* rli,LOG_INFO* linfo)
                     linfo->log_file_name);
     DBUG_RETURN(1);
   }
-  rli->log_space_total += s.st_size;
+  rli->log_space_total.fetch_add(s.st_size);
 #ifndef DBUG_OFF
   char buf[22];
   DBUG_PRINT("info",("log_space_total: %s", llstr(rli->log_space_total,buf)));
