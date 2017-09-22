@@ -31,6 +31,8 @@
 #include "log_event_wrapper.h"
 #endif // HAVE_REPLICATION and !MYSQL_CLIENT
 
+#include <atomic>
+
 struct RPL_TABLE_LIST;
 class Master_info;
 class Commit_order_manager;
@@ -309,7 +311,8 @@ public:
     threads, the SQL thread sets it to unblock the I/O thread and make it
     temporarily forget about the constraint.
   */
-  ulonglong log_space_limit,log_space_total;
+  ulonglong log_space_limit;
+  std::atomic_ullong log_space_total;
   bool ignore_log_space_limit;
 
   /*
