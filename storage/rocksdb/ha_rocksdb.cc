@@ -2077,10 +2077,10 @@ public:
 
   virtual rocksdb::Status get(rocksdb::ColumnFamilyHandle *const column_family,
                               const rocksdb::Slice &key,
-                              std::string *value) const = 0;
+                              rocksdb::PinnableSlice *const value) const = 0;
   virtual rocksdb::Status
   get_for_update(rocksdb::ColumnFamilyHandle *const column_family,
-                 const rocksdb::Slice &key, std::string *const value,
+                 const rocksdb::Slice &key, rocksdb::PinnableSlice *const value,
                  bool exclusive) = 0;
 
   rocksdb::Iterator *
@@ -2350,18 +2350,25 @@ public:
 
   rocksdb::Status get(rocksdb::ColumnFamilyHandle *const column_family,
                       const rocksdb::Slice &key,
-                      std::string *value) const override {
+                      rocksdb::PinnableSlice *const value) const override {
+    // clean PinnableSlice right begfore Get() for multiple gets per statement
+    // the resources after the last Get in a statement are cleared in
+    // handler::reset call
+    value->Reset();
     global_stats.queries[QUERIES_POINT].inc();
     return m_rocksdb_tx->Get(m_read_opts, column_family, key, value);
   }
 
   rocksdb::Status
   get_for_update(rocksdb::ColumnFamilyHandle *const column_family,
-                 const rocksdb::Slice &key, std::string *const value,
+                 const rocksdb::Slice &key, rocksdb::PinnableSlice *const value,
                  bool exclusive) override {
     if (++m_lock_count > m_max_row_locks)
       return rocksdb::Status::Aborted(rocksdb::Status::kLockLimit);
 
+    if (value != nullptr) {
+      value->Reset();
+    }
     return m_rocksdb_tx->GetForUpdate(m_read_opts, column_family, key, value,
                                       exclusive);
   }
@@ -2582,14 +2589,15 @@ public:
 
   rocksdb::Status get(rocksdb::ColumnFamilyHandle *const column_family,
                       const rocksdb::Slice &key,
-                      std::string *const value) const override {
+                      rocksdb::PinnableSlice *const value) const override {
+    value->Reset();
     return m_batch->GetFromBatchAndDB(rdb, m_read_opts, column_family, key,
                                       value);
   }
 
   rocksdb::Status
   get_for_update(rocksdb::ColumnFamilyHandle *const column_family,
-                 const rocksdb::Slice &key, std::string *const value,
+                 const rocksdb::Slice &key, rocksdb::PinnableSlice *const value,
                  bool exclusive) override {
     return get(column_family, key, value);
   }
@@ -4913,13 +4921,18 @@ void ha_rocksdb::setup_read_decoders() {
 }
 
 #ifndef NDEBUG
-void dbug_append_garbage_at_end(std::string &on_disk_rec) {
-  on_disk_rec.append("abc");
+void dbug_append_garbage_at_end(rocksdb::PinnableSlice *on_disk_rec) {
+  std::string str(on_disk_rec->data(), on_disk_rec->size());
+  on_disk_rec->Reset();
+  str.append("abc");
+  on_disk_rec->PinSelf(rocksdb::Slice(str));
 }
 
-void dbug_truncate_record(std::string &on_disk_rec) { on_disk_rec.resize(0); }
+void dbug_truncate_record(rocksdb::PinnableSlice *on_disk_rec) {
+  on_disk_rec->remove_suffix(on_disk_rec->size());
+}
 
-void dbug_modify_rec_varchar12(std::string &on_disk_rec) {
+void dbug_modify_rec_varchar12(rocksdb::PinnableSlice *on_disk_rec) {
   std::string res;
   // The record is NULL-byte followed by VARCHAR(10).
   // Put the NULL-byte
@@ -4928,7 +4941,8 @@ void dbug_modify_rec_varchar12(std::string &on_disk_rec) {
   res.append("\xC", 1);
   res.append("123456789ab", 12);
 
-  on_disk_rec.assign(res);
+  on_disk_rec->Reset();
+  on_disk_rec->PinSelf(rocksdb::Slice(res));
 }
 
 void dbug_modify_key_varchar8(String &on_disk_rec) {
@@ -4950,16 +4964,15 @@ void dbug_create_err_inplace_alter() {
 
 int ha_rocksdb::convert_record_from_storage_format(
     const rocksdb::Slice *const key, uchar *const buf) {
-  DBUG_EXECUTE_IF("myrocks_simulate_bad_row_read1",
-                  dbug_append_garbage_at_end(m_retrieved_record););
-  DBUG_EXECUTE_IF("myrocks_simulate_bad_row_read2",
-                  dbug_truncate_record(m_retrieved_record););
-  DBUG_EXECUTE_IF("myrocks_simulate_bad_row_read3",
-                  dbug_modify_rec_varchar12(m_retrieved_record););
 
-  const rocksdb::Slice retrieved_rec_slice(&m_retrieved_record.front(),
-                                           m_retrieved_record.size());
-  return convert_record_from_storage_format(key, &retrieved_rec_slice, buf);
+  DBUG_EXECUTE_IF("myrocks_simulate_bad_row_read1",
+                  dbug_append_garbage_at_end(&m_retrieved_record););
+  DBUG_EXECUTE_IF("myrocks_simulate_bad_row_read2",
+                  dbug_truncate_record(&m_retrieved_record););
+  DBUG_EXECUTE_IF("myrocks_simulate_bad_row_read3",
+                  dbug_modify_rec_varchar12(&m_retrieved_record););
+
+  return convert_record_from_storage_format(key, &m_retrieved_record, buf);
 }
 
 int ha_rocksdb::convert_blob_from_storage_format(
@@ -7485,7 +7498,7 @@ void dbug_dump_database(rocksdb::DB *const db) {
 
 rocksdb::Status ha_rocksdb::get_for_update(
     Rdb_transaction *const tx, rocksdb::ColumnFamilyHandle *const column_family,
-    const rocksdb::Slice &key, std::string *const value) const {
+    const rocksdb::Slice &key, rocksdb::PinnableSlice *const value) const {
   DBUG_ASSERT(m_lock_rows != RDB_LOCK_NONE);
   const bool exclusive = m_lock_rows != RDB_LOCK_READ;
 
@@ -7579,9 +7592,7 @@ int ha_rocksdb::get_row_by_rowid(uchar *const buf, const char *const rowid,
   if (found) {
     /* If we found the record, but it's expired, pretend we didn't find it.  */
     if (!skip_ttl_check && m_pk_descr->has_ttl() &&
-        should_hide_ttl_rec(*m_pk_descr,
-                            rocksdb::Slice(&m_retrieved_record.front(),
-                                           m_retrieved_record.size()),
+        should_hide_ttl_rec(*m_pk_descr, m_retrieved_record,
                             tx->m_snapshot_timestamp)) {
       DBUG_RETURN(HA_ERR_KEY_NOT_FOUND);
     }
@@ -8345,12 +8356,8 @@ int ha_rocksdb::check_and_lock_sk(const uint &key_id,
       ha_thd(), kd, new_slice, all_parts_used);
   const bool fill_cache = !THDVAR(ha_thd(), skip_fill_cache);
 
-  /*
-    psergey-todo: we just need to take lock, lookups not needed:
-  */
-  std::string dummy_value;
   const rocksdb::Status s =
-      get_for_update(row_info.tx, kd.get_cf(), new_slice, &dummy_value);
+      get_for_update(row_info.tx, kd.get_cf(), new_slice, nullptr);
   if (!s.ok() && !s.IsNotFound()) {
     return row_info.tx->set_status_error(table->in_use, s, kd, m_tbl_def,
                                          m_table_handler);
@@ -8400,9 +8407,7 @@ int ha_rocksdb::check_uniqueness_and_lock(
       m_retrieved_record by check_and_lock_unique_pk().
     */
     if (is_pk(key_id, table, m_tbl_def) && found && m_pk_descr->has_ttl() &&
-        should_hide_ttl_rec(*m_pk_descr,
-                            rocksdb::Slice(&m_retrieved_record.front(),
-                                           m_retrieved_record.size()),
+        should_hide_ttl_rec(*m_pk_descr, m_retrieved_record,
                             (row_info.tx->m_snapshot_timestamp
                                  ? row_info.tx->m_snapshot_timestamp
                                  : static_cast<int64_t>(std::time(nullptr))))) {
@@ -10076,7 +10081,7 @@ int ha_rocksdb::extra(enum ha_extra_function operation) {
       If the table has blobs, then they are part of m_retrieved_record.
       This call invalidates them.
     */
-    m_retrieved_record.clear();
+    m_retrieved_record.Reset();
     break;
   default:
     break;
