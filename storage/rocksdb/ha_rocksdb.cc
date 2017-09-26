@@ -3979,9 +3979,15 @@ static int rocksdb_init_func(void *const p) {
   if (rocksdb_persistent_cache_size_mb > 0) {
     std::shared_ptr<rocksdb::PersistentCache> pcache;
     uint64_t cache_size_bytes= rocksdb_persistent_cache_size_mb * 1024 * 1024;
-    rocksdb::NewPersistentCache(
+    status = rocksdb::NewPersistentCache(
         rocksdb::Env::Default(), std::string(rocksdb_persistent_cache_path),
         cache_size_bytes, myrocks_logger, true, &pcache);
+    if (!status.ok()) {
+      // NO_LINT_DEBUG
+      sql_print_error("RocksDB: Persistent cache returned error: (%s)",
+                      status.getState());
+      DBUG_RETURN(HA_EXIT_FAILURE);
+    }
     rocksdb_tbl_options->persistent_cache = pcache;
   } else if (strlen(rocksdb_persistent_cache_path)) {
     sql_print_error("RocksDB: Must specify rocksdb_persistent_cache_size_mb");
