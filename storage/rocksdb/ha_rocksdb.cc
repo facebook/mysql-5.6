@@ -413,10 +413,11 @@ void rocksdb_set_update_cf_options(THD *thd,
                                    void *var_ptr,
                                    const void *save);
 
-static void
-rocksdb_set_bulk_load(THD *thd,
-                      struct st_mysql_sys_var *var MY_ATTRIBUTE((__unused__)),
-                      void *var_ptr, const void *save);
+static int rocksdb_check_bulk_load(THD *const thd,
+                                   struct st_mysql_sys_var *var
+                                       MY_ATTRIBUTE((__unused__)),
+                                   void *save,
+                                   struct st_mysql_value *value);
 
 static void rocksdb_set_bulk_load_allow_unsorted(
     THD *thd, struct st_mysql_sys_var *var MY_ATTRIBUTE((__unused__)),
@@ -646,7 +647,7 @@ static MYSQL_THDVAR_BOOL(
     bulk_load, PLUGIN_VAR_RQCMDARG,
     "Use bulk-load mode for inserts. This disables "
     "unique_checks and enables rocksdb_commit_in_the_middle.",
-    nullptr, rocksdb_set_bulk_load, FALSE);
+    rocksdb_check_bulk_load, nullptr, FALSE);
 
 static MYSQL_THDVAR_BOOL(bulk_load_allow_unsorted, PLUGIN_VAR_RQCMDARG,
                          "Allow unsorted input during bulk-load. "
@@ -2000,12 +2001,12 @@ private:
   std::vector<ha_rocksdb *> m_curr_bulk_load;
 
 public:
-  int finish_bulk_load() {
+  int finish_bulk_load(bool print_client_error = true) {
     int rc = 0;
 
     std::vector<ha_rocksdb *>::iterator it;
     while ((it = m_curr_bulk_load.begin()) != m_curr_bulk_load.end()) {
-      int rc2 = (*it)->finalize_bulk_load();
+      int rc2 = (*it)->finalize_bulk_load(print_client_error);
       if (rc2 != 0 && rc == 0) {
         rc = rc2;
       }
@@ -2745,13 +2746,12 @@ static Rdb_transaction *get_or_create_tx(THD *const thd) {
 static int rocksdb_close_connection(handlerton *const hton, THD *const thd) {
   Rdb_transaction *&tx = get_tx_from_thd(thd);
   if (tx != nullptr) {
-    int rc = tx->finish_bulk_load();
+    int rc = tx->finish_bulk_load(false);
     if (rc != 0) {
       // NO_LINT_DEBUG
       sql_print_error("RocksDB: Error %d finalizing last SST file while "
                       "disconnecting",
                       rc);
-      abort_with_stack_traces();
     }
 
     delete tx;
@@ -8534,7 +8534,7 @@ int ha_rocksdb::bulk_load_key(Rdb_transaction *const tx, const Rdb_key_def &kd,
   DBUG_RETURN(res);
 }
 
-int ha_rocksdb::finalize_bulk_load() {
+int ha_rocksdb::finalize_bulk_load(bool print_client_error) {
   DBUG_ENTER_FUNC();
 
   DBUG_ASSERT_IMP(!m_key_merge.empty() || m_sst_info,
@@ -8550,7 +8550,7 @@ int ha_rocksdb::finalize_bulk_load() {
   RDB_MUTEX_LOCK_CHECK(m_bulk_load_mutex);
 
   if (m_sst_info) {
-    res = m_sst_info->commit();
+    res = m_sst_info->commit(print_client_error);
     m_sst_info.reset();
   }
 
@@ -8572,7 +8572,7 @@ int ha_rocksdb::finalize_bulk_load() {
       }
       // res == -1 => finished ok; res > 0 => error
       if (res <= 0) {
-        if ((res = sst_info.commit()) != 0) {
+        if ((res = sst_info.commit(print_client_error)) != 0) {
           break;
         }
       }
@@ -12011,9 +12011,33 @@ void rocksdb_set_collation_exception_list(THD *const thd,
   *static_cast<const char **>(var_ptr) = val;
 }
 
-void rocksdb_set_bulk_load(THD *const thd, struct st_mysql_sys_var *const var
-                                               MY_ATTRIBUTE((__unused__)),
-                           void *const var_ptr, const void *const save) {
+int rocksdb_check_bulk_load(THD *const thd, struct st_mysql_sys_var *var
+                                                MY_ATTRIBUTE((__unused__)),
+                            void *save, struct st_mysql_value *value) {
+  my_bool new_value;
+  int new_value_type = value->value_type(value);
+  if (new_value_type == MYSQL_VALUE_TYPE_STRING) {
+    char buf[16];
+    int len = sizeof(buf);
+    const char *str = value->val_str(value, buf, &len);
+    if (str && (my_strcasecmp(system_charset_info, "true", str) == 0 ||
+                my_strcasecmp(system_charset_info, "on", str) == 0)) {
+      new_value = TRUE;
+    } else if (str && (my_strcasecmp(system_charset_info, "false", str) == 0 ||
+                       my_strcasecmp(system_charset_info, "off", str) == 0)) {
+      new_value = FALSE;
+    } else {
+      return 1;
+    }
+  } else if (new_value_type == MYSQL_VALUE_TYPE_INT) {
+    long long intbuf;
+    value->val_int(value, &intbuf);
+    if (intbuf > 1)
+      return 1;
+    new_value = intbuf > 0 ? TRUE : FALSE;
+  } else {
+    return 1;
+  }
   Rdb_transaction *&tx = get_tx_from_thd(thd);
 
   if (tx != nullptr) {
@@ -12023,11 +12047,13 @@ void rocksdb_set_bulk_load(THD *const thd, struct st_mysql_sys_var *const var
       sql_print_error("RocksDB: Error %d finalizing last SST file while "
                       "setting bulk loading variable",
                       rc);
-      abort_with_stack_traces();
+      THDVAR(thd, bulk_load) = 0;
+      return 1;
     }
   }
 
-  *static_cast<bool *>(var_ptr) = *static_cast<const bool *>(save);
+  *static_cast<bool *>(save) = new_value;
+  return 0;
 }
 
 void rocksdb_set_bulk_load_allow_unsorted(
