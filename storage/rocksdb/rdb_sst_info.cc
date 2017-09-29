@@ -252,7 +252,6 @@ rocksdb::Status Rdb_sst_file_ordered::put(const rocksdb::Slice &key,
   if (!m_first_key.empty()) {
     rocksdb::Slice first_key_slice(m_first_key);
     int cmp = m_file.compare(first_key_slice, key);
-    DBUG_ASSERT(cmp != 0);
     m_use_stack = (cmp > 0);
 
     // Apply the first key to the stack or SST
@@ -320,7 +319,7 @@ Rdb_sst_info::Rdb_sst_info(rocksdb::DB *const db, const std::string &tablename,
 #if defined(RDB_SST_INFO_USE_THREAD)
       m_queue(), m_mutex(), m_cond(), m_thread(nullptr), m_finished(false),
 #endif
-      m_sst_file(nullptr), m_tracing(tracing) {
+      m_sst_file(nullptr), m_tracing(tracing), m_print_client_error(true) {
   m_prefix = db->GetName() + "/";
 
   std::string normalized_table;
@@ -451,7 +450,9 @@ int Rdb_sst_info::put(const rocksdb::Slice &key, const rocksdb::Slice &value) {
   return HA_EXIT_SUCCESS;
 }
 
-int Rdb_sst_info::commit() {
+int Rdb_sst_info::commit(bool print_client_error) {
+  int ret = HA_EXIT_SUCCESS;
+  m_print_client_error = print_client_error;
   if (m_curr_size > 0) {
     // Close out any existing files
     close_curr_sst_file();
@@ -472,14 +473,19 @@ int Rdb_sst_info::commit() {
 
   // Did we get any errors?
   if (have_background_error()) {
-    return get_and_reset_background_error();
+    ret = get_and_reset_background_error();
   }
 
-  return HA_EXIT_SUCCESS;
+  m_print_client_error = true;
+  return ret;
 }
 
 void Rdb_sst_info::set_error_msg(const std::string &sst_file_name,
                                  const rocksdb::Status &s) {
+
+  if (!m_print_client_error)
+    return;
+
 #if defined(RDB_SST_INFO_USE_THREAD)
   // Both the foreground and background threads can set the error message
   // so lock the mutex to protect it.  We only want the first error that
