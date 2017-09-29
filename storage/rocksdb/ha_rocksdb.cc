@@ -427,6 +427,14 @@ static void rocksdb_set_max_background_jobs(THD *thd,
                                             struct st_mysql_sys_var *const var,
                                             void *const var_ptr,
                                             const void *const save);
+static void rocksdb_set_bytes_per_sync(THD *thd,
+                                       struct st_mysql_sys_var *const var,
+                                       void *const var_ptr,
+                                       const void *const save);
+static void rocksdb_set_wal_bytes_per_sync(THD *thd,
+                                           struct st_mysql_sys_var *const var,
+                                           void *const var_ptr,
+                                           const void *const save);
 //////////////////////////////////////////////////////////////////////////////
 // Options definitions
 //////////////////////////////////////////////////////////////////////////////
@@ -1066,16 +1074,18 @@ static MYSQL_SYSVAR_BOOL(
     rocksdb_db_options->use_adaptive_mutex);
 
 static MYSQL_SYSVAR_ULONG(bytes_per_sync, rocksdb_db_options->bytes_per_sync,
-                          PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+                          PLUGIN_VAR_RQCMDARG,
                           "DBOptions::bytes_per_sync for RocksDB", nullptr,
-                          nullptr, rocksdb_db_options->bytes_per_sync,
+                          rocksdb_set_bytes_per_sync,
+                          rocksdb_db_options->bytes_per_sync,
                           /* min */ 0L, /* max */ LONG_MAX, 0);
 
 static MYSQL_SYSVAR_ULONG(wal_bytes_per_sync,
                           rocksdb_db_options->wal_bytes_per_sync,
-                          PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+                          PLUGIN_VAR_RQCMDARG,
                           "DBOptions::wal_bytes_per_sync for RocksDB", nullptr,
-                          nullptr, rocksdb_db_options->wal_bytes_per_sync,
+                          rocksdb_set_wal_bytes_per_sync,
+                          rocksdb_db_options->wal_bytes_per_sync,
                           /* min */ 0L, /* max */ LONG_MAX, 0);
 
 static MYSQL_SYSVAR_BOOL(
@@ -12084,6 +12094,62 @@ static void rocksdb_set_max_background_jobs(THD *thd,
     rocksdb_db_options->max_background_jobs = new_val;
     rocksdb::Status s =
         rdb->SetDBOptions({{"max_background_jobs", std::to_string(new_val)}});
+
+    if (!s.ok()) {
+      /* NO_LINT_DEBUG */
+      sql_print_warning("MyRocks: failed to update max_background_jobs. "
+                        "Status code = %d, status = %s.",
+                        s.code(), s.ToString().c_str());
+    }
+  }
+
+  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
+}
+
+static void rocksdb_set_bytes_per_sync(
+    THD *thd MY_ATTRIBUTE((__unused__)),
+    struct st_mysql_sys_var *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr MY_ATTRIBUTE((__unused__)), const void *const save) {
+  DBUG_ASSERT(save != nullptr);
+  DBUG_ASSERT(rocksdb_db_options != nullptr);
+  DBUG_ASSERT(rocksdb_db_options->env != nullptr);
+
+  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
+
+  const ulonglong new_val = *static_cast<const ulonglong *>(save);
+
+  if (rocksdb_db_options->bytes_per_sync != new_val) {
+    rocksdb_db_options->bytes_per_sync = new_val;
+    rocksdb::Status s =
+        rdb->SetDBOptions({{"bytes_per_sync", std::to_string(new_val)}});
+
+    if (!s.ok()) {
+      /* NO_LINT_DEBUG */
+      sql_print_warning("MyRocks: failed to update max_background_jobs. "
+                        "Status code = %d, status = %s.",
+                        s.code(), s.ToString().c_str());
+    }
+  }
+
+  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
+}
+
+static void rocksdb_set_wal_bytes_per_sync(
+    THD *thd MY_ATTRIBUTE((__unused__)),
+    struct st_mysql_sys_var *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr MY_ATTRIBUTE((__unused__)), const void *const save) {
+  DBUG_ASSERT(save != nullptr);
+  DBUG_ASSERT(rocksdb_db_options != nullptr);
+  DBUG_ASSERT(rocksdb_db_options->env != nullptr);
+
+  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
+
+  const ulonglong new_val = *static_cast<const ulonglong *>(save);
+
+  if (rocksdb_db_options->wal_bytes_per_sync != new_val) {
+    rocksdb_db_options->wal_bytes_per_sync = new_val;
+    rocksdb::Status s =
+        rdb->SetDBOptions({{"wal_bytes_per_sync", std::to_string(new_val)}});
 
     if (!s.ok()) {
       /* NO_LINT_DEBUG */
