@@ -740,8 +740,12 @@ public:
              my_core::TABLE_SHARE *const table_arg);
   ~ha_rocksdb() {
     int err MY_ATTRIBUTE((__unused__));
-    err = finalize_bulk_load();
-    DBUG_ASSERT(err == 0);
+    err = finalize_bulk_load(false);
+    if (err != 0) {
+      sql_print_error("RocksDB: Error %d finalizing bulk load while closing "
+                      "handler.",
+                      err);
+    }
     mysql_mutex_destroy(&m_bulk_load_mutex);
   }
 
@@ -1305,7 +1309,8 @@ public:
                              my_core::Alter_inplace_info *const ha_alter_info,
                              bool commit) override;
 
-  int finalize_bulk_load() MY_ATTRIBUTE((__warn_unused_result__));
+  int finalize_bulk_load(bool print_client_error = true)
+      MY_ATTRIBUTE((__warn_unused_result__));
 
   void set_use_read_free_rpl(const char *const whitelist);
   void set_skip_unique_check_tables(const char *const whitelist);
