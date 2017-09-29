@@ -137,6 +137,7 @@ class Rdb_sst_info {
 #endif
   Rdb_sst_file_ordered *m_sst_file;
   const bool m_tracing;
+  bool m_print_client_error;
 
   int open_new_sst_file();
   void close_curr_sst_file();
@@ -157,7 +158,7 @@ class Rdb_sst_info {
   ~Rdb_sst_info();
 
   int put(const rocksdb::Slice &key, const rocksdb::Slice &value);
-  int commit();
+  int commit(bool print_client_error = true);
 
   bool have_background_error() { return m_background_error != 0; }
 
