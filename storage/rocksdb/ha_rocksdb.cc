@@ -572,6 +572,33 @@ static void rocksdb_set_io_write_timeout(
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
+enum rocksdb_flush_log_at_trx_commit_type : unsigned int {
+  FLUSH_LOG_NEVER = 0,
+  FLUSH_LOG_SYNC,
+  FLUSH_LOG_BACKGROUND,
+  FLUSH_LOG_MAX /* must be last */
+};
+
+static int rocksdb_validate_flush_log_at_trx_commit(
+    THD *const thd,
+    struct st_mysql_sys_var *const var, /* in: pointer to system variable */
+    void *var_ptr, /* out: immediate result for update function */
+    struct st_mysql_value *const value /* in: incoming value */) {
+  long long new_value;
+
+  /* value is NULL */
+  if (value->val_int(value, &new_value)) {
+    return HA_EXIT_FAILURE;
+  }
+
+  if (rocksdb_db_options->allow_mmap_writes && new_value != FLUSH_LOG_NEVER) {
+    return HA_EXIT_FAILURE;
+  }
+
+  *static_cast<uint32_t *>(var_ptr) = static_cast<uint32_t>(new_value);
+  return HA_EXIT_SUCCESS;
+}
+
 static const char *index_type_names[] = {"kBinarySearch", "kHashSearch", NullS};
 
 static TYPELIB index_type_typelib = {array_elements(index_type_names) - 1,
@@ -1168,19 +1195,13 @@ static MYSQL_SYSVAR_STR(update_cf_options, rocksdb_update_cf_options,
                         "Option updates per column family for RocksDB", nullptr,
                         rocksdb_set_update_cf_options, nullptr);
 
-enum rocksdb_flush_log_at_trx_commit_type : unsigned int {
-  FLUSH_LOG_NEVER = 0,
-  FLUSH_LOG_SYNC,
-  FLUSH_LOG_BACKGROUND,
-  FLUSH_LOG_MAX /* must be last */
-};
-
 static MYSQL_SYSVAR_UINT(flush_log_at_trx_commit,
                          rocksdb_flush_log_at_trx_commit, PLUGIN_VAR_RQCMDARG,
                          "Sync on transaction commit. Similar to "
                          "innodb_flush_log_at_trx_commit. 1: sync on commit, "
                          "0,2: not sync on commit",
-                         nullptr, nullptr, /* default */ FLUSH_LOG_SYNC,
+                         rocksdb_validate_flush_log_at_trx_commit, nullptr,
+                         /* default */ FLUSH_LOG_SYNC,
                          /* min */ FLUSH_LOG_NEVER,
                          /* max */ FLUSH_LOG_BACKGROUND, 0);
 
@@ -2778,7 +2799,8 @@ static bool rocksdb_flush_wal(handlerton *const hton MY_ATTRIBUTE((__unused__)),
   /*
     target_lsn is set to 0 when MySQL wants to sync the wal files
   */
-  if (target_lsn == 0 || rocksdb_flush_log_at_trx_commit != FLUSH_LOG_NEVER) {
+  if ((target_lsn == 0 && !rocksdb_db_options->allow_mmap_writes) ||
+      rocksdb_flush_log_at_trx_commit != FLUSH_LOG_NEVER) {
     rocksdb_wal_group_syncs++;
     s = rdb->FlushWAL(target_lsn == 0 ||
                       rocksdb_flush_log_at_trx_commit == FLUSH_LOG_SYNC);
@@ -3899,6 +3921,14 @@ static int rocksdb_init_func(void *const p) {
                     "use_direct_io_for_flush_and_compaction and "
                     "allow_mmap_writes\n");
     rdb_open_tables.free_hash();
+    DBUG_RETURN(HA_EXIT_FAILURE);
+  }
+
+  if (rocksdb_db_options->allow_mmap_writes &&
+      rocksdb_flush_log_at_trx_commit != FLUSH_LOG_NEVER) {
+    // NO_LINT_DEBUG
+    sql_print_error("RocksDB: rocksdb_flush_log_at_trx_commit needs to be 0 "
+                    "to use allow_mmap_writes");
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
@@ -11626,8 +11656,8 @@ void Rdb_background_thread::run() {
     // InnoDB's behavior. For mode never, the wal file isn't even written,
     // whereas background writes to the wal file, but issues the syncs in a
     // background thread.
-    if (rdb && (rocksdb_flush_log_at_trx_commit != FLUSH_LOG_SYNC)) {
-      DBUG_ASSERT(!rocksdb_db_options->allow_mmap_writes);
+    if (rdb && (rocksdb_flush_log_at_trx_commit != FLUSH_LOG_SYNC) &&
+        !rocksdb_db_options->allow_mmap_writes) {
       const rocksdb::Status s = rdb->FlushWAL(true);
       if (!s.ok()) {
         rdb_handle_io_error(s, RDB_IO_ERROR_BG_THREAD);
