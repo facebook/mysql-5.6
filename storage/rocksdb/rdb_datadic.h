@@ -985,7 +985,7 @@ public:
   std::shared_ptr<Rdb_key_def> *m_key_descr_arr;
 
   std::atomic<longlong> m_hidden_pk_val;
-  std::atomic<longlong> m_auto_incr_val;
+  std::atomic<ulonglong> m_auto_incr_val;
 
   /* Is this a system table */
   bool m_is_mysql_system_table;
