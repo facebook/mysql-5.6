@@ -47,10 +47,17 @@ MACRO (MYSQL_CHECK_ZLIB_WITH_COMPRESS)
       SET(WITH_ZLIB "bundled"  CACHE STRING "By default use bundled zlib on this platform")
     ENDIF()
   ENDIF()
-  
+
+  # See if WITH_ZLIB is of the form </path/to/custom/installation>
+  FILE(GLOB WITH_ZLIB_HEADER ${WITH_ZLIB}/include/zlib.h)
+  IF (WITH_ZLIB_HEADER)
+    SET(WITH_ZLIB_PATH ${WITH_ZLIB}
+      CACHE PATH "Path to custom ZLIB installation")
+  ENDIF()
+
   IF(WITH_ZLIB STREQUAL "bundled")
     MYSQL_USE_BUNDLED_ZLIB()
-  ELSE()
+  ELSEIF(WITH_ZLIB STREQUAL "system")
     SET(ZLIB_FIND_QUIETLY TRUE)
     INCLUDE(FindZLIB)
     IF(ZLIB_FOUND)
@@ -71,8 +78,38 @@ MACRO (MYSQL_CHECK_ZLIB_WITH_COMPRESS)
         MESSAGE(STATUS "system zlib found but not usable")
       ENDIF()
     ENDIF()
-    IF(NOT ZLIB_FOUND)
-      MYSQL_USE_BUNDLED_ZLIB()
+  ELSEIF(WITH_ZLIB_PATH)
+    SET(ZLIB_FOUND TRUE)
+
+    # First search in WITH_ZLIB_PATH.
+    FIND_PATH(ZLIB_ROOT_DIR
+      NAMES include/zlib.h
+      NO_CMAKE_PATH
+      NO_CMAKE_ENVIRONMENT_PATH
+      HINTS ${WITH_ZLIB_PATH}
+    )
+    # Then search in standard places (if not found above).
+    FIND_PATH(ZLIB_ROOT_DIR
+      NAMES include/zlib.h
+    )
+
+    FIND_PATH(ZLIB_INCLUDE_DIR
+      NAMES zlib.h
+      HINTS ${ZLIB_ROOT_DIR}/include
+    )
+
+    FIND_LIBRARY(ZLIB_LIBRARY
+                 NAMES z
+                 HINTS ${ZLIB_ROOT_DIR}/lib)
+    IF(ZLIB_INCLUDE_DIR AND ZLIB_LIBRARY)
+      MESSAGE(STATUS "ZLIB_INCLUDE_DIR = ${ZLIB_INCLUDE_DIR}")
+      MESSAGE(STATUS "ZLIB_LIBRARY = ${ZLIB_LIBRARY}")
+    ELSE()
+      MESSAGE(SEND_ERROR
+        "Cannot find appropriate libraries for zlib.")
     ENDIF()
+  ENDIF()
+  IF(NOT ZLIB_FOUND)
+    MYSQL_USE_BUNDLED_ZLIB()
   ENDIF()
 ENDMACRO()
