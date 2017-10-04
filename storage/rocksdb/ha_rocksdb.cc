@@ -4450,6 +4450,50 @@ void ha_rocksdb::load_auto_incr_value() {
   release_scan_iterator();
 }
 
+/*
+  Inspired by innobase_get_int_col_max_value from InnoDB. This returns the
+  maximum value a type can take on.
+*/
+static ulonglong rdb_get_int_col_max_value(const Field *field) {
+  ulonglong max_value = 0;
+  switch (field->key_type()) {
+  case HA_KEYTYPE_BINARY:
+    max_value = 0xFFULL;
+    break;
+  case HA_KEYTYPE_INT8:
+    max_value = 0x7FULL;
+    break;
+  case HA_KEYTYPE_USHORT_INT:
+    max_value = 0xFFFFULL;
+    break;
+  case HA_KEYTYPE_SHORT_INT:
+    max_value = 0x7FFFULL;
+    break;
+  case HA_KEYTYPE_UINT24:
+    max_value = 0xFFFFFFULL;
+    break;
+  case HA_KEYTYPE_INT24:
+    max_value = 0x7FFFFFULL;
+    break;
+  case HA_KEYTYPE_ULONG_INT:
+    max_value = 0xFFFFFFFFULL;
+    break;
+  case HA_KEYTYPE_LONG_INT:
+    max_value = 0x7FFFFFFFULL;
+    break;
+  case HA_KEYTYPE_ULONGLONG:
+    max_value = 0xFFFFFFFFFFFFFFFFULL;
+    break;
+  case HA_KEYTYPE_LONGLONG:
+    max_value = 0x7FFFFFFFFFFFFFFFULL;
+    break;
+  default:
+    abort_with_stack_traces();
+  }
+
+  return max_value;
+}
+
 /* Get PK value from table->record[0]. */
 /*
   TODO(alexyang): No existing support for auto_increment on non-pk columns, see
@@ -4458,25 +4502,29 @@ void ha_rocksdb::load_auto_incr_value() {
 */
 void ha_rocksdb::update_auto_incr_val() {
   Field *field;
-  longlong new_val;
+  ulonglong new_val, max_val;
   field = table->key_info[table->s->next_number_index].key_part[0].field;
+  max_val = rdb_get_int_col_max_value(field);
 
   my_bitmap_map *const old_map =
       dbug_tmp_use_all_columns(table, table->read_set);
   new_val = field->val_int();
   // don't increment if we would wrap around
-  if (new_val != std::numeric_limits<longlong>::max()) {
+  if (new_val != max_val) {
     new_val++;
   }
 
   dbug_tmp_restore_column_map(table->read_set, old_map);
 
-  longlong auto_incr_val = m_tbl_def->m_auto_incr_val;
-  while (auto_incr_val < new_val &&
-         !m_tbl_def->m_auto_incr_val.compare_exchange_weak(auto_incr_val,
-                                                           new_val)) {
-    // Do nothing - just loop until auto_incr_val is >= new_val or
-    // we successfully set it
+  // Only update if positive value was set for auto_incr column.
+  if (new_val <= max_val) {
+    ulonglong auto_incr_val = m_tbl_def->m_auto_incr_val;
+    while (auto_incr_val < new_val &&
+           !m_tbl_def->m_auto_incr_val.compare_exchange_weak(auto_incr_val,
+                                                             new_val)) {
+      // Do nothing - just loop until auto_incr_val is >= new_val or
+      // we successfully set it
+    }
   }
 }
 
@@ -10411,32 +10459,73 @@ void ha_rocksdb::get_auto_increment(ulonglong off, ulonglong inc,
     off = 1;
   }
 
-  longlong new_val;
+  Field *field;
+  ulonglong new_val, max_val;
+  field = table->key_info[table->s->next_number_index].key_part[0].field;
+  max_val = rdb_get_int_col_max_value(field);
 
   // Local variable reference to simplify code below
-  std::atomic<longlong> &auto_incr = m_tbl_def->m_auto_incr_val;
+  auto &auto_incr = m_tbl_def->m_auto_incr_val;
 
-  if (inc == 1 && off == 1) {
+  if (inc == 1) {
+    DBUG_ASSERT(off == 1);
     // Optimization for the standard case where we are always simply
     // incrementing from the last position
 
     // Use CAS operation in a loop to make sure automically get the next auto
-    // increment value while ensuring tha we don't wrap around to a negative
+    // increment value while ensuring that we don't wrap around to a negative
     // number.
+    //
+    // We set auto_incr to the min of max_val and new_val + 1. This means that
+    // if we're at the maximum, we should be returning the same value for
+    // multiple rows, resulting in duplicate key errors (as expected).
+    //
+    // If we return values greater than the max, the SQL layer will "truncate"
+    // the value anyway, but it means that we store invalid values into
+    // auto_incr that will be visible in SHOW CREATE TABLE.
     new_val = auto_incr;
-    while (new_val != std::numeric_limits<longlong>::max()) {
-      if (auto_incr.compare_exchange_weak(new_val, new_val + 1)) {
+    while (new_val != std::numeric_limits<ulonglong>::max()) {
+      if (auto_incr.compare_exchange_weak(new_val,
+                                          std::min(new_val + 1, max_val))) {
         break;
       }
     }
   } else {
-    // The next value can be more complicated if either `inc` or 'off' is not 1
-    longlong last_val = auto_incr;
+    // The next value can be more complicated if either 'inc' or 'off' is not 1
+    ulonglong last_val = auto_incr;
 
     // Loop until we can correctly update the atomic value
     do {
-      if (((last_val - off) / inc) ==
-          (std::numeric_limits<longlong>::max() - off) / inc) {
+      DBUG_ASSERT(last_val > 0);
+      // Calculate the next value in the auto increment series: offset
+      // + N * increment where N is 0, 1, 2, ...
+      //
+      // For further information please visit:
+      // http://dev.mysql.com/doc/refman/5.7/en/replication-options-master.html
+      //
+      // The following is confusing so here is an explanation:
+      // To get the next number in the sequence above you subtract out the
+      // offset, calculate the next sequence (N * increment) and then add the
+      // offset back in.
+      //
+      // The additions are rearranged to avoid overflow.  The following is
+      // equivalent to (last_val - 1 + inc - off) / inc. This uses the fact
+      // that (a+b)/c = a/c + b/c + (a%c + b%c)/c. To show why:
+      //
+      // (a+b)/c
+      // = (a - a%c + a%c + b - b%c + b%c) / c
+      // = (a - a%c) / c + (b - b%c) / c + (a%c + b%c) / c
+      // = a/c + b/c + (a%c + b%c) / c
+      //
+      // Now, substitute a = last_val - 1, b = inc - off, c = inc to get the
+      // following statement.
+      ulonglong n =
+          (last_val - 1) / inc + ((last_val - 1) % inc + inc - off) / inc;
+
+      // Check if n * inc + off will overflow. This can only happen if we have
+      // an UNSIGNED BIGINT field.
+      if (n > (std::numeric_limits<ulonglong>::max() - off) / inc) {
+        DBUG_ASSERT(max_val == std::numeric_limits<ulonglong>::max());
         // The 'last_val' value is already equal to or larger than the largest
         // value in the sequence.  Continuing would wrap around (technically
         // the behavior would be undefined).  What should we do?
@@ -10448,31 +10537,30 @@ void ha_rocksdb::get_auto_increment(ulonglong off, ulonglong inc,
         //      may not be in our sequence, but it is guaranteed to be equal
         //      to or larger than any other value already inserted.
         //
-        //  For now I'm going to take option @2.
-        new_val = std::numeric_limits<longlong>::max();
+        //  For now I'm going to take option 2.
+        //
+        //  Returning ULLONG_MAX from get_auto_increment will cause the SQL
+        //  layer to fail with ER_AUTOINC_READ_FAILED. This means that due to
+        //  the SE API for get_auto_increment, inserts will fail with
+        //  ER_AUTOINC_READ_FAILED if the column is UNSIGNED BIGINT, but
+        //  inserts will fail with ER_DUP_ENTRY for other types (or no failure
+        //  if the column is in a non-unique SK).
+        new_val = std::numeric_limits<ulonglong>::max();
         auto_incr = new_val;  // Store the largest value into auto_incr
         break;
       }
 
-      // Calculate the next value in the auto increment series:
-      //   offset + N * increment
-      // where N is 0, 1, 2, ...
-      //
-      // For further information please visit:
-      // http://dev.mysql.com/doc/refman/5.7/en/replication-options-master.html
-      //
-      // The following is confusing so here is an explanation:
-      // To get the next number in the sequence above you subtract out
-      // the offset, calculate the next sequence (N * increment) and then add
-      // the offset back in.
-      new_val = (((last_val - off) + (inc - 1)) / inc) * inc + off;
+      new_val = n * inc + off;
 
       // Attempt to store the new value (plus 1 since m_auto_incr_val contains
       // the next available value) into the atomic value.  If the current
       // value no longer matches what we have in 'last_val' this will fail and
       // we will repeat the loop (`last_val` will automatically get updated
       // with the current value).
-    } while (!auto_incr.compare_exchange_weak(last_val, new_val + 1));
+      //
+      // See above explanation for inc == 1 for why we use std::min.
+    } while (!auto_incr.compare_exchange_weak(last_val,
+                                              std::min(new_val + 1, max_val)));
   }
 
   *first_value = new_val;
