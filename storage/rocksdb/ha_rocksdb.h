@@ -1388,4 +1388,8 @@ private:
   Rdb_inplace_alter_ctx(const Rdb_inplace_alter_ctx &);
   Rdb_inplace_alter_ctx &operator=(const Rdb_inplace_alter_ctx &);
 };
+
+// file name indicating RocksDB data corruption
+std::string rdb_corruption_marker_file_name();
+
 } // namespace myrocks
