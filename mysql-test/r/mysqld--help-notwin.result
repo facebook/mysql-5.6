@@ -1094,6 +1094,9 @@ The following options may be given as the first argument:
  DBOptions::allow_mmap_reads for RocksDB
  --rocksdb-allow-mmap-writes 
  DBOptions::allow_mmap_writes for RocksDB
+ --rocksdb-allow-to-start-after-corruption
+ Allow server still to start successfully even if RocksDB
+ corruption is detected.
  --rocksdb-blind-delete-primary-key 
  Deleting rows by primary key lookup, without reading rows
  (Blind Deletes). Blind delete is disabled if the table
@@ -2097,6 +2100,7 @@ rocksdb-advise-random-on-open TRUE
 rocksdb-allow-concurrent-memtable-write FALSE
 rocksdb-allow-mmap-reads FALSE
 rocksdb-allow-mmap-writes FALSE
+rocksdb-allow-to-start-after-corruption FALSE
 rocksdb-blind-delete-primary-key FALSE
 rocksdb-block-cache-size 536870912
 rocksdb-block-restart-interval 16
