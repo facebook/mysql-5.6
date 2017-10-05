@@ -241,6 +241,14 @@ inline void rdb_check_mutex_call_result(const char *function_name,
 
 void rdb_log_status_error(const rocksdb::Status &s, const char *msg = nullptr);
 
+// return true if the marker file exists which indicates that the corruption
+// has been detected
+bool rdb_check_rocksdb_corruption();
+
+// stores a marker file in the data directory so that after restart server
+// is still aware that rocksdb data is corrupted
+void rdb_persist_corruption_marker();
+
 /*
   Helper functions to parse strings.
 */
