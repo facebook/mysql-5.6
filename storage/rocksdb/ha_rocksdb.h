@@ -34,6 +34,7 @@
 
 /* RocksDB header files */
 #include "rocksdb/cache.h"
+#include "rocksdb/merge_operator.h"
 #include "rocksdb/perf_context.h"
 #include "rocksdb/sst_file_manager.h"
 #include "rocksdb/statistics.h"
@@ -235,6 +236,8 @@ const char *const RDB_TTL_COL_QUALIFIER = "ttl_col";
   enabled.
 */
 #define ROCKSDB_SIZEOF_TTL_RECORD sizeof(longlong)
+
+#define ROCKSDB_SIZEOF_AUTOINC_VALUE sizeof(longlong)
 
 /*
   Maximum index prefix length in bytes.
@@ -636,8 +639,12 @@ class ha_rocksdb : public my_core::handler {
                             rowid_size, skip_lookup, skip_ttl_check);
   }
 
-  void update_auto_incr_val();
   void load_auto_incr_value();
+  void update_auto_incr_val(ulonglong val);
+  void update_auto_incr_val_from_field();
+  rocksdb::Status get_datadic_auto_incr(Rdb_transaction *const tx,
+                                        const GL_INDEX_ID &gl_index_id,
+                                        ulonglong *new_val) const;
   longlong update_hidden_pk_val();
   int load_hidden_pk_value() MY_ATTRIBUTE((__warn_unused_result__));
   int read_hidden_pk_id_from_rowkey(longlong *const hidden_pk_id)
