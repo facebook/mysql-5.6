@@ -204,6 +204,38 @@ count(id)
 select count(id) from information_schema.processlist;
 count(id)
 1
+
+# Case 9: Attempt specifying roll without permissions
+
+create user proxyuser;
+SELECT 1;
+ERROR HY000: Lost connection to MySQL server during query
+grant proxy on scriptro to proxyuser;
+SELECT 1;
+1
+1
+SELECT user();
+user()
+scriptro@localhost
+SELECT database();
+database()
+db_rpc
+revoke proxy on scriptro from proxyuser;
+SELECT 1;
+ERROR HY000: Lost connection to MySQL server during query
+create user scriptrw;
+grant proxy on '%' to proxyuser;
+SELECT user();
+user()
+scriptro@localhost
+SELECT user();
+user()
+scriptrw@localhost
+revoke proxy on '%' from proxyuser;
+SELECT user();
+ERROR HY000: Lost connection to MySQL server during query
 drop database db_default;
 drop database db_rpc;
 drop user scriptro;
+drop user scriptrw;
+drop user proxyuser;

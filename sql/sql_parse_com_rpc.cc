@@ -1,4 +1,6 @@
 #include "sql_parse_com_rpc.h"
+
+#include "sql_acl.h"
 #include "srv_session.h"
 
 #ifndef EMBEDDED_LIBRARY
@@ -140,6 +142,19 @@ bool handle_com_rpc(THD *conn_thd, char* packet, uint packet_length,
 
     // update user to the one in rpc attributes
     conn_security_ctx = conn_thd->security_context();
+
+    // Make sure the current user has permission to proxy for the requested
+    // user
+    if (!acl_validate_proxy_user(
+            conn_security_ctx->user, conn_security_ctx->get_host()->c_ptr(),
+            conn_security_ctx->get_ip()->c_ptr(),
+            rpc_role.c_str()))
+    {
+      DBUG_PRINT("error", ("Current user does not have permissions to run "
+                           "queries as '%s'", rpc_role.c_str()));
+      goto done;
+    }
+
     if (srv_session->switch_to_user(rpc_role.c_str(),
           conn_security_ctx->get_host()->c_ptr(),
           conn_security_ctx->get_ip()->c_ptr(), rpc_db.c_str()))
