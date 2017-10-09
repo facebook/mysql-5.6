@@ -426,8 +426,74 @@ eval KILL $rpc_id6;
 select count(id) from information_schema.srv_sessions;
 select count(id) from information_schema.processlist;
 
+--echo
+--echo # Case 9: Attempt specifying roll without permissions
+--echo
+
+# create a proxy user - initially without proxy permission 0 since the
+# 'root' user automatically can proxy as anyone.
+create user proxyuser;
+
+connect (conproxy,localhost,proxyuser,,);
+
+# attempt to run as scriptro from proxyuser - should fail
+query_attrs_add rpc_role scriptro;
+query_attrs_add rpc_db db_rpc;
+--error 2013
+SELECT 1;
+disconnect conproxy;
+
+# now grant proxy rights for scriptro to proxyuser
+connection default;
+grant proxy on scriptro to proxyuser;
+
+# try the to run as proxy user again
+connect (conproxy,localhost,proxyuser,,);
+query_attrs_add rpc_role scriptro;
+query_attrs_add rpc_db db_rpc;
+
+SELECT 1;
+SELECT user();
+SELECT database();
+
+# now revoke the proxy permission for proxyuser on scriptro
+connection default;
+revoke proxy on scriptro from proxyuser;
+
+# proxyuser should no longer have proxy rights on scriptro
+connection conproxy;
+--error 2013
+SELECT 1;
+disconnect conproxy;
+
+# Now try it again with granting proxy privelege on all users
+connection default;
+create user scriptrw;
+grant proxy on '%' to proxyuser;
+
+connect (conproxy,localhost,proxyuser,,);
+query_attrs_add rpc_role scriptro;
+query_attrs_add rpc_db db_rpc;
+SELECT user();
+
+query_attrs_delete rpc_role;
+query_attrs_add rpc_role scriptrw;
+SELECT user();
+
+# Now revoke the proxy privilege
+connection default;
+revoke proxy on '%' from proxyuser;
+
+connection conproxy;
+--error 2013
+SELECT user();
+disconnect conproxy;
+
 # delete all dbs and users
+connection default;
 
 drop database db_default;
 drop database db_rpc;
 drop user scriptro;
+drop user scriptrw;
+drop user proxyuser;

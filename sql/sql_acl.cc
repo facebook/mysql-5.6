@@ -8650,6 +8650,29 @@ acl_find_proxy_user(const char *user, const char *host, const char *ip,
 }
 
 
+/**
+  Validate if a user can proxy as another user
+
+  @param user      the current user (proxy user)
+  @param host      the host of the user to proxy as
+  @param ip        the ip of the user to proxy as
+  @param auth_as   The user we are trying to impersonate (proxied user)
+  @return          flag indicating that the permissions exist
+    @retval true     the permissions exist - accept it
+    @retval false    no permissions exist - reject it
+*/
+bool acl_validate_proxy_user(const char *user, const char *host, const char *ip,
+                             const char *auth_as)
+{
+  bool proxy_used;  // Not referenced
+
+  // If we find a valid match on the proxy permissions or the proxy user and
+  // the proxied user are the same user return true;
+  return acl_find_proxy_user(user, host, ip, auth_as, &proxy_used) != nullptr ||
+      strcmp(user, auth_as) == 0;
+}
+
+
 bool
 acl_check_proxy_grant_access(THD *thd, const char *host, const char *user,
                              bool with_grant)
