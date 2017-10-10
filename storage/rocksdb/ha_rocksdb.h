@@ -681,6 +681,12 @@ class ha_rocksdb : public my_core::handler {
   */
   std::vector<READ_FIELD> m_decoders_vect;
 
+  /*
+    This tells if any field which is part of the key needs to be unpacked and
+    decoded.
+   */
+  bool m_key_requested = false;
+
   /* Setup field_decoders based on type of scan and table->read_set */
   void setup_read_decoders();
 
