@@ -915,7 +915,8 @@ enum {
   KV_FORMAT_VERSION,
   TTL_DURATION,
   INDEX_FLAGS,
-  CF
+  CF,
+  AUTO_INCREMENT
 };
 } // namespace RDB_DDL_FIELD
 
@@ -933,6 +934,8 @@ static ST_FIELD_INFO rdb_i_s_ddl_fields_info[] = {
     ROCKSDB_FIELD_INFO("TTL_DURATION", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
     ROCKSDB_FIELD_INFO("INDEX_FLAGS", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
     ROCKSDB_FIELD_INFO("CF", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("AUTO_INCREMENT", sizeof(uint64_t), MYSQL_TYPE_LONGLONG,
+                       MY_I_S_MAYBE_NULL | MY_I_S_UNSIGNED),
     ROCKSDB_FIELD_INFO_END};
 
 int Rdb_ddl_scanner::add_table(Rdb_tbl_def *tdef) {
@@ -943,6 +946,7 @@ int Rdb_ddl_scanner::add_table(Rdb_tbl_def *tdef) {
   DBUG_ASSERT(m_table != nullptr);
   Field **field = m_table->field;
   DBUG_ASSERT(field != nullptr);
+  const Rdb_dict_manager *dict_manager = rdb_get_dict_manager();
 
   const std::string &dbname = tdef->base_dbname();
   field[RDB_DDL_FIELD::TABLE_SCHEMA]->store(dbname.c_str(), dbname.size(),
@@ -979,6 +983,14 @@ int Rdb_ddl_scanner::add_table(Rdb_tbl_def *tdef) {
     std::string cf_name = kd.get_cf()->GetName();
     field[RDB_DDL_FIELD::CF]->store(cf_name.c_str(), cf_name.size(),
                                     system_charset_info);
+    ulonglong auto_incr;
+    if (dict_manager->get_auto_incr_val(tdef->get_autoincr_gl_index_id(),
+                                        &auto_incr)) {
+      field[RDB_DDL_FIELD::AUTO_INCREMENT]->set_notnull();
+      field[RDB_DDL_FIELD::AUTO_INCREMENT]->store(auto_incr, true);
+    } else {
+      field[RDB_DDL_FIELD::AUTO_INCREMENT]->set_null();
+    }
 
     ret = my_core::schema_table_store_record(m_thd, m_table);
     if (ret)
