@@ -132,6 +132,7 @@ const size_t RDB_SIZEOF_INDEX_INFO_VERSION = sizeof(uint16);
 const size_t RDB_SIZEOF_INDEX_TYPE = sizeof(uchar);
 const size_t RDB_SIZEOF_KV_VERSION = sizeof(uint16);
 const size_t RDB_SIZEOF_INDEX_FLAGS = sizeof(uint32);
+const size_t RDB_SIZEOF_AUTO_INCREMENT_VERSION = sizeof(uint16);
 
 // Possible return values for rdb_index_field_unpack_t functions.
 enum {
@@ -377,6 +378,7 @@ public:
     INDEX_STATISTICS = 6,
     MAX_INDEX_ID = 7,
     DDL_CREATE_INDEX_ONGOING = 8,
+    AUTO_INC = 9,
     END_DICT_INDEX_ID = 255
   };
 
@@ -389,6 +391,7 @@ public:
     DDL_DROP_INDEX_ONGOING_VERSION = 1,
     MAX_INDEX_ID_VERSION = 1,
     DDL_CREATE_INDEX_ONGOING_VERSION = 1,
+    AUTO_INCREMENT_VERSION = 1,
     // Version for index stats is stored in IndexStats struct
   };
 
@@ -997,6 +1000,7 @@ public:
   const std::string &base_dbname() const { return m_dbname; }
   const std::string &base_tablename() const { return m_tablename; }
   const std::string &base_partition() const { return m_partition; }
+  GL_INDEX_ID get_autoincr_gl_index_id();
 };
 
 /*
@@ -1108,6 +1112,8 @@ private:
   static void free_hash_elem(void *const data);
 
   bool validate_schemas();
+
+  bool validate_auto_incr();
 };
 
 /*
@@ -1202,6 +1208,11 @@ private:
   8. Ongoing create index entry
   key: Rdb_key_def::DDL_CREATE_INDEX_ONGOING(0x8) + cf_id + index_id
   value: version
+
+  9. auto_increment values
+  key: Rdb_key_def::AUTO_INC(0x9) + cf_id + index_id
+  value: version, {max auto_increment so far}
+  max auto_increment is 8 bytes
 
   Data dictionary operations are atomic inside RocksDB. For example,
   when creating a table with two indexes, it is necessary to call Put
@@ -1344,6 +1355,12 @@ public:
   void add_stats(rocksdb::WriteBatch *const batch,
                  const std::vector<Rdb_index_stats> &stats) const;
   Rdb_index_stats get_stats(GL_INDEX_ID gl_index_id) const;
+
+  rocksdb::Status put_auto_incr_val(rocksdb::WriteBatchBase *batch,
+                                    const GL_INDEX_ID &gl_index_id,
+                                    ulonglong val) const;
+  bool get_auto_incr_val(const GL_INDEX_ID &gl_index_id,
+                         ulonglong *new_val) const;
 };
 
 struct Rdb_index_info {
@@ -1353,6 +1370,109 @@ struct Rdb_index_info {
   uint16_t m_kv_version = 0;
   uint32 m_index_flags = 0;
   uint64 m_ttl_duration = 0;
+};
+
+/*
+  @brief
+  Merge Operator for the auto_increment value in the system_cf
+
+  @detail
+  This class implements the rocksdb Merge Operator for auto_increment values
+  that are stored to the data dictionary every transaction.
+
+  The actual Merge function is triggered on compaction, memtable flushes, or
+  when get() is called on the same key.
+
+ */
+class Rdb_system_merge_op : public rocksdb::AssociativeMergeOperator {
+ public:
+  /*
+    Updates the new value associated with a key to be the maximum of the
+    passed in value and the existing value.
+
+    @param[IN]  key
+    @param[IN]  existing_value  existing value for a key; nullptr if nonexistent
+    key
+    @param[IN]  value
+    @param[OUT] new_value       new value after Merge
+    @param[IN]  logger
+  */
+  bool Merge(const rocksdb::Slice &key, const rocksdb::Slice *existing_value,
+             const rocksdb::Slice &value, std::string *new_value,
+             rocksdb::Logger *logger) const override {
+    DBUG_ASSERT(new_value != nullptr);
+
+    if (key.size() != Rdb_key_def::INDEX_NUMBER_SIZE * 3 ||
+        GetKeyType(key) != Rdb_key_def::AUTO_INC ||
+        value.size() !=
+            RDB_SIZEOF_AUTO_INCREMENT_VERSION + ROCKSDB_SIZEOF_AUTOINC_VALUE ||
+        GetVersion(value) > Rdb_key_def::AUTO_INCREMENT_VERSION) {
+      abort_with_stack_traces();
+    }
+
+    uint64_t merged_value = Deserialize(value);
+
+    if (existing_value != nullptr) {
+      if (existing_value->size() != RDB_SIZEOF_AUTO_INCREMENT_VERSION +
+                                        ROCKSDB_SIZEOF_AUTOINC_VALUE ||
+          GetVersion(*existing_value) > Rdb_key_def::AUTO_INCREMENT_VERSION) {
+        abort_with_stack_traces();
+      }
+
+      merged_value = std::max(merged_value, Deserialize(*existing_value));
+    }
+    Serialize(merged_value, new_value);
+    return true;
+  }
+
+  virtual const char *Name() const override { return "Rdb_system_merge_op"; }
+
+ private:
+  /*
+    Serializes the integer data to the new_value buffer or the target buffer
+    the merge operator will update to
+   */
+  void Serialize(const uint64_t data, std::string *new_value) const {
+    uchar value_buf[RDB_SIZEOF_AUTO_INCREMENT_VERSION +
+                    ROCKSDB_SIZEOF_AUTOINC_VALUE] = {0};
+    uchar *ptr = value_buf;
+    /* fill in the auto increment version */
+    rdb_netbuf_store_uint16(ptr, Rdb_key_def::AUTO_INCREMENT_VERSION);
+    ptr += RDB_SIZEOF_AUTO_INCREMENT_VERSION;
+    /* fill in the auto increment value */
+    rdb_netbuf_store_uint64(ptr, data);
+    ptr += ROCKSDB_SIZEOF_AUTOINC_VALUE;
+    new_value->assign(reinterpret_cast<char *>(value_buf), ptr - value_buf);
+  }
+
+  /*
+    Gets the value of auto_increment type in the data dictionary from the
+    value slice
+
+    @Note Only to be used on data dictionary keys for the auto_increment type
+   */
+  uint64_t Deserialize(const rocksdb::Slice &s) const {
+    return rdb_netbuf_to_uint64(reinterpret_cast<const uchar *>(s.data()) +
+                                RDB_SIZEOF_AUTO_INCREMENT_VERSION);
+  }
+
+  /*
+    Gets the type of the key of the key in the data dictionary.
+
+    @Note Only to be used on data dictionary keys for the auto_increment type
+   */
+  uint16_t GetKeyType(const rocksdb::Slice &s) const {
+    return rdb_netbuf_to_uint32(reinterpret_cast<const uchar *>(s.data()));
+  }
+
+  /*
+    Gets the version of the auto_increment value in the data dictionary.
+
+    @Note Only to be used on data dictionary value for the auto_increment type
+   */
+  uint16_t GetVersion(const rocksdb::Slice &s) const {
+    return rdb_netbuf_to_uint16(reinterpret_cast<const uchar *>(s.data()));
+  }
 };
 
 } // namespace myrocks
