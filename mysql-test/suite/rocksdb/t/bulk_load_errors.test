@@ -57,6 +57,8 @@ INSERT INTO t1 VALUES(21);
 
 SELECT * FROM t1;
 
+--source include/wait_until_count_sessions.inc
+
 --let SEARCH_FILE=$LOG2
 --let SEARCH_PATTERN=RocksDB: Error 198 finalizing last SST file while disconnecting
 --source include/search_pattern_in_file.inc
