@@ -1760,6 +1760,7 @@ protected:
   ulonglong m_update_count = 0;
   ulonglong m_delete_count = 0;
   ulonglong m_lock_count = 0;
+  std::unordered_map<GL_INDEX_ID, ulonglong> m_auto_incr_map;
 
   bool m_is_delayed_snapshot = false;
   bool m_is_two_phase = false;
@@ -1792,7 +1793,30 @@ protected:
   get_iterator(const rocksdb::ReadOptions &options,
                rocksdb::ColumnFamilyHandle *column_family) = 0;
 
-public:
+  /*
+    @detail
+      This function takes in the WriteBatch of the transaction to add
+      all the AUTO_INCREMENT merges. It does so by iterating through
+      m_auto_incr_map and then constructing key/value pairs to call merge upon.
+
+    @param wb
+   */
+  rocksdb::Status merge_auto_incr_map(rocksdb::WriteBatchBase *const wb) {
+    DBUG_EXECUTE_IF("myrocks_autoinc_upgrade", return rocksdb::Status::OK(););
+
+    // Iterate through the merge map merging all keys into data dictionary.
+    rocksdb::Status s;
+    for (auto &it : m_auto_incr_map) {
+      s = dict_manager.put_auto_incr_val(wb, it.first, it.second);
+      if (!s.ok()) {
+        return s;
+      }
+    }
+    m_auto_incr_map.clear();
+    return s;
+  }
+
+ public:
   const char *m_mysql_log_file_name;
   my_off_t m_mysql_log_offset;
   const char *m_mysql_gtid;
@@ -2095,6 +2119,20 @@ public:
     return false;
   }
 
+  void set_auto_incr(const GL_INDEX_ID &gl_index_id, ulonglong curr_id) {
+    m_auto_incr_map[gl_index_id] =
+        std::max(m_auto_incr_map[gl_index_id], curr_id);
+  }
+
+#ifndef NDEBUG
+  ulonglong get_auto_incr(const GL_INDEX_ID &gl_index_id) {
+    if (m_auto_incr_map.count(gl_index_id) > 0) {
+      return m_auto_incr_map[gl_index_id];
+    }
+    return 0;
+  }
+#endif
+
   virtual rocksdb::Status put(rocksdb::ColumnFamilyHandle *const column_family,
                               const rocksdb::Slice &key,
                               const rocksdb::Slice &value) = 0;
@@ -2253,6 +2291,12 @@ private:
       return false;
     }
 
+    s = merge_auto_incr_map(m_rocksdb_tx->GetWriteBatch()->GetWriteBatch());
+    if (!s.ok()) {
+      rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
+      return false;
+    }
+
     s = m_rocksdb_tx->Prepare();
     if (!s.ok()) {
       rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
@@ -2263,13 +2307,24 @@ private:
 
   bool commit_no_binlog() override {
     bool res = false;
-    release_snapshot();
-    const rocksdb::Status s = m_rocksdb_tx->Commit();
+    rocksdb::Status s;
+
+    s = merge_auto_incr_map(m_rocksdb_tx->GetWriteBatch()->GetWriteBatch());
     if (!s.ok()) {
       rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
       res = true;
+      goto error;
     }
 
+    release_snapshot();
+    s = m_rocksdb_tx->Commit();
+    if (!s.ok()) {
+      rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
+      res = true;
+      goto error;
+    }
+
+error:
     /* Save the transaction object to be reused */
     release_tx();
 
@@ -2290,6 +2345,7 @@ public:
     m_update_count = 0;
     m_delete_count = 0;
     m_lock_count = 0;
+    m_auto_incr_map.clear();
     m_ddl_transaction = false;
     if (m_rocksdb_tx) {
       release_snapshot();
@@ -2535,13 +2591,24 @@ private:
 
   bool commit_no_binlog() override {
     bool res = false;
-    release_snapshot();
-    const rocksdb::Status s =
-        rdb->GetBaseDB()->Write(write_opts, m_batch->GetWriteBatch());
+    rocksdb::Status s;
+
+    s = merge_auto_incr_map(m_batch->GetWriteBatch());
     if (!s.ok()) {
       rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
       res = true;
+      goto error;
     }
+
+    release_snapshot();
+
+    s = rdb->GetBaseDB()->Write(write_opts, m_batch->GetWriteBatch());
+    if (!s.ok()) {
+      rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
+      res = true;
+      goto error;
+    }
+error:
     reset();
 
     m_write_count = 0;
@@ -4463,46 +4530,6 @@ std::vector<std::string> Rdb_open_tables_map::get_table_names(void) const {
   return names;
 }
 
-void ha_rocksdb::load_auto_incr_value() {
-  const int save_active_index = active_index;
-  active_index = table->s->next_number_index;
-  const uint8 save_table_status = table->status;
-
-  /*
-    load_auto_incr_value() may be called by statements that
-    do not execute implicit commits (i.e. SHOW CREATE TABLE).
-    index_last() creates a snapshot. When a snapshot is created
-    here, it has to be released as well. (GitHub issue#189)
-  */
-  m_key_requested = true;  // we need to unpack the key to load the value
-  Rdb_transaction *const tx = get_or_create_tx(table->in_use);
-  const bool is_new_snapshot = !tx->has_snapshot();
-
-  // Do a lookup. We only need index column, so it should be index-only.
-  // (another reason to make it index-only is that table->read_set is
-  //  not set appropriately and non-index-only lookup will not read the value)
-  const bool save_keyread_only = m_keyread_only;
-  m_keyread_only = true;
-
-  if (!index_last(table->record[0]))
-    update_auto_incr_val();
-
-  m_keyread_only = save_keyread_only;
-  if (is_new_snapshot) {
-    tx->release_snapshot();
-  }
-
-  table->status = save_table_status;
-  active_index = save_active_index;
-
-  /*
-    Do what ha_rocksdb::index_end() does.
-    (Why don't we use index_init/index_end? class handler defines index_init
-     as private, for some reason).
-  */
-  release_scan_iterator();
-}
-
 /*
   Inspired by innobase_get_int_col_max_value from InnoDB. This returns the
   maximum value a type can take on.
@@ -4547,13 +4574,103 @@ static ulonglong rdb_get_int_col_max_value(const Field *field) {
   return max_value;
 }
 
-/* Get PK value from table->record[0]. */
-/*
-  TODO(alexyang): No existing support for auto_increment on non-pk columns, see
-  end of ha_rocksdb::create. Also see opened issue here:
-  https://github.com/facebook/mysql-5.6/issues/153
-*/
-void ha_rocksdb::update_auto_incr_val() {
+void ha_rocksdb::load_auto_incr_value() {
+  ulonglong dd_val = 0;
+  bool validate_last = false;
+  bool autoinc_upgrade_test = false;
+  DBUG_EXECUTE_IF("myrocks_autoinc_upgrade", autoinc_upgrade_test = true;);
+#ifndef NDEBUG
+  validate_last = true;
+#endif
+
+  if (!autoinc_upgrade_test &&
+      dict_manager.get_auto_incr_val(m_tbl_def->get_autoincr_gl_index_id(),
+                                     &dd_val)) {
+    update_auto_incr_val(dd_val);
+  }
+
+  // If we find nothing in the data dictionary, or if we are in debug mode,
+  // then call index_last to get the last value.
+  //
+  // This is needed when upgrading from a server that did not support
+  // persistent auto_increment, or when doing an alter table to add
+  // auto_increment property.
+  //
+  // For debug mode, we are just verifying that the data dictionary value is
+  // greater than or equal to the maximum value in the table.
+  if (dd_val == 0 || validate_last) {
+    const int save_active_index = active_index;
+    active_index = table->s->next_number_index;
+    const uint8 save_table_status = table->status;
+
+    Rdb_transaction *const tx = get_or_create_tx(table->in_use);
+    const bool is_new_snapshot = !tx->has_snapshot();
+    if (is_new_snapshot) {
+      tx->acquire_snapshot(true);
+    }
+
+    // Do a lookup. We only need index column, so it should be index-only.
+    // (another reason to make it index-only is that table->read_set is not set
+    // appropriately and non-index-only lookup will not read the value)
+    const bool save_keyread_only = m_keyread_only;
+    m_keyread_only = true;
+    m_key_requested = true;
+
+    if (!index_last(table->record[0])) {
+#ifndef NDEBUG
+      Field *field =
+          table->key_info[table->s->next_number_index].key_part[0].field;
+      ulonglong max_val = rdb_get_int_col_max_value(field);
+      my_bitmap_map *const old_map =
+          dbug_tmp_use_all_columns(table, table->read_set);
+      ulonglong last_val = field->val_int();
+      if (validate_last && last_val <= max_val) {
+        const auto &gl_index_id = m_tbl_def->get_autoincr_gl_index_id();
+        // Reload data dictionary value in case value has changed since
+        // snapshot was acquired.
+        if (dict_manager.get_auto_incr_val(gl_index_id, &dd_val) &&
+            tx->get_auto_incr(gl_index_id) == 0) {
+          DBUG_ASSERT(dd_val >= last_val);
+        }
+      }
+      dbug_tmp_restore_column_map(table->read_set, old_map);
+#endif
+
+      // If data dictionary is empty, but rows are found, then this might be
+      // a recently upgraded table. Use the value obtained from index_last.
+      if (dd_val == 0) {
+        update_auto_incr_val_from_field();
+      }
+    }
+
+    m_keyread_only = save_keyread_only;
+    if (is_new_snapshot) {
+      tx->release_snapshot();
+    }
+
+    table->status = save_table_status;
+    active_index = save_active_index;
+
+    /*
+      Do what ha_rocksdb::index_end() does.
+      (Why don't we use index_init/index_end? class handler defines index_init
+      as private, for some reason).
+      */
+    release_scan_iterator();
+  }
+}
+
+void ha_rocksdb::update_auto_incr_val(ulonglong val) {
+  ulonglong auto_incr_val = m_tbl_def->m_auto_incr_val;
+  while (
+      auto_incr_val < val &&
+      !m_tbl_def->m_auto_incr_val.compare_exchange_weak(auto_incr_val, val)) {
+    // Do nothing - just loop until auto_incr_val is >= val or we successfully
+    // set it
+  }
+}
+
+void ha_rocksdb::update_auto_incr_val_from_field() {
   Field *field;
   ulonglong new_val, max_val;
   field = table->key_info[table->s->next_number_index].key_part[0].field;
@@ -4571,13 +4688,11 @@ void ha_rocksdb::update_auto_incr_val() {
 
   // Only update if positive value was set for auto_incr column.
   if (new_val <= max_val) {
-    ulonglong auto_incr_val = m_tbl_def->m_auto_incr_val;
-    while (auto_incr_val < new_val &&
-           !m_tbl_def->m_auto_incr_val.compare_exchange_weak(auto_incr_val,
-                                                             new_val)) {
-      // Do nothing - just loop until auto_incr_val is >= new_val or
-      // we successfully set it
-    }
+    Rdb_transaction *const tx = get_or_create_tx(table->in_use);
+    tx->set_auto_incr(m_tbl_def->get_autoincr_gl_index_id(), new_val);
+
+    // Update the in memory auto_incr value in m_tbl_def.
+    update_auto_incr_val(new_val);
   }
 }
 
@@ -6639,6 +6754,20 @@ int ha_rocksdb::create(const char *const name, TABLE *const table_arg,
 
   m_pk_descr = m_key_descr_arr[pk_index(table_arg, m_tbl_def)];
 
+  if (create_info->auto_increment_value) {
+    bool autoinc_upgrade_test = false;
+    m_tbl_def->m_auto_incr_val = create_info->auto_increment_value;
+    DBUG_EXECUTE_IF("myrocks_autoinc_upgrade", autoinc_upgrade_test = true;);
+    if (!autoinc_upgrade_test) {
+      auto s = dict_manager.put_auto_incr_val(
+          batch, m_tbl_def->get_autoincr_gl_index_id(),
+          m_tbl_def->m_auto_incr_val);
+      if (!s.ok()) {
+        goto error;
+      }
+    }
+  }
+
   dict_manager.lock();
   err = ddl_manager.put_and_write(m_tbl_def, batch);
   if (err != HA_EXIT_SUCCESS) {
@@ -6654,23 +6783,6 @@ int ha_rocksdb::create(const char *const name, TABLE *const table_arg,
 
   dict_manager.unlock();
 
-  if (create_info->auto_increment_value)
-    m_tbl_def->m_auto_incr_val = create_info->auto_increment_value;
-
-  /*
-    We only support auto_increment at start of the PRIMARY KEY.
-  */
-  // Field *field;
-  // if ((field= table_arg->next_number_field))
-  /* TODO mdcallag: disable this for now to let UNIQUE indexes kind of work
-  if ((field= table_arg->found_next_number_field))
-  {
-    int pk= table_arg->s->primary_key;
-    Field *pk_field= table_arg->key_info[pk].key_part[0].field;
-    if (field->field_index !=  pk_field->field_index)
-      DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
-  }
-  */
   DBUG_RETURN(HA_EXIT_SUCCESS);
 
 error:
@@ -8749,7 +8861,7 @@ int ha_rocksdb::update_pk(const Rdb_key_def &kd,
   }
 
   if (table->next_number_field) {
-    update_auto_incr_val();
+    update_auto_incr_val_from_field();
   }
 
   int rc = HA_EXIT_SUCCESS;
@@ -10080,6 +10192,7 @@ int ha_rocksdb::delete_table(const char *const tablename) {
     the persistent data dictionary).
   */
   ddl_manager.remove(tbl, batch, true);
+
   int err = dict_manager.commit(batch);
   if (err) {
     DBUG_RETURN(err);
@@ -10192,6 +10305,7 @@ int ha_rocksdb::rename_table(const char *const from, const char *const to) {
   const std::unique_ptr<rocksdb::WriteBatch> wb = dict_manager.begin();
   rocksdb::WriteBatch *const batch = wb.get();
   dict_manager.lock();
+
   if (ddl_manager.rename(from_str, to_str, batch)) {
     rc = HA_ERR_NO_SUCH_TABLE;
   } else {
