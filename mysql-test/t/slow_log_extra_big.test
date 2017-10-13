@@ -50,19 +50,25 @@ select count(*) from big_table_slow where id >100;
 
 select count(*) from big_table_slow where id < 100;
 
+connect (con2, localhost,root,,);
+set session long_query_time = 10000;
+query_attrs_add traceid foobar;
+select count(*) from big_table_slow where id > 300;
+query_attrs_delete traceid;
+
 # Wait for all output lines to show up in the slow log file
-let $file_lines_count= 6;
+let $file_lines_count= 7;
 let $file_lines_pattern= ^# Query_time;
-let $file_lines_filename=
-    $MYSQLTEST_VARDIR/mysqld.1/data/slow_log_extra_big-slow.log;
+let $file_lines_filename= $MYSQLTEST_VARDIR/mysqld.1/data/slow_log_extra_big-slow.log;
 --source include/wait_for_file_lines.inc
 
 --echo # Cleanup
 
 connection default;
 set global slow_query_log_file = @my_slow_logname;
-set global long_query_time=@my_long_query_time;
+set global long_query_time = @my_long_query_time;
 
+disconnect con2;
 disconnect con1;
 disconnect con;
 --source include/wait_until_count_sessions.inc
@@ -72,5 +78,10 @@ drop table big_table_slow;
 let $slow_log_output_filename = $file_lines_filename;
 let $slow_log_output_count = $file_lines_count;
 --source include/validate_slow_log_output.inc
+
+# Check if our Trace_Id is included the log results
+let SEARCH_FILE = $file_lines_filename;
+let SEARCH_PATTERN= Trace_Id: foobar;
+--source include/search_pattern_in_file.inc
 
 --exit
