@@ -240,9 +240,9 @@ public:
     if  X is a prefix of Y, then we consider that X = Y.
   */
   // b describes the lookup key, which can be a prefix of a.
+  // b might be outside of the index_number range, if successor() is called.
   int cmp_full_keys(const rocksdb::Slice &a, const rocksdb::Slice &b) const {
     DBUG_ASSERT(covers_key(a));
-    DBUG_ASSERT(covers_key(b));
 
     return memcmp(a.data(), b.data(), std::min(a.size(), b.size()));
   }
