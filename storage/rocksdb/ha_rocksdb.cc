@@ -7085,7 +7085,7 @@ int ha_rocksdb::read_row_from_secondary_key(uchar *const buf,
 
   bool covered_lookup =
       m_keyread_only || kd.covers_lookup(table, &value, &m_lookup_bitmap);
-  if (covered_lookup && m_lock_rows == RDB_LOCK_NONE && !has_hidden_pk(table)) {
+  if (covered_lookup && m_lock_rows == RDB_LOCK_NONE) {
     pk_size =
         kd.get_primary_key_tuple(table, *m_pk_descr, &rkey, m_pk_packed_tuple);
     if (pk_size == RDB_INVALID_KEY_LEN) {
@@ -7207,8 +7207,7 @@ int ha_rocksdb::secondary_index_read(const int keyno, uchar *const buf) {
       bool covered_lookup =
           m_keyread_only || m_key_descr_arr[keyno]->covers_lookup(
                                 table, &value, &m_lookup_bitmap);
-      if (covered_lookup && m_lock_rows == RDB_LOCK_NONE &&
-          !has_hidden_pk(table)) {
+      if (covered_lookup && m_lock_rows == RDB_LOCK_NONE) {
         rc = m_key_descr_arr[keyno]->unpack_record(
             table, buf, &key, &value, m_verify_row_debug_checksums);
         global_stats.covered_secondary_key_lookups.inc();
