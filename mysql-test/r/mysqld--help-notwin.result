@@ -1254,10 +1254,6 @@ The following options may be given as the first argument:
  Sync on transaction commit. Similar to
  innodb_flush_log_at_trx_commit. 1: sync on commit, 0,2:
  not sync on commit
- --rocksdb-flush-memtable-on-analyze 
- Forces memtable flush on ANALZYE table to get accurate
- cardinality
- (Defaults to on; use --skip-rocksdb-flush-memtable-on-analyze to disable.)
  --rocksdb-force-compute-memtable-stats 
  Force to always compute memtable stats
  (Defaults to on; use --skip-rocksdb-force-compute-memtable-stats to disable.)
@@ -2155,7 +2151,6 @@ rocksdb-enable-ttl-read-filtering TRUE
 rocksdb-enable-write-thread-adaptive-yield FALSE
 rocksdb-error-if-exists FALSE
 rocksdb-flush-log-at-trx-commit 1
-rocksdb-flush-memtable-on-analyze TRUE
 rocksdb-force-compute-memtable-stats TRUE
 rocksdb-force-compute-memtable-stats-cachetime 60000000
 rocksdb-force-flush-memtable-and-lzero-now FALSE
