@@ -232,6 +232,14 @@ public:
     *size = INDEX_NUMBER_SIZE;
   }
 
+  /* Get the first key that you need to position at to start iterating.
+     Returns a "supremum" or "infimum" for this index based on collation order
+  */
+  inline void get_first_key(uchar *const key, uint *const size) const {
+    return m_is_reverse_cf ? get_supremum_key(key, size)
+                           : get_infimum_key(key, size);
+  }
+
   /* Make a key that is right after the given key. */
   static int successor(uchar *const packed_tuple, const uint &len);
 
