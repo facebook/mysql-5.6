@@ -83,6 +83,7 @@ SET(SQL_SHARED_SOURCES
   gcalc_tools.cc
   gstream.cc
   handler.cc
+  hh_wheel_timer.cc
   hostname.cc
   hyperloglog.cc
   init.cc
@@ -206,6 +207,7 @@ SET(SQL_SHARED_SOURCES
   table.cc
   table_cache.cc
   thr_malloc.cc 
+  timer.cc
   transaction.cc
   tztime.cc
   uniques.cc
