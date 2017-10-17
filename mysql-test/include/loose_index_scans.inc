@@ -38,8 +38,11 @@ insert into t select a.a, b.a, c.a, d.a, d.a from a, b, c, d;
 
 drop temporary table a, b, c, d;
 
+if ($engine==rocksdb)
+{
+set global rocksdb_force_flush_memtable_now=1;
+}
 --enable_query_log
-
 analyze table t;
 show indexes from t;
 
