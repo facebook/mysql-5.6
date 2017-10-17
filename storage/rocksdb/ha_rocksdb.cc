@@ -1390,11 +1390,6 @@ static MYSQL_SYSVAR_BOOL(
     rocksdb_force_flush_memtable_and_lzero_now,
     rocksdb_force_flush_memtable_and_lzero_now_stub, FALSE);
 
-static MYSQL_THDVAR_BOOL(
-    flush_memtable_on_analyze, PLUGIN_VAR_RQCMDARG,
-    "Forces memtable flush on ANALZYE table to get accurate cardinality",
-    nullptr, nullptr, true);
-
 static MYSQL_SYSVAR_UINT(
     seconds_between_stat_computes, rocksdb_seconds_between_stat_computes,
     PLUGIN_VAR_RQCMDARG,
@@ -1632,7 +1627,6 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(debug_ttl_ignore_pk),
     MYSQL_SYSVAR(reset_stats),
     MYSQL_SYSVAR(io_write_timeout),
-    MYSQL_SYSVAR(flush_memtable_on_analyze),
     MYSQL_SYSVAR(seconds_between_stat_computes),
 
     MYSQL_SYSVAR(compaction_sequential_deletes),
@@ -8065,11 +8059,7 @@ int ha_rocksdb::index_first_intern(uchar *const buf) {
   DBUG_ASSERT(key != nullptr);
 
   const Rdb_key_def &kd = *m_key_descr_arr[active_index];
-  if (kd.m_is_reverse_cf) {
-    kd.get_supremum_key(key, &key_size);
-  } else {
-    kd.get_infimum_key(key, &key_size);
-  }
+  kd.get_first_key(key, &key_size);
 
   rocksdb::Slice index_key((const char *)key, key_size);
 
@@ -9190,10 +9180,7 @@ void ha_rocksdb::release_scan_iterator() {
 void ha_rocksdb::setup_iterator_for_rnd_scan() {
   uint key_size;
 
-  if (m_pk_descr->m_is_reverse_cf)
-    m_pk_descr->get_supremum_key(m_pk_packed_tuple, &key_size);
-  else
-    m_pk_descr->get_infimum_key(m_pk_packed_tuple, &key_size);
+  m_pk_descr->get_first_key(m_pk_packed_tuple, &key_size);
 
   rocksdb::Slice table_key((const char *)m_pk_packed_tuple, key_size);
 
@@ -9599,6 +9586,10 @@ int ha_rocksdb::info(uint flag) {
         uint64_t memtableCount;
         uint64_t memtableSize;
 
+        // the stats below are calculated from skiplist wich is a probablistic
+        // data structure, so the results vary between test runs
+        // it also can return 0 for quite a large tables which means that
+        // cardinality for memtable only indxes will be reported as 0
         rdb->GetApproximateMemTableStats(m_pk_descr->get_cf(), r,
                                          &memtableCount, &memtableSize);
 
@@ -9632,7 +9623,6 @@ int ha_rocksdb::info(uint flag) {
   if (flag & HA_STATUS_CONST) {
     ref_length = m_pk_descr->max_storage_fmt_length();
 
-    // TODO: Needs to reimplement after having real index statistics
     for (uint i = 0; i < m_tbl_def->m_key_count; i++) {
       if (is_hidden_pk(i, table, m_tbl_def)) {
         continue;
@@ -10549,24 +10539,21 @@ int ha_rocksdb::calculate_stats(const TABLE *const table_arg, THD *const thd,
   std::unordered_map<rocksdb::ColumnFamilyHandle *, std::vector<rocksdb::Range>>
       ranges;
   std::unordered_set<GL_INDEX_ID> ids_to_check;
-  std::unordered_map<GL_INDEX_ID, uint> ids_to_keyparts;
   std::vector<uchar> buf(table_arg->s->keys * 2 *
                          Rdb_key_def::INDEX_NUMBER_SIZE);
+  std::unordered_map<GL_INDEX_ID, Rdb_index_stats> stats;
   for (uint i = 0; i < table_arg->s->keys; i++) {
     const auto bufp = &buf[i * 2 * Rdb_key_def::INDEX_NUMBER_SIZE];
     const Rdb_key_def &kd = *m_key_descr_arr[i];
+    const GL_INDEX_ID index_id = kd.get_gl_index_id();
     ranges[kd.get_cf()].push_back(get_range(i, bufp));
-    ids_to_check.insert(kd.get_gl_index_id());
-    ids_to_keyparts[kd.get_gl_index_id()] = kd.get_key_parts();
-  }
 
-  // for analyze statements, force flush on memtable to get accurate cardinality
-  Rdb_cf_manager &cf_manager = rdb_get_cf_manager();
-  if (thd != nullptr && THDVAR(thd, flush_memtable_on_analyze) &&
-      !rocksdb_pause_background_work) {
-    for (auto it : ids_to_check) {
-      rdb->Flush(rocksdb::FlushOptions(), cf_manager.get_cf(it.cf_id));
-    }
+    ids_to_check.insert(index_id);
+    // Initialize the stats to 0. If there are no files that contain
+    // this gl_index_id, then 0 should be stored for the cached stats.
+    stats[index_id] = Rdb_index_stats(index_id);
+    DBUG_ASSERT(kd.get_key_parts() > 0);
+    stats[index_id].m_distinct_keys_per_prefix.resize(kd.get_key_parts());
   }
 
   // get RocksDB table properties for these ranges
@@ -10583,15 +10570,6 @@ int ha_rocksdb::calculate_stats(const TABLE *const table_arg, THD *const thd,
   }
 
   int num_sst = 0;
-  // group stats per index id
-  std::unordered_map<GL_INDEX_ID, Rdb_index_stats> stats;
-  for (const auto &it : ids_to_check) {
-    // Initialize the stats to 0. If there are no files that contain
-    // this gl_index_id, then 0 should be stored for the cached stats.
-    stats[it] = Rdb_index_stats(it);
-    DBUG_ASSERT(ids_to_keyparts.count(it) > 0);
-    stats[it].m_distinct_keys_per_prefix.resize(ids_to_keyparts[it]);
-  }
   for (const auto &it : props) {
     std::vector<Rdb_index_stats> sst_stats;
     Rdb_tbl_prop_coll::read_stats_from_tbl_props(it.second, &sst_stats);
@@ -10616,6 +10594,53 @@ int ha_rocksdb::calculate_stats(const TABLE *const table_arg, THD *const thd,
       stats[it1.m_gl_index_id].merge(it1, true, kd->max_storage_fmt_length());
     }
     num_sst++;
+  }
+
+  //  calculate memtable cardinality
+  Rdb_tbl_card_coll cardinality_collector(rocksdb_table_stats_sampling_pct);
+  auto read_opts = rocksdb::ReadOptions();
+  read_opts.read_tier = rocksdb::ReadTier::kMemtableTier;
+  for (uint i = 0; i < table_arg->s->keys; i++) {
+    const Rdb_key_def &kd = *m_key_descr_arr[i];
+    Rdb_index_stats &stat = stats[kd.get_gl_index_id()];
+
+    uchar r_buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2];
+    auto r = get_range(i, r_buf);
+    uint64_t memtableCount;
+    uint64_t memtableSize;
+    rdb->GetApproximateMemTableStats(kd.get_cf(), r, &memtableCount,
+                                     &memtableSize);
+    if (memtableCount < (uint64_t)stat.m_rows / 10) {
+      // skip tables that already have enough stats from SST files to reduce
+      // overhead and avoid degradation of big tables stats by sampling from
+      // relatively tiny (less than 10% of full data set) memtable dataset
+      continue;
+    }
+
+    std::unique_ptr<rocksdb::Iterator> it = std::unique_ptr<rocksdb::Iterator>(
+        rdb->NewIterator(read_opts, kd.get_cf()));
+
+    uchar *first_key;
+    uint key_size;
+    if (is_pk(i, table, m_tbl_def)) {
+      first_key = m_pk_packed_tuple;
+    } else {
+      first_key = m_sk_packed_tuple;
+    }
+    kd.get_first_key(first_key, &key_size);
+    rocksdb::Slice first_index_key((const char *)first_key, key_size);
+
+    cardinality_collector.Reset();
+    for (it->Seek(first_index_key); is_valid(it.get()); it->Next()) {
+      const rocksdb::Slice key = it->key();
+      if (!kd.covers_key(key)) {
+        break;  // end of this index
+      }
+      stat.m_rows++;
+
+      cardinality_collector.ProcessKey(key, &kd, &stat);
+    }
+    cardinality_collector.AdjustStats(&stat);
   }
 
   // set and persist new stats
