@@ -19,6 +19,7 @@ mysqld_ld_preload=
 mysqld_ld_library_path=
 flush_caches=0
 numa_interleave=0
+numa_nodebind=
 
 # Initial logging status: error log is not open, and not using syslog
 logging=init
@@ -87,6 +88,7 @@ Usage: $0 [OPTIONS]
   --flush-caches             Flush and purge buffers/caches
   --numa-interleave          Run mysqld with its memory interleaved
                              on all CPUs
+  --numa-nodebind            Run mysqld with numa binding to one socket
 
 All other options are passed to the mysqld program.
 
@@ -261,6 +263,7 @@ parse_arguments() {
       --timezone=*) TZ="$val"; export TZ; ;;
       --flush-caches) flush_caches=1 ;;
       --numa-interleave) numa_interleave=1 ;;
+      --numa-nodebind=*) numa_nodebind="$val" ;;
 
       --help) usage ;;
 
@@ -885,6 +888,30 @@ then
 elif test $numa_interleave -eq 1
 then
   log_error "--numa-interleave is not supported on this platform"
+  exit 1
+fi
+
+if @TARGET_LINUX@ && test ! -z "$numa_nodebind"
+then
+  # Locate numactl, ensure it exists.
+  if ! my_which numactl > /dev/null 2>&1
+  then
+    log_error "numactl command not found, required for --numa-nodebind"
+    exit 1
+  fi
+
+  # Attempt to run a command, ensure it works.
+  if ! numactl --cpunodebind=$numa_nodebind --preferred=$numa_nodebind true
+  then
+    log_error "numactl failed, check if numa-nodebind value is correct"
+    exit 1
+  fi
+
+  # Launch mysqld with numactl.
+  cmd="$cmd numactl --cpunodebind=$numa_nodebind --preferred=$numa_nodebind"
+elif test ! -z "$numa_nodebind"
+then
+  log_error "--numa-nodebind is not supported on this platform"
   exit 1
 fi
 
