@@ -5114,7 +5114,7 @@ void Rdb_dict_manager::add_stats(
     // IndexStats::materialize takes complete care of serialization including
     // storing the version
     const auto value =
-        Rdb_index_stats::materialize(std::vector<Rdb_index_stats>{it}, 1.);
+        Rdb_index_stats::materialize(std::vector<Rdb_index_stats>{it});
 
     batch->Put(m_system_cfh, rocksdb::Slice((char *)key_buf, sizeof(key_buf)),
                value);
