@@ -28,6 +28,7 @@
 /* This indicates whether semi-synchronous replication is enabled. */
 char rpl_semi_sync_master_enabled;
 unsigned long rpl_semi_sync_master_timeout;
+char rpl_semi_sync_master_crash_if_active_trxs;
 unsigned long rpl_semi_sync_master_trace_level;
 char rpl_semi_sync_master_status                    = 0;
 unsigned long rpl_semi_sync_master_yes_transactions = 0;
@@ -907,6 +908,13 @@ l_end:
 int ReplSemiSyncMaster::switch_off()
 {
   const char *kWho = "ReplSemiSyncMaster::switch_off";
+
+  if (rpl_semi_sync_master_crash_if_active_trxs && !active_tranxs_->is_empty())
+  {
+    sql_print_error("Force shutdown: Semi-sync master is being switched off "
+                    "while there are active un-acked transactions");
+    exit(0);
+  }
 
   function_enter(kWho);
   state_ = false;

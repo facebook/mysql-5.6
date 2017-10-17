@@ -18,6 +18,7 @@
 
 #include "semisync_slave.h"
 #include <mysql.h>
+#include <debug_sync.h>
 
 static ReplSemiSyncSlave repl_semisync;
 
@@ -64,6 +65,7 @@ int repl_semi_slave_queue_event(Binlog_relay_IO_param *param,
 {
   if (rpl_semi_sync_slave_status && semi_sync_need_reply)
   {
+      DBUG_EXECUTE_IF("dont_send_semi_sync_reply", { return 0; });
     /*
       We deliberately ignore the error in slaveReply, such error
       should not cause the slave IO thread to stop, and the error
