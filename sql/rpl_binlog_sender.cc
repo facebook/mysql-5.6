@@ -46,6 +46,7 @@
 #include "mysql/components/services/psi_stage_bits.h"
 #include "mysql/psi/mysql_file.h"
 #include "mysql/psi/mysql_mutex.h"
+#include "mysql/psi/mysql_socket.h"
 #include "sql/binlog_reader.h"
 #include "sql/debug_sync.h"  // debug_sync_set_action
 #include "sql/derror.h"      // ER_THD
@@ -130,6 +131,90 @@ Binlog_sender::Binlog_sender(THD *thd, const char *start_file,
       m_orig_query(NULL_CSTR),
       m_skip_state_update(0) {}
 
+bool Binlog_sender::get_dscp_value(int &ret_val) {
+  ret_val = 0;
+  auto dscp_it = m_thd->connection_attrs_map.find("dscp_on_socket");
+  if (m_thd->variables.dscp_on_socket == 0 &&
+      dscp_it == m_thd->connection_attrs_map.end())
+    return false;
+
+  int dscp_val;
+  if ((dscp_val = m_thd->variables.dscp_on_socket) != 0) {
+    if (dscp_val >= 64 || dscp_val < 0) {
+      // NO_LINT_DEBUG
+      sql_print_warning("Invalid DSCP_QOS value in session var: %d", dscp_val);
+      return false;
+    }
+    ret_val = dscp_val;
+    return true;
+  }
+
+  DBUG_ASSERT(dscp_it != m_thd->connection_attrs_map.end());
+
+  const char *dscp_str = dscp_it->second.c_str();
+  const char *tmp = (char *)(dscp_str + MY_MIN(3, dscp_it->second.length()));
+  int res = 0;
+  dscp_val = (int)my_strtoll10(dscp_str, &tmp, &res);
+  if (res != 0 || dscp_val < 0 || dscp_val >= 64) {
+    // NO_LINT_DEBUG
+    sql_print_warning("Invalid DSCP_QOS value in conn attribs: %s", dscp_str);
+    return false;
+  }
+
+  ret_val = dscp_val;
+  return true;
+}
+
+// set the DSCP parameters on the binlog socket.
+bool Binlog_sender::set_dscp(void) {
+  NET *net = m_thd->get_protocol_classic()->get_net();
+
+  int dscp_val = 0;
+  bool dscp_set = get_dscp_value(dscp_val);
+  if (!dscp_set) return true;
+
+  int tos = dscp_val << 2;
+
+  // figure out what domain is the socket in
+  uint16_t test_family;
+  socklen_t len = sizeof(test_family);
+  int res = mysql_socket_getsockopt(net->vio->mysql_socket, SOL_SOCKET,
+                                    SO_DOMAIN, (void *)&test_family, &len);
+
+  // Lets fail, if we can't determine IPV6 vs IPV4
+  if (res != 0) {
+    // NO_LINT_DEBUG
+    sql_print_warning(
+        "Failed to get socket domain "
+        "while adjusting DSCP_QOS (error: %s)",
+        strerror(errno));
+    return false;
+  }
+
+  if (test_family == AF_INET6) {
+    res = mysql_socket_setsockopt(net->vio->mysql_socket, IPPROTO_IPV6,
+                                  IPV6_TCLASS, &tos, sizeof(tos));
+  } else if (test_family == AF_INET) {
+    res = mysql_socket_setsockopt(net->vio->mysql_socket, IPPROTO_IP, IP_TOS,
+                                  &tos, sizeof(tos));
+  } else {
+    // NO_LINT_DEBUG
+    sql_print_warning("Failed to get socket family %d", test_family);
+    return false;
+  }
+
+  if (res != 0) {
+    // NO_LINT_DEBUG
+    sql_print_warning(
+        "Failed to set TOS/TCLASS "
+        "with (error: %s) DSCP: %d.",
+        strerror(errno), tos);
+    return false;
+  }
+
+  return true;
+}
+
 void Binlog_sender::init() {
   DBUG_ENTER("Binlog_sender::init");
   THD *thd = m_thd;
@@ -199,6 +284,7 @@ void Binlog_sender::init() {
        ))
     sql_print_warning("Failed to set SO_SNDBUF with (error: %s).",
                       strerror(errno));
+  (void)set_dscp();
 
   init_checksum_alg();
   /*

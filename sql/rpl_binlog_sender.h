@@ -484,6 +484,20 @@ class Binlog_sender : Gtid_mode_copy {
    @param log_pos       -  (IN)  binlog position
   */
   void processlist_slave_offset(const char *log_file_name, my_off_t log_pos);
+
+  /**
+   Sets DSCP parameters on the binlog socket.
+
+   @return true if succeeded, false if error occurred
+  */
+  bool set_dscp(void);
+  /**
+   Gets DSCP parameters on the binlog socket.
+
+   @param ret_val - (OUT) dscp_value
+   @return true if succeeded, false if error occurred
+  */
+  bool get_dscp_value(int &ret_val);
 };
 
 #endif  // DEFINED_RPL_BINLOG_SENDER

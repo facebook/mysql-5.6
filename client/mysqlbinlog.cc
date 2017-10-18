@@ -279,6 +279,7 @@ uint test_flags = 0;
 static uint opt_protocol = 0;
 static uint opt_compress = 0;
 static uint opt_print_sql_string = 0;
+static uint opt_use_dscp = 0;
 static FILE *result_file;
 
 #ifndef DBUG_OFF
@@ -1705,6 +1706,8 @@ static struct my_option my_long_options[] = {
     {"character-sets-dir", OPT_CHARSETS_DIR,
      "Directory for character set files.", &charsets_dir, &charsets_dir, 0,
      GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+    {"use_dscp", 0, "Use DSCP QOS header in binlog send", &opt_use_dscp,
+     &opt_use_dscp, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
     {"database", 'd', "List entries for just this database (local log only).",
      &database, &database, 0, GET_STR_ALLOC, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
     {"rewrite-db", OPT_REWRITE_DB,
@@ -2517,6 +2520,14 @@ static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
   if ((retval = safe_connect()) != OK_CONTINUE) DBUG_RETURN(retval);
 
   if ((retval = check_master_version()) != OK_CONTINUE) DBUG_RETURN(retval);
+
+  if (opt_use_dscp && mysql_query(mysql, "SET SESSION dscp_on_socket=9")) {
+    error(
+        "Could not notify master about DSCP."
+        "Master returned '%s'",
+        mysql_error(mysql));
+    DBUG_RETURN(ERROR_STOP);
+  }
 
   /*
     Fake a server ID to log continously. This will show as a

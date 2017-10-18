@@ -7691,3 +7691,9 @@ static Sys_var_charptr Sys_default_collation_for_utf8mb4_init(
     "default_collation_for_utf8mb4_init", "default collation for utf8mb4",
     READ_ONLY NON_PERSIST GLOBAL_VAR(default_collation_for_utf8mb4_init),
     NO_CMD_LINE, IN_SYSTEM_CHARSET, DEFAULT(0));
+
+static Sys_var_ulong Sys_session_set_dscp_on_socket(
+    "dscp_on_socket",
+    "DSCP value for socket/connection to control binlog downloads",
+    SESSION_ONLY(dscp_on_socket), NO_CMD_LINE, VALID_RANGE(0, 63), DEFAULT(0),
+    BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG);
