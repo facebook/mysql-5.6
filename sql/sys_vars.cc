@@ -7724,3 +7724,9 @@ static Sys_var_enum Sys_commit_consensus_error_action(
     GLOBAL_VAR(opt_commit_consensus_error_action), CMD_LINE(OPT_ARG),
     commit_consensus_error_actions, DEFAULT(ROLLBACK_TRXS_IN_GROUP),
     NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_ulong Sys_session_set_dscp_on_socket(
+    "dscp_on_socket",
+    "DSCP value for socket/connection to control binlog downloads",
+    SESSION_ONLY(dscp_on_socket), NO_CMD_LINE, VALID_RANGE(0, 63), DEFAULT(0),
+    BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG);

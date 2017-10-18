@@ -1,0 +1,128 @@
+##################### dscp_on_socket_basic.test ###############################
+#                                                                             #
+# Variable Name: dscp_on_socket                                               #
+# Scope: SESSION                                                              #
+# Access Type: Dynamic                                                        #
+# Data Type: int                                                              #
+# Default Value: 0                                                            #
+# Valid Values: 0-63                                                          #
+#                                                                             #
+#                                                                             #
+# Creation Date: 2017-10-17                                                   #
+#                                                                             #
+# Description: Test Cases of Dynamic System Variable dscp_on_socket           #
+#              that checks the behavior of variable in the following ways     #
+#              * Default Value                                                #
+#              * Valid & Invalid values                                       #
+#              * Scope & Access method                                        #
+#              * Data Integrity                                               #
+#                                                                             #
+###############################################################################
+
+--source include/load_sysvars.inc
+
+########################################################################
+#               START OF dscp_on_socket TESTS                          #
+########################################################################
+
+
+##############################################################################
+#   Saving initial value of dscp_on_socket in a temporary variable           #
+##############################################################################
+
+SET @session_start_value = @@session.dscp_on_socket;
+SELECT @session_start_value;
+
+########################################################################
+#           Display the DEFAULT value of dscp_on_socket                #
+########################################################################
+
+SET @@session.dscp_on_socket = 0;
+SET @@session.dscp_on_socket = DEFAULT;
+SELECT @@session.dscp_on_socket;
+
+SET @@session.dscp_on_socket = 1;
+SET @@session.dscp_on_socket = DEFAULT;
+SELECT @@session.dscp_on_socket;
+
+
+#############################################################################
+# Check if dscp_on_socket can be accessed with and without @@ sign          #
+#############################################################################
+
+SET dscp_on_socket = 1;
+SELECT @@dscp_on_socket;
+
+--Error ER_UNKNOWN_TABLE
+SELECT session.dscp_on_socket;
+
+--Error ER_UNKNOWN_TABLE
+SELECT local.dscp_on_socket;
+
+SET session dscp_on_socket = 0;
+SELECT @@session.dscp_on_socket;
+
+
+########################################################################
+#      change the value of dscp_on_socket to a valid value             #
+########################################################################
+
+SET @@session.dscp_on_socket = 0;
+SELECT @@session.dscp_on_socket;
+SET @@session.dscp_on_socket = 1;
+SELECT @@session.dscp_on_socket;
+
+
+###########################################################################
+#       Change the value of dscp_on_socket to invalid value               #
+###########################################################################
+
+SET @@session.dscp_on_socket = -1;
+SELECT @@session.dscp_on_socket;
+
+SET @@session.dscp_on_socket = 64;
+SELECT @@session.dscp_on_socket;
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET @@session.dscp_on_socket = "T";
+
+SET @@session.dscp_on_socket = 1000;
+SELECT @@session.dscp_on_socket;
+
+
+###########################################################################
+#     Test if accessing global dscp_on_socket gives error                 #
+###########################################################################
+
+--error ER_LOCAL_VARIABLE
+SET @@global.dscp_on_socket = 0;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@global.dscp_on_socket;
+
+#########################################################################
+#     Check if the value in SESSION Table contains variable value       #
+#########################################################################
+
+SELECT count(VARIABLE_VALUE) FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='dscp_on_socket';
+
+###################################################################
+#        Check if ON and OFF values can be used on variable       #
+###################################################################
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET @@session.dscp_on_socket = OFF;
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET @@session.dscp_on_socket = ON;
+
+##############################
+#   Restore initial value    #
+##############################
+
+SET @@session.dscp_on_socket = @session_start_value;
+SELECT @@session.dscp_on_socket;
+
+###############################################################
+#             END OF dscp_on_socket TESTS                     #
+###############################################################

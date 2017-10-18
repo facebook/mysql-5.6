@@ -459,6 +459,8 @@ struct System_variables {
   bool high_priority_ddl;
   bool kill_conflicting_connections;
   long admission_control_queue_timeout;
+
+  ulong dscp_on_socket;
 };
 
 /**
