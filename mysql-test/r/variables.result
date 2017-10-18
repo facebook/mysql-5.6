@@ -2053,6 +2053,7 @@ ON a.variable_name=b.variable_name
 WHERE b.variable_name IS NULL
 AND a.variable_name NOT IN ('debug_sync')
 ORDER BY a.variable_name;
+SET SESSION dscp_on_socket = @@session.dscp_on_socket;
 SET SESSION error_count = @@session.error_count;
 SET SESSION external_user = @@session.external_user;
 SET SESSION gtid_next = @@session.gtid_next;
