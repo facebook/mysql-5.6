@@ -104,6 +104,7 @@ static const char* default_dbug_option = "d:t:o,/tmp/mysqlbinlog.trace";
 static const char *load_default_groups[]= { "mysqlbinlog","client",0 };
 
 static my_bool opt_compress=0;
+static my_bool opt_use_dscp=0;
 static my_bool opt_compress_event=0;
 static char *opt_compression_lib= 0;
 static my_bool one_database=0, disable_log_bin= 0;
@@ -1884,6 +1885,9 @@ static struct my_option my_long_options[] =
    "Chose the compression lib {zlib, zstd}.--compress has to be used",
    &opt_compression_lib, &opt_compression_lib, 0, GET_STR_ALLOC, REQUIRED_ARG,
    0, 0, 0, 0, 0, 0},
+  {"use_dscp", 0, "Use DSCP QOS header in binlog send",
+   &opt_use_dscp, &opt_use_dscp, 0, GET_BOOL, NO_ARG,
+   0, 0, 0, 0, 0, 0},
   {"database", 'd', "List entries for just this database (local log only).",
    &database, &database, 0, GET_STR_ALLOC, REQUIRED_ARG,
    0, 0, 0, 0, 0, 0},
@@ -2940,6 +2944,14 @@ connected:
     error("Failed to check master version");
     DBUG_RETURN(retval);
   }
+
+  if (opt_use_dscp &&
+      mysql_query(mysql, "SET SESSION dscp_on_socket=9")) {
+    error("Could not notify master about DSCP."
+          "Master returned '%s'", mysql_error(mysql));
+    DBUG_RETURN(ERROR_STOP);
+  }
+
   /*
     Requesting binlog dump from file:pos = cur_logname:old_off.
   */
