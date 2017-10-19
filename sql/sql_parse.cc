@@ -1367,6 +1367,36 @@ static inline bool is_timer_applicable_to_statement(THD *thd) {
           !thd->timer && timer_value_is_set && !thd->sp_runtime_ctx);
 }
 
+/*
+  This is the function to perform the check for variable
+  "allow_noncurrent_db_rw". It will assume the command is
+  a query. And check whether this query command invovles
+  any table that is not in current datbase.
+
+  @returns
+    0 Nothing to do.
+    1 Log the query.
+    2 Log the query with warning.
+    3 Disallow the query.
+ */
+
+static int process_noncurrent_db_rw(THD *thd, TABLE_LIST *all_tables) {
+  DBUG_ENTER("process_noncurrent_db_rw");
+  if (!thd->variables.allow_noncurrent_db_rw)
+    DBUG_RETURN(0); /* Allow cross db read and write. */
+  for (TABLE_LIST *table = all_tables; table; table = table->next_global) {
+    bool skip_table =
+        table->is_view_or_derived() || table->is_view() ||
+        table->schema_table || !strcmp(table->db, "mysql") ||
+        !strcmp(table->db, "performance_schema") || !strcmp(table->db, "") ||
+        !strcmp(table->db, "information_schema") || !strcmp(table->db, "sys");
+    if (skip_table) continue;
+    if ((!thd->db().str && table->db) || strcmp(thd->db().str, table->db))
+      DBUG_RETURN((int)thd->variables.allow_noncurrent_db_rw);
+  }
+  DBUG_RETURN(0);
+}
+
 /**
   Check if a statement should be restarted in another storage engine,
   and restart the statement if needed.
@@ -2855,6 +2885,39 @@ int mysql_execute_command(THD *thd, bool first_level) {
     */
     if (deny_updates_if_read_only_option(thd, all_tables)) {
       err_readonly(thd);
+      return -1;
+    }
+
+    ret = process_noncurrent_db_rw(thd, all_tables);
+    if (ret > 0) /* For all options other than ON */
+    {
+      /* Log the query */
+      const char *crosss_db_log_prefix = "CROSS_SHARD_QUERY: ";
+      size_t prefix_len = strlen(crosss_db_log_prefix);
+      size_t log_len = prefix_len + thd->query().length;
+      char *cross_db_query_log = (char *)my_malloc(
+          key_memory_custom_log_message, log_len + 1, MYF(MY_WME));
+      memcpy(cross_db_query_log, crosss_db_log_prefix, prefix_len);
+      memcpy(cross_db_query_log + prefix_len, thd->query().str,
+             thd->query().length);
+      cross_db_query_log[log_len] = 0;
+      query_logger.slow_log_write(thd, cross_db_query_log, log_len,
+                                  &(thd->status_var));
+      my_free(cross_db_query_log);
+    }
+    if (ret == 2) /* For LOG_WARN */
+    {
+      /* Warning message to user */
+      push_warning_printf(thd, Sql_condition::SL_WARNING,
+                          ER_OPTION_PREVENTS_STATEMENT,
+                          ER_THD(thd, ER_OPTION_PREVENTS_STATEMENT),
+                          "--allow_noncurrent_db_rw=LOG_WARN", "");
+    }
+    if (ret == 3) /* For OFF */
+    {
+      /* Error message to user */
+      my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0),
+               "--allow_noncurrent_db_rw=OFF", "");
       return -1;
     }
   } /* endif unlikely slave */

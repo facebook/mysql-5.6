@@ -29,6 +29,9 @@ The following options may be given as the first argument:
  socket creation.
  --admin-port=#      Port number to use for service connection, built-in
  default (33062)
+ --allow-noncurrent-db-rw=name 
+ Switch to allow/deny reads and writes to a table not in
+ the current database.
  --allow-suspicious-udfs 
  Allows use of UDFs consisting of only one symbol xxx()
  without corresponding xxx_init() or xxx_deinit(). That
@@ -1413,6 +1416,7 @@ abort-slave-event-count 0
 activate-all-roles-on-login FALSE
 admin-address (No default value)
 admin-port 33062
+allow-noncurrent-db-rw ON
 allow-suspicious-udfs FALSE
 auto-increment-increment 1
 auto-increment-offset 1
