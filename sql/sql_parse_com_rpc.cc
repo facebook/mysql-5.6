@@ -196,6 +196,7 @@ bool handle_com_rpc(THD *conn_thd, char* packet, uint packet_length,
 
   srv_session_thd->net.vio = conn_thd->net.vio;
   srv_session_thd->set_stmt_da(conn_thd->get_stmt_da());
+  srv_session->set_session_tracker(&conn_thd->session_tracker);
 
   // set srv_session THD, used by "show processlist"
   conn_thd->set_attached_srv_session(srv_session);

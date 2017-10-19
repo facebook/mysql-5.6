@@ -19,6 +19,8 @@
 #include "m_string.h"
 #include "thr_lock.h"
 
+#include "map"
+
 /* forward declarations */
 class THD;
 class set_var;
@@ -30,9 +32,10 @@ enum enum_session_tracker
 {
   SESSION_STATE_CHANGE_TRACKER,
   SESSION_GTIDS_TRACKER,                         /* Tracks GTIDs */
+  SESSION_RESP_ATTR_TRACKER,
 };
 
-#define SESSION_TRACKER_END SESSION_GTIDS_TRACKER
+#define SESSION_TRACKER_END SESSION_RESP_ATTR_TRACKER
 
 /**
   State_tracker
@@ -94,7 +97,8 @@ public:
   virtual bool store(THD *thd, String &buf)= 0;
 
   /** Mark the entity as changed. */
-  virtual void mark_as_changed(THD *thd, LEX_CSTRING *name)= 0;
+  virtual void mark_as_changed(THD *thd, LEX_CSTRING *name,
+                               LEX_CSTRING *value = NULL)= 0;
 
   virtual void claim_memory_ownership()
   {}
@@ -196,9 +200,37 @@ public:
   bool force_enable();
   bool update(THD *thd) override;
   bool store(THD *thd, String &buf) override;
-  void mark_as_changed(THD *thd, LEX_CSTRING *tracked_item_name) override;
+  void mark_as_changed(THD *thd, LEX_CSTRING *tracked_item_name,
+      LEX_CSTRING *tracked_item_value = NULL) override;
   bool is_state_changed(THD*);
   void ensure_enabled(THD *thd) {}
+};
+
+/*
+  Session_resp_attr_tracker
+  ----------------------
+  This is a tracker class that will monotor response attributes
+*/
+
+class Session_resp_attr_tracker : public State_tracker
+{
+private:
+  void reset();
+  Session_resp_attr_tracker(const Session_resp_attr_tracker&) = delete;
+  Session_resp_attr_tracker& operator=(const Session_resp_attr_tracker&) =
+      delete;
+
+  std::map<std::string, std::string> attrs_;
+
+public:
+  Session_resp_attr_tracker() { m_changed = false; m_enabled = true; }
+
+  bool enable(THD *thd) override { return false; }
+  bool force_enable() override { return false; }
+  bool check(THD *thd, set_var *var) override { return false; }
+  bool update(THD *thd) override { return false; }
+  bool store(THD *thd, String &buf) override;
+  void mark_as_changed(THD *thd, LEX_CSTRING *key, LEX_CSTRING *value) override;
 };
 
 #endif /* SESSION_TRACKER_INCLUDED */
