@@ -153,10 +153,11 @@ static my_bool acquire_plugins(THD *thd, plugin_ref plugin, void *arg)
   st_mysql_audit *data= plugin_data(plugin, struct st_mysql_audit *);
 
   set_audit_mask(event_class_mask, event_class);
+  mysql_mutex_lock(&thd->LOCK_thd_audit_data);
 
   /* Check if this plugin is interested in the event */
   if (check_audit_mask(data->class_mask, event_class_mask))
-    return 0;
+    goto exit;
 
   /*
     Check if this plugin may already be registered. This will fail to
@@ -165,7 +166,7 @@ static my_bool acquire_plugins(THD *thd, plugin_ref plugin, void *arg)
     are an event class of which the audit plugin has interest.
   */
   if (!check_audit_mask(data->class_mask, thd->audit_class_mask))
-    return 0;
+    goto exit;
   
   /* Check if we need to initialize the array of acquired plugins */
   if (unlikely(!thd->audit_class_plugins.buffer))
@@ -179,6 +180,8 @@ static my_bool acquire_plugins(THD *thd, plugin_ref plugin, void *arg)
   plugin= my_plugin_lock(NULL, &plugin);
   insert_dynamic(&thd->audit_class_plugins, &plugin);
 
+exit:
+  mysql_mutex_unlock(&thd->LOCK_thd_audit_data);
   return 0;
 }
 
@@ -238,10 +241,14 @@ void mysql_audit_notify(THD *thd, uint event_class, uint event_subtype, ...)
 
 void mysql_audit_release(THD *thd)
 {
+  mysql_mutex_lock(&thd->LOCK_thd_audit_data);
   plugin_ref *plugins, *plugins_last;
   
   if (!thd || !(thd->audit_class_plugins.elements))
+  {
+    mysql_mutex_unlock(&thd->LOCK_thd_audit_data);
     return;
+  }
   
   plugins= (plugin_ref*) thd->audit_class_plugins.buffer;
   plugins_last= plugins + thd->audit_class_plugins.elements;
@@ -264,6 +271,7 @@ void mysql_audit_release(THD *thd)
   /* Reset the state of thread values */
   reset_dynamic(&thd->audit_class_plugins);
   memset(thd->audit_class_mask, 0, sizeof(thd->audit_class_mask));
+  mysql_mutex_unlock(&thd->LOCK_thd_audit_data);
 }
 
 
@@ -276,8 +284,10 @@ void mysql_audit_release(THD *thd)
 
 void mysql_audit_init_thd(THD *thd)
 {
+  mysql_mutex_lock(&thd->LOCK_thd_audit_data);
   memset(&thd->audit_class_plugins, 0, sizeof(thd->audit_class_plugins));
   memset(thd->audit_class_mask, 0, sizeof(thd->audit_class_mask));
+  mysql_mutex_unlock(&thd->LOCK_thd_audit_data);
 }
 
 
@@ -294,8 +304,10 @@ void mysql_audit_init_thd(THD *thd)
 void mysql_audit_free_thd(THD *thd)
 {
   mysql_audit_release(thd);
+  mysql_mutex_lock(&thd->LOCK_thd_audit_data);
   DBUG_ASSERT(thd->audit_class_plugins.elements == 0);
   delete_dynamic(&thd->audit_class_plugins);
+  mysql_mutex_unlock(&thd->LOCK_thd_audit_data);
 }
 
 #ifdef HAVE_PSI_INTERFACE
@@ -491,6 +503,7 @@ static void event_class_dispatch(THD *thd, unsigned int event_class,
   }
   else
   {
+    mysql_mutex_lock(&thd->LOCK_thd_audit_data);
     plugin_ref *plugins, *plugins_last;
 
     /* Use the cached set of audit plugins */
@@ -499,6 +512,7 @@ static void event_class_dispatch(THD *thd, unsigned int event_class,
 
     for (; plugins < plugins_last; plugins++)
       plugins_dispatch(thd, *plugins, &event_generic);
+    mysql_mutex_unlock(&thd->LOCK_thd_audit_data);
   }
 }
 
