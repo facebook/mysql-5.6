@@ -1,3 +1,13 @@
+# Arcanist cache
+/arcanist/.phutil_module_cache
+
+# Internal Facebook build puts generate files in directories like:
+/_build-*
+
+# Internal Facebook Howtoeven static analyzer uses this directory.
+/.howtoeven/*
+
+# Ignores for files resulting from building in place:
 *-t
 *_test
 *.Plo
