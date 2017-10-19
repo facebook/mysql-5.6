@@ -688,12 +688,15 @@ enum enum_session_state_type
   SESSION_TRACK_STATE_CHANGE,                  /* track session state changes */
   SESSION_TRACK_GTIDS,
   SESSION_TRACK_TRANSACTION_CHARACTERISTICS,  /* Transaction chistics */
-  SESSION_TRACK_TRANSACTION_STATE             /* Transaction state */
+  SESSION_TRACK_TRANSACTION_STATE,            /* Transaction state */
+
+  // Leave space before RPC_ID session tracking for other upstream values
+  SESSION_TRACK_RESP_ATTR = 32,               /* Response attributes */
 };
 
 #define SESSION_TRACK_BEGIN SESSION_TRACK_SYSTEM_VARIABLES
 
-#define SESSION_TRACK_END SESSION_TRACK_TRANSACTION_STATE
+#define SESSION_TRACK_END SESSION_TRACK_RESP_ATTR
 
 #define IS_SESSION_STATE_TYPE(T) \
   (((int)(T) >= SESSION_TRACK_BEGIN) && ((T) <= SESSION_TRACK_END))

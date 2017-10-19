@@ -643,6 +643,61 @@ void free_state_change_info(MYSQL_EXTENSION *ext)
   memset(info, 0, sizeof(STATE_INFO));
 }
 
+static LIST* read_resp_attr_entry(uchar **pos)
+{
+  LIST *element= NULL;
+  LEX_STRING *data= NULL;
+
+  if (!my_multi_malloc(MYF(0), &element, sizeof(LIST), &data,
+                       sizeof(LEX_STRING), NullS))
+  {
+    return NULL;
+  }
+
+  /* Get the length of the data */
+  size_t len = (size_t) net_field_length(pos);
+  if (!(data->str = (char*) my_malloc(len, MYF(MY_WME))))
+  {
+    return NULL;
+  }
+
+  memcpy(data->str, *pos, len);
+  data->length= len;
+  *pos += len;
+
+  element->data= data;
+  return element;
+}
+
+static int read_resp_attrs(MYSQL *mysql, STATE_INFO *info, uchar **pos)
+{
+  size_t count = (size_t) net_field_length(pos);
+  LIST *element_key= NULL;
+  LIST *element_value= NULL;
+
+  // The response attributes come in key/value pairs
+  for (size_t ii = 0; ii < count; ii++)
+  {
+    element_key = read_resp_attr_entry(pos);
+    if (element_key == NULL)
+    {
+      return TRUE;
+    }
+
+    element_value = read_resp_attr_entry(pos);
+    if (element_value == NULL)
+    {
+      return TRUE;
+    }
+
+    // Add the value to the list first since the list gets reversed later
+    ADD_INFO(info, element_value, SESSION_TRACK_RESP_ATTR);
+    ADD_INFO(info, element_key, SESSION_TRACK_RESP_ATTR);
+  }
+
+  return FALSE;
+}
+
 /**
   Read Ok packet along with the server state change information.
 */
@@ -793,6 +848,14 @@ void read_ok_ex(MYSQL *mysql, ulong length)
 
             element->data= data;
             ADD_INFO(info, element, SESSION_TRACK_STATE_CHANGE);
+
+            break;
+          case SESSION_TRACK_RESP_ATTR:
+            if (read_resp_attrs(mysql, info, &pos))
+            {
+              set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
+              return;
+            }
 
             break;
           default:
@@ -7338,6 +7401,129 @@ int STDCALL mysql_session_track_get_next(MYSQL *mysql,
   return ret;
 }
 
+/*
+  Get the first key/value pair from the response attribute data
+
+  @param mysql     [IN]     mysql handle
+  @param keydata   [OUT]    the data for the key
+  @param keylength [OUT]    length of the key
+  @param keydata   [OUT]    the data for the key
+  @param keylength [OUT]    length of the key
+
+  @return
+    0 - Valid data stored
+    1 - No data
+*/
+
+static int mysql_resp_attr_get_first(MYSQL *mysql,
+                                     const char **keydata,
+                                     size_t *keylength,
+                                     const char **valdata,
+                                     size_t *vallength)
+{
+  const char *attr1data;
+  const char *attr2data;
+  size_t attr1length;
+  size_t attr2length;
+
+  if (!mysql_session_track_get_first(mysql, SESSION_TRACK_RESP_ATTR,
+                                     &attr1data, &attr1length))
+  {
+    if (!mysql_session_track_get_next(mysql, SESSION_TRACK_RESP_ATTR,
+                                      &attr2data, &attr2length))
+    {
+      *keydata = attr1data;
+      *keylength = attr1length;
+      *valdata = attr2data;
+      *vallength = attr2length;
+      return FALSE;
+    }
+  }
+
+  return TRUE;
+}
+
+/*
+  Get the next key/value pair from the response attribute data
+
+  @param mysql     [IN]     mysql handle
+  @param keydata   [OUT]    the data for the key
+  @param keylength [OUT]    length of the key
+  @param keydata   [OUT]    the data for the key
+  @param keylength [OUT]    length of the key
+
+  @return
+    0 - Valid data stored
+    1 - No data
+*/
+
+static int mysql_resp_attr_get_next(MYSQL *mysql,
+                                    const char **keydata,
+                                    size_t *keylength,
+                                    const char **valdata,
+                                    size_t *vallength)
+{
+  const char *attr1data;
+  const char *attr2data;
+  size_t attr1length;
+  size_t attr2length;
+
+  if (!mysql_session_track_get_next(mysql, SESSION_TRACK_RESP_ATTR,
+                                    &attr1data, &attr1length))
+  {
+    if (!mysql_session_track_get_next(mysql, SESSION_TRACK_RESP_ATTR,
+                                      &attr2data, &attr2length))
+    {
+      *keydata = attr1data;
+      *keylength = attr1length;
+      *valdata = attr2data;
+      *vallength = attr2length;
+      return FALSE;
+    }
+  }
+
+  return TRUE;
+}
+
+/*
+  Get the response attribute value for a particular key
+
+  @param mysql  [IN]     mysql handle
+  @param key    [IN}     the attribute key to find
+  @param data   [OUT]    buffer to store the data in
+  @param length [OUT]    length of the data
+
+  @return
+    0 - Valid data stored
+    1 - No data
+*/
+
+int STDCALL mysql_resp_attr_find(MYSQL *mysql,
+                                const char *lookup,
+                                const char **data,
+                                size_t *length)
+{
+  int ret;
+  const char *key;
+  const char *val;
+  size_t keylen;
+  size_t vallen;
+
+  ret = mysql_resp_attr_get_first(mysql, &key, &keylen, &val, &vallen);
+  while (!ret)
+  {
+    if (strncmp(lookup, key, keylen) == 0)
+    {
+      *data = val;
+      *length = vallen;
+      return FALSE;
+    }
+
+    ret = mysql_resp_attr_get_next(mysql, &key, &keylen, &val, &vallen);
+  }
+
+  return TRUE;
+}
 
 /*
   Get version number for server in a form easy to test on

@@ -102,6 +102,9 @@ using std::max;
   case SESSION_TRACK_TRANSACTION_STATE:                                        \
     dynstr_append(ds, "Tracker : SESSION_TRACK_TRANSACTION_STATE\n");          \
     break;                                                                     \
+  case SESSION_TRACK_RESP_ATTR:                                                \
+    dynstr_append(ds, "Tracker : SESSION_TRACK_RESP_ATTR\n");                  \
+    break;                                                                     \
   default:                                                                     \
     dynstr_append(ds, "\n");                                                   \
   }                                                                            \
@@ -3034,23 +3037,30 @@ static st_error global_error_names[] =
 
 uint get_errcode_from_name(char *, char *);
 
-static const char* RpcIdAttrPrefix = "rpc_id:";
-static int RpcIdAttrPrefix_len = strlen(RpcIdAttrPrefix);
+static const char* const RpcIdAttrPrefix = "rpc_id";
 /*
- * Returns the rpc id from last OK packet. It is stored in mysql->info.
+ * Returns the rpc id from last OK packet. It is stored in the response
+ * attributes
  * */
 void var_set_rpc_id(VAR *var)
 {
   MYSQL* mysql= &cur_con->mysql;
-  const char* rpc_id= "";
+  const char* ptr= NULL;
+  size_t len = 0;
 
-  if (mysql->info && strncmp(mysql->info,
-                            RpcIdAttrPrefix, RpcIdAttrPrefix_len) == 0) {
-    rpc_id = mysql->info + RpcIdAttrPrefix_len;
-    DBUG_PRINT("info", ("rpc_id: %s", rpc_id));
+  (void) mysql_resp_attr_find(mysql, RpcIdAttrPrefix, &ptr, &len);
+  if (ptr == NULL)
+  {
+    ptr = "";
   }
 
-  eval_expr(var, rpc_id, 0, false, false);
+  const char* ptr_end = ptr + len;
+
+  eval_expr(var, ptr, &ptr_end, false, false);
+  if (ptr_end != ptr)
+  {
+    DBUG_PRINT("info", ("rpc_id: %s", var->str_val));
+  }
 }
 
 /*
