@@ -40,6 +40,9 @@ The following options may be given as the first argument:
  --admin-ssl-crlpath=name 
  --admin-ssl-key=name 
  --admin-tls-ciphersuites=name 
+ --allow-noncurrent-db-rw=name 
+ Switch to allow/deny reads and writes to a table not in
+ the current database.
  --allow-suspicious-udfs 
  Allows use of UDFs consisting of only one symbol xxx()
  without corresponding xxx_init() or xxx_deinit(). That
@@ -1624,6 +1627,7 @@ admin-ssl-crl (No default value)
 admin-ssl-crlpath (No default value)
 admin-ssl-key (No default value)
 admin-tls-ciphersuites (No default value)
+allow-noncurrent-db-rw ON
 allow-suspicious-udfs FALSE
 authentication-policy *,,
 auto-increment-increment 1
