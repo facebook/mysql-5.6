@@ -1050,6 +1050,8 @@ THD::THD(bool enable_plugins)
   dbug_sentry=THD_SENTRY_MAGIC;
 #endif
 #ifndef EMBEDDED_LIBRARY
+  mysql_mutex_init(key_LOCK_thd_audit_data, &LOCK_thd_audit_data,
+                   MY_MUTEX_INIT_FAST);
   mysql_audit_init_thd(this);
   net.vio=0;
 #endif
