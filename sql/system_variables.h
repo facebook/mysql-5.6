@@ -380,6 +380,8 @@ struct System_variables {
   ulong
       internal_tmp_mem_storage_engine;  // enum_internal_tmp_mem_storage_engine
 
+  ulong allow_noncurrent_db_rw;
+
   const CHARSET_INFO *default_collation_for_utf8mb4;
 
   /** Used for controlling preparation of queries against secondary engine. */
