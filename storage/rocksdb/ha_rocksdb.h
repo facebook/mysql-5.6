@@ -91,6 +91,25 @@ struct Rdb_trx_info {
 std::vector<Rdb_trx_info> rdb_get_all_trx_info();
 
 /*
+ * class for exporting deadlock transaction information for
+ * information_schema.rocksdb_deadlock
+ */
+struct Rdb_deadlock_info {
+  struct Rdb_dl_trx_info {
+    ulonglong trx_id;
+    std::string cf_name;
+    std::string waiting_key;
+    bool exclusive_lock;
+    std::string index_name;
+    std::string table_name;
+  };
+  std::vector <Rdb_dl_trx_info> path;
+  ulonglong victim_trx_id;
+};
+
+std::vector<Rdb_deadlock_info> rdb_get_deadlock_info();
+
+/*
   This is
   - the name of the default Column Family (the CF which stores indexes which
     didn't explicitly specify which CF they are in)
