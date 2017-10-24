@@ -1,5 +1,12 @@
 --source include/skip_scan_data.inc
 
+if ($engine==rocksdb)
+{
+    set global rocksdb_force_flush_memtable_now=1;
+    set @save_rocksdb_pause_background_work=@@rocksdb_pause_background_work;
+    set global rocksdb_pause_background_work=1;
+}
+
 # These queries should do loose index scans.
 
 # Skip scan is used if 'skip_scan=on'
@@ -180,4 +187,9 @@ if ($engine == 'innodb' )
 
   set optimizer_switch = default;
   DROP TABLE t1;
+}
+
+if ($engine==rocksdb)
+{
+     set global rocksdb_pause_background_work=@save_rocksdb_pause_background_work;
 }

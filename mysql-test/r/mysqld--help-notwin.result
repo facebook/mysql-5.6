@@ -1412,6 +1412,8 @@ The following options may be given as the first argument:
  --rocksdb-deadlock-detect-depth=# 
  Number of transactions deadlock detection will traverse
  through before assuming deadlock
+ --rocksdb-debug-cardinality-multiplier=# 
+ Cardinality multiplier used in tests
  --rocksdb-debug-manual-compaction-delay=# 
  For debugging purposes only. Sleeping specified seconds
  for simulating long running compactions.
@@ -2524,6 +2526,7 @@ rocksdb-ddl ON
 rocksdb-deadlock ON
 rocksdb-deadlock-detect FALSE
 rocksdb-deadlock-detect-depth 50
+rocksdb-debug-cardinality-multiplier 2
 rocksdb-debug-manual-compaction-delay 0
 rocksdb-debug-optimizer-n-rows 0
 rocksdb-debug-optimizer-no-zero-cardinality TRUE

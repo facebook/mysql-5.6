@@ -15098,6 +15098,7 @@ int QUICK_SKIP_SCAN_SELECT::get_next() {
     if (!is_prefix_valid) {
       MY_BITMAP *const save_read_set = head->read_set;
       head->column_bitmaps_set_no_signal(&column_bitmap, head->write_set);
+      head->file->set_end_range(NULL, handler::RANGE_SCAN_ASC);
 
       if (!seen_first_key) {
         if (eq_prefix_key_parts == 0) {
