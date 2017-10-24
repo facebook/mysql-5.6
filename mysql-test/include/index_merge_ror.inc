@@ -126,6 +126,7 @@ analyze table t1;
 -- enable_query_log
 
 --echo # One row results tests for cases where a single row matches all conditions
+--replace_column 11 #
 explain select key1,key2 from t1 where key1=100 and key2=100;
 select key1,key2 from t1 where key1=100 and key2=100;
 
@@ -160,6 +161,7 @@ select key1,key2,filler1 from t1 where key1=100 and key2=100;
 --echo #  ROR-intersection, covering
 if (!$skip_ror_EXPLAIN_for_MyRocks)
 {
+  --replace_column 11 #
   explain select key1,key2 from t1 where key1=100 and key2=100;
 }
 select key1,key2 from t1 where key1=100 and key2=100;
@@ -232,6 +234,7 @@ if (!$skip_ror_EXPLAIN_for_MyRocks)
 --echo # ROR-intersection with empty result
 if (!$skip_ror_EXPLAIN_for_MyRocks)
 {
+  --replace_column 11 #
   explain select key1,key2 from t1 where key1=100 and key2=100;
 }
 select key1,key2 from t1 where key1=100 and key2=100;
