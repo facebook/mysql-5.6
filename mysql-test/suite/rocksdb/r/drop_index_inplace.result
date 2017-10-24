@@ -84,20 +84,20 @@ DROP TABLE t1;
 CREATE TABLE t1 (a INT, b INT, c INT, KEY kb(b), KEY kbc(b,c), KEY kc(c), PRIMARY KEY(a)) ENGINE=rocksdb;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	a	A	0	NULL	NULL		SE_SPECIFIC			YES	NULL
-t1	1	kb	1	b	A	0	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
-t1	1	kbc	1	b	A	0	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
-t1	1	kbc	2	c	A	0	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
-t1	1	kc	1	c	A	0	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	0	PRIMARY	1	a	A	NULL	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	1	kb	1	b	A	NULL	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	kbc	1	b	A	NULL	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	kbc	2	c	A	NULL	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	kc	1	c	A	NULL	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 ALTER TABLE t1 DROP INDEX kb, DROP INDEX kbc, ALGORITHM=INPLACE;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	a	A	0	NULL	NULL		SE_SPECIFIC			YES	NULL
-t1	1	kc	1	c	A	0	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	0	PRIMARY	1	a	A	NULL	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	1	kc	1	c	A	NULL	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 ALTER TABLE t1 DROP PRIMARY KEY;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	1	kc	1	c	A	0	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	kc	1	c	A	NULL	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 ALTER TABLE t1 DROP INDEX kc, ALGORITHM=INPLACE;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
@@ -108,16 +108,16 @@ ALTER TABLE t1 ADD UNIQUE INDEX kbc(b,c);
 ALTER TABLE t1 ADD UNIQUE INDEX kc(c);
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	a	A	0	NULL	NULL		SE_SPECIFIC			YES	NULL
-t1	0	kb	1	b	A	0	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
-t1	0	kbc	1	b	A	0	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
-t1	0	kbc	2	c	A	0	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
-t1	0	kc	1	c	A	0	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	0	PRIMARY	1	a	A	NULL	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	0	kb	1	b	A	NULL	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	0	kbc	1	b	A	NULL	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	0	kbc	2	c	A	NULL	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	0	kc	1	c	A	NULL	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 ALTER TABLE t1 DROP INDEX kb, DROP INDEX kbc;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
-t1	0	PRIMARY	1	a	A	0	NULL	NULL		SE_SPECIFIC			YES	NULL
-t1	0	kc	1	c	A	0	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	0	PRIMARY	1	a	A	NULL	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	0	kc	1	c	A	NULL	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 # restart
 INSERT INTO t1 (b,c) VALUES (1,2);
 INSERT INTO t1 (b,c) VALUES (3,4);

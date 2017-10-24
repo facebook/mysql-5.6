@@ -923,6 +923,7 @@ rocksdb_datadir	./.rocksdb
 rocksdb_db_write_buffer_size	0
 rocksdb_deadlock_detect	OFF
 rocksdb_deadlock_detect_depth	50
+rocksdb_debug_cardinality_multiplier	2
 rocksdb_debug_manual_compaction_delay	0
 rocksdb_debug_optimizer_no_zero_cardinality	ON
 rocksdb_debug_ttl_ignore_pk	OFF
