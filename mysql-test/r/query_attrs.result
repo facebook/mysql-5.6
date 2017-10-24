@@ -2,21 +2,20 @@ create database db1;
 use db1;
 set @old_debug_val = @@global.debug;
 set @@global.debug="+d,print_query_attr";
-select 1;
-1
-1
-select 1;
-1
-1
-select 1;
-1
-1
-select 1;
-1
-1
-select 1;
-1
-1
+select attr_name, attr_value from information_schema.query_attributes where id = connection_id();
+attr_name	attr_value
+a	b
+select attr_name, attr_value from information_schema.query_attributes where id = connection_id();
+attr_name	attr_value
+b	a
+a	b
+select attr_name, attr_value from information_schema.query_attributes where id = connection_id();
+attr_name	attr_value
+select attr_name, attr_value from information_schema.query_attributes where id = connection_id();
+attr_name	attr_value
+b	a
+select attr_name, attr_value from information_schema.query_attributes where id = connection_id();
+attr_name	attr_value
 [query-attrs][list]
 [query-attrs][key] a
 [query-attrs][value] b

@@ -128,6 +128,7 @@ DROP TABLE t1, t2;
 | PLUGINS                               |
 | PROCESSLIST                           |
 | PROFILING                             |
+| QUERY_ATTRIBUTES                      |
 | REFERENTIAL_CONSTRAINTS               |
 | ROCKSDB_CFSTATS                       |
 | ROCKSDB_CF_OPTIONS                    |
@@ -213,6 +214,7 @@ DROP TABLE t1, t2;
 | PLUGINS                               |
 | PROCESSLIST                           |
 | PROFILING                             |
+| QUERY_ATTRIBUTES                      |
 | REFERENTIAL_CONSTRAINTS               |
 | ROCKSDB_CFSTATS                       |
 | ROCKSDB_CF_OPTIONS                    |

@@ -16,20 +16,20 @@ set @old_debug_val = @@global.debug;
 set @@global.debug="+d,print_query_attr";
 
 query_attrs_add a b;
-select 1;
+select attr_name, attr_value from information_schema.query_attributes where id = connection_id();
 
 query_attrs_add b a;
-select 1;
+select attr_name, attr_value from information_schema.query_attributes where id = connection_id();
 
 connection default;
-select 1;
+select attr_name, attr_value from information_schema.query_attributes where id = connection_id();
 
 connection con;
 query_attrs_delete a;
-select 1;
+select attr_name, attr_value from information_schema.query_attributes where id = connection_id();
 
 query_attrs_reset;
-select 1;
+select attr_name, attr_value from information_schema.query_attributes where id = connection_id();
 
 --perl
 use strict;
