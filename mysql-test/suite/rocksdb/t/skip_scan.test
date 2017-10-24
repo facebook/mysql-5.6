@@ -1,4 +1,5 @@
 --source include/have_rocksdb.inc
 
 let $engine=rocksdb;
---source include/loose_index_scans.inc
+--source include/skip_scan_test.inc
+
