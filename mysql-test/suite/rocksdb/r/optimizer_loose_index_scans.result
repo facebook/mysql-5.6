@@ -78,7 +78,7 @@ explain select a, b, c, d from t where a = 5 and d >= 98;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t	range	PRIMARY,b	PRIMARY	16	NULL	#	Using where; Using index for skip scan
 rows_read
-51
+46
 include/diff_tables.inc [temp_orig, temp_skip]
 set optimizer_switch = 'skip_scan=off,skip_scan_cost_based=on';
 set optimizer_switch = 'skip_scan=off';
@@ -106,7 +106,7 @@ explain select a, b, c, d from t where a in (1, 5) and d >= 98;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t	range	PRIMARY,b	PRIMARY	16	NULL	#	Using where; Using index for skip scan
 rows_read
-102
+92
 include/diff_tables.inc [temp_orig, temp_skip]
 set optimizer_switch = 'skip_scan=off,skip_scan_cost_based=on';
 set optimizer_switch = 'skip_scan=off';
@@ -120,7 +120,7 @@ explain select a, b, c, d from t where a in (1, 3, 5) and d >= 98;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t	range	PRIMARY,b	PRIMARY	16	NULL	#	Using where; Using index for skip scan
 rows_read
-153
+138
 include/diff_tables.inc [temp_orig, temp_skip]
 set optimizer_switch = 'skip_scan=off,skip_scan_cost_based=on';
 set optimizer_switch = 'skip_scan=off';
@@ -128,13 +128,13 @@ explain select a, b, c, d from t where a in (1, 5) and b in (1, 2) and d >= 98;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t	range	PRIMARY,b	PRIMARY	8	NULL	#	Using where; Using index
 rows_read
-204
+200
 set optimizer_switch = 'skip_scan=on,skip_scan_cost_based=off';
 explain select a, b, c, d from t where a in (1, 5) and b in (1, 2) and d >= 98;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t	range	PRIMARY,b	PRIMARY	16	NULL	#	Using where; Using index for skip scan
 rows_read
-44
+40
 include/diff_tables.inc [temp_orig, temp_skip]
 set optimizer_switch = 'skip_scan=off,skip_scan_cost_based=on';
 set optimizer_switch = 'skip_scan=off';
@@ -142,13 +142,13 @@ explain select a, b, c, d from t where a in (1, 2, 3, 4, 5) and b in (1, 2, 3) a
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t	range	PRIMARY,b	PRIMARY	8	NULL	#	Using where; Using index
 rows_read
-765
+750
 set optimizer_switch = 'skip_scan=on,skip_scan_cost_based=off';
 explain select a, b, c, d from t where a in (1, 2, 3, 4, 5) and b in (1, 2, 3) and d >= 98;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t	range	PRIMARY,b	PRIMARY	16	NULL	#	Using where; Using index for skip scan
 rows_read
-165
+150
 include/diff_tables.inc [temp_orig, temp_skip]
 set optimizer_switch = 'skip_scan=off,skip_scan_cost_based=on';
 set optimizer_switch = 'skip_scan=off';
@@ -156,13 +156,13 @@ explain select a, b, c, d from t where a = 5 and b = 2 and d >= 98;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t	ref	PRIMARY,b	PRIMARY	8	const,const	#	Using where; Using index
 rows_read
-51
+50
 set optimizer_switch = 'skip_scan=on,skip_scan_cost_based=off';
 explain select a, b, c, d from t where a = 5 and b = 2 and d >= 98;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t	range	PRIMARY,b	PRIMARY	16	NULL	#	Using where; Using index for skip scan
 rows_read
-11
+10
 include/diff_tables.inc [temp_orig, temp_skip]
 set optimizer_switch = 'skip_scan=off,skip_scan_cost_based=on';
 set optimizer_switch = 'skip_scan=off';
