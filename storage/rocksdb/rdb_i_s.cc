@@ -1477,6 +1477,117 @@ static int rdb_i_s_trx_info_init(void *const p) {
   DBUG_RETURN(0);
 }
 
+/*
+  Support for INFORMATION_SCHEMA.ROCKSDB_DEADLOCK dynamic table
+ */
+namespace RDB_DEADLOCK_FIELD {
+enum {
+  DEADLOCK_ID = 0,
+  TRANSACTION_ID,
+  CF_NAME,
+  WAITING_KEY,
+  LOCK_TYPE,
+  INDEX_NAME,
+  TABLE_NAME,
+  ROLLED_BACK
+};
+} // namespace RDB_TRX_FIELD
+
+static ST_FIELD_INFO rdb_i_s_deadlock_info_fields_info[] = {
+    ROCKSDB_FIELD_INFO("DEADLOCK_ID", sizeof(ulonglong), MYSQL_TYPE_LONGLONG,
+                       0),
+    ROCKSDB_FIELD_INFO("TRANSACTION_ID", sizeof(ulonglong), MYSQL_TYPE_LONGLONG,
+                       0),
+    ROCKSDB_FIELD_INFO("CF_NAME", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("WAITING_KEY", FN_REFLEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("LOCK_TYPE", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("INDEX_NAME", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("TABLE_NAME", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("ROLLED_BACK", sizeof(ulonglong), MYSQL_TYPE_LONGLONG,
+                       0),
+    ROCKSDB_FIELD_INFO_END};
+
+/* Fill the information_schema.rocksdb_trx virtual table */
+static int rdb_i_s_deadlock_info_fill_table(
+    my_core::THD *const thd, my_core::TABLE_LIST *const tables,
+    my_core::Item *const cond MY_ATTRIBUTE((__unused__))) {
+  DBUG_ENTER_FUNC();
+
+  DBUG_ASSERT(thd != nullptr);
+  DBUG_ASSERT(tables != nullptr);
+  DBUG_ASSERT(tables->table != nullptr);
+  DBUG_ASSERT(tables->table->field != nullptr);
+
+  static const std::string str_exclusive("EXCLUSIVE");
+  static const std::string str_shared("SHARED");
+
+  int ret = 0;
+  rocksdb::DB *const rdb = rdb_get_rocksdb_db();
+
+  if (!rdb) {
+    DBUG_RETURN(ret);
+  }
+
+  const std::vector<Rdb_deadlock_info> &all_dl_info = rdb_get_deadlock_info();
+
+  ulonglong id = 0;
+  for (const auto &info : all_dl_info) {
+    for (const auto &trx_info : info.path) {
+      tables->table->field[RDB_DEADLOCK_FIELD::DEADLOCK_ID]->store(id, true);
+      tables->table->field[RDB_DEADLOCK_FIELD::TRANSACTION_ID]->store(
+          trx_info.trx_id, true);
+      tables->table->field[RDB_DEADLOCK_FIELD::CF_NAME]->store(
+          trx_info.cf_name.c_str(), trx_info.cf_name.length(),
+          system_charset_info);
+      tables->table->field[RDB_DEADLOCK_FIELD::WAITING_KEY]->store(
+          trx_info.waiting_key.c_str(), trx_info.waiting_key.length(),
+          system_charset_info);
+      if (trx_info.exclusive_lock) {
+        tables->table->field[RDB_DEADLOCK_FIELD::LOCK_TYPE]->store(
+            str_exclusive.c_str(), str_exclusive.length(), system_charset_info);
+      } else {
+        tables->table->field[RDB_DEADLOCK_FIELD::LOCK_TYPE]->store(
+            str_shared.c_str(), str_shared.length(), system_charset_info);
+      }
+      tables->table->field[RDB_DEADLOCK_FIELD::INDEX_NAME]->store(
+          trx_info.index_name.c_str(), trx_info.index_name.length(),
+          system_charset_info);
+      tables->table->field[RDB_DEADLOCK_FIELD::TABLE_NAME]->store(
+          trx_info.table_name.c_str(), trx_info.table_name.length(),
+          system_charset_info);
+      tables->table->field[RDB_DEADLOCK_FIELD::ROLLED_BACK]->store(
+          trx_info.trx_id == info.victim_trx_id, true);
+
+      /* Tell MySQL about this row in the virtual table */
+      ret = static_cast<int>(
+          my_core::schema_table_store_record(thd, tables->table));
+
+      if (ret != 0) {
+        break;
+      }
+    }
+    id++;
+  }
+
+  DBUG_RETURN(ret);
+}
+
+/* Initialize the information_schema.rocksdb_trx_info virtual table */
+static int rdb_i_s_deadlock_info_init(void *const p) {
+  DBUG_ENTER_FUNC();
+
+  DBUG_ASSERT(p != nullptr);
+
+  my_core::ST_SCHEMA_TABLE *schema;
+
+  schema = (my_core::ST_SCHEMA_TABLE *)p;
+
+  schema->fields_info = rdb_i_s_deadlock_info_fields_info;
+  schema->fill_table = rdb_i_s_deadlock_info_fill_table;
+
+  DBUG_RETURN(0);
+}
+
 static int rdb_i_s_deinit(void *p MY_ATTRIBUTE((__unused__))) {
   DBUG_ENTER_FUNC();
   DBUG_RETURN(0);
@@ -1653,6 +1764,22 @@ struct st_mysql_plugin rdb_i_s_trx_info = {
     "RocksDB transaction information",
     PLUGIN_LICENSE_GPL,
     rdb_i_s_trx_info_init,
+    nullptr,
+    0x0001,  /* version number (0.1) */
+    nullptr, /* status variables */
+    nullptr, /* system variables */
+    nullptr, /* config options */
+    0,       /* flags */
+};
+
+struct st_mysql_plugin rdb_i_s_deadlock_info = {
+    MYSQL_INFORMATION_SCHEMA_PLUGIN,
+    &rdb_i_s_info,
+    "ROCKSDB_DEADLOCK",
+    "Facebook",
+    "RocksDB transaction information",
+    PLUGIN_LICENSE_GPL,
+    rdb_i_s_deadlock_info_init,
     nullptr,
     0x0001,  /* version number (0.1) */
     nullptr, /* status variables */
