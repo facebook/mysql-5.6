@@ -2110,6 +2110,7 @@ enum process_list_type
   SHOW_PROCESS_LIST,
   SHOW_TRANSACTION_LIST,
   SHOW_CONNECTION_ATTRS,
+  SHOW_QUERY_ATTRS,
   SHOW_SRV_SESSIONS,
 };
 
@@ -2740,6 +2741,36 @@ static bool fill_fields_transaction_list(THD *thd, THD *conn_thd, TABLE *table,
   return true;
 }
 
+static void fill_fields_query_attrs(THD *thd, THD *tmp, TABLE *table,
+                                    char *user, CHARSET_INFO *cs)
+{
+  // if the user cannot access the tmp thread, skip the thread
+  if (!access_thread(user, tmp))
+    return;
+
+  mysql_mutex_lock(&tmp->LOCK_thd_data);
+  // each attribute pair will correspond to a row
+  for (const auto &attribute : tmp->query_attrs_map)
+  {
+    /* ID */
+    table->field[0]->store((ulonglong) tmp->thread_id(), TRUE);
+
+    // ATTR_NAME
+    size_t width= min<size_t>(PROCESS_LIST_WIDTH, attribute.first.size());
+    table->field[1]->store(attribute.first.c_str(), width, cs);
+    table->field[1]->set_notnull();
+
+    // ATTR_VALUE
+    width= min<size_t>(PROCESS_LIST_WIDTH, attribute.second.size());
+    table->field[2]->store(attribute.second.c_str(), width, cs);
+    table->field[2]->set_notnull();
+
+    if (schema_table_store_record(thd, table))
+      break;
+  }
+  mysql_mutex_unlock(&tmp->LOCK_thd_data);
+}
+
 static void fill_fields_connection_attrs(THD *thd, THD *tmp, TABLE *table,
                                          char *user, CHARSET_INFO *cs)
 {
@@ -2980,6 +3011,10 @@ int fill_schema_process_trx_helper(THD *thd, TABLE_LIST *tables, Item *cond,
       dbug_name = "fill_connection_attrs";
       break;
 
+    case process_list_type::SHOW_QUERY_ATTRS:
+      dbug_name = "fill_query_attrs";
+      break;
+
     case process_list_type::SHOW_PROCESS_LIST:
       dbug_name = "fill_process_list";
       break;
@@ -3054,6 +3089,12 @@ int fill_schema_process_trx_helper(THD *thd, TABLE_LIST *tables, Item *cond,
             // so continue to next thd (for-loop)
             continue;
 
+          case process_list_type::SHOW_QUERY_ATTRS:
+            fill_fields_query_attrs(thd, tmp, table, user, cs);
+            // query attr records already stored,
+            // so continue to next thd (for-loop)
+            continue;
+
           case process_list_type::SHOW_PROCESS_LIST:
             store = fill_fields_processlist(thd, tmp, table, user, cs, now);
             break;
@@ -3123,6 +3164,11 @@ int fill_schema_connection_attrs(THD* thd, TABLE_LIST* tables, Item* cond)
 {
   return fill_schema_process_trx_helper(thd, tables, cond,
             process_list_type::SHOW_CONNECTION_ATTRS);
+}
+
+int fill_schema_query_attrs(THD* thd, TABLE_LIST* tables, Item* cond) {
+  return fill_schema_process_trx_helper(thd, tables, cond,
+            process_list_type::SHOW_QUERY_ATTRS);
 }
 
 int fill_schema_srv_sessions(THD* thd, TABLE_LIST* tables, Item* cond)
@@ -9214,6 +9260,16 @@ ST_FIELD_INFO connection_attrs_fields_info[]=
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
+ST_FIELD_INFO query_attrs_fields_info[]=
+{
+  {"ID", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "Id", SKIP_OPEN_TABLE},
+  {"ATTR_NAME", PROCESS_LIST_INFO_WIDTH, MYSQL_TYPE_STRING, 0, 1,
+   "ATTR_NAME", SKIP_OPEN_TABLE},
+  {"ATTR_VALUE", PROCESS_LIST_INFO_WIDTH, MYSQL_TYPE_STRING, 0, 1,
+   "ATTR_VALUE", SKIP_OPEN_TABLE},
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
+};
+
 ST_FIELD_INFO authinfo_fields_info[]=
 {
   {"ID", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "Id", SKIP_OPEN_TABLE},
@@ -9463,6 +9519,9 @@ ST_SCHEMA_TABLE schema_tables[]=
   {"CONNECTION_ATTRIBUTES", connection_attrs_fields_info,
    create_schema_table, fill_schema_connection_attrs,
    make_old_format, 0, -1, -1, 0, 0},
+  {"QUERY_ATTRIBUTES", query_attrs_fields_info,
+   create_schema_table, fill_schema_query_attrs,
+   NULL, NULL, -1, -1, false, 0},
   {"PROFILING", query_profile_statistics_info, create_schema_table,
     fill_query_profile_statistics_info, make_profile_table_for_show, 
     NULL, -1, -1, false, 0},
