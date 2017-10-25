@@ -126,7 +126,7 @@ function build_xtrabackup()
     export LIBS="$LIBS -lrt"
     fi
     $MAKE_CMD MYSQL_ROOT_DIR=$server_dir clean
-    $MAKE_CMD MYSQL_ROOT_DIR=$server_dir ZSTD_PATH=$WITH_ZSTD \
+    $MAKE_CMD MYSQL_ROOT_DIR=$server_dir \
       XTRABACKUP_VERSION=$XTRABACKUP_VERSION $xtrabackup_target
     cd $top_dir
 }
@@ -208,6 +208,9 @@ case "$type" in
         fi
         if [ -n "$SSL_PATH" ]; then
                 configure_cmd+=" -DWITH_SSL=$SSL_PATH"
+        fi
+        if [ -n "$ZSTD_PATH" ]; then
+                configure_cmd+=" -DWITH_ZSTD=$ZSTD_PATH"
         fi
         if [ -n "$ZLIB_PATH" ]; then
                 configure_cmd+=" -DWITH_ZLIB=$ZLIB_PATH"
