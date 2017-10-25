@@ -659,6 +659,7 @@ class ha_rocksdb : public my_core::handler {
   }
 
   void load_auto_incr_value();
+  ulonglong load_auto_incr_value_from_index();
   void update_auto_incr_val(ulonglong val);
   void update_auto_incr_val_from_field();
   rocksdb::Status get_datadic_auto_incr(Rdb_transaction *const tx,
@@ -1394,18 +1395,22 @@ struct Rdb_inplace_alter_ctx : public my_core::inplace_alter_handler_ctx {
   /* Stores number of keys to drop */
   const uint m_n_dropped_keys;
 
+  /* Stores the largest current auto increment value in the index */
+  const ulonglong m_max_auto_incr;
+
   Rdb_inplace_alter_ctx(
       Rdb_tbl_def *new_tdef, std::shared_ptr<Rdb_key_def> *old_key_descr,
       std::shared_ptr<Rdb_key_def> *new_key_descr, uint old_n_keys,
       uint new_n_keys,
       std::unordered_set<std::shared_ptr<Rdb_key_def>> added_indexes,
       std::unordered_set<GL_INDEX_ID> dropped_index_ids, uint n_added_keys,
-      uint n_dropped_keys)
+      uint n_dropped_keys, ulonglong max_auto_incr)
       : my_core::inplace_alter_handler_ctx(), m_new_tdef(new_tdef),
         m_old_key_descr(old_key_descr), m_new_key_descr(new_key_descr),
         m_old_n_keys(old_n_keys), m_new_n_keys(new_n_keys),
         m_added_indexes(added_indexes), m_dropped_index_ids(dropped_index_ids),
-        m_n_added_keys(n_added_keys), m_n_dropped_keys(n_dropped_keys) {}
+        m_n_added_keys(n_added_keys), m_n_dropped_keys(n_dropped_keys),
+        m_max_auto_incr(max_auto_incr) {}
 
   ~Rdb_inplace_alter_ctx() {}
 
