@@ -4594,16 +4594,14 @@ static ulonglong rdb_get_int_col_max_value(const Field *field) {
 
 void ha_rocksdb::load_auto_incr_value() {
   ulonglong dd_val = 0;
-  bool validate_last = false;
-  bool autoinc_upgrade_test = false;
-  DBUG_EXECUTE_IF("myrocks_autoinc_upgrade", autoinc_upgrade_test = true;);
+  bool validate_last = false, use_datadic = true;
 #ifndef NDEBUG
+  DBUG_EXECUTE_IF("myrocks_autoinc_upgrade", use_datadic = false;);
   validate_last = true;
 #endif
 
-  if (!autoinc_upgrade_test &&
-      dict_manager.get_auto_incr_val(m_tbl_def->get_autoincr_gl_index_id(),
-                                     &dd_val)) {
+  if (use_datadic && dict_manager.get_auto_incr_val(
+                         m_tbl_def->get_autoincr_gl_index_id(), &dd_val)) {
     update_auto_incr_val(dd_val);
   }
 
@@ -4611,71 +4609,74 @@ void ha_rocksdb::load_auto_incr_value() {
   // then call index_last to get the last value.
   //
   // This is needed when upgrading from a server that did not support
-  // persistent auto_increment, or when doing an alter table to add
-  // auto_increment property.
+  // persistent auto_increment.
   //
   // For debug mode, we are just verifying that the data dictionary value is
   // greater than or equal to the maximum value in the table.
   if (dd_val == 0 || validate_last) {
-    const int save_active_index = active_index;
-    active_index = table->s->next_number_index;
-    const uint8 save_table_status = table->status;
-
-    Rdb_transaction *const tx = get_or_create_tx(table->in_use);
-    const bool is_new_snapshot = !tx->has_snapshot();
-    if (is_new_snapshot) {
-      tx->acquire_snapshot(true);
-    }
-
-    // Do a lookup. We only need index column, so it should be index-only.
-    // (another reason to make it index-only is that table->read_set is not set
-    // appropriately and non-index-only lookup will not read the value)
-    const bool save_keyread_only = m_keyread_only;
-    m_keyread_only = true;
-    m_key_requested = true;
-
-    if (!index_last(table->record[0])) {
-#ifndef NDEBUG
-      Field *field =
-          table->key_info[table->s->next_number_index].key_part[0].field;
-      ulonglong max_val = rdb_get_int_col_max_value(field);
-      my_bitmap_map *const old_map =
-          dbug_tmp_use_all_columns(table, table->read_set);
-      ulonglong last_val = field->val_int();
-      if (validate_last && last_val <= max_val) {
-        const auto &gl_index_id = m_tbl_def->get_autoincr_gl_index_id();
-        // Reload data dictionary value in case value has changed since
-        // snapshot was acquired.
-        if (dict_manager.get_auto_incr_val(gl_index_id, &dd_val) &&
-            tx->get_auto_incr(gl_index_id) == 0) {
-          DBUG_ASSERT(dd_val >= last_val);
-        }
-      }
-      dbug_tmp_restore_column_map(table->read_set, old_map);
-#endif
-
-      // If data dictionary is empty, but rows are found, then this might be
-      // a recently upgraded table. Use the value obtained from index_last.
-      if (dd_val == 0) {
-        update_auto_incr_val_from_field();
-      }
-    }
-
-    m_keyread_only = save_keyread_only;
-    if (is_new_snapshot) {
-      tx->release_snapshot();
-    }
-
-    table->status = save_table_status;
-    active_index = save_active_index;
-
-    /*
-      Do what ha_rocksdb::index_end() does.
-      (Why don't we use index_init/index_end? class handler defines index_init
-      as private, for some reason).
-      */
-    release_scan_iterator();
+    ulonglong last_val = load_auto_incr_value_from_index();
+    update_auto_incr_val(last_val);
   }
+}
+
+ulonglong ha_rocksdb::load_auto_incr_value_from_index() {
+  const int save_active_index = active_index;
+  active_index = table->s->next_number_index;
+  const uint8 save_table_status = table->status;
+  ulonglong last_val = 0;
+
+  Rdb_transaction *const tx = get_or_create_tx(table->in_use);
+  const bool is_new_snapshot = !tx->has_snapshot();
+  if (is_new_snapshot) {
+    tx->acquire_snapshot(true);
+  }
+
+  // Do a lookup. We only need index column, so it should be index-only.
+  // (another reason to make it index-only is that table->read_set is not set
+  // appropriately and non-index-only lookup will not read the value)
+  const bool save_keyread_only = m_keyread_only;
+  m_keyread_only = true;
+  m_key_requested = true;
+
+  if (!index_last(table->record[0])) {
+    Field *field =
+        table->key_info[table->s->next_number_index].key_part[0].field;
+    ulonglong max_val = rdb_get_int_col_max_value(field);
+    my_bitmap_map *const old_map =
+        dbug_tmp_use_all_columns(table, table->read_set);
+    last_val = field->val_int();
+    if (last_val != max_val) {
+      last_val++;
+    }
+#ifndef NDEBUG
+    ulonglong dd_val;
+    if (last_val <= max_val) {
+      const auto &gl_index_id = m_tbl_def->get_autoincr_gl_index_id();
+      if (dict_manager.get_auto_incr_val(gl_index_id, &dd_val) &&
+          tx->get_auto_incr(gl_index_id) == 0) {
+        DBUG_ASSERT(dd_val >= last_val);
+      }
+    }
+#endif
+    dbug_tmp_restore_column_map(table->read_set, old_map);
+  }
+
+  m_keyread_only = save_keyread_only;
+  if (is_new_snapshot) {
+    tx->release_snapshot();
+  }
+
+  table->status = save_table_status;
+  active_index = save_active_index;
+
+  /*
+    Do what ha_rocksdb::index_end() does.
+    (Why don't we use index_init/index_end? class handler defines index_init
+    as private, for some reason).
+    */
+  release_scan_iterator();
+
+  return last_val;
 }
 
 void ha_rocksdb::update_auto_incr_val(ulonglong val) {
@@ -10897,7 +10898,8 @@ my_core::enum_alter_inplace_result ha_rocksdb::check_if_supported_inplace_alter(
       ~(my_core::Alter_inplace_info::DROP_INDEX |
         my_core::Alter_inplace_info::DROP_UNIQUE_INDEX |
         my_core::Alter_inplace_info::ADD_INDEX |
-        my_core::Alter_inplace_info::ADD_UNIQUE_INDEX)) {
+        my_core::Alter_inplace_info::ADD_UNIQUE_INDEX |
+        my_core::Alter_inplace_info::CHANGE_CREATE_OPTION)) {
     DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
   }
 
@@ -10905,6 +10907,13 @@ my_core::enum_alter_inplace_result ha_rocksdb::check_if_supported_inplace_alter(
   if ((ha_alter_info->handler_flags &
        my_core::Alter_inplace_info::ADD_UNIQUE_INDEX) &&
       has_hidden_pk(altered_table)) {
+    DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
+  }
+
+  /* We only support changing auto_increment for table options. */
+  if ((ha_alter_info->handler_flags &
+       my_core::Alter_inplace_info::CHANGE_CREATE_OPTION) &&
+      !(ha_alter_info->create_info->used_fields & HA_CREATE_USED_AUTO)) {
     DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
   }
 
@@ -10947,111 +10956,121 @@ bool ha_rocksdb::prepare_inplace_alter_table(
   DBUG_ASSERT(altered_table != nullptr);
   DBUG_ASSERT(ha_alter_info != nullptr);
 
-  const uint old_n_keys = m_tbl_def->m_key_count;
+  Rdb_tbl_def *new_tdef = nullptr;
+  std::shared_ptr<Rdb_key_def> *old_key_descr = nullptr;
+  std::shared_ptr<Rdb_key_def> *new_key_descr = nullptr;
+  uint old_n_keys = m_tbl_def->m_key_count;
   uint new_n_keys = altered_table->s->keys;
-
-  if (has_hidden_pk(altered_table)) {
-    new_n_keys += 1;
-  }
-
-  const TABLE *const old_table = table;
-  std::shared_ptr<Rdb_key_def> *const old_key_descr =
-      m_tbl_def->m_key_descr_arr;
-  std::shared_ptr<Rdb_key_def> *const new_key_descr =
-      new std::shared_ptr<Rdb_key_def>[new_n_keys];
-
-  Rdb_tbl_def *const new_tdef = new Rdb_tbl_def(m_tbl_def->full_tablename());
-  new_tdef->m_key_descr_arr = new_key_descr;
-  new_tdef->m_key_count = new_n_keys;
-  new_tdef->m_auto_incr_val =
-      m_tbl_def->m_auto_incr_val.load(std::memory_order_relaxed);
-  new_tdef->m_hidden_pk_val =
-      m_tbl_def->m_hidden_pk_val.load(std::memory_order_relaxed);
-
-  if (ha_alter_info->handler_flags &
-          (my_core::Alter_inplace_info::DROP_INDEX |
-           my_core::Alter_inplace_info::DROP_UNIQUE_INDEX |
-           my_core::Alter_inplace_info::ADD_INDEX |
-           my_core::Alter_inplace_info::ADD_UNIQUE_INDEX) &&
-      create_key_defs(altered_table, new_tdef, table, m_tbl_def)) {
-    /* Delete the new key descriptors */
-    delete[] new_key_descr;
-
-    /*
-      Explicitly mark as nullptr so we don't accidentally remove entries
-      from data dictionary on cleanup (or cause double delete[]).
-    */
-    new_tdef->m_key_descr_arr = nullptr;
-    delete new_tdef;
-
-    my_error(ER_KEY_CREATE_DURING_ALTER, MYF(0));
-    DBUG_RETURN(HA_EXIT_FAILURE);
-  }
-
   std::unordered_set<std::shared_ptr<Rdb_key_def>> added_indexes;
   std::unordered_set<GL_INDEX_ID> dropped_index_ids;
+  uint n_dropped_keys = 0;
+  uint n_added_keys = 0;
+  ulonglong max_auto_incr = 0;
 
-  uint i;
-  uint j;
+  if (ha_alter_info->handler_flags &
+      (my_core::Alter_inplace_info::DROP_INDEX |
+       my_core::Alter_inplace_info::DROP_UNIQUE_INDEX |
+       my_core::Alter_inplace_info::ADD_INDEX |
+       my_core::Alter_inplace_info::ADD_UNIQUE_INDEX)) {
 
-  /* Determine which(if any) key definition(s) need to be dropped */
-  for (i = 0; i < ha_alter_info->index_drop_count; i++) {
-    const KEY *const dropped_key = ha_alter_info->index_drop_buffer[i];
-    for (j = 0; j < old_n_keys; j++) {
-      const KEY *const old_key =
-          &old_table->key_info[old_key_descr[j]->get_keyno()];
-
-      if (!compare_keys(old_key, dropped_key)) {
-        dropped_index_ids.insert(old_key_descr[j]->get_gl_index_id());
-        break;
-      }
+    if (has_hidden_pk(altered_table)) {
+      new_n_keys += 1;
     }
-  }
 
-  /* Determine which(if any) key definitions(s) need to be added */
-  int identical_indexes_found = 0;
-  for (i = 0; i < ha_alter_info->index_add_count; i++) {
-    const KEY *const added_key =
-        &ha_alter_info->key_info_buffer[ha_alter_info->index_add_buffer[i]];
-    for (j = 0; j < new_n_keys; j++) {
-      const KEY *const new_key =
-          &altered_table->key_info[new_key_descr[j]->get_keyno()];
-      if (!compare_keys(new_key, added_key)) {
-        /*
-          Check for cases where an 'identical' index is being dropped and
-          re-added in a single ALTER statement.  Turn this into a no-op as the
-          index has not changed.
+    const TABLE *const old_table = table;
+    old_key_descr = m_tbl_def->m_key_descr_arr;
+    new_key_descr = new std::shared_ptr<Rdb_key_def>[new_n_keys];
 
-          E.G. Unique index -> non-unique index requires no change
+    new_tdef = new Rdb_tbl_def(m_tbl_def->full_tablename());
+    new_tdef->m_key_descr_arr = new_key_descr;
+    new_tdef->m_key_count = new_n_keys;
+    new_tdef->m_auto_incr_val =
+        m_tbl_def->m_auto_incr_val.load(std::memory_order_relaxed);
+    new_tdef->m_hidden_pk_val =
+        m_tbl_def->m_hidden_pk_val.load(std::memory_order_relaxed);
 
-          Note that cases where the index name remains the same but the
-          key-parts are changed is already handled in create_inplace_key_defs.
-          In these cases the index needs to be rebuilt.
+    if (create_key_defs(altered_table, new_tdef, table, m_tbl_def)) {
+      /* Delete the new key descriptors */
+      delete[] new_key_descr;
+
+      /*
+        Explicitly mark as nullptr so we don't accidentally remove entries
+        from data dictionary on cleanup (or cause double delete[]).
         */
-        if (dropped_index_ids.count(new_key_descr[j]->get_gl_index_id())) {
-          dropped_index_ids.erase(new_key_descr[j]->get_gl_index_id());
-          identical_indexes_found++;
-        } else {
-          added_indexes.insert(new_key_descr[j]);
-        }
+      new_tdef->m_key_descr_arr = nullptr;
+      delete new_tdef;
 
-        break;
+      my_error(ER_KEY_CREATE_DURING_ALTER, MYF(0));
+      DBUG_RETURN(HA_EXIT_FAILURE);
+    }
+
+    uint i;
+    uint j;
+
+    /* Determine which(if any) key definition(s) need to be dropped */
+    for (i = 0; i < ha_alter_info->index_drop_count; i++) {
+      const KEY *const dropped_key = ha_alter_info->index_drop_buffer[i];
+      for (j = 0; j < old_n_keys; j++) {
+        const KEY *const old_key =
+            &old_table->key_info[old_key_descr[j]->get_keyno()];
+
+        if (!compare_keys(old_key, dropped_key)) {
+          dropped_index_ids.insert(old_key_descr[j]->get_gl_index_id());
+          break;
+        }
       }
     }
-  }
 
-  const uint n_dropped_keys =
-      ha_alter_info->index_drop_count - identical_indexes_found;
-  const uint n_added_keys =
-      ha_alter_info->index_add_count - identical_indexes_found;
-  DBUG_ASSERT(dropped_index_ids.size() == n_dropped_keys);
-  DBUG_ASSERT(added_indexes.size() == n_added_keys);
-  DBUG_ASSERT(new_n_keys == (old_n_keys - n_dropped_keys + n_added_keys));
+    /* Determine which(if any) key definitions(s) need to be added */
+    int identical_indexes_found = 0;
+    for (i = 0; i < ha_alter_info->index_add_count; i++) {
+      const KEY *const added_key =
+          &ha_alter_info->key_info_buffer[ha_alter_info->index_add_buffer[i]];
+      for (j = 0; j < new_n_keys; j++) {
+        const KEY *const new_key =
+            &altered_table->key_info[new_key_descr[j]->get_keyno()];
+        if (!compare_keys(new_key, added_key)) {
+          /*
+            Check for cases where an 'identical' index is being dropped and
+            re-added in a single ALTER statement.  Turn this into a no-op as the
+            index has not changed.
+
+            E.G. Unique index -> non-unique index requires no change
+
+            Note that cases where the index name remains the same but the
+            key-parts are changed is already handled in create_inplace_key_defs.
+            In these cases the index needs to be rebuilt.
+            */
+          if (dropped_index_ids.count(new_key_descr[j]->get_gl_index_id())) {
+            dropped_index_ids.erase(new_key_descr[j]->get_gl_index_id());
+            identical_indexes_found++;
+          } else {
+            added_indexes.insert(new_key_descr[j]);
+          }
+
+          break;
+        }
+      }
+    }
+
+    n_dropped_keys = ha_alter_info->index_drop_count - identical_indexes_found;
+    n_added_keys = ha_alter_info->index_add_count - identical_indexes_found;
+    DBUG_ASSERT(dropped_index_ids.size() == n_dropped_keys);
+    DBUG_ASSERT(added_indexes.size() == n_added_keys);
+    DBUG_ASSERT(new_n_keys == (old_n_keys - n_dropped_keys + n_added_keys));
+  }
+  if (ha_alter_info->handler_flags &
+      my_core::Alter_inplace_info::CHANGE_CREATE_OPTION) {
+    if (!new_tdef) {
+      new_tdef = m_tbl_def;
+    }
+    max_auto_incr = load_auto_incr_value_from_index();
+  }
 
   ha_alter_info->handler_ctx = new Rdb_inplace_alter_ctx(
       new_tdef, old_key_descr, new_key_descr, old_n_keys, new_n_keys,
-      added_indexes, dropped_index_ids, n_added_keys, n_dropped_keys);
-
+      added_indexes, dropped_index_ids, n_added_keys, n_dropped_keys,
+      max_auto_incr);
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
 
@@ -11509,6 +11528,27 @@ bool ha_rocksdb::commit_inplace_alter_table(
     }
 
     rdb_drop_idx_thread.signal();
+  }
+
+  if (ha_alter_info->handler_flags &
+      (my_core::Alter_inplace_info::CHANGE_CREATE_OPTION)) {
+    const std::unique_ptr<rocksdb::WriteBatch> wb = dict_manager.begin();
+    rocksdb::WriteBatch *const batch = wb.get();
+    std::unordered_set<GL_INDEX_ID> create_index_ids;
+
+    ulonglong auto_incr_val = ha_alter_info->create_info->auto_increment_value;
+
+    for (inplace_alter_handler_ctx **pctx = ctx_array; *pctx; pctx++) {
+      Rdb_inplace_alter_ctx *const ctx =
+          static_cast<Rdb_inplace_alter_ctx *>(*pctx);
+      dict_manager.put_auto_incr_val(
+          batch, ctx->m_new_tdef->get_autoincr_gl_index_id(),
+          std::max(ctx->m_max_auto_incr, auto_incr_val), true /* overwrite */);
+    }
+
+    if (dict_manager.commit(batch)) {
+      DBUG_ASSERT(0);
+    }
   }
 
   DBUG_RETURN(HA_EXIT_SUCCESS);
