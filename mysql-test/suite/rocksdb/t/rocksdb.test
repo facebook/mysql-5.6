@@ -573,10 +573,6 @@ insert into t30 values
   ('row3', 'row3-key', 'row3-data'),
   ('row4', 'row4-key', 'row4-data'),
   ('row5', 'row5-key', 'row5-data');
---disable_query_log
-set global rocksdb_force_flush_memtable_now=1;
---enable_query_log
-analyze table t30;
 
 --replace_column 9 #
 explain 
