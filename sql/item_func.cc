@@ -6985,6 +6985,7 @@ bool Item_func_get_system_var::resolve_type(THD *) {
       set_data_type_longlong();
       max_length = 1;
       break;
+    case SHOW_TIMER:
     case SHOW_DOUBLE:
       set_data_type_double();
       // Override decimals and length calculation done above.
@@ -7115,6 +7116,7 @@ longlong Item_func_get_system_var::val_int() {
         return get_sys_var_safe<bool>(thd, var);
       case SHOW_MY_BOOL:
         return get_sys_var_safe<bool>(thd, var);
+      case SHOW_TIMER:
       case SHOW_DOUBLE: {
         double dval = val_real();
 
@@ -7222,6 +7224,7 @@ String *Item_func_get_system_var::val_str(String *str) {
         else
           str->set(val_int(), collation.collation);
         break;
+      case SHOW_TIMER:
       case SHOW_DOUBLE:
         str->set_real(val_real(), decimals, collation.collation);
         break;
@@ -7273,6 +7276,12 @@ double Item_func_get_system_var::val_real() {
   auto f = [this, thd](const System_variable_tracker &,
                        sys_var *var) -> double {
     switch (var->show_type()) {
+      case SHOW_TIMER:
+        cached_dval = my_timer_to_seconds((ulonglong)(val_int()));
+        cache_present |= GET_SYS_VAR_CACHE_DOUBLE;
+        used_query_id = thd->query_id;
+        cached_null_value = null_value;
+        return cached_dval;
       case SHOW_DOUBLE:
         mysql_mutex_lock(&LOCK_global_system_variables);
         cached_dval = *pointer_cast<const double *>(

@@ -44,6 +44,7 @@
 #include "my_inttypes.h"
 #include "my_io.h"
 #include "my_psi_config.h"
+#include "my_rdtsc.h" /* my_timer* */
 #include "my_sharedlib.h"
 #include "my_sqlcommand.h"  // SQLCOM_END
 #include "my_sys.h"         // MY_TMPDIR
@@ -363,6 +364,51 @@ enum enum_binlog_error_action {
 extern const char *binlog_error_action_list[];
 extern char *opt_authentication_policy;
 extern std::vector<std::string> authentication_policy_list;
+
+/* SHOW STATS var: Name of current timer */
+extern const char *timer_in_use;
+/* Current timer stats */
+extern struct my_timer_unit_info my_timer;
+/* Get current time */
+extern ulonglong (*my_timer_now)(void);
+/* Get time passed since "then" */
+inline ulonglong my_timer_since(ulonglong then) {
+  return (my_timer_now() - then) - my_timer.overhead;
+}
+/* Get time passed since "then", and update then to now */
+inline ulonglong my_timer_since_and_update(ulonglong *then) {
+  ulonglong now = my_timer_now();
+  ulonglong ret = (now - (*then)) - my_timer.overhead;
+  *then = now;
+  return ret;
+}
+/* Convert native timer units in a ulonglong into seconds in a double */
+inline double my_timer_to_seconds(ulonglong when) {
+  double ret = (double)(when);
+  ret /= (double)(my_timer.frequency);
+  return ret;
+}
+/* Convert native timer units in a ulonglong into milliseconds in a double */
+inline double my_timer_to_milliseconds(ulonglong when) {
+  double ret = (double)(when);
+  ret *= 1000.0;
+  ret /= (double)(my_timer.frequency);
+  return ret;
+}
+/* Convert native timer units in a ulonglong into microseconds in a double */
+inline double my_timer_to_microseconds(ulonglong when) {
+  double ret = (double)(when);
+  ret *= 1000000.0;
+  ret /= (double)(my_timer.frequency);
+  return ret;
+}
+/* Convert microseconds in a double to native timer units in a ulonglong */
+inline ulonglong microseconds_to_my_timer(double when) {
+  double ret = when;
+  ret *= (double)(my_timer.frequency);
+  ret /= 1000000.0;
+  return (ulonglong)ret;
+}
 
 extern ulong stored_program_cache_size;
 extern ulong back_log;
