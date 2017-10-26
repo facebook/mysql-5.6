@@ -2,6 +2,9 @@
 # Verify that the DATA/INDEX DIR is stored and used if ALTER to MyISAM.
 #
 DROP TABLE IF EXISTS t1;
+DROP DATABASE IF EXISTS test;
+CREATE DATABASE test;
+use test;
 SET SESSION innodb_strict_mode = ON;
 #
 # InnoDB only supports DATA DIRECTORY with innodb_file_per_table=ON
@@ -52,6 +55,7 @@ Warning	1618	<INDEX DIRECTORY> option ignored
 Warning	1618	<INDEX DIRECTORY> option ignored
 # Verifying .frm, .par, .isl & .ibd files
 ---- MYSQLD_DATADIR/test
+db.opt
 t1#P#p0.isl
 t1#P#p1.isl
 t1.frm
@@ -87,6 +91,7 @@ t1	CREATE TABLE `t1` (
  PARTITION p1 DATA DIRECTORY = 'MYSQLTEST_VARDIR/mysql-test-data-dir' ENGINE = MyISAM) */
 # Verifying .frm, .par and MyISAM files (.MYD, MYI)
 ---- MYSQLD_DATADIR/test
+db.opt
 t1#P#p0.MYD
 t1#P#p0.MYI
 t1#P#p1.MYD
@@ -114,6 +119,7 @@ t1	CREATE TABLE `t1` (
  PARTITION p1 DATA DIRECTORY = 'MYSQLTEST_VARDIR/mysql-test-data-dir' ENGINE = InnoDB) */
 # Verifying .frm, .par, .isl and InnoDB .ibd files
 ---- MYSQLD_DATADIR/test
+db.opt
 t1#P#p0.isl
 t1#P#p1.isl
 t1.frm
