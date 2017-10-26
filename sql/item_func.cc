@@ -6606,6 +6606,7 @@ bool Item_func_get_system_var::resolve_type(THD *thd) {
       unsigned_flag = false;
       max_length = 1;
       break;
+    case SHOW_TIMER:
     case SHOW_DOUBLE:
       collation.set_numeric();
       set_data_type(MYSQL_TYPE_DOUBLE);
@@ -6641,6 +6642,7 @@ enum Item_result Item_func_get_system_var::result_type() const {
     case SHOW_CHAR_PTR:
     case SHOW_LEX_STRING:
       return STRING_RESULT;
+    case SHOW_TIMER:
     case SHOW_DOUBLE:
       return REAL_RESULT;
     default:
@@ -6757,6 +6759,7 @@ longlong Item_func_get_system_var::val_int() {
       return get_sys_var_safe<bool>(thd);
     case SHOW_MY_BOOL:
       return get_sys_var_safe<bool>(thd);
+    case SHOW_TIMER:
     case SHOW_DOUBLE: {
       double dval = val_real();
 
@@ -6857,6 +6860,7 @@ String *Item_func_get_system_var::val_str(String *str) {
       else
         str->set(val_int(), collation.collation);
       break;
+    case SHOW_TIMER:
     case SHOW_DOUBLE:
       str->set_real(val_real(), decimals, collation.collation);
       break;
@@ -6902,6 +6906,12 @@ double Item_func_get_system_var::val_real() {
   }
 
   switch (var->show_type()) {
+    case SHOW_TIMER:
+      cached_dval = my_timer_to_seconds((ulonglong)(val_int()));
+      cache_present |= GET_SYS_VAR_CACHE_DOUBLE;
+      used_query_id = thd->query_id;
+      cached_null_value = null_value;
+      return cached_dval;
     case SHOW_DOUBLE:
       mysql_mutex_lock(&LOCK_global_system_variables);
       cached_dval = *pointer_cast<const double *>(

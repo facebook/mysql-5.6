@@ -33,7 +33,8 @@ enum enum_mysql_show_type {
   SHOW_LEX_STRING,
   SHOW_SIGNED_INT,
   SHOW_SIGNED_LONG,
-  SHOW_SIGNED_LONGLONG
+  SHOW_SIGNED_LONGLONG,
+  SHOW_TIMER
 };
 enum enum_mysql_show_scope {
   SHOW_SCOPE_UNDEF,
