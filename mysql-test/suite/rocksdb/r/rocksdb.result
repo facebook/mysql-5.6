@@ -563,9 +563,6 @@ insert into t30 values
 ('row3', 'row3-key', 'row3-data'),
 ('row4', 'row4-key', 'row4-data'),
 ('row5', 'row5-key', 'row5-data');
-analyze table t30;
-Table	Op	Msg_type	Msg_text
-test.t30	analyze	status	OK
 explain 
 select * from t30 where key1 <='row3-key';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
