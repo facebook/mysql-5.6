@@ -77,8 +77,10 @@ let $wait_condition = select count(*) = 1 from information_schema.rocksdb_trx
 where thread_id = $con2 and waiting_key != "";
 --source include/wait_condition.inc
 
+select variable_value into @a from information_schema.global_status where variable_name='rocksdb_row_lock_deadlocks';
 --error ER_LOCK_DEADLOCK
 select * from t where i=1 for update;
+select case when variable_value-@a = 1 then 'true' else 'false' end as deadlocks from information_schema.global_status where variable_name='rocksdb_row_lock_deadlocks';
 rollback;
 
 connection con2;
