@@ -774,6 +774,17 @@ void read_ok_ex(MYSQL *mysql, ulong length)
 
         while (total_len > 0)
         {
+          /*
+           * A hack for the old gtid format which begins with a printable
+           * ascii charater[a-Z][0-9], we will assume that no session state type change
+           * will exist in this range
+           */
+          if (pos[0] >= 48 && pos[0] <= 126)
+          {
+            mysql->recv_gtid=(char*) pos;
+            pos += total_len;
+            break;
+          }
           saved_pos= pos;
           type= (enum enum_session_state_type) net_field_length(&pos);
 
