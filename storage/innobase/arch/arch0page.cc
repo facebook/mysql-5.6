@@ -971,7 +971,7 @@ int Page_Arch_Client_Ctx::start(bool recovery, uint64_t *start_id) {
     dict_persist_to_dd_table_buffer();
 
     /* Make sure all written pages are synced to disk. */
-    fil_flush_file_spaces(to_int(FIL_TYPE_TABLESPACE));
+    fil_flush_file_spaces(to_int(FIL_TYPE_TABLESPACE), FLUSH_FROM_OTHER);
 
     ib::info(ER_IB_MSG_20) << "Clone Start PAGE ARCH : start LSN : "
                            << m_start_lsn << ", checkpoint LSN : "

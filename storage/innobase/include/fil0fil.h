@@ -214,6 +214,15 @@ struct fil_node_t {
 /* Type of (un)encryption operation in progress for Tablespace. */
 enum encryption_op_type { ENCRYPTION = 1, DECRYPTION = 2, NONE };
 
+typedef enum {
+  FLUSH_FROM_OTHER,
+  FLUSH_FROM_CHECKPOINT,
+  FLUSH_FROM_LOG_IO_COMPLETE,
+  FLUSH_FROM_LOG_WRITE_UP_TO,
+  FLUSH_FROM_DOUBLEWRITE,
+  FLUSH_FROM_NUMBER
+} flush_from_t;
+
 /** Tablespace or log data space */
 struct fil_space_t {
   using List_node = UT_LIST_NODE_T(fil_space_t);
@@ -1531,8 +1540,9 @@ void fil_aio_wait(ulint segment);
 /** Flushes to disk possible writes cached by the OS. If the space does
 not exist or is being dropped, does not do anything.
 @param[in]	space_id	Tablespace ID (this can be a group of log files
-                                or a tablespace of the database) */
-void fil_flush(space_id_t space_id);
+                                or a tablespace of the database)
+@param[in]  from      Identifies the caller */
+void fil_flush(space_id_t space_id, flush_from_t from);
 
 /** Flush to disk the writes in file spaces of the given type
 possibly cached by the OS. */
@@ -1541,8 +1551,9 @@ void fil_flush_file_redo();
 /** Flush to disk the writes in file spaces of the given type
 possibly cached by the OS.
 @param[in]	purpose		FIL_TYPE_TABLESPACE or FIL_TYPE_LOG, can
-                                be ORred. */
-void fil_flush_file_spaces(uint8_t purpose);
+                                be ORred.
+@param[in]  from      Identifies the caller */
+void fil_flush_file_spaces(uint8_t purpose, flush_from_t from);
 
 #ifdef UNIV_DEBUG
 /** Checks the consistency of the tablespace cache.
@@ -1998,4 +2009,11 @@ void fil_space_update_name(fil_space_t *space, const char *name);
 @param[in]	extn	file extension */
 void fil_adjust_name_import(dict_table_t *table, const char *path,
                             ib_file_suffix extn);
+
+/*************************************************************************
+Print tablespace data for SHOW INNODB STATUS. */
+void fil_print(
+    /*=======*/
+    FILE *file); /* in: print results to this */
+
 #endif /* fil0fil_h */

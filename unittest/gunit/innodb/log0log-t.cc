@@ -254,7 +254,7 @@ static bool log_test_init() {
   const lsn_t lsn = LOG_START_LSN + LOG_BLOCK_HDR_SIZE;
   log_create_first_checkpoint(log, lsn);
 
-  fil_flush(dict_sys_t::s_log_space_first_id);
+  fil_flush(dict_sys_t::s_log_space_first_id, FLUSH_FROM_OTHER);
 
   log_start(log, 1, lsn, lsn);
 
@@ -301,9 +301,9 @@ static bool log_test_recovery() {
 
   recv_sys_close();
 
-  fil_flush(log.files_space_id);
+  fil_flush(log.files_space_id, FLUSH_FROM_OTHER);
 
-  fil_flush_file_spaces(to_int(FIL_TYPE_TABLESPACE));
+  fil_flush_file_spaces(to_int(FIL_TYPE_TABLESPACE), FLUSH_FROM_OTHER);
 
   return (err == DB_SUCCESS);
 }
