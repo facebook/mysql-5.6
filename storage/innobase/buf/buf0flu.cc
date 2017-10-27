@@ -1197,7 +1197,7 @@ static void buf_flush_write_block_low(buf_page_t *bpage, buf_flush_t flush_type,
   are working on. */
   if (sync) {
     ut_ad(flush_type == BUF_FLUSH_SINGLE_PAGE);
-    fil_flush(bpage->id.space());
+    fil_flush(bpage->id.space(), FLUSH_FROM_OTHER);
 
     /* true means we want to evict this page from the
     LRU list as well. */

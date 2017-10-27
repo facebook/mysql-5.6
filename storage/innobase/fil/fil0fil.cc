@@ -791,8 +791,9 @@ class Fil_shard {
 
   /** Collect the tablespace IDs of unflushed tablespaces in space_ids.
   @param[in]	purpose		FIL_TYPE_TABLESPACE or FIL_TYPE_LOG,
-                                  can be ORred */
-  void flush_file_spaces(uint8_t purpose);
+                                  can be ORred
+  @param[in]  from      Identifies the caller */
+  void flush_file_spaces(uint8_t purpose, flush_from_t from);
 
   /** Try to extend a tablespace if it is smaller than the specified size.
   @param[in,out]	space		tablespace
@@ -1210,8 +1211,9 @@ class Fil_system {
   /** Flush to disk the writes in file spaces of the given type
   possibly cached by the OS.
   @param[in]	purpose		FIL_TYPE_TABLESPACE or FIL_TYPE_LOG,
-                                  can be ORred */
-  void flush_file_spaces(uint8_t purpose);
+                                  can be ORred
+  @param[in]  from      Identifies the caller */
+  void flush_file_spaces(uint8_t purpose, flush_from_t from);
 
   /** Fetch the fil_space_t instance that maps to the name.
   @param[in]	name		Tablespace name to lookup
@@ -1504,6 +1506,9 @@ class Fil_system {
 
 #endif /* UNIV_HOTBACKUP */
 
+  /** Calls to fil_flush by caller */
+  ulint flush_types[FLUSH_FROM_NUMBER];
+
  private:
   /** Open an ibd tablespace and add it to the InnoDB data structures.
   This is similar to fil_ibd_open() except that it is used while
@@ -1553,6 +1558,7 @@ class Fil_system {
   Fil_system &operator=(const Fil_system &) = delete;
 
   friend class Fil_shard;
+
 };
 
 /** The tablespace memory cache. This variable is nullptr before the module is
@@ -2684,7 +2690,7 @@ bool Fil_shard::mutex_acquire_and_get_space(space_id_t space_id,
 
     auto type = to_int(FIL_TYPE_TABLESPACE);
 
-    fil_system->flush_file_spaces(type);
+    fil_system->flush_file_spaces(type, FLUSH_FROM_OTHER);
 
     os_thread_yield();
 
@@ -3294,6 +3300,9 @@ void fil_init(ulint max_n_open) {
   ut_a(max_n_open > 0);
 
   fil_system = UT_NEW_NOKEY(Fil_system(MAX_SHARDS, max_n_open));
+  for (int x = 0; x < FLUSH_FROM_NUMBER; ++x) {
+    fil_system->flush_types[x] = 0;
+  }
 }
 
 /** Open all the system files.
@@ -3547,7 +3556,8 @@ dberr_t fil_write_flushed_lsn(lsn_t lsn) {
 
     err = fil_write(page_id, univ_page_size, 0, univ_page_size.physical(), buf);
 
-    fil_system->flush_file_spaces(to_int(FIL_TYPE_TABLESPACE));
+    fil_system->flush_file_spaces(to_int(FIL_TYPE_TABLESPACE),
+                                  FLUSH_FROM_OTHER);
   }
 
   ut_free(buf1);
@@ -7692,11 +7702,15 @@ void Fil_shard::space_flush(space_id_t space_id) {
 /** Flushes to disk possible writes cached by the OS. If the space does
 not exist or is being dropped, does not do anything.
 @param[in]	space_id	File space ID (this can be a group of log files
-                                or a tablespace of the database) */
-void fil_flush(space_id_t space_id) {
+                                or a tablespace of the database)
+@param[in]  from      Identifies the caller */
+void fil_flush(space_id_t space_id, flush_from_t from) {
   auto shard = fil_system->shard_by_id(space_id);
 
   shard->mutex_acquire();
+
+  ut_a(from < FLUSH_FROM_NUMBER);
+  fil_system->flush_types[from]++;
 
   /* Note: Will release and reacquire the Fil_shard::mutex. */
   shard->space_flush(space_id);
@@ -7718,8 +7732,9 @@ void Fil_shard::flush_file_redo() {
 
 /** Collect the tablespace IDs of unflushed tablespaces in space_ids.
 @param[in]	purpose		FIL_TYPE_TABLESPACE or FIL_TYPE_LOG,
-                                can be ORred */
-void Fil_shard::flush_file_spaces(uint8_t purpose) {
+                                can be ORred
+@param[in]  from      Identifies the caller */
+void Fil_shard::flush_file_spaces(uint8_t purpose, flush_from_t from) {
   Space_ids space_ids;
 
   ut_ad((purpose & FIL_TYPE_TABLESPACE) || (purpose & FIL_TYPE_LOG));
@@ -7752,18 +7767,20 @@ void Fil_system::flush_file_redo() { m_shards[REDO_SHARD]->flush_file_redo(); }
 /** Flush to disk the writes in file spaces of the given type
 possibly cached by the OS.
 @param[in]	purpose		FIL_TYPE_TABLESPACE or FIL_TYPE_LOG,
-                                can be ORred */
-void Fil_system::flush_file_spaces(uint8_t purpose) {
+                                can be ORred
+@param[in]  from      Identifies the caller */
+void Fil_system::flush_file_spaces(uint8_t purpose, flush_from_t from) {
   for (auto shard : m_shards) {
-    shard->flush_file_spaces(purpose);
+    shard->flush_file_spaces(purpose, from);
   }
 }
 
 /** Flush to disk the writes in file spaces of the given type
 possibly cached by the OS.
-@param[in]     purpose FIL_TYPE_TABLESPACE or FIL_TYPE_LOG, can be ORred */
-void fil_flush_file_spaces(uint8_t purpose) {
-  fil_system->flush_file_spaces(purpose);
+@param[in]     purpose FIL_TYPE_TABLESPACE or FIL_TYPE_LOG, can be ORred
+@param[in]     from    Identifies the caller */
+void fil_flush_file_spaces(uint8_t purpose, flush_from_t from) {
+  fil_system->flush_file_spaces(purpose, from);
 }
 
 /** Flush to disk the writes in file spaces of the given type
@@ -10492,3 +10509,16 @@ void Fil_path::convert_to_lower_case(std::string &path) {
 }
 
 #endif /* !UNIV_HOTBACKUP */
+
+/*************************************************************************
+Print tablespace data for SHOW INNODB STATUS. */
+void fil_print(FILE* file) {
+  fprintf(file,
+          "fsync callers: %lu other, %lu checkpoint, %lu log aio,"
+          " %lu log sync, %lu doublwrite\n",
+          fil_system->flush_types[FLUSH_FROM_OTHER],
+          fil_system->flush_types[FLUSH_FROM_CHECKPOINT],
+          fil_system->flush_types[FLUSH_FROM_LOG_IO_COMPLETE],
+          fil_system->flush_types[FLUSH_FROM_LOG_WRITE_UP_TO],
+          fil_system->flush_types[FLUSH_FROM_DOUBLEWRITE]);
+}

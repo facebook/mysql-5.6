@@ -703,7 +703,7 @@ static dberr_t srv_undo_tablespace_fixup(space_id_t space_id) {
     ib::info(ER_IB_MSG_1079, (ulint)undo_space.num());
 
     /* Flush any changes recovered in REDO */
-    fil_flush(space_id);
+    fil_flush(space_id, FLUSH_FROM_OTHER);
     fil_space_close(space_id);
 
     os_file_delete_if_exists(innodb_data_file_key, undo_space.file_name(),
@@ -756,7 +756,7 @@ static dberr_t srv_undo_tablespace_open(space_id_t space_id) {
     ut_ad(Fil_path::equal(scanned_name, file.name));
 #endif /* UNIV_DEBUG */
 
-    fil_flush(space_id);
+    fil_flush(space_id, FLUSH_FROM_OTHER);
 
     /* Close any current file handle so we can open
     a local one below. */
@@ -2992,7 +2992,8 @@ static lsn_t srv_shutdown_log() {
   std::atomic_thread_fence(std::memory_order_seq_cst);
 
   if (!srv_read_only_mode) {
-    fil_flush_file_spaces(to_int(FIL_TYPE_TABLESPACE) | to_int(FIL_TYPE_LOG));
+    fil_flush_file_spaces(to_int(FIL_TYPE_TABLESPACE) | to_int(FIL_TYPE_LOG),
+                          FLUSH_FROM_OTHER);
   }
 
   srv_shutdown_state = SRV_SHUTDOWN_LAST_PHASE;
