@@ -243,6 +243,9 @@ public:
   /* Make a key that is right after the given key. */
   static int successor(uchar *const packed_tuple, const uint &len);
 
+  /* Make a key that is right before the given key. */
+  static int predecessor(uchar *const packed_tuple, const uint &len);
+
   /*
     This can be used to compare prefixes.
     if  X is a prefix of Y, then we consider that X = Y.
