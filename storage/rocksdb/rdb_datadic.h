@@ -976,17 +976,17 @@ public:
   Rdb_tbl_def &operator=(const Rdb_tbl_def &) = delete;
 
   explicit Rdb_tbl_def(const std::string &name)
-      : m_key_descr_arr(nullptr), m_hidden_pk_val(1), m_auto_incr_val(1) {
+      : m_key_descr_arr(nullptr), m_hidden_pk_val(0), m_auto_incr_val(0) {
     set_name(name);
   }
 
   Rdb_tbl_def(const char *const name, const size_t &len)
-      : m_key_descr_arr(nullptr), m_hidden_pk_val(1), m_auto_incr_val(1) {
+      : m_key_descr_arr(nullptr), m_hidden_pk_val(0), m_auto_incr_val(0) {
     set_name(std::string(name, len));
   }
 
   explicit Rdb_tbl_def(const rocksdb::Slice &slice, const size_t &pos = 0)
-      : m_key_descr_arr(nullptr), m_hidden_pk_val(1), m_auto_incr_val(1) {
+      : m_key_descr_arr(nullptr), m_hidden_pk_val(0), m_auto_incr_val(0) {
     set_name(std::string(slice.data() + pos, slice.size() - pos));
   }
 

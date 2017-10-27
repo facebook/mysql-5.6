@@ -4593,7 +4593,7 @@ static ulonglong rdb_get_int_col_max_value(const Field *field) {
 }
 
 void ha_rocksdb::load_auto_incr_value() {
-  ulonglong dd_val = 0;
+  ulonglong auto_incr = 0;
   bool validate_last = false, use_datadic = true;
 #ifndef NDEBUG
   DBUG_EXECUTE_IF("myrocks_autoinc_upgrade", use_datadic = false;);
@@ -4601,21 +4601,27 @@ void ha_rocksdb::load_auto_incr_value() {
 #endif
 
   if (use_datadic && dict_manager.get_auto_incr_val(
-                         m_tbl_def->get_autoincr_gl_index_id(), &dd_val)) {
-    update_auto_incr_val(dd_val);
+                         m_tbl_def->get_autoincr_gl_index_id(), &auto_incr)) {
+    update_auto_incr_val(auto_incr);
   }
 
   // If we find nothing in the data dictionary, or if we are in debug mode,
   // then call index_last to get the last value.
   //
   // This is needed when upgrading from a server that did not support
-  // persistent auto_increment.
+  // persistent auto_increment, of if the table is empty.
   //
   // For debug mode, we are just verifying that the data dictionary value is
   // greater than or equal to the maximum value in the table.
-  if (dd_val == 0 || validate_last) {
-    ulonglong last_val = load_auto_incr_value_from_index();
-    update_auto_incr_val(last_val);
+  if (auto_incr == 0 || validate_last) {
+    auto_incr = load_auto_incr_value_from_index();
+    update_auto_incr_val(auto_incr);
+  }
+
+  // If we failed to find anything from the data dictionary and index, then
+  // initialize auto_increment to 1.
+  if (m_tbl_def->m_auto_incr_val == 0) {
+    update_auto_incr_val(1);
   }
 }
 
@@ -4723,12 +4729,12 @@ int ha_rocksdb::load_hidden_pk_value() {
   Rdb_transaction *const tx = get_or_create_tx(table->in_use);
   const bool is_new_snapshot = !tx->has_snapshot();
 
+  longlong hidden_pk_id = 1;
   // Do a lookup.
   if (!index_last(table->record[0])) {
     /*
       Decode PK field from the key
     */
-    longlong hidden_pk_id = 0;
     auto err = read_hidden_pk_id_from_rowkey(&hidden_pk_id);
     if (err) {
       if (is_new_snapshot) {
@@ -4738,11 +4744,11 @@ int ha_rocksdb::load_hidden_pk_value() {
     }
 
     hidden_pk_id++;
-    longlong old = m_tbl_def->m_hidden_pk_val;
-    while (
-        old < hidden_pk_id &&
-        !m_tbl_def->m_hidden_pk_val.compare_exchange_weak(old, hidden_pk_id)) {
-    }
+  }
+
+  longlong old = m_tbl_def->m_hidden_pk_val;
+  while (old < hidden_pk_id &&
+         !m_tbl_def->m_hidden_pk_val.compare_exchange_weak(old, hidden_pk_id)) {
   }
 
   if (is_new_snapshot) {
@@ -5857,11 +5863,13 @@ int ha_rocksdb::open(const char *const name, int mode, uint test_if_locked) {
   */
   m_verify_row_debug_checksums = false;
 
-  /* TODO: move the following to where TABLE_SHARE is opened: */
-  if (table->found_next_number_field)
+  /* Load auto_increment value only once on first use. */
+  if (table->found_next_number_field && m_tbl_def->m_auto_incr_val == 0) {
     load_auto_incr_value();
+  }
 
-  if (has_hidden_pk(table) &&
+  /* Load hidden pk only once on first use. */
+  if (has_hidden_pk(table) && m_tbl_def->m_hidden_pk_val == 0 &&
       (err = load_hidden_pk_value()) != HA_EXIT_SUCCESS) {
     free_key_buffers();
     DBUG_RETURN(err);
@@ -11604,9 +11612,11 @@ bool ha_rocksdb::commit_inplace_alter_table(
     for (inplace_alter_handler_ctx **pctx = ctx_array; *pctx; pctx++) {
       Rdb_inplace_alter_ctx *const ctx =
           static_cast<Rdb_inplace_alter_ctx *>(*pctx);
+      auto_incr_val = std::max(auto_incr_val, ctx->m_max_auto_incr);
       dict_manager.put_auto_incr_val(
-          batch, ctx->m_new_tdef->get_autoincr_gl_index_id(),
-          std::max(ctx->m_max_auto_incr, auto_incr_val), true /* overwrite */);
+          batch, ctx->m_new_tdef->get_autoincr_gl_index_id(), auto_incr_val,
+          true /* overwrite */);
+      ctx->m_new_tdef->m_auto_incr_val = auto_incr_val;
     }
 
     if (dict_manager.commit(batch)) {
