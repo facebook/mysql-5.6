@@ -1,6 +1,4 @@
---disable_warnings
-DROP TABLE IF EXISTS t1;
---enable_warnings
+--source include/count_sessions.inc
 
 SET rocksdb_bulk_load_size=3;
 SET rocksdb_bulk_load_allow_unsorted=1;
@@ -8,7 +6,8 @@ SET rocksdb_bulk_load_allow_unsorted=1;
 ### Test individual INSERTs ###
 
 # A table with only a PK won't have rows until the bulk load is finished
-eval CREATE TABLE t1(a INT, b INT, PRIMARY KEY(a) COMMENT "$pk_cf");
+eval CREATE TABLE t1(a INT, b INT, PRIMARY KEY(a) COMMENT "$pk_cf")
+     ENGINE=ROCKSDB;
 SET rocksdb_bulk_load=1;
 --disable_query_log
 let $sign = 1;
@@ -29,7 +28,8 @@ SELECT * FROM t1 FORCE INDEX (PRIMARY);
 DROP TABLE t1;
 
 # A table with a PK and a SK shows rows immediately
-eval CREATE TABLE t1(a INT, b INT, PRIMARY KEY(a) COMMENT "$pk_cf", KEY(b));
+eval CREATE TABLE t1(a INT, b INT, PRIMARY KEY(a) COMMENT "$pk_cf", KEY(b))
+     ENGINE=ROCKSDB;
 SET rocksdb_bulk_load=1;
 --disable_query_log
 let $sign = 1;
@@ -51,8 +51,10 @@ SELECT * FROM t1 FORCE INDEX (PRIMARY);
 DROP TABLE t1;
 
 # Inserting into another table finishes bulk load to the previous table
-eval CREATE TABLE t1(a INT, b INT, PRIMARY KEY(a) COMMENT "$pk_cf");
-eval CREATE TABLE t2(a INT, b INT, PRIMARY KEY(a) COMMENT "$pk_cf");
+eval CREATE TABLE t1(a INT, b INT, PRIMARY KEY(a) COMMENT "$pk_cf")
+     ENGINE=ROCKSDB;
+eval CREATE TABLE t2(a INT, b INT, PRIMARY KEY(a) COMMENT "$pk_cf")
+     ENGINE=ROCKSDB;
 
 SET rocksdb_bulk_load=1;
 INSERT INTO t1 VALUES (1,1);
@@ -66,10 +68,12 @@ SELECT * FROM t1 FORCE INDEX (PRIMARY);
 DROP TABLE t1, t2;
 
 ### Test bulk load from a file ###
-eval CREATE TABLE t1(a INT, b INT, PRIMARY KEY(a) COMMENT "$pk_cf");
-eval CREATE TABLE t2(a INT, b INT, PRIMARY KEY(b) COMMENT "$pk_cf");
+eval CREATE TABLE t1(a INT, b INT, PRIMARY KEY(a) COMMENT "$pk_cf")
+     ENGINE=ROCKSDB;
+eval CREATE TABLE t2(a INT, b INT, PRIMARY KEY(b) COMMENT "$pk_cf")
+     ENGINE=ROCKSDB;
 eval CREATE TABLE t3(a INT, b INT, PRIMARY KEY(a) COMMENT "$pk_cf")
-     PARTITION BY KEY() PARTITIONS 4;
+     ENGINE=ROCKSDB PARTITION BY KEY() PARTITIONS 4;
 
 --let $file = `SELECT CONCAT(@@datadir, "test_loadfile.txt")`
 # Create a text file with data to import into the table.
@@ -133,5 +137,7 @@ select count(b) from t3;
 SELECT * FROM t1 FORCE INDEX (PRIMARY) LIMIT 3;
 SELECT * FROM t2 FORCE INDEX (PRIMARY) LIMIT 3;
 
+disconnect other;
 DROP TABLE t1, t2, t3;
-SET rocksdb_bulk_load_allow_unsorted=0;
+
+--source include/wait_until_count_sessions.inc
