@@ -275,8 +275,12 @@ i
 3
 select * from t where i=2 for update;
 select * from t where i=3 for update;
+select variable_value into @a from information_schema.global_status where variable_name='rocksdb_row_lock_deadlocks';
 select * from t where i=1 for update;
 ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
+select case when variable_value-@a = 1 then 'true' else 'false' end as deadlocks from information_schema.global_status where variable_name='rocksdb_row_lock_deadlocks';
+deadlocks
+true
 rollback;
 i
 3
