@@ -416,7 +416,7 @@ static dberr_t srv_undo_tablespace_fixup_57(space_id_t space_id) {
     undo::Tablespace undo_space(space_id);
 
     /* Flush any changes recovered in REDO */
-    fil_flush(space_id);
+    fil_flush(space_id, FLUSH_FROM_OTHER);
     fil_space_close(space_id);
 
     os_file_delete_if_exists(innodb_data_file_key, undo_space.file_name(),
@@ -461,7 +461,7 @@ static dberr_t srv_undo_tablespace_fixup_num(space_id_t space_num) {
   /* If the previous file still exists, delete it. */
   if (scanned_name.length() > 0) {
     /* Flush any changes recovered in REDO */
-    fil_flush(space_id);
+    fil_flush(space_id, FLUSH_FROM_OTHER);
     fil_space_close(space_id);
     os_file_delete_if_exists(innodb_data_file_key, scanned_name.c_str(),
                              nullptr);
@@ -565,7 +565,7 @@ dberr_t srv_undo_tablespace_open(undo::Tablespace &undo_space) {
   /* Flush and close any current file handle so we can open
   a local one below. */
   if (space != nullptr) {
-    fil_flush(space_id);
+    fil_flush(space_id, FLUSH_FROM_OTHER);
     fil_space_close(space_id);
   }
 
@@ -3037,7 +3037,7 @@ static lsn_t srv_shutdown_log() {
 
   if (!srv_read_only_mode) {
     /* Redo log has been flushed at the log_flusher's exit. */
-    fil_flush_file_spaces();
+    fil_flush_file_spaces(FLUSH_FROM_OTHER);
   }
 
   srv_shutdown_set_state(SRV_SHUTDOWN_LAST_PHASE);

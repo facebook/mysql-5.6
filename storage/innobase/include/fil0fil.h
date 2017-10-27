@@ -226,6 +226,15 @@ struct fil_node_t {
   size_t magic_n;
 };
 
+typedef enum {
+  FLUSH_FROM_OTHER,
+  FLUSH_FROM_CHECKPOINT,
+  FLUSH_FROM_LOG_IO_COMPLETE,
+  FLUSH_FROM_LOG_WRITE_UP_TO,
+  FLUSH_FROM_DOUBLEWRITE,
+  FLUSH_FROM_NUMBER
+} flush_from_t;
+
 /** Tablespace or log data space */
 struct fil_space_t {
   using List_node = UT_LIST_NODE_T(fil_space_t);
@@ -1748,12 +1757,15 @@ void fil_aio_wait(ulint segment);
 
 /** Flushes to disk possible writes cached by the OS. If the space does
 not exist or is being dropped, does not do anything.
-@param[in]      space_id        Tablespace ID */
-void fil_flush(space_id_t space_id);
+@param[in]	space_id	Tablespace ID (this can be a group of log files
+                                or a tablespace of the database)
+@param[in]  from      Identifies the caller */
+void fil_flush(space_id_t space_id, flush_from_t from);
 
 /** Flush to disk the writes in file spaces possibly cached by the OS
-(note: spaces of type FIL_TYPE_TEMPORARY are skipped) */
-void fil_flush_file_spaces();
+(note: spaces of type FIL_TYPE_TEMPORARY are skipped)
+@param[in]  from      Identifies the caller */
+void fil_flush_file_spaces(flush_from_t from);
 
 #ifdef UNIV_DEBUG
 /** Checks the consistency of the tablespace cache.
@@ -2240,4 +2252,10 @@ size_t fil_count_undo_deleted(space_id_t undo_num);
 @param[in]  type  the page type to be checked for validity.
 @return true if it is valid page type, false otherwise. */
 [[nodiscard]] bool fil_is_page_type_valid(page_type_t type) noexcept;
+/*************************************************************************
+Print tablespace data for SHOW INNODB STATUS. */
+void fil_print(
+    /*=======*/
+    FILE *file); /* in: print results to this */
+
 #endif /* fil0fil_h */

@@ -220,7 +220,7 @@ static void buf_flush_sync_datafiles() {
   os_aio_wait_until_no_pending_writes();
 
   /* Now we flush the data to disk (for example, with fsync) */
-  fil_flush_file_spaces();
+  fil_flush_file_spaces(FLUSH_FROM_OTHER);
 }
 
 /** Thread tasked with flushing dirty pages from the buffer pools.
@@ -3628,7 +3628,7 @@ void buf_flush_fsync() {
     case SRV_WIN_IO_UNBUFFERED:
       break;
     case SRV_WIN_IO_NORMAL:
-      fil_flush_file_spaces();
+      fil_flush_file_spaces(FLUSH_FROM_OTHER);
       break;
   }
 #else  /* !_WIN32 */
@@ -3642,7 +3642,7 @@ void buf_flush_fsync() {
     case SRV_UNIX_LITTLESYNC:
     case SRV_UNIX_O_DIRECT:
     case SRV_UNIX_O_DIRECT_NO_FSYNC:
-      fil_flush_file_spaces();
+      fil_flush_file_spaces(FLUSH_FROM_OTHER);
   }
 #endif /* _WIN32 */
 }

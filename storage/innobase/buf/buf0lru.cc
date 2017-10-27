@@ -961,7 +961,7 @@ static void buf_LRU_remove_pages(
       if (observer == nullptr) {
         /* Ensure that all asynchronous IO is completed. */
         os_aio_wait_until_no_pending_writes();
-        fil_flush(id);
+        fil_flush(id, FLUSH_FROM_OTHER);
       }
       break;
 

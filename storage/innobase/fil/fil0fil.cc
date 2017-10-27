@@ -954,8 +954,9 @@ class Fil_shard {
   void update_space_name_map(fil_space_t *space, const char *new_name);
 
   /** Flush to disk the writes in file spaces possibly cached by the OS
-  (note: spaces of type FIL_TYPE_TEMPORARY are skipped) */
-  void flush_file_spaces();
+  (note: spaces of type FIL_TYPE_TEMPORARY are skipped)
+  @param[in]  from      Identifies the caller */
+  void flush_file_spaces(flush_from_t from);
 
   /** Try to extend a tablespace if it is smaller than the specified size.
   @param[in,out]        space           tablespace
@@ -1381,8 +1382,9 @@ class Fil_system {
   [[nodiscard]] dberr_t prepare_open_for_business(bool read_only_mode);
 
   /** Flush to disk the writes in file spaces possibly cached by the OS
-  (note: spaces of type FIL_TYPE_TEMPORARY are skipped) */
-  void flush_file_spaces();
+  (note: spaces of type FIL_TYPE_TEMPORARY are skipped)
+  @param[in]  from      Identifies the caller */
+  void flush_file_spaces(flush_from_t from);
 
 #ifndef UNIV_HOTBACKUP
   /** Clean up the shards. */
@@ -1727,6 +1729,9 @@ class Fil_system {
   void meb_name_process(char *name, space_id_t space_id, bool deleted);
 
 #endif /* UNIV_HOTBACKUP */
+
+  /** Calls to fil_flush by caller */
+  ulint flush_types[FLUSH_FROM_NUMBER];
 
  private:
   /** Open an ibd tablespace and add it to the InnoDB data structures.
@@ -2894,7 +2899,7 @@ bool Fil_shard::open_file(fil_node_t *file) {
 
         /* Flush tablespaces so that we can close modified files in the LRU
         list. */
-        fil_system->flush_file_spaces();
+        fil_system->flush_file_spaces(FLUSH_FROM_OTHER);
 
         if (!fil_system->close_file_in_all_LRU()) {
           fil_system->wait_while_ios_in_progress();
@@ -3613,6 +3618,9 @@ void fil_init(ulint max_n_open) {
 
   fil_system = ut::new_withkey<Fil_system>(UT_NEW_THIS_FILE_PSI_KEY, MAX_SHARDS,
                                            max_n_open);
+  for (int x = 0; x < FLUSH_FROM_NUMBER; ++x) {
+    fil_system->flush_types[x] = 0;
+  }
 }
 
 bool fil_open_files_limit_update(size_t &new_max_open_files) {
@@ -3673,7 +3681,7 @@ bool Fil_system::set_open_files_limit(size_t &new_max_open_files) {
       new_max_open_files = current_n_files_open;
       return false;
     }
-    fil_system->flush_file_spaces();
+    fil_system->flush_file_spaces(FLUSH_FROM_OTHER);
 
     if (fil_system->close_file_in_all_LRU()) {
       /* We closed some file, loop again to re-evaluate situation. */
@@ -3963,7 +3971,7 @@ dberr_t fil_write_flushed_lsn(lsn_t lsn) {
 
     err = fil_write(page_id, univ_page_size, 0, univ_page_size.physical(), buf);
 
-    fil_system->flush_file_spaces();
+    fil_system->flush_file_spaces(FLUSH_FROM_OTHER);
   }
 
   ut::aligned_free(buf);
@@ -8136,10 +8144,13 @@ void Fil_shard::space_flush(space_id_t space_id) {
   --space->n_pending_flushes;
 }
 
-void fil_flush(space_id_t space_id) {
+void fil_flush(space_id_t space_id, flush_from_t from) {
   auto shard = fil_system->shard_by_id(space_id);
 
   shard->mutex_acquire();
+
+  ut_a(from < FLUSH_FROM_NUMBER);
+  fil_system->flush_types[from]++;
 
   /* Note: Will release and reacquire the Fil_shard::mutex. */
   shard->space_flush(space_id);
@@ -8147,7 +8158,7 @@ void fil_flush(space_id_t space_id) {
   shard->mutex_release();
 }
 
-void Fil_shard::flush_file_spaces() {
+void Fil_shard::flush_file_spaces(flush_from_t from) {
   Space_ids space_ids;
 
   mutex_acquire();
@@ -8172,13 +8183,15 @@ void Fil_shard::flush_file_spaces() {
   }
 }
 
-void Fil_system::flush_file_spaces() {
+void Fil_system::flush_file_spaces(flush_from_t from) {
   for (auto shard : m_shards) {
-    shard->flush_file_spaces();
+    shard->flush_file_spaces(from);
   }
 }
 
-void fil_flush_file_spaces() { fil_system->flush_file_spaces(); }
+void fil_flush_file_spaces(flush_from_t from) {
+  fil_system->flush_file_spaces(from);
+}
 
 /** Returns true if file address is undefined.
 @param[in]      addr            File address to check
@@ -10476,7 +10489,7 @@ byte *fil_tablespace_redo_extend(byte *ptr, const byte *end,
   file->size = end_fsize / phy_page_size;
   space->size = file->size;
 
-  fil_flush(space->id);
+  fil_flush(space->id, FLUSH_FROM_OTHER);
 
   fil_space_close(space->id);
 #endif /* !UNIV_HOTBACKUP */
@@ -11789,3 +11802,16 @@ void fil_space_t::bump_version() {
   ++m_version;
 }
 #endif /* !UNIV_HOTBACKUP */
+
+/*************************************************************************
+Print tablespace data for SHOW INNODB STATUS. */
+void fil_print(FILE *file) {
+  fprintf(file,
+          "fsync callers: %lu other, %lu checkpoint, %lu log aio,"
+          " %lu log sync, %lu doublwrite\n",
+          fil_system->flush_types[FLUSH_FROM_OTHER],
+          fil_system->flush_types[FLUSH_FROM_CHECKPOINT],
+          fil_system->flush_types[FLUSH_FROM_LOG_IO_COMPLETE],
+          fil_system->flush_types[FLUSH_FROM_LOG_WRITE_UP_TO],
+          fil_system->flush_types[FLUSH_FROM_DOUBLEWRITE]);
+}

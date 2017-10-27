@@ -248,7 +248,7 @@ static bool log_test_recovery() {
 
   recv_sys_close();
 
-  fil_flush_file_spaces();
+  fil_flush_file_spaces(FLUSH_FROM_OTHER);
 
   return err == DB_SUCCESS;
 }
