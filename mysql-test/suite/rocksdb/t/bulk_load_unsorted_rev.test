@@ -2,4 +2,4 @@
 
 --let pk_cf=rev:cf1
 
---source bulk_load_unsorted.inc
+--source ../include/bulk_load_unsorted.inc
