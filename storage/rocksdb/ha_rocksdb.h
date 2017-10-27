@@ -546,6 +546,12 @@ class ha_rocksdb : public my_core::handler {
   uchar *m_dup_sk_packed_tuple;
   uchar *m_dup_sk_packed_tuple_old;
 
+  /* Buffers used for passing upper/bound eq conditions. */
+  uchar *m_eq_cond_lower_bound;
+  uchar *m_eq_cond_upper_bound;
+  rocksdb::Slice m_eq_cond_lower_bound_slice;
+  rocksdb::Slice m_eq_cond_upper_bound_slice;
+
   /*
     Temporary space for packing VARCHARs (we provide it to
     pack_record()/pack_index_tuple() calls).
@@ -628,13 +634,17 @@ class ha_rocksdb : public my_core::handler {
   int secondary_index_read(const int keyno, uchar *const buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   void setup_iterator_for_rnd_scan();
-  void setup_scan_iterator(const Rdb_key_def &kd, rocksdb::Slice *const slice)
-      MY_ATTRIBUTE((__nonnull__)) {
-    setup_scan_iterator(kd, slice, false, 0);
-  }
   bool is_ascending(const Rdb_key_def &keydef,
                     enum ha_rkey_function find_flag) const
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  void setup_iterator_bounds(const Rdb_key_def &kd,
+                             const rocksdb::Slice &eq_cond);
+  bool can_use_bloom_filter(THD *thd, const Rdb_key_def &kd,
+                            const rocksdb::Slice &eq_cond,
+                            const bool use_all_keys);
+  bool check_bloom_and_set_bounds(THD *thd, const Rdb_key_def &kd,
+                                  const rocksdb::Slice &eq_cond,
+                                  const bool use_all_keys);
   void setup_scan_iterator(const Rdb_key_def &kd, rocksdb::Slice *slice,
                            const bool use_all_keys, const uint eq_cond_len)
       MY_ATTRIBUTE((__nonnull__));

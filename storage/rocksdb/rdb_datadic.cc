@@ -806,6 +806,25 @@ int Rdb_key_def::successor(uchar *const packed_tuple, const uint &len) {
   return changed;
 }
 
+/*
+  @return Number of bytes that were changed
+*/
+int Rdb_key_def::predecessor(uchar *const packed_tuple, const uint &len) {
+  DBUG_ASSERT(packed_tuple != nullptr);
+
+  int changed = 0;
+  uchar *p = packed_tuple + len - 1;
+  for (; p > packed_tuple; p--) {
+    changed++;
+    if (*p != uchar(0x00)) {
+      *p = *p - 1;
+      break;
+    }
+    *p = 0xFF;
+  }
+  return changed;
+}
+
 static const std::map<char, size_t> UNPACK_HEADER_SIZES = {
     {RDB_UNPACK_DATA_TAG, RDB_UNPACK_HEADER_SIZE},
     {RDB_UNPACK_COVERED_DATA_TAG, RDB_UNPACK_COVERED_HEADER_SIZE}};
