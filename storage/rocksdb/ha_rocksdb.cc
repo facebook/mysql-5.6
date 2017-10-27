@@ -488,6 +488,8 @@ static my_bool rocksdb_print_snapshot_conflict_queries = 0;
 static my_bool rocksdb_large_prefix = 0;
 static my_bool rocksdb_allow_to_start_after_corruption = 0;
 
+std::atomic<uint64_t> rocksdb_row_lock_deadlocks(0);
+std::atomic<uint64_t> rocksdb_row_lock_wait_timeouts(0);
 std::atomic<uint64_t> rocksdb_snapshot_conflict_errors(0);
 std::atomic<uint64_t> rocksdb_wal_group_syncs(0);
 
@@ -1866,6 +1868,7 @@ protected:
       m_detailed_error.copy(timeout_message(
           "index", tbl_def->full_tablename().c_str(), kd.get_name().c_str()));
       table_handler->m_lock_wait_timeout_counter.inc();
+      rocksdb_row_lock_wait_timeouts++;
 
       return HA_ERR_LOCK_WAIT_TIMEOUT;
     }
@@ -1875,6 +1878,7 @@ protected:
                                                 false /* just statement */);
       m_detailed_error = String();
       table_handler->m_deadlock_counter.inc();
+      rocksdb_row_lock_deadlocks++;
       return HA_ERR_LOCK_DEADLOCK;
     } else if (s.IsBusy()) {
       rocksdb_snapshot_conflict_errors++;
@@ -12026,6 +12030,10 @@ static SHOW_VAR rocksdb_status_vars[] = {
     DEF_STATUS_VAR(number_superversion_releases),
     DEF_STATUS_VAR(number_superversion_cleanups),
     DEF_STATUS_VAR(number_block_not_compressed),
+    DEF_STATUS_VAR_PTR("row_lock_deadlocks", &rocksdb_row_lock_deadlocks,
+                       SHOW_LONGLONG),
+    DEF_STATUS_VAR_PTR("row_lock_wait_timeouts",
+                       &rocksdb_row_lock_wait_timeouts, SHOW_LONGLONG),
     DEF_STATUS_VAR_PTR("snapshot_conflict_errors",
                        &rocksdb_snapshot_conflict_errors, SHOW_LONGLONG),
     DEF_STATUS_VAR_PTR("wal_group_syncs", &rocksdb_wal_group_syncs,
