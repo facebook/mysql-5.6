@@ -1427,6 +1427,13 @@ bool srv_printf_innodb_monitor(FILE *file, bool nowait, ulint *trx_start_pos,
   os_aio_print(file);
 
   fputs(
+      "--------------\n"
+      "TABLESPACE I/O\n"
+      "--------------\n",
+      file);
+  fil_print(file);
+
+  fputs(
       "-------------------------------------\n"
       "INSERT BUFFER AND ADAPTIVE HASH INDEX\n"
       "-------------------------------------\n",
