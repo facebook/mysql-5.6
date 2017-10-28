@@ -2175,7 +2175,7 @@ public:
 
     if (skip_bloom_filter) {
       options.total_order_seek = true;
-      // TODO(yoshinori): options.iterate_lower_bound = &eq_cond_lower_bound;
+      options.iterate_lower_bound = &eq_cond_lower_bound;
       options.iterate_upper_bound = &eq_cond_upper_bound;
     } else {
       // With this option, Iterator::Valid() returns false if key
@@ -10312,7 +10312,7 @@ int ha_rocksdb::remove_rows(Rdb_tbl_def *const tbl) {
     rocksdb::ColumnFamilyHandle *cf = kd.get_cf();
     const rocksdb::Slice table_key(key_buf, key_len);
     setup_iterator_bounds(kd, table_key);
-    // TODO(yoshinori): opts.iterate_lower_bound=&m_eq_cond_lower_bound_slice;
+    opts.iterate_lower_bound = &m_eq_cond_lower_bound_slice;
     opts.iterate_upper_bound = &m_eq_cond_upper_bound_slice;
     std::unique_ptr<rocksdb::Iterator> it(rdb->NewIterator(opts, cf));
 
