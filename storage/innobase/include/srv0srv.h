@@ -1180,6 +1180,13 @@ struct export_var_t {
   ulint innodb_os_log_pending_writes;         /*!< srv_os_log_pending_writes */
   ulint innodb_os_log_pending_fsyncs;         /*!< log_pending_flushes() */
   ulint innodb_page_size;                     /*!< UNIV_PAGE_SIZE */
+  ulint innodb_hash_nonsearches;              /*!< btr_cur_n_sea */
+  ulint innodb_hash_searches;                 /*!< btr_cur_n_non_sea */
+  ulint innodb_ibuf_inserts;                  /*!< ibuf->n_inserts */
+  ulint innodb_ibuf_delete_marks;             /*!< ibuf->n_delete_marks */
+  ulint innodb_ibuf_deletes;                  /*!< ibuf->n_deletes */
+  ulint innodb_ibuf_merges;                   /*!< ibuf->n_merges */
+  ulint innodb_ibuf_size;                     /*!< ibuf->size */
   ulint innodb_pages_created;          /*!< buf_pool->stat.n_pages_created */
   ulint innodb_pages_read;             /*!< buf_pool->stat.n_pages_read */
   ulint innodb_pages_written;          /*!< buf_pool->stat.n_pages_written */
