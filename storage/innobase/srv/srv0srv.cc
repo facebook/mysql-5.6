@@ -1566,6 +1566,15 @@ void srv_export_innodb_status(void) {
   export_vars.innodb_buffer_pool_pages_misc =
       buf_pool_get_n_pages() - LRU_len - free_len;
 
+  export_vars.innodb_hash_searches = btr_cur_n_sea;
+  export_vars.innodb_hash_nonsearches = btr_cur_n_non_sea;
+  export_vars.innodb_ibuf_inserts = ibuf->n_merged_ops[IBUF_OP_INSERT];
+  export_vars.innodb_ibuf_delete_marks =
+      ibuf->n_merged_ops[IBUF_OP_DELETE_MARK];
+  export_vars.innodb_ibuf_deletes = ibuf->n_merged_ops[IBUF_OP_DELETE];
+  export_vars.innodb_ibuf_merges = ibuf->n_merges;
+  export_vars.innodb_ibuf_size = ibuf->size;
+
   export_vars.innodb_page_size = UNIV_PAGE_SIZE;
 
   export_vars.innodb_log_waits = srv_stats.log_waits;
