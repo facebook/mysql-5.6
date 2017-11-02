@@ -3787,6 +3787,7 @@ static void rocksdb_update_table_stats(
   comp_stats_t comp_stats;
   uint lock_wait_timeout_stats;
   uint deadlock_stats;
+  uint lock_wait_stats;
   std::vector<std::string> tablenames;
 
   /*
@@ -3833,6 +3834,9 @@ static void rocksdb_update_table_stats(
     io_perf_write.requests = table_handler->m_io_perf_write.requests.load();
     lock_wait_timeout_stats = table_handler->m_lock_wait_timeout_counter.load();
     deadlock_stats = table_handler->m_deadlock_counter.load();
+    lock_wait_stats =
+        table_handler->m_table_perf_context.m_value[PC_KEY_LOCK_WAIT_COUNT]
+            .load();
 
     /*
       Convert from rocksdb timer to mysql timer. RocksDB values are
@@ -3860,7 +3864,7 @@ static void rocksdb_update_table_stats(
                                    sizeof(tablename_sys));
     (*cb)(dbname_sys, tablename_sys, is_partition, &io_perf_read,
           &io_perf_write, &io_perf, &io_perf, &io_perf, &page_stats,
-          &comp_stats, 0, lock_wait_timeout_stats, deadlock_stats,
+          &comp_stats, lock_wait_stats, lock_wait_timeout_stats, deadlock_stats,
           rocksdb_hton_name);
   }
 }
