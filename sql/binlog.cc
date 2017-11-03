@@ -1010,25 +1010,17 @@ int binlog_cache_data::write_event(THD *thd,
     if (write_meta_data_event && write_trx_metadata(thd))
       DBUG_RETURN(1);
 
-    DBUG_EXECUTE_IF("simulate_disk_full_at_flush_pending",
-                  {DBUG_SET("+d,simulate_file_write_error");});
+    DBUG_EXECUTE_IF("simulate_disk_full_at_binlog_cache_write",
+                    { DBUG_SET("+d,simulate_no_free_space_error"); });
     if (ev->write(&cache_log) != 0)
     {
-      DBUG_EXECUTE_IF("simulate_disk_full_at_flush_pending",
-                      {
-                        DBUG_SET("-d,simulate_file_write_error");
-                        DBUG_SET("-d,simulate_disk_full_at_flush_pending");
-                        /* 
-                           after +d,simulate_file_write_error the local cache
-                           is in unsane state. Since -d,simulate_file_write_error
-                           revokes the first simulation do_write_cache()
-                           can't be run without facing an assert.
-                           So it's blocked with the following 2nd simulation:
-                        */
-                        DBUG_SET("+d,simulate_do_write_cache_failure");
-                      });
       DBUG_RETURN(1);
     }
+    DBUG_EXECUTE_IF("simulate_disk_full_at_binlog_cache_write",
+                    // this flag is cleared by my_write.cc but we clear it
+                    // explicitly in case if the even didn't hit my_write.cc
+                    // so the flag won't affect not targeted calls
+                    { DBUG_SET("-d,simulate_no_free_space_error"); });
     if (ev->get_type_code() == XID_EVENT)
       flags.with_xid= true;
     if (ev->is_using_immediate_logging())
@@ -6254,10 +6246,6 @@ int MYSQL_BIN_LOG::do_write_cache(IO_CACHE *cache)
 
   DBUG_EXECUTE_IF("simulate_do_write_cache_failure",
                   {
-                    /* 
-                       see binlog_cache_data::write_event() that reacts on
-                       @c simulate_disk_full_at_flush_pending.
-                    */
                     DBUG_SET("-d,simulate_do_write_cache_failure");
                     DBUG_RETURN(ER_ERROR_ON_WRITE);
                   });
@@ -8253,10 +8241,11 @@ int THD::binlog_setup_trx_data()
   cache_mngr= (binlog_cache_mngr*) my_malloc(sizeof(binlog_cache_mngr), MYF(MY_ZEROFILL));
   if (!cache_mngr ||
       open_cached_file(&cache_mngr->stmt_cache.cache_log, mysql_tmpdir,
-                       LOG_PREFIX, binlog_stmt_cache_size, MYF(MY_WME)) ||
+                       LOG_PREFIX, binlog_stmt_cache_size,
+                       MYF(MY_WME | MY_WAIT_IF_FULL)) ||
       open_cached_file(&cache_mngr->trx_cache.cache_log, mysql_tmpdir,
-                       LOG_PREFIX, binlog_cache_size, MYF(MY_WME)))
-  {
+                       LOG_PREFIX, binlog_cache_size,
+                       MYF(MY_WME | MY_WAIT_IF_FULL))) {
     my_free(cache_mngr);
     DBUG_RETURN(1);                      // Didn't manage to set it up
   }

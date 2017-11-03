@@ -1,0 +1,15 @@
+create table t1(f1 text) ENGINE = InnoDB;
+SET SESSION debug="+d,simulate_disk_full_at_binlog_cache_write";
+BEGIN;
+insert into t1 values(md5(1));
+insert into t1 select * from t1;
+insert into t1 select * from t1;
+insert into t1 select * from t1;
+insert into t1 select * from t1;
+insert into t1 select * from t1;
+insert into t1 select * from t1;
+insert into t1 select * from t1;
+insert into t1 select * from t1;
+COMMIT;
+SET SESSION debug="-d,simulate_disk_full_at_binlog_cache_write";
+DROP TABLE t1;
