@@ -12473,10 +12473,7 @@ void rocksdb_set_collation_exception_list(THD *const thd,
   *static_cast<const char **>(var_ptr) = val;
 }
 
-int rocksdb_check_bulk_load(THD *const thd, struct st_mysql_sys_var *var
-                                                MY_ATTRIBUTE((__unused__)),
-                            void *save, struct st_mysql_value *value) {
-  my_bool new_value;
+int mysql_value_to_bool(struct st_mysql_value *value, my_bool *return_value) {
   int new_value_type = value->value_type(value);
   if (new_value_type == MYSQL_VALUE_TYPE_STRING) {
     char buf[16];
@@ -12484,10 +12481,10 @@ int rocksdb_check_bulk_load(THD *const thd, struct st_mysql_sys_var *var
     const char *str = value->val_str(value, buf, &len);
     if (str && (my_strcasecmp(system_charset_info, "true", str) == 0 ||
                 my_strcasecmp(system_charset_info, "on", str) == 0)) {
-      new_value = TRUE;
+      *return_value = TRUE;
     } else if (str && (my_strcasecmp(system_charset_info, "false", str) == 0 ||
                        my_strcasecmp(system_charset_info, "off", str) == 0)) {
-      new_value = FALSE;
+      *return_value = FALSE;
     } else {
       return 1;
     }
@@ -12496,12 +12493,23 @@ int rocksdb_check_bulk_load(THD *const thd, struct st_mysql_sys_var *var
     value->val_int(value, &intbuf);
     if (intbuf > 1)
       return 1;
-    new_value = intbuf > 0 ? TRUE : FALSE;
+    *return_value = intbuf > 0 ? TRUE : FALSE;
   } else {
     return 1;
   }
-  Rdb_transaction *&tx = get_tx_from_thd(thd);
 
+  return 0;
+}
+
+int rocksdb_check_bulk_load(
+    THD *const thd, struct st_mysql_sys_var *var MY_ATTRIBUTE((__unused__)),
+    void *save, struct st_mysql_value *value) {
+  my_bool new_value;
+  if (mysql_value_to_bool(value, &new_value) != 0) {
+    return 1;
+  }
+
+  Rdb_transaction *&tx = get_tx_from_thd(thd);
   if (tx != nullptr) {
     const int rc = tx->finish_bulk_load();
     if (rc != 0) {
@@ -12522,27 +12530,7 @@ int rocksdb_check_bulk_load_allow_unsorted(
     THD *const thd, struct st_mysql_sys_var *var MY_ATTRIBUTE((__unused__)),
     void *save, struct st_mysql_value *value) {
   my_bool new_value;
-  int new_value_type = value->value_type(value);
-  if (new_value_type == MYSQL_VALUE_TYPE_STRING) {
-    char buf[16];
-    int len = sizeof(buf);
-    const char *str = value->val_str(value, buf, &len);
-    if (str && (my_strcasecmp(system_charset_info, "true", str) == 0 ||
-                my_strcasecmp(system_charset_info, "on", str) == 0)) {
-      new_value = TRUE;
-    } else if (str && (my_strcasecmp(system_charset_info, "false", str) == 0 ||
-                       my_strcasecmp(system_charset_info, "off", str) == 0)) {
-      new_value = FALSE;
-    } else {
-      return 1;
-    }
-  } else if (new_value_type == MYSQL_VALUE_TYPE_INT) {
-    long long intbuf;
-    value->val_int(value, &intbuf);
-    if (intbuf > 1)
-      return 1;
-    new_value = intbuf > 0 ? TRUE : FALSE;
-  } else {
+  if (mysql_value_to_bool(value, &new_value) != 0) {
     return 1;
   }
 
