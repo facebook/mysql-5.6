@@ -12660,8 +12660,7 @@ static int rocksdb_validate_update_cf_options(
   // Basic sanity checking and parsing the options into a map. If this fails
   // then there's no point to proceed.
   if (!Rdb_cf_options::parse_cf_options(str, &option_map)) {
-    my_error(ER_WRONG_VALUE_FOR_VAR, MYF(0), "
-             ", str);
+    my_error(ER_WRONG_VALUE_FOR_VAR, MYF(0), "rocksdb_update_cf_options", str);
     return HA_EXIT_FAILURE;
   }
   return HA_EXIT_SUCCESS;
@@ -12670,7 +12669,7 @@ static int rocksdb_validate_update_cf_options(
 static void rocksdb_set_update_cf_options(
     THD *const /* unused */, struct st_mysql_sys_var *const /* unused */,
     void *const var_ptr, const void *const save) {
-  
+
   const char *const val = *static_cast<const char *const *>(save);
 
   RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
