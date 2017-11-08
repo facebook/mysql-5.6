@@ -776,6 +776,8 @@ typedef struct system_variables
   my_bool high_priority_ddl;
 
   my_bool session_track_state_change;
+
+  ulong dscp_on_socket;
 } SV;
 
 
@@ -2427,6 +2429,7 @@ public:
   mysql_mutex_t LOCK_thd_data;
   mysql_mutex_t LOCK_thd_db_read_only_hash;
   mysql_mutex_t LOCK_db_metadata;
+  mysql_mutex_t LOCK_thd_audit_data;
 
   /* all prepared statements and cursors of this connection */
   Statement_map stmt_map;

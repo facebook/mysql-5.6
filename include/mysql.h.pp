@@ -189,7 +189,8 @@ enum enum_session_state_type
   SESSION_TRACK_STATE_CHANGE,
   SESSION_TRACK_GTIDS,
   SESSION_TRACK_TRANSACTION_CHARACTERISTICS,
-  SESSION_TRACK_TRANSACTION_STATE
+  SESSION_TRACK_TRANSACTION_STATE,
+  SESSION_TRACK_RESP_ATTR = 32,
 };
 my_bool my_net_init(NET *net, Vio* vio);
 void my_net_local_init(NET *net);
@@ -656,6 +657,10 @@ int mysql_session_track_get_next(MYSQL *mysql,
                                          enum enum_session_state_type type,
                                          const char **data,
                                          size_t *length);
+int mysql_resp_attr_find(MYSQL *mysql,
+                         const char *lookup,
+                         const char **data,
+                         size_t *length);
 void
 mysql_set_local_infile_handler(MYSQL *mysql,
                                int (*local_infile_init)(void **, const char *,

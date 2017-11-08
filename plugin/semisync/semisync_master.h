@@ -645,6 +645,7 @@ extern char rpl_semi_sync_master_enabled;
 extern char rpl_semi_sync_master_status;
 extern unsigned long rpl_semi_sync_master_clients;
 extern unsigned long rpl_semi_sync_master_timeout;
+extern char rpl_semi_sync_master_crash_if_active_trxs;
 extern unsigned long rpl_semi_sync_master_trace_level;
 extern unsigned long rpl_semi_sync_master_yes_transactions;
 extern unsigned long rpl_semi_sync_master_no_transactions;

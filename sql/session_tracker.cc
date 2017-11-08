@@ -163,7 +163,8 @@ public:
   { return false; }
   bool update(THD *thd) override;
   bool store(THD *thd, String &buf) override;
-  void mark_as_changed(THD *thd, LEX_CSTRING *tracked_item_name) override;
+  void mark_as_changed(THD *thd, LEX_CSTRING *tracked_item_name,
+                       LEX_CSTRING *tracked_item_value = NULL) override;
   bool force_enable() { return true; }
 };
 
@@ -257,8 +258,11 @@ bool Session_state_change_tracker::store(THD *thd, String &buf)
   @return void
 */
 
-void Session_state_change_tracker::mark_as_changed(THD *thd,
-                                                   LEX_CSTRING *tracked_item_name)
+void Session_state_change_tracker::mark_as_changed(
+    THD *thd,
+    LEX_CSTRING *tracked_item_name,
+    LEX_CSTRING *tracked_item_value
+    MY_ATTRIBUTE((unused)))
 {
   /* do not send the boolean flag for the tracker itself
      in the OK packet */
@@ -299,6 +303,75 @@ bool Session_state_change_tracker::is_state_changed(THD* thd)
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
+  @brief Store the response attributes in the specified buffer. Once the
+         data is stored, we reset the flags related to state-change.
+
+  @param thd [IN]           The thd handle.
+  @paran buf [INOUT]        Buffer to store the information to.
+
+  @return
+    false                   Success
+    true                    Error
+**/
+
+bool Session_resp_attr_tracker::store(THD *thd, String &buf)
+{
+  DBUG_ASSERT(attrs_.size() > 0);
+
+  size_t len = 1 + net_length_size(attrs_.size());;
+  for (const auto& attr : attrs_) {
+    len += net_length_size(attr.first.size()) + attr.first.size();
+    len += net_length_size(attr.second.size()) + attr.second.size();
+  }
+
+  uchar *to= (uchar *) buf.prep_append(len, EXTRA_ALLOC);
+
+  /* format of the payload is as follows:
+     [tracker type] [count of pairs] [keylen] [keydata] [vallen] [valdata] */
+
+  /* Session state type */
+  *to = SESSION_TRACK_RESP_ATTR; to++;
+  to= net_store_length(to, attrs_.size());
+
+  DBUG_PRINT("info", ("Sending response attributes:"));
+  for (const auto& attr : attrs_) {
+    // Store len and data for key
+    to= net_store_data(to, (uchar*) attr.first.data(), attr.first.size());
+    // Store len and data for value
+    to= net_store_data(to, (uchar*) attr.second.data(), attr.second.size());
+
+    DBUG_PRINT("info", ("   %s = %s", attr.first.data(), attr.second.data()));
+  }
+
+  m_changed= false;
+  attrs_.clear();
+
+  return false;
+}
+
+/**
+  @brief Mark the tracker as changed and store the response attributes
+
+  @param thd [IN]             The thd handle
+  @param key [IN]             The attribute key to include in the OK packet
+  @param value [IN]           The attribute value to include in the OK packet
+  @return void
+*/
+
+void Session_resp_attr_tracker::mark_as_changed(THD *thd,
+                                                LEX_CSTRING *key,
+                                                LEX_CSTRING *value)
+{
+  DBUG_ASSERT(key->length > 0);
+  std::string k(key->str, key->length);
+
+  attrs_[k] = std::move(std::string(value->str, value->length));
+  m_changed= true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+/**
   @brief Initialize session tracker objects.
 
   @param char_set [IN]      The character set info.
@@ -312,6 +385,8 @@ void Session_tracker::init(const CHARSET_INFO *char_set)
     new (std::nothrow) Session_gtids_tracker;
   m_trackers[SESSION_STATE_CHANGE_TRACKER]=
     new (std::nothrow) Session_state_change_tracker;
+  m_trackers[SESSION_RESP_ATTR_TRACKER]=
+    new (std::nothrow) Session_resp_attr_tracker;
 }
 
 void Session_tracker::claim_memory_ownership()
@@ -496,6 +571,8 @@ bool Session_gtids_tracker::store(THD *thd, String &buf)
 
 void Session_gtids_tracker::mark_as_changed(THD *thd MY_ATTRIBUTE((unused)),
                                             LEX_CSTRING *tracked_item_name
+                                            MY_ATTRIBUTE((unused)),
+                                            LEX_CSTRING *tracked_item_value
                                             MY_ATTRIBUTE((unused)))
 {
   m_changed= true;

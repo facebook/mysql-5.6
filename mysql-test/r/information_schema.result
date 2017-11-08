@@ -74,6 +74,7 @@ PLUGINS
 PROCESSLIST
 TRANSACTION_LIST
 CONNECTION_ATTRIBUTES
+QUERY_ATTRIBUTES
 PROFILING
 REFERENTIAL_CONSTRAINTS
 ROUTINES
@@ -834,6 +835,8 @@ information_schema	PLUGINS	PLUGIN_DESCRIPTION
 information_schema	PROCESSLIST	INFO
 information_schema	CONNECTION_ATTRIBUTES	ATTR_NAME
 information_schema	CONNECTION_ATTRIBUTES	ATTR_VALUE
+information_schema	QUERY_ATTRIBUTES	ATTR_NAME
+information_schema	QUERY_ATTRIBUTES	ATTR_VALUE
 information_schema	ROUTINES	DTD_IDENTIFIER
 information_schema	ROUTINES	ROUTINE_DEFINITION
 information_schema	ROUTINES	ROUTINE_COMMENT
@@ -918,6 +921,7 @@ KEY_COLUMN_USAGE	TABLE_NAME	select
 PARTITIONS	TABLE_NAME	select
 REFERENTIAL_CONSTRAINTS	TABLE_NAME	select
 ROCKSDB_DDL	TABLE_NAME	select
+ROCKSDB_DEADLOCK	TABLE_NAME	select
 ROCKSDB_PERF_CONTEXT	TABLE_NAME	select
 STATISTICS	TABLE_NAME	select
 TABLES	TABLE_NAME	select
@@ -933,7 +937,7 @@ table_schema IN ('mysql', 'INFORMATION_SCHEMA', 'test', 'mysqltest')
 AND table_name not like 'ndb%' AND table_name not like 'innodb_%'  AND table_name not like 'rocksdb_%'
 GROUP BY TABLE_SCHEMA;
 table_schema	count(*)
-information_schema	43
+information_schema	44
 mysql	27
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
@@ -1396,6 +1400,7 @@ PARTITIONS	information_schema.PARTITIONS	1
 PLUGINS	information_schema.PLUGINS	1
 PROCESSLIST	information_schema.PROCESSLIST	1
 PROFILING	information_schema.PROFILING	1
+QUERY_ATTRIBUTES	information_schema.QUERY_ATTRIBUTES	1
 REFERENTIAL_CONSTRAINTS	information_schema.REFERENTIAL_CONSTRAINTS	1
 ROUTINES	information_schema.ROUTINES	1
 SCHEMATA	information_schema.SCHEMATA	1

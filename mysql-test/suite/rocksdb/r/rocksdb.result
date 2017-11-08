@@ -563,9 +563,6 @@ insert into t30 values
 ('row3', 'row3-key', 'row3-data'),
 ('row4', 'row4-key', 'row4-data'),
 ('row5', 'row5-key', 'row5-data');
-analyze table t30;
-Table	Op	Msg_type	Msg_text
-test.t30	analyze	status	OK
 explain 
 select * from t30 where key1 <='row3-key';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
@@ -862,6 +859,7 @@ rocksdb_advise_random_on_open	ON
 rocksdb_allow_concurrent_memtable_write	OFF
 rocksdb_allow_mmap_reads	OFF
 rocksdb_allow_mmap_writes	OFF
+rocksdb_allow_to_start_after_corruption	OFF
 rocksdb_blind_delete_primary_key	OFF
 rocksdb_block_cache_size	536870912
 rocksdb_block_restart_interval	16
@@ -905,7 +903,6 @@ rocksdb_enable_ttl_read_filtering	ON
 rocksdb_enable_write_thread_adaptive_yield	OFF
 rocksdb_error_if_exists	OFF
 rocksdb_flush_log_at_trx_commit	1
-rocksdb_flush_memtable_on_analyze	ON
 rocksdb_force_compute_memtable_stats	ON
 rocksdb_force_compute_memtable_stats_cachetime	0
 rocksdb_force_flush_memtable_and_lzero_now	OFF
@@ -1529,6 +1526,8 @@ rocksdb_number_superversion_acquires	#
 rocksdb_number_superversion_cleanups	#
 rocksdb_number_superversion_releases	#
 rocksdb_rate_limit_delay_millis	#
+rocksdb_row_lock_deadlocks	#
+rocksdb_row_lock_wait_timeouts	#
 rocksdb_snapshot_conflict_errors	#
 rocksdb_stall_l0_file_count_limit_slowdowns	#
 rocksdb_stall_locked_l0_file_count_limit_slowdowns	#
@@ -1637,6 +1636,8 @@ ROCKSDB_NUMBER_SUPERVERSION_ACQUIRES
 ROCKSDB_NUMBER_SUPERVERSION_CLEANUPS
 ROCKSDB_NUMBER_SUPERVERSION_RELEASES
 ROCKSDB_RATE_LIMIT_DELAY_MILLIS
+ROCKSDB_ROW_LOCK_DEADLOCKS
+ROCKSDB_ROW_LOCK_WAIT_TIMEOUTS
 ROCKSDB_SNAPSHOT_CONFLICT_ERRORS
 ROCKSDB_STALL_L0_FILE_COUNT_LIMIT_SLOWDOWNS
 ROCKSDB_STALL_LOCKED_L0_FILE_COUNT_LIMIT_SLOWDOWNS
@@ -1747,6 +1748,8 @@ ROCKSDB_NUMBER_SUPERVERSION_ACQUIRES
 ROCKSDB_NUMBER_SUPERVERSION_CLEANUPS
 ROCKSDB_NUMBER_SUPERVERSION_RELEASES
 ROCKSDB_RATE_LIMIT_DELAY_MILLIS
+ROCKSDB_ROW_LOCK_DEADLOCKS
+ROCKSDB_ROW_LOCK_WAIT_TIMEOUTS
 ROCKSDB_SNAPSHOT_CONFLICT_ERRORS
 ROCKSDB_STALL_L0_FILE_COUNT_LIMIT_SLOWDOWNS
 ROCKSDB_STALL_LOCKED_L0_FILE_COUNT_LIMIT_SLOWDOWNS

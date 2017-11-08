@@ -1,0 +1,2 @@
+--binlog_cache_size=4096
+--log-error=$MYSQLTEST_VARDIR/tmp/binlog_cache_disk_full.err

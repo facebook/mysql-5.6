@@ -1,0 +1,115 @@
+source include/master-slave.inc;
+source include/have_debug.inc;
+
+
+call mtr.add_suppression("Timeout waiting for reply of binlog*");
+call mtr.add_suppression("Force shutdown: Semi-sync master is being switched off while there are active un-acked transactions");
+
+connection master;
+create table t1(a int) engine=innodb;
+sync_slave_with_master;
+
+# Disable ack on slave
+connection slave;
+source include/stop_slave.inc;
+SET GLOBAL DEBUG='+d,dont_send_semi_sync_reply';
+source include/start_slave.inc;
+
+##
+## Ack timeout when there are active un-acked trxs should shutdown the master
+##
+connection master;
+enable_reconnect;
+exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect;
+# The master will die while executing this stmt because slave will not ack it
+error 2013;
+insert into t1 values(1);
+
+# Wait for master to die
+source include/wait_until_disconnected.inc;
+
+# Resume normal slave operations i.e start acking
+connection slave;
+SET GLOBAL DEBUG='-d,dont_send_semi_sync_reply';
+
+# Restart master
+echo # Restart the master server;
+let $rpl_server_number= 1;
+source include/rpl_start_server.inc;
+disable_reconnect;
+
+connection master;
+sync_slave_with_master;
+
+##
+## Turning off semi-sync when there are active un-acked trxs should shutdown the
+## master
+##
+
+# Disable ack on the slave
+connection slave;
+source include/stop_slave.inc;
+SET GLOBAL DEBUG='+d,dont_send_semi_sync_reply';
+source include/start_slave.inc;
+
+connection master;
+# Set timeout to a large value so that we have a chance to switch semi-sync off
+# manually
+set @@global.rpl_semi_sync_master_timeout= 1000000;
+send insert into t1 values(2); # this stmt will hang
+
+# Wait till the insert is processed on the slave
+connection slave;
+let $wait_condition= SELECT count(*) = 1 from t1 where a = 2;
+source include/wait_condition.inc;
+
+connection master1;
+enable_reconnect;
+exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect;
+error 2013;
+set @@global.rpl_semi_sync_master_enabled= OFF; # master will shutdown
+
+# Wait for master to die
+source include/wait_until_disconnected.inc;
+
+connection master;
+error 2013;
+reap;
+
+# Resume normal slave operations i.e start acking
+connection slave;
+SET GLOBAL DEBUG='-d,dont_send_semi_sync_reply';
+
+# Restart master
+echo # Restart the master server;
+let $rpl_server_number= 1;
+source include/rpl_start_server.inc;
+disable_reconnect;
+
+connection master;
+sync_slave_with_master;
+
+# Will contain 2 rows because master recovery rolls trxs forward
+echo "Table at the master";
+connection master;
+select * from t1;
+
+# Will contain 2 rows because slaves received all trxs
+echo "Table at the slave";
+connection slave;
+select * from t1;
+
+##
+## Turning off semi-sync when there are no active un-acked trxs should succeed
+##
+connection master;
+set @@global.rpl_semi_sync_master_enabled= OFF; # should not fail
+set @@global.rpl_semi_sync_master_enabled= ON;
+
+# Cleanup
+connection master;
+drop table t1;
+sync_slave_with_master;
+
+
+source include/rpl_end.inc;

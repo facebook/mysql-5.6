@@ -3129,10 +3129,10 @@ mysql_execute_command(THD *thd,
 
 #if HAVE_CLOCK_GETTIME
     timespec time_beg;
-    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_beg);
+    int cpu_res= clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_beg);
 #elif HAVE_GETRUSAGE
     struct rusage rusage_beg;
-    getrusage(RUSAGE_THREAD, &rusage_beg);
+    int cpu_res= getrusage(RUSAGE_THREAD, &rusage_beg);
 #endif
 
   if (unlikely(lex->is_broken()))
@@ -6149,26 +6149,30 @@ finish:
 #if HAVE_CLOCK_GETTIME
     DB_STATS *dbstats= thd->db_stats;
     timespec time_end;
-    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_end);
-    ulonglong diff= diff_timespec(time_end, time_beg);
-    // convert to microseconds
-    diff /= 1000;
-    if (dbstats)
-      dbstats->update_cpu_stats_tot(diff);
-    us->microseconds_cpu.inc(diff);
+    if (cpu_res == 0 &&
+        (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_end) == 0)) {
+      ulonglong diff= diff_timespec(time_end, time_beg);
+      // convert to microseconds
+      diff /= 1000;
+      if (dbstats)
+        dbstats->update_cpu_stats_tot(diff);
+      us->microseconds_cpu.inc(diff);
+    }
 #elif HAVE_GETRUSAGE
     DB_STATS *dbstats= thd->db_stats;
     struct rusage rusage_end;
-    getrusage(RUSAGE_THREAD, &rusage_end);
-    ulonglong diffu=
-      RUSAGE_DIFF_USEC(rusage_end.ru_utime, rusage_beg.ru_utime);
-    ulonglong diffs=
-      RUSAGE_DIFF_USEC(rusage_end.ru_stime, rusage_beg.ru_stime);
-    if (dbstats)
-      dbstats->update_cpu_stats(diffu, diffs);
-    us->microseconds_cpu.inc(diffu+diffs);
-    us->microseconds_cpu_user.inc(diffu);
-    us->microseconds_cpu_sys.inc(diffs);
+    if (cpu_res == 0 &&
+        (getrusage(RUSAGE_THREAD, &rusage_end) == 0)) {
+      ulonglong diffu=
+        RUSAGE_DIFF_USEC(rusage_end.ru_utime, rusage_beg.ru_utime);
+      ulonglong diffs=
+        RUSAGE_DIFF_USEC(rusage_end.ru_stime, rusage_beg.ru_stime);
+      if (dbstats)
+        dbstats->update_cpu_stats(diffu, diffs);
+      us->microseconds_cpu.inc(diffu+diffs);
+      us->microseconds_cpu_user.inc(diffu);
+      us->microseconds_cpu_sys.inc(diffs);
+    }
 #endif
 
     ulonglong latency = my_timer_since(*statement_start_time);

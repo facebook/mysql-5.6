@@ -213,15 +213,6 @@ void Dependency_slave_worker::remove_event(Log_event_wrapper *ev)
   }
   c_rli->dag.remove_head_node(ev);
 
-  // case: signal if DAG is now empty
-  if (c_rli->dag.is_empty())
-  {
-    mysql_mutex_lock(&c_rli->dag_empty_mutex);
-    c_rli->dag_empty= true;
-    mysql_cond_signal(&c_rli->dag_empty_cond);
-    mysql_mutex_unlock(&c_rli->dag_empty_mutex);
-  }
-
   // clean up other DAG related structures in rli
   for (auto it= c_rli->dag_table_last_penultimate_event.cbegin();
             it != c_rli->dag_table_last_penultimate_event.cend();)
@@ -239,6 +230,31 @@ void Dependency_slave_worker::remove_event(Log_event_wrapper *ev)
       c_rli->dag_db_last_start_event.erase(it++);
     else
       ++it;
+  }
+
+  // case: signal if DAG is now empty
+  if (c_rli->dag.is_empty())
+  {
+    mysql_mutex_lock(&c_rli->dag_empty_mutex);
+    c_rli->dag_empty= true;
+    mysql_cond_signal(&c_rli->dag_empty_cond);
+    mysql_mutex_unlock(&c_rli->dag_empty_mutex);
+  }
+
+  // admission control for DAG
+  if (ev->is_end_event)
+  {
+    mysql_mutex_lock(&c_rli->dag_full_mutex);
+    DBUG_ASSERT(c_rli->dag_num_groups > 0);
+    --c_rli->dag_num_groups;
+    // case: signal if DAG has space
+    if (c_rli->dag_full && c_rli->dag_num_groups <
+        (opt_mts_dependency_size * opt_mts_dependency_refill_threshold / 100))
+    {
+      c_rli->dag_full= false;
+      mysql_cond_signal(&c_rli->dag_full_cond);
+    }
+    mysql_mutex_unlock(&c_rli->dag_full_mutex);
   }
 
   c_rli->dag_unlock();
@@ -288,21 +304,7 @@ void Dependency_slave_worker::start()
               dag_db_last_start_event.empty() &&
               dbs_accessed_by_group.empty());
 
-  while (execute_group())
-  {
-    // admission control for DAG
-    mysql_mutex_lock(&c_rli->dag_full_mutex);
-    DBUG_ASSERT(c_rli->dag_num_groups > 0);
-    --c_rli->dag_num_groups;
-    // case: signal if DAG has space
-    if (c_rli->dag_full && c_rli->dag_num_groups <
-        (opt_mts_dependency_size * opt_mts_dependency_refill_threshold / 100))
-    {
-      c_rli->dag_full= false;
-      mysql_cond_signal(&c_rli->dag_full_cond);
-    }
-    mysql_mutex_unlock(&c_rli->dag_full_mutex);
-  }
+  while (execute_group());
 
   // case: cleanup if stopped abruptly
   if (running_status != STOP_ACCEPTED)

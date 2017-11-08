@@ -1165,6 +1165,7 @@ public:
   inline void clear_dag()
   {
     dag_wrlock();
+
     while(!dag.get_head().empty())
     {
       for (auto& node : DAG<Log_event_wrapper*>::node_set(dag.get_head()))
@@ -1183,7 +1184,6 @@ public:
     tables_accessed_by_group.clear();
     dag_db_last_start_event.clear();
     dbs_accessed_by_group.clear();
-    dag_unlock();
 
     mysql_mutex_lock(&dag_empty_mutex);
     dag_empty= true;
@@ -1194,6 +1194,8 @@ public:
     dag_full= false;
     dag_num_groups= 0;
     mysql_mutex_unlock(&dag_full_mutex);
+
+    dag_unlock();
 
     mysql_mutex_lock(&dag_group_ready_mutex);
     dag_group_ready= false;

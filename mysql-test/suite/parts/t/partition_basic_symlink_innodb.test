@@ -49,6 +49,9 @@ LET $innodb_strict_mode_orig=`select @@session.innodb_strict_mode`;
 
 --disable_warnings
 DROP TABLE IF EXISTS t1;
+DROP DATABASE IF EXISTS test;
+CREATE DATABASE test;
+use test;
 --enable_warnings
 
 --mkdir $MYSQLTEST_VARDIR/mysql-test-data-dir

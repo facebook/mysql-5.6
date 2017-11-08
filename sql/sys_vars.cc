@@ -5961,3 +5961,10 @@ static Sys_var_mybool Sys_improved_dup_key_error(
        "key error and log the query into a new duplicate key query log file.",
        GLOBAL_VAR(opt_improved_dup_key_error),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
+static Sys_var_ulong Sys_session_set_dscp_on_socket(
+       "dscp_on_socket",
+       "DSCP value for socket/connection to control binlog downloads",
+       SESSION_ONLY(dscp_on_socket),
+       NO_CMD_LINE, VALID_RANGE(0, 63), DEFAULT(0), BLOCK_SIZE(1),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG);

@@ -254,6 +254,13 @@ static MYSQL_SYSVAR_ULONG(timeout, rpl_semi_sync_master_timeout,
   fix_rpl_semi_sync_master_timeout,	// update
   10000, 0, ~0UL, 1);
 
+static MYSQL_SYSVAR_BOOL(crash_if_active_trxs,
+  rpl_semi_sync_master_crash_if_active_trxs,
+  PLUGIN_VAR_OPCMDARG,
+ "Crash if there is an attempt to switch off semi-sync master while there are "
+ "active un-acked transactions",
+  NULL, NULL, 0);
+
 static MYSQL_SYSVAR_BOOL(wait_no_slave, rpl_semi_sync_master_wait_no_slave,
   PLUGIN_VAR_OPCMDARG,
  "Wait until timeout when no semi-synchronous replication slave available (enabled by default). ",
@@ -277,6 +284,7 @@ static MYSQL_SYSVAR_STR(histogram_trx_wait_step_size,
 static SYS_VAR* semi_sync_master_system_vars[]= {
   MYSQL_SYSVAR(enabled),
   MYSQL_SYSVAR(timeout),
+  MYSQL_SYSVAR(crash_if_active_trxs),
   MYSQL_SYSVAR(wait_no_slave),
   MYSQL_SYSVAR(trace_level),
   MYSQL_SYSVAR(histogram_trx_wait_step_size),

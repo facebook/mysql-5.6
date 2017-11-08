@@ -745,6 +745,8 @@ static void append_session_id_in_ok(THD* session_thd) {
 void Srv_session::end_statement() {
   DBUG_ENTER(__func__);
 
+  static LEX_CSTRING key = { STRING_WITH_LEN(RpcIdAttr) };
+
   if (!session_state_changed()) {
     // remove from session map
     server_session_list.remove(get_session_id());
@@ -753,6 +755,14 @@ void Srv_session::end_statement() {
 
   if (!thd_.is_error()) {
     append_session_id_in_ok(&thd_);
+    auto tracker = session_tracker_->get_tracker(SESSION_RESP_ATTR_TRACKER);
+    if (tracker->is_enabled())
+    {
+      char tmp[21];
+      snprintf(tmp, sizeof(tmp), "%llu", (ulonglong) thd_.thread_id());
+      LEX_CSTRING value = { tmp, strlen(tmp) };
+      tracker->mark_as_changed(current_thd, &key, &value);
+    }
   }
 
   // Mark that session will be detached after finishing sending response out

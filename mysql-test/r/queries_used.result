@@ -12,21 +12,21 @@ select queries_used, table_name from information_schema.table_statistics where t
 queries_used	table_name
 1	t1
 1	t2
-insert into t1 values (0,0) on duplicate key update j=j+1 MEMCACHE_DIRTY 'a';
-insert into t1 values (2,0) on duplicate key update j=j+1 MEMCACHE_DIRTY 'a', 'b';
+insert into t1 values (0,0) on duplicate key update j=j+1;
+insert into t1 values (2,0) on duplicate key update j=j+1;
 select queries_used, table_name from information_schema.table_statistics where table_name in ('t1', 't2') order by table_name;
 queries_used	table_name
 3	t1
 1	t2
-replace into t1 values (0,3) MEMCACHE_DIRTY 'a';
-replace into t1 values (3,3) MEMCACHE_DIRTY 'a', 'b';
+replace into t1 values (0,3);
+replace into t1 values (3,3);
 select queries_used, table_name from information_schema.table_statistics where table_name in ('t1', 't2') order by table_name;
 queries_used	table_name
 5	t1
 1	t2
-delete from t1 where i=0 MEMCACHE_DIRTY 'a';
-delete from t1 where i=1 MEMCACHE_DIRTY 'b', 'c';
-delete from t1 where i=7 MEMCACHE_DIRTY 'b', 'c';
+delete from t1 where i=0;
+delete from t1 where i=1;
+delete from t1 where i=7;
 select queries_used, table_name from information_schema.table_statistics where table_name in ('t1', 't2') order by table_name;
 queries_used	table_name
 8	t1
