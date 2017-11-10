@@ -2092,6 +2092,8 @@ fil_node_t *Fil_shard::create_node(const char *name, page_no_t size,
 
   file.is_raw_disk = is_raw;
 
+  file.flush_size = size;
+
   file.size = size;
 
   file.magic_n = FIL_NODE_MAGIC_N;
@@ -2387,6 +2389,7 @@ dberr_t Fil_shard::get_file_size(fil_node_t *file, bool read_only_mode) {
 
     file->size = static_cast<page_no_t>(size_bytes / page_size.physical());
 
+    file->flush_size = file->size;
     space->size += file->size;
   }
 
@@ -7639,6 +7642,14 @@ void Fil_shard::space_flush(space_id_t space_id) {
     }
 #endif /* _WIN32 */
 
+#ifdef UNIV_LINUX
+    if (!skip_flush && space->purpose == FIL_TYPE_TABLESPACE &&
+        srv_unix_file_flush_method == SRV_UNIX_O_DIRECT &&
+        file.flush_size == file.size) {
+      skip_flush = true;
+  }
+#endif
+
     while (file.n_pending_flushes > 0 && !skip_flush) {
       /* We want to avoid calling os_file_flush() on
       the file twice at the same time, because we do
@@ -7672,6 +7683,7 @@ void Fil_shard::space_flush(space_id_t space_id) {
       os_event_set(file.sync_event);
 
       --file.n_pending_flushes;
+      file.flush_size = file.size;
     }
 
     if (file.flush_counter < old_mod_counter) {

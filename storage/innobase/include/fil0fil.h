@@ -160,6 +160,10 @@ struct fil_node_t {
   /** the modification_counter of the latest flush to disk */
   int64_t flush_counter;
 
+  /** size of file when last flushed, used to force flush when file grows
+  to keep filesystem metadata synced when using O_DIRECT */
+  ulint flush_size;
+
   /** link to the fil_system->LRU list (keeping track of open files) */
   List_node LRU;
 
