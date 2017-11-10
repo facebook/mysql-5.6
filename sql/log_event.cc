@@ -11066,8 +11066,7 @@ int Rows_log_event::handle_idempotent_and_ignored_errors(Relay_log_info const *r
 
     if (idempotent_error || ignored_error || ignore_delete_error)
     {
-      if ( (idempotent_error && log_warnings) || 
-		(ignored_error && log_warnings > 1) )
+      if (log_warnings > 1 && (idempotent_error || ignored_error))
         slave_rows_error_report(WARNING_LEVEL, error, rli, thd, m_table,
                                 get_type_str(),
                                 const_cast<Relay_log_info*>(rli)->get_rpl_log_name(),
