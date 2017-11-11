@@ -2971,16 +2971,19 @@ connected:
     Log_event_type type= UNKNOWN_EVENT;
     len= 0;
 
-    if (mysql->net.vio != 0)
-      len= my_net_read(&mysql->net);
+    len= cli_safe_read(mysql, NULL);
 
 #ifdef HAVE_COMPRESS
   // case: event was compressed before sending, so we have to uncompress
-  if (mysql->net.compress_event && len != 0 && len != packet_error)
+  if (mysql->net.compress_event && len != 0 && len != packet_error &&
+      mysql->net.read_pos[0] == COMP_EVENT_MAGIC_NUMBER)
+  {
     len= uncompress_event(&mysql->net, len);
+    if (len == packet_error)
+      error("Error during decompressing an event packet");
+  }
 #endif
 
-    len= cli_safe_read_complete(mysql, len, 0, NULL);
     if (len == packet_error)
     {
       uint mysql_error_number= mysql_errno(mysql);

@@ -33,31 +33,61 @@
 #include "rpl_slave.h"
 #include <queue>
 
+#ifdef HAVE_JUNCTION
+#pragma GCC diagnostic ignored "-Wunused-value"
+#include <junction/ConcurrentMap_Grampa.h>
+#pragma GCC diagnostic error "-Wunused-value"
+#endif
+
+
 int max_binlog_dump_events = 0; // unlimited
 my_bool opt_sporadic_binlog_dump_fail = 0;
 ulong rpl_event_buffer_size;
 uint rpl_send_buffer_size = 0;
 
+struct binlog_comp_event
+{
+  std::shared_ptr<uchar> buff;
+  size_t len;
+
+  binlog_comp_event() : len(0) { }
+
+  binlog_comp_event(std::shared_ptr<uchar> buff, size_t len):
+    buff(buff), len(len) { }
+};
+
 /* Cache for compressed events and associated structures */
-typedef std::pair<uchar*, size_t> binlog_comp_event;
-static std::unordered_map<std::string, binlog_comp_event> comp_event_cache;
+#ifdef HAVE_JUNCTION
+typedef junction::ConcurrentMap_Grampa<ulonglong, binlog_comp_event*>
+                                                               comp_event_cache;
+#define COMP_EVENT_CACHE_NUM_SHARDS 1 // no need to shard lock free hash table
+static mysql_mutex_t LOCK_comp_event_cache[COMP_EVENT_CACHE_NUM_SHARDS];
+#ifdef HAVE_PSI_INTERFACE
+static PSI_mutex_key key_LOCK_comp_event_cache[COMP_EVENT_CACHE_NUM_SHARDS];
+#endif
+#else
+typedef std::unordered_map<ulonglong, binlog_comp_event*> comp_event_cache;
+#define COMP_EVENT_CACHE_NUM_SHARDS 32
+static mysql_rwlock_t LOCK_comp_event_cache[COMP_EVENT_CACHE_NUM_SHARDS];
+#ifdef HAVE_PSI_INTERFACE
+static PSI_rwlock_key key_LOCK_comp_event_cache[COMP_EVENT_CACHE_NUM_SHARDS];
+#endif
+#endif
+typedef std::queue<std::pair<ulonglong, std::size_t>> comp_event_queue;
+
+static comp_event_cache comp_event_cache_list[COMP_EVENT_CACHE_NUM_SHARDS];
 static bool comp_event_cache_inited= false;
 
 /* Cache stats, reset every minute */
-static ulonglong cache_hit_count= 0;
-static ulonglong cache_miss_count= 0;
-static time_t cache_stats_timer= 0;
-
-static mysql_mutex_t LOCK_comp_event_cache;
-#ifdef HAVE_PSI_INTERFACE
-static PSI_mutex_key key_LOCK_comp_event_cache;
-#endif
+static std::atomic<ulonglong> cache_hit_count;
+static std::atomic<ulonglong> cache_miss_count;
+static std::atomic<time_t> cache_stats_timer;
 
 // used to record the order of insertions in the cache for eviction
-static std::queue<std::pair<std::string, std::size_t>> comp_event_queue;
+static comp_event_queue comp_event_queue_list[COMP_EVENT_CACHE_NUM_SHARDS];
 
 // size of value part of the compressed event cache in MB
-static size_t comp_event_cache_size= 0;
+static std::atomic<size_t> comp_event_cache_size;
 
 
 #ifndef DBUG_OFF
@@ -141,27 +171,45 @@ void end_slave_list()
   }
 }
 
+static void evict_compressed_events(comp_event_cache &comp_cache,
+                                    comp_event_queue &comp_queue,
+                                    ulonglong max_cache_size);
+
 void init_compressed_event_cache()
 {
-  mysql_mutex_init(key_LOCK_comp_event_cache,
-                   &LOCK_comp_event_cache,
-                   MY_MUTEX_INIT_FAST);
+  for (int i = 0; i < COMP_EVENT_CACHE_NUM_SHARDS; ++i)
+#ifdef HAVE_JUNCTION
+    mysql_mutex_init(key_LOCK_comp_event_cache[i],
+                     &LOCK_comp_event_cache[i],
+                     MY_MUTEX_INIT_FAST);
+#else
+    mysql_rwlock_init(key_LOCK_comp_event_cache[i], &LOCK_comp_event_cache[i]);
+#endif
   comp_event_cache_inited= true;
-  cache_hit_count= cache_miss_count= 0;
+  cache_hit_count= cache_miss_count= comp_event_cache_size= 0;
   cache_stats_timer= my_time(0);
 }
 
 void clear_compressed_event_cache()
 {
-  mysql_mutex_lock(&LOCK_comp_event_cache);
-  for (auto& entry : comp_event_cache)
-    my_free(entry.second.first);
-  comp_event_cache.clear();
-  comp_event_queue= std::queue<std::pair<std::string, std::size_t>>();
-  cache_hit_count= cache_miss_count= 0;
-  cache_stats_timer= my_time(0);
-  comp_event_cache_hit_ratio= 0;
-  mysql_mutex_unlock(&LOCK_comp_event_cache);
+  for (int i = 0; i < COMP_EVENT_CACHE_NUM_SHARDS; ++i)
+  {
+#ifdef HAVE_JUNCTION
+    mysql_mutex_lock(&LOCK_comp_event_cache[i]);
+#else
+    mysql_rwlock_wrlock(&LOCK_comp_event_cache[i]);
+#endif
+    evict_compressed_events(comp_event_cache_list[i],
+                            comp_event_queue_list[i], 0);
+    cache_hit_count= cache_miss_count= comp_event_cache_size= 0;
+    cache_stats_timer= my_time(0);
+    comp_event_cache_hit_ratio= 0;
+#ifdef HAVE_JUNCTION
+    mysql_mutex_unlock(&LOCK_comp_event_cache[i]);
+#else
+    mysql_rwlock_unlock(&LOCK_comp_event_cache[i]);
+#endif
+  }
 }
 
 void free_compressed_event_cache()
@@ -171,7 +219,12 @@ void free_compressed_event_cache()
   if (comp_event_cache_inited)
   {
     clear_compressed_event_cache();
-    mysql_mutex_destroy(&LOCK_comp_event_cache);
+    for (int i = 0; i < COMP_EVENT_CACHE_NUM_SHARDS; ++i)
+#ifdef HAVE_JUNCTION
+      mysql_mutex_destroy(&LOCK_comp_event_cache[i]);
+#else
+      mysql_rwlock_destroy(&LOCK_comp_event_cache[i]);
+#endif
     comp_event_cache_inited= false;
   }
 }
@@ -403,26 +456,27 @@ static uint8 get_binlog_checksum_value_at_connect(THD * thd)
   DBUG_RETURN(ret);
 }
 
-static
-std::pair<uchar*, size_t> compress_event(NET *net, const String *packet)
+static binlog_comp_event compress_event(NET *net, const String *packet)
 {
   uchar* event= (uchar*) packet->ptr();
-  uchar* comp_event= NULL;
   size_t event_len= packet->length();
   size_t comp_event_len= packet->length();
   static bool error_logged= false;
 
-  comp_event= (uchar *) my_malloc(event_len + COMP_HEADER_SIZE, MYF(MY_WME));
+  std::shared_ptr<uchar> comp_event((uchar*) my_malloc(event_len +
+                                                       COMP_EVENT_HEADER_SIZE,
+                                                       MYF(MY_WME)),
+                                    my_free);
 
   // case: malloc failed
-  if (comp_event == NULL) goto err;
+  if (!comp_event) return binlog_comp_event();
 
   // copy the original event in the buffer, compression will happen in place
-  memcpy(comp_event + COMP_HEADER_SIZE, event, event_len);
+  memcpy(comp_event.get() + COMP_EVENT_HEADER_SIZE, event, event_len);
 
   // compress the event!
-  if (my_compress(net, comp_event + COMP_HEADER_SIZE, &comp_event_len,
-                  &event_len, net_compression_level))
+  if (my_compress(net, comp_event.get() + COMP_EVENT_HEADER_SIZE,
+                  &comp_event_len, &event_len, net_compression_level))
   {
     if (!error_logged)
     {
@@ -437,67 +491,125 @@ std::pair<uchar*, size_t> compress_event(NET *net, const String *packet)
     event_len= 0;
   }
 
+  // store the magic number in the first byte to indicate a compressed event
+  // packet
+  *comp_event= COMP_EVENT_MAGIC_NUMBER;
+
   // store the length of the uncompressed event, we store 0 if no compression
   // takes place
-  int3store(comp_event, event_len);
+  int3store(comp_event.get() + 1, event_len);
 
-  comp_event_len+= COMP_HEADER_SIZE;
+  comp_event_len+= COMP_EVENT_HEADER_SIZE;
 
-err:
-  return std::make_pair(comp_event, comp_event_len);
+  return binlog_comp_event(comp_event, comp_event_len);
 }
 
-static
-std::pair<uchar*, size_t> get_compressed_event(NET *net,
-                                               const LOG_POS_COORD *coord,
-                                               const String *packet,
-                                               bool is_semi_sync_slave,
-                                               bool cache)
+static void evict_compressed_events(comp_event_cache &comp_cache,
+                                    comp_event_queue &comp_queue,
+                                    ulonglong max_cache_size)
 {
-  if (!cache) return compress_event(net, packet);
+  if (comp_event_cache_size <= max_cache_size)
+    return;
 
-  std::string ev_key= std::string(coord->file_name).append(":")
-                      .append(std::to_string(coord->pos)).append(":")
-                      .append(std::to_string(is_semi_sync_slave)).append(":")
-                      .append(std::to_string(net->comp_lib));
-  uchar* comp_event= NULL;
-  size_t comp_event_len= packet->length();
-
-  mysql_mutex_lock(&LOCK_comp_event_cache);
-
-  if (!comp_event_cache.count(ev_key))
+  // old event eviction
+  while ((comp_event_cache_size > max_cache_size * 0.6) && !comp_queue.empty())
   {
-    std::tie(comp_event, comp_event_len)= compress_event(net, packet);
-    if (comp_event == NULL) goto err;
+    ulonglong key;
+    size_t size;
+    std::tie(key, size)= comp_queue.front();
+    comp_queue.pop();
+#ifdef HAVE_JUNCTION
+    auto value= comp_cache.erase(key);
+    DBUG_ASSERT(value != NULL);
+    delete value;
+#else
+    DBUG_ASSERT(comp_cache.count(key));
+    auto value= comp_cache.at(key);
+    comp_cache.erase(key);
+    delete value;
+#endif
+    DBUG_ASSERT(comp_event_cache_size > size);
+    comp_event_cache_size-= size;
+  }
+}
+
+#ifdef HAVE_JUNCTION
+static binlog_comp_event get_compressed_event(NET *net,
+                                              const LOG_POS_COORD *coord,
+                                              const String *packet,
+                                              bool is_semi_sync_slave,
+                                              bool cache)
+{
+  if (!cache)
+    return compress_event(net, packet);
+
+  ulong file_num= strtoul(strrchr(coord->file_name, '.') + 1, NULL, 10);
+
+  // case: file num can't fit in 20 bits or pos can't fit in 41 bits or comp lib
+  // can't fit in 2 bits, so we cannot create a 64 bit integer key for this
+  // event
+  if (file_num >= ((ulonglong) 1 << 21) ||
+      coord->pos >= ((ulonglong) 1 << 42) ||
+      net->comp_lib >= ((ulonglong) 1 << 3))
+  {
+    sql_print_warning("Not caching binlog event %s:%llu because the cache key "
+                      "is out of bounds", coord->file_name, coord->pos);
+    return compress_event(net, packet);
+  }
+
+  // format of the key from MSB to LSB: file_num (20), pos (41), semi sync (1),
+  // comp_lib (2), total 64 bits
+  ulonglong ev_key= net->comp_lib;
+  ev_key |= ((ulonglong) is_semi_sync_slave << 2);
+  ev_key |= ((ulonglong) coord->pos << (2 + 1));
+  ev_key |= ((ulonglong) file_num << (2 + 1 + 41));
+
+  binlog_comp_event comp_event;
+
+  // get cache, queue and corresponding lock for our shard
+  comp_event_cache& comp_cache=
+    comp_event_cache_list[coord->pos % COMP_EVENT_CACHE_NUM_SHARDS];
+  comp_event_queue& comp_queue=
+    comp_event_queue_list[coord->pos % COMP_EVENT_CACHE_NUM_SHARDS];
+  auto lock= &LOCK_comp_event_cache[coord->pos % COMP_EVENT_CACHE_NUM_SHARDS];
+
+  // see if the event already exists in the cache
+  if (auto elem= comp_cache.get(ev_key))
+  {
+    ++cache_hit_count;
+    return *elem;
+  }
+
+  // event not found in the cache, take write lock but check for existance again
+  // before writing because we might not be the first one to get this write lock
+  mysql_mutex_lock(lock);
+
+  auto mutator= comp_cache.insertOrFind(ev_key);
+  auto elem= mutator.getValue();
+  // case: event not found once again, now we have a write lock so we can write
+  // to the cache
+  if (elem == NULL)
+  {
+    comp_event= compress_event(net, packet);
+    if (!comp_event.buff) goto err;
 
     const ulonglong max_cache_size_bytes=
                               (1 << 20) * opt_max_compressed_event_cache_size;
-    if (comp_event_len < max_cache_size_bytes)
-    {
-      // old event eviction
-      while ((comp_event_cache_size + comp_event_len > max_cache_size_bytes) &&
-             !comp_event_queue.empty())
-      {
-        std::string key;
-        size_t size;
-        std::tie(key, size)= comp_event_queue.front();
-        comp_event_queue.pop();
-        DBUG_ASSERT(comp_event_cache.count(key));
-        my_free(comp_event_cache[key].first);
-        comp_event_cache.erase(key);
-        DBUG_ASSERT(comp_event_cache_size > size);
-        comp_event_cache_size-= size;
-      }
 
-      comp_event_cache[ev_key]= std::make_pair(comp_event, comp_event_len);
-      comp_event_queue.push(std::make_pair(ev_key, comp_event_len));
-      comp_event_cache_size+= comp_event_len;
+    if (comp_event.len < max_cache_size_bytes)
+    {
+      comp_event_cache_size+= comp_event.len;
+      evict_compressed_events(comp_cache, comp_queue, max_cache_size_bytes);
+      auto comp_event_ptr= new binlog_comp_event(comp_event.buff,
+                                                 comp_event.len);
+      mutator.assignValue(comp_event_ptr);
+      comp_queue.push(std::make_pair(ev_key, comp_event.len));
     }
     ++cache_miss_count;
   }
   else
   {
-    std::tie(comp_event, comp_event_len)= comp_event_cache[ev_key];
+    comp_event= *elem;
     ++cache_hit_count;
   }
 
@@ -511,44 +623,145 @@ std::pair<uchar*, size_t> get_compressed_event(NET *net,
   }
 
 err:
-  mysql_mutex_unlock(&LOCK_comp_event_cache);
-  return std::make_pair(comp_event, comp_event_len);
+  mysql_mutex_unlock(lock);
+  return comp_event;
 }
+
+#else // if !HAVE_JUNCTION
+static binlog_comp_event get_compressed_event(NET *net,
+                                              const LOG_POS_COORD *coord,
+                                              const String *packet,
+                                              bool is_semi_sync_slave,
+                                              bool cache)
+{
+  if (!cache)
+    return compress_event(net, packet);
+
+  ulong file_num= strtoul(strrchr(coord->file_name, '.') + 1, NULL, 10);
+
+  // case: file num can't fit in 20 bits or pos can't fit in 41 bits or comp lib
+  // can't fit in 2 bits, so we cannot create a 64 bit integer key for this
+  // event
+  if (file_num >= ((ulonglong) 1 << 21) ||
+      coord->pos >= ((ulonglong) 1 << 42) ||
+      net->comp_lib >= ((ulonglong) 1 << 3))
+  {
+    sql_print_warning("Not caching binlog event %s:%llu because the cache key "
+                      "is out of bounds", coord->file_name, coord->pos);
+    return compress_event(net, packet);
+  }
+
+  // format of the key from MSB to LSB: file_num (20), pos (41), semi sync (1),
+  // comp_lib (2), total 64 bits
+  ulonglong ev_key= net->comp_lib;
+  ev_key |= ((ulonglong) is_semi_sync_slave << 2);
+  ev_key |= ((ulonglong) coord->pos << (2 + 1));
+  ev_key |= ((ulonglong) file_num << (2 + 1 + 41));
+
+  binlog_comp_event comp_event;
+
+  // get cache, queue and corresponding lock for our shard
+  comp_event_cache& comp_cache=
+    comp_event_cache_list[coord->pos % COMP_EVENT_CACHE_NUM_SHARDS];
+  comp_event_queue& comp_queue=
+    comp_event_queue_list[coord->pos % COMP_EVENT_CACHE_NUM_SHARDS];
+  auto lock= &LOCK_comp_event_cache[coord->pos % COMP_EVENT_CACHE_NUM_SHARDS];
+
+  // see if the event already exists in the cache
+  mysql_rwlock_rdlock(lock);
+  auto elem= comp_cache.find(ev_key);
+  // case: found
+  if (elem != comp_cache.end())
+  {
+    ++cache_hit_count;
+    auto retval= *elem->second;
+    mysql_rwlock_unlock(lock);
+    return retval;
+  }
+  mysql_rwlock_unlock(lock);
+
+  // event not found in the cache, take write lock but check for existance again
+  // before writing because we might not be the first one to get this write lock
+  mysql_rwlock_wrlock(lock);
+
+  bool inserted= false;
+  comp_event_cache::iterator kv; // iterator to existing elem or inserted elem
+  std::tie(kv, inserted)= comp_cache.insert({ev_key, new binlog_comp_event()});
+
+  // case: event not found once again, now we have a write lock so we can write
+  // to the cache
+  if (inserted)
+  {
+    comp_event= compress_event(net, packet);
+    if (!comp_event.buff) goto err;
+
+    const ulonglong max_cache_size_bytes=
+                              (1 << 20) * opt_max_compressed_event_cache_size;
+
+    if (comp_event.len < max_cache_size_bytes)
+    {
+      comp_event_cache_size+= comp_event.len;
+      evict_compressed_events(comp_cache, comp_queue, max_cache_size_bytes);
+      // this inserts the event into the cache
+      kv->second->buff= comp_event.buff;
+      kv->second->len= comp_event.len;
+      comp_queue.push(std::make_pair(ev_key, comp_event.len));
+    }
+    ++cache_miss_count;
+  }
+  else
+  {
+    comp_event= *kv->second;
+    ++cache_hit_count;
+  }
+
+  // case: one minute is up since the last stats update, re-calculate
+  if (difftime(my_time(0), cache_stats_timer) >= 60)
+  {
+    comp_event_cache_hit_ratio=
+      (double) cache_hit_count / (cache_hit_count + cache_miss_count);
+    cache_hit_count= cache_miss_count= 0;
+    cache_stats_timer= my_time(0);
+  }
+
+err:
+  mysql_rwlock_unlock(lock);
+  return comp_event;
+}
+#endif
 
 static
 int my_net_write_event(NET *net, const LOG_POS_COORD *coord,
                        const String *packet, const char** errmsg, int* errnum,
                        bool is_semi_sync_slave, bool cache= true)
 {
-  int ret= 0;
   uchar* buff= (uchar*) packet->ptr();
   size_t buff_len= packet->length();
+  binlog_comp_event comp_event;
 
   DBUG_ASSERT(!(net->compress_event && net->compress));
   if (net->compress_event)
   {
-    std::tie(buff, buff_len)= get_compressed_event(net, coord, packet,
-                                                   is_semi_sync_slave, cache);
-    if (buff == NULL)
+    comp_event= get_compressed_event(net, coord, packet,
+                                     is_semi_sync_slave, cache);
+    if (!comp_event.buff)
     {
       if (errmsg) *errmsg = "Couldn't compress binlog event, out of memory";
       if (errnum) *errnum= ER_OUT_OF_RESOURCES;
-      ret= 1;
-      goto err;
+      return 1;
     }
+    buff= comp_event.buff.get();
+    buff_len= comp_event.len;
   }
 
   if (my_net_write(net, buff, buff_len))
   {
     if (errmsg) *errmsg = "Failed on my_net_write()";
     if (errnum) *errnum= ER_UNKNOWN_ERROR;
-    ret= 1;
+    return 1;
   }
 
-err:
-  // case: if we din't cache the compressed packet we need to deallocate it
-  if (net->compress_event && !cache) my_free(buff);
-  return ret;
+  return 0;
 }
 
 /*

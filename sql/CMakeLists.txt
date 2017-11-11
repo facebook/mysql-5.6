@@ -28,6 +28,14 @@ IF(WITH_ZSTD)
  ADD_DEFINITIONS(-DHAVE_ZSTD_COMPRESS)
 ENDIF()
 
+IF(WITH_JUNCTION)
+  SET(JUNCTION_LIBRARIES ${JUNCTION_LIBRARIES}
+      ${WITH_JUNCTION}/lib/libjunction${PIC_EXT}.a)
+  SET(JUNCTION_LIBRARIES ${JUNCTION_LIBRARIES}
+    ${WITH_TURF}/lib/libturf${PIC_EXT}.a)
+  ADD_DEFINITIONS(-DHAVE_JUNCTION)
+ENDIF()
+
 SET(GEN_SOURCES
   ${CMAKE_CURRENT_BINARY_DIR}/sql_yacc.h 
   ${CMAKE_CURRENT_BINARY_DIR}/sql_yacc.cc
@@ -277,6 +285,7 @@ SET (MASTER_SOURCE rpl_master.cc)
 ADD_DEPENDENCIES(rpl GenError)
 ADD_LIBRARY(master ${MASTER_SOURCE})
 ADD_DEPENDENCIES(master GenError)
+TARGET_LINK_LIBRARIES(master ${JUNCTION_LIBRARIES})
 SET (SLAVE_SOURCE rpl_slave.cc rpl_reporting.cc rpl_mi.cc rpl_rli.cc
 		  rpl_info_handler.cc rpl_info_file.cc rpl_info_table.cc
 		  rpl_info_values.cc rpl_info.cc rpl_info_factory.cc
