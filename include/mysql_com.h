@@ -444,6 +444,8 @@ typedef struct ssl_st SSL;
   /* Constants when using compression */
 #define NET_HEADER_SIZE 4		/* standard header size */
 #define COMP_HEADER_SIZE 3		/* compression header extra size */
+#define COMP_EVENT_MAGIC_NUMBER 17 /* added before a compressed event packet */
+#define COMP_EVENT_HEADER_SIZE 4  /* comp header + magic number */
 
 enum mysql_compression_lib {
   MYSQL_COMPRESSION_ZLIB,

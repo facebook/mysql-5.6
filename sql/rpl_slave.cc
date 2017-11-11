@@ -3885,16 +3885,14 @@ static ulong read_event(MYSQL* mysql, Master_info *mi, bool* suppress_warnings)
     DBUG_RETURN(packet_error);
 #endif
 
-  if (mysql->net.vio != 0)
-    len= my_net_read(&mysql->net);
+  len= cli_safe_read(mysql, NULL);
 
 #ifdef HAVE_COMPRESS
   // case: event was compressed before sending, so we have to uncompress
-  if (mysql->net.compress_event && len != 0 && len != packet_error)
+  if (mysql->net.compress_event && len != 0 && len != packet_error &&
+      mysql->net.read_pos[0] == COMP_EVENT_MAGIC_NUMBER)
     len= uncompress_event(&mysql->net, len);
 #endif
-
-  len= cli_safe_read_complete(mysql, len, 0, NULL);
 
   if (len == packet_error || (long) len < 1)
   {

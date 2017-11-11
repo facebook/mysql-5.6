@@ -914,12 +914,20 @@ ulong uncompress_event(NET* net, ulong len)
   DBUG_ASSERT(net->compress_event);
 
   DBUG_ASSERT(!(net->compress && net->compress_event));
-  DBUG_ASSERT(len > COMP_HEADER_SIZE);
-  size_t pkt_len= len - COMP_HEADER_SIZE;
-  size_t orig_len= uint3korr(net->read_pos);
+  DBUG_ASSERT(len > COMP_EVENT_HEADER_SIZE);
+
+  // NOTE: an extra byte containing a magic number before the compression
+  // header specifies if the packet contains a compressed event
+  // case: the first byte of a compressed event packet should always be
+  // COMP_EVENT_MAGIC_NUMBER
+  if (net->read_pos[0] != COMP_EVENT_MAGIC_NUMBER)
+    DBUG_RETURN(packet_error);
+
+  size_t pkt_len= len - COMP_EVENT_HEADER_SIZE;
+  size_t orig_len= uint3korr(net->read_pos + 1);
   size_t buff_len= orig_len ? orig_len : pkt_len;
 
-  net->read_pos+= COMP_HEADER_SIZE;
+  net->read_pos+= COMP_EVENT_HEADER_SIZE;
 
   // case: not enough space in the buffer to store the uncompressed event
   if (net->read_pos + buff_len > net->buff_end)
@@ -1051,6 +1059,15 @@ ulong cli_safe_read_complete(MYSQL *mysql, ulong len,
     set_mysql_error(mysql, errcode, unknown_sqlstate);
     DBUG_RETURN((packet_error));
   }
+
+  // case: this packet contains a compressed event
+  if (net->read_pos[0] == COMP_EVENT_MAGIC_NUMBER)
+  {
+    if (is_data_packet)
+      *is_data_packet= TRUE;
+    DBUG_RETURN(len);
+  }
+
   if (net->read_pos[0] == 255)
   {
     if (len > 3)
