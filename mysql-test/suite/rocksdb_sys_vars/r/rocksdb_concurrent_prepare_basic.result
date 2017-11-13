@@ -9,6 +9,6 @@ SELECT @start_global_value;
 1
 "Trying to set variable @@global.ROCKSDB_CONCURRENT_PREPARE to 444. It should fail because it is readonly."
 SET @@global.ROCKSDB_CONCURRENT_PREPARE   = 444;
-ERROR HY000: Variable 'rocksdb_concurrent_prepare' is a read only variable
+ERROR HY000: Variable 'rocksdb_two_write_queues' is a read only variable
 DROP TABLE valid_values;
 DROP TABLE invalid_values;
