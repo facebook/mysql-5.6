@@ -1162,7 +1162,7 @@ The following options may be given as the first argument:
  Possible values are ON, OFF, FORCE (don't start if the
  plugin fails to load).
  --rocksdb-concurrent-prepare 
- DBOptions::concurrent_prepare for RocksDB
+ DBOptions::two_write_queues for RocksDB
  (Defaults to on; use --skip-rocksdb-concurrent-prepare to disable.)
  --rocksdb-create-checkpoint=name 
  Checkpoint directory
