@@ -1154,6 +1154,7 @@ ulong cli_safe_read_with_ok_complete(MYSQL *mysql, bool parse_ok,
 
   if (len == packet_error || len == 0) {
     char desc[VIO_DESCRIPTION_SIZE];
+    int errcode = CR_SERVER_LOST;
     vio_description(net->vio, desc);
     DBUG_PRINT("error",
                ("Wrong connection or packet. fd: %s  len: %lu", desc, len));
@@ -1162,11 +1163,14 @@ ulong cli_safe_read_with_ok_complete(MYSQL *mysql, bool parse_ok,
       DBUG_RETURN(packet_error);
 #endif /*MYSQL_SERVER*/
     end_server(mysql);
-    set_mysql_error(mysql,
-                    net->last_errno == ER_NET_PACKET_TOO_LARGE
-                        ? CR_NET_PACKET_TOO_LARGE
-                        : CR_SERVER_LOST,
-                    unknown_sqlstate);
+    if (net->last_errno == ER_NET_PACKET_TOO_LARGE) {
+      errcode = CR_NET_PACKET_TOO_LARGE;
+    } else if (net->last_errno == ER_NET_READ_INTERRUPTED) {
+      errcode = CR_NET_READ_INTERRUPTED;
+    } else if (net->last_errno == ER_NET_WRITE_INTERRUPTED) {
+      errcode = CR_NET_WRITE_INTERRUPTED;
+    }
+    set_mysql_error(mysql, errcode, unknown_sqlstate);
     DBUG_RETURN(packet_error);
   }
 

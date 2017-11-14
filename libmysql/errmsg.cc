@@ -106,6 +106,8 @@ const char *client_errors[] = {
     "File name is too long",
     "Set FIPS mode ON/STRICT failed",
     "Compression protocol not supported with asynchronous protocol",
+    "Read timeout is reached",
+    "Write timeout is reached",
     ""};
 
 static const char *get_client_errmsg(int nr) {
