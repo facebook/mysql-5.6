@@ -1159,9 +1159,6 @@ The following options may be given as the first argument:
  Enable or disable ROCKSDB_COMPACTION_STATS plugin.
  Possible values are ON, OFF, FORCE (don't start if the
  plugin fails to load).
- --rocksdb-concurrent-prepare 
- DBOptions::concurrent_prepare for RocksDB
- (Defaults to on; use --skip-rocksdb-concurrent-prepare to disable.)
  --rocksdb-create-checkpoint=name 
  Checkpoint directory
  --rocksdb-create-if-missing 
@@ -1436,6 +1433,9 @@ The following options may be given as the first argument:
  --rocksdb-trx[=name] 
  Enable or disable ROCKSDB_TRX plugin. Possible values are
  ON, OFF, FORCE (don't start if the plugin fails to load).
+ --rocksdb-two-write-queues 
+ DBOptions::two_write_queues for RocksDB
+ (Defaults to on; use --skip-rocksdb-two-write-queues to disable.)
  --rocksdb-unsafe-for-binlog 
  Allowing statement based binary logging which may break
  consistency
@@ -2123,7 +2123,6 @@ rocksdb-compaction-sequential-deletes-count-sd FALSE
 rocksdb-compaction-sequential-deletes-file-size 0
 rocksdb-compaction-sequential-deletes-window 0
 rocksdb-compaction-stats ON
-rocksdb-concurrent-prepare TRUE
 rocksdb-create-checkpoint 
 rocksdb-create-if-missing TRUE
 rocksdb-create-missing-column-families FALSE
@@ -2216,6 +2215,7 @@ rocksdb-table-stats-sampling-pct 10
 rocksdb-tmpdir (No default value)
 rocksdb-trace-sst-api FALSE
 rocksdb-trx ON
+rocksdb-two-write-queues TRUE
 rocksdb-unsafe-for-binlog FALSE
 rocksdb-update-cf-options (No default value)
 rocksdb-use-adaptive-mutex FALSE
