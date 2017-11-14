@@ -1994,8 +1994,16 @@ static bool execute(MYSQL_STMT *stmt, char *packet, ulong length) {
     /*
       Don't set stmt error if stmt->mysql is NULL, as the error in this case
       has already been set by mysql_prune_stmt_list().
+
+      Special case for CR_NET_(READ|WRITE)_INTERRUPTED because they were
+      added to disambiguate them from CR_SERVER_LOST. mysql_prune_stmt_list
+      sets CR_SERVER_LOST for the whole stmt list, but we want the
+      statement causing timeout to get the correct error and the rest to get
+      CR_SERVER_LOST.
     */
-    if (stmt->mysql) set_stmt_errmsg(stmt, net);
+    if (stmt->mysql || net->last_errno == CR_NET_READ_INTERRUPTED ||
+        net->last_errno == CR_NET_WRITE_INTERRUPTED)
+      set_stmt_errmsg(stmt, net);
     return true;
   } else if (mysql->status == MYSQL_STATUS_GET_RESULT)
     stmt->mysql->status = MYSQL_STATUS_STATEMENT_GET_RESULT;
@@ -2194,8 +2202,16 @@ static int stmt_read_row_from_cursor(MYSQL_STMT *stmt, unsigned char **row) {
       /*
         Don't set stmt error if stmt->mysql is NULL, as the error in this case
         has already been set by mysql_prune_stmt_list().
+
+        Special case for CR_NET_(READ|WRITE)_INTERRUPTED because they were
+        added to disambiguate them from CR_SERVER_LOST. mysql_prune_stmt_list
+        sets CR_SERVER_LOST for the whole stmt list, but we want the
+        statement causing timeout to get the correct error and the rest to get
+        CR_SERVER_LOST.
       */
-      if (stmt->mysql) set_stmt_errmsg(stmt, net);
+      if (stmt->mysql || net->last_errno == CR_NET_READ_INTERRUPTED ||
+          net->last_errno == CR_NET_WRITE_INTERRUPTED)
+        set_stmt_errmsg(stmt, net);
       return 1;
     }
     if ((*mysql->methods->read_rows_from_cursor)(stmt)) return 1;
@@ -2839,8 +2855,16 @@ bool STDCALL mysql_stmt_send_long_data(MYSQL_STMT *stmt, uint param_number,
       /*
         Don't set stmt error if stmt->mysql is NULL, as the error in this case
         has already been set by mysql_prune_stmt_list().
+
+        Special case for CR_NET_(READ|WRITE)_INTERRUPTED because they were
+        added to disambiguate them from CR_SERVER_LOST. mysql_prune_stmt_list
+        sets CR_SERVER_LOST for the whole stmt list, but we want the
+        statement causing timeout to get the correct error and the rest to get
+        CR_SERVER_LOST.
       */
-      if (stmt->mysql) set_stmt_errmsg(stmt, &mysql->net);
+      if (stmt->mysql || mysql->net.last_errno == CR_NET_READ_INTERRUPTED ||
+          mysql->net.last_errno == CR_NET_WRITE_INTERRUPTED)
+        set_stmt_errmsg(stmt, &mysql->net);
       return true;
     }
   }
@@ -4180,8 +4204,16 @@ int STDCALL mysql_stmt_store_result(MYSQL_STMT *stmt) {
       /*
         Don't set stmt error if stmt->mysql is NULL, as the error in this case
         has already been set by mysql_prune_stmt_list().
+
+        Special case for CR_NET_(READ|WRITE)_INTERRUPTED because they were
+        added to disambiguate them from CR_SERVER_LOST. mysql_prune_stmt_list
+        sets CR_SERVER_LOST for the whole stmt list, but we want the
+        statement causing timeout to get the correct error and the rest to get
+        CR_SERVER_LOST.
       */
-      if (stmt->mysql) set_stmt_errmsg(stmt, net);
+      if (stmt->mysql || net->last_errno == CR_NET_READ_INTERRUPTED ||
+          net->last_errno == CR_NET_WRITE_INTERRUPTED)
+        set_stmt_errmsg(stmt, net);
       return 1;
     }
   } else if (mysql->status != MYSQL_STATUS_STATEMENT_GET_RESULT) {

@@ -109,6 +109,8 @@ const char *client_errors[] = {
     "Compression protocol not supported with asynchronous protocol",
     "Connection failed due to wrongly configured compression algorithm",
     "SSO user not found, Please perform SSO authentication using kerberos.",
+    "Read timeout is reached",
+    "Write timeout is reached",
     ""};
 
 static const char *get_client_errmsg(int nr) {

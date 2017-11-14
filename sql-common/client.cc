@@ -1174,11 +1174,15 @@ ulong cli_safe_read_with_ok_complete(MYSQL *mysql, bool parse_ok,
       return packet_error;
 #endif /*MYSQL_SERVER*/
     end_server(mysql);
-    set_mysql_error(mysql,
-                    net->last_errno == ER_NET_PACKET_TOO_LARGE
-                        ? CR_NET_PACKET_TOO_LARGE
-                        : CR_SERVER_LOST,
-                    unknown_sqlstate);
+    int errcode = CR_SERVER_LOST;
+    if (net->last_errno == ER_NET_PACKET_TOO_LARGE) {
+      errcode = CR_NET_PACKET_TOO_LARGE;
+    } else if (net->last_errno == ER_NET_READ_INTERRUPTED) {
+      errcode = CR_NET_READ_INTERRUPTED;
+    } else if (net->last_errno == ER_NET_WRITE_INTERRUPTED) {
+      errcode = CR_NET_WRITE_INTERRUPTED;
+    }
+    set_mysql_error(mysql, errcode, unknown_sqlstate);
     return packet_error;
   }
 

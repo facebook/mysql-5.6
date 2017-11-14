@@ -1304,10 +1304,10 @@ TEST_F(RouterBootstrapTest, BootstrapFailWhenServerResponseExceedsReadTimeout) {
           std::to_string(mock_servers.at(0).port),
       "-d", bootstrap_dir.name(), "--connect-timeout=1", "--read-timeout=1"};
 
-  bootstrap_failover(
-      mock_servers, ClusterType::GR_V2, router_options, EXIT_FAILURE,
-      {"Error: Error executing MySQL query \".*\": Lost connection to "
-       "MySQL server during query \\(2013\\)"});
+  bootstrap_failover(mock_servers, ClusterType::GR_V2, router_options,
+                     EXIT_FAILURE,
+                     {"Error: Error executing MySQL query \".*\": "
+                      "Read timeout is reached \\(2068\\)"});
 }
 
 ////////////////////////////////////////////////////////////////////////////////
