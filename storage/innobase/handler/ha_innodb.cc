@@ -2813,7 +2813,7 @@ ha_innobase::ha_innobase(handlerton *hton, TABLE_SHARE *table_arg)
           HA_ATTACHABLE_TRX_COMPATIBLE | HA_CAN_INDEX_VIRTUAL_GENERATED_COLUMN |
           HA_DESCENDING_INDEX | HA_MULTI_VALUED_KEY_SUPPORT |
           HA_BLOB_PARTIAL_UPDATE | HA_SUPPORTS_GEOGRAPHIC_GEOMETRY_COLUMN |
-          HA_SUPPORTS_DEFAULT_EXPRESSION),
+          HA_SUPPORTS_DEFAULT_EXPRESSION | HA_ONLINE_ANALYZE),
       m_start_of_scan(),
       m_stored_select_lock_type(LOCK_NONE_UNSET),
       m_mysql_has_locked() {}

@@ -27,7 +27,6 @@ rocksdb.autoinc_crash_safe_partition : BUG#888001 partition feature is missing i
 rocksdb.explicit_snapshot : BUG#0000 missing patch 0b671a35cc7 SQL to create and manage explicit snapshots
 rocksdb.innodb_i_s_tables_disabled : BUG#0000 missing patch
 rocksdb_rpl.rpl_rocksdb_schema_change : BUG#0000 missing 031b5cec711 Use column names while applying row changes on slave
-rocksdb.percona_nonflushing_analyze_debug : BUG#0000 missing dbc7c09e252 Fix bug 1704195 / 87065 / TDB-83 (Stop ANALYZE...
 rocksdb.native_procedure : BUG#0000 missing 7292a82ad28 Native procedures in MySQL
 
 # Blind replace

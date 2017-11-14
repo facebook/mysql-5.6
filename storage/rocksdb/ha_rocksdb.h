@@ -440,12 +440,12 @@ class ha_rocksdb : public my_core::handler {
         If we don't set it, filesort crashes, because it assumes rowids are
         1..8 byte numbers
     */
-    /* TODO(yzha) - HA_REC_NOT_IN_SEQ & HA_ONLINE_ANALYZE is gone in 8.0 */
+    /* TODO(yzha) - HA_REC_NOT_IN_SEQ is gone in 8.0 */
     DBUG_RETURN(HA_BINLOG_ROW_CAPABLE | HA_BINLOG_STMT_CAPABLE |
                 /* HA_REC_NOT_IN_SEQ | */ HA_CAN_INDEX_BLOBS |
                 (m_pk_can_be_decoded ? HA_PRIMARY_KEY_IN_READ_INDEX : 0) |
                 HA_PRIMARY_KEY_REQUIRED_FOR_POSITION | HA_NULL_IN_KEY |
-                HA_PARTIAL_COLUMN_READ /* | HA_ONLINE_ANALYZE */);
+                HA_PARTIAL_COLUMN_READ | HA_ONLINE_ANALYZE);
   }
 
   bool init_with_fields() override;
