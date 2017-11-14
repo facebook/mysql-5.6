@@ -3225,6 +3225,9 @@ int handler::ha_index_next(uchar * buf)
 
   MYSQL_TABLE_IO_WAIT(m_psi, PSI_TABLE_FETCH_ROW, active_index, 0,
     { result= index_next(buf); })
+
+  DEBUG_SYNC(ha_thd(), "handler_ha_index_next_end");
+
   DBUG_RETURN(result);
 }
 

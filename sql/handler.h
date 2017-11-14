@@ -250,6 +250,12 @@ enum enum_alter_inplace_result {
 */
 #define HA_BLOCK_CONST_TABLE          (LL(1) << 42)
 
+/*
+  There is no need to evict the table from the table definition cache having
+  run ANALYZE TABLE on it
+ */
+#define HA_ONLINE_ANALYZE             (LL(1) << 43)
+
 /* bits in index_flags(index_number) for what you can do with index */
 #define HA_READ_NEXT            1       /* TODO really use this flag */
 #define HA_READ_PREV            2       /* supports ::index_prev */
