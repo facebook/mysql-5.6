@@ -1504,8 +1504,8 @@ TEST_F(RouterBootstrapTest, BootstrapFailWhenServerResponseExceedsReadTimeout) {
 
   ASSERT_NO_FATAL_FAILURE(bootstrap_failover(
       mock_servers, ClusterType::GR_V2, router_options, EXIT_FAILURE,
-      {"Error: Error executing MySQL query \".*\": Lost connection to "
-       "MySQL server during query \\(2013\\)"}));
+      {"Error: Error executing MySQL query \".*\": "
+       "Read timeout is reached \\(2200\\)"}));
 }
 
 /**
