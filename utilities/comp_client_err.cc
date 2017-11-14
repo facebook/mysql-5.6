@@ -77,6 +77,8 @@ static int get_options(int *argc, char ***argv) {
 int reject_lines(const char *str) {
   if (is_prefix(str, "ERRMSG_INCLUDED") || is_prefix(str, "CR_MIN_ERROR") ||
       is_prefix(str, "CR_MAX_ERROR") || is_prefix(str, "CLIENT_ERRMAP") ||
+      is_prefix(str, "CR_PLACEHOLDER_FIRST") ||
+      is_prefix(str, "CR_PLACEHOLDER_LAST") ||
       is_prefix(str, "CR_ERROR_FIRST") || is_prefix(str, "CR_ERROR_LAST"))
     return 1;
   return 0;
@@ -125,7 +127,8 @@ int main(int argc, char *argv[]) {
           if (!str2int(err, 10, (long)0, (long)65536, &err_code)) return 1;
 
           fprintf(outfile, "%s, ", err);
-          fprintf(outfile, "\"%s\", 0, 0, 0},\n", ER_CLIENT(err_code));
+          fprintf(outfile, "\"%s\", 0, 0, 0},\n",
+                  isPlaceHolder(err_code) ? "" : ER_CLIENT(err_code));
         }
 
         count++;
