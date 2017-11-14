@@ -105,6 +105,8 @@ const char *client_errors[] = {
     "Insecure API function call: '%s' Use instead: '%s'",
     "File name is too long",
     "Set FIPS mode ON/STRICT failed",
+    "Read timeout is reached",
+    "Write timeout is reached",
     ""};
 
 static const char *get_client_errmsg(int nr) {

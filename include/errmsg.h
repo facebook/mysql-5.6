@@ -123,7 +123,9 @@ extern const char *client_errors[]; /* Error messages */
 #define CR_INSECURE_API_ERR 2062
 #define CR_FILE_NAME_TOO_LONG 2063
 #define CR_SSL_FIPS_MODE_ERR 2064
-#define CR_ERROR_LAST /*Copy last error nr:*/ 2064
+#define CR_NET_READ_INTERRUPTED 2065
+#define CR_NET_WRITE_INTERRUPTED 2066
+#define CR_ERROR_LAST /*Copy last error nr:*/ 2066
 /* Add error numbers before CR_ERROR_LAST and change it accordingly. */
 
 /* Visual Studio requires '__inline' for C code */
