@@ -501,7 +501,7 @@ static std::unique_ptr<rocksdb::DBOptions> rdb_init_rocksdb_db_options(void) {
   o->info_log_level = rocksdb::InfoLogLevel::INFO_LEVEL;
   o->max_subcompactions = DEFAULT_SUBCOMPACTIONS;
 
-  o->concurrent_prepare = true;
+  o->two_write_queues = true;
   o->manual_wal_flush = true;
   return o;
 }
@@ -761,11 +761,11 @@ static MYSQL_SYSVAR_BOOL(
     rocksdb_db_options->create_if_missing);
 
 static MYSQL_SYSVAR_BOOL(
-    concurrent_prepare,
-    *reinterpret_cast<my_bool *>(&rocksdb_db_options->concurrent_prepare),
+    two_write_queues,
+    *reinterpret_cast<my_bool *>(&rocksdb_db_options->two_write_queues),
     PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-    "DBOptions::concurrent_prepare for RocksDB", nullptr, nullptr,
-    rocksdb_db_options->concurrent_prepare);
+    "DBOptions::two_write_queues for RocksDB", nullptr, nullptr,
+    rocksdb_db_options->two_write_queues);
 
 static MYSQL_SYSVAR_BOOL(
     manual_wal_flush,
@@ -1530,7 +1530,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(skip_bloom_filter_on_read),
 
     MYSQL_SYSVAR(create_if_missing),
-    MYSQL_SYSVAR(concurrent_prepare),
+    MYSQL_SYSVAR(two_write_queues),
     MYSQL_SYSVAR(manual_wal_flush),
     MYSQL_SYSVAR(create_missing_column_families),
     MYSQL_SYSVAR(error_if_exists),
