@@ -2603,45 +2603,9 @@ static int get_master_version_and_clock(MYSQL *mysql, Master_info *mi) {
   assert(mi->rli->relay_log.relay_log_checksum_alg !=
          binary_log::BINLOG_CHECKSUM_ALG_UNDEF);
 
+  mi->clock_diff_with_master = 0; /* The "most sensible" value */
   mysql_mutex_unlock(&mi->data_lock);
   mysql_mutex_unlock(mi->rli->relay_log.get_log_lock());
-
-  /*
-    Compare the master and slave's clock. Do not die if master's clock is
-    unavailable (very old master not supporting UNIX_TIMESTAMP()?).
-  */
-
-  DBUG_EXECUTE_IF("dbug.before_get_UNIX_TIMESTAMP", {
-    rpl_replica_debug_point(DBUG_RPL_S_BEFORE_UNIX_TIMESTAMP);
-  };);
-
-  master_res = nullptr;
-  if (!mysql_real_query(mysql, STRING_WITH_LEN("SELECT UNIX_TIMESTAMP()")) &&
-      (master_res = mysql_store_result(mysql)) &&
-      (master_row = mysql_fetch_row(master_res))) {
-    mysql_mutex_lock(&mi->data_lock);
-    mi->clock_diff_with_master =
-        (long)(time((time_t *)nullptr) - strtoul(master_row[0], nullptr, 10));
-    DBUG_EXECUTE_IF("dbug.mta.force_clock_diff_eq_0",
-                    mi->clock_diff_with_master = 0;);
-    mysql_mutex_unlock(&mi->data_lock);
-  } else if (check_io_slave_killed(mi->info_thd, mi, nullptr))
-    goto slave_killed_err;
-  else if (is_network_error(mysql_errno(mysql))) {
-    mi->report(WARNING_LEVEL, mysql_errno(mysql),
-               "Get master clock failed with error: %s", mysql_error(mysql));
-    goto network_err;
-  } else {
-    mysql_mutex_lock(&mi->data_lock);
-    mi->clock_diff_with_master = 0; /* The "most sensible" value */
-    mysql_mutex_unlock(&mi->data_lock);
-    LogErr(WARNING_LEVEL, ER_RPL_SLAVE_SECONDS_BEHIND_MASTER_DUBIOUS,
-           mysql_error(mysql), mysql_errno(mysql));
-  }
-  if (master_res) {
-    mysql_free_result(master_res);
-    master_res = nullptr;
-  }
 
   /*
     Check that the master's server id and ours are different. Because if they
