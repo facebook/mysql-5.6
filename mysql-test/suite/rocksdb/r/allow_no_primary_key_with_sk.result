@@ -778,7 +778,7 @@ set global rocksdb_force_flush_memtable_now = true;
 select * from t1;
 col1	col2	extra
 DROP TABLE t1;
-create table t1 (i int auto_increment, key(i));
+create table t1 (i int auto_increment, key(i)) engine=rocksdb;
 insert into t1 values();
 insert into t1 values();
 insert into t1 values();
