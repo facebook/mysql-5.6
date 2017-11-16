@@ -121,6 +121,8 @@ class IO_CACHE_ostream : public Truncatable_ostream {
   */
   bool sync();
 
+  my_off_t get_my_b_tell() { return my_b_tell(&m_io_cache); }
+
  private:
   IO_CACHE m_io_cache;
 };

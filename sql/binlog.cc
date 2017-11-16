@@ -334,6 +334,8 @@ class MYSQL_BIN_LOG::Binlog_ofile : public Basic_ostream {
   bool is_empty() { return position() == 0; }
   bool is_open() { return m_pipeline_head != NULL; }
 
+  my_off_t get_my_b_tell() { return m_file_ostream.get_my_b_tell(); }
+
  private:
   my_off_t m_position = 0;
   Truncatable_ostream *m_pipeline_head = NULL;
@@ -2089,11 +2091,32 @@ std::pair<bool, THD *> Stage_manager::Mutex_queue::pop_front() {
 }
 
 bool Stage_manager::enroll_for(StageID stage, THD *thd,
-                               mysql_mutex_t *stage_mutex) {
+                               mysql_mutex_t *leave_mutex,
+                               mysql_mutex_t *enter_mutex) {
   // If the queue was empty: we're the leader for this batch
   DBUG_PRINT("debug",
              ("Enqueue 0x%llx to queue for stage %d", (ulonglong)thd, stage));
+  DBUG_ASSERT(enter_mutex);
+
   bool leader = m_queue[stage].append(thd);
+
+  /*
+    If the leader, lock the enter_mutex before unlocking the leave_mutex in
+    order to ensure that MYSQL_BIN_LOG::lock_commits cannot acquire all the
+    group commit mutexes while a group commit is only partially complete.
+  */
+  if (leader) {
+    /*
+      We do not need to lock the enter_mutex if it is LOCK_log when rotating
+      binlog caused by logging incident log event, since it should be held
+      always during rotation.
+    */
+    bool need_lock_enter_mutex =
+        !(mysql_bin_log.is_rotating_caused_by_incident &&
+          enter_mutex == mysql_bin_log.get_log_lock());
+
+    if (need_lock_enter_mutex) mysql_mutex_lock(enter_mutex);
+  }
 
   if (stage == FLUSH_STAGE && has_commit_order_manager(thd)) {
     Slave_worker *worker = dynamic_cast<Slave_worker *>(thd->rli_slave);
@@ -2103,19 +2126,19 @@ bool Stage_manager::enroll_for(StageID stage, THD *thd,
   }
 
   /*
-    We do not need to unlock the stage_mutex if it is LOCK_log when rotating
+    We do not need to unlock the leave_mutex if it is LOCK_log when rotating
     binlog caused by logging incident log event, since it should be held
     always during rotation.
   */
-  bool need_unlock_stage_mutex =
+  bool need_unlock_leave_mutex =
       !(mysql_bin_log.is_rotating_caused_by_incident &&
-        stage_mutex == mysql_bin_log.get_log_lock());
+        leave_mutex == mysql_bin_log.get_log_lock());
 
   /*
     The stage mutex can be NULL if we are enrolling for the first
     stage.
   */
-  if (stage_mutex && need_unlock_stage_mutex) mysql_mutex_unlock(stage_mutex);
+  if (leave_mutex && need_unlock_leave_mutex) mysql_mutex_unlock(leave_mutex);
 
 #ifndef DBUG_OFF
   DBUG_PRINT("info", ("This is a leader thread: %d (0=n 1=y)", leader));
@@ -6755,6 +6778,41 @@ uint MYSQL_BIN_LOG::next_file_id() {
   return res;
 }
 
+extern "C"
+char mysql_bin_log_is_open(void)
+{
+  return mysql_bin_log.is_open();
+}
+
+extern "C"
+void mysql_bin_log_lock_commits(void)
+{
+  mysql_bin_log.lock_commits();
+}
+
+extern "C"
+void mysql_bin_log_unlock_commits(char* binlog_file,
+                                  unsigned long long* binlog_pos)
+{
+  mysql_bin_log.unlock_commits(binlog_file, binlog_pos);
+}
+
+void MYSQL_BIN_LOG::lock_commits(void)
+{
+  mysql_mutex_lock(&LOCK_log);
+  mysql_mutex_lock(&LOCK_sync);
+  mysql_mutex_lock(&LOCK_commit);
+}
+
+void MYSQL_BIN_LOG::unlock_commits(char* binlog_file, ulonglong* binlog_pos)
+{
+  strmake(binlog_file, log_file_name, FN_REFLEN);
+  *binlog_pos = m_binlog_file->get_my_b_tell();
+  mysql_mutex_unlock(&LOCK_commit);
+  mysql_mutex_unlock(&LOCK_sync);
+  mysql_mutex_unlock(&LOCK_log);
+}
+
 int MYSQL_BIN_LOG::get_gtid_executed(Sid_map *sid_map, Gtid_set *gtid_set) {
   DBUG_ENTER("MYSQL_BIN_LOG::get_gtid_executed");
   int error = 0;
@@ -7998,10 +8056,11 @@ bool MYSQL_BIN_LOG::change_stage(THD *thd MY_ATTRIBUTE((unused)),
   DBUG_ASSERT(enter_mutex);
   DBUG_ASSERT(queue);
   /*
-    enroll_for will release the leave_mutex once the sessions are
-    queued.
+    After the sessions are queued, enroll_for will acquire the enter_mutex, if
+    the thread is the leader. After which, regardless of being the leader, it
+    will release the leave_mutex.
   */
-  if (!stage_manager.enroll_for(stage, queue, leave_mutex)) {
+  if (!stage_manager.enroll_for(stage, queue, leave_mutex, enter_mutex)) {
     DBUG_ASSERT(!thd_get_cache_mngr(thd)->dbug_any_finalized());
     DBUG_RETURN(true);
   }
@@ -8011,17 +8070,7 @@ bool MYSQL_BIN_LOG::change_stage(THD *thd MY_ATTRIBUTE((unused)),
     DEBUG_SYNC(thd, "bgc_between_flush_and_sync");
 #endif
 
-  /*
-    We do not lock the enter_mutex if it is LOCK_log when rotating binlog
-    caused by logging incident log event, since it is already locked.
-  */
-  bool need_lock_enter_mutex =
-      !(is_rotating_caused_by_incident && enter_mutex == &LOCK_log);
-
-  if (need_lock_enter_mutex)
-    mysql_mutex_lock(enter_mutex);
-  else
-    mysql_mutex_assert_owner(enter_mutex);
+  mysql_mutex_assert_owner(enter_mutex);
 
   DBUG_RETURN(false);
 }
