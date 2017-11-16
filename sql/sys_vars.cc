@@ -3989,13 +3989,33 @@ static Sys_var_charptr Sys_version_compile_os(
        READ_ONLY GLOBAL_VAR(server_version_compile_os_ptr), NO_CMD_LINE,
        IN_SYSTEM_CHARSET, DEFAULT(SYSTEM_TYPE));
 
+// If response attributes are being tracked, return the change to the wait
+// timeout back to the client via a response attribute
+static bool update_wait_timeout(sys_var *self, THD *thd, enum_var_type type)
+{
+  static constexpr auto WaitTimeoutAttr = "wait_timeout";
+  static LEX_CSTRING key = { STRING_WITH_LEN(WaitTimeoutAttr) };
+
+  auto tracker = thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
+  if (tracker->is_enabled()) {
+    char tmp[21];
+    snprintf(tmp, sizeof(tmp), "%lu", thd->variables.net_wait_timeout_seconds);
+    LEX_CSTRING value = { tmp, strlen(tmp) };
+    tracker->mark_as_changed(thd, &key, &value);
+  }
+
+  return false;
+}
+
 static Sys_var_ulong Sys_net_wait_timeout(
        "wait_timeout",
        "The number of seconds the server waits for activity on a "
        "connection before closing it",
        SESSION_VAR(net_wait_timeout_seconds), CMD_LINE(REQUIRED_ARG),
        VALID_RANGE(1, IF_WIN(INT_MAX32/1000, LONG_TIMEOUT)),
-       DEFAULT(NET_WAIT_TIMEOUT), BLOCK_SIZE(1));
+       DEFAULT(NET_WAIT_TIMEOUT), BLOCK_SIZE(1),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0),
+       ON_UPDATE(update_wait_timeout));
 
 static Sys_var_ulong Sys_working_duration(
        "working_duration",
