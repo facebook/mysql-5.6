@@ -3037,19 +3037,14 @@ static st_error global_error_names[] =
 
 uint get_errcode_from_name(char *, char *);
 
-static const char* const RpcIdAttrPrefix = "rpc_id";
-/*
- * Returns the rpc id from last OK packet. It is stored in the response
- * attributes
- * */
-void var_set_rpc_id(VAR *var)
+static void var_set_from_resp_attr(VAR *var, const std::string& key)
 {
   MYSQL* mysql= &cur_con->mysql;
-  const char* ptr= NULL;
+  const char* ptr= nullptr;
   size_t len = 0;
 
-  (void) mysql_resp_attr_find(mysql, RpcIdAttrPrefix, &ptr, &len);
-  if (ptr == NULL)
+  (void) mysql_resp_attr_find(mysql, key.c_str(), &ptr, &len);
+  if (ptr == nullptr)
   {
     ptr = "";
   }
@@ -3059,8 +3054,18 @@ void var_set_rpc_id(VAR *var)
   eval_expr(var, ptr, &ptr_end, false, false);
   if (ptr_end != ptr)
   {
-    DBUG_PRINT("info", ("rpc_id: %s", var->str_val));
+    DBUG_PRINT("info", ("%s: %s", key.c_str(), var->str_val));
   }
+}
+
+static std::string RpcIdAttr = "rpc_id";
+/*
+ * Returns the rpc id from last OK packet. It is stored in the response
+ * attributes
+ * */
+void var_set_rpc_id(VAR *var)
+{
+  var_set_from_resp_attr(var, RpcIdAttr);
 }
 
 /*
@@ -3278,6 +3283,63 @@ void var_copy(VAR *dest, VAR *src)
     memcpy(dest->str_val, src->str_val, src->str_val_len);
 }
 
+static inline const char* skip_whitespace(const char* p)
+{
+  while (*p == ' ' || *p == '\t')
+  {
+    p++;
+  }
+
+  return p;
+}
+
+static std::string parse_get_resp_attr(const char* p)
+{
+  static constexpr auto cmd = "get_response_attribute";
+  static size_t len = strlen(cmd);
+
+  if (strncmp(p, cmd, len) != 0) {
+    return "";  // not the expected command
+  }
+
+  p += len;
+  if (*p != ' ' && *p != '\t')
+  {
+    return "";  // missing whitespace before key
+  }
+
+  p = skip_whitespace(p);
+
+  auto key = p;
+  size_t keylen = 0;
+  for (bool good = isalpha(*p); good; good = (isalnum(*p) || *p == '_'))
+  {
+    p++;
+    keylen++;
+  }
+
+  p = skip_whitespace(p);
+  if (*p != '\0')
+  {
+    return "";  // extra characters
+  }
+
+  return std::string(key, keylen);
+}
+
+static bool eval_get_resp_attr(const char* p, VAR *v)
+{
+  std::string key = parse_get_resp_attr(p);
+
+  if (key.empty()) {
+    return false;  // Not a valid  get_response_attribute command
+  }
+
+  var_set_from_resp_attr(v, key);
+
+  DBUG_PRINT("info", ("execute var_set_from_resp_attr(%s)", key.c_str()));
+  return true;
+}
 
 void eval_expr(VAR *v, const char *p, const char **p_end,
                bool open_end, bool do_eval)
@@ -3349,6 +3411,12 @@ void eval_expr(VAR *v, const char *p, const char **p_end,
     {
       DBUG_PRINT("info", ("execute var_set_rpc_id"));
       var_set_rpc_id(v);
+      DBUG_VOID_RETURN;
+    }
+
+    /* Check if this is a "let $var= get_reponse_attribute(<key>) "*/
+    if (eval_get_resp_attr(p, v))
+    {
       DBUG_VOID_RETURN;
     }
   }

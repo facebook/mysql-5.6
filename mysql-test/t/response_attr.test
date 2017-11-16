@@ -1,0 +1,73 @@
+# Deprecate EOF functionality required by this test not supported
+# in async client.
+--disable_async_client
+
+--echo
+--echo # Case 1: Send queries that don't generate any response attributes
+--echo
+
+SELECT 1;
+let $attr = get_response_attribute wait_timeout;
+if ($attr != "") {
+  echo Fail: Found wait_timeout response attribute ($attr);
+}
+
+--echo
+--echo # Case 2: Send a SET wait_timeout statement
+--echo
+
+# Make sure the wait timeout is returned when we set the wait timeout
+SET wait_timeout = 37;
+let $attr = get_response_attribute wait_timeout;
+if ($attr != "37") {
+  echo Fail: Found incorrect wait_timeout response attribute ($attr);
+}
+
+# Make sure the wait timeout is not also returned on the next response
+SELECT 1;
+let $attr = get_response_attribute wait_timeout;
+if ($attr != "") {
+  echo Fail: Found incorrect wait_timeout response attribute ($attr);
+}
+
+# Send another 'SET wait_timeout' message
+SET wait_timeout = 19;
+let $attr = get_response_attribute wait_timeout;
+if ($attr != "19") {
+  echo Fail: Found incorrect wait_timeout response attribute ($attr);
+}
+
+# Case 3 is disabled because sesstion state tracking is currently not working 
+# for detached sessions.  This will be investigated later
+
+# --echo
+# --echo # Case 3: Set a SET wait_timeout statement on a detached session
+# --echo
+# connect (con1,localhost,root,,);
+# 
+# query_attrs_add rpc_role root;
+# BEGIN;
+# let $rpc_id=get_rpc_id();
+# # Check that rpc_id is returned in response.
+# if ($rpc_id == "") {
+#   echo Fail: Did not find rpc_id after BEGIN transaction.;
+# }
+# 
+# # Switch to new connection
+# connect (con2,localhost,root,,);
+# query_attrs_add rpc_id $rpc_id;
+# SET wait_timeout = 93;
+# let $attr = get_response_attribute wait_timeout;
+# if ($attr != "93") {
+#   echo Fail: Found incorrect wait_timeout response attribute ($attr);
+# }
+# 
+# #
+# # # Clean up
+# #
+# connection default;
+# eval KILL $rpc_id;
+# 
+# disconnect con1;
+# disconnect con2;
+
