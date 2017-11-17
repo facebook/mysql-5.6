@@ -174,6 +174,7 @@ enum options_client {
   OPT_TLS_CIPHERSUITES,
   OPT_MYSQL_BINARY_AS_HEX,
   OPT_LOAD_DATA_LOCAL_DIR,
+  OPT_PRINT_ORDERING_KEY,
   OPT_TIMEOUT,
   /* Add new option above this */
   OPT_MAX_CLIENT_OPTION
