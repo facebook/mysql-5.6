@@ -120,7 +120,7 @@ static bool verbose = false, opt_no_create_info = false, opt_no_data = false,
             opt_comments_used = false, opt_alltspcs = false,
             opt_notspcs = false, opt_drop_trigger = false,
             opt_network_timeout = false, stats_tables_included = false,
-            column_statistics = false,
+            column_statistics = false, opt_print_ordering_key = false,
             opt_show_create_table_skip_secondary_engine = false;
 static bool insert_pat_inited = false, debug_info_flag = false,
             debug_check_flag = false;
@@ -404,6 +404,10 @@ static struct my_option my_long_options[] = {
      "in dump produced with --dump-slave.",
      &opt_include_master_host_port, &opt_include_master_host_port, nullptr,
      GET_BOOL, NO_ARG, 0, 0, 0, nullptr, 0, nullptr},
+    {"print-ordering-key", OPT_PRINT_ORDERING_KEY,
+     "Print the key used for ordering rows in the dumpfile",
+     &opt_print_ordering_key, &opt_print_ordering_key, 0, GET_BOOL, NO_ARG, 0,
+     0, 0, nullptr, 0, nullptr},
     {"insert-ignore", OPT_INSERT_IGNORE, "Insert rows with INSERT IGNORE.",
      &opt_ignore, &opt_ignore, nullptr, GET_BOOL, NO_ARG, 0, 0, 0, nullptr, 0,
      nullptr},
@@ -3537,6 +3541,7 @@ static void dump_table(char *table, char *db) {
   char ignore_flag;
   char buf[240], table_buff[NAME_LEN + 3];
   DYNAMIC_STRING query_string;
+  DYNAMIC_STRING explain_query_string;
   DYNAMIC_STRING extended_row;
   char table_type[NAME_LEN];
   char *result_table, table_buff2[NAME_LEN * 2 + 3], *opt_quoted_table;
@@ -3544,7 +3549,7 @@ static void dump_table(char *table, char *db) {
   ulong rownr, row_break;
   size_t total_length, init_length;
   uint num_fields;
-  MYSQL_RES *res;
+  MYSQL_RES *res = nullptr;
   MYSQL_FIELD *field;
   MYSQL_ROW row;
   bool real_columns[MAX_FIELDS];
@@ -3700,6 +3705,23 @@ static void dump_table(char *table, char *db) {
       dynstr_append_checked(&query_string, order_by_text);
       my_free(order_by);
       order_by = nullptr;
+    }
+
+    if (opt_print_ordering_key) {
+      init_dynamic_string_checked(&explain_query_string, "EXPLAIN ", 1024,
+                                  1024);
+      dynstr_append_checked(&explain_query_string, query_string.str);
+      if (mysql_query(mysql, explain_query_string.str) ||
+          !(res = mysql_store_result(mysql)) || !(row = mysql_fetch_row(res))) {
+        if (res) mysql_free_result(res);
+        dynstr_free(&explain_query_string);
+        DB_error(mysql, "when trying to save the result of EXPLAIN SELECT *.");
+        goto err;
+      }
+      fprintf(md_result_file, "/* ORDERING KEY : %s */;\n", row[5]);
+
+      if (res) mysql_free_result(res);
+      dynstr_free(&explain_query_string);
     }
 
     if (!opt_xml && !opt_compact) {
