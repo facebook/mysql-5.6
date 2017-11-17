@@ -1,0 +1,24 @@
+################################################################################
+# Testing the mysqldump with --print-ordering-key option
+################################################################################
+
+--disable_warnings
+DROP TABLE IF EXISTS table1;
+drop database if exists database1;
+--enable_warnings
+
+CREATE DATABASE database1;
+USE database1;
+CREATE TABLE table1(a INT PRIMARY KEY, b INT UNIQUE) engine = InnoDB;
+
+INSERT INTO table1 VALUES (1, 3);
+INSERT INTO table1 VALUES (2, 2);
+INSERT INTO table1 VALUES (3, 1);
+
+--echo ==== Running 'replace_regex' on Server/mysqldump Versions ====
+--echo ==== mysqldump with --print-ordering-key database1 ====
+--replace_regex /-- Server version.*/-- SERVER VERSION/ /-- MySQL dump.*[)]/-- MYSQLDUMP VERSION/
+--exec $MYSQL_DUMP --skip-dump-date --print-ordering-key --extended-insert=FALSE database1
+
+DROP TABLE table1;
+drop database database1;
