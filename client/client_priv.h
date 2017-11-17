@@ -172,6 +172,7 @@ enum options_client {
   OPT_PRINT_TABLE_METADATA,
   OPT_SSL_FIPS_MODE,
   OPT_TLS_CIPHERSUITES,
+  OPT_PRINT_ORDERING_KEY,
   OPT_TIMEOUT,
   /* Add new option above this */
   OPT_MAX_CLIENT_OPTION
