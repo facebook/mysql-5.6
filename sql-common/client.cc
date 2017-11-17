@@ -975,6 +975,10 @@ void read_ok_ex(MYSQL *mysql, ulong length) {
   return;
 }
 
+/* Helper for cli_safe_read and cli_safe_read_nonblocking */
+static ulong cli_safe_read_with_ok_complete(MYSQL *mysql, bool parse_ok,
+                                            bool *is_data_packet, ulong len);
+
 /**
   Read a packet from server. Give error message if socket was down
   or packet is an error message
@@ -1002,6 +1006,16 @@ ulong cli_safe_read_with_ok(MYSQL *mysql, bool parse_ok, bool *is_data_packet) {
 
   if (net->vio != 0) len = my_net_read(net);
 
+  return cli_safe_read_with_ok_complete(mysql, parse_ok, is_data_packet, len);
+}
+
+ulong
+cli_safe_read_with_ok_complete(MYSQL *mysql,
+                               bool parse_ok,
+                               bool *is_data_packet,
+                               ulong len) {
+  NET *net= &mysql->net;
+  DBUG_ENTER(__func__);
   if (len == packet_error || len == 0) {
     char desc[VIO_DESCRIPTION_SIZE];
     int errcode = CR_SERVER_LOST;
@@ -1010,7 +1024,7 @@ ulong cli_safe_read_with_ok(MYSQL *mysql, bool parse_ok, bool *is_data_packet) {
                ("Wrong connection or packet. fd: %s  len: %lu", desc, len));
 #ifdef MYSQL_SERVER
     if (net->vio && (net->last_errno == ER_NET_READ_INTERRUPTED))
-      return (packet_error);
+      DBUG_RETURN(packet_error);
 #endif /*MYSQL_SERVER*/
     end_server(mysql);
     if (net->last_errno == ER_NET_PACKET_TOO_LARGE) {
@@ -1021,7 +1035,7 @@ ulong cli_safe_read_with_ok(MYSQL *mysql, bool parse_ok, bool *is_data_packet) {
       errcode = CR_NET_WRITE_INTERRUPTED;
     }
     set_mysql_error(mysql, errcode, unknown_sqlstate);
-    return (packet_error);
+    DBUG_RETURN(packet_error);
   }
 
   MYSQL_TRACE(PACKET_RECEIVED, mysql, (len, net->read_pos));
@@ -1068,13 +1082,13 @@ ulong cli_safe_read_with_ok(MYSQL *mysql, bool parse_ok, bool *is_data_packet) {
 
     DBUG_PRINT("error", ("Got error: %d/%s (%s)", net->last_errno,
                          net->sqlstate, net->last_error));
-    return (packet_error);
+    DBUG_RETURN(packet_error);
   } else {
     /* if it is OK packet irrespective of new/old server */
     if (net->read_pos[0] == 0) {
       if (parse_ok) {
         read_ok_ex(mysql, len);
-        return len;
+        DBUG_RETURN(len);
       }
     }
     /*
@@ -1090,12 +1104,12 @@ ulong cli_safe_read_with_ok(MYSQL *mysql, bool parse_ok, bool *is_data_packet) {
     if ((mysql->server_capabilities & CLIENT_DEPRECATE_EOF) &&
         (net->read_pos[0] == 254)) {
       /* detect huge data packet */
-      if (len > MAX_PACKET_LENGTH) return len;
+      if (len > MAX_PACKET_LENGTH) DBUG_RETURN(len);
       /* otherwise we have OK packet starting with 0xFE */
       if (is_data_packet) *is_data_packet = false;
       /* parse it if requested */
       if (parse_ok) read_ok_ex(mysql, len);
-      return len;
+      DBUG_RETURN(len);
     }
     /* for old client detect EOF packet */
     if (!(mysql->server_capabilities & CLIENT_DEPRECATE_EOF) &&
@@ -1103,7 +1117,7 @@ ulong cli_safe_read_with_ok(MYSQL *mysql, bool parse_ok, bool *is_data_packet) {
       if (is_data_packet) *is_data_packet = false;
     }
   }
-  return len;
+  DBUG_RETURN(len);
 }
 
 /**
@@ -2332,21 +2346,14 @@ MYSQL_DATA *cli_read_rows(MYSQL *mysql, MYSQL_FIELD *mysql_fields,
   DBUG_RETURN(result);
 }
 
-/*
-  Read one row. Uses packet buffer as storage for fields.
-  When next packet is read, the previous field values are destroyed
-*/
-
-static int read_one_row(MYSQL *mysql, uint fields, MYSQL_ROW row,
-                        ulong *lengths) {
+static int read_one_row_complete(MYSQL *mysql, ulong pkt_len,
+                                 bool is_data_packet, uint fields,
+                                 MYSQL_ROW row, ulong *lengths) {
   uint field;
-  ulong pkt_len, len;
-  bool is_data_packet;
+  ulong len;
   uchar *pos, *prev_pos, *end_pos;
   NET *net = &mysql->net;
 
-  if ((pkt_len = cli_safe_read(mysql, &is_data_packet)) == packet_error)
-    return -1;
   if (net->read_pos[0] != 0x00 && !is_data_packet) {
     if (pkt_len > 1) /* MySQL 4.1 protocol */
     {
@@ -2389,6 +2396,22 @@ static int read_one_row(MYSQL *mysql, uint fields, MYSQL_ROW row,
   row[field] = (char *)prev_pos + 1; /* End of last field */
   *prev_pos = 0;                     /* Terminate last field */
   return 0;
+}
+
+/*
+  Read one row. Uses packet buffer as storage for fields.
+  When next packet is read, the previous field values are destroyed
+*/
+static int read_one_row(MYSQL *mysql, uint fields, MYSQL_ROW row,
+                        ulong *lengths) {
+  ulong pkt_len;
+  bool is_data_packet;
+
+  if ((pkt_len = cli_safe_read(mysql, &is_data_packet)) == packet_error)
+    return -1;
+
+  return read_one_row_complete(mysql, pkt_len, is_data_packet, fields, row,
+                               lengths);
 }
 
 /****************************************************************************
@@ -3388,6 +3411,116 @@ static void cli_calculate_client_flag(MYSQL *mysql, const char *db,
   }
 }
 
+/* Our state machines have four simple return codes: */
+enum mysql_state_machine_status {
+  STATE_MACHINE_FAILED,      /* Completion with a failure. */
+  STATE_MACHINE_CONTINUE,    /* Keep calling the state machine. */
+  STATE_MACHINE_WOULD_BLOCK, /* Needs to block to continue. */
+  STATE_MACHINE_DONE         /* Completion with a success. */
+};
+
+/* A state machine for authentication itself. */
+struct mysql_authsm_context;
+typedef mysql_state_machine_status (*authsm_function)(mysql_authsm_context *);
+
+struct mysql_authsm_context {
+  MYSQL *mysql;
+
+  char *data;
+  uint data_len;
+  const char *data_plugin;
+  const char *db;
+
+  const char *auth_plugin_name;
+  auth_plugin_t *auth_plugin;
+  MCPVIO_EXT mpvio;
+  ulong pkt_length;
+  int res;
+
+  authsm_function state_function;
+};
+
+static mysql_state_machine_status authsm_begin_plugin_auth(
+    mysql_authsm_context *ctx);
+static mysql_state_machine_status authsm_run_first_authenticate_user(
+    mysql_authsm_context *ctx);
+static mysql_state_machine_status authsm_handle_first_authenticate_user(
+    mysql_authsm_context *ctx);
+static mysql_state_machine_status authsm_read_change_user_result(
+    mysql_authsm_context *ctx);
+static mysql_state_machine_status authsm_handle_change_user_result(
+    mysql_authsm_context *ctx);
+static mysql_state_machine_status authsm_run_second_authenticate_user(
+    mysql_authsm_context *ctx);
+static mysql_state_machine_status authsm_handle_second_authenticate_user(
+    mysql_authsm_context *ctx);
+static mysql_state_machine_status authsm_finish_auth(mysql_authsm_context *ctx);
+
+/*
+  Connecting is handled with a state machine.  Each state is
+  represented by a function pointer (csm_function) which returns
+  a mysql_state_machine_status to indicate the state of the connection.
+  This state machine has boundaries around network IO to allow reuse
+  between blocking and non-blocking clients.
+*/
+struct mysql_csm_context;
+typedef mysql_state_machine_status (*csm_function)(mysql_csm_context *);
+
+/*
+  Struct to track the state of a connection being established.  Once
+  the connection is established, the context should be discarded and
+  relevant values copied out of it.
+*/
+struct mysql_csm_context {
+  /* state for the overall connection process */
+  MYSQL *mysql;
+  const char *host;
+  const char *user;
+  const char *passwd;
+  const char *db;
+  uint port;
+  const char *unix_socket;
+  ulong client_flag;
+
+  ulong pkt_length;
+  char *host_info;
+  char buff[NAME_LEN + USERNAME_LENGTH + 100];
+  int scramble_data_len;
+  char *scramble_data;
+  const char *scramble_plugin;
+  char *scramble_buffer;
+  bool scramble_buffer_allocated;
+
+  /* state for running init_commands */
+  bool saved_reconnect;
+  char **current_init_command;
+
+  /* state function that will be called next */
+  csm_function state_function;
+};
+
+/*
+  The above context is used for several functions; each reads and
+  writes various portions of it. The order of the functions are
+  listed in the order of the actual connection process.
+*/
+static mysql_state_machine_status csm_begin_connect(mysql_csm_context *ctx);
+static mysql_state_machine_status csm_complete_connect(mysql_csm_context *ctx);
+static mysql_state_machine_status csm_read_greeting(mysql_csm_context *ctx);
+static mysql_state_machine_status csm_parse_handshake(mysql_csm_context *ctx);
+static mysql_state_machine_status csm_establish_ssl(mysql_csm_context *ctx);
+static mysql_state_machine_status csm_authenticate(mysql_csm_context *ctx);
+static mysql_state_machine_status csm_prep_select_database(
+    mysql_csm_context *ctx);
+static mysql_state_machine_status csm_send_select_database(
+    mysql_csm_context *ctx);
+#ifndef MYSQL_SERVER
+static mysql_state_machine_status csm_prep_init_commands(
+    mysql_csm_context *ctx);
+static mysql_state_machine_status csm_send_one_init_command(
+    mysql_csm_context *ctx);
+#endif
+
 /**
 Establishes SSL if requested and supported.
 
@@ -3792,6 +3925,7 @@ error:
   to read data from the server.
 */
 static int client_mpvio_read_packet(MYSQL_PLUGIN_VIO *mpv, uchar **buf) {
+  DBUG_ENTER(__func__);
   MCPVIO_EXT *mpvio = (MCPVIO_EXT *)mpv;
   MYSQL *mysql = mpvio->mysql;
   ulong pkt_len;
@@ -3801,7 +3935,7 @@ static int client_mpvio_read_packet(MYSQL_PLUGIN_VIO *mpv, uchar **buf) {
     *buf = mpvio->cached_server_reply.pkt;
     mpvio->cached_server_reply.pkt = 0;
     mpvio->packets_read++;
-    return mpvio->cached_server_reply.pkt_len;
+    DBUG_RETURN(mpvio->cached_server_reply.pkt_len);
   }
 
   if (mpvio->packets_read == 0) {
@@ -3811,21 +3945,21 @@ static int client_mpvio_read_packet(MYSQL_PLUGIN_VIO *mpv, uchar **buf) {
       for a plugin to read. send a dummy packet to the server
       to initiate a dialog.
     */
-    if (client_mpvio_write_packet(mpv, 0, 0)) return (int)packet_error;
+    if (client_mpvio_write_packet(mpv, 0, 0)) DBUG_RETURN((int)packet_error);
   }
 
   /* otherwise read the data */
   pkt_len = (*mysql->methods->read_change_user_result)(mysql);
 
   /* error while reading the change user request */
-  if (pkt_len == packet_error) return (int)packet_error;
+  if (pkt_len == packet_error) DBUG_RETURN((int)packet_error);
 
   mpvio->last_read_packet_len = pkt_len;
   *buf = mysql->net.read_pos;
 
   /* was it a request to change plugins ? */
   if (**buf == 254)
-    return (int)packet_error; /* if yes, this plugin shan't continue */
+    DBUG_RETURN((int)packet_error); /* if yes, this plugin shan't continue */
 
   /*
     the server sends \1\255 or \1\254 instead of just \255 or \254 -
@@ -3839,7 +3973,7 @@ static int client_mpvio_read_packet(MYSQL_PLUGIN_VIO *mpv, uchar **buf) {
     pkt_len--;
   }
   mpvio->packets_read++;
-  return pkt_len;
+  DBUG_RETURN(pkt_len);
 }
 
 /**
@@ -3964,58 +4098,99 @@ static bool check_plugin_enabled(MYSQL *mysql, auth_plugin_t *plugin) {
 */
 int run_plugin_auth(MYSQL *mysql, char *data, uint data_len,
                     const char *data_plugin, const char *db) {
-  const char *auth_plugin_name;
-  auth_plugin_t *auth_plugin;
-  MCPVIO_EXT mpvio;
-  ulong pkt_length;
-  int res;
-
   DBUG_ENTER("run_plugin_auth");
+  mysql_state_machine_status status;
+  mysql_authsm_context ctx;
+  memset(&ctx, 0, sizeof(ctx));
+
+  ctx.mysql = mysql;
+  ctx.data = data;
+  ctx.data_len = data_len;
+  ctx.data_plugin = data_plugin;
+  ctx.db = db;
+  ctx.state_function = authsm_begin_plugin_auth;
+
+  do {
+    status = ctx.state_function(&ctx);
+  } while (status != STATE_MACHINE_FAILED && status != STATE_MACHINE_DONE);
+
+  DBUG_RETURN(status == STATE_MACHINE_FAILED);
+}
+
+static mysql_state_machine_status authsm_begin_plugin_auth(
+    mysql_authsm_context *ctx) {
+  DBUG_ENTER(__func__);
+  MYSQL *mysql = ctx->mysql;
   /* determine the default/initial plugin to use */
   if (mysql->options.extension && mysql->options.extension->default_auth &&
       mysql->server_capabilities & CLIENT_PLUGIN_AUTH) {
-    auth_plugin_name = mysql->options.extension->default_auth;
-    if (!(auth_plugin = (auth_plugin_t *)mysql_client_find_plugin(
-              mysql, auth_plugin_name, MYSQL_CLIENT_AUTHENTICATION_PLUGIN)))
-      DBUG_RETURN(1); /* oops, not found */
+    ctx->auth_plugin_name = mysql->options.extension->default_auth;
+    if (!(ctx->auth_plugin = (auth_plugin_t *)mysql_client_find_plugin(
+              mysql, ctx->auth_plugin_name,
+              MYSQL_CLIENT_AUTHENTICATION_PLUGIN)))
+      DBUG_RETURN(STATE_MACHINE_FAILED); /* oops, not found */
   } else {
-    auth_plugin = &caching_sha2_password_client_plugin;
-    auth_plugin_name = auth_plugin->name;
+    ctx->auth_plugin = &caching_sha2_password_client_plugin;
+    ctx->auth_plugin_name = ctx->auth_plugin->name;
   }
 
-  if (check_plugin_enabled(mysql, auth_plugin)) DBUG_RETURN(1);
+  if (check_plugin_enabled(mysql, ctx->auth_plugin))
+    DBUG_RETURN(STATE_MACHINE_FAILED);
 
-  DBUG_PRINT("info", ("using plugin %s", auth_plugin_name));
+  DBUG_PRINT("info", ("using plugin %s", ctx->auth_plugin_name));
 
   mysql->net.last_errno = 0; /* just in case */
 
-  if (data_plugin && strcmp(data_plugin, auth_plugin_name)) {
+  if (ctx->data_plugin && strcmp(ctx->data_plugin, ctx->auth_plugin_name)) {
     /* data was prepared for a different plugin, don't show it to this one */
-    data = 0;
-    data_len = 0;
+    ctx->data = 0;
+    ctx->data_len = 0;
   }
 
-  mpvio.mysql_change_user = data_plugin == 0;
-  mpvio.cached_server_reply.pkt = (uchar *)data;
-  mpvio.cached_server_reply.pkt_len = data_len;
-  mpvio.read_packet = client_mpvio_read_packet;
-  mpvio.write_packet = client_mpvio_write_packet;
-  mpvio.info = client_mpvio_info;
-  mpvio.mysql = mysql;
-  mpvio.packets_read = mpvio.packets_written = 0;
-  mpvio.db = db;
-  mpvio.plugin = auth_plugin;
+  ctx->mpvio.mysql_change_user = ctx->data_plugin == 0;
+  ctx->mpvio.cached_server_reply.pkt = (uchar *)ctx->data;
+  ctx->mpvio.cached_server_reply.pkt_len = ctx->data_len;
+  ctx->mpvio.read_packet = client_mpvio_read_packet;
+  ctx->mpvio.write_packet = client_mpvio_write_packet;
+  ctx->mpvio.info = client_mpvio_info;
+  ctx->mpvio.mysql = mysql;
+  ctx->mpvio.packets_read = ctx->mpvio.packets_written = 0;
+  ctx->mpvio.db = ctx->db;
+  ctx->mpvio.plugin = ctx->auth_plugin;
 
-  MYSQL_TRACE(AUTH_PLUGIN, mysql, (auth_plugin->name));
+  ctx->state_function = authsm_run_first_authenticate_user;
+  DBUG_RETURN(STATE_MACHINE_CONTINUE);
+}
 
-  res = auth_plugin->authenticate_user((MYSQL_PLUGIN_VIO *)&mpvio, mysql);
+/*
+  Authentication can have two authenticate_user calls, depending on
+  what the server responds with; this handles the first.
+*/
+static mysql_state_machine_status authsm_run_first_authenticate_user(
+    mysql_authsm_context *ctx) {
+  DBUG_ENTER(__func__);
+  MYSQL *mysql = ctx->mysql;
+  MYSQL_TRACE(AUTH_PLUGIN, mysql, (ctx->auth_plugin->name));
+  ctx->res = ctx->auth_plugin->authenticate_user(
+      (MYSQL_PLUGIN_VIO *)&ctx->mpvio, mysql);
+
+  ctx->state_function = authsm_handle_first_authenticate_user;
+  DBUG_RETURN(STATE_MACHINE_CONTINUE);
+}
+
+/* Handle the result of the first authenticate_user. */
+static mysql_state_machine_status authsm_handle_first_authenticate_user(
+    mysql_authsm_context *ctx) {
+  DBUG_ENTER(__func__);
+  MYSQL *mysql = ctx->mysql;
   DBUG_PRINT("info",
              ("authenticate_user returned %s",
-              res == CR_OK ? "CR_OK"
-                           : res == CR_ERROR ? "CR_ERROR"
-                                             : res == CR_OK_HANDSHAKE_COMPLETE
-                                                   ? "CR_OK_HANDSHAKE_COMPLETE"
-                                                   : "error"));
+              ctx->res == CR_OK
+                  ? "CR_OK"
+                  : ctx->res == CR_ERROR ? "CR_ERROR"
+                                         : ctx->res == CR_OK_HANDSHAKE_COMPLETE
+                                               ? "CR_OK_HANDSHAKE_COMPLETE"
+                                               : "error"));
 
   static_assert(CR_OK == -1, "");
   static_assert(CR_ERROR == 0, "");
@@ -4028,7 +4203,7 @@ int run_plugin_auth(MYSQL *mysql, char *data, uint data_len,
     already performed required checks. Further, server side plugin did not
     really care about plugin used by client in this case.
   */
-  if (res > CR_OK &&
+  if (ctx->res > CR_OK &&
       (!my_net_is_inited(&mysql->net) ||
        (mysql->net.read_pos[0] != 0 && mysql->net.read_pos[0] != 254))) {
     /*
@@ -4036,92 +4211,149 @@ int run_plugin_auth(MYSQL *mysql, char *data, uint data_len,
       unless the error code is CR_ERROR and mysql->net.last_errno
       is already set (the plugin has done it)
     */
-    DBUG_PRINT("info", ("res=%d", res));
-    if (res > CR_ERROR)
-      set_mysql_error(mysql, res, unknown_sqlstate);
+    DBUG_PRINT("info", ("res=%d", ctx->res));
+    if (ctx->res > CR_ERROR)
+      set_mysql_error(mysql, ctx->res, unknown_sqlstate);
     else if (!mysql->net.last_errno)
       set_mysql_error(mysql, CR_UNKNOWN_ERROR, unknown_sqlstate);
-    DBUG_RETURN(1);
+    DBUG_RETURN(STATE_MACHINE_FAILED);
   }
 
-  /* read the OK packet (or use the cached value in mysql->net.read_pos */
-  if (res == CR_OK)
-    pkt_length = (*mysql->methods->read_change_user_result)(mysql);
-  else /* res == CR_OK_HANDSHAKE_COMPLETE */
-    pkt_length = mpvio.last_read_packet_len;
+  ctx->state_function = authsm_read_change_user_result;
+  DBUG_RETURN(STATE_MACHINE_CONTINUE);
+}
 
-  DBUG_PRINT("info", ("OK packet length=%lu", pkt_length));
-  if (pkt_length == packet_error) {
+/*
+  After the first authenticate_user comes a call to read the result of the
+  implied change_user.
+*/
+static mysql_state_machine_status
+authsm_read_change_user_result(mysql_authsm_context *ctx)
+{
+  DBUG_ENTER(__func__);
+  MYSQL *mysql = ctx->mysql;
+  /* read the OK packet (or use the cached value in mysql->net.read_pos */
+  if (ctx->res == CR_OK)
+    ctx->pkt_length = (*mysql->methods->read_change_user_result)(mysql);
+  else /* res == CR_OK_HANDSHAKE_COMPLETE */
+    ctx->pkt_length = ctx->mpvio.last_read_packet_len;
+
+  ctx->state_function = authsm_handle_change_user_result;
+  DBUG_RETURN(STATE_MACHINE_CONTINUE);
+}
+
+static mysql_state_machine_status authsm_handle_change_user_result(
+    mysql_authsm_context *ctx) {
+  DBUG_ENTER(__func__);
+  MYSQL *mysql = ctx->mysql;
+  DBUG_PRINT("info", ("OK packet length=%lu", ctx->pkt_length));
+  if (ctx->pkt_length == packet_error) {
     if (mysql->net.last_errno == CR_SERVER_LOST)
       set_mysql_extended_error(mysql, CR_SERVER_LOST, unknown_sqlstate,
                                ER_CLIENT(CR_SERVER_LOST_EXTENDED),
                                "reading authorization packet", errno);
-    DBUG_RETURN(1);
+    DBUG_RETURN(STATE_MACHINE_FAILED);
   }
 
-  if (mysql->net.read_pos[0] == 254) {
-    /* The server asked to use a different authentication plugin */
-    if (pkt_length < 2) {
-      set_mysql_error(mysql, CR_MALFORMED_PACKET,
-                      unknown_sqlstate); /* purecov: inspected */
-      DBUG_RETURN(1);
-    } else {
-      /* "use different plugin" packet */
-      uint len;
-      auth_plugin_name = (char *)mysql->net.read_pos + 1;
-      len = (uint)strlen(
-          auth_plugin_name); /* safe as my_net_read always appends \0 */
-      mpvio.cached_server_reply.pkt_len = pkt_length - len - 2;
-      mpvio.cached_server_reply.pkt = mysql->net.read_pos + len + 2;
-      DBUG_PRINT("info", ("change plugin packet from server for plugin %s",
-                          auth_plugin_name));
-    }
+  if (mysql->net.read_pos[0] == 254)
+    ctx->state_function = authsm_run_second_authenticate_user;
+  else
+    ctx->state_function = authsm_finish_auth;
 
-    if (!(auth_plugin = (auth_plugin_t *)mysql_client_find_plugin(
-              mysql, auth_plugin_name, MYSQL_CLIENT_AUTHENTICATION_PLUGIN)))
-      DBUG_RETURN(1);
+  DBUG_RETURN(STATE_MACHINE_CONTINUE);
+}
 
-    if (check_plugin_enabled(mysql, auth_plugin)) DBUG_RETURN(1);
+/*
+  Authentication can have two authenticate_user calls, depending on what the
+  server responds with; this handles the first.
+*/
+static mysql_state_machine_status authsm_run_second_authenticate_user(
+    mysql_authsm_context *ctx) {
+  DBUG_ENTER(__func__);
+  MYSQL *mysql = ctx->mysql;
+  /* The server asked to use a different authentication plugin */
+  if (ctx->pkt_length < 2) {
+    set_mysql_error(mysql, CR_MALFORMED_PACKET,
+                    unknown_sqlstate); /* purecov: inspected */
+    DBUG_RETURN(STATE_MACHINE_FAILED);
+  } else {
+    /* "use different plugin" packet */
+    uint len;
+    ctx->auth_plugin_name = (char *)mysql->net.read_pos + 1;
+    len = (uint)strlen(
+        ctx->auth_plugin_name); /* safe as my_net_read always appends \0 */
+    ctx->mpvio.cached_server_reply.pkt_len = ctx->pkt_length - len - 2;
+    ctx->mpvio.cached_server_reply.pkt = mysql->net.read_pos + len + 2;
+    DBUG_PRINT("info", ("change plugin packet from server for plugin %s",
+                        ctx->auth_plugin_name));
+  }
 
-    MYSQL_TRACE(AUTH_PLUGIN, mysql, (auth_plugin->name));
+  if (!(ctx->auth_plugin = (auth_plugin_t *)mysql_client_find_plugin(
+            mysql, ctx->auth_plugin_name, MYSQL_CLIENT_AUTHENTICATION_PLUGIN)))
+    DBUG_RETURN(STATE_MACHINE_FAILED);
 
-    mpvio.plugin = auth_plugin;
-    res = auth_plugin->authenticate_user((MYSQL_PLUGIN_VIO *)&mpvio, mysql);
+  if (check_plugin_enabled(mysql, ctx->auth_plugin))
+    DBUG_RETURN(STATE_MACHINE_FAILED);
 
-    DBUG_PRINT("info", ("second authenticate_user returned %s",
-                        res == CR_OK
-                            ? "CR_OK"
-                            : res == CR_ERROR ? "CR_ERROR"
-                                              : res == CR_OK_HANDSHAKE_COMPLETE
-                                                    ? "CR_OK_HANDSHAKE_COMPLETE"
-                                                    : "error"));
-    if (res > CR_OK) {
-      if (res > CR_ERROR)
-        set_mysql_error(mysql, res, unknown_sqlstate);
-      else if (!mysql->net.last_errno)
-        set_mysql_error(mysql, CR_UNKNOWN_ERROR, unknown_sqlstate);
-      DBUG_RETURN(1);
-    }
+  MYSQL_TRACE(AUTH_PLUGIN, mysql, (ctx->auth_plugin->name));
 
-    if (res != CR_OK_HANDSHAKE_COMPLETE) {
-      /* Read what server thinks about out new auth message report */
-      if (cli_safe_read(mysql, NULL) == packet_error) {
-        if (mysql->net.last_errno == CR_SERVER_LOST)
-          set_mysql_extended_error(mysql, CR_SERVER_LOST, unknown_sqlstate,
-                                   ER_CLIENT(CR_SERVER_LOST_EXTENDED),
-                                   "reading final connect information", errno);
-        DBUG_RETURN(1);
-      }
+  ctx->mpvio.plugin = ctx->auth_plugin;
+  ctx->res = ctx->auth_plugin->authenticate_user(
+      (MYSQL_PLUGIN_VIO *)&ctx->mpvio, mysql);
+
+  ctx->state_function = authsm_handle_second_authenticate_user;
+  DBUG_RETURN(STATE_MACHINE_CONTINUE);
+}
+
+/* Now read the results. */
+static mysql_state_machine_status authsm_handle_second_authenticate_user(
+    mysql_authsm_context *ctx) {
+  DBUG_ENTER(__func__);
+  MYSQL *mysql = ctx->mysql;
+  DBUG_PRINT("info",
+             ("second authenticate_user returned %s",
+              ctx->res == CR_OK
+                  ? "CR_OK"
+                  : ctx->res == CR_ERROR ? "CR_ERROR"
+                                         : ctx->res == CR_OK_HANDSHAKE_COMPLETE
+                                               ? "CR_OK_HANDSHAKE_COMPLETE"
+                                               : "error"));
+  if (ctx->res > CR_OK) {
+    if (ctx->res > CR_ERROR)
+      set_mysql_error(mysql, ctx->res, unknown_sqlstate);
+    else if (!mysql->net.last_errno)
+      set_mysql_error(mysql, CR_UNKNOWN_ERROR, unknown_sqlstate);
+    DBUG_RETURN(STATE_MACHINE_FAILED);
+  }
+
+  if (ctx->res != CR_OK_HANDSHAKE_COMPLETE) {
+    /* Read what server thinks about out new auth message report */
+    if (cli_safe_read(mysql, NULL) == packet_error) {
+      if (mysql->net.last_errno == CR_SERVER_LOST)
+        set_mysql_extended_error(mysql, CR_SERVER_LOST, unknown_sqlstate,
+                                 ER_CLIENT(CR_SERVER_LOST_EXTENDED),
+                                 "reading final connect information", errno);
+      DBUG_RETURN(STATE_MACHINE_FAILED);
     }
   }
+
+  ctx->state_function = authsm_finish_auth;
+  DBUG_RETURN(STATE_MACHINE_CONTINUE);
+}
+
+/* Final cleanup */
+static mysql_state_machine_status authsm_finish_auth(
+    mysql_authsm_context *ctx) {
+  DBUG_ENTER(__func__);
+  MYSQL *mysql = ctx->mysql;
   /*
     net->read_pos[0] should always be 0 here if the server implements
     the protocol correctly
   */
-  res = (mysql->net.read_pos[0] != 0);
+  ctx->res = (mysql->net.read_pos[0] != 0);
 
   MYSQL_TRACE(AUTHENTICATED, mysql, ());
-  DBUG_RETURN(res);
+  DBUG_RETURN(ctx->res ? STATE_MACHINE_FAILED : STATE_MACHINE_DONE);
 }
 
 /** set some default attributes */
@@ -4168,34 +4400,78 @@ MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
                                   const char *user, const char *passwd,
                                   const char *db, uint port,
                                   const char *unix_socket, ulong client_flag) {
-  char buff[NAME_LEN + USERNAME_LENGTH + 100];
-  int scramble_data_len, pkt_scramble_len = 0;
-  char *end, *host_info = 0, *server_version_end, *pkt_end;
-  char *scramble_data;
-  char *scramble_buffer = NULL;
-  const char *scramble_plugin;
-  ulong pkt_length;
+  DBUG_ENTER("mysql_real_connect");
+  mysql_state_machine_status status;
+  mysql_csm_context ctx;
+  memset(&ctx, 0, sizeof(ctx));
+
+  ctx.mysql = mysql;
+  ctx.host = host;
+  ctx.port = port;
+  ctx.db = db;
+  ctx.user = user;
+  ctx.passwd = passwd;
+  ctx.unix_socket = unix_socket;
+  ctx.client_flag = client_flag;
+  ctx.state_function = csm_begin_connect;
+
+  do {
+    status = ctx.state_function(&ctx);
+  } while (status != STATE_MACHINE_FAILED && status != STATE_MACHINE_DONE);
+
+  if (status == STATE_MACHINE_DONE) {
+    DBUG_PRINT("exit", ("Mysql handler: %p", mysql));
+    DBUG_RETURN(mysql);
+  }
+
+  DBUG_PRINT("error", ("message: %u/%s (%s)", mysql->net.last_errno,
+                       mysql->net.sqlstate, mysql->net.last_error));
+  {
+    /* Free alloced memory */
+    end_server(mysql);
+    mysql_close_free(mysql);
+    if (!(client_flag & CLIENT_REMEMBER_OPTIONS))
+      mysql_close_free_options(mysql);
+    if (ctx.scramble_buffer_allocated) my_free(ctx.scramble_buffer);
+  }
+  DBUG_RETURN(0);
+}
+
+/*
+  Begin the connection to the server, including any DNS resolution
+  necessary, socket configuration, etc.
+*/
+static mysql_state_machine_status csm_begin_connect(mysql_csm_context *ctx) {
+  MYSQL *mysql = ctx->mysql;
+  const char *host = ctx->host;
+  const char *user = ctx->user;
+  const char *passwd = ctx->passwd;
+  const char *db = ctx->db;
+  uint port = ctx->port;
+  const char *unix_socket = ctx->unix_socket;
+  ulong client_flag = ctx->client_flag;
+
+  DBUG_ENTER(__func__);
+  DBUG_PRINT("enter",
+             ("host: %s  db: %s  user: %s (client)", host ? host : "(Null)",
+              db ? db : "(Null)", user ? user : "(Null)"));
+
   NET *net = &mysql->net;
-  bool scramble_buffer_allocated = false;
 #ifdef _WIN32
   HANDLE hPipe = INVALID_HANDLE_VALUE;
 #endif
 #ifdef HAVE_SYS_UN_H
   struct sockaddr_un UNIXaddr;
 #endif
-  DBUG_ENTER("mysql_real_connect");
-
-  DBUG_PRINT("enter",
-             ("host: %s  db: %s  user: %s (client)", host ? host : "(Null)",
-              db ? db : "(Null)", user ? user : "(Null)"));
 
   /* Test whether we're already connected */
   if (net->vio) {
     set_mysql_error(mysql, CR_ALREADY_CONNECTED, unknown_sqlstate);
-    DBUG_RETURN(0);
+    DBUG_RETURN(STATE_MACHINE_FAILED);
   }
 
-  if (set_connect_attributes(mysql, buff, sizeof(buff))) DBUG_RETURN(0);
+  if (set_connect_attributes(mysql, ctx->buff, sizeof(ctx->buff)))
+    DBUG_RETURN(STATE_MACHINE_FAILED);
 
   mysql->methods = &client_methods;
   net->vio = 0;           /* If something goes wrong */
@@ -4235,9 +4511,6 @@ MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
   MYSQL_TRACE_STAGE(mysql, CONNECTING);
   MYSQL_TRACE(CONNECTING, mysql, ());
 
-  /*
-    Part 0: Grab a socket and connect it to the server
-  */
 #if defined(_WIN32)
   if ((!mysql->options.protocol ||
        mysql->options.protocol == MYSQL_PROTOCOL_MEMORY) &&
@@ -4253,7 +4526,8 @@ MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
                  ("host: '%s'  socket: '%s'  shared memory: %s  have_tcpip: %d",
                   host ? host : "<null>", unix_socket ? unix_socket : "<null>",
                   mysql->options.shared_memory_base_name, (int)have_tcpip));
-      if (mysql->options.protocol == MYSQL_PROTOCOL_MEMORY) goto error;
+      if (mysql->options.protocol == MYSQL_PROTOCOL_MEMORY)
+        DBUG_RETURN(STATE_MACHINE_FAILED);
 
       /*
         Try also with PIPE or TCP/IP. Clear the error from
@@ -4281,7 +4555,7 @@ MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
     if (sock == SOCKET_ERROR) {
       set_mysql_extended_error(mysql, CR_SOCKET_CREATE_ERROR, unknown_sqlstate,
                                ER_CLIENT(CR_SOCKET_CREATE_ERROR), socket_errno);
-      goto error;
+      DBUG_RETURN(STATE_MACHINE_FAILED);
     }
 
     net->vio =
@@ -4290,12 +4564,12 @@ MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
       DBUG_PRINT("error", ("Unknow protocol %d ", mysql->options.protocol));
       set_mysql_error(mysql, CR_CONN_UNKNOW_PROTOCOL, unknown_sqlstate);
       closesocket(sock);
-      goto error;
+      DBUG_RETURN(STATE_MACHINE_FAILED);
     }
 
     host = LOCAL_HOST;
     if (!unix_socket) unix_socket = mysql_unix_port;
-    host_info = (char *)ER_CLIENT(CR_LOCALHOST_CONNECTION);
+    ctx->host_info = (char *)ER_CLIENT(CR_LOCALHOST_CONNECTION);
     DBUG_PRINT("info", ("Using UNIX sock '%s'", unix_socket));
 
     memset(&UNIXaddr, 0, sizeof(UNIXaddr));
@@ -4314,7 +4588,7 @@ MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
                                socket_errno);
       vio_delete(net->vio);
       net->vio = 0;
-      goto error;
+      DBUG_RETURN(STATE_MACHINE_FAILED);
     }
     mysql->options.protocol = MYSQL_PROTOCOL_SOCKET;
   }
@@ -4333,11 +4607,11 @@ MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
       if (mysql->options.protocol == MYSQL_PROTOCOL_PIPE ||
           (host && !strcmp(host, LOCAL_HOST_NAMEDPIPE)) ||
           (unix_socket && !strcmp(unix_socket, MYSQL_NAMEDPIPE)))
-        goto error;
+        DBUG_RETURN(STATE_MACHINE_FAILED);
       /* Try also with TCP/IP */
     } else {
       net->vio = vio_new_win32pipe(hPipe);
-      snprintf(host_info = buff, sizeof(buff) - 1,
+      snprintf(ctx->host_info = ctx->buff, sizeof(ctx->buff) - 1,
                ER_CLIENT(CR_NAMEDPIPE_CONNECTION), unix_socket);
     }
   }
@@ -4358,8 +4632,8 @@ MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
 
     if (!host) host = LOCAL_HOST;
 
-    snprintf(host_info = buff, sizeof(buff) - 1, ER_CLIENT(CR_TCP_CONNECTION),
-             host);
+    snprintf(ctx->host_info = ctx->buff, sizeof(ctx->buff) - 1,
+             ER_CLIENT(CR_TCP_CONNECTION), host);
     DBUG_PRINT("info", ("Server name: '%s'.  TCP sock: %d", host, port));
 
     memset(&hints, 0, sizeof(hints));
@@ -4380,7 +4654,7 @@ MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
       set_mysql_extended_error(mysql, CR_UNKNOWN_HOST, unknown_sqlstate,
                                ER_CLIENT(CR_UNKNOWN_HOST), host, errno);
 
-      goto error;
+      DBUG_RETURN(STATE_MACHINE_FAILED);
     }
 
     /* Get address info for client bind name if it is provided */
@@ -4400,7 +4674,7 @@ MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
                                  mysql->options.bind_address, bind_gai_errno);
 
         freeaddrinfo(res_lst);
-        goto error;
+        DBUG_RETURN(STATE_MACHINE_FAILED);
       }
       DBUG_PRINT("info", ("  got address info for client bind name"));
     }
@@ -4468,7 +4742,7 @@ MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
           closesocket(sock);
           freeaddrinfo(res_lst);
           if (client_bind_ai_lst) freeaddrinfo(client_bind_ai_lst);
-          goto error;
+          DBUG_RETURN(STATE_MACHINE_FAILED);
         }
       }
       /* Just reinitialize if one is already allocated. */
@@ -4477,7 +4751,7 @@ MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
         closesocket(sock);
         freeaddrinfo(res_lst);
         if (client_bind_ai_lst) freeaddrinfo(client_bind_ai_lst);
-        goto error;
+        DBUG_RETURN(STATE_MACHINE_FAILED);
       }
 
       DBUG_PRINT("info", ("Connect socket"));
@@ -4514,7 +4788,7 @@ MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
     if (sock == SOCKET_ERROR) {
       set_mysql_extended_error(mysql, CR_IPSOCK_ERROR, unknown_sqlstate,
                                ER_CLIENT(CR_IPSOCK_ERROR), saved_error);
-      goto error;
+      DBUG_RETURN(STATE_MACHINE_FAILED);
     }
 
     if (status) {
@@ -4523,22 +4797,41 @@ MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
       set_mysql_extended_error(mysql, CR_CONN_HOST_ERROR, unknown_sqlstate,
                                ER_CLIENT(CR_CONN_HOST_ERROR), host,
                                saved_error);
-      goto error;
+      DBUG_RETURN(STATE_MACHINE_FAILED);
     }
   }
+
+  ctx->state_function = csm_complete_connect;
+  ctx->host = host;
+  ctx->user = user;
+  ctx->passwd = passwd;
+  ctx->db = db;
+  ctx->port = port;
+  ctx->unix_socket = unix_socket;
+  ctx->client_flag = client_flag;
+  DBUG_RETURN(STATE_MACHINE_CONTINUE);
+}
+
+/*
+  Complete the connection itself, setting options on the now-connected socket.
+*/
+static mysql_state_machine_status csm_complete_connect(mysql_csm_context *ctx) {
+  DBUG_ENTER(__func__);
+  MYSQL *mysql = ctx->mysql;
+  NET *net = &mysql->net;
 
   DBUG_PRINT("info", ("net->vio: %p", net->vio));
   if (!net->vio) {
     DBUG_PRINT("error", ("Unknow protocol %d ", mysql->options.protocol));
     set_mysql_error(mysql, CR_CONN_UNKNOW_PROTOCOL, unknown_sqlstate);
-    goto error;
+    DBUG_RETURN(STATE_MACHINE_FAILED);
   }
 
   if (my_net_init(net, net->vio)) {
     vio_delete(net->vio);
     net->vio = 0;
     set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
-    goto error;
+    DBUG_RETURN(STATE_MACHINE_FAILED);
   }
   vio_keepalive(net->vio, true);
 
@@ -4569,22 +4862,40 @@ MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
                              ER_CLIENT(CR_SERVER_LOST_EXTENDED),
                              "waiting for initial communication packet",
                              socket_errno);
-    goto error;
+    DBUG_RETURN(STATE_MACHINE_FAILED);
   }
 
-  /*
-    Part 1: Connection established, read and parse first packet
-  */
+  ctx->state_function = csm_read_greeting;
+  DBUG_RETURN(STATE_MACHINE_CONTINUE);
+}
+
+/* Read the greeting from the server */
+static mysql_state_machine_status csm_read_greeting(mysql_csm_context *ctx) {
+  DBUG_ENTER(__func__);
+  MYSQL *mysql = ctx->mysql;
   DBUG_PRINT("info", ("Read first packet."));
 
-  if ((pkt_length = cli_safe_read(mysql, NULL)) == packet_error) {
+  if ((ctx->pkt_length = cli_safe_read(mysql, NULL)) == packet_error) {
     if (mysql->net.last_errno == CR_SERVER_LOST)
       set_mysql_extended_error(mysql, CR_SERVER_LOST, unknown_sqlstate,
                                ER_CLIENT(CR_SERVER_LOST_EXTENDED),
                                "reading initial communication packet",
                                socket_errno);
-    goto error;
+    DBUG_RETURN(STATE_MACHINE_FAILED);
   }
+
+  ctx->state_function = csm_parse_handshake;
+  DBUG_RETURN(STATE_MACHINE_CONTINUE);
+}
+
+/* Parse the handshake from the server. */
+static mysql_state_machine_status csm_parse_handshake(mysql_csm_context *ctx) {
+  DBUG_ENTER(__func__);
+  MYSQL *mysql = ctx->mysql;
+  NET *net = &mysql->net;
+  int pkt_length = ctx->pkt_length;
+  int pkt_scramble_len = 0;
+  char *end, *server_version_end, *pkt_end;
   pkt_end = (char *)net->read_pos + pkt_length;
   /* Check if version of protocol matches current one */
   mysql->protocol_version = net->read_pos[0];
@@ -4595,7 +4906,7 @@ MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
     set_mysql_extended_error(mysql, CR_VERSION_ERROR, unknown_sqlstate,
                              ER_CLIENT(CR_VERSION_ERROR),
                              mysql->protocol_version, PROTOCOL_VERSION);
-    goto error;
+    DBUG_RETURN(STATE_MACHINE_FAILED);
   }
   server_version_end = end = strend((char *)net->read_pos + 1);
   mysql->thread_id = uint4korr((uchar *)end + 1);
@@ -4604,10 +4915,10 @@ MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
     Scramble is split into two parts because old clients do not understand
     long scrambles; here goes the first part.
   */
-  scramble_data = end;
-  scramble_data_len = AUTH_PLUGIN_DATA_PART_1_LENGTH + 1;
-  scramble_plugin = NULL;
-  end += scramble_data_len;
+  ctx->scramble_data = end;
+  ctx->scramble_data_len = AUTH_PLUGIN_DATA_PART_1_LENGTH + 1;
+  ctx->scramble_plugin = NULL;
+  end += ctx->scramble_data_len;
 
   if (pkt_end >= end + 1) mysql->server_capabilities = uint2korr((uchar *)end);
   if (pkt_end >= end + 18) {
@@ -4619,61 +4930,68 @@ MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
     if (pkt_scramble_len < 0) {
       set_mysql_error(mysql, CR_MALFORMED_PACKET,
                       unknown_sqlstate); /* purecov: inspected */
-      goto error;
+      DBUG_RETURN(STATE_MACHINE_FAILED);
     }
   }
   end += 18;
 
-  if (mysql_init_character_set(mysql)) goto error;
+  if (mysql_init_character_set(mysql)) DBUG_RETURN(STATE_MACHINE_FAILED);
 
   /* Save connection information */
-  if (!my_multi_malloc(key_memory_MYSQL, MYF(0), &mysql->host_info,
-                       (uint)strlen(host_info) + 1, &mysql->host,
-                       (uint)strlen(host) + 1, &mysql->unix_socket,
-                       unix_socket ? (uint)strlen(unix_socket) + 1 : (uint)1,
-                       &mysql->server_version,
-                       (uint)(server_version_end - (char *)net->read_pos + 1),
-                       NullS) ||
-      !(mysql->user = my_strdup(key_memory_MYSQL, user, MYF(0))) ||
-      !(mysql->passwd = my_strdup(key_memory_MYSQL, passwd, MYF(0)))) {
+  if (!my_multi_malloc(
+          key_memory_MYSQL, MYF(0), &mysql->host_info,
+          (uint)strlen(ctx->host_info) + 1, &mysql->host,
+          (uint)strlen(ctx->host) + 1, &mysql->unix_socket,
+          ctx->unix_socket ? (uint)strlen(ctx->unix_socket) + 1 : (uint)1,
+          &mysql->server_version,
+          (uint)(server_version_end - (char *)net->read_pos + 1), NullS) ||
+      !(mysql->user = my_strdup(key_memory_MYSQL, ctx->user, MYF(0))) ||
+      !(mysql->passwd = my_strdup(key_memory_MYSQL, ctx->passwd, MYF(0)))) {
     set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
-    goto error;
+    DBUG_RETURN(STATE_MACHINE_FAILED);
   }
-  my_stpcpy(mysql->host_info, host_info);
-  my_stpcpy(mysql->host, host);
-  if (unix_socket)
-    my_stpcpy(mysql->unix_socket, unix_socket);
+  my_stpcpy(mysql->host_info, ctx->host_info);
+  my_stpcpy(mysql->host, ctx->host);
+  if (ctx->unix_socket)
+    my_stpcpy(mysql->unix_socket, ctx->unix_socket);
   else
     mysql->unix_socket = 0;
   my_stpcpy(mysql->server_version, (char *)net->read_pos + 1);
-  mysql->port = port;
+  mysql->port = ctx->port;
 
-  if (pkt_end >= end + SCRAMBLE_LENGTH - AUTH_PLUGIN_DATA_PART_1_LENGTH + 1)
-
-  {
+  if (pkt_end >= end + SCRAMBLE_LENGTH - AUTH_PLUGIN_DATA_PART_1_LENGTH + 1) {
     /*
      move the first scramble part - directly in the NET buffer -
      to get a full continuous scramble. We've read all the header,
      and can overwrite it now.
     */
-    memmove(end - AUTH_PLUGIN_DATA_PART_1_LENGTH, scramble_data,
+    memmove(end - AUTH_PLUGIN_DATA_PART_1_LENGTH, ctx->scramble_data,
             AUTH_PLUGIN_DATA_PART_1_LENGTH);
-    scramble_data = end - AUTH_PLUGIN_DATA_PART_1_LENGTH;
+    ctx->scramble_data = end - AUTH_PLUGIN_DATA_PART_1_LENGTH;
     if (mysql->server_capabilities & CLIENT_PLUGIN_AUTH) {
-      scramble_data_len = pkt_scramble_len;
-      scramble_plugin = scramble_data + scramble_data_len;
-      if (scramble_data + scramble_data_len > pkt_end)
-        scramble_data_len = (int)(pkt_end - scramble_data);
+      ctx->scramble_data_len = pkt_scramble_len;
+      ctx->scramble_plugin = ctx->scramble_data + ctx->scramble_data_len;
+      if (ctx->scramble_data + ctx->scramble_data_len > pkt_end)
+        ctx->scramble_data_len = (int)(pkt_end - ctx->scramble_data);
     } else {
-      scramble_data_len = (int)(pkt_end - scramble_data);
-      scramble_plugin = caching_sha2_password_plugin_name;
+      ctx->scramble_data_len = (int)(pkt_end - ctx->scramble_data);
+      ctx->scramble_plugin = caching_sha2_password_plugin_name;
     }
   } else {
     set_mysql_error(mysql, CR_MALFORMED_PACKET, unknown_sqlstate);
-    goto error;
+    DBUG_RETURN(STATE_MACHINE_FAILED);
   }
 
-  MYSQL_TRACE(INIT_PACKET_RECEIVED, mysql, (pkt_length, net->read_pos));
+  ctx->state_function = csm_establish_ssl;
+  DBUG_RETURN(STATE_MACHINE_CONTINUE);
+}
+
+/* Establish SSL if needed. */
+static mysql_state_machine_status csm_establish_ssl(mysql_csm_context *ctx) {
+  DBUG_ENTER(__func__);
+  MYSQL *mysql = ctx->mysql;
+  MYSQL_TRACE(INIT_PACKET_RECEIVED, mysql,
+              (ctx->pkt_length, mysql->net.read_pos));
   MYSQL_TRACE_STAGE(mysql, AUTHENTICATE);
 
 #if defined(_WIN32)
@@ -4685,108 +5003,147 @@ MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
   }
 #endif
   /* try and bring up SSL if possible */
-  cli_calculate_client_flag(mysql, db, client_flag);
+  cli_calculate_client_flag(mysql, ctx->db, ctx->client_flag);
 
   /*
     Allocate separate buffer for scramble data if we are going
     to attempt TLS connection. This would prevent a possible
     overwrite through my_net_write.
   */
-  if (scramble_data_len && mysql->options.extension &&
+  if (ctx->scramble_data_len && mysql->options.extension &&
       mysql->options.extension->ssl_mode != SSL_MODE_DISABLED) {
-    if (!(scramble_buffer = (char *)my_malloc(
-              key_memory_MYSQL_HANDSHAKE, scramble_data_len, MYF(MY_WME)))) {
+    if (!(ctx->scramble_buffer =
+              (char *)my_malloc(key_memory_MYSQL_HANDSHAKE,
+                                ctx->scramble_data_len, MYF(MY_WME)))) {
       set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
-      goto error;
+      DBUG_RETURN(STATE_MACHINE_FAILED);
     }
-    scramble_buffer_allocated = true;
-    memcpy(scramble_buffer, scramble_data, scramble_data_len);
+    memcpy(ctx->scramble_buffer, ctx->scramble_data, ctx->scramble_data_len);
   } else {
-    scramble_buffer = scramble_data;
+    ctx->scramble_buffer = ctx->scramble_data;
   }
 
-  if (cli_establish_ssl(mysql)) goto error;
+  if (cli_establish_ssl(mysql)) DBUG_RETURN(STATE_MACHINE_FAILED);
 
-  /*
-    Part 2: invoke the plugin to send the authentication data to the server
-  */
+  ctx->state_function = csm_authenticate;
+  DBUG_RETURN(STATE_MACHINE_CONTINUE);
+}
 
-  if (run_plugin_auth(mysql, scramble_buffer, scramble_data_len,
-                      scramble_plugin, db))
-    goto error;
+static mysql_state_machine_status csm_authenticate(mysql_csm_context *ctx) {
+  DBUG_ENTER(__func__);
+  MYSQL *mysql = ctx->mysql;
+  if (run_plugin_auth(mysql, ctx->scramble_buffer, ctx->scramble_data_len,
+                      ctx->scramble_plugin, ctx->db))
+    DBUG_RETURN(STATE_MACHINE_FAILED);
 
-  if (scramble_buffer_allocated == true) {
-    scramble_buffer_allocated = false;
-    my_free(scramble_buffer);
+  if (ctx->scramble_buffer_allocated) {
+    ctx->scramble_buffer_allocated = false;
+    my_free(ctx->scramble_buffer);
   }
 
+  ctx->state_function = csm_prep_select_database;
+  DBUG_RETURN(STATE_MACHINE_CONTINUE);
+}
+
+static mysql_state_machine_status csm_prep_select_database(
+    mysql_csm_context *ctx) {
+  DBUG_ENTER(__func__);
+  MYSQL *mysql = ctx->mysql;
+  NET *net = &mysql->net;
   MYSQL_TRACE_STAGE(mysql, READY_FOR_COMMAND);
-
-  /*
-    Part 3: authenticated, finish the initialization of the connection
-  */
 
   if (mysql->client_flag & CLIENT_COMPRESS) /* We will use compression */
     net->compress = 1;
 
 #ifdef CHECK_LICENSE
-  if (check_license(mysql)) goto error;
+  if (check_license(mysql)) DBUG_RETURN(STATE_MACHINE_FAILED);
 #endif
 
-  if (db && !mysql->db && mysql_select_db(mysql, db)) {
+  if (ctx->db && !mysql->db) {
+    ctx->state_function = csm_send_select_database;
+  } else {
+#ifdef MYSQL_SERVER
+    DBUG_RETURN(STATE_MACHINE_DONE);
+#else
+    ctx->state_function = csm_prep_init_commands;
+#endif
+  }
+
+  DBUG_RETURN(STATE_MACHINE_CONTINUE);
+}
+
+static mysql_state_machine_status csm_send_select_database(
+    mysql_csm_context *ctx) {
+  DBUG_ENTER(__func__);
+  MYSQL *mysql = ctx->mysql;
+  if (mysql_select_db(mysql, ctx->db)) {
     if (mysql->net.last_errno == CR_SERVER_LOST)
       set_mysql_extended_error(mysql, CR_SERVER_LOST, unknown_sqlstate,
                                ER_CLIENT(CR_SERVER_LOST_EXTENDED),
                                "Setting intital database", errno);
-    goto error;
+    DBUG_RETURN(STATE_MACHINE_FAILED);
   }
 
-    /*
-       Using init_commands is not supported when connecting from within the
-       server.
-    */
-#ifndef MYSQL_SERVER
-  if (mysql->options.init_commands) {
-    char **ptr = mysql->options.init_commands->begin();
-    char **end_command = mysql->options.init_commands->end();
-
-    bool reconnect = mysql->reconnect;
-    mysql->reconnect = 0;
-
-    for (; ptr < end_command; ptr++) {
-      int status;
-
-      if (mysql_real_query(mysql, *ptr, (ulong)strlen(*ptr))) goto error;
-
-      do {
-        if (mysql->fields) {
-          MYSQL_RES *res;
-          if (!(res = cli_use_result(mysql))) goto error;
-          mysql_free_result(res);
-        }
-        if ((status = mysql_next_result(mysql)) > 0) goto error;
-      } while (status == 0);
-    }
-    mysql->reconnect = reconnect;
-  }
+#ifdef MYSQL_SERVER
+  DBUG_RETURN(STATE_MACHINE_DONE);
+#else
+  ctx->state_function = csm_prep_init_commands;
+  DBUG_RETURN(STATE_MACHINE_CONTINUE);
 #endif
-
-  DBUG_PRINT("exit", ("Mysql handler: %p", mysql));
-  DBUG_RETURN(mysql);
-
-error:
-  DBUG_PRINT("error", ("message: %u/%s (%s)", net->last_errno, net->sqlstate,
-                       net->last_error));
-  {
-    /* Free alloced memory */
-    end_server(mysql);
-    mysql_close_free(mysql);
-    if (!(client_flag & CLIENT_REMEMBER_OPTIONS))
-      mysql_close_free_options(mysql);
-    if (scramble_buffer_allocated) my_free(scramble_buffer);
-  }
-  DBUG_RETURN(0);
 }
+
+#ifndef MYSQL_SERVER
+/* Prepare to send a sequence of init commands. */
+static mysql_state_machine_status csm_prep_init_commands(
+    mysql_csm_context *ctx) {
+  DBUG_ENTER(__func__);
+  MYSQL *mysql = ctx->mysql;
+  if (!mysql->options.init_commands) {
+    DBUG_RETURN(STATE_MACHINE_DONE);
+  }
+
+  ctx->saved_reconnect = mysql->reconnect;
+  mysql->reconnect = 0;
+  ctx->current_init_command = mysql->options.init_commands->begin();
+
+  ctx->state_function = csm_send_one_init_command;
+  DBUG_RETURN(STATE_MACHINE_CONTINUE);
+}
+
+/*
+  Send an init command.  This is called once per init command until
+  they've all been run (or a failure occurs).
+*/
+static mysql_state_machine_status csm_send_one_init_command(
+    mysql_csm_context *ctx) {
+  DBUG_ENTER(__func__);
+  MYSQL *mysql = ctx->mysql;
+
+  if (mysql_real_query(mysql, *ctx->current_init_command,
+                       (ulong)strlen(*ctx->current_init_command)))
+    DBUG_RETURN(STATE_MACHINE_FAILED);
+
+  int status;
+  do {
+    if (mysql->fields) {
+      MYSQL_RES *res;
+      if (!(res = cli_use_result(mysql))) DBUG_RETURN(STATE_MACHINE_FAILED);
+      mysql_free_result(res);
+    }
+    if ((status = mysql_next_result(mysql)) > 0)
+      DBUG_RETURN(STATE_MACHINE_FAILED);
+  } while (status == 0);
+
+  ++ctx->current_init_command;
+  if (ctx->current_init_command < mysql->options.init_commands->end()) {
+    DBUG_RETURN(STATE_MACHINE_CONTINUE);
+  }
+
+  mysql->reconnect = ctx->saved_reconnect;
+  DBUG_PRINT("exit", ("Mysql handler: %p", mysql));
+  DBUG_RETURN(STATE_MACHINE_DONE);
+}
+#endif
 
 bool mysql_reconnect(MYSQL *mysql) {
   MYSQL tmp_mysql;
