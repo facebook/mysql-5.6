@@ -564,6 +564,11 @@ END
 	</table_data>
 <!-- 
 -
+- Rows found for t1: 3
+-
+ -->
+<!-- 
+-
 - Table structure for table `t2`
 -
 
@@ -588,6 +593,11 @@ END
 		<field name="c1">3</field>
 	</row>
 	</table_data>
+<!-- 
+-
+- Rows found for t2: 3
+-
+ -->
 	<triggers name="t2">
 		<trigger Trigger="trig1" sql_mode="ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION" character_set_client="utf8mb4" collation_connection="utf8mb4_0900_ai_ci" Database_Collation="utf8mb4_0900_ai_ci" Created="--TIMESTAMP--">
 <![CDATA[

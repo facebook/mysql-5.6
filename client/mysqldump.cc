@@ -3996,6 +3996,8 @@ static void dump_table(char *table, char *db) {
       check_io(md_result_file);
     }
     mysql_free_result(res);
+    print_comment(md_result_file, 0, "\n--\n-- Rows found for %s: %lu\n--\n",
+                  table, rownr);
   }
   dynstr_free(&query_string);
   if (extended_insert) dynstr_free(&extended_row);
