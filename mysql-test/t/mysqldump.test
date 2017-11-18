@@ -2987,3 +2987,19 @@ SET GLOBAL sql_generate_invisible_primary_key =
              @saved_global_sql_generate_invisible_primary_key;
 SET SESSION sql_generate_invisible_primary_key =
               @saved_session_sql_generate_invisible_primary_key;
+
+--echo # Support for new line character in table names.
+--disable_warnings
+DROP DATABASE IF EXISTS mysqldump_test_db;
+--enable_warnings
+CREATE DATABASE mysqldump_test_db;
+USE mysqldump_test_db;
+CREATE TABLE `t1 line1
+line2 
+line3
+ line4` (c1 int, PRIMARY KEY (c1));
+--echo #### Dump starts here ####
+--replace_regex /-- Server version.*\n// /-- MySQL dump .*\n//
+--exec $MYSQL_DUMP --skip-dump-date --databases mysqldump_test_db 2>&1
+--echo #### Dump ends here ####
+DROP DATABASE mysqldump_test_db;

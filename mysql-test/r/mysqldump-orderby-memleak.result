@@ -57,6 +57,10 @@ INSERT INTO `table1` VALUES (3,1);
 UNLOCK TABLES;
 
 --
+-- Rows found for table1: 3
+--
+
+--
 -- Table structure for table `table2`
 --
 
@@ -83,6 +87,10 @@ INSERT INTO `table2` VALUES (2,2);
 INSERT INTO `table2` VALUES (3,1);
 /*!40000 ALTER TABLE `table2` ENABLE KEYS */;
 UNLOCK TABLES;
+
+--
+-- Rows found for table2: 3
+--
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;

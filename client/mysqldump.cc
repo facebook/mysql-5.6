@@ -4159,6 +4159,13 @@ static void dump_table(char *table, char *db) {
       check_io(md_result_file);
     }
     mysql_free_result(res);
+    bool freemem = false;
+    char const *text = fix_identifier_with_newline(table, &freemem);
+    print_comment(md_result_file, 0, "\n--\n-- Rows found for %s: %lu\n--\n",
+                  text, rownr);
+    if (freemem) {
+      my_free(const_cast<char *>(text));
+    }
   }
   dynstr_free(&query_string);
   if (extended_insert) dynstr_free(&extended_row);
