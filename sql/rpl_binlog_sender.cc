@@ -25,7 +25,9 @@
 #include <stdio.h>
 #include <algorithm>
 #include <atomic>
+#include <errno.h>
 #include <memory>
+#include <sys/socket.h>
 #include <unordered_map>
 #include <utility>
 
@@ -99,6 +101,8 @@ class Binlog_sender::Event_allocator {
  private:
   Binlog_sender *m_sender = nullptr;
 };
+
+uint rpl_send_buffer_size = 0;
 
 Binlog_sender::Binlog_sender(THD *thd, const char *start_file,
                              my_off_t start_pos, Gtid_set *exclude_gtids,
@@ -181,6 +185,18 @@ void Binlog_sender::init() {
     DBUG_VOID_RETURN;
   }
   m_transmit_started = true;
+
+  NET *net= thd->get_protocol_classic()->get_net();
+  if (rpl_send_buffer_size &&
+      (setsockopt(net->vio->mysql_socket.fd, SOL_SOCKET, SO_SNDBUF,
+                  &rpl_send_buffer_size, sizeof(rpl_send_buffer_size)) == -1
+#ifdef UNIV_LINUX
+       || setsockopt(net->vio->mysql_socket.fd, IPPROTO_TCP, TCP_WINDOW_CLAMP,
+                     &rpl_send_buffer_size, sizeof(rpl_send_buffer_size)) == -1
+#endif
+       ))
+    sql_print_warning("Failed to set SO_SNDBUF with (error: %s).",
+                      strerror(errno));
 
   init_checksum_alg();
   /*
