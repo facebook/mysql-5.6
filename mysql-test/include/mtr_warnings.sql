@@ -303,6 +303,11 @@ INSERT INTO global_suppressions VALUES
  ("NOTIFY_SOCKET not set in environment. sd_notify messages will not be sent!"),
  ("Invalid systemd notify socket, cannot send: "),
 
+ /*
+   Setting SO_SNDBUF can fail if the connection disconnected
+ */
+ ("Failed to set SO_SNDBUF with \\(error: Bad file descriptor\\)"),
+
  ("THE_LAST_SUPPRESSION");
 
 
