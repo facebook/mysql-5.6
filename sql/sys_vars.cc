@@ -109,6 +109,7 @@
 #include "sql/protocol_classic.h"
 #include "sql/psi_memory_key.h"
 #include "sql/query_options.h"
+#include "sql/rpl_binlog_sender.h"
 #include "sql/rpl_group_replication.h"  // is_group_replication_running
 #include "sql/rpl_info_factory.h"       // Rpl_info_factory
 #include "sql/rpl_info_handler.h"       // INFO_REPOSITORY_TABLE
@@ -5633,6 +5634,13 @@ static Sys_var_ulong Sys_rpl_read_size(
     GLOBAL_VAR(rpl_read_size), CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(IO_SIZE * 2, ULONG_MAX), DEFAULT(IO_SIZE * 2),
     BLOCK_SIZE(IO_SIZE));
+
+static Sys_var_uint Sys_rpl_send_buffer_size(
+    "rpl_send_buffer_size",
+    "The size of output buffer for the socket used during sending "
+    "events to a slave.",
+    GLOBAL_VAR(rpl_send_buffer_size), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(1024, UINT_MAX), DEFAULT(2 * 1024 * 1024), BLOCK_SIZE(1024));
 
 static Sys_var_bool Sys_slave_allow_batching(
     "slave_allow_batching", "Allow slave to batch requests",

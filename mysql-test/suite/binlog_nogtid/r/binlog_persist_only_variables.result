@@ -100,6 +100,7 @@ SET PERSIST_ONLY rpl_semi_sync_master_wait_no_slave = @@GLOBAL.rpl_semi_sync_mas
 SET PERSIST_ONLY rpl_semi_sync_master_wait_point = @@GLOBAL.rpl_semi_sync_master_wait_point;
 SET PERSIST_ONLY rpl_semi_sync_slave_enabled = @@GLOBAL.rpl_semi_sync_slave_enabled;
 SET PERSIST_ONLY rpl_semi_sync_slave_trace_level = @@GLOBAL.rpl_semi_sync_slave_trace_level;
+SET PERSIST_ONLY rpl_send_buffer_size = @@GLOBAL.rpl_send_buffer_size;
 SET PERSIST_ONLY rpl_stop_slave_timeout = @@GLOBAL.rpl_stop_slave_timeout;
 SET PERSIST_ONLY session_track_gtids = @@GLOBAL.session_track_gtids;
 SET PERSIST_ONLY slave_allow_batching = @@GLOBAL.slave_allow_batching;
@@ -214,6 +215,7 @@ RESET PERSIST rpl_semi_sync_master_wait_no_slave;
 RESET PERSIST rpl_semi_sync_master_wait_point;
 RESET PERSIST rpl_semi_sync_slave_enabled;
 RESET PERSIST rpl_semi_sync_slave_trace_level;
+RESET PERSIST rpl_send_buffer_size;
 RESET PERSIST rpl_stop_slave_timeout;
 RESET PERSIST session_track_gtids;
 RESET PERSIST slave_allow_batching;
