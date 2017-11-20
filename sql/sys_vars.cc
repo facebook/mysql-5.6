@@ -109,6 +109,7 @@
 #include "sql/protocol_classic.h"
 #include "sql/psi_memory_key.h"
 #include "sql/query_options.h"
+#include "sql/rpl_binlog_sender.h"
 #include "sql/rpl_group_replication.h"  // is_group_replication_running
 #include "sql/rpl_handler.h"            // delegates_update_lock_type
 #include "sql/rpl_info_factory.h"       // Rpl_info_factory
@@ -6314,6 +6315,13 @@ static Sys_var_uint Sys_replica_checkpoint_group(
 #else
     VALID_RANGE(32, MTS_MAX_BITS_IN_GROUP), DEFAULT(512), BLOCK_SIZE(8));
 #endif /* NDEBUG */
+
+static Sys_var_uint Sys_rpl_send_buffer_size(
+    "rpl_send_buffer_size",
+    "The size of output buffer for the socket used during sending "
+    "events to a slave.",
+    GLOBAL_VAR(rpl_send_buffer_size), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(1024, UINT_MAX), DEFAULT(2 * 1024 * 1024), BLOCK_SIZE(1024));
 
 static Sys_var_deprecated_alias Sys_slave_checkpoint_group(
     "slave_checkpoint_group", Sys_replica_checkpoint_group);

@@ -360,6 +360,11 @@ INSERT INTO global_suppressions VALUES
  ("Invalid systemd notify socket, cannot send: "),
 
  /*
+   Setting SO_SNDBUF can fail if the connection disconnected
+ */
+ ("Failed to set SO_SNDBUF with \\(error: Bad file descriptor\\)"),
+
+ /*
    Manifest file processing
  */
  ("Manifest file '.*' is not read-only. For better security, please make sure that the file is read-only."),

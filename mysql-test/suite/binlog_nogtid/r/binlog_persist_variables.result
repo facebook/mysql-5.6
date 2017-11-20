@@ -150,6 +150,7 @@ SET PERSIST rpl_semi_sync_source_trace_level = @@GLOBAL.rpl_semi_sync_source_tra
 SET PERSIST rpl_semi_sync_source_wait_for_replica_count = @@GLOBAL.rpl_semi_sync_source_wait_for_replica_count;
 SET PERSIST rpl_semi_sync_source_wait_no_replica = @@GLOBAL.rpl_semi_sync_source_wait_no_replica;
 SET PERSIST rpl_semi_sync_source_wait_point = @@GLOBAL.rpl_semi_sync_source_wait_point;
+SET PERSIST rpl_send_buffer_size = @@GLOBAL.rpl_send_buffer_size;
 SET PERSIST rpl_stop_replica_timeout = @@GLOBAL.rpl_stop_replica_timeout;
 SET PERSIST rpl_stop_slave_timeout = @@GLOBAL.rpl_stop_slave_timeout;
 Warnings:
@@ -378,6 +379,7 @@ RESET PERSIST IF EXISTS rpl_semi_sync_source_trace_level;
 RESET PERSIST IF EXISTS rpl_semi_sync_source_wait_for_replica_count;
 RESET PERSIST IF EXISTS rpl_semi_sync_source_wait_no_replica;
 RESET PERSIST IF EXISTS rpl_semi_sync_source_wait_point;
+RESET PERSIST IF EXISTS rpl_send_buffer_size;
 RESET PERSIST IF EXISTS rpl_stop_replica_timeout;
 RESET PERSIST IF EXISTS rpl_stop_slave_timeout;
 Warnings:

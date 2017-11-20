@@ -40,6 +40,8 @@
 class String;
 class THD;
 
+extern uint rpl_send_buffer_size;
+
 /**
   The major logic of dump thread is implemented in this class. It sends
   required binlog events to clients according to their requests.
