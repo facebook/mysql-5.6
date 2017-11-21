@@ -4722,6 +4722,11 @@ bool Rdb_dict_manager::get_index_info(
       index_info->m_kv_version = rdb_netbuf_to_uint16(ptr);
       ptr += RDB_SIZEOF_KV_VERSION;
       index_info->m_ttl_duration = rdb_netbuf_to_uint64(ptr);
+      if ((index_info->m_kv_version ==
+           Rdb_key_def::PRIMARY_FORMAT_VERSION_TTL) &&
+          index_info->m_ttl_duration > 0) {
+        index_info->m_index_flags = Rdb_key_def::TTL_FLAG;
+      }
       found = true;
       break;
 
