@@ -1189,7 +1189,7 @@ private:
 
   2. internal cf_id, index id => index information
   key: Rdb_key_def::INDEX_INFO(0x2) + cf_id + index_id
-  value: version, index_type, kv_format_version, ttl_duration
+  value: version, index_type, kv_format_version, index_flags, ttl_duration
   index_type is 1 byte, version and kv_format_version are 2 bytes.
   index_flags is 4 bytes.
   ttl_duration is 8 bytes.
