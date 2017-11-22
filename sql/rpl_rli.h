@@ -1117,10 +1117,10 @@ public:
 
   /* Mapping from table to penultimate (for multi event trx)/end event of the
      last trx that updated that table */
-  std::unordered_map<ulonglong, Log_event_wrapper*>
+  std::unordered_map<std::string, Log_event_wrapper*>
                                              dag_table_last_penultimate_event;
   /* Set of all tables accessed by the current group */
-  std::unordered_set<ulonglong> tables_accessed_by_group;
+  std::unordered_set<std::string> tables_accessed_by_group;
 
   /* Mapping from DB to start event of the last trx that updated that DB */
   std::unordered_map<std::string, Log_event_wrapper*> dag_db_last_start_event;
