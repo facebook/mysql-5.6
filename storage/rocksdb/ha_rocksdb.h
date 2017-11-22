@@ -614,12 +614,7 @@ class ha_rocksdb : public my_core::handler {
   bool m_update_scope_is_valid;
 
   /* SST information used for bulk loading the primary key */
-  std::unique_ptr<Rdb_sst_info> m_sst_info;
-  /* External merge sorts for bulk load: key ID -> merge sort instance */
-  std::unordered_map<GL_INDEX_ID, Rdb_index_merge> m_key_merge;
-  Rdb_transaction *m_bulk_load_tx;
-  /* Mutex to protect finalizing bulk load */
-  mysql_mutex_t m_bulk_load_mutex;
+  std::shared_ptr<Rdb_sst_info> m_sst_info;
 
   /*
     MySQL index number for duplicate key error
@@ -789,7 +784,6 @@ public:
                       "handler.",
                       err);
     }
-    mysql_mutex_destroy(&m_bulk_load_mutex);
   }
 
   /** @brief
@@ -814,10 +808,9 @@ public:
   const char **bas_ext() const override;
 
   /*
-    See if this is the same base table - this should only be true for different
-    partitions of the same table.
+    Returns the name of the table's base name
   */
-  bool same_table(const ha_rocksdb &other) const;
+  const std::string &get_table_basename() const;
 
   /** @brief
     This is a list of flags that indicate what functionality the storage engine
@@ -1227,8 +1220,6 @@ private:
   Rdb_tbl_def *get_table_if_exists(const char *const tablename)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   void read_thd_vars(THD *const thd) MY_ATTRIBUTE((__nonnull__));
-  const char *thd_rocksdb_tmpdir()
-      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   bool contains_foreign_key(THD *const thd)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
@@ -1237,6 +1228,9 @@ private:
       TABLE *const table_arg,
       const std::unordered_set<std::shared_ptr<Rdb_key_def>> &indexes)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+
+  int finalize_bulk_load(bool print_client_error = true)
+      MY_ATTRIBUTE((__warn_unused_result__));
 
 public:
   int index_init(uint idx, bool sorted) override
@@ -1351,9 +1345,6 @@ public:
   commit_inplace_alter_table(TABLE *const altered_table,
                              my_core::Alter_inplace_info *const ha_alter_info,
                              bool commit) override;
-
-  int finalize_bulk_load(bool print_client_error = true)
-      MY_ATTRIBUTE((__warn_unused_result__));
 
   void set_use_read_free_rpl(const char *const whitelist);
   void set_skip_unique_check_tables(const char *const whitelist);

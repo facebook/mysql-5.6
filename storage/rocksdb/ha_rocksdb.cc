@@ -2034,28 +2034,110 @@ protected:
   bool has_snapshot() const { return m_read_opts.snapshot != nullptr; }
 
 private:
-  // The tables we are currently loading.  In a partitioned table this can
-  // have more than one entry
-  std::vector<ha_rocksdb *> m_curr_bulk_load;
+  // The Rdb_sst_info structures we are currently loading.  In a partitioned
+  // table this can have more than one entry
+  std::vector<std::shared_ptr<Rdb_sst_info>> m_curr_bulk_load;
+  std::string m_curr_bulk_load_tablename;
+
+  /* External merge sorts for bulk load: key ID -> merge sort instance */
+  std::unordered_map<GL_INDEX_ID, Rdb_index_merge> m_key_merge;
 
 public:
-  int finish_bulk_load(bool print_client_error = true) {
-    int rc = 0;
+  int get_key_merge(GL_INDEX_ID kd_gl_id, rocksdb::ColumnFamilyHandle *cf,
+                    Rdb_index_merge **key_merge) {
+    int res;
+    auto it = m_key_merge.find(kd_gl_id);
+    if (it == m_key_merge.end()) {
+      m_key_merge.emplace(
+          std::piecewise_construct, std::make_tuple(kd_gl_id),
+          std::make_tuple(
+              get_rocksdb_tmpdir(), THDVAR(get_thd(), merge_buf_size),
+              THDVAR(get_thd(), merge_combine_read_size),
+              THDVAR(get_thd(), merge_tmp_file_removal_delay_ms), cf));
+      it = m_key_merge.find(kd_gl_id);
+      if ((res = it->second.init()) != 0) {
+        return res;
+      }
+    }
+    *key_merge = &it->second;
+    return HA_EXIT_SUCCESS;
+  }
 
-    std::vector<ha_rocksdb *>::iterator it;
-    while ((it = m_curr_bulk_load.begin()) != m_curr_bulk_load.end()) {
-      int rc2 = (*it)->finalize_bulk_load(print_client_error);
+  int finish_bulk_load(int print_client_error = true) {
+    int rc = 0, rc2;
+
+    std::vector<std::shared_ptr<Rdb_sst_info>>::iterator it;
+    for (it = m_curr_bulk_load.begin(); it != m_curr_bulk_load.end(); it++) {
+      rc2 = (*it)->commit(print_client_error);
       if (rc2 != 0 && rc == 0) {
         rc = rc2;
       }
     }
-
+    m_curr_bulk_load.clear();
+    m_curr_bulk_load_tablename.clear();
     DBUG_ASSERT(m_curr_bulk_load.size() == 0);
 
+    // Flush the index_merge sort buffers
+    if (!m_key_merge.empty()) {
+      rocksdb::Slice merge_key;
+      rocksdb::Slice merge_val;
+      for (auto it = m_key_merge.begin(); it != m_key_merge.end(); it++) {
+        GL_INDEX_ID index_id = it->first;
+        std::shared_ptr<const Rdb_key_def> keydef =
+            ddl_manager.safe_find(index_id);
+        std::string table_name = ddl_manager.safe_get_table_name(index_id);
+
+        // Unable to find key definition or table name since the
+        // table could have been dropped.
+        // TODO(herman): there is a race here between dropping the table
+        // and detecting a drop here. If the table is dropped while bulk
+        // loading is finishing, these keys being added here may
+        // be missed by the compaction filter and not be marked for
+        // removal. It is unclear how to lock the sql table from the storage
+        // engine to prevent modifications to it while bulk load is occurring.
+        if (keydef == nullptr || table_name.empty()) {
+          rc2 = HA_ERR_ROCKSDB_BULK_LOAD;
+          break;
+        }
+        const std::string &index_name = keydef->get_name();
+        Rdb_index_merge &rdb_merge = it->second;
+
+        // Rdb_sst_info expects a denormalized table name in the form of
+        // "./database/table"
+        std::replace(table_name.begin(), table_name.end(), '.', '/');
+        table_name = "./" + table_name;
+        Rdb_sst_info sst_info(rdb, table_name, index_name, rdb_merge.get_cf(),
+                              *rocksdb_db_options,
+                              THDVAR(get_thd(), trace_sst_api));
+
+        while ((rc2 = rdb_merge.next(&merge_key, &merge_val)) == 0) {
+          if ((rc2 = sst_info.put(merge_key, merge_val)) != 0) {
+            break;
+          }
+        }
+
+        // rc2 == -1 => finished ok; rc2 > 0 => error
+        if (rc2 > 0 || (rc2 = sst_info.commit(print_client_error)) != 0) {
+          if (rc == 0) {
+            rc = rc2;
+          }
+          break;
+        }
+      }
+      m_key_merge.clear();
+
+      /*
+        Explicitly tell jemalloc to clean up any unused dirty pages at this
+        point.
+        See https://reviews.facebook.net/D63723 for more details.
+      */
+      purge_all_jemalloc_arenas();
+    }
     return rc;
   }
 
-  void start_bulk_load(ha_rocksdb *const bulk_load) {
+  void start_bulk_load(ha_rocksdb *const bulk_load,
+                       std::shared_ptr<Rdb_sst_info> sst_info) {
     /*
      If we already have an open bulk load of a table and the name doesn't
      match the current one, close out the currently running one.  This allows
@@ -2065,28 +2147,40 @@ public:
     DBUG_ASSERT(bulk_load != nullptr);
 
     if (!m_curr_bulk_load.empty() &&
-        !bulk_load->same_table(*m_curr_bulk_load[0])) {
+        bulk_load->get_table_basename() != m_curr_bulk_load_tablename) {
       const auto res = finish_bulk_load();
       SHIP_ASSERT(res == 0);
     }
 
-    m_curr_bulk_load.push_back(bulk_load);
-  }
+    /*
+     This used to track ha_rocksdb handler objects, but those can be
+     freed by the table cache while this was referencing them. Instead
+     of tracking ha_rocksdb handler objects, this now tracks the
+     Rdb_sst_info allocated, and both the ha_rocksdb handler and the
+     Rdb_transaction both have shared pointers to them.
 
-  void end_bulk_load(ha_rocksdb *const bulk_load) {
-    for (auto it = m_curr_bulk_load.begin(); it != m_curr_bulk_load.end();
-         it++) {
-      if (*it == bulk_load) {
-        m_curr_bulk_load.erase(it);
-        return;
-      }
-    }
-
-    // Should not reach here
-    SHIP_ASSERT(0);
+     On transaction complete, it will commit each Rdb_sst_info structure found.
+     If the ha_rocksdb object is freed, etc., it will also commit
+     the Rdb_sst_info. The Rdb_sst_info commit path needs to be idempotent.
+    */
+    m_curr_bulk_load.push_back(sst_info);
+    m_curr_bulk_load_tablename = bulk_load->get_table_basename();
   }
 
   int num_ongoing_bulk_load() const { return m_curr_bulk_load.size(); }
+
+  const char *get_rocksdb_tmpdir() const {
+    const char *tmp_dir = THDVAR(get_thd(), tmpdir);
+
+    /*
+      We want to treat an empty string as nullptr, in these cases DDL operations
+      will use the default --tmpdir passed to mysql instead.
+    */
+    if (tmp_dir != nullptr && *tmp_dir == '\0') {
+      tmp_dir = nullptr;
+    }
+    return (tmp_dir);
+  }
 
   /*
     Flush the data accumulated so far. This assumes we're doing a bulk insert.
@@ -4855,13 +4949,9 @@ ha_rocksdb::ha_rocksdb(my_core::handlerton *const hton,
       m_sk_packed_tuple_old(nullptr), m_dup_sk_packed_tuple(nullptr),
       m_dup_sk_packed_tuple_old(nullptr), m_eq_cond_lower_bound(nullptr),
       m_eq_cond_upper_bound(nullptr), m_pack_buffer(nullptr),
-      m_lock_rows(RDB_LOCK_NONE), m_keyread_only(FALSE),
-      m_bulk_load_tx(nullptr), m_encoder_arr(nullptr),
+      m_lock_rows(RDB_LOCK_NONE), m_keyread_only(FALSE), m_encoder_arr(nullptr),
       m_row_checksums_checked(0), m_in_rpl_delete_rows(false),
-      m_in_rpl_update_rows(false), m_force_skip_unique_check(false) {
-  // TODO(alexyang): create a valid PSI_mutex_key for this mutex
-  mysql_mutex_init(0, &m_bulk_load_mutex, MY_MUTEX_INIT_FAST);
-}
+      m_in_rpl_update_rows(false), m_force_skip_unique_check(false) {}
 
 static const char *ha_rocksdb_exts[] = {NullS};
 
@@ -4871,8 +4961,8 @@ const char **ha_rocksdb::bas_ext() const {
   DBUG_RETURN(ha_rocksdb_exts);
 }
 
-bool ha_rocksdb::same_table(const ha_rocksdb &other) const {
-  return m_tbl_def->base_tablename() == other.m_tbl_def->base_tablename();
+const std::string &ha_rocksdb::get_table_basename() const {
+  return m_tbl_def->base_tablename();
 }
 
 /**
@@ -8784,44 +8874,29 @@ int ha_rocksdb::bulk_load_key(Rdb_transaction *const tx, const Rdb_key_def &kd,
                               const rocksdb::Slice &key,
                               const rocksdb::Slice &value, bool sort) {
   DBUG_ENTER_FUNC();
-
+  int res;
   rocksdb::ColumnFamilyHandle *cf = kd.get_cf();
-  DBUG_ASSERT(cf != nullptr);
 
-  int res = HA_EXIT_SUCCESS;
+  // In the case of unsorted inserts, m_sst_info allocated here is not
+  // used to store the keys. It is still used to indicate when tables
+  // are switched.
+  if (m_sst_info == nullptr || m_sst_info->is_committed()) {
+    m_sst_info.reset(new Rdb_sst_info(rdb, m_table_handler->m_table_name,
+                                      kd.get_name(), cf, *rocksdb_db_options,
+                                      THDVAR(ha_thd(), trace_sst_api)));
+    tx->start_bulk_load(this, m_sst_info);
+  }
+  DBUG_ASSERT(m_sst_info);
 
   if (sort) {
-    GL_INDEX_ID kd_gl_id = kd.get_gl_index_id();
-    auto it = m_key_merge.find(kd_gl_id);
-    if (it == m_key_merge.end()) {
-      m_key_merge.emplace(
-          std::piecewise_construct, std::make_tuple(kd_gl_id),
-          std::make_tuple(
-              thd_rocksdb_tmpdir(), THDVAR(ha_thd(), merge_buf_size),
-              THDVAR(ha_thd(), merge_combine_read_size),
-              THDVAR(ha_thd(), merge_tmp_file_removal_delay_ms), cf));
-      it = m_key_merge.find(kd_gl_id);
-      if ((res = it->second.init()) != 0) {
-        DBUG_RETURN(res);
-      }
+    Rdb_index_merge *key_merge;
+    DBUG_ASSERT(cf != nullptr);
 
-      if (m_bulk_load_tx == nullptr) {
-        tx->start_bulk_load(this);
-        m_bulk_load_tx = tx;
-      }
+    res = tx->get_key_merge(kd.get_gl_index_id(), cf, &key_merge);
+    if (res == HA_EXIT_SUCCESS) {
+      res = key_merge->add(key, value);
     }
-    res = it->second.add(key, value);
   } else {
-    if (!m_sst_info) {
-      m_sst_info.reset(new Rdb_sst_info(rdb, m_table_handler->m_table_name,
-                                        kd.get_name(), cf, *rocksdb_db_options,
-                                        THDVAR(ha_thd(), trace_sst_api)));
-      tx->start_bulk_load(this);
-      m_bulk_load_tx = tx;
-    }
-
-    DBUG_ASSERT(m_sst_info);
-
     res = m_sst_info->put(key, value);
   }
 
@@ -8831,62 +8906,13 @@ int ha_rocksdb::bulk_load_key(Rdb_transaction *const tx, const Rdb_key_def &kd,
 int ha_rocksdb::finalize_bulk_load(bool print_client_error) {
   DBUG_ENTER_FUNC();
 
-  DBUG_ASSERT_IMP(!m_key_merge.empty() || m_sst_info,
-                  m_bulk_load_tx != nullptr);
-
-  /* Skip if there are no possible ongoing bulk loads */
-  if (m_key_merge.empty() && !m_sst_info && m_bulk_load_tx == nullptr) {
-    DBUG_RETURN(HA_EXIT_SUCCESS);
-  }
-
   int res = HA_EXIT_SUCCESS;
 
-  RDB_MUTEX_LOCK_CHECK(m_bulk_load_mutex);
-
+  /* Skip if there are no possible ongoing bulk loads */
   if (m_sst_info) {
     res = m_sst_info->commit(print_client_error);
     m_sst_info.reset();
   }
-
-  if (!m_key_merge.empty()) {
-    rocksdb::Slice merge_key;
-    rocksdb::Slice merge_val;
-    for (auto it = m_key_merge.begin(); it != m_key_merge.end(); it++) {
-      const std::string &index_name =
-          ddl_manager.safe_find(it->first)->get_name();
-      Rdb_index_merge &rdb_merge = it->second;
-      Rdb_sst_info sst_info(rdb, m_table_handler->m_table_name, index_name,
-                            rdb_merge.get_cf(), *rocksdb_db_options,
-                            THDVAR(ha_thd(), trace_sst_api));
-
-      while ((res = rdb_merge.next(&merge_key, &merge_val)) == 0) {
-        if ((res = sst_info.put(merge_key, merge_val)) != 0) {
-          break;
-        }
-      }
-      // res == -1 => finished ok; res > 0 => error
-      if (res <= 0) {
-        if ((res = sst_info.commit(print_client_error)) != 0) {
-          break;
-        }
-      }
-    }
-    m_key_merge.clear();
-
-    /*
-      Explicitly tell jemalloc to clean up any unused dirty pages at this point.
-      See https://reviews.facebook.net/D63723 for more details.
-    */
-    purge_all_jemalloc_arenas();
-  }
-
-  if (m_bulk_load_tx != nullptr) {
-    m_bulk_load_tx->end_bulk_load(this);
-    m_bulk_load_tx = nullptr;
-  }
-
-  RDB_MUTEX_UNLOCK_CHECK(m_bulk_load_mutex);
-
   DBUG_RETURN(res);
 }
 
@@ -9954,20 +9980,6 @@ void ha_rocksdb::read_thd_vars(THD *const thd) {
   m_store_row_debug_checksums = THDVAR(thd, store_row_debug_checksums);
   m_verify_row_debug_checksums = THDVAR(thd, verify_row_debug_checksums);
   m_checksums_pct = THDVAR(thd, checksums_pct);
-}
-
-const char *ha_rocksdb::thd_rocksdb_tmpdir() {
-  const char *tmp_dir = THDVAR(ha_thd(), tmpdir);
-
-  /*
-    We want to treat an empty string as nullptr, in these cases DDL operations
-    will use the default --tmpdir passed to mysql instead.
-  */
-  if (tmp_dir != nullptr && *tmp_dir == '\0') {
-    tmp_dir = nullptr;
-  }
-
-  return (tmp_dir);
 }
 
 /**
@@ -11313,9 +11325,10 @@ int ha_rocksdb::inplace_populate_sk(
     bool is_unique_index =
         new_table_arg->key_info[index->get_keyno()].flags & HA_NOSAME;
 
-    Rdb_index_merge rdb_merge(
-        thd_rocksdb_tmpdir(), rdb_merge_buf_size, rdb_merge_combine_read_size,
-        rdb_merge_tmp_file_removal_delay, index->get_cf());
+    Rdb_index_merge rdb_merge(tx->get_rocksdb_tmpdir(), rdb_merge_buf_size,
+                              rdb_merge_combine_read_size,
+                              rdb_merge_tmp_file_removal_delay,
+                              index->get_cf());
 
     if ((res = rdb_merge.init())) {
       DBUG_RETURN(res);
