@@ -128,6 +128,8 @@ class Rdb_sst_info {
   std::string m_prefix;
   static std::atomic<uint64_t> m_prefix_counter;
   static std::string m_suffix;
+  bool m_committed;
+  mysql_mutex_t m_commit_mutex;
 #if defined(RDB_SST_INFO_USE_THREAD)
   std::queue<Rdb_sst_file_ordered *> m_queue;
   std::mutex m_mutex;
@@ -159,6 +161,7 @@ class Rdb_sst_info {
 
   int put(const rocksdb::Slice &key, const rocksdb::Slice &value);
   int commit(bool print_client_error = true);
+  bool is_committed() const { return m_committed; }
 
   bool have_background_error() { return m_background_error != 0; }
 
