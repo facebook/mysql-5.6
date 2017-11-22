@@ -3375,9 +3375,9 @@ void Log_event::do_post_end_event(Relay_log_info *rli, Log_event_wrapper *ev)
 
   // populate table->last trx penultimate event map
   // NOTE: we store the end event for a single event trx
-  for (auto& table_id : rli->tables_accessed_by_group)
-    rli->dag_table_last_penultimate_event[table_id]= rli->prev_event ?
-                                                     rli->prev_event : ev;
+  for (auto& table_name : rli->tables_accessed_by_group)
+    rli->dag_table_last_penultimate_event[table_name]= rli->prev_event ?
+                                                       rli->prev_event : ev;
 
   // case: this group needs to be executed in isolation
   if (rli->dag_sync_group)
@@ -11895,14 +11895,29 @@ void Rows_log_event::do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev)
 {
   DBUG_ENTER("Rows_log_event::do_add_to_dag");
 
+  DBUG_ASSERT(rli->prev_event != NULL);
+  DBUG_ASSERT(rli->prev_event->get_raw_event()->get_type_code() ==
+              TABLE_MAP_EVENT);
+
+  Table_map_log_event *table_map_ev= static_cast<Table_map_log_event*>
+                                     (rli->prev_event->get_raw_event());
+
+  std::string db_name(table_map_ev->get_db_name());
+  std::string table_name(table_map_ev->get_table_name());
+
+  auto full_table_name= db_name
+                        .append(std::to_string(db_name.length()))
+                        .append(table_name)
+                        .append(std::to_string(table_name.length()));
+
+  auto found_elem= rli->dag_table_last_penultimate_event.find(full_table_name);
+
   // case: we have recorded the last trx's penultimate event for this table,
   // and it exists in the DAG
-  if (rli->dag_table_last_penultimate_event.find(get_table_id()) !=
-      rli->dag_table_last_penultimate_event.end() &&
-      rli->dag.exists(rli->dag_table_last_penultimate_event[get_table_id()]))
+  if (found_elem != rli->dag_table_last_penultimate_event.end() &&
+      rli->dag.exists(found_elem->second))
   {
-    Log_event_wrapper *last_penultimate_event=
-      rli->dag_table_last_penultimate_event[get_table_id()];
+    Log_event_wrapper *last_penultimate_event= found_elem->second;
 
     // add dependency last penultimate ev -> ev
     rli->dag.add_dependency(last_penultimate_event, ev);
@@ -11933,9 +11948,8 @@ void Rows_log_event::do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev)
                               ev->get_begin_event());
     }
   }
-  DBUG_ASSERT(rli->prev_event != NULL);
   rli->dag.add_dependency(rli->prev_event, ev);
-  rli->tables_accessed_by_group.insert(get_table_id());
+  rli->tables_accessed_by_group.insert(full_table_name);
 
   DBUG_VOID_RETURN;
 }
