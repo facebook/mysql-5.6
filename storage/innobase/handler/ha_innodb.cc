@@ -1354,7 +1354,9 @@ static int innobase_start_trx_and_assign_read_view(
                       user for whom the transaction should
                       be committed */
     char *binlog_file,      /* out: binlog file for last commit */
-    ulonglong *binlog_pos); /* out: binlog pos for last commit */
+    ulonglong *binlog_pos,  /* out: binlog pos for last commit */
+    char **gtid_executed,       /* out: Gtids logged until last commit */
+    int *gtid_executed_length); /* out: Length of gtid_executed string */
 /** Flush InnoDB redo logs to the file system.
 @param[in]	hton			InnoDB handlerton
 @param[in]	binlog_group_flush	true if we got invoked by binlog
@@ -4747,7 +4749,9 @@ static int innobase_start_trx_and_assign_read_view(
     THD *thd,         /*!< in: MySQL thread handle of the user for
                       whom the transaction should be committed */
     char *binlog_file,      /* out: binlog file for last commit */
-    ulonglong *binlog_pos)  /* out: binlog pos for last commit */
+    ulonglong *binlog_pos,  /* out: binlog pos for last commit */
+    char **gtid_executed,       /* out: Gtids logged until last commit */
+    int *gtid_executed_length)  /* out: Length of gtid_executed string */
 {
   DBUG_ENTER("innobase_start_trx_and_assign_read_view");
   DBUG_ASSERT(hton == innodb_hton_ptr);
@@ -4801,7 +4805,8 @@ static int innobase_start_trx_and_assign_read_view(
   }
 
   if (binlog_file) {
-    mysql_bin_log_unlock_commits(binlog_file, binlog_pos);
+    mysql_bin_log_unlock_commits(binlog_file, binlog_pos, gtid_executed,
+                                 gtid_executed_length);
   }
 
 cleanup:

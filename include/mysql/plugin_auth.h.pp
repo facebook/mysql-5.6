@@ -121,7 +121,9 @@ void remove_ssl_err_thread_state();
 char mysql_bin_log_is_open(void);
 void mysql_bin_log_lock_commits(void);
 void mysql_bin_log_unlock_commits(char *binlog_file,
-                                  unsigned long long *binlog_pos);
+                                  unsigned long long *binlog_pos,
+                                  char **gtid_executed,
+                                  int *gtid_executed_length);
 #include "plugin_auth_common.h"
 struct MYSQL_PLUGIN_VIO_INFO {
   enum {
