@@ -4003,6 +4003,15 @@ static int rocksdb_init_func(void *const p) {
 
   DBUG_ASSERT(!mysqld_embedded);
 
+  if (rocksdb_db_options->max_open_files > (long)open_files_limit ||
+      rocksdb_db_options->max_open_files < 0) {
+    sql_print_information("RocksDB: rocksdb_max_open_files should not be "
+                          "greater than the open_files_limit, effective value "
+                          "of rocksdb_max_open_files is being set to "
+                          "open_files_limit / 2.");
+    rocksdb_db_options->max_open_files = open_files_limit / 2;
+  }
+
   rocksdb_stats = rocksdb::CreateDBStatistics();
   rocksdb_db_options->statistics = rocksdb_stats;
 
