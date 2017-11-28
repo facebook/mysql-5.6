@@ -101,6 +101,7 @@ typedef struct st_net {
   enum mysql_compression_lib comp_lib;
   ZSTD_CCtx *cctx;
   ZSTD_DCtx *dctx;
+  void *qsbr_context;
   unsigned char *unused;
   unsigned int last_errno;
   unsigned char error;
