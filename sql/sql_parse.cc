@@ -120,6 +120,10 @@
 #include "sql_parse_com_rpc.h" // handle_com_rpc, srv_session_end_statement
 #include "srv_session.h"
 
+#ifndef EMBEDDED_LIBRARY
+#include "perf_counters.h"
+#endif
+
 #ifdef HAVE_JEMALLOC
 #ifndef EMBEDDED_LIBRARY
 #include <jemalloc/jemalloc.h>
@@ -1543,6 +1547,12 @@ static bool set_session_db_helper(THD *thd, const LEX_STRING *new_db)
   return true;
 }
 
+#ifndef EMBEDDED_LIBRARY
+static std::string perf_counter_factory_name("simple");
+static std::shared_ptr<utils::PerfCounterFactory> pc_factory=
+  utils::PerfCounterFactory::getFactory(perf_counter_factory_name);
+#endif
+
 /**
   Perform one connection-level (COM_XXXX) command.
 
@@ -1579,6 +1589,23 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
   struct system_status_var *query_start_status_ptr= NULL;
   DBUG_ENTER("dispatch_command");
   DBUG_PRINT("info",("packet: '%*.s'; command: %d", packet_length, packet, command));
+
+#ifndef EMBEDDED_LIBRARY
+  // do collection of samples for passed in "traceid"
+  std::string traceId;
+  std::unordered_map<std::string, std::string>::const_iterator tid_iter;
+  if (!thd->query_attrs_map.empty() &&
+      (tid_iter= thd->query_attrs_map.find("traceid")) !=
+       thd->query_attrs_map.end()) {
+    thd->trace_id = tid_iter->second;
+    if (!thd->query_perf) {
+      thd->query_perf= pc_factory->makeSharedPerfCounter(
+        utils::PerfCounterMode::PCM_THREAD,
+        utils::PerfCounterType::PCT_INSTRUCTIONS);
+    }
+    thd->query_perf->start();
+  }
+#endif
 
   if (opt_log_slow_extra)
   {
@@ -2343,6 +2370,12 @@ done:
                       thd->get_stmt_da()->sql_errno() : 0,
                       command_name[command].str);
 
+#ifndef EMBEDDED_LIBRARY
+  if (!thd->trace_id.empty()) {
+    thd->pc_val= thd->query_perf->getAndStop();
+  }
+#endif
+
   log_slow_statement(thd, query_start_status_ptr);
 
   THD_STAGE_INFO(thd, stage_cleaning_up);
@@ -2458,7 +2491,8 @@ bool log_slow_applicable(THD *thd)
                             thd->variables.min_examined_row_limit)) ||
       (thd->variables.slow_log_if_rows_examined_exceed > 0 &&
        thd->get_examined_row_count() >
-       thd->variables.slow_log_if_rows_examined_exceed);
+       thd->variables.slow_log_if_rows_examined_exceed) ||
+       !thd->trace_id.empty();
     bool suppress_logging= log_throttle_qni.log(thd, warn_no_index);
 
     if (!suppress_logging && log_this_query)
