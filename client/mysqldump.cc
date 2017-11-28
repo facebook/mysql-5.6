@@ -538,8 +538,7 @@ static struct my_option my_long_options[] = {
     */
     {"single-transaction", OPT_TRANSACTION,
      "Creates a consistent snapshot by dumping all tables in a single "
-     "transaction. Works ONLY for tables stored in storage engines which "
-     "support multiversioning (currently only InnoDB does); the dump is NOT "
+     "transaction. Works ONLY for tables stored in InnoDB; the dump is NOT "
      "guaranteed to be consistent for other storage engines. "
      "While a --single-transaction dump is in process, to ensure a valid "
      "dump file (correct table contents and binary log position), no other "
@@ -4853,24 +4852,28 @@ static int dump_selected_tables(char *db, char **table_names, int tables) {
   return 0;
 } /* dump_selected_tables */
 
+static void write_master_status_to_output(const char *filename,
+                                          const char *position) {
+  const char *comment_prefix =
+      (opt_master_data == MYSQL_OPT_MASTER_DATA_COMMENTED_SQL) ? "-- " : "";
+  print_comment(md_result_file, 0,
+                "\n--\n-- Position to start replication or point-in-time "
+                "recovery from\n--\n\n");
+  fprintf(md_result_file,
+          "%sCHANGE MASTER TO MASTER_LOG_FILE='%s', MASTER_LOG_POS=%s;\n",
+          comment_prefix, filename, position);
+  check_io(md_result_file);
+}
+
 static int do_show_master_status(MYSQL *mysql_con) {
   MYSQL_ROW row;
   MYSQL_RES *master;
-  const char *comment_prefix =
-      (opt_master_data == MYSQL_OPT_MASTER_DATA_COMMENTED_SQL) ? "-- " : "";
   if (mysql_query_with_error_report(mysql_con, &master, "SHOW MASTER STATUS")) {
     return 1;
   } else {
     row = mysql_fetch_row(master);
     if (row && row[0] && row[1]) {
-      /* SHOW MASTER STATUS reports file and position */
-      print_comment(md_result_file, false,
-                    "\n--\n-- Position to start replication or point-in-time "
-                    "recovery from\n--\n\n");
-      fprintf(md_result_file,
-              "%sCHANGE MASTER TO MASTER_LOG_FILE='%s', MASTER_LOG_POS=%s;\n",
-              comment_prefix, row[0], row[1]);
-      check_io(md_result_file);
+      write_master_status_to_output(row[0], row[1]);
     } else if (!opt_force) {
       /* SHOW MASTER STATUS reports nothing and --force is not enabled */
       my_printf_error(0, "Error: Binlogging on server not active", MYF(0));
@@ -5020,10 +5023,6 @@ static int do_flush_tables_read_lock(MYSQL *mysql_con) {
                                         "FLUSH TABLES WITH READ LOCK"));
 }
 
-static int do_unlock_tables(MYSQL *mysql_con) {
-  return mysql_query_with_error_report(mysql_con, nullptr, "UNLOCK TABLES");
-}
-
 static int get_bin_log_name(MYSQL *mysql_con, char *buff_log_name,
                             uint buff_len) {
   MYSQL_RES *res;
@@ -5058,7 +5057,8 @@ static int purge_bin_logs_to(MYSQL *mysql_con, char *log_name) {
   return err;
 }
 
-static int start_transaction(MYSQL *mysql_con) {
+static int start_transaction(MYSQL *mysql_con, char *filename_out,
+                             char *pos_out) {
   verbose_msg("-- Starting transaction...\n");
   /*
     We use BEGIN for old servers. --single-transaction --master-data will fail
@@ -5082,13 +5082,32 @@ static int start_transaction(MYSQL *mysql_con) {
     if (!opt_force) exit(EX_MYSQLERR);
   }
 
-  return (
-      mysql_query_with_error_report(mysql_con, nullptr,
-                                    "SET SESSION TRANSACTION ISOLATION "
-                                    "LEVEL REPEATABLE READ") ||
-      mysql_query_with_error_report(mysql_con, nullptr,
-                                    "START TRANSACTION "
-                                    "/*!40100 WITH CONSISTENT SNAPSHOT */"));
+  if (mysql_query_with_error_report(
+          mysql_con, nullptr,
+          "SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ"))
+    return 1;
+
+  {
+    MYSQL_RES *res = NULL;
+
+    if (mysql_query_with_error_report(
+            mysql_con, &res,
+            "START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT") ||
+        !res)
+      return 1;
+
+    {
+      MYSQL_ROW row = mysql_fetch_row(res);
+      if (!row || !row[0][0] || !row[1][0]) {
+        mysql_free_result(res);
+        return 1;
+      }
+      strcpy(filename_out, row[0]);
+      strcpy(pos_out, row[1]);
+    }
+    mysql_free_result(res);
+  }
+  return 0;
 }
 
 /* Print a value with a prefix on file */
@@ -5702,7 +5721,8 @@ static void dynstr_realloc_checked(DYNAMIC_STRING *str,
 }
 
 int main(int argc, char **argv) {
-  char bin_log_name[FN_REFLEN];
+  char bin_log_name[FN_REFLEN] = "";
+  char bin_log_pos[21] = "";  // 20 digits plus trailing null byte
   int exit_code, md_result_fd = 0;
   MY_INIT("mysqldump");
 
@@ -5737,8 +5757,7 @@ int main(int argc, char **argv) {
 
   if (opt_slave_data && do_stop_slave_sql(mysql)) goto err;
 
-  if ((opt_lock_all_tables || opt_master_data ||
-       (opt_single_transaction && flush_logs)) &&
+  if ((opt_lock_all_tables || (opt_single_transaction && flush_logs)) &&
       do_flush_tables_read_lock(mysql))
     goto err;
 
@@ -5764,7 +5783,9 @@ int main(int argc, char **argv) {
     if (get_bin_log_name(mysql, bin_log_name, sizeof(bin_log_name))) goto err;
   }
 
-  if (opt_single_transaction && start_transaction(mysql)) goto err;
+  if (opt_single_transaction &&
+      start_transaction(mysql, bin_log_name, bin_log_pos))
+    goto err;
 
   /* Add 'STOP SLAVE to beginning of dump */
   if (opt_slave_apply && add_stop_slave()) goto err;
@@ -5773,11 +5794,15 @@ int main(int argc, char **argv) {
    */
   if (process_set_gtid_purged(mysql)) goto err;
 
-  if (opt_master_data && do_show_master_status(mysql)) goto err;
+  if (opt_master_data) {
+    if (bin_log_name[0] && bin_log_pos[0]) {
+      write_master_status_to_output(bin_log_name, bin_log_pos);
+    } else {
+      if (do_show_master_status(mysql)) goto err;
+    }
+  }
+
   if (opt_slave_data && do_show_slave_status(mysql)) goto err;
-  if (opt_single_transaction &&
-      do_unlock_tables(mysql)) /* unlock but no commit! */
-    goto err;
 
   if (opt_alltspcs) dump_all_tablespaces();
 
