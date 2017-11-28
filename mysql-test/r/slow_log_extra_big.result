@@ -21,6 +21,10 @@ count(*)
 select count(*) from big_table_slow where id < 100000;
 count(*)
 20000
+set session long_query_time = 10000;
+select count(*) from big_table_slow where id >10000;
+count(*)
+15000
 # Cleanup
 SET GLOBAL innodb_file_format = "Barracuda";
 set global slow_query_log_file = @my_slow_logname;
@@ -39,5 +43,6 @@ Rows_sent	Rows_examined	Errno	Killed	Bytes_received	Bytes_sent	Read_first	Read_l
 1	1	0	0	0	314	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0
 1	15000	0	0	0	67	0	0	1	15000	0	0	0	0	0	0	0	0	0	0	0
 1	20000	0	0	0	67	1	0	1	20000	0	0	0	0	0	0	0	0	0	0	0
+1	15000	0	0	0	67	0	0	1	15000	0	0	0	0	0	0	0	0	0	0	0
 if the following is not 1 you need to adjust the file_lines_count variable
 1

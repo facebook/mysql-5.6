@@ -109,6 +109,10 @@ class User_level_lock;
 class user_var_entry;
 class ExecutionContextImpl;
 
+namespace utils {
+class PerfCounter;
+}
+
 class Srv_session;
 
 struct st_thd_timer;
@@ -4541,6 +4545,7 @@ public:
   {
     query_attrs_string= CSET_STRING();
     query_attrs_map.clear();
+    trace_id.clear();
   }
   inline char *query_attrs() const { return query_attrs_string.str(); }
   inline uint32 query_attrs_length() const
@@ -4739,6 +4744,9 @@ private:
 
 public:
   DB_STATS *db_stats;
+  std::shared_ptr<utils::PerfCounter> query_perf;
+  std::string trace_id;
+  uint64_t pc_val;
 };
 
 /*

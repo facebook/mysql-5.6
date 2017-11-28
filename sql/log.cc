@@ -2190,6 +2190,7 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
                thd->status_var.read_time)));
    }
 
+  bool tid_present = !(thd->trace_id.empty());
   mysql_mutex_lock(&LOCK_log);
 
   if (is_open())
@@ -2245,6 +2246,7 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
                       " Tmp_table_bytes_written: %lu"
                       " Start: %s End: %s"
                       " Reads: %lu Read_time: %s"
+                      " Trace_Id: %s Instruction_Cost: %lu"
                       " Semisync_ack_time: %s Engine_commit_time: %s\n",
                       query_time_buff, lock_time_buff,
                       (ulong) thd->get_sent_row_count(),
@@ -2292,6 +2294,8 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
                       (ulong) (thd->status_var.read_requests -
                           query_start->read_requests),
                       read_time_buff,
+                      (tid_present ? thd->trace_id.c_str() : "NA"),
+                      (tid_present ? thd->pc_val : 0),
                       semisync_ack_time_buff,
                       engine_commit_time_buff) == (uint) -1)
       tmp_errno=errno;
@@ -2314,6 +2318,7 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
                       " Tmp_table_bytes_written: %lu"
                       " Start: %s End: %s"
                       " Reads: %lu Read_time: %s"
+                      " Trace_Id: %s Instruction_Cost: %lu"
                       " Semisync_ack_time: %s Engine_commit_time: %s\n",
                       query_time_buff, lock_time_buff,
                       (ulong) thd->get_sent_row_count(),
@@ -2342,6 +2347,8 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
                       start_time_buff, end_time_buff,
                       (ulong) thd->status_var.read_requests,
                       read_time_buff,
+                      (tid_present ? thd->trace_id.c_str() : "NA"),
+                      (tid_present ? thd->pc_val : 0),
                       semisync_ack_time_buff,
                       engine_commit_time_buff) == (uint) -1)
       tmp_errno=errno;
