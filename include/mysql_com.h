@@ -482,6 +482,7 @@ typedef struct st_net {
   enum mysql_compression_lib comp_lib;
   ZSTD_CCtx *cctx;
   ZSTD_DCtx *dctx;
+  void *qsbr_context;
   /*
     Pointer to query object in query cache, do not equal NULL (0) for
     queries in cache that have not stored its results yet

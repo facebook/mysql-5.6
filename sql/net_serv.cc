@@ -139,6 +139,10 @@ my_bool my_net_init(NET *net, Vio* vio)
   net->extension= NULL;
 #endif
 
+#ifdef HAVE_JUNCTION
+  net->qsbr_context= NULL;
+#endif
+
   if (vio)
   {
     /* For perl DBI/DBD. */

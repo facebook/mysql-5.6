@@ -54,10 +54,16 @@ struct binlog_comp_event
 
   binlog_comp_event(std::shared_ptr<uchar> buff, size_t len):
     buff(buff), len(len) { }
+
+  void destroy()
+  {
+    delete this;
+  }
 };
 
 /* Cache for compressed events and associated structures */
 #ifdef HAVE_JUNCTION
+
 typedef junction::ConcurrentMap_Grampa<ulonglong, binlog_comp_event*>
                                                                comp_event_cache;
 #define COMP_EVENT_CACHE_NUM_SHARDS 1 // no need to shard lock free hash table
@@ -65,14 +71,19 @@ static mysql_mutex_t LOCK_comp_event_cache[COMP_EVENT_CACHE_NUM_SHARDS];
 #ifdef HAVE_PSI_INTERFACE
 static PSI_mutex_key key_LOCK_comp_event_cache[COMP_EVENT_CACHE_NUM_SHARDS];
 #endif
-#else
+
+#else // !HAVE_JUNCTION
+
 typedef std::unordered_map<ulonglong, binlog_comp_event*> comp_event_cache;
 #define COMP_EVENT_CACHE_NUM_SHARDS 32
 static mysql_rwlock_t LOCK_comp_event_cache[COMP_EVENT_CACHE_NUM_SHARDS];
 #ifdef HAVE_PSI_INTERFACE
 static PSI_rwlock_key key_LOCK_comp_event_cache[COMP_EVENT_CACHE_NUM_SHARDS];
 #endif
+
 #endif
+
+
 typedef std::queue<std::pair<ulonglong, std::size_t>> comp_event_queue;
 
 static comp_event_cache comp_event_cache_list[COMP_EVENT_CACHE_NUM_SHARDS];
@@ -204,6 +215,7 @@ void clear_compressed_event_cache()
     cache_hit_count= cache_miss_count= comp_event_cache_size= 0;
     cache_stats_timer= my_time(0);
     comp_event_cache_hit_ratio= 0;
+    DBUG_ASSERT(comp_event_queue_list[i].empty());
 #ifdef HAVE_JUNCTION
     mysql_mutex_unlock(&LOCK_comp_event_cache[i]);
 #else
@@ -508,11 +520,13 @@ static void evict_compressed_events(comp_event_cache &comp_cache,
                                     comp_event_queue &comp_queue,
                                     ulonglong max_cache_size)
 {
+  // case: the cache is not full yet short-circuit
   if (comp_event_cache_size <= max_cache_size)
     return;
 
   // old event eviction
-  while ((comp_event_cache_size > max_cache_size * 0.6) && !comp_queue.empty())
+  while ((comp_event_cache_size > max_cache_size * 0.6) &&
+      !comp_queue.empty())
   {
     ulonglong key;
     size_t size;
@@ -521,7 +535,7 @@ static void evict_compressed_events(comp_event_cache &comp_cache,
 #ifdef HAVE_JUNCTION
     auto value= comp_cache.erase(key);
     DBUG_ASSERT(value != NULL);
-    delete value;
+    junction::DefaultQSBR.enqueue(&binlog_comp_event::destroy, value);
 #else
     DBUG_ASSERT(comp_cache.count(key));
     auto value= comp_cache.at(key);
@@ -540,6 +554,17 @@ static binlog_comp_event get_compressed_event(NET *net,
                                               bool is_semi_sync_slave,
                                               bool cache)
 {
+  // this shared ptr is used to call update() before we leave this function, it
+  // doesn't maintain any actual pointer
+  std::shared_ptr<uchar>
+    quiescent(NULL,
+              [net] (void *ptr)
+              {
+                DBUG_ASSERT(net->qsbr_context != NULL);
+                junction::DefaultQSBR.update(
+                    *static_cast<junction::QSBR::Context*>(net->qsbr_context));
+              });
+
   if (!cache)
     return compress_event(net, packet);
 
@@ -577,7 +602,8 @@ static binlog_comp_event get_compressed_event(NET *net,
   if (auto elem= comp_cache.get(ev_key))
   {
     ++cache_hit_count;
-    return *elem;
+    auto ret= *elem;
+    return ret;
   }
 
   // event not found in the cache, take write lock but check for existance again
@@ -1249,12 +1275,31 @@ bool com_binlog_dump(THD *thd, char *packet, uint packet_length)
     my_atomic_add32(&thread_binlog_comp_event_client, 1);
   dec_thread_running();
 
+#ifdef HAVE_JUNCTION
+  if (thd->net.compress_event)
+  {
+    thd->net.qsbr_context= new junction::QSBR::Context(
+        junction::DefaultQSBR.createContext());
+  }
+#endif
+
   mysql_binlog_send(thd, thd->strdup(packet + 10), (my_off_t) pos, NULL, flags);
 
   inc_thread_running();
   my_atomic_add32(&thread_binlog_client, -1);
   if (thd->net.compress_event)
     my_atomic_add32(&thread_binlog_comp_event_client, -1);
+
+#ifdef HAVE_JUNCTION
+  if (thd->net.compress_event)
+  {
+    auto qsbr_context=
+      static_cast<junction::QSBR::Context*>(thd->net.qsbr_context);
+    DBUG_ASSERT(qsbr_context != NULL);
+    junction::DefaultQSBR.destroyContext(*qsbr_context);
+    delete qsbr_context;
+  }
+#endif
 
   unregister_slave(thd, true, true/*need_lock_slave_list=true*/);
   /*  fake COM_QUIT -- if we get here, the thread needs to terminate */
@@ -1314,6 +1359,14 @@ bool com_binlog_dump_gtid(THD *thd, char *packet, uint packet_length)
     my_atomic_add32(&thread_binlog_comp_event_client, 1);
   dec_thread_running();
 
+#ifdef HAVE_JUNCTION
+  if (thd->net.compress_event)
+  {
+    thd->net.qsbr_context= new junction::QSBR::Context(
+        junction::DefaultQSBR.createContext());
+  }
+#endif
+
   if ((flags & USING_START_GTID_PROTOCOL))
   {
     if ((error = find_gtid_position_helper(gtid_string, name, pos)))
@@ -1331,6 +1384,17 @@ bool com_binlog_dump_gtid(THD *thd, char *packet, uint packet_length)
   my_atomic_add32(&thread_binlog_client, -1);
   if (thd->net.compress_event)
     my_atomic_add32(&thread_binlog_comp_event_client, -1);
+
+#ifdef HAVE_JUNCTION
+  if (thd->net.compress_event)
+  {
+    auto qsbr_context=
+      static_cast<junction::QSBR::Context*>(thd->net.qsbr_context);
+    DBUG_ASSERT(qsbr_context != NULL);
+    junction::DefaultQSBR.destroyContext(*qsbr_context);
+    delete qsbr_context;
+  }
+#endif
 
   my_free(gtid_string);
   unregister_slave(thd, true, true/*need_lock_slave_list=true*/);
