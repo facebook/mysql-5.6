@@ -308,22 +308,24 @@ bool rdb_check_rocksdb_corruption() {
 }
 
 void rdb_persist_corruption_marker() {
-  const char *fileName = myrocks::rdb_corruption_marker_file_name().c_str();
-  int fd = my_open(fileName, O_CREAT | O_SYNC, MYF(MY_WME));
+  const std::string &fileName(myrocks::rdb_corruption_marker_file_name());
+  int fd = my_open(fileName.c_str(), O_CREAT | O_SYNC, MYF(MY_WME));
   if (fd < 0) {
     sql_print_error("RocksDB: Can't create file %s to mark rocksdb as "
                     "corrupted.",
-                    fileName);
+                    fileName.c_str());
   } else {
     sql_print_information("RocksDB: Creating the file %s to abort mysqld "
                           "restarts. Remove this file from the data directory "
                           "after fixing the corruption to recover. ",
-                          fileName);
+                          fileName.c_str());
   }
 
   int ret = my_close(fd, MYF(MY_WME));
   if (ret) {
-    sql_print_error("RocksDB: Error (%d) closing the file %s", ret, fileName);
+    // NO_LINT_DEBUG
+    sql_print_error("RocksDB: Error (%d) closing the file %s", ret,
+                    fileName.c_str());
   }
 }
 
