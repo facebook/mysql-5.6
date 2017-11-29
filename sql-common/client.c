@@ -671,6 +671,7 @@ static LIST* read_resp_attr_entry(uchar **pos)
 
 static int read_resp_attrs(MYSQL *mysql, STATE_INFO *info, uchar **pos)
 {
+  (void) net_field_length(pos); // Length is included so it can be skipped
   size_t count = (size_t) net_field_length(pos);
   LIST *element_key= NULL;
   LIST *element_value= NULL;
