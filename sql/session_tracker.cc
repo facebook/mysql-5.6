@@ -318,19 +318,22 @@ bool Session_resp_attr_tracker::store(THD *thd, String &buf)
 {
   DBUG_ASSERT(attrs_.size() > 0);
 
-  size_t len = 1 + net_length_size(attrs_.size());;
+  size_t len = net_length_size(attrs_.size());;
   for (const auto& attr : attrs_) {
     len += net_length_size(attr.first.size()) + attr.first.size();
     len += net_length_size(attr.second.size()) + attr.second.size();
   }
+  size_t header_len = 1 + net_length_size(len) + len;
 
-  uchar *to= (uchar *) buf.prep_append(len, EXTRA_ALLOC);
+  uchar *to= (uchar *) buf.prep_append(header_len, EXTRA_ALLOC);
 
   /* format of the payload is as follows:
-     [tracker type] [count of pairs] [keylen] [keydata] [vallen] [valdata] */
+     [tracker type] [total bytes] [count of pairs] [keylen] [keydata]
+     [vallen] [valdata] */
 
   /* Session state type */
   *to = SESSION_TRACK_RESP_ATTR; to++;
+  to= net_store_length(to, len);
   to= net_store_length(to, attrs_.size());
 
   DBUG_PRINT("info", ("Sending response attributes:"));
