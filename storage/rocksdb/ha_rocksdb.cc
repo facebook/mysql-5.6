@@ -12804,8 +12804,9 @@ double ha_rocksdb::read_time(uint index, uint ranges, ha_rows rows) {
 }
 
 std::string rdb_corruption_marker_file_name() {
-  return std::string(std::string(rocksdb_datadir) +
-                     std::string("/ROCKSDB_CORRUPTED"));
+  std::string ret(rocksdb_datadir);
+  ret.append("/ROCKSDB_CORRUPTED");
+  return ret;
 }
 
 } // namespace myrocks
