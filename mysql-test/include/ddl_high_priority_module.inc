@@ -50,6 +50,9 @@
 ## Setup
 ##
 
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
 connection default;
 
 # create con1
@@ -139,3 +142,5 @@ connection default;
 show processlist;
 
 disconnect con1;
+
+--source include/wait_until_count_sessions.inc
