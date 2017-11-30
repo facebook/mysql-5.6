@@ -6590,7 +6590,13 @@ sub run_ctest() {
   # Special override: also ignore in Pushbuild, some platforms may not have it
   # Now, run ctest and collect output
   $ENV{CTEST_OUTPUT_ON_FAILURE} = 1;
-  my $ctest_out= `ctest $ctest_vs 2>&1`;
+
+  # For ASan builds, add in the leak suppression file
+  my $ctest_cmd = join(" ",
+                       "LSAN_OPTIONS=" .
+                       "suppressions=$glob_mysql_test_dir/asan.supp",
+                       "ctest $ctest_vs 2>&1");
+  my $ctest_out= `$ctest_cmd`;
   if ($? == $no_ctest && ($opt_ctest == -1 || defined $ENV{PB2WORKDIR})) {
     chdir($olddir);
     return;
