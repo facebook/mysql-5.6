@@ -687,7 +687,6 @@ INSERT INTO t2 VALUES (1);
 --echo switch to connection c2
 CONNECTION c2;
 SET AUTOCOMMIT=0;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 LOCK TABLES t1 READ, t2 READ;
 
@@ -1421,7 +1420,6 @@ connection con2;
 
 --enable_info
 --disable_abort_on_error
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 UPDATE t1 SET b = 21 WHERE a = 1;
 --disable_info

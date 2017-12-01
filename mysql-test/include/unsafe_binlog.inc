@@ -59,7 +59,6 @@ set autocommit = 0;
 #
 # S-lock to records (2,2),(4,2), and (6,2) should not be released in a update
 #
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 select * from t1 where a = 2 and b = 2 for update;
 connection a;
@@ -214,42 +213,34 @@ set autocommit = 0;
 create table t10(a int not null, b int, primary key(a)) select * from t2 for update;
 
 connection b;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 reap;
 
 connection c;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 reap;
 
 connection d;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 reap;
 
 connection e;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 reap;
 
 connection f;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 reap;
 
 connection g;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 reap;
 
 connection h;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 reap;
 
 connection i;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 reap;
 

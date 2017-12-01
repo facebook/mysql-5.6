@@ -39,39 +39,30 @@ set innodb_lock_wait_timeout=1;
 # implicit lock on 51
 insert into gaplocktest values (51, '51');
 # any update/delete on 75 should fail since 75 is implicitly locked
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 update gaplocktest set value = '7575' where id = 75;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 delete from gaplocktest where id = 75;
 rollback;
 
 start transaction;
 # a gap lock is inherited during insert
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 insert into gaplocktest values (1, '1'); # <== gap lock
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 update gaplocktest set value = '2525' where id = 25;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 update gaplocktest set value = '7575' where id = 75;
 # If the element is not found then a gap lock is obtained
 update gaplocktest set value = '2626' where id = 26; # <== gap lock
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 delete from gaplocktest where id = 25;
 rollback;
 
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 insert into gaplocktest values (1, '1'); # <== gap lock
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 update gaplocktest set value = '2525' where id = 25;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 delete from gaplocktest where id = 25;
 
@@ -82,7 +73,6 @@ delete from gaplocktest where id = 25;
 start transaction;
 # explicit lock [100, inf)
 select * from gaplocktest where id > 100 for update; # <== gap lock
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 select * from gaplocktest where id > 40 for update; # <== gap lock
 rollback;

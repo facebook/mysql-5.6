@@ -75,7 +75,6 @@ while ($type)
   {
     SET AUTOCOMMIT = 0;
   }
-  --replace_regex /Timeout on record \(.*\)/Timeout on record/
   --error ER_LOCK_WAIT_TIMEOUT
   eval UPDATE t SET f = 'magenta $type' WHERE f = 'red';
   eval INSERT INTO t VALUES (5 + ($type * 10),"brown");
@@ -111,7 +110,6 @@ while ($type)
   {
     SET AUTOCOMMIT = 0;
   }
-  --replace_regex /Timeout on record \(.*\)/Timeout on record/
   --error ER_LOCK_WAIT_TIMEOUT
   eval UPDATE t SET f = 'dark blue $type' WHERE f = 'red';
   eval INSERT INTO t VALUES (6 + ($type * 10),"brown");

@@ -47,18 +47,5 @@ set session innodb_lock_wait_timeout=0;
 SELECT * FROM t1 WHERE a=0 FOR UPDATE;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 rollback;
-drop table t1;
-CREATE TABLE t1 (a char(255), index(a)) ENGINE=InnoDB;
-INSERT INTO t1 values (repeat('a',255));
-begin;
-SELECT * FROM t1 WHERE a like 'a%' FOR UPDATE;
-a
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-SELECT * FROM t1 WHERE a like 'a%' FOR UPDATE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...) in index: test/t1.a
-set session innodb_lock_wait_timeout=0;
-SELECT * FROM t1 WHERE a like 'a%' FOR UPDATE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...) in index: test/t1.a
-rollback;
 set global innodb_lock_wait_timeout=default;
 drop table t1;

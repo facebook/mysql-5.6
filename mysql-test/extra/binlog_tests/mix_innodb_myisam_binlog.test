@@ -198,7 +198,6 @@ connection con3;
 insert into t2 values (20);
 
 connection con2;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error 1205
 reap;
 select (@after:=unix_timestamp())*0; # always give repeatable output

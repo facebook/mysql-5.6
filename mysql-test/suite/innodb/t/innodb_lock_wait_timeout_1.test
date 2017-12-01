@@ -24,19 +24,15 @@ CONNECTION addconroot;
 
 BEGIN;
 
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 SELECT b FROM t2 WHERE b=7 FOR UPDATE;
 
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 INSERT INTO t1 (a) VALUES ((SELECT a FROM t2 WHERE b=7));
 
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 UPDATE t1 SET a='7000000' WHERE a=(SELECT a FROM t2 WHERE b=7);
 
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 DELETE FROM t1 WHERE a=(SELECT a FROM t2 WHERE b=7);
 
@@ -64,7 +60,6 @@ begin;
 select * from t1 where b=5 for update;
 connect (con1, localhost, root,,);
 connection con1;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 insert ignore into t1 (b) select a as b from t1;
 connection default;
@@ -93,12 +88,10 @@ begin;
 update t1 set v=id*2 where id=2;
 
 --connection con1
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error 1205
 update t1 set v=id*2 where id=2;
 
 --connection default
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error 1205
 insert ignore into t2 select * from t1 where id=1; 
 rollback;
@@ -192,7 +185,6 @@ delete from t1 where a in (19,20);
 --echo # because the previous select returned no rows. 
 --echo # Just demonstrate the effect.
 --echo #
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 delete from t1;
 rollback;
@@ -257,7 +249,6 @@ connection con1;
 --echo # We should not be able to delete record (3,1) from t1,
 --echo # (previously it was possible).
 --echo #
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 delete from t1 where a=3;
 --echo # Switching to connection default

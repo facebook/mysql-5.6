@@ -34,7 +34,6 @@ connect (session2, localhost, test_user_1,'testpw',test);
 --echo ####### expect p30-299 is readable, p0-29 is locked
 --sorted_result
 SELECT * FROM t1 PARTITION (`p30-299`);
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT 
 SELECT * FROM t1 PARTITION (`p0-29`);
 

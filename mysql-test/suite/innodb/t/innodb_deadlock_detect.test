@@ -48,7 +48,6 @@ let $wait_condition=
 --source include/wait_condition.inc
 
 --echo # Try locking second row in con1
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 update t1 set id = 4 where id = 2;
 commit;
@@ -56,7 +55,6 @@ commit;
 --echo # Switch to connection con2
 connection con2;
 --echo # reap the update command
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 --reap
 commit;

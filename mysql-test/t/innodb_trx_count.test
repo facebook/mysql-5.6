@@ -31,7 +31,6 @@ let $commit_undo1 = query_get_value(show global status like "Innodb_transaction_
 let $rollback_partial1 = query_get_value(show global status like "Innodb_transaction_rollback_partial", Value, 1);
 let $rollback_total1 = query_get_value(show global status like "Innodb_transaction_rollback_total", Value, 1);
 
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 update t1 set i=2 where i=1;
 rollback;

@@ -220,10 +220,8 @@ START TRANSACTION;
 
 SELECT * FROM t1;
 
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 INSERT INTO t1 VALUES(9, 9);
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 INSERT INTO t1 VALUES(13, 13);
 --echo Expected error "Lock wait timeout"
@@ -256,10 +254,8 @@ START TRANSACTION;
 
 SELECT * FROM t1;
 
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 INSERT INTO t1 VALUES(9, 9);
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 INSERT INTO t1 VALUES(13, 13);
 --echo Expected error "Lock wait timeout"
@@ -292,10 +288,8 @@ START TRANSACTION;
 
 SELECT * FROM t1;
 
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 INSERT INTO t1 VALUES(9, 9);
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 INSERT INTO t1 VALUES(13, 13);
 --echo Expected error "Lock wait timeout"
@@ -337,18 +331,14 @@ connection con1;
 
 START TRANSACTION;
 
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 SELECT * FROM t1;
 
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 INSERT INTO t1 VALUES(15, 15);
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 INSERT INTO t1 VALUES(17, 17);
 
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 SELECT * FROM t1;
 
