@@ -141,6 +141,12 @@ typedef struct MYSQL_PLUGIN_VIO {
                       int packet_len);
   void (*info)(struct MYSQL_PLUGIN_VIO *vio,
                struct MYSQL_PLUGIN_VIO_INFO *info);
+  enum net_async_status (*read_packet_nonblocking)(struct MYSQL_PLUGIN_VIO *vio,
+                                                   unsigned char **buf,
+                                                   int *result);
+  enum net_async_status (*write_packet_nonblocking)(
+      struct MYSQL_PLUGIN_VIO *vio, const unsigned char *pkt, int pkt_len,
+      int *result);
 } MYSQL_PLUGIN_VIO;
 struct MYSQL_SERVER_AUTH_INFO {
   char *user_name;

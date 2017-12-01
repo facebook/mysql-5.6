@@ -150,6 +150,22 @@ struct MYSQL_METHODS {
   int (*read_rows_from_cursor)(MYSQL_STMT *stmt);
   void (*free_rows)(MYSQL_DATA *cur);
 #endif
+  enum net_async_status (*read_query_result_nonblocking)(MYSQL *mysql,
+                                                         bool *error);
+  enum net_async_status (*advanced_command_nonblocking)(
+      MYSQL *mysql, enum enum_server_command command,
+      const unsigned char *header, unsigned long header_length,
+      const unsigned char *arg, unsigned long arg_length, bool skip_check,
+      MYSQL_STMT *stmt, bool *error);
+  enum net_async_status (*read_rows_nonblocking)(MYSQL *mysql,
+                                                 MYSQL_FIELD *mysql_fields,
+                                                 unsigned int fields,
+                                                 MYSQL_DATA **result);
+  enum net_async_status (*flush_use_result_nonblocking)(MYSQL *mysql,
+                                                        bool flush_all_results);
+  enum net_async_status (*next_result_nonblocking)(MYSQL *mysql, bool *error);
+  enum net_async_status (*read_change_user_result_nonblocking)(MYSQL *mysql,
+                                                               ulong *res);
 };
 
 #define simple_command(mysql, command, arg, length, skip_check)              \
@@ -164,6 +180,10 @@ struct MYSQL_METHODS {
                                                length, 1, stmt)              \
        : (set_mysql_error(mysql, CR_COMMANDS_OUT_OF_SYNC, unknown_sqlstate), \
           1))
+#define simple_command_nonblocking(mysql, command, arg, length, skip_check, \
+                                   error)                                   \
+  (*(mysql)->methods->advanced_command_nonblocking)(                        \
+      mysql, command, 0, 0, arg, length, skip_check, NULL, error)
 
 extern CHARSET_INFO *default_client_charset_info;
 MYSQL_FIELD *unpack_fields(MYSQL *mysql, MYSQL_ROWS *data, MEM_ROOT *alloc,
@@ -185,6 +205,9 @@ bool cli_advanced_command(MYSQL *mysql, enum enum_server_command command,
                           const unsigned char *arg, size_t arg_length,
                           bool skip_check, MYSQL_STMT *stmt);
 unsigned long cli_safe_read(MYSQL *mysql, bool *is_data_packet);
+enum net_async_status cli_safe_read_nonblocking(MYSQL *mysql,
+                                                bool *is_data_packet,
+                                                ulong *res);
 unsigned long cli_safe_read_with_ok(MYSQL *mysql, bool parse_ok,
                                     bool *is_data_packet);
 void net_clear_error(NET *net);

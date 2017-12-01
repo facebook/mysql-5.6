@@ -824,6 +824,56 @@ struct Vio;
 #define MAX_CHAR_WIDTH 255      /**< Max length for a CHAR colum */
 #define MAX_BLOB_WIDTH 16777216 /**< Default width for blob */
 
+/**
+  @addtogroup group_cs_compresson_constants Constants when using compression
+  @ingroup group_cs
+  @{
+*/
+#define NET_HEADER_SIZE 4  /**< standard header size */
+#define COMP_HEADER_SIZE 3 /**< compression header extra size */
+/** @}*/
+
+/* More statuses for async operations. */
+
+/* Is the async operation still pending? */
+enum net_async_status { NET_ASYNC_COMPLETE = 20100, NET_ASYNC_NOT_READY };
+
+/* For an async operation, what we are waiting for, if anything. */
+enum net_async_operation {
+  NET_ASYNC_OP_IDLE = 0,
+  NET_ASYNC_OP_READING = 20200,
+  NET_ASYNC_OP_WRITING,
+  NET_ASYNC_OP_COMPLETE
+};
+
+/* Reading a packet is a multi-step process, so we have a state machine. */
+enum net_async_read_packet_state {
+  NET_ASYNC_PACKET_READ_IDLE = 0,
+  NET_ASYNC_PACKET_READ_HEADER = 20300,
+  NET_ASYNC_PACKET_READ_BODY,
+  NET_ASYNC_PACKET_READ_COMPLETE
+};
+
+/* As is reading a query result. */
+enum net_read_query_result_status {
+  NET_ASYNC_READ_QUERY_RESULT_IDLE = 0,
+  NET_ASYNC_READ_QUERY_RESULT_FIELD_COUNT = 20240,
+  NET_ASYNC_READ_QUERY_RESULT_FIELD_INFO
+};
+
+/* Sending a command involves the write as well as reading the status. */
+enum net_send_command_status {
+  NET_ASYNC_SEND_COMMAND_IDLE = 0,
+  NET_ASYNC_SEND_COMMAND_WRITE_COMMAND = 20340,
+  NET_ASYNC_SEND_COMMAND_READ_STATUS = 20340
+};
+
+enum net_async_block_state {
+  NET_NONBLOCKING_CONNECT = 20130,
+  NET_NONBLOCKING_READ = 20140,
+  NET_NONBLOCKING_WRITE = 20150
+};
+
 typedef struct NET {
   MYSQL_VIO vio;
   unsigned char *buff, *buff_end, *write_pos, *read_pos;
@@ -857,6 +907,41 @@ typedef struct NET {
     to maintain the server internal instrumentation for the connection.
   */
   void *extension;
+
+  /* Async MySQL extension fields here. */
+  /**
+    The position in buff we continue reads from when data is next available
+  */
+  unsigned char *cur_pos;
+
+  /** Blocking state */
+  enum net_async_block_state async_blocking_state;
+  /** Our current operation */
+  enum net_async_operation async_operation;
+  /** How many bytes we want to read */
+  size_t async_bytes_wanted;
+
+  /* State when waiting on an async read */
+  enum net_async_read_packet_state async_packet_read_state;
+  /* Size of the packet we're currently reading */
+  size_t async_packet_length;
+
+  /**
+    Headers and vector for our async writes; see net_serv.c for
+    detailed description.
+  */
+  unsigned char *async_write_headers;
+  struct iovec *async_write_vector;
+  size_t async_write_vector_size;
+  size_t async_write_vector_current;
+  unsigned char
+      inline_async_write_header[NET_HEADER_SIZE + COMP_HEADER_SIZE + 1 + 1];
+  struct iovec inline_async_write_vector[3];
+
+  /* State for reading responses that are larger than MAX_PACKET_LENGTH */
+  unsigned long async_multipacket_read_saved_whereb;
+  unsigned long async_multipacket_read_total_len;
+  bool async_multipacket_read_started;
 } NET;
 
 #define packet_error (~(unsigned long)0)
@@ -998,6 +1083,15 @@ bool net_write_packet(struct NET *net, const unsigned char *packet,
                       size_t length);
 unsigned long my_net_read(struct NET *net);
 
+enum net_async_status my_net_write_nonblocking(NET *net,
+                                               const unsigned char *packet,
+                                               size_t len, bool *res);
+enum net_async_status net_write_command_nonblocking(
+    NET *net, unsigned char command, const unsigned char *prefix,
+    size_t prefix_len, const unsigned char *packet, size_t packet_len,
+    bool *res);
+enum net_async_status my_net_read_nonblocking(NET *net, unsigned long *len_ptr);
+
 void my_net_set_write_timeout(struct NET *net, unsigned int timeout);
 void my_net_set_read_timeout(struct NET *net, unsigned int timeout);
 void my_net_set_retry_count(struct NET *net, unsigned int retry_count);
@@ -1009,15 +1103,6 @@ struct rand_struct {
 
 /* Include the types here so existing UDFs can keep compiling */
 #include <mysql/udf_registration_types.h>
-
-/**
-  @addtogroup group_cs_compresson_constants Constants when using compression
-  @ingroup group_cs
-  @{
-*/
-#define NET_HEADER_SIZE 4  /**< standard header size */
-#define COMP_HEADER_SIZE 3 /**< compression header extra size */
-/** @}*/
 
 /* Prototypes to password functions */
 

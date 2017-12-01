@@ -79,6 +79,7 @@ $SIG{INT} = sub { mtr_error("Got ^C signal"); };
 sub env_or_val($$) { defined $ENV{ $_[0] } ? $ENV{ $_[0] } : $_[1] }
 
 # Local variables
+my $opt_async_client;
 my $opt_boot_dbx;
 my $opt_boot_ddd;
 my $opt_boot_gdb;
@@ -1265,6 +1266,7 @@ sub set_vardir {
 }
 
 sub print_global_resfile {
+  resfile_global("async-client",     $opt_async_client ? 1 : 0);
   resfile_global("bootstrap",        \@opt_extra_bootstrap_opt);
   resfile_global("callgrind",        $opt_callgrind ? 1 : 0);
   resfile_global("check-testcases",  $opt_check_testcases ? 1 : 0);
@@ -1329,6 +1331,7 @@ sub command_line_setup {
   Getopt::Long::Configure("pass_through");
   my %options = (
     # Control what engine/variation to run
+    'async-client'          => \$opt_async_client,
     'compress'              => \$opt_compress,
     'cursor-protocol'       => \$opt_cursor_protocol,
     'explain-protocol'      => \$opt_explain_protocol,
@@ -6218,6 +6221,10 @@ sub start_mysqltest ($) {
     mtr_add_arg($args, "--compress");
   }
 
+  if ($opt_async_client) {
+    mtr_add_arg($args, "--async-client");
+  }
+
   if ($opt_sleep) {
     mtr_add_arg($args, "--sleep=%d", $opt_sleep);
   }
@@ -6761,6 +6768,7 @@ $0 [ OPTIONS ] [ TESTCASE ]
 
 Options to control what engine/variation to run
 
+  async-client          Use async-client with select() to run the test case
   combination=<opt>     Use at least twice to run tests with specified
                         options to mysqld.
   compress              Use the compressed protocol between client and server.

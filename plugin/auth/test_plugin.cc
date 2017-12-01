@@ -33,6 +33,7 @@
 
 #define LOG_COMPONENT_TAG "test_plugin_server"
 
+#include <mysql_com.h>
 #include <mysql/client_plugin.h>
 #include <mysql/components/my_service.h>
 #include <mysql/components/services/log_builtins.h>
@@ -294,4 +295,5 @@ static int test_plugin_client(MYSQL_PLUGIN_VIO *vio, MYSQL *mysql) {
 
 mysql_declare_client_plugin(AUTHENTICATION) "auth_test_plugin",
     "Georgi Kodinov", "Dialog Client Authentication Plugin", {0, 1, 0},
-    "GPL", NULL, NULL, NULL, NULL, test_plugin_client mysql_end_client_plugin;
+    "GPL", NULL, NULL, NULL, NULL,
+    test_plugin_client, NULL mysql_end_client_plugin;

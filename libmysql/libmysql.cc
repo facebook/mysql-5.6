@@ -4554,6 +4554,33 @@ int STDCALL mysql_next_result(MYSQL *mysql) {
   DBUG_RETURN(-1); /* No more results */
 }
 
+net_async_status STDCALL mysql_next_result_nonblocking(MYSQL *mysql,
+                                                       int *error) {
+  DBUG_ENTER(__func__);
+  bool err;
+  if (mysql->status != MYSQL_STATUS_READY) {
+    set_mysql_error(mysql, CR_COMMANDS_OUT_OF_SYNC, unknown_sqlstate);
+    *error = 1;
+    DBUG_RETURN(NET_ASYNC_COMPLETE);
+  }
+  net_clear_error(&mysql->net);
+  mysql->affected_rows = ~(my_ulonglong)0;
+
+  if (mysql->server_status & SERVER_MORE_RESULTS_EXISTS) {
+    if ((*mysql->methods->next_result_nonblocking)(mysql, &err) ==
+        NET_ASYNC_NOT_READY) {
+      DBUG_RETURN(NET_ASYNC_NOT_READY);
+    }
+    *error = err;
+    DBUG_RETURN(NET_ASYNC_COMPLETE);
+  } else {
+    MYSQL_TRACE_STAGE(mysql, READY_FOR_COMMAND);
+  }
+
+  *error = -1;
+  DBUG_RETURN(NET_ASYNC_COMPLETE); /* No more results */
+}
+
 int STDCALL mysql_stmt_next_result(MYSQL_STMT *stmt) {
   MYSQL *mysql = stmt->mysql;
   int rc;

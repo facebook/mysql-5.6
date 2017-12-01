@@ -144,7 +144,7 @@ size_t vio_read(Vio *vio, uchar *buf, size_t size) {
                                   flags)) == -1) {
     int error = socket_errno;
 
-    /* The operation would block? */
+    /* Error encountered that is unrelated to blocking; percolate it up. */
 #if SOCKET_EAGAIN == SOCKET_EWOULDBLOCK
     if (error != SOCKET_EAGAIN)
 #else
@@ -152,10 +152,21 @@ size_t vio_read(Vio *vio, uchar *buf, size_t size) {
 #endif
       break;
 
+    /*
+      Nonblocking with either EAGAIN or EWOULDBLOCK. Don't call
+      io_wait. 0 bytes are available.
+    */
+    DBUG_ASSERT(error == SOCKET_EAGAIN || error == SOCKET_EWOULDBLOCK);
+    if (!vio_is_blocking(vio)) {
+      DBUG_PRINT("info", ("vio_read on nonblocking socket read no bytes"));
+      DBUG_RETURN(-1);
+    }
+
     /* Wait for input data to become available. */
     if ((ret = vio_socket_io_wait(vio, VIO_IO_EVENT_READ))) break;
   }
 
+  DBUG_PRINT("exit", ("ret: %ld", ret));
   DBUG_RETURN(ret);
 }
 
@@ -226,7 +237,7 @@ size_t vio_write(Vio *vio, const uchar *buf, size_t size) {
 }
 
 // WL#4896: Not covered
-static int vio_set_blocking(Vio *vio, bool status) {
+int vio_set_blocking(Vio *vio, bool status) {
   DBUG_ENTER("vio_set_blocking");
 
 #ifdef _WIN32
@@ -240,11 +251,18 @@ static int vio_set_blocking(Vio *vio, bool status) {
   }
 #else
   {
+#ifdef DBUG_OFF
+    if (vio->is_blocking_flag == status)
+      DBUG_RETURN(0);
+#endif
+
     int flags;
 
     if ((flags = fcntl(mysql_socket_getfd(vio->mysql_socket), F_GETFL, NULL)) <
         0)
       DBUG_RETURN(-1);
+
+    DBUG_ASSERT(((flags & O_NONBLOCK) == 0) == vio->is_blocking_flag);
 
     /*
       Always set/clear the flag to avoid inheritance issues. This is
@@ -259,10 +277,17 @@ static int vio_set_blocking(Vio *vio, bool status) {
 
     if (fcntl(mysql_socket_getfd(vio->mysql_socket), F_SETFL, flags) == -1)
       DBUG_RETURN(-1);
+
+    vio->is_blocking_flag = status;
   }
 #endif
 
   DBUG_RETURN(0);
+}
+
+bool vio_is_blocking(Vio *vio) {
+  DBUG_ENTER(__func__);
+  DBUG_RETURN(vio->is_blocking_flag);
 }
 
 int vio_socket_timeout(Vio *vio, uint which MY_ATTRIBUTE((unused)),
@@ -994,7 +1019,7 @@ int vio_io_wait(Vio *vio, enum enum_vio_io_event event, int timeout) {
 */
 
 bool vio_socket_connect(Vio *vio, struct sockaddr *addr, socklen_t len,
-                        int timeout) {
+                        bool nonblocking, int timeout) {
   int ret, wait;
   int retry_count = 0;
   DBUG_ENTER("vio_socket_connect");
@@ -1003,7 +1028,8 @@ bool vio_socket_connect(Vio *vio, struct sockaddr *addr, socklen_t len,
   DBUG_ASSERT(vio->type == VIO_TYPE_SOCKET || vio->type == VIO_TYPE_TCPIP);
 
   /* If timeout is not infinite, set socket to non-blocking mode. */
-  if ((timeout > -1) && vio_set_blocking(vio, false)) DBUG_RETURN(true);
+  if (((timeout > -1) || nonblocking) && vio_set_blocking(vio, false))
+    DBUG_RETURN(true);
 
   /* Initiate the connection. */
   do {
@@ -1032,7 +1058,8 @@ bool vio_socket_connect(Vio *vio, struct sockaddr *addr, socklen_t len,
     2. The connection was set up successfully: getsockopt() will
        return 0 as an error.
   */
-  if (wait && (vio_io_wait(vio, VIO_IO_EVENT_CONNECT, timeout) == 1)) {
+  if (!nonblocking && wait &&
+      (vio_io_wait(vio, VIO_IO_EVENT_CONNECT, timeout) == 1)) {
     int error;
     IF_WIN(int, socklen_t) optlen = sizeof(error);
     IF_WIN(char, void) *optval = (IF_WIN(char, void) *)&error;
@@ -1057,11 +1084,15 @@ bool vio_socket_connect(Vio *vio, struct sockaddr *addr, socklen_t len,
   }
 
   /* If necessary, restore the blocking mode, but only if connect succeeded. */
-  if ((timeout > -1) && (ret == 0)) {
+  if (!nonblocking && (timeout > -1) && (ret == 0)) {
     if (vio_set_blocking(vio, true)) DBUG_RETURN(true);
   }
 
-  DBUG_RETURN(MY_TEST(ret));
+  if (nonblocking && wait) {
+    DBUG_RETURN(false);
+  } else {
+    DBUG_RETURN(MY_TEST(ret));
+  }
 }
 
 /**

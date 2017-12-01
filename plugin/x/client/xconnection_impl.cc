@@ -325,7 +325,7 @@ XError Connection_impl::connect(sockaddr *addr, const std::size_t addr_size) {
 
   auto vio = vio_new(s, type, 0);
   auto error =
-      vio_socket_connect(vio, addr, static_cast<socklen_t>(addr_size),
+      vio_socket_connect(vio, addr, static_cast<socklen_t>(addr_size), false,
                          details::make_vio_timeout(
                              m_context->m_connection_config.m_timeout_connect));
 

@@ -140,6 +140,16 @@ mysql_session_track_get_first
 mysql_session_track_get_next
 mysql_reset_server_public_key
 mysql_result_metadata
+mysql_real_connect_nonblocking_init
+mysql_real_connect_nonblocking_run
+mysql_send_query_nonblocking
+mysql_real_query_nonblocking
+mysql_store_result_nonblocking
+mysql_next_result_nonblocking
+mysql_select_db_nonblocking
+mysql_get_file_descriptor
+mysql_free_result_nonblocking
+mysql_fetch_row_nonblocking
 
 CACHE INTERNAL "Functions exported by client API"
 

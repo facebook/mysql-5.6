@@ -43,6 +43,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <sys/types.h>
+#include <sys/uio.h>
 #endif
 
 // Small extra definitions to avoid pulling in my_inttypes.h in client code.
@@ -276,6 +277,18 @@ enum mysql_ssl_fips_mode {
   SSL_FIPS_MODE_STRICT
 };
 
+enum mysql_async_operation_status {
+  ASYNC_OP_UNSET = 18000,
+  ASYNC_OP_CONNECT = 18010,
+  ASYNC_OP_QUERY = 18020
+};
+
+enum mysql_async_query_state_enum {
+  QUERY_IDLE = 0,
+  QUERY_SENDING,
+  QUERY_READING_RESULT
+};
+
 typedef struct character_set {
   unsigned int number;   /* character set number              */
   unsigned int state;    /* character set state               */
@@ -289,6 +302,8 @@ typedef struct character_set {
 
 struct MYSQL_METHODS;
 struct MYSQL_STMT;
+struct MYSQL_RES;
+struct mysql_csm_context;
 
 typedef struct MYSQL {
   NET net;                     /* Communication parameters */
@@ -328,6 +343,32 @@ typedef struct MYSQL {
   */
   bool *unbuffered_fetch_owner;
   void *extension;
+
+  /* Async MySQL extension fields here. */
+  /* non blocking api data for cli_read_rows_nonblocking*/
+  MYSQL_DATA *rows_result_buffer; /* buffer storing the rows result
+                                     for cli_read_rows_nonblocking
+                                  */
+  MYSQL_ROWS **prev_row_ptr;      /* a pointer for keep track of the previous
+                                     row of the current result row
+                                  */
+  enum net_send_command_status async_send_command_status;
+  enum net_read_query_result_status async_read_query_result_status;
+
+  struct mysql_csm_context *connect_context;
+
+  /* Status of the current async op */
+  enum mysql_async_operation_status async_op_status;
+
+  /* If a query is running, this is its state  */
+  enum mysql_async_query_state_enum async_query_state;
+
+  ulong *async_read_metadata_field_len;
+  MYSQL_FIELD *async_read_metadata_fields;
+  MYSQL_ROWS async_read_metadata_data;
+  uint async_read_metadata_cur_field;
+
+  struct MYSQL_RES *async_store_result_result;
 } MYSQL;
 
 typedef struct MYSQL_RES {
@@ -464,6 +505,30 @@ int STDCALL mysql_real_query(MYSQL *mysql, const char *q, unsigned long length);
 MYSQL_RES *STDCALL mysql_store_result(MYSQL *mysql);
 MYSQL_RES *STDCALL mysql_use_result(MYSQL *mysql);
 
+bool STDCALL mysql_real_connect_nonblocking_init(
+    MYSQL *mysql, const char *host, const char *user, const char *passwd,
+    const char *db, unsigned int port, const char *unix_socket,
+    unsigned long clientflag);
+enum net_async_status STDCALL mysql_real_connect_nonblocking_run(MYSQL *mysql,
+                                                                 int *error);
+enum net_async_status STDCALL mysql_send_query_nonblocking(MYSQL *mysql,
+                                                           const char *query,
+                                                           unsigned long length,
+                                                           int *error);
+enum net_async_status STDCALL mysql_real_query_nonblocking(MYSQL *mysql,
+                                                           const char *query,
+                                                           unsigned long length,
+                                                           int *error);
+enum net_async_status STDCALL
+mysql_store_result_nonblocking(MYSQL *mysql, MYSQL_RES **result);
+enum net_async_status STDCALL mysql_next_result_nonblocking(MYSQL *mysql,
+                                                            int *error);
+enum net_async_status STDCALL mysql_select_db_nonblocking(MYSQL *mysql,
+                                                          const char *db,
+                                                          bool *error);
+
+int STDCALL mysql_get_file_descriptor(MYSQL *mysql);
+
 void STDCALL mysql_get_character_set_info(MYSQL *mysql,
                                           MY_CHARSET_INFO *charset);
 
@@ -509,12 +574,15 @@ int STDCALL mysql_options4(MYSQL *mysql, enum mysql_option option,
 int STDCALL mysql_get_option(MYSQL *mysql, enum mysql_option option,
                              const void *arg);
 void STDCALL mysql_free_result(MYSQL_RES *result);
+enum net_async_status STDCALL mysql_free_result_nonblocking(MYSQL_RES *result);
 void STDCALL mysql_data_seek(MYSQL_RES *result, my_ulonglong offset);
 MYSQL_ROW_OFFSET STDCALL mysql_row_seek(MYSQL_RES *result,
                                         MYSQL_ROW_OFFSET offset);
 MYSQL_FIELD_OFFSET STDCALL mysql_field_seek(MYSQL_RES *result,
                                             MYSQL_FIELD_OFFSET offset);
 MYSQL_ROW STDCALL mysql_fetch_row(MYSQL_RES *result);
+enum net_async_status STDCALL mysql_fetch_row_nonblocking(MYSQL_RES *res,
+                                                          MYSQL_ROW *row);
 unsigned long *STDCALL mysql_fetch_lengths(MYSQL_RES *result);
 MYSQL_FIELD *STDCALL mysql_fetch_field(MYSQL_RES *result);
 MYSQL_RES *STDCALL mysql_list_fields(MYSQL *mysql, const char *table,
@@ -764,6 +832,7 @@ void STDCALL mysql_reset_server_public_key(void);
 #define mysql_reload(mysql) mysql_refresh((mysql), REFRESH_GRANT)
 
 #define HAVE_MYSQL_REAL_CONNECT
+#define HAVE_MYSQL_NONBLOCKING_CLIENT
 
 #ifdef __cplusplus
 }

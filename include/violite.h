@@ -154,6 +154,8 @@ void vio_delete(MYSQL_VIO vio);
 int vio_shutdown(MYSQL_VIO vio);
 bool vio_reset(MYSQL_VIO vio, enum enum_vio_type type, my_socket sd, void *ssl,
                uint flags);
+bool vio_is_blocking(Vio *vio);
+int vio_set_blocking(Vio *vio, bool set_blocking_mode);
 size_t vio_read(MYSQL_VIO vio, uchar *buf, size_t size);
 size_t vio_read_buff(MYSQL_VIO vio, uchar *buf, size_t size);
 size_t vio_write(MYSQL_VIO vio, const uchar *buf, size_t size);
@@ -186,7 +188,7 @@ ssize_t vio_pending(MYSQL_VIO vio);
 int vio_timeout(MYSQL_VIO vio, uint which, int timeout_sec);
 /* Connect to a peer. */
 bool vio_socket_connect(MYSQL_VIO vio, struct sockaddr *addr, socklen_t len,
-                        int timeout);
+                        bool nonblocking, int timeout);
 
 bool vio_get_normalized_ip_string(const struct sockaddr *addr,
                                   size_t addr_length, char *ip_string,
@@ -299,6 +301,8 @@ void vio_end(void);
   (vio)->peer_addr(vio, buf, prt, buflen)
 #define vio_io_wait(vio, event, timeout) (vio)->io_wait(vio, event, timeout)
 #define vio_is_connected(vio) (vio)->is_connected(vio)
+#define vio_is_blocking(vio) (vio)->is_blocking(vio)
+#define vio_set_blocking(vio, val) (vio)->set_blocking(vio, val)
 #endif /* !defined(DONT_MAP_VIO) */
 
 /* This enumerator is used in parser - should be always visible */
@@ -409,6 +413,9 @@ struct Vio {
   size_t shared_memory_remain = {0};
   char *shared_memory_pos = {nullptr};
 #endif /* _WIN32 */
+  bool (*is_blocking)(Vio *vio);
+  int (*set_blocking)(Vio *vio, bool val);
+  bool is_blocking_flag;
 
  private:
   friend Vio *internal_vio_create(uint flags);

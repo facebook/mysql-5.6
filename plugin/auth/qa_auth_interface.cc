@@ -20,6 +20,7 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
+#include <mysql_com.h>
 #include <mysql/client_plugin.h>
 #include <mysql/plugin_auth.h>
 #include <stdio.h>
@@ -271,4 +272,5 @@ static int test_plugin_client(MYSQL_PLUGIN_VIO *vio, MYSQL *mysql) {
 
 mysql_declare_client_plugin(AUTHENTICATION) "qa_auth_interface", "Horst Hunger",
     "Dialog Client Authentication Plugin", {0, 1, 0},
-    "GPL", NULL, NULL, NULL, NULL, test_plugin_client mysql_end_client_plugin;
+    "GPL", NULL, NULL, NULL, NULL,
+    test_plugin_client, NULL mysql_end_client_plugin;

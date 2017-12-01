@@ -113,6 +113,9 @@ struct MYSQL;
 struct auth_plugin_t {
   MYSQL_CLIENT_PLUGIN_HEADER
   int (*authenticate_user)(MYSQL_PLUGIN_VIO *vio, struct MYSQL *mysql);
+  enum net_async_status (*authenticate_user_nonblocking)(MYSQL_PLUGIN_VIO *vio,
+                                                         struct MYSQL *mysql,
+                                                         int *result);
 };
 
 // Needed for the mysql_declare_client_plugin() macro. Do not use elsewhere.
