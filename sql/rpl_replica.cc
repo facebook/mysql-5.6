@@ -8480,8 +8480,19 @@ QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
         is always monotonically increasing
       */
       mysql_mutex_lock(&rli->data_lock);
-      rli->set_last_master_timestamp(hb.common_header->when.tv_sec,
-                                     hb.common_header->when.tv_sec * 1000);
+      auto io_thread_file = mi->get_master_log_name();
+      auto io_thread_pos = mi->get_master_log_pos();
+      auto sql_thread_file = mi->rli->get_group_master_log_name();
+      auto sql_thread_pos = mi->rli->get_group_master_log_pos();
+
+      // find out if the SQL thread has caught up with the IO thread by
+      // comparing their coordinates
+      bool caughtup = (sql_thread_pos == io_thread_pos) &&
+                      (!strcmp(sql_thread_file, io_thread_file));
+      // case: update last master ts only if we've caughtup
+      if (caughtup)
+        rli->set_last_master_timestamp(hb.common_header->when.tv_sec,
+                                       hb.common_header->when.tv_sec * 1000);
       mysql_mutex_unlock(&rli->data_lock);
       goto end;
     } break;
