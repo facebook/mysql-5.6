@@ -25,7 +25,6 @@ begin;
 select * from t1 where i=1 for update;
 
 connection con2;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 select * from t1 where i=1 for update;
 

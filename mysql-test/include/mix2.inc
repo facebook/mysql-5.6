@@ -2214,13 +2214,11 @@ set autocommit = 0;
 #
 # S-lock to records (2,2),(4,2), and (6,2) should not be released in a update
 #
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error 1205
 select * from t1 where a = 2 and b = 2 for update;
 #
 # X-lock to record (1,1),(3,1),(5,1) should not be released in a update
 #
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error 1205
 connection a;
 commit;
@@ -2361,47 +2359,38 @@ SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
 create table t10(a int not null, b int, primary key(a)) select * from t2 for update;
 
 connection b;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error 1205
 reap;
 
 connection c;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error 1205
 reap;
 
 connection d;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error 1205
 reap;
 
 connection e;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error 1205
 reap;
 
 connection f;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error 1205
 reap;
 
 connection g;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error 1205
 reap;
 
 connection h;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error 1205
 reap;
 
 connection i;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error 1205
 reap;
 
 connection j;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error 1205
 reap;
 

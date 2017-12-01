@@ -9070,7 +9070,6 @@ UPDATE t1 SET i=1 WHERE i=1;
 --echo # fails without the patch (with error ER_NO_SUCH_TABLE):
 --connection default
 SET AUTOCOMMIT= 0;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 UPDATE t1 SET i=1 WHERE i=1;
 SELECT f1() AS 'f1():';
@@ -9079,7 +9078,6 @@ SELECT f1() AS 'f1():';
 --echo # Provoke another deadlock, then call the function with
 --echo # handler indirectly. This case fails without the patch
 --echo # (with error ER_NO_SUCH_TABLE):
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 UPDATE t1 SET i= 1 WHERE i= 1;
 SELECT f2() AS 'f2():';
@@ -9090,7 +9088,6 @@ SELECT f2() AS 'f2():';
 --echo # without the patch because is_fatal_sub_stmt_error is reset
 --echo # in restore_sub_stmt after the failing function has been
 --echo # executed. The test case is included anyway for better coverage:
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 SELECT f3() AS 'f3():';
 SELECT f1() AS 'f1():';
@@ -9101,7 +9098,6 @@ SELECT f1() AS 'f1():';
 --echo # is_fatal_sub_stmt_error is reset in restore_sub_stmt after
 --echo # the failing function has been executed. The test case is
 --echo # included anyway for better coverage:
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 SELECT f4() AS 'f4():';
 SELECT f1() AS 'f1():';

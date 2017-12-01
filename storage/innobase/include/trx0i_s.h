@@ -308,25 +308,4 @@ trx_i_s_create_lock_id(
 	ulint			lock_id_size);/*!< in: size of the lock id
 					buffer */
 
-UNIV_INTERN
-ulint
-put_nth_field(
-/*==========*/
-	char*			buf,	/*!< out: buffer */
-	ulint			buf_size,/*!< in: buffer size in bytes */
-	ulint			n,	/*!< in: number of field */
-	const dict_index_t*	index,	/*!< in: index */
-	const rec_t*		rec,	/*!< in: record */
-	const ulint*		offsets);/*!< in: record offsets, returned
-					by rec_get_offsets() */
-
-UNIV_INTERN
-ulint
-get_lock_rec_data(
-/*==============*/
-	char		*buf,		/*!< out: buffer to write the rec */
-	size_t		len,		/*!< in: buf size */
-	const lock_t*	lock,		/*!< in: lock used to find the data */
-	ulint		heap_no);	/*!< in: rec num used to find the data */
-
 #endif /* trx0i_s_h */

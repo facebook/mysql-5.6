@@ -29,7 +29,6 @@ connection b;
 set binlog_format=mixed;
 set session transaction isolation level repeatable read;
 set autocommit=0;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 -- error ER_LOCK_WAIT_TIMEOUT
 update t1 set a=10 where a=5;
 commit;
@@ -41,7 +40,6 @@ connection b;
 set session transaction isolation level read committed;
 update t1 set a=10 where a=5;
 connection a;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 -- error ER_LOCK_WAIT_TIMEOUT
 select * from t1 where a=2 for update;
 # this should lock the records (1),(2)
@@ -49,10 +47,8 @@ select * from t1 where a=2 limit 1 for update;
 connection b;
 # semi-consistent read will skip non-matching locked rows a=1, a=2
 update t1 set a=11 where a=6;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 -- error ER_LOCK_WAIT_TIMEOUT
 update t1 set a=12 where a=2;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 -- error ER_LOCK_WAIT_TIMEOUT
 update t1 set a=13 where a=1;
 connection a;
@@ -103,7 +99,6 @@ connection con2;
 
 --enable_info
 --disable_abort_on_error
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 UPDATE t1 SET b = 21 WHERE a = 1;
 --disable_info

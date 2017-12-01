@@ -60,7 +60,6 @@ begin;
 select * from lockt where i=1 for update;
 
 connection con2;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 select * from lockt where i=1 for update;
 
@@ -91,12 +90,10 @@ select * from lockt where i=1 for update;
 connection con2;
 begin;
 select * from lockt where i=2 for update;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 select * from lockt where i=1 for update;
 
 connection con1;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 select * from lockt where i=2 for update;
 rollback;

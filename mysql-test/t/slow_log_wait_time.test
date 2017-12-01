@@ -33,7 +33,6 @@ set session long_query_time = 30;
 
 --echo
 --echo # Query will timeout but should not be logged in the slow log
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 select * from t1 for update;
 
@@ -77,7 +76,6 @@ set session long_query_time = 5;
 
 --echo
 --echo # Query will timeout and be logged in the slow log
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 select * from t1 for update;
 

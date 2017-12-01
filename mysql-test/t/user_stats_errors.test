@@ -69,7 +69,6 @@ begin;
 select * from userstats for update;
 
 connection muc2;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 select * from userstats for update;
 --echo

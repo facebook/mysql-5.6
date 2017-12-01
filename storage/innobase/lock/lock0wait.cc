@@ -184,34 +184,6 @@ lock_wait_table_reserve_slot(
 	return(NULL);
 }
 
-
-/***************************************************************//**
-See comments in trx0i_s.cc. */
-extern
-ulint
-put_nth_field(
-/*==========*/
-	char*			buf,	/*!< out: buffer */
-	ulint			buf_size,/*!< in: buffer size in bytes */
-	ulint			n,	/*!< in: number of field */
-	const dict_index_t*	index,	/*!< in: index */
-	const rec_t*		rec,	/*!< in: record */
-	const ulint*		offsets);/*!< in: record offsets, returned
-					by rec_get_offsets() */
-
-
-/***************************************************************//**
-See comments in trx0i_s.cc. */
-extern
-ulint
-get_lock_rec_data(
-/*==============*/
-	char		*buf,		/*!< out: buffer to write the rec */
-	size_t		len,		/*!< in: buf size */
-	const lock_t*	lock,		/*!< in: lock used to find the data */
-	ulint		heap_no);	/*!< in: rec num used to find the data */
-
-
 /***************************************************************//**
 Puts a user OS thread to wait for a lock to be released. If an error
 occurs during the wait trx->error_state associated with thr is
@@ -403,65 +375,11 @@ lock_wait_suspend_thread(
 	    && wait_time > (double) lock_wait_timeout) {
 
 		if (lock_type == LOCK_REC) {
-
-			lock_mutex_enter();
-
-			char msg_buf[sizeof(trx->detailed_error)];
-			innobase_timeout_message(msg_buf,
-						 sizeof(msg_buf),
-						 "record (%s) in index",
+			innobase_timeout_message(trx->detailed_error,
+						 sizeof(trx->detailed_error),
+						 "record in index",
 						 wait_lock->index->table_name,
 						 wait_lock->index->name);
-			uint msg_len = (uint) strlen(msg_buf);
-
-			char key_buf[sizeof(trx->detailed_error)];
-			ulint key_buf_used = 0;
-
-			ulint heap_no = lock_rec_find_set_bit(wait_lock);
-			if (heap_no == ULINT_UNDEFINED) {
-				/* lock_rec n_bits may have been reset if a page
-				 * has been changed (e.g. dropped or merged).
-				 * we will bail out if the n_bits is not set */
-				*key_buf = '\0';
-				key_buf_used = 1;
-			} else {
-				/* Get the record in buffer which the lock
-				 * is waiting on. */
-				key_buf_used = get_lock_rec_data(
-						key_buf,
-						sizeof(key_buf),
-						wait_lock,
-						heap_no);
-			}
-
-			/* Truncate the rec if it is longer than
-			 * buffer size. max_key_buf_size is how
-			 * many bytes that can fit into
-			 * trx->detailed_error, including the
-			 * NULL terminator. */
-			uint max_key_buf_size =
-				sizeof(trx->detailed_error) - msg_len;
-			ut_a(max_key_buf_size);
-			if (max_key_buf_size < key_buf_used) {
-				if (max_key_buf_size < 4) {
-					strncpy(key_buf,
-						"...",
-						max_key_buf_size - 1);
-					key_buf[max_key_buf_size - 1] = '\0';
-				} else {
-					/* append "..." and NULL terminator */
-					strcpy(key_buf + max_key_buf_size - 4,
-					       "...");
-				}
-			}
-
-			/* save the formated msg in detailed_error */
-			snprintf(trx->detailed_error,
-				 sizeof(trx->detailed_error),
-				 msg_buf,
-				 key_buf);
-
-			lock_mutex_exit();
 		} else if (lock_type == LOCK_TABLE) {
 			innobase_timeout_message(trx->detailed_error,
 						 sizeof(trx->detailed_error),

@@ -218,7 +218,6 @@ UPDATE t1 SET val = val + 1;
 --connect (con2,localhost,root,,test,,)
 SET SESSION innodb_lock_wait_timeout = 2;
 # Trigger lock timeout (1205)
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 UPDATE t1 SET val = val + 1;
 

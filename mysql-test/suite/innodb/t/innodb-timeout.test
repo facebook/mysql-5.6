@@ -101,7 +101,6 @@ WHERE id = @connection_b_id AND INFO IS NULL;
 commit;
 
 connection b;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 reap;
 

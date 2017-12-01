@@ -624,7 +624,7 @@ Format the nth field of "rec" and put it in "buf". The result is always
 NUL-terminated. Returns the number of bytes that were written to "buf"
 (including the terminating NUL).
 @return	end of the result */
-UNIV_INTERN
+static
 ulint
 put_nth_field(
 /*==========*/
@@ -678,19 +678,19 @@ put_nth_field(
 	return(ret);
 }
 
-/***************************************************************//**
-Get the record in buffer which the lock is waiting or blocking.
-Returns the number of bytes that were written to "buf"
-(including the terminating NUL).
-The result is always NULL-terminated.*/
-UNIV_INTERN
-ulint
-get_lock_rec_data(
-/*==============*/
-	char		*buf,		/*!< out: buffer to write the rec */
-	size_t		len,		/*!< in: buf size */
-	const lock_t*	lock,		/*!< in: lock used to find the data */
-	ulint		heap_no)	/*!< in: rec num used to find the data */
+/*******************************************************************//**
+Fills the "lock_data" member of i_s_locks_row_t object.
+If memory can not be allocated then FALSE is returned.
+@return	FALSE if allocation fails */
+static
+ibool
+fill_lock_data(
+/*===========*/
+	const char**		lock_data,/*!< out: "lock_data" to fill */
+	const lock_t*		lock,	/*!< in: lock used to find the data */
+	ulint			heap_no,/*!< in: rec num used to find the data */
+	trx_i_s_cache_t*	cache)	/*!< in/out: cache where to store
+					volatile data */
 {
 	mtr_t			mtr;
 
@@ -698,7 +698,6 @@ get_lock_rec_data(
 	const page_t*		page;
 	const rec_t*		rec;
 
-	ut_a(buf && len);
 	ut_a(lock_get_type(lock) == LOCK_REC);
 
 	mtr_start(&mtr);
@@ -709,31 +708,27 @@ get_lock_rec_data(
 
 	if (block == NULL) {
 
-		*buf = '\0';
+		*lock_data = NULL;
 
 		mtr_commit(&mtr);
-		return 1;
+
+		return(TRUE);
 	}
 
 	page = (const page_t*) buf_block_get_frame(block);
 
 	rec = page_find_rec_with_heap_no(page, heap_no);
-	ut_a(rec);
-
-	ulint	buf_used;
-	const char infimum[] = "infimum pseudo-record";
-	const char supremum[] = "supremum pseudo-record";
 
 	if (page_rec_is_infimum(rec)) {
 
-		strncpy(buf, infimum, len);
-		buf_used = std::min(sizeof(infimum), len);
-		buf[buf_used - 1] = '\0';
+		*lock_data = ha_storage_put_str_memlim(
+			cache->storage, "infimum pseudo-record",
+			MAX_ALLOWED_FOR_STORAGE(cache));
 	} else if (page_rec_is_supremum(rec)) {
 
-		strncpy(buf, supremum, len);
-		buf_used = std::min(sizeof(supremum), len);
-		buf[buf_used - 1] = '\0';
+		*lock_data = ha_storage_put_str_memlim(
+			cache->storage, "supremum pseudo-record",
+			MAX_ALLOWED_FOR_STORAGE(cache));
 	} else {
 
 		const dict_index_t*	index;
@@ -741,6 +736,8 @@ get_lock_rec_data(
 		mem_heap_t*		heap;
 		ulint			offsets_onstack[REC_OFFS_NORMAL_SIZE];
 		ulint*			offsets;
+		char			buf[TRX_I_S_LOCK_DATA_MAX_LEN];
+		ulint			buf_used;
 		ulint			i;
 
 		rec_offs_init(offsets_onstack);
@@ -756,16 +753,19 @@ get_lock_rec_data(
 		offsets = rec_get_offsets(rec, index, offsets, n_fields,
 					  &heap);
 
-		/* format and store the data in buf */
+		/* format and store the data */
 
 		buf_used = 0;
 		for (i = 0; i < n_fields; i++) {
 
-			/* put_nth_field always store NULL-terminated string */
 			buf_used += put_nth_field(
-				buf + buf_used, len - buf_used,
+				buf + buf_used, sizeof(buf) - buf_used,
 				i, index, rec, offsets) - 1;
 		}
+
+		*lock_data = (const char*) ha_storage_put_memlim(
+			cache->storage, buf, buf_used + 1,
+			MAX_ALLOWED_FOR_STORAGE(cache));
 
 		if (UNIV_UNLIKELY(heap != NULL)) {
 
@@ -779,39 +779,9 @@ get_lock_rec_data(
 
 	mtr_commit(&mtr);
 
-	return buf_used;
-}
+	if (*lock_data == NULL) {
 
-/*******************************************************************//**
-Fills the "lock_data" member of i_s_locks_row_t object.
-If memory can not be allocated then FALSE is returned.
-@return	FALSE if allocation fails */
-static
-ibool
-fill_lock_data(
-/*===========*/
-	const char**		lock_data,/*!< out: "lock_data" to fill */
-	const lock_t*		lock,	/*!< in: lock used to find the data */
-	ulint			heap_no,/*!< in: rec num used to find the data */
-	trx_i_s_cache_t*	cache)	/*!< in/out: cache where to store
-					volatile data */
-{
-	char buf[TRX_I_S_LOCK_DATA_MAX_LEN];
-	get_lock_rec_data(buf, sizeof(buf), lock, heap_no);
-
-	if (*buf == '\0') {
-
-		*lock_data = NULL;
-	} else {
-
-		/* get_lock_rec_data always returns null-terminated string */
-		*lock_data = (const char*) ha_storage_put_str_memlim(
-			cache->storage, buf, MAX_ALLOWED_FOR_STORAGE(cache));
-
-		if (*lock_data == NULL) {
-
-			return(FALSE);
-		}
+		return(FALSE);
 	}
 
 	return(TRUE);

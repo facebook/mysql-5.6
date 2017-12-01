@@ -50,37 +50,12 @@ begin;
 SELECT * FROM t1 WHERE a=0 FOR UPDATE;
 
 connection con2;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 SELECT * FROM t1 WHERE a=0 FOR UPDATE;
 
 set session innodb_lock_wait_timeout=0;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 SELECT * FROM t1 WHERE a=0 FOR UPDATE;
-
-connection default;
-rollback;
-
-# Test large key values
-drop table t1;
-CREATE TABLE t1 (a char(255), index(a)) ENGINE=InnoDB;
-# insert a large text into the table
-INSERT INTO t1 values (repeat('a',255));
-
-connection default;
-begin;
-SELECT * FROM t1 WHERE a like 'a%' FOR UPDATE;
-
-connection con2;
-# Record in error message will be truncated
---error ER_LOCK_WAIT_TIMEOUT
-SELECT * FROM t1 WHERE a like 'a%' FOR UPDATE;
-
-set session innodb_lock_wait_timeout=0;
-# Record in error message will be truncated
---error ER_LOCK_WAIT_TIMEOUT
-SELECT * FROM t1 WHERE a like 'a%' FOR UPDATE;
 
 connection default;
 rollback;

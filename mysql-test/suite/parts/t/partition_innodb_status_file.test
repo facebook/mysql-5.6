@@ -10,7 +10,6 @@ connect (con1, localhost, root,,);
 --echo # InnoDB lock timeout and monitor thread runs every 15 seconds
 SET innodb_lock_wait_timeout = 20;
 START TRANSACTION;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 UPDATE t1 SET a = 3 WHERE a = 1;
 COMMIT;

@@ -42,7 +42,6 @@ EXECUTE st2 USING @var1;
 }
 if ($engine == InnoDB)
 {
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 EXECUTE st2 USING @var1;
 }

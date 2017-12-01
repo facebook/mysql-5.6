@@ -24,7 +24,6 @@ insert into t1 values (5);
 select * from t1;
 # Lock wait timeout set to 2 seconds in <THIS TEST>-master.opt; this
 # statement will time out; in 5.0.13+, it will not roll back transaction.
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 insert into t1 values (2);
 # On 5.0.13+, this should give ==> 1, 5

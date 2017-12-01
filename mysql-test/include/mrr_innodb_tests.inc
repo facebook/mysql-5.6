@@ -38,7 +38,6 @@ connection con2;
 SET AUTOCOMMIT=0;
 START TRANSACTION;
 
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 INSERT INTO t1 VALUES (2,2,2);
 ROLLBACK;
@@ -77,7 +76,6 @@ connection con2;
 
 SET AUTOCOMMIT=0;
 
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 SELECT * FROM t1 WHERE a > 2 FOR UPDATE;
 ROLLBACK;

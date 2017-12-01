@@ -19,7 +19,6 @@ update innodb_bug52663 set count = count + 1 where what = 'total' and id = 0;
 select * from innodb_bug52663;
 
 connection addconroot;
---replace_regex /Timeout on record \(.*\)/Timeout on record/
 --error ER_LOCK_WAIT_TIMEOUT
 update innodb_bug52663 set count = count + 1 where what = 'total' and id = 0;
 select * from innodb_bug52663;
