@@ -73,6 +73,7 @@ drop table t1_new;
 ## no effect for regular users
 ##
 
+--source include/count_sessions.inc
 connect (con2,localhost,test_user2,,test,,);
 # $con_kill is regular user
 --let $con_kill = con2
@@ -85,6 +86,9 @@ connect (con2,localhost,test_user2,,test,,);
 --source include/ddl_high_priority_module.inc
 
 disconnect con2;
+
+# Ensure con2 is closed
+--source include/wait_until_count_sessions.inc
 
 # restore $con_kill
 --let $con_kill = default
