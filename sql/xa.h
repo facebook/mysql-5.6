@@ -315,7 +315,6 @@ typedef struct xid_t {
     return serialize_xid(buf, formatID, gtrid_length, bqual_length, data);
   }
 
-#ifndef NDEBUG
   /**
      Get printable XID value.
 
@@ -325,7 +324,6 @@ typedef struct xid_t {
      @return  pointer to the buffer passed in the first argument
   */
   char *xid_to_str(char *buf) const;
-#endif
   /**
     Check if equal to another xid.
 
