@@ -160,10 +160,16 @@ void net_end(NET *net)
   reset_packet_write_state(net);
 #endif
 #ifdef HAVE_ZSTD_COMPRESS
-  ZSTD_freeCCtx(net->cctx);
-  ZSTD_freeDCtx(net->dctx);
-  net->cctx = NULL;
-  net->dctx = NULL;
+  // ZSTD_freeCCtx and ZSTD_freeDCtx were updated to check for NULL input
+  // in 0.7.0, but Ubuntu ships with 0.5.1-1, so check here.
+  if (net->cctx != NULL) {
+    ZSTD_freeCCtx(net->cctx);
+    net->cctx = NULL;
+  }
+  if (net->dctx != NULL) {
+    ZSTD_freeDCtx(net->dctx);
+    net->dctx = NULL;
+  }
 #endif
   my_free(net->buff);
   net->buff=0;
