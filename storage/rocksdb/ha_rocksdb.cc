@@ -5048,8 +5048,12 @@ bool ha_rocksdb::should_hide_ttl_rec(const Rdb_key_def &kd,
 #ifndef NDEBUG
   read_filter_ts += rdb_dbug_set_ttl_read_filter_ts();
 #endif
-  return ts + kd.m_ttl_duration + read_filter_ts <=
-         static_cast<uint64>(curr_ts);
+  bool is_hide_ttl =
+      ts + kd.m_ttl_duration + read_filter_ts <= static_cast<uint64>(curr_ts);
+  if (is_hide_ttl) {
+    update_row_stats(ROWS_FILTERED);
+  }
+  return is_hide_ttl;
 }
 
 void ha_rocksdb::rocksdb_skip_expired_records(const Rdb_key_def &kd,
@@ -11833,6 +11837,7 @@ static void myrocks_update_status() {
   export_stats.rows_updated = global_stats.rows[ROWS_UPDATED];
   export_stats.rows_deleted_blind = global_stats.rows[ROWS_DELETED_BLIND];
   export_stats.rows_expired = global_stats.rows[ROWS_EXPIRED];
+  export_stats.rows_filtered = global_stats.rows[ROWS_FILTERED];
 
   export_stats.system_rows_deleted = global_stats.system_rows[ROWS_DELETED];
   export_stats.system_rows_inserted = global_stats.system_rows[ROWS_INSERTED];
@@ -11870,6 +11875,8 @@ static SHOW_VAR myrocks_status_variables[] = {
     DEF_STATUS_VAR_FUNC("rows_deleted_blind", &export_stats.rows_deleted_blind,
                         SHOW_LONGLONG),
     DEF_STATUS_VAR_FUNC("rows_expired", &export_stats.rows_expired,
+                        SHOW_LONGLONG),
+    DEF_STATUS_VAR_FUNC("rows_filtered", &export_stats.rows_filtered,
                         SHOW_LONGLONG),
     DEF_STATUS_VAR_FUNC("system_rows_deleted",
                         &export_stats.system_rows_deleted, SHOW_LONGLONG),
