@@ -964,6 +964,9 @@ ibool srv_printf_innodb_monitor(
                          lock_sys_t::mutex */
     ibool include_trxs); /*!< in: include per-transaction output */
 
+/** Output for SHOW INNODB TRANSACTION STATUS */
+void srv_printf_innodb_transaction(FILE *file); /*!< in: output stream */
+
 /** Function to pass InnoDB status variables to MySQL */
 void srv_export_innodb_status(void);
 /** Get current server activity count. We don't hold srv_sys::mutex while

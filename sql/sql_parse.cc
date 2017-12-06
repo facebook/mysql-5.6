@@ -541,6 +541,7 @@ void init_sql_command_flags(void) {
   sql_command_flags[SQLCOM_SHOW_ENGINE_STATUS] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_ENGINE_MUTEX] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_ENGINE_LOGS] = CF_STATUS_COMMAND;
+  sql_command_flags[SQLCOM_SHOW_ENGINE_TRX] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_PROCESSLIST] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_GRANTS] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE_DB] = CF_STATUS_COMMAND;
@@ -3251,6 +3252,11 @@ int mysql_execute_command(THD *thd, bool first_level) {
     case SQLCOM_SHOW_ENGINE_MUTEX: {
       if (check_global_access(thd, PROCESS_ACL)) goto error;
       res = ha_show_status(thd, lex->create_info->db_type, HA_ENGINE_MUTEX);
+      break;
+    }
+    case SQLCOM_SHOW_ENGINE_TRX: {
+      if (check_global_access(thd, PROCESS_ACL)) goto error;
+      res = ha_show_status(thd, lex->create_info->db_type, HA_ENGINE_TRX);
       break;
     }
     case SQLCOM_START_GROUP_REPLICATION: {

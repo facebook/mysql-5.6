@@ -1408,9 +1408,10 @@ InnoDB Monitor to the client.
 @param[in]	hton		the innodb handlerton
 @param[in]	thd		the MySQL query thread of the caller
 @param[in]	stat_print	print function
+@param[in]	transaction	for SHOW INNODB TRANSACTION STATUS
 @return 0 on success */
 static int innodb_show_status(handlerton *hton, THD *thd,
-                              stat_print_fn *stat_print);
+                              stat_print_fn *stat_print, bool transaction);
 
 /** Implements Log_resource lock.
 @param[in]	hton		the innodb handlerton
@@ -17881,9 +17882,10 @@ InnoDB Monitor to the client.
 @param[in]	hton		the innodb handlerton
 @param[in]	thd		the MySQL query thread of the caller
 @param[in]	stat_print	print function
+@param[in]	transaction	for SHOW INNODB TRANSACTION STATUS
 @return 0 on success */
 static int innodb_show_status(handlerton *hton, THD *thd,
-                              stat_print_fn *stat_print) {
+                              stat_print_fn *stat_print, bool transaction) {
   bool ret_val;
 
   DBUG_TRACE;
@@ -17911,7 +17913,11 @@ static int innodb_show_status(handlerton *hton, THD *thd,
   mutex_enter(&srv_monitor_file_mutex);
   rewind(srv_monitor_file);
 
-  srv_printf_innodb_monitor(srv_monitor_file, FALSE, FALSE);
+  if (transaction) {
+    srv_printf_innodb_transaction(srv_monitor_file);
+  } else {
+    srv_printf_innodb_monitor(srv_monitor_file, FALSE, FALSE);
+  }
 
   os_file_set_eof(srv_monitor_file);
 
@@ -18274,10 +18280,13 @@ static bool innobase_show_status(handlerton *hton, THD *thd,
   switch (stat_type) {
     case HA_ENGINE_STATUS:
       /* Non-zero return value means there was an error. */
-      return (innodb_show_status(hton, thd, stat_print) != 0);
+      return (innodb_show_status(hton, thd, stat_print, false) != 0);
 
     case HA_ENGINE_MUTEX:
       return (innodb_show_latch_status(hton, thd, stat_print) != 0);
+
+    case HA_ENGINE_TRX:
+      return (innodb_show_status(hton, thd, stat_print, true) != 0);
 
     case HA_ENGINE_LOGS:
       /* Not handled */
