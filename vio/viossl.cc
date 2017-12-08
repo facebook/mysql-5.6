@@ -271,6 +271,8 @@ size_t vio_ssl_read(Vio *vio, uchar *buf, size_t size) {
 
   while (1) {
     enum enum_vio_io_event event;
+    // Verify the socket is non blocking.
+    DBUG_ASSERT(!vio_is_blocking(vio));
 
     /*
       Check that the SSL thread's error queue is cleared. Otherwise
@@ -285,6 +287,18 @@ size_t vio_ssl_read(Vio *vio, uchar *buf, size_t size) {
 
     /* Process the SSL I/O error. */
     if (!ssl_should_retry(vio, ret, &event, &ssl_errno_not_used)) break;
+
+    if (!vio->is_blocking_func) {
+      socket_errno = SOCKET_EWOULDBLOCK;
+      switch (event) {
+        case VIO_IO_EVENT_READ:
+          DBUG_RETURN(VIO_SOCKET_WANT_READ);
+        case VIO_IO_EVENT_WRITE:
+          DBUG_RETURN(VIO_SOCKET_WANT_WRITE);
+        default:
+          DBUG_RETURN(VIO_SOCKET_ERROR);
+      }
+    }
 
     /* Attempt to wait for an I/O event. */
     if (vio_socket_io_wait(vio, event)) break;
@@ -303,6 +317,8 @@ size_t vio_ssl_write(Vio *vio, const uchar *buf, size_t size) {
 
   while (1) {
     enum enum_vio_io_event event;
+    // Verify the socket is non blocking.
+    DBUG_ASSERT(!vio_is_blocking(vio));
 
     /*
       check that the SSL thread's error queue is cleared. Otherwise
@@ -317,6 +333,18 @@ size_t vio_ssl_write(Vio *vio, const uchar *buf, size_t size) {
 
     /* Process the SSL I/O error. */
     if (!ssl_should_retry(vio, ret, &event, &ssl_errno_not_used)) break;
+
+    if (!vio->is_blocking_func) {
+      socket_errno = SOCKET_EWOULDBLOCK;
+      switch (event) {
+        case VIO_IO_EVENT_READ:
+          DBUG_RETURN(VIO_SOCKET_WANT_READ);
+        case VIO_IO_EVENT_WRITE:
+          DBUG_RETURN(VIO_SOCKET_WANT_WRITE);
+        default:
+          DBUG_RETURN(VIO_SOCKET_ERROR);
+      }
+    }
 
     /* Attempt to wait for an I/O event. */
     if (vio_socket_io_wait(vio, event)) break;
@@ -407,6 +435,9 @@ static int ssl_handshake_loop(Vio *vio, SSL *ssl, ssl_handshake_func_t func,
   while (1) {
     enum enum_vio_io_event event;
 
+    // Verify the socket is non blocking.
+    DBUG_ASSERT(!vio_is_blocking(vio));
+
     /*
       check that the SSL thread's error queue is cleared. Otherwise
       SSL-handshake-function returns an error from the error queue, when the
@@ -421,6 +452,12 @@ static int ssl_handshake_loop(Vio *vio, SSL *ssl, ssl_handshake_func_t func,
     /* Process the SSL I/O error. */
     if (!ssl_should_retry(vio, ret, &event, ssl_errno_holder)) break;
 
+    if (!vio->is_blocking_func) {
+      socket_errno = SOCKET_EWOULDBLOCK;
+      DBUG_ASSERT(false);
+      return -1;
+    }
+
     /* Wait for I/O so that the handshake can proceed. */
     if (vio_socket_io_wait(vio, event)) break;
   }
@@ -431,7 +468,8 @@ static int ssl_handshake_loop(Vio *vio, SSL *ssl, ssl_handshake_func_t func,
 }
 
 static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
-                  ssl_handshake_func_t func, unsigned long *ssl_errno_holder) {
+                  bool blocking, ssl_handshake_func_t func,
+                  unsigned long *ssl_errno_holder) {
   int r;
   SSL *ssl;
   my_socket sd = mysql_socket_getfd(vio->mysql_socket);
@@ -493,6 +531,12 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
   wolfSSL_SetIOWriteCtx(ssl, vio);
 #endif
 
+  /*
+    At this point, the vio is still the non-SSL vio, but the socket is
+    required to be nonblocking in order for timeout to work.
+  */
+  if (vio_ssl_set_blocking(vio, blocking)) DBUG_RETURN(1);
+
   if ((r = ssl_handshake_loop(vio, ssl, func, ssl_errno_holder)) < 1) {
     DBUG_PRINT("error", ("SSL_connect/accept failure"));
     SSL_free(ssl);
@@ -505,6 +549,12 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
     and set pointer to the SSL structure
   */
   if (vio_reset(vio, VIO_TYPE_SSL, SSL_get_fd(ssl), ssl, 0)) DBUG_RETURN(1);
+
+  /*
+    vio_reset will replace the current vio with an SSL vio.
+    The blocking states need to be set again.
+  */
+  if (vio_ssl_set_blocking(vio, blocking)) DBUG_RETURN(1);
 
 #ifndef DBUG_OFF
   {
@@ -538,14 +588,14 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
 int sslaccept(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
               unsigned long *ssl_errno_holder) {
   DBUG_ENTER("sslaccept");
-  int ret = ssl_do(ptr, vio, timeout, SSL_accept, ssl_errno_holder);
+  int ret = ssl_do(ptr, vio, timeout, true, SSL_accept, ssl_errno_holder);
   DBUG_RETURN(ret);
 }
 
-int sslconnect(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
+int sslconnect(struct st_VioSSLFd *ptr, Vio *vio, long timeout, bool blocking,
                unsigned long *ssl_errno_holder) {
   DBUG_ENTER("sslconnect");
-  int ret = ssl_do(ptr, vio, timeout, SSL_connect, ssl_errno_holder);
+  int ret = ssl_do(ptr, vio, timeout, blocking, SSL_connect, ssl_errno_holder);
   DBUG_RETURN(ret);
 }
 

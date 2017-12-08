@@ -129,6 +129,10 @@ enum enum_vio_io_event {
   VIO_IO_EVENT_CONNECT
 };
 
+#define VIO_SOCKET_ERROR ((size_t)-1)
+#define VIO_SOCKET_WANT_READ ((size_t)-2)
+#define VIO_SOCKET_WANT_WRITE ((size_t)-3)
+
 #define VIO_LOCALHOST 1            /* a localhost connection */
 #define VIO_BUFFERED_READ 2        /* use buffered read */
 #define VIO_READ_BUFFER_SIZE 16384 /* size of read buffer */
@@ -156,6 +160,7 @@ bool vio_reset(MYSQL_VIO vio, enum enum_vio_type type, my_socket sd, void *ssl,
                uint flags);
 bool vio_is_blocking(Vio *vio);
 int vio_set_blocking(Vio *vio, bool set_blocking_mode);
+int vio_ssl_set_blocking(Vio *vio, bool set_blocking_mode);
 size_t vio_read(MYSQL_VIO vio, uchar *buf, size_t size);
 size_t vio_read_buff(MYSQL_VIO vio, uchar *buf, size_t size);
 size_t vio_write(MYSQL_VIO vio, const uchar *buf, size_t size);
@@ -259,7 +264,7 @@ struct st_VioSSLFd {
 
 int sslaccept(struct st_VioSSLFd *, MYSQL_VIO, long timeout,
               unsigned long *errptr);
-int sslconnect(struct st_VioSSLFd *, MYSQL_VIO, long timeout,
+int sslconnect(struct st_VioSSLFd *, MYSQL_VIO, long timeout, bool blocking,
                unsigned long *errptr);
 
 struct st_VioSSLFd *new_VioSSLConnectorFd(
@@ -415,7 +420,15 @@ struct Vio {
 #endif /* _WIN32 */
   bool (*is_blocking)(Vio *vio);
   int (*set_blocking)(Vio *vio, bool val);
+  /* Indicates whether socket is blocking or not. */
   bool is_blocking_flag;
+  /*
+    Indicates whether a nonblocking function is called. This is not
+    necessarily in sync with is_blocking_flag because for SSL, the socket is
+    always set to nonblocking and is_blocking_func is used to determine
+    whether or not to wait.
+  */
+  bool is_blocking_func;
 
  private:
   friend Vio *internal_vio_create(uint flags);

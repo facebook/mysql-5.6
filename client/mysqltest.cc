@@ -6425,7 +6425,7 @@ static void do_connect(struct st_command *command) {
     opt_protocol = MYSQL_PROTOCOL_PIPE;
   }
 
-  if (con_ssl || (opt_compress || con_compress)) {
+  if (opt_compress || con_compress) {
     enable_async_client = false;
   }
 
@@ -9230,7 +9230,7 @@ int main(int argc, char **argv) {
 #endif
   SSL_SET_OPTIONS(&con->mysql);
 
-  if ((opt_ssl_ca || opt_ssl_capath) || opt_compress) {
+  if (opt_compress) {
     enable_async_client = false;
   }
 

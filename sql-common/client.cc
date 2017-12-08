@@ -4260,7 +4260,7 @@ static int cli_establish_ssl(MYSQL *mysql) {
     DBUG_PRINT("info", ("IO layer change in progress..."));
     MYSQL_TRACE(SSL_CONNECT, mysql, ());
     if (sslconnect(ssl_fd, net->vio, (long)(mysql->options.connect_timeout),
-                   &ssl_error)) {
+                   true, &ssl_error)) {
       char buf[512];
       ERR_error_string_n(ssl_error, buf, 512);
       buf[511] = 0;

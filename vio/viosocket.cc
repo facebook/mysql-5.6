@@ -285,6 +285,14 @@ int vio_set_blocking(Vio *vio, bool status) {
   DBUG_RETURN(0);
 }
 
+int vio_ssl_set_blocking(Vio *vio, bool status) {
+  DBUG_ENTER(__func__);
+  int ret;
+  ret = vio_set_blocking(vio, false);
+  vio->is_blocking_func = status;
+  DBUG_RETURN(ret);
+}
+
 bool vio_is_blocking(Vio *vio) {
   DBUG_ENTER(__func__);
   DBUG_RETURN(vio->is_blocking_flag);
