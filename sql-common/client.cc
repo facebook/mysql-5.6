@@ -4107,6 +4107,13 @@ static mysql_state_machine_status authsm_finish_auth(mysql_authsm_context *ctx);
 struct mysql_csm_context;
 typedef mysql_state_machine_status (*csm_function)(mysql_csm_context *);
 
+enum ssl_exchange_state {
+  SSL_REQUEST = 8100,
+  SSL_CONNECT = 8101,
+  SSL_COMPLETE = 8102,
+  SSL_NONE = 8103
+};
+
 /*
   Struct to track the state of a connection being established.  Once
   the connection is established, the context should be discarded and
@@ -4138,6 +4145,9 @@ struct mysql_csm_context {
   /* state for running init_commands */
   bool saved_reconnect;
   char **current_init_command;
+
+  ssl_exchange_state ssl_state;
+  SSL *ssl;
 
   /* state function that will be called next */
   csm_function state_function;
@@ -4260,7 +4270,7 @@ static int cli_establish_ssl(MYSQL *mysql) {
     DBUG_PRINT("info", ("IO layer change in progress..."));
     MYSQL_TRACE(SSL_CONNECT, mysql, ());
     if (sslconnect(ssl_fd, net->vio, (long)(mysql->options.connect_timeout),
-                   true, &ssl_error)) {
+                   true, &ssl_error, nullptr)) {
       char buf[512];
       ERR_error_string_n(ssl_error, buf, 512);
       buf[511] = 0;
@@ -4466,9 +4476,6 @@ error:
   packet.
 */
 /* clang-format on */
-
-#define MAX_CONNECTION_ATTR_STORAGE_LENGTH 65536
-
 static bool prep_client_reply_packet(MCPVIO_EXT *mpvio, const uchar *data,
                                      int data_len, char **buff_out,
                                      int *buff_len) {
@@ -4553,6 +4560,166 @@ static bool prep_client_reply_packet(MCPVIO_EXT *mpvio, const uchar *data,
 error:
   my_free(buff);
   DBUG_RETURN(true);
+}
+
+static net_async_status cli_establish_ssl_nonblocking(MYSQL *mysql, int *res) {
+  DBUG_ENTER(__func__);
+#ifdef HAVE_OPENSSL
+  NET *net = &mysql->net;
+  mysql_csm_context *ctx = mysql->connect_context;
+
+  if (ctx->ssl_state == SSL_NONE) {
+    /* Don't fallback on unencrypted connection if SSL required. */
+    if (mysql->options.extension &&
+        mysql->options.extension->ssl_mode >= SSL_MODE_REQUIRED &&
+        !(mysql->server_capabilities & CLIENT_SSL)) {
+      set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR, unknown_sqlstate,
+                               ER_CLIENT(CR_SSL_CONNECTION_ERROR),
+                               "SSL is required but the server doesn't "
+                               "support it");
+      goto error;
+    }
+
+    /*
+      If the ssl_mode is VERIFY_CA or VERIFY_IDENTITY, make sure that the
+      connection doesn't succeed without providing the CA certificate.
+      */
+    if (mysql->options.extension &&
+        mysql->options.extension->ssl_mode > SSL_MODE_REQUIRED &&
+        !(mysql->options.ssl_ca || mysql->options.ssl_capath)) {
+      set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR, unknown_sqlstate,
+                               ER_CLIENT(CR_SSL_CONNECTION_ERROR),
+                               "CA certificate is required if ssl-mode "
+                               "is VERIFY_CA or VERIFY_IDENTITY");
+      goto error;
+    }
+
+    /*
+      Attempt SSL connection if ssl_mode != SSL_MODE_DISABLED and the
+      server supports SSL. Fallback on unencrypted connection otherwise.
+    */
+    if (!mysql->options.extension ||
+        mysql->options.extension->ssl_mode == SSL_MODE_DISABLED ||
+        !(mysql->server_capabilities & CLIENT_SSL)) {
+      goto done;
+    }
+
+    ctx->ssl_state = SSL_REQUEST;
+  }
+
+  if (ctx->ssl_state == SSL_REQUEST) {
+    char buff[33], *end;
+
+    end = mysql_fill_packet_header(mysql, buff, sizeof(buff));
+
+    /*
+    Send mysql->client_flag, max_packet_size - unencrypted otherwise
+    the server does not know we want to do SSL
+    */
+    MYSQL_TRACE(SEND_SSL_REQUEST, mysql,
+                ((size_t)(end - buff), (const unsigned char *)buff));
+    bool ret;
+    if (my_net_write_nonblocking(net, (uchar *)buff, (size_t)(end - buff),
+                                 &ret) == NET_ASYNC_NOT_READY) {
+      DBUG_RETURN(NET_ASYNC_NOT_READY);
+    }
+
+    if (ret) {
+      set_mysql_extended_error(mysql, CR_SERVER_LOST, unknown_sqlstate,
+                               ER_CLIENT(CR_SERVER_LOST_EXTENDED),
+                               "sending connection information to server",
+                               errno);
+      goto error;
+    }
+
+    ctx->ssl_state = SSL_CONNECT;
+  }
+
+  if (ctx->ssl_state == SSL_CONNECT) {
+    /* Do the SSL layering. */
+    struct st_mysql_options *options = &mysql->options;
+    struct st_VioSSLFd *ssl_fd;
+    enum enum_ssl_init_error ssl_init_error;
+    const char *cert_error;
+    unsigned long ssl_error;
+    size_t ret;
+
+    MYSQL_TRACE_STAGE(mysql, SSL_NEGOTIATION);
+
+    if (!mysql->connector_fd) {
+      /* Create the VioSSLConnectorFd - init SSL and load certs */
+      if (!(ssl_fd = new_VioSSLConnectorFd(
+                options->ssl_key, options->ssl_cert, options->ssl_ca,
+                options->ssl_capath, options->ssl_cipher, &ssl_init_error,
+                options->extension ? options->extension->ssl_crl : NULL,
+                options->extension ? options->extension->ssl_crlpath : NULL,
+                options->extension ? options->extension->ssl_ctx_flags : 0))) {
+        set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR,
+                                 unknown_sqlstate,
+                                 ER_CLIENT(CR_SSL_CONNECTION_ERROR),
+                                 sslGetErrString(ssl_init_error));
+        goto error;
+      }
+      mysql->connector_fd = (unsigned char *)ssl_fd;
+    } else {
+      ssl_fd = (struct st_VioSSLFd *)mysql->connector_fd;
+    }
+
+    /* Connect to the server */
+    DBUG_PRINT("info", ("IO layer change in progress..."));
+    MYSQL_TRACE(SSL_CONNECT, mysql, ());
+    if ((ret = sslconnect(ssl_fd, net->vio,
+                          (long)(mysql->options.connect_timeout), false,
+                          &ssl_error, &ctx->ssl))) {
+      switch (ret) {
+        case VIO_SOCKET_WANT_READ:
+          net->async_blocking_state = NET_NONBLOCKING_READ;
+          DBUG_RETURN(NET_ASYNC_NOT_READY);
+        case VIO_SOCKET_WANT_WRITE:
+          net->async_blocking_state = NET_NONBLOCKING_WRITE;
+          DBUG_RETURN(NET_ASYNC_NOT_READY);
+        default:
+          break;
+          /* continue for error handling */
+      }
+
+      char buf[512];
+      ERR_error_string_n(ssl_error, buf, 512);
+      buf[511] = 0;
+      set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR, unknown_sqlstate,
+                               ER_CLIENT(CR_SSL_CONNECTION_ERROR), buf);
+      goto error;
+    }
+    DBUG_PRINT("info", ("IO layer change done!"));
+
+    /* Verify server cert */
+    if ((mysql->client_flag & CLIENT_SSL_VERIFY_SERVER_CERT) &&
+        ssl_verify_server_cert(net->vio, mysql->host, &cert_error)) {
+      set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR, unknown_sqlstate,
+                               ER_CLIENT(CR_SSL_CONNECTION_ERROR), cert_error);
+      goto error;
+    }
+
+    MYSQL_TRACE(SSL_CONNECTED, mysql, ());
+    MYSQL_TRACE_STAGE(mysql, AUTHENTICATE);
+  }
+
+done:
+  *res = 0;
+  ctx->ssl_state = SSL_COMPLETE;
+  DBUG_RETURN(NET_ASYNC_COMPLETE);
+
+error:
+  *res = 1;
+  ctx->ssl_state = SSL_COMPLETE;
+  DBUG_RETURN(NET_ASYNC_COMPLETE);
+
+#else
+  (void)mysql; /* avoid warning */
+  *res = 0;
+  ctx->ssl_state = SSL_COMPLETE;
+  DBUG_RETURN(NET_ASYNC_COMPLETE);
+#endif /* HAVE_OPENSSL */
 }
 
 /**
@@ -5303,6 +5470,7 @@ MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
   ctx.unix_socket = unix_socket;
   ctx.client_flag = client_flag;
   ctx.state_function = csm_begin_connect;
+  ctx.ssl_state = SSL_NONE;
   mysql->connect_context = &ctx;
 
   do {
@@ -5355,6 +5523,7 @@ bool STDCALL mysql_real_connect_nonblocking_init(
   ctx->client_flag = client_flag;
   ctx->non_blocking = true;
   ctx->state_function = csm_begin_connect;
+  ctx->ssl_state = SSL_NONE;
 
   mysql->connect_context = ctx;
   mysql->async_op_status = ASYNC_OP_CONNECT;
@@ -6004,41 +6173,57 @@ static mysql_state_machine_status csm_parse_handshake(mysql_csm_context *ctx) {
 static mysql_state_machine_status csm_establish_ssl(mysql_csm_context *ctx) {
   DBUG_ENTER(__func__);
   MYSQL *mysql = ctx->mysql;
-  MYSQL_TRACE(INIT_PACKET_RECEIVED, mysql,
-              (ctx->pkt_length, mysql->net.read_pos));
-  MYSQL_TRACE_STAGE(mysql, AUTHENTICATE);
+
+  /* This check happens to work for both sync and async. */
+  if (ctx->ssl_state == SSL_NONE) {
+    MYSQL_TRACE(INIT_PACKET_RECEIVED, mysql,
+                (ctx->pkt_length, mysql->net.read_pos));
+    MYSQL_TRACE_STAGE(mysql, AUTHENTICATE);
 
 #if defined(_WIN32)
-  if ((mysql->options.extension &&
-       mysql->options.extension->ssl_mode <= SSL_MODE_PREFERRED) &&
-      (mysql->options.protocol == MYSQL_PROTOCOL_MEMORY ||
-       mysql->options.protocol == MYSQL_PROTOCOL_PIPE)) {
-    mysql->options.extension->ssl_mode = SSL_MODE_DISABLED;
-  }
+    if ((mysql->options.extension &&
+         mysql->options.extension->ssl_mode <= SSL_MODE_PREFERRED) &&
+        (mysql->options.protocol == MYSQL_PROTOCOL_MEMORY ||
+         mysql->options.protocol == MYSQL_PROTOCOL_PIPE)) {
+      mysql->options.extension->ssl_mode = SSL_MODE_DISABLED;
+    }
 #endif
-  /* try and bring up SSL if possible */
-  cli_calculate_client_flag(mysql, ctx->db, ctx->client_flag);
+    /* try and bring up SSL if possible */
+    cli_calculate_client_flag(mysql, ctx->db, ctx->client_flag);
 
-  /*
-    Allocate separate buffer for scramble data if we are going
-    to attempt TLS connection. This would prevent a possible
-    overwrite through my_net_write.
-  */
-  if (ctx->scramble_data_len && mysql->options.extension &&
-      mysql->options.extension->ssl_mode != SSL_MODE_DISABLED) {
-    if (!(ctx->scramble_buffer =
-              (char *)my_malloc(key_memory_MYSQL_HANDSHAKE,
-                                ctx->scramble_data_len, MYF(MY_WME)))) {
-      set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
+    /*
+      Allocate separate buffer for scramble data if we are going
+      to attempt TLS connection. This would prevent a possible
+      overwrite through my_net_write.
+      */
+    if (ctx->scramble_data_len && mysql->options.extension &&
+        mysql->options.extension->ssl_mode != SSL_MODE_DISABLED) {
+      if (!(ctx->scramble_buffer =
+                (char *)my_malloc(key_memory_MYSQL_HANDSHAKE,
+                                  ctx->scramble_data_len, MYF(MY_WME)))) {
+        set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
+        DBUG_RETURN(STATE_MACHINE_FAILED);
+      }
+      ctx->scramble_buffer_allocated = true;
+      memcpy(ctx->scramble_buffer, ctx->scramble_data, ctx->scramble_data_len);
+    } else {
+      ctx->scramble_buffer = ctx->scramble_data;
+    }
+  }
+
+  if (ctx->non_blocking) {
+    int ret;
+    if (cli_establish_ssl_nonblocking(mysql, &ret) == NET_ASYNC_NOT_READY) {
+      DBUG_RETURN(STATE_MACHINE_WOULD_BLOCK);
+    }
+
+    if (ret) {
       DBUG_RETURN(STATE_MACHINE_FAILED);
     }
-    memcpy(ctx->scramble_buffer, ctx->scramble_data, ctx->scramble_data_len);
   } else {
-    ctx->scramble_buffer = ctx->scramble_data;
-  }
-
-  if (cli_establish_ssl(mysql)) {
-    DBUG_RETURN(STATE_MACHINE_FAILED);
+    if (cli_establish_ssl(mysql)) {
+      DBUG_RETURN(STATE_MACHINE_FAILED);
+    }
   }
 
   ctx->state_function = csm_authenticate;
@@ -6660,6 +6845,7 @@ void STDCALL mysql_close(MYSQL *mysql) {
       }
       if (mysql->connect_context->scramble_buffer_allocated)
         my_free(mysql->connect_context->scramble_buffer);
+      if (mysql->connect_context->ssl) SSL_free(mysql->connect_context->ssl);
       my_free(mysql->connect_context);
       mysql->connect_context = nullptr;
     }
