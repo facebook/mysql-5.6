@@ -475,7 +475,6 @@ static int rocksdb_debug_ttl_read_filter_ts = 0;
 static my_bool rocksdb_debug_ttl_ignore_pk = 0;
 static my_bool rocksdb_reset_stats = 0;
 static uint32_t rocksdb_io_write_timeout_secs = 0;
-static uint64_t rocksdb_number_stat_computes = 0;
 static uint32_t rocksdb_seconds_between_stat_computes = 3600;
 static long long rocksdb_compaction_sequential_deletes = 0l;
 static long long rocksdb_compaction_sequential_deletes_window = 0l;
@@ -11728,7 +11727,6 @@ struct rocksdb_status_counters_t {
   uint64_t no_file_opens;
   uint64_t no_file_errors;
   uint64_t stall_micros;
-  uint64_t rate_limit_delay_millis;
   uint64_t num_iterators;
   uint64_t number_multiget_get;
   uint64_t number_multiget_keys_read;
@@ -11803,7 +11801,6 @@ DEF_SHOW_FUNC(no_file_closes, NO_FILE_CLOSES)
 DEF_SHOW_FUNC(no_file_opens, NO_FILE_OPENS)
 DEF_SHOW_FUNC(no_file_errors, NO_FILE_ERRORS)
 DEF_SHOW_FUNC(stall_micros, STALL_MICROS)
-DEF_SHOW_FUNC(rate_limit_delay_millis, RATE_LIMIT_DELAY_MILLIS)
 DEF_SHOW_FUNC(num_iterators, NO_ITERATORS)
 DEF_SHOW_FUNC(number_multiget_get, NUMBER_MULTIGET_CALLS)
 DEF_SHOW_FUNC(number_multiget_keys_read, NUMBER_MULTIGET_KEYS_READ)
@@ -12038,7 +12035,6 @@ static SHOW_VAR rocksdb_status_vars[] = {
     DEF_STATUS_VAR(no_file_opens),
     DEF_STATUS_VAR(no_file_errors),
     DEF_STATUS_VAR(stall_micros),
-    DEF_STATUS_VAR(rate_limit_delay_millis),
     DEF_STATUS_VAR(num_iterators),
     DEF_STATUS_VAR(number_multiget_get),
     DEF_STATUS_VAR(number_multiget_keys_read),
@@ -12071,8 +12067,6 @@ static SHOW_VAR rocksdb_status_vars[] = {
     DEF_STATUS_VAR_PTR("snapshot_conflict_errors",
                        &rocksdb_snapshot_conflict_errors, SHOW_LONGLONG),
     DEF_STATUS_VAR_PTR("wal_group_syncs", &rocksdb_wal_group_syncs,
-                       SHOW_LONGLONG),
-    DEF_STATUS_VAR_PTR("number_stat_computes", &rocksdb_number_stat_computes,
                        SHOW_LONGLONG),
     DEF_STATUS_VAR_PTR("number_sst_entry_put", &rocksdb_num_sst_entry_put,
                        SHOW_LONGLONG),
