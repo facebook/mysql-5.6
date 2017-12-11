@@ -209,7 +209,8 @@ enum mysql_option {
   MYSQL_OPT_RETRY_COUNT,
   MYSQL_OPT_OPTIONAL_RESULTSET_METADATA,
   MYSQL_OPT_SSL_FIPS_MODE,
-  MYSQL_OPT_SSL_SESSION
+  MYSQL_OPT_SSL_SESSION,
+  MYSQL_OPT_SSL_CONTEXT
 };
 
 /**
@@ -494,6 +495,17 @@ bool STDCALL mysql_ssl_set(MYSQL *mysql, const char *key, const char *cert,
 const char *STDCALL mysql_get_ssl_cipher(MYSQL *mysql);
 void *STDCALL mysql_get_ssl_session(MYSQL *mysql);
 bool STDCALL mysql_get_ssl_session_reused(MYSQL *mysql);
+/*
+  Take ownership of the OpenSSL SSL_CTX instance associated with this
+  connection.  In general, SSL_CTX objects should be re-used.  Either one can
+  be taken from an existing connection or created by hand (in which case the
+  mysql SSL options such as MYSQL_OPT_SSL_KEY are ignored since they
+  influence the SSL_CTX object).
+
+  The caller is responsible for freeing this via SSL_CTX_free.  Note that this
+  is a void* strictly to avoid including SSL headers in this file.
+*/
+void *STDCALL mysql_take_ssl_context_ownership(MYSQL *mysql);
 bool STDCALL mysql_change_user(MYSQL *mysql, const char *user,
                                const char *passwd, const char *db);
 MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,

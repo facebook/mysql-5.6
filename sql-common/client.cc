@@ -3135,9 +3135,9 @@ static void mysql_ssl_free(MYSQL *mysql) {
     my_free(mysql->options.extension->tls_version);
     my_free(mysql->options.extension->ssl_crl);
     my_free(mysql->options.extension->ssl_crlpath);
+    mysql->options.extension->ssl_context = nullptr;
   }
-  if (ssl_fd) SSL_CTX_free(ssl_fd->ssl_context);
-  my_free(mysql->connector_fd);
+  if (ssl_fd) free_vio_ssl_fd(ssl_fd);
   mysql->options.ssl_key = 0;
   mysql->options.ssl_cert = 0;
   mysql->options.ssl_ca = 0;
@@ -3194,6 +3194,19 @@ bool STDCALL mysql_get_ssl_session_reused(MYSQL *mysql MY_ATTRIBUTE((unused))) {
   }
 #endif
   DBUG_RETURN(false);
+}
+
+void *STDCALL
+mysql_take_ssl_context_ownership(MYSQL *mysql MY_ATTRIBUTE((unused))) {
+  DBUG_ENTER("mysql_take_ssl_context_ownership");
+#if defined(HAVE_OPENSSL)
+  if (mysql->connector_fd) {
+    struct st_VioSSLFd *ssl_fd = (struct st_VioSSLFd *)mysql->connector_fd;
+    ssl_fd->owned = false;
+    DBUG_RETURN(ssl_fd->ssl_context);
+  }
+#endif
+  DBUG_RETURN(nullptr);
 }
 
   /*
@@ -4273,18 +4286,31 @@ static int cli_establish_ssl(MYSQL *mysql) {
     MYSQL_TRACE_STAGE(mysql, SSL_NEGOTIATION);
 
     /* Create the VioSSLConnectorFd - init SSL and load certs */
-    if (!(ssl_fd = new_VioSSLConnectorFd(
-              options->ssl_key, options->ssl_cert, options->ssl_ca,
-              options->ssl_capath, options->ssl_cipher, &ssl_init_error,
-              options->extension ? options->extension->ssl_crl : NULL,
-              options->extension ? options->extension->ssl_crlpath : NULL,
-              options->extension ? options->extension->ssl_ctx_flags : 0))) {
-      set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR, unknown_sqlstate,
-                               ER_CLIENT(CR_SSL_CONNECTION_ERROR),
-                               sslGetErrString(ssl_init_error));
-      goto error;
+    if (!mysql->connector_fd) {
+      /* Create the VioSSLConnectorFd - init SSL and load certs */
+      if (options->extension && options->extension->ssl_context) {
+        ssl_fd = new_VioSSLConnectorFdFromContext(
+            (SSL_CTX *)options->extension->ssl_context, &ssl_init_error);
+      } else {
+        if (!(ssl_fd = new_VioSSLConnectorFd(
+                  options->ssl_key, options->ssl_cert, options->ssl_ca,
+                  options->ssl_capath, options->ssl_cipher, &ssl_init_error,
+                  options->extension ? options->extension->ssl_crl : NULL,
+                  options->extension ? options->extension->ssl_crlpath : NULL,
+                  options->extension ? options->extension->ssl_ctx_flags
+                                     : 0))) {
+          set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR,
+                                   unknown_sqlstate,
+                                   ER_CLIENT(CR_SSL_CONNECTION_ERROR),
+                                   sslGetErrString(ssl_init_error));
+          goto error;
+        }
+      }
+      mysql->connector_fd = (unsigned char *)ssl_fd;
+    } else {
+      ssl_fd = (struct st_VioSSLFd *)mysql->connector_fd;
     }
-    mysql->connector_fd = (unsigned char *)ssl_fd;
+
     SSL_SESSION *ssl_session =
         options->extension ? (SSL_SESSION *)options->extension->ssl_session
                            : nullptr;
@@ -4676,17 +4702,23 @@ static net_async_status cli_establish_ssl_nonblocking(MYSQL *mysql, int *res) {
 
     if (!mysql->connector_fd) {
       /* Create the VioSSLConnectorFd - init SSL and load certs */
-      if (!(ssl_fd = new_VioSSLConnectorFd(
-                options->ssl_key, options->ssl_cert, options->ssl_ca,
-                options->ssl_capath, options->ssl_cipher, &ssl_init_error,
-                options->extension ? options->extension->ssl_crl : NULL,
-                options->extension ? options->extension->ssl_crlpath : NULL,
-                options->extension ? options->extension->ssl_ctx_flags : 0))) {
-        set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR,
-                                 unknown_sqlstate,
-                                 ER_CLIENT(CR_SSL_CONNECTION_ERROR),
-                                 sslGetErrString(ssl_init_error));
-        goto error;
+      if (options->extension && options->extension->ssl_context) {
+        ssl_fd = new_VioSSLConnectorFdFromContext(
+            (SSL_CTX *)options->extension->ssl_context, &ssl_init_error);
+      } else {
+        if (!(ssl_fd = new_VioSSLConnectorFd(
+                  options->ssl_key, options->ssl_cert, options->ssl_ca,
+                  options->ssl_capath, options->ssl_cipher, &ssl_init_error,
+                  options->extension ? options->extension->ssl_crl : NULL,
+                  options->extension ? options->extension->ssl_crlpath : NULL,
+                  options->extension ? options->extension->ssl_ctx_flags
+                                     : 0))) {
+          set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR,
+                                   unknown_sqlstate,
+                                   ER_CLIENT(CR_SSL_CONNECTION_ERROR),
+                                   sslGetErrString(ssl_init_error));
+          goto error;
+        }
       }
       mysql->connector_fd = (unsigned char *)ssl_fd;
     } else {
@@ -7703,6 +7735,11 @@ int STDCALL mysql_options(MYSQL *mysql, enum mysql_option option,
         mysql->options.client_flag |= CLIENT_OPTIONAL_RESULTSET_METADATA;
       else
         mysql->options.client_flag &= ~CLIENT_OPTIONAL_RESULTSET_METADATA;
+      break;
+
+    case MYSQL_OPT_SSL_CONTEXT:
+      ENSURE_EXTENSIONS_PRESENT(&mysql->options);
+      mysql->options.extension->ssl_context = (void *)arg;
       break;
 
     default:

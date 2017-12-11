@@ -84,7 +84,7 @@ bool Ssl_context::setup(const Config &config) {
 }
 
 Ssl_context::~Ssl_context() {
-  if (m_ssl_acceptor) free_vio_ssl_acceptor_fd(m_ssl_acceptor);
+  if (m_ssl_acceptor) free_vio_ssl_fd(m_ssl_acceptor);
 }
 
 /** Start a TLS session in the connection.
@@ -104,7 +104,7 @@ bool Ssl_context::activate_tls(Vio_interface *conn,
 
 void Ssl_context::reset() {
   if (!m_config || !m_ssl_acceptor) return;
-  free_vio_ssl_acceptor_fd(m_ssl_acceptor);
+  free_vio_ssl_fd(m_ssl_acceptor);
   setup(*m_config);
 }
 

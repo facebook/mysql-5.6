@@ -152,6 +152,7 @@ mysql_free_result_nonblocking
 mysql_fetch_row_nonblocking
 mysql_get_ssl_session
 mysql_get_ssl_session_reused
+mysql_take_ssl_context_ownership
 
 CACHE INTERNAL "Functions exported by client API"
 

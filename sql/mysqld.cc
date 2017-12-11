@@ -4687,7 +4687,7 @@ static void end_ssl() {
 #ifdef HAVE_OPENSSL
   if (ssl_acceptor_fd) {
     if (ssl_acceptor) SSL_free(ssl_acceptor);
-    free_vio_ssl_acceptor_fd(ssl_acceptor_fd);
+    free_vio_ssl_fd(ssl_acceptor_fd);
     ssl_acceptor_fd = 0;
   }
   deinit_rsa_keys();
