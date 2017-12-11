@@ -230,6 +230,13 @@ static const CHARSET_INFO *charset_info = &my_charset_latin1;
 #include "caching_sha2_passwordopt-vars.h"
 #include "sslopt-vars.h"
 
+/*
+  A simple session cache for SSL session. We simply try to
+  reuse the most recently seen session; the server will reject it if
+  it is invalid (or, say, it came from another host, etc).
+*/
+static void *ssl_session = nullptr;
+
 const char *default_dbug_option = "d:t:o,/tmp/mysql.trace";
 
 /*
@@ -1488,6 +1495,9 @@ void mysql_end(int sig) {
   my_free(current_prompt);
   mysql_server_end();
   my_end(my_end_arg);
+#if defined(HAVE_OPENSSL)
+  if (ssl_session) SSL_SESSION_free((SSL_SESSION *)ssl_session);
+#endif
   exit(status.exit_status);
 }
 
@@ -4545,6 +4555,14 @@ static int sql_real_connect(char *host, char *database, char *user,
     return ignore_errors ? -1 : 1;  // Abort
   }
 #endif
+  if (!mysql_get_ssl_session_reused(&mysql)) {
+#if defined(HAVE_OPENSSL)
+    if (ssl_session) SSL_SESSION_free((SSL_SESSION *)ssl_session);
+#endif
+    ssl_session = mysql_get_ssl_session(&mysql);
+    if (ssl_session == nullptr)
+      DBUG_PRINT("error", ("unable to save SSL session"));
+  }
 
 #ifdef _WIN32
   /* Convert --execute buffer from UTF8MB4 to connection character set */
@@ -4614,6 +4632,9 @@ static bool init_connection_options(MYSQL *mysql) {
     tee_fprintf(stdout, "%s", SSL_SET_OPTIONS_ERROR);
     return true;
   }
+  if (ssl_session)
+    mysql_options4(mysql, MYSQL_OPT_SSL_SESSION, ssl_session, (void *)false);
+
   if (opt_protocol)
     mysql_options(mysql, MYSQL_OPT_PROTOCOL, (char *)&opt_protocol);
 

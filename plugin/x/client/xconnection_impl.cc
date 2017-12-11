@@ -585,7 +585,7 @@ XError Connection_impl::activate_tls() {
   // When mode it set to Ssl_config::Mode_ssl_verify_ca
   // then lower layers are going to verify it
   unsigned long error;  // NOLINT
-  if (0 != sslconnect(m_vioSslFd, m_vio, 60, &error, nullptr)) {
+  if (0 != sslconnect(m_vioSslFd, m_vio, 60, nullptr, &error, nullptr)) {
     return get_ssl_error(error);
   }
 

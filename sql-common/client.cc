@@ -3297,6 +3297,10 @@ static void mysql_ssl_free(MYSQL *mysql) {
     mysql->options.extension->ssl_mode = SSL_MODE_DISABLED;
     mysql->options.extension->ssl_fips_mode = SSL_FIPS_MODE_OFF;
     mysql->options.extension->tls_ciphersuites = nullptr;
+    if (mysql->options.extension->ssl_session) {
+      SSL_SESSION_free((SSL_SESSION *)mysql->options.extension->ssl_session);
+      mysql->options.extension->ssl_session = nullptr;
+    }
   }
   mysql->connector_fd = nullptr;
 }
@@ -3316,6 +3320,26 @@ const char *STDCALL mysql_get_ssl_cipher(MYSQL *mysql MY_ATTRIBUTE((unused))) {
   if (mysql->net.vio && mysql->net.vio->ssl_arg)
     return SSL_get_cipher_name((SSL *)mysql->net.vio->ssl_arg);
   return nullptr;
+}
+
+void *STDCALL mysql_get_ssl_session(MYSQL *mysql MY_ATTRIBUTE((unused))) {
+  DBUG_ENTER("mysql_get_ssl_session");
+#if defined(HAVE_OPENSSL)
+  if (mysql->net.vio && mysql->net.vio->ssl_arg) {
+    DBUG_RETURN(SSL_get1_session((SSL *)mysql->net.vio->ssl_arg));
+  }
+#endif
+  DBUG_RETURN(nullptr);
+}
+
+bool STDCALL mysql_get_ssl_session_reused(MYSQL *mysql MY_ATTRIBUTE((unused))) {
+  DBUG_ENTER("mysql_get_ssl_session_reused");
+#if defined(HAVE_OPENSSL)
+  if (mysql->net.vio && mysql->net.vio->ssl_arg) {
+    DBUG_RETURN(SSL_session_reused((SSL *)mysql->net.vio->ssl_arg));
+  }
+#endif
+  DBUG_RETURN(false);
 }
 
 /*
@@ -4196,18 +4220,26 @@ static int cli_establish_ssl(MYSQL *mysql) {
       goto error;
     }
     mysql->connector_fd = (unsigned char *)ssl_fd;
+    SSL_SESSION *ssl_session =
+        options->extension ? (SSL_SESSION *)options->extension->ssl_session
+                           : nullptr;
 
     /* Connect to the server */
     DBUG_PRINT("info", ("IO layer change in progress..."));
     MYSQL_TRACE(SSL_CONNECT, mysql, ());
     if (sslconnect(ssl_fd, net->vio, (long)(mysql->options.connect_timeout),
-                   &ssl_error, nullptr)) {
+                   ssl_session, &ssl_error, nullptr)) {
       char buf[512];
       ERR_error_string_n(ssl_error, buf, 512);
       buf[511] = 0;
       set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR, unknown_sqlstate,
                                ER_CLIENT(CR_SSL_CONNECTION_ERROR), buf);
       goto error;
+    }
+    /* Free the SSL session early */
+    if (ssl_session) {
+      SSL_SESSION_free(ssl_session);
+      options->extension->ssl_session = nullptr;
     }
     DBUG_PRINT("info", ("IO layer change done!"));
 
@@ -4356,12 +4388,16 @@ static net_async_status cli_establish_ssl_nonblocking(MYSQL *mysql, int *res) {
       ssl_fd = (struct st_VioSSLFd *)mysql->connector_fd;
     }
 
+    SSL_SESSION *ssl_session =
+        options->extension ? (SSL_SESSION *)options->extension->ssl_session
+                           : nullptr;
+
     /* Connect to the server */
     DBUG_PRINT("info", ("IO layer change in progress..."));
     MYSQL_TRACE(SSL_CONNECT, mysql, ());
     if ((ret = sslconnect(ssl_fd, net->vio,
-                          (long)(mysql->options.connect_timeout), &ssl_error,
-                          &ctx->ssl))) {
+                          (long)(mysql->options.connect_timeout), ssl_session,
+                          &ssl_error, &ctx->ssl))) {
       switch (ret) {
         case VIO_SOCKET_WANT_READ:
           net_async->async_blocking_state = NET_NONBLOCKING_READ;
@@ -4380,6 +4416,11 @@ static net_async_status cli_establish_ssl_nonblocking(MYSQL *mysql, int *res) {
       set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR, unknown_sqlstate,
                                ER_CLIENT(CR_SSL_CONNECTION_ERROR), buf);
       goto error;
+    }
+    /* Free the SSL session early */
+    if (ssl_session) {
+      SSL_SESSION_free(ssl_session);
+      options->extension->ssl_session = nullptr;
     }
     DBUG_PRINT("info", ("IO layer change done!"));
 
@@ -8175,6 +8216,35 @@ int STDCALL mysql_options4(MYSQL *mysql, enum mysql_option option,
       break;
     }
 
+    case MYSQL_OPT_SSL_SESSION: {
+      /*
+        Set the SSL session to be used during sslconnect. The client will hold
+        a reference to the session until the connection is closed.
+
+        @param take_ownership if true, the client will assume the caller's
+        reference count to session.
+      */
+      ENSURE_EXTENSIONS_PRESENT(&mysql->options);
+
+#if defined(HAVE_OPENSSL)
+      SSL_SESSION *ssl_session = (SSL_SESSION *)const_cast<void *>(arg1);
+      bool take_ownership = (bool)arg2;
+
+      /* Increment the reference count */
+      if (!take_ownership && ssl_session != nullptr)
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+        SSL_SESSION_up_ref(ssl_session);
+#else
+        CRYPTO_add(&ssl_session->references, 1, CRYPTO_LOCK_SSL_SESSION);
+#endif
+
+      if (mysql->options.extension->ssl_session)
+        SSL_SESSION_free((SSL_SESSION *)mysql->options.extension->ssl_session);
+
+      mysql->options.extension->ssl_session = (void *)ssl_session;
+#endif
+      break;
+    }
     default:
       return 1;
   }

@@ -144,6 +144,7 @@ struct st_mysql_options_extention {
   unsigned int total_configured_compression_algorithms;
   unsigned int zstd_compression_level;
   bool connection_compressed;
+  void *ssl_session;
 };
 
 struct MYSQL_METHODS {

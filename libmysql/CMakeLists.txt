@@ -139,6 +139,8 @@ SET(CLIENT_API_FUNCTIONS
   mysql_thread_safe
   mysql_use_result
   mysql_warning_count
+  mysql_get_ssl_session
+  mysql_get_ssl_session_reused
 
   CACHE INTERNAL "Functions exported by client API"
 )
