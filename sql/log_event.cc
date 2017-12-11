@@ -3255,6 +3255,9 @@ void Log_event::add_to_dag(Relay_log_info *rli)
     rli->curr_group_seen_gtid= true;
   else if (contains_partition_info(rli->mts_end_group_sets_max_dbs))
   {
+    if (get_type_code() == TABLE_MAP_EVENT)
+      rli->last_table_map_event= static_cast<Table_map_log_event*>(this);
+
     rli->mts_end_group_sets_max_dbs= false;
 
     // NOTE: we don't update @Relay_log_info::tables_accessed_by_group here
@@ -3396,6 +3399,7 @@ void Log_event::do_post_end_event(Relay_log_info *rli, Log_event_wrapper *ev)
   // update rli state
   rli->current_begin_event= NULL;
   rli->prev_event= NULL;
+  rli->last_table_map_event= NULL;
   rli->mts_group_status= Relay_log_info::MTS_END_GROUP;
   rli->curr_group_seen_begin = rli->curr_group_seen_gtid = false;
 
@@ -11896,14 +11900,10 @@ void Rows_log_event::do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev)
   DBUG_ENTER("Rows_log_event::do_add_to_dag");
 
   DBUG_ASSERT(rli->prev_event != NULL);
-  DBUG_ASSERT(rli->prev_event->get_raw_event()->get_type_code() ==
-              TABLE_MAP_EVENT);
+  DBUG_ASSERT(rli->last_table_map_event != NULL);
 
-  Table_map_log_event *table_map_ev= static_cast<Table_map_log_event*>
-                                     (rli->prev_event->get_raw_event());
-
-  std::string db_name(table_map_ev->get_db_name());
-  std::string table_name(table_map_ev->get_table_name());
+  std::string db_name(rli->last_table_map_event->get_db_name());
+  std::string table_name(rli->last_table_map_event->get_table_name());
 
   auto full_table_name= db_name
                         .append(std::to_string(db_name.length()))
