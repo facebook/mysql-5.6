@@ -459,7 +459,8 @@ enum mysql_option {
   MYSQL_OPT_ZSTD_COMPRESSION_LEVEL,
   MYSQL_OPT_LOAD_DATA_LOCAL_DIR,
   MYSQL_OPT_USER_PASSWORD,
-  MYSQL_OPT_SSL_SESSION
+  MYSQL_OPT_SSL_SESSION,
+  MYSQL_OPT_SSL_CONTEXT,
 };
 struct st_mysql_options_extention;
 struct st_mysql_options {
@@ -616,6 +617,7 @@ const char * mysql_get_ssl_version(MYSQL *mysql);
 const char * mysql_get_ssl_cipher(MYSQL *mysql);
 void * mysql_get_ssl_session(MYSQL *mysql);
 bool mysql_get_ssl_session_reused(MYSQL *mysql);
+void * mysql_take_ssl_context_ownership(MYSQL *mysql);
 bool mysql_change_user(MYSQL *mysql, const char *user,
                                const char *passwd, const char *db);
 MYSQL * mysql_real_connect(MYSQL *mysql, const char *host,

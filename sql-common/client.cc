@@ -3357,6 +3357,7 @@ static void mysql_ssl_free(MYSQL *mysql) {
         mysql->options.extension->client_auth_info[idx].password = nullptr;
       }
     }
+    mysql->options.extension->ssl_context = nullptr;
   }
   mysql->options.ssl_key = nullptr;
   mysql->options.ssl_cert = nullptr;
@@ -3431,6 +3432,19 @@ bool STDCALL mysql_get_ssl_session_reused(MYSQL *mysql MY_ATTRIBUTE((unused))) {
   }
 #endif
   DBUG_RETURN(false);
+}
+
+void *STDCALL
+mysql_take_ssl_context_ownership(MYSQL *mysql MY_ATTRIBUTE((unused))) {
+  DBUG_ENTER("mysql_take_ssl_context_ownership");
+#if defined(HAVE_OPENSSL)
+  if (mysql->connector_fd) {
+    struct st_VioSSLFd *ssl_fd = (struct st_VioSSLFd *)mysql->connector_fd;
+    ssl_fd->owned = false;
+    DBUG_RETURN(ssl_fd->ssl_context);
+  }
+#endif
+  DBUG_RETURN(nullptr);
 }
 
 /*
@@ -4303,22 +4317,34 @@ static int cli_establish_ssl(MYSQL *mysql) {
     MYSQL_TRACE_STAGE(mysql, SSL_NEGOTIATION);
 
     /* Create the VioSSLConnectorFd - init SSL and load certs */
-    if (!(ssl_fd = new_VioSSLConnectorFd(
-              options->ssl_key, options->ssl_cert, options->ssl_ca,
-              options->ssl_capath, options->ssl_cipher,
-              options->extension ? options->extension->tls_ciphersuites
-                                 : nullptr,
-              &ssl_init_error,
-              options->extension ? options->extension->ssl_crl : nullptr,
-              options->extension ? options->extension->ssl_crlpath : nullptr,
-              options->extension ? options->extension->ssl_ctx_flags : 0,
-              verify_identity ? mysql->host : nullptr))) {
-      set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR, unknown_sqlstate,
-                               ER_CLIENT(CR_SSL_CONNECTION_ERROR),
-                               sslGetErrString(ssl_init_error));
-      goto error;
+    if (!mysql->connector_fd) {
+      /* Create the VioSSLConnectorFd - init SSL and load certs */
+      if (options->extension && options->extension->ssl_context) {
+        ssl_fd = new_VioSSLConnectorFdFromContext(
+            (SSL_CTX *)options->extension->ssl_context, &ssl_init_error);
+      } else {
+        if (!(ssl_fd = new_VioSSLConnectorFd(
+                  options->ssl_key, options->ssl_cert, options->ssl_ca,
+                  options->ssl_capath, options->ssl_cipher,
+                  options->extension ? options->extension->tls_ciphersuites
+                                     : nullptr,
+                  &ssl_init_error,
+                  options->extension ? options->extension->ssl_crl : nullptr,
+                  options->extension ? options->extension->ssl_crlpath
+                                     : nullptr,
+                  options->extension ? options->extension->ssl_ctx_flags : 0,
+                  verify_identity ? mysql->host : nullptr))) {
+          set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR,
+                                   unknown_sqlstate,
+                                   ER_CLIENT(CR_SSL_CONNECTION_ERROR),
+                                   sslGetErrString(ssl_init_error));
+          goto error;
+        }
+      }
+      mysql->connector_fd = (unsigned char *)ssl_fd;
+    } else {
+      ssl_fd = (struct st_VioSSLFd *)mysql->connector_fd;
     }
-    mysql->connector_fd = (unsigned char *)ssl_fd;
     SSL_SESSION *ssl_session =
         options->extension ? (SSL_SESSION *)options->extension->ssl_session
                            : nullptr;
@@ -4469,21 +4495,27 @@ static net_async_status cli_establish_ssl_nonblocking(MYSQL *mysql, int *res) {
 
     if (!mysql->connector_fd) {
       /* Create the VioSSLConnectorFd - init SSL and load certs */
-      if (!(ssl_fd = new_VioSSLConnectorFd(
-                options->ssl_key, options->ssl_cert, options->ssl_ca,
-                options->ssl_capath, options->ssl_cipher,
-                options->extension ? options->extension->tls_ciphersuites
-                                   : nullptr,
-                &ssl_init_error,
-                options->extension ? options->extension->ssl_crl : nullptr,
-                options->extension ? options->extension->ssl_crlpath : nullptr,
-                options->extension ? options->extension->ssl_ctx_flags : 0,
-                verify_identity ? mysql->host : nullptr))) {
-        set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR,
-                                 unknown_sqlstate,
-                                 ER_CLIENT(CR_SSL_CONNECTION_ERROR),
-                                 sslGetErrString(ssl_init_error));
-        goto error;
+      if (options->extension && options->extension->ssl_context) {
+        ssl_fd = new_VioSSLConnectorFdFromContext(
+            (SSL_CTX *)options->extension->ssl_context, &ssl_init_error);
+      } else {
+        if (!(ssl_fd = new_VioSSLConnectorFd(
+                  options->ssl_key, options->ssl_cert, options->ssl_ca,
+                  options->ssl_capath, options->ssl_cipher,
+                  options->extension ? options->extension->tls_ciphersuites
+                                     : nullptr,
+                  &ssl_init_error,
+                  options->extension ? options->extension->ssl_crl : nullptr,
+                  options->extension ? options->extension->ssl_crlpath
+                                     : nullptr,
+                  options->extension ? options->extension->ssl_ctx_flags : 0,
+                  verify_identity ? mysql->host : nullptr))) {
+          set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR,
+                                   unknown_sqlstate,
+                                   ER_CLIENT(CR_SSL_CONNECTION_ERROR),
+                                   sslGetErrString(ssl_init_error));
+          goto error;
+        }
       }
       mysql->connector_fd = (unsigned char *)ssl_fd;
     } else {
@@ -7266,8 +7298,7 @@ void mysql_close_free(MYSQL *mysql) {
   my_free(mysql->field_alloc);
 
   if (mysql->connector_fd)
-    free_vio_ssl_acceptor_fd(
-        reinterpret_cast<st_VioSSLFd *>(mysql->connector_fd));
+    free_vio_ssl_fd(reinterpret_cast<st_VioSSLFd *>(mysql->connector_fd));
   mysql->connector_fd = nullptr;
 
   mysql->field_alloc = nullptr;
@@ -8506,6 +8537,11 @@ int STDCALL mysql_options(MYSQL *mysql, enum mysql_option option,
                                             static_cast<const char *>(arg)))
         return 1;
       break;
+    case MYSQL_OPT_SSL_CONTEXT:
+      ENSURE_EXTENSIONS_PRESENT(&mysql->options);
+      mysql->options.extension->ssl_context = const_cast<void *>(arg);
+      break;
+
     default:
       return 1;
   }
