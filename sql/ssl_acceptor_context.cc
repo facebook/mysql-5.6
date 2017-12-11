@@ -569,7 +569,7 @@ SslAcceptorContext::SslAcceptorContext(bool use_ssl_arg, bool report_ssl_error,
 
 SslAcceptorContext::~SslAcceptorContext() {
   if (acceptor) SSL_free(acceptor);
-  if (ssl_acceptor_fd) free_vio_ssl_acceptor_fd(ssl_acceptor_fd);
+  if (ssl_acceptor_fd) free_vio_ssl_fd(ssl_acceptor_fd);
 }
 
 ssl_artifacts_status SslAcceptorContext::auto_detect_ssl() {

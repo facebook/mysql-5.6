@@ -237,6 +237,9 @@ static const CHARSET_INFO *charset_info = &my_charset_latin1;
 */
 static void *ssl_session = nullptr;
 
+/* The SSL context that will be reused across invocations. */
+static void *ssl_context = nullptr;
+
 const char *default_dbug_option = "d:t:o,/tmp/mysql.trace";
 
 /*
@@ -1496,6 +1499,7 @@ void mysql_end(int sig) {
   mysql_server_end();
   my_end(my_end_arg);
 #if defined(HAVE_OPENSSL)
+  SSL_CTX_free((SSL_CTX *)ssl_context);
   if (ssl_session) SSL_SESSION_free((SSL_SESSION *)ssl_session);
 #endif
   exit(status.exit_status);
@@ -4563,6 +4567,7 @@ static int sql_real_connect(char *host, char *database, char *user,
     if (ssl_session == nullptr)
       DBUG_PRINT("error", ("unable to save SSL session"));
   }
+  ssl_context = mysql_take_ssl_context_ownership(&mysql);
 
 #ifdef _WIN32
   /* Convert --execute buffer from UTF8MB4 to connection character set */
@@ -4632,6 +4637,11 @@ static bool init_connection_options(MYSQL *mysql) {
     tee_fprintf(stdout, "%s", SSL_SET_OPTIONS_ERROR);
     return true;
   }
+
+  if (ssl_context) {
+    mysql_options(mysql, MYSQL_OPT_SSL_CONTEXT, ssl_context);
+  }
+
   if (ssl_session)
     mysql_options4(mysql, MYSQL_OPT_SSL_SESSION, ssl_session, (void *)false);
 
