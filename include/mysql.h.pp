@@ -453,7 +453,8 @@ enum mysql_option {
   MYSQL_OPT_GET_SERVER_PUBLIC_KEY,
   MYSQL_OPT_RETRY_COUNT,
   MYSQL_OPT_OPTIONAL_RESULTSET_METADATA,
-  MYSQL_OPT_SSL_FIPS_MODE
+  MYSQL_OPT_SSL_FIPS_MODE,
+  MYSQL_OPT_SSL_SESSION
 };
 struct st_mysql_options_extention;
 struct st_mysql_options {
@@ -631,6 +632,8 @@ bool mysql_ssl_set(MYSQL *mysql, const char *key, const char *cert,
                            const char *ca, const char *capath,
                            const char *cipher);
 const char * mysql_get_ssl_cipher(MYSQL *mysql);
+void * mysql_get_ssl_session(MYSQL *mysql);
+bool mysql_get_ssl_session_reused(MYSQL *mysql);
 bool mysql_change_user(MYSQL *mysql, const char *user,
                                const char *passwd, const char *db);
 MYSQL * mysql_real_connect(MYSQL *mysql, const char *host,

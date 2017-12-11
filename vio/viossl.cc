@@ -483,8 +483,9 @@ static size_t ssl_handshake_loop(Vio *vio, SSL *ssl, ssl_handshake_func_t func,
 }
 
 static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
-                  bool blocking, ssl_handshake_func_t func,
-                  unsigned long *ssl_errno_holder, SSL **sslptr) {
+                  bool blocking, SSL_SESSION *ssl_session,
+                  ssl_handshake_func_t func, unsigned long *ssl_errno_holder,
+                  SSL **sslptr) {
   SSL *ssl = nullptr;
   my_socket sd = mysql_socket_getfd(vio->mysql_socket);
 
@@ -505,6 +506,18 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
       DBUG_PRINT("error", ("SSL_new failure"));
       *ssl_errno_holder = ERR_get_error();
       DBUG_RETURN(1);
+    }
+
+    if (ssl_session != nullptr) {
+      if (!SSL_set_session(ssl, ssl_session)) {
+#ifndef DBUG_OFF
+        DBUG_PRINT("error", ("SSL_set_session failed"));
+        report_errors(ssl);
+#endif
+        ERR_clear_error();
+      } else {
+        DBUG_PRINT("info", ("reused existing session %p", ssl_session));
+      }
     }
 
     DBUG_PRINT("info", ("ssl: %p timeout: %ld", ssl, timeout));
@@ -624,15 +637,17 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
 int sslaccept(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
               unsigned long *ssl_errno_holder) {
   DBUG_ENTER("sslaccept");
-  int ret = ssl_do(ptr, vio, timeout, true, SSL_accept, ssl_errno_holder, nullptr);
+  int ret = ssl_do(ptr, vio, timeout, true, nullptr, SSL_accept,
+                   ssl_errno_holder, nullptr);
   DBUG_RETURN(ret);
 }
 
 int sslconnect(struct st_VioSSLFd *ptr, Vio *vio, long timeout, bool blocking,
-               unsigned long *ssl_errno_holder, SSL **ssl) {
+               SSL_SESSION *ssl_session, unsigned long *ssl_errno_holder,
+               SSL **ssl) {
   DBUG_ENTER("sslconnect");
-  int ret =
-      ssl_do(ptr, vio, timeout, blocking, SSL_connect, ssl_errno_holder, ssl);
+  int ret = ssl_do(ptr, vio, timeout, blocking, ssl_session, SSL_connect,
+                   ssl_errno_holder, ssl);
   DBUG_RETURN(ret);
 }
 
