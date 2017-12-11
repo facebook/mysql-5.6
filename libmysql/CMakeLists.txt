@@ -140,6 +140,8 @@ mysql_session_track_get_first
 mysql_session_track_get_next
 mysql_reset_server_public_key
 mysql_result_metadata
+mysql_get_ssl_session
+mysql_get_ssl_session_reused
 
 CACHE INTERNAL "Functions exported by client API"
 
