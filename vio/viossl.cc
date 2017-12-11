@@ -598,8 +598,8 @@ static void pfs_ssl_setup_instrumentation(Vio *vio, const SSL *ssl) {
 #endif /* HAVE_PSI_SOCKET_INTERFACE */
 
 static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
-                  ssl_handshake_func_t func, unsigned long *ssl_errno_holder,
-                  SSL **sslptr) {
+                  SSL_SESSION *ssl_session, ssl_handshake_func_t func,
+                  unsigned long *ssl_errno_holder, SSL **sslptr) {
   SSL *ssl = nullptr;
   my_socket sd = mysql_socket_getfd(vio->mysql_socket);
 
@@ -620,6 +620,18 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
       DBUG_PRINT("error", ("SSL_new failure"));
       *ssl_errno_holder = ERR_get_error();
       return 1;
+    }
+
+    if (ssl_session != nullptr) {
+      if (!SSL_set_session(ssl, ssl_session)) {
+#ifndef DBUG_OFF
+        DBUG_PRINT("error", ("SSL_set_session failed"));
+        report_errors(ssl);
+#endif
+        ERR_clear_error();
+      } else {
+        DBUG_PRINT("info", ("reused existing session %p", ssl_session));
+      }
     }
 
     DBUG_PRINT("info", ("ssl: %p timeout: %ld", ssl, timeout));
@@ -717,14 +729,17 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
 int sslaccept(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
               unsigned long *ssl_errno_holder) {
   DBUG_TRACE;
-  int ret = ssl_do(ptr, vio, timeout, SSL_accept, ssl_errno_holder, nullptr);
+  int ret =
+      ssl_do(ptr, vio, timeout, nullptr, SSL_accept, ssl_errno_holder, nullptr);
   return ret;
 }
 
 int sslconnect(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
-               unsigned long *ssl_errno_holder, SSL **ssl) {
+               SSL_SESSION *ssl_session, unsigned long *ssl_errno_holder,
+               SSL **ssl) {
   DBUG_TRACE;
-  int ret = ssl_do(ptr, vio, timeout, SSL_connect, ssl_errno_holder, ssl);
+  int ret = ssl_do(ptr, vio, timeout, ssl_session, SSL_connect,
+                   ssl_errno_holder, ssl);
   return ret;
 }
 
