@@ -187,6 +187,7 @@ struct st_mysql_options_extention {
   char *load_data_dir;
   struct client_authentication_info client_auth_info[MAX_AUTHENTICATION_FACTOR];
   void *ssl_session_data; /** the session serialization to use */
+  void *ssl_context;
 };
 
 struct MYSQL_METHODS {

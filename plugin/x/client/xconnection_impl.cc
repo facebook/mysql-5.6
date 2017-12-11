@@ -830,7 +830,7 @@ void Connection_impl::close() {
   }
 
   if (m_vioSslFd) {
-    free_vio_ssl_acceptor_fd(m_vioSslFd);
+    free_vio_ssl_fd(m_vioSslFd);
     m_vioSslFd = nullptr;
   }
 }

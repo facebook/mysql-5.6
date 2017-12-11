@@ -253,6 +253,15 @@ const char *sslGetErrString(enum enum_ssl_init_error err);
 
 struct st_VioSSLFd {
   SSL_CTX *ssl_context;
+  /*
+    "owned" indicates whether SSL_CTX_free should be called on this instance
+    or not. If mysql_take_ssl_context_ownership is called, the context
+    becomes owned by the application and not by the MySQL client library (ie,
+    owned becomes false).  Likewise, if a context is supplied by
+    mysql_options(..., MYSQL_OPT_SSL_CONTEXT, ...) then it is also not owned
+    by the client library.
+  */
+  bool owned;
 };
 
 int sslaccept(struct st_VioSSLFd *, MYSQL_VIO, long timeout,
@@ -260,6 +269,8 @@ int sslaccept(struct st_VioSSLFd *, MYSQL_VIO, long timeout,
 int sslconnect(struct st_VioSSLFd *, MYSQL_VIO, long timeout,
                SSL_SESSION *session, unsigned long *errptr, SSL **ssl);
 
+struct st_VioSSLFd *new_VioSSLConnectorFdFromContext(
+    SSL_CTX *context, enum enum_ssl_init_error *error);
 struct st_VioSSLFd *new_VioSSLConnectorFd(
     const char *key_file, const char *cert_file, const char *ca_file,
     const char *ca_path, const char *cipher, const char *ciphersuites,
@@ -273,7 +284,7 @@ struct st_VioSSLFd *new_VioSSLAcceptorFd(
     const char *ca_path, const char *cipher, const char *ciphersuites,
     enum enum_ssl_init_error *error, const char *crl_file, const char *crl_path,
     const long ssl_ctx_flags);
-void free_vio_ssl_acceptor_fd(struct st_VioSSLFd *fd);
+void free_vio_ssl_fd(struct st_VioSSLFd *fd);
 
 void vio_ssl_end();
 

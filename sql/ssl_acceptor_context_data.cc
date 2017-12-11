@@ -179,7 +179,7 @@ Ssl_acceptor_context_data::Ssl_acceptor_context_data(
 
 Ssl_acceptor_context_data::~Ssl_acceptor_context_data() {
   if (acceptor_) SSL_free(acceptor_);
-  if (ssl_acceptor_fd_) free_vio_ssl_acceptor_fd(ssl_acceptor_fd_);
+  if (ssl_acceptor_fd_) free_vio_ssl_fd(ssl_acceptor_fd_);
 }
 
 std::string Ssl_acceptor_context_data::show_property(
