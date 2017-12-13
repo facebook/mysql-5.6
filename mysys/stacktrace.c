@@ -236,7 +236,52 @@ void my_print_stacktrace(uchar* stack_bottom, ulong thread_stack)
 #if HAVE_BACKTRACE_SYMBOLS_FD
   if (!strings)
   {
+    strings= backtrace_symbols(addrs, n);
+
     backtrace_symbols_fd(addrs, n, fileno(stderr));
+
+    /* Support printing out the symbols in a single log line */
+    char msg[256];
+    size_t msg_len= 0;
+
+    /* Reserve one byte for NULL terminator */
+    size_t remain_len= sizeof(msg) - msg_len - 1;
+
+    /* Skip the common frames like my_print_stackframe */
+    for (int i= 2; i < n && remain_len > 0; i++)
+    {
+      char *begin= strchr(strings[i], '(');
+      char *end= begin ? strchr(begin, '+') : NULL;
+      if (begin && end && begin + 1 < end)
+      {
+        begin++;
+        size_t symbol_len= end - begin;
+        if (symbol_len >= remain_len)
+        {
+          symbol_len= remain_len;
+        }
+        if (symbol_len > 0)
+        {
+          memcpy(&msg[msg_len], begin, symbol_len);
+          msg_len += symbol_len;
+          remain_len -= symbol_len;
+          /* Add in separator */
+          if (remain_len > 0)
+          {
+            msg[msg_len] = ';';
+            msg_len++;
+            remain_len--;
+          }
+        }
+      }
+    }
+
+    if (msg_len > 0 && msg_len < sizeof(msg))
+    {
+      msg[msg_len]= '\0';
+      my_safe_printf_stderr("\nstack_log: %s\n\n", msg);
+    }
+    free(strings);
   }
 #endif
 }
