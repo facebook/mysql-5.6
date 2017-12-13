@@ -150,7 +150,7 @@ enum enum_field_types { MYSQL_TYPE_DECIMAL, MYSQL_TYPE_TINY,
    MYSQL_TYPE_DOCUMENT,
    MYSQL_TYPE_DOCUMENT_VALUE,
    MYSQL_TYPE_DOCUMENT_UNKNOWN,
-   MYSQL_TYPE_NEWDECIMAL=246,
+      MYSQL_TYPE_NEWDECIMAL=246,
    MYSQL_TYPE_ENUM=247,
    MYSQL_TYPE_SET=248,
    MYSQL_TYPE_TINY_BLOB=249,
@@ -521,7 +521,6 @@ typedef struct st_mysql
   enum mysql_async_operation_status async_op_status;
   size_t async_query_length;
   enum mysql_async_query_state_enum async_query_state;
-  char *recv_gtid;
 } MYSQL;
 typedef mysql_state_machine_status (*csm_function)(mysql_csm_context*);
 typedef struct st_mysql_res {
@@ -608,7 +607,7 @@ my_bool mysql_get_ssl_server_cerfificate_info(MYSQL *mysql,
              char* issuer_buf,
              size_t issuer_buflen);
 void * mysql_take_ssl_context_ownership(MYSQL *mysql);
-void* mysql_get_ssl_session(MYSQL *mysql);
+void * mysql_get_ssl_session(MYSQL *mysql);
 my_bool mysql_get_ssl_session_reused(MYSQL *mysql);
 my_bool mysql_change_user(MYSQL *mysql, const char *user,
        const char *passwd, const char *db);
@@ -659,9 +658,9 @@ int mysql_session_track_get_next(MYSQL *mysql,
                                          const char **data,
                                          size_t *length);
 int mysql_resp_attr_find(MYSQL *mysql,
-                         const char *lookup,
-                         const char **data,
-                         size_t *length);
+                                const char *lookup,
+                                const char **data,
+                                size_t *length);
 void
 mysql_set_local_infile_handler(MYSQL *mysql,
                                int (*local_infile_init)(void **, const char *,

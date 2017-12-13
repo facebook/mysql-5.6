@@ -526,12 +526,19 @@ static my_bool
 mysql_read_query_result_wrapper(MYSQL *mysql)
 {
   my_bool ret;
+  const char *data;
+  size_t length;
   if (enable_async_client)
     ret= async_mysql_read_query_result_wrapper(mysql);
   else
     ret= mysql_read_query_result(mysql);
-  if (show_ok_gtid && mysql->recv_gtid)
-    say("Gtid: %s\n", mysql->recv_gtid);
+  if (show_ok_gtid &&
+      !mysql_session_track_get_first(mysql, SESSION_TRACK_GTIDS,
+                                     &data, &length))
+  {
+    say("Gtid: %.*s\n", length, data);
+  }
+
   return ret;
 }
 
