@@ -782,8 +782,27 @@ void read_ok_ex(MYSQL *mysql, ulong length)
            */
           if (pos[0] >= 48 && pos[0] <= 126)
           {
-            mysql->recv_gtid=(char*) pos;
-            pos += total_len;
+            if (!my_multi_malloc(MYF(0),
+              &element, sizeof(LIST),
+              &data, sizeof(LEX_STRING),
+              NullS))
+            {
+              set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
+              return;
+            }
+
+            if(!(data->str= (char *)my_malloc(total_len + 1, MYF(MY_WME))))
+            {
+              set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
+              return;
+            }
+
+            memcpy(data->str, (char *) pos, total_len);
+            data->str[total_len] = '\0';
+            data->length= total_len;
+
+            element->data= data;
+            ADD_INFO(info, element, SESSION_TRACK_GTIDS);
             break;
           }
           saved_pos= pos;
@@ -830,7 +849,6 @@ void read_ok_ex(MYSQL *mysql, ulong length)
             data->str[len] = '\0';
             data->length= len;
             pos += len;
-            mysql->recv_gtid= data->str;
 
             element->data= data;
             ADD_INFO(info, element, SESSION_TRACK_GTIDS);
@@ -902,8 +920,6 @@ void read_ok_ex(MYSQL *mysql, ulong length)
   else
     mysql->info=NULL;
 
-  DBUG_PRINT("info",("info: %s  gtid: %s",
-         mysql->info, mysql->recv_gtid));
   return;
 }
 
@@ -1387,7 +1403,6 @@ void free_old_query(MYSQL *mysql)
   mysql->field_count= 0;			/* For API */
   mysql->warning_count= 0;
   mysql->info= 0;
-  mysql->recv_gtid= NULL;
   DBUG_VOID_RETURN;
 }
 
