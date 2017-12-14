@@ -4000,8 +4000,7 @@ static Sys_var_charptr Sys_version_compile_os(
 // timeout back to the client via a response attribute
 static bool update_wait_timeout(sys_var *self, THD *thd, enum_var_type type)
 {
-  static constexpr auto WaitTimeoutAttr = "wait_timeout";
-  static LEX_CSTRING key = { STRING_WITH_LEN(WaitTimeoutAttr) };
+  static LEX_CSTRING key = { STRING_WITH_LEN("wait_timeout") };
 
   auto tracker = thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
   if (tracker->is_enabled()) {
