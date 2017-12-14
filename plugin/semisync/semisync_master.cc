@@ -61,6 +61,9 @@ unsigned long long rpl_semi_sync_master_net_wait_time = 0;
 unsigned long long rpl_semi_sync_master_trx_wait_time = 0;
 bool rpl_semi_sync_master_wait_no_slave = 1;
 unsigned int rpl_semi_sync_master_wait_for_slave_count = 1;
+/* Number of times async dump threads waited for semi-sync ACK */
+ulonglong repl_semi_sync_master_ack_waits = 0;
+MYSQL_PLUGIN_IMPORT bool rpl_wait_for_semi_sync_ack;
 
 static int getWaitTime(const struct timespec &start_ts);
 
@@ -420,6 +423,8 @@ int ReplSemiSyncMaster::initObject() {
   /* Mutex initialization can only be done after MY_INIT(). */
   mysql_mutex_init(key_ss_mutex_LOCK_binlog_, &LOCK_binlog_,
                    MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_last_acked, &LOCK_last_acked, MY_MUTEX_INIT_FAST);
+  mysql_cond_init(key_COND_last_acked, &COND_last_acked);
 
   /*
     rpl_semi_sync_master_wait_for_slave_count may be set through mysqld option.
@@ -504,6 +509,8 @@ int ReplSemiSyncMaster::disableMaster() {
 ReplSemiSyncMaster::~ReplSemiSyncMaster() {
   if (init_done_) {
     mysql_mutex_destroy(&LOCK_binlog_);
+    mysql_mutex_destroy(&LOCK_last_acked);
+    mysql_cond_destroy(&COND_last_acked);
   }
 
   delete active_tranxs_;
@@ -548,9 +555,13 @@ void ReplSemiSyncMaster::remove_slave() {
 }
 
 bool ReplSemiSyncMaster::is_semi_sync_slave() {
-  int null_value;
   long long val = 0;
-  get_user_var_int("rpl_semi_sync_slave", &val, &null_value);
+  /*
+    semi_sync_slave will be 0 if the user variable doesn't exist. Otherwise, it
+    will be set to the value of the user variable.
+    'rpl_semi_sync_slave = 0' means that it is not a semisync slave.
+  */
+  get_user_var_int("rpl_semi_sync_slave", &val, nullptr);
   return val;
 }
 
@@ -1194,6 +1205,53 @@ int ReplSemiSyncMaster::setWaitSlaveCount(unsigned int new_value) {
 
   unlock();
   return function_exit(kWho, result);
+}
+
+void ReplSemiSyncMaster::signal_semi_sync_ack(const char *const log_file,
+                                              const my_off_t log_pos) {
+  if (!rpl_wait_for_semi_sync_ack) return;
+
+  const auto acked = std::make_pair(std::string(log_file), log_pos);
+  mysql_mutex_lock(&LOCK_last_acked);
+  if (acked > last_acked) {
+    last_acked = acked;
+    mysql_cond_broadcast(&COND_last_acked);
+  }
+  mysql_mutex_unlock(&LOCK_last_acked);
+}
+
+int ReplSemiSyncMaster::wait_for_semi_sync_ack(const char *const log_file,
+                                               const my_off_t log_pos) {
+  if (!rpl_semi_sync_master_enabled || !rpl_wait_for_semi_sync_ack ||
+      is_semi_sync_slave())
+    return 0;  // no error
+
+  THD *thd = current_thd;
+  const auto current = std::make_pair(std::string(log_file), log_pos);
+  PSI_stage_info old_stage;
+
+  mysql_mutex_lock(&LOCK_last_acked);
+  thd->ENTER_COND(&COND_last_acked, &LOCK_last_acked,
+                  &stage_slave_waiting_semi_sync_ack, &old_stage);
+  // TODO: there is a potential race here between global vars
+  // (rpl_semi_sync_mater_enabled and rpl_wait_for_semi_sync_ack) being updated
+  // and this thread going to conditional sleep, that's why we're looping on a 1
+  // sec timedwait.
+  // case: wait till this log pos is <= to the last acked log pos, or if waiting
+  // is not required anymore
+  while (!thd->killed && rpl_semi_sync_master_enabled &&
+         rpl_wait_for_semi_sync_ack && current > last_acked) {
+    ++repl_semi_sync_master_ack_waits;
+    // wait for an ack for 1 second, then retry if applicable
+    struct timespec abstime;
+    set_timespec(&abstime, 1);
+    mysql_cond_timedwait(&COND_last_acked, &LOCK_last_acked, &abstime);
+  }
+  mysql_mutex_unlock(&LOCK_last_acked);
+  thd->EXIT_COND(&old_stage);
+  // return 0 only if we're alive i.e. we came here because we received a
+  // successful ACK or if an ACK is no longer required
+  return thd->killed;
 }
 
 const AckInfo *AckContainer::insert(int server_id, const char *log_file_name,

@@ -357,6 +357,8 @@ class Binlog_sender : Gtid_mode_copy {
   inline int send_packet_and_flush();
   inline int before_send_hook(const char *log_file, my_off_t log_pos);
   inline int after_send_hook(const char *log_file, my_off_t log_pos);
+  inline int wait_for_semi_sync_ack_hook(const char *const log_file,
+                                         const my_off_t log_pos);
   /*
     Reset the thread transmit packet buffer for event sending.
 

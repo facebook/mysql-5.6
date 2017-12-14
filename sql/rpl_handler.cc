@@ -772,6 +772,22 @@ int Binlog_transmit_delegate::after_send_event(THD *thd, ushort flags,
   return ret;
 }
 
+int Binlog_transmit_delegate::wait_for_semi_sync_ack(THD *thd, ushort flags,
+                                                     const char *const log_file,
+                                                     const my_off_t log_pos) {
+  Binlog_transmit_param param;
+  param.flags = flags;
+  param.server_id = thd->server_id;
+  param.host_or_ip = thd->security_context()->host_or_ip().str;
+
+  DBUG_EXECUTE_IF("crash_binlog_transmit_hook", DBUG_SUICIDE(););
+
+  int ret = 0;
+  FOREACH_OBSERVER(ret, wait_for_semi_sync_ack,
+                   (&param, log_file + dirname_length(log_file), log_pos));
+  return ret;
+}
+
 int Binlog_transmit_delegate::after_reset_master(THD *thd, ushort flags)
 
 {

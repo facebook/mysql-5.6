@@ -3409,6 +3409,12 @@ static Sys_var_int32 Sys_regexp_stack_limit(
     GLOBAL_VAR(opt_regexp_stack_limit), CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(0, INT32_MAX), DEFAULT(8000000), BLOCK_SIZE(1));
 
+static Sys_var_bool Sys_wait_semi_sync_ack(
+    "rpl_wait_for_semi_sync_ack",
+    "Wait for events to be acked by a semi-sync slave before sending them "
+    "to the async slaves",
+    GLOBAL_VAR(rpl_wait_for_semi_sync_ack), CMD_LINE(OPT_ARG), DEFAULT(false));
+
 static Sys_var_bool Sys_slave_compressed_protocol(
     "slave_compressed_protocol", "Use compression on master/slave protocol",
     GLOBAL_VAR(opt_slave_compressed_protocol), CMD_LINE(OPT_ARG),

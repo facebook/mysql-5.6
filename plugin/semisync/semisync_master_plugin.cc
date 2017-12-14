@@ -99,14 +99,7 @@ static int repl_semi_report_rollback(Trans_param *param) {
 
 static int repl_semi_binlog_dump_start(Binlog_transmit_param *param,
                                        const char *log_file, my_off_t log_pos) {
-  long long semi_sync_slave = 0;
-
-  /*
-    semi_sync_slave will be 0 if the user variable doesn't exist. Otherwise, it
-    will be set to the value of the user variable.
-    'rpl_semi_sync_slave = 0' means that it is not a semisync slave.
-  */
-  get_user_var_int("rpl_semi_sync_slave", &semi_sync_slave, NULL);
+  const bool semi_sync_slave = repl_semisync->is_semi_sync_slave();
 
   if (semi_sync_slave != 0) {
     if (ack_receiver->add_slave(current_thd)) {
@@ -195,6 +188,12 @@ static int repl_semi_after_send_event(Binlog_transmit_param *param,
 static int repl_semi_reset_master(Binlog_transmit_param *) {
   if (repl_semisync->resetMaster()) return 1;
   return 0;
+}
+
+static int wait_for_semi_sync_ack(Binlog_transmit_param *,
+                                  const char *const log_file,
+                                  const my_off_t log_pos) {
+  return repl_semisync->wait_for_semi_sync_ack(log_file, log_pos);
 }
 
 /*
@@ -374,6 +373,7 @@ Binlog_transmit_observer transmit_observer = {
     repl_semi_before_send_event,  // before_send_event
     repl_semi_after_send_event,   // after_send_event
     repl_semi_reset_master,       // reset
+    wait_for_semi_sync_ack,
 };
 
 #define SHOW_FNAME(name) rpl_semi_sync_master_show_##name
@@ -430,6 +430,8 @@ static SHOW_VAR semi_sync_master_status_vars[] = {
      SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {"Rpl_semi_sync_master_net_avg_wait_time",
      (char *)&SHOW_FNAME(avg_net_wait_time), SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Rpl_semi_sync_master_ack_waits", (char *)&repl_semi_sync_master_ack_waits,
+     SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
     {NULL, NULL, SHOW_LONG, SHOW_SCOPE_GLOBAL},
 };
 
@@ -437,20 +439,25 @@ static SHOW_VAR semi_sync_master_status_vars[] = {
 
 PSI_mutex_key key_ss_mutex_LOCK_binlog_;
 PSI_mutex_key key_ss_mutex_Ack_receiver_mutex;
+PSI_mutex_key key_LOCK_last_acked;
 
 static PSI_mutex_info all_semisync_mutexes[] = {
     {&key_ss_mutex_LOCK_binlog_, "LOCK_binlog_", 0, 0, PSI_DOCUMENT_ME},
     {&key_ss_mutex_Ack_receiver_mutex, "Ack_receiver::m_mutex", 0, 0,
-     PSI_DOCUMENT_ME}};
+     PSI_DOCUMENT_ME},
+    {&key_LOCK_last_acked, "LOCK_last_acked", 0, 0, PSI_DOCUMENT_ME},
+};
 
 PSI_cond_key key_ss_cond_COND_binlog_send_;
 PSI_cond_key key_ss_cond_Ack_receiver_cond;
+PSI_cond_key key_COND_last_acked;
 
 static PSI_cond_info all_semisync_conds[] = {
     {&key_ss_cond_COND_binlog_send_, "COND_binlog_send_", 0, 0,
      PSI_DOCUMENT_ME},
     {&key_ss_cond_Ack_receiver_cond, "Ack_receiver::m_cond", 0, 0,
-     PSI_DOCUMENT_ME}};
+     PSI_DOCUMENT_ME},
+    {&key_COND_last_acked, "COND_last_acked", 0, 0, PSI_DOCUMENT_ME}};
 
 PSI_thread_key key_ss_thread_Ack_receiver_thread;
 
@@ -468,13 +475,17 @@ PSI_stage_info stage_waiting_for_semi_sync_slave = {
 PSI_stage_info stage_reading_semi_sync_ack = {
     0, "Reading semi-sync ACK from slave", 0, PSI_DOCUMENT_ME};
 
+PSI_stage_info stage_slave_waiting_semi_sync_ack = {
+    0, "Waiting for an ACK from semi-sync ACKers", 0, PSI_DOCUMENT_ME};
+
 /* Always defined. */
 PSI_memory_key key_ss_memory_TranxNodeAllocator_block;
 
 #ifdef HAVE_PSI_INTERFACE
 PSI_stage_info *all_semisync_stages[] = {
     &stage_waiting_for_semi_sync_ack_from_slave,
-    &stage_waiting_for_semi_sync_slave, &stage_reading_semi_sync_ack};
+    &stage_waiting_for_semi_sync_slave, &stage_reading_semi_sync_ack,
+    &stage_slave_waiting_semi_sync_ack};
 
 PSI_memory_info all_semisync_memory[] = {
     {&key_ss_memory_TranxNodeAllocator_block, "TranxNodeAllocator::block", 0, 0,

@@ -566,6 +566,13 @@ int Binlog_sender::send_events(File_reader *reader, my_off_t end_pos) {
         m_packet.length(tmp.length());
       }
 
+      // case: wait for ack from semi-sync acker before sending the event
+      if (wait_for_semi_sync_ack_hook(log_file, log_pos)) {
+        set_unknown_error("Error while waiting for semi-sync ACK");
+        sql_print_error("Error while waiting for semi-sync ACK on dump thread");
+        DBUG_RETURN(1);
+      }
+
       if (unlikely(send_packet())) DBUG_RETURN(1);
 
       DBUG_EXECUTE_IF("dump_thread_wait_after_send_write_rows", {
@@ -1233,6 +1240,16 @@ inline int Binlog_sender::send_packet() {
 
 inline int Binlog_sender::send_packet_and_flush() {
   return (send_packet() || flush_net());
+}
+
+inline int Binlog_sender::wait_for_semi_sync_ack_hook(
+    const char *const log_file, const my_off_t log_pos) {
+  if (RUN_HOOK(binlog_transmit, wait_for_semi_sync_ack,
+               (m_thd, m_flag, log_file, log_pos))) {
+    set_unknown_error("run 'wait_for_semi_sync_ack' hook failed");
+    return 1;
+  }
+  return 0;
 }
 
 inline int Binlog_sender::before_send_hook(const char *log_file,

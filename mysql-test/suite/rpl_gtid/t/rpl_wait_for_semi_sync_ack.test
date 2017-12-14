@@ -1,0 +1,258 @@
+--source include/have_debug_sync.inc
+
+--let $rpl_topology= 1->2,1->3
+--source include/rpl_init.inc
+
+--let $rpl_connection_name= master
+--let $rpl_server_number= 1
+--source include/rpl_connect.inc
+
+--let $rpl_connection_name= master1
+--let $rpl_server_number= 1
+--source include/rpl_connect.inc
+
+--let $rpl_connection_name= async_slave
+--let $rpl_server_number= 2
+--source include/rpl_connect.inc
+
+--let $rpl_connection_name= semi_sync_slave
+--let $rpl_server_number= 3
+--source include/rpl_connect.inc
+
+--source include/rpl_connection_master.inc
+set @save.rpl_wait_for_semi_sync_ack= @@global.rpl_wait_for_semi_sync_ack;
+set @@global.rpl_wait_for_semi_sync_ack= true;
+set @save.rpl_semi_sync_master_timeout= @@global.rpl_semi_sync_master_timeout;
+set @@global.rpl_semi_sync_master_timeout= 10000000;
+call mtr.add_suppression("Run function 'wait_for_semi_sync_ack' in plugin 'rpl_semi_sync_master' failed");
+call mtr.add_suppression("Error while waiting for semi-sync ACK on dump thread");
+call mtr.add_suppression("A message intended for a client cannot be sent there as no client-session is attached");
+call mtr.add_suppression("Timeout waiting for reply of binlog");
+
+
+--let $rpl_connection_name= semi_sync_slave
+--source include/rpl_connection.inc
+set @@global.debug= '+d,before_semi_sync_reply';
+
+--source include/rpl_connection_master.inc
+--send create table t1 (a int)
+
+--let $rpl_connection_name= semi_sync_slave
+--source include/rpl_connection.inc
+set debug_sync='now WAIT_FOR reached';
+
+--let $rpl_connection_name= async_slave
+--source include/rpl_connection.inc
+--let $assert_text= Async Slave: Should not contain any tables
+--let $assert_cond= [select count(*) from information_schema.tables where table_schema="test" and table_name in ("t1", "t2", "t3", "t4")] = 0
+--source include/assert.inc
+
+--let $rpl_connection_name= semi_sync_slave
+--source include/rpl_connection.inc
+set debug_sync='now SIGNAL continue';
+
+--source include/rpl_connection_master.inc
+--reap
+--let $assert_text= Master: Should contain t1
+--let $assert_cond= [select count(*) from information_schema.tables where table_schema="test" and table_name in ("t1", "t2", "t3", "t4")] = 1
+--source include/assert.inc
+
+--let $sync_slave_connection= async_slave
+--source include/sync_slave_sql_with_master.inc
+
+--let $rpl_connection_name= async_slave
+--source include/rpl_connection.inc
+--let $assert_text= Async Slave: Should contain t1
+--let $assert_cond= [select count(*) from information_schema.tables where table_schema="test" and table_name in ("t1", "t2", "t3", "t4")] = 1
+--source include/assert.inc
+
+
+# The dump thread should be killable when waiting for an ack
+--source include/rpl_connection_master.inc
+--send create table t2(a int)
+
+--let $rpl_connection_name= semi_sync_slave
+--source include/rpl_connection.inc
+set debug_sync='now WAIT_FOR reached';
+
+--source include/rpl_connection_master1.inc
+--let $wait_condition= select count(*)= 1 from information_schema.processlist where state like '%Waiting for an ACK from semi-sync ACKers%'
+--source include/wait_condition.inc
+
+--echo "Killing thread"
+--let $id= `select id from information_schema.processlist where state like '%Waiting for an ACK from semi-sync ACKers%'`
+--replace_result $id id
+--eval kill $id
+
+--let $wait_condition= select count(*)= 0 from information_schema.processlist where id= $id
+--source include/wait_condition.inc
+
+--echo "Waiting for async slave to reconnect"
+--let $wait_condition= select count(*)= 2 from information_schema.processlist where command like '%Binlog Dump%'
+--source include/wait_condition.inc
+
+--let $rpl_connection_name= async_slave
+--source include/rpl_connection.inc
+--let $assert_text= Async Slave: t2 should not be present
+--let $assert_cond= [select count(*) from information_schema.tables where table_schema="test" and table_name in ("t1", "t2", "t3", "t4")] = 1
+--source include/assert.inc
+
+--let $rpl_connection_name= semi_sync_slave
+--source include/rpl_connection.inc
+set debug_sync='now SIGNAL continue';
+
+--source include/rpl_connection_master.inc
+--reap
+--let $assert_text= Master: should have t1 and t2
+--let $assert_cond= [select count(*) from information_schema.tables where table_schema="test" and table_name in ("t1", "t2", "t3", "t4")] = 2
+--source include/assert.inc
+
+--echo "Waiting for both slaves to catchup"
+--source include/rpl_connection_master.inc
+--let $sync_slave_connection= async_slave
+--source include/sync_slave_sql_with_master.inc
+
+--source include/rpl_connection_master.inc
+--let $sync_slave_connection= semi_sync_slave
+--source include/sync_slave_sql_with_master.inc
+
+--let $rpl_connection_name= async_slave
+--source include/rpl_connection.inc
+--let $assert_text= Async Slave: should have t1 and t2
+--let $assert_cond= [select count(*) from information_schema.tables where table_schema="test" and table_name in ("t1", "t2", "t3", "t4")] = 2
+--source include/assert.inc
+
+--let $rpl_connection_name= semi_sync_slave
+--source include/rpl_connection.inc
+--let $assert_text= Semi-sync Slave: should have t1 and t2
+--let $assert_cond= [select count(*) from information_schema.tables where table_schema="test" and table_name in ("t1", "t2", "t3", "t4")] = 2
+--source include/assert.inc
+
+
+# Dump thread should stop waiting if either rpl_semi_sync_master_enabled or
+# rpl_wait_for_semi_sync_ack is disabled
+
+# Disabling rpl_semi_sync_master_enabled
+--source include/rpl_connection_master.inc
+--send create table t3(a int)
+
+--let $rpl_connection_name= semi_sync_slave
+--source include/rpl_connection.inc
+set debug_sync='now WAIT_FOR reached';
+
+--source include/rpl_connection_master1.inc
+--let $wait_condition= select count(*)= 1 from information_schema.processlist where state like '%Waiting for an ACK from semi-sync ACKers%'
+--source include/wait_condition.inc
+
+--echo "Switching off rpl_semi_sync_master_enabled while async thread is waiting for ack"
+set @@global.rpl_semi_sync_master_enabled = 0;
+
+--echo "Waiting till async slave is caught up"
+--let $sync_slave_connection= async_slave
+--source include/sync_slave_sql_with_master.inc
+--let $rpl_connection_name= async_slave
+--source include/rpl_connection.inc
+--let $assert_text= Async Slave: should have t1, t2 and t3
+--let $assert_cond= [select count(*) from information_schema.tables where table_schema="test" and table_name in ("t1", "t2", "t3", "t4")] = 3
+--source include/assert.inc
+
+--let $rpl_connection_name= semi_sync_slave
+--source include/rpl_connection.inc
+set debug_sync='now SIGNAL continue';
+
+--echo "Switching rpl_semi_sync_master_enabled back on"
+--source include/rpl_connection_master.inc
+--reap
+set @@global.rpl_semi_sync_master_enabled = 1;
+
+--let $rpl_connection_name= semi_sync_slave
+--source include/rpl_connection.inc
+
+--source include/stop_slave.inc
+--source include/start_slave.inc
+
+--source include/rpl_connection_master.inc
+--echo "Waiting till semi-sync slave is caught up"
+--let $sync_slave_connection= semi_sync_slave
+--source include/sync_slave_sql_with_master.inc
+--let $rpl_connection_name= semi_sync_slave
+--source include/rpl_connection.inc
+--let $assert_text= Semi-sync Slave: should have t1, t2 and t3
+--let $assert_cond= [select count(*) from information_schema.tables where table_schema="test" and table_name in ("t1", "t2", "t3", "t4")] = 3
+--source include/assert.inc
+
+
+# Disabling rpl_wait_for_semi_sync_ack
+
+--source include/rpl_connection_master.inc
+--send create table t4(a int)
+
+--let $rpl_connection_name= semi_sync_slave
+--source include/rpl_connection.inc
+set debug_sync='now WAIT_FOR reached';
+
+--source include/rpl_connection_master1.inc
+--let $wait_condition= select count(*)= 1 from information_schema.processlist where state like '%Waiting for an ACK from semi-sync ACKers%'
+--source include/wait_condition.inc
+
+--echo "Switching off rpl_wait_for_semi_sync_ack while async thread is waiting for ack"
+set @@global.rpl_wait_for_semi_sync_ack = 0;
+# wait_for_semi_sync_ack() checks value of "rpl_wait_for_semi_sync_ack" every 1 second
+--sleep 2
+
+--echo "Waiting till async slave is caught up"
+--let $sync_slave_connection= async_slave
+--source include/sync_slave_sql_with_master.inc
+--let $rpl_connection_name= async_slave
+--source include/rpl_connection.inc
+--let $assert_text= Async Slave: should have t1, t2, t3 and t4
+--let $assert_cond= [select count(*) from information_schema.tables where table_schema="test" and table_name in ("t1", "t2", "t3", "t4")] = 4
+--source include/assert.inc
+
+--let $rpl_connection_name= semi_sync_slave
+--source include/rpl_connection.inc
+set debug_sync='now SIGNAL continue';
+
+--echo "Switching rpl_wait_for_semi_sync_ack back on"
+--source include/rpl_connection_master.inc
+--reap
+set @@global.rpl_wait_for_semi_sync_ack = 1;
+
+--let $rpl_connection_name= semi_sync_slave
+--source include/rpl_connection.inc
+
+--source include/stop_slave.inc
+--source include/start_slave.inc
+
+--source include/rpl_connection_master.inc
+--echo "Waiting till semi-sync slave is caught up"
+--let $sync_slave_connection= semi_sync_slave
+--source include/sync_slave_sql_with_master.inc
+--let $rpl_connection_name= semi_sync_slave
+--source include/rpl_connection.inc
+--let $assert_text= Semi-sync Slave: should have t1, t2, t3 and t4
+--let $assert_cond= [select count(*) from information_schema.tables where table_schema="test" and table_name in ("t1", "t2", "t3", "t4")] = 4
+--source include/assert.inc
+
+
+# Cleanup
+--let $rpl_connection_name= semi_sync_slave
+--source include/rpl_connection.inc
+set @@global.debug= '-d,before_semi_sync_reply';
+
+--source include/rpl_connection_master.inc
+drop table t1;
+drop table t2;
+drop table t3;
+drop table t4;
+set @@global.rpl_wait_for_semi_sync_ack= @save.rpl_wait_for_semi_sync_ack;
+set @@global.rpl_semi_sync_master_timeout= @save.rpl_semi_sync_master_timeout;
+
+--source include/rpl_connection_master.inc
+--let $sync_slave_connection= async_slave
+--source include/sync_slave_sql_with_master.inc
+--source include/rpl_connection_master.inc
+--let $sync_slave_connection= semi_sync_slave
+--source include/sync_slave_sql_with_master.inc
+
+--source include/rpl_end.inc

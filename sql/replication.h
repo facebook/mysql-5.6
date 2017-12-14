@@ -505,6 +505,10 @@ typedef int (*after_send_event_t)(Binlog_transmit_param *param,
 */
 typedef int (*after_reset_master_t)(Binlog_transmit_param *param);
 
+typedef int (*wait_for_semi_sync_ack_t)(Binlog_transmit_param *param,
+                                        const char *const log_file,
+                                        const my_off_t log_pos);
+
 /**
    Observe and extends the binlog dumping thread.
 */
@@ -517,6 +521,7 @@ typedef struct Binlog_transmit_observer {
   before_send_event_t before_send_event;
   after_send_event_t after_send_event;
   after_reset_master_t after_reset_master;
+  wait_for_semi_sync_ack_t wait_for_semi_sync_ack;
 } Binlog_transmit_observer;
 
 /**

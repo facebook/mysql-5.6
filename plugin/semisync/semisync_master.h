@@ -36,12 +36,15 @@ extern PSI_memory_key key_ss_memory_TranxNodeAllocator_block;
 
 #ifdef HAVE_PSI_INTERFACE
 extern PSI_mutex_key key_ss_mutex_LOCK_binlog_;
+extern PSI_mutex_key key_LOCK_last_acked;
 extern PSI_cond_key key_ss_cond_COND_binlog_send_;
+extern PSI_cond_key key_COND_last_acked;
 #endif
 
 extern PSI_stage_info stage_waiting_for_semi_sync_ack_from_slave;
 extern PSI_stage_info stage_waiting_for_semi_sync_slave;
 extern PSI_stage_info stage_reading_semi_sync_ack;
+extern PSI_stage_info stage_slave_waiting_semi_sync_ack;
 
 extern unsigned int rpl_semi_sync_master_wait_for_slave_count;
 
@@ -579,6 +582,11 @@ class ReplSemiSyncMaster : public ReplSemiSyncBase {
    */
   mysql_mutex_t LOCK_binlog_;
 
+  mysql_mutex_t LOCK_last_acked;
+  mysql_cond_t COND_last_acked;
+  using binlog_position_type = std::pair<std::string, my_off_t>;
+  binlog_position_type last_acked;
+
   /* This is set to true when reply_file_name_ contains meaningful data. */
   bool reply_file_name_inited_ = false;
 
@@ -803,6 +811,10 @@ class ReplSemiSyncMaster : public ReplSemiSyncBase {
    */
   int setWaitSlaveCount(unsigned int new_value);
 
+  int wait_for_semi_sync_ack(const char *const log_file,
+                             const my_off_t log_pos);
+  void signal_semi_sync_ack(const char *const log_file, const my_off_t log_pos);
+
   /*
     Update ack_array after receiving an ack from a dump connection. If any
     binlog pos is already replied by rpl_semi_sync_master_wait_for_slave_count
@@ -816,6 +828,7 @@ class ReplSemiSyncMaster : public ReplSemiSyncBase {
   */
   void handleAck(int server_id, const char *log_file_name,
                  my_off_t log_file_pos) {
+    signal_semi_sync_ack(log_file_name, log_file_pos);
     lock();
     if (rpl_semi_sync_master_wait_for_slave_count == 1)
       reportReplyBinlog(log_file_name, log_file_pos);
@@ -851,6 +864,7 @@ extern unsigned long long rpl_semi_sync_master_net_wait_num;
 extern unsigned long long rpl_semi_sync_master_trx_wait_num;
 extern unsigned long long rpl_semi_sync_master_net_wait_time;
 extern unsigned long long rpl_semi_sync_master_trx_wait_time;
+extern ulonglong repl_semi_sync_master_ack_waits;
 
 /*
   This indicates whether we should keep waiting if no semi-sync slave

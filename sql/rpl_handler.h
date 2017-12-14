@@ -230,6 +230,8 @@ class Binlog_transmit_delegate : public Delegate {
   int after_send_event(THD *thd, ushort flags, String *packet,
                        const char *skipped_log_file, my_off_t skipped_log_pos);
   int after_reset_master(THD *thd, ushort flags);
+  int wait_for_semi_sync_ack(THD *thd, ushort flags, const char *const log_file,
+                             const my_off_t log_pos);
 };
 
 #ifdef HAVE_PSI_RWLOCK_INTERFACE

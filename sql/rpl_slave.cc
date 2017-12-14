@@ -5390,6 +5390,17 @@ reading event"))
         goto err;
       }
 #ifndef DBUG_OFF
+      DBUG_EXECUTE_IF("before_semi_sync_reply", {
+        if (event_buf[EVENT_TYPE_OFFSET] == Log_event_type::QUERY_EVENT) {
+          static constexpr char act[] =
+              "now signal reached "
+              "wait_for continue";
+          DBUG_ASSERT(opt_debug_sync_timeout > 0);
+          DBUG_ASSERT(
+              !debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
+        }
+      });
+
       if (was_in_trx && !mi->is_queueing_trx()) {
         DBUG_EXECUTE_IF("rpl_ps_tables", {
           const char act[] =

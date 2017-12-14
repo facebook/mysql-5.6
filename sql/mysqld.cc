@@ -962,6 +962,7 @@ bool opt_skip_slave_start = 0;  ///< If set, slave is not autostarted
 bool opt_enable_named_pipe = 0;
 bool opt_local_infile, opt_slave_compressed_protocol;
 ulong opt_slave_compression_lib;
+MYSQL_PLUGIN_IMPORT bool rpl_wait_for_semi_sync_ack = false;
 bool opt_safe_user_create = 0;
 bool opt_show_slave_auth_info;
 bool opt_log_slave_updates = 0;
