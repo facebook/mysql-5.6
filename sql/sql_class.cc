@@ -385,6 +385,7 @@ THD::THD(bool enable_plugins)
       binlog_accessed_db_names(NULL),
       m_trans_log_file(NULL),
       m_trans_fixed_log_file(NULL),
+      m_trans_fixed_log_path(nullptr),
       m_trans_end_pos(0),
       m_trans_gtid(NULL),
       m_transaction(new Transaction_ctx()),
