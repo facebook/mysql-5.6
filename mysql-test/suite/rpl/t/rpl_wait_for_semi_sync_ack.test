@@ -1,0 +1,68 @@
+source include/have_debug_sync.inc;
+let $rpl_topology= 1->2,1->3;
+source include/rpl_init.inc;
+
+let $rpl_connection_name= master;
+let $rpl_server_number= 1;
+source include/rpl_connect.inc;
+
+let $rpl_connection_name= async_slave;
+let $rpl_server_number= 2;
+source include/rpl_connect.inc;
+
+let $rpl_connection_name= semi_sync_slave;
+let $rpl_server_number= 3;
+source include/rpl_connect.inc;
+
+connection master;
+set @save.rpl_wait_for_semi_sync_ack= @@global.rpl_wait_for_semi_sync_ack;
+set @@global.rpl_wait_for_semi_sync_ack= true;
+set @save.rpl_semi_sync_master_timeout= @@global.rpl_semi_sync_master_timeout;
+set @@global.rpl_semi_sync_master_timeout= 10000000;
+
+
+connection semi_sync_slave;
+set @@global.debug= '+d,before_semi_sync_reply';
+
+connection master;
+send create table t1 (a int);
+
+connection semi_sync_slave;
+SET DEBUG_SYNC='now WAIT_FOR reached';
+
+connection async_slave;
+echo "Async Slave: Should not contain any tables";
+show tables;
+
+connection semi_sync_slave;
+SET DEBUG_SYNC='now SIGNAL continue';
+set @@global.debug= '-d,before_semi_sync_reply';
+
+connection master;
+reap;
+echo "Master: Should contain t1";
+show tables;
+
+let $sync_slave_connection= async_slave;
+source include/sync_slave_sql_with_master.inc;
+
+connection async_slave;
+echo "Async Slave: Should contain t1";
+show tables;
+
+
+# Cleanup
+connection master;
+drop table t1;
+set @@global.rpl_wait_for_semi_sync_ack= @save.rpl_wait_for_semi_sync_ack;
+set @@global.rpl_semi_sync_master_timeout= @save.rpl_semi_sync_master_timeout;
+
+connection master;
+let $sync_slave_connection= async_slave;
+source include/sync_slave_sql_with_master.inc;
+connection master;
+let $sync_slave_connection= semi_sync_slave;
+source include/sync_slave_sql_with_master.inc;
+
+
+source include/rpl_end.inc;
