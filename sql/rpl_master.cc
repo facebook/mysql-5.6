@@ -101,6 +101,15 @@ static comp_event_queue comp_event_queue_list[COMP_EVENT_CACHE_NUM_SHARDS];
 static std::atomic<size_t> comp_event_cache_size;
 
 
+static std::pair<std::string, my_off_t> last_acked;
+static mysql_mutex_t LOCK_last_acked;
+static mysql_cond_t COND_last_acked;
+#ifdef HAVE_PSI_INTERFACE
+static PSI_mutex_key key_LOCK_last_acked;
+static PSI_cond_key key_COND_last_acked;
+#endif
+static bool semi_sync_last_ack_inited= false;
+
 #ifndef DBUG_OFF
 static int binlog_dump_count = 0;
 #endif
@@ -180,6 +189,46 @@ void end_slave_list()
     my_hash_free(&slave_list);
     mysql_mutex_destroy(&LOCK_slave_list);
   }
+}
+
+void init_semi_sync_last_acked()
+{
+  mysql_mutex_init(key_LOCK_last_acked, &LOCK_last_acked, MY_MUTEX_INIT_FAST);
+  mysql_cond_init(key_COND_last_acked, &COND_last_acked, NULL);
+  semi_sync_last_ack_inited= true;
+}
+
+void destroy_semi_sync_last_acked()
+{
+  if (semi_sync_last_ack_inited)
+  {
+    mysql_mutex_destroy(&LOCK_last_acked);
+    mysql_cond_destroy(&COND_last_acked);
+    semi_sync_last_ack_inited= false;
+  }
+}
+
+static void wait_for_semi_sync_ack(const LOG_POS_COORD *const coord)
+{
+  auto current= std::make_pair(std::string(coord->file_name), coord->pos);
+  mysql_mutex_lock(&LOCK_last_acked);
+  // case: wait till this log pos is >= to the last acked log pos
+  while (current > last_acked)
+    mysql_cond_wait(&COND_last_acked, &LOCK_last_acked);
+  mysql_mutex_unlock(&LOCK_last_acked);
+}
+
+static void signal_semi_sync_ack(const LOG_POS_COORD *const acked_coord)
+{
+  auto acked= std::make_pair(std::string(acked_coord->file_name),
+                             acked_coord->pos);
+  mysql_mutex_lock(&LOCK_last_acked);
+  if (acked > last_acked)
+  {
+    last_acked= acked;
+    mysql_cond_broadcast(&COND_last_acked);
+  }
+  mysql_mutex_unlock(&LOCK_last_acked);
 }
 
 static void evict_compressed_events(comp_event_cache &comp_cache,
@@ -757,13 +806,22 @@ err:
 #endif
 
 static
-int my_net_write_event(NET *net, const LOG_POS_COORD *coord,
-                       const String *packet, const char** errmsg, int* errnum,
-                       bool is_semi_sync_slave, bool cache= true)
+int my_net_write_event(NET *net,
+                       const LOG_POS_COORD *coord,
+                       const String *packet,
+                       const char** errmsg,
+                       int* errnum,
+                       bool is_semi_sync_slave,
+                       bool cache,
+                       bool wait_for_ack)
 {
   uchar* buff= (uchar*) packet->ptr();
   size_t buff_len= packet->length();
   binlog_comp_event comp_event;
+
+  // case: wait for ack from semi-sync acker before sending the event
+  if (wait_for_ack && !is_semi_sync_slave)
+    wait_for_semi_sync_ack(coord);
 
   DBUG_ASSERT(!(net->compress_event && net->compress));
   if (net->compress_event)
@@ -861,7 +919,7 @@ static int fake_rotate_event(NET* net, String* packet, char* log_file_name,
 
   LOG_POS_COORD coord { log_file_name, 0 };
   if (my_net_write_event(net, &coord, packet, errmsg, NULL,
-                         is_semi_sync_slave, false))
+                         is_semi_sync_slave, false, false))
   {
     DBUG_RETURN(-1);
   }
@@ -1104,7 +1162,7 @@ static int send_heartbeat_event(NET* net, String* packet,
   }
 
   if (my_net_write_event(net, coord, packet, NULL, NULL,
-                         is_semi_sync_slave, false) ||
+                         is_semi_sync_slave, false, false) ||
       net_flush(net))
   {
     DBUG_RETURN(-1);
@@ -2033,7 +2091,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
           fix_checksum(packet, ev_offset);
 
         if (my_net_write_event(net, p_coord, packet, &errmsg,
-                               &my_errno, semi_sync_slave, false))
+                               &my_errno, semi_sync_slave, false, false))
         {
           GOTO_ERR;
         }
@@ -2362,7 +2420,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
         if (my_net_write_event(net, p_coord, packet, &errmsg, &my_errno,
                                semi_sync_slave,
                                event_type != FORMAT_DESCRIPTION_EVENT &&
-                               event_type != ROTATE_EVENT))
+                               event_type != ROTATE_EVENT,
+                               rpl_wait_for_semi_sync_ack))
         {
           GOTO_ERR;
         }
@@ -2410,6 +2469,11 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
         my_errno= ER_UNKNOWN_ERROR;
         GOTO_ERR;
       }
+
+      // case: we received a reply from a semi-sync slave, updated last acked
+      // coordinates
+      if (semi_sync_slave && !skip_group && rpl_wait_for_semi_sync_ack)
+        signal_semi_sync_ack(p_coord);
 
       /* reset transmit packet for next loop */
       if (reset_transmit_packet(thd, flags, &ev_offset, &errmsg,
@@ -2803,7 +2867,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
             if (my_net_write_event(net, p_coord, packet, &errmsg, &my_errno,
                                    semi_sync_slave,
                                    (event_type != FORMAT_DESCRIPTION_EVENT &&
-                                    event_type != ROTATE_EVENT)))
+                                    event_type != ROTATE_EVENT),
+                                   rpl_wait_for_semi_sync_ack))
             {
              GOTO_ERR;
             }
@@ -2831,6 +2896,11 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
               errmsg= "Failed to run hook 'after_send_event'";
               GOTO_ERR;
             }
+
+            // case: we received a reply from a semi-sync slave
+            // update last acked coordinates
+            if (semi_sync_slave && !skip_group && rpl_wait_for_semi_sync_ack)
+              signal_semi_sync_ack(p_coord);
           }
 
           /* Save the skip group for next iteration */

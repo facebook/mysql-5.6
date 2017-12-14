@@ -3267,6 +3267,13 @@ static Sys_var_ulonglong Sys_max_compressed_event_cache_size(
        VALID_RANGE(1, 1000000), DEFAULT(1),
        BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0), ON_UPDATE(0));
 
+static Sys_var_mybool Sys_wait_semi_sync_ack(
+       "rpl_wait_for_semi_sync_ack",
+       "Wait for events to be acked by a semi-sync slave before sending them "
+       "to the async slaves",
+       GLOBAL_VAR(rpl_wait_for_semi_sync_ack), CMD_LINE(OPT_ARG),
+       DEFAULT(FALSE));
+
 static Sys_var_uint Sys_general_query_throttling_limit(
        "general_query_throttling_limit", "Start throttling queries if running threads high.",
        GLOBAL_VAR(opt_general_query_throttling_limit), CMD_LINE(OPT_ARG),

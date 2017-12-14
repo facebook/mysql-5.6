@@ -44,6 +44,8 @@ void end_slave_list();
 void init_compressed_event_cache();
 void clear_compressed_event_cache();
 void free_compressed_event_cache();
+void init_semi_sync_last_acked();
+void destroy_semi_sync_last_acked();
 int register_slave(THD* thd, uchar* packet, uint packet_length);
 void unregister_slave(THD* thd, bool only_mine, bool need_lock_slave_list);
 bool show_slave_hosts(THD* thd);

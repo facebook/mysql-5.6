@@ -526,6 +526,7 @@ my_bool opt_local_infile, opt_slave_compressed_protocol;
 my_bool opt_slave_compressed_event_protocol;
 ulonglong opt_max_compressed_event_cache_size;
 ulong opt_slave_compression_lib;
+my_bool rpl_wait_for_semi_sync_ack;
 my_bool opt_safe_user_create = 0;
 my_bool opt_show_slave_auth_info;
 my_bool opt_log_slave_updates= 0;
@@ -2277,6 +2278,7 @@ void clean_up(bool print_message)
 #ifdef HAVE_REPLICATION
   end_slave_list();
   free_compressed_event_cache();
+  destroy_semi_sync_last_acked();
 #endif
   delete binlog_filter;
   delete rpl_filter;
@@ -5613,6 +5615,7 @@ static int init_server_components()
 #ifdef HAVE_REPLICATION
   init_slave_list();
   init_compressed_event_cache();
+  init_semi_sync_last_acked();
 #endif
 
   /* Setup logs */

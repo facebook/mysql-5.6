@@ -303,6 +303,7 @@ extern my_bool opt_slave_compressed_protocol, use_temp_pool;
 extern my_bool opt_slave_compressed_event_protocol;
 extern ulonglong opt_max_compressed_event_cache_size;
 extern ulong opt_slave_compression_lib;
+extern my_bool rpl_wait_for_semi_sync_ack;
 extern ulong slave_exec_mode_options;
 extern ulong slave_use_idempotent_for_recovery_options;
 extern ulong slave_run_triggers_for_rbr;
