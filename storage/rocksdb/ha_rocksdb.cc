@@ -2135,7 +2135,7 @@ public:
     return rc;
   }
 
-  void start_bulk_load(ha_rocksdb *const bulk_load,
+  int start_bulk_load(ha_rocksdb *const bulk_load,
                        std::shared_ptr<Rdb_sst_info> sst_info) {
     /*
      If we already have an open bulk load of a table and the name doesn't
@@ -2148,7 +2148,11 @@ public:
     if (!m_curr_bulk_load.empty() &&
         bulk_load->get_table_basename() != m_curr_bulk_load_tablename) {
       const auto res = finish_bulk_load();
-      SHIP_ASSERT(res == 0);
+      if (res != HA_EXIT_SUCCESS) {
+        m_curr_bulk_load.clear();
+        m_curr_bulk_load_tablename.clear();
+        return res;
+      }
     }
 
     /*
@@ -2164,6 +2168,7 @@ public:
     */
     m_curr_bulk_load.push_back(sst_info);
     m_curr_bulk_load_tablename = bulk_load->get_table_basename();
+    return HA_EXIT_SUCCESS;
   }
 
   int num_ongoing_bulk_load() const { return m_curr_bulk_load.size(); }
@@ -8887,7 +8892,10 @@ int ha_rocksdb::bulk_load_key(Rdb_transaction *const tx, const Rdb_key_def &kd,
     m_sst_info.reset(new Rdb_sst_info(rdb, m_table_handler->m_table_name,
                                       kd.get_name(), cf, *rocksdb_db_options,
                                       THDVAR(ha_thd(), trace_sst_api)));
-    tx->start_bulk_load(this, m_sst_info);
+    res = tx->start_bulk_load(this, m_sst_info);
+    if (res != HA_EXIT_SUCCESS) {
+      DBUG_RETURN(res);
+    }
   }
   DBUG_ASSERT(m_sst_info);
 
