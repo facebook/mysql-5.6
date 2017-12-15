@@ -124,4 +124,17 @@ SET @@global.table_open_cache=@orig_table_open_cache;
 
 --remove_file $LOG3
 
+# Switch between tables, but also introduce duplicate key errors
+CREATE TABLE t1 (pk INT, PRIMARY KEY (pk)) ENGINE=ROCKSDB;
+CREATE TABLE t2 (pk INT, PRIMARY KEY (pk)) ENGINE=ROCKSDB;
+SET rocksdb_bulk_load=1;
+INSERT INTO t1 VALUES (1), (2);
+INSERT INTO t2 VALUES (1), (2);
+INSERT INTO t1 VALUES (1);
+--error ER_OVERLAPPING_KEYS
+INSERT INTO t2 VALUES (3);
+SET rocksdb_bulk_load=0;
+DROP TABLE t1;
+DROP TABLE t2;
+
 --source include/wait_until_count_sessions.inc
