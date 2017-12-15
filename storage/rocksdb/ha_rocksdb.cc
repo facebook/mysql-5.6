@@ -499,6 +499,7 @@ static std::unique_ptr<rocksdb::DBOptions> rdb_init_rocksdb_db_options(void) {
   o->listeners.push_back(std::make_shared<Rdb_event_listener>(&ddl_manager));
   o->info_log_level = rocksdb::InfoLogLevel::INFO_LEVEL;
   o->max_subcompactions = DEFAULT_SUBCOMPACTIONS;
+  o->max_open_files = -2; // auto-tune to 50% open_files_limit
 
   o->two_write_queues = true;
   o->manual_wal_flush = true;
@@ -891,7 +892,7 @@ static MYSQL_SYSVAR_INT(max_open_files, rocksdb_db_options->max_open_files,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
                         "DBOptions::max_open_files for RocksDB", nullptr,
                         nullptr, rocksdb_db_options->max_open_files,
-                        /* min */ -1, /* max */ INT_MAX, 0);
+                        /* min */ -2, /* max */ INT_MAX, 0);
 
 static MYSQL_SYSVAR_ULONG(max_total_wal_size,
                           rocksdb_db_options->max_total_wal_size,
@@ -4101,12 +4102,13 @@ static int rocksdb_init_func(void *const p) {
 
   DBUG_ASSERT(!mysqld_embedded);
 
-  if (rocksdb_db_options->max_open_files > (long)open_files_limit ||
-      rocksdb_db_options->max_open_files < 0) {
+  if (rocksdb_db_options->max_open_files > (long)open_files_limit) {
     sql_print_information("RocksDB: rocksdb_max_open_files should not be "
                           "greater than the open_files_limit, effective value "
                           "of rocksdb_max_open_files is being set to "
                           "open_files_limit / 2.");
+    rocksdb_db_options->max_open_files = open_files_limit / 2;
+  } else if (rocksdb_db_options->max_open_files == -2) {
     rocksdb_db_options->max_open_files = open_files_limit / 2;
   }
 
