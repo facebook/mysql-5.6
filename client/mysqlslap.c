@@ -2265,6 +2265,17 @@ slap_connect(MYSQL *mysql)
   /* Connect to server */
   static ulong connection_retry_sleep= 100000; /* Microseconds */
   int x, connect_error= 1;
+
+#ifdef HAVE_OPENSSL
+  if (opt_use_ssl)
+  {
+    mysql_ssl_set(mysql, opt_ssl_key, opt_ssl_cert, opt_ssl_ca,
+                  opt_ssl_capath, opt_ssl_cipher);
+    mysql_options(mysql, MYSQL_OPT_SSL_CRL, opt_ssl_crl);
+    mysql_options(mysql, MYSQL_OPT_SSL_CRLPATH, opt_ssl_crlpath);
+  }
+#endif
+
   for (x= 0; x < 10; x++)
   {
     if (mysql_real_connect(mysql, host, user, opt_password,
