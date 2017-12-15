@@ -2179,7 +2179,7 @@ rocksdb-max-background-jobs 2
 rocksdb-max-latest-deadlocks 5
 rocksdb-max-log-file-size 0
 rocksdb-max-manifest-file-size 18446744073709551615
-rocksdb-max-open-files -1
+rocksdb-max-open-files -2
 rocksdb-max-row-locks 1073741824
 rocksdb-max-subcompactions 1
 rocksdb-max-total-wal-size 0
