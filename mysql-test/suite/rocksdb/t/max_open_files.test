@@ -6,6 +6,7 @@
 CALL mtr.add_suppression("RocksDB: rocksdb_max_open_files should not be greater than the open_files_limit*");
 
 --let $over_rocksdb_max_open_files=`SELECT @@global.open_files_limit + 100`
+--let $under_rocksdb_max_open_files=`SELECT @@global.open_files_limit -1`
 --let SEARCH_FILE=$MYSQLTEST_VARDIR/tmp/rocksdb.max_open_files.err
 --let SEARCH_PATTERN=RocksDB: rocksdb_max_open_files should not be greater than the open_files_limit
 
@@ -15,6 +16,12 @@ CALL mtr.add_suppression("RocksDB: rocksdb_max_open_files should not be greater 
 --source include/search_pattern_in_file.inc
 
 SELECT FLOOR(@@global.open_files_limit / 2) = @@global.rocksdb_max_open_files;
+
+# test for within limit
+--let $_mysqld_option=--rocksdb_max_open_files=$under_rocksdb_max_open_files
+--source include/restart_mysqld_with_option.inc
+
+SELECT @@global.open_files_limit - 1 = @@global.rocksdb_max_open_files;
 
 # test for minimal value
 --let $_mysqld_option=--rocksdb_max_open_files=0
@@ -30,6 +37,12 @@ DROP TABLE t1;
 
 # test for unlimited
 --let $_mysqld_option=--rocksdb_max_open_files=-1
+--source include/restart_mysqld_with_option.inc
+
+SELECT @@global.rocksdb_max_open_files;
+
+# test for auto-tune
+--let $_mysqld_option=--rocksdb_max_open_files=-2
 --source include/restart_mysqld_with_option.inc
 
 SELECT FLOOR(@@global.open_files_limit / 2) = @@global.rocksdb_max_open_files;
