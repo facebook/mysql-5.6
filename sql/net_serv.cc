@@ -1660,6 +1660,8 @@ my_net_read_compressed_nonblocking(NET *net,
     if (net_read_packet_nonblocking(net, len_ptr, complen_ptr) ==
         NET_ASYNC_NOT_READY) {
       net->save_char = net->buff[first_packet_offset];
+      *len_ptr = 0;
+      *complen_ptr = 0;
       return NET_ASYNC_NOT_READY;
     }
 
