@@ -3624,12 +3624,32 @@ static Sys_var_ulong Sys_max_statement_time(
        VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1));
 
 #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+/*
+ * Handles changes to @@global.ssl
+ * SSL can be enabled/disabled by setting this global variable to 1/0
+ * If @@global.ssl is already enabled and it's set again to 1, we will
+ * refresh the used SSL certificate
+ *
+ * Returns true if there is an error, false otherwise
+ * */
 static bool reinit_ssl(sys_var *self, THD *thd, enum_var_type type)
 {
-  end_ssl();
-  if (!opt_use_ssl)
+  if (!opt_use_ssl) {
+    // SET @@global.ssl = 0;
+
+    end_ssl();
     return false;
-  return init_ssl();
+  } else {
+    // SET @@global.ssl = 1;
+
+    if (ssl_acceptor_fd == nullptr) {
+      // SSL was disabled, we need to initialize it
+      return init_ssl();
+    } else {
+      // SSL is already enabled, just refresh the SSL cert
+      return refresh_ssl_acceptor();
+    }
+  }
 }
 
 /*
