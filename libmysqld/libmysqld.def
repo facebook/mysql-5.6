@@ -106,3 +106,5 @@ EXPORTS
 	mysql_stmt_field_count
 	mysql_stmt_next_result
   mysql_reset_connection
+  cli_safe_read
+  cli_safe_read_nonblocking

@@ -112,3 +112,5 @@ EXPORTS
 	mysql_options4
 	mysql_plugin_options
   mysql_reset_connection
+  cli_safe_read
+  cli_safe_read_nonblocking

@@ -1191,13 +1191,13 @@ ulong cli_safe_read_complete(MYSQL *mysql, ulong len,
   @retval The length of the packet that was read or packet_error in case of
           error. In case of error its description is stored in mysql handle.
 */
-ulong cli_safe_read(MYSQL *mysql, my_bool *is_data_packet)
+ulong STDCALL cli_safe_read(MYSQL *mysql, my_bool *is_data_packet)
 {
   return cli_safe_read_with_ok(mysql, 0, is_data_packet);
 }
 
 
-net_async_status
+net_async_status STDCALL
 cli_safe_read_nonblocking(MYSQL *mysql, ulong* res,
                           my_bool *is_data_packet)
 {

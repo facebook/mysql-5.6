@@ -670,6 +670,10 @@ unsigned int	STDCALL mysql_thread_safe(void);
 my_bool		STDCALL mysql_embedded(void);
 my_bool         STDCALL mysql_read_query_result(MYSQL *mysql);
 int             STDCALL mysql_reset_connection(MYSQL *mysql);
+ulong STDCALL cli_safe_read(MYSQL *mysql, my_bool *is_data_packet);
+net_async_status STDCALL cli_safe_read_nonblocking(MYSQL *mysql, ulong* res,
+                                                   my_bool *is_data_packet);
+
 
 /*
   The following definitions are added for the enhanced 
