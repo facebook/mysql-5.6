@@ -1156,6 +1156,8 @@ void init_server_psi_keys();
 #endif /* HAVE_PSI_INTERFACE */
 bool setup_datagram_socket(sys_var *self, THD *thd, enum_var_type type);
 bool init_ssl();
+bool refresh_ssl_acceptor();
+struct st_VioSSLFd *new_ssl_acceptor_fd();
 void end_ssl();
 
 /*

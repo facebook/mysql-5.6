@@ -5290,36 +5290,17 @@ bool init_ssl()
 #ifndef EMBEDDED_LIBRARY
   if (opt_use_ssl)
   {
-#ifdef HAVE_YASSL
-    /* yaSSL doesn't support CRL. */
-    if (opt_ssl_crl || opt_ssl_crlpath)
-    {
-      sql_print_warning("Failed to setup SSL because yaSSL "
-                        "doesn't support CRL");
-      opt_use_ssl = 0;
-      have_ssl= SHOW_OPTION_DISABLED;
-      return false;
-    }
-#endif
-    enum enum_ssl_init_error error= SSL_INITERR_NOERROR;
-
     /* having ssl_acceptor_fd != 0 signals the use of SSL */
-    ssl_acceptor_fd= new_VioSSLAcceptorFd(opt_ssl_key, opt_ssl_cert,
-					  opt_ssl_ca, opt_ssl_capath,
-					  opt_ssl_cipher, &error,
-                                          opt_ssl_crl, opt_ssl_crlpath);
-    DBUG_PRINT("info",("ssl_acceptor_fd: 0x%lx", (long) ssl_acceptor_fd));
-    ERR_remove_state(0);
-    if (!ssl_acceptor_fd)
-    {
-      sql_print_warning("Failed to setup SSL");
-      sql_print_warning("SSL error: %s", sslGetErrString(error));
+    ssl_acceptor_fd = new_ssl_acceptor_fd();
+    if (ssl_acceptor_fd != nullptr) {
+      // Created SSL acceptor successfully
+      have_ssl = SHOW_OPTION_YES;
+    } else {
+      // Disable SSL and fail
       opt_use_ssl = 0;
       have_ssl= SHOW_OPTION_DISABLED;
-      // return true to specify that the current ssl configuration is invalid.
       return true;
     }
-    have_ssl = SHOW_OPTION_YES;
   }
   else
   {
@@ -5338,6 +5319,64 @@ bool init_ssl()
   return false;
 }
 
+/*
+ * Reinitialize the ssl_acceptor_fd
+ * Returns true if there is an error
+ */
+bool refresh_ssl_acceptor() {
+#ifdef HAVE_OPENSSL
+  if (opt_use_ssl == false || ssl_acceptor_fd == nullptr) {
+    // We cannot refresh ssl connection if we did not initialize
+    // SSL in the first place
+    sql_print_warning("Unable to refresh an uninitialzed SSL acceptor ");
+    return true;
+  }
+
+  struct st_VioSSLFd *new_ssl_fd = new_ssl_acceptor_fd();
+  if (new_ssl_fd != nullptr) {
+    DBUG_PRINT("info", ("Updating ssl_acceptor_fd from (0x%lx) to (0x%lx)",
+                        (long)ssl_acceptor_fd, (long)new_ssl_fd));
+    free_vio_ssl_fd(ssl_acceptor_fd);
+    ssl_acceptor_fd = new_ssl_fd;
+    return false; // SUCCESS
+  } else {
+    sql_print_warning("Failed to refresh SSL cert");
+    return true; // ERROR
+  }
+#endif /* HAVE_OPENSSL */
+  return false;
+}
+
+struct st_VioSSLFd *new_ssl_acceptor_fd() {
+#ifdef HAVE_OPENSSL
+  if (opt_use_ssl == false) {
+    return nullptr;
+  }
+#ifdef HAVE_YASSL
+  /* yaSSL doesn't support CRL. */
+  if (opt_ssl_crl || opt_ssl_crlpath) {
+    sql_print_warning("Failed to setup SSL because yaSSL "
+                      "doesn't support CRL");
+    return nullptr;
+  }
+#endif /* HAVE_YASSL */
+  enum enum_ssl_init_error error = SSL_INITERR_NOERROR;
+
+  struct st_VioSSLFd *result = new_VioSSLAcceptorFd(
+      opt_ssl_key, opt_ssl_cert, opt_ssl_ca, opt_ssl_capath, opt_ssl_cipher,
+      &error, opt_ssl_crl, opt_ssl_crlpath);
+
+  DBUG_PRINT("info", ("created new VioSSLFd: 0x%lx", (long)result));
+  ERR_remove_state(0);
+  if (result == nullptr) {
+    sql_print_warning("Failed to setup SSL");
+    sql_print_warning("SSL error: %s", sslGetErrString(error));
+    return nullptr; // result
+  }
+  return result;
+#endif /* HAVE_OPENSSL */
+  return nullptr;
+}
 
 void end_ssl()
 {
