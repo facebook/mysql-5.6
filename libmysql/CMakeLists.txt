@@ -145,6 +145,8 @@ mysql_load_plugin_v
 mysql_options4
 mysql_plugin_options
 mysql_reset_connection
+cli_safe_read
+cli_safe_read_nonblocking
 
 CACHE INTERNAL "Functions exported by client API"
 
