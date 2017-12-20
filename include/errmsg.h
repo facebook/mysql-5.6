@@ -106,11 +106,11 @@ extern const char *client_errors[];	/* Error messages */
 #define CR_AUTH_PLUGIN_CANNOT_LOAD              2059
 #define CR_DUPLICATE_ATTR                       2060
 #define CR_AUTH_PLUGIN_ERR                      2061
-#define CR_NET_READ_INTERRUPTED                 2062
-#define CR_NET_WRITE_INTERRUPTED                2063
+#define CR_FB_PLACEHOLDER_0                     2062
+#define CR_FB_PLACEHOLDER_1                     2063
+#define CR_NET_READ_INTERRUPTED                 2064
+#define CR_NET_WRITE_INTERRUPTED                2065
 /* Facebook specific error placeholders */
-#define CR_FB_PLACEHOLDER_0                     2064
-#define CR_FB_PLACEHOLDER_1                     2065
 #define CR_FB_PLACEHOLDER_2                     2066
 #define CR_FB_PLACEHOLDER_3                     2067
 #define CR_FB_PLACEHOLDER_4                     2068
