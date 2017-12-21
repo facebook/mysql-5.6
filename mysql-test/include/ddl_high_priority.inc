@@ -73,7 +73,7 @@ drop table t1_new;
 ## no effect for regular users
 ##
 
---source include/count_sessions.inc
+let $count_sessions = 1;
 connect (con2,localhost,test_user2,,test,,);
 # $con_kill is regular user
 --let $con_kill = con2
@@ -89,6 +89,10 @@ disconnect con2;
 
 # Ensure con2 is closed
 --source include/wait_until_count_sessions.inc
+# Secondary check to ensure con2 is closed
+let $wait_condition=
+  SELECT count(*) = 1 FROM information_schema.processlist;
+--source include/wait_condition.inc
 
 # restore $con_kill
 --let $con_kill = default
