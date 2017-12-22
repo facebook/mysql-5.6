@@ -17,6 +17,8 @@ class Dependency_slave_worker : public Slave_worker
   bool execute_group();
   inline int execute_event(Log_event_wrapper *ev);
   void remove_event(Log_event_wrapper *ev);
+  void cleanup_group(std::vector<Log_event_wrapper*> &events);
+  void cleanup_map(Log_event_wrapper *event);
 
 public:
   Dependency_slave_worker(Relay_log_info *rli

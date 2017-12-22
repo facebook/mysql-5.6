@@ -1645,7 +1645,6 @@ bool Relay_log_info::cached_charset_compare(char *charset) const
   DBUG_RETURN(0);
 }
 
-
 int Relay_log_info::stmt_done(my_off_t event_master_log_pos)
 {
   int error= 0;
