@@ -213,14 +213,24 @@ void Dependency_slave_worker::remove_event(Log_event_wrapper *ev)
   }
   c_rli->dag.remove_head_node(ev);
 
-  // clean up other DAG related structures in rli
-  for (auto it= c_rli->dag_table_last_penultimate_event.cbegin();
-            it != c_rli->dag_table_last_penultimate_event.cend();)
+  /* Attempt to clean up entries from the penultimate event map.
+   *
+   * There are two cases:
+   * 1) The "value" of the key-value pair is equal to this event. In this case,
+   *    remove the key-value pair from the map.
+   * 2) The "value" of the key-value pair is _not_ equal to this event. In this
+   *    case, leave it be; the event corresponds to a later transaction.
+   */
+  for (auto key : ev->keys)
   {
+    auto it= c_rli->dag_key_last_penultimate_event.find(key);
+    DBUG_ASSERT(it != c_rli->dag_key_last_penultimate_event.end());
+
+    /* Case 1. (Case 2 is implicitly handled by doing nothing.) */
     if (it->second == ev)
-      c_rli->dag_table_last_penultimate_event.erase(it++);
-    else
-      ++it;
+    {
+      c_rli->dag_key_last_penultimate_event.erase(key);
+    }
   }
 
   for (auto it= c_rli->dag_db_last_start_event.cbegin();
@@ -299,8 +309,8 @@ Dependency_slave_worker::Dependency_slave_worker(Relay_log_info *rli
 void Dependency_slave_worker::start()
 {
   DBUG_ASSERT(c_rli->dag.is_empty() &&
-              dag_table_last_penultimate_event.empty() &&
-              tables_accessed_by_group.empty() &&
+              dag_key_last_penultimate_event.empty() &&
+              keys_accessed_by_group.empty() &&
               dag_db_last_start_event.empty() &&
               dbs_accessed_by_group.empty());
 

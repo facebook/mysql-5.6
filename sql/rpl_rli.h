@@ -38,6 +38,7 @@ class Master_info;
 class Commit_order_manager;
 extern uint sql_slave_skip_counter;
 
+
 enum class Enum_slave_caughtup {
   NONE,
   YES,
@@ -1115,17 +1116,23 @@ public:
   DAG<Log_event_wrapper*> dag;
   mysql_rwlock_t dag_lock;
 
-  /* Mapping from table to penultimate (for multi event trx)/end event of the
+  /* Mapping from key to penultimate (for multi event trx)/end event of the
      last trx that updated that table */
-  std::unordered_map<std::string, Log_event_wrapper*>
-                                             dag_table_last_penultimate_event;
-  /* Set of all tables accessed by the current group */
-  std::unordered_set<std::string> tables_accessed_by_group;
+  std::unordered_map<Dependency_key, Log_event_wrapper*>
+                                            dag_key_last_penultimate_event;
+
+  /* Set of keys accessed by the group */
+  std::unordered_set<Dependency_key> keys_accessed_by_group;
 
   /* Mapping from DB to start event of the last trx that updated that DB */
   std::unordered_map<std::string, Log_event_wrapper*> dag_db_last_start_event;
   /* Set of all DBs accessed by the current group */
   std::unordered_set<std::string> dbs_accessed_by_group;
+
+#ifndef DBUG_OFF
+  /* For each table encountered, tracks if we've seen primary key */
+  std::unordered_map<std::string, uint> seen_pk;
+#endif
 
   // Mutex-condition pair to notify that a group is ready to be executed
   mysql_cond_t dag_group_ready_cond;
@@ -1182,8 +1189,8 @@ public:
 
     DBUG_ASSERT(dag.is_empty());
 
-    dag_table_last_penultimate_event.clear();
-    tables_accessed_by_group.clear();
+    dag_key_last_penultimate_event.clear();
+    keys_accessed_by_group.clear();
     dag_db_last_start_event.clear();
     dbs_accessed_by_group.clear();
 

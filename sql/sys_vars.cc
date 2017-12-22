@@ -5195,6 +5195,8 @@ static Sys_var_double Sys_mts_imbalance_threshold(
        GLOBAL_VAR(opt_mts_imbalance_threshold),
        CMD_LINE(OPT_ARG), VALID_RANGE(0, 100), DEFAULT(90));
 
+static const char *dep_rpl_type_names[]= { "NONE", "TBL", "STMT", NullS };
+
 static bool
 check_mts_dependency_replication(sys_var *self, THD *thd, set_var *var)
 {
@@ -5207,11 +5209,11 @@ check_mts_dependency_replication(sys_var *self, THD *thd, set_var *var)
   return false;
 }
 
-static Sys_var_mybool Sys_mts_dependency_replication(
+static Sys_var_enum Sys_mts_dependency_replication(
        "mts_dependency_replication",
        "Use dependency based replication",
        GLOBAL_VAR(opt_mts_dependency_replication),
-       CMD_LINE(OPT_ARG), DEFAULT(FALSE),
+       CMD_LINE(OPT_ARG), dep_rpl_type_names, DEFAULT(DEP_RPL_NONE),
        NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(check_mts_dependency_replication), ON_UPDATE(0));
 

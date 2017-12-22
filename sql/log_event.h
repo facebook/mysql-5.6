@@ -28,10 +28,12 @@
 #ifndef _log_event_h
 #define _log_event_h
 
+#include <memory>
 #include <my_bitmap.h>
 #include "rpl_constants.h"
 #include "table_id.h"
 #include <set>
+#include <deque>
 
 #ifdef MYSQL_CLIENT
 #include "sql_const.h"
@@ -59,6 +61,63 @@ typedef struct st_db_worker_hash_entry db_worker_hash_entry;
 int ignored_error_code(int err_code);
 #endif
 class Log_event_wrapper;
+
+struct Dependency_key
+{
+  uint key_length= 0;
+  std::string table_id;
+  std::shared_ptr<uchar> key_buffer;
+
+  Dependency_key()
+  {
+    key_length= 0;
+  }
+
+  bool operator==(const Dependency_key& other) const
+  {
+    return (key_length == other.key_length &&
+            table_id == other.table_id &&
+            (key_length == 0 ||
+             !memcmp(key_buffer.get(), other.key_buffer.get(), key_length)));
+  }
+
+  bool operator!=(const Dependency_key &other) const
+  {
+    return !(*this == other);
+  }
+};
+
+/* Override std::hash for Dependency_keys. */
+namespace std
+{
+  template<>
+  struct hash<Dependency_key>
+  {
+    std::size_t operator() (const Dependency_key &k) const
+    {
+      using std::size_t;
+      using std::hash;
+      using std::string;
+
+      size_t ret= 0;
+      uchar *buf= k.key_buffer.get();
+      if (k.key_length > 0)
+      {
+        ret= std::hash<uint>{}(k.key_length);
+        ret= (ret << 1) ^ std::hash<string>{}(k.table_id);
+        for (uint i= 0; i < k.key_length; ++i)
+        {
+          ret= (ret << 1) ^ std::hash<char>{}((char)buf[i]);
+        }
+      }
+      else
+      {
+        ret= std::hash<string>{}(k.table_id);
+      }
+      return ret;
+    }
+  };
+}
 
 #define PREFIX_SQL_LOAD "SQL_LOAD-"
 
@@ -1733,6 +1792,8 @@ protected:
      non-zero. The caller shall decrease the counter by one.
    */
   virtual enum_skip_reason do_shall_skip(Relay_log_info *rli);
+
+  virtual void prepare(Relay_log_info *rli, Log_event_wrapper *ev);
 
 public:
   void apply_query_event(char *query, uint32 query_length_arg);
@@ -4018,6 +4079,7 @@ public:
 
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
   virtual int pack_info(Protocol *protocol);
+  void* setup_table_rli(RPL_TABLE_LIST **table_list);
 #endif
 
 #ifdef MYSQL_CLIENT
@@ -4291,6 +4353,8 @@ protected:
   TABLE *m_table;		/* The table the rows belong to */
 #endif
   Table_id    m_table_id;	/* Table ID */
+  std::string m_table_name;
+  std::deque<Dependency_key> m_keylist;
   MY_BITMAP   m_cols;		/* Bitmap denoting columns available */
   ulong       m_width;          /* The width of the columns bitmap */
 #ifndef MYSQL_CLIENT
@@ -4454,6 +4518,22 @@ private:
 private:
 
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
+public:
+  bool get_keys(Relay_log_info *rli, Log_event_wrapper *ev,
+                std::deque<Dependency_key> &keys);
+protected:
+  bool parse_keys(Relay_log_info* rli, Log_event_wrapper *ev,
+                  RPL_TABLE_LIST *table_list,
+                  std::deque<Dependency_key>& keys);
+  virtual void prepare(Relay_log_info *rli, Log_event_wrapper *ev);
+#ifndef DBUG_OFF
+  uint check_pk(TABLE *tbl, Relay_log_info *rli, MY_BITMAP *cols);
+#endif
+
+private:
+  bool get_table_ref(Relay_log_info *rli, void **memory,
+                     RPL_TABLE_LIST **table_list);
+  void close_table_ref(THD *thd, RPL_TABLE_LIST *table_list);
   virtual void do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev);
   virtual int do_apply_event(Relay_log_info const *rli);
   virtual int do_update_pos(Relay_log_info *rli);
