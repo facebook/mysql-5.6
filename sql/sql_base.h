@@ -246,6 +246,8 @@ bool lock_table_names_nsec(THD *thd, TABLE_LIST *table_list,
                       uint flags);
 bool open_tables(THD *thd, TABLE_LIST **tables, uint *counter, uint flags,
                  Prelocking_strategy *prelocking_strategy);
+bool get_table_from_cache(THD *thd, TABLE_LIST *table);
+void return_table_to_cache(THD *thd, TABLE_LIST *table);
 /* open_and_lock_tables with optional derived handling */
 bool open_and_lock_tables(THD *thd, TABLE_LIST *tables,
                           bool derived, uint flags,

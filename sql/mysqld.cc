@@ -677,7 +677,7 @@ ulong slave_run_triggers_for_rbr = 0;
 ulonglong slave_type_conversions_options;
 ulonglong admission_control_filter;
 ulong opt_mts_slave_parallel_workers;
-my_bool opt_mts_dependency_replication;
+ulong opt_mts_dependency_replication;
 ulonglong opt_mts_dependency_size;
 double opt_mts_dependency_refill_threshold;
 my_bool opt_mts_dependency_order_commits;

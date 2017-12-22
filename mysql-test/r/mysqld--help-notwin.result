@@ -637,7 +637,7 @@ The following options may be given as the first argument:
  --mts-dependency-refill-threshold[=#] 
  Capacity in percentage at which to start refilling the
  dependency buffer
- --mts-dependency-replication 
+ --mts-dependency-replication[=name]
  Use dependency based replication
  --mts-dependency-size[=#] 
  Max size of the dependency buffer
@@ -1978,7 +1978,7 @@ metadata-locks-hash-instances 256
 min-examined-row-limit 0
 mts-dependency-order-commits TRUE
 mts-dependency-refill-threshold 60
-mts-dependency-replication FALSE
+mts-dependency-replication NONE
 mts-dependency-size 1000
 mts-dynamic-rebalance FALSE
 mts-imbalance-threshold 90

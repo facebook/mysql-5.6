@@ -25,7 +25,11 @@ eval set @@global.slave_use_idempotent_for_recovery= YES;
 #
 # show that it's writable
 #
-let $value= false;
+let $value= tbl;
+eval set @@global.$var= $value;
+eval select @@global.$var;
+
+let $value= stmt;
 eval set @@global.$var= $value;
 eval select @@global.$var;
 
@@ -36,13 +40,6 @@ eval select @@global.$var;
 eval set @@global.$var= 1.1;
 --error ER_WRONG_VALUE_FOR_VAR
 eval set @@global.$var= "foo";
-
-#
-# min/max values
-#
-eval set @@global.$var= false;
-eval set @@global.$var= true;
-eval select @@global.$var as "truncated to the maximum";
 
 # cleanup
 

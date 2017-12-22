@@ -312,7 +312,10 @@ int unpack_row_with_column_info(TABLE *table, uint const colcnt,
     ++null_bit_index;
   }
 
-  insert_row_fields(row_query, table);
+  if (row_query)
+  {
+    insert_row_fields(row_query, table);
+  }
 
   *current_row_end = pack_ptr;
   if (master_reclength)
@@ -613,7 +616,11 @@ unpack_row(Relay_log_info const *rli,
     }
   }
 
-  insert_row_fields(row_query, table);
+  if (row_query)
+  {
+    insert_row_fields(row_query, table);
+  }
+
   /*
     We should now have read all the null bytes, otherwise something is
     really wrong.

@@ -20,6 +20,9 @@ class Log_event_wrapper
   bool ready_to_execute;
 
 public:
+  // Keys written by this event, should only be non-empty for Rows_log_events
+  std::unordered_set<Dependency_key> keys;
+
   std::atomic<uint> is_assigned; // has this event been assigned to a worker?
   bool is_appended_to_queue; // has this event been assigned to a worker queue?
   bool is_begin_event;
@@ -45,6 +48,7 @@ public:
     // case: event was not appended to a worker's queue, so we need to delete it
     if (!is_appended_to_queue)
       delete event;
+    keys.clear();
     mysql_mutex_destroy(&mutex);
     mysql_cond_destroy(&cond);
   }

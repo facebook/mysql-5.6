@@ -126,6 +126,12 @@ enum enum_slave_exec_mode { SLAVE_EXEC_MODE_STRICT,
                             SLAVE_EXEC_MODE_SEMI_STRICT,
                             SLAVE_EXEC_MODE_LAST_BIT };
 
+enum enum_mts_dependency_replication {
+  DEP_RPL_NONE,
+  DEP_RPL_TABLE,
+  DEP_RPL_STATEMENT,
+};
+
 enum enum_slave_use_idempotent_for_recovery {
   SLAVE_USE_IDEMPOTENT_FOR_RECOVERY_NO,
   SLAVE_USE_IDEMPOTENT_FOR_RECOVERY_YES};
