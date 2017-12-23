@@ -4,6 +4,7 @@ Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
 call mtr.add_suppression("Master's binlog format is not ROW");
+set @save.mts_dependency_replication= @@global.mts_dependency_replication;
 create table t1(a int) engine=innodb;
 set session binlog_format=STATEMENT;
 insert into t1 values(1);
@@ -12,7 +13,7 @@ Last_SQL_Error = 'Master's binlog format is not ROW but mts_dependency_replicati
 "Table after error"
 select * from t1;
 a
-set global mts_dependency_replication= false;
+set global mts_dependency_replication= NONE;
 start slave;
 "Table after error fixed"
 select * from t1;
@@ -20,6 +21,6 @@ a
 1
 drop table t1;
 stop slave;
-set global mts_dependency_replication= true;
+set @@global.mts_dependency_replication= @save.mts_dependency_replication;
 start slave;
 include/rpl_end.inc

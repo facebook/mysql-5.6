@@ -7,7 +7,7 @@ select variable_name from information_schema.session_variables where variable_na
 variable_name
 set @save.slave_use_idempotent_for_recovery= @@global.slave_use_idempotent_for_recovery;
 set @@global.slave_use_idempotent_for_recovery= NO;
-set @@global.mts_dependency_replication= true;
+set @@global.mts_dependency_replication= tbl;
 ERROR HY000: @@GLOBAL.MTS_DEPENDENCY_REPLICATION cannot be set when @@GLOBAL.SLAVE_USE_IDEMPOTENT_FOR_RECOVERY = NO
 set @@global.slave_use_idempotent_for_recovery= YES;
 set @@global.mts_dependency_replication= tbl;
