@@ -7,7 +7,12 @@ binlog-format=statement
 [mix]
 binlog-format=mixed
 
-[dep]
+[dep-tbl]
 binlog-format=row
 slave_use_idempotent_for_recovery=yes
-mts_dependency_replication=true
+mts_dependency_replication=TBL
+
+[dep-stmt]
+binlog-format=row
+slave_use_idempotent_for_recovery=yes
+mts_dependency_replication=STMT

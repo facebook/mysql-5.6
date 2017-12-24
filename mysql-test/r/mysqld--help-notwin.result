@@ -637,7 +637,7 @@ The following options may be given as the first argument:
  --mts-dependency-refill-threshold[=#] 
  Capacity in percentage at which to start refilling the
  dependency buffer
- --mts-dependency-replication[=name]
+ --mts-dependency-replication[=name] 
  Use dependency based replication
  --mts-dependency-size[=#] 
  Max size of the dependency buffer
