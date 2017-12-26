@@ -2655,6 +2655,10 @@ void return_table_to_cache(THD *thd, TABLE_LIST *table_list)
 
     table= table_list->table;
 
+    /* Do this *before* entering the LOCK_open critical section. */
+    if (table->file != NULL)
+      table->file->unbind_psi();
+
     tc= table_cache_manager.get_cache(thd);
     tc->lock();
 
