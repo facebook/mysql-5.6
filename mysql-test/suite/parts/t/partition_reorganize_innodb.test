@@ -19,6 +19,12 @@ SET SESSION innodb_strict_mode = ON;
 SET GLOBAL innodb_file_per_table=ON;
 SET GLOBAL innodb_file_format=barracuda;
 
+--disable_warnings
+DROP DATABASE IF EXISTS test;
+CREATE DATABASE test;
+use test;
+--enable_warnings
+
 # Unlike MyISAM, InnoDB creates the subdirectories given to it in the
 # DATA DIRECTORY clauses.  Another difference is that InnoDB uses an extra
 # directory under DATA DIRECTORY with the name of the database.
