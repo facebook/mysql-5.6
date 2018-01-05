@@ -614,7 +614,7 @@ static TYPELIB index_type_typelib = {array_elements(index_type_names) - 1,
                                      nullptr};
 
 const ulong RDB_MAX_LOCK_WAIT_SECONDS = 1024 * 1024 * 1024;
-const ulong RDB_MAX_ROW_LOCKS = 1024 * 1024 * 1024;
+const ulong RDB_MAX_ROW_LOCKS = 1024 * 1024;
 const ulong RDB_DEFAULT_BULK_LOAD_SIZE = 1000;
 const ulong RDB_MAX_BULK_LOAD_SIZE = 1024 * 1024 * 1024;
 const size_t RDB_DEFAULT_MERGE_BUF_SIZE = 64 * 1024 * 1024;
