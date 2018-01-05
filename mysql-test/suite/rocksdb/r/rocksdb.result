@@ -925,7 +925,7 @@ rocksdb_max_background_jobs	2
 rocksdb_max_latest_deadlocks	5
 rocksdb_max_log_file_size	0
 rocksdb_max_manifest_file_size	18446744073709551615
-rocksdb_max_row_locks	1073741824
+rocksdb_max_row_locks	1048576
 rocksdb_max_subcompactions	1
 rocksdb_max_total_wal_size	0
 rocksdb_merge_buf_size	67108864
