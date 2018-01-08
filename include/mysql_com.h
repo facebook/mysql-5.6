@@ -448,6 +448,7 @@ typedef struct ssl_st SSL;
 #define COMP_EVENT_HEADER_SIZE 4  /* comp header + magic number */
 
 enum mysql_compression_lib {
+  MYSQL_COMPRESSION_NONE,
   MYSQL_COMPRESSION_ZLIB,
   MYSQL_COMPRESSION_ZSTD
 };
