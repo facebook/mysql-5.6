@@ -18,35 +18,31 @@ Dependency_slave_worker::extract_group(std::vector<Log_event_wrapper*>& group)
 
 bool Dependency_slave_worker::find_group(std::vector<Log_event_wrapper*>& group)
 {
-  c_rli->dag_rdlock();
   bool found= false;
-  Log_event_wrapper *ev= NULL;
+  Log_event_wrapper *event= NULL;
+  Commit_order_manager *commit_order_mngr= get_commit_order_manager();
 
-  for (auto& event : c_rli->dag.get_head())
+  c_rli->dag_wrlock();
+  if (c_rli->begin_event_list.size() > 0)
   {
-    // NOTE: We need the whole group to exist in the DAG to avoid starvation.
-    // Dependencies between begin events can be determined by other conflicting
-    // events between transactions, so we can't be sure if a begin event is free
-    // to be executed unless the entire group is in the DAG.
-    // case: free begin event found
-    if (event->is_begin_event &&
-        event->whole_group_in_dag &&
-        event->is_assigned.fetch_or(1U) == 0U)
+    found= true;
+    event= c_rli->begin_event_list.front();
+    DBUG_ASSERT(event != NULL);
+    c_rli->begin_event_list.pop_front();
+    if (commit_order_mngr != NULL)
     {
-      ev= event;
-      found= true;
-      break;
+      DBUG_ASSERT(opt_mts_dependency_order_commits);
+      commit_order_mngr->register_trx(this);
     }
   }
-
-  // extract the rest of the group from the DAG
-  while (ev)
-  {
-    group.push_back(ev);
-    ev= get_next_event(ev);
-  }
-
   c_rli->dag_unlock();
+
+  while (event)
+  {
+    event->is_assigned.store(1U);
+    group.push_back(event);
+    event= event->next_group_event;
+  }
   return found;
 }
 
@@ -118,11 +114,13 @@ bool Dependency_slave_worker::execute_group()
   }
 
   // case: place ourselves in the commit order queue
+  /*
   if (commit_order_mngr != NULL)
   {
     DBUG_ASSERT(opt_mts_dependency_order_commits);
     commit_order_mngr->register_trx(this);
   }
+  */
 
   /**
     Here's what is happening in the loop:
@@ -143,7 +141,8 @@ bool Dependency_slave_worker::execute_group()
     // executed this event, so we should remove it from the DAG
     if (!trans_retries || current_event_index >= last_current_event_index)
     {
-      remove_event(ev);
+      ev->mark_executed();
+      // remove_event(ev);
       ++last_grp_event_in_dag;
     }
   // case: when grp execution succeeds both @trans_retries and
@@ -161,13 +160,78 @@ bool Dependency_slave_worker::execute_group()
   }
 
   // remove the rest of the group's events from the DAG (if any)
-  for (size_t i= last_grp_event_in_dag; i < events.size(); ++i)
-    remove_event(events[i]);
+  // for (size_t i= last_grp_event_in_dag; i < events.size(); ++i)
+  //  remove_event(events[i]);
+
+  DBUG_ASSERT(events.size() >= 1);
+  cleanup_group(events);
 
 end:
   // cleanup
   for (auto& event : events) delete event;
   return err == 0 && running_status == RUNNING;
+}
+
+void Dependency_slave_worker::cleanup_map(Log_event_wrapper *event)
+{
+  /* Attempt to clean up entries from the penultimate event map.
+   *
+   * There are two cases:
+   * 1) The "value" of the key-value pair is equal to this event. In this case,
+   *    remove the key-value pair from the map.
+   * 2) The "value" of the key-value pair is _not_ equal to this event. In this
+   *    case, leave it be; the event corresponds to a later transaction.
+   */
+  for (auto key : event->keys)
+  {
+    auto it= c_rli->dag_key_last_penultimate_event.find(key);
+    DBUG_ASSERT(it != c_rli->dag_key_last_penultimate_event.end());
+
+    /* Case 1. (Case 2 is implicitly handled by doing nothing.) */
+    if (it->second == event)
+    {
+      c_rli->dag_key_last_penultimate_event.erase(key);
+    }
+  }
+}
+
+void
+Dependency_slave_worker::cleanup_group(std::vector<Log_event_wrapper*> &events)
+{
+  c_rli->dag_wrlock();
+
+  // jmf: A lock-free hash-table would not require a lock here.
+  for (auto ev : events)
+  {
+    cleanup_map(ev);
+  }
+
+  // admission control for DAG
+  mysql_mutex_lock(&c_rli->dag_full_mutex);
+  DBUG_ASSERT(c_rli->dag_num_groups > 0);
+  --c_rli->dag_num_groups;
+  dag_empty= (c_rli->dag_num_groups == 0);
+  // case: signal if DAG has space
+  if (c_rli->dag_full && c_rli->dag_num_groups <
+      (opt_mts_dependency_size * opt_mts_dependency_refill_threshold / 100))
+  {
+    c_rli->dag_full= false;
+    mysql_cond_signal(&c_rli->dag_full_cond);
+  }
+  mysql_mutex_unlock(&c_rli->dag_full_mutex);
+
+    // case: signal if DAG is now empty
+  if (dag_empty)
+  {
+    DBUG_ASSERT(c_rli->begin_event_list.size() == 0);
+    mysql_mutex_lock(&c_rli->dag_empty_mutex);
+    c_rli->dag_empty= true;
+    mysql_cond_signal(&c_rli->dag_empty_cond);
+    mysql_mutex_unlock(&c_rli->dag_empty_mutex);
+  }
+
+
+  c_rli->dag_unlock();
 }
 
 int Dependency_slave_worker::execute_event(Log_event_wrapper *ev)
@@ -232,6 +296,10 @@ void Dependency_slave_worker::remove_event(Log_event_wrapper *ev)
       c_rli->dag_key_last_penultimate_event.erase(key);
     }
   }
+
+  /* We have to clear the set of keys so that the shared_ptr corresponding to
+   * the key buffer is deallocated. */
+  ev->keys.clear();
 
   for (auto it= c_rli->dag_db_last_start_event.cbegin();
             it != c_rli->dag_db_last_start_event.cend();)

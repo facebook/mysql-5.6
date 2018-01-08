@@ -860,6 +860,7 @@ extern my_bool allow_slave_start;
 extern LEX_CSTRING reason_slave_blocked;
 extern ulong slave_trans_retries;
 extern uint  slave_net_timeout;
+extern ulong replication_type_options;
 extern ulong opt_mts_slave_parallel_workers;
 extern ulong opt_mts_dependency_replication;
 extern ulonglong opt_mts_dependency_size;

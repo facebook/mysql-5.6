@@ -1114,6 +1114,7 @@ public:
 
   // DAG of events
   DAG<Log_event_wrapper*> dag;
+  std::deque<Log_event_wrapper*> begin_event_list;
   mysql_rwlock_t dag_lock;
 
   /* Mapping from key to penultimate (for multi event trx)/end event of the
