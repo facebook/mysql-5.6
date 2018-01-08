@@ -75,6 +75,7 @@ typedef struct st_vio Vio;
 struct ssl_st;
 typedef struct ssl_st SSL;
 enum mysql_compression_lib {
+  MYSQL_COMPRESSION_NONE,
   MYSQL_COMPRESSION_ZLIB,
   MYSQL_COMPRESSION_ZSTD
 };

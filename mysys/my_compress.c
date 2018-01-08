@@ -170,6 +170,13 @@ uchar *my_compress_alloc(NET *net,
   if (comp_lib == MYSQL_COMPRESSION_ZSTD) {
     return zstd_compress_alloc(net, packet, len, complen, level);
   }
+
+  if (comp_lib == MYSQL_COMPRESSION_NONE) {
+    // If compression algorithm is set to none do not compress, even if
+    // compress flag was set
+    *complen = 0;
+    return 0;
+  }
 #else
   (void)net;
 #endif
