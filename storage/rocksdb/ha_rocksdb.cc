@@ -404,10 +404,14 @@ static void rocksdb_set_collation_exception_list(THD *thd,
                                                  void *var_ptr,
                                                  const void *save);
 
-void rocksdb_set_update_cf_options(THD *thd,
-                                   struct st_mysql_sys_var *var,
-                                   void *var_ptr,
-                                   const void *save);
+static int rocksdb_validate_update_cf_options(THD *thd,
+                                              struct st_mysql_sys_var *var,
+                                              void *save,
+                                              st_mysql_value *value);
+
+static void rocksdb_set_update_cf_options(THD *thd,
+                                          struct st_mysql_sys_var *var,
+                                          void *var_ptr, const void *save);
 
 static int rocksdb_check_bulk_load(THD *const thd,
                                    struct st_mysql_sys_var *var
@@ -1203,7 +1207,8 @@ static MYSQL_SYSVAR_STR(override_cf_options, rocksdb_override_cf_options,
 static MYSQL_SYSVAR_STR(update_cf_options, rocksdb_update_cf_options,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC |
                             PLUGIN_VAR_ALLOCATED,
-                        "Option updates per column family for RocksDB", nullptr,
+                        "Option updates per column family for RocksDB",
+                        rocksdb_validate_update_cf_options,
                         rocksdb_set_update_cf_options, nullptr);
 
 static MYSQL_SYSVAR_UINT(flush_log_at_trx_commit,
@@ -12666,34 +12671,59 @@ static void rocksdb_set_wal_bytes_per_sync(
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
-void rocksdb_set_update_cf_options(THD *const /* unused */,
-                                   struct st_mysql_sys_var *const /* unused */,
-                                   void *const var_ptr,
-                                   const void *const save) {
-  const char *const val = *static_cast<const char *const *>(save);
+static int
+rocksdb_validate_update_cf_options(THD * /* unused */,
+                                   struct st_mysql_sys_var * /*unused*/,
+                                   void *save, struct st_mysql_value *value) {
 
-  if (!val) {
-    // NO_LINT_DEBUG
-    sql_print_warning("MyRocks: NULL is not a valid option for updates to "
-                      "column family settings.");
-    return;
+  char buff[STRING_BUFFER_USUAL_SIZE];
+  const char *str;
+  int length;
+  length = sizeof(buff);
+  str = value->val_str(value, buff, &length);
+  *(const char **)save = str;
+
+  if (str == nullptr) {
+    return HA_EXIT_SUCCESS;
   }
 
-  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
-
-  DBUG_ASSERT(val != nullptr);
-
-  // Do the real work of applying the changes.
   Rdb_cf_options::Name_to_config_t option_map;
 
   // Basic sanity checking and parsing the options into a map. If this fails
   // then there's no point to proceed.
-  if (!Rdb_cf_options::parse_cf_options(val, &option_map)) {
-    *reinterpret_cast<char**>(var_ptr) = nullptr;
+  if (!Rdb_cf_options::parse_cf_options(str, &option_map)) {
+    my_error(ER_WRONG_VALUE_FOR_VAR, MYF(0), "rocksdb_update_cf_options", str);
+    return HA_EXIT_FAILURE;
+  }
+  return HA_EXIT_SUCCESS;
+}
 
-    // NO_LINT_DEBUG
-    sql_print_warning("MyRocks: failed to parse the updated column family "
-                      "options = '%s'.", val);
+static void
+rocksdb_set_update_cf_options(THD *const /* unused */,
+                              struct st_mysql_sys_var *const /* unused */,
+                              void *const var_ptr, const void *const save) {
+  const char *const val = *static_cast<const char *const *>(save);
+
+  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
+
+  if (!val) {
+    *reinterpret_cast<char **>(var_ptr) = nullptr;
+    RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
+    return;
+  }
+
+  DBUG_ASSERT(val != nullptr);
+
+  // Reset the pointers regardless of how much success we had with updating
+  // the CF options. This will results in consistent behavior and avoids
+  // dealing with cases when only a subset of CF-s was successfully updated.
+  *reinterpret_cast<char **>(var_ptr) = my_strdup(val, MYF(0));
+
+  // Do the real work of applying the changes.
+  Rdb_cf_options::Name_to_config_t option_map;
+
+  // This should never fail, because of rocksdb_validate_update_cf_options
+  if (!Rdb_cf_options::parse_cf_options(val, &option_map)) {
     RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
     return;
   }
@@ -12751,15 +12781,6 @@ void rocksdb_set_update_cf_options(THD *const /* unused */,
         }
       }
     }
-  }
-
-  // Reset the pointers regardless of how much success we had with updating
-  // the CF options. This will results in consistent behavior and avoids
-  // dealing with cases when only a subset of CF-s was successfully updated.
-  if (val) {
-    *reinterpret_cast<char**>(var_ptr) = my_strdup(val,  MYF(0));
-  } else {
-    *reinterpret_cast<char**>(var_ptr) = nullptr;
   }
 
   // Our caller (`plugin_var_memalloc_global_update`) will call `my_free` to
