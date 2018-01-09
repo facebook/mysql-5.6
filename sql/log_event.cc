@@ -4570,6 +4570,13 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
         if (thd->m_digest != NULL)
           thd->m_digest->reset(thd->m_token_array, max_digest_length);
 
+        struct System_status_var query_start_status;
+        struct System_status_var *query_start_status_ptr = NULL;
+        if (opt_log_slow_extra) {
+          query_start_status_ptr = &query_start_status;
+          query_start_status = thd->status_var;
+        }
+
         mysql_parse(thd, &parser_state, true);
 
         enum_sql_command command = thd->lex->sql_command;
@@ -4617,7 +4624,7 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
         }
         /* Finalize server status flags after executing a statement. */
         thd->update_slow_query_status();
-        log_slow_statement(thd);
+        log_slow_statement(thd, query_start_status_ptr);
       }
 
       thd->variables.option_bits &= ~OPTION_MASTER_SQL_ERROR;

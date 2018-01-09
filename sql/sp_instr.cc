@@ -883,7 +883,7 @@ bool sp_instr_stmt::execute(THD *thd, uint *nextp) {
       the unmodified statement instead.
     */
     if (!need_subst) rc = subst_spvars(thd, this, &m_query);
-    log_slow_do(thd);
+    log_slow_do(thd, NULL);
   }
 
   /*

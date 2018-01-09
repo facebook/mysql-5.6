@@ -187,7 +187,8 @@ class Log_event_handler {
                         ulonglong query_start_arg, const char *user_host,
                         size_t user_host_len, ulonglong query_utime,
                         ulonglong lock_utime, bool is_command,
-                        const char *sql_text, size_t sql_text_len) = 0;
+                        const char *sql_text, size_t sql_text_len,
+                        struct System_status_var *query_start_status) = 0;
 
   /**
      Log command to the general log.
@@ -233,7 +234,8 @@ class Log_to_csv_event_handler : public Log_event_handler {
                         ulonglong query_start_arg, const char *user_host,
                         size_t user_host_len, ulonglong query_utime,
                         ulonglong lock_utime, bool is_command,
-                        const char *sql_text, size_t sql_text_len);
+                        const char *sql_text, size_t sql_text_len,
+                        struct System_status_var *query_start_status);
 
   /** @see Log_event_handler::log_general(). */
   virtual bool log_general(THD *thd, ulonglong event_utime,
@@ -338,7 +340,8 @@ class Query_logger {
 
      @return true if error, false otherwise.
   */
-  bool slow_log_write(THD *thd, const char *query, size_t query_length);
+  bool slow_log_write(THD *thd, const char *query, size_t query_length,
+                      struct System_status_var *query_start_status);
 
   /**
      Write printf style message to general query log.
@@ -469,7 +472,7 @@ bool log_slow_applicable(THD *thd);
 
   @param thd              thread handle
 */
-void log_slow_do(THD *thd);
+void log_slow_do(THD *thd, struct System_status_var* query_start_status);
 
 /**
   Check whether we need to write the current statement to the slow query
@@ -483,7 +486,7 @@ void log_slow_do(THD *thd);
 
   @param thd              thread handle
 */
-void log_slow_statement(THD *thd);
+void log_slow_statement(THD *thd, struct System_status_var* query_start_status);
 
 /**
   @class Log_throttle
@@ -606,7 +609,7 @@ class Slow_log_throttle : public Log_throttle {
     The routine we call to actually log a line (i.e. our summary).
     The signature miraculously coincides with slow_log_print().
   */
-  bool (*log_summary)(THD *, const char *, size_t);
+  bool (*log_summary)(THD *, const char *, size_t, struct System_status_var *);
 
   /**
     Slow_log_throttle is shared between THDs.
@@ -633,7 +636,8 @@ class Slow_log_throttle : public Log_throttle {
     @param msg           use this template containing %lu as only non-literal
   */
   Slow_log_throttle(ulong *threshold, mysql_mutex_t *lock, ulong window_usecs,
-                    bool (*logger)(THD *, const char *, size_t),
+                    bool (*logger)(THD *, const char *, size_t,
+                                   struct System_status_var *),
                     const char *msg);
 
   /**
