@@ -44,14 +44,13 @@ Best effort is made to support the following OSs:
 
 ##### *Setting up Prerequisites*
 
-On a fresh AWS Ubuntu 14.04.2 LTS instance:
+On a fresh AWS Ubuntu 16.04.3 LTS instance:
 
 ```bash
 sudo apt-get update
 sudo apt-get install g++ cmake libbz2-dev libaio-dev bison \
-zlib1g-dev libsnappy-dev
-sudo apt-get install libgflags-dev libreadline6-dev libncurses5-dev \
-libssl-dev liblz4-dev gdb git
+zlib1g-dev libsnappy-dev libgflags-dev libreadline6-dev libncurses5-dev \
+libssl-dev liblz4-dev libboost-dev gdb git
 ```
 
 On Fedora and Redhat:
