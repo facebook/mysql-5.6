@@ -3385,7 +3385,7 @@ void Log_event::do_post_end_event(Relay_log_info *rli, Log_event_wrapper *ev)
   // populate key->last trx penultimate event map
   // NOTE: we store the end event for a single event trx
   Log_event_wrapper *to_add= rli->prev_event? rli->prev_event : ev;
-  for (auto key : rli->keys_accessed_by_group)
+  for (auto& key : rli->keys_accessed_by_group)
   {
     rli->dag_key_last_penultimate_event[key]= to_add;
     to_add->keys.insert(key);
@@ -11973,11 +11973,6 @@ bool Rows_log_event::parse_keys(Relay_log_info* rli, Log_event_wrapper *ev,
       DBUG_RETURN(false);
     }
 
-    if (get_type_code() == UPDATE_ROWS_EVENT && i % 2 == 1)
-    {
-      continue;
-    }
-
     curr_key.key_length= keyinfo->key_length;
     curr_key.table_id= m_table_name;
 
@@ -12148,7 +12143,7 @@ void Rows_log_event::prepare(Relay_log_info *rli, Log_event_wrapper *ev)
   get_keys(rli, ev, m_keylist);
   DBUG_ASSERT(!m_keylist.empty());
 
-  for (auto k : m_keylist)
+  for (auto& k : m_keylist)
   {
     rli->keys_accessed_by_group.insert(k);
   }
@@ -12170,7 +12165,7 @@ void Rows_log_event::do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev)
   }
 
   /* Handle dependencies. */
-  for (auto k : m_keylist)
+  for (auto& k : m_keylist)
   {
     if (rli->dag_key_last_penultimate_event.find(k) !=
         rli->dag_key_last_penultimate_event.end() &&

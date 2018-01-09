@@ -1155,6 +1155,9 @@ public:
   Log_event_wrapper *current_begin_event= NULL;
   bool dag_sync_group= false;
 
+  // Used to signal when a dependency worker dies
+  std::atomic<bool> dependency_worker_error{false};
+
   inline void dag_rdlock()
   {
     mysql_rwlock_rdlock(&dag_lock);
@@ -1209,6 +1212,8 @@ public:
     mysql_mutex_lock(&dag_group_ready_mutex);
     dag_group_ready= false;
     mysql_mutex_unlock(&dag_group_ready_mutex);
+
+    dependency_worker_error= false;
   }
 #endif // HAVE_REPLICATION and !MYSQL_CLIENT
 };
