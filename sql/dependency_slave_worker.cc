@@ -130,7 +130,7 @@ bool Dependency_slave_worker::execute_group()
       the DAG.
     - If a temporary error occurs during execution of an event, the grp is
       rollbacked and @current_event_index is reset to 0
-    - If a fatal error occurs we break out of the loop immidiately
+    - If a fatal error occurs we break out of the loop immediately
    */
   DBUG_ASSERT(current_event_index == 0);
   DBUG_ASSERT(events.size() >= 1);
@@ -138,7 +138,10 @@ bool Dependency_slave_worker::execute_group()
   {
     auto ev= events[current_event_index];
     if ((err= execute_event(ev)))
+    {
+      c_rli->dependency_worker_error= true;
       break;
+    }
     // case: we are not retrying this event, i.e. this was the first time we
     // executed this event, so we should remove it from the DAG
     if (!trans_retries || current_event_index >= last_current_event_index)
@@ -154,7 +157,7 @@ bool Dependency_slave_worker::execute_group()
   if (err == 1)
   {
     // Signal a rollback if commit ordering is enabled, we have to do
-    // this here because it's an append error, so @slave_worker_ends_group
+    // this here because it's not an exec error, so @slave_worker_ends_group
     // is not called
     if (commit_order_mngr)
       commit_order_mngr->report_rollback(this);
@@ -174,6 +177,12 @@ int Dependency_slave_worker::execute_event(Log_event_wrapper *ev)
 {
   // wait for all dependencies to be satisfied
   ev->wait();
+
+  // case: there was an error in one of the workers, so let's skip execution of
+  // events immediately
+  if (c_rli->dependency_worker_error)
+    return 1;
+
   // case: append to jobs queue only if this is not a trx retry, trx retries
   // resets @current_event_index, see @slave_worker_ends_group
   if (current_event_index == jobs.len)
@@ -221,7 +230,7 @@ void Dependency_slave_worker::remove_event(Log_event_wrapper *ev)
    * 2) The "value" of the key-value pair is _not_ equal to this event. In this
    *    case, leave it be; the event corresponds to a later transaction.
    */
-  for (auto key : ev->keys)
+  for (auto& key : ev->keys)
   {
     auto it= c_rli->dag_key_last_penultimate_event.find(key);
     DBUG_ASSERT(it != c_rli->dag_key_last_penultimate_event.end());
