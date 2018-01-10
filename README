@@ -1,8 +1,7 @@
 MySQL Server 5.6
 
 This is a release of MySQL, a dual-license SQL database server.
-For the avoidance of doubt, this particular copy of the software 
-is released under the version 2 of the GNU General Public License. 
+For the avoidance of doubt, this particular copy of the software is released under the version 2 of the GNU General Public License. 
 MySQL is brought to you by Oracle.
 
 Copyright (c) 2000, 2016, Oracle and/or its affiliates. All rights reserved.
@@ -32,7 +31,7 @@ For the avoidance of doubt, except that if any license choice
 other than GPL or LGPL is available it will apply instead, 
 Oracle elects to use only the General Public License version 2 
 (GPLv2) at this time for any software where a choice of GPL 
-license versions is made available with the language indicating 
+license versions are made available with the language indicating 
 that GPLv2 or any later version may be used, or where a choice 
 of which version of the GPL is applied is otherwise unspecified.
 
