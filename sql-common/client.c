@@ -775,36 +775,6 @@ void read_ok_ex(MYSQL *mysql, ulong length)
 
         while (total_len > 0)
         {
-          /*
-           * A hack for the old gtid format which begins with a printable
-           * ascii charater[a-Z][0-9], we will assume that no session state type change
-           * will exist in this range
-           */
-          if (pos[0] >= 48 && pos[0] <= 126)
-          {
-            if (!my_multi_malloc(MYF(0),
-              &element, sizeof(LIST),
-              &data, sizeof(LEX_STRING),
-              NullS))
-            {
-              set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
-              return;
-            }
-
-            if(!(data->str= (char *)my_malloc(total_len + 1, MYF(MY_WME))))
-            {
-              set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
-              return;
-            }
-
-            memcpy(data->str, (char *) pos, total_len);
-            data->str[total_len] = '\0';
-            data->length= total_len;
-
-            element->data= data;
-            ADD_INFO(info, element, SESSION_TRACK_GTIDS);
-            break;
-          }
           saved_pos= pos;
           type= (enum enum_session_state_type) net_field_length(&pos);
 
