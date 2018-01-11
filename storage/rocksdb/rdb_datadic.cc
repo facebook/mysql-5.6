@@ -1501,6 +1501,18 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
       }
       if ((this->*fpi->m_skip_func)(fpi, field, &reader))
         return HA_ERR_ROCKSDB_CORRUPT_DATA;
+
+      // If this is a space padded varchar, we need to skip the indicator
+      // bytes for trailing bytes. They're useless since we can't restore the
+      // field anyway.
+      //
+      // There is a special case for prefixed varchars where we do not
+      // generate unpack info, because we know prefixed varchars cannot be
+      // unpacked. In this case, it is not necessary to skip.
+      if (fpi->m_skip_func == &Rdb_key_def::skip_variable_space_pad &&
+          !fpi->m_unpack_info_stores_value) {
+        unp_reader.read(fpi->m_unpack_info_uses_two_bytes ? 2 : 1);
+      }
     }
   }
 
