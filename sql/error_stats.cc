@@ -37,7 +37,7 @@ void init_global_error_stats(void)
     for (uint j = 0; j < (uint)errmsg_section_size[i]; j++) {
       if (k >= array_elements(error_names) ||
           error_names[k].code != errmsg_section_start[i] + j) {
-        abort_with_stack_traces();
+        abort();
       }
       k++;
     }

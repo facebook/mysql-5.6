@@ -3501,7 +3501,7 @@ GL_INDEX_ID Rdb_tbl_def::get_autoincr_gl_index_id() {
   }
 
   // Every table must have a primary key, even if it's hidden.
-  abort_with_stack_traces();
+  abort();
   return GL_INDEX_ID();
 }
 
@@ -4780,7 +4780,7 @@ bool Rdb_dict_manager::get_index_info(
         "and it may be a bug.",
         index_info->m_index_dict_version, index_info->m_index_type,
         index_info->m_kv_version, index_info->m_ttl_duration);
-    abort_with_stack_traces();
+    abort();
   }
 
   return found;
@@ -5043,7 +5043,7 @@ void Rdb_dict_manager::resume_drop_indexes() const {
                       "bug.",
                       max_index_id_in_dict, gl_index_id.cf_id,
                       gl_index_id.index_id);
-      abort_with_stack_traces();
+      abort();
     }
   }
 }
@@ -5092,7 +5092,7 @@ void Rdb_dict_manager::log_start_drop_index(GL_INDEX_ID gl_index_id,
                       "from index id (%u,%u). MyRocks data dictionary may "
                       "get corrupted.",
                       gl_index_id.cf_id, gl_index_id.index_id);
-      abort_with_stack_traces();
+      abort();
     }
   }
 }

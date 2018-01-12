@@ -710,7 +710,7 @@ buf_page_is_corrupted(
 					read_buf + FIL_PAGE_LSN),
 				current_lsn);
 #ifdef XTRABACKUP
-			abort_with_stack_traces();
+			abort();
 #endif /* XTRABACKUP */
 		}
 	}

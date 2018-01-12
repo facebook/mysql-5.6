@@ -61,7 +61,7 @@ public:
       rw_lock = lock;
     else {
       my_safe_printf_stderr("Failed to initialize Auto_rw_lock_read");
-      abort_with_stack_traces();
+      abort();
     }
   }
 
@@ -87,7 +87,7 @@ public:
       rw_lock = lock;
     else {
       my_safe_printf_stderr("Failed to initialize Auto_rw_lock_write");
-      abort_with_stack_traces();
+      abort();
     }
   }
 

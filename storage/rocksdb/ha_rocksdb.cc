@@ -4710,7 +4710,7 @@ static ulonglong rdb_get_int_col_max_value(const Field *field) {
     max_value = 0x7FFFFFFFFFFFFFFFULL;
     break;
   default:
-    abort_with_stack_traces();
+    abort();
   }
 
   return max_value;
@@ -10235,7 +10235,7 @@ void Rdb_drop_index_thread::run() {
                           "from cf id %u. MyRocks data dictionary may "
                           "get corrupted.",
                           d.cf_id);
-          abort_with_stack_traces();
+          abort();
         }
         rocksdb::ColumnFamilyHandle *cfh = cf_manager.get_cf(d.cf_id);
         DBUG_ASSERT(cfh);
@@ -12333,7 +12333,7 @@ void rdb_handle_io_error(const rocksdb::Status status,
       rdb_log_status_error(status, "failed to write to WAL");
       /* NO_LINT_DEBUG */
       sql_print_error("MyRocks: aborting on WAL write error.");
-      abort_with_stack_traces();
+      abort();
       break;
     }
     case RDB_IO_ERROR_BG_THREAD: {
@@ -12344,7 +12344,7 @@ void rdb_handle_io_error(const rocksdb::Status status,
       rdb_log_status_error(status, "failed on I/O");
       /* NO_LINT_DEBUG */
       sql_print_error("MyRocks: aborting on I/O error.");
-      abort_with_stack_traces();
+      abort();
       break;
     }
     default:
@@ -12356,14 +12356,14 @@ void rdb_handle_io_error(const rocksdb::Status status,
     rdb_persist_corruption_marker();
     /* NO_LINT_DEBUG */
     sql_print_error("MyRocks: aborting because of data corruption.");
-    abort_with_stack_traces();
+    abort();
   } else if (!status.ok()) {
     switch (err_type) {
     case RDB_IO_ERROR_DICT_COMMIT: {
       rdb_log_status_error(status, "Failed to write to WAL (dictionary)");
       /* NO_LINT_DEBUG */
       sql_print_error("MyRocks: aborting on WAL write error.");
-      abort_with_stack_traces();
+      abort();
       break;
     }
     default:

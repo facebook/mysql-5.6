@@ -26,12 +26,10 @@ Created 1/30/1994 Heikki Tuuri
 #ifndef ut0dbg_h
 #define ut0dbg_h
 
-#include "my_stacktrace.h" // assert_0_with_stack_traces
-
 #ifdef UNIV_INNOCHECKSUM
 #define ut_a		assert
 #define ut_ad		assert
-#define ut_error	assert_0_with_stack_traces()
+#define ut_error	assert(0)
 #else /* !UNIV_INNOCHECKSUM */
 
 #include "univ.i"
@@ -64,7 +62,7 @@ ut_dbg_assertion_failed(
 	UNIV_COLD MY_ATTRIBUTE((nonnull(2)));
 
 /** Abort the execution. */
-# define UT_DBG_PANIC abort_with_stack_traces()
+# define UT_DBG_PANIC abort()
 
 /** Abort execution if EXPR does not evaluate to nonzero.
 @param EXPR	assertion expression that should hold */
