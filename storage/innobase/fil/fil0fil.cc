@@ -6315,7 +6315,7 @@ _fil_io(
 	if (space->size > 0 && space->size <= block_offset) {
 		ulint	actual_size;
 
-		assert_with_stack_traces(block_offset < 512 * 1024 * 1024);
+		assert(block_offset < 512 * 1024 * 1024);
 
 		mutex_exit(&fil_system->mutex);
 		fil_extend_space_to_desired_size(&actual_size, space->id,
