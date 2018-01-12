@@ -1419,7 +1419,7 @@ class Rdb_system_merge_op : public rocksdb::AssociativeMergeOperator {
         value.size() !=
             RDB_SIZEOF_AUTO_INCREMENT_VERSION + ROCKSDB_SIZEOF_AUTOINC_VALUE ||
         GetVersion(value) > Rdb_key_def::AUTO_INCREMENT_VERSION) {
-      abort_with_stack_traces();
+      abort();
     }
 
     uint64_t merged_value = Deserialize(value);
@@ -1428,7 +1428,7 @@ class Rdb_system_merge_op : public rocksdb::AssociativeMergeOperator {
       if (existing_value->size() != RDB_SIZEOF_AUTO_INCREMENT_VERSION +
                                         ROCKSDB_SIZEOF_AUTOINC_VALUE ||
           GetVersion(*existing_value) > Rdb_key_def::AUTO_INCREMENT_VERSION) {
-        abort_with_stack_traces();
+        abort();
       }
 
       merged_value = std::max(merged_value, Deserialize(*existing_value));
