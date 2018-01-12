@@ -82,7 +82,7 @@ namespace myrocks {
   do {                                                                         \
     if (!(expr)) {                                                             \
       my_safe_printf_stderr("\nShip assert failure: \'%s\'\n", #expr);         \
-      abort_with_stack_traces();                                               \
+      abort();                                                                 \
     }                                                                          \
   } while (0)
 #endif // SHIP_ASSERT
@@ -235,7 +235,7 @@ inline void rdb_check_mutex_call_result(const char *function_name,
 
     // This will hopefully result in a meaningful stack trace which we can use
     // to efficiently debug the root cause.
-    abort_with_stack_traces();
+    abort();
   }
 }
 
