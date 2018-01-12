@@ -782,7 +782,7 @@ static int rdb_i_s_global_info_fill_table(
                       "from CF with id = %u. MyRocks data dictionary may "
                       "be corrupted.",
                       cf_handle->GetID());
-      abort_with_stack_traces();
+      abort();
     }
 
     snprintf(cf_id_buf, INT_BUF_LEN, "%u", cf_handle->GetID());
