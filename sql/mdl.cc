@@ -2285,6 +2285,15 @@ MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
 
   find_deadlock();
 
+  /*
+    For high priority ddl, if this lock is upgradable, the
+    final timed_wait happens after connection kill. For other
+    requests, connections will not be killed.
+  */
+  bool set_status_on_timeout =
+    !((thd->variables.high_priority_ddl || thd->lex->high_priority_ddl) &&
+     (ticket->get_type() >= MDL_SHARED_UPGRADABLE));
+
   if (lock->needs_notification(ticket))
   {
     struct timespec abs_shortwait;
@@ -2306,15 +2315,16 @@ MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
       set_timespec(abs_shortwait, 1);
     }
     if (wait_status == MDL_wait::EMPTY)
-      wait_status= m_wait.timed_wait(m_owner, &abs_timeout, TRUE,
+      wait_status= m_wait.timed_wait(m_owner, &abs_timeout,
+                                     set_status_on_timeout,
                                      mdl_request->key.get_wait_state_name());
   }
   else
-    wait_status= m_wait.timed_wait(m_owner, &abs_timeout, TRUE,
+    wait_status= m_wait.timed_wait(m_owner, &abs_timeout,
+                                   set_status_on_timeout,
                                    mdl_request->key.get_wait_state_name());
 
-  if (wait_status == MDL_wait::TIMEOUT &&
-      ticket->get_type() >= MDL_SHARED_UPGRADABLE)
+  if (wait_status == MDL_wait::EMPTY && !set_status_on_timeout)
   {
     /*
      * If an upgradable shared metadata lock request (potentially from DDL) is
@@ -2323,16 +2333,14 @@ MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
      * Note: any lock >= MDL_SHARED_UPGRADABLE may be upgraded to X lock.
      */
     mysql_prlock_wrlock(&lock->m_rwlock);
-    bool retry_shortwait= lock->kill_conflicting_locks(this);
+    (void) lock->kill_conflicting_locks(this);
     mysql_prlock_unlock(&lock->m_rwlock);
-    /* If the requester was able to kill any conflicting lock, let's retry. */
-    if (retry_shortwait)
-    {
-      m_wait.reset_status();
-      set_timespec(abs_timeout, 1); // retry a short wait of 1 second
-      wait_status= m_wait.timed_wait(m_owner, &abs_timeout, TRUE,
-                                     mdl_request->key.get_wait_state_name());
-    }
+
+    DEBUG_SYNC(get_thd(), "mdl_high_priority_kill_conflicting_locks");
+
+    set_timespec(abs_timeout, 1); // retry a short wait of 1 second
+    wait_status= m_wait.timed_wait(m_owner, &abs_timeout, TRUE,
+                                   mdl_request->key.get_wait_state_name());
   }
 
   done_waiting_for();
