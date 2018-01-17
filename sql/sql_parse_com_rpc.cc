@@ -112,8 +112,27 @@ bool handle_com_rpc(THD *conn_thd, char* packet, uint packet_length,
                           rpc_id.c_str()));
       goto done;
     }
+
+    // Check to make sure the current user is coming from the same machine as
+    // the srv_session was originally created from
+    std::string curr_host_or_ip = conn_thd->main_security_ctx.host_or_ip;
+
+    DBUG_EXECUTE_IF("rpc_id_different_ip",
+        {
+          curr_host_or_ip = "other_host";
+        });
+
+    if (srv_session->get_host_or_ip() != curr_host_or_ip)
+    {
+      DBUG_PRINT("info",
+          ("Found session's host/ip (%s) does not match current session (%s)",
+           srv_session->get_host_or_ip().c_str(),
+           conn_thd->main_security_ctx.host_or_ip
+          ));
+      goto done;
+    }
+
     DBUG_PRINT("info", ("Found session in map, rpc_id=%s", rpc_id.c_str()));
-    // TODO check that client ip in session matches conn thd client ip
   }
   else
   {
@@ -139,6 +158,8 @@ bool handle_com_rpc(THD *conn_thd, char* packet, uint packet_length,
       // set to know if to reset if after query execution state changes
       used_default_srv_session = true;
     }
+
+    srv_session->set_host_or_ip(conn_thd->main_security_ctx.host_or_ip);
 
     // update user to the one in rpc attributes
     conn_security_ctx = conn_thd->security_context();

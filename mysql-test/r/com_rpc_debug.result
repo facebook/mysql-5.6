@@ -1,0 +1,18 @@
+
+# Case 1: Create an rpc_id and then attempt to use it from a different
+#          ip address
+
+SET @my_var='new_value';
+SELECT @my_var;
+@my_var
+new_value
+set global debug= "+d,rpc_id_different_ip";
+SELECT @my_var;
+ERROR HY000: Lost connection to MySQL server during query
+set global debug= "-d,rpc_id_different_ip";
+SELECT @my_var;
+@my_var
+new_value
+SELECT @my_var;
+@my_var
+NULL
