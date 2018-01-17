@@ -210,6 +210,9 @@ public:
           (thd_.locked_tables_mode != LTM_NONE); // LOCK table active
   }
 
+  void set_host_or_ip(const char* str) { host_or_ip = str; }
+  const std::string& get_host_or_ip() { return host_or_ip; }
+
 private:
   void switch_state_safe(srv_session_state state);
 
@@ -229,6 +232,9 @@ private:
 
   // Session THD
   THD thd_;
+
+  // Identification (hostname or ip) from the original client connection
+  std::string host_or_ip;
 
   // Store the default vio and stmt_da fields to use when detaching the session
   Vio* default_vio_to_restore_ = NULL;

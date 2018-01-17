@@ -1,0 +1,53 @@
+# COM_RPC tests that require that we are running in debug mode
+
+--source include/have_debug.inc
+
+# Deprecate EOF functionality required by this test not supported
+# in async client.
+--disable_async_client
+
+--echo
+--echo # Case 1: Create an rpc_id and then attempt to use it from a different
+--echo #          ip address
+--echo
+
+# Set a session variable to generate an rpc_id
+connect (con2,localhost,root,,);
+query_attrs_add rpc_role root;
+query_attrs_add rpc_db test;
+SET @my_var='new_value';
+
+let $rpc_id=get_rpc_id();
+# Check that rpc_id is returned in response.
+if ($rpc_id == "") {
+  echo Fail: Did not find rpc_id after SET @my_var.;
+}
+
+# Disconnecting con2 will not destroy the client_session session.
+disconnect con2;
+
+# Use a different connection but set the rpc_id to the last session
+connect (con1,localhost,root,,);
+
+# Should be able to see the value in my_var
+query_attrs_add rpc_id $rpc_id;
+SELECT @my_var;
+
+# Now pretend we are have a different ipaddr and expect an error
+set global debug= "+d,rpc_id_different_ip";
+--error 2013
+SELECT @my_var;
+disconnect con1;
+
+# Go back to our normal ipaddr and make sure we see the value in my_var
+connect (con1,localhost,root,,);
+set global debug= "-d,rpc_id_different_ip";
+query_attrs_add rpc_id $rpc_id;
+SELECT @my_var;
+
+# Turn off the rpc_id again - we should no longer see the value in my_var
+query_attrs_delete rpc_id;
+SELECT @my_var;
+
+disconnect con1;
+
