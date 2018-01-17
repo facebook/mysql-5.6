@@ -1096,7 +1096,9 @@ net_async_status cli_safe_read_with_ok_nonblocking(MYSQL *mysql, bool parse_ok,
   }
 
   net->where_b = net_async->async_multipacket_read_saved_whereb;
-  net->read_pos = net->buff + net->where_b;
+  if (!net->compress) {
+    net->read_pos = net->buff + net->where_b;
+  }
 
   DBUG_PRINT("info", ("total nb read: %lu",
                       net_async->async_multipacket_read_total_len));
