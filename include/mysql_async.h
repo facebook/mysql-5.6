@@ -108,6 +108,8 @@ typedef struct NET_ASYNC {
   enum net_async_read_packet_state async_packet_read_state;
   /* Size of the packet we're currently reading */
   size_t async_packet_length;
+  size_t async_packet_uncompressed_length;
+  size_t multi_packet_offset;
 
   /*
     Headers and vector for our async writes; see net_serv.c for
@@ -117,9 +119,11 @@ typedef struct NET_ASYNC {
   struct io_vec *async_write_vector;
   size_t async_write_vector_size;
   size_t async_write_vector_current;
-  unsigned char
-      inline_async_write_header[NET_HEADER_SIZE + COMP_HEADER_SIZE + 1 + 1];
+  unsigned char inline_async_write_header[NET_HEADER_SIZE + COMP_HEADER_SIZE +
+                                          NET_HEADER_SIZE + 1 + 1];
   struct io_vec inline_async_write_vector[3];
+  unsigned char **compressed_write_buffers;
+  size_t compressed_buffers_size;
 
   /* State for reading responses that are larger than MAX_PACKET_LENGTH */
   unsigned long async_multipacket_read_saved_whereb;

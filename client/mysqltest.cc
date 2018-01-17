@@ -6496,10 +6496,6 @@ static void do_connect(struct st_command *command) {
     opt_protocol = MYSQL_PROTOCOL_PIPE;
   }
 
-  if (opt_compress || con_compress) {
-    enable_async_client = false;
-  }
-
   if (opt_protocol) {
     mysql_options(&con_slot->mysql, MYSQL_OPT_PROTOCOL, (char *)&opt_protocol);
     /*
@@ -9223,9 +9219,6 @@ int main(int argc, char **argv) {
       opt_ssl_mode = SSL_MODE_VERIFY_CA;
   }
 
-  if (opt_compress) {
-    enable_async_client = false;
-  }
   if (SSL_SET_OPTIONS(&con->mysql)) die("%s", SSL_SET_OPTIONS_ERROR);
 #if defined(_WIN32)
   if (shared_memory_base_name)
