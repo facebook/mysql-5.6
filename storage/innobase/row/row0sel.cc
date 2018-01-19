@@ -3022,48 +3022,13 @@ row_sel_build_prev_vers_for_mysql(
 }
 
 /*********************************************************************//**
-Helper class to cache clust_rec and old_ver bug 84958
-									*/
-class
-Row_sel_get_clust_rec_for_mysql
-{
-	const rec_t*	cached_clust_rec;
-	rec_t*		cached_old_vers;
-public:
-	Row_sel_get_clust_rec_for_mysql() :
-		cached_clust_rec(NULL),
-		cached_old_vers(NULL) {}
-	dberr_t operator()(
-    row_prebuilt_t*	prebuilt,/*!< in: prebuilt struct in the handle */
-    dict_index_t*	sec_index,/*!< in: secondary index where rec resides */
-    const rec_t*	rec,	/*!< in: record in a non-clustered index; if
-			  this is a locking read, then rec is not
-			  allowed to be delete-marked, and that would
-			  not make sense either */
-    que_thr_t*	thr,	/*!< in: query thread */
-    const rec_t**	out_rec,/*!< out: clustered record or an old version of
-			    it, NULL if the old version did not exist
-			    in the read view, i.e., it was a fresh
-			    inserted version */
-    ulint**		offsets,/*!< in: offsets returned by
-			rec_get_offsets(rec, sec_index);
-			out: offsets returned by
-			rec_get_offsets(out_rec, clust_index) */
-    mem_heap_t**	offset_heap,/*!< in/out: memory heap from which
-				the offsets are allocated */
-    mtr_t*		mtr);	/*!< in: mtr used to get access to the
-		      non-clustered record; the same mtr is used to
-		      access the clustered index */
-};
-
-/*********************************************************************//**
 Retrieves the clustered index record corresponding to a record in a
 non-clustered index. Does the necessary locking. Used in the MySQL
 interface.
 @return	DB_SUCCESS, DB_SUCCESS_LOCKED_REC, or error code */
-MY_ATTRIBUTE((nonnull, warn_unused_result))
+static MY_ATTRIBUTE((nonnull, warn_unused_result))
 dberr_t
-Row_sel_get_clust_rec_for_mysql::operator()(
+row_sel_get_clust_rec_for_mysql(
 /*============================*/
 	row_prebuilt_t*	prebuilt,/*!< in: prebuilt struct in the handle */
 	dict_index_t*	sec_index,/*!< in: secondary index where rec resides */
@@ -3192,25 +3157,15 @@ Row_sel_get_clust_rec_for_mysql::operator()(
 			    clust_rec, clust_index, *offsets,
 			    trx->read_view)) {
 
-			if (clust_rec != cached_clust_rec) {
-	/* The following call returns 'offsets' associated with
-	   'old_vers' */
-				err = row_sel_build_prev_vers_for_mysql(
-	  trx->read_view, clust_index, prebuilt,
-	  clust_rec, offsets, offset_heap, &old_vers,
-	  mtr);
+			/* The following call returns 'offsets' associated with
+			'old_vers' */
+			err = row_sel_build_prev_vers_for_mysql(
+				trx->read_view, clust_index, prebuilt,
+				clust_rec, offsets, offset_heap, &old_vers,
+				mtr);
 
-				if (err != DB_SUCCESS) {
-					goto err_exit;
-				}
-				cached_clust_rec = clust_rec;
-				cached_old_vers = old_vers;
-			} else {
-				err = DB_SUCCESS;
-				old_vers = cached_old_vers;
-			}
+			if (err != DB_SUCCESS || old_vers == NULL) {
 
-			if (old_vers == NULL) {
 				goto err_exit;
 			}
 
@@ -4070,7 +4025,6 @@ row_search_for_mysql(
 	const rec_t*	rec;
 	const rec_t*	result_rec = NULL;
 	const rec_t*	clust_rec;
-  Row_sel_get_clust_rec_for_mysql row_sel_get_clust_rec_for_mysql;
 	dberr_t		err				= DB_SUCCESS;
 	ibool		unique_search			= FALSE;
 	ibool		mtr_has_extra_clust_latch	= FALSE;
