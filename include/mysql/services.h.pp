@@ -50,6 +50,8 @@ struct COM_STMT_RESET_DATA {
 struct COM_QUERY_DATA {
   const char *query;
   unsigned int length;
+  const char *query_attrs;
+  unsigned int query_attrs_length;
 };
 struct COM_FIELD_LIST_DATA {
   unsigned char *table_name;
