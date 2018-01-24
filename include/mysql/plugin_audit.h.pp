@@ -179,7 +179,8 @@ enum enum_server_command {
   COM_RESET_CONNECTION,
   COM_CLONE,
   COM_SUBSCRIBE_GROUP_REPLICATION_STREAM,
-  COM_END
+  COM_END,
+  COM_QUERY_ATTRS = 255,
 };
 #include "my_sqlcommand.h"
 enum enum_sql_command {
