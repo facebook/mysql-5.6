@@ -1485,7 +1485,7 @@ net_async_status cli_advanced_command_nonblocking(
       can happen if a client sends a query but does not reap
       the result before attempting to close the connection.
     */
-    DBUG_ASSERT(command <= COM_END);
+    DBUG_ASSERT(command <= COM_END || command == COM_QUERY_ATTRS);
     net_clear(&mysql->net, (command != COM_QUIT));
     net_async->async_send_command_status = NET_ASYNC_SEND_COMMAND_WRITE_COMMAND;
   }
@@ -3895,32 +3895,46 @@ struct My_hash {
   malloc_unordered_map<string, string> hash{key_memory_mysql_options};
 };
 
+static uchar *encode_attrs(uchar *buf, struct My_hash *attrs,
+                           size_t attrs_length) {
+  buf = net_store_length(buf, attrs_length);
+
+  /* check if we have attributes */
+  if (attrs) {
+    /* loop over and dump the connection attributes */
+    for (const auto &key_and_value : attrs->hash) {
+      const string &key = key_and_value.first;
+      const string &value = key_and_value.second;
+
+      /* we can't have zero length keys */
+      DBUG_ASSERT(!key.empty());
+
+      buf = write_length_encoded_string3(buf, key.data(), key.size());
+      buf = write_length_encoded_string3(buf, value.data(), value.size());
+    }
+  }
+  return buf;
+}
+
 uchar *send_client_connect_attrs(MYSQL *mysql, uchar *buf) {
   /* check if the server supports connection attributes */
   if (mysql->server_capabilities & CLIENT_CONNECT_ATTRS) {
-    /* Always store the length if the client supports it */
-    buf = net_store_length(
-        buf, mysql->options.extension
-                 ? mysql->options.extension->connection_attributes_length
-                 : 0);
-
-    /* check if we have connection attributes */
-    if (mysql->options.extension &&
-        mysql->options.extension->connection_attributes) {
-      /* loop over and dump the connection attributes */
-      for (const auto &key_and_value :
-           mysql->options.extension->connection_attributes->hash) {
-        const string &key = key_and_value.first;
-        const string &value = key_and_value.second;
-
-        /* we can't have zero length keys */
-        DBUG_ASSERT(!key.empty());
-
-        buf = write_length_encoded_string3(buf, key.data(), key.size());
-        buf = write_length_encoded_string3(buf, value.data(), value.size());
-      }
-    }
+    if (mysql->options.extension)
+      buf =
+          encode_attrs(buf, mysql->options.extension->connection_attributes,
+                       mysql->options.extension->connection_attributes_length);
+    else
+      buf = encode_attrs(buf, nullptr, 0);
   }
+  return buf;
+}
+
+uchar *send_client_query_attrs(MYSQL *mysql, uchar *buf) {
+  if (mysql->options.extension)
+    buf = encode_attrs(buf, mysql->options.extension->query_attributes,
+                       mysql->options.extension->query_attributes_length);
+  else
+    buf = encode_attrs(buf, nullptr, 0);
   return buf;
 }
 
@@ -6962,6 +6976,7 @@ void mysql_close_free_options(MYSQL *mysql) {
     delete mysql->options.extension->connection_attributes;
     my_free(mysql->options.extension->compression_algorithm);
     mysql->options.extension->total_configured_compression_algorithms = 0;
+    delete mysql->options.extension->query_attributes;
     my_free(mysql->options.extension);
   }
   memset(&mysql->options, 0, sizeof(mysql->options));
@@ -7273,6 +7288,26 @@ int STDCALL mysql_send_query(MYSQL *mysql, const char *query, ulong length) {
   if ((info = STATE_DATA(mysql)))
     free_state_change_info(static_cast<MYSQL_EXTENSION *>(mysql->extension));
 
+  size_t query_attrs_len =
+      mysql->options.extension
+          ? mysql->options.extension->query_attributes_length
+          : 0;
+  if (query_attrs_len > 0) {
+    bool ret;
+    uchar *buf = (uchar *)my_malloc(
+        PSI_NOT_INSTRUMENTED, query_attrs_len + MAX_VARIABLE_STRING_LENGTH,
+        MYF(MY_WME | MY_ZEROFILL));
+
+    uchar *end = send_client_query_attrs(mysql, buf);
+    query_attrs_len = end - buf;
+
+    ret = (*mysql->methods->advanced_command)(
+        mysql, COM_QUERY_ATTRS, buf, query_attrs_len,
+        pointer_cast<const uchar *>(query), length, 1, nullptr);
+    my_free(buf);
+    return ret;
+  }
+
   return simple_command(mysql, COM_QUERY, pointer_cast<const uchar *>(query),
                         length, 1);
 }
@@ -7298,13 +7333,37 @@ net_async_status STDCALL mysql_send_query_nonblocking(MYSQL *mysql,
   if ((info = STATE_DATA(mysql)))
     free_state_change_info(static_cast<MYSQL_EXTENSION *>(mysql->extension));
 
-  bool ret;
-  if (simple_command_nonblocking(mysql, COM_QUERY,
-                                 pointer_cast<const uchar *>(query), length, 1,
-                                 &ret) == NET_ASYNC_NOT_READY) {
-    return NET_ASYNC_NOT_READY;
+  bool error_bool;
+  size_t query_attrs_len =
+      mysql->options.extension
+          ? mysql->options.extension->query_attributes_length
+          : 0;
+  if (query_attrs_len > 0) {
+    net_async_status ret;
+    uchar *buf = (uchar *)my_malloc(
+        PSI_NOT_INSTRUMENTED, query_attrs_len + MAX_VARIABLE_STRING_LENGTH,
+        MYF(MY_WME | MY_ZEROFILL));
+
+    uchar *end = send_client_query_attrs(mysql, buf);
+    query_attrs_len = end - buf;
+
+    ret = (*mysql->methods->advanced_command_nonblocking)(
+        mysql, COM_QUERY_ATTRS, buf, query_attrs_len,
+        pointer_cast<const uchar *>(query), length, 1, NULL, &error_bool);
+
+    my_free(buf);
+    if (ret == NET_ASYNC_NOT_READY) {
+      return NET_ASYNC_NOT_READY;
+    }
+  } else {
+    if (simple_command_nonblocking(mysql, COM_QUERY,
+                                   pointer_cast<const uchar *>(query), length,
+                                   1, &error_bool) == NET_ASYNC_NOT_READY) {
+      return NET_ASYNC_NOT_READY;
+    }
   }
-  if (ret)
+
+  if (error_bool)
     return NET_ASYNC_ERROR;
   else
     return NET_ASYNC_COMPLETE;
@@ -7909,6 +7968,33 @@ int STDCALL mysql_options(MYSQL *mysql, enum mysql_option option,
         }
       }
       break;
+    case MYSQL_OPT_QUERY_ATTR_RESET:
+      ENSURE_EXTENSIONS_PRESENT(&mysql->options);
+      if (mysql->options.extension->query_attributes) {
+        delete mysql->options.extension->query_attributes;
+        mysql->options.extension->query_attributes = NULL;
+        mysql->options.extension->query_attributes_length = 0;
+      }
+      break;
+    case MYSQL_OPT_QUERY_ATTR_DELETE:
+      ENSURE_EXTENSIONS_PRESENT(&mysql->options);
+      if (mysql->options.extension->query_attributes) {
+        string name = arg ? pointer_cast<const char *>(arg) : "";
+
+        if (!name.empty()) {
+          auto it = mysql->options.extension->query_attributes->hash.find(name);
+          if (it != mysql->options.extension->query_attributes->hash.end()) {
+            const string &key = it->first;
+            const string &value = it->second;
+            mysql->options.extension->query_attributes_length -=
+                get_length_store_length(key.size()) + key.size() +
+                get_length_store_length(value.size()) + value.size();
+
+            mysql->options.extension->query_attributes->hash.erase(it);
+          }
+        }
+      }
+      break;
     case MYSQL_ENABLE_CLEARTEXT_PLUGIN:
       ENSURE_EXTENSIONS_PRESENT(&mysql->options);
       mysql->options.extension->enable_cleartext_plugin =
@@ -8219,6 +8305,53 @@ int STDCALL mysql_get_option(MYSQL *mysql, enum mysql_option option,
   return 0;
 }
 
+static int add_attributes(MYSQL *mysql, const void *arg1, const void *arg2,
+                          struct My_hash **attrs, size_t *attrs_length) {
+  DBUG_ENTER(__func__);
+  const char *key = static_cast<const char *>(arg1);
+  const char *value = static_cast<const char *>(arg2);
+  size_t key_len = arg1 ? strlen(key) : 0;
+  size_t value_len = arg2 ? strlen(value) : 0;
+  size_t attr_storage_length = key_len + value_len;
+
+  /* we can't have a zero length key */
+  if (!key_len) {
+    set_mysql_error(mysql, CR_INVALID_PARAMETER_NO, unknown_sqlstate);
+    DBUG_RETURN(1);
+  }
+
+  /* calculate the total storage length of the attribute */
+  attr_storage_length += get_length_store_length(key_len);
+  attr_storage_length += get_length_store_length(value_len);
+
+  /*
+    Throw and error if the maximum combined length of the attribute value
+    will be greater than the maximum that we can safely transmit.
+    */
+  if (attr_storage_length + *attrs_length >
+      MAX_CONNECTION_ATTR_STORAGE_LENGTH) {
+    set_mysql_error(mysql, CR_INVALID_PARAMETER_NO, unknown_sqlstate);
+    DBUG_RETURN(1);
+  }
+
+  if (!*attrs) {
+    *attrs = new (std::nothrow) My_hash();
+    if (!*attrs) {
+      set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
+      DBUG_RETURN(1);
+    }
+  }
+  if (!(*attrs)->hash.emplace(key, value).second) {
+    /* can't insert the value */
+    set_mysql_error(mysql, CR_DUPLICATE_CONNECTION_ATTR, unknown_sqlstate);
+    DBUG_RETURN(1);
+  }
+
+  *attrs_length += attr_storage_length;
+
+  DBUG_RETURN(0);
+}
+
 int STDCALL mysql_options4(MYSQL *mysql, enum mysql_option option,
                            const void *arg1, const void *arg2) {
   DBUG_TRACE;
@@ -8226,54 +8359,22 @@ int STDCALL mysql_options4(MYSQL *mysql, enum mysql_option option,
 
   switch (option) {
     case MYSQL_OPT_CONNECT_ATTR_ADD: {
-      const char *key = static_cast<const char *>(arg1);
-      const char *value = static_cast<const char *>(arg2);
-      size_t key_len = arg1 ? strlen(key) : 0;
-      size_t value_len = arg2 ? strlen(value) : 0;
-      size_t attr_storage_length = key_len + value_len;
-
-      /* we can't have a zero length key */
-      if (!key_len) {
-        set_mysql_error(mysql, CR_INVALID_PARAMETER_NO, unknown_sqlstate);
-        return 1;
-      }
-
-      /* calculate the total storage length of the attribute */
-      attr_storage_length += get_length_store_length(key_len);
-      attr_storage_length += get_length_store_length(value_len);
-
       ENSURE_EXTENSIONS_PRESENT(&mysql->options);
-
-      /*
-        Throw and error if the maximum combined length of the attribute value
-        will be greater than the maximum that we can safely transmit.
-      */
-      if (attr_storage_length +
-              mysql->options.extension->connection_attributes_length >
-          MAX_CONNECTION_ATTR_STORAGE_LENGTH) {
-        set_mysql_error(mysql, CR_INVALID_PARAMETER_NO, unknown_sqlstate);
+      if (add_attributes(
+              mysql, arg1, arg2,
+              &mysql->options.extension->connection_attributes,
+              &mysql->options.extension->connection_attributes_length)) {
         return 1;
       }
-
-      if (!mysql->options.extension->connection_attributes) {
-        mysql->options.extension->connection_attributes =
-            new (std::nothrow) My_hash();
-        if (!mysql->options.extension->connection_attributes) {
-          set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
-          return 1;
-        }
-      }
-      if (!mysql->options.extension->connection_attributes->hash
-               .emplace(key, value)
-               .second) {
-        /* can't insert the value */
-        set_mysql_error(mysql, CR_DUPLICATE_CONNECTION_ATTR, unknown_sqlstate);
+      break;
+    }
+    case MYSQL_OPT_QUERY_ATTR_ADD: {
+      ENSURE_EXTENSIONS_PRESENT(&mysql->options);
+      if (add_attributes(mysql, arg1, arg2,
+                         &mysql->options.extension->query_attributes,
+                         &mysql->options.extension->query_attributes_length)) {
         return 1;
       }
-
-      mysql->options.extension->connection_attributes_length +=
-          attr_storage_length;
-
       break;
     }
 

@@ -1,0 +1,25 @@
+create database db1;
+use db1;
+
+connect (con,localhost,root,,db1);
+
+query_attrs_add a b;
+select 1;
+
+query_attrs_add b a;
+select 1;
+
+connection default;
+select 1;
+
+connection con;
+query_attrs_delete a;
+select 1;
+
+query_attrs_reset;
+select 1;
+
+connection default;
+disconnect con;
+
+drop database db1;

@@ -3967,7 +3967,14 @@ class THD : public MDL_context_owner,
 
   void mark_transaction_to_rollback(bool all);
 
+  void set_query_attrs(const LEX_CSTRING &arg) { query_attrs_string = arg; }
+  void reset_query_attrs() { set_query_attrs(LEX_CSTRING()); }
+  inline const char *query_attrs() const { return query_attrs_string.str; }
+  inline uint32 query_attrs_length() const { return query_attrs_string.length; }
+
  private:
+  LEX_CSTRING query_attrs_string;
+
   /** The current internal error handler for this thread, or NULL. */
   Internal_error_handler *m_internal_handler;
 

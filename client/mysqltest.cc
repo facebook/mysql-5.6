@@ -520,6 +520,9 @@ enum enum_commands {
   Q_SEND_EVAL,
   Q_OUTPUT, /* redirect output to a file */
   Q_RESET_CONNECTION,
+  Q_QUERY_ATTRS_ADD,
+  Q_QUERY_ATTRS_DELETE,
+  Q_QUERY_ATTRS_RESET,
   Q_UNKNOWN, /* Unknown command.   */
   Q_COMMENT, /* Comments, ignored. */
   Q_COMMENT_WITH_COMMAND,
@@ -555,7 +558,8 @@ const char *command_names[] = {
     "list_files", "list_files_write_file", "list_files_append_file",
     "send_shutdown", "shutdown_server", "result_format", "move_file",
     "remove_files_wildcard", "copy_files_wildcard", "send_eval", "output",
-    "reset_connection",
+    "reset_connection", "query_attrs_add", "query_attrs_delete",
+    "query_attrs_reset",
 
     nullptr};
 
@@ -6852,6 +6856,45 @@ static void do_reset_connection() {
   }
 }
 
+void do_query_attrs_add(struct st_command *command) {
+  int error;
+  static DYNAMIC_STRING key;
+  static DYNAMIC_STRING value;
+  const struct command_arg query_attrs_args[] = {
+      {"key", ARG_STRING, true, &key, "Key for query attributes"},
+      {"value", ARG_STRING, true, &value, "Value for query attributes"}};
+  DBUG_ENTER("do_query_attrs_add");
+
+  check_command_args(command, command->first_argument, query_attrs_args,
+                     sizeof(query_attrs_args) / sizeof(struct command_arg),
+                     ' ');
+
+  error = mysql_options4(&cur_con->mysql, MYSQL_OPT_QUERY_ATTR_ADD, key.str,
+                         value.str);
+  handle_command_error(command, error);
+  dynstr_free(&key);
+  dynstr_free(&value);
+  DBUG_VOID_RETURN;
+}
+
+void do_query_attrs_delete(struct st_command *command) {
+  int error;
+  static DYNAMIC_STRING key;
+  const struct command_arg query_attrs_args[] = {
+      {"key", ARG_STRING, true, &key, "Key for query attributes"},
+  };
+  DBUG_ENTER("do_query_attrs_delete");
+
+  check_command_args(command, command->first_argument, query_attrs_args,
+                     sizeof(query_attrs_args) / sizeof(struct command_arg),
+                     ' ');
+
+  error = mysql_options(&cur_con->mysql, MYSQL_OPT_QUERY_ATTR_DELETE, key.str);
+  handle_command_error(command, error);
+  dynstr_free(&key);
+  DBUG_VOID_RETURN;
+}
+
 bool match_delimiter(int c, const char *delim, size_t length) {
   uint i;
   char tmp[MAX_DELIMITER_LENGTH];
@@ -9759,6 +9802,15 @@ int main(int argc, char **argv) {
           dynstr_free(&ds_to_file);
           break;
         }
+        case Q_QUERY_ATTRS_ADD:
+          do_query_attrs_add(command);
+          break;
+        case Q_QUERY_ATTRS_DELETE:
+          do_query_attrs_delete(command);
+          break;
+        case Q_QUERY_ATTRS_RESET:
+          mysql_options(&cur_con->mysql, MYSQL_OPT_QUERY_ATTR_RESET, 0);
+          break;
 
         default:
           processed = 0;
