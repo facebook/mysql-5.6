@@ -462,7 +462,7 @@ static int begin_packet_write_state(NET *net, uchar command,
     header_len += NET_HEADER_SIZE + COMP_HEADER_SIZE;
   }
   size_t total_len = packet_len + prefix_len;
-  bool include_command = (command < COM_END);
+  bool include_command = (command != COM_END);
   if (include_command) {
     ++total_len;
   }

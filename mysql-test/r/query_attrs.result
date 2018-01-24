@@ -1,0 +1,18 @@
+create database db1;
+use db1;
+select 1;
+1
+1
+select 1;
+1
+1
+select 1;
+1
+1
+select 1;
+1
+1
+select 1;
+1
+1
+drop database db1;

@@ -167,7 +167,8 @@ enum enum_server_command {
   COM_DAEMON,
   COM_BINLOG_DUMP_GTID,
   COM_RESET_CONNECTION,
-  COM_END
+  COM_END,
+  COM_QUERY_ATTRS = 255,
 };
 #include "my_sqlcommand.h"
 enum enum_sql_command {

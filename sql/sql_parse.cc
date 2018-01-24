@@ -1701,6 +1701,8 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
       DBUG_ASSERT(thd->m_digest == NULL);
       thd->m_digest = &thd->m_digest_state;
       thd->m_digest->reset(thd->m_token_array, max_digest_length);
+      thd->set_query_attrs({com_data->com_query.query_attrs,
+                            com_data->com_query.query_attrs_length});
 
       if (alloc_query(thd, com_data->com_query.query,
                       com_data->com_query.length))
@@ -2111,6 +2113,7 @@ done:
   THD_STAGE_INFO(thd, stage_cleaning_up);
 
   thd->reset_query();
+  thd->reset_query_attrs();
   thd->set_command(COM_SLEEP);
   thd->proc_info = 0;
   thd->lex->sql_command = SQLCOM_END;
