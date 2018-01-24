@@ -172,6 +172,8 @@ struct st_mysql_options_extention {
   struct My_hash *connection_attributes;
   char *server_public_key_path;
   size_t connection_attributes_length;
+  struct My_hash *query_attributes;
+  size_t query_attributes_length;
   bool enable_cleartext_plugin;
   bool get_server_public_key; /* Former ssl_enforce */
   char *tls_version;          /* TLS version option */

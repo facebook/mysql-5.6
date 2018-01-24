@@ -97,7 +97,12 @@ enum enum_server_command {
   /* don't forget to update const char *command_name[] in sql_parse.cc */
 
   /* Must be last */
-  COM_END /**< Not a real command. Refused. */
+  COM_END, /**< Not a real command. Refused. */
+  /*
+    The following are Facebook specific commands. They are put at the top end
+    to avoid conflicting with upstream.
+  */
+  COM_QUERY_ATTRS = 255,
 };
 
 #endif /* _mysql_command_h */

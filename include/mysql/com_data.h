@@ -99,6 +99,8 @@ struct COM_QUERY_DATA {
   unsigned int length;
   PS_PARAM *parameters;
   unsigned long parameter_count;
+  const char *query_attrs;
+  unsigned int query_attrs_length;
 };
 
 struct COM_FIELD_LIST_DATA {
