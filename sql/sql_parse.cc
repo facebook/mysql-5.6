@@ -2590,7 +2590,7 @@ void log_to_datagram(THD *thd, ulonglong end_utime)
 bool write_log_to_socket(int sockfd, THD *thd, ulonglong end_utime)
 {
   // enough space for query plus all extra info (max 7 lines)
-  size_t buf_sz = 7 * 80 + thd->query_length();
+  size_t buf_sz = 8 * 80 + thd->query_length();
   size_t len = 0;
   ssize_t sent = 0;
   char *buf = (char *)my_malloc(buf_sz, MYF(MY_WME));
@@ -2616,6 +2616,10 @@ bool write_log_to_socket(int sockfd, THD *thd, ulonglong end_utime)
                     local.tm_hour,
                     local.tm_min,
                     local.tm_sec);
+  if (len < buf_sz)
+    len += snprintf(buf + len, buf_sz - len,
+                    "# Threadid: %lu \n",
+                    (ulong) thd->thread_id());
 
   if (len < buf_sz)
     len += snprintf(buf + len, buf_sz - len,
