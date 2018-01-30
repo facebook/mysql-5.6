@@ -781,11 +781,31 @@ void read_ok_ex(MYSQL *mysql, ulong length)
           switch (type)
           {
           case SESSION_TRACK_SYSTEM_VARIABLES:
-          case SESSION_TRACK_SCHEMA:
-          case SESSION_TRACK_TRANSACTION_CHARACTERISTICS:
+            /* Move past the total length of the changed entity. */
+            (void) net_field_length(&pos);
+
+            /* Name of the system variable. */
+            len= (size_t) net_field_length(&pos);
+
+            pos += len;
+
+            /* Value of the system variable. */
+            len= (size_t) net_field_length(&pos);
+            pos += len;
+
+            break;
           case SESSION_TRACK_TRANSACTION_STATE:
-            /* not backported */
-           break;
+          case SESSION_TRACK_TRANSACTION_CHARACTERISTICS:
+          case SESSION_TRACK_SCHEMA:
+
+            /* Move past the total length of the changed entity. */
+            (void) net_field_length(&pos);
+
+            len= (size_t) net_field_length(&pos);
+
+            pos += len;
+
+            break;
           case SESSION_TRACK_GTIDS:
             if (!my_multi_malloc(MYF(0),
               &element, sizeof(LIST),
