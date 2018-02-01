@@ -780,12 +780,6 @@ void read_ok_ex(MYSQL *mysql, ulong length)
 
           switch (type)
           {
-          case SESSION_TRACK_SYSTEM_VARIABLES:
-          case SESSION_TRACK_SCHEMA:
-          case SESSION_TRACK_TRANSACTION_CHARACTERISTICS:
-          case SESSION_TRACK_TRANSACTION_STATE:
-            /* not backported */
-           break;
           case SESSION_TRACK_GTIDS:
             if (!my_multi_malloc(MYF(0),
               &element, sizeof(LIST),
@@ -858,6 +852,11 @@ void read_ok_ex(MYSQL *mysql, ulong length)
             }
 
             break;
+          case SESSION_TRACK_SYSTEM_VARIABLES:
+          case SESSION_TRACK_SCHEMA:
+          case SESSION_TRACK_TRANSACTION_CHARACTERISTICS:
+          case SESSION_TRACK_TRANSACTION_STATE:
+            /* not backported */
           default:
             DBUG_ASSERT(type <= SESSION_TRACK_END);
             /*
