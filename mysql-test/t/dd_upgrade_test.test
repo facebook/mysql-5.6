@@ -205,6 +205,7 @@ EOF
 
 let $MYSQLD_LOG= $MYSQLTEST_VARDIR/log/save_dd_upgrade_1.log;
 let ENV_MYSQLD_LOG= $MYSQLD_LOG;
+let $explicit_time_out_counter=6000;
 
 # Add '--read-only' option in the scope of fix of Bug#26636238, to avoid creation of another bulky test.
 --echo # Start the DB server. Server will create and populate Dictionary tables.

@@ -43,6 +43,7 @@ let $MYSQLD_DATADIR1 = $MYSQL_TMP_DIR/data57;
 --exec echo $MYSQL_TMP_DIR/bootstrap.log
 
 let MYSQLD_LOG= $MYSQL_TMP_DIR/server.log;
+let $explicit_time_out_counter=3000;
 
 --echo # Start the DB server. Server will create and populate Dictionary tables.
 --exec echo "restart: --loose-skip-log-bin --datadir=$MYSQLD_DATADIR1 --log-error=$MYSQLD_LOG" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
