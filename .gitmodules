@@ -4,3 +4,7 @@
 [submodule "rqg"]
 	path = rqg
 	url = https://github.com/yoshinorim/rqg.git
+[submodule "boost"]
+	path = boost
+	url = https://github.com/boostorg/boost.git
+	ignore = dirty
