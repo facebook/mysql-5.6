@@ -1141,6 +1141,9 @@ The following options may be given as the first argument:
  --rocksdb-commit-in-the-middle 
  Commit rows implicitly every rocksdb_bulk_load_size, on
  bulk load/insert, update and delete
+ --rocksdb-commit-time-batch-for-recovery 
+ TransactionOptions::commit_time_batch_for_recovery for
+ RocksDB
  --rocksdb-compact-cf=name 
  Compact column family
  --rocksdb-compaction-readahead-size=# 
@@ -1479,6 +1482,8 @@ The following options may be given as the first argument:
  WriteOptions::disableWAL for RocksDB
  --rocksdb-write-ignore-missing-column-families 
  WriteOptions::ignore_missing_column_families for RocksDB
+ --rocksdb-write-policy=# 
+ DBOptions::write_policy for RocksDB
  --rpl-event-buffer-size=# 
  The size of the preallocated event buffer for slave
  connections that avoids calls to malloc & free for events
@@ -2122,6 +2127,7 @@ rocksdb-cfstats ON
 rocksdb-checksums-pct 100
 rocksdb-collect-sst-properties TRUE
 rocksdb-commit-in-the-middle FALSE
+rocksdb-commit-time-batch-for-recovery FALSE
 rocksdb-compact-cf 
 rocksdb-compaction-readahead-size 0
 rocksdb-compaction-sequential-deletes 0
@@ -2240,6 +2246,7 @@ rocksdb-whole-key-filtering TRUE
 rocksdb-write-batch-max-bytes 0
 rocksdb-write-disable-wal FALSE
 rocksdb-write-ignore-missing-column-families FALSE
+rocksdb-write-policy 0
 rpl-event-buffer-size 1048576
 rpl-read-size 8192
 rpl-receive-buffer-size 2097152
