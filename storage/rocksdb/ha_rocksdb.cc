@@ -490,6 +490,8 @@ static my_bool rocksdb_enable_bulk_load_api = 1;
 static my_bool rocksdb_print_snapshot_conflict_queries = 0;
 static my_bool rocksdb_large_prefix = 0;
 static my_bool rocksdb_allow_to_start_after_corruption = 0;
+static uint32_t rocksdb_write_policy =
+    rocksdb::TxnDBWritePolicy::WRITE_COMMITTED;
 
 std::atomic<uint64_t> rocksdb_row_lock_deadlocks(0);
 std::atomic<uint64_t> rocksdb_row_lock_wait_timeouts(0);
@@ -650,6 +652,11 @@ static MYSQL_THDVAR_ULONG(deadlock_detect_depth, PLUGIN_VAR_RQCMDARG,
                           /*max*/ ULONG_MAX, 0);
 
 static MYSQL_THDVAR_BOOL(
+    commit_time_batch_for_recovery, PLUGIN_VAR_RQCMDARG,
+    "TransactionOptions::commit_time_batch_for_recovery for RocksDB", nullptr,
+    nullptr, FALSE);
+
+static MYSQL_THDVAR_BOOL(
     trace_sst_api, PLUGIN_VAR_RQCMDARG,
     "Generate trace output in the log for each call to the SstFileWriter",
     nullptr, nullptr, FALSE);
@@ -777,6 +784,13 @@ static MYSQL_SYSVAR_BOOL(
     PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
     "DBOptions::manual_wal_flush for RocksDB", nullptr, nullptr,
     rocksdb_db_options->manual_wal_flush);
+
+static MYSQL_SYSVAR_UINT(write_policy, rocksdb_write_policy,
+                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+                         "DBOptions::write_policy for RocksDB", nullptr,
+                         nullptr, rocksdb::TxnDBWritePolicy::WRITE_COMMITTED,
+                         rocksdb::TxnDBWritePolicy::WRITE_COMMITTED,
+                         rocksdb::TxnDBWritePolicy::WRITE_UNPREPARED, 0);
 
 static MYSQL_SYSVAR_BOOL(
     create_missing_column_families,
@@ -1516,6 +1530,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(lock_wait_timeout),
     MYSQL_SYSVAR(deadlock_detect),
     MYSQL_SYSVAR(deadlock_detect_depth),
+    MYSQL_SYSVAR(commit_time_batch_for_recovery),
     MYSQL_SYSVAR(max_row_locks),
     MYSQL_SYSVAR(write_batch_max_bytes),
     MYSQL_SYSVAR(lock_scanned_rows),
@@ -1537,6 +1552,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(create_if_missing),
     MYSQL_SYSVAR(two_write_queues),
     MYSQL_SYSVAR(manual_wal_flush),
+    MYSQL_SYSVAR(write_policy),
     MYSQL_SYSVAR(create_missing_column_families),
     MYSQL_SYSVAR(error_if_exists),
     MYSQL_SYSVAR(paranoid_checks),
@@ -2591,6 +2607,10 @@ public:
     tx_opts.lock_timeout = rdb_convert_sec_to_ms(m_timeout_sec);
     tx_opts.deadlock_detect = THDVAR(m_thd, deadlock_detect);
     tx_opts.deadlock_detect_depth = THDVAR(m_thd, deadlock_detect_depth);
+    // If this variable is set, this will write commit time write batch
+    // information on recovery or memtable flush.
+    tx_opts.use_only_the_last_commit_time_batch_for_recovery =
+        THDVAR(m_thd, commit_time_batch_for_recovery);
     tx_opts.max_write_batch_size = THDVAR(m_thd, write_batch_max_bytes);
 
     write_opts.sync = (rocksdb_flush_log_at_trx_commit == FLUSH_LOG_SYNC);
@@ -4310,6 +4330,8 @@ static int rocksdb_init_func(void *const p) {
   rocksdb::TransactionDBOptions tx_db_options;
   tx_db_options.transaction_lock_timeout = 2; // 2 seconds
   tx_db_options.custom_mutex_factory = std::make_shared<Rdb_mutex_factory>();
+  tx_db_options.write_policy =
+      static_cast<rocksdb::TxnDBWritePolicy>(rocksdb_write_policy);
 
   status =
       check_rocksdb_options_compatibility(rocksdb_datadir, main_opts, cf_descr);
