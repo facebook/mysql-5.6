@@ -2693,7 +2693,7 @@ public:
 
 /* This is a rocksdb write batch. This class doesn't hold or wait on any
    transaction locks (skips rocksdb transaction API) thus giving better
-   performance. The commit is done through rdb->GetBaseDB()->Commit().
+   performance.
 
    Currently this is only used for replication threads which are guaranteed
    to be non-conflicting. Any further usage of this class should completely
@@ -2715,6 +2715,8 @@ private:
   bool commit_no_binlog() override {
     bool res = false;
     rocksdb::Status s;
+    rocksdb::TransactionDBWriteOptimizations optimize;
+    optimize.skip_concurrency_control = true;
 
     s = merge_auto_incr_map(m_batch->GetWriteBatch());
     if (!s.ok()) {
@@ -2725,7 +2727,7 @@ private:
 
     release_snapshot();
 
-    s = rdb->GetBaseDB()->Write(write_opts, m_batch->GetWriteBatch());
+    s = rdb->Write(write_opts, optimize, m_batch->GetWriteBatch());
     if (!s.ok()) {
       rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
       res = true;
@@ -4355,7 +4357,7 @@ static int rocksdb_init_func(void *const p) {
   }
   cf_manager.init(std::move(cf_options_map), &cf_handles);
 
-  if (dict_manager.init(rdb->GetBaseDB(), &cf_manager)) {
+  if (dict_manager.init(rdb, &cf_manager)) {
     // NO_LINT_DEBUG
     sql_print_error("RocksDB: Failed to initialize data dictionary.");
     rdb_open_tables.free_hash();
