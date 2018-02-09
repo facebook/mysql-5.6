@@ -287,11 +287,13 @@ set global rocksdb_bulk_load=1;
 show global variables like 'rocksdb_bulk_load%';
 Variable_name	Value
 rocksdb_bulk_load	ON
+rocksdb_bulk_load_allow_sk	OFF
 rocksdb_bulk_load_allow_unsorted	OFF
 rocksdb_bulk_load_size	1000
 show session variables like 'rocksdb_bulk_load%';
 Variable_name	Value
 rocksdb_bulk_load	ON
+rocksdb_bulk_load_allow_sk	OFF
 rocksdb_bulk_load_allow_unsorted	OFF
 rocksdb_bulk_load_size	1000
 CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE = ROCKSDB;
@@ -335,6 +337,7 @@ SET session rocksdb_merge_buf_size = 340;
 show variables like 'rocksdb_bulk_load%';
 Variable_name	Value
 rocksdb_bulk_load	OFF
+rocksdb_bulk_load_allow_sk	OFF
 rocksdb_bulk_load_allow_unsorted	OFF
 rocksdb_bulk_load_size	1000
 CREATE TABLE t1 (a VARCHAR(80)) ENGINE=RocksDB;

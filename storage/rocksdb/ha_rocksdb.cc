@@ -667,6 +667,13 @@ static MYSQL_THDVAR_BOOL(
     "unique_checks and enables rocksdb_commit_in_the_middle.",
     rocksdb_check_bulk_load, nullptr, FALSE);
 
+static MYSQL_THDVAR_BOOL(bulk_load_allow_sk, PLUGIN_VAR_RQCMDARG,
+                         "Allow bulk loading of sk keys during bulk-load. "
+                         "Can be changed only when bulk load is disabled.",
+                         /* Intentionally reuse unsorted's check function */
+                         rocksdb_check_bulk_load_allow_unsorted, nullptr,
+                         FALSE);
+
 static MYSQL_THDVAR_BOOL(bulk_load_allow_unsorted, PLUGIN_VAR_RQCMDARG,
                          "Allow unsorted input during bulk-load. "
                          "Can be changed only when bulk load is disabled.",
@@ -1535,6 +1542,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(write_batch_max_bytes),
     MYSQL_SYSVAR(lock_scanned_rows),
     MYSQL_SYSVAR(bulk_load),
+    MYSQL_SYSVAR(bulk_load_allow_sk),
     MYSQL_SYSVAR(bulk_load_allow_unsorted),
     MYSQL_SYSVAR(skip_unique_check_tables),
     MYSQL_SYSVAR(trace_sst_api),
@@ -9066,9 +9074,11 @@ int ha_rocksdb::update_pk(const Rdb_key_def &kd,
 }
 
 int ha_rocksdb::update_sk(const TABLE *const table_arg, const Rdb_key_def &kd,
-                          const struct update_row_info &row_info) {
+                          const struct update_row_info &row_info,
+                          const bool bulk_load_sk) {
   int new_packed_size;
   int old_packed_size;
+  int rc = HA_EXIT_SUCCESS;
 
   rocksdb::Slice new_key_slice;
   rocksdb::Slice new_value_slice;
@@ -9146,18 +9156,23 @@ int ha_rocksdb::update_sk(const TABLE *const table_arg, const Rdb_key_def &kd,
       rocksdb::Slice(reinterpret_cast<const char *>(m_sk_tails.ptr()),
                      m_sk_tails.get_current_pos());
 
-  row_info.tx->get_indexed_write_batch()->Put(kd.get_cf(), new_key_slice,
-                                              new_value_slice);
+  if (bulk_load_sk && row_info.old_data == nullptr) {
+    rc = bulk_load_key(row_info.tx, kd, new_key_slice, new_value_slice, true);
+  } else {
+    row_info.tx->get_indexed_write_batch()->Put(kd.get_cf(), new_key_slice,
+                                                new_value_slice);
+  }
 
   row_info.tx->update_bytes_written(bytes_written + new_key_slice.size() +
                                     new_value_slice.size());
 
-  return HA_EXIT_SUCCESS;
+  return rc;
 }
 
 int ha_rocksdb::update_indexes(const struct update_row_info &row_info,
                                const bool &pk_changed) {
   int rc;
+  bool bulk_load_sk;
 
   // The PK must be updated first to pull out the TTL value.
   rc = update_pk(*m_pk_descr, row_info, pk_changed);
@@ -9165,13 +9180,17 @@ int ha_rocksdb::update_indexes(const struct update_row_info &row_info,
     return rc;
   }
 
-  // Update the remaining indexes.
+  // Update the remaining indexes. Allow bulk loading only if
+  // allow_sk is enabled
+  bulk_load_sk = rocksdb_enable_bulk_load_api &&
+                 THDVAR(table->in_use, bulk_load) &&
+                 THDVAR(table->in_use, bulk_load_allow_sk);
   for (uint key_id = 0; key_id < m_tbl_def->m_key_count; key_id++) {
     if (is_pk(key_id, table, m_tbl_def)) {
       continue;
     }
 
-    rc = update_sk(table, *m_key_descr_arr[key_id], row_info);
+    rc = update_sk(table, *m_key_descr_arr[key_id], row_info, bulk_load_sk);
     if (rc != HA_EXIT_SUCCESS) {
       return rc;
     }
