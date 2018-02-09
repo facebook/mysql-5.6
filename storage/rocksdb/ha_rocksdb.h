@@ -1180,7 +1180,7 @@ private:
   int update_pk(const Rdb_key_def &kd, const struct update_row_info &row_info,
                 const bool &pk_changed) MY_ATTRIBUTE((__warn_unused_result__));
   int update_sk(const TABLE *const table_arg, const Rdb_key_def &kd,
-                const struct update_row_info &row_info)
+                const struct update_row_info &row_info, const bool bulk_load_sk)
       MY_ATTRIBUTE((__warn_unused_result__));
   int update_indexes(const struct update_row_info &row_info,
                      const bool &pk_changed)
