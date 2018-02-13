@@ -32,7 +32,7 @@ ERROR HY000: Lost connection to MySQL server during query
 # Case 3: Send queries that change state and create client session
 
 SET @my_var='new_value';
-SET SESSION wait_timeout=10;
+SET SESSION wait_timeout=100;
 SELECT 1;
 1
 1
@@ -234,6 +234,118 @@ scriptrw@localhost
 revoke proxy on '%' from proxyuser;
 SELECT user();
 ERROR HY000: Lost connection to MySQL server during query
+
+# Case 10: Make sure a detached session times out when idle
+
+SET @my_var='new_value';
+SET SESSION wait_timeout=5;
+SELECT 1;
+1
+1
+SELECT sleep(2);
+sleep(2)
+0
+SELECT 1;
+1
+1
+SELECT sleep(6);
+sleep(6)
+0
+SELECT 1;
+ERROR HY000: Lost connection to MySQL server during query
+
+# Case 11: Make sure a detached session that times out cleans up
+
+SELECT GET_LOCK("my_lock", 0);
+GET_LOCK("my_lock", 0)
+1
+SET SESSION wait_timeout=5;
+SELECT GET_LOCK("my_lock", 0);
+GET_LOCK("my_lock", 0)
+0
+SELECT sleep(6);
+sleep(6)
+0
+SELECT GET_LOCK("my_lock", 0);
+GET_LOCK("my_lock", 0)
+1
+
+# Case 12: Test idle timeout for multiple detached sessions
+
+SELECT GET_LOCK("my_lock1", 0);
+GET_LOCK("my_lock1", 0)
+1
+SELECT GET_LOCK("my_lock2", 0);
+GET_LOCK("my_lock2", 0)
+1
+SELECT GET_LOCK("my_lock3", 0);
+GET_LOCK("my_lock3", 0)
+1
+SET SESSION wait_timeout=3;
+SET SESSION wait_timeout=6;
+SET SESSION wait_timeout=9;
+SELECT sleep(1);
+sleep(1)
+0
+SHOW srv_sessions;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Conn_Id
+#	scriptro	localhost	db_rpc	Sleep	#	Detached	NULL	0	0	#	0
+#	scriptro	localhost	db_rpc	Sleep	#	Detached	NULL	0	0	#	0
+#	scriptro	localhost	db_rpc	Sleep	#	Detached	NULL	0	0	#	0
+SELECT sleep(3);
+sleep(3)
+0
+SHOW srv_sessions;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Conn_Id
+#	scriptro	localhost	db_rpc	Sleep	#	Detached	NULL	0	0	#	0
+#	scriptro	localhost	db_rpc	Sleep	#	Detached	NULL	0	0	#	0
+SELECT sleep(3);
+sleep(3)
+0
+SHOW srv_sessions;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Conn_Id
+#	scriptro	localhost	db_rpc	Sleep	#	Detached	NULL	0	0	#	0
+SELECT sleep(3);
+sleep(3)
+0
+SHOW srv_sessions;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Conn_Id
+SELECT GET_LOCK("my_lock1", 0);
+GET_LOCK("my_lock1", 0)
+1
+SELECT RELEASE_LOCK("my_lock1");
+RELEASE_LOCK("my_lock1")
+1
+SELECT GET_LOCK("my_lock2", 0);
+GET_LOCK("my_lock2", 0)
+1
+SELECT RELEASE_LOCK("my_lock2");
+RELEASE_LOCK("my_lock2")
+1
+SELECT GET_LOCK("my_lock3", 0);
+GET_LOCK("my_lock3", 0)
+1
+SELECT RELEASE_LOCK("my_lock3");
+RELEASE_LOCK("my_lock3")
+1
+
+# Case 13: Make sure large responses are returned correctly
+
+SET SESSION wait_timeout=5;
+SELECT USER();
+USER()
+root@localhost
+SELECT USER(), REPEAT('X', 4000000), REPEAT('X', 4000000),
+REPEAT('X', 4000000), REPEAT('X', 4000000), REPEAT('X', 4000000),
+REPEAT('X', 4000000), REPEAT('X', 4000000), REPEAT('X', 4000000),
+REPEAT('X', 4000000), REPEAT('X', 4000000), REPEAT('X', 4000000),
+REPEAT('X', 4000000), REPEAT('X', 4000000), REPEAT('X', 4000000),
+REPEAT('X', 4000000), REPEAT('X', 4000000), REPEAT('X', 4000000),
+REPEAT('X', 4000000), REPEAT('X', 4000000), REPEAT('X', 4000000),
+REPEAT('X', 4000000), REPEAT('X', 4000000), REPEAT('X', 4000000),
+REPEAT('X', 4000000), REPEAT('X', 4000000);
+USER()	REPEAT('X', 4000000)	REPEAT('X', 4000000)	REPEAT('X', 4000000)	REPEAT('X', 4000000)	REPEAT('X', 4000000)	REPEAT('X', 4000000)	REPEAT('X', 4000000)	REPEAT('X', 4000000)	REPEAT('X', 4000000)	REPEAT('X', 4000000)	REPEAT('X', 4000000)	REPEAT('X', 4000000)	REPEAT('X', 4000000)	REPEAT('X', 4000000)	REPEAT('X', 4000000)	REPEAT('X', 4000000)	REPEAT('X', 4000000)	REPEAT('X', 4000000)	REPEAT('X', 4000000)	REPEAT('X', 4000000)	REPEAT('X', 4000000)	REPEAT('X', 4000000)	REPEAT('X', 4000000)	REPEAT('X', 4000000)	REPEAT('X', 4000000)
+scriptro@localhost	<4Mb of 'X's>	<4Mb of 'X's>	<4Mb of 'X's>	<4Mb of 'X's>	<4Mb of 'X's>	<4Mb of 'X's>	<4Mb of 'X's>	<4Mb of 'X's>	<4Mb of 'X's>	<4Mb of 'X's>	<4Mb of 'X's>	<4Mb of 'X's>	<4Mb of 'X's>	<4Mb of 'X's>	<4Mb of 'X's>	<4Mb of 'X's>	<4Mb of 'X's>	<4Mb of 'X's>	<4Mb of 'X's>	<4Mb of 'X's>	<4Mb of 'X's>	<4Mb of 'X's>	<4Mb of 'X's>	<4Mb of 'X's>	<4Mb of 'X's>
 drop database db_default;
 drop database db_rpc;
 drop user scriptro;

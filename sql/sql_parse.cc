@@ -8735,7 +8735,7 @@ uint kill_one_thread(THD *thd, my_thread_id id, bool only_kill_query)
   // maybe it's a srv_session id
   std::shared_ptr<Srv_session> srv_session;
 #ifndef EMBEDDED_LIBRARY
-  srv_session = Srv_session::find_session(id);
+  srv_session = Srv_session::access_session(id);
 
   if (srv_session)
   {
