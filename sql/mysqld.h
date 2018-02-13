@@ -32,6 +32,7 @@
 #include "sql_list.h"                      /* I_List */
 #include "sql_cmd.h"                       /* SQLCOM_END */
 #include "my_rdtsc.h"                      /* my_timer* */
+#include "hh_wheel_timer.h"                /* hhWheelTimer */
 #include <set>
 #include "sql_priv.h"                      /* enum_var_type */
 // for unix sockets
@@ -55,6 +56,8 @@ typedef std::set<int> engine_set;
 /* Store all engines that support handler::flush_logs into global_trx_engine.*/
 extern engine_set global_trx_engine;
 extern my_bool plugins_are_initialized;
+
+extern std::unique_ptr<HHWheelTimer> hhWheelTimer;
 
 typedef struct lsn_map
 {

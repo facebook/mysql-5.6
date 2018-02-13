@@ -164,15 +164,16 @@ public:
     Searches for an element with in the map
 
     @param key Key of the element
+    @param fcn Function to call while still holding the lock
 
     @return
       value of the element
       NULL  if not found
   */
-  map_value_t find(const map_key_t& key)
+  map_value_t find(const map_key_t& key, std::function<void(Srv_session&)> fcn)
   {
     if (!initted.load()) // if map already destroyed
-      return NULL;
+      return nullptr;
 
     Auto_rw_lock_read lock(&LOCK_collection);
 
@@ -180,7 +181,11 @@ public:
     if (it == collection.end()) {
       return nullptr;
     }
-    return it->second;
+
+    map_value_t& session = it->second;
+    fcn(*session);
+
+    return session;
   }
 
   /**
@@ -241,6 +246,31 @@ public:
   }
 
   /**
+    Removes an element from the map if the predicate function returns true
+
+    @param key:  key
+    @param pred: predicate function
+
+  */
+  void remove_if(const map_key_t& key, std::function<bool(map_value_t&)> pred) {
+    if (!initted.load()) // if map already destroyed
+      return;
+
+    Auto_rw_lock_write lock(&LOCK_collection);
+    /*
+      If we use erase with the key directly an exception could be thrown. The
+      find method never throws. erase() with iterator as parameter also never
+      throws.
+    */
+    auto it= collection.find(key);
+    if (it != collection.end() && pred(it->second))
+    {
+      DBUG_PRINT("info", ("Removed srv session from map %d", key));
+      collection.erase(it);
+    }
+  }
+
+  /**
     Empties the map
   */
   void deinit()
@@ -276,7 +306,7 @@ public:
       }
     }
     std::sort(session_list.begin(), session_list.end(),
-        [](map_value_t s1, map_value_t s2) {
+        [](const map_value_t& s1, const map_value_t& s2) {
         return s1->get_session_id() < s2->get_session_id();
       });
     return session_list;
@@ -285,7 +315,7 @@ public:
 
 static Mutexed_map_thd_srv_session server_session_list;
 
-std::shared_ptr<Srv_session> Srv_session::find_session(
+std::shared_ptr<Srv_session> Srv_session::access_session(
     const std::string& string_key) {
   char *endptr = 0;
   const char* string_key_cstr = string_key.c_str();
@@ -304,16 +334,32 @@ std::shared_ptr<Srv_session> Srv_session::find_session(
     return nullptr;
   }
 
-  return find_session(session_id);
+  return access_session(session_id);
 }
 
-std::shared_ptr<Srv_session> Srv_session::find_session(
+// Find the detached session and disable the wait timeout.
+std::shared_ptr<Srv_session> Srv_session::access_session(
     my_thread_id session_id) {
-  return server_session_list.find(session_id);
+  // Attempt to find the session by session ID in the detached session list.
+  // On success disable the wait timeout while still holding the lock to
+  // avoid race conditions.
+  return server_session_list.find(session_id,
+      [](Srv_session& session) {
+          session.disableWaitTimeout();
+      });
 }
 
 void Srv_session::remove_session(my_thread_id session_id) {
   server_session_list.remove(session_id);
+}
+
+void Srv_session::remove_session_if_ids_match(
+    const Srv_session& session, HHWheelTimer::ID id) {
+  server_session_list.remove_if(
+      session.get_session_id(),
+      [id](std::shared_ptr<Srv_session>& session) {
+          return session->callbackId_ == id;
+      });
 }
 
 bool Srv_session::store_session(std::shared_ptr<Srv_session> session) {
@@ -665,7 +711,9 @@ bool Srv_session::close()
   THD *old_thd= current_thd;
 
   // attach session to thread
-  attach();
+  if (attach()) {
+    DBUG_RETURN(TRUE);
+  }
 
   DBUG_ASSERT(get_state() < SRV_SESSION_CLOSED);
 

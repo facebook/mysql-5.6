@@ -105,7 +105,7 @@ bool handle_com_rpc(THD *conn_thd, char* packet, uint packet_length,
 
   if (rpc_id.size())
   {
-    srv_session = Srv_session::find_session(rpc_id);
+    srv_session = Srv_session::access_session(rpc_id);
     if (!srv_session)
     {
       DBUG_PRINT("info", ("Didn't find srv_session, rpc_id='%s'",
@@ -250,6 +250,12 @@ bool handle_com_rpc(THD *conn_thd, char* packet, uint packet_length,
   conn_thd->store_globals();
 
 done:
+  // If we have a srv_session and it is not expiring at the end of this
+  // function, enable idle timeouts on it.
+  if (srv_session != nullptr && srv_session.use_count() > 1) {
+    srv_session->enableWaitTimeout();
+  }
+
   reset_conn_thd_after_query_execution(conn_thd);
   DBUG_RETURN(ret);
 }

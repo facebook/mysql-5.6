@@ -1056,6 +1056,8 @@ Sid_map *global_sid_map= NULL;
 Gtid_state *gtid_state= NULL;
 extern my_bool opt_core_file;
 
+std::unique_ptr<HHWheelTimer> hhWheelTimer;
+
 /*
   global_thread_list and waiting_thd_list are both pointers to objects
   on the heap, to avoid potential problems with running destructors atexit().
@@ -2337,6 +2339,8 @@ void clean_up(bool print_message)
     (void) pthread_key_delete(THR_MALLOC);
 
 #ifdef HAVE_MY_TIMER
+  hhWheelTimer.reset(nullptr);
+
   if (have_statement_timeout == SHOW_OPTION_YES)
     my_timer_deinitialize();
 
@@ -5645,6 +5649,9 @@ static int init_server_components()
   }
   else
     have_statement_timeout= SHOW_OPTION_YES;
+
+  hhWheelTimer = std::unique_ptr<HHWheelTimer>(
+      new HHWheelTimer(std::chrono::milliseconds(10)));
 #else
   have_statement_timeout= SHOW_OPTION_NO;
 #endif
