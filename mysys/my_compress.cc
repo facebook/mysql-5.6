@@ -51,19 +51,20 @@
      packet	Data to compress. This is is replaced with the compressed data.
      len	Length of data to compress at 'packet'
      complen	out: 0 if packet was not compressed
+     level	Compression level
 
    RETURN
      1   error. 'len' is not changed'
      0   ok.  In this case 'len' contains the size of the compressed packet
 */
 
-bool my_compress(uchar *packet, size_t *len, size_t *complen) {
+bool my_compress(uchar *packet, size_t *len, size_t *complen, uint level) {
   DBUG_ENTER("my_compress");
   if (*len < MIN_COMPRESS_LENGTH) {
     *complen = 0;
     DBUG_PRINT("note", ("Packet too short: Not compressed"));
   } else {
-    uchar *compbuf = my_compress_alloc(packet, len, complen);
+    uchar *compbuf = my_compress_alloc(packet, len, complen, level);
     if (!compbuf) DBUG_RETURN(*complen ? 0 : 1);
     memcpy(packet, compbuf, *len);
     my_free(compbuf);
@@ -71,7 +72,8 @@ bool my_compress(uchar *packet, size_t *len, size_t *complen) {
   DBUG_RETURN(0);
 }
 
-uchar *my_compress_alloc(const uchar *packet, size_t *len, size_t *complen) {
+uchar *my_compress_alloc(const uchar *packet, size_t *len, size_t *complen,
+                         uint level) {
   uchar *compbuf;
   uLongf tmp_complen;
   int res;
@@ -82,7 +84,8 @@ uchar *my_compress_alloc(const uchar *packet, size_t *len, size_t *complen) {
     return 0; /* Not enough memory */
 
   tmp_complen = (uint)*complen;
-  res = compress((Bytef *)compbuf, &tmp_complen, (Bytef *)packet, (uLong)*len);
+  res = compress2((Bytef *)compbuf, &tmp_complen, (Bytef *)packet, (uLong)*len,
+                  level);
   *complen = tmp_complen;
 
   if (res != Z_OK) {
