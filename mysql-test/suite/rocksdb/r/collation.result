@@ -1,3 +1,4 @@
+call mtr.add_suppression("Invalid pattern");
 SET @start_global_value = @@global.ROCKSDB_STRICT_COLLATION_EXCEPTIONS;
 DROP TABLE IF EXISTS t1;
 CREATE TABLE t1 (id INT primary key, value varchar(50), value2 varbinary(50), value3 text) engine=rocksdb charset utf8;
