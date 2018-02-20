@@ -119,6 +119,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -162,6 +163,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -205,6 +207,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -272,6 +275,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -315,6 +319,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -358,6 +363,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -411,6 +417,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -454,6 +461,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -497,6 +505,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -572,6 +581,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -615,6 +625,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -658,6 +669,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -725,6 +737,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -768,6 +781,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -811,6 +825,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -864,6 +879,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -907,6 +923,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -950,6 +967,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -1055,6 +1073,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -1098,6 +1117,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -1141,6 +1161,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -1241,6 +1262,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -1284,6 +1306,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -1327,6 +1350,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -1380,6 +1404,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -1423,6 +1448,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -1466,6 +1492,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -1526,6 +1553,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -1569,6 +1597,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -1612,6 +1641,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -1687,6 +1717,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -1730,6 +1761,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -1773,6 +1805,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	

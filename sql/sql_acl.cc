@@ -6300,13 +6300,13 @@ const char *command_array[]=
   "ALTER", "SHOW DATABASES", "SUPER", "CREATE TEMPORARY TABLES",
   "LOCK TABLES", "EXECUTE", "REPLICATION SLAVE", "REPLICATION CLIENT",
   "CREATE VIEW", "SHOW VIEW", "CREATE ROUTINE", "ALTER ROUTINE",
-  "CREATE USER", "EVENT", "TRIGGER", "CREATE TABLESPACE"
+  "CREATE USER", "EVENT", "TRIGGER", "CREATE TABLESPACE", "ADMIN PORT"
 };
 
 uint command_lengths[]=
 {
   6, 6, 6, 6, 6, 4, 6, 8, 7, 4, 5, 10, 5, 5, 14, 5, 23, 11, 7, 17, 18, 11, 9,
-  14, 13, 11, 5, 7, 17
+  14, 13, 11, 5, 7, 17, 10
 };
 
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
@@ -11418,15 +11418,14 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
               sctx->master_access, mpvio.db.str));
 
   if (thd->is_admin_connection() &&
-      !(thd->main_security_ctx.master_access & SUPER_ACL))
-  {
+      !(thd->main_security_ctx.master_access & SUPER_ACL) &&
+      !(thd->main_security_ctx.master_access & ADMIN_PORT_ACL)) {
     my_error(ER_SPECIFIC_ACCESS_DENIED_ERROR, MYF(0), "SUPER");
     DBUG_RETURN (1);
   }
-
   if (command == COM_CONNECT &&
-      !(thd->main_security_ctx.master_access & SUPER_ACL))
-  {
+      !(thd->main_security_ctx.master_access & SUPER_ACL) &&
+      !(thd->is_admin_connection())) {
     // Check the connection count while holding LOCK_thread_count
     mysql_mutex_assert_not_owner(&LOCK_thread_count);
     mysql_mutex_lock(&LOCK_thread_count);

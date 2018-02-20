@@ -724,6 +724,7 @@ Lock_tables_priv	select,insert,update,references
 Show_view_priv	select,insert,update,references
 Create_routine_priv	select,insert,update,references
 Alter_routine_priv	select,insert,update,references
+Admin_port_priv	select,insert,update,references
 max_questions	select,insert,update,references
 max_connections	select,insert,update,references
 max_user_connections	select,insert,update,references

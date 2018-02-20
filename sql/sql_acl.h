@@ -49,6 +49,7 @@
 #define EVENT_ACL       (1L << 26)
 #define TRIGGER_ACL     (1L << 27)
 #define CREATE_TABLESPACE_ACL (1L << 28)
+#define ADMIN_PORT_ACL (1L << 29)
 /*
   don't forget to update
   1. static struct show_privileges_st sys_privileges[]
@@ -56,6 +57,7 @@
   3. mysql_system_tables.sql and mysql_system_tables_fix.sql
   4. acl_init() or whatever - to define behaviour for old privilege tables
   5. sql_yacc.yy - for GRANT/REVOKE to work
+  6. mysql_user_table_field and mysql_db_table_field as appropriate
 */
 #define NO_ACCESS	(1L << 30)
 #define DB_ACLS \
@@ -85,7 +87,7 @@
  CREATE_TMP_ACL | LOCK_TABLES_ACL | REPL_SLAVE_ACL | REPL_CLIENT_ACL | \
  EXECUTE_ACL | CREATE_VIEW_ACL | SHOW_VIEW_ACL | CREATE_PROC_ACL | \
  ALTER_PROC_ACL | CREATE_USER_ACL | EVENT_ACL | TRIGGER_ACL | \
- CREATE_TABLESPACE_ACL)
+ CREATE_TABLESPACE_ACL | ADMIN_PORT_ACL)
 
 #define DEFAULT_CREATE_PROC_ACLS \
 (ALTER_PROC_ACL | EXECUTE_ACL)
@@ -212,6 +214,7 @@ enum mysql_user_table_field
   MYSQL_USER_FIELD_EVENT_PRIV,
   MYSQL_USER_FIELD_TRIGGER_PRIV,
   MYSQL_USER_FIELD_CREATE_TABLESPACE_PRIV,
+  MYSQL_USER_FIELD_ADMIN_PORT_PRIV,
   MYSQL_USER_FIELD_SSL_TYPE,
   MYSQL_USER_FIELD_SSL_CIPHER,
   MYSQL_USER_FIELD_X509_ISSUER,

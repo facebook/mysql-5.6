@@ -262,6 +262,7 @@ struct show_privileges_st {
 
 static struct show_privileges_st sys_privileges[]=
 {
+  {"Admin port", "Server Admin", "To use the admin port which bypasses connection limits"},
   {"Alter", "Tables",  "To alter the table"},
   {"Alter routine", "Functions,Procedures",  "To alter or drop stored functions/procedures"},
   {"Create", "Databases,Tables,Indexes",  "To create new databases and tables"},

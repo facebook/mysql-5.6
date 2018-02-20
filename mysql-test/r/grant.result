@@ -46,6 +46,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	SPECIFIED
 ssl_cipher	EDH-RSA-DES-CBC3-SHA
 x509_issuer	
@@ -118,6 +119,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -170,6 +172,7 @@ Create_user_priv	N
 Event_priv	N
 Trigger_priv	N
 Create_tablespace_priv	N
+Admin_port_priv	N
 ssl_type	
 ssl_cipher	
 x509_issuer	
@@ -584,6 +587,7 @@ drop database mysqltest_1;
 drop database mysqltest_2;
 SHOW PRIVILEGES;
 Privilege	Context	Comment
+Admin port	Server Admin	To use the admin port which bypasses connection limits
 Alter	Tables	To alter the table
 Alter routine	Functions,Procedures	To alter or drop stored functions/procedures
 Create	Databases,Tables,Indexes	To create new databases and tables
