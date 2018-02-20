@@ -4179,6 +4179,35 @@ static int rocksdb_init_func(void *const p) {
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
+  // Check whether the filesystem backing rocksdb_datadir allows O_DIRECT
+  if (rocksdb_db_options->use_direct_reads) {
+    rocksdb::EnvOptions soptions;
+    rocksdb::Status check_status;
+    rocksdb::Env *const env = rocksdb_db_options->env;
+
+    std::string fname = format_string("%s/DIRECT_CHECK", rocksdb_datadir);
+    if (env->FileExists(fname).ok()) {
+      std::unique_ptr<rocksdb::SequentialFile> file;
+      soptions.use_direct_reads = true;
+      check_status = env->NewSequentialFile(fname, &file, soptions);
+    } else {
+      std::unique_ptr<rocksdb::WritableFile> file;
+      soptions.use_direct_writes = true;
+      check_status = env->ReopenWritableFile(fname, &file, soptions);
+      if (file != nullptr) {
+        file->Close();
+      }
+      env->DeleteFile(fname);
+    }
+
+    if (!check_status.ok()) {
+      sql_print_error("RocksDB: Unable to use direct io in rocksdb-datadir:"
+                              "(%s)", check_status.getState());
+      rdb_open_tables.free_hash();
+      DBUG_RETURN(HA_EXIT_FAILURE);
+    }
+  }
+
   if (rocksdb_db_options->allow_mmap_writes &&
       rocksdb_db_options->use_direct_io_for_flush_and_compaction) {
     // See above comment for allow_mmap_reads. (NO_LINT_DEBUG)
