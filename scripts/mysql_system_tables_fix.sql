@@ -585,6 +585,18 @@ ALTER TABLE user MODIFY Create_tablespace_priv enum('N','Y') COLLATE utf8_genera
 
 UPDATE user SET Create_tablespace_priv = Super_priv WHERE @hadCreateTablespacePriv = 0;
 
+#
+# user.Admin_port_priv
+#
+
+SET @hadAdminPortPriv := 0;
+SELECT @hadAdminPortPriv :=1 FROM user WHERE Admin_port_priv LIKE '%';
+
+ALTER TABLE user ADD Admin_port_priv enum('N','Y') COLLATE utf8_general_ci DEFAULT 'N' NOT NULL AFTER Create_tablespace_priv;
+ALTER TABLE user MODIFY Admin_port_priv enum('N','Y') COLLATE utf8_general_ci DEFAULT 'N' NOT NULL AFTER Create_tablespace_priv;
+
+UPDATE user SET Admin_port_priv = Super_priv WHERE @hadAdminPortPriv = 0;
+
 --
 -- Unlike 'performance_schema', the 'mysql' database is reserved already,
 -- so no user procedure is supposed to be there.

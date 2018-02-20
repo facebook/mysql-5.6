@@ -22,6 +22,10 @@ super2
 ## This will fail since this user doesn't have SUPER ACL
 connect(::1,nosuper,,mysql,ADMIN_PORT,MASTER_SOCKET);
 ERROR 42000: Access denied; you need (at least one of) the SUPER privilege(s) for this operation
+## Grant the admin port privilege to nosuper and check a second time if
+## the user can now successfully connect to the admin port
+grant admin port on *.* to 'nosuper'@'localhost' identified by password '';
+flush privileges;
 ## Start connections admin_con_root1,2,3 at ADMIN_PORT
 ## This will succeed since root has SUPER ACL
 ## Switch to admin_con_root1
@@ -115,6 +119,8 @@ root
 root
 super1
 super2
+## The non-super user should be able to bypass the connection limit as
+## well when using the admin port
 ## Switch to admin_con_root4
 select user from mysql.user order by 1 asc;
 user
@@ -204,6 +210,10 @@ super2
 ## This will fail since this user doesn't have SUPER ACL
 connect(0:0:0:0:0:0:0:1,nosuper,,mysql,ADMIN_PORT,MASTER_SOCKET);
 ERROR 42000: Access denied; you need (at least one of) the SUPER privilege(s) for this operation
+## Grant the admin port privilege to nosuper and check a second time if
+## the user can now successfully connect to the admin port
+grant admin port on *.* to 'nosuper'@'localhost' identified by password '';
+flush privileges;
 ## Start connections admin_con_root1,2,3 at ADMIN_PORT
 ## This will succeed since root has SUPER ACL
 ## Switch to admin_con_root1
@@ -297,6 +307,8 @@ root
 root
 super1
 super2
+## The non-super user should be able to bypass the connection limit as
+## well when using the admin port
 ## Switch to admin_con_root4
 select user from mysql.user order by 1 asc;
 user
@@ -386,6 +398,10 @@ super2
 ## This will fail since this user doesn't have SUPER ACL
 connect(0000:0000:0000:0000:0000:0000:0000:0001,nosuper,,mysql,ADMIN_PORT,MASTER_SOCKET);
 ERROR 42000: Access denied; you need (at least one of) the SUPER privilege(s) for this operation
+## Grant the admin port privilege to nosuper and check a second time if
+## the user can now successfully connect to the admin port
+grant admin port on *.* to 'nosuper'@'localhost' identified by password '';
+flush privileges;
 ## Start connections admin_con_root1,2,3 at ADMIN_PORT
 ## This will succeed since root has SUPER ACL
 ## Switch to admin_con_root1
@@ -479,6 +495,8 @@ root
 root
 super1
 super2
+## The non-super user should be able to bypass the connection limit as
+## well when using the admin port
 ## Switch to admin_con_root4
 select user from mysql.user order by 1 asc;
 user

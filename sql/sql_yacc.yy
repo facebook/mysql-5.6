@@ -1244,7 +1244,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
    MYSQL-FUNC : MySQL extention, function
    INTERNAL   : Not a real token, lex optimization
    OPERATOR   : SQL operator
-   FUTURE-USE : Reserved for futur use
+   FUTURE-USE : Reserved for future use
 
    This makes the code grep-able, and helps maintenance.
 */
@@ -1254,6 +1254,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  ACTION                        /* SQL-2003-N */
 %token  ADD                           /* SQL-2003-R */
 %token  ADDDATE_SYM                   /* MYSQL-FUNC */
+%token  ADMIN_SYM
 %token  AFTER_SYM                     /* SQL-2003-N */
 %token  AGAINST
 %token  AGGREGATE_SYM
@@ -15043,6 +15044,7 @@ keyword:
 keyword_sp:
           ACTION                   {}
         | ADDDATE_SYM              {}
+        | ADMIN_SYM                {}
         | AFTER_SYM                {}
         | AGAINST                  {}
         | AGGREGATE_SYM            {}
@@ -16359,6 +16361,7 @@ object_privilege:
         | EVENT_SYM               { Lex->grant |= EVENT_ACL;}
         | TRIGGER_SYM             { Lex->grant |= TRIGGER_ACL; }
         | CREATE TABLESPACE       { Lex->grant |= CREATE_TABLESPACE_ACL; }
+        | ADMIN_SYM PORT_SYM      { Lex->grant |= ADMIN_PORT_ACL; }
         ;
 
 opt_and:

@@ -29,6 +29,13 @@ select user from mysql.user order by 1 asc;
 --error ER_SPECIFIC_ACCESS_DENIED_ERROR
 connect (fail_admin_con1,$IP,nosuper,,mysql,$admin_port);
 
+--echo ## Grant the admin port privilege to nosuper and check a second time if
+--echo ## the user can now successfully connect to the admin port
+grant admin port on *.* to 'nosuper'@'localhost' identified by password '';
+flush privileges;
+connect (success_admin_con2,$IP,nosuper,,,$admin_port);
+disconnect success_admin_con2;
+
 --echo ## Start connections admin_con_root1,2,3 at ADMIN_PORT
 --echo ## This will succeed since root has SUPER ACL
 let $i=1;
@@ -119,6 +126,11 @@ show processlist;
 --echo ## Switch to non_admin_con_super1_1
 connection non_admin_con_super1_1;
 select user from mysql.user order by 1 asc;
+
+--echo ## The non-super user should be able to bypass the connection limit as
+--echo ## well when using the admin port
+connect (admin_nonsuper_conn, $IP,nosuper,,,$admin_port);
+disconnect admin_nonsuper_conn;
 
 let $i=4;
 while ($i<=8) {
