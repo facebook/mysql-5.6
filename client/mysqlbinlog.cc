@@ -180,6 +180,7 @@ Sid_map *global_sid_map= NULL;
 Checkable_rwlock *global_sid_lock= NULL;
 Gtid_set *gtid_set_included= NULL;
 Gtid_set *gtid_set_excluded= NULL;
+Gtid_set *gtid_set_stop= NULL;
 
 /**
  * Used for --opt-skip-empty-trans
@@ -229,7 +230,8 @@ enum Exit_status {
 static char *opt_include_gtids_str= NULL,
             *opt_exclude_gtids_str= NULL,
             *opt_start_gtid_str = NULL,
-            *opt_find_gtid_str = NULL;
+            *opt_find_gtid_str = NULL,
+            *opt_stop_gtid_str = NULL;
 static char *opt_index_file_str = NULL;
 Gtid_set_map previous_gtid_set_map;
 static my_bool opt_skip_gtids= 0;
@@ -801,6 +803,26 @@ static bool shall_skip_table(const char* db_name, const char *table_name)
           strcmp(table_name, opt_filter_table));
 }
 
+/**
+  Checks whether to stop receiving more events based on the stop-gtids option
+
+  @param[in] ev Pointer to the event to be checked.
+
+  @return true if it's time to stop receiving
+          false, otherwise.
+*/
+static bool shall_stop_gtids(Log_event* ev)
+{
+  if (opt_stop_gtid_str != NULL) {
+    if (ev->get_type_code() == GTID_LOG_EVENT ||
+        ev->get_type_code() == ANONYMOUS_GTID_LOG_EVENT) {
+      Gtid_log_event *gtid= (Gtid_log_event *) ev;
+      return !gtid_set_stop->contains_gtid(gtid->get_sidno(true),
+                                 gtid->get_gno());
+    }
+  }
+  return false;
+}
 
 /**
   Checks whether the given event should be filtered out,
@@ -1071,7 +1093,7 @@ Exit_status process_event(PRINT_EVENT_INFO *print_event_info, Log_event *ev,
         goto end;
     }
     if (((my_time_t) (ev->when.tv_sec) >= stop_datetime)
-        || (pos >= stop_position_mot))
+        || (pos >= stop_position_mot) || shall_stop_gtids(ev))
     {
       /* end the program */
       retval= OK_STOP;
@@ -2169,6 +2191,10 @@ static struct my_option my_long_options[] =
    "Binlog dump from the given gtid. This requires index-file option.",
    &opt_start_gtid_str, &opt_start_gtid_str, 0,
    GET_STR_ALLOC, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+  {"stop-gtid", OPT_STOP_GTID,
+   "Binlog dump stop at the given gtid. This requires index-file option.",
+   &opt_stop_gtid_str, &opt_stop_gtid_str, 0,
+  GET_STR_ALLOC, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
   {"find-gtid-position", OPT_FIND_GTID_POSITION,
    "Prints binlog file name and starting position of Gtid_log_event "
    "corresponding to the given gtid. If the input string is a gtid set, "
@@ -3855,6 +3881,19 @@ static int args_post_process(void)
     global_sid_lock->unlock();
   }
 
+  if (opt_stop_gtid_str != NULL && opt_remote_proto == BINLOG_DUMP_GTID)
+  {
+    global_sid_lock->rdlock();
+    if (gtid_set_stop->add_gtid_text(opt_stop_gtid_str) !=
+        RETURN_STATUS_OK)
+    {
+      error("Could not configure --stop-gtid '%s'", opt_stop_gtid_str);
+      global_sid_lock->unlock();
+      DBUG_RETURN(ERROR_STOP);
+    }
+    global_sid_lock->unlock();
+  }
+
   DBUG_RETURN(OK_CONTINUE);
 }
 
@@ -3868,10 +3907,12 @@ inline void gtid_client_cleanup()
   delete global_sid_map;
   delete gtid_set_excluded;
   delete gtid_set_included;
+  delete gtid_set_stop;
   global_sid_lock= NULL;
   global_sid_map= NULL;
   gtid_set_excluded= NULL;
   gtid_set_included= NULL;
+  gtid_set_stop= NULL;
 }
 
 /**
@@ -3886,7 +3927,8 @@ inline bool gtid_client_init()
     (!(global_sid_lock= new Checkable_rwlock) ||
      !(global_sid_map= new Sid_map(global_sid_lock)) ||
      !(gtid_set_excluded= new Gtid_set(global_sid_map)) ||
-     !(gtid_set_included= new Gtid_set(global_sid_map)));
+     !(gtid_set_included= new Gtid_set(global_sid_map)) ||
+     !(gtid_set_stop= new Gtid_set(global_sid_map)));
   if (res)
   {
     gtid_client_cleanup();
