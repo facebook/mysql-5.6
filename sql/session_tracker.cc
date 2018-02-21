@@ -302,37 +302,6 @@ bool Session_state_change_tracker::is_state_changed(THD* thd)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static void net_store_resp_attr(String& buf,
-                                const std::string& key,
-                                const std::string& value)
-{
-  // Calculate the total length which is the sum of:
-  //   1) number of bytes to store the length of the key
-  //   2) number of bytes in the key
-  //   3) number of bytes to store the length of the value
-  //   4) number of bytes in the value
-  size_t len = net_length_size(key.size()) + key.size();
-  len += net_length_size(value.size()) + value.size();
-
-  // Make sure there is enough space in the buffer
-  size_t header_len = 1 + net_length_size(len) + len;
-  uchar *to= (uchar *) buf.prep_append(header_len, EXTRA_ALLOC);
-
-  // store the session state type
-  *(to++) = SESSION_TRACK_RESP_ATTR;
-
-  // Store the length of the rest of the data
-  to = net_store_length(to, len);
-
-  // Store length and data for the key
-  to = net_store_data(to, (const uchar*) key.data(), key.size());
-
-  // Store length and data for the value
-  to = net_store_data(to, (const uchar*) value.data(), value.size());
-
-  DBUG_PRINT("info", ("   %s = %s", key.data(), value.data()));
-}
-
 /**
   @brief Store the response attributes in the specified buffer. Once the
          data is stored, we reset the flags related to state-change.
@@ -349,12 +318,32 @@ bool Session_resp_attr_tracker::store(THD *thd, String &buf)
 {
   DBUG_ASSERT(attrs_.size() > 0);
 
+  size_t len = net_length_size(attrs_.size());;
+  for (const auto& attr : attrs_) {
+    len += net_length_size(attr.first.size()) + attr.first.size();
+    len += net_length_size(attr.second.size()) + attr.second.size();
+  }
+  size_t header_len = 1 + net_length_size(len) + len;
+
+  uchar *to= (uchar *) buf.prep_append(header_len, EXTRA_ALLOC);
+
   /* format of the payload is as follows:
-     [tracker type] [total bytes] [keylen] [keydata] [vallen] [valdata] */
+     [tracker type] [total bytes] [count of pairs] [keylen] [keydata]
+     [vallen] [valdata] */
+
+  /* Session state type */
+  *to = SESSION_TRACK_RESP_ATTR; to++;
+  to= net_store_length(to, len);
+  to= net_store_length(to, attrs_.size());
 
   DBUG_PRINT("info", ("Sending response attributes:"));
   for (const auto& attr : attrs_) {
-    net_store_resp_attr(buf, attr.first, attr.second);
+    // Store len and data for key
+    to= net_store_data(to, (uchar*) attr.first.data(), attr.first.size());
+    // Store len and data for value
+    to= net_store_data(to, (uchar*) attr.second.data(), attr.second.size());
+
+    DBUG_PRINT("info", ("   %s = %s", attr.first.data(), attr.second.data()));
   }
 
   m_changed= false;

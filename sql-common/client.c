@@ -669,26 +669,32 @@ static LIST* read_resp_attr_entry(uchar **pos)
   return element;
 }
 
-static int read_resp_attr(MYSQL *mysql, STATE_INFO *info, uchar **pos)
+static int read_resp_attrs(MYSQL *mysql, STATE_INFO *info, uchar **pos)
 {
   (void) net_field_length(pos); // Length is included so it can be skipped
+  size_t count = (size_t) net_field_length(pos);
+  LIST *element_key= NULL;
+  LIST *element_value= NULL;
 
   // The response attributes come in key/value pairs
-  LIST *element_key = read_resp_attr_entry(pos);
-  if (element_key == NULL)
+  for (size_t ii = 0; ii < count; ii++)
   {
-    return TRUE;
-  }
+    element_key = read_resp_attr_entry(pos);
+    if (element_key == NULL)
+    {
+      return TRUE;
+    }
 
-  LIST *element_value = read_resp_attr_entry(pos);
-  if (element_value == NULL)
-  {
-    return TRUE;
-  }
+    element_value = read_resp_attr_entry(pos);
+    if (element_value == NULL)
+    {
+      return TRUE;
+    }
 
-  // Add the value to the list first since the list gets reversed later
-  ADD_INFO(info, element_value, SESSION_TRACK_RESP_ATTR);
-  ADD_INFO(info, element_key, SESSION_TRACK_RESP_ATTR);
+    // Add the value to the list first since the list gets reversed later
+    ADD_INFO(info, element_value, SESSION_TRACK_RESP_ATTR);
+    ADD_INFO(info, element_key, SESSION_TRACK_RESP_ATTR);
+  }
 
   return FALSE;
 }
@@ -839,7 +845,7 @@ void read_ok_ex(MYSQL *mysql, ulong length)
 
             break;
           case SESSION_TRACK_RESP_ATTR:
-            if (read_resp_attr(mysql, info, &pos))
+            if (read_resp_attrs(mysql, info, &pos))
             {
               set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
               return;
