@@ -3799,14 +3799,13 @@ const byte *recv_dblwr_t::find_page(space_id_t space_id, page_no_t page_no) {
   const byte *result = 0;
 
   for (auto i = pages.begin(); i != pages.end(); ++i) {
-    if (page_get_space_id(*i) == space_id && page_get_page_no(*i) == page_no) {
-      matches.push_back(*i);
+    if (i->page && i->space_id == space_id && i->page_no == page_no) {
+      matches.push_back(i->page);
     }
   }
 
   for (auto i = deferred.begin(); i != deferred.end(); ++i) {
-    if (page_get_space_id(i->m_page) == space_id &&
-        page_get_page_no(i->m_page) == page_no) {
+    if (i->m_page && i->space_id == space_id && i->page_no == page_no) {
       matches.push_back(i->m_page);
     }
   }
@@ -3818,11 +3817,13 @@ const byte *recv_dblwr_t::find_page(space_id_t space_id, page_no_t page_no) {
     lsn_t page_lsn = 0;
 
     for (matches_t::iterator i = matches.begin(); i != matches.end(); ++i) {
-      page_lsn = mach_read_from_8(*i + FIL_PAGE_LSN);
+      if (*i) {
+        page_lsn = mach_read_from_8(*i + FIL_PAGE_LSN);
 
-      if (page_lsn > max_lsn) {
-        max_lsn = page_lsn;
-        result = *i;
+        if (page_lsn > max_lsn) {
+          max_lsn = page_lsn;
+          result = *i;
+        }
       }
     }
   }

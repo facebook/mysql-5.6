@@ -250,7 +250,6 @@ static char *innobase_server_stopword_table = NULL;
 /* Below we have boolean-valued start-up parameters, and their default
 values */
 
-static bool innobase_use_doublewrite = TRUE;
 static bool innobase_rollback_on_timeout = FALSE;
 static bool innobase_create_status_file = FALSE;
 bool innobase_stats_on_metadata = TRUE;
@@ -4045,8 +4044,6 @@ static int innodb_init_params() {
 
   srv_buf_pool_size = srv_buf_pool_curr_size;
 
-  srv_use_doublewrite_buf = (ibool)innobase_use_doublewrite;
-
   innodb_log_checksums_func_update(srv_log_checksums);
 
 #ifdef HAVE_LINUX_LARGE_PAGES
@@ -4102,7 +4099,7 @@ static int innodb_init_params() {
 
     /* There is no write except to intrinsic table and so turn-off
     doublewrite mechanism completely. */
-    srv_use_doublewrite_buf = FALSE;
+    srv_use_doublewrite_buf = 0;
   }
 
 #ifdef LINUX_NATIVE_AIO
@@ -18066,6 +18063,31 @@ static int innodb_stopword_table_validate(
   return (ret);
 }
 
+/** Update the system variable innodb_doublewrite using the "saved"
+ value. This function is registered as a callback with MySQL. */
+static void innodb_doublewrite_update(
+    THD *thd,         /*!< in: thread handle */
+    SYS_VAR *var,     /*!< in: pointer to system variable */
+    void *var_ptr,    /*!< out: where the formal string goes */
+    const void *save) /*!< in: immediate result
+                      from check function */
+{
+  ulong in_val = *static_cast<const ulong *>(save);
+  if (!in_val || !srv_use_doublewrite_buf) {
+    push_warning_printf(thd, Sql_condition::SL_WARNING, ER_WRONG_ARGUMENTS,
+                        "innodb_doublewrite can not be "
+                        "dynamically changed to or from 0. "
+                        "Do a clean shutdown if you want to "
+                        "change it from or to 0.");
+  } else {
+    ut_a(in_val == 1 || in_val == 2);
+    if (srv_use_doublewrite_buf != in_val) {
+      srv_use_doublewrite_buf = in_val;
+      srv_doublewrite_reset = true;
+    }
+  }
+}
+
 /** Update the system variable innodb_buffer_pool_size using the "saved"
 value. This function is registered as a callback with MySQL.
 @param[in]	thd	thread handle
@@ -19424,12 +19446,12 @@ static MYSQL_SYSVAR_STR(data_home_dir, innobase_data_home_dir,
                         "The common part for InnoDB table spaces.", NULL, NULL,
                         NULL);
 
-static MYSQL_SYSVAR_BOOL(
-    doublewrite, innobase_use_doublewrite,
-    PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,
-    "Enable InnoDB doublewrite buffer (enabled by default)."
-    " Disable with --skip-innodb-doublewrite.",
-    NULL, NULL, TRUE);
+static MYSQL_SYSVAR_ULONG(doublewrite, srv_use_doublewrite_buf,
+                          PLUGIN_VAR_OPCMDARG,
+                          "0=Disable InnoDB doublewrite buffer ."
+                          "1=Enable full doublewrite mode( default). "
+                          "2=Enable reduceddoublewritemode.",
+                          NULL, innodb_doublewrite_update, 1, 0, 2, 0);
 
 static MYSQL_SYSVAR_BOOL(
     stats_include_delete_marked, srv_stats_include_delete_marked,

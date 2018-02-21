@@ -901,8 +901,14 @@ constexpr page_type_t FIL_PAGE_TYPE_ZLOB_FRAG = 28;
 /** Index pages of fragment pages (compressed LOB). */
 constexpr page_type_t FIL_PAGE_TYPE_ZLOB_FRAG_ENTRY = 29;
 
+/* File page types introduced by FB */
+/** First page of the double write buffer holds the space ids and the
+page numbers for the most recently flushed pages. Leave room here for
+page types introduced by upstream. */
+constexpr page_type_t FIL_PAGE_TYPE_DBLWR_HEADER = 30;
+
 /** Used by i_s.cc to index into the text description. */
-constexpr page_type_t FIL_PAGE_TYPE_LAST = FIL_PAGE_TYPE_ZLOB_FRAG_ENTRY;
+constexpr page_type_t FIL_PAGE_TYPE_LAST = FIL_PAGE_TYPE_DBLWR_HEADER;
 
 /** Check whether the page type is index (Btree or Rtree or SDI) type */
 #define fil_page_type_is_index(page_type)                      \

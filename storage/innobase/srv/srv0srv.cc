@@ -523,7 +523,8 @@ bool srv_stats_include_delete_marked = FALSE;
 unsigned long long srv_stats_persistent_sample_pages = 20;
 bool srv_stats_auto_recalc = TRUE;
 
-ibool srv_use_doublewrite_buf = TRUE;
+ulong srv_use_doublewrite_buf = 1;
+bool srv_doublewrite_reset = false;
 
 /** doublewrite buffer is 1MB is size i.e.: it can hold 128 16K pages.
 The following parameter is the size of the buffer that is used for

@@ -43,6 +43,9 @@ this program; if not, write to the Free Software Foundation, Inc.,
 extern buf_dblwr_t *buf_dblwr;
 /** Set to TRUE when the doublewrite buffer is being created */
 extern ibool buf_dblwr_being_created;
+/** The size of the doublewrite header page when the reduced-doublewrite mode
+is used. */
+#define BUF_DBLWR_HEADER_SIZE 4096
 
 /** Creates the doublewrite buffer to a new InnoDB installation. The header of
  the doublewrite buffer is placed on the trx system header page.
@@ -137,6 +140,11 @@ struct buf_dblwr_t {
   buf_page_t **buf_block_arr; /*!< array to store pointers to
                         the buffer blocks which have been
                         cached to write_buf */
+  byte *header;               /*!< write buffer used for writing out the
+                               doublewrite header for reduced doublewrite
+                               mode (innodb_doublewrite=2) */
+  byte *header_unaligned;     /*!< pointer to header,
+                     but unaligned */
 };
 
 #endif

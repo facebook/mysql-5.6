@@ -303,12 +303,21 @@ struct recv_addr_t {
   List rec_list;
 };
 
+struct recv_dblwr_item_t {
+  const byte *page;
+  space_id_t space_id;
+  page_no_t page_no;
+};
+
 struct recv_dblwr_t {
   // Default constructor
   recv_dblwr_t() : deferred(), pages() {}
 
   /** Add a page frame to the doublewrite recovery buffer. */
-  void add(const byte *page) { pages.push_back(page); }
+  void add(const byte *page, space_id_t space_id, page_no_t page_no) {
+    recv_dblwr_item_t item = {page, space_id, page_no};
+    pages.push_back(item);
+  }
 
   /** Find a doublewrite copy of a page.
   @param[in]	space_id	tablespace identifier
@@ -317,16 +326,17 @@ struct recv_dblwr_t {
   @retval NULL if no page was found */
   const byte *find_page(space_id_t space_id, page_no_t page_no);
 
-  using List = std::list<const byte *>;
+  using List = std::list<recv_dblwr_item_t>;
 
   struct Page {
     /** Default constructor */
-    Page() : m_no(), m_ptr(), m_page(){};
+    Page() : m_no(), space_id(), page_no(), m_ptr(), m_page(){};
 
     /** Constructor
-    @param[in]	no	Doublewrite page number
-    @param[in]	page	Page read from no */
-    Page(page_no_t no, const byte *page);
+    @param[in]	no	Order number
+     for the page Doublewrite buffer
+    @param[in]	page	Page read from Doublewrite buffer */
+    Page(uint32_t no, recv_dblwr_item_t &page);
 
     /** Free the memory */
     void close() {
@@ -337,6 +347,12 @@ struct recv_dblwr_t {
 
     /** Page number if the doublewrite buffer */
     page_no_t m_no;
+
+    /** tablespace identifier */
+    space_id_t space_id;
+
+    /** Page number */
+    page_no_t page_no;
 
     /** Unaligned pointer */
     byte *m_ptr;
