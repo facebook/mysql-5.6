@@ -1,4 +1,5 @@
 --loose-mysqlx=ON
 $MYSQLXGLOBALRESET_OPT
+--initialize=--default_authentication_plugin=mysql_native_password
 --default_authentication_plugin=mysql_native_password
 

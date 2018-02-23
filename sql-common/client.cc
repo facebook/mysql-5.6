@@ -5338,7 +5338,11 @@ static mysql_state_machine_status authsm_begin_plugin_auth(
               MYSQL_CLIENT_AUTHENTICATION_PLUGIN)))
       DBUG_RETURN(STATE_MACHINE_FAILED); /* oops, not found */
   } else {
-    ctx->auth_plugin = &caching_sha2_password_client_plugin;
+    /*
+      FB changed default to mysql_native_password to avoid auth
+      renegotiation.
+    */
+    ctx->auth_plugin = &native_password_client_plugin;
     ctx->auth_plugin_name = ctx->auth_plugin->name;
   }
 
@@ -6305,7 +6309,11 @@ static mysql_state_machine_status csm_parse_handshake(
         ctx->scramble_data_len = (int)(pkt_end - ctx->scramble_data);
     } else {
       ctx->scramble_data_len = (int)(pkt_end - ctx->scramble_data);
-      ctx->scramble_plugin = caching_sha2_password_plugin_name;
+      /*
+        FB changed default to mysql_native_password to avoid auth
+        renegotiation.
+      */
+      ctx->scramble_plugin = native_password_plugin_name;
     }
   } else {
     set_mysql_error(mysql, CR_MALFORMED_PACKET, unknown_sqlstate);
