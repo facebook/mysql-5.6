@@ -10958,24 +10958,34 @@ int ha_rocksdb::optimize(THD *const thd, HA_CHECK_OPT *const check_opt) {
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
 
-int ha_rocksdb::calculate_stats(const TABLE *const table_arg, THD *const thd,
-                                HA_CHECK_OPT *const check_opt) {
+int ha_rocksdb::calculate_stats(
+    const TABLE *const table_arg,
+    const std::unordered_set<GL_INDEX_ID> &to_recalc) {
   DBUG_ENTER_FUNC();
 
   // find per column family key ranges which need to be queried
   std::unordered_map<rocksdb::ColumnFamilyHandle *, std::vector<rocksdb::Range>>
       ranges;
-  std::unordered_set<GL_INDEX_ID> ids_to_check;
+  std::unordered_map<GL_INDEX_ID, Rdb_index_stats> stats;
+  std::vector<uint> to_recalc_indexes;
   std::vector<uchar> buf(table_arg->s->keys * 2 *
                          Rdb_key_def::INDEX_NUMBER_SIZE);
-  std::unordered_map<GL_INDEX_ID, Rdb_index_stats> stats;
   for (uint i = 0; i < table_arg->s->keys; i++) {
+    const Rdb_key_def &kd = *m_key_descr_arr[i];
+    const GL_INDEX_ID index_id = kd.get_gl_index_id();
+    if (to_recalc.find(index_id) == to_recalc.end()) {
+      continue;
+    }
+
+    to_recalc_indexes.push_back(i);
+  }
+
+  for (uint i : to_recalc_indexes) {
     const auto bufp = &buf[i * 2 * Rdb_key_def::INDEX_NUMBER_SIZE];
     const Rdb_key_def &kd = *m_key_descr_arr[i];
     const GL_INDEX_ID index_id = kd.get_gl_index_id();
     ranges[kd.get_cf()].push_back(get_range(i, bufp));
 
-    ids_to_check.insert(index_id);
     // Initialize the stats to 0. If there are no files that contain
     // this gl_index_id, then 0 should be stored for the cached stats.
     stats[index_id] = Rdb_index_stats(index_id);
@@ -11013,8 +11023,9 @@ int ha_rocksdb::calculate_stats(const TABLE *const table_arg, THD *const thd,
         other SQL tables, it can be that we're only seeing a small fraction
         of table's entries (and so we can't update statistics based on that).
       */
-      if (ids_to_check.find(it1.m_gl_index_id) == ids_to_check.end())
+      if (to_recalc.find(it1.m_gl_index_id) == to_recalc.end()) {
         continue;
+      }
 
       auto kd = ddl_manager.safe_find(it1.m_gl_index_id);
       DBUG_ASSERT(kd != nullptr);
@@ -11027,8 +11038,9 @@ int ha_rocksdb::calculate_stats(const TABLE *const table_arg, THD *const thd,
   Rdb_tbl_card_coll cardinality_collector(rocksdb_table_stats_sampling_pct);
   auto read_opts = rocksdb::ReadOptions();
   read_opts.read_tier = rocksdb::ReadTier::kMemtableTier;
-  for (uint i = 0; i < table_arg->s->keys; i++) {
+  for (const uint i : to_recalc_indexes) {
     const Rdb_key_def &kd = *m_key_descr_arr[i];
+
     Rdb_index_stats &stat = stats[kd.get_gl_index_id()];
 
     uchar r_buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2];
@@ -11085,8 +11097,18 @@ int ha_rocksdb::calculate_stats(const TABLE *const table_arg, THD *const thd,
 int ha_rocksdb::analyze(THD *const thd, HA_CHECK_OPT *const check_opt) {
   DBUG_ENTER_FUNC();
 
-  if (table && calculate_stats(table, thd, check_opt) != HA_EXIT_SUCCESS) {
-    DBUG_RETURN(HA_ADMIN_FAILED);
+  if (table) {
+    std::unordered_set<GL_INDEX_ID> ids_to_check;
+    for (uint i = 0; i < table->s->keys; i++) {
+      const Rdb_key_def &kd = *m_key_descr_arr[i];
+      const GL_INDEX_ID index_id = kd.get_gl_index_id();
+      ids_to_check.insert(index_id);
+    }
+
+    int res = calculate_stats(table, ids_to_check);
+    if (res != HA_EXIT_SUCCESS) {
+      DBUG_RETURN(HA_ADMIN_FAILED);
+    }
   }
 
   DBUG_RETURN(HA_ADMIN_OK);
@@ -11951,7 +11973,7 @@ bool ha_rocksdb::commit_inplace_alter_table(
       prevents us from updating the stats normally as the ddl_manager cannot
       find the proper gl_index_ids yet during adjust_stats calls.
     */
-    if (calculate_stats(altered_table, nullptr, nullptr)) {
+    if (calculate_stats(altered_table, create_index_ids)) {
       /* Failed to update index statistics, should never happen */
       DBUG_ASSERT(0);
     }
