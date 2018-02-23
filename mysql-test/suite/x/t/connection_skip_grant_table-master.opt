@@ -1,1 +1,2 @@
+--bootstrap --default-authentication-plugin=caching_sha2_password
 --default-authentication-plugin=caching_sha2_password

@@ -3,4 +3,5 @@
 --loose-mysqlx-ssl-ca=$MYSQL_TEST_DIR/std_data/cacert.pem
 --loose-mysqlx-ssl-cipher=DHE-RSA-AES256-SHA:AES256-SHA
 --tls_version=TLSv1,TLSv1.1
+--bootstrap --default-authentication-plugin=caching_sha2_password
 --default-authentication-plugin=caching_sha2_password

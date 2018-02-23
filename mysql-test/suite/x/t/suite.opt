@@ -1,4 +1,5 @@
 --mysqlx
 $MYSQLXGLOBALRESET_OPT
+--bootstrap --default_authentication_plugin=mysql_native_password
 --default_authentication_plugin=mysql_native_password
 

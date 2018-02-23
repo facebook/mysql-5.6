@@ -600,14 +600,20 @@ sub collect_one_suite($$$$) {
 
   # Read suite.opt file
   my $suite_opt_file = "$testdir/suite.opt";
+  my $suite_client_opt_file = "$testdir/suite-client.opt";
 
   if ($::opt_suite_opt) {
     $suite_opt_file = "$testdir/$::opt_suite_opt";
   }
 
   my $suite_opts = [];
+  my $suite_client_opts = [];
+
   if (-f $suite_opt_file) {
     $suite_opts = opts_from_file($suite_opt_file);
+  }
+  if (-f $suite_client_opt_file) {
+    $suite_client_opts = opts_from_file($suite_client_opt_file);
   }
 
   if (@$opt_cases) {
@@ -641,7 +647,8 @@ sub collect_one_suite($$$$) {
            collect_one_test_case($suitedir, $testdir,
                                  $resdir,   $suite,
                                  $tname,    "$tname.$extension",
-                                 $disabled, $suite_opts
+                                 $disabled, $suite_opts,
+                                 $suite_client_opts
            ));
     }
   } else {
@@ -657,7 +664,8 @@ sub collect_one_suite($$$$) {
       push(@cases,
            collect_one_test_case($suitedir, $testdir, $resdir,
                                  $suite,    $tname,   $elem,
-                                 $disabled, $suite_opts
+                                 $disabled, $suite_opts,
+                                 $suite_client_opts
            ));
     }
     closedir TESTDIR;
@@ -948,6 +956,7 @@ sub collect_one_test_case {
   my $filename   = shift;
   my $disabled   = shift;
   my $suite_opts = shift;
+  my $suite_client_opts = shift;
 
   # Test file name should consist of only alpha-numeric characters, dash (-)
   # or underscore (_), but should not start with dash or underscore.
@@ -1228,6 +1237,7 @@ sub collect_one_test_case {
     process_opts_file($tinfo, "$testdir/$tname-slave.opt", 'slave_opt');
   }
 
+  push(@{$tinfo->{'client_opt'}}, @$suite_client_opts);
   if (!$::start_only) {
     # Add client opts, extra options only for mysqltest client
     process_opts_file($tinfo, "$testdir/$tname-client.opt", 'client_opt');
