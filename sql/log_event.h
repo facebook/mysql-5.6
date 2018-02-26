@@ -5104,7 +5104,18 @@ public:
 #ifdef MYSQL_CLIENT
   virtual void print(FILE *file, PRINT_EVENT_INFO *print_event_info);
 #endif
+
+#ifdef MYSQL_SERVER
+  virtual bool write(IO_CACHE *file) override
+  {
+    // case: nothing to write
+    if (!*m_rows_query)
+      return 0;
+    return Log_event::write(file);
+  }
+
   virtual bool write_data_body(IO_CACHE *file);
+#endif
 
   virtual Log_event_type get_type_code() { return ROWS_QUERY_LOG_EVENT; }
 
@@ -5115,10 +5126,13 @@ public:
 
   bool has_trx_meta_data() const
   {
+    std::string str(m_rows_query);
+    if (str.length() < (2 + TRX_META_DATA_HEADER.length() + 2))
+      return false;
     // NOTE: Meta data comment format: /*::TRX_META_DATA::{.. JSON ..}*/
     // so to check if the event contains trx meta data we check if the string
     // "::TRX_META_DATA::" is present after the first two "/*" characters.
-    return std::string(m_rows_query)
+    return str
       .compare(2, TRX_META_DATA_HEADER.length(), TRX_META_DATA_HEADER) == 0;
   }
 

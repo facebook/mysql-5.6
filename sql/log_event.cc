@@ -5295,6 +5295,15 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
   int expected_error,actual_error= 0;
   HA_CREATE_INFO db_options;
 
+  // case: a rows query event containing trx metadata was encountered, we're
+  // going to clean that up here
+  if (rli->rows_query_ev && opt_binlog_trx_meta_data)
+  {
+    delete const_cast<Relay_log_info*>(rli)->rows_query_ev;
+    const_cast<Relay_log_info*>(rli)->rows_query_ev= NULL;
+    thd->set_query(NULL, 0);
+  }
+
   /*
     Colleagues: please never free(thd->catalog) in MySQL. This would
     lead to bugs as here thd->catalog is a part of an alloced block,
@@ -15087,7 +15096,7 @@ comment_begin:
       pos += 2;
       break;
     }
-    return comment_length ? comment_length : length;
+    return comment_length;
   }
   while (pos < end) {
   // We only get here if the first loop found the start of a comment.
@@ -15102,9 +15111,10 @@ comment_begin:
       }
     }
   }
-  return comment_length ? comment_length : length;
+  return comment_length;
 }
 
+#ifdef MYSQL_SERVER
 bool
 Rows_query_log_event::write_data_body(IO_CACHE *file)
 {
@@ -15116,6 +15126,7 @@ Rows_query_log_event::write_data_body(IO_CACHE *file)
   DBUG_RETURN(write_str_at_most_255_bytes(file, m_rows_query,
               (uint) strlen(m_rows_query)));
 }
+#endif
 
 inline ulonglong Rows_query_log_event::extract_last_timestamp() const
 {
@@ -15148,11 +15159,16 @@ int Rows_query_log_event::do_apply_event(Relay_log_info const *rli)
   {
     const_cast<Relay_log_info*>(rli)->trx_meta_data_json=
                                                        extract_trx_meta_data();
-    DBUG_RETURN(0);
+    DBUG_ASSERT(strstr(m_rows_query, "*/") != NULL);
+    // actual query starts after the metadata
+    auto after_metadata= strstr(m_rows_query, "*/") + 2;
+    thd->set_query(after_metadata, (uint32) strlen(after_metadata));
   }
-
-  /* Set query for writing Rows_query log event into binlog later.*/
-  thd->set_query(m_rows_query, (uint32) strlen(m_rows_query));
+  else
+  {
+    /* Set query for writing Rows_query log event into binlog later.*/
+    thd->set_query(m_rows_query, (uint32) strlen(m_rows_query));
+  }
 
   DBUG_ASSERT(rli->rows_query_ev == NULL);
 

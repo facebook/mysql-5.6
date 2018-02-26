@@ -292,11 +292,10 @@ void mysql_client_binlog_statement(THD* thd)
         will be deleted when the SQL thread does not need it,
         i.e. when this thread terminates.
         ROWS_QUERY_LOG_EVENT if present in rli is deleted at the end
-        of the event but ones with trx meta data are deleted here.
+        of the event.
       */
       if (ev->get_type_code() != FORMAT_DESCRIPTION_EVENT &&
-          !(ev->get_type_code() == ROWS_QUERY_LOG_EVENT &&
-            !((Rows_query_log_event*) ev)->has_trx_meta_data()))
+          ev->get_type_code() != ROWS_QUERY_LOG_EVENT)
       {
         delete ev;
         ev= NULL;

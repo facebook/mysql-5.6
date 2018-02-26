@@ -4764,11 +4764,10 @@ static int exec_relay_log_event(THD* thd, Relay_log_info* rli)
         used to read info about the relay log's format; it will be deleted when
         the SQL thread does not need it, i.e. when this thread terminates.
         ROWS_QUERY_LOG_EVENT is destroyed at the end of the current statement
-        clean-up routine but ones with trx meta data are deleted here.
+        clean-up routine.
       */
       if (ev->get_type_code() != FORMAT_DESCRIPTION_EVENT &&
-          !(ev->get_type_code() == ROWS_QUERY_LOG_EVENT &&
-            !((Rows_query_log_event*) ev)->has_trx_meta_data()))
+          ev->get_type_code() != ROWS_QUERY_LOG_EVENT)
       {
         DBUG_PRINT("info", ("Deleting the event after it has been executed"));
         delete ev;

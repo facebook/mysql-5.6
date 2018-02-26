@@ -1,0 +1,69 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+set @@global.binlog_trx_meta_data= true;
+set @@global.binlog_trx_meta_data= true;
+set @@session.binlog_rows_query_log_events= OFF;
+set @@global.binlog_rows_query_log_events= OFF;
+include/stop_slave.inc
+include/start_slave.inc
+flush logs;
+purge binary logs to 'master-bin.000002';
+flush logs;
+purge binary logs to 'slave-bin.000002';
+meta	count(*)
+# /*::TRX_META_DATA::{"ts":[ts]}*/	31
+meta	count(*)
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*/	31
+drop table t1;
+set @@session.binlog_rows_query_log_events= ON;
+set @@global.log_only_query_comments= OFF;
+set @@global.binlog_rows_query_log_events= ON;
+set @@global.log_only_query_comments= OFF;
+include/stop_slave.inc
+include/start_slave.inc
+flush logs;
+purge binary logs to 'master-bin.000003';
+flush logs;
+purge binary logs to 'slave-bin.000003';
+meta	count(*)
+# /*::TRX_META_DATA::{"ts":[ts]}*/	1
+# /*::TRX_META_DATA::{"ts":[ts]}*//*delete*/delete from t1	10
+# /*::TRX_META_DATA::{"ts":[ts]}*//*insert*/insert into t1 values()	10
+# /*::TRX_META_DATA::{"ts":[ts]}*//*update*/update t1 set a= a + 1	10
+meta	count(*)
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*/	1
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*//*delete*/delete from t1	10
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*//*insert*/insert into t1 values()	10
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*//*update*/update t1 set a= a + 1	10
+drop table t1;
+set @@session.binlog_rows_query_log_events= ON;
+set @@global.log_only_query_comments= ON;
+set @@global.binlog_rows_query_log_events= ON;
+set @@global.log_only_query_comments= ON;
+include/stop_slave.inc
+include/start_slave.inc
+flush logs;
+purge binary logs to 'master-bin.000004';
+flush logs;
+purge binary logs to 'slave-bin.000004';
+meta	count(*)
+# /*::TRX_META_DATA::{"ts":[ts]}*/	1
+# /*::TRX_META_DATA::{"ts":[ts]}*//*delete*/	10
+# /*::TRX_META_DATA::{"ts":[ts]}*//*insert*/	10
+# /*::TRX_META_DATA::{"ts":[ts]}*//*update*/	10
+meta	count(*)
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*/	1
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*//*delete*/	10
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*//*insert*/	10
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*//*update*/	10
+drop table t1;
+set @@global.binlog_trx_meta_data= default;
+set @@session.binlog_rows_query_log_events= default;
+set @@global.log_only_query_comments= default;
+set @@global.binlog_trx_meta_data= default;
+set @@global.binlog_rows_query_log_events= default;
+set @@global.log_only_query_comments= default;
+include/rpl_end.inc

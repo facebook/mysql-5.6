@@ -1,0 +1,56 @@
+source include/master-slave.inc;
+source include/have_binlog_format_row.inc;
+
+# Enable trx meta data
+connection master;
+set @@global.binlog_trx_meta_data= true;
+connection slave;
+set @@global.binlog_trx_meta_data= true;
+
+
+# Case 1: binlog_rows_query_log_events= OFF
+connection master;
+set @@session.binlog_rows_query_log_events= OFF;
+connection slave;
+set @@global.binlog_rows_query_log_events= OFF;
+source include/stop_slave.inc;
+source include/start_slave.inc;
+
+source suite/rpl/include/binlog_trx_meta_data.inc;
+
+
+# Case 2: binlog_rows_query_log_events= ON and log_only_query_comments= OFF
+connection master;
+set @@session.binlog_rows_query_log_events= ON;
+set @@global.log_only_query_comments= OFF;
+connection slave;
+set @@global.binlog_rows_query_log_events= ON;
+set @@global.log_only_query_comments= OFF;
+source include/stop_slave.inc;
+source include/start_slave.inc;
+
+source suite/rpl/include/binlog_trx_meta_data.inc;
+
+
+# Case 3: binlog_rows_query_log_events= ON and log_only_query_comments= ON
+connection master;
+set @@session.binlog_rows_query_log_events= ON;
+set @@global.log_only_query_comments= ON;
+connection slave;
+set @@global.binlog_rows_query_log_events= ON;
+set @@global.log_only_query_comments= ON;
+source include/stop_slave.inc;
+source include/start_slave.inc;
+
+source suite/rpl/include/binlog_trx_meta_data.inc;
+
+connection master;
+set @@global.binlog_trx_meta_data= default;
+set @@session.binlog_rows_query_log_events= default;
+set @@global.log_only_query_comments= default;
+connection slave;
+set @@global.binlog_trx_meta_data= default;
+set @@global.binlog_rows_query_log_events= default;
+set @@global.log_only_query_comments= default;
+
+source include/rpl_end.inc;
