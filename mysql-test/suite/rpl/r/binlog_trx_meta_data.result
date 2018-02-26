@@ -3,15 +3,17 @@ Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
-set @save.binlog_trx_meta_data= @@global.binlog_trx_meta_data;
 set @@global.binlog_trx_meta_data= true;
-set @save.binlog_trx_meta_data= @@global.binlog_trx_meta_data;
 set @@global.binlog_trx_meta_data= true;
+flush logs;
+purge binary logs to 'master-bin.000002';
+flush logs;
+purge binary logs to 'slave-bin.000002';
 meta	count(*)
-# /*::TRX_META_DATA::{"timestamps":[ts]}*/	301
+# /*::TRX_META_DATA::{"ts":[ts]}*/	31
 meta	count(*)
-# /*::TRX_META_DATA::{"timestamps":[ts,ts]}*/	301
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*/	31
 drop table t1;
-set @@global.binlog_trx_meta_data= @save.binlog_trx_meta_data;
-set @@global.binlog_trx_meta_data= @save.binlog_trx_meta_data;
+set @@global.binlog_trx_meta_data= default;
+set @@global.binlog_trx_meta_data= default;
 include/rpl_end.inc

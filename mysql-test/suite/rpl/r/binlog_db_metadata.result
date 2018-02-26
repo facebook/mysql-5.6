@@ -34,39 +34,39 @@ use test4;
 create table t1 (a int primary key, b char(8));
 insert into t1 values(1, 'a');
 insert into t1 values(2, 'b');
-# /*::TRX_META_DATA::{"timestamps":[ts]}*/
-# /*::TRX_META_DATA::{"timestamps":[ts]}*/
-# /*::TRX_META_DATA::{"timestamps":[ts]}*/
-# /*::TRX_META_DATA::{"timestamps":[ts],"shard":"test2_shard","replicaset":"test2_replicaset"}*/
-# /*::TRX_META_DATA::{"timestamps":[ts],"shard":"test2_shard","replicaset":"test2_replicaset"}*/
-# /*::TRX_META_DATA::{"timestamps":[ts],"shard":"test2_shard","replicaset":"test2_replicaset"}*/
-# /*::TRX_META_DATA::{"timestamps":[ts],"shard":"test3_shard","replicaset":"test3_replicaset"}*/
-# /*::TRX_META_DATA::{"timestamps":[ts],"shard":"test3_shard","replicaset":"test3_replicaset"}*/
-# /*::TRX_META_DATA::{"timestamps":[ts],"shard":"test3_shard","replicaset":"test3_replicaset"}*/
-# /*::TRX_META_DATA::{"timestamps":[ts],"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated"}*/
-# /*::TRX_META_DATA::{"timestamps":[ts],"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated"}*/
-# /*::TRX_META_DATA::{"timestamps":[ts],"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated"}*/
-# /*::TRX_META_DATA::{"timestamps":[ts],"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated"}*/
-# /*::TRX_META_DATA::{"timestamps":[ts],"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4"}*/
-# /*::TRX_META_DATA::{"timestamps":[ts],"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4"}*/
-# /*::TRX_META_DATA::{"timestamps":[ts],"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4"}*/
+# /*::TRX_META_DATA::{"ts":[ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts],"shard":"test2_shard","replicaset":"test2_replicaset"}*/
+# /*::TRX_META_DATA::{"ts":[ts],"shard":"test2_shard","replicaset":"test2_replicaset"}*/
+# /*::TRX_META_DATA::{"ts":[ts],"shard":"test2_shard","replicaset":"test2_replicaset"}*/
+# /*::TRX_META_DATA::{"ts":[ts],"shard":"test3_shard","replicaset":"test3_replicaset"}*/
+# /*::TRX_META_DATA::{"ts":[ts],"shard":"test3_shard","replicaset":"test3_replicaset"}*/
+# /*::TRX_META_DATA::{"ts":[ts],"shard":"test3_shard","replicaset":"test3_replicaset"}*/
+# /*::TRX_META_DATA::{"ts":[ts],"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated"}*/
+# /*::TRX_META_DATA::{"ts":[ts],"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated"}*/
+# /*::TRX_META_DATA::{"ts":[ts],"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated"}*/
+# /*::TRX_META_DATA::{"ts":[ts],"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated"}*/
+# /*::TRX_META_DATA::{"ts":[ts],"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4"}*/
+# /*::TRX_META_DATA::{"ts":[ts],"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4"}*/
+# /*::TRX_META_DATA::{"ts":[ts],"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4"}*/
 include/sync_slave_sql_with_master.inc
-# /*::TRX_META_DATA::{"timestamps":[ts,ts]}*/
-# /*::TRX_META_DATA::{"timestamps":[ts,ts]}*/
-# /*::TRX_META_DATA::{"timestamps":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"test2_shard","replicaset":"test2_replicaset","timestamps":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"test2_shard","replicaset":"test2_replicaset","timestamps":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"test2_shard","replicaset":"test2_replicaset","timestamps":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"test3_shard","replicaset":"test3_replicaset","timestamps":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"test3_shard","replicaset":"test3_replicaset","timestamps":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"test3_shard","replicaset":"test3_replicaset","timestamps":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated","timestamps":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated","timestamps":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated","timestamps":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated","timestamps":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4","timestamps":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4","timestamps":[ts,ts]}*/
-# /*::TRX_META_DATA::{"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4","timestamps":[ts,ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"test2_shard","replicaset":"test2_replicaset","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"test2_shard","replicaset":"test2_replicaset","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"test2_shard","replicaset":"test2_replicaset","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard","replicaset":"test3_replicaset","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard","replicaset":"test3_replicaset","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard","replicaset":"test3_replicaset","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4","ts":[ts,ts]}*/
 use test;
 drop table if exists t1;
 drop database if exists test2;

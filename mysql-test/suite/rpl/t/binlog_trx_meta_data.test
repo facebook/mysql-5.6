@@ -1,69 +1,18 @@
 source include/master-slave.inc;
+source include/not_binlog_format_row.inc; # we have binlog_trx_meta_data_rbr.test for this
 
 # Enable trx meta data
 connection master;
-set @save.binlog_trx_meta_data= @@global.binlog_trx_meta_data;
+set @@global.binlog_trx_meta_data= true;
+connection slave;
 set @@global.binlog_trx_meta_data= true;
 
-connection slave;
-set @save.binlog_trx_meta_data= @@global.binlog_trx_meta_data;
-set @@global.binlog_trx_meta_data= true;
-
-# Generate load
-connection master;
-disable_result_log;
-disable_query_log;
-create table t1(a int) engine=innodb;
-# the following loop will generate 300 meta data events, 1 for each statement
-# the total number of meta data events will be 301, +1 for create stmt above
-let $iter= 100;
-while ($iter > 0)
-{
-  begin;
-  eval insert into t1 values($iter);
-  eval update t1 set a= $iter + 1;
-  delete from t1;
-  commit;
-  dec $iter;
-}
-enable_result_log;
-enable_query_log;
-sync_slave_with_master;
-
-# Check binlogs for meta data
-connection master;
-disable_query_log;
-let $MYSQLD_DATADIR = `select @@datadir`;
-let $MYSQLD_SECURE_FILE_DIR = `select @@secure_file_priv`;
-exec $MYSQL_BINLOG -v -v $MYSQLD_DATADIR/master-bin.0* | grep "::TRX_META_DATA::" | sed 's/\"[0-9]*\"/ts/g' > $MYSQLD_SECURE_FILE_DIR/meta_data.dat;
-set sql_log_bin=0;
-create table test.meta_data(meta text);
-eval load data infile '$MYSQLD_SECURE_FILE_DIR/meta_data.dat' into table test.meta_data;
-select meta, count(*) from test.meta_data;
-drop table test.meta_data;
-set sql_log_bin=1;
-remove_file $MYSQLD_SECURE_FILE_DIR/meta_data.dat;
-
-connection slave;
-let $MYSQLD_DATADIR = `select @@datadir`;
-let $MYSQLD_SECURE_FILE_DIR = `select @@secure_file_priv`;
-exec $MYSQL_BINLOG -v -v $MYSQLD_DATADIR/slave-bin.0* | grep "::TRX_META_DATA::" | sed 's/\"[0-9]*\"/ts/g' > $MYSQLD_SECURE_FILE_DIR/meta_data.dat;
-set sql_log_bin=0;
-create table test.meta_data(meta text);
-eval load data infile '$MYSQLD_SECURE_FILE_DIR/meta_data.dat' into table test.meta_data;
-select meta, count(*) from test.meta_data;
-drop table test.meta_data;
-set sql_log_bin=1;
-remove_file $MYSQLD_SECURE_FILE_DIR/meta_data.dat;
-enable_query_log;
+source suite/rpl/include/binlog_trx_meta_data.inc;
 
 # Cleanup
 connection master;
-drop table t1;
-sync_slave_with_master;
+set @@global.binlog_trx_meta_data= default;
 connection slave;
-set @@global.binlog_trx_meta_data= @save.binlog_trx_meta_data;
-connection master;
-set @@global.binlog_trx_meta_data= @save.binlog_trx_meta_data;
+set @@global.binlog_trx_meta_data= default;
 
 source include/rpl_end.inc;

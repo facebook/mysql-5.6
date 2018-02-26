@@ -56,6 +56,9 @@
 #include "my_atomic.h"
 #include "sql_db.h"
 
+#include <boost/property_tree/ptree.hpp>
+using boost::property_tree::ptree;
+
 #define FLAGSTR(V,F) ((V)&(F)?#F" ":"")
 
 /**
@@ -2655,6 +2658,10 @@ public:
                         const uchar *old_data, const uchar *new_data,
                         const uchar* extra_row_info);
   void binlog_prepare_row_images(TABLE* table, bool is_update);
+
+  std::string gen_trx_metadata();
+  void add_time_metadata(ptree &meta_data_root);
+  void add_db_metadata(ptree &meta_data_root);
 
   void set_server_id(uint32 sid) { server_id = sid; }
 

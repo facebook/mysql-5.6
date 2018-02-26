@@ -6,6 +6,7 @@
 # Check that queries with more than 255 characters are not truncated
 # when stored on Rows_query_log_events.
 SET @@SESSION.BINLOG_ROWS_QUERY_LOG_EVENTS = 1;
+SET @@GLOBAL.LOG_ONLY_QUERY_COMMENTS = 0;
 CREATE TABLE t1 (a VARCHAR(256));
 
 --let $as= `SELECT REPEAT('a', 256)`
@@ -29,3 +30,4 @@ if (!`SELECT COUNT(*) = 0 OR VARIABLE_VALUE != 'ON' FROM INFORMATION_SCHEMA.GLOB
 
 # Clean up
 DROP TABLE t1;
+SET @@GLOBAL.LOG_ONLY_QUERY_COMMENTS = DEFAULT;
