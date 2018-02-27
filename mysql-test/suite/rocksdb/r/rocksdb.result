@@ -903,6 +903,7 @@ rocksdb_enable_ttl	ON
 rocksdb_enable_ttl_read_filtering	ON
 rocksdb_enable_write_thread_adaptive_yield	OFF
 rocksdb_error_if_exists	OFF
+rocksdb_error_on_suboptimal_collation	ON
 rocksdb_flush_log_at_trx_commit	1
 rocksdb_force_compute_memtable_stats	ON
 rocksdb_force_compute_memtable_stats_cachetime	0

@@ -492,6 +492,7 @@ static my_bool rocksdb_large_prefix = 0;
 static my_bool rocksdb_allow_to_start_after_corruption = 0;
 static uint32_t rocksdb_write_policy =
     rocksdb::TxnDBWritePolicy::WRITE_COMMITTED;
+static my_bool rocksdb_error_on_suboptimal_collation = 1;
 
 std::atomic<uint64_t> rocksdb_row_lock_deadlocks(0);
 std::atomic<uint64_t> rocksdb_row_lock_wait_timeouts(0);
@@ -1531,6 +1532,13 @@ static MYSQL_SYSVAR_BOOL(
     "detected.",
     nullptr, nullptr, FALSE);
 
+static MYSQL_SYSVAR_BOOL(error_on_suboptimal_collation,
+                         rocksdb_error_on_suboptimal_collation,
+                         PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
+                         "Raise an error instead of warning if a sub-optimal "
+                         "collation is used",
+                         nullptr, nullptr, TRUE);
+
 static const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE = 100;
 
 static struct st_mysql_sys_var *rocksdb_system_variables[] = {
@@ -1676,6 +1684,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
 
     MYSQL_SYSVAR(large_prefix),
     MYSQL_SYSVAR(allow_to_start_after_corruption),
+    MYSQL_SYSVAR(error_on_suboptimal_collation),
     nullptr};
 
 static rocksdb::WriteOptions
@@ -6381,11 +6390,22 @@ int ha_rocksdb::create_cfs(
             }
             collation_err += coll->name;
           }
-          my_error(ER_UNSUPPORTED_COLLATION, MYF(0),
-                   tbl_def_arg->full_tablename().c_str(),
-                   table_arg->key_info[i].key_part[part].field->field_name,
-                   collation_err.c_str());
-          DBUG_RETURN(HA_EXIT_FAILURE);
+
+          if (rocksdb_error_on_suboptimal_collation) {
+            my_error(ER_UNSUPPORTED_COLLATION, MYF(0),
+                     tbl_def_arg->full_tablename().c_str(),
+                     table_arg->key_info[i].key_part[part].field->field_name,
+                     collation_err.c_str());
+            DBUG_RETURN(HA_EXIT_FAILURE);
+          } else {
+            push_warning_printf(
+                ha_thd(), Sql_condition::WARN_LEVEL_WARN, ER_WRONG_ARGUMENTS,
+                "Unsupported collation on string indexed column %s.%s Use "
+                "binary collation (%s).",
+                tbl_def_arg->full_tablename().c_str(),
+                table_arg->key_info[i].key_part[part].field->field_name,
+                collation_err.c_str());
+          }
         }
       }
     }
