@@ -5280,7 +5280,7 @@ bool init_ssl()
 {
 #ifdef HAVE_OPENSSL
 #ifndef HAVE_YASSL
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#if defined(OPENSSL_IS_BORINGSSL) || OPENSSL_VERSION_NUMBER < 0x10100000L
   CRYPTO_malloc_init();
 #else
   OPENSSL_malloc_init();
