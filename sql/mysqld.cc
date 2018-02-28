@@ -26,6 +26,7 @@
 
 #include "sql_priv.h"
 #include "unireg.h"
+#include <algorithm>
 #include <signal.h>
 #include "sql_parse.h"    // test_if_data_home_dir
 #include "sql_cache.h"    // query_cache, query_cache_*
@@ -144,9 +145,11 @@
 // about the functionality this change enables.
 extern "C" {
 #if JEMALLOC_VERSION_MAJOR > 4
-  const char* malloc_conf = "";
+  const char* malloc_conf = "prof:true,prof_active:false"
+    ",prof_prefix:jeprof.out";
 #else
-  const char *malloc_conf = "purge:decay";
+  const char *malloc_conf = "purge:decay,prof:true,prof_active:false,"
+    "prof_prefix:jeprof.out";
 #endif
 }
 
@@ -691,6 +694,7 @@ uint slave_rows_last_search_algorithm_used;
 ulonglong binlog_bytes_written = 0;
 ulonglong relay_log_bytes_written = 0;
 ulong binlog_cache_size=0;
+char *enable_jemalloc_hpp;
 ulonglong  max_binlog_cache_size=0;
 ulong slave_max_allowed_packet= 0;
 ulong binlog_stmt_cache_size=0;
@@ -9460,6 +9464,60 @@ static int show_jemalloc_mapped(THD *thd, SHOW_VAR *var, char *buff)
 {
   return show_jemalloc_sizet(thd, var, buff, "stats.mapped");
 }
+
+bool enable_jemalloc_hppfunc(char *enable_profiling_ptr)
+{
+  std::string epp(enable_profiling_ptr);
+  std::transform(epp.begin(), epp.end(), epp.begin(), ::tolower);
+
+  bool enable_profiling = epp.std::string::compare("on") == 0;
+  bool disable_profiling = epp.std::string::compare("off") == 0;
+  bool dump_profiling = epp.std::string::compare("dump") == 0;
+
+  if (enable_profiling)
+  {
+    size_t val_sz = sizeof(enable_profiling);
+    int ret = mallctl("prof.active", nullptr,
+        nullptr, &enable_profiling, val_sz);
+
+    if (ret != 0) {
+      /* NO_LINT_DEBUG */
+      sql_print_information("Unable to enable "
+          "jemalloc heap profiling. Error:  %d", ret);
+      return false;
+    }
+    return true;
+  }
+  if (disable_profiling)
+  {
+    disable_profiling = false;
+    size_t val_sz = sizeof(disable_profiling);
+    int ret = mallctl("prof.active", nullptr,
+        nullptr, &disable_profiling , val_sz);
+
+    if (ret != 0) {
+      /* NO_LINT_DEBUG */
+      sql_print_information("Unable to disable "
+          "jemalloc heap profiling. Error: %d", ret);
+      return false;
+    }
+    return true;
+  }
+  if (dump_profiling)
+  {
+    int ret = mallctl("prof.dump", nullptr, nullptr,
+        nullptr, sizeof(const char *));
+
+    if (ret != 0) {
+      /* NO_LINT_DEBUG */
+      sql_print_information("Unable to dump heap. Error:  %d", ret);
+      return false;
+    }
+    return true;
+  }
+  return false;
+}
+
 #endif
 #endif
 
