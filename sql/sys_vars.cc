@@ -5987,6 +5987,29 @@ static Sys_var_mybool Sys_high_priority_ddl(
        SESSION_VAR(high_priority_ddl),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
 
+#ifdef HAVE_JEMALLOC
+#ifndef EMBEDDED_LIBRARY
+static bool enable_jemalloc_heap_profiling(sys_var *self, THD *thd,
+                                           set_var *var)
+{
+  /*false means success*/
+  return !enable_jemalloc_hppfunc(var->save_result.string_value.str);
+}
+
+static Sys_var_charptr Sys_enable_jemalloc_hpp(
+       "enable_jemalloc_hpp",
+       "This will provide options for Jemalloc heap profiling."
+       "On: Activates profiling"
+       "Off: Deactivate profiling"
+       "Dump: Dump a profile",
+       GLOBAL_VAR(enable_jemalloc_hpp), CMD_LINE(OPT_ARG), IN_SYSTEM_CHARSET,
+       DEFAULT("OFF"),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(enable_jemalloc_heap_profiling));
+
+#endif
+#endif
+
 static bool update_session_track_state_change(sys_var *self, THD *thd,
                                               enum_var_type type)
 {

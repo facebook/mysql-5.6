@@ -634,6 +634,12 @@ ulonglong latency_histogram_get_count(latency_histogram* current_histogram,
 */
 int histogram_validate_step_size_string(const char* step_size_with_unit);
 
+#ifdef HAVE_JEMALLOC
+#ifndef EMBEDDED_LIBRARY
+extern bool enable_jemalloc_hppfunc(char *);
+#endif
+#endif
+
 /** To return the displayable histogram name from
   my_timer_to_display_string() */
 struct histogram_display_string {
@@ -857,6 +863,7 @@ extern ulong opt_max_running_queries, opt_max_waiting_queries;
 extern my_bool opt_admission_control_by_trx;
 extern my_bool opt_slave_allow_batching;
 extern my_bool allow_slave_start;
+extern char *enable_jemalloc_hpp;
 extern LEX_CSTRING reason_slave_blocked;
 extern ulong slave_trans_retries;
 extern uint  slave_net_timeout;
