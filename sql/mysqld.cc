@@ -719,6 +719,17 @@ The documentation is based on the source files such as:
 
 #ifdef HAVE_JEMALLOC
 #include <jemalloc/jemalloc.h>
+
+// Please see https://github.com/jemalloc/jemalloc/issues/325 to learn more
+// about the functionality this change enables.
+extern "C" {
+#if JEMALLOC_VERSION_MAJOR > 4
+const char *malloc_conf = "prof:true,prof_active:false,prof_prefix:jeprof.out";
+#else
+const char *malloc_conf =
+    "purge:decay,prof:true,prof_active:false,prof_prefix:jeprof.out";
+#endif
+}
 #endif
 
 using std::max;
