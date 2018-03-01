@@ -982,7 +982,7 @@ rocksdb_whole_key_filtering	ON
 rocksdb_write_batch_max_bytes	0
 rocksdb_write_disable_wal	OFF
 rocksdb_write_ignore_missing_column_families	OFF
-rocksdb_write_policy	0
+rocksdb_write_policy	write_committed
 create table t47 (pk int primary key, col1 varchar(12)) engine=rocksdb;
 insert into t47 values (1, 'row1');
 insert into t47 values (2, 'row2');
