@@ -541,7 +541,7 @@ static my_bool rocksdb_enable_bulk_load_api = 1;
 static my_bool rocksdb_print_snapshot_conflict_queries = 0;
 static my_bool rocksdb_large_prefix = 0;
 static my_bool rocksdb_allow_to_start_after_corruption = 0;
-static uint32_t rocksdb_write_policy =
+static uint64_t rocksdb_write_policy =
     rocksdb::TxnDBWritePolicy::WRITE_COMMITTED;
 static my_bool rocksdb_error_on_suboptimal_collation = 1;
 
@@ -572,6 +572,14 @@ static std::unique_ptr<rocksdb::DBOptions> rocksdb_db_options =
     rdb_init_rocksdb_db_options();
 
 static std::shared_ptr<rocksdb::RateLimiter> rocksdb_rate_limiter;
+
+/* This enum needs to be kept up to date with rocksdb::TxnDBWritePolicy */
+static const char *write_policy_names[] = {"write_committed", "write_prepared",
+                                           "write_unprepared", NullS};
+
+static TYPELIB write_policy_typelib = {array_elements(write_policy_names) - 1,
+                                       "write_policy_typelib",
+                                       write_policy_names, nullptr};
 
 /* This enum needs to be kept up to date with rocksdb::InfoLogLevel */
 static const char *info_log_level_names[] = {"debug_level", "info_level",
@@ -844,12 +852,11 @@ static MYSQL_SYSVAR_BOOL(
     "DBOptions::manual_wal_flush for RocksDB", nullptr, nullptr,
     rocksdb_db_options->manual_wal_flush);
 
-static MYSQL_SYSVAR_UINT(write_policy, rocksdb_write_policy,
+static MYSQL_SYSVAR_ENUM(write_policy, rocksdb_write_policy,
                          PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
                          "DBOptions::write_policy for RocksDB", nullptr,
                          nullptr, rocksdb::TxnDBWritePolicy::WRITE_COMMITTED,
-                         rocksdb::TxnDBWritePolicy::WRITE_COMMITTED,
-                         rocksdb::TxnDBWritePolicy::WRITE_UNPREPARED, 0);
+                         &write_policy_typelib);
 
 static MYSQL_SYSVAR_BOOL(
     create_missing_column_families,
