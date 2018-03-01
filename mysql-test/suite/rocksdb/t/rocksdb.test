@@ -1,4 +1,5 @@
 --source include/have_rocksdb.inc
+--source suite/rocksdb/include/have_write_committed.inc
 
 #
 # RocksDB Storage Engine tests
