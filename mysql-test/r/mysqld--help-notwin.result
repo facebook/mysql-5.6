@@ -1491,7 +1491,7 @@ The following options may be given as the first argument:
  WriteOptions::disableWAL for RocksDB
  --rocksdb-write-ignore-missing-column-families 
  WriteOptions::ignore_missing_column_families for RocksDB
- --rocksdb-write-policy=# 
+ --rocksdb-write-policy=name 
  DBOptions::write_policy for RocksDB
  --rpl-event-buffer-size=# 
  The size of the preallocated event buffer for slave
@@ -2260,7 +2260,7 @@ rocksdb-whole-key-filtering TRUE
 rocksdb-write-batch-max-bytes 0
 rocksdb-write-disable-wal FALSE
 rocksdb-write-ignore-missing-column-families FALSE
-rocksdb-write-policy 0
+rocksdb-write-policy write_committed
 rpl-event-buffer-size 1048576
 rpl-read-size 8192
 rpl-receive-buffer-size 2097152
