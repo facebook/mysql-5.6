@@ -248,6 +248,10 @@ The following options may be given as the first argument:
  This should be used only for testing purposes. This
  option allows enabling gtid_mode on new slave replicating
  from a old master which is not gtid compatible
+ --enable-jemalloc-hpp[=name] 
+ This will provide options for Jemalloc heap profiling.On:
+ Activates profilingOff: Deactivate profilingDump: Dump a
+ profile
  --end-markers-in-json 
  In JSON output ("EXPLAIN FORMAT=JSON" and optimizer
  trace), if variable is set to 1, repeats the structure's
@@ -1861,6 +1865,7 @@ disconnect-on-expired-password TRUE
 disconnect-slave-event-count 0
 div-precision-increment 4
 enable-gtid-mode-on-new-slave-with-old-master FALSE
+enable-jemalloc-hpp OFF
 end-markers-in-json FALSE
 enforce-gtid-consistency FALSE
 eq-range-index-dive-limit 10
