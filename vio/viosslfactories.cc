@@ -536,6 +536,11 @@ void ssl_start() {
     SSL_load_error_strings();
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
+    // if locks already initialized, don't override
+    if (CRYPTO_get_locking_callback()) {
+      DBUG_PRINT("info", ("Openssl crypto library already initialized."));
+      return;
+    }
     init_ssl_locks();
     init_lock_callback_functions();
 #endif /* OPENSSL_VERSION_NUMBER < 0x10100000L */
