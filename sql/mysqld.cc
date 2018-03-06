@@ -1760,6 +1760,9 @@ static void close_connections(void)
   }
   mutex_unlock_all_shards(SHARDED(&LOCK_thread_count));
 
+  // Cancel any timeouts for idle detached sessions.
+  hhWheelTimer->cancelAll();
+
   Events::deinit();
 
   sql_print_information("Shutting down slave threads");
