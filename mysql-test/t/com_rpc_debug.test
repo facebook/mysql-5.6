@@ -51,3 +51,9 @@ SELECT @my_var;
 
 disconnect con1;
 
+connection default;
+# Restarting the server allows us to check that all sessions were
+# appropriately destroyed.  If something is left around we'll get
+# an error about a plugin having references in the error file
+--source include/restart_mysqld.inc
+

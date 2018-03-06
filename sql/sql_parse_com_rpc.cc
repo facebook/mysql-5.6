@@ -26,7 +26,7 @@ static bool check_for_attribute(THD *thd, const char *attr,
   return true;
 }
 
-void update_default_session_object(std::shared_ptr<Srv_session> srv_session,
+bool update_default_session_object(std::shared_ptr<Srv_session> srv_session,
                                   THD* conn_thd, bool used_default_srv_session)
 {
   if (srv_session->session_state_changed())
@@ -34,6 +34,8 @@ void update_default_session_object(std::shared_ptr<Srv_session> srv_session,
     // if the default object was reused for this session, reset it
     if (used_default_srv_session)
       conn_thd->set_default_srv_session(nullptr);
+
+    return false;
   }
   else
   {
@@ -43,6 +45,8 @@ void update_default_session_object(std::shared_ptr<Srv_session> srv_session,
       DBUG_PRINT("info", ("No session change, reuse object"));
       conn_thd->set_default_srv_session(srv_session);
     }
+
+    return true;
   }
 }
 
@@ -230,7 +234,7 @@ bool handle_com_rpc(THD *conn_thd, char* packet, uint packet_length,
 
   if (!ret)  // if query execution success
   {
-    update_default_session_object(srv_session,
+    used_default_srv_session = update_default_session_object(srv_session,
                                   conn_thd, used_default_srv_session);
   }
   else
@@ -240,7 +244,7 @@ bool handle_com_rpc(THD *conn_thd, char* packet, uint packet_length,
   }
 
   // reset the srv session thd
-  conn_thd->set_attached_srv_session(NULL);
+  conn_thd->set_attached_srv_session(nullptr);
 
   // detach
   srv_session->detach();
@@ -252,7 +256,7 @@ bool handle_com_rpc(THD *conn_thd, char* packet, uint packet_length,
 done:
   // If we have a srv_session and it is not expiring at the end of this
   // function, enable idle timeouts on it.
-  if (srv_session != nullptr && srv_session.use_count() > 1) {
+  if (srv_session != nullptr && !used_default_srv_session) {
     srv_session->enableWaitTimeout();
   }
 
