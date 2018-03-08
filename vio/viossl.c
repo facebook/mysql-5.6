@@ -178,7 +178,7 @@ size_t vio_ssl_read(Vio *vio, uchar *buf, size_t size)
 
   while (1)
   {
-    enum enum_vio_io_event event;
+    enum enum_vio_io_event event = VIO_IO_EVENT_READ;
 
     // Verify the socket is non blocking.
     DBUG_ASSERT(!vio_is_blocking(vio));
@@ -212,7 +212,15 @@ size_t vio_ssl_read(Vio *vio, uchar *buf, size_t size)
 
     /* Attempt to wait for an I/O event. */
     if (vio_socket_io_wait(vio, event))
-      break;
+    {
+      if (vio_was_timeout(vio))
+      {
+        DBUG_RETURN(event == VIO_IO_EVENT_READ ? VIO_SOCKET_READ_TIMEOUT
+                                               : VIO_SOCKET_WRITE_TIMEOUT);
+      } else {
+        DBUG_RETURN(VIO_SOCKET_ERROR);
+      }
+    }
   }
 
   DBUG_RETURN(ret < 0 ? -1 : ret);
@@ -229,7 +237,7 @@ size_t vio_ssl_write(Vio *vio, const uchar *buf, size_t size)
 
   while (1)
   {
-    enum enum_vio_io_event event;
+    enum enum_vio_io_event event = VIO_IO_EVENT_READ;
 
     // Verify the socket is non blocking.
     DBUG_ASSERT(!vio_is_blocking(vio));
@@ -263,7 +271,15 @@ size_t vio_ssl_write(Vio *vio, const uchar *buf, size_t size)
 
     /* Attempt to wait for an I/O event. */
     if (vio_socket_io_wait(vio, event))
-      break;
+    {
+      if (vio_was_timeout(vio))
+      {
+        DBUG_RETURN(event == VIO_IO_EVENT_READ ? VIO_SOCKET_READ_TIMEOUT
+                                               : VIO_SOCKET_WRITE_TIMEOUT);
+      } else {
+        DBUG_RETURN(VIO_SOCKET_ERROR);
+      }
+    }
   }
 
   DBUG_RETURN(ret < 0 ? -1 : ret);
@@ -359,6 +375,7 @@ typedef int (*ssl_handshake_func_t)(SSL*);
   @return Return value is 0 on success.
           (size_t) -1 on error
           (size_t) -2 or -3 for nonblocking actions
+          (size_t) -4 or -5 for read/write timeout
 */
 
 static size_t ssl_handshake_loop(Vio *vio, SSL *ssl,
@@ -373,7 +390,7 @@ static size_t ssl_handshake_loop(Vio *vio, SSL *ssl,
   /* Initiate the SSL handshake. */
   while (1)
   {
-    enum enum_vio_io_event event;
+    enum enum_vio_io_event event = VIO_IO_EVENT_READ;
 
 #ifndef HAVE_YASSL
     /*
@@ -411,7 +428,15 @@ static size_t ssl_handshake_loop(Vio *vio, SSL *ssl,
 
     /* Wait for I/O so that the handshake can proceed. */
     if (vio_socket_io_wait(vio, event))
-      break;
+    {
+      if (vio_was_timeout(vio))
+      {
+        DBUG_RETURN(event == VIO_IO_EVENT_READ ? VIO_SOCKET_READ_TIMEOUT
+                                               : VIO_SOCKET_WRITE_TIMEOUT);
+      } else {
+        DBUG_RETURN(VIO_SOCKET_ERROR);
+      }
+    }
   }
 
   vio->ssl_arg= NULL;
@@ -580,6 +605,8 @@ static int ssl_finish(SSL *ssl, Vio *vio) {
  *    -1 -> error
  *    -2 -> wants read
  *    -3 -> wants write
+ *    -4 -> read timeout
+ *    -5 -> write timeout
  *    0  -> success
  */
 static int ssl_do(struct st_VioSSLFd *ptr,
