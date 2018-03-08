@@ -4082,10 +4082,18 @@ static int run_ssl_connect(MCPVIO_EXT *mpvio, my_bool *error) {
     switch (ret) {
       case VIO_SOCKET_WANT_READ:
         net->async_blocking_state = NET_NONBLOCKING_READ;
-      DBUG_RETURN(NET_ASYNC_NOT_READY);
+        DBUG_RETURN(NET_ASYNC_NOT_READY);
       case VIO_SOCKET_WANT_WRITE:
         net->async_blocking_state = NET_NONBLOCKING_WRITE;
-      DBUG_RETURN(NET_ASYNC_NOT_READY);
+        DBUG_RETURN(NET_ASYNC_NOT_READY);
+      case VIO_SOCKET_READ_TIMEOUT:
+        *error = TRUE;
+        set_mysql_error(mysql, CR_NET_READ_INTERRUPTED, unknown_sqlstate);
+        DBUG_RETURN(NET_ASYNC_COMPLETE);
+      case VIO_SOCKET_WRITE_TIMEOUT:
+        *error = TRUE;
+        set_mysql_error(mysql, CR_NET_WRITE_INTERRUPTED, unknown_sqlstate);
+        DBUG_RETURN(NET_ASYNC_COMPLETE);
       default:
         break;
         /* continue for error handling */

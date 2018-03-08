@@ -99,6 +99,8 @@ enum enum_vio_io_event
 #define VIO_SOCKET_ERROR      ((size_t) -1)
 #define VIO_SOCKET_WANT_READ  ((size_t) -2)
 #define VIO_SOCKET_WANT_WRITE ((size_t) -3)
+#define VIO_SOCKET_READ_TIMEOUT ((size_t) -4)
+#define VIO_SOCKET_WRITE_TIMEOUT ((size_t) -5)
 
 Vio* vio_new(my_socket sd, enum enum_vio_type type, uint flags);
 Vio*  mysql_socket_vio_new(MYSQL_SOCKET mysql_socket, enum enum_vio_type type, uint flags);

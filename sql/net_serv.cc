@@ -909,6 +909,12 @@ net_write_raw_loop(NET *net, const uchar *buf, size_t count)
   {
     size_t sentcnt= vio_write(net->vio, buf, count);
 
+    if (sentcnt == VIO_SOCKET_READ_TIMEOUT ||
+        sentcnt == VIO_SOCKET_WRITE_TIMEOUT)
+    {
+      break;
+    }
+
     /* VIO_SOCKET_ERROR (-1) indicates an error. */
     if (sentcnt == VIO_SOCKET_ERROR)
     {
@@ -1079,6 +1085,12 @@ static my_bool net_read_raw_loop(NET *net, size_t count)
   while (count)
   {
     size_t recvcnt= vio_read(net->vio, buf, count);
+
+    if (recvcnt == VIO_SOCKET_READ_TIMEOUT ||
+        recvcnt == VIO_SOCKET_WRITE_TIMEOUT)
+    {
+      break;
+    }
 
     /*
        VIO_SOCKET_ERROR (-1) indicates an error.
