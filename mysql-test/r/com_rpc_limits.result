@@ -1,0 +1,10 @@
+create database db_rpc;
+create user scriptro;
+create user proxyuser;
+grant proxy on scriptro to proxyuser;
+select count(*) from information_schema.srv_sessions;
+count(*)
+100000
+drop user scriptro;
+drop user proxyuser;
+drop database db_rpc;
