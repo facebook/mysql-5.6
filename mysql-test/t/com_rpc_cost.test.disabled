@@ -1,0 +1,32 @@
+# Setup our database
+create database db_rpc;
+
+# Setup our users
+create user scriptro;
+create user proxyuser;
+grant proxy on scriptro to proxyuser;
+
+let $mainuser = proxyuser;
+let $targetuser = scriptro;
+let $targetdb = db_rpc;
+let $count = 10000;
+
+let $pid_file= `SELECT @@pid_file`;
+--let $count_statement= SELECT cast(count(*) as char(10)) FROM information_schema.srv_sessions
+
+--echo
+--echo sessions,  mem (Kb)
+--source "report_mysqld_memory.inc"
+let $ii = 20;
+while ($ii)
+{
+  --source "create_detached_sessions.inc"
+  --source "report_mysqld_memory.inc"
+  dec $ii;
+}
+--echo
+
+drop user proxyuser;
+drop user scriptro;
+
+drop database db_rpc;
