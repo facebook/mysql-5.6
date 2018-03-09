@@ -35,7 +35,8 @@ SELECT @my_var;
 
 # Now pretend we are have a different ipaddr and expect an error
 set global debug= "+d,rpc_id_different_ip";
---error 2013
+--replace_result $rpc_id <rpc_id>
+--error ER_RPC_HOST_MISMATCH
 SELECT @my_var;
 disconnect con1;
 

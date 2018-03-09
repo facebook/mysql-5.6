@@ -1188,27 +1188,6 @@ bool do_command(THD *thd)
 
   DBUG_ASSERT(packet_length);
 
-  if (command == COM_QUERY_ATTRS) {
-    auto packet_ptr = packet+1;
-    /*
-      Save query attributes.
-     */
-    size_t attrs_len= net_field_length((uchar**) &packet_ptr);
-    thd->set_query_attrs(CSET_STRING(packet_ptr, attrs_len, thd->charset()));
-
-    auto attrs_len_bytes = net_length_size(attrs_len);
-    packet_length -= (attrs_len_bytes + attrs_len);
-    packet += attrs_len_bytes + attrs_len; // command byte gets jumped below
-
-    bool is_rpc_query = false;
-    return_value= handle_com_rpc(thd, packet+1, (uint) (packet_length-1),
-                                  &is_rpc_query);
-    if (is_rpc_query)
-      goto out;
-    // otherwise let it fall through to dispatch_command()
-    command = COM_QUERY;
-  }
-
   return_value= dispatch_command(command, thd, packet+1, (uint) (packet_length-1));
 
 out:
@@ -1554,6 +1533,10 @@ static std::shared_ptr<utils::PerfCounterFactory> pc_factory=
   utils::PerfCounterFactory::getFactory(perf_counter_factory_name);
 #endif
 
+static inline bool is_query(enum enum_server_command command) {
+  return command == COM_QUERY || command == COM_QUERY_ATTRS;
+}
+
 /**
   Perform one connection-level (COM_XXXX) command.
 
@@ -1576,7 +1559,7 @@ static std::shared_ptr<utils::PerfCounterFactory> pc_factory=
         COM_QUIT/COM_SHUTDOWN
 */
 bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
-                      uint packet_length, Srv_session* srv_session)
+                      uint packet_length)
 {
   NET *net= &thd->net;
   bool error= 0;
@@ -1590,6 +1573,22 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
   struct system_status_var *query_start_status_ptr= NULL;
   DBUG_ENTER("dispatch_command");
   DBUG_PRINT("info",("packet: '%*.s'; command: %d", packet_length, packet, command));
+
+  THD *save_thd = nullptr;
+  std::shared_ptr<Srv_session> srv_session;
+
+  if (command == COM_QUERY_ATTRS) {
+    auto packet_ptr = packet;
+    /*
+      Save query attributes.
+     */
+    size_t attrs_len= net_field_length((uchar**) &packet_ptr);
+    thd->set_query_attrs(CSET_STRING(packet_ptr, attrs_len, thd->charset()));
+
+    auto bytes_to_skip = attrs_len + net_length_size(attrs_len);
+    packet_length -= bytes_to_skip;
+    packet += bytes_to_skip; // command byte gets jumped below
+  }
 
 #ifndef EMBEDDED_LIBRARY
   // do collection of samples for passed in "traceid"
@@ -1713,7 +1712,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
     COM_QUIT should work even for expired statements.
   */
   if (unlikely(thd->security_ctx->password_expired &&
-               command != COM_QUERY &&
+               !is_query(command) &&
                command != COM_STMT_CLOSE &&
                command != COM_STMT_SEND_LONG_DATA &&
                command != COM_PING &&
@@ -1837,6 +1836,23 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
   {
     mysqld_stmt_reset(thd, packet, packet_length);
     break;
+  }
+  case COM_QUERY_ATTRS:
+  {
+    bool rpc_error;
+    std::tie(rpc_error, srv_session) = handle_com_rpc(thd);
+    if (rpc_error) {
+      goto done;
+    }
+
+    if (srv_session != nullptr) {
+      // Switch to use the detached session's thd - will be restored at the end
+      save_thd = thd;
+      thd = srv_session->get_thd();
+      thd->set_command(command);
+    }
+
+    // Fall through to COM_QUERY
   }
   case COM_QUERY:
   {
@@ -2361,10 +2377,9 @@ done:
   if (thd->killed)
     thd->send_kill_message();
 
-  // if it's a COM RPC, set session id in message to be appended in OK and
-  // and mark session to be released before sending the response out.
+  // if it's a COM RPC, set session id in message to be appended in OK
   if (srv_session) {
-    srv_session_end_statement(srv_session);
+    srv_session_end_statement(*srv_session);
   }
 
   thd->protocol->end_statement();
@@ -2407,7 +2422,7 @@ done:
   {
     int res MY_ATTRIBUTE((unused));
     res= (int) thd->is_error();
-    if (command == COM_QUERY)
+    if (is_query(command))
     {
       MYSQL_QUERY_DONE(res);
     }
@@ -2430,14 +2445,14 @@ done:
     {
       USER_STATS *us= thd_get_user_stats(thd);
       update_user_stats_after_statement(us, thd, wall_time,
-                                        command != COM_QUERY,
+                                        !is_query(command),
                                         FALSE, &start_perf_read,
                                         &start_perf_read_blob,
                                         &start_perf_read_primary,
                                         &start_perf_read_secondary);
       DB_STATS *dbstats= thd->db_stats;
       if (dbstats)
-        update_db_stats_after_statement(dbstats, thd, command != COM_QUERY);
+        update_db_stats_after_statement(dbstats, thd, !is_query(command));
     }
 #endif
   }
@@ -2446,6 +2461,13 @@ done:
   {
     USER_STATS *us= thd_get_user_stats(thd);
     us->queries_empty.inc();
+  }
+
+  // if it's a COM RPC, clenaup all the server session information
+  if (srv_session) {
+    thd = save_thd;
+    cleanup_com_rpc(thd, std::move(srv_session));
+    thd->set_command(COM_SLEEP);
   }
 
   DBUG_RETURN(error);

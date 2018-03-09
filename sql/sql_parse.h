@@ -116,7 +116,7 @@ int mysql_execute_command(THD *thd, ulonglong *statement_start_time,
 bool do_command(THD *thd);
 void do_handle_bootstrap(THD *thd);
 bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
-                      uint packet_length, Srv_session* srv_session=NULL);
+                      uint packet_length);
 void log_slow_statement(THD *thd, struct system_status_var* query_start_status);
 void log_to_datagram(THD *thd, ulonglong end_utime_of_query);
 bool write_log_to_socket(int sockfd, THD *thd, ulonglong end_utime_of_query);

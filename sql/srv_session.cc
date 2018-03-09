@@ -752,31 +752,6 @@ void Srv_session::set_detached()
   thd_set_thread_stack(&thd_, NULL);
 }
 
-int Srv_session::execute_query(char* packet, uint packet_length,
-                                 const CHARSET_INFO * client_cs)
-{
-  DBUG_ENTER("Srv_session::execute_query");
-
-  if (client_cs &&
-      thd_.variables.character_set_results != client_cs &&
-      thd_init_client_charset(&thd_, client_cs->number))
-    DBUG_RETURN(1);
-
-  mysql_audit_release(&thd_);
-
-  DBUG_ASSERT(thd_.m_statement_psi == NULL);
-  thd_.m_statement_psi= MYSQL_START_STATEMENT(&thd_.m_statement_state,
-                                             stmt_info_new_packet.m_key,
-                                             thd_.db,
-                                             thd_.db_length,
-                                             thd_.charset());
-
-  int ret = dispatch_command(COM_QUERY, &thd_, packet, packet_length, this);
-
-  DBUG_RETURN(ret);
-}
-
-
 static void append_session_id_in_ok(THD* session_thd) {
   session_thd->get_stmt_da()->set_message("%s:%d",
             Srv_session::RpcIdAttr, session_thd->thread_id());
