@@ -12,4 +12,4 @@ SET @@global.ROCKSDB_CREATE_CHECKPOINT = DEFAULT;
 SET @@session.ROCKSDB_CREATE_CHECKPOINT = 444;
 ERROR HY000: Variable 'rocksdb_create_checkpoint' is a GLOBAL variable and should be set with SET GLOBAL
 SET @@global.ROCKSDB_CREATE_CHECKPOINT = @start_value;
-ERROR HY000: Status error 4 received from RocksDB: Invalid argument: invalid checkpoint directory name
+ERROR HY000: Got error 4 'Invalid argument: invalid checkpoint directory name' from ROCKSDB
