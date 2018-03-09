@@ -152,21 +152,6 @@ public:
   bool close();
 
   /**
-    Executes a query.
-
-    @param packet     Pointer to beginning of query in packet
-    @param length     Query length
-    @param client_cs  The charset for the string data input (COM_QUERY
-                      for example)
-
-    @returns
-      1   error
-      0   success
-  */
-  int execute_query(char* packet, uint packet_length,
-                      const CHARSET_INFO * client_cs);
-
-  /**
     Returns the internal THD object
   */
   inline THD* get_thd() { return &thd_; }

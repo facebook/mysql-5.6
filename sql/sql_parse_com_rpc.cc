@@ -1,3 +1,4 @@
+#include "sql_parse.h"
 #include "sql_parse_com_rpc.h"
 
 #include "sql_acl.h"
@@ -26,8 +27,10 @@ static bool check_for_attribute(THD *thd, const char *attr,
   return true;
 }
 
-bool update_default_session_object(std::shared_ptr<Srv_session> srv_session,
-                                  THD* conn_thd, bool used_default_srv_session)
+static bool update_default_session_object(
+    std::shared_ptr<Srv_session>& srv_session,
+    THD* conn_thd,
+    bool used_default_srv_session)
 {
   if (srv_session->session_state_changed())
   {
@@ -72,19 +75,21 @@ void reset_conn_thd_after_query_execution(THD* thd) {
 
 /*
   @retval
-    0  success
+    pair(0, nullptr)  success with no rpc_role or rpc_id specificed
   @retval
-    1  failure
+    pair(0, session)  success - the session is the one specified by the
+                                rpc_role or rpc_id
+  @retval
+    pair(1, nullptr)  failure
 */
-bool handle_com_rpc(THD *conn_thd, char* packet, uint packet_length,
-                    bool* is_rpc_query)
+std::pair<bool, std::shared_ptr<Srv_session>>  handle_com_rpc(THD *conn_thd)
 {
   DBUG_ENTER(__func__);
   std::string rpc_role, rpc_db, rpc_id;
   bool used_default_srv_session = false;
-  bool ret = true;
   Security_context* conn_security_ctx = NULL;
   THD* srv_session_thd = NULL;
+  std::shared_ptr<Srv_session> srv_session;
 
   check_for_attribute(conn_thd, RpcRoleAttr, rpc_role);
   check_for_attribute(conn_thd, RpcDbAttr, rpc_db);
@@ -94,16 +99,11 @@ bool handle_com_rpc(THD *conn_thd, char* packet, uint packet_length,
   {
     // not an rpc command;
     DBUG_PRINT("info", ("Not an RPC query"));
-    *is_rpc_query = false;
-    DBUG_RETURN(true);
+    DBUG_RETURN(std::make_pair(false, std::move(srv_session)));
   }
-
-  *is_rpc_query = true;
 
   DBUG_PRINT("info", ("rpc_role='%s', rpc_db='%s', rpc_id='%s'",
                       rpc_role.c_str(), rpc_db.c_str(), rpc_id.c_str()));
-
-  std::shared_ptr<Srv_session> srv_session;
 
   // TODO send a specific error code/msg for all exit on error
 
@@ -112,9 +112,8 @@ bool handle_com_rpc(THD *conn_thd, char* packet, uint packet_length,
     srv_session = Srv_session::access_session(rpc_id);
     if (!srv_session)
     {
-      DBUG_PRINT("info", ("Didn't find srv_session, rpc_id='%s'",
-                          rpc_id.c_str()));
-      goto done;
+      my_error(ER_RPC_INVALID_ID, MYF(0), rpc_id.c_str());
+      goto error;
     }
 
     // Check to make sure the current user is coming from the same machine as
@@ -128,12 +127,8 @@ bool handle_com_rpc(THD *conn_thd, char* packet, uint packet_length,
 
     if (srv_session->get_host_or_ip() != curr_host_or_ip)
     {
-      DBUG_PRINT("info",
-          ("Found session's host/ip (%s) does not match current session (%s)",
-           srv_session->get_host_or_ip().c_str(),
-           conn_thd->main_security_ctx.host_or_ip
-          ));
-      goto done;
+      my_error(ER_RPC_HOST_MISMATCH, MYF(0), rpc_id.c_str());
+      goto error;
     }
 
     DBUG_PRINT("info", ("Found session in map, rpc_id=%s", rpc_id.c_str()));
@@ -150,9 +145,10 @@ bool handle_com_rpc(THD *conn_thd, char* packet, uint packet_length,
 
       if (srv_session->open())
       {
-        DBUG_PRINT("error", ("Failed to open srv session"));
-        goto done;
+        my_error(ER_RPC_SESSION_OPEN, MYF(0));
+        goto error;
       }
+
       // enable state change tracking
       srv_session->get_thd()->session_tracker.get_tracker(
                 SESSION_STATE_CHANGE_TRACKER)->force_enable();
@@ -175,37 +171,38 @@ bool handle_com_rpc(THD *conn_thd, char* packet, uint packet_length,
             conn_security_ctx->get_ip()->c_ptr(),
             rpc_role.c_str()))
     {
-      DBUG_PRINT("error", ("Current user does not have permissions to run "
-                           "queries as '%s'", rpc_role.c_str()));
-      goto done;
+      my_error(ER_RPC_NO_PERMISSION, MYF(0), conn_security_ctx->user,
+          rpc_role.c_str());
+      goto error;
     }
 
     if (srv_session->switch_to_user(rpc_role.c_str(),
           conn_security_ctx->get_host()->c_ptr(),
           conn_security_ctx->get_ip()->c_ptr(), rpc_db.c_str()))
     {
-      DBUG_PRINT("error", ("Switching db user failed"));
-      goto done;
+      my_error(ER_RPC_FAILED_TO_SWITCH_USER, MYF(0), rpc_role.c_str());
+      goto error;
     }
 
     // update db
     if (srv_session->get_thd()->set_db(rpc_db.c_str(), rpc_db.size()))
     {
-      DBUG_PRINT("error", ("Setting db failed"));
-      goto done;
+      my_error(ER_RPC_FAILED_TO_SWITCH_DB, MYF(0), rpc_db.c_str());
+      goto error;
     }
   }
 
   if (srv_session->attach())
   {
-    DBUG_PRINT("error", ("Failed to attach srv session"));
-    goto done;
+    my_error(ER_RPC_FAILED_TO_ATTACH, MYF(0));
+    goto error;
   }
 
   if (rpc_id.empty()) { // if is new session
     // Session needs to be stored in session map for "show srv_sessions"
     if (Srv_session::store_session(srv_session)) {
-      goto done;
+      my_error(ER_RPC_FAILED_TO_STORE_DETACHED_SESSION, MYF(0));
+      goto error;
     }
   }
 
@@ -226,22 +223,35 @@ bool handle_com_rpc(THD *conn_thd, char* packet, uint packet_length,
   // set srv_session THD, used by "show processlist"
   conn_thd->set_attached_srv_session(srv_session);
 
-  DBUG_PRINT("info", ("handle_com_rpc thread_thd=%p session_thd=%p "
-                      "query='%.*s' query_len=%d", conn_thd, srv_session_thd,
-                      packet_length, packet, packet_length));
+  DBUG_PRINT("info", ("handle_com_rpc thread_thd=%p session_thd=%p",
+                      conn_thd, srv_session_thd));
 
-  ret = srv_session->execute_query(packet, packet_length, 0);
+  DBUG_RETURN(std::make_pair(false, std::move(srv_session)));
 
-  if (!ret)  // if query execution success
-  {
-    used_default_srv_session = update_default_session_object(srv_session,
-                                  conn_thd, used_default_srv_session);
+error:
+  // If we have a srv_session and it is not attached as the default session
+  // for a THD, enable idle timeouts on it.
+  if (srv_session != nullptr && !used_default_srv_session) {
+    srv_session->enableWaitTimeout();
   }
-  else
-  {
-    // TODO error handling
-    // remove session from map if conn THD gets destroyed
-  }
+
+  srv_session = nullptr;
+
+  DBUG_RETURN(std::make_pair(true, std::move(srv_session)));
+}
+
+// Do all the cleanup necessary for a query with RPC_* attributes
+void cleanup_com_rpc(THD* conn_thd, std::shared_ptr<Srv_session> srv_session) {
+  DBUG_ENTER(__func__);
+
+  // Was this already the default session for a THD?
+  bool used_default_srv_session =
+      srv_session == conn_thd->get_default_srv_session();
+
+  // Check to see if we remove it from the default session because of
+  // some state change
+  used_default_srv_session = update_default_session_object(
+      srv_session, conn_thd, used_default_srv_session);
 
   // reset the srv session thd
   conn_thd->set_attached_srv_session(nullptr);
@@ -253,7 +263,6 @@ bool handle_com_rpc(THD *conn_thd, char* packet, uint packet_length,
   // Install back connection THD object as current_thd
   conn_thd->store_globals();
 
-done:
   // If we have a srv_session and it is not expiring at the end of this
   // function, enable idle timeouts on it.
   if (srv_session != nullptr && !used_default_srv_session) {
@@ -261,16 +270,22 @@ done:
   }
 
   reset_conn_thd_after_query_execution(conn_thd);
-  DBUG_RETURN(ret);
+  DBUG_VOID_RETURN;
 }
 
-void srv_session_end_statement(Srv_session* session) {
-  session->end_statement();
+// Mark the statement as ended.
+void srv_session_end_statement(Srv_session& session) {
+  session.end_statement();
 }
 
-#else // #ifdef EMBEDDED_LIBRARY
+#else
 
-void srv_session_end_statement(Srv_session* session) {}
+void cleanup_com_rpc(THD* conn_thd, std::shared_ptr<Srv_session> srv_session) {}
+void srv_session_end_statement(Srv_session& session) {}
+
+std::pair<bool, std::shared_ptr<Srv_session>> handle_com_rpc(THD *conn_thd) {
+  return std::make_pair(false, nullptr);
+}
 
 #endif // #ifndef EMBEDDED_LIBRARY
 

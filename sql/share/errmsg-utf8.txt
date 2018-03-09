@@ -7350,6 +7350,30 @@ ER_DB_METADATA_READ_ERROR
 ER_UPDATES_WITH_EXPLICIT_SNAPSHOT
   eng "Can't execute updates when an explicit snapshot is associated with the connection using CREATE|ATTACH EXPLICIT [ENGINE] SNAPSHOT"
 
+ER_RPC_INVALID_ID
+  eng "The specified detached session id (%s) is an unexpected format"
+
+ER_RPC_HOST_MISMATCH
+  eng "The client attempting to use a detached session (%s) is not the one that created it"
+
+ER_RPC_SESSION_OPEN
+  eng "Failed to open a new detached session"
+
+ER_RPC_NO_PERMISSION
+  eng "User %s does not have PROXY privilege for user %s"
+
+ER_RPC_FAILED_TO_SWITCH_USER
+  eng "Failed to switch to the proxied user (%s)"
+
+ER_RPC_FAILED_TO_SWITCH_DB
+  eng "Failed to switch to the proxied user's database (%s)"
+
+ER_RPC_FAILED_TO_ATTACH
+  eng "Session already in use by another query"
+
+ER_RPC_FAILED_TO_STORE_DETACHED_SESSION
+  eng "Failed to store the detached session"
+
 #
 #  End of 5.6 error messages.
 #

@@ -5,7 +5,7 @@
 // Function called when parsing a COM_QUERY_ATTR.
 // It checkes if it contains the RPC specific attributes and if it does it
 // executes the query in a detached client session.
-bool handle_com_rpc(THD *thd, char* packet, uint packet_length,
-                    bool* is_rpc_query);
+std::pair<bool, std::shared_ptr<Srv_session>> handle_com_rpc(THD *thd);
+void cleanup_com_rpc(THD *thd, std::shared_ptr<Srv_session> srv_session);
+void srv_session_end_statement(Srv_session& session);
 
-void srv_session_end_statement(Srv_session* session);

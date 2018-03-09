@@ -57,9 +57,10 @@ connect (close_conn,127.0.0.1,root,,db_default);
 
 # add an rpc_id with a wrong format
 query_attrs_add rpc_id "123wrong_format";
-# Right now we just close the connection. TODO: send specific error messages.
---error 2013
+--error ER_RPC_INVALID_ID
 SELECT 1;
+
+disconnect close_conn;
 
 --echo
 --echo # Case 3: Send queries that change state and create client session
@@ -218,7 +219,7 @@ while($i > 1)
 {
   connection con$i;
   query_attrs_add rpc_id $rpc_id1;
-  --error 2013
+  --error ER_RPC_FAILED_TO_ATTACH
   select 1;
   disconnect con$i;
   dec $i;
@@ -301,7 +302,8 @@ select 1;
 
 --echo # Trying to use the rpc_id7 will get an error
 query_attrs_add rpc_id $rpc_id;
---error 2013
+--replace_result $rpc_id <rpc_id>
+--error ER_RPC_INVALID_ID
 select 1;
 
 --echo
@@ -439,7 +441,7 @@ connect (conproxy,localhost,proxyuser,,);
 # attempt to run as scriptro from proxyuser - should fail
 query_attrs_add rpc_role scriptro;
 query_attrs_add rpc_db db_rpc;
---error 2013
+--error ER_RPC_NO_PERMISSION
 SELECT 1;
 disconnect conproxy;
 
@@ -462,7 +464,7 @@ revoke proxy on scriptro from proxyuser;
 
 # proxyuser should no longer have proxy rights on scriptro
 connection conproxy;
---error 2013
+--error ER_RPC_NO_PERMISSION
 SELECT 1;
 disconnect conproxy;
 
@@ -485,7 +487,7 @@ connection default;
 revoke proxy on '%' from proxyuser;
 
 connection conproxy;
---error 2013
+--error ER_RPC_NO_PERMISSION
 SELECT user();
 disconnect conproxy;
 
@@ -524,7 +526,8 @@ SELECT sleep(6);
 
 # A query 6 seconds later should fail
 connection con1;
---error 2013
+--replace_result $rpc_id <rpc_id>
+--error ER_RPC_INVALID_ID
 SELECT 1;
 disconnect con1;
 

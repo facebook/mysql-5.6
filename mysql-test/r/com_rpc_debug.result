@@ -8,7 +8,7 @@ SELECT @my_var;
 new_value
 set global debug= "+d,rpc_id_different_ip";
 SELECT @my_var;
-ERROR HY000: Lost connection to MySQL server during query
+ERROR HY000: The client attempting to use a detached session (<rpc_id>) is not the one that created it
 set global debug= "-d,rpc_id_different_ip";
 SELECT @my_var;
 @my_var

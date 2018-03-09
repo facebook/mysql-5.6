@@ -27,7 +27,7 @@ CREATE TABLE t2 (i int, s char (10));
 # Send a wrong formatted rpc_id
 
 SELECT 1;
-ERROR HY000: Lost connection to MySQL server during query
+ERROR HY000: The specified detached session id (123wrong_format) is an unexpected format
 
 # Case 3: Send queries that change state and create client session
 
@@ -79,13 +79,13 @@ UNLOCK TABLES;
 
 select sleep(5);
 select 1;
-ERROR HY000: Lost connection to MySQL server during query
+ERROR HY000: Session already in use by another query
 select 1;
-ERROR HY000: Lost connection to MySQL server during query
+ERROR HY000: Session already in use by another query
 select 1;
-ERROR HY000: Lost connection to MySQL server during query
+ERROR HY000: Session already in use by another query
 select 1;
-ERROR HY000: Lost connection to MySQL server during query
+ERROR HY000: Session already in use by another query
 sleep(5)
 0
 
@@ -145,7 +145,7 @@ select 1;
 1
 # Trying to use the rpc_id7 will get an error
 select 1;
-ERROR HY000: Lost connection to MySQL server during query
+ERROR HY000: The specified detached session id (<rpc_id>) is an unexpected format
 
 # Kill Query in Attached Session
 SELECT GET_LOCK("my_lock", 0);
@@ -155,10 +155,10 @@ SET @my_var='new_value';
 SELECT GET_LOCK('my_lock', 3600);
 select * from information_schema.srv_sessions where id=rpc_id;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	CONN_ID
-rpc_id	root	localhost	db_default	Query	0	User lock	SELECT GET_LOCK('my_lock', 3600)	1
+rpc_id	root	localhost	db_default	Query attributes	0	User lock	SELECT GET_LOCK('my_lock', 3600)	1
 select * from information_schema.processlist where SRV_ID=rpc_id;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	SRV_ID
-1	root	localhost	db_default	Query	0	User lock	SELECT GET_LOCK('my_lock', 3600)	rpc_id
+1	root	localhost	db_default	Query attributes	0	User lock	SELECT GET_LOCK('my_lock', 3600)	rpc_id
 KILL QUERY rpc_id;
 select * from information_schema.srv_sessions where id=rpc_id;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	CONN_ID
@@ -209,7 +209,7 @@ count(id)
 
 create user proxyuser;
 SELECT 1;
-ERROR HY000: Lost connection to MySQL server during query
+ERROR HY000: User proxyuser does not have PROXY privilege for user scriptro
 grant proxy on scriptro to proxyuser;
 SELECT 1;
 1
@@ -222,7 +222,7 @@ database()
 db_rpc
 revoke proxy on scriptro from proxyuser;
 SELECT 1;
-ERROR HY000: Lost connection to MySQL server during query
+ERROR HY000: User proxyuser does not have PROXY privilege for user scriptro
 create user scriptrw;
 grant proxy on '%' to proxyuser;
 SELECT user();
@@ -233,7 +233,7 @@ user()
 scriptrw@localhost
 revoke proxy on '%' from proxyuser;
 SELECT user();
-ERROR HY000: Lost connection to MySQL server during query
+ERROR HY000: User proxyuser does not have PROXY privilege for user scriptrw
 
 # Case 10: Make sure a detached session times out when idle
 
@@ -252,7 +252,7 @@ SELECT sleep(6);
 sleep(6)
 0
 SELECT 1;
-ERROR HY000: Lost connection to MySQL server during query
+ERROR HY000: The specified detached session id (<rpc_id>) is an unexpected format
 
 # Case 11: Make sure a detached session that times out cleans up
 
