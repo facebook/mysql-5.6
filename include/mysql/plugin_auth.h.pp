@@ -231,6 +231,7 @@ struct st_slave_gtid_info
   const char* db;
   const char* gtid;
 };
+struct snapshot_info_st;
 int thd_in_lock_tables(const void* thd);
 int thd_tablespace_op(const void* thd);
 long long thd_test_options(const void* thd, long long test_options);
@@ -263,11 +264,8 @@ void *thd_get_ha_data(const void* thd, const struct handlerton *hton);
 void thd_set_ha_data(void* thd, const struct handlerton *hton,
                      const void *ha_data);
 char mysql_bin_log_is_open(void);
-void mysql_bin_log_lock_commits(void);
-void mysql_bin_log_unlock_commits(char* binlog_file,
-                                  unsigned long long* binlog_pos,
-                                  char** gtid_executed,
-                                  int* gtid_executed_length);
+void mysql_bin_log_lock_commits(struct snapshot_info_st *ss_info);
+void mysql_bin_log_unlock_commits(const struct snapshot_info_st *ss_info);
 #include <mysql/plugin_auth_common.h>
 typedef struct st_plugin_vio_info
 {

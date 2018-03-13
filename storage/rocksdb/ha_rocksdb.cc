@@ -3852,14 +3852,12 @@ static inline void rocksdb_register_tx(handlerton *const hton, THD *const thd,
     InnoDB and RocksDB transactions.
 */
 static int rocksdb_start_tx_and_assign_read_view(
-    handlerton *const hton,          /*!< in: RocksDB handlerton */
-    THD *const thd,                  /*!< in: MySQL thread handle of the
-                                     user for whom the transaction should
-                                     be committed */
-    char *const binlog_file,         /* out: binlog file for last commit */
-    ulonglong *const binlog_pos,     /* out: binlog pos for last commit */
-    char **gtid_executed,            /* out: Gtids logged until last commit */
-    int *const gtid_executed_length) /*out: Length of gtid_executed string */
+    handlerton *const hton,    /*!< in: RocksDB handlerton */
+    THD *const thd,            /*!< in: MySQL thread handle of the
+                               user for whom the transaction should
+                               be committed */
+    snapshot_info_st *ss_info) /*!< in/out: Snapshot info like binlog file, pos,
+                               gtid executed and snapshot ID */
 {
   ulong const tx_isolation = my_core::thd_tx_isolation(thd);
 
@@ -3868,11 +3866,12 @@ static int rocksdb_start_tx_and_assign_read_view(
     return HA_EXIT_FAILURE;
   }
 
-  if (binlog_file) {
-    if (binlog_pos && mysql_bin_log_is_open())
-      mysql_bin_log_lock_commits();
-    else
+  if (ss_info) {
+    if (mysql_bin_log_is_open()) {
+      mysql_bin_log_lock_commits(ss_info);
+    } else {
       return HA_EXIT_FAILURE;
+    }
   }
 
   Rdb_transaction *const tx = get_or_create_tx(thd);
@@ -3883,9 +3882,9 @@ static int rocksdb_start_tx_and_assign_read_view(
   rocksdb_register_tx(hton, thd, tx);
   tx->acquire_snapshot(true);
 
-  if (binlog_file)
-    mysql_bin_log_unlock_commits(binlog_file, binlog_pos, gtid_executed,
-                                 gtid_executed_length);
+  if (ss_info) {
+    mysql_bin_log_unlock_commits(ss_info);
+  }
 
   return HA_EXIT_SUCCESS;
 }

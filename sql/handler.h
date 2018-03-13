@@ -373,6 +373,10 @@ static const uint MYSQL_START_TRANS_OPT_READ_ONLY                 = 2;
 static const uint MYSQL_START_TRANS_OPT_READ_WRITE                = 4;
 // WITH CONSISTENT INNODB|ROCKSDB SNAPSHOT option
 static const uint MYSQL_START_TRANS_OPT_WITH_CONS_ENGINE_SNAPSHOT = 8;
+// WITH SHARED INNODB|ROCKSDB SNAPSHOT option
+static const uint MYSQL_START_TRANS_OPT_WITH_SHAR_ENGINE_SNAPSHOT = 16;
+// WITH EXISTING INNODB|ROCKSDB SNAPSHOT option
+static const uint MYSQL_START_TRANS_OPT_WITH_EXIS_ENGINE_SNAPSHOT = 32;
 
 /* Flags for method is_fatal_error */
 #define HA_CHECK_DUP_KEY 1
@@ -816,6 +820,37 @@ struct handler_iterator {
   void *buffer;
 };
 
+enum snapshot_operation
+{
+  SNAPSHOT_CREATE,
+  SNAPSHOT_ATTACH,
+  SNAPSHOT_RELEASE,
+  SNAPSHOT_NONE
+};
+
+struct snapshot_info_st
+{
+  std::string binlog_file;
+  ulonglong binlog_pos= 0;
+  std::string gtid_executed;
+  ulonglong snapshot_id= 0;
+  enum snapshot_operation op= snapshot_operation::SNAPSHOT_NONE;
+};
+
+class explicit_snapshot
+{
+protected:
+  virtual ~explicit_snapshot()
+  {
+  }
+
+public:
+  snapshot_info_st ss_info;
+  explicit_snapshot(snapshot_info_st ss_info) : ss_info(ss_info)
+  {
+  }
+};
+
 class handler;
 /*
   handlerton is a singleton structure - one instance per storage engine -
@@ -909,11 +944,12 @@ struct handlerton
    handler *(*create)(handlerton *hton, TABLE_SHARE *table, MEM_ROOT *mem_root);
    void (*drop_database)(handlerton *hton, char* path);
    int (*panic)(handlerton *hton, enum ha_panic_function flag);
+   bool (*explicit_snapshot)(handlerton *hton, THD *thd,
+                             snapshot_info_st *ss_info);
    int (*start_consistent_snapshot)(handlerton *hton, THD *thd,
-                                    char *binlog_file,
-                                    ulonglong* binlog_pos,
-                                    char **gtid_executed,
-                                    int* gtid_executed_length);
+                                    snapshot_info_st *ss_info);
+   int (*start_shared_snapshot)(handlerton *hton, THD *thd,
+                                    snapshot_info_st *ss_info);
    bool (*flush_logs)(handlerton *hton, unsigned long long target_lsn);
    bool (*show_status)(handlerton *hton, THD *thd, stat_print_fn *print, enum ha_stat_type stat);
    uint (*partition_flags)();
@@ -3690,11 +3726,12 @@ int ha_change_key_cache(KEY_CACHE *old_key_cache, KEY_CACHE *new_key_cache);
 int ha_release_temporary_latches(THD *thd);
 
 /* transactions: interface to handlerton functions */
-int ha_start_consistent_snapshot(THD *thd, char *binlog_file,
-                                 ulonglong* binlog_pos,
-                                 char **gtid_executed,
-                                 int* gtid_executed_length,
+int ha_start_consistent_snapshot(THD *thd, snapshot_info_st *ss_info,
                                  handlerton *hton);
+int ha_start_shared_snapshot(THD *thd, snapshot_info_st *ss_info,
+                             handlerton *hton);
+int ha_start_existing_snapshot(THD *thd, snapshot_info_st *ss_info,
+                               handlerton *hton);
 int ha_commit_or_rollback_by_xid(THD *thd, XID *xid, bool commit);
 int ha_commit_trans(THD *thd, bool all, bool async,
                     bool ignore_global_read_lock= false);
@@ -3720,6 +3757,9 @@ int ha_rollback_to_savepoint(THD *thd, SAVEPOINT *sv);
 bool ha_rollback_to_savepoint_can_release_mdl(THD *thd);
 int ha_savepoint(THD *thd, SAVEPOINT *sv);
 int ha_release_savepoint(THD *thd, SAVEPOINT *sv);
+
+bool ha_explicit_snapshot(THD *thd, handlerton *hton,
+                          snapshot_info_st *ss_info);
 
 /* Build pushed joins in handlers implementing this feature */
 int ha_make_pushed_joins(THD *thd, const AQP::Join_plan* plan);

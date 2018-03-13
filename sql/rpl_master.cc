@@ -3240,19 +3240,15 @@ int reset_master(THD* thd)
 
   @param thd                  Pointer to THD object for the client thread executing
                               the statement.
-  @param file                 Name of the current bin log.
-  @param pos                  Position int he current bin log.
-  @param gtid_executed        Logged gtids in binlogs.
-  @param gtid_executed_length Length of gtid_executed string.
+  @param ss_info              Snapshot context that contains binlog file/pos,
+                              executed gtids and snapshot id
   @param need_ok              [out] Whether caller needs to call my_ok vs it
                               having been done in this function via my_eof.
 
   @retval FALSE success
   @retval TRUE failure
 */
-bool show_master_offset(THD* thd, const char* file, ulonglong pos,
-                        const char* gtid_executed, int gtid_executed_length,
-                        bool *need_ok)
+bool show_master_offset(THD* thd, snapshot_info_st &ss_info, bool *need_ok)
 {
   Protocol *protocol= thd->protocol;
   DBUG_ENTER("show_master_offset");
@@ -3261,7 +3257,12 @@ bool show_master_offset(THD* thd, const char* file, ulonglong pos,
   field_list.push_back(new Item_return_int("Position",20,
                                            MYSQL_TYPE_LONGLONG));
   field_list.push_back(new Item_empty_string("Gtid_executed",
-                                             gtid_executed_length));
+                                             ss_info.gtid_executed.length()));
+  if (ss_info.snapshot_id)
+  {
+    field_list.push_back(new Item_return_int("Snapshot_ID",20,
+                                            MYSQL_TYPE_LONGLONG));
+  }
 
   if (protocol->send_result_set_metadata(&field_list,
                                          Protocol::SEND_NUM_ROWS |
@@ -3270,12 +3271,17 @@ bool show_master_offset(THD* thd, const char* file, ulonglong pos,
 
   protocol->prepare_for_resend();
 
-  int dir_len = dirname_length(file);
-  protocol->store(file + dir_len, &my_charset_bin);
+  int dir_len = dirname_length(ss_info.binlog_file.c_str());
+  protocol->store(ss_info.binlog_file.c_str() + dir_len, &my_charset_bin);
 
-  protocol->store(pos);
+  protocol->store(ss_info.binlog_pos);
 
-  protocol->store(gtid_executed, &my_charset_bin);
+  protocol->store(ss_info.gtid_executed.c_str(), &my_charset_bin);
+
+  if (ss_info.snapshot_id)
+  {
+    protocol->store(ss_info.snapshot_id);
+  }
 
   if (protocol->write())
     DBUG_RETURN(TRUE);

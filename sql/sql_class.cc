@@ -1713,6 +1713,9 @@ void THD::release_resources()
   mysql_mutex_lock(&LOCK_thd_data);
   m_release_resources_started = 1;
 
+  if (m_explicit_snapshot)
+    set_explicit_snapshot(nullptr);
+
   /* if we are still in admission control, release it */
   if (is_in_ac)
   {

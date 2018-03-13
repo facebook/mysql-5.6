@@ -1642,14 +1642,15 @@ static
 int
 innobase_start_trx_and_assign_read_view(
 /*====================================*/
-	handlerton*	hton,		/* in: Innodb handlerton */
-	THD*		thd,		/* in: MySQL thread handle of the
-					user for whom the transaction should
-					be committed */
-	char*		binlog_file,	/* out: binlog file for last commit */
-	ulonglong*	binlog_pos,	/* out: binlog pos for last commit */
-	char**	gtid_executed,	/* out: Gtids logged until last commit */
-	int* gtid_executed_length);	/* out: Length of gtid_executed string */
+	handlerton*		hton,		/* in: Innodb handlerton */
+	THD*			thd,		/* in: MySQL thread handle of
+						the user for whom the
+						transaction should be
+						committed */
+	snapshot_info_st*	ss_info);	/*!< out: Snapshot context
+						containing binlog file/pos,
+						executed gtids and snapshot id*/
+
 /****************************************************************//**
 Flushes InnoDB logs to disk and makes a checkpoint. Really, a commit flushes
 the logs, and the name of this function should be innobase_checkpoint.
@@ -4375,14 +4376,14 @@ static
 int
 innobase_start_trx_and_assign_read_view(
 /*====================================*/
-	handlerton*	hton,		/*!< in: Innodb handlerton */
-	THD*		thd,		/*!< in: MySQL thread handle of the
-					user for whom the transaction should
-					be committed */
-	char*		binlog_file,	/* out: binlog file for last commit */
-	ulonglong*	binlog_pos,	/* out: binlog pos for last commit */
-	char**	gtid_executed,	/* out: Gtids logged until last commit */
-	int*	gtid_executed_length)	/*out: Length of gtid_executed string */
+	handlerton*		hton,		/* in: Innodb handlerton */
+	THD*			thd,		/* in: MySQL thread handle of
+						the user for whom the
+						transaction should be
+						committed */
+	snapshot_info_st*	ss_info)	/*!< out: Snapshot context
+						containing binlog file/pos,
+						executed gtids and snapshot id*/
 {
 	trx_t*	trx;
 	int	error_result = 0;
@@ -4407,21 +4408,21 @@ innobase_start_trx_and_assign_read_view(
 	trx->is_primary = true;
 	trx_start_if_not_started_xa(trx);
 
-	if (binlog_file) {
-		/* When binlog_file is set, this code must return the current
+	if (ss_info) {
+		/* When ss_info is set, this code must return the current
 		binlog file and position for this snapshot. That can only
 		be done when the binlog is open and when the read view is
 		assigned now (not previously). Lock prepare_commit_mutex
 		to guarantee that InnoDB and the binlog agree on the current
 		commit -- otherwise, the commit may be done to the binlog
 		and in flight for InnoDB. */
-		if (!binlog_pos || trx->read_view ||
+		if (trx->read_view ||
 		    !mysql_bin_log_is_open()) {
 			error_result = 1;
 			goto cleanup;
 		}
 
-		mysql_bin_log_lock_commits();
+		mysql_bin_log_lock_commits(ss_info);
 	}
 
 	/* Assign a read view if the transaction does not have it yet.
@@ -4441,9 +4442,8 @@ innobase_start_trx_and_assign_read_view(
 				    "REPEATABLE READ isolation level.");
 	}
 
-	if (binlog_file) {
-		mysql_bin_log_unlock_commits(binlog_file, binlog_pos, gtid_executed,
-                                 gtid_executed_length);
+	if (ss_info) {
+		mysql_bin_log_unlock_commits(ss_info);
 	}
 
 cleanup:

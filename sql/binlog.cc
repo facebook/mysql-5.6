@@ -6031,39 +6031,40 @@ my_bool mysql_bin_log_is_open(void)
 }
 
 extern "C"
-void mysql_bin_log_lock_commits(void)
+void mysql_bin_log_lock_commits(struct snapshot_info_st *ss_info)
 {
-  mysql_bin_log.lock_commits();
+  mysql_bin_log.lock_commits(ss_info);
 }
 
 extern "C"
-void mysql_bin_log_unlock_commits(char* binlog_file,
-                                  unsigned long long* binlog_pos,
-                                  char** gtid_executed,
-                                  int* gtid_executed_length)
+void mysql_bin_log_unlock_commits(const struct snapshot_info_st *ss_info)
 {
-  mysql_bin_log.unlock_commits(binlog_file, binlog_pos, gtid_executed,
-                               gtid_executed_length);
+  mysql_bin_log.unlock_commits(ss_info);
 }
 
-void MYSQL_BIN_LOG::lock_commits(void)
+void MYSQL_BIN_LOG::lock_commits(snapshot_info_st *ss_info)
 {
   mysql_mutex_lock(&LOCK_log);
   mysql_mutex_lock(&LOCK_sync);
   mysql_mutex_lock(&LOCK_semisync);
   mysql_mutex_lock(&LOCK_commit);
+  ss_info->binlog_file= std::string(log_file_name);
+  ss_info->binlog_pos = my_b_tell(&log_file);
+  global_sid_lock->wrlock();
+  const auto gtids= gtid_state->get_logged_gtids()->to_string();
+  ss_info->gtid_executed = std::string(gtids);
+  my_free(gtids);
+  global_sid_lock->unlock();
 }
 
-void MYSQL_BIN_LOG::unlock_commits(char* binlog_file, ulonglong* binlog_pos,
-                                   char** gtid_executed,
-                                   int* gtid_executed_length)
+void MYSQL_BIN_LOG::unlock_commits(const snapshot_info_st *ss_info)
 {
-  strmake(binlog_file, log_file_name, FN_REFLEN);
-  *binlog_pos = my_b_tell(&log_file);
   global_sid_lock->wrlock();
-  const Gtid_set *logged_gtids= gtid_state->get_logged_gtids();
-  *gtid_executed = logged_gtids->to_string();
-  *gtid_executed_length = logged_gtids->get_string_length();
+  const auto gtids= gtid_state->get_logged_gtids()->to_string();
+  assert(ss_info->binlog_file == std::string(log_file_name) &&
+         ss_info->binlog_pos == my_b_tell(&log_file) &&
+         ss_info->gtid_executed == std::string(gtids));
+  my_free(gtids);
   global_sid_lock->unlock();
   mysql_mutex_unlock(&LOCK_commit);
   mysql_mutex_unlock(&LOCK_semisync);
