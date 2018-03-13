@@ -109,7 +109,9 @@
 #include "sql/sys_vars_resource_mgr.h"  // Session_sysvar_resource_manager
 #include "sql/system_variables.h"       // system_variables
 #include "sql/transaction_info.h"       // Ha_trx_info
+#include "sql/snapshot.h"
 #include "sql_db.h"
+#include "rpl_master.h"
 #include "sql_string.h"
 #include "thr_lock.h"
 #include "violite.h"
@@ -2088,6 +2090,37 @@ class THD : public MDL_context_owner,
   ha_rows m_examined_row_count;
 
  private:
+  using explicit_snapshot_ptr = std::shared_ptr<explicit_snapshot>;
+  explicit_snapshot_ptr m_explicit_snapshot;
+
+ public:
+  /**
+   * Creates an explicit snapshot and associates it with the current conn
+   * return true if error, false otherwise
+   */
+  bool create_explicit_snapshot();
+
+  explicit_snapshot_ptr get_explicit_snapshot() const {
+    return m_explicit_snapshot;
+  }
+
+  void set_explicit_snapshot(explicit_snapshot_ptr s) {
+    m_explicit_snapshot = std::move(s);
+  }
+
+  /**
+   * Attaches an existing explicit snapshot to the current conn
+   * return true if error, false otherwise
+   */
+  bool attach_explicit_snapshot(const ulonglong snapshot_id);
+
+  /**
+   * Releases the explicit snapshot associated with the current conn
+   * return true if error, false otherwise
+   */
+  bool release_explicit_snapshot();
+
+private:
   USER_CONN *m_user_connect;
 
   void update_global_binlog_max_gtid(void);

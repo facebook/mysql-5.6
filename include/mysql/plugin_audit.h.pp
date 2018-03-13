@@ -99,6 +99,7 @@ struct st_mysql_value {
   int (*val_int)(struct st_mysql_value *, long long *intbuf);
   int (*is_unsigned)(struct st_mysql_value *);
 };
+struct snapshot_info_st;
 int thd_in_lock_tables(const void * thd);
 int thd_tablespace_op(const void * thd);
 long long thd_test_options(const void * thd, long long test_options);
@@ -132,12 +133,8 @@ void thd_set_ha_data(void * thd, const struct handlerton *hton,
                      const void *ha_data);
 void remove_ssl_err_thread_state();
 char mysql_bin_log_is_open(void);
-void mysql_bin_log_lock_commits(void);
-void mysql_bin_log_unlock_commits(char *binlog_file,
-                                  unsigned long long *binlog_pos,
-                                  char **gtid_executed,
-                                  int *gtid_executed_length,
-                                  unsigned long long *snapshot_hlc);
+void mysql_bin_log_lock_commits(struct snapshot_info_st *ss_info);
+void mysql_bin_log_unlock_commits(struct snapshot_info_st *ss_info);
 #include "my_command.h"
 enum enum_server_command {
   COM_SLEEP,
@@ -341,6 +338,9 @@ enum enum_sql_command {
   SQLCOM_SHOW_MEMORY_STATUS,
   SQLCOM_FIND_GTID_POSITION,
   SQLCOM_GTID_EXECUTED,
+  SQLCOM_CREATE_EXPLICIT_SNAPSHOT,
+  SQLCOM_ATTACH_EXPLICIT_SNAPSHOT,
+  SQLCOM_RELEASE_EXPLICIT_SNAPSHOT,
   SQLCOM_END
 };
 #include "plugin_audit_message_types.h"

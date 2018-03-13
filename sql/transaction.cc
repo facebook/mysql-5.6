@@ -128,7 +128,7 @@ bool trans_check_state(THD *thd) {
   @retval true   Failure
 */
 
-bool trans_begin(THD *thd, uint flags, bool *need_ok) {
+bool trans_begin(THD *thd, uint flags, bool *need_ok, handlerton *hton) {
   bool res = false;
   Transaction_state_tracker *tst = NULL;
 
@@ -198,25 +198,27 @@ bool trans_begin(THD *thd, uint flags, bool *need_ok) {
 
   if (tst) tst->add_trx_state(thd, TX_EXPLICIT);
 
+  snapshot_info_st ss_info;
+  ss_info.snapshot_id = thd->lex->snapshot_id;
+
   /* ha_start_consistent_snapshot() relies on OPTION_BEGIN flag set. */
   if (flags & MYSQL_START_TRANS_OPT_WITH_CONS_SNAPSHOT) {
     if (tst) tst->add_trx_state(thd, TX_WITH_SNAPSHOT);
-    res = ha_start_consistent_snapshot(thd, NULL, NULL, NULL, NULL, NULL);
-  } else if (flags & MYSQL_START_TRANS_OPT_WITH_CONS_INNODB_SNAPSHOT) {
-    char binlog_file[FN_REFLEN];
-    ulonglong binlog_pos;
-    char *gtid_executed = NULL;
-    int gtid_executed_length;
-    ulonglong snapshot_hlc = 0;
-    DBUG_ASSERT(need_ok != NULL);
-
-    res = (ha_start_consistent_snapshot(thd, binlog_file, &binlog_pos,
-                                        &gtid_executed, &gtid_executed_length,
-                                        &snapshot_hlc) ||
-           show_master_offset(thd, binlog_file, binlog_pos, gtid_executed,
-                              gtid_executed_length, snapshot_hlc, need_ok));
-
-    my_free(gtid_executed);
+    res = ha_start_consistent_snapshot(thd, nullptr, nullptr);
+  } else if (flags & MYSQL_START_TRANS_OPT_WITH_CONS_ENGINE_SNAPSHOT) {
+    DBUG_ASSERT(need_ok != nullptr);
+    res = ha_start_consistent_snapshot(thd, &ss_info, hton) ||
+          show_master_offset(thd, ss_info, need_ok);
+  } else if (flags & MYSQL_START_TRANS_OPT_WITH_SHAR_ENGINE_SNAPSHOT) {
+    DBUG_ASSERT(need_ok != nullptr);
+    ss_info.op = snapshot_operation::SNAPSHOT_CREATE;
+    res = ha_start_shared_snapshot(thd, &ss_info, hton) ||
+          show_master_offset(thd, ss_info, need_ok);
+  } else if (flags & MYSQL_START_TRANS_OPT_WITH_EXIS_ENGINE_SNAPSHOT) {
+    DBUG_ASSERT(need_ok != nullptr);
+    ss_info.op = snapshot_operation::SNAPSHOT_ATTACH;
+    res = ha_start_shared_snapshot(thd, &ss_info, hton) ||
+          show_master_offset(thd, ss_info, need_ok);
   }
 
   /*

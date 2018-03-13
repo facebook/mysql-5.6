@@ -1,8 +1,8 @@
 --source include/have_rocksdb.inc
---source include/master-slave.inc
 --source include/have_binlog_format_row.inc
+--source include/master-slave.inc
 
---connection master
+--source include/rpl_connection_master.inc
 create table t1(a int primary key);
 
 FLUSH LOGS;

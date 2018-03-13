@@ -34,7 +34,6 @@
 #include "my_icp.h" /* icp_result */
 #include "mysql/psi/mysql_rwlock.h"
 #include "sql/handler.h" /* handler */
-#include "sql/handler.h"
 #include "sql/sql_bitmap.h" /* Key_map */
 #include "sql/table.h"
 #include "sql_string.h"
