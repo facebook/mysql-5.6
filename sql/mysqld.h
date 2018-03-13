@@ -626,7 +626,11 @@ void counter_histogram_increment(counter_histogram* current_histogram,
 */
 ulonglong latency_histogram_get_count(latency_histogram* current_histogram,
                                      size_t bin_num);
-
+/**
+ * Update the nice value of a thread
+ * @param thd_id_nice_val threadId:niceVal
+ * **/
+bool update_thread_nice_value(char *thd_id_nice_val);
 /**
   Validate if the string passed to the configurable histogram step size
   conforms to proper syntax.
@@ -867,6 +871,7 @@ extern my_bool opt_admission_control_by_trx;
 extern my_bool opt_slave_allow_batching;
 extern my_bool allow_slave_start;
 extern char *enable_jemalloc_hpp;
+extern char *thread_nice_value;
 extern LEX_CSTRING reason_slave_blocked;
 extern ulong slave_trans_retries;
 extern uint  slave_net_timeout;

@@ -4783,6 +4783,14 @@ public:
   // ExecutionContextImpl is used for native procedures.
   ExecutionContextImpl *ec;
 
+  bool is_thd_priority_alt() { return thd_priority_alt; }
+  void mark_thd_priority_as_alt()
+  {
+    mysql_mutex_lock(&LOCK_thd_data);
+    thd_priority_alt = true;
+    mysql_mutex_unlock(&LOCK_thd_data);
+  }
+
   bool is_a_srv_session() const { return is_a_srv_session_thd; }
   void mark_as_srv_session() { is_a_srv_session_thd= true; }
 
@@ -4820,6 +4828,9 @@ private:
     aggregates THD.
   */
   bool is_a_srv_session_thd = false;
+
+  /*Variable to mark weather nice value of this thread changed or not*/
+  bool thd_priority_alt = false;
 
   /**
    * Set only in Conn THD points to the attached srv session.
