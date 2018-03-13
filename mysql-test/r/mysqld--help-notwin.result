@@ -1357,6 +1357,9 @@ The following options may be given as the first argument:
  --thread-handling=name 
  Define threads usage for handling queries, one of
  one-thread-per-connection, no-threads, loaded-dynamically
+ --thread-nice-value[=name] 
+ Input format is threadId:niceValue nice value range is
+ -20 to 19
  --thread-stack=#    The stack size for each thread
  --tls-version=name  TLS version, permitted values are TLSv1, TLSv1.1, TLSv1.2
  --tmp-table-size=#  If an internal in-memory temporary table in the MEMORY
@@ -1769,6 +1772,7 @@ tc-heuristic-recover OFF
 temptable-max-ram 1073741824
 thread-cache-size 9
 thread-handling one-thread-per-connection
+thread-nice-value 
 thread-stack 262144
 tmp-table-size 16777216
 transaction-alloc-block-size 8192

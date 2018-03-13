@@ -99,6 +99,7 @@
 #include "sql/log_event.h"  // MAX_MAX_ALLOWED_PACKET
 #include "sql/mdl.h"
 #include "sql/my_decimal.h"
+#include "sql/mysqld_thd_manager.h"  // Global_THD_manager
 #include "sql/opt_trace_context.h"
 #include "sql/options_mysqld.h"
 #include "sql/protocol_classic.h"
@@ -6467,3 +6468,83 @@ static Sys_var_charptr Sys_read_only_error_msg_extra(
     "which will be appended to read_only error messages.",
     GLOBAL_VAR(opt_read_only_error_msg_extra), CMD_LINE(OPT_ARG),
     IN_SYSTEM_CHARSET, DEFAULT(""), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+#ifdef HAVE_SYS_GETTID
+class Change_priority : public Do_THD_Impl {
+ public:
+  Change_priority()
+      : m_changed(false), m_found(false), m_nice_val(0), m_thread_id(0) {}
+
+  virtual void operator()(THD *thd) {
+    if (!m_found && thd->thread_id() == m_thread_id) {
+      m_found = true;
+      const int ret =
+          setpriority(PRIO_PROCESS, thd->system_thread_id, m_nice_val);
+      if (ret != 0) {
+        my_error(ER_THRNICE_SETPRIORITY_FAILED, MYF(0), ret, strerror(errno));
+      } else {
+        // Update the variable used for resetting the nice value
+        thd->mark_thd_priority_as_alt();
+        m_changed = true;
+      }
+    }
+  }
+
+  bool parse_thread_nice_value(char *thd_id_nice_val) {
+    // parse input to get thread_id and nice_val
+    const std::string thd_id_nice_val_str(thd_id_nice_val);
+
+    const std::size_t delimpos = thd_id_nice_val_str.find(':');
+    if (delimpos == std::string::npos || delimpos == 0) return false;
+
+    const std::string thread_id_str(thd_id_nice_val_str, 0, delimpos);
+    const std::string nice_val_str(thd_id_nice_val_str, delimpos + 1);
+    const char *nice_val_ptr = nice_val_str.c_str();
+    const char *thread_id_ptr = thread_id_str.c_str();
+
+    char *er;
+    m_nice_val = strtol(nice_val_ptr, &er, 10);
+    if (er != nice_val_ptr + nice_val_str.length()) return false;
+
+    m_thread_id = strtoul(thread_id_ptr, &er, 10);
+    if (er != thread_id_ptr + thread_id_str.length()) return false;
+
+    // Check weather nice_value is in a valid range
+    if (m_nice_val > 19 || m_nice_val < -20) {
+      LogErr(INFORMATION_LEVEL, ER_THRNICE_INVALID_RANGE, m_nice_val);
+      return false;
+    }
+
+    return true;
+  }
+
+  bool m_changed;
+  bool m_found;
+  long m_nice_val;
+  unsigned long m_thread_id;
+};
+
+char *thread_nice_value = nullptr;
+
+static bool update_thread_nice_value(sys_var *, THD *, set_var *var) {
+  Change_priority change_priority;
+  if (!change_priority.parse_thread_nice_value(
+          var->save_result.string_value.str))
+    return true;
+
+  Global_THD_manager::get_instance()->do_for_all_thd(&change_priority);
+  if (!change_priority.m_found)
+    my_error(ER_THRNICE_THREAD_NOT_FOUND, MYF(0), change_priority.m_thread_id);
+
+  return !change_priority.m_changed;
+}
+
+static Sys_var_charptr Sys_thread_nice_value(
+    "thread_nice_value",
+    "Input format is threadId:niceValue"
+    " nice value range is -20 to 19",
+    GLOBAL_VAR(thread_nice_value), CMD_LINE(OPT_ARG), IN_SYSTEM_CHARSET,
+    DEFAULT(""), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(update_thread_nice_value));
+
+#endif /* HAVE_SYS_GETTID */

@@ -18728,6 +18728,15 @@ ER_RPL_FAILED_IN_RLI_INIT_INFO
 ER_SEMISYNC_FORCE_SHUTDOWN
    eng "Force shutdown: Semi-sync master is being switched off while there are active un-acked transactions"
 
+ER_THRNICE_THREAD_NOT_FOUND
+   eng "Thread %ld was not found"
+
+ER_THRNICE_SETPRIORITY_FAILED
+   eng "setpriority() failed, returned val is %d, error %s"
+
+ER_THRNICE_INVALID_RANGE
+   eng "Nice value %ld is outside the valid range of -19 to 20"
+
 #
 # End of 8.0 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error

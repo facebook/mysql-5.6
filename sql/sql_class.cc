@@ -1390,6 +1390,9 @@ bool THD::store_globals() {
   set_my_thread_var_id(m_thread_id);
 #endif
   real_id = my_thread_self();  // For debugging
+#ifdef HAVE_SYS_GETTID
+  system_thread_id = syscall(SYS_gettid);
+#endif
 
   return false;
 }

@@ -23,6 +23,7 @@
 */
 
 #include <stddef.h>
+#include <sys/resource.h>
 #include <sys/types.h>
 #include <list>
 #include <new>
@@ -267,6 +268,25 @@ static void set_conn_timeout_err(THD *thd, char *msg_buf) {
 */
 
 extern "C" {
+static bool check_and_reset_thd_pri(THD *thd) {
+  if (!thd->is_thd_priority_alt()) {
+    return true;
+  }
+
+#ifdef HAVE_SYS_GETTID
+  // reset nice value of a thread
+  const int ret = setpriority(PRIO_PROCESS, thd->system_thread_id, 0);
+  if (ret != 0) {
+    LogErr(INFORMATION_LEVEL, ER_THRNICE_SETPRIORITY_FAILED, ret,
+           strerror(errno));
+  }
+
+  return ret == 0;
+#else
+  return false;
+#endif
+}
+
 static void *handle_connection(void *arg) {
   Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
   Connection_handler_manager *handler_manager =
@@ -365,6 +385,7 @@ static void *handle_connection(void *arg) {
     PSI_THREAD_CALL(delete_current_thread)();
 #endif /* HAVE_PSI_THREAD_INTERFACE */
 
+    check_and_reset_thd_pri(thd);
     delete thd;
 
     // Server is shutting down so end the pthread.

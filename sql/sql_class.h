@@ -2083,6 +2083,10 @@ class THD : public MDL_context_owner,
                          value that is only to be used for temporary THDs not present in
                          the global THD list.
                        */
+#ifdef HAVE_SYS_GETTID
+  pid_t system_thread_id;
+#endif
+
  private:
   my_thread_id m_thread_id;
 
@@ -3991,6 +3995,13 @@ class THD : public MDL_context_owner,
   */
   void claim_memory_ownership();
 
+  bool is_thd_priority_alt() { return thd_priority_alt; }
+  void mark_thd_priority_as_alt() {
+    mysql_mutex_lock(&LOCK_thd_data);
+    thd_priority_alt = true;
+    mysql_mutex_unlock(&LOCK_thd_data);
+  }
+
   bool is_a_srv_session() const { return is_a_srv_session_thd; }
   void mark_as_srv_session() { is_a_srv_session_thd = true; }
 #ifndef DBUG_OFF
@@ -4007,6 +4018,9 @@ class THD : public MDL_context_owner,
     aggregates THD.
   */
   bool is_a_srv_session_thd;
+
+  /*Variable to mark weather nice value of this thread changed or not*/
+  bool thd_priority_alt = false;
 
   /**
     Creating or dropping plugin native table through a plugin service.
