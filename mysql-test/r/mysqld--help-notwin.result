@@ -1727,6 +1727,9 @@ The following options may be given as the first argument:
  --thread-handling=name 
  Define threads usage for handling queries, one of
  one-thread-per-connection, no-threads, loaded-dynamically
+ --thread-nice-value[=name] 
+ Input format is threadId:niceValue nice value range is
+ -20 to 19
  --thread-stack=#    The stack size for each thread
  --time-format=name  The TIME format (ignored)
  --timed-mutexes     Specify whether to time mutexes. Deprecated, has no
@@ -2324,6 +2327,7 @@ table-open-cache-instances 8
 tc-heuristic-recover COMMIT
 thread-cache-size 9
 thread-handling one-thread-per-connection
+thread-nice-value 
 thread-stack 327680
 time-format %H:%i:%s
 timed-mutexes FALSE

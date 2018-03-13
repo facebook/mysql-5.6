@@ -695,6 +695,7 @@ ulonglong binlog_bytes_written = 0;
 ulonglong relay_log_bytes_written = 0;
 ulong binlog_cache_size=0;
 char *enable_jemalloc_hpp;
+char *thread_nice_value = NULL;
 ulonglong  max_binlog_cache_size=0;
 ulong slave_max_allowed_packet= 0;
 ulong binlog_stmt_cache_size=0;
@@ -3164,6 +3165,17 @@ static void do_backoff(int* num_backoffs) // num_backoffs is initialized to 0
 }
 #endif
 
+static bool check_and_reset_thd_pri(THD *thd)
+{
+    if (!thd->is_thd_priority_alt())
+    {
+      return true;
+    }
+    //reset nice value of a thread
+    int rc = setpriority(PRIO_PROCESS, thd->system_thread_id, 0);
+    return rc == 0;
+}
+
 /**
   Block the current pthread for reuse by new connections.
 
@@ -3277,6 +3289,7 @@ bool one_thread_per_connection_end(THD *thd, bool block_pthread)
   ERR_remove_state(0);
 #endif
 
+  block_pthread = check_and_reset_thd_pri(thd);
   delete thd;
 
 #ifdef HAVE_PSI_THREAD_INTERFACE
@@ -3802,6 +3815,72 @@ int histogram_validate_step_size_string(const char* step_size_with_unit)
   else
     ret = 1;
   return ret;
+}
+
+bool update_thread_nice_value(char *thd_id_nice_val)
+{
+  //parse input to get thread_id and nice_val
+  std::string thd_id_nice_val_str(thd_id_nice_val);
+
+  std::size_t delimpos = thd_id_nice_val_str.find(':');
+  if (delimpos == std::string::npos)
+  {
+    return false;
+  }
+  std::string thread_id_str(thd_id_nice_val_str, 0, delimpos);
+  std::string nice_val_str(thd_id_nice_val_str, delimpos+1);
+  const char *nice_val_ptr = nice_val_str.c_str();
+  const char *thread_id_ptr = thread_id_str.c_str();
+
+  char *er;
+  long nice_val = strtol(nice_val_ptr, &er, 10);
+  if (er != nice_val_ptr + nice_val_str.length())
+      return false;
+
+  unsigned long thread_id = strtoul(thread_id_ptr, &er, 10);
+  if (er != thread_id_ptr + thread_id_str.length())
+      return false;
+
+  //Check weather nice_value is in a valid range
+  if (nice_val > 19 || nice_val < -20)
+  {
+    /* NO_LINT_DEBUG */
+    sql_print_error("Nice value %ld is outside the valid"
+        "range of -19 to 20",nice_val);
+    return false;
+  }
+
+  //Check weather thread_id is a valid active system_thread_id
+  mutex_lock_all_shards(SHARDED(&LOCK_thd_remove));
+
+  Thread_iterator it= global_thread_list->begin();
+  Thread_iterator end= global_thread_list->end();
+  for (; it != end; ++it)
+  {
+    THD *thd = *it;
+    if (thd->thread_id() == thread_id)
+    {
+      int which = PRIO_PROCESS;
+
+      int ret = setpriority(which, thd->system_thread_id, nice_val);
+      if (ret != 0)
+      {
+        /* NO_LINT_DEBUG */
+        sql_print_information("Set schedParam failed, returned "
+            "val is %d. Error %s\n", ret, strerror(errno));
+        break;
+      }
+      else
+      {
+        //Update the variable used for resetting the nice value
+        thd->mark_thd_priority_as_alt();
+        mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
+        return true;
+      }
+    }
+  }
+  mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
+  return false;
 }
 
 /**

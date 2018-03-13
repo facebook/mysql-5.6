@@ -1118,6 +1118,20 @@ static Sys_var_charptr Sys_histogram_step_size_binlog_fsync(
        IN_FS_CHARSET, DEFAULT("16ms"), NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(check_histogram_step_size_syntax));
 
+static bool update_thread_nice_val(sys_var *self, THD *thd,
+                                     set_var *var)
+{
+  return !update_thread_nice_value(var->save_result.string_value.str);
+}
+
+static Sys_var_charptr Sys_thread_nice_value(
+       "thread_nice_value","Input format is threadId:niceValue"
+       " nice value range is -20 to 19",
+       GLOBAL_VAR(thread_nice_value),
+       CMD_LINE(OPT_ARG), IN_SYSTEM_CHARSET, DEFAULT(""),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(update_thread_nice_val));
+
 #ifdef HAVE_REPLICATION
 static bool update_binlog_group_commit_step(sys_var *self, THD *thd,
                                             enum_var_type type) {

@@ -1,0 +1,17 @@
+SET @start_global_value = @@GLOBAL.thread_nice_value;
+SELECT @start_global_value;
+@start_global_value
+
+select @@GLOBAL.thread_nice_value;
+@@GLOBAL.thread_nice_value
+
+SET @@GLOBAL.thread_nice_value = '';
+ERROR 42000: Variable 'thread_nice_value' can't be set to the value of ''
+SET @@GLOBAL.thread_nice_value = ':';
+ERROR 42000: Variable 'thread_nice_value' can't be set to the value of ':'
+SET @@GLOBAL.thread_nice_value = ' : -3';
+ERROR 42000: Variable 'thread_nice_value' can't be set to the value of ' : -3'
+SET @start_global_value = @@GLOBAL.thread_nice_value;
+SELECT @start_global_value;
+@start_global_value
+
