@@ -204,6 +204,20 @@ bool trans_begin(THD *thd, uint flags, bool* need_ok, handlerton *hton)
     res= ha_start_consistent_snapshot(thd, &ss_info, hton) ||
          show_master_offset(thd, ss_info, need_ok);
   }
+  else if (flags & MYSQL_START_TRANS_OPT_WITH_SHAR_ENGINE_SNAPSHOT)
+  {
+    DBUG_ASSERT(need_ok != NULL);
+    ss_info.op= snapshot_operation::SNAPSHOT_CREATE;
+    res= ha_start_shared_snapshot(thd, &ss_info, hton) ||
+         show_master_offset(thd, ss_info, need_ok);
+  }
+  else if (flags & MYSQL_START_TRANS_OPT_WITH_EXIS_ENGINE_SNAPSHOT)
+  {
+    DBUG_ASSERT(need_ok != NULL);
+    ss_info.op= snapshot_operation::SNAPSHOT_ATTACH;
+    res= ha_start_shared_snapshot(thd, &ss_info, hton) ||
+         show_master_offset(thd, ss_info, need_ok);
+  }
 #endif
 
   DBUG_RETURN(MY_TEST(res));

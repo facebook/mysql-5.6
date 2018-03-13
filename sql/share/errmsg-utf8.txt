@@ -7279,7 +7279,7 @@ ER_ON_DUPLICATE_DISABLED
   eng "When unique checking is disabled in MyRocks, INSERT,UPDATE,LOAD statements with clauses that update or replace the key (i.e. INSERT ON DUPLICATE KEY UPDATE, REPLACE) are not allowed. Query: %s"
 
 ER_UPDATES_WITH_CONSISTENT_SNAPSHOT
-  eng "Can't execute updates when you started a transaction with START TRANSACTION WITH CONSISTENT [ROCKSDB] SNAPSHOT."
+  eng "Can't execute updates when you started a transaction with START TRANSACTION WITH CONSISTENT|SHARED|EXISTING [ROCKSDB] SNAPSHOT."
 
 ER_ROLLBACK_ONLY
   eng "This transaction was rolled back and cannot be committed. Only supported operation is to roll it back, so all pending changes will be discarded. Please restart another transaction."
@@ -7288,7 +7288,7 @@ ER_ROLLBACK_TO_SAVEPOINT
   eng "MyRocks currently does not support ROLLBACK TO SAVEPOINT if modifying rows."
 
 ER_ISOLATION_LEVEL_WITH_CONSISTENT_SNAPSHOT
-  eng "Only REPEATABLE READ isolation level is supported for START TRANSACTION WITH CONSISTENT SNAPSHOT in RocksDB Storage Engine."
+  eng "Only REPEATABLE READ isolation level is supported for START TRANSACTION WITH CONSISTENT|SHARED|EXISTING SNAPSHOT in RocksDB Storage Engine."
 
 ER_UNSUPPORTED_COLLATION
   eng "Unsupported collation on string indexed column %s.%s Use binary collation (%s)."
@@ -7346,6 +7346,9 @@ ER_DB_METADATA_INVALID_JSON
 
 ER_DB_METADATA_READ_ERROR
   eng "Error reading db metadata option: '%-.64s'"
+
+ER_UPDATES_WITH_EXPLICIT_SNAPSHOT
+  eng "Can't execute updates when an explicit snapshot is associated with the connection using CREATE|ATTACH EXPLICIT [ENGINE] SNAPSHOT"
 
 #
 #  End of 5.6 error messages.
