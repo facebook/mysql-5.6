@@ -100,6 +100,9 @@ enum enum_sql_command {
   SQLCOM_RBR_COLUMN_NAMES,
   SQLCOM_CREATE_NPROCEDURE,
   SQLCOM_DROP_NPROCEDURE,
+  SQLCOM_CREATE_EXPLICIT_SNAPSHOT,
+  SQLCOM_ATTACH_EXPLICIT_SNAPSHOT,
+  SQLCOM_RELEASE_EXPLICIT_SNAPSHOT,
 
   /*
     When a command is added here, be sure it's also added in mysqld.cc

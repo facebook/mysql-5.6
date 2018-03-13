@@ -188,24 +188,21 @@ bool trans_begin(THD *thd, uint flags, bool* need_ok, handlerton *hton)
     thd->server_status|= SERVER_STATUS_IN_TRANS_READONLY;
   DBUG_PRINT("info", ("setting SERVER_STATUS_IN_TRANS"));
 
+#ifdef HAVE_REPLICATION
+  snapshot_info_st ss_info;
+  ss_info.snapshot_id= thd->lex->snapshot_id;
+#endif
+
   /* ha_start_consistent_snapshot() relies on OPTION_BEGIN flag set. */
   if (flags & MYSQL_START_TRANS_OPT_WITH_CONS_SNAPSHOT)
-    res= ha_start_consistent_snapshot(thd, NULL, NULL, NULL, NULL, NULL);
+    res= ha_start_consistent_snapshot(thd, NULL, NULL);
+
 #ifdef HAVE_REPLICATION
   else if (flags & MYSQL_START_TRANS_OPT_WITH_CONS_ENGINE_SNAPSHOT)
   {
-    char binlog_file[FN_REFLEN];
-    char *gtid_executed = NULL;
-    ulonglong binlog_pos;
-    int gtid_executed_length;
     DBUG_ASSERT(need_ok != NULL);
-
-    res= (ha_start_consistent_snapshot(thd, binlog_file, &binlog_pos,
-                                       &gtid_executed, &gtid_executed_length,
-                                       hton) ||
-          show_master_offset(thd, binlog_file, binlog_pos, gtid_executed,
-                             gtid_executed_length, need_ok));
-    my_free(gtid_executed);
+    res= ha_start_consistent_snapshot(thd, &ss_info, hton) ||
+         show_master_offset(thd, ss_info, need_ok);
   }
 #endif
 

@@ -55,6 +55,7 @@
 #include "sql_data_change.h"
 #include "my_atomic.h"
 #include "sql_db.h"
+#include "rpl_master.h"
 
 #include <boost/property_tree/ptree.hpp>
 using boost::property_tree::ptree;
@@ -3199,6 +3200,72 @@ private:
     changed or written.
   */
   ulonglong m_accessed_rows_and_keys;
+
+private:
+  std::shared_ptr<explicit_snapshot> m_explicit_snapshot;
+
+public:
+  /**
+   * Creates an explicit snapshot and associates it with the current conn
+   * return true if error, false otherwise
+   */
+  inline bool create_explicit_snapshot()
+  {
+    auto hton= lex->create_info.db_type;
+    snapshot_info_st ss_info;
+    ss_info.op= snapshot_operation::SNAPSHOT_CREATE;
+    bool error= ha_explicit_snapshot(this, hton, &ss_info);
+#ifdef HAVE_REPLICATION
+    bool need_ok = true;
+    error= error || show_master_offset(this, ss_info, &need_ok);
+#endif
+    return error;
+  }
+
+  inline std::shared_ptr<explicit_snapshot> get_explicit_snapshot()
+  {
+    return m_explicit_snapshot;
+  }
+
+  inline void set_explicit_snapshot(std::shared_ptr<explicit_snapshot> s)
+  {
+    m_explicit_snapshot= s;
+  }
+
+  /**
+   * Attaches an existing explicit snapshot to the current conn
+   * return true if error, false otherwise
+   */
+  inline bool attach_explicit_snapshot(const ulonglong snapshot_id)
+  {
+    auto hton= lex->create_info.db_type;
+    snapshot_info_st ss_info;
+    ss_info.snapshot_id= snapshot_id;
+    ss_info.op= snapshot_operation::SNAPSHOT_ATTACH;
+    bool error= ha_explicit_snapshot(this, hton, &ss_info);
+#ifdef HAVE_REPLICATION
+    bool need_ok = true;
+    error= error || show_master_offset(this, ss_info, &need_ok);
+#endif
+    return error;
+  }
+
+  /**
+   * Releases the explicit snapshot associated with the current conn
+   * return true if error, false otherwise
+   */
+  inline bool release_explicit_snapshot()
+  {
+    auto hton= lex->create_info.db_type;
+    snapshot_info_st ss_info;
+    ss_info.op= snapshot_operation::SNAPSHOT_RELEASE;
+    bool error= ha_explicit_snapshot(this, hton, &ss_info);
+#ifdef HAVE_REPLICATION
+    bool need_ok = true;
+    error= error || show_master_offset(this, ss_info, &need_ok);
+#endif
+    return error;
+  }
 
 private:
   USER_CONN *m_user_connect;

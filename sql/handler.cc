@@ -2309,58 +2309,114 @@ int ha_release_savepoint(THD *thd, SAVEPOINT *sv)
   DBUG_RETURN(error);
 }
 
-
-struct snapshot_handlerton_st
+struct snapshot_context_st
 {
   bool error;
-  char *binlog_file;
-  ulonglong* binlog_pos;
-  char **gtid_executed;
-  int *gtid_executed_length;
+  snapshot_info_st* ss_info;
 };
 
-static my_bool snapshot_handlerton(THD *thd, plugin_ref plugin,
-                                   void *arg)
+static my_bool explicit_snapshot_handlerton(THD *thd,
+                                            plugin_ref plugin,
+                                            void *arg)
 {
   handlerton *hton= plugin_data(plugin, handlerton *);
-  if (hton->state == SHOW_OPTION_YES &&
-      hton->start_consistent_snapshot)
+  auto ss_ctx= static_cast<snapshot_context_st*>(arg);
+
+  if (hton->state == SHOW_OPTION_YES && hton->explicit_snapshot)
   {
-    if (hton->start_consistent_snapshot(hton, thd, NULL, NULL, NULL, NULL))
+    if (hton->explicit_snapshot(hton, thd, ss_ctx->ss_info))
     {
-      my_printf_error(ER_UNKNOWN_ERROR,
-                      "Cannot start transaction",
+      my_printf_error(ER_UNKNOWN_ERROR, "Cannot process explicit snapshot",
                       MYF(0));
       return TRUE;
     }
-    *((bool *)arg)= false;
+    ss_ctx->error= false;
   }
   return FALSE;
 }
 
-int ha_start_consistent_snapshot(THD *thd, char *binlog_file,
-                                 ulonglong* binlog_pos,
-                                 char** gtid_executed,
-                                 int* gtid_executed_length,
+bool ha_explicit_snapshot(THD *thd,
+                          handlerton *hton,
+                          snapshot_info_st *ss_info)
+{
+  DBUG_ENTER("ha_create_explicit_snapshot");
+
+  snapshot_context_st ss_ctx;
+  ss_ctx.error= true;
+  ss_ctx.ss_info= ss_info;
+
+  if (hton == NULL)
+  {
+    if (plugin_foreach(thd, explicit_snapshot_handlerton,
+                       MYSQL_STORAGE_ENGINE_PLUGIN, &ss_ctx))
+      DBUG_RETURN(true);
+  }
+  else
+  {
+    ss_ctx.error= false;
+    if (hton->state == SHOW_OPTION_YES && hton->explicit_snapshot)
+    {
+      if (hton->explicit_snapshot(hton, thd, ss_info))
+      {
+        my_printf_error(ER_UNKNOWN_ERROR, "Cannot process explicit snapshot",
+                        MYF(0));
+        DBUG_RETURN(true);
+      }
+    }
+    else
+    {
+      my_printf_error(ER_UNKNOWN_ERROR,
+                      "Explicit snapshots are not supported by this engine",
+                      MYF(0));
+      DBUG_RETURN(true);
+    }
+  }
+
+  if (ss_ctx.error)
+    my_printf_error(ER_UNKNOWN_ERROR, "Engine disabled", MYF(0));
+  DBUG_RETURN(ss_ctx.error);
+}
+
+static my_bool snapshot_handlerton(THD *thd, plugin_ref plugin, void *arg)
+{
+  handlerton *hton= plugin_data(plugin, handlerton *);
+  snapshot_context_st *ss_ctx= static_cast<snapshot_context_st*>(arg);
+
+  if (hton->state == SHOW_OPTION_YES &&
+      hton->start_consistent_snapshot)
+  {
+    if (hton->start_consistent_snapshot(hton, thd, ss_ctx->ss_info))
+    {
+      my_printf_error(ER_UNKNOWN_ERROR, "Cannot start transaction", MYF(0));
+      return TRUE;
+    }
+    ss_ctx->error= false;
+  }
+  return FALSE;
+}
+
+int ha_start_consistent_snapshot(THD *thd,
+                                 snapshot_info_st *ss_info,
                                  handlerton *hton)
 {
-  bool error= true;
+  snapshot_context_st ss_ctx;
+  ss_ctx.error= true;
+  ss_ctx.ss_info= ss_info;
 
   if (hton == NULL)
   {
     if (plugin_foreach(thd, snapshot_handlerton,
-                       MYSQL_STORAGE_ENGINE_PLUGIN, &error)) {
+                       MYSQL_STORAGE_ENGINE_PLUGIN, &ss_ctx)) {
       return TRUE;
     }
   }
   else
   {
-    error= false;
+    ss_ctx.error= false;
     if (hton->state == SHOW_OPTION_YES &&
         hton->start_consistent_snapshot)
     {
-      if (hton->start_consistent_snapshot(hton, thd, binlog_file, binlog_pos,
-                                          gtid_executed, gtid_executed_length))
+      if (hton->start_consistent_snapshot(hton, thd, ss_info))
       {
         my_printf_error(ER_UNKNOWN_ERROR,
                         "Cannot start transaction or binlog disabled",
@@ -2381,11 +2437,77 @@ int ha_start_consistent_snapshot(THD *thd, char *binlog_file,
     Same idea as when one wants to CREATE TABLE in one engine which does not
     exist:
   */
-  if (error)
+  if (ss_ctx.error)
     my_printf_error(ER_UNKNOWN_ERROR, "Engine disabled", MYF(0));
-  return error;
+  return ss_ctx.error;
 }
 
+static my_bool shared_snapshot_handlerton(THD *thd,
+                                          plugin_ref plugin,
+                                          void *arg)
+{
+  handlerton *hton= plugin_data(plugin, handlerton *);
+  snapshot_context_st *ss_ctx= static_cast<snapshot_context_st*>(arg);
+
+  if (hton->state == SHOW_OPTION_YES &&
+      hton->start_shared_snapshot)
+  {
+    if (hton->start_shared_snapshot(hton, thd, ss_ctx->ss_info))
+    {
+      my_printf_error(ER_UNKNOWN_ERROR, "Cannot start transaction", MYF(0));
+      return TRUE;
+    }
+    ss_ctx->error= false;
+  }
+  return FALSE;
+}
+
+int ha_start_shared_snapshot(THD *thd,
+                             snapshot_info_st *ss_info,
+                             handlerton *hton)
+{
+  snapshot_context_st ss_ctx;
+  ss_ctx.error= true;
+  ss_ctx.ss_info= ss_info;
+
+  if (hton == NULL)
+  {
+    if (plugin_foreach(thd, shared_snapshot_handlerton,
+                       MYSQL_STORAGE_ENGINE_PLUGIN, &ss_ctx)) {
+      return TRUE;
+    }
+  }
+  else
+  {
+    ss_ctx.error= false;
+    if (hton->state == SHOW_OPTION_YES &&
+        hton->start_shared_snapshot)
+    {
+      if (hton->start_shared_snapshot(hton, thd, ss_info))
+      {
+        my_printf_error(ER_UNKNOWN_ERROR,
+                        "Cannot start transaction or binlog disabled",
+                        MYF(0));
+        return TRUE;
+      }
+    }
+    else
+    {
+      my_printf_error(ER_UNKNOWN_ERROR,
+                      "Shared snapshot is not supported for this engine",
+                      MYF(0));
+      return TRUE;
+    }
+  }
+
+  /*
+    Same idea as when one wants to CREATE TABLE in one engine which does not
+    exist:
+  */
+  if (ss_ctx.error)
+    my_printf_error(ER_UNKNOWN_ERROR, "Engine disabled", MYF(0));
+  return ss_ctx.error;
+}
 
 static my_bool flush_handlerton(THD *thd, plugin_ref plugin,
                                 void *arg)

@@ -759,9 +759,8 @@ public:
   void get_current_log_without_lock_log(LOG_INFO* linfo);
   int raw_get_current_log(LOG_INFO* linfo);
   uint next_file_id();
-  void lock_commits(void);
-  void unlock_commits(char* binlog_file, ulonglong* binlog_pos,
-                      char** gtid_executed, int* gtid_executed_length);
+  void lock_commits(snapshot_info_st *ss_info);
+  void unlock_commits(const snapshot_info_st *ss_info);
   inline char* get_index_fname() { return index_file_name;}
   inline char* get_log_fname() { return log_file_name; }
   inline char* get_name() { return name; }

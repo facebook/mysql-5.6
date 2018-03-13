@@ -5428,6 +5428,21 @@ end_with_restore_list:
     break;
   }
 #endif
+  case SQLCOM_CREATE_EXPLICIT_SNAPSHOT:
+  {
+    thd->create_explicit_snapshot();
+    break;
+  }
+  case SQLCOM_ATTACH_EXPLICIT_SNAPSHOT:
+  {
+    thd->attach_explicit_snapshot(lex->snapshot_id);
+    break;
+  }
+  case SQLCOM_RELEASE_EXPLICIT_SNAPSHOT:
+  {
+    thd->release_explicit_snapshot();
+    break;
+  }
   case SQLCOM_BEGIN:
   {
     bool need_ok = true;
