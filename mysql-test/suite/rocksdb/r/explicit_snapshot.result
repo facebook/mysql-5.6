@@ -1,0 +1,101 @@
+DROP TABLE IF EXISTS t1;
+CREATE TABLE T1 (a INT) ENGINE=ROCKSDB;
+INSERT INTO T1 VALUES(1);
+"con1: Creating explict snapshot after one insert"
+"con1: T1 after creating snapshot"
+SELECT * FROM T1;
+a
+1
+"con2: Inserting another row in T1"
+INSERT INTO T1 VALUES(2);
+SELECT * FROM T1;
+a
+1
+2
+"con2: Attaching snapshot id 1"
+ATTACH EXPLICIT ROCKSDB SNAPSHOT 1;
+File	Position	Gtid_executed	Snapshot_ID
+master-bin.000001	682	uuid:1-3	1
+"con2: T1 after attaching snapshot (2nd row should not be visible)"
+SELECT * FROM T1;
+a
+1
+"con2: Releasing snapshot"
+RELEASE EXPLICIT ROCKSDB SNAPSHOT;
+File	Position	Gtid_executed	Snapshot_ID
+master-bin.000001	682	uuid:1-3	1
+"con2: T1 after releasing snapshot (two rows should be visible)"
+SELECT * FROM T1;
+a
+1
+2
+"con1: T1 after 2nd insert (2nd row should not be visible)"
+SELECT * FROM T1;
+a
+1
+"con1: Releasing snapshot"
+RELEASE EXPLICIT ROCKSDB SNAPSHOT;
+File	Position	Gtid_executed	Snapshot_ID
+master-bin.000001	682	uuid:1-3	1
+"con1: T1 after releasing snapshot (two rows should be visible)"
+SELECT * FROM T1;
+a
+1
+2
+"con1: Clearing T1 and inserting one row"
+DELETE FROM T1;
+INSERT INTO T1 VALUES(1);
+"con1: Starting shared snapshot"
+"con1: T1 inside shared snapshot"
+SELECT * FROM T1;
+a
+1
+"con2: Inserting another row"
+INSERT INTO T1 VALUES(2);
+SELECT * FROM T1;
+a
+1
+2
+"con2: Starting existing snapshot in con1"
+START TRANSACTION WITH EXISTING ROCKSDB SNAPSHOT 2;
+File	Position	Gtid_executed	Snapshot_ID
+master-bin.000001	1341	uuid:1-6	2
+"con2: T1 using existing snapshot (should have one row)"
+SELECT * FROM T1;
+a
+1
+COMMIT;
+"con2: T1 after commit (should have two rows)"
+SELECT * FROM T1;
+a
+1
+2
+COMMIT;
+"con1: T1 after commit (should have two rows)"
+SELECT * FROM T1;
+a
+1
+2
+INSERT INTO T1 VALUES(1);
+ERROR HY000: Can't execute updates when an explicit snapshot is associated with the connection using CREATE|ATTACH EXPLICIT [ENGINE] SNAPSHOT
+ATTACH EXPLICIT ROCKSDB SNAPSHOT 3;
+File	Position	Gtid_executed	Snapshot_ID
+master-bin.000001	1559	uuid:1-7	3
+INSERT INTO T1 VALUES(1);
+ERROR HY000: Can't execute updates when an explicit snapshot is associated with the connection using CREATE|ATTACH EXPLICIT [ENGINE] SNAPSHOT
+RELEASE EXPLICIT ROCKSDB SNAPSHOT;
+File	Position	Gtid_executed	Snapshot_ID
+master-bin.000001	1559	uuid:1-7	3
+RELEASE EXPLICIT ROCKSDB SNAPSHOT;
+File	Position	Gtid_executed	Snapshot_ID
+master-bin.000001	1559	uuid:1-7	3
+INSERT INTO T1 VALUES(1);
+ERROR HY000: Can't execute updates when you started a transaction with START TRANSACTION WITH CONSISTENT|SHARED|EXISTING [ROCKSDB] SNAPSHOT.
+START TRANSACTION WITH EXISTING ROCKSDB SNAPSHOT 4;
+File	Position	Gtid_executed	Snapshot_ID
+master-bin.000001	1559	uuid:1-7	4
+INSERT INTO T1 VALUES(1);
+ERROR HY000: Can't execute updates when you started a transaction with START TRANSACTION WITH CONSISTENT|SHARED|EXISTING [ROCKSDB] SNAPSHOT.
+COMMIT;
+COMMIT;
+DROP TABLE T1;
