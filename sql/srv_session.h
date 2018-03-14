@@ -36,7 +36,7 @@
 extern PSI_statement_info stmt_info_new_packet;
 #endif
 
-extern ulong thd_get_net_wait_timeout(THD* thd);
+extern ulong thd_get_net_wait_timeout(const THD* thd);
 
 class Srv_session : public HHWheelTimer::Callback,
                     public std::enable_shared_from_this<Srv_session>
@@ -70,7 +70,7 @@ public:
   */
   static bool module_deinit();
 
-  static std::shared_ptr<Srv_session> access_session(const std::string& key);
+  static my_thread_id parse_session_key(const std::string& key);
   static std::shared_ptr<Srv_session> access_session(my_thread_id session_id);
   static void remove_session(my_thread_id session_id);
   static void remove_session_if_ids_match(const Srv_session& session,
@@ -78,6 +78,9 @@ public:
   static bool store_session(std::shared_ptr<Srv_session> session);
 
   static std::vector<std::shared_ptr<Srv_session>> get_sorted_sessions();
+
+  static std::pair<bool, std::chrono::milliseconds> session_timed_out(
+      my_thread_id session_id);
 
   /* Non-static members follow */
 
@@ -155,6 +158,7 @@ public:
     Returns the internal THD object
   */
   inline THD* get_thd() { return &thd_; }
+  inline const THD* get_thd() const { return &thd_; }
 
   /**
     Returns the ID of a session.

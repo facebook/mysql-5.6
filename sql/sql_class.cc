@@ -259,7 +259,7 @@ PSI_thread *thd_get_psi(THD *thd)
 
   @retval               net_wait_timeout value for thread on THD
 */
-ulong thd_get_net_wait_timeout(THD* thd)
+ulong thd_get_net_wait_timeout(const THD* thd)
 {
   return thd->variables.net_wait_timeout_seconds;
 }

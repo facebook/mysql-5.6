@@ -109,10 +109,26 @@ std::pair<bool, std::shared_ptr<Srv_session>>  handle_com_rpc(THD *conn_thd)
 
   if (rpc_id.size())
   {
-    srv_session = Srv_session::access_session(rpc_id);
+    auto session_id = Srv_session::parse_session_key(rpc_id);
+    if (session_id == (my_thread_id) -1) {
+      my_error(ER_RPC_MALFORMED_ID, MYF(0), rpc_id.c_str());
+      goto error;
+    }
+
+    srv_session = Srv_session::access_session(session_id);
     if (!srv_session)
     {
-      my_error(ER_RPC_INVALID_ID, MYF(0), rpc_id.c_str());
+      bool timed_out;
+      std::chrono::milliseconds idle_timeout;
+      std::tie(timed_out, idle_timeout) =
+          Srv_session::session_timed_out(session_id);
+      if (timed_out) {
+        my_error(ER_RPC_IDLE_TIMEOUT, MYF(0), rpc_id.c_str(),
+            (uint32_t) idle_timeout.count());
+      } else {
+        my_error(ER_RPC_INVALID_ID, MYF(0), rpc_id.c_str());
+      }
+
       goto error;
     }
 

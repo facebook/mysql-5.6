@@ -28,6 +28,8 @@ CREATE TABLE t2 (i int, s char (10));
 
 SELECT 1;
 ERROR HY000: The specified detached session id (123wrong_format) is an unexpected format
+SELECT 1;
+ERROR HY000: The specified detached session id (4000000000) is unknown
 
 # Case 3: Send queries that change state and create client session
 
@@ -145,7 +147,7 @@ select 1;
 1
 # Trying to use the rpc_id7 will get an error
 select 1;
-ERROR HY000: The specified detached session id (<rpc_id>) is an unexpected format
+ERROR HY000: The specified detached session id (<rpc_id>) is unknown
 
 # Kill Query in Attached Session
 SELECT GET_LOCK("my_lock", 0);
@@ -252,7 +254,14 @@ SELECT sleep(6);
 sleep(6)
 0
 SELECT 1;
-ERROR HY000: The specified detached session id (<rpc_id>) is an unexpected format
+ERROR HY000: The specified detached session id (<rpc_id>) has been removed because it was idle 5000ms
+SELECT 1;
+ERROR HY000: The specified detached session id (<rpc_id>) has been removed because it was idle 5000ms
+SELECT sleep(11);
+sleep(11)
+0
+SELECT 1;
+ERROR HY000: The specified detached session id (<rpc_id>) is unknown
 
 # Case 11: Make sure a detached session that times out cleans up
 
