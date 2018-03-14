@@ -56,7 +56,13 @@ if ($rpc_id != "") {
 connect (close_conn,127.0.0.1,root,,db_default);
 
 # add an rpc_id with a wrong format
-query_attrs_add rpc_id "123wrong_format";
+query_attrs_add rpc_id 123wrong_format;
+--error ER_RPC_MALFORMED_ID
+SELECT 1;
+
+# add an rpc_id that's never been used before
+query_attrs_delete rpc_id;
+query_attrs_add rpc_id 4000000000;
 --error ER_RPC_INVALID_ID
 SELECT 1;
 
@@ -527,8 +533,22 @@ SELECT sleep(6);
 # A query 6 seconds later should fail
 connection con1;
 --replace_result $rpc_id <rpc_id>
+--error ER_RPC_IDLE_TIMEOUT
+SELECT 1;
+
+# make sure it is repeatable
+--replace_result $rpc_id <rpc_id>
+--error ER_RPC_IDLE_TIMEOUT
+SELECT 1;
+
+connection default;
+SELECT sleep(11); # sleep more than 2 times the idle timeout
+
+connection con1;
+--replace_result $rpc_id <rpc_id>
 --error ER_RPC_INVALID_ID
 SELECT 1;
+
 disconnect con1;
 
 --echo
