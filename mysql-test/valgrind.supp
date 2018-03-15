@@ -818,6 +818,46 @@
    fun:buf_buddy_free
 }
 
+
+# Once-per instance initialization leaks
+{
+   Once-per initialization leaks
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:set_gap_lock_exception_list
+   fun:get_options
+   ...
+}
+
+{
+   Once-per initialization leaks
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:set_legacy_user_name_pattern
+   fun:get_options
+   ...
+}
+
+{
+   Once-per initialization leaks
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:init_server_components
+   ...
+}
+
+{
+   Once-per initialization leaks
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:init_common_variables
+   ...
+}
+
 # Note the wildcard in the (mangled) function signatures of
 # write_keys() and find_all_keys().
 # They both return ha_rows, which is platform dependent.
@@ -1020,6 +1060,16 @@
    fun:getaddrinfo
 }
 
+{
+   ssl_acceptor_fd is static
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:new_ssl_acceptor_fd
+   fun:init_ssl
+   ...
+}
+
 #
 # RocksDB Storage Engine suppressions
 #
@@ -1092,6 +1142,15 @@
    fun:_ZN7rocksdb10autovectorIjLm8EE9push_backERKj
    fun:_ZN7rocksdb14ThreadLocalPtr10StaticMeta9ReclaimIdEj
    fun:_ZN7rocksdb14ThreadLocalPtrD1Ev
+   ...
+}
+
+{
+   Static initialization
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:__static_initialization_and_destruction_0
    ...
 }
 
@@ -1178,6 +1237,17 @@
    fun:RAND_bytes_with_additional_data
    fun:RAND_bytes
    fun:SSL_CTX_new
+   fun:new_VioSSLFd
+   ...
+}
+{
+   TLS data on main thread is not cleaned up properly
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:ec_group_new_from_data
+   ...
    fun:new_VioSSLFd
    ...
 }
