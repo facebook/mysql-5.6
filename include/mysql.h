@@ -575,6 +575,11 @@ unsigned int STDCALL mysql_thread_safe(void);
 bool STDCALL mysql_read_query_result(MYSQL *mysql);
 int STDCALL mysql_reset_connection(MYSQL *mysql);
 
+unsigned long STDCALL cli_safe_read(MYSQL *mysql, bool *is_data_packet);
+enum net_async_status STDCALL cli_safe_read_nonblocking(MYSQL *mysql,
+                                                        bool *is_data_packet,
+                                                        unsigned long *res);
+
 int STDCALL mysql_binlog_open(MYSQL *mysql, MYSQL_RPL *rpl);
 int STDCALL mysql_binlog_fetch(MYSQL *mysql, MYSQL_RPL *rpl);
 void STDCALL mysql_binlog_close(MYSQL *mysql, MYSQL_RPL *rpl);
