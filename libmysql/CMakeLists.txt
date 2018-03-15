@@ -149,6 +149,8 @@ mysql_result_metadata
 mysql_get_ssl_session
 mysql_get_ssl_session_reused
 mysql_take_ssl_context_ownership
+cli_safe_read
+cli_safe_read_nonblocking
 
 CACHE INTERNAL "Functions exported by client API"
 
