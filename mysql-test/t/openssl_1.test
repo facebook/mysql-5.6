@@ -119,6 +119,7 @@ drop table t1;
 # Test that we can't open connection to server if we are using
 # a blank client-key
 #
+--replace_regex /Unable to get private key from '.*'/Unable to get private key from ''/
 --error 1
 --exec $MYSQL_TEST --ssl-mode=REQUIRED --ssl-key= --max-connect-retries=1 < $MYSQLTEST_VARDIR/tmp/test.sql 2>&1
 
