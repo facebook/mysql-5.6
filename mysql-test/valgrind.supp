@@ -1251,6 +1251,24 @@
    fun:new_VioSSLFd
    ...
 }
+{
+   TLS data on main thread is not cleaned up properly
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:OPENSSL_malloc
+   ...
+   fun:do_start_connect
+   fun:bssl::ssl_client_handshake
+   fun:bssl::ssl_run_handshake
+   fun:SSL_do_handshake
+   fun:SSL_connect
+   fun:ssl_handshake_loop
+   fun:ssl_do
+   fun:sslconnect
+   fun:run_ssl_connect
+   ...
+}
 
 {
    Valgrind complains about std::unordered_map ctor in ha_rocksdb
