@@ -8,6 +8,7 @@ call mtr.add_suppression("Force shutdown: Semi-sync master is being switched off
 create table t1(a int) engine=innodb;
 include/stop_slave.inc
 SET GLOBAL DEBUG='+d,dont_send_semi_sync_reply';
+CHANGE MASTER TO MASTER_CONNECT_RETRY=0;
 include/start_slave.inc
 insert into t1 values(1);
 ERROR HY000: Lost connection to MySQL server during query

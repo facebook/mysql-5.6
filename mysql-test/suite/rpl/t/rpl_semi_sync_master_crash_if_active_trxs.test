@@ -13,6 +13,7 @@ sync_slave_with_master;
 connection slave;
 source include/stop_slave.inc;
 SET GLOBAL DEBUG='+d,dont_send_semi_sync_reply';
+CHANGE MASTER TO MASTER_CONNECT_RETRY=0;
 source include/start_slave.inc;
 
 ##
