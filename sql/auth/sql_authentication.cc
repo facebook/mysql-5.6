@@ -2819,7 +2819,8 @@ skip_to_ssl:
     if (!context.get()->have_ssl()) return packet_error;
     DBUG_PRINT("info", ("IO layer change in progress..."));
     if (sslaccept(*(context.get()), protocol->get_vio(),
-                  protocol->get_net()->read_timeout, &errptr)) {
+                  timeout_to_seconds(protocol->get_net()->read_timeout),
+                  &errptr)) {
       DBUG_PRINT("error", ("Failed to accept new SSL connection"));
       return packet_error;
     }
