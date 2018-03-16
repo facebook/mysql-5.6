@@ -213,7 +213,10 @@ enum mysql_option {
   MYSQL_OPT_LOAD_DATA_LOCAL_DIR,
   MYSQL_OPT_SSL_SESSION,
   MYSQL_OPT_SSL_CONTEXT,
-  MYSQL_OPT_NET_RECEIVE_BUFFER_SIZE
+  MYSQL_OPT_NET_RECEIVE_BUFFER_SIZE,
+  MYSQL_OPT_CONNECT_TIMEOUT_MS,
+  MYSQL_OPT_READ_TIMEOUT_MS,
+  MYSQL_OPT_WRITE_TIMEOUT_MS,
 };
 
 /**
@@ -223,7 +226,7 @@ enum mysql_option {
 struct st_mysql_options_extention;
 
 struct st_mysql_options {
-  unsigned int connect_timeout, read_timeout, write_timeout;
+  timeout_t connect_timeout, read_timeout, write_timeout;
   unsigned int port, protocol;
   unsigned long client_flag;
   char *host, *user, *password, *unix_socket, *db;
