@@ -10,5 +10,5 @@ Restart server and provide same ssl-ca at server startup
 Variable_name	Value
 Ssl_cipher	SSL_CIPHER
 Restart server and provide same ssl-ca at server startup
-ERROR 2026 (HY000): SSL connection error: error:ERRCODE:SSL routines:ERRMSG:certificate verify failed
+ERROR 2026 (HY000): SSL connection error: error:ERRCODE:SSL routines:ERRMSG:certificate verify failed (errno 71)
 DROP USER 'user1';

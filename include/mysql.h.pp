@@ -137,6 +137,9 @@ enum SERVER_STATUS_flags_enum {
   SERVER_SESSION_STATE_CHANGED = (1UL << 14)
 };
 struct Vio;
+typedef struct {
+  uint value_ms_;
+} timeout_t;
 typedef struct NET {
   struct Vio * vio;
   unsigned char *buff, *buff_end, *write_pos, *read_pos;
@@ -144,7 +147,8 @@ typedef struct NET {
   unsigned long remain_in_buf, length, buf_length, where_b;
   unsigned long max_packet, max_packet_size;
   unsigned int pkt_nr, compress_pkt_nr;
-  unsigned int write_timeout, read_timeout, retry_count;
+  timeout_t write_timeout, read_timeout;
+  unsigned int retry_count;
   int fcntl;
   unsigned int *return_status;
   unsigned char reading_or_writing;
@@ -204,9 +208,16 @@ bool net_write_command(struct NET *net, unsigned char command,
 bool net_write_packet(struct NET *net, const unsigned char *packet,
                       size_t length);
 unsigned long my_net_read(struct NET *net);
-void my_net_set_write_timeout(struct NET *net, unsigned int timeout);
-void my_net_set_read_timeout(struct NET *net, unsigned int timeout);
+void my_net_set_write_timeout(struct NET *net, const timeout_t timeout);
+void my_net_set_read_timeout(struct NET *net, const timeout_t timeout);
 void my_net_set_retry_count(struct NET *net, unsigned int retry_count);
+timeout_t timeout_from_seconds(uint seconds);
+timeout_t timeout_from_millis(uint ms);
+timeout_t timeout_infinite(void);
+bool timeout_is_infinite(const timeout_t t);
+int timeout_is_nonzero(const timeout_t t);
+unsigned int timeout_to_millis(const timeout_t t);
+unsigned int timeout_to_seconds(const timeout_t t);
 struct rand_struct {
   unsigned long seed1, seed2, max_value;
   double max_value_dbl;
@@ -463,11 +474,14 @@ enum mysql_option {
   MYSQL_OPT_USER_PASSWORD,
   MYSQL_OPT_SSL_SESSION_DATA,
   MYSQL_OPT_SSL_CONTEXT,
-  MYSQL_OPT_NET_RECEIVE_BUFFER_SIZE
+  MYSQL_OPT_NET_RECEIVE_BUFFER_SIZE,
+  MYSQL_OPT_CONNECT_TIMEOUT_MS,
+  MYSQL_OPT_READ_TIMEOUT_MS,
+  MYSQL_OPT_WRITE_TIMEOUT_MS,
 };
 struct st_mysql_options_extention;
 struct st_mysql_options {
-  unsigned int connect_timeout, read_timeout, write_timeout;
+  timeout_t connect_timeout, read_timeout, write_timeout;
   unsigned int port, protocol;
   unsigned long client_flag;
   char *host, *user, *password, *unix_socket, *db;

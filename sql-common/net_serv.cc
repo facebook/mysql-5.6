@@ -752,7 +752,7 @@ static net_async_status net_write_vector_nonblocking(NET *net, ssize_t *res) {
           In the unlikely event that there is a renegotiation and
           SSL_ERROR_WANT_READ is returned, set blocking state to read.
         */
-        if (static_cast<size_t>(*res) == VIO_SOCKET_WANT_READ) {
+        if (*res == VIO_SOCKET_WANT_READ) {
           net_async->async_blocking_state = NET_NONBLOCKING_READ;
         } else {
           net_async->async_blocking_state = NET_NONBLOCKING_WRITE;
@@ -993,7 +993,12 @@ static bool net_write_raw_loop(NET *net, const uchar *buf, size_t count) {
   unsigned int retry_count = 0;
 
   while (count) {
-    size_t sentcnt = vio_write(net->vio, buf, count);
+    ssize_t sentcnt = vio_write(net->vio, buf, count);
+
+    if (sentcnt == VIO_SOCKET_READ_TIMEOUT ||
+        sentcnt == VIO_SOCKET_WRITE_TIMEOUT) {
+      break;
+    }
 
     /* VIO_SOCKET_ERROR (-1) indicates an error. */
     if (sentcnt == VIO_SOCKET_ERROR) {
@@ -1357,7 +1362,12 @@ static bool net_read_raw_loop(NET *net, size_t count) {
   time_t start_time = 0;
   if (timeout_on_full_packet) start_time = time(&start_time);
   while (count) {
-    size_t recvcnt = vio_read(net->vio, buf, count);
+    ssize_t recvcnt = vio_read(net->vio, buf, count);
+
+    if (recvcnt == VIO_SOCKET_READ_TIMEOUT ||
+        recvcnt == VIO_SOCKET_WRITE_TIMEOUT) {
+      break;
+    }
 
     /* VIO_SOCKET_ERROR (-1) indicates an error. */
     if (recvcnt == VIO_SOCKET_ERROR) {
@@ -1381,7 +1391,7 @@ static bool net_read_raw_loop(NET *net, size_t count) {
     if (timeout_on_full_packet) {
       time_t current_time = time(&current_time);
       if (static_cast<unsigned int>(current_time - start_time) >
-          net->read_timeout) {
+          timeout_to_seconds(net->read_timeout)) {
         is_packet_timeout = true;
         break;
       }
@@ -1537,7 +1547,7 @@ static bool net_read_packet_header(NET *net) {
    (when renegotiation occurs).
 */
 static ulong net_read_available(NET *net, size_t count) {
-  size_t recvcnt;
+  ssize_t recvcnt;
   DBUG_TRACE;
   NET_ASYNC *net_async = NET_ASYNC_DATA(net);
   if (net_async->cur_pos + count > net->buff + net->max_packet) {
@@ -2246,16 +2256,16 @@ ulong my_net_read(NET *net) {
   return static_cast<ulong>(len);
 }
 
-void my_net_set_read_timeout(NET *net, uint timeout) {
+void my_net_set_read_timeout(NET *net, timeout_t timeout) {
   DBUG_TRACE;
-  DBUG_PRINT("enter", ("timeout: %d", timeout));
+  DBUG_PRINT("enter", ("timeout: %d", timeout_to_millis(timeout)));
   net->read_timeout = timeout;
   if (net->vio) vio_timeout(net->vio, 0, timeout);
 }
 
-void my_net_set_write_timeout(NET *net, uint timeout) {
+void my_net_set_write_timeout(NET *net, timeout_t timeout) {
   DBUG_TRACE;
-  DBUG_PRINT("enter", ("timeout: %d", timeout));
+  DBUG_PRINT("enter", ("timeout: %d", timeout_to_millis(timeout)));
   net->write_timeout = timeout;
   if (net->vio) vio_timeout(net->vio, 1, timeout);
 }
@@ -2266,3 +2276,34 @@ void my_net_set_retry_count(NET *net, uint retry_count) {
   net->retry_count = retry_count;
   if (net->vio) net->vio->retry_count = retry_count;
 }
+
+timeout_t timeout_from_seconds(uint seconds) {
+  timeout_t t;
+  /* Prevent accidental overflows; cap them at UINT_MAX - 1 milliseconds
+   * */
+  if (UINT_MAX / 1000 <= seconds) {
+    t.value_ms_ = UINT_MAX - 1;
+  } else {
+    t.value_ms_ = seconds * 1000;
+  }
+  return t;
+}
+
+timeout_t timeout_from_millis(uint ms) {
+  timeout_t t;
+  t.value_ms_ = ms;
+  return t;
+}
+
+timeout_t timeout_infinite(void) {
+  timeout_t t;
+  t.value_ms_ = UINT_MAX;
+  return t;
+}
+
+int timeout_is_nonzero(const timeout_t t) { return t.value_ms_ != 0; }
+
+uint timeout_to_millis(const timeout_t t) { return t.value_ms_; }
+uint timeout_to_seconds(const timeout_t t) { return t.value_ms_ / 1000; }
+
+bool timeout_is_infinite(const timeout_t t) { return t.value_ms_ == UINT_MAX; }

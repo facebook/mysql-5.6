@@ -60,7 +60,7 @@ static void set_read_timeout(NET *net, uint32_t timeout) {
   if (timeout < MIN_READ_TIME_OUT_SEC) {
     timeout = MIN_READ_TIME_OUT_SEC;
   }
-  my_net_set_read_timeout(net, timeout);
+  my_net_set_read_timeout(net, timeout_from_seconds(timeout));
 }
 
 /** Set Network write timeout.
@@ -70,7 +70,7 @@ static void set_write_timeout(NET *net, uint32_t timeout) {
   if (timeout < MIN_WRITE_TIME_OUT_SEC) {
     timeout = MIN_WRITE_TIME_OUT_SEC;
   }
-  my_net_set_write_timeout(net, timeout);
+  my_net_set_write_timeout(net, timeout_from_seconds(timeout));
 }
 
 /** Set Network idle timeout.
@@ -80,7 +80,7 @@ static void set_idle_timeout(NET *net, uint32_t timeout) {
   if (timeout < MIN_IDLE_TIME_OUT_SEC) {
     timeout = MIN_IDLE_TIME_OUT_SEC;
   }
-  my_net_set_read_timeout(net, timeout);
+  my_net_set_read_timeout(net, timeout_from_seconds(timeout));
 }
 
 DEFINE_METHOD(void, mysql_clone_start_statement,
@@ -341,9 +341,9 @@ DEFINE_METHOD(MYSQL *, mysql_clone_connect,
                MYSQL_SOCKET *socket)) {
   DBUG_TRACE;
 
-  /* Set default */
-  uint net_read_timeout = MIN_READ_TIME_OUT_SEC;
-  uint net_write_timeout = MIN_WRITE_TIME_OUT_SEC;
+  /* Set default as 5 seconds */
+  ulong net_read_timeout = MIN_READ_TIME_OUT_SEC;
+  ulong net_write_timeout = MIN_WRITE_TIME_OUT_SEC;
 
   /* Clean any previous Error and Warnings in THD */
   if (thd != nullptr) {

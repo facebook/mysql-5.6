@@ -44,6 +44,7 @@
 #include "mysql/components/services/bits/my_io_bits.h"
 #include "mysql/components/services/bits/my_thread_bits.h"
 #include "mysql/components/services/bits/mysql_socket_bits.h"
+#include "mysql_com.h"
 
 #include "mysql/psi/mysql_socket.h"
 
@@ -134,9 +135,11 @@ enum enum_vio_io_event {
   VIO_IO_EVENT_CONNECT
 };
 
-#define VIO_SOCKET_ERROR ((size_t)-1)
-#define VIO_SOCKET_WANT_READ ((size_t)-2)
-#define VIO_SOCKET_WANT_WRITE ((size_t)-3)
+#define VIO_SOCKET_ERROR ((ssize_t)-1)
+#define VIO_SOCKET_WANT_READ ((ssize_t)-2)
+#define VIO_SOCKET_WANT_WRITE ((ssize_t)-3)
+#define VIO_SOCKET_READ_TIMEOUT ((ssize_t)-4)
+#define VIO_SOCKET_WRITE_TIMEOUT ((ssize_t)-5)
 
 #define VIO_LOCALHOST 1            /* a localhost connection */
 #define VIO_BUFFERED_READ 2        /* use buffered read */
@@ -190,16 +193,16 @@ my_socket vio_fd(MYSQL_VIO vio);
 /* Remote peer's address and name in text form */
 bool vio_peer_addr(MYSQL_VIO vio, char *buf, uint16 *port, size_t buflen);
 /* Wait for an I/O event notification. */
-int vio_io_wait(MYSQL_VIO vio, enum enum_vio_io_event event, int timeout);
+int vio_io_wait(MYSQL_VIO vio, enum enum_vio_io_event event, timeout_t timeout);
 bool vio_is_connected(MYSQL_VIO vio);
 #ifndef NDEBUG
 ssize_t vio_pending(MYSQL_VIO vio);
 #endif
 /* Set timeout for a network operation. */
-int vio_timeout(MYSQL_VIO vio, uint which, int timeout_sec);
+int vio_timeout(MYSQL_VIO vio, uint which, timeout_t timeout);
 /* Connect to a peer. */
 bool vio_socket_connect(MYSQL_VIO vio, struct sockaddr *addr, socklen_t len,
-                        bool nonblocking, int timeout,
+                        bool nonblocking, timeout_t timeout,
                         bool *connect_done = nullptr);
 
 bool vio_get_normalized_ip_string(const struct sockaddr *addr,
@@ -330,10 +333,10 @@ struct Vio {
   bool localhost = {false};           /* Are we from localhost? */
   enum_vio_type type = {NO_VIO_TYPE}; /* Type of connection */
 
-  int read_timeout = {-1};  /* Timeout value (ms) for read ops. */
-  int write_timeout = {-1}; /* Timeout value (ms) for write ops. */
-  int retry_count = {1};    /* Retry count */
-  bool inactive = {false};  /* Connection has been shutdown */
+  timeout_t read_timeout = {UINT_MAX};  /* Timeout value (ms) for read ops. */
+  timeout_t write_timeout = {UINT_MAX}; /* Timeout value (ms) for write ops. */
+  int retry_count = {1};                /* Retry count */
+  bool inactive = {false};              /* Connection has been shutdown */
 
   struct sockaddr_storage local;  /* Local internet address */
   struct sockaddr_storage remote; /* Remote internet address */
@@ -410,7 +413,7 @@ struct Vio {
   int (*vioshutdown)(MYSQL_VIO) = {nullptr};
   bool (*is_connected)(MYSQL_VIO) = {nullptr};
   bool (*has_data)(MYSQL_VIO) = {nullptr};
-  int (*io_wait)(MYSQL_VIO, enum enum_vio_io_event, int) = {nullptr};
+  int (*io_wait)(MYSQL_VIO, enum enum_vio_io_event, timeout_t) = {nullptr};
   bool (*connect)(MYSQL_VIO, struct sockaddr *, socklen_t, int) = {nullptr};
 #ifdef _WIN32
 #ifdef __clang__

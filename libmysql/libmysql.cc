@@ -958,8 +958,8 @@ void my_net_local_init(NET *net) {
                          &local_net_buffer_length);
 
   net->max_packet = (uint)local_net_buffer_length;
-  my_net_set_read_timeout(net, CLIENT_NET_READ_TIMEOUT);
-  my_net_set_write_timeout(net, CLIENT_NET_WRITE_TIMEOUT);
+  my_net_set_read_timeout(net, timeout_from_seconds(CLIENT_NET_READ_TIMEOUT));
+  my_net_set_write_timeout(net, timeout_from_seconds(CLIENT_NET_WRITE_TIMEOUT));
   my_net_set_retry_count(net, CLIENT_NET_RETRY_COUNT);
   net->max_packet_size =
       std::max(local_net_buffer_length, local_max_allowed_packet);
