@@ -215,7 +215,8 @@ void pre_init_event_thread(THD *thd) {
                                               strlen(my_localhost));
   thd->get_protocol_classic()->init_net(NULL);
   thd->security_context()->set_user_ptr(C_STRING_WITH_LEN("event_scheduler"));
-  thd->get_protocol_classic()->get_net()->read_timeout = slave_net_timeout;
+  thd->get_protocol_classic()->get_net()->read_timeout =
+      timeout_from_seconds(slave_net_timeout);
   thd->slave_thread = 0;
   thd->variables.option_bits |= OPTION_AUTO_IS_NULL;
   thd->get_protocol_classic()->set_client_capabilities(CLIENT_MULTI_RESULTS);

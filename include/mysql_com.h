@@ -879,6 +879,17 @@ enum mysql_compression_lib { MYSQL_COMPRESSION_ZLIB, MYSQL_COMPRESSION_ZSTD };
 typedef struct ZSTD_CCtx_s ZSTD_CCtx;
 typedef struct ZSTD_DCtx_s ZSTD_DCtx;
 
+/*
+  In order to avoid confusion about whether a timeout value is in
+  seconds or milliseconds, a timeout_t struct is used.  It simply tracks
+  milliseconds but this helps ensure type safety and clear intention
+  when converting for use in syscalls etc.
+*/
+
+typedef struct {
+  uint value_ms_;
+} timeout_t;
+
 typedef struct NET {
   MYSQL_VIO vio;
   unsigned char *buff, *buff_end, *write_pos, *read_pos;
@@ -891,7 +902,8 @@ typedef struct NET {
   unsigned long remain_in_buf, length, buf_length, where_b;
   unsigned long max_packet, max_packet_size;
   unsigned int pkt_nr, compress_pkt_nr;
-  unsigned int write_timeout, read_timeout, retry_count;
+  timeout_t write_timeout, read_timeout;
+  unsigned int retry_count;
   int fcntl;
   unsigned int *return_status;
   unsigned char reading_or_writing;
@@ -1105,9 +1117,18 @@ enum net_async_status net_write_command_nonblocking(
     bool *res);
 enum net_async_status my_net_read_nonblocking(NET *net, unsigned long *len_ptr);
 
-void my_net_set_write_timeout(struct NET *net, unsigned int timeout);
-void my_net_set_read_timeout(struct NET *net, unsigned int timeout);
+void my_net_set_write_timeout(struct NET *net, const timeout_t timeout);
+void my_net_set_read_timeout(struct NET *net, const timeout_t timeout);
 void my_net_set_retry_count(struct NET *net, unsigned int retry_count);
+
+timeout_t timeout_from_seconds(uint seconds);
+timeout_t timeout_from_millis(uint ms);
+timeout_t timeout_infinite(void);
+bool timeout_is_infinite(const timeout_t t);
+int timeout_is_nonzero(const timeout_t t);
+unsigned int timeout_to_millis(const timeout_t t);
+// toSeconds rounds down.
+unsigned int timeout_to_seconds(const timeout_t t);
 
 struct rand_struct {
   unsigned long seed1, seed2, max_value;

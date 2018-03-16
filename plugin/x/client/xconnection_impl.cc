@@ -324,10 +324,10 @@ XError Connection_impl::connect(sockaddr *addr, const std::size_t addr_size) {
     return XError(CR_SOCKET_CREATE_ERROR, ER_TEXT_INVALID_SOCKET);
 
   auto vio = vio_new(s, type, 0);
-  auto error =
-      vio_socket_connect(vio, addr, static_cast<socklen_t>(addr_size), false,
-                         details::make_vio_timeout(
-                             m_context->m_connection_config.m_timeout_connect));
+  auto error = vio_socket_connect(
+      vio, addr, static_cast<socklen_t>(addr_size), false,
+      timeout_from_seconds(details::make_vio_timeout(
+          m_context->m_connection_config.m_timeout_connect)));
 
   if (error) {
     err = socket_errno;
@@ -615,7 +615,7 @@ XError Connection_impl::set_read_timeout(const int deadline_seconds) {
                   ER_TEXT_CANT_SET_TIMEOUT_WHEN_NOT_CONNECTED};
   }
 
-  vio_timeout(m_vio, 0, deadline_seconds);
+  vio_timeout(m_vio, 0, timeout_from_seconds(deadline_seconds));
   return {};
 }
 
@@ -625,7 +625,7 @@ XError Connection_impl::set_write_timeout(const int deadline_seconds) {
                   ER_TEXT_CANT_SET_TIMEOUT_WHEN_NOT_CONNECTED};
   }
 
-  vio_timeout(m_vio, 1, deadline_seconds);
+  vio_timeout(m_vio, 1, timeout_from_seconds(deadline_seconds));
   return {};
 }
 
