@@ -230,24 +230,8 @@ static net_async_status read_one_row_nonblocking(MYSQL *mysql, uint fields,
   @return The timeout value in milliseconds, or -1 if no timeout.
 */
 
-static int get_vio_connect_timeout(MYSQL *mysql) {
-  int timeout_ms;
-  uint timeout_sec;
-
-  /*
-    A timeout of 0 means no timeout. Also, the connect_timeout
-    option value is in seconds, while VIO timeouts are measured
-    in milliseconds. Hence, check for a possible overflow. In
-    case of overflow, set to no timeout.
-  */
-  timeout_sec = mysql->options.connect_timeout;
-
-  if (!timeout_sec || (timeout_sec > INT_MAX / 1000))
-    timeout_ms = -1;
-  else
-    timeout_ms = (int)(timeout_sec * 1000);
-
-  return timeout_ms;
+static timeout_t get_vio_connect_timeout(MYSQL *mysql) {
+  return mysql->options.connect_timeout;
 }
 
 #ifdef _WIN32
@@ -2064,6 +2048,18 @@ static char *set_ssl_option_unpack_path(const char *arg) {
   return opt_var;
 }
 
+/*
+  Hack to convert 0 timeouts to infinite timeouts; we need value_ms_
+  to always be accurate, so we convert any zero passed to us via
+  mysql_options into infinite timeouts.  Used here and in
+  mysql_options.
+*/
+static void fixup_zero_timeout(timeout_t *t) {
+  if (t->value_ms_ == 0) {
+    *t = timeout_infinite();
+  }
+}
+
 void mysql_read_default_options(struct st_mysql_options *options,
                                 const char *filename, const char *group) {
   int argc;
@@ -2128,7 +2124,10 @@ void mysql_read_default_options(struct st_mysql_options *options,
             break;
           case OPT_connect_timeout:
           case OPT_timeout:
-            if (opt_arg) options->connect_timeout = atoi(opt_arg);
+            if (opt_arg) {
+              options->connect_timeout = timeout_from_seconds(atoi(opt_arg));
+              fixup_zero_timeout(&options->connect_timeout);
+            }
             break;
           case OPT_user:
             if (opt_arg) {
@@ -3182,6 +3181,10 @@ MYSQL *STDCALL mysql_init(MYSQL *mysql) {
     set_mysql_error(nullptr, CR_OUT_OF_MEMORY, unknown_sqlstate);
     return nullptr;
   }
+
+  mysql->options.connect_timeout = timeout_infinite();
+  mysql->options.read_timeout = timeout_infinite();
+  mysql->options.write_timeout = timeout_infinite();
 
   /*
     By default we don't reconnect because it could silently corrupt data (after
@@ -4272,14 +4275,26 @@ static int cli_establish_ssl(MYSQL *mysql) {
     /* Connect to the server */
     DBUG_PRINT("info", ("IO layer change in progress..."));
     MYSQL_TRACE(SSL_CONNECT, mysql, ());
-    if (sslconnect(ssl_fd, net->vio, (long)(mysql->options.connect_timeout),
-                   ssl_session, &ssl_error, nullptr)) {
-      char buf[512];
-      ERR_error_string_n(ssl_error, buf, 512);
-      buf[511] = 0;
-      set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR, unknown_sqlstate,
-                               ER_CLIENT(CR_SSL_CONNECTION_ERROR), buf);
-      goto error;
+    ssize_t ret = sslconnect(ssl_fd, net->vio,
+                             timeout_to_seconds(mysql->options.connect_timeout),
+                             ssl_session, &ssl_error, nullptr);
+    switch (ret) {
+      case VIO_SOCKET_ERROR:
+        char ssl_buf[512];
+        char buf[1025];
+        ERR_error_string_n(ssl_error, ssl_buf, 512);
+        ssl_buf[511] = 0;
+        snprintf(buf, sizeof(buf) - 1, "%s (errno %d)", ssl_buf, errno);
+        set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR,
+                                 unknown_sqlstate,
+                                 ER_CLIENT(CR_SSL_CONNECTION_ERROR), buf);
+        goto error;
+      case VIO_SOCKET_READ_TIMEOUT:
+        set_mysql_error(mysql, CR_NET_READ_INTERRUPTED, unknown_sqlstate);
+        goto error;
+      case VIO_SOCKET_WRITE_TIMEOUT:
+        set_mysql_error(mysql, CR_NET_WRITE_INTERRUPTED, unknown_sqlstate);
+        goto error;
     }
     /* Free the SSL session early */
     if (ssl_session) {
@@ -4407,7 +4422,7 @@ static net_async_status cli_establish_ssl_nonblocking(MYSQL *mysql, int *res) {
     enum enum_ssl_init_error ssl_init_error;
     const char *cert_error;
     unsigned long ssl_error;
-    size_t ret;
+    ssize_t ret;
 
     MYSQL_TRACE_STAGE(mysql, SSL_NEGOTIATION);
 
@@ -4448,8 +4463,8 @@ static net_async_status cli_establish_ssl_nonblocking(MYSQL *mysql, int *res) {
     DBUG_PRINT("info", ("IO layer change in progress..."));
     MYSQL_TRACE(SSL_CONNECT, mysql, ());
     if ((ret = sslconnect(ssl_fd, net->vio,
-                          (long)(mysql->options.connect_timeout), ssl_session,
-                          &ssl_error, &ctx->ssl))) {
+                          timeout_to_seconds(mysql->options.connect_timeout),
+                          ssl_session, &ssl_error, &ctx->ssl))) {
       switch (ret) {
         case VIO_SOCKET_WANT_READ:
           net_async->async_blocking_state = NET_NONBLOCKING_READ;
@@ -4457,14 +4472,22 @@ static net_async_status cli_establish_ssl_nonblocking(MYSQL *mysql, int *res) {
         case VIO_SOCKET_WANT_WRITE:
           net_async->async_blocking_state = NET_NONBLOCKING_WRITE;
           return NET_ASYNC_NOT_READY;
+        case VIO_SOCKET_READ_TIMEOUT:
+          set_mysql_error(mysql, CR_NET_READ_INTERRUPTED, unknown_sqlstate);
+          goto error;
+        case VIO_SOCKET_WRITE_TIMEOUT:
+          set_mysql_error(mysql, CR_NET_WRITE_INTERRUPTED, unknown_sqlstate);
+          goto error;
         default:
           break;
           /* continue for error handling */
       }
 
-      char buf[512];
-      ERR_error_string_n(ssl_error, buf, 512);
-      buf[511] = 0;
+      char ssl_buf[512];
+      char buf[1024];
+      ERR_error_string_n(ssl_error, ssl_buf, 512);
+      ssl_buf[511] = 0;
+      snprintf(buf, sizeof(buf) - 1, "%s (errno %d)", ssl_buf, errno);
       set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR, unknown_sqlstate,
                                ER_CLIENT(CR_SSL_CONNECTION_ERROR), buf);
       goto error;
@@ -6223,7 +6246,8 @@ static mysql_state_machine_status csm_wait_connect(mysql_async_connect *ctx) {
     2. The connection was set up successfully: getsockopt() will
        return 0 as an error.
   */
-  if (vio_io_wait(vio, VIO_IO_EVENT_CONNECT, timeout_ms) == 1) {
+  if (vio_io_wait(vio, VIO_IO_EVENT_CONNECT, timeout_from_millis(timeout_ms)) ==
+      1) {
     int error;
     IF_WIN(int, socklen_t) optlen = sizeof(error);
     IF_WIN(char, void) *optval = (IF_WIN(char, void) *)&error;
@@ -6282,11 +6306,11 @@ static mysql_state_machine_status csm_complete_connect(
   vio_keepalive(net->vio, true);
 
   /* If user set read_timeout, let it override the default */
-  if (mysql->options.read_timeout)
+  if (timeout_is_nonzero(mysql->options.read_timeout))
     my_net_set_read_timeout(net, mysql->options.read_timeout);
 
   /* If user set write_timeout, let it override the default */
-  if (mysql->options.write_timeout)
+  if (timeout_is_nonzero(mysql->options.write_timeout))
     my_net_set_write_timeout(net, mysql->options.write_timeout);
 
   /* If user set retry_count, let it override the default */
@@ -6301,7 +6325,7 @@ static mysql_state_machine_status csm_complete_connect(
 
   /* Get version info */
   mysql->protocol_version = PROTOCOL_VERSION; /* Assume this */
-  if (mysql->options.connect_timeout &&
+  if (timeout_is_nonzero(mysql->options.connect_timeout) &&
       (vio_io_wait(net->vio, VIO_IO_EVENT_READ,
                    get_vio_connect_timeout(mysql)) < 1)) {
     set_mysql_extended_error(mysql, CR_SERVER_LOST, unknown_sqlstate,
@@ -7777,13 +7801,34 @@ int STDCALL mysql_options(MYSQL *mysql, enum mysql_option option,
   DBUG_PRINT("enter", ("option: %d", (int)option));
   switch (option) {
     case MYSQL_OPT_CONNECT_TIMEOUT:
-      mysql->options.connect_timeout = *static_cast<const uint *>(arg);
+      mysql->options.connect_timeout =
+          timeout_from_seconds(*static_cast<const uint *>(arg));
+      fixup_zero_timeout(&mysql->options.connect_timeout);
+      break;
+    case MYSQL_OPT_CONNECT_TIMEOUT_MS:
+      mysql->options.connect_timeout =
+          timeout_from_millis(*static_cast<const uint *>(arg));
+      fixup_zero_timeout(&mysql->options.connect_timeout);
       break;
     case MYSQL_OPT_READ_TIMEOUT:
-      mysql->options.read_timeout = *static_cast<const uint *>(arg);
+      mysql->options.read_timeout =
+          timeout_from_seconds(*static_cast<const uint *>(arg));
+      fixup_zero_timeout(&mysql->options.read_timeout);
+      break;
+    case MYSQL_OPT_READ_TIMEOUT_MS:
+      mysql->options.read_timeout =
+          timeout_from_millis(*static_cast<const uint *>(arg));
+      fixup_zero_timeout(&mysql->options.read_timeout);
       break;
     case MYSQL_OPT_WRITE_TIMEOUT:
-      mysql->options.write_timeout = *static_cast<const uint *>(arg);
+      mysql->options.write_timeout =
+          timeout_from_seconds(*static_cast<const uint *>(arg));
+      fixup_zero_timeout(&mysql->options.write_timeout);
+      break;
+    case MYSQL_OPT_WRITE_TIMEOUT_MS:
+      mysql->options.write_timeout =
+          timeout_from_millis(*static_cast<const uint *>(arg));
+      fixup_zero_timeout(&mysql->options.write_timeout);
       break;
     case MYSQL_OPT_COMPRESS:
       mysql->options.compress = true; /* Remember for connect */
@@ -8135,15 +8180,27 @@ int STDCALL mysql_get_option(MYSQL *mysql, enum mysql_option option,
   switch (option) {
     case MYSQL_OPT_CONNECT_TIMEOUT:
       *(const_cast<uint *>(static_cast<const uint *>(arg))) =
-          mysql->options.connect_timeout;
+          timeout_to_seconds(mysql->options.connect_timeout);
+      break;
+    case MYSQL_OPT_CONNECT_TIMEOUT_MS:
+      *(const_cast<uint *>(static_cast<const uint *>(arg))) =
+          timeout_to_millis(mysql->options.connect_timeout);
       break;
     case MYSQL_OPT_READ_TIMEOUT:
       *(const_cast<uint *>(static_cast<const uint *>(arg))) =
-          mysql->options.read_timeout;
+          timeout_to_seconds(mysql->options.read_timeout);
+      break;
+    case MYSQL_OPT_READ_TIMEOUT_MS:
+      *(const_cast<uint *>(static_cast<const uint *>(arg))) =
+          timeout_to_millis(mysql->options.read_timeout);
       break;
     case MYSQL_OPT_WRITE_TIMEOUT:
       *(const_cast<uint *>(static_cast<const uint *>(arg))) =
-          mysql->options.write_timeout;
+          timeout_to_seconds(mysql->options.write_timeout);
+      break;
+    case MYSQL_OPT_WRITE_TIMEOUT_MS:
+      *(const_cast<uint *>(static_cast<const uint *>(arg))) =
+          timeout_to_millis(mysql->options.write_timeout);
       break;
     case MYSQL_OPT_COMPRESS:
       *(const_cast<bool *>(static_cast<const bool *>(arg))) =

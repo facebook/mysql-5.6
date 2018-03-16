@@ -6337,6 +6337,7 @@ static void do_connect(struct st_command *command) {
   char *con_options;
   bool con_ssl = false, con_compress = false;
   bool con_pipe = false, con_shm = false, con_cleartext_enable = false;
+  bool con_timeout_1s = false, con_timeout_1500ms = false;
   struct st_connection *con_slot;
   uint save_opt_ssl_mode = opt_ssl_mode;
 
@@ -6420,13 +6421,20 @@ static void do_connect(struct st_command *command) {
     while (*end && !my_isspace(charset_info, *end)) end++;
 
     size_t con_option_len = end - con_options;
-    char cur_con_option[10] = {};
-    strmake(cur_con_option, con_options, con_option_len);
+    const size_t cur_con_option_len = 32;
+    char cur_con_option[cur_con_option_len + 1] = {};
+    DBUG_ASSERT(cur_con_option_len >= con_option_len);
+    strmake(cur_con_option, con_options,
+            std::min(cur_con_option_len, con_option_len));
 
     if (!std::strcmp(cur_con_option, "SSL"))
       con_ssl = true;
     else if (!std::strcmp(cur_con_option, "COMPRESS"))
       con_compress = true;
+    else if (!std::strcmp(cur_con_option, "TIMEOUT_1S"))
+      con_timeout_1s = true;
+    else if (!std::strcmp(cur_con_option, "TIMEOUT_1500MS"))
+      con_timeout_1500ms = true;
     else if (!std::strcmp(cur_con_option, "PIPE"))
       con_pipe = true;
     else if (!std::strcmp(cur_con_option, "SHM"))
@@ -6463,6 +6471,18 @@ static void do_connect(struct st_command *command) {
 
   if (opt_compress || con_compress)
     mysql_options(&con_slot->mysql, MYSQL_OPT_COMPRESS, NullS);
+
+  if (con_timeout_1s) {
+    int timeout = 1;
+    mysql_options(&con_slot->mysql, MYSQL_OPT_READ_TIMEOUT, &timeout);
+    mysql_options(&con_slot->mysql, MYSQL_OPT_WRITE_TIMEOUT, &timeout);
+    mysql_options(&con_slot->mysql, MYSQL_OPT_CONNECT_TIMEOUT, &timeout);
+  } else if (con_timeout_1500ms) {
+    int timeout = 1500;
+    mysql_options(&con_slot->mysql, MYSQL_OPT_READ_TIMEOUT_MS, &timeout);
+    mysql_options(&con_slot->mysql, MYSQL_OPT_WRITE_TIMEOUT_MS, &timeout);
+    mysql_options(&con_slot->mysql, MYSQL_OPT_CONNECT_TIMEOUT_MS, &timeout);
+  }
   mysql_options(&con_slot->mysql, MYSQL_OPT_LOCAL_INFILE, nullptr);
   mysql_options(&con_slot->mysql, MYSQL_SET_CHARSET_NAME, charset_info->csname);
   if (opt_charsets_dir)

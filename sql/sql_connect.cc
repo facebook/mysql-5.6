@@ -835,7 +835,8 @@ static void prepare_new_connection_state(THD *thd) {
                   da->message_text());
 
       thd->lex->set_current_select(nullptr);
-      my_net_set_read_timeout(net, thd->variables.net_wait_timeout);
+      my_net_set_read_timeout(
+          net, timeout_from_seconds(thd->variables.net_wait_timeout));
       thd->clear_error();
       net_new_transaction(net);
       packet_length = my_net_read(net);

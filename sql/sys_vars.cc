@@ -2942,8 +2942,9 @@ static bool fix_net_read_timeout(sys_var *self, THD *thd, enum_var_type type) {
       my_error(ER_PLUGGABLE_PROTOCOL_COMMAND_NOT_SUPPORTED, MYF(0));
       return true;
     }
-    my_net_set_read_timeout(thd->get_protocol_classic()->get_net(),
-                            thd->variables.net_read_timeout);
+    my_net_set_read_timeout(
+        thd->get_protocol_classic()->get_net(),
+        timeout_from_seconds(thd->variables.net_read_timeout));
   }
   return false;
 }
@@ -2963,8 +2964,9 @@ static bool fix_net_write_timeout(sys_var *self, THD *thd, enum_var_type type) {
       my_error(ER_PLUGGABLE_PROTOCOL_COMMAND_NOT_SUPPORTED, MYF(0));
       return true;
     }
-    my_net_set_write_timeout(thd->get_protocol_classic()->get_net(),
-                             thd->variables.net_write_timeout);
+    my_net_set_write_timeout(
+        thd->get_protocol_classic()->get_net(),
+        timeout_from_seconds(thd->variables.net_write_timeout));
   }
   return false;
 }

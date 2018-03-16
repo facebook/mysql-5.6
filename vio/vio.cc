@@ -360,11 +360,11 @@ bool vio_reset(Vio *vio, enum enum_vio_type type, my_socket sd,
     the underlying proprieties associated with the timeout,
     such as the socket blocking mode.
   */
-  if (vio->read_timeout >= 0)
-    ret |= vio_timeout(&new_vio, 0, vio->read_timeout / 1000);
+  if (!timeout_is_infinite(vio->read_timeout))
+    ret |= vio_timeout(&new_vio, 0, vio->read_timeout);
 
-  if (vio->write_timeout >= 0)
-    ret |= vio_timeout(&new_vio, 1, vio->write_timeout / 1000);
+  if (!timeout_is_infinite(vio->write_timeout))
+    ret |= vio_timeout(&new_vio, 1, vio->write_timeout);
 
   if (!ret) {
     /*
@@ -497,31 +497,22 @@ Vio *vio_new_win32shared_memory(HANDLE handle_file_map, HANDLE handle_map,
 
   @param vio      A VIO object.
   @param which    Whether timeout is for send (1) or receive (0).
-  @param timeout_sec  Timeout interval in seconds.
+  @param timeout  Timeout interval.
 
   @return false on success, true otherwise.
 */
 
-int vio_timeout(Vio *vio, uint which, int timeout_sec) {
-  int timeout_ms;
+int vio_timeout(Vio *vio, uint which, timeout_t timeout) {
   bool old_mode;
 
-  /*
-    Vio timeouts are measured in milliseconds. Check for a possible
-    overflow. In case of overflow, set to infinite.
-  */
-  if (timeout_sec > INT_MAX / 1000)
-    timeout_ms = -1;
-  else
-    timeout_ms = (int)(timeout_sec * 1000);
-
   /* Deduce the current timeout status mode. */
-  old_mode = vio->write_timeout < 0 && vio->read_timeout < 0;
+  old_mode = timeout_is_infinite(vio->write_timeout) &&
+             timeout_is_infinite(vio->read_timeout);
 
   if (which)
-    vio->write_timeout = timeout_ms;
+    vio->write_timeout = timeout;
   else
-    vio->read_timeout = timeout_ms;
+    vio->read_timeout = timeout;
 
   /* VIO-specific timeout handling. Might change the blocking mode. */
   return vio->timeout ? vio->timeout(vio, which, old_mode) : 0;

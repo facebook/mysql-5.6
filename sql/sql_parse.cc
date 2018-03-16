@@ -1192,7 +1192,8 @@ bool do_command(THD *thd) {
     number of seconds has passed.
   */
   net = thd->get_protocol_classic()->get_net();
-  my_net_set_read_timeout(net, thd->variables.net_wait_timeout);
+  my_net_set_read_timeout(
+      net, timeout_from_seconds(thd->variables.net_wait_timeout));
   net_new_transaction(net);
 
   /*
@@ -1273,7 +1274,8 @@ bool do_command(THD *thd) {
   thd->get_protocol_classic()->get_output_packet()->shrink(
       thd->variables.net_buffer_length);
   /* Restore read timeout value */
-  my_net_set_read_timeout(net, thd->variables.net_read_timeout);
+  my_net_set_read_timeout(
+      net, timeout_from_seconds(thd->variables.net_read_timeout));
 
   DEBUG_SYNC(thd, "before_command_dispatch");
 

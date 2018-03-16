@@ -2501,7 +2501,8 @@ skip_to_ssl:
     if (c.empty()) return packet_error;
 
     DBUG_PRINT("info", ("IO layer change in progress..."));
-    if (sslaccept(c, protocol->get_vio(), protocol->get_net()->read_timeout,
+    if (sslaccept(c, protocol->get_vio(),
+                  timeout_to_seconds(protocol->get_net()->read_timeout),
                   &errptr)) {
       DBUG_PRINT("error", ("Failed to accept new SSL connection"));
       return packet_error;

@@ -243,15 +243,15 @@ DEFINE_METHOD(MYSQL *, mysql_clone_connect,
   DBUG_TRACE;
 
   /* Set default as 5 seconds */
-  uint net_read_timeout = 5;
-  uint net_write_timeout = 5;
+  timeout_t net_read_timeout = timeout_from_seconds(5);
+  timeout_t net_write_timeout = timeout_from_seconds(5);
 
   /* Clean any previous Error and Warnings in THD */
   if (thd != nullptr) {
     thd->clear_error();
     thd->get_stmt_da()->reset_condition_info(thd);
-    net_read_timeout = thd->variables.net_read_timeout;
-    net_write_timeout = thd->variables.net_write_timeout;
+    net_read_timeout = timeout_from_seconds(thd->variables.net_read_timeout);
+    net_write_timeout = timeout_from_seconds(thd->variables.net_write_timeout);
   }
 
   MYSQL *mysql;
@@ -412,7 +412,7 @@ DEFINE_METHOD(int, mysql_clone_get_response,
 
   /* Adjust read timeout if specified. */
   if (timeout != 0) {
-    my_net_set_read_timeout(net, timeout);
+    my_net_set_read_timeout(net, timeout_from_seconds(timeout));
   }
 
   /* Dummy function callback invoked before getting header. */
@@ -445,7 +445,8 @@ DEFINE_METHOD(int, mysql_clone_get_response,
   server_extn.compress_ctx.algorithm = MYSQL_UNCOMPRESSED;
 
   /* Reset timeout back to default value. */
-  my_net_set_read_timeout(net, thd->variables.net_read_timeout);
+  my_net_set_read_timeout(
+      net, timeout_from_seconds(thd->variables.net_read_timeout));
 
   *packet = net->read_pos;
 
@@ -547,11 +548,13 @@ DEFINE_METHOD(int, mysql_clone_get_command,
     net_new_transaction(net);
 
     /* Use idle timeout while waiting for commands */
-    my_net_set_read_timeout(net, thd->variables.net_wait_timeout);
+    my_net_set_read_timeout(
+        net, timeout_from_seconds(thd->variables.net_wait_timeout));
 
     *buffer_length = my_net_read(net);
 
-    my_net_set_read_timeout(net, thd->variables.net_read_timeout);
+    my_net_set_read_timeout(
+        net, timeout_from_seconds(thd->variables.net_read_timeout));
 
     if (*buffer_length != packet_error && *buffer_length != 0) {
       *com_buffer = net->read_pos;
