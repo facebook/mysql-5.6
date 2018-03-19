@@ -56,6 +56,7 @@
    pthead_exit memory loss 1
    Memcheck:Leak
    fun:malloc
+   ...
    fun:_dl_new_object
    fun:_dl_map_object_from_fd
 }
@@ -64,6 +65,7 @@
    pthread_exit memory loss 2
    Memcheck:Leak
    fun:malloc
+   ...
    fun:_dl_map_object
    fun:dl_open_worker
 }
@@ -72,6 +74,7 @@
    pthread_exit memory loss 3
    Memcheck:Leak
    fun:malloc
+   ...
    fun:_dl_map_object_deps
    fun:dl_open_worker
 }
@@ -80,6 +83,7 @@
    pthread_exit memory loss 4
    Memcheck:Leak
    fun:calloc
+   ...
    fun:_dl_check_map_versions
    fun:dl_open_worker
 }
@@ -88,6 +92,7 @@
    pthread_exit memory loss 5
    Memcheck:Leak
    fun:calloc
+   ...
    fun:_dl_new_object
    fun:_dl_map_object_from_fd
 }
