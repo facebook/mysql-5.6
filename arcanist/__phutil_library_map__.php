@@ -17,6 +17,7 @@ phutil_register_library_map(array(
     'FacebookMySQLClangFormatLinter' => 'lint/linter/FacebookMySQLClangFormatLinter.php',
     'FacebookMySQLLintEngine' => 'lint/FacebookMySQLLintEngine.php',
     'FacebookMySQLLinter' => 'lint/linter/FacebookMySQLLinter.php',
+    'FacebookMySQLPort80Linter' => 'lint/linter/FacebookMySQLPort80Linter.php',
     'FacebookMySQLPrintfLinter' => 'lint/linter/FacebookMySQLPrintfLinter.php',
     'FacebookMySQLTestResultLinter' => 'lint/linter/FacebookMySQLTestResultLinter.php',
     'FacebookMySQLWhitespaceLinter' => 'lint/linter/FacebookMySQLWhitespaceLinter.php',

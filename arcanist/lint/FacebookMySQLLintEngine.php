@@ -40,6 +40,10 @@ class FacebookMySQLLintEngine extends ArcanistLintEngine {
     // should end in a new line, and, lines containing trailing whitespace.
     $linters[] = id(new FacebookMySQLLinter())->setPaths($text_paths);
 
+    // FacebookMySQLPort80Linter enforces patches ported from 5.6 be changed
+    // to conform to 8.0 rules. Certain #defines are not longer used
+    $linters[] = id(new FacebookMySQLPort80Linter())->setPaths($text_paths);
+
     // ArcanistCpplintLinter runs cpplint.py
     // Run on all C++ files that are in MyRocks (include 'storage/rocksdb')
     $myrocks_cpp_paths = preg_grep('/storage\/rocksdb/', $all_cpp_paths);
