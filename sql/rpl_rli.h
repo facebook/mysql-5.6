@@ -27,11 +27,11 @@
 #include "sql_class.h"                   /* THD */
 
 #if defined(HAVE_REPLICATION) && !defined(MYSQL_CLIENT)
-#include "dag.h"
 #include "log_event_wrapper.h"
 #endif // HAVE_REPLICATION and !MYSQL_CLIENT
 
 #include <atomic>
+#include <deque>
 
 struct RPL_TABLE_LIST;
 class Master_info;
@@ -1112,20 +1112,18 @@ public:
 #if defined(HAVE_REPLICATION) && !defined(MYSQL_CLIENT)
   /* Related to dependency tracking */
 
-  // DAG of events
-  DAG<Log_event_wrapper*> dag;
-  mysql_rwlock_t dag_lock;
+  std::deque<std::shared_ptr<Log_event_wrapper>> dep_queue;
+  mysql_mutex_t dep_lock;
 
   /* Mapping from key to penultimate (for multi event trx)/end event of the
      last trx that updated that table */
-  std::unordered_map<Dependency_key, Log_event_wrapper*>
-                                            dag_key_last_penultimate_event;
+  std::unordered_map<Dependency_key, std::shared_ptr<Log_event_wrapper>>
+                                            dep_key_lookup;
+  mysql_mutex_t dep_key_lookup_mutex;
 
   /* Set of keys accessed by the group */
   std::unordered_set<Dependency_key> keys_accessed_by_group;
 
-  /* Mapping from DB to start event of the last trx that updated that DB */
-  std::unordered_map<std::string, Log_event_wrapper*> dag_db_last_start_event;
   /* Set of all DBs accessed by the current group */
   std::unordered_set<std::string> dbs_accessed_by_group;
 
@@ -1134,84 +1132,66 @@ public:
   std::unordered_map<std::string, uint> seen_pk;
 #endif
 
-  // Mutex-condition pair to notify that a group is ready to be executed
-  mysql_cond_t dag_group_ready_cond;
-  mysql_mutex_t dag_group_ready_mutex;
-  bool dag_group_ready= false;
+  // Mutex-condition pair to notify when queue is/is not full
+  mysql_cond_t dep_full_cond;
+  bool dep_full= false;
 
-  // Mutex-condition pair to notify when DAG is/is not full
-  mysql_cond_t dag_full_cond;
-  mysql_mutex_t dag_full_mutex;
-  bool dag_full= false;
-  ulonglong dag_num_groups= 0;
+  // Mutex-condition pair to notify when queue is/is not empty
+  mysql_cond_t dep_empty_cond;
 
-  // Mutex-condition pair to notify when DAG is/is not empty
-  mysql_cond_t dag_empty_cond;
-  mysql_mutex_t dag_empty_mutex;
-  bool dag_empty= true;
-
-  Log_event_wrapper *prev_event= NULL;
+  std::shared_ptr<Log_event_wrapper> prev_event;
   Table_map_log_event *last_table_map_event= NULL;
-  Log_event_wrapper *current_begin_event= NULL;
-  bool dag_sync_group= false;
+  std::shared_ptr<Log_event_wrapper> current_begin_event;
+  bool dep_sync_group= false;
 
   // Used to signal when a dependency worker dies
   std::atomic<bool> dependency_worker_error{false};
 
-  inline void dag_rdlock()
+  mysql_cond_t dep_trx_all_done_cond;
+  ulonglong num_in_flight_trx= 0;
+
+  // Statistics
+  std::atomic<ulonglong> begin_event_waits{0};
+  std::atomic<ulonglong> next_event_waits{0};
+
+  bool enqueue_dep(
+      const std::shared_ptr<Log_event_wrapper> &begin_event)
   {
-    mysql_rwlock_rdlock(&dag_lock);
+    mysql_mutex_assert_owner(&dep_lock);
+    dep_queue.push_back(begin_event);
+    return true;
   }
 
-  inline void dag_wrlock()
+  std::shared_ptr<Log_event_wrapper> dequeue_dep()
   {
-    mysql_rwlock_wrlock(&dag_lock);
+    mysql_mutex_assert_owner(&dep_lock);
+    if (dep_queue.empty()) { return nullptr; }
+    auto ret= dep_queue.front();
+    dep_queue.pop_front();
+    return ret;
   }
 
-  inline void dag_unlock()
+  void clear_dep()
   {
-    mysql_rwlock_unlock(&dag_lock);
-  }
+    mysql_mutex_lock(&dep_lock);
 
-  inline void clear_dag()
-  {
-    dag_wrlock();
+    dep_queue.clear();
 
-    while(!dag.get_head().empty())
-    {
-      for (auto& node : DAG<Log_event_wrapper*>::node_set(dag.get_head()))
-      {
-        dag.remove_head_node(node);
-        delete node;
-      }
-    }
-
-    prev_event= NULL;
+    prev_event.reset();
+    current_begin_event.reset();
     last_table_map_event= NULL;
-    current_begin_event= NULL;
 
-    DBUG_ASSERT(dag.is_empty());
+    DBUG_ASSERT(dep_queue.empty());
 
-    dag_key_last_penultimate_event.clear();
+    dep_key_lookup.clear();
     keys_accessed_by_group.clear();
-    dag_db_last_start_event.clear();
     dbs_accessed_by_group.clear();
 
-    mysql_mutex_lock(&dag_empty_mutex);
-    dag_empty= true;
-    mysql_cond_broadcast(&dag_empty_cond);
-    mysql_mutex_unlock(&dag_empty_mutex);
+    mysql_cond_broadcast(&dep_empty_cond);
 
-    mysql_mutex_lock(&dag_full_mutex);
-    dag_full= false;
-    dag_num_groups= 0;
-    mysql_mutex_unlock(&dag_full_mutex);
+    dep_full= false;
 
-    dag_unlock();
-
-    mysql_mutex_lock(&dag_group_ready_mutex);
-    dag_group_ready= false;
-    mysql_mutex_unlock(&dag_group_ready_mutex);
+    mysql_mutex_unlock(&dep_lock);
 
     dependency_worker_error= false;
   }

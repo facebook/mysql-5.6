@@ -5,18 +5,16 @@
 
 #include "rpl_rli_pdb.h"
 
+class Commit_order_manager;
 
 class Dependency_slave_worker : public Slave_worker
 {
-  inline bool extract_group(std::vector<Log_event_wrapper*>& group);
-  bool find_group(std::vector<Log_event_wrapper*>& group);
-  bool wait_for_group(std::vector<Log_event_wrapper*>& group);
-
-  Log_event_wrapper* get_next_event(Log_event_wrapper *event);
-
+  std::shared_ptr<Log_event_wrapper>
+    get_begin_event(Commit_order_manager *co_mngr);
   bool execute_group();
-  inline int execute_event(Log_event_wrapper *ev);
-  void remove_event(Log_event_wrapper *ev);
+  void cleanup_group(std::shared_ptr<Log_event_wrapper> begin_event);
+  int execute_event(std::shared_ptr<Log_event_wrapper> &ev);
+  void finalize_event(std::shared_ptr<Log_event_wrapper> &ev);
 
 public:
   Dependency_slave_worker(Relay_log_info *rli

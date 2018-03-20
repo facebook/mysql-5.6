@@ -10,86 +10,132 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli);
   */
 class Log_event_wrapper
 {
-  Log_event *event;
-  Log_event_wrapper *begin_event;
+  Log_event *raw_ev;
+  std::weak_ptr<Log_event_wrapper> begin_ev;
 
-  // Condition and lock for when the event is ready to be executed
-  mysql_cond_t cond;
+  // events that depend on us
+  std::vector<std::shared_ptr<Log_event_wrapper>> dependents;
+  // number of events that we depend on
+  ulonglong dependencies= 0;
+
+  // mutex for everything in this event
   mysql_mutex_t mutex;
+  // cond var for dependency tracking
+  mysql_cond_t cond;
+  // cond var for next event in the group
+  mysql_cond_t next_event_cond;
 
-  bool ready_to_execute;
+  // has all dependendents of this event been notified after execution?
+  bool is_finalized= false;
 
 public:
-  // Keys written by this event, should only be non-empty for Rows_log_events
+  std::shared_ptr<Log_event_wrapper> next_ev;
+
+  // keys touched by this event, it should not be empty for rows event
   std::unordered_set<Dependency_key> keys;
 
-  std::atomic<uint> is_assigned; // has this event been assigned to a worker?
-  bool is_appended_to_queue; // has this event been assigned to a worker queue?
-  bool is_begin_event;
-  bool is_end_event;
-  bool whole_group_in_dag; // entire group of this event exists in the DAG?
+  // has this event been assigned to a worker queue?
+  std::atomic_bool is_appended_to_queue{false};
+  // is this the first event of a group?
+  std::atomic_bool is_begin_event{false};
+  // is this the last event of a group?
+  std::atomic_bool is_end_event{false};
+  // entire group of this event scheduled?
+  std::atomic_bool whole_group_scheduled{false};
 
-  Log_event_wrapper(Log_event *event, Log_event_wrapper *begin_event)
+  Log_event_wrapper(Log_event *raw_ev,
+                    std::shared_ptr<Log_event_wrapper> &begin_ev) :
+    raw_ev(raw_ev), begin_ev(begin_ev)
   {
-    this->event= event;
-    this->begin_event= begin_event;
-    ready_to_execute= false;
-    whole_group_in_dag= false;
-    is_assigned.store(0U);
-    is_appended_to_queue= false;
-    is_begin_event= false;
-    is_end_event= false;
     mysql_mutex_init(0, &mutex, MY_MUTEX_INIT_FAST);
     mysql_cond_init(0, &cond, NULL);
+    mysql_cond_init(0, &next_event_cond, NULL);
   }
 
   ~Log_event_wrapper()
   {
     // case: event was not appended to a worker's queue, so we need to delete it
-    if (!is_appended_to_queue)
-      delete event;
-    keys.clear();
+    if (!is_appended_to_queue) { delete raw_ev; }
+    raw_ev= nullptr;
+
+#ifndef DBUG_OFF
+    mysql_mutex_lock(&mutex);
+    DBUG_ASSERT(dependencies == 0);
+    mysql_mutex_unlock(&mutex);
+#endif
+
     mysql_mutex_destroy(&mutex);
     mysql_cond_destroy(&cond);
+    mysql_cond_destroy(&next_event_cond);
   }
 
-  inline Log_event* get_raw_event() const
-  {
-    return event;
-  }
+  Log_event* raw_event() const { return raw_ev; }
 
-  inline void set_raw_event(Log_event *ev)
-  {
-    event= ev;
-  }
+  std::shared_ptr<Log_event_wrapper>
+  begin_event() const { return begin_ev.lock(); }
 
-  inline Log_event_wrapper* get_begin_event() const
-  {
-    return begin_event;
-  }
-
-  inline void wait()
+  void add_dependent(std::shared_ptr<Log_event_wrapper> &ev)
   {
     mysql_mutex_lock(&mutex);
-    while (!ready_to_execute)
+    DBUG_ASSERT(!is_finalized && ev.get() != this && ev->raw_ev && raw_ev);
+    dependents.push_back(ev);
+    ev->incr_dependency();
+    mysql_mutex_unlock(&mutex);
+  }
+
+  void incr_dependency()
+  {
+    mysql_mutex_lock(&mutex);
+    ++dependencies;
+    mysql_mutex_unlock(&mutex);
+  }
+
+  void decr_dependency()
+  {
+    mysql_mutex_lock(&mutex);
+    if ((--dependencies) == 0)
+      mysql_cond_signal(&cond);
+    mysql_mutex_unlock(&mutex);
+  }
+
+  void wait()
+  {
+    mysql_mutex_lock(&mutex);
+    while (dependencies)
       mysql_cond_wait(&cond, &mutex);
     mysql_mutex_unlock(&mutex);
   }
 
-  inline void signal()
+  void finalize()
   {
     mysql_mutex_lock(&mutex);
-    ready_to_execute= true;
-    mysql_cond_signal(&cond);
+    if (!is_finalized)
+    {
+      for (auto& dep : dependents)
+        dep->decr_dependency();
+      is_finalized= true;
+    }
     mysql_mutex_unlock(&mutex);
   }
 
-  inline int execute(Slave_worker *w, THD *thd, Relay_log_info *rli)
+  bool finalized()
+  {
+    mysql_mutex_lock(&mutex);
+    auto ret= is_finalized;
+    mysql_mutex_unlock(&mutex);
+    return ret;
+  }
+
+  int execute(Slave_worker *w, THD *thd, Relay_log_info *rli)
   {
     // the raw event was already added to the worker's jobs queue, so it's safe
     // to call @slave_worker_exec_job function directly
     return slave_worker_exec_job(w, rli);
   }
+
+  void put_next(std::shared_ptr<Log_event_wrapper> &ev);
+  std::shared_ptr<Log_event_wrapper> next();
+  bool path_exists(const std::shared_ptr<Log_event_wrapper> &ev) const;
 };
 
 #endif // LOG_EVENT_WRAPPER_H

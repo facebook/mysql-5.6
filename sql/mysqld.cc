@@ -9702,30 +9702,57 @@ static int show_slave_running(THD *thd, SHOW_VAR *var, char *buff)
   return 0;
 }
 
-static int show_slave_dependency_size(THD *thd, SHOW_VAR *var, char *buff)
+static int show_slave_dependency_in_queue(THD *thd, SHOW_VAR *var, char *buff)
 {
   if (opt_mts_dependency_replication && active_mi && active_mi->rli)
   {
     var->type= SHOW_LONGLONG;
     var->value= buff;
-    mysql_mutex_lock(&active_mi->rli->dag_full_mutex);
-    *((longlong *)buff)= active_mi->rli->dag_num_groups;
-    mysql_mutex_unlock(&active_mi->rli->dag_full_mutex);
+    mysql_mutex_lock(&active_mi->rli->dep_lock);
+    *((ulonglong *)buff)= active_mi->rli->dep_queue.size();
+    mysql_mutex_unlock(&active_mi->rli->dep_lock);
   }
   else
     var->type= SHOW_UNDEF;
   return 0;
 }
 
-static int show_slave_dependency_free_size(THD *thd, SHOW_VAR *var, char *buff)
+static int show_slave_dependency_in_flight(THD *thd, SHOW_VAR *var, char *buff)
 {
   if (opt_mts_dependency_replication && active_mi && active_mi->rli)
   {
     var->type= SHOW_LONGLONG;
     var->value= buff;
-    active_mi->rli->dag_rdlock();
-    *((longlong *)buff)= (longlong) active_mi->rli->dag.get_head().size();
-    active_mi->rli->dag_unlock();
+    mysql_mutex_lock(&active_mi->rli->dep_lock);
+    *((ulonglong *)buff)= (ulonglong) active_mi->rli->num_in_flight_trx;
+    mysql_mutex_unlock(&active_mi->rli->dep_lock);
+  }
+  else
+    var->type= SHOW_UNDEF;
+  return 0;
+}
+
+static
+int show_slave_dependency_begin_waits(THD *thd, SHOW_VAR *var, char *buff)
+{
+  if (opt_mts_dependency_replication && active_mi && active_mi->rli)
+  {
+    var->type= SHOW_LONGLONG;
+    var->value= buff;
+    *((ulonglong *)buff)= (ulonglong) active_mi->rli->begin_event_waits.load();
+  }
+  else
+    var->type= SHOW_UNDEF;
+  return 0;
+}
+
+static int show_slave_dependency_next_waits(THD *thd, SHOW_VAR *var, char *buff)
+{
+  if (opt_mts_dependency_replication && active_mi && active_mi->rli)
+  {
+    var->type= SHOW_LONGLONG;
+    var->value= buff;
+    *((ulonglong *)buff)= (ulonglong) active_mi->rli->next_event_waits.load();
   }
   else
     var->type= SHOW_UNDEF;
@@ -10472,8 +10499,10 @@ SHOW_VAR status_vars[]= {
   {"Slave_rows_last_search_algorithm_used",(char*) &show_slave_rows_last_search_algorithm_used, SHOW_FUNC},
 #endif
   {"Slave_running",            (char*) &show_slave_running,     SHOW_FUNC},
-  {"Slave_dependency_size",      (char*) &show_slave_dependency_size, SHOW_FUNC},
-  {"Slave_dependency_free_size", (char*) &show_slave_dependency_free_size, SHOW_FUNC},
+  {"Slave_dependency_in_queue",  (char*) &show_slave_dependency_in_queue, SHOW_FUNC},
+  {"Slave_dependency_in_flight", (char*) &show_slave_dependency_in_flight, SHOW_FUNC},
+  {"Slave_dependency_begin_waits", (char*) &show_slave_dependency_begin_waits, SHOW_FUNC},
+  {"Slave_dependency_next_waits", (char*) &show_slave_dependency_next_waits, SHOW_FUNC},
 #endif
   {"Slow_launch_threads",      (char*) &slow_launch_threads,    SHOW_LONG},
   {"Slow_queries",             (char*) offsetof(STATUS_VAR, long_query_count), SHOW_LONGLONG_STATUS},

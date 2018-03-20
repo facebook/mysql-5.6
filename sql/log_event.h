@@ -1604,16 +1604,17 @@ private:
   }
 
   /**
-     Encapsulation for things to be done after adding terminal events to DAG
-     @see Log_event::add_to_dag
+     Encapsulation for things to be done to terminal dependency events
+     @see Log_event::schedule_dep
   */
-  void do_post_begin_event(Relay_log_info *rli, Log_event_wrapper *ev);
-  void do_post_end_event(Relay_log_info *rli, Log_event_wrapper *ev);
+  void handle_terminal_dep_event(Relay_log_info *rli,
+                                 std::shared_ptr<Log_event_wrapper> &ev);
 
   /**
-     Called by @add_to_dag and overloaded if required
+     Called by @schedule_dep to prepare a dependency event
   */
-  virtual void do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev);
+  virtual void prepare_dep(Relay_log_info *rli,
+                           std::shared_ptr<Log_event_wrapper> &ev);
 
 public:
 
@@ -1654,10 +1655,10 @@ public:
   virtual bool ends_group()   { return FALSE; }
 
   /**
-     Adds events to a DAG according to write-write dependencies
-     see @mts_dag_replication
+     Adds events to a dep queue according to write-write dependencies
+     see @mts_dependency_replication
   */
-  void add_to_dag(Relay_log_info *rli);
+  void schedule_dep(Relay_log_info *rli);
 
   /**
      Apply the event to the database.
@@ -1792,8 +1793,6 @@ protected:
      non-zero. The caller shall decrease the counter by one.
    */
   virtual enum_skip_reason do_shall_skip(Relay_log_info *rli);
-
-  virtual void prepare(Relay_log_info *rli, Log_event_wrapper *ev);
 
 public:
   void apply_query_event(char *query, uint32 query_length_arg);
@@ -2351,7 +2350,8 @@ public:
 public:        /* !!! Public in this patch to allow old usage */
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
   virtual enum_skip_reason do_shall_skip(Relay_log_info *rli);
-  virtual void do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev);
+  virtual void prepare_dep(Relay_log_info *rli,
+                           std::shared_ptr<Log_event_wrapper> &ev);
   virtual int do_apply_event(Relay_log_info const *rli);
   virtual int do_update_pos(Relay_log_info *rli);
 
@@ -3084,7 +3084,8 @@ class Xid_log_event: public Log_event
   virtual bool ends_group() { return TRUE; }
 private:
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
-  virtual void do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev);
+  virtual void prepare_dep(Relay_log_info *rli,
+                           std::shared_ptr<Log_event_wrapper> &ev);
   virtual int do_apply_event(Relay_log_info const *rli);
   virtual int do_apply_event_worker(Slave_worker *rli);
   enum_skip_reason do_shall_skip(Relay_log_info *rli);
@@ -4519,13 +4520,14 @@ private:
 
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
 public:
-  bool get_keys(Relay_log_info *rli, Log_event_wrapper *ev,
+  bool get_keys(Relay_log_info *rli,
+                std::shared_ptr<Log_event_wrapper> &ev,
                 std::deque<Dependency_key> &keys);
 protected:
-  bool parse_keys(Relay_log_info* rli, Log_event_wrapper *ev,
+  bool parse_keys(Relay_log_info* rli,
+                  std::shared_ptr<Log_event_wrapper> &ev,
                   RPL_TABLE_LIST *table_list,
                   std::deque<Dependency_key>& keys);
-  virtual void prepare(Relay_log_info *rli, Log_event_wrapper *ev);
 #ifndef DBUG_OFF
   uint check_pk(TABLE *tbl, Relay_log_info *rli, MY_BITMAP *cols);
 #endif
@@ -4534,7 +4536,8 @@ private:
   bool get_table_ref(Relay_log_info *rli, void **memory,
                      RPL_TABLE_LIST **table_list);
   void close_table_ref(THD *thd, RPL_TABLE_LIST *table_list);
-  virtual void do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev);
+  virtual void prepare_dep(Relay_log_info *rli,
+                           std::shared_ptr<Log_event_wrapper> &ev);
   virtual int do_apply_event(Relay_log_info const *rli);
   virtual int do_update_pos(Relay_log_info *rli);
   virtual enum_skip_reason do_shall_skip(Relay_log_info *rli);
@@ -5275,7 +5278,8 @@ public:
 #endif
 
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
-  void do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev);
+  void prepare_dep(Relay_log_info *rli,
+                   std::shared_ptr<Log_event_wrapper> &ev);
   int do_apply_event(Relay_log_info const *rli);
   int do_update_pos(Relay_log_info *rli);
   void set_last_gtid(char *last_gtid);
