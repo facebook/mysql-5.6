@@ -116,6 +116,9 @@ Slave_worker *map_db_to_worker(const char *dbname, Relay_log_info *rli,
 Slave_worker *get_least_occupied_worker(DYNAMIC_ARRAY *workers);
 int wait_for_workers_to_finish(Relay_log_info *rli,
                                Slave_worker *ignore= NULL);
+void wait_for_dep_workers_to_finish(Relay_log_info *rli,
+                                    const bool partial_trx,
+                                    const bool need_lock= true);
 
 #define SLAVE_INIT_DBS_IN_GROUP 4     // initial allocation for CGEP dynarray
 
@@ -440,7 +443,7 @@ public:
     The running status is guarded by jobs_lock mutex that a writer
     Coordinator or Worker itself needs to hold when write a new value.
   */
-  en_running_state volatile running_status;
+  std::atomic<en_running_state> volatile running_status;
   /*
     exit_incremented indicates whether worker has contributed to max updated index.
     By default it is set to false. When the worker contibutes for the first time this

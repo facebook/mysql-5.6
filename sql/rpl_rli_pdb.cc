@@ -1864,6 +1864,23 @@ void Slave_worker::do_report(loglevel level, int err_code, const char *msg,
   c_rli->va_report(level, err_code, buff_coord, msg, args);
 }
 
+void wait_for_dep_workers_to_finish(Relay_log_info *rli,
+                                    const bool partial_trx,
+                                    const bool need_lock)
+{
+  DBUG_ASSERT(opt_mts_dependency_replication);
+
+  if (need_lock)
+    mysql_mutex_lock(&rli->dep_lock);
+  else
+    mysql_mutex_assert_owner(&rli->dep_lock);
+  ulonglong num= partial_trx ? 1 : 0;
+  while (rli->num_in_flight_trx > num)
+    mysql_cond_wait(&rli->dep_trx_all_done_cond, &rli->dep_lock);
+  if (need_lock)
+    mysql_mutex_unlock(&rli->dep_lock);
+}
+
 /**
    Function is called by Coordinator when it identified an event
    requiring sequential execution.
@@ -1908,11 +1925,8 @@ int wait_for_workers_to_finish(Relay_log_info *rli, Slave_worker *ignore)
 
   if (opt_mts_dependency_replication)
   {
-    // wait till DAG is empty
-    mysql_mutex_lock(&rli->dag_empty_mutex);
-    while (!rli->dag_empty)
-      mysql_cond_wait(&rli->dag_empty_cond, &rli->dag_empty_mutex);
-    mysql_mutex_unlock(&rli->dag_empty_mutex);
+    DBUG_ASSERT(ignore == NULL);
+    wait_for_dep_workers_to_finish(rli, false);
   }
   else
   {
@@ -2325,9 +2339,9 @@ static void slave_worker_update_statistics(Slave_worker *worker,
 
    jobs_lock and pending_jobs_lock should be acquired by the caller.
 */
-static void clear_current_group_events(Slave_worker *worker,
-                                       Relay_log_info *rli,
-                                       bool overfill)
+void clear_current_group_events(Slave_worker *worker,
+                                Relay_log_info *rli,
+                                bool overfill)
 {
   mysql_mutex_assert_owner(&worker->jobs_lock);
   for (ulong i = 0; i < worker->current_event_index; i++)
@@ -2707,7 +2721,7 @@ err:
       sql_print_information("Worker %lu is exiting: killed %i, error %i, "
                             "running_status %d",
                             worker->id, thd->killed, thd->is_error(),
-                            worker->running_status);
+                            worker->running_status.load());
     worker->slave_worker_ends_group(ev, error, temporary_error);
   }
 

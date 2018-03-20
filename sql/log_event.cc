@@ -894,16 +894,12 @@ int my_b_event_read(IO_CACHE* file, uchar *buf, int buflen)
 #endif
 #ifndef MYSQL_CLIENT
 #ifdef HAVE_REPLICATION
-void Log_event::do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev)
+void Log_event::prepare_dep(Relay_log_info *rli,
+                            std::shared_ptr<Log_event_wrapper> &ev)
 {
-  DBUG_ENTER("Log_event::do_add_to_dag");
+  DBUG_ENTER("Log_event::prepare_dep");
 
-  if (ev->get_begin_event())
-  {
-    DBUG_ASSERT(rli->prev_event != NULL);
-    rli->dag.add_dependency(rli->prev_event, ev);
-  }
-  else
+  if (!ev->begin_event())
   {
     if (!(get_type_code() == INTVAR_EVENT ||
           get_type_code() == RAND_EVENT ||
@@ -926,17 +922,7 @@ void Log_event::do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev)
           get_type_str(), rli->get_group_master_log_name(),
           rli->get_group_master_log_pos());
 
-      // make this a sync group in the DAG, this is our safest option
-      rli->dag_sync_group= true;
-      for (auto& node : DAG<Log_event_wrapper*>::node_set(rli->dag.get_tail()))
-      {
-        if (node->is_end_event)
-          rli->dag.add_dependency(node, ev);
-      }
-
-      DBUG_ASSERT(rli->dag.get_tail().size() == 1 &&
-                  rli->dag.get_tail().count(ev) == 1);
-
+      rli->dep_sync_group= true;
       ev->is_begin_event= true;
     }
   }
@@ -3225,32 +3211,17 @@ bool Log_event::is_row_log_event()
   return false;
 }
 
-void Log_event::prepare(Relay_log_info *rli, Log_event_wrapper *ev)
-{
-}
-
 /*
-  Adds an event to the DAG
+  Adds an event to the dependency queue
 */
-void Log_event::add_to_dag(Relay_log_info *rli)
+void Log_event::schedule_dep(Relay_log_info *rli)
 {
-  DBUG_ENTER("Log_event::add_to_dag");
-  bool group_ready= false;
+  DBUG_ENTER("Log_event::schedule_dep");
 
-  // wait if DAG has reached full capacity
-  mysql_mutex_lock(&rli->dag_full_mutex);
-  while (rli->dag_full)
-    mysql_cond_wait(&rli->dag_full_cond, &rli->dag_full_mutex);
-  mysql_mutex_unlock(&rli->dag_full_mutex);
+  auto ev= std::make_shared<Log_event_wrapper>(this, rli->current_begin_event);
+  prepare_dep(rli, ev);
 
-  Log_event_wrapper *ev= new Log_event_wrapper(this, rli->current_begin_event);
-  prepare(rli, ev);
-
-  rli->dag_wrlock();
-
-  do_add_to_dag(rli, ev);
-
-  DBUG_ASSERT(!rli->dag.is_empty() || ev->is_begin_event);
+  DBUG_ASSERT(rli->num_in_flight_trx || ev->is_begin_event);
 
   if (starts_group())
   {
@@ -3276,169 +3247,137 @@ void Log_event::add_to_dag(Relay_log_info *rli)
     }
     else
     {
-      // make this a sync group in the DAG
-      rli->dag_sync_group= true;
-      auto begin_event= ev->is_begin_event ? ev : ev->get_begin_event();
-      DBUG_ASSERT(begin_event != NULL);
-      for (auto& node : DAG<Log_event_wrapper*>::node_set(rli->dag.get_tail()))
-      {
-        if (node->is_end_event && node != ev)
-          rli->dag.add_dependency(node, begin_event);
-      }
+      rli->dep_sync_group= true;
     }
   }
 
-  if (ev->is_begin_event) do_post_begin_event(rli, ev);
+  if (rli->dep_sync_group)
+    wait_for_dep_workers_to_finish(rli, true);
 
-  DBUG_ASSERT((ev->is_begin_event ? ev : ev->get_begin_event()) ==
-              rli->current_begin_event);
+  handle_terminal_dep_event(rli, ev);
 
-  if (ev->is_end_event) do_post_end_event(rli, ev);
-
-  DBUG_ASSERT(ev->is_begin_event ||
-              rli->dag.path_exists(ev->get_begin_event(), ev));
+#ifndef DBUG_OFF
+  if (!ev->is_end_event)
+  {
+    auto be= ev->is_begin_event ? ev : ev->begin_event();
+    DBUG_ASSERT(be == rli->current_begin_event);
+  }
+#endif
 
   mts_group_idx= rli->gaq->assigned_group_index;
 
-  rli->prev_event= ev;
-
-  // case: this event is ready to be executed
-  if (rli->dag.get_parents(ev).empty()) ev->signal();
-
-  group_ready= ev->is_end_event &&
-               rli->dag.get_parents(ev->get_begin_event()).empty();
-
-  // DAG not empty anymore!
-  mysql_mutex_lock(&rli->dag_empty_mutex);
-  rli->dag_empty= false;
-  mysql_mutex_unlock(&rli->dag_empty_mutex);
-
-  rli->dag_unlock();
-
-  if (group_ready)
+  if (ev->is_begin_event)
   {
-    // broadcast a change in DAG
-    mysql_mutex_lock(&rli->dag_group_ready_mutex);
-    rli->dag_group_ready= true;
-    mysql_cond_broadcast(&rli->dag_group_ready_cond);
-    mysql_mutex_unlock(&rli->dag_group_ready_mutex);
+    mysql_mutex_lock(&rli->dep_lock);
+
+    // wait if queue has reached full capacity
+    while (rli->dep_full)
+      mysql_cond_wait(&rli->dep_full_cond, &rli->dep_lock);
+
+    rli->enqueue_dep(ev);
+
+    // dep queue not empty anymore!
+    mysql_cond_signal(&rli->dep_empty_cond);
+
+    // admission control in dep queue
+    if (rli->dep_queue.size() >= opt_mts_dependency_size)
+      rli->dep_full= true;
+
+    ++rli->num_in_flight_trx;
+
+    mysql_mutex_unlock(&rli->dep_lock);
+  }
+
+  DBUG_ASSERT(ev->is_begin_event || rli->prev_event);
+  if (rli->prev_event)
+    rli->prev_event->put_next(ev);
+
+  rli->prev_event= ev->is_end_event ? nullptr : ev;
+
+  // case: this group needs to be executed in isolation
+  if (rli->dep_sync_group && ev->is_end_event)
+  {
+    wait_for_workers_to_finish(rli);
+    rli->dep_sync_group= false;
   }
 
   DBUG_VOID_RETURN;
 }
 
 /**
-  Encapsulation for things to be done after adding a begin-event to DAG
+  Encapsulation for things to be done for terminal begin and end events
 */
-void Log_event::do_post_begin_event(Relay_log_info *rli, Log_event_wrapper *ev)
+void
+Log_event::handle_terminal_dep_event(Relay_log_info *rli,
+                                     std::shared_ptr<Log_event_wrapper> &ev)
 {
-  DBUG_ASSERT(ev->is_begin_event);
-
-  rli->keys_accessed_by_group.clear();
-  rli->dbs_accessed_by_group.clear();
-
-  // update rli state
-  rli->current_begin_event= ev;
-  rli->mts_groups_assigned++;
-
-  // insert a group representative in the GAQ
-  Slave_job_group group;
-  group.reset(log_pos, rli->mts_groups_assigned);
-  group.group_master_log_name=
-    my_strdup(rli->get_group_master_log_name(), MYF(MY_WME));
-  rli->gaq->assigned_group_index= rli->gaq->en_queue((void *) &group);
-}
-
-/**
-  Encapsulation for things to be done after adding an end-event to DAG
-*/
-void Log_event::do_post_end_event(Relay_log_info *rli, Log_event_wrapper *ev)
-{
-  DBUG_ASSERT(ev->is_end_event);
-
-  // case: gotta order commits according to master's binlog
-  if (opt_mts_dependency_order_commits)
+  if (ev->is_begin_event)
   {
-    for (auto& db : rli->dbs_accessed_by_group)
+    rli->keys_accessed_by_group.clear();
+    rli->dbs_accessed_by_group.clear();
+
+    // update rli state
+    rli->current_begin_event= ev;
+    rli->mts_groups_assigned++;
+
+    // insert a group representative in the GAQ
+    Slave_job_group group;
+    group.reset(log_pos, rli->mts_groups_assigned);
+    group.group_master_log_name=
+      my_strdup(rli->get_group_master_log_name(), MYF(MY_WME));
+    rli->gaq->assigned_group_index= rli->gaq->en_queue((void *) &group);
+  }
+
+  if (ev->is_end_event)
+  {
+    // populate key->last trx penultimate event in the key lookup
+    // NOTE: we store the end event for a single event trx
+    auto to_add= rli->prev_event ? rli->prev_event : ev;
+    mysql_mutex_lock(&rli->dep_key_lookup_mutex);
+    if (!to_add->finalized())
     {
-      // case: we have recorded the last start event for this DB
-      // and it exists in DAG
-      if (rli->dag_db_last_start_event.find(db) !=
-          rli->dag_db_last_start_event.end() &&
-          rli->dag.exists(rli->dag_db_last_start_event[db]))
+      for (auto& key : rli->keys_accessed_by_group)
       {
-        auto last_db_begin_event= rli->dag_db_last_start_event[db];
-
-        DBUG_ASSERT(rli->current_begin_event != NULL &&
-            last_db_begin_event != NULL &&
-            rli->dag.exists(rli->current_begin_event));
-
-        // add dependency between start events so that they're pulled in order
-        // by the slave workers
-        rli->dag.add_dependency(last_db_begin_event,
-            rli->current_begin_event);
+        rli->dep_key_lookup[key]= to_add;
+        to_add->keys.insert(key);
       }
-      rli->dag_db_last_start_event[db]= rli->current_begin_event;
     }
-  }
+    mysql_mutex_unlock(&rli->dep_key_lookup_mutex);
 
-  // populate key->last trx penultimate event map
-  // NOTE: we store the end event for a single event trx
-  Log_event_wrapper *to_add= rli->prev_event? rli->prev_event : ev;
-  for (auto& key : rli->keys_accessed_by_group)
-  {
-    rli->dag_key_last_penultimate_event[key]= to_add;
-    to_add->keys.insert(key);
-  }
+    // update rli state
+    rli->current_begin_event= NULL;
+    rli->last_table_map_event= NULL;
+    rli->mts_group_status= Relay_log_info::MTS_END_GROUP;
+    rli->curr_group_seen_begin = rli->curr_group_seen_gtid = false;
 
-  // case: this group needs to be executed in isolation
-  if (rli->dag_sync_group)
-  {
-    DBUG_ASSERT(rli->dag.get_tail().count(ev));
-    rli->dag.set_sync_node(ev);
-    rli->dag_sync_group= false;
-  }
+    // update coordinates in GAQ
+    Slave_job_group *ptr_group=
+      rli->gaq->get_job_group(rli->gaq->assigned_group_index);
 
-  // admission control in DAG
-  mysql_mutex_lock(&rli->dag_full_mutex);
-  ++rli->dag_num_groups;
-  if (rli->dag_num_groups >= opt_mts_dependency_size) rli->dag_full= true;
-  mysql_mutex_unlock(&rli->dag_full_mutex);
+    ptr_group->group_relay_log_name=
+      my_strdup(rli->get_event_relay_log_name(), MYF(MY_WME));
+    ptr_group->checkpoint_log_name=
+      my_strdup(rli->get_group_master_log_name(), MYF(MY_WME));
+    ptr_group->checkpoint_relay_log_name=
+      my_strdup(rli->get_group_relay_log_name(), MYF(MY_WME));
+    ptr_group->checkpoint_log_pos= rli->get_group_master_log_pos();
+    ptr_group->checkpoint_relay_log_pos= rli->get_group_relay_log_pos();
 
-  // update rli state
-  rli->current_begin_event= NULL;
-  rli->prev_event= NULL;
-  rli->last_table_map_event= NULL;
-  rli->mts_group_status= Relay_log_info::MTS_END_GROUP;
-  rli->curr_group_seen_begin = rli->curr_group_seen_gtid = false;
+    ptr_group->checkpoint_seqno= rli->checkpoint_seqno;
+    rli->checkpoint_seqno++;
 
-  // update coordinates in GAQ
-  Slave_job_group *ptr_group=
-    rli->gaq->get_job_group(rli->gaq->assigned_group_index);
-
-  ptr_group->group_relay_log_name=
-    my_strdup(rli->get_event_relay_log_name(), MYF(MY_WME));
-  ptr_group->checkpoint_log_name=
-    my_strdup(rli->get_group_master_log_name(), MYF(MY_WME));
-  ptr_group->checkpoint_relay_log_name=
-    my_strdup(rli->get_group_relay_log_name(), MYF(MY_WME));
-  ptr_group->checkpoint_log_pos= rli->get_group_master_log_pos();
-  ptr_group->checkpoint_relay_log_pos= rli->get_group_relay_log_pos();
-
-  ptr_group->checkpoint_seqno= rli->checkpoint_seqno;
-  rli->checkpoint_seqno++;
-
-  // seconds_behind_master related
-  if (is_relay_log_event())
-    ptr_group->ts= 0;
-  else
-  {
-    ptr_group->ts= when.tv_sec + (time_t) exec_time;
-    ptr_group->ts_millis= (rli->group_timestamp_millis ?
-                           rli->group_timestamp_millis : when.tv_sec * 1000)
-                          + exec_time * 1000;
-    // reset for next group
-    rli->group_timestamp_millis= 0;
+    // seconds_behind_master related
+    if (is_relay_log_event())
+      ptr_group->ts= 0;
+    else
+    {
+      ptr_group->ts= when.tv_sec + (time_t) exec_time;
+      ptr_group->ts_millis= (rli->group_timestamp_millis ?
+          rli->group_timestamp_millis : when.tv_sec * 1000)
+        + exec_time * 1000;
+      // reset for next group
+      rli->group_timestamp_millis= 0;
+    }
   }
 }
 
@@ -5150,34 +5089,27 @@ void Query_log_event::detach_temp_tables_worker(THD *thd)
 #endif
 }
 
-void Query_log_event::do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev)
+void Query_log_event::prepare_dep(Relay_log_info *rli,
+                                  std::shared_ptr<Log_event_wrapper> &ev)
 {
-  DBUG_ENTER("Query_log_event::do_add_to_dag");
+  DBUG_ENTER("Query_log_event::prepare_dep");
 
   if (starts_group())
   {
     if (!rli->current_begin_event)
     {
-      DBUG_ASSERT(ev->get_begin_event() == NULL);
-      rli->dag.add_node(ev);
-      rli->current_begin_event= ev;
+      DBUG_ASSERT(ev->begin_event() == NULL);
       ev->is_begin_event= true;
-    }
-    else
-    {
-      DBUG_ASSERT(rli->prev_event != NULL);
-      rli->dag.add_dependency(rli->prev_event, ev);
     }
   }
   else if (ends_group())
   {
     DBUG_ASSERT(rli->prev_event != NULL);
-    DBUG_ASSERT(ev->get_begin_event() != NULL);
-    DBUG_ASSERT(!ev->get_begin_event()->whole_group_in_dag);
+    DBUG_ASSERT(ev->begin_event() != NULL);
+    DBUG_ASSERT(!ev->begin_event()->whole_group_scheduled);
 
-    rli->dag.add_dependency(rli->prev_event, ev);
     ev->is_end_event= true;
-    ev->get_begin_event()->whole_group_in_dag= true;
+    ev->begin_event()->whole_group_scheduled= true;
   }
   else
   {
@@ -5185,49 +5117,32 @@ void Query_log_event::do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev)
     if (!rli->curr_group_seen_begin)
     {
       ev->is_end_event= true;
-      if (ev->get_begin_event())
+      if (ev->begin_event())
       {
         DBUG_ASSERT(
             rli->curr_group_seen_gtid ||
-            ev->get_begin_event()->get_raw_event()->get_type_code() ==
+            ev->begin_event()->raw_event()->get_type_code() ==
                 INTVAR_EVENT ||
-            ev->get_begin_event()->get_raw_event()->get_type_code() ==
+            ev->begin_event()->raw_event()->get_type_code() ==
                 RAND_EVENT ||
-            ev->get_begin_event()->get_raw_event()->get_type_code() ==
+            ev->begin_event()->raw_event()->get_type_code() ==
                 USER_VAR_EVENT ||
-            ev->get_begin_event()->get_raw_event()->get_type_code() ==
+            ev->begin_event()->raw_event()->get_type_code() ==
                 BEGIN_LOAD_QUERY_EVENT ||
-            ev->get_begin_event()->get_raw_event()->get_type_code() ==
+            ev->begin_event()->raw_event()->get_type_code() ==
                 APPEND_BLOCK_EVENT ||
             is_ignorable_event());
         DBUG_ASSERT(rli->prev_event != NULL);
-        rli->dag.add_dependency(rli->prev_event, ev);
-        ev->get_begin_event()->whole_group_in_dag= true;
+        ev->begin_event()->whole_group_scheduled= true;
       }
       else
       {
-        rli->dag.add_node(ev);
         ev->is_begin_event= true;
-        ev->whole_group_in_dag= true;
+        ev->whole_group_scheduled= true;
       }
     }
-    else
-    {
-        DBUG_ASSERT(rli->prev_event != NULL);
-        rli->dag.add_dependency(rli->prev_event, ev);
-    }
 
-    rli->dag_sync_group= true;
-    auto begin_event= ev->is_begin_event ? ev : ev->get_begin_event();
-    DBUG_ASSERT(begin_event != NULL);
-
-    for (auto& node : DAG<Log_event_wrapper*>::node_set(rli->dag.get_tail()))
-    {
-      if (node->is_end_event && node != ev)
-        rli->dag.add_dependency(node, begin_event);
-    }
-    DBUG_ASSERT(rli->dag.get_tail().size() == 1 &&
-                rli->dag.get_tail().count(ev) == 1);
+    rli->dep_sync_group= true;
   }
 
   DBUG_VOID_RETURN;
@@ -8116,18 +8031,17 @@ bool Xid_log_event::do_commit(THD *thd)
   return error;
 }
 
-void Xid_log_event::do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev)
+void Xid_log_event::prepare_dep(Relay_log_info *rli,
+                                std::shared_ptr<Log_event_wrapper> &ev)
 {
-  DBUG_ENTER("Xid_log_event::do_add_to_dag");
+  DBUG_ENTER("Xid_log_event::prepare_dep");
 
   DBUG_ASSERT(rli->prev_event != NULL);
-  DBUG_ASSERT(ev->get_begin_event() != NULL);
-  DBUG_ASSERT(!ev->get_begin_event()->whole_group_in_dag);
-
-  rli->dag.add_dependency(rli->prev_event, ev);
+  DBUG_ASSERT(ev->begin_event() != NULL);
+  DBUG_ASSERT(!ev->begin_event()->whole_group_scheduled);
 
   ev->is_end_event= true;
-  ev->get_begin_event()->whole_group_in_dag= true;
+  ev->begin_event()->whole_group_scheduled= true;
 
   DBUG_VOID_RETURN;
 }
@@ -11922,8 +11836,10 @@ void key_dealloc_cb(uchar *key_buf)
   my_free(key_buf);
 }
 
-bool Rows_log_event::parse_keys(Relay_log_info* rli, Log_event_wrapper *ev,
-        RPL_TABLE_LIST *table_list, std::deque<Dependency_key>& keys)
+bool Rows_log_event::parse_keys(Relay_log_info* rli,
+                                std::shared_ptr<Log_event_wrapper> &ev,
+                                RPL_TABLE_LIST *table_list,
+                                std::deque<Dependency_key>& keys)
 {
   MY_BITMAP *cols= NULL;
   TABLE *table= NULL;
@@ -11966,17 +11882,11 @@ bool Rows_log_event::parse_keys(Relay_log_info* rli, Log_event_wrapper *ev,
             &curr_row_end, &m_master_reclength, m_rows_end))
     {
       /* We were unable to unpack the row. This is a serious error. */
-      sql_print_error("Error unable to unpack row. This is a serious error!");
+      sql_print_error("Unable to unpack row at pos %s:%llu, syncing group",
+                      rli->get_rpl_log_name(), log_pos);
 
-      // make this a sync group in the DAG
-      rli->dag_sync_group= true;
-      auto begin_event= ev->is_begin_event ? ev : ev->get_begin_event();
-      DBUG_ASSERT(begin_event != NULL);
-      for (auto& node : DAG<Log_event_wrapper*>::node_set(rli->dag.get_tail()))
-      {
-        if (node->is_end_event && node != ev)
-          rli->dag.add_dependency(node, begin_event);
-      }
+      // make this a sync group
+      rli->dep_sync_group= true;
 
       keys.clear();
       DBUG_RETURN(false);
@@ -12000,7 +11910,8 @@ bool Rows_log_event::parse_keys(Relay_log_info* rli, Log_event_wrapper *ev,
   Returns the set of keys written by the statement as a deque.
 */
 bool
-Rows_log_event::get_keys(Relay_log_info *rli, Log_event_wrapper *ev,
+Rows_log_event::get_keys(Relay_log_info *rli,
+                         std::shared_ptr<Log_event_wrapper> &ev,
                          std::deque<Dependency_key> &keys)
 {
   RPL_TABLE_LIST *table_list= NULL;
@@ -12133,8 +12044,11 @@ void Rows_log_event::close_table_ref(THD *thd, RPL_TABLE_LIST *table_list)
   DBUG_VOID_RETURN;
 }
 
-void Rows_log_event::prepare(Relay_log_info *rli, Log_event_wrapper *ev)
+void Rows_log_event::prepare_dep(Relay_log_info *rli,
+                                 std::shared_ptr<Log_event_wrapper> &ev)
 {
+  DBUG_ENTER("Rows_log_event::prepare_dep");
+
   DBUG_ASSERT(rli->prev_event != NULL);
   DBUG_ASSERT(rli->last_table_map_event != NULL);
 
@@ -12152,16 +12066,9 @@ void Rows_log_event::prepare(Relay_log_info *rli, Log_event_wrapper *ev)
   get_keys(rli, ev, m_keylist);
   DBUG_ASSERT(!m_keylist.empty());
 
-  for (auto& k : m_keylist)
-  {
-    rli->keys_accessed_by_group.insert(k);
-  }
-}
+  rli->keys_accessed_by_group.insert(m_keylist.begin(), m_keylist.end());
 
-void Rows_log_event::do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev)
-{
-  DBUG_ENTER("Rows_log_event::do_add_to_dag");
-  Dependency_key first_key= m_keylist.front();
+  Dependency_key& first_key= m_keylist.front();
 
   Dependency_key table_key;
   DBUG_ASSERT(!m_table_name.empty());
@@ -12173,34 +12080,23 @@ void Rows_log_event::do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev)
     m_keylist.push_back(table_key);
   }
 
+  mysql_mutex_lock(&rli->dep_key_lookup_mutex);
   /* Handle dependencies. */
   for (auto& k : m_keylist)
   {
-    if (rli->dag_key_last_penultimate_event.find(k) !=
-        rli->dag_key_last_penultimate_event.end() &&
-        rli->dag.exists(rli->dag_key_last_penultimate_event[k]))
+    auto last_key_event= rli->dep_key_lookup.find(k);
+    if (last_key_event != rli->dep_key_lookup.end())
     {
-      Log_event_wrapper *last_penultimate_event=
-        rli->dag_key_last_penultimate_event[k];
-
-      rli->dag.add_dependency(last_penultimate_event, ev);
-
-      if (rli->dag.exists(last_penultimate_event->get_begin_event()))
-      {
-        rli->dag.add_dependency(last_penultimate_event->get_begin_event(),
-                                ev->get_begin_event());
-      }
+      last_key_event->second->add_dependent(ev);
     }
   }
+  mysql_mutex_unlock(&rli->dep_key_lookup_mutex);
 
-  /* We don't need to add a table dep in the penultimate map for this event. */
+  /* We don't need to add a table dep in the key lookup for this event. */
   if (first_key.key_length > 0)
   {
     m_keylist.pop_back();
   }
-
-  DBUG_ASSERT(rli->prev_event != NULL);
-  rli->dag.add_dependency(rli->prev_event, ev);
 
   DBUG_VOID_RETURN;
 }
@@ -15318,11 +15214,11 @@ bool Gtid_log_event::write_data_header(IO_CACHE *file)
 #endif // MYSQL_SERVER
 
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
-void Gtid_log_event::do_add_to_dag(Relay_log_info *rli, Log_event_wrapper *ev)
+void Gtid_log_event::prepare_dep(Relay_log_info *rli,
+                                 std::shared_ptr<Log_event_wrapper> &ev)
 {
-  DBUG_ENTER("Gtid_log_event::do_add_to_dag");
-  DBUG_ASSERT(ev->get_begin_event() == NULL);
-  rli->dag.add_node(ev);
+  DBUG_ENTER("Gtid_log_event::prepare_dep");
+  DBUG_ASSERT(ev->begin_event() == NULL);
   ev->is_begin_event= true;
   DBUG_VOID_RETURN;
 }

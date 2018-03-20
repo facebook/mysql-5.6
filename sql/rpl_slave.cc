@@ -4162,7 +4162,7 @@ apply_event_and_update_pos(Log_event** ptr_ev, THD* thd, Relay_log_info* rli)
       if (opt_mts_dependency_replication)
       {
         DBUG_ASSERT(ev->worker == NULL);
-        ev->add_to_dag(rli);
+        ev->schedule_dep(rli);
       }
       else if (ev->worker)
       {
@@ -6392,60 +6392,12 @@ void slave_stop_workers(Relay_log_info *rli, bool *mts_inited)
 
   if (opt_mts_dependency_replication)
   {
-    for (;;)
-    {
-      PSI_stage_info old_stage;
-      const auto WAIT_FOR_DAG_EMPTY= 2;
-      struct timespec dag_empty_timeout;
-      set_timespec(dag_empty_timeout, WAIT_FOR_DAG_EMPTY);
+    // figure out if the SQL thread scheduled a partial trx, if it's
+    // maintaing a current_begin_event it's in the middle of a trx
+    bool partial= rli->current_begin_event != nullptr;
+    wait_for_dep_workers_to_finish(rli, partial);
 
-      // timed wait till DAG is empty
-      mysql_mutex_lock(&rli->dag_empty_mutex);
-      thd->ENTER_COND(&rli->dag_empty_cond, &rli->dag_empty_mutex,
-          &stage_slave_waiting_workers_to_exit, &old_stage);
-
-      if (!rli->dag_empty)
-        mysql_cond_timedwait(&rli->dag_empty_cond,
-                             &rli->dag_empty_mutex,
-                             &dag_empty_timeout);
-
-      thd->EXIT_COND(&old_stage);
-
-      // check if workers already bailed due to error
-      bool workers_errored_out= true;
-      for (int i= rli->workers.elements - 1; i >= 0; i--)
-      {
-        Slave_worker *w;
-        get_dynamic((DYNAMIC_ARRAY*)&rli->workers, (uchar*) &w, i);
-        mysql_mutex_lock(&w->jobs_lock);
-        if (w->running_status == Slave_worker::RUNNING)
-        {
-          workers_errored_out= false;
-          mysql_mutex_unlock(&w->jobs_lock);
-          break;
-        }
-        mysql_mutex_unlock(&w->jobs_lock);
-      }
-      if (workers_errored_out) break;
-
-      // If *all* nodes in the head of the DAG are group start nodes whose
-      // whole group is not yet in the DAG we can discard them because that
-      // condition cannot be satisfied now that the SQL thread is stopped
-      rli->dag_rdlock();
-      bool good_to_break= true;
-      for (auto& node : rli->dag.get_head())
-      {
-        if (!node->is_begin_event || node->whole_group_in_dag)
-        {
-          good_to_break= false;
-          break;
-        }
-      }
-      rli->dag_unlock();
-      if (good_to_break) break;
-    }
-
-    // set all workers as STOP_ACCEPTED
+    // set all workers as STOP_ACCEPTED, and signal blocked workers
     for (i= rli->workers.elements - 1; i >= 0; i--)
     {
       Slave_worker *w;
@@ -6458,11 +6410,18 @@ void slave_stop_workers(Relay_log_info *rli, bool *mts_inited)
       }
       w->running_status= Slave_worker::STOP_ACCEPTED;
       mysql_mutex_unlock(&w->jobs_lock);
+
+      thd_proc_info(thd, "Waiting for workers to exit");
+
+      while (w->running_status != Slave_worker::NOT_RUNNING)
+      {
+        // unblock workers waiting for new events or trxs
+        mysql_mutex_lock(&w->info_thd->LOCK_thd_data);
+        w->info_thd->awake(THD::KILL_QUERY);
+        mysql_mutex_unlock(&w->info_thd->LOCK_thd_data);
+        my_sleep(1);
+      }
     }
-    // signal threads waiting for events
-    mysql_mutex_lock(&rli->dag_group_ready_mutex);
-    mysql_cond_broadcast(&rli->dag_group_ready_cond);
-    mysql_mutex_unlock(&rli->dag_group_ready_mutex);
   }
   else
   {
@@ -6489,30 +6448,30 @@ void slave_stop_workers(Relay_log_info *rli, bool *mts_inited)
         sql_print_information("Notifying Worker %lu to exit, thd %p", w->id,
                               w->info_thd);
     }
-  }
 
-  thd_proc_info(thd, "Waiting for workers to exit");
+    thd_proc_info(thd, "Waiting for workers to exit");
 
-  for (i= rli->workers.elements - 1; i >= 0; i--)
-  {
-    Slave_worker *w= NULL;
-    get_dynamic((DYNAMIC_ARRAY*)&rli->workers, (uchar*) &w, i);
-
-    mysql_mutex_lock(&w->jobs_lock);
-    while (w->running_status != Slave_worker::NOT_RUNNING)
+    for (i= rli->workers.elements - 1; i >= 0; i--)
     {
-      PSI_stage_info old_stage;
-      DBUG_ASSERT(w->running_status == Slave_worker::ERROR_LEAVING ||
-                  w->running_status == Slave_worker::STOP ||
-                  w->running_status == Slave_worker::STOP_ACCEPTED);
+      Slave_worker *w= NULL;
+      get_dynamic((DYNAMIC_ARRAY*)&rli->workers, (uchar*) &w, i);
 
-      thd->ENTER_COND(&w->jobs_cond, &w->jobs_lock,
-                      &stage_slave_waiting_workers_to_exit, &old_stage);
-      mysql_cond_wait(&w->jobs_cond, &w->jobs_lock);
-      thd->EXIT_COND(&old_stage);
       mysql_mutex_lock(&w->jobs_lock);
+      while (w->running_status != Slave_worker::NOT_RUNNING)
+      {
+        PSI_stage_info old_stage;
+        DBUG_ASSERT(w->running_status == Slave_worker::ERROR_LEAVING ||
+                    w->running_status == Slave_worker::STOP ||
+                    w->running_status == Slave_worker::STOP_ACCEPTED);
+
+        thd->ENTER_COND(&w->jobs_cond, &w->jobs_lock,
+                        &stage_slave_waiting_workers_to_exit, &old_stage);
+        mysql_cond_wait(&w->jobs_cond, &w->jobs_lock);
+        thd->EXIT_COND(&old_stage);
+        mysql_mutex_lock(&w->jobs_lock);
+      }
+      mysql_mutex_unlock(&w->jobs_lock);
     }
-    mysql_mutex_unlock(&w->jobs_lock);
   }
 
   if (thd->killed == THD::NOT_KILLED)
@@ -6938,7 +6897,7 @@ llstr(rli->get_group_master_log_pos(), llbuff));
   */
   thd->clear_error();
   rli->cleanup_context(thd, 1);
-  if (opt_mts_dependency_replication) rli->clear_dag();
+  if (opt_mts_dependency_replication) rli->clear_dep();
   /*
     Some extra safety, which should not been needed (normally, event deletion
     should already have done these assignments (each event which sets these
