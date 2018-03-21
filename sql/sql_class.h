@@ -4799,14 +4799,16 @@ public:
   }
 
   void set_default_srv_session(std::shared_ptr<Srv_session> session) {
-    default_srv_session = session;
+    default_srv_session = std::move(session);
   }
 
   void set_attached_srv_session(std::shared_ptr<Srv_session> srv_session) {
     mysql_mutex_lock(&LOCK_thd_data);
-    attached_srv_session = srv_session;
+    attached_srv_session = std::move(srv_session);
     mysql_mutex_unlock(&LOCK_thd_data);
   }
+
+  Session_tracker* get_tracker();
 
   // called for "show processlist" from another thread
   std::shared_ptr<Srv_session> get_attached_srv_session() {

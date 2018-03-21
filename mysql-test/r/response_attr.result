@@ -12,3 +12,8 @@ SELECT 1;
 1
 1
 SET wait_timeout = 19;
+
+# Case 3: Set a SET wait_timeout statement on a detached session
+
+BEGIN;
+SET wait_timeout = 93;

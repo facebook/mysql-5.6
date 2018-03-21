@@ -5536,3 +5536,15 @@ bool THD::skip_unique_check()
   return rli_slave && rli_slave->get_skip_unique_check();
 }
 
+
+/**
+  This function selects which session tracker to use.  If a Srv_session
+  is currently attached to this connection we want to redirect all session
+  tracking information to the Srv_session's tracking structures.
+ */
+Session_tracker* THD::get_tracker() {
+  return attached_srv_session
+      ? &attached_srv_session->get_thd()->session_tracker
+      : &session_tracker;
+}
+

@@ -151,6 +151,9 @@ query_attrs_add rpc_db db_default;
 CREATE TEMPORARY TABLE t3 (i int, s char (10));
 
 let $rpc_id5=get_rpc_id();
+if ($rpc_id5 == "") {
+  echo Fail: Did not find rpc_id after CREATE TEMPORARY TABLE.;
+}
 query_attrs_add rpc_id $rpc_id5;
 
 insert into t3 values(1, "a");
@@ -202,13 +205,17 @@ let $rpc_id=get_rpc_id();
 if ($rpc_id != "") {
   echo Fail: Found rpc_id after UNLOCK TABLES.;
 }
-# rpc_id6 got deleted after the UNLOCK TABLES was executed
+
+connection default;
+--replace_result $rpc_id6 rpc_id6
+eval KILL $rpc_id6;
 
 --echo
 --echo # Case 5: Attempt to use same session from multiple threads
 --echo
 
 # send a long select to have the rpc session in use
+connection con1;
 query_attrs_delete rpc_id;
 query_attrs_add rpc_id $rpc_id1;
 send select sleep(5);
@@ -306,7 +313,7 @@ eval select * from information_schema.srv_sessions where id=$rpc_id;
 connection con2;
 select 1;
 
---echo # Trying to use the rpc_id7 will get an error
+--echo # Trying to use the rpc_id will get an error
 query_attrs_add rpc_id $rpc_id;
 --replace_result $rpc_id <rpc_id>
 --error ER_RPC_INVALID_ID
@@ -429,6 +436,8 @@ eval KILL $rpc_id4;
 eval KILL $rpc_id5;
 --replace_result $rpc_id6 rpc_id
 eval KILL $rpc_id6;
+--replace_result $lock_rpc_id lock_rpc_id
+eval KILL $lock_rpc_id;
 
 # should be nothing left in srv_sessions and processlist
 select count(id) from information_schema.srv_sessions;
@@ -532,12 +541,12 @@ SELECT sleep(6);
 
 # A query 6 seconds later should fail
 connection con1;
---replace_result $rpc_id <rpc_id>
+--replace_result 5000ms 5000ms $rpc_id <rpc_id>
 --error ER_RPC_IDLE_TIMEOUT
 SELECT 1;
 
 # make sure it is repeatable
---replace_result $rpc_id <rpc_id>
+--replace_result 5000ms 5000ms $rpc_id <rpc_id>
 --error ER_RPC_IDLE_TIMEOUT
 SELECT 1;
 
