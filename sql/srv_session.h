@@ -185,11 +185,6 @@ public:
 
   uint32_t get_conn_thd_id() { return conn_thd_id.load(); }
 
-  void set_session_tracker(Session_tracker* tracker)
-  {
-    session_tracker_ = tracker;
-  }
-
   /*
    * Function called before sending out the Ok/Err.
    * It will remove session from map if there was no session state changed or
@@ -263,11 +258,12 @@ private:
 
   // Store the default vio and stmt_da fields to use when detaching the session
   Vio* default_vio_to_restore_ = NULL;
-  Diagnostics_area * default_stmt_to_restore_ = NULL;
-  Session_tracker *session_tracker_ = NULL;
 
   // Connection THD ID.
   std::atomic_uint conn_thd_id;
+
+  // Set to true once a session has been detached
+  bool has_been_detached_ = false;
 
   // Used to provide exclusion: a session can be attached to only one
   // connection thread at one time.

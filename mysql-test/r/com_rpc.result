@@ -76,6 +76,7 @@ SELECT 1;
 1
 1
 UNLOCK TABLES;
+KILL rpc_id6;
 
 # Case 5: Attempt to use same session from multiple threads
 
@@ -120,10 +121,12 @@ Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Conn_Id
 1	root	localhost	db_default	Sleep	0	Detached	NULL	0	1	#	0
 1	root	localhost	db_default	Sleep	0	Detached	NULL	0	0	#	0
 1	root	localhost	db_default	Sleep	0	Detached	NULL	0	0	#	0
-1	root	localhost	db_default	Sleep	0	Detached	NULL	1	1	#	0
+1	root	localhost	db_default	Sleep	0	Detached	NULL	0	1	#	0
 1	root	localhost	db_default	Sleep	0	Detached	NULL	0	0	#	0
+1	root	localhost	db_default	Sleep	0	Detached	NULL	1	1	#	0
 select * from information_schema.srv_sessions;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	CONN_ID
+1	root	localhost	db_default	Sleep	0	Detached	NULL	0
 1	root	localhost	db_default	Sleep	0	Detached	NULL	0
 1	root	localhost	db_default	Sleep	0	Detached	NULL	0
 1	root	localhost	db_default	Sleep	0	Detached	NULL	0
@@ -145,7 +148,7 @@ ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	CONN_ID
 select 1;
 1
 1
-# Trying to use the rpc_id7 will get an error
+# Trying to use the rpc_id will get an error
 select 1;
 ERROR HY000: The specified detached session id (<rpc_id>) is unknown
 
@@ -200,6 +203,7 @@ KILL rpc_id;
 KILL rpc_id;
 KILL rpc_id;
 KILL rpc_id;
+KILL lock_rpc_id;
 select count(id) from information_schema.srv_sessions;
 count(id)
 0

@@ -30,27 +30,19 @@ static bool check_for_attribute(THD *thd, const char *attr,
 static bool update_default_session_object(
     std::shared_ptr<Srv_session>& srv_session,
     THD* conn_thd,
-    bool used_default_srv_session)
+    bool state_changed)
 {
-  if (srv_session->session_state_changed())
-  {
-    // if the default object was reused for this session, reset it
-    if (used_default_srv_session)
-      conn_thd->set_default_srv_session(nullptr);
+  // if we changed state and the default object was reused for this session,
+  // reset it
+  bool used_default_srv_session =
+      srv_session == conn_thd->get_default_srv_session();
 
-    return false;
+  if (state_changed && used_default_srv_session) {
+    conn_thd->set_default_srv_session(nullptr);
+    used_default_srv_session = false;
   }
-  else
-  {
-    // store as default so we don't allocate for next not in session query
-    if (!conn_thd->get_default_srv_session())
-    {
-      DBUG_PRINT("info", ("No session change, reuse object"));
-      conn_thd->set_default_srv_session(srv_session);
-    }
 
-    return true;
-  }
+  return used_default_srv_session;
 }
 
 void reset_conn_thd_after_query_execution(THD* thd) {
@@ -168,6 +160,7 @@ std::pair<bool, std::shared_ptr<Srv_session>>  handle_com_rpc(THD *conn_thd)
       // enable state change tracking
       srv_session->get_thd()->session_tracker.get_tracker(
                 SESSION_STATE_CHANGE_TRACKER)->force_enable();
+      conn_thd->set_default_srv_session(srv_session);
     }
     else
     {
@@ -234,7 +227,6 @@ std::pair<bool, std::shared_ptr<Srv_session>>  handle_com_rpc(THD *conn_thd)
 
   srv_session_thd->net.vio = conn_thd->net.vio;
   srv_session_thd->set_stmt_da(conn_thd->get_stmt_da());
-  srv_session->set_session_tracker(&conn_thd->session_tracker);
 
   // set srv_session THD, used by "show processlist"
   conn_thd->set_attached_srv_session(srv_session);
@@ -257,17 +249,16 @@ error:
 }
 
 // Do all the cleanup necessary for a query with RPC_* attributes
-void cleanup_com_rpc(THD* conn_thd, std::shared_ptr<Srv_session> srv_session) {
+void cleanup_com_rpc(
+    THD* conn_thd,
+    std::shared_ptr<Srv_session> srv_session,
+    bool state_changed) {
   DBUG_ENTER(__func__);
-
-  // Was this already the default session for a THD?
-  bool used_default_srv_session =
-      srv_session == conn_thd->get_default_srv_session();
 
   // Check to see if we remove it from the default session because of
   // some state change
-  used_default_srv_session = update_default_session_object(
-      srv_session, conn_thd, used_default_srv_session);
+  bool used_default_srv_session = update_default_session_object(
+      srv_session, conn_thd, state_changed);
 
   // reset the srv session thd
   conn_thd->set_attached_srv_session(nullptr);
@@ -296,7 +287,10 @@ void srv_session_end_statement(Srv_session& session) {
 
 #else
 
-void cleanup_com_rpc(THD* conn_thd, std::shared_ptr<Srv_session> srv_session) {}
+void cleanup_com_rpc(
+    THD* conn_thd,
+    std::shared_ptr<Srv_session> srv_session,
+    bool state_changed) {}
 void srv_session_end_statement(Srv_session& session) {}
 
 std::pair<bool, std::shared_ptr<Srv_session>> handle_com_rpc(THD *conn_thd) {

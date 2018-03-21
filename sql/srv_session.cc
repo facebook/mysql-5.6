@@ -620,7 +620,6 @@ Srv_session::Srv_session() : state_(SRV_SESSION_CREATED)
   thd_.net.reading_or_writing= 0;
 
   default_vio_to_restore_ = thd_.net.vio;
-  default_stmt_to_restore_ = thd_.get_stmt_da();
 }
 
 
@@ -782,6 +781,10 @@ bool Srv_session::attach()
     DBUG_RETURN(true);
   }
 
+  if (old_thd) {
+    thd_.set_stmt_da(old_thd->get_stmt_da());
+  }
+
   DBUG_PRINT("info",("current_thd=%p", current_thd));
 
   thd_clear_errors(&thd_);
@@ -820,7 +823,7 @@ bool Srv_session::detach()
 
   // restore fields
   thd_.protocol = &thd_.protocol_text;
-  thd_.set_stmt_da(default_stmt_to_restore_);
+  thd_.set_stmt_da(nullptr);
   thd_.net.vio = default_vio_to_restore_;
 
   thd_.restore_globals();
@@ -952,14 +955,18 @@ void Srv_session::end_statement() {
   static LEX_CSTRING key = { STRING_WITH_LEN("rpc_id") };
 
   if (!session_state_changed()) {
-    // remove from session map
-    server_session_list.remove(get_session_id());
+    if (!has_been_detached_) {
+      // remove from session map if no state has ever changed
+      server_session_list.remove(get_session_id());
+    }
+
     DBUG_VOID_RETURN;
   }
 
   if (!thd_.is_error()) {
     append_session_id_in_ok(&thd_);
-    auto tracker = session_tracker_->get_tracker(SESSION_RESP_ATTR_TRACKER);
+    auto tracker =
+        get_thd()->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
     if (tracker->is_enabled())
     {
       char tmp[21];
@@ -968,6 +975,8 @@ void Srv_session::end_statement() {
       tracker->mark_as_changed(current_thd, &key, &value);
     }
   }
+
+  has_been_detached_ = true;
 
   // Mark that session will be detached after finishing sending response out
   // so if next in session query comes on another connection thread it can wait

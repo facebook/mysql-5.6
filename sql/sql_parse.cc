@@ -1574,6 +1574,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
   DBUG_ENTER("dispatch_command");
   DBUG_PRINT("info",("packet: '%*.s'; command: %d", packet_length, packet, command));
 
+  bool state_changed = false;
   THD *save_thd = nullptr;
   std::shared_ptr<Srv_session> srv_session;
 
@@ -1922,6 +1923,11 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
         Multiple queries exits, execute them individually
       */
       char *beginning_of_next_stmt= (char*) parser_state.m_lip.found_semicolon;
+
+      /* Check to see if any state changed */
+      if (!state_changed && srv_session) {
+        state_changed = srv_session->session_state_changed();
+      }
 
       /* Finalize server status flags after executing a statement. */
       thd->update_server_status();
@@ -2380,6 +2386,11 @@ done:
   if (thd->killed)
     thd->send_kill_message();
 
+  /* Check to see if any state changed */
+  if (!state_changed && srv_session) {
+    state_changed = srv_session->session_state_changed();
+  }
+
   // if it's a COM RPC, set session id in message to be appended in OK
   if (srv_session) {
     srv_session_end_statement(*srv_session);
@@ -2466,10 +2477,10 @@ done:
     us->queries_empty.inc();
   }
 
-  // if it's a COM RPC, clenaup all the server session information
+  // if it's a COM RPC, clean up all the server session information
   if (srv_session) {
     thd = save_thd;
-    cleanup_com_rpc(thd, std::move(srv_session));
+    cleanup_com_rpc(thd, std::move(srv_session), state_changed);
     thd->set_command(COM_SLEEP);
 #if defined(ENABLED_PROFILING)
     thd->profiling.finish_current_query();
@@ -4162,9 +4173,13 @@ case SQLCOM_PREPARE:
       {
         /* in case of create temp tables if @@session_track_state_change is
            ON then send session state notification in OK packet */
+        auto tracker =
+            thd->get_tracker()->get_tracker(SESSION_STATE_CHANGE_TRACKER);
         if(create_info.options & HA_LEX_CREATE_TMP_TABLE &&
-           thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)->is_enabled())
-          thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)->mark_as_changed(thd, NULL);
+            tracker->is_enabled()) {
+          tracker->mark_as_changed(thd, NULL);
+        }
+
         my_ok(thd);
       }
     }
@@ -4758,8 +4773,10 @@ end_with_restore_list:
        send the boolean tracker in the OK packet */
     if(!res && lex->drop_temporary)
     {
-      if (thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)->is_enabled())
-        thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)->mark_as_changed(thd, NULL);
+      auto tracker =
+          thd->get_tracker()->get_tracker(SESSION_STATE_CHANGE_TRACKER);
+      if (tracker->is_enabled())
+        tracker->mark_as_changed(thd, NULL);
     }
   }
   break;

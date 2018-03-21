@@ -321,9 +321,10 @@ net_send_ok(THD *thd,
   /* last insert id */
   pos=net_store_length(pos, id);
 
+  auto* session_tracker = thd->get_tracker();
   if (thd->client_capabilities & CLIENT_SESSION_TRACK &&
-      thd->session_tracker.enabled_any() &&
-      thd->session_tracker.changed_any(thd))
+      session_tracker->enabled_any() &&
+      session_tracker->changed_any(thd))
   {
     server_status |= SERVER_SESSION_STATE_CHANGED;
     state_changed= true;
@@ -371,7 +372,7 @@ net_send_ok(THD *thd,
       store.append((const char *)start, (pos - start), MYSQL_ERRMSG_SIZE);
 
       /* .. and then the state change information. */
-      thd->session_tracker.store(thd, store);
+      session_tracker->store(thd, store);
 
       start= (uchar *) store.ptr();
       pos= start+store.length();

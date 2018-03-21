@@ -40,34 +40,36 @@ if ($attr != "19") {
 # Case 3 is disabled because sesstion state tracking is currently not working 
 # for detached sessions.  This will be investigated later
 
-# --echo
-# --echo # Case 3: Set a SET wait_timeout statement on a detached session
-# --echo
-# connect (con1,localhost,root,,);
-# 
-# query_attrs_add rpc_role root;
-# BEGIN;
-# let $rpc_id=get_rpc_id();
-# # Check that rpc_id is returned in response.
-# if ($rpc_id == "") {
-#   echo Fail: Did not find rpc_id after BEGIN transaction.;
-# }
-# 
-# # Switch to new connection
-# connect (con2,localhost,root,,);
-# query_attrs_add rpc_id $rpc_id;
-# SET wait_timeout = 93;
-# let $attr = get_response_attribute wait_timeout;
-# if ($attr != "93") {
-#   echo Fail: Found incorrect wait_timeout response attribute ($attr);
-# }
-# 
-# #
-# # # Clean up
-# #
-# connection default;
-# eval KILL $rpc_id;
-# 
-# disconnect con1;
-# disconnect con2;
+--echo
+--echo # Case 3: Set a SET wait_timeout statement on a detached session
+--echo
+connect (con1,localhost,root,,);
+
+query_attrs_add rpc_role root;
+BEGIN;
+let $rpc_id=get_rpc_id();
+# Check that rpc_id is returned in response.
+if ($rpc_id == "") {
+  echo Fail: Did not find rpc_id after BEGIN transaction.;
+}
+
+# Switch to new connection
+connect (con2,localhost,root,,);
+query_attrs_add rpc_id $rpc_id;
+SET wait_timeout = 93;
+let $attr = get_response_attribute wait_timeout;
+if ($attr != "93") {
+  echo Fail: Found incorrect wait_timeout response attribute ($attr);
+}
+
+#
+# # Clean up
+#
+connection default;
+--disable_query_log
+eval KILL $rpc_id;
+--enable_query_log
+
+disconnect con1;
+disconnect con2;
 
