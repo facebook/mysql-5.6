@@ -5108,17 +5108,7 @@ public:
   virtual void print(FILE *file, PRINT_EVENT_INFO *print_event_info);
 #endif
 
-#ifdef MYSQL_SERVER
-  virtual bool write(IO_CACHE *file) override
-  {
-    // case: nothing to write
-    if (!*m_rows_query)
-      return 0;
-    return Log_event::write(file);
-  }
-
   virtual bool write_data_body(IO_CACHE *file);
-#endif
 
   virtual Log_event_type get_type_code() { return ROWS_QUERY_LOG_EVENT; }
 
