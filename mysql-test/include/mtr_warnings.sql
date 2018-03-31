@@ -227,6 +227,7 @@ INSERT INTO global_suppressions VALUES
  ("==[0-9]*== Memcheck,"),
  ("==[0-9]*== Copyright"),
  ("==[0-9]*== Using"),
+ ("==[0-9]*== Warning: unimplemented fcntl command"),
  /* valgrind-3.5.0 dumps this */
  ("==[0-9]*== Command: "),
  /* Messages from valgrind tools */
