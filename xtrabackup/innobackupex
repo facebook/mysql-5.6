@@ -900,6 +900,9 @@ sub apply_log {
         }
     }
 
+    # remove empty directories. rmdir will fail for non-empty directories
+    finddepth(sub { rmdir $_ if -d }, $backup_dir);
+
 }
 
 
@@ -2123,6 +2126,43 @@ sub remove_from_array {
     @{$array_ref} = @copy;
 }
 
+#
+# Streams a file into the backup set,
+# handles any encryption.
+# Should not be called directly, only meant to be called from backup_file.
+#
+sub backup_file_via_stream {
+  my $src_path = shift;
+  my $src_file = shift;
+  my $ret = 0;
+
+  my $filepos = rindex($src_file, '/');
+  my $file_name = '';
+  my $rel_path = '';
+
+  if ($filepos >= 0) {
+    $file_name = substr($src_file, $filepos + 1);
+    $rel_path = substr($src_file, 0, $filepos);
+  } else {
+    $file_name = $src_file;
+    $rel_path = '.';
+  }
+  $file_name=~s/([\$\\\" ])/\\$1/g;
+  $ret = system("cd $src_path; $stream_cmd $rel_path/$file_name") >> 8;
+
+  if ($ret == 1 && $option_stream eq 'tar') {
+    print STDERR "$prefix If you use GNU tar, this warning can be ignored.\n";
+  # Check for non-zero exit code
+  } elsif ($ret != 0) {
+    print STDERR "$prefix '$stream_cmd' returned with exit code $ret.\n";
+    # Only treat as fatal cases where the file exists
+    if ( -e "$src_path/$src_file" ) {
+      die "Failed to stream '$src_path/$src_file': $ret";
+    } else {
+      print STDERR "$prefix Ignoring nonexistent file '$src_path/$src_file'.\n";
+    }
+  }
+}
 
 #
 # backup_files subroutine copies .frm, .MRG, .MYD and .MYI files to 
@@ -2201,6 +2241,33 @@ sub backup_files {
             print STDERR "$prefix Backing up files " . 
                 "'$source_dir/$database/$wildcard' ($file_c files)\n";
         }
+
+        if ($file_c == 0) {
+          if ($option_stream) {
+            # Stream empty directories by backing up a fake empty
+            # db.opt file, so that empty databases are created in the backup
+            mkdir("$option_tmpdir/$database") ||
+            die "Failed to create directory " .
+            "$option_tmpdir/$database: $!";
+
+            open XTRABACKUP_FH, ">", "$option_tmpdir/$database/db.opt"
+              or die "Cannot create file $option_tmpdir/db.opt: $!";
+            close XTRABACKUP_FH;
+
+            backup_file_via_stream("$option_tmpdir", "$database/db.opt");
+
+            unlink("$option_tmpdir/$database/db.opt") ||
+            die "Failed to remove file $database/db.opt: $!";
+            rmdir("$option_tmpdir/$database") ||
+            die "Failed to remove directory $database: $!";
+          } else {
+            # Create empty db.opt file for empty database
+            open XTRABACKUP_FH, ">", "$backup_dir/$database/db.opt"
+              or die "Cannot create file $option_tmpdir/db.opt: $!";
+            close XTRABACKUP_FH;
+          }
+        }
+
         foreach $file (@list) {
             next unless check_if_required($database, $file);
 
@@ -2285,7 +2352,7 @@ sub backup_files {
 	# Remove from $backup_dir files that have been removed between first and
 	# second passes. Cannot use "rsync --delete" because it does not work
 	# with --files-from.
-	if (!$prep_mode) {
+	if (!$prep_mode && !$option_no_lock) {
 	    open(RSYNC, "<$rsync_tmpfile_pass1")
 		|| Die "Can't open $rsync_tmpfile_pass1 for reading: $!\n";
 

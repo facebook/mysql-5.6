@@ -270,6 +270,9 @@ function start_server_with_id()
 [mysqld]
 datadir=${MYSQLD_DATADIR}
 tmpdir=${MYSQLD_TMPDIR}
+
+[xtrabackup]
+${XB_EXTRA_MY_CNF_OPTS:-}
 EOF
 
     # Start the server
@@ -430,6 +433,29 @@ function egrep()
 {
     command egrep "$@" | cat
     return ${PIPESTATUS[0]}
+}
+
+##############################################################
+# Helper functions for xtrabackup process suspend and resume #
+##############################################################
+function wait_for_xb_to_suspend()
+{
+    local file=$1
+    local i=0
+    echo "Waiting for $file to be created"
+    while [ ! -r $file ]
+    do
+        sleep 1
+        i=$((i+1))
+        echo "Waited $i seconds for xtrabackup_suspended to be created"
+    done
+}
+
+function resume_suspended_xb()
+{
+    local file=$1
+    echo "Removing $file"
+    kill -SIGCONT `cat $file`
 }
 
 # To avoid unbound variable error when no server have been started
