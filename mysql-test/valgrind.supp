@@ -2591,3 +2591,76 @@
    ...
    fun:_ZN16HashJoinIterator4InitEv
 }
+
+{
+   ssl library loading leak on initialization
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:DSO_load
+   fun:DSO_dsobyaddr
+   fun:OPENSSL_atexit
+   fun:ossl_init_ssl_base
+   fun:ossl_init_ssl_base_ossl_
+   fun:__pthread_once_slow
+   fun:CRYPTO_THREAD_run_once
+   fun:OPENSSL_init_ssl
+   fun:_Z9ssl_startv
+}
+
+{
+  ssl library loading leak on initialization
+  Memcheck:Leak
+  match-leak-kinds: definite
+  ...
+  fun:DSO_load
+  fun:DSO_dsobyaddr
+  fun:ossl_init_load_crypto_nodelete
+  fun:ossl_init_load_crypto_nodelete_ossl_
+  fun:__pthread_once_slow
+  fun:CRYPTO_THREAD_run_once
+  fun:OPENSSL_init_crypto
+  fun:OPENSSL_init_ssl
+  fun:_Z9ssl_startv
+}
+
+{
+   static intialization
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:_GLOBAL__sub_I_eh_alloc.cc
+   ...
+   fun:_dl_init
+}
+
+{
+   mysqltest.cc leak during server shutdown
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:_ZL18do_shutdown_serverP10st_command
+   fun:main
+}
+
+{
+   static allocation in getservbyname
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:getservbyname
+   fun:mysql_server_init
+   fun:main
+}
+
+{
+   static allocation in getpwuid
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:getpwuid_r@@GLIBC_2.2.5
+   ...
+}
