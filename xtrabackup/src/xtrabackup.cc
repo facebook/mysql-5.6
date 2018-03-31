@@ -2827,7 +2827,14 @@ xb_data_files_init(void)
 		return(DB_ERROR);
 	}
 
-	return(fil_load_single_table_tablespaces());
+	err = fil_load_single_table_tablespaces();
+	if (err != DB_SUCCESS) {
+		return(err);
+	}
+
+	debug_sync_point("xtrabackup_load_tablespaces_pause");
+
+	return(DB_SUCCESS);
 }
 
 /*********************************************************************//**

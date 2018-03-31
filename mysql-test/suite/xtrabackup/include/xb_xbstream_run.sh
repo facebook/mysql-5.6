@@ -24,7 +24,6 @@ then
   tail $log_dir/xtrabackup_copy_log
   exit 1
 fi
-mkdir ${backup_dir}/test      # TODO: Fix xbstream skipping empty directories
 
 echo "innobackupex apply-log phase"
 if ! $MYSQL_INNOBACKUPEX $ibbackup_opt $backup_dir --apply-log > $log_dir/xtrabackup_restore_log 2>&1
