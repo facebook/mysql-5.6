@@ -14992,7 +14992,7 @@ comment_begin:
       pos += 2;
       break;
     }
-    return comment_length;
+    return comment_length ? comment_length : length;
   }
   while (pos < end) {
   // We only get here if the first loop found the start of a comment.
@@ -15007,10 +15007,9 @@ comment_begin:
       }
     }
   }
-  return comment_length;
+  return comment_length ? comment_length : length;
 }
 
-#ifdef MYSQL_SERVER
 bool
 Rows_query_log_event::write_data_body(IO_CACHE *file)
 {
@@ -15022,7 +15021,6 @@ Rows_query_log_event::write_data_body(IO_CACHE *file)
   DBUG_RETURN(write_str_at_most_255_bytes(file, m_rows_query,
               (uint) strlen(m_rows_query)));
 }
-#endif
 
 inline ulonglong Rows_query_log_event::extract_last_timestamp() const
 {

@@ -9,14 +9,20 @@ insert into t1 values(1);
 /*Comment test */ insert into t1 values(2);
 /*Comment test */   /* Comment test*/ insert into t1 values(4);
 drop table t1;
-#010909  4:46:40 server id 1  end_log_pos 534 	Rows_query
+#010909  4:46:40 server id 1  end_log_pos 325 	Rows_query
+# insert into t1 values(1)
+--
+#010909  4:46:40 server id 1  end_log_pos 578 	Rows_query
 # /*Comment test */
 --
-#010909  4:46:40 server id 1  end_log_pos 807 	Rows_query
+#010909  4:46:40 server id 1  end_log_pos 851 	Rows_query
 # /*Comment test */   /* Comment test*/
-#010909  4:46:40 server id 1  end_log_pos 507 	Rows_query
+#010909  4:46:40 server id 1  end_log_pos 316 	Rows_query
+# insert into t1 values(1)
+--
+#010909  4:46:40 server id 1  end_log_pos 551 	Rows_query
 # /*Comment test */
 --
-#010909  4:46:40 server id 1  end_log_pos 762 	Rows_query
+#010909  4:46:40 server id 1  end_log_pos 806 	Rows_query
 # /*Comment test */   /* Comment test*/
 include/rpl_end.inc

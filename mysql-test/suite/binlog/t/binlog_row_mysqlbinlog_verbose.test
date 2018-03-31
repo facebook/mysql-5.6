@@ -90,7 +90,6 @@ drop table raw_binlog_rows;
 # the multi-line original statement are properly escaped to prevent from
 # being executed.
 SET @@SESSION.BINLOG_ROWS_QUERY_LOG_EVENTS = 1;
-SET @@GLOBAL.LOG_ONLY_QUERY_COMMENTS = 0;
 CREATE TABLE t1 (a VARCHAR(50));
 --let $binlog_start_position= query_get_value("SHOW MASTER STATUS", Position, 1)
 
@@ -141,5 +140,4 @@ END_OF_FILE
 
 # Clean up
 DROP TABLE t1;
-SET @@GLOBAL.LOG_ONLY_QUERY_COMMENTS = DEFAULT;
 --remove_file $TMP_FILE

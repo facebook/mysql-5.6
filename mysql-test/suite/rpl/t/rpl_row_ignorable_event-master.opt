@@ -1,1 +1,1 @@
---binlog-row-event-max-size=512 --binlog-rows-query-log-events=1 --log-only-query-comments=0
+--binlog-row-event-max-size=512 --binlog-rows-query-log-events=1
