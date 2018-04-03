@@ -572,6 +572,27 @@ CREATE TABLE t (c1 int NOT NULL AUTO_INCREMENT, c2 int, c3 blob, primary key(c1,
 INSERT INTO t(c2) VALUES (2);
 DROP TABLE t;
 include/sync_slave_sql_with_master.inc
+include/rpl_reset.inc
+CON: 'master', IMG: 'COMPLETE', RESTART SLAVE: 'N'
+SET SESSION binlog_row_image= 'COMPLETE';
+SET GLOBAL binlog_row_image= 'COMPLETE';
+FLUSH TABLES;
+SHOW VARIABLES LIKE 'binlog_row_image';
+Variable_name	Value
+binlog_row_image	COMPLETE
+CON: 'slave', IMG: 'COMPLETE', RESTART SLAVE: 'Y'
+SET SESSION binlog_row_image= 'COMPLETE';
+SET GLOBAL binlog_row_image= 'COMPLETE';
+include/stop_slave.inc
+include/start_slave.inc
+FLUSH TABLES;
+SHOW VARIABLES LIKE 'binlog_row_image';
+Variable_name	Value
+binlog_row_image	COMPLETE
+CREATE TABLE t (c1 int NOT NULL AUTO_INCREMENT, c2 int, c3 blob, primary key(c1,c2));
+INSERT INTO t(c2) VALUES (2);
+DROP TABLE t;
+include/sync_slave_sql_with_master.inc
 ##################################################################
 # Test that slave does not write more columns than the ones it has 
 ##################################################################
@@ -600,6 +621,31 @@ INSERT INTO t(c2,c3) VALUES (2,'aaaaa');
 UPDATE t SET c2=3, c3='bbbbb' WHERE c2=2;
 DROP TABLE t;
 include/sync_slave_sql_with_master.inc
+include/rpl_reset.inc
+CON: 'master', IMG: 'COMPLETE', RESTART SLAVE: 'N'
+SET SESSION binlog_row_image= 'COMPLETE';
+SET GLOBAL binlog_row_image= 'COMPLETE';
+FLUSH TABLES;
+SHOW VARIABLES LIKE 'binlog_row_image';
+Variable_name	Value
+binlog_row_image	COMPLETE
+CON: 'slave', IMG: 'COMPLETE', RESTART SLAVE: 'Y'
+SET SESSION binlog_row_image= 'COMPLETE';
+SET GLOBAL binlog_row_image= 'COMPLETE';
+include/stop_slave.inc
+include/start_slave.inc
+FLUSH TABLES;
+SHOW VARIABLES LIKE 'binlog_row_image';
+Variable_name	Value
+binlog_row_image	COMPLETE
+SET SQL_LOG_BIN=0;
+CREATE TABLE t (c1 int NOT NULL AUTO_INCREMENT, c2 int, c3 blob, primary key(c1,c2));
+SET SQL_LOG_BIN=1;
+CREATE TABLE t (c1 int, c2 int, primary key(c1));
+INSERT INTO t(c2,c3) VALUES (2,'aaaaa');
+UPDATE t SET c2=3, c3='bbbbb' WHERE c2=2;
+DROP TABLE t;
+include/sync_slave_sql_with_master.inc
 ##################################################################
 # Test that slave fills default columns in its own columns
 ##################################################################
@@ -620,6 +666,39 @@ FLUSH TABLES;
 SHOW VARIABLES LIKE 'binlog_row_image';
 Variable_name	Value
 binlog_row_image	FULL
+SET SQL_LOG_BIN=0;
+CREATE TABLE t (c1 int, c2 int);
+SET SQL_LOG_BIN=1;
+CREATE TABLE t (c1 int, c2 int, c3 int DEFAULT 2005);
+INSERT INTO t(c1) VALUES (1);
+INSERT INTO t(c1) VALUES (2);
+SELECT * FROM t;
+c1	c2	c3
+1	NULL	2005
+2	NULL	2005
+SELECT * FROM t;
+c1	c2
+1	NULL
+2	NULL
+DROP TABLE t;
+include/sync_slave_sql_with_master.inc
+include/rpl_reset.inc
+CON: 'master', IMG: 'COMPLETE', RESTART SLAVE: 'N'
+SET SESSION binlog_row_image= 'COMPLETE';
+SET GLOBAL binlog_row_image= 'COMPLETE';
+FLUSH TABLES;
+SHOW VARIABLES LIKE 'binlog_row_image';
+Variable_name	Value
+binlog_row_image	COMPLETE
+CON: 'slave', IMG: 'COMPLETE', RESTART SLAVE: 'Y'
+SET SESSION binlog_row_image= 'COMPLETE';
+SET GLOBAL binlog_row_image= 'COMPLETE';
+include/stop_slave.inc
+include/start_slave.inc
+FLUSH TABLES;
+SHOW VARIABLES LIKE 'binlog_row_image';
+Variable_name	Value
+binlog_row_image	COMPLETE
 SET SQL_LOG_BIN=0;
 CREATE TABLE t (c1 int, c2 int);
 SET SQL_LOG_BIN=1;
@@ -670,9 +749,40 @@ c1	c2	c3
 1	4	3
 DROP TABLE t;
 include/sync_slave_sql_with_master.inc
+include/rpl_reset.inc
+CON: 'master', IMG: 'COMPLETE', RESTART SLAVE: 'N'
+SET SESSION binlog_row_image= 'COMPLETE';
+SET GLOBAL binlog_row_image= 'COMPLETE';
+FLUSH TABLES;
+SHOW VARIABLES LIKE 'binlog_row_image';
+Variable_name	Value
+binlog_row_image	COMPLETE
+CON: 'slave', IMG: 'COMPLETE', RESTART SLAVE: 'Y'
+SET SESSION binlog_row_image= 'COMPLETE';
+SET GLOBAL binlog_row_image= 'COMPLETE';
+include/stop_slave.inc
+include/start_slave.inc
+FLUSH TABLES;
+SHOW VARIABLES LIKE 'binlog_row_image';
+Variable_name	Value
+binlog_row_image	COMPLETE
+SET SQL_LOG_BIN=0;
+CREATE TABLE t (c1 int NOT NULL, c2 int, c3 int, primary key(c1, c3), unique key(c1));
+SET SQL_LOG_BIN=1;
+CREATE TABLE t (c1 int NOT NULL, c2 int, unique key(c1));
+INSERT INTO t VALUES (1, 2, 3);
+UPDATE t SET c2= 4 WHERE c1=1;
+SELECT * FROM t;
+c1	c2
+1	4
+SELECT * FROM t;
+c1	c2	c3
+1	4	3
+DROP TABLE t;
+include/sync_slave_sql_with_master.inc
 ##################################################################
 # Test that if master has binlog_row_image=MINIMAL and slave has 
-# NOBLOB or FULL, it will log the expected columns
+# NOBLOB, FULL or COMPLETE it will log the expected columns
 ##################################################################
 include/rpl_reset.inc
 CON: 'master', IMG: 'MINIMAL', RESTART SLAVE: 'N'
@@ -717,6 +827,32 @@ FLUSH TABLES;
 SHOW VARIABLES LIKE 'binlog_row_image';
 Variable_name	Value
 binlog_row_image	NOBLOB
+SET SQL_LOG_BIN=0;
+CREATE TABLE t (c1 int NOT NULL, c2 int, c3 int, primary key(c1));
+SET SQL_LOG_BIN=1;
+CREATE TABLE t (c1 int NOT NULL, c2 int, c3 int, c4 blob, unique key(c1));
+INSERT INTO t VALUES (1, 2, 3);
+UPDATE t SET c2= 4 WHERE c1=1;
+DELETE FROM t WHERE c2=4;
+DROP TABLE t;
+include/sync_slave_sql_with_master.inc
+include/rpl_reset.inc
+CON: 'master', IMG: 'MINIMAL', RESTART SLAVE: 'N'
+SET SESSION binlog_row_image= 'MINIMAL';
+SET GLOBAL binlog_row_image= 'MINIMAL';
+FLUSH TABLES;
+SHOW VARIABLES LIKE 'binlog_row_image';
+Variable_name	Value
+binlog_row_image	MINIMAL
+CON: 'slave', IMG: 'COMPLETE', RESTART SLAVE: 'Y'
+SET SESSION binlog_row_image= 'COMPLETE';
+SET GLOBAL binlog_row_image= 'COMPLETE';
+include/stop_slave.inc
+include/start_slave.inc
+FLUSH TABLES;
+SHOW VARIABLES LIKE 'binlog_row_image';
+Variable_name	Value
+binlog_row_image	COMPLETE
 SET SQL_LOG_BIN=0;
 CREATE TABLE t (c1 int NOT NULL, c2 int, c3 int, primary key(c1));
 SET SQL_LOG_BIN=1;
@@ -817,6 +953,27 @@ FLUSH TABLES;
 SHOW VARIABLES LIKE 'binlog_row_image';
 Variable_name	Value
 binlog_row_image	MINIMAL
+EXPLAIN UPDATE t1 SET a=a+1 WHERE id < 2;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	range	PRIMARY	PRIMARY	4	const	1	Using where
+UPDATE t1 SET a=a+1 WHERE id < 2;
+CON: 'master', IMG: 'COMPLETE', RESTART SLAVE: 'N'
+SET SESSION binlog_row_image= 'COMPLETE';
+SET GLOBAL binlog_row_image= 'COMPLETE';
+FLUSH TABLES;
+SHOW VARIABLES LIKE 'binlog_row_image';
+Variable_name	Value
+binlog_row_image	COMPLETE
+CON: 'slave', IMG: 'COMPLETE', RESTART SLAVE: 'Y'
+SET SESSION binlog_row_image= 'COMPLETE';
+SET GLOBAL binlog_row_image= 'COMPLETE';
+include/stop_slave.inc
+include/start_slave.inc
+FLUSH TABLES;
+SHOW VARIABLES LIKE 'binlog_row_image';
+Variable_name	Value
+binlog_row_image	COMPLETE
+"Case: COMPLETE - EXPLAIN output should not display Using temporary"
 EXPLAIN UPDATE t1 SET a=a+1 WHERE id < 2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	range	PRIMARY	PRIMARY	4	const	1	Using where
