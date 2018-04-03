@@ -14154,7 +14154,7 @@ Write_rows_log_event::write_row(const Relay_log_info *const rli,
     TODO: Add safety measures against infinite looping.
    */
 
-  m_table->mark_columns_per_binlog_row_image();
+  m_table->mark_columns_per_binlog_row_image(true);
 
   while ((error= table->file->ha_write_row(table->record[0])))
   {
