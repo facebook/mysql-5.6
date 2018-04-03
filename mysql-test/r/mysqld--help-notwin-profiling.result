@@ -1426,6 +1426,9 @@ The following options may be given as the first argument:
  RocksDB
  --rocksdb-stats-dump-period-sec=# 
  DBOptions::stats_dump_period_sec for RocksDB
+ --rocksdb-stats-recalc-rate=# 
+ The number of indexes per second to recalculate
+ statistics for. 0 to disable background recalculation.
  --rocksdb-store-row-debug-checksums 
  Include checksums when writing index/table records
  --rocksdb-strict-collation-check 
@@ -2236,6 +2239,7 @@ rocksdb-skip-fill-cache FALSE
 rocksdb-skip-unique-check-tables (No default value)
 rocksdb-sst-mgr-rate-bytes-per-sec 0
 rocksdb-stats-dump-period-sec 600
+rocksdb-stats-recalc-rate 0
 rocksdb-store-row-debug-checksums FALSE
 rocksdb-strict-collation-check TRUE
 rocksdb-strict-collation-exceptions (No default value)
