@@ -1850,6 +1850,9 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       save_thd = thd;
       thd = srv_session->get_thd();
       thd->set_command(command);
+#if defined(ENABLED_PROFILING)
+      thd->profiling.start_new_query();
+#endif
     }
 
     // Fall through to COM_QUERY
@@ -2468,6 +2471,9 @@ done:
     thd = save_thd;
     cleanup_com_rpc(thd, std::move(srv_session));
     thd->set_command(COM_SLEEP);
+#if defined(ENABLED_PROFILING)
+    thd->profiling.finish_current_query();
+#endif
   }
 
   DBUG_RETURN(error);
