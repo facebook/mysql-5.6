@@ -7534,11 +7534,12 @@ int STDCALL mysql_resp_attr_find(MYSQL *mysql,
   const char *val;
   size_t keylen;
   size_t vallen;
+  size_t lookup_len = strlen(lookup);
 
   ret = mysql_resp_attr_get_first(mysql, &key, &keylen, &val, &vallen);
   while (!ret)
   {
-    if (strncmp(lookup, key, keylen) == 0)
+    if (lookup_len == keylen && strncmp(lookup, key, keylen) == 0)
     {
       *data = val;
       *length = vallen;
