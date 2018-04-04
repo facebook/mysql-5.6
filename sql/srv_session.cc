@@ -949,7 +949,7 @@ static void append_session_id_in_ok(THD* session_thd) {
 void Srv_session::end_statement() {
   DBUG_ENTER(__func__);
 
-  static LEX_CSTRING key = { STRING_WITH_LEN(RpcIdAttr) };
+  static LEX_CSTRING key = { STRING_WITH_LEN("rpc_id") };
 
   if (!session_state_changed()) {
     // remove from session map
