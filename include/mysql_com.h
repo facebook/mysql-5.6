@@ -1023,11 +1023,25 @@ enum enum_session_state_type {
 bool my_net_init(struct NET *net, MYSQL_VIO vio);
 void my_net_local_init(struct NET *net);
 void net_end(struct NET *net);
+// extern "C" since it is part of the libmysql ABI.
+#ifdef __cplusplus
+extern "C" {
+#endif
 void net_clear(struct NET *net, bool check_buffer);
+#ifdef __cplusplus
+}
+#endif
 void net_claim_memory_ownership(struct NET *net);
 bool net_realloc(struct NET *net, size_t length);
+// extern "C" since it is part of the libmysql ABI.
+#ifdef __cplusplus
+extern "C" {
+#endif
 bool net_flush(struct NET *net);
 bool my_net_write(struct NET *net, const unsigned char *packet, size_t len);
+#ifdef __cplusplus
+}
+#endif
 bool net_write_command(struct NET *net, unsigned char command,
                        const unsigned char *header, size_t head_len,
                        const unsigned char *packet, size_t len);
