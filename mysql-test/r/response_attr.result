@@ -17,3 +17,31 @@ SET wait_timeout = 19;
 
 BEGIN;
 SET wait_timeout = 93;
+# Testing USE <db> returns the change of database in response attributes
+
+USE test;
+-- Tracker : SESSION_TRACK_RESP_ATTR
+-- change_db
+-- test
+
+# Expect no change info
+USE invalid;
+ERROR 42000: Unknown database 'invalid'
+USE mysql;
+-- Tracker : SESSION_TRACK_RESP_ATTR
+-- change_db
+-- mysql
+
+USE test;
+-- Tracker : SESSION_TRACK_RESP_ATTR
+-- change_db
+-- test
+
+USE test;
+-- Tracker : SESSION_TRACK_RESP_ATTR
+-- change_db
+-- test
+
+# Testing COM_CHANGE_USER does not return the change of database in
+# response attributes
+

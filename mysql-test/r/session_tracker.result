@@ -83,9 +83,17 @@ USE test;
 -- Tracker : SESSION_TRACK_STATE_CHANGE
 -- 1
 
+-- Tracker : SESSION_TRACK_RESP_ATTR
+-- change_db
+-- test
+
 SET @@session.session_track_state_change=OFF;
 # Change database
 USE test;
+-- Tracker : SESSION_TRACK_RESP_ATTR
+-- change_db
+-- test
+
 # reset the session.
 SET @@session.session_track_state_change=ON;
 # Define a user defined variable
@@ -138,6 +146,10 @@ USE test;
 -- Tracker : SESSION_TRACK_STATE_CHANGE
 -- 1
 
+-- Tracker : SESSION_TRACK_RESP_ATTR
+-- change_db
+-- test
+
 # expect 1
 SET @var3= 10;
 -- Tracker : SESSION_TRACK_STATE_CHANGE
@@ -164,6 +176,10 @@ DROP TEMPORARY TABLE test.t1;
 # CASE1: current DB exists in current session
 SET @@session.session_track_state_change=OFF;
 USE test;
+-- Tracker : SESSION_TRACK_RESP_ATTR
+-- change_db
+-- test
+
 SET @@session.session_track_state_change=ON;
 # expect 1
 PREPARE p1 FROM 'SELECT i FROM test.t';

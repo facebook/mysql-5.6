@@ -6046,6 +6046,23 @@ static Sys_var_mybool Sys_session_track_state_change(
        ON_CHECK(0),
        ON_UPDATE(update_session_track_state_change));
 
+static bool update_session_track_response_attributes(sys_var *self, THD *thd,
+                                                     enum_var_type type)
+{
+  DBUG_ENTER("update_session_track_resp_attr");
+  DBUG_RETURN(
+      thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER)->update(thd));
+}
+
+static Sys_var_mybool Sys_session_track_resp_attrs(
+       "session_track_response_attributes",
+       "Track response attribute'.",
+       SESSION_VAR(session_track_response_attributes),
+       CMD_LINE(OPT_ARG), DEFAULT(TRUE),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(0),
+       ON_UPDATE(update_session_track_response_attributes));
+
 static Sys_var_mybool Sys_improved_dup_key_error(
        "improved_dup_key_error",
        "Include the table name in the error text when receiving a duplicate "

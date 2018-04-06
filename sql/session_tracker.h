@@ -220,15 +220,17 @@ private:
   Session_resp_attr_tracker& operator=(const Session_resp_attr_tracker&) =
       delete;
 
+  bool m_forced_enabled; // Override the variable to force this as enabled
   std::map<std::string, std::string> attrs_;
 
 public:
-  Session_resp_attr_tracker() { m_changed = false; m_enabled = true; }
+  Session_resp_attr_tracker()
+  { m_forced_enabled = false; m_changed = false; m_enabled = false; }
 
-  bool enable(THD *thd) override { return false; }
-  bool force_enable() override { return false; }
+  bool enable(THD *thd) override;
+  bool force_enable() override { m_forced_enabled = true; return false; }
   bool check(THD *thd, set_var *var) override { return false; }
-  bool update(THD *thd) override { return false; }
+  bool update(THD *thd) override { return enable(thd); }
   bool store(THD *thd, String &buf) override;
   void mark_as_changed(THD *thd, LEX_CSTRING *key, LEX_CSTRING *value) override;
 };

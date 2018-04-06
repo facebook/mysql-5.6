@@ -791,6 +791,7 @@ typedef struct system_variables
   my_bool high_priority_ddl;
 
   my_bool session_track_state_change;
+  my_bool session_track_response_attributes;
 
   ulong dscp_on_socket;
 } SV;

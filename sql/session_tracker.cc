@@ -372,6 +372,22 @@ void Session_resp_attr_tracker::mark_as_changed(THD *thd,
   m_changed= true;
 }
 
+/**
+  @brief Enable/disable the tracker based on
+         @@session_track_response_attributes's value.
+
+  @param thd [IN]           The thd handle.
+
+  @return
+    false (always)
+*/
+bool Session_resp_attr_tracker::enable(THD *thd)
+{
+  m_enabled= m_forced_enabled ||
+      thd->variables.session_track_response_attributes != OFF;
+  return false;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 /**

@@ -1044,6 +1044,17 @@ exit:
   DBUG_RETURN(error);
 }
 
+static void set_change_db_resp_attr(
+    THD *thd)
+{
+  auto tracker = thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
+  if (tracker->is_enabled() && thd->db != nullptr) {
+    static LEX_CSTRING key = { STRING_WITH_LEN("change_db") };
+
+    LEX_CSTRING value = { thd->db, strlen(thd->db) };
+    tracker->mark_as_changed(thd, &key, &value);
+  }
+}
 
 /**
   Drop all tables, routines and events in a database and the database itself.
@@ -1903,6 +1914,7 @@ bool mysql_change_db(THD *thd, const LEX_STRING *new_db_name, bool force_switch)
 done:
   if (thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)->is_enabled())
     thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)->mark_as_changed(thd, NULL);
+  set_change_db_resp_attr(thd);
   DBUG_RETURN(FALSE);
 }
 

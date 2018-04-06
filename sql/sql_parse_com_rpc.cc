@@ -160,6 +160,8 @@ std::pair<bool, std::shared_ptr<Srv_session>>  handle_com_rpc(THD *conn_thd)
       // enable state change tracking
       srv_session->get_thd()->session_tracker.get_tracker(
                 SESSION_STATE_CHANGE_TRACKER)->force_enable();
+      srv_session->get_thd()->session_tracker.get_tracker(
+                SESSION_RESP_ATTR_TRACKER)->force_enable();
       conn_thd->set_default_srv_session(srv_session);
     }
     else

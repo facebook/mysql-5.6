@@ -1545,6 +1545,9 @@ The following options may be given as the first argument:
  Controls the amount of global transaction ids to be
  included in the response packet sent by the
  server.(Default: OFF).
+ --session-track-response-attributes 
+ Track response attribute'.
+ (Defaults to on; use --skip-session-track-response-attributes to disable.)
  --session-track-state-change 
  Track changes to the 'session state'.
  --show-old-temporals 
@@ -2285,6 +2288,7 @@ separate-conn-handling-thread FALSE
 server-id 0
 server-id-bits 32
 session-track-gtids OFF
+session-track-response-attributes TRUE
 session-track-state-change FALSE
 show-old-temporals FALSE
 show-slave-auth-info FALSE

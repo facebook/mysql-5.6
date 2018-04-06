@@ -37,7 +37,7 @@ if ($attr != "19") {
   echo Fail: Found incorrect wait_timeout response attribute ($attr);
 }
 
-# Case 3 is disabled because sesstion state tracking is currently not working 
+# Case 3 is disabled because sesstion state tracking is currently not working
 # for detached sessions.  This will be investigated later
 
 --echo
@@ -73,3 +73,25 @@ eval KILL $rpc_id;
 disconnect con1;
 disconnect con2;
 
+#
+# Now run some tests that will update the current database
+--enable_session_track_info
+
+connect(con1,localhost,root,,);
+--echo # Testing USE <db> returns the change of database in response attributes
+--echo
+USE test;
+--echo # Expect no change info
+--error ER_BAD_DB_ERROR
+USE invalid;
+USE mysql;
+USE test;
+USE test;
+
+--echo # Testing COM_CHANGE_USER does not return the change of database in
+--echo # response attributes
+--echo
+--change_user root,,mysql
+disconnect con1;
+
+--disable_session_track_info
