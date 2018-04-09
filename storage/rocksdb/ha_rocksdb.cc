@@ -2409,6 +2409,17 @@ public:
   virtual void start_tx() = 0;
   virtual void start_stmt() = 0;
 
+  void set_initial_savepoint() {
+    /*
+      Set the initial savepoint. If the first statement in the transaction
+      fails, we need something to roll back to, without rolling back the
+      entire transaction.
+    */
+    do_set_savepoint();
+    m_n_savepoints= 1;
+    m_writes_at_last_savepoint= m_write_count;
+  }
+
   /*
     Called when a "top-level" statement inside a transaction completes
     successfully and its changes become part of the transaction's changes.
@@ -2767,12 +2778,7 @@ public:
 
     m_read_opts = rocksdb::ReadOptions();
 
-    /*
-      Set the initial savepoint. If the first statement in the transaction
-      fails, we need something to roll back to, without rolling back the
-      entire transaction.
-    */
-    do_set_savepoint();
+    set_initial_savepoint();
 
     m_ddl_transaction = false;
   }
@@ -3013,12 +3019,7 @@ public:
     write_opts.ignore_missing_column_families =
         THDVAR(m_thd, write_ignore_missing_column_families);
 
-    /*
-      Set the initial savepoint. If the first statement in the transaction
-      fails, we need something to roll back to, without rolling back the
-      entire transaction.
-    */
-    do_set_savepoint();
+    set_initial_savepoint();
   }
 
   void start_stmt() override {}
