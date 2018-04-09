@@ -1683,9 +1683,15 @@ static bool trx_write_serialisation_history(
   /* Update the latest MySQL binlog name and offset information
   in trx sys header only if MySQL binary logging is on and clone
   is has ensured commit order at final stage. */
-  if (Clone_handler::need_commit_order()) {
-    trx_sys_update_mysql_binlog_offset(trx, mtr);
+  /* FB -- always update the binlog filename/offset in the system header because
+   * it's used for crash recovery */
+  if (true || Clone_handler::need_commit_order()) {
+    trx_sys_update_mysql_binlog_offset(trx, mtr, trx->mysql_gtid);
   }
+  /* There are cases where gtid is set, but binlog is disabled. In these cases,
+  clear the pointer. Otherwise, if the trx is reused, the pointer could be
+  stale. */
+  trx->mysql_gtid = nullptr;
 
   return (serialised);
 }
@@ -3396,6 +3402,6 @@ void trx_sys_update_binlog_position(trx_t *trx) {
     }
   }
   ulonglong pos;
-  thd_binlog_pos(thd, &trx->mysql_log_file_name, &pos);
+  thd_binlog_pos(thd, &trx->mysql_log_file_name, &pos, &trx->mysql_gtid);
   trx->mysql_log_offset = static_cast<uint64_t>(pos);
 }

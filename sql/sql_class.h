@@ -1589,6 +1589,8 @@ class THD : public MDL_context_owner,
   const char *m_trans_log_file;
   char *m_trans_fixed_log_file;
   my_off_t m_trans_end_pos;
+  const char *m_trans_gtid;
+  char trans_gtid[Gtid::MAX_TEXT_LENGTH + 1];
   /**@}*/
   // NOTE: Ideally those two should be in Protocol,
   // but currently its design doesn't allow that.
@@ -2281,6 +2283,13 @@ class THD : public MDL_context_owner,
     }
 
     m_trans_end_pos = pos;
+
+    if (!owned_gtid.is_empty() && owned_gtid.gno > 0) {
+      owned_gtid.to_string(global_sid_map, trans_gtid, true);
+      m_trans_gtid = trans_gtid;
+    } else {
+      m_trans_gtid = NULL;
+    }
     DBUG_PRINT("return",
                ("m_trans_log_file: %s, m_trans_fixed_log_file: %s, "
                 "m_trans_end_pos: %llu",
@@ -2288,13 +2297,18 @@ class THD : public MDL_context_owner,
     return;
   }
 
-  void get_trans_pos(const char **file_var, my_off_t *pos_var) const {
+  void get_trans_pos(const char **file_var, my_off_t *pos_var,
+                     const char **gtid_var) const {
     DBUG_TRACE;
     if (file_var) *file_var = m_trans_log_file;
     if (pos_var) *pos_var = m_trans_end_pos;
-    DBUG_PRINT("return",
-               ("file: %s, pos: %llu", file_var ? *file_var : "<none>",
-                pos_var ? *pos_var : 0));
+    if (gtid_var) {
+      *gtid_var = m_trans_gtid;
+    }
+    DBUG_PRINT(
+        "return",
+        ("file: %s, pos: %llu, gtid: %s", file_var ? *file_var : "<none>",
+         pos_var ? *pos_var : 0, gtid_var ? m_trans_gtid : "<none>"));
     return;
   }
 

@@ -1141,6 +1141,13 @@ struct trx_t {
   contains a pointer to the latest file
   name; this is NULL if binlog is not
   used */
+
+  const char *mysql_gtid;
+  /*!< if MySQL binlog is used, this field
+  contains a pointer to the latest GTID;
+  this is NULL if binlog or gtids is not
+  used*/
+
   uint64_t mysql_log_offset;
   /*!< if MySQL binlog is used, this
   field contains the end offset of the

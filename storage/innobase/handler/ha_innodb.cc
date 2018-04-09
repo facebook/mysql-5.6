@@ -5393,7 +5393,7 @@ static int innobase_commit(handlerton *hton, /*!< in: InnoDB handlerton */
       be a NULL pointer. */
       ulonglong pos;
 
-      thd_binlog_pos(thd, &trx->mysql_log_file_name, &pos);
+      thd_binlog_pos(thd, &trx->mysql_log_file_name, &pos, &trx->mysql_gtid);
 
       trx->mysql_log_offset = static_cast<uint64_t>(pos);
 
