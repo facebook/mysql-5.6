@@ -1,0 +1,55 @@
+set @orig_optimizer_force_index_for_range = @@optimizer_force_index_for_range;
+
+create table t (i int, j int, primary key (i, j));
+insert into t values (1, 1);
+insert into t values (1, 2);
+insert into t values (2, 1);
+insert into t values (2, 2);
+insert into t values (3, 1);
+insert into t values (3, 2);
+
+--echo # Test range plans
+set optimizer_force_index_for_range = on;
+--replace_column 9 #
+explain select i from t where i in (1, 2, 3) and j in (1, 2);
+--replace_column 9 #
+explain select i from t force index (primary) where i in (1, 2, 3) and j in (1, 2);
+set optimizer_force_index_for_range = off;
+--replace_column 9 #
+explain select i from t where i in (1, 2, 3) and j in (1, 2);
+--replace_column 9 #
+explain select i from t force index (primary) where i in (1, 2, 3) and j in (1, 2);
+
+--echo # Test group-by plans.
+set optimizer_force_index_for_range = on;
+--replace_column 9 #
+explain select distinct i from t;
+--replace_column 9 #
+explain select distinct i from t force index (primary);
+set optimizer_force_index_for_range = off;
+--replace_column 9 #
+explain select distinct i from t;
+--replace_column 9 #
+explain select distinct i from t force index (primary);
+
+--echo # Test skip-scan plans.
+set optimizer_switch = 'skip_scan=on';
+set optimizer_force_index_for_range = on;
+--replace_column 9 #
+explain select i from t where j > 1;
+--replace_column 9 #
+explain select i from t force index (primary) where j > 1;
+set optimizer_force_index_for_range = off;
+--replace_column 9 #
+explain select i from t where j > 1;
+--replace_column 9 #
+explain select i from t force index (primary) where j > 1;
+set optimizer_switch = 'skip_scan=off';
+
+--echo # Test that in absence of range plan, index is used.
+set optimizer_force_index_for_range = on;
+--replace_column 9 #
+explain select i from t force index (primary) where j > 1;
+
+drop table t;
+set optimizer_force_index_for_range = @orig_optimizer_force_index_for_range;

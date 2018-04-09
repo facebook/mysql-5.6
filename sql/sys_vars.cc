@@ -2602,6 +2602,12 @@ static Sys_var_mybool Sys_optimizer_low_limit_heuristic(
       SESSION_VAR(optimizer_low_limit_heuristic),
       CMD_LINE(OPT_ARG), DEFAULT(TRUE));
 
+static Sys_var_mybool Sys_optimizer_force_index_for_range(
+      "optimizer_force_index_for_range",
+      "If enabled, FORCE INDEX will also try to force a range plan.",
+      SESSION_VAR(optimizer_force_index_for_range),
+      CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
 static const char *optimizer_switch_names[]=
 {
   "index_merge", "index_merge_union", "index_merge_sort_union",

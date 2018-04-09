@@ -1,0 +1,62 @@
+set @orig_optimizer_force_index_for_range = @@optimizer_force_index_for_range;
+create table t (i int, j int, primary key (i, j));
+insert into t values (1, 1);
+insert into t values (1, 2);
+insert into t values (2, 1);
+insert into t values (2, 2);
+insert into t values (3, 1);
+insert into t values (3, 2);
+# Test range plans
+set optimizer_force_index_for_range = on;
+explain select i from t where i in (1, 2, 3) and j in (1, 2);
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t	index	PRIMARY	PRIMARY	8	NULL	#	Using where; Using index
+explain select i from t force index (primary) where i in (1, 2, 3) and j in (1, 2);
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t	range	PRIMARY	PRIMARY	8	NULL	#	Using where; Using index
+set optimizer_force_index_for_range = off;
+explain select i from t where i in (1, 2, 3) and j in (1, 2);
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t	index	PRIMARY	PRIMARY	8	NULL	#	Using where; Using index
+explain select i from t force index (primary) where i in (1, 2, 3) and j in (1, 2);
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t	index	PRIMARY	PRIMARY	8	NULL	#	Using where; Using index
+# Test group-by plans.
+set optimizer_force_index_for_range = on;
+explain select distinct i from t;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t	index	PRIMARY	PRIMARY	8	NULL	#	Using index
+explain select distinct i from t force index (primary);
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t	range	PRIMARY	PRIMARY	4	NULL	#	Using index for group-by
+set optimizer_force_index_for_range = off;
+explain select distinct i from t;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t	index	PRIMARY	PRIMARY	8	NULL	#	Using index
+explain select distinct i from t force index (primary);
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t	index	PRIMARY	PRIMARY	8	NULL	#	Using index
+# Test skip-scan plans.
+set optimizer_switch = 'skip_scan=on';
+set optimizer_force_index_for_range = on;
+explain select i from t where j > 1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t	index	PRIMARY	PRIMARY	8	NULL	#	Using where; Using index
+explain select i from t force index (primary) where j > 1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t	range	PRIMARY	PRIMARY	8	NULL	#	Using where; Using index for skip scan
+set optimizer_force_index_for_range = off;
+explain select i from t where j > 1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t	index	PRIMARY	PRIMARY	8	NULL	#	Using where; Using index
+explain select i from t force index (primary) where j > 1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t	index	PRIMARY	PRIMARY	8	NULL	#	Using where; Using index
+set optimizer_switch = 'skip_scan=off';
+# Test that in absence of range plan, index is used.
+set optimizer_force_index_for_range = on;
+explain select i from t force index (primary) where j > 1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t	index	NULL	PRIMARY	8	NULL	#	Using where; Using index
+drop table t;
+set optimizer_force_index_for_range = @orig_optimizer_force_index_for_range;
