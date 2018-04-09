@@ -122,7 +122,8 @@ void trx_sys_update_mysql_binlog_offset(
     int64_t offset,        /*!< in: position in that log file */
     ulint field,           /*!< in: offset of the MySQL log info field in
                            the trx sys header */
-    mtr_t *mtr)            /*!< in: mtr */
+    mtr_t *mtr,            /*!< in: mtr */
+    const char *gtid)      /*!< in: Gtid of the transaction */
 {
   trx_sysf_t *sys_header;
 
@@ -155,6 +156,17 @@ void trx_sys_update_mysql_binlog_offset(
 
   mlog_write_ulint(sys_header + field + TRX_SYS_MYSQL_LOG_OFFSET_LOW,
                    (ulint)(offset & 0xFFFFFFFFUL), MLOG_4BYTES, mtr);
+  if (gtid) {
+    size_t gtid_length = ut_strlen(gtid);
+    if (gtid_length >= TRX_SYS_MYSQL_GTID_LEN) {
+      /* This should not happen */
+      DBUG_ASSERT(0);
+      return;
+    }
+    /* Write Gtid string */
+    mlog_write_string(sys_header + field + TRX_SYS_MYSQL_GTID, (byte *)gtid,
+                      1 + gtid_length, mtr);
+  }
 }
 
 /** Stores the MySQL binlog offset info in the trx system header if
@@ -187,6 +199,9 @@ void trx_sys_print_mysql_binlog_offset(void) {
                            << trx_sys_mysql_bin_log_pos_low << ", file name "
                            << sys_header + TRX_SYS_MYSQL_LOG_INFO +
                                   TRX_SYS_MYSQL_LOG_NAME;
+
+  ib::info() << "Last MySQL Gtid "
+             << sys_header + TRX_SYS_MYSQL_LOG_INFO + TRX_SYS_MYSQL_GTID;
 
   mtr_commit(&mtr);
 }

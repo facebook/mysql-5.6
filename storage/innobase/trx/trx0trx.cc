@@ -1647,12 +1647,16 @@ static bool trx_write_serialisation_history(
   server is a MySQL replication slave */
 
   if (trx->mysql_log_file_name != NULL && trx->mysql_log_file_name[0] != '\0') {
-    trx_sys_update_mysql_binlog_offset(trx->mysql_log_file_name,
-                                       trx->mysql_log_offset,
-                                       TRX_SYS_MYSQL_LOG_INFO, mtr);
+    trx_sys_update_mysql_binlog_offset(
+        trx->mysql_log_file_name, trx->mysql_log_offset, TRX_SYS_MYSQL_LOG_INFO,
+        mtr, trx->mysql_gtid);
 
     trx->mysql_log_file_name = NULL;
   }
+  /* There are cases where gtid is set, but binlog is disabled. In these cases,
+  clear the pointer. Otherwise, if the trx is reused, the pointer could be
+  stale. */
+  trx->mysql_gtid = NULL;
 
   return (serialised);
 }
