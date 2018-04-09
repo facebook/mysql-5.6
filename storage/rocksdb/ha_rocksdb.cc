@@ -2827,7 +2827,7 @@ class Rdb_transaction {
       return true;
     } else {
       my_core::thd_binlog_pos(m_thd, &m_mysql_log_file_name,
-                              &m_mysql_log_offset);
+                              &m_mysql_log_offset, &m_mysql_gtid);
       binlog_manager.update(m_mysql_log_file_name, m_mysql_log_offset,
                             m_mysql_max_gtid, get_write_batch());
       return commit_no_binlog();
