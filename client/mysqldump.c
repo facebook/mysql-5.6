@@ -1646,7 +1646,8 @@ static FILE* open_sql_file_for_table(const char* table, int flags)
   FILE* res;
   char filename[FN_REFLEN], tmp_path[FN_REFLEN];
   convert_dirname(tmp_path,path,NullS);
-  res= my_fopen(fn_format(filename, table, tmp_path, ".sql", 4),
+  res= my_fopen(fn_format(filename, table, tmp_path, ".sql",
+                          MYF(MY_UNPACK_FILENAME | MY_APPEND_EXT)),
                 flags, MYF(MY_WME));
   return res;
 }
@@ -4089,7 +4090,7 @@ static void dump_table(char *table, char *db)
     */
     convert_dirname(tmp_path,path,NullS);    
     my_load_path(tmp_path, tmp_path, NULL);
-    fn_format(filename, table, tmp_path, ".txt", MYF(MY_UNPACK_FILENAME));
+    fn_format(filename, table, tmp_path, ".txt", MYF(MY_UNPACK_FILENAME | MY_APPEND_EXT));
 
     /* Must delete the file that 'INTO OUTFILE' will write to */
     my_delete(filename, MYF(0));
