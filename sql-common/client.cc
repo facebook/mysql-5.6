@@ -3757,8 +3757,7 @@ int mysql_init_character_set(MYSQL *mysql) {
   /* Set character set */
   if (!mysql->options.charset_name) {
     if (!(mysql->options.charset_name =
-              my_strdup(key_memory_mysql_options, MYSQL_DEFAULT_CHARSET_NAME,
-                        MYF(MY_WME))))
+              my_strdup(key_memory_mysql_options, "latin1", MYF(MY_WME))))
       return 1;
   } else if (!strcmp(mysql->options.charset_name,
                      MYSQL_AUTODETECT_CHARSET_NAME) &&

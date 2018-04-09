@@ -185,7 +185,7 @@ static char *opt_password = nullptr;
 static char *current_prompt = nullptr;
 static char *delimiter_str = nullptr;
 static char *opt_init_command = nullptr;
-static const char *default_charset = MYSQL_AUTODETECT_CHARSET_NAME;
+static const char *default_charset = (const char *)"latin1";
 static char *histfile;
 static char *histfile_tmp;
 static char *opt_histignore = nullptr;
