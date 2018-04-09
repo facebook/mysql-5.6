@@ -2902,7 +2902,12 @@ int SQL_SELECT::test_quick_select(THD *thd, key_map keys_to_use,
     param.key_parts_end=key_parts;
 
     /* Calculate cost of full index read for the shortest covering index */
-    if (!head->covering_keys.is_clear_all())
+    if (!head->covering_keys.is_clear_all() &&
+        /*
+          If optimizer_force_index_for_range is on and force index is used,
+          then skip calculating index scan cost.
+        */
+        !(thd->variables.optimizer_force_index_for_range && head->force_index))
     {
       int key_for_use= find_shortest_key(head, &head->covering_keys);
       double key_read_time= 
