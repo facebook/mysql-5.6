@@ -306,8 +306,8 @@ ulong get_max_connections() { return max_connections; }
 //////////////////////////////////////////////////////////
 
 void thd_binlog_pos(const MYSQL_THD thd, const char **file_var,
-                    unsigned long long *pos_var) {
-  thd->get_trans_pos(file_var, pos_var);
+                    unsigned long long *pos_var, const char **gtid_var) {
+  thd->get_trans_pos(file_var, pos_var, gtid_var);
 }
 
 int mysql_tmpfile(const char *prefix) {

@@ -667,6 +667,7 @@ THD::THD(bool enable_plugins)
       m_trans_log_file(nullptr),
       m_trans_fixed_log_file(nullptr),
       m_trans_end_pos(0),
+      m_trans_gtid(NULL),
       m_transaction(new Transaction_ctx()),
       m_attachable_trx(nullptr),
       table_map_for_update(0),
@@ -836,6 +837,7 @@ THD::THD(bool enable_plugins)
 
   binlog_next_event_pos.file_name = nullptr;
   binlog_next_event_pos.pos = 0;
+  trans_gtid[0] = 0;
 
   timer = nullptr;
   timer_cache = nullptr;

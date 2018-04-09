@@ -207,9 +207,11 @@ static bool read_binlog_position(const byte *binlog_buf, const char *&file_name,
 @param[in]      file_name       Binary log file name
 @param[in]      offset          Binary log offset
 @param[out]     binlog_buf      Buffer from trx sys page to write to
-@param[in,out]  mtr             Mini-transaction */
+@param[in,out]  mtr             Mini-transaction
+@param[in] gtid Gtid of the transaction */
 static void write_binlog_position(const char *file_name, uint64_t offset,
-                                  byte *binlog_buf, mtr_t *mtr) {
+                                  byte *binlog_buf, mtr_t *mtr,
+                                  const char *gtid) {
   if (file_name == nullptr ||
       ut_strlen(file_name) >= TRX_SYS_MYSQL_LOG_NAME_LEN) {
     /* We cannot fit the name to the 512 bytes we have reserved */
@@ -239,6 +241,17 @@ static void write_binlog_position(const char *file_name, uint64_t offset,
   }
   mlog_write_ulint(binlog_buf + TRX_SYS_MYSQL_LOG_OFFSET_LOW, in_low,
                    MLOG_4BYTES, mtr);
+  if (gtid) {
+    size_t gtid_length = ut_strlen(gtid);
+    if (gtid_length >= TRX_SYS_MYSQL_GTID_LEN) {
+      /* This should not happen */
+      assert(0);
+      return;
+    }
+    /* Write Gtid string */
+    mlog_write_string(binlog_buf + TRX_SYS_MYSQL_GTID, (byte *)gtid,
+                      1 + gtid_length, mtr);
+  }
 }
 
 void trx_sys_read_binlog_position(char *file, uint64_t &offset) {
@@ -294,7 +307,8 @@ static bool binlog_position_changed(const char *file_name, uint64_t offset,
 }
 
 bool trx_sys_write_binlog_position(const char *last_file, uint64_t last_offset,
-                                   const char *file, uint64_t offset) {
+                                   const char *file, uint64_t offset,
+                                   const char *gtid) {
   mtr_t mtr;
   mtr_start(&mtr);
   byte *binlog_pos = trx_sysf_get(&mtr) + TRX_SYS_MYSQL_LOG_INFO;
@@ -304,12 +318,13 @@ bool trx_sys_write_binlog_position(const char *last_file, uint64_t last_offset,
     mtr_commit(&mtr);
     return (false);
   }
-  write_binlog_position(file, offset, binlog_pos, &mtr);
+  write_binlog_position(file, offset, binlog_pos, &mtr, gtid);
   mtr_commit(&mtr);
   return (true);
 }
 
-void trx_sys_update_mysql_binlog_offset(trx_t *trx, mtr_t *mtr) {
+void trx_sys_update_mysql_binlog_offset(trx_t *trx, mtr_t *mtr,
+                                        const char *gtid) {
   trx_sys_update_binlog_position(trx);
 
   const char *file_name = trx->mysql_log_file_name;
@@ -324,7 +339,44 @@ void trx_sys_update_mysql_binlog_offset(trx_t *trx, mtr_t *mtr) {
     /* Don't write blank name in binary log file position. */
     return;
   }
-  write_binlog_position(file_name, offset, binlog_pos, mtr);
+  write_binlog_position(file_name, offset, binlog_pos, mtr, gtid);
+}
+
+/** Stores the MySQL binlog offset info in the trx system header if
+ *  the magic number shows it valid, and print the info to stderr */
+void trx_sys_print_mysql_binlog_offset(void) {
+  trx_sysf_t *sys_header;
+  mtr_t mtr;
+  ulint trx_sys_mysql_bin_log_pos_high;
+  ulint trx_sys_mysql_bin_log_pos_low;
+
+  mtr_start(&mtr);
+
+  sys_header = trx_sysf_get(&mtr);
+
+  if (mach_read_from_4(sys_header + TRX_SYS_MYSQL_LOG_INFO +
+                       TRX_SYS_MYSQL_LOG_MAGIC_N_FLD) !=
+      TRX_SYS_MYSQL_LOG_MAGIC_N) {
+    mtr_commit(&mtr);
+
+    return;
+  }
+
+  trx_sys_mysql_bin_log_pos_high = mach_read_from_4(
+      sys_header + TRX_SYS_MYSQL_LOG_INFO + TRX_SYS_MYSQL_LOG_OFFSET_HIGH);
+  trx_sys_mysql_bin_log_pos_low = mach_read_from_4(
+      sys_header + TRX_SYS_MYSQL_LOG_INFO + TRX_SYS_MYSQL_LOG_OFFSET_LOW);
+
+  ib::info(ER_IB_MSG_1197) << "Last MySQL binlog file position "
+                           << trx_sys_mysql_bin_log_pos_high << " "
+                           << trx_sys_mysql_bin_log_pos_low << ", file name "
+                           << sys_header + TRX_SYS_MYSQL_LOG_INFO +
+                                  TRX_SYS_MYSQL_LOG_NAME;
+
+  ib::info() << "Last MySQL Gtid "
+             << sys_header + TRX_SYS_MYSQL_LOG_INFO + TRX_SYS_MYSQL_GTID;
+
+  mtr_commit(&mtr);
 }
 
 /** Find the page number in the TRX_SYS page for a given slot/rseg_id

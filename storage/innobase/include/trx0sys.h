@@ -200,17 +200,25 @@ is yet to update the binary log position in SE.
 @param[in]      last_offset     last noted binary log offset
 @param[in]      file            current binary log file name
 @param[in]      offset          current binary log file offset
-@return true, if binary log position is updated with current. */
+@return true, if binary log position is updated with current.
+@param[in]	gtid Gtid of the transaction */
 bool trx_sys_write_binlog_position(const char *last_file, uint64_t last_offset,
-                                   const char *file, uint64_t offset);
+                                   const char *file, uint64_t offset,
+                                   const char *gtid);
 
 /** Updates the offset information about the end of the MySQL binlog entry
 which corresponds to the transaction being committed, external XA transaction
 being prepared or rolled back. In a MySQL replication slave updates the latest
 master binlog position up to which replication has proceeded.
 @param[in]      trx     Current transaction
-@param[in,out]  mtr     Mini-transaction for update */
-void trx_sys_update_mysql_binlog_offset(trx_t *trx, mtr_t *mtr);
+@param[in,out]  mtr     Mini-transaction for update
+@param[in] gtid Gtid of the transaction */
+void trx_sys_update_mysql_binlog_offset(trx_t *trx, mtr_t *mtr,
+                                        const char *gtid);
+
+/** Prints to stderr the MySQL binlog offset info in the trx system header if
+ *  the magic number shows it valid. */
+void trx_sys_print_mysql_binlog_offset(void);
 
 /** Shutdown/Close the transaction system. */
 void trx_sys_close(void);
@@ -289,6 +297,8 @@ constexpr size_t TRX_SYS_OLD_TMP_RSEGS = 32;
 
 /** Maximum length of MySQL binlog file name, in bytes. */
 constexpr uint32_t TRX_SYS_MYSQL_LOG_NAME_LEN = 512;
+/** Maximum length of GTID string */
+#define TRX_SYS_MYSQL_GTID_LEN 57
 /** Contents of TRX_SYS_MYSQL_LOG_MAGIC_N_FLD */
 constexpr uint32_t TRX_SYS_MYSQL_LOG_MAGIC_N = 873422344;
 
@@ -309,7 +319,13 @@ constexpr uint32_t TRX_SYS_MYSQL_LOG_NAME = 12;
 are persisted to table */
 #define TRX_SYS_TRX_NUM_GTID \
   (TRX_SYS_MYSQL_LOG_INFO + TRX_SYS_MYSQL_LOG_NAME + TRX_SYS_MYSQL_LOG_NAME_LEN)
-#define TRX_SYS_TRX_NUM_END (TRX_SYS_TRX_NUM_GTID + 8)
+
+#define TRX_SYS_MYSQL_GTID \
+  (TRX_SYS_MYSQL_LOG_NAME + TRX_SYS_MYSQL_LOG_NAME_LEN + 8)
+
+#define TRX_SYS_TRX_NUM_END \
+  (TRX_SYS_MYSQL_LOG_INFO + TRX_SYS_MYSQL_GTID + TRX_SYS_MYSQL_GTID_LEN)
+
 /** Doublewrite buffer */
 /** @{ */
 /** The offset of the doublewrite buffer header on the trx system header page */
