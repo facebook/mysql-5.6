@@ -122,7 +122,7 @@ int mysql_tmpfile(const char *prefix);
 int thd_killed(const void *v_thd);
 void thd_set_kill_status(const void * thd);
 void thd_binlog_pos(const void * thd, const char **file_var,
-                    unsigned long long *pos_var);
+                    unsigned long long *pos_var, const char **gtid_var);
 unsigned long thd_get_thread_id(const void * thd);
 void thd_get_xid(const void * thd, MYSQL_XID *xid);
 void *thd_get_ha_data(const void * thd, const struct handlerton *hton);
