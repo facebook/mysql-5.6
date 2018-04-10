@@ -1,0 +1,47 @@
+CREATE TABLE t1 (
+`id1` bigint NOT NULL,
+`id2` bigint NOT NULL,
+`id3` varchar(100) NOT NULL,
+`id4` int NOT NULL,
+`id5` int NOT NULL,
+`value` bigint,
+`value2` varchar(100),
+PRIMARY KEY (id1, id2, id3, id4) COMMENT 'rev:cf_short_prefix',
+INDEX id2 (id2) COMMENT 'rev:cf_short_prefix',
+INDEX id2_id1 (id2, id1) COMMENT 'rev:cf_short_prefix',
+INDEX id2_id3 (id2, id3) COMMENT 'rev:cf_short_prefix',
+INDEX id2_id4 (id2, id4) COMMENT 'rev:cf_short_prefix',
+INDEX id2_id3_id1_id4 (id2, id3, id1, id4) COMMENT 'rev:cf_short_prefix',
+INDEX id3_id2 (id3, id2) COMMENT 'rev:cf_short_prefix'
+) ENGINE=RocksDB;
+CREATE TABLE t2 (
+`id1` bigint NOT NULL,
+`id2` bigint NOT NULL,
+`id3` varchar(100) NOT NULL,
+`id4` int NOT NULL,
+`id5` int NOT NULL,
+`value` bigint,
+`value2` varchar(100),
+PRIMARY KEY (id4) COMMENT 'rev:cf_short_prefix',
+INDEX id2 (id2) COMMENT 'rev:cf_short_prefix',
+INDEX id2_id3 (id2, id3) COMMENT 'rev:cf_short_prefix',
+INDEX id2_id4 (id2, id4) COMMENT 'rev:cf_short_prefix',
+INDEX id2_id4_id5 (id2, id4, id5) COMMENT 'rev:cf_short_prefix',
+INDEX id3_id4 (id3, id4) COMMENT 'rev:cf_short_prefix',
+INDEX id3_id5 (id3, id5) COMMENT 'rev:cf_short_prefix'
+) ENGINE=RocksDB;
+CREATE TABLE ten(a int) ENGINE=MYISAM;
+INSERT INTO ten VALUES (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+CREATE TABLE ten_k(seq int);
+INSERT INTO ten_k select 1+ A.a + B.a* 10 + C.a * 100 + D.a * 1000 from ten A, ten B, ten C, ten D;
+INSERT t1
+SELECT (seq+9) div 10, (seq+4) div 5, (seq+4) div 5, seq, seq, 1000, "aaabbbccc"
+  FROM ten_k;
+INSERT t2 select * from t1;
+SELECT count(*) from t1;
+count(*)
+10000
+SELECT count(*) from t2;
+count(*)
+10000
+DROP TABLE t1, t2, ten, ten_k;
