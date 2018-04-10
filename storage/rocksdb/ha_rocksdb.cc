@@ -12533,7 +12533,7 @@ bool ha_rocksdb::can_use_bloom_filter(THD *thd, const Rdb_key_def &kd,
                                       const bool use_all_keys) {
   bool can_use = false;
 
-  if (THDVAR(thd, skip_bloom_filter_on_read)) {
+  if (THDVAR(thd, skip_bloom_filter_on_read) || !kd.covers_key(eq_cond)) {
     return can_use;
   }
 
