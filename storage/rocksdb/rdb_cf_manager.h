@@ -22,7 +22,7 @@
 #include <vector>
 
 /* MySQL header files */
-#include "./sql_class.h"
+#include "sql_class.h"
 
 /* RocksDB header files */
 #include "rocksdb/db.h"

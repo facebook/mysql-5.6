@@ -32,16 +32,16 @@
 #include <vector>
 
 /* MySQL header files */
-#include "./field.h"
-#include "./key.h"
-#include "./m_ctype.h"
-#include "./my_bit.h"
-#include "./my_bitmap.h"
-#include "./sql_table.h"
+#include "field.h"
+#include "key.h"
+#include "m_ctype.h"
+#include "my_bit.h"
+#include "my_bitmap.h"
+#include "my_stacktrace.h"
+#include "sql_table.h"
 
 /* MyRocks header files */
 #include "./ha_rocksdb_proto.h"
-#include "./my_stacktrace.h"
 #include "./rdb_cf_manager.h"
 #include "./rdb_utils.h"
 

@@ -23,7 +23,7 @@
 #include "./rdb_psi.h"
 
 /* MySQL header files */
-#include <mysql/psi/mysql_stage.h>
+#include "mysql/psi/mysql_stage.h"
 
 namespace myrocks {
 

@@ -20,7 +20,7 @@
 #include <vector>
 
 /* MySQL header files */
-#include "./sql_string.h"
+#include "sql_string.h"
 
 /* RocksDB includes */
 #include "rocksdb/table.h"

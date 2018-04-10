@@ -27,10 +27,11 @@
 #include <vector>
 
 /* MySQL header files */
-#include "./handler.h"   /* handler */
-#include "./my_global.h" /* ulonglong */
-#include "./sql_string.h"
-#include "./ut0counter.h"
+#include "field.h"
+#include "handler.h"   /* handler */
+#include "my_global.h" /* ulonglong */
+#include "sql_bitmap.h"
+#include "sql_string.h"
 
 /* RocksDB header files */
 #include "rocksdb/cache.h"
@@ -49,6 +50,7 @@
 #include "./rdb_perf_context.h"
 #include "./rdb_sst_info.h"
 #include "./rdb_utils.h"
+#include "./ut0counter.h"
 
 /**
   @note MyRocks Coding Conventions:

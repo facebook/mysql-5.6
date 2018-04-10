@@ -21,9 +21,9 @@
 #include <string>
 
 /* MySQL includes */
-#include "./my_global.h"
-#include <mysql/psi/mysql_table.h>
-#include <mysql/thread_pool_priv.h>
+#include "my_global.h"
+#include "mysql/psi/mysql_table.h"
+#include "mysql/thread_pool_priv.h"
 
 /* MyRocks header files */
 #include "./rdb_utils.h"
