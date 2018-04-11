@@ -1342,10 +1342,12 @@ static bool send_server_handshake_packet(MPVIO_EXT *mpvio, const char *data,
 
   protocol->add_client_capability(CAN_CLIENT_COMPRESS);
 
+  mysql_rwlock_rdlock(&LOCK_use_ssl);
   if (ssl_acceptor_fd) {
     protocol->add_client_capability(CLIENT_SSL);
     protocol->add_client_capability(CLIENT_SSL_VERIFY_SERVER_CERT);
   }
+  mysql_rwlock_unlock(&LOCK_use_ssl);
 
   if (data_len) {
     mpvio->cached_server_packet.pkt =
@@ -2431,15 +2433,21 @@ skip_to_ssl:
 #endif
 
     /* Do the SSL layering. */
-    if (!ssl_acceptor_fd) return packet_error;
+    mysql_rwlock_rdlock(&LOCK_use_ssl);
+    if (!ssl_acceptor_fd) {
+      mysql_rwlock_unlock(&LOCK_use_ssl);
+      return packet_error;
+    }
 
     DBUG_PRINT("info", ("IO layer change in progress..."));
     if (sslaccept(ssl_acceptor_fd, protocol->get_vio(),
                   timeout_to_seconds(protocol->get_net()->read_timeout),
                   &errptr)) {
       DBUG_PRINT("error", ("Failed to accept new SSL connection"));
+      mysql_rwlock_unlock(&LOCK_use_ssl);
       return packet_error;
     }
+    mysql_rwlock_unlock(&LOCK_use_ssl);
 
     DBUG_PRINT("info", ("Reading user information over SSL layer"));
     int rc = protocol->read_packet();

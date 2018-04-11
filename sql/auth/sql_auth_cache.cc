@@ -1387,6 +1387,7 @@ static void validate_user_plugin_records() {
                  acl_user->host.get_host());
         }
       }
+      mysql_rwlock_rdlock(&LOCK_use_ssl);
       if (Cached_authentication_plugins::compare_plugin(PLUGIN_SHA256_PASSWORD,
                                                         acl_user->plugin) &&
           sha256_rsa_auth_status() && !ssl_acceptor_fd) {
@@ -1400,6 +1401,7 @@ static void validate_user_plugin_records() {
                acl_user->user, static_cast<int>(acl_user->host.get_host_len()),
                acl_user->host.get_host(), missing);
       }
+      mysql_rwlock_unlock(&LOCK_use_ssl);
     }
   }
   unlock_plugin_data();

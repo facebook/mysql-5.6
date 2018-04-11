@@ -1,0 +1,7 @@
+set @@global.ssl = on;
+1
+1
+set @@global.ssl = on;
+set @@global.ssl = on;
+1
+1

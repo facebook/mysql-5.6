@@ -1,0 +1,51 @@
+--source include/load_sysvars.inc
+--source include/have_openssl.inc
+
+# Store the global value in a temp variable.
+SET @start_value = @@global.ssl;
+SELECT @start_value;
+
+SET @@global.ssl = 1;
+SET @@global.ssl = on;
+SET @@global.ssl = true;
+
+# Illegal values for @@global.ssl.
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.ssl = 2;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.ssl = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.ssl = TRUEF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.ssl = TRUE_F;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.ssl = FALSE0;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.ssl = OON;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.ssl = ONN;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.ssl = OOFF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.ssl = 0FF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.ssl = ' ';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.ssl = " ";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.ssl = '';
+
+# ssl is a global variable.
+--Error ER_GLOBAL_VARIABLE
+SET @@session.ssl = 1;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.ssl;
+
+--Error ER_PARSE_ERROR
+SET global.ssl = 1;
+--Error ER_UNKNOWN_TABLE
+SELECT global.ssl;
+
+# Restore the initial value.
+SET @@global.ssl = @start_value;
+SELECT @@global.ssl;

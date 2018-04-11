@@ -838,6 +838,7 @@ static PSI_mutex_key key_BINLOG_LOCK_binlog_end_pos;
 static PSI_mutex_key key_BINLOG_LOCK_sync;
 static PSI_mutex_key key_BINLOG_LOCK_sync_queue;
 static PSI_mutex_key key_BINLOG_LOCK_xids;
+static PSI_rwlock_key key_rwlock_LOCK_use_ssl;
 static PSI_rwlock_key key_rwlock_global_sid_lock;
 static PSI_rwlock_key key_rwlock_gtid_mode_lock;
 static PSI_rwlock_key key_rwlock_LOCK_system_variables_hash;
@@ -1305,6 +1306,7 @@ mysql_mutex_t LOCK_sql_slave_skip_counter;
 mysql_mutex_t LOCK_slave_net_timeout;
 mysql_mutex_t LOCK_log_throttle_qni;
 mysql_mutex_t LOCK_offline_mode;
+mysql_rwlock_t LOCK_use_ssl;
 mysql_rwlock_t LOCK_sys_init_connect, LOCK_sys_init_slave;
 mysql_rwlock_t LOCK_system_variables_hash;
 my_thread_handle signal_thread_id;
@@ -2238,6 +2240,7 @@ static void clean_up_mutexes() {
   mysql_mutex_destroy(&LOCK_status);
   mysql_mutex_destroy(&LOCK_manager);
   mysql_mutex_destroy(&LOCK_crypt);
+  mysql_rwlock_destroy(&LOCK_use_ssl);
   mysql_mutex_destroy(&LOCK_user_conn);
   mysql_rwlock_destroy(&LOCK_sys_init_connect);
   mysql_rwlock_destroy(&LOCK_sys_init_slave);
@@ -4447,6 +4450,7 @@ static int init_thread_environment() {
   mysql_mutex_init(key_LOCK_user_conn, &LOCK_user_conn, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_global_system_variables,
                    &LOCK_global_system_variables, MY_MUTEX_INIT_FAST);
+  mysql_rwlock_init(key_rwlock_LOCK_use_ssl, &LOCK_use_ssl);
   mysql_rwlock_init(key_rwlock_LOCK_system_variables_hash,
                     &LOCK_system_variables_hash);
   mysql_mutex_init(key_LOCK_prepared_stmt_count, &LOCK_prepared_stmt_count,
@@ -4744,11 +4748,13 @@ static int init_ssl_communication() {
 
 static void end_ssl() {
 #ifdef HAVE_OPENSSL
+  mysql_rwlock_rdlock(&LOCK_use_ssl);
   if (ssl_acceptor_fd) {
     if (ssl_acceptor) SSL_free(ssl_acceptor);
     free_vio_ssl_fd(ssl_acceptor_fd);
     ssl_acceptor_fd = 0;
   }
+  mysql_rwlock_unlock(&LOCK_use_ssl);
   deinit_rsa_keys();
 #endif /* HAVE_OPENSSL */
 }
@@ -7611,11 +7617,6 @@ struct my_option my_long_options[] = {
      "Option used by mysql-test for debugging and testing of replication.",
      &opt_sporadic_binlog_dump_fail, &opt_sporadic_binlog_dump_fail, 0,
      GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
-#ifdef HAVE_OPENSSL
-    {"ssl", 0,
-     "Enable SSL for connection (automatically enabled with other flags).",
-     &opt_use_ssl, &opt_use_ssl, 0, GET_BOOL, OPT_ARG, 1, 0, 0, 0, 0, 0},
-#endif
 #ifdef _WIN32
     {"standalone", 0, "Dummy option to start as a standalone program (NT).", 0,
      0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0},
@@ -8088,29 +8089,35 @@ static int show_table_definitions(THD *, SHOW_VAR *var, char *buff) {
 static int show_ssl_ctx_sess_accept(THD *, SHOW_VAR *var, char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
+  mysql_rwlock_rdlock(&LOCK_use_ssl);
   *((long *)buff) =
       (!ssl_acceptor_fd ? 0
                         : SSL_CTX_sess_accept(ssl_acceptor_fd->ssl_context));
+  mysql_rwlock_unlock(&LOCK_use_ssl);
   return 0;
 }
 
 static int show_ssl_ctx_sess_accept_good(THD *, SHOW_VAR *var, char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
+  mysql_rwlock_rdlock(&LOCK_use_ssl);
   *((long *)buff) =
       (!ssl_acceptor_fd
            ? 0
            : SSL_CTX_sess_accept_good(ssl_acceptor_fd->ssl_context));
+  mysql_rwlock_unlock(&LOCK_use_ssl);
   return 0;
 }
 
 static int show_ssl_ctx_sess_connect_good(THD *, SHOW_VAR *var, char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
+  mysql_rwlock_rdlock(&LOCK_use_ssl);
   *((long *)buff) =
       (!ssl_acceptor_fd
            ? 0
            : SSL_CTX_sess_connect_good(ssl_acceptor_fd->ssl_context));
+  mysql_rwlock_unlock(&LOCK_use_ssl);
   return 0;
 }
 
@@ -8118,10 +8125,12 @@ static int show_ssl_ctx_sess_accept_renegotiate(THD *, SHOW_VAR *var,
                                                 char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
+  mysql_rwlock_rdlock(&LOCK_use_ssl);
   *((long *)buff) =
       (!ssl_acceptor_fd
            ? 0
            : SSL_CTX_sess_accept_renegotiate(ssl_acceptor_fd->ssl_context));
+  mysql_rwlock_unlock(&LOCK_use_ssl);
   return 0;
 }
 
@@ -8129,108 +8138,131 @@ static int show_ssl_ctx_sess_connect_renegotiate(THD *, SHOW_VAR *var,
                                                  char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
+  mysql_rwlock_rdlock(&LOCK_use_ssl);
   *((long *)buff) =
       (!ssl_acceptor_fd
            ? 0
            : SSL_CTX_sess_connect_renegotiate(ssl_acceptor_fd->ssl_context));
+  mysql_rwlock_unlock(&LOCK_use_ssl);
   return 0;
 }
 
 static int show_ssl_ctx_sess_cb_hits(THD *, SHOW_VAR *var, char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
+  mysql_rwlock_rdlock(&LOCK_use_ssl);
   *((long *)buff) =
       (!ssl_acceptor_fd ? 0
                         : SSL_CTX_sess_cb_hits(ssl_acceptor_fd->ssl_context));
+  mysql_rwlock_unlock(&LOCK_use_ssl);
   return 0;
 }
 
 static int show_ssl_ctx_sess_hits(THD *, SHOW_VAR *var, char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
+  mysql_rwlock_rdlock(&LOCK_use_ssl);
   *((long *)buff) =
       (!ssl_acceptor_fd ? 0 : SSL_CTX_sess_hits(ssl_acceptor_fd->ssl_context));
+  mysql_rwlock_unlock(&LOCK_use_ssl);
   return 0;
 }
 
 static int show_ssl_ctx_sess_cache_full(THD *, SHOW_VAR *var, char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
+  mysql_rwlock_rdlock(&LOCK_use_ssl);
   *((long *)buff) =
       (!ssl_acceptor_fd
            ? 0
            : SSL_CTX_sess_cache_full(ssl_acceptor_fd->ssl_context));
+  mysql_rwlock_unlock(&LOCK_use_ssl);
   return 0;
 }
 
 static int show_ssl_ctx_sess_misses(THD *, SHOW_VAR *var, char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
+  mysql_rwlock_rdlock(&LOCK_use_ssl);
   *((long *)buff) =
       (!ssl_acceptor_fd ? 0
                         : SSL_CTX_sess_misses(ssl_acceptor_fd->ssl_context));
+  mysql_rwlock_unlock(&LOCK_use_ssl);
   return 0;
 }
 
 static int show_ssl_ctx_sess_timeouts(THD *, SHOW_VAR *var, char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
+  mysql_rwlock_rdlock(&LOCK_use_ssl);
   *((long *)buff) =
       (!ssl_acceptor_fd ? 0
                         : SSL_CTX_sess_timeouts(ssl_acceptor_fd->ssl_context));
+  mysql_rwlock_unlock(&LOCK_use_ssl);
   return 0;
 }
 
 static int show_ssl_ctx_sess_number(THD *, SHOW_VAR *var, char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
+  mysql_rwlock_rdlock(&LOCK_use_ssl);
   *((long *)buff) =
       (!ssl_acceptor_fd ? 0
                         : SSL_CTX_sess_number(ssl_acceptor_fd->ssl_context));
+  mysql_rwlock_unlock(&LOCK_use_ssl);
   return 0;
 }
 
 static int show_ssl_ctx_sess_connect(THD *, SHOW_VAR *var, char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
+  mysql_rwlock_rdlock(&LOCK_use_ssl);
   *((long *)buff) =
       (!ssl_acceptor_fd ? 0
                         : SSL_CTX_sess_connect(ssl_acceptor_fd->ssl_context));
+  mysql_rwlock_unlock(&LOCK_use_ssl);
   return 0;
 }
 
 static int show_ssl_ctx_sess_get_cache_size(THD *, SHOW_VAR *var, char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
+  mysql_rwlock_rdlock(&LOCK_use_ssl);
   *((long *)buff) =
       (!ssl_acceptor_fd
            ? 0
            : SSL_CTX_sess_get_cache_size(ssl_acceptor_fd->ssl_context));
+  mysql_rwlock_unlock(&LOCK_use_ssl);
   return 0;
 }
 
 static int show_ssl_ctx_get_verify_mode(THD *, SHOW_VAR *var, char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
+  mysql_rwlock_rdlock(&LOCK_use_ssl);
   *((long *)buff) =
       (!ssl_acceptor_fd
            ? 0
            : SSL_CTX_get_verify_mode(ssl_acceptor_fd->ssl_context));
+  mysql_rwlock_unlock(&LOCK_use_ssl);
   return 0;
 }
 
 static int show_ssl_ctx_get_verify_depth(THD *, SHOW_VAR *var, char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
+  mysql_rwlock_rdlock(&LOCK_use_ssl);
   *((long *)buff) =
       (!ssl_acceptor_fd
            ? 0
            : SSL_CTX_get_verify_depth(ssl_acceptor_fd->ssl_context));
+  mysql_rwlock_unlock(&LOCK_use_ssl);
   return 0;
 }
 
 static int show_ssl_ctx_get_session_cache_mode(THD *, SHOW_VAR *var, char *) {
   var->type = SHOW_CHAR;
+  mysql_rwlock_rdlock(&LOCK_use_ssl);
   if (!ssl_acceptor_fd)
     var->value = const_cast<char *>("NONE");
   else
@@ -8257,6 +8289,7 @@ static int show_ssl_ctx_get_session_cache_mode(THD *, SHOW_VAR *var, char *) {
         var->value = const_cast<char *>("Unknown");
         break;
     }
+  mysql_rwlock_unlock(&LOCK_use_ssl);
   return 0;
 }
 
@@ -8382,9 +8415,11 @@ end:
 
 static int show_ssl_get_server_not_before(THD *, SHOW_VAR *var, char *buff) {
   var->type = SHOW_CHAR;
+  mysql_rwlock_rdlock(&LOCK_use_ssl);
   if (ssl_acceptor_fd) {
     X509 *cert = SSL_get_certificate(ssl_acceptor);
     ASN1_TIME *not_before = X509_get_notBefore(cert);
+    mysql_rwlock_unlock(&LOCK_use_ssl);
 
     if (not_before == NULL) {
       var->value = empty_c_string;
@@ -8397,8 +8432,10 @@ static int show_ssl_get_server_not_before(THD *, SHOW_VAR *var, char *buff) {
       var->value = empty_c_string;
       return 1;
     }
-  } else
+  } else {
     var->value = empty_c_string;
+    mysql_rwlock_unlock(&LOCK_use_ssl);
+  }
   return 0;
 }
 
@@ -8414,9 +8451,11 @@ static int show_ssl_get_server_not_before(THD *, SHOW_VAR *var, char *buff) {
 
 static int show_ssl_get_server_not_after(THD *, SHOW_VAR *var, char *buff) {
   var->type = SHOW_CHAR;
+  mysql_rwlock_rdlock(&LOCK_use_ssl);
   if (ssl_acceptor_fd) {
     X509 *cert = SSL_get_certificate(ssl_acceptor);
     ASN1_TIME *not_after = X509_get_notAfter(cert);
+    mysql_rwlock_unlock(&LOCK_use_ssl);
 
     if (not_after == NULL) {
       var->value = empty_c_string;
@@ -8429,8 +8468,10 @@ static int show_ssl_get_server_not_after(THD *, SHOW_VAR *var, char *buff) {
       var->value = empty_c_string;
       return 1;
     }
-  } else
-    var->value = empty_c_string;
+  } else {
+    var->value= empty_c_string;
+    mysql_rwlock_unlock(&LOCK_use_ssl);
+  }
   return 0;
 }
 
@@ -10560,6 +10601,7 @@ static PSI_rwlock_info all_server_rwlocks[]=
   { &key_rwlock_LOCK_sys_init_connect, "LOCK_sys_init_connect", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_LOCK_sys_init_slave, "LOCK_sys_init_slave", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_LOCK_system_variables_hash, "LOCK_system_variables_hash", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+  { &key_rwlock_LOCK_use_ssl, "LOCK_use_ssl", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_global_sid_lock, "gtid_commit_rollback", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_gtid_mode_lock, "gtid_mode_lock", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_channel_map_lock, "channel_map_lock", 0, 0, PSI_DOCUMENT_ME},

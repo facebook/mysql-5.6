@@ -11,6 +11,7 @@ mysqlx_ssl_cipher
 mysqlx_ssl_crl	
 mysqlx_ssl_crlpath	
 mysqlx_ssl_key	
+ssl	ON
 ssl_ca	MYSQL_TEST_DIR/std_data/crl-ca-cert.pem
 ssl_capath	
 ssl_cert	MYSQL_TEST_DIR/std_data/crl-client-cert.pem

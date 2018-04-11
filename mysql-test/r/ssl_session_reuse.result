@@ -1,6 +1,10 @@
 # test ssl session reuse
 Variable_name	Value
+ssl	ON
+Variable_name	Value
 Ssl_sessions_reused	0
+Variable_name	Value
+ssl	ON
 Variable_name	Value
 Ssl_sessions_reused	1
 Variable_name	Value

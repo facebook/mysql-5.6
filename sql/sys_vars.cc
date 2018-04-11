@@ -4170,6 +4170,61 @@ static Sys_var_ulong Sys_max_execution_time(
 #define SSL_OPT(X) CMD_LINE(REQUIRED_ARG, X)
 #endif
 
+#ifdef HAVE_OPENSSL
+static bool reload_ssl(sys_var *self MY_ATTRIBUTE((unused)),
+                       THD *thd MY_ATTRIBUTE((unused)),
+                       enum_var_type type MY_ATTRIBUTE((unused))) {
+  if (opt_use_ssl == false || ssl_acceptor_fd == nullptr) {
+    return true;
+  }
+
+  enum enum_ssl_init_error error = SSL_INITERR_NOERROR;
+  long ssl_ctx_flags = process_tls_version(opt_tls_version);
+  struct st_VioSSLFd *new_ssl_fd = new_VioSSLAcceptorFd(
+      opt_ssl_key, opt_ssl_cert, opt_ssl_ca, opt_ssl_capath, opt_ssl_cipher,
+      &error, opt_ssl_crl, opt_ssl_crlpath, ssl_ctx_flags);
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+  ERR_remove_thread_state(0);
+#endif /* OPENSSL_VERSION_NUMBER < 0x10100000L */
+
+  if (new_ssl_fd != nullptr) {
+    SSL *new_ssl_acceptor = SSL_new(new_ssl_fd->ssl_context);
+    if (new_ssl_acceptor != nullptr) {
+      free_vio_ssl_fd(ssl_acceptor_fd);
+      SSL_free(ssl_acceptor);
+      ssl_acceptor_fd = new_ssl_fd;
+      ssl_acceptor = new_ssl_acceptor;
+      return false;
+    } else {
+      LogErr(WARNING_LEVEL, ER_SSL_LIBRARY_ERROR, sslGetErrString(error));
+      free_vio_ssl_fd(new_ssl_fd);
+    }
+  }
+  return true;
+}
+
+static bool check_ssl(sys_var *self, THD *thd MY_ATTRIBUTE((unused)),
+                      set_var *var) {
+  /*
+    The ssl variable is not actually dynamic, but we want to be able to run
+    SET @@global.ssl = 1 to reload ssl settings. This check prevents the
+    variable from being actually changed.
+  */
+  if (opt_use_ssl != var->save_result.ulonglong_value) {
+    my_error(ER_INCORRECT_GLOBAL_LOCAL_VAR, MYF(0), self->name.str,
+             "read only");
+    return true;
+  }
+  return false;
+}
+
+static PolyLock_rwlock PLock_use_ssl(&LOCK_use_ssl);
+static Sys_var_bool Sys_use_ssl("ssl", "Enable SSL for connection",
+                                NON_PERSIST GLOBAL_VAR(opt_use_ssl),
+                                CMD_LINE(OPT_ARG), DEFAULT(true),
+                                &PLock_use_ssl, NOT_IN_BINLOG,
+                                ON_CHECK(check_ssl), ON_UPDATE(reload_ssl));
+#endif
 /*
   If you are adding new system variable for SSL communication, please take a
   look at do_auto_cert_generation() function in sql_authentication.cc and

@@ -200,6 +200,7 @@ extern ulonglong slave_rows_search_algorithms_options;
 extern bool opt_require_secure_transport;
 
 extern bool opt_slave_preserve_commit_order;
+extern bool opt_use_ssl;
 
 #ifndef DBUG_OFF
 extern uint slave_rows_last_search_algorithm_used;
@@ -681,6 +682,9 @@ extern PSI_statement_info stmt_info_rpl;
 #endif /* HAVE_PSI_STATEMENT_INTERFACE */
 
 #ifdef HAVE_OPENSSL
+struct ssl_st;
+typedef struct ssl_st SSL;
+extern SSL *ssl_acceptor;
 extern struct st_VioSSLFd *ssl_acceptor_fd;
 #endif /* HAVE_OPENSSL */
 
@@ -743,6 +747,7 @@ extern mysql_cond_t COND_manager;
 extern mysql_rwlock_t LOCK_sys_init_connect;
 extern mysql_rwlock_t LOCK_sys_init_slave;
 extern mysql_rwlock_t LOCK_system_variables_hash;
+extern mysql_rwlock_t LOCK_use_ssl;
 
 extern char *opt_ssl_ca, *opt_ssl_capath, *opt_ssl_cert, *opt_ssl_cipher,
     *opt_ssl_key, *opt_ssl_crl, *opt_ssl_crlpath, *opt_tls_version;

@@ -1,0 +1,42 @@
+--copy_file $MYSQL_TEST_DIR/std_data/cacert.pem $MYSQL_TMP_DIR/cacert.pem
+--copy_file $MYSQL_TEST_DIR/std_data/server-cert.pem $MYSQL_TMP_DIR/server-cert.pem
+--copy_file $MYSQL_TEST_DIR/std_data/server-key.pem $MYSQL_TMP_DIR/server-key.pem
+
+let $restart_file= $MYSQLTEST_VARDIR/tmp/mysqld.1.expect;
+--exec echo "wait" > $restart_file
+--shutdown_server
+--source include/wait_until_disconnected.inc
+--exec echo "restart:--ssl-ca=$MYSQL_TMP_DIR/cacert.pem --ssl-cert=$MYSQL_TMP_DIR/server-cert.pem --ssl-key=$MYSQL_TMP_DIR/server-key.pem" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+
+# This should succeed.
+set @@global.ssl = on;
+--exec $MYSQL --ssl-mode=VERIFY_IDENTITY --ssl-ca=$MYSQL_TEST_DIR/std_data/cacert.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/client-cert.pem --ssl-key=$MYSQL_TEST_DIR/std_data/client-key.pem test -e "select 1"
+
+--remove_file $MYSQL_TMP_DIR/cacert.pem
+--remove_file $MYSQL_TMP_DIR/server-cert.pem
+--remove_file $MYSQL_TMP_DIR/server-key.pem
+--copy_file $MYSQL_TEST_DIR/std_data/expired-ca.pem $MYSQL_TMP_DIR/cacert.pem
+--copy_file $MYSQL_TEST_DIR/std_data/expired-server-cert.pem $MYSQL_TMP_DIR/server-cert.pem
+--copy_file $MYSQL_TEST_DIR/std_data/expired-server-key.pem $MYSQL_TMP_DIR/server-key.pem
+set @@global.ssl = on;
+
+# This should fail because of reloaded certs.
+--error 1
+--exec $MYSQL --ssl-mode=VERIFY_IDENTITY --ssl-ca=$MYSQL_TEST_DIR/std_data/cacert.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/client-cert.pem --ssl-key=$MYSQL_TEST_DIR/std_data/client-key.pem test -e "select 1"
+
+--remove_file $MYSQL_TMP_DIR/cacert.pem
+--remove_file $MYSQL_TMP_DIR/server-cert.pem
+--remove_file $MYSQL_TMP_DIR/server-key.pem
+--copy_file $MYSQL_TEST_DIR/std_data/cacert.pem $MYSQL_TMP_DIR/cacert.pem
+--copy_file $MYSQL_TEST_DIR/std_data/server-cert.pem $MYSQL_TMP_DIR/server-cert.pem
+--copy_file $MYSQL_TEST_DIR/std_data/server-key.pem $MYSQL_TMP_DIR/server-key.pem
+
+# This should succeed.
+set @@global.ssl = on;
+--exec $MYSQL --ssl-mode=VERIFY_IDENTITY --ssl-ca=$MYSQL_TEST_DIR/std_data/cacert.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/client-cert.pem --ssl-key=$MYSQL_TEST_DIR/std_data/client-key.pem test -e "select 1"
+
+--remove_file $MYSQL_TMP_DIR/cacert.pem
+--remove_file $MYSQL_TMP_DIR/server-cert.pem
+--remove_file $MYSQL_TMP_DIR/server-key.pem
