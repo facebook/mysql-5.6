@@ -727,8 +727,8 @@ unsigned int mysql_thread_safe(void);
 my_bool mysql_embedded(void);
 my_bool mysql_read_query_result(MYSQL *mysql);
 int mysql_reset_connection(MYSQL *mysql);
-ulong cli_safe_read(MYSQL *mysql, my_bool *is_data_packet);
-net_async_status cli_safe_read_nonblocking(MYSQL *mysql, ulong* res,
+unsigned long cli_safe_read(MYSQL *mysql, my_bool *is_data_packet);
+net_async_status cli_safe_read_nonblocking(MYSQL *mysql, unsigned long *res,
                                                    my_bool *is_data_packet);
 enum enum_mysql_stmt_state
 {
