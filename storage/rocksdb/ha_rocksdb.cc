@@ -283,25 +283,11 @@ static int rocksdb_delete_column_family(
 namespace // anonymous namespace = not visible outside this source file
 {
 
-const ulong TABLE_HASH_SIZE = 32;
-
 struct Rdb_open_tables_map {
   /* Hash table used to track the handlers of open tables */
-  my_core::HASH m_hash;
+  std::unordered_map<std::string, Rdb_table_handler *> m_hash;
   /* The mutex used to protect the hash table */
   mutable mysql_mutex_t m_mutex;
-
-  void init_hash(void) {
-    (void)my_hash_init(&m_hash, my_core::system_charset_info, TABLE_HASH_SIZE,
-                       0, 0, (my_hash_get_key)Rdb_open_tables_map::get_hash_key,
-                       0, 0);
-  }
-
-  void free_hash(void) { my_hash_free(&m_hash); }
-
-  static uchar *get_hash_key(Rdb_table_handler *const table_handler,
-                             size_t *const length,
-                             my_bool not_used MY_ATTRIBUTE((__unused__)));
 
   Rdb_table_handler *get_table_handler(const char *const table_name);
   void release_table_handler(Rdb_table_handler *const table_handler);
@@ -1931,19 +1917,6 @@ static int rocksdb_compact_column_family(THD *const thd,
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
-
-/**
-  @brief
-  Function we use in the creation of our hash to get key.
-*/
-
-uchar *
-Rdb_open_tables_map::get_hash_key(Rdb_table_handler *const table_handler,
-                                  size_t *const length,
-                                  my_bool not_used MY_ATTRIBUTE((__unused__))) {
-  *length = table_handler->m_table_name_length;
-  return reinterpret_cast<uchar *>(table_handler->m_table_name);
-}
 
 /*
   Drop index thread's control
@@ -4611,7 +4584,6 @@ static int rocksdb_init_func(void *const p) {
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(rdb_block_cache_resize_mutex_key,
                    &rdb_block_cache_resize_mutex, MY_MUTEX_INIT_FAST);
-  rdb_open_tables.init_hash();
   Rdb_transaction::init_mutex();
 
   rocksdb_hton->state = SHOW_OPTION_YES;
@@ -4687,7 +4659,6 @@ static int rocksdb_init_func(void *const p) {
     // mmap_reads and direct_reads are both on.   (NO_LINT_DEBUG)
     sql_print_error("RocksDB: Can't enable both use_direct_reads "
                     "and allow_mmap_reads\n");
-    rdb_open_tables.free_hash();
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
@@ -4714,8 +4685,8 @@ static int rocksdb_init_func(void *const p) {
 
     if (!check_status.ok()) {
       sql_print_error("RocksDB: Unable to use direct io in rocksdb-datadir:"
-                              "(%s)", check_status.getState());
-      rdb_open_tables.free_hash();
+                      "(%s)",
+                      check_status.getState());
       DBUG_RETURN(HA_EXIT_FAILURE);
     }
   }
@@ -4726,7 +4697,6 @@ static int rocksdb_init_func(void *const p) {
     sql_print_error("RocksDB: Can't enable both "
                     "use_direct_io_for_flush_and_compaction and "
                     "allow_mmap_writes\n");
-    rdb_open_tables.free_hash();
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
@@ -4760,7 +4730,6 @@ static int rocksdb_init_func(void *const p) {
       sql_print_information(
           "RocksDB:   assuming that we're creating a new database");
     } else {
-      rdb_open_tables.free_hash();
       rdb_log_status_error(status, "Error listing column families");
       DBUG_RETURN(HA_EXIT_FAILURE);
     }
@@ -4858,7 +4827,6 @@ static int rocksdb_init_func(void *const p) {
                             rocksdb_override_cf_options)) {
     // NO_LINT_DEBUG
     sql_print_error("RocksDB: Failed to initialize CF options map.");
-    rdb_open_tables.free_hash();
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
@@ -4908,7 +4876,6 @@ static int rocksdb_init_func(void *const p) {
   if (!status.ok()) {
     rdb_log_status_error(
         status, "Compatibility check against existing database options failed");
-    rdb_open_tables.free_hash();
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
@@ -4917,7 +4884,6 @@ static int rocksdb_init_func(void *const p) {
 
   if (!status.ok()) {
     rdb_log_status_error(status, "Error opening instance");
-    rdb_open_tables.free_hash();
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
   cf_manager.init(std::move(cf_options_map), &cf_handles);
@@ -4925,21 +4891,18 @@ static int rocksdb_init_func(void *const p) {
   if (dict_manager.init(rdb, &cf_manager)) {
     // NO_LINT_DEBUG
     sql_print_error("RocksDB: Failed to initialize data dictionary.");
-    rdb_open_tables.free_hash();
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
   if (binlog_manager.init(&dict_manager)) {
     // NO_LINT_DEBUG
     sql_print_error("RocksDB: Failed to initialize binlog manager.");
-    rdb_open_tables.free_hash();
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
   if (ddl_manager.init(&dict_manager, &cf_manager, rocksdb_validate_tables)) {
     // NO_LINT_DEBUG
     sql_print_error("RocksDB: Failed to initialize DDL manager.");
-    rdb_open_tables.free_hash();
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
@@ -4959,7 +4922,6 @@ static int rocksdb_init_func(void *const p) {
 
   if (!status.ok()) {
     rdb_log_status_error(status, "Error enabling compaction");
-    rdb_open_tables.free_hash();
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
@@ -4972,7 +4934,6 @@ static int rocksdb_init_func(void *const p) {
   if (err != 0) {
     sql_print_error("RocksDB: Couldn't start the background thread: (errno=%d)",
                     err);
-    rdb_open_tables.free_hash();
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
@@ -4985,7 +4946,6 @@ static int rocksdb_init_func(void *const p) {
   if (err != 0) {
     sql_print_error("RocksDB: Couldn't start the drop index thread: (errno=%d)",
                     err);
-    rdb_open_tables.free_hash();
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
@@ -5000,7 +4960,6 @@ static int rocksdb_init_func(void *const p) {
     sql_print_error(
         "RocksDB: Couldn't start the manual compaction thread: (errno=%d)",
         err);
-    rdb_open_tables.free_hash();
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
@@ -5027,7 +4986,6 @@ static int rocksdb_init_func(void *const p) {
   if (err != 0) {
     // NO_LINT_DEBUG
     sql_print_error("RocksDB: Couldn't initialize error messages");
-    rdb_open_tables.free_hash();
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
@@ -5109,13 +5067,12 @@ static int rocksdb_done_func(void *const p) {
         "RocksDB: Couldn't stop the manual compaction thread: (errno=%d)", err);
   }
 
-  if (rdb_open_tables.m_hash.records) {
+  if (rdb_open_tables.m_hash.size()) {
     // Looks like we are getting unloaded and yet we have some open tables
     // left behind.
     error = 1;
   }
 
-  rdb_open_tables.free_hash();
   mysql_mutex_destroy(&rdb_open_tables.m_mutex);
   mysql_mutex_destroy(&rdb_sysvars_mutex);
   mysql_mutex_destroy(&rdb_block_cache_resize_mutex);
@@ -5219,38 +5176,35 @@ static inline bool is_valid(rocksdb::Iterator *scan_it) {
 
 Rdb_table_handler *
 Rdb_open_tables_map::get_table_handler(const char *const table_name) {
-  Rdb_table_handler *table_handler;
-  uint length;
-  char *tmp_name;
 
   DBUG_ASSERT(table_name != nullptr);
-  length = (uint)strlen(table_name);
+
+  const std::string s_table_name(table_name);
 
   // First, look up the table in the hash map.
   RDB_MUTEX_LOCK_CHECK(m_mutex);
-  if (!(table_handler = reinterpret_cast<Rdb_table_handler *>(my_hash_search(
-            &m_hash, reinterpret_cast<const uchar *>(table_name), length)))) {
+  Rdb_table_handler *table_handler = nullptr;
+  const auto &it = m_hash.find(s_table_name);
+  if (it != m_hash.end()) {
+    table_handler = it->second;
+  } else {
     // Since we did not find it in the hash map, attempt to create and add it
     // to the hash map.
+    char *tmp_name;
     if (!(table_handler = reinterpret_cast<Rdb_table_handler *>(my_multi_malloc(
               MYF(MY_WME | MY_ZEROFILL), &table_handler, sizeof(*table_handler),
-              &tmp_name, length + 1, NullS)))) {
+              &tmp_name, s_table_name.length() + 1, NullS)))) {
       // Allocating a new Rdb_table_handler and a new table name failed.
       RDB_MUTEX_UNLOCK_CHECK(m_mutex);
       return nullptr;
     }
 
     table_handler->m_ref_count = 0;
-    table_handler->m_table_name_length = length;
+    table_handler->m_table_name_length = s_table_name.length();
     table_handler->m_table_name = tmp_name;
     strmov(table_handler->m_table_name, table_name);
 
-    if (my_hash_insert(&m_hash, reinterpret_cast<uchar *>(table_handler))) {
-      // Inserting into the hash map failed.
-      RDB_MUTEX_UNLOCK_CHECK(m_mutex);
-      my_free(table_handler);
-      return nullptr;
-    }
+    m_hash.insert({s_table_name, table_handler});
 
     thr_lock_init(&table_handler->m_thr_lock);
     table_handler->m_io_perf_read.init();
@@ -5269,18 +5223,15 @@ std::vector<std::string> rdb_get_open_table_names(void) {
 }
 
 std::vector<std::string> Rdb_open_tables_map::get_table_names(void) const {
-  ulong i;
   const Rdb_table_handler *table_handler;
   std::vector<std::string> names;
 
   RDB_MUTEX_LOCK_CHECK(m_mutex);
-  for (i = 0; (table_handler = reinterpret_cast<const Rdb_table_handler *>(
-                   my_hash_const_element(&m_hash, i)));
-       i++) {
+  for (const auto &it : m_hash) {
+    table_handler = it.second;
     DBUG_ASSERT(table_handler != nullptr);
     names.push_back(table_handler->m_table_name);
   }
-  DBUG_ASSERT(i == m_hash.records);
   RDB_MUTEX_UNLOCK_CHECK(m_mutex);
 
   return names;
@@ -5551,10 +5502,9 @@ void Rdb_open_tables_map::release_table_handler(
   DBUG_ASSERT(table_handler != nullptr);
   DBUG_ASSERT(table_handler->m_ref_count > 0);
   if (!--table_handler->m_ref_count) {
-    // Last rereference was released. Tear down the hash entry.
     const auto ret MY_ATTRIBUTE((__unused__)) =
-        my_hash_delete(&m_hash, reinterpret_cast<uchar *>(table_handler));
-    DBUG_ASSERT(!ret); // the hash entry must actually be found and deleted
+        m_hash.erase(std::string(table_handler->m_table_name));
+    DBUG_ASSERT(ret == 1);
     my_core::thr_lock_delete(&table_handler->m_thr_lock);
     my_free(table_handler);
   }
