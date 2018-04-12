@@ -116,7 +116,10 @@ static int has_source_semisync(MYSQL *mysql, std::string name) {
 static int repl_semi_slave_request_dump(Binlog_relay_IO_param *param, uint32) {
   MYSQL *mysql = param->mysql;
 
-  if (!repl_semisync->getSlaveEnabled()) return 0;
+  if (!repl_semisync->getSlaveEnabled()) {
+    rpl_semi_sync_replica_status = 0;
+    return 0;
+  }
 
   int source_state = has_source_semisync(mysql, "source");
   if (source_state == 0) {
