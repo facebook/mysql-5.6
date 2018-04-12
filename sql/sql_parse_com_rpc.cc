@@ -151,7 +151,7 @@ std::pair<bool, std::shared_ptr<Srv_session>>  handle_com_rpc(THD *conn_thd)
       // default one not present, allocate a new session
       srv_session = std::shared_ptr<Srv_session>(new Srv_session);
 
-      if (srv_session->open())
+      if (srv_session->open(conn_thd))
       {
         my_error(ER_RPC_SESSION_OPEN, MYF(0));
         goto error;

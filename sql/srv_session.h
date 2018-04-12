@@ -121,11 +121,13 @@ public:
   /**
     Opens a server session
 
+    @param[in]  the connection THD to get defaults from
+
     @return
       session  on success
       NULL     on failure
   */
-  bool open();
+  bool open(const THD* conn_thd);
 
   /**
     Attaches the session to the current physical thread

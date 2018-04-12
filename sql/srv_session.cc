@@ -631,7 +631,7 @@ Srv_session::Srv_session() : state_(SRV_SESSION_CREATED)
     true   on failure
 */
 
-bool Srv_session::open()
+bool Srv_session::open(const THD* conn_thd)
 {
   DBUG_ENTER("Srv_session::open");
 
@@ -647,11 +647,7 @@ bool Srv_session::open()
     No store_globals() here as the session is always created in a detached
     state. Attachment with store_globals() will happen on demand.
   */
-  if (thd_init_client_charset(get_thd(), my_charset_utf8_general_ci.number))
-  {
-    connection_errors_internal++;
-    DBUG_RETURN(true);
-  }
+  thd_.copy_client_charset_settings(conn_thd);
 
   thd_.update_charset();
 

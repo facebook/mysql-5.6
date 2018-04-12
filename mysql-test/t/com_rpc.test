@@ -696,6 +696,74 @@ SELECT USER(), REPEAT('X', 4000000), REPEAT('X', 4000000),
 disconnect con2;
 disconnect con1;
 
+--echo
+--echo # Case 14: Make sure character set is being handled
+--echo
+
+--character_set cp1251
+connect (con1,localhost,root,,db_default);
+--echo
+--echo the character set (client/connection/results) for con1 should be cp1251
+--echo
+# default connection
+SHOW VARIABLES LIKE 'character\_set\_%';
+
+# now detach the session
+query_attrs_add rpc_role scriptro;
+query_attrs_add rpc_db db_rpc;
+SET @my_var='new_value';
+let $rpc_id = get_rpc_id();
+disconnect con1;
+
+connect (con2,localhost,root,,db_default);
+query_attrs_add rpc_id $rpc_id;
+--echo
+--echo the character set for a detached session should be cp1251
+--echo
+SHOW VARIABLES LIKE 'character\_set\_%';
+disconnect con2;
+
+--character_set latin1
+connect (con2,localhost,root,,db_default);
+--echo
+--echo The charset for this new connection should be switched back to latin1
+--echo
+SHOW VARIABLES LIKE 'character\_set\_%';
+
+query_attrs_add rpc_id $rpc_id;
+--echo
+--echo reusing the rpc_id created above should still have the old charset info
+--echo
+SHOW VARIABLES LIKE 'character\_set\_%';
+
+query_attrs_delete rpc_id;
+query_attrs_add rpc_role scriptro;
+query_attrs_add rpc_db db_rpc;
+set @my_var='new_value';
+let $rpc_id2 = get_rpc_id();
+disconnect con2;
+
+connect (con3,localhost,root,,db_default);
+query_attrs_add rpc_id $rpc_id2;
+--echo
+--echo A newly created rpc_id with latin1 charset should show latin1
+--echo
+SHOW VARIABLES LIKE 'character\_set\_%';
+--echo
+--echo Make sure changing the charset midflight on a detached session works
+--echo
+SET NAMES 'cp1251';
+SHOW VARIABLES LIKE 'character\_set\_%';
+
+disconnect con3;
+
+
+connection default;
+--replace_result $rpc_id rpc_id
+eval KILL $rpc_id;
+--replace_result $rpc_id2 rpc_id
+eval KILL $rpc_id2;
+
 # delete all dbs and users
 connection default;
 

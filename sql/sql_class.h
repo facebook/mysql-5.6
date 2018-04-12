@@ -4851,6 +4851,12 @@ public:
   std::shared_ptr<utils::PerfCounter> query_perf;
   std::string trace_id;
   uint64_t pc_val;
+
+  void copy_client_charset_settings(const THD* other) {
+    variables.character_set_client= other->variables.character_set_client;
+    variables.collation_connection= other->variables.collation_connection;
+    variables.character_set_results= other->variables.character_set_results;
+  }
 };
 
 /*
