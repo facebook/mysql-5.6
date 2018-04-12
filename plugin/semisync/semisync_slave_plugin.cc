@@ -66,7 +66,10 @@ static int repl_semi_slave_request_dump(Binlog_relay_IO_param *param, uint32) {
   const char *query;
   uint mysql_error = 0;
 
-  if (!repl_semisync->getSlaveEnabled()) return 0;
+  if (!repl_semisync->getSlaveEnabled()) {
+    rpl_semi_sync_slave_status = 0;
+    return 0;
+  }
 
   /* Check if master server has semi-sync plugin installed */
   query = "SELECT @@global.rpl_semi_sync_master_enabled";
