@@ -19,7 +19,7 @@
 
 /* MySQL header files */
 #include "my_global.h"
-#include "mysql/psi/psi.h"
+#include "mysql/psi/mysql_stage.h"
 
 /* MyRocks header files */
 #include "./rdb_utils.h"
