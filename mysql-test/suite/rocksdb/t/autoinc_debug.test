@@ -65,8 +65,8 @@ commit;
 --exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
 --source include/wait_until_connected_again.inc
 --disable_reconnect
-select table_schema, table_name, auto_increment from information_schema.tables where table_name = 't';
-select max(i) from t;
+select max(i) into @row_max from t;
+select table_schema, table_name, auto_increment > @row_max from information_schema.tables where table_name = 't';
 
 --echo # After engine prepare
 begin;
@@ -81,8 +81,8 @@ commit;
 --exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
 --source include/wait_until_connected_again.inc
 --disable_reconnect
-select table_schema, table_name, auto_increment from information_schema.tables where table_name = 't';
-select max(i) from t;
+select max(i) into @row_max from t;
+select table_schema, table_name, auto_increment > @row_max from information_schema.tables where table_name = 't';
 
 --echo # After binlog
 begin;
@@ -97,8 +97,8 @@ commit;
 --exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
 --source include/wait_until_connected_again.inc
 --disable_reconnect
-select table_schema, table_name, auto_increment from information_schema.tables where table_name = 't';
-select max(i) from t;
+select max(i) into @row_max from t;
+select table_schema, table_name, auto_increment > @row_max from information_schema.tables where table_name = 't';
 
 --echo # After everything
 begin;
@@ -113,7 +113,7 @@ commit;
 --exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
 --source include/wait_until_connected_again.inc
 --disable_reconnect
-select table_schema, table_name, auto_increment from information_schema.tables where table_name = 't';
-select max(i) from t;
+select max(i) into @row_max from t;
+select table_schema, table_name, auto_increment > @row_max from information_schema.tables where table_name = 't';
 
 drop table t;
