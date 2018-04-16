@@ -830,8 +830,8 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:set_gap_lock_exception_list
-   fun:get_options
+   fun:_Z27set_gap_lock_exception_listP7sys_varP3THD13enum_var_type
+   fun:_ZL11get_optionsPiPPPcc
    ...
 }
 
@@ -840,8 +840,8 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:set_legacy_user_name_pattern
-   fun:get_options
+   fun:_Z28set_legacy_user_name_patternP7sys_varP3THD13enum_var_type
+   fun:_ZL11get_optionsPiPPPcc
    ...
 }
 
@@ -850,7 +850,7 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:init_server_components
+   fun:_ZL22init_server_componentsv
    ...
 }
 
@@ -859,7 +859,7 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:init_common_variables
+   fun:_Z21init_common_variablesc
    ...
 }
 
@@ -1155,7 +1155,7 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    ...
-   fun:__static_initialization_and_destruction_0
+   fun:_Z41__static_initialization_and_destruction_0ii
    ...
 }
 
@@ -1264,8 +1264,8 @@
    fun:OPENSSL_malloc
    ...
    fun:do_start_connect
-   fun:bssl::ssl_client_handshake
-   fun:bssl::ssl_run_handshake
+   fun:_ZN4bssl20ssl_client_handshakeEPNS_13SSL_HANDSHAKEE
+   fun:_ZN4bssl17ssl_run_handshakeEPNS_13SSL_HANDSHAKEEPb
    fun:SSL_do_handshake
    fun:SSL_connect
    fun:ssl_handshake_loop
