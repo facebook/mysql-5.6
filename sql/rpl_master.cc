@@ -591,7 +591,7 @@ static void evict_compressed_events(comp_event_cache &comp_cache,
     comp_cache.erase(key);
     delete value;
 #endif
-    DBUG_ASSERT(comp_event_cache_size > size);
+    DBUG_ASSERT(comp_event_cache_size >= size);
     comp_event_cache_size-= size;
   }
 }
