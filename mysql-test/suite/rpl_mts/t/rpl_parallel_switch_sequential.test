@@ -23,6 +23,7 @@ SET @@global.default_storage_engine='innodb';
 SET @@session.default_storage_engine='innodb';
 
 call mtr.add_suppression('.*Unsafe statement written to the binary log using statement format since BINLOG_FORMAT = STATEMENT.*');
+call mtr.add_suppression('.*Query execution was interrupted.*');
 
 let $i= 10;
 let $slave_status= 0;

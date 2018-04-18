@@ -14,6 +14,7 @@ SET @save_default_storage_engine=@@global.default_storage_engine;
 SET @@global.default_storage_engine='innodb';
 SET @@session.default_storage_engine='innodb';
 call mtr.add_suppression('.*Unsafe statement written to the binary log using statement format since BINLOG_FORMAT = STATEMENT.*');
+call mtr.add_suppression('.*Query execution was interrupted.*');
 CREATE DATABASE test_10;
 CREATE TABLE test_10.t1 (a INT NOT NULL PRIMARY KEY, b VARCHAR(20), c BLOB, d INT NOT NULL DEFAULT 0);
 CREATE DATABASE test_9;
