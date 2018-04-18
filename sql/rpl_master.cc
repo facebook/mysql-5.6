@@ -261,9 +261,6 @@ void clear_compressed_event_cache()
 #endif
     evict_compressed_events(comp_event_cache_list[i],
                             comp_event_queue_list[i], 0);
-    cache_hit_count= cache_miss_count= comp_event_cache_size= 0;
-    cache_stats_timer= my_time(0);
-    comp_event_cache_hit_ratio= 0;
     DBUG_ASSERT(comp_event_queue_list[i].empty());
 #ifdef HAVE_JUNCTION
     mysql_mutex_unlock(&LOCK_comp_event_cache[i]);
@@ -271,6 +268,10 @@ void clear_compressed_event_cache()
     mysql_rwlock_unlock(&LOCK_comp_event_cache[i]);
 #endif
   }
+  DBUG_ASSERT(comp_event_cache_size == 0);
+  cache_hit_count= cache_miss_count= 0;
+  cache_stats_timer= my_time(0);
+  comp_event_cache_hit_ratio= 0;
 }
 
 void free_compressed_event_cache()
@@ -281,11 +282,14 @@ void free_compressed_event_cache()
   {
     clear_compressed_event_cache();
     for (int i = 0; i < COMP_EVENT_CACHE_NUM_SHARDS; ++i)
+    {
 #ifdef HAVE_JUNCTION
+      junction::DefaultQSBR.flush();
       mysql_mutex_destroy(&LOCK_comp_event_cache[i]);
 #else
       mysql_rwlock_destroy(&LOCK_comp_event_cache[i]);
 #endif
+    }
     comp_event_cache_inited= false;
   }
 }
@@ -574,8 +578,7 @@ static void evict_compressed_events(comp_event_cache &comp_cache,
     return;
 
   // old event eviction
-  while ((comp_event_cache_size > max_cache_size * 0.6) &&
-      !comp_queue.empty())
+  while ((comp_event_cache_size > max_cache_size * 0.6) && !comp_queue.empty())
   {
     ulonglong key;
     size_t size;
@@ -583,16 +586,40 @@ static void evict_compressed_events(comp_event_cache &comp_cache,
     comp_queue.pop();
 #ifdef HAVE_JUNCTION
     auto value= comp_cache.erase(key);
+    DBUG_ASSERT(value->len == size);
     DBUG_ASSERT(value != NULL);
     junction::DefaultQSBR.enqueue(&binlog_comp_event::destroy, value);
 #else
     DBUG_ASSERT(comp_cache.count(key));
     auto value= comp_cache.at(key);
+    DBUG_ASSERT(value->len == size);
+    DBUG_ASSERT(value != NULL);
     comp_cache.erase(key);
     delete value;
 #endif
     DBUG_ASSERT(comp_event_cache_size >= size);
     comp_event_cache_size-= size;
+  }
+}
+
+static void update_comp_event_cache_counters()
+{
+  // case: one minute is up since the last stats update, re-calculate
+  if (difftime(my_time(0), cache_stats_timer) >= 60)
+  {
+    auto local_hit_count= cache_hit_count.load();
+    auto local_miss_count= cache_miss_count.load();
+    if (unlikely(local_hit_count + local_miss_count == 0))
+    {
+      comp_event_cache_hit_ratio= 0;
+    }
+    else
+    {
+      comp_event_cache_hit_ratio=
+        (double) local_hit_count / (local_hit_count + local_miss_count);
+    }
+    cache_hit_count= cache_miss_count= 0;
+    cache_stats_timer= my_time(0);
   }
 }
 
@@ -652,6 +679,7 @@ static binlog_comp_event get_compressed_event(NET *net,
   {
     ++cache_hit_count;
     auto ret= *elem;
+    update_comp_event_cache_counters();
     return ret;
   }
 
@@ -688,14 +716,7 @@ static binlog_comp_event get_compressed_event(NET *net,
     ++cache_hit_count;
   }
 
-  // case: one minute is up since the last stats update, re-calculate
-  if (difftime(my_time(0), cache_stats_timer) >= 60)
-  {
-    comp_event_cache_hit_ratio=
-      (double) cache_hit_count / (cache_hit_count + cache_miss_count);
-    cache_hit_count= cache_miss_count= 0;
-    cache_stats_timer= my_time(0);
-  }
+  update_comp_event_cache_counters();
 
 err:
   mysql_mutex_unlock(lock);
@@ -751,6 +772,7 @@ static binlog_comp_event get_compressed_event(NET *net,
     ++cache_hit_count;
     auto retval= *elem->second;
     mysql_rwlock_unlock(lock);
+    update_comp_event_cache_counters();
     return retval;
   }
   mysql_rwlock_unlock(lock);
@@ -790,14 +812,7 @@ static binlog_comp_event get_compressed_event(NET *net,
     ++cache_hit_count;
   }
 
-  // case: one minute is up since the last stats update, re-calculate
-  if (difftime(my_time(0), cache_stats_timer) >= 60)
-  {
-    comp_event_cache_hit_ratio=
-      (double) cache_hit_count / (cache_hit_count + cache_miss_count);
-    cache_hit_count= cache_miss_count= 0;
-    cache_stats_timer= my_time(0);
-  }
+  update_comp_event_cache_counters();
 
 err:
   mysql_rwlock_unlock(lock);
