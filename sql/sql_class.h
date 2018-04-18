@@ -639,6 +639,7 @@ typedef struct system_variables
   ulong     optimizer_trace_max_mem_size;
   my_bool   optimizer_low_limit_heuristic;
   my_bool   optimizer_force_index_for_range;
+  my_bool   optimizer_full_scan;
   sql_mode_t sql_mode; ///< which non-standard SQL behaviour should be enabled
   ulonglong option_bits; ///< OPTION_xxx constants, e.g. OPTION_PROFILING
   ha_rows select_limit;

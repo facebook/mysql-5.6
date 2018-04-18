@@ -722,6 +722,9 @@ The following options may be given as the first argument:
  --optimizer-force-index-for-range 
  If enabled, FORCE INDEX will also try to force a range
  plan.
+ --optimizer-full-scan 
+ Enable full table and index scans.
+ (Defaults to on; use --skip-optimizer-full-scan to disable.)
  --optimizer-low-limit-heuristic 
  Enable low limit heuristic.
  (Defaults to on; use --skip-optimizer-low-limit-heuristic to disable.)
@@ -2037,6 +2040,7 @@ old-alter-table FALSE
 old-passwords 0
 old-style-user-limits FALSE
 optimizer-force-index-for-range FALSE
+optimizer-full-scan TRUE
 optimizer-low-limit-heuristic TRUE
 optimizer-prune-level 1
 optimizer-search-depth 62

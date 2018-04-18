@@ -1,0 +1,65 @@
+set @orig_optimizer_full_scan = @@optimizer_full_scan;
+set @orig_optimizer_force_index_for_range = @@optimizer_force_index_for_range;
+
+create table t (i int, j int, key(i));
+insert into t values (1, 1);
+insert into t values (1, 2);
+insert into t values (2, 1);
+insert into t values (2, 2);
+insert into t values (3, 1);
+insert into t values (3, 2);
+
+analyze table t;
+
+--echo # Basic tests
+--replace_column 9 #
+explain select * from t;
+set optimizer_full_scan = off;
+--error ER_FULL_SCAN_DISABLED
+select * from t;
+set optimizer_full_scan = on;
+select * from t;
+
+--replace_column 9 #
+explain select * from t force index (i);
+set optimizer_full_scan = off;
+--error ER_FULL_SCAN_DISABLED
+select i from t force index (i);
+set optimizer_full_scan = on;
+select i from t force index (i);
+
+--replace_column 9 #
+explain select * from t a, t b where a.i = b.i;
+set optimizer_full_scan = off;
+--error ER_FULL_SCAN_DISABLED
+select * from t a, t b where a.i = b.i;
+set optimizer_full_scan = on;
+select * from t a, t b where a.i = b.i;
+
+--replace_column 9 #
+explain select * from t a straight_join t b where a.i = 10;
+set optimizer_full_scan = off;
+--error ER_FULL_SCAN_DISABLED
+select * from t a straight_join t b where a.i = 10;
+set optimizer_full_scan = on;
+select * from t a straight_join t b where a.i = 10;
+
+--echo # Test integration with optimizer_force_index_for_range
+alter table t drop index i, add primary key (i, j);
+
+--echo # Test range plans
+set optimizer_force_index_for_range = on;
+set optimizer_full_scan = off;
+--replace_column 9 #
+explain select i from t where i in (1, 2, 3) and j in (1, 2);
+--error ER_FULL_SCAN_DISABLED
+select i from t where i in (1, 2, 3) and j in (1, 2);
+--replace_column 9 #
+explain select i from t force index (primary) where i in (1, 2, 3) and j in (1, 2);
+select i from t force index (primary) where i in (1, 2, 3) and j in (1, 2);
+
+drop table t;
+
+set optimizer_full_scan = @orig_optimizer_full_scan;
+set optimizer_force_index_for_range = @orig_optimizer_force_index_for_range;
+

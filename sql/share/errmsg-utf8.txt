@@ -7374,6 +7374,9 @@ ER_RPC_FAILED_TO_ATTACH
 ER_RPC_FAILED_TO_STORE_DETACHED_SESSION
   eng "Failed to store the detached session"
 
+ER_FULL_SCAN_DISABLED
+  eng "Full table/index scan is disabled"
+
 #
 #  End of 5.6 error messages.
 #

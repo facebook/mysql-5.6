@@ -1,0 +1,99 @@
+set @orig_optimizer_full_scan = @@optimizer_full_scan;
+set @orig_optimizer_force_index_for_range = @@optimizer_force_index_for_range;
+create table t (i int, j int, key(i));
+insert into t values (1, 1);
+insert into t values (1, 2);
+insert into t values (2, 1);
+insert into t values (2, 2);
+insert into t values (3, 1);
+insert into t values (3, 2);
+analyze table t;
+Table	Op	Msg_type	Msg_text
+test.t	analyze	status	OK
+# Basic tests
+explain select * from t;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t	ALL	NULL	NULL	NULL	NULL	#	NULL
+set optimizer_full_scan = off;
+select * from t;
+ERROR HY000: Full table/index scan is disabled
+set optimizer_full_scan = on;
+select * from t;
+i	j
+1	1
+1	2
+2	1
+2	2
+3	1
+3	2
+explain select * from t force index (i);
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t	ALL	NULL	NULL	NULL	NULL	#	NULL
+set optimizer_full_scan = off;
+select i from t force index (i);
+ERROR HY000: Full table/index scan is disabled
+set optimizer_full_scan = on;
+select i from t force index (i);
+i
+1
+1
+2
+2
+3
+3
+explain select * from t a, t b where a.i = b.i;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	a	ALL	i	NULL	NULL	NULL	#	NULL
+1	SIMPLE	b	ALL	i	NULL	NULL	NULL	#	Using where; Using join buffer (Block Nested Loop)
+set optimizer_full_scan = off;
+select * from t a, t b where a.i = b.i;
+ERROR HY000: Full table/index scan is disabled
+set optimizer_full_scan = on;
+select * from t a, t b where a.i = b.i;
+i	j	i	j
+1	1	1	1
+1	2	1	1
+1	1	1	2
+1	2	1	2
+2	1	2	1
+2	2	2	1
+2	1	2	2
+2	2	2	2
+3	1	3	1
+3	2	3	1
+3	1	3	2
+3	2	3	2
+explain select * from t a straight_join t b where a.i = 10;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	a	ref	i	i	5	const	#	NULL
+1	SIMPLE	b	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (Block Nested Loop)
+set optimizer_full_scan = off;
+select * from t a straight_join t b where a.i = 10;
+ERROR HY000: Full table/index scan is disabled
+set optimizer_full_scan = on;
+select * from t a straight_join t b where a.i = 10;
+i	j	i	j
+# Test integration with optimizer_force_index_for_range
+alter table t drop index i, add primary key (i, j);
+# Test range plans
+set optimizer_force_index_for_range = on;
+set optimizer_full_scan = off;
+explain select i from t where i in (1, 2, 3) and j in (1, 2);
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t	index	PRIMARY	PRIMARY	8	NULL	#	Using where; Using index
+select i from t where i in (1, 2, 3) and j in (1, 2);
+ERROR HY000: Full table/index scan is disabled
+explain select i from t force index (primary) where i in (1, 2, 3) and j in (1, 2);
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t	range	PRIMARY	PRIMARY	8	NULL	#	Using where; Using index
+select i from t force index (primary) where i in (1, 2, 3) and j in (1, 2);
+i
+1
+1
+2
+2
+3
+3
+drop table t;
+set optimizer_full_scan = @orig_optimizer_full_scan;
+set optimizer_force_index_for_range = @orig_optimizer_force_index_for_range;

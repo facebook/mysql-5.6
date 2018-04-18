@@ -2608,6 +2608,12 @@ static Sys_var_mybool Sys_optimizer_force_index_for_range(
       SESSION_VAR(optimizer_force_index_for_range),
       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
 
+static Sys_var_mybool Sys_optimizer_full_scan(
+      "optimizer_full_scan",
+      "Enable full table and index scans.",
+      SESSION_VAR(optimizer_full_scan),
+      CMD_LINE(OPT_ARG), DEFAULT(TRUE));
+
 static const char *optimizer_switch_names[]=
 {
   "index_merge", "index_merge_union", "index_merge_sort_union",

@@ -2901,6 +2901,12 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
 	    join->thd->set_status_no_index_used();
 	    if (statistics)
 	      join->thd->inc_status_select_scan();
+	    /* Block full table/index scans, if optimizer_full_scan is off. */
+	    if (!join->thd->variables.optimizer_full_scan &&
+	       !(join->select_options & SELECT_DESCRIBE)) {
+	      my_error(ER_FULL_SCAN_DISABLED, MYF(0));
+	      DBUG_RETURN(TRUE);
+	    }
 	  }
 	}
 	else
@@ -2915,6 +2921,12 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
 	    join->thd->set_status_no_index_used();
 	    if (statistics)
 	      join->thd->inc_status_select_full_join();
+	    /* Block full table/index scans, if optimizer_full_scan is off. */
+	    if (!join->thd->variables.optimizer_full_scan &&
+	       !(join->select_options & SELECT_DESCRIBE)) {
+	      my_error(ER_FULL_SCAN_DISABLED, MYF(0));
+	      DBUG_RETURN(TRUE);
+	    }
 	  }
 	}
 	if (!table->no_keyread)
