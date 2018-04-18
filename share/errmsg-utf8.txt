@@ -18690,8 +18690,8 @@ ER_PLACEHOLDER_50075
 ER_PLACEHOLDER_50076
   eng "Placeholder"
 
-ER_PLACEHOLDER_50077
-  eng "Placeholder"
+ER_FULL_SCAN_DISABLED
+  eng "Full table/index scan is disabled"
 
 ER_INVALID_ADMIN_ADDRESS
   eng "Invalid value for command line option admin-address: '%s'"
