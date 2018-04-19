@@ -160,10 +160,10 @@ SET @my_var='new_value';
 SELECT GET_LOCK('my_lock', 3600);
 select * from information_schema.srv_sessions where id=rpc_id;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	CONN_ID
-rpc_id	root	localhost	db_default	Query attributes	0	User lock	SELECT GET_LOCK('my_lock', 3600)	1
+rpc_id	root	localhost	db_default	Query attributes	0	User lock	SELECT GET_LOCK('my_lock', TIMEOUT)	1
 select * from information_schema.processlist where SRV_ID=rpc_id;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	SRV_ID
-1	root	localhost	db_default	Query attributes	0	User lock	SELECT GET_LOCK('my_lock', 3600)	rpc_id
+1	root	localhost	db_default	Query attributes	0	User lock	SELECT GET_LOCK('my_lock', TIMEOUT)	rpc_id
 KILL QUERY rpc_id;
 select * from information_schema.srv_sessions where id=rpc_id;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	CONN_ID

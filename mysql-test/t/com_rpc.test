@@ -338,10 +338,10 @@ query_attrs_add rpc_id $rpc_id;
 
 # check session is attached to connection thread and query is being executed
 connection default;
---replace_result $rpc_id rpc_id
+--replace_result 3600 TIMEOUT $rpc_id rpc_id
 --replace_column 9 1 6 0
 eval select * from information_schema.srv_sessions where id=$rpc_id;
---replace_result $rpc_id rpc_id
+--replace_result 3600 TIMEOUT $rpc_id rpc_id
 --replace_column 1 1 6 0
 eval select * from information_schema.processlist where SRV_ID=$rpc_id;
 
