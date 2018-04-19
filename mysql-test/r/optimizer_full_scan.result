@@ -73,6 +73,12 @@ ERROR HY000: Full table/index scan is disabled
 set optimizer_full_scan = on;
 select * from t a straight_join t b where a.i = 10;
 i	j	i	j
+set optimizer_full_scan = off;
+explain select * from (select * from t) a group by i;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	PRIMARY	<derived2>	ALL	NULL	NULL	NULL	NULL	6	Using temporary; Using filesort
+2	DERIVED	t	ALL	NULL	NULL	NULL	NULL	6	NULL
+set optimizer_full_scan = on;
 # Test integration with optimizer_force_index_for_range
 alter table t drop index i, add primary key (i, j);
 # Test range plans

@@ -44,6 +44,11 @@ select * from t a straight_join t b where a.i = 10;
 set optimizer_full_scan = on;
 select * from t a straight_join t b where a.i = 10;
 
+--replace_column 9 #
+set optimizer_full_scan = off;
+explain select * from (select * from t) a group by i;
+set optimizer_full_scan = on;
+
 --echo # Test integration with optimizer_force_index_for_range
 alter table t drop index i, add primary key (i, j);
 

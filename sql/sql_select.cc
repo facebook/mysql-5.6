@@ -2809,7 +2809,7 @@ bool JOIN::setup_materialized_table(JOIN_TAB *tab, uint tableno,
 bool
 make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
 {
-  const bool statistics= MY_TEST(!(join->select_options & SELECT_DESCRIBE));
+  const bool statistics= MY_TEST(!(join->thd->lex->select_lex.options & SELECT_DESCRIBE));
 
   DBUG_ENTER("make_join_readinfo");
 
@@ -2900,12 +2900,14 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
 	  {
 	    join->thd->set_status_no_index_used();
 	    if (statistics)
+	    {
 	      join->thd->inc_status_select_scan();
-	    /* Block full table/index scans, if optimizer_full_scan is off. */
-	    if (!join->thd->variables.optimizer_full_scan &&
-	       !(join->select_options & SELECT_DESCRIBE)) {
-	      my_error(ER_FULL_SCAN_DISABLED, MYF(0));
-	      DBUG_RETURN(TRUE);
+	      /* Block full table/index scans, if optimizer_full_scan is off. */
+	      if (!join->thd->variables.optimizer_full_scan)
+	      {
+	        my_error(ER_FULL_SCAN_DISABLED, MYF(0));
+	        DBUG_RETURN(TRUE);
+	      }
 	    }
 	  }
 	}
@@ -2920,12 +2922,14 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
 	  {
 	    join->thd->set_status_no_index_used();
 	    if (statistics)
+	    {
 	      join->thd->inc_status_select_full_join();
-	    /* Block full table/index scans, if optimizer_full_scan is off. */
-	    if (!join->thd->variables.optimizer_full_scan &&
-	       !(join->select_options & SELECT_DESCRIBE)) {
-	      my_error(ER_FULL_SCAN_DISABLED, MYF(0));
-	      DBUG_RETURN(TRUE);
+	      /* Block full table/index scans, if optimizer_full_scan is off. */
+	      if (!join->thd->variables.optimizer_full_scan)
+	      {
+	        my_error(ER_FULL_SCAN_DISABLED, MYF(0));
+	        DBUG_RETURN(TRUE);
+	      }
 	    }
 	  }
 	}
