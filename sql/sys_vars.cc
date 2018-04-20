@@ -2625,6 +2625,7 @@ static const char *optimizer_switch_names[]=
   "subquery_materialization_cost_based",
 #endif
   "use_index_extensions", "skip_scan", "skip_scan_cost_based",
+  "multi_range_groupby",
   "default", NullS
 };
 /** propagates changes to @@engine_condition_pushdown */
@@ -2648,7 +2649,7 @@ static Sys_var_flagset Sys_optimizer_switch(
        " subquery_materialization_cost_based"
 #endif
        ", block_nested_loop, batched_key_access, use_index_extensions"
-       ", skip_scan, skip_scan_cost_based"
+       ", skip_scan, skip_scan_cost_based, multi_range_groupby"
        "} and val is one of {on, off, default}",
        SESSION_VAR(optimizer_switch), CMD_LINE(REQUIRED_ARG),
        optimizer_switch_names, DEFAULT(OPTIMIZER_SWITCH_DEFAULT),

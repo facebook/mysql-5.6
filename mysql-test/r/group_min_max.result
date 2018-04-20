@@ -670,37 +670,94 @@ d	p422
 explain select a1,a2,b,max(c),min(c) from t1 where (a2 = 'a') and (b = 'b') group by a1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	range	idx_t1_0,idx_t1_1,idx_t1_2	idx_t1_1	147	NULL	5	Using where; Using index for group-by
+explain select a1,a2,b,max(c),min(c) from t1 where (a2 = 'a' or a2 = 'b') and (b = 'b') group by a1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	range	idx_t1_0,idx_t1_1,idx_t1_2	idx_t1_1	147	NULL	5	Using where; Using index for group-by
+explain select a1,a2,b,max(c),min(c) from t1 where (a2 = 'a') and (b = 'b' or b = 'a') group by a1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	range	idx_t1_0,idx_t1_1,idx_t1_2	idx_t1_1	147	NULL	5	Using where; Using index for group-by
+explain select a1,a2,b,max(c),min(c) from t1 where (a2 = 'a' or a2 = 'b') and (b = 'b' or b = 'a') group by a1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	range	idx_t1_0,idx_t1_1,idx_t1_2	idx_t1_1	147	NULL	5	Using where; Using index for group-by
 explain select a1,max(c),min(c)      from t1 where (a2 = 'a') and (b = 'b') group by a1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	range	idx_t1_0,idx_t1_1,idx_t1_2	idx_t1_1	147	NULL	5	Using where; Using index for group-by
+explain select a1,max(c),min(c)      from t1 where (a2 = 'a' or a2 = 'b') and (b = 'b') group by a1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	range	idx_t1_0,idx_t1_1,idx_t1_2	idx_t1_1	147	NULL	5	Using where; Using index for group-by
+explain select a1,max(c),min(c)      from t1 where (a2 = 'a') and (b = 'b' or b = 'a') group by a1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	range	idx_t1_0,idx_t1_1,idx_t1_2	idx_t1_1	147	NULL	5	Using where; Using index for group-by
 explain select a1,a2,b,       max(c) from t1 where (b = 'b') group by a1,a2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	range	idx_t1_1,idx_t1_2	idx_t1_1	147	NULL	9	Using where; Using index for group-by
+explain select a1,a2,b,       max(c) from t1 where (b = 'b' or b = 'a') group by a1,a2;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	range	idx_t1_1,idx_t1_2	idx_t1_1	147	NULL	9	Using where; Using index for group-by
 explain select a1,a2,b,min(c),max(c) from t1 where (b = 'b') group by a1,a2;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	range	idx_t1_1,idx_t1_2	idx_t1_1	147	NULL	9	Using where; Using index for group-by
+explain select a1,a2,b,min(c),max(c) from t1 where (b = 'b' or b = 'a') group by a1,a2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	range	idx_t1_1,idx_t1_2	idx_t1_1	147	NULL	9	Using where; Using index for group-by
 explain select a1,a2, max(c)         from t1 where (b = 'b') group by a1,a2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	range	idx_t1_1,idx_t1_2	idx_t1_1	147	NULL	9	Using where; Using index for group-by
+explain select a1,a2, max(c)         from t1 where (b = 'b' or b = 'a') group by a1,a2;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	range	idx_t1_1,idx_t1_2	idx_t1_1	147	NULL	9	Using where; Using index for group-by
 explain select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b = 'b') group by a1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	range	idx_t2_0,idx_t2_1,idx_t2_2	idx_t2_1	163	NULL	5	Using where; Using index for group-by
+explain select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a' or a2 = 'b') and (b = 'b') group by a1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	range	idx_t2_0,idx_t2_1,idx_t2_2	idx_t2_1	163	NULL	5	Using where; Using index for group-by
+explain select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b = 'b' or b = 'a') group by a1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t2	range	idx_t2_0,idx_t2_1,idx_t2_2	idx_t2_1	163	NULL	5	Using where; Using index for group-by
 explain select a1,max(c),min(c)      from t2 where (a2 = 'a') and (b = 'b') group by a1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t2	range	idx_t2_0,idx_t2_1,idx_t2_2	idx_t2_1	163	NULL	5	Using where; Using index for group-by
+explain select a1,max(c),min(c)      from t2 where (a2 = 'a' or a2 = 'b') and (b = 'b') group by a1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	range	idx_t2_0,idx_t2_1,idx_t2_2	idx_t2_1	163	NULL	5	Using where; Using index for group-by
+explain select a1,max(c),min(c)      from t2 where (a2 = 'a') and (b = 'b' or b = 'a') group by a1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	range	idx_t2_0,idx_t2_1,idx_t2_2	idx_t2_1	163	NULL	5	Using where; Using index for group-by
 explain select a1,a2,b,       max(c) from t2 where (b = 'b') group by a1,a2;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	range	idx_t2_1,idx_t2_2	idx_t2_1	146	NULL	10	Using where; Using index for group-by
+explain select a1,a2,b,       max(c) from t2 where (b = 'b' or b = 'a') group by a1,a2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t2	range	idx_t2_1,idx_t2_2	idx_t2_1	146	NULL	10	Using where; Using index for group-by
 explain select a1,a2,b,min(c),max(c) from t2 where (b = 'b') group by a1,a2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t2	range	idx_t2_1,idx_t2_2	idx_t2_1	163	NULL	10	Using where; Using index for group-by
+explain select a1,a2,b,min(c),max(c) from t2 where (b = 'b' or b = 'a') group by a1,a2;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	range	idx_t2_1,idx_t2_2	idx_t2_1	163	NULL	10	Using where; Using index for group-by
 explain select a1,a2, max(c)         from t2 where (b = 'b') group by a1,a2;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	range	idx_t2_1,idx_t2_2	idx_t2_1	146	NULL	10	Using where; Using index for group-by
+explain select a1,a2, max(c)         from t2 where (b = 'b' or b = 'a') group by a1,a2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t2	range	idx_t2_1,idx_t2_2	idx_t2_1	146	NULL	10	Using where; Using index for group-by
 explain select a1,a2,b,max(c),min(c) from t3 where (a2 = 'a') and (b = 'b') group by a1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t3	range	idx_t3_0,idx_t3_1,idx_t3_2	idx_t3_1	6	NULL	4	Using where; Using index for group-by
+explain select a1,a2,b,max(c),min(c) from t3 where (a2 = 'a' or a2 = 'b') and (b = 'b') group by a1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t3	range	idx_t3_0,idx_t3_1,idx_t3_2	idx_t3_1	6	NULL	4	Using where; Using index for group-by
+explain select a1,a2,b,max(c),min(c) from t3 where (a2 = 'a') and (b = 'b' or b = 'a') group by a1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t3	range	idx_t3_0,idx_t3_1,idx_t3_2	idx_t3_1	6	NULL	4	Using where; Using index for group-by
 explain select a1,max(c),min(c)      from t3 where (a2 = 'a') and (b = 'b') group by a1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t3	range	idx_t3_0,idx_t3_1,idx_t3_2	idx_t3_1	6	NULL	4	Using where; Using index for group-by
+explain select a1,max(c),min(c)      from t3 where (a2 = 'a' or a2 = 'b') and (b = 'b') group by a1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t3	range	idx_t3_0,idx_t3_1,idx_t3_2	idx_t3_1	6	NULL	4	Using where; Using index for group-by
+explain select a1,max(c),min(c)      from t3 where (a2 = 'a') and (b = 'b' or b = 'a') group by a1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t3	range	idx_t3_0,idx_t3_1,idx_t3_2	idx_t3_1	6	NULL	4	Using where; Using index for group-by
 select a1,a2,b,max(c),min(c) from t1 where (a2 = 'a') and (b = 'b') group by a1;
@@ -709,13 +766,53 @@ a	a	b	h112	e112
 b	a	b	h212	e212
 c	a	b	h312	e312
 d	a	b	h412	e412
+select a1,a2,b,max(c),min(c) from t1 where (a2 = 'a' or a2 = 'b') and (b = 'b') group by a1;
+a1	a2	b	max(c)	min(c)
+a	b	b	p122	e112
+b	b	b	p222	e212
+c	b	b	p322	e312
+d	b	b	p422	e412
+select a1,a2,b,max(c),min(c) from t1 where (a2 = 'a') and (b = 'b' or b = 'a') group by a1;
+a1	a2	b	max(c)	min(c)
+a	a	b	h112	a111
+b	a	b	h212	a211
+c	a	b	h312	a311
+d	a	b	h412	a411
+select a1,a2,b,max(c),min(c) from t1 where (a2 = 'a' or a2 = 'b') and (b = 'b' or b = 'a') group by a1;
+a1	a2	b	max(c)	min(c)
+a	b	b	p122	a111
+b	b	b	p222	a211
+c	b	b	p322	a311
+d	b	b	p422	a411
 select a1,max(c),min(c)      from t1 where (a2 = 'a') and (b = 'b') group by a1;
 a1	max(c)	min(c)
 a	h112	e112
 b	h212	e212
 c	h312	e312
 d	h412	e412
+select a1,max(c),min(c)      from t1 where (a2 = 'a' or a2 = 'b') and (b = 'b') group by a1;
+a1	max(c)	min(c)
+a	p122	e112
+b	p222	e212
+c	p322	e312
+d	p422	e412
+select a1,max(c),min(c)      from t1 where (a2 = 'a') and (b = 'b' or b = 'a') group by a1;
+a1	max(c)	min(c)
+a	h112	a111
+b	h212	a211
+c	h312	a311
+d	h412	a411
 select a1,a2,b,       max(c) from t1 where (b = 'b') group by a1,a2;
+a1	a2	b	max(c)
+a	a	b	h112
+a	b	b	p122
+b	a	b	h212
+b	b	b	p222
+c	a	b	h312
+c	b	b	p322
+d	a	b	h412
+d	b	b	p422
+select a1,a2,b,       max(c) from t1 where (b = 'b' or b = 'a') group by a1,a2;
 a1	a2	b	max(c)
 a	a	b	h112
 a	b	b	p122
@@ -735,7 +832,27 @@ c	a	b	e312	h312
 c	b	b	m322	p322
 d	a	b	e412	h412
 d	b	b	m422	p422
+select a1,a2,b,min(c),max(c) from t1 where (b = 'b' or b = 'a') group by a1,a2;
+a1	a2	b	min(c)	max(c)
+a	a	b	a111	h112
+a	b	b	i121	p122
+b	a	b	a211	h212
+b	b	b	i221	p222
+c	a	b	a311	h312
+c	b	b	i321	p322
+d	a	b	a411	h412
+d	b	b	i421	p422
 select a1,a2, max(c)         from t1 where (b = 'b') group by a1,a2;
+a1	a2	max(c)
+a	a	h112
+a	b	p122
+b	a	h212
+b	b	p222
+c	a	h312
+c	b	p322
+d	a	h412
+d	b	p422
+select a1,a2, max(c)         from t1 where (b = 'b' or b = 'a') group by a1,a2;
 a1	a2	max(c)
 a	a	h112
 a	b	p122
@@ -752,6 +869,19 @@ b	a	b	h212	e212
 c	a	b	h312	e312
 d	a	b	h412	e412
 e	a	b	NULL	NULL
+select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a' or a2 = 'b') and (b = 'b') group by a1;
+a1	a2	b	max(c)	min(c)
+a	b	b	p122	e112
+b	b	b	p222	e212
+c	b	b	p322	e312
+d	b	b	p422	e412
+select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b = 'b' or b = 'a') group by a1;
+a1	a2	b	max(c)	min(c)
+a	a	b	h112	a111
+b	a	b	h212	a211
+c	a	b	h312	a311
+d	a	b	h412	a411
+e	a	b	NULL	NULL
 select a1,max(c),min(c)      from t2 where (a2 = 'a') and (b = 'b') group by a1;
 a1	max(c)	min(c)
 a	h112	e112
@@ -759,7 +889,31 @@ b	h212	e212
 c	h312	e312
 d	h412	e412
 e	NULL	NULL
+select a1,max(c),min(c)      from t2 where (a2 = 'a' or a2 = 'b') and (b = 'b') group by a1;
+a1	max(c)	min(c)
+a	p122	e112
+b	p222	e212
+c	p322	e312
+d	p422	e412
+select a1,max(c),min(c)      from t2 where (a2 = 'a') and (b = 'b' or b = 'a') group by a1;
+a1	max(c)	min(c)
+a	h112	a111
+b	h212	a211
+c	h312	a311
+d	h412	a411
+e	NULL	NULL
 select a1,a2,b,       max(c) from t2 where (b = 'b') group by a1,a2;
+a1	a2	b	max(c)
+a	a	b	h112
+a	b	b	p122
+b	a	b	h212
+b	b	b	p222
+c	a	b	h312
+c	b	b	p322
+d	a	b	h412
+d	b	b	p422
+e	a	b	NULL
+select a1,a2,b,       max(c) from t2 where (b = 'b' or b = 'a') group by a1,a2;
 a1	a2	b	max(c)
 a	a	b	h112
 a	b	b	p122
@@ -781,7 +935,29 @@ c	b	b	m322	p322
 d	a	b	e412	h412
 d	b	b	m422	p422
 e	a	b	NULL	NULL
+select a1,a2,b,min(c),max(c) from t2 where (b = 'b' or b = 'a') group by a1,a2;
+a1	a2	b	min(c)	max(c)
+a	a	b	a111	h112
+a	b	b	i121	p122
+b	a	b	a211	h212
+b	b	b	i221	p222
+c	a	b	a311	h312
+c	b	b	i321	p322
+d	a	b	a411	h412
+d	b	b	i421	p422
+e	a	b	NULL	NULL
 select a1,a2, max(c)         from t2 where (b = 'b') group by a1,a2;
+a1	a2	max(c)
+a	a	h112
+a	b	p122
+b	a	h212
+b	b	p222
+c	a	h312
+c	b	p322
+d	a	h412
+d	b	p422
+e	a	NULL
+select a1,a2, max(c)         from t2 where (b = 'b' or b = 'a') group by a1,a2;
 a1	a2	max(c)
 a	a	h112
 a	b	p122
@@ -797,15 +973,41 @@ a1	a2	b	max(c)	min(c)
 a	a	b	h112	e112
 b	a	b	h212	e212
 c	a	b	h312	e312
+select a1,a2,b,max(c),min(c) from t3 where (a2 = 'a' or a2 = 'b') and (b = 'b') group by a1;
+a1	a2	b	max(c)	min(c)
+a	b	b	p122	e112
+b	b	b	p222	e212
+c	b	b	p322	e312
+select a1,a2,b,max(c),min(c) from t3 where (a2 = 'a') and (b = 'b' or b = 'a') group by a1;
+a1	a2	b	max(c)	min(c)
+a	a	b	h112	a111
+b	a	b	h212	a211
+c	a	b	h312	a311
 select a1,max(c),min(c)      from t3 where (a2 = 'a') and (b = 'b') group by a1;
 a1	max(c)	min(c)
 a	h112	e112
 b	h212	e212
 c	h312	e312
+select a1,max(c),min(c)      from t3 where (a2 = 'a' or a2 = 'b') and (b = 'b') group by a1;
+a1	max(c)	min(c)
+a	p122	e112
+b	p222	e212
+c	p322	e312
+select a1,max(c),min(c)      from t3 where (a2 = 'a') and (b = 'b' or b = 'a') group by a1;
+a1	max(c)	min(c)
+a	h112	a111
+b	h212	a211
+c	h312	a311
 explain select a1,a2,b,min(c) from t2 where (a2 = 'a') and b is NULL group by a1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t2	range	idx_t2_0,idx_t2_1,idx_t2_2	idx_t2_1	163	NULL	5	Using where; Using index for group-by
+explain select a1,a2,b,min(c) from t2 where (a2 = 'a' or a2 = 'b') and b is NULL group by a1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	range	idx_t2_0,idx_t2_1,idx_t2_2	idx_t2_1	163	NULL	5	Using where; Using index for group-by
 explain select a1,a2,b,max(c) from t2 where (a2 = 'a') and b is NULL group by a1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	range	idx_t2_0,idx_t2_1,idx_t2_2	idx_t2_1	146	NULL	5	Using where; Using index for group-by
+explain select a1,a2,b,max(c) from t2 where (a2 = 'a' or a2 = 'b') and b is NULL group by a1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t2	range	idx_t2_0,idx_t2_1,idx_t2_2	idx_t2_1	146	NULL	5	Using where; Using index for group-by
 explain select a1,a2,b,min(c) from t2 where b is NULL group by a1,a2;
@@ -817,17 +1019,18 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 explain select a1,a2,b,min(c),max(c) from t2 where b is NULL group by a1,a2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t2	range	idx_t2_1,idx_t2_2	idx_t2_1	163	NULL	10	Using where; Using index for group-by
-explain select a1,a2,b,min(c),max(c) from t2 where b is NULL group by a1,a2;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	range	idx_t2_1,idx_t2_2	idx_t2_1	163	NULL	10	Using where; Using index for group-by
 select a1,a2,b,min(c) from t2 where (a2 = 'a') and b is NULL group by a1;
 a1	a2	b	min(c)
 a	a	NULL	a777
 c	a	NULL	c777
+select a1,a2,b,min(c) from t2 where (a2 = 'a' or a2 = 'b') and b is NULL group by a1;
+a1	a2	b	min(c)
 select a1,a2,b,max(c) from t2 where (a2 = 'a') and b is NULL group by a1;
 a1	a2	b	max(c)
 a	a	NULL	a999
 c	a	NULL	c999
+select a1,a2,b,max(c) from t2 where (a2 = 'a' or a2 = 'b') and b is NULL group by a1;
+a1	a2	b	max(c)
 select a1,a2,b,min(c) from t2 where b is NULL group by a1,a2;
 a1	a2	b	min(c)
 a	a	NULL	a777
@@ -1498,6 +1701,9 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 explain select a1,a2,b,c from t1 where (a2 >= 'b') and (b = 'a') and (c = 'i121') group by a1,a2,b;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	range	idx_t1_1,idx_t1_2	idx_t1_1	163	NULL	17	Using where; Using index for group-by
+explain select a1,a2,b,c from t1 where (a2 >= 'b') and (b = 'a') and (c = 'i121' or c = 'i121') group by a1,a2,b;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	range	idx_t1_1,idx_t1_2	idx_t1_1	163	NULL	17	Using where; Using index for group-by
 explain select a1,a2,b from t1 where (a1 > 'a') and (a2 > 'a') and (b = 'c') group by a1,a2,b;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	range	idx_t1_0,idx_t1_1,idx_t1_2	idx_t1_1	147	NULL	14	Using where; Using index for group-by
@@ -1508,6 +1714,9 @@ explain select a1,a2,b from t2 where (a2 >= 'b') and (b = 'a') group by a1,a2,b;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t2	range	idx_t2_1,idx_t2_2	idx_t2_1	146	NULL	#	Using where; Using index for group-by
 explain select a1,a2,b,c from t2 where (a2 >= 'b') and (b = 'a') and (c = 'i121') group by a1,a2,b;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	index	idx_t2_1,idx_t2_2	idx_t2_1	163	NULL	#	Using where; Using index
+explain select a1,a2,b,c from t2 where (a2 >= 'b') and (b = 'a') and (c = 'i121' or c = 'i121') group by a1,a2,b;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t2	index	idx_t2_1,idx_t2_2	idx_t2_1	163	NULL	#	Using where; Using index
 explain select a1,a2,b from t2 where (a1 > 'a') and (a2 > 'a') and (b = 'c') group by a1,a2,b;
@@ -1530,6 +1739,9 @@ d	b	a
 select a1,a2,b,c from t1 where (a2 >= 'b') and (b = 'a') and (c = 'i121') group by a1,a2,b;
 a1	a2	b	c
 a	b	a	i121
+select a1,a2,b,c from t1 where (a2 >= 'b') and (b = 'a') and (c = 'i121' or c = 'i121') group by a1,a2,b;
+a1	a2	b	c
+a	b	a	i121
 select a1,a2,b from t1 where (a1 > 'a') and (a2 > 'a') and (b = 'c') group by a1,a2,b;
 a1	a2	b
 select a1,a2,b from t2 where (a1 >= 'c' or a2 < 'b') and (b > 'a') group by a1,a2,b;
@@ -1548,6 +1760,9 @@ b	b	a
 c	b	a
 d	b	a
 select a1,a2,b,c from t2 where (a2 >= 'b') and (b = 'a') and (c = 'i121') group by a1,a2,b;
+a1	a2	b	c
+a	b	a	i121
+select a1,a2,b,c from t2 where (a2 >= 'b') and (b = 'a') and (c = 'i121' or c = 'i121') group by a1,a2,b;
 a1	a2	b	c
 a	b	a	i121
 select a1,a2,b from t2 where (a1 > 'a') and (a2 > 'a') and (b = 'c') group by a1,a2,b;
@@ -1940,6 +2155,15 @@ Note	1003	/* select#1 */ select `test`.`t1`.`a1` AS `a1`,`test`.`t1`.`a2` AS `a2
 explain select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b = 'b') or (b < 'b') group by a1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t2	index	idx_t2_0,idx_t2_1,idx_t2_2	idx_t2_1	163	NULL	164	Using where; Using index
+explain select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b < 'b') group by a1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	index	idx_t2_0,idx_t2_1,idx_t2_2	idx_t2_1	163	NULL	164	Using where; Using index
+explain select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b <= 'b') group by a1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	index	idx_t2_0,idx_t2_1,idx_t2_2	idx_t2_1	163	NULL	164	Using where; Using index
+explain select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b <= 'b' and b >= 'a') group by a1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	index	idx_t2_0,idx_t2_1,idx_t2_2	idx_t2_1	163	NULL	164	Using where; Using index
 explain extended select a1,a2,b from t1 where (a1 = 'b' or a1 = 'd' or a1 = 'a' or a1 = 'c') and (a2 > 'a') and (c > 'a111') group by a1,a2,b;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	range	idx_t1_0,idx_t1_1,idx_t1_2	idx_t1_1	130	NULL	76	85.53	Using where; Using index
@@ -1974,6 +2198,14 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	idx_t1_0,idx_t1_1,idx_t1_2	idx_t1_2	147	NULL	128	75.00	Using where; Using index
 Warnings:
 Note	1003	/* select#1 */ select sum(ord(`test`.`t1`.`a1`)) AS `sum(ord(a1))` from `test`.`t1` where (`test`.`t1`.`a1` > 'a') group by `test`.`t1`.`a1`,`test`.`t1`.`a2`,`test`.`t1`.`b`
+set optimizer_switch = 'multi_range_groupby=off';
+explain select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b = 'a' or b = 'b') group by a1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	index	idx_t2_0,idx_t2_1,idx_t2_2	idx_t2_1	163	NULL	164	Using where; Using index
+set optimizer_switch = 'default';
+explain select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b = 'a' or b = 'b') group by a1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	range	idx_t2_0,idx_t2_1,idx_t2_2	idx_t2_1	163	NULL	5	Using where; Using index for group-by
 explain select distinct(a1) from t1 where ord(a2) = 98;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	index	idx_t1_0,idx_t1_1,idx_t1_2	idx_t1_2	147	NULL	128	Using where; Using index

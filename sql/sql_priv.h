@@ -242,7 +242,8 @@ template <class T> bool valid_buffer_range(T jump,
 /** The following two work similar to MRR. See above comments. */
 #define OPTIMIZER_SKIP_SCAN                        (1ULL << 16)
 #define OPTIMIZER_SKIP_SCAN_COST_BASED             (1ULL << 17)
-#define OPTIMIZER_SWITCH_LAST                      (1ULL << 18)
+#define OPTIMIZER_MULTI_RANGE_GROUPBY              (1ULL << 18)
+#define OPTIMIZER_SWITCH_LAST                      (1ULL << 19)
 
 /**
    If OPTIMIZER_SWITCH_ALL is defined, optimizer_switch flags for newer 
@@ -270,7 +271,8 @@ template <class T> bool valid_buffer_range(T jump,
                                   OPTIMIZER_SWITCH_FIRSTMATCH | \
                                   OPTIMIZER_SWITCH_SUBQ_MAT_COST_BASED | \
                                   OPTIMIZER_SWITCH_USE_INDEX_EXTENSIONS | \
-                                  OPTIMIZER_SKIP_SCAN_COST_BASED)
+                                  OPTIMIZER_SKIP_SCAN_COST_BASED | \
+                                  OPTIMIZER_MULTI_RANGE_GROUPBY)
 #else
 #define OPTIMIZER_SWITCH_DEFAULT (OPTIMIZER_SWITCH_INDEX_MERGE | \
                                   OPTIMIZER_SWITCH_INDEX_MERGE_UNION | \
@@ -282,7 +284,8 @@ template <class T> bool valid_buffer_range(T jump,
                                   OPTIMIZER_SWITCH_MRR_COST_BASED | \
                                   OPTIMIZER_SWITCH_BNL | \
                                   OPTIMIZER_SWITCH_USE_INDEX_EXTENSIONS | \
-                                  OPTIMIZER_SKIP_SCAN_COST_BASED)
+                                  OPTIMIZER_SKIP_SCAN_COST_BASED | \
+                                  OPTIMIZER_MULTI_RANGE_GROUPBY)
 #endif
 /*
   Replication uses 8 bytes to store SQL_MODE in the binary log. The day you

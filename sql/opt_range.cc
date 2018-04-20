@@ -2541,7 +2541,6 @@ public:
                     uint group_prefix_len_arg, uint used_key_parts_arg,
                     uint group_key_parts_arg, KEY *index_info_arg,
                     uint index_arg, uint key_infix_len_arg,
-                    uchar *key_infix_arg,
                     SEL_TREE *tree_arg, SEL_ARG *index_tree_arg,
                     uint param_idx_arg, ha_rows quick_prefix_records_arg)
   : have_min(have_min_arg), have_max(have_max_arg),
@@ -2553,8 +2552,6 @@ public:
     index_tree(index_tree_arg), param_idx(param_idx_arg), is_index_scan(FALSE),
     quick_prefix_records(quick_prefix_records_arg)
     {
-      if (key_infix_len)
-        memcpy(this->key_infix, key_infix_arg, key_infix_len);
     }
   virtual ~TRP_GROUP_MIN_MAX() {}             /* Remove gcc warning */
 
@@ -11448,12 +11445,13 @@ static inline SEL_ARG * get_index_range_tree(uint index, SEL_TREE* range_tree,
                                              PARAM *param, uint *param_idx);
 static bool get_sel_arg_for_keypart(Field *field, SEL_ARG *index_range_tree,
                                     SEL_ARG **cur_range);
-static bool get_constant_key_infix(KEY *index_info, SEL_ARG *index_range_tree,
-                       KEY_PART_INFO *first_non_group_part,
-                       KEY_PART_INFO *min_max_arg_part,
-                       KEY_PART_INFO *last_part, THD *thd,
-                       uchar *key_infix, uint *key_infix_len,
-                       KEY_PART_INFO **first_non_infix_part);
+static bool check_key_infix(KEY *index_info, SEL_ARG *index_range_tree,
+                            KEY_PART_INFO *first_non_group_part,
+                            KEY_PART_INFO *min_max_arg_part,
+                            KEY_PART_INFO *last_part, THD *thd,
+                            uint *key_infix_len,
+                            double *infix_factor,
+                            KEY_PART_INFO **first_non_infix_part);
 static bool
 check_group_min_max_predicates(Item *cond, Item_field *min_max_arg_item,
                                Field::imagetype image_type);
@@ -11462,7 +11460,7 @@ static void
 cost_group_min_max(TABLE* table, KEY *index_info, uint used_key_parts,
                    uint group_key_parts, SEL_TREE *range_tree,
                    SEL_ARG *index_tree, ha_rows quick_prefix_records,
-                   bool have_min, bool have_max,
+                   bool have_min, bool have_max, double infix_factor,
                    double *read_cost, ha_rows *records);
 
 
@@ -11545,8 +11543,6 @@ cost_group_min_max(TABLE* table, KEY *index_info, uint used_key_parts,
          (const = NG_i), such that each NG_i is referenced in exactly one
          conjunct. Informally, the predicates provide constants to fill the
          gap in the index.
-    NGA3.If BA <> {}, there can only be one range. TODO: This is a code
-         limitation and is not strictly needed. See BUG#15947433
     WA1. There are no other attributes in the WHERE clause except the ones
          referenced in predicates RNG, PA, PC, EQ defined above. Therefore
          WA is subset of (GA union NGA union C) for GA,NGA,C that pass the
@@ -11622,7 +11618,6 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
   uint index= 0;            /* The id of the chosen index. */
   uint group_key_parts= 0;  // Number of index key parts in the group prefix.
   uint used_key_parts= 0;   /* Number of index key parts used for access. */
-  uchar key_infix[MAX_KEY_LENGTH]; /* Constants from equality predicates.*/
   uint key_infix_len= 0;          /* Length of key_infix. */
   TRP_GROUP_MIN_MAX *read_plan= NULL; /* The eventually constructed TRP. */
   uint key_part_nr;
@@ -11771,11 +11766,11 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
     uint cur_group_key_parts= 0;
     uint cur_group_prefix_len= 0;
     double cur_read_cost;
+    double cur_infix_factor= 1.0;
     ha_rows cur_records;
     key_map used_key_parts_map;
     uint max_key_part= 0;
     uint cur_key_infix_len= 0;
-    uchar cur_key_infix[MAX_KEY_LENGTH];
     uint cur_used_key_parts;
     
     /* Check (B1) - if current index is covering. */
@@ -11967,13 +11962,14 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
         uint dummy;
         SEL_ARG *index_range_tree= get_index_range_tree(cur_index, tree, param,
                                                         &dummy);
-        if (!get_constant_key_infix(cur_index_info, index_range_tree,
-                                    first_non_group_part, min_max_arg_part,
-                                    last_part, thd, cur_key_infix, 
-                                    &cur_key_infix_len,
-                                    &first_non_infix_part))
+        if (!check_key_infix(cur_index_info, index_range_tree,
+                             first_non_group_part, min_max_arg_part,
+                             last_part, thd,
+                             &cur_key_infix_len,
+                             &cur_infix_factor,
+                             &first_non_infix_part))
         {
-          cause= "nonconst_equality_gap_attribute";
+          cause= "non_equality_gap_attribute";
           goto next_index;
         }
       }
@@ -12091,7 +12087,7 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
     cost_group_min_max(table, cur_index_info, cur_used_key_parts,
                        cur_group_key_parts, tree, cur_index_tree,
                        cur_quick_prefix_records, have_min, have_max,
-                       &cur_read_cost, &cur_records);
+                       cur_infix_factor, &cur_read_cost, &cur_records);
     /*
       If cur_read_cost is lower than best_read_cost use cur_index.
       Do not compare doubles directly because they may have different
@@ -12110,8 +12106,6 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
       group_key_parts= cur_group_key_parts;
       group_prefix_len= cur_group_prefix_len;
       key_infix_len= cur_key_infix_len;
-      if (key_infix_len)
-        memcpy (key_infix, cur_key_infix, sizeof (key_infix));
       used_key_parts= cur_used_key_parts;
     }
 
@@ -12145,7 +12139,6 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
                                    group_prefix_len, used_key_parts,
                                    group_key_parts, index_info, index,
                                    key_infix_len,
-                                   (key_infix_len > 0) ? key_infix : NULL,
                                    tree, best_index_tree, best_param_idx,
                                    best_quick_prefix_records);
   if (read_plan)
@@ -13365,9 +13358,7 @@ void QUICK_SKIP_SCAN_SELECT::add_keys_and_lengths(String *key_names,
    2. "(kp1=2 AND kp2=10) OR (kp1=3 AND kp2=11)"
    3. "(kp1=2 AND kp2=10) OR (kp1=3 AND (kp2=10 OR kp2=11))"
 
-   This function effectively tests requirement WA2. In combination with
-   a test that the returned tree has no more than one range it is also
-   a test of NGA3.
+   This function effectively tests requirement WA2.
 
   @param[in]   field          The field we want the SEL_ARG tree for
   @param[in]   keypart_tree   Root node of the SEL_ARG* tree for the index
@@ -13428,43 +13419,42 @@ get_sel_arg_for_keypart(Field *field,
 }
 
 /*
-  Extract a sequence of constants from a conjunction of equality predicates.
+  Check for a conjunction of range predicates in sequence.
 
   SYNOPSIS
-    get_constant_key_infix()
+    check_key_infix()
     index_info             [in]  Descriptor of the chosen index.
     index_range_tree       [in]  Range tree for the chosen index
     first_non_group_part   [in]  First index part after group attribute parts
     min_max_arg_part       [in]  The keypart of the MIN/MAX argument if any
     last_part              [in]  Last keypart of the index
     thd                    [in]  Current thread
-    key_infix              [out] Infix of constants to be used for index lookup
+    infix_factor           [out] Increase in number of dives due to infix.
     key_infix_len          [out] Lenghth of the infix
     first_non_infix_part   [out] The first keypart after the infix (if any)
 
   DESCRIPTION
     Test conditions (NGA1, NGA2) from get_best_group_min_max(). Namely,
-    for each keypart field NGF_i not in GROUP-BY, check that there is a
-    constant equality predicate among conds with the form (NGF_i = const_ci) or
+    for each keypart field NGF_i not in GROUP-BY, check that there is at least one
+    range predicate for each key part among conds with the form (NGF_i = const_ci) or
     (const_ci = NGF_i).
     Thus all the NGF_i attributes must fill the 'gap' between the last group-by
-    attribute and the MIN/MAX attribute in the index (if present).  Also ensure
-    that there is only a single range on NGF_i (NGA3). If these
-    conditions hold, copy each constant from its corresponding predicate into
-    key_infix, in the order its NG_i attribute appears in the index, and update
-    key_infix_len with the total length of the key parts in key_infix.
+    attribute and the MIN/MAX attribute in the index (if present). If these
+    conditions hold, update key_infix_len with the total length of the key
+    parts in key_infix.
 
   RETURN
     TRUE  if the index passes the test
     FALSE o/w
 */
 static bool
-get_constant_key_infix(KEY *index_info, SEL_ARG *index_range_tree,
-                       KEY_PART_INFO *first_non_group_part,
-                       KEY_PART_INFO *min_max_arg_part,
-                       KEY_PART_INFO *last_part, THD *thd,
-                       uchar *key_infix, uint *key_infix_len,
-                       KEY_PART_INFO **first_non_infix_part)
+check_key_infix(KEY *index_info, SEL_ARG *index_range_tree,
+                KEY_PART_INFO *first_non_group_part,
+                KEY_PART_INFO *min_max_arg_part,
+                KEY_PART_INFO *last_part, THD *thd,
+                uint *key_infix_len,
+                double *infix_factor,
+                KEY_PART_INFO **first_non_infix_part)
 {
   SEL_ARG       *cur_range;
   KEY_PART_INFO *cur_part;
@@ -13472,26 +13462,19 @@ get_constant_key_infix(KEY *index_info, SEL_ARG *index_range_tree,
   KEY_PART_INFO *end_part= min_max_arg_part ? min_max_arg_part : last_part;
 
   *key_infix_len= 0;
-  uchar *key_ptr= key_infix;
+  *infix_factor = 1.0;
   for (cur_part= first_non_group_part; cur_part != end_part; cur_part++)
   {
     cur_range= NULL;
-    /*
-      Check NGA3:
-      1. get_sel_arg_for_keypart gets the range tree for the 'field' and also
-         checks for a unique conjunction of this tree with all the predicates
-         on the earlier keyparts in the index.
-      2. Check for multiple ranges on the found keypart tree.
-
-      We assume that index_range_tree points to the leftmost keypart in
-      the index.
-    */
     if (get_sel_arg_for_keypart(cur_part->field, index_range_tree,
                                 &cur_range))
       return false;
 
-    if (cur_range && cur_range->elements > 1)
-      return false;
+    if (!thd->optimizer_switch_flag(OPTIMIZER_MULTI_RANGE_GROUPBY))
+    {
+      if (cur_range && cur_range->elements > 1)
+        return false;
+    }
 
     if (!cur_range || cur_range->type != SEL_ARG::KEY_RANGE)
     {
@@ -13510,24 +13493,12 @@ get_constant_key_infix(KEY *index_info, SEL_ARG *index_range_tree,
       return false;
 
     uint field_length= cur_part->store_length;
-    if (cur_range->maybe_null &&
-         cur_range->min_value[0] && cur_range->max_value[0])
+    if ((cur_range->maybe_null &&
+         cur_range->min_value[0] && cur_range->max_value[0]) ||
+        memcmp(cur_range->min_value, cur_range->max_value, field_length) == 0)
     {
-      /*
-        cur_range specifies 'IS NULL'. In this case the argument points
-        to a "null value" (a copy of is_null_string) that we do not
-        memcmp(), or memcpy to a field.
-      */
-      DBUG_ASSERT (field_length > 0);
-      *key_ptr= 1;
-      key_ptr+= field_length;
       *key_infix_len+= field_length;
-    }
-    else if (memcmp(cur_range->min_value, cur_range->max_value, field_length) == 0)
-    { /* cur_range specifies an equality condition. */
-      memcpy(key_ptr, cur_range->min_value, field_length);
-      key_ptr+= field_length;
-      *key_infix_len+= field_length;
+      *infix_factor*= cur_range->elements;
     }
     else
       return false;
@@ -13625,6 +13596,8 @@ SEL_ARG * get_index_range_tree(uint index, SEL_TREE* range_tree, PARAM *param,
 			      used quick range select if any
     have_min             [in] True if there is a MIN function
     have_max             [in] True if there is a MAX function
+    infix_factor         [in] The number of groups increases by this factor
+                              due to infix permutations.
     read_cost           [out] The cost to retrieve rows via this quick select
     records             [out] The number of rows retrieved
 
@@ -13673,7 +13646,7 @@ SEL_ARG * get_index_range_tree(uint index, SEL_TREE* range_tree, PARAM *param,
 void cost_group_min_max(TABLE* table, KEY *index_info, uint used_key_parts,
                         uint group_key_parts, SEL_TREE *range_tree,
                         SEL_ARG *index_tree, ha_rows quick_prefix_records,
-                        bool have_min, bool have_max,
+                        bool have_min, bool have_max, double infix_factor,
                         double *read_cost, ha_rows *records)
 {
   ha_rows table_records;
@@ -13706,7 +13679,7 @@ void cost_group_min_max(TABLE* table, KEY *index_info, uint used_key_parts,
   {
     quick_prefix_selectivity= (double) quick_prefix_records /
                               (double) table_records;
-    num_groups= (uint) rint(num_groups * quick_prefix_selectivity);
+    num_groups= (uint) rint(num_groups * quick_prefix_selectivity * infix_factor);
     set_if_bigger(num_groups, 1);
   }
 
@@ -13797,7 +13770,7 @@ TRP_GROUP_MIN_MAX::make_quick(PARAM *param, bool retrieve_full_rows,
                                         group_prefix_len, group_key_parts,
                                         used_key_parts, index_info, index,
                                         read_cost, records, key_infix_len,
-                                        key_infix, parent_alloc, is_index_scan);
+                                        parent_alloc, is_index_scan);
   if (!quick)
     DBUG_RETURN(NULL);
 
@@ -13826,6 +13799,54 @@ TRP_GROUP_MIN_MAX::make_quick(PARAM *param, bool retrieve_full_rows,
         DBUG_RETURN(NULL);
       }
     }
+
+    /*
+      Populate key_infix_ranges from index_tree.
+    */
+    if (key_infix_len > 0)
+    {
+      uint key_infix_parts = used_key_parts - group_key_parts;
+      KEY_PART_INFO *key_infix_part= index_info->key_part + group_key_parts;
+
+      /* Find the first keypart for key_infix_ranges. */
+      SEL_ARG *key_infix_range= index_tree;
+      while (key_infix_range)
+      {
+        if (key_infix_range->field->eq(key_infix_part->field))
+          break;
+        key_infix_range= key_infix_range->next_key_part;
+      }
+
+      /*
+        Since the keyparts in key_infix_ranges must be contiguous, the rest
+        of the keyparts can be fetched via next_key_part.
+
+        key_infix_range tracks current keypart while cur_range tracks current
+        range within a keypart.
+      */
+      for (uint i = 0; i < key_infix_parts; i++)
+      {
+        SEL_ARG *cur_range= key_infix_range;
+        DBUG_ASSERT(cur_range->field->eq(key_infix_part[i].field));
+
+        while (cur_range->prev)
+          cur_range= cur_range->prev;
+
+        while (cur_range)
+        {
+          if (quick->add_range(cur_range, i))
+          {
+            delete quick;
+            quick= NULL;
+            DBUG_RETURN(NULL);
+          }
+          cur_range= cur_range->next;
+        }
+
+        key_infix_range= key_infix_range->next_key_part;
+      }
+    }
+
     /*
       Extract the SEL_ARG subtree that contains only ranges for the MIN/MAX
       attribute, and create an array of QUICK_RANGES to be used by the
@@ -13846,7 +13867,7 @@ TRP_GROUP_MIN_MAX::make_quick(PARAM *param, bool retrieve_full_rows,
       /* Create an array of QUICK_RANGEs for the MIN/MAX argument. */
       while (min_max_range)
       {
-        if (quick->add_range(min_max_range))
+        if (quick->add_range(min_max_range, -1))
         {
           delete quick;
           quick= NULL;
@@ -13901,14 +13922,13 @@ QUICK_GROUP_MIN_MAX_SELECT(TABLE *table, JOIN *join_arg, bool have_min_arg,
                            uint used_key_parts_arg, KEY *index_info_arg,
                            uint use_index, double read_cost_arg,
                            ha_rows records_arg, uint key_infix_len_arg,
-                           uchar *key_infix_arg, MEM_ROOT *parent_alloc,
-                           bool is_index_scan_arg)
+                           MEM_ROOT *parent_alloc, bool is_index_scan_arg)
   :join(join_arg), index_info(index_info_arg),
    group_prefix_len(group_prefix_len_arg),
    group_key_parts(group_key_parts_arg), have_min(have_min_arg),
    have_max(have_max_arg), have_agg_distinct(have_agg_distinct_arg),
    seen_first_key(FALSE), min_max_arg_part(min_max_arg_part_arg),
-   key_infix(key_infix_arg), key_infix_len(key_infix_len_arg),
+   key_infix_len(key_infix_len_arg),
    min_functions_it(NULL), max_functions_it(NULL), 
    is_index_scan(is_index_scan_arg)
 {
@@ -13920,9 +13940,11 @@ QUICK_GROUP_MIN_MAX_SELECT(TABLE *table, JOIN *join_arg, bool have_min_arg,
   records= records_arg;
   used_key_parts= used_key_parts_arg;
   real_key_parts= used_key_parts_arg;
+  key_infix_parts= used_key_parts_arg - group_key_parts_arg;
   real_prefix_len= group_prefix_len + key_infix_len;
   group_prefix= NULL;
   min_max_arg_len= min_max_arg_part ? min_max_arg_part->store_length : 0;
+  memset(cur_key_infix_range, 0, sizeof(cur_key_infix_range));
 
   /*
     We can't have parent_alloc set as the init function can't handle this case
@@ -13973,15 +13995,11 @@ int QUICK_GROUP_MIN_MAX_SELECT::init()
 
   if (key_infix_len > 0)
   {
-    /*
-      The memory location pointed to by key_infix will be deleted soon, so
-      allocate a new buffer and copy the key_infix into it.
-    */
-    uchar *tmp_key_infix= (uchar*) alloc_root(&alloc, key_infix_len);
-    if (!tmp_key_infix)
-      return 1;
-    memcpy(tmp_key_infix, this->key_infix, key_infix_len);
-    this->key_infix= tmp_key_infix;
+    for (uint i = 0; i < key_infix_parts; i++)
+    {
+      if (my_init_dynamic_array(&key_infix_ranges[i], sizeof(QUICK_RANGE*), 16, 16))
+        return 1;
+    }
   }
 
   if (min_max_arg_part)
@@ -14046,6 +14064,10 @@ QUICK_GROUP_MIN_MAX_SELECT::~QUICK_GROUP_MIN_MAX_SELECT()
     head->file->ha_index_or_rnd_end();
   if (min_max_arg_part)
     delete_dynamic(&min_max_ranges);
+  for (uint i = 0; i < key_infix_parts; i++)
+  {
+    delete_dynamic(&key_infix_ranges[i]);
+  }
   free_root(&alloc,MYF(0));
   delete min_functions_it;
   delete max_functions_it;
@@ -14060,6 +14082,8 @@ QUICK_GROUP_MIN_MAX_SELECT::~QUICK_GROUP_MIN_MAX_SELECT()
   SYNOPSIS
     QUICK_GROUP_MIN_MAX_SELECT::add_range()
     sel_range  Range object from which a 
+    idx        If negative, inserts into min_max_ranges
+               otherwise insert into key_infix_ranges[idx]
 
   NOTES
     Construct a new QUICK_RANGE object from a SEL_ARG object, and
@@ -14072,10 +14096,24 @@ QUICK_GROUP_MIN_MAX_SELECT::~QUICK_GROUP_MIN_MAX_SELECT()
     TRUE  otherwise
 */
 
-bool QUICK_GROUP_MIN_MAX_SELECT::add_range(SEL_ARG *sel_range)
+bool QUICK_GROUP_MIN_MAX_SELECT::add_range(SEL_ARG *sel_range, int idx)
 {
   QUICK_RANGE *range;
   uint range_flag= sel_range->min_flag | sel_range->max_flag;
+  DYNAMIC_ARRAY *array= NULL;
+  uint key_length= 0;
+  if (idx < 0)
+  {
+    array= &min_max_ranges;
+    key_length= min_max_arg_len;
+  }
+  else
+  {
+    DBUG_ASSERT((uint)idx < MAX_REF_PARTS);
+    KEY_PART_INFO *key_infix_part= index_info->key_part + group_key_parts + idx;
+    array= &key_infix_ranges[idx];
+    key_length= key_infix_part->store_length;
+  }
 
   /* Skip (-inf,+inf) ranges, e.g. (x < 5 or x > 4). */
   if ((range_flag & NO_MIN_RANGE) && (range_flag & NO_MAX_RANGE))
@@ -14093,18 +14131,20 @@ bool QUICK_GROUP_MIN_MAX_SELECT::add_range(SEL_ARG *sel_range)
     else if (!sel_range->min_value[0] &&
              !sel_range->max_value[0] &&
              memcmp(sel_range->min_value, sel_range->max_value,
-                    min_max_arg_len) == 0)
+                    key_length) == 0)
       range_flag|= EQ_RANGE;  /* equality condition */
   }
-  range= new QUICK_RANGE(sel_range->min_value, min_max_arg_len,
+  range= new QUICK_RANGE(sel_range->min_value, key_length,
                          make_keypart_map(sel_range->part),
-                         sel_range->max_value, min_max_arg_len,
+                         sel_range->max_value, key_length,
                          make_keypart_map(sel_range->part),
                          range_flag);
   if (!range)
     return TRUE;
-  if (insert_dynamic(&min_max_ranges, &range))
+
+  if (insert_dynamic(array, &range))
     return TRUE;
+
   return FALSE;
 }
 
@@ -14313,6 +14353,7 @@ int QUICK_GROUP_MIN_MAX_SELECT::get_next()
   do
   {
     result= next_prefix();
+
     /*
       Check if this is the last group prefix. Notice that at this point
       this->record contains the current prefix in record format.
@@ -14330,34 +14371,52 @@ int QUICK_GROUP_MIN_MAX_SELECT::get_next()
       break;
     }
 
-    if (have_min)
-    {
-      min_res= next_min();
-      if (min_res == 0)
-        update_min_result();
-    }
-    /* If there is no MIN in the group, there is no MAX either. */
-    if ((have_max && !have_min) ||
-        (have_max && have_min && (min_res == 0)))
-    {
-      max_res= next_max();
-      if (max_res == 0)
-        update_max_result();
-      /* If a MIN was found, a MAX must have been found as well. */
-      DBUG_ASSERT((have_max && !have_min) ||
-                  (have_max && have_min && (max_res == 0)));
-    }
-    /*
-      If this is just a GROUP BY or DISTINCT without MIN or MAX and there
-      are equality predicates for the key parts after the group, find the
-      first sub-group with the extended prefix.
-    */
-    if (!have_min && !have_max && key_infix_len > 0)
-      result= head->file->ha_index_read_map(record, group_prefix,
-                                            make_prev_keypart_map(real_key_parts),
-                                            HA_READ_KEY_EXACT);
+    /* Reset various per-group variables. */
+    reset_group();
 
-    result= have_min ? min_res : have_max ? max_res : result;
+    while (!append_next_infix())
+    {
+      if (have_min)
+      {
+        min_res= next_min();
+        if (min_res == 0)
+          update_min_result();
+      }
+      /* If there is no MIN in the group, there is no MAX either. */
+      if ((have_max && !have_min) ||
+          (have_max && have_min && (min_res == 0)))
+      {
+        max_res= next_max();
+        if (max_res == 0)
+          update_max_result();
+        /* If a MIN was found, a MAX must have been found as well. */
+        DBUG_ASSERT((have_max && !have_min) ||
+                    (have_max && have_min && (max_res == 0)));
+      }
+      /*
+        If this is just a GROUP BY or DISTINCT without MIN or MAX and there
+        are equality predicates for the key parts after the group, find the
+        first sub-group with the extended prefix.
+        */
+      if (!have_min && !have_max && key_infix_len > 0)
+        result= head->file->ha_index_read_map(record, group_prefix,
+                                              make_prev_keypart_map(real_key_parts),
+                                              HA_READ_KEY_EXACT);
+
+      result= have_min ? min_res : have_max ? max_res : result;
+
+      /*
+        If this is just a GROUP BY or DISTINCT without MIN or MAX, there is no
+        need to iterate through the whole group to accumulate the MIN/MAX and
+        returning just the one distinct record is enough.
+      */
+      if (!have_min && !have_max && result == 0)
+        break;
+
+      /* Break early on error. */
+      if (result != HA_ERR_KEY_NOT_FOUND && result != HA_ERR_END_OF_FILE && result != 0)
+        break;
+    }
   } while ((result == HA_ERR_KEY_NOT_FOUND || result == HA_ERR_END_OF_FILE) &&
            is_last_prefix != 0);
 
@@ -14550,10 +14609,8 @@ static int index_next_different (bool is_index_scan, handler *file,
     Determine the prefix of the next group that satisfies the query conditions.
     If there is a range condition referencing the group attributes, use a
     QUICK_RANGE_SELECT object to retrieve the *first* key that satisfies the
-    condition. If there is a key infix of constants, append this infix
-    immediately after the group attributes. The possibly extended prefix is
-    stored in this->group_prefix. The first key of the found group is stored in
-    this->record, on which relies this->next_min().
+    condition. The prefix is stored in this->group_prefix. The first key of
+    the found group is stored in this->record, on which relies this->next_min().
 
   RETURN
     0                    on success
@@ -14598,14 +14655,99 @@ int QUICK_GROUP_MIN_MAX_SELECT::next_prefix()
 
   /* Save the prefix of this group for subsequent calls. */
   key_copy(group_prefix, record, index_info, group_prefix_len);
-  /* Append key_infix to group_prefix. */
-  if (key_infix_len > 0)
-    memcpy(group_prefix + group_prefix_len,
-           key_infix, key_infix_len);
 
   DBUG_RETURN(0);
 }
 
+/*
+  Determine and append the next infix.
+
+  SYNOPSIS
+    QUICK_GROUP_MIN_MAX_SELECT::append_next_infix()
+
+  DESCRIPTION
+    Appends the next infix onto this->group_prefix based on the current
+    position stored in cur_key_infix_range.
+
+  RETURN
+    true                 No next infix exists
+    false                on success
+*/
+bool QUICK_GROUP_MIN_MAX_SELECT::append_next_infix()
+{
+  if (key_infix_finished)
+    return true;
+
+  if (key_infix_len > 0)
+  {
+    uchar *key_ptr= group_prefix + group_prefix_len;
+    for (uint i = 0; i < key_infix_parts; i++)
+    {
+      QUICK_RANGE *cur_range;
+      DBUG_ASSERT(key_infix_ranges[i].elements > 0);
+      get_dynamic(&key_infix_ranges[i], (uchar *)&cur_range, cur_key_infix_range[i]);
+
+      memcpy(key_ptr, cur_range->min_key, cur_range->min_length);
+      key_ptr+= cur_range->min_length;
+    }
+
+    /* Advance cur_key_infix_range position. */
+    for (int i = (int)key_infix_parts - 1; i >= 0; i--)
+    {
+      cur_key_infix_range[i]++;
+      if (cur_key_infix_range[i] == key_infix_ranges[i].elements)
+      {
+        cur_key_infix_range[i] = 0;
+        if (i == 0)
+          key_infix_finished = true;
+      }
+      else
+        break;
+    }
+  } else {
+    key_infix_finished = true;
+  }
+  return false;
+}
+
+/*
+  Reset various variables used to track position within a group.
+
+  SYNOPSIS
+    QUICK_GROUP_MIN_MAX_SELECT::reset_group()
+
+  DESCRIPTION
+    Must be called before each group.
+
+  RETURN
+    None
+*/
+
+void QUICK_GROUP_MIN_MAX_SELECT::reset_group()
+{
+  /* Reset key_infix position. */
+  key_infix_finished = false;
+  memset(cur_key_infix_range, 0, sizeof(cur_key_infix_range));
+
+  /* Reset min/max aggregators */
+  Item_sum *min_func, *max_func;
+
+  if (have_min) {
+    min_functions_it->rewind();
+    while ((min_func= (*min_functions_it)++))
+    {
+      min_func->aggregator_clear();
+    }
+  }
+
+  if (have_max) {
+    max_functions_it->rewind();
+    while ((max_func= (*max_functions_it)++))
+    {
+      max_func->aggregator_clear();
+    }
+  }
+}
 
 /*
   Find the minimal key in a group that satisfies some range conditions for the
@@ -14866,8 +15008,8 @@ int QUICK_GROUP_MIN_MAX_SELECT::next_max_in_range()
 
   DESCRIPTION
     The method iterates through all MIN functions and updates the result value
-    of each function by calling Item_sum::reset(), which in turn picks the new
-    result value from this->head->record[0], previously updated by
+    of each function by calling Item_sum::aggregator_add(), which in turn picks
+    the new result value from this->head->record[0], previously updated by
     next_min(). The updated value is stored in a member variable of each of the
     Item_sum objects, depending on the value type.
 
@@ -14887,9 +15029,10 @@ void QUICK_GROUP_MIN_MAX_SELECT::update_min_result()
 
   min_functions_it->rewind();
   while ((min_func= (*min_functions_it)++))
-    min_func->reset_and_add();
+  {
+    min_func->aggregator_add();
+  }
 }
-
 
 /*
   Update all MAX function results with the newly found value.
@@ -14899,8 +15042,8 @@ void QUICK_GROUP_MIN_MAX_SELECT::update_min_result()
 
   DESCRIPTION
     The method iterates through all MAX functions and updates the result value
-    of each function by calling Item_sum::reset(), which in turn picks the new
-    result value from this->head->record[0], previously updated by
+    of each function by calling Item_sum::aggregator_add(), which in turn picks
+    the new result value from this->head->record[0], previously updated by
     next_max(). The updated value is stored in a member variable of each of the
     Item_sum objects, depending on the value type.
 
@@ -14919,7 +15062,9 @@ void QUICK_GROUP_MIN_MAX_SELECT::update_max_result()
 
   max_functions_it->rewind();
   while ((max_func= (*max_functions_it)++))
-    max_func->reset_and_add();
+  {
+    max_func->aggregator_add();
+  }
 }
 
 

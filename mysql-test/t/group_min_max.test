@@ -267,50 +267,112 @@ select a1,  max(c)           from t2 where a1 in ('a','b','d') group by a1,a2,b;
 # B) Equalities only over the non-group 'B' attributes
 # plans
 explain select a1,a2,b,max(c),min(c) from t1 where (a2 = 'a') and (b = 'b') group by a1;
+explain select a1,a2,b,max(c),min(c) from t1 where (a2 = 'a' or a2 = 'b') and (b = 'b') group by a1;
+explain select a1,a2,b,max(c),min(c) from t1 where (a2 = 'a') and (b = 'b' or b = 'a') group by a1;
+explain select a1,a2,b,max(c),min(c) from t1 where (a2 = 'a' or a2 = 'b') and (b = 'b' or b = 'a') group by a1;
+
 explain select a1,max(c),min(c)      from t1 where (a2 = 'a') and (b = 'b') group by a1;
+explain select a1,max(c),min(c)      from t1 where (a2 = 'a' or a2 = 'b') and (b = 'b') group by a1;
+explain select a1,max(c),min(c)      from t1 where (a2 = 'a') and (b = 'b' or b = 'a') group by a1;
+
 explain select a1,a2,b,       max(c) from t1 where (b = 'b') group by a1,a2;
+explain select a1,a2,b,       max(c) from t1 where (b = 'b' or b = 'a') group by a1,a2;
+
 explain select a1,a2,b,min(c),max(c) from t1 where (b = 'b') group by a1,a2;
+explain select a1,a2,b,min(c),max(c) from t1 where (b = 'b' or b = 'a') group by a1,a2;
+
 explain select a1,a2, max(c)         from t1 where (b = 'b') group by a1,a2;
+explain select a1,a2, max(c)         from t1 where (b = 'b' or b = 'a') group by a1,a2;
 
 explain select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b = 'b') group by a1;
+explain select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a' or a2 = 'b') and (b = 'b') group by a1;
+explain select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b = 'b' or b = 'a') group by a1;
+
 explain select a1,max(c),min(c)      from t2 where (a2 = 'a') and (b = 'b') group by a1;
+explain select a1,max(c),min(c)      from t2 where (a2 = 'a' or a2 = 'b') and (b = 'b') group by a1;
+explain select a1,max(c),min(c)      from t2 where (a2 = 'a') and (b = 'b' or b = 'a') group by a1;
+
 explain select a1,a2,b,       max(c) from t2 where (b = 'b') group by a1,a2;
+explain select a1,a2,b,       max(c) from t2 where (b = 'b' or b = 'a') group by a1,a2;
+
 explain select a1,a2,b,min(c),max(c) from t2 where (b = 'b') group by a1,a2;
+explain select a1,a2,b,min(c),max(c) from t2 where (b = 'b' or b = 'a') group by a1,a2;
+
 explain select a1,a2, max(c)         from t2 where (b = 'b') group by a1,a2;
+explain select a1,a2, max(c)         from t2 where (b = 'b' or b = 'a') group by a1,a2;
 
 # these queries test case 2) in TRP_GROUP_MIN_MAX::update_cost()
 explain select a1,a2,b,max(c),min(c) from t3 where (a2 = 'a') and (b = 'b') group by a1;
+explain select a1,a2,b,max(c),min(c) from t3 where (a2 = 'a' or a2 = 'b') and (b = 'b') group by a1;
+explain select a1,a2,b,max(c),min(c) from t3 where (a2 = 'a') and (b = 'b' or b = 'a') group by a1;
+
 explain select a1,max(c),min(c)      from t3 where (a2 = 'a') and (b = 'b') group by a1;
+explain select a1,max(c),min(c)      from t3 where (a2 = 'a' or a2 = 'b') and (b = 'b') group by a1;
+explain select a1,max(c),min(c)      from t3 where (a2 = 'a') and (b = 'b' or b = 'a') group by a1;
 
 # queries
 select a1,a2,b,max(c),min(c) from t1 where (a2 = 'a') and (b = 'b') group by a1;
+select a1,a2,b,max(c),min(c) from t1 where (a2 = 'a' or a2 = 'b') and (b = 'b') group by a1;
+select a1,a2,b,max(c),min(c) from t1 where (a2 = 'a') and (b = 'b' or b = 'a') group by a1;
+select a1,a2,b,max(c),min(c) from t1 where (a2 = 'a' or a2 = 'b') and (b = 'b' or b = 'a') group by a1;
+
 select a1,max(c),min(c)      from t1 where (a2 = 'a') and (b = 'b') group by a1;
+select a1,max(c),min(c)      from t1 where (a2 = 'a' or a2 = 'b') and (b = 'b') group by a1;
+select a1,max(c),min(c)      from t1 where (a2 = 'a') and (b = 'b' or b = 'a') group by a1;
+
 select a1,a2,b,       max(c) from t1 where (b = 'b') group by a1,a2;
+select a1,a2,b,       max(c) from t1 where (b = 'b' or b = 'a') group by a1,a2;
+
 select a1,a2,b,min(c),max(c) from t1 where (b = 'b') group by a1,a2;
+select a1,a2,b,min(c),max(c) from t1 where (b = 'b' or b = 'a') group by a1,a2;
+
 select a1,a2, max(c)         from t1 where (b = 'b') group by a1,a2;
+select a1,a2, max(c)         from t1 where (b = 'b' or b = 'a') group by a1,a2;
 
 select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b = 'b') group by a1;
+select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a' or a2 = 'b') and (b = 'b') group by a1;
+select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b = 'b' or b = 'a') group by a1;
+
 select a1,max(c),min(c)      from t2 where (a2 = 'a') and (b = 'b') group by a1;
+select a1,max(c),min(c)      from t2 where (a2 = 'a' or a2 = 'b') and (b = 'b') group by a1;
+select a1,max(c),min(c)      from t2 where (a2 = 'a') and (b = 'b' or b = 'a') group by a1;
+
 select a1,a2,b,       max(c) from t2 where (b = 'b') group by a1,a2;
+select a1,a2,b,       max(c) from t2 where (b = 'b' or b = 'a') group by a1,a2;
+
 select a1,a2,b,min(c),max(c) from t2 where (b = 'b') group by a1,a2;
+select a1,a2,b,min(c),max(c) from t2 where (b = 'b' or b = 'a') group by a1,a2;
+
 select a1,a2, max(c)         from t2 where (b = 'b') group by a1,a2;
+select a1,a2, max(c)         from t2 where (b = 'b' or b = 'a') group by a1,a2;
 
 # these queries test case 2) in TRP_GROUP_MIN_MAX::update_cost()
 select a1,a2,b,max(c),min(c) from t3 where (a2 = 'a') and (b = 'b') group by a1;
+select a1,a2,b,max(c),min(c) from t3 where (a2 = 'a' or a2 = 'b') and (b = 'b') group by a1;
+select a1,a2,b,max(c),min(c) from t3 where (a2 = 'a') and (b = 'b' or b = 'a') group by a1;
+
 select a1,max(c),min(c)      from t3 where (a2 = 'a') and (b = 'b') group by a1;
+select a1,max(c),min(c)      from t3 where (a2 = 'a' or a2 = 'b') and (b = 'b') group by a1;
+select a1,max(c),min(c)      from t3 where (a2 = 'a') and (b = 'b' or b = 'a') group by a1;
 
 
 # IS NULL (makes sense for t2 only)
 # plans
 explain select a1,a2,b,min(c) from t2 where (a2 = 'a') and b is NULL group by a1;
+explain select a1,a2,b,min(c) from t2 where (a2 = 'a' or a2 = 'b') and b is NULL group by a1;
+
 explain select a1,a2,b,max(c) from t2 where (a2 = 'a') and b is NULL group by a1;
+explain select a1,a2,b,max(c) from t2 where (a2 = 'a' or a2 = 'b') and b is NULL group by a1;
+
 explain select a1,a2,b,min(c) from t2 where b is NULL group by a1,a2;
 explain select a1,a2,b,max(c) from t2 where b is NULL group by a1,a2;
 explain select a1,a2,b,min(c),max(c) from t2 where b is NULL group by a1,a2;
-explain select a1,a2,b,min(c),max(c) from t2 where b is NULL group by a1,a2;
+
 # queries
 select a1,a2,b,min(c) from t2 where (a2 = 'a') and b is NULL group by a1;
+select a1,a2,b,min(c) from t2 where (a2 = 'a' or a2 = 'b') and b is NULL group by a1;
 select a1,a2,b,max(c) from t2 where (a2 = 'a') and b is NULL group by a1;
+select a1,a2,b,max(c) from t2 where (a2 = 'a' or a2 = 'b') and b is NULL group by a1;
 select a1,a2,b,min(c) from t2 where b is NULL group by a1,a2;
 select a1,a2,b,max(c) from t2 where b is NULL group by a1,a2;
 select a1,a2,b,min(c),max(c) from t2 where b is NULL group by a1,a2;
@@ -460,6 +522,7 @@ select a1,a2,b,min(c) from t2 where (a1 > 'a') and (a2 > 'a') and (b = 'c') grou
 explain select a1,a2,b from t1 where (a1 >= 'c' or a2 < 'b') and (b > 'a') group by a1,a2,b;
 explain select a1,a2,b from t1 where (a2 >= 'b') and (b = 'a') group by a1,a2,b;
 explain select a1,a2,b,c from t1 where (a2 >= 'b') and (b = 'a') and (c = 'i121') group by a1,a2,b;
+explain select a1,a2,b,c from t1 where (a2 >= 'b') and (b = 'a') and (c = 'i121' or c = 'i121') group by a1,a2,b;
 explain select a1,a2,b from t1 where (a1 > 'a') and (a2 > 'a') and (b = 'c') group by a1,a2,b;
 
 --replace_column 9 #
@@ -469,17 +532,21 @@ explain select a1,a2,b from t2 where (a2 >= 'b') and (b = 'a') group by a1,a2,b;
 --replace_column 9 #
 explain select a1,a2,b,c from t2 where (a2 >= 'b') and (b = 'a') and (c = 'i121') group by a1,a2,b;
 --replace_column 9 #
+explain select a1,a2,b,c from t2 where (a2 >= 'b') and (b = 'a') and (c = 'i121' or c = 'i121') group by a1,a2,b;
+--replace_column 9 #
 explain select a1,a2,b from t2 where (a1 > 'a') and (a2 > 'a') and (b = 'c') group by a1,a2,b;
 
 # queries
 select a1,a2,b from t1 where (a1 >= 'c' or a2 < 'b') and (b > 'a') group by a1,a2,b;
 select a1,a2,b from t1 where (a2 >= 'b') and (b = 'a') group by a1,a2,b;
 select a1,a2,b,c from t1 where (a2 >= 'b') and (b = 'a') and (c = 'i121') group by a1,a2,b;
+select a1,a2,b,c from t1 where (a2 >= 'b') and (b = 'a') and (c = 'i121' or c = 'i121') group by a1,a2,b;
 select a1,a2,b from t1 where (a1 > 'a') and (a2 > 'a') and (b = 'c') group by a1,a2,b;
 
 select a1,a2,b from t2 where (a1 >= 'c' or a2 < 'b') and (b > 'a') group by a1,a2,b;
 select a1,a2,b from t2 where (a2 >= 'b') and (b = 'a') group by a1,a2,b;
 select a1,a2,b,c from t2 where (a2 >= 'b') and (b = 'a') and (c = 'i121') group by a1,a2,b;
+select a1,a2,b,c from t2 where (a2 >= 'b') and (b = 'a') and (c = 'i121' or c = 'i121') group by a1,a2,b;
 select a1,a2,b from t2 where (a1 > 'a') and (a2 > 'a') and (b = 'c') group by a1,a2,b;
 
 #
@@ -619,6 +686,9 @@ where (a1 = 'b' or a1 = 'd' or a1 = 'a' or a1 = 'c') and (a2 > 'a') and (d > 'xy
 
 # non-equality predicate for a non-group select attribute
 explain select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b = 'b') or (b < 'b') group by a1;
+explain select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b < 'b') group by a1;
+explain select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b <= 'b') group by a1;
+explain select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b <= 'b' and b >= 'a') group by a1;
 explain extended select a1,a2,b from t1 where (a1 = 'b' or a1 = 'd' or a1 = 'a' or a1 = 'c') and (a2 > 'a') and (c > 'a111') group by a1,a2,b;
 
 # non-group field with an equality predicate that references a keypart after the
@@ -640,6 +710,12 @@ explain select a1, a2, b, c, min(d), max(d) from t1 group by a1,a2,b,c;
 explain select a1,a2,count(a2) from t1 group by a1,a2,b;
 explain extended select a1,a2,count(a2) from t1 where (a1 > 'a') group by a1,a2,b;
 explain extended select sum(ord(a1)) from t1 where (a1 > 'a') group by a1,a2,b;
+
+# test multi_range_groupby flag
+set optimizer_switch = 'multi_range_groupby=off';
+explain select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b = 'a' or b = 'b') group by a1;
+set optimizer_switch = 'default';
+explain select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b = 'a' or b = 'b') group by a1;
 
 
 #

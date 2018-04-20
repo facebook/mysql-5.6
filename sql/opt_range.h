@@ -817,8 +817,11 @@ private:
   KEY_PART_INFO *min_max_arg_part; /* The keypart of the only argument field */
                                    /* of all MIN/MAX functions.              */
   uint min_max_arg_len;  /* The length of the MIN/MAX argument field */
-  uchar *key_infix;       /* Infix of constants from equality predicates. */
   uint key_infix_len;
+  uint key_infix_parts; /* Indicates the number gap attributes we have */
+  DYNAMIC_ARRAY key_infix_ranges[MAX_REF_PARTS]; /* The set of QUICK_RANGEs to traverse for every part. */
+  uint cur_key_infix_range[MAX_REF_PARTS]; /* Indicates the current permutation of key_infix_ranges. */
+  bool key_infix_finished; /* Indicates whether we are finished traversing through all permutations of key_infix_ranges. */
   DYNAMIC_ARRAY min_max_ranges; /* Array of range ptrs for the MIN/MAX field. */
   uint real_prefix_len; /* Length of key prefix extended with key_infix. */
   uint real_key_parts;  /* A number of keyparts in the above value.      */
@@ -840,6 +843,8 @@ public:
   QUICK_RANGE_SELECT *quick_prefix_select;/* For retrieval of group prefixes. */
 private:
   int  next_prefix();
+  bool append_next_infix();
+  void reset_group();
   int  next_min_in_range();
   int  next_max_in_range();
   int  next_min();
@@ -853,10 +858,10 @@ public:
                              uint group_prefix_len, uint group_key_parts,
                              uint used_key_parts, KEY *index_info, uint
                              use_index, double read_cost, ha_rows records, uint
-                             key_infix_len, uchar *key_infix, MEM_ROOT
-                             *parent_alloc, bool is_index_scan);
+                             key_infix_len, MEM_ROOT *parent_alloc,
+                             bool is_index_scan);
   ~QUICK_GROUP_MIN_MAX_SELECT();
-  bool add_range(SEL_ARG *sel_range);
+  bool add_range(SEL_ARG *sel_range, int idx);
   void update_key_stat();
   void adjust_prefix_ranges();
   bool alloc_buffers();

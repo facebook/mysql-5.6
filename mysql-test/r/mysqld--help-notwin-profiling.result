@@ -750,8 +750,8 @@ The following options may be given as the first argument:
  mrr_cost_based, materialization, semijoin, loosescan,
  firstmatch, subquery_materialization_cost_based,
  block_nested_loop, batched_key_access,
- use_index_extensions, skip_scan, skip_scan_cost_based}
- and val is one of {on, off, default}
+ use_index_extensions, skip_scan, skip_scan_cost_based,
+ multi_range_groupby} and val is one of {on, off, default}
  --optimizer-trace=name 
  Controls tracing of the Optimizer:
  optimizer_trace=option=val[,option=val...], where option
@@ -2044,7 +2044,7 @@ optimizer-full-scan TRUE
 optimizer-low-limit-heuristic TRUE
 optimizer-prune-level 1
 optimizer-search-depth 62
-optimizer-switch index_merge=on,index_merge_union=on,index_merge_sort_union=on,index_merge_intersection=on,engine_condition_pushdown=on,index_condition_pushdown=on,mrr=on,mrr_cost_based=on,block_nested_loop=on,batched_key_access=off,materialization=on,semijoin=on,loosescan=on,firstmatch=on,subquery_materialization_cost_based=on,use_index_extensions=on,skip_scan=off,skip_scan_cost_based=on
+optimizer-switch index_merge=on,index_merge_union=on,index_merge_sort_union=on,index_merge_intersection=on,engine_condition_pushdown=on,index_condition_pushdown=on,mrr=on,mrr_cost_based=on,block_nested_loop=on,batched_key_access=off,materialization=on,semijoin=on,loosescan=on,firstmatch=on,subquery_materialization_cost_based=on,use_index_extensions=on,skip_scan=off,skip_scan_cost_based=on,multi_range_groupby=on
 optimizer-trace 
 optimizer-trace-features greedy_search=on,range_optimizer=on,dynamic_range=on,repeated_subselect=on
 optimizer-trace-limit 1
