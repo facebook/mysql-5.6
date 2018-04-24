@@ -62,7 +62,8 @@ static int test_if_open(struct file_info *key,element_count count,
 static void fix_blob_pointers(MI_INFO *isam,uchar *record);
 static int test_when_accessed(struct file_info *key,element_count count,
 			      struct st_access_param *access_param);
-static void file_info_free(struct file_info *info);
+static void file_info_free(void* key, TREE_FREE action MY_ATTRIBUTE((unused)),
+                           const void *param MY_ATTRIBUTE((unused)));
 static int close_some_file(TREE *tree);
 static int reopen_closed_file(TREE *tree,struct file_info *file_info);
 static int find_record_with_key(struct file_info *file_info,uchar *record);
@@ -329,7 +330,7 @@ static int examine_log(char * file_name, char **table_names)
   init_io_cache(&cache,file,0,READ_CACHE,start_offset,0,MYF(0));
   memset(com_count, 0, sizeof(com_count));
   init_tree(&tree,0,0,sizeof(file_info),(qsort_cmp2) file_info_compare,1,
-	    (tree_element_free) file_info_free, NULL);
+            file_info_free, NULL);
   (void) init_key_cache(dflt_key_cache,KEY_CACHE_BLOCK_SIZE,KEY_CACHE_SIZE,
                       0, 0);
 
@@ -749,8 +750,10 @@ static int test_when_accessed (struct file_info *key,
 }
 
 
-static void file_info_free(struct file_info *fileinfo)
+static void file_info_free(void* key, TREE_FREE action MY_ATTRIBUTE((unused)),
+                           const void *param MY_ATTRIBUTE((unused)))
 {
+  struct file_info *fileinfo= (struct file_info*)key;
   DBUG_ENTER("file_info_free");
   if (update)
   {

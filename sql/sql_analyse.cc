@@ -239,12 +239,11 @@ bool get_ev_num_info(EV_NUM_INFO *ev_info, NUM_INFO *info, const char *num)
   return 1;
 } // get_ev_num_info
 
-
-void free_string(String *s)
+void free_string(void* key, TREE_FREE action MY_ATTRIBUTE((unused)),
+                 const void *param MY_ATTRIBUTE((unused)))
 {
-  s->free();
+  reinterpret_cast<String*>(key)->free();
 }
-
 
 void field_str::add()
 {
@@ -320,7 +319,7 @@ void field_str::add()
       }
       else
       {
-	memset(&s, 0, sizeof(s));  // Let tree handle free of this
+	memset(static_cast<void*>(&s), 0, sizeof(s));  // Let tree handle free of this
 	if ((treemem += length) > pc->max_treemem)
 	{
 	  room_in_tree = 0;	 // Remove tree, too big tree

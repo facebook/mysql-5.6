@@ -661,7 +661,7 @@ create_tmp_table(THD *thd,TMP_TABLE_PARAM *param,List<Item> &fields,
   strmov(tmpname,path);
   /* make table according to fields */
 
-  memset(table, 0, sizeof(*table));
+  memset(static_cast<void*>(table), 0, sizeof(*table));
   memset(reg_field, 0, sizeof(Field*)*(field_count+1));
   memset(default_field, 0, sizeof(Field*) * (field_count));
   memset(from_field, 0, sizeof(Field*)*field_count);
@@ -1371,7 +1371,7 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd,
   
 
   /* STEP 4: Create TABLE description */
-  memset(table, 0, sizeof(*table));
+  memset(static_cast<void*>(table), 0, sizeof(*table));
   memset(reg_field, 0, sizeof(Field*)*2);
   memset(key_part_info, 0, sizeof(*key_part_info)*2);
 
@@ -1610,8 +1610,8 @@ TABLE *create_virtual_tmp_table(THD *thd, List<Create_field> &field_list)
                         NullS))
     return 0;
 
-  memset(table, 0, sizeof(*table));
-  memset(share, 0, sizeof(*share));
+  memset(static_cast<void*>(table), 0, sizeof(*table));
+  memset(static_cast<void*>(share), 0, sizeof(*share));
   table->field= field;
   table->s= share;
   table->temp_pool_slot= MY_BIT_NONE;

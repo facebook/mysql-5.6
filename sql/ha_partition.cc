@@ -2252,7 +2252,7 @@ void ha_partition::update_create_info(HA_CREATE_INFO *create_info)
   uint num_parts = num_subparts ? m_file_tot_parts / num_subparts
                                 : m_file_tot_parts;
   HA_CREATE_INFO dummy_info;
-  memset(&dummy_info, 0, sizeof(dummy_info));
+  memset(static_cast<void*>(&dummy_info), 0, sizeof(dummy_info));
 
   /*
   Since update_create_info() can be called from mysql_prepare_alter_table()

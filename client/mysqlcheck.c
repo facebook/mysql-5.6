@@ -727,7 +727,7 @@ static int disable_binlog()
 
 static int handle_request_for_tables(char *tables, size_t length)
 {
-  char *query, *end, options[100], message[100];
+  char *query, *end, options[100];
   size_t query_length= 0, query_size= sizeof(char)*(length+110);
   const char *op = 0;
 
@@ -781,7 +781,10 @@ static int handle_request_for_tables(char *tables, size_t length)
   }
   if (mysql_real_query(sock, query, query_length))
   {
-    sprintf(message, "when executing '%s TABLE ... %s'", op, options);
+    static const char format_msg[]= "when executing '%s TABLE ... %s'";
+    char message[sizeof(options) + sizeof(format_msg) +
+                 32 /* to fit "OPTIMIZE NO_WRITE_TO_BINLOG" */];
+    snprintf(message, sizeof(message), format_msg, op, options);
     DBerror(sock, message);
     return 1;
   }

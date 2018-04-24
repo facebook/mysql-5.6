@@ -187,7 +187,7 @@ int ha_blackhole::info(uint flag)
 {
   DBUG_ENTER("ha_blackhole::info");
 
-  memset(&stats, 0, sizeof(stats));
+  memset(static_cast<void*>(&stats), 0, sizeof(stats));
   if (flag & HA_STATUS_AUTO)
     stats.auto_increment_value= 1;
   DBUG_RETURN(0);

@@ -223,7 +223,7 @@ fill_defined_view_parts (THD *thd, TABLE_LIST *view)
   LEX *lex= thd->lex;
   TABLE_LIST decoy;
 
-  memcpy (&decoy, view, sizeof (TABLE_LIST));
+  memcpy(static_cast<void*>(&decoy), view, sizeof (TABLE_LIST));
 
   key_length= get_table_def_key(view, &key);
 
@@ -2178,7 +2178,7 @@ mysql_rename_view(THD *thd,
       view definition parsing or use temporary 'view_def'
       object for it.
     */
-    memset(&view_def, 0, sizeof(view_def));
+    memset(static_cast<void*>(&view_def), 0, sizeof(view_def));
     view_def.timestamp.str= view_def.timestamp_buffer;
     view_def.view_suid= TRUE;
 

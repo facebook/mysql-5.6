@@ -1959,7 +1959,7 @@ bool sp_head::add_used_tables_to_table_list(THD *thd,
 bool sp_head::check_show_access(THD *thd, bool *full_access)
 {
   TABLE_LIST tables;
-  memset(&tables, 0, sizeof(tables));
+  memset(static_cast<void*>(&tables), 0, sizeof(tables));
   tables.db= (char*) "mysql";
   tables.table_name= tables.alias= (char*) "proc";
 

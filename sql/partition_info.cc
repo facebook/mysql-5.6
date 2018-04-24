@@ -42,7 +42,7 @@ partition_info *partition_info::get_clone(bool reset /* = false */)
     mem_alloc_error(sizeof(partition_info));
     DBUG_RETURN(NULL);
   }
-  memcpy(clone, this, sizeof(partition_info));
+  memcpy(static_cast<void*>(clone), this, sizeof(partition_info));
   memset(&(clone->read_partitions), 0, sizeof(clone->read_partitions));
   memset(&(clone->lock_partitions), 0, sizeof(clone->lock_partitions));
   clone->bitmaps_are_initialized= FALSE;
@@ -59,7 +59,7 @@ partition_info *partition_info::get_clone(bool reset /* = false */)
       mem_alloc_error(sizeof(partition_element));
       DBUG_RETURN(NULL);
     }
-    memcpy(part_clone, part, sizeof(partition_element));
+    memcpy(static_cast<void*>(part_clone), part, sizeof(partition_element));
 
     /*
       Mark that RANGE and LIST values needs to be fixed so that we don't
@@ -89,7 +89,8 @@ partition_info *partition_info::get_clone(bool reset /* = false */)
         mem_alloc_error(sizeof(partition_element));
         DBUG_RETURN(NULL);
       }
-      memcpy(subpart_clone, subpart, sizeof(partition_element));
+      memcpy(static_cast<void*>(subpart_clone), subpart,
+             sizeof(partition_element));
       part_clone->subpartitions.push_back(subpart_clone);
     }
     clone->partitions.push_back(part_clone);
@@ -1872,7 +1873,7 @@ void partition_info::print_no_partition_found(TABLE *table_arg)
   char *buf_ptr= (char*)&buf;
   TABLE_LIST table_list;
 
-  memset(&table_list, 0, sizeof(table_list));
+  memset(static_cast<void*>(&table_list), 0, sizeof(table_list));
   table_list.db= table_arg->s->db.str;
   table_list.table_name= table_arg->s->table_name.str;
 

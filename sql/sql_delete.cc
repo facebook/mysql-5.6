@@ -91,7 +91,7 @@ bool mysql_delete(THD *thd, TABLE_LIST *table_list, Item *conds,
     List<Item>   fields;
     List<Item>   all_fields;
 
-    memset(&tables, 0, sizeof(tables));
+    memset(static_cast<void*>(&tables), 0, sizeof(tables));
     tables.table = table;
     tables.alias = table_list->alias;
 

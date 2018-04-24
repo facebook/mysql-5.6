@@ -599,7 +599,7 @@ find_files(THD *thd, List<LEX_STRING> *files, const char *db,
 
 
 
-  memset(&table_list, 0, sizeof(table_list));
+  memset(static_cast<void*>(&table_list), 0, sizeof(table_list));
 
   if (!(dirp = my_dir(path,MYF(dir ? MY_WANT_STAT : 0))))
   {
@@ -1610,7 +1610,7 @@ int store_create_info(THD *thd, TABLE_LIST *table_list, String *packet,
   }
 
   key_info= table->key_info;
-  memset(&create_info, 0, sizeof(create_info));
+  memset(static_cast<void*>(&create_info), 0, sizeof(create_info));
   /* Allow update_create_info to update row type */
   create_info.row_type= share->row_type;
   create_info.rbr_column_names = share->rbr_column_names;
@@ -4862,8 +4862,8 @@ static int fill_schema_table_from_frm(THD *thd, TABLE_LIST *tables,
   uint key_length;
   char db_name_buff[NAME_LEN + 1], table_name_buff[NAME_LEN + 1];
 
-  memset(&table_list, 0, sizeof(TABLE_LIST));
-  memset(&tbl, 0, sizeof(TABLE));
+  memset(static_cast<void*>(&table_list), 0, sizeof(TABLE_LIST));
+  memset(static_cast<void*>(&tbl), 0, sizeof(TABLE));
 
   DBUG_ASSERT(db_name->length <= NAME_LEN);
   DBUG_ASSERT(table_name->length <= NAME_LEN);
@@ -6242,7 +6242,7 @@ bool store_schema_params(THD *thd, TABLE *table, TABLE *proc_table,
   bool free_sp_head;
   DBUG_ENTER("store_schema_params");
 
-  memset(&tbl, 0, sizeof(TABLE));
+  memset(static_cast<void*>(&tbl), 0, sizeof(TABLE));
   (void) build_table_filename(path, sizeof(path), "", "", "", 0);
   init_tmp_table_share(thd, &share, "", 0, "", path);
 
@@ -6451,7 +6451,7 @@ bool store_schema_proc(THD *thd, TABLE *table, TABLE *proc_table,
           Field *field;
           Create_field *field_def= &sp->m_return_field_def;
 
-          memset(&tbl, 0, sizeof(TABLE));
+          memset(static_cast<void*>(&tbl), 0, sizeof(TABLE));
           (void) build_table_filename(path, sizeof(path), "", "", "", 0);
           init_tmp_table_share(thd, &share, "", 0, "", path);
           field= make_field(&share, (uchar*) 0, field_def->length,
@@ -6532,7 +6532,7 @@ int fill_schema_proc(THD *thd, TABLE_LIST *tables, Item *cond)
   strxmov(definer, thd->security_ctx->priv_user, "@",
           thd->security_ctx->priv_host, NullS);
   /* We use this TABLE_LIST instance only for checking of privileges. */
-  memset(&proc_tables, 0, sizeof(proc_tables));
+  memset(static_cast<void*>(&proc_tables), 0, sizeof(proc_tables));
   proc_tables.db= (char*) "mysql";
   proc_tables.db_length= 5;
   proc_tables.table_name= proc_tables.alias= (char*) "proc";
@@ -6715,7 +6715,7 @@ static int get_schema_views_record(THD *thd, TABLE_LIST *tables,
         {
           TABLE_LIST table_list;
           uint view_access;
-          memset(&table_list, 0, sizeof(table_list));
+          memset(static_cast<void*>(&table_list), 0, sizeof(table_list));
           table_list.db= tables->db;
           table_list.table_name= tables->table_name;
           table_list.grant.privilege= thd->col_access;

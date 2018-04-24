@@ -3529,7 +3529,7 @@ row_import_for_mysql(
 
 	row_import	cfg;
 
-	memset(&cfg, 0x0, sizeof(cfg));
+	memset(static_cast<void*>(&cfg), 0x0, sizeof(cfg));
 
 	err = row_import_read_cfg(table, trx->mysql_thd, cfg);
 

@@ -175,7 +175,7 @@ bool dd_recreate_table(THD *thd, const char *db, const char *table_name)
   DBUG_ASSERT(thd->mdl_context.is_lock_owner(MDL_key::TABLE, db, table_name,
                                              MDL_EXCLUSIVE));
 
-  memset(&create_info, 0, sizeof(create_info));
+  memset(static_cast<void*>(&create_info), 0, sizeof(create_info));
 
   /* Create a path to the table, but without a extension. */
   build_table_filename(path, sizeof(path) - 1, db, table_name, "", 0);

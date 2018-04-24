@@ -2693,7 +2693,8 @@ create:
             lex->alter_info.reset();
             lex->col_list.empty();
             lex->change=NullS;
-            memset(&lex->create_info, 0, sizeof(lex->create_info));
+            memset(static_cast<void*>(&lex->create_info), 0,
+                   sizeof(lex->create_info));
             lex->create_info.options=$2 | $4;
             lex->create_info.default_table_charset= NULL;
             lex->name.str= 0;
@@ -7768,7 +7769,8 @@ alter:
             lex->col_list.empty();
             lex->select_lex.init_order();
             lex->select_lex.db= (lex->select_lex.table_list.first)->db;
-            memset(&lex->create_info, 0, sizeof(lex->create_info));
+            memset(static_cast<void*>(&lex->create_info), 0,
+                   sizeof(lex->create_info));
             lex->create_info.db_type= 0;
             lex->create_info.default_table_charset= NULL;
             lex->create_info.row_type= ROW_TYPE_NOT_USED;
@@ -13314,7 +13316,8 @@ show:
             lex->wild=0;
             mysql_init_select(lex);
             lex->current_select->parsing_place= SELECT_LIST;
-            memset(&lex->create_info, 0, sizeof(lex->create_info));
+            memset(static_cast<void*>(&lex->create_info), 0,
+                   sizeof(lex->create_info));
           }
           show_param
           {

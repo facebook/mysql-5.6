@@ -1522,7 +1522,8 @@ my_offset_tzs_get_key(Time_zone_offset *entry,
 static void
 tz_init_table_list(TABLE_LIST *tz_tabs)
 {
-  memset(tz_tabs, 0, sizeof(TABLE_LIST) * MY_TZ_TABLES_COUNT);
+  memset(static_cast<void*>(tz_tabs), 0,
+         sizeof(TABLE_LIST) * MY_TZ_TABLES_COUNT);
 
   for (int i= 0; i < MY_TZ_TABLES_COUNT; i++)
   {
@@ -1653,7 +1654,7 @@ my_tz_init(THD *org_thd, const char *default_tzname, my_bool bootstrap)
   */
 
   thd->set_db(db, sizeof(db)-1);
-  memset(&tz_tables[0], 0, sizeof(TABLE_LIST));
+  memset(static_cast<void*>(&tz_tables[0]), 0, sizeof(TABLE_LIST));
   tz_tables[0].alias= tz_tables[0].table_name=
     (char*)"time_zone_leap_second";
   tz_tables[0].table_name_length= 21;

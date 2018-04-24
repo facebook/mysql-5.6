@@ -2193,7 +2193,7 @@ public:
     thd.variables.lock_wait_timeout_nsec= LONG_TIMEOUT_NSEC;
 
     memset(&thd.net, 0, sizeof(thd.net));           // Safety
-    memset(&table_list, 0, sizeof(table_list));     // Safety
+    memset(static_cast<void*>(&table_list), 0, sizeof(table_list));   // Safety
     thd.system_thread= SYSTEM_THREAD_DELAYED_INSERT;
     thd.security_ctx->host_or_ip= "";
     mysql_mutex_init(key_delayed_insert_mutex, &mutex, MY_MUTEX_INIT_FAST);
@@ -4306,7 +4306,7 @@ select_create::binlog_show_create_table(TABLE **tables, uint count)
   int result;
   TABLE_LIST tmp_table_list;
 
-  memset(&tmp_table_list, 0, sizeof(tmp_table_list));
+  memset(static_cast<void*>(&tmp_table_list), 0, sizeof(tmp_table_list));
   tmp_table_list.table = *tables;
   query.length(0);      // Have to zero it since constructor doesn't
 

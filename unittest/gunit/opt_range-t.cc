@@ -105,7 +105,7 @@ public:
                  false)                         // unsigned_arg
   {
     m_table_name= "mock_table";
-    memset(&m_share, 0, sizeof(m_share));
+    memset(static_cast<void*>(&m_share), 0, sizeof(m_share));
     const char *foo= "mock_db";
     m_share.db.str= const_cast<char*>(foo);
     m_share.db.length= strlen(m_share.db.str);
@@ -114,7 +114,7 @@ public:
     bitmap_set_above(&share_allset, 0, 1); //all bits 1
     m_share.all_set= share_allset;
 
-    memset(&m_table, 0, sizeof(m_table));
+    memset(static_cast<void*>(&m_table), 0, sizeof(m_table));
     m_table.s= &m_share;
 
     bitmap_init(&tbl_readset, 0, sizeof(my_bitmap_map), 0);

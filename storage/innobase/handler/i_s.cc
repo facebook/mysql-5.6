@@ -1879,7 +1879,7 @@ i_s_cmp_fill_low(
 			zip_stat->decompressed_secondary_time));
 
 		if (reset) {
-			memset(zip_stat, 0, sizeof *zip_stat);
+			memset(static_cast<void*>(zip_stat), 0, sizeof *zip_stat);
 		}
 
 		if (schema_table_store_record(thd, table)) {

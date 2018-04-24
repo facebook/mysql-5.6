@@ -982,7 +982,7 @@ st_join_table::st_join_table()
     All users do init_read_record(), which does memset(),
     rather than invoking a constructor.
   */
-  memset(&read_record, 0, sizeof(read_record));
+  memset(static_cast<void*>(&read_record), 0, sizeof(read_record));
 }
 
 /**

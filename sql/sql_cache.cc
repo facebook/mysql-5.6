@@ -1726,7 +1726,7 @@ def_week_frmt: %lu, in_trans: %d, autocommit: %d",
       }
     }
 
-    memset(&table_list, 0, sizeof(table_list));
+    memset(static_cast<void*>(&table_list), 0, sizeof(table_list));
     table_list.db = table->db();
     table_list.alias= table_list.table_name= table->table();
 #ifndef NO_EMBEDDED_ACCESS_CHECKS

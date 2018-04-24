@@ -753,7 +753,7 @@ OPEN_TABLE_LIST *list_open_tables(THD *thd, const char *db, const char *wild)
   TABLE_LIST table_list;
   DBUG_ENTER("list_open_tables");
 
-  memset(&table_list, 0, sizeof(table_list));
+  memset(static_cast<void*>(&table_list), 0, sizeof(table_list));
   start_list= &open_list;
   open_list=0;
 
@@ -1079,7 +1079,7 @@ bool close_cached_connection_tables(THD *thd, LEX_STRING *connection)
   DBUG_ENTER("close_cached_connections");
   DBUG_ASSERT(thd);
 
-  memset(&tmp, 0, sizeof(TABLE_LIST));
+  memset(static_cast<void*>(&tmp), 0, sizeof(TABLE_LIST));
 
   mysql_mutex_lock(&LOCK_open);
 
