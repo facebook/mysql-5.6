@@ -9505,7 +9505,8 @@ void JOIN::optimize_fts_query()
         if (fts_item->eq(fts_result, true))
           break;
       }
-      // Fall-through when not an equivalent MATCH expression
+      // fallthrough
+      // when not an equivalent MATCH expression
     default:
       covering= false;
     }

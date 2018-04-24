@@ -10988,7 +10988,7 @@ mysqld_get_one_option(int optid,
     break;
   case 'L':
     WARN_DEPRECATED(NULL, "--language/-l", "'--lc-messages-dir'");
-    /* Note:  fall-through */
+    // fallthrough
   case OPT_LC_MESSAGES_DIRECTORY:
     strmake(lc_messages_dir, argument, sizeof(lc_messages_dir)-1);
     lc_messages_dir_ptr= lc_messages_dir;

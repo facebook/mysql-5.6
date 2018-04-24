@@ -5355,7 +5355,8 @@ loop:
 		fputs("  InnoDB: Warning: CHECK TABLE on ", stderr);
 		dict_index_name_print(stderr, prebuilt->trx, index);
 		fprintf(stderr, " returned %lu\n", ret);
-		/* fall through (this error is ignored by CHECK TABLE) */
+		// fallthrough
+		// (this error is ignored by CHECK TABLE)
 	case DB_END_OF_INDEX:
 func_exit:
 		mem_free(buf);

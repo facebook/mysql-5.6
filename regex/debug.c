@@ -24,7 +24,7 @@ FILE *d;
 	register int c;
 	register int last;
 	int nincat[NC];
-	char buf[10];
+	char buf[11];
 
 	fprintf(d, "%ld states, %d categories", (long)g->nstates,
 							g->ncategories);
@@ -102,7 +102,7 @@ FILE *d;
 	register int col = 0;
 	register int last;
 	register sopno offset = 2;
-	char buf[10];
+	char buf[13];
 #	define	GAP()	{	if (offset % 5 == 0) { \
 					if (col > 40) { \
 						fprintf(d, "\n\t"); \

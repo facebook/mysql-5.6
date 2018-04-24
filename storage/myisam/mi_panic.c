@@ -74,6 +74,7 @@ int mi_panic(enum ha_panic_function flag)
       info->s->kfile=info->dfile= -1;	/* Files aren't open anymore */
       break;
 #endif
+    // fallthrough
     case HA_PANIC_READ:			/* Restore to before WRITE */
 #ifdef CANT_OPEN_FILES_TWICE
       {					/* Open closed files */

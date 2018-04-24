@@ -3353,8 +3353,10 @@ void TC_LOG_MMAP::close()
     mysql_mutex_destroy(&LOCK_active);
     mysql_mutex_destroy(&LOCK_pool);
     mysql_cond_destroy(&COND_pool);
+    // fallthrough
   case 5:
     data[0]='A'; // garble the first (signature) byte, in case mysql_file_delete fails
+    // fallthrough
   case 4:
     for (i=0; i < npages; i++)
     {
@@ -3363,10 +3365,13 @@ void TC_LOG_MMAP::close()
       mysql_mutex_destroy(&pages[i].lock);
       mysql_cond_destroy(&pages[i].cond);
     }
+    // fallthrough
   case 3:
     my_free(pages);
+    // fallthrough
   case 2:
     my_munmap((char*)data, (size_t)file_length);
+    // fallthrough
   case 1:
     mysql_file_close(fd, MYF(0));
   }
