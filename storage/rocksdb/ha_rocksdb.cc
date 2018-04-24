@@ -12786,6 +12786,9 @@ void rdb_handle_io_error(const rocksdb::Status status,
     }
     case RDB_IO_ERROR_BG_THREAD: {
       rdb_log_status_error(status, "BG thread failed to write to RocksDB");
+      /* NO_LINT_DEBUG */
+      sql_print_error("MyRocks: aborting on BG write error.");
+      abort();
       break;
     }
     case RDB_IO_ERROR_GENERAL: {
