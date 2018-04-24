@@ -5968,7 +5968,7 @@ void dump_timed_out_connection_socket_buffer(struct st_connection *con)
   }
   else
   {
-    sprintf(err_msg, "Error message is wrong: %s", &buf[8]);
+    sprintf(err_msg, "Error message is wrong: %s", buf + 8);
     dynstr_append_line(&ds, err_msg, sizeof(err_msg));
   }
 

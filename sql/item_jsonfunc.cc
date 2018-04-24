@@ -98,6 +98,7 @@ ValueToString(fbson::FbsonValue *pval,
       }
       // else json_text, fall through
     }
+    /* fallthrough */
   case fbson::FbsonType::T_Object:
   case fbson::FbsonType::T_Array:
     {

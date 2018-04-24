@@ -64,8 +64,8 @@ clear_table_stats_counters(TABLE_STATS* table_stats)
   table_stats->n_lock_wait_timeout.clear();
   table_stats->n_lock_deadlock.clear();
 
-  memset(&table_stats->page_stats, 0, sizeof(table_stats->page_stats));
-  memset(&table_stats->comp_stats, 0, sizeof(table_stats->comp_stats));
+  memset(static_cast<void*>(&table_stats->page_stats), 0, sizeof(table_stats->page_stats));
+  memset(static_cast<void*>(&table_stats->comp_stats), 0, sizeof(table_stats->comp_stats));
 }
 
 /*

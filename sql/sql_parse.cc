@@ -1858,6 +1858,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
 
     // Fall through to COM_QUERY
   }
+  // fallthrough
   case COM_QUERY:
   {
     DBUG_ASSERT(thd->m_digest == NULL);

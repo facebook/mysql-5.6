@@ -6585,7 +6585,7 @@ db_metadata_str:
                 boost::property_tree::json_parser::read_json(is,
                                                              db_metadata_root);
               }
-              catch (std::exception)
+              catch (std::exception &)
               {
                 my_error(ER_DB_METADATA_INVALID_JSON, MYF(0), $3.str);
                 MYSQL_YYABORT;

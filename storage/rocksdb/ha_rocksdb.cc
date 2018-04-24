@@ -600,7 +600,7 @@ static void rocksdb_set_rocksdb_info_log_level(
   RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
   rocksdb_info_log_level = *static_cast<const uint64_t *>(save);
   rocksdb_db_options->info_log->SetInfoLogLevel(
-      static_cast<const rocksdb::InfoLogLevel>(rocksdb_info_log_level));
+      static_cast<rocksdb::InfoLogLevel>(rocksdb_info_log_level));
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
@@ -4926,7 +4926,7 @@ static inline void rocksdb_smart_next(bool seek_backward,
   }
 }
 
-#ifndef NDEBUG
+#if !defined(NDEBUG) && !defined(DBUG_OFF)
 // simulate that RocksDB has reported corrupted data
 static void dbug_change_status_to_corrupted(rocksdb::Status *status) {
   *status = rocksdb::Status::Corruption();

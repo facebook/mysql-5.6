@@ -247,6 +247,11 @@ public:
     happen when, for example, the relay log gets rotated because of
     max_binlog_size.
   */
+
+  // overridden new and delete operators for 64 byte alignment
+  static void* operator new(size_t size);
+  static void operator delete(void *ptr);
+
 protected:
   char group_relay_log_name[FN_REFLEN];
   ulonglong group_relay_log_pos;
@@ -1208,5 +1213,8 @@ inline bool is_mts_worker(const THD *thd)
 {
   return thd->system_thread == SYSTEM_THREAD_SLAVE_WORKER;
 }
+
+void* my_aligned_alloc(size_t alignment, size_t size);
+void my_aligned_free(void* ptr);
 
 #endif /* RPL_RLI_H */

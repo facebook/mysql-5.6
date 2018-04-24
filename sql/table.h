@@ -626,7 +626,7 @@ struct Document_key_trie
     {
       child = (Document_key_trie*)
         alloc_root(mem_root, sizeof(Document_key_trie));
-      memset(child, 0, sizeof(Document_key_trie));
+      memset(static_cast<void*>(child), 0, sizeof(Document_key_trie));
       child->key_name = name;
       child->key_type = MYSQL_TYPE_DOCUMENT_UNKNOWN;
       return child;
@@ -644,7 +644,7 @@ struct Document_key_trie
     {
       cur = (Document_key_trie*)
         alloc_root(mem_root, sizeof(Document_key_trie));
-      memset(cur, 0, sizeof(Document_key_trie));
+      memset(static_cast<void*>(cur), 0, sizeof(Document_key_trie));
       cur->key_name = name;
       cur->key_type = MYSQL_TYPE_DOCUMENT_UNKNOWN;
       prev->sib = cur;

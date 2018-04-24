@@ -649,6 +649,7 @@ handle_new_error:
 
 	case DB_DEADLOCK:
 		fil_change_lock_deadlock_count(table->space, 1);
+		/* fallthrough */
 	case DB_LOCK_TABLE_FULL:
 		/* Roll back the whole transaction; this resolution was added
 		to version 3.23.43 */

@@ -582,15 +582,19 @@ class FbsonJsonParserT {
           case 4:
             *--out = ((uc | 0x80) & 0xBF);
             uc >>= 6;
+            /* fallthrough */
           case 3:
             *--out = ((uc | 0x80) & 0xBF);
             uc >>= 6;
+            /* fallthrough */
           case 2:
             *--out = ((uc | 0x80) & 0xBF);
             uc >>= 6;
+            /* fallthrough */
           case 1:
             // Mask the first byte according to the standard.
             *--out = (uc | firstByteMark[len - 1]);
+            /* fallthrough */
         }
         return true;
         break;

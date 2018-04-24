@@ -9956,18 +9956,18 @@ uint Field_document::get_key_image(uchar *buff, uint length,
       case DOC_PATH_TINY:
         if (length >= 1)
           return get_key_image_bool(buff, fb_val);
-
+        /* fallthrough */
       case DOC_PATH_INT:
         if (length >= sizeof(int64_t))
           return get_key_image_int(buff, fb_val);
-
+        /* fallthrough */
       case DOC_PATH_DOUBLE:
         if (length >= sizeof(double))
           return get_key_image_double(buff, fb_val);
-
+        /* fallthrough */
       case DOC_PATH_STRING:
         return get_key_image_text(buff, length, fb_val);
-
+        /* fallthrough */
       default:
         break;
     }
@@ -10227,7 +10227,7 @@ int Field_document::key_cmp(const uchar *key_ptr,
         int64_t x = this->val_int();
         return (x < k ? -1 : (x > k ? 1 : 0));
       }
-
+      /* fallthrough */
     case DOC_PATH_INT:
       DBUG_ASSERT(max_key_length >= sizeof(int64_t));
       if (max_key_length >= sizeof(int64_t))
@@ -10236,7 +10236,7 @@ int Field_document::key_cmp(const uchar *key_ptr,
         int64_t x = this->val_int();
         return (x < k ? -1 : (x > k ? 1 : 0));
       }
-
+      /* fallthrough */
     case DOC_PATH_DOUBLE:
       DBUG_ASSERT(max_key_length >= sizeof(double));
       if (max_key_length >= sizeof(double))
@@ -10245,7 +10245,7 @@ int Field_document::key_cmp(const uchar *key_ptr,
         double x = this->val_real();
         return (x < k ? -1 : (x > k ? 1 : 0));
       }
-
+      /* fallthrough */
     case DOC_PATH_STRING:
       {
         String val, ptr;
@@ -11842,7 +11842,7 @@ bool Create_field::init(THD *thd, const char *fld_name,
   case MYSQL_TYPE_DOCUMENT_VALUE:
   case MYSQL_TYPE_DOCUMENT:
     flags|= DOCUMENT_FLAG;
-    /* Fall through blob types */
+    /* fallthrough */
   case MYSQL_TYPE_BLOB:
   case MYSQL_TYPE_TINY_BLOB:
   case MYSQL_TYPE_LONG_BLOB:

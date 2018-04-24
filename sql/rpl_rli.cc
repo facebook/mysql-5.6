@@ -32,6 +32,8 @@
 #include <mysql/plugin.h>
 #include <mysql/service_thd_wait.h>
 #include <chrono>
+#include <stdlib.h> // aligned_alloc, posix_memalign
+#include <new>      // bad_alloc
 
 using std::min;
 using std::max;
@@ -2699,4 +2701,37 @@ int Relay_log_info::flush_gtid_infos(bool force, bool xid_event)
   last_gtid[0] = 0;
   reset_dynamic(&gtid_infos);
   DBUG_RETURN(error);
+}
+
+void* Relay_log_info::operator new(size_t request)
+{
+  return my_aligned_alloc(__alignof__(Relay_log_info), sizeof(Relay_log_info));
+}
+
+void Relay_log_info::operator delete(void* ptr) {
+  my_aligned_free(ptr);
+}
+
+void* my_aligned_alloc(size_t alignment, size_t size) {
+  void* ptr;
+#if defined (_WIN32)
+  ptr = _aligned_malloc(size, alignment);
+#elif defined (_ISOC11_SOURCE)
+  ptr = aligned_alloc(alignment, size);
+#elif _POSIX_C_SOURCE >= 200112L || _XOPEN_SOURCE >= 600 || defined(__APPLE__)
+  if (posix_memalign(&ptr, alignment, size))
+    ptr = NULL;
+#else
+  ptr = malloc(size);
+#endif
+  if (!ptr) throw std::bad_alloc();
+  return ptr;
+}
+
+void my_aligned_free(void* ptr) {
+#if defined (_WIN32)
+  _aligned_free(ptr);
+#else
+  free(ptr);
+#endif
 }

@@ -665,7 +665,7 @@ create_tmp_table(THD *thd,TMP_TABLE_PARAM *param,List<Item> &fields,
   memset(reg_field, 0, sizeof(Field*)*(field_count+1));
   memset(default_field, 0, sizeof(Field*) * (field_count));
   memset(from_field, 0, sizeof(Field*)*field_count);
-  memset(key_part_info, 0, sizeof(*key_part_info)*(param->group_parts+1));
+  memset(static_cast<void*>(key_part_info), 0, sizeof(*key_part_info)*(param->group_parts+1));
 
   table->mem_root= own_root;
   mem_root_save= thd->mem_root;
@@ -1199,8 +1199,8 @@ update_hidden:
           alloc_root(&table->mem_root,
                      keyinfo->user_defined_key_parts * sizeof(KEY_PART_INFO))))
       goto err;
-    memset(key_part_info, 0, keyinfo->user_defined_key_parts *
-           sizeof(KEY_PART_INFO));
+    memset(static_cast<void*>(key_part_info), 0,
+           keyinfo->user_defined_key_parts * sizeof(KEY_PART_INFO));
     table->key_info= share->key_info= keyinfo;
     keyinfo->key_part= key_part_info;
     keyinfo->actual_flags= keyinfo->flags= HA_NOSAME | HA_NULL_ARE_EQUAL;
@@ -1373,7 +1373,7 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd,
   /* STEP 4: Create TABLE description */
   memset(static_cast<void*>(table), 0, sizeof(*table));
   memset(reg_field, 0, sizeof(Field*)*2);
-  memset(key_part_info, 0, sizeof(*key_part_info)*2);
+  memset(static_cast<void*>(key_part_info), 0, sizeof(*key_part_info)*2);
 
   table->mem_root= own_root;
   mem_root_save= thd->mem_root;

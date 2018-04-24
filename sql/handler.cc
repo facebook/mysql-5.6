@@ -4238,6 +4238,7 @@ void handler::print_error(int error, myf errflag)
     break;
   case HA_ERR_TEMP_FILE_WRITE_FAILURE:
     textno= ER_TEMP_FILE_WRITE_FAILURE;
+    break;
   case HA_ERR_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED:
     textno= ER_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED;
     break;

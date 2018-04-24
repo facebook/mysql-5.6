@@ -1284,7 +1284,8 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
     /* preparing the key trie since we have some document path keys */
     share->document_key_trie = (Document_key_trie*)
       alloc_root(&share->mem_root, sizeof(Document_key_trie));
-    memset(share->document_key_trie, 0, sizeof(Document_key_trie));
+    memset(static_cast<void*>(share->document_key_trie), 0,
+           sizeof(Document_key_trie));
 
     keyinfo = share->key_info;
     for (i=0; i < keys; i++, keyinfo++)

@@ -7161,7 +7161,7 @@ mysql_options(MYSQL *mysql,enum mysql_option option, const void *arg)
     break;
   case MYSQL_OPT_NET_RECEIVE_BUFFER_SIZE:
     mysql->net.receive_buffer_size = *(uint*) arg;
-
+   /* fallthrough */
   default:
     DBUG_RETURN(1);
   }
