@@ -4072,6 +4072,10 @@ public:
   void set_stmt_da(Diagnostics_area *da)
   { m_stmt_da= da; }
 
+  /// Resets the Diagnostics-area for the current statement.
+  void reset_stmt_da()
+  { m_stmt_da= &main_da; }
+
 public:
   inline const CHARSET_INFO *charset()
   { return variables.character_set_client; }

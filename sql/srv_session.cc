@@ -819,7 +819,7 @@ bool Srv_session::detach()
 
   // restore fields
   thd_.protocol = &thd_.protocol_text;
-  thd_.set_stmt_da(nullptr);
+  thd_.reset_stmt_da();
   thd_.net.vio = default_vio_to_restore_;
 
   thd_.restore_globals();
