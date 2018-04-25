@@ -18,6 +18,8 @@ namespace hh_wheel_timer_unittests {
 using seconds = std::chrono::seconds;
 using msecs = std::chrono::milliseconds;
 
+constexpr std::chrono::milliseconds k60Seconds(60000);
+
 class CallbackTest : public HHWheelTimer::Callback {
 public:
   CallbackTest() :
@@ -72,6 +74,9 @@ public:
     return duration();
   }
 
+  // Do nothing in the base version
+  virtual void setup() {}
+
   void reset() {
     setID_ = 0;
     expiredID_ = 0;
@@ -91,6 +96,43 @@ public:
   std::chrono::steady_clock::time_point start_;
   std::chrono::steady_clock::time_point end_;
 };
+
+class CallbackTestWithMutex :
+    public CallbackTest,
+    public std::enable_shared_from_this<CallbackTestWithMutex> {
+public:
+  CallbackTestWithMutex(HHWheelTimer* timer) : timer_(timer) {}
+
+  void timeoutExpired(HHWheelTimer::ID id) noexcept override {
+    CallbackTest::timeoutExpired(id);
+    checkDeadlock();
+  }
+
+  void timeoutCancelled(HHWheelTimer::ID id) noexcept override {
+    CallbackTest::timeoutCancelled(id);
+    checkDeadlock();
+  }
+
+  void setup() override {
+    std::lock_guard<std::timed_mutex> guard(mutex_);
+    timer_->cancelTimeout(shared_from_this());
+  }
+
+private:
+  static std::timed_mutex mutex_;
+  HHWheelTimer* timer_;
+
+  void checkDeadlock() {
+    std::unique_lock<std::timed_mutex> lock(mutex_, std::chrono::seconds(2));
+    if (!lock) {
+      throw std::runtime_error("Deadlock!!!");
+    }
+
+    lock.unlock();
+  }
+};
+
+std::timed_mutex CallbackTestWithMutex::mutex_;
 
 static void waitForUseCount(std::shared_ptr<CallbackTest>& ptr, long count)
 {
@@ -160,10 +202,12 @@ public:
       timer_{nullptr},
       state_{nullptr},
       failures_{0},
-      ready_{false} {
+      ready_{false},
+      useMutex_{false} {
   }
   virtual ~ThreadTestThread() {}
 
+  void requireMutex() { useMutex_ = true; }
   void setTimer(HHWheelTimer* timer) { timer_ = timer; }
   void setState(enum ControlState* state) { state_ = state; }
   void run() {
@@ -189,7 +233,11 @@ public:
   void try_test() {
     // Get a timeout from 10 to 1000 millseconds (in multiples of 10ms)
     auto to = msecs(((rng_() % 100) + 1) * 10);
-    auto cb = std::make_shared<CallbackTest>();
+    auto cb = useMutex_ ?
+        std::dynamic_pointer_cast<CallbackTest>(
+            std::make_shared<CallbackTestWithMutex>(timer_)) :
+        std::make_shared<CallbackTest>();
+    cb->setup();
     cb->setID_ = timer_->scheduleTimeout(cb, to);
 
     if (rng_() % 5 == 0) {
@@ -225,6 +273,7 @@ private:
   std::mt19937_64 rng_;
   uint32_t failures_;
   bool ready_;
+  bool useMutex_;
 };
 
 // Make sure the template parameters are set correctly.  The template
@@ -535,8 +584,48 @@ TEST_F(HHWheelTimerTest, Threads)
 
   // Wait for 60 seconds
   auto cb = std::make_shared<CallbackTest>();
-  timer.scheduleTimeout(cb, msecs(60000));
-  cb->wait(msecs(60000));
+  timer.scheduleTimeout(cb, k60Seconds);
+  cb->wait(k60Seconds);
+
+  // Stop the threads
+  state = STOPPING;
+
+  for (uint32_t ii = 0; ii < NUM_THREADS; ii++) {
+    threads[ii].join();
+    EXPECT_EQ(threads[ii].num_failures(), 0U);
+  }
+}
+
+// Run many threads all doing timeouts and using a mutex
+TEST_F(HHWheelTimerTest, ThreadsWithAMutex)
+{
+  HHWheelTimer timer;
+  ThreadTestThread threads[NUM_THREADS];
+  enum ControlState state = INITIALIZING;
+
+  // Get each thread up and running and pass in a pointer to the timer
+  for (uint32_t ii = 0; ii < NUM_THREADS; ii++) {
+    threads[ii].requireMutex();
+    threads[ii].setTimer(&timer);
+    threads[ii].setState(&state);
+    threads[ii].start();
+  }
+
+  // Make sure each thread is ready to run
+  for (uint32_t ii = 0; ii < NUM_THREADS; ii++) {
+    while (!threads[ii].ready()) {
+      std::this_thread::sleep_for(msecs(1));
+    }
+  }
+
+  // Begin timers
+  state = RUNNING;
+
+  // Wait for 60 seconds
+  auto cb = std::dynamic_pointer_cast<CallbackTest>(
+      std::make_shared<CallbackTestWithMutex>(&timer));
+  timer.scheduleTimeout(cb, k60Seconds);
+  cb->wait(k60Seconds);
 
   // Stop the threads
   state = STOPPING;

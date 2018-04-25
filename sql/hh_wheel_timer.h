@@ -163,9 +163,11 @@ private:
   HHWheelTimer& operator=(HHWheelTimer const&) = delete;
 
   // The background thread has woken at the appropriate time - cause all expired
-  // timers to have their callback functions called
+  // timers to have their callback functions called.
+  // Receive ownership of the lock from the caller so that we can release it
+  // when we are ready.
   // Inherited from Timer
-  void expired() noexcept override;
+  void expired(std::unique_lock<std::recursive_mutex>&& lock) noexcept override;
 
   // Remove the callback from the timer
   ID removeCallback(const CallbackPtr& cb);

@@ -133,26 +133,29 @@ void HHWheelTimer::readdToWheel(const CallbackPtr& cb,
 // The background thread has woken at the appropriate time - cause all expired
 // timers to have their callback functions called
 // Inherited from Timer
-void HHWheelTimer::expired() noexcept {
+void HHWheelTimer::expired(
+    std::unique_lock<std::recursive_mutex>&& lock) noexcept {
   CallbackVct needNotification;
 
-  {
-    // Grab the mutex to protect the data structures
-    std::lock_guard<std::recursive_mutex> guard(m_mutex);
+  // Validate that the mutex is locked
+  DBUG_ASSERT(lock.owns_lock());
 
-    m_curr_tick = currentTick();
+  m_curr_tick = currentTick();
 
-    // In case we have moved past the expected expire tick, expire all items
-    // from then to the current tick.
-    auto tick = m_expire_tick;
-    DBUG_ASSERT(tick <= m_curr_tick);
-    while (tick <= m_curr_tick) {
-      expireItems(tick++, needNotification);
-    }
-
-    // Determine when next we need to wake
-    scheduleNextTimeout();
+  // In case we have moved past the expected expire tick, expire all items
+  // from then to the current tick.
+  auto tick = m_expire_tick;
+  DBUG_ASSERT(tick <= m_curr_tick);
+  while (tick <= m_curr_tick) {
+    expireItems(tick++, needNotification);
   }
+
+  // Determine when next we need to wake
+  scheduleNextTimeout();
+
+  // Release the mutex - the caller assumes we will do this
+  lock.unlock();
+  DBUG_ASSERT(!lock.owns_lock());
 
   // Notify all the callbacks that expired (outside the mutex)
   for (const auto& itr : needNotification) {

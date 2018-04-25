@@ -78,18 +78,28 @@ public:
 
   void trigger() noexcept {
     m_triggers_in_process++;
-    std::lock_guard<std::recursive_mutex> guard(m_mutex);
 
-    if (m_scheduled) {
-      m_scheduled = false;
-      expired();
+    {
+      // Instead of a standard lock guard, create a unique lock so that we
+      // can pass it to the callback which can then unlock it early.
+      std::unique_lock<std::recursive_mutex> lock(m_mutex);
+      DBUG_ASSERT(lock.owns_lock());
+
+      if (m_scheduled) {
+        m_scheduled = false;
+        // Pass the guard to the callback so the mutex can be released early
+        expired(std::move(lock));
+      }
     }
 
     m_triggers_in_process--;
   }
 
   // Function to override to handle the timer expiring
-  virtual void expired() noexcept = 0;
+  // We will pass ownership of the mutex into the function so the callback
+  // can release it when it desires.
+  virtual void expired(
+      std::unique_lock<std::recursive_mutex>&& lock) noexcept = 0;
 
 protected:
   std::recursive_mutex m_mutex;
