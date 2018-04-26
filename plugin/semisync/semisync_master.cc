@@ -16,6 +16,7 @@
 
 
 #include "semisync_master.h"
+#include "mysqld.h"
 #if defined(ENABLED_DEBUG_SYNC)
 #include "debug_sync.h"
 #include "sql_class.h"
@@ -913,6 +914,7 @@ int ReplSemiSyncMaster::switch_off()
   {
     sql_print_error("Force shutdown: Semi-sync master is being switched off "
                     "while there are active un-acked transactions");
+    delete_pid_file(MYF(MY_WME));
     exit(0);
   }
 

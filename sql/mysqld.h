@@ -252,6 +252,7 @@ bool is_secure_file_path(char *path);
 bool is_mysql_datadir_path(const char *path);
 void dec_connection_count_locked();
 void dec_connection_count();
+void delete_pid_file(myf flags);
 
 // These are needed for unit testing.
 void set_remaining_args(int argc, char **argv);

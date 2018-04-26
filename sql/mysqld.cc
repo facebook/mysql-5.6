@@ -1582,7 +1582,6 @@ static void create_shutdown_file();
 static int delete_shutdown_file();
 static void mysqld_exit(int exit_code) MY_ATTRIBUTE((noreturn));
 #endif
-static void delete_pid_file(myf flags);
 
 
 #ifndef EMBEDDED_LIBRARY
@@ -12182,7 +12181,7 @@ static int delete_shutdown_file()
   @param  flags  file operation flags
 */
 
-static void delete_pid_file(myf flags)
+void delete_pid_file(myf flags)
 {
 #ifndef EMBEDDED_LIBRARY
   File file;
