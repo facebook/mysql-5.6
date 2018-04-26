@@ -1,0 +1,110 @@
+--source include/master-slave.inc
+
+--echo #
+--echo # Show slave information
+--echo #
+connection slave;
+
+query_attrs_add rpc_role root;
+SET SESSION wait_timeout=9;
+let $rpc_id=get_rpc_id();
+if ($rpc_id == "") {
+  echo Fail: Did not find rpc_id in response.;
+}
+
+query_attrs_delete rpc_role;
+query_attrs_add rpc_id $rpc_id;
+
+# We don't care about the contents - we just want to make sure the commands
+# execute using the specified rpc_id.
+--disable_result_log
+SHOW SLAVE HOSTS;
+SHOW SLAVE STATUS;
+SHOW STATUS;
+--enable_result_log
+
+query_attrs_delete rpc_id;
+
+# clean up detached session
+--disable_query_log
+eval KILL $rpc_id;
+--enable_query_log
+
+--echo #
+--echo # Show master information
+--echo #
+connection master;
+
+query_attrs_add rpc_role root;
+SET SESSION wait_timeout=9;
+let $rpc_id=get_rpc_id();
+if ($rpc_id == "") {
+  echo Fail: Did not find rpc_id in response.;
+}
+
+query_attrs_delete rpc_role;
+query_attrs_add rpc_id $rpc_id;
+
+# We don't care about the contents - we just want to make sure the commands
+# execute using the specified rpc_id.
+--disable_result_log
+SHOW BINARY LOGS;
+SHOW BINLOG EVENTS;
+SHOW CHARACTER SET;
+SHOW COLLATION;
+SHOW COLUMNS FROM mysql.user;
+SHOW CREATE DATABASE mysql;
+SHOW CREATE TABLE mysql.user;
+SHOW DATABASES;
+SHOW ENGINE INNODB MUTEX;
+SHOW ENGINE INNODB STATUS;
+SHOW ENGINES;
+SHOW ERRORS;
+SHOW EVENTS FROM mysql;
+SHOW GRANTS;
+SHOW INDEX FROM mysql.user;
+SHOW MASTER STATUS;
+SHOW OPEN TABLES;
+SHOW PLUGINS;
+SHOW PRIVILEGES;
+SHOW PROCESSLIST;
+SHOW RELAYLOG EVENTS;
+SHOW TABLE STATUS FROM mysql;
+SHOW TABLES FROM mysql;
+SHOW TRIGGERS FROM mysql;
+SHOW VARIABLES;
+SHOW WARNINGS;
+--enable_result_log
+
+--echo #
+--echo # Check ROW_COUNT() on detached session
+--echo #
+USE test;
+CREATE TABLE t1(id int primary key);
+INSERT INTO t1 values(1), (2), (3);
+# Switch to a different connection but using the same rpc_id to make sure
+# the row count is maintained.
+connection master1;
+query_attrs_add rpc_id $rpc_id;
+SELECT ROW_COUNT();
+query_attrs_delete rpc_id;
+connection master;
+DROP TABLE t1;
+
+query_attrs_delete rpc_id;
+
+--echo #
+--echo # Check ROW_COUNT() on non-detached session
+--echo #
+USE test;
+CREATE TABLE t1(id int primary key);
+INSERT INTO t1 values(1), (2), (3);
+SELECT ROW_COUNT();
+DROP TABLE t1;
+
+# clean up detached session
+--disable_query_log
+eval KILL $rpc_id;
+--enable_query_log
+
+--source include/rpl_end.inc

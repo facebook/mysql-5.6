@@ -3233,7 +3233,6 @@ bool show_slave_status(THD* thd, Master_info* mi)
   if (mi != NULL && mi->host[0])
   {
     DBUG_PRINT("info",("host is set: '%s'", mi->host));
-    String *packet= &thd->packet;
     protocol->prepare_for_resend();
 
     /*
@@ -3532,7 +3531,9 @@ bool show_slave_status(THD* thd, Master_info* mi)
     mysql_mutex_unlock(&mi->rli->data_lock);
     mysql_mutex_unlock(&mi->data_lock);
 
-    if (my_net_write(&thd->net, (uchar*) thd->packet.ptr(), packet->length()))
+    String* packet = protocol->storage_packet();
+    if (my_net_write(&protocol->get_thd()->net, (uchar*) packet->ptr(),
+                     packet->length()))
     {
       my_free(sql_gtid_set_buffer);
       my_free(io_gtid_set_buffer);

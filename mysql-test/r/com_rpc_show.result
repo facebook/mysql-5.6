@@ -1,0 +1,63 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+#
+# Show slave information
+#
+SET SESSION wait_timeout=9;
+SHOW SLAVE HOSTS;
+SHOW SLAVE STATUS;
+SHOW STATUS;
+#
+# Show master information
+#
+SET SESSION wait_timeout=9;
+SHOW BINARY LOGS;
+SHOW BINLOG EVENTS;
+SHOW CHARACTER SET;
+SHOW COLLATION;
+SHOW COLUMNS FROM mysql.user;
+SHOW CREATE DATABASE mysql;
+SHOW CREATE TABLE mysql.user;
+SHOW DATABASES;
+SHOW ENGINE INNODB MUTEX;
+SHOW ENGINE INNODB STATUS;
+SHOW ENGINES;
+SHOW ERRORS;
+SHOW EVENTS FROM mysql;
+SHOW GRANTS;
+SHOW INDEX FROM mysql.user;
+SHOW MASTER STATUS;
+SHOW OPEN TABLES;
+SHOW PLUGINS;
+SHOW PRIVILEGES;
+SHOW PROCESSLIST;
+SHOW RELAYLOG EVENTS;
+SHOW TABLE STATUS FROM mysql;
+SHOW TABLES FROM mysql;
+SHOW TRIGGERS FROM mysql;
+SHOW VARIABLES;
+SHOW WARNINGS;
+#
+# Check ROW_COUNT() on detached session
+#
+USE test;
+CREATE TABLE t1(id int primary key);
+INSERT INTO t1 values(1), (2), (3);
+SELECT ROW_COUNT();
+ROW_COUNT()
+3
+DROP TABLE t1;
+#
+# Check ROW_COUNT() on non-detached session
+#
+USE test;
+CREATE TABLE t1(id int primary key);
+INSERT INTO t1 values(1), (2), (3);
+SELECT ROW_COUNT();
+ROW_COUNT()
+3
+DROP TABLE t1;
+include/rpl_end.inc
