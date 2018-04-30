@@ -11838,100 +11838,121 @@ void key_dealloc_cb(uchar *key_buf)
 
 bool Rows_log_event::parse_keys(Relay_log_info* rli,
                                 std::shared_ptr<Log_event_wrapper> &ev,
-                                RPL_TABLE_LIST *table_list,
+                                TABLE *table,
                                 std::deque<Dependency_key>& keys)
 {
-  MY_BITMAP *cols= NULL;
-  TABLE *table= NULL;
-  uint primary_key;
-  uchar *curr_row= NULL, *key_buf= NULL;
-  Dependency_key curr_key;
-  KEY *keyinfo= NULL;
-  const uchar *curr_row_end= NULL;
-  uint i;
-
   DBUG_ENTER("Rows_log_event::parse_keys");
+  std::vector<KEY*> key_infos;
 
-  cols= &m_cols;
-  table= table_list->table;
-
-#ifdef DBUG_OFF
-  primary_key= search_key_in_table(table, cols, PRI_KEY_FLAG);
-#else
-  primary_key= check_pk(table, rli, cols);
-#endif
-  if (primary_key == MAX_KEY)
+  // Find PK and all unique keys
+  uint key= 0;
+  KEY *keyinfo= table->key_info;
+  bool found_pk= false;
+  for (;key < table->s->keys; key++, keyinfo++)
   {
-    DBUG_RETURN(false);
+    // Skip non-unique keys
+    if (!keyinfo->flags & HA_NOSAME)
+      continue;
+
+    // NOTE: We expect the before image to contain all the unique keys
+    // (including PK), if any key is not present we fail fast and process the
+    // transaction in sync mode (see: @Rows_log_event::prepare_dep)
+    if (!are_all_columns_signaled_for_key(keyinfo, &m_cols))
+      DBUG_RETURN(false);
+
+    if (key == table->s->primary_key)
+      found_pk= true;
+    key_infos.push_back(&table->key_info[key]);
   }
 
-  keyinfo= &table->key_info[primary_key];
-  curr_row= m_rows_buf;
+  // Case: We cannot function without a PK, abort!
+  if (!found_pk)
+    DBUG_RETURN(false);
 
-  for (i= 0, curr_row= m_rows_buf; curr_row != m_rows_end;
-        curr_row= const_cast<uchar*>(curr_row_end), i++)
+  uchar *curr_row= NULL, *key_buf= NULL, *curr_row_end= NULL;
+  uint i= 0;
+  for (i= 0, curr_row= m_rows_buf;
+       curr_row != m_rows_end;
+       curr_row= curr_row_end, i++)
   {
-    cols= &m_cols;
+    MY_BITMAP *cols= &m_cols; // init with before image bitmap
 
+    // NOTE: In updates, the after image follows the before image, hence every
+    // odd index will be an after image
     if (get_type_code() == UPDATE_ROWS_EVENT && i % 2 == 1)
     {
       cols= &m_cols_ai;
     }
 
     if (::unpack_row(rli, table, m_width, curr_row, cols,
-            &curr_row_end, &m_master_reclength, m_rows_end))
+                     const_cast<const uchar**>(&curr_row_end),
+                     &m_master_reclength, m_rows_end))
     {
       /* We were unable to unpack the row. This is a serious error. */
       sql_print_error("Unable to unpack row at pos %s:%llu, syncing group",
                       rli->get_rpl_log_name(), log_pos);
-
-      // make this a sync group
-      rli->dep_sync_group= true;
-
-      keys.clear();
       DBUG_RETURN(false);
     }
 
-    curr_key.key_length= keyinfo->key_length;
-    curr_key.table_id= m_table_name;
+    for (const auto& key_info : key_infos)
+    {
+      // Case: This key is not present in this row image
+      if (!are_all_columns_signaled_for_key(key_info, cols))
+      {
+        // NOTE: we've already checked if all keys are present in the before
+        // image in the beginning of this method, so this has to be the after
+        // image
+        DBUG_ASSERT(cols == &m_cols_ai);
+        continue;
+      }
 
-    key_buf= (uchar*)my_malloc(keyinfo->key_length, MYF(MY_WME));
-    memset(key_buf, 0x0, keyinfo->key_length);
-    key_copy(key_buf, table->record[0], keyinfo, 0);
+      // TODO (abhinav): We should check if a key is null to avoid unnecessary
+      // dependencies between null unique keys (since nulls are treated as
+      // distinct)
+      Dependency_key curr_key;
+      curr_key.key_length= key_info->key_length;
+      curr_key.table_id= m_table_name;
 
-    std::shared_ptr<uchar> tmp(key_buf, key_dealloc_cb);
-    curr_key.key_buffer= tmp;
-    keys.push_back(curr_key);
+      key_buf= (uchar*) my_malloc(key_info->key_length, MYF(MY_WME));
+      memset(key_buf, 0x0, key_info->key_length);
+      key_copy(key_buf, table->record[0], key_info, 0);
+
+      std::shared_ptr<uchar> tmp(key_buf, key_dealloc_cb);
+      curr_key.key_buffer= tmp;
+      keys.push_back(curr_key);
+    }
   }
+  // dbug case: either all BIs and AIs will have keys, or only all BIs will have
+  // keys
+  DBUG_ASSERT(keys.size() == 2 * i || keys.size() == i);
   DBUG_RETURN(true);
 }
 
 /**
   Returns the set of keys written by the statement as a deque.
 */
-bool
-Rows_log_event::get_keys(Relay_log_info *rli,
-                         std::shared_ptr<Log_event_wrapper> &ev,
-                         std::deque<Dependency_key> &keys)
+bool Rows_log_event::get_keys(Relay_log_info *rli,
+                              std::shared_ptr<Log_event_wrapper> &ev,
+                              std::deque<Dependency_key> &keys)
 {
+  DBUG_ENTER("Rows_log_event::get_keys");
+
   RPL_TABLE_LIST *table_list= NULL;
   void *memory= NULL;
-  bool got_keys= false;
-  Dependency_key table_key;
-  table_key.table_id= m_table_name;
-
-  DBUG_ENTER("Rows_log_event::get_keys");
+  bool success= false;
 
   DBUG_ASSERT(opt_mts_dependency_replication);
 
+  // case: table level dependency, just add the table key and return
   if (opt_mts_dependency_replication == DEP_RPL_TABLE)
   {
+    Dependency_key table_key;
+    table_key.table_id= m_table_name;
     keys.push_back(table_key);
-    DBUG_RETURN(TRUE);
+    DBUG_RETURN(true);
   }
 
   DBUG_ASSERT(opt_mts_dependency_replication == DEP_RPL_STATEMENT);
-
   DBUG_ASSERT(thd->open_tables == NULL);
   DBUG_ASSERT(m_key_info == NULL);
   DBUG_ASSERT(m_table == NULL);
@@ -11945,16 +11966,8 @@ Rows_log_event::get_keys(Relay_log_info *rli,
   {
     DBUG_ASSERT(rli->tables_to_lock == NULL);
     rli->tables_to_lock= table_list;
-    got_keys= parse_keys(rli, ev, table_list, keys);
+    success= parse_keys(rli, ev, table_list->table, keys);
     rli->tables_to_lock= NULL;
-  }
-
-  /* If this condition is true, then we couldn't find any primary keys for the
-   * table. Use table dependencies instead.
-   */
-  if (keys.empty())
-  {
-    keys.push_back(table_key);
   }
 
   DBUG_ASSERT(memory != NULL);
@@ -11971,35 +11984,9 @@ Rows_log_event::get_keys(Relay_log_info *rli,
   m_curr_row_end= NULL;
   m_curr_row= m_rows_buf;
 
-  DBUG_RETURN(got_keys);
+  DBUG_RETURN(success);
 }
 
-#ifndef DBUG_OFF
-/**
-  This function checks whether we have seen a primary key for the given table,
-  and returns the index of the corresponding key_info. If the primary key
-  doesn't exist, it returns MAX_KEY.
-
-  We want to assert that if we've seen a primary key before, then we'd better
-  not revert back to table-level dependencies.
-*/
-uint
-Rows_log_event::check_pk(TABLE *table, Relay_log_info *rli, MY_BITMAP *cols)
-{
-  DBUG_ENTER("Rows_log_event::check_pk");
-
-  uint pk= search_key_in_table(table, cols, PRI_KEY_FLAG);
-  if (rli->seen_pk.find(m_table_name) == rli->seen_pk.end())
-  {
-    rli->seen_pk[m_table_name]= pk;
-  }
-  else
-  {
-    DBUG_ASSERT(rli->seen_pk[m_table_name] == pk);
-  }
-  DBUG_RETURN(pk);
-}
-#endif
 
 /**
   Returns a reference to a single TABLE* in the provided table_list. On return,
@@ -12063,26 +12050,19 @@ void Rows_log_event::prepare_dep(Relay_log_info *rli,
   m_table_name= full_table_name;
   DBUG_ASSERT(!m_table_name.empty());
 
-  get_keys(rli, ev, m_keylist);
-  DBUG_ASSERT(!m_keylist.empty());
+  // case: something went wrong while finding keys for this event, switch to
+  // sync mode!
+  if (!get_keys(rli, ev, m_keylist))
+  {
+    rli->dep_sync_group= true;
+    m_keylist.clear();
+  }
 
   rli->keys_accessed_by_group.insert(m_keylist.begin(), m_keylist.end());
 
-  Dependency_key& first_key= m_keylist.front();
-
-  Dependency_key table_key;
-  DBUG_ASSERT(!m_table_name.empty());
-  table_key.table_id= m_table_name;
-
-  /* Take a dependency on a pre-existing table-level event. */
-  if (first_key.key_length > 0)
-  {
-    m_keylist.push_back(table_key);
-  }
-
   mysql_mutex_lock(&rli->dep_key_lookup_mutex);
   /* Handle dependencies. */
-  for (auto& k : m_keylist)
+  for (const auto& k : m_keylist)
   {
     auto last_key_event= rli->dep_key_lookup.find(k);
     if (last_key_event != rli->dep_key_lookup.end())
@@ -12091,12 +12071,6 @@ void Rows_log_event::prepare_dep(Relay_log_info *rli,
     }
   }
   mysql_mutex_unlock(&rli->dep_key_lookup_mutex);
-
-  /* We don't need to add a table dep in the key lookup for this event. */
-  if (first_key.key_length > 0)
-  {
-    m_keylist.pop_back();
-  }
 
   DBUG_VOID_RETURN;
 }

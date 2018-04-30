@@ -62,6 +62,8 @@ int ignored_error_code(int err_code);
 #endif
 class Log_event_wrapper;
 
+// TODO (abhinav): Include the name of the key in this struct to distinguish
+// between two keys with the same value but different names
 struct Dependency_key
 {
   uint key_length= 0;
@@ -4526,11 +4528,8 @@ public:
 protected:
   bool parse_keys(Relay_log_info* rli,
                   std::shared_ptr<Log_event_wrapper> &ev,
-                  RPL_TABLE_LIST *table_list,
+                  TABLE *table,
                   std::deque<Dependency_key>& keys);
-#ifndef DBUG_OFF
-  uint check_pk(TABLE *tbl, Relay_log_info *rli, MY_BITMAP *cols);
-#endif
 
 private:
   bool get_table_ref(Relay_log_info *rli, void **memory,

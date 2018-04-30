@@ -1,4 +1,5 @@
 #include <my_global.h>
+#include "debug_sync.h"
 #include "dependency_slave_worker.h"
 #include "log_event_wrapper.h"
 #include "rpl_slave_commit_order_manager.h"
@@ -139,6 +140,16 @@ Dependency_slave_worker::execute_event(std::shared_ptr<Log_event_wrapper> &ev)
   // wait for all dependencies to be satisfied
   ev->wait();
 
+  DBUG_EXECUTE_IF("dbug.dep_wait_before_update_execution",
+    {
+       if (ev->raw_event()->get_type_code() == UPDATE_ROWS_EVENT)
+       {
+         const char act[]= "now signal signal.reached wait_for signal.done";
+         DBUG_ASSERT(opt_debug_sync_timeout > 0);
+         DBUG_ASSERT(!debug_sync_set_action(info_thd, STRING_WITH_LEN(act)));
+       }
+     };);
+
   // case: there was an error in one of the workers, so let's skip execution of
   // events immediately
   if (c_rli->dependency_worker_error)
@@ -226,7 +237,6 @@ void Dependency_slave_worker::start()
   DBUG_ASSERT(c_rli->dep_queue.empty() &&
               dep_key_lookup.empty() &&
               keys_accessed_by_group.empty() &&
-              //dep_db_last_start_event.empty() &&
               dbs_accessed_by_group.empty());
 
   while (execute_group());

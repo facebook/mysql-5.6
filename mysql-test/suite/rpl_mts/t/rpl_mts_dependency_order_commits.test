@@ -14,8 +14,8 @@ start slave;
 connection master;
 create database d1;
 create database d2;
-create table d1.t1(a int) engine=innodb;
-create table d2.t1(a int) engine=innodb;
+create table d1.t1(a int primary key) engine=innodb;
+create table d2.t1(a int primary key) engine=innodb;
 insert into d1.t1 values(1);
 
 sync_slave_with_master;

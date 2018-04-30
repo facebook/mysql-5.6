@@ -1127,11 +1127,6 @@ public:
   /* Set of all DBs accessed by the current group */
   std::unordered_set<std::string> dbs_accessed_by_group;
 
-#ifndef DBUG_OFF
-  /* For each table encountered, tracks if we've seen primary key */
-  std::unordered_map<std::string, uint> seen_pk;
-#endif
-
   // Mutex-condition pair to notify when queue is/is not full
   mysql_cond_t dep_full_cond;
   bool dep_full= false;
