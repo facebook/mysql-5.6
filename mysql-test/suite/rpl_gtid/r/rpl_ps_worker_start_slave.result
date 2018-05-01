@@ -10,6 +10,8 @@ SET @saved_innodb_lock_wait_timeout = @@GLOBAL.innodb_lock_wait_timeout;
 SET @saved_slave_transaction_retries = @@GLOBAL.slave_transaction_retries;
 SET GLOBAL slave_transaction_retries = 5;
 SET GLOBAL innodb_lock_wait_timeout = 2;
+STOP SLAVE;
+START SLAVE;
 [connection master]
 CREATE TABLE t1 (a INT UNIQUE);
 include/sync_slave_sql_with_master.inc

@@ -194,4 +194,13 @@ bool get_tablespace_name(THD *thd, const T *obj, const char **tablespace_name,
   return false;
 }
 
+/*
+  FB - Release builds were not instantiating this version of the function,
+  so explicitly instantiate here.
+*/
+template bool get_tablespace_name<dd::Partition>(THD *thd,
+                                                 const dd::Partition *obj,
+                                                 const char **tablespace_name,
+                                                 MEM_ROOT *mem_root);
+
 }  // namespace dd

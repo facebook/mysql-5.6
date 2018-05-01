@@ -382,11 +382,12 @@ static int test_builtins() {
   assert(log_bi->item_string_class(LOG_CSTRING));
 
   // test functions for wellknowns
-  int wellknown = log_bi->wellknown_by_type(LOG_ITEM_LOG_LABEL);
+  int wellknown MY_ATTRIBUTE((unused)) =
+      log_bi->wellknown_by_type(LOG_ITEM_LOG_LABEL);
   assert(LOG_ITEM_LOG_LABEL == log_bi->wellknown_get_type(wellknown));
 
   wellknown = log_bi->wellknown_by_type(LOG_ITEM_GEN_INTEGER);
-  const char *wk = log_bi->wellknown_get_name(wellknown);
+  const char *wk MY_ATTRIBUTE((unused)) = log_bi->wellknown_get_name(wellknown);
   assert(LOG_ITEM_TYPE_RESERVED ==
          log_bi->wellknown_by_name(wk, log_bs->length(wk)));
 
@@ -394,11 +395,13 @@ static int test_builtins() {
   log_line *ll = log_bi->line_init();
   assert(log_bi->line_item_count(ll) == 0);
 
-  log_item_data *d = log_bi->line_item_set(ll, LOG_ITEM_LOG_LABEL);
+  log_item_data *d MY_ATTRIBUTE((unused)) =
+      log_bi->line_item_set(ll, LOG_ITEM_LOG_LABEL);
   assert(d != nullptr);
   assert(log_bi->line_item_count(ll) == 1);
 
-  log_item_data *d1 = log_bi->line_item_set(ll, LOG_ITEM_SQL_ERRCODE);
+  log_item_data *d1 MY_ATTRIBUTE((unused)) =
+      log_bi->line_item_set(ll, LOG_ITEM_SQL_ERRCODE);
   assert(!log_bi->item_set_int(d1, ER_PARSER_TRACE));
   assert(d1 != nullptr);
   assert(log_bi->line_item_count(ll) == 2);
@@ -410,10 +413,10 @@ static int test_builtins() {
   assert(!log_bi->item_set_lexstring(d, "pi", 2));
 
   // find our item in the bag
-  log_item_iter *it;
-  log_item *li;
-  assert((it = log_bi->line_item_iter_acquire(ll)) != nullptr);
-  assert((li = log_bi->line_item_iter_first(it)) != nullptr);
+  log_item_iter *it = log_bi->line_item_iter_acquire(ll);
+  log_item *li = log_bi->line_item_iter_first(it);
+  assert(it != nullptr);
+  assert(li != nullptr);
 
   // break item, then detect brokeness
   li->item_class = LOG_FLOAT;
@@ -638,7 +641,7 @@ static void banner() {
   {
     int wellknown = log_bi->wellknown_by_type(LOG_ITEM_LOG_LABEL);
     const char *label_key = log_bi->wellknown_get_name(wellknown);
-    int wellagain =
+    int wellagain MY_ATTRIBUTE((unused)) =
         log_bi->wellknown_by_name(label_key, log_bs->length(label_key));
 
     assert(wellknown == wellagain);
