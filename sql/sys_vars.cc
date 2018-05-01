@@ -1333,6 +1333,12 @@ static Sys_var_bool Sys_binlog_rows_query(
     SESSION_VAR(binlog_rows_query_log_events), CMD_LINE(OPT_ARG),
     DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_has_super));
 
+static Sys_var_bool Sys_log_query_comments(
+    "log_only_query_comments",
+    "Writes only the comments part at the beginning of the query "
+    "in Rows_query_log_events.",
+    GLOBAL_VAR(opt_log_only_query_comments), CMD_LINE(OPT_ARG), DEFAULT(true));
+
 static Sys_var_bool Sys_binlog_order_commits(
     "binlog_order_commits",
     "Issue internal commit calls in the same order as transactions are"

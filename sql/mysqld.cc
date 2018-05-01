@@ -1047,6 +1047,7 @@ int32_t opt_regexp_time_limit;
 int32_t opt_regexp_stack_limit;
 
 ulong opt_binlog_rows_event_max_size;
+bool opt_log_only_query_comments = false;
 ulong binlog_checksum_options;
 ulong binlog_row_metadata;
 bool opt_master_verify_checksum = 0;
