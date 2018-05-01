@@ -126,6 +126,7 @@ extern "C" MYSQL_PLUGIN_IMPORT char server_version[SERVER_VERSION_LENGTH];
 int ignored_error_code(int err_code);
 #endif
 #define PREFIX_SQL_LOAD "SQL_LOAD-"
+extern bool opt_log_only_query_comments;
 
 /**
    Maximum length of the name of a temporary file
@@ -3638,12 +3639,14 @@ class Rows_query_log_event : public Ignorable_log_event,
   Rows_query_log_event(THD *thd_arg, const char *query, size_t query_len)
       : Ignorable_log_event(thd_arg) {
     DBUG_TRACE;
+    uint32_t len = query_len;
+    if (opt_log_only_query_comments) len = get_comment_length(query, len);
     common_header->type_code = binary_log::ROWS_QUERY_LOG_EVENT;
     if (!(m_rows_query =
               (char *)my_malloc(key_memory_Rows_query_log_event_rows_query,
-                                query_len + 1, MYF(MY_WME))))
+                                len + 1, MYF(MY_WME))))
       return;
-    snprintf(m_rows_query, query_len + 1, "%s", query);
+    snprintf(m_rows_query, len + 1, "%s", query);
     DBUG_PRINT("enter", ("%s", m_rows_query));
     return;
   }
@@ -3669,6 +3672,19 @@ class Rows_query_log_event : public Ignorable_log_event,
   virtual size_t get_data_size() override {
     return Binary_log_event::IGNORABLE_HEADER_LEN + 1 + strlen(m_rows_query);
   }
+
+ private:
+  /*
+   * Returns the length of comment at the start of the query.
+   * If no comment is present, returns the full length of the
+   * query.
+   *
+   * @param str    query
+   * @param length length of the input string
+   *
+   * @return  comment length.
+   */
+  uint get_comment_length(const char *str, uint length) const;
 };
 
 static inline bool copy_event_cache_to_file_and_reinit(IO_CACHE *cache,

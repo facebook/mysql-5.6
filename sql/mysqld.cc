@@ -1143,6 +1143,7 @@ restart server again with old databse files. */
 bool clone_recovery_error = false;
 
 ulong binlog_row_event_max_size;
+bool opt_log_only_query_comments = false;
 ulong binlog_checksum_options;
 ulong binlog_row_metadata;
 bool opt_master_verify_checksum = false;

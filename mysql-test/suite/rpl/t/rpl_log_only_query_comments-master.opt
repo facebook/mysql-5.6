@@ -1,0 +1,1 @@
+--binlog_rows_query_log_events=ON --log_only_query_comments=true
