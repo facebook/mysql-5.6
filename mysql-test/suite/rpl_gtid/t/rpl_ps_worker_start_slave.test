@@ -38,6 +38,13 @@ SET @saved_slave_transaction_retries = @@GLOBAL.slave_transaction_retries;
 SET GLOBAL slave_transaction_retries = 5;
 SET GLOBAL innodb_lock_wait_timeout = 2;
 
+# FB -- restart slave for slave threads to pick up innodb_lock_wait_timeout.
+# The LRA feature changes the initialization path, which causes slave threads
+# to copy the default innodb_lock_wait_timeout value before it is adjusted
+# by this test.
+STOP SLAVE;
+START SLAVE;
+
 --source include/rpl_connection_master.inc
 CREATE TABLE t1 (a INT UNIQUE);
 --source include/sync_slave_sql_with_master.inc
