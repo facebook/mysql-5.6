@@ -227,6 +227,7 @@ std::pair<bool, std::shared_ptr<Srv_session>>  handle_com_rpc(THD *conn_thd)
   // we need srv_session to use connection THD for network operations
   srv_session_thd->protocol = conn_thd->protocol;
 
+  srv_session_thd->net.compress = conn_thd->net.compress;
   srv_session_thd->net.vio = conn_thd->net.vio;
   srv_session_thd->set_stmt_da(conn_thd->get_stmt_da());
 
