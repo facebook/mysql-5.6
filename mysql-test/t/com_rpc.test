@@ -570,7 +570,7 @@ connect (con1,localhost,root,,db_default);
 query_attrs_add rpc_role scriptro;
 query_attrs_add rpc_db db_rpc;
 
-SELECT GET_LOCK("my_lock", 0);
+SELECT GET_LOCK("my_lock_case_11", 0);
 let $rpc_id=get_rpc_id();
 # Check that rpc_id is returned in response.
 if ($rpc_id == "") {
@@ -582,13 +582,13 @@ SET SESSION wait_timeout=5;
 
 # A different session should not be able to get the lock
 connection default;
-SELECT GET_LOCK("my_lock", 0);
+SELECT GET_LOCK("my_lock_case_11", 0);
 
 # Sleep past the original sessions idle timeout
 SELECT sleep(6);
 
 # Now we expect to be able to get the lock
-SELECT GET_LOCK("my_lock", 0);
+SELECT GET_LOCK("my_lock_case_11", 0);
 
 disconnect con1;
 

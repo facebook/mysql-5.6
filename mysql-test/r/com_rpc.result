@@ -269,18 +269,18 @@ ERROR HY000: The specified detached session id (<rpc_id>) is unknown
 
 # Case 11: Make sure a detached session that times out cleans up
 
-SELECT GET_LOCK("my_lock", 0);
-GET_LOCK("my_lock", 0)
+SELECT GET_LOCK("my_lock_case_11", 0);
+GET_LOCK("my_lock_case_11", 0)
 1
 SET SESSION wait_timeout=5;
-SELECT GET_LOCK("my_lock", 0);
-GET_LOCK("my_lock", 0)
+SELECT GET_LOCK("my_lock_case_11", 0);
+GET_LOCK("my_lock_case_11", 0)
 0
 SELECT sleep(6);
 sleep(6)
 0
-SELECT GET_LOCK("my_lock", 0);
-GET_LOCK("my_lock", 0)
+SELECT GET_LOCK("my_lock_case_11", 0);
+GET_LOCK("my_lock_case_11", 0)
 1
 
 # Case 12: Test idle timeout for multiple detached sessions
