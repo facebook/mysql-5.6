@@ -1070,7 +1070,9 @@ static MYSQL_SYSVAR_INT(table_cache_numshardbits,
                         "DBOptions::table_cache_numshardbits for RocksDB",
                         nullptr, nullptr,
                         rocksdb_db_options->table_cache_numshardbits,
-                        /* min */ 0, /* max */ INT_MAX, 0);
+                        // LRUCache limits this to 19 bits, anything greater
+                        // fails to create a cache and returns a nullptr
+                        /* min */ 0, /* max */ 19, 0);
 
 static MYSQL_SYSVAR_ULONG(wal_ttl_seconds, rocksdb_db_options->WAL_ttl_seconds,
                           PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
