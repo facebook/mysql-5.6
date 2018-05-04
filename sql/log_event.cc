@@ -11851,7 +11851,7 @@ bool Rows_log_event::parse_keys(Relay_log_info* rli,
   for (;key < table->s->keys; key++, keyinfo++)
   {
     // Skip non-unique keys
-    if (!keyinfo->flags & HA_NOSAME)
+    if (!(keyinfo->flags & HA_NOSAME))
       continue;
 
     // NOTE: We expect the before image to contain all the unique keys

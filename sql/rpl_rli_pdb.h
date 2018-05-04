@@ -475,7 +475,7 @@ public:
      The method runs by Coordinator when Worker are synched or being
      destroyed.
   */
-  void set_rli_description_event(Format_description_log_event *fdle)
+  void set_rli_description_event(Format_description_log_event *fdle) override
   {
     DBUG_ASSERT(!fdle || (running_status == Slave_worker::RUNNING && info_thd));
 #ifndef DBUG_OFF
@@ -494,7 +494,7 @@ public:
     if (gaq_index == c_rli->gaq->size)
       gaq_index= val;
   };
-  bool get_skip_unique_check()
+  bool get_skip_unique_check() override
   {
     return c_rli->skip_unique_check;
   }
@@ -506,14 +506,14 @@ public:
 protected:
 
   virtual void do_report(loglevel level, int err_code,
-                         const char *msg, va_list v_args) const;
+                         const char *msg, va_list v_args) const override;
 
 private:
   ulong gaq_index;          // GAQ index of the current assignment 
   ulonglong master_log_pos; // event's cached log_pos for possibile error report
   void end_info();
-  bool read_info(Rpl_info_handler *from);
-  bool write_info(Rpl_info_handler *to);
+  bool read_info(Rpl_info_handler *from) override;
+  bool write_info(Rpl_info_handler *to) override;
   Slave_worker& operator=(const Slave_worker& info);
   Slave_worker(const Slave_worker& info);
 };

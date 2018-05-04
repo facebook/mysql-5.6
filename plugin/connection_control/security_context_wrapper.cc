@@ -59,19 +59,13 @@ namespace connection_control
     {
       if (!strcmp(property, "priv_user"))
       {
-        if (m_thd->security_ctx->priv_user)
-        {
-          value->str= m_thd->security_ctx->priv_user;
-          value->length= strlen(value->str);
-        }
+        value->str= m_thd->security_ctx->priv_user;
+        value->length= strlen(value->str);
       }
       else if (!strcmp(property, "priv_host"))
       {
-        if (m_thd->security_ctx->priv_host)
-        {
-          value->str= m_thd->security_ctx->priv_host;
-          value->length= strlen(value->str);
-        }
+        value->str= m_thd->security_ctx->priv_host;
+        value->length= strlen(value->str);
       }
       else if (!strcmp(property, "user"))
       {
@@ -83,11 +77,8 @@ namespace connection_control
       }
       else if (!strcmp(property, "proxy_user"))
       {
-        if (m_thd->security_ctx->proxy_user)
-        {
-          value->str= m_thd->security_ctx->proxy_user;
-          value->length= strlen(value->str);
-        }
+        value->str= m_thd->security_ctx->proxy_user;
+        value->length= strlen(value->str);
       }
       else if (!strcmp(property, "host"))
       {

@@ -651,7 +651,7 @@ static binlog_comp_event get_compressed_event(NET *net,
   // event
   if (file_num >= ((ulonglong) 1 << 21) ||
       coord->pos >= ((ulonglong) 1 << 42) ||
-      net->comp_lib >= ((ulonglong) 1 << 3))
+      (ulonglong)net->comp_lib >= ((ulonglong) 1 << 3))
   {
     sql_print_warning("Not caching binlog event %s:%llu because the cache key "
                       "is out of bounds", coord->file_name, coord->pos);
