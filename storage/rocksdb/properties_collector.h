@@ -118,7 +118,7 @@ public:
                                      const rocksdb::Slice &value,
                                      rocksdb::EntryType type,
                                      rocksdb::SequenceNumber seq,
-                                     uint64_t file_size);
+                                     uint64_t file_size) override;
 
   virtual rocksdb::Status
   Finish(rocksdb::UserCollectedProperties *properties) override;
