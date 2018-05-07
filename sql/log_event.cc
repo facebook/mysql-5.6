@@ -14883,7 +14883,7 @@ Rows_query_log_event::Rows_query_log_event(const char *buf, uint event_len,
   int offset= common_header_len + post_header_len + 1;
   int len= event_len - offset;
   if (!(m_rows_query= (char*) my_malloc(len+1, MYF(MY_WME))))
-    return;
+    DBUG_VOID_RETURN;
   strmake(m_rows_query, buf + offset, len);
   DBUG_PRINT("info", ("m_rows_query: %s", m_rows_query));
   DBUG_VOID_RETURN;
@@ -14896,7 +14896,14 @@ Rows_query_log_event::~Rows_query_log_event()
   // the m_rows_query.
   if (thd) {
     mysql_mutex_lock(&thd->LOCK_thd_data);
-    if (thd->query() == m_rows_query)
+    auto query= m_rows_query;
+    if (has_trx_meta_data())
+    {
+      // move past the trx metadata
+      DBUG_ASSERT(strstr(m_rows_query, "*/") != NULL);
+      query= strstr(m_rows_query, "*/") + 2;
+    }
+    if (thd->query() == query)
       thd->set_query(CSET_STRING(), false);
     mysql_mutex_unlock(&thd->LOCK_thd_data);
   }
