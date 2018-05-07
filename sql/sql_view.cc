@@ -144,7 +144,7 @@ bool check_duplicate_names(List<Item> &item_list, bool gen_unique_view_name)
             (((Item_ident*)item)->is_document_path() ||
              ((Item_ident*)check)->is_document_path()) &&
             !((Item_ident*)item)->sub_document_path(
-              ((Item_ident*)check)) != 0)
+              ((Item_ident*)check)))
           continue;
 
         if (!gen_unique_view_name)

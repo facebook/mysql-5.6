@@ -450,8 +450,6 @@ public:
     collection[key] = idle_timeout;
 
     auto expire = std::chrono::steady_clock::now() + expiration;
-    auto tmp = std::chrono::duration_cast<std::chrono::seconds>(
-        expire.time_since_epoch());
     expirations[expire].push_back(key);
   }
 

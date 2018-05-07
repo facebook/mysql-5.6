@@ -2664,7 +2664,7 @@ bool write_log_to_socket(int sockfd, THD *thd, ulonglong end_utime)
   if (len < buf_sz)
     len += snprintf(buf + len, buf_sz - len,
                     "# User@Host: %s[%s] @ %s [%s]\n",
-                    sctx->priv_user ? sctx->priv_user : "",
+                    sctx->priv_user,
                     sctx->user ? sctx->user : "",
                     sctx->get_host() ? sctx->get_host()->c_ptr() : "",
                     sctx->get_ip() ? sctx->get_ip()->c_ptr() : "");
@@ -9457,7 +9457,7 @@ bool block_memory_tables(HA_CREATE_INFO *create_info,
       strcmp(table_list->db, "mtr") &&
       create_info->db_type &&
       create_info->db_type->db_type == DB_TYPE_HEAP &&
-      !create_info->options & HA_LEX_CREATE_TMP_TABLE)
+      !(create_info->options & HA_LEX_CREATE_TMP_TABLE))
     return true;
   return false;
 }
@@ -10171,7 +10171,7 @@ THD* get_opt_thread_with_data_lock(THD *thd, ulong thread_id)
 void get_active_master_info(std::string *str_ptr)
 {
 #ifdef HAVE_REPLICATION
-    if (str_ptr && active_mi && active_mi->host && active_mi->host[0])
+    if (str_ptr && active_mi && active_mi->host[0])
     {
       *str_ptr = "Current master_host: ";
       *str_ptr += active_mi->host;

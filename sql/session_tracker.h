@@ -197,7 +197,7 @@ public:
   bool enable(THD *thd) override;
   bool check(THD *thd, set_var *var) override
   { return false; }
-  bool force_enable();
+  bool force_enable() override;
   bool update(THD *thd) override;
   bool store(THD *thd, String &buf) override;
   void mark_as_changed(THD *thd, LEX_CSTRING *tracked_item_name,

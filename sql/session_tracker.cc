@@ -165,7 +165,7 @@ public:
   bool store(THD *thd, String &buf) override;
   void mark_as_changed(THD *thd, LEX_CSTRING *tracked_item_name,
                        LEX_CSTRING *tracked_item_value = NULL) override;
-  bool force_enable() { return true; }
+  bool force_enable() override { return true; }
 };
 
 
@@ -368,7 +368,7 @@ void Session_resp_attr_tracker::mark_as_changed(THD *thd,
   DBUG_ASSERT(key->length > 0);
   std::string k(key->str, key->length);
 
-  attrs_[k] = std::move(std::string(value->str, value->length));
+  attrs_[k] = std::string(value->str, value->length);
   m_changed= true;
 }
 
