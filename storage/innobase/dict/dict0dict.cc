@@ -5886,9 +5886,7 @@ dict_set_corrupted_index_cache_only(
 	/* Mark the table as corrupted only if the clustered index
 	is corrupted */
 	if (dict_index_is_clust(index)) {
-		dict_table_t*	corrupt_table;
-
-		corrupt_table = (table != NULL) ? table : index->table;
+		dict_table_t*	corrupt_table = table;
 		ut_ad((index->table != NULL) || (table != NULL)
 		      || index->table  == table);
 

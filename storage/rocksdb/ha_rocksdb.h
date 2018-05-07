@@ -1130,8 +1130,8 @@ private:
       MY_ATTRIBUTE((__nonnull__));
 
   int compare_key_parts(const KEY *const old_key,
-                        const KEY *const new_key) const;
-  MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+                        const KEY *const new_key) const
+      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   int compare_keys(const KEY *const old_key, const KEY *const new_key) const
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
@@ -1360,7 +1360,7 @@ public:
   virtual void rpl_after_delete_rows() override;
   virtual void rpl_before_update_rows() override;
   virtual void rpl_after_update_rows() override;
-  virtual bool use_read_free_rpl();
+  virtual bool use_read_free_rpl() override;
 
 private:
   /* Flags tracking if we are inside different replication operation */

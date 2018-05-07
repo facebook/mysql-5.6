@@ -17,7 +17,7 @@ namespace utils {
 
 template <class T> using unique_ptr = std::unique_ptr<T>;
 
-class SimplePerfCounterFactory : public PerfCounterFactory {
+class SimplePerfCounterFactory final : public PerfCounterFactory {
 
   std::shared_ptr<PerfCounter> makeSharedPerfCounter(
     PerfCounterMode mode, PerfCounterType c_type) override;
