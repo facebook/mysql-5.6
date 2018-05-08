@@ -11051,7 +11051,8 @@ int ha_rocksdb::optimize(THD *const thd, HA_CHECK_OPT *const check_opt) {
 }
 
 static int calculate_stats(
-    const std::unordered_set<std::shared_ptr<const Rdb_key_def>> &to_recalc,
+    const std::unordered_map<GL_INDEX_ID, std::shared_ptr<const Rdb_key_def>>
+        &to_recalc,
     bool include_memtables) {
   DBUG_ENTER_FUNC();
 
@@ -11062,8 +11063,9 @@ static int calculate_stats(
   std::vector<uchar> buf(to_recalc.size() * 2 * Rdb_key_def::INDEX_NUMBER_SIZE);
 
   uchar *bufp = buf.data();
-  for (const auto &kd : to_recalc) {
-    const GL_INDEX_ID index_id = kd->get_gl_index_id();
+  for (const auto &it : to_recalc) {
+    const GL_INDEX_ID index_id = it.first;
+    auto &kd = it.second;
     ranges[kd->get_cf()].push_back(myrocks::get_range(*kd, bufp));
     bufp += 2 * Rdb_key_def::INDEX_NUMBER_SIZE;
 
@@ -11106,9 +11108,13 @@ static int calculate_stats(
         continue;
       }
 
-      auto kd = ddl_manager.safe_find(it1.m_gl_index_id);
-      DBUG_ASSERT(kd != nullptr);
-      stats[it1.m_gl_index_id].merge(it1, true, kd->max_storage_fmt_length());
+      auto it_index = to_recalc.find(it1.m_gl_index_id);
+      DBUG_ASSERT(it_index != to_recalc.end());
+      if (it_index == to_recalc.end()) {
+        continue;
+      }
+      stats[it1.m_gl_index_id].merge(
+          it1, true, it_index->second->max_storage_fmt_length());
     }
     num_sst++;
   }
@@ -11118,7 +11124,8 @@ static int calculate_stats(
     Rdb_tbl_card_coll cardinality_collector(rocksdb_table_stats_sampling_pct);
     auto read_opts = rocksdb::ReadOptions();
     read_opts.read_tier = rocksdb::ReadTier::kMemtableTier;
-    for (const auto &kd : to_recalc) {
+    for (const auto &it_kd : to_recalc) {
+      const std::shared_ptr<const Rdb_key_def> &kd = it_kd.second;
       Rdb_index_stats &stat = stats[kd->get_gl_index_id()];
 
       uchar r_buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2];
@@ -11171,9 +11178,11 @@ int ha_rocksdb::analyze(THD *const thd, HA_CHECK_OPT *const check_opt) {
   DBUG_ENTER_FUNC();
 
   if (table) {
-    std::unordered_set<std::shared_ptr<const Rdb_key_def>> ids_to_check;
+    std::unordered_map<GL_INDEX_ID, std::shared_ptr<const Rdb_key_def>>
+        ids_to_check;
     for (uint i = 0; i < table->s->keys; i++) {
-      ids_to_check.insert(m_key_descr_arr[i]);
+      ids_to_check.insert(std::make_pair(m_key_descr_arr[i]->get_gl_index_id(),
+                                         m_key_descr_arr[i]));
     }
 
     int res = calculate_stats(ids_to_check, true);
@@ -12555,7 +12564,8 @@ void Rdb_background_thread::run() {
 
     // Recalculate statistics for indexes.
     if (rocksdb_stats_recalc_rate) {
-      std::unordered_set<std::shared_ptr<const Rdb_key_def>> to_recalc;
+      std::unordered_map<GL_INDEX_ID, std::shared_ptr<const Rdb_key_def>>
+          to_recalc;
 
       if (rdb_indexes_to_recalc.empty()) {
         struct Rdb_index_collector : public Rdb_tables_scanner {
@@ -12579,7 +12589,7 @@ void Rdb_background_thread::run() {
             ddl_manager.safe_find(index_id);
 
         if (keydef) {
-          to_recalc.insert(keydef);
+          to_recalc.insert(std::make_pair(keydef->get_gl_index_id(), keydef));
         }
       }
 
