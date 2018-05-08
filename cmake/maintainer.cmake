@@ -24,10 +24,19 @@ SET(MY_C_WARNING_FLAGS
 SET(MY_CXX_WARNING_FLAGS
     "${MY_WARNING_FLAGS} -Woverloaded-virtual -Wno-unused-parameter")
 
-# Extra warning flags for Clang++
+# Extra warning flags for Clang/Clang++
+# unused-command-line-argument:
+IF(CMAKE_C_COMPILER_ID MATCHES "Clang")
+  SET(MY_C_WARNING_FLAGS
+    "${MY_C_WARNING_FLAGS} \
+    -Wno-unused-command-line-argument -Wno-deprecated-register")
+ENDIF()
 IF(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   SET(MY_CXX_WARNING_FLAGS
-      "${MY_CXX_WARNING_FLAGS} -Wno-null-conversion -Wno-unused-private-field")
+    "${MY_CXX_WARNING_FLAGS} \
+    -Wno-null-conversion -Wno-unused-private-field \
+    -Wno-unused-command-line-argument -Wno-deprecated-register \
+    -Wno-unused-const-variable")
 ENDIF()
 
 # Turn on Werror (warning => error) when using maintainer mode.
