@@ -10162,10 +10162,21 @@ int ha_rocksdb::info(uint flag) {
       KEY *const k = &table->key_info[i];
       for (uint j = 0; j < k->actual_key_parts; j++) {
         const Rdb_index_stats &k_stats = m_key_descr_arr[i]->m_stats;
-        uint x = k_stats.m_distinct_keys_per_prefix.size() > j &&
-                         k_stats.m_distinct_keys_per_prefix[j] > 0
-                     ? k_stats.m_rows / k_stats.m_distinct_keys_per_prefix[j]
-                     : 0;
+        uint x;
+
+        if (k_stats.m_distinct_keys_per_prefix.size() > j &&
+            k_stats.m_distinct_keys_per_prefix[j] > 0) {
+          x = k_stats.m_rows / k_stats.m_distinct_keys_per_prefix[j];
+          /*
+            If the number of rows is less than the number of prefixes (due to
+            sampling), the average number of rows with the same prefix is 1.
+           */
+          if (x == 0) {
+            x = 1;
+          }
+        } else {
+          x = 0;
+        }
         if (x > stats.records)
           x = stats.records;
         if ((x == 0 && rocksdb_debug_optimizer_no_zero_cardinality) ||
