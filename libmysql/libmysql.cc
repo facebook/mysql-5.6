@@ -4535,6 +4535,14 @@ bool STDCALL mysql_more_results(MYSQL *mysql) {
 int STDCALL mysql_next_result(MYSQL *mysql) {
   DBUG_ENTER("mysql_next_result");
 
+  /*
+    This is a hack for clients who call mysql_next_result on closed
+    connections. MYSQL_TRACE_STAGE will allocate memory in that case,
+    but that memory is never free'd since we already called mysql_close,
+    resulting in a leak.
+  */
+  if (mysql->net.vio == nullptr) DBUG_RETURN(-1);
+
   MYSQL_TRACE_STAGE(mysql, WAIT_FOR_RESULT);
 
   if (mysql->status != MYSQL_STATUS_READY) {
