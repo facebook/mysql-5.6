@@ -71,13 +71,13 @@ DROP TABLE t;
 # Get the initial number of bytes written to the socket
 --let $before= `SELECT SUM_NUMBER_OF_BYTES_WRITE FROM performance_schema.socket_summary_by_event_name WHERE EVENT_NAME = 'wait/io/socket/sql/client_connection'`
 # Execute mysqlbinlog with compression
---let $mysqlbinlog_parameters = --compress --read-from-remote-server --user=root --socket=$MASTER_MYSOCK $binlog_file
+--let $mysqlbinlog_parameters = --ssl-mode=DISABLED --compress --read-from-remote-server --user=root --socket=$MASTER_MYSOCK $binlog_file
 --source include/mysqlbinlog.inc
 # Get the byte count through socket after executing mysqlbinlog with compression
 --let $after_compression= `SELECT SUM_NUMBER_OF_BYTES_WRITE FROM performance_schema.socket_summary_by_event_name WHERE EVENT_NAME = 'wait/io/socket/sql/client_connection'`
 
 # Execute mysqlbinlog without compression
---let $mysqlbinlog_parameters = --read-from-remote-server --user=root --socket=$MASTER_MYSOCK $binlog_file
+--let $mysqlbinlog_parameters = --ssl-mode=DISABLED --read-from-remote-server --user=root --socket=$MASTER_MYSOCK $binlog_file
 --source include/mysqlbinlog.inc
 # Get the byte count through socket after executing mysqlbinlog without compression
 --let $after_no_compression= `SELECT SUM_NUMBER_OF_BYTES_WRITE FROM performance_schema.socket_summary_by_event_name WHERE EVENT_NAME = 'wait/io/socket/sql/client_connection'`

@@ -6387,6 +6387,7 @@ sub mysqld_stop {
   mtr_add_arg($args, "--defaults-file=%s",         $path_config_file);
   mtr_add_arg($args, "--defaults-group-suffix=%s", $mysqld->after('mysqld'));
   mtr_add_arg($args, "--connect-timeout=20");
+  mtr_add_arg($args, "--ssl-mode=DISABLED");
   if (IS_WINDOWS) {
     mtr_add_arg($args, "--protocol=pipe");
   }
