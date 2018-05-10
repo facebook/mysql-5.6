@@ -4156,13 +4156,6 @@ static void cli_calculate_client_flag(MYSQL *mysql, const char *db,
                        (~(CLIENT_COMPRESS | CLIENT_SSL | CLIENT_PROTOCOL_41 |
                           CLIENT_OPTIONAL_RESULTSET_METADATA) |
                         mysql->server_capabilities);
-
-  if (mysql->options.protocol == MYSQL_PROTOCOL_SOCKET &&
-      mysql->options.extension &&
-      mysql->options.extension->ssl_mode <= SSL_MODE_PREFERRED) {
-    mysql->client_flag &= ~CLIENT_SSL;
-    mysql->options.extension->ssl_mode = SSL_MODE_DISABLED;
-  }
 }
 
 /**
