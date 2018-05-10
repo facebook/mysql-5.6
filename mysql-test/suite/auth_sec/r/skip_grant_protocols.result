@@ -28,25 +28,25 @@ CREATE USER 'native_user' IDENTIFIED WITH 'mysql_native_password' BY 'passwd';
 
 # connect the root user which uses the default auth plugin
 connection_type
-Socket
+SSL/TLS
 current_user
 skip-grants user@skip-grants host
 
 # connect the native_user plugin user which uses the default auth plugin
 connection_type
-Socket
+SSL/TLS
 current_user
 skip-grants user@skip-grants host
 
 # connect the root user which uses the non-default auth plugin
 connection_type
-Socket
+SSL/TLS
 current_user
 skip-grants user@skip-grants host
 
 # connect the native user plugin user which uses corresponding plugin
 connection_type
-Socket
+SSL/TLS
 current_user
 skip-grants user@skip-grants host
 
