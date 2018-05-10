@@ -1070,6 +1070,7 @@ bool opt_log_unsafe_statements;
 bool opt_log_global_var_changes;
 bool is_slave = false;
 bool read_only_slave;
+bool flush_only_old_table_cache_entries = false;
 
 #ifdef HAVE_INITGROUPS
 volatile sig_atomic_t calling_initgroups = 0; /**< Used in SIGSEGV handler. */

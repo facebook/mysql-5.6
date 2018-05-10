@@ -327,6 +327,9 @@ The following options may be given as the first argument:
  (not repair) tables while the MySQL server is running.
  Disable with --skip-external-locking.
  --flush             Flush MyISAM tables to disk between SQL commands
+ --flush-only-old-table-cache-entries 
+ Enable/disable flushing table and definition cache
+ entries policy based on TTL specified by flush_time.
  --flush-time=#      A dedicated thread is created to flush all tables at the
  given interval
  --ft-boolean-syntax=name 
@@ -1480,6 +1483,7 @@ expire-logs-days 0
 explicit-defaults-for-timestamp TRUE
 external-locking FALSE
 flush FALSE
+flush-only-old-table-cache-entries FALSE
 flush-time 0
 ft-boolean-syntax + -><()~*:""&|
 ft-max-word-len 84
