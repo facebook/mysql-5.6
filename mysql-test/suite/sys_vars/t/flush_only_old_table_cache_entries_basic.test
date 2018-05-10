@@ -1,0 +1,17 @@
+
+select @@global.flush_only_old_table_cache_entries;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.flush_only_old_table_cache_entries;
+show global variables like 'flush_only_old_table_cache_entries';
+show session variables like 'flush_only_old_table_cache_entries';
+select * from information_schema.global_variables where variable_name='flush_only_old_table_cache_entries';
+select * from information_schema.session_variables where variable_name='flush_only_old_table_cache_entries';
+
+#
+# show that it's writable
+#
+set global flush_only_old_table_cache_entries=ON;
+select @@global.flush_only_old_table_cache_entries;
+--error ER_GLOBAL_VARIABLE
+set session flush_only_old_table_cache_entries=ON;
+set global flush_only_old_table_cache_entries=OFF;

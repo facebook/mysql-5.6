@@ -160,6 +160,30 @@ void Table_cache::free_all_unused_tables()
   }
 }
 
+void Table_cache::free_old_unused_tables(time_point cutpoint)
+{
+  assert_owner();
+
+  if (!m_unused_tables)
+    return;
+  std::vector<TABLE*> old_tables;
+
+  for (TABLE *t = m_unused_tables;;)
+  {
+    if (should_be_evicted(t->last_accessed, cutpoint))
+    {
+      old_tables.push_back(t);
+    }
+    t = t->next;
+    if (t == m_unused_tables) // circular double-linked list
+      break;
+  }
+  for (TABLE *table_to_free : old_tables)
+  {
+    remove_table(table_to_free);
+    intern_close_table(table_to_free);
+  }
+}
 
 #ifndef DBUG_OFF
 /**
@@ -394,6 +418,13 @@ void Table_cache_manager::free_all_unused_tables()
     m_table_cache[i].free_all_unused_tables();
 }
 
+void Table_cache_manager::free_old_unused_tables(time_point cutpoint)
+{
+  assert_owner_all_and_tdc();
+
+  for (uint i= 0; i < table_cache_instances; i++)
+    m_table_cache[i].free_old_unused_tables(cutpoint);
+}
 
 #ifndef DBUG_OFF
 /**

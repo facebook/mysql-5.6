@@ -2735,6 +2735,9 @@ partititon_err:
   if (db_stat)
     thd->status_var.opened_tables++;
 
+  // set creation time
+  outparam->set_last_access_time();
+
   DBUG_RETURN (0);
 
  err:
@@ -6912,3 +6915,24 @@ bool TABLE::prepare_triggers_for_update_stmt_or_event()
   }
   return FALSE;
 }
+
+time_point get_time_now()
+{
+  return std::chrono::system_clock::now();
+}
+
+void TABLE_SHARE::set_last_access_time()
+{
+	this->last_accessed = get_time_now();
+}
+
+void TABLE::set_last_access_time()
+{
+	this->last_accessed = get_time_now();
+}
+
+bool should_be_evicted(time_point last_accessed, time_point cutpoint)
+{
+	return last_accessed < cutpoint;
+}
+

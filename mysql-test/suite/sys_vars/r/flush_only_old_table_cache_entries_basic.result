@@ -1,0 +1,24 @@
+select @@global.flush_only_old_table_cache_entries;
+@@global.flush_only_old_table_cache_entries
+0
+select @@session.flush_only_old_table_cache_entries;
+ERROR HY000: Variable 'flush_only_old_table_cache_entries' is a GLOBAL variable
+show global variables like 'flush_only_old_table_cache_entries';
+Variable_name	Value
+flush_only_old_table_cache_entries	OFF
+show session variables like 'flush_only_old_table_cache_entries';
+Variable_name	Value
+flush_only_old_table_cache_entries	OFF
+select * from information_schema.global_variables where variable_name='flush_only_old_table_cache_entries';
+VARIABLE_NAME	VARIABLE_VALUE
+FLUSH_ONLY_OLD_TABLE_CACHE_ENTRIES	OFF
+select * from information_schema.session_variables where variable_name='flush_only_old_table_cache_entries';
+VARIABLE_NAME	VARIABLE_VALUE
+FLUSH_ONLY_OLD_TABLE_CACHE_ENTRIES	OFF
+set global flush_only_old_table_cache_entries=ON;
+select @@global.flush_only_old_table_cache_entries;
+@@global.flush_only_old_table_cache_entries
+1
+set session flush_only_old_table_cache_entries=ON;
+ERROR HY000: Variable 'flush_only_old_table_cache_entries' is a GLOBAL variable and should be set with SET GLOBAL
+set global flush_only_old_table_cache_entries=OFF;

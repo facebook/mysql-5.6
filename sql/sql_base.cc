@@ -508,6 +508,9 @@ TABLE_SHARE *get_table_share(THD *thd, TABLE_LIST *table_list,
   }
   share->ref_count++;        // Mark in use
 
+  // set creation time
+  share->set_last_access_time();
+
 #ifdef HAVE_PSI_TABLE_INTERFACE
   share->m_psi=
      PSI_TABLE_CALL(get_table_share)((share->tmp_table != NO_TMP_TABLE), share);
@@ -555,6 +558,9 @@ found:
   while (table_def_cache.records > table_def_size &&
          oldest_unused_share->next)
     my_hash_delete(&table_def_cache, (uchar*) oldest_unused_share);
+
+  // update access time
+  share->set_last_access_time();
 
   DBUG_PRINT("exit", ("share: 0x%lx  ref_count: %u",
                       (ulong) share, share->ref_count));
@@ -9544,7 +9550,33 @@ my_bool mysql_rm_tmp_tables(void)
 void tdc_flush_unused_tables()
 {
   table_cache_manager.lock_all_and_tdc();
-  table_cache_manager.free_all_unused_tables();
+  if (flush_only_old_table_cache_entries)
+  {
+    time_point flush_cutpoint =
+        get_time_now() - std::chrono::seconds(flush_time);
+    table_cache_manager.free_old_unused_tables(flush_cutpoint);
+
+    /* Free table shares which were not freed implicitly by loop above. */
+    std::vector<TABLE_SHARE*> old_entries;
+    for (TABLE_SHARE *s = oldest_unused_share; s->next; s = s->next)
+    {
+      if (should_be_evicted(s->last_accessed, flush_cutpoint))
+      {
+        old_entries.push_back(s);
+      }
+    }
+    for (TABLE_SHARE *s : old_entries)
+    {
+      my_hash_delete(&table_def_cache, (uchar*) s);
+    }
+  }
+  else
+  {
+    table_cache_manager.free_all_unused_tables();
+    /* Free table shares which were not freed implicitly by loop above. */
+    while (oldest_unused_share->next)
+      (void) my_hash_delete(&table_def_cache, (uchar*) oldest_unused_share);
+  }
   table_cache_manager.unlock_all_and_tdc();
 }
 

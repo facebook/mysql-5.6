@@ -890,6 +890,7 @@ extern ulong rpl_stop_slave_timeout;
 extern my_bool rpl_skip_tx_api;
 extern my_bool log_bin_use_v1_row_events;
 extern ulong what_to_log,flush_time;
+extern bool flush_only_old_table_cache_entries;
 extern ulong max_prepared_stmt_count, prepared_stmt_count;
 extern ulong open_files_limit;
 extern ulong binlog_cache_size, binlog_stmt_cache_size;

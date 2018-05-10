@@ -31,6 +31,7 @@
 #include "filesort_utils.h"
 #include "parse_file.h"
 #include "table_id.h"
+#include <chrono>		 // last access time
 
 /* Structs that defines the TABLE */
 
@@ -56,6 +57,7 @@ class Table_cache_element;
 */
 typedef ulonglong nested_join_map;
 
+using time_point = std::chrono::system_clock::time_point;
 
 #define tmp_file_prefix "#sql"			/**< Prefix for tmp tables */
 #define tmp_file_prefix_length 4
@@ -859,6 +861,9 @@ struct TABLE_SHARE
   // If true, column names for this table are logged in Table_map_log_events
   bool rbr_column_names;
 
+  // last time table_share was accessed via get_table_share() function
+  time_point last_accessed;
+
   /*
     Set share's table cache key and update its db and table name appropriately.
 
@@ -1014,6 +1019,9 @@ struct TABLE_SHARE
                             uint deadlock_weight);
   /** Release resources and free memory occupied by the table share. */
   void destroy();
+
+  // reset time for TTL based LRU eviction policy
+  void set_last_access_time();
 };
 
 
@@ -1328,6 +1336,9 @@ public:
   bool master_had_triggers;
 #endif
 
+  // last time table was accessed via get_table() function
+  time_point last_accessed;
+
   void init(THD *thd, TABLE_LIST *tl);
   bool fill_item_list(List<Item> *item_list) const;
   void reset_item_list(List<Item> *item_list) const;
@@ -1431,6 +1442,9 @@ public:
   void prepare_triggers_for_insert_stmt_or_event();
   bool prepare_triggers_for_delete_stmt_or_event();
   bool prepare_triggers_for_update_stmt_or_event();
+
+  // reset time for TTL based LRU eviction policy
+  void set_last_access_time();
 };
 
 
@@ -2577,6 +2591,9 @@ inline void mark_as_null_row(TABLE *table)
 }
 
 bool is_simple_order(ORDER *order);
+
+time_point get_time_now();
+bool should_be_evicted(time_point last_accessed, time_point cutpoint);
 
 #endif /* MYSQL_CLIENT */
 
