@@ -1026,11 +1026,13 @@ cli_safe_read_with_ok_complete(MYSQL *mysql,
   NET *net= &mysql->net;
   DBUG_ENTER(__func__);
   if (len == packet_error || len == 0) {
-    char desc[VIO_DESCRIPTION_SIZE];
+    if (net->vio != 0) {
+      char desc[VIO_DESCRIPTION_SIZE];
+      vio_description(net->vio, desc);
+      DBUG_PRINT("error",
+                 ("Wrong connection or packet. fd: %s  len: %lu", desc, len));
+    }
     int errcode = CR_SERVER_LOST;
-    vio_description(net->vio, desc);
-    DBUG_PRINT("error",
-               ("Wrong connection or packet. fd: %s  len: %lu", desc, len));
 #ifdef MYSQL_SERVER
     if (net->vio && (net->last_errno == ER_NET_READ_INTERRUPTED))
       DBUG_RETURN(packet_error);
