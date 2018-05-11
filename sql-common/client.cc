@@ -4332,15 +4332,24 @@ static int cli_establish_ssl(MYSQL *mysql) {
     /* Connect to the server */
     DBUG_PRINT("info", ("IO layer change in progress..."));
     MYSQL_TRACE(SSL_CONNECT, mysql, ());
-    if (sslconnect(ssl_fd, net->vio,
-                   timeout_to_seconds(mysql->options.connect_timeout), true,
-                   ssl_session, &ssl_error, nullptr)) {
-      char buf[512];
-      ERR_error_string_n(ssl_error, buf, 512);
-      buf[511] = 0;
-      set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR, unknown_sqlstate,
-                               ER_CLIENT(CR_SSL_CONNECTION_ERROR), buf);
-      goto error;
+    ssize_t ret = sslconnect(ssl_fd, net->vio,
+                             timeout_to_seconds(mysql->options.connect_timeout),
+                             true, ssl_session, &ssl_error, nullptr);
+    switch (ret) {
+      case VIO_SOCKET_ERROR:
+        char buf[512];
+        ERR_error_string_n(ssl_error, buf, 512);
+        buf[511] = 0;
+        set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR,
+                                 unknown_sqlstate,
+                                 ER_CLIENT(CR_SSL_CONNECTION_ERROR), buf);
+        goto error;
+      case VIO_SOCKET_READ_TIMEOUT:
+        set_mysql_error(mysql, CR_NET_READ_INTERRUPTED, unknown_sqlstate);
+        goto error;
+      case VIO_SOCKET_WRITE_TIMEOUT:
+        set_mysql_error(mysql, CR_NET_WRITE_INTERRUPTED, unknown_sqlstate);
+        goto error;
     }
     /* Free the SSL session early */
     if (ssl_session) {
@@ -4757,6 +4766,12 @@ static net_async_status cli_establish_ssl_nonblocking(MYSQL *mysql, int *res) {
         case VIO_SOCKET_WANT_WRITE:
           net->async_blocking_state = NET_NONBLOCKING_WRITE;
           DBUG_RETURN(NET_ASYNC_NOT_READY);
+        case VIO_SOCKET_READ_TIMEOUT:
+          set_mysql_error(mysql, CR_NET_READ_INTERRUPTED, unknown_sqlstate);
+          goto error;
+        case VIO_SOCKET_WRITE_TIMEOUT:
+          set_mysql_error(mysql, CR_NET_WRITE_INTERRUPTED, unknown_sqlstate);
+          goto error;
         default:
           break;
           /* continue for error handling */
