@@ -6197,4 +6197,7 @@ class ha_tablespace_statistics {
   dd::String_type m_status;
 };
 
+std::unordered_set<std::string> split_into_set(const std::string &input,
+                                               char delimiter);
+
 #endif /* HANDLER_INCLUDED */

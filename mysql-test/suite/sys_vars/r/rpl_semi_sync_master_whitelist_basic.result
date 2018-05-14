@@ -1,0 +1,40 @@
+SET @start_global_value = @@GLOBAL.rpl_semi_sync_master_whitelist;
+include/assert.inc [rpl_semi_sync_master_whitelist should be "ANY"]
+SET @@GLOBAL.rpl_semi_sync_master_whitelist = NULL;
+SELECT @@GLOBAL.rpl_semi_sync_master_whitelist;
+@@GLOBAL.rpl_semi_sync_master_whitelist
+NULL
+include/assert.inc [rpl_semi_sync_master_whitelist should be NULL]
+SET @@GLOBAL.rpl_semi_sync_master_whitelist = "";
+include/assert.inc [rpl_semi_sync_master_whitelist should be ""]
+SET @@GLOBAL.rpl_semi_sync_master_whitelist='+55555555-5555-5555-5555-555555555555';
+include/assert.inc [rpl_semi_sync_master_whitelist should be "55555555-5555-5555-5555-555555555555"]
+SET @@GLOBAL.rpl_semi_sync_master_whitelist='66666666-6666-6666-6666-666666666666';
+include/assert.inc [rpl_semi_sync_master_whitelist should be "66666666-6666-6666-6666-666666666666"]
+SET @@GLOBAL.rpl_semi_sync_master_whitelist='+ANY';
+include/assert.inc [rpl_semi_sync_master_whitelist should be "ANY"]
+SET @@GLOBAL.rpl_semi_sync_master_whitelist='66666666-6666-6666-6666-666666666666';
+SET @@GLOBAL.rpl_semi_sync_master_whitelist='-ANY';
+include/assert.inc [rpl_semi_sync_master_whitelist should be ""]
+SET @@GLOBAL.rpl_semi_sync_master_whitelist='+66666666-6666-6666-6666-666666666666';
+include/assert.inc [rpl_semi_sync_master_whitelist should be "66666666-6666-6666-6666-666666666666"]
+SET @@GLOBAL.rpl_semi_sync_master_whitelist='+77777777-7777-7777-7777-777777777777';
+include/assert.inc [rpl_semi_sync_master_whitelist should be "77777777-7777-7777-7777-777777777777,66666666-6666-6666-6666-666666666666"]
+SET @@GLOBAL.rpl_semi_sync_master_whitelist='-66666666-6666-6666-6666-666666666666';
+include/assert.inc [rpl_semi_sync_master_whitelist should be "77777777-7777-7777-7777-777777777777"]
+include/assert.inc [performance_schema.global_variables WHERE VARIABLE_NAME='rpl_semi_sync_master_whitelist' should be "77777777-7777-7777-7777-777777777777"]
+include/assert.inc [SELECT @@GLOBAL.rpl_semi_sync_master_whitelist = VARIABLE_VALUE FROM performance_schema.global_variables WHERE VARIABLE_NAME='rpl_semi_sync_master_whitelist']
+include/assert.inc [SELECT COUNT(@@GLOBAL.rpl_semi_sync_master_whitelist) = 1]
+include/assert.inc [SELECT COUNT(VARIABLE_VALUE) = 1 FROM performance_schema.global_variables WHERE VARIABLE_NAME='rpl_semi_sync_master_whitelist']
+SELECT COUNT(@@local.rpl_semi_sync_master_whitelist);
+ERROR HY000: Variable 'rpl_semi_sync_master_whitelist' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SELECT COUNT(@@SESSION.rpl_semi_sync_master_whitelist);
+ERROR HY000: Variable 'rpl_semi_sync_master_whitelist' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+CREATE USER nonsuper@localhost;
+SET @@GLOBAL.rpl_semi_sync_master_whitelist='88888888-8888-8888-8888-888888888888';
+ERROR 42000: Access denied; you need (at least one of) the SUPER or SYSTEM_VARIABLES_ADMIN privilege(s) for this operation
+include/assert.inc [rpl_semi_sync_master_whitelist should be "77777777-7777-7777-7777-777777777777"]
+DROP USER nonsuper@localhost;
+SET @@GLOBAL.rpl_semi_sync_master_whitelist = @start_global_value;
