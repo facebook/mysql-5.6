@@ -18,6 +18,7 @@
 
 #include "semisync_master.h"
 #include "sql_class.h"                          // THD
+#include <fstream>
 
 static ReplSemiSyncMaster repl_semisync;
 
@@ -76,6 +77,7 @@ int repl_semi_binlog_dump_start(Binlog_transmit_param *param,
 				 my_off_t log_pos)
 {
   DBUG_ASSERT(repl_semisync.is_semi_sync_slave());
+  int ret = 0;
 
   /* One more semi-sync slave */
   repl_semisync.add_slave();
@@ -86,13 +88,18 @@ int repl_semi_binlog_dump_start(Binlog_transmit_param *param,
     Let's assume this semi-sync slave has already received all
     binlog events before the filename and position it requests.
   */
-  repl_semisync.reportReplyBinlog(param->server_id, log_file, log_pos);
+  int err= repl_semisync.reportReplyBinlog(param->server_id, log_file, log_pos);
+  // case: whitelist error, so it's okay to close the dump thread
+  if (err == 2)
+  {
+    ret = 1;
+  }
 
   sql_print_information("Start semi-sync binlog_dump to slave (server_id: %d), "
                         "pos(%s, %lu), (host: %s)", param->server_id,
                         log_file, (unsigned long)log_pos, param->host_or_ip);
   
-  return 0;
+  return ret;
 }
 
 int repl_semi_binlog_dump_end(Binlog_transmit_param *param)
@@ -130,22 +137,28 @@ int repl_semi_after_send_event(Binlog_transmit_param *param,
                                my_off_t skipped_log_pos)
 {
   DBUG_ASSERT(repl_semisync.is_semi_sync_slave());
+  int ret= 0;
   if(skipped_log_pos>0)
     repl_semisync.skipSlaveReply(event_buf, param->server_id,
                                  skipped_log_file, skipped_log_pos);
   else
   {
     THD *thd= current_thd;
+    int err= repl_semisync.readSlaveReply(&thd->net,
+                                          param->server_id,
+                                          event_buf);
     /*
-      Possible errors in reading slave reply are ignored deliberately
-      because we do not want dump thread to quit on this. Error
-      messages are already reported.
+      Possible errors in reading slave reply EXCEPT whitelist related errors
+      are ignored deliberately because we do not want dump thread to quit.
+      Error messages are already reported.
     */
-    (void) repl_semisync.readSlaveReply(&thd->net,
-                                        param->server_id, event_buf);
+    if (err == 2)
+    {
+      ret = 1;
+    }
     thd->clear_error();
   }
-  return 0;
+  return ret;
 }
 
 int repl_semi_reset_master(Binlog_transmit_param *param)
@@ -240,6 +253,20 @@ update_histogram_trx_wait_step_size(THD *thd, struct st_mysql_sys_var* var,
   *static_cast<const char**>(var_ptr) = step_size_local;
 }
 
+static void update_whitelist(THD *thd,
+                             struct st_mysql_sys_var* var,
+                             void* var_ptr,
+                             const void* save)
+{
+  const auto wlist_buf = *static_cast<const char* const*>(save);
+  auto wlist = std::string(wlist_buf);
+  if (repl_semisync.update_whitelist(wlist))
+  {
+    // all good, now let's change the sysvar
+    *static_cast<const char**>(var_ptr) = my_strdup(wlist.c_str(), MYF(MY_WME));
+  }
+}
+
 static MYSQL_SYSVAR_BOOL(enabled, rpl_semi_sync_master_enabled,
   PLUGIN_VAR_OPCMDARG,
  "Enable semi-synchronous replication master (disabled by default). ",
@@ -281,6 +308,18 @@ static MYSQL_SYSVAR_STR(histogram_trx_wait_step_size,
   "Histogram step size for transaction wait time. ",
   check_histogram_step_size, update_histogram_trx_wait_step_size, "500us");
 
+static MYSQL_SYSVAR_STR(whitelist,
+  rpl_semi_sync_master_whitelist,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC | PLUGIN_VAR_ALLOCATED,
+  "Comma separated UUIDs of semi-sync slaves that are allowed to ACK "
+  "transactions. ACKs from slaves not in the list will be ignored and their "
+  "connections will be closed. UUIDs can be added and removed from the list "
+  "using +/- in the beginning of the string (e.g. +uuid1 or -uuid1) or a "
+  "complete list can be specified using a comma separated string. Default "
+  "value is ANY, the value ANY means that any slave can ACK trxs. An empty "
+  "list will lead to discarding all ACKs.",
+  NULL, update_whitelist, "ANY");
+
 static SYS_VAR* semi_sync_master_system_vars[]= {
   MYSQL_SYSVAR(enabled),
   MYSQL_SYSVAR(timeout),
@@ -288,6 +327,7 @@ static SYS_VAR* semi_sync_master_system_vars[]= {
   MYSQL_SYSVAR(wait_no_slave),
   MYSQL_SYSVAR(trace_level),
   MYSQL_SYSVAR(histogram_trx_wait_step_size),
+  MYSQL_SYSVAR(whitelist),
   NULL,
 };
 

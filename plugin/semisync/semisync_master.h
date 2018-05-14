@@ -453,6 +453,15 @@ class ReplSemiSyncMaster
 
   bool            state_;                    /* whether semi-sync is switched */
 
+  /* Whitelist related members */
+  std::mutex rpl_semi_sync_master_whitelist_set_lock;
+  std::unordered_set<std::string> rpl_semi_sync_master_whitelist_set;
+  std::atomic<ulonglong> rpl_semi_sync_master_whitelist_ver{1};
+  const std::string SEMI_SYNC_MASTER_WHITELIST_FILE =
+    "semi_sync_master_whitelist.info";
+  const std::string SEMI_SYNC_MASTER_WHITELIST_TMP_FILE =
+    "semi_sync_master_whitelist.tmp";
+
   void lock();
   void unlock();
 
@@ -471,6 +480,15 @@ class ReplSemiSyncMaster
   /* Switch semi-sync on when slaves catch up. */
   int try_switch_on(int server_id,
                     const char *log_file_name, my_off_t log_file_pos);
+
+  /* The UUID of the slave handled by the current connection */
+  std::string get_slave_uuid() const;
+
+  /* Init semi-sync acker whitelist from persistent storage */
+  int init_whitelist();
+
+  /* Checks if the reply is from a slave on the whitelist */
+  bool verify_against_whitelist();
 
  public:
   ReplSemiSyncMaster();
@@ -511,6 +529,9 @@ class ReplSemiSyncMaster
 
   /* Is the slave servered by the thread requested semi-sync */
   bool is_semi_sync_slave();
+
+  /* Updates the whitelist, called from update callback of whitelist sysvar */
+  bool update_whitelist(std::string &wlist);
 
   /* In semi-sync replication, reports up to which binlog position we have
    * received replies from the slave indicating that it already get the events
@@ -675,5 +696,6 @@ extern ulonglong histogram_trx_wait_values[NUMBER_OF_HISTOGRAM_BINS];
      1 (default) : keep waiting until timeout even no available semi-sync slave.
 */
 extern char rpl_semi_sync_master_wait_no_slave;
+extern char* rpl_semi_sync_master_whitelist;
 
 #endif /* SEMISYNC_MASTER_H */

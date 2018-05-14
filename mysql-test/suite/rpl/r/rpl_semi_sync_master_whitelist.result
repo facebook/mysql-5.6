@@ -1,0 +1,88 @@
+include/rpl_init.inc [topology=1->2,1->3]
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+include/rpl_connect.inc [creating master]
+include/rpl_connect.inc [creating master1]
+include/rpl_connect.inc [creating slave_1]
+include/rpl_connect.inc [creating slave_2]
+call mtr.add_suppression("Read semi-sync reply network error");
+call mtr.add_suppression("Semi-sync master: Received an ACK from an unrecognized slave with UUID");
+call mtr.add_suppression("Run function .* in plugin .* failed");
+create table t1(a int) engine=innodb;
+insert into t1 values(0);
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select count(*) from t1;
+count(*)
+1
+select count(*) from t1;
+count(*)
+1
+set @@global.rpl_semi_sync_master_whitelist = "slave1_uuid,slave2_uuid";
+insert into t1 values(1);
+insert into t1 values(2);
+select count(*) from t1;
+count(*)
+3
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select count(*) from t1;
+count(*)
+3
+select count(*) from t1;
+count(*)
+3
+stop slave;
+insert into t1 values(3);
+insert into t1 values(4);
+select count(*) from t1;
+count(*)
+5
+include/sync_slave_sql_with_master.inc
+select count(*) from t1;
+count(*)
+5
+start slave;
+include/sync_slave_sql_with_master.inc
+select count(*) from t1;
+count(*)
+5
+include/rpl_restart_server.inc [server_number=1]
+select @@global.rpl_semi_sync_master_whitelist;
+@@global.rpl_semi_sync_master_whitelist
+slave2_uuid,slave1_uuid
+stop slave;
+stop slave;
+insert into t1 values(5);
+select count(*) from t1;
+count(*)
+5
+start slave;
+start slave;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select count(*) from t1;
+count(*)
+6
+select count(*) from t1;
+count(*)
+6
+select count(*) from t1;
+count(*)
+6
+select count(*) = 2 from information_schema.processlist where
+command = "Binlog Dump";
+count(*) = 2
+1
+set @@global.rpl_semi_sync_master_whitelist='-slave2_uuid';
+insert into t1 values(5);
+set @@global.rpl_semi_sync_master_whitelist='+slave2_uuid';
+drop table t1;
+set @@global.rpl_semi_sync_master_whitelist = default;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

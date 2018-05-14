@@ -3088,6 +3088,9 @@ err:
   @param[out]   value String to return UUID value.
 
   @return       if success value is returned else NULL is returned.
+
+  NOTE: Please make sure this method is in sync with
+        ReplSemiSyncMaster::get_slave_uuid
 */
 String *get_slave_uuid(THD *thd, String *value)
 {

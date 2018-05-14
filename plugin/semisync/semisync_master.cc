@@ -19,8 +19,9 @@
 #include "mysqld.h"
 #if defined(ENABLED_DEBUG_SYNC)
 #include "debug_sync.h"
-#include "sql_class.h"
 #endif
+#include "sql_class.h"
+#include <fstream>
 
 #define TIME_THOUSAND 1000
 #define TIME_MILLION  1000000
@@ -51,6 +52,7 @@ char *histogram_trx_wait_step_size = 0;
 latency_histogram histogram_trx_wait;
 SHOW_VAR latency_histogram_trx_wait[NUMBER_OF_HISTOGRAM_BINS + 1];
 ulonglong histogram_trx_wait_values[NUMBER_OF_HISTOGRAM_BINS];
+char *rpl_semi_sync_master_whitelist = 0;
 
 
 static int getWaitTime(const struct timespec& start_ts);
@@ -429,6 +431,11 @@ int ReplSemiSyncMaster::initObject()
   else
     result = disableMaster();
 
+  if (result == 0)
+  {
+    result = init_whitelist();
+  }
+
   latency_histogram_init(&histogram_trx_wait, histogram_trx_wait_step_size);
   return result;
 }
@@ -498,6 +505,74 @@ int ReplSemiSyncMaster::disableMaster()
   return 0;
 }
 
+int ReplSemiSyncMaster::init_whitelist()
+{
+  std::lock_guard<std::mutex> guard(rpl_semi_sync_master_whitelist_set_lock);
+
+  char tmp_file_path[FN_REFLEN];
+  char info_file_path[FN_REFLEN];
+  fn_format(tmp_file_path, SEMI_SYNC_MASTER_WHITELIST_TMP_FILE.c_str(),
+            mysql_data_home, "", MY_UNPACK_FILENAME|MY_RETURN_REAL_PATH);
+  fn_format(info_file_path, SEMI_SYNC_MASTER_WHITELIST_FILE.c_str(),
+            mysql_data_home, "", MY_UNPACK_FILENAME|MY_RETURN_REAL_PATH);
+
+  // case: whitelist file does not exists, we're done
+  if (my_access(info_file_path, F_OK))
+  {
+    return 0;
+  }
+
+  // case: temp file exists, delete it
+  if (!my_access(tmp_file_path, F_OK) && my_delete(tmp_file_path, MYF(MY_WME)))
+  {
+    sql_print_error("Semi-sync master: Failed to delete tmp whitelist file.");
+    return 1;
+  }
+
+  std::ifstream info_file(info_file_path, std::ofstream::in);
+  if (!info_file.is_open())
+  {
+    sql_print_error("Semi-sync master: Could not open whitelist file: %s",
+                    info_file_path);
+    return 1;
+  }
+
+  std::string wlist, checksum_str;
+  // first line contains the whitelist
+  std::getline(info_file, wlist);
+  // second line constains the checksum
+  std::getline(info_file, checksum_str);
+#ifndef DEBUG_OFF
+  std::string tmp;
+  // assert: no more lines in the file
+  DBUG_ASSERT(!std::getline(info_file, tmp));
+#endif
+  info_file.close();
+
+  // verify the checksum
+  ulong checksum= std::strtoul(checksum_str.c_str(), nullptr, 10);
+  ulong checksum_calc= crc32(0L, reinterpret_cast<const uchar*>(wlist.data()),
+                             wlist.length());
+
+  if (checksum != checksum_calc)
+  {
+    sql_print_error("Semi-sync master: Whitelist checksum did not match!");
+    return 1;
+  }
+  // all good now, let's store the value in the data-structure and the sysvar
+  rpl_semi_sync_master_whitelist_set= split_into_set(wlist, ',');
+  // remove ANY from set
+  rpl_semi_sync_master_whitelist_set.erase("ANY");
+  // store the value in the sysvar, hacky but works!
+  rpl_semi_sync_master_whitelist = my_strdup(wlist.c_str(), MYF(MY_WME));
+
+  sql_print_information("Semi-sync master: Whitelist = %s",
+                        rpl_semi_sync_master_whitelist);
+
+  return 0;
+}
+
+
 void ReplSemiSyncMaster::cleanup()
 {
   free_latency_histogram_sysvars(latency_histogram_trx_wait);
@@ -524,6 +599,15 @@ void ReplSemiSyncMaster::add_slave()
 {
   lock();
   rpl_semi_sync_master_clients++;
+  DBUG_ASSERT(current_thd->semisync_whitelist_ver == 0);
+  // case: if whitelist is ANY was init the version with 1 to avoid the initial
+  // check in @verify_againt_whitelist()
+  rpl_semi_sync_master_whitelist_set_lock.lock();
+  if (strcmp(rpl_semi_sync_master_whitelist, "ANY") == 0)
+  {
+    current_thd->semisync_whitelist_ver= 1;
+  }
+  rpl_semi_sync_master_whitelist_set_lock.unlock();
   unlock();
 }
 
@@ -567,6 +651,143 @@ bool ReplSemiSyncMaster::is_semi_sync_slave()
   return val;
 }
 
+// This method was copied from get_slave_uuid() in rpl_master.cc
+std::string ReplSemiSyncMaster::get_slave_uuid() const
+{
+  const uchar name[] = "slave_uuid";
+  const THD *thd = current_thd;
+
+  user_var_entry *entry =
+    (user_var_entry*) my_hash_search(&thd->user_vars, name, sizeof(name) - 1);
+
+  if (entry && entry->length() > 0)
+    return std::string(entry->ptr(), entry->length());
+
+  return std::string();
+}
+
+bool ReplSemiSyncMaster::update_whitelist(std::string& wlist)
+{
+  std::lock_guard<std::mutex> guard(rpl_semi_sync_master_whitelist_set_lock);
+
+  // remove all spaces
+  wlist.erase(std::remove(wlist.begin(), wlist.end(), ' '), wlist.end());
+
+  std::unordered_set<std::string> local_whitelist_set;
+  local_whitelist_set = rpl_semi_sync_master_whitelist_set;
+
+  // case: add a single uuid to the whitelist (value starts with +)
+  if (wlist[0] == '+')
+  {
+    const auto str= wlist.substr(1);
+    // case: +ANY specified, start with a clean slate
+    if (str == "ANY")
+    {
+      local_whitelist_set.clear();
+    }
+    local_whitelist_set.insert(str);
+  }
+  // case: remove a single uuid to the whitelist (value starts with -)
+  else if (wlist[0] == '-')
+  {
+    const auto str= wlist.substr(1);
+    // case: -ANY specified, start with a clean slate
+    if (str == "ANY")
+    {
+      local_whitelist_set.clear();
+    }
+    local_whitelist_set.erase(str);
+  }
+  // case: full comma separated string is specified
+  else
+  {
+    local_whitelist_set = split_into_set(wlist, ',');
+  }
+
+  // re-calculate wlist from the set
+  wlist = "";
+  for (const auto uuid : local_whitelist_set)
+  {
+    wlist.append(uuid);
+    wlist.append(",");
+  }
+  // remove last comma
+  if (!wlist.empty())
+  {
+    wlist.pop_back();
+  }
+
+  // calculate CRC32 checksum of the whitelist
+  const ulong checksum= crc32(0L, reinterpret_cast<const uchar*>(wlist.data()),
+                              wlist.length());
+
+  char tmp_file_path[FN_REFLEN];
+  char info_file_path[FN_REFLEN];
+  fn_format(tmp_file_path, SEMI_SYNC_MASTER_WHITELIST_TMP_FILE.c_str(),
+            mysql_data_home, "", MY_UNPACK_FILENAME|MY_RETURN_REAL_PATH);
+  fn_format(info_file_path, SEMI_SYNC_MASTER_WHITELIST_FILE.c_str(),
+            mysql_data_home, "", MY_UNPACK_FILENAME|MY_RETURN_REAL_PATH);
+
+  std::ofstream tmp_info_file(tmp_file_path, std::ofstream::out);
+  if (!tmp_info_file.is_open())
+  {
+    sql_print_error("Semi-sync master: Failed to open whitelist tmp file");
+    return false;
+  }
+  tmp_info_file << wlist << std::endl << checksum;
+  tmp_info_file.close();
+
+  if (std::rename(tmp_file_path, info_file_path))
+  {
+    sql_print_error("Semi-sync master: Failed to rename whitelist tmp file");
+    return false;
+  }
+  rpl_semi_sync_master_whitelist_set = local_whitelist_set;
+  // remove ANY from set
+  rpl_semi_sync_master_whitelist_set.erase("ANY");
+  // NOTE: make sure to change the version only after the updating the whitelist
+  ++rpl_semi_sync_master_whitelist_ver;
+
+  return true;
+}
+
+bool ReplSemiSyncMaster::verify_against_whitelist()
+{
+  auto local_whitelist_ver= rpl_semi_sync_master_whitelist_ver.load();
+
+  // case: the current threads version is out-dated, so we have to check the
+  // whitelist
+  if (current_thd->semisync_whitelist_ver < local_whitelist_ver)
+  {
+    const auto& slave_uuid = get_slave_uuid();
+
+    std::lock_guard<std::mutex> guard(rpl_semi_sync_master_whitelist_set_lock);
+
+    // case: whitelist is enabled and this slave is not in whitelist
+    if (strcmp(rpl_semi_sync_master_whitelist, "ANY") != 0 &&
+        rpl_semi_sync_master_whitelist_set.find(slave_uuid) ==
+        rpl_semi_sync_master_whitelist_set.end())
+    {
+      sql_print_error("Semi-sync master: Received an ACK from an "
+                      "unrecognized slave with UUID = %s, ignoring",
+                      slave_uuid.c_str());
+      return false;
+    }
+    // case: update the threads whitelist version
+    else
+    {
+      current_thd->semisync_whitelist_ver = local_whitelist_ver;
+    }
+  }
+#ifndef DBUG_OFF
+  else
+  {
+    DBUG_ASSERT(current_thd->semisync_whitelist_ver == local_whitelist_ver);
+  }
+#endif
+  return true;
+}
+
 int ReplSemiSyncMaster::reportReplyBinlog(uint32 server_id,
                                           const char *log_file_name,
                                           my_off_t log_file_pos,
@@ -576,6 +797,7 @@ int ReplSemiSyncMaster::reportReplyBinlog(uint32 server_id,
   int   cmp;
   bool  can_release_threads = false;
   bool  need_copy_send_pos = true;
+  int   result = 0;
 
   if (!(getMasterEnabled()))
     return 0;
@@ -591,6 +813,13 @@ int ReplSemiSyncMaster::reportReplyBinlog(uint32 server_id,
   if (!is_on())
     /* We check to see whether we can switch semi-sync ON. */
     try_switch_on(server_id, log_file_name, log_file_pos);
+
+  /* Check if this reply came from a slave in the whitelist */
+  if (!verify_against_whitelist())
+  {
+    result = 2;
+    goto l_end;
+  }
 
   /* The position should increase monotonically, if there is only one
    * thread sending the binlog to the slave.
@@ -662,7 +891,7 @@ int ReplSemiSyncMaster::reportReplyBinlog(uint32 server_id,
     active_tranxs_->signal_waiting_sessions_up_to(reply_file_name_, reply_file_pos_);
   }
   unlock();
-  return function_exit(kWho, 0);
+  return function_exit(kWho, result);
 }
 
 int ReplSemiSyncMaster::commitTrx(const char* trx_wait_binlog_name,

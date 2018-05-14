@@ -2474,6 +2474,9 @@ public:
   /* record the engine commit time */
   ulonglong engine_commit_time = 0;
 
+  /* semi-sync whitelist version number for this thread */
+  ulonglong semisync_whitelist_ver = 0;
+
   /* whether the session is already in admission control for queries */
   bool is_in_ac = false;
   /**

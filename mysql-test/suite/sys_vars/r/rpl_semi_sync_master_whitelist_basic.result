@@ -1,0 +1,85 @@
+SET @start_global_value = @@GLOBAL.rpl_semi_sync_master_whitelist;
+SELECT @start_global_value;
+@start_global_value
+ANY
+ANY Expected
+SET
+@@GLOBAL.rpl_semi_sync_master_whitelist='+55555555-5555-5555-5555-555555555555';
+SELECT @@GLOBAL.rpl_semi_sync_master_whitelist;
+@@GLOBAL.rpl_semi_sync_master_whitelist
+55555555-5555-5555-5555-555555555555
+55555555-5555-5555-5555-555555555555 Expected
+SET
+@@GLOBAL.rpl_semi_sync_master_whitelist='66666666-6666-6666-6666-666666666666';
+SELECT @@GLOBAL.rpl_semi_sync_master_whitelist;
+@@GLOBAL.rpl_semi_sync_master_whitelist
+66666666-6666-6666-6666-666666666666
+66666666-6666-6666-6666-666666666666 Expected
+SET
+@@GLOBAL.rpl_semi_sync_master_whitelist='+ANY';
+SELECT @@GLOBAL.rpl_semi_sync_master_whitelist;
+@@GLOBAL.rpl_semi_sync_master_whitelist
+ANY
+ANY Expected
+SET
+@@GLOBAL.rpl_semi_sync_master_whitelist='66666666-6666-6666-6666-666666666666';
+SET @@GLOBAL.rpl_semi_sync_master_whitelist='-ANY';
+SELECT @@GLOBAL.rpl_semi_sync_master_whitelist;
+@@GLOBAL.rpl_semi_sync_master_whitelist
+
+Empty Expected
+SET
+@@GLOBAL.rpl_semi_sync_master_whitelist='+66666666-6666-6666-6666-666666666666';
+SELECT @@GLOBAL.rpl_semi_sync_master_whitelist;
+@@GLOBAL.rpl_semi_sync_master_whitelist
+66666666-6666-6666-6666-666666666666
+66666666-6666-6666-6666-666666666666 Expected
+SET
+@@GLOBAL.rpl_semi_sync_master_whitelist='+77777777-7777-7777-7777-777777777777';
+SELECT @@GLOBAL.rpl_semi_sync_master_whitelist;
+@@GLOBAL.rpl_semi_sync_master_whitelist
+77777777-7777-7777-7777-777777777777,66666666-6666-6666-6666-666666666666
+77777777-7777-7777-7777-777777777777,66666666-6666-6666-6666-666666666666 Expected
+SET
+@@GLOBAL.rpl_semi_sync_master_whitelist='-66666666-6666-6666-6666-666666666666';
+SELECT @@GLOBAL.rpl_semi_sync_master_whitelist;
+@@GLOBAL.rpl_semi_sync_master_whitelist
+77777777-7777-7777-7777-777777777777
+77777777-7777-7777-7777-777777777777 Expected
+SELECT * FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES WHERE VARIABLE_NAME='rpl_semi_sync_master_whitelist';
+VARIABLE_NAME	VARIABLE_VALUE
+RPL_SEMI_SYNC_MASTER_WHITELIST	77777777-7777-7777-7777-777777777777
+77777777-7777-7777-7777-777777777777 Expected
+SELECT @@GLOBAL.rpl_semi_sync_master_whitelist = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='rpl_semi_sync_master_whitelist';
+@@GLOBAL.rpl_semi_sync_master_whitelist = VARIABLE_VALUE
+1
+1 Expected
+SELECT COUNT(@@GLOBAL.rpl_semi_sync_master_whitelist);
+COUNT(@@GLOBAL.rpl_semi_sync_master_whitelist)
+1
+1 Expected
+SELECT COUNT(VARIABLE_VALUE)
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='rpl_semi_sync_master_whitelist';
+COUNT(VARIABLE_VALUE)
+1
+1 Expected
+SELECT COUNT(@@local.rpl_semi_sync_master_whitelist);
+ERROR HY000: Variable 'rpl_semi_sync_master_whitelist' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SELECT COUNT(@@SESSION.rpl_semi_sync_master_whitelist);
+ERROR HY000: Variable 'rpl_semi_sync_master_whitelist' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+GRANT ALL ON *.* TO nonsuper@localhost;
+REVOKE SUPER ON *.* FROM nonsuper@localhost;
+SET
+@@GLOBAL.rpl_semi_sync_master_whitelist='88888888-8888-8888-8888-888888888888';
+ERROR 42000: Access denied; you need (at least one of) the SUPER privilege(s) for this operation
+SELECT @@GLOBAL.rpl_semi_sync_master_whitelist;
+@@GLOBAL.rpl_semi_sync_master_whitelist
+77777777-7777-7777-7777-777777777777
+77777777-7777-7777-7777-777777777777 Expected
+drop user nonsuper@localhost;
+SET @@GLOBAL.rpl_semi_sync_master_whitelist=default;

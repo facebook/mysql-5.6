@@ -1,0 +1,172 @@
+let $rpl_topology= 1->2,1->3;
+source include/rpl_init.inc;
+
+let $rpl_connection_name= master;
+let $rpl_server_number= 1;
+source include/rpl_connect.inc;
+let $rpl_connection_name= master1;
+let $rpl_server_number= 1;
+source include/rpl_connect.inc;
+
+let $rpl_connection_name= slave_1;
+let $rpl_server_number= 2;
+source include/rpl_connect.inc;
+
+let $rpl_connection_name= slave_2;
+let $rpl_server_number= 3;
+source include/rpl_connect.inc;
+
+call mtr.add_suppression("Read semi-sync reply network error");
+call mtr.add_suppression("Semi-sync master: Received an ACK from an unrecognized slave with UUID");
+call mtr.add_suppression("Run function .* in plugin .* failed");
+
+
+# Check if things work by default
+connection master;
+create table t1(a int) engine=innodb;
+insert into t1 values(0);
+let $sync_slave_connection= slave_1;
+source include/sync_slave_sql_with_master.inc;
+connection master;
+let $sync_slave_connection= slave_2;
+source include/sync_slave_sql_with_master.inc;
+connection slave_1;
+select count(*) from t1;
+connection slave_2;
+select count(*) from t1;
+
+# Save slave UUIDs
+connection slave_1;
+let $slave1_uuid = `select @@global.server_uuid`;
+connection slave_2;
+let $slave2_uuid = `select @@global.server_uuid`;
+
+# Set whitelist on master
+connection master;
+replace_result $slave1_uuid slave1_uuid $slave2_uuid slave2_uuid;
+eval set @@global.rpl_semi_sync_master_whitelist = "$slave1_uuid,$slave2_uuid";
+
+
+# Check if setting correct UUID works
+connection master;
+insert into t1 values(1);
+insert into t1 values(2);
+select count(*) from t1;
+let $sync_slave_connection= slave_1;
+source include/sync_slave_sql_with_master.inc;
+connection master;
+let $sync_slave_connection= slave_2;
+source include/sync_slave_sql_with_master.inc;
+
+connection slave_1;
+select count(*) from t1;
+connection slave_2;
+select count(*) from t1;
+
+
+# Check if things works if only one of the slaves ACK
+connection slave_1;
+stop slave;
+connection master;
+insert into t1 values(3);
+insert into t1 values(4);
+select count(*) from t1;
+let $sync_slave_connection= slave_2;
+source include/sync_slave_sql_with_master.inc;
+
+connection slave_2;
+select count(*) from t1;
+
+connection slave_1;
+start slave;
+connection master;
+let $sync_slave_connection= slave_1;
+source include/sync_slave_sql_with_master.inc;
+connection slave_1;
+select count(*) from t1;
+
+
+# Check if value persists across restarts
+let $rpl_server_number= 1;
+source include/rpl_restart_server.inc;
+
+connection master;
+replace_result $slave1_uuid slave1_uuid $slave2_uuid slave2_uuid;
+select @@global.rpl_semi_sync_master_whitelist;
+
+
+# Check if trx fails when nobody from whitelist ACKs
+# stop all ackers
+connection slave_1;
+stop slave;
+connection slave_2;
+stop slave;
+connection master1;
+send insert into t1 values(5);
+
+connection master;
+let $wait_condition=select count(*) = 1 from information_schema.processlist
+where state = "Waiting for semi-sync ACK from slave";
+source include/wait_condition.inc;
+select count(*) from t1;
+
+# start ackers
+connection slave_1;
+start slave;
+connection slave_2;
+start slave;
+
+connection master1;
+reap; # wait for insert to complete
+
+connection master;
+let $sync_slave_connection= slave_1;
+source include/sync_slave_sql_with_master.inc;
+connection master;
+let $sync_slave_connection= slave_2;
+source include/sync_slave_sql_with_master.inc;
+
+connection master;
+select count(*) from t1;
+connection slave_1;
+select count(*) from t1;
+connection slave_2;
+select count(*) from t1;
+
+
+# Check if dump thread closes if a non-whitelisted slave acks
+connection master;
+select count(*) = 2 from information_schema.processlist where
+command = "Binlog Dump";
+# remove slave2 from whitelist
+replace_result $slave1_uuid slave1_uuid $slave2_uuid slave2_uuid;
+eval set @@global.rpl_semi_sync_master_whitelist='-$slave2_uuid';
+
+insert into t1 values(5); # apply a trx
+
+# wait for the dump thread's death
+let $wait_condition=select count(*) = 1 from information_schema.processlist
+where command = "Binlog Dump";
+source include/wait_condition.inc;
+
+# add slave2 back to the whitelist
+replace_result $slave1_uuid slave1_uuid $slave2_uuid slave2_uuid;
+eval set @@global.rpl_semi_sync_master_whitelist='+$slave2_uuid';
+
+# wait for the dump thread to come back
+let $wait_condition=select count(*) = 2 from information_schema.processlist
+where Command = "Binlog Dump";
+source include/wait_condition.inc;
+
+
+# Cleanup
+connection master;
+drop table t1;
+set @@global.rpl_semi_sync_master_whitelist = default;
+let $sync_slave_connection= slave_1;
+source include/sync_slave_sql_with_master.inc;
+connection master;
+let $sync_slave_connection= slave_2;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;
