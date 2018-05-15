@@ -1848,6 +1848,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       save_thd = thd;
       thd = srv_session->get_thd();
       thd->set_command(command);
+      thd->set_query_id(save_thd->query_id);
 #if defined(ENABLED_PROFILING)
       thd->profiling.start_new_query();
 #endif
