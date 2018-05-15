@@ -1,0 +1,26 @@
+--source include/have_debug_sync.inc
+connect (con1,localhost,root,,);
+connection default;
+create table t1 (a int) engine=innodb;
+insert into t1 values(1);
+show status like 'super_read_only_block_microsec';
+
+insert into t1 values(1);
+#connection default;
+set debug_sync='RESET';
+SET DEBUG_SYNC='ha_commit_trans_after_acquire_commit_lock WAIT_FOR go';
+send insert into t1 values(1);
+
+connection con1;
+select sleep(1.1);
+let $exec = `show status like 'super_read_only_block_microsec'`;
+if (`select SUBSTRING('$exec', 32)+0 > 0.0`)
+{
+--echo -- super_read_only_block_microsec is higher than 0
+}
+
+SET DEBUG_SYNC='now SIGNAL go';
+select sleep(1.1);
+show status like 'super_read_only_block_microsec';
+SET DEBUG_SYNC= 'RESET';
+drop table t1;

@@ -1342,6 +1342,9 @@ extern char mysql_unpacked_real_data_home[];
 extern MYSQL_PLUGIN_IMPORT struct system_variables global_system_variables;
 extern char default_logfile_name[FN_REFLEN];
 
+extern std::atomic_ullong init_global_rolock_timer;
+extern std::atomic_ullong init_commit_lock_timer;
+
 #define mysql_tmpdir (my_tmpdir(&mysql_tmpdir_list))
 
 /* Time handling client commands for replication */

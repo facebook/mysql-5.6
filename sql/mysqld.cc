@@ -550,6 +550,9 @@ handlerton *heap_hton;
 handlerton *myisam_hton;
 handlerton *partition_hton;
 
+/* Wait time on global realonly/commit lock */
+std::atomic_ullong init_global_rolock_timer = {0};
+std::atomic_ullong init_commit_lock_timer = {0};
 uint opt_server_id_bits= 0;
 ulong opt_server_id_mask= 0;
 my_bool send_error_before_closing_timed_out_connection = TRUE;
@@ -9616,6 +9619,37 @@ bool enable_jemalloc_hppfunc(char *enable_profiling_ptr)
 #endif
 #endif
 
+static inline ulonglong get_super_read_only_block_microsec(
+    std::atomic_ullong& lock_block_timer)
+{
+  ulonglong lock_wait_microsec =
+    lock_block_timer.load(std::memory_order_seq_cst);
+  if(lock_wait_microsec)
+    lock_wait_microsec =
+      (my_timer_to_microseconds_ulonglong(
+        my_timer_since(lock_wait_microsec)));
+  return lock_wait_microsec;
+}
+
+static int show_super_read_only_block_microsec(
+  THD *thd, SHOW_VAR *var, char *buff)
+{
+  var->type = SHOW_LONGLONG;
+  var->value = buff;
+  ulonglong super_read_only_block_microsec =
+    get_super_read_only_block_microsec(init_global_rolock_timer);
+
+  ulonglong commit_lock_wait =
+    get_super_read_only_block_microsec(init_commit_lock_timer);
+
+  if(commit_lock_wait > super_read_only_block_microsec)
+    super_read_only_block_microsec = commit_lock_wait;
+
+  *((longlong *)buff) = super_read_only_block_microsec;
+
+  return 0;
+}
+
 static int show_queries(THD *thd, SHOW_VAR *var, char *buff)
 {
   var->type= SHOW_LONGLONG;
@@ -10338,6 +10372,8 @@ SHOW_VAR status_vars[]= {
   {"Flush_commands",           (char*) &refresh_version,        SHOW_LONG_NOFLUSH},
   {"git_hash",                 (char*) git_hash, SHOW_CHAR },
   {"git_date",                 (char*) git_date, SHOW_CHAR },
+  {"super_read_only_block_microsec",
+                      (char*) &show_super_read_only_block_microsec, SHOW_FUNC},
   {"Handler_commit",           (char*) offsetof(STATUS_VAR, ha_commit_count), SHOW_LONGLONG_STATUS},
   {"Handler_delete",           (char*) offsetof(STATUS_VAR, ha_delete_count), SHOW_LONGLONG_STATUS},
   {"Handler_discover",         (char*) offsetof(STATUS_VAR, ha_discover_count), SHOW_LONGLONG_STATUS},

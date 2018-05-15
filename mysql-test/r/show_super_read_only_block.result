@@ -1,0 +1,17 @@
+create database testdb1;
+use testdb1;
+create table t1 (a int);
+insert into t1 values(1);
+show status like 'super_read_only_block_microsec';
+Variable_name	Value
+super_read_only_block_microsec	0
+LOCK TABLE t1 WRITE;
+select sleep(1.1);
+sleep(1.1)
+0
+-- super_read_only_block_microsec is higher than 0
+unlock tables;
+show status like 'super_read_only_block_microsec';
+Variable_name	Value
+super_read_only_block_microsec	0
+drop database testdb1;

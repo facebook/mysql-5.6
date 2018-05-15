@@ -1,0 +1,22 @@
+create table t1 (a int) engine=innodb;
+insert into t1 values(1);
+show status like 'super_read_only_block_microsec';
+Variable_name	Value
+super_read_only_block_microsec	0
+insert into t1 values(1);
+set debug_sync='RESET';
+SET DEBUG_SYNC='ha_commit_trans_after_acquire_commit_lock WAIT_FOR go';
+insert into t1 values(1);
+select sleep(1.1);
+sleep(1.1)
+0
+-- super_read_only_block_microsec is higher than 0
+SET DEBUG_SYNC='now SIGNAL go';
+select sleep(1.1);
+sleep(1.1)
+0
+show status like 'super_read_only_block_microsec';
+Variable_name	Value
+super_read_only_block_microsec	0
+SET DEBUG_SYNC= 'RESET';
+drop table t1;

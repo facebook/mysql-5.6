@@ -2242,6 +2242,16 @@ MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
   /* Do some work outside the critical section. */
   set_timespec_nsec(abs_timeout, lock_wait_timeout_nsec);
 
+  if(mdl_request->key.mdl_namespace() == MDL_key::GLOBAL &&
+     mdl_request->type != MDL_SHARED &&
+     init_global_rolock_timer == 0)
+     init_global_rolock_timer = my_timer_now();
+
+   if(mdl_request->key.mdl_namespace() == MDL_key::COMMIT &&
+      mdl_request->type != MDL_SHARED &&
+      init_commit_lock_timer == 0)
+      init_commit_lock_timer = my_timer_now();
+
   if (try_acquire_lock_impl(mdl_request, &ticket))
     return TRUE;
 
@@ -2832,6 +2842,15 @@ void MDL_context::release_lock(enum_mdl_duration duration, MDL_ticket *ticket)
                                         lock->key.name()));
 
   DBUG_ASSERT(this == ticket->get_ctx());
+
+  if(lock->key.mdl_namespace() == MDL_key::GLOBAL &&
+     ticket->get_type() != MDL_SHARED)
+     init_global_rolock_timer = 0;
+
+   if(lock->key.mdl_namespace() == MDL_key::COMMIT &&
+      ticket->get_type() != MDL_SHARED)
+      init_commit_lock_timer = 0;
+
   mysql_mutex_assert_not_owner(&LOCK_open);
 
   lock->remove_ticket(&MDL_lock::m_granted, ticket);
