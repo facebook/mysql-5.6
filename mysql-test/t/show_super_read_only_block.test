@@ -1,0 +1,24 @@
+create database testdb1;
+
+use testdb1;
+
+create table t1 (a int);
+
+insert into t1 values(1);
+
+show status like 'super_read_only_block_microsec';
+
+lock table t1 write;
+
+select sleep(1.1);
+
+--let $exec = `show status like 'super_read_only_block_microsec'`
+--let $assert_text = super_read_only_block_microsec is bigger than 1100000
+--let $assert_cond = [select substring("$exec", 32)+0] > 1100000
+--source include/assert.inc
+
+unlock tables;
+
+show status like 'super_read_only_block_microsec';
+
+drop database testdb1;

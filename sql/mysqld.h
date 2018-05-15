@@ -379,6 +379,14 @@ inline double my_timer_to_microseconds(ulonglong when) {
   ret /= (double)(my_timer.frequency);
   return ret;
 }
+/* Convert native timer units in a ulonglong into microseconds in a ulonglong */
+inline ulonglong my_timer_to_microseconds_ulonglong(ulonglong when) {
+  ulonglong ret = when;
+  ret *= 1000000ULL;
+  ret = static_cast<ulonglong>((ret + my_timer.frequency - 1) /
+                               my_timer.frequency);
+  return ret;
+}
 /* Convert microseconds in a double to native timer units in a ulonglong */
 inline ulonglong microseconds_to_my_timer(double when) {
   double ret = when;
@@ -738,6 +746,9 @@ extern MYSQL_PLUGIN_IMPORT struct System_variables global_system_variables;
 extern char default_logfile_name[FN_REFLEN];
 extern bool log_bin_supplied;
 extern char default_binlogfile_name[FN_REFLEN];
+
+extern std::atomic_ullong init_global_rolock_timer;
+extern std::atomic_ullong init_commit_lock_timer;
 
 #define mysql_tmpdir (my_tmpdir(&mysql_tmpdir_list))
 

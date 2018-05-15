@@ -936,6 +936,9 @@ bool locked_in_memory;
 bool opt_using_transactions;
 ulong opt_tc_log_size;
 std::atomic<int32> connection_events_loop_aborted_flag;
+/* Wait time on global realonly/commit lock */
+std::atomic_ullong init_global_rolock_timer = {0};
+std::atomic_ullong init_commit_lock_timer = {0};
 static enum_server_operational_state server_operational_state = SERVER_BOOTING;
 char *opt_log_error_suppression_list;
 char *opt_log_error_services;
@@ -7982,6 +7985,33 @@ static int show_connection_errors_net_ER_NET_WRITE_INTERRUPTED(THD *,
   return 0;
 }
 
+static inline ulonglong get_super_read_only_block_microsec(
+    std::atomic_ullong &lock_block_timer) {
+  ulonglong lock_wait_microsec = lock_block_timer;
+  if (lock_wait_microsec != 0ULL)
+    lock_wait_microsec = (my_timer_to_microseconds_ulonglong(
+        my_timer_since(lock_wait_microsec)));
+  return lock_wait_microsec;
+}
+
+static int show_super_read_only_block_microsec(THD *, SHOW_VAR *var,
+                                               char *buff) {
+  var->type = SHOW_LONGLONG;
+  var->value = buff;
+  const ulonglong super_read_only_block_microsec =
+      get_super_read_only_block_microsec(init_global_rolock_timer);
+
+  const ulonglong commit_lock_wait =
+      get_super_read_only_block_microsec(init_commit_lock_timer);
+
+  if (commit_lock_wait > super_read_only_block_microsec)
+    *(reinterpret_cast<longlong *>(buff)) = commit_lock_wait;
+  else
+    *(reinterpret_cast<longlong *>(buff)) = super_read_only_block_microsec;
+
+  return 0;
+}
+
 #ifdef ENABLED_PROFILING
 static int show_flushstatustime(THD *thd, SHOW_VAR *var, char *buff) {
   var->type = SHOW_LONGLONG;
@@ -8901,6 +8931,9 @@ SHOW_VAR status_vars[] = {
      SHOW_FUNC, SHOW_SCOPE_ALL},
     {"Ssl_server_not_after", (char *)&show_ssl_get_server_not_after, SHOW_FUNC,
      SHOW_SCOPE_ALL},
+    {"super_read_only_block_microsec",
+     (char *)&show_super_read_only_block_microsec, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
 #ifndef HAVE_WOLFSSL
     {"Rsa_public_key", (char *)&show_rsa_public_key, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},

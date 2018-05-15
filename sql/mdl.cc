@@ -51,6 +51,7 @@
 #include "mysqld_error.h"
 #include "prealloced_array.h"
 #include "sql/debug_sync.h"
+#include "sql/mysqld.h"
 #include "sql/thr_malloc.h"
 
 extern MYSQL_PLUGIN_IMPORT CHARSET_INFO *system_charset_info;
@@ -3362,6 +3363,19 @@ bool MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
   /* Do some work outside the critical section. */
   set_timespec_nsec(&abs_timeout, lock_wait_timeout_nsec);
 
+#if !defined(EXTRA_CODE_FOR_UNIT_TESTING)
+  if (mdl_request->key.mdl_namespace() == MDL_key::GLOBAL &&
+      mdl_request->type != MDL_SHARED) {
+    unsigned long long expected = 0ULL;
+    init_global_rolock_timer.compare_exchange_strong(expected, my_timer_now());
+  }
+  if (mdl_request->key.mdl_namespace() == MDL_key::COMMIT &&
+      mdl_request->type != MDL_SHARED) {
+    unsigned long long expected = 0ULL;
+    init_commit_lock_timer.compare_exchange_strong(expected, my_timer_now());
+  }
+#endif
+
   if (try_acquire_lock_impl(mdl_request, &ticket)) return true;
 
   if (mdl_request->ticket) {
@@ -4056,6 +4070,17 @@ void MDL_context::release_lock(enum_mdl_duration duration, MDL_ticket *ticket) {
   DBUG_PRINT("enter", ("db=%s name=%s", lock->key.db_name(), lock->key.name()));
 
   DBUG_ASSERT(this == ticket->get_ctx());
+
+#if !defined(EXTRA_CODE_FOR_UNIT_TESTING)
+  if (lock->key.mdl_namespace() == MDL_key::GLOBAL &&
+      ticket->get_type() != MDL_SHARED)
+    init_global_rolock_timer = 0;
+
+  if (lock->key.mdl_namespace() == MDL_key::COMMIT &&
+      ticket->get_type() != MDL_SHARED)
+    init_commit_lock_timer = 0;
+#endif
+
   mysql_mutex_assert_not_owner(&LOCK_open);
 
   /*
