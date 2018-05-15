@@ -65,6 +65,12 @@
 
 #include <mysql/psi/mysql_statement.h>
 
+#include <boost/optional.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <sstream>
+
 #ifdef TARGET_OS_LINUX
 #include <sys/syscall.h>
 #endif // TARGET_OS_LINUX
@@ -5536,7 +5542,6 @@ bool THD::skip_unique_check()
   return rli_slave && rli_slave->get_skip_unique_check();
 }
 
-
 /**
   This function selects which session tracker to use.  If a Srv_session
   is currently attached to this connection we want to redirect all session
@@ -5548,3 +5553,60 @@ Session_tracker* THD::get_tracker() {
       : &session_tracker;
 }
 
+static std::string net_read_str(const char **ptr)
+{
+  size_t len = net_field_length((uchar**)ptr);
+  const char *str = *ptr;
+  *ptr += len;
+  return std::string(str, len);
+}
+
+void THD::set_query_attrs(const char *attrs, size_t length)
+{
+  query_attrs_string = std::string(attrs, length);
+  const char *ptr = query_attrs_string.c_str();
+  const char *end = ptr + length;
+
+  query_attrs_map.clear();
+  while (ptr < end)
+  {
+    std::string key = net_read_str(&ptr);
+    std::string value = net_read_str(&ptr);
+    query_attrs_map[key] = value;
+  }
+
+}
+
+int THD::parse_query_info_attr()
+{
+  static const std::string query_info_key = "query_info";
+
+  auto it = this->query_attrs_map.find(query_info_key);
+  if (it == this->query_attrs_map.end())
+    return 0;
+  ptree root;
+  try
+  {
+    std::istringstream query_info_attr(it->second);
+    boost::property_tree::read_json(query_info_attr, root);
+  }
+  catch(const boost::property_tree::json_parser::json_parser_error& e)
+  {
+    return -1; // invalid json
+  }
+  try
+  {
+    boost::optional<std::string> trace_id =
+        root.get_optional<std::string>("traceid");
+    if (trace_id)
+      this->trace_id = *trace_id;
+    this->query_type = root.get<std::string>("query_type");
+    this->num_queries = root.get<uint64_t>("num_queries");
+  }
+  catch(const boost::property_tree::ptree_error& e)
+  {
+    return -1; // invalid key or value
+  }
+  return 0;
+
+}

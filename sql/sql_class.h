@@ -4634,19 +4634,20 @@ public:
 
   void mark_transaction_to_rollback(bool all);
 
-  void set_query_attrs(const CSET_STRING &arg)
-  {
-    query_attrs_string= arg;
-    set_attrs_map(query_attrs_string.str(), query_attrs_string.length(),
-        query_attrs_map, true);
-  }
+  void set_query_attrs(const char *attrs, size_t length);
+  int parse_query_info_attr();
   void reset_query_attrs()
   {
-    query_attrs_string= CSET_STRING();
+    query_attrs_string.clear();
     query_attrs_map.clear();
     trace_id.clear();
+    num_queries = 0;
+    query_type.clear();
   }
-  inline char *query_attrs() const { return query_attrs_string.str(); }
+  inline const char *query_attrs() const
+  {
+    return query_attrs_string.c_str();
+  }
   inline uint32 query_attrs_length() const
   {
     return query_attrs_string.length();
@@ -4725,8 +4726,6 @@ public:
 #endif
 
 private:
-  CSET_STRING query_attrs_string;
-
   /** The current internal error handler for this thread, or NULL. */
   Internal_error_handler *m_internal_handler;
 
@@ -4859,6 +4858,9 @@ public:
   std::shared_ptr<utils::PerfCounter> query_perf;
   std::string trace_id;
   uint64_t pc_val;
+  std::string query_attrs_string;
+  uint64_t num_queries;
+  std::string query_type;
 
   void copy_client_charset_settings(const THD* other) {
     variables.character_set_client= other->variables.character_set_client;

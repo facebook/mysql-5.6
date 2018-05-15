@@ -67,6 +67,8 @@
 using std::max;
 using std::min;
 
+#include "query_tag_perf_counter.h"
+
 #define STR_OR_NIL(S) ((S) ? (S) : "<nil>")
 
 #ifdef WITH_PARTITION_STORAGE_ENGINE
@@ -9523,6 +9525,9 @@ ST_SCHEMA_TABLE schema_tables[]=
   {"QUERY_ATTRIBUTES", query_attrs_fields_info,
    create_schema_table, fill_schema_query_attrs,
    NULL, NULL, -1, -1, false, 0},
+  {"QUERY_PERF_COUNTER", qutils::query_tag_perf_fields_info,
+    create_schema_table, qutils::fill_query_tag_perf_counter,
+    NULL, NULL, -1, -1, false, 0},
   {"PROFILING", query_profile_statistics_info, create_schema_table,
     fill_query_profile_statistics_info, make_profile_table_for_show, 
     NULL, -1, -1, false, 0},

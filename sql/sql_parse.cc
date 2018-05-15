@@ -123,6 +123,7 @@
 #ifndef EMBEDDED_LIBRARY
 #include "perf_counters.h"
 #endif
+#include "query_tag_perf_counter.h"
 
 #ifdef HAVE_JEMALLOC
 #ifndef EMBEDDED_LIBRARY
@@ -1584,7 +1585,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       Save query attributes.
      */
     size_t attrs_len= net_field_length((uchar**) &packet_ptr);
-    thd->set_query_attrs(CSET_STRING(packet_ptr, attrs_len, thd->charset()));
+    thd->set_query_attrs(packet_ptr, attrs_len);
 
     auto bytes_to_skip = attrs_len + net_length_size(attrs_len);
     packet_length -= bytes_to_skip;
@@ -1593,12 +1594,8 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
 
 #ifndef EMBEDDED_LIBRARY
   // do collection of samples for passed in "traceid"
-  std::string traceId;
-  std::unordered_map<std::string, std::string>::const_iterator tid_iter;
-  if (!thd->query_attrs_map.empty() &&
-      (tid_iter= thd->query_attrs_map.find("traceid")) !=
-       thd->query_attrs_map.end()) {
-    thd->trace_id = tid_iter->second;
+  thd->parse_query_info_attr();
+  if (!thd->trace_id.empty()) {
     if (!thd->query_perf) {
       thd->query_perf= pc_factory->makeSharedPerfCounter(
         utils::PerfCounterMode::PCM_THREAD,
@@ -1868,6 +1865,9 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
     size_t query_len= packet_length;
     if (alloc_query(thd, query_ptr, query_len))
       break;					// fatal error is set
+
+    qutils::query_tag_perf_counter counter(thd);
+
     MYSQL_QUERY_START(thd->query(), thd->thread_id,
                       (char *) (thd->db ? thd->db : ""),
                       &thd->security_ctx->priv_user[0],

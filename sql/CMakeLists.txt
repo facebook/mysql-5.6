@@ -119,6 +119,7 @@ SET(SQL_SHARED_SOURCES
   password.c
   procedure.cc 
   protocol.cc
+  query_tag_perf_counter.cc
   records.cc
   rpl_handler.cc
   scheduler.cc 
