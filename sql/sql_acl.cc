@@ -8664,6 +8664,12 @@ acl_find_proxy_user(const char *user, const char *host, const char *ip,
 bool acl_validate_proxy_user(const char *user, const char *host, const char *ip,
                              const char *auth_as)
 {
+  if (!initialized)
+  {
+    /* MySQL was started with --skip-grants so allow anything */
+    return TRUE;
+  }
+
   bool proxy_used;  // Not referenced
 
   // If we find a valid match on the proxy permissions or the proxy user and

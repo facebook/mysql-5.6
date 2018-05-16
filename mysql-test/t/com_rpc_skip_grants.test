@@ -1,0 +1,28 @@
+# Deprecate EOF functionality required by this test not supported
+# in async client.
+--disable_async_client
+
+CREATE DATABASE db_default;
+CREATE DATABASE db_rpc;
+
+--echo
+--echo Make sure that with --skip-grant-tables we can proxy as any user
+--echo
+
+connect (con1,localhost,invalid_proxy_user,,db_default);
+
+# No query attributes
+SELECT user(), database();
+
+# Use an invalid user and attempt to query
+query_attrs_add rpc_role invalid_proxied_user;
+query_attrs_add rpc_db db_rpc;
+SELECT user(), database();
+
+disconnect con1;
+connection default;
+
+DROP DATABASE db_rpc;
+DROP DATABASE db_default;
+
+

@@ -1,0 +1,13 @@
+CREATE DATABASE db_default;
+CREATE DATABASE db_rpc;
+
+Make sure that with --skip-grant-tables we can proxy as any user
+
+SELECT user(), database();
+user()	database()
+invalid_proxy_user@	db_default
+SELECT user(), database();
+user()	database()
+invalid_proxied_user@	db_rpc
+DROP DATABASE db_rpc;
+DROP DATABASE db_default;
