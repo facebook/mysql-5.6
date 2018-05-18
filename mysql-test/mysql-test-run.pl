@@ -255,6 +255,7 @@ my $baseport;
 # $opt_build_thread may later be set from $opt_port_base
 my $opt_build_thread= $ENV{'MTR_BUILD_THREAD'} || "auto";
 my $opt_port_base= $ENV{'MTR_PORT_BASE'} || "auto";
+my $opt_port_exclude= $ENV{'MTR_PORT_EXCLUDE'} || "none";
 my $build_thread= 0;
 
 my $opt_record;
@@ -1127,6 +1128,7 @@ sub command_line_setup {
              # Specify ports
 	     'build-thread|mtr-build-thread=i' => \$opt_build_thread,
 	     'port-base|mtr-port-base=i'       => \$opt_port_base,
+	     'port-exclude|mtr-port-exclude=s'       => \$opt_port_exclude,
 
              # Test case authoring
              'record'                   => \$opt_record,
@@ -1849,15 +1851,36 @@ sub set_build_thread_ports($) {
   my $thread= shift || 0;
 
   if ( lc($opt_build_thread) eq 'auto' ) {
+    my $lower_bound = 0;
+    my $upper_bound = 0;
+    if ( $opt_port_exclude ne 'none' ) {
+      mtr_report("Port exclusion is $opt_port_exclude");
+      ($lower_bound, $upper_bound) = split(/-/, $opt_port_exclude, 2);
+      if ($lower_bound !~ /^\d+$/ || $upper_bound !~ /^\d+$/) {
+        mtr_error("Port exclusion range $opt_port_exclude is not valid.",
+                  "Range must consist of two integers");
+      }
+      $lower_bound = int($lower_bound / 10 - 1000);
+      $upper_bound = int($upper_bound / 10 - 1000);
+      mtr_report("$lower_bound to $upper_bound");
+      if ($lower_bound > $upper_bound) {
+        mtr_error("Port exclusion range $opt_port_exclude is not valid.",
+                  "Lower bound is larger than upper bound")
+      }
+      mtr_report("Excluding unique ids $lower_bound to $upper_bound");
+    }
+
     my $found_free = 0;
     $build_thread = 300;	# Start attempts from here
 
-    my $build_thread_upper = $build_thread + ($opt_parallel > 39
+    my $build_thread_upper = $build_thread + ($opt_parallel > 79
                              ? $opt_parallel + int($opt_parallel / 4)
-                             : 49);
+                             : 99);
+
     while (! $found_free)
     {
-      $build_thread= mtr_get_unique_id($build_thread, $build_thread_upper);
+      $build_thread= mtr_get_unique_id($build_thread, $build_thread_upper,
+                                       $lower_bound, $upper_bound);
       if ( !defined $build_thread ) {
         mtr_error("Could not get a unique build thread id");
       }
@@ -6750,6 +6773,8 @@ Options that specify ports
   build-thread=#        Can be set in environment variable MTR_BUILD_THREAD.
                         Set  MTR_BUILD_THREAD="auto" to automatically aquire
                         a build thread id that is unique to current host
+  mtr-port-exclude=#-#  Specify the range of ports to exclude when searching
+  port-exclude=#        for available port ranges to use.
 
 Options for test case authoring
 

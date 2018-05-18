@@ -70,8 +70,8 @@ END
 # If no unique ID within the specified parameters can be
 # obtained, return undef.
 #
-sub mtr_get_unique_id($$) {
-  my ($min, $max)= @_;;
+sub mtr_get_unique_id($$$$) {
+  my ($min, $max, $min_exclude, $max_exclude)= @_;;
 
   msg("get $min-$max, $$");
 
@@ -101,6 +101,12 @@ sub mtr_get_unique_id($$) {
   my $fh;
   for(my $id = $min; $id <= $max; $id++)
   {
+    # Determine if we hit the exclusion range, if so, skip it
+    if ($min_exclude <= $id && $id < $max_exclude)
+    {
+      $id = $max_exclude;
+      next;
+    }
     open( $fh, ">$dir/$id");
     chmod 0666, "$dir/$id";
     # Try to lock the file exclusively. If lock succeeds, we're done.
