@@ -10012,7 +10012,7 @@ uint Field_document::get_key_image_double(uchar *buff, fbson::FbsonValue *pval)
     char* end = (char*)start + pval->size();
     int error;
     val = my_strtod(start, &end, &error);
-    if (error == OVERFLOW)
+    if (error == EOVERFLOW)
     {
       val = 0;
       return 0;
