@@ -1428,7 +1428,7 @@ parse_db_and_table(
 		} else {
 			// Use only base table name for partitioned tables
 			char *part = strstr(table_name_file, "#P#");
-			uint errors;
+			uint errors = 0;
 			if (part) {
 				*part = '\0';
 				*is_partition = true;
