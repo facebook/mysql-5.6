@@ -5278,7 +5278,6 @@ longlong ha_rocksdb::update_hidden_pk_val() {
 
 /* Get the id of the hidden pk id from m_last_rowkey */
 int ha_rocksdb::read_hidden_pk_id_from_rowkey(longlong *const hidden_pk_id) {
-  DBUG_ASSERT(hidden_pk_id != nullptr);
   DBUG_ASSERT(table != nullptr);
   DBUG_ASSERT(has_hidden_pk(table));
 
@@ -5889,9 +5888,6 @@ int ha_rocksdb::convert_field_from_storage_format(
 int ha_rocksdb::convert_record_from_storage_format(
     const rocksdb::Slice *const key, const rocksdb::Slice *const value,
     uchar *const buf) {
-  DBUG_ASSERT(key != nullptr);
-  DBUG_ASSERT(buf != nullptr);
-
   Rdb_string_reader reader(value);
 
   /*
@@ -6135,7 +6131,6 @@ int ha_rocksdb::alloc_key_buffers(const TABLE *const table_arg,
   DBUG_ENTER_FUNC();
 
   DBUG_ASSERT(m_pk_tuple == nullptr);
-  DBUG_ASSERT(tbl_def_arg != nullptr);
 
   std::shared_ptr<Rdb_key_def> *const kd_arr = tbl_def_arg->m_key_descr_arr;
 
@@ -6463,8 +6458,6 @@ bool ha_rocksdb::get_error_message(const int error, String *const buf) {
   static_assert(HA_ERR_ROCKSDB_LAST > HA_ERR_LAST,
                 "HA_ERR_ROCKSDB_LAST > HA_ERR_LAST");
 
-  DBUG_ASSERT(buf != nullptr);
-
   if (error == HA_ERR_LOCK_WAIT_TIMEOUT || error == HA_ERR_LOCK_DEADLOCK) {
     Rdb_transaction *const tx = get_tx_from_thd(ha_thd());
     DBUG_ASSERT(tx != nullptr);
@@ -6595,7 +6588,6 @@ int ha_rocksdb::create_key_defs(
     /* = nullptr */) const {
   DBUG_ENTER_FUNC();
 
-  DBUG_ASSERT(table_arg != nullptr);
   DBUG_ASSERT(table_arg->s != nullptr);
 
   uint i;
@@ -6666,9 +6658,7 @@ int ha_rocksdb::create_cfs(
     std::array<struct key_def_cf_info, MAX_INDEXES + 1> *const cfs) const {
   DBUG_ENTER_FUNC();
 
-  DBUG_ASSERT(table_arg != nullptr);
   DBUG_ASSERT(table_arg->s != nullptr);
-  DBUG_ASSERT(tbl_def_arg != nullptr);
 
   char tablename_sys[NAME_LEN + 1];
 
@@ -6773,10 +6763,6 @@ int ha_rocksdb::create_inplace_key_defs(
     const std::array<key_def_cf_info, MAX_INDEXES + 1> &cfs) const {
   DBUG_ENTER_FUNC();
 
-  DBUG_ASSERT(table_arg != nullptr);
-  DBUG_ASSERT(tbl_def_arg != nullptr);
-  DBUG_ASSERT(old_tbl_def_arg != nullptr);
-
   std::shared_ptr<Rdb_key_def> *const old_key_descr =
       old_tbl_def_arg->m_key_descr_arr;
   std::shared_ptr<Rdb_key_def> *const new_key_descr =
@@ -6844,11 +6830,6 @@ std::unordered_map<std::string, uint> ha_rocksdb::get_old_key_positions(
     const Rdb_tbl_def *const old_tbl_def_arg) const {
   DBUG_ENTER_FUNC();
 
-  DBUG_ASSERT(table_arg != nullptr);
-  DBUG_ASSERT(old_table_arg != nullptr);
-  DBUG_ASSERT(tbl_def_arg != nullptr);
-  DBUG_ASSERT(old_tbl_def_arg != nullptr);
-
   std::shared_ptr<Rdb_key_def> *const old_key_descr =
       old_tbl_def_arg->m_key_descr_arr;
   std::unordered_map<std::string, uint> old_key_pos;
@@ -6914,9 +6895,6 @@ int ha_rocksdb::compare_keys(const KEY *const old_key,
                              const KEY *const new_key) const {
   DBUG_ENTER_FUNC();
 
-  DBUG_ASSERT(old_key != nullptr);
-  DBUG_ASSERT(new_key != nullptr);
-
   /* Check index name. */
   if (strcmp(old_key->name, new_key->name) != 0) {
     DBUG_RETURN(HA_EXIT_FAILURE);
@@ -6946,9 +6924,6 @@ int ha_rocksdb::compare_keys(const KEY *const old_key,
 int ha_rocksdb::compare_key_parts(const KEY *const old_key,
                                   const KEY *const new_key) const {
   DBUG_ENTER_FUNC();
-
-  DBUG_ASSERT(old_key != nullptr);
-  DBUG_ASSERT(new_key != nullptr);
 
   /* Skip if key parts do not match, as it is a different key */
   if (new_key->user_defined_key_parts != old_key->user_defined_key_parts) {
@@ -6994,7 +6969,6 @@ int ha_rocksdb::create_key_def(const TABLE *const table_arg, const uint &i,
                                const struct key_def_cf_info &cf_info) const {
   DBUG_ENTER_FUNC();
 
-  DBUG_ASSERT(new_key_def != nullptr);
   DBUG_ASSERT(*new_key_def == nullptr);
 
   uint64 ttl_duration = 0;
@@ -7081,8 +7055,6 @@ int ha_rocksdb::create_key_def(const TABLE *const table_arg, const uint &i,
 
 int rdb_normalize_tablename(const std::string &tablename,
                             std::string *const strbuf) {
-  DBUG_ASSERT(strbuf != nullptr);
-
   if (tablename.size() < 2 || tablename[0] != '.' || tablename[1] != '/') {
     DBUG_ASSERT(0); // We were not passed table name?
     return HA_ERR_ROCKSDB_INVALID_TABLE;
@@ -7397,8 +7369,6 @@ int ha_rocksdb::read_key_exact(const Rdb_key_def &kd,
                                const bool &full_key_match,
                                const rocksdb::Slice &key_slice,
                                const int64_t ttl_filter_ts) {
-  DBUG_ASSERT(iter != nullptr);
-
   /*
     We are looking for the first record such that
       index_tuple= lookup_tuple.
@@ -7606,8 +7576,6 @@ int ha_rocksdb::calc_eq_cond_len(const Rdb_key_def &kd,
 }
 
 int ha_rocksdb::read_row_from_primary_key(uchar *const buf) {
-  DBUG_ASSERT(buf != nullptr);
-
   int rc;
   const rocksdb::Slice &rkey = m_scan_it->key();
   const uint pk_size = rkey.size();
@@ -7631,8 +7599,6 @@ int ha_rocksdb::read_row_from_primary_key(uchar *const buf) {
 int ha_rocksdb::read_row_from_secondary_key(uchar *const buf,
                                             const Rdb_key_def &kd,
                                             bool move_forward) {
-  DBUG_ASSERT(buf != nullptr);
-
   int rc = 0;
   uint pk_size;
 
@@ -7735,7 +7701,6 @@ ulong ha_rocksdb::index_flags(uint inx, uint part, bool all_parts) const {
   pair for.
 */
 int ha_rocksdb::secondary_index_read(const int keyno, uchar *const buf) {
-  DBUG_ASSERT(buf != nullptr);
   DBUG_ASSERT(table != nullptr);
 
   stats.rows_requested++;
@@ -8048,8 +8013,6 @@ int ha_rocksdb::index_read_map_impl(uchar *const buf, const uchar *const key,
 
 int ha_rocksdb::find_icp_matching_index_rec(const bool &move_forward,
                                             uchar *const buf) {
-  DBUG_ASSERT(buf != nullptr);
-
   if (pushed_idx_cond && pushed_idx_cond_keyno == active_index) {
     const Rdb_key_def &kd = *m_key_descr_arr[active_index];
 
@@ -8367,8 +8330,6 @@ int ha_rocksdb::get_row_by_rowid(uchar *const buf, const char *const rowid,
                                  const bool skip_ttl_check) {
   DBUG_ENTER_FUNC();
 
-  DBUG_ASSERT(buf != nullptr);
-  DBUG_ASSERT(rowid != nullptr);
   DBUG_ASSERT(table != nullptr);
 
   int rc;
@@ -8583,8 +8544,6 @@ int ha_rocksdb::index_last(uchar *const buf) {
 int ha_rocksdb::index_first_intern(uchar *const buf) {
   DBUG_ENTER_FUNC();
 
-  DBUG_ASSERT(buf != nullptr);
-
   uchar *key;
   uint key_size;
   int rc;
@@ -8673,8 +8632,6 @@ int ha_rocksdb::index_first_intern(uchar *const buf) {
 
 int ha_rocksdb::index_last_intern(uchar *const buf) {
   DBUG_ENTER_FUNC();
-
-  DBUG_ASSERT(buf != nullptr);
 
   uchar *key;
   uint key_size;
@@ -8798,7 +8755,6 @@ bool ha_rocksdb::commit_in_the_middle() {
   @retval false if bulk commit was skipped or succeeded
 */
 bool ha_rocksdb::do_bulk_commit(Rdb_transaction *const tx) {
-  DBUG_ASSERT(tx != nullptr);
   return commit_in_the_middle() &&
          tx->get_write_count() >= THDVAR(table->in_use, bulk_load_size) &&
          tx->flush_batch();
@@ -8811,7 +8767,6 @@ bool ha_rocksdb::do_bulk_commit(Rdb_transaction *const tx) {
   'auto-incremented' pk.)
 */
 bool ha_rocksdb::has_hidden_pk(const TABLE *const table) const {
-  DBUG_ASSERT(table != nullptr);
   return Rdb_key_def::table_has_hidden_pk(table);
 }
 
@@ -8821,9 +8776,7 @@ bool ha_rocksdb::has_hidden_pk(const TABLE *const table) const {
 */
 bool ha_rocksdb::is_hidden_pk(const uint index, const TABLE *const table_arg,
                               const Rdb_tbl_def *const tbl_def_arg) {
-  DBUG_ASSERT(table_arg != nullptr);
   DBUG_ASSERT(table_arg->s != nullptr);
-  DBUG_ASSERT(tbl_def_arg != nullptr);
 
   return (table_arg->s->primary_key == MAX_INDEXES &&
           index == tbl_def_arg->m_key_count - 1);
@@ -8832,9 +8785,7 @@ bool ha_rocksdb::is_hidden_pk(const uint index, const TABLE *const table_arg,
 /* Returns index of primary key */
 uint ha_rocksdb::pk_index(const TABLE *const table_arg,
                           const Rdb_tbl_def *const tbl_def_arg) {
-  DBUG_ASSERT(table_arg != nullptr);
   DBUG_ASSERT(table_arg->s != nullptr);
-  DBUG_ASSERT(tbl_def_arg != nullptr);
 
   return table_arg->s->primary_key == MAX_INDEXES ? tbl_def_arg->m_key_count - 1
                                                   : table_arg->s->primary_key;
@@ -8843,9 +8794,7 @@ uint ha_rocksdb::pk_index(const TABLE *const table_arg,
 /* Returns true if given index number is a primary key */
 bool ha_rocksdb::is_pk(const uint index, const TABLE *const table_arg,
                        const Rdb_tbl_def *const tbl_def_arg) {
-  DBUG_ASSERT(table_arg != nullptr);
   DBUG_ASSERT(table_arg->s != nullptr);
-  DBUG_ASSERT(tbl_def_arg != nullptr);
 
   return index == table_arg->s->primary_key ||
          is_hidden_pk(index, table_arg, tbl_def_arg);
@@ -8860,9 +8809,6 @@ uint ha_rocksdb::max_supported_key_part_length() const {
 const char *ha_rocksdb::get_key_name(const uint index,
                                      const TABLE *const table_arg,
                                      const Rdb_tbl_def *const tbl_def_arg) {
-  DBUG_ASSERT(table_arg != nullptr);
-  DBUG_ASSERT(tbl_def_arg != nullptr);
-
   if (is_hidden_pk(index, table_arg, tbl_def_arg)) {
     return HIDDEN_PK_NAME;
   }
@@ -8876,9 +8822,6 @@ const char *ha_rocksdb::get_key_name(const uint index,
 const char *ha_rocksdb::get_key_comment(const uint index,
                                         const TABLE *const table_arg,
                                         const Rdb_tbl_def *const tbl_def_arg) {
-  DBUG_ASSERT(table_arg != nullptr);
-  DBUG_ASSERT(tbl_def_arg != nullptr);
-
   if (is_hidden_pk(index, table_arg, tbl_def_arg)) {
     return nullptr;
   }
@@ -8930,7 +8873,6 @@ const std::string ha_rocksdb::generate_cf_name(const uint index,
 }
 
 const std::string ha_rocksdb::get_table_comment(const TABLE *const table_arg) {
-  DBUG_ASSERT(table_arg != nullptr);
   DBUG_ASSERT(table_arg->s != nullptr);
 
   return table_arg->s->comment.str;
@@ -9644,7 +9586,6 @@ void ha_rocksdb::setup_scan_iterator(const Rdb_key_def &kd,
                                      rocksdb::Slice *const slice,
                                      const bool use_all_keys,
                                      const uint eq_cond_len) {
-  DBUG_ASSERT(slice != nullptr);
   DBUG_ASSERT(slice->size() >= eq_cond_len);
 
   Rdb_transaction *const tx = get_or_create_tx(table->in_use);
@@ -10711,8 +10652,6 @@ void Rdb_drop_index_thread::run() {
 }
 
 Rdb_tbl_def *ha_rocksdb::get_table_if_exists(const char *const tablename) {
-  DBUG_ASSERT(tablename != nullptr);
-
   std::string str;
   if (rdb_normalize_tablename(tablename, &str) != HA_EXIT_SUCCESS) {
     // We were not passed table name?
@@ -10834,9 +10773,6 @@ int ha_rocksdb::remove_rows(Rdb_tbl_def *const tbl) {
 */
 int ha_rocksdb::rename_table(const char *const from, const char *const to) {
   DBUG_ENTER_FUNC();
-
-  DBUG_ASSERT(from != nullptr);
-  DBUG_ASSERT(to != nullptr);
 
   std::string from_str;
   std::string to_str;
@@ -12765,7 +12701,6 @@ void rdb_update_global_stats(const operation_type &type, uint count,
 
 int rdb_get_table_perf_counters(const char *const tablename,
                                 Rdb_perf_counters *const counters) {
-  DBUG_ASSERT(counters != nullptr);
   DBUG_ASSERT(tablename != nullptr);
 
   Rdb_table_handler *table_handler;
