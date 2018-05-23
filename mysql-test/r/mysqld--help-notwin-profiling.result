@@ -2222,7 +2222,7 @@ rocksdb-master-skip-tx-api FALSE
 rocksdb-max-background-jobs 2
 rocksdb-max-latest-deadlocks 5
 rocksdb-max-log-file-size 0
-rocksdb-max-manifest-file-size 18446744073709551615
+rocksdb-max-manifest-file-size 1073741824
 rocksdb-max-open-files -2
 rocksdb-max-row-locks 1048576
 rocksdb-max-subcompactions 1
