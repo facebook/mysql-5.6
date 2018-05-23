@@ -9044,8 +9044,7 @@ int ha_rocksdb::check_and_lock_unique_pk(const uint &key_id,
     /*
       If the keys are the same, then no lock is needed
     */
-    if (!Rdb_pk_comparator::bytewise_compare(row_info.new_pk_slice,
-                                             row_info.old_pk_slice)) {
+    if (!row_info.new_pk_slice.compare(row_info.old_pk_slice)) {
       *found = false;
       return HA_EXIT_SUCCESS;
     }
@@ -9154,7 +9153,7 @@ int ha_rocksdb::check_and_lock_sk(const uint &key_id,
       If the old and new keys are the same we're done since we've already taken
       the lock on the old key
     */
-    if (!Rdb_pk_comparator::bytewise_compare(new_slice, old_slice)) {
+    if (!new_slice.compare(old_slice)) {
       return HA_EXIT_SUCCESS;
     }
   }
