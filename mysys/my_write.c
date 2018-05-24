@@ -52,6 +52,11 @@ size_t my_write(File Filedes, const uchar *Buffer, size_t Count, myf MyFlags)
   
   DBUG_EXECUTE_IF ("simulate_no_free_space_error",
                    { DBUG_SET("+d,simulate_file_write_error");});
+
+  /* Disables FB patch which retries on disk full */
+  DBUG_EXECUTE_IF ("simulate_temp_file_write_error",
+                   { MyFlags&= ~ MY_WAIT_IF_FULL; });
+
   for (;;)
   {
     errno= 0;
