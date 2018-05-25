@@ -65,7 +65,7 @@ select count(*) from big_table_slow where id >10000;
 query_attrs_delete traceid;
 
 # Wait for all output lines to show up in the slow log file
-let $file_lines_count= 7;
+let $file_lines_count= 6;
 let $file_lines_pattern= ^# Query_time;
 let $file_lines_filename=
     $MYSQLTEST_VARDIR/mysqld.1/data/slow_log_extra_big-slow.log;
