@@ -21,6 +21,7 @@
 #include "rpl_filter.h"
 #include <my_dir.h>
 #include "rpl_handler.h"
+#include "debug_sync.h"
 
 Trans_delegate *transaction_delegate;
 Binlog_storage_delegate *binlog_storage_delegate;
@@ -233,6 +234,8 @@ int Trans_delegate::before_commit(THD *thd, bool all)
 
   int ret= 0;
   FOREACH_OBSERVER(ret, before_commit, thd, (&param));
+
+  DEBUG_SYNC(thd, "after_call_after_sync_observer");
   DBUG_RETURN(ret);
 }
 
@@ -248,6 +251,7 @@ int Trans_delegate::after_commit(THD *thd, bool all)
   thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
 
   DBUG_PRINT("enter", ("log_file: %s, log_pos: %llu", param.log_file, param.log_pos));
+  DEBUG_SYNC(thd, "before_call_after_commit_observer");
 
   int ret= 0;
   FOREACH_OBSERVER(ret, after_commit, thd, (&param));

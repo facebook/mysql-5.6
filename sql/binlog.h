@@ -585,6 +585,7 @@ private:
   std::pair<bool, bool> sync_binlog_file(bool force, bool async);
   void process_semisync_stage_queue(THD *queue_head);
   void process_commit_stage_queue(THD *thd, THD *queue, bool async);
+  void process_after_commit_stage_queue(THD *thd, THD *first, bool async);
   int process_flush_stage_queue(my_off_t *total_bytes_var, bool *rotate_var,
                                 THD **out_queue_var, bool async);
   int ordered_commit(THD *thd, bool all, bool skip_commit = false,

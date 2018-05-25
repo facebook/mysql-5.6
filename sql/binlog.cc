@@ -7312,7 +7312,7 @@ MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first, bool async)
       /*
         storage engine commit
       */
-      if (ha_commit_low(head, all, async))
+      if (ha_commit_low(head, all, async, false))
         head->commit_error= THD::CE_COMMIT_ERROR;
     }
     DBUG_PRINT("debug", ("commit_error: %d, flags.pending: %s",
@@ -7330,6 +7330,39 @@ MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first, bool async)
 }
 
 /**
+  Process after commit for a sequence of sessions.
+  @param thd The "master" thread
+  @param first First thread in the queue of threads to commit
+*/
+void
+MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first,
+                                                bool async)
+{
+  Thread_excursion excursion(thd);
+  for (THD *head= first; head; head= head->next_to_commit)
+  {
+    if (head->transaction.flags.run_hooks &&
+        head->commit_error == THD::CE_NONE)
+    {
+      /*
+        TODO: This hook here should probably move outside/below this
+              if and be the only after_commit invocation left in the
+              code.
+      */
+      excursion.try_to_attach_to(head);
+      bool all= head->transaction.flags.real_commit;
+      (void) RUN_HOOK(transaction, after_commit, (head, all));
+      /*
+        When after_commit finished for the transaction, clear the run_hooks flag.
+        This allow other parts of the system to check if after_commit was called.
+      */
+      head->transaction.flags.run_hooks= false;
+    }
+  }
+}
+
+
+/**
   Scans the semisync queue and calls before_commit hook
   using the last thread in the queue.
 
@@ -7343,16 +7376,9 @@ MYSQL_BIN_LOG::process_semisync_stage_queue(THD *queue_head)
    THD *last_thd = NULL;
    for (THD *thd = queue_head; thd != NULL; thd = thd->next_to_commit)
    {
-      // run_hooks is set to true in ordered_commit() if storage
-      // engine commit is required.
-      if (thd->transaction.flags.run_hooks &&
-          thd->commit_error == THD::CE_NONE)
+      if (thd->commit_error == THD::CE_NONE)
       {
         last_thd = thd;
-        // setting run_hooks to false allows other parts of the system to
-        // check if before commit hook is called for this thread.
-        // Also this avoids assertion in finish_commit.
-        thd->transaction.flags.run_hooks = false;
       }
    }
 
@@ -7544,13 +7570,25 @@ MYSQL_BIN_LOG::finish_commit(THD *thd, bool async)
       storage engine commit
     */
     DBUG_ASSERT(thd->commit_error != THD::CE_COMMIT_ERROR);
-    if (ha_commit_low(thd, all, async))
+    if (ha_commit_low(thd, all, async, false))
       thd->commit_error= THD::CE_COMMIT_ERROR;
     /*
       Decrement the prepared XID counter after storage engine commit
     */
     if (thd->transaction.flags.xid_written)
       dec_prep_xids(thd);
+    /*
+      If commit succeeded, we call the after_commit hook
+
+      TODO: This hook here should probably move outside/below this
+            if and be the only after_commit invocation left in the
+            code.
+    */
+    if ((thd->commit_error == THD::CE_NONE) && thd->transaction.flags.run_hooks)
+    {
+      (void) RUN_HOOK(transaction, after_commit, (thd, all));
+      thd->transaction.flags.run_hooks= false;
+    }
   }
   else if (thd->transaction.flags.xid_written)
     dec_prep_xids(thd);
@@ -7896,6 +7934,11 @@ commit_stage:
     process_commit_stage_queue(thd, commit_queue, async);
     thd->engine_commit_time = my_timer_since(start_time);
     mysql_mutex_unlock(&LOCK_commit);
+    /*
+      Process after_commit after LOCK_commit is released for avoiding
+      3-way deadlock among user thread, rotate thread and dump thread.
+    */
+    process_after_commit_stage_queue(thd, commit_queue, async);
     final_queue= commit_queue;
   }
   else if (leave_mutex_before_commit_stage)
