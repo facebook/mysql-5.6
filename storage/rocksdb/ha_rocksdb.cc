@@ -1211,7 +1211,7 @@ static MYSQL_SYSVAR_DOUBLE(
     cache_high_pri_pool_ratio,
     rocksdb_cache_high_pri_pool_ratio,
     PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-    "Use ClockCache instead of default LRUCache for RocksDB",
+    "Specify the size of block cache high-pri pool",
     nullptr, nullptr, /* default */ 0.0, /* min */ 0.0, /* max */ 1.0, 0);
 
 static MYSQL_SYSVAR_BOOL(
