@@ -481,6 +481,7 @@ static int rocksdb_validate_set_block_cache_size(
 static long long rocksdb_block_cache_size;
 static long long rocksdb_sim_cache_size;
 static my_bool rocksdb_use_clock_cache;
+static double rocksdb_cache_high_pri_pool_ratio;
 /* Use unsigned long long instead of uint64_t because of MySQL compatibility */
 static unsigned long long  // NOLINT(runtime/int)
     rocksdb_rate_limiter_bytes_per_sec;
@@ -1214,6 +1215,13 @@ static MYSQL_SYSVAR_BOOL(
     "Use ClockCache instead of default LRUCache for RocksDB",
     nullptr, nullptr, false);
 
+static MYSQL_SYSVAR_DOUBLE(cache_high_pri_pool_ratio,
+                           rocksdb_cache_high_pri_pool_ratio,
+                           PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+                           "Specify the size of block cache high-pri pool",
+                           nullptr, nullptr, /* default */ 0.0, /* min */ 0.0,
+                           /* max */ 1.0, 0);
+
 static MYSQL_SYSVAR_BOOL(
     cache_index_and_filter_blocks,
     *reinterpret_cast<my_bool *>(
@@ -1221,6 +1229,14 @@ static MYSQL_SYSVAR_BOOL(
     PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
     "BlockBasedTableOptions::cache_index_and_filter_blocks for RocksDB",
     nullptr, nullptr, true);
+
+static MYSQL_SYSVAR_BOOL(
+    cache_index_and_filter_with_high_priority,
+    *reinterpret_cast<my_bool *>(
+        &rocksdb_tbl_options->cache_index_and_filter_blocks_with_high_priority),
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+    "cache_index_and_filter_blocks_with_high_priority for RocksDB", nullptr,
+    nullptr, true);
 
 // When pin_l0_filter_and_index_blocks_in_cache is true, RocksDB will  use the
 // LRU cache, but will always keep the filter & idndex block's handle checked
@@ -1706,7 +1722,9 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(block_cache_size),
     MYSQL_SYSVAR(sim_cache_size),
     MYSQL_SYSVAR(use_clock_cache),
+    MYSQL_SYSVAR(cache_high_pri_pool_ratio),
     MYSQL_SYSVAR(cache_index_and_filter_blocks),
+    MYSQL_SYSVAR(cache_index_and_filter_with_high_priority),
     MYSQL_SYSVAR(pin_l0_filter_and_index_blocks_in_cache),
     MYSQL_SYSVAR(index_type),
     MYSQL_SYSVAR(hash_index_allow_collision),
@@ -4679,9 +4697,13 @@ static int rocksdb_init_func(void *const p) {
       (rocksdb::BlockBasedTableOptions::IndexType)rocksdb_index_type;
 
   if (!rocksdb_tbl_options->no_block_cache) {
-    std::shared_ptr<rocksdb::Cache> block_cache = rocksdb_use_clock_cache
-      ? rocksdb::NewClockCache(rocksdb_block_cache_size)
-      : rocksdb::NewLRUCache(rocksdb_block_cache_size);
+    std::shared_ptr<rocksdb::Cache> block_cache =
+        rocksdb_use_clock_cache
+            ? rocksdb::NewClockCache(rocksdb_block_cache_size)
+            : rocksdb::NewLRUCache(rocksdb_block_cache_size,
+                                   -1 /*num_shard_bits*/,
+                                   false /*strict_capcity_limit*/,
+                                   rocksdb_cache_high_pri_pool_ratio);
     if (rocksdb_sim_cache_size > 0) {
       // Simulated cache enabled
       // Wrap block cache inside a simulated cache and pass it to RocksDB
