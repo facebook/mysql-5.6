@@ -1150,10 +1150,16 @@ The following options may be given as the first argument:
  Max #records in a batch for bulk-load mode
  --rocksdb-bytes-per-sync=# 
  DBOptions::bytes_per_sync for RocksDB
+ --rocksdb-cache-high-pri-pool-ratio=# 
+ Specify the size of block cache high-pri pool
  --rocksdb-cache-index-and-filter-blocks 
  BlockBasedTableOptions::cache_index_and_filter_blocks for
  RocksDB
  (Defaults to on; use --skip-rocksdb-cache-index-and-filter-blocks to disable.)
+ --rocksdb-cache-index-and-filter-with-high-priority 
+ cache_index_and_filter_blocks_with_high_priority for
+ RocksDB
+ (Defaults to on; use --skip-rocksdb-cache-index-and-filter-with-high-priority to disable.)
  --rocksdb-cf-options[=name] 
  Enable or disable ROCKSDB_CF_OPTIONS plugin. Possible
  values are ON, OFF, FORCE (don't start if the plugin
@@ -2190,7 +2196,9 @@ rocksdb-bulk-load-allow-sk FALSE
 rocksdb-bulk-load-allow-unsorted FALSE
 rocksdb-bulk-load-size 1000
 rocksdb-bytes-per-sync 0
+rocksdb-cache-high-pri-pool-ratio 0
 rocksdb-cache-index-and-filter-blocks TRUE
+rocksdb-cache-index-and-filter-with-high-priority TRUE
 rocksdb-cf-options ON
 rocksdb-cfstats ON
 rocksdb-checksums-pct 100
