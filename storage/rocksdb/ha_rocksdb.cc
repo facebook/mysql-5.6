@@ -1227,7 +1227,7 @@ static MYSQL_SYSVAR_BOOL(
     *reinterpret_cast<my_bool *>(
         &rocksdb_tbl_options->cache_index_and_filter_blocks_with_high_priority),
     PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-    "BlockBasedTableOptions::cache_index_and_filter_blocks_with_high_priority for RocksDB",
+    "Cache index and filter blocks as high-pri cache entry",
     nullptr, nullptr, true);
 
 // When pin_l0_filter_and_index_blocks_in_cache is true, RocksDB will  use the
@@ -4592,9 +4592,9 @@ static int rocksdb_init_func(void *const p) {
     std::shared_ptr<rocksdb::Cache> block_cache = rocksdb_use_clock_cache
       ? rocksdb::NewClockCache(rocksdb_block_cache_size)
       : rocksdb::NewLRUCache(rocksdb_block_cache_size,
-                             -1 /*num_shard_bits*/,
-                             false /*strict_capcity_limit*/,
-                             rocksdb_cache_high_pri_pool_ratio);
+                            -1 /*num_shard_bits*/,
+                            false /*strict_capcity_limit*/,
+                            rocksdb_cache_high_pri_pool_ratio);
     if (rocksdb_sim_cache_size > 0) {
       // Simulated cache enabled
       // Wrap block cache inside a simulated cache and pass it to RocksDB
