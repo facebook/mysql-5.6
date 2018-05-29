@@ -439,6 +439,18 @@ character_set_server	latin1
 character_set_system	utf8
 KILL rpc_id;
 KILL rpc_id;
+
+# Case 15: Test Multiquery
+
+set @my_var='value_1';
+SET @my_var='new_value';SELECT @my_var|
+@my_var
+new_value
+SELECT @my_var; SET @my_var='other_value'; SELECT @my_var|
+@my_var
+new_value
+@my_var
+other_value
 drop database db_default;
 drop database db_rpc;
 drop user scriptro;

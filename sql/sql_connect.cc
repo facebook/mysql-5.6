@@ -793,7 +793,7 @@ bool login_connection(THD *thd)
 
   error= check_connection(thd);
   MYSQL_AUDIT_NOTIFY_CONNECTION_CONNECT(thd);
-  thd->protocol->end_statement();
+  thd->protocol->end_statement(thd);
 
   if (error)
   {           // Wrong permissions
@@ -923,7 +923,7 @@ void prepare_new_connection_state(THD* thd)
                  sctx->host_or_ip, "init_connect command failed");
 
       thd->server_status&= ~SERVER_STATUS_CLEAR_SET;
-      thd->protocol->end_statement();
+      thd->protocol->end_statement(thd);
       thd->killed = THD::KILL_CONNECTION;
       errors.m_init_connect= 1;
       inc_host_errors(thd->main_security_ctx.get_ip()->ptr(), &errors);

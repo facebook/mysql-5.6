@@ -646,6 +646,7 @@ bool Srv_session::open(const THD* conn_thd)
     state. Attachment with store_globals() will happen on demand.
   */
   thd_.copy_client_charset_settings(conn_thd);
+  thd_.client_capabilities = conn_thd->client_capabilities;
 
   thd_.update_charset();
 

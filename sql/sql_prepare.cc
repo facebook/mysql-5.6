@@ -253,7 +253,7 @@ protected:
   virtual bool store(Field *field);
 
   virtual bool send_result_set_metadata(List<Item> *list, uint flags);
-  virtual bool send_out_parameters(List<Item_param> *sp_params);
+  virtual bool send_out_parameters(THD* thd, List<Item_param> *sp_params);
 #ifdef EMBEDDED_LIBRARY
   void remove_last_row();
 #endif
@@ -4103,9 +4103,9 @@ bool Prepared_statement::execute(String *expanded_query, bool open_cursor)
   if (error == 0 && this->lex->sql_command == SQLCOM_CALL)
   {
     if (is_sql_prepare())
-      thd->protocol_text.send_out_parameters(&this->lex->param_list);
+      thd->protocol_text.send_out_parameters(thd, &this->lex->param_list);
     else
-      thd->protocol->send_out_parameters(&this->lex->param_list);
+      thd->protocol->send_out_parameters(thd, &this->lex->param_list);
   }
 
 error:
@@ -4254,7 +4254,7 @@ bool Ed_connection::execute_direct(Server_runnable *server_runnable)
   m_thd->set_stmt_da(&m_diagnostics_area);
 
   rc= stmt.execute_server_runnable(server_runnable);
-  m_thd->protocol->end_statement();
+  m_thd->protocol->end_statement(m_thd);
 
   m_thd->protocol= save_protocol;
   m_thd->set_stmt_da(save_diagnostics_area);
@@ -4619,7 +4619,9 @@ bool Protocol_local::send_result_set_metadata(List<Item> *columns, uint)
   version.
 */
 
-bool Protocol_local::send_out_parameters(List<Item_param> *sp_params)
+bool Protocol_local::send_out_parameters(
+    THD* /*status_thd*/,
+    List<Item_param> *sp_params)
 {
   return FALSE;
 }

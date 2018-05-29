@@ -900,7 +900,7 @@ static void handle_bootstrap_impl(THD *thd)
         break;
       }
 
-      thd->protocol->end_statement();
+      thd->protocol->end_statement(thd);
       bootstrap_error= 1;
       break;
     }
@@ -925,7 +925,7 @@ static void handle_bootstrap_impl(THD *thd)
     Parser_state parser_state;
     if (parser_state.init(thd, thd->query(), length))
     {
-      thd->protocol->end_statement();
+      thd->protocol->end_statement(thd);
       bootstrap_error= 1;
       break;
     }
@@ -933,7 +933,7 @@ static void handle_bootstrap_impl(THD *thd)
     mysql_parse(thd, thd->query(), length, &parser_state, NULL, NULL);
     sql_print_information("query: %s", thd->query());
     bootstrap_error= thd->is_error();
-    thd->protocol->end_statement();
+    thd->protocol->end_statement(thd);
 
 #if defined(ENABLED_PROFILING)
     thd->profiling.finish_current_query();
@@ -1134,7 +1134,7 @@ bool do_command(THD *thd)
 
     /* The error must be set. */
     DBUG_ASSERT(thd->is_error());
-    thd->protocol->end_statement();
+    thd->protocol->end_statement(thd);
 
     /* Mark the statement completed. */
     MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());
@@ -1932,7 +1932,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
 
       /* Finalize server status flags after executing a statement. */
       thd->update_server_status();
-      thd->protocol->end_statement();
+      thd->protocol->end_statement(thd);
       query_cache_end_of_result(thd);
 
       mysql_audit_general(thd, MYSQL_AUDIT_GENERAL_STATUS,
@@ -2397,7 +2397,7 @@ done:
     srv_session_end_statement(*srv_session);
   }
 
-  thd->protocol->end_statement();
+  thd->protocol->end_statement(thd);
   query_cache_end_of_result(thd);
 
   if (!thd->is_error() && !thd->killed_errno())

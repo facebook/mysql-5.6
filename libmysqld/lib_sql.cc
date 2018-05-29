@@ -812,7 +812,7 @@ int check_embedded_connection(MYSQL *mysql, const char *db)
   /* Change database if necessary */
   if (!(result= (db && db[0] && mysql_change_db(thd, &db_str, FALSE))))
     my_ok(thd);
-  thd->protocol->end_statement();
+  thd->protocol->end_statement(thd);
   emb_read_query_result(mysql);
   return result;
 }

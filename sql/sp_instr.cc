@@ -848,7 +848,7 @@ bool sp_instr_stmt::execute(THD *thd, uint *nextp)
       /* Finalize server status flags after executing a statement. */
       thd->update_server_status();
 
-      thd->protocol->end_statement();
+      thd->protocol->end_statement(thd);
     }
 
     query_cache_end_of_result(thd);

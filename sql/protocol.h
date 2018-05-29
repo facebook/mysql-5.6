@@ -114,7 +114,7 @@ public:
   virtual bool store_date(MYSQL_TIME *time)=0;
   virtual bool store_time(MYSQL_TIME *time, uint precision)=0;
   virtual bool store(Field *field)=0;
-  virtual bool send_out_parameters(List<Item_param> *sp_params)=0;
+  virtual bool send_out_parameters(THD *thd, List<Item_param> *sp_params)=0;
 #ifdef EMBEDDED_LIBRARY
   int begin_dataset();
   virtual void remove_last_row() {}
@@ -131,7 +131,7 @@ public:
   };
   virtual enum enum_protocol_type type()= 0;
 
-  void end_statement();
+  void end_statement(const THD* status_thd);
 
   THD* get_thd() { return thd;}
 };
@@ -166,7 +166,7 @@ public:
   virtual bool store(float nr, uint32 decimals, String *buffer);
   virtual bool store(double from, uint32 decimals, String *buffer);
   virtual bool store(Field *field);
-  virtual bool send_out_parameters(List<Item_param> *sp_params);
+  virtual bool send_out_parameters(THD* thd, List<Item_param> *sp_params);
 #ifdef EMBEDDED_LIBRARY
   void remove_last_row();
 #endif
@@ -206,7 +206,7 @@ public:
   virtual bool store(double from, uint32 decimals, String *buffer);
   virtual bool store(Field *field);
 
-  virtual bool send_out_parameters(List<Item_param> *sp_params);
+  virtual bool send_out_parameters(THD* thd, List<Item_param> *sp_params);
 
   virtual enum enum_protocol_type type() { return PROTOCOL_BINARY; };
 };

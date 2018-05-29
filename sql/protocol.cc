@@ -607,7 +607,7 @@ static uchar *net_store_length_fast(uchar *packet, uint length)
           Diagnostics_area::is_sent is set for debugging purposes only.
 */
 
-void Protocol::end_statement()
+void Protocol::end_statement(const THD* status_thd)
 {
   DBUG_ENTER("Protocol::end_statement");
   DBUG_ASSERT(! thd->get_stmt_da()->is_sent());
@@ -625,11 +625,11 @@ void Protocol::end_statement()
                       thd->get_stmt_da()->get_sqlstate());
     break;
   case Diagnostics_area::DA_EOF:
-    error= send_eof(thd->server_status,
+    error= send_eof(status_thd->server_status,
                     thd->get_stmt_da()->statement_warn_count());
     break;
   case Diagnostics_area::DA_OK:
-    error= send_ok(thd->server_status,
+    error= send_ok(status_thd->server_status,
                    thd->get_stmt_da()->statement_warn_count(),
                    thd->get_stmt_da()->affected_rows(),
                    thd->get_stmt_da()->last_insert_id(),
@@ -640,7 +640,7 @@ void Protocol::end_statement()
   case Diagnostics_area::DA_EMPTY:
   default:
     DBUG_ASSERT(0);
-    error= send_ok(thd->server_status, 0, 0, 0, NULL);
+    error= send_ok(status_thd->server_status, 0, 0, 0, NULL);
     break;
   }
   if (!error)
@@ -1413,7 +1413,9 @@ bool Protocol_text::store_time(MYSQL_TIME *tm, uint decimals)
     @retval TRUE  Error.
 */
 
-bool Protocol_text::send_out_parameters(List<Item_param> *sp_params)
+bool Protocol_text::send_out_parameters(
+    THD* /*status_thd*/,
+    List<Item_param> *sp_params)
 {
   DBUG_ASSERT(sp_params->elements ==
               thd->lex->prepared_stmt_params.elements);
@@ -1678,7 +1680,9 @@ bool Protocol_binary::store_time(MYSQL_TIME *tm, uint precision)
     @retval TRUE  Error.
 */
 
-bool Protocol_binary::send_out_parameters(List<Item_param> *sp_params)
+bool Protocol_binary::send_out_parameters(
+    THD* status_thd,
+    List<Item_param> *sp_params)
 {
   bool ret;
   if (!(thd->client_capabilities & CLIENT_PS_MULTI_RESULTS))
@@ -1715,7 +1719,7 @@ bool Protocol_binary::send_out_parameters(List<Item_param> *sp_params)
     is used in send_result_set_metadata().
   */
 
-  thd->server_status|= SERVER_PS_OUT_PARAMS | SERVER_MORE_RESULTS_EXISTS;
+  status_thd->server_status|= SERVER_PS_OUT_PARAMS | SERVER_MORE_RESULTS_EXISTS;
 
   /* Send meta-data. */
   if (send_result_set_metadata(&out_param_lst, SEND_NUM_ROWS | SEND_EOF))
@@ -1732,24 +1736,24 @@ bool Protocol_binary::send_out_parameters(List<Item_param> *sp_params)
     return TRUE;
 
   /* Restore THD::server_status. */
-  thd->server_status&= ~SERVER_PS_OUT_PARAMS;
+  status_thd->server_status&= ~SERVER_PS_OUT_PARAMS;
 
   /*
     Reset SERVER_MORE_RESULTS_EXISTS bit, because for sure this is the last
     result set we are sending.
   */
 
-  thd->server_status&= ~SERVER_MORE_RESULTS_EXISTS;
+  status_thd->server_status&= ~SERVER_MORE_RESULTS_EXISTS;
 
   if (thd->client_capabilities & CLIENT_DEPRECATE_EOF)
     ret= net_send_ok(thd,
-                     (thd->server_status
+                     (status_thd->server_status
                      | SERVER_PS_OUT_PARAMS
                      | SERVER_MORE_RESULTS_EXISTS),
                     thd->get_stmt_da()->statement_warn_count(),
                     0, 0, NULL, true);
   else
     /* In case of old clients send EOF packet. */
-    ret= net_send_eof(thd, thd->server_status, 0);
+    ret= net_send_eof(thd, status_thd->server_status, 0);
   return ret? FALSE : TRUE;
 }

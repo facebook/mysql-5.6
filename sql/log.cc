@@ -3497,7 +3497,7 @@ void exec_binlog_error_action_abort(const char* err_string)
    */
   my_error(ER_BINLOG_LOGGING_IMPOSSIBLE, MYF(ME_NOREFRESH + ME_FATALERROR),
            err_string);
-  thd->protocol->end_statement();
+  thd->protocol->end_statement(thd);
   abort();
 }
 

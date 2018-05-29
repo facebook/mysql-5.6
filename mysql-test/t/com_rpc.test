@@ -764,6 +764,38 @@ eval KILL $rpc_id;
 --replace_result $rpc_id2 rpc_id
 eval KILL $rpc_id2;
 
+--echo
+--echo # Case 15: Test Multiquery
+--echo
+# TODO: Multi query 1: Q1 changes state, Q2 reads the state change
+#       Multi query 2: Q1 reads previous state change, Q2 changes state, Q3 reads new change
+connect (con1,localhost,root,,db_default);
+--query_attrs_add rpc_role scriptro
+--query_attrs_add rpc_db db_rpc
+# Single query to get rpc_id since mtr can't get it from a multiquery
+set @my_var='value_1';
+let $rpc_id=get_rpc_id();
+disconnect con1;
+
+connect (con2,localhost,root,,db_default);
+--query_attrs_delete rpc_role
+--query_attrs_delete rpc_db
+--query_attrs_add rpc_id $rpc_id
+
+delimiter |;
+SET @my_var='new_value';SELECT @my_var|
+delimiter ;|
+
+delimiter |;
+SELECT @my_var; SET @my_var='other_value'; SELECT @my_var|
+delimiter ;|
+disconnect con2;
+
+connection default;
+--disable_query_log
+eval KILL $rpc_id;
+--enable_query_log
+
 # delete all dbs and users
 connection default;
 
