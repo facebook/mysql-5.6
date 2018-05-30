@@ -134,8 +134,7 @@ UNIV_INTERN
 enum durability_properties
 thd_requested_durability(
 /*=====================*/
-	const THD* thd)	/*!< in: thread handle */
-	MY_ATTRIBUTE((nonnull, warn_unused_result));
+	const THD* thd);	/*!< in: thread handle */
 
 /******************************************************************//**
 Returns true if the transaction this thread is processing has edited
