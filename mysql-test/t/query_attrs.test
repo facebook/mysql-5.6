@@ -1,19 +1,7 @@
---source include/have_debug.inc
-
 create database db1;
 use db1;
 
-let SEARCH_FILE = $MYSQLTEST_VARDIR/log/my_restart.err;
---source include/shutdown_mysqld.inc
-
---exec echo "restart:--log-error=$SEARCH_FILE" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
---enable_reconnect
---source include/wait_until_connected_again.inc
-
 connect (con,localhost,root,,db1);
-
-set @old_debug_val = @@global.debug;
-set @@global.debug="+d,print_query_attr";
 
 query_attrs_add a b;
 select attr_name, attr_value from information_schema.query_attributes where id = connection_id();
@@ -31,26 +19,6 @@ select attr_name, attr_value from information_schema.query_attributes where id =
 query_attrs_reset;
 select attr_name, attr_value from information_schema.query_attributes where id = connection_id();
 
---perl
-use strict;
-
-my $err_file = "$ENV{'SEARCH_FILE'}";
-open LOG_FILE, $err_file or die "Failed to open $err_file for read";
-
-while (<LOG_FILE>) {
-  # Looking for the debug log of query attributes
-  if (/\[query-attrs\]\[.*\].*/) {
-    print;
-  }
-}
-
-close LOG_FILE;
-EOF
-
-set global debug = @old_debug_val;
-
 connection default;
---source include/restart_mysqld.inc
---remove_file $SEARCH_FILE
 
 drop database db1;

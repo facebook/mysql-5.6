@@ -1,7 +1,5 @@
 create database db1;
 use db1;
-set @old_debug_val = @@global.debug;
-set @@global.debug="+d,print_query_attr";
 select attr_name, attr_value from information_schema.query_attributes where id = connection_id();
 attr_name	attr_value
 a	b
@@ -16,16 +14,4 @@ attr_name	attr_value
 b	a
 select attr_name, attr_value from information_schema.query_attributes where id = connection_id();
 attr_name	attr_value
-[query-attrs][list]
-[query-attrs][key] a
-[query-attrs][value] b
-[query-attrs][list]
-[query-attrs][key] a
-[query-attrs][value] b
-[query-attrs][key] b
-[query-attrs][value] a
-[query-attrs][list]
-[query-attrs][key] b
-[query-attrs][value] a
-set global debug = @old_debug_val;
 drop database db1;

@@ -60,9 +60,9 @@ select count(*) from big_table_slow where id < 100000;
 
 connect (con2, localhost,root,,);
 set session long_query_time = 10000;
-query_attrs_add traceid foobar;
+query_attrs_add query_info '{"traceid":"foobar"}';
 select count(*) from big_table_slow where id >10000;
-query_attrs_delete traceid;
+query_attrs_delete query_info;
 
 # Wait for all output lines to show up in the slow log file
 let $file_lines_count= 7;
