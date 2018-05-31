@@ -4337,9 +4337,11 @@ static int cli_establish_ssl(MYSQL *mysql) {
                              true, ssl_session, &ssl_error, nullptr);
     switch (ret) {
       case VIO_SOCKET_ERROR:
-        char buf[512];
-        ERR_error_string_n(ssl_error, buf, 512);
-        buf[511] = 0;
+        char ssl_buf[512];
+        char buf[1025];
+        ERR_error_string_n(ssl_error, ssl_buf, 512);
+        ssl_buf[511] = 0;
+        snprintf(buf, sizeof(buf) - 1, "%s (errno %d)", ssl_buf, errno);
         set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR,
                                  unknown_sqlstate,
                                  ER_CLIENT(CR_SSL_CONNECTION_ERROR), buf);
@@ -4777,9 +4779,11 @@ static net_async_status cli_establish_ssl_nonblocking(MYSQL *mysql, int *res) {
           /* continue for error handling */
       }
 
-      char buf[512];
-      ERR_error_string_n(ssl_error, buf, 512);
-      buf[511] = 0;
+      char ssl_buf[512];
+      char buf[1024];
+      ERR_error_string_n(ssl_error, ssl_buf, 512);
+      ssl_buf[511] = 0;
+      snprintf(buf, sizeof(buf) - 1, "%s (errno %d)", ssl_buf, errno);
       set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR, unknown_sqlstate,
                                ER_CLIENT(CR_SSL_CONNECTION_ERROR), buf);
       goto error;
