@@ -3746,7 +3746,7 @@ int ha_recover(HASH *commit_list, char *binlog_file = NULL,
  intended to be used by the transaction coordinators to
  commit/prepare/rollback transactions in the engines.
 */
-int ha_commit_low(THD *thd, bool all, bool async);
+int ha_commit_low(THD *thd, bool all, bool async, bool run_after_commit= true);
 int ha_prepare_low(THD *thd, bool all, bool async);
 int ha_rollback_low(THD *thd, bool all);
 
