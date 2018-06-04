@@ -1,5 +1,7 @@
 # Init
 connection master;
+sync_slave_with_master;
+connection master;
 flush logs;
 let $master_last_log = query_get_value("SHOW MASTER STATUS", "File", 1);
 eval purge binary logs to '$master_last_log';
