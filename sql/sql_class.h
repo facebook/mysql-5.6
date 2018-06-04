@@ -4634,12 +4634,16 @@ public:
 
   void mark_transaction_to_rollback(bool all);
 
+  void set_connection_attrs(const char *attrs, size_t length);
   void set_query_attrs(const char *attrs, size_t length);
   int parse_query_info_attr();
   void reset_query_attrs()
   {
-    query_attrs_string.clear();
+    mysql_mutex_lock(&LOCK_thd_data);
     query_attrs_map.clear();
+    mysql_mutex_unlock(&LOCK_thd_data);
+
+    query_attrs_string.clear();
     trace_id.clear();
     num_queries = 0;
     query_type.clear();
@@ -4653,51 +4657,8 @@ public:
     return query_attrs_string.length();
   }
 
-  void set_connection_attrs(const char *attrs, size_t length)
-  {
-    mysql_mutex_lock(&LOCK_thd_data);
-    set_attrs_map(attrs, length, connection_attrs_map, false);
-    mysql_mutex_unlock(&LOCK_thd_data);
-  }
-
   std::unordered_map<std::string, std::string> query_attrs_map;
   std::unordered_map<std::string, std::string> connection_attrs_map;
-
-private:
-  void set_attrs_map(const char *ptr, size_t length,
-                     std::unordered_map<std::string, std::string> &attrs_map,
-                     bool is_query)
-  {
-    const char *end = ptr + length;
-
-    const char *key, *value;
-    size_t klen, vlen;
-
-    if (is_query)
-      DBUG_EXECUTE_IF("print_query_attr", {
-          // NO_LINT_DEBUG
-          fprintf(stderr, "[query-attrs][list]\n");
-      });
-
-    attrs_map.clear();
-    while (ptr < end)
-    {
-      klen = net_field_length((uchar**) &ptr);
-      key = ptr;
-      ptr += klen;
-      vlen = net_field_length((uchar**) &ptr);
-      value = ptr;
-      ptr += vlen;
-      attrs_map[std::string(key, klen)] = std::string(value, vlen);
-      if (is_query)
-        DBUG_EXECUTE_IF("print_query_attr", {
-            // NO_LINT_DEBUG
-            fprintf(stderr, "[query-attrs][key] %.*s\n", (int)klen, key);
-            // NO_LINT_DEBUG
-            fprintf(stderr, "[query-attrs][value] %.*s\n", (int)vlen, value);
-        });
-    }
-  }
 
 private:
   char* connection_certificate_buf;

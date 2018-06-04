@@ -1,0 +1,9 @@
+create database db1;
+use db1;
+select attr_name, attr_value from information_schema.query_attributes where attr_value = '{"num_queries":1,"query_type":"ASSOC_RANGE22"}';
+attr_name	attr_value
+query_info	{"num_queries":1,"query_type":"ASSOC_RANGE22"}
+select * from information_schema.query_perf_counter where query_type = "ASSOC_RANGE22";
+QUERY_TYPE	CPU	NUM_QUERIES
+ASSOC_RANGE22	cpu_time	1
+drop database db1;
