@@ -2003,7 +2003,7 @@ protected:
 
     if (s.IsDeadlock()) {
       my_core::thd_mark_transaction_to_rollback(thd,
-                                                false /* just statement */);
+                                                true /* whole transaction */);
       m_detailed_error = String();
       table_handler->m_deadlock_counter.inc();
       rocksdb_row_lock_deadlocks++;
