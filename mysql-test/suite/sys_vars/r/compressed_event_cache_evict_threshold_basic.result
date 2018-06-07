@@ -1,0 +1,44 @@
+SET @old_compressed_event_cache_evict_threshold = @@global.compressed_event_cache_evict_threshold;
+SELECT @old_compressed_event_cache_evict_threshold;
+@old_compressed_event_cache_evict_threshold
+60
+SET @@global.compressed_event_cache_evict_threshold = DEFAULT;
+SELECT @@global.compressed_event_cache_evict_threshold;
+@@global.compressed_event_cache_evict_threshold
+60
+# compressed_event_cache_evict_threshold is a global variable.
+SET @@session.compressed_event_cache_evict_threshold = 1;
+ERROR HY000: Variable 'compressed_event_cache_evict_threshold' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@compressed_event_cache_evict_threshold;
+@@compressed_event_cache_evict_threshold
+60
+SET @@global.compressed_event_cache_evict_threshold = 512;
+Warnings:
+Warning	1292	Truncated incorrect compressed_event_cache_evict_thr value: '512'
+SELECT @@global.compressed_event_cache_evict_threshold;
+@@global.compressed_event_cache_evict_threshold
+100
+SET @@global.compressed_event_cache_evict_threshold = 1000000;
+Warnings:
+Warning	1292	Truncated incorrect compressed_event_cache_evict_thr value: '1000000'
+SELECT @@global.compressed_event_cache_evict_threshold;
+@@global.compressed_event_cache_evict_threshold
+100
+SET @@global.compressed_event_cache_evict_threshold = 1.01;
+ERROR 42000: Incorrect argument type to variable 'compressed_event_cache_evict_threshold'
+SET @@global.compressed_event_cache_evict_threshold = 'ten';
+ERROR 42000: Incorrect argument type to variable 'compressed_event_cache_evict_threshold'
+SELECT @@global.compressed_event_cache_evict_threshold;
+@@global.compressed_event_cache_evict_threshold
+100
+# set compressed_event_cache_evict_threshold to wrong value
+SET @@global.compressed_event_cache_evict_threshold = 1500000;
+Warnings:
+Warning	1292	Truncated incorrect compressed_event_cache_evict_thr value: '1500000'
+SELECT @@global.compressed_event_cache_evict_threshold;
+@@global.compressed_event_cache_evict_threshold
+100
+SET @@global.compressed_event_cache_evict_threshold = @old_compressed_event_cache_evict_threshold;
+SELECT @@global.compressed_event_cache_evict_threshold;
+@@global.compressed_event_cache_evict_threshold
+60

@@ -45,6 +45,8 @@ my_bool opt_sporadic_binlog_dump_fail = 0;
 ulong rpl_event_buffer_size;
 uint rpl_send_buffer_size = 0;
 
+
+/* Cache for compressed events and associated structures */
 struct binlog_comp_event
 {
   std::shared_ptr<uchar> buff;
@@ -61,12 +63,11 @@ struct binlog_comp_event
   }
 };
 
-/* Cache for compressed events and associated structures */
 #ifdef HAVE_JUNCTION
 
 typedef junction::ConcurrentMap_Grampa<ulonglong, binlog_comp_event*>
                                                                comp_event_cache;
-#define COMP_EVENT_CACHE_NUM_SHARDS 1 // no need to shard lock free hash table
+#define COMP_EVENT_CACHE_NUM_SHARDS 32
 static mysql_mutex_t LOCK_comp_event_cache[COMP_EVENT_CACHE_NUM_SHARDS];
 #ifdef HAVE_PSI_INTERFACE
 static PSI_mutex_key key_LOCK_comp_event_cache[COMP_EVENT_CACHE_NUM_SHARDS];
@@ -98,7 +99,8 @@ static std::atomic<time_t> cache_stats_timer;
 static comp_event_queue comp_event_queue_list[COMP_EVENT_CACHE_NUM_SHARDS];
 
 // size of value part of the compressed event cache in MB
-static std::atomic<size_t> comp_event_cache_size;
+static std::atomic<size_t>
+        comp_event_cache_size_list[COMP_EVENT_CACHE_NUM_SHARDS];
 
 
 static std::pair<std::string, my_off_t> last_acked;
@@ -231,13 +233,13 @@ static void signal_semi_sync_ack(const LOG_POS_COORD *const acked_coord)
   mysql_mutex_unlock(&LOCK_last_acked);
 }
 
-static void evict_compressed_events(comp_event_cache &comp_cache,
-                                    comp_event_queue &comp_queue,
+static void evict_compressed_events(ulonglong shard,
                                     ulonglong max_cache_size);
 
 void init_compressed_event_cache()
 {
   for (int i = 0; i < COMP_EVENT_CACHE_NUM_SHARDS; ++i)
+  {
 #ifdef HAVE_JUNCTION
     mysql_mutex_init(key_LOCK_comp_event_cache[i],
                      &LOCK_comp_event_cache[i],
@@ -245,8 +247,10 @@ void init_compressed_event_cache()
 #else
     mysql_rwlock_init(key_LOCK_comp_event_cache[i], &LOCK_comp_event_cache[i]);
 #endif
+    comp_event_cache_size_list[i]= 0;
+  }
   comp_event_cache_inited= true;
-  cache_hit_count= cache_miss_count= comp_event_cache_size= 0;
+  cache_hit_count= cache_miss_count= 0;
   cache_stats_timer= my_time(0);
 }
 
@@ -259,16 +263,15 @@ void clear_compressed_event_cache()
 #else
     mysql_rwlock_wrlock(&LOCK_comp_event_cache[i]);
 #endif
-    evict_compressed_events(comp_event_cache_list[i],
-                            comp_event_queue_list[i], 0);
+    evict_compressed_events(i, 0);
     DBUG_ASSERT(comp_event_queue_list[i].empty());
 #ifdef HAVE_JUNCTION
     mysql_mutex_unlock(&LOCK_comp_event_cache[i]);
 #else
     mysql_rwlock_unlock(&LOCK_comp_event_cache[i]);
 #endif
+    DBUG_ASSERT(comp_event_cache_size_list[i] == 0);
   }
-  DBUG_ASSERT(comp_event_cache_size == 0);
   cache_hit_count= cache_miss_count= 0;
   cache_stats_timer= my_time(0);
   comp_event_cache_hit_ratio= 0;
@@ -534,7 +537,7 @@ static binlog_comp_event compress_event(NET *net, const String *packet)
                                     my_free);
 
   // case: malloc failed
-  if (!comp_event) return binlog_comp_event();
+  if (unlikely(!comp_event)) return binlog_comp_event();
 
   // copy the original event in the buffer, compression will happen in place
   memcpy(comp_event.get() + COMP_EVENT_HEADER_SIZE, event, event_len);
@@ -569,16 +572,21 @@ static binlog_comp_event compress_event(NET *net, const String *packet)
   return binlog_comp_event(comp_event, comp_event_len);
 }
 
-static void evict_compressed_events(comp_event_cache &comp_cache,
-                                    comp_event_queue &comp_queue,
-                                    ulonglong max_cache_size)
+static void evict_compressed_events(ulonglong shard,
+                                    ulonglong max_cache_shard_size)
 {
+  auto& comp_cache= comp_event_cache_list[shard];
+  auto& comp_queue= comp_event_queue_list[shard];
+  auto& comp_event_cache_size= comp_event_cache_size_list[shard];
+
   // case: the cache is not full yet short-circuit
-  if (comp_event_cache_size <= max_cache_size)
+  if (likely(comp_event_cache_size <= max_cache_shard_size))
     return;
 
+  auto threshold= max_cache_shard_size *
+    ((double) opt_compressed_event_cache_evict_threshold / 100);
   // old event eviction
-  while ((comp_event_cache_size > max_cache_size * 0.6) && !comp_queue.empty())
+  while ((comp_event_cache_size > threshold) && !comp_queue.empty())
   {
     ulonglong key;
     size_t size;
@@ -605,7 +613,7 @@ static void evict_compressed_events(comp_event_cache &comp_cache,
 static void update_comp_event_cache_counters()
 {
   // case: one minute is up since the last stats update, re-calculate
-  if (difftime(my_time(0), cache_stats_timer) >= 60)
+  if (unlikely(difftime(my_time(0), cache_stats_timer) >= 60))
   {
     auto local_hit_count= cache_hit_count.load();
     auto local_miss_count= cache_miss_count.load();
@@ -641,7 +649,7 @@ static binlog_comp_event get_compressed_event(NET *net,
                     *static_cast<junction::QSBR::Context*>(net->qsbr_context));
               });
 
-  if (!cache)
+  if (unlikely(!cache))
     return compress_event(net, packet);
 
   ulong file_num= strtoul(strrchr(coord->file_name, '.') + 1, NULL, 10);
@@ -649,9 +657,9 @@ static binlog_comp_event get_compressed_event(NET *net,
   // case: file num can't fit in 20 bits or pos can't fit in 41 bits or comp lib
   // can't fit in 2 bits, so we cannot create a 64 bit integer key for this
   // event
-  if (file_num >= ((ulonglong) 1 << 21) ||
-      coord->pos >= ((ulonglong) 1 << 42) ||
-      (ulonglong)net->comp_lib >= ((ulonglong) 1 << 3))
+  if (unlikely(file_num >= ((ulonglong) 1 << 21) ||
+               coord->pos >= ((ulonglong) 1 << 42) ||
+               (ulonglong)net->comp_lib >= ((ulonglong) 1 << 3)))
   {
     sql_print_warning("Not caching binlog event %s:%llu because the cache key "
                       "is out of bounds", coord->file_name, coord->pos);
@@ -668,11 +676,11 @@ static binlog_comp_event get_compressed_event(NET *net,
   binlog_comp_event comp_event;
 
   // get cache, queue and corresponding lock for our shard
-  comp_event_cache& comp_cache=
-    comp_event_cache_list[coord->pos % COMP_EVENT_CACHE_NUM_SHARDS];
-  comp_event_queue& comp_queue=
-    comp_event_queue_list[coord->pos % COMP_EVENT_CACHE_NUM_SHARDS];
-  auto lock= &LOCK_comp_event_cache[coord->pos % COMP_EVENT_CACHE_NUM_SHARDS];
+  auto shard= coord->pos % COMP_EVENT_CACHE_NUM_SHARDS;
+  auto& comp_cache= comp_event_cache_list[shard];
+  auto& comp_queue= comp_event_queue_list[shard];
+  auto& comp_event_cache_size= comp_event_cache_size_list[shard];
+  auto lock= &LOCK_comp_event_cache[shard];
 
   // see if the event already exists in the cache
   if (auto elem= comp_cache.get(ev_key))
@@ -694,15 +702,17 @@ static binlog_comp_event get_compressed_event(NET *net,
   if (elem == NULL)
   {
     comp_event= compress_event(net, packet);
-    if (!comp_event.buff) goto err;
+    if (unlikely(!comp_event.buff)) goto err;
 
     const ulonglong max_cache_size_bytes=
                               (1 << 20) * opt_max_compressed_event_cache_size;
+    const ulonglong max_cache_shard_size=
+      max_cache_size_bytes / COMP_EVENT_CACHE_NUM_SHARDS;
 
-    if (comp_event.len < max_cache_size_bytes)
+    if (likely(comp_event.len < max_cache_shard_size))
     {
       comp_event_cache_size+= comp_event.len;
-      evict_compressed_events(comp_cache, comp_queue, max_cache_size_bytes);
+      evict_compressed_events(shard, max_cache_shard_size);
       auto comp_event_ptr= new binlog_comp_event(comp_event.buff,
                                                  comp_event.len);
       mutator.assignValue(comp_event_ptr);
@@ -730,7 +740,7 @@ static binlog_comp_event get_compressed_event(NET *net,
                                               bool is_semi_sync_slave,
                                               bool cache)
 {
-  if (!cache)
+  if (unlikely(!cache))
     return compress_event(net, packet);
 
   ulong file_num= strtoul(strrchr(coord->file_name, '.') + 1, NULL, 10);
@@ -738,9 +748,9 @@ static binlog_comp_event get_compressed_event(NET *net,
   // case: file num can't fit in 20 bits or pos can't fit in 41 bits or comp lib
   // can't fit in 2 bits, so we cannot create a 64 bit integer key for this
   // event
-  if (file_num >= ((ulonglong) 1 << 21) ||
-      coord->pos >= ((ulonglong) 1 << 42) ||
-      net->comp_lib >= ((ulonglong) 1 << 3))
+  if (unlikely(file_num >= ((ulonglong) 1 << 21) ||
+               coord->pos >= ((ulonglong) 1 << 42) ||
+               net->comp_lib >= ((ulonglong) 1 << 3)))
   {
     sql_print_warning("Not caching binlog event %s:%llu because the cache key "
                       "is out of bounds", coord->file_name, coord->pos);
@@ -757,10 +767,10 @@ static binlog_comp_event get_compressed_event(NET *net,
   binlog_comp_event comp_event;
 
   // get cache, queue and corresponding lock for our shard
-  comp_event_cache& comp_cache=
-    comp_event_cache_list[coord->pos % COMP_EVENT_CACHE_NUM_SHARDS];
-  comp_event_queue& comp_queue=
-    comp_event_queue_list[coord->pos % COMP_EVENT_CACHE_NUM_SHARDS];
+  auto shard= coord->pos % COMP_EVENT_CACHE_NUM_SHARDS;
+  auto& comp_cache= comp_event_cache_list[shard];
+  auto& comp_queue= comp_event_queue_list[shard];
+  auto& comp_event_cache_size= comp_event_cache_size_list[shard];
   auto lock= &LOCK_comp_event_cache[coord->pos % COMP_EVENT_CACHE_NUM_SHARDS];
 
   // see if the event already exists in the cache
@@ -790,15 +800,17 @@ static binlog_comp_event get_compressed_event(NET *net,
   if (inserted)
   {
     comp_event= compress_event(net, packet);
-    if (!comp_event.buff) goto err;
+    if (unlikely(!comp_event.buff)) goto err;
 
     const ulonglong max_cache_size_bytes=
                               (1 << 20) * opt_max_compressed_event_cache_size;
+    const ulonglong max_cache_shard_size=
+      max_cache_size_bytes / COMP_EVENT_CACHE_NUM_SHARDS;
 
-    if (comp_event.len < max_cache_size_bytes)
+    if (likely(comp_event.len < max_cache_shard_size))
     {
       comp_event_cache_size+= comp_event.len;
-      evict_compressed_events(comp_cache, comp_queue, max_cache_size_bytes);
+      evict_compressed_events(shard, max_cache_shard_size);
       // this inserts the event into the cache
       kv->second->buff= comp_event.buff;
       kv->second->len= comp_event.len;
@@ -843,7 +855,7 @@ int my_net_write_event(NET *net,
   {
     comp_event= get_compressed_event(net, coord, packet,
                                      is_semi_sync_slave, cache);
-    if (!comp_event.buff)
+    if (unlikely(!comp_event.buff))
     {
       if (errmsg) *errmsg = "Couldn't compress binlog event, out of memory";
       if (errnum) *errnum= ER_OUT_OF_RESOURCES;
@@ -853,7 +865,7 @@ int my_net_write_event(NET *net,
     buff_len= comp_event.len;
   }
 
-  if (my_net_write(net, buff, buff_len))
+  if (unlikely(my_net_write(net, buff, buff_len)))
   {
     if (errmsg) *errmsg = "Failed on my_net_write()";
     if (errnum) *errnum= ER_UNKNOWN_ERROR;

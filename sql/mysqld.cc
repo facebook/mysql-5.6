@@ -528,6 +528,7 @@ my_bool opt_enable_named_pipe= 0;
 my_bool opt_local_infile, opt_slave_compressed_protocol;
 my_bool opt_slave_compressed_event_protocol;
 ulonglong opt_max_compressed_event_cache_size;
+ulonglong opt_compressed_event_cache_evict_threshold;
 ulong opt_slave_compression_lib;
 my_bool rpl_wait_for_semi_sync_ack;
 my_bool opt_safe_user_create = 0;

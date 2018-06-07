@@ -1,0 +1,29 @@
+--source include/load_sysvars.inc
+
+SET @old_compressed_event_cache_evict_threshold = @@global.compressed_event_cache_evict_threshold;
+SELECT @old_compressed_event_cache_evict_threshold;
+
+SET @@global.compressed_event_cache_evict_threshold = DEFAULT;
+SELECT @@global.compressed_event_cache_evict_threshold;
+
+-- echo # compressed_event_cache_evict_threshold is a global variable.
+--error ER_GLOBAL_VARIABLE
+SET @@session.compressed_event_cache_evict_threshold = 1;
+SELECT @@compressed_event_cache_evict_threshold;
+
+SET @@global.compressed_event_cache_evict_threshold = 512;
+SELECT @@global.compressed_event_cache_evict_threshold;
+SET @@global.compressed_event_cache_evict_threshold = 1000000;
+SELECT @@global.compressed_event_cache_evict_threshold;
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET @@global.compressed_event_cache_evict_threshold = 1.01;
+--error ER_WRONG_TYPE_FOR_VAR
+SET @@global.compressed_event_cache_evict_threshold = 'ten';
+SELECT @@global.compressed_event_cache_evict_threshold;
+-- echo # set compressed_event_cache_evict_threshold to wrong value
+SET @@global.compressed_event_cache_evict_threshold = 1500000;
+SELECT @@global.compressed_event_cache_evict_threshold;
+
+SET @@global.compressed_event_cache_evict_threshold = @old_compressed_event_cache_evict_threshold;
+SELECT @@global.compressed_event_cache_evict_threshold;

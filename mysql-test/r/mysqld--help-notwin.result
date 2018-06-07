@@ -188,6 +188,8 @@ The following options may be given as the first argument:
  --completion-type=name 
  The transaction completion type, one of NO_CHAIN, CHAIN,
  RELEASE
+ --compressed-event-cache-evict-threshold[=#] 
+ Percentage of cache to keep after every FIFO eviction
  --concurrent-insert[=name] 
  Use concurrent insert with MyISAM. Possible values are
  NEVER, AUTO, ALWAYS
@@ -1863,6 +1865,7 @@ character-sets-dir MYSQL_CHARSETSDIR/
 chroot (No default value)
 collation-server latin1_swedish_ci
 completion-type NO_CHAIN
+compressed-event-cache-evict-threshold 60
 concurrent-insert AUTO
 connect-timeout 10
 console FALSE

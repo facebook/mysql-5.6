@@ -306,6 +306,7 @@ extern my_bool opt_safe_show_db, opt_local_infile, opt_myisam_use_mmap;
 extern my_bool opt_slave_compressed_protocol, use_temp_pool;
 extern my_bool opt_slave_compressed_event_protocol;
 extern ulonglong opt_max_compressed_event_cache_size;
+extern ulonglong opt_compressed_event_cache_evict_threshold;
 extern ulong opt_slave_compression_lib;
 extern my_bool rpl_wait_for_semi_sync_ack;
 extern ulong slave_exec_mode_options;

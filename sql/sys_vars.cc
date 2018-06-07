@@ -3301,6 +3301,13 @@ static Sys_var_ulonglong Sys_max_compressed_event_cache_size(
        VALID_RANGE(1, 1000000), DEFAULT(1),
        BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0), ON_UPDATE(0));
 
+static Sys_var_ulonglong Sys_compressed_event_cache_evict_threshold(
+       "compressed_event_cache_evict_threshold",
+       "Percentage of cache to keep after every FIFO eviction",
+       GLOBAL_VAR(opt_compressed_event_cache_evict_threshold),
+       CMD_LINE(OPT_ARG), VALID_RANGE(0, 100), DEFAULT(60),
+       BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0), ON_UPDATE(0));
+
 static Sys_var_mybool Sys_wait_semi_sync_ack(
        "rpl_wait_for_semi_sync_ack",
        "Wait for events to be acked by a semi-sync slave before sending them "
