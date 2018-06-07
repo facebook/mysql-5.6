@@ -68,7 +68,7 @@ let $wait_condition =
 select * from t;
 --error ER_LOCK_DEADLOCK
 insert into t values (4), (1);
---echo # Statement should be rolled back
+--echo # Transaction should be rolled back
 select * from t;
 rollback;
 
