@@ -40,10 +40,9 @@ i
 3
 insert into t values (4), (1);
 ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
-# Statement should be rolled back
+# Transaction should be rolled back
 select * from t;
 i
-3
 rollback;
 i
 rollback;
