@@ -138,6 +138,36 @@ connection default;
 --replace_regex /[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}/TIMESTAMP/ /WAITING KEY: [0-9a-f]{16}/KEY/ /TRANSACTION ID: [0-9]*/TXN_ID/
 show engine rocksdb transaction status;
 
+echo Deadlock #6;
+connection con1;
+create table t1 (id int primary key, value int) engine=rocksdb;
+insert into t1 values (1,1),(2,2),(3,3),(4,4),(5,5);
+begin;
+update t1 set value=value+100 where id=1;
+update t1 set value=value+100 where id=2;
+
+connection con2;
+begin;
+update t1 set value=value+200 where id=3;
+
+connection con1;
+send update t1 set value=value+100 where id=3;
+
+connection con2;
+let $wait_condition = select count(*) = 1 from information_schema.rocksdb_trx
+where thread_id = $con1 and waiting_key != "";
+--source include/wait_condition.inc
+--error ER_LOCK_DEADLOCK
+update t1 set value=value+200 where id=1;
+
+# con2 tx is automatically rolled back
+connection con1;
+reap;
+select * from t1;
+drop table t1;
+
+connection default;
+
 disconnect con1;
 disconnect con2;
 disconnect con3;
