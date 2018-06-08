@@ -1789,9 +1789,11 @@ int report_handler_error(TABLE *table, int error)
        LOCK_DEADLOCK LOCK_WAIT_TIMEOUT TABLE_DEF_CHANGED
     Also skip printing to error log if the current thread has been killed.
   */
+  String dummy;
   if (error != HA_ERR_LOCK_DEADLOCK &&
       error != HA_ERR_LOCK_WAIT_TIMEOUT &&
       error != HA_ERR_TABLE_DEF_CHANGED &&
+      !table->file->get_error_message(error, &dummy) &&
       !table->in_use->killed)
     sql_print_error("Got error %d when reading table '%s'",
 		    error, table->s->path.str);
