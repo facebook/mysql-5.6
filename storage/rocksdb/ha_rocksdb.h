@@ -1016,6 +1016,7 @@ public:
   }
 
   virtual double read_time(uint, uint, ha_rows rows) override;
+  virtual void print_error(int error, myf errflag) override;
 
   int open(const char *const name, int mode, uint test_if_locked) override
       MY_ATTRIBUTE((__warn_unused_result__));
