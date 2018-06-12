@@ -87,15 +87,15 @@ insert into t1 values (1,1,1),(2,2,2),(3,3,3),(4,4,4),(5,5,5),(6,6,6),(7,7,7),(8
 
 connection con1;
 begin;
-update t1 set value2=value2+1 where value=3;
+update t1 force index (value) set value2=value2+1 where value=3;
 
 connection con2;
 begin;
-update t1 set value2=value2+1 where value=2;
-update t1 set value2=value2+1 where value=4;
+update t1 force index (value) set value2=value2+1 where value=2;
+update t1 force index (value) set value2=value2+1 where value=4;
 
 connection con1;
-send update t1 set value2=value2+1 where value=4;
+send update t1 force index (value) set value2=value2+1 where value=4;
 
 connection con2;
 let $wait_condition =
