@@ -13295,3 +13295,5 @@ mysql_declare_plugin(rocksdb_se){
     myrocks::rdb_i_s_global_info, myrocks::rdb_i_s_ddl,
     myrocks::rdb_i_s_index_file_map, myrocks::rdb_i_s_lock_info,
     myrocks::rdb_i_s_trx_info, myrocks::rdb_i_s_deadlock_info mysql_declare_plugin_end;
+
+/* Test change */
