@@ -710,6 +710,14 @@ static Sys_var_ulong Sys_binlog_stmt_cache_size(
        NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0),
        ON_UPDATE(fix_binlog_stmt_cache_size));
 
+static Sys_var_ulonglong Sys_binlog_rows_event_max_rows(
+       "binlog_rows_event_max_rows",
+       "Max number of rows in a single rows event",
+       GLOBAL_VAR(opt_binlog_rows_event_max_rows),
+       CMD_LINE(OPT_ARG),
+       VALID_RANGE(1, ULONGLONG_MAX), DEFAULT(ULONGLONG_MAX), BLOCK_SIZE(1),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0), ON_UPDATE(0));
+
 static bool check_has_super(sys_var *self, THD *thd, set_var *var)
 {
   DBUG_ASSERT(self->scope() != sys_var::GLOBAL);// don't abuse check_has_super()

@@ -4322,7 +4322,7 @@ public:
     return m_rows_buf && m_cols.bitmap;
   }
 
-  uint     m_row_count;         /* The number of rows added to the event */
+  ulonglong     m_row_count;         /* The number of rows added to the event */
 
   const uchar* get_extra_row_data() const   { return m_extra_row_data; }
 
