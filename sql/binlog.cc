@@ -10362,6 +10362,7 @@ Rows_log_event *THD::binlog_prepare_pending_rows_event(
       pending->get_table_id() != table->s->table_map_id ||
       pending->get_general_type_code() != general_type_code ||
       pending->get_data_size() + needed > opt_binlog_rows_event_max_size ||
+      pending->m_row_count >= opt_binlog_rows_event_max_rows ||
       pending->read_write_bitmaps_cmp(table) == false ||
       !binlog_row_event_extra_data_eq(pending->get_extra_row_data(),
                                       extra_row_info)) {
