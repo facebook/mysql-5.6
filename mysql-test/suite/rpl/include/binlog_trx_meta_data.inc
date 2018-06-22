@@ -21,9 +21,9 @@ let $iter= 10;
 while ($iter > 0)
 {
   begin;
-  eval /*insert*/insert into t1 values();
-  eval /*update*/update t1 set a= a + 1;
-  /*delete*/delete from t1;
+  eval /*insert { hello:  { world } }*/insert into t1 values();
+  eval /*update { { hello : world } }*/update t1 set a= a + 1;
+  /*delete { }*/delete from t1;
   commit;
   dec $iter;
 }

@@ -5131,10 +5131,33 @@ public:
   std::string extract_trx_meta_data() const
   {
     DBUG_ASSERT(has_trx_meta_data());
-    char *json_start= strchr(m_rows_query, '{');
-    char *json_end= strrchr(m_rows_query, '}');
-    DBUG_ASSERT(json_start < json_end);
-    size_t json_len= json_end - json_start + 1;
+
+    const char *comment_start= strstr(m_rows_query, "/*");
+    if (unlikely(comment_start == nullptr))
+    {
+      DBUG_ASSERT(false);
+      return std::string();
+    }
+
+    const char *comment_end= strstr(comment_start, "*/");
+    if (unlikely(comment_end == nullptr))
+    {
+      DBUG_ASSERT(false);
+      return std::string();
+    }
+
+    const char *json_start= comment_start + 2 + TRX_META_DATA_HEADER.length();
+    const char *json_end= comment_end - 1;
+    if (unlikely(json_start[0] != '{' ||
+                 json_end[0] != '}' ||
+                 json_start >= json_end))
+    {
+      DBUG_ASSERT(false);
+      return std::string();
+    }
+
+    const size_t json_len= json_end - json_start + 1;
+    DBUG_ASSERT(json_len > 2);
     return std::string(json_start, json_len);
   }
 

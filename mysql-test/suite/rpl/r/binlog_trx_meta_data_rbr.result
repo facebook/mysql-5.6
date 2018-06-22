@@ -30,14 +30,14 @@ flush logs;
 purge binary logs to 'slave-bin.000003';
 meta	count(*)
 # /*::TRX_META_DATA::{"ts":[ts]}*/	1
-# /*::TRX_META_DATA::{"ts":[ts]}*//*delete*/delete from t1	10
-# /*::TRX_META_DATA::{"ts":[ts]}*//*insert*/insert into t1 values()	10
-# /*::TRX_META_DATA::{"ts":[ts]}*//*update*/update t1 set a= a + 1	10
+# /*::TRX_META_DATA::{"ts":[ts]}*//*delete { }*/delete from t1	10
+# /*::TRX_META_DATA::{"ts":[ts]}*//*insert { hello:  { world } }*/insert into t1 values()	10
+# /*::TRX_META_DATA::{"ts":[ts]}*//*update { { hello : world } }*/update t1 set a= a + 1	10
 meta	count(*)
 # /*::TRX_META_DATA::{"ts":[ts,ts]}*/	1
-# /*::TRX_META_DATA::{"ts":[ts,ts]}*//*delete*/delete from t1	10
-# /*::TRX_META_DATA::{"ts":[ts,ts]}*//*insert*/insert into t1 values()	10
-# /*::TRX_META_DATA::{"ts":[ts,ts]}*//*update*/update t1 set a= a + 1	10
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*//*delete { }*/delete from t1	10
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*//*insert { hello:  { world } }*/insert into t1 values()	10
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*//*update { { hello : world } }*/update t1 set a= a + 1	10
 drop table t1;
 set @@session.binlog_rows_query_log_events= ON;
 set @@global.log_only_query_comments= ON;
@@ -51,14 +51,14 @@ flush logs;
 purge binary logs to 'slave-bin.000004';
 meta	count(*)
 # /*::TRX_META_DATA::{"ts":[ts]}*/	1
-# /*::TRX_META_DATA::{"ts":[ts]}*//*delete*/	10
-# /*::TRX_META_DATA::{"ts":[ts]}*//*insert*/	10
-# /*::TRX_META_DATA::{"ts":[ts]}*//*update*/	10
+# /*::TRX_META_DATA::{"ts":[ts]}*//*delete { }*/	10
+# /*::TRX_META_DATA::{"ts":[ts]}*//*insert { hello:  { world } }*/	10
+# /*::TRX_META_DATA::{"ts":[ts]}*//*update { { hello : world } }*/	10
 meta	count(*)
 # /*::TRX_META_DATA::{"ts":[ts,ts]}*/	1
-# /*::TRX_META_DATA::{"ts":[ts,ts]}*//*delete*/	10
-# /*::TRX_META_DATA::{"ts":[ts,ts]}*//*insert*/	10
-# /*::TRX_META_DATA::{"ts":[ts,ts]}*//*update*/	10
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*//*delete { }*/	10
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*//*insert { hello:  { world } }*/	10
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*//*update { { hello : world } }*/	10
 drop table t1;
 set @@global.binlog_trx_meta_data= default;
 set @@session.binlog_rows_query_log_events= default;
