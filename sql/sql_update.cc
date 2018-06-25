@@ -245,6 +245,7 @@ int mysql_update(THD *thd,
   List<Item> all_fields;
   THD::killed_state killed_status= THD::NOT_KILLED;
   COPY_INFO update(COPY_INFO::UPDATE_OPERATION, &fields, &values);
+  IO_CACHE tempfile;
 
   DBUG_ENTER("mysql_update");
 
@@ -591,7 +592,6 @@ int mysql_update(THD *thd,
       */
       table->prepare_for_position();
 
-      IO_CACHE tempfile;
       if (open_cached_file(&tempfile, mysql_tmpdir,TEMP_PREFIX,
 			   DISK_BUFFER_SIZE, MYF(MY_WME)))
         goto exit_without_my_ok;

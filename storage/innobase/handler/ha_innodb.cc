@@ -3428,12 +3428,10 @@ innobase_convert_identifier(
 {
 	const char*	s	= id;
 	int		q;
+  char nz[MAX_TABLE_NAME_LEN + 1];
+  char nz2[MAX_TABLE_NAME_LEN + 1];
 
 	if (file_id) {
-
-		char nz[MAX_TABLE_NAME_LEN + 1];
-		char nz2[MAX_TABLE_NAME_LEN + 1];
-
 		/* Decode the table name.  The MySQL function expects
 		a NUL-terminated string.  The input and output strings
 		buffers must not be shared. */
