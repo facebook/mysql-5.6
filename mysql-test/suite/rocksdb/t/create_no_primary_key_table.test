@@ -1,0 +1,55 @@
+USE mysql;
+-- error ER_TABLE_WITHOUT_PK
+CREATE TABLE mysql_table (a INT) ENGINE=ROCKSDB;
+-- error ER_TABLE_WITHOUT_PK
+CREATE TABLE test.mysql_table (a INT) ENGINE=ROCKSDB;
+USE test;
+-- error ER_TABLE_WITHOUT_PK
+CREATE TABLE mysql_table (a INT) ENGINE=ROCKSDB;
+-- error ER_TABLE_MUST_HAVE_COLUMNS  
+CREATE TABLE mysql_table_no_cols ENGINE=ROCKSDB;
+
+CREATE TABLE mysql_primkey (a INT PRIMARY KEY, b INT, c INT, d INT, INDEX (c)) ENGINE=ROCKSDB;
+ALTER TABLE mysql_primkey DROP b, DROP a, ADD (f INT PRIMARY KEY);
+-- error ER_TABLE_WITHOUT_PK
+ALTER TABLE mysql_primkey DROP PRIMARY KEY;
+
+CREATE TABLE mysql_primkey2 (a INT PRIMARY KEY, b INT, c INT) ENGINE=ROCKSDB;
+ALTER TABLE mysql_primkey2 DROP b;
+ALTER TABLE mysql_primkey2 ADD (b INT);
+-- error ER_TABLE_WITHOUT_PK
+ALTER TABLE mysql_primkey2 DROP c, DROP A;
+
+CREATE TABLE mysql_primkey3 (a INT PRIMARY KEY, b INT, c INT, INDEX indexonb (b), INDEX indexonc (c)) ENGINE=ROCKSDB;
+ALTER TABLE mysql_primkey3 DROP INDEX indexonb;
+ALTER TABLE mysql_primkey3 DROP c;
+ALTER TABLE mysql_primkey3 DROP PRIMARY KEY, ADD PRIMARY KEY(b);
+
+CREATE TABLE mysql_primkey4(a INT, b INT, PRIMARY KEY(a), INDEX si (a, b)) ENGINE=ROCKSDB;
+DROP INDEX si ON mysql_primkey4;
+-- error ER_TABLE_WITHOUT_PK
+DROP INDEX `PRIMARY` ON mysql_primkey4;
+
+SET default_storage_engine=ROCKSDB;
+-- error ER_TABLE_WITHOUT_PK
+CREATE TABLE mysql_noeng(a INT, b INT);
+
+# Disable no_engine_substitution
+SET sql_mode="";
+-- error ER_TABLE_WITHOUT_PK
+CREATE TABLE mysql_noeng_sub(a INT, b INT) ENGINE=BOGUS_ENGINE;
+
+CREATE TABLE mysql_primkey5 LIKE mysql_primkey;
+
+SET @@session.sql_require_primary_key = false;
+CREATE TABLE mysql_no_primkey (a INT) ENGINE=ROCKSDB;
+SET @@session.sql_require_primary_key = true;
+-- error ER_TABLE_WITHOUT_PK
+CREATE TABLE mysql_require_primkey LIKE mysql_no_primkey;
+
+DROP TABLE mysql_primkey;
+DROP TABLE mysql_primkey2;
+DROP TABLE mysql_primkey3;
+DROP TABLE mysql_primkey4;
+DROP TABLE mysql_primkey5;
+DROP TABLE mysql_no_primkey;
