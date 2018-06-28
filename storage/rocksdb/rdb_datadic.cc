@@ -1187,9 +1187,10 @@ uint Rdb_key_def::pack_record(
     // ha_rocksdb::convert_record_to_storage_format
     //
     if (should_store_row_debug_checksums) {
-      const uint32_t key_crc32 = crc32(0, packed_tuple, tuple - packed_tuple);
-      const uint32_t val_crc32 =
-          crc32(0, unpack_info->ptr(), unpack_info->get_current_pos());
+      const ha_checksum key_crc32 =
+          my_checksum(0, packed_tuple, tuple - packed_tuple);
+      const ha_checksum val_crc32 =
+          my_checksum(0, unpack_info->ptr(), unpack_info->get_current_pos());
 
       unpack_info->write_uint8(RDB_CHECKSUM_DATA_TAG);
       unpack_info->write_uint32(key_crc32);
@@ -1541,11 +1542,11 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
       const uint32_t stored_val_chksum = rdb_netbuf_to_uint32(
           (const uchar *)unp_reader.read(RDB_CHECKSUM_SIZE));
 
-      const uint32_t computed_key_chksum =
-          crc32(0, (const uchar *)packed_key->data(), packed_key->size());
-      const uint32_t computed_val_chksum =
-          crc32(0, (const uchar *)unpack_info->data(),
-                unpack_info->size() - RDB_CHECKSUM_CHUNK_SIZE);
+      const ha_checksum computed_key_chksum =
+          my_checksum(0, (const uchar *)packed_key->data(), packed_key->size());
+      const ha_checksum computed_val_chksum =
+          my_checksum(0, (const uchar *)unpack_info->data(),
+                      unpack_info->size() - RDB_CHECKSUM_CHUNK_SIZE);
 
       DBUG_EXECUTE_IF("myrocks_simulate_bad_key_checksum1",
                       stored_key_chksum++;);
