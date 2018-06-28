@@ -171,10 +171,10 @@ DTRACE_INSTRUMENT(clientlib)
 ADD_DEPENDENCIES(clientlib GenError)
 
 # Don't merge zlib, ssl, etc when building static libraries.
-IF(WITH_FB_TSAN)
+IF(WITH_FB_TSAN AND (NOT CMAKE_C_COMPILER_ID MATCHES "Clang"))
   SET(STATIC_MERGE_LIBS clientlib dbug strings vio mysys mysys_ssl ${LIBDL}
   tsan_pic)
-ELSEIF(WITH_TSAN)
+ELSEIF(WITH_TSAN AND (NOT CMAKE_C_COMPILER_ID MATCHES "Clang"))
   SET(STATIC_MERGE_LIBS clientlib dbug strings vio mysys mysys_ssl ${LIBDL}
   tsan)
 ELSE()
@@ -230,7 +230,10 @@ IF(UNIX)
     ${INSTALL_LIBDIR} Development)
 ENDIF()
 
-IF(NOT DISABLE_SHARED)
+# TODO: Gold linker crashes with internal error when building fbmysqlclient
+# shared library with LLVM thread sanitizer.
+IF(NOT DISABLE_SHARED AND
+   NOT (WITH_FB_TSAN AND CMAKE_C_COMPILER_ID MATCHES "Clang"))
   # Merge several convenience libraries into one big fbmysqlclient
   # and link them together into shared library.
   MERGE_LIBRARIES(libmysql SHARED ${LIBS}
