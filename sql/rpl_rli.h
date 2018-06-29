@@ -1133,6 +1133,7 @@ public:
 
   // Mutex-condition pair to notify when queue is/is not empty
   mysql_cond_t dep_empty_cond;
+  ulonglong num_workers_waiting= 0;
 
   std::shared_ptr<Log_event_wrapper> prev_event;
   Table_map_log_event *last_table_map_event= NULL;

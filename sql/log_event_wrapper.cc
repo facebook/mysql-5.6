@@ -18,7 +18,7 @@ void Log_event_wrapper::put_next(std::shared_ptr<Log_event_wrapper> &ev)
 
 std::shared_ptr<Log_event_wrapper> Log_event_wrapper::next()
 {
-  if (is_end_event)
+  if (unlikely(is_end_event))
     return nullptr;
 
   mysql_mutex_lock(&mutex);

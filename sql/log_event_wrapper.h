@@ -55,7 +55,7 @@ public:
   ~Log_event_wrapper()
   {
     // case: event was not appended to a worker's queue, so we need to delete it
-    if (!is_appended_to_queue) { delete raw_ev; }
+    if (unlikely(!is_appended_to_queue)) { delete raw_ev; }
     raw_ev= nullptr;
 
 #ifndef DBUG_OFF
@@ -109,7 +109,7 @@ public:
   void finalize()
   {
     mysql_mutex_lock(&mutex);
-    if (!is_finalized)
+    if (likely(!is_finalized))
     {
       for (auto& dep : dependents)
         dep->decr_dependency();

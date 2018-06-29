@@ -3238,7 +3238,9 @@ void Log_event::schedule_dep(Relay_log_info *rli)
     rli->mts_end_group_sets_max_dbs= true;
   }
   else if (is_gtid_event(this))
+  {
     rli->curr_group_seen_gtid= true;
+  }
   else if (contains_partition_info(rli->mts_end_group_sets_max_dbs))
   {
     if (get_type_code() == TABLE_MAP_EVENT)
@@ -3260,8 +3262,10 @@ void Log_event::schedule_dep(Relay_log_info *rli)
     }
   }
 
-  if (rli->dep_sync_group)
+  if (unlikely(rli->dep_sync_group))
+  {
     wait_for_dep_workers_to_finish(rli, true);
+  }
 
   handle_terminal_dep_event(rli, ev);
 
@@ -3280,17 +3284,25 @@ void Log_event::schedule_dep(Relay_log_info *rli)
     mysql_mutex_lock(&rli->dep_lock);
 
     // wait if queue has reached full capacity
-    while (rli->dep_full)
+    while (unlikely(rli->dep_full))
+    {
       mysql_cond_wait(&rli->dep_full_cond, &rli->dep_lock);
+    }
 
     rli->enqueue_dep(ev);
 
-    // dep queue not empty anymore!
-    mysql_cond_signal(&rli->dep_empty_cond);
+    // case: workers are waiting on empty queue, let's signal
+    if (likely(rli->num_workers_waiting > 0))
+    {
+      DBUG_ASSERT(rli->num_workers_waiting <= rli->opt_slave_parallel_workers);
+      mysql_cond_signal(&rli->dep_empty_cond);
+    }
 
     // admission control in dep queue
-    if (rli->dep_queue.size() >= opt_mts_dependency_size)
+    if (unlikely(rli->dep_queue.size() >= opt_mts_dependency_size))
+    {
       rli->dep_full= true;
+    }
 
     ++rli->num_in_flight_trx;
 
@@ -3298,13 +3310,15 @@ void Log_event::schedule_dep(Relay_log_info *rli)
   }
 
   DBUG_ASSERT(ev->is_begin_event || rli->prev_event);
-  if (rli->prev_event)
+  if (likely(rli->prev_event))
+  {
     rli->prev_event->put_next(ev);
+  }
 
   rli->prev_event= ev->is_end_event ? nullptr : ev;
 
   // case: this group needs to be executed in isolation
-  if (rli->dep_sync_group && ev->is_end_event)
+  if (unlikely(rli->dep_sync_group && ev->is_end_event))
   {
     wait_for_workers_to_finish(rli);
     rli->dep_sync_group= false;
@@ -3345,7 +3359,7 @@ Log_event::handle_terminal_dep_event(Relay_log_info *rli,
     mysql_mutex_lock(&rli->dep_key_lookup_mutex);
     if (!to_add->finalized())
     {
-      for (auto& key : rli->keys_accessed_by_group)
+      for (const auto& key : rli->keys_accessed_by_group)
       {
         rli->dep_key_lookup[key]= to_add;
         to_add->keys.insert(key);
@@ -3376,7 +3390,7 @@ Log_event::handle_terminal_dep_event(Relay_log_info *rli,
     rli->checkpoint_seqno++;
 
     // seconds_behind_master related
-    if (is_relay_log_event())
+    if (unlikely(is_relay_log_event()))
       ptr_group->ts= 0;
     else
     {
@@ -11965,7 +11979,7 @@ bool Rows_log_event::get_keys(Relay_log_info *rli,
   /* Try to get a reference to the table definition. This may fail if the
    * corresponding DDL statement hasn't yet been executed.
    */
-  if (!get_table_ref(rli, &memory, &table_list))
+  if (unlikely(!get_table_ref(rli, &memory, &table_list)))
   {
     DBUG_ASSERT(rli->tables_to_lock == NULL);
     rli->tables_to_lock= table_list;
@@ -12055,7 +12069,7 @@ void Rows_log_event::prepare_dep(Relay_log_info *rli,
 
   // case: something went wrong while finding keys for this event, switch to
   // sync mode!
-  if (!get_keys(rli, ev, m_keylist))
+  if (unlikely(!get_keys(rli, ev, m_keylist)))
   {
     rli->dep_sync_group= true;
     m_keylist.clear();

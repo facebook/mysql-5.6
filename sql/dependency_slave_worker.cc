@@ -29,7 +29,9 @@ Dependency_slave_worker::get_begin_event(Commit_order_manager *co_mngr)
          c_rli->dep_queue.empty())
   {
     ++c_rli->begin_event_waits;
+    ++c_rli->num_workers_waiting;
     mysql_cond_wait(&c_rli->dep_empty_cond, &c_rli->dep_lock);
+    --c_rli->num_workers_waiting;
   }
 
   ret= c_rli->dequeue_dep();
@@ -46,7 +48,7 @@ Dependency_slave_worker::get_begin_event(Commit_order_manager *co_mngr)
     mysql_cond_signal(&c_rli->dep_empty_cond);
 
   // admission control
-  if (c_rli->dep_full)
+  if (unlikely(c_rli->dep_full))
   {
     DBUG_ASSERT(c_rli->dep_queue.size() > 0);
     // case: signal if dep has space
@@ -75,13 +77,13 @@ bool Dependency_slave_worker::execute_group()
 
   while (ev)
   {
-    if ((err= execute_event(ev)))
+    if (unlikely(err= execute_event(ev)))
     {
       c_rli->dependency_worker_error= true;
       break;
     }
     // case: restart trx if temporary error, see @slave_worker_ends_group
-    if (trans_retries && current_event_index == 0)
+    if (unlikely(trans_retries && current_event_index == 0))
     {
       ev= begin_event;
       continue;
@@ -91,7 +93,7 @@ bool Dependency_slave_worker::execute_group()
   }
 
   // case: error while appending to worker's internal queue
-  if (err == 1)
+  if (unlikely(err == 1))
   {
     // Signal a rollback if commit ordering is enabled, we have to do
     // this here because it's not an exec error, so @slave_worker_ends_group
@@ -128,7 +130,7 @@ void Dependency_slave_worker::cleanup_group(
   while (!events.empty())
   {
     auto sptr= events.top().lock();
-    if (sptr)
+    if (likely(sptr))
       sptr->next_ev.reset();
     events.pop();
   }
@@ -152,11 +154,11 @@ Dependency_slave_worker::execute_event(std::shared_ptr<Log_event_wrapper> &ev)
 
   // case: there was an error in one of the workers, so let's skip execution of
   // events immediately
-  if (c_rli->dependency_worker_error)
+  if (unlikely(c_rli->dependency_worker_error))
     return 1;
 
   // case: the worker job queue is full, let's flush the queue to make progress
-  if (current_event_index >= jobs.size)
+  if (unlikely(current_event_index >= jobs.size))
   {
     // Resets current_event_index to 0 and disables trx retires because we've
     // flushed the events
@@ -167,7 +169,7 @@ Dependency_slave_worker::execute_event(std::shared_ptr<Log_event_wrapper> &ev)
 
   // case: append to jobs queue only if this is not a trx retry, trx retries
   // resets @current_event_index, see @slave_worker_ends_group
-  if (current_event_index == jobs.len)
+  if (likely(current_event_index == jobs.len))
   {
     // NOTE: this is done so that @pop_jobs_item() can extract this event
     // although this is redundant it makes integration with existing code much
@@ -192,7 +194,7 @@ Dependency_slave_worker::finalize_event(std::shared_ptr<Log_event_wrapper> &ev)
    *    case, leave it be; the event corresponds to a later transaction.
    */
   mysql_mutex_lock(&c_rli->dep_key_lookup_mutex);
-  for (auto& key : ev->keys)
+  for (const auto& key : ev->keys)
   {
     auto it= c_rli->dep_key_lookup.find(key);
     DBUG_ASSERT(it != c_rli->dep_key_lookup.end());
