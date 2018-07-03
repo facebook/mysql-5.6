@@ -25,6 +25,7 @@
 
 /* C++ standard header files */
 #include <algorithm>
+#include <inttypes.h>
 #include <limits>
 #include <map>
 #include <queue>
@@ -3687,8 +3688,8 @@ private:
               "LOCK TYPE: %s\n"
               "INDEX NAME: %s\n"
               "TABLE NAME: %s\n",
-              "Timestamp: %" PRId64 "\n",
-              trx_info.trx_id, trx_info.cf_name.c_str(),
+              "Timestamp: %" PRId64 "\n", trx_info.trx_id,
+              trx_info.cf_name.c_str(),
               trx_info.waiting_key.c_str(),
               trx_info.exclusive_lock ? "EXCLUSIVE" : "SHARED",
               trx_info.index_name.c_str(), trx_info.table_name.c_str(),

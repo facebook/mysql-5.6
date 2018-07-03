@@ -1505,8 +1505,7 @@ static ST_FIELD_INFO rdb_i_s_deadlock_info_fields_info[] = {
     ROCKSDB_FIELD_INFO("TABLE_NAME", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
     ROCKSDB_FIELD_INFO("ROLLED_BACK", sizeof(ulonglong), MYSQL_TYPE_LONGLONG,
                        0),
-    ROCKSDB_FIELD_INFO("TIMESTAMP", sizeof(ulonglong), MYSQL_TYPE_LONGLONG,
-                       0),
+    ROCKSDB_FIELD_INFO("TIMESTAMP", sizeof(ulonglong), MYSQL_TYPE_LONGLONG, 0),
     ROCKSDB_FIELD_INFO_END};
 
 /* Fill the information_schema.rocksdb_trx virtual table */
@@ -1560,8 +1559,8 @@ static int rdb_i_s_deadlock_info_fill_table(
           system_charset_info);
       tables->table->field[RDB_DEADLOCK_FIELD::ROLLED_BACK]->store(
           trx_info.trx_id == info.victim_trx_id, true);
-      tables->table->field[RDB_DEADLOCK_FIELD::TIMESTAMP]->store(
-          deadlock_time, true);
+      tables->table->field[RDB_DEADLOCK_FIELD::TIMESTAMP]->store(deadlock_time,
+                                                                 true);
 
       /* Tell MySQL about this row in the virtual table */
       ret = static_cast<int>(
