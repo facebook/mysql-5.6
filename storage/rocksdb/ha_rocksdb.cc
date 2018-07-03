@@ -32,7 +32,6 @@
 #include <set>
 #include <string>
 #include <vector>
-#include <inttypes.h>
 
 /* MySQL includes */
 #include "./debug_sync.h"
@@ -3682,18 +3681,17 @@ private:
         for (auto it = dl_info.path.begin(); it != dl_info.path.end(); it++) {
           const auto trx_info = *it;
           path_data += format_string(
+              "TIMESTAMP: %" PRId64 "\n"
               "TRANSACTION ID: %u\n"
               "COLUMN FAMILY NAME: %s\n"
               "WAITING KEY: %s\n"
               "LOCK TYPE: %s\n"
               "INDEX NAME: %s\n"
               "TABLE NAME: %s\n",
-              "Timestamp: %" PRId64 "\n", trx_info.trx_id,
-              trx_info.cf_name.c_str(),
+              deadlock_time, trx_info.trx_id, trx_info.cf_name.c_str(),
               trx_info.waiting_key.c_str(),
               trx_info.exclusive_lock ? "EXCLUSIVE" : "SHARED",
-              trx_info.index_name.c_str(), trx_info.table_name.c_str(),
-              deadlock_time);
+              trx_info.index_name.c_str(), trx_info.table_name.c_str());
           if (it != dl_info.path.end() - 1) {
             path_data += "---------------WAITING FOR---------------\n";
           }
