@@ -1770,6 +1770,29 @@ void set_var::update_source_user_host_timestamp(THD *thd, sys_var *var) {
 */
 int set_var::update(THD *thd) {
   auto f = [this, thd](const System_variable_tracker &, sys_var *var) -> bool {
+    char before_value[SHOW_VAR_FUNC_BUFF_SIZE + 1];
+    size_t before_value_len = 0;
+    char after_value[SHOW_VAR_FUNC_BUFF_SIZE + 1];
+    size_t after_value_len = 0;
+    SHOW_VAR show_var;
+    show_var.name = var->name.str;
+    show_var.value = (char *)var;
+    show_var.type = SHOW_SYS;
+    show_var.scope = SHOW_SCOPE_UNDEF;
+    const bool should_log = opt_log_global_var_changes && (type == OPT_GLOBAL);
+
+    if (should_log) {
+      AutoWLock lock(&PLock_global_system_variables);
+      const char *variable_value =
+          get_one_variable(thd, &show_var, OPT_GLOBAL, show_var.type, nullptr,
+                           nullptr, before_value, &before_value_len);
+      before_value_len = min(before_value_len, (size_t)SHOW_VAR_FUNC_BUFF_SIZE);
+      if (variable_value != before_value) {
+        memcpy(before_value, variable_value, before_value_len);
+      }
+      before_value[before_value_len] = '\0';
+    }
+
     bool ret = false;
     /* for persist only syntax do not update the value */
     if (type != OPT_PERSIST_ONLY) {
@@ -1785,6 +1808,22 @@ int set_var::update(THD *thd) {
       if (!ret) {
         update_source_user_host_timestamp(thd, var);
       }
+    }
+
+    if (should_log) {
+      AutoWLock lock(&PLock_global_system_variables);
+      const char *variable_value =
+          get_one_variable(thd, &show_var, OPT_GLOBAL, show_var.type, nullptr,
+                           nullptr, after_value, &after_value_len);
+      after_value_len = min(after_value_len, (size_t)SHOW_VAR_FUNC_BUFF_SIZE);
+      if (variable_value != after_value) {
+        memcpy(after_value, variable_value, after_value_len);
+      }
+      after_value[after_value_len] = '\0';
+
+      LogErr(WARNING_LEVEL, ER_LOG_GLOBAL_VAR_CHANGE, var->name.str,
+             before_value, after_value, thd->security_context()->user().str,
+             thd->security_context()->host_or_ip().str);
     }
     return ret;
   };

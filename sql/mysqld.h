@@ -173,6 +173,7 @@ extern bool opt_large_files, server_id_supplied;
 extern bool opt_bin_log;
 extern bool opt_log_replica_updates;
 extern bool opt_log_unsafe_statements;
+extern bool opt_log_global_var_changes;
 extern bool opt_general_log, opt_slow_log, opt_general_log_raw;
 extern char *opt_gap_lock_logname;
 extern ulonglong log_output_options;

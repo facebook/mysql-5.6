@@ -98,6 +98,8 @@ innodb_lra_sleep
 innodb_lra_sleep
 keyring_operations
 keyring_operations
+log_global_var_changes
+log_global_var_changes
 log_replica_updates
 log_replica_updates
 log_slave_updates

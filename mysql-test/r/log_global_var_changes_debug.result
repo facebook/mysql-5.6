@@ -1,0 +1,27 @@
+call mtr.add_suppression("Global variable");
+### Sys_var_dbug
+SET @old_val = @@global.debug;
+SELECT @old_val;
+@old_val
+
+SET GLOBAL debug = 'd,foo_debug_injection';
+SELECT @@global.debug;
+@@global.debug
+d,foo_debug_injection
+SET GLOBAL debug = '';
+SELECT @@global.debug;
+@@global.debug
+
+SET GLOBAL debug = '+O,../../log/foo.1.trace';
+SELECT @@global.debug;
+@@global.debug
+O,../../log/foo.1.trace
+SET GLOBAL debug = @old_val;
+SELECT @@global.debug;
+@@global.debug
+
+### Verifying error log
+ Global variable @@debug has been changed from  to d,foo_debug_injection by user root from host localhost
+ Global variable @@debug has been changed from d,foo_debug_injection to  by user root from host localhost
+ Global variable @@debug has been changed from  to O,../../log/foo.1.trace by user root from host localhost
+ Global variable @@debug has been changed from O,../../log/foo.1.trace to  by user root from host localhost

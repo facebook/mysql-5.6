@@ -1,0 +1,3 @@
+--log-global-var-changes=TRUE
+--log_error_verbosity=3
+--force-restart
