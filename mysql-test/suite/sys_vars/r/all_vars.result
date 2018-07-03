@@ -31,6 +31,8 @@ innodb_log_wait_for_flush_spin_hwm
 innodb_log_wait_for_flush_spin_hwm
 keyring_operations
 keyring_operations
+log_global_var_changes
+log_global_var_changes
 mandatory_roles
 mandatory_roles
 password_require_current
