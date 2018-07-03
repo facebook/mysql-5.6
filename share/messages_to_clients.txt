@@ -9579,6 +9579,14 @@ ER_PLACEHOLDER_50077
   eng "Placeholder"
 
 #
+# FB error codes specifically for 8.0 only start at 50100.
+#
+start-error-number 50100
+
+ER_LOG_GLOBAL_VAR_CHANGE
+  eng "Global variable @@%s has been changed from %s to %s by user %s from host %s"
+
+#
 # End of 8.0 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error
 #  message here)

@@ -530,6 +530,9 @@ The following options may be given as the first argument:
  2, log errors and warnings. 3, log errors, warnings, and
  notes. Messages sent to the client are unaffected by this
  setting.
+ --log-global-var-changes 
+ All the value changes of global variables will be logged
+ into server log when this is set to TRUE.
  --log-isam[=name]   Log all MyISAM changes to file.
  --log-only-query-comments 
  Writes only the comments part at the beginning of the
@@ -1581,6 +1584,7 @@ log-error stderr
 log-error-services log_filter_internal; log_sink_internal
 log-error-suppression-list 
 log-error-verbosity 2
+log-global-var-changes FALSE
 log-isam myisam.log
 log-only-query-comments TRUE
 log-output FILE

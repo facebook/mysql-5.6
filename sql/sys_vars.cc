@@ -2572,6 +2572,12 @@ static Sys_var_bool Sys_log_statements_unsafe_for_binlog(
     "logging.",
     GLOBAL_VAR(opt_log_unsafe_statements), CMD_LINE(OPT_ARG), DEFAULT(true));
 
+static Sys_var_bool Sys_log_global_var_changes(
+    "log_global_var_changes",
+    "All the value changes of global variables will be logged into server log "
+    "when this is set to TRUE.",
+    GLOBAL_VAR(opt_log_global_var_changes), CMD_LINE(OPT_ARG), DEFAULT(false));
+
 static bool update_cached_long_query_time(sys_var *, THD *thd,
                                           enum_var_type type) {
   if (type == OPT_SESSION)

@@ -1155,6 +1155,7 @@ const char *binlog_error_action_list[] = {"IGNORE_ERROR", "ABORT_SERVER",
                                           NullS};
 uint32 gtid_executed_compression_period = 0;
 bool opt_log_unsafe_statements;
+bool opt_log_global_var_changes;
 bool is_slave = false;
 bool read_only_slave;
 
