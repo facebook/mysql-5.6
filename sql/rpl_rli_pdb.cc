@@ -2555,6 +2555,7 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
       DBUG_ASSERT(gtid_info);
       if ((skip_event = gtid_info->skip_event(worker->worker_last_gtid)))
       {
+        ev->m_binlog_only= TRUE;
         // data_written is modified when the event is written to binlog.
         // This is a work around to avoid assertions due to modified
         // data_written value.

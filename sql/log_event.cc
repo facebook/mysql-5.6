@@ -1085,6 +1085,18 @@ my_bool Log_event::need_checksum()
 {
   DBUG_ENTER("Log_event::need_checksum");
   my_bool ret= FALSE;
+
+  // case: We don't write checksums for log events that are directly being
+  // written to binlogs (and skipping the engine). This is because we want to
+  // avoid double checksum calculation when the binlog cache is written in
+  // @MYSQL_BIN_LOG::do_write_cache()
+  if (unlikely(m_binlog_only))
+  {
+    DBUG_ASSERT(event_cache_type == Log_event::EVENT_TRANSACTIONAL_CACHE ||
+                event_cache_type == Log_event::EVENT_STMT_CACHE);
+    DBUG_RETURN(FALSE);
+  }
+
   /* 
      few callers of Log_event::write 
      (incl FD::write, FD constructing code on the slave side, Rotate relay log
@@ -3498,6 +3510,7 @@ int Log_event::apply_event(Relay_log_info *rli)
         */
         if (seq_execution && gtid_info->skip_event(rli->last_gtid))
         {
+          m_binlog_only= TRUE;
           reset_log_pos();
           if (!rli->curr_group_seen_begin)
           {
@@ -12404,8 +12417,19 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli)
         DBUG_RETURN(HA_ERR_RBR_LOGGING_FAILED);
       // Use the table_id of this server.
       m_table_id = m_table->s->table_map_id;
+      // MYSQL_BIN_LOG::write_event will recalculate data_written, since we're
+      // writing this event in the cache without checksum (see
+      // @Log_event::need_checksum()) the data_written might be smaller
+      // after the write (if the event contained checksums). We restore the
+      // original data_written to correctly decrement @mts_pending_jobs_size
+      const auto save_data_written= data_written;
       error = mysql_bin_log.write_event(this,
                                         Log_event::EVENT_TRANSACTIONAL_CACHE);
+      // assert: either data_written remains the same (no checksum in event)
+      // or the difference should be equal to @BINLOG_CHECKSUM_LEN
+      DBUG_ASSERT(data_written == save_data_written ||
+                  save_data_written - data_written == BINLOG_CHECKSUM_LEN);
+      data_written= save_data_written;
       if (get_flags(STMT_END_F) && !error &&
           !(error = rows_event_stmt_cleanup(rli, thd)))
       {
@@ -12639,6 +12663,7 @@ AFTER_MAIN_EXEC_ROW_LOOP:
     // if there was an idempotent error
     if (m_force_binlog_idempotent && !error)
     {
+      m_binlog_only= TRUE;
       DBUG_ASSERT(slave_exec_mode == SLAVE_EXEC_MODE_IDEMPOTENT);
       DBUG_ASSERT(thd->is_enabled_idempotent_recovery());
 
@@ -12654,9 +12679,20 @@ AFTER_MAIN_EXEC_ROW_LOOP:
       {
         // Use the table_id of this server.
         m_table_id = m_table->s->table_map_id;
+        // MYSQL_BIN_LOG::write_event will recalculate data_written, since we're
+        // writing this event in the cache without checksum (see
+        // @Log_event::need_checksum()) the data_written might be smaller
+        // after the write (if the event contained checksums). We restore the
+        // original data_written to correctly decrement @mts_pending_jobs_size
+        const auto save_data_written= data_written;
         error= mysql_bin_log.write_event(this, table->file->has_transactions() ?
                                          Log_event::EVENT_TRANSACTIONAL_CACHE :
                                          Log_event::EVENT_STMT_CACHE);
+        // assert: either data_written remains the same (no checksum in event)
+        // or the difference should be equal to @BINLOG_CHECKSUM_LEN
+        DBUG_ASSERT(data_written == save_data_written ||
+                    save_data_written - data_written == BINLOG_CHECKSUM_LEN);
+        data_written= save_data_written;
       }
     }
   } // if (table)
