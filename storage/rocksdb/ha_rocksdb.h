@@ -512,11 +512,6 @@ class ha_rocksdb : public my_core::handler {
   */
   mutable bool m_pk_can_be_decoded;
 
-  /*
-   TRUE <=> Some fields in the PK may require unpack_info.
-  */
-  bool m_maybe_unpack_info;
-
   uchar *m_pk_tuple;        /* Buffer for storing PK in KeyTupleFormat */
   uchar *m_pk_packed_tuple; /* Buffer for storing PK in StorageFormat */
   // ^^ todo: change it to 'char*'? TODO: ^ can we join this with last_rowkey?
@@ -731,6 +726,8 @@ class ha_rocksdb : public my_core::handler {
   /* Setup field_decoders based on type of scan and table->read_set */
   void setup_read_decoders();
 
+  void setup_ck_read_decoders(uint idx);
+
   /*
     For the active index, indicates which columns must be covered for the
     current lookup to be covered. If the bitmap field is null, that means this
@@ -892,7 +889,7 @@ public:
                                         bool decode, uint len)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
-  int convert_record_from_storage_format(const rocksdb::Slice *const key,
+  int convert_record_from_storage_format(const Rdb_key_def &kd, const rocksdb::Slice *const key,
                                          const rocksdb::Slice *const value,
                                          uchar *const buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
@@ -932,6 +929,9 @@ public:
 
   static bool is_pk(const uint index, const TABLE *table_arg,
                     const Rdb_tbl_def *tbl_def_arg)
+      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  static bool is_cluster_key(const uint index, const TABLE *const table_arg,
+                             const Rdb_tbl_def *const tbl_def_arg)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   /** @brief
     unireg.cc will call max_supported_record_length(), max_supported_keys(),
@@ -1141,6 +1141,12 @@ private:
                                        rocksdb::Slice *const packed_rec)
       MY_ATTRIBUTE((__nonnull__));
 
+  int convert_ck_record_to_storage_format(const Rdb_key_def *ck_descr,
+                                          const struct update_row_info &row_info,
+                                          const rocksdb::Slice &packed_key,
+                                          rocksdb::Slice *const packed_rec)
+      MY_ATTRIBUTE((__nonnull__));
+
   bool should_hide_ttl_rec(const Rdb_key_def &kd,
                            const rocksdb::Slice &ttl_rec_val,
                            const int64_t curr_ts)
@@ -1187,6 +1193,9 @@ private:
   void update_bytes_written(ulonglong bytes_written);
   int update_pk(const Rdb_key_def &kd, const struct update_row_info &row_info,
                 const bool &pk_changed) MY_ATTRIBUTE((__warn_unused_result__));
+  int update_ck(const TABLE *const table_arg, const Rdb_key_def &kd,
+                const struct update_row_info &row_info, const bool bulk_load_sk)
+      MY_ATTRIBUTE((__warn_unused_result__));
   int update_sk(const TABLE *const table_arg, const Rdb_key_def &kd,
                 const struct update_row_info &row_info, const bool bulk_load_sk)
       MY_ATTRIBUTE((__warn_unused_result__));
@@ -1214,6 +1223,9 @@ private:
       MY_ATTRIBUTE((__warn_unused_result__));
 
   int read_row_from_primary_key(uchar *const buf)
+      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  int read_row_from_cluster_key(uchar *const buf, const Rdb_key_def &kd,
+                                bool move_forward)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   int read_row_from_secondary_key(uchar *const buf, const Rdb_key_def &kd,
                                   bool move_forward)

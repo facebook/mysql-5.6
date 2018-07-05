@@ -449,6 +449,7 @@ public:
     INDEX_TYPE_PRIMARY = 1,
     INDEX_TYPE_SECONDARY = 2,
     INDEX_TYPE_HIDDEN_PRIMARY = 3,
+    INDEX_TYPE_CLUSTER = 4,
   };
 
   // Key/Value format version for each index type
@@ -471,6 +472,9 @@ public:
     //    field is prepended in front of each value.
     PRIMARY_FORMAT_VERSION_TTL = 13,
     PRIMARY_FORMAT_VERSION_LATEST = PRIMARY_FORMAT_VERSION_TTL,
+
+    CLUSTER_FORMAT_VERSION_INITIAL = 10,
+    CLUSTER_FORMAT_VERSION_LATEST = CLUSTER_FORMAT_VERSION_INITIAL,
 
     SECONDARY_FORMAT_VERSION_INITIAL = 10,
     // This change the SK format to include unpack_info.
@@ -541,7 +545,9 @@ public:
 
   /* Check if index is at least pk_min if it is a PK,
     or at least sk_min if SK.*/
-  bool index_format_min_check(const int &pk_min, const int &sk_min) const;
+  bool index_format_min_check(const int &pk_min,
+                              const int &sk_min,
+                              const int &ck_min) const;
 
   void pack_with_make_sort_key(
       Rdb_field_packing *const fpi, Field *const field,
@@ -659,7 +665,8 @@ public:
 
   inline bool use_legacy_varbinary_format() const {
     return !index_format_min_check(PRIMARY_FORMAT_VERSION_UPDATE2,
-                                   SECONDARY_FORMAT_VERSION_UPDATE2);
+                                   SECONDARY_FORMAT_VERSION_UPDATE2,
+                                   CLUSTER_FORMAT_VERSION_INITIAL);
   }
 
   static inline bool is_unpack_data_tag(char c) {
@@ -701,6 +708,11 @@ public:
 
   /* If true, then column family is created per partition. */
   bool m_is_per_partition_cf;
+
+  /*
+    TRUE <=> Some fields in the PK/CK may require unpack_info.
+  */
+  bool m_maybe_unpack_info;
 
   std::string m_name;
   mutable Rdb_index_stats m_stats;
@@ -898,7 +910,7 @@ private:
   uint m_key_part;
 
 public:
-  bool setup(const Rdb_key_def *const key_descr, const Field *const field,
+  bool setup(Rdb_key_def *const key_descr, const Field *const field,
              const uint &keynr_arg, const uint &key_part_arg,
              const uint16 &key_length);
   Field *get_field_in_table(const TABLE *const tbl) const;
