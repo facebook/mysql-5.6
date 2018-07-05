@@ -9362,7 +9362,7 @@ bool mysql_create_like_table(THD *thd, TABLE_LIST *table, TABLE_LIST *src_table,
   local_create_info.row_type = src_table->table->s->row_type;
   if (mysql_prepare_alter_table(thd, src_table_obj, src_table->table,
                                 &local_create_info, &local_alter_info,
-                                &local_alter_ctx))
+                                &local_alter_ctx, false))
     DBUG_RETURN(true);
 
   /*
@@ -12461,7 +12461,8 @@ static bool is_field_used_by_functional_index(TABLE *table, uint field_index) {
 bool prepare_fields_and_keys(THD *thd, const dd::Table *src_table, TABLE *table,
                              HA_CREATE_INFO *create_info,
                              Alter_info *alter_info, Alter_table_ctx *alter_ctx,
-                             const uint &used_fields) {
+                             const uint &used_fields,
+                             bool validate_primary_key_existence) {
   /* New column definitions are added here */
   List<Create_field> new_create_list;
   /* New key definitions are added here */
@@ -12493,6 +12494,7 @@ bool prepare_fields_and_keys(THD *thd, const dd::Table *src_table, TABLE *table,
   List_iterator<Create_field> field_it(new_create_list);
   List<Key_part_spec> key_parts;
   KEY *key_info = table->key_info;
+  bool deleted_primary = false;
 
   DBUG_ENTER("prepare_fields_and_keys");
 
@@ -12750,8 +12752,13 @@ bool prepare_fields_and_keys(THD *thd, const dd::Table *src_table, TABLE *table,
     while (drop_idx < alter_info->drop_list.size()) {
       const Alter_drop *drop = alter_info->drop_list[drop_idx];
       if (drop->type == Alter_drop::KEY &&
-          !my_strcasecmp(system_charset_info, key_name, drop->name))
+          !my_strcasecmp(system_charset_info, key_name, drop->name)) {
+        if (validate_primary_key_existence &&
+            !my_strcasecmp(system_charset_info, primary_key_name, drop->name)) {
+          deleted_primary = true;
+        }
         break;
+      }
       drop_idx++;
     }
     if (drop_idx < alter_info->drop_list.size()) {
@@ -12780,6 +12787,12 @@ bool prepare_fields_and_keys(THD *thd, const dd::Table *src_table, TABLE *table,
            We are dropping a column associated with an index.
         */
         index_column_dropped = true;
+
+        // Check if we're dropping the primary key
+        if (validate_primary_key_existence &&
+            !my_strcasecmp(system_charset_info, key_name, primary_key_name)) {
+          deleted_primary = true;
+        }
         continue;  // Field is removed
       }
       uint key_part_length = key_part->length;
@@ -13000,6 +13013,24 @@ bool prepare_fields_and_keys(THD *thd, const dd::Table *src_table, TABLE *table,
   std::copy(new_drop_list.begin(), new_drop_list.end(),
             alter_info->drop_list.begin());
 
+  // If we deleted a primary key and we need to make sure there's a primary key,
+  // iterate over the added keys to make sure it was added
+  if (validate_primary_key_existence && deleted_primary) {
+    // Iterare over new key list to see if
+    // we added a new primary
+    bool added_primary = false;
+    for (const Key_spec *key : new_key_list) {
+      if (key->type == KEYTYPE_PRIMARY) {
+        added_primary = true;
+        break;
+      }
+    }
+    if (!added_primary) {
+      my_error(ER_BLOCK_NO_PRIMARY_KEY, MYF(0), NULL);
+      DBUG_RETURN(true);
+    }
+  }
+
   DBUG_RETURN(false);
 }
 
@@ -13035,6 +13066,8 @@ bool prepare_fields_and_keys(THD *thd, const dd::Table *src_table, TABLE *table,
                               this distinction is gone and we just carry
                               around two structures.
   @param[in,out]  alter_ctx   Runtime context for ALTER TABLE.
+  @param          validate_primary_key_existence  true if we need to
+                              validate the existence of a primary key
 
   @return
     Fills various create_info members based on information retrieved
@@ -13050,7 +13083,8 @@ bool prepare_fields_and_keys(THD *thd, const dd::Table *src_table, TABLE *table,
 bool mysql_prepare_alter_table(THD *thd, const dd::Table *src_table,
                                TABLE *table, HA_CREATE_INFO *create_info,
                                Alter_info *alter_info,
-                               Alter_table_ctx *alter_ctx) {
+                               Alter_table_ctx *alter_ctx,
+                               bool validate_primary_key_existence) {
   uint db_create_options =
       (table->s->db_create_options & ~(HA_OPTION_PACK_RECORD));
   uint used_fields = create_info->used_fields;
@@ -13067,7 +13101,8 @@ bool mysql_prepare_alter_table(THD *thd, const dd::Table *src_table,
   }
 
   if (prepare_fields_and_keys(thd, src_table, table, create_info, alter_info,
-                              alter_ctx, used_fields))
+                              alter_ctx, used_fields,
+                              validate_primary_key_existence))
     DBUG_RETURN(true);
 
   table->file->update_create_info(create_info);
@@ -14489,8 +14524,11 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
     if (create_field->change != nullptr) columns.emplace(create_field->change);
   }
 
+  bool validate_primary_key_existence =
+      should_check_table_for_primary_key(create_info, table_list);
   if (mysql_prepare_alter_table(thd, old_table_def, table, create_info,
-                                alter_info, &alter_ctx)) {
+                                alter_info, &alter_ctx,
+                                validate_primary_key_existence)) {
     DBUG_RETURN(true);
   }
 

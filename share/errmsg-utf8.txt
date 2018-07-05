@@ -18512,8 +18512,8 @@ ER_PLACEHOLDER_50016
 ER_PLACEHOLDER_50017
   eng "Placeholder"
 
-ER_PLACEHOLDER_50018
-  eng "Placeholder"
+ER_BLOCK_NO_PRIMARY_KEY
+  eng "Table without primary key cannot be created outside mysql schema."
 
 ER_PLACEHOLDER_50019
   eng "Placeholder"

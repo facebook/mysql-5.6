@@ -354,12 +354,14 @@ bool prepare_fk_parent_key(handlerton *hton, const dd::Table *parent_table_def,
 bool prepare_fields_and_keys(THD *thd, const dd::Table *src_table, TABLE *table,
                              HA_CREATE_INFO *create_info,
                              Alter_info *alter_info, Alter_table_ctx *alter_ctx,
-                             const uint &used_fields);
+                             const uint &used_fields,
+                             bool validate_primary_key_existence);
 
 bool mysql_prepare_alter_table(THD *thd, const dd::Table *src_table,
                                TABLE *table, HA_CREATE_INFO *create_info,
                                Alter_info *alter_info,
-                               Alter_table_ctx *alter_ctx);
+                               Alter_table_ctx *alter_ctx,
+                               bool validate_primary_key_existance);
 bool mysql_trans_prepare_alter_copy_data(THD *thd);
 bool mysql_trans_commit_alter_copy_data(THD *thd);
 bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
