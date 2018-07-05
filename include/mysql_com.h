@@ -143,7 +143,9 @@ enum enum_server_command
 #define FIELD_FLAGS_COLUMN_FORMAT 24    /* Field column format, bit 24-25 */
 #define FIELD_FLAGS_COLUMN_FORMAT_MASK (3 << FIELD_FLAGS_COLUMN_FORMAT)
 #define FIELD_IS_DROPPED (1<< 26)       /* Intern: Field is being dropped */
+#define CLUSTERING_FLAG  (1<< 27)       /* Field has a secondary clustering key */
 #define DOCUMENT_FLAG (1<<30)		/* Field document. Document fields
+
 					   will have BLOB_FLAG too */
 
 #define REFRESH_GRANT		1	/* Refresh grant tables */
