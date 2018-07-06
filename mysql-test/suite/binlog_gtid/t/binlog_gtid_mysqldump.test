@@ -57,6 +57,15 @@ RESET MASTER;
 
 --source include/restart_mysqld.inc
 
+# FB - Due to how prev_gtid is used in 8.0 (full set), there exists some conditions
+# where the gtid_purged will not reflect newly added purged sets.
+# purged is calculated solely on the oldest binlog, so it requires the oldest binlog
+# to have the purged uuid in the prev_gtid event.
+--disable_query_log
+--let $current_binlog= query_get_value(SHOW MASTER STATUS, File, 1)
+--eval PURGE BINARY LOGS TO '$current_binlog'
+--enable_query_log
+
 --let $assert_text= GTID_EXECUTED should equal master GTID_EXECUTED after server restarted
 --let $assert_cond= @@GLOBAL.GTID_EXECUTED = "$gtid_executed"
 --source include/assert.inc

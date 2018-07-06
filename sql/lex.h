@@ -296,6 +296,7 @@ static const SYMBOL symbols[] = {
     {SYM("GENERATED", GENERATED)},
     {SYM("GLOBAL", GLOBAL_SYM)},
     {SYM("GTID", GTID_SYM)},
+    {SYM("GTID_EXECUTED", GTID_EXECUTED)},
     {SYM("GRANT", GRANT)},
     {SYM("GRANTS", GRANTS)},
     {SYM("GROUP", GROUP_SYM)},

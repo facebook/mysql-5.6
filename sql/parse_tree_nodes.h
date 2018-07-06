@@ -3113,6 +3113,25 @@ class PT_show_binlog_events final : public PT_show_base {
   Sql_cmd_show_binlog_events m_sql_cmd;
 };
 
+/// Parse tree node for SHOW GTID_EXECUTED statement
+
+class PT_show_gtid_executed final : public PT_show_base {
+ public:
+  PT_show_gtid_executed(const POS &pos, const LEX_STRING opt_log_file_name = {},
+                        PT_limit_clause *opt_limit_clause = nullptr)
+      : PT_show_base(pos, SQLCOM_GTID_EXECUTED),
+        m_opt_log_file_name(opt_log_file_name),
+        m_opt_limit_clause(opt_limit_clause) {}
+
+  Sql_cmd *make_cmd(THD *thd) override;
+
+ private:
+  const LEX_STRING m_opt_log_file_name;
+  PT_limit_clause *const m_opt_limit_clause;
+
+  Sql_cmd_show_gtid_executed m_sql_cmd;
+};
+
 /// Parse tree node for SHOW BINLOGS statement
 
 class PT_show_binlogs final : public PT_show_base {
