@@ -3443,6 +3443,62 @@ bool mysql_show_binlog_events(THD *thd) {
   return show_binlog_events(thd, &mysql_bin_log);
 }
 
+/**
+  Executes SHOW GTID_EXECUTED IN 'log_name' FROM 'log_pos' statement.
+  Scans the binlog 'log_name' to build Gtid_set by adding
+  previous GTIDs and all the GTIDs upto the position 'log_pos'.
+
+  @paarm thd Pointer to the THD object for the client thread executing the
+             statement.
+  @retval false Success
+  @retval true  Failure
+*/
+bool show_gtid_executed(THD *thd) {
+  DBUG_ENTER("show_gtid_executed");
+  LEX *lex = thd->lex;
+
+  DBUG_ASSERT(lex->sql_command == SQLCOM_GTID_EXECUTED);
+
+  // Handle empty file name
+  if (!lex->mi.log_file_name) {
+    my_error(ER_ERROR_WHEN_EXECUTING_COMMAND, MYF(0), "SHOW GTID_EXECUTED",
+             "binlog file name is not specified");
+    DBUG_RETURN(true);
+  }
+  Protocol *protocol = thd->get_protocol();
+  Sid_map sid_map(NULL);
+  Gtid_set gtid_executed(&sid_map);
+  char file_name[FN_REFLEN];
+  mysql_bin_log.make_log_name(file_name, lex->mi.log_file_name);
+
+  MYSQL_BIN_LOG::enum_read_gtids_from_binlog_status ret =
+      mysql_bin_log.read_gtids_from_binlog(file_name, &gtid_executed, NULL,
+                                           NULL, &sid_map, false, false,
+                                           lex->mi.pos);
+  if (ret == MYSQL_BIN_LOG::ERROR || ret == MYSQL_BIN_LOG::TRUNCATED) {
+    DBUG_RETURN(true);
+  }
+  char *gtid_executed_string;
+  gtid_executed.to_string(&gtid_executed_string);
+  uint gtid_executed_string_length = gtid_executed.get_string_length();
+
+  List<Item> field_list;
+  field_list.push_back(
+      new Item_empty_string("Gtid_executed", gtid_executed_string_length));
+  if (thd->send_result_metadata(&field_list,
+                                Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF)) {
+    my_free(gtid_executed_string);
+    DBUG_RETURN(true);
+  }
+  protocol->start_row();
+  protocol->store(gtid_executed_string, &my_charset_bin);
+  if (protocol->end_row()) DBUG_RETURN(true);
+
+  my_free(gtid_executed_string);
+  my_eof(thd);
+  DBUG_RETURN(false);
+}
+
 MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period, bool relay_log)
     : name(nullptr),
       write_error(false),
@@ -4129,6 +4185,7 @@ enum enum_read_gtids_from_binlog_status {
   must hold it.
   @param verify_checksum Set to true to verify event checksums.
   @param is_relay_log
+  @param max_pos Read the binlog file upto max_pos offset.
 
   @retval GOT_GTIDS The file was successfully read and it contains
   both Gtid_log_events and Previous_gtids_log_events.
@@ -4146,10 +4203,11 @@ enum enum_read_gtids_from_binlog_status {
   @retval TRUNCATED The file was truncated before the end of the
   first Previous_gtids_log_event.
 */
-static enum_read_gtids_from_binlog_status read_gtids_from_binlog(
-    const char *filename, Gtid_set *all_gtids, Gtid_set *prev_gtids,
-    Gtid *first_gtid, Sid_map *sid_map, bool verify_checksum,
-    bool is_relay_log) {
+MYSQL_BIN_LOG::enum_read_gtids_from_binlog_status
+MYSQL_BIN_LOG::read_gtids_from_binlog(const char *filename, Gtid_set *all_gtids,
+                                      Gtid_set *prev_gtids, Gtid *first_gtid,
+                                      Sid_map *sid_map, bool verify_checksum,
+                                      bool is_relay_log, my_off_t max_pos) {
   DBUG_TRACE;
   DBUG_PRINT("info", ("Opening file %s", filename));
 
@@ -4189,6 +4247,10 @@ static enum_read_gtids_from_binlog_status read_gtids_from_binlog(
 #ifndef DBUG_OFF
     event_counter++;
 #endif
+    if (ev->common_header->log_pos > max_pos) {
+      delete ev;
+      break;
+    }
     DBUG_PRINT("info", ("Read event of type %s", ev->get_type_str()));
     switch (ev->get_type_code()) {
       case binary_log::FORMAT_DESCRIPTION_EVENT:

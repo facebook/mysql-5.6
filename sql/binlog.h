@@ -139,6 +139,13 @@ struct LOG_INFO {
 class MYSQL_BIN_LOG : public TC_LOG {
  public:
   class Binlog_ofile;
+  enum enum_read_gtids_from_binlog_status {
+    GOT_GTIDS,
+    GOT_PREVIOUS_GTIDS,
+    NO_GTIDS,
+    ERROR,
+    TRUNCATED
+  };
 
  private:
   enum enum_log_state { LOG_OPENED, LOG_CLOSED, LOG_TO_BE_OPENED };
@@ -417,6 +424,11 @@ class MYSQL_BIN_LOG : public TC_LOG {
                       bool verify_checksum, bool need_lock,
                       Transaction_boundary_parser *trx_parser,
                       Gtid_monitoring_info *partial_trx);
+
+  enum_read_gtids_from_binlog_status read_gtids_from_binlog(
+      const char *filename, Gtid_set *all_gtids, Gtid_set *prev_gtids,
+      Gtid *first_gtid, Sid_map *sid_map, bool verify_checksum,
+      bool is_relay_log, my_off_t max_pos = ULLONG_MAX);
 
   void set_previous_gtid_set_relaylog(Gtid_set *previous_gtid_set_param) {
     DBUG_ASSERT(is_relay_log);
@@ -978,6 +990,7 @@ bool purge_master_logs(THD *thd, const char *to_log);
 bool purge_master_logs_before_date(THD *thd, time_t purge_time);
 bool show_binlog_events(THD *thd, MYSQL_BIN_LOG *binary_log);
 bool mysql_show_binlog_events(THD *thd);
+bool show_gtid_executed(THD *thd);
 void check_binlog_cache_size(THD *thd);
 void check_binlog_stmt_cache_size(THD *thd);
 bool binlog_enabled();
