@@ -1246,6 +1246,7 @@ void warn_about_deprecated_binary(THD *thd)
 */
 %token  FIND
 %token<lexer.keyword> GTID_SYM
+%token<lexer.keyword> GTID_EXECUTED                 /* MYSQL */
 
 /*
   Resolve column attribute ambiguity -- force precedence of "UNIQUE KEY" against
@@ -12721,6 +12722,11 @@ show_param:
             if ($6 != NULL)
               CONTEXTUALIZE($6);
           }
+        | GTID_EXECUTED binlog_in binlog_from
+          {
+            LEX *lex = Lex;
+            lex->sql_command = SQLCOM_GTID_EXECUTED;
+          }
         | opt_extended          /* #1 */
           keys_or_index         /* #2 */
           from_or_in            /* #3 */
@@ -14322,6 +14328,7 @@ ident_keywords_unambiguous:
         | GET_MASTER_PUBLIC_KEY_SYM
         | GRANTS
         | GROUP_REPLICATION
+        | GTID_EXECUTED
         | GTID_SYM
         | HASH_SYM
         | HISTOGRAM_SYM
