@@ -4572,6 +4572,7 @@ int mysql_execute_command(THD *thd, bool first_level) {
     case SQLCOM_GRANT_ROLE:
     case SQLCOM_REVOKE_ROLE:
     case SQLCOM_ALTER_USER_DEFAULT_ROLE:
+    case SQLCOM_GTID_EXECUTED:
     case SQLCOM_SHOW_BINLOG_EVENTS:
     case SQLCOM_SHOW_BINLOGS:
     case SQLCOM_SHOW_CHARSETS:

@@ -236,6 +236,20 @@ class Sql_cmd_show_binlog_events : public Sql_cmd_show_noplan {
   // opt_limit
 };
 
+/// Represents SHOW GTID_EXECUTED statement.
+
+class Sql_cmd_show_gtid_executed : public Sql_cmd_show_noplan {
+ public:
+  Sql_cmd_show_gtid_executed() : Sql_cmd_show_noplan(SQLCOM_GTID_EXECUTED) {}
+  bool check_privileges(THD *thd) override;
+  bool execute_inner(THD *thd) override;
+
+ private:
+  // binlog_in
+  // binlog_from
+  // opt_limit
+};
+
 /// Represents SHOW BINARY LOGS statement.
 
 class Sql_cmd_show_binlogs : public Sql_cmd_show_noplan {

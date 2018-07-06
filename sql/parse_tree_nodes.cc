@@ -2045,6 +2045,18 @@ Sql_cmd *PT_show_binlog_events::make_cmd(THD *thd) {
   return &m_sql_cmd;
 }
 
+Sql_cmd *PT_show_gtid_executed::make_cmd(THD *thd) {
+  LEX *lex = thd->lex;
+  lex->sql_command = m_sql_command;
+
+  lex->mi.log_file_name = m_opt_log_file_name.str;
+
+  Parse_context pc(thd, thd->lex->current_query_block());
+  if (contextualize_safe(&pc, m_opt_limit_clause)) return nullptr;  // OOM
+
+  return &m_sql_cmd;
+}
+
 Sql_cmd *PT_show_binlogs::make_cmd(THD *thd) {
   LEX *lex = thd->lex;
   lex->sql_command = m_sql_command;

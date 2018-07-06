@@ -205,6 +205,7 @@ enum enum_sql_command {
   SQLCOM_SHOW_ENGINE_TRX,
   SQLCOM_SHOW_MEMORY_STATUS,
   SQLCOM_FIND_GTID_POSITION,
+  SQLCOM_GTID_EXECUTED,
   /* This should be the last !!! */
   SQLCOM_END
 };

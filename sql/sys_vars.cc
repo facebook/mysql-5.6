@@ -6792,6 +6792,17 @@ end:
   if (gtid_threshold_breach)
     LogErr(WARNING_LEVEL, ER_WARN_GTID_THRESHOLD_BREACH);
 
+  // FB - mimic 5.6 functionality to rotate the log
+  // Rotate logs to push out the Previous_gtid_event to the binlog.
+  // Rotate requires the global_sid_lock, so perform this step
+  // after everything else has completed successfully.
+  //
+  // SHOW GTID_EXECUTED IN <binlog_file> FROM <offset>
+  // uses the PREV_GTID event to calculate the executed set.
+  if (!error && mysql_bin_log.rotate_and_purge(thd, true)) {
+    error = true;
+  }
+
   return error;
 }
 

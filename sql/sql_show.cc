@@ -306,6 +306,12 @@ bool Sql_cmd_show_binlog_events::execute_inner(THD *thd) {
   return mysql_show_binlog_events(thd);
 }
 
+bool Sql_cmd_show_gtid_executed::check_privileges(THD *) { return false; }
+
+bool Sql_cmd_show_gtid_executed::execute_inner(THD *thd) {
+  return show_gtid_executed(thd);
+}
+
 bool Sql_cmd_show_binlogs::check_privileges(THD *thd) {
   return check_global_access(thd, SUPER_ACL | REPL_CLIENT_ACL);
 }
