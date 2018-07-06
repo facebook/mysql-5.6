@@ -64,9 +64,10 @@ RESET MASTER;
 SET GLOBAL gtid_purged = CONCAT(@@GLOBAL.server_uuid, ':1-9223372036854775805');
 --let $binlog_file_1= query_get_value(SHOW MASTER STATUS, File, 1)
 
---let $assert_cond = "$binlog_file_0" = "$binlog_file_1"
---let $assert_text = Binlog file must not rotate after SET GTID_PURGED
---source include/assert.inc
+# FB - set gtid_purged now forces rotation
+--let $assert_cond = "$binlog_file_0" != "$binlog_file_1"
+--let $assert_text = Binlog file must rotate after SET GTID_PURGED
+ --source include/assert.inc
 
 INSERT INTO t1 VALUES (1);
 SET GLOBAL binlog_error_action=ABORT_SERVER;
