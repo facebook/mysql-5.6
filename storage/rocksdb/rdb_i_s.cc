@@ -1488,7 +1488,8 @@ enum {
   LOCK_TYPE,
   INDEX_NAME,
   TABLE_NAME,
-  ROLLED_BACK
+  ROLLED_BACK,
+  TIMESTAMP
 };
 } // namespace RDB_TRX_FIELD
 
@@ -1503,6 +1504,8 @@ static ST_FIELD_INFO rdb_i_s_deadlock_info_fields_info[] = {
     ROCKSDB_FIELD_INFO("INDEX_NAME", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
     ROCKSDB_FIELD_INFO("TABLE_NAME", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
     ROCKSDB_FIELD_INFO("ROLLED_BACK", sizeof(ulonglong), MYSQL_TYPE_LONGLONG,
+                       0),
+    ROCKSDB_FIELD_INFO("TIMESTAMP", sizeof(ulonglong), MYSQL_TYPE_LONGLONG,
                        0),
     ROCKSDB_FIELD_INFO_END};
 
@@ -1531,6 +1534,7 @@ static int rdb_i_s_deadlock_info_fill_table(
 
   ulonglong id = 0;
   for (const auto &info : all_dl_info) {
+    auto deadlock_time = info.deadlock_time;
     for (const auto &trx_info : info.path) {
       tables->table->field[RDB_DEADLOCK_FIELD::DEADLOCK_ID]->store(id, true);
       tables->table->field[RDB_DEADLOCK_FIELD::TRANSACTION_ID]->store(
@@ -1556,6 +1560,8 @@ static int rdb_i_s_deadlock_info_fill_table(
           system_charset_info);
       tables->table->field[RDB_DEADLOCK_FIELD::ROLLED_BACK]->store(
           trx_info.trx_id == info.victim_trx_id, true);
+      tables->table->field[RDB_DEADLOCK_FIELD::TIMESTAMP]->store(
+          deadlock_time, true);
 
       /* Tell MySQL about this row in the virtual table */
       ret = static_cast<int>(
