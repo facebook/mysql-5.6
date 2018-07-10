@@ -405,6 +405,7 @@ static void rocksdb_drop_index_wakeup_thread(
 
 static my_bool rocksdb_pause_background_work = 0;
 static mysql_mutex_t rdb_sysvars_mutex;
+static mysql_mutex_t rdb_block_cache_resize_mutex;
 
 static void rocksdb_set_pause_background_work(
     my_core::THD *const thd MY_ATTRIBUTE((__unused__)),
@@ -487,6 +488,10 @@ static void rocksdb_set_wal_bytes_per_sync(THD *thd,
                                            struct st_mysql_sys_var *const var,
                                            void *const var_ptr,
                                            const void *const save);
+static void rocksdb_set_block_cache_size(THD *thd,
+                                         struct st_mysql_sys_var *const var,
+                                         void *const var_ptr,
+                                         const void *const save);
 //////////////////////////////////////////////////////////////////////////////
 // Options definitions
 //////////////////////////////////////////////////////////////////////////////
@@ -1183,8 +1188,9 @@ static MYSQL_SYSVAR_BOOL(
     "DBOptions::enable_thread_tracking for RocksDB", nullptr, nullptr, true);
 
 static MYSQL_SYSVAR_LONGLONG(block_cache_size, rocksdb_block_cache_size,
-                             PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                             "block_cache size for RocksDB", nullptr, nullptr,
+                             PLUGIN_VAR_RQCMDARG,
+                             "block_cache size for RocksDB", nullptr,
+                             rocksdb_set_block_cache_size,
                              /* default */ RDB_DEFAULT_BLOCK_CACHE_SIZE,
                              /* min */ RDB_MIN_BLOCK_CACHE_SIZE,
                              /* max */ LONGLONG_MAX,
@@ -4414,6 +4420,8 @@ static int rocksdb_init_func(void *const p) {
 
   mysql_mutex_init(rdb_sysvars_psi_mutex_key, &rdb_sysvars_mutex,
                    MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(rdb_block_cache_resize_mutex_key,
+                   &rdb_block_cache_resize_mutex, MY_MUTEX_INIT_FAST);
   rdb_open_tables.init_hash();
   Rdb_transaction::init_mutex();
 
@@ -4872,6 +4880,7 @@ static int rocksdb_done_func(void *const p) {
   rdb_open_tables.free_hash();
   mysql_mutex_destroy(&rdb_open_tables.m_mutex);
   mysql_mutex_destroy(&rdb_sysvars_mutex);
+  mysql_mutex_destroy(&rdb_block_cache_resize_mutex);
 
   delete rdb_collation_exceptions;
   mysql_mutex_destroy(&rdb_collation_data_mutex);
@@ -13078,6 +13087,27 @@ static void rocksdb_set_wal_bytes_per_sync(
   }
 
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
+}
+
+static void rocksdb_set_block_cache_size(
+    THD *thd MY_ATTRIBUTE((__unused__)),
+    struct st_mysql_sys_var *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr MY_ATTRIBUTE((__unused__)), const void *const save) {
+  DBUG_ASSERT(save != nullptr);
+
+  RDB_MUTEX_LOCK_CHECK(rdb_block_cache_resize_mutex);
+  const longlong new_val = *static_cast<const longlong *>(save);
+
+  const rocksdb::BlockBasedTableOptions &table_options =
+      rdb_get_table_options();
+
+  if (rocksdb_block_cache_size != new_val && table_options.block_cache) {
+    // SetCapacity may take seconds when reducing block cache.
+    // So it should be called outside of rdb_sysvars_mutex scope.
+    table_options.block_cache->SetCapacity(new_val);
+    rocksdb_block_cache_size = new_val;
+  }
+  RDB_MUTEX_UNLOCK_CHECK(rdb_block_cache_resize_mutex);
 }
 
 static int
