@@ -1,0 +1,52 @@
+set @my_slow_logname = @@global.slow_query_log_file;
+set global slow_query_log_file = "slow_log_wait_time-slow.log";
+set global slow_query_log = ON;
+set session innodb_lock_wait_timeout=15;
+
+# connection 1
+create table t1 (a int) engine = innodb;
+insert into t1 values (1), (2);
+begin;
+select * from t1 for update;
+a
+1
+2
+
+# connection default
+set session long_query_time = 30;
+begin;
+
+# Query will timeout but should not be logged in the slow log
+select * from t1 for update;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
+select @@long_query_time, @@innodb_lock_wait_timeout;
+@@long_query_time	@@innodb_lock_wait_timeout
+30.000000	15
+
+# Check the slow log result. We shouldn't find any query
+
+# connection 1
+rollback;
+begin;
+select * from t1 for update;
+a
+1
+2
+
+# connection default
+set session long_query_time = 5;
+begin;
+
+# Query will timeout and be logged in the slow log
+select * from t1 for update;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
+select @@long_query_time, @@innodb_lock_wait_timeout;
+@@long_query_time	@@innodb_lock_wait_timeout
+5.000000	15
+
+# Check the slow log result. One "select" query should be found.
+select * from t1 for update;
+
+# clean up
+drop table t1;
+set @@global.slow_query_log_file = @my_slow_logname;
