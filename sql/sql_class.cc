@@ -2967,7 +2967,7 @@ void THD::set_time_after_lock() {
 }
 
 void THD::update_slow_query_status() {
-  if (my_micro_time() > utime_after_lock + variables.long_query_time)
+  if (my_micro_time() > start_utime + variables.long_query_time)
     server_status |= SERVER_QUERY_WAS_SLOW;
 }
 

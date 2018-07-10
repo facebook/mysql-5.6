@@ -1,0 +1,112 @@
+#
+# Test slow log with long lock wait time
+#
+
+# Just in case slow_log_wait_time-slow.log already exists, delete it first.
+--perl
+if (-e "$ENV{'MYSQLTEST_VARDIR'}/mysqld.1/data/slow_log_wait_time-slow.log") {
+   unlink("$ENV{'MYSQLTEST_VARDIR'}/mysqld.1/data/slow_log_wait_time-slow.log");
+}
+EOF
+
+set @my_slow_logname = @@global.slow_query_log_file;
+set global slow_query_log_file = "slow_log_wait_time-slow.log";
+
+set global slow_query_log = ON;
+set session innodb_lock_wait_timeout=15;
+
+--echo
+--echo # connection 1
+connect (conn1, localhost, root,,);
+create table t1 (a int) engine = innodb;
+insert into t1 values (1), (2);
+
+begin;
+select * from t1 for update;
+
+--echo
+--echo # connection default
+connection default;
+set session long_query_time = 30;
+
+begin;
+--echo
+--echo # Query will timeout but should not be logged in the slow log
+--error ER_LOCK_WAIT_TIMEOUT
+select * from t1 for update;
+
+select @@long_query_time, @@innodb_lock_wait_timeout;
+
+--echo
+--echo # Check the slow log result. We shouldn't find any query
+--perl
+my $found = 0;
+open FILE, "$ENV{'MYSQLTEST_VARDIR'}/mysqld.1/data/slow_log_wait_time-slow.log" or die;
+my @lines = <FILE>;
+foreach $line (@lines) {
+  if ($line =~ /^select/) {
+    $found = 1;
+    print $line
+  }
+}
+# (test failure) print the log if we actually found the query in the log
+if ($found) {
+  print "**Query found in slow log**\n";
+  seek FILE, 0, 0;
+  while (<FILE>) {
+    print $_;
+  }
+}
+close FILE
+EOF
+
+--echo
+--echo # connection 1
+connection conn1;
+rollback;
+
+begin;
+select * from t1 for update;
+
+--echo
+--echo # connection default
+connection default;
+set session long_query_time = 5;
+
+begin;
+--echo
+--echo # Query will timeout and be logged in the slow log
+--error ER_LOCK_WAIT_TIMEOUT
+select * from t1 for update;
+
+select @@long_query_time, @@innodb_lock_wait_timeout;
+
+--echo
+--echo # Check the slow log result. One "select" query should be found.
+--perl
+my $found = 0;
+open FILE, "$ENV{'MYSQLTEST_VARDIR'}/mysqld.1/data/slow_log_wait_time-slow.log" or die;
+my @lines = <FILE>;
+foreach $line (@lines) {
+  if ($line =~ /^select/) {
+    $found = 1;
+    print $line;
+  }
+}
+# (test failure) print the log if we didn't find the query in the log
+if (!$found) {
+  print "**Query not found in slow log**\n";
+  seek FILE, 0, 0;
+  while (<FILE>) {
+    print $_;
+  }
+}
+close FILE
+EOF
+
+--echo
+--echo # clean up
+disconnect conn1;
+drop table t1;
+
+set @@global.slow_query_log_file = @my_slow_logname;

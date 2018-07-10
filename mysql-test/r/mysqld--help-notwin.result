@@ -583,8 +583,9 @@ The following options may be given as the first argument:
  as the timestamp columns of the latter can be converted
  at will.
  --long-query-time=# Log all queries that have taken more than long_query_time
- seconds to execute to file. The argument will be treated
- as a decimal value with microsecond precision
+ seconds to execute to file. This also includes lock wait
+ time. The argument will be treated as a decimal value
+ with microsecond precision
  --low-priority-updates 
  INSERT/DELETE/UPDATE has lower priority than selects
  --lower-case-table-names[=#] 
