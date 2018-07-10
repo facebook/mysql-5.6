@@ -2621,7 +2621,7 @@ class THD : public MDL_context_owner,
    setting, mark the query as slow.
   */
   void update_slow_query_status() {
-    if (my_micro_time() > utime_after_lock + variables.long_query_time)
+    if (my_micro_time() > start_utime + variables.long_query_time)
       server_status |= SERVER_QUERY_WAS_SLOW;
   }
   inline ulonglong found_rows(void) { return previous_found_rows; }
