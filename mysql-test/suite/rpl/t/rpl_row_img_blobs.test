@@ -46,6 +46,13 @@
 -- let $row_img_test_script= extra/rpl_tests/rpl_row_img_blobs.test
 -- source include/rpl_row_img_general_loop.inc
 
+## COMPLETE
+
+-- let $row_img_set=server_1:COMPLETE:N,server_2:COMPLETE:Y,server_3:COMPLETE:Y
+-- source include/rpl_row_img_set.inc
+-- let $row_img_test_script= extra/rpl_tests/rpl_row_img_blobs.test
+-- source include/rpl_row_img_general_loop.inc
+
 ## FULL
 
 -- let $row_img_set=server_1:FULL:N,server_2:FULL:Y,server_3:FULL:Y

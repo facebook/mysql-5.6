@@ -77,7 +77,7 @@ DROP TABLE t;
 #
 
 -- connection master
-SET @img_types= 'MINIMAL NOBLOB FULL';
+SET @img_types= 'MINIMAL NOBLOB FULL COMPLETE';
 while (`SELECT HEX(@img_types) != HEX('')`)
 {
   -- disable_query_log
@@ -136,7 +136,7 @@ while (`SELECT HEX(@img_types) != HEX('')`)
     -- source include/rpl_row_img_parts_master_slave.inc
 
     -- let $row_img_query= INSERT INTO t(c1,c3) VALUES (10,"a")
-    if (`SELECT @@binlog_row_image = "FULL" or @@binlog_row_image = "NOBLOB"`)
+    if (`SELECT @@binlog_row_image = "FULL" or @@binlog_row_image = "NOBLOB" or @@binlog_row_image = "COMPLETE"`)
     {
       -- let $row_img_expected_master= | 1:10 2:NULL 3:'a'
     }
@@ -148,7 +148,7 @@ while (`SELECT HEX(@img_types) != HEX('')`)
     -- source include/rpl_row_img_parts_master_slave.inc
 
     -- let $row_img_query= INSERT INTO t(c1) VALUES (1000)
-    if (`SELECT @@binlog_row_image = "FULL"`)
+    if (`SELECT @@binlog_row_image = "FULL" or @@binlog_row_image = "COMPLETE"`)
     {
       -- let $row_img_expected_master= | 1:1000 2:NULL 3:NULL
     } 
@@ -164,7 +164,7 @@ while (`SELECT HEX(@img_types) != HEX('')`)
     -- source include/rpl_row_img_parts_master_slave.inc
 
     -- let $row_img_query= UPDATE t SET c1=2 WHERE c1=1
-    if (`SELECT @@binlog_row_image = "FULL" OR (SELECT '$index_type' IN ('NONE', 'K', 'UK'))`)
+    if (`SELECT @@binlog_row_image = "FULL" or @@binlog_row_image = "COMPLETE" OR (SELECT '$index_type' IN ('NONE', 'K', 'UK'))`)
     {
       -- let $bi= 1:1 2:2 3:'a'
     }
@@ -190,7 +190,7 @@ while (`SELECT HEX(@img_types) != HEX('')`)
       -- let $ai= 1:2 2:2
     }
 
-    if (`SELECT @@binlog_row_image = "MINIMAL"`)
+    if (`SELECT @@binlog_row_image = "MINIMAL" or @@binlog_row_image = "COMPLETE"`)
     {
       -- let $ai= 1:2
     }
@@ -202,7 +202,7 @@ while (`SELECT HEX(@img_types) != HEX('')`)
 
     -- let $row_img_query= DELETE FROM t WHERE c2=2
     # no key, simple key or unique key nullable
-    if (`SELECT @@binlog_row_image = "FULL" OR (SELECT '$index_type' IN ('NONE', 'K', 'UK'))`)
+    if (`SELECT @@binlog_row_image = "FULL" OR (SELECT @@binlog_row_image = "COMPLETE") OR (SELECT '$index_type' IN ('NONE', 'K', 'UK'))`)
     {
       -- let $row_img_expected_master= 1:2 2:2 3:'a' |
     }
@@ -242,7 +242,7 @@ while (`SELECT HEX(@img_types) != HEX('')`)
 ###  on logged images. Further description is inline.
 
 -- connection master
-SET @img_types= 'MINIMAL NOBLOB FULL';
+SET @img_types= 'MINIMAL NOBLOB FULL COMPLETE';
 while (`SELECT HEX(@img_types) != HEX('')`)
 {
   -- disable_query_log
@@ -256,7 +256,7 @@ while (`SELECT HEX(@img_types) != HEX('')`)
   -- connection master
 
   # ASSERTIONS:
-  # UPDATE (MINIMAL,NOBLOB,FULL)
+  # UPDATE (MINIMAL,NOBLOB,FULL,COMPLETE)
   #  - on slave, columns that are not in master's BI but are in slave's
   #    PKE are in slave's BI
 
@@ -282,7 +282,7 @@ while (`SELECT HEX(@img_types) != HEX('')`)
   {
     -- let $row_img_expected_slave = 1:1 2:1000 | 1:2 2:1000
   }
-  if (`SELECT @@binlog_row_image = "MINIMAL"`)
+  if (`SELECT @@binlog_row_image = "MINIMAL" OR (SELECT @@binlog_row_image = "COMPLETE")`)
   {
     -- let $row_img_expected_slave = 1:1 2:1000 | 1:2
   }
@@ -558,6 +558,21 @@ CREATE TABLE t (c1 int NOT NULL AUTO_INCREMENT, c2 int, c3 blob, primary key(c1,
 DROP TABLE t;
 --source include/sync_slave_sql_with_master.inc
 
+-- source include/rpl_reset.inc
+-- connection master
+-- let $row_img_set=master:COMPLETE:N,slave:COMPLETE:Y
+-- source include/rpl_row_img_set.inc
+
+CREATE TABLE t (c1 int NOT NULL AUTO_INCREMENT, c2 int, c3 blob, primary key(c1,c2));
+
+-- let $row_img_query= INSERT INTO t(c2) VALUES (2)
+-- let $row_img_expected_master= | 1:1 2:2 3:NULL
+-- let $row_img_expected_slave = | 1:1 2:2 3:NULL
+-- source include/rpl_row_img_parts_master_slave.inc
+
+DROP TABLE t;
+--source include/sync_slave_sql_with_master.inc
+
 -- echo ##################################################################
 -- echo # Test that slave does not write more columns than the ones it has 
 -- echo ##################################################################
@@ -589,6 +604,33 @@ CREATE TABLE t (c1 int, c2 int, primary key(c1));
 DROP TABLE t;
 --source include/sync_slave_sql_with_master.inc
 
+-- source include/rpl_reset.inc
+-- connection master
+-- let $row_img_set=master:COMPLETE:N,slave:COMPLETE:Y
+-- source include/rpl_row_img_set.inc
+
+SET SQL_LOG_BIN=0;
+CREATE TABLE t (c1 int NOT NULL AUTO_INCREMENT, c2 int, c3 blob, primary key(c1,c2));
+SET SQL_LOG_BIN=1;
+
+-- connection slave
+CREATE TABLE t (c1 int, c2 int, primary key(c1));
+
+-- connection master
+
+-- let $row_img_query= INSERT INTO t(c2,c3) VALUES (2,'aaaaa')
+-- let $row_img_expected_master= | 1:1 2:2 3:'aaaaa'
+-- let $row_img_expected_slave = | 1:1 2:2
+-- source include/rpl_row_img_parts_master_slave.inc
+
+-- let $row_img_query= UPDATE t SET c2=3, c3='bbbbb' WHERE c2=2
+-- let $row_img_expected_master= 1:1 2:2 3:'aaaaa' | 2:3 3:'bbbbb'
+-- let $row_img_expected_slave = 1:1 2:2 | 2:3
+-- source include/rpl_row_img_parts_master_slave.inc
+
+DROP TABLE t;
+--source include/sync_slave_sql_with_master.inc
+
 -- echo ##################################################################
 -- echo # Test that slave fills default columns in its own columns
 -- echo ##################################################################
@@ -596,6 +638,38 @@ DROP TABLE t;
 -- source include/rpl_reset.inc
 -- connection master
 -- let $row_img_set=master:FULL:N,slave:FULL:Y
+-- source include/rpl_row_img_set.inc
+
+SET SQL_LOG_BIN=0;
+CREATE TABLE t (c1 int, c2 int);
+SET SQL_LOG_BIN=1;
+
+-- connection slave
+CREATE TABLE t (c1 int, c2 int, c3 int DEFAULT 2005);
+
+-- connection master
+
+-- let $row_img_query= INSERT INTO t(c1) VALUES (1)
+-- let $row_img_expected_master= | 1:1 2:NULL
+-- let $row_img_expected_slave = | 1:1 2:NULL 3:2005
+-- source include/rpl_row_img_parts_master_slave.inc
+
+-- let $row_img_query= INSERT INTO t(c1) VALUES (2)
+-- let $row_img_expected_master= | 1:2 2:NULL
+-- let $row_img_expected_slave = | 1:2 2:NULL 3:2005
+-- source include/rpl_row_img_parts_master_slave.inc
+
+-- connection slave
+SELECT * FROM t;
+-- connection master
+SELECT * FROM t;
+
+DROP TABLE t;
+--source include/sync_slave_sql_with_master.inc
+
+-- source include/rpl_reset.inc
+-- connection master
+-- let $row_img_set=master:COMPLETE:N,slave:COMPLETE:Y
 -- source include/rpl_row_img_set.inc
 
 SET SQL_LOG_BIN=0;
@@ -662,9 +736,42 @@ SELECT * FROM t;
 DROP TABLE t;
 --source include/sync_slave_sql_with_master.inc
 
+-- source include/rpl_reset.inc
+-- connection master
+-- let $row_img_set=master:COMPLETE:N,slave:COMPLETE:Y
+-- source include/rpl_row_img_set.inc
+
+
+SET SQL_LOG_BIN=0;
+CREATE TABLE t (c1 int NOT NULL, c2 int, c3 int, primary key(c1, c3), unique key(c1));
+SET SQL_LOG_BIN=1;
+
+-- connection slave
+CREATE TABLE t (c1 int NOT NULL, c2 int, unique key(c1));
+
+-- connection master
+
+-- let $row_img_query= INSERT INTO t VALUES (1, 2, 3)
+-- let $row_img_expected_master= | 1:1 2:2 3:3
+-- let $row_img_expected_slave = | 1:1 2:2
+-- source include/rpl_row_img_parts_master_slave.inc
+
+-- let $row_img_query= UPDATE t SET c2= 4 WHERE c1=1
+-- let $row_img_expected_master= 1:1 2:2 3:3 | 2:4
+-- let $row_img_expected_slave = 1:1 2:2 | 2:4
+-- source include/rpl_row_img_parts_master_slave.inc
+
+-- connection slave
+SELECT * FROM t;
+-- connection master
+SELECT * FROM t;
+
+DROP TABLE t;
+--source include/sync_slave_sql_with_master.inc
+
 -- echo ##################################################################
 -- echo # Test that if master has binlog_row_image=MINIMAL and slave has 
--- echo # NOBLOB or FULL, it will log the expected columns
+-- echo # NOBLOB, FULL or COMPLETE, it will log the expected columns
 -- echo ##################################################################
 
 -- source include/rpl_reset.inc
@@ -724,6 +831,37 @@ CREATE TABLE t (c1 int NOT NULL, c2 int, c3 int, c4 blob, unique key(c1));
 -- let $row_img_query= DELETE FROM t WHERE c2=4
 -- let $row_img_expected_master= 1:1 |
 -- let $row_img_expected_slave = 1:1 2:4 3:3 | 
+-- source include/rpl_row_img_parts_master_slave.inc
+
+DROP TABLE t;
+--source include/sync_slave_sql_with_master.inc
+
+-- source include/rpl_reset.inc
+-- connection master
+-- let $row_img_set=master:MINIMAL:N,slave:COMPLETE:Y
+-- source include/rpl_row_img_set.inc
+
+SET SQL_LOG_BIN=0;
+CREATE TABLE t (c1 int NOT NULL, c2 int, c3 int, primary key(c1));
+SET SQL_LOG_BIN=1;
+
+-- connection slave
+CREATE TABLE t (c1 int NOT NULL, c2 int, c3 int, c4 blob, unique key(c1));
+
+-- connection master
+-- let $row_img_query= INSERT INTO t VALUES (1, 2, 3)
+-- let $row_img_expected_master= | 1:1 2:2 3:3
+-- let $row_img_expected_slave = | 1:1 2:2 3:3 4:NULL
+-- source include/rpl_row_img_parts_master_slave.inc
+
+-- let $row_img_query= UPDATE t SET c2= 4 WHERE c1=1
+-- let $row_img_expected_master= 1:1 | 2:4
+-- let $row_img_expected_slave = 1:1 2:2 3:3 4:NULL | 2:4
+-- source include/rpl_row_img_parts_master_slave.inc
+
+-- let $row_img_query= DELETE FROM t WHERE c2=4
+-- let $row_img_expected_master= 1:1 |
+-- let $row_img_expected_slave = 1:1 2:4 3:3 4:NULL | 
 -- source include/rpl_row_img_parts_master_slave.inc
 
 DROP TABLE t;
@@ -823,6 +961,17 @@ EXPLAIN UPDATE t1 SET a=a+1 WHERE id < 2;
 -- let $row_img_query= UPDATE t1 SET a=a+1 WHERE id < 2
 -- let $row_img_expected_master= 1:1 | 2:4
 -- let $row_img_expected_slave = 1:1 | 2:4
+-- source include/rpl_row_img_parts_master_slave.inc
+
+-- let $row_img_set=master:COMPLETE:N,slave:COMPLETE:Y
+-- source include/rpl_row_img_set.inc
+
+-- echo "Case: COMPLETE - EXPLAIN output should not display Using temporary"
+EXPLAIN UPDATE t1 SET a=a+1 WHERE id < 2;
+
+-- let $row_img_query= UPDATE t1 SET a=a+1 WHERE id < 2
+-- let $row_img_expected_master=  1:1 2:4 | 2:5
+-- let $row_img_expected_slave = 1:1 2:4 | 2:5
 -- source include/rpl_row_img_parts_master_slave.inc
 
 DROP TABLE t1;
