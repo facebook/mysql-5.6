@@ -172,14 +172,16 @@ The following options may be given as the first argument:
  size if possible. The value has to be a multiple of 256.
  --binlog-row-image=name 
  Controls whether rows should be logged in 'FULL',
- 'NOBLOB' or 'MINIMAL' formats. 'FULL', means that all
- columns in the before and after image are logged.
- 'NOBLOB', means that mysqld avoids logging blob columns
- whenever possible (e.g. blob column was not changed or is
- not part of primary key). 'MINIMAL', means that a PK
- equivalent (PK columns or full row if there is no PK in
- the table) is logged in the before image, and only
- changed columns are logged in the after image. (Default:
+ 'COMPLETE', 'NOBLOB' or 'MINIMAL' formats. 'FULL', means
+ that all columns in the before and after image are
+ logged. 'NOBLOB', means that mysqld avoids logging blob
+ columns whenever possible (e.g. blob column was not
+ changed or is not part of primary key). 'MINIMAL', means
+ that a PK equivalent (PK columns or full row if there is
+ no PK in the table) is logged in the before image, and
+ only changed columns are logged in the after image.
+ 'COMPLETE', means that all columns in the before and only
+ changed columns in the after image are logged. (Default:
  FULL).
  --binlog-row-metadata=name 
  Controls whether metadata is logged using FULL or MINIMAL
