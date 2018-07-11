@@ -64,7 +64,9 @@ enum enum_binlog_row_image {
      blobs. */
   BINLOG_ROW_IMAGE_NOBLOB = 1,
   /** All columns in both before and after image. */
-  BINLOG_ROW_IMAGE_FULL = 2
+  BINLOG_ROW_IMAGE_FULL = 2,
+  /** All columns in both before and after image. */
+  BINLOG_ROW_IMAGE_COMPLETE = 3
 };
 
 // Bits for binlog_row_value_options sysvar

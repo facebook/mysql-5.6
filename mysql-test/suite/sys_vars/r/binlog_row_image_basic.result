@@ -46,6 +46,16 @@ SELECT @@SESSION.binlog_row_image;
 @@SESSION.binlog_row_image
 FULL
 FULL Expected
+SET @@GLOBAL.binlog_row_image=3;
+SELECT @@GLOBAL.binlog_row_image;
+@@GLOBAL.binlog_row_image
+COMPLETE
+COMPLETE Expected
+SET @@SESSION.binlog_row_image=3;
+SELECT @@SESSION.binlog_row_image;
+@@SESSION.binlog_row_image
+COMPLETE
+COMPLETE Expected
 '#---------------------BS_STVARS_002_03----------------------#'
 SELECT @@GLOBAL.binlog_row_image = VARIABLE_VALUE
 FROM performance_schema.global_variables
