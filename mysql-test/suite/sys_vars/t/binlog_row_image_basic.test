@@ -65,6 +65,14 @@ SET @@SESSION.binlog_row_image=2;
 SELECT @@SESSION.binlog_row_image;
 --echo FULL Expected
 
+SET @@GLOBAL.binlog_row_image=3;
+SELECT @@GLOBAL.binlog_row_image;
+--echo COMPLETE Expected
+
+SET @@SESSION.binlog_row_image=3;
+SELECT @@SESSION.binlog_row_image;
+--echo COMPLETE Expected
+
 --echo '#---------------------BS_STVARS_002_03----------------------#'
 #################################################################
 # Check if the value in GLOBAL Table matches value in variable  #

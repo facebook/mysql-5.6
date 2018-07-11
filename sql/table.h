@@ -1680,7 +1680,8 @@ struct TABLE {
   void mark_columns_needed_for_update(THD *thd, bool mark_binlog_columns);
   void mark_columns_needed_for_delete(THD *thd);
   void mark_columns_needed_for_insert(THD *thd);
-  void mark_columns_per_binlog_row_image(THD *thd);
+  void mark_columns_per_binlog_row_image(THD *thd,
+                                         const bool is_insert = false);
   void mark_generated_columns(bool is_update);
   void mark_gcol_in_maps(const Field *field);
   void mark_check_constraint_columns(bool is_update);
