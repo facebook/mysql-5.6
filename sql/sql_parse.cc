@@ -6065,6 +6065,8 @@ Table_ref *Query_block::add_table_to_list(
   ptr->set_lock({lock_type, THR_DEFAULT});
   ptr->updating = table_options & TL_OPTION_UPDATING;
   ptr->ignore_leaves = table_options & TL_OPTION_IGNORE_LEAVES;
+  if (table_options & TL_OPTION_OPEN_IF_EXISTS)
+    ptr->open_strategy = Table_ref::OPEN_IF_EXISTS;
   ptr->set_derived_query_expression(table_name->sel);
 
   if (!ptr->is_derived() && !ptr->is_table_function() &&
