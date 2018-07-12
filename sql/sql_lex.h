@@ -285,6 +285,7 @@ enum class enum_alter_user_attribute {
 #define TL_OPTION_UPDATING 0x01
 #define TL_OPTION_IGNORE_LEAVES 0x02
 #define TL_OPTION_ALIAS 0x04
+#define TL_OPTION_OPEN_IF_EXISTS 0x10
 
 /* Structure for db & table in sql_yacc */
 class Table_function;
