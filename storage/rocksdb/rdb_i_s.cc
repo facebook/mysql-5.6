@@ -1483,19 +1483,21 @@ static int rdb_i_s_trx_info_init(void *const p) {
 namespace RDB_DEADLOCK_FIELD {
 enum {
   DEADLOCK_ID = 0,
+  TIMESTAMP,
   TRANSACTION_ID,
   CF_NAME,
   WAITING_KEY,
   LOCK_TYPE,
   INDEX_NAME,
   TABLE_NAME,
-  ROLLED_BACK
+  ROLLED_BACK,
 };
 } // namespace RDB_TRX_FIELD
 
 static ST_FIELD_INFO rdb_i_s_deadlock_info_fields_info[] = {
     ROCKSDB_FIELD_INFO("DEADLOCK_ID", sizeof(ulonglong), MYSQL_TYPE_LONGLONG,
                        0),
+    ROCKSDB_FIELD_INFO("TIMESTAMP", sizeof(ulonglong), MYSQL_TYPE_LONGLONG, 0),
     ROCKSDB_FIELD_INFO("TRANSACTION_ID", sizeof(ulonglong), MYSQL_TYPE_LONGLONG,
                        0),
     ROCKSDB_FIELD_INFO("CF_NAME", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
@@ -1532,8 +1534,11 @@ static int rdb_i_s_deadlock_info_fill_table(
 
   ulonglong id = 0;
   for (const auto &info : all_dl_info) {
+    auto deadlock_time = info.deadlock_time;
     for (const auto &trx_info : info.path) {
       tables->table->field[RDB_DEADLOCK_FIELD::DEADLOCK_ID]->store(id, true);
+      tables->table->field[RDB_DEADLOCK_FIELD::TIMESTAMP]->store(deadlock_time,
+                                                                 true);
       tables->table->field[RDB_DEADLOCK_FIELD::TRANSACTION_ID]->store(
           trx_info.trx_id, true);
       tables->table->field[RDB_DEADLOCK_FIELD::CF_NAME]->store(
