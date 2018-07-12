@@ -243,6 +243,7 @@ enum class enum_view_create_mode {
 #define TL_OPTION_FORCE_INDEX 2
 #define TL_OPTION_IGNORE_LEAVES 4
 #define TL_OPTION_ALIAS 8
+#define TL_OPTION_OPEN_IF_EXISTS 16
 
 /* Structure for db & table in sql_yacc */
 extern LEX_CSTRING EMPTY_CSTR;

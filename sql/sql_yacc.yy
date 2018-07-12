@@ -7426,25 +7426,27 @@ string_list:
 */
 
 alter_table_stmt:
-          ALTER TABLE_SYM table_ident opt_alter_table_actions
+          ALTER TABLE_SYM if_exists table_ident opt_alter_table_actions
           {
             $$= NEW_PTN PT_alter_table_stmt(
                   YYMEM_ROOT,
+                  $4,
                   $3,
-                  $4.actions,
-                  $4.flags.algo.get_or_default(),
-                  $4.flags.lock.get_or_default(),
-                  $4.flags.validation.get_or_default());
+                  $5.actions,
+                  $5.flags.algo.get_or_default(),
+                  $5.flags.lock.get_or_default(),
+                  $5.flags.validation.get_or_default());
           }
-        | ALTER TABLE_SYM table_ident standalone_alter_table_action
+        | ALTER TABLE_SYM if_exists table_ident standalone_alter_table_action
           {
             $$= NEW_PTN PT_alter_table_standalone_stmt(
                   YYMEM_ROOT,
+                  $4,
                   $3,
-                  $4.action,
-                  $4.flags.algo.get_or_default(),
-                  $4.flags.lock.get_or_default(),
-                  $4.flags.validation.get_or_default());
+                  $5.action,
+                  $5.flags.algo.get_or_default(),
+                  $5.flags.lock.get_or_default(),
+                  $5.flags.validation.get_or_default());
           }
         ;
 

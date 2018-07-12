@@ -6102,6 +6102,8 @@ TABLE_LIST *SELECT_LEX::add_table_to_list(
   /* TODO: remove TL_OPTION_FORCE_INDEX as it looks like it's not used */
   ptr->force_index = (table_options & TL_OPTION_FORCE_INDEX);
   ptr->ignore_leaves = (table_options & TL_OPTION_IGNORE_LEAVES);
+  if (table_options & TL_OPTION_OPEN_IF_EXISTS)
+    ptr->open_strategy = TABLE_LIST::OPEN_IF_EXISTS;
   ptr->set_derived_unit(table_name->sel);
   if (!ptr->is_derived() && !ptr->is_table_function() &&
       is_infoschema_db(ptr->db, ptr->db_length)) {
