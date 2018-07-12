@@ -25,6 +25,7 @@
 
 /* C++ standard header files */
 #include <algorithm>
+#include <inttypes.h>
 #include <limits>
 #include <map>
 #include <queue>
@@ -3623,6 +3624,7 @@ private:
     if (!path_entry.path.empty() && !path_entry.limit_exceeded) {
       auto deadlocking_txn = *(path_entry.path.end() - 1);
       deadlock_info.victim_trx_id = deadlocking_txn.m_txn_id;
+      deadlock_info.deadlock_time = path_entry.deadlock_time;
     }
     return deadlock_info;
   }
@@ -3669,16 +3671,18 @@ private:
         path_data += "\n*** DEADLOCK PATH\n"
                      "=========================================\n";
         const auto dl_info = get_dl_path_trx_info(path_entry);
+        const auto deadlock_time = dl_info.deadlock_time;
         for (auto it = dl_info.path.begin(); it != dl_info.path.end(); it++) {
           const auto trx_info = *it;
           path_data += format_string(
+              "TIMESTAMP: %" PRId64 "\n"
               "TRANSACTION ID: %u\n"
               "COLUMN FAMILY NAME: %s\n"
               "WAITING KEY: %s\n"
               "LOCK TYPE: %s\n"
               "INDEX NAME: %s\n"
               "TABLE NAME: %s\n",
-              trx_info.trx_id, trx_info.cf_name.c_str(),
+              deadlock_time, trx_info.trx_id, trx_info.cf_name.c_str(),
               trx_info.waiting_key.c_str(),
               trx_info.exclusive_lock ? "EXCLUSIVE" : "SHARED",
               trx_info.index_name.c_str(), trx_info.table_name.c_str());
