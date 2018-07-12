@@ -1928,13 +1928,15 @@ bool PT_alter_table_exchange_partition::contextualize(
 
 */
 static bool init_alter_table_stmt(Table_ddl_parse_context *pc,
-                                  Table_ident *table_name,
+                                  Table_ident *table_name, bool if_exists,
                                   Alter_info::enum_alter_table_algorithm algo,
                                   Alter_info::enum_alter_table_lock lock,
                                   Alter_info::enum_with_validation validation) {
   LEX *lex = pc->thd->lex;
+  ulong table_options = TL_OPTION_UPDATING;
+  if (if_exists) table_options |= TL_OPTION_OPEN_IF_EXISTS;
   if (!lex->select_lex->add_table_to_list(pc->thd, table_name, NULL,
-                                          TL_OPTION_UPDATING, TL_READ_NO_INSERT,
+                                          table_options, TL_READ_NO_INSERT,
                                           MDL_SHARED_UPGRADABLE))
     return true;
   lex->select_lex->init_order();
@@ -1960,7 +1962,8 @@ Sql_cmd *PT_alter_table_stmt::make_cmd(THD *thd) {
   thd->lex->create_info = &m_create_info;
   Table_ddl_parse_context pc(thd, thd->lex->current_select(), &m_alter_info);
 
-  if (init_alter_table_stmt(&pc, m_table_name, m_algo, m_lock, m_validation))
+  if (init_alter_table_stmt(&pc, m_table_name, m_if_exists, m_algo, m_lock,
+                            m_validation))
     return NULL;
 
   if (m_opt_actions) {
@@ -1997,7 +2000,8 @@ Sql_cmd *PT_alter_table_standalone_stmt::make_cmd(THD *thd) {
   thd->lex->create_info = &m_create_info;
 
   Table_ddl_parse_context pc(thd, thd->lex->current_select(), &m_alter_info);
-  if (init_alter_table_stmt(&pc, m_table_name, m_algo, m_lock, m_validation) ||
+  if (init_alter_table_stmt(&pc, m_table_name, m_if_exists, m_algo, m_lock,
+                            m_validation) ||
       m_action->contextualize(&pc))
     return NULL;
 
