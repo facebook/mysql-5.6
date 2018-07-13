@@ -4269,7 +4269,7 @@ static void dump_table(char *table, char *db)
                     "-- FBID table has less than 5 columns.\n");
           } else {
             char type[(strlen(row[stat_field_offset]) +
-                       strlen(row[FBID_IS_DELETED_FIELD]))];
+                       strlen(row[FBID_IS_DELETED_FIELD])) + 1];
             strcpy(type, row[stat_field_offset]);
             strcat(type, row[FBID_IS_DELETED_FIELD]);
             uint length= (lengths[stat_field_offset] +
