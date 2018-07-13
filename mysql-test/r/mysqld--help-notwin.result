@@ -1435,6 +1435,10 @@ The following options may be given as the first argument:
  --rocksdb-sst-mgr-rate-bytes-per-sec=# 
  DBOptions::sst_file_manager rate_bytes_per_sec for
  RocksDB
+ --rocksdb-sst-props[=name] 
+ Enable or disable ROCKSDB_SST_PROPS plugin. Possible
+ values are ON, OFF, FORCE (don't start if the plugin
+ fails to load).
  --rocksdb-stats-dump-period-sec=# 
  DBOptions::stats_dump_period_sec for RocksDB
  --rocksdb-stats-recalc-rate=# 
@@ -2256,6 +2260,7 @@ rocksdb-skip-bloom-filter-on-read FALSE
 rocksdb-skip-fill-cache FALSE
 rocksdb-skip-unique-check-tables (No default value)
 rocksdb-sst-mgr-rate-bytes-per-sec 0
+rocksdb-sst-props ON
 rocksdb-stats-dump-period-sec 600
 rocksdb-stats-recalc-rate 0
 rocksdb-store-row-debug-checksums FALSE
