@@ -1299,6 +1299,16 @@
 }
 
 {
+  Valgrind complains about still-reachable memory in std::unordered_map in Rocksdb
+  Memcheck:Leak
+  match-leak-kinds: reachable
+  ...
+  fun:_ZNSt10_HashtableIPKvSt4pairIKS1_N7rocksdb24ConstantColumnFamilyInfoEESaIS6_ENSt8__detail10_Select1stESt8equal_toIS1_ESt4hashIS1_ENS8_18_Mod_range_hashingENS8_20_Default_ranged_hashENS8_20_Prime_rehash_policyENS8_17_Hashtable_traitsILb0ELb0ELb1EEEE7emplaceIJRKSt21piecewise_construct_tSt5tupleIJS1_EESO_IJS1_NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESV_EEEEES2_INS8_14_Node_iteratorIS6_Lb0ELb0EEEbEDpOT_
+  fun:_ZNSt13unordered_mapIPKvN7rocksdb24ConstantColumnFamilyInfoESt4hashIS1_ESt8equal_toIS1_ESaISt4pairIKS1_S3_EEE7emplaceIJRKSt21piecewise_construct_tSt5tupleIJS1_EESH_IJS1_NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESO_EEEEES8_INSt8__detail14_Node_iteratorISA_Lb0ELb0EEEbEDpOT_
+  fun:_ZN7rocksdb19ThreadStatusUpdater19NewColumnFamilyInfoEPKvRKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEES2_SA_
+}
+
+{
    Valgrind complains about still-reachable memory in std::unordered_set in Rocksdb
    Memcheck:Leak
    match-leak-kinds: reachable
@@ -1306,4 +1316,35 @@
    fun:_ZNSt8__detail9_Map_baseIPKvSt4pairIKS2_St13unordered_setIS2_St4hashIS2_ESt8equal_toIS2_ESaIS2_EEESaISC_ENS_10_Select1stES9_S7_NS_18_Mod_range_hashingENS_20_Default_ranged_hashENS_20_Prime_rehash_policyENS_17_Hashtable_traitsILb0ELb0ELb1EEELb1EEixERS4_
    fun:_ZNSt13unordered_mapIPKvSt13unordered_setIS1_St4hashIS1_ESt8equal_toIS1_ESaIS1_EES4_S6_SaISt4pairIKS1_S8_EEEixERSA_
    fun:_ZN7rocksdb19ThreadStatusUpdater19NewColumnFamilyInfoEPKvRKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEES2_SA_   
+}
+
+{
+   Valgrind complains about still-reachable memory in std::unordered_set in Rocksdb
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:_ZNSt8__detail12_Insert_baseIPN7rocksdb16ThreadStatusDataES3_SaIS3_ENS_9_IdentityESt8equal_toIS3_ESt4hashIS3_ENS_18_Mod_range_hashingENS_20_Default_ranged_hashENS_20_Prime_rehash_policyENS_17_Hashtable_traitsILb0ELb1ELb1EEEE6insertERKS3_
+   fun:_ZNSt13unordered_setIPN7rocksdb16ThreadStatusDataESt4hashIS2_ESt8equal_toIS2_ESaIS2_EE6insertERKS2_
+   fun:_ZN7rocksdb19ThreadStatusUpdater14RegisterThreadENS_12ThreadStatus10ThreadTypeEm
+}
+
+{
+   Clang lowers the copy assignment operator of POD struct into memcpy, even when src and dst may alias
+   Memcheck:Overlap
+   fun:memcpy@@GLIBC_2.14
+   fun:_ZN7rocksdb27AdvancedColumnFamilyOptionsaSERKS0_
+}
+
+{
+   Clang lowers the copy assignment operator of POD struct into memcpy, even when src and dst may alias
+   Memcheck:Overlap
+   fun:memcpy@@GLIBC_2.14
+   fun:_ZN7rocksdb19ColumnFamilyOptionsaSERKS0_
+}
+
+{
+   Clang lowers the copy assignment operator of POD struct into memcpy, even when src and dst may alias
+   Memcheck:Overlap
+   fun:memcpy@@GLIBC_2.14
+   fun:update_state_info
 }
