@@ -1037,6 +1037,7 @@ int Binlog_transmit_delegate::transmit_start(THD *thd, ushort flags,
   Binlog_transmit_param param;
   param.flags = flags;
   param.server_id = thd->server_id;
+  param.host_or_ip = thd->security_context()->host_or_ip().str;
 
   int ret = 0;
   FOREACH_OBSERVER(ret, transmit_start, (&param, log_file, log_pos));
@@ -1048,6 +1049,7 @@ int Binlog_transmit_delegate::transmit_stop(THD *thd, ushort flags) {
   Binlog_transmit_param param;
   param.flags = flags;
   param.server_id = thd->server_id;
+  param.host_or_ip = thd->security_context()->host_or_ip().str;
 
   DBUG_EXECUTE_IF("crash_binlog_transmit_hook", DBUG_SUICIDE(););
 
@@ -1069,6 +1071,7 @@ int Binlog_transmit_delegate::reserve_header(THD *thd, ushort flags,
   Binlog_transmit_param param;
   param.flags = flags;
   param.server_id = thd->server_id;
+  param.host_or_ip = thd->security_context()->host_or_ip().str;
 
   DBUG_EXECUTE_IF("crash_binlog_transmit_hook", DBUG_SUICIDE(););
 
@@ -1116,6 +1119,7 @@ int Binlog_transmit_delegate::before_send_event(THD *thd, ushort flags,
   Binlog_transmit_param param;
   param.flags = flags;
   param.server_id = thd->server_id;
+  param.host_or_ip = thd->security_context()->host_or_ip().str;
 
   DBUG_EXECUTE_IF("crash_binlog_transmit_hook", DBUG_SUICIDE(););
 
@@ -1134,6 +1138,7 @@ int Binlog_transmit_delegate::after_send_event(THD *thd, ushort flags,
   Binlog_transmit_param param;
   param.flags = flags;
   param.server_id = thd->server_id;
+  param.host_or_ip = thd->security_context()->host_or_ip().str;
 
   DBUG_EXECUTE_IF("crash_binlog_transmit_hook", DBUG_SUICIDE(););
 
@@ -1151,6 +1156,7 @@ int Binlog_transmit_delegate::after_reset_master(THD *thd, ushort flags)
   Binlog_transmit_param param;
   param.flags = flags;
   param.server_id = thd->server_id;
+  param.host_or_ip = thd->security_context()->host_or_ip().str;
 
   int ret = 0;
   FOREACH_OBSERVER(ret, after_reset_master, (&param));

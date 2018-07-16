@@ -439,6 +439,7 @@ typedef struct Binlog_storage_observer {
 typedef struct Binlog_transmit_param {
   uint32 server_id;
   uint32 flags;
+  const char *host_or_ip;
   /* Let us keep 1-16 as output flags and 17-32 as input flags */
   static const uint32 F_OBSERVE = 1;
   static const uint32 F_DONT_OBSERVE = 2;
