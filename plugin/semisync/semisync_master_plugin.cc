@@ -135,7 +135,7 @@ static int repl_semi_binlog_dump_start(Binlog_transmit_param *param,
 
   LogErr(INFORMATION_LEVEL, ER_SEMISYNC_START_BINLOG_DUMP_TO_SLAVE,
          semi_sync_slave != 0 ? "semi-sync" : "asynchronous", param->server_id,
-         log_file, (unsigned long)log_pos);
+         log_file, (unsigned long)log_pos, param->host_or_ip);
   return 0;
 }
 
@@ -143,7 +143,8 @@ static int repl_semi_binlog_dump_end(Binlog_transmit_param *param) {
   bool semi_sync_slave = is_semi_sync_dump();
 
   LogErr(INFORMATION_LEVEL, ER_SEMISYNC_STOP_BINLOG_DUMP_TO_SLAVE,
-         semi_sync_slave ? "semi-sync" : "asynchronous", param->server_id);
+         semi_sync_slave ? "semi-sync" : "asynchronous", param->server_id,
+         param->host_or_ip);
 
   if (semi_sync_slave) {
     ack_receiver->remove_slave(current_thd);
