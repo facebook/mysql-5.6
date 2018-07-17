@@ -253,7 +253,6 @@ DROP DATABASE bug58090;
 # Bug#12688860 : SECURITY RECOMMENDATION: PASSWORDS ON CLI
 #
 Executing mysqlslap with password.
-mysqlslap: [Warning] Using a password on the command line interface can be insecure.
 
 #
 # Bug#18430704 : MYSQLSLAP CRASHES BY FLOATING POINT EXCEPTION

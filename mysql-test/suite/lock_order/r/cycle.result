@@ -16,7 +16,6 @@ In SSL session
 select "Dumping lock_order.txt file now" as title;
 title
 Dumping lock_order.txt file now
-mysqladmin: [Warning] Using a password on the command line interface can be insecure.
 UNINSTALL COMPONENT "file://component_pfs_example";
 UNINSTALL COMPONENT "file://component_validate_password";
 UNINSTALL PLUGIN rewriter;

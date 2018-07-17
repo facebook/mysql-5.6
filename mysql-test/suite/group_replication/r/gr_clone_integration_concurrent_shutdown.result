@@ -35,7 +35,6 @@ SET DEBUG_SYNC = 'now WAIT_FOR gr_clone_paused';
 
 ############################################################
 # 6. Shutdown the server while the clone is happening
-mysqladmin: [Warning] Using a password on the command line interface can be insecure.
 
 ############################################################
 # 7. Restart server2 using the backup folder

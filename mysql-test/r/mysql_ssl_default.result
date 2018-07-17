@@ -13,10 +13,8 @@ Variable_name	Value
 Ssl_cipher	SSL_CIPHER
 CREATE USER u1@localhost IDENTIFIED BY 'secret' REQUIRE SSL;
 # verify that mysqladmin default connect with ssl channel
-mysqladmin: [Warning] Using a password on the command line interface can be insecure.
 mysqld is alive
 # verify that mysql_show default connect with ssl channel
-mysqlshow: [Warning] Using a password on the command line interface can be insecure.
 +--------------------+
 |     Databases      |
 +--------------------+
