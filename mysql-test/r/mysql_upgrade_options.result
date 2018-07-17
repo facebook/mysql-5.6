@@ -2,7 +2,6 @@ The --upgrade-system-tables option was used, databases won't be touched.
 #
 # Bug#12688860 : SECURITY RECOMMENDATION: PASSWORDS ON CLI
 #
-mysql_upgrade: [Warning] Using a password on the command line interface can be insecure.
 mysql.columns_priv                                 OK
 mysql.component                                    OK
 mysql.db                                           OK

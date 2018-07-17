@@ -2,7 +2,6 @@
 CREATE USER mysqltest1@'%' IDENTIFIED by 'sakila';
 GRANT ALL ON *.* TO mysqltest1@'%';
 Run mysql_upgrade with password protected account
-mysql_upgrade: [Warning] Using a password on the command line interface can be insecure.
 mysql.columns_priv                                 OK
 mysql.component                                    OK
 mysql.db                                           OK
@@ -287,7 +286,6 @@ Host	User	Password	Select_priv	Insert_priv	Update_priv	Delete_priv	Create_priv	D
 #column and 4.1 hash password. After mysql_upgrade finishes the
 #mysql.user table should have 5.7 layout thus no need to restore the
 #dropped columns from the begining of the test
-mysql_upgrade: [Warning] Using a password on the command line interface can be insecure.
 mysql_upgrade: (non fatal) [WARNING] 1642: Pre-4.1 password hash found. It is deprecated and will be removed in a future release. Please upgrade it to a new format.
 mysql.columns_priv                                 Table is already up to date
 mysql.component                                    Table is already up to date

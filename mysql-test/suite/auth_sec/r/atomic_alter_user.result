@@ -20,13 +20,10 @@ userZ IDENTIFIED BY 'ijkl';
 # This event sequence pattern MUST be present in binlog: !Q(ALTER USER.*userX.*userY.*userZ.*)
 include/assert_binlog_events.inc
 include/save_binlog_position.inc
-mysql: [Warning] Using a password on the command line interface can be insecure.
 CURRENT_USER()
 userX@%
-mysql: [Warning] Using a password on the command line interface can be insecure.
 CURRENT_USER()
 userY@%
-mysql: [Warning] Using a password on the command line interface can be insecure.
 CURRENT_USER()
 userZ@%
 # Case 2 : Try to modify property of an non-existing user
@@ -36,13 +33,10 @@ userV IDENTIFIED BY 'haha';
 ERROR HY000: Operation ALTER USER failed for 'userW'@'%','userV'@'%'
 # This event sequence pattern MUST NOT be present in binlog: !Q(ALTER USER.*userW.*userX.*userV.*)
 include/assert_binlog_events.inc
-mysql: [Warning] Using a password on the command line interface can be insecure.
 CURRENT_USER()
 userX@%
-mysql: [Warning] Using a password on the command line interface can be insecure.
 CURRENT_USER()
 userY@%
-mysql: [Warning] Using a password on the command line interface can be insecure.
 CURRENT_USER()
 userZ@%
 # Case 3 : Remove one of the entries from mysql.user but don't flush privileges.
@@ -56,10 +50,8 @@ ERROR HY000: Operation ALTER USER failed for 'userX'@'%'
 include/assert_binlog_events.inc
 FLUSH PRIVILEGES;
 include/save_binlog_position.inc
-mysql: [Warning] Using a password on the command line interface can be insecure.
 CURRENT_USER()
 userY@%
-mysql: [Warning] Using a password on the command line interface can be insecure.
 CURRENT_USER()
 userZ@%
 # Case 4 : Try to expire own password in a failing DDL. We update
@@ -98,10 +90,8 @@ Note	3162	Authorization ID 'userZ'@'%' does not exist.
 # This event sequence pattern MUST be present in binlog: !Q(ALTER USER.*userW.*userX.*userY.*userZ.*)
 include/assert_binlog_events.inc
 include/save_binlog_position.inc
-mysql: [Warning] Using a password on the command line interface can be insecure.
 CURRENT_USER()
 userX@%
-mysql: [Warning] Using a password on the command line interface can be insecure.
 CURRENT_USER()
 userY@%
 # Case 2 : Remove one of the user from mysql.user table

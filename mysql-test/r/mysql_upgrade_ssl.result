@@ -74,7 +74,6 @@ Warning	1805	Column count of mysql.user is wrong. Expected 50, found 43. The tab
 #password set. After mysql_upgrade finishes the mysql.user table should
 #have 5.7 layout thus no need to restore the dropped columns from
 #the begining of the test
-mysql_upgrade: [Warning] Using a password on the command line interface can be insecure.
 mysql.columns_priv                                 Table is already up to date
 mysql.component                                    Table is already up to date
 mysql.db                                           Table is already up to date

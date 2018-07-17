@@ -207,7 +207,6 @@ Checking if update is needed.
 DROP USER root_sha256@localhost;
 CREATE USER root_caching_sha2@localhost IDENTIFIED WITH 'caching_sha2_password' BY 'abcd';
 GRANT ALL ON *.* TO root_caching_sha2@localhost WITH GRANT OPTION;
-mysql_upgrade: [Warning] Using a password on the command line interface can be insecure.
 Checking server version.
 Running queries to upgrade MySQL server.
 Upgrading system table data.
