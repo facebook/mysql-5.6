@@ -5,5 +5,4 @@ LENGTH(VARIABLE_VALUE) > 0
 1
 ############ Test mysqladmin ##############
 # Test mysqladmin connecting to a server with an empty crl
-mysqladmin: [Warning] Using a password on the command line interface can be insecure.
 mysqld is alive

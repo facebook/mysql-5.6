@@ -343,7 +343,6 @@ End of 5.1 tests
 #
 DROP DATABASE IF EXISTS b12688860_db;
 CREATE DATABASE b12688860_db;
-mysqlcheck: [Warning] Using a password on the command line interface can be insecure.
 DROP DATABASE b12688860_db;
 #
 # WL#2284: Increase the length of a user name

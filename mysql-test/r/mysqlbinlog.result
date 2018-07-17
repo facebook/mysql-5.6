@@ -1314,7 +1314,6 @@ SET GLOBAL SERVER_ID = 1;
 # Bug#12688860 : SECURITY RECOMMENDATION: PASSWORDS ON CLI
 #
 include/mysqlbinlog.inc
-mysqlbinlog: [Warning] Using a password on the command line interface can be insecure.
 # The proper term is pseudo_replica_mode, but we use this compatibility alias
 # to make the statement usable on server versions 8.0.24 and older.
 /*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=1*/;

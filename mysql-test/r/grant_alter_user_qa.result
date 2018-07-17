@@ -1391,12 +1391,10 @@ ssl_type	#
 password_expired	N
 password_lifetime	NULL
 GRANT ALL ON *.* TO user4@localhost;
-mysqladmin: [Warning] Using a password on the command line interface can be insecure.
 Warning: Since password will be sent to server in plain text, use ssl connection to ensure password safety.
 SELECT USER();
 USER()
 user4@localhost
-mysqladmin: [Warning] Using a password on the command line interface can be insecure.
 SELECT USER();
 USER()
 user4@localhost
@@ -1626,17 +1624,13 @@ CREATE USER bug20364862_dest@localhost IDENTIFIED BY 'dest_password';
 GRANT PROXY ON bug20364862_dest@localhost TO bug20364862_user@localhost;
 CREATE DATABASE db1;
 GRANT ALL PRIVILEGES ON db1.* TO bug20364862_dest@localhost WITH GRANT OPTION;
-mysql: [Warning] Using a password on the command line interface can be insecure.
 ERROR 1045 (28000) at line 1: Access denied for user 'bug20364862_dest'@'localhost' (using password: YES)
-mysql: [Warning] Using a password on the command line interface can be insecure.
 ERROR 4102 (HY000) at line 1: SET PASSWORD has no significance for user 'bug20364862_user'@'localhost' as the authentication method used doesn't store authentication data in the MySQL server. Please consider using ALTER USER instead if you want to change authentication parameters.
 SELECT USER, AUTHENTICATION_STRING FROM mysql.user WHERE user like 'bug20364862_user';
 USER	AUTHENTICATION_STRING
 bug20364862_user	bug20364862_dest
 GRANT UPDATE ON mysql.* TO bug20364862_dest@localhost;
 FLUSH PRIVILEGES;
-mysql: [Warning] Using a password on the command line interface can be insecure.
-mysql: [Warning] Using a password on the command line interface can be insecure.
 ERROR 4102 (HY000) at line 1: SET PASSWORD has no significance for user 'bug20364862_user'@'localhost' as the authentication method used doesn't store authentication data in the MySQL server. Please consider using ALTER USER instead if you want to change authentication parameters.
 SELECT USER, AUTHENTICATION_STRING FROM mysql.user WHERE user like 'bug20364862_user';
 USER	AUTHENTICATION_STRING
@@ -1644,8 +1638,6 @@ bug20364862_user	bug20364862_dest
 REVOKE UPDATE ON mysql.* FROM bug20364862_dest@localhost;
 GRANT CREATE USER ON *.* TO bug20364862_dest@localhost;
 FLUSH PRIVILEGES;
-mysql: [Warning] Using a password on the command line interface can be insecure.
-mysql: [Warning] Using a password on the command line interface can be insecure.
 ERROR 4102 (HY000) at line 1: SET PASSWORD has no significance for user 'bug20364862_user'@'localhost' as the authentication method used doesn't store authentication data in the MySQL server. Please consider using ALTER USER instead if you want to change authentication parameters.
 SELECT USER, AUTHENTICATION_STRING FROM mysql.user WHERE user like 'bug20364862_user';
 USER	AUTHENTICATION_STRING

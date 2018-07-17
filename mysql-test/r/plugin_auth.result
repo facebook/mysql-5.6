@@ -376,7 +376,6 @@ DROP USER bug12610784@localhost;
 # Bug # 11766641: 59792: BIN/MYSQL -UUNKNOWN -PUNKNOWN
 #  .-> USING PASSWORD: NO
 # should contain "using password=yes"
-mysql: [Warning] Using a password on the command line interface can be insecure.
 ERROR 1045 (28000): Access denied for user 'unknown'@'localhost' (using password: YES)
 # should contain "using password=no"
 ERROR 1045 (28000): Access denied for user 'unknown'@'localhost' (using password: NO)
@@ -413,11 +412,9 @@ GRANT PROXY ON 'employee'@'localhost' TO 'empl_external'@'localhost';
 ALTER USER employee@localhost PASSWORD EXPIRE;
 # Connecting with the proxied user and executing a query after the
 # proxied user's password is expired
-mysql: [Warning] Using a password on the command line interface can be insecure.
 ERROR 1820 (HY000) at line 1: You must reset your password using ALTER USER statement before executing this statement.
 # Connecting with the proxy user and executing a query after the proxied
 # user's password is expired. Here we are not supposed to get error.
-mysql: [Warning] Using a password on the command line interface can be insecure.
 current_user()
 employee@localhost
 user()

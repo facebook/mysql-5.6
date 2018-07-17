@@ -90,34 +90,26 @@ CREATE USER u2 IDENTIFIED WITH 'caching_sha2_password' BY 'pwd_u2';
 # Below steps ensures that password is not cached initially and
 # After successful login, it is cached. Hence same login statement
 # with which login was denied earlier is allowed now
-mysql: [Warning] Using a password on the command line interface can be insecure.
 ERROR 2061 (HY000): Authentication plugin 'caching_sha2_password' reported error: Authentication requires secure connection.
-mysql: [Warning] Using a password on the command line interface can be insecure.
 USER()	CURRENT_USER()
 u2@localhost	u2@%
-mysql: [Warning] Using a password on the command line interface can be insecure.
 USER()	CURRENT_USER()
 u2@localhost	u2@%
 [on slave]
 include/sync_slave_sql_with_master.inc
 # On slave it is ensured that password cached on master is not replicated
 # and after successful login on slave, it is cached
-mysql: [Warning] Using a password on the command line interface can be insecure.
 ERROR 2061 (HY000): Authentication plugin 'caching_sha2_password' reported error: Authentication requires secure connection.
-mysql: [Warning] Using a password on the command line interface can be insecure.
 USER()	CURRENT_USER()
 u2@localhost	u2@%
-mysql: [Warning] Using a password on the command line interface can be insecure.
 USER()	CURRENT_USER()
 u2@localhost	u2@%
 [on master]
 FLUSH PRIVILEGES;
 # Ensure that affect of FLUSH PRIVILEGE is propagated and cache from slave is also cleaned
-mysql: [Warning] Using a password on the command line interface can be insecure.
 ERROR 2061 (HY000): Authentication plugin 'caching_sha2_password' reported error: Authentication requires secure connection.
 [on slave]
 include/sync_slave_sql_with_master.inc
-mysql: [Warning] Using a password on the command line interface can be insecure.
 ERROR 2061 (HY000): Authentication plugin 'caching_sha2_password' reported error: Authentication requires secure connection.
 [on slave]
 include/stop_slave.inc
@@ -135,34 +127,26 @@ CREATE USER u3 IDENTIFIED WITH 'caching_sha2_password' BY 'pwd_u3';
 # Below steps ensures that password is not cached initially and
 # After successful login, it is cached. Hence same login statement
 # with which login was denied earlier is allowed now
-mysql: [Warning] Using a password on the command line interface can be insecure.
 ERROR 2061 (HY000): Authentication plugin 'caching_sha2_password' reported error: Authentication requires secure connection.
-mysql: [Warning] Using a password on the command line interface can be insecure.
 USER()	CURRENT_USER()
 u3@localhost	u3@%
-mysql: [Warning] Using a password on the command line interface can be insecure.
 USER()	CURRENT_USER()
 u3@localhost	u3@%
 [on slave]
 include/sync_slave_sql_with_master.inc
 # On slave it is ensured that password cached on master is not replicated
 # and after successful login on slave, it is cached
-mysql: [Warning] Using a password on the command line interface can be insecure.
 ERROR 2061 (HY000): Authentication plugin 'caching_sha2_password' reported error: Authentication requires secure connection.
-mysql: [Warning] Using a password on the command line interface can be insecure.
 USER()	CURRENT_USER()
 u3@localhost	u3@%
-mysql: [Warning] Using a password on the command line interface can be insecure.
 USER()	CURRENT_USER()
 u3@localhost	u3@%
 [on master]
 FLUSH PRIVILEGES;
 # Ensure that affect of FLUSH PRIVILEGE is prpoagated and cache from slave is also cleaned
-mysql: [Warning] Using a password on the command line interface can be insecure.
 ERROR 2061 (HY000): Authentication plugin 'caching_sha2_password' reported error: Authentication requires secure connection.
 [on slave]
 include/sync_slave_sql_with_master.inc
-mysql: [Warning] Using a password on the command line interface can be insecure.
 ERROR 2061 (HY000): Authentication plugin 'caching_sha2_password' reported error: Authentication requires secure connection.
 [on slave]
 include/stop_slave.inc
