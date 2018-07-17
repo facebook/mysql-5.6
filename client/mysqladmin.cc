@@ -1016,7 +1016,6 @@ static int execute_commands(MYSQL *mysql, int argc, char **argv) {
                                    (ulong)password_len);
           typed_password = tmp;
         } else {
-          print_cmdline_password_warning();
           typed_password = argv[1];
         }
 

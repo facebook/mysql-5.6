@@ -2490,7 +2490,6 @@ SELECT (SELECT now()-(SELECT password_last_changed from mysql.user where user='w
 UPDATE mysql.user SET password_last_changed = (now() - INTERVAL 3 DAY) where user='wl7131';
 FLUSH PRIVILEGES;
 # Attempt to execute query should fail
-mysql: [Warning] Using a password on the command line interface can be insecure.
 Please use --connect-expired-password option or invoke mysql in interactive mode.
 # Doing something should fail
 SELECT 1;
@@ -2517,7 +2516,6 @@ password_lifetime
 UPDATE mysql.user SET password_last_changed = (now() - INTERVAL 5 DAY) where user='wl7131';
 FLUSH PRIVILEGES;
 # This should pass as password is never expired.
-mysql: [Warning] Using a password on the command line interface can be insecure.
 ALTER USER 'wl7131' PASSWORD EXPIRE DEFAULT;
 # This should report NULL
 SELECT password_lifetime FROM mysql.user where user='wl7131';
@@ -2525,7 +2523,6 @@ password_lifetime
 NULL
 # This should not pass as default_password_lifetime
 # (which is 2 now) is being used.
-mysql: [Warning] Using a password on the command line interface can be insecure.
 Please use --connect-expired-password option or invoke mysql in interactive mode.
 SET GLOBAL default_password_lifetime = 0;
 ALTER USER 'wl7131' PASSWORD EXPIRE INTERVAL 4 DAY;
@@ -2534,7 +2531,6 @@ SELECT password_lifetime FROM mysql.user where user='wl7131';
 password_lifetime
 4
 # This should not pass.
-mysql: [Warning] Using a password on the command line interface can be insecure.
 Please use --connect-expired-password option or invoke mysql in interactive mode.
 SET GLOBAL default_password_lifetime = @saved_value;
 ALTER USER 'wl7131' PASSWORD EXPIRE INTERVAL 6 DAY;
@@ -2543,7 +2539,6 @@ select password_lifetime from mysql.user where user='wl7131';
 password_lifetime
 6
 # This should pass.
-mysql: [Warning] Using a password on the command line interface can be insecure.
 DROP USER 'wl7131';
 CREATE USER 'wl7131';
 # This should not report NULL

@@ -13,7 +13,6 @@ SELECT * FROM t1;
 a
 1
 # Start a asynchronous reload
-mysqladmin: [Warning] Using a password on the command line interface can be insecure.
 # Wait for tables to be closed
 # Timeout in include/wait_show_condition.inc for = '0'
 #         show_statement : SHOW STATUS LIKE 'Open_tables'
