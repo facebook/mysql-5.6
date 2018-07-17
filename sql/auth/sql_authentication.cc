@@ -1335,7 +1335,8 @@ static bool send_server_handshake_packet(MPVIO_EXT *mpvio, const char *data,
   DBUG_ASSERT(data_len <= 255);
   Protocol_classic *protocol = mpvio->protocol;
 
-  char *buff = (char *)my_alloca(1 + SERVER_VERSION_LENGTH + data_len + 64);
+  char *buff = (char *)my_alloca(1 + SERVER_VERSION_LENGTH + data_len + 64 +
+                                 strlen(MYSQL_COMPILATION_COMMENT) + 1);
   char scramble_buf[SCRAMBLE_LENGTH];
   char *end = buff;
 
@@ -1417,7 +1418,9 @@ static bool send_server_handshake_packet(MPVIO_EXT *mpvio, const char *data,
     data_len = SCRAMBLE_LENGTH;
   }
 
-  end = my_stpnmov(end, server_version, SERVER_VERSION_LENGTH) + 1;
+  end = my_stpnmov(end, server_version, SERVER_VERSION_LENGTH);
+  end = my_stpcpy(end, " ");
+  end = my_stpcpy(end, MYSQL_COMPILATION_COMMENT) + 1;
 
   DBUG_ASSERT(sizeof(my_thread_id) == 4);
   int4store((uchar *)end, mpvio->thread_id);

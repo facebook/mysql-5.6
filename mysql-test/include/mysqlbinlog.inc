@@ -102,7 +102,7 @@ if (!$mysqlbinlog_skip_replace)
     /thread_id=[0-9]*/thread_id=#/
     /table id [0-9]*/table id #/
     /mapped to number [0-9]*/mapped to number #/
-    /server v [^ ]*/server v #/
+    /server v [^ ]* [^ ]*[ ]?c/server v # c/
     /Start: binlog v [0-9]*/Start: binlog v #/
     /created [0-9]*[ ]*[0-9]*:[0-9]*:[0-9]* at startup/created # at startup/
     /(@[0-9]*=[0-9-]*[.][0-9]{1,3})[0-9e+-]*[^ ]*[ ]*(.*(FLOAT|DOUBLE).*[*].)/\1... \2/
