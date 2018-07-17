@@ -6,6 +6,10 @@ let $rpl_connection_name= master;
 let $rpl_server_number= 1;
 source include/rpl_connect.inc;
 
+let $rpl_connection_name= master1;
+let $rpl_server_number= 1;
+source include/rpl_connect.inc;
+
 let $rpl_connection_name= async_slave;
 let $rpl_server_number= 2;
 source include/rpl_connect.inc;
@@ -19,6 +23,7 @@ set @save.rpl_wait_for_semi_sync_ack= @@global.rpl_wait_for_semi_sync_ack;
 set @@global.rpl_wait_for_semi_sync_ack= true;
 set @save.rpl_semi_sync_master_timeout= @@global.rpl_semi_sync_master_timeout;
 set @@global.rpl_semi_sync_master_timeout= 10000000;
+call mtr.add_suppression("Error while waiting for semi-sync ACK on dump thread");
 
 
 connection semi_sync_slave;
@@ -36,7 +41,6 @@ show tables;
 
 connection semi_sync_slave;
 SET DEBUG_SYNC='now SIGNAL continue';
-set @@global.debug= '-d,before_semi_sync_reply';
 
 connection master;
 reap;
@@ -51,9 +55,146 @@ echo "Async Slave: Should contain t1";
 show tables;
 
 
+# The dump thread should be killable when waiting for an ack
+connection master;
+send create table t2(a int);
+
+connection semi_sync_slave;
+SET DEBUG_SYNC='now WAIT_FOR reached';
+
+connection master1;
+let $wait_condition= select count(*)= 1 from information_schema.processlist where state like '%Waiting for an ACK from semi-sync ACKers%';
+source include/wait_condition.inc;
+
+echo "Killing thread";
+let $id= `select id from information_schema.processlist where state like '%Waiting for an ACK from semi-sync ACKers%'`;
+replace_result $id id;
+eval kill $id;
+
+let $wait_condition= select count(*)= 0 from information_schema.processlist where id= $id;
+source include/wait_condition.inc;
+
+echo "Waiting for async slave to reconnect";
+let $wait_condition= select count(*)= 2 from information_schema.processlist where command like '%Binlog Dump%';
+source include/wait_condition.inc;
+
+echo "t2 should not be present in async slave";
+connection async_slave;
+show tables;
+
+connection semi_sync_slave;
+SET DEBUG_SYNC='now SIGNAL continue';
+
+echo "Tables on master";
+connection master;
+reap;
+show tables;
+
+echo "Waiting for both slaves to catchup";
+connection master;
+let $sync_slave_connection= async_slave;
+source include/sync_slave_sql_with_master.inc;
+connection master;
+let $sync_slave_connection= semi_sync_slave;
+source include/sync_slave_sql_with_master.inc;
+connection async_slave;
+show tables;
+connection semi_sync_slave;
+show tables;
+
+
+# Dump thread should stop waiting if either rpl_semi_sync_master_enabled or
+# rpl_wait_for_semi_sync_ack is disabled
+
+# Disabling rpl_semi_sync_master_enabled
+connection master;
+send create table t3(a int);
+
+connection semi_sync_slave;
+SET DEBUG_SYNC='now WAIT_FOR reached';
+
+connection master1;
+let $wait_condition= select count(*)= 1 from information_schema.processlist where state like '%Waiting for an ACK from semi-sync ACKers%';
+source include/wait_condition.inc;
+
+echo "Switching off rpl_semi_sync_master_enabled while async thread is waiting for ack";
+set @@global.rpl_semi_sync_master_enabled = 0;
+
+echo "Waiting till async slave is caught up";
+let $sync_slave_connection= async_slave;
+source include/sync_slave_sql_with_master.inc;
+connection async_slave;
+show tables;
+
+connection semi_sync_slave;
+SET DEBUG_SYNC='now SIGNAL continue';
+
+echo "Switching rpl_semi_sync_master_enabled back on";
+connection master;
+reap;
+set @@global.rpl_semi_sync_master_enabled = 1;
+
+connection semi_sync_slave;
+stop slave;
+start slave;
+
+connection master;
+echo "Waiting till semi-sync slave is caught up";
+let $sync_slave_connection= semi_sync_slave;
+source include/sync_slave_sql_with_master.inc;
+connection semi_sync_slave;
+show tables;
+
+# Disabling rpl_wait_for_semi_sync_ack
+
+connection master;
+send create table t4(a int);
+
+connection semi_sync_slave;
+SET DEBUG_SYNC='now WAIT_FOR reached';
+
+connection master1;
+let $wait_condition= select count(*)= 1 from information_schema.processlist where state like '%Waiting for an ACK from semi-sync ACKers%';
+source include/wait_condition.inc;
+
+echo "Switching off rpl_wait_for_semi_sync_ack while async thread is waiting for ack";
+set @@global.rpl_wait_for_semi_sync_ack = 0;
+
+echo "Waiting till async slave is caught up";
+let $sync_slave_connection= async_slave;
+source include/sync_slave_sql_with_master.inc;
+connection async_slave;
+show tables;
+
+connection semi_sync_slave;
+SET DEBUG_SYNC='now SIGNAL continue';
+
+echo "Switching rpl_wait_for_semi_sync_ack back on";
+connection master;
+reap;
+set @@global.rpl_wait_for_semi_sync_ack = 1;
+
+connection semi_sync_slave;
+stop slave;
+start slave;
+
+connection master;
+echo "Waiting till semi-sync slave is caught up";
+let $sync_slave_connection= semi_sync_slave;
+source include/sync_slave_sql_with_master.inc;
+connection semi_sync_slave;
+show tables;
+
+
 # Cleanup
+connection semi_sync_slave;
+set @@global.debug= '-d,before_semi_sync_reply';
+
 connection master;
 drop table t1;
+drop table t2;
+drop table t3;
+drop table t4;
 set @@global.rpl_wait_for_semi_sync_ack= @save.rpl_wait_for_semi_sync_ack;
 set @@global.rpl_semi_sync_master_timeout= @save.rpl_semi_sync_master_timeout;
 

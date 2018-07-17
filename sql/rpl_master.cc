@@ -112,6 +112,9 @@ static PSI_cond_key key_COND_last_acked;
 #endif
 static bool semi_sync_last_ack_inited= false;
 
+// defined in plugin/semisync/semisync_master.cc
+extern char rpl_semi_sync_master_enabled;
+
 #ifndef DBUG_OFF
 static int binlog_dump_count = 0;
 #endif
@@ -210,20 +213,46 @@ void destroy_semi_sync_last_acked()
   }
 }
 
-static void wait_for_semi_sync_ack(const LOG_POS_COORD *const coord)
+static bool wait_for_semi_sync_ack(const LOG_POS_COORD *const coord)
 {
-  auto current= std::make_pair(std::string(coord->file_name), coord->pos);
+  const auto current= std::make_pair(std::string(coord->file_name), coord->pos);
+  PSI_stage_info old_stage;
+
   mysql_mutex_lock(&LOCK_last_acked);
-  // case: wait till this log pos is >= to the last acked log pos
-  while (current > last_acked)
-    mysql_cond_wait(&COND_last_acked, &LOCK_last_acked);
-  mysql_mutex_unlock(&LOCK_last_acked);
+  current_thd->ENTER_COND(&COND_last_acked,
+                          &LOCK_last_acked,
+                          &stage_slave_waiting_semi_sync_ack,
+                          &old_stage);
+  // TODO: there is a potential race here between global vars
+  // (rpl_semi_sync_mater_enabled and rpl_wait_for_semi_sync_ack) being updated
+  // and this thread going to conditional sleep, that's why we're looping on a 1
+  // sec timedwait. All of this should be inside the semi-sync plugin but none
+  // of the plugin callbacks are called for async threads, so this is the only
+  // viable workaround.
+  // case: wait till this log pos is <= to the last acked log pos, or if waiting
+  // is not required anymore
+  while (!current_thd->killed &&
+         rpl_semi_sync_master_enabled &&
+         rpl_wait_for_semi_sync_ack &&
+         current > last_acked)
+  {
+    ++repl_semi_sync_master_ack_waits;
+    // wait for an ack for 1 second, then retry if applicable
+    struct timespec abstime;
+    set_timespec(abstime, 1);
+    mysql_cond_timedwait(&COND_last_acked, &LOCK_last_acked, &abstime);
+  }
+  current_thd->EXIT_COND(&old_stage);
+
+  // return true only if we're alive i.e. we came here because we received a
+  // successful ACK or if an ACK is no longer required
+  return !current_thd->killed;
 }
 
 static void signal_semi_sync_ack(const LOG_POS_COORD *const acked_coord)
 {
-  auto acked= std::make_pair(std::string(acked_coord->file_name),
-                             acked_coord->pos);
+  const auto acked= std::make_pair(std::string(acked_coord->file_name),
+                                   acked_coord->pos);
   mysql_mutex_lock(&LOCK_last_acked);
   if (acked > last_acked)
   {
@@ -847,8 +876,15 @@ int my_net_write_event(NET *net,
   binlog_comp_event comp_event;
 
   // case: wait for ack from semi-sync acker before sending the event
-  if (wait_for_ack && !is_semi_sync_slave)
-    wait_for_semi_sync_ack(coord);
+  if (unlikely(wait_for_ack &&
+               !is_semi_sync_slave &&
+               !wait_for_semi_sync_ack(coord)))
+  {
+    if (errmsg) *errmsg = "Error while waiting for semi-sync ACK";
+    if (errnum) *errnum= ER_UNKNOWN_ERROR;
+    sql_print_error("Error while waiting for semi-sync ACK on dump thread");
+    return 1;
+  }
 
   DBUG_ASSERT(!(net->compress_event && net->compress));
   if (net->compress_event)
@@ -1996,6 +2032,12 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
     my_errno= ER_UNKNOWN_ERROR;
     GOTO_ERR;
   }
+
+  // case: let's assume semi-sync acks have been received for binlog pos being
+  // requested by the acker
+  if (semi_sync_slave && !skip_group && rpl_wait_for_semi_sync_ack)
+    signal_semi_sync_ack(p_start_coord);
+
   has_transmit_started= true;
   /* reset transmit packet for the fake rotate event below */
   if (reset_transmit_packet(thd, flags, &ev_offset, &errmsg,
@@ -2448,6 +2490,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                                semi_sync_slave,
                                event_type != FORMAT_DESCRIPTION_EVENT &&
                                event_type != ROTATE_EVENT,
+                               rpl_semi_sync_master_enabled &&
                                rpl_wait_for_semi_sync_ack))
         {
           GOTO_ERR;

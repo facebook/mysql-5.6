@@ -6,12 +6,14 @@ Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 include/rpl_connect.inc [creating master]
+include/rpl_connect.inc [creating master1]
 include/rpl_connect.inc [creating async_slave]
 include/rpl_connect.inc [creating semi_sync_slave]
 set @save.rpl_wait_for_semi_sync_ack= @@global.rpl_wait_for_semi_sync_ack;
 set @@global.rpl_wait_for_semi_sync_ack= true;
 set @save.rpl_semi_sync_master_timeout= @@global.rpl_semi_sync_master_timeout;
 set @@global.rpl_semi_sync_master_timeout= 10000000;
+call mtr.add_suppression("Error while waiting for semi-sync ACK on dump thread");
 set @@global.debug= '+d,before_semi_sync_reply';
 create table t1 (a int);
 SET DEBUG_SYNC='now WAIT_FOR reached';
@@ -19,7 +21,6 @@ SET DEBUG_SYNC='now WAIT_FOR reached';
 show tables;
 Tables_in_test
 SET DEBUG_SYNC='now SIGNAL continue';
-set @@global.debug= '-d,before_semi_sync_reply';
 "Master: Should contain t1"
 show tables;
 Tables_in_test
@@ -29,7 +30,85 @@ include/sync_slave_sql_with_master.inc
 show tables;
 Tables_in_test
 t1
+create table t2(a int);
+SET DEBUG_SYNC='now WAIT_FOR reached';
+"Killing thread"
+kill id;
+"Waiting for async slave to reconnect"
+"t2 should not be present in async slave"
+show tables;
+Tables_in_test
+t1
+SET DEBUG_SYNC='now SIGNAL continue';
+"Tables on master"
+show tables;
+Tables_in_test
+t1
+t2
+"Waiting for both slaves to catchup"
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+show tables;
+Tables_in_test
+t1
+t2
+show tables;
+Tables_in_test
+t1
+t2
+create table t3(a int);
+SET DEBUG_SYNC='now WAIT_FOR reached';
+"Switching off rpl_semi_sync_master_enabled while async thread is waiting for ack"
+set @@global.rpl_semi_sync_master_enabled = 0;
+"Waiting till async slave is caught up"
+include/sync_slave_sql_with_master.inc
+show tables;
+Tables_in_test
+t1
+t2
+t3
+SET DEBUG_SYNC='now SIGNAL continue';
+"Switching rpl_semi_sync_master_enabled back on"
+set @@global.rpl_semi_sync_master_enabled = 1;
+stop slave;
+start slave;
+"Waiting till semi-sync slave is caught up"
+include/sync_slave_sql_with_master.inc
+show tables;
+Tables_in_test
+t1
+t2
+t3
+create table t4(a int);
+SET DEBUG_SYNC='now WAIT_FOR reached';
+"Switching off rpl_wait_for_semi_sync_ack while async thread is waiting for ack"
+set @@global.rpl_wait_for_semi_sync_ack = 0;
+"Waiting till async slave is caught up"
+include/sync_slave_sql_with_master.inc
+show tables;
+Tables_in_test
+t1
+t2
+t3
+t4
+SET DEBUG_SYNC='now SIGNAL continue';
+"Switching rpl_wait_for_semi_sync_ack back on"
+set @@global.rpl_wait_for_semi_sync_ack = 1;
+stop slave;
+start slave;
+"Waiting till semi-sync slave is caught up"
+include/sync_slave_sql_with_master.inc
+show tables;
+Tables_in_test
+t1
+t2
+t3
+t4
+set @@global.debug= '-d,before_semi_sync_reply';
 drop table t1;
+drop table t2;
+drop table t3;
+drop table t4;
 set @@global.rpl_wait_for_semi_sync_ack= @save.rpl_wait_for_semi_sync_ack;
 set @@global.rpl_semi_sync_master_timeout= @save.rpl_semi_sync_master_timeout;
 include/sync_slave_sql_with_master.inc

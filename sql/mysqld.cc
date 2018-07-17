@@ -599,6 +599,9 @@ ulonglong relay_sql_wait_time= 0;
    It is updated every minute */
 double comp_event_cache_hit_ratio= 0;
 
+/* Number of times async dump threads waited for semi-sync ACK */
+ulonglong repl_semi_sync_master_ack_waits= 0;
+
 /* status variables for binlog fsync histogram */
 SHOW_VAR latency_histogram_binlog_fsync[NUMBER_OF_HISTOGRAM_BINS + 1];
 ulonglong histogram_binlog_fsync_values[NUMBER_OF_HISTOGRAM_BINS];
@@ -10516,6 +10519,7 @@ SHOW_VAR status_vars[]= {
   {"Rpl_seconds_delete_rows",  (char*) &repl_event_times[DELETE_ROWS_EVENT],   SHOW_TIMER},
   {"Rpl_seconds_incident",     (char*) &repl_event_times[INCIDENT_EVENT],      SHOW_TIMER},
   {"Compressed_event_cache_hit_ratio", (char*) &comp_event_cache_hit_ratio, SHOW_DOUBLE},
+  {"Rpl_semi_sync_master_ack_waits",  (char*) &repl_semi_sync_master_ack_waits, SHOW_LONGLONG},
 #endif
   {"rocksdb_git_hash",         (char*) rocksdb_git_hash, SHOW_CHAR },
   {"rocksdb_git_date",         (char*) rocksdb_git_date, SHOW_CHAR },
@@ -12767,6 +12771,7 @@ PSI_stage_info stage_slave_waiting_worker_to_release_partition= { 0, "Waiting fo
 PSI_stage_info stage_slave_waiting_worker_to_free_events= { 0, "Waiting for Slave Workers to free pending events", 0};
 PSI_stage_info stage_slave_waiting_worker_queue= { 0, "Waiting for Slave Worker queue", 0};
 PSI_stage_info stage_slave_waiting_event_from_coordinator= { 0, "Waiting for an event from Coordinator", 0};
+PSI_stage_info stage_slave_waiting_semi_sync_ack= { 0, "Waiting for an ACK from semi-sync ACKers", 0};
 
 #ifdef HAVE_PSI_INTERFACE
 

@@ -404,6 +404,7 @@ extern ulong relay_io_events, relay_sql_events;
 extern ulonglong relay_io_bytes, relay_sql_bytes;
 extern ulonglong relay_sql_wait_time;
 extern double comp_event_cache_hit_ratio;
+extern ulonglong repl_semi_sync_master_ack_waits;
 extern my_bool recv_skip_ibuf_operations;
 
 /* SHOW STATS var: Name of current timer */
@@ -1290,6 +1291,7 @@ extern PSI_stage_info stage_slave_waiting_worker_to_release_partition;
 extern PSI_stage_info stage_slave_waiting_worker_to_free_events;
 extern PSI_stage_info stage_slave_waiting_worker_queue;
 extern PSI_stage_info stage_slave_waiting_event_from_coordinator;
+extern PSI_stage_info stage_slave_waiting_semi_sync_ack;
 extern PSI_stage_info stage_slave_waiting_workers_to_exit;
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
 /**
