@@ -508,10 +508,8 @@ Connected
 #
 # Bug#12688860 : SECURITY RECOMMENDATION: PASSWORDS ON CLI
 #
-mysql: [Warning] Using a password on the command line interface can be insecure.
 1
 1
-mysql: [Warning] Using a password on the command line interface can be insecure.
 1
 1
 a
@@ -527,10 +525,7 @@ mysql: [ERROR] mysql: Empty value for 'port' specified.
 # Bug #21464621: MYSQL CLI SHOULD SUGGEST CONNECT-EXPIRED-PASSWORD WHEN ERROR 1862 OCCURS
 #
 CREATE USER bug21464621 IDENTIFIED BY 'password' PASSWORD EXPIRE;
-mysql: [Warning] Using a password on the command line interface can be insecure.
 Please use --connect-expired-password option or invoke mysql in interactive mode.
-mysql: [Warning] Using a password on the command line interface can be insecure.
-mysql: [Warning] Using a password on the command line interface can be insecure.
 user()
 bug21464621@localhost
 DROP USER bug21464621;
