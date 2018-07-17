@@ -1243,8 +1243,6 @@ BOOL windows_ctrl_handler(DWORD fdwCtrlType) {
 #endif
 
 int main(int argc, char *argv[]) {
-  char buff[80];
-
   MY_INIT(argv[0]);
   DBUG_TRACE;
   DBUG_PROCESS(argv[0]);
@@ -1364,8 +1362,6 @@ int main(int argc, char *argv[]) {
            mysql_thread_id(&mysql), server_version_string(&mysql));
   put_info(glob_buffer.ptr(), INFO_INFO);
 
-  put_info(ORACLE_WELCOME_COPYRIGHT_NOTICE("2000"), INFO_INFO);
-
   if (!status.batch) {
     // history ignore patterns are initialized to default values
     ignore_matcher.add_patterns(HI_DEFAULTS);
@@ -1422,12 +1418,6 @@ int main(int argc, char *argv[]) {
     }
 #endif
   }
-
-  sprintf(
-      buff, "%s",
-      "Type 'help;' or '\\h' for help. Type '\\c' to clear the current input "
-      "statement.\n");
-  put_info(buff, INFO_INFO);
 
   uint protocol = MYSQL_PROTOCOL_DEFAULT;
   uint ssl_mode = 0;
