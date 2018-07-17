@@ -9,7 +9,6 @@ update mysql.user set plugin= 'sha256_password', authentication_string= '' where
 FLUSH PRIVILEGES;
 SET PASSWORD='123';
 call mtr.add_suppression("Dictionary file not specified");
-mysql_secure_installation: [Warning] Using a password on the command line interface can be insecure.
 
 Securing the MySQL server deployment.
 
@@ -51,7 +50,6 @@ Reloading the privilege tables will ensure that all changes
 made so far will take effect immediately.
 
 Reload privilege tables now? (Press y|Y for Yes, any other key for No) : Execution number 1 was successful
-mysql_secure_installation: [Warning] Using a password on the command line interface can be insecure.
 
 Securing the MySQL server deployment.
 

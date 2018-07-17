@@ -527,8 +527,6 @@ int my_handle_options(int *argc, char ***argv, const struct my_option *longopts,
         } else
           argument = optend;
 
-        if (optp->var_type == GET_PASSWORD && is_cmdline_arg && argument)
-          print_cmdline_password_warning();
       } else /* must be short option */
       {
         for (optend = cur_arg; *optend; optend++) {
@@ -556,8 +554,6 @@ int my_handle_options(int *argc, char ***argv, const struct my_option *longopts,
                   argument = optend + 1;
                   /* This is in effect a jump out of the outer loop */
                   optend = space_char;
-                  if (optp->var_type == GET_PASSWORD && is_cmdline_arg)
-                    print_cmdline_password_warning();
                 } else {
                   if (optp->arg_type == OPT_ARG) {
                     if (optp->var_type == GET_BOOL)
@@ -657,20 +653,6 @@ done:
   */
   (*argv)[argvpos] = nullptr;
   return 0;
-}
-
-/**
- * This function should be called to print a warning message
- * if password string is specified on the command line.
- */
-
-void print_cmdline_password_warning() {
-  static bool password_warning_announced = false;
-
-  if (!password_warning_announced) {
-    my_message_local(WARNING_LEVEL, EE_USING_PASSWORD_ON_CLI_IS_INSECURE);
-    password_warning_announced = true;
-  }
 }
 
 /**
