@@ -1380,7 +1380,11 @@ static bool send_server_handshake_packet(MPVIO_EXT *mpvio, const char *data,
     data_len = SCRAMBLE_LENGTH;
   }
 
-  end = my_stpnmov(end, server_version, SERVER_VERSION_LENGTH) + 1;
+  end = my_stpnmov(end, server_version, SERVER_VERSION_LENGTH);
+  end = my_stpcpy(end, " ");
+  end = my_stpnmov(end,
+                   MYSQL_COMPILATION_COMMENT,
+                   SERVER_VERSION_LENGTH - (end - buff - 1)) + 1;
 
   DBUG_ASSERT(sizeof(my_thread_id) == 4);
   int4store((uchar *)end, mpvio->thread_id);
