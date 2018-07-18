@@ -1348,3 +1348,45 @@
    fun:memcpy@@GLIBC_2.14
    fun:update_state_info
 }
+
+#Suppress warnings from initialization of glibc network functions
+
+{
+  <getaddrinfo>
+  Memcheck:Leak
+  ...
+  fun:getaddrinfo
+  ...
+}
+
+{
+  <getmntent>
+  Memcheck:Leak
+  ...
+  fun:getmntent
+  ...
+}
+
+{
+  <gethostbyname>
+  Memcheck:Leak
+  ...
+  fun:gethostbyname
+  ...
+}
+
+{
+  <gethostbyaddr>
+  Memcheck:Leak
+  ...
+  fun:gethostbyaddr
+  ...
+}
+
+{
+  <getnameinfo>
+  Memcheck:Leak
+  ...
+  fun:getnameinfo
+  ...
+}
