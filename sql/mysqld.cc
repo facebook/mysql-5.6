@@ -78,6 +78,7 @@
 #include "opt_trace_context.h"
 #include "sql_multi_tenancy.h"
 #include "native_procedure_priv.h"
+#include "lf.h"
 
 #include "global_threads.h"
 #include "mysqld.h"
@@ -1067,6 +1068,12 @@ Gtid_state *gtid_state= NULL;
 extern my_bool opt_core_file;
 
 std::unique_ptr<HHWheelTimer> hhWheelTimer;
+
+/*
+  Since performance schema might not be compiled in, reference
+  LF_HASH_OVERHEAD here to pull in the lf library.
+*/
+int dummy_lf_size= LF_HASH_OVERHEAD;
 
 /*
   global_thread_list and waiting_thd_list are both pointers to objects
