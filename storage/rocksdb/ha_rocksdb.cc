@@ -4702,7 +4702,7 @@ static int rocksdb_init_func(void *const p) {
                              cf_options_map->get_defaults());
 
   rocksdb::TransactionDBOptions tx_db_options;
-  tx_db_options.transaction_lock_timeout = 2; // 2 seconds
+  tx_db_options.transaction_lock_timeout = 2000;  // 2 seconds
   tx_db_options.custom_mutex_factory = std::make_shared<Rdb_mutex_factory>();
   tx_db_options.write_policy =
       static_cast<rocksdb::TxnDBWritePolicy>(rocksdb_write_policy);
