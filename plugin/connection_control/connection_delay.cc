@@ -24,6 +24,10 @@
 #include "security_context_wrapper.h"
 
 
+#include "../mysys/lf_hash.c"
+#include "../mysys/lf_alloc-pin.c"
+#include "../mysys/lf_dynarray.c"
+
 /* Forward declaration */
 bool schema_table_store_record(THD *thd, TABLE *table);
 
