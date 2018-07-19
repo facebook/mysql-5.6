@@ -2653,6 +2653,7 @@ static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
   uint server_id = 0;
   my_off_t old_off = start_position_mot;
   char log_file_name[FN_REFLEN + 1];
+  char cur_log_file_name[FN_REFLEN + 1];
   Exit_status retval = OK_CONTINUE;
   unsigned char *event_buf = nullptr;
   ulong event_len;
@@ -2808,6 +2809,21 @@ static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
 
         if (rev->common_header->when.tv_sec == 0) {
           if (!to_last_remote_log) {
+            // logname is NULL if mysqlbinlog is run with
+            // --exclude-gtids or --start-gtid. In these cases
+            // the first fake rotate event should not be considered as end of
+            // binlog file.
+            if (logname == NULL &&
+                (opt_exclude_gtids_str != NULL || opt_start_gtid_str != NULL)) {
+              // store the first fake rotate event.
+              // mysqlbinlog exists after reading this binlog file.
+              // If --to-last-log is used, then mysqlbinlog will not
+              // stop after reading this binlog file, but continue reading
+              // all the binary logs.
+              strcpy(cur_log_file_name, rev->new_log_ident);
+              logname = cur_log_file_name;
+            }
+
             if ((rev->ident_len != rpl.file_name_length) ||
                 memcmp(rev->new_log_ident, logname, rpl.file_name_length)) {
               return OK_CONTINUE;
@@ -3250,7 +3266,7 @@ static int args_post_process(void) {
       opt_remote_proto != BINLOG_DUMP_GTID) {
     error(
         "--start-gtid requires --index-file option or "
-        "--read-from-remote-server=BINLOG_DUMP_GTID option");
+        "--read-from-remote-master=BINLOG_DUMP_GTID option");
     return ERROR_STOP;
   }
 
@@ -3526,7 +3542,8 @@ int main(int argc, char **argv) {
 
   parse_args(&argc, &argv);
 
-  if (!argc && opt_find_gtid_str == nullptr && opt_start_gtid_str == nullptr) {
+  if (!argc && opt_find_gtid_str == nullptr && opt_start_gtid_str == nullptr &&
+      opt_exclude_gtids_str == nullptr) {
     usage();
     my_end(my_end_arg);
     return EXIT_FAILURE;
@@ -3621,6 +3638,12 @@ int main(int argc, char **argv) {
       else if (opt_find_gtid_str)
         retval = start_gtid_dump(opt_find_gtid_str, true);
     }
+  } else if (!argc && opt_exclude_gtids_str != NULL) {
+    // server can automatically find binlog file name when using
+    // auto_position using --exclude-gtids. So passing binlog file
+    // name to mysqlbinlog is not necessary in this case.
+    char *args = NULL;
+    retval = dump_multiple_logs(1, &args);
   } else {
     retval = dump_multiple_logs(argc, argv);
   }
