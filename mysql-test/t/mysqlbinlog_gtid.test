@@ -11,31 +11,45 @@ FLUSH LOGS;
 -- let $MASTER_UUID = `SELECT @@SERVER_UUID;`
 -- let $MYSQLD_DATADIR = `select @@datadir;`
 
--- exec $MYSQL_BINLOG --index-file=$MYSQLD_DATADIR/master-bin.index --find-gtid-position=$MASTER_UUID:1-4
--- echo
+-- let $mysqlbinlog_parameters= --index-file=$MYSQLD_DATADIR/master-bin.index --find-gtid-position=$MASTER_UUID:1-4
+-- source include/mysqlbinlog.inc
 
--- exec $MYSQL_BINLOG --index-file=$MYSQLD_DATADIR/master-bin.index --find-gtid-position=$MASTER_UUID:1-6
--- echo
+-- let $mysqlbinlog_parameters= --index-file=$MYSQLD_DATADIR/master-bin.index --find-gtid-position=$MASTER_UUID:1-6
+-- source include/mysqlbinlog.inc
 
+-- let $mysqlbinlog_pipe= | grep -v commit_timestamp
 -- echo ** Reading from local binlog **
--- replace_result $MASTER_UUID uuid
--- exec $MYSQL_BINLOG --force-if-open --short_form --index-file=$MYSQLD_DATADIR/master-bin.index --start-gtid=$MASTER_UUID:3 | grep -v commit_timestamp
+-- let $mysqlbinlog_parameters= --force-if-open --short_form --index-file=$MYSQLD_DATADIR/master-bin.index --start-gtid=$MASTER_UUID:3
+-- source include/mysqlbinlog.inc
 
--- replace_result $MASTER_UUID uuid
--- exec $MYSQL_BINLOG --force-if-open --short_form --index-file=$MYSQLD_DATADIR/master-bin.index --start-gtid=$MASTER_UUID:4 | grep -v commit_timestamp
+-- let $mysqlbinlog_parameters= --force-if-open --short_form --index-file=$MYSQLD_DATADIR/master-bin.index --start-gtid=$MASTER_UUID:4 
+-- source include/mysqlbinlog.inc
 
 -- echo ** Reading from remote master with GTIDS on **
--- replace_result $MASTER_UUID uuid
--- exec $MYSQL_BINLOG --short-form --read-from-remote-master=BINLOG-DUMP-GTID --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --start-gtid=$MASTER_UUID:3 --to-last-log | grep -v commit_timestamp
+-- let $mysqlbinlog_parameters= --short-form --read-from-remote-master=BINLOG-DUMP-GTID --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --start-gtid=$MASTER_UUID:3 --to-last-log
+-- source include/mysqlbinlog.inc
+-- let $mysqlbinlog_pipe=
 
--- replace_result $MASTER_UUID uuid
--- exec $MYSQL_BINLOG --short-form --read-from-remote-master=BINLOG-DUMP-GTID --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --start-gtid=$MASTER_UUID:4 --to-last-log | grep -v commit_timestamp
+-- echo ** Reading from remote master using --exclude-gtids **
+-- let $mysqlbinlog_parameters= --short-form --read-from-remote-master=BINLOG-DUMP-GTID --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --exclude-gtids='$MASTER_UUID:1-3'
+-- source include/mysqlbinlog.inc
 
+-- echo ** Reading from remote master using --exclude-gtids --to-last-log**
+-- let $mysqlbinlog_parameters= --short-form --read-from-remote-master=BINLOG-DUMP-GTID --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --exclude-gtids='$MASTER_UUID:1-3' --to-last-log
+-- source include/mysqlbinlog.inc
+
+-- let $mysqlbinlog_parameters= --short-form --read-from-remote-master=BINLOG-DUMP-GTID --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --start-gtid=$MASTER_UUID:4 --to-last-log
+-- let $mysqlbinlog_pipe= | grep -v commit_timestamp
+-- source include/mysqlbinlog.inc
+-- let $mysqlbinlog_pipe=
+
+-- let $mysqlbinlog_allow_error= 1
 # Malformed Gtid
--- error 1
--- exec $MYSQL_BINLOG --short_form --index-file=$MYSQLD_DATADIR/master-bin.index --start-gtid=malformed_gtid
--- error 1
--- exec $MYSQL_BINLOG --short-form --read-from-remote-master=BINLOG-DUMP-GTID --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --start-gtid=malformed_gtid --to-last-log
+-- let $mysqlbinlog_parameters= --short_form --index-file=$MYSQLD_DATADIR/master-bin.index --start-gtid=malformed_gtid
+-- source include/mysqlbinlog.inc
+
+-- let $mysqlbinlog_parameters= --short-form --read-from-remote-master=BINLOG-DUMP-GTID --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --start-gtid=malformed_gtid --to-last-log
+-- source include/mysqlbinlog.inc
 
 -- let $mysqlbinlog_allow_error= 0
 
@@ -70,14 +84,17 @@ FLUSH LOGS;
 PURGE BINARY LOGS TO 'master-bin.000002';
 
 # Purged Gtid
--- replace_result $MASTER_UUID uuid
--- error 1
--- exec $MYSQL_BINLOG --short_form --index-file=$MYSQLD_DATADIR/master-bin.index --start-gtid=$MASTER_UUID:1
--- error 1
--- exec $MYSQL_BINLOG --short-form --read-from-remote-master=BINLOG-DUMP-GTID --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --start-gtid=$MASTER_UUID:1 --to-last-log
+-- let $mysqlbinlog_allow_error= 1
+-- let $mysqlbinlog_parameters= --short_form --index-file=$MYSQLD_DATADIR/master-bin.index --start-gtid=$MASTER_UUID:1
+-- source include/mysqlbinlog.inc
+
+-- let $mysqlbinlog_parameters= --short-form --read-from-remote-master=BINLOG-DUMP-GTID --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --start-gtid=$MASTER_UUID:1 --to-last-log
+-- source include/mysqlbinlog.inc
 
 # Purged Gtid Set
--- error 1
--- exec $MYSQL_BINLOG --index-file=$MYSQLD_DATADIR/master-bin.index --find-gtid-position=$MASTER_UUID:1-2
+-- let $mysqlbinlog_parameters= --index-file=$MYSQLD_DATADIR/master-bin.index --find-gtid-position=$MASTER_UUID:1-2
+-- source include/mysqlbinlog.inc
+
+-- let $mysqlbinlog_allow_error= 0
 
 drop table t1;
