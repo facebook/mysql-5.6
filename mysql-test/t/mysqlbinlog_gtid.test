@@ -31,6 +31,36 @@ FLUSH LOGS;
 -- error 1
 -- exec $MYSQL_BINLOG --short-form --read-from-remote-master=BINLOG-DUMP-GTID --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --start-gtid=malformed_gtid --to-last-log
 
+-- let $mysqlbinlog_allow_error= 0
+
+-- echo ** Reading from remote master using --stop-gtid **
+-- let $mysqlbinlog_parameters= --short-form --read-from-remote-master=BINLOG-DUMP-GTID --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --start-gtid=$MASTER_UUID:2 --stop-gtid='$MASTER_UUID:2-4' --to-last-log
+-- let $mysqlbinlog_pipe= | grep -v commit_timestamp
+-- source include/mysqlbinlog.inc
+-- let $mysqlbinlog_pipe=
+
+-- echo ** Reading from index file using --stop-gtid **
+-- let $mysqlbinlog_parameters= --short-form --index-file=$MYSQLD_DATADIR/master-bin.index --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --start-gtid=$MASTER_UUID:2 --stop-gtid='$MASTER_UUID:2-4' --to-last-log
+-- let $mysqlbinlog_pipe= | grep -v commit_timestamp
+-- source include/mysqlbinlog.inc
+-- let $mysqlbinlog_pipe=
+-- let $mysqlbinlog_allow_error= 1
+
+-- echo ** Reading from index file --stop-gtid with malformed gtid **
+-- let $mysqlbinlog_parameters= --short_form --index-file=$MYSQLD_DATADIR/master-bin.index --start-gtid=$MASTER_UUID:2 --stop-gtid=malformed_gtid
+-- source include/mysqlbinlog.inc
+
+-- echo ** Reading from remote master --stop-gtid with malformed gtid **
+-- let $mysqlbinlog_parameters= --short-form --read-from-remote-master=BINLOG-DUMP-GTID --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --start-gtid=$MASTER_UUID:2 --stop-gtid=malformed_gtid --to-last-log
+-- source include/mysqlbinlog.inc
+
+-- echo ** --stop-gtid without --index-file nor --read-from-remote-master **
+-- let $mysqlbinlog_parameters= --short_form --start-gtid=$MASTER_UUID:2 --stop-gtid=malformed_gtid --to-last-log
+-- source include/mysqlbinlog.inc
+
+-- let $mysqlbinlog_allow_error= 0
+
+
 PURGE BINARY LOGS TO 'master-bin.000002';
 
 # Purged Gtid
