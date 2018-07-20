@@ -142,6 +142,7 @@ static bool verbose = 0, opt_no_create_info = 0, opt_no_data = 0, quick = 1,
             opt_print_ordering_key = 0, opt_ignore_views = 0, opt_rocksdb = 0,
             opt_order_by_primary_desc = 0;
 static bool insert_pat_inited = 0, debug_info_flag = 0, debug_check_flag = 0;
+static bool opt_enable_checksum_table = 0;
 static ulong opt_max_allowed_packet, opt_net_buffer_length;
 static MYSQL mysql_connection, *mysql = 0;
 static DYNAMIC_STRING insert_pat;
@@ -617,6 +618,10 @@ static struct my_option my_long_options[] = {
      "value and net_read_timeout/net_write_timeout to large value.",
      &opt_network_timeout, &opt_network_timeout, 0, GET_BOOL, NO_ARG, 1, 0, 0,
      0, 0, 0},
+    {"enable_checksum_table", OPT_ENABLE_CHECKSUM_TABLE,
+     "Flag that enables the checksums of all tables to be generated.",
+     &opt_enable_checksum_table, &opt_enable_checksum_table, 0, GET_BOOL,
+     OPT_ARG, 0, 0, 0, 0, 0, 0},
     {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}};
 
 static const char *load_default_groups[] = {"mysqldump", "client", 0};
@@ -995,6 +1000,18 @@ static int get_options(int *argc, char ***argv) {
   if (!path && (enclosed || opt_enclosed || escaped || lines_terminated ||
                 fields_terminated)) {
     fprintf(stderr, "%s: You must use option --tab with --fields-...\n",
+            my_progname);
+    return (EX_USAGE);
+  }
+
+  /*
+   --enable_checksum_table is not supported if --tab (-T) is enabled
+  */
+  if (path && opt_enable_checksum_table) {
+    /* NO_LINT_DEBUG */
+    fprintf(stderr,
+            "%s: --opt_enable_checksum_table is not supported when --tab(-T) "
+            "option is specified.\n",
             my_progname);
     return (EX_USAGE);
   }
@@ -3561,6 +3578,7 @@ static void dump_table(char *table, char *db) {
   MYSQL_FIELD *field;
   MYSQL_ROW row;
   bool real_columns[MAX_FIELDS];
+  ha_checksum crc = 0;
   DBUG_ENTER("dump_table");
 
   /*
@@ -3774,6 +3792,7 @@ static void dump_table(char *table, char *db) {
     }
 
     while ((row = mysql_fetch_row(res))) {
+      ha_checksum row_crc = 0;
       uint i;
       ulong *lengths = mysql_fetch_lengths(res);
       rownr++;
@@ -3791,6 +3810,10 @@ static void dump_table(char *table, char *db) {
       for (i = 0; i < mysql_num_fields(res); i++) {
         int is_blob;
         ulong length = lengths[i];
+
+        if (row[i] && opt_enable_checksum_table) {
+          row_crc = my_checksum(row_crc, (uchar *)row[i], length);
+        }
 
         if (!(field = mysql_fetch_field(res)))
           die(EX_CONSCHECK, "Not enough fields from table %s! Aborting.\n",
@@ -3941,6 +3964,11 @@ static void dump_table(char *table, char *db) {
         check_io(md_result_file);
       }
 
+      if (opt_enable_checksum_table) {
+        // Cumulate the crc for the table
+        crc += row_crc;
+      }
+
       if (extended_insert) {
         size_t row_length;
         dynstr_append_checked(&extended_row, ")");
@@ -3999,6 +4027,10 @@ static void dump_table(char *table, char *db) {
     print_comment(md_result_file, 0,
                   "\n--\n-- Rows found for %s: %lu\n--\n",
                   table, rownr);
+    if (opt_enable_checksum_table) {
+      print_comment(md_result_file, 0, "\n--\n-- Checksum for %s: %u\n--\n\n",
+                    table, crc);
+    }
   }
   dynstr_free(&query_string);
   if (extended_insert) dynstr_free(&extended_row);
