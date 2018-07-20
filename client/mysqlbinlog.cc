@@ -770,6 +770,7 @@ Gtid_set *gtid_set_included = nullptr;
 Gtid_set *gtid_set_excluded = nullptr;
 static uint opt_zstd_compress_level = default_zstd_compression_level;
 static char *opt_compress_algorithm = nullptr;
+Gtid_set *gtid_set_stop = nullptr;
 
 static bool opt_print_table_metadata;
 
@@ -789,7 +790,8 @@ enum Exit_status {
   Options that will be used to filter out events.
 */
 static char *opt_include_gtids_str = nullptr, *opt_exclude_gtids_str = nullptr,
-            *opt_start_gtid_str = nullptr, *opt_find_gtid_str = nullptr;
+            *opt_start_gtid_str = nullptr, *opt_find_gtid_str = nullptr,
+            *opt_stop_gtid_str = nullptr;
 static char *opt_index_file_str = nullptr;
 Gtid_set_map previous_gtid_set_map;
 static bool opt_skip_gtids = false;
@@ -1094,6 +1096,29 @@ static void convert_path_to_forward_slashes(char *fname) {
 static bool shall_skip_database(const char *log_dbname) {
   return one_database && (log_dbname != nullptr) &&
          strcmp(log_dbname, database);
+}
+
+/**
+  Checks whether to stop receiving more events based on the stop-gtids option.
+  Note that we stop if the current event is *outside* stop-gtids, as opposed to
+  if the current event is *within* stop-gtids. This is a bit counter-intuitive
+  but unfortunately it is too late to address this now.
+
+  @param[in] ev Pointer to the event to be checked.
+
+  @return true if it's time to stop receiving
+          false, otherwise.
+*/
+static bool shall_stop_gtids(Log_event *ev) {
+  if (opt_stop_gtid_str != NULL) {
+    if (ev->get_type_code() == binary_log::GTID_LOG_EVENT ||
+        ev->get_type_code() == binary_log::ANONYMOUS_GTID_LOG_EVENT) {
+      Gtid_log_event *gtid = (Gtid_log_event *)ev;
+      return !gtid_set_stop->contains_gtid(gtid->get_sidno(true),
+                                           gtid->get_gno());
+    }
+  }
+  return false;
 }
 
 /**
@@ -1407,7 +1432,8 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
     }
 
     // reached stop time
-    if (((my_time_t)(ev->common_header->when.tv_sec) >= stop_datetime)) {
+    if (((my_time_t)(ev->common_header->when.tv_sec) >= stop_datetime) ||
+        shall_stop_gtids(ev)) {
       /* end the program */
       retval = OK_STOP;
       goto end;
@@ -2073,9 +2099,15 @@ static struct my_option my_long_options[] = {
      /* def_val */ 1024 * 1024, /* min_value */ 1024, /* max_value */ UINT_MAX,
      nullptr, /* block_size */ 1024, nullptr},
     {"start-gtid", OPT_START_GTID,
-     "Binlog dump from the given gtid. This requires index-file option.",
+     "Binlog dump from the given gtid. This requires index-file option or "
+     "--read-from-remote-master=BINLOG-DUMP-GTIDS option. ",
      &opt_start_gtid_str, &opt_start_gtid_str, 0, GET_STR_ALLOC, REQUIRED_ARG,
      0, 0, 0, nullptr, 0, nullptr},
+    {"stop-gtid", OPT_STOP_GTID,
+     "Binlog dump stop if outside the given gtid. This requires index-file "
+     "option or --read-from-remote-master=BINLOG-DUMP-GTIDS option. ",
+     &opt_stop_gtid_str, &opt_stop_gtid_str, 0, GET_STR_ALLOC, REQUIRED_ARG, 0,
+     0, 0, nullptr, 0, nullptr},
     {"find-gtid-position", OPT_FIND_GTID_POSITION,
      "Prints binlog file name and starting position of Gtid_log_event "
      "corresponding to the given gtid. This requires index-file option.",
@@ -3222,9 +3254,28 @@ static int args_post_process(void) {
 
   if (opt_start_gtid_str != nullptr && opt_remote_proto == BINLOG_DUMP_GTID) {
     global_sid_lock->rdlock();
+    // Update gtid_set_excluded as it will be sent to server side indicating
+    // the starting point when USING_START_GTID_PROTOCOL is set.
     if (gtid_set_excluded->add_gtid_text(opt_start_gtid_str) !=
         RETURN_STATUS_OK) {
       error("Could not configure --start-gtid '%s'", opt_start_gtid_str);
+      global_sid_lock->unlock();
+      return ERROR_STOP;
+    }
+    global_sid_lock->unlock();
+  }
+
+  if (opt_stop_gtid_str != NULL) {
+    if (opt_index_file_str == NULL && opt_remote_proto != BINLOG_DUMP_GTID) {
+      error(
+          "--stop-gtid requires --index-file option or "
+          "--read-from-remote-master=BINLOG_DUMP_GTID option");
+      return ERROR_STOP;
+    }
+
+    global_sid_lock->rdlock();
+    if (gtid_set_stop->add_gtid_text(opt_stop_gtid_str) != RETURN_STATUS_OK) {
+      error("Could not configure --stop-gtid '%s'", opt_stop_gtid_str);
       global_sid_lock->unlock();
       return ERROR_STOP;
     }
@@ -3243,10 +3294,12 @@ inline void gtid_client_cleanup() {
   delete global_sid_map;
   delete gtid_set_excluded;
   delete gtid_set_included;
+  delete gtid_set_stop;
   global_sid_lock = nullptr;
   global_sid_map = nullptr;
   gtid_set_excluded = nullptr;
   gtid_set_included = nullptr;
+  gtid_set_stop = nullptr;
 }
 
 /**
@@ -3259,7 +3312,8 @@ inline bool gtid_client_init() {
   bool res = (!(global_sid_lock = new Checkable_rwlock) ||
               !(global_sid_map = new Sid_map(global_sid_lock)) ||
               !(gtid_set_excluded = new Gtid_set(global_sid_map)) ||
-              !(gtid_set_included = new Gtid_set(global_sid_map)));
+              !(gtid_set_included = new Gtid_set(global_sid_map)) ||
+              !(gtid_set_stop = new Gtid_set(global_sid_map)));
   if (res) {
     gtid_client_cleanup();
   }
