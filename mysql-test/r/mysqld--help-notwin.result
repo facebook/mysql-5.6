@@ -1209,6 +1209,9 @@ The following options may be given as the first argument:
  --rocksdb-deadlock-detect-depth=# 
  Number of transactions deadlock detection will traverse
  through before assuming deadlock
+ --rocksdb-debug-manual-compaction-delay=# 
+ For debugging purposes only. Sleeping specified seconds
+ for simulating long running compactions.
  --rocksdb-debug-optimizer-n-rows=# 
  Test only to override rocksdb estimates of table size in
  a memtable
@@ -1336,6 +1339,8 @@ The following options may be given as the first argument:
  DBOptions::log_file_time_to_roll for RocksDB
  --rocksdb-manifest-preallocation-size=# 
  DBOptions::manifest_preallocation_size for RocksDB
+ --rocksdb-manual-compaction-threads=# 
+ How many rocksdb threads to run for manual compactions
  --rocksdb-manual-wal-flush 
  DBOptions::manual_wal_flush for RocksDB
  (Defaults to on; use --skip-rocksdb-manual-wal-flush to disable.)
@@ -1350,6 +1355,9 @@ The following options may be given as the first argument:
  DBOptions::max_log_file_size for RocksDB
  --rocksdb-max-manifest-file-size=# 
  DBOptions::max_manifest_file_size for RocksDB
+ --rocksdb-max-manual-compactions=# 
+ Maximum number of pending + ongoing number of manual
+ compactions.
  --rocksdb-max-open-files=# 
  DBOptions::max_open_files for RocksDB
  --rocksdb-max-row-locks=# 
@@ -2186,6 +2194,7 @@ rocksdb-ddl ON
 rocksdb-deadlock ON
 rocksdb-deadlock-detect FALSE
 rocksdb-deadlock-detect-depth 50
+rocksdb-debug-manual-compaction-delay 0
 rocksdb-debug-optimizer-n-rows 0
 rocksdb-debug-optimizer-no-zero-cardinality TRUE
 rocksdb-debug-ttl-ignore-pk FALSE
@@ -2224,12 +2233,14 @@ rocksdb-lock-wait-timeout 1
 rocksdb-locks ON
 rocksdb-log-file-time-to-roll 0
 rocksdb-manifest-preallocation-size 4194304
+rocksdb-manual-compaction-threads 0
 rocksdb-manual-wal-flush TRUE
 rocksdb-master-skip-tx-api FALSE
 rocksdb-max-background-jobs 2
 rocksdb-max-latest-deadlocks 5
 rocksdb-max-log-file-size 0
 rocksdb-max-manifest-file-size 1073741824
+rocksdb-max-manual-compactions 10
 rocksdb-max-open-files -2
 rocksdb-max-row-locks 1048576
 rocksdb-max-subcompactions 1
