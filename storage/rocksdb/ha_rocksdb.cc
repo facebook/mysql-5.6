@@ -179,11 +179,15 @@ static handler *rocksdb_create_handler(my_core::handlerton *hton,
                                        my_core::TABLE_SHARE *table_arg,
                                        my_core::MEM_ROOT *mem_root);
 
-static rocksdb::CompactRangeOptions getCompactRangeOptions() {
+static rocksdb::CompactRangeOptions
+getCompactRangeOptions(int concurrency = 0) {
   rocksdb::CompactRangeOptions compact_range_options;
   compact_range_options.bottommost_level_compaction =
       rocksdb::BottommostLevelCompaction::kForce;
   compact_range_options.exclusive_manual_compaction = false;
+  if (concurrency > 0) {
+    compact_range_options.max_subcompactions = concurrency;
+  }
   return compact_range_options;
 }
 
@@ -220,6 +224,8 @@ Rdb_io_watchdog *io_watchdog = nullptr;
 
 static Rdb_background_thread rdb_bg_thread;
 
+static Rdb_manual_compaction_thread rdb_mc_thread;
+
 // List of table names (using regex) that are exceptions to the strict
 // collation check requirement.
 Regex_list_handler *rdb_collation_exceptions;
@@ -231,30 +237,6 @@ static void rocksdb_flush_all_memtables() {
   for (const auto &cf_handle : cf_manager.get_all_cf()) {
     rdb->Flush(rocksdb::FlushOptions(), cf_handle);
   }
-}
-
-static void rocksdb_compact_column_family_stub(
-    THD *const thd, struct st_mysql_sys_var *const var, void *const var_ptr,
-    const void *const save) {}
-
-static int rocksdb_compact_column_family(THD *const thd,
-                                         struct st_mysql_sys_var *const var,
-                                         void *const var_ptr,
-                                         struct st_mysql_value *const value) {
-  char buff[STRING_BUFFER_USUAL_SIZE];
-  int len = sizeof(buff);
-
-  DBUG_ASSERT(value != nullptr);
-
-  if (const char *const cf = value->val_str(value, buff, &len)) {
-    auto cfh = cf_manager.get_cf(cf);
-    if (cfh != nullptr && rdb != nullptr) {
-      sql_print_information("RocksDB: Manual compaction of column family: %s\n",
-                            cf);
-      rdb->CompactRange(getCompactRangeOptions(), cfh, nullptr, nullptr);
-    }
-  }
-  return HA_EXIT_SUCCESS;
 }
 
 ///////////////////////////////////////////////////////////
@@ -551,11 +533,15 @@ static uint64_t rocksdb_write_policy =
     rocksdb::TxnDBWritePolicy::WRITE_COMMITTED;
 static my_bool rocksdb_error_on_suboptimal_collation = 1;
 static uint32_t rocksdb_stats_recalc_rate = 0;
+static uint32_t rocksdb_debug_manual_compaction_delay = 0;
+static uint32_t rocksdb_max_manual_compactions = 0;
 
 std::atomic<uint64_t> rocksdb_row_lock_deadlocks(0);
 std::atomic<uint64_t> rocksdb_row_lock_wait_timeouts(0);
 std::atomic<uint64_t> rocksdb_snapshot_conflict_errors(0);
 std::atomic<uint64_t> rocksdb_wal_group_syncs(0);
+std::atomic<uint64_t> rocksdb_manual_compactions_processed(0);
+std::atomic<uint64_t> rocksdb_manual_compactions_running(0);
 
 static std::unique_ptr<rocksdb::DBOptions> rdb_init_rocksdb_db_options(void) {
   auto o = std::unique_ptr<rocksdb::DBOptions>(new rocksdb::DBOptions());
@@ -679,6 +665,14 @@ static int rocksdb_validate_flush_log_at_trx_commit(
   *static_cast<uint32_t *>(var_ptr) = static_cast<uint32_t>(new_value);
   return HA_EXIT_SUCCESS;
 }
+static void rocksdb_compact_column_family_stub(
+    THD *const thd, struct st_mysql_sys_var *const var, void *const var_ptr,
+    const void *const save) {}
+
+static int rocksdb_compact_column_family(THD *const thd,
+                                         struct st_mysql_sys_var *const var,
+                                         void *const var_ptr,
+                                         struct st_mysql_value *const value);
 
 static const char *index_type_names[] = {"kBinarySearch", "kHashSearch", NullS};
 
@@ -838,6 +832,12 @@ static MYSQL_THDVAR_ULONGLONG(
     /* default (0ms) */ RDB_DEFAULT_MERGE_TMP_FILE_REMOVAL_DELAY,
     /* min (0ms) */ RDB_MIN_MERGE_TMP_FILE_REMOVAL_DELAY,
     /* max */ SIZE_T_MAX, 1);
+
+static MYSQL_THDVAR_INT(
+    manual_compaction_threads, PLUGIN_VAR_RQCMDARG,
+    "How many rocksdb threads to run for manual compactions", nullptr, nullptr,
+    /* default rocksdb.dboption max_subcompactions */ 0,
+    /* min */ 0, /* max */ 128, 0);
 
 static MYSQL_SYSVAR_BOOL(
     create_if_missing,
@@ -1433,6 +1433,18 @@ static MYSQL_SYSVAR_BOOL(
     "on PK TTL data. This variable is a no-op in non-debug builds.",
     nullptr, nullptr, FALSE);
 
+static MYSQL_SYSVAR_UINT(
+    max_manual_compactions, rocksdb_max_manual_compactions, PLUGIN_VAR_RQCMDARG,
+    "Maximum number of pending + ongoing number of manual compactions.",
+    nullptr, nullptr, /* default */ 10, /* min */ 0, /* max */ UINT_MAX, 0);
+
+static MYSQL_SYSVAR_UINT(
+    debug_manual_compaction_delay, rocksdb_debug_manual_compaction_delay,
+    PLUGIN_VAR_RQCMDARG,
+    "For debugging purposes only. Sleeping specified seconds "
+    "for simulating long running compactions.",
+    nullptr, nullptr, 0, /* min */ 0, /* max */ UINT_MAX, 0);
+
 static MYSQL_SYSVAR_BOOL(
     reset_stats, rocksdb_reset_stats, PLUGIN_VAR_RQCMDARG,
     "Reset the RocksDB internal statistics without restarting the DB.", nullptr,
@@ -1762,6 +1774,9 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(allow_to_start_after_corruption),
     MYSQL_SYSVAR(error_on_suboptimal_collation),
     MYSQL_SYSVAR(stats_recalc_rate),
+    MYSQL_SYSVAR(debug_manual_compaction_delay),
+    MYSQL_SYSVAR(max_manual_compactions),
+    MYSQL_SYSVAR(manual_compaction_threads),
     nullptr};
 
 static rocksdb::WriteOptions
@@ -1774,6 +1789,50 @@ rdb_get_rocksdb_write_options(my_core::THD *const thd) {
       THDVAR(thd, write_ignore_missing_column_families);
 
   return opt;
+}
+
+static int rocksdb_compact_column_family(THD *const thd,
+                                         struct st_mysql_sys_var *const var,
+                                         void *const var_ptr,
+                                         struct st_mysql_value *const value) {
+  char buff[STRING_BUFFER_USUAL_SIZE];
+  int len = sizeof(buff);
+
+  DBUG_ASSERT(value != nullptr);
+
+  if (const char *const cf = value->val_str(value, buff, &len)) {
+    auto cfh = cf_manager.get_cf(cf);
+    if (cfh != nullptr && rdb != nullptr) {
+      int mc_id = rdb_mc_thread.request_manual_compaction(
+          cfh, nullptr, nullptr, THDVAR(thd, manual_compaction_threads));
+      if (mc_id == -1) {
+        my_error(ER_INTERNAL_ERROR, MYF(0),
+                 "Can't schedule more manual compactions. "
+                 "Increase rocksdb_max_manual_compactions or stop issuing "
+                 "more manual compactions.");
+        return HA_EXIT_FAILURE;
+      } else if (mc_id < 0) {
+        return HA_EXIT_FAILURE;
+      }
+      // NO_LINT_DEBUG
+      sql_print_information("RocksDB: Manual compaction of column family: %s\n",
+                            cf);
+      // Checking thd state every short cycle (100ms). This is for allowing to
+      // exiting this function without waiting for CompactRange to finish.
+      do {
+        my_sleep(100000);
+      } while (!thd->killed &&
+               !rdb_mc_thread.is_manual_compaction_finished(mc_id));
+
+      if (thd->killed) {
+        // This cancels if requested compaction state is INITED.
+        // TODO(yoshinorim): Cancel running compaction as well once
+        // it is supported in RocksDB.
+        rdb_mc_thread.clear_manual_compaction_request(mc_id, true);
+      }
+    }
+  }
+  return HA_EXIT_SUCCESS;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -4423,9 +4482,11 @@ static int rocksdb_init_func(void *const p) {
   rdb_bg_thread.init(rdb_signal_bg_psi_mutex_key, rdb_signal_bg_psi_cond_key);
   rdb_drop_idx_thread.init(rdb_signal_drop_idx_psi_mutex_key,
                            rdb_signal_drop_idx_psi_cond_key);
+  rdb_mc_thread.init(rdb_signal_mc_psi_mutex_key, rdb_signal_mc_psi_cond_key);
 #else
   rdb_bg_thread.init();
   rdb_drop_idx_thread.init();
+  rdb_mc_thread.init();
 #endif
   mysql_mutex_init(rdb_collation_data_mutex_key, &rdb_collation_data_mutex,
                    MY_MUTEX_INIT_FAST);
@@ -4796,6 +4857,21 @@ static int rocksdb_init_func(void *const p) {
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
+  err = rdb_mc_thread.create_thread(MANUAL_COMPACTION_THREAD_NAME
+#ifdef HAVE_PSI_INTERFACE
+                                    ,
+                                    rdb_mc_psi_thread_key
+#endif
+  );
+  if (err != 0) {
+    // NO_LINT_DEBUG
+    sql_print_error(
+        "RocksDB: Couldn't start the manual compaction thread: (errno=%d)",
+        err);
+    rdb_open_tables.free_hash();
+    DBUG_RETURN(HA_EXIT_FAILURE);
+  }
+
   rdb_set_collation_exception_list(rocksdb_strict_collation_exceptions);
 
   if (rocksdb_pause_background_work) {
@@ -4889,6 +4965,16 @@ static int rocksdb_done_func(void *const p) {
   if (err != 0) {
     // NO_LINT_DEBUG
     sql_print_error("RocksDB: Couldn't stop the index thread: (errno=%d)", err);
+  }
+
+  // signal the manual compaction thread to stop
+  rdb_mc_thread.signal(true);
+  // Wait for the manual compaction thread to finish.
+  err = rdb_mc_thread.join();
+  if (err != 0) {
+    // NO_LINT_DEBUG
+    sql_print_error(
+        "RocksDB: Couldn't stop the manual compaction thread: (errno=%d)", err);
   }
 
   if (rdb_open_tables.m_hash.records) {
@@ -12497,6 +12583,10 @@ static SHOW_VAR rocksdb_status_vars[] = {
                        &rocksdb_snapshot_conflict_errors, SHOW_LONGLONG),
     DEF_STATUS_VAR_PTR("wal_group_syncs", &rocksdb_wal_group_syncs,
                        SHOW_LONGLONG),
+    DEF_STATUS_VAR_PTR("manual_compactions_processed",
+                       &rocksdb_manual_compactions_processed, SHOW_LONGLONG),
+    DEF_STATUS_VAR_PTR("manual_compactions_running",
+                       &rocksdb_manual_compactions_running, SHOW_LONGLONG),
     DEF_STATUS_VAR_PTR("number_sst_entry_put", &rocksdb_num_sst_entry_put,
                        SHOW_LONGLONG),
     DEF_STATUS_VAR_PTR("number_sst_entry_delete", &rocksdb_num_sst_entry_delete,
@@ -12614,6 +12704,143 @@ void Rdb_background_thread::run() {
 
   // save remaining stats which might've left unsaved
   ddl_manager.persist_stats();
+}
+
+/*
+  A background thread to handle manual compactions,
+  except for dropping indexes/tables. Every second, it checks
+  pending manual compactions, and it calls CompactRange if there is.
+*/
+void Rdb_manual_compaction_thread::run() {
+  mysql_mutex_init(0, &m_mc_mutex, MY_MUTEX_INIT_FAST);
+  RDB_MUTEX_LOCK_CHECK(m_signal_mutex);
+  for (;;) {
+    if (m_stop) {
+      break;
+    }
+    timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    ts.tv_sec += 1;
+
+    const auto ret MY_ATTRIBUTE((__unused__)) =
+        mysql_cond_timedwait(&m_signal_cond, &m_signal_mutex, &ts);
+    if (m_stop) {
+      break;
+    }
+    // make sure, no program error is returned
+    DBUG_ASSERT(ret == 0 || ret == ETIMEDOUT);
+    RDB_MUTEX_UNLOCK_CHECK(m_signal_mutex);
+
+    RDB_MUTEX_LOCK_CHECK(m_mc_mutex);
+    // Grab the first item and proceed, if not empty.
+    if (m_requests.empty()) {
+      RDB_MUTEX_UNLOCK_CHECK(m_mc_mutex);
+      RDB_MUTEX_LOCK_CHECK(m_signal_mutex);
+      continue;
+    }
+    Manual_compaction_request &mcr = m_requests.begin()->second;
+    DBUG_ASSERT(mcr.cf != nullptr);
+    DBUG_ASSERT(mcr.state == Manual_compaction_request::INITED);
+    mcr.state = Manual_compaction_request::RUNNING;
+    RDB_MUTEX_UNLOCK_CHECK(m_mc_mutex);
+
+    DBUG_ASSERT(mcr.state == Manual_compaction_request::RUNNING);
+    // NO_LINT_DEBUG
+    sql_print_information("Manual Compaction id %d cf %s started.", mcr.mc_id,
+                          mcr.cf->GetName().c_str());
+    rocksdb_manual_compactions_running++;
+    if (rocksdb_debug_manual_compaction_delay > 0) {
+      my_sleep(rocksdb_debug_manual_compaction_delay * 1000000);
+    }
+    // CompactRange may take a very long time. On clean shutdown,
+    // it is cancelled by CancelAllBackgroundWork, then status is
+    // set to shutdownInProgress.
+    const rocksdb::Status s = rdb->CompactRange(
+        getCompactRangeOptions(mcr.concurrency), mcr.cf, mcr.start, mcr.limit);
+    rocksdb_manual_compactions_running--;
+    if (s.ok()) {
+      // NO_LINT_DEBUG
+      sql_print_information("Manual Compaction id %d cf %s ended.", mcr.mc_id,
+                            mcr.cf->GetName().c_str());
+    } else {
+      // NO_LINT_DEBUG
+      sql_print_information("Manual Compaction id %d cf %s aborted. %s",
+                            mcr.mc_id, mcr.cf->GetName().c_str(), s.getState());
+      if (!s.IsShutdownInProgress()) {
+        rdb_handle_io_error(s, RDB_IO_ERROR_BG_THREAD);
+      } else {
+        DBUG_ASSERT(m_requests.size() == 1);
+      }
+    }
+    rocksdb_manual_compactions_processed++;
+    clear_manual_compaction_request(mcr.mc_id, false);
+    RDB_MUTEX_LOCK_CHECK(m_signal_mutex);
+  }
+  clear_all_manual_compaction_requests();
+  DBUG_ASSERT(m_requests.empty());
+  RDB_MUTEX_UNLOCK_CHECK(m_signal_mutex);
+  mysql_mutex_destroy(&m_mc_mutex);
+}
+
+void Rdb_manual_compaction_thread::clear_all_manual_compaction_requests() {
+  RDB_MUTEX_LOCK_CHECK(m_mc_mutex);
+  m_requests.clear();
+  RDB_MUTEX_UNLOCK_CHECK(m_mc_mutex);
+}
+
+void Rdb_manual_compaction_thread::clear_manual_compaction_request(
+    int mc_id, bool init_only) {
+  bool erase = true;
+  RDB_MUTEX_LOCK_CHECK(m_mc_mutex);
+  auto it = m_requests.find(mc_id);
+  if (it != m_requests.end()) {
+    if (init_only) {
+      Manual_compaction_request mcr = it->second;
+      if (mcr.state != Manual_compaction_request::INITED) {
+        erase = false;
+      }
+    }
+    if (erase) {
+      m_requests.erase(it);
+    }
+  } else {
+    // Current code path guarantees that erasing by the same mc_id happens
+    // at most once. INITED state may be erased by a thread that requested
+    // the compaction. RUNNING state is erased by mc thread only.
+    DBUG_ASSERT(0);
+  }
+  RDB_MUTEX_UNLOCK_CHECK(m_mc_mutex);
+}
+
+int Rdb_manual_compaction_thread::request_manual_compaction(
+    rocksdb::ColumnFamilyHandle *cf, rocksdb::Slice *start,
+    rocksdb::Slice *limit, int concurrency) {
+  int mc_id = -1;
+  RDB_MUTEX_LOCK_CHECK(m_mc_mutex);
+  if (m_requests.size() >= rocksdb_max_manual_compactions) {
+    RDB_MUTEX_UNLOCK_CHECK(m_mc_mutex);
+    return mc_id;
+  }
+  Manual_compaction_request mcr;
+  mc_id = mcr.mc_id = ++m_latest_mc_id;
+  mcr.state = Manual_compaction_request::INITED;
+  mcr.cf = cf;
+  mcr.start = start;
+  mcr.limit = limit;
+  mcr.concurrency = concurrency;
+  m_requests.insert(std::make_pair(mcr.mc_id, mcr));
+  RDB_MUTEX_UNLOCK_CHECK(m_mc_mutex);
+  return mc_id;
+}
+
+bool Rdb_manual_compaction_thread::is_manual_compaction_finished(int mc_id) {
+  bool finished = false;
+  RDB_MUTEX_LOCK_CHECK(m_mc_mutex);
+  if (m_requests.count(mc_id) == 0) {
+    finished = true;
+  }
+  RDB_MUTEX_UNLOCK_CHECK(m_mc_mutex);
+  return finished;
 }
 
 bool ha_rocksdb::check_bloom_and_set_bounds(
