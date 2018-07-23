@@ -489,10 +489,9 @@ static void rocksdb_set_wal_bytes_per_sync(THD *thd,
                                            struct st_mysql_sys_var *const var,
                                            void *const var_ptr,
                                            const void *const save);
-static void rocksdb_set_block_cache_size(THD *thd,
-                                         struct st_mysql_sys_var *const var,
-                                         void *const var_ptr,
-                                         const void *const save);
+static int rocksdb_validate_set_block_cache_size(
+    THD *thd, struct st_mysql_sys_var *const var, void *var_ptr,
+    struct st_mysql_value *value);
 //////////////////////////////////////////////////////////////////////////////
 // Options definitions
 //////////////////////////////////////////////////////////////////////////////
@@ -1191,8 +1190,8 @@ static MYSQL_SYSVAR_BOOL(
 
 static MYSQL_SYSVAR_LONGLONG(block_cache_size, rocksdb_block_cache_size,
                              PLUGIN_VAR_RQCMDARG,
-                             "block_cache size for RocksDB", nullptr,
-                             rocksdb_set_block_cache_size,
+                             "block_cache size for RocksDB",
+                             rocksdb_validate_set_block_cache_size, nullptr,
                              /* default */ RDB_DEFAULT_BLOCK_CACHE_SIZE,
                              /* min */ RDB_MIN_BLOCK_CACHE_SIZE,
                              /* max */ LONGLONG_MAX,
@@ -13106,25 +13105,40 @@ static void rocksdb_set_wal_bytes_per_sync(
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
-static void rocksdb_set_block_cache_size(
+/*
+  Validating and updating block cache size via sys_var::check path.
+  SetCapacity may take seconds when reducing block cache, and
+  sys_var::update holds LOCK_global_system_variables mutex, so
+  updating block cache size is done at check path instead.
+*/
+static int rocksdb_validate_set_block_cache_size(
     THD *thd MY_ATTRIBUTE((__unused__)),
     struct st_mysql_sys_var *const var MY_ATTRIBUTE((__unused__)),
-    void *const var_ptr MY_ATTRIBUTE((__unused__)), const void *const save) {
-  DBUG_ASSERT(save != nullptr);
+    void *var_ptr, struct st_mysql_value *value) {
+  DBUG_ASSERT(value != nullptr);
+
+  long long new_value;
+
+  /* value is NULL */
+  if (value->val_int(value, &new_value)) {
+    return HA_EXIT_FAILURE;
+  }
+
+  if (new_value < RDB_MIN_BLOCK_CACHE_SIZE ||
+      (uint64_t)new_value > (uint64_t)LONGLONG_MAX) {
+    return HA_EXIT_FAILURE;
+  }
 
   RDB_MUTEX_LOCK_CHECK(rdb_block_cache_resize_mutex);
-  const longlong new_val = *static_cast<const longlong *>(save);
-
   const rocksdb::BlockBasedTableOptions &table_options =
       rdb_get_table_options();
 
-  if (rocksdb_block_cache_size != new_val && table_options.block_cache) {
-    // SetCapacity may take seconds when reducing block cache.
-    // So it should be called outside of rdb_sysvars_mutex scope.
-    table_options.block_cache->SetCapacity(new_val);
-    rocksdb_block_cache_size = new_val;
+  if (rocksdb_block_cache_size != new_value && table_options.block_cache) {
+    table_options.block_cache->SetCapacity(new_value);
   }
+  *static_cast<int64_t *>(var_ptr) = static_cast<int64_t>(new_value);
   RDB_MUTEX_UNLOCK_CHECK(rdb_block_cache_resize_mutex);
+  return HA_EXIT_SUCCESS;
 }
 
 static int
