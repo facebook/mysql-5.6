@@ -1536,13 +1536,6 @@ Exit_status process_event(PRINT_EVENT_INFO *print_event_info, Log_event *ev,
       }
     }
     case ROWS_QUERY_LOG_EVENT:
-       // case: if events contains trx meta data print it else fall through
-       // like a normal rows query event
-       if (((Rows_query_log_event*) ev)->has_trx_meta_data())
-       {
-         ev->print(result_file, print_event_info);
-         break;
-       }
     case WRITE_ROWS_EVENT:
     case DELETE_ROWS_EVENT:
     case UPDATE_ROWS_EVENT:

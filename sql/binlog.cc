@@ -8586,7 +8586,7 @@ int THD::binlog_write_table_map(TABLE *table, bool is_transactional,
     std::string query;
     if (opt_binlog_trx_meta_data)
       query.append(gen_trx_metadata());
-    query.append(this->query());
+    query.append(this->query(), this->query_length());
 
     /* Write the Rows_query_log_event into binlog before the table map */
     Rows_query_log_event rows_query_ev(this, query.c_str(), query.length());
