@@ -1349,6 +1349,13 @@
    fun:update_state_info
 }
 
+{
+   Clang lowers the copy assignment operator of POD struct into memcpy, even when src and dst may alias
+   Memcheck:Overlap
+   fun:memcpy@@GLIBC_2.14
+   fun:mi_extra
+}
+
 #Suppress warnings from initialization of glibc network functions
 
 {
