@@ -108,7 +108,7 @@ if ($use_sys_var) {
 
   # non-supported command will timeout
   --error ER_LOCK_WAIT_TIMEOUT
-  lock tables t1 write;
+  rename table t1 to t2;
 
   if (!$should_kill) {
     # regular user ddl will fail regardless of high_priority_ddl being on

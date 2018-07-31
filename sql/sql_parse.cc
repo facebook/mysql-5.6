@@ -759,6 +759,7 @@ bool support_high_priority(enum enum_sql_command command)
     case SQLCOM_CREATE_TRIGGER:
     case SQLCOM_DROP_TRIGGER:
     case SQLCOM_OPTIMIZE:
+    case SQLCOM_LOCK_TABLES:
       return true;
 
     default:

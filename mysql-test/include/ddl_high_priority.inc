@@ -172,6 +172,19 @@ let $wait_condition=
 --let $throw_error = 1
 
 ##
+## high_priority lock tables
+##
+
+if ($use_sys_var) {
+  --let $blocking_sql = lock tables t1 read;
+  --let $cmd = lock tables t1 write;
+
+  --source include/ddl_high_priority_module.inc
+
+  unlock tables;
+}
+
+##
 ## clean up
 ##
 
