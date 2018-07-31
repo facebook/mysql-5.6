@@ -5139,7 +5139,7 @@ static inline void rocksdb_smart_next(bool seek_backward,
   }
 }
 
-#ifndef NDEBUG
+#if !defined(DBUG_OFF)
 // simulate that RocksDB has reported corrupted data
 static void dbug_change_status_to_corrupted(rocksdb::Status *status) {
   *status = rocksdb::Status::Corruption();
@@ -5290,10 +5290,10 @@ static ulonglong rdb_get_int_col_max_value(const Field *field) {
 void ha_rocksdb::load_auto_incr_value() {
   ulonglong auto_incr = 0;
   bool validate_last = false, use_datadic = true;
-#ifndef NDEBUG
+#if !defined(DBUG_OFF)
   DBUG_EXECUTE_IF("myrocks_autoinc_upgrade", use_datadic = false;);
   validate_last = true;
-#endif
+#endif  // !defined(DBUG_OFF)
 
   if (use_datadic && dict_manager.get_auto_incr_val(
                          m_tbl_def->get_autoincr_gl_index_id(), &auto_incr)) {
@@ -5626,9 +5626,9 @@ bool ha_rocksdb::should_hide_ttl_rec(const Rdb_key_def &kd,
 
   /* Hide record if it has expired before the current snapshot time. */
   uint64 read_filter_ts = 0;
-#ifndef NDEBUG
+#if !defined(DBUG_OFF)
   read_filter_ts += rdb_dbug_set_ttl_read_filter_ts();
-#endif
+#endif  // !defined(DBUG_OFF)
   bool is_hide_ttl =
       ts + kd.m_ttl_duration + read_filter_ts <= static_cast<uint64>(curr_ts);
   if (is_hide_ttl) {
@@ -5699,13 +5699,13 @@ int ha_rocksdb::convert_record_to_storage_format(
 
       char *const data = const_cast<char *>(m_storage_record.ptr());
       memcpy(data, ts, ROCKSDB_SIZEOF_TTL_RECORD);
-#ifndef NDEBUG
+#if !defined(DBUG_OFF)
       // Adjust for test case if needed
       rdb_netbuf_store_uint64(
           reinterpret_cast<uchar *>(data),
           rdb_netbuf_to_uint64(reinterpret_cast<const uchar *>(data)) +
               rdb_dbug_set_ttl_rec_ts());
-#endif
+#endif  // !defined(DBUG_OFF)
       // Also store in m_ttl_bytes to propagate to update_sk
       memcpy(m_ttl_bytes, data, ROCKSDB_SIZEOF_TTL_RECORD);
     } else if (!has_ttl_column) {
@@ -5721,9 +5721,9 @@ int ha_rocksdb::convert_record_to_storage_format(
         memcpy(data, m_ttl_bytes, sizeof(uint64));
       } else {
         uint64 ts = static_cast<uint64>(std::time(nullptr));
-#ifndef NDEBUG
+#if !defined(DBUG_OFF)
         ts += rdb_dbug_set_ttl_rec_ts();
-#endif
+#endif  // !defined(DBUG_OFF)
         char *const data = const_cast<char *>(m_storage_record.ptr());
         rdb_netbuf_store_uint64(reinterpret_cast<uchar *>(data), ts);
         // Also store in m_ttl_bytes to propagate to update_sk
@@ -5805,9 +5805,9 @@ int ha_rocksdb::convert_record_to_storage_format(
 
         char *const data = const_cast<char *>(m_storage_record.ptr());
         uint64 ts = uint8korr(field->ptr);
-#ifndef NDEBUG
+#if !defined(DBUG_OFF)
         ts += rdb_dbug_set_ttl_rec_ts();
-#endif
+#endif  // !defined(DBUG_OFF)
         rdb_netbuf_store_uint64(reinterpret_cast<uchar *>(data), ts);
 
         // If this is an update and the timestamp has been updated, take note
@@ -5908,7 +5908,7 @@ void ha_rocksdb::setup_read_decoders() {
                         m_decoders_vect.end());
 }
 
-#ifndef NDEBUG
+#if !defined(DBUG_OFF)
 void dbug_append_garbage_at_end(rocksdb::PinnableSlice *on_disk_rec) {
   std::string str(on_disk_rec->data(), on_disk_rec->size());
   on_disk_rec->Reset();
@@ -5948,7 +5948,7 @@ void dbug_create_err_inplace_alter() {
   my_printf_error(ER_UNKNOWN_ERROR,
                   "Intentional failure in inplace alter occurred.", MYF(0));
 }
-#endif
+#endif  // !defined(DBUG_OFF)
 
 int ha_rocksdb::convert_record_from_storage_format(
     const rocksdb::Slice *const key, uchar *const buf) {
@@ -7796,17 +7796,17 @@ int ha_rocksdb::read_row_from_secondary_key(uchar *const buf,
   const rocksdb::Slice &rkey = m_scan_it->key();
   const rocksdb::Slice &value = m_scan_it->value();
 
-#ifndef NDEBUG
+#if !defined(DBUG_OFF)
   bool save_keyread_only = m_keyread_only;
-#endif
+#endif  // !defined(DBUG_OFF)
   DBUG_EXECUTE_IF("dbug.rocksdb.HA_EXTRA_KEYREAD", { m_keyread_only = true; });
 
   bool covered_lookup = (m_keyread_only && kd.can_cover_lookup()) ||
                         kd.covers_lookup(table, &value, &m_lookup_bitmap);
 
-#ifndef NDEBUG
+#if !defined(DBUG_OFF)
   m_keyread_only = save_keyread_only;
-#endif
+#endif  // !defined(DBUG_OFF)
 
   if (covered_lookup && m_lock_rows == RDB_LOCK_NONE) {
     pk_size =
@@ -13084,14 +13084,14 @@ bool rdb_is_ttl_enabled() { return rocksdb_enable_ttl; }
 bool rdb_is_ttl_read_filtering_enabled() {
   return rocksdb_enable_ttl_read_filtering;
 }
-#ifndef NDEBUG
+#if !defined(DBUG_OFF)
 int rdb_dbug_set_ttl_rec_ts() { return rocksdb_debug_ttl_rec_ts; }
 int rdb_dbug_set_ttl_snapshot_ts() { return rocksdb_debug_ttl_snapshot_ts; }
 int rdb_dbug_set_ttl_read_filter_ts() {
   return rocksdb_debug_ttl_read_filter_ts;
 }
 bool rdb_dbug_set_ttl_ignore_pk() { return rocksdb_debug_ttl_ignore_pk; }
-#endif
+#endif  // !defined(DBUG_OFF)
 
 void rdb_update_global_stats(const operation_type &type, uint count,
                              bool is_system_table) {
