@@ -8660,6 +8660,8 @@ int ha_rocksdb::index_next_with_direction(uchar *const buf, bool move_forward) {
     for (;;) {
       if (m_skip_scan_it_next_call) {
         m_skip_scan_it_next_call = false;
+      } else if (!m_scan_it->Valid()) {
+        DBUG_RETURN(HA_ERR_KEY_NOT_FOUND);
       } else {
         if (move_forward)
           m_scan_it->Next(); /* this call cannot fail */
