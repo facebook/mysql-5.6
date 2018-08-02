@@ -199,6 +199,7 @@ enum options_client {
   OPT_USE_ROCKSDB,
   OPT_INNODB_STATS_ON_METADATA,
   OPT_DUMP_FBOBJ_STATS,
+  OPT_MYSQLBINLOG_SKIP_EMPTY_TRANS,
   /* Add new option above this */
   OPT_MAX_CLIENT_OPTION
 };
