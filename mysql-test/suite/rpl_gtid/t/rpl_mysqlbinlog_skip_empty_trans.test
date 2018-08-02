@@ -1,0 +1,71 @@
+################################################################################
+# Test mysqlbinlog --skip-empty-trans option for slave's binlog using RBR
+################################################################################
+
+--disable_warnings
+--source include/master-slave.inc
+--source include/have_binlog_format_row.inc
+--enable_warnings
+
+--connection master
+set timestamp=1000000000;
+--connection slave
+set timestamp=1000000000;
+
+--connection master
+create database test2;
+create database test3;
+
+use test;
+
+# Create t1 for transaction
+create table t1 (a int primary key, b char(8)) ENGINE=innodb;
+# Transaction
+start transaction;
+insert into t1 values(1, 'a');
+insert into t1 values(2, 'b');
+insert into t1 values(3, 'c');
+insert into t1 values(4, 'd');
+commit;
+
+use test2;
+# Create t1 for transaction
+create table t1 (a int primary key, b char(8)) ENGINE=innodb;
+# Transaction
+start transaction;
+insert into t1 values(1, 'a');
+insert into t1 values(2, 'b');
+insert into t1 values(3, 'c');
+insert into t1 values(4, 'd');
+commit;
+
+use test3;
+# Create t1 for transaction
+create table t1 (a int primary key, b char(8)) ENGINE=innodb;
+# Transaction
+start transaction;
+insert into t1 values(1, 'a');
+insert into t1 values(2, 'b');
+insert into t1 values(3, 'c');
+insert into t1 values(4, 'd');
+commit;
+
+use test;
+drop table t1;
+
+drop database test2;
+drop database test3;
+
+flush logs;
+
+--sync_slave_with_master
+
+--connection slave
+let $slave_binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+let $MYSQLD_DATADIR= `select @@datadir`;
+
+--echo ==== Output of mysqlbinlog with --short-form --skip-empty-trans, --database and --skip-gtids options ====
+--replace_regex /SET @@session.sql_mode.*//
+--exec $MYSQL_BINLOG --short-form --skip_empty_trans --database=test3 --skip-gtids $MYSQLD_DATADIR/$slave_binlog
+
+--source include/rpl_end.inc
