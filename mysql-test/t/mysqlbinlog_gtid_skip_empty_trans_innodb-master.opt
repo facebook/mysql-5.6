@@ -1,0 +1,1 @@
+--binlog-format=statement --enforce_gtid_consistency --log_bin --log_slave_updates
