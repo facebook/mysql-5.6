@@ -853,9 +853,17 @@ static void write_header(FILE *sql_file, char *db_name)
 
     if (opt_rocksdb_bulk_load)
       fprintf(sql_file,
-              "/*!50601 SELECT count(*) INTO @is_rocksdb_supported FROM"
-              " information_schema.SESSION_VARIABLES WHERE"
-              " variable_name='rocksdb_bulk_load' */;\n"
+              "/*!50601 SELECT count(*) INTO @is_mysql8 FROM"
+              " information_schema.TABLES WHERE"
+              " table_schema='performance_schema' AND"
+              " table_name='session_variables' */;\n"
+              "/*!50601 SET @check_rocksdb = CONCAT("
+              " 'SELECT count(*) INTO @is_rocksdb_supported FROM ',"
+              " IF (@is_mysql8, 'performance', 'information'),"
+              " '_schema.session_variables WHERE"
+              " variable_name=\\'rocksdb_bulk_load\\'') */;\n"
+              "/*!50601 PREPARE s FROM @check_rocksdb */;\n"
+              "/*!50601 EXECUTE s */;\n"
               "/*!50601 SET @enable_bulk_load = IF (@is_rocksdb_supported,"
               " 'SET SESSION rocksdb_bulk_load=1', 'SET @dummy = 0') */;\n"
               "/*!50601 PREPARE s FROM @enable_bulk_load */;\n"
