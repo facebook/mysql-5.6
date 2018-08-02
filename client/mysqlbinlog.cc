@@ -775,6 +775,19 @@ Gtid_set *gtid_set_stop = nullptr;
 static bool opt_print_table_metadata;
 
 /**
+ * Used for --opt_skip_empty_trans
+ */
+static Log_event *begin_query_ev_cache = nullptr;
+static string cur_database = "";
+
+enum class Check_database_decision : char {
+  EMPTY_EVENT_DATABASE = 2,
+  CHANGED = 1,
+  OK = 0,
+  ERROR = -1
+};
+
+/**
   Exit status for functions in this file.
 */
 enum Exit_status {
@@ -795,6 +808,7 @@ static char *opt_include_gtids_str = nullptr, *opt_exclude_gtids_str = nullptr,
 static char *opt_index_file_str = nullptr;
 Gtid_set_map previous_gtid_set_map;
 static bool opt_skip_gtids = false;
+static bool opt_skip_empty_trans = 0;
 static bool filter_based_on_gtids = false;
 static bool opt_require_row_format = false;
 
@@ -1213,6 +1227,86 @@ static bool shall_skip_gtids(const Log_event *ev) {
 }
 
 /**
+  Helper function that prints the cached begin query event to the output
+
+  @param[in] print_event_info print event info pointer
+
+  @retval True   OK
+  @retval False  ERROR
+*/
+static bool print_cached_begin_query(PRINT_EVENT_INFO *print_event_info) {
+  begin_query_ev_cache->print(result_file, print_event_info);
+  auto head = &print_event_info->head_cache;
+  if (head->error == -1) {
+    return false;
+  }
+  return true;
+}
+
+/**
+  Checks whether a given event within a transaction has changed the database
+  that the current transaction is operating on. If the event within a
+  transaction has changed the database of the current transaction, an error
+  message will be issued. This check is only valid when --skip-empty-trans
+  is specified. This function also will check and print the previous cached
+  BEGIN event since it's possible that the previous BEGIN event doesn't carry
+  a session database name.
+
+  @param[in] ev_database the database that the current event is operating on.
+  @param[in] print_event_info print event info pointer
+
+  @retval CHANGED if the database of the current transaction has been changed by
+  the current event.
+  @retval OK if the database of the current transaction has not been changed
+  by the current event.
+  @retval ERROR if there is an error on writing the cached BEGIN event out.
+*/
+static Check_database_decision ev_database_changed(
+    const string &ev_database, PRINT_EVENT_INFO *print_event_info) {
+  if (opt_skip_empty_trans  // When --skip-empty-trans is enabled
+      && in_transaction)    // When the event is within a transaction
+  {
+    /**
+      This function is called at every event that carries a database name other
+      than BEGIN query. So the ev_database name should not be empty
+     */
+    if (ev_database.empty()) {
+      error(
+          "The current event does not carry a session database name. This is "
+          "not supported");
+      return Check_database_decision::EMPTY_EVENT_DATABASE;
+    }
+    /**
+      If the previous BEGIN query doesn't have a database name, we change the
+      current transaction's database name to the ev_database, and also flush
+      the previous BEGIN event if it should not be skipped.
+     */
+    if (begin_query_ev_cache != nullptr && cur_database.empty()) {
+      cur_database = ev_database;
+      if (!shall_skip_database(cur_database.c_str()) &&
+          !print_cached_begin_query(print_event_info)) {
+        return Check_database_decision::ERROR;
+      }
+      return Check_database_decision::OK;
+    }
+    // When the event database is changed
+    if (cur_database != ev_database) {
+      error(
+          "The database used for the current "
+          "transaction has been changed since "
+          "BEGIN. This is not supported! The database "
+          "of the current transaction that is updated from the "
+          "BEGIN query event is: %s, however, the current event's "
+          "database is: %s",
+          cur_database.c_str(), ev_database.c_str());
+
+      return Check_database_decision::CHANGED;
+    }
+  }
+  return Check_database_decision::OK;
+}
+
+/**
   Print auxiliary statements ending a binary log (or a logical binary log
   within a sequence of relay logs; see below).
 
@@ -1463,6 +1557,13 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
         bool ends_group = ((Query_log_event *)ev)->ends_group();
         bool starts_group = ((Query_log_event *)ev)->starts_group();
 
+        if (!starts_group &&
+            ev_database_changed(string(((Query_log_event *)ev)->db),
+                                print_event_info) !=
+                Check_database_decision::OK) {
+          goto err;
+        }
+
         for (size_t i = 0; i < buff_ev->size(); i++) {
           buff_event_info pop_event_array = buff_ev->at(i);
           Log_event *temp_event = pop_event_array.event;
@@ -1502,9 +1603,53 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
           in_transaction = false;
           print_event_info->skipped_event_in_transaction = false;
           seen_gtid = false;
-        } else if (starts_group)
+
+          /*
+            Skip the COMMIT/ROLLBACK event of the extra databases
+            when the option --skip-empty-trans is enabled. We also clear the
+            cur_database at the end of currrent transaction
+           */
+          if (opt_skip_empty_trans) {
+            bool skip = shall_skip_database(cur_database.c_str());
+            // Delete and reset the cache pointer
+            delete begin_query_ev_cache;
+            begin_query_ev_cache = nullptr;
+            // Reset the database tracking as well
+            cur_database = "";
+            if (skip) break;
+          }
+        } else if (starts_group) {
           in_transaction = true;
-        else {
+
+          if (opt_skip_empty_trans) {
+            if (cur_database != "") {
+              error(
+                  "The database used from the previous transaction has not "
+                  "been cleared. This probably means that the previous "
+                  "transaction has not hit COMMIT/ROLLBACK yet.");
+              goto err;
+            }
+            /*
+             * cur_database is always assigned at the BEGIN of a transaction and
+             * cleared at the COMMIT/ROLLBACK of a transaction.
+             */
+            cur_database = string(((Query_log_event *)ev)->db);
+            if (cur_database.empty()) {
+              // The cache should definitely be cleared
+              assert(begin_query_ev_cache == nullptr);
+              // Cache the new BEGIN event
+              begin_query_ev_cache = ev;
+              // Do not destroy, we will handle the detroy ourselves
+              ev = nullptr;
+              break;
+            }
+            /*
+             * skip the BEGIN query of the extra databases when the option
+             * --skip-empty-trans is enabled
+             */
+            if (shall_skip_database(cur_database.c_str())) goto end;
+          }
+        } else {
           /*
             We are not in a transaction and are not seeing a BEGIN or
             COMMIT. So this is an implicitly committing DDL.
@@ -1605,6 +1750,10 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
       case binary_log::EXECUTE_LOAD_QUERY_EVENT: {
         Execute_load_query_log_event *exlq = (Execute_load_query_log_event *)ev;
         char *fname = load_processor.grab_fname(exlq->file_id);
+        if (ev_database_changed(string(exlq->db), print_event_info) !=
+            Check_database_decision::OK) {
+          goto err;
+        }
         if (shall_skip_database(exlq->db))
           print_event_info->skipped_event_in_transaction = true;
         else {
@@ -1627,6 +1776,10 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
       }
       case binary_log::TABLE_MAP_EVENT: {
         Table_map_log_event *map = ((Table_map_log_event *)ev);
+        if (ev_database_changed(string(map->get_db_name()), print_event_info) !=
+            Check_database_decision::OK) {
+          goto err;
+        }
         if (shall_skip_database(map->get_db_name())) {
           print_event_info->skipped_event_in_transaction = true;
           print_event_info->m_table_map_ignored.set_table(map->get_table_id(),
@@ -1776,6 +1929,20 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
         in_transaction = false;
         print_event_info->skipped_event_in_transaction = false;
         seen_gtid = false;
+        /*
+         * Skip the extra XID event (COMMIT) from other databases when the
+         * option --skip-empty-trans is enabled. We also clear the
+         * cur_database at the end of currrent transaction
+         */
+        if (opt_skip_empty_trans) {
+          bool skip = shall_skip_database(cur_database.c_str());
+          // Reset current transaction's database name tracking
+          cur_database = "";
+          // Delete and reset the cached BEGIN event
+          delete begin_query_ev_cache;
+          begin_query_ev_cache = nullptr;
+          if (skip) break;
+        }
         ev->print(result_file, print_event_info);
         if (head->error == -1) goto err;
         break;
@@ -1848,6 +2015,12 @@ static struct my_option my_long_options[] = {
      "it can be applied to a new database",
      &rewrite, &rewrite, nullptr, GET_STR_ALLOC, REQUIRED_ARG, 0, 0, 0, nullptr,
      0, nullptr},
+    {"skip-empty-trans", OPT_MYSQLBINLOG_SKIP_EMPTY_TRANS,
+     "Do not print empty transactions from databases other than the "
+     "selected database, requires --database "
+     "and --skip-gtids to be specified.",
+     &opt_skip_empty_trans, &opt_skip_empty_trans, 0, GET_BOOL, NO_ARG, 0, 0, 0,
+     nullptr, 0, nullptr},
 #ifdef DBUG_OFF
     {"debug", '#', "This is a non-debug version. Catch this and exit.", 0, 0, 0,
      GET_DISABLED, OPT_ARG, 0, 0, 0, 0, 0, 0},
@@ -2198,6 +2371,9 @@ static void cleanup() {
   }
   delete buff_ev;
 
+  delete begin_query_ev_cache;
+  begin_query_ev_cache = nullptr;
+
   if (mysql) mysql_close(mysql);
 }
 
@@ -2512,7 +2688,15 @@ static Exit_status dump_multiple_logs(int argc, char **argv) {
 
   /* Set delimiter back to semicolon */
   if (!raw_mode) {
-    if (print_event_info.skipped_event_in_transaction)
+    /*
+     * When --skip-empty-trans is enabled, we want to avoid the automatically
+     * added COMMIT message when an event is skipped and no COMMIT event has
+     * been hit. This is because --skip-empty-trans only supports operating on
+     * a single database within a transaction. In other words, we do not want
+     * to print a COMMIT message at the end if the interrupted transaction
+     * (that has not hit COMMIT event) needs to be skipped anyway.
+     */
+    if (print_event_info.skipped_event_in_transaction && !opt_skip_empty_trans)
       fprintf(result_file, "COMMIT /* added by mysqlbinlog */%s\n",
               print_event_info.delimiter);
 
@@ -3238,6 +3422,13 @@ static int args_post_process(void) {
       global_sid_lock->unlock();
       return ERROR_STOP;
     }
+  }
+
+  if (opt_skip_empty_trans != 0 && (database == NULL || opt_skip_gtids == 0)) {
+    error(
+        "--skip_empty_trans requires --database and "
+        "--skip-gtids options to be specified");
+    return ERROR_STOP;
   }
 
   global_sid_lock->unlock();
