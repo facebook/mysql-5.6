@@ -9,109 +9,255 @@ connect (con1,localhost,root,,);
 connect (con2,localhost,root,,);
 
 connection con1;
-let $master_uuid=`SELECT @@SERVER_UUID;`;
-CREATE TABLE T1 (a INT) ENGINE=ROCKSDB;
-INSERT INTO T1 VALUES(1);
+CREATE TABLE T1 (a INT PRIMARY KEY AUTO_INCREMENT) ENGINE=ROCKSDB;
+INSERT INTO T1 VALUES();
 
-echo "con1: Creating explict snapshot after one insert";
+#
+
+echo "con1: Creating explict snapshot";
 let $snapshot=
         query_get_value(CREATE EXPLICIT ROCKSDB SNAPSHOT, Snapshot_ID, 1);
-echo "con1: T1 after creating snapshot";
 SELECT * FROM T1;
 
 connection con2;
-echo "con2: Inserting another row in T1";
-INSERT INTO T1 VALUES(2);
+echo "con2: Inserting a row";
+INSERT INTO T1 VALUES();
 SELECT * FROM T1;
 echo "con2: Attaching snapshot id $snapshot";
-replace_result $master_uuid uuid;
+disable_result_log;
 eval ATTACH EXPLICIT ROCKSDB SNAPSHOT $snapshot;
-echo "con2: T1 after attaching snapshot (2nd row should not be visible)";
+enable_result_log;
+echo "con2: New row should not be visible";
 SELECT * FROM T1;
 echo "con2: Releasing snapshot";
-replace_result $master_uuid uuid;
+disable_result_log;
 RELEASE EXPLICIT ROCKSDB SNAPSHOT;
-echo "con2: T1 after releasing snapshot (two rows should be visible)";
+enable_result_log;
+echo "con2: New row should be visible";
 SELECT * FROM T1;
 
 connection con1;
-echo "con1: T1 after 2nd insert (2nd row should not be visible)";
+echo "con1: New row should not be visible";
 SELECT * FROM T1;
 echo "con1: Releasing snapshot";
-replace_result $master_uuid uuid;
+disable_result_log;
 RELEASE EXPLICIT ROCKSDB SNAPSHOT;
-echo "con1: T1 after releasing snapshot (two rows should be visible)";
+enable_result_log;
+echo "con1: New row should be visible";
 SELECT * FROM T1;
 
-echo "con1: Clearing T1 and inserting one row";
-DELETE FROM T1;
-INSERT INTO T1 VALUES(1);
+#
 
 echo "con1: Starting shared snapshot";
-replace_result $master_uuid uuid;
 let $snapshot=
 query_get_value(START TRANSACTION WITH SHARED ROCKSDB SNAPSHOT, Snapshot_ID, 1);
-echo "con1: T1 inside shared snapshot";
 SELECT * FROM T1;
 
 connection con2;
-echo "con2: Inserting another row";
-INSERT INTO T1 VALUES(2);
+echo "con2: Inserting a row";
+INSERT INTO T1 VALUES();
 SELECT * FROM T1;
-echo "con2: Starting existing snapshot in con1";
-replace_result $master_uuid uuid;
+echo "con2: Starting existing snapshot";
+disable_result_log;
 eval START TRANSACTION WITH EXISTING ROCKSDB SNAPSHOT $snapshot;
-echo "con2: T1 using existing snapshot (should have one row)";
+enable_result_log;
+echo "con2: New row should not be visible";
 SELECT * FROM T1;
 COMMIT;
-echo "con2: T1 after commit (should have two rows)";
+echo "con2: New row should be visible";
 SELECT * FROM T1;
 
 connection con1;
 COMMIT;
-echo "con1: T1 after commit (should have two rows)";
+echo "con1: New row should be visible";
 SELECT * FROM T1;
 
 ## Negative test cases
+
 connection con1;
+echo "con1: Creating explict snapshot";
 let $snapshot=
         query_get_value(CREATE EXPLICIT ROCKSDB SNAPSHOT, Snapshot_ID, 1);
+echo "con2: Trying to insert row";
 error ER_UPDATES_WITH_EXPLICIT_SNAPSHOT;
-INSERT INTO T1 VALUES(1);
+INSERT INTO T1 VALUES();
 
 connection con2;
-replace_result $master_uuid uuid;
+echo "con2: Attaching existing snapshot";
+disable_result_log;
 eval ATTACH EXPLICIT ROCKSDB SNAPSHOT $snapshot;
+enable_result_log;
+echo "con2: Trying to insert row";
 error ER_UPDATES_WITH_EXPLICIT_SNAPSHOT;
-INSERT INTO T1 VALUES(1);
+INSERT INTO T1 VALUES();
 
 connection con1;
-replace_result $master_uuid uuid;
+disable_result_log;
 RELEASE EXPLICIT ROCKSDB SNAPSHOT;
+enable_result_log;
 connection con2;
-replace_result $master_uuid uuid;
+disable_result_log;
 RELEASE EXPLICIT ROCKSDB SNAPSHOT;
+enable_result_log;
 
 connection con1;
+echo "con1: Starting shared snapshot";
 let $snapshot=
 query_get_value(START TRANSACTION WITH SHARED ROCKSDB SNAPSHOT, Snapshot_ID, 1);
+echo "con1: Trying to insert row";
 error ER_UPDATES_WITH_CONSISTENT_SNAPSHOT;
-INSERT INTO T1 VALUES(1);
+INSERT INTO T1 VALUES();
 
 connection con2;
-replace_result $master_uuid uuid;
+echo "con2: Starting existing snapshot";
+disable_result_log;
 eval START TRANSACTION WITH EXISTING ROCKSDB SNAPSHOT $snapshot;
+enable_result_log;
+echo "con2: Trying to insert row";
 error ER_UPDATES_WITH_CONSISTENT_SNAPSHOT;
-INSERT INTO T1 VALUES(1);
+INSERT INTO T1 VALUES();
 
 connection con1;
 COMMIT;
 connection con2;
 COMMIT;
 
+## Test how overlapping explicit snapshot statements work
 
+connection con1;
+echo "con1: Creating explicit snapshot";
+disable_result_log;
+CREATE EXPLICIT ROCKSDB SNAPSHOT;
+enable_result_log;
+SELECT * FROM T1;
+
+connection con2;
+echo "con2: Inserting a row";
+INSERT INTO T1 VALUES();
+SELECT * FROM T1;
+
+connection con1;
+echo "con1: New row should not be seen";
+SELECT * FROM T1;
+echo "con1: Creating another explicit snapshot";
+disable_result_log;
+CREATE EXPLICIT ROCKSDB SNAPSHOT;
+enable_result_log;
+echo "con1: Now the new row should be seen";
+SELECT * FROM T1;
+
+#
+
+echo "con1: Starting transaction with consistent snapshot";
+disable_result_log;
+START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
+enable_result_log;
+SELECT * FROM T1;
+
+connection con2;
+echo "con2: Inserting a row";
+INSERT INTO T1 VALUES();
+SELECT * FROM T1;
+
+connection con1;
+echo "con1: The new row should not be seen";
+SELECT * FROM T1;
+
+echo "con1: Creating another explicit snapshot";
+disable_result_log;
+CREATE EXPLICIT ROCKSDB SNAPSHOT;
+enable_result_log;
+echo "con1: The new row should still not be seen";
+SELECT * FROM T1;
+
+echo "con1: Committing trx";
+COMMIT;
+echo "con1: The new row should now be seen because of the new explicit snapshot created above";
+SELECT * FROM T1;
+
+connection con1;
+echo "con1: Releasing explicit snapshot";
+disable_result_log;
+RELEASE EXPLICIT ROCKSDB SNAPSHOT;
+enable_result_log;
+
+#
+
+echo "con1: Starting transaction with shared snapshot";
+disable_result_log;
+START TRANSACTION WITH SHARED ROCKSDB SNAPSHOT;
+enable_result_log;
+SELECT * FROM T1;
+
+connection con2;
+echo "con2: Inserting a row";
+INSERT INTO T1 VALUES();
+SELECT * FROM T1;
+
+connection con1;
+echo "con1: The new row should not be seen";
+SELECT * FROM T1;
+
+echo "con1: Starting another transaction with shared snapshot";
+disable_result_log;
+START TRANSACTION WITH SHARED ROCKSDB SNAPSHOT;
+enable_result_log;
+echo "con1: The new row should now be seen";
+SELECT * FROM T1;
+COMMIT;
+
+#
+
+echo "con1: Creating explicit snapshot";
+disable_result_log;
+CREATE EXPLICIT ROCKSDB SNAPSHOT;
+enable_result_log;
+SELECT * FROM T1;
+
+echo "con1: Releasing explicit snapshot";
+disable_result_log;
+RELEASE EXPLICIT ROCKSDB SNAPSHOT;
+enable_result_log;
+
+echo "con1: Releasing explicit snapshot again";
+error ER_UNKNOWN_ERROR;
+RELEASE EXPLICIT ROCKSDB SNAPSHOT;
+
+#
+
+echo "con1: Starting transaction with shared snapshot";
+disable_result_log;
+START TRANSACTION WITH SHARED ROCKSDB SNAPSHOT;
+enable_result_log;
+SELECT * FROM T1;
+
+connection con2;
+echo "con2: Inserting a row";
+INSERT INTO T1 VALUES();
+SELECT * FROM T1;
+
+connection con1;
+echo "con1: Creating explicit snapshot";
+disable_result_log;
+CREATE EXPLICIT ROCKSDB SNAPSHOT;
+enable_result_log;
+SELECT * FROM T1;
+
+echo "con1: Releasing explicit snapshot";
+disable_result_log;
+RELEASE EXPLICIT ROCKSDB SNAPSHOT;
+enable_result_log;
+
+echo "con1: The new row should not be seen";
+SELECT* FROM T1;
+COMMIT;
+
+#
+
+## Cleanup
 DROP TABLE T1;
 
 connection default;
 disconnect con1;
 disconnect con2;
+
