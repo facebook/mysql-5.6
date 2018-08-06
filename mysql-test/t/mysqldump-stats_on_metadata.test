@@ -1,0 +1,22 @@
+################################################################################
+# Testing the mysqldump with --innodb-stats-on-metadata option
+################################################################################
+ --disable_warnings
+DROP TABLE IF EXISTS table1;
+drop database if exists database1;
+--enable_warnings
+ SELECT @@global.default_storage_engine INTO @old_engine;
+SET GLOBAL default_storage_engine=InnoDB;
+ CREATE DATABASE database1;
+USE database1;
+CREATE TABLE table1(a INT);
+ INSERT INTO table1 VALUES (1);
+INSERT INTO table1 VALUES (2);
+INSERT INTO table1 VALUES (3);
+ # Sanity test mysqldump when the option is used
+--echo ==== Running 'replace_regex' on Server/mysqldump Versions ====
+--echo ==== mysqldump with --innodb-stats-on-metadata database1 ====
+--replace_regex /-- Server version.*/-- SERVER VERSION/ /-- MySQL dump.*[)]/-- MYSQLDUMP VERSION/
+--exec $MYSQL_DUMP --skip-dump-date --innodb-stats-on-metadata database1
+ drop database database1;
+ SET GLOBAL default_storage_engine=@old_engine;
