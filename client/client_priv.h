@@ -197,6 +197,7 @@ enum options_client {
   OPT_INDEX_FILE,
   OPT_ORDER_BY_PRIMARY_DESC,
   OPT_USE_ROCKSDB,
+  OPT_INNODB_STATS_ON_METADATA,
   /* Add new option above this */
   OPT_MAX_CLIENT_OPTION
 };
