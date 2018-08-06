@@ -1062,7 +1062,7 @@ uint Rdb_key_def::pack_record(
   if (unpack_info) {
     unpack_info->clear();
 
-    if ((m_index_type == INDEX_TYPE_SECONDARY || m_index_type == INDEX_TYPE_CLUSTER) &&
+    if ((m_index_type == INDEX_TYPE_SECONDARY) &&
         m_total_index_flags_length > 0) {
       // Reserve space for index flag fields
       unpack_info->allocate(m_total_index_flags_length);

@@ -345,7 +345,7 @@ public:
       Internally, we always extend all indexes with PK columns. This function
       uses our definition of how the index is Extended.
   */
-  inline Field *get_table_field_for_part_no(TABLE *table, uint part_no) const;
+  inline Field *get_table_field_for_part_no(const TABLE *const table, uint part_no) const;
 
   const std::string &get_name() const { return m_name; }
 
@@ -960,7 +960,7 @@ public:
   }
 };
 
-inline Field *Rdb_key_def::get_table_field_for_part_no(TABLE *table,
+inline Field *Rdb_key_def::get_table_field_for_part_no(const TABLE *const table,
                                                        uint part_no) const {
   DBUG_ASSERT(part_no < get_key_parts());
   return m_pack_info[part_no].get_field_in_table(table);

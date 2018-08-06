@@ -1142,9 +1142,10 @@ private:
       MY_ATTRIBUTE((__nonnull__));
 
   int convert_ck_record_to_storage_format(const Rdb_key_def *ck_descr,
-                                          const struct update_row_info &row_info,
+                                          const TABLE *const table_arg,
                                           const rocksdb::Slice &packed_key,
-                                          rocksdb::Slice *const packed_rec)
+                                          rocksdb::Slice *const packed_rec,
+                                          const char *const ttl_bytes)
       MY_ATTRIBUTE((__nonnull__));
 
   bool should_hide_ttl_rec(const Rdb_key_def &kd,

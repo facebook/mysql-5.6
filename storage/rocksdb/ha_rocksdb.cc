@@ -5657,85 +5657,26 @@ int ha_rocksdb::convert_record_to_storage_format(
 */
 
 int ha_rocksdb::convert_ck_record_to_storage_format(const Rdb_key_def* ck_descr,
-    const struct update_row_info &row_info,
+    const TABLE *const table_arg,
     const rocksdb::Slice &packed_key,
-    rocksdb::Slice *const packed_rec) {
+    rocksdb::Slice *const packed_rec,
+    const char *const ttl_bytes) {
   DBUG_ASSERT(ck_descr->m_index_type == Rdb_key_def::INDEX_TYPE_CLUSTER);
 
   const rocksdb::Slice &ck_packed_slice = packed_key;
   Rdb_string_writer *const ck_unpack_info = &m_sk_tails;
-  bool has_ttl = ck_descr->has_ttl();
-  bool has_ttl_column = !ck_descr->m_ttl_column.empty();
-  bool ttl_in_pk = has_ttl_column && (row_info.ttl_pk_offset != UINT_MAX);
 
   m_storage_record.length(0);
 
-  if (has_ttl) {
-    /* If it's a TTL record, reserve space for 8 byte TTL value in front. */
+  if (ck_descr->has_ttl() && ttl_bytes) {
     m_storage_record.fill(ROCKSDB_SIZEOF_TTL_RECORD + m_null_bytes_in_rec, 0);
-    m_ttl_bytes_updated = false;
-
-    /*
-      If the TTL is contained within the key, we use the offset to find the
-      TTL value and place it in the beginning of the value record.
-    */
-    if (ttl_in_pk) {
-      Rdb_string_reader reader(&ck_packed_slice);
-      const char *ts;
-      if (!reader.read(row_info.ttl_pk_offset) ||
-          !(ts = reader.read(ROCKSDB_SIZEOF_TTL_RECORD))) {
-        std::string buf;
-        buf = rdb_hexdump(ck_packed_slice.data(), ck_packed_slice.size(),
-                          RDB_MAX_HEXDUMP_LEN);
-        const GL_INDEX_ID gl_index_id = ck_descr->get_gl_index_id();
-        // NO_LINT_DEBUG
-        sql_print_error("Decoding ttl from PK failed during insert, "
-                        "for index (%u,%u), key: %s",
-                        gl_index_id.cf_id, gl_index_id.index_id, buf.c_str());
-        return HA_EXIT_FAILURE;
-      }
-
-      char *const data = const_cast<char *>(m_storage_record.ptr());
-      memcpy(data, ts, ROCKSDB_SIZEOF_TTL_RECORD);
-#ifndef NDEBUG
-      // Adjust for test case if needed
-      rdb_netbuf_store_uint64(
-          reinterpret_cast<uchar *>(data),
-          rdb_netbuf_to_uint64(reinterpret_cast<const uchar *>(data)) +
-              rdb_dbug_set_ttl_rec_ts());
-#endif
-      // Also store in m_ttl_bytes to propagate to update_sk
-      memcpy(m_ttl_bytes, data, ROCKSDB_SIZEOF_TTL_RECORD);
-    } else if (!has_ttl_column) {
-      /*
-        For implicitly generated TTL records we need to copy over the old
-        TTL value from the old record in the event of an update. It was stored
-        in m_ttl_bytes.
-
-        Otherwise, generate a timestamp using the current time.
-      */
-      if (!row_info.old_pk_slice.empty()) {
-        char *const data = const_cast<char *>(m_storage_record.ptr());
-        memcpy(data, m_ttl_bytes, sizeof(uint64));
-      } else {
-        uint64 ts = static_cast<uint64>(std::time(nullptr));
-#ifndef NDEBUG
-        ts += rdb_dbug_set_ttl_rec_ts();
-#endif
-        char *const data = const_cast<char *>(m_storage_record.ptr());
-        rdb_netbuf_store_uint64(reinterpret_cast<uchar *>(data), ts);
-        // Also store in m_ttl_bytes to propagate to update_sk
-        memcpy(m_ttl_bytes, data, ROCKSDB_SIZEOF_TTL_RECORD);
-      }
-    }
+    char *const data = const_cast<char *>(m_storage_record.ptr());
+    memcpy(data, ttl_bytes, ROCKSDB_SIZEOF_TTL_RECORD);
   } else {
     /* All NULL bits are initially 0 */
     m_storage_record.fill(m_null_bytes_in_rec, 0);
   }
 
-  // If a primary key may have non-empty unpack_info for certain values,
-  // (m_maybe_unpack_info=TRUE), we write the unpack_info block. The block
-  // itself was prepared in Rdb_key_def::pack_record.
   if (ck_descr->m_maybe_unpack_info) {
     m_storage_record.append(reinterpret_cast<char *>(ck_unpack_info->ptr()),
                             ck_unpack_info->get_current_pos());
@@ -5748,7 +5689,7 @@ int ha_rocksdb::convert_ck_record_to_storage_format(const Rdb_key_def* ck_descr,
       if (has_hidden_pk(table) && kp + 1 == key_parts)
         break;
 
-      Field *const field = ck_descr->get_table_field_for_part_no(table, kp);
+      Field *const field = ck_descr->get_table_field_for_part_no(table_arg, kp);
       if (field->field_index == i) {
         is_ck_field = true;
         break;
@@ -5762,7 +5703,7 @@ int ha_rocksdb::convert_ck_record_to_storage_format(const Rdb_key_def* ck_descr,
     Field *const field = table->field[i];
     if (m_encoder_arr[i].maybe_null()) {
       char *data = const_cast<char *>(m_storage_record.ptr());
-      if (has_ttl) {
+      if (ck_descr->has_ttl()) {
         data += ROCKSDB_SIZEOF_TTL_RECORD;
       }
 
@@ -5802,33 +5743,6 @@ int ha_rocksdb::convert_ck_record_to_storage_format(const Rdb_key_def* ck_descr,
       /* Copy the field data */
       const uint len = field->pack_length_in_rec();
       m_storage_record.append(reinterpret_cast<char *>(field->ptr), len);
-
-      /*
-        Check if this is the TTL field within the table, if so store the TTL
-        in the front of the record as well here.
-      */
-      if (has_ttl && has_ttl_column &&
-          i == ck_descr->get_ttl_field_offset()) {
-        DBUG_ASSERT(len == ROCKSDB_SIZEOF_TTL_RECORD);
-        DBUG_ASSERT(field->real_type() == MYSQL_TYPE_LONGLONG);
-        DBUG_ASSERT(ck_descr->get_ttl_field_offset() != UINT_MAX);
-
-        char *const data = const_cast<char *>(m_storage_record.ptr());
-        uint64 ts = uint8korr(field->ptr);
-#ifndef NDEBUG
-        ts += rdb_dbug_set_ttl_rec_ts();
-#endif
-        rdb_netbuf_store_uint64(reinterpret_cast<uchar *>(data), ts);
-
-        // If this is an update and the timestamp has been updated, take note
-        // so we can avoid updating SKs unnecessarily.
-        if (!row_info.old_pk_slice.empty()) {
-          m_ttl_bytes_updated =
-              memcmp(m_ttl_bytes, data, ROCKSDB_SIZEOF_TTL_RECORD);
-        }
-        // Store timestamp in m_ttl_bytes to propagate to update_sk
-        memcpy(m_ttl_bytes, data, ROCKSDB_SIZEOF_TTL_RECORD);
-      }
     }
   }
 
@@ -6167,10 +6081,11 @@ int ha_rocksdb::convert_record_from_storage_format(
     const Rdb_key_def &kd,
     const rocksdb::Slice *const key, const rocksdb::Slice *const value,
     uchar *const buf) {
+  DBUG_ASSERT(kd.m_index_type != Rdb_key_def::INDEX_TYPE_SECONDARY);
   Rdb_string_reader reader(value);
 
   /*
-    Decode PK fields from the key
+    Decode PK/CK fields from the key
   */
   DBUG_EXECUTE_IF("myrocks_simulate_bad_pk_read1",
                   dbug_modify_key_varchar8(m_last_rowkey););
@@ -6179,7 +6094,7 @@ int ha_rocksdb::convert_record_from_storage_format(
   uint16 unpack_info_len = 0;
   rocksdb::Slice unpack_slice;
 
-  /* If it's a TTL record, skip the 8 byte TTL value */
+  /* If it's a PK/CK TTL record, skip the 8 byte TTL value */
   const char *ttl_bytes;
   if (kd.has_ttl()) {
     if ((ttl_bytes = reader.read(ROCKSDB_SIZEOF_TTL_RECORD))) {
@@ -9721,7 +9636,7 @@ int ha_rocksdb::update_ck(const TABLE *const table_arg, const Rdb_key_def &kd,
       reinterpret_cast<const char *>(m_sk_packed_tuple), new_packed_size);
 
   /* Prepare the new record to be written into RocksDB */
-  if ((rc = convert_ck_record_to_storage_format(&kd, row_info, new_key_slice, &new_value_slice))) {
+  if ((rc = convert_ck_record_to_storage_format(&kd, table_arg, new_key_slice, &new_value_slice, m_ttl_bytes))) {
     return rc;
   }
 
@@ -12187,6 +12102,8 @@ int ha_rocksdb::inplace_populate_sk(
   for (const auto &index : indexes) {
     bool is_unique_index =
         new_table_arg->key_info[index->get_keyno()].flags & HA_NOSAME;
+    bool is_ck_index =
+        new_table_arg->key_info[index->get_keyno()].flags & HA_CLUSTERING;
 
     Rdb_index_merge rdb_merge(tx->get_rocksdb_tmpdir(), rdb_merge_buf_size,
                               rdb_merge_combine_read_size,
@@ -12225,9 +12142,16 @@ int ha_rocksdb::inplace_populate_sk(
 
       const rocksdb::Slice key = rocksdb::Slice(
           reinterpret_cast<const char *>(m_sk_packed_tuple), new_packed_size);
-      const rocksdb::Slice val =
-          rocksdb::Slice(reinterpret_cast<const char *>(m_sk_tails.ptr()),
-                         m_sk_tails.get_current_pos());
+
+      rocksdb::Slice val;
+
+      if (is_ck_index) {
+        if ((res = convert_ck_record_to_storage_format(index.get(), new_table_arg, key, &val, m_ttl_bytes)))
+          DBUG_RETURN(res);
+      } else {
+        val = rocksdb::Slice(reinterpret_cast<const char *>(m_sk_tails.ptr()),
+                             m_sk_tails.get_current_pos());
+      }
 
       /*
         Add record to offset tree in preparation for writing out to

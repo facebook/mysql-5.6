@@ -10,3 +10,33 @@ create table t1(a int, b int, c int, d int, primary key(a,b,c), clustering key(b
 --source ../include/cluster_key.inc
 
 drop table t1;
+
+
+#
+# test add/drop clustering key
+#
+create table t1(c1 int primary key, c2 int, c3 int) engine=rocksdb;
+insert into t1 values(1,11,111);
+insert into t1 values(2,22,222);
+insert into t1 values(3,33,333);
+insert into t1 values(4,44,444);
+
+alter table t1 add clustering key idx1(c2);
+set global rocksdb_force_flush_memtable_now=1;
+
+explain select * from t1;
+select * from t1;
+explain select * from t1 force index(idx1);
+select * from t1 force index(idx1);
+
+insert into t1 values(5,55,555);
+set global rocksdb_force_flush_memtable_now=1;
+explain select * from t1;
+select * from t1;
+explain select * from t1 force index(idx1);
+select * from t1 force index(idx1);
+
+alter table t1 drop index idx1;
+insert into t1 values(6,66,666);
+select * from t1;
+drop table t1;
