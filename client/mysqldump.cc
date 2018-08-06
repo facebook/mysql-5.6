@@ -120,7 +120,7 @@ static void add_load_option(DYNAMIC_STRING *str, const char *option,
                             const char *option_value);
 static char *alloc_query_str(size_t size);
 
-static bool default_engine_rocksdb(MYSQL *mysql_con);
+static bool default_engine(MYSQL *mysql_con, const char *engine);
 static void field_escape(DYNAMIC_STRING *in, const char *from);
 static bool verbose = 0, opt_no_create_info = 0, opt_no_data = 0, quick = 1,
             extended_insert = 1, lock_tables = 1, opt_force = 0, flush_logs = 0,
@@ -140,7 +140,8 @@ static bool verbose = 0, opt_no_create_info = 0, opt_no_data = 0, quick = 1,
             opt_drop_trigger = 0, opt_network_timeout = 0,
             stats_tables_included = 0, column_statistics = false,
             opt_print_ordering_key = 0, opt_ignore_views = 0, opt_rocksdb = 0,
-            opt_order_by_primary_desc = 0, opt_rocksdb_bulk_load = 0;
+            opt_order_by_primary_desc = 0, opt_rocksdb_bulk_load = 0,
+            opt_innodb_stats_on_metadata = 0;
 static bool insert_pat_inited = 0, debug_info_flag = 0, debug_check_flag = 0;
 static bool opt_enable_checksum_table = 0;
 static ulong opt_max_allowed_packet, opt_net_buffer_length;
@@ -406,6 +407,12 @@ static struct my_option my_long_options[] = {
      "in dump produced with --dump-slave.",
      &opt_include_master_host_port, &opt_include_master_host_port, 0, GET_BOOL,
      NO_ARG, 0, 0, 0, 0, 0, 0},
+    {"innodb-stats-on-metadata", OPT_INNODB_STATS_ON_METADATA,
+     "Update non-persistent statistics during metadata statements such as SHOW "
+     "TABLE STATUS, or when accessing the INFORMATION_SCHEMA.TABLES or "
+     "INFORMATION_SCHEMA.STATISTICS tables",
+     &opt_innodb_stats_on_metadata, &opt_innodb_stats_on_metadata, 0, GET_BOOL,
+     NO_ARG, 1, 0, 0, 0, 0, 0},
     {"print-ordering-key", OPT_PRINT_ORDERING_KEY,
      "Print the key used for ordering rows in the dumpfile",
      &opt_print_ordering_key, &opt_print_ordering_key, 0, GET_BOOL, NO_ARG, 0,
@@ -1652,6 +1659,13 @@ static int connect_to_db(char *host, char *user, char *passwd) {
   */
   if (opt_tz_utc) {
     snprintf(buff, sizeof(buff), "/*!40103 SET TIME_ZONE='+00:00' */");
+    if (mysql_query_with_error_report(mysql, 0, buff)) DBUG_RETURN(1);
+  }
+
+  /* set innodb_stats_on_metadata if the default engine is InnoDB */
+  if (opt_innodb_stats_on_metadata && default_engine(mysql, "InnoDB")) {
+    snprintf(buff, sizeof(buff), "SET session innodb_stats_on_metadata=%u",
+             opt_innodb_stats_on_metadata);
     if (mysql_query_with_error_report(mysql, 0, buff)) DBUG_RETURN(1);
   }
 
@@ -5143,7 +5157,7 @@ static int start_transaction(MYSQL *mysql_con, char *filename_out,
                       : "Aborting.");
     if (!opt_force) exit(EX_MYSQLERR);
   }
-  bool use_rocksdb = opt_rocksdb || default_engine_rocksdb(mysql_con);
+  bool use_rocksdb = opt_rocksdb || default_engine(mysql_con, "ROCKSDB");
 
   if (use_rocksdb && mysql_query_with_error_report(
                          mysql_con, 0, "SET SESSION rocksdb_skip_fill_cache=1"))
@@ -5184,21 +5198,25 @@ static int start_transaction(MYSQL *mysql_con, char *filename_out,
   return 0;
 }
 
-static bool default_engine_rocksdb(MYSQL *mysql_con) {
+/*
+ * check if the default engine matches $engine
+ * Return true if it matches, otherwise return FALSE
+ */
+static bool default_engine(MYSQL *mysql_con, const char *engine) {
   MYSQL_RES *res;
   MYSQL_ROW row;
   char *val = 0;
   char buf[32], query[64];
-  bool rocksdb = false;
+  bool match = false;
 
   snprintf(query, sizeof(query), "SHOW VARIABLES LIKE %s",
            quote_for_like("default_storage_engine", buf));
   if (mysql_query_with_error_report(mysql_con, &res, query)) return false;
   row = mysql_fetch_row(res);
   val = row ? (char *)row[1] : NULL;
-  if (val && !strcmp(val, "ROCKSDB")) rocksdb = true;
+  if (val && !strcmp(val, engine)) match = true;
   mysql_free_result(res);
-  return rocksdb;
+  return match;
 }
 
 /* Print a value with a prefix on file */
