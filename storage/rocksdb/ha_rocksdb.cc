@@ -9583,6 +9583,36 @@ int ha_rocksdb::update_indexes(const struct update_row_info &row_info,
   return HA_EXIT_SUCCESS;
 }
 
+static void calc_autoinc_difference(const uchar *const old_row,
+                                 const uchar *const new_row,
+                                 TABLE* table,
+                                 ulonglong& auto_inc) {
+  Field* field;
+  const char* o_ptr;
+  const char* n_ptr;
+  uint i;
+
+  auto_inc = 0;
+
+  if (!old_row) {
+    return;
+  }
+
+  for (i = 0; i < table->s->fields; i++) {
+    field = table->field[i];
+
+    if (field == table->found_next_number_field) {
+      o_ptr = (const char*) old_row + field->offset(table->record[0]);
+      n_ptr = (const char*) new_row + field->offset(table->record[0]);
+
+      if (memcmp(o_ptr, n_ptr, field->pack_length())) {
+        auto_inc = field->val_int();
+      }
+      break;
+    }
+  }
+}
+
 int ha_rocksdb::update_write_row(const uchar *const old_data,
                                  const uchar *const new_data,
                                  const bool skip_unique_check) {
@@ -9644,6 +9674,16 @@ int ha_rocksdb::update_write_row(const uchar *const old_data,
     row_info.tx->incr_update_count();
   } else {
     row_info.tx->incr_insert_count();
+  }
+
+  ulonglong autoinc;
+  calc_autoinc_difference(old_data, new_data, table, autoinc);
+  if (autoinc) {
+    /*
+     A value for an AUTO_INCREMENT column
+     was specified in the UPDATE statement.
+    */
+    update_auto_incr_val_from_field();
   }
 
   if (do_bulk_commit(row_info.tx)) {
