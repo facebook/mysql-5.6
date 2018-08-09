@@ -2108,3 +2108,24 @@
    fun:_ZL18do_shutdown_serverP10st_command
    fun:main
 }
+
+{
+   static allocation in getservbyname
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:getservbyname
+   fun:mysql_server_init
+   fun:main
+}
+
+{
+   static allocation in getpwuid
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:getpwuid_r@@GLIBC_2.2.5
+   ...
+}
