@@ -6,6 +6,10 @@ FLUSH LOGS;
 insert into t1 values(3);
 insert into t1 values(4);
 FLUSH LOGS;
+Log_name: master-bin.000002
+
+Log_name: master-bin.000003
+
 ** Reading from local binlog **
 # The proper term is pseudo_replica_mode, but we use this compatibility alias
 # to make the statement usable on server versions 8.0.24 and older.
