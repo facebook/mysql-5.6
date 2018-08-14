@@ -1131,14 +1131,15 @@ static Sys_var_enum Sys_binlog_row_image(
     binlog_row_image_names, DEFAULT(BINLOG_ROW_IMAGE_FULL), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(check_binlog_row_image), ON_UPDATE(NULL));
 
-static const char *binlog_row_metadata_names[] = {"MINIMAL", "FULL", NullS};
+static const char *binlog_row_metadata_names[] = {"MINIMAL", "FULL", "FACEBOOK",
+                                                  NullS};
 static Sys_var_enum Sys_binlog_row_metadata(
     "binlog_row_metadata",
     "Controls whether metadata is logged using FULL or MINIMAL format. "
     "FULL causes all metadata to be logged; MINIMAL means that only "
     "metadata actually required by slave is logged. Default: MINIMAL.",
     GLOBAL_VAR(binlog_row_metadata), CMD_LINE(REQUIRED_ARG),
-    binlog_row_metadata_names, DEFAULT(BINLOG_ROW_METADATA_MINIMAL),
+    binlog_row_metadata_names, DEFAULT(BINLOG_ROW_METADATA_FACEBOOK),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL), ON_UPDATE(NULL));
 
 static bool on_session_track_gtids_update(sys_var *, THD *thd, enum_var_type) {

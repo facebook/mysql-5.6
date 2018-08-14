@@ -18,6 +18,8 @@
 --source include/have_debug.inc
 --source include/have_binlog_format_row.inc
 
+SET GLOBAL binlog_row_metadata = MINIMAL;
+
 RESET MASTER;
 
 --let $MYSQLD_DATADIR= `select @@datadir`
@@ -324,6 +326,6 @@ INSERT INTO t1 VALUES("b");
 --source extra/binlog_tests/print_optional_metadata.inc
 
 SET SESSION debug = '';
-SET GLOBAL binlog_row_metadata = MINIMAL;
+SET GLOBAL binlog_row_metadata = default;
 DROP TABLE t1;
 RESET MASTER;
