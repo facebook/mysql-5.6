@@ -1431,14 +1431,15 @@ static Sys_var_enum Sys_binlog_row_image(
     binlog_row_image_names, DEFAULT(BINLOG_ROW_IMAGE_FULL), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(check_binlog_row_image), ON_UPDATE(nullptr));
 
-static const char *binlog_row_metadata_names[] = {"MINIMAL", "FULL", NullS};
+static const char *binlog_row_metadata_names[] = {"MINIMAL", "FULL", "FACEBOOK",
+                                                  NullS};
 static Sys_var_enum Sys_binlog_row_metadata(
     "binlog_row_metadata",
     "Controls how much type information is written to the binary log when "
     "using ROW format. FULL causes all metadata to be logged. MINIMAL means "
     "that only metadata actually needed by replicas is logged.",
     GLOBAL_VAR(binlog_row_metadata), CMD_LINE(REQUIRED_ARG),
-    binlog_row_metadata_names, DEFAULT(BINLOG_ROW_METADATA_MINIMAL),
+    binlog_row_metadata_names, DEFAULT(BINLOG_ROW_METADATA_FACEBOOK),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
 
 static bool check_binlog_trx_compression(sys_var *self [[maybe_unused]],

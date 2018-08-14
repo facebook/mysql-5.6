@@ -650,6 +650,7 @@ class Table_map_event : public Binary_log_event {
                   size_t dblen, const char *tblnam, size_t tbllen)
       : Binary_log_event(TABLE_MAP_EVENT),
         m_table_id(tid),
+        m_fb_format(true),
         m_data_size(0),
         m_dbnam(""),
         m_dblen(dblen),
@@ -660,7 +661,9 @@ class Table_map_event : public Binary_log_event {
         m_field_metadata(nullptr),
         m_null_bits(nullptr),
         m_optional_metadata_len(0),
-        m_optional_metadata(nullptr) {
+        m_optional_metadata(nullptr),
+        m_primary_key_fields_size(0),
+        m_primary_key_fields(nullptr) {
     if (dbnam) m_dbnam = std::string(dbnam, m_dblen);
     if (tblnam) m_tblnam = std::string(tblnam, m_tbllen);
   }
@@ -670,6 +673,7 @@ class Table_map_event : public Binary_log_event {
   /** Event post header contents */
   Table_id m_table_id;
   flag_set m_flags;
+  bool m_fb_format;
 
   size_t m_data_size; /** event data size */
 
@@ -689,6 +693,8 @@ class Table_map_event : public Binary_log_event {
   unsigned char *m_null_bits;
   unsigned int m_optional_metadata_len;
   unsigned char *m_optional_metadata;
+  unsigned int m_primary_key_fields_size;
+  unsigned char *m_primary_key_fields;
 
   Table_map_event()
       : Binary_log_event(TABLE_MAP_EVENT),
@@ -697,7 +703,9 @@ class Table_map_event : public Binary_log_event {
         m_field_metadata(nullptr),
         m_null_bits(nullptr),
         m_optional_metadata_len(0),
-        m_optional_metadata(nullptr) {}
+        m_optional_metadata(nullptr),
+        m_primary_key_fields_size(0),
+        m_primary_key_fields(nullptr) {}
 
   unsigned long long get_table_id() { return m_table_id.id(); }
   std::string get_table_name() { return m_tblnam; }

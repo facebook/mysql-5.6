@@ -1,3 +1,4 @@
+SET GLOBAL binlog_row_metadata = MINIMAL;
 
 # 1.Create a table with a signed and unsigned column.
 #   Get the binlog in use and flush logs
@@ -23,3 +24,4 @@ include/assert_grep.inc [Check that BIGINT metadata is marked signed and therefo
 # 3. Cleanup
 DROP TABLE t1;
 RESET MASTER;
+SET GLOBAL binlog_row_metadata = default;
