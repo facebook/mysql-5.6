@@ -26,6 +26,7 @@
 # Skipping the test when compression is on.
 --source include/not_binlog_transaction_compression_on.inc
 
+SET GLOBAL binlog_row_metadata = MINIMAL;
 
 RESET MASTER;
 
@@ -354,7 +355,6 @@ INSERT INTO t1 VALUES("b");
 --source extra/binlog_tests/print_optional_metadata.inc
 
 SET SESSION debug = '';
-SET GLOBAL binlog_row_metadata = MINIMAL;
 DROP TABLE t1;
 RESET MASTER;
 
@@ -386,3 +386,5 @@ UPDATE t1 SET c1=4 WHERE c4=6;
 --source extra/binlog_tests/print_optional_metadata.inc
 DROP TABLE t1;
 RESET MASTER;
+
+SET GLOBAL binlog_row_metadata = default;
