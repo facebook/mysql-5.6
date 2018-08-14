@@ -1488,7 +1488,7 @@ binlog-order-commits TRUE
 binlog-rotate-encryption-master-key-at-startup FALSE
 binlog-row-event-max-size 8192
 binlog-row-image FULL
-binlog-row-metadata MINIMAL
+binlog-row-metadata FACEBOOK
 binlog-row-value-options 
 binlog-rows-query-log-events FALSE
 binlog-stmt-cache-size 32768

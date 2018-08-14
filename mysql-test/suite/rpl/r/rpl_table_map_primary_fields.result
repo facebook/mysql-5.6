@@ -1,0 +1,34 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+set timestamp=1000000000;
+create table t1 (i1 int);
+insert into t1 values(1);
+drop table t1;
+create table t1 (i1 int, primary key(i1));
+insert into t1 values(1);
+drop table t1;
+create table t1(i1 int, i2 int, i3 int, primary key(i1, i2, i3));
+insert into t1 values(1, 1, 1);
+drop table t1;
+create table t1(i1 int, i2 int, i3 int, primary key(i3, i2, i1));
+insert into t1 values(1, 1, 1);
+drop table t1;
+create table t1(i1 int, i2 int, i3 int, i4 int, i5 int, i6 int, i7 int, i8 int, i9 int, primary key(i4, i8, i9));
+insert into t1 values(1, 1, 1, 1, 1, 1, 1, 1, 1);
+drop table t1;
+## Primary key fields of tables on master
+#Primary Key Fields: ` `
+#Primary Key Fields: ` 0 `
+#Primary Key Fields: ` 0 1 2 `
+#Primary Key Fields: ` 2 1 0 `
+#Primary Key Fields: ` 3 7 8 `
+## Primary key fields of tables on slave
+#Primary Key Fields: ` `
+#Primary Key Fields: ` 0 `
+#Primary Key Fields: ` 0 1 2 `
+#Primary Key Fields: ` 2 1 0 `
+#Primary Key Fields: ` 3 7 8 `
+include/rpl_end.inc
