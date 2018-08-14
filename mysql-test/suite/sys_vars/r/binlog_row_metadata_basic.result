@@ -1,6 +1,6 @@
 SELECT @@GLOBAL.binlog_row_metadata;
 @@GLOBAL.binlog_row_metadata
-MINIMAL
+FACEBOOK
 MINIMAL Expected
 SELECT @@SESSION.binlog_row_metadata;
 ERROR HY000: Variable 'binlog_row_metadata' is a GLOBAL variable
@@ -21,6 +21,11 @@ SELECT @@GLOBAL.binlog_row_metadata;
 @@GLOBAL.binlog_row_metadata
 FULL
 FULL Expected
+SET @@GLOBAL.binlog_row_metadata=2;
+SELECT @@GLOBAL.binlog_row_metadata;
+@@GLOBAL.binlog_row_metadata
+FACEBOOK
+FACEBOOK Expected
 SET @@GLOBAL.binlog_row_metadata=MINIMAL;
 SELECT @@GLOBAL.binlog_row_metadata;
 @@GLOBAL.binlog_row_metadata
@@ -31,6 +36,11 @@ SELECT @@GLOBAL.binlog_row_metadata;
 @@GLOBAL.binlog_row_metadata
 FULL
 FULL Expected
+SET @@GLOBAL.binlog_row_metadata=FACEBOOK;
+SELECT @@GLOBAL.binlog_row_metadata;
+@@GLOBAL.binlog_row_metadata
+FACEBOOK
+FACEBOOK Expected
 SET @@GLOBAL.binlog_row_metadata='MINIMAL';
 SELECT @@GLOBAL.binlog_row_metadata;
 @@GLOBAL.binlog_row_metadata
@@ -41,6 +51,11 @@ SELECT @@GLOBAL.binlog_row_metadata;
 @@GLOBAL.binlog_row_metadata
 FULL
 FULL Expected
+SET @@GLOBAL.binlog_row_metadata='FACEBOOK';
+SELECT @@GLOBAL.binlog_row_metadata;
+@@GLOBAL.binlog_row_metadata
+FACEBOOK
+FACEBOOK Expected
 '#---------------------BS_STVARS_002_03----------------------#'
 SELECT @@GLOBAL.binlog_row_metadata = VARIABLE_VALUE
 FROM performance_schema.global_variables
@@ -78,8 +93,6 @@ SET GLOBAL binlog_row_metadata = full1;
 ERROR 42000: Variable 'binlog_row_metadata' can't be set to the value of 'full1'
 SET GLOBAL binlog_row_metadata = "full1";
 ERROR 42000: Variable 'binlog_row_metadata' can't be set to the value of 'full1'
-SET GLOBAL binlog_row_metadata = 2;
-ERROR 42000: Variable 'binlog_row_metadata' can't be set to the value of '2'
 SET GLOBAL binlog_row_metadata = -1;
 ERROR 42000: Variable 'binlog_row_metadata' can't be set to the value of '-1'
 SET @@global.binlog_row_metadata= @start_value;

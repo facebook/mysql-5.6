@@ -2313,7 +2313,10 @@ class Table_map_log_event : public binary_log::Table_map_event,
       while creating a table if sql_generate_invisible_primary_key is "ON" and
       table is PK-less.
     */
-    TM_GENERATED_INVISIBLE_PK_F = (1U << 2)
+    TM_GENERATED_INVISIBLE_PK_F = (1U << 2),
+    /* Picked 10 because MySQL flags flow in ascending order and MariaDB flags
+       flow in descending order */
+    TM_METADATA_NOT_FB_FORMAT_F = (1U << 10)
   };
 
   flag_set get_flags(flag_set flag) const { return m_flags & flag; }
@@ -2345,6 +2348,7 @@ class Table_map_log_event : public binary_log::Table_map_event,
   virtual int save_field_metadata();
   bool write_data_header(Basic_ostream *ostream) override;
   bool write_data_body(Basic_ostream *ostream) override;
+  bool write_fb_format_metadata(Basic_ostream *ostream);
   const char *get_db() override { return m_dbnam.c_str(); }
   uint8 mts_number_dbs() override {
     return get_flags(TM_REFERRED_FK_DB_F) ? OVER_MAX_DBS_IN_EVENT_MTS : 1;
@@ -2404,6 +2408,13 @@ class Table_map_log_event : public binary_log::Table_map_event,
    */
   void print_primary_key(IO_CACHE *file,
                          const Optional_metadata_fields &fields) const;
+  /**
+    Print FB format primary information. Its format looks like:
+    # Primary Key Fields: ` col1_index col2_index ... `
+
+    @@param[out] file the place where primary key is printed
+  */
+  void print_fb_format_primary_key(IO_CACHE *file) const;
 #endif
 
   bool has_generated_invisible_primary_key() const;
@@ -2439,6 +2450,7 @@ class Table_map_log_event : public binary_log::Table_map_event,
     table_map_log_event and serialize them into m_metadata_buf.
   */
   void init_metadata_fields();
+  bool init_fb_format_pk_fields();
   bool init_signedness_field();
   /**
     Capture and serialize character sets.  Character sets for

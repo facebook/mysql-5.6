@@ -122,26 +122,14 @@
 
 --let $assert_text= Check the output contains complete info about the GIPK column on t2
 --let $assert_file = $MYSQLTEST_VARDIR/tmp/mysqlbinlog_no_gipk_info.output
---let $assert_select = # Columns\(`my_row_id` BIGINT UNSIGNED NOT NULL INVISIBLE AUTO_INCREMENT
---let $assert_count = 1
---source include/assert_grep.inc
-
---let $assert_text= Check the output contains info about the GIPK being a PK on t2
---let $assert_file = $MYSQLTEST_VARDIR/tmp/mysqlbinlog_no_gipk_info.output
---let $assert_select = # Primary Key\(my_row_id\)
---let $assert_count = 1
+--let $assert_select = #Primary Key Fields
+--let $assert_count = 2
 --source include/assert_grep.inc
 
 --let $assert_text= Info about the column really_unique_column_name on t2 is only mentioned once on CREATE
 --let $assert_file = $MYSQLTEST_VARDIR/tmp/mysqlbinlog_no_gipk_info.output
 --let $assert_select = really_unique_column_name
 --let $assert_count = 1
---source include/assert_grep.inc
-
---let $assert_text= Check the output contains no info about c1 being a PK on t1
---let $assert_file = $MYSQLTEST_VARDIR/tmp/mysqlbinlog_no_gipk_info.output
---let $assert_select = # Primary Key\(c1\)
---let $assert_count = 0
 --source include/assert_grep.inc
 
 --echo
@@ -164,27 +152,15 @@
 
 --exec $MYSQL_BINLOG --print-table-metadata --force-if-open $input_binlog_file > $MYSQLTEST_VARDIR/tmp/mysqlbinlog_no_gipk_info.output
 
---let $assert_text= Check the output contains complete info about the GIPK column on t2
---let $assert_file = $MYSQLTEST_VARDIR/tmp/mysqlbinlog_no_gipk_info.output
---let $assert_select = # Columns\(`my_row_id` BIGINT UNSIGNED NOT NULL INVISIBLE AUTO_INCREMENT
---let $assert_count = 1
---source include/assert_grep.inc
-
 --let $assert_text= Check the output contains info about the GIPK being a PK on t2
 --let $assert_file = $MYSQLTEST_VARDIR/tmp/mysqlbinlog_no_gipk_info.output
---let $assert_select = # Primary Key\(my_row_id\)
---let $assert_count = 1
+--let $assert_select = #Primary Key Fields
+--let $assert_count = 2
 --source include/assert_grep.inc
 
 --let $assert_text= Info about the column really_unique_column_name on t2 is mentioned on CREATE and in the table map
 --let $assert_file = $MYSQLTEST_VARDIR/tmp/mysqlbinlog_no_gipk_info.output
 --let $assert_select = really_unique_column_name
---let $assert_count = 2
---source include/assert_grep.inc
-
---let $assert_text= Check the output contains info about c1 being a PK on t1
---let $assert_file = $MYSQLTEST_VARDIR/tmp/mysqlbinlog_no_gipk_info.output
---let $assert_select = # Primary Key\(c1\)
 --let $assert_count = 1
 --source include/assert_grep.inc
 

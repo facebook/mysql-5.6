@@ -26,6 +26,7 @@
 #include <cstring>
 #include <string>
 
+#include "../sql/log_event.h"
 #include "event_reader_macros.h"
 
 namespace binary_log {
@@ -35,6 +36,7 @@ Table_map_event::Table_map_event(const char *buf,
     : Binary_log_event(&buf, fde),
       m_table_id(0),
       m_flags(0),
+      m_fb_format(true),
       m_data_size(0),
       m_dbnam(""),
       m_dblen(0),
@@ -46,10 +48,13 @@ Table_map_event::Table_map_event(const char *buf,
       m_field_metadata(nullptr),
       m_null_bits(nullptr),
       m_optional_metadata_len(0),
-      m_optional_metadata(nullptr) {
+      m_optional_metadata(nullptr),
+      m_primary_key_fields_size(0),
+      m_primary_key_fields(nullptr) {
   BAPI_ENTER("Table_map_event::Table_map_event(const char*, ...)");
   const char *ptr_dbnam = nullptr;
   const char *ptr_tblnam = nullptr;
+  unsigned long long bytes_avail;
   READER_TRY_INITIALIZATION;
   READER_ASSERT_POSITION(fde->common_header_len);
 
@@ -65,6 +70,8 @@ Table_map_event::Table_map_event(const char *buf,
     READER_TRY_SET(m_table_id, read<uint64_t>, 6);
   }
   READER_TRY_SET(m_flags, read<uint16_t>);
+
+  m_fb_format = !(m_flags & Table_map_log_event::TM_METADATA_NOT_FB_FORMAT_F);
 
   /* Read the variable part of the event */
 
@@ -92,10 +99,23 @@ Table_map_event::Table_map_event(const char *buf,
   }
 
   /* After null_bits field, there are some new fields for extra metadata. */
-  m_optional_metadata_len = READER_CALL(available_to_read);
-  if (m_optional_metadata_len) {
-    READER_TRY_CALL(alloc_and_memcpy, &m_optional_metadata,
-                    m_optional_metadata_len, 0);
+  bytes_avail = READER_CALL(available_to_read);
+  if (bytes_avail > 0) {
+    /*
+      FB format conflicts with upstream 8.0 table map format. This needs
+      to be resolved eventually. For now, just ignore upstream format.
+     */
+    if (m_fb_format) {
+      READER_TRY_SET(m_primary_key_fields_size, net_field_length_ll);
+      if (m_primary_key_fields_size) {
+        READER_TRY_CALL(alloc_and_memcpy, &m_primary_key_fields,
+                        m_primary_key_fields_size, 0);
+      }
+    } else {
+      m_optional_metadata_len = bytes_avail;
+      READER_TRY_CALL(alloc_and_memcpy, &m_optional_metadata,
+                      m_optional_metadata_len, 0);
+    }
   }
 
   READER_CATCH_ERROR;
@@ -109,6 +129,8 @@ Table_map_event::~Table_map_event() {
   m_field_metadata = nullptr;
   bapi_free(m_coltype);
   m_coltype = nullptr;
+  bapi_free(m_primary_key_fields);
+  m_primary_key_fields = nullptr;
   bapi_free(m_optional_metadata);
   m_optional_metadata = nullptr;
 }

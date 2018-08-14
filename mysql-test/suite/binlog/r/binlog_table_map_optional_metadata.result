@@ -1,3 +1,4 @@
+SET GLOBAL binlog_row_metadata = MINIMAL;
 RESET MASTER;
 #
 # Temporal types can be printed correctly
@@ -409,7 +410,6 @@ Matching lines are:
 None
 Occurrences of '# Primary Key' in the input file: 0
 SET SESSION debug = '';
-SET GLOBAL binlog_row_metadata = MINIMAL;
 DROP TABLE t1;
 RESET MASTER;
 #
@@ -496,3 +496,4 @@ None
 Occurrences of '# Primary Key' in the input file: 0
 DROP TABLE t1;
 RESET MASTER;
+SET GLOBAL binlog_row_metadata = default;

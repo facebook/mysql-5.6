@@ -10565,6 +10565,10 @@ Table_map_log_event::Table_map_log_event(THD *thd_arg, TABLE *tbl,
       cs::util::ColumnFilterFactory::ColumnFilterType::outbound_func_index);
   m_table = tbl;
   m_flags = TM_BIT_LEN_EXACT_F;
+  if (binlog_row_metadata != BINLOG_ROW_METADATA_FACEBOOK) {
+    m_flags |= TM_METADATA_NOT_FB_FORMAT_F;
+    m_fb_format = false;
+  }
 
   this->m_colcnt =
       m_column_view->filtered_size() +
@@ -10677,7 +10681,17 @@ Table_map_log_event::Table_map_log_event(THD *thd_arg, TABLE *tbl,
     m_flags |= TM_GENERATED_INVISIBLE_PK_F;
 
   init_metadata_fields();
-  m_data_size += m_metadata_buf.length();
+
+  if (binlog_row_metadata == BINLOG_ROW_METADATA_FACEBOOK) {
+    assert(m_fb_format && m_metadata_buf.length() == 0);
+    if (m_primary_key_fields_size < 251)
+      m_data_size += 1;
+    else
+      m_data_size += 3;
+    m_data_size += m_primary_key_fields_size;
+  } else {
+    m_data_size += m_metadata_buf.length();
+  }
 }
 #endif /* defined(MYSQL_SERVER) */
 
@@ -11005,8 +11019,21 @@ bool Table_map_log_event::write_data_body(Basic_ostream *ostream) {
           wrapper_my_b_safe_write(ostream, m_field_metadata,
                                   m_field_metadata_size) ||
           wrapper_my_b_safe_write(ostream, m_null_bits, (m_colcnt + 7) / 8) ||
-          wrapper_my_b_safe_write(ostream, (const uchar *)m_metadata_buf.ptr(),
-                                  m_metadata_buf.length()));
+          (m_fb_format ? write_fb_format_metadata(ostream)
+                       : wrapper_my_b_safe_write(
+                             ostream, (const uchar *)m_metadata_buf.ptr(),
+                             m_metadata_buf.length())));
+}
+
+bool Table_map_log_event::write_fb_format_metadata(Basic_ostream *ostream) {
+  assert(m_fb_format);
+  uchar m_size_buf[sizeof(m_primary_key_fields_size)];
+  uchar *const m_size_buf_end =
+      net_store_length(m_size_buf, m_primary_key_fields_size);
+  return (wrapper_my_b_safe_write(ostream, m_size_buf,
+                                  (size_t)(m_size_buf_end - m_size_buf)) ||
+          wrapper_my_b_safe_write(ostream, m_primary_key_fields,
+                                  m_primary_key_fields_size));
 }
 
 /**
@@ -11103,6 +11130,15 @@ void Table_map_log_event::init_metadata_fields() {
   DBUG_TRACE;
   DBUG_EXECUTE_IF("simulate_no_optional_metadata", return;);
 
+  if (binlog_row_metadata == BINLOG_ROW_METADATA_FACEBOOK) {
+    if (init_fb_format_pk_fields()) {
+      m_primary_key_fields_size = 0;
+      m_primary_key_fields = nullptr;
+    }
+    m_metadata_buf.length(0);
+    return;
+  }
+
   if (init_signedness_field() ||
       init_charset_field(&is_character_field, DEFAULT_CHARSET,
                          COLUMN_CHARSET) ||
@@ -11120,6 +11156,42 @@ void Table_map_log_event::init_metadata_fields() {
       m_metadata_buf.length(0);
     }
   }
+}
+
+bool Table_map_log_event::init_fb_format_pk_fields() {
+  KEY *pkey_info = NULL;
+  // Validate that there exists a valid primary key
+  // and calculate the space required to store primary key
+  // column indexes.
+  if (m_table->key_info && m_table->s->primary_key < MAX_KEY) {
+    pkey_info = m_table->key_info + m_table->s->primary_key;
+    // see net_store_length()
+    if (pkey_info->user_defined_key_parts < 251)
+      m_primary_key_fields_size += 1;
+    else
+      m_primary_key_fields_size += 3;
+    for (uint i = 0; i < pkey_info->user_defined_key_parts; ++i) {
+      if ((pkey_info->key_part[i].fieldnr - 1) < 251)
+        m_primary_key_fields_size += 1;
+      else
+        m_primary_key_fields_size += 3;
+    }
+  }
+
+  if (m_primary_key_fields_size) {
+    m_primary_key_fields =
+        static_cast<unsigned char *>(bapi_malloc(m_primary_key_fields_size, 0));
+    if (!m_primary_key_fields) {
+      return true;
+    }
+    unsigned char *ptr = m_primary_key_fields;
+    ptr = net_store_length(ptr, pkey_info->user_defined_key_parts);
+    for (uint i = 0; i < pkey_info->user_defined_key_parts; ++i) {
+      ptr = net_store_length(ptr, (pkey_info->key_part[i].fieldnr - 1));
+    }
+  }
+
+  return false;
 }
 
 bool Table_map_log_event::init_signedness_field() {
@@ -11430,12 +11502,16 @@ void Table_map_log_event::print(FILE *,
                   has_generated_invisible_primary_key());
 
     if (print_event_info->print_table_metadata) {
-      Optional_metadata_fields fields(m_optional_metadata,
-                                      m_optional_metadata_len);
+      if (m_fb_format) {
+        print_fb_format_primary_key(&print_event_info->head_cache);
+      } else {
+        Optional_metadata_fields fields(m_optional_metadata,
+                                        m_optional_metadata_len);
 
-      if (m_optional_metadata) assert(fields.is_valid);
-      print_columns(&print_event_info->head_cache, fields);
-      print_primary_key(&print_event_info->head_cache, fields);
+        if (m_optional_metadata) assert(fields.is_valid);
+        print_columns(&print_event_info->head_cache, fields);
+        print_primary_key(&print_event_info->head_cache, fields);
+      }
     }
 
     print_base64(&print_event_info->body_cache, print_event_info, true);
@@ -11835,6 +11911,20 @@ void Table_map_log_event::print_primary_key(
 
     my_b_printf(file, ")\n");
   }
+}
+
+void Table_map_log_event::print_fb_format_primary_key(IO_CACHE *file) const {
+  assert(m_fb_format);
+  my_b_printf(file, "#Primary Key Fields: ` ");
+  if (m_primary_key_fields) {
+    uchar *ptr = m_primary_key_fields;
+    uint n = net_field_length(&ptr);
+    for (ulong i = 0; i < n; ++i) {
+      uint field_index = net_field_length(&ptr);
+      my_b_printf(file, "%u ", field_index);
+    }
+  }
+  my_b_printf(file, "`\n");
 }
 #endif
 

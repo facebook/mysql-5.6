@@ -24,6 +24,8 @@
 # This test checks table map events
 -- source include/have_binlog_format_row.inc
 
+SET GLOBAL binlog_row_metadata = MINIMAL;
+
 --echo
 --echo # 1.Create a table with a signed and unsigned column.
 --echo #   Get the binlog in use and flush logs
@@ -76,3 +78,5 @@ FLUSH LOGS;
 DROP TABLE t1;
 
 RESET MASTER;
+
+SET GLOBAL binlog_row_metadata = default;
