@@ -18,10 +18,15 @@ root
 root
 super1
 super2
+select ERRORS_TOTAL,CONNECTIONS_CONCURRENT,CONNECTIONS_DENIED_MAX_USER,CONNECTIONS_DENIED_MAX_GLOBAL from information_schema.USER_STATISTICS where USER_NAME like 'nosuper';
+ERRORS_TOTAL	CONNECTIONS_CONCURRENT	CONNECTIONS_DENIED_MAX_USER	CONNECTIONS_DENIED_MAX_GLOBAL
 ## Start a connection fail_admin_con1 at ADMIN_PORT with new user nosuper
 ## This will fail since this user doesn't have SUPER ACL
 connect(127.0.0.1,nosuper,,mysql,ADMIN_PORT,MASTER_SOCKET);
-ERROR 42000: Access denied; you need (at least one of) the SUPER privilege(s) for this operation
+ERROR 42000: Access denied; you need (at least one of) the SUPER, ADMIN_PORT privilege(s) for this operation
+select ERRORS_TOTAL,CONNECTIONS_CONCURRENT,CONNECTIONS_DENIED_MAX_USER,CONNECTIONS_DENIED_MAX_GLOBAL from information_schema.USER_STATISTICS where USER_NAME like 'nosuper';
+ERRORS_TOTAL	CONNECTIONS_CONCURRENT	CONNECTIONS_DENIED_MAX_USER	CONNECTIONS_DENIED_MAX_GLOBAL
+1	0	0	0
 ## Grant the admin port privilege to nosuper and check a second time if
 ## the user can now successfully connect to the admin port
 grant admin port on *.* to 'nosuper'@'localhost' identified by password '';

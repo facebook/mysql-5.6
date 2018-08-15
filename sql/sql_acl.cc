@@ -11426,7 +11426,11 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
   if (thd->is_admin_connection() &&
       !(thd->main_security_ctx.master_access & SUPER_ACL) &&
       !(thd->main_security_ctx.master_access & ADMIN_PORT_ACL)) {
-    my_error(ER_SPECIFIC_ACCESS_DENIED_ERROR, MYF(0), "SUPER");
+    my_error(ER_SPECIFIC_ACCESS_DENIED_ERROR, MYF(0), "SUPER, ADMIN_PORT");
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+    fix_user_conn(thd, ADMIN_PORT); // Undo work by
+    // get_or_create_user_conn
+#endif
     DBUG_RETURN (1);
   }
   if (command == COM_CONNECT &&
@@ -11442,7 +11446,8 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
       statistic_increment(connection_errors_max_connection, &LOCK_status);
       my_error(ER_CON_COUNT_ERROR, MYF(0));
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
-      fix_user_conn(thd, true); // Undo work by get_or_create_user_conn
+      fix_user_conn(thd, MAX_GLOBAL); // Undo work by
+      // get_or_create_user_conn
 #endif
       DBUG_RETURN(1);
     }
@@ -11457,7 +11462,8 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
        max_nonsuper_connections) &&
       check_for_max_user_connections(thd, uc, &global_max))
   {
-    fix_user_conn(thd, global_max); // Undo work by get_or_create_user_conn
+    fix_user_conn(thd, global_max ? MAX_GLOBAL : MAX_USER); // Undo work by
+    // get_or_create_user_conn
     DBUG_RETURN(1); // The error is set in check_for_max_user_connections()
   }
 #else

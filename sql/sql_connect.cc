@@ -69,7 +69,7 @@ static HASH hash_user_connections;
 /** Undo the work done by get_or_create_user_conn and increment the failed
     connection counters.
 */
-void fix_user_conn(THD *thd, bool global_max)
+void fix_user_conn(THD *thd, enum conn_denied_reason reason)
 {
   USER_STATS *us = thd_get_user_stats(thd);
   DBUG_ASSERT(us->magic == USER_STATS_MAGIC);
@@ -86,10 +86,16 @@ void fix_user_conn(THD *thd, bool global_max)
     nonsuper_connections--;
   }
 
-  if (global_max)
-    us->connections_denied_max_global.inc();
-  else
-    us->connections_denied_max_user.inc();
+  switch (reason){
+    case MAX_USER:
+      us->connections_denied_max_user.inc();
+      break;
+    case MAX_GLOBAL:
+      us->connections_denied_max_global.inc();
+      break;
+    case ADMIN_PORT:
+      break;
+  }
 
   thd->set_user_connect(NULL);
   mysql_mutex_unlock(&LOCK_user_conn);
