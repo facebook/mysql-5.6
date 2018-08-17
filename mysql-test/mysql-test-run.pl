@@ -209,6 +209,8 @@ our $opt_ctest= env_or_val(MTR_UNIT_TESTS => -1);
 our $opt_ctest_report;
 # Unit test report stored here for delayed printing
 my $ctest_report;
+our $opt_ctest_path;
+our $opt_symbolizer_path;
 
 # Options used when connecting to an already running server
 my %opts_extern;
@@ -1227,6 +1229,8 @@ sub command_line_setup {
 	     'timediff'                 => \&report_option,
 	     'max-connections=i'        => \$opt_max_connections,
 	     'default-myisam!'          => \&collect_option,
+	     'ctest_path=s'             => \$opt_ctest_path,
+	     'symbolizer_path=s'        => \$opt_symbolizer_path,
 	     'report-times'             => \$opt_report_times,
 	     'result-file'              => \$opt_resfile,
 	     'unit-tests!'              => \$opt_ctest,
@@ -6614,11 +6618,19 @@ sub run_ctest() {
   # Now, run ctest and collect output
   $ENV{CTEST_OUTPUT_ON_FAILURE} = 1;
 
+  my $ctest= $opt_ctest_path || "ctest";
+
+  my $asan_symbolizer_path = "";
+  if ($opt_symbolizer_path) {
+     $asan_symbolizer_path = "ASAN_SYMBOLIZER_PATH=$opt_symbolizer_path";
+  }
+
   # For ASan builds, add in the leak suppression file
   my $ctest_cmd = join(" ",
+                       $asan_symbolizer_path,
                        "LSAN_OPTIONS=" .
                        "suppressions=$glob_mysql_test_dir/asan.supp",
-                       "ctest $ctest_vs 2>&1");
+                       "$ctest $ctest_vs 2>&1");
   my $ctest_out= `$ctest_cmd`;
   if ($? == $no_ctest && ($opt_ctest == -1 || defined $ENV{PB2WORKDIR})) {
     chdir($olddir);
