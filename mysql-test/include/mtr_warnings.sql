@@ -252,6 +252,11 @@ INSERT INTO global_suppressions VALUES
  */
  ("Insecure configuration for --secure-file-priv:*"),
 
+ /*
+  Suppress improper assert https://www.sourceware.org/ml/libc-alpha/2016-12/msg00859.html
+ */
+ ("Inconsistency detected by ld.so: dl-close.c: [0-9]*: _dl_close: Assertion `map->l_init_called' failed!"),
+
  ("THE_LAST_SUPPRESSION")||
 
 
