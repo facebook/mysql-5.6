@@ -1,0 +1,39 @@
+--disable_warnings
+DROP TABLE IF EXISTS fbid;
+DROP TABLE IF EXISTS hashout;
+DROP TABLE IF EXISTS hashout_udid;
+DROP DATABASE IF EXISTS fbid_hashout_schema_change_test;
+--enable_warnings
+
+CREATE DATABASE fbid_hashout_schema_change_test;
+USE fbid_hashout_schema_change_test;
+CREATE TABLE fbid (
+  col0 bigint NOT NULL DEFAULT '0',
+  col1 int NOT NULL DEFAULT '0',
+  col2 int NOT NULL DEFAULT '0',
+  col3 varchar(255) NOT NULL DEFAULT '',
+  PRIMARY KEY (col0),
+  KEY `type_id` (`col1`,`col0`)
+) ENGINE = InnoDB;
+
+CREATE TABLE hashout (
+  col0 binary(16) NOT NULL DEFAULT '\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0',
+  PRIMARY KEY (col0)
+) ENGINE = InnoDB;
+
+CREATE TABLE hashout_udid (
+  col0 binary(16) NOT NULL DEFAULT '\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0',
+  PRIMARY KEY (col0)
+) ENGINE = InnoDB;
+
+INSERT INTO fbid VALUES (1, 2, 3, REPEAT('X', 1));
+
+INSERT INTO hashout VALUES ('d');
+
+INSERT INTO hashout_udid VALUES ('i');
+
+--exec $MYSQL_DUMP --skip-comments --skip-dump-date --dump-fbobj-assoc-stats=$MYSQLTEST_VARDIR/fbid_hashout_dump_schema_change fbid_hashout_schema_change_test fbid hashout hashout_udid
+--cat_file $MYSQLTEST_VARDIR/fbid_hashout_dump_schema_change
+--remove_file $MYSQLTEST_VARDIR/fbid_hashout_dump_schema_change
+
+DROP DATABASE fbid_hashout_schema_change_test;
