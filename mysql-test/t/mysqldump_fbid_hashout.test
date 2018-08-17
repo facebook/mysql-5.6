@@ -1,0 +1,146 @@
+--disable_warnings
+DROP TABLE IF EXISTS fbid;
+DROP TABLE IF EXISTS fbid_test;
+DROP TABLE IF EXISTS hashout_test;
+DROP TABLE IF EXISTS hashout_short_url;
+DROP TABLE IF EXISTS hashout;
+DROP TABLE IF EXISTS hashout_xid;
+DROP TABLE IF EXISTS hashout_xid_crow;
+DROP TABLE IF EXISTS hashout_udid;
+DROP DATABASE IF EXISTS fbid_hashout_test;
+--enable_warnings
+
+CREATE DATABASE fbid_hashout_test;
+USE fbid_hashout_test;
+CREATE TABLE fbid (
+  col0 bigint NOT NULL DEFAULT '0',
+  col1 int NOT NULL DEFAULT '0',
+  col2 int NOT NULL DEFAULT '0',
+  col3 varchar(255) NOT NULL DEFAULT '',
+  col4 tinyint DEFAULT '0',
+  PRIMARY KEY (col0),
+  KEY `type_id` (`col1`,`col0`)
+) ENGINE = InnoDB;
+
+CREATE TABLE fbid_test (
+  col0 bigint NOT NULL DEFAULT '0',
+  col1 int NOT NULL DEFAULT '0',
+  col2 int NOT NULL DEFAULT '0',
+  col3 varchar(255) NOT NULL DEFAULT '',
+  col4 tinyint DEFAULT '0',
+  PRIMARY KEY (col0),
+  KEY `type_id` (`col1`,`col0`)
+) ENGINE = InnoDB;
+
+CREATE TABLE hashout_test (
+  col0 binary(16) NOT NULL DEFAULT '\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0',
+  col1 bigint NOT NULL DEFAULT '0',
+  col2 text,
+  col3 blob,
+  col4 int unsigned DEFAULT NULL,
+  PRIMARY KEY (col0, col1)
+) ENGINE = InnoDB;
+
+CREATE TABLE hashout_short_url (
+  col0 binary(16) NOT NULL DEFAULT '\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0',
+  col1 bigint NOT NULL DEFAULT '0',
+  col2 text,
+  col3 blob,
+  col4 int unsigned DEFAULT NULL,
+  PRIMARY KEY (col0, col1)
+) ENGINE = InnoDB;
+
+
+CREATE TABLE hashout (
+  col0 binary(16) NOT NULL DEFAULT '\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0',
+  col1 bigint NOT NULL DEFAULT '0',
+  col2 text,
+  col3 blob,
+  col4 int unsigned DEFAULT NULL,
+  PRIMARY KEY (col0, col1)
+) ENGINE = InnoDB;
+
+
+CREATE TABLE hashout_xid (
+  col0 binary(16) NOT NULL DEFAULT '\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0',
+  col1 bigint NOT NULL DEFAULT '0',
+  col2 text,
+  col3 blob,
+  col4 int unsigned DEFAULT NULL,
+  PRIMARY KEY (col0, col1)
+) ENGINE = InnoDB;
+
+
+CREATE TABLE hashout_xid_crow (
+  col0 binary(16) NOT NULL DEFAULT '\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0',
+  col1 bigint NOT NULL DEFAULT '0',
+  col2 text,
+  col3 blob,
+  col4 int unsigned DEFAULT NULL,
+  PRIMARY KEY (col0, col1)
+) ENGINE = InnoDB;
+
+CREATE TABLE hashout_udid (
+  col0 binary(16) NOT NULL DEFAULT '\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0',
+  col1 bigint NOT NULL DEFAULT '0',
+  col2 text,
+  col3 blob,
+  col4 int unsigned DEFAULT NULL,
+  PRIMARY KEY (col0, col1)
+) ENGINE = InnoDB;
+
+INSERT INTO fbid VALUES (1, 2, 3, REPEAT('X', 1), 0);
+INSERT INTO fbid VALUES (2, 3, 3, REPEAT('X', 2), 1);
+INSERT INTO fbid VALUES (3, 4, 3, REPEAT('X', 3), 2);
+INSERT INTO fbid VALUES (4, 2, 3, REPEAT('X', 5), 0);
+
+INSERT INTO fbid_test VALUES (1, 5, 3, REPEAT('X', 4), 0);
+INSERT INTO fbid_test VALUES (2, 6, 3, REPEAT('X', 5), 1);
+
+INSERT INTO hashout_test VALUES ('a', 7, REPEAT('X', 6), 1,1);
+
+INSERT INTO hashout_short_url VALUES ('a', 8, REPEAT('X', 7), 1,1);
+INSERT INTO hashout_short_url VALUES ('b', 9, REPEAT('X', 8), 1,1);
+INSERT INTO hashout_short_url VALUES ('c', 8, REPEAT('X', 9), 1,1);
+
+INSERT INTO hashout VALUES ('d', 10, REPEAT('X', 1), 1,1);
+INSERT INTO hashout VALUES ('e', 11, REPEAT('X', 11), 1,1);
+INSERT INTO hashout VALUES ('f', 11, REPEAT('X', 12), 1,1);
+
+INSERT INTO hashout_xid VALUES ('a', 12, REPEAT('X', 13), 1,1);
+INSERT INTO hashout_xid VALUES ('b', 13, REPEAT('X', 14), 1,1);
+INSERT INTO hashout_xid VALUES ('c', 13, REPEAT('X', 15), 1,1);
+
+INSERT INTO hashout_xid_crow VALUES ('d', 14, REPEAT('X', 1), 1,1);
+INSERT INTO hashout_xid_crow VALUES ('e', 15, REPEAT('X', 2), 1,1);
+INSERT INTO hashout_xid_crow VALUES ('f', 14, REPEAT('X', 3), 1,1);
+
+INSERT INTO hashout_udid VALUES ('g', 16, REPEAT('X', 4), 1,1);
+INSERT INTO hashout_udid VALUES ('h', 17, REPEAT('X', 5), 1,1);
+INSERT INTO hashout_udid VALUES ('i', 18, REPEAT('X', 6), 1,1);
+
+--exec $MYSQL_DUMP --skip-comments --skip-dump-date --dump-fbobj-assoc-stats=$MYSQLTEST_VARDIR/fbid_hashout_dump fbid_hashout_test fbid fbid_test hashout_test hashout_short_url hashout hashout_xid hashout_xid_crow hashout_udid
+--perl
+# Sort results because different std::unordered_map implementations give
+# different order.
+my $dir= $ENV{'MYSQLTEST_VARDIR'};
+open (FILE, "$dir/fbid_hashout_dump");
+my @lines = ();
+while (<FILE>) {
+  if (/FBObj\/Assoc/) {
+    if (scalar(@lines) > 0) {
+      @lines = sort @lines;
+      foreach my $line(@lines) {
+        print "$line";
+      }
+      @lines = ();
+    }
+    print $_;
+  } else {
+    push @lines, $_
+  }
+}
+EOF
+--remove_file $MYSQLTEST_VARDIR/fbid_hashout_dump
+
+DROP DATABASE fbid_hashout_test;
