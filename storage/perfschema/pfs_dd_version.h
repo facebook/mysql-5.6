@@ -45,8 +45,8 @@
 
   The numbering to use is the MySQL version number
   of the first MySQL version that published a given database schema.
-  The format is Mmmdd with M=Major, m=minor, d=dot,
-  so that MySQL 8.0.4 is encoded as 80004.
+  The format is Mmmdd with M=Major, m=minor, d=dot, and last three digits
+  for facebook specific schema changes so that MySQL 8.0.4 is encoded as 80004.
 
   In case of -dash version numbers, encode MySQL 8.12.34-56 as 8123456.
 
@@ -120,7 +120,6 @@
   performance_schema tables changed in MySQL 8.0.17
   - WL#12571 increases the HOST name length from 60 to 255.
 
-
   Version published is now 80020. The next number to use is 80021.
 
   80018:
@@ -145,8 +144,14 @@
   - WL#3549 created binary_log_transaction_compression_stats
   - replication_applier_configuration, added column
   REQUIRE_TABLE_PRIMARY_KEY_CHECK
+
+  80020-001:
+
+   performance_schema tables changed:
+   - session_query_attrs added.
+   - The last three digits reprents Facebook specific MySQL Schema changes.
 */
 
-static const uint PFS_DD_VERSION = 80020;
+static const uint PFS_DD_VERSION = 80020001;
 
 #endif /* PFS_DD_VERSION_H */

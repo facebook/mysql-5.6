@@ -3011,35 +3011,53 @@ void THD::set_connection_attrs(const char *attrs, size_t length) {
   mysql_mutex_unlock(&LOCK_thd_data);
 }
 
+static void set_attrs(
+    const char *ptr, size_t length,
+    std::vector<std::pair<std::string, std::string>> &query_attrs_list) {
+  const char *end = ptr + length;
+
+  query_attrs_list.clear();
+  while (ptr < end) {
+    std::string key = net_read_str(&ptr);
+    std::string value = net_read_str(&ptr);
+    auto kvp = std::make_pair<std::string, std::string>(std::move(key),
+                                                        std::move(value));
+    query_attrs_list.emplace_back(std::move(kvp));
+  }
+}
+
 void THD::set_query_attrs(const char *attrs, size_t length) {
   query_attrs_string = std::string(attrs, length);
 
   mysql_mutex_lock(&LOCK_thd_data);
-  set_attrs_map(query_attrs_string.c_str(), query_attrs_string.length(),
-                query_attrs_map);
+  set_attrs(query_attrs_string.c_str(), query_attrs_string.length(),
+            query_attrs_list);
   mysql_mutex_unlock(&LOCK_thd_data);
 }
 
 int THD::parse_query_info_attr() {
   static const std::string query_info_key = "query_info";
 
-  auto it = this->query_attrs_map.find(query_info_key);
-  if (it == this->query_attrs_map.end()) return 0;
-  ptree root;
-  try {
-    std::istringstream query_info_attr(it->second);
-    boost::property_tree::read_json(query_info_attr, root);
-  } catch (const boost::property_tree::json_parser::json_parser_error &e) {
-    return -1;  // invalid json
-  }
-  try {
-    boost::optional<std::string> trace_id =
-        root.get_optional<std::string>("traceid");
-    if (trace_id) this->trace_id = *trace_id;
-    this->query_type = root.get<std::string>("query_type");
-    this->num_queries = root.get<uint64_t>("num_queries");
-  } catch (const boost::property_tree::ptree_error &e) {
-    return -1;  // invalid key or value
+  for (const auto &kvp : query_attrs_list) {
+    if (kvp.first == query_info_key) {
+      ptree root;
+      try {
+        std::istringstream query_info_attr(kvp.second);
+        boost::property_tree::read_json(query_info_attr, root);
+      } catch (const boost::property_tree::json_parser::json_parser_error &e) {
+        return -1;  // invalid json
+      }
+      try {
+        boost::optional<std::string> trace_id =
+            root.get_optional<std::string>("traceid");
+        if (trace_id) this->trace_id = *trace_id;
+        this->query_type = root.get<std::string>("query_type");
+        this->num_queries = root.get<uint64_t>("num_queries");
+      } catch (const boost::property_tree::ptree_error &e) {
+        return -1;  // invalid key or value
+      }
+      return 0;
+    }
   }
   return 0;
 }

@@ -3972,7 +3972,7 @@ class THD : public MDL_context_owner,
   int parse_query_info_attr();
   void reset_query_attrs() {
     mysql_mutex_lock(&LOCK_thd_data);
-    query_attrs_map.clear();
+    query_attrs_list.clear();
     mysql_mutex_unlock(&LOCK_thd_data);
 
     query_attrs_string.clear();
@@ -3984,7 +3984,7 @@ class THD : public MDL_context_owner,
   inline uint32 query_attrs_length() const {
     return query_attrs_string.length();
   }
-  std::unordered_map<std::string, std::string> query_attrs_map;
+  std::vector<std::pair<std::string, std::string>> query_attrs_list;
   std::unordered_map<std::string, std::string> connection_attrs_map;
   uint64_t num_queries;
   std::string query_type;

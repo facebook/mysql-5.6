@@ -1,0 +1,25 @@
+create database db1;
+use db1;
+
+connect (con,localhost,root,,db1);
+
+query_attrs_add a b;
+select attr_name, attr_value, ordinal_position from performance_schema.session_query_attrs where PROCESSLIST_ID = connection_id();
+
+query_attrs_add b a;
+select attr_name, attr_value, ordinal_position from performance_schema.session_query_attrs where PROCESSLIST_ID = connection_id();
+
+connection default;
+select attr_name, attr_value, ordinal_position from performance_schema.session_query_attrs where PROCESSLIST_ID = connection_id();
+
+connection con;
+query_attrs_delete a;
+select attr_name, attr_value, ordinal_position from performance_schema.session_query_attrs where PROCESSLIST_ID = connection_id();
+
+query_attrs_reset;
+select attr_name, attr_value, ordinal_position from performance_schema.session_query_attrs where PROCESSLIST_ID = connection_id();
+
+connection default;
+disconnect con;
+
+drop database db1;
