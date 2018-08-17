@@ -187,6 +187,7 @@ enum options_client {
   OPT_USE_ROCKSDB,
   OPT_ENABLE_CHECKSUM_TABLE,
   OPT_INNODB_STATS_ON_METADATA,
+  OPT_DUMP_FBOBJ_STATS,
   /* Add new option above this */
   OPT_MAX_CLIENT_OPTION
 };
