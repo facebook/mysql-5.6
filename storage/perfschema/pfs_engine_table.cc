@@ -128,6 +128,7 @@
 #include "storage/perfschema/table_rpl_async_connection_failover_managed.h"
 #include "storage/perfschema/table_session_account_connect_attrs.h"
 #include "storage/perfschema/table_session_connect_attrs.h"
+#include "storage/perfschema/table_session_query_attrs.h"
 #include "storage/perfschema/table_session_status.h"
 #include "storage/perfschema/table_session_variables.h"
 #include "storage/perfschema/table_setup_actors.h"
@@ -556,6 +557,7 @@ static PFS_engine_table_share *all_shares[] = {
 
     &table_session_connect_attrs::m_share,
     &table_session_account_connect_attrs::m_share,
+    &table_session_query_attrs::m_share,
 
     &table_keyring_keys::s_share,
 
