@@ -1,0 +1,35 @@
+# ==== Purpose ====
+#
+# Tests for PERFORMANCE_SCHEMA
+#
+# This test verifies the correct behaviour in case of invalid
+# usage of DMLs on the table session_query_attrs.
+#
+
+--disable_result_log
+SELECT * FROM performance_schema.session_query_attrs
+  LIMIT 1;
+--enable_result_log
+
+--error ER_TABLEACCESS_DENIED_ERROR
+INSERT INTO performance_schema.session_query_attrs
+  SET PROCESSLIST_ID=123;
+
+--error ER_TABLEACCESS_DENIED_ERROR
+UPDATE performance_schema.session_query_attrs
+  SET PROCESSLIST_ID=123 WHERE PROCESSLIST_ID=connection_id();
+
+--error ER_TABLEACCESS_DENIED_ERROR
+DELETE FROM performance_schema.session_query_attrs
+  WHERE PROCESSLIST_ID=connection_id();
+
+--error ER_TABLEACCESS_DENIED_ERROR
+DELETE FROM performance_schema.session_query_attrs;
+
+-- error ER_TABLEACCESS_DENIED_ERROR
+LOCK TABLES performance_schema.session_query_attrs READ;
+UNLOCK TABLES;
+
+-- error ER_TABLEACCESS_DENIED_ERROR
+LOCK TABLES performance_schema.session_query_attrs WRITE;
+UNLOCK TABLES;
