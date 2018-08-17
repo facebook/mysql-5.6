@@ -1,0 +1,11 @@
+ALTER TABLE performance_schema.session_query_attrs
+ADD COLUMN foo integer;
+ERROR 42000: Access denied for user 'root'@'localhost' to database 'performance_schema'
+TRUNCATE TABLE performance_schema.session_query_attrs;
+ERROR 42000: DROP command denied to user 'root'@'localhost' for table 'session_query_attrs'
+ALTER TABLE performance_schema.session_query_attrs
+ADD INDEX test_index(PROCESSLIST_ID);
+ERROR 42000: Access denied for user 'root'@'localhost' to database 'performance_schema'
+CREATE UNIQUE INDEX test_index ON
+performance_schema.session_query_attrs(PROCESSLIST_ID);
+ERROR 42000: Access denied for user 'root'@'localhost' to database 'performance_schema'
