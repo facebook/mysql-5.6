@@ -1,0 +1,21 @@
+# ==== Purpose ====
+#
+# Tests for PERFORMANCE_SCHEMA
+#
+# This test verifies the correct behaviour in case of invalid
+# usage of DDLs on the table session_query_attrs
+
+-- error ER_DBACCESS_DENIED_ERROR
+ALTER TABLE performance_schema.session_query_attrs
+  ADD COLUMN foo integer;
+
+-- error ER_TABLEACCESS_DENIED_ERROR
+TRUNCATE TABLE performance_schema.session_query_attrs;
+
+-- error ER_DBACCESS_DENIED_ERROR
+ALTER TABLE performance_schema.session_query_attrs
+   ADD INDEX test_index(PROCESSLIST_ID);
+
+-- error ER_DBACCESS_DENIED_ERROR
+CREATE UNIQUE INDEX test_index ON
+  performance_schema.session_query_attrs(PROCESSLIST_ID);

@@ -88,6 +88,7 @@ performance_schema	replication_group_members	def
 performance_schema	rwlock_instances	def
 performance_schema	session_account_connect_attrs	def
 performance_schema	session_connect_attrs	def
+performance_schema	session_query_attrs	def
 performance_schema	session_status	def
 performance_schema	session_variables	def
 performance_schema	setup_actors	def
@@ -203,6 +204,7 @@ replication_group_members	BASE TABLE	PERFORMANCE_SCHEMA
 rwlock_instances	BASE TABLE	PERFORMANCE_SCHEMA
 session_account_connect_attrs	BASE TABLE	PERFORMANCE_SCHEMA
 session_connect_attrs	BASE TABLE	PERFORMANCE_SCHEMA
+session_query_attrs	BASE TABLE	PERFORMANCE_SCHEMA
 session_status	BASE TABLE	PERFORMANCE_SCHEMA
 session_variables	BASE TABLE	PERFORMANCE_SCHEMA
 setup_actors	BASE TABLE	PERFORMANCE_SCHEMA
@@ -318,6 +320,7 @@ replication_group_members	10	Fixed
 rwlock_instances	10	Dynamic
 session_account_connect_attrs	10	Dynamic
 session_connect_attrs	10	Dynamic
+session_query_attrs	10	Dynamic
 session_status	10	Dynamic
 session_variables	10	Dynamic
 setup_actors	10	Fixed
@@ -431,6 +434,7 @@ replication_group_members	0
 rwlock_instances	0
 session_account_connect_attrs	0
 session_connect_attrs	0
+session_query_attrs	0
 setup_actors	0
 setup_consumers	0
 setup_instruments	0
@@ -554,6 +558,7 @@ replication_group_members	0	0
 rwlock_instances	0	0
 session_account_connect_attrs	0	0
 session_connect_attrs	0	0
+session_query_attrs	0	0
 session_status	0	0
 session_variables	0	0
 setup_actors	0	0
@@ -669,6 +674,7 @@ replication_group_members	0	0	NULL
 rwlock_instances	0	0	NULL
 session_account_connect_attrs	0	0	NULL
 session_connect_attrs	0	0	NULL
+session_query_attrs	0	0	NULL
 session_status	0	0	NULL
 session_variables	0	0	NULL
 setup_actors	0	0	NULL
@@ -784,6 +790,7 @@ replication_group_members	NULL	NULL	NULL
 rwlock_instances	NULL	NULL	NULL
 session_account_connect_attrs	NULL	NULL	NULL
 session_connect_attrs	NULL	NULL	NULL
+session_query_attrs	NULL	NULL	NULL
 session_status	NULL	NULL	NULL
 session_variables	NULL	NULL	NULL
 setup_actors	NULL	NULL	NULL
@@ -899,6 +906,7 @@ replication_group_members	utf8mb4_0900_ai_ci	NULL
 rwlock_instances	utf8mb4_0900_ai_ci	NULL
 session_account_connect_attrs	utf8mb4_bin	NULL
 session_connect_attrs	utf8mb4_bin	NULL
+session_query_attrs	utf8mb4_0900_ai_ci	NULL
 session_status	utf8mb4_0900_ai_ci	NULL
 session_variables	utf8mb4_0900_ai_ci	NULL
 setup_actors	utf8mb4_0900_ai_ci	NULL
@@ -1014,6 +1022,7 @@ replication_group_members
 rwlock_instances	
 session_account_connect_attrs	
 session_connect_attrs	
+session_query_attrs	
 session_status	
 session_variables	
 setup_actors	
@@ -1129,6 +1138,7 @@ replication_group_members
 rwlock_instances	
 session_account_connect_attrs	
 session_connect_attrs	
+session_query_attrs	
 session_status	
 session_variables	
 setup_actors	

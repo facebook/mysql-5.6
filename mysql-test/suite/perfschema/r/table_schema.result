@@ -1191,6 +1191,10 @@ def	performance_schema	session_connect_attrs	PROCESSLIST_ID	1	NULL	NO	bigint	NUL
 def	performance_schema	session_connect_attrs	ATTR_NAME	2	NULL	NO	varchar	32	128	NULL	NULL	NULL	utf8mb4	utf8mb4_bin	varchar(32)	PRI		select,insert,update,references			NULL
 def	performance_schema	session_connect_attrs	ATTR_VALUE	3	NULL	YES	varchar	1024	4096	NULL	NULL	NULL	utf8mb4	utf8mb4_bin	varchar(1024)			select,insert,update,references			NULL
 def	performance_schema	session_connect_attrs	ORDINAL_POSITION	4	NULL	YES	int	NULL	NULL	10	0	NULL	NULL	NULL	int			select,insert,update,references			NULL
+def	performance_schema	session_query_attrs	PROCESSLIST_ID	1	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references			NULL
+def	performance_schema	session_query_attrs	ATTR_NAME	2	NULL	NO	varchar	256	1024	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(256)			select,insert,update,references			NULL
+def	performance_schema	session_query_attrs	ATTR_VALUE	3	NULL	NO	varchar	256	1024	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(256)			select,insert,update,references			NULL
+def	performance_schema	session_query_attrs	ORDINAL_POSITION	4	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references			NULL
 def	performance_schema	session_status	VARIABLE_NAME	1	NULL	NO	varchar	64	256	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(64)	PRI		select,insert,update,references			NULL
 def	performance_schema	session_status	VARIABLE_VALUE	2	NULL	YES	varchar	1024	4096	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(1024)			select,insert,update,references			NULL
 def	performance_schema	session_variables	VARIABLE_NAME	1	NULL	NO	varchar	64	256	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(64)	PRI		select,insert,update,references			NULL

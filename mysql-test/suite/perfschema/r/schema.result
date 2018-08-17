@@ -93,6 +93,7 @@ replication_group_members
 rwlock_instances
 session_account_connect_attrs
 session_connect_attrs
+session_query_attrs
 session_status
 session_variables
 setup_actors

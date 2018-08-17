@@ -34,6 +34,7 @@ idx_replication_applier_filters.test
 idx_replication_applier_global_filters.test
 idx_replication_asynchronous_connection_failover.test
 idx_replication_asynchronous_connection_failover_managed.test
+idx_session_query_attrs.test
 idx_user_defined_functions.test
 drop table t1;
 drop table t2;
