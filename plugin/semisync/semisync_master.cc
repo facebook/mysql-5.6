@@ -564,6 +564,12 @@ int ReplSemiSyncMaster::init_whitelist()
   // remove ANY from set
   rpl_semi_sync_master_whitelist_set.erase("ANY");
   // store the value in the sysvar, hacky but works!
+  // NOTE: The plugin infrastructure will fill the default value (ANY) in the
+  // variable, so we have to free that first and then update it with what we
+  // found in the file
+  DBUG_ASSERT(rpl_semi_sync_master_whitelist &&
+              strcmp(rpl_semi_sync_master_whitelist, "ANY") == 0);
+  my_free(rpl_semi_sync_master_whitelist);
   rpl_semi_sync_master_whitelist = my_strdup(wlist.c_str(), MYF(MY_WME));
 
   sql_print_information("Semi-sync master: Whitelist = %s",
