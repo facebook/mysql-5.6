@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <string>
+#include <vector>
 
 #include "client/client_priv.h"
 #include "compression.h"
@@ -140,7 +141,9 @@ static char *opt_password = nullptr, *current_user = nullptr,
             *enclosed = nullptr, *opt_enclosed = nullptr, *escaped = nullptr,
             *where = nullptr, *opt_compatible_mode_str = nullptr,
             *opt_ignore_error = nullptr, *log_error_file = nullptr;
+static char *opt_dump_fbobj_assoc_stats = nullptr;
 static MEM_ROOT argv_alloc{PSI_NOT_INSTRUMENTED, 512};
+FILE *fbobj_assoc_stats_file;
 static bool ansi_mode = false;  ///< Force the "ANSI" SQL_MODE.
 /* Server supports character_set_results session variable? */
 static bool server_supports_switching_charsets = true;
@@ -224,6 +227,27 @@ const char *default_dbug_option = "d:t:o,/tmp/mysqldump.trace";
 bool seen_views = false;
 
 collation_unordered_set<string> *ignore_table;
+
+#define FBOBJ_FBTYPE_FIELD 1
+#define ASSOC_TYPE_FIELD 4
+#define HASHOUT_APP_ID_FIELD 1
+#define FBID_FBTYPE_FIELD 1
+#define FBID_IS_DELETED_FIELD 4
+
+typedef enum {
+  FBOBJ = 0,
+  ASSOC = 1,
+  HASHOUT = 2,
+  FBID = 3,
+} field_type_t;
+
+struct TYPE_STAT {
+  mutable ulong count;
+  ulong space;
+  field_type_t field_type;
+};
+
+std::unordered_map<std::string, TYPE_STAT> fbobj_assoc_stats;
 
 static struct my_option my_long_options[] = {
     {"all-databases", 'A',
@@ -345,6 +369,13 @@ static struct my_option my_long_options[] = {
      "Option automatically turns --lock-tables off.",
      &opt_slave_data, &opt_slave_data, nullptr, GET_UINT, OPT_ARG, 0, 0,
      MYSQL_OPT_SLAVE_DATA_COMMENTED_SQL, nullptr, 0, nullptr},
+    {"dump-fbobj-assoc-stats", OPT_DUMP_FBOBJ_STATS,
+     "Calculate and output total size per type for fbobjects, assocs, fbids "
+     "and hashouts to the given filename. The format in the file is tab "
+     "separated values in the form: fbobject/assoc/fbid/hashout, "
+     "type(+is_deleted for fbid), row count, size in bytes",
+     &opt_dump_fbobj_assoc_stats, &opt_dump_fbobj_assoc_stats, 0, GET_STR,
+     REQUIRED_ARG, 0, 0, 0, nullptr, 0, nullptr},
     {"events", 'E', "Dump events.", &opt_events, &opt_events, nullptr, GET_BOOL,
      NO_ARG, 0, 0, 0, nullptr, 0, nullptr},
     {"extended-insert", 'e',
@@ -856,6 +887,12 @@ static void write_header(FILE *sql_file, char *db_name) {
   }
 } /* write_header */
 
+static FILE *open_stat_file(const char *file_name) {
+  FILE *res;
+  res = my_fopen(file_name, O_WRONLY | O_TRUNC | O_CREAT, MYF(MY_WME));
+  return res;
+}
+
 static void write_footer(FILE *sql_file) {
   if (opt_xml) {
     fputs("</mysqldump>\n", sql_file);
@@ -1123,6 +1160,10 @@ static int get_options(int *argc, char ***argv) {
             "%s: --databases or --all-databases can't be used with --tab.\n",
             my_progname);
     return (EX_USAGE);
+  }
+  if (opt_dump_fbobj_assoc_stats) {
+    fbobj_assoc_stats.clear();
+    fbobj_assoc_stats_file = open_stat_file(opt_dump_fbobj_assoc_stats);
   }
   if (strcmp(default_charset, charset_info->csname) &&
       !(charset_info =
@@ -1515,6 +1556,8 @@ static void free_resources() {
     delete ignore_table;
     ignore_table = nullptr;
   }
+  fbobj_assoc_stats.clear();
+  if (fbobj_assoc_stats_file) my_fclose(fbobj_assoc_stats_file, MYF(0));
   if (insert_pat_inited) dynstr_free(&insert_pat);
   if (opt_ignore_error) my_free(opt_ignore_error);
   my_end(my_end_arg);
@@ -3657,7 +3700,10 @@ static void dump_table(char *table, char *db) {
   int error = 0;
   ulong rownr, row_break;
   size_t total_length, init_length;
+  bool gather_stats = false;
   uint num_fields;
+  uint stat_field_offset = 0;
+  field_type_t stat_field_type = FBOBJ;
   MYSQL_RES *res = nullptr;
   MYSQL_FIELD *field;
   MYSQL_ROW row;
@@ -3707,6 +3753,41 @@ static void dump_table(char *table, char *db) {
     verbose_msg("-- Skipping dump data for table '%s', it has no fields\n",
                 table);
     return;
+  }
+
+  /*
+    Dump stats for fbobj_*, fbid, the top hashout and assoc_* tables, but
+    excluding assoc_count and assoc_info_queue.
+  */
+  if (opt_dump_fbobj_assoc_stats) {
+    if (strncmp(table, "fbobj_", 6) == 0) {
+      gather_stats = true;
+      stat_field_offset = FBOBJ_FBTYPE_FIELD;
+      stat_field_type = FBOBJ;
+    } else if (strncmp(table, "assoc_", 6) == 0 &&
+               (strcmp(table, "assoc_count") != 0) &&
+               (strcmp(table, "assoc_info_queue") != 0)) {
+      gather_stats = true;
+      stat_field_offset = ASSOC_TYPE_FIELD;
+      stat_field_type = ASSOC;
+    } else if (strcmp(table, "fbid") == 0) {
+      gather_stats = true;
+      stat_field_offset = FBID_FBTYPE_FIELD;
+      stat_field_type = FBID;
+    } else if (strcmp(table, "hashout_short_url") == 0 ||
+               (strcmp(table, "hashout") == 0) ||
+               (strcmp(table, "hashout_xid_crow") == 0) ||
+               (strcmp(table, "hashout_xid") == 0) ||
+               (strcmp(table, "hashout_udid") == 0)) {
+      gather_stats = true;
+      stat_field_offset = HASHOUT_APP_ID_FIELD;
+      stat_field_type = HASHOUT;
+    }
+    /* Protect against new tables that may not have the right schema. */
+    if (num_fields < stat_field_offset) {
+      gather_stats = false;
+      fprintf(fbobj_assoc_stats_file, "-- Bad schema for: %s\n", table);
+    }
   }
 
   result_table = quote_name(table, table_buff, true);
@@ -3889,7 +3970,60 @@ static void dump_table(char *table, char *db) {
     while ((row = mysql_fetch_row(res))) {
       uint i;
       ulong *lengths = mysql_fetch_lengths(res);
+      uint num_columns = mysql_num_fields(res);
       rownr++;
+      if (gather_stats) {
+        ulong row_length = 0;
+        for (i = 0; i < mysql_num_fields(res); i++) row_length += lengths[i];
+        /* For fbid table, concatenate is_deleted to type*/
+        if (stat_field_type == FBID) {
+          if (num_columns <= FBID_IS_DELETED_FIELD) {
+            fprintf(fbobj_assoc_stats_file,
+                    "-- FBID table has less than 5 columns.\n");
+          } else {
+            const size_t sfo_len = lengths[stat_field_offset];
+            const size_t idf_len = lengths[FBID_IS_DELETED_FIELD];
+            const size_t length = sfo_len + idf_len;
+            std::string key;
+            key.reserve(length);
+            key.insert(0, (char *)row[stat_field_offset], sfo_len);
+            key.insert(sfo_len, (char *)row[FBID_IS_DELETED_FIELD], idf_len);
+            auto it = fbobj_assoc_stats.find(key);
+            if (it == fbobj_assoc_stats.end()) {
+              TYPE_STAT bucket;
+              bucket.count = 1;
+              bucket.space = row_length;
+              bucket.field_type = stat_field_type;
+              fbobj_assoc_stats[key] = bucket;
+            } else {
+              TYPE_STAT &bucket = it->second;
+              bucket.count++;
+              bucket.space += row_length;
+            }
+          }
+        } else {
+          if (num_columns <= stat_field_offset) {
+            fprintf(fbobj_assoc_stats_file,
+                    "-- %s table has less than %d columns.\n", table,
+                    stat_field_offset + 1);
+          } else {
+            std::string key((char *)row[stat_field_offset],
+                            lengths[stat_field_offset]);
+            auto it = fbobj_assoc_stats.find(key);
+            if (it == fbobj_assoc_stats.end()) {
+              TYPE_STAT bucket;
+              bucket.count = 1;
+              bucket.space = row_length;
+              bucket.field_type = stat_field_type;
+              fbobj_assoc_stats[key] = bucket;
+            } else {
+              TYPE_STAT &bucket = it->second;
+              bucket.count++;
+              bucket.space += row_length;
+            }
+          }
+        }
+      }
       if (!extended_insert && !opt_xml) {
         fputs(insert_pat.str, md_result_file);
         check_io(md_result_file);
@@ -4075,6 +4209,20 @@ static void dump_table(char *table, char *db) {
         fputs(");\n", md_result_file);
         check_io(md_result_file);
       }
+    }
+
+    if (gather_stats) {
+      fprintf(fbobj_assoc_stats_file,
+              "-- Dumping FBObj/Assoc/Fbid/Hashout "
+              "stats for: %s\n",
+              table);
+      for (const auto &it : fbobj_assoc_stats) {
+        const std::string &type = it.first;
+        const TYPE_STAT &stat = it.second;
+        fprintf(fbobj_assoc_stats_file, "%d\t%s\t%lu\t%lu\n", stat.field_type,
+                type.c_str(), stat.count, stat.space);
+      }
+      fbobj_assoc_stats.clear();
     }
 
     /* XML - close table tag and suppress regular output */
@@ -6019,6 +6167,10 @@ int main(int argc, char **argv) {
 
   /* add 'START SLAVE' to end of dump */
   if (opt_slave_apply && add_slave_statements()) goto err;
+
+  if (fbobj_assoc_stats_file) {
+    fprintf(fbobj_assoc_stats_file, "-- FBObj/Assoc stats dump completed.\n");
+  }
 
   if (md_result_file) md_result_fd = my_fileno(md_result_file);
 
