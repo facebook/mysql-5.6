@@ -205,6 +205,9 @@ our $opt_client_ddd;
 our $opt_client_debugger;
 our $opt_client_gdb;
 our $opt_client_lldb;
+our $opt_ctest_exclude;
+our $opt_ctest_preload;
+our $opt_ctest_path;
 our $opt_ctest_report;
 our $opt_dbx;
 our $opt_ddd;
@@ -230,6 +233,7 @@ our $opt_skip_combinations;
 our $opt_suites;
 our $opt_suite_opt;
 our $opt_summary_report;
+our $opt_symbolizer_path;
 our $opt_vardir;
 our $opt_xml_report;
 our $ports_per_thread   = 30;
@@ -1772,6 +1776,9 @@ sub command_line_setup {
     'charset-for-testdb=s'  => \$opt_charset_for_testdb,
     'colored-diff'          => \$opt_colored_diff,
     'comment=s'             => \$opt_comment,
+    'ctest_exclude=s'       => \$opt_ctest_exclude,
+    'ctest_path=s'          => \$opt_ctest_path,
+    'ctest_preload=s'       => \$opt_ctest_preload,
     'default-myisam!'       => \&collect_option,
     'disk-usage!'           => \&report_option,
     'enable-disabled'       => \&collect_option,
@@ -1797,6 +1804,7 @@ sub command_line_setup {
     'stress=s'              => \$opt_stress,
     'suite-opt=s'           => \$opt_suite_opt,
     'suite-timeout=i'       => \$opt_suite_timeout,
+    'symbolizer_path=s'     => \$opt_symbolizer_path,
     'testcase-timeout=i'    => \$opt_testcase_timeout,
     'timediff'              => \&report_option,
     'timer!'                => \&report_option,
@@ -7638,9 +7646,30 @@ sub run_ctest() {
     # Skip tests with label NDB
     $ctest_opts .= "-LE " . ((IS_WINDOWS) ? "^^NDB\$" : "^NDB\\\$");
   }
-  my $ctest_out = `ctest $ctest_opts --test-timeout $opt_ctest_timeout $ctest_vs 2>&1`;
+
+  my $ctest = $opt_ctest_path || "ctest";
+  my $ctest_options = "";
+  if ($opt_ctest_exclude) {
+    $ctest_options = $ctest_options . "-E $opt_ctest_exclude ";
+  }
+  my $old_ld_preload = $ENV{'LD_PRELOAD'};
+  if ($opt_ctest_preload) {
+    $ENV{'LD_PRELOAD'} = $ENV{'LD_PRELOAD'} . ":$opt_ctest_preload";
+  }
+
+  my $asan_symbolizer_path = "";
+  if ($opt_symbolizer_path) {
+    $asan_symbolizer_path = "ASAN_SYMBOLIZER_PATH=$opt_symbolizer_path";
+  }
+
+  # For ASan builds, add in the leak suppression file
+  my $ctest_cmd =
+      join(" ", $asan_symbolizer_path, $ctest,
+           "$ctest_opts --test-timeout $opt_ctest_timeout $ctest_vs $ctest_options 2>&1");
+  my $ctest_out = `$ctest_cmd`;
   if ($? == $no_ctest && ($opt_ctest == -1 || defined $ENV{PB2WORKDIR})) {
     chdir($olddir);
+    $ENV{'LD_PRELOAD'} = $old_ld_preload;
     return;
   }
 
@@ -7690,6 +7719,7 @@ sub run_ctest() {
   mark_time_used('test');
   mtr_report_test($tinfo);
   chdir($olddir);
+  $ENV{'LD_PRELOAD'} = $old_ld_preload;
   return $tinfo;
 }
 
