@@ -6579,6 +6579,15 @@ pthread_handler_t handle_slave_sql(void *arg)
   rli->info_thd= thd;
   mysql_mutex_unlock(&rli->info_thd_lock);
 
+  if (opt_mts_dependency_replication &&
+      !slave_use_idempotent_for_recovery_options)
+  {
+    sql_print_error("mts_dependency_replication is enabled but "
+        "slave_use_idempotent_for_recovery is disabled. The slave is not crash "
+        "safe! Please enable slave_use_idempotent_for_recovery for crash "
+        "safety.");
+  }
+
   rli->info_thd->variables.tx_isolation=
     static_cast<enum_tx_isolation>(slave_tx_isolation);
 

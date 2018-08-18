@@ -13,16 +13,6 @@ select variable_name from information_schema.global_variables where variable_nam
 select variable_name from information_schema.session_variables where variable_name='$var';
 
 #
-# show that it errors out if slave_use_idempotent_recovery is not enabled
-#
-eval set @save.slave_use_idempotent_for_recovery= @@global.slave_use_idempotent_for_recovery;
-eval set @@global.slave_use_idempotent_for_recovery= NO;
---error ER_CANT_SET_DEPENDENCY_REPLICATION_WITHOUT_IDEMPOTENT_RECOVERY
-eval set @@global.$var= tbl;
-
-eval set @@global.slave_use_idempotent_for_recovery= YES;
-
-#
 # show that it's writable
 #
 let $value= tbl;
@@ -44,4 +34,3 @@ eval set @@global.$var= "foo";
 # cleanup
 
 eval set @@global.$var= @save.$var;
-eval set @@global.slave_use_idempotent_for_recovery= @save.slave_use_idempotent_for_recovery;

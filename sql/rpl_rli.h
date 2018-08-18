@@ -1136,7 +1136,7 @@ public:
   ulonglong num_workers_waiting= 0;
 
   std::shared_ptr<Log_event_wrapper> prev_event;
-  Table_map_log_event *last_table_map_event= NULL;
+  std::unordered_map<ulonglong, Table_map_log_event *> table_map_events;
   std::shared_ptr<Log_event_wrapper> current_begin_event;
   bool dep_sync_group= false;
 
@@ -1201,7 +1201,7 @@ public:
 
     prev_event.reset();
     current_begin_event.reset();
-    last_table_map_event= NULL;
+    table_map_events.clear();
 
     keys_accessed_by_group.clear();
     dbs_accessed_by_group.clear();

@@ -3257,7 +3257,11 @@ void Log_event::schedule_dep(Relay_log_info *rli)
   else if (contains_partition_info(rli->mts_end_group_sets_max_dbs))
   {
     if (get_type_code() == TABLE_MAP_EVENT)
-      rli->last_table_map_event= static_cast<Table_map_log_event*>(this);
+    {
+      const auto tbe= static_cast<Table_map_log_event*>(this);
+      const auto id= tbe->get_table_id();
+      rli->table_map_events[id]= tbe;
+    }
 
     rli->mts_end_group_sets_max_dbs= false;
 
@@ -3382,7 +3386,7 @@ Log_event::handle_terminal_dep_event(Relay_log_info *rli,
 
     // update rli state
     rli->current_begin_event= NULL;
-    rli->last_table_map_event= NULL;
+    rli->table_map_events.clear();
     rli->mts_group_status= Relay_log_info::MTS_END_GROUP;
     rli->curr_group_seen_begin = rli->curr_group_seen_gtid = false;
 
@@ -12037,11 +12041,10 @@ bool Rows_log_event::get_table_ref(Relay_log_info *rli, void **memory,
 {
   DBUG_ENTER("Rows_log_event::get_table_ref");
   DBUG_ASSERT(thd->mdl_context.has_locks() == FALSE);
-  DBUG_ASSERT(rli->last_table_map_event != NULL);
-  DBUG_ASSERT(rli->last_table_map_event->get_type_code() == TABLE_MAP_EVENT);
+  DBUG_ASSERT(rli->table_map_events.count(get_table_id()));
   DBUG_ASSERT(memory != NULL);
 
-  Table_map_log_event *table_map= rli->last_table_map_event;
+  auto table_map= rli->table_map_events.at(get_table_id());
 
   *memory= table_map->setup_table_rli(table_list);
   DBUG_ASSERT(*memory != NULL);
@@ -12074,10 +12077,12 @@ void Rows_log_event::prepare_dep(Relay_log_info *rli,
   DBUG_ENTER("Rows_log_event::prepare_dep");
 
   DBUG_ASSERT(rli->prev_event != NULL);
-  DBUG_ASSERT(rli->last_table_map_event != NULL);
+  DBUG_ASSERT(rli->table_map_events.count(get_table_id()));
 
-  std::string db_name(rli->last_table_map_event->get_db_name());
-  std::string table_name(rli->last_table_map_event->get_table_name());
+  const auto tbe= rli->table_map_events.at(get_table_id());
+
+  std::string db_name(tbe->get_db_name());
+  std::string table_name(tbe->get_table_name());
 
   auto full_table_name= db_name
                         .append(std::to_string(db_name.length()))
