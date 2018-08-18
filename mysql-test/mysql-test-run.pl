@@ -185,6 +185,7 @@ our $opt_client_ddd;
 our $opt_client_debugger;
 our $opt_client_gdb;
 our $opt_client_lldb;
+our $opt_ctest_path;
 our $opt_ctest_report;
 our $opt_dbx;
 our $opt_ddd;
@@ -209,6 +210,7 @@ our $opt_report_unstable_tests;
 our $opt_ssl;
 our $opt_suite_opt;
 our $opt_summary_report;
+our $opt_symbolizer_path;
 our $opt_vardir;
 our $opt_xml_report;
 
@@ -1468,6 +1470,7 @@ sub command_line_setup {
     'charset-for-testdb=s'  => \$opt_charset_for_testdb,
     'colored-diff'          => \$opt_colored_diff,
     'comment=s'             => \$opt_comment,
+    'ctest_path=s'          => \$opt_ctest_path,
     'default-myisam!'       => \&collect_option,
     'disk-usage!'           => \&report_option,
     'enable-disabled'       => \&collect_option,
@@ -1492,6 +1495,7 @@ sub command_line_setup {
     'stress=s'              => \$opt_stress,
     'suite-opt=s'           => \$opt_suite_opt,
     'suite-timeout=i'       => \$opt_suite_timeout,
+    'symbolizer_path=s'     => \$opt_symbolizer_path,
     'testcase-timeout=i'    => \$opt_testcase_timeout,
     'timediff'              => \&report_option,
     'timer!'                => \&report_option,
@@ -6721,7 +6725,19 @@ sub run_ctest() {
   # Special override: also ignore in Pushbuild, some platforms may
   # not have it. Now, run ctest and collect output.
   $ENV{CTEST_OUTPUT_ON_FAILURE} = 1;
-  my $ctest_out = `ctest --test-timeout $opt_ctest_timeout $ctest_vs 2>&1`;
+  my $ctest = $opt_ctest_path || "ctest";
+
+  my $asan_symbolizer_path = "";
+  if ($opt_symbolizer_path) {
+    $asan_symbolizer_path = "ASAN_SYMBOLIZER_PATH=$opt_symbolizer_path";
+  }
+
+  # For ASan builds, add in the leak suppression file
+  my $ctest_cmd =
+      join(" ", $asan_symbolizer_path,
+           "LSAN_OPTIONS="."suppressions=$glob_mysql_test_dir/asan.supp",
+           $ctest, "--test-timeout $opt_ctest_timeout $ctest_vs 2>&1");
+  my $ctest_out = `$ctest_cmd`;
   if ($? == $no_ctest && ($opt_ctest == -1 || defined $ENV{PB2WORKDIR})) {
     chdir($olddir);
     return;
