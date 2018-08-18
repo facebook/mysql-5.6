@@ -1167,29 +1167,57 @@ public:
     return ret;
   }
 
-  void clear_dep()
+  void cleanup_group(std::shared_ptr<Log_event_wrapper> begin_event)
   {
-    mysql_mutex_lock(&dep_lock);
+    // Delete all events manually in bottom-up manner to avoid stack overflow
+    // from cascading shared_ptr deletions
+    std::stack<std::weak_ptr<Log_event_wrapper>> events;
+    auto& event= begin_event;
+    while (event)
+    {
+      events.push(event);
+      event= event->next_ev;
+    }
 
+    while (!events.empty())
+    {
+      const auto sptr= events.top().lock();
+      if (likely(sptr))
+        sptr->next_ev.reset();
+      events.pop();
+    }
+  }
+
+  void clear_dep(bool need_dep_lock= true)
+  {
+    if (need_dep_lock)
+      mysql_mutex_lock(&dep_lock);
+
+    DBUG_ASSERT(num_in_flight_trx >= dep_queue.size());
+    num_in_flight_trx -= dep_queue.size();
+    for (const auto& begin_event : dep_queue)
+      cleanup_group(begin_event);
     dep_queue.clear();
 
     prev_event.reset();
     current_begin_event.reset();
     last_table_map_event= NULL;
 
-    DBUG_ASSERT(dep_queue.empty());
-
-    dep_key_lookup.clear();
     keys_accessed_by_group.clear();
     dbs_accessed_by_group.clear();
 
     mysql_cond_broadcast(&dep_empty_cond);
+    mysql_cond_broadcast(&dep_full_cond);
+    mysql_cond_broadcast(&dep_trx_all_done_cond);
 
     dep_full= false;
 
-    mysql_mutex_unlock(&dep_lock);
+    mysql_mutex_lock(&dep_key_lookup_mutex);
+    dep_key_lookup.clear();
+    mysql_mutex_unlock(&dep_key_lookup_mutex);
 
-    dependency_worker_error= false;
+    if (need_dep_lock)
+      mysql_mutex_unlock(&dep_lock);
   }
 #endif // HAVE_REPLICATION and !MYSQL_CLIENT
 };

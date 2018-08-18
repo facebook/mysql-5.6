@@ -66,6 +66,7 @@ slave_ignored_err_throttle(window_size,
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/algorithm/string.hpp>
+#include "debug_sync.h"
 
 using std::min;
 using std::max;
@@ -3413,6 +3414,12 @@ Log_event::handle_terminal_dep_event(Relay_log_info *rli,
       // reset for next group
       rli->group_timestamp_millis= 0;
     }
+    DBUG_EXECUTE_IF("dbug.dep_wait_before_sending_end_event",
+    {
+       const char act[]= "now signal signal.reached wait_for signal.done";
+       DBUG_ASSERT(opt_debug_sync_timeout > 0);
+       DBUG_ASSERT(!debug_sync_set_action(rli->info_thd, STRING_WITH_LEN(act)));
+    };);
   }
 }
 

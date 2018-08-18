@@ -6393,10 +6393,24 @@ void slave_stop_workers(Relay_log_info *rli, bool *mts_inited)
 
   if (opt_mts_dependency_replication)
   {
-    // figure out if the SQL thread scheduled a partial trx, if it's
-    // maintaing a current_begin_event it's in the middle of a trx
-    bool partial= rli->current_begin_event != nullptr;
+    mysql_mutex_lock(&rli->dep_lock);
+    // figure out if any worker thread is working on a partially scheduled
+    // transaction, i.e. if the queue is empty and the SQL thread is maintaning
+    // a begin event
+    const bool partial= rli->dep_queue.empty() &&
+                        rli->current_begin_event != nullptr;
+    // case: clear all buffered transactions if UNTIL condition is not specified
+    if (likely(rli->until_condition == Relay_log_info::UNTIL_NONE))
+    {
+      rli->clear_dep(false);
+    }
+    mysql_mutex_unlock(&rli->dep_lock);
     wait_for_dep_workers_to_finish(rli, partial);
+    // case: if UNTIL is specified let's clear after waiting for workers
+    if (unlikely(rli->until_condition != Relay_log_info::UNTIL_NONE))
+    {
+      rli->clear_dep(true);
+    }
 
     // set all workers as STOP_ACCEPTED, and signal blocked workers
     for (i= rli->workers.elements - 1; i >= 0; i--)
@@ -6423,6 +6437,7 @@ void slave_stop_workers(Relay_log_info *rli, bool *mts_inited)
         my_sleep(1);
       }
     }
+    rli->dependency_worker_error= false;
   }
   else
   {
@@ -6898,7 +6913,6 @@ llstr(rli->get_group_master_log_pos(), llbuff));
   */
   thd->clear_error();
   rli->cleanup_context(thd, 1);
-  if (opt_mts_dependency_replication) rli->clear_dep();
   /*
     Some extra safety, which should not been needed (normally, event deletion
     should already have done these assignments (each event which sets these
@@ -6907,6 +6921,8 @@ llstr(rli->get_group_master_log_pos(), llbuff));
   thd->catalog= 0;
   thd->reset_query();
   thd->reset_db(NULL, 0);
+
+  DBUG_ASSERT(rli->num_workers_waiting == 0 && rli->num_in_flight_trx == 0);
 
   THD_STAGE_INFO(thd, stage_waiting_for_slave_mutex_on_exit);
   mysql_mutex_lock(&rli->run_lock);

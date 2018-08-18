@@ -1437,10 +1437,6 @@ void Slave_worker::slave_worker_ends_group(Log_event* ev, int &error,
       running_status= ERROR_LEAVING;
       mysql_mutex_unlock(&jobs_lock);
 
-      // Fatal error happens, it notifies the following transaction to rollback
-      if (get_commit_order_manager())
-        get_commit_order_manager()->report_rollback(this);
-
       // Killing Coordinator to indicate eventual consistency error
       mysql_mutex_lock(&c_rli->info_thd->LOCK_thd_data);
       c_rli->info_thd->awake(THD::KILL_QUERY);
@@ -1865,20 +1861,24 @@ void Slave_worker::do_report(loglevel level, int err_code, const char *msg,
 }
 
 void wait_for_dep_workers_to_finish(Relay_log_info *rli,
-                                    const bool partial_trx,
-                                    const bool need_lock)
+                                    const bool partial_trx)
 {
   DBUG_ASSERT(opt_mts_dependency_replication);
+  PSI_stage_info old_stage;
 
-  if (need_lock)
-    mysql_mutex_lock(&rli->dep_lock);
-  else
-    mysql_mutex_assert_owner(&rli->dep_lock);
-  ulonglong num= partial_trx ? 1 : 0;
-  while (rli->num_in_flight_trx > num)
+  mysql_mutex_lock(&rli->dep_lock);
+
+  const ulonglong num= partial_trx ? 1 : 0;
+  rli->info_thd->ENTER_COND(&rli->dep_trx_all_done_cond,
+                            &rli->dep_lock,
+                            &stage_slave_waiting_for_dependency_workers,
+                            &old_stage);
+  while (rli->num_in_flight_trx > num && !rli->info_thd->killed)
+  {
     mysql_cond_wait(&rli->dep_trx_all_done_cond, &rli->dep_lock);
-  if (need_lock)
-    mysql_mutex_unlock(&rli->dep_lock);
+  }
+
+  rli->info_thd->EXIT_COND(&old_stage);
 }
 
 /**

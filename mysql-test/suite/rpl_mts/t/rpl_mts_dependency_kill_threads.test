@@ -1,0 +1,116 @@
+source include/have_debug_sync.inc;
+source include/master-slave.inc;
+source include/have_mts_dependency_replication.inc;
+
+call mtr.add_suppression('The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state');
+call mtr.add_suppression('Slave SQL: Request to stop slave SQL Thread received while applying a group that has non-transactional changes; waiting for completion of the group');
+
+connection slave;
+source include/stop_slave.inc;
+set @save.slave_parallel_workers= @@global.slave_parallel_workers;
+set @@global.slave_parallel_workers= 2;
+source include/start_slave.inc;
+
+connection master;
+CREATE TABLE t1 (a INT PRIMARY KEY) ENGINE = INNODB;
+sync_slave_with_master;
+
+# Test 1: Kill worker while waiting for a begin event
+
+connection slave;
+let $wait_condition= select count(*) = 2 from information_schema.processlist where state = 'Waiting for an event from Coordinator';
+source include/wait_condition.inc;
+
+echo "Killing worker waiting for begin event";
+let $id= `select id from information_schema.processlist where state = 'Waiting for an event from Coordinator'`;
+replace_result $id id;
+eval kill $id;
+
+let $slave_sql_errno= convert_error(ER_MTS_INCONSISTENT_DATA); # 1756
+let $show_slave_sql_error= 1;
+source include/wait_for_slave_sql_error.inc;
+source include/start_slave.inc;
+connection master;
+sync_slave_with_master;
+
+# Test 2: Kill worker while waiting for next event of current transaction
+
+connection slave;
+set @@global.debug= "+d,dbug.dep_wait_before_sending_end_event";
+
+connection master;
+INSERT INTO t1 VALUES(1);
+
+connection slave;
+set debug_sync="now wait_for signal.reached";
+let $wait_condition= select count(*) = 2 from information_schema.processlist where state = 'Waiting for an event from Coordinator';
+source include/wait_condition.inc;
+
+echo "Killing worker waiting for next event";
+let $id= `select id from information_schema.processlist where state = 'Waiting for an event from Coordinator'`;
+replace_result $id id;
+eval kill $id;
+
+let $slave_sql_errno= convert_error(ER_MTS_INCONSISTENT_DATA); # 1756
+let $show_slave_sql_error= 1;
+source include/wait_for_slave_sql_error.inc;
+set @@global.debug= "-d,dbug.dep_wait_before_sending_end_event";
+source include/start_slave.inc;
+connection master;
+sync_slave_with_master;
+
+# Test 3: Kill worker while waiting for dependent event
+
+connection slave;
+BEGIN;
+UPDATE t1 SET a = 20 WHERE a = 1; # this will block the update from master
+
+connection master;
+UPDATE t1 SET a = 2 WHERE a = 1;
+UPDATE t1 SET a = 3 WHERE a = 2;
+INSERT INTO t1 VALUES(4);
+INSERT INTO t1 VALUES(5);
+INSERT INTO t1 VALUES(6);
+
+connection slave;
+let $wait_condition= select count(*) = 1 from information_schema.processlist where state = 'Waiting for dependencies to be satisfied';
+source include/wait_condition.inc;
+
+echo "Killing worker waiting for dependency to be satisfied";
+let $id= `select id from information_schema.processlist where state = 'Waiting for dependencies to be satisfied'`;
+replace_result $id id;
+eval kill $id;
+
+let $slave_sql_errno= convert_error(ER_MTS_INCONSISTENT_DATA); # 1756
+let $show_slave_sql_error= 1;
+source include/wait_for_slave_sql_error.inc;
+ROLLBACK; # rolling back blocking transaction
+source include/start_slave.inc;
+connection master;
+sync_slave_with_master;
+
+# Test 4: Kill SQL thread
+connection slave;
+echo "Killing SQL thread";
+let $id= `select id from information_schema.processlist where state like 'Slave has read all relay log; waiting for the slave I/O thread%'`;
+replace_result $id id;
+eval kill $id;
+
+let $slave_sql_errno= convert_error(ER_MTS_INCONSISTENT_DATA); # 1756
+let $show_slave_sql_error= 1;
+source include/wait_for_slave_sql_error.inc;
+
+source include/start_slave.inc;
+connection master;
+sync_slave_with_master;
+
+# Cleanup
+connection master;
+drop table t1;
+sync_slave_with_master;
+connection slave;
+source include/stop_slave.inc;
+set @@global.slave_parallel_workers= @save.slave_parallel_workers;
+source include/start_slave.inc;
+
+source include/rpl_end.inc;

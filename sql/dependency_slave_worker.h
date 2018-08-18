@@ -12,7 +12,6 @@ class Dependency_slave_worker : public Slave_worker
   std::shared_ptr<Log_event_wrapper>
     get_begin_event(Commit_order_manager *co_mngr);
   bool execute_group();
-  void cleanup_group(std::shared_ptr<Log_event_wrapper> begin_event);
   int execute_event(std::shared_ptr<Log_event_wrapper> &ev);
   void finalize_event(std::shared_ptr<Log_event_wrapper> &ev);
 

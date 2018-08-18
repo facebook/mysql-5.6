@@ -27,11 +27,10 @@ source include/start_slave.inc;
 # wait till one of the workers reach the point just before execution of update
 set debug_sync="now wait_for signal.reached";
 
-# wait till the other worker is waiting after executing the table map for the
-# insert
+# wait till the other worker is waiting for dependencies to be satisfied
 let $wait_condition=
     select count(*)= 1 from information_schema.processlist
-      where state like 'Executing Table_map event at position%';
+      where state = 'Waiting for dependencies to be satisfied';
 source include/wait_condition.inc;
 
 select * from t1;

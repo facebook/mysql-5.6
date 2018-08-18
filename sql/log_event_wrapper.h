@@ -60,7 +60,7 @@ public:
 
 #ifndef DBUG_OFF
     mysql_mutex_lock(&mutex);
-    DBUG_ASSERT(dependencies == 0);
+    DBUG_ASSERT(!is_appended_to_queue || dependencies == 0);
     mysql_mutex_unlock(&mutex);
 #endif
 
@@ -98,13 +98,7 @@ public:
     mysql_mutex_unlock(&mutex);
   }
 
-  void wait()
-  {
-    mysql_mutex_lock(&mutex);
-    while (dependencies)
-      mysql_cond_wait(&cond, &mutex);
-    mysql_mutex_unlock(&mutex);
-  }
+  bool wait(Slave_worker *worker);
 
   void finalize()
   {

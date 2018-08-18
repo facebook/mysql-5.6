@@ -9,11 +9,28 @@ void Log_event_wrapper::put_next(std::shared_ptr<Log_event_wrapper> &ev)
               (ev->begin_event() == begin_ev.lock() ||
                is_begin_event));
   next_ev= ev;
-  DBUG_ASSERT(ev->is_begin_event ||
-              (ev->begin_event() &&
-               ev->begin_event()->path_exists(ev)));
   mysql_cond_signal(&next_event_cond);
   mysql_mutex_unlock(&mutex);
+}
+
+bool Log_event_wrapper::wait(Slave_worker *worker)
+{
+  DBUG_ASSERT(worker);
+  mysql_mutex_lock(&mutex);
+  auto info_thd= worker->info_thd;
+  PSI_stage_info old_stage;
+  info_thd->ENTER_COND(&cond,
+                       &mutex,
+                       &stage_slave_waiting_for_dependencies,
+                       &old_stage);
+  while (!info_thd->killed &&
+         worker->running_status == Slave_worker::RUNNING &&
+         dependencies)
+  {
+    mysql_cond_wait(&cond, &mutex);
+  }
+  info_thd->EXIT_COND(&old_stage);
+  return !info_thd->killed && worker->running_status == Slave_worker::RUNNING;
 }
 
 std::shared_ptr<Log_event_wrapper> Log_event_wrapper::next()

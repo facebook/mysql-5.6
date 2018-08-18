@@ -117,8 +117,7 @@ Slave_worker *get_least_occupied_worker(DYNAMIC_ARRAY *workers);
 int wait_for_workers_to_finish(Relay_log_info *rli,
                                Slave_worker *ignore= NULL);
 void wait_for_dep_workers_to_finish(Relay_log_info *rli,
-                                    const bool partial_trx,
-                                    const bool need_lock= true);
+                                    const bool partial_trx);
 
 #define SLAVE_INIT_DBS_IN_GROUP 4     // initial allocation for CGEP dynarray
 

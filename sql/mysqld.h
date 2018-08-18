@@ -1291,8 +1291,10 @@ extern PSI_stage_info stage_slave_waiting_worker_to_release_partition;
 extern PSI_stage_info stage_slave_waiting_worker_to_free_events;
 extern PSI_stage_info stage_slave_waiting_worker_queue;
 extern PSI_stage_info stage_slave_waiting_event_from_coordinator;
+extern PSI_stage_info stage_slave_waiting_for_dependencies;
 extern PSI_stage_info stage_slave_waiting_semi_sync_ack;
 extern PSI_stage_info stage_slave_waiting_workers_to_exit;
+extern PSI_stage_info stage_slave_waiting_for_dependency_workers;
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
 /**
   Statement instrumentation keys (sql).

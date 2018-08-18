@@ -92,55 +92,33 @@ bool Dependency_slave_worker::execute_group()
     ev= ev->next();
   }
 
-  // case: error while appending to worker's internal queue
-  if (unlikely(err == 1))
+  // case: in case of error rollback if commit ordering is enabled
+  if (unlikely(err && commit_order_mngr))
   {
-    // Signal a rollback if commit ordering is enabled, we have to do
-    // this here because it's not an exec error, so @slave_worker_ends_group
-    // is not called
-    if (commit_order_mngr)
-      commit_order_mngr->report_rollback(this);
+    commit_order_mngr->report_rollback(this);
   }
 
   mysql_mutex_lock(&c_rli->dep_lock);
-  if (c_rli->num_in_flight_trx)
+  if (likely(begin_event))
+  {
+    DBUG_ASSERT(c_rli->num_in_flight_trx > 0);
     --c_rli->num_in_flight_trx;
+  }
   if (c_rli->num_in_flight_trx <= 1)
     mysql_cond_signal(&c_rli->dep_trx_all_done_cond);
   mysql_mutex_unlock(&c_rli->dep_lock);
 
-  cleanup_group(begin_event);
+  c_rli->cleanup_group(begin_event);
 
-  return err == 0 && running_status == RUNNING;
-}
-
-void Dependency_slave_worker::cleanup_group(
-    std::shared_ptr<Log_event_wrapper> begin_event)
-{
-  // Delete all events manually in bottom-up manner to avoid stack overflow from
-  // cascading shared_ptr deletions
-  std::stack<std::weak_ptr<Log_event_wrapper>> events;
-  auto& event= begin_event;
-  while (event)
-  {
-    events.push(event);
-    event= event->next_ev;
-  }
-
-  while (!events.empty())
-  {
-    auto sptr= events.top().lock();
-    if (likely(sptr))
-      sptr->next_ev.reset();
-    events.pop();
-  }
+  return err == 0 && !info_thd->killed && running_status == RUNNING;
 }
 
 int
 Dependency_slave_worker::execute_event(std::shared_ptr<Log_event_wrapper> &ev)
 {
   // wait for all dependencies to be satisfied
-  ev->wait();
+  if (unlikely(!ev->wait(this)))
+    return 1;
 
   DBUG_EXECUTE_IF("dbug.dep_wait_before_update_execution",
     {
@@ -194,15 +172,18 @@ Dependency_slave_worker::finalize_event(std::shared_ptr<Log_event_wrapper> &ev)
    *    case, leave it be; the event corresponds to a later transaction.
    */
   mysql_mutex_lock(&c_rli->dep_key_lookup_mutex);
-  for (const auto& key : ev->keys)
+  if (likely(!c_rli->dep_key_lookup.empty()))
   {
-    auto it= c_rli->dep_key_lookup.find(key);
-    DBUG_ASSERT(it != c_rli->dep_key_lookup.end());
-
-    /* Case 1. (Case 2 is implicitly handled by doing nothing.) */
-    if (it->second == ev)
+    for (const auto& key : ev->keys)
     {
-      c_rli->dep_key_lookup.erase(key);
+      const auto it= c_rli->dep_key_lookup.find(key);
+      DBUG_ASSERT(it != c_rli->dep_key_lookup.end());
+
+      /* Case 1. (Case 2 is implicitly handled by doing nothing.) */
+      if (it->second == ev)
+      {
+        c_rli->dep_key_lookup.erase(it);
+      }
     }
   }
   ev->finalize();
