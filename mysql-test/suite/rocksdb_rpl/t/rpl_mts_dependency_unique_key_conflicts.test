@@ -36,7 +36,7 @@ set debug_sync="now wait_for signal.reached";
 # insert
 let $wait_condition=
     select count(*)= 1 from information_schema.processlist
-      where state like 'Executing Table_map event at position%';
+      where state = 'Waiting for dependencies to be satisfied';
 source include/wait_condition.inc;
 
 select * from t1;
