@@ -105,6 +105,7 @@ connection master1;
 send insert into t1 values(5);
 
 connection master;
+let $wait_timeout= 120;
 let $wait_condition=select count(*) = 1 from information_schema.processlist
 where state = "Waiting for semi-sync ACK from slave";
 source include/wait_condition.inc;
@@ -145,6 +146,7 @@ eval set @@global.rpl_semi_sync_master_whitelist='-$slave2_uuid';
 insert into t1 values(5); # apply a trx
 
 # wait for the dump thread's death
+let $wait_timeout= 120;
 let $wait_condition=select count(*) = 1 from information_schema.processlist
 where command = "Binlog Dump";
 source include/wait_condition.inc;
@@ -154,6 +156,7 @@ replace_result $slave1_uuid slave1_uuid $slave2_uuid slave2_uuid;
 eval set @@global.rpl_semi_sync_master_whitelist='+$slave2_uuid';
 
 # wait for the dump thread to come back
+let $wait_timeout= 120;
 let $wait_condition=select count(*) = 2 from information_schema.processlist
 where Command = "Binlog Dump";
 source include/wait_condition.inc;
