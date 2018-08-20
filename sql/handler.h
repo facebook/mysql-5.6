@@ -1140,6 +1140,9 @@ typedef struct st_ha_create_information
                                        it is not specified in alter */
   enum enum_db_read_only db_read_only;
   String db_metadata;
+  bool alter_db_metadata;  /* This is to differentiate whether the null value
+                              for db_metadata means it is explicitly set to
+                              default or it is not specified in alter */
   LEX_STRING connect_string;
   const char *password, *tablespace;
   LEX_STRING comment;

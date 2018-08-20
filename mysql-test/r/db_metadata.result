@@ -6,6 +6,7 @@ drop database if exists test6;
 drop database if exists test7;
 drop database if exists test8;
 drop database if exists test9;
+drop database if exists test10;
 create database test2;
 show create database test2;
 Database	Create Database
@@ -80,6 +81,14 @@ default-character-set=ascii
 default-collation=ascii_general_ci
 db-read-only=0
 db-metadata=
+alter database test3 db_metadata = "{\"shard\":\"test3_shard_altered\"}";
+show create database test3;
+Database	Create Database
+test3	CREATE DATABASE `test3` /*!40100 DEFAULT CHARACTER SET ascii DB_METADATA {"shard":"test3_shard_altered"} */
+default-character-set=ascii
+default-collation=ascii_general_ci
+db-read-only=0
+db-metadata={"shard":"test3_shard_altered"}
 alter database test4 read_only = true;
 show create database test4;
 Database	Create Database
@@ -88,6 +97,22 @@ default-character-set=latin1
 default-collation=latin1_swedish_ci
 db-read-only=1
 db-metadata=
+alter database test4 db_metadata = "{\"shard\":\"test4_shard_altered\"}";
+show create database test4;
+Database	Create Database
+test4	CREATE DATABASE `test4` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY DB_METADATA {"shard":"test4_shard_altered"} */
+default-character-set=latin1
+default-collation=latin1_swedish_ci
+db-read-only=1
+db-metadata={"shard":"test4_shard_altered"}
+alter database test4 read_only = false;
+show create database test4;
+Database	Create Database
+test4	CREATE DATABASE `test4` /*!40100 DEFAULT CHARACTER SET latin1 DB_METADATA {"shard":"test4_shard_altered"} */
+default-character-set=latin1
+default-collation=latin1_swedish_ci
+db-read-only=0
+db-metadata={"shard":"test4_shard_altered"}
 alter database test5 db_metadata = "{\"shard\":\"test5_shard_altered\"}";
 show create database test5;
 Database	Create Database
@@ -180,6 +205,38 @@ alter database information_schema db_metadata "{\"shard\":\"is_shard\"}";
 ERROR 42000: Access denied for user 'root'@'localhost' to database 'information_schema'
 alter database test9 db_metadata = "invalid_json";
 ERROR HY000: Invalid JSON for DB_METADATA attribute: invalid_json.
+create database test10;
+show create database test10;
+Database	Create Database
+test10	CREATE DATABASE `test10` /*!40100 DEFAULT CHARACTER SET latin1 */
+default-character-set=latin1
+default-collation=latin1_swedish_ci
+db-read-only=0
+db-metadata=
+alter database test10 read_only = true;
+show create database test10;
+Database	Create Database
+test10	CREATE DATABASE `test10` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY */
+default-character-set=latin1
+default-collation=latin1_swedish_ci
+db-read-only=1
+db-metadata=
+alter database test10 db_metadata = "{\"shard\":\"test10_shard_altered\"}";
+show create database test10;
+Database	Create Database
+test10	CREATE DATABASE `test10` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY DB_METADATA {"shard":"test10_shard_altered"} */
+default-character-set=latin1
+default-collation=latin1_swedish_ci
+db-read-only=1
+db-metadata={"shard":"test10_shard_altered"}
+alter database test10 read_only = false;
+show create database test10;
+Database	Create Database
+test10	CREATE DATABASE `test10` /*!40100 DEFAULT CHARACTER SET latin1 DB_METADATA {"shard":"test10_shard_altered"} */
+default-character-set=latin1
+default-collation=latin1_swedish_ci
+db-read-only=0
+db-metadata={"shard":"test10_shard_altered"}
 drop database if exists test2;
 drop database if exists test3;
 drop database if exists test4;
@@ -188,3 +245,4 @@ drop database if exists test6;
 drop database if exists test7;
 drop database if exists test8;
 drop database if exists test9;
+drop database if exists test10;

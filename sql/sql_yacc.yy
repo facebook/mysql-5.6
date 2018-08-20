@@ -2761,6 +2761,7 @@ create:
             Lex->create_info.used_fields= 0;
             Lex->create_info.db_read_only=
               enum_db_read_only::DB_READ_ONLY_NULL;
+            Lex->create_info.alter_db_metadata= false;
           }
           opt_create_database_options
           {
@@ -6590,6 +6591,7 @@ db_metadata_str:
             }
             Lex->create_info.db_metadata= String($3.str, $3.length,
               &my_charset_bin);
+            Lex->create_info.alter_db_metadata= true;
           }
         ;
 
@@ -7802,6 +7804,7 @@ alter:
             Lex->create_info.used_fields= 0;
             Lex->create_info.db_read_only=
               enum_db_read_only::DB_READ_ONLY_NULL;
+            Lex->create_info.alter_db_metadata= false;
           }
           create_database_options
           {

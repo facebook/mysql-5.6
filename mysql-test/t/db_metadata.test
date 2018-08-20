@@ -11,6 +11,7 @@ drop database if exists test6;
 drop database if exists test7;
 drop database if exists test8;
 drop database if exists test9;
+drop database if exists test10;
 --enable_warnings
 
 --disable_query_log
@@ -73,8 +74,23 @@ alter database test3 character set ascii;
 show create database test3;
 --exec cat $MYSQLD_DATADIR/test3/db.opt
 
+# alter database db_metadata after charset
+alter database test3 db_metadata = "{\"shard\":\"test3_shard_altered\"}";
+show create database test3;
+--exec cat $MYSQLD_DATADIR/test3/db.opt
+
 # alter database read only
 alter database test4 read_only = true;
+show create database test4;
+--exec cat $MYSQLD_DATADIR/test4/db.opt
+
+# alter database db_metadata after read only
+alter database test4 db_metadata = "{\"shard\":\"test4_shard_altered\"}";
+show create database test4;
+--exec cat $MYSQLD_DATADIR/test4/db.opt
+
+# alter database read only
+alter database test4 read_only = false;
 show create database test4;
 --exec cat $MYSQLD_DATADIR/test4/db.opt
 
@@ -142,6 +158,26 @@ alter database information_schema db_metadata "{\"shard\":\"is_shard\"}";
 --error ER_DB_METADATA_INVALID_JSON
 alter database test9 db_metadata = "invalid_json";
 
+# create database without any options
+create database test10;
+show create database test10;
+--exec cat $MYSQLD_DATADIR/test10/db.opt
+
+# alter database read only
+alter database test10 read_only = true;
+show create database test10;
+--exec cat $MYSQLD_DATADIR/test10/db.opt
+
+# alter database db metadata
+alter database test10 db_metadata = "{\"shard\":\"test10_shard_altered\"}";
+show create database test10;
+--exec cat $MYSQLD_DATADIR/test10/db.opt
+
+# alter database read only
+alter database test10 read_only = false;
+show create database test10;
+--exec cat $MYSQLD_DATADIR/test10/db.opt
+
 # cleanup
 --disable_warnings
 drop database if exists test2;
@@ -152,4 +188,5 @@ drop database if exists test6;
 drop database if exists test7;
 drop database if exists test8;
 drop database if exists test9;
+drop database if exists test10;
 --enable_warnings

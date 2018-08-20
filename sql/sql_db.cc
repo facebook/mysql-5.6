@@ -554,6 +554,10 @@ static bool write_db_opt(THD *thd, const char *db_name, const char *path,
   if (create->db_read_only == enum_db_read_only::DB_READ_ONLY_NULL)
     create->db_read_only = db_info.db_read_only;
 
+  /* if db_metadata is not specified, use the current value */
+  if (!create->alter_db_metadata)
+    create->db_metadata = db_info.db_metadata;
+
   if (put_dbopt(path, create))
     return 1;
 
@@ -572,9 +576,7 @@ static bool write_db_opt(THD *thd, const char *db_name, const char *path,
                                 enum_db_read_only::DB_READ_ONLY_SUPER? "2":"0",
                               "\ndb-metadata=",
                               create->db_metadata.ptr()?
-                                (const char*)(create->db_metadata.ptr()):
-                                  !db_info.db_metadata.is_empty()?
-                                    (const char*)(db_info.db_metadata.ptr()):"",
+                                (const char*)(create->db_metadata.ptr()):"",
                               "\n", NullS) - buf);
 
     /* Error is written by mysql_file_write */
