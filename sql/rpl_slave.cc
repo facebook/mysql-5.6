@@ -6415,7 +6415,7 @@ void slave_stop_workers(Relay_log_info *rli, bool *mts_inited)
     // set all workers as STOP_ACCEPTED, and signal blocked workers
     for (i= rli->workers.elements - 1; i >= 0; i--)
     {
-      Slave_worker *w;
+      Slave_worker *w= NULL;
       get_dynamic((DYNAMIC_ARRAY*)&rli->workers, (uchar*) &w, i);
       mysql_mutex_lock(&w->jobs_lock);
       if (w->running_status != Slave_worker::RUNNING)
@@ -6425,17 +6425,33 @@ void slave_stop_workers(Relay_log_info *rli, bool *mts_inited)
       }
       w->running_status= Slave_worker::STOP_ACCEPTED;
       mysql_mutex_unlock(&w->jobs_lock);
+    }
 
-      thd_proc_info(thd, "Waiting for workers to exit");
+    thd_proc_info(thd, "Waiting for workers to exit");
 
-      while (w->running_status != Slave_worker::NOT_RUNNING)
+    for (i= rli->workers.elements - 1; i >= 0; i--)
+    {
+      Slave_worker *w= NULL;
+      get_dynamic((DYNAMIC_ARRAY*)&rli->workers, (uchar*) &w, i);
+      mysql_mutex_lock(&w->jobs_lock);
+
+      if (w->running_status != Slave_worker::NOT_RUNNING)
       {
         // unblock workers waiting for new events or trxs
         mysql_mutex_lock(&w->info_thd->LOCK_thd_data);
-        w->info_thd->awake(THD::KILL_QUERY);
+        w->info_thd->awake(w->info_thd->killed);
         mysql_mutex_unlock(&w->info_thd->LOCK_thd_data);
-        my_sleep(1);
       }
+
+      // wait for workers to stop running
+      while (w->running_status != Slave_worker::NOT_RUNNING)
+      {
+        struct timespec abstime;
+        set_timespec(abstime, 1);
+        mysql_cond_timedwait(&w->jobs_cond, &w->jobs_lock, &abstime);
+      }
+
+      mysql_mutex_unlock(&w->jobs_lock);
     }
     rli->dependency_worker_error= false;
   }
