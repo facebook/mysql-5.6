@@ -754,6 +754,9 @@ bool ReplSemiSyncMaster::update_whitelist(std::string& wlist)
   // NOTE: make sure to change the version only after the updating the whitelist
   ++rpl_semi_sync_master_whitelist_ver;
 
+  sql_print_information("Semi-sync master: Whitelist updated from %s to %s",
+                        rpl_semi_sync_master_whitelist, wlist.c_str());
+
   return true;
 }
 
