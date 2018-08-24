@@ -40,6 +40,7 @@ typedef enum {
 static run_mode_t 	opt_mode;
 static char *		opt_directory = NULL;
 static my_bool		opt_verbose = 0;
+static my_bool		opt_o_direct = 0;
 
 static struct my_option my_long_options[] =
 {
@@ -53,6 +54,8 @@ static struct my_option my_long_options[] =
 	{"directory", 'C', "Change the current directory to the specified one "
 	 "before streaming or extracting.", &opt_directory, &opt_directory, 0,
 	 GET_STR_ALLOC, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+	{"o_direct", 'd', "Opening files with O_DIRECT.", &opt_o_direct,
+         &opt_o_direct, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
 	{"verbose", 'v', "Print verbose output.", &opt_verbose, &opt_verbose,
 	 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
 
@@ -195,17 +198,21 @@ get_one_option(int optid, const struct my_option *opt MY_ATTRIBUTE((unused)),
 
 static
 int
-stream_one_file(File file, xb_wstream_file_t *xbfile)
+stream_one_file(const char *filepath, size_t file_size, File file,
+                xb_wstream_file_t *xbfile)
 {
-	uchar	buf[XBSTREAM_BUFFER_SIZE];
-	size_t	bytes;
-
 #ifdef USE_POSIX_FADVISE
 	posix_fadvise(file, 0, 0, POSIX_FADV_SEQUENTIAL);
 #endif
+	size_t bytes;
+	// Extending read unit on O_DIRECT since it can't use FS read ahead
+	static uchar buf[XBSTREAM_BUFFER_SIZE*4]\
+		 __attribute__ ((__aligned__ (XBSTREAM_BUFFER_SIZE*4)));
+	const size_t chunk_size = opt_o_direct ? XBSTREAM_BUFFER_SIZE*4 :
+		XBSTREAM_BUFFER_SIZE;
 
-	while ((bytes = my_read(file, buf, XBSTREAM_BUFFER_SIZE,
-				MYF(MY_WME))) > 0) {
+	size_t cur_pos = 0;
+	while ((bytes = my_read(file, buf, chunk_size, MYF(MY_WME))) > 0) {
 		if (xb_stream_write_data(xbfile, buf, bytes)) {
 			msg("%s: xb_stream_write_data() failed.\n",
 			    my_progname);
@@ -214,7 +221,11 @@ stream_one_file(File file, xb_wstream_file_t *xbfile)
 #ifdef USE_POSIX_FADVISE
 		posix_fadvise(file, 0, 0, POSIX_FADV_DONTNEED);
 #endif
-
+		cur_pos += bytes;
+		// O_DIRECT read raises EINVAL when reading after reaching
+		// EOF, since positions are not aligned anymore.
+		if (opt_o_direct && cur_pos >= file_size)
+			break;
 	}
 
 	if (bytes == (size_t) -1) {
@@ -256,8 +267,13 @@ mode_create(int argc, char **argv)
 			    my_progname, filepath);
 			goto err;
 		}
+		size_t file_size = mystat.st_size;
 
-		if ((src_file = my_open(filepath, O_RDONLY, MYF(MY_WME))) < 0) {
+		int file_opt = O_RDONLY;
+		if (opt_o_direct) {
+			file_opt |= O_DIRECT;
+		}
+		if ((src_file = my_open(filepath, file_opt, MYF(MY_WME))) < 0) {
 			msg("%s: failed to open %s.\n", my_progname, filepath);
 			goto err;
 		}
@@ -271,7 +287,7 @@ mode_create(int argc, char **argv)
 			msg("%s\n", filepath);
 		}
 
-		if (stream_one_file(src_file, file) ||
+		if (stream_one_file(filepath, file_size, src_file, file) ||
 		    xb_stream_write_close(file) ||
 		    my_close(src_file, MYF(MY_WME))) {
 			goto err;
