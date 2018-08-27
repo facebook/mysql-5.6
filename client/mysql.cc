@@ -312,7 +312,7 @@ static int com_quit(String *str, char *), com_go(String *str, char *),
     com_notee(String *str, char *), com_charset(String *str, char *),
     com_prompt(String *str, char *), com_delimiter(String *str, char *),
     com_warnings(String *str, char *), com_nowarnings(String *str, char *),
-    com_resetconnection(String *str, char *);
+    com_resetconnection(String *str, char *), com_attr(String *str, char *);
 
 #ifdef USE_POPEN
 static int com_nopager(String *str, char *), com_pager(String *str, char *),
@@ -387,6 +387,7 @@ static COMMANDS commands[] = {
     {"prompt", 'R', com_prompt, 1, "Change your mysql prompt."},
     {"quit", 'q', com_quit, 0, "Quit mysql."},
     {"rehash", '#', com_rehash, 0, "Rebuild completion hash."},
+    {"setattr", 'z', com_attr, 1, "Set query attribute."},
     {"source", '.', com_source, 1,
      "Execute an SQL script file. Takes a file name as an argument."},
     {"status", 's', com_status, 0, "Get status information from the server."},
@@ -4051,6 +4052,26 @@ static int com_shell(String *buffer MY_ATTRIBUTE((unused)),
   return 0;
 }
 #endif
+
+static int com_attr(String *buffer MY_ATTRIBUTE((unused)), char *line) {
+  static const char *delim = " \t";
+  char *ptr = nullptr;
+  char *buf = strdup(line);
+  const char *cmd __attribute__((unused)) = strtok_r(buf, delim, &ptr);
+  const char *key = strtok_r(nullptr, delim, &ptr);
+  const char *val = strtok_r(nullptr, delim, &ptr);
+
+  if (!key || !val) {
+    put_info("Usage: setattr key value", INFO_ERROR);
+    free(buf);
+    return -1;
+  }
+
+  mysql_options4(&mysql, MYSQL_OPT_QUERY_ATTR_ADD, key, val);
+
+  free(buf);
+  return 0;
+}
 
 static int com_print(String *buffer, char *line MY_ATTRIBUTE((unused))) {
   tee_puts("--------------", stdout);

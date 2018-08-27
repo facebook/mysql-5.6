@@ -137,6 +137,8 @@ bool iterate_all_dynamic_privileges(THD *thd,
 using std::max;
 using std::min;
 
+#include "query_tag_perf_counter.h"
+
 #define STR_OR_NIL(S) ((S) ? (S) : "<nil>")
 
 /**
@@ -5061,6 +5063,9 @@ ST_SCHEMA_TABLE schema_tables[] = {
      make_old_format, 0, -1, -1, 0, 0},
     {"PROCESSLIST", processlist_fields_info, create_schema_table,
      fill_schema_processlist, make_old_format, 0, -1, -1, 0, 0},
+    {"QUERY_PERF_COUNTER", qutils::query_tag_perf_fields_info,
+     create_schema_table, qutils::fill_query_tag_perf_counter, NULL, NULL, -1,
+     -1, false, 0},
     {"PROFILING", query_profile_statistics_info, create_schema_table,
      fill_query_profile_statistics_info, make_profile_table_for_show, NULL, -1,
      -1, false, 0},

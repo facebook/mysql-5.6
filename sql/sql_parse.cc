@@ -167,6 +167,7 @@
 #include "thr_lock.h"
 #include "violite.h"
 
+#include "query_tag_perf_counter.h"
 namespace dd {
 class Spatial_reference_system;
 }  // namespace dd
@@ -1466,6 +1467,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
   /* For per-query performance counters with log_slow_statement */
   struct System_status_var query_start_status;
   struct System_status_var *query_start_status_ptr = NULL;
+
   if (opt_log_slow_extra) {
     query_start_status_ptr = &query_start_status;
     query_start_status = thd->status_var;
@@ -1707,12 +1709,17 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
       DBUG_ASSERT(thd->m_digest == NULL);
       thd->m_digest = &thd->m_digest_state;
       thd->m_digest->reset(thd->m_token_array, max_digest_length);
-      thd->set_query_attrs({com_data->com_query.query_attrs,
-                            com_data->com_query.query_attrs_length});
+
+      const char *attrs = com_data->com_query.query_attrs;
+      const unsigned int attrslen = com_data->com_query.query_attrs_length;
+      thd->set_query_attrs(attrs, attrslen);
+      thd->parse_query_info_attr();
 
       if (alloc_query(thd, com_data->com_query.query,
                       com_data->com_query.length))
         break;  // fatal error is set
+
+      qutils::query_tag_perf_counter counter(thd);
 
       const char *packet_end = thd->query().str + thd->query().length;
 
