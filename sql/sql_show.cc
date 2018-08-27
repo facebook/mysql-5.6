@@ -44,6 +44,7 @@
 #include "mutex_lock.h"                              // MUTEX_LOCK
 #include "mysql/components/services/log_builtins.h"  // LogErr
 #include "mysql/plugin.h"                            // st_mysql_plugin
+#include "query_tag_perf_counter.h"                  // query tag
 #include "scope_guard.h"                             // Scope_guard
 #include "sql/auth/auth_acls.h"                      // DB_ACLS
 #include "sql/dd/cache/dictionary_client.h"  // dd::cache::Dictionary_client
@@ -4014,6 +4015,9 @@ ST_SCHEMA_TABLE schema_tables[] = {
      make_old_format, nullptr, -1, -1, false, 0},
     {"PROCESSLIST", processlist_fields_info, create_schema_table,
      fill_schema_processlist, make_old_format, nullptr, -1, -1, false, 0},
+    {"QUERY_PERF_COUNTER", qutils::query_tag_perf_fields_info,
+     create_schema_table, qutils::fill_query_tag_perf_counter, nullptr, nullptr,
+     -1, -1, false, 0},
     {"PROFILING", query_profile_statistics_info, create_schema_table,
      fill_query_profile_statistics_info, make_profile_table_for_show, nullptr,
      -1, -1, false, 0},
