@@ -2959,6 +2959,8 @@ bool Protocol_classic::parse_packet(union COM_DATA *data,
 
       data->com_query.query = reinterpret_cast<const char *>(read_pos);
       data->com_query.length = packet_left;
+      data->com_query.query_attrs_length = 0;
+      data->com_query.query_attrs = nullptr;
       break;
     }
     case COM_FIELD_LIST: {

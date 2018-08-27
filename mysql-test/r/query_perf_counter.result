@@ -1,0 +1,8 @@
+create database db1;
+use db1;
+select * from information_schema.query_perf_counter where query_type = "ASSOC_RANGE222";
+QUERY_TYPE	CPU	NUM_QUERIES
+select * from information_schema.query_perf_counter where query_type = "ASSOC_RANGE22";
+QUERY_TYPE	CPU	NUM_QUERIES
+ASSOC_RANGE22	cpu_time	1
+drop database db1;

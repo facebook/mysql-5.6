@@ -64,6 +64,7 @@ struct COM_FIELD_LIST_DATA {
   unsigned int query_length;
 };
 union COM_DATA {
+  COM_QUERY_DATA com_query;
   COM_INIT_DB_DATA com_init_db;
   COM_REFRESH_DATA com_refresh;
   COM_KILL_DATA com_kill;
@@ -74,7 +75,6 @@ union COM_DATA {
   COM_STMT_PREPARE_DATA com_stmt_prepare;
   COM_STMT_CLOSE_DATA com_stmt_close;
   COM_STMT_RESET_DATA com_stmt_reset;
-  COM_QUERY_DATA com_query;
   COM_FIELD_LIST_DATA com_field_list;
 };
 #include "mysql/service_srv_session.h"

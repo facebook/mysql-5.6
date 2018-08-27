@@ -230,6 +230,9 @@ def	information_schema	PROCESSLIST	COMMAND	5		NO	varchar	5	16	NULL	NULL	NULL	utf
 def	information_schema	PROCESSLIST	TIME	6		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
 def	information_schema	PROCESSLIST	STATE	7		YES	varchar	21	64	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(64)			select			NULL
 def	information_schema	PROCESSLIST	INFO	8		YES	varchar	21845	65535	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(65535)			select			NULL
+def	information_schema	QUERY_PERF_COUNTER	QUERY_TYPE	1		NO	varchar	84	254	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(254)			select			NULL
+def	information_schema	QUERY_PERF_COUNTER	CPU	2		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
+def	information_schema	QUERY_PERF_COUNTER	NUM_QUERIES	3		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint			select			NULL
 def	information_schema	REFERENTIAL_CONSTRAINTS	CONSTRAINT_CATALOG	1	NULL	NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_bin	varchar(64)			select			NULL
 def	information_schema	REFERENTIAL_CONSTRAINTS	CONSTRAINT_SCHEMA	2	NULL	NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_bin	varchar(64)			select			NULL
 def	information_schema	REFERENTIAL_CONSTRAINTS	CONSTRAINT_NAME	3	NULL	YES	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8_bin	varchar(64)			select			NULL
@@ -619,6 +622,7 @@ COL_CML	DATA_TYPE	CHARACTER_SET_NAME	COLLATION_NAME
 3.0103	varchar	utf8mb3	utf8mb3_general_ci
 3.0118	varchar	utf8mb3	utf8mb3_general_ci
 3.0156	varchar	utf8mb3	utf8mb3_general_ci
+3.0238	varchar	utf8mb3	utf8mb3_general_ci
 3.0303	varchar	utf8mb3	utf8mb3_general_ci
 3.0476	varchar	utf8mb3	utf8mb3_general_ci
 3.0769	varchar	utf8mb3	utf8mb3_general_ci
@@ -889,6 +893,9 @@ NULL	information_schema	PROCESSLIST	ID	bigint	NULL	NULL	NULL	NULL	bigint unsigne
 NULL	information_schema	PROCESSLIST	TIME	int	NULL	NULL	NULL	NULL	int
 3.0476	information_schema	PROCESSLIST	STATE	varchar	21	64	utf8mb3	utf8mb3_general_ci	varchar(64)
 3.0000	information_schema	PROCESSLIST	INFO	varchar	21845	65535	utf8mb3	utf8mb3_general_ci	varchar(65535)
+3.0238	information_schema	QUERY_PERF_COUNTER	QUERY_TYPE	varchar	84	254	utf8mb3	utf8mb3_general_ci	varchar(254)
+NULL	information_schema	QUERY_PERF_COUNTER	CPU	bigint	NULL	NULL	NULL	NULL	bigint
+NULL	information_schema	QUERY_PERF_COUNTER	NUM_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint
 3.0000	information_schema	REFERENTIAL_CONSTRAINTS	CONSTRAINT_CATALOG	varchar	64	192	utf8mb3	utf8mb3_bin	varchar(64)
 3.0000	information_schema	REFERENTIAL_CONSTRAINTS	CONSTRAINT_SCHEMA	varchar	64	192	utf8mb3	utf8mb3_bin	varchar(64)
 3.0000	information_schema	REFERENTIAL_CONSTRAINTS	CONSTRAINT_NAME	varchar	64	192	utf8mb3	utf8_bin	varchar(64)

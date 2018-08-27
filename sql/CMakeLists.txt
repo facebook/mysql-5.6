@@ -482,6 +482,7 @@ SET(SQL_SHARED_SOURCES
   protocol_classic.cc
   psi_memory_key.cc
   query_result.cc
+  query_tag_perf_counter.cc
   range_optimizer/geometry_index_range_scan.cc
   range_optimizer/group_index_skip_scan.cc
   range_optimizer/group_index_skip_scan_plan.cc

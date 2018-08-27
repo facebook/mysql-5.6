@@ -1213,6 +1213,7 @@ static void test_4(MYSQL_SESSION session, void *p) {
     d_data++;
   }
 
+  cmd = COM_DATA{};
   set_query_in_com_data(&cmd, "SELECT * FROM t2");
   run_cmd(session, COM_QUERY, &cmd, &ctx, false, p);
 
