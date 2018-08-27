@@ -131,6 +131,7 @@ Database: information_schema
 | PLUGINS                               |
 | PROCESSLIST                           |
 | PROFILING                             |
+| QUERY_PERF_COUNTER                    |
 | REFERENTIAL_CONSTRAINTS               |
 | RESOURCE_GROUPS                       |
 | ROLE_COLUMN_GRANTS                    |
@@ -209,6 +210,7 @@ Database: INFORMATION_SCHEMA
 | PLUGINS                               |
 | PROCESSLIST                           |
 | PROFILING                             |
+| QUERY_PERF_COUNTER                    |
 | REFERENTIAL_CONSTRAINTS               |
 | RESOURCE_GROUPS                       |
 | ROLE_COLUMN_GRANTS                    |

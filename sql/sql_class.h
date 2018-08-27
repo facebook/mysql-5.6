@@ -3967,14 +3967,30 @@ class THD : public MDL_context_owner,
 
   void mark_transaction_to_rollback(bool all);
 
-  void set_query_attrs(const LEX_CSTRING &arg) { query_attrs_string = arg; }
-  void reset_query_attrs() { set_query_attrs(LEX_CSTRING()); }
-  inline const char *query_attrs() const { return query_attrs_string.str; }
-  inline uint32 query_attrs_length() const { return query_attrs_string.length; }
+  void set_connection_attrs(const char *attrs, size_t length);
+  void set_query_attrs(const char *attrs, size_t length);
+  int parse_query_info_attr();
+  void reset_query_attrs() {
+    mysql_mutex_lock(&LOCK_thd_data);
+    query_attrs_map.clear();
+    mysql_mutex_unlock(&LOCK_thd_data);
+
+    query_attrs_string.clear();
+    trace_id.clear();
+    num_queries = 0;
+    query_type.clear();
+  }
+  inline const char *query_attrs() const { return query_attrs_string.c_str(); }
+  inline uint32 query_attrs_length() const {
+    return query_attrs_string.length();
+  }
+  std::unordered_map<std::string, std::string> query_attrs_map;
+  std::unordered_map<std::string, std::string> connection_attrs_map;
+  uint64_t num_queries;
+  std::string query_type;
+  std::string trace_id;
 
  private:
-  LEX_CSTRING query_attrs_string;
-
   /** The current internal error handler for this thread, or NULL. */
   Internal_error_handler *m_internal_handler;
 
@@ -4017,6 +4033,7 @@ class THD : public MDL_context_owner,
   friend class Protocol_classic;
 
  private:
+  std::string query_attrs_string;
   /**
     Optimizer cost model for server operations.
   */

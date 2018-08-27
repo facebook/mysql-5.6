@@ -2773,6 +2773,8 @@ bool Protocol_classic::parse_packet(union COM_DATA *data,
       break;
     }
     case COM_QUERY: {
+      data->com_query.query_attrs_length = 0;
+      data->com_query.query_attrs = nullptr;
       data->com_query.query = reinterpret_cast<const char *>(input_raw_packet);
       data->com_query.length = input_packet_length;
       break;

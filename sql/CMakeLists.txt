@@ -437,6 +437,7 @@ SET(SQL_SHARED_SOURCES
   protocol_classic.cc
   psi_memory_key.cc
   query_result.cc
+  query_tag_perf_counter.cc
   records.cc
   regexp/errors.cc
   regexp/regexp_engine.cc

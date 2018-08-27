@@ -1,0 +1,10 @@
+create database db1;
+use db1;
+connect (con,localhost,root,,db1);
+query_attrs_add query_info {"num_queries":1,"query_type":"ASSOC_RANGE22"};
+select * from information_schema.query_perf_counter where query_type = "ASSOC_RANGE222";
+--replace_column 2 cpu_time
+select * from information_schema.query_perf_counter where query_type = "ASSOC_RANGE22";
+query_attrs_delete query_info;
+connection default;
+drop database db1;

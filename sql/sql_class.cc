@@ -31,6 +31,12 @@
 #include <algorithm>
 #include <utility>
 
+#include <boost/lexical_cast.hpp>
+#include <boost/optional.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <sstream>
+
 #include "field_types.h"
 #include "m_ctype.h"
 #include "m_string.h"
@@ -101,11 +107,13 @@
 #include "sql/thr_malloc.h"
 #include "sql/transaction.h"  // trans_rollback
 #include "sql/transaction_info.h"
+
 #include "sql/xa.h"
 #include "template_utils.h"
 #include "thr_mutex.h"
 
 class Parse_tree_root;
+using boost::property_tree::ptree;
 
 using std::max;
 using std::min;
@@ -2974,4 +2982,64 @@ void my_eof(THD *thd) {
     TX_TRACKER_GET(tst);
     tst->add_trx_state(thd, TX_RESULT_SET);
   }
+}
+
+static std::string net_read_str(const char **ptr) {
+  size_t len =
+      net_field_length(const_cast<uchar **>(pointer_cast<const uchar **>(ptr)));
+  const char *str = *ptr;
+  *ptr += len;
+  return std::string(str, len);
+}
+
+static void set_attrs_map(
+    const char *ptr, size_t length,
+    std::unordered_map<std::string, std::string> &attrs_map) {
+  const char *end = ptr + length;
+
+  attrs_map.clear();
+  while (ptr < end) {
+    std::string key = net_read_str(&ptr);
+    std::string value = net_read_str(&ptr);
+    attrs_map[key] = value;
+  }
+}
+
+void THD::set_connection_attrs(const char *attrs, size_t length) {
+  mysql_mutex_lock(&LOCK_thd_data);
+  set_attrs_map(attrs, length, connection_attrs_map);
+  mysql_mutex_unlock(&LOCK_thd_data);
+}
+
+void THD::set_query_attrs(const char *attrs, size_t length) {
+  query_attrs_string = std::string(attrs, length);
+
+  mysql_mutex_lock(&LOCK_thd_data);
+  set_attrs_map(query_attrs_string.c_str(), query_attrs_string.length(),
+                query_attrs_map);
+  mysql_mutex_unlock(&LOCK_thd_data);
+}
+
+int THD::parse_query_info_attr() {
+  static const std::string query_info_key = "query_info";
+
+  auto it = this->query_attrs_map.find(query_info_key);
+  if (it == this->query_attrs_map.end()) return 0;
+  ptree root;
+  try {
+    std::istringstream query_info_attr(it->second);
+    boost::property_tree::read_json(query_info_attr, root);
+  } catch (const boost::property_tree::json_parser::json_parser_error &e) {
+    return -1;  // invalid json
+  }
+  try {
+    boost::optional<std::string> trace_id =
+        root.get_optional<std::string>("traceid");
+    if (trace_id) this->trace_id = *trace_id;
+    this->query_type = root.get<std::string>("query_type");
+    this->num_queries = root.get<uint64_t>("num_queries");
+  } catch (const boost::property_tree::ptree_error &e) {
+    return -1;  // invalid key or value
+  }
+  return 0;
 }

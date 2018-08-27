@@ -74,6 +74,7 @@
 #include "nullable.h"
 #include "pfs_thread_provider.h"
 #include "prealloced_array.h"
+#include "query_tag_perf_counter.h"
 #include "sql/auth/auth_acls.h"
 #include "sql/auth/auth_common.h"  // acl_authenticate
 #include "sql/auth/sql_security_ctx.h"
@@ -1781,12 +1782,17 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
       DBUG_ASSERT(thd->m_digest == nullptr);
       thd->m_digest = &thd->m_digest_state;
       thd->m_digest->reset(thd->m_token_array, max_digest_length);
-      thd->set_query_attrs({com_data->com_query.query_attrs,
-                            com_data->com_query.query_attrs_length});
+
+      const char *attrs = com_data->com_query.query_attrs;
+      const unsigned int attrslen = com_data->com_query.query_attrs_length;
+      thd->set_query_attrs(attrs, attrslen);
+      thd->parse_query_info_attr();
 
       if (alloc_query(thd, com_data->com_query.query,
                       com_data->com_query.length))
         break;  // fatal error is set
+
+      qutils::query_tag_perf_counter counter(thd);
 
       const char *packet_end = thd->query().str + thd->query().length;
 

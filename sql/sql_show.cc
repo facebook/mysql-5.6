@@ -67,8 +67,9 @@
 #include "mysql_time.h"
 #include "mysqld_error.h"
 #include "nullable.h"
-#include "scope_guard.h"         // Scope_guard
-#include "sql/auth/auth_acls.h"  // DB_ACLS
+#include "query_tag_perf_counter.h"  // query tag
+#include "scope_guard.h"             // Scope_guard
+#include "sql/auth/auth_acls.h"      // DB_ACLS
 #include "sql/auth/auth_common.h"
 #include "sql/auth/sql_security_ctx.h"
 #include "sql/dd/cache/dictionary_client.h"  // dd::cache::Dictionary_client
@@ -4218,6 +4219,8 @@ ST_SCHEMA_TABLE schema_tables[] = {
     {"PROFILING", query_profile_statistics_info,
      fill_query_profile_statistics_info, make_profile_table_for_show, nullptr,
      false},
+    {"QUERY_PERF_COUNTER", qutils::query_tag_perf_fields_info,
+     qutils::fill_query_tag_perf_counter, nullptr, nullptr, false},
     {"SCHEMA_PRIVILEGES", schema_privileges_fields_info,
      fill_schema_schema_privileges, nullptr, nullptr, false},
     {"TABLESPACES", tablespaces_fields_info, hton_fill_schema_table, nullptr,
