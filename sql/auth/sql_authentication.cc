@@ -2198,6 +2198,8 @@ static bool read_client_connect_attrs(THD *thd, char **ptr,
   /* impose an artificial length limit of 64k */
   if (length > 65535) return true;
 
+  thd->set_connection_attrs(*ptr, length);
+
 #ifdef HAVE_PSI_THREAD_INTERFACE
   MYSQL_SERVER_AUTH_INFO *auth_info = &mpvio->auth_info;
   int bytes_lost;
