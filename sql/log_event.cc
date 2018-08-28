@@ -15078,7 +15078,8 @@ inline ulonglong Rows_query_log_event::extract_last_timestamp() const
     return 0;
   }
 
-  auto timestamps= pt.get_child("timestamps", boost::property_tree::ptree());
+  auto timestamps= pt.get_child("ts", boost::property_tree::ptree());
+  DBUG_ASSERT(!timestamps.empty());
   return timestamps.empty() ? 0 :
          timestamps.back().second.get_value<ulonglong>();
 }
