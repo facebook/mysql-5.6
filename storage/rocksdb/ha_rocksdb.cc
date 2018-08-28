@@ -6356,15 +6356,13 @@ void ha_rocksdb::free_key_buffers() {
 }
 
 void ha_rocksdb::set_use_read_free_rpl(const char *const whitelist) {
-  DBUG_ASSERT(whitelist != nullptr);
-
 #if defined(HAVE_PSI_INTERFACE)
   Regex_list_handler regex_handler(key_rwlock_read_free_rpl_tables);
 #else
   Regex_list_handler regex_handler;
 #endif
 
-  if (!regex_handler.set_patterns(whitelist)) {
+  if (!regex_handler.set_patterns(whitelist ? whitelist : "")) {
     warn_about_bad_patterns(&regex_handler, "read_free_rpl_tables");
   }
 
@@ -6372,15 +6370,13 @@ void ha_rocksdb::set_use_read_free_rpl(const char *const whitelist) {
 }
 
 void ha_rocksdb::set_skip_unique_check_tables(const char *const whitelist) {
-  DBUG_ASSERT(whitelist != nullptr);
-
 #if defined(HAVE_PSI_INTERFACE)
   Regex_list_handler regex_handler(key_rwlock_skip_unique_check_tables);
 #else
   Regex_list_handler regex_handler;
 #endif
 
-  if (!regex_handler.set_patterns(whitelist)) {
+  if (!regex_handler.set_patterns(whitelist ? whitelist : ".*")) {
     warn_about_bad_patterns(&regex_handler, "skip_unique_check_tables");
   }
 
