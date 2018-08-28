@@ -1,0 +1,53 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+set @save_log_column_names = @@global.log_column_names;
+set @@global.log_column_names = true;
+set @save_log_column_names = @@global.log_column_names;
+set @@global.log_column_names = true;
+call mtr.add_suppression("Slave SQL.*Column 1 of table .test.t.. cannot be converted from type.*, Error_code: MY-013146");
+create table t1 (a int, b text);
+drop table t1;
+create table t1 (b text);
+Check slave can deal with missing columns
+insert into t1 values(1, "column1");
+select * from t1;
+b
+column1
+drop table t1;
+create table t1 (b text, a int);
+Check slave can deal with columns in different order
+insert into t1(a, b) values(2, "column2");
+update t1 set b="update column2" where a=2;
+select * from t1;
+b	a
+update column2	2
+drop table t1;
+create table t1 (extra_column text, a int, b text);
+Check slave can deal with new columns added at the beginning
+insert into t1 values(2, "column2");
+select * from t1;
+extra_column	a	b
+NULL	2	column2
+drop table t1;
+create table t1(a int, extra_column text, b text);
+Check slave can deal with new columns added in the middle
+insert into t1 values(2, "column2");
+insert into t1 values(3, "column3");
+delete from t1 where a=3 and b="column3";
+select * from t1;
+a	extra_column	b
+2	NULL	column2
+drop table t1;
+create table t1 (a int, b int);
+Check slave fails with an error due to type mismatch
+insert into t1 values(1, "column2");
+include/wait_for_slave_sql_error.inc [errno=13146]
+include/stop_slave.inc
+include/rpl_reset.inc
+drop table t1;
+set @@global.log_column_names = @save_log_column_names;
+set @@global.log_column_names = @save_log_column_names;
+include/rpl_end.inc

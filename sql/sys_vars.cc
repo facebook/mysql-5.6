@@ -1612,6 +1612,11 @@ static Sys_var_bool Sys_log_query_comments(
     "in Rows_query_log_events.",
     GLOBAL_VAR(opt_log_only_query_comments), CMD_LINE(OPT_ARG), DEFAULT(true));
 
+static Sys_var_bool Sys_log_column_names(
+    "log_column_names",
+    "Writes column name information in table map log events.",
+    GLOBAL_VAR(opt_log_column_names), CMD_LINE(OPT_ARG), DEFAULT(false));
+
 static Sys_var_bool Sys_binlog_order_commits(
     "binlog_order_commits",
     "Issue internal commit calls in the same order as transactions are"

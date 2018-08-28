@@ -723,16 +723,16 @@ struct page_no_holder_struct {
 };
 
 struct lra_t {
-  ulint lra_size;     /* Total size (in MBs) of the
-                      pages that will be prefetched by
-                      logical read ahead. */
-  ulint lra_n_pages;  /* Number of pages that lra prefetches
-                      every time. This is computed using
-                      lra_size and the currently scanned
-                      table's block size */
-  ulint lra_n_spaces; /* Number of times space id can change
-                      before lra is disabled during
-                      transaction execution. */
+  ulint lra_size;           /* Total size (in MBs) of the
+                            pages that will be prefetched by
+                            logical read ahead. */
+  ulint lra_n_pages;        /* Number of pages that lra prefetches
+                            every time. This is computed using
+                            lra_size and the currently scanned
+                            table's block size */
+  ulint lra_n_spaces;       /* Number of times space id can change
+                            before lra is disabled during
+                            transaction execution. */
   ulint lra_count_n_spaces; /* Number of times space id changes during
                             transaction execution. */
   ulint lra_space_id;       /* The last space id that the scanning

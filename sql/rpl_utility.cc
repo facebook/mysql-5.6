@@ -63,6 +63,7 @@ struct TYPELIB;
 #include "sql/psi_memory_key.h"
 #include "sql/rpl_rli.h"  // Relay_log_info
 #include "sql/rpl_slave.h"
+#include "sql/sql_base.h"
 #include "sql/sql_class.h"  // THD
 #include "sql/sql_const.h"
 #include "sql/sql_lex.h"  // LEX
@@ -483,14 +484,25 @@ bool table_def::compatible_with(THD *thd, Relay_log_info *rli, TABLE *table,
 
   /*
     We only check the initial columns for the tables.
+
+    If column names are logged by the master, we check all
+    the columns present in master.
   */
   Replicated_columns_view fields{table, Replicated_columns_view::INBOUND, thd};
   uint const cols_to_check = min<ulong>(fields.filtered_size(), size());
   TABLE *tmp_table = nullptr;
+  uint removed_cols = 0;
 
   for (auto it = fields.begin(); it.filtered_pos() < cols_to_check; ++it) {
-    Field *const field = *it;
     size_t col = it.filtered_pos();
+    Field *const field = have_column_names() ? find_field_in_table_sef(
+                                                   table, get_column_name(col))
+                                             : *it;
+    if (!field) {
+      // This column is removed on slave
+      ++removed_cols;
+      continue;
+    }
     int order;
     if (can_convert_field_to(field, type(col), field_metadata(col),
                              is_array(col), rli, m_flags, &order)) {
@@ -513,17 +525,22 @@ bool table_def::compatible_with(THD *thd, Relay_log_info *rli, TABLE *table,
         if (tmp_table == nullptr) return false;
         /*
           Clear all fields up to, but not including, this column.
+          Note the slave conversion table doesn't have deleted columns. This
+          needs to be taken care of when clearing fields.
         */
-        for (unsigned int i = 0; i < col; ++i) tmp_table->field[i] = nullptr;
+        for (unsigned int i = 0; i < col - removed_cols; ++i)
+          tmp_table->field[i] = nullptr;
       }
 
-      if (order == 0 && tmp_table != nullptr) tmp_table->field[col] = nullptr;
+      if (order == 0 && tmp_table != nullptr)
+        tmp_table->field[col - removed_cols] = nullptr;
     } else {
       DBUG_PRINT("debug",
                  ("Checking column %lu -"
                   " field '%s' can not be converted",
                   static_cast<long unsigned int>(col), field->field_name));
-      DBUG_ASSERT(col < size() && col < table->s->fields);
+      DBUG_ASSERT(col < size() &&
+                  (col < table->s->fields || have_column_names()));
       DBUG_ASSERT(table->s->db.str && table->s->table_name.str);
       const char *db_name = table->s->db.str;
       const char *tbl_name = table->s->table_name.str;
@@ -564,25 +581,6 @@ bool table_def::compatible_with(THD *thd, Relay_log_info *rli, TABLE *table,
     }
   }
 
-#ifndef DBUG_OFF
-  if (tmp_table) {
-    for (unsigned int col = 0; col < tmp_table->s->fields; ++col)
-      if (tmp_table->field[col]) {
-        char source_buf[MAX_FIELD_WIDTH];
-        char target_buf[MAX_FIELD_WIDTH];
-        String source_type(source_buf, sizeof(source_buf), &my_charset_latin1);
-        String target_type(target_buf, sizeof(target_buf), &my_charset_latin1);
-        tmp_table->field[col]->sql_type(source_type);
-        table->field[col]->sql_type(target_type);
-        DBUG_PRINT("debug",
-                   ("Field %s - conversion required."
-                    " Source type: '%s', Target type: '%s'",
-                    tmp_table->field[col]->field_name, source_type.c_ptr_safe(),
-                    target_type.c_ptr_safe()));
-      }
-  }
-#endif
-
   *conv_table_var = tmp_table;
   return true;
 }
@@ -608,7 +606,9 @@ TABLE *table_def::create_conversion_table(THD *thd, Relay_log_info *rli,
     min(columns@master, columns@slave) columns in the
     conversion table.
   */
-  uint const cols_to_create = min<ulong>(target_table->s->fields, size());
+  uint const cols_to_create = have_column_names()
+                                  ? size()
+                                  : min<ulong>(target_table->s->fields, size());
 
   // Default value : treat all values signed
   bool unsigned_flag = false;
@@ -623,6 +623,15 @@ TABLE *table_def::create_conversion_table(THD *thd, Relay_log_info *rli,
                          (1ULL << SLAVE_TYPE_CONVERSIONS_ALL_SIGNED));
 
   for (uint col = 0; col < cols_to_create; ++col) {
+    Field *const slave_field =
+        have_column_names()
+            ? find_field_in_table_sef(target_table, get_column_name(col))
+            : target_table->field[col];
+
+    if (!slave_field) {
+      // This column is removed on slave
+      continue;
+    }
     Create_field *field_def = new (thd->mem_root) Create_field();
     if (field_list.push_back(field_def)) return nullptr;
 
@@ -637,7 +646,7 @@ TABLE *table_def::create_conversion_table(THD *thd, Relay_log_info *rli,
       uint precision;
       case MYSQL_TYPE_ENUM:
       case MYSQL_TYPE_SET:
-        interval = static_cast<Field_enum *>(target_table->field[col])->typelib;
+        interval = static_cast<Field_enum *>(slave_field)->typelib;
         /*
           Number of elements in interval on master and slave might differ.
           Use pack length from binary log instead of one calculated from
@@ -684,13 +693,13 @@ TABLE *table_def::create_conversion_table(THD *thd, Relay_log_info *rli,
         "debug",
         ("sql_type: %d, target_field: '%s', max_length: %d, decimals: %d,"
          " maybe_null: %d, unsigned_flag: %d",
-         binlog_type(col), target_table->field[col]->field_name, max_length,
-         decimals, true, unsigned_flag));
+         binlog_type(col), slave_field->field_name, max_length, decimals, true,
+         unsigned_flag));
     field_def->init_for_tmp_table(field_type, max_length, decimals,
                                   true,           // maybe_null
                                   unsigned_flag,  // unsigned_flag
                                   pack_length_override);
-    field_def->charset = target_table->field[col]->charset();
+    field_def->charset = slave_field->charset();
     field_def->interval = interval;
   }
 
@@ -810,7 +819,8 @@ std::pair<my_off_t, std::pair<uint, bool>> read_field_metadata(
 PSI_memory_key key_memory_table_def_memory;
 
 table_def::table_def(unsigned char *types, ulong size, uchar *field_metadata,
-                     int metadata_size, uchar *null_bitmap, uint16 flags)
+                     int metadata_size, uchar *null_bitmap, uint16 flags,
+                     const uchar *column_names, unsigned long column_names_size)
     : m_size(size),
       m_type(nullptr),
       m_field_metadata_size(metadata_size),
@@ -855,10 +865,33 @@ table_def::table_def(unsigned char *types, ulong size, uchar *field_metadata,
     }
   }
   if (m_size && null_bitmap) memcpy(m_null_bits, null_bitmap, (m_size + 7) / 8);
+
+  if (column_names && column_names_size) {
+    // store column names in to an array.
+    for (uint i = 0; i < m_size; i++) {
+      uint length = (uint)*column_names;
+      if (!length || length + 1 > column_names_size) {
+        for (auto &col : m_column_names) my_free(col);
+        m_column_names.clear();
+        break;
+      }
+      // memory allocated by this malloc is freed in
+      // the class destructor.
+      char *str = (char *)my_malloc(PSI_NOT_INSTRUMENTED, length, MYF(0));
+      strncpy(str, (const char *)column_names + 1, length);
+      str[length - 1] = 0;
+      m_column_names.push_back(str);
+      column_names += length + 1;
+      column_names_size -= length + 1;
+    }
+  }
 }
 
 table_def::~table_def() {
   my_free(m_memory);
+  for (auto &col : m_column_names) {
+    my_free(col);
+  }
 #ifndef DBUG_OFF
   m_type = nullptr;
   m_size = 0;

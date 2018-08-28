@@ -2242,7 +2242,10 @@ size_t Rows_log_event::print_verbose_one_row(
 
     bool is_null = null_bits.get();
 
-    my_b_printf(file, "###   @%d=", static_cast<int>(i + 1));
+    if (td->have_column_names())
+      my_b_printf(file, "###   %s=", td->get_column_name(i));
+    else
+      my_b_printf(file, "###   @%d=", static_cast<int>(i + 1));
     if (!is_null) {
       size_t fsize =
           td->calc_field_size((uint)i, pointer_cast<const uchar *>(value));
@@ -9367,6 +9370,23 @@ end:
   return error;
 }
 
+void Rows_log_event::set_writeset_from_col_names(TABLE *table,
+                                                 table_def *tabledef,
+                                                 MY_BITMAP *after_image) {
+  DBUG_ASSERT(tabledef->have_column_names());
+  bitmap_clear_all(table->write_set);
+  // use column names to find out the correct field indices
+  // on slave's table.
+  for (uint i = 0; i < tabledef->size(); ++i) {
+    if (bitmap_is_set(after_image, i)) {
+      const char *col_name = tabledef->get_column_name(i);
+      Field *const field = find_field_in_table_sef(table, col_name);
+      // field may be NULL if the field is removed on slave.
+      if (field) bitmap_set_bit(table->write_set, field->field_index);
+    }
+  }
+}
+
 int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
   DBUG_TRACE;
   TABLE *table = nullptr;
@@ -9730,6 +9750,12 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
     bitmap_set_all(table->read_set);
     bitmap_set_all(table->write_set);
 
+    table_def *tabledef = NULL;
+    TABLE *conv_table = NULL;
+    const auto ret MY_ATTRIBUTE((unused)) =
+        rli->get_table_data(table, &tabledef, &conv_table);
+    DBUG_ASSERT(ret);
+
     /*
       Call mark_generated_columns() to set read_set/write_set bits of the
       virtual generated columns as required in order to get these computed.
@@ -9754,7 +9780,10 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
         break;
       case binary_log::UPDATE_ROWS_EVENT:
         bitmap_intersect(table->read_set, &this->m_local_cols);
-        bitmap_intersect(table->write_set, &this->m_local_cols_ai);
+        if (tabledef->have_column_names())
+          set_writeset_from_col_names(table, tabledef, &m_cols_ai);
+        else
+          bitmap_intersect(table->write_set, &this->m_local_cols_ai);
         if (m_table->vfield) m_table->mark_generated_columns(true);
         /* Skip update rows events that don't have data for this server's table.
          */
@@ -9788,7 +9817,11 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
         */
         /* WRITE ROWS EVENTS store the bitmap in the m_cols bitmap */
         if (m_table->vfield) m_table->mark_generated_columns(false);
-        bitmap_intersect(table->write_set, &this->m_local_cols);
+        if (tabledef->have_column_names())
+          set_writeset_from_col_names(table, tabledef, &m_cols);
+        else
+          bitmap_intersect(table->write_set, &this->m_local_cols);
+
         stage = &stage_rpl_apply_row_evt_write;
         break;
       default:
@@ -10480,7 +10513,7 @@ Table_map_log_event::Table_map_log_event(THD *thd_arg, TABLE *tbl,
       m_data_size += 1;
     else
       m_data_size += 3;
-    m_data_size += m_primary_key_fields_size;
+    m_data_size += m_primary_key_fields_size + m_column_names_size;
   } else {
     m_data_size += m_metadata_buf.length();
   }
@@ -10674,7 +10707,7 @@ int Table_map_log_event::do_apply_event(Relay_log_info const *rli) {
     */
     new (&table_list->m_tabledef)
         table_def(m_coltype, m_colcnt, m_field_metadata, m_field_metadata_size,
-                  m_null_bits, m_flags);
+                  m_null_bits, m_flags, m_column_names, m_column_names_size);
 
     table_list->m_tabledef_valid = true;
     table_list->m_conv_table = nullptr;
@@ -10814,10 +10847,12 @@ bool Table_map_log_event::write_fb_format_metadata(Basic_ostream *ostream) {
   uchar m_size_buf[sizeof(m_primary_key_fields_size)];
   uchar *const m_size_buf_end =
       net_store_length(m_size_buf, m_primary_key_fields_size);
-  return (wrapper_my_b_safe_write(ostream, m_size_buf,
-                                  (size_t)(m_size_buf_end - m_size_buf)) ||
-          wrapper_my_b_safe_write(ostream, m_primary_key_fields,
-                                  m_primary_key_fields_size));
+  return (
+      wrapper_my_b_safe_write(ostream, m_size_buf,
+                              (size_t)(m_size_buf_end - m_size_buf)) ||
+      wrapper_my_b_safe_write(ostream, m_primary_key_fields,
+                              m_primary_key_fields_size) ||
+      wrapper_my_b_safe_write(ostream, m_column_names, m_column_names_size));
 }
 
 /**
@@ -10939,6 +10974,10 @@ void Table_map_log_event::init_metadata_fields() {
       m_primary_key_fields_size = 0;
       m_primary_key_fields = nullptr;
     }
+    if (init_fb_format_col_names()) {
+      m_column_names_size = 0;
+      m_column_names = nullptr;
+    }
     m_metadata_buf.length(0);
     return;
   }
@@ -10993,6 +11032,39 @@ bool Table_map_log_event::init_fb_format_pk_fields() {
     for (uint i = 0; i < pkey_info->user_defined_key_parts; ++i) {
       ptr = net_store_length(ptr, (pkey_info->key_part[i].fieldnr - 1));
     }
+  }
+
+  return false;
+}
+
+bool Table_map_log_event::init_fb_format_col_names() {
+  if (!m_table || !opt_log_column_names) {
+    return false;
+  }
+
+  // get column_names size.
+  for (unsigned int i = 0; i < m_table->s->fields; i++) {
+    // + 1 for storing the length of the column name.
+    // + 1 for '\0'
+    m_column_names_size += strlen(m_table->s->field[i]->field_name) + 1 + 1;
+  }
+
+  if (m_column_names_size) {
+    // allocate memory for column names.
+    m_column_names =
+        static_cast<unsigned char *>(bapi_malloc(m_column_names_size, 0));
+    if (!m_column_names) {
+      return true;
+    }
+  }
+
+  uint index = 0;
+  const auto share = m_table->s;
+  for (uint i = 0; i < share->fields; i++) {
+    uint length = strlen(share->field[i]->field_name) + 1;
+    m_column_names[index++] = length;
+    strcpy((char *)(m_column_names + index), share->field[i]->field_name);
+    index += length;
   }
 
   return false;
