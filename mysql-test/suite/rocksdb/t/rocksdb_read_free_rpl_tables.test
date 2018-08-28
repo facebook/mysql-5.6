@@ -1,10 +1,6 @@
-CREATE EVENT ev1 ON SCHEDULE EVERY 1 SECOND DO INSERT INTO t1 VALUES (1);
 SET @rocksdb_read_free_rpl_tables = @@global.rocksdb_read_free_rpl_tables;
 SET GLOBAL rocksdb_read_free_rpl_tables = NULL;
-SET @event_scheduler = @@global.event_scheduler;
-SET GLOBAL event_scheduler = ON;
 CREATE TABLE t1(c1 YEAR) ENGINE=ROCKSDB;
+INSERT INTO t1 VALUES (1);
 DROP TABLE t1;
 SET @@global.rocksdb_read_free_rpl_tables = @rocksdb_read_free_rpl_tables;
-SET @@global.event_scheduler = @event_scheduler;
-DROP EVENT ev1;
