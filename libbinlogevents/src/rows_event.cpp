@@ -50,7 +50,9 @@ Table_map_event::Table_map_event(const char *buf,
       m_optional_metadata_len(0),
       m_optional_metadata(nullptr),
       m_primary_key_fields_size(0),
-      m_primary_key_fields(nullptr) {
+      m_primary_key_fields(nullptr),
+      m_column_names_size(0),
+      m_column_names(nullptr) {
   BAPI_ENTER("Table_map_event::Table_map_event(const char*, ...)");
   const char *ptr_dbnam = nullptr;
   const char *ptr_tblnam = nullptr;
@@ -111,6 +113,12 @@ Table_map_event::Table_map_event(const char *buf,
         READER_TRY_CALL(alloc_and_memcpy, &m_primary_key_fields,
                         m_primary_key_fields_size, 0);
       }
+
+      m_column_names_size = READER_CALL(available_to_read);
+      if (m_column_names_size) {
+        READER_TRY_CALL(alloc_and_memcpy, &m_column_names, m_column_names_size,
+                        0);
+      }
     } else {
       m_optional_metadata_len = bytes_avail;
       READER_TRY_CALL(alloc_and_memcpy, &m_optional_metadata,
@@ -131,6 +139,8 @@ Table_map_event::~Table_map_event() {
   m_coltype = nullptr;
   bapi_free(m_primary_key_fields);
   m_primary_key_fields = nullptr;
+  bapi_free(m_column_names);
+  m_column_names = nullptr;
   bapi_free(m_optional_metadata);
   m_optional_metadata = nullptr;
 }

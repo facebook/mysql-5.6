@@ -43,6 +43,7 @@
 #include "sql/log_event.h"
 #include "sql/rpl_rli.h"      // Relay_log_info
 #include "sql/rpl_utility.h"  // table_def
+#include "sql/sql_base.h"     // open_and_lock_tables
 #include "sql/sql_const.h"
 #include "sql/sql_error.h"
 #include "sql/sql_gipk.h"  // table_has_generated_invisible_primary_key
@@ -444,6 +445,90 @@ static const uchar *start_partial_bit_reader(const uchar *pack_ptr,
   return pack_ptr;
 }
 
+/**
+   Unpack a row into @c table->record[0].
+   This should be only used when table_map_log_event contains column names.
+   This function iterates over the columns of master and finds corresponding
+   field in slave's table using the column names stored in table_def. Note, a
+   hash for field names is created if number of fields in the table is above
+   MAX_FIELDS_BEFORE_HASH. We will use this hash for lookup when available (see
+   find_field_in_table_sef).
+ */
+bool unpack_row_with_column_info(TABLE *table, uchar const *const row_data,
+                                 MY_BITMAP const *column_image,
+                                 uchar const **const row_image_end_p,
+                                 uchar const *const event_end, bool only_seek,
+                                 table_def *tabledef, TABLE *conv_table) {
+  DBUG_ENTER("unpack_row_with_column_info");
+
+  uint image_column_count = bitmap_bits_set(column_image);
+  const uchar *pack_ptr = row_data;
+  Bit_reader null_bits(row_data);
+  pack_ptr += (image_column_count + 7) / 8;
+
+  uint conv_table_col = 0;
+
+  for (uint i = 0; i < tabledef->size(); ++i) {
+    if (!bitmap_is_set(column_image, i))
+      // Field not actually present in the row_data
+      continue;
+    const char *col_name = tabledef->get_column_name(i);
+    assert(col_name);
+    Field *actual_field = find_field_in_table_sef(table, col_name);
+    if (actual_field) {
+      // use conversion table if present.
+      Field *conv_field =
+          conv_table ? conv_table->field[conv_table_col++] : NULL;
+      Field *const field = conv_field ? conv_field : actual_field;
+      if (null_bits.get()) {
+        // Handle null column case.
+        if (field->is_nullable()) {
+          field->reset();
+          field->set_null();
+        } else {
+          field->set_default();
+          push_warning_printf(
+              current_thd, Sql_condition::SL_WARNING, ER_BAD_NULL_ERROR,
+              ER_THD(current_thd, ER_BAD_NULL_ERROR), field->field_name);
+        }
+      } else {
+        field->set_notnull();
+        uint16 const metadata = tabledef->field_metadata(i);
+        uint32 len =
+            tabledef->calc_field_size(i, const_cast<uchar *>(pack_ptr));
+        if (pack_ptr + len > event_end) {
+          pack_ptr += len;
+          my_error(ER_SLAVE_CORRUPT_EVENT, MYF(0));
+          DBUG_RETURN(true);
+        } else if (only_seek) {
+          pack_ptr += len;
+        } else {
+          pack_ptr = field->unpack(field->field_ptr(), pack_ptr, metadata);
+        }
+      }
+      if (conv_field) {
+        Copy_field copy;
+        copy.set(actual_field, conv_field);
+        copy.invoke_do_copy();
+      }
+    } else {
+      // This column is removed on slave, so skip this field.
+      if (!null_bits.get()) {
+        uint32 len =
+            tabledef->calc_field_size(i, const_cast<uchar *>(pack_ptr));
+        if (pack_ptr + len > event_end) {
+          pack_ptr += len;
+          my_error(ER_SLAVE_CORRUPT_EVENT, MYF(0));
+          DBUG_RETURN(true);
+        }
+        pack_ptr += len;
+      }
+    }
+  }
+  *row_image_end_p = pack_ptr;
+  DBUG_RETURN(false);
+}
+
 bool unpack_row(Relay_log_info const *rli, TABLE *table,
                 uint const source_column_count, uchar const *const row_data,
                 MY_BITMAP const *column_image,
@@ -475,6 +560,17 @@ bool unpack_row(Relay_log_info const *rli, TABLE *table,
   if (tabledef->size() != source_column_count) {
     my_error(ER_SLAVE_CORRUPT_EVENT, MYF(0));
     return true;
+  }
+
+  if (tabledef->have_column_names()) {
+    assert(!event_has_value_options);
+    if (event_has_value_options) {
+      my_error(ER_SLAVE_CORRUPT_EVENT, MYF(0));
+      return true;
+    }
+    return unpack_row_with_column_info(table, row_data, column_image,
+                                       row_image_end_p, event_end, only_seek,
+                                       tabledef, conv_table);
   }
 
   uint image_column_count = bitmap_bits_set(column_image);

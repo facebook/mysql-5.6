@@ -1,0 +1,81 @@
+# This test verifies replica_type_conversions when
+# log_column_names is enabled
+source include/have_binlog_format_row.inc;
+source include/master-slave.inc;
+
+connection master;
+set @saved_log_column_names = @@global.log_column_names;
+set @@global.log_column_names = true;
+
+connection slave;
+set @saved_replica_type_conversions = @@global.replica_type_conversions;
+set @@global.replica_type_conversions = 'ALL_LOSSY,ALL_NON_LOSSY';
+set @saved_log_column_names = @@global.log_column_names;
+set @@global.log_column_names = true;
+
+connection master;
+create table t1(a int, b tinyblob, c int);
+sync_slave_with_master;
+
+--echo Check slave can deal with reordering of columns
+drop table t1;
+create table t1(a int, c tinyint, b mediumblob);
+connection master;
+insert into t1 values(1, "tiny blob", 100);
+sync_slave_with_master;
+select * from t1;
+
+--echo Check slave can deal with deleted columns
+drop table t1;
+create table t1(c tinyint, b mediumblob);
+connection master;
+insert into t1 values(1, "tiny blob", 100);
+sync_slave_with_master;
+select * from t1;
+
+--echo Check slave can deal with added columns
+drop table t1;
+create table t1(a int, d int, c tinyint, b mediumblob);
+connection master;
+insert into t1 values(1, "tiny blob", 100);
+sync_slave_with_master;
+select * from t1;
+
+connection master;
+--echo Check slave can deal with deleted columns and modified column type
+create table t2 (col1 int, col2 varchar(1000), col3 enum('1','2','3'), col4 varchar(100)) engine=innodb;
+sync_slave_with_master;
+connection slave;
+drop table t2;
+create table t2(col2 text, col3 enum('1','2','3'), col4 text) engine=innodb;
+connection master;
+insert into t2 values(1, "column2", 3, "column4");
+sync_slave_with_master;
+select * from t2;
+
+--echo Check slave can deal with deleted columns, different column order and modified column type
+connection slave;
+drop table t2;
+create table t2(col3 enum('1','2','3'), col2 text) engine=innodb;
+connection master;
+insert into t2 values(1, "column2", 3, "column4");
+sync_slave_with_master;
+select * from t2;
+
+--echo Check slave can deal with added columns, deleted columns and modified column type
+connection slave;
+drop table t2;
+create table t2(col5 enum('1','2','3'), col1 int, col6 SET('1','2','3'), col2 text, col7 int) engine=innodb;
+connection master;
+insert into t2 values(1, "column2", 3, "column4");
+sync_slave_with_master;
+select * from t2;
+
+set @@global.replica_type_conversions = @saved_replica_type_conversions;
+set @@global.log_column_names = @saved_log_column_names;
+connection master;
+set @@global.log_column_names = @saved_log_column_names;
+drop table t1;
+drop table t2;
+source include/rpl_end.inc;
+
