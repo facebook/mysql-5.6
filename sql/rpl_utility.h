@@ -29,6 +29,7 @@
 
 #include <sys/types.h>
 #include <unordered_map>
+#include <vector>
 
 #include "field_types.h"  // enum_field_types
 #include "my_dbug.h"
@@ -261,9 +262,11 @@ class table_def {
     @param metadata_size Size of the field_metadata array
     @param null_bitmap The bitmap of fields that can be null
     @param flags Table flags
+    @param column_names Column names
    */
   table_def(unsigned char *types, ulong size, uchar *field_metadata,
-            int metadata_size, uchar *null_bitmap, uint16 flags);
+            int metadata_size, uchar *null_bitmap, uint16 flags,
+            const uchar *column_names);
 
   ~table_def();
 
@@ -442,6 +445,12 @@ class table_def {
                                  TABLE *target_table) const;
 #endif
 
+  bool have_column_names() const { return !m_column_names.empty(); }
+
+  const char *get_column_name(uint index) const {
+    return (index < m_column_names.size()) ? m_column_names[index] : nullptr;
+  }
+
  private:
   ulong m_size;           // Number of elements in the types array
   unsigned char *m_type;  // Array of type descriptors
@@ -452,6 +461,7 @@ class table_def {
   uchar *m_memory;
   mutable int m_json_column_count;  // Number of JSON columns
   bool *m_is_array;
+  std::vector<char *> m_column_names;
 };
 
 #ifdef MYSQL_SERVER
