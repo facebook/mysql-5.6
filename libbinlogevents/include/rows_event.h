@@ -663,7 +663,9 @@ class Table_map_event : public Binary_log_event {
         m_optional_metadata_len(0),
         m_optional_metadata(nullptr),
         m_primary_key_fields_size(0),
-        m_primary_key_fields(nullptr) {
+        m_primary_key_fields(nullptr),
+        m_column_names_size(0),
+        m_column_names(nullptr) {
     if (dbnam) m_dbnam = std::string(dbnam, m_dblen);
     if (tblnam) m_tblnam = std::string(tblnam, m_tbllen);
   }
@@ -696,6 +698,21 @@ class Table_map_event : public Binary_log_event {
   unsigned int m_primary_key_fields_size;
   unsigned char *m_primary_key_fields;
 
+  /**
+    Since m_column_names buffer contains terminating '\0' in the middle,
+    using strlen() will not give correct length, so track the actual length
+    in the size variable.
+
+    Table column names are added to the Table_map_log_event at the end
+    in the following format:
+    a) Length of the column name including the terminating '\0' is added in
+    one byte (strlen(column_name) + 1). One byte is enough since maximum
+    column name length is 64.
+    b) column_name is appended to the buffer including the terminating '\0'.
+  */
+  unsigned long m_column_names_size;
+  unsigned char *m_column_names;
+
   Table_map_event()
       : Binary_log_event(TABLE_MAP_EVENT),
         m_coltype(nullptr),
@@ -705,7 +722,9 @@ class Table_map_event : public Binary_log_event {
         m_optional_metadata_len(0),
         m_optional_metadata(nullptr),
         m_primary_key_fields_size(0),
-        m_primary_key_fields(nullptr) {}
+        m_primary_key_fields(nullptr),
+        m_column_names_size(0),
+        m_column_names(nullptr) {}
 
   unsigned long long get_table_id() { return m_table_id.id(); }
   std::string get_table_name() { return m_tblnam; }

@@ -574,6 +574,7 @@ The following options may be given as the first argument:
  row based binary log.  If equal to 0, then the latest
  version of events are written.  This option is useful
  during some upgrades.
+ --log-column-names  Writes column name information in table map log events.
  --log-datagram      Enable logging queries to a unix local datagram socket
  --log-datagram-usecs=# 
  Log queries longer than log-datagram-usecs to a unix
@@ -1807,6 +1808,7 @@ log-bin (No default value)
 log-bin-index (No default value)
 log-bin-trust-function-creators FALSE
 log-bin-use-v1-row-events FALSE
+log-column-names FALSE
 log-datagram FALSE
 log-datagram-usecs 0
 log-error stderr
@@ -1947,7 +1949,7 @@ performance-schema-max-socket-classes 10
 performance-schema-max-socket-instances -1
 performance-schema-max-sql-text-length 1024
 performance-schema-max-stage-classes 175
-performance-schema-max-statement-classes 222
+performance-schema-max-statement-classes 223
 performance-schema-max-statement-stack 10
 performance-schema-max-table-handles -1
 performance-schema-max-table-instances -1
