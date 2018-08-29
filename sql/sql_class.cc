@@ -1781,21 +1781,29 @@ void THD::notify_shared_lock(MDL_context_owner *ctx_in_use,
   }
 }
 
-void THD::kill_shared_lock(MDL_context_owner *ctx_in_use) {
+bool THD::kill_shared_lock(MDL_context_owner *ctx_in_use) {
+  bool result = false;
   THD *in_use = ctx_in_use->get_thd();
 
-  assert(variables.high_priority_ddl);
-  assert(support_high_priority(lex->sql_command));
-  assert(m_security_ctx->master_access() & SUPER_ACL);
+  // Only allow super user with ddl command to kill blocking threads
+  if (m_security_ctx->master_access() & SUPER_ACL) {
+    bool is_high_priority_ddl = (variables.high_priority_ddl) &&
+                                support_high_priority(lex->sql_command);
 
-  mysql_mutex_lock(&in_use->LOCK_thd_data);
-  /* process the kill only if thread is not already undergoing any kill
-     connection.
-  */
-  if (in_use->killed != THD::KILL_CONNECTION) {
-    in_use->awake(THD::KILL_CONNECTION);
+    if (is_high_priority_ddl || variables.kill_conflicting_connections) {
+      mysql_mutex_lock(&in_use->LOCK_thd_data);
+      /*
+        process the kill only if thread is not already undergoing any kill
+        connection.
+      */
+      if (in_use->killed != THD::KILL_CONNECTION) {
+        in_use->awake(THD::KILL_CONNECTION);
+      }
+      mysql_mutex_unlock(&in_use->LOCK_thd_data);
+      result = true;
+    }
   }
-  mysql_mutex_unlock(&in_use->LOCK_thd_data);
+  return result;
 }
 
 /*

@@ -537,7 +537,8 @@ class MDL_lock {
     */
     void (*m_notify_conflicting_locks)(MDL_context *ctx, MDL_lock *lock);
 
-    bool (*m_kill_conflicting_locks)(MDL_context *ctx, MDL_lock *lock);
+    bool (*m_kill_conflicting_locks)(MDL_context *ctx, MDL_lock *lock,
+                                     enum_mdl_type kill_lower_than);
     /**
       Pointer to a static method which converts information about
       locks granted using "fast" path from fast_path_state_t
@@ -662,9 +663,10 @@ class MDL_lock {
       m_strategy->m_notify_conflicting_locks(ctx, this);
   }
 
-  bool kill_conflicting_locks(MDL_context *ctx) {
+  bool kill_conflicting_locks(MDL_context *ctx, enum_mdl_type kill_lower_than) {
     return m_strategy->m_kill_conflicting_locks
-               ? m_strategy->m_kill_conflicting_locks(ctx, this)
+               ? m_strategy->m_kill_conflicting_locks(ctx, this,
+                                                      kill_lower_than)
                : false;
   }
 
@@ -1012,6 +1014,9 @@ class MDL_lock {
   */
   const MDL_lock_strategy *m_strategy;
 
+  static bool scoped_lock_kill_conflicting_locks(MDL_context *ctx,
+                                                 MDL_lock *lock,
+                                                 enum_mdl_type kill_lower_than);
   /**
     Get bitmap of "unobtrusive" locks granted using "fast path" algorithm
     for scoped locks.
@@ -1038,7 +1043,8 @@ class MDL_lock {
                                                    MDL_lock *lock);
 
   static bool object_lock_kill_conflicting_locks(MDL_context *ctx,
-                                                 MDL_lock *lock);
+                                                 MDL_lock *lock,
+                                                 enum_mdl_type kill_lower_than);
   /**
     Get bitmap of "unobtrusive" locks granted using "fast path" algorithm
     for per-object locks.
@@ -2204,7 +2210,7 @@ const MDL_lock::MDL_lock_strategy MDL_lock::m_scoped_lock_strategy = {
       locks.
     */
     nullptr,
-    nullptr,
+    &MDL_lock::scoped_lock_kill_conflicting_locks,
     &MDL_lock::scoped_lock_fast_path_granted_bitmap,
     /* Scoped locks never require connection check. */
     nullptr};
@@ -3316,6 +3322,20 @@ bool MDL_context::clone_ticket(MDL_request *mdl_request) {
   return false;
 }
 
+bool MDL_lock::scoped_lock_kill_conflicting_locks(
+    MDL_context *ctx, MDL_lock *lock, enum_mdl_type kill_lower_than) {
+  // do not kill connection for scoped lock conflicts for hi-pri ddl
+  // except for alter/drop database.
+  // SCHEMA namespace locks are treated as object locks for the purposes
+  // of killing conflicting connections.
+  if (ctx->get_owner()->get_thd()->variables.kill_conflicting_connections ||
+      lock->key.mdl_namespace() == MDL_key::SCHEMA) {
+    return MDL_lock::object_lock_kill_conflicting_locks(ctx, lock,
+                                                        kill_lower_than);
+  }
+  return false;
+}
+
 /**
   Notify threads holding S/SH metadata locks on an object, which conflict
   with a pending X lock.
@@ -3379,21 +3399,18 @@ void MDL_lock::object_lock_notify_conflicting_locks(MDL_context *ctx,
   }
 }
 
-bool MDL_lock::object_lock_kill_conflicting_locks(MDL_context *ctx,
-                                                  MDL_lock *lock) {
+bool MDL_lock::object_lock_kill_conflicting_locks(
+    MDL_context *ctx, MDL_lock *lock, enum_mdl_type kill_lower_than) {
   Ticket_iterator it(lock->m_granted);
   MDL_ticket *conflicting_ticket;
 
   while ((conflicting_ticket = it++)) {
-    if (conflicting_ticket->get_ctx() != ctx) {
-      // Use MDL_SHARED_NO_WRITE to kill "lock tables read" connection
-      if (conflicting_ticket->get_type() < MDL_SHARED_NO_WRITE) {
-        MDL_context *conflicting_ctx = conflicting_ticket->get_ctx();
-        ctx->get_owner()->kill_shared_lock(conflicting_ctx->get_owner());
-      } else {
-        // if any conflicting thread is not killed, stop and just return false
+    if (conflicting_ticket->get_ctx() != ctx &&
+        conflicting_ticket->get_type() < kill_lower_than) {
+      MDL_context *conflicting_ctx = conflicting_ticket->get_ctx();
+      // if any conflicting thread is not killed, stop and just return false
+      if (!ctx->get_owner()->kill_shared_lock(conflicting_ctx->get_owner()))
         return false;
-      }
     }
   }
   return true;
@@ -3546,11 +3563,33 @@ bool MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
   /*
     For high priority ddl, if this lock is upgradable, the
     final timed_wait happens after connection kill. For other
-    requests, connections will not be killed.
+    requests, connections will not be killed only if
+    kill_conflicting_connections is set.
+  */
+  /*
+    there are no locks lower than MDL_INTENTION_EXCLUSIVE so initial value
+    indicates that no connections will be killed
   */
   bool is_high_priority_ddl =
       thd != nullptr && thd->variables.high_priority_ddl &&
       thd->lex != nullptr && support_high_priority(thd->lex->sql_command);
+  enum_mdl_type kill_conflicting_locks_lower_than = MDL_INTENTION_EXCLUSIVE;
+  bool kill_conflicting_connections_after_timeout_and_retry = false;
+  if (thd != nullptr) {
+    if ((thd->variables.high_priority_ddl) &&
+        ticket->get_type() >= MDL_SHARED_NO_WRITE) {
+      kill_conflicting_connections_after_timeout_and_retry = true;
+      /* Use MDL_SHARED_NO_WRITE to kill "lock tables read" connection */
+      kill_conflicting_locks_lower_than = MDL_SHARED_NO_WRITE;
+    }
+    if (thd->variables.kill_conflicting_connections) {
+      kill_conflicting_connections_after_timeout_and_retry = true;
+      kill_conflicting_locks_lower_than = MDL_TYPE_END;
+    }
+  }
+  /* do not set status on timeout if we are going to retry */
+  bool set_status_on_timeout =
+      !kill_conflicting_connections_after_timeout_and_retry;
 
   if (lock->needs_notification(ticket) || lock->needs_connection_check()) {
     struct timespec abs_shortwait;
@@ -3595,11 +3634,13 @@ bool MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
       set_timespec(&abs_shortwait, 1);
     }
     if (wait_status == MDL_wait::WS_EMPTY)
-      wait_status = m_wait.timed_wait(m_owner, &abs_timeout, true,
-                                      mdl_request->key.get_wait_state_name());
+      wait_status =
+          m_wait.timed_wait(m_owner, &abs_timeout, set_status_on_timeout,
+                            mdl_request->key.get_wait_state_name());
   } else {
-    wait_status = m_wait.timed_wait(m_owner, &abs_timeout, true,
-                                    mdl_request->key.get_wait_state_name());
+    wait_status =
+        m_wait.timed_wait(m_owner, &abs_timeout, set_status_on_timeout,
+                          mdl_request->key.get_wait_state_name());
   }
 
   /*
@@ -3608,20 +3649,24 @@ bool MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
    * NOTE: Only allow super user with ddl command to kill blocking threads
    */
   if ((wait_status == MDL_wait::TIMEOUT || wait_status == MDL_wait::WS_EMPTY) &&
-      is_high_priority_ddl &&
-      thd->security_context()->check_access(SUPER_ACL)) {
+      kill_conflicting_connections_after_timeout_and_retry) {
     if (wait_status != MDL_wait::WS_EMPTY) {
       // reset MDL_wait status
       m_wait.reset_status();
     }
 
     mysql_prlock_wrlock(&lock->m_rwlock);
-    lock->kill_conflicting_locks(this);
+    lock->kill_conflicting_locks(this, kill_conflicting_locks_lower_than);
     mysql_prlock_unlock(&lock->m_rwlock);
 
     DEBUG_SYNC(get_thd(), "mdl_high_priority_kill_conflicting_locks");
 
-    set_timespec(&abs_timeout, 1);  // retry a short wait of 1 second
+    /*
+      retry a short wait of 1 second as kill command is asynchronous and
+      only sessions with granted lock are killed but there could be more
+      sessions in the queue before this one
+    */
+    set_timespec(&abs_timeout, 1);
     wait_status = m_wait.timed_wait(m_owner, &abs_timeout, true,
                                     mdl_request->key.get_wait_state_name());
   }
