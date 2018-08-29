@@ -160,3 +160,6 @@ support-files/mysql-log-rotate
 support-files/plugins.files
 tests/bug25714
 tests/mysql_client_test
+
+# Jellyfish config
+/.jfconfig 
