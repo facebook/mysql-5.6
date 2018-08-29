@@ -1,0 +1,10 @@
+{
+  "capabilities": [
+    "submit",
+  ],
+  "git_command": "git",
+  "git_draft_commit": [
+    "--not",
+    "--remotes=origin/*"
+  ],
+}

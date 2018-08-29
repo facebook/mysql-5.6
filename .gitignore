@@ -2732,3 +2732,6 @@ extra/wolfssl-*
 
 # Allow
 !include/*/boost/geometry/*
+
+# Jellyfish config
+/.jfconfig
