@@ -47,7 +47,7 @@ class Test_MDL_context_owner : public MDL_context_owner {
 
   uint get_rand_seed() const override { return 0; }
 
-  void kill_shared_lock(MDL_context_owner * /* unused */) override {}
+  bool kill_shared_lock(MDL_context_owner *) override { return false; }
 };
 
 #endif  // TEST_MDL_CONTEXT_OWNER_INCLUDED

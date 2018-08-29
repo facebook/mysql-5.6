@@ -1,0 +1,78 @@
+--source include/load_sysvars.inc
+
+SET @start_value = @@session.kill_conflicting_connections;
+SELECT @start_value;
+
+
+SET @@session.kill_conflicting_connections = DEFAULT;
+SELECT @@session.kill_conflicting_connections = TRUE;
+
+
+SET @@session.kill_conflicting_connections = ON;
+SELECT @@session.kill_conflicting_connections;
+SET @@session.kill_conflicting_connections = OFF;
+SELECT @@session.kill_conflicting_connections;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.kill_conflicting_connections = 2;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.kill_conflicting_connections = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.kill_conflicting_connections = TRUEF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.kill_conflicting_connections = TRUE_F;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.kill_conflicting_connections = FALSE0;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.kill_conflicting_connections = OON;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.kill_conflicting_connections = ONN;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.kill_conflicting_connections = OOFF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.kill_conflicting_connections = 0FF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.kill_conflicting_connections = ' ';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.kill_conflicting_connections = " ";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.kill_conflicting_connections = '';
+
+
+--Error ER_LOCAL_VARIABLE
+SET @@global.kill_conflicting_connections = OFF;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@global.kill_conflicting_connections;
+
+
+SELECT IF(@@session.kill_conflicting_connections, "ON", "OFF") = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='kill_conflicting_connections';
+
+
+SET @@session.kill_conflicting_connections = 0;
+SELECT @@session.kill_conflicting_connections;
+SET @@session.kill_conflicting_connections = 1;
+SELECT @@session.kill_conflicting_connections;
+
+SET @@session.kill_conflicting_connections = TRUE;
+SELECT @@session.kill_conflicting_connections;
+SET @@session.kill_conflicting_connections = FALSE;
+SELECT @@session.kill_conflicting_connections;
+
+SET @@session.kill_conflicting_connections = ON;
+SELECT @@kill_conflicting_connections = @@session.kill_conflicting_connections;
+
+--Error ER_PARSE_ERROR
+SET local.kill_conflicting_connections = OFF;
+--Error ER_UNKNOWN_TABLE
+SELECT local.kill_conflicting_connections;
+--Error ER_PARSE_ERROR
+SET session.kill_conflicting_connections = ON;
+--Error ER_UNKNOWN_TABLE
+SELECT session.kill_conflicting_connections;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT kill_conflicting_connections = @@global.kill_conflicting_connections;
+
+SET @@session.kill_conflicting_connections = @start_value;
+SELECT @@session.kill_conflicting_connections;

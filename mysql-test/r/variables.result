@@ -2059,6 +2059,7 @@ SET SESSION gtid_next = @@session.gtid_next;
 SET SESSION identity = @@session.identity;
 SET SESSION immediate_server_version = @@session.immediate_server_version;
 SET SESSION insert_id = @@session.insert_id;
+SET SESSION kill_conflicting_connections = @@session.kill_conflicting_connections;
 SET SESSION last_insert_id = @@session.last_insert_id;
 SET SESSION original_commit_timestamp = @@session.original_commit_timestamp;
 SET SESSION original_server_version = @@session.original_server_version;

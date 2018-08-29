@@ -162,7 +162,7 @@ class MDL_context_owner {
   virtual void notify_shared_lock(MDL_context_owner *in_use,
                                   bool needs_thr_lock_abort) = 0;
 
-  virtual void kill_shared_lock(MDL_context_owner *in_use) = 0;
+  virtual bool kill_shared_lock(MDL_context_owner *in_use) = 0;
 
   /**
     Notify/get permission from interested storage engines before acquiring

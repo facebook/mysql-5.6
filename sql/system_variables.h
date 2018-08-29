@@ -476,6 +476,7 @@ struct System_variables {
   ulong select_into_file_fsync_size;
   uint select_into_file_fsync_timeout;
   bool high_priority_ddl;
+  bool kill_conflicting_connections;
 
   /**
     @sa Sys_select_into_buffer_size

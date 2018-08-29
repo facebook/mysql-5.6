@@ -1,0 +1,82 @@
+SET @start_value = @@session.kill_conflicting_connections;
+SELECT @start_value;
+@start_value
+0
+SET @@session.kill_conflicting_connections = DEFAULT;
+SELECT @@session.kill_conflicting_connections = TRUE;
+@@session.kill_conflicting_connections = TRUE
+0
+SET @@session.kill_conflicting_connections = ON;
+SELECT @@session.kill_conflicting_connections;
+@@session.kill_conflicting_connections
+1
+SET @@session.kill_conflicting_connections = OFF;
+SELECT @@session.kill_conflicting_connections;
+@@session.kill_conflicting_connections
+0
+SET @@session.kill_conflicting_connections = 2;
+ERROR 42000: Variable 'kill_conflicting_connections' can't be set to the value of '2'
+SET @@session.kill_conflicting_connections = -1;
+ERROR 42000: Variable 'kill_conflicting_connections' can't be set to the value of '-1'
+SET @@session.kill_conflicting_connections = TRUEF;
+ERROR 42000: Variable 'kill_conflicting_connections' can't be set to the value of 'TRUEF'
+SET @@session.kill_conflicting_connections = TRUE_F;
+ERROR 42000: Variable 'kill_conflicting_connections' can't be set to the value of 'TRUE_F'
+SET @@session.kill_conflicting_connections = FALSE0;
+ERROR 42000: Variable 'kill_conflicting_connections' can't be set to the value of 'FALSE0'
+SET @@session.kill_conflicting_connections = OON;
+ERROR 42000: Variable 'kill_conflicting_connections' can't be set to the value of 'OON'
+SET @@session.kill_conflicting_connections = ONN;
+ERROR 42000: Variable 'kill_conflicting_connections' can't be set to the value of 'ONN'
+SET @@session.kill_conflicting_connections = OOFF;
+ERROR 42000: Variable 'kill_conflicting_connections' can't be set to the value of 'OOFF'
+SET @@session.kill_conflicting_connections = 0FF;
+ERROR 42000: Variable 'kill_conflicting_connections' can't be set to the value of '0FF'
+SET @@session.kill_conflicting_connections = ' ';
+ERROR 42000: Variable 'kill_conflicting_connections' can't be set to the value of ' '
+SET @@session.kill_conflicting_connections = " ";
+ERROR 42000: Variable 'kill_conflicting_connections' can't be set to the value of ' '
+SET @@session.kill_conflicting_connections = '';
+ERROR 42000: Variable 'kill_conflicting_connections' can't be set to the value of ''
+SET @@global.kill_conflicting_connections = OFF;
+ERROR HY000: Variable 'kill_conflicting_connections' is a SESSION variable and can't be used with SET GLOBAL
+SELECT @@global.kill_conflicting_connections;
+ERROR HY000: Variable 'kill_conflicting_connections' is a SESSION variable
+SELECT IF(@@session.kill_conflicting_connections, "ON", "OFF") = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='kill_conflicting_connections';
+IF(@@session.kill_conflicting_connections, "ON", "OFF") = VARIABLE_VALUE
+SET @@session.kill_conflicting_connections = 0;
+SELECT @@session.kill_conflicting_connections;
+@@session.kill_conflicting_connections
+0
+SET @@session.kill_conflicting_connections = 1;
+SELECT @@session.kill_conflicting_connections;
+@@session.kill_conflicting_connections
+1
+SET @@session.kill_conflicting_connections = TRUE;
+SELECT @@session.kill_conflicting_connections;
+@@session.kill_conflicting_connections
+1
+SET @@session.kill_conflicting_connections = FALSE;
+SELECT @@session.kill_conflicting_connections;
+@@session.kill_conflicting_connections
+0
+SET @@session.kill_conflicting_connections = ON;
+SELECT @@kill_conflicting_connections = @@session.kill_conflicting_connections;
+@@kill_conflicting_connections = @@session.kill_conflicting_connections
+1
+SET local.kill_conflicting_connections = OFF;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.kill_conflicting_connections = OFF' at line 1
+SELECT local.kill_conflicting_connections;
+ERROR 42S02: Unknown table 'local' in field list
+SET session.kill_conflicting_connections = ON;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'session.kill_conflicting_connections = ON' at line 1
+SELECT session.kill_conflicting_connections;
+ERROR 42S02: Unknown table 'session' in field list
+SELECT kill_conflicting_connections = @@global.kill_conflicting_connections;
+ERROR HY000: Variable 'kill_conflicting_connections' is a SESSION variable
+SET @@session.kill_conflicting_connections = @start_value;
+SELECT @@session.kill_conflicting_connections;
+@@session.kill_conflicting_connections
+0

@@ -1,0 +1,60 @@
+connection: conn1
+CREATE TABLE t1 (i INT);
+LOCK TABLES t1 WRITE;;
+connection: default
+SET lock_wait_timeout = 0.02;
+# check both conn exist
+SHOW PROCESSLIST;
+Id	User	Host	db	Command	Time	State	Info
+<Id>	event_scheduler	<Host>	NULL	<Command>	<Time>	<State>	<Info>
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>
+SET GLOBAL read_only = 1;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on global read
+SELECT @@read_only;
+@@read_only
+0
+# check other conn still exists
+SHOW PROCESSLIST;
+Id	User	Host	db	Command	Time	State	Info
+<Id>	event_scheduler	<Host>	NULL	<Command>	<Time>	<State>	<Info>
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>
+SET kill_conflicting_connections = 1;
+SELECT @@kill_conflicting_connections;
+@@kill_conflicting_connections
+1
+SET GLOBAL read_only = 1;
+SELECT @@read_only;
+@@read_only
+1
+# check the other connection is gone
+SHOW PROCESSLIST;
+Id	User	Host	db	Command	Time	State	Info
+<Id>	event_scheduler	<Host>	NULL	<Command>	<Time>	<State>	<Info>
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>
+SET GLOBAL read_only = 0;
+CREATE USER test_user;
+connection: conn2
+LOCK TABLES t1 WRITE;
+connection: no_super_conn
+SET lock_wait_timeout = 0.02;
+LOCK TABLES t1 WRITE;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
+SET kill_conflicting_connections = 1;
+LOCK TABLES t1 WRITE;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
+GRANT SUPER ON *.* TO test_user;
+Warnings:
+Warning	1287	The SUPER privilege identifier is deprecated
+connection: super_conn
+SET lock_wait_timeout = 0.02;
+SET kill_conflicting_connections = 1;
+LOCK TABLES t1 WRITE;
+UNLOCK TABLES;
+# check the other connection is gone
+SHOW PROCESSLIST;
+Id	User	Host	db	Command	Time	State	Info
+<Id>	test_user	<Host>	test	<Command>	<Time>	<State>	<Info>
+DROP USER test_user;
+DROP TABLE t1;
