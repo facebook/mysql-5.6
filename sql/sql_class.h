@@ -2765,7 +2765,7 @@ class THD : public MDL_context_owner,
       super user to kill other threads.
       @param ctx_in_use           The MDL context owner (thread) to wake up.
      */
-  virtual void kill_shared_lock(MDL_context_owner *in_use);
+  virtual bool kill_shared_lock(MDL_context_owner *in_use);
 
   virtual bool notify_hton_pre_acquire_exclusive(const MDL_key *mdl_key,
                                                  bool *victimized);

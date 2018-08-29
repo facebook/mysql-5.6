@@ -46,7 +46,7 @@ class Test_MDL_context_owner : public MDL_context_owner {
 
   virtual uint get_rand_seed() const { return 0; }
 
-  virtual void kill_shared_lock(MDL_context_owner * /* unused */) {}
+  virtual bool kill_shared_lock(MDL_context_owner *) { return false; }
 };
 
 #endif  // TEST_MDL_CONTEXT_OWNER_INCLUDED

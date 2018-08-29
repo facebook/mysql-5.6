@@ -505,6 +505,17 @@ The following options may be given as the first argument:
  --keyring-migration-destination.
  --keyring-migration-user=name 
  User to login to server.
+ --kill-conflicting-connections 
+ Setting this session only flag will instruct the the
+ session to kill all conflicting connections (effective
+ for admin user only) for any command executed by the
+ current session. The connections are killed only after
+ waiting for wait_lock_timeout. Only connections holding
+ the lock will be killed, but there could be more
+ connections in the queue which will take the lock before
+ the current session and the current session will wait for
+ 1 more second before aborting if the lock won't be
+ granted.
  -L, --language=name Client error messages in given language. May be given as
  a full path. Deprecated. Use --lc-messages-dir instead.
  --large-pages       Enable support for large pages
@@ -1693,6 +1704,7 @@ keyring-migration-host (No default value)
 keyring-migration-port 0
 keyring-migration-source (No default value)
 keyring-migration-user (No default value)
+kill-conflicting-connections FALSE
 large-pages FALSE
 lc-messages en_US
 lc-time-names en_US
