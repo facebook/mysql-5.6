@@ -143,13 +143,27 @@ command = "Binlog Dump";
 replace_result $slave1_uuid slave1_uuid $slave2_uuid slave2_uuid;
 eval set @@global.rpl_semi_sync_master_whitelist='-$slave2_uuid';
 
-insert into t1 values(5); # apply a trx
+# stop the valid semi-sync slave so that the ACK is received from invalid slave
+connection slave_1;
+stop slave;
 
+connection master1;
+send insert into t1 values(6); # apply a trx
+
+connection master;
 # wait for the dump thread's death
 let $wait_timeout= 120;
-let $wait_condition=select count(*) = 1 from information_schema.processlist
+let $wait_condition=select count(*) = 0 from information_schema.processlist
 where command = "Binlog Dump";
 source include/wait_condition.inc;
+
+# start the valid slave
+connection slave_1;
+start slave;
+
+# wait for insert to commit
+connection master1;
+reap;
 
 # add slave2 back to the whitelist
 replace_result $slave1_uuid slave1_uuid $slave2_uuid slave2_uuid;

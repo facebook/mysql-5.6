@@ -79,7 +79,9 @@ command = "Binlog Dump";
 count(*) = 2
 1
 set @@global.rpl_semi_sync_master_whitelist='-slave2_uuid';
-insert into t1 values(5);
+stop slave;
+insert into t1 values(6);
+start slave;
 set @@global.rpl_semi_sync_master_whitelist='+slave2_uuid';
 drop table t1;
 set @@global.rpl_semi_sync_master_whitelist = default;
