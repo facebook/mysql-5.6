@@ -1,0 +1,40 @@
+{
+  "capabilities": [
+    "submit",
+  ],
+  "git_command": "git",
+  "git_draft_commit": [
+    "--not",
+    "--remotes=origin/*"
+  ],
+  "postponed_linters": {
+    "determinator-lint": [
+      {"type": "any_regex_matches", "value": ["^.*$"]}
+    ]
+  },
+  "sandcastle_job_specs": [
+    {
+      "command": "SandcastleUniversalCommand",
+      "alias": "mysql-determinator",
+      "scheduleType": "diff",
+      "hash": ".",
+      "args": {
+        "name": "MySQL diff determinator",
+        "timeout": 10800,
+        "oncall": "mysql_eng_poc",
+        "steps": [
+          {
+            "name": "Determine MySQL targets",
+            "shell": "python3 tools/sandcastle/target-determinator.py --schedule diff --project mysql-8.0 --branch myrocks8",
+            "required": true,
+            "determinator": true
+          }
+        ]
+      },
+      "capabilities": {
+        "type": "mysql",
+        "vcs": "mysql-int-git"
+      }
+    }
+  ]
+}
