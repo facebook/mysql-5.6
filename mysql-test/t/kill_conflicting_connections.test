@@ -1,0 +1,92 @@
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
+--echo connection: conn1
+--connect (conn1,localhost,root,,test,,)
+--connection conn1
+CREATE TABLE t1 (i INT);
+
+## Take SW lock to block set read_only
+--eval LOCK TABLES t1 WRITE;
+
+--echo connection: default
+--connection default
+SET lock_wait_timeout = 0.02;
+
+--echo # check both conn exist
+--replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info>
+SHOW PROCESSLIST;
+
+## Check that operation is blocked without high_priority_cmd flag
+--error ER_LOCK_WAIT_TIMEOUT
+SET GLOBAL read_only = 1;
+SELECT @@read_only;
+
+--echo # check other conn still exists
+--replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info>
+SHOW PROCESSLIST;
+
+## Enable hi priority flag and check that operation is not blocked anymore
+SET kill_conflicting_connections = 1;
+SELECT @@kill_conflicting_connections;
+SET GLOBAL read_only = 1;
+SELECT @@read_only;
+
+--echo # check the other connection is gone
+--replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info>
+SHOW PROCESSLIST;
+
+##
+## Test no_super can't kill other sessions
+##
+
+# reset previous state
+SET GLOBAL read_only = 0;
+
+CREATE USER test_user;
+--connect (no_super_conn,localhost,test_user,,test,,)
+
+--connect (conn2,localhost,root,,test,,)
+--echo connection: conn2
+--connection conn2
+# lock table
+LOCK TABLES t1 WRITE;
+
+--echo connection: no_super_conn
+--connection no_super_conn
+SET lock_wait_timeout = 0.02;
+
+--error ER_LOCK_WAIT_TIMEOUT
+LOCK TABLES t1 WRITE;
+
+SET kill_conflicting_connections = 1;
+--error ER_LOCK_WAIT_TIMEOUT
+LOCK TABLES t1 WRITE;
+
+--disconnect no_super_conn
+--connection default
+GRANT SUPER ON *.* TO test_user;
+# reconnect to refresh privileges
+--connect (super_conn,localhost,test_user,,test,,)
+
+--echo connection: super_conn
+--connection super_conn
+SET lock_wait_timeout = 0.02;
+SET kill_conflicting_connections = 1;
+LOCK TABLES t1 WRITE;
+UNLOCK TABLES;
+
+--echo # check the other connection is gone
+--replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info>
+SHOW PROCESSLIST;
+
+##
+## Cleanup
+##
+
+--connection default
+DROP USER test_user;
+DROP TABLE t1;
+--disconnect super_conn
+
+--source include/wait_until_count_sessions.inc
