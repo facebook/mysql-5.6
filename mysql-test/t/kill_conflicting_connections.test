@@ -1,0 +1,93 @@
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
+--echo connection: conn1
+connect (conn1,localhost,root,,test,,);
+--connection conn1
+create table t1 (i int);
+
+## Take SW lock to block set read_only
+--eval lock tables t1 write;
+
+--echo connection: default
+--connection default
+set lock_wait_timeout = 0.02;
+
+--echo # check both conn exist
+--replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <RExam> 10 <RSent> 11 <TID>
+show processlist;
+
+## Check that operation is blocked without high_priority_cmd flag
+--error ER_LOCK_WAIT_TIMEOUT
+--eval set global read_only = 1
+select @@read_only;
+
+--echo # check other conn still exists
+--replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <RExam> 10 <RSent> 11 <TID>
+show processlist;
+
+## Enable hi priority flag and check that operation is not blocked anymore 
+set kill_conflicting_connections = 1;
+select @@kill_conflicting_connections;
+--eval set global read_only = 1
+select @@read_only;
+
+--echo # check the other connection is gone
+--replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <RExam> 10 <RSent> 11 <TID>
+show processlist;
+
+##
+## Test no_super can't kill other sessions 
+##
+
+# reset previous state
+set global read_only = 0;
+
+CREATE USER test_user; 
+connect (no_super_conn,localhost,test_user,,test,,);
+
+connect (conn2,localhost,root,,test,,);
+--echo connection: conn2
+--connection conn2
+# lock table
+--eval lock tables t1 write;
+
+--echo connection: no_super_conn
+--connection no_super_conn
+set lock_wait_timeout = 0.02;
+
+--error ER_LOCK_WAIT_TIMEOUT
+--eval lock tables t1 write;
+
+set kill_conflicting_connections = 1;
+--error ER_LOCK_WAIT_TIMEOUT
+--eval lock tables t1 write;
+
+disconnect no_super_conn;
+--connection default
+grant SUPER on *.* to test_user;
+# reconnect to refresh privileges
+connect (super_conn,localhost,test_user,,test,,);
+
+--echo connection: super_conn
+--connection super_conn
+set lock_wait_timeout = 0.02;
+set kill_conflicting_connections = 1;
+--eval lock tables t1 write;
+--eval unlock tables;
+
+--echo # check the other connection is gone
+--replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <RExam> 10 <RSent> 11 <TID>
+show processlist;
+
+
+##
+## Cleanup
+##
+
+--connection default
+drop user test_user; 
+drop table t1;
+disconnect super_conn;
+
+--source include/wait_until_count_sessions.inc

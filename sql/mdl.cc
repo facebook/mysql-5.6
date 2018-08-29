@@ -453,7 +453,9 @@ public:
 
   virtual bool needs_notification(const MDL_ticket *ticket) const = 0;
   virtual void notify_conflicting_locks(MDL_context *ctx) = 0;
-  virtual bool kill_conflicting_locks(MDL_context *ctx) { return false; }
+
+  virtual bool kill_conflicting_locks(MDL_context *ctx,
+                                      enum_mdl_type kill_lower_than);
 
   virtual bitmap_t hog_lock_types_bitmap() const = 0;
 
@@ -562,6 +564,9 @@ public:
   }
   virtual void notify_conflicting_locks(MDL_context *ctx);
 
+  virtual bool kill_conflicting_locks(MDL_context *ctx,
+                                    enum_mdl_type kill_lower_than);
+
   /*
     In scoped locks, only IX lock request would starve because of X/S. But that
     is practically very rare case. So just return 0 from this function.
@@ -622,8 +627,6 @@ public:
     return (ticket->get_type() >= MDL_SHARED_NO_WRITE);
   }
   virtual void notify_conflicting_locks(MDL_context *ctx);
-  /* kill_conflicting_locks only applies to object locks (override) */
-  virtual bool kill_conflicting_locks(MDL_context *ctx);
 
   /*
     To prevent starvation, these lock types that are only granted
@@ -2153,22 +2156,26 @@ void MDL_object_lock::notify_conflicting_locks(MDL_context *ctx)
 }
 
 /**
- * Killing conflicting connections that holding shared locks
+ * Killing conflicting connections that holding conflicting locks. Connections
+ * waiting in the queue are not killed as they might not conflict with the
+ * current session or might take very short time to complete.
  *
  * @param  ctx  MDL_context for current thread.
+ * @param  kill_lower_than  enum_mdl_type indicates what type of conflicting
+ * locks should be killed
  *
  * @retval  TRUE   all of blocking thread have been killed
  * @retval  FALSE  Not all blocking threads are killed
  */
-bool MDL_object_lock::kill_conflicting_locks(MDL_context *ctx)
-{
+bool MDL_lock::kill_conflicting_locks(MDL_context *ctx,
+                                    enum_mdl_type kill_lower_than) {
   Ticket_iterator it(m_granted);
   MDL_ticket *conflicting_ticket;
 
   while ((conflicting_ticket= it++))
   {
     if (conflicting_ticket->get_ctx() != ctx &&
-        conflicting_ticket->get_type() < MDL_SHARED_UPGRADABLE)
+        conflicting_ticket->get_type() < kill_lower_than)
     {
       MDL_context *conflicting_ctx= conflicting_ticket->get_ctx();
       // if any conflicting thread is not killed, stop and just return false
@@ -2177,6 +2184,16 @@ bool MDL_object_lock::kill_conflicting_locks(MDL_context *ctx)
     }
   }
   return true;
+}
+
+bool MDL_scoped_lock::kill_conflicting_locks(MDL_context *ctx,
+                                             enum_mdl_type kill_lower_than)
+{
+  // do not kill connection for scoped lock conflicts for hi-pri ddl
+  if (ctx->get_owner()->get_thd()->variables.kill_conflicting_connections) {
+    return MDL_lock::kill_conflicting_locks(ctx, kill_lower_than);
+  }
+  return false;
 }
 
 /**
@@ -2298,11 +2315,25 @@ MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
   /*
     For high priority ddl, if this lock is upgradable, the
     final timed_wait happens after connection kill. For other
-    requests, connections will not be killed.
+    requests, connections will be killed only if kill_conflicting_connections
+    is set.
   */
+  // there are no locks lower than MDL_INTENTION_EXCLUSIVE so initial value
+  // indicates that no connections will be killed
+  enum_mdl_type kill_conflicting_locks_lower_than = MDL_INTENTION_EXCLUSIVE;
+  bool kill_conflicting_connections_after_timeout_and_retry = false;
+  if ((thd->variables.high_priority_ddl || thd->lex->high_priority_ddl) &&
+      ticket->get_type() >= MDL_SHARED_UPGRADABLE) {
+    kill_conflicting_connections_after_timeout_and_retry = true;
+    kill_conflicting_locks_lower_than = MDL_SHARED_UPGRADABLE;
+  }
+  if (thd->variables.kill_conflicting_connections) {
+    kill_conflicting_connections_after_timeout_and_retry = true;
+    kill_conflicting_locks_lower_than = MDL_TYPE_END;
+  }
+  // do not set status on timeout if we are going to retry
   bool set_status_on_timeout =
-    !((thd->variables.high_priority_ddl || thd->lex->high_priority_ddl) &&
-     (ticket->get_type() >= MDL_SHARED_UPGRADABLE));
+      !kill_conflicting_connections_after_timeout_and_retry;
 
   if (lock->needs_notification(ticket))
   {
@@ -2334,7 +2365,8 @@ MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
                                    set_status_on_timeout,
                                    mdl_request->key.get_wait_state_name());
 
-  if (wait_status == MDL_wait::EMPTY && !set_status_on_timeout)
+  if (wait_status == MDL_wait::EMPTY
+      && kill_conflicting_connections_after_timeout_and_retry)
   {
     /*
      * If an upgradable shared metadata lock request (potentially from DDL) is
@@ -2343,12 +2375,18 @@ MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
      * Note: any lock >= MDL_SHARED_UPGRADABLE may be upgraded to X lock.
      */
     mysql_prlock_wrlock(&lock->m_rwlock);
-    (void) lock->kill_conflicting_locks(this);
+    // NO_LINT_DEBUG
+    sql_print_information("Try to kill conflicting connections if any");
+    (void) lock->kill_conflicting_locks(this,
+                                        kill_conflicting_locks_lower_than);
     mysql_prlock_unlock(&lock->m_rwlock);
 
     DEBUG_SYNC(get_thd(), "mdl_high_priority_kill_conflicting_locks");
 
-    set_timespec(abs_timeout, 1); // retry a short wait of 1 second
+    // retry a short wait of 1 second as kill command is asynchronous and
+    // only sessions with granted lock are killed but there could be more
+    // sessions in the queue before this one
+    set_timespec(abs_timeout, 1);
     wait_status= m_wait.timed_wait(m_owner, &abs_timeout, TRUE,
                                    mdl_request->key.get_wait_state_name());
   }

@@ -790,6 +790,7 @@ typedef struct system_variables
   uint select_into_file_fsync_timeout;
 
   my_bool high_priority_ddl;
+  my_bool kill_conflicting_connections;
 
   my_bool session_track_state_change;
   my_bool session_track_response_attributes;

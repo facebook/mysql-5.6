@@ -2101,10 +2101,14 @@ bool THD::kill_shared_locks(MDL_context_owner *ctx_in_use)
   THD *in_use= ctx_in_use->get_thd();
 
   // Only allow super user with ddl command to kill blocking threads
-  if ((this->variables.high_priority_ddl ||
-       lex->high_priority_ddl) &&
-      this->security_ctx->master_access & SUPER_ACL &&
+  if (this->security_ctx->master_access & SUPER_ACL
+      &&
+      (
+        ((this->variables.high_priority_ddl || lex->high_priority_ddl) &&
       support_high_priority(lex->sql_command))
+        || variables.kill_conflicting_connections
+      )
+     )
   {
     mysql_mutex_lock(&in_use->LOCK_thd_data);
     /* process the kill only if thread is not already undergoing any kill

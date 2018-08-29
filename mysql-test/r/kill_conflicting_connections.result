@@ -1,0 +1,55 @@
+connection: conn1
+create table t1 (i int);
+lock tables t1 write;;
+connection: default
+set lock_wait_timeout = 0.02;
+# check both conn exist
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
+set global read_only = 1;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on global read: 
+select @@read_only;
+@@read_only
+0
+# check other conn still exists
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
+set kill_conflicting_connections = 1;
+select @@kill_conflicting_connections;
+@@kill_conflicting_connections
+1
+set global read_only = 1;
+select @@read_only;
+@@read_only
+1
+# check the other connection is gone
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
+set global read_only = 0;
+CREATE USER test_user;
+connection: conn2
+lock tables t1 write;;
+connection: no_super_conn
+set lock_wait_timeout = 0.02;
+lock tables t1 write;;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
+set kill_conflicting_connections = 1;
+lock tables t1 write;;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
+grant SUPER on *.* to test_user;
+connection: super_conn
+set lock_wait_timeout = 0.02;
+set kill_conflicting_connections = 1;
+lock tables t1 write;;
+unlock tables;;
+# check the other connection is gone
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
+<Id>	test_user	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
+drop user test_user;
+drop table t1;

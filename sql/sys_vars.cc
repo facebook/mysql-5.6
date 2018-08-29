@@ -6024,6 +6024,18 @@ static Sys_var_mybool Sys_high_priority_ddl(
        SESSION_VAR(high_priority_ddl),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
 
+static Sys_var_mybool Sys_kill_conflicting_connections(
+    "kill_conflicting_connections",
+    "Setting this session only flag will instruct the the session to kill all "
+    "conflicting connections (effective for admin user only) for any command "
+    "executed by the current session. The connections are killed only after "
+    "waiting for wait_lock_timeout. Only connections holding the lock will be "
+    "killed, but there could be more connections in the queue which will "
+    "take the lock before the current session and the current session will "
+    "wait for 1 more second before aborting if the lock won't be granted.",
+    SESSION_ONLY(kill_conflicting_connections),
+    CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
 #ifdef HAVE_JEMALLOC
 #ifndef EMBEDDED_LIBRARY
 static bool enable_jemalloc_heap_profiling(sys_var *self, THD *thd,

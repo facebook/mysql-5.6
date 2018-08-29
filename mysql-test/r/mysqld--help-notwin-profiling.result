@@ -434,6 +434,17 @@ The following options may be given as the first argument:
  The default size of key cache blocks
  --key-cache-division-limit=# 
  The minimum percentage of warm blocks in key cache
+ --kill-conflicting-connections 
+ Setting this session only flag will instruct the the
+ session to kill all conflicting connections (effective
+ for admin user only) for any command executed by the
+ current session. The connections are killed only after
+ waiting for wait_lock_timeout. Only connections holding
+ the lock will be killed, but there could be more
+ connections in the queue which will take the lock before
+ the current session and the current session will wait for
+ 1 more second before aborting if the lock won't be
+ granted.
  -L, --language=name Client error messages in given language. May be given as
  a full path. Deprecated. Use --lc-messages-dir instead.
  --large-pages       Enable support for large pages
@@ -1959,6 +1970,7 @@ key-buffer-size 8388608
 key-cache-age-threshold 300
 key-cache-block-size 1024
 key-cache-division-limit 100
+kill-conflicting-connections FALSE
 language MYSQL_SHAREDIR/
 large-pages FALSE
 lc-messages en_US
