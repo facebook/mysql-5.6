@@ -1,5 +1,5 @@
 #ifndef BINLOG_H_INCLUDED
-/* Copyright (c) 2010, 2016, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2010, 2018, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -1011,6 +1011,7 @@ public:
                            opt_histogram_step_size_binlog_group_commit);
     mysql_mutex_unlock(&LOCK_log);
   }
+  static const int MAX_RETRIES_FOR_DELETE_RENAME_FAILURE = 5;
 };
 
 typedef struct st_load_file_info

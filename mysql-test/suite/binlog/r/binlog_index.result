@@ -322,5 +322,15 @@ master-bin.000017	#
 master-bin.000018	#
 master-bin.000019	#
 master-bin.000020	#
+# Test case12: Bug#25839610 ABORT OCCUR DURING SLAVE BACKUP
+#              WHEN RELAY LOG INDEX IS LOCK
+# This test verifies that serveral retries are performed
+# if there is a failure while deleting/renaming index files.
+SET SESSION debug="+d,simulate_index_file_delete_failure";
+SET SESSION debug="+d,simulate_crash_safe_index_file_rename_failure";
+FLUSH LOGS;
+include/assert_grep.inc [Retried for delete.]
+include/assert_grep.inc [Retried for rename.]
 SET SESSION debug="";
+# Test case12: Ends
 End of tests
