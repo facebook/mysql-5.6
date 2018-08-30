@@ -176,7 +176,6 @@ INCLUDE(zlib)
 INCLUDE(zstd)
 INCLUDE(libevent)
 INCLUDE(ssl)
-INCLUDE(readline)
 INCLUDE(mysql_version)
 INCLUDE(libutils)
 INCLUDE(dtrace)
@@ -503,14 +502,21 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/include)
 
 # Add bundled or system zlib.
 MYSQL_CHECK_ZLIB_WITH_COMPRESS()
-# Add zstd.
-MYSQL_CHECK_ZSTD()
 # Add bundled yassl/taocrypt or system openssl.
 MYSQL_CHECK_SSL()
-# Find system readline.
-MYSQL_CHECK_READLINE()
 # Add libevent
 MYSQL_CHECK_LIBEVENT()
+
+IF(NOT WITHOUT_SERVER)
+  # Add zstd.
+  MYSQL_CHECK_ZSTD()
+  # Find system readline.
+  # If we're not building the server, we also don't build the CLI client tools
+  # so don't need it. If we're building a library without anything else,
+  # readline is unneccessary, and as it's GPL, potentially causes license
+  # issues.
+  MYSQL_CHECK_READLINE()
+ENDIF()
 
 #
 # Setup maintainer mode options by the end. Platform checks are
