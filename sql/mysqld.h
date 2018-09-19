@@ -309,6 +309,8 @@ extern ulonglong opt_max_compressed_event_cache_size;
 extern ulonglong opt_compressed_event_cache_evict_threshold;
 extern ulong opt_slave_compression_lib;
 extern my_bool rpl_wait_for_semi_sync_ack;
+extern std::atomic<ulonglong> slave_lag_sla_misses;
+extern ulonglong opt_slave_lag_sla_seconds;
 extern ulong slave_exec_mode_options;
 extern ulong slave_use_idempotent_for_recovery_options;
 extern ulong slave_run_triggers_for_rbr;

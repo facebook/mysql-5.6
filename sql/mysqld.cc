@@ -532,6 +532,8 @@ ulonglong opt_max_compressed_event_cache_size;
 ulonglong opt_compressed_event_cache_evict_threshold;
 ulong opt_slave_compression_lib;
 my_bool rpl_wait_for_semi_sync_ack;
+std::atomic<ulonglong> slave_lag_sla_misses{0};
+ulonglong opt_slave_lag_sla_seconds;
 my_bool opt_safe_user_create = 0;
 my_bool opt_show_slave_auth_info;
 my_bool opt_log_slave_updates= 0;
@@ -9835,6 +9837,19 @@ static int show_slave_received_heartbeats(THD *thd, SHOW_VAR *var, char *buff)
   return 0;
 }
 
+static int show_slave_lag_sla_misses(THD *thd, SHOW_VAR *var, char *buff)
+{
+  if (active_mi && active_mi->rli)
+  {
+    var->type= SHOW_LONGLONG;
+    var->value= buff;
+    *((longlong *)buff)= slave_lag_sla_misses.load();
+  }
+  else
+    var->type= SHOW_UNDEF;
+  return 0;
+}
+
 static int show_slave_last_heartbeat(THD *thd, SHOW_VAR *var, char *buff)
 {
   MYSQL_TIME received_heartbeat_time;
@@ -10543,6 +10558,7 @@ SHOW_VAR status_vars[]= {
   {"Slave_retried_transactions",(char*) &show_slave_retried_trans, SHOW_FUNC},
   {"Slave_heartbeat_period",   (char*) &show_heartbeat_period, SHOW_FUNC},
   {"Slave_received_heartbeats",(char*) &show_slave_received_heartbeats, SHOW_FUNC},
+  {"Slave_lag_sla_misses",     (char*) &show_slave_lag_sla_misses, SHOW_FUNC},
   {"Slave_last_heartbeat",     (char*) &show_slave_last_heartbeat, SHOW_FUNC},
 #ifndef DBUG_OFF
   {"Slave_rows_last_search_algorithm_used",(char*) &show_slave_rows_last_search_algorithm_used, SHOW_FUNC},

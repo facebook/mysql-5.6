@@ -15287,13 +15287,16 @@ int Gtid_log_event::do_apply_event(Relay_log_info const *rli)
 {
   DBUG_ENTER("Gtid_log_event::do_apply_event");
   DBUG_ASSERT(rli->info_thd == thd);
+  int error= 0;
+  rpl_sidno sidno= -1;
 
   if (get_type_code() == ANONYMOUS_GTID_LOG_EVENT)
   {
     if (gtid_mode == GTID_MODE_ON)
     {
       my_error(ER_CANT_SET_GTID_NEXT_TO_ANONYMOUS_WHEN_GTID_MODE_IS_ON, MYF(0));
-      DBUG_RETURN(1);
+      error= 1;
+      goto end;
     }
     thd->variables.gtid_next.set_anonymous();
     /*
@@ -15301,19 +15304,24 @@ int Gtid_log_event::do_apply_event(Relay_log_info const *rli)
       since we should not add new fields to include logical timestamps used
       for applying transactions in parallel in the GA version.
     */
-    DBUG_RETURN(0);
+    error= 0;
+    goto end;
   }
 
   /* Applying Gtid_log_event should report an error when GTID_MODE is OFF */
   if (gtid_mode == GTID_MODE_OFF)
   {
     my_error(ER_CANT_SET_GTID_NEXT_TO_GTID_WHEN_GTID_MODE_IS_OFF, MYF(0));
-    DBUG_RETURN(1);
+    error= 1;
+    goto end;
   }
 
-  rpl_sidno sidno= get_sidno(true);
+  sidno= get_sidno(true);
   if (sidno < 0)
-    DBUG_RETURN(1); // out of memory
+  {
+    error= 1; // out of memory
+    goto end;
+  }
   if (thd->owned_gtid.sidno)
   {
     /*
@@ -15347,9 +15355,19 @@ int Gtid_log_event::do_apply_event(Relay_log_info const *rli)
                       sidno, spec.gtid.gno));
 
   if (gtid_acquire_ownership_single(thd))
-    DBUG_RETURN(1);
+  {
+    error= 1;
+    goto end;
+  }
 
-  DBUG_RETURN(0);
+end:
+  const auto now= std::chrono::system_clock::now().time_since_epoch();
+  const auto now_sec=
+    std::chrono::duration_cast<std::chrono::seconds>(now).count();
+  if (when.tv_sec + exec_time - now_sec > opt_slave_lag_sla_seconds)
+    ++slave_lag_sla_misses;
+
+  DBUG_RETURN(error);
 }
 
 void Gtid_log_event::set_last_gtid(char *last_gtid)

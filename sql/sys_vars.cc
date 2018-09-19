@@ -3323,6 +3323,15 @@ static Sys_var_mybool Sys_wait_semi_sync_ack(
        GLOBAL_VAR(rpl_wait_for_semi_sync_ack), CMD_LINE(OPT_ARG),
        DEFAULT(FALSE));
 
+static Sys_var_ulonglong Sys_slave_lag_sla_seconds(
+       "slave_lag_sla_seconds",
+       "SLA for slave lag in seconds, any tansaction that violated the SLA "
+       "increments the slave_lag_sla_misses status variable. "
+       "NOTE: This is only available when GTIDs are enabled.",
+       GLOBAL_VAR(opt_slave_lag_sla_seconds),
+       CMD_LINE(OPT_ARG), VALID_RANGE(0, 1000000), DEFAULT(60),
+       BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0), ON_UPDATE(0));
+
 static Sys_var_uint Sys_general_query_throttling_limit(
        "general_query_throttling_limit", "Start throttling queries if running threads high.",
        GLOBAL_VAR(opt_general_query_throttling_limit), CMD_LINE(OPT_ARG),

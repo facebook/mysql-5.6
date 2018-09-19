@@ -1,0 +1,23 @@
+set @save.slave_lag_sla_seconds= @@global.slave_lag_sla_seconds;
+select @@session.slave_lag_sla_seconds;
+ERROR HY000: Variable 'slave_lag_sla_seconds' is a GLOBAL variable
+select variable_name from information_schema.global_variables where variable_name='$var';
+variable_name
+select variable_name from information_schema.session_variables where variable_name='$var';
+variable_name
+set @@global.slave_lag_sla_seconds= 100;
+select @@global.slave_lag_sla_seconds;
+@@global.slave_lag_sla_seconds
+100
+set @@global.slave_lag_sla_seconds= test;
+ERROR 42000: Incorrect argument type to variable 'slave_lag_sla_seconds'
+set @@global.slave_lag_sla_seconds= "foo";
+ERROR 42000: Incorrect argument type to variable 'slave_lag_sla_seconds'
+set @@global.slave_lag_sla_seconds= 0;
+set @@global.slave_lag_sla_seconds= cast(-1 as unsigned int);
+Warnings:
+Warning	1292	Truncated incorrect slave_lag_sla_seconds value: '18446744073709551615'
+select @@global.slave_lag_sla_seconds as "truncated to the maximum";
+truncated to the maximum
+1000000
+set @@global.slave_lag_sla_seconds= @save.slave_lag_sla_seconds;

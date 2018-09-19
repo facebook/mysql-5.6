@@ -1633,6 +1633,11 @@ The following options may be given as the first argument:
  If this value is OPTIMIZED, updating the table is done
  inside storage engines to avoid MySQL layer's performance
  overhead
+ --slave-lag-sla-seconds[=#] 
+ SLA for slave lag in seconds, any tansaction that
+ violated the SLA increments the slave_lag_sla_misses
+ status variable. NOTE: This is only available when GTIDs
+ are enabled.
  --slave-load-tmpdir=name 
  The location where the slave should put its temporary
  files when replicating a LOAD DATA INFILE command
@@ -2348,6 +2353,7 @@ slave-compressed-protocol FALSE
 slave-compression-lib zlib
 slave-exec-mode STRICT
 slave-gtid-info ON
+slave-lag-sla-seconds 60
 slave-max-allowed-packet 1073741824
 slave-net-timeout 3600
 slave-parallel-workers 0

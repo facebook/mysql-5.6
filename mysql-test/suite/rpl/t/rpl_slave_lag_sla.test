@@ -1,0 +1,34 @@
+source include/master-slave.inc;
+source include/rpl_set_gtid_mode.inc;
+
+connection slave;
+STOP SLAVE;
+SET @@GLOBAL.SLAVE_LAG_SLA_SECONDS = 1;
+SHOW STATUS LIKE 'SLAVE_LAG_SLA_MISSES'; # should be 0
+
+connection master;
+CREATE TABLE t1(a int);
+INSERT INTO t1 VALUES(1);
+INSERT INTO t1 VALUES(2);
+
+# wait for two seconds after the transactions are applied on the master, this is
+# to make sure that SLA (of one sec) is missed
+sleep 2;
+
+connection slave;
+START SLAVE;
+
+connection master;
+sync_slave_with_master;
+
+# The value should be 3 (= num trx applied after stopping the slave, DDL + DML)
+connection slave;
+SHOW STATUS LIKE 'SLAVE_LAG_SLA_MISSES';
+
+# cleanup
+connection master;
+DROP TABLE t1;
+connection slave;
+SET @@GLOBAL.SLAVE_LAG_SLA_SECONDS = default;
+
+source include/rpl_end.inc;

@@ -1,0 +1,21 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_set_gtid_mode.inc
+STOP SLAVE;
+SET @@GLOBAL.SLAVE_LAG_SLA_SECONDS = 1;
+SHOW STATUS LIKE 'SLAVE_LAG_SLA_MISSES';
+Variable_name	Value
+Slave_lag_sla_misses	0
+CREATE TABLE t1(a int);
+INSERT INTO t1 VALUES(1);
+INSERT INTO t1 VALUES(2);
+START SLAVE;
+SHOW STATUS LIKE 'SLAVE_LAG_SLA_MISSES';
+Variable_name	Value
+Slave_lag_sla_misses	3
+DROP TABLE t1;
+SET @@GLOBAL.SLAVE_LAG_SLA_SECONDS = default;
+include/rpl_end.inc

@@ -1,0 +1,34 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_set_gtid_mode.inc
+STOP SLAVE;
+SET @@GLOBAL.SLAVE_PARALLEL_WORKERS= 8;
+SET @@GLOBAL.SLAVE_LAG_SLA_SECONDS = 1;
+SHOW STATUS LIKE 'SLAVE_LAG_SLA_MISSES';
+Variable_name	Value
+Slave_lag_sla_misses	0
+CREATE DATABASE d1;
+CREATE DATABASE d2;
+CREATE TABLE d1.t1(a int primary key auto_increment) engine = InnoDB;
+CREATE TABLE d2.t2(a int primary key auto_increment) engine = InnoDB;
+INSERT INTO d1.t1 VALUES();
+INSERT INTO d1.t1 VALUES();
+INSERT INTO d1.t1 VALUES();
+INSERT INTO d1.t1 VALUES();
+INSERT INTO d1.t1 VALUES();
+INSERT INTO d2.t2 VALUES();
+INSERT INTO d2.t2 VALUES();
+INSERT INTO d2.t2 VALUES();
+INSERT INTO d2.t2 VALUES();
+INSERT INTO d2.t2 VALUES();
+START SLAVE;
+SHOW STATUS LIKE 'SLAVE_LAG_SLA_MISSES';
+Variable_name	Value
+Slave_lag_sla_misses	14
+DROP DATABASE d1;
+DROP DATABASE d2;
+SET @@GLOBAL.SLAVE_LAG_SLA_SECONDS = default;
+include/rpl_end.inc
