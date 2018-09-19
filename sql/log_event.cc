@@ -11951,12 +11951,31 @@ bool Rows_log_event::parse_keys(Relay_log_info* rli,
       // dependencies between null unique keys (since nulls are treated as
       // distinct)
       Dependency_key curr_key;
-      curr_key.key_length= key_info->key_length;
+
+      for (uint i= 0; i < key_info->user_defined_key_parts; i++)
+      {
+        curr_key.key_length += key_info->key_part[i].field->sort_length();
+      }
       curr_key.table_id= m_table_name;
 
-      key_buf= (uchar*) my_malloc(key_info->key_length, MYF(MY_WME));
-      memset(key_buf, 0x0, key_info->key_length);
-      key_copy(key_buf, table->record[0], key_info, 0);
+      key_buf= (uchar*) my_malloc(curr_key.key_length, MYF(MY_WME));
+      if (!key_buf)
+      {
+        sql_print_error("Unable to allocate memory for dependency key at "
+                        "%s:%llu, syncing group",
+                         rli->get_rpl_log_name(), log_pos);
+        DBUG_RETURN(false);
+      }
+
+      memset(key_buf, 0x0, curr_key.key_length);
+
+      auto buf= key_buf;
+      for (uint i= 0; i < key_info->user_defined_key_parts; i++)
+      {
+        const auto len= key_info->key_part[i].field->sort_length();
+        key_info->key_part[i].field->make_sort_key(buf, len);
+        buf += len;
+      }
 
       std::shared_ptr<uchar> tmp(key_buf, key_dealloc_cb);
       curr_key.key_buffer= tmp;
