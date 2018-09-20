@@ -163,6 +163,13 @@ SET GLOBAL per_user_session_var_default_val = "usr1:binlog_format=MIXED";
 connect (con_usr1,localhost,usr1,,);
 SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
 
+# Ensure that per-user session variables remain on change user
+change_user admin1;
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+
+change_user usr1;
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+
 connection default;
 SET GLOBAL per_user_session_var_default_val = "usr1:binlog_format=ROW";
 connect (con_usr1_ssl,localhost,usr1,,,,,SSL);

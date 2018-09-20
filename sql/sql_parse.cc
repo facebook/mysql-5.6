@@ -1799,6 +1799,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       }
 #endif /* NO_EMBEDDED_ACCESS_CHECKS */
       mysql_mutex_lock(&thd->LOCK_thd_data);
+      per_user_session_variables.set_thd(thd);
       my_free(save_db);
       mysql_mutex_unlock(&thd->LOCK_thd_data);
       my_free(save_security_ctx.user);

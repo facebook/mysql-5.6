@@ -114,6 +114,12 @@ SET GLOBAL per_user_session_var_default_val = "usr1:binlog_format=MIXED";
 SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
 @@GLOBAL.binlog_format	@@SESSION.binlog_format
 STATEMENT	MIXED
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+STATEMENT	STATEMENT
+SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
+@@GLOBAL.binlog_format	@@SESSION.binlog_format
+STATEMENT	MIXED
 SET GLOBAL per_user_session_var_default_val = "usr1:binlog_format=ROW";
 SELECT @@GLOBAL.binlog_format, @@SESSION.binlog_format;
 @@GLOBAL.binlog_format	@@SESSION.binlog_format

@@ -201,6 +201,7 @@ std::pair<bool, std::shared_ptr<Srv_session>>  handle_com_rpc(THD *conn_thd)
       my_error(ER_RPC_FAILED_TO_SWITCH_DB, MYF(0), rpc_db.c_str());
       goto error;
     }
+    per_user_session_variables.set_thd(srv_session->get_thd());
   }
 
   if (srv_session->attach())

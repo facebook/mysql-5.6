@@ -451,6 +451,18 @@ SELECT @my_var; SET @my_var='other_value'; SELECT @my_var|
 new_value
 @my_var
 other_value
+
+# Case 16: Per-user-session-variables
+
+SET @original_val = @@global.per_user_session_var_default_val;
+SET @@global.per_user_session_var_default_val = "scriptro:lock_wait_timeout=23";
+SELECT @@global.lock_wait_timeout, @@session.lock_wait_timeout;
+@@global.lock_wait_timeout	@@session.lock_wait_timeout
+604800.000000	23.000000
+SET @@global.per_user_session_var_default_val = @original_val;
+SELECT @@global.per_user_session_var_default_val;
+@@global.per_user_session_var_default_val
+NULL
 drop database db_default;
 drop database db_rpc;
 drop user scriptro;

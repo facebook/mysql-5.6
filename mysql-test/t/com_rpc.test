@@ -800,6 +800,34 @@ connection default;
 eval KILL $rpc_id;
 --enable_query_log
 
+--echo
+--echo # Case 16: Per-user-session-variables
+--echo
+
+connection default;
+SET @original_val = @@global.per_user_session_var_default_val;
+
+SET @@global.per_user_session_var_default_val = "scriptro:lock_wait_timeout=23";
+connect (conn,localhost,root,,db_default);
+--query_attrs_add rpc_role scriptro
+--query_attrs_add rpc_db db_rpc
+
+SELECT @@global.lock_wait_timeout, @@session.lock_wait_timeout;
+
+# This is not expected but need to do cleanup while bug persists
+let $rpc_id=get_rpc_id();
+connection default;
+--disable_query_log
+eval KILL $rpc_id;
+--enable_query_log
+connection conn;
+
+disconnect conn;
+
+connection default;
+SET @@global.per_user_session_var_default_val = @original_val;
+SELECT @@global.per_user_session_var_default_val;
+
 # delete all dbs and users
 connection default;
 
