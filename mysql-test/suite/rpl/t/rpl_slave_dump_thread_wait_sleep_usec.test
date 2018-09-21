@@ -1,0 +1,25 @@
+source include/have_debug_sync.inc;
+source include/master-slave.inc;
+
+connection slave;
+STOP SLAVE;
+SET @@GLOBAL.SLAVE_DUMP_THREAD_WAIT_SLEEP_USEC= 5000000; # 5 secs
+START SLAVE;
+
+connection master;
+SET @@GLOBAL.DEBUG= '+d,reached_dump_thread_wait_sleep';
+CREATE TABLE t1(a INT);
+SET DEBUG_SYNC="now wait_for reached";
+SET DEBUG_SYNC="now signal continue";
+
+# Cleanup
+SET @@GLOBAL.DEBUG= '-d,reached_dump_thread_wait_sleep';
+DROP TABLE t1;
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+STOP SLAVE;
+SET @@GLOBAL.SLAVE_DUMP_THREAD_WAIT_SLEEP_USEC = DEFAULT;
+START SLAVE;
+
+source include/rpl_end.inc;

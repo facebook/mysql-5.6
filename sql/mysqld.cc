@@ -531,6 +531,7 @@ my_bool opt_slave_compressed_event_protocol;
 ulonglong opt_max_compressed_event_cache_size;
 ulonglong opt_compressed_event_cache_evict_threshold;
 ulong opt_slave_compression_lib;
+ulonglong opt_slave_dump_thread_wait_sleep_usec;
 my_bool rpl_wait_for_semi_sync_ack;
 std::atomic<ulonglong> slave_lag_sla_misses{0};
 ulonglong opt_slave_lag_sla_seconds;

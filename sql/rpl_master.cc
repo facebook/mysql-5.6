@@ -1161,6 +1161,16 @@ static ulonglong get_heartbeat_period(THD * thd)
   return entry? entry->val_int(&null_value) : 0;
 }
 
+static ulonglong get_dump_thread_wait_sleep(THD * thd)
+{
+  my_bool null_value;
+  LEX_STRING name=  { C_STRING_WITH_LEN("dump_thread_wait_sleep_usec")};
+  user_var_entry *entry=
+    (user_var_entry*) my_hash_search(&thd->user_vars, (uchar*) name.str,
+                                  name.length);
+  return entry? entry->val_int(&null_value) : 0;
+}
+
 /*
   Function prepares and sends repliation heartbeat event.
 
@@ -1859,6 +1869,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
     heartbeat_ts= &heartbeat_buf;
     set_timespec_nsec(*heartbeat_ts, 0);
   }
+
+  ulonglong dump_thread_wait_sleep_usec= get_dump_thread_wait_sleep(thd);
 
 #ifndef DBUG_OFF
   if (opt_sporadic_binlog_dump_fail && (binlog_dump_count++ % 2))
@@ -2658,6 +2670,23 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
             wait until we get a signal from other threads that binlog is
             updated.
           */
+
+          // case: sleep before locking and waiting for new data
+          if (unlikely(dump_thread_wait_sleep_usec != 0))
+          {
+            DBUG_EXECUTE_IF("reached_dump_thread_wait_sleep",
+                          {
+                            const char act[]= "now "
+                                              "signal reached "
+                                              "wait_for continue";
+                            DBUG_ASSERT(opt_debug_sync_timeout > 0);
+                            DBUG_ASSERT(
+                                !debug_sync_set_action(current_thd,
+                                                       STRING_WITH_LEN(act)));
+                          };);
+            usleep(dump_thread_wait_sleep_usec);
+          }
+
           mysql_bin_log.lock_binlog_end_pos();
 
           /*

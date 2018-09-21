@@ -3316,6 +3316,14 @@ static Sys_var_ulonglong Sys_compressed_event_cache_evict_threshold(
        CMD_LINE(OPT_ARG), VALID_RANGE(0, 100), DEFAULT(60),
        BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0), ON_UPDATE(0));
 
+static Sys_var_ulonglong Sys_slave_dump_thread_wait_sleep_usec(
+       "slave_dump_thread_wait_sleep_usec",
+       "Time (in microsecs) to sleep on the master's dump thread before "
+       "waiting for new data on the latest binlog.",
+       GLOBAL_VAR(opt_slave_dump_thread_wait_sleep_usec), CMD_LINE(OPT_ARG),
+       VALID_RANGE(0, LONG_TIMEOUT_NSEC / 1000), DEFAULT(0),
+       BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0), ON_UPDATE(0));
+
 static Sys_var_mybool Sys_wait_semi_sync_ack(
        "rpl_wait_for_semi_sync_ack",
        "Wait for events to be acked by a semi-sync slave before sending them "
