@@ -51,6 +51,8 @@ Table_map_event::Table_map_event(const char *buf,
       m_optional_metadata(nullptr),
       m_primary_key_fields_size(0),
       m_primary_key_fields(nullptr),
+      m_sign_bits_size(0),
+      m_sign_bits(nullptr),
       m_column_names_size(0),
       m_column_names(nullptr) {
   BAPI_ENTER("Table_map_event::Table_map_event(const char*, ...)");
@@ -97,6 +99,9 @@ Table_map_event::Table_map_event(const char *buf,
     if (m_field_metadata_size > (m_colcnt * 4))
       READER_THROW("Invalid m_field_metadata_size");
     unsigned int num_null_bytes = (m_colcnt + 7) / 8;
+
+    m_sign_bits_size = num_null_bytes;
+
     READER_TRY_CALL(alloc_and_memcpy, &m_field_metadata, m_field_metadata_size,
                     0);
     READER_TRY_CALL(alloc_and_memcpy, &m_null_bits, num_null_bytes, 0);
@@ -114,6 +119,11 @@ Table_map_event::Table_map_event(const char *buf,
       if (m_primary_key_fields_size) {
         READER_TRY_CALL(alloc_and_memcpy, &m_primary_key_fields,
                         m_primary_key_fields_size, 0);
+      }
+
+      DBUG_ASSERT(READER_CALL(available_to_read) >= m_sign_bits_size);
+      if (m_sign_bits_size) {
+        READER_TRY_CALL(alloc_and_memcpy, &m_sign_bits, m_sign_bits_size, 0);
       }
 
       m_column_names_size = READER_CALL(available_to_read);
@@ -141,6 +151,8 @@ Table_map_event::~Table_map_event() {
   m_coltype = nullptr;
   bapi_free(m_primary_key_fields);
   m_primary_key_fields = nullptr;
+  bapi_free(m_sign_bits);
+  m_sign_bits = nullptr;
   bapi_free(m_column_names);
   m_column_names = nullptr;
   bapi_free(m_optional_metadata);
