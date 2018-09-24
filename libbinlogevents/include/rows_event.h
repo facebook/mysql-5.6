@@ -584,6 +584,8 @@ class Table_map_event : public Binary_log_event {
         m_optional_metadata(NULL),
         m_primary_key_fields_size(0),
         m_primary_key_fields(NULL),
+        m_sign_bits_size(0),
+        m_sign_bits(NULL),
         m_column_names_size(0),
         m_column_names(NULL) {
     if (dbnam) m_dbnam = std::string(dbnam, m_dblen);
@@ -619,6 +621,14 @@ class Table_map_event : public Binary_log_event {
   unsigned char *m_primary_key_fields;
 
   /**
+    Bitmap storing the unsigned flag for all the columns in this table. This
+    is necessary for external application reading mysql binary logs and get the
+    correct value of integer types.
+  */
+  unsigned int m_sign_bits_size;
+  unsigned char *m_sign_bits;
+
+  /**
     Since m_column_names buffer contains terminating '\0' in the middle,
     using strlen() will not give correct length, so track the actual length
     in the size variable.
@@ -643,6 +653,8 @@ class Table_map_event : public Binary_log_event {
         m_optional_metadata(NULL),
         m_primary_key_fields_size(0),
         m_primary_key_fields(NULL),
+        m_sign_bits_size(0),
+        m_sign_bits(NULL),
         m_column_names_size(0),
         m_column_names(NULL) {}
 
