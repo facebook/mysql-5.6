@@ -8107,7 +8107,11 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
     stage_manager.clear_preempt_status(head);
 #endif
     if (head->get_transaction()->sequence_number != SEQ_UNINIT)
+    {
+      mysql_mutex_lock(&LOCK_slave_trans_dep_tracker);
       m_dependency_tracker.update_max_committed(head);
+      mysql_mutex_unlock(&LOCK_slave_trans_dep_tracker);
+    }
     /*
       Flush/Sync error should be ignored and continue
       to commit phase. And thd->commit_error cannot be
@@ -8321,7 +8325,11 @@ int MYSQL_BIN_LOG::finish_commit(THD *thd) {
     if (cache_mngr) cache_mngr->reset();
   }
   if (thd->get_transaction()->sequence_number != SEQ_UNINIT)
+  {
+    mysql_mutex_lock(&LOCK_slave_trans_dep_tracker);
     m_dependency_tracker.update_max_committed(thd);
+    mysql_mutex_unlock(&LOCK_slave_trans_dep_tracker);
+  }
   if (thd->get_transaction()->m_flags.commit_low) {
     const bool all = thd->get_transaction()->m_flags.real_commit;
     /*
