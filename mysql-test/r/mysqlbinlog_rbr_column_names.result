@@ -36,11 +36,11 @@ FLUSH LOGS;
 ###   col_mediumint=NULL /* MEDIUMINT meta=0 nullable=1 is_null=1 */
 ###   col_int=NULL /* INT meta=0 nullable=1 is_null=1 */
 ###   col_bigint=NULL /* LONGINT meta=0 nullable=1 is_null=1 */
-###   col_u_tinyint=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
-###   col_u_smallint=NULL /* SHORTINT meta=0 nullable=1 is_null=1 */
-###   col_u_mediumint=NULL /* MEDIUMINT meta=0 nullable=1 is_null=1 */
-###   col_u_int=NULL /* INT meta=0 nullable=1 is_null=1 */
-###   col_u_bigint=NULL /* LONGINT meta=0 nullable=1 is_null=1 */
+###   col_u_tinyint=NULL /* TINYINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   col_u_smallint=NULL /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   col_u_mediumint=NULL /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   col_u_int=NULL /* INT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   col_u_bigint=NULL /* LONGINT UNSIGNED meta=0 nullable=1 is_null=1 */
 ###   col_float=NULL /* FLOAT meta=4 nullable=1 is_null=1 */
 ###   col_double=NULL /* DOUBLE meta=8 nullable=1 is_null=1 */
 ### INSERT INTO `test`.`numeric_table`
@@ -51,11 +51,11 @@ FLUSH LOGS;
 ###   col_mediumint=4194300 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
 ###   col_int=1073741800 /* INT meta=0 nullable=1 is_null=0 */
 ###   col_bigint=1152921504606846976 /* LONGINT meta=0 nullable=1 is_null=0 */
-###   col_u_tinyint=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
-###   col_u_smallint=NULL /* SHORTINT meta=0 nullable=1 is_null=1 */
-###   col_u_mediumint=NULL /* MEDIUMINT meta=0 nullable=1 is_null=1 */
-###   col_u_int=NULL /* INT meta=0 nullable=1 is_null=1 */
-###   col_u_bigint=NULL /* LONGINT meta=0 nullable=1 is_null=1 */
+###   col_u_tinyint=NULL /* TINYINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   col_u_smallint=NULL /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   col_u_mediumint=NULL /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   col_u_int=NULL /* INT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   col_u_bigint=NULL /* LONGINT UNSIGNED meta=0 nullable=1 is_null=1 */
 ###   col_float=NULL /* FLOAT meta=4 nullable=1 is_null=1 */
 ###   col_double=NULL /* DOUBLE meta=8 nullable=1 is_null=1 */
 ### INSERT INTO `test`.`numeric_table`
@@ -66,11 +66,11 @@ FLUSH LOGS;
 ###   col_mediumint=NULL /* MEDIUMINT meta=0 nullable=1 is_null=1 */
 ###   col_int=NULL /* INT meta=0 nullable=1 is_null=1 */
 ###   col_bigint=NULL /* LONGINT meta=0 nullable=1 is_null=1 */
-###   col_u_tinyint=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
-###   col_u_smallint=NULL /* SHORTINT meta=0 nullable=1 is_null=1 */
-###   col_u_mediumint=NULL /* MEDIUMINT meta=0 nullable=1 is_null=1 */
-###   col_u_int=NULL /* INT meta=0 nullable=1 is_null=1 */
-###   col_u_bigint=NULL /* LONGINT meta=0 nullable=1 is_null=1 */
+###   col_u_tinyint=NULL /* TINYINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   col_u_smallint=NULL /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   col_u_mediumint=NULL /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   col_u_int=NULL /* INT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   col_u_bigint=NULL /* LONGINT UNSIGNED meta=0 nullable=1 is_null=1 */
 ###   col_float=28342.2              /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   col_double=12312834.123122999445 /* DOUBLE meta=8 nullable=1 is_null=0 */
 ### INSERT INTO `test`.`string_table`

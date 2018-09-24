@@ -1616,15 +1616,19 @@ static size_t my_b_write_quoted_with_length(IO_CACHE *file, const uchar *ptr,
 }
 
 /**
-  Prints a 32-bit number in both signed and unsigned representation
+  Prints a 32-bit number in signed or unsigned representation
 
   @param[in] file              IO cache
   @param[in] si                Signed number
   @param[in] ui                Unsigned number
+  @param[in] is_unsigned       Print unsigned representation
 */
-static void my_b_write_sint32_and_uint32(IO_CACHE *file, int32 si, uint32 ui) {
-  my_b_printf(file, "%d", si);
-  if (si < 0) my_b_printf(file, " (%u)", ui);
+static void my_b_write_sint32_and_uint32(IO_CACHE *file, int32 si, uint32 ui,
+                                         bool is_unsigned) {
+  if (!is_unsigned)
+    my_b_printf(file, "%d", si);
+  else
+    my_b_printf(file, "%u", ui);
 }
 
 #ifndef MYSQL_SERVER
@@ -1841,6 +1845,7 @@ static const char *print_json_diff(IO_CACHE *out, const uchar *data,
   @param[in] col_name          Column name
   @param[in] is_partial        True if this is a JSON column that will be
                                read in partial format, false otherwise.
+  @param[in] is_unsigned       Unsigned type
 
   @retval 0 on error
   @retval number of bytes scanned from ptr for non-NULL fields, or
@@ -1850,7 +1855,7 @@ static const char *print_json_diff(IO_CACHE *out, const uchar *data,
 static size_t log_event_print_value(IO_CACHE *file, const uchar *ptr, uint type,
                                     uint meta, char *typestr,
                                     size_t typestr_length, char *col_name,
-                                    bool is_partial) {
+                                    bool is_partial, bool is_unsigned) {
   uint32 length = 0;
 
   if (type == MYSQL_TYPE_STRING) {
@@ -1870,51 +1875,56 @@ static size_t log_event_print_value(IO_CACHE *file, const uchar *ptr, uint type,
 
   switch (type) {
     case MYSQL_TYPE_LONG: {
-      snprintf(typestr, typestr_length, "INT");
+      snprintf(typestr, typestr_length, is_unsigned ? "INT UNSIGNED" : "INT");
       if (!ptr) return my_b_printf(file, "NULL");
       int32 si = sint4korr(ptr);
       uint32 ui = uint4korr(ptr);
-      my_b_write_sint32_and_uint32(file, si, ui);
+      my_b_write_sint32_and_uint32(file, si, ui, is_unsigned);
       return 4;
     }
 
     case MYSQL_TYPE_TINY: {
-      snprintf(typestr, typestr_length, "TINYINT");
+      snprintf(typestr, typestr_length,
+               is_unsigned ? "TINYINT UNSIGNED" : "TINYINT");
       if (!ptr) return my_b_printf(file, "NULL");
       my_b_write_sint32_and_uint32(file, (int)(signed char)*ptr,
-                                   (uint)(unsigned char)*ptr);
+                                   (uint)(unsigned char)*ptr, is_unsigned);
       return 1;
     }
 
     case MYSQL_TYPE_SHORT: {
-      snprintf(typestr, typestr_length, "SHORTINT");
+      snprintf(typestr, typestr_length,
+               is_unsigned ? "SHORTINT UNSIGNED" : "SHORTINT");
       if (!ptr) return my_b_printf(file, "NULL");
       int32 si = (int32)sint2korr(ptr);
       uint32 ui = (uint32)uint2korr(ptr);
-      my_b_write_sint32_and_uint32(file, si, ui);
+      my_b_write_sint32_and_uint32(file, si, ui, is_unsigned);
       return 2;
     }
 
     case MYSQL_TYPE_INT24: {
-      snprintf(typestr, typestr_length, "MEDIUMINT");
+      snprintf(typestr, typestr_length,
+               is_unsigned ? "MEDIUMINT UNSIGNED" : "MEDIUMINT");
       if (!ptr) return my_b_printf(file, "NULL");
       int32 si = sint3korr(ptr);
       uint32 ui = uint3korr(ptr);
-      my_b_write_sint32_and_uint32(file, si, ui);
+      my_b_write_sint32_and_uint32(file, si, ui, is_unsigned);
       return 3;
     }
 
     case MYSQL_TYPE_LONGLONG: {
-      snprintf(typestr, typestr_length, "LONGINT");
+      snprintf(typestr, typestr_length,
+               is_unsigned ? "LONGINT UNSIGNED" : "LONGINT");
       if (!ptr) return my_b_printf(file, "NULL");
       char tmp[64];
-      longlong si = sint8korr(ptr);
-      longlong10_to_str(si, tmp, -10);
-      my_b_printf(file, "%s", tmp);
-      if (si < 0) {
+      if (!is_unsigned) {
+        longlong si = sint8korr(ptr);
+        longlong10_to_str(si, tmp, -10);
+        my_b_printf(file, "%s", tmp);
+      } else {
         ulonglong ui = uint8korr(ptr);
         longlong10_to_str((longlong)ui, tmp, 10);
-        my_b_printf(file, " (%s)", tmp);
+        my_b_printf(file, "%s", tmp);
       }
       return 8;
     }
@@ -2262,7 +2272,7 @@ size_t Rows_log_event::print_verbose_one_row(
     sprintf(col_name, "@%lu", (unsigned long)i + 1);
     size_t size = log_event_print_value(
         file, is_null ? nullptr : value, td->type(i), td->field_metadata(i),
-        typestr, sizeof(typestr), col_name, is_partial);
+        typestr, sizeof(typestr), col_name, is_partial, td->is_unsigned(i));
     if (!size) return 0;
 
     if (!is_null) value += size;
@@ -10458,6 +10468,10 @@ Table_map_log_event::Table_map_log_event(THD *thd_arg, TABLE *tbl,
   */
   uint num_null_bytes = (m_colcnt + 7) / 8;
   m_data_size += num_null_bytes;
+
+  // m_null_bits and m_sign_bits has the same size
+  m_sign_bits_size = num_null_bytes;
+
   /*
     m_null_bits is a pointer indicating which columns can have a null value
     in a particular table.
@@ -10513,7 +10527,8 @@ Table_map_log_event::Table_map_log_event(THD *thd_arg, TABLE *tbl,
       m_data_size += 1;
     else
       m_data_size += 3;
-    m_data_size += m_primary_key_fields_size + m_column_names_size;
+    m_data_size +=
+        m_primary_key_fields_size + m_column_names_size + m_sign_bits_size;
   } else {
     m_data_size += m_metadata_buf.length();
   }
@@ -10705,9 +10720,9 @@ int Table_map_log_event::do_apply_event(Relay_log_info const *rli) {
       inside Relay_log_info::clear_tables_to_lock() by calling the
       table_def destructor explicitly.
     */
-    new (&table_list->m_tabledef)
-        table_def(m_coltype, m_colcnt, m_field_metadata, m_field_metadata_size,
-                  m_null_bits, m_flags, m_column_names, m_column_names_size);
+    new (&table_list->m_tabledef) table_def(
+        m_coltype, m_colcnt, m_field_metadata, m_field_metadata_size,
+        m_null_bits, m_flags, m_column_names, m_column_names_size, m_sign_bits);
 
     table_list->m_tabledef_valid = true;
     table_list->m_conv_table = nullptr;
@@ -10852,6 +10867,7 @@ bool Table_map_log_event::write_fb_format_metadata(Basic_ostream *ostream) {
                               (size_t)(m_size_buf_end - m_size_buf)) ||
       wrapper_my_b_safe_write(ostream, m_primary_key_fields,
                               m_primary_key_fields_size) ||
+      wrapper_my_b_safe_write(ostream, m_sign_bits, m_sign_bits_size) ||
       wrapper_my_b_safe_write(ostream, m_column_names, m_column_names_size));
 }
 
@@ -10974,6 +10990,10 @@ void Table_map_log_event::init_metadata_fields() {
       m_primary_key_fields_size = 0;
       m_primary_key_fields = nullptr;
     }
+    if (init_fb_format_sign_bits()) {
+      m_sign_bits_size = 0;
+      m_sign_bits = nullptr;
+    }
     if (init_fb_format_col_names()) {
       m_column_names_size = 0;
       m_column_names = nullptr;
@@ -11034,6 +11054,26 @@ bool Table_map_log_event::init_fb_format_pk_fields() {
     }
   }
 
+  return false;
+}
+
+bool Table_map_log_event::init_fb_format_sign_bits() {
+  if (m_sign_bits_size * 8 >= m_table->s->fields) {
+    // allocate memory for sign bits
+    m_sign_bits =
+        static_cast<unsigned char *>(bapi_malloc(m_sign_bits_size, 0));
+    if (!m_sign_bits) {
+      return true;
+    }
+    memset(m_sign_bits, 0, m_sign_bits_size);
+    DBUG_ASSERT(m_sign_bits_size <= m_table->s->fields);
+    for (unsigned int i = 0; i < m_table->s->fields; ++i) {
+      if (m_table->field[i]->flags & UNSIGNED_FLAG)
+        m_sign_bits[(i / 8)] += 1 << (i % 8);
+    }
+  } else {
+    m_sign_bits_size = 0;
+  }
   return false;
 }
 

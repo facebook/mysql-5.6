@@ -820,7 +820,8 @@ PSI_memory_key key_memory_table_def_memory;
 
 table_def::table_def(unsigned char *types, ulong size, uchar *field_metadata,
                      int metadata_size, uchar *null_bitmap, uint16 flags,
-                     const uchar *column_names, unsigned long column_names_size)
+                     const uchar *column_names, unsigned long column_names_size,
+                     const uchar *sign_bits)
     : m_size(size),
       m_type(nullptr),
       m_field_metadata_size(metadata_size),
@@ -829,11 +830,12 @@ table_def::table_def(unsigned char *types, ulong size, uchar *field_metadata,
       m_flags(flags),
       m_memory(nullptr),
       m_json_column_count(-1),
-      m_is_array(nullptr) {
+      m_is_array(nullptr),
+      m_sign_bits(nullptr) {
   m_memory = (uchar *)my_multi_malloc(
       key_memory_table_def_memory, MYF(MY_WME), &m_type, size,
       &m_field_metadata, size * sizeof(uint), &m_is_array, size * sizeof(bool),
-      &m_null_bits, (size + 7) / 8, nullptr);
+      &m_null_bits, (size + 7) / 8, &m_sign_bits, (size + 7) / 8, nullptr);
 
   memset(m_field_metadata, 0, size * sizeof(uint));
   memset(m_is_array, 0, size * sizeof(bool));
@@ -865,6 +867,8 @@ table_def::table_def(unsigned char *types, ulong size, uchar *field_metadata,
     }
   }
   if (m_size && null_bitmap) memcpy(m_null_bits, null_bitmap, (m_size + 7) / 8);
+  memset(m_sign_bits, 0, (m_size + 7) / 8);
+  if (m_size && sign_bits) memcpy(m_sign_bits, sign_bits, (m_size + 7) / 8);
 
   if (column_names && column_names_size) {
     // store column names in to an array.

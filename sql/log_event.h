@@ -2442,7 +2442,7 @@ class Table_map_log_event : public binary_log::Table_map_event,
     DBUG_ASSERT(m_colcnt > 0);
     return new table_def(m_coltype, m_colcnt, m_field_metadata,
                          m_field_metadata_size, m_null_bits, m_flags,
-                         m_column_names, m_column_names_size);
+                         m_column_names, m_column_names_size, m_sign_bits);
   }
   static bool rewrite_db_in_buffer(char **buf, ulong *event_len,
                                    const Format_description_event &fde);
@@ -2555,6 +2555,7 @@ class Table_map_log_event : public binary_log::Table_map_event,
   */
   void init_metadata_fields();
   bool init_fb_format_pk_fields();
+  bool init_fb_format_sign_bits();
   bool init_fb_format_col_names();
   bool init_signedness_field();
   /**
