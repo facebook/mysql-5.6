@@ -2532,22 +2532,22 @@ BEGIN
 ### SET
 ###   @1=b'0' /* BIT(1) meta=1 nullable=1 is_null=0 */
 ###   @2=b'0000000000000000000000000000000000000000000000000000000000000000' /* BIT(64) meta=2048 nullable=1 is_null=0 */
-###   @3=-128 (128) /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @4=0 /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @5=0 /* TINYINT meta=0 nullable=1 is_null=0 */
+###   @3=-128 /* TINYINT meta=0 nullable=1 is_null=0 */
+###   @4=0 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @5=0 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @6=0 /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @7=-32768 (32768) /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @8=0 /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @9=0 /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @10=-8388608 (8388608) /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @11=0 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @12=0 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @13=-2147483648 (2147483648) /* INT meta=0 nullable=1 is_null=0 */
-###   @14=0 /* INT meta=0 nullable=1 is_null=0 */
-###   @15=0 /* INT meta=0 nullable=1 is_null=0 */
-###   @16=-9223372036854775808 (9223372036854775808) /* LONGINT meta=0 nullable=1 is_null=0 */
-###   @17=0 /* LONGINT meta=0 nullable=1 is_null=0 */
-###   @18=0 /* LONGINT meta=0 nullable=1 is_null=0 */
+###   @7=-32768 /* SHORTINT meta=0 nullable=1 is_null=0 */
+###   @8=0 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @9=0 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @10=-8388608 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
+###   @11=0 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @12=0 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @13=-2147483648 /* INT meta=0 nullable=1 is_null=0 */
+###   @14=0 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @15=0 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @16=-9223372036854775808 /* LONGINT meta=0 nullable=1 is_null=0 */
+###   @17=0 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @18=0 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @19=-3.402... /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   @20=1.175... /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   @21=0                    /* FLOAT meta=4 nullable=1 is_null=0 */
@@ -2638,21 +2638,21 @@ BEGIN
 ###   @1=b'1' /* BIT(1) meta=1 nullable=1 is_null=0 */
 ###   @2=b'1111111111111111111111111111111111111111111111111111111111111111' /* BIT(64) meta=2048 nullable=1 is_null=0 */
 ###   @3=127 /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @4=-1 (255) /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @5=-1 (255) /* TINYINT meta=0 nullable=1 is_null=0 */
+###   @4=255 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @5=255 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @6=1 /* TINYINT meta=0 nullable=1 is_null=0 */
 ###   @7=32767 /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @8=-1 (65535) /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @9=-1 (65535) /* SHORTINT meta=0 nullable=1 is_null=0 */
+###   @8=65535 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @9=65535 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @10=8388607 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @11=-1 (16777215) /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @12=-1 (16777215) /* MEDIUMINT meta=0 nullable=1 is_null=0 */
+###   @11=16777215 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @12=16777215 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @13=2147483647 /* INT meta=0 nullable=1 is_null=0 */
-###   @14=-1 (4294967295) /* INT meta=0 nullable=1 is_null=0 */
-###   @15=-1 (4294967295) /* INT meta=0 nullable=1 is_null=0 */
+###   @14=4294967295 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @15=4294967295 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @16=9223372036854775807 /* LONGINT meta=0 nullable=1 is_null=0 */
-###   @17=-1 (18446744073709551615) /* LONGINT meta=0 nullable=1 is_null=0 */
-###   @18=-1 (18446744073709551615) /* LONGINT meta=0 nullable=1 is_null=0 */
+###   @17=18446744073709551615 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @18=18446744073709551615 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @19=3.402... /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   @20=3.402... /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   @21=3.402... /* FLOAT meta=4 nullable=1 is_null=0 */
@@ -2743,21 +2743,21 @@ BEGIN
 ###   @1=NULL /* BIT(1) meta=1 nullable=1 is_null=1 */
 ###   @2=NULL /* BIT(64) meta=2048 nullable=1 is_null=1 */
 ###   @3=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
-###   @4=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
-###   @5=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
+###   @4=NULL /* TINYINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   @5=NULL /* TINYINT UNSIGNED meta=0 nullable=1 is_null=1 */
 ###   @6=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
 ###   @7=NULL /* SHORTINT meta=0 nullable=1 is_null=1 */
-###   @8=NULL /* SHORTINT meta=0 nullable=1 is_null=1 */
-###   @9=NULL /* SHORTINT meta=0 nullable=1 is_null=1 */
+###   @8=NULL /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   @9=NULL /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=1 */
 ###   @10=NULL /* MEDIUMINT meta=0 nullable=1 is_null=1 */
-###   @11=NULL /* MEDIUMINT meta=0 nullable=1 is_null=1 */
-###   @12=NULL /* MEDIUMINT meta=0 nullable=1 is_null=1 */
+###   @11=NULL /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   @12=NULL /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=1 */
 ###   @13=NULL /* INT meta=0 nullable=1 is_null=1 */
-###   @14=NULL /* INT meta=0 nullable=1 is_null=1 */
-###   @15=NULL /* INT meta=0 nullable=1 is_null=1 */
+###   @14=NULL /* INT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   @15=NULL /* INT UNSIGNED meta=0 nullable=1 is_null=1 */
 ###   @16=NULL /* LONGINT meta=0 nullable=1 is_null=1 */
-###   @17=NULL /* LONGINT meta=0 nullable=1 is_null=1 */
-###   @18=NULL /* LONGINT meta=0 nullable=1 is_null=1 */
+###   @17=NULL /* LONGINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   @18=NULL /* LONGINT UNSIGNED meta=0 nullable=1 is_null=1 */
 ###   @19=NULL /* FLOAT meta=4 nullable=1 is_null=1 */
 ###   @20=NULL /* FLOAT meta=4 nullable=1 is_null=1 */
 ###   @21=NULL /* FLOAT meta=4 nullable=1 is_null=1 */
@@ -2824,21 +2824,21 @@ BEGIN
 ###   @1=b'1' /* BIT(1) meta=1 nullable=1 is_null=0 */
 ###   @2=b'1111111111111111111111111111111111111111111111111111111111111111' /* BIT(64) meta=2048 nullable=1 is_null=0 */
 ###   @3=127 /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @4=0 /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @5=1 /* TINYINT meta=0 nullable=1 is_null=0 */
+###   @4=0 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @5=1 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @6=1 /* TINYINT meta=0 nullable=1 is_null=0 */
 ###   @7=32767 /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @8=0 /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @9=1 /* SHORTINT meta=0 nullable=1 is_null=0 */
+###   @8=0 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @9=1 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @10=8388607 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @11=0 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @12=1 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
+###   @11=0 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @12=1 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @13=2147483647 /* INT meta=0 nullable=1 is_null=0 */
-###   @14=0 /* INT meta=0 nullable=1 is_null=0 */
-###   @15=1 /* INT meta=0 nullable=1 is_null=0 */
+###   @14=0 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @15=1 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @16=9223372036854775807 /* LONGINT meta=0 nullable=1 is_null=0 */
-###   @17=0 /* LONGINT meta=0 nullable=1 is_null=0 */
-###   @18=1 /* LONGINT meta=0 nullable=1 is_null=0 */
+###   @17=0 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @18=1 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @19=-1.175... /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   @20=1.175... /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   @21=1                    /* FLOAT meta=4 nullable=1 is_null=0 */
@@ -2928,22 +2928,22 @@ BEGIN
 ### WHERE
 ###   @1=b'0' /* BIT(1) meta=1 nullable=1 is_null=0 */
 ###   @2=b'0000000000000000000000000000000000000000000000000000000000000000' /* BIT(64) meta=2048 nullable=1 is_null=0 */
-###   @3=-128 (128) /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @4=0 /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @5=0 /* TINYINT meta=0 nullable=1 is_null=0 */
+###   @3=-128 /* TINYINT meta=0 nullable=1 is_null=0 */
+###   @4=0 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @5=0 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @6=0 /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @7=-32768 (32768) /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @8=0 /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @9=0 /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @10=-8388608 (8388608) /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @11=0 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @12=0 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @13=-2147483648 (2147483648) /* INT meta=0 nullable=1 is_null=0 */
-###   @14=0 /* INT meta=0 nullable=1 is_null=0 */
-###   @15=0 /* INT meta=0 nullable=1 is_null=0 */
-###   @16=-9223372036854775808 (9223372036854775808) /* LONGINT meta=0 nullable=1 is_null=0 */
-###   @17=0 /* LONGINT meta=0 nullable=1 is_null=0 */
-###   @18=0 /* LONGINT meta=0 nullable=1 is_null=0 */
+###   @7=-32768 /* SHORTINT meta=0 nullable=1 is_null=0 */
+###   @8=0 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @9=0 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @10=-8388608 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
+###   @11=0 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @12=0 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @13=-2147483648 /* INT meta=0 nullable=1 is_null=0 */
+###   @14=0 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @15=0 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @16=-9223372036854775808 /* LONGINT meta=0 nullable=1 is_null=0 */
+###   @17=0 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @18=0 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @19=-3.402... /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   @20=1.175... /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   @21=0                    /* FLOAT meta=4 nullable=1 is_null=0 */
@@ -3009,21 +3009,21 @@ BEGIN
 ###   @1=b'1' /* BIT(1) meta=1 nullable=1 is_null=0 */
 ###   @2=b'1111111111111111111111111111111111111111111111111111111111111111' /* BIT(64) meta=2048 nullable=1 is_null=0 */
 ###   @3=127 /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @4=-1 (255) /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @5=-1 (255) /* TINYINT meta=0 nullable=1 is_null=0 */
+###   @4=255 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @5=255 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @6=1 /* TINYINT meta=0 nullable=1 is_null=0 */
 ###   @7=32767 /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @8=-1 (65535) /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @9=-1 (65535) /* SHORTINT meta=0 nullable=1 is_null=0 */
+###   @8=65535 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @9=65535 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @10=8388607 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @11=-1 (16777215) /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @12=-1 (16777215) /* MEDIUMINT meta=0 nullable=1 is_null=0 */
+###   @11=16777215 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @12=16777215 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @13=2147483647 /* INT meta=0 nullable=1 is_null=0 */
-###   @14=-1 (4294967295) /* INT meta=0 nullable=1 is_null=0 */
-###   @15=-1 (4294967295) /* INT meta=0 nullable=1 is_null=0 */
+###   @14=4294967295 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @15=4294967295 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @16=9223372036854775807 /* LONGINT meta=0 nullable=1 is_null=0 */
-###   @17=-1 (18446744073709551615) /* LONGINT meta=0 nullable=1 is_null=0 */
-###   @18=-1 (18446744073709551615) /* LONGINT meta=0 nullable=1 is_null=0 */
+###   @17=18446744073709551615 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @18=18446744073709551615 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @19=3.402... /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   @20=3.402... /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   @21=3.402... /* FLOAT meta=4 nullable=1 is_null=0 */
@@ -3114,21 +3114,21 @@ BEGIN
 ###   @1=b'1' /* BIT(1) meta=1 nullable=1 is_null=0 */
 ###   @2=b'1111111111111111111111111111111111111111111111111111111111111111' /* BIT(64) meta=2048 nullable=1 is_null=0 */
 ###   @3=127 /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @4=-1 (255) /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @5=-1 (255) /* TINYINT meta=0 nullable=1 is_null=0 */
+###   @4=255 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @5=255 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @6=1 /* TINYINT meta=0 nullable=1 is_null=0 */
 ###   @7=32767 /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @8=-1 (65535) /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @9=-1 (65535) /* SHORTINT meta=0 nullable=1 is_null=0 */
+###   @8=65535 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @9=65535 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @10=8388607 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @11=-1 (16777215) /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @12=-1 (16777215) /* MEDIUMINT meta=0 nullable=1 is_null=0 */
+###   @11=16777215 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @12=16777215 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @13=2147483647 /* INT meta=0 nullable=1 is_null=0 */
-###   @14=-1 (4294967295) /* INT meta=0 nullable=1 is_null=0 */
-###   @15=-1 (4294967295) /* INT meta=0 nullable=1 is_null=0 */
+###   @14=4294967295 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @15=4294967295 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @16=9223372036854775807 /* LONGINT meta=0 nullable=1 is_null=0 */
-###   @17=-1 (18446744073709551615) /* LONGINT meta=0 nullable=1 is_null=0 */
-###   @18=-1 (18446744073709551615) /* LONGINT meta=0 nullable=1 is_null=0 */
+###   @17=18446744073709551615 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @18=18446744073709551615 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @19=3.402... /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   @20=3.402... /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   @21=3.402... /* FLOAT meta=4 nullable=1 is_null=0 */
@@ -3193,22 +3193,22 @@ BEGIN
 ### SET
 ###   @1=b'0' /* BIT(1) meta=1 nullable=1 is_null=0 */
 ###   @2=b'0000000000000000000000000000000000000000000000000000000000000000' /* BIT(64) meta=2048 nullable=1 is_null=0 */
-###   @3=-128 (128) /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @4=0 /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @5=0 /* TINYINT meta=0 nullable=1 is_null=0 */
+###   @3=-128 /* TINYINT meta=0 nullable=1 is_null=0 */
+###   @4=0 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @5=0 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @6=0 /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @7=-32768 (32768) /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @8=0 /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @9=0 /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @10=-8388608 (8388608) /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @11=0 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @12=0 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @13=-2147483648 (2147483648) /* INT meta=0 nullable=1 is_null=0 */
-###   @14=0 /* INT meta=0 nullable=1 is_null=0 */
-###   @15=0 /* INT meta=0 nullable=1 is_null=0 */
-###   @16=-9223372036854775808 (9223372036854775808) /* LONGINT meta=0 nullable=1 is_null=0 */
-###   @17=0 /* LONGINT meta=0 nullable=1 is_null=0 */
-###   @18=0 /* LONGINT meta=0 nullable=1 is_null=0 */
+###   @7=-32768 /* SHORTINT meta=0 nullable=1 is_null=0 */
+###   @8=0 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @9=0 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @10=-8388608 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
+###   @11=0 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @12=0 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @13=-2147483648 /* INT meta=0 nullable=1 is_null=0 */
+###   @14=0 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @15=0 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @16=-9223372036854775808 /* LONGINT meta=0 nullable=1 is_null=0 */
+###   @17=0 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @18=0 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @19=-3.402... /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   @20=1.175... /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   @21=0                    /* FLOAT meta=4 nullable=1 is_null=0 */
@@ -3299,21 +3299,21 @@ BEGIN
 ###   @1=NULL /* BIT(1) meta=1 nullable=1 is_null=1 */
 ###   @2=NULL /* BIT(64) meta=2048 nullable=1 is_null=1 */
 ###   @3=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
-###   @4=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
-###   @5=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
+###   @4=NULL /* TINYINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   @5=NULL /* TINYINT UNSIGNED meta=0 nullable=1 is_null=1 */
 ###   @6=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
 ###   @7=NULL /* SHORTINT meta=0 nullable=1 is_null=1 */
-###   @8=NULL /* SHORTINT meta=0 nullable=1 is_null=1 */
-###   @9=NULL /* SHORTINT meta=0 nullable=1 is_null=1 */
+###   @8=NULL /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   @9=NULL /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=1 */
 ###   @10=NULL /* MEDIUMINT meta=0 nullable=1 is_null=1 */
-###   @11=NULL /* MEDIUMINT meta=0 nullable=1 is_null=1 */
-###   @12=NULL /* MEDIUMINT meta=0 nullable=1 is_null=1 */
+###   @11=NULL /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   @12=NULL /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=1 */
 ###   @13=NULL /* INT meta=0 nullable=1 is_null=1 */
-###   @14=NULL /* INT meta=0 nullable=1 is_null=1 */
-###   @15=NULL /* INT meta=0 nullable=1 is_null=1 */
+###   @14=NULL /* INT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   @15=NULL /* INT UNSIGNED meta=0 nullable=1 is_null=1 */
 ###   @16=NULL /* LONGINT meta=0 nullable=1 is_null=1 */
-###   @17=NULL /* LONGINT meta=0 nullable=1 is_null=1 */
-###   @18=NULL /* LONGINT meta=0 nullable=1 is_null=1 */
+###   @17=NULL /* LONGINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   @18=NULL /* LONGINT UNSIGNED meta=0 nullable=1 is_null=1 */
 ###   @19=NULL /* FLOAT meta=4 nullable=1 is_null=1 */
 ###   @20=NULL /* FLOAT meta=4 nullable=1 is_null=1 */
 ###   @21=NULL /* FLOAT meta=4 nullable=1 is_null=1 */
@@ -3379,21 +3379,21 @@ BEGIN
 ###   @1=b'1' /* BIT(1) meta=1 nullable=1 is_null=0 */
 ###   @2=b'1111111111111111111111111111111111111111111111111111111111111111' /* BIT(64) meta=2048 nullable=1 is_null=0 */
 ###   @3=127 /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @4=0 /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @5=1 /* TINYINT meta=0 nullable=1 is_null=0 */
+###   @4=0 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @5=1 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @6=1 /* TINYINT meta=0 nullable=1 is_null=0 */
 ###   @7=32767 /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @8=0 /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @9=1 /* SHORTINT meta=0 nullable=1 is_null=0 */
+###   @8=0 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @9=1 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @10=8388607 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @11=0 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @12=1 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
+###   @11=0 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @12=1 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @13=2147483647 /* INT meta=0 nullable=1 is_null=0 */
-###   @14=0 /* INT meta=0 nullable=1 is_null=0 */
-###   @15=1 /* INT meta=0 nullable=1 is_null=0 */
+###   @14=0 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @15=1 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @16=9223372036854775807 /* LONGINT meta=0 nullable=1 is_null=0 */
-###   @17=0 /* LONGINT meta=0 nullable=1 is_null=0 */
-###   @18=1 /* LONGINT meta=0 nullable=1 is_null=0 */
+###   @17=0 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @18=1 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @19=-1.175... /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   @20=1.175... /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   @21=1                    /* FLOAT meta=4 nullable=1 is_null=0 */
@@ -3484,21 +3484,21 @@ BEGIN
 ###   @1=b'1' /* BIT(1) meta=1 nullable=1 is_null=0 */
 ###   @2=b'1111111111111111111111111111111111111111111111111111111111111111' /* BIT(64) meta=2048 nullable=1 is_null=0 */
 ###   @3=127 /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @4=0 /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @5=1 /* TINYINT meta=0 nullable=1 is_null=0 */
+###   @4=0 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @5=1 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @6=1 /* TINYINT meta=0 nullable=1 is_null=0 */
 ###   @7=32767 /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @8=0 /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @9=1 /* SHORTINT meta=0 nullable=1 is_null=0 */
+###   @8=0 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @9=1 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @10=8388607 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @11=0 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @12=1 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
+###   @11=0 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @12=1 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @13=2147483647 /* INT meta=0 nullable=1 is_null=0 */
-###   @14=0 /* INT meta=0 nullable=1 is_null=0 */
-###   @15=1 /* INT meta=0 nullable=1 is_null=0 */
+###   @14=0 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @15=1 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @16=9223372036854775807 /* LONGINT meta=0 nullable=1 is_null=0 */
-###   @17=0 /* LONGINT meta=0 nullable=1 is_null=0 */
-###   @18=1 /* LONGINT meta=0 nullable=1 is_null=0 */
+###   @17=0 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @18=1 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @19=-1.175... /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   @20=1.175... /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   @21=1                    /* FLOAT meta=4 nullable=1 is_null=0 */
@@ -3564,21 +3564,21 @@ BEGIN
 ###   @1=NULL /* BIT(1) meta=1 nullable=1 is_null=1 */
 ###   @2=NULL /* BIT(64) meta=2048 nullable=1 is_null=1 */
 ###   @3=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
-###   @4=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
-###   @5=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
+###   @4=NULL /* TINYINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   @5=NULL /* TINYINT UNSIGNED meta=0 nullable=1 is_null=1 */
 ###   @6=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
 ###   @7=NULL /* SHORTINT meta=0 nullable=1 is_null=1 */
-###   @8=NULL /* SHORTINT meta=0 nullable=1 is_null=1 */
-###   @9=NULL /* SHORTINT meta=0 nullable=1 is_null=1 */
+###   @8=NULL /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   @9=NULL /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=1 */
 ###   @10=NULL /* MEDIUMINT meta=0 nullable=1 is_null=1 */
-###   @11=NULL /* MEDIUMINT meta=0 nullable=1 is_null=1 */
-###   @12=NULL /* MEDIUMINT meta=0 nullable=1 is_null=1 */
+###   @11=NULL /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   @12=NULL /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=1 */
 ###   @13=NULL /* INT meta=0 nullable=1 is_null=1 */
-###   @14=NULL /* INT meta=0 nullable=1 is_null=1 */
-###   @15=NULL /* INT meta=0 nullable=1 is_null=1 */
+###   @14=NULL /* INT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   @15=NULL /* INT UNSIGNED meta=0 nullable=1 is_null=1 */
 ###   @16=NULL /* LONGINT meta=0 nullable=1 is_null=1 */
-###   @17=NULL /* LONGINT meta=0 nullable=1 is_null=1 */
-###   @18=NULL /* LONGINT meta=0 nullable=1 is_null=1 */
+###   @17=NULL /* LONGINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   @18=NULL /* LONGINT UNSIGNED meta=0 nullable=1 is_null=1 */
 ###   @19=NULL /* FLOAT meta=4 nullable=1 is_null=1 */
 ###   @20=NULL /* FLOAT meta=4 nullable=1 is_null=1 */
 ###   @21=NULL /* FLOAT meta=4 nullable=1 is_null=1 */
@@ -3669,21 +3669,21 @@ BEGIN
 ###   @1=b'1' /* BIT(1) meta=1 nullable=1 is_null=0 */
 ###   @2=b'1111111111111111111111111111111111111111111111111111111111111111' /* BIT(64) meta=2048 nullable=1 is_null=0 */
 ###   @3=127 /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @4=-1 (255) /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @5=-1 (255) /* TINYINT meta=0 nullable=1 is_null=0 */
+###   @4=255 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @5=255 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @6=1 /* TINYINT meta=0 nullable=1 is_null=0 */
 ###   @7=32767 /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @8=-1 (65535) /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @9=-1 (65535) /* SHORTINT meta=0 nullable=1 is_null=0 */
+###   @8=65535 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @9=65535 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @10=8388607 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @11=-1 (16777215) /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @12=-1 (16777215) /* MEDIUMINT meta=0 nullable=1 is_null=0 */
+###   @11=16777215 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @12=16777215 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @13=2147483647 /* INT meta=0 nullable=1 is_null=0 */
-###   @14=-1 (4294967295) /* INT meta=0 nullable=1 is_null=0 */
-###   @15=-1 (4294967295) /* INT meta=0 nullable=1 is_null=0 */
+###   @14=4294967295 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @15=4294967295 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @16=9223372036854775807 /* LONGINT meta=0 nullable=1 is_null=0 */
-###   @17=-1 (18446744073709551615) /* LONGINT meta=0 nullable=1 is_null=0 */
-###   @18=-1 (18446744073709551615) /* LONGINT meta=0 nullable=1 is_null=0 */
+###   @17=18446744073709551615 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @18=18446744073709551615 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @19=3.402... /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   @20=3.402... /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   @21=3.402... /* FLOAT meta=4 nullable=1 is_null=0 */
@@ -3773,22 +3773,22 @@ BEGIN
 ### WHERE
 ###   @1=b'0' /* BIT(1) meta=1 nullable=1 is_null=0 */
 ###   @2=b'0000000000000000000000000000000000000000000000000000000000000000' /* BIT(64) meta=2048 nullable=1 is_null=0 */
-###   @3=-128 (128) /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @4=0 /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @5=0 /* TINYINT meta=0 nullable=1 is_null=0 */
+###   @3=-128 /* TINYINT meta=0 nullable=1 is_null=0 */
+###   @4=0 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @5=0 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @6=0 /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @7=-32768 (32768) /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @8=0 /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @9=0 /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @10=-8388608 (8388608) /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @11=0 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @12=0 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @13=-2147483648 (2147483648) /* INT meta=0 nullable=1 is_null=0 */
-###   @14=0 /* INT meta=0 nullable=1 is_null=0 */
-###   @15=0 /* INT meta=0 nullable=1 is_null=0 */
-###   @16=-9223372036854775808 (9223372036854775808) /* LONGINT meta=0 nullable=1 is_null=0 */
-###   @17=0 /* LONGINT meta=0 nullable=1 is_null=0 */
-###   @18=0 /* LONGINT meta=0 nullable=1 is_null=0 */
+###   @7=-32768 /* SHORTINT meta=0 nullable=1 is_null=0 */
+###   @8=0 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @9=0 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @10=-8388608 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
+###   @11=0 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @12=0 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @13=-2147483648 /* INT meta=0 nullable=1 is_null=0 */
+###   @14=0 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @15=0 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @16=-9223372036854775808 /* LONGINT meta=0 nullable=1 is_null=0 */
+###   @17=0 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @18=0 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @19=-3.402... /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   @20=1.175... /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   @21=0                    /* FLOAT meta=4 nullable=1 is_null=0 */
@@ -3879,21 +3879,21 @@ BEGIN
 ###   @1=b'1' /* BIT(1) meta=1 nullable=1 is_null=0 */
 ###   @2=b'1111111111111111111111111111111111111111111111111111111111111111' /* BIT(64) meta=2048 nullable=1 is_null=0 */
 ###   @3=127 /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @4=0 /* TINYINT meta=0 nullable=1 is_null=0 */
-###   @5=1 /* TINYINT meta=0 nullable=1 is_null=0 */
+###   @4=0 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @5=1 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @6=1 /* TINYINT meta=0 nullable=1 is_null=0 */
 ###   @7=32767 /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @8=0 /* SHORTINT meta=0 nullable=1 is_null=0 */
-###   @9=1 /* SHORTINT meta=0 nullable=1 is_null=0 */
+###   @8=0 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @9=1 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @10=8388607 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @11=0 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
-###   @12=1 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
+###   @11=0 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @12=1 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @13=2147483647 /* INT meta=0 nullable=1 is_null=0 */
-###   @14=0 /* INT meta=0 nullable=1 is_null=0 */
-###   @15=1 /* INT meta=0 nullable=1 is_null=0 */
+###   @14=0 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @15=1 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @16=9223372036854775807 /* LONGINT meta=0 nullable=1 is_null=0 */
-###   @17=0 /* LONGINT meta=0 nullable=1 is_null=0 */
-###   @18=1 /* LONGINT meta=0 nullable=1 is_null=0 */
+###   @17=0 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
+###   @18=1 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ###   @19=-1.175... /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   @20=1.175... /* FLOAT meta=4 nullable=1 is_null=0 */
 ###   @21=1                    /* FLOAT meta=4 nullable=1 is_null=0 */
@@ -3984,21 +3984,21 @@ BEGIN
 ###   @1=NULL /* BIT(1) meta=1 nullable=1 is_null=1 */
 ###   @2=NULL /* BIT(64) meta=2048 nullable=1 is_null=1 */
 ###   @3=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
-###   @4=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
-###   @5=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
+###   @4=NULL /* TINYINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   @5=NULL /* TINYINT UNSIGNED meta=0 nullable=1 is_null=1 */
 ###   @6=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
 ###   @7=NULL /* SHORTINT meta=0 nullable=1 is_null=1 */
-###   @8=NULL /* SHORTINT meta=0 nullable=1 is_null=1 */
-###   @9=NULL /* SHORTINT meta=0 nullable=1 is_null=1 */
+###   @8=NULL /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   @9=NULL /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=1 */
 ###   @10=NULL /* MEDIUMINT meta=0 nullable=1 is_null=1 */
-###   @11=NULL /* MEDIUMINT meta=0 nullable=1 is_null=1 */
-###   @12=NULL /* MEDIUMINT meta=0 nullable=1 is_null=1 */
+###   @11=NULL /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   @12=NULL /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=1 */
 ###   @13=NULL /* INT meta=0 nullable=1 is_null=1 */
-###   @14=NULL /* INT meta=0 nullable=1 is_null=1 */
-###   @15=NULL /* INT meta=0 nullable=1 is_null=1 */
+###   @14=NULL /* INT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   @15=NULL /* INT UNSIGNED meta=0 nullable=1 is_null=1 */
 ###   @16=NULL /* LONGINT meta=0 nullable=1 is_null=1 */
-###   @17=NULL /* LONGINT meta=0 nullable=1 is_null=1 */
-###   @18=NULL /* LONGINT meta=0 nullable=1 is_null=1 */
+###   @17=NULL /* LONGINT UNSIGNED meta=0 nullable=1 is_null=1 */
+###   @18=NULL /* LONGINT UNSIGNED meta=0 nullable=1 is_null=1 */
 ###   @19=NULL /* FLOAT meta=4 nullable=1 is_null=1 */
 ###   @20=NULL /* FLOAT meta=4 nullable=1 is_null=1 */
 ###   @21=NULL /* FLOAT meta=4 nullable=1 is_null=1 */

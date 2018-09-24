@@ -265,12 +265,19 @@ class table_def {
     @param null_bitmap The bitmap of fields that can be null
     @param flags Table flags
     @param column_names Column names
+    @param sign_bits Sign bits
    */
   table_def(unsigned char *types, ulong size, uchar *field_metadata,
             int metadata_size, uchar *null_bitmap, uint16 flags,
-            const uchar *column_names, unsigned long column_names_size);
+            const uchar *column_names, unsigned long column_names_size,
+            const uchar *sign_bits);
 
   ~table_def();
+
+  bool is_unsigned(uint index) const {
+    assert(index < m_size);
+    return (m_sign_bits[(index / 8)] & (1 << (index % 8)));
+  }
 
   /**
     Return the number of fields there is type data for.
@@ -511,6 +518,7 @@ class table_def {
   bool m_is_gipk_set;
   bool m_is_gipk_on_table;
   std::vector<char *> m_column_names;
+  uchar *m_sign_bits;
 };
 
 #ifdef MYSQL_SERVER
