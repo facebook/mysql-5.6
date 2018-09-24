@@ -12,17 +12,17 @@ drop table t1;
 #010909  4:46:40 server id 1  end_log_pos 546 CRC32 0xf8797b95 	Rows_query
 # insert into t1 values(1)
 --
-#010909  4:46:40 server id 1  end_log_pos 858 CRC32 0x6a5aeac6 	Rows_query
+#010909  4:46:40 server id 1  end_log_pos 859 CRC32 0xeb7f8fe1 	Rows_query
 # /*Comment test */
 --
-#010909  4:46:40 server id 1  end_log_pos 1190 CRC32 0x09a2c5dd 	Rows_query
+#010909  4:46:40 server id 1  end_log_pos 1192 CRC32 0x7f6291c0 	Rows_query
 # /*Comment test */   /* Comment test*/
 #010909  4:46:40 server id 1  end_log_pos 555 CRC32 0x81a1d5cc 	Rows_query
 # insert into t1 values(1)
 --
-#010909  4:46:40 server id 1  end_log_pos 869 CRC32 0x08f26048 	Rows_query
+#010909  4:46:40 server id 1  end_log_pos 870 CRC32 0x50ecc960 	Rows_query
 # /*Comment test */
 --
-#010909  4:46:40 server id 1  end_log_pos 1203 CRC32 0x443a90d4 	Rows_query
+#010909  4:46:40 server id 1  end_log_pos 1205 CRC32 0xb8ca0198 	Rows_query
 # /*Comment test */   /* Comment test*/
 include/rpl_end.inc

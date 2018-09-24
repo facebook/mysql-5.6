@@ -979,7 +979,7 @@ BEGIN
 # # server id #  end_log_pos # CRC32 # 	Write_rows: table id # flags: STMT_END_F
 ### INSERT INTO `test`.`t1`
 ### SET
-###   @1=-128 (128) /* TINYINT meta=0 nullable=1 is_null=0 */
+###   @1=-128 /* TINYINT meta=0 nullable=1 is_null=0 */
 # at #
 # # server id #  end_log_pos # CRC32 # 	Xid = #
 COMMIT/*!*/;
@@ -1029,7 +1029,7 @@ BEGIN
 # # server id #  end_log_pos # CRC32 # 	Delete_rows: table id # flags: STMT_END_F
 ### DELETE FROM `test`.`t1`
 ### WHERE
-###   @1=-128 (128) /* TINYINT meta=0 nullable=1 is_null=0 */
+###   @1=-128 /* TINYINT meta=0 nullable=1 is_null=0 */
 # at #
 # # server id #  end_log_pos # CRC32 # 	Xid = #
 COMMIT/*!*/;
@@ -1080,10 +1080,10 @@ BEGIN
 # # server id #  end_log_pos # CRC32 # 	Write_rows: table id # flags: STMT_END_F
 ### INSERT INTO `test`.`t1`
 ### SET
-###   @1=-128 (128) /* TINYINT meta=0 nullable=1 is_null=0 */
+###   @1=128 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ### INSERT INTO `test`.`t1`
 ### SET
-###   @1=-1 (255) /* TINYINT meta=0 nullable=1 is_null=0 */
+###   @1=255 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
 # at #
 # # server id #  end_log_pos # CRC32 # 	Xid = #
 COMMIT/*!*/;
@@ -1107,7 +1107,7 @@ BEGIN
 # # server id #  end_log_pos # CRC32 # 	Delete_rows: table id # flags: STMT_END_F
 ### DELETE FROM `test`.`t1`
 ### WHERE
-###   @1=-1 (255) /* TINYINT meta=0 nullable=1 is_null=0 */
+###   @1=255 /* TINYINT UNSIGNED meta=0 nullable=1 is_null=0 */
 # at #
 # # server id #  end_log_pos # CRC32 # 	Xid = #
 COMMIT/*!*/;
@@ -1308,10 +1308,10 @@ BEGIN
 # # server id #  end_log_pos # CRC32 # 	Write_rows: table id # flags: STMT_END_F
 ### INSERT INTO `test`.`t1`
 ### SET
-###   @1=-32768 (32768) /* SHORTINT meta=0 nullable=1 is_null=0 */
+###   @1=32768 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ### INSERT INTO `test`.`t1`
 ### SET
-###   @1=-1 (65535) /* SHORTINT meta=0 nullable=1 is_null=0 */
+###   @1=65535 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
 # at #
 # # server id #  end_log_pos # CRC32 # 	Xid = #
 COMMIT/*!*/;
@@ -1335,9 +1335,9 @@ BEGIN
 # # server id #  end_log_pos # CRC32 # 	Update_rows: table id # flags: STMT_END_F
 ### UPDATE `test`.`t1`
 ### WHERE
-###   @1=-32768 (32768) /* SHORTINT meta=0 nullable=1 is_null=0 */
+###   @1=32768 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ### SET
-###   @1=2 /* SHORTINT meta=0 nullable=1 is_null=0 */
+###   @1=2 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
 # at #
 # # server id #  end_log_pos # CRC32 # 	Xid = #
 COMMIT/*!*/;
@@ -1361,7 +1361,7 @@ BEGIN
 # # server id #  end_log_pos # CRC32 # 	Delete_rows: table id # flags: STMT_END_F
 ### DELETE FROM `test`.`t1`
 ### WHERE
-###   @1=-1 (65535) /* SHORTINT meta=0 nullable=1 is_null=0 */
+###   @1=65535 /* SHORTINT UNSIGNED meta=0 nullable=1 is_null=0 */
 # at #
 # # server id #  end_log_pos # CRC32 # 	Xid = #
 COMMIT/*!*/;
@@ -1487,10 +1487,10 @@ BEGIN
 # # server id #  end_log_pos # CRC32 # 	Write_rows: table id # flags: STMT_END_F
 ### INSERT INTO `test`.`t1`
 ### SET
-###   @1=-8388608 (8388608) /* MEDIUMINT meta=0 nullable=1 is_null=0 */
+###   @1=8388608 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ### INSERT INTO `test`.`t1`
 ### SET
-###   @1=-1 (16777215) /* MEDIUMINT meta=0 nullable=1 is_null=0 */
+###   @1=16777215 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
 # at #
 # # server id #  end_log_pos # CRC32 # 	Xid = #
 COMMIT/*!*/;
@@ -1514,9 +1514,9 @@ BEGIN
 # # server id #  end_log_pos # CRC32 # 	Update_rows: table id # flags: STMT_END_F
 ### UPDATE `test`.`t1`
 ### WHERE
-###   @1=-8388608 (8388608) /* MEDIUMINT meta=0 nullable=1 is_null=0 */
+###   @1=8388608 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ### SET
-###   @1=2 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
+###   @1=2 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
 # at #
 # # server id #  end_log_pos # CRC32 # 	Xid = #
 COMMIT/*!*/;
@@ -1540,7 +1540,7 @@ BEGIN
 # # server id #  end_log_pos # CRC32 # 	Delete_rows: table id # flags: STMT_END_F
 ### DELETE FROM `test`.`t1`
 ### WHERE
-###   @1=-1 (16777215) /* MEDIUMINT meta=0 nullable=1 is_null=0 */
+###   @1=16777215 /* MEDIUMINT UNSIGNED meta=0 nullable=1 is_null=0 */
 # at #
 # # server id #  end_log_pos # CRC32 # 	Xid = #
 COMMIT/*!*/;
@@ -1666,10 +1666,10 @@ BEGIN
 # # server id #  end_log_pos # CRC32 # 	Write_rows: table id # flags: STMT_END_F
 ### INSERT INTO `test`.`t1`
 ### SET
-###   @1=-2147483648 (2147483648) /* INT meta=0 nullable=1 is_null=0 */
+###   @1=2147483648 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
 ### INSERT INTO `test`.`t1`
 ### SET
-###   @1=-1 (4294967295) /* INT meta=0 nullable=1 is_null=0 */
+###   @1=4294967295 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
 # at #
 # # server id #  end_log_pos # CRC32 # 	Xid = #
 COMMIT/*!*/;
@@ -1693,9 +1693,9 @@ BEGIN
 # # server id #  end_log_pos # CRC32 # 	Update_rows: table id # flags: STMT_END_F
 ### UPDATE `test`.`t1`
 ### WHERE
-###   @1=-2147483648 (2147483648) /* INT meta=0 nullable=1 is_null=0 */
+###   @1=2147483648 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
 ### SET
-###   @1=2 /* INT meta=0 nullable=1 is_null=0 */
+###   @1=2 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
 # at #
 # # server id #  end_log_pos # CRC32 # 	Xid = #
 COMMIT/*!*/;
@@ -1719,7 +1719,7 @@ BEGIN
 # # server id #  end_log_pos # CRC32 # 	Delete_rows: table id # flags: STMT_END_F
 ### DELETE FROM `test`.`t1`
 ### WHERE
-###   @1=-1 (4294967295) /* INT meta=0 nullable=1 is_null=0 */
+###   @1=4294967295 /* INT UNSIGNED meta=0 nullable=1 is_null=0 */
 # at #
 # # server id #  end_log_pos # CRC32 # 	Xid = #
 COMMIT/*!*/;
@@ -1845,10 +1845,10 @@ BEGIN
 # # server id #  end_log_pos # CRC32 # 	Write_rows: table id # flags: STMT_END_F
 ### INSERT INTO `test`.`t1`
 ### SET
-###   @1=-9223372036854775808 (9223372036854775808) /* LONGINT meta=0 nullable=1 is_null=0 */
+###   @1=9223372036854775808 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ### INSERT INTO `test`.`t1`
 ### SET
-###   @1=-1 (18446744073709551615) /* LONGINT meta=0 nullable=1 is_null=0 */
+###   @1=18446744073709551615 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
 # at #
 # # server id #  end_log_pos # CRC32 # 	Xid = #
 COMMIT/*!*/;
@@ -1872,9 +1872,9 @@ BEGIN
 # # server id #  end_log_pos # CRC32 # 	Update_rows: table id # flags: STMT_END_F
 ### UPDATE `test`.`t1`
 ### WHERE
-###   @1=-9223372036854775808 (9223372036854775808) /* LONGINT meta=0 nullable=1 is_null=0 */
+###   @1=9223372036854775808 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
 ### SET
-###   @1=2 /* LONGINT meta=0 nullable=1 is_null=0 */
+###   @1=2 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
 # at #
 # # server id #  end_log_pos # CRC32 # 	Xid = #
 COMMIT/*!*/;
@@ -1898,7 +1898,7 @@ BEGIN
 # # server id #  end_log_pos # CRC32 # 	Delete_rows: table id # flags: STMT_END_F
 ### DELETE FROM `test`.`t1`
 ### WHERE
-###   @1=-1 (18446744073709551615) /* LONGINT meta=0 nullable=1 is_null=0 */
+###   @1=18446744073709551615 /* LONGINT UNSIGNED meta=0 nullable=1 is_null=0 */
 # at #
 # # server id #  end_log_pos # CRC32 # 	Xid = #
 COMMIT/*!*/;
