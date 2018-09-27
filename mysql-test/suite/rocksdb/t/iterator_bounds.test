@@ -1,0 +1,27 @@
+#
+# Issue #878: Descending scans from reverse column families return no results
+# due to iterator bounds
+#
+
+create table t (i int primary key, j int, key(j) comment 'rev:bf5_2');
+
+let $i=253;
+while ($i)
+{
+  --disable_query_log
+  truncate table t;
+  --enable_query_log
+  dec $i;
+}
+
+select *, hex(index_number) from information_schema.rocksdb_ddl where table_name = 't';
+
+create table u (i int primary key, j int, key(j) comment 'rev:bf5_2');
+
+insert into t values (1, 1);
+insert into u values (1, 1);
+
+select j from t order by j desc;
+
+drop table t;
+drop table u;
