@@ -9721,7 +9721,7 @@ void ha_rocksdb::setup_iterator_bounds(
     DBUG_ASSERT(size == Rdb_key_def::INDEX_NUMBER_SIZE);
     len = Rdb_key_def::INDEX_NUMBER_SIZE;
   } else {
-    auto len = eq_cond.size();
+    len = eq_cond.size();
     memcpy(upper_bound, eq_cond.data(), len);
     kd.successor(upper_bound, len);
     memcpy(lower_bound, eq_cond.data(), len);
