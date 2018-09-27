@@ -261,6 +261,9 @@ extern char *my_bind_addr_str;
 extern char *binlog_file_basedir_ptr, *binlog_index_basedir_ptr;
 extern char *per_user_session_var_default_val_ptr;
 extern char *per_user_session_var_user_name_delimiter_ptr;
+extern char *my_admin_bind_addr_str;
+extern uint mysqld_admin_port;
+extern bool listen_admin_interface_in_separate_thread;
 extern char glob_hostname[FN_REFLEN];
 extern char system_time_zone[30], *opt_init_file;
 extern char *opt_tc_log_file;
@@ -525,6 +528,7 @@ extern PSI_thread_key key_thread_handle_manager;
 extern PSI_thread_key key_thread_one_connection;
 extern PSI_thread_key key_thread_compress_gtid_table;
 extern PSI_thread_key key_thread_parser_service;
+extern PSI_thread_key key_thread_handle_con_admin_sockets;
 
 extern PSI_file_key key_file_binlog;
 extern PSI_file_key key_file_binlog_index;

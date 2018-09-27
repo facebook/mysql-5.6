@@ -18692,6 +18692,15 @@ ER_PLACEHOLDER_50076
 ER_PLACEHOLDER_50077
   eng "Placeholder"
 
+ER_INVALID_ADMIN_ADDRESS
+  eng "Invalid value for command line option admin-address: '%s'"
+
+ER_SERVER_STARTUP_ADMIN_INTERFACE
+  eng "Admin interface ready for connections, address: '%s'  port: %d"
+
+ER_CANT_CREATE_ADMIN_THREAD
+  eng "Can't create thread to handle admin connections (errno= %d)"
+
 #
 # FB error codes specifically for 8.0 only start at 50100.
 #
