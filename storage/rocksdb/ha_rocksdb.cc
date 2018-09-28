@@ -9710,7 +9710,6 @@ void ha_rocksdb::setup_iterator_bounds(
   // callers either with a local buffer of size Rdb_key_def::INDEX_NUMBER_SIZE
   // or it is called with m_scan_it_lower_bound.
   DBUG_ASSERT(bound_len >= Rdb_key_def::INDEX_NUMBER_SIZE);
-  uint len;
   // If eq_cond is shorter than Rdb_key_def::INDEX_NUMBER_SIZE, we should be
   // able to get better bounds just by using index id directly.
   if (eq_cond.size() < Rdb_key_def::INDEX_NUMBER_SIZE) {
@@ -9719,21 +9718,19 @@ void ha_rocksdb::setup_iterator_bounds(
     DBUG_ASSERT(size == Rdb_key_def::INDEX_NUMBER_SIZE);
     kd.get_supremum_key(upper_bound, &size);
     DBUG_ASSERT(size == Rdb_key_def::INDEX_NUMBER_SIZE);
-    len = Rdb_key_def::INDEX_NUMBER_SIZE;
   } else {
-    len = eq_cond.size();
-    memcpy(upper_bound, eq_cond.data(), len);
-    kd.successor(upper_bound, len);
-    memcpy(lower_bound, eq_cond.data(), len);
-    kd.predecessor(lower_bound, len);
+    memcpy(upper_bound, eq_cond.data(), bound_len);
+    kd.successor(upper_bound, bound_len);
+    memcpy(lower_bound, eq_cond.data(), bound_len);
+    kd.predecessor(lower_bound, bound_len);
   }
 
   if (kd.m_is_reverse_cf) {
-    *upper_bound_slice = rocksdb::Slice((const char *)lower_bound, len);
-    *lower_bound_slice = rocksdb::Slice((const char *)upper_bound, len);
+    *upper_bound_slice = rocksdb::Slice((const char *)lower_bound, bound_len);
+    *lower_bound_slice = rocksdb::Slice((const char *)upper_bound, bound_len);
   } else {
-    *upper_bound_slice = rocksdb::Slice((const char *)upper_bound, len);
-    *lower_bound_slice = rocksdb::Slice((const char *)lower_bound, len);
+    *upper_bound_slice = rocksdb::Slice((const char *)upper_bound, bound_len);
+    *lower_bound_slice = rocksdb::Slice((const char *)lower_bound, bound_len);
   }
 }
 
