@@ -1,13 +1,15 @@
+create table t (i int primary key) engine=rocksdb;
+drop table t;
 create table t (i int primary key, j int, key(j) comment 'rev:bf5_2') engine=rocksdb;
-select *, hex(index_number) from information_schema.rocksdb_ddl where table_name = 't';
-TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	COLUMN_FAMILY	INDEX_NUMBER	INDEX_TYPE	KV_FORMAT_VERSION	TTL_DURATION	INDEX_FLAGS	CF	AUTO_INCREMENT	hex(index_number)
-test	t	NULL	PRIMARY	0	766	1	13	0	0	default	NULL	2FE
-test	t	NULL	j	2	767	2	13	0	0	rev:bf5_2	NULL	2FF
-create table u (i int primary key, j int, key(j) comment 'rev:bf5_2') engine=rocksdb;
+select RIGHT(HEX(index_number), 2) from information_schema.rocksdb_ddl where table_name = 't';
+RIGHT(HEX(index_number), 2)
+FE
+FF
 insert into t values (1, 1);
-insert into u values (1, 1);
+select j from t order by j asc;
+j
+1
 select j from t order by j desc;
 j
 1
 drop table t;
-drop table u;

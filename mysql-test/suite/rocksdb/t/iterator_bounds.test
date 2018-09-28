@@ -3,25 +3,27 @@
 # due to iterator bounds
 #
 
-create table t (i int primary key, j int, key(j) comment 'rev:bf5_2') engine=rocksdb;
+create table t (i int primary key) engine=rocksdb;
 
-let $i=253;
-while ($i)
+let $cond=1;
+while ($cond)
 {
   --disable_query_log
   truncate table t;
   --enable_query_log
-  dec $i;
+  let $cond=`select RIGHT(HEX(index_number), 2) != "FD" from information_schema.rocksdb_ddl where table_name = 't'`;
 }
 
-select *, hex(index_number) from information_schema.rocksdb_ddl where table_name = 't';
+# Index id is now at FD. Create a table with primary and secondary key, so
+# that the secondary key index id ends in 0xFF.
 
-create table u (i int primary key, j int, key(j) comment 'rev:bf5_2') engine=rocksdb;
+drop table t;
+create table t (i int primary key, j int, key(j) comment 'rev:bf5_2') engine=rocksdb;
+select RIGHT(HEX(index_number), 2) from information_schema.rocksdb_ddl where table_name = 't';
 
 insert into t values (1, 1);
-insert into u values (1, 1);
 
+select j from t order by j asc;
 select j from t order by j desc;
 
 drop table t;
-drop table u;
