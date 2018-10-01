@@ -3650,6 +3650,7 @@ class Ignorable_log_event : public virtual binary_log::Ignorable_event,
   B_l : namespace binary_log
   @endinternal
 */
+const std::string TRX_META_DATA_HEADER = "::TRX_META_DATA::";
 class Rows_query_log_event : public Ignorable_log_event,
                              public binary_log::Rows_query_event {
  public:
@@ -3689,6 +3690,16 @@ class Rows_query_log_event : public Ignorable_log_event,
 #endif
   virtual size_t get_data_size() override {
     return Binary_log_event::IGNORABLE_HEADER_LEN + 1 + strlen(m_rows_query);
+  }
+
+  bool has_trx_meta_data() const {
+    std::string str(m_rows_query);
+    if (str.length() < (2 + TRX_META_DATA_HEADER.length() + 2)) return false;
+    // NOTE: Meta data comment format: /*::TRX_META_DATA::{.. JSON ..}*/
+    // so to check if the event contains trx meta data we check if the string
+    // "::TRX_META_DATA::" is present after the first two "/*" characters.
+    return str.compare(2, TRX_META_DATA_HEADER.length(),
+                       TRX_META_DATA_HEADER) == 0;
   }
 
  private:
