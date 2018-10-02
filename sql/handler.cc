@@ -7713,7 +7713,8 @@ int handler::write_locked_table_maps(THD *thd)
       if (lock == NULL)
         continue;
 
-      bool need_binlog_rows_query= thd->variables.binlog_rows_query_log_events;
+      bool need_binlog_rows_query=
+        thd->variables.binlog_rows_query_log_events || opt_binlog_trx_meta_data;
       TABLE **const end_ptr= lock->table + lock->table_count;
       for (TABLE **table_ptr= lock->table ; 
            table_ptr != end_ptr ;

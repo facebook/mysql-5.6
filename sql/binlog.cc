@@ -8580,25 +8580,24 @@ int THD::binlog_write_table_map(TABLE *table, bool is_transactional,
   binlog_cache_data *cache_data=
     cache_mngr->get_binlog_cache_data(is_transactional);
 
-  bool write_rows_query= binlog_rows_query && this->query();
-  if (write_rows_query)
+  if (binlog_rows_query)
   {
     std::string query;
     if (opt_binlog_trx_meta_data)
       query.append(gen_trx_metadata());
-    query.append(this->query(), this->query_length());
+    if (variables.binlog_rows_query_log_events && this->query())
+      query.append(this->query(), this->query_length());
 
-    /* Write the Rows_query_log_event into binlog before the table map */
-    Rows_query_log_event rows_query_ev(this, query.c_str(), query.length());
-    if ((error= cache_data->write_event(this, &rows_query_ev)))
-      DBUG_RETURN(error);
+    if (!query.empty())
+    {
+      /* Write the Rows_query_log_event into binlog before the table map */
+      Rows_query_log_event rows_query_ev(this, query.c_str(), query.length());
+      if ((error= cache_data->write_event(this, &rows_query_ev)))
+        DBUG_RETURN(error);
+    }
   }
 
-  if ((error= cache_data->write_event(this, &the_event,
-                                      // write meta data only if not written
-                                      // before in rows query event
-                                      !write_rows_query &&
-                                      opt_binlog_trx_meta_data)))
+  if ((error= cache_data->write_event(this, &the_event)))
     DBUG_RETURN(error);
 
   binlog_table_maps++;
