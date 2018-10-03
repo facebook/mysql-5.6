@@ -12,9 +12,9 @@ insert into t1 values();
 insert into t2 values();
 insert into t2 values();
 flush logs;
-purge binary logs before now();
+purge binary logs to 'binlog';
 flush logs;
-purge binary logs before now();
+purge binary logs to 'binlog';
 delete t1, t2 from t1, t2;
 flush logs;
 "There should be only one rows_query event in master binlog"

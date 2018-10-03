@@ -18,11 +18,15 @@ sync_slave_with_master;
 # start a fresh binlog
 connection master;
 flush logs;
-purge binary logs before now();
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+replace_result $binlog binlog;
+eval purge binary logs to '$binlog';
 
 connection slave;
 flush logs;
-purge binary logs before now();
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+replace_result $binlog binlog;
+eval purge binary logs to '$binlog';
 
 # multi-table statement, there should only be one rows_query event for this
 connection master;
