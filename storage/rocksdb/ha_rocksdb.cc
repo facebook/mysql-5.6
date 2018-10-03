@@ -9704,18 +9704,29 @@ void ha_rocksdb::setup_iterator_bounds(
     const Rdb_key_def &kd, const rocksdb::Slice &eq_cond, size_t bound_len,
     uchar *const lower_bound, uchar *const upper_bound,
     rocksdb::Slice *lower_bound_slice, rocksdb::Slice *upper_bound_slice) {
-  uint min_len = std::min(eq_cond.size(), bound_len);
-  memcpy(upper_bound, eq_cond.data(), min_len);
-  kd.successor(upper_bound, min_len);
-  memcpy(lower_bound, eq_cond.data(), min_len);
-  kd.predecessor(lower_bound, min_len);
+  // If eq_cond is shorter than Rdb_key_def::INDEX_NUMBER_SIZE, we should be
+  // able to get better bounds just by using index id directly.
+  if (eq_cond.size() <= Rdb_key_def::INDEX_NUMBER_SIZE) {
+    DBUG_ASSERT(bound_len == Rdb_key_def::INDEX_NUMBER_SIZE);
+    uint size;
+    kd.get_infimum_key(lower_bound, &size);
+    DBUG_ASSERT(size == Rdb_key_def::INDEX_NUMBER_SIZE);
+    kd.get_supremum_key(upper_bound, &size);
+    DBUG_ASSERT(size == Rdb_key_def::INDEX_NUMBER_SIZE);
+  } else {
+    DBUG_ASSERT(bound_len <= eq_cond.size());
+    memcpy(upper_bound, eq_cond.data(), bound_len);
+    kd.successor(upper_bound, bound_len);
+    memcpy(lower_bound, eq_cond.data(), bound_len);
+    kd.predecessor(lower_bound, bound_len);
+  }
 
   if (kd.m_is_reverse_cf) {
-    *upper_bound_slice = rocksdb::Slice((const char *)lower_bound, min_len);
-    *lower_bound_slice = rocksdb::Slice((const char *)upper_bound, min_len);
+    *upper_bound_slice = rocksdb::Slice((const char *)lower_bound, bound_len);
+    *lower_bound_slice = rocksdb::Slice((const char *)upper_bound, bound_len);
   } else {
-    *upper_bound_slice = rocksdb::Slice((const char *)upper_bound, min_len);
-    *lower_bound_slice = rocksdb::Slice((const char *)lower_bound, min_len);
+    *upper_bound_slice = rocksdb::Slice((const char *)upper_bound, bound_len);
+    *lower_bound_slice = rocksdb::Slice((const char *)lower_bound, bound_len);
   }
 }
 
@@ -9734,8 +9745,17 @@ void ha_rocksdb::setup_scan_iterator(const Rdb_key_def &kd,
   bool skip_bloom = true;
 
   const rocksdb::Slice eq_cond(slice->data(), eq_cond_len);
+  // The size of m_scan_it_lower_bound (and upper) is technically
+  // max_packed_sk_len as calculated in ha_rocksdb::alloc_key_buffers.  Rather
+  // than recalculating that number, we pass in the max of eq_cond_len and
+  // Rdb_key_def::INDEX_NUMBER_SIZE which is guaranteed to be smaller than
+  // max_packed_sk_len, hence ensuring no buffer overrun.
+  //
+  // See ha_rocksdb::setup_iterator_bounds on how the bound_len parameter is
+  // used.
   if (check_bloom_and_set_bounds(
-          ha_thd(), kd, eq_cond, use_all_keys, eq_cond_len,
+          ha_thd(), kd, eq_cond, use_all_keys,
+          std::max(eq_cond_len, (uint)Rdb_key_def::INDEX_NUMBER_SIZE),
           m_scan_it_lower_bound, m_scan_it_upper_bound,
           &m_scan_it_lower_bound_slice, &m_scan_it_upper_bound_slice)) {
     skip_bloom = false;
