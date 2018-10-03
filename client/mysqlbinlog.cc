@@ -675,8 +675,8 @@ ulong filter_server_id = 0;
   the event_pos is used to store the current event log postion.
 */
 struct buff_event_info {
-  Log_event *event;
-  my_off_t event_pos;
+  Log_event *event = nullptr;
+  my_off_t event_pos = 0;
 };
 
 /*
@@ -808,6 +808,8 @@ static char *opt_include_gtids_str = nullptr, *opt_exclude_gtids_str = nullptr,
 static char *opt_index_file_str = nullptr;
 Gtid_set_map previous_gtid_set_map;
 static bool opt_skip_gtids = false;
+static bool opt_skip_rows_query =
+    false; /* Placeholder for skip_rows_query diff */
 static bool opt_skip_empty_trans = 0;
 static bool filter_based_on_gtids = false;
 static bool opt_require_row_format = false;
@@ -830,6 +832,13 @@ static Exit_status dump_multiple_logs(int argc, char **argv);
 static Exit_status safe_connect();
 
 struct buff_event_info buff_event;
+
+// the last seen rows_query event buffered so we can check database/table
+// filters in the table_map/query event before printing it
+static buff_event_info last_rows_query_event;
+// the `temp_buf` data member of the last seen rows_query event, this stores the
+// serialized event and is used to print the event in base64 format
+static char *last_rows_query_event_temp_buf = nullptr;
 
 class Load_log_processor {
   char target_dir_name[FN_REFLEN];
@@ -1457,6 +1466,27 @@ void end_binlog(PRINT_EVENT_INFO *print_event_info) {
   in_transaction = false;
 }
 
+void handle_last_rows_query_event(bool print,
+                                  PRINT_EVENT_INFO *print_event_info) {
+  if (!last_rows_query_event.event) return;
+  auto old_temp_buf = last_rows_query_event.event->temp_buf;
+  last_rows_query_event.event->register_temp_buf(
+      last_rows_query_event_temp_buf);
+  if (print) {
+    my_off_t temp_log_pos = last_rows_query_event.event_pos;
+    auto old_hexdump_from = print_event_info->hexdump_from;
+    print_event_info->hexdump_from = (opt_hexdump ? temp_log_pos : 0);
+    last_rows_query_event.event->print(result_file, print_event_info);
+    print_event_info->hexdump_from = old_hexdump_from;
+  }
+  last_rows_query_event.event->register_temp_buf(old_temp_buf);
+  my_free(last_rows_query_event_temp_buf);
+  last_rows_query_event_temp_buf = nullptr;
+  delete last_rows_query_event.event;
+  last_rows_query_event.event = nullptr;
+  last_rows_query_event.event_pos = 0;
+}
+
 /**
   Print the given event, and either delete it or delegate the deletion
   to someone else.
@@ -1573,6 +1603,20 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
             temp_event->print(result_file, print_event_info);
           delete temp_event;
         }
+
+        // dbug_case: rows_query event comes in SBR only when
+        // binlog_trx_meta_data is enabled and it comes just before the real
+        // query event (i.e. not a trx keyword like BEGIN, COMMIT etc.)
+        DBUG_ASSERT(
+            !last_rows_query_event.event ||
+            (static_cast<Rows_query_log_event *>(last_rows_query_event.event)
+                 ->has_trx_meta_data() &&
+             !((Query_log_event *)ev)->is_trans_keyword()));
+
+        // when binlog_trx_meta_data is enabled we will get rows_query event
+        // before query events
+        handle_last_rows_query_event(
+            !opt_skip_rows_query && !parent_query_skips, print_event_info);
 
         print_event_info->hexdump_from = (opt_hexdump ? pos : 0);
         buff_ev->clear();
@@ -1774,6 +1818,35 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
         if (fname) my_free(fname);
         break;
       }
+      case binary_log::ROWS_QUERY_LOG_EVENT: {
+        if (last_rows_query_event.event || last_rows_query_event_temp_buf) {
+          error(
+              "Found a buffered rows_query event while processing one. This "
+              "might mean that the binlog contains consecutive rows_query "
+              "events. We expect a table_map or query event after rows_query.");
+          goto err;
+        }
+        // case: we can have rows_query event containing trx metadata in SBR, to
+        // avoid unflushed event warning we'll skip setting this flag when the
+        // rows_query event contains trx metadata
+        auto rq = static_cast<Rows_query_log_event *>(ev);
+        print_event_info->have_unflushed_events = !rq->has_trx_meta_data();
+        last_rows_query_event.event = rq;
+        last_rows_query_event.event_pos = pos;
+        if (ev->temp_buf) {
+          last_rows_query_event_temp_buf = static_cast<char *>(
+              my_malloc(PSI_NOT_INSTRUMENTED, ev->common_header->data_written,
+                        MYF(MY_WME)));
+          memcpy(last_rows_query_event_temp_buf, ev->temp_buf,
+                 ev->common_header->data_written);
+        } else {
+          last_rows_query_event_temp_buf = nullptr;
+        }
+        // event is cached and not freed
+        ev = nullptr;
+
+        break;
+      }
       case binary_log::TABLE_MAP_EVENT: {
         Table_map_log_event *map = ((Table_map_log_event *)ev);
         if (ev_database_changed(string(map->get_db_name()), print_event_info) !=
@@ -1784,12 +1857,17 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
           print_event_info->skipped_event_in_transaction = true;
           print_event_info->m_table_map_ignored.set_table(map->get_table_id(),
                                                           map);
+          // case: this event is skipped so clean up the buffered rows_query
+          handle_last_rows_query_event(false, print_event_info);
+          // event is cached and not freed
           ev = nullptr;
           goto end;
         }
+        // case: this event was not skipped, so let's print the buffered
+        // rows_query
+        handle_last_rows_query_event(!opt_skip_rows_query, print_event_info);
       }
       // Fall through
-      case binary_log::ROWS_QUERY_LOG_EVENT:
       case binary_log::WRITE_ROWS_EVENT:
       case binary_log::DELETE_ROWS_EVENT:
       case binary_log::UPDATE_ROWS_EVENT:
@@ -1797,6 +1875,9 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
       case binary_log::UPDATE_ROWS_EVENT_V1:
       case binary_log::DELETE_ROWS_EVENT_V1:
       case binary_log::PARTIAL_UPDATE_ROWS_EVENT: {
+        // dbug_case: we should have handled the buffered rows_query now that
+        // we're handling rows events
+        DBUG_ASSERT(!last_rows_query_event.event);
         bool stmt_end = false;
         Table_map_log_event *ignored_map = nullptr;
         if (ev_type == binary_log::WRITE_ROWS_EVENT ||
@@ -1896,13 +1977,8 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
 
         ev->print(result_file, print_event_info);
 
-        // case: we can have rows_query event containing trx metadata in SBR, to
-        // avoid unflushed event warning we'll skip setting this flag when the
-        // rows_query event contains trx metadata
-        if (!(ev_type == binary_log::ROWS_QUERY_LOG_EVENT &&
-              static_cast<Rows_query_log_event *>(ev)->has_trx_meta_data())) {
-          print_event_info->have_unflushed_events = true;
-        }
+        print_event_info->have_unflushed_events = true;
+
         /* Flush head,body and footer cache to result_file */
         if (stmt_end) {
           print_event_info->have_unflushed_events = false;
