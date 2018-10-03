@@ -9715,10 +9715,7 @@ void ha_rocksdb::setup_iterator_bounds(
     kd.get_supremum_key(upper_bound, &size);
     DBUG_ASSERT(size == Rdb_key_def::INDEX_NUMBER_SIZE);
   } else {
-    // Right now, if eq_cond.size() > Rdb_key_def::INDEX_NUMBER_SIZE, then
-    // bound_len should always equal eq_cond.size(). This also implies that
-    // bound_len > Rdb_key_def::INDEX_NUMBER_SIZE
-    DBUG_ASSERT(bound_len == eq_cond.size());
+    DBUG_ASSERT(bound_len <= eq_cond.size());
     memcpy(upper_bound, eq_cond.data(), bound_len);
     kd.successor(upper_bound, bound_len);
     memcpy(lower_bound, eq_cond.data(), bound_len);
