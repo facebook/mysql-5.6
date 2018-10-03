@@ -1,0 +1,37 @@
+create database d1;
+create database d2;
+flush logs;
+purge binary logs to 'binlog';
+use d1;
+/*comment*/ create table t1(a int) engine = innodb;
+/*comment*/ create table t2(a int) engine = innodb;
+use d2;
+/*comment*/ create table t1(a int) engine = innodb;
+/*comment*/ create table t2(a int) engine = innodb;
+use d1;
+/*comment*/ insert into t1 values(1);
+/*comment*/ insert into t2 values(1);
+use d2;
+/*comment*/ insert into t1 values(2);
+/*comment*/ insert into t2 values(2);
+use d1;
+/*comment*/ update t1 set a = 3;
+/*comment*/ update t2 set a = 3;
+use d2;
+/*comment*/ update t1 set a = 3;
+/*comment*/ update t2 set a = 3;
+use d1;
+/*comment*/ delete from t1;
+/*comment*/ delete from t2;
+use d2;
+/*comment*/ delete from t1;
+/*comment*/ delete from t2;
+flush logs;
+"There should be eight rows_query events in the binlog for d1 and d2 and none for test"
+8
+8
+0
+use d1;
+drop database d1;
+use d2;
+drop database d2;

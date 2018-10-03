@@ -193,9 +193,9 @@ SET TIMESTAMP=#/*!*/;
 BEGIN
 /*!*/;
 # at #
+# at #
 # # server id #  end_log_pos # CRC32 # 	Rows_query
 # insert into t1(a,b) values(1,1),(2,1)
-# at #
 # # server id #  end_log_pos # CRC32 # 	Table_map: `test`.`t1` mapped to number #
 # has_generated_invisible_primary_key=0
 # at #
@@ -228,9 +228,9 @@ SET TIMESTAMP=#/*!*/;
 BEGIN
 /*!*/;
 # at #
+# at #
 # # server id #  end_log_pos # CRC32 # 	Rows_query
 # update t1 set a = a + 5 where b = 1 LIMIT 1
-# at #
 # # server id #  end_log_pos # CRC32 # 	Table_map: `test`.`t1` mapped to number #
 # has_generated_invisible_primary_key=0
 # at #
@@ -262,9 +262,9 @@ SET TIMESTAMP=#/*!*/;
 BEGIN
 /*!*/;
 # at #
+# at #
 # # server id #  end_log_pos # CRC32 # 	Rows_query
 # delete from t1 where a = 6
-# at #
 # # server id #  end_log_pos # CRC32 # 	Table_map: `test`.`t1` mapped to number #
 # has_generated_invisible_primary_key=0
 # at #
@@ -307,9 +307,9 @@ SET TIMESTAMP=#/*!*/;
 BEGIN
 /*!*/;
 # at #
+# at #
 # # server id #  end_log_pos # CRC32 # 	Rows_query
 # insert into t2(a,b) values(2,1),(3,1)
-# at #
 # # server id #  end_log_pos # CRC32 # 	Table_map: `test`.`t2` mapped to number #
 # has_generated_invisible_primary_key=0
 # at #
@@ -323,9 +323,9 @@ BEGIN
 ###   @1=3 /* INT meta=0 nullable=1 is_null=0 */
 ###   @2=1 /* INT meta=0 nullable=1 is_null=0 */
 # at #
+# at #
 # # server id #  end_log_pos # CRC32 # 	Rows_query
 # update t2 set a = a + 5 where b = 1
-# at #
 # # server id #  end_log_pos # CRC32 # 	Table_map: `test`.`t2` mapped to number #
 # has_generated_invisible_primary_key=0
 # at #
@@ -345,9 +345,9 @@ BEGIN
 ###   @1=8 /* INT meta=0 nullable=1 is_null=0 */
 ###   @2=1 /* INT meta=0 nullable=1 is_null=0 */
 # at #
+# at #
 # # server id #  end_log_pos # CRC32 # 	Rows_query
 # delete from t2 where a = 7
-# at #
 # # server id #  end_log_pos # CRC32 # 	Table_map: `test`.`t2` mapped to number #
 # has_generated_invisible_primary_key=0
 # at #
@@ -374,9 +374,9 @@ SET TIMESTAMP=#/*!*/;
 BEGIN
 /*!*/;
 # at #
+# at #
 # # server id #  end_log_pos # CRC32 # 	Rows_query
 # insert into t1(a,b) values(1,5)
-# at #
 # # server id #  end_log_pos # CRC32 # 	Table_map: `test`.`t1` mapped to number #
 # has_generated_invisible_primary_key=0
 # at #
@@ -405,9 +405,9 @@ SET TIMESTAMP=#/*!*/;
 BEGIN
 /*!*/;
 # at #
+# at #
 # # server id #  end_log_pos # CRC32 # 	Rows_query
 # insert into t1(a,b) values(1,7)
-# at #
 # # server id #  end_log_pos # CRC32 # 	Table_map: `test`.`t1` mapped to number #
 # has_generated_invisible_primary_key=0
 # at #
@@ -436,9 +436,9 @@ SET TIMESTAMP=#/*!*/;
 BEGIN
 /*!*/;
 # at #
+# at #
 # # server id #  end_log_pos # CRC32 # 	Rows_query
 # insert into t2(a,b) values(2,5)
-# at #
 # # server id #  end_log_pos # CRC32 # 	Table_map: `test`.`t2` mapped to number #
 # has_generated_invisible_primary_key=0
 # at #
@@ -448,9 +448,9 @@ BEGIN
 ###   @1=2 /* INT meta=0 nullable=1 is_null=0 */
 ###   @2=5 /* INT meta=0 nullable=1 is_null=0 */
 # at #
+# at #
 # # server id #  end_log_pos # CRC32 # 	Rows_query
 # insert into t2(a,b) values(2,6)
-# at #
 # # server id #  end_log_pos # CRC32 # 	Table_map: `test`.`t2` mapped to number #
 # has_generated_invisible_primary_key=0
 # at #
@@ -545,9 +545,9 @@ SET TIMESTAMP=#/*!*/;
 BEGIN
 /*!*/;
 # at #
+# at #
 # # server id #  end_log_pos # CRC32 # 	Rows_query
 # insert into t3(a, b) values(1,1)
-# at #
 # # server id #  end_log_pos # CRC32 # 	Table_map: `test`.`t3` mapped to number #
 # has_generated_invisible_primary_key=0
 # at #
@@ -576,9 +576,9 @@ SET TIMESTAMP=#/*!*/;
 BEGIN
 /*!*/;
 # at #
+# at #
 # # server id #  end_log_pos # CRC32 # 	Rows_query
 # insert into t4(a, b) values(2,1)
-# at #
 # # server id #  end_log_pos # CRC32 # 	Table_map: `test`.`t4` mapped to number #
 # has_generated_invisible_primary_key=0
 # at #
@@ -607,9 +607,9 @@ SET TIMESTAMP=#/*!*/;
 BEGIN
 /*!*/;
 # at #
+# at #
 # # server id #  end_log_pos # CRC32 # 	Rows_query
 # update t3,t4 set t3.a=3, t4.a=4 where t3.b=t4.b
-# at #
 # # server id #  end_log_pos # CRC32 # 	Table_map: `test`.`t3` mapped to number #
 # has_generated_invisible_primary_key=0
 # at #
@@ -653,9 +653,9 @@ SET TIMESTAMP=#/*!*/;
 BEGIN
 /*!*/;
 # at #
+# at #
 # # server id #  end_log_pos # CRC32 # 	Rows_query
 # insert into t5(a, b) values(3,1)
-# at #
 # # server id #  end_log_pos # CRC32 # 	Table_map: `test`.`t5` mapped to number #
 # has_generated_invisible_primary_key=0
 # at #
@@ -684,9 +684,9 @@ SET TIMESTAMP=#/*!*/;
 BEGIN
 /*!*/;
 # at #
+# at #
 # # server id #  end_log_pos # CRC32 # 	Rows_query
 # update t4,t5 set t4.a=4, t5.a=5 where t4.b=t5.b
-# at #
 # # server id #  end_log_pos # CRC32 # 	Table_map: `test`.`t4` mapped to number #
 # has_generated_invisible_primary_key=0
 # at #
@@ -748,9 +748,9 @@ SET TIMESTAMP=#/*!*/;
 BEGIN
 /*!*/;
 # at #
+# at #
 # # server id #  end_log_pos # CRC32 # 	Rows_query
 # load data infile '../../std_data/words.dat' into table t6
-# at #
 # # server id #  end_log_pos # CRC32 # 	Table_map: `test`.`t6` mapped to number #
 # has_generated_invisible_primary_key=0
 # at #
