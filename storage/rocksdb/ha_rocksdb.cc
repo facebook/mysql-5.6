@@ -9705,23 +9705,19 @@ void ha_rocksdb::setup_iterator_bounds(
     const Rdb_key_def &kd, const rocksdb::Slice &eq_cond, size_t bound_len,
     uchar *const lower_bound, uchar *const upper_bound,
     rocksdb::Slice *lower_bound_slice, rocksdb::Slice *upper_bound_slice) {
-  // bound_len represents the lower_bound and upper_bound buffer size. It
-  // should always be greater than Rdb_key_def::INDEX_NUMBER_SIZE because
-  // callers either with a local buffer of size Rdb_key_def::INDEX_NUMBER_SIZE
-  // or it is called with m_scan_it_lower_bound.
-  DBUG_ASSERT(bound_len >= Rdb_key_def::INDEX_NUMBER_SIZE);
   // If eq_cond is shorter than Rdb_key_def::INDEX_NUMBER_SIZE, we should be
   // able to get better bounds just by using index id directly.
-  if (eq_cond.size() < Rdb_key_def::INDEX_NUMBER_SIZE) {
+  if (eq_cond.size() <= Rdb_key_def::INDEX_NUMBER_SIZE) {
+    DBUG_ASSERT(bound_len == Rdb_key_def::INDEX_NUMBER_SIZE);
     uint size;
     kd.get_infimum_key(lower_bound, &size);
     DBUG_ASSERT(size == Rdb_key_def::INDEX_NUMBER_SIZE);
     kd.get_supremum_key(upper_bound, &size);
     DBUG_ASSERT(size == Rdb_key_def::INDEX_NUMBER_SIZE);
   } else {
-    // Right now, if eq_cond.size() >= Rdb_key_def::INDEX_NUMBER_SIZE, then
-    // bound_len should always equal eq_cond.size(). If this changes, then use
-    // std::min to only copy up to the shorter string.
+    // Right now, if eq_cond.size() > Rdb_key_def::INDEX_NUMBER_SIZE, then
+    // bound_len should always equal eq_cond.size(). This also implies that
+    // bound_len > Rdb_key_def::INDEX_NUMBER_SIZE
     DBUG_ASSERT(bound_len == eq_cond.size());
     memcpy(upper_bound, eq_cond.data(), bound_len);
     kd.successor(upper_bound, bound_len);
