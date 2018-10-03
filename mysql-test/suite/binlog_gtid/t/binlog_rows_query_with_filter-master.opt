@@ -1,0 +1,2 @@
+--gtid_mode=ON --enforce_gtid_consistency --log_bin --log_slave_updates
+--binlog_rows_query_log_events --log_only_query_comments --binlog_trx_meta_data
