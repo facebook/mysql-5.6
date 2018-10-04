@@ -4780,7 +4780,7 @@ static int dump_all_tables_in_db(char *database) {
         }
       }
 
-      if (column_statistics &&
+      if (column_statistics && mysql_get_server_version(mysql) >= 80000 &&
           dump_column_statistics_for_table(table, database)) {
         /* purecov: begin inspected */
         if (path) my_fclose(md_result_file, MYF(MY_WME));
@@ -5062,7 +5062,8 @@ static int dump_selected_tables(char *db, char **table_names, int tables) {
       }
     }
 
-    if (column_statistics && dump_column_statistics_for_table(*pos, db)) {
+    if (column_statistics && mysql_get_server_version(mysql) >= 80000 &&
+        dump_column_statistics_for_table(*pos, db)) {
       /* purecov: begin inspected */
       if (path) my_fclose(md_result_file, MYF(MY_WME));
       maybe_exit(EX_MYSQLERR);
