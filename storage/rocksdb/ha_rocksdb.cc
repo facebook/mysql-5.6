@@ -13462,6 +13462,11 @@ rocksdb_validate_update_cf_options(THD * /* unused */,
     my_error(ER_WRONG_VALUE_FOR_VAR, MYF(0), "rocksdb_update_cf_options", str);
     return HA_EXIT_FAILURE;
   }
+  // Loop through option_map and create missing column families
+  for (Rdb_cf_options::Name_to_config_t::iterator it = option_map.begin();
+       it != option_map.end(); ++it) {
+    cf_manager.get_or_create_cf(rdb, it->first);
+  }
   return HA_EXIT_SUCCESS;
 }
 
