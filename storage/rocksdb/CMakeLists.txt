@@ -81,6 +81,25 @@ ELSE()
 ENDIF()
 
 SET(rocksdb_static_libs )
+
+IF (WITH_JEMALLOC)
+  FIND_LIBRARY(JEMALLOC_LIBRARY
+    NAMES libjemalloc${PIC_EXT}.a jemalloc
+    HINTS ${WITH_JEMALLOC}/lib)
+  SET(rocksdb_static_libs ${rocksdb_static_libs}
+    ${JEMALLOC_LIBRARY})
+  ADD_DEFINITIONS(-DROCKSDB_JEMALLOC)
+  ADD_DEFINITIONS(-DROCKSDB_MALLOC_USABLE_SIZE)
+ENDIF()
+
+IF (WITH_UNWIND)
+  FIND_LIBRARY(UNWIND_LIBRARY
+    NAMES libunwind${PIC_EXT}.a unwind
+    HINTS ${WITH_UNWIND}/lib)
+  SET(rocksdb_static_libs ${rocksdb_static_libs}
+    ${UNWIND_LIBRARY})
+ENDIF()
+
 IF (WITH_SNAPPY)
   FIND_LIBRARY(SNAPPY_LIBRARY
     NAMES libsnappy${PIC_EXT}.a snappy
@@ -129,7 +148,7 @@ IF (HAVE_ZLIB_H)
   SET(rocksdb_static_libs ${rocksdb_static_libs} ${ZLIB_LIBRARY})
 ENDIF()
 
-SET(rocksdb_static_libs ${rocksdb_static_libs} "-lrt")
+SET(rocksdb_static_libs ${rocksdb_static_libs} "-lrt" "-ldl" "-lpthread")
 
 MYSQL_ADD_PLUGIN(rocksdb_se ${ROCKSDB_SOURCES} STORAGE_ENGINE DEFAULT STATIC_ONLY
   LINK_LIBRARIES ${rocksdb_static_libs}
