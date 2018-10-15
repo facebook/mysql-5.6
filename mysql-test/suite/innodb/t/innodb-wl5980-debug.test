@@ -1,6 +1,6 @@
 #
 # This testcase is to check the various debug injection points
-# to make sure error conditions react corectly and acheive
+# to make sure error conditions react corectly and achieve
 # better code coverage.
 #
 
