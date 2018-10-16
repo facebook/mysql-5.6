@@ -256,6 +256,26 @@ public:
     return i;
   }
 
+  /*
+    The same as get_first_key, but get the key for the last entry in the index
+  */
+  inline int get_last_key(uchar *const key, uint *const size) const {
+    if (m_is_reverse_cf)
+      get_infimum_key(key, size);
+    else
+      get_supremum_key(key, size);
+
+    /* Find out how many bytes are the same as m_index_number */
+    uchar unmodified_key[INDEX_NUMBER_SIZE];
+    rdb_netbuf_store_index(unmodified_key, m_index_number);
+    int i;
+    for (i = 0; i < INDEX_NUMBER_SIZE; i++) {
+      if (key[i] != unmodified_key[i])
+        break;
+    }
+    return i;
+  }
+
   /* Make a key that is right after the given key. */
   static int successor(uchar *const packed_tuple, const uint &len);
 
