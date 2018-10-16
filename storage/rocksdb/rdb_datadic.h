@@ -265,7 +265,7 @@ public:
     else
       get_supremum_key(key, size);
 
-    /* Find out how many bytes of infimum are the same as m_index_number */
+    /* Find out how many bytes are the same as m_index_number */
     uchar unmodified_key[INDEX_NUMBER_SIZE];
     rdb_netbuf_store_index(unmodified_key, m_index_number);
     int i;
@@ -275,7 +275,6 @@ public:
     }
     return i;
   }
-
 
   /* Make a key that is right after the given key. */
   static int successor(uchar *const packed_tuple, const uint &len);
