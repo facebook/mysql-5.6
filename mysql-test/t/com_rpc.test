@@ -242,6 +242,10 @@ connection con1;
 reap;
 disconnect con1;
 
+connection default;
+let $wait_condition = select count(*) = 1 from information_schema.processlist;
+--source include/wait_condition.inc
+
 --echo
 --echo # Case 6: Test "show processlist" commands
 --echo
@@ -338,6 +342,8 @@ query_attrs_add rpc_id $rpc_id;
 
 # check session is attached to connection thread and query is being executed
 connection default;
+let $wait_condition = select count(*) = 1 from information_schema.processlist where SRV_ID=$rpc_id and COMMAND='Query attributes';
+--source include/wait_condition.inc
 --replace_result 3600 TIMEOUT $rpc_id rpc_id
 --replace_column 9 1 6 0
 eval select * from information_schema.srv_sessions where id=$rpc_id;
@@ -366,6 +372,10 @@ reap;
 
 # KILL Connection will remove the SRV session
 connection default;
+# Because of a race condition in mysqld that needs to be fixed, we have to
+# wait until the query is executing before sending the kill.
+let $wait_condition = select count(*) = 1 from information_schema.processlist where SRV_ID=$rpc_id and COMMAND='Query attributes';
+--source include/wait_condition.inc
 --replace_result $rpc_id rpc_id
 eval KILL $rpc_id;
 let $wait_condition = select count(*) = 0 from information_schema.processlist where SRV_ID=$rpc_id;
@@ -444,6 +454,8 @@ eval KILL $rpc_id6;
 eval KILL $lock_rpc_id;
 
 # should be nothing left in srv_sessions and processlist
+let $wait_condition = select count(id) = 1 from information_schema.processlist;
+--source include/wait_condition.inc
 select count(id) from information_schema.srv_sessions;
 select count(id) from information_schema.processlist;
 
