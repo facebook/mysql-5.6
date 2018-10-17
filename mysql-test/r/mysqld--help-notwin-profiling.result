@@ -1181,6 +1181,7 @@ The following options may be given as the first argument:
  --rocksdb-commit-time-batch-for-recovery 
  TransactionOptions::commit_time_batch_for_recovery for
  RocksDB
+ (Defaults to on; use --skip-rocksdb-commit-time-batch-for-recovery to disable.)
  --rocksdb-compact-cf=name 
  Compact column family
  --rocksdb-compaction-readahead-size=# 
@@ -2209,7 +2210,7 @@ rocksdb-cfstats ON
 rocksdb-checksums-pct 100
 rocksdb-collect-sst-properties TRUE
 rocksdb-commit-in-the-middle FALSE
-rocksdb-commit-time-batch-for-recovery FALSE
+rocksdb-commit-time-batch-for-recovery TRUE
 rocksdb-compact-cf 
 rocksdb-compaction-readahead-size 0
 rocksdb-compaction-sequential-deletes 0
