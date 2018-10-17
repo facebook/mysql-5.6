@@ -898,6 +898,7 @@ rocksdb_debug_ttl_rec_ts	0
 rocksdb_debug_ttl_snapshot_ts	0
 rocksdb_default_cf_options	
 rocksdb_delayed_write_rate	0
+rocksdb_delete_cf	
 rocksdb_delete_obsolete_files_period_micros	21600000000
 rocksdb_enable_2pc	ON
 rocksdb_enable_bulk_load_api	ON

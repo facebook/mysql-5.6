@@ -240,6 +240,41 @@ static void rocksdb_flush_all_memtables() {
   }
 }
 
+static void rocksdb_delete_column_family_stub(
+    THD *const /* thd */, struct st_mysql_sys_var *const /* var */,
+    void *const /* var_ptr */, const void *const /* save */) {}
+
+static int rocksdb_delete_column_family(
+    THD *const /* thd */, struct st_mysql_sys_var *const /* var */,
+    void *const /* var_ptr */, struct st_mysql_value *const value) {
+
+  // Return failure for now until the race condition between creating
+  // CF and deleting CF is resolved
+  return HA_EXIT_FAILURE;
+
+  char buff[STRING_BUFFER_USUAL_SIZE];
+  int len = sizeof(buff);
+
+  DBUG_ASSERT(value != nullptr);
+
+  if (const char *const cf = value->val_str(value, buff, &len)) {
+    auto &cf_manager = rdb_get_cf_manager();
+    auto ret = cf_manager.drop_cf(cf);
+    if (ret == HA_EXIT_SUCCESS) {
+      // NO_LINT_DEBUG
+      sql_print_information("RocksDB: Dropped column family: %s\n", cf);
+    } else {
+      // NO_LINT_DEBUG
+      sql_print_error("RocksDB: Failed to drop column family: %s, error: %d\n",
+                      cf, ret);
+    }
+
+    return ret;
+  }
+
+  return HA_EXIT_SUCCESS;
+}
+
 ///////////////////////////////////////////////////////////
 // Hash map: table name => open table handler
 ///////////////////////////////////////////////////////////
@@ -503,6 +538,7 @@ static my_bool rocksdb_debug_optimizer_no_zero_cardinality;
 static uint32_t rocksdb_wal_recovery_mode;
 static uint32_t rocksdb_access_hint_on_compaction_start;
 static char *rocksdb_compact_cf_name;
+static char *rocksdb_delete_cf_name;
 static char *rocksdb_checkpoint_name;
 static my_bool rocksdb_signal_drop_index_thread;
 static my_bool rocksdb_strict_collation_check = 1;
@@ -1389,6 +1425,10 @@ static MYSQL_SYSVAR_STR(compact_cf, rocksdb_compact_cf_name,
                         rocksdb_compact_column_family,
                         rocksdb_compact_column_family_stub, "");
 
+static MYSQL_SYSVAR_STR(delete_cf, rocksdb_delete_cf_name, PLUGIN_VAR_RQCMDARG,
+                        "Delete column family", rocksdb_delete_column_family,
+                        rocksdb_delete_column_family_stub, "");
+
 static MYSQL_SYSVAR_STR(create_checkpoint, rocksdb_checkpoint_name,
                         PLUGIN_VAR_RQCMDARG, "Checkpoint directory",
                         rocksdb_create_checkpoint,
@@ -1753,6 +1793,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(debug_optimizer_no_zero_cardinality),
 
     MYSQL_SYSVAR(compact_cf),
+    MYSQL_SYSVAR(delete_cf),
     MYSQL_SYSVAR(signal_drop_index_thread),
     MYSQL_SYSVAR(pause_background_work),
     MYSQL_SYSVAR(enable_2pc),
