@@ -876,7 +876,7 @@ rocksdb_cache_index_and_filter_with_high_priority	ON
 rocksdb_checksums_pct	100
 rocksdb_collect_sst_properties	ON
 rocksdb_commit_in_the_middle	OFF
-rocksdb_commit_time_batch_for_recovery	OFF
+rocksdb_commit_time_batch_for_recovery	ON
 rocksdb_compact_cf	
 rocksdb_compaction_readahead_size	0
 rocksdb_compaction_sequential_deletes	0
