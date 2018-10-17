@@ -754,7 +754,7 @@ static MYSQL_THDVAR_ULONG(deadlock_detect_depth, PLUGIN_VAR_RQCMDARG,
 static MYSQL_THDVAR_BOOL(
     commit_time_batch_for_recovery, PLUGIN_VAR_RQCMDARG,
     "TransactionOptions::commit_time_batch_for_recovery for RocksDB", nullptr,
-    nullptr, FALSE);
+    nullptr, TRUE);
 
 static MYSQL_THDVAR_BOOL(
     trace_sst_api, PLUGIN_VAR_RQCMDARG,
