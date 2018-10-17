@@ -1263,6 +1263,8 @@ The following options may be given as the first argument:
  default cf options for RocksDB
  --rocksdb-delayed-write-rate=# 
  DBOptions::delayed_write_rate
+ --rocksdb-delete-cf=name 
+ Delete column family
  --rocksdb-delete-obsolete-files-period-micros=# 
  DBOptions::delete_obsolete_files_period_micros for
  RocksDB
@@ -2231,6 +2233,7 @@ rocksdb-debug-ttl-rec-ts 0
 rocksdb-debug-ttl-snapshot-ts 0
 rocksdb-default-cf-options 
 rocksdb-delayed-write-rate 0
+rocksdb-delete-cf 
 rocksdb-delete-obsolete-files-period-micros 21600000000
 rocksdb-enable-2pc TRUE
 rocksdb-enable-bulk-load-api TRUE
