@@ -78,7 +78,9 @@ class Rdb_cf_manager {
                                                 const std::string &cf_name);
 
   /* Used by table open */
-  rocksdb::ColumnFamilyHandle *get_cf(const std::string &cf_name) const;
+  rocksdb::ColumnFamilyHandle *
+  get_cf(const std::string &cf_name,
+         const bool lock_held_by_caller = false) const;
 
   /* Look up cf by id; used by datadic */
   rocksdb::ColumnFamilyHandle *get_cf(const uint32_t &id) const;
@@ -89,7 +91,8 @@ class Rdb_cf_manager {
   /* Used to iterate over column families */
   std::vector<rocksdb::ColumnFamilyHandle *> get_all_cf(void) const;
 
-  // void drop_cf(); -- not implemented so far.
+  /* Used to delete cf by name */
+  int drop_cf(const std::string &cf_name);
 
   void get_cf_options(const std::string &cf_name,
                       rocksdb::ColumnFamilyOptions *const opts)
