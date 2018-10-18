@@ -17,8 +17,8 @@ include/sync_slave_sql_with_master.inc
 # Slave's UUID appears in the result of 'SHOW SLAVE HOSTS'.
 -----------------------------------------------------------------------------
 SHOW SLAVE HOSTS;
-Server_id	Host	Port	Master_id	Slave_UUID
-2	127.0.0.1	SLAVE_PORT	1	SLAVE_UUID
+Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
+2	127.0.0.1	SLAVE_PORT	1	SLAVE_UUID	0	REPL_STATUS_ASYNC
 include/check_slave_param.inc [Master_UUID]
 
 # Case 2: 

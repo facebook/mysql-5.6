@@ -9,7 +9,9 @@
 # Remove the "Rpl_recovery_rank" column from SHOW SLAVE HOSTS, It is not
 # implemented.
 #######################################################################
+source include/have_debug_sync.inc;
 source include/master-slave.inc;
+source include/install_semisync.inc;
 connect (slave2,127.0.0.1,root,,test,$SLAVE_MYPORT2,);
 
 connection slave2;
@@ -21,13 +23,17 @@ START SLAVE IO_THREAD;
 source include/wait_for_slave_io_to_start.inc;
 
 connection master;
+
+CREATE TABLE t1 (data LONGBLOB);
+INSERT INTO t1 (data) VALUES (repeat('a',1024*1024));
+DROP TABLE t1;
+
 let $show_statement= SHOW SLAVE HOSTS;
 let $field= Server_id;
 # 3 is server_id of slave2.
 let $condition= ='3';
 source include/wait_show_condition.inc;
 --replace_column 3 'SLAVE_PORT'
---replace_result $SLAVE_MYPORT SLAVE_PORT $DEFAULT_MASTER_PORT DEFAULT_PORT
 source include/show_slave_hosts.inc;
 
 connection slave2;
@@ -44,4 +50,5 @@ let $wait_for_all= 1;
 source include/wait_show_condition.inc;
 source include/show_slave_hosts.inc;
 
+source include/uninstall_semisync.inc;
 --source include/rpl_end.inc

@@ -408,6 +408,15 @@ void unregister_slave(THD* thd, bool only_mine, bool need_lock_slave_list)
   }
 }
 
+static bool is_semi_sync_slave(THD *thd)
+{
+  uchar name[] = "rpl_semi_sync_slave";
+  my_bool null_value;
+
+  user_var_entry *entry =
+    (user_var_entry*) my_hash_search(&thd->user_vars, name, sizeof(name) - 1);
+  return entry ? entry->val_int(&null_value) : 0;
+}
 
 /**
   Execute a SHOW SLAVE HOSTS statement.
@@ -436,6 +445,9 @@ bool show_slave_hosts(THD* thd)
   field_list.push_back(new Item_return_int("Master_id", 10,
 					   MYSQL_TYPE_LONG));
   field_list.push_back(new Item_empty_string("Slave_UUID", UUID_LENGTH));
+  field_list.push_back(new Item_return_int("Is_semi_sync_slave", 7,
+                                           MYSQL_TYPE_LONG));
+  field_list.push_back(new Item_empty_string("Replication_status", 20));
 
   if (protocol->send_result_set_metadata(&field_list,
                             Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
@@ -461,6 +473,12 @@ bool show_slave_hosts(THD* thd)
     String slave_uuid;
     if (get_slave_uuid(si->thd, &slave_uuid))
       protocol->store(slave_uuid.c_ptr_safe(), &my_charset_bin);
+
+    protocol->store(is_semi_sync_slave(si->thd));
+    char *replication_status = si->thd->query();
+    if (replication_status)
+      protocol->store(replication_status, &my_charset_bin);
+
     if (protocol->write())
     {
       mysql_mutex_unlock(&LOCK_slave_list);
@@ -987,14 +1005,6 @@ static int fake_rotate_event(NET* net, String* packet, char* log_file_name,
     DBUG_RETURN(-1);
   }
   DBUG_RETURN(0);
-}
-
-static bool is_semi_sync_slave()
-{
-  int null_value;
-  long long val= 0;
-  get_user_var_int("rpl_semi_sync_slave", &val, &null_value);
-  return val;
 }
 
 /*
@@ -2035,7 +2045,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   if (log_warnings > 1)
     sql_print_information("Start binlog_dump to master_thread_id(%u) slave_server(%u), pos(%s, %lu)",
                           thd->thread_id(), thd->server_id, log_ident, (ulong)pos);
-  semi_sync_slave = is_semi_sync_slave();
+  semi_sync_slave = is_semi_sync_slave(thd);
   if (semi_sync_slave &&
       RUN_HOOK(binlog_transmit, transmit_start,
                (thd, flags, log_ident, pos, &observe_transmission)))

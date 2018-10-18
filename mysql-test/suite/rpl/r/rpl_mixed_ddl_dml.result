@@ -13,8 +13,8 @@ n
 2001
 2002
 SHOW SLAVE HOSTS;
-Server_id	Host	Port	Master_id	Slave_UUID
-2	127.0.0.1	SLAVE_PORT	1	SLAVE_UUID
+Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
+2	127.0.0.1	SLAVE_PORT	1	SLAVE_UUID	0	REPL_STATUS_ASYNC
 drop table t1;
 include/sync_slave_sql_with_master.inc
 stop slave;
