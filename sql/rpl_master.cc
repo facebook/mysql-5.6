@@ -478,6 +478,8 @@ bool show_slave_hosts(THD* thd)
     char *replication_status = si->thd->query();
     if (replication_status)
       protocol->store(replication_status, &my_charset_bin);
+    else
+      protocol->store("", &my_charset_bin);
 
     if (protocol->write())
     {
