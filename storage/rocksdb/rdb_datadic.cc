@@ -939,6 +939,15 @@ bool Rdb_key_def::covers_lookup(TABLE *const table,
   return bitmap_is_subset(lookup_bitmap, &covered_bitmap);
 }
 
+/* Indicates that all key parts can be unpacked to cover a secondary lookup */
+bool Rdb_key_def::can_cover_lookup() const {
+  for (uint i = 0; i < m_key_parts; i++) {
+    if (!m_pack_info[i].m_covered)
+      return false;
+  }
+  return true;
+}
+
 uchar *Rdb_key_def::pack_field(Field *const field, Rdb_field_packing *pack_info,
                                uchar *tuple, uchar *const packed_tuple,
                                uchar *const pack_buffer,
