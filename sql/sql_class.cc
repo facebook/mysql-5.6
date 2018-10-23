@@ -5589,13 +5589,18 @@ void THD::set_connection_attrs(const char *attrs, size_t length)
 
 void THD::set_query_attrs(const char *attrs, size_t length)
 {
-  query_attrs_string = std::string(attrs, length);
-
   mysql_mutex_lock(&LOCK_thd_data);
   set_attrs_map(
-      query_attrs_string.c_str(),
-      query_attrs_string.length(),
+      attrs,
+      length,
       query_attrs_map);
+  mysql_mutex_unlock(&LOCK_thd_data);
+}
+
+void THD::set_query_attrs(
+    const std::unordered_map<std::string, std::string>& attrs) {
+  mysql_mutex_lock(&LOCK_thd_data);
+  query_attrs_map = attrs;
   mysql_mutex_unlock(&LOCK_thd_data);
 }
 

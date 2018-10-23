@@ -90,10 +90,12 @@ static void general_class_handler(THD *thd, uint event_subtype, va_list ap)
   event.general_ip= va_arg(ap, MYSQL_LEX_STRING);
   event.database= va_arg(ap, const char *);
   event.database_length= va_arg(ap, unsigned int);
-  event.query_attributes= va_arg(ap, const char*);
+  event.query_attributes= va_arg(ap, const char**);
   event.query_attributes_length= va_arg(ap, unsigned int);
   event.query_id= thd ? (unsigned long long) thd->query_id : 0LL;
   event.port = va_arg(ap, unsigned int);
+  event.response_attributes = va_arg(ap, const char**);
+  event.response_attributes_length = va_arg(ap, unsigned int);
   event_class_dispatch(thd, MYSQL_AUDIT_GENERAL_CLASS, &event);
 }
 

@@ -4637,6 +4637,7 @@ public:
 
   void set_connection_attrs(const char *attrs, size_t length);
   void set_query_attrs(const char *attrs, size_t length);
+  void set_query_attrs(const std::unordered_map<std::string, std::string>& attrs);
   int parse_query_info_attr();
   void reset_query_attrs()
   {

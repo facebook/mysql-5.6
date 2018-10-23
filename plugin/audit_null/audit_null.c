@@ -19,6 +19,7 @@
 #include <mysql/plugin_audit.h>
 
 #include "my_attribute.h"
+#include "my_sys.h"
 
 static volatile int number_of_calls; /* for SHOW STATUS, see below */
 /* Count MYSQL_AUDIT_GENERAL_CLASS event instances */
@@ -31,7 +32,55 @@ static volatile int number_of_calls_connection_connect;
 static volatile int number_of_calls_connection_disconnect;
 static volatile int number_of_calls_connection_change_user;
 
+static volatile char *query_attributes;
+static volatile char *response_attributes;
 
+static const int attr_buf_size = 1000;
+
+static void serializeAttrsIntoBuffer(
+    const char **attrs,
+    unsigned int length,
+    char *buf,
+    unsigned int buf_length
+) {
+  DBUG_ASSERT(length % 2 == 0);
+  if (attrs && length) {
+    for (unsigned int i = 0; (i + 1) < length; i += 2) {
+      int written = snprintf(buf, buf_length, "%s=%s,", attrs[i], attrs[i+1]);
+      buf_length -= written;
+      buf += written;
+      DBUG_ASSERT(buf_length);
+    }
+  } else {
+    snprintf(buf, buf_length, "No attributes");
+  }
+}
+
+/*
+ * Print an audit plugin event to the error log
+ *
+ * SYNOPSIS
+ *  log_event()
+ *
+ * DESCRIPTION
+ *  Prints some details of the event to the error log for testing
+ *
+ */
+static void log_event(const struct mysql_event_general* event)
+{
+  serializeAttrsIntoBuffer(
+      event->query_attributes,
+      event->query_attributes_length,
+      (char *)query_attributes,
+      attr_buf_size
+  );
+  serializeAttrsIntoBuffer(
+      event->response_attributes,
+      event->response_attributes_length,
+      (char *)response_attributes,
+      attr_buf_size
+  );
+}
 /*
   Initialize the plugin at server start or plugin installation.
 
@@ -56,6 +105,8 @@ static int audit_null_plugin_init(void *arg MY_ATTRIBUTE((unused)))
   number_of_calls_connection_connect= 0;
   number_of_calls_connection_disconnect= 0;
   number_of_calls_connection_change_user= 0;
+  query_attributes = my_malloc(attr_buf_size, MY_ZEROFILL);
+  response_attributes = my_malloc(attr_buf_size, MY_ZEROFILL);
   return(0);
 }
 
@@ -75,6 +126,10 @@ static int audit_null_plugin_init(void *arg MY_ATTRIBUTE((unused)))
 
 static int audit_null_plugin_deinit(void *arg MY_ATTRIBUTE((unused)))
 {
+  my_free((void*)query_attributes);
+  query_attributes = NULL;
+  my_free((void*)response_attributes);
+  response_attributes = NULL;
   return(0);
 }
 
@@ -111,6 +166,7 @@ static void audit_null_notify(MYSQL_THD thd MY_ATTRIBUTE((unused)),
       number_of_calls_general_result++;
       break;
     case MYSQL_AUDIT_GENERAL_STATUS:
+      log_event(event);
       number_of_calls_general_status++;
       break;
     default:
@@ -182,6 +238,12 @@ static struct st_mysql_show_var simple_status[]=
   { "Audit_null_connection_change_user",
     (char *) &number_of_calls_connection_change_user,
     SHOW_INT },
+  { "Audit_null_query_attributes",
+    (char *) &query_attributes,
+    SHOW_CHAR_PTR },
+  { "Audit_null_response_attributes",
+    (char *) &response_attributes,
+    SHOW_CHAR_PTR },
   { 0, 0, 0}
 };
 

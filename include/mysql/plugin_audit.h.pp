@@ -288,9 +288,11 @@ struct mysql_event_general
   const char *database;
   unsigned int database_length;
   unsigned long long affected_rows;
-  const char *query_attributes;
+  const char **query_attributes;
   unsigned int query_attributes_length;
   unsigned int port;
+  const char **response_attributes;
+  unsigned int response_attributes_length;
 };
 struct mysql_event_connection
 {

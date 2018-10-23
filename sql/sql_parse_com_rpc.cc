@@ -231,6 +231,7 @@ std::pair<bool, std::shared_ptr<Srv_session>>  handle_com_rpc(THD *conn_thd)
   srv_session_thd->net.compress = conn_thd->net.compress;
   srv_session_thd->net.vio = conn_thd->net.vio;
   srv_session_thd->set_stmt_da(conn_thd->get_stmt_da());
+  srv_session_thd->set_query_attrs(conn_thd->query_attrs_map);
 
   // set srv_session THD, used by "show processlist"
   conn_thd->set_attached_srv_session(srv_session);

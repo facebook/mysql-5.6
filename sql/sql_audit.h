@@ -38,6 +38,27 @@ extern void mysql_audit_acquire_plugins(THD *thd, uint event_class);
 extern void mysql_audit_notify(THD *thd, uint event_class,
                                uint event_subtype, ...);
 bool is_any_audit_plugin_active(THD *thd MY_ATTRIBUTE((unused)));
+
+static void get_query_attributes_from_thd(THD* thd, std::vector<const char*>& out) {
+  mysql_mutex_lock(&thd->LOCK_thd_data);
+  for (const auto& kp : thd->query_attrs_map) {
+    out.push_back(kp.first.c_str());
+    out.push_back(kp.second.c_str());
+  }
+  mysql_mutex_unlock(&thd->LOCK_thd_data);
+  DBUG_ASSERT(out.size() % 2 == 0);
+}
+
+static void get_audit_attributes_from_thd(THD* thd, std::vector<const char*>& out) {
+  Session_tracker* tracker = thd->get_tracker();
+  if (tracker) {
+    for (const auto& kp : tracker->get_audit_attrs()) {
+      out.push_back(kp.first.c_str());
+      out.push_back(kp.second.c_str());
+    }
+  }
+  DBUG_ASSERT(out.size() % 2 == 0);
+}
 #else
 #define mysql_audit_notify(...)
 #endif
@@ -78,9 +99,11 @@ void mysql_audit_general_log(THD *thd, const char *cmd, uint cmdlen,
     ha_rows resultrows= 0;
     longlong affectrows= 0;
     int error_code= 0; 
-    uint userlen, databaselen, queryattrlen;
-    const char *user, *database, *queryattr;
+    uint userlen, databaselen;
+    const char *user, *database;
     time_t time= (time_t) thd->start_time.tv_sec;
+    std::vector<const char*> query_attrs;
+    std::vector<const char*> audit_attrs;
 
     if (thd)
     {
@@ -112,8 +135,8 @@ void mysql_audit_general_log(THD *thd, const char *cmd, uint cmdlen,
       sql_command.length= sql_statement_names[thd->lex->sql_command].length;
       database= thd->db;
       databaselen= thd->db_length;
-      queryattr= thd->query_attrs();
-      queryattrlen= thd->query_attrs_length();
+      get_query_attributes_from_thd(thd, query_attrs);
+      get_audit_attributes_from_thd(thd, audit_attrs);
     }
     else
     {
@@ -125,8 +148,6 @@ void mysql_audit_general_log(THD *thd, const char *cmd, uint cmdlen,
       sql_command= empty;
       database= 0;
       databaselen= 0;
-      queryattr= 0;
-      queryattrlen= 0;
     }
     const CHARSET_INFO *clientcs= thd ? thd->variables.character_set_client
       : global_system_variables.character_set_client;
@@ -135,7 +156,8 @@ void mysql_audit_general_log(THD *thd, const char *cmd, uint cmdlen,
                        error_code, time, user, userlen, cmd, cmdlen, query.str,
                        query.length, clientcs, resultrows, affectrows,
                        sql_command, host, external_user, ip, database,
-                       databaselen, queryattr, queryattrlen, mysqld_port);
+                       databaselen, query_attrs.data(), query_attrs.size(),
+                       mysqld_port, audit_attrs.data(), audit_attrs.size());
   }
 #endif
 }
@@ -162,8 +184,8 @@ void mysql_audit_general(THD *thd, uint event_subtype,
   {
     time_t time= my_time(0);
     uint msglen= msg ? strlen(msg) : 0;
-    uint userlen, databaselen, queryattrlen;
-    const char *user, *database, *queryattr;
+    uint userlen, databaselen;
+    const char *user, *database;
     CSET_STRING query;
     MYSQL_LEX_STRING ip, host, external_user, sql_command;
     // Result rows will hold the number of rows sent to the client.
@@ -173,7 +195,8 @@ void mysql_audit_general(THD *thd, uint event_subtype,
     // THD::get_row_count_func for details.
     longlong affectrows;
     static MYSQL_LEX_STRING empty= { C_STRING_WITH_LEN("") };
-
+    std::vector<const char*> query_attrs;
+    std::vector<const char*> audit_attrs;
 
     if (thd)
     {
@@ -199,8 +222,8 @@ void mysql_audit_general(THD *thd, uint event_subtype,
       sql_command.length= sql_statement_names[thd->lex->sql_command].length;
       database= thd->db;
       databaselen= thd->db_length;
-      queryattr= thd->query_attrs();
-      queryattrlen= thd->query_attrs_length();
+      get_query_attributes_from_thd(thd, query_attrs);
+      get_audit_attributes_from_thd(thd, audit_attrs);
     }
     else
     {
@@ -214,8 +237,6 @@ void mysql_audit_general(THD *thd, uint event_subtype,
       affectrows= 0;
       database= 0;
       databaselen= 0;
-      queryattr= 0;
-      queryattrlen= 0;
     }
 
     mysql_audit_notify(thd, MYSQL_AUDIT_GENERAL_CLASS, event_subtype,
@@ -223,7 +244,8 @@ void mysql_audit_general(THD *thd, uint event_subtype,
                        query.str(), query.length(), query.charset(),
                        resultrows, affectrows, sql_command, host,
                        external_user, ip, database, databaselen,
-                       queryattr, queryattrlen, mysqld_port);
+                       query_attrs.data(), query_attrs.size(), mysqld_port,
+                       audit_attrs.data(), audit_attrs.size());
   }
 #endif
 }

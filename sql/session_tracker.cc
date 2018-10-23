@@ -352,6 +352,13 @@ bool Session_resp_attr_tracker::store(THD *thd, String &buf)
   return false;
 }
 
+void Session_resp_attr_tracker::audit_tracker(
+    std::map<std::string, std::string>& audit_map) {
+  for (const auto& kp : attrs_) {
+    audit_map[kp.first] = kp.second;
+  }
+}
+
 /**
   @brief Mark the tracker as changed and store the response attributes
 
@@ -500,8 +507,10 @@ void Session_tracker::store(THD *thd, String &buf)
   /* Get total length. */
   for (int i= 0; i <= SESSION_TRACKER_END; i ++)
   {
-    if (m_trackers[i]->is_changed(thd))
+    if (m_trackers[i]->is_changed(thd)) {
+      m_trackers[i]->audit_tracker(audit_attrs);
       m_trackers[i]->store(thd, temp);
+    }
   }
 
   length= temp.length();

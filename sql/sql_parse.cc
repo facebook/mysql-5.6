@@ -2422,6 +2422,7 @@ done:
 
   thd->reset_query();
   thd->reset_query_attrs();
+  thd->get_tracker()->reset_audit_attrs();
   thd->set_command(COM_SLEEP);
   thd->proc_info= 0;
 

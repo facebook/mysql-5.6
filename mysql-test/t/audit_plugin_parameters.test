@@ -1,0 +1,56 @@
+--source include/have_null_audit_plugin.inc
+--source include/not_embedded.inc
+
+# Adjustment to the OS dependent extension of shared libraries.
+let $expected_extension= so;
+if(`SELECT CONVERT(@@version_compile_os USING latin1)
+           IN ("Win32","Win64","Windows")`)
+{
+   let $expected_extension= dll;
+}
+
+CREATE DATABASE db_rpc;
+USE db_rpc;
+
+--replace_result $expected_extension <expected_extension>
+eval INSTALL PLUGIN null_audit SONAME 'adt_null.$expected_extension';
+
+# Connect separately and check that the RPC_ID and RPC_DB are recorded
+connect(con2,localhost,root,,);
+connection default;
+
+query_attrs_add rpc_role root;
+query_attrs_add rpc_db db_rpc;
+SET @my_var = 1;
+let $rpc_id = get_rpc_id();
+
+--replace_result $rpc_id my_rpc_id
+show status like 'Audit_null_%_attributes';
+
+query_attrs_delete rpc_db;
+query_attrs_delete rpc_role;
+
+connection con2;
+query_attrs_add rpc_id $rpc_id;
+
+use db_rpc;
+--replace_result $rpc_id my_rpc_id
+show status like 'Audit_null_%_attributes';
+
+SELECT @my_var;
+--replace_result $rpc_id my_rpc_id
+show status like 'Audit_null_%_attributes';
+
+query_attrs_delete rpc_id;
+disconnect con2;
+connection default;
+
+# Simple test with no attrs
+SELECT 23;
+show status like 'Audit_null_%_attributes';
+
+UNINSTALL PLUGIN null_audit;
+
+# cleanup
+DROP DATABASE db_rpc;
+--source include/restart_mysqld.inc
