@@ -1067,7 +1067,8 @@ bool mysqld_show_create_db(THD *thd, char *dbname,
       enclose_comment = true;
     }
     buffer.append(STRING_WITH_LEN(" DB_METADATA "));
-    buffer.append(create.db_metadata.ptr());
+    append_unescaped(&buffer, create.db_metadata.ptr(),
+                     create.db_metadata.length());
   }
 
   if (enclose_comment)

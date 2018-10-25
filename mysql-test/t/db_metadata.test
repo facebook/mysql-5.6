@@ -43,6 +43,13 @@ create database test5 db_metadata = "{\"shard\":\"test5_shard\"}";
 show create database test5;
 --exec cat $MYSQLD_DATADIR/test5/db.opt
 
+# verify show create is valid
+--let $db_create=query_get_value(show create database test5, 'Create Database', 1)
+drop database test5;
+eval $db_create;
+show create database test5;
+--exec cat $MYSQLD_DATADIR/test5/db.opt
+
 # create database with character set and db metadata
 create database test6 character set utf8 db_metadata = "{\"shard\":\"test6_shard\"}";
 show create database test6;
@@ -66,6 +73,28 @@ show create database test9;
 # create database with invalid JSON string for db_metadata
 --error ER_DB_METADATA_INVALID_JSON
 create database test10 db_metadata = "invalid_json";
+
+# create database with single quotation
+--error ER_DB_METADATA_INVALID_JSON
+create database test11 db_metadata = "{\'shard\':\'test11_shard\'}";
+
+# create database with double quote around metadata with single and double quotes in value
+create database test12 db_metadata = "{\"sha'rd\":\"test12\\\"_shard\"}";
+show create database test12;
+--exec cat $MYSQLD_DATADIR/test12/db.opt
+--let $db_create=query_get_value(show create database test12, 'Create Database', 1)
+drop database test12;
+eval $db_create;
+show create database test12;
+
+# create database with single quote around metadata with single and double quotes in value
+create database test13 db_metadata = '{"sha\'\\"rd":"test13\'_sh\\"ard"}';
+show create database test13;
+--exec cat $MYSQLD_DATADIR/test13/db.opt
+--let $db_create=query_get_value(show create database test13, 'Create Database', 1)
+drop database test13;
+eval $db_create;
+show create database test13;
 
 # alter database tests
 
@@ -121,6 +150,13 @@ show create database test5;
 
 # alter database set db metadata to max length string
 alter database test5 db_metadata "{\"shard\":\"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin\"}";
+show create database test5;
+--exec cat $MYSQLD_DATADIR/test5/db.opt
+
+# verify show create is valid
+--let $db_create=query_get_value(show create database test5, 'Create Database', 1)
+drop database test5;
+eval $db_create;
 show create database test5;
 --exec cat $MYSQLD_DATADIR/test5/db.opt
 
@@ -189,4 +225,7 @@ drop database if exists test7;
 drop database if exists test8;
 drop database if exists test9;
 drop database if exists test10;
+drop database if exists test11;
+drop database if exists test12;
+drop database if exists test13;
 --enable_warnings

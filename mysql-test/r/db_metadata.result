@@ -34,7 +34,16 @@ db-metadata=
 create database test5 db_metadata = "{\"shard\":\"test5_shard\"}";
 show create database test5;
 Database	Create Database
-test5	CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET latin1 DB_METADATA {"shard":"test5_shard"} */
+test5	CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET latin1 DB_METADATA '{"shard":"test5_shard"}' */
+default-character-set=latin1
+default-collation=latin1_swedish_ci
+db-read-only=0
+db-metadata={"shard":"test5_shard"}
+drop database test5;
+CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET latin1 DB_METADATA '{"shard":"test5_shard"}' */;
+show create database test5;
+Database	Create Database
+test5	CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET latin1 DB_METADATA '{"shard":"test5_shard"}' */
 default-character-set=latin1
 default-collation=latin1_swedish_ci
 db-read-only=0
@@ -42,7 +51,7 @@ db-metadata={"shard":"test5_shard"}
 create database test6 character set utf8 db_metadata = "{\"shard\":\"test6_shard\"}";
 show create database test6;
 Database	Create Database
-test6	CREATE DATABASE `test6` /*!40100 DEFAULT CHARACTER SET utf8 DB_METADATA {"shard":"test6_shard"} */
+test6	CREATE DATABASE `test6` /*!40100 DEFAULT CHARACTER SET utf8 DB_METADATA '{"shard":"test6_shard"}' */
 default-character-set=utf8
 default-collation=utf8_general_ci
 db-read-only=0
@@ -50,7 +59,7 @@ db-metadata={"shard":"test6_shard"}
 create database test7 read_only = true db_metadata = "{\"shard\":\"test7_shard\"}";
 show create database test7;
 Database	Create Database
-test7	CREATE DATABASE `test7` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY DB_METADATA {"shard":"test7_shard"} */
+test7	CREATE DATABASE `test7` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY DB_METADATA '{"shard":"test7_shard"}' */
 default-character-set=latin1
 default-collation=latin1_swedish_ci
 db-read-only=1
@@ -66,13 +75,41 @@ db-metadata=
 create database test9 character set utf8 read_only = true db_metadata = "{\"shard\":\"test9_shard\"}";
 show create database test9;
 Database	Create Database
-test9	CREATE DATABASE `test9` /*!40100 DEFAULT CHARACTER SET utf8 READ_ONLY DB_METADATA {"shard":"test9_shard"} */
+test9	CREATE DATABASE `test9` /*!40100 DEFAULT CHARACTER SET utf8 READ_ONLY DB_METADATA '{"shard":"test9_shard"}' */
 default-character-set=utf8
 default-collation=utf8_general_ci
 db-read-only=1
 db-metadata={"shard":"test9_shard"}
 create database test10 db_metadata = "invalid_json";
 ERROR HY000: Invalid JSON for DB_METADATA attribute: invalid_json.
+create database test11 db_metadata = "{\'shard\':\'test11_shard\'}";
+ERROR HY000: Invalid JSON for DB_METADATA attribute: {'shard':'test11_shard'}.
+create database test12 db_metadata = "{\"sha'rd\":\"test12\\\"_shard\"}";
+show create database test12;
+Database	Create Database
+test12	CREATE DATABASE `test12` /*!40100 DEFAULT CHARACTER SET latin1 DB_METADATA '{"sha''rd":"test12\\"_shard"}' */
+default-character-set=latin1
+default-collation=latin1_swedish_ci
+db-read-only=0
+db-metadata={"sha'rd":"test12\"_shard"}
+drop database test12;
+CREATE DATABASE `test12` /*!40100 DEFAULT CHARACTER SET latin1 DB_METADATA '{"sha''rd":"test12\\"_shard"}' */;
+show create database test12;
+Database	Create Database
+test12	CREATE DATABASE `test12` /*!40100 DEFAULT CHARACTER SET latin1 DB_METADATA '{"sha''rd":"test12\\"_shard"}' */
+create database test13 db_metadata = '{"sha\'\\"rd":"test13\'_sh\\"ard"}';
+show create database test13;
+Database	Create Database
+test13	CREATE DATABASE `test13` /*!40100 DEFAULT CHARACTER SET latin1 DB_METADATA '{"sha''\\"rd":"test13''_sh\\"ard"}' */
+default-character-set=latin1
+default-collation=latin1_swedish_ci
+db-read-only=0
+db-metadata={"sha'\"rd":"test13'_sh\"ard"}
+drop database test13;
+CREATE DATABASE `test13` /*!40100 DEFAULT CHARACTER SET latin1 DB_METADATA '{"sha''\\"rd":"test13''_sh\\"ard"}' */;
+show create database test13;
+Database	Create Database
+test13	CREATE DATABASE `test13` /*!40100 DEFAULT CHARACTER SET latin1 DB_METADATA '{"sha''\\"rd":"test13''_sh\\"ard"}' */
 alter database test3 character set ascii;
 show create database test3;
 Database	Create Database
@@ -84,7 +121,7 @@ db-metadata=
 alter database test3 db_metadata = "{\"shard\":\"test3_shard_altered\"}";
 show create database test3;
 Database	Create Database
-test3	CREATE DATABASE `test3` /*!40100 DEFAULT CHARACTER SET ascii DB_METADATA {"shard":"test3_shard_altered"} */
+test3	CREATE DATABASE `test3` /*!40100 DEFAULT CHARACTER SET ascii DB_METADATA '{"shard":"test3_shard_altered"}' */
 default-character-set=ascii
 default-collation=ascii_general_ci
 db-read-only=0
@@ -100,7 +137,7 @@ db-metadata=
 alter database test4 db_metadata = "{\"shard\":\"test4_shard_altered\"}";
 show create database test4;
 Database	Create Database
-test4	CREATE DATABASE `test4` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY DB_METADATA {"shard":"test4_shard_altered"} */
+test4	CREATE DATABASE `test4` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY DB_METADATA '{"shard":"test4_shard_altered"}' */
 default-character-set=latin1
 default-collation=latin1_swedish_ci
 db-read-only=1
@@ -108,7 +145,7 @@ db-metadata={"shard":"test4_shard_altered"}
 alter database test4 read_only = false;
 show create database test4;
 Database	Create Database
-test4	CREATE DATABASE `test4` /*!40100 DEFAULT CHARACTER SET latin1 DB_METADATA {"shard":"test4_shard_altered"} */
+test4	CREATE DATABASE `test4` /*!40100 DEFAULT CHARACTER SET latin1 DB_METADATA '{"shard":"test4_shard_altered"}' */
 default-character-set=latin1
 default-collation=latin1_swedish_ci
 db-read-only=0
@@ -116,7 +153,7 @@ db-metadata={"shard":"test4_shard_altered"}
 alter database test5 db_metadata = "{\"shard\":\"test5_shard_altered\"}";
 show create database test5;
 Database	Create Database
-test5	CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET latin1 DB_METADATA {"shard":"test5_shard_altered"} */
+test5	CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET latin1 DB_METADATA '{"shard":"test5_shard_altered"}' */
 default-character-set=latin1
 default-collation=latin1_swedish_ci
 db-read-only=0
@@ -124,7 +161,7 @@ db-metadata={"shard":"test5_shard_altered"}
 alter database test5 character set ascii;
 show create database test5;
 Database	Create Database
-test5	CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET ascii DB_METADATA {"shard":"test5_shard_altered"} */
+test5	CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET ascii DB_METADATA '{"shard":"test5_shard_altered"}' */
 default-character-set=ascii
 default-collation=ascii_general_ci
 db-read-only=0
@@ -132,7 +169,7 @@ db-metadata={"shard":"test5_shard_altered"}
 alter database test5 read_only = true;
 show create database test5;
 Database	Create Database
-test5	CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET ascii READ_ONLY DB_METADATA {"shard":"test5_shard_altered"} */
+test5	CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET ascii READ_ONLY DB_METADATA '{"shard":"test5_shard_altered"}' */
 default-character-set=ascii
 default-collation=ascii_general_ci
 db-read-only=1
@@ -140,7 +177,7 @@ db-metadata={"shard":"test5_shard_altered"}
 alter database test5 character set utf8 read_only = false;
 show create database test5;
 Database	Create Database
-test5	CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET utf8 DB_METADATA {"shard":"test5_shard_altered"} */
+test5	CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET utf8 DB_METADATA '{"shard":"test5_shard_altered"}' */
 default-character-set=utf8
 default-collation=utf8_general_ci
 db-read-only=0
@@ -156,7 +193,16 @@ db-metadata=
 alter database test5 db_metadata "{\"shard\":\"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin\"}";
 show create database test5;
 Database	Create Database
-test5	CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET utf8 DB_METADATA {"shard":"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin"} */
+test5	CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET utf8 DB_METADATA '{"shard":"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin"}' */
+default-character-set=utf8
+default-collation=utf8_general_ci
+db-read-only=0
+db-metadata={"shard":"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin"}
+drop database test5;
+CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET utf8 DB_METADATA '{"shard":"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin"}' */;
+show create database test5;
+Database	Create Database
+test5	CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET utf8 DB_METADATA '{"shard":"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin"}' */
 default-character-set=utf8
 default-collation=utf8_general_ci
 db-read-only=0
@@ -166,7 +212,7 @@ ERROR HY000: Metadata for the database is too long. Max length is 1024 bytes
 alter database test6 character set ascii db_metadata = "{\"shard\":\"test6_shard_altered\"}";
 show create database test6;
 Database	Create Database
-test6	CREATE DATABASE `test6` /*!40100 DEFAULT CHARACTER SET ascii DB_METADATA {"shard":"test6_shard_altered"} */
+test6	CREATE DATABASE `test6` /*!40100 DEFAULT CHARACTER SET ascii DB_METADATA '{"shard":"test6_shard_altered"}' */
 default-character-set=ascii
 default-collation=ascii_general_ci
 db-read-only=0
@@ -174,7 +220,7 @@ db-metadata={"shard":"test6_shard_altered"}
 alter database test7 read_only = true db_metadata = "{\"shard\":\"test7_shard_altered\"}";
 show create database test7;
 Database	Create Database
-test7	CREATE DATABASE `test7` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY DB_METADATA {"shard":"test7_shard_altered"} */
+test7	CREATE DATABASE `test7` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY DB_METADATA '{"shard":"test7_shard_altered"}' */
 default-character-set=latin1
 default-collation=latin1_swedish_ci
 db-read-only=1
@@ -190,7 +236,7 @@ db-metadata=
 alter database test9 character set ascii read_only = true db_metadata = "{\"shard\":\"test9_shard_altered\"}";
 show create database test9;
 Database	Create Database
-test9	CREATE DATABASE `test9` /*!40100 DEFAULT CHARACTER SET ascii READ_ONLY DB_METADATA {"shard":"test9_shard_altered"} */
+test9	CREATE DATABASE `test9` /*!40100 DEFAULT CHARACTER SET ascii READ_ONLY DB_METADATA '{"shard":"test9_shard_altered"}' */
 default-character-set=ascii
 default-collation=ascii_general_ci
 db-read-only=1
@@ -224,7 +270,7 @@ db-metadata=
 alter database test10 db_metadata = "{\"shard\":\"test10_shard_altered\"}";
 show create database test10;
 Database	Create Database
-test10	CREATE DATABASE `test10` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY DB_METADATA {"shard":"test10_shard_altered"} */
+test10	CREATE DATABASE `test10` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY DB_METADATA '{"shard":"test10_shard_altered"}' */
 default-character-set=latin1
 default-collation=latin1_swedish_ci
 db-read-only=1
@@ -232,7 +278,7 @@ db-metadata={"shard":"test10_shard_altered"}
 alter database test10 read_only = false;
 show create database test10;
 Database	Create Database
-test10	CREATE DATABASE `test10` /*!40100 DEFAULT CHARACTER SET latin1 DB_METADATA {"shard":"test10_shard_altered"} */
+test10	CREATE DATABASE `test10` /*!40100 DEFAULT CHARACTER SET latin1 DB_METADATA '{"shard":"test10_shard_altered"}' */
 default-character-set=latin1
 default-collation=latin1_swedish_ci
 db-read-only=0
@@ -246,3 +292,6 @@ drop database if exists test7;
 drop database if exists test8;
 drop database if exists test9;
 drop database if exists test10;
+drop database if exists test11;
+drop database if exists test12;
+drop database if exists test13;
