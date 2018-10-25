@@ -2091,6 +2091,23 @@
 }
 
 {
+  ssl library loading leak on initialization
+  Memcheck:Leak
+  match-leak-kinds: definite
+  fun:realloc
+  ...
+  fun:DSO_load
+  fun:DSO_dsobyaddr
+  fun:ossl_init_load_crypto_nodelete
+  fun:ossl_init_load_crypto_nodelete_ossl_
+  fun:__pthread_once_slow
+  fun:CRYPTO_THREAD_run_once
+  fun:OPENSSL_init_crypto
+  fun:OPENSSL_init_ssl
+  fun:_Z9ssl_startv
+}
+
+{
    static intialization
    Memcheck:Leak
    match-leak-kinds: reachable
