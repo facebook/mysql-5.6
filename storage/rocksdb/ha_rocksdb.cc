@@ -392,29 +392,46 @@ static int rocksdb_force_flush_memtable_and_lzero_now(
   rocksdb::ColumnFamilyMetaData metadata;
   rocksdb::ColumnFamilyDescriptor cf_descr;
 
+  int i, max_attempts = 3, num_errors = 0;
+
   for (const auto &cf_handle : cf_manager.get_all_cf()) {
-    rdb->GetColumnFamilyMetaData(cf_handle, &metadata);
-    cf_handle->GetDescriptor(&cf_descr);
-    c_options.output_file_size_limit = cf_descr.options.target_file_size_base;
+    for (i = 0; i < max_attempts; i++) {
+      rdb->GetColumnFamilyMetaData(cf_handle, &metadata);
+      cf_handle->GetDescriptor(&cf_descr);
+      c_options.output_file_size_limit = cf_descr.options.target_file_size_base;
 
-    DBUG_ASSERT(metadata.levels[0].level == 0);
-    std::vector<std::string> file_names;
-    for (auto &file : metadata.levels[0].files) {
-      file_names.emplace_back(file.db_path + file.name);
-    }
+      DBUG_ASSERT(metadata.levels[0].level == 0);
+      std::vector<std::string> file_names;
+      for (auto &file : metadata.levels[0].files) {
+        file_names.emplace_back(file.db_path + file.name);
+      }
 
-    if (!file_names.empty()) {
+      if (file_names.empty()) {
+        break;
+      }
+
       rocksdb::Status s;
       s = rdb->CompactFiles(c_options, cf_handle, file_names, 1);
+
+      // Due to a race, it's possible for CompactFiles to collide
+      // with auto compaction, causing an error to return
+      // regarding file not found. In that case, retry.
+      if (s.IsInvalidArgument()) {
+        continue;
+      }
 
       if (!s.ok() && !s.IsAborted()) {
         rdb_handle_io_error(s, RDB_IO_ERROR_GENERAL);
         return HA_EXIT_FAILURE;
       }
+      break;
+    }
+    if (i == max_attempts) {
+      num_errors++;
     }
   }
 
-  return HA_EXIT_SUCCESS;
+  return num_errors == 0 ? HA_EXIT_SUCCESS : HA_EXIT_FAILURE;
 }
 
 static void rocksdb_drop_index_wakeup_thread(
