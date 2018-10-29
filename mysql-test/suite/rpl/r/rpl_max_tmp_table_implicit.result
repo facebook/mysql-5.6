@@ -37,7 +37,7 @@ Variable_name	Value
 tmp_table_rpl_max_file_size	100
 Query fails with a limit
 insert into t2 select i, c, count(*) from t1 group by i, c having count(*) > 1;
-include/wait_for_slave_sql_error.inc [errno=12003]
+include/wait_for_slave_sql_error.inc [errno=50003]
 set global tmp_table_rpl_max_file_size = @start_value;
 show global variables like "tmp_table_rpl_max_file_size";
 Variable_name	Value

@@ -6,7 +6,7 @@ Note	####	Storing MySQL user name or password information in the master info rep
 include/gtid_utils.inc
 purge gtid '551dab6a-d12b-11e5-a3ea-0002c9d31542';
 Warnings:
-Note	12032	551dab6a-d12b-11e5-a3ea-0002c9d31542 is not present in executed gtid set
+Note	50032	551dab6a-d12b-11e5-a3ea-0002c9d31542 is not present in executed gtid set
 create table t1 (a int);
 insert into t1 values(1);
 insert into t1 values(1);

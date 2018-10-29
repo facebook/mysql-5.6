@@ -7138,10 +7138,10 @@ ER_CAPACITY_EXCEEDED_IN_RANGE_OPTIMIZER
 
 
 #
-# FB MySQL error codes begin from 12000
+# FB MySQL error codes begin from 50000
 #
 
-start-error-number 12000
+start-error-number 50000
 
 ER_QUERY_THROTTLED 70101
  eng "Query execution was throttled"
