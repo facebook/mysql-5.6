@@ -6427,6 +6427,12 @@ void slave_stop_workers(Relay_log_info *rli, bool *mts_inited)
         continue;
       }
       w->running_status= Slave_worker::STOP_ACCEPTED;
+
+      // unblock workers waiting for new events or trxs
+      mysql_mutex_lock(&w->info_thd->LOCK_thd_data);
+      w->info_thd->awake(w->info_thd->killed);
+      mysql_mutex_unlock(&w->info_thd->LOCK_thd_data);
+
       mysql_mutex_unlock(&w->jobs_lock);
     }
 
@@ -6437,14 +6443,6 @@ void slave_stop_workers(Relay_log_info *rli, bool *mts_inited)
       Slave_worker *w= NULL;
       get_dynamic((DYNAMIC_ARRAY*)&rli->workers, (uchar*) &w, i);
       mysql_mutex_lock(&w->jobs_lock);
-
-      if (w->running_status != Slave_worker::NOT_RUNNING)
-      {
-        // unblock workers waiting for new events or trxs
-        mysql_mutex_lock(&w->info_thd->LOCK_thd_data);
-        w->info_thd->awake(w->info_thd->killed);
-        mysql_mutex_unlock(&w->info_thd->LOCK_thd_data);
-      }
 
       // wait for workers to stop running
       while (w->running_status != Slave_worker::NOT_RUNNING)
