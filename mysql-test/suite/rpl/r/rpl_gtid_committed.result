@@ -1,0 +1,28 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_set_gtid_mode.inc
+set @@global.rpl_semi_sync_master_enabled = 1;
+set @@global.rpl_semi_sync_master_timeout = 100000000;
+stop slave;
+set @@global.rpl_semi_sync_slave_enabled = 1;
+start slave;
+set @@global.debug= '+d,before_semi_sync_reply';
+create table t1 (a int);
+SET DEBUG_SYNC='now WAIT_FOR reached';
+select @@global.gtid_committed;
+@@global.gtid_committed
+
+select @@global.gtid_executed;
+@@global.gtid_executed
+uuid:1
+SET DEBUG_SYNC='now SIGNAL continue';
+select @@global.gtid_committed;
+@@global.gtid_committed
+uuid:1
+select @@global.gtid_executed;
+@@global.gtid_executed
+uuid:1
+include/rpl_end.inc

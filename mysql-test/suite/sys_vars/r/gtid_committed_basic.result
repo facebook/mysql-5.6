@@ -1,0 +1,21 @@
+SET @start_global_value = @@global.gtid_committed;
+SELECT @start_global_value;
+@start_global_value
+
+select @@global.gtid_committed;
+@@global.gtid_committed
+
+select @@session.gtid_committed;
+ERROR HY000: Variable 'gtid_committed' is a GLOBAL variable
+show global variables like 'gtid_committed';
+Variable_name	Value
+gtid_committed	
+show session variables like 'gtid_committed';
+Variable_name	Value
+gtid_committed	
+select * from information_schema.global_variables where variable_name='gtid_committed';
+VARIABLE_NAME	VARIABLE_VALUE
+GTID_COMMITTED	
+select * from information_schema.session_variables where variable_name='gtid_committed';
+VARIABLE_NAME	VARIABLE_VALUE
+GTID_COMMITTED	

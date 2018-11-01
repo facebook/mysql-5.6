@@ -2269,6 +2269,48 @@ public:
   }
 };
 
+/**
+  Class for @@global.gtid_committed.
+*/
+class Sys_var_gtid_committed : Sys_var_gtid_set_func
+{
+public:
+  Sys_var_gtid_committed(const char *name_arg, const char *comment_arg)
+    : Sys_var_gtid_set_func(name_arg, comment_arg, GLOBAL) {}
+
+  uchar *global_value_ptr(THD *thd, LEX_STRING *base)
+  {
+    DBUG_ENTER("Sys_var_gtid_committed::global_value_ptr");
+    global_sid_lock->wrlock();
+
+    // Calculate committed gtids by removing gtids owned by connections from
+    // logged gtids
+    Gtid_set committed_gtids(global_sid_map);
+    committed_gtids.add_gtid_set(gtid_state->get_logged_gtids());
+
+    Owned_gtids::Gtid_iterator git(gtid_state->get_owned_gtids());
+    Gtid g= git.get();
+    while (g.sidno != 0)
+    {
+      committed_gtids._remove_gtid(g);
+      git.next();
+      g= git.get();
+    }
+
+    char *buf= (char *)thd->alloc(committed_gtids.get_string_length() + 1);
+    if (buf == NULL)
+      my_error(ER_OUT_OF_RESOURCES, MYF(0));
+    else
+      committed_gtids.to_string(buf);
+
+    global_sid_lock->unlock();
+    DBUG_RETURN((uchar *)buf);
+  }
+
+  uchar *session_value_ptr(THD *thd, LEX_STRING *base)
+  { DBUG_ASSERT(0); return NULL; }
+};
+
 
 /**
   Class for @@session.gtid_purged.
