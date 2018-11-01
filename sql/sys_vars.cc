@@ -6520,6 +6520,11 @@ static Sys_var_gtid_executed Sys_gtid_executed(
     "binary log. The session variable contains the set of GTIDs "
     "in the current, ongoing transaction.");
 
+static Sys_var_gtid_executed Sys_gtid_committed(
+    "gtid_committed",
+    "The global variable contains the set of GTIDs committed in the storage "
+    "engine");
+
 static bool check_gtid_purged(sys_var *self, THD *thd, set_var *var) {
   DBUG_ENTER("check_gtid_purged");
 
