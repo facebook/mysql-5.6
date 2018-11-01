@@ -3596,6 +3596,17 @@ static bool show_status_array(THD *thd, const char *wild,
   len=name_buffer + sizeof(name_buffer) - prefix_end;
   partial_cond= make_cond_for_info_schema(cond, table->pos_in_table_list);
 
+  // Find the length of the user's 'LIKE' parameter until the first wildcard
+  ulonglong before_wild_len= 0;
+  while (wild &&
+         wild[before_wild_len] != wild_one &&
+         wild[before_wild_len] != wild_many &&
+         wild[before_wild_len] != wild_prefix &&
+         wild[before_wild_len])
+  {
+    ++before_wild_len;
+  }
+
   for (; variables->name; variables++)
   {
     strnmov(prefix_end, variables->name, len);
@@ -3603,14 +3614,25 @@ static bool show_status_array(THD *thd, const char *wild,
     if (ucase_names)
       make_upper(name_buffer);
 
+    const auto len= strlen(name_buffer);
     restore_record(table, s->default_values);
-    table->field[0]->store(name_buffer, strlen(name_buffer),
+    table->field[0]->store(name_buffer, len,
                            system_charset_info);
+
+    bool prefix_matches= true;
+    if (variables->type == SHOW_FUNC && before_wild_len > 0)
+    {
+      const auto min_len= before_wild_len < len ? before_wild_len : len;
+      prefix_matches= my_strnncoll(system_charset_info,
+                                   (const uchar*) name_buffer, min_len,
+                                   (const uchar*) wild, min_len) == 0;
+    }
+
     /*
       if var->type is SHOW_FUNC, call the function.
       Repeat as necessary, if new var is again SHOW_FUNC
     */
-    for (var=variables; var->type == SHOW_FUNC; var= &tmp)
+    for (var=variables; prefix_matches && var->type == SHOW_FUNC; var= &tmp)
       ((mysql_show_var_func)(var->value))(thd, &tmp, buff);
 
     SHOW_TYPE show_type=var->type;
