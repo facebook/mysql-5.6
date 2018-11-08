@@ -21,6 +21,7 @@
 
 /* The C++ file's header */
 #include "./rdb_threads.h"
+#include "./sql_class.h"
 
 namespace myrocks {
 
@@ -28,9 +29,11 @@ void *Rdb_thread::thread_func(void *const thread_ptr) {
   DBUG_ASSERT(thread_ptr != nullptr);
   my_thread_init();
   Rdb_thread *const thread = static_cast<Rdb_thread *const>(thread_ptr);
+
   if (!thread->m_run_once.exchange(true)) {
     thread->setname();
     thread->run();
+
     thread->uninit();
   }
 
