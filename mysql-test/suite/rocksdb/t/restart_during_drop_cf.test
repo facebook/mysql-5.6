@@ -1,0 +1,45 @@
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+--source include/have_rocksdb.inc
+
+--disable_query_log
+call mtr.add_suppression(".*will be forced to shutdown");
+call mtr.add_suppression("Column family with id.*doesn't exist in cf manager, but it is listed to be dropped");
+--enable_query_log
+
+set @old_debug = @@global.debug;
+
+connect (conn1,localhost,root,,);
+connect (conn2,localhost,root,,);
+
+## test1 ##
+--connection conn1
+set @@global.debug = '+d,rocksdb_remove_dropped_cf';
+
+set @@global.rocksdb_update_cf_options= 'cf_primary_key={};';
+select * from information_schema.rocksdb_cfstats where cf_name='cf_primary_key';
+
+set @@global.rocksdb_delete_cf = 'cf_primary_key';
+
+--connection conn2
+set debug_sync = "now wait_for ready_to_restart_during_drop_cf";
+
+# restart happens before the cf id is removed from dropped cfs list
+--source include/restart_mysqld.inc
+
+set @@global.debug = @old_debug;
+
+# trigger drop index thread again
+set @@global.debug = '+d,rocksdb_drop_cf';
+set global rocksdb_signal_drop_index_thread = true;
+
+select * from information_schema.rocksdb_cfstats where cf_name = 'cf_primary_key' ;
+
+set debug_sync = "now signal ready_to_drop_cf";
+set debug_sync = "now wait_for drop_cf_done";
+
+# cf_primary_key should be dropped now
+select * from information_schema.rocksdb_cfstats where cf_name = 'cf_primary_key';
+
+set @@global.debug = @old_debug;
+set @@global.rocksdb_update_cf_options= '';

@@ -451,7 +451,7 @@ class Rdb_key_def {
   Rdb_key_def &operator=(const Rdb_key_def &) = delete;
   Rdb_key_def(const Rdb_key_def &k);
   Rdb_key_def(uint indexnr_arg, uint keyno_arg,
-              rocksdb::ColumnFamilyHandle *cf_handle_arg,
+              std::shared_ptr<rocksdb::ColumnFamilyHandle> cf_handle_arg,
               uint16_t index_dict_version_arg, uchar index_type_arg,
               uint16_t kv_format_version_arg, bool is_reverse_cf_arg,
               bool is_per_partition_cf, const char *name,
@@ -499,6 +499,7 @@ class Rdb_key_def {
     MAX_INDEX_ID = 7,
     DDL_CREATE_INDEX_ONGOING = 8,
     AUTO_INC = 9,
+    DROPPED_CF = 10,
     END_DICT_INDEX_ID = 255
   };
 
@@ -512,6 +513,7 @@ class Rdb_key_def {
     MAX_INDEX_ID_VERSION = 1,
     DDL_CREATE_INDEX_ONGOING_VERSION = 1,
     AUTO_INCREMENT_VERSION = 1,
+    DROPPED_CF_VERSION = 1,
     // Version for index stats is stored in IndexStats struct
   };
 
@@ -618,7 +620,10 @@ class Rdb_key_def {
       const Rdb_tbl_def *const tbl_def_arg, bool *per_part_match_found,
       const char *const qualifier);
 
-  rocksdb::ColumnFamilyHandle *get_cf() const { return m_cf_handle; }
+  rocksdb::ColumnFamilyHandle *get_cf() const { return m_cf_handle.get(); }
+  std::shared_ptr<rocksdb::ColumnFamilyHandle> get_shared_cf() const {
+    return m_cf_handle;
+  }
 
   /* Check if keypart #kp can be unpacked from index tuple */
   inline bool can_unpack(const uint kp) const;
@@ -771,7 +776,7 @@ class Rdb_key_def {
 
   uchar m_index_number_storage_form[INDEX_NUMBER_SIZE];
 
-  rocksdb::ColumnFamilyHandle *m_cf_handle;
+  std::shared_ptr<rocksdb::ColumnFamilyHandle> m_cf_handle;
 
   static void pack_legacy_variable_format(const uchar *src, size_t src_len,
                                           uchar **dst);
@@ -1146,8 +1151,8 @@ class Rdb_tbl_def {
 
   Rdb_table_stats m_tbl_stats;
 
-  bool put_dict(Rdb_dict_manager *const dict, rocksdb::WriteBatch *const batch,
-                const rocksdb::Slice &key);
+  bool put_dict(Rdb_dict_manager *const dict, Rdb_cf_manager *const cf_manager,
+                rocksdb::WriteBatch *const batch, const rocksdb::Slice &key);
 
   const std::string &full_tablename() const { return m_dbname_tablename; }
   const std::string &base_dbname() const { return m_dbname; }
@@ -1195,6 +1200,7 @@ interface Rdb_tables_scanner {
 
 class Rdb_ddl_manager {
   Rdb_dict_manager *m_dict = nullptr;
+  Rdb_cf_manager *m_cf_manager = nullptr;
 
   // Contains Rdb_tbl_def elements
   std::unordered_map<std::string, Rdb_tbl_def *> m_ddl_map;
@@ -1263,6 +1269,7 @@ class Rdb_ddl_manager {
       const std::unordered_set<std::shared_ptr<Rdb_key_def>> &indexes);
   void remove_uncommitted_keydefs(
       const std::unordered_set<std::shared_ptr<Rdb_key_def>> &indexes);
+  int find_in_uncommitted_keydef(const uint32_t &cf_id);
 
  private:
   /* Put the data into in-memory table (only) */
@@ -1373,6 +1380,10 @@ class Rdb_binlog_manager {
   value: version, {max auto_increment so far}
   max auto_increment is 8 bytes
 
+  10. dropped cfs
+  key: Rdb_key_def::DROPPED_CF(0xa) + cf_id
+  value: version
+
   Data dictionary operations are atomic inside RocksDB. For example,
   when creating a table with two indexes, it is necessary to call Put
   three times. They have to be atomic. Rdb_dict_manager has a wrapper function
@@ -1418,13 +1429,16 @@ class Rdb_dict_manager {
   Rdb_dict_manager() = default;
 
   bool init(rocksdb::TransactionDB *const rdb_dict,
-            Rdb_cf_manager *const cf_manager);
+            Rdb_cf_manager *const cf_manager,
+            const my_bool enable_remove_orphaned_cf_flags);
 
   inline void cleanup() { mysql_mutex_destroy(&m_mutex); }
 
   inline void lock() { RDB_MUTEX_LOCK_CHECK(m_mutex); }
 
   inline void unlock() { RDB_MUTEX_UNLOCK_CHECK(m_mutex); }
+
+  inline void assert_lock_held() { mysql_mutex_assert_owner(&m_mutex); }
 
   inline rocksdb::ColumnFamilyHandle *get_system_cf() const {
     return m_system_cfh;
@@ -1455,6 +1469,22 @@ class Rdb_dict_manager {
                     const uint cf_flags) const;
   bool get_cf_flags(const uint cf_id, uint *const cf_flags) const;
 
+  void add_dropped_cf(rocksdb::WriteBatch *const batch,
+                      const uint &cf_id) const;
+  void delete_dropped_cf(rocksdb::WriteBatch *const batch,
+                         const uint &cf_id) const;
+  bool get_dropped_cf(const uint &cf_id) const;
+  void get_all_dropped_cfs(std::unordered_set<uint32> *dropped_cf_ids) const;
+
+  int add_missing_cf_flags(Rdb_cf_manager *const cf_manager) const;
+
+  int remove_orphaned_dropped_cfs(
+      Rdb_cf_manager *const cf_manager,
+      const my_bool &enable_remove_orphaned_dropped_cfs) const;
+
+  void delete_dropped_cf_and_flags(rocksdb::WriteBatch *const batch,
+                                   const uint &cf_id) const;
+
   /* Functions for fast CREATE/DROP TABLE/INDEX */
   void get_ongoing_index_operation(
       std::unordered_set<GL_INDEX_ID> *gl_index_ids,
@@ -1479,6 +1509,8 @@ class Rdb_dict_manager {
       const std::unordered_set<GL_INDEX_ID> &gl_index_ids,
       Rdb_key_def::DATA_DICT_TYPE dd_type) const;
   void rollback_ongoing_index_creation() const;
+  void rollback_ongoing_index_creation(
+      const std::unordered_set<GL_INDEX_ID> &gl_index_ids) const;
 
   inline void get_ongoing_drop_indexes(
       std::unordered_set<GL_INDEX_ID> *gl_index_ids) const {
@@ -1531,6 +1563,11 @@ class Rdb_dict_manager {
                                     bool overwrite = false) const;
   bool get_auto_incr_val(const GL_INDEX_ID &gl_index_id,
                          ulonglong *new_val) const;
+
+ private:
+  /* dropped cf flags */
+  void delete_cf_flags(rocksdb::WriteBatch *const batch,
+                       const uint &cf_id) const;
 };
 
 struct Rdb_index_info {

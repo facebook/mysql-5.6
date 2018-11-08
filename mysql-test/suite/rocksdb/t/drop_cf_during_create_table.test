@@ -1,0 +1,86 @@
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+--source include/have_rocksdb.inc
+
+--disable_query_log
+call mtr.add_suppression("Column family '[a-z_]+' not found");
+--enable_query_log
+
+set @old_debug = @@global.debug;
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+connect (conn1,localhost,root,,);
+connect (conn2,localhost,root,,);
+
+## test1 ##
+--connection conn1
+
+set @@global.rocksdb_update_cf_options= 'cf_primary_key={};';
+
+set @@global.debug = '+d,rocksdb_create_primary_cf';
+set @@global.debug = '+d,rocksdb_drop_cf';
+send create table t1 (
+  id1 int(10) unsigned not null default '0',
+  primary key (id1) comment 'cf_primary_key'
+  ) engine=rocksdb;
+
+--connection conn2
+
+set debug_sync = "now wait_for ready_to_mark_cf_dropped_in_create_cfs";
+set @@global.rocksdb_delete_cf = 'cf_primary_key';
+
+set debug_sync = "now signal mark_cf_dropped_done_in_create_cfs";
+
+# create table fails because cf_primary_key has been marked as dropped
+--connection conn1
+--error ER_CF_DROPPED
+reap;
+
+show tables;
+
+select * from information_schema.rocksdb_cfstats where cf_name = 'cf_primary_key' ;
+set debug_sync = "now signal ready_to_drop_cf";
+
+# drop cf_primary_key succeeds
+set debug_sync = "now wait_for drop_cf_done";
+select * from information_schema.rocksdb_cfstats where cf_name = 'cf_primary_key';
+
+set @@global.debug = @old_debug;
+
+## test2 ##
+--connection conn1
+set @@global.debug = '+d,rocksdb_create_table';
+set @@global.debug = '+d,rocksdb_drop_cf';
+
+send create table t1 (
+  id1 int(10) unsigned not null default '0',
+  primary key (id1) comment 'cf_primary_key'
+  ) engine=rocksdb;
+
+--connection conn2
+
+set debug_sync = "now wait_for ready_to_mark_cf_dropped_in_create_table";
+set @@global.rocksdb_delete_cf = 'cf_primary_key';
+
+set debug_sync = "now signal mark_cf_dropped_done_in_create_table";
+
+# create table fails because cf_primary_key has been marked as dropped
+--connection conn1
+--error ER_CF_DROPPED
+reap;
+
+show tables;
+
+select * from information_schema.rocksdb_cfstats where cf_name = 'cf_primary_key' ;
+set debug_sync = "now signal ready_to_drop_cf";
+
+# drop cf_primary_key succeeds
+set debug_sync = "now wait_for drop_cf_done";
+select * from information_schema.rocksdb_cfstats where cf_name = 'cf_primary_key';
+
+set @@global.debug = @old_debug;
+set @@global.rocksdb_update_cf_options= '';
+
