@@ -1,0 +1,68 @@
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+--source include/have_rocksdb.inc
+
+--disable_query_log
+call mtr.add_suppression("Column family '[a-z_]+' not found");
+--enable_query_log
+
+set @old_debug = @@global.debug;
+
+set @prior_lock_wait_timeout = @@rocksdb_lock_wait_timeout;
+set @prior_deadlock_detect = @@rocksdb_deadlock_detect;
+set @prior_max_latest_deadlocks = @@rocksdb_max_latest_deadlocks;
+set global rocksdb_deadlock_detect = on;
+set global rocksdb_lock_wait_timeout = 10000;
+--echo # Clears deadlock buffer of any prior deadlocks.
+set global rocksdb_max_latest_deadlocks = 0;
+set global rocksdb_max_latest_deadlocks = @prior_max_latest_deadlocks;
+
+connect (con1,localhost,root,,);
+let $con1= `SELECT CONNECTION_ID()`;
+
+connect (con2,localhost,root,,);
+let $con2= `SELECT CONNECTION_ID()`;
+
+connect (con3,localhost,root,,);
+
+# needed by simple_deadlock.inc
+let $engine = rocksdb;
+
+connection default;
+create table t (
+  i int(5), primary key(i) comment 'cf_primary_key'
+) engine=rocksdb;
+
+insert into t values (1), (2), (3);
+
+select * from information_schema.rocksdb_deadlock;
+select cf_name, index_name, table_name from information_schema.rocksdb_deadlock;
+
+set @@global.debug = '+d,rocksdb_drop_cf';
+
+--source include/simple_deadlock.inc
+
+connection con3;
+drop table t;
+set @@global.rocksdb_delete_cf = 'cf_primary_key';
+
+select cf_name,
+   substr(index_name, 1, 9) as index_name,
+   substr(table_name, 1, 9) as table_name
+ from information_schema.rocksdb_deadlock;
+
+set debug_sync = "now signal ready_to_drop_cf";
+set debug_sync = "now wait_for drop_cf_done";
+
+select substr(cf_name, 1, 9) as cf_name,
+   substr(index_name, 1, 9) as index_name,
+   substr(table_name, 1, 9) as table_name
+ from information_schema.rocksdb_deadlock;
+
+connection default;
+
+set global rocksdb_lock_wait_timeout = @prior_lock_wait_timeout;
+set global rocksdb_deadlock_detect = @prior_deadlock_detect;
+
+set @@global.debug = @old_debug;
+

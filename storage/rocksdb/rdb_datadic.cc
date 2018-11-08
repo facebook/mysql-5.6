@@ -277,13 +277,13 @@ int Rdb_key_field_iterator::next() {
 /*
   Rdb_key_def class implementation
 */
-Rdb_key_def::Rdb_key_def(uint indexnr_arg, uint keyno_arg,
-                         rocksdb::ColumnFamilyHandle *cf_handle_arg,
-                         uint16_t index_dict_version_arg, uchar index_type_arg,
-                         uint16_t kv_format_version_arg, bool is_reverse_cf_arg,
-                         bool is_per_partition_cf_arg, const char *_name,
-                         Rdb_index_stats _stats, uint32 index_flags_bitmap,
-                         uint32 ttl_rec_offset, uint64 ttl_duration)
+Rdb_key_def::Rdb_key_def(
+    uint indexnr_arg, uint keyno_arg,
+    std::shared_ptr<rocksdb::ColumnFamilyHandle> cf_handle_arg,
+    uint16_t index_dict_version_arg, uchar index_type_arg,
+    uint16_t kv_format_version_arg, bool is_reverse_cf_arg,
+    bool is_per_partition_cf_arg, const char *_name, Rdb_index_stats _stats,
+    uint32 index_flags_bitmap, uint32 ttl_rec_offset, uint64 ttl_duration)
     : m_index_number(indexnr_arg),
       m_cf_handle(cf_handle_arg),
       m_index_dict_version(index_dict_version_arg),
@@ -316,7 +316,7 @@ Rdb_key_def::Rdb_key_def(uint indexnr_arg, uint keyno_arg,
   DBUG_ASSERT_IMP(m_index_type == INDEX_TYPE_PRIMARY &&
                       m_kv_format_version <= PRIMARY_FORMAT_VERSION_UPDATE2,
                   m_total_index_flags_length == 0);
-  DBUG_ASSERT(m_cf_handle != nullptr);
+  DBUG_ASSERT(m_cf_handle);
 }
 
 Rdb_key_def::Rdb_key_def(const Rdb_key_def &k)
@@ -3505,6 +3505,7 @@ Rdb_tbl_def::~Rdb_tbl_def() {
 */
 
 bool Rdb_tbl_def::put_dict(Rdb_dict_manager *const dict,
+                           Rdb_cf_manager *cf_manager,
                            rocksdb::WriteBatch *const batch,
                            const rocksdb::Slice &key) {
   StringBuffer<8 * Rdb_key_def::PACKED_SIZE> indexes;
@@ -3515,10 +3516,6 @@ bool Rdb_tbl_def::put_dict(Rdb_dict_manager *const dict,
   for (uint i = 0; i < m_key_count; i++) {
     const Rdb_key_def &kd = *m_key_descr_arr[i];
 
-    uchar flags =
-        (kd.m_is_reverse_cf ? Rdb_key_def::REVERSE_CF_FLAG : 0) |
-        (kd.m_is_per_partition_cf ? Rdb_key_def::PER_PARTITION_CF_FLAG : 0);
-
     const uint cf_id = kd.get_cf()->GetID();
     /*
       If cf_id already exists, cf_flags must be the same.
@@ -3527,23 +3524,17 @@ bool Rdb_tbl_def::put_dict(Rdb_dict_manager *const dict,
       When RocksDB supports transaction with pessimistic concurrency
       control, we can switch to use it and removing mutex.
     */
-    uint existing_cf_flags;
     const std::string cf_name = kd.get_cf()->GetName();
 
-    if (dict->get_cf_flags(cf_id, &existing_cf_flags)) {
-      // For the purposes of comparison we'll clear the partitioning bit. The
-      // intent here is to make sure that both partitioned and non-partitioned
-      // tables can refer to the same CF.
-      existing_cf_flags &= ~Rdb_key_def::CF_FLAGS_TO_IGNORE;
-      flags &= ~Rdb_key_def::CF_FLAGS_TO_IGNORE;
+    std::shared_ptr<rocksdb::ColumnFamilyHandle> cfh =
+        cf_manager->get_cf(cf_name);
 
-      if (existing_cf_flags != flags) {
-        my_error(ER_CF_DIFFERENT, MYF(0), cf_name.c_str(), flags,
-                 existing_cf_flags);
-        return true;
-      }
-    } else {
-      dict->add_cf_flags(batch, cf_id, flags);
+    if (!cfh || cfh != kd.get_shared_cf() || dict->get_dropped_cf(cf_id)) {
+      // The CF has been dropped, i.e., cf_manager.remove_dropped_cf() has been
+      // called; or the CF is being dropped, i.e., cf_manager.drop_cf() has
+      // been called.
+      my_error(ER_CF_DROPPED, MYF(0), cf_name.c_str());
+      return true;
     }
 
     rdb_netstr_append_uint32(&indexes, cf_id);
@@ -3678,6 +3669,21 @@ void Rdb_ddl_manager::remove_uncommitted_keydefs(
     m_index_num_to_uncommitted_keydef.erase(index->get_gl_index_id());
   }
   mysql_rwlock_unlock(&m_rwlock);
+}
+
+int Rdb_ddl_manager::find_in_uncommitted_keydef(const uint32_t &cf_id) {
+  mysql_rwlock_rdlock(&m_rwlock);
+  for (const auto &pr : m_index_num_to_uncommitted_keydef) {
+    const auto &kd = pr.second;
+
+    if (kd->get_cf()->GetID() == cf_id) {
+      mysql_rwlock_unlock(&m_rwlock);
+      return HA_EXIT_FAILURE;
+    }
+  }
+
+  mysql_rwlock_unlock(&m_rwlock);
+  return HA_EXIT_SUCCESS;
 }
 
 namespace  // anonymous namespace = not visible outside this source file
@@ -3968,6 +3974,7 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager *const dict_arg,
                            Rdb_cf_manager *const cf_manager,
                            const uint32_t validate_tables) {
   m_dict = dict_arg;
+  m_cf_manager = cf_manager;
   mysql_rwlock_init(0, &m_rwlock);
 
   /* Read the data dictionary and populate the hash */
@@ -4068,9 +4075,9 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager *const dict_arg,
             gl_index_id.cf_id, tdef->full_tablename().c_str());
       }
 
-      rocksdb::ColumnFamilyHandle *const cfh =
+      std::shared_ptr<rocksdb::ColumnFamilyHandle> cfh =
           cf_manager->get_cf(gl_index_id.cf_id);
-      DBUG_ASSERT(cfh != nullptr);
+      DBUG_ASSERT(cfh);
 
       uint32 ttl_rec_offset =
           Rdb_key_def::has_index_flag(index_info.m_index_flags,
@@ -4370,7 +4377,8 @@ int Rdb_ddl_manager::put_and_write(Rdb_tbl_def *const tbl,
   buf_writer.write(dbname_tablename.c_str(), dbname_tablename.size());
 
   int res;
-  if ((res = tbl->put_dict(m_dict, batch, buf_writer.to_slice()))) {
+  if ((res =
+           tbl->put_dict(m_dict, m_cf_manager, batch, buf_writer.to_slice()))) {
     return res;
   }
   if ((res = put(tbl))) {
@@ -4470,7 +4478,8 @@ bool Rdb_ddl_manager::rename(const std::string &from, const std::string &to,
   new_buf_writer.write(dbname_tablename.c_str(), dbname_tablename.size());
 
   // Create a key to add
-  if (!new_rec->put_dict(m_dict, batch, new_buf_writer.to_slice())) {
+  if (!new_rec->put_dict(m_dict, m_cf_manager, batch,
+                         new_buf_writer.to_slice())) {
     remove(rec, batch, false);
     put(new_rec, false);
     res = false;  // ok
@@ -4496,6 +4505,8 @@ int Rdb_ddl_manager::scan_for_tables(Rdb_tables_scanner *const tables_scanner) {
 
   DBUG_ASSERT(tables_scanner != nullptr);
 
+  // This method should NOT accquire dict_manager lock and
+  // cf_manager lock in order to prevent deadlocks.
   mysql_rwlock_rdlock(&m_rwlock);
 
   ret = 0;
@@ -4706,7 +4717,8 @@ void Rdb_binlog_manager::update_slave_gtid_info(
 }
 
 bool Rdb_dict_manager::init(rocksdb::TransactionDB *const rdb_dict,
-                            Rdb_cf_manager *const cf_manager) {
+                            Rdb_cf_manager *const cf_manager,
+                            const my_bool enable_remove_orphaned_dropped_cfs) {
   DBUG_ASSERT(rdb_dict != nullptr);
   DBUG_ASSERT(cf_manager != nullptr);
 
@@ -4714,9 +4726,13 @@ bool Rdb_dict_manager::init(rocksdb::TransactionDB *const rdb_dict,
 
   m_db = rdb_dict;
 
-  m_system_cfh = cf_manager->get_or_create_cf(m_db, DEFAULT_SYSTEM_CF_NAME);
+  // It is safe to get raw pointers here since:
+  // 1. System CF and default CF cannot be dropped
+  // 2. cf_manager outlives dict_manager
+  m_system_cfh =
+      cf_manager->get_or_create_cf(m_db, DEFAULT_SYSTEM_CF_NAME).get();
   rocksdb::ColumnFamilyHandle *default_cfh =
-      cf_manager->get_cf(DEFAULT_CF_NAME);
+      cf_manager->get_cf(DEFAULT_CF_NAME).get();
 
   // System CF and default CF should be initialized
   if (m_system_cfh == nullptr || default_cfh == nullptr) {
@@ -4739,6 +4755,15 @@ bool Rdb_dict_manager::init(rocksdb::TransactionDB *const rdb_dict,
   add_cf_flags(batch, m_system_cfh->GetID(), 0);
   add_cf_flags(batch, default_cfh->GetID(), 0);
   commit(batch);
+
+  if (add_missing_cf_flags(cf_manager)) {
+    return HA_EXIT_FAILURE;
+  }
+
+  if (remove_orphaned_dropped_cfs(cf_manager,
+                                  enable_remove_orphaned_dropped_cfs)) {
+    return HA_EXIT_FAILURE;
+  }
 
   return HA_EXIT_SUCCESS;
 }
@@ -4840,6 +4865,20 @@ void Rdb_dict_manager::add_cf_flags(rocksdb::WriteBatch *const batch,
   value_writer.write_uint32(cf_flags);
 
   batch->Put(m_system_cfh, key_writer.to_slice(), value_writer.to_slice());
+}
+
+void Rdb_dict_manager::delete_cf_flags(rocksdb::WriteBatch *const batch,
+                                       const uint &cf_id) const {
+  DBUG_ASSERT(batch != nullptr);
+
+  uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2] = {0};
+
+  rdb_netbuf_store_uint32(key_buf, Rdb_key_def::CF_DEFINITION);
+  rdb_netbuf_store_uint32(key_buf + Rdb_key_def::INDEX_NUMBER_SIZE, cf_id);
+  const rocksdb::Slice key =
+      rocksdb::Slice(reinterpret_cast<char *>(key_buf), sizeof(key_buf));
+
+  delete_key(batch, key);
 }
 
 void Rdb_dict_manager::delete_index_info(rocksdb::WriteBatch *batch,
@@ -4986,6 +5025,82 @@ bool Rdb_dict_manager::get_cf_flags(const uint32_t cf_id,
   return found;
 }
 
+void Rdb_dict_manager::add_dropped_cf(rocksdb::WriteBatch *const batch,
+                                      const uint &cf_id) const {
+  DBUG_ASSERT(batch != nullptr);
+
+  uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2] = {0};
+  uchar value_buf[Rdb_key_def::VERSION_SIZE] = {0};
+  rdb_netbuf_store_uint32(key_buf, Rdb_key_def::DROPPED_CF);
+  rdb_netbuf_store_uint32(key_buf + Rdb_key_def::INDEX_NUMBER_SIZE, cf_id);
+  const rocksdb::Slice key =
+      rocksdb::Slice(reinterpret_cast<char *>(key_buf), sizeof(key_buf));
+
+  rdb_netbuf_store_uint16(value_buf, Rdb_key_def::DROPPED_CF_VERSION);
+  const rocksdb::Slice value =
+      rocksdb::Slice(reinterpret_cast<char *>(value_buf), sizeof(value_buf));
+  batch->Put(m_system_cfh, key, value);
+}
+
+bool Rdb_dict_manager::get_dropped_cf(const uint &cf_id) const {
+  std::string value;
+  uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2] = {0};
+
+  rdb_netbuf_store_uint32(key_buf, Rdb_key_def::DROPPED_CF);
+  rdb_netbuf_store_uint32(key_buf + Rdb_key_def::INDEX_NUMBER_SIZE, cf_id);
+
+  const rocksdb::Slice key =
+      rocksdb::Slice(reinterpret_cast<char *>(key_buf), sizeof(key_buf));
+  const rocksdb::Status status = get_value(key, &value);
+
+  return status.ok();
+}
+
+void Rdb_dict_manager::delete_dropped_cf_and_flags(
+    rocksdb::WriteBatch *const batch, const uint &cf_id) const {
+  DBUG_ASSERT(batch != nullptr);
+  delete_dropped_cf(batch, cf_id);
+  delete_cf_flags(batch, cf_id);
+}
+
+void Rdb_dict_manager::delete_dropped_cf(rocksdb::WriteBatch *const batch,
+                                         const uint &cf_id) const {
+  DBUG_ASSERT(batch != nullptr);
+
+  uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2] = {0};
+
+  rdb_netbuf_store_uint32(key_buf, Rdb_key_def::DROPPED_CF);
+  rdb_netbuf_store_uint32(key_buf + Rdb_key_def::INDEX_NUMBER_SIZE, cf_id);
+  const rocksdb::Slice key =
+      rocksdb::Slice(reinterpret_cast<char *>(key_buf), sizeof(key_buf));
+
+  delete_key(batch, key);
+}
+
+void Rdb_dict_manager::get_all_dropped_cfs(
+    std::unordered_set<uint32> *dropped_cf_ids) const {
+  uchar dropped_cf_buf[Rdb_key_def::INDEX_NUMBER_SIZE];
+  rdb_netbuf_store_uint32(dropped_cf_buf, Rdb_key_def::DROPPED_CF);
+  const rocksdb::Slice dropped_cf_slice(
+      reinterpret_cast<char *>(dropped_cf_buf), Rdb_key_def::INDEX_NUMBER_SIZE);
+
+  rocksdb::Iterator *it = new_iterator();
+  for (it->Seek(dropped_cf_slice); it->Valid(); it->Next()) {
+    rocksdb::Slice key = it->key();
+    const uchar *const ptr = (const uchar *)key.data();
+
+    if (key.size() != Rdb_key_def::INDEX_NUMBER_SIZE * 2 ||
+        rdb_netbuf_to_uint32(ptr) != Rdb_key_def::DROPPED_CF) {
+      break;
+    }
+
+    uint32 cf_id = rdb_netbuf_to_uint32(ptr + Rdb_key_def::INDEX_NUMBER_SIZE);
+    dropped_cf_ids->insert(cf_id);
+  }
+
+  delete it;
+}
+
 /*
   Returning index ids that were marked as deleted (via DROP TABLE) but
   still not removed by drop_index_thread yet, or indexes that are marked as
@@ -5029,6 +5144,58 @@ void Rdb_dict_manager::get_ongoing_index_operation(
     gl_index_ids->insert(gl_index_id);
   }
   delete it;
+}
+
+/*
+  If mysqld reboots during create table, a column family can be
+  created without cf flags. This method adds missing cf flags. It
+  only should be called during mysqld startup.
+ */
+int Rdb_dict_manager::add_missing_cf_flags(
+    Rdb_cf_manager *const cf_manager) const {
+  for (const auto &cf_name : cf_manager->get_cf_names()) {
+    std::shared_ptr<rocksdb::ColumnFamilyHandle> cfh =
+        cf_manager->get_cf(cf_name);
+
+    if (cf_manager->create_cf_flags_if_needed(this, cfh->GetID(), cf_name)) {
+      return HA_EXIT_FAILURE;
+    }
+  }
+
+  return HA_EXIT_SUCCESS;
+}
+
+/*
+  If mysqld reboots during dropping a column family, it can happen
+  that the column family is deleted from RocksDB, but its id is
+  in the list of cf ids that are to be dropped.
+  This method cleans up these orphaned cf ids. It only should be
+  called during mysqld startup.
+ */
+int Rdb_dict_manager::remove_orphaned_dropped_cfs(
+    Rdb_cf_manager *const cf_manager,
+    const my_bool &enable_remove_orphaned_dropped_cfs) const {
+  const std::unique_ptr<rocksdb::WriteBatch> wb = begin();
+  rocksdb::WriteBatch *const batch = wb.get();
+
+  std::unordered_set<uint32> dropped_cf_ids;
+  get_all_dropped_cfs(&dropped_cf_ids);
+  for (const auto cf_id : dropped_cf_ids) {
+    if (!cf_manager->get_cf(cf_id)) {
+      // NO_LINT_DEBUG
+      sql_print_warning(
+          "RocksDB: Column family with id %u doesn't exist in "
+          "cf manager, but it is listed to be dropped",
+          cf_id);
+
+      if (enable_remove_orphaned_dropped_cfs) {
+        delete_dropped_cf_and_flags(batch, cf_id);
+      }
+    }
+  }
+
+  commit(batch);
+  return HA_EXIT_SUCCESS;
 }
 
 /*
@@ -5214,11 +5381,16 @@ void Rdb_dict_manager::resume_drop_indexes() const {
 }
 
 void Rdb_dict_manager::rollback_ongoing_index_creation() const {
+  std::unordered_set<GL_INDEX_ID> gl_index_ids;
+
+  get_ongoing_create_indexes(&gl_index_ids);
+  rollback_ongoing_index_creation(gl_index_ids);
+}
+
+void Rdb_dict_manager::rollback_ongoing_index_creation(
+    const std::unordered_set<GL_INDEX_ID> &gl_index_ids) const {
   const std::unique_ptr<rocksdb::WriteBatch> wb = begin();
   rocksdb::WriteBatch *const batch = wb.get();
-
-  std::unordered_set<GL_INDEX_ID> gl_index_ids;
-  get_ongoing_create_indexes(&gl_index_ids);
 
   for (const auto &gl_index_id : gl_index_ids) {
     // NO_LINT_DEBUG

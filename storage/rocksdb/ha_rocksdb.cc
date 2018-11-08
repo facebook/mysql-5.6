@@ -259,6 +259,7 @@ static Rdb_index_stats_thread rdb_is_thread;
 
 static Rdb_manual_compaction_thread rdb_mc_thread;
 
+static Rdb_drop_index_thread rdb_drop_idx_thread;
 // List of table names (using regex) that are exceptions to the strict
 // collation check requirement.
 Regex_list_handler *rdb_collation_exceptions;
@@ -267,8 +268,11 @@ static const char *rdb_get_error_message(int nr);
 
 static void rocksdb_flush_all_memtables() {
   const Rdb_cf_manager &cf_manager = rdb_get_cf_manager();
+
+  // RocksDB will fail the flush if the CF is deleted,
+  // but here we don't handle return status
   for (const auto &cf_handle : cf_manager.get_all_cf()) {
-    rdb->Flush(rocksdb::FlushOptions(), cf_handle);
+    rdb->Flush(rocksdb::FlushOptions(), cf_handle.get());
   }
 }
 
@@ -279,9 +283,6 @@ static void rocksdb_delete_column_family_stub(
 static int rocksdb_delete_column_family(
     THD *const /* thd */, struct st_mysql_sys_var *const /* var */,
     void *const /* var_ptr */, struct st_mysql_value *const value) {
-  // Return failure for now until the race condition between creating
-  // CF and deleting CF is resolved
-  return HA_EXIT_FAILURE;
 
   char buff[STRING_BUFFER_USUAL_SIZE];
   int len = sizeof(buff);
@@ -290,14 +291,17 @@ static int rocksdb_delete_column_family(
 
   if (const char *const cf = value->val_str(value, buff, &len)) {
     auto &cf_manager = rdb_get_cf_manager();
-    auto ret = cf_manager.drop_cf(cf);
+    int ret = 0;
+
+    {
+      std::lock_guard<Rdb_dict_manager> dm_lock(dict_manager);
+      ret = cf_manager.drop_cf(&ddl_manager, &dict_manager, cf);
+    }
+
     if (ret == HA_EXIT_SUCCESS) {
-      // NO_LINT_DEBUG
-      sql_print_information("RocksDB: Dropped column family: %s\n", cf);
+      rdb_drop_idx_thread.signal();
     } else {
-      // NO_LINT_DEBUG
-      sql_print_error("RocksDB: Failed to drop column family: %s, error: %d\n",
-                      cf, ret);
+      my_error(ER_CANT_DROP_CF, MYF(0), cf);
     }
 
     return ret;
@@ -433,7 +437,7 @@ static int rocksdb_force_flush_memtable_and_lzero_now(
 
   for (const auto &cf_handle : cf_manager.get_all_cf()) {
     for (i = 0; i < max_attempts; i++) {
-      rdb->GetColumnFamilyMetaData(cf_handle, &metadata);
+      rdb->GetColumnFamilyMetaData(cf_handle.get(), &metadata);
       cf_handle->GetDescriptor(&cf_descr);
       c_options.output_file_size_limit = cf_descr.options.target_file_size_base;
 
@@ -448,20 +452,34 @@ static int rocksdb_force_flush_memtable_and_lzero_now(
       }
 
       rocksdb::Status s;
-      s = rdb->CompactFiles(c_options, cf_handle, file_names, 1);
+      s = rdb->CompactFiles(c_options, cf_handle.get(), file_names, 1);
 
-      // Due to a race, it's possible for CompactFiles to collide
-      // with auto compaction, causing an error to return
-      // regarding file not found. In that case, retry.
-      if (s.IsInvalidArgument()) {
-        continue;
-      }
+      if (!s.ok()) {
+        std::shared_ptr<rocksdb::ColumnFamilyHandle> cfh =
+            cf_manager.get_cf(cf_handle->GetID());
 
-      if (!s.ok() && !s.IsAborted()) {
-        rdb_handle_io_error(s, RDB_IO_ERROR_GENERAL);
-        return HA_EXIT_FAILURE;
+        // If the CF handle has been removed from cf_manager, it is not an
+        // error. We are done with this CF and proceed to the next CF.
+        if (!cfh) {
+          // NO_LINT_DEBUG
+          sql_print_information("cf %s has been dropped during CompactFiles.",
+                                cf_handle->GetName().c_str());
+          break;
+        }
+
+        // Due to a race, it's possible for CompactFiles to collide
+        // with auto compaction, causing an error to return
+        // regarding file not found. In that case, retry.
+        if (s.IsInvalidArgument()) {
+          continue;
+        }
+
+        if (!s.ok() && !s.IsAborted()) {
+          rdb_handle_io_error(s, RDB_IO_ERROR_GENERAL);
+          return HA_EXIT_FAILURE;
+        }
+        break;
       }
-      break;
     }
     if (i == max_attempts) {
       num_errors++;
@@ -633,6 +651,7 @@ static int32_t rocksdb_table_stats_background_thread_nice_value =
     THREAD_PRIO_MAX;
 static unsigned long long rocksdb_table_stats_max_num_rows_scanned = 0ul;
 static my_bool rocksdb_enable_bulk_load_api = 1;
+static my_bool rocksdb_enable_remove_orphaned_dropped_cfs = 1;
 static my_bool rocksdb_print_snapshot_conflict_queries = 0;
 static my_bool rocksdb_large_prefix = 0;
 static my_bool rocksdb_allow_to_start_after_corruption = 0;
@@ -1009,6 +1028,14 @@ static MYSQL_SYSVAR_BOOL(enable_bulk_load_api, rocksdb_enable_bulk_load_api,
                          PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
                          "Enables using SstFileWriter for bulk loading",
                          nullptr, nullptr, rocksdb_enable_bulk_load_api);
+
+static MYSQL_SYSVAR_BOOL(enable_remove_orphaned_dropped_cfs,
+                         rocksdb_enable_remove_orphaned_dropped_cfs,
+                         PLUGIN_VAR_RQCMDARG,
+                         "Enables removing dropped cfs from metadata if it "
+                         "doesn't exist in cf manager",
+                         nullptr, nullptr,
+                         rocksdb_enable_remove_orphaned_dropped_cfs);
 
 static MYSQL_THDVAR_STR(tmpdir, PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_MEMALLOC,
                         "Directory for temporary files during DDL operations.",
@@ -2080,6 +2107,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(bulk_load_size),
     MYSQL_SYSVAR(merge_buf_size),
     MYSQL_SYSVAR(enable_bulk_load_api),
+    MYSQL_SYSVAR(enable_remove_orphaned_dropped_cfs),
     MYSQL_SYSVAR(tmpdir),
     MYSQL_SYSVAR(merge_combine_read_size),
     MYSQL_SYSVAR(merge_tmp_file_removal_delay_ms),
@@ -2247,6 +2275,13 @@ static int rocksdb_compact_column_family(THD *const thd,
   DBUG_ASSERT(value != nullptr);
 
   if (const char *const cf = value->val_str(value, buff, &len)) {
+    DBUG_EXECUTE_IF("rocksdb_compact_column_family", {
+      const char act[] =
+          "now signal ready_to_mark_cf_dropped_in_compact_column_family "
+          "wait_for mark_cf_dropped_done_in_compact_column_family";
+      DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+    });
+
     auto cfh = cf_manager.get_cf(cf);
     if (cfh != nullptr && rdb != nullptr) {
       int mc_id = rdb_mc_thread.request_manual_compaction(
@@ -2286,8 +2321,6 @@ static int rocksdb_compact_column_family(THD *const thd,
 /*
   Drop index thread's control
 */
-
-static Rdb_drop_index_thread rdb_drop_idx_thread;
 
 static void rocksdb_drop_index_wakeup_thread(
     my_core::THD *const thd MY_ATTRIBUTE((__unused__)),
@@ -4231,8 +4264,14 @@ class Rdb_snapshot_status : public Rdb_tx_list_walker {
         (kd) ? kd->get_name()
              : "NOT FOUND; INDEX_ID: " + std::to_string(gl_index_id.index_id);
 
-    rocksdb::ColumnFamilyHandle *cfh = cf_manager.get_cf(txn.m_cf_id);
-    txn_data.cf_name = cfh->GetName();
+    std::shared_ptr<rocksdb::ColumnFamilyHandle> cfh =
+        cf_manager.get_cf(txn.m_cf_id);
+
+    // Retrieve CF name from CF handle object, and it is safe if the CF is
+    // removed from cf_manager at this point.
+    txn_data.cf_name = (cfh)
+                           ? cfh->GetName()
+                           : "NOT FOUND; CF_ID: " + std::to_string(txn.m_cf_id);
 
     txn_data.waiting_key =
         rdb_hexdump(txn.m_waiting_key.c_str(), txn.m_waiting_key.length());
@@ -4527,12 +4566,16 @@ static bool rocksdb_show_status(handlerton *const hton, THD *const thd,
 
     /* Per column family stats */
     for (const auto &cf_name : cf_manager.get_cf_names()) {
-      rocksdb::ColumnFamilyHandle *cfh = cf_manager.get_cf(cf_name);
-      if (cfh == nullptr) {
+      std::shared_ptr<rocksdb::ColumnFamilyHandle> cfh =
+          cf_manager.get_cf(cf_name);
+      if (!cfh) {
         continue;
       }
 
-      if (!rdb->GetProperty(cfh, "rocksdb.cfstats", &str)) {
+      // Retrieve information from CF handle object.
+      // Even if the CF is removed from CF_manager, the handle object
+      // is valid.
+      if (!rdb->GetProperty(cfh.get(), "rocksdb.cfstats", &str)) {
         continue;
       }
 
@@ -4549,6 +4592,8 @@ static bool rocksdb_show_status(handlerton *const hton, THD *const thd,
     cache_set.insert(rocksdb_tbl_options->block_cache.get());
 
     for (const auto &cf_handle : cf_manager.get_all_cf()) {
+      // It is safe if the CF handle is removed from cf_manager
+      // at this point.
       rocksdb::ColumnFamilyDescriptor cf_desc;
       cf_handle->GetDescriptor(&cf_desc);
       auto *const table_factory = cf_desc.options.table_factory.get();
@@ -5407,7 +5452,8 @@ static int rocksdb_init_func(void *const p) {
   }
   cf_manager.init(std::move(cf_options_map), &cf_handles);
 
-  if (dict_manager.init(rdb, &cf_manager)) {
+  if (dict_manager.init(rdb, &cf_manager,
+                        rocksdb_enable_remove_orphaned_dropped_cfs)) {
     // NO_LINT_DEBUG
     sql_print_error("RocksDB: Failed to initialize data dictionary.");
     DBUG_RETURN(HA_EXIT_FAILURE);
@@ -6890,7 +6936,7 @@ int ha_rocksdb::create_cfs(
     column families if necessary.
   */
   for (uint i = 0; i < tbl_def_arg->m_key_count; i++) {
-    rocksdb::ColumnFamilyHandle *cf_handle;
+    std::shared_ptr<rocksdb::ColumnFamilyHandle> cf_handle;
 
     if (rocksdb_strict_collation_check &&
         !is_hidden_pk(i, table_arg, tbl_def_arg) &&
@@ -6944,15 +6990,56 @@ int ha_rocksdb::create_cfs(
       DBUG_RETURN(HA_EXIT_FAILURE);
     }
 
+    DBUG_EXECUTE_IF("rocksdb_create_primary_cf", {
+      if (cf_name == "cf_primary_key") {
+        THD *const thd = my_core::thd_get_current_thd();
+        const char act[] =
+            "now signal ready_to_mark_cf_dropped_in_create_cfs "
+            "wait_for mark_cf_dropped_done_in_create_cfs";
+        DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+      }
+    });
+
+    DBUG_EXECUTE_IF("rocksdb_create_secondary_cf", {
+      if (cf_name == "cf_secondary_key") {
+        THD *const thd = my_core::thd_get_current_thd();
+        const char act[] =
+            "now signal ready_to_mark_cf_dropped_in_create_cfs "
+            "wait_for mark_cf_dropped_done_in_create_cfs";
+        DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+      }
+    });
+
     // Here's how `get_or_create_cf` will use the input parameters:
     //
     // `cf_name` - will be used as a CF name.
-    cf_handle = cf_manager.get_or_create_cf(rdb, cf_name);
+    {
+      std::lock_guard<Rdb_dict_manager> dm_lock(dict_manager);
+      cf_handle = cf_manager.get_or_create_cf(rdb, cf_name);
+      if (!cf_handle) {
+        DBUG_RETURN(HA_EXIT_FAILURE);
+      }
 
-    if (!cf_handle) {
-      DBUG_RETURN(HA_EXIT_FAILURE);
+      uint32 cf_id = cf_handle->GetID();
+
+      // If the cf is marked as dropped, we fail it here.
+      // The cf can be dropped after this point, we will
+      // check again when committing metadata changes.
+      if (dict_manager.get_dropped_cf(cf_id)) {
+        my_error(ER_CF_DROPPED, MYF(0), cf_name.c_str());
+        DBUG_RETURN(HA_EXIT_FAILURE);
+      }
+
+      if (cf_manager.create_cf_flags_if_needed(&dict_manager,
+                                               cf_handle->GetID(), cf_name,
+                                               per_part_match_found)) {
+        DBUG_RETURN(HA_EXIT_FAILURE);
+      }
     }
 
+    // The CF can be dropped from cf_manager at this point. This is part of
+    // create table or alter table. If the drop happens before metadata are
+    // written, create table or alter table will fail.
     auto &cf = (*cfs)[i];
 
     cf.cf_handle = cf_handle;
@@ -7028,7 +7115,7 @@ int ha_rocksdb::create_inplace_key_defs(
         itself.
       */
       new_key_descr[i] = std::make_shared<Rdb_key_def>(
-          okd.get_index_number(), i, okd.get_cf(),
+          okd.get_index_number(), i, okd.get_shared_cf(),
           index_info.m_index_dict_version, index_info.m_index_type,
           index_info.m_kv_version, okd.m_is_reverse_cf,
           okd.m_is_per_partition_cf, okd.m_name.c_str(),
@@ -7438,20 +7525,26 @@ int ha_rocksdb::create_table(const std::string &table_name,
     }
   }
 
-  dict_manager.lock();
-  err = ddl_manager.put_and_write(m_tbl_def, batch);
-  if (err != HA_EXIT_SUCCESS) {
-    dict_manager.unlock();
-    goto error;
-  }
+  DBUG_EXECUTE_IF("rocksdb_create_table", {
+    THD *const thd = my_core::thd_get_current_thd();
+    const char act[] =
+        "now signal ready_to_mark_cf_dropped_in_create_table "
+        "wait_for mark_cf_dropped_done_in_create_table";
+    DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+  });
 
-  err = dict_manager.commit(batch);
-  if (err != HA_EXIT_SUCCESS) {
-    dict_manager.unlock();
-    goto error;
-  }
+  {
+    std::lock_guard<Rdb_dict_manager> dm_lock(dict_manager);
+    err = ddl_manager.put_and_write(m_tbl_def, batch);
+    if (err != HA_EXIT_SUCCESS) {
+      goto error;
+    }
 
-  dict_manager.unlock();
+    err = dict_manager.commit(batch);
+    if (err != HA_EXIT_SUCCESS) {
+      goto error;
+    }
+  }
 
   DBUG_RETURN(HA_EXIT_SUCCESS);
 
@@ -11146,14 +11239,23 @@ void Rdb_drop_index_thread::run() {
               d.cf_id);
           abort();
         }
-        rocksdb::ColumnFamilyHandle *cfh = cf_manager.get_cf(d.cf_id);
+
+        std::shared_ptr<rocksdb::ColumnFamilyHandle> cfh =
+            cf_manager.get_cf(d.cf_id);
         DBUG_ASSERT(cfh);
+
+        if (dict_manager.get_dropped_cf(d.cf_id)) {
+          finished.insert(d);
+          continue;
+        }
+
         const bool is_reverse_cf = cf_flags & Rdb_key_def::REVERSE_CF_FLAG;
 
         uchar buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2];
         rocksdb::Range range = get_range(d.index_id, buf, is_reverse_cf ? 1 : 0,
                                          is_reverse_cf ? 0 : 1);
-        rocksdb::Status status = DeleteFilesInRange(rdb->GetBaseDB(), cfh,
+
+        rocksdb::Status status = DeleteFilesInRange(rdb->GetBaseDB(), cfh.get(),
                                                     &range.start, &range.limit);
         if (!status.ok()) {
           if (status.IsShutdownInProgress()) {
@@ -11161,15 +11263,17 @@ void Rdb_drop_index_thread::run() {
           }
           rdb_handle_io_error(status, RDB_IO_ERROR_BG_THREAD);
         }
-        status = rdb->CompactRange(getCompactRangeOptions(), cfh, &range.start,
-                                   &range.limit);
+
+        status = rdb->CompactRange(getCompactRangeOptions(), cfh.get(),
+                                   &range.start, &range.limit);
         if (!status.ok()) {
           if (status.IsShutdownInProgress()) {
             break;
           }
           rdb_handle_io_error(status, RDB_IO_ERROR_BG_THREAD);
         }
-        if (is_myrocks_index_empty(cfh, is_reverse_cf, read_opts, d.index_id)) {
+        if (is_myrocks_index_empty(cfh.get(), is_reverse_cf, read_opts,
+                                   d.index_id)) {
           finished.insert(d);
         }
       }
@@ -11178,6 +11282,61 @@ void Rdb_drop_index_thread::run() {
         dict_manager.finish_drop_indexes(finished);
       }
     }
+
+    DBUG_EXECUTE_IF("rocksdb_drop_cf", {
+      THD *thd = new THD();
+      thd->thread_stack = reinterpret_cast<char *>(&(thd));
+      thd->store_globals();
+
+      const char act[] = "now wait_for ready_to_drop_cf";
+      DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+
+      thd->restore_globals();
+      delete thd;
+    });
+
+    // Remove dropped column family
+    // 1. Get all cf ids from ongoing_index_drop.
+    // 2. Get all cf ids for cfs marked as dropped.
+    // 3. If a cf id is in the list of ongoing_index_drop
+    // , skip removing this cf. It will be removed later.
+    // 4. If it is not, proceed to remove the cf.
+    //
+    // This should be under dict_manager lock
+
+    {
+      std::lock_guard<Rdb_dict_manager> dm_lock(dict_manager);
+      std::unordered_set<uint32> dropped_cf_ids;
+      dict_manager.get_all_dropped_cfs(&dropped_cf_ids);
+
+      if (!dropped_cf_ids.empty()) {
+        std::unordered_set<GL_INDEX_ID> ongoing_drop_indices;
+        dict_manager.get_ongoing_drop_indexes(&ongoing_drop_indices);
+
+        std::unordered_set<uint32> ongoing_drop_cf_ids;
+        for (const auto index : ongoing_drop_indices) {
+          ongoing_drop_cf_ids.insert(index.cf_id);
+        }
+
+        for (const auto cf_id : dropped_cf_ids) {
+          if (ongoing_drop_cf_ids.find(cf_id) == ongoing_drop_cf_ids.end()) {
+            cf_manager.remove_dropped_cf(&dict_manager, rdb, cf_id);
+          }
+        }
+      }
+    }
+
+    DBUG_EXECUTE_IF("rocksdb_drop_cf", {
+      THD *thd = new THD();
+      thd->thread_stack = reinterpret_cast<char *>(&(thd));
+      thd->store_globals();
+
+      const char act[] = "now signal drop_cf_done";
+      DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+
+      thd->restore_globals();
+      delete thd;
+    });
     RDB_MUTEX_LOCK_CHECK(m_signal_mutex);
   }
 
@@ -11214,18 +11373,35 @@ int ha_rocksdb::delete_table(Rdb_tbl_def *const tbl) {
   const std::unique_ptr<rocksdb::WriteBatch> wb = dict_manager.begin();
   rocksdb::WriteBatch *const batch = wb.get();
 
-  dict_manager.add_drop_table(tbl->m_key_descr_arr, tbl->m_key_count, batch);
+  DBUG_EXECUTE_IF("rocksdb_before_delete_table", {
+    const char act[] =
+        "now signal ready_to_mark_cf_dropped_before_delete_table wait_for "
+        "mark_cf_dropped_done_before_delete_table";
+    DBUG_ASSERT(!debug_sync_set_action(ha_thd(), STRING_WITH_LEN(act)));
+  });
 
-  /*
-    Remove the table entry in data dictionary (this will also remove it from
-    the persistent data dictionary).
-  */
-  ddl_manager.remove(tbl, batch, true);
+  {
+    std::lock_guard<Rdb_dict_manager> dm_lock(dict_manager);
+    dict_manager.add_drop_table(tbl->m_key_descr_arr, tbl->m_key_count, batch);
 
-  int err = dict_manager.commit(batch);
-  if (err) {
-    DBUG_RETURN(err);
+    /*
+      Remove the table entry in data dictionary (this will also remove it from
+      the persistent data dictionary).
+    */
+    ddl_manager.remove(tbl, batch, true);
+
+    int err = dict_manager.commit(batch);
+    if (err) {
+      DBUG_RETURN(err);
+    }
   }
+
+  DBUG_EXECUTE_IF("rocksdb_after_delete_table", {
+    const char act[] =
+        "now signal ready_to_mark_cf_dropped_after_delete_table "
+        "wait_for mark_cf_dropped_done_after_delete_table";
+    DBUG_ASSERT(!debug_sync_set_action(ha_thd(), STRING_WITH_LEN(act)));
+  });
 
   rdb_drop_idx_thread.signal();
   // avoid dangling pointer
@@ -11367,6 +11543,9 @@ int ha_rocksdb::rename_table(const char *const from, const char *const to) {
 
   const std::unique_ptr<rocksdb::WriteBatch> wb = dict_manager.begin();
   rocksdb::WriteBatch *const batch = wb.get();
+
+  // rename table is under dict_manager lock, and the cfs used
+  // by indices of this table cannot be dropped during the process.
   dict_manager.lock();
 
   if (ddl_manager.rename(from_str, to_str, batch)) {
@@ -12529,25 +12708,52 @@ int ha_rocksdb::inplace_populate_sk(
   const std::unique_ptr<rocksdb::WriteBatch> wb = dict_manager.begin();
   rocksdb::WriteBatch *const batch = wb.get();
 
-  /* Update the data dictionary */
-  std::unordered_set<GL_INDEX_ID> create_index_ids;
-  for (const auto &index : indexes) {
-    create_index_ids.insert(index->get_gl_index_id());
-  }
-  dict_manager.add_create_index(create_index_ids, batch);
-  res = dict_manager.commit(batch);
-  if (res != HA_EXIT_SUCCESS) {
-    return res;
-  }
+  DBUG_EXECUTE_IF("rocksdb_inplace_populate_sk", {
+    const char act[] =
+        "now signal ready_to_mark_cf_dropped_in_populate_sk "
+        "wait_for mark_cf_dropped_done_in_populate_sk";
+    DBUG_ASSERT(!debug_sync_set_action(ha_thd(), STRING_WITH_LEN(act)));
+  });
 
-  /*
-    Add uncommitted key definitons to ddl_manager.  We need to do this
-    so that the property collector can find this keydef when it needs to
-    update stats.  The property collector looks for the keydef in the
-    data dictionary, but it won't be there yet since this key definition
-    is still in the creation process.
-  */
-  ddl_manager.add_uncommitted_keydefs(indexes);
+  {
+    std::lock_guard<Rdb_dict_manager> dm_lock(dict_manager);
+    for (const auto &kd : indexes) {
+      const std::string cf_name = kd->get_cf()->GetName();
+      std::shared_ptr<rocksdb::ColumnFamilyHandle> cfh =
+          cf_manager.get_cf(cf_name);
+
+      if (!cfh || cfh != kd->get_shared_cf()) {
+        // The CF has been dropped, i.e., cf_manager.remove_dropped_cf() has
+        // been called.
+        DBUG_RETURN(HA_EXIT_FAILURE);
+      }
+
+      uint32 cf_id = cfh->GetID();
+      if (dict_manager.get_dropped_cf(cf_id)) {
+        DBUG_RETURN(HA_EXIT_FAILURE);
+      }
+    }
+
+    /* Update the data dictionary */
+    std::unordered_set<GL_INDEX_ID> create_index_ids;
+    for (const auto &index : indexes) {
+      create_index_ids.insert(index->get_gl_index_id());
+    }
+    dict_manager.add_create_index(create_index_ids, batch);
+    res = dict_manager.commit(batch);
+    if (res != HA_EXIT_SUCCESS) {
+      return res;
+    }
+
+    /*
+      Add uncommitted key definitons to ddl_manager.  We need to do this
+      so that the property collector can find this keydef when it needs to
+      update stats.  The property collector looks for the keydef in the
+      data dictionary, but it won't be there yet since this key definition
+      is still in the creation process.
+    */
+    ddl_manager.add_uncommitted_keydefs(indexes);
+  }
 
   const bool hidden_pk_exists = has_hidden_pk(table);
 
@@ -12809,11 +13015,27 @@ bool ha_rocksdb::commit_inplace_alter_table(
       delete ctx0->m_new_tdef;
     }
 
-    /* Remove uncommitted key definitons from ddl_manager */
-    ddl_manager.remove_uncommitted_keydefs(ctx0->m_added_indexes);
+    {
+      std::lock_guard<Rdb_dict_manager> dm_lock(dict_manager);
+      /* Remove uncommitted key definitons from ddl_manager */
+      ddl_manager.remove_uncommitted_keydefs(ctx0->m_added_indexes);
 
-    /* Rollback any partially created indexes */
-    dict_manager.rollback_ongoing_index_creation();
+      std::unordered_set<GL_INDEX_ID> all_gl_index_ids;
+      dict_manager.get_ongoing_create_indexes(&all_gl_index_ids);
+
+      std::unordered_set<GL_INDEX_ID> gl_index_ids;
+      for (auto index : ctx0->m_added_indexes) {
+        auto gl_index_id = index->get_gl_index_id();
+        if (all_gl_index_ids.find(gl_index_id) != all_gl_index_ids.end()) {
+          gl_index_ids.insert(gl_index_id);
+        }
+      }
+
+      if (!gl_index_ids.empty()) {
+        /* Rollback any partially created indexes of this table */
+        dict_manager.rollback_ongoing_index_creation(gl_index_ids);
+      }
+    }
 
     DBUG_RETURN(HA_EXIT_SUCCESS);
   }
@@ -12852,45 +13074,60 @@ bool ha_rocksdb::commit_inplace_alter_table(
     m_key_descr_arr = m_tbl_def->m_key_descr_arr;
     m_pk_descr = m_key_descr_arr[pk_index(altered_table, m_tbl_def)];
 
-    dict_manager.lock();
-    for (inplace_alter_handler_ctx **pctx = ctx_array; *pctx; pctx++) {
-      Rdb_inplace_alter_ctx *const ctx =
-          static_cast<Rdb_inplace_alter_ctx *>(*pctx);
+    DBUG_EXECUTE_IF("rocksdb_commit_alter_table", {
+      const char act[] =
+          "now signal ready_to_mark_cf_dropped_before_commit_alter_table "
+          "wait_for mark_cf_dropped_done_before_commit_alter_table";
+      DBUG_ASSERT(!debug_sync_set_action(ha_thd(), STRING_WITH_LEN(act)));
+    });
 
-      /* Mark indexes to be dropped */
-      dict_manager.add_drop_index(ctx->m_dropped_index_ids, batch);
+    {
+      std::lock_guard<Rdb_dict_manager> dm_lock(dict_manager);
+      for (inplace_alter_handler_ctx **pctx = ctx_array; *pctx; pctx++) {
+        Rdb_inplace_alter_ctx *const ctx =
+            static_cast<Rdb_inplace_alter_ctx *>(*pctx);
 
-      for (const auto &index : ctx->m_added_indexes) {
-        create_index_ids.insert(index->get_gl_index_id());
+        /* Mark indexes to be dropped */
+        dict_manager.add_drop_index(ctx->m_dropped_index_ids, batch);
+
+        for (const auto &index : ctx->m_added_indexes) {
+          create_index_ids.insert(index->get_gl_index_id());
+        }
+
+        if (ddl_manager.put_and_write(ctx->m_new_tdef, batch)) {
+          /*
+            Failed to write new entry into data dictionary, this should never
+            happen.
+          */
+          DBUG_ASSERT(0);
+        }
+
+        /*
+          Remove uncommitted key definitons from ddl_manager, as they are now
+          committed into the data dictionary.
+        */
+        ddl_manager.remove_uncommitted_keydefs(ctx->m_added_indexes);
       }
 
-      if (ddl_manager.put_and_write(ctx->m_new_tdef, batch)) {
+      if (dict_manager.commit(batch)) {
         /*
-          Failed to write new entry into data dictionary, this should never
-          happen.
+          Should never reach here. We assume MyRocks will abort if commit
+          fails.
         */
         DBUG_ASSERT(0);
       }
 
-      /*
-        Remove uncommitted key definitons from ddl_manager, as they are now
-        committed into the data dictionary.
-      */
-      ddl_manager.remove_uncommitted_keydefs(ctx->m_added_indexes);
+      /* Mark ongoing create indexes as finished/remove from data dictionary */
+      dict_manager.finish_indexes_operation(
+          create_index_ids, Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
     }
 
-    if (dict_manager.commit(batch)) {
-      /*
-        Should never reach here. We assume MyRocks will abort if commit fails.
-      */
-      DBUG_ASSERT(0);
-    }
-
-    dict_manager.unlock();
-
-    /* Mark ongoing create indexes as finished/remove from data dictionary */
-    dict_manager.finish_indexes_operation(
-        create_index_ids, Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
+    DBUG_EXECUTE_IF("rocksdb_delete_index", {
+      const char act[] =
+          "now signal ready_to_mark_cf_dropped_after_commit_alter_table "
+          "wait_for mark_cf_dropped_done_after_commit_alter_table";
+      DBUG_ASSERT(!debug_sync_set_action(ha_thd(), STRING_WITH_LEN(act)));
+    });
 
     rdb_drop_idx_thread.signal();
 
@@ -13205,13 +13442,16 @@ static ulonglong io_stall_prop_value(
 static void update_rocksdb_stall_status() {
   st_io_stall_stats local_io_stall_stats;
   for (const auto &cf_name : cf_manager.get_cf_names()) {
-    rocksdb::ColumnFamilyHandle *cfh = cf_manager.get_cf(cf_name);
-    if (cfh == nullptr) {
+    std::shared_ptr<rocksdb::ColumnFamilyHandle> cfh =
+        cf_manager.get_cf(cf_name);
+    if (!cfh) {
       continue;
     }
 
+    // Retrieve information from valid CF handle object. It is safe
+    // even if the CF is removed from cf_manager at this point.
     std::map<std::string, std::string> props;
-    if (!rdb->GetMapProperty(cfh, "rocksdb.cfstats", &props)) {
+    if (!rdb->GetMapProperty(cfh.get(), "rocksdb.cfstats", &props)) {
       continue;
     }
 
@@ -13690,7 +13930,7 @@ void Rdb_manual_compaction_thread::run() {
       continue;
     }
     Manual_compaction_request &mcr = m_requests.begin()->second;
-    DBUG_ASSERT(mcr.cf != nullptr);
+    DBUG_ASSERT(mcr.cf);
     DBUG_ASSERT(mcr.state == Manual_compaction_request::INITED);
     mcr.state = Manual_compaction_request::RUNNING;
     RDB_MUTEX_UNLOCK_CHECK(m_mc_mutex);
@@ -13703,11 +13943,26 @@ void Rdb_manual_compaction_thread::run() {
     if (rocksdb_debug_manual_compaction_delay > 0) {
       my_sleep(rocksdb_debug_manual_compaction_delay * 1000000);
     }
+
+    DBUG_EXECUTE_IF("rocksdb_manual_compaction", {
+      THD *thd = new THD();
+      thd->thread_stack = reinterpret_cast<char *>(&(thd));
+      thd->store_globals();
+      const char act[] =
+          "now signal ready_to_mark_cf_dropped_in_manual_compaction wait_for "
+          "mark_cf_dropped_done_in_manual_compaction";
+      DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+      thd->restore_globals();
+      delete thd;
+    });
+
     // CompactRange may take a very long time. On clean shutdown,
     // it is cancelled by CancelAllBackgroundWork, then status is
     // set to shutdownInProgress.
-    const rocksdb::Status s = rdb->CompactRange(
-        getCompactRangeOptions(mcr.concurrency), mcr.cf, mcr.start, mcr.limit);
+    const rocksdb::Status s =
+        rdb->CompactRange(getCompactRangeOptions(mcr.concurrency), mcr.cf.get(),
+                          mcr.start, mcr.limit);
+
     rocksdb_manual_compactions_running--;
     if (s.ok()) {
       // NO_LINT_DEBUG
@@ -13717,7 +13972,11 @@ void Rdb_manual_compaction_thread::run() {
       // NO_LINT_DEBUG
       sql_print_information("Manual Compaction id %d cf %s aborted. %s",
                             mcr.mc_id, mcr.cf->GetName().c_str(), s.getState());
-      if (!s.IsShutdownInProgress()) {
+      if (!cf_manager.get_cf(mcr.cf->GetID())) {
+        // NO_LINT_DEBUG
+        sql_print_information("cf %s has been dropped",
+                              mcr.cf->GetName().c_str());
+      } else if (!s.IsShutdownInProgress()) {
         rdb_handle_io_error(s, RDB_IO_ERROR_BG_THREAD);
       } else {
         DBUG_ASSERT(m_requests.size() == 1);
@@ -13763,7 +14022,7 @@ void Rdb_manual_compaction_thread::clear_manual_compaction_request(
 }
 
 int Rdb_manual_compaction_thread::request_manual_compaction(
-    rocksdb::ColumnFamilyHandle *cf, rocksdb::Slice *start,
+    std::shared_ptr<rocksdb::ColumnFamilyHandle> cf, rocksdb::Slice *start,
     rocksdb::Slice *limit, int concurrency) {
   int mc_id = -1;
   RDB_MUTEX_LOCK_CHECK(m_mc_mutex);
@@ -14471,7 +14730,23 @@ static int rocksdb_validate_update_cf_options(
   // Loop through option_map and create missing column families
   for (Rdb_cf_options::Name_to_config_t::iterator it = option_map.begin();
        it != option_map.end(); ++it) {
-    cf_manager.get_or_create_cf(rdb, it->first);
+    // If the CF is removed at this point, i.e., cf_manager.drop_cf() has
+    // been called, it is OK to create a new CF.
+
+    const auto &cf_name = it->first;
+    {
+      std::lock_guard<Rdb_dict_manager> dm_lock(dict_manager);
+      auto cfh = cf_manager.get_or_create_cf(rdb, cf_name);
+
+      if (!cfh) {
+        return HA_EXIT_FAILURE;
+      }
+
+      if (cf_manager.create_cf_flags_if_needed(&dict_manager, cfh->GetID(),
+                                               cf_name)) {
+        return HA_EXIT_FAILURE;
+      }
+    }
   }
 
   // In some cases, str can point to buff in the stack.
@@ -14515,8 +14790,16 @@ static void rocksdb_set_update_cf_options(
   for (const auto &cf_name : cf_manager.get_cf_names()) {
     DBUG_ASSERT(!cf_name.empty());
 
-    rocksdb::ColumnFamilyHandle *cfh = cf_manager.get_cf(cf_name);
-    DBUG_ASSERT(cfh != nullptr);
+    std::shared_ptr<rocksdb::ColumnFamilyHandle> cfh =
+        cf_manager.get_cf(cf_name);
+
+    if (!cfh) {
+      // NO_LINT_DEBUG
+      sql_print_information(
+          "Skip updating options for cf %s because the cf has been dropped.",
+          cf_name.c_str());
+      continue;
+    }
 
     const auto it = option_map.find(cf_name);
     std::string per_cf_options = (it != option_map.end()) ? it->second : "";
@@ -14535,7 +14818,10 @@ static void rocksdb_set_update_cf_options(
         DBUG_ASSERT(rdb != nullptr);
 
         // Finally we can apply the options.
-        s = rdb->SetOptions(cfh, opt_map);
+        // If cf_manager.drop_cf() has been called at this point, SetOptions()
+        // will still succeed. The options data will only be cleared when
+        // the CF handle object is destroyed.
+        s = rdb->SetOptions(cfh.get(), opt_map);
 
         if (s != rocksdb::Status::OK()) {
           // NO_LINT_DEBUG
@@ -14554,7 +14840,7 @@ static void rocksdb_set_update_cf_options(
           // the CF options. This is necessary also to make sure that the CF
           // options will be correctly reflected in the relevant table:
           // ROCKSDB_CF_OPTIONS in INFORMATION_SCHEMA.
-          rocksdb::ColumnFamilyOptions cf_options = rdb->GetOptions(cfh);
+          rocksdb::ColumnFamilyOptions cf_options = rdb->GetOptions(cfh.get());
           std::string updated_options;
 
           s = rocksdb::GetStringFromColumnFamilyOptions(&updated_options,
