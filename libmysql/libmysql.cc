@@ -797,10 +797,11 @@ MYSQL_RES *STDCALL mysql_list_processes(MYSQL *mysql) {
 }
 
 int STDCALL mysql_shutdown(MYSQL *mysql,
-                           enum mysql_enum_shutdown_level shutdown_level
-                           [[maybe_unused]]) {
+                           enum mysql_enum_shutdown_level shutdown_level) {
+  uchar level[1];
+  level[0] = (uchar)shutdown_level;
   if (mysql_get_server_version(mysql) < 50709)
-    return simple_command(mysql, COM_DEPRECATED_1, nullptr, 0, 0);
+    return simple_command(mysql, COM_DEPRECATED_1, level, 1, 0);
   else
     return mysql_real_query(mysql, STRING_WITH_LEN("shutdown"));
 }
