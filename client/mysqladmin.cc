@@ -722,7 +722,7 @@ static int execute_commands(MYSQL *mysql, int argc, char **argv) {
             !stat(pidfile, &pidfile_status))
           last_modified = pidfile_status.st_mtime;
 
-        if (mysql_query(mysql, "shutdown")) {
+        if (mysql_shutdown(mysql, SHUTDOWN_DEFAULT)) {
           my_printf_error(0, "shutdown failed; error: '%s'", error_flags,
                           mysql_error(mysql));
           return -1;
