@@ -1,0 +1,61 @@
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+--source include/have_rocksdb.inc
+
+set @old_debug = @@global.debug;
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+connect (conn1,localhost,root,,);
+connect (conn2,localhost,root,,);
+
+## test1 ##
+--connection conn1
+create table t1 (
+  id1 int(10) unsigned not null default '0',
+  id2 int(10) unsigned not null default '0',
+  primary key (id1) comment 'cf_primary_key',
+  key `secondary_key` (id2) COMMENT 'cf_secondary_key'
+  ) engine=rocksdb;
+
+insert into t1 (id1, id2)
+  values(1, 1);
+
+insert into t1 (id1, id2)
+  values(2, 2);
+
+insert into t1 (id1, id2)
+  values(3, 3);
+
+set global rocksdb_force_flush_memtable_now = true;
+
+--connection conn1
+set @@global.debug = '+d,rocksdb_delete_index';
+set @@global.debug = '+d,rocksdb_drop_cf';
+
+send alter table t1 drop index secondary_key;
+
+--connection conn2
+set debug_sync = "now wait_for ready_to_mark_cf_dropped_after_commit_alter_table";
+
+# mark cf_secondary_key as dropped succeeds
+set @@global.rocksdb_delete_cf = 'cf_secondary_key';
+
+set debug_sync = "now signal mark_cf_dropped_done_after_commit_alter_table";
+
+--connection conn1
+# drop index secondary_key succeeds
+reap;
+show create table t1;
+
+select count(*) > 0 from information_schema.rocksdb_cfstats where cf_name = 'cf_secondary_key' ;
+set debug_sync = "now signal ready_to_drop_cf";
+
+# cf_secondary_key is dropped
+set debug_sync = "now wait_for drop_cf_done";
+select count(*) = 0 from information_schema.rocksdb_cfstats where cf_name = 'cf_secondary_key';
+
+set @@global.debug = @old_debug;
+drop table t1;

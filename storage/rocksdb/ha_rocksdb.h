@@ -649,7 +649,7 @@ class ha_rocksdb : public my_core::handler {
   */
  private:
   struct key_def_cf_info {
-    rocksdb::ColumnFamilyHandle *cf_handle;
+    std::shared_ptr<rocksdb::ColumnFamilyHandle> cf_handle;
     bool is_reverse_cf;
     bool is_per_partition_cf;
   };

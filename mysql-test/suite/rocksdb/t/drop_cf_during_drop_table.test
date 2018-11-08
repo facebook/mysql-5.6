@@ -1,0 +1,79 @@
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+--source include/have_rocksdb.inc
+
+--disable_query_log
+call mtr.add_suppression("Cannot mark Column family.*because it is in use");
+--enable_query_log
+
+set @old_debug = @@global.debug;
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+connect (conn1,localhost,root,,);
+connect (conn2,localhost,root,,);
+
+## test1 ##
+--connection conn1
+set @@global.debug = '+d,rocksdb_before_delete_table';
+set @@global.debug = '+d,rocksdb_drop_cf';
+create table t1 (
+  id1 int(10) unsigned not null default '0',
+  primary key (id1) comment 'cf_primary_key'
+  ) engine=rocksdb;
+
+send drop table t1;
+
+--connection conn2
+set debug_sync = "now wait_for ready_to_mark_cf_dropped_before_delete_table";
+
+# mark cf_primary_key as dropped fails because it is still used by primary key
+# of table t1
+--error ER_CANT_DROP_CF
+set @@global.rocksdb_delete_cf = 'cf_primary_key';
+
+set debug_sync = "now signal mark_cf_dropped_done_before_delete_table";
+
+--connection conn1
+reap;
+show tables;
+
+set debug_sync = "now signal ready_to_drop_cf";
+set debug_sync = "now wait_for drop_cf_done";
+
+set @@global.debug = @old_debug;
+
+## test2 ##
+--connection conn1
+
+set @@global.debug = '+d,rocksdb_after_delete_table';
+set @@global.debug = '+d,rocksdb_drop_cf';
+create table t1 (
+  id1 int(10) unsigned not null default '0',
+  primary key (id1) comment 'cf_primary_key'
+  ) engine=rocksdb;
+
+send drop table t1;
+
+--connection conn2
+set debug_sync = "now wait_for ready_to_mark_cf_dropped_after_delete_table";
+
+# mark cf_primary_key as dropped succeeds
+set @@global.rocksdb_delete_cf = 'cf_primary_key';
+
+select * from information_schema.rocksdb_cfstats where cf_name = 'cf_primary_key';
+set debug_sync = "now signal ready_to_drop_cf";
+
+# drop cf_primary_key succeeds
+set debug_sync = "now wait_for drop_cf_done";
+select * from information_schema.rocksdb_cfstats where cf_name = 'cf_primary_key';
+
+set debug_sync = "now signal mark_cf_dropped_done_after_delete_table";
+
+--connection conn1
+reap;
+show tables;
+
+set @@global.debug = @old_debug;
