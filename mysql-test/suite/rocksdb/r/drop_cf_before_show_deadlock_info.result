@@ -1,0 +1,54 @@
+set @old_debug = @@global.debug;
+set @prior_lock_wait_timeout = @@rocksdb_lock_wait_timeout;
+set @prior_deadlock_detect = @@rocksdb_deadlock_detect;
+set @prior_max_latest_deadlocks = @@rocksdb_max_latest_deadlocks;
+set global rocksdb_deadlock_detect = on;
+set global rocksdb_lock_wait_timeout = 10000;
+# Clears deadlock buffer of any prior deadlocks.
+set global rocksdb_max_latest_deadlocks = 0;
+set global rocksdb_max_latest_deadlocks = @prior_max_latest_deadlocks;
+create table t (
+i int(5), primary key(i) comment 'cf_primary_key'
+) engine=rocksdb;
+insert into t values (1), (2), (3);
+select * from information_schema.rocksdb_deadlock;
+DEADLOCK_ID	TIMESTAMP	TRANSACTION_ID	CF_NAME	WAITING_KEY	LOCK_TYPE	INDEX_NAME	TABLE_NAME	ROLLED_BACK
+select cf_name, index_name, table_name from information_schema.rocksdb_deadlock;
+cf_name	index_name	table_name
+set @@global.debug = '+d,rocksdb_drop_cf';
+begin;
+select * from t where i=1 for update;
+i
+1
+begin;
+select * from t where i=2 for update;
+i
+2
+select * from t where i=2 for update;
+select * from t where i=1 for update;
+ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
+rollback;
+i
+2
+rollback;
+drop table t;
+set @@global.rocksdb_delete_cf = 'cf_primary_key';
+select cf_name,
+substr(index_name, 1, 9) as index_name,
+substr(table_name, 1, 9) as table_name
+from information_schema.rocksdb_deadlock;
+cf_name	index_name	table_name
+cf_primary_key	NOT FOUND	NOT FOUND
+cf_primary_key	NOT FOUND	NOT FOUND
+set debug_sync = "now signal ready_to_drop_cf";
+set debug_sync = "now wait_for drop_cf_done";
+select substr(cf_name, 1, 9) as cf_name,
+substr(index_name, 1, 9) as index_name,
+substr(table_name, 1, 9) as table_name
+from information_schema.rocksdb_deadlock;
+cf_name	index_name	table_name
+NOT FOUND	NOT FOUND	NOT FOUND
+NOT FOUND	NOT FOUND	NOT FOUND
+set global rocksdb_lock_wait_timeout = @prior_lock_wait_timeout;
+set global rocksdb_deadlock_detect = @prior_deadlock_detect;
+set @@global.debug = @old_debug;
