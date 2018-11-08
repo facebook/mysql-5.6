@@ -168,7 +168,7 @@ class Rdb_manual_compaction_thread : public Rdb_thread {
   struct Manual_compaction_request {
     int mc_id;
     enum mc_state { INITED = 0, RUNNING } state;
-    rocksdb::ColumnFamilyHandle *cf;
+    std::shared_ptr<rocksdb::ColumnFamilyHandle> cf;
     rocksdb::Slice *start;
     rocksdb::Slice *limit;
     int concurrency = 0;
@@ -188,7 +188,7 @@ class Rdb_manual_compaction_thread : public Rdb_thread {
   }
 
   virtual void run() override;
-  int request_manual_compaction(rocksdb::ColumnFamilyHandle *cf,
+  int request_manual_compaction(std::shared_ptr<rocksdb::ColumnFamilyHandle> cf,
                                 rocksdb::Slice *start, rocksdb::Slice *limit,
                                 int concurrency = 0);
   bool is_manual_compaction_finished(int mc_id);

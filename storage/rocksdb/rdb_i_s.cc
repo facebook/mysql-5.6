@@ -34,6 +34,7 @@
 #include "rocksdb/utilities/transaction_db.h"
 
 /* MyRocks header files */
+#include "./debug_sync.h"
 #include "./ha_rocksdb.h"
 #include "./ha_rocksdb_proto.h"
 #include "./rdb_cf_manager.h"
@@ -106,13 +107,16 @@ static int rdb_i_s_cfstats_fill_table(
 
   for (const auto &cf_name : cf_manager.get_cf_names()) {
     DBUG_ASSERT(!cf_name.empty());
-    rocksdb::ColumnFamilyHandle *cfh = cf_manager.get_cf(cf_name);
-    if (cfh == nullptr) {
+    std::shared_ptr<rocksdb::ColumnFamilyHandle> cfh =
+        cf_manager.get_cf(cf_name);
+    if (!cfh) {
       continue;
     }
 
+    // It is safe if the CF is removed from cf_manager at
+    // this point. The CF handle object is valid and sufficient here.
     for (const auto &property : cf_properties) {
-      if (!rdb->GetIntProperty(cfh, property.first, &val)) {
+      if (!rdb->GetIntProperty(cfh.get(), property.first, &val)) {
         continue;
       }
 
@@ -753,7 +757,7 @@ static int rdb_i_s_global_info_fill_table(
   }
 
   /* max index info */
-  const Rdb_dict_manager *const dict_manager = rdb_get_dict_manager();
+  Rdb_dict_manager *const dict_manager = rdb_get_dict_manager();
   DBUG_ASSERT(dict_manager != nullptr);
 
   uint32_t max_index_id;
@@ -774,16 +778,22 @@ static int rdb_i_s_global_info_fill_table(
   for (const auto &cf_handle : cf_manager.get_all_cf()) {
     DBUG_ASSERT(cf_handle != nullptr);
 
+    DBUG_EXECUTE_IF("information_schema_global_info", {
+      if (cf_handle->GetName() == "cf_primary_key") {
+        const char act[] =
+            "now signal ready_to_mark_cf_dropped_in_global_info "
+            "wait_for mark_cf_dropped_done_in_global_info";
+        DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+      }
+    });
+
     uint flags;
 
     if (!dict_manager->get_cf_flags(cf_handle->GetID(), &flags)) {
-      // NO_LINT_DEBUG
-      sql_print_error(
-          "RocksDB: Failed to get column family flags "
-          "from CF with id = %u. MyRocks data dictionary may "
-          "be corrupted.",
-          cf_handle->GetID());
-      abort();
+      // If cf flags cannot be retrieved, set flags to 0. It can happen
+      // if the CF is dropped. flags is only used to print information
+      // here and so it doesn't affect functional correctness.
+      flags = 0;
     }
 
     snprintf(cf_id_buf, INT_BUF_LEN, "%u", cf_handle->GetID());
@@ -840,15 +850,19 @@ static int rdb_i_s_compact_stats_fill_table(
   Rdb_cf_manager &cf_manager = rdb_get_cf_manager();
 
   for (const auto &cf_name : cf_manager.get_cf_names()) {
-    rocksdb::ColumnFamilyHandle *cfh = cf_manager.get_cf(cf_name);
+    std::shared_ptr<rocksdb::ColumnFamilyHandle> cfh =
+        cf_manager.get_cf(cf_name);
 
-    if (cfh == nullptr) {
+    if (!cfh) {
       continue;
     }
 
+    // It is safe if the CF is removed from cf_manager at
+    // this point. The CF handle object is valid and sufficient here.
     std::map<std::string, std::string> props;
     bool bool_ret MY_ATTRIBUTE((__unused__));
-    bool_ret = rdb->GetMapProperty(cfh, "rocksdb.cfstats", &props);
+    bool_ret = rdb->GetMapProperty(cfh.get(), "rocksdb.cfstats", &props);
+
     DBUG_ASSERT(bool_ret);
 
     const std::string prop_name_prefix = "compaction.";
@@ -1182,12 +1196,14 @@ static int rdb_i_s_sst_props_fill_table(
     /* Grab the the properties of all the tables in the column family */
     rocksdb::TablePropertiesCollection table_props_collection;
     const rocksdb::Status s =
-        rdb->GetPropertiesOfAllTables(cf_handle, &table_props_collection);
+        rdb->GetPropertiesOfAllTables(cf_handle.get(), &table_props_collection);
 
     if (!s.ok()) {
       continue;
     }
 
+    // It is safe if the CF is removed from cf_manager at
+    // this point. The CF handle object is valid and sufficient here.
     /* Iterate over all the items in the collection, each of which contains a
      * name and the actual properties */
     for (const auto &props : table_props_collection) {
@@ -1341,8 +1357,11 @@ static int rdb_i_s_index_file_map_fill_table(
   for (const auto &cf_handle : cf_manager.get_all_cf()) {
     /* Grab the the properties of all the tables in the column family */
     rocksdb::TablePropertiesCollection table_props_collection;
+
+    // It is safe if the CF is removed from cf_manager at
+    // this point. The CF handle object is valid and sufficient here.
     const rocksdb::Status s =
-        rdb->GetPropertiesOfAllTables(cf_handle, &table_props_collection);
+        rdb->GetPropertiesOfAllTables(cf_handle.get(), &table_props_collection);
 
     if (!s.ok()) {
       continue;
