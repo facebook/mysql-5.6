@@ -1,4 +1,4 @@
-/* Copyright (c) 2006, 2016, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2006, 2018, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -463,6 +463,7 @@ static inline int add_relay_log(Relay_log_info* rli,LOG_INFO* linfo)
 {
   MY_STAT s;
   DBUG_ENTER("add_relay_log");
+  mysql_mutex_assert_owner(&rli->log_space_lock);
   if (!mysql_file_stat(key_file_relaylog,
                        linfo->log_file_name, &s, MYF(0)))
   {
@@ -482,16 +483,21 @@ int Relay_log_info::count_relay_log_space()
 {
   LOG_INFO flinfo;
   DBUG_ENTER("Relay_log_info::count_relay_log_space");
+  mysql_mutex_lock(&log_space_lock);
   log_space_total= 0;
   if (relay_log.find_log_pos(&flinfo, NullS, 1))
   {
     sql_print_error("Could not find first log while counting relay log space.");
+    mysql_mutex_unlock(&log_space_lock);
     DBUG_RETURN(1);
   }
   do
   {
     if (add_relay_log(this, &flinfo))
+    {
+      mysql_mutex_unlock(&log_space_lock);
       DBUG_RETURN(1);
+    }
   } while (!relay_log.find_next_log(&flinfo, 1));
   /*
      As we have counted everything, including what may have written in a
@@ -499,6 +505,7 @@ int Relay_log_info::count_relay_log_space()
      twice.
   */
   relay_log.reset_bytes_written();
+  mysql_mutex_unlock(&log_space_lock);
   DBUG_RETURN(0);
 }
 
@@ -2206,7 +2213,7 @@ void Relay_log_info::end_info()
   }
   inited = 0;
   relay_log.close(LOG_CLOSE_INDEX | LOG_CLOSE_STOP_EVENT);
-  relay_log.harvest_bytes_written(&log_space_total);
+  relay_log.harvest_bytes_written(this, true/*need_log_space_lock=true*/);
   /*
     Delete the slave's temporary tables from memory.
     In the future there will be other actions than this, to ensure persistance
