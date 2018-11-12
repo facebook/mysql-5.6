@@ -823,18 +823,7 @@ public:
   {
     bytes_written = 0;
   }
-  void harvest_bytes_written(std::atomic_ullong* counter)
-  {
-#ifndef DBUG_OFF
-    char buf1[22],buf2[22];
-#endif
-    DBUG_ENTER("harvest_bytes_written");
-    counter->fetch_add(bytes_written);
-    DBUG_PRINT("info",("counter: %s  bytes_written: %s", llstr(*counter,buf1),
-		       llstr(bytes_written,buf2)));
-    bytes_written=0;
-    DBUG_VOID_RETURN;
-  }
+  void harvest_bytes_written(Relay_log_info *rli, bool need_log_space_lock);
   void set_max_size(ulong max_size_arg);
   void signal_update();
   void update_binlog_end_pos();
