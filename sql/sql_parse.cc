@@ -8809,22 +8809,20 @@ uint kill_one_thread(THD *thd, my_thread_id id, bool only_kill_query)
       DBUG_PRINT("info", ("Kill CONN for srv_session, removing session."));
       Srv_session::remove_session(id);
     }
+    // We can't exit early if the session is not attached because
+    // it might have already been removed from the map
     // continue executing code below with conn thread id
-    auto conn_id = srv_session->get_conn_thd_id();
-    if (conn_id == 0) // session is not attached
-    {
-      DBUG_PRINT("info", ("Requested KILL of unattached srv session id=%d",
-                          srv_session->get_session_id()));
-      DBUG_RETURN(0);
-    }
     // continue to kill the query, set only_kill_query=true as connection
     // should still remain active
     only_kill_query = true;
     tmp = srv_session->get_thd();
     mysql_mutex_lock(&tmp->LOCK_thd_data);
-    DBUG_PRINT("info", ("Found srv_session to kill conn_thid=%d", conn_id));
+#ifndef DBUG_OFF
+    auto conn_id = srv_session->get_conn_thd_id();
+    DBUG_PRINT("info", ("Found srv_session to kill conn_thd=%d", conn_id));
+#endif // DBUG_OFF
   }
-#endif
+#endif // EMBEDDED_LIBRARY
 
   if (!srv_session)
   {

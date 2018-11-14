@@ -372,10 +372,6 @@ reap;
 
 # KILL Connection will remove the SRV session
 connection default;
-# Because of a race condition in mysqld that needs to be fixed, we have to
-# wait until the query is executing before sending the kill.
-let $wait_condition = select count(*) = 1 from information_schema.processlist where SRV_ID=$rpc_id and COMMAND='Query attributes';
---source include/wait_condition.inc
 --replace_result $rpc_id rpc_id
 eval KILL $rpc_id;
 let $wait_condition = select count(*) = 0 from information_schema.processlist where SRV_ID=$rpc_id;
