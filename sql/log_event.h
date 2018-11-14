@@ -102,6 +102,8 @@ class Basic_ostream;
 
 #ifndef MYSQL_SERVER
 #include "sql/rpl_tblmap.h"  // table_mapping
+#include <vector>
+
 #endif
 
 #include <limits.h>
@@ -401,6 +403,8 @@ enum enum_base64_output_mode {
   BASE64_OUTPUT_MODE_COUNT
 };
 
+class Rows_log_event;
+
 /*
   A structure for mysqlbinlog to know how to print events
 
@@ -466,6 +470,9 @@ struct PRINT_EVENT_INFO {
   my_off_t hexdump_from;
   uint8 common_header_len;
   char delimiter[16];
+  // to capture whether the BINLOG event is not complete yet.
+  bool inside_binlog;
+  std::vector<Rows_log_event *> verbose_events;
 
   uint verbose;
   table_mapping m_table_map;
