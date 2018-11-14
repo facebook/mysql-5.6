@@ -5681,8 +5681,11 @@ test_if_cheaper_ordering(const JOIN_TAB *tab, ORDER *order, TABLE *table,
           In any case we can't select more than #table_records.
           N/(refkey_rows_estimate/table_records) > table_records
           <=> N > refkey_rows_estimate.
+
+          Do not apply this heuristic if optimizer_low_limit_heuristic is off.
          */
-        if (select_limit > refkey_rows_estimate)
+        if (select_limit > refkey_rows_estimate ||
+            !table->in_use->variables.optimizer_low_limit_heuristic)
           select_limit= table_records;
         else
           select_limit= (ha_rows) (select_limit *

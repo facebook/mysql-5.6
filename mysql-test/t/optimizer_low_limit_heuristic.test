@@ -136,6 +136,19 @@ eval EXPLAIN $query;
 SET optimizer_low_limit_heuristic = 1;
 SELECT @@optimizer_low_limit_heuristic;
 
+let query=
+SELECT i1 FROM t1 where pk > 0 and pk < 10000 order by i1 limit 1;
+
+SET optimizer_low_limit_heuristic = 1;
+SELECT @@optimizer_low_limit_heuristic;
+
+eval EXPLAIN $query;
+
+SET optimizer_low_limit_heuristic = 0;
+SELECT @@optimizer_low_limit_heuristic;
+
+eval EXPLAIN $query;
+
 DROP TABLE t0, t1, t2;
 
 eval SET @@optimizer_low_limit_heuristic = $start_value;
