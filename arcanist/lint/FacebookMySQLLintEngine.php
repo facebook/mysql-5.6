@@ -48,9 +48,6 @@ class FacebookMySQLLintEngine extends ArcanistLintEngine {
     // Currently we can't run flint (FbcodeCppLinter) in commit hook mode,
     // because it depends on having access to the working directory.
     if (!$this->getCommitHookMode()) {
-      // FbcodeCppLinter runs flint
-      // Run on all C++ files that are in MyRocks (include 'storage/rocksdb')
-      $linters[] = id(new FbcodeCppLinter())->setPaths($myrocks_cpp_paths);
       // FacebookMySQLClangFormatLinter
       $clang_format_linter = id(new FacebookMySQLClangFormatLinter());
       $linters[] = $clang_format_linter;
