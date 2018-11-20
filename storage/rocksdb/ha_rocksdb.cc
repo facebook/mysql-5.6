@@ -52,6 +52,7 @@
 #include "monitoring/histogram.h"
 #include "rocksdb/compaction_filter.h"
 #include "rocksdb/env.h"
+#include "rocksdb/memory_allocator.h"
 #include "rocksdb/persistent_cache.h"
 #include "rocksdb/rate_limiter.h"
 #include "rocksdb/slice_transform.h"
@@ -534,6 +535,7 @@ static long long rocksdb_block_cache_size;
 static long long rocksdb_sim_cache_size;
 static my_bool rocksdb_use_clock_cache;
 static double rocksdb_cache_high_pri_pool_ratio;
+static my_bool rocksdb_cache_dump;
 /* Use unsigned long long instead of uint64_t because of MySQL compatibility */
 static unsigned long long  // NOLINT(runtime/int)
     rocksdb_rate_limiter_bytes_per_sec;
@@ -1271,6 +1273,11 @@ static MYSQL_SYSVAR_BOOL(
     "Use ClockCache instead of default LRUCache for RocksDB",
     nullptr, nullptr, false);
 
+static MYSQL_SYSVAR_BOOL(cache_dump, rocksdb_cache_dump,
+                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+                         "Include RocksDB block cache content in core dump.",
+                         nullptr, nullptr, true);
+
 static MYSQL_SYSVAR_DOUBLE(cache_high_pri_pool_ratio,
                            rocksdb_cache_high_pri_pool_ratio,
                            PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -1789,6 +1796,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(sim_cache_size),
     MYSQL_SYSVAR(use_clock_cache),
     MYSQL_SYSVAR(cache_high_pri_pool_ratio),
+    MYSQL_SYSVAR(cache_dump),
     MYSQL_SYSVAR(cache_index_and_filter_blocks),
     MYSQL_SYSVAR(cache_index_and_filter_with_high_priority),
     MYSQL_SYSVAR(pin_l0_filter_and_index_blocks_in_cache),
@@ -4766,13 +4774,33 @@ static int rocksdb_init_func(void *const p) {
       (rocksdb::BlockBasedTableOptions::IndexType)rocksdb_index_type;
 
   if (!rocksdb_tbl_options->no_block_cache) {
+    std::shared_ptr<rocksdb::MemoryAllocator> memory_allocator;
+    if (!rocksdb_cache_dump) {
+      size_t block_size = rocksdb_tbl_options->block_size;
+      rocksdb::JemallocAllocatorOptions alloc_opt;
+      // Limit jemalloc tcache memory usage. The range
+      // [block_size/4, block_size] should be enough to cover most of
+      // block cache allocation sizes.
+      alloc_opt.limit_tcache_size = true;
+      alloc_opt.tcache_size_lower_bound = block_size / 4;
+      alloc_opt.tcache_size_upper_bound = block_size;
+      rocksdb::Status new_alloc_status =
+          rocksdb::NewJemallocNodumpAllocator(alloc_opt, &memory_allocator);
+      if (!new_alloc_status.ok()) {
+        // Fallback to use default malloc/free.
+        rdb_log_status_error(new_alloc_status,
+                             "Error excluding block cache from core dump");
+        memory_allocator = nullptr;
+        DBUG_RETURN(HA_EXIT_FAILURE);
+      }
+    }
     std::shared_ptr<rocksdb::Cache> block_cache =
         rocksdb_use_clock_cache
             ? rocksdb::NewClockCache(rocksdb_block_cache_size)
-            : rocksdb::NewLRUCache(rocksdb_block_cache_size,
-                                   -1 /*num_shard_bits*/,
-                                   false /*strict_capcity_limit*/,
-                                   rocksdb_cache_high_pri_pool_ratio);
+            : rocksdb::NewLRUCache(
+                  rocksdb_block_cache_size, -1 /*num_shard_bits*/,
+                  false /*strict_capcity_limit*/,
+                  rocksdb_cache_high_pri_pool_ratio, memory_allocator);
     if (rocksdb_sim_cache_size > 0) {
       // Simulated cache enabled
       // Wrap block cache inside a simulated cache and pass it to RocksDB
