@@ -1152,6 +1152,9 @@ The following options may be given as the first argument:
  Max #records in a batch for bulk-load mode
  --rocksdb-bytes-per-sync=# 
  DBOptions::bytes_per_sync for RocksDB
+ --rocksdb-cache-dump 
+ Include RocksDB block cache content in core dump.
+ (Defaults to on; use --skip-rocksdb-cache-dump to disable.)
  --rocksdb-cache-high-pri-pool-ratio=# 
  Specify the size of block cache high-pri pool
  --rocksdb-cache-index-and-filter-blocks 
@@ -2206,6 +2209,7 @@ rocksdb-bulk-load-allow-sk FALSE
 rocksdb-bulk-load-allow-unsorted FALSE
 rocksdb-bulk-load-size 1000
 rocksdb-bytes-per-sync 0
+rocksdb-cache-dump TRUE
 rocksdb-cache-high-pri-pool-ratio 0
 rocksdb-cache-index-and-filter-blocks TRUE
 rocksdb-cache-index-and-filter-with-high-priority TRUE
