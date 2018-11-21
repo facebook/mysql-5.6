@@ -806,10 +806,11 @@ static MYSQL_THDVAR_STR(tmpdir, PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_MEMALLOC,
                         "Directory for temporary files during DDL operations.",
                         nullptr, nullptr, "");
 
+#define DEFAULT_SKIP_UNIQUE_CHECK_TABLES ".*"
 static MYSQL_THDVAR_STR(
     skip_unique_check_tables, PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
     "Skip unique constraint checking for the specified tables", nullptr,
-    nullptr, ".*");
+    nullptr, DEFAULT_SKIP_UNIQUE_CHECK_TABLES);
 
 static MYSQL_THDVAR_BOOL(
     commit_in_the_middle, PLUGIN_VAR_RQCMDARG,
@@ -823,11 +824,12 @@ static MYSQL_THDVAR_BOOL(
     " Blind delete is disabled if the table has secondary key",
     nullptr, nullptr, FALSE);
 
+#define DEFAULT_READ_FREE_RPL_TABLES ""
 static MYSQL_THDVAR_STR(
     read_free_rpl_tables, PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
     "List of tables that will use read-free replication on the slave "
     "(i.e. not lookup a row during replication)",
-    nullptr, nullptr, "");
+    nullptr, nullptr, DEFAULT_READ_FREE_RPL_TABLES);
 
 static MYSQL_THDVAR_BOOL(skip_bloom_filter_on_read, PLUGIN_VAR_RQCMDARG,
                          "Skip using bloom filter for reads", nullptr, nullptr,
@@ -6447,7 +6449,7 @@ void ha_rocksdb::free_key_buffers() {
 }
 
 void ha_rocksdb::set_use_read_free_rpl(const char *const whitelist) {
-  DBUG_ASSERT(whitelist != nullptr);
+  const char *const wl = whitelist ? whitelist : DEFAULT_READ_FREE_RPL_TABLES;
 
 #if defined(HAVE_PSI_INTERFACE)
   Regex_list_handler regex_handler(key_rwlock_read_free_rpl_tables);
@@ -6455,7 +6457,7 @@ void ha_rocksdb::set_use_read_free_rpl(const char *const whitelist) {
   Regex_list_handler regex_handler;
 #endif
 
-  if (!regex_handler.set_patterns(whitelist)) {
+  if (!regex_handler.set_patterns(wl)) {
     warn_about_bad_patterns(&regex_handler, "read_free_rpl_tables");
   }
 
@@ -6463,7 +6465,8 @@ void ha_rocksdb::set_use_read_free_rpl(const char *const whitelist) {
 }
 
 void ha_rocksdb::set_skip_unique_check_tables(const char *const whitelist) {
-  DBUG_ASSERT(whitelist != nullptr);
+  const char *const wl =
+      whitelist ? whitelist : DEFAULT_SKIP_UNIQUE_CHECK_TABLES;
 
 #if defined(HAVE_PSI_INTERFACE)
   Regex_list_handler regex_handler(key_rwlock_skip_unique_check_tables);
@@ -6471,7 +6474,7 @@ void ha_rocksdb::set_skip_unique_check_tables(const char *const whitelist) {
   Regex_list_handler regex_handler;
 #endif
 
-  if (!regex_handler.set_patterns(whitelist)) {
+  if (!regex_handler.set_patterns(wl)) {
     warn_about_bad_patterns(&regex_handler, "skip_unique_check_tables");
   }
 
