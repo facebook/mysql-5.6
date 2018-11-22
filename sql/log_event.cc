@@ -12242,9 +12242,9 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli)
 
     if (open_and_lock_tables(thd, rli->tables_to_lock, FALSE, 0))
     {
-      uint actual_error= thd->get_stmt_da()->sql_errno();
       if (thd->is_slave_error || thd->is_fatal_error)
       {
+        uint actual_error= thd->get_stmt_da()->sql_errno();
         if (ignored_error_code(actual_error))
         {
           if (log_warnings > 1)
@@ -12269,6 +12269,26 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli)
           goto err;
         }
       }
+      else if (thd->killed)
+      {
+          rli->report(ERROR_LEVEL, ER_SLAVE_FATAL_ERROR,
+                      "Error executing row event: "
+                      "the slave sql worker thread is killed");
+          thd->is_slave_error= 1;
+          error = ER_SLAVE_FATAL_ERROR;
+          goto err;
+      }
+      else
+      {
+          rli->report(ERROR_LEVEL, ER_SLAVE_FATAL_ERROR,
+                      "Error executing row event: "
+                      "unexpected slave fatal error");
+          thd->is_slave_error= 1;
+          error = ER_SLAVE_FATAL_ERROR;
+          goto err;
+      }
+
+      DBUG_ASSERT(0); // never reached
     }
     /*
       When the open and locking succeeded, we check all tables to

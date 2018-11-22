@@ -3110,8 +3110,18 @@ bool open_table(THD *thd, TABLE_LIST *table_list, Open_table_context *ot_ctx)
     mdl_ticket= table_list->mdl_request.ticket;
   }
 
-  hash_value= my_calc_hash(&table_def_cache, (uchar*) key, key_length);
+  DBUG_EXECUTE_IF("sql_opening_table",
+    {
+      if (thd->slave_thread) {
+        const char act[]=
+          "now signal opening wait_for slave_killed";
+          DBUG_ASSERT(!debug_sync_set_action(current_thd,
+            STRING_WITH_LEN(act)));
+      }
+    }
+  );
 
+  hash_value= my_calc_hash(&table_def_cache, (uchar*) key, key_length);
 
   if (table_list->open_strategy == TABLE_LIST::OPEN_IF_EXISTS ||
       table_list->open_strategy == TABLE_LIST::OPEN_FOR_CREATE)
