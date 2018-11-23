@@ -1,4 +1,4 @@
-/* Copyright (c) 2006, 2016, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2006, 2018, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -1541,6 +1541,10 @@ extern mysql_cond_t COND_manager;
 extern int32 num_thread_running;
 extern my_atomic_rwlock_t thread_running_lock;
 extern my_atomic_rwlock_t slave_open_temp_tables_lock;
+#ifdef _WIN32
+extern mysql_rwlock_t LOCK_named_pipe_full_access_group;
+extern char *named_pipe_full_access_group;
+#endif
 
 extern my_bool opt_use_ssl;
 extern char *opt_ssl_ca, *opt_ssl_capath, *opt_ssl_cert, *opt_ssl_cipher,
@@ -1621,6 +1625,7 @@ enum options_mysqld
   OPT_SLOW_LOG_IF_ROWS_EXAMINED_EXCEED,
   OPT_PROCESS_CAN_DISABLE_BIN_LOG,
   OPT_TRIM_BINLOG_TO_RECOVER,
+  OPT_NAMED_PIPE_FULL_ACCESS_GROUP
 };
 
 
@@ -1772,5 +1777,9 @@ extern const char *MY_BIND_ALL_ADDRESSES;
 uint32 my_sbox_hash(const uchar* data, ulong length);
 
 #define ER(X)         ER_THD(current_thd,X)
+
+#ifdef _WIN32
+bool update_named_pipe_full_access_group(const char *new_group_name);
+#endif
 
 #endif /* MYSQLD_INCLUDED */

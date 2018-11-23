@@ -242,6 +242,10 @@ SET(SQL_SOURCE
   error_stats.cc
   )
 
+IF(WIN32)
+  LIST(APPEND SQL_SOURCE named_pipe.cc)
+ENDIF()
+
 IF (WIN32 AND OPENSSL_APPLINK_C)
   SET_SOURCE_FILES_PROPERTIES(
     ../sql-common/client_authentication.cc
