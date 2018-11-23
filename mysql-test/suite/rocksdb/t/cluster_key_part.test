@@ -1,0 +1,51 @@
+# Test that clustering keys can be created on partitioned rocksdb tables
+
+source include/have_rocksdb.inc;
+source include/have_partition.inc;
+set default_storage_engine='rocksdb';
+
+disable_warnings;
+DROP TABLE IF EXISTS t;
+enable_warnings;
+
+CREATE TABLE t (a INT NOT NULL AUTO_INCREMENT, b INT, PRIMARY KEY(a), CLUSTERING KEY b(b)) ENGINE=RocksDB
+PARTITION BY RANGE(a) (PARTITION p0 VALUES LESS THAN (100) ENGINE = RocksDB, PARTITION p2 VALUES LESS THAN MAXVALUE ENGINE = RocksDB);
+
+SHOW CREATE TABLE t;
+
+DROP TABLE t;
+
+
+
+CREATE TABLE t (x INT NOT NULL, y INT NOT NULL, PRIMARY KEY(x))
+PARTITION BY HASH(x) PARTITIONS 2;
+
+SHOW CREATE TABLE t;
+
+ALTER TABLE t ADD CLUSTERING KEY(y);
+
+SHOW CREATE TABLE t;
+
+DROP TABLE t;
+
+
+CREATE TABLE t1(a INT, b INT, c INT, d INT, PRIMARY KEY(a,b,c), CLUSTERING KEY(b), KEY (c)) ENGINE=RocksDB
+PARTITION BY RANGE(a) (PARTITION p0 VALUES LESS THAN (5) ENGINE = RocksDB, PARTITION p2 VALUES LESS THAN MAXVALUE ENGINE = RocksDB);
+
+--source ../include/cluster_key.inc
+
+DROP TABLE t1;
+
+CREATE TABLE t1(a INT, b INT, c INT, d INT, PRIMARY KEY(a,b,c), CLUSTERING KEY(b), KEY (c)) ENGINE=RocksDB
+PARTITION BY RANGE(b) (PARTITION p0 VALUES LESS THAN (50) ENGINE = RocksDB, PARTITION p2 VALUES LESS THAN MAXVALUE ENGINE = RocksDB);
+
+--source ../include/cluster_key.inc
+
+DROP TABLE t1;
+
+CREATE TABLE t1(a INT, b INT, c INT, d INT, PRIMARY KEY(a,b,c), CLUSTERING KEY(b), KEY (c)) ENGINE=RocksDB
+PARTITION BY RANGE(c) (PARTITION p0 VALUES LESS THAN (500) ENGINE = RocksDB, PARTITION p2 VALUES LESS THAN MAXVALUE ENGINE = RocksDB);
+
+--source ../include/cluster_key.inc
+
+DROP TABLE t1;

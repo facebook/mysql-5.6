@@ -66,7 +66,8 @@ Rdb_key_def::Rdb_key_def(uint indexnr_arg, uint keyno_arg,
       m_index_dict_version(index_dict_version_arg),
       m_index_type(index_type_arg), m_kv_format_version(kv_format_version_arg),
       m_is_reverse_cf(is_reverse_cf_arg),
-      m_is_per_partition_cf(is_per_partition_cf_arg), m_name(_name),
+      m_is_per_partition_cf(is_per_partition_cf_arg),
+      m_maybe_unpack_info(false), m_name(_name),
       m_stats(_stats), m_index_flags_bitmap(index_flags_bitmap),
       m_ttl_rec_offset(ttl_rec_offset), m_ttl_duration(ttl_duration),
       m_ttl_column(""), m_pk_part_no(nullptr), m_pack_info(nullptr),
@@ -144,7 +145,7 @@ void Rdb_key_def::setup(const TABLE *const tbl,
   */
   const bool is_hidden_pk = (m_index_type == INDEX_TYPE_HIDDEN_PRIMARY);
   const bool hidden_pk_exists = table_has_hidden_pk(tbl);
-  const bool secondary_key = (m_index_type == INDEX_TYPE_SECONDARY);
+  const bool secondary_key = (m_index_type == INDEX_TYPE_SECONDARY || m_index_type == INDEX_TYPE_CLUSTER);
   if (!m_maxlength) {
     RDB_MUTEX_LOCK_CHECK(m_mutex);
     if (m_maxlength != 0) {
@@ -1025,7 +1026,7 @@ uint Rdb_key_def::pack_record(
   // Checksums for PKs are made when record is packed.
   // We should never attempt to make checksum just from PK values
   DBUG_ASSERT_IMP(should_store_row_debug_checksums,
-                  (m_index_type == INDEX_TYPE_SECONDARY));
+                  (m_index_type == INDEX_TYPE_SECONDARY || m_index_type == INDEX_TYPE_CLUSTER));
 
   uchar *tuple = packed_tuple;
   size_t unpack_start_pos = size_t(-1);
@@ -1070,7 +1071,7 @@ uint Rdb_key_def::pack_record(
   if (unpack_info) {
     unpack_info->clear();
 
-    if (m_index_type == INDEX_TYPE_SECONDARY &&
+    if ((m_index_type == INDEX_TYPE_SECONDARY) &&
         m_total_index_flags_length > 0) {
       // Reserve space for index flag fields
       unpack_info->allocate(m_total_index_flags_length);
@@ -1170,7 +1171,7 @@ uint Rdb_key_def::pack_record(
     // Primary Keys are special: for them, store the unpack_info even if it's
     // empty (provided m_maybe_unpack_info==true, see
     // ha_rocksdb::convert_record_to_storage_format)
-    if (m_index_type == Rdb_key_def::INDEX_TYPE_SECONDARY) {
+    if (m_index_type == Rdb_key_def::INDEX_TYPE_SECONDARY || m_index_type == Rdb_key_def::INDEX_TYPE_CLUSTER) {
       if (len == get_unpack_header_size(tag) && !covered_bits) {
         unpack_info->truncate(unpack_start_pos);
       } else if (store_covered_bitmap) {
@@ -1402,7 +1403,7 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
 
   const bool is_hidden_pk = (m_index_type == INDEX_TYPE_HIDDEN_PRIMARY);
   const bool hidden_pk_exists = table_has_hidden_pk(table);
-  const bool secondary_key = (m_index_type == INDEX_TYPE_SECONDARY);
+  const bool secondary_key = (m_index_type == INDEX_TYPE_SECONDARY || m_index_type == INDEX_TYPE_CLUSTER);
   // There is no checksuming data after unpack_info for primary keys, because
   // the layout there is different. The checksum is verified in
   // ha_rocksdb::convert_record_from_storage_format instead.
@@ -1420,7 +1421,7 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
   const bool has_unpack_info =
       unp_reader.remaining_bytes() && is_unpack_data_tag(unpack_header[0]);
   if (has_unpack_info) {
-    if ((m_index_type == INDEX_TYPE_SECONDARY &&
+    if ((secondary_key &&
          m_total_index_flags_length > 0 &&
          !unp_reader.read(m_total_index_flags_length)) ||
       !unp_reader.read(get_unpack_header_size(unpack_header[0]))) {
@@ -1586,11 +1587,14 @@ void Rdb_key_def::report_checksum_mismatch(const bool &is_key,
 }
 
 bool Rdb_key_def::index_format_min_check(const int &pk_min,
-                                         const int &sk_min) const {
+                                         const int &sk_min,
+                                         const int &clu_min) const {
   switch (m_index_type) {
   case INDEX_TYPE_PRIMARY:
   case INDEX_TYPE_HIDDEN_PRIMARY:
     return (m_kv_format_version >= pk_min);
+  case INDEX_TYPE_CLUSTER:
+    return (m_kv_format_version >= clu_min);
   case INDEX_TYPE_SECONDARY:
     return (m_kv_format_version >= sk_min);
   default:
@@ -3049,7 +3053,7 @@ static int get_segment_size_from_collation(const CHARSET_INFO *const cs) {
     FALSE -  Otherwise
 */
 
-bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
+bool Rdb_field_packing::setup(Rdb_key_def *const key_descr,
                               const Field *const field, const uint &keynr_arg,
                               const uint &key_part_arg,
                               const uint16 &key_length) {
@@ -3315,6 +3319,9 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
       }
     }
   }
+
+  if (key_descr && m_make_unpack_info_func)
+    key_descr->m_maybe_unpack_info = true;
 
   m_covered = res;
   return res;
@@ -4776,6 +4783,9 @@ bool Rdb_dict_manager::get_index_info(
           index_info->m_kv_version > Rdb_key_def::PRIMARY_FORMAT_VERSION_LATEST;
       break;
     }
+    case Rdb_key_def::INDEX_TYPE_CLUSTER:
+      error = index_info->m_kv_version >
+              Rdb_key_def::CLUSTER_FORMAT_VERSION_LATEST;
     case Rdb_key_def::INDEX_TYPE_SECONDARY:
       error = index_info->m_kv_version >
               Rdb_key_def::SECONDARY_FORMAT_VERSION_LATEST;
