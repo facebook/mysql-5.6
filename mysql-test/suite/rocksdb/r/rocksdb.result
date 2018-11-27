@@ -954,6 +954,7 @@ rocksdb_rate_limiter_bytes_per_sec	0
 rocksdb_read_free_rpl_tables	
 rocksdb_records_in_range	50
 rocksdb_reset_stats	OFF
+rocksdb_rollback_on_timeout	OFF
 rocksdb_seconds_between_stat_computes	3600
 rocksdb_signal_drop_index_thread	OFF
 rocksdb_sim_cache_size	0
