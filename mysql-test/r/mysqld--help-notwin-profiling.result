@@ -1449,6 +1449,10 @@ The following options may be given as the first argument:
  --rocksdb-reset-stats 
  Reset the RocksDB internal statistics without restarting
  the DB.
+ --rocksdb-rollback-on-timeout 
+ Whether to roll back the complete transaction or a single
+ statement on lock wait timeout (a single statement by
+ default)
  --rocksdb-seconds-between-stat-computes=# 
  Sets a number of seconds to wait between optimizer stats
  recomputation. Only changed indexes will be refreshed.
@@ -2299,6 +2303,7 @@ rocksdb-rate-limiter-bytes-per-sec 0
 rocksdb-read-free-rpl-tables (No default value)
 rocksdb-records-in-range 0
 rocksdb-reset-stats FALSE
+rocksdb-rollback-on-timeout FALSE
 rocksdb-seconds-between-stat-computes 3600
 rocksdb-signal-drop-index-thread FALSE
 rocksdb-sim-cache-size 0
