@@ -11534,8 +11534,15 @@ void ha_rocksdb::get_auto_increment(ulonglong off, ulonglong inc,
       // with the current value).
       //
       // See above explanation for inc == 1 for why we use std::min.
-    } while (!auto_incr.compare_exchange_weak(last_val,
-                                              std::min(new_val + 1, max_val)));
+      //
+      // Former logic here was std::min(new_val + 1, max_val), but this could
+      // allow an underflow when new_val==std::numeric_limits<ulonglong>::max()
+      // and then new_val+1 would equal 0.
+      // Therefore we now check the minimum of new_val and max_val - 1 instead
+      // of new_val + 1 and max_val, then we add the +1 back on to the result of
+      // the min operation.
+    } while (!auto_incr.compare_exchange_weak(
+        last_val, std::min(new_val, max_val - 1) + 1));
   }
 
   *first_value = new_val;
