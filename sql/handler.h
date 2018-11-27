@@ -2,7 +2,7 @@
 #define HANDLER_INCLUDED
 
 /*
-   Copyright (c) 2000, 2016, Oracle and/or its affiliates. All rights reserved.
+   Copyright (c) 2000, 2018, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License
@@ -1056,6 +1056,17 @@ struct handlerton
 
    /* Overriding single table SELECT implementation if returns TRUE */
    bool (*handle_single_table_select)(THD *thd, st_select_lex *select_lex);
+
+  /**
+    Check if the given database name is reserved.
+
+    @param  hton          Handlerton for SE.
+    @param  name          Database name.
+
+    @retval true          Database name is reserved by SE.
+    @retval false         Database name is not reserved.
+  */
+  bool (*is_reserved_db_name)(handlerton *hton, const char *name);
 
    uint32 license; /* Flag for Engine License */
    void *data; /* Location for engines to keep personal structures */
@@ -3887,5 +3898,6 @@ void print_keydup_error(TABLE *table, KEY *key, const char *msg, myf errflag,
 void print_keydup_error(TABLE *table, KEY *key, myf errflag,
                         const THD *thd, const char *org_table_name = nullptr);
 void warn_fk_constraint_violation(THD *thd, TABLE *table, int error);
+bool ha_check_reserved_db_name(const char *name);
 
 #endif /* HANDLER_INCLUDED */
