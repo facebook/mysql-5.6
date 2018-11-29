@@ -811,7 +811,10 @@ static bool shall_skip_table(const char* db_name, const char *table_name)
 }
 
 /**
-  Checks whether to stop receiving more events based on the stop-gtids option
+  Checks whether to stop receiving more events based on the stop-gtids option.
+  Note that we stop if the current event is *outside* stop-gtids, as opposed to
+  if the current event is *within* stop-gtids. This is a bit counter-intuitive
+  but unfortunately it is too late to address this now.
 
   @param[in] ev Pointer to the event to be checked.
 
@@ -2268,11 +2271,13 @@ static struct my_option my_long_options[] =
    &opt_flush_result_file, &opt_flush_result_file, 0,
    GET_UINT, REQUIRED_ARG, 1000, 1, UINT_MAX, 1, 0, 0},
   {"start-gtid", OPT_START_GTID,
-   "Binlog dump from the given gtid. This requires index-file option.",
+   "Binlog dump from the given gtid. This requires index-file option or "
+   "--read-from-remote-master=BINLOG-DUMP-GTIDS option. ",
    &opt_start_gtid_str, &opt_start_gtid_str, 0,
    GET_STR_ALLOC, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
   {"stop-gtid", OPT_STOP_GTID,
-   "Binlog dump stop at the given gtid. This requires index-file option.",
+   "Binlog dump stop if outside the given gtid. This requires index-file option"
+   "or --read-from-remote-master=BINLOG-DUMP-GTIDS option. ",
    &opt_stop_gtid_str, &opt_stop_gtid_str, 0,
   GET_STR_ALLOC, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
   {"find-gtid-position", OPT_FIND_GTID_POSITION,
@@ -2961,6 +2966,8 @@ static int request_dump(const char *logname,
     ptr_buffer+= ::BINLOG_POS_INFO_SIZE;
     int4store(ptr_buffer, encoded_data_size);
     ptr_buffer+= ::BINLOG_DATA_SIZE_INFO_SIZE;
+    // Starting gtid pos if USING_START_GTID_PROTOCOL is set. Otherwise the
+    // excluded gtid set.
     gtid_set_excluded->encode(ptr_buffer);
     ptr_buffer+= encoded_data_size;
 
@@ -3950,6 +3957,8 @@ static int args_post_process(void)
 
   if (opt_start_gtid_str != NULL && opt_remote_proto == BINLOG_DUMP_GTID)
   {
+    // Update gtid_set_excluded as it will be sent to server side indicating
+    // the starting point when USING_START_GTID_PROTOCOL is set.
     global_sid_lock->rdlock();
     if (gtid_set_excluded->add_gtid_text(opt_start_gtid_str) !=
         RETURN_STATUS_OK)
@@ -3961,8 +3970,16 @@ static int args_post_process(void)
     global_sid_lock->unlock();
   }
 
-  if (opt_stop_gtid_str != NULL && opt_remote_proto == BINLOG_DUMP_GTID)
+  if (opt_stop_gtid_str != NULL)
   {
+    if (opt_index_file_str == NULL
+        && opt_remote_proto != BINLOG_DUMP_GTID)
+    {
+      error("--stop-gtid requires --index-file option or "
+            "--read-from-remote-master=BINLOG-DUMP-GTIDS option");
+      DBUG_RETURN(ERROR_STOP);
+    }
+
     global_sid_lock->rdlock();
     if (gtid_set_stop->add_gtid_text(opt_stop_gtid_str) !=
         RETURN_STATUS_OK)
