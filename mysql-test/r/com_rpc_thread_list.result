@@ -1,0 +1,38 @@
+create database testdb;
+use testdb;
+create table x (id int primary key) engine = innodb;
+INSERT INTO x VALUES(5);
+alter database testdb super_read_only = true;
+INSERT INTO x VALUES (20);
+ERROR HY000: Database 'testdb' is in read-only mode. Transaction was rolled back.
+alter database testdb read_only = false;
+drop table x;
+create table x (id int primary key) engine = innodb;
+create database db_default;
+alter database db_default read_only = true;
+INSERT INTO x VALUES(5);
+drop database db_default;
+INSERT INTO x VALUES (20);
+drop table x;
+use test;
+drop database testdb;
+create database testdb;
+use testdb;
+create table x (id int primary key) engine = innodb;
+set session wait_timeout=5;
+INSERT INTO x VALUES(5);
+alter database testdb super_read_only = true;
+INSERT INTO x VALUES (20);
+ERROR HY000: Database 'testdb' is in read-only mode. Transaction was rolled back.
+alter database testdb read_only = false;
+drop table x;
+create table x (id int primary key) engine = innodb;
+create database db_default;
+alter database db_default read_only = true;
+set session wait_timeout=5;
+INSERT INTO x VALUES(5);
+drop database db_default;
+INSERT INTO x VALUES (20);
+drop table x;
+use test;
+drop database testdb;

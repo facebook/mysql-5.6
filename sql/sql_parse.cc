@@ -8808,6 +8808,20 @@ uint kill_one_thread(THD *thd, my_thread_id id, bool only_kill_query)
       // remove session from map
       DBUG_PRINT("info", ("Kill CONN for srv_session, removing session."));
       Srv_session::remove_session(id);
+
+      // For safety, clear the db_read_only_hash data structure. This is
+      // because after a THD is removed from the srv_session map in the above
+      // remove_session call, it's possible for entries in that hash to be
+      // free'd, without this THD being updated to reflect that. This is
+      // because this THD now exists outside of both global_thread_list and
+      // the srv_session map, and cannot updated by other threads.
+      //
+      // It's unlikely that the kill code paths will need to read from
+      // db_read_only_hash, but it's hard to verify all codepaths.
+      tmp = srv_session->get_thd();
+      mysql_mutex_lock(&tmp->LOCK_thd_db_read_only_hash);
+      my_hash_free(&tmp->db_read_only_hash);
+      mysql_mutex_unlock(&tmp->LOCK_thd_db_read_only_hash);
     }
     // We can't exit early if the session is not attached because
     // it might have already been removed from the map

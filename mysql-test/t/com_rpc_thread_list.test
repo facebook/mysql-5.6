@@ -1,0 +1,9 @@
+--disable_async_client
+
+# The THDs are stored in different places depending on whether stateful or
+# stateless queries are made. Test both cases.
+--let $stateful= 0
+--source include/com_rpc_thread_list.inc
+
+--let $stateful= 1
+--source include/com_rpc_thread_list.inc
