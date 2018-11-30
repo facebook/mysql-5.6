@@ -314,20 +314,31 @@ sub validate_disabled_test_entry($$$) {
 ##
 ## Arguments:
 ##   $disabled           List to store the disabled tests
-##   $opt_skip_test_list File containing list of tests to be disabled
+##   $opt_skip_test_list Array of files containing list of tests to be disabled
 ##
 ## Returns:
 ##   List of disabled tests
 sub create_disabled_test_list($$) {
   my $disabled           = shift;
   my $opt_skip_test_list = shift;
+  my @disabled_collection;
 
-  if ($opt_skip_test_list) {
-    $opt_skip_test_list = get_bld_path($opt_skip_test_list);
+  my $asan_skipped = 0;
+  my $ubsan_skipped = 0;
+  my $valgrind_skipped = 0;
+
+  foreach my $f (@$opt_skip_test_list) {
+    if ($f =~ /disabled-asan\.list$/) {
+      $asan_skipped = 1;
+    }
+    if ($f =~ /disabled-ubsan\.list$/) {
+      $ubsan_skipped = 1;
+    }
+    if ($f =~ /disabled-valgrind\.list$/) {
+      $valgrind_skipped = 1;
+    }
+    push(@disabled_collection, get_bld_path($f));
   }
-
-  # Array containing files listing tests that should be disabled.
-  my @disabled_collection = $opt_skip_test_list if $opt_skip_test_list;
 
   # Add 'disabled.def' files.
   unshift(@disabled_collection,
@@ -354,13 +365,11 @@ sub create_disabled_test_list($$) {
   # in "mysql-test/collections/disabled-<sanitizer>.list" file.
   if ($::opt_sanitize) {
     # Check for disabled-asan.list
-    if ($::mysql_version_extra =~ /asan/i &&
-        $opt_skip_test_list !~ /disabled-asan\.list$/) {
+    if ($::mysql_version_extra =~ /asan/i && !$asan_skipped) {
       push(@disabled_collection, "collections/disabled-asan.list");
     }
     # Check for disabled-ubsan.list
-    elsif ($::mysql_version_extra =~ /ubsan/i &&
-           $opt_skip_test_list !~ /disabled-ubsan\.list$/) {
+    elsif ($::mysql_version_extra =~ /ubsan/i && !$ubsan_skipped) {
       push(@disabled_collection, "collections/disabled-ubsan.list");
     }
   }
@@ -369,7 +378,7 @@ sub create_disabled_test_list($$) {
   # in "mysql-test/collections/disabled-valgrind.list" file.
   if ($::opt_valgrind) {
     # Check for disabled-valgrind.list
-    if ($opt_skip_test_list !~ /disabled-valgrind\.list$/) {
+    if (!$valgrind_skipped) {
       push(@disabled_collection, "collections/disabled-valgrind.list");
     }
   }
