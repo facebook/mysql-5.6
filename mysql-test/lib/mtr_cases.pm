@@ -284,7 +284,9 @@ sub collect_test_cases ($$$$) {
 
   # Build a hash of disabled testcases
   my %disabled;
-  create_disabled_test_list(\%disabled, $opt_skip_test_list);
+  foreach my $f (@$opt_skip_test_list) {
+    create_disabled_test_list(\%disabled, $f);
+  }
 
   # If not reordering, we also shouldn't group by suites, unless no
   # test cases were named. This also effects some logic in the loop
