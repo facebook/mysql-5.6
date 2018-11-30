@@ -103,7 +103,7 @@ my $opt_platform_exclude;
 my $opt_ps_protocol;
 my $opt_report_features;
 my $opt_skip_core;
-my $opt_skip_test_list;
+my @opt_skip_test_list;
 my $opt_sleep;
 my $opt_sp_protocol;
 my $opt_start;
@@ -550,7 +550,7 @@ sub main {
 
   mtr_report("Collecting tests");
   my $tests = collect_test_cases($opt_reorder, $opt_suites,
-                                 \@opt_cases,  $opt_skip_test_list);
+                                 \@opt_cases,  \@opt_skip_test_list);
   mark_time_used('collect');
 
   check_secondary_engine_option($tests) if $secondary_engine_support;
@@ -1593,7 +1593,7 @@ sub command_line_setup {
     # list-options is internal, not listed in help
     'do-test-list=s'   => \$opt_do_test_list,
     'list-options'     => \$opt_list_options,
-    'skip-test-list=s' => \$opt_skip_test_list,
+    'skip-test-list=s' => \@opt_skip_test_list,
     'summary-report=s' => \$opt_summary_report,
     'xml-report=s'     => \$opt_xml_report);
 
@@ -7381,6 +7381,8 @@ Options to control what test suites or cases to run
   skip-test-list=FILE   Skip the tests listed in FILE. Each line in the file
                         is an entry and should be formatted as: 
                         <TESTNAME> : <COMMENT>
+                        Multiple files can be passed in, each with a separate
+                        skip-test-list option.
   skip-test=PREFIX or REGEX
                         Skip test cases which name are prefixed with PREFIX
                         or fulfills REGEX.
