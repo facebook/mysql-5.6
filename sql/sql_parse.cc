@@ -2744,7 +2744,7 @@ static int show_memory_status(THD *thd) {
     Buffer size in bytes. Should be large enough for per-arena statistics not
     to be truncated.
   */
-  const uint MALLOC_STATUS_LEN = 1000000;
+  const uint MALLOC_STATUS_LEN = 10000000;
 
   field_list.push_back(new Item_empty_string("Status", 10));
   if (thd->send_result_metadata(&field_list,
