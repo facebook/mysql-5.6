@@ -1,0 +1,52 @@
+--source include/have_rocksdb.inc
+
+# Test with 10 x 10 matrix of auto_increment_increment and auto_increment_offset
+# values.  Prior to the fix of issue-907, the MyRocks would assert on just about
+# all of the cases where auto_increment_increment was > 1
+# This test also validates the proper results and stopping points of the last
+# auto increment value for each of the combination of the matrix, which should
+# be more than enough validation to extrapolate what results would be with
+# different starting auto_increment, auto_increment_increment and
+# auto_increment_offset values.
+
+--let $i = 0
+while ($i < 100) {
+  --let $increment = `SELECT 1 + FLOOR($i / 10);`
+  --let $offset = `SELECT 1 + FLOOR($i % 10);`
+
+  --echo # Testing iteration $i with increment $increment and offset $offset
+  CREATE TABLE t1(c1 BIGINT UNSIGNED AUTO_INCREMENT, KEY (c1)) ENGINE=ROCKSDB AUTO_INCREMENT=18446744073709551604;
+  --eval SET @@session.auto_increment_increment=$increment, @@session.auto_increment_offset=$offset
+  --disable_query_log
+  --error 0, ER_AUTOINC_READ_FAILED, ER_WARN_DATA_OUT_OF_RANGE
+  INSERT INTO t1 VALUES();
+  --error 0, ER_AUTOINC_READ_FAILED, ER_WARN_DATA_OUT_OF_RANGE
+  INSERT INTO t1 VALUES();
+  --error 0, ER_AUTOINC_READ_FAILED, ER_WARN_DATA_OUT_OF_RANGE
+  INSERT INTO t1 VALUES();
+  --error 0, ER_AUTOINC_READ_FAILED, ER_WARN_DATA_OUT_OF_RANGE
+  INSERT INTO t1 VALUES();
+  --error 0, ER_AUTOINC_READ_FAILED, ER_WARN_DATA_OUT_OF_RANGE
+  INSERT INTO t1 VALUES();
+  --error 0, ER_AUTOINC_READ_FAILED, ER_WARN_DATA_OUT_OF_RANGE
+  INSERT INTO t1 VALUES();
+  --error 0, ER_AUTOINC_READ_FAILED, ER_WARN_DATA_OUT_OF_RANGE
+  INSERT INTO t1 VALUES();
+  --error 0, ER_AUTOINC_READ_FAILED, ER_WARN_DATA_OUT_OF_RANGE
+  INSERT INTO t1 VALUES();
+  --error 0, ER_AUTOINC_READ_FAILED, ER_WARN_DATA_OUT_OF_RANGE
+  INSERT INTO t1 VALUES();
+  --error 0, ER_AUTOINC_READ_FAILED, ER_WARN_DATA_OUT_OF_RANGE
+  INSERT INTO t1 VALUES();
+  --error 0, ER_AUTOINC_READ_FAILED, ER_WARN_DATA_OUT_OF_RANGE
+  INSERT INTO t1 VALUES();
+  --error 0, ER_AUTOINC_READ_FAILED, ER_WARN_DATA_OUT_OF_RANGE
+  INSERT INTO t1 VALUES();
+  --error 0, ER_AUTOINC_READ_FAILED, ER_WARN_DATA_OUT_OF_RANGE
+  INSERT INTO t1 VALUES();
+  --enable_query_log
+  SELECT * FROM t1;
+  DROP TABLE t1;
+
+  --inc $i
+}
