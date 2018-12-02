@@ -1462,8 +1462,12 @@ int ha_commit_trans(THD *thd, bool all, bool async,
     // Ignore super_read_only when ignore_global_read_lock is set.
     // ignore_global_read_lock is set for transactions on replication
     // repository tables.
-    if (rw_trans && stmt_has_updated_trans_table(ha_info) && check_ro(thd) &&
-        !ignore_global_read_lock)
+    if (rw_trans &&
+        (stmt_has_updated_trans_table(ha_info)
+         || (!is_binlog_cache_empty(thd) && opt_super_readonly) // Bug #93440
+        )
+        && check_ro(thd)
+        && !ignore_global_read_lock)
     {
       std::string extra_info;
       get_active_master_info(&extra_info);

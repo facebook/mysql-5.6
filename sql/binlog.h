@@ -827,6 +827,7 @@ extern my_bool opt_process_can_disable_bin_log;
 
 extern MYSQL_PLUGIN_IMPORT MYSQL_BIN_LOG mysql_bin_log;
 
+bool is_binlog_cache_empty(const THD* thd);
 bool trans_has_updated_trans_table(const THD* thd);
 bool stmt_has_updated_trans_table(Ha_trx_info* ha_list);
 bool ending_trans(THD* thd, const bool all);

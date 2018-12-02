@@ -2092,6 +2092,21 @@ err:
   DBUG_RETURN(-1);
 }
 
+/**
+  This function checks if binlog cache is empty.
+
+  @param thd The client thread that executed the current statement.
+  @return
+    @c true if binlog cache is empty, @c false otherwise.
+*/
+bool
+is_binlog_cache_empty(const THD* thd)
+{
+  binlog_cache_mngr *const cache_mngr= thd_get_cache_mngr(thd);
+
+  return (cache_mngr ? cache_mngr->is_binlog_empty() : 1);
+}
+
 /** 
   This function checks if a transactional table was updated by the
   current transaction.
