@@ -1,0 +1,34 @@
+CREATE TABLE t1 (a INT) ENGINE=InnoDB;
+INSERT INTO t1 VALUES (1);
+connect  con1,localhost,root,,test;
+BEGIN;
+UPDATE t1 SET a = 1;
+connection default;
+include/assert.inc [Binlog position is advanced after super_read_only is set]
+connection default;
+connection default;
+SET GLOBAL super_read_only = 1;
+connection con1;
+COMMIT;
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+check RO transaction still commits
+BEGIN;
+SELECT * FROM t1;
+a
+1
+COMMIT;
+check RO txs still can use implicit temporary tables
+BEGIN;
+SELECT * FROM t1 UNION SELECT * FROM t1;
+a
+1
+COMMIT;
+connection default;
+include/assert.inc [Binlog position is advanced after super_read_only is set]
+connection default;
+connection default;
+# CLEANUP
+SET GLOBAL super_read_only = DEFAULT;
+reset READ_ONLY as well as setting SUPER_READ_ONLY to 1 sets READ_ONLY as well
+SET GLOBAL read_only = DEFAULT;
+DROP TABLE t1;
