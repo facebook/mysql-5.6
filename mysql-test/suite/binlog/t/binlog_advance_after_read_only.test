@@ -1,0 +1,61 @@
+--source include/have_log_bin.inc
+--source include/have_binlog_format_statement.inc
+
+--source include/count_sessions.inc
+
+CREATE TABLE t1 (a INT) ENGINE=InnoDB;
+INSERT INTO t1 VALUES (1);
+
+--let $initial_binlog_pos = query_get_value(SHOW MASTER STATUS, Position, 1)
+# --echo Start binlog position: $initial_binlog_pos
+
+--enable_connect_log
+--connect (con1,localhost,root,,test)
+--let $current_binlog_pos = query_get_value(SHOW MASTER STATUS, Position, 1)
+# --echo Binlog position after super_read_only is set: $current_binlog_pos
+
+BEGIN;
+UPDATE t1 SET a = 1;
+
+--connection default
+--let $current_binlog_pos = query_get_value(SHOW MASTER STATUS, Position, 1)
+# --echo Binlog position after super_read_only is set: $current_binlog_pos
+--let $assert_text = Binlog position is advanced after super_read_only is set
+--let $assert_cond = $current_binlog_pos = $initial_binlog_pos
+--source include/assert.inc
+SET GLOBAL super_read_only = 1;
+
+--connection con1
+
+--error ER_OPTION_PREVENTS_STATEMENT
+COMMIT;
+
+--echo check RO transaction still commits
+BEGIN;
+SELECT * FROM t1;
+COMMIT;
+
+--echo check RO txs still can use implicit temporary tables
+BEGIN;
+SELECT * FROM t1 UNION SELECT * FROM t1;
+COMMIT;
+
+--connection default
+--let $current_binlog_pos = query_get_value(SHOW MASTER STATUS, Position, 1)
+# --echo Binlog position after super_read_only is set: $current_binlog_pos
+
+--let $assert_text = Binlog position is advanced after super_read_only is set
+--let $assert_cond = $current_binlog_pos = $initial_binlog_pos
+--source include/assert.inc
+
+--echo # CLEANUP
+--disable_connect_log
+SET GLOBAL super_read_only = DEFAULT;
+--echo reset READ_ONLY as well as setting SUPER_READ_ONLY to 1 sets READ_ONLY as well
+SET GLOBAL read_only = DEFAULT;
+DROP TABLE t1;
+
+--connection default
+--disconnect con1
+
+--source include/wait_until_count_sessions.inc
