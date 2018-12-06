@@ -11471,73 +11471,77 @@ void ha_rocksdb::get_auto_increment(ulonglong off, ulonglong inc,
     // The next value can be more complicated if either 'inc' or 'off' is not 1
     ulonglong last_val = auto_incr;
 
-    // Loop until we can correctly update the atomic value
-    do {
-      DBUG_ASSERT(last_val > 0);
-      // Calculate the next value in the auto increment series: offset
-      // + N * increment where N is 0, 1, 2, ...
-      //
-      // For further information please visit:
-      // http://dev.mysql.com/doc/refman/5.7/en/replication-options-master.html
-      //
-      // The following is confusing so here is an explanation:
-      // To get the next number in the sequence above you subtract out the
-      // offset, calculate the next sequence (N * increment) and then add the
-      // offset back in.
-      //
-      // The additions are rearranged to avoid overflow.  The following is
-      // equivalent to (last_val - 1 + inc - off) / inc. This uses the fact
-      // that (a+b)/c = a/c + b/c + (a%c + b%c)/c. To show why:
-      //
-      // (a+b)/c
-      // = (a - a%c + a%c + b - b%c + b%c) / c
-      // = (a - a%c) / c + (b - b%c) / c + (a%c + b%c) / c
-      // = a/c + b/c + (a%c + b%c) / c
-      //
-      // Now, substitute a = last_val - 1, b = inc - off, c = inc to get the
-      // following statement.
-      ulonglong n =
-          (last_val - 1) / inc + ((last_val - 1) % inc + inc - off) / inc;
-
-      // Check if n * inc + off will overflow. This can only happen if we have
-      // an UNSIGNED BIGINT field.
-      if (n > (std::numeric_limits<ulonglong>::max() - off) / inc) {
-        DBUG_ASSERT(max_val == std::numeric_limits<ulonglong>::max());
-        // The 'last_val' value is already equal to or larger than the largest
-        // value in the sequence.  Continuing would wrap around (technically
-        // the behavior would be undefined).  What should we do?
-        // We could:
-        //   1) set the new value to the last possible number in our sequence
-        //      as described above.  The problem with this is that this
-        //      number could be smaller than a value in an existing row.
-        //   2) set the new value to the largest possible number.  This number
-        //      may not be in our sequence, but it is guaranteed to be equal
-        //      to or larger than any other value already inserted.
-        //
-        //  For now I'm going to take option 2.
-        //
-        //  Returning ULLONG_MAX from get_auto_increment will cause the SQL
-        //  layer to fail with ER_AUTOINC_READ_FAILED. This means that due to
-        //  the SE API for get_auto_increment, inserts will fail with
-        //  ER_AUTOINC_READ_FAILED if the column is UNSIGNED BIGINT, but
-        //  inserts will fail with ER_DUP_ENTRY for other types (or no failure
-        //  if the column is in a non-unique SK).
+    if (last_val > max_val) {
         new_val = std::numeric_limits<ulonglong>::max();
-        auto_incr = new_val;  // Store the largest value into auto_incr
-        break;
-      }
+    } else {
+      // Loop until we can correctly update the atomic value
+      do {
+        DBUG_ASSERT(last_val > 0);
+        // Calculate the next value in the auto increment series: offset
+        // + N * increment where N is 0, 1, 2, ...
+        //
+        // For further information please visit:
+        // http://dev.mysql.com/doc/refman/5.7/en/replication-options-master.html
+        //
+        // The following is confusing so here is an explanation:
+        // To get the next number in the sequence above you subtract out the
+        // offset, calculate the next sequence (N * increment) and then add the
+        // offset back in.
+        //
+        // The additions are rearranged to avoid overflow.  The following is
+        // equivalent to (last_val - 1 + inc - off) / inc. This uses the fact
+        // that (a+b)/c = a/c + b/c + (a%c + b%c)/c. To show why:
+        //
+        // (a+b)/c
+        // = (a - a%c + a%c + b - b%c + b%c) / c
+        // = (a - a%c) / c + (b - b%c) / c + (a%c + b%c) / c
+        // = a/c + b/c + (a%c + b%c) / c
+        //
+        // Now, substitute a = last_val - 1, b = inc - off, c = inc to get the
+        // following statement.
+        ulonglong n =
+            (last_val - 1) / inc + ((last_val - 1) % inc + inc - off) / inc;
 
-      new_val = n * inc + off;
+        // Check if n * inc + off will overflow. This can only happen if we have
+        // an UNSIGNED BIGINT field.
+        if (n > (std::numeric_limits<ulonglong>::max() - off) / inc) {
+          DBUG_ASSERT(max_val == std::numeric_limits<ulonglong>::max());
+          // The 'last_val' value is already equal to or larger than the largest
+          // value in the sequence.  Continuing would wrap around (technically
+          // the behavior would be undefined).  What should we do?
+          // We could:
+          //   1) set the new value to the last possible number in our sequence
+          //      as described above.  The problem with this is that this
+          //      number could be smaller than a value in an existing row.
+          //   2) set the new value to the largest possible number.  This number
+          //      may not be in our sequence, but it is guaranteed to be equal
+          //      to or larger than any other value already inserted.
+          //
+          //  For now I'm going to take option 2.
+          //
+          //  Returning ULLONG_MAX from get_auto_increment will cause the SQL
+          //  layer to fail with ER_AUTOINC_READ_FAILED. This means that due to
+          //  the SE API for get_auto_increment, inserts will fail with
+          //  ER_AUTOINC_READ_FAILED if the column is UNSIGNED BIGINT, but
+          //  inserts will fail with ER_DUP_ENTRY for other types (or no failure
+          //  if the column is in a non-unique SK).
+          new_val = std::numeric_limits<ulonglong>::max();
+          auto_incr = new_val;  // Store the largest value into auto_incr
+          break;
+        }
 
-      // Attempt to store the new value (plus 1 since m_auto_incr_val contains
-      // the next available value) into the atomic value.  If the current
-      // value no longer matches what we have in 'last_val' this will fail and
-      // we will repeat the loop (`last_val` will automatically get updated
-      // with the current value).
-      //
-      // See above explanation for inc == 1 for why we use std::min.
-    } while (!auto_incr.compare_exchange_weak(last_val,
-                                              std::min(new_val + 1, max_val)));
+        new_val = n * inc + off;
+
+        // Attempt to store the new value (plus 1 since m_auto_incr_val contains
+        // the next available value) into the atomic value.  If the current
+        // value no longer matches what we have in 'last_val' this will fail and
+        // we will repeat the loop (`last_val` will automatically get updated
+        // with the current value).
+        //
+        // See above explanation for inc == 1 for why we use std::min.
+      } while (!auto_incr.compare_exchange_weak(
+          last_val, std::min(new_val + 1, max_val)));
+    }
   }
 
   *first_value = new_val;
