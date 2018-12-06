@@ -12053,7 +12053,7 @@ int ha_rocksdb::inplace_populate_sk(
             the duplicate record.
           */
           if (index->unpack_record(new_table_arg, new_table_arg->record[0],
-                                   &merge_key, nullptr,
+                                   &merge_key, &merge_val,
                                    m_verify_row_debug_checksums)) {
             /* Should never reach here */
             DBUG_ASSERT(0);
