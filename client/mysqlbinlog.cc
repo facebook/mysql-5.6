@@ -2780,3 +2780,5 @@ int main(int argc, char **argv) {
 
   return (retval == ERROR_STOP ? EXIT_FAILURE : EXIT_SUCCESS);
 }
+
+/* TEST CHANGE */
