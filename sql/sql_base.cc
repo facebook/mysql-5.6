@@ -3106,6 +3106,13 @@ bool open_table(THD *thd, Table_ref *table_list, Open_table_context *ot_ctx) {
     mdl_ticket = table_list->mdl_request.ticket;
   }
 
+  DBUG_EXECUTE_IF("sql_opening_table", {
+    if (thd->slave_thread) {
+      const char act[] = "now signal opening wait_for slave_killed";
+      assert(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
+    }
+  });
+
   if (table_list->open_strategy == Table_ref::OPEN_IF_EXISTS ||
       table_list->open_strategy == Table_ref::OPEN_FOR_CREATE) {
     bool exists;

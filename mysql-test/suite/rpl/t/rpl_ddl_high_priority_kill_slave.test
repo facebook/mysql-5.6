@@ -1,0 +1,59 @@
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+--source include/have_binlog_format_row.inc
+--source include/master-slave.inc
+
+SET @old_debug = @@global.debug;
+--let $slave_sync_timeout = 7200
+
+--source include/rpl_connection_master.inc
+SET GLOBAL sql_log_bin_triggers = OFF;
+
+CREATE TABLE t(a INT PRIMARY KEY);
+--source include/wait_for_slave_to_sync_with_master.inc
+
+--source include/rpl_connection_slave.inc
+
+# Allow trigger to run on slave for rbr
+SET GLOBAL slave_run_triggers_for_rbr = YES;
+
+# No need to restart slave because debug is special session variable.
+# See class Sys_var_dbug in sql/sys_vars.h.
+SET GLOBAL debug = '+d,sql_opening_table';
+
+CREATE TABLE u(a INT PRIMARY KEY);
+
+# Create a trigger such that slave sql worker thread will open two tables t and u
+# when a row is replicated to slave. The kill signal to the sql thread will be issued
+# when opening table t and will be captured when opening table u.
+CREATE TRIGGER t1_bi AFTER INSERT ON t FOR EACH ROW INSERT INTO u VALUES (new.a);
+
+--source include/rpl_connection_master.inc
+
+INSERT INTO t VALUES(1);
+INSERT INTO t VALUES(2);
+INSERT INTO t VALUES(3);
+
+--source include/rpl_connection_slave.inc
+call mtr.add_suppression("Slave SQL.*Error executing row event: the slave sql worker thread is killed, Error_code: MY-013117");
+
+SET debug_sync = "now WAIT_FOR opening";
+
+SET SESSION high_priority_ddl = ON;
+
+ALTER TABLE t ADD b INT;
+
+SET GLOBAL debug = @old_debug;
+
+SET debug_sync = "now SIGNAL slave_killed";
+
+--source include/rpl_connection_master.inc
+SET GLOBAL sql_log_bin_triggers = DEFAULT;
+DROP TABLE t;
+--source include/wait_for_slave_to_sync_with_master.inc
+
+--source include/rpl_connection_slave.inc
+SET GLOBAL slave_run_triggers_for_rbr = DEFAULT;
+DROP TABLE u;
+
+--source include/rpl_end.inc
