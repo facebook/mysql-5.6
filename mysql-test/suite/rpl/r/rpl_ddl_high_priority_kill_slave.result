@@ -1,0 +1,36 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+SET @old_debug = @@global.debug;
+[connection master]
+SET GLOBAL sql_log_bin_triggers = OFF;
+CREATE TABLE t(a INT PRIMARY KEY);
+stop slave;
+start slave;
+[connection slave]
+SET GLOBAL slave_run_triggers_for_rbr = YES;
+SET GLOBAL debug = '+d,sql_opening_table';
+CREATE TABLE u(a INT PRIMARY KEY);
+CREATE TRIGGER t1_bi AFTER INSERT ON t FOR EACH ROW INSERT INTO u VALUES (new.a);
+[connection master]
+INSERT INTO t VALUES(1);
+INSERT INTO t VALUES(2);
+INSERT INTO t VALUES(3);
+[connection slave]
+call mtr.add_suppression("Slave SQL.*Error executing row event: the slave sql worker thread is killed, Error_code: MY-013117");
+SET debug_sync = "now WAIT_FOR opening";
+SET SESSION high_priority_ddl = ON;
+ALTER TABLE t ADD b INT;
+SET GLOBAL debug = @old_debug;
+SET debug_sync = "now SIGNAL slave_killed";
+[connection master]
+SET GLOBAL sql_log_bin_triggers = DEFAULT;
+DROP TABLE t;
+stop slave;
+start slave;
+[connection slave]
+SET GLOBAL slave_run_triggers_for_rbr = DEFAULT;
+DROP TABLE u;
+include/rpl_end.inc
