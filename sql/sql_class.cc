@@ -2892,3 +2892,5 @@ int THD::parse_query_info_attr() {
   }
   return 0;
 }
+
+// Test change
