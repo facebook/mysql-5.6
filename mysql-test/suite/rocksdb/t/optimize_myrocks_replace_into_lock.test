@@ -1,7 +1,6 @@
+--source include/have_rocksdb.inc
 connect (con1,localhost,root,,);
 connect (con2,localhost,root,,);
-
-
 
 create table t1(c1 int,c2 int, primary key (c1)) engine=rocksdb;
 insert into t1 values(1,1),(2,2),(3,3);
@@ -73,3 +72,5 @@ select * from t1;
 connection default;
 drop table t1;
 
+disconnect con1;
+disconnect con2;
