@@ -2094,7 +2094,6 @@
   ssl library loading leak on initialization
   Memcheck:Leak
   match-leak-kinds: definite
-  fun:realloc
   ...
   fun:DSO_load
   fun:DSO_dsobyaddr
