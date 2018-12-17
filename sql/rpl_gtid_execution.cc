@@ -293,6 +293,26 @@ static inline enum_gtid_statement_status skip_statement(const THD *thd)
   DBUG_RETURN(GTID_STATEMENT_SKIP);
 }
 
+/**
+  Return true if the statement does not invoke any stored function,
+  and is one of the following:
+  - SET (except SET PASSWORD)
+  - SELECT
+  - An empty statement because of a skipped version comment
+  That means it is guaranteed not to cause any changes in the
+  database.
+*/
+static bool is_stmt_innocent(const THD *thd)
+{
+  LEX *lex = thd->lex;
+  enum_sql_command sql_command = lex->sql_command;
+  bool is_set_except_pw =
+      (sql_command == SQLCOM_SET_OPTION && !thd->lex->is_set_password_sql);
+  bool is_select = (sql_command == SQLCOM_SELECT);
+  bool is_empty = (sql_command == SQLCOM_EMPTY_QUERY);
+  return (is_set_except_pw || is_select || is_empty) &&
+         !lex->uses_stored_routines();
+}
 
 enum_gtid_statement_status gtid_pre_statement_checks(THD *thd)
 {
@@ -322,12 +342,9 @@ enum_gtid_statement_status gtid_pre_statement_checks(THD *thd)
 
     @todo: figure out how to handle SQLCOM_XA_*
   */
-  enum_sql_command sql_command= thd->lex->sql_command;
+  enum_sql_command sql_command = thd->lex->sql_command;
   if (sql_command == SQLCOM_COMMIT || sql_command == SQLCOM_BEGIN ||
-      sql_command == SQLCOM_ROLLBACK ||
-      ((sql_command == SQLCOM_SELECT ||
-        (sql_command == SQLCOM_SET_OPTION && !thd->lex->is_set_password_sql)) &&
-       !thd->lex->uses_stored_routines()))
+      sql_command == SQLCOM_ROLLBACK || is_stmt_innocent(thd))
     DBUG_RETURN(GTID_STATEMENT_EXECUTE);
 
   /*

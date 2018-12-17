@@ -1,0 +1,109 @@
+# Test that empty statements are executed by slaves
+--source include/have_binlog_format_row.inc
+--source include/master-slave.inc
+
+CREATE TABLE t1 (pk INT, PRIMARY KEY (pk)) ENGINE=INNODB;
+
+# Replay an 8.0.X mysqlbinlog stream
+write_file $MYSQLTEST_VARDIR/tmp/binlog_output;
+/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=1*/;
+/*!50003 SET @OLD_COMPLETION_TYPE=@@COMPLETION_TYPE,COMPLETION_TYPE=0*/;
+DELIMITER /*!*/;
+# at 4
+#181218  9:17:24 server id 1  end_log_pos 120 	Start: binlog v 4, server v 5.6.35-fb-debug-log created 181218  9:17:24 at startup
+# Warning: this binlog is either in use or was not closed properly.
+ROLLBACK/*!*/;
+BINLOG '
+pCsZXA8BAAAAdAAAAHgAAAABAAQANS42LjM1LWZiLWRlYnVnLWxvZwAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAACkKxlcEzgNAAgAEgAEBAQEEgAAXAAEGggAAAAICAgCAAAACgoKGRkAAGJL
+j10=
+'/*!*/;
+# at 120
+#181218  9:17:24 server id 1  end_log_pos 147 	Previous-GTIDs
+# [empty]
+# at 147
+#181218  9:18:07 server id 1  end_log_pos 191 	GTID	last_committed=0	sequence_number=0	rbr_only=no	original_committed_timestamp=0	immediate_commit_timestamp=0	transaction_length=0
+# original_commit_timestamp=0 (1969-12-31 16:00:00.000000 PST)
+# immediate_commit_timestamp=0 (1969-12-31 16:00:00.000000 PST)
+/*!80001 SET @@session.original_commit_timestamp=0*//*!*/;
+SET @@SESSION.GTID_NEXT= '12345678-0000-0000-0000-123456789abc:1'/*!*/;
+# at 191
+#181218  9:18:07 server id 1  end_log_pos 266 	Query	thread_id=3	exec_time=0	error_code=0
+SET TIMESTAMP=1545153487/*!*/;
+SET @@session.pseudo_thread_id=3/*!*/;
+SET @@session.foreign_key_checks=1, @@session.sql_auto_is_null=0, @@session.unique_checks=1, @@session.autocommit=1/*!*/;
+SET @@session.sql_mode=1073741824/*!*/;
+SET @@session.auto_increment_increment=1, @@session.auto_increment_offset=1/*!*/;
+/*!\C latin1 *//*!*/;
+SET @@session.character_set_client=8,@@session.collation_connection=8,@@session.collation_server=8/*!*/;
+SET @@session.lc_time_names=0/*!*/;
+SET @@session.collation_database=DEFAULT/*!*/;
+BEGIN
+/*!*/;
+# at 266
+#181218  9:18:07 server id 1  end_log_pos 361 	Query	thread_id=3	exec_time=0	error_code=0
+use `test`/*!*/;
+SET TIMESTAMP=1545153487/*!*/;
+insert into t1 values (1)
+/*!*/;
+# at 361
+#181218  9:18:07 server id 1  end_log_pos 388 	Xid = 19
+COMMIT/*!*/;
+# at 388
+#181218  9:18:09 server id 1  end_log_pos 432 	GTID	last_committed=0	sequence_number=0	rbr_only=no	original_committed_timestamp=0	immediate_commit_timestamp=0	transaction_length=0
+# original_commit_timestamp=0 (1969-12-31 16:00:00.000000 PST)
+# immediate_commit_timestamp=0 (1969-12-31 16:00:00.000000 PST)
+/*!80001 SET @@session.original_commit_timestamp=0*//*!*/;
+SET @@SESSION.GTID_NEXT= '12345678-0000-0000-0000-123456789abc:2'/*!*/;
+# at 432
+#181218  9:18:09 server id 1  end_log_pos 507 	Query	thread_id=3	exec_time=0	error_code=0
+SET TIMESTAMP=1545153489/*!*/;
+BEGIN
+/*!*/;
+# at 507
+#181218  9:18:09 server id 1  end_log_pos 602 	Query	thread_id=3	exec_time=0	error_code=0
+SET TIMESTAMP=1545153489/*!*/;
+insert into t1 values (2)
+/*!*/;
+# at 602
+#181218  9:18:09 server id 1  end_log_pos 629 	Xid = 20
+COMMIT/*!*/;
+# at 629
+#181218  9:18:11 server id 1  end_log_pos 673 	GTID	last_committed=0	sequence_number=0	rbr_only=no	original_committed_timestamp=0	immediate_commit_timestamp=0	transaction_length=0
+# original_commit_timestamp=0 (1969-12-31 16:00:00.000000 PST)
+# immediate_commit_timestamp=0 (1969-12-31 16:00:00.000000 PST)
+/*!80001 SET @@session.original_commit_timestamp=0*//*!*/;
+SET @@SESSION.GTID_NEXT= '12345678-0000-0000-0000-123456789abc:3'/*!*/;
+# at 673
+#181218  9:18:11 server id 1  end_log_pos 748 	Query	thread_id=3	exec_time=0	error_code=0
+SET TIMESTAMP=1545153491/*!*/;
+BEGIN
+/*!*/;
+# at 748
+#181218  9:18:11 server id 1  end_log_pos 843 	Query	thread_id=3	exec_time=0	error_code=0
+SET TIMESTAMP=1545153491/*!*/;
+insert into t1 values (3)
+/*!*/;
+# at 843
+#181218  9:18:11 server id 1  end_log_pos 870 	Xid = 21
+COMMIT/*!*/;
+SET @@SESSION.GTID_NEXT= 'AUTOMATIC' /* added by mysqlbinlog */ /*!*/;
+DELIMITER ;
+# End of log file
+/*!50003 SET COMPLETION_TYPE=@OLD_COMPLETION_TYPE*/;
+/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=0*/;
+EOF
+
+--exec $MYSQL --binary-mode -P $MASTER_MYPORT -u root -h 127.0.0.1 -D test < $MYSQLTEST_VARDIR/tmp/binlog_output
+--remove_file $MYSQLTEST_VARDIR/tmp/binlog_output
+
+connection master;
+SELECT * FROM t1;
+--sync_slave_with_master
+connection slave;
+SELECT * FROM t1;
+connection master;
+DROP TABLE t1;
+--sync_slave_with_master
+
+--source include/rpl_end.inc
