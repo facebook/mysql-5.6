@@ -301,19 +301,23 @@ SET @@session.auto_increment_increment=1, @@session.auto_increment_offset=1/*!*/
 SET @@session.character_set_client=255,@@session.collation_connection=255,@@session.collation_server=255/*!*/;
 SET @@session.lc_time_names=0/*!*/;
 SET @@session.collation_database=DEFAULT/*!*/;
-/*!80005 SET @@session.default_collation_for_utf8mb4=255*//*!*/;
+/*!80011 SET @@session.default_collation_for_utf8mb4=255*//*!*/;
+/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
 BEGIN
 /*!*/;
 use `test`/*!*/;
 SET TIMESTAMP=#/*!*/;
+/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
 insert into t1 values(1)
 /*!*/;
 COMMIT/*!*/;
 SET @@SESSION.GTID_NEXT= '#'/*!*/;
 SET TIMESTAMP=#/*!*/;
+/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
 BEGIN
 /*!*/;
 SET TIMESTAMP=#/*!*/;
+/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
 insert into t1 values(2)
 /*!*/;
 COMMIT/*!*/;
@@ -321,9 +325,11 @@ SET @@SESSION.GTID_NEXT= '#' /* added by mysqlbinlog */ /*!*/;
 # #:1-3
 SET @@SESSION.GTID_NEXT= '#'/*!*/;
 SET TIMESTAMP=#/*!*/;
+/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
 BEGIN
 /*!*/;
 SET TIMESTAMP=#/*!*/;
+/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
 insert into t1 values(3)
 /*!*/;
 COMMIT/*!*/;
@@ -348,19 +354,23 @@ SET @@session.auto_increment_increment=1, @@session.auto_increment_offset=1/*!*/
 SET @@session.character_set_client=255,@@session.collation_connection=255,@@session.collation_server=255/*!*/;
 SET @@session.lc_time_names=0/*!*/;
 SET @@session.collation_database=DEFAULT/*!*/;
-/*!80005 SET @@session.default_collation_for_utf8mb4=255*//*!*/;
+/*!80011 SET @@session.default_collation_for_utf8mb4=255*//*!*/;
+/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
 BEGIN
 /*!*/;
 use `test`/*!*/;
 SET TIMESTAMP=#/*!*/;
+/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
 insert into t1 values(1)
 /*!*/;
 COMMIT/*!*/;
 SET @@SESSION.GTID_NEXT= '#'/*!*/;
 SET TIMESTAMP=#/*!*/;
+/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
 BEGIN
 /*!*/;
 SET TIMESTAMP=#/*!*/;
+/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
 insert into t1 values(2)
 /*!*/;
 COMMIT/*!*/;
@@ -379,11 +389,13 @@ SET @@session.auto_increment_increment=1, @@session.auto_increment_offset=1/*!*/
 SET @@session.character_set_client=255,@@session.collation_connection=255,@@session.collation_server=255/*!*/;
 SET @@session.lc_time_names=0/*!*/;
 SET @@session.collation_database=DEFAULT/*!*/;
-/*!80005 SET @@session.default_collation_for_utf8mb4=255*//*!*/;
+/*!80011 SET @@session.default_collation_for_utf8mb4=255*//*!*/;
+/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
 BEGIN
 /*!*/;
 use `test`/*!*/;
 SET TIMESTAMP=#/*!*/;
+/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
 insert into t1 values(3)
 /*!*/;
 COMMIT/*!*/;
