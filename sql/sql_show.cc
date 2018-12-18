@@ -5331,14 +5331,29 @@ err:
 }
 
 
-bool store_schema_shemata(THD* thd, TABLE *table, LEX_STRING *db_name,
-                          const CHARSET_INFO *cs)
+bool store_schema_schemata(THD* thd, TABLE *table, LEX_STRING *db_name,
+                           HA_CREATE_INFO *info)
 {
   restore_record(table, s->default_values);
   table->field[0]->store(STRING_WITH_LEN("def"), system_charset_info);
   table->field[1]->store(db_name->str, db_name->length, system_charset_info);
+  const CHARSET_INFO *cs =
+    (info != NULL) ? info->default_table_charset : system_charset_info;
   table->field[2]->store(cs->csname, strlen(cs->csname), system_charset_info);
   table->field[3]->store(cs->name, strlen(cs->name), system_charset_info);
+  return schema_table_store_record(thd, table);
+}
+
+bool store_schema_schemata_ext(THD* thd, TABLE *table, LEX_STRING *db_name,
+                              HA_CREATE_INFO *info)
+{
+  restore_record(table, s->default_values);
+  table->field[0]->store(STRING_WITH_LEN("def"), system_charset_info);
+  table->field[1]->store(db_name->str, db_name->length, system_charset_info);
+  if (info)
+    table->field[2]->store(info->db_metadata.c_ptr(),
+                           info->db_metadata.length(),
+                           system_charset_info);
   return schema_table_store_record(thd, table);
 }
 
@@ -5404,8 +5419,12 @@ int fetch_schema_schemata(THD *thd)
   DBUG_RETURN(0);
 }
 
+typedef bool (*store_schema_schemata_callback)(THD *thd, TABLE *table,
+                                               LEX_STRING *db_name,
+                                               HA_CREATE_INFO *create);
 
-int fill_schema_schemata(THD *thd, TABLE_LIST *tables, Item *cond)
+int fill_schema_schemata_impl(THD *thd, TABLE_LIST *tables, Item *cond,
+                              store_schema_schemata_callback callback)
 {
   /*
     TODO: fill_schema_schemata() is called when new client is connected.
@@ -5442,7 +5461,7 @@ int fill_schema_schemata(THD *thd, TABLE_LIST *tables, Item *cond)
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
   Security_context *sctx= thd->security_ctx;
 #endif
-  DBUG_ENTER("fill_schema_schemata");
+  DBUG_ENTER("fill_schema_schemata_impl");
 
   if (get_lookup_field_values(thd, cond, tables, &lookup_field_vals))
     DBUG_RETURN(0);
@@ -5478,8 +5497,7 @@ int fill_schema_schemata(THD *thd, TABLE_LIST *tables, Item *cond)
     DBUG_ASSERT(db_name->length <= NAME_LEN);
     if (with_i_schema)       // information schema name is always first in list
     {
-      if (store_schema_shemata(thd, table, db_name,
-                               system_charset_info))
+      if (callback(thd, table, db_name, NULL))
         DBUG_RETURN(1);
       with_i_schema= 0;
       continue;
@@ -5491,13 +5509,23 @@ int fill_schema_schemata(THD *thd, TABLE_LIST *tables, Item *cond)
 	!check_grant_db(thd, db_name->str))
 #endif
     {
-      load_db_opt_by_name(thd, db_name->str, &create);
-      if (store_schema_shemata(thd, table, db_name,
-                               create.default_table_charset))
+      load_db_opt_by_name(thd, db_name->str, &create, true);
+      if (callback(thd, table, db_name, &create))
         DBUG_RETURN(1);
     }
   }
   DBUG_RETURN(0);
+}
+
+int fill_schema_schemata(THD *thd, TABLE_LIST *tables, Item *cond)
+{
+  return fill_schema_schemata_impl(thd, tables, cond, store_schema_schemata);
+}
+
+int fill_schema_schemata_ext(THD *thd, TABLE_LIST *tables, Item *cond)
+{
+  return fill_schema_schemata_impl(thd, tables, cond,
+                                   store_schema_schemata_ext);
 }
 
 
@@ -8722,6 +8750,16 @@ ST_FIELD_INFO schema_fields_info[]=
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
+ST_FIELD_INFO schema_ext_fields_info[]=
+{
+  {"CATALOG_NAME", FN_REFLEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"SCHEMA_NAME", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, "Database",
+   SKIP_OPEN_TABLE},
+  {"DB_METADATA", DB_METADATA_MAX_LENGTH, MYSQL_TYPE_STRING, 0, 0, 0,
+   SKIP_OPEN_TABLE},
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
+};
+
 
 ST_FIELD_INFO tables_fields_info[]=
 {
@@ -9614,6 +9652,8 @@ ST_SCHEMA_TABLE schema_tables[]=
   {"SLAVE_DB_LOAD", slave_db_load_fields_info, create_schema_table,
    fill_slave_db_load, 0, 0, -1, -1, 0, 0},
 #endif
+  {"SCHEMATA_EXT", schema_ext_fields_info, create_schema_table,
+   fill_schema_schemata_ext, NULL, 0, 1, -1, 0, 0},
   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 };
 

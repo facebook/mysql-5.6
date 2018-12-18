@@ -146,6 +146,7 @@ DROP TABLE t1, t2;
 | ROCKSDB_TRX                           |
 | ROUTINES                              |
 | SCHEMATA                              |
+| SCHEMATA_EXT                          |
 | SCHEMA_PRIVILEGES                     |
 | SESSION_STATUS                        |
 | SESSION_VARIABLES                     |
@@ -234,6 +235,7 @@ DROP TABLE t1, t2;
 | ROCKSDB_TRX                           |
 | ROUTINES                              |
 | SCHEMATA                              |
+| SCHEMATA_EXT                          |
 | SCHEMA_PRIVILEGES                     |
 | SESSION_STATUS                        |
 | SESSION_VARIABLES                     |

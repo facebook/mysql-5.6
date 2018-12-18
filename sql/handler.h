@@ -1131,7 +1131,7 @@ enum enum_db_read_only { DB_READ_ONLY_NO = 0,
                          DB_READ_ONLY_SUPER = 2,
                          DB_READ_ONLY_NULL = 255 };
 
-typedef struct st_ha_create_information
+struct st_ha_create_information_base
 {
   const CHARSET_INFO *table_charset, *default_table_charset;
   bool alter_default_table_charset; /* This is to differentiate whether the
@@ -1139,7 +1139,6 @@ typedef struct st_ha_create_information
                                        means it is explicitly set to default or
                                        it is not specified in alter */
   enum enum_db_read_only db_read_only;
-  String db_metadata;
   bool alter_db_metadata;  /* This is to differentiate whether the null value
                               for db_metadata means it is explicitly set to
                               default or it is not specified in alter */
@@ -1157,7 +1156,6 @@ typedef struct st_ha_create_information
   uint stats_sample_pages;		/* number of pages to sample during
 					stats estimation, if used, otherwise 0. */
   enum_stats_auto_recalc stats_auto_recalc;
-  SQL_I_List<TABLE_LIST> merge_list;
   handlerton *db_type;
   /**
     Row type of the table definition.
@@ -1177,9 +1175,22 @@ typedef struct st_ha_create_information
   enum ha_storage_media storage_media;  /* DEFAULT, DISK or MEMORY */
   bool rbr_column_names; /* If true, column names for this table are logged
                             in Table_map_log_events */
+};
+
+typedef struct st_ha_create_information : public st_ha_create_information_base
+{
+  String db_metadata;
+  SQL_I_List<TABLE_LIST> merge_list;
 
   /* initialize db_read_only parameter */
-  st_ha_create_information() : db_read_only(DB_READ_ONLY_NO) {}
+  st_ha_create_information()
+  {
+    // memset the base struct with POD fields
+    memset(
+      (st_ha_create_information_base *)this,
+      0,
+      sizeof(st_ha_create_information_base));
+  }
 } HA_CREATE_INFO;
 
 /**

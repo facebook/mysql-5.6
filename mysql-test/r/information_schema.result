@@ -98,6 +98,7 @@ USER_STATISTICS
 VIEWS
 AUTHINFO
 SLAVE_DB_LOAD
+SCHEMATA_EXT
 columns_priv
 db
 event
@@ -939,7 +940,7 @@ table_schema IN ('mysql', 'INFORMATION_SCHEMA', 'test', 'mysqltest')
 AND table_name not like 'ndb%' AND table_name not like 'innodb_%'  AND table_name not like 'rocksdb_%'
 GROUP BY TABLE_SCHEMA;
 table_schema	count(*)
-information_schema	45
+information_schema	46
 mysql	27
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
@@ -1407,6 +1408,7 @@ QUERY_PERF_COUNTER	information_schema.QUERY_PERF_COUNTER	1
 REFERENTIAL_CONSTRAINTS	information_schema.REFERENTIAL_CONSTRAINTS	1
 ROUTINES	information_schema.ROUTINES	1
 SCHEMATA	information_schema.SCHEMATA	1
+SCHEMATA_EXT	information_schema.SCHEMATA_EXT	1
 SCHEMA_PRIVILEGES	information_schema.SCHEMA_PRIVILEGES	1
 SESSION_STATUS	information_schema.SESSION_STATUS	1
 SESSION_VARIABLES	information_schema.SESSION_VARIABLES	1

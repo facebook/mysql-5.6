@@ -42,6 +42,7 @@ show create database test4;
 create database test5 db_metadata = "{\"shard\":\"test5_shard\"}";
 show create database test5;
 --exec cat $MYSQLD_DATADIR/test5/db.opt
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
 
 # verify show create is valid
 --let $db_create=query_get_value(show create database test5, 'Create Database', 1)
@@ -49,34 +50,41 @@ drop database test5;
 eval $db_create;
 show create database test5;
 --exec cat $MYSQLD_DATADIR/test5/db.opt
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
 
 # create database with character set and db metadata
 create database test6 character set utf8 db_metadata = "{\"shard\":\"test6_shard\"}";
 show create database test6;
 --exec cat $MYSQLD_DATADIR/test6/db.opt
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
 
 # create database with read only and db metadata
 create database test7 read_only = true db_metadata = "{\"shard\":\"test7_shard\"}";
 show create database test7;
 --exec cat $MYSQLD_DATADIR/test7/db.opt
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
 
 # create database with character set and read only
 create database test8 character set utf8 read_only = true;
 show create database test8;
 --exec cat $MYSQLD_DATADIR/test8/db.opt
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
 
 # create database with character set, read only and db metadata
 create database test9 character set utf8 read_only = true db_metadata = "{\"shard\":\"test9_shard\"}";
 show create database test9;
 --exec cat $MYSQLD_DATADIR/test9/db.opt
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
 
 # create database with invalid JSON string for db_metadata
 --error ER_DB_METADATA_INVALID_JSON
 create database test10 db_metadata = "invalid_json";
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
 
 # create database with single quotation
 --error ER_DB_METADATA_INVALID_JSON
 create database test11 db_metadata = "{\'shard\':\'test11_shard\'}";
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
 
 # create database with double quote around metadata with single and double quotes in value
 create database test12 db_metadata = "{\"sha'rd\":\"test12\\\"_shard\"}";
@@ -107,6 +115,7 @@ show create database test3;
 alter database test3 db_metadata = "{\"shard\":\"test3_shard_altered\"}";
 show create database test3;
 --exec cat $MYSQLD_DATADIR/test3/db.opt
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
 
 # alter database read only
 alter database test4 read_only = true;
@@ -117,6 +126,7 @@ show create database test4;
 alter database test4 db_metadata = "{\"shard\":\"test4_shard_altered\"}";
 show create database test4;
 --exec cat $MYSQLD_DATADIR/test4/db.opt
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
 
 # alter database read only
 alter database test4 read_only = false;
@@ -127,6 +137,7 @@ show create database test4;
 alter database test5 db_metadata = "{\"shard\":\"test5_shard_altered\"}";
 show create database test5;
 --exec cat $MYSQLD_DATADIR/test5/db.opt
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
 
 # alter database character set but keep db metadata intact
 alter database test5 character set ascii;
@@ -147,11 +158,13 @@ show create database test5;
 alter database test5 db_metadata "";
 show create database test5;
 --exec cat $MYSQLD_DATADIR/test5/db.opt
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
 
 # alter database set db metadata to max length string
 alter database test5 db_metadata "{\"shard\":\"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin\"}";
 show create database test5;
 --exec cat $MYSQLD_DATADIR/test5/db.opt
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
 
 # verify show create is valid
 --let $db_create=query_get_value(show create database test5, 'Create Database', 1)
@@ -163,36 +176,43 @@ show create database test5;
 # alter database exceed db metadata max length
 --error ER_DB_METADATA_TOO_LONG
 alter database test5 db_metadata "{\"shard\":\"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin\"}";
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
 
 # alter database character set and db metadata
 alter database test6 character set ascii db_metadata = "{\"shard\":\"test6_shard_altered\"}";
 show create database test6;
 --exec cat $MYSQLD_DATADIR/test6/db.opt
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
 
 # alter database read only and db metadata
 alter database test7 read_only = true db_metadata = "{\"shard\":\"test7_shard_altered\"}";
 show create database test7;
 --exec cat $MYSQLD_DATADIR/test7/db.opt
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
 
 # alter database character set and read only
 alter database test8 character set ascii read_only = true;
 show create database test8;
 --exec cat $MYSQLD_DATADIR/test8/db.opt
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
 
 # alter database character set, read only and db metadata
 alter database test9 character set ascii read_only = true db_metadata = "{\"shard\":\"test9_shard_altered\"}";
 show create database test9;
 --exec cat $MYSQLD_DATADIR/test9/db.opt
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
 
 # ensure information_schema and mysql tables are intact
 show create database information_schema;
 show create database mysql;
 --error ER_DBACCESS_DENIED_ERROR
 alter database information_schema db_metadata "{\"shard\":\"is_shard\"}";
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
 
 # alter database with invalid JSON string for db_metadata
 --error ER_DB_METADATA_INVALID_JSON
 alter database test9 db_metadata = "invalid_json";
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
 
 # create database without any options
 create database test10;
@@ -208,6 +228,7 @@ show create database test10;
 alter database test10 db_metadata = "{\"shard\":\"test10_shard_altered\"}";
 show create database test10;
 --exec cat $MYSQLD_DATADIR/test10/db.opt
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
 
 # alter database read only
 alter database test10 read_only = false;

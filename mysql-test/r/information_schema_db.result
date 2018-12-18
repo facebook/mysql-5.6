@@ -50,6 +50,7 @@ USER_STATISTICS
 VIEWS
 AUTHINFO
 SLAVE_DB_LOAD
+SCHEMATA_EXT
 show tables from INFORMATION_SCHEMA like 'T%';
 Tables_in_information_schema (T%)
 TRANSACTION_LIST

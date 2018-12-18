@@ -287,6 +287,9 @@ def	information_schema	SCHEMATA	DEFAULT_CHARACTER_SET_NAME	3		NO	varchar	32	96	N
 def	information_schema	SCHEMATA	DEFAULT_COLLATION_NAME	4		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
 def	information_schema	SCHEMATA	SCHEMA_NAME	2		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
 def	information_schema	SCHEMATA	SQL_PATH	5	NULL	YES	varchar	512	1536	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(512)			select	
+def	information_schema	SCHEMATA_EXT	CATALOG_NAME	1		NO	varchar	512	1536	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(512)			select	
+def	information_schema	SCHEMATA_EXT	DB_METADATA	3		NO	varchar	1024	3072	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(1024)			select	
+def	information_schema	SCHEMATA_EXT	SCHEMA_NAME	2		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
 def	information_schema	SCHEMA_PRIVILEGES	GRANTEE	1		NO	varchar	81	243	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(81)			select	
 def	information_schema	SCHEMA_PRIVILEGES	IS_GRANTABLE	5		NO	varchar	3	9	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(3)			select	
 def	information_schema	SCHEMA_PRIVILEGES	PRIVILEGE_TYPE	4		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
@@ -918,6 +921,9 @@ NULL	information_schema	ROUTINES	LAST_ALTERED	datetime	NULL	NULL	NULL	NULL	datet
 3.0000	information_schema	SCHEMATA	DEFAULT_CHARACTER_SET_NAME	varchar	32	96	utf8	utf8_general_ci	varchar(32)
 3.0000	information_schema	SCHEMATA	DEFAULT_COLLATION_NAME	varchar	32	96	utf8	utf8_general_ci	varchar(32)
 3.0000	information_schema	SCHEMATA	SQL_PATH	varchar	512	1536	utf8	utf8_general_ci	varchar(512)
+3.0000	information_schema	SCHEMATA_EXT	CATALOG_NAME	varchar	512	1536	utf8	utf8_general_ci	varchar(512)
+3.0000	information_schema	SCHEMATA_EXT	SCHEMA_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(64)
+3.0000	information_schema	SCHEMATA_EXT	DB_METADATA	varchar	1024	3072	utf8	utf8_general_ci	varchar(1024)
 3.0000	information_schema	SCHEMA_PRIVILEGES	GRANTEE	varchar	81	243	utf8	utf8_general_ci	varchar(81)
 3.0000	information_schema	SCHEMA_PRIVILEGES	TABLE_CATALOG	varchar	512	1536	utf8	utf8_general_ci	varchar(512)
 3.0000	information_schema	SCHEMA_PRIVILEGES	TABLE_SCHEMA	varchar	64	192	utf8	utf8_general_ci	varchar(64)

@@ -39,6 +39,17 @@ default-character-set=latin1
 default-collation=latin1_swedish_ci
 db-read-only=0
 db-metadata={"shard":"test5_shard"}
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
+catalog_name	schema_name	db_metadata
+def	information_schema	
+def	mtr	
+def	mysql	
+def	performance_schema	
+def	test	
+def	test2	
+def	test3	
+def	test4	
+def	test5	{"shard":"test5_shard"}
 drop database test5;
 CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET latin1 DB_METADATA '{"shard":"test5_shard"}' */;
 show create database test5;
@@ -48,6 +59,17 @@ default-character-set=latin1
 default-collation=latin1_swedish_ci
 db-read-only=0
 db-metadata={"shard":"test5_shard"}
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
+catalog_name	schema_name	db_metadata
+def	information_schema	
+def	mtr	
+def	mysql	
+def	performance_schema	
+def	test	
+def	test2	
+def	test3	
+def	test4	
+def	test5	{"shard":"test5_shard"}
 create database test6 character set utf8 db_metadata = "{\"shard\":\"test6_shard\"}";
 show create database test6;
 Database	Create Database
@@ -56,6 +78,18 @@ default-character-set=utf8
 default-collation=utf8_general_ci
 db-read-only=0
 db-metadata={"shard":"test6_shard"}
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
+catalog_name	schema_name	db_metadata
+def	information_schema	
+def	mtr	
+def	mysql	
+def	performance_schema	
+def	test	
+def	test2	
+def	test3	
+def	test4	
+def	test5	{"shard":"test5_shard"}
+def	test6	{"shard":"test6_shard"}
 create database test7 read_only = true db_metadata = "{\"shard\":\"test7_shard\"}";
 show create database test7;
 Database	Create Database
@@ -64,6 +98,19 @@ default-character-set=latin1
 default-collation=latin1_swedish_ci
 db-read-only=1
 db-metadata={"shard":"test7_shard"}
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
+catalog_name	schema_name	db_metadata
+def	information_schema	
+def	mtr	
+def	mysql	
+def	performance_schema	
+def	test	
+def	test2	
+def	test3	
+def	test4	
+def	test5	{"shard":"test5_shard"}
+def	test6	{"shard":"test6_shard"}
+def	test7	{"shard":"test7_shard"}
 create database test8 character set utf8 read_only = true;
 show create database test8;
 Database	Create Database
@@ -72,6 +119,20 @@ default-character-set=utf8
 default-collation=utf8_general_ci
 db-read-only=1
 db-metadata=
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
+catalog_name	schema_name	db_metadata
+def	information_schema	
+def	mtr	
+def	mysql	
+def	performance_schema	
+def	test	
+def	test2	
+def	test3	
+def	test4	
+def	test5	{"shard":"test5_shard"}
+def	test6	{"shard":"test6_shard"}
+def	test7	{"shard":"test7_shard"}
+def	test8	
 create database test9 character set utf8 read_only = true db_metadata = "{\"shard\":\"test9_shard\"}";
 show create database test9;
 Database	Create Database
@@ -80,10 +141,55 @@ default-character-set=utf8
 default-collation=utf8_general_ci
 db-read-only=1
 db-metadata={"shard":"test9_shard"}
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
+catalog_name	schema_name	db_metadata
+def	information_schema	
+def	mtr	
+def	mysql	
+def	performance_schema	
+def	test	
+def	test2	
+def	test3	
+def	test4	
+def	test5	{"shard":"test5_shard"}
+def	test6	{"shard":"test6_shard"}
+def	test7	{"shard":"test7_shard"}
+def	test8	
+def	test9	{"shard":"test9_shard"}
 create database test10 db_metadata = "invalid_json";
 ERROR HY000: Invalid JSON for DB_METADATA attribute: invalid_json.
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
+catalog_name	schema_name	db_metadata
+def	information_schema	
+def	mtr	
+def	mysql	
+def	performance_schema	
+def	test	
+def	test2	
+def	test3	
+def	test4	
+def	test5	{"shard":"test5_shard"}
+def	test6	{"shard":"test6_shard"}
+def	test7	{"shard":"test7_shard"}
+def	test8	
+def	test9	{"shard":"test9_shard"}
 create database test11 db_metadata = "{\'shard\':\'test11_shard\'}";
 ERROR HY000: Invalid JSON for DB_METADATA attribute: {'shard':'test11_shard'}.
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
+catalog_name	schema_name	db_metadata
+def	information_schema	
+def	mtr	
+def	mysql	
+def	performance_schema	
+def	test	
+def	test2	
+def	test3	
+def	test4	
+def	test5	{"shard":"test5_shard"}
+def	test6	{"shard":"test6_shard"}
+def	test7	{"shard":"test7_shard"}
+def	test8	
+def	test9	{"shard":"test9_shard"}
 create database test12 db_metadata = "{\"sha'rd\":\"test12\\\"_shard\"}";
 show create database test12;
 Database	Create Database
@@ -126,6 +232,23 @@ default-character-set=ascii
 default-collation=ascii_general_ci
 db-read-only=0
 db-metadata={"shard":"test3_shard_altered"}
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
+catalog_name	schema_name	db_metadata
+def	information_schema	
+def	mtr	
+def	mysql	
+def	performance_schema	
+def	test	
+def	test12	{"sha'rd":"test12\"_shard"}
+def	test13	{"sha'\"rd":"test13'_sh\"ard"}
+def	test2	
+def	test3	{"shard":"test3_shard_altered"}
+def	test4	
+def	test5	{"shard":"test5_shard"}
+def	test6	{"shard":"test6_shard"}
+def	test7	{"shard":"test7_shard"}
+def	test8	
+def	test9	{"shard":"test9_shard"}
 alter database test4 read_only = true;
 show create database test4;
 Database	Create Database
@@ -142,6 +265,23 @@ default-character-set=latin1
 default-collation=latin1_swedish_ci
 db-read-only=1
 db-metadata={"shard":"test4_shard_altered"}
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
+catalog_name	schema_name	db_metadata
+def	information_schema	
+def	mtr	
+def	mysql	
+def	performance_schema	
+def	test	
+def	test12	{"sha'rd":"test12\"_shard"}
+def	test13	{"sha'\"rd":"test13'_sh\"ard"}
+def	test2	
+def	test3	{"shard":"test3_shard_altered"}
+def	test4	{"shard":"test4_shard_altered"}
+def	test5	{"shard":"test5_shard"}
+def	test6	{"shard":"test6_shard"}
+def	test7	{"shard":"test7_shard"}
+def	test8	
+def	test9	{"shard":"test9_shard"}
 alter database test4 read_only = false;
 show create database test4;
 Database	Create Database
@@ -158,6 +298,23 @@ default-character-set=latin1
 default-collation=latin1_swedish_ci
 db-read-only=0
 db-metadata={"shard":"test5_shard_altered"}
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
+catalog_name	schema_name	db_metadata
+def	information_schema	
+def	mtr	
+def	mysql	
+def	performance_schema	
+def	test	
+def	test12	{"sha'rd":"test12\"_shard"}
+def	test13	{"sha'\"rd":"test13'_sh\"ard"}
+def	test2	
+def	test3	{"shard":"test3_shard_altered"}
+def	test4	{"shard":"test4_shard_altered"}
+def	test5	{"shard":"test5_shard_altered"}
+def	test6	{"shard":"test6_shard"}
+def	test7	{"shard":"test7_shard"}
+def	test8	
+def	test9	{"shard":"test9_shard"}
 alter database test5 character set ascii;
 show create database test5;
 Database	Create Database
@@ -190,6 +347,23 @@ default-character-set=utf8
 default-collation=utf8_general_ci
 db-read-only=0
 db-metadata=
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
+catalog_name	schema_name	db_metadata
+def	information_schema	
+def	mtr	
+def	mysql	
+def	performance_schema	
+def	test	
+def	test12	{"sha'rd":"test12\"_shard"}
+def	test13	{"sha'\"rd":"test13'_sh\"ard"}
+def	test2	
+def	test3	{"shard":"test3_shard_altered"}
+def	test4	{"shard":"test4_shard_altered"}
+def	test5	
+def	test6	{"shard":"test6_shard"}
+def	test7	{"shard":"test7_shard"}
+def	test8	
+def	test9	{"shard":"test9_shard"}
 alter database test5 db_metadata "{\"shard\":\"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin\"}";
 show create database test5;
 Database	Create Database
@@ -198,6 +372,23 @@ default-character-set=utf8
 default-collation=utf8_general_ci
 db-read-only=0
 db-metadata={"shard":"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin"}
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
+catalog_name	schema_name	db_metadata
+def	information_schema	
+def	mtr	
+def	mysql	
+def	performance_schema	
+def	test	
+def	test12	{"sha'rd":"test12\"_shard"}
+def	test13	{"sha'\"rd":"test13'_sh\"ard"}
+def	test2	
+def	test3	{"shard":"test3_shard_altered"}
+def	test4	{"shard":"test4_shard_altered"}
+def	test5	{"shard":"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin"}
+def	test6	{"shard":"test6_shard"}
+def	test7	{"shard":"test7_shard"}
+def	test8	
+def	test9	{"shard":"test9_shard"}
 drop database test5;
 CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET utf8 DB_METADATA '{"shard":"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin"}' */;
 show create database test5;
@@ -209,6 +400,23 @@ db-read-only=0
 db-metadata={"shard":"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin"}
 alter database test5 db_metadata "{\"shard\":\"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin\"}";
 ERROR HY000: Metadata for the database is too long. Max length is 1024 bytes
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
+catalog_name	schema_name	db_metadata
+def	information_schema	
+def	mtr	
+def	mysql	
+def	performance_schema	
+def	test	
+def	test12	{"sha'rd":"test12\"_shard"}
+def	test13	{"sha'\"rd":"test13'_sh\"ard"}
+def	test2	
+def	test3	{"shard":"test3_shard_altered"}
+def	test4	{"shard":"test4_shard_altered"}
+def	test5	{"shard":"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin"}
+def	test6	{"shard":"test6_shard"}
+def	test7	{"shard":"test7_shard"}
+def	test8	
+def	test9	{"shard":"test9_shard"}
 alter database test6 character set ascii db_metadata = "{\"shard\":\"test6_shard_altered\"}";
 show create database test6;
 Database	Create Database
@@ -217,6 +425,23 @@ default-character-set=ascii
 default-collation=ascii_general_ci
 db-read-only=0
 db-metadata={"shard":"test6_shard_altered"}
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
+catalog_name	schema_name	db_metadata
+def	information_schema	
+def	mtr	
+def	mysql	
+def	performance_schema	
+def	test	
+def	test12	{"sha'rd":"test12\"_shard"}
+def	test13	{"sha'\"rd":"test13'_sh\"ard"}
+def	test2	
+def	test3	{"shard":"test3_shard_altered"}
+def	test4	{"shard":"test4_shard_altered"}
+def	test5	{"shard":"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin"}
+def	test6	{"shard":"test6_shard_altered"}
+def	test7	{"shard":"test7_shard"}
+def	test8	
+def	test9	{"shard":"test9_shard"}
 alter database test7 read_only = true db_metadata = "{\"shard\":\"test7_shard_altered\"}";
 show create database test7;
 Database	Create Database
@@ -225,6 +450,23 @@ default-character-set=latin1
 default-collation=latin1_swedish_ci
 db-read-only=1
 db-metadata={"shard":"test7_shard_altered"}
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
+catalog_name	schema_name	db_metadata
+def	information_schema	
+def	mtr	
+def	mysql	
+def	performance_schema	
+def	test	
+def	test12	{"sha'rd":"test12\"_shard"}
+def	test13	{"sha'\"rd":"test13'_sh\"ard"}
+def	test2	
+def	test3	{"shard":"test3_shard_altered"}
+def	test4	{"shard":"test4_shard_altered"}
+def	test5	{"shard":"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin"}
+def	test6	{"shard":"test6_shard_altered"}
+def	test7	{"shard":"test7_shard_altered"}
+def	test8	
+def	test9	{"shard":"test9_shard"}
 alter database test8 character set ascii read_only = true;
 show create database test8;
 Database	Create Database
@@ -233,6 +475,23 @@ default-character-set=ascii
 default-collation=ascii_general_ci
 db-read-only=1
 db-metadata=
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
+catalog_name	schema_name	db_metadata
+def	information_schema	
+def	mtr	
+def	mysql	
+def	performance_schema	
+def	test	
+def	test12	{"sha'rd":"test12\"_shard"}
+def	test13	{"sha'\"rd":"test13'_sh\"ard"}
+def	test2	
+def	test3	{"shard":"test3_shard_altered"}
+def	test4	{"shard":"test4_shard_altered"}
+def	test5	{"shard":"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin"}
+def	test6	{"shard":"test6_shard_altered"}
+def	test7	{"shard":"test7_shard_altered"}
+def	test8	
+def	test9	{"shard":"test9_shard"}
 alter database test9 character set ascii read_only = true db_metadata = "{\"shard\":\"test9_shard_altered\"}";
 show create database test9;
 Database	Create Database
@@ -241,6 +500,23 @@ default-character-set=ascii
 default-collation=ascii_general_ci
 db-read-only=1
 db-metadata={"shard":"test9_shard_altered"}
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
+catalog_name	schema_name	db_metadata
+def	information_schema	
+def	mtr	
+def	mysql	
+def	performance_schema	
+def	test	
+def	test12	{"sha'rd":"test12\"_shard"}
+def	test13	{"sha'\"rd":"test13'_sh\"ard"}
+def	test2	
+def	test3	{"shard":"test3_shard_altered"}
+def	test4	{"shard":"test4_shard_altered"}
+def	test5	{"shard":"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin"}
+def	test6	{"shard":"test6_shard_altered"}
+def	test7	{"shard":"test7_shard_altered"}
+def	test8	
+def	test9	{"shard":"test9_shard_altered"}
 show create database information_schema;
 Database	Create Database
 information_schema	CREATE DATABASE `information_schema` /*!40100 DEFAULT CHARACTER SET utf8 */
@@ -249,8 +525,42 @@ Database	Create Database
 mysql	CREATE DATABASE `mysql` /*!40100 DEFAULT CHARACTER SET latin1 */
 alter database information_schema db_metadata "{\"shard\":\"is_shard\"}";
 ERROR 42000: Access denied for user 'root'@'localhost' to database 'information_schema'
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
+catalog_name	schema_name	db_metadata
+def	information_schema	
+def	mtr	
+def	mysql	
+def	performance_schema	
+def	test	
+def	test12	{"sha'rd":"test12\"_shard"}
+def	test13	{"sha'\"rd":"test13'_sh\"ard"}
+def	test2	
+def	test3	{"shard":"test3_shard_altered"}
+def	test4	{"shard":"test4_shard_altered"}
+def	test5	{"shard":"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin"}
+def	test6	{"shard":"test6_shard_altered"}
+def	test7	{"shard":"test7_shard_altered"}
+def	test8	
+def	test9	{"shard":"test9_shard_altered"}
 alter database test9 db_metadata = "invalid_json";
 ERROR HY000: Invalid JSON for DB_METADATA attribute: invalid_json.
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
+catalog_name	schema_name	db_metadata
+def	information_schema	
+def	mtr	
+def	mysql	
+def	performance_schema	
+def	test	
+def	test12	{"sha'rd":"test12\"_shard"}
+def	test13	{"sha'\"rd":"test13'_sh\"ard"}
+def	test2	
+def	test3	{"shard":"test3_shard_altered"}
+def	test4	{"shard":"test4_shard_altered"}
+def	test5	{"shard":"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin"}
+def	test6	{"shard":"test6_shard_altered"}
+def	test7	{"shard":"test7_shard_altered"}
+def	test8	
+def	test9	{"shard":"test9_shard_altered"}
 create database test10;
 show create database test10;
 Database	Create Database
@@ -275,6 +585,24 @@ default-character-set=latin1
 default-collation=latin1_swedish_ci
 db-read-only=1
 db-metadata={"shard":"test10_shard_altered"}
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
+catalog_name	schema_name	db_metadata
+def	information_schema	
+def	mtr	
+def	mysql	
+def	performance_schema	
+def	test	
+def	test10	{"shard":"test10_shard_altered"}
+def	test12	{"sha'rd":"test12\"_shard"}
+def	test13	{"sha'\"rd":"test13'_sh\"ard"}
+def	test2	
+def	test3	{"shard":"test3_shard_altered"}
+def	test4	{"shard":"test4_shard_altered"}
+def	test5	{"shard":"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin"}
+def	test6	{"shard":"test6_shard_altered"}
+def	test7	{"shard":"test7_shard_altered"}
+def	test8	
+def	test9	{"shard":"test9_shard_altered"}
 alter database test10 read_only = false;
 show create database test10;
 Database	Create Database
