@@ -103,8 +103,8 @@ SET debug = '+d,skip_dd_table_access_check';
 ########################################################################
 # The number of I_S system views must be as expected.
 ########################################################################
-include/assert.inc [There are 38 system views.]
-include/assert.inc [There are 38 I_S system views in total.]
+include/assert.inc [There are 39 system views.]
+include/assert.inc [There are 39 I_S system views in total.]
 ########################################################################
 # No unexpected I_S tables must be present.
 ########################################################################
@@ -1028,6 +1028,22 @@ INSERT INTO I_S_check_table(t) VALUES ("CREATE OR REPLACE DEFINER=`mysql.infosch
   JOIN mysql.character_sets cs ON col.character_set_id= cs.id WHERE 
   CAN_ACCESS_DATABASE(sch.name)
 ");
+CREATE OR REPLACE DEFINER=`mysql.infoschema`@`localhost` VIEW information_schema.SCHEMATA_EXT AS SELECT 
+  cat.name AS CATALOG_NAME,
+  sch.name AS SCHEMA_NAME,
+  GET_DD_PROPERTY_KEY_VALUE(sch.options,'db_metadata') AS DB_METADATA FROM 
+  mysql.schemata sch
+  JOIN mysql.catalogs cat ON cat.id=sch.catalog_id WHERE 
+  CAN_ACCESS_DATABASE(sch.name)
+
+INSERT INTO I_S_check_table(t) VALUES ("CREATE OR REPLACE DEFINER=`mysql.infoschema`@`localhost` VIEW information_schema.SCHEMATA_EXT AS SELECT 
+  cat.name AS CATALOG_NAME,
+  sch.name AS SCHEMA_NAME,
+  GET_DD_PROPERTY_KEY_VALUE(sch.options,'db_metadata') AS DB_METADATA FROM 
+  mysql.schemata sch
+  JOIN mysql.catalogs cat ON cat.id=sch.catalog_id WHERE 
+  CAN_ACCESS_DATABASE(sch.name)
+");
 CREATE OR REPLACE DEFINER=`mysql.infoschema`@`localhost` VIEW information_schema.ST_SPATIAL_REFERENCE_SYSTEMS AS SELECT 
   name AS SRS_NAME,
   id AS SRS_ID,
@@ -1637,5 +1653,5 @@ include/assert.inc [Found expected number of system views in DD.]
 include/assert.inc [Found expected number of system views in I_S_check_table.]
 include/assert.inc [The group concat max length is sufficient.]
 CHECK_STATUS
-The schema checksum corresponds to I_S version 800201.
+The schema checksum corresponds to I_S version 80020001.
 include/assert.inc [The schema checksum corresponds to a known I_S version.]
