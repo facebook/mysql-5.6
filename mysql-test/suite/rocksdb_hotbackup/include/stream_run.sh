@@ -1,5 +1,7 @@
 #!/bin/bash
 
+. suite/rocksdb_hotbackup/include/clean_tmpfiles.sh
+
 if [ "$STREAM_TYPE" == 'wdt' ]; then
   which wdt >/dev/null 2>&1
   if [ $? -ne 0 ]; then
@@ -31,11 +33,8 @@ rm -rf $backup_dir/*
 rm -rf $dest_data_dir/
 mkdir $dest_data_dir
 
-COPY_LOG="${MYSQL_TMP_DIR}/myrocks_hotbackup_copy_log"
+
 SIGNAL_CONDITION=""
-SIGNAL_FILE=${MYSQL_TMP_DIR}/myrocks_hotbackup_signal
-rm -f $COPY_LOG
-rm -f $SIGNAL_FILE
 
 if [ "$FRM" == '1' ]; then
   suite/rocksdb_hotbackup/include/create_table.sh $COPY_LOG $SIGNAL_FILE 2>&1 &
@@ -73,7 +72,6 @@ eval "$BACKUP_CMD"
 
 mkdir ${backup_dir}/test      # TODO: Fix skipping empty directories
 
-MOVEBACK_LOG="${MYSQL_TMP_DIR}/myrocks_hotbackup_moveback_log"
 
 echo "myrocks_hotbackup move-back phase"
 $MYSQL_MYROCKS_HOTBACKUP --move_back --datadir=$dest_data_dir \
