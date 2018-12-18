@@ -15384,7 +15384,7 @@ end:
   const auto now= std::chrono::system_clock::now().time_since_epoch();
   const auto now_sec=
     std::chrono::duration_cast<std::chrono::seconds>(now).count();
-  if (when.tv_sec + exec_time - now_sec > opt_slave_lag_sla_seconds)
+  if ((now_sec - (when.tv_sec + exec_time)) > opt_slave_lag_sla_seconds)
     ++slave_lag_sla_misses;
 
   DBUG_RETURN(error);
