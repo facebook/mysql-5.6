@@ -92,34 +92,34 @@ DROP SCHEMA S;
 #--------------------------------------------------------------------
 CREATE SCHEMA S;
 SELECT * FROM information_schema.schemata_extensions ORDER BY SCHEMA_NAME;
-CATALOG_NAME	SCHEMA_NAME	OPTIONS
-def	S	
-def	information_schema	
-def	mtr	
-def	mysql	
-def	performance_schema	
-def	sys	
-def	test	
+CATALOG_NAME	SCHEMA_NAME	OPTIONS	DB_METADATA
+def	S		NULL
+def	information_schema		NULL
+def	mtr		NULL
+def	mysql		NULL
+def	performance_schema		NULL
+def	sys		NULL
+def	test		NULL
 ALTER SCHEMA S READ ONLY=1;
 SELECT * FROM information_schema.schemata_extensions ORDER BY SCHEMA_NAME;
-CATALOG_NAME	SCHEMA_NAME	OPTIONS
-def	S	READ ONLY=1
-def	information_schema	
-def	mtr	
-def	mysql	
-def	performance_schema	
-def	sys	
-def	test	
+CATALOG_NAME	SCHEMA_NAME	OPTIONS	DB_METADATA
+def	S	READ ONLY=1	NULL
+def	information_schema		NULL
+def	mtr		NULL
+def	mysql		NULL
+def	performance_schema		NULL
+def	sys		NULL
+def	test		NULL
 ALTER SCHEMA S READ ONLY=0;
 SELECT * FROM information_schema.schemata_extensions ORDER BY SCHEMA_NAME;
-CATALOG_NAME	SCHEMA_NAME	OPTIONS
-def	S	
-def	information_schema	
-def	mtr	
-def	mysql	
-def	performance_schema	
-def	sys	
-def	test	
+CATALOG_NAME	SCHEMA_NAME	OPTIONS	DB_METADATA
+def	S		NULL
+def	information_schema		NULL
+def	mtr		NULL
+def	mysql		NULL
+def	performance_schema		NULL
+def	sys		NULL
+def	test		NULL
 DROP SCHEMA S;
 #--------------------------------------------------------------------
 # FR7: The read only option affects all users.

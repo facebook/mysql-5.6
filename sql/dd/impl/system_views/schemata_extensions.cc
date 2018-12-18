@@ -24,6 +24,7 @@
 
 #include <string>
 
+#include "sql/dd/impl/predefined_properties.h"  // Predefined_properties
 #include "sql/stateless_allocator.h"
 
 namespace dd {
@@ -43,6 +44,10 @@ Schemata_extensions::Schemata_extensions() {
                          "sch.name" + m_target_def.fs_name_collation());
   m_target_def.add_field(FIELD_OPTIONS, "OPTIONS",
                          "GET_DD_SCHEMA_OPTIONS(sch.options)");
+  m_target_def.add_field(
+      FIELD_DB_METADATA, "DB_METADATA",
+      String_type{"GET_DD_PROPERTY_KEY_VALUE(sch.options,'"} +
+          Predefined_properties::get_db_metadata_key() + "')");
 
   m_target_def.add_from("mysql.schemata sch");
   m_target_def.add_from("JOIN mysql.catalogs cat ON cat.id=sch.catalog_id");

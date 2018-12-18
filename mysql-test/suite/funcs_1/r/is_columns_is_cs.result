@@ -431,6 +431,7 @@ def	information_schema	SCHEMATA	DEFAULT_ENCRYPTION	6	NULL	NO	enum	3	9	NULL	NULL	
 def	information_schema	SCHEMATA_EXTENSIONS	CATALOG_NAME	1	NULL	NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_bin	varchar(64)			select			NULL
 def	information_schema	SCHEMATA_EXTENSIONS	SCHEMA_NAME	2	NULL	NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_bin	varchar(64)			select			NULL
 def	information_schema	SCHEMATA_EXTENSIONS	OPTIONS	3	NULL	YES	varchar	256	768	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(256)			select			NULL
+def	information_schema	SCHEMATA_EXTENSIONS	DB_METADATA	4	NULL	YES	longtext	4294967295	4294967295	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	longtext			select			NULL
 def	information_schema	SCHEMA_PRIVILEGES	GRANTEE	1		NO	varchar	113	340	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(340)			select			NULL
 def	information_schema	SCHEMA_PRIVILEGES	TABLE_CATALOG	2		NO	varchar	170	512	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(512)			select			NULL
 def	information_schema	SCHEMA_PRIVILEGES	TABLE_SCHEMA	3		NO	varchar	21	64	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(64)			select			NULL
@@ -597,6 +598,7 @@ COL_CML	DATA_TYPE	CHARACTER_SET_NAME	COLLATION_NAME
 1.0000	longtext	utf8mb3	utf8mb3_bin
 1.0000	mediumtext	utf8mb3	utf8mb3_bin
 1.0000	text	utf8mb3	utf8mb3_bin
+1.0000	longtext	utf8mb3	utf8mb3_general_ci
 1.0000	text	utf8mb3	utf8mb3_general_ci
 1.0000	longtext	utf8mb4	utf8mb4_bin
 SELECT DISTINCT
@@ -1094,6 +1096,7 @@ NULL	information_schema	SCHEMATA	SQL_PATH	binary	0	0	NULL	NULL	binary(0)
 3.0000	information_schema	SCHEMATA_EXTENSIONS	CATALOG_NAME	varchar	64	192	utf8mb3	utf8mb3_bin	varchar(64)
 3.0000	information_schema	SCHEMATA_EXTENSIONS	SCHEMA_NAME	varchar	64	192	utf8mb3	utf8mb3_bin	varchar(64)
 3.0000	information_schema	SCHEMATA_EXTENSIONS	OPTIONS	varchar	256	768	utf8mb3	utf8mb3_general_ci	varchar(256)
+1.0000	information_schema	SCHEMATA_EXTENSIONS	DB_METADATA	longtext	4294967295	4294967295	utf8mb3	utf8mb3_general_ci	longtext
 3.0088	information_schema	SCHEMA_PRIVILEGES	GRANTEE	varchar	113	340	utf8mb3	utf8mb3_general_ci	varchar(340)
 3.0118	information_schema	SCHEMA_PRIVILEGES	TABLE_CATALOG	varchar	170	512	utf8mb3	utf8mb3_general_ci	varchar(512)
 3.0476	information_schema	SCHEMA_PRIVILEGES	TABLE_SCHEMA	varchar	21	64	utf8mb3	utf8mb3_general_ci	varchar(64)

@@ -118,7 +118,7 @@ include/assert.inc [All expected I_S system views are present.]
 #         I_S system views.
 ########################################################################
 # Print the actual I_S version stored on disk.
-Current I_S_VERSION=80032001
+Current I_S_VERSION=80032002
 Current I_S_VERSION_MAJOR=80032
 CREATE TABLE I_S_check_table (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
 t TEXT NOT NULL,
@@ -1011,7 +1011,8 @@ INSERT INTO I_S_check_table(t) VALUES ("CREATE OR REPLACE DEFINER=`mysql.infosch
 CREATE OR REPLACE DEFINER=`mysql.infoschema`@`localhost` VIEW information_schema.SCHEMATA_EXTENSIONS AS SELECT 
   cat.name AS CATALOG_NAME,
   sch.name AS SCHEMA_NAME,
-  GET_DD_SCHEMA_OPTIONS(sch.options) AS OPTIONS FROM 
+  GET_DD_SCHEMA_OPTIONS(sch.options) AS OPTIONS,
+  GET_DD_PROPERTY_KEY_VALUE(sch.options,'db_metadata') AS DB_METADATA FROM 
   mysql.schemata sch
   JOIN mysql.catalogs cat ON cat.id=sch.catalog_id WHERE 
   CAN_ACCESS_DATABASE(sch.name)
@@ -1019,7 +1020,8 @@ CREATE OR REPLACE DEFINER=`mysql.infoschema`@`localhost` VIEW information_schema
 INSERT INTO I_S_check_table(t) VALUES ("CREATE OR REPLACE DEFINER=`mysql.infoschema`@`localhost` VIEW information_schema.SCHEMATA_EXTENSIONS AS SELECT 
   cat.name AS CATALOG_NAME,
   sch.name AS SCHEMA_NAME,
-  GET_DD_SCHEMA_OPTIONS(sch.options) AS OPTIONS FROM 
+  GET_DD_SCHEMA_OPTIONS(sch.options) AS OPTIONS,
+  GET_DD_PROPERTY_KEY_VALUE(sch.options,'db_metadata') AS DB_METADATA FROM 
   mysql.schemata sch
   JOIN mysql.catalogs cat ON cat.id=sch.catalog_id WHERE 
   CAN_ACCESS_DATABASE(sch.name)
@@ -1650,8 +1652,8 @@ SET debug = '-d,fetch_system_view_definition';
 include/assert.inc [Found expected number of system views in DD.]
 include/assert.inc [Found expected number of system views in I_S_check_table.]
 include/assert.inc [The group concat max length is sufficient.]
-The schema checksum corresponds to I_S version 80032001.
+The schema checksum corresponds to I_S version 80032002.
 include/assert.inc [The schema checksum corresponds to a known I_S version.]
 include/assert.inc [The schema checksum corresponds to
-IS_VERSION 80032001 stored on on disk.]
+IS_VERSION 80032002 stored on on disk.]
 include/assert.inc [The stored I_S version is the latest published I_S version.]

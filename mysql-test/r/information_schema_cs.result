@@ -807,6 +807,7 @@ information_schema	PARAMETERS	DATA_TYPE
 information_schema	ROUTINES	DATA_TYPE
 information_schema	ROUTINES	DTD_IDENTIFIER
 information_schema	ROUTINES	ROUTINE_DEFINITION
+information_schema	SCHEMATA_EXTENSIONS	DB_METADATA
 information_schema	STATISTICS	EXPRESSION
 information_schema	ST_GEOMETRY_COLUMNS	GEOMETRY_TYPE_NAME
 information_schema	TRIGGERS	ACTION_STATEMENT

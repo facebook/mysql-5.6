@@ -135,6 +135,21 @@ Database: information_schema
 | QUERY_PERF_COUNTER                    |
 | REFERENTIAL_CONSTRAINTS               |
 | RESOURCE_GROUPS                       |
+| ROCKSDB_ACTIVE_COMPACTION_STATS       |
+| ROCKSDB_CF_OPTIONS                    |
+| ROCKSDB_CFSTATS                       |
+| ROCKSDB_COMPACTION_HISTORY            |
+| ROCKSDB_COMPACTION_STATS              |
+| ROCKSDB_DBSTATS                       |
+| ROCKSDB_DDL                           |
+| ROCKSDB_DEADLOCK                      |
+| ROCKSDB_GLOBAL_INFO                   |
+| ROCKSDB_INDEX_FILE_MAP                |
+| ROCKSDB_LOCKS                         |
+| ROCKSDB_PERF_CONTEXT                  |
+| ROCKSDB_PERF_CONTEXT_GLOBAL           |
+| ROCKSDB_SST_PROPS                     |
+| ROCKSDB_TRX                           |
 | ROLE_COLUMN_GRANTS                    |
 | ROLE_ROUTINE_GRANTS                   |
 | ROLE_TABLE_GRANTS                     |
@@ -220,6 +235,21 @@ Database: INFORMATION_SCHEMA
 | QUERY_PERF_COUNTER                    |
 | REFERENTIAL_CONSTRAINTS               |
 | RESOURCE_GROUPS                       |
+| ROCKSDB_ACTIVE_COMPACTION_STATS       |
+| ROCKSDB_CF_OPTIONS                    |
+| ROCKSDB_CFSTATS                       |
+| ROCKSDB_COMPACTION_HISTORY            |
+| ROCKSDB_COMPACTION_STATS              |
+| ROCKSDB_DBSTATS                       |
+| ROCKSDB_DDL                           |
+| ROCKSDB_DEADLOCK                      |
+| ROCKSDB_GLOBAL_INFO                   |
+| ROCKSDB_INDEX_FILE_MAP                |
+| ROCKSDB_LOCKS                         |
+| ROCKSDB_PERF_CONTEXT                  |
+| ROCKSDB_PERF_CONTEXT_GLOBAL           |
+| ROCKSDB_SST_PROPS                     |
+| ROCKSDB_TRX                           |
 | ROLE_COLUMN_GRANTS                    |
 | ROLE_ROUTINE_GRANTS                   |
 | ROLE_TABLE_GRANTS                     |
@@ -341,7 +371,7 @@ Database: mysql  Table: user  Wildcard: user
 +-------+----------+-------------+------+-----+---------+-------+---------------------------------+---------+
 | Field | Type     | Collation   | Null | Key | Default | Extra | Privileges                      | Comment |
 +-------+----------+-------------+------+-----+---------+-------+---------------------------------+---------+
-| User  | char(32) | utf8mb3_bin | NO   | PRI |         |       | select,insert,update,references |         |
+| User  | char(80) | utf8mb3_bin | NO   | PRI |         |       | select,insert,update,references |         |
 +-------+----------+-------------+------+-----+---------+-------+---------------------------------+---------+
 DROP USER 'user_with_length_32_abcdefghijkl'@'localhost';
 

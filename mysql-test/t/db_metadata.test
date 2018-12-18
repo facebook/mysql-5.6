@@ -17,34 +17,51 @@ show create database test4;
 # create database with db metadata
 create database test5 db_metadata = "{\"shard\":\"test5_shard\"}";
 show create database test5;
+select catalog_name, schema_name, db_metadata from information_schema.schemata_extensions;
 
 # verify show create is valid
 --let $db_create=query_get_value(show create database test5, 'Create Database', 1)
 drop database test5;
 eval $db_create;
 show create database test5;
+select catalog_name, schema_name, db_metadata from information_schema.schemata_extensions;
 
 # create database with character set and db metadata
 create database test6 character set utf8 db_metadata = "{\"shard\":\"test6_shard\"}";
 show create database test6;
+select catalog_name, schema_name, db_metadata from information_schema.schemata_extensions;
 
 # create database with read only and db metadata
 create database test7 read_only = true db_metadata = "{\"shard\":\"test7_shard\"}";
 show create database test7;
+select catalog_name, schema_name, db_metadata from information_schema.schemata_extensions;
 
 # create database with character set and read only
 create database test8 character set utf8 read_only = true;
 show create database test8;
+select catalog_name, schema_name, db_metadata from information_schema.schemata_extensions;
 
 # create database with character set, read only and db metadata
 create database test9 character set utf8 read_only = true db_metadata = "{\"shard\":\"test9_shard\"}";
 show create database test9;
+select catalog_name, schema_name, db_metadata from information_schema.schemata_extensions;
+
+# create database with invalid JSON string for db_metadata
+--error ER_DB_METADATA_INVALID_JSON
+create database test10 db_metadata = "invalid_json";
+select catalog_name, schema_name, db_metadata from information_schema.schemata_extensions;
+
+# create database with single quotation
+--error ER_DB_METADATA_INVALID_JSON
+create database test11 db_metadata = "{\'shard\':\'test11_shard\'}";
+select catalog_name, schema_name, db_metadata from information_schema.schemata_extensions;
 
 # alter database tests
 
 # alter database character set
 alter database test3 character set ascii;
 show create database test3;
+select catalog_name, schema_name, db_metadata from information_schema.schemata_extensions;
 
 # alter database read only
 alter database test4 read_only = true;
@@ -53,6 +70,7 @@ show create database test4;
 # alter database db metadata
 alter database test5 db_metadata = "{\"shard\":\"test5_shard_altered\"}";
 show create database test5;
+select catalog_name, schema_name, db_metadata from information_schema.schemata_extensions;
 
 # alter database character set but keep db metadata intact
 alter database test5 character set ascii;
@@ -69,6 +87,7 @@ show create database test5;
 # alter database reset db metadata
 alter database test5 db_metadata "";
 show create database test5;
+select catalog_name, schema_name, db_metadata from information_schema.schemata_extensions;
 
 # alter database set db metadata to max length string
 alter database test5 db_metadata "{\"shard\":\"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin\"}";
@@ -77,22 +96,27 @@ show create database test5;
 # alter database exceed db metadata max length
 --error ER_DB_METADATA_TOO_LONG
 --eval alter database test5 db_metadata \"{\\\"shard\\\":\\\"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin\\\"}\";
+select catalog_name, schema_name, db_metadata from information_schema.schemata_extensions;
 
 # alter database character set and db metadata
 alter database test6 character set ascii db_metadata = "{\"shard\":\"test6_shard_altered\"}";
 show create database test6;
+select catalog_name, schema_name, db_metadata from information_schema.schemata_extensions;
 
 # alter database read only and db metadata
 alter database test7 read_only = true db_metadata = "{\"shard\":\"test7_shard_altered\"}";
 show create database test7;
+select catalog_name, schema_name, db_metadata from information_schema.schemata_extensions;
 
 # alter database character set and read only
 alter database test8 character set ascii read_only = true;
 show create database test8;
+select catalog_name, schema_name, db_metadata from information_schema.schemata_extensions;
 
 # alter database character set, read only and db metadata
 alter database test9 character set ascii read_only = true db_metadata = "{\"shard\":\"test9_shard_altered\"}";
 show create database test9;
+select catalog_name, schema_name, db_metadata from information_schema.schemata_extensions;
 
 # ensure information_schema and mysql tables are intact
 show create database information_schema;
@@ -100,12 +124,13 @@ show create database mysql;
 
 --error ER_DBACCESS_DENIED_ERROR
 alter database information_schema db_metadata "{\"shard\":\"is_shard\"}";
+select catalog_name, schema_name, db_metadata from information_schema.schemata_extensions;
 
 # alter database with invalid JSON string for db_metadata
  --error ER_DB_METADATA_INVALID_JSON
 alter database test9 db_metadata = "invalid_json";
 show create database test9;
-
+select catalog_name, schema_name, db_metadata from information_schema.schemata_extensions;
 
 
 # create database without any options
