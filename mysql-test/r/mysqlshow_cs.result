@@ -134,6 +134,7 @@ Database: information_schema
 | RESOURCE_GROUPS                       |
 | ROUTINES                              |
 | SCHEMATA                              |
+| SCHEMATA_EXT                          |
 | SCHEMA_PRIVILEGES                     |
 | SLAVE_DB_LOAD                         |
 | STATISTICS                            |
@@ -209,6 +210,7 @@ Database: INFORMATION_SCHEMA
 | RESOURCE_GROUPS                       |
 | ROUTINES                              |
 | SCHEMATA                              |
+| SCHEMATA_EXT                          |
 | SCHEMA_PRIVILEGES                     |
 | SLAVE_DB_LOAD                         |
 | STATISTICS                            |

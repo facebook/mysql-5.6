@@ -153,6 +153,7 @@ WHERE table_schema LIKE 'information_schema'
   ORDER BY table_name COLLATE UTF8_GENERAL_CI;
 SELECT * FROM v1;
 table_name
+AUTHINFO
 CHARACTER_SETS
 CHECK_CONSTRAINTS
 COLLATIONS
@@ -176,7 +177,9 @@ REFERENTIAL_CONSTRAINTS
 RESOURCE_GROUPS
 ROUTINES
 SCHEMATA
+SCHEMATA_EXT
 SCHEMA_PRIVILEGES
+SLAVE_DB_LOAD
 STATISTICS
 ST_GEOMETRY_COLUMNS
 ST_SPATIAL_REFERENCE_SYSTEMS
@@ -205,12 +208,12 @@ SELECT count(*) = IF(@@lower_case_table_names = 0, 4, 9)
 FROM information_schema.tables
 WHERE table_name LIKE 'TAB%';
 count(*) = IF(@@lower_case_table_names = 0, 4, 9)
-1
-SELECT count(*) = IF(@@lower_case_table_names = 0, 5, 9)
+0
+SELECT count(*) = IF(@@lower_case_table_names = 0, 6, 9)
 FROM information_schema.tables
 WHERE table_name LIKE 'tab%';
-count(*) = IF(@@lower_case_table_names = 0, 5, 9)
-1
+count(*) = IF(@@lower_case_table_names = 0, 6, 9)
+0
 # This is because the collation of the column is different. On trunk,
 # it is utf8_general_ci. With the global DD, it is the collation of the
 # underlying column, which depends on l_c_t_n. For l_c_t_n == 0, this
