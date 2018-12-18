@@ -10,10 +10,10 @@ GRANT SELECT ON db_datadict.* TO 'testuser1'@'localhost';
 SELECT * FROM information_schema.schemata_extensions
 WHERE schema_name IN ('information_schema','mysql','test')
 ORDER BY schema_name;
-CATALOG_NAME	SCHEMA_NAME	OPTIONS
-def	information_schema	
-def	mysql	
-def	test	
+CATALOG_NAME	SCHEMA_NAME	OPTIONS	DB_METADATA
+def	information_schema		NULL
+def	mysql		NULL
+def	test		NULL
 SHOW DATABASES LIKE 'information_schema';
 Database (information_schema)
 information_schema
@@ -27,9 +27,9 @@ test
 SELECT * FROM information_schema.schemata_extensions
 WHERE schema_name IN ('information_schema','mysql','test')
 ORDER BY schema_name;
-CATALOG_NAME	SCHEMA_NAME	OPTIONS
-def	information_schema	
-def	test	
+CATALOG_NAME	SCHEMA_NAME	OPTIONS	DB_METADATA
+def	information_schema		NULL
+def	test		NULL
 SHOW DATABASES LIKE 'information_schema';
 Database (information_schema)
 information_schema

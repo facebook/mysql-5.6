@@ -40,6 +40,7 @@
 #include "sql/dd/dd.h"                            // create_object
 #include "sql/dd/impl/bootstrap/bootstrap_ctx.h"  // dd::bootstrap::DD_bootstrap_ctx
 #include "sql/dd/impl/dictionary_impl.h"          // Dictionary_impl
+#include "sql/dd/impl/predefined_properties.h"    // Predefined_properties
 #include "sql/dd/impl/raw/raw_record.h"           // Raw_record
 #include "sql/dd/impl/sdi_impl.h"                 // sdi read/write functions
 #include "sql/dd/impl/tables/schemata.h"          // Schemata
@@ -112,24 +113,22 @@ void Schema_impl::set_read_only(bool state) {
   options().set(mysql_db_read_only_options_key, state);
 }
 
-static constexpr auto db_metadata_key = "db_metadata";
-
 bool Schema_impl::set_db_metadata(const String_type &metadata) {
   if (metadata.empty()) {
-    if (options().exists(db_metadata_key)) {
-      options().remove(db_metadata_key);
+    if (options().exists(Predefined_properties::get_db_metadata_key())) {
+      options().remove(Predefined_properties::get_db_metadata_key());
     }
   } else {
-    options().set(db_metadata_key, metadata);
+    options().set(Predefined_properties::get_db_metadata_key(), metadata);
   }
   return true;
 }
 
 String_type Schema_impl::get_db_metadata() const noexcept {
-  if (options().exists(db_metadata_key)) {
+  if (options().exists(Predefined_properties::get_db_metadata_key())) {
     bool ret;
     String_type value;
-    ret = options().get(db_metadata_key, &value);
+    ret = options().get(Predefined_properties::get_db_metadata_key(), &value);
     if (!ret) return value;
   }
   return "";

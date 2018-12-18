@@ -209,13 +209,16 @@ namespace info_schema {
   80028-001:
   - information_schema tables changed to have username of 80 chars
 
+  80028-002:
+  - add DB_METADATA to INFORMATION_SCHEMA.SCHEMATA_EXTENSIONS
+
   80024: Next IS version number after the previous is public.
   ------------------------------------
 */
 
-static const uint IS_DD_VERSION = 80028001;
+static const uint IS_DD_VERSION = 80028002;
 static_assert((IS_DD_VERSION <= MYSQL_VERSION_ID) ||
-                  ((IS_DD_VERSION == 80028001) && (MYSQL_VERSION_ID >= 80028)),
+                  ((IS_DD_VERSION == 80028002) && (MYSQL_VERSION_ID >= 80028)),
               "This release can not use a version number from the future");
 
 /**
