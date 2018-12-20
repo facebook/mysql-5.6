@@ -209,7 +209,7 @@ static bool compare_table_with_partition(THD *thd, TABLE *table,
 
   if (mysql_prepare_alter_table(thd, part_table_def, part_table,
                                 &part_create_info, &part_alter_info,
-                                &part_alter_ctx, false)) {
+                                &part_alter_ctx)) {
     my_error(ER_TABLES_DIFFERENT_METADATA, MYF(0));
     DBUG_RETURN(true);
   }

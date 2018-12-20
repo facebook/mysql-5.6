@@ -1544,7 +1544,7 @@ static bool migrate_table_to_dd(THD *thd, const String_type &schema_name,
   fill_create_info_for_upgrade(&create_info, &table);
 
   if (prepare_fields_and_keys(thd, nullptr, &table, &create_info, &alter_info,
-                              &alter_ctx, create_info.used_fields, false)) {
+                              &alter_ctx, create_info.used_fields)) {
     return true;
   }
 

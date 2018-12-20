@@ -180,9 +180,6 @@ The following options may be given as the first argument:
  to assess which transactions can be executed in parallel
  by the slave's multi-threaded applier. Possible values
  are COMMIT_ORDER, WRITESET and WRITESET_SESSION.
- --block-create-no-primary-key 
- Block creation of non-temp tables without primary key
- outside of mysqlschema.
  --block-encryption-mode=name 
  mode for AES_ENCRYPT/AES_DECRYPT
  --bulk-insert-buffer-size=# 
@@ -1409,7 +1406,6 @@ binlog-rows-query-log-events FALSE
 binlog-stmt-cache-size 32768
 binlog-transaction-dependency-history-size 25000
 binlog-transaction-dependency-tracking COMMIT_ORDER
-block-create-no-primary-key FALSE
 block-encryption-mode aes-128-ecb
 bulk-insert-buffer-size 8388608
 caching-sha2-password-private-key-path private_key.pem

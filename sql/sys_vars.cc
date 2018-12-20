@@ -682,12 +682,6 @@ static Sys_var_long Sys_pfs_error_size(
 
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
 
-static Sys_var_bool Sys_block_create_no_primary_key(
-    "block_create_no_primary_key",
-    "Block creation of non-temp tables without primary key outside of mysql"
-    "schema.",
-    GLOBAL_VAR(block_create_no_primary_key), CMD_LINE(OPT_ARG), DEFAULT(false));
-
 static Sys_var_ulong Sys_auto_increment_increment(
     "auto_increment_increment",
     "Auto-increment columns are incremented by this",

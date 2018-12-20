@@ -18512,8 +18512,8 @@ ER_REQUESTED_GTID_NOT_IN_EXECUTED_SET
 ER_PLACEHOLDER_50017
   eng "Placeholder"
 
-ER_BLOCK_NO_PRIMARY_KEY
-  eng "Table without primary key cannot be created outside mysql schema."
+ER_PLACEHOLDER_50018
+  eng "Placeholder"
 
 ER_PLACEHOLDER_50019
   eng "Placeholder"

@@ -1487,27 +1487,6 @@ bool lock_tables_precheck(THD *thd, TABLE_LIST *tables) {
 }
 
 /**
-   Check if the current change should be checked for a primary key.
-   Changes within mysql and mtr shouldn't be checked.
-   This is controlled by the cnf option block_create_no_primary_key.
-   Only INNODB tables should be checked.
-
-   @param create_info info of table to be created or altered.
-          table_list  table which will be created or altered.
-
-   @return  true  if the current table should be checked for a primary key
-            false otherwise
-*/
-bool should_check_table_for_primary_key(HA_CREATE_INFO *create_info,
-                                        TABLE_LIST *table_list) {
-  return (block_create_no_primary_key && create_info->db_type &&
-          create_info->db_type->db_type == DB_TYPE_INNODB &&
-          !(create_info->options & HA_LEX_CREATE_TMP_TABLE) &&
-          strcmp(table_list->db, "mysql") != 0 &&
-          strcmp(table_list->db, "mtr") != 0);
-}
-
-/**
   CREATE TABLE query pre-check.
 
   @param thd			Thread handler
@@ -1527,24 +1506,6 @@ bool create_table_precheck(THD *thd, TABLE_LIST *tables,
   ulong want_priv;
   bool error = true;  // Error message is given
   DBUG_ENTER("create_table_precheck");
-
-  if (should_check_table_for_primary_key(lex->create_info, create_table)) {
-    // Creating table, make sure we find a primary key
-    bool primary_key_found = false;
-    for (const Key_spec *key : lex->alter_info->key_list) {
-      if (key->type == KEYTYPE_PRIMARY) {
-        // We found the primary key, allow the table to be created / altered
-        primary_key_found = true;
-        break;
-      }
-    }
-
-    if (!primary_key_found) {
-      // No primary key found, block table from being created / altered
-      my_error(ER_BLOCK_NO_PRIMARY_KEY, MYF(0), NULL);
-      goto err;
-    }
-  }
 
   /*
     Require CREATE [TEMPORARY] privilege on new table; for

@@ -191,7 +191,6 @@ extern ulonglong slave_type_conversions_options;
 extern bool read_only, opt_readonly;
 extern bool super_read_only, opt_super_readonly;
 extern bool send_error_before_closing_timed_out_connection;
-extern bool block_create_no_primary_key;
 extern bool lower_case_file_system;
 
 enum enum_slave_rows_search_algorithms {
