@@ -150,7 +150,7 @@ Rdb_cf_manager::get_cf(const std::string &cf_name_arg,
   return cf_handle;
 }
 
-rocksdb::ColumnFamilyHandle *Rdb_cf_manager::get_cf(const uint32_t &id) const {
+rocksdb::ColumnFamilyHandle *Rdb_cf_manager::get_cf(const uint32_t id) const {
   rocksdb::ColumnFamilyHandle *cf_handle = nullptr;
 
   RDB_MUTEX_LOCK_CHECK(m_mutex);

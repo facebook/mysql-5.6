@@ -66,14 +66,14 @@ struct Rdb_index_stats {
         m_actual_disk_size(0), m_entry_deletes(0), m_entry_single_deletes(0),
         m_entry_merges(0), m_entry_others(0) {}
 
-  void merge(const Rdb_index_stats &s, const bool &increment = true,
-             const int64_t &estimated_data_len = 0);
+  void merge(const Rdb_index_stats &s, const bool increment = true,
+             const int64_t estimated_data_len = 0);
 };
 
 // The helper class to calculate index cardinality
 class Rdb_tbl_card_coll {
  public:
-  explicit Rdb_tbl_card_coll(const uint8_t &table_stats_sampling_pct);
+  explicit Rdb_tbl_card_coll(const uint8_t table_stats_sampling_pct);
 
  public:
   void ProcessKey(const rocksdb::Slice &key, const Rdb_key_def *keydef,
@@ -106,28 +106,28 @@ class Rdb_tbl_card_coll {
 
 class Rdb_tbl_prop_coll : public rocksdb::TablePropertiesCollector {
 public:
-  Rdb_tbl_prop_coll(Rdb_ddl_manager *const ddl_manager,
-                    const Rdb_compact_params &params, const uint32_t &cf_id,
-                    const uint8_t &table_stats_sampling_pct);
+ Rdb_tbl_prop_coll(Rdb_ddl_manager *const ddl_manager,
+                   const Rdb_compact_params &params, const uint32_t cf_id,
+                   const uint8_t table_stats_sampling_pct);
 
-  /*
-    Override parent class's virtual methods of interest.
-  */
+ /*
+   Override parent class's virtual methods of interest.
+ */
 
-  virtual rocksdb::Status AddUserKey(const rocksdb::Slice &key,
-                                     const rocksdb::Slice &value,
-                                     rocksdb::EntryType type,
-                                     rocksdb::SequenceNumber seq,
-                                     uint64_t file_size) override;
+ virtual rocksdb::Status AddUserKey(const rocksdb::Slice &key,
+                                    const rocksdb::Slice &value,
+                                    rocksdb::EntryType type,
+                                    rocksdb::SequenceNumber seq,
+                                    uint64_t file_size) override;
 
-  virtual rocksdb::Status
-  Finish(rocksdb::UserCollectedProperties *properties) override;
+ virtual rocksdb::Status
+ Finish(rocksdb::UserCollectedProperties *properties) override;
 
-  virtual const char *Name() const override { return "Rdb_tbl_prop_coll"; }
+ virtual const char *Name() const override { return "Rdb_tbl_prop_coll"; }
 
-  rocksdb::UserCollectedProperties GetReadableProperties() const override;
+ rocksdb::UserCollectedProperties GetReadableProperties() const override;
 
-  bool NeedCompact() const override;
+ bool NeedCompact() const override;
 
 public:
   uint64_t GetMaxDeletedRows() const { return m_max_deleted_rows; }
@@ -143,7 +143,7 @@ private:
   void CollectStatsForRow(const rocksdb::Slice &key,
                           const rocksdb::Slice &value,
                           const rocksdb::EntryType &type,
-                          const uint64_t &file_size);
+                          const uint64_t file_size);
   Rdb_index_stats *AccessStats(const rocksdb::Slice &key);
   void AdjustDeletedRows(rocksdb::EntryType type);
 
@@ -197,7 +197,7 @@ public:
     m_params = params;
   }
 
-  void SetTableStatsSamplingPct(const uint8_t &table_stats_sampling_pct) {
+  void SetTableStatsSamplingPct(const uint8_t table_stats_sampling_pct) {
     m_table_stats_sampling_pct = table_stats_sampling_pct;
   }
 
