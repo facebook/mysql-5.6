@@ -43,8 +43,8 @@ my_bool rocksdb_compaction_sequential_deletes_count_sd = false;
 
 Rdb_tbl_prop_coll::Rdb_tbl_prop_coll(Rdb_ddl_manager *const ddl_manager,
                                      const Rdb_compact_params &params,
-                                     const uint32_t &cf_id,
-                                     const uint8_t &table_stats_sampling_pct)
+                                     const uint32_t cf_id,
+                                     const uint8_t table_stats_sampling_pct)
     : m_cf_id(cf_id), m_ddl_manager(ddl_manager), m_last_stats(nullptr),
       m_rows(0l), m_window_pos(0l), m_deleted_rows(0l), m_max_deleted_rows(0l),
       m_file_size(0), m_params(params),
@@ -142,7 +142,7 @@ Rdb_index_stats *Rdb_tbl_prop_coll::AccessStats(const rocksdb::Slice &key) {
 void Rdb_tbl_prop_coll::CollectStatsForRow(const rocksdb::Slice &key,
                                            const rocksdb::Slice &value,
                                            const rocksdb::EntryType &type,
-                                           const uint64_t &file_size) {
+                                           const uint64_t file_size) {
   auto stats = AccessStats(key);
 
   stats->m_data_size += key.size() + value.size();
@@ -411,8 +411,8 @@ int Rdb_index_stats::unmaterialize(const std::string &s,
   Merges one Rdb_index_stats into another. Can be used to come up with the stats
   for the index based on stats for each sst
 */
-void Rdb_index_stats::merge(const Rdb_index_stats &s, const bool &increment,
-                            const int64_t &estimated_data_len) {
+void Rdb_index_stats::merge(const Rdb_index_stats &s, const bool increment,
+                            const int64_t estimated_data_len) {
   std::size_t i;
 
   DBUG_ASSERT(estimated_data_len >= 0);
@@ -456,7 +456,7 @@ void Rdb_index_stats::merge(const Rdb_index_stats &s, const bool &increment,
   }
 }
 
-Rdb_tbl_card_coll::Rdb_tbl_card_coll(const uint8_t &table_stats_sampling_pct)
+Rdb_tbl_card_coll::Rdb_tbl_card_coll(const uint8_t table_stats_sampling_pct)
     : m_table_stats_sampling_pct(table_stats_sampling_pct),
       m_seed(time(nullptr)) {}
 

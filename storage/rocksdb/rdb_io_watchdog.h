@@ -104,7 +104,7 @@ class Rdb_io_watchdog {
     free(m_buf);
   }
 
-  int reset_timeout(const uint32_t &write_timeout);
+  int reset_timeout(const uint32_t write_timeout);
 
   Rdb_io_watchdog(const Rdb_io_watchdog &) = delete;
   Rdb_io_watchdog &operator=(const Rdb_io_watchdog &) = delete;
