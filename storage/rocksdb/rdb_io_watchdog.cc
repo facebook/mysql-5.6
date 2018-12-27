@@ -148,7 +148,7 @@ int Rdb_io_watchdog::check_write_access(const std::string &dirname) const {
   return HA_EXIT_SUCCESS;
 }
 
-int Rdb_io_watchdog::reset_timeout(const uint32_t &write_timeout) {
+int Rdb_io_watchdog::reset_timeout(const uint32_t write_timeout) {
   // This function will be called either from a thread initializing MyRocks
   // engine or handling system variable changes. We need to account for the
   // possibility of I/O callback executing at the same time. If that happens
