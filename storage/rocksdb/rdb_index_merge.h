@@ -189,9 +189,9 @@ class Rdb_index_merge {
 
  public:
   Rdb_index_merge(const char *const tmpfile_path,
-                  const ulonglong &merge_buf_size,
-                  const ulonglong &merge_combine_read_size,
-                  const ulonglong &merge_tmp_file_removal_delay,
+                  const ulonglong merge_buf_size,
+                  const ulonglong merge_combine_read_size,
+                  const ulonglong merge_tmp_file_removal_delay,
                   rocksdb::ColumnFamilyHandle *cf);
   ~Rdb_index_merge();
 

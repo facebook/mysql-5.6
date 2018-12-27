@@ -156,7 +156,7 @@ class Rdb_sst_info {
   Rdb_sst_info(rocksdb::DB *const db, const std::string &tablename,
                const std::string &indexname,
                rocksdb::ColumnFamilyHandle *const cf,
-               const rocksdb::DBOptions &db_options, const bool &tracing);
+               const rocksdb::DBOptions &db_options, const bool tracing);
   ~Rdb_sst_info();
 
   int put(const rocksdb::Slice &key, const rocksdb::Slice &value);
