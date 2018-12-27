@@ -65,7 +65,7 @@ int Rdb_thread::create_thread(const std::string &thread_name
                              thread_func, this);
 }
 
-void Rdb_thread::signal(const bool &stop_thread) {
+void Rdb_thread::signal(const bool stop_thread) {
   RDB_MUTEX_LOCK_CHECK(m_signal_mutex);
 
   if (stop_thread) {
