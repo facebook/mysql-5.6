@@ -316,7 +316,7 @@ Rdb_sst_info::Rdb_sst_info(rocksdb::DB *const db, const std::string &tablename,
                            const std::string &indexname,
                            rocksdb::ColumnFamilyHandle *const cf,
                            const rocksdb::DBOptions &db_options,
-                           const bool &tracing)
+                           const bool tracing)
     : m_db(db), m_cf(cf), m_db_options(db_options), m_curr_size(0),
       m_sst_count(0), m_background_error(HA_EXIT_SUCCESS), m_committed(false),
 #if defined(RDB_SST_INFO_USE_THREAD)
