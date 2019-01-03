@@ -1138,6 +1138,7 @@ public:
   std::shared_ptr<Log_event_wrapper> prev_event;
   std::unordered_map<ulonglong, Table_map_log_event *> table_map_events;
   std::shared_ptr<Log_event_wrapper> current_begin_event;
+  bool trx_queued= false;
   bool dep_sync_group= false;
 
   // Used to signal when a dependency worker dies
@@ -1215,6 +1216,8 @@ public:
     mysql_mutex_lock(&dep_key_lookup_mutex);
     dep_key_lookup.clear();
     mysql_mutex_unlock(&dep_key_lookup_mutex);
+
+    trx_queued= false;
 
     if (need_dep_lock)
       mysql_mutex_unlock(&dep_lock);

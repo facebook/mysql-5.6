@@ -19,7 +19,7 @@
 #include "mysqld.h"          // key_commit_order_manager_mutex ..
 
 Commit_order_manager::Commit_order_manager(uint32 worker_numbers)
-  : m_workers(worker_numbers), queue_head(QUEUE_EOF), queue_tail(QUEUE_EOF)
+  : m_workers(worker_numbers)
 {
   m_rollback_trx.store(false);
   mysql_mutex_init(key_commit_order_manager_mutex, &m_queue_mutex, NULL);
@@ -35,10 +35,11 @@ void Commit_order_manager::register_trx(Slave_worker *worker)
   DBUG_ENTER("Commit_order_manager::register_trx");
 
   mysql_mutex_lock(&m_queue_mutex);
+  const auto db= worker->get_current_db();
 
   DBUG_ASSERT(m_workers[worker->id].status == OCS_FINISH);
   m_workers[worker->id].status= OCS_WAIT;
-  queue_push(worker->id);
+  queue_push(db, worker->id);
 
   mysql_mutex_unlock(&m_queue_mutex);
   DBUG_VOID_RETURN;
@@ -72,6 +73,7 @@ bool Commit_order_manager::wait_for_its_turn(Slave_worker *worker,
     PSI_stage_info old_stage;
     mysql_cond_t *cond= &m_workers[worker->id].cond;
     THD *thd= worker->info_thd;
+    const auto db= worker->get_current_db();
 
     DBUG_PRINT("info", ("Worker %lu is waiting for commit signal", worker->id));
 
@@ -80,7 +82,7 @@ bool Commit_order_manager::wait_for_its_turn(Slave_worker *worker,
                     &stage_worker_waiting_for_its_turn_to_commit,
                     &old_stage);
 
-    while (queue_front() != worker->id)
+    while (queue_front(db) != worker->id)
       mysql_cond_wait(cond, &m_queue_mutex);
 
     m_workers[worker->id].status= OCS_SIGNAL;
@@ -109,12 +111,14 @@ void Commit_order_manager::unregister_trx(Slave_worker *worker)
     DBUG_PRINT("info", ("Worker %lu is signalling next transaction",
                          worker->id));
 
+    const auto db= worker->get_current_db();
+
     mysql_mutex_lock(&m_queue_mutex);
 
     /* Set next manager as the head and signal the trx to commit. */
-    queue_pop();
-    if (!queue_empty())
-      mysql_cond_signal(&m_workers[queue_front()].cond);
+    queue_pop(db);
+    if (!queue_empty(db))
+      mysql_cond_signal(&m_workers[queue_front(db)].cond);
 
     m_workers[worker->id].status= OCS_FINISH;
 

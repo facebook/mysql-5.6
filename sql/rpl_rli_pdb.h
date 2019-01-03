@@ -381,6 +381,10 @@ public:
   bool curr_group_seen_begin; // is set to TRUE with explicit B-event
   ulong id;                 // numberic identifier of the Worker
 
+  // DB of the current trx begin executed by the worker, empty string for trxs
+  // changing multiple DBs and for trxs that need to be executed in isolation
+  std::string current_db;
+
   /*
     Worker runtime statictics
   */
@@ -500,6 +504,14 @@ public:
   bool is_table_idempotent(const std::string &table) const override
   {
     return c_rli ? c_rli->is_table_idempotent(table) : false;
+  }
+  void set_current_db(const std::string& db)
+  {
+    current_db= db;
+  }
+  std::string get_current_db() const
+  {
+    return current_db;
   }
 
 protected:

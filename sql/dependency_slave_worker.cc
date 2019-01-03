@@ -40,6 +40,7 @@ Dependency_slave_worker::get_begin_event(Commit_order_manager *co_mngr)
   if (ret && co_mngr != NULL)
   {
     DBUG_ASSERT(opt_mts_dependency_order_commits);
+    set_current_db(ret->get_db());
     co_mngr->register_trx(this);
   }
 

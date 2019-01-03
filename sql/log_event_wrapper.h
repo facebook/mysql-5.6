@@ -28,6 +28,8 @@ class Log_event_wrapper
   // has all dependendents of this event been notified after execution?
   bool is_finalized= false;
 
+  std::string db;
+
 public:
   std::shared_ptr<Log_event_wrapper> next_ev;
 
@@ -130,6 +132,16 @@ public:
   void put_next(std::shared_ptr<Log_event_wrapper> &ev);
   std::shared_ptr<Log_event_wrapper> next();
   bool path_exists(const std::shared_ptr<Log_event_wrapper> &ev) const;
+
+  void set_db(const std::string& db)
+  {
+    this->db= db;
+  }
+
+  std::string get_db() const
+  {
+    return db;
+  }
 };
 
 #endif // LOG_EVENT_WRAPPER_H

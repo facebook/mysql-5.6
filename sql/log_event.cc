@@ -3243,8 +3243,6 @@ void Log_event::schedule_dep(Relay_log_info *rli)
   auto ev= std::make_shared<Log_event_wrapper>(this, rli->current_begin_event);
   prepare_dep(rli, ev);
 
-  DBUG_ASSERT(rli->num_in_flight_trx || ev->is_begin_event);
-
   if (starts_group())
   {
     rli->curr_group_seen_begin= true;
@@ -3268,15 +3266,19 @@ void Log_event::schedule_dep(Relay_log_info *rli)
     // NOTE: we don't update @Relay_log_info::keys_accessed_by_group here
     // because not all partition events contain table info
     Mts_db_names mts_dbs;
-    if (get_mts_dbs(&mts_dbs) != OVER_MAX_DBS_IN_EVENT_MTS)
+    const uint8 num_dbs= get_mts_dbs(&mts_dbs);
+
+    if (likely(num_dbs != OVER_MAX_DBS_IN_EVENT_MTS))
     {
       for (int i = 0; i < mts_dbs.num; ++i)
-        rli->dbs_accessed_by_group.insert(std::string(mts_dbs.name[i]));
+        rli->dbs_accessed_by_group.insert(mts_dbs.name[i]);
     }
-    else
-    {
-      rli->dep_sync_group= true;
-    }
+
+    // we execute the trx in isolation if num_dbs is greater than one and if
+    // OVER_MAX_DBS_IN_EVENT_MTS is set
+    rli->dep_sync_group= rli->dep_sync_group ||
+                         num_dbs == OVER_MAX_DBS_IN_EVENT_MTS ||
+                         (rli->dbs_accessed_by_group.size() > 1);
   }
 
   if (unlikely(rli->dep_sync_group))
@@ -3296,7 +3298,10 @@ void Log_event::schedule_dep(Relay_log_info *rli)
 
   mts_group_idx= rli->gaq->assigned_group_index;
 
-  if (ev->is_begin_event)
+  // case: current trx is to be executed in isolation or the DB has been set, so
+  // let's queue it for execution
+  if (!rli->trx_queued &&
+      (rli->dep_sync_group || !rli->current_begin_event->get_db().empty()))
   {
     mysql_mutex_lock(&rli->dep_lock);
 
@@ -3306,7 +3311,7 @@ void Log_event::schedule_dep(Relay_log_info *rli)
       mysql_cond_wait(&rli->dep_full_cond, &rli->dep_lock);
     }
 
-    rli->enqueue_dep(ev);
+    rli->enqueue_dep(rli->current_begin_event);
 
     // case: workers are waiting on empty queue, let's signal
     if (likely(rli->num_workers_waiting > 0))
@@ -3322,6 +3327,7 @@ void Log_event::schedule_dep(Relay_log_info *rli)
     }
 
     ++rli->num_in_flight_trx;
+    rli->trx_queued= true;
 
     mysql_mutex_unlock(&rli->dep_lock);
   }
@@ -3332,7 +3338,16 @@ void Log_event::schedule_dep(Relay_log_info *rli)
     rli->prev_event->put_next(ev);
   }
 
-  rli->prev_event= ev->is_end_event ? nullptr : ev;
+  if (unlikely(ev->is_end_event))
+  {
+    rli->prev_event= nullptr;
+    rli->current_begin_event.reset();
+    rli->trx_queued= false;
+  }
+  else
+  {
+    rli->prev_event= ev;
+  }
 
   // case: this group needs to be executed in isolation
   if (unlikely(rli->dep_sync_group && ev->is_end_event))
@@ -3353,8 +3368,10 @@ Log_event::handle_terminal_dep_event(Relay_log_info *rli,
 {
   if (ev->is_begin_event)
   {
-    rli->keys_accessed_by_group.clear();
-    rli->dbs_accessed_by_group.clear();
+    DBUG_ASSERT(rli->current_begin_event == NULL);
+    DBUG_ASSERT(rli->table_map_events.empty());
+    DBUG_ASSERT(rli->keys_accessed_by_group.empty());
+    DBUG_ASSERT(!rli->trx_queued);
 
     // update rli state
     rli->current_begin_event= ev;
@@ -3366,6 +3383,18 @@ Log_event::handle_terminal_dep_event(Relay_log_info *rli,
     group.group_master_log_name=
       my_strdup(rli->get_group_master_log_name(), MYF(MY_WME));
     rli->gaq->assigned_group_index= rli->gaq->en_queue((void *) &group);
+  }
+
+  DBUG_ASSERT(rli->current_begin_event);
+
+  // case: we have found a DB to set for the current trx
+  if (rli->current_begin_event->get_db().empty() &&
+      !rli->dbs_accessed_by_group.empty())
+  {
+    // NOTE: we can set any accessed DB to this trx, if more than one DB are
+    // accessed then it'll be executed in isolation anyway
+    DBUG_ASSERT(rli->dep_sync_group || rli->dbs_accessed_by_group.size() == 1);
+    rli->current_begin_event->set_db(*rli->dbs_accessed_by_group.begin());
   }
 
   if (ev->is_end_event)
@@ -3385,8 +3414,10 @@ Log_event::handle_terminal_dep_event(Relay_log_info *rli,
     mysql_mutex_unlock(&rli->dep_key_lookup_mutex);
 
     // update rli state
-    rli->current_begin_event= NULL;
     rli->table_map_events.clear();
+    rli->dbs_accessed_by_group.clear();
+    rli->keys_accessed_by_group.clear();
+
     rli->mts_group_status= Relay_log_info::MTS_END_GROUP;
     rli->curr_group_seen_begin = rli->curr_group_seen_gtid = false;
 
