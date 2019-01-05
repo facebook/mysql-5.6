@@ -255,6 +255,22 @@ class ha_rocksdb : public my_core::handler {
    */
   bool m_skip_unique_check;
 
+  /*
+    TRUE means INSERT ON DUPLICATE KEY UPDATE. In such case we can optimize by
+    remember the failed attempt (if there is one that violates uniqueness check)
+    in write_row and in the following index_read to skip the lock check and read
+    entirely
+   */
+  bool m_insert_with_update;
+
+  /* TRUE if last time the insertion failed due to duplicated PK */
+  bool m_dup_pk_found;
+
+#ifndef DBUG_OFF
+  /* Last retreived record for sanity checking */
+  String m_dup_pk_retrieved_record;
+#endif
+
   /**
     @brief
     This is a bitmap of indexes (i.e. a set) whose keys (in future, values) may
@@ -271,7 +287,7 @@ class ha_rocksdb : public my_core::handler {
   /*
     MySQL index number for duplicate key error
   */
-  int m_dupp_errkey;
+  uint m_dupp_errkey;
 
   int create_key_defs(const TABLE *const table_arg,
                       Rdb_tbl_def *const tbl_def_arg,
