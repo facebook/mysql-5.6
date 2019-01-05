@@ -624,6 +624,7 @@ static uint32_t rocksdb_stats_recalc_rate = 0;
 static uint32_t rocksdb_debug_manual_compaction_delay = 0;
 static uint32_t rocksdb_max_manual_compactions = 0;
 static my_bool rocksdb_rollback_on_timeout = FALSE;
+static my_bool rocksdb_enable_insert_with_update_caching = TRUE;
 
 std::atomic<uint64_t> rocksdb_row_lock_deadlocks(0);
 std::atomic<uint64_t> rocksdb_row_lock_wait_timeouts(0);
@@ -1826,6 +1827,13 @@ static MYSQL_SYSVAR_BOOL(error_on_suboptimal_collation,
                          "collation is used",
                          nullptr, nullptr, TRUE);
 
+static MYSQL_SYSVAR_BOOL(
+    enable_insert_with_update_caching,
+    rocksdb_enable_insert_with_update_caching, PLUGIN_VAR_OPCMDARG,
+    "Whether to enable optimization where we cache the read from a failed "
+    "insertion attempt in INSERT ON DUPLICATE KEY UPDATE",
+    nullptr, nullptr, TRUE);
+
 static const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE = 100;
 
 static struct st_mysql_sys_var *rocksdb_system_variables[] = {
@@ -1982,6 +1990,8 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(max_manual_compactions),
     MYSQL_SYSVAR(manual_compaction_threads),
     MYSQL_SYSVAR(rollback_on_timeout),
+
+    MYSQL_SYSVAR(enable_insert_with_update_caching),
     nullptr};
 
 static rocksdb::WriteOptions
@@ -5822,6 +5832,7 @@ ha_rocksdb::ha_rocksdb(my_core::handlerton *const hton,
       m_sk_match_prefix_buf(nullptr), m_sk_packed_tuple_old(nullptr),
       m_dup_sk_packed_tuple(nullptr), m_dup_sk_packed_tuple_old(nullptr),
       m_pack_buffer(nullptr), m_lock_rows(RDB_LOCK_NONE), m_keyread_only(false),
+      m_insert_with_update(false), m_dup_pk_found(false),
       m_in_rpl_delete_rows(false), m_in_rpl_update_rows(false),
       m_force_skip_unique_check(false) {}
 
@@ -8319,6 +8330,17 @@ int ha_rocksdb::get_row_by_rowid(uchar *const buf, const char *const rowid,
   if (m_lock_rows == RDB_LOCK_NONE) {
     tx->acquire_snapshot(true);
     s = tx->get(m_pk_descr->get_cf(), key_slice, &m_retrieved_record);
+  } else if (m_insert_with_update && m_dup_pk_found) {
+    DBUG_ASSERT(m_pk_descr->get_keyno() == m_dupp_errkey);
+    DBUG_ASSERT(m_dup_pk_retrieved_record.length() ==
+                m_retrieved_record.size());
+    DBUG_ASSERT(memcmp(m_dup_pk_retrieved_record.ptr(),
+                       m_retrieved_record.data(),
+                       m_retrieved_record.size()) == 0);
+
+    // do nothing - we already have the result in m_retrieved_record and
+    // already taken the lock
+    s = rocksdb::Status::OK();
   } else {
     s = get_for_update(tx, m_pk_descr->get_cf(), key_slice,
                        &m_retrieved_record);
@@ -8874,6 +8896,11 @@ int ha_rocksdb::write_row(uchar *const buf) {
     }
   }
 
+  // clear cache at beginning of write for INSERT ON DUPLICATE
+  // we may get multiple write->fail->read->update if there are multiple
+  // values from INSERT
+  m_dup_pk_found = false;
+
   const int rv = update_write_row(nullptr, buf, skip_unique_check());
 
   if (rv == 0) {
@@ -8999,7 +9026,35 @@ int ha_rocksdb::check_and_lock_unique_pk(const uint key_id,
         table->in_use, s, *m_key_descr_arr[key_id], m_tbl_def, m_table_handler);
   }
 
-  *found = ignore_pk_unique_check ? false : !s.IsNotFound();
+  bool key_found = ignore_pk_unique_check ? false : !s.IsNotFound();
+
+  /*
+    If the pk key has ttl, we may need to pretend the row wasn't
+    found if it is already expired.
+  */
+  if (key_found && m_pk_descr->has_ttl() &&
+      should_hide_ttl_rec(*m_pk_descr, m_retrieved_record,
+                          (row_info.tx->m_snapshot_timestamp
+                               ? row_info.tx->m_snapshot_timestamp
+                               : static_cast<int64_t>(std::time(nullptr))))) {
+    key_found = false;
+  }
+
+  if (key_found && row_info.old_data == nullptr && m_insert_with_update) {
+    // In INSERT ON DUPLICATE KEY UPDATE ... case, if the insert failed
+    // due to a duplicate key, remember the last key and skip the check
+    // next time
+    m_dup_pk_found = true;
+
+#ifndef DBUG_OFF
+    // save it for sanity checking later
+    m_dup_pk_retrieved_record.copy(m_retrieved_record.data(),
+                                   m_retrieved_record.size(), &my_charset_bin);
+#endif
+  }
+
+  *found = key_found;
+
   return HA_EXIT_SUCCESS;
 }
 
@@ -9181,23 +9236,11 @@ int ha_rocksdb::check_uniqueness_and_lock(
       return rc;
     }
 
-    /*
-      If the pk key has ttl, we may need to pretend the row wasn't
-      found if it is already expired. The pk record is read into
-      m_retrieved_record by check_and_lock_unique_pk().
-    */
-    if (is_pk(key_id, table, m_tbl_def) && found && m_pk_descr->has_ttl() &&
-        should_hide_ttl_rec(*m_pk_descr, m_retrieved_record,
-                            (row_info.tx->m_snapshot_timestamp
-                                 ? row_info.tx->m_snapshot_timestamp
-                                 : static_cast<int64_t>(std::time(nullptr))))) {
-      found = false;
-    }
-
     if (found) {
       /* There is a row with this key already, so error out. */
       errkey = key_id;
       m_dupp_errkey = errkey;
+
       return HA_ERR_FOUND_DUPP_KEY;
     }
   }
@@ -11050,6 +11093,18 @@ int ha_rocksdb::extra(enum ha_extra_function operation) {
     */
     m_retrieved_record.Reset();
     break;
+  case HA_EXTRA_INSERT_WITH_UPDATE:
+    // INSERT ON DUPLICATE KEY UPDATE
+    if (rocksdb_enable_insert_with_update_caching) {
+      m_insert_with_update = true;
+    }
+    break;
+  case HA_EXTRA_NO_IGNORE_DUP_KEY:
+    // PAIRED with HA_EXTRA_INSERT_WITH_UPDATE or HA_EXTRA_WRITE_CAN_REPLACE
+    // that indicates the end of REPLACE / INSERT ON DUPLICATE KEY
+    m_insert_with_update = false;
+    break;
+
   default:
     break;
   }
