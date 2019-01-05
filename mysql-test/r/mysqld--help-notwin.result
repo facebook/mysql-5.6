@@ -1295,6 +1295,11 @@ The following options may be given as the first argument:
  --rocksdb-enable-bulk-load-api 
  Enables using SstFileWriter for bulk loading
  (Defaults to on; use --skip-rocksdb-enable-bulk-load-api to disable.)
+ --rocksdb-enable-insert-with-update-caching 
+ Whether to enable optimization where we cache the read
+ from a failed insertion attempt in INSERT ON DUPLICATE
+ KEY UPDATE
+ (Defaults to on; use --skip-rocksdb-enable-insert-with-update-caching to disable.)
  --rocksdb-enable-thread-tracking 
  DBOptions::enable_thread_tracking for RocksDB
  (Defaults to on; use --skip-rocksdb-enable-thread-tracking to disable.)
@@ -2283,6 +2288,7 @@ rocksdb-delete-cf
 rocksdb-delete-obsolete-files-period-micros 21600000000
 rocksdb-enable-2pc TRUE
 rocksdb-enable-bulk-load-api TRUE
+rocksdb-enable-insert-with-update-caching TRUE
 rocksdb-enable-thread-tracking TRUE
 rocksdb-enable-ttl TRUE
 rocksdb-enable-ttl-read-filtering TRUE
