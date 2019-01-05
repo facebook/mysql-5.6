@@ -903,6 +903,7 @@ rocksdb_delete_cf
 rocksdb_delete_obsolete_files_period_micros	21600000000
 rocksdb_enable_2pc	ON
 rocksdb_enable_bulk_load_api	ON
+rocksdb_enable_insert_with_update_caching	ON
 rocksdb_enable_thread_tracking	ON
 rocksdb_enable_ttl	ON
 rocksdb_enable_ttl_read_filtering	ON
