@@ -6778,11 +6778,21 @@ int ha_rocksdb::rdb_error_to_mysql(const rocksdb::Status &s,
     return -1;
   }
 
-  if (opt_msg) {
-    std::string concatenated_error = s.ToString() + " (" + std::string(opt_msg) + ")";
-    my_error(ER_GET_ERRMSG, MYF(0), s.code(), concatenated_error.c_str(), rocksdb_hton_name);
+  std::string errMsg;
+  if (s.IsLockLimit()) {
+    errMsg = "Operation aborted: Failed to acquire lock due to "
+             "rocksdb_max_row_locks limit";
   } else {
-    my_error(ER_GET_ERRMSG, MYF(0), s.code(), s.ToString().c_str(), rocksdb_hton_name);
+    errMsg = s.ToString();
+  }
+
+  if (opt_msg) {
+    std::string concatenated_error = errMsg + " (" + std::string(opt_msg) + ")";
+    my_error(ER_GET_ERRMSG, MYF(0), s.code(), concatenated_error.c_str(),
+             rocksdb_hton_name);
+  } else {
+    my_error(ER_GET_ERRMSG, MYF(0), s.code(), errMsg.c_str(),
+             rocksdb_hton_name);
   }
 
   return err;
