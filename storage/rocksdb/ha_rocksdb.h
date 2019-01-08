@@ -1251,6 +1251,9 @@ private:
 
   int calculate_stats_for_table() MY_ATTRIBUTE((__warn_unused_result__));
 
+  bool should_skip_invalidated_record(const int rc);
+  bool should_recreate_snapshot(const int rc, const bool is_new_snapshot);
+
  public:
   int index_init(uint idx, bool sorted) override
       MY_ATTRIBUTE((__warn_unused_result__));
