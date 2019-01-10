@@ -6068,8 +6068,8 @@ static void do_close_connection(struct st_command *command) {
 }
 
 /* Append a line to a dynamic string. */
-void dynstr_append_line(DYNAMIC_STRING *ds, char *msg, int len) {
-  dynstr_append_mem(ds, (const char *)msg, len);
+void dynstr_append_line(DYNAMIC_STRING *ds, const char *msg, int len) {
+  dynstr_append_mem(ds, msg, len);
   dynstr_append_mem(ds, "\n", 1);
 }
 
@@ -6176,8 +6176,9 @@ void dump_timed_out_connection_socket_buffer(struct st_connection *con) {
     replace_dynstr_append_mem(&ds, (const char *)&buf[8], sz - 8);
     dynstr_append_mem(&ds, "\n", 1);
   } else {
-    sprintf(err_msg, "Error message is wrong: %s", &buf[8]);
-    dynstr_append_line(&ds, err_msg, sizeof(err_msg));
+    const char *err_str = "Error message is wrong: ";
+    dynstr_append_mem(&ds, err_str, std::strlen(err_str));
+    dynstr_append_line(&ds, reinterpret_cast<char*>(&buf[8]), sz - 8);
   }
   log_file.write(&ds);
   log_file.flush();
