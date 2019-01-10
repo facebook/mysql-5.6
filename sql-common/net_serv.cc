@@ -666,7 +666,11 @@ static net_async_status net_write_vector_nonblocking(NET *net, ssize_t *res) {
       *res = vio_write(net->vio, (uchar *)vec->iov_base, vec->iov_len);
 
       if (*res < 0) {
+#if (SOCKET_EAGAIN != SOCKET_EWOULDBLOCK)
         if (errno == SOCKET_EAGAIN || errno == SOCKET_EWOULDBLOCK) {
+#else
+        if (errno == SOCKET_EAGAIN) {
+#endif
           // In the unlikely event that there is a renegotiation and
           // SSL_ERROR_WANT_READ is returned, set blocking state to read.
           if (static_cast<size_t>(*res) == VIO_SOCKET_WANT_READ) {
@@ -694,7 +698,11 @@ static net_async_status net_write_vector_nonblocking(NET *net, ssize_t *res) {
                net->async_write_vector_size - net->async_write_vector_current);
 
     if (*res < 0) {
+#if (SOCKET_EAGAIN != SOCKET_EWOULDBLOCK)
       if (errno == SOCKET_EAGAIN || errno == SOCKET_EWOULDBLOCK) {
+#else
+      if (errno == SOCKET_EAGAIN) {
+#endif
         net->async_blocking_state = NET_NONBLOCKING_WRITE;
         DBUG_RETURN(NET_ASYNC_NOT_READY);
       }
@@ -1440,7 +1448,11 @@ static ulong net_read_available(NET *net, size_t count) {
 
   /* Call would block, just return with socket_errno set */
   if (recvcnt == VIO_SOCKET_ERROR &&
+#if (SOCKET_EAGAIN != SOCKET_EWOULDBLOCK)
       (socket_errno == SOCKET_EAGAIN || socket_errno == SOCKET_EWOULDBLOCK)) {
+#else
+      socket_errno == SOCKET_EAGAIN) {
+#endif
     net->async_blocking_state = NET_NONBLOCKING_READ;
     DBUG_RETURN(0);
   }
