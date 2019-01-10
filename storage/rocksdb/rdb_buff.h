@@ -20,6 +20,17 @@
 #include <string>
 #include <vector>
 
+/* MySQL header files */
+#include "./my_global.h"
+
+/* MyRocks header files */
+#include "./rdb_global.h"
+#include "./rdb_utils.h"
+
+/* RocksDB header files */
+#include "rocksdb/slice.h"
+#include "rocksdb/status.h"
+
 namespace myrocks {
 
 /*
@@ -450,6 +461,62 @@ public:
 
     return &m_ret;
   }
+};
+
+template <size_t buf_length> class Rdb_buf_writer {
+ public:
+  Rdb_buf_writer(const Rdb_buf_writer &) = delete;
+  Rdb_buf_writer &operator=(const Rdb_buf_writer &) = delete;
+  Rdb_buf_writer() = default;
+
+  void write_uint32(const uint32 n) {
+    DBUG_ASSERT(m_ptr + sizeof(n) <= m_buf.data() + buf_length);
+    rdb_netbuf_store_uint32(m_ptr, n);
+    m_ptr += sizeof(n);
+  }
+
+  void write_uint64(const uint64 n) {
+    DBUG_ASSERT(m_ptr + sizeof(n) <= m_buf.data() + buf_length);
+    rdb_netbuf_store_uint64(m_ptr, n);
+    m_ptr += sizeof(n);
+  }
+
+  void write_uint16(const uint16 n) {
+    DBUG_ASSERT(m_ptr + sizeof(n) <= m_buf.data() + buf_length);
+    rdb_netbuf_store_uint16(m_ptr, n);
+    m_ptr += sizeof(n);
+  }
+
+  void write_byte(const uchar c) {
+    DBUG_ASSERT(m_ptr + sizeof(c) <= m_buf.data() + buf_length);
+    rdb_netbuf_store_byte(m_ptr, c);
+    m_ptr += sizeof(c);
+  }
+
+  void write_index(const uint32 n) { write_uint32(n); }
+
+  void write(const char *buf, const size_t size) {
+    DBUG_ASSERT(m_ptr + size <= m_buf.data() + buf_length);
+    memcpy(m_ptr, buf, size);
+  }
+
+  void write(const uchar *buf, const size_t size) {
+    DBUG_ASSERT(m_ptr + size <= m_buf.data() + buf_length);
+    memcpy(m_ptr, buf, size);
+  }
+
+  const char *data() { return reinterpret_cast<char *>(m_buf.data()); }
+
+  size_t capacity() { return buf_length; }
+
+  /** Returns actual size of the buffer that has data */
+  size_t size() { return m_ptr - m_buf.data(); }
+
+  rocksdb::Slice to_slice() { return rocksdb::Slice(data(), size()); }
+
+ private:
+  std::array<uchar, buf_length> m_buf;
+  uchar *m_ptr = m_buf.data();
 };
 
 } // namespace myrocks
