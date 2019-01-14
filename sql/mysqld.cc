@@ -3074,7 +3074,7 @@ void close_connection(THD *thd, uint sql_errno)
   DBUG_ENTER("close_connection");
 
   if (sql_errno)
-    net_send_error(thd, sql_errno, ER_DEFAULT(sql_errno), NULL);
+    net_send_error(thd, NULL, sql_errno, ER_DEFAULT(sql_errno), NULL);
 
   thd->disconnect();
 
@@ -8041,7 +8041,8 @@ void create_thread_to_handle_connection(THD *thd)
       /* Can't use my_error() since store_globals has not been called. */
       my_snprintf(error_message_buff, sizeof(error_message_buff),
                   ER_THD(thd, ER_CANT_CREATE_THREAD), error);
-      net_send_error(thd, ER_CANT_CREATE_THREAD, error_message_buff, NULL);
+      net_send_error(thd, NULL, ER_CANT_CREATE_THREAD, error_message_buff,
+                     NULL);
       close_connection(thd);
       delete thd;
       return;

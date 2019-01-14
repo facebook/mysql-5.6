@@ -31,6 +31,7 @@ class Protocol
 {
 protected:
   THD	 *thd;
+  THD  *sess_thd; // THD for session information (i.e. charset)
   String *packet;
   String *convert;
   uint field_pos;
@@ -66,11 +67,15 @@ public:
   Protocol(THD *thd_arg) { init(thd_arg); }
   virtual ~Protocol() {}
   void init(THD* thd_arg);
+  void reset();
 
   enum { SEND_NUM_ROWS= 1, SEND_DEFAULTS= 2, SEND_EOF= 4 };
   virtual bool send_result_set_metadata(List<Item> *list, uint flags);
   virtual void gen_conn_timeout_err(char *msg_buf);
   bool send_result_set_row(List<Item> *row_items);
+
+  void setSessionTHD(THD *thd_arg) { sess_thd = thd_arg; }
+  void resetSessionTHD() { sess_thd = thd; }
 
   bool store(I_List<i_string> *str_list);
   bool store(const char *from, const CHARSET_INFO *cs);
@@ -212,7 +217,7 @@ public:
 };
 
 void send_warning(THD *thd, uint sql_errno, const char *err=0);
-bool net_send_error(THD *thd, uint sql_errno, const char *err,
+bool net_send_error(THD *thd, THD *sess_thd, uint sql_errno, const char *err,
                     const char* sqlstate);
 bool net_send_eof(THD *thd, uint server_status, uint statement_warn_count);
 uchar *net_store_data(uchar *to,const uchar *from, size_t length);

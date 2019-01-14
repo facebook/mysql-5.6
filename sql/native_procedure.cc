@@ -524,7 +524,7 @@ int ExecutionContextImpl::send_metadata() {
   }
 
   THD *thd = m_thd;
-  thd->protocol->init(thd);
+  thd->protocol->reset();
   uchar buff[8];
   std::pair<const char *, size_t> *metadata_fields;
   char metadata[12] = {0};

@@ -31,9 +31,10 @@ using std::max;
 
 static const unsigned int PACKET_BUFFER_EXTRA_ALLOC= 1024;
 /* Declared non-static only because of the embedded library. */
-bool net_send_error_packet(THD *, uint, const char *, const char *);
+bool net_send_error_packet(THD *, THD *, uint, const char *, const char *);
 /* Declared non-static only because of the embedded library. */
-bool net_send_ok(THD *, uint, uint, ulonglong, ulonglong, const char *, bool);
+bool net_send_ok(THD *, THD *, uint, uint, ulonglong, ulonglong, const char *,
+                 bool);
 /* Declared non-static only because of the embedded library. */
 bool net_send_eof(THD *thd, uint server_status, uint statement_warn_count);
 #ifndef EMBEDDED_LIBRARY
@@ -139,7 +140,7 @@ bool Protocol::net_store_data(const uchar *from, size_t length,
     @retval TRUE An error occurred and the message wasn't sent properly
 */
 
-bool net_send_error(THD *thd, uint sql_errno, const char *err,
+bool net_send_error(THD *thd, THD *sess_thd, uint sql_errno, const char *err,
                     const char* sqlstate)
 {
   bool error;
@@ -163,7 +164,13 @@ bool net_send_error(THD *thd, uint sql_errno, const char *err,
   /* Abort multi-result sets */
   thd->server_status&= ~SERVER_MORE_RESULTS_EXISTS;
 
-  error= net_send_error_packet(thd, sql_errno, err, sqlstate);
+  if (sess_thd == NULL) {
+    sess_thd = thd;
+  } else {
+    sess_thd->server_status &= ~SERVER_MORE_RESULTS_EXISTS;
+  }
+
+  error= net_send_error_packet(thd, sess_thd, sql_errno, err, sqlstate);
 
   thd->get_stmt_da()->set_overwrite_status(false);
 
@@ -185,9 +192,9 @@ bool net_send_error(THD *thd, uint sql_errno, const char *err,
    @retval TRUE  An error occurred and the messages wasn't sent properly
 */
 
-bool generate_error_packet(THD *thd, uint sql_errno, const char *err,
-                           const char* sql_state, bool force_hash,
-                           char* buff, uint* length)
+bool generate_error_packet(THD *thd, THD *sess_thd, uint sql_errno,
+                           const char *err, const char* sql_state,
+                           bool force_hash, char* buff, uint* length)
 
 {
   NET *net= &thd->net;
@@ -217,7 +224,7 @@ bool generate_error_packet(THD *thd, uint sql_errno, const char *err,
   }
 
   convert_error_message(converted_err, sizeof(converted_err),
-                        thd->variables.character_set_results,
+                        sess_thd->variables.character_set_results,
                         err, strlen(err), system_charset_info, &error);
   /* Converted error message is always null-terminated. */
   *length= (uint) (strmake(pos, converted_err, MYSQL_ERRMSG_SIZE - 1) - buff);
@@ -278,7 +285,7 @@ bool generate_error_packet(THD *thd, uint sql_errno, const char *err,
 
 #ifndef EMBEDDED_LIBRARY
 bool
-net_send_ok(THD *thd,
+net_send_ok(THD *thd, THD *sess_thd,
             uint server_status, uint statement_warn_count,
             ulonglong affected_rows, ulonglong id, const char *message,
             bool eof_identifier)
@@ -321,10 +328,10 @@ net_send_ok(THD *thd,
   /* last insert id */
   pos=net_store_length(pos, id);
 
-  auto* session_tracker = thd->get_tracker();
+  auto* session_tracker = sess_thd->get_tracker();
   if (thd->client_capabilities & CLIENT_SESSION_TRACK &&
       session_tracker->enabled_any() &&
-      session_tracker->changed_any(thd))
+      session_tracker->changed_any(sess_thd))
   {
     server_status |= SERVER_SESSION_STATE_CHANGED;
     state_changed= true;
@@ -363,7 +370,7 @@ net_send_ok(THD *thd,
     /* session state change information */
     if (unlikely(state_changed))
     {
-      store.set_charset(thd->variables.collation_database);
+      store.set_charset(sess_thd->variables.collation_database);
 
       /*
         First append the fields collected so far. In case of malloc, memory
@@ -372,7 +379,7 @@ net_send_ok(THD *thd,
       store.append((const char *)start, (pos - start), MYSQL_ERRMSG_SIZE);
 
       /* .. and then the state change information. */
-      session_tracker->store(thd, store);
+      session_tracker->store(sess_thd, store);
 
       start= (uchar *) store.ptr();
       pos= start+store.length();
@@ -505,8 +512,8 @@ static bool write_eof_packet(THD *thd, NET *net,
    @retval TRUE  An error occurred and the messages wasn't sent properly
 */
 
-bool net_send_error_packet(THD *thd, uint sql_errno, const char *err,
-                           const char* sqlstate)
+bool net_send_error_packet(THD *thd, THD *sess_thd, uint sql_errno,
+                           const char *err, const char* sqlstate)
 
 {
   NET *net= &thd->net;
@@ -518,7 +525,7 @@ bool net_send_error_packet(THD *thd, uint sql_errno, const char *err,
 
   DBUG_ENTER("send_error_packet");
 
-  if (!generate_error_packet(thd, sql_errno, err, sqlstate,
+  if (!generate_error_packet(thd, sess_thd, sql_errno, err, sqlstate,
                              false, buff, &length))
     DBUG_RETURN(FALSE);
 
@@ -664,7 +671,7 @@ bool Protocol::send_ok(uint server_status, uint statement_warn_count,
 {
   DBUG_ENTER("Protocol::send_ok");
   const bool retval= 
-    net_send_ok(thd, server_status, statement_warn_count,
+    net_send_ok(thd, sess_thd, server_status, statement_warn_count,
                 affected_rows, last_insert_id, message, false);
   DBUG_RETURN(retval);
 }
@@ -689,7 +696,7 @@ bool Protocol::send_eof(uint server_status, uint statement_warn_count)
   if (thd->client_capabilities & CLIENT_DEPRECATE_EOF &&
       (thd->get_command() != COM_BINLOG_DUMP &&
       thd->get_command() != COM_BINLOG_DUMP_GTID))
-    retval= net_send_ok(thd, server_status, statement_warn_count,
+    retval= net_send_ok(thd, sess_thd, server_status, statement_warn_count,
                         0, 0, thd->get_stmt_da()->message() , true);
   else
 #endif
@@ -708,7 +715,8 @@ bool Protocol::send_error(uint sql_errno, const char *err_msg,
                           const char *sql_state)
 {
   DBUG_ENTER("Protocol::send_error");
-  const bool retval= net_send_error_packet(thd, sql_errno, err_msg, sql_state);
+  const bool retval= net_send_error_packet(thd, sess_thd, sql_errno, err_msg,
+                                           sql_state);
   DBUG_RETURN(retval);
 }
 
@@ -723,7 +731,7 @@ void Protocol::gen_conn_timeout_err(char *msg_buf)
   uint sql_errno = 2006;
   char err[128];
   sprintf(err, ER(ER_CONNECTION_TIMEOUT),
-          thd->variables.net_wait_timeout_seconds);
+          sess_thd->variables.net_wait_timeout_seconds);
 
   // The default value is "HY000"
   const char *sql_state = mysql_errno_to_sqlstate(sql_errno);
@@ -732,7 +740,7 @@ void Protocol::gen_conn_timeout_err(char *msg_buf)
   char buff[2+1+SQLSTATE_LENGTH+MYSQL_ERRMSG_SIZE];
 
   /* Always add # to make the protocol backward compatible */
-  if (generate_error_packet(thd, sql_errno, err, sql_state,
+  if (generate_error_packet(thd, sess_thd, sql_errno, err, sql_state,
                             true, buff, &length))
   {
     memcpy(msg_buf, buff, length);
@@ -785,6 +793,12 @@ uchar *net_store_data(uchar *to,longlong from)
 void Protocol::init(THD *thd_arg)
 {
   thd=thd_arg;
+  sess_thd=thd_arg;
+  reset();
+}
+
+void Protocol::reset()
+{
   packet= &thd->packet;
   convert= &thd->convert_buffer;
 #ifndef DBUG_OFF
@@ -800,7 +814,14 @@ void Protocol::init(THD *thd_arg)
 
 void Protocol::end_partial_result_set(THD *thd_arg)
 {
-  net_send_eof(thd_arg, thd_arg->server_status, 0 /* no warnings, we're inside SP */);
+  uint server_status = thd_arg->server_status;
+  if (thd_arg != thd && thd_arg == sess_thd) {
+    // If we are using a detached session make sure we send the response
+    // on the original connection
+    thd_arg = thd;
+  }
+
+  net_send_eof(thd_arg, server_status, 0 /* no warnings, we're inside SP */);
 }
 
 
@@ -830,14 +851,14 @@ bool Protocol::flush()
   @return FALSE on success.
 */
 static bool
-store_result_set_metadata_object_names(THD *thd,
+store_result_set_metadata_object_names(THD *thd, THD *sess_thd,
                                        Protocol_text *prot,
                                        Send_field *field)
 {
   bool res= FALSE;
   const char **metadata;
   CHARSET_INFO *src_cs= system_charset_info;
-  const CHARSET_INFO *dest_cs= thd->variables.character_set_results;
+  const CHARSET_INFO *dest_cs= sess_thd->variables.character_set_results;
 
   /* Database, table, and column names are included by default. */
   const char *standard_metadata[]= {
@@ -862,8 +883,10 @@ store_result_set_metadata_object_names(THD *thd,
     in the result set metadata if the appropriate protocol mode is
     set. Otherwise, use standard metadata.
   */
-  if (thd->variables.protocol_mode == PROTO_MODE_MINIMAL_OBJECT_NAMES_IN_RSMD)
+  if (sess_thd->variables.protocol_mode ==
+      PROTO_MODE_MINIMAL_OBJECT_NAMES_IN_RSMD) {
     metadata= minimal_metadata;
+  }
   else
     metadata= standard_metadata;
 
@@ -902,7 +925,7 @@ bool Protocol::send_result_set_metadata(List<Item> *list, uint flags)
   String tmp((char*) buff,sizeof(buff),&my_charset_bin);
   Protocol_text prot(thd);
   String *local_packet= prot.storage_packet();
-  const CHARSET_INFO *thd_charset= thd->variables.character_set_results;
+  const CHARSET_INFO *thd_charset= sess_thd->variables.character_set_results;
   DBUG_ENTER("send_result_set_metadata");
 
   if (flags & SEND_NUM_ROWS)
@@ -933,8 +956,8 @@ bool Protocol::send_result_set_metadata(List<Item> *list, uint flags)
 
     if (thd->client_capabilities & CLIENT_PROTOCOL_41)
     {
-      if (store_result_set_metadata_object_names(thd, &prot, &field) ||
-	  local_packet->realloc(local_packet->length()+12))
+      if (store_result_set_metadata_object_names(thd, sess_thd, &prot, &field)
+          || local_packet->realloc(local_packet->length()+12))
 	goto err;
       /* Store fixed length fields */
       pos= (char*) local_packet->ptr()+local_packet->length();
@@ -1203,7 +1226,7 @@ bool Protocol_text::store(const char *from, size_t length,
 bool Protocol_text::store(const char *from, size_t length,
                           const CHARSET_INFO *fromcs)
 {
-  const CHARSET_INFO *tocs= this->thd->variables.character_set_results;
+  const CHARSET_INFO *tocs= this->sess_thd->variables.character_set_results;
 #ifndef DBUG_OFF
   DBUG_PRINT("info", ("Protocol_text::store field %u (%u): %.*s", field_pos,
                       field_count, (int) length, (length == 0 ? "" : from)));
@@ -1301,7 +1324,7 @@ bool Protocol_text::store(float from, uint32 decimals, String *buffer)
 	      field_types[field_pos] == MYSQL_TYPE_FLOAT);
   field_pos++;
 #endif
-  buffer->set_real((double) from, decimals, thd->charset());
+  buffer->set_real((double) from, decimals, sess_thd->charset());
   return net_store_data((uchar*) buffer->ptr(), buffer->length());
 }
 
@@ -1313,7 +1336,7 @@ bool Protocol_text::store(double from, uint32 decimals, String *buffer)
 	      field_types[field_pos] == MYSQL_TYPE_DOUBLE);
   field_pos++;
 #endif
-  buffer->set_real(from, decimals, thd->charset());
+  buffer->set_real(from, decimals, sess_thd->charset());
   return net_store_data((uchar*) buffer->ptr(), buffer->length());
 }
 
@@ -1327,7 +1350,7 @@ bool Protocol_text::store_internal(Field *field,
 
   char buff[MAX_FIELD_WIDTH];
   String str(buff,sizeof(buff), &my_charset_bin);
-  const CHARSET_INFO *tocs= this->thd->variables.character_set_results;
+  const CHARSET_INFO *tocs= this->sess_thd->variables.character_set_results;
 
   String *res = field->val_str(&str);
   if(nullptr == res)
@@ -1495,7 +1518,7 @@ void Protocol_binary::prepare_for_resend()
 bool Protocol_binary::store(const char *from, size_t length,
                             const CHARSET_INFO *fromcs)
 {
-  const CHARSET_INFO *tocs= thd->variables.character_set_results;
+  const CHARSET_INFO *tocs= sess_thd->variables.character_set_results;
   field_pos++;
   return store_string_aux(from, length, fromcs, tocs);
 }
@@ -1746,7 +1769,7 @@ bool Protocol_binary::send_out_parameters(
   status_thd->server_status&= ~SERVER_MORE_RESULTS_EXISTS;
 
   if (thd->client_capabilities & CLIENT_DEPRECATE_EOF)
-    ret= net_send_ok(thd,
+    ret= net_send_ok(thd, sess_thd,
                      (status_thd->server_status
                      | SERVER_PS_OUT_PARAMS
                      | SERVER_MORE_RESULTS_EXISTS),

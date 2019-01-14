@@ -227,6 +227,7 @@ std::pair<bool, std::shared_ptr<Srv_session>>  handle_com_rpc(THD *conn_thd)
 
   // we need srv_session to use connection THD for network operations
   srv_session_thd->protocol = conn_thd->protocol;
+  conn_thd->protocol->setSessionTHD(srv_session_thd);
 
   srv_session_thd->net.compress = conn_thd->net.compress;
   srv_session_thd->net.vio = conn_thd->net.vio;
@@ -274,6 +275,7 @@ void cleanup_com_rpc(
 
   // Install back connection THD object as current_thd
   conn_thd->store_globals();
+  conn_thd->protocol->resetSessionTHD();
 
   // If we have a srv_session and it is not expiring at the end of this
   // function, enable idle timeouts on it.

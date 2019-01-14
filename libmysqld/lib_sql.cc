@@ -1219,7 +1219,7 @@ bool Protocol_binary::write()
 */
 
 bool
-net_send_ok(THD *thd,
+net_send_ok(THD *thd, THD * /*unused*/,
             uint server_status, uint statement_warn_count,
             ulonglong affected_rows, ulonglong id, const char *message,
             bool eof_identifier __attribute__((unused)))
@@ -1263,8 +1263,8 @@ net_send_eof(THD *thd, uint server_status, uint statement_warn_count)
 }
 
 
-bool net_send_error_packet(THD *thd, uint sql_errno, const char *err,
-                           const char *sqlstate)
+bool net_send_error_packet(THD *thd, THD * /*unused */, uint sql_errno,
+                           const char *err, const char *sqlstate)
 {
   uint error;
   char converted_err[MYSQL_ERRMSG_SIZE];
