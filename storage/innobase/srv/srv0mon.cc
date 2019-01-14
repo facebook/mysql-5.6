@@ -1627,6 +1627,7 @@ void srv_mon_process_existing_counter(
     /* innodb_row_recreations, the total number of row recreations. */
     case MONITOR_OVLD_ROW_RECREATIONS:
       value = srv_stats.row_recreations;
+      break;
 
     /* innodb_row_recreation_steps, the total number of row recreation
     steps. */
