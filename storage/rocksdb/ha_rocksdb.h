@@ -1253,6 +1253,7 @@ private:
 
   bool should_skip_invalidated_record(const int rc);
   bool should_recreate_snapshot(const int rc, const bool is_new_snapshot);
+  bool can_assume_tracked(THD *thd);
 
  public:
   int index_init(uint idx, bool sorted) override
