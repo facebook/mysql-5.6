@@ -194,6 +194,7 @@ my @opt_skip_test_list;
 our $opt_ssl_supported;
 my $opt_ps_protocol;
 my $opt_sp_protocol;
+my $opt_rpc_protocol;
 my $opt_cursor_protocol;
 my $opt_view_protocol;
 my $opt_trace_protocol;
@@ -1043,6 +1044,7 @@ sub print_global_resfile {
   resfile_global("embedded-server", $opt_embedded_server ? 1 : 0);
   resfile_global("ps-protocol", $opt_ps_protocol ? 1 : 0);
   resfile_global("sp-protocol", $opt_sp_protocol ? 1 : 0);
+  resfile_global("rpc_protocol", $opt_rpc_protocol ? 1 : 0);
   resfile_global("view-protocol", $opt_view_protocol ? 1 : 0);
   resfile_global("cursor-protocol", $opt_cursor_protocol ? 1 : 0);
   resfile_global("ssl", $opt_ssl ? 1 : 0);
@@ -1093,6 +1095,7 @@ sub command_line_setup {
              'embedded-server'          => \$opt_embedded_server,
              'ps-protocol'              => \$opt_ps_protocol,
              'sp-protocol'              => \$opt_sp_protocol,
+             'rpc_protocol'             => \$opt_rpc_protocol,
              'view-protocol'            => \$opt_view_protocol,
              'opt-trace-protocol'       => \$opt_trace_protocol,
              'explain-protocol'         => \$opt_explain_protocol,
@@ -6080,6 +6083,11 @@ sub start_mysqltest ($) {
   if ( $opt_sp_protocol )
   {
     mtr_add_arg($args, "--sp-protocol");
+  }
+
+  if ( $opt_rpc_protocol )
+  {
+    mtr_add_arg($args, "--rpc_protocol");
   }
 
   if ( $opt_explain_protocol )

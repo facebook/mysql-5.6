@@ -127,7 +127,7 @@ enum {
   OPT_CURSOR_PROTOCOL, OPT_VIEW_PROTOCOL, OPT_MAX_CONNECT_RETRIES,
   OPT_MAX_CONNECTIONS, OPT_MARK_PROGRESS, OPT_LOG_DIR,
   OPT_TAIL_LINES, OPT_RESULT_FORMAT_VERSION, OPT_TRACE_PROTOCOL,
-  OPT_EXPLAIN_PROTOCOL, OPT_JSON_EXPLAIN_PROTOCOL
+  OPT_EXPLAIN_PROTOCOL, OPT_JSON_EXPLAIN_PROTOCOL, OPT_RPC_PROTOCOL
 };
 
 static int record= 0, opt_sleep= -1;
@@ -146,6 +146,7 @@ static my_bool tty_password= 0;
 static my_bool opt_mark_progress= 0;
 static my_bool ps_protocol= 0, ps_protocol_enabled= 0;
 static my_bool sp_protocol= 0, sp_protocol_enabled= 0;
+static my_bool rpc_protocol=0, rpc_protocol_enabled=0;
 static my_bool view_protocol= 0, view_protocol_enabled= 0;
 static my_bool opt_trace_protocol= 0, opt_trace_protocol_enabled= 0;
 static my_bool explain_protocol= 0, explain_protocol_enabled= 0;
@@ -188,6 +189,7 @@ static struct property prop_list[] = {
   { &display_session_track_info, 0, 1, 1, "$ENABLED_STATE_CHANGE_INFO" },
   { &display_metadata, 0, 0, 0, "$ENABLED_METADATA" },
   { &ps_protocol_enabled, 0, 0, 0, "$ENABLED_PS_PROTOCOL" },
+  { &rpc_protocol_enabled, 0, 0, 0, "$ENABLED_RPC_PROTOCOL" },
   { &disable_query_log, 0, 0, 1, "$ENABLED_QUERY_LOG" },
   { &disable_result_log, 0, 0, 1, "$ENABLED_RESULT_LOG" },
   { &disable_warnings, 0, 0, 1, "$ENABLED_WARNINGS" }
@@ -202,6 +204,7 @@ enum enum_prop {
   P_SESSION_TRACK,
   P_META,
   P_PS,
+  P_RPC,
   P_QUERY,
   P_RESULT,
   P_WARN,
@@ -724,6 +727,8 @@ struct st_connection
   /* Set when a query or command is incompatible with async (LOAD DATA
    * etc).  Only affects the next command and set via --suspend_async_client. */
   my_bool async_disabled_temporarily;
+  char rpc_id[20];
+  bool rpc_role_set;
 
 #ifdef EMBEDDED_LIBRARY
   pthread_t tid;
@@ -778,6 +783,7 @@ enum enum_commands {
   Q_LOWERCASE,
   Q_START_TIMER, Q_END_TIMER,
   Q_CHARACTER_SET, Q_DISABLE_PS_PROTOCOL, Q_ENABLE_PS_PROTOCOL,
+  Q_DISABLE_RPC_PROTOCOL, Q_ENABLE_RPC_PROTOCOL,
   Q_DISABLE_RECONNECT, Q_ENABLE_RECONNECT,
   Q_IF,
   Q_DISABLE_PARSING, Q_ENABLE_PARSING,
@@ -871,6 +877,8 @@ const char *command_names[]=
   "character_set",
   "disable_ps_protocol",
   "enable_ps_protocol",
+  "disable_rpc_protocol",
+  "enable_rpc_protocol",
   "disable_reconnect",
   "enable_reconnect",
   "if",
@@ -1741,6 +1749,23 @@ void handle_command_error(struct st_command *command, uint error)
   DBUG_VOID_RETURN;
 }
 
+int util_query(MYSQL* org_mysql, const char* query);
+
+static void kill_detached_session(
+    struct st_connection* con) {
+  if (rpc_protocol_enabled && con->rpc_id[0] &&
+      con->name != nullptr &&
+      strcmp(con->name, closed_connection) != 0) {
+    std::string query = std::string("kill ") + std::string(con->rpc_id) +
+        std::string(" /* kill detached session during disconnect"
+        " for --rpc_protocol mode */");
+
+    struct st_connection *save_con = cur_con;
+    cur_con = con;
+    util_query(&con->mysql, query.c_str());
+    cur_con = save_con;
+  }
+}
 
 void close_connections()
 {
@@ -1753,6 +1778,8 @@ void close_connections()
     if (next_con->stmt)
       mysql_stmt_close(next_con->stmt);
     next_con->stmt= 0;
+
+    kill_detached_session(next_con);
     mysql_close(&next_con->mysql);
     if (next_con->util_mysql)
       mysql_close(next_con->util_mysql);
@@ -2861,6 +2888,73 @@ void revert_properties()
   once_property=FALSE;
 }
 
+static std::string RpcIdAttr = "rpc_id";
+static std::string RpcDbAttr = "rpc_db";
+static std::string RpcRoleAttr = "rpc_role";
+
+static void try_setup_rpc_role(st_connection *con) {
+  MYSQL* mysql = &con->mysql;
+  // Only setup the rpc_role/rpc_db attributes if an rpc_id is not set,
+  // we haven't already setup an rpc_role, and if the user is root.
+  // Only the root user has proxy privileges for other users so only
+  // do this automatically for root.
+  if (con->rpc_id[0] == '\0' && !con->rpc_role_set &&
+      (std::string(mysql->user) == std::string("root"))) {
+    DBUG_PRINT("info",
+        ("Converting query to com_rpc conn_id: %lu, role: %s, db: %s",
+         mysql->thread_id, mysql->user, mysql->db));
+    mysql_options4(mysql, MYSQL_OPT_QUERY_ATTR_ADD, RpcDbAttr.c_str(),
+        mysql->db);
+    mysql_options4(mysql, MYSQL_OPT_QUERY_ATTR_ADD, RpcRoleAttr.c_str(),
+        mysql->user);
+    con->rpc_role_set = true;
+  }
+}
+
+static void try_setup_rpc_id(st_connection *con) {
+  // If we have an rpc_role set, but not yet an rpc_id, see if an rpc_id
+  // was returned in the response attributes
+  if (con->rpc_id[0] == '\0' && con->rpc_role_set) {
+    MYSQL* mysql = &con->mysql;
+    const char* ptr= nullptr;
+    size_t len = 0;
+
+    (void) mysql_resp_attr_find(mysql, RpcIdAttr.c_str(), &ptr, &len);
+    if (ptr) {
+      // We have an rpc_id returned.  Set it as the current rpc_id and clear
+      // the rpc_role and rpc_db attributes
+      con->rpc_role_set = false;
+      mysql_options(mysql, MYSQL_OPT_QUERY_ATTR_DELETE, RpcRoleAttr.c_str());
+      mysql_options(mysql, MYSQL_OPT_QUERY_ATTR_DELETE, RpcDbAttr.c_str());
+
+      std::string rpc_id(ptr, len);
+      DBUG_PRINT("info", ("com_rpc connection %lu got rpc_id %s",
+            mysql->thread_id, rpc_id.c_str()));
+      mysql_options4(mysql, MYSQL_OPT_QUERY_ATTR_ADD, RpcIdAttr.c_str(),
+          rpc_id.c_str());
+      assert(rpc_id.size() < sizeof(con->rpc_id));
+      strcpy(con->rpc_id, rpc_id.c_str());
+    }
+  }
+}
+
+static void reset_rpc_id(st_connection *con) {
+  // If we have an rpc_id set, clear it
+  if (con->rpc_id[0] != '\0') {
+    DBUG_PRINT("info", ("clearing rpc_id %s from connection %lu",
+          con->rpc_id, con->mysql.thread_id));
+    mysql_options(&con->mysql, MYSQL_OPT_QUERY_ATTR_DELETE, RpcIdAttr.c_str());
+    con->rpc_id[0] = '\0';
+  }
+}
+
+static void reset_all_rpc_ids() {
+  struct st_connection *con;
+  for (con= connections; con < next_con; con++)
+  {
+    reset_rpc_id(con);
+  }
+}
 
 /*
   Set variable from the result of a query
@@ -2912,6 +3006,10 @@ void var_query_set(VAR *var, const char *query, const char** query_end)
   init_dynamic_string(&ds_query, 0, (end - query) + 32, 256);
   do_eval(&ds_query, query, end, FALSE);
 
+  if (rpc_protocol_enabled) {
+    try_setup_rpc_role(cur_con);
+  }
+
   if (mysql_real_query_wrapper(mysql, ds_query.str, ds_query.length))
   {
     handle_error (curr_command, mysql_errno(mysql), mysql_error(mysql),
@@ -2920,6 +3018,10 @@ void var_query_set(VAR *var, const char *query, const char** query_end)
     dynstr_free(&ds_query);
     eval_expr(var, "", 0);
     DBUG_VOID_RETURN;
+  }
+
+  if (rpc_protocol_enabled) {
+    try_setup_rpc_id(cur_con);
   }
   
   if (!(res= mysql_store_result_wrapper(mysql)))
@@ -3067,7 +3169,6 @@ static void var_set_from_resp_attr(VAR *var, const std::string& key)
   }
 }
 
-static std::string RpcIdAttr = "rpc_id";
 /*
  * Returns the rpc id from last OK packet. It is stored in the response
  * attributes
@@ -3265,6 +3366,9 @@ void var_set_query_get_value(struct st_command *command, VAR *var)
     eval_expr(var, value, 0, false, false);
   }
   dynstr_free(&ds_query);
+  if (rpc_protocol_enabled) {
+    try_setup_rpc_id(cur_con);
+  }
   mysql_free_result_wrapper(res);
 
   DBUG_VOID_RETURN;
@@ -5760,7 +5864,6 @@ void select_connection(struct st_command *command)
   DBUG_VOID_RETURN;
 }
 
-
 void do_close_connection(struct st_command *command)
 {
   DBUG_ENTER("close_connection");
@@ -5805,6 +5908,7 @@ void do_close_connection(struct st_command *command)
     mysql_stmt_close(con->stmt);
   con->stmt= 0;
 
+  kill_detached_session(con);
   mysql_close(&con->mysql);
 
   if (con->util_mysql)
@@ -7476,6 +7580,9 @@ static struct my_option my_long_options[] =
   {"sp-protocol", OPT_SP_PROTOCOL, "Use stored procedures for select.",
    &sp_protocol, &sp_protocol, 0,
    GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
+  {"rpc_protocol", OPT_RPC_PROTOCOL, "use detached sessions for select.",
+    &rpc_protocol, &rpc_protocol, 0,
+    GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
 #include "sslopt-longopts.h"
   {"tail-lines", OPT_TAIL_LINES,
    "Number of lines of the result to include in a failure report.",
@@ -8271,6 +8378,10 @@ void run_query_normal(struct st_connection *cn, struct st_command *command,
     cn->async_disabled_temporarily = TRUE;
   }
 
+  if (rpc_protocol_enabled) {
+    try_setup_rpc_role(cn);
+  }
+
   if (flags & QUERY_SEND_FLAG)
   {
     /*
@@ -8378,6 +8489,10 @@ void run_query_normal(struct st_connection *cn, struct st_command *command,
       if (display_session_track_info)
         append_session_track_info(ds, mysql);
 
+      if (rpc_protocol_enabled) {
+        try_setup_rpc_id(cn);
+      }
+
       /*
         Add all warnings to the result. We can't do this if we are in
         the middle of processing results from multi-statement, because
@@ -8391,6 +8506,8 @@ void run_query_normal(struct st_connection *cn, struct st_command *command,
 	  dynstr_append_mem(ds, ds_warnings->str, ds_warnings->length);
 	}
       }
+    } else if (rpc_protocol_enabled) {
+      try_setup_rpc_id(cn);
     }
 
     if (res)
@@ -9634,6 +9751,7 @@ int main(int argc, char **argv)
   
   var_set_int("$PS_PROTOCOL", ps_protocol);
   var_set_int("$SP_PROTOCOL", sp_protocol);
+  var_set_int("$RPC_PROTOCOL", rpc_protocol);
   var_set_int("$VIEW_PROTOCOL", view_protocol);
   var_set_int("$OPT_TRACE_PROTOCOL", opt_trace_protocol);
   var_set_int("$EXPLAIN_PROTOCOL", explain_protocol);
@@ -9672,6 +9790,7 @@ int main(int argc, char **argv)
 
   ps_protocol_enabled= ps_protocol;
   sp_protocol_enabled= sp_protocol;
+  rpc_protocol_enabled= rpc_protocol;
   view_protocol_enabled= view_protocol;
   opt_trace_protocol_enabled= opt_trace_protocol;
   explain_protocol_enabled= explain_protocol;
@@ -10099,10 +10218,25 @@ int main(int argc, char **argv)
       case Q_ENABLE_PS_PROTOCOL:
         set_property(command, P_PS, ps_protocol);
         break;
+      case Q_DISABLE_RPC_PROTOCOL:
+        set_property(command, P_RPC, 0);
+        /* Close any open statements */
+        close_statements();
+        break;
+      case Q_ENABLE_RPC_PROTOCOL:
+        set_property(command, P_RPC, rpc_protocol);
+        break;
       case Q_DISABLE_RECONNECT:
         set_reconnect(&cur_con->mysql, 0);
         break;
       case Q_ENABLE_RECONNECT:
+        if (rpc_protocol_enabled) {
+          // client reconnection is enabled when the mysqld is intentionally
+          // restarted.  If we have any rpc_ids on any connections they need
+          // to be cleared as well as the detached sessions will no longer
+          // exist.
+          reset_all_rpc_ids();
+        }
         set_reconnect(&cur_con->mysql, 1);
         enable_async_client = FALSE;
         /* Close any open statements - no reconnect, need new prepare */
