@@ -2516,13 +2516,14 @@ public:
 
   virtual rocksdb::Status put(rocksdb::ColumnFamilyHandle *const column_family,
                               const rocksdb::Slice &key,
-                              const rocksdb::Slice &value) = 0;
+                              const rocksdb::Slice &value,
+                              const bool assume_tracked) = 0;
   virtual rocksdb::Status
   delete_key(rocksdb::ColumnFamilyHandle *const column_family,
-             const rocksdb::Slice &key) = 0;
+             const rocksdb::Slice &key, const bool assume_tracked) = 0;
   virtual rocksdb::Status
   single_delete(rocksdb::ColumnFamilyHandle *const column_family,
-                const rocksdb::Slice &key) = 0;
+                const rocksdb::Slice &key, const bool assume_tracked) = 0;
 
   virtual bool has_modifications() const = 0;
 
@@ -2541,7 +2542,7 @@ public:
   virtual rocksdb::Status
   get_for_update(rocksdb::ColumnFamilyHandle *const column_family,
                  const rocksdb::Slice &key, rocksdb::PinnableSlice *const value,
-                 bool exclusive) = 0;
+                 bool exclusive, const bool do_validate) = 0;
 
   rocksdb::Iterator *
   get_iterator(rocksdb::ColumnFamilyHandle *const column_family,
@@ -2848,32 +2849,33 @@ public:
   bool has_snapshot() { return m_read_opts.snapshot != nullptr; }
 
   rocksdb::Status put(rocksdb::ColumnFamilyHandle *const column_family,
-                      const rocksdb::Slice &key,
-                      const rocksdb::Slice &value) override {
+                      const rocksdb::Slice &key, const rocksdb::Slice &value,
+                      const bool assume_tracked) override {
     ++m_write_count;
     ++m_lock_count;
     if (m_write_count > m_max_row_locks || m_lock_count > m_max_row_locks)
       return rocksdb::Status::Aborted(rocksdb::Status::kLockLimit);
-    return m_rocksdb_tx->Put(column_family, key, value);
+    return m_rocksdb_tx->Put(column_family, key, value, assume_tracked);
   }
 
   rocksdb::Status delete_key(rocksdb::ColumnFamilyHandle *const column_family,
-                             const rocksdb::Slice &key) override {
+                             const rocksdb::Slice &key,
+                             const bool assume_tracked) override {
     ++m_write_count;
     ++m_lock_count;
     if (m_write_count > m_max_row_locks || m_lock_count > m_max_row_locks)
       return rocksdb::Status::Aborted(rocksdb::Status::kLockLimit);
-    return m_rocksdb_tx->Delete(column_family, key);
+    return m_rocksdb_tx->Delete(column_family, key, assume_tracked);
   }
 
   rocksdb::Status
   single_delete(rocksdb::ColumnFamilyHandle *const column_family,
-                const rocksdb::Slice &key) override {
+                const rocksdb::Slice &key, const bool assume_tracked) override {
     ++m_write_count;
     ++m_lock_count;
     if (m_write_count > m_max_row_locks || m_lock_count > m_max_row_locks)
       return rocksdb::Status::Aborted(rocksdb::Status::kLockLimit);
-    return m_rocksdb_tx->SingleDelete(column_family, key);
+    return m_rocksdb_tx->SingleDelete(column_family, key, assume_tracked);
   }
 
   bool has_modifications() const override {
@@ -2912,15 +2914,30 @@ public:
   rocksdb::Status
   get_for_update(rocksdb::ColumnFamilyHandle *const column_family,
                  const rocksdb::Slice &key, rocksdb::PinnableSlice *const value,
-                 bool exclusive) override {
+                 bool exclusive, const bool do_validate) override {
     if (++m_lock_count > m_max_row_locks)
       return rocksdb::Status::Aborted(rocksdb::Status::kLockLimit);
 
     if (value != nullptr) {
       value->Reset();
     }
-    return m_rocksdb_tx->GetForUpdate(m_read_opts, column_family, key, value,
-                                      exclusive);
+    rocksdb::Status s;
+    // If snapshot is null, pass it to GetForUpdate and snapshot is
+    // initialized there. Snapshot validation is skipped in that case.
+    if (m_read_opts.snapshot == nullptr || do_validate) {
+      s = m_rocksdb_tx->GetForUpdate(
+          m_read_opts, column_family, key, value, exclusive,
+          m_read_opts.snapshot ? do_validate : false);
+    } else {
+      // If snapshot is set, and if skipping validation,
+      // call GetForUpdate without validation and set back old snapshot
+      auto saved_snapshot = m_read_opts.snapshot;
+      m_read_opts.snapshot = nullptr;
+      s = m_rocksdb_tx->GetForUpdate(m_read_opts, column_family, key, value,
+                                     exclusive, false);
+      m_read_opts.snapshot = saved_snapshot;
+    }
+    return s;
   }
 
   rocksdb::Iterator *
@@ -3138,8 +3155,8 @@ public:
   }
 
   rocksdb::Status put(rocksdb::ColumnFamilyHandle *const column_family,
-                      const rocksdb::Slice &key,
-                      const rocksdb::Slice &value) override {
+                      const rocksdb::Slice &key, const rocksdb::Slice &value,
+                      const bool assume_tracked) override {
     ++m_write_count;
     m_batch->Put(column_family, key, value);
     // Note Put/Delete in write batch doesn't return any error code. We simply
@@ -3148,7 +3165,8 @@ public:
   }
 
   rocksdb::Status delete_key(rocksdb::ColumnFamilyHandle *const column_family,
-                             const rocksdb::Slice &key) override {
+                             const rocksdb::Slice &key,
+                             const bool assume_tracked) override {
     ++m_write_count;
     m_batch->Delete(column_family, key);
     return rocksdb::Status::OK();
@@ -3156,7 +3174,7 @@ public:
 
   rocksdb::Status
   single_delete(rocksdb::ColumnFamilyHandle *const column_family,
-                const rocksdb::Slice &key) override {
+                const rocksdb::Slice &key, const bool assume_tracked) override {
     ++m_write_count;
     m_batch->SingleDelete(column_family, key);
     return rocksdb::Status::OK();
@@ -3184,7 +3202,7 @@ public:
   rocksdb::Status
   get_for_update(rocksdb::ColumnFamilyHandle *const column_family,
                  const rocksdb::Slice &key, rocksdb::PinnableSlice *const value,
-                 bool exclusive) override {
+                 bool exclusive, const bool do_validate) override {
     if (value == nullptr) {
       rocksdb::PinnableSlice pin_val;
       rocksdb::Status s = get(column_family, key, &pin_val);
@@ -8553,17 +8571,10 @@ rocksdb::Status ha_rocksdb::get_for_update(
   DBUG_ASSERT(m_lock_rows != RDB_LOCK_NONE);
   const bool exclusive = m_lock_rows != RDB_LOCK_READ;
 
-  rocksdb::Status s = tx->get_for_update(column_family, key, value, exclusive);
-
-  // If we have a lock conflict and we are running in READ COMMITTTED mode
-  // release and reacquire the snapshot and then retry the get_for_update().
-  if (s.IsBusy() && !s.IsDeadlock() &&
-      my_core::thd_tx_isolation(ha_thd()) == ISO_READ_COMMITTED) {
-    tx->release_snapshot();
-    tx->acquire_snapshot(false);
-
-    s = tx->get_for_update(column_family, key, value, exclusive);
-  }
+  const bool do_validate =
+      my_core::thd_tx_isolation(ha_thd()) > ISO_READ_COMMITTED;
+  rocksdb::Status s =
+      tx->get_for_update(column_family, key, value, exclusive, do_validate);
 
   return s;
 }
@@ -9594,7 +9605,9 @@ int ha_rocksdb::update_pk(const Rdb_key_def &kd,
     row_info.tx->get_indexed_write_batch()->Put(cf, row_info.new_pk_slice,
                                                 value_slice);
   } else {
-    const auto s = row_info.tx->put(cf, row_info.new_pk_slice, value_slice);
+    const bool assume_tracked = can_assume_tracked(ha_thd());
+    const auto s = row_info.tx->put(cf, row_info.new_pk_slice, value_slice,
+                                    assume_tracked);
     if (!s.ok()) {
       if (s.IsBusy()) {
         errkey = table->s->primary_key;
@@ -10256,9 +10269,10 @@ rocksdb::Status ha_rocksdb::delete_or_singledelete(
     uint index, Rdb_transaction *const tx,
     rocksdb::ColumnFamilyHandle *const column_family,
     const rocksdb::Slice &key) {
+  const bool assume_tracked = can_assume_tracked(ha_thd());
   if (can_use_single_delete(index))
-    return tx->single_delete(column_family, key);
-  return tx->delete_key(column_family, key);
+    return tx->single_delete(column_family, key, assume_tracked);
+  return tx->delete_key(column_family, key, assume_tracked);
 }
 
 void ha_rocksdb::update_stats(void) {
@@ -13049,6 +13063,19 @@ bool ha_rocksdb::should_recreate_snapshot(const int rc,
     return true;
   }
   return false;
+}
+
+/**
+ * If calling put/delete/singledelete without locking the row,
+ * it is necessary to pass assume_tracked=false to RocksDB TX API.
+ * Read Free Replication and Blind Deletes are the cases when
+ * using TX API and skipping row locking.
+ */
+bool ha_rocksdb::can_assume_tracked(THD *thd) {
+  if (m_use_read_free_rpl || (THDVAR(thd, blind_delete_primary_key))) {
+    return false;
+  }
+  return true;
 }
 
 bool ha_rocksdb::check_bloom_and_set_bounds(
