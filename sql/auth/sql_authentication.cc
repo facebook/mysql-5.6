@@ -1382,9 +1382,9 @@ static bool send_server_handshake_packet(MPVIO_EXT *mpvio, const char *data,
 
   end = my_stpnmov(end, server_version, SERVER_VERSION_LENGTH);
   end = my_stpcpy(end, " ");
-  end = my_stpnmov(end,
-                   MYSQL_COMPILATION_COMMENT,
-                   SERVER_VERSION_LENGTH - (end - buff - 1)) + 1;
+  end = my_stpnmov(end, MYSQL_COMPILATION_COMMENT,
+                   SERVER_VERSION_LENGTH - (end - buff - 1)) +
+        1;
 
   DBUG_ASSERT(sizeof(my_thread_id) == 4);
   int4store((uchar *)end, mpvio->thread_id);
@@ -1844,11 +1844,14 @@ static bool read_client_connect_attrs(char **ptr, size_t *max_bytes_available,
   return false;
 }
 
+typedef std::string Sql_string_t;
+static Sql_string_t x509_cert_write(X509 *cert);
+
 static bool acl_check_ssl(THD *thd, const ACL_USER *acl_user) {
 #if defined(HAVE_OPENSSL)
   Vio *vio = thd->get_protocol_classic()->get_vio();
   SSL *ssl = (SSL *)vio->ssl_arg;
-  X509 *cert;
+  X509 *cert = nullptr;
 #endif /* HAVE_OPENSSL */
 
   /*
@@ -1875,6 +1878,7 @@ static bool acl_check_ssl(THD *thd, const ACL_USER *acl_user) {
       if (vio_type(vio) == VIO_TYPE_SSL &&
           SSL_get_verify_result(ssl) == X509_V_OK &&
           (cert = SSL_get_peer_certificate(ssl))) {
+        thd->set_connection_certificate(x509_cert_write(cert));
         X509_free(cert);
         return 0;
       }
@@ -1924,6 +1928,7 @@ static bool acl_check_ssl(THD *thd, const ACL_USER *acl_user) {
         }
         OPENSSL_free(ptr);
       }
+      thd->set_connection_certificate(x509_cert_write(cert));
       X509_free(cert);
       return 0;
 #else  /* HAVE_OPENSSL */
@@ -4128,8 +4133,6 @@ static MYSQL_SYSVAR_BOOL(
 static SYS_VAR *sha256_password_sysvars[] = {
     MYSQL_SYSVAR(private_key_path), MYSQL_SYSVAR(public_key_path),
     MYSQL_SYSVAR(auto_generate_rsa_keys), 0};
-
-typedef std::string Sql_string_t;
 
 /**
   Exception free resize
