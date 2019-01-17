@@ -2,11 +2,15 @@ let $prior_set_lwt = `select concat('set @prior_lock_wait_timeout = @@',
   '$engine', '_lock_wait_timeout;')`;
 let $prior_set_dld = `select concat('set @prior_deadlock_detect = @@',
   '$engine', '_deadlock_detect;')`;
+eval $prior_set_lwt $prior_set_dld;
+
+# execute these separate from the above because of an issue with --rpc_protocol
+# and multiple statements and @variables.
 let $global_dld = `select concat('set global ', '$engine',
   '_deadlock_detect = on;')`;
 let $global_lwt = `select concat('set global ', '$engine',
   '_lock_wait_timeout = 100000;')`;
-eval $prior_set_lwt $prior_set_dld $global_dld $global_lwt;
+eval $global_dld $global_lwt;
 
 --source include/count_sessions.inc
 connect (con1,localhost,root,,);

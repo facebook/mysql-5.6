@@ -1,3 +1,6 @@
+# Can't execute this test with --rpc_protocol because it uses COM_CHANGE_USER
+--source include/not_rpc_protocol.inc
+
 #
 # functional change user tests
 #

@@ -77,6 +77,10 @@ disconnect con2;
 # Now run some tests that will update the current database
 --enable_session_track_info
 
+# disable rpc_protocol as extra tracking information is displayed and
+# COM_CHANGE_USER does not work with it.
+--disable_rpc_protocol
+
 connect(con1,localhost,root,,);
 --echo # Testing USE <db> returns the change of database in response attributes
 --echo

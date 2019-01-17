@@ -10,6 +10,9 @@
 -- source include/not_embedded.inc
 -- source include/have_debug_sync.inc
 -- source include/not_threadpool.inc
+# This test uses some user variables that don't get set right in the
+# srv_session when using backticks so don't run under --rpc_protocol
+--source include/not_rpc_protocol.inc
 
 --disable_warnings
 SET DEBUG_SYNC = 'RESET';
@@ -23,7 +26,8 @@ CREATE FUNCTION MY_KILL(tid INT) RETURNS INT
 BEGIN
   DECLARE CONTINUE HANDLER FOR SQLEXCEPTION BEGIN END;
   KILL tid;
-  RETURN (SELECT COUNT(*) = 0 FROM INFORMATION_SCHEMA.PROCESSLIST WHERE ID = tid);
+  RETURN (SELECT COUNT(*) = 0 FROM INFORMATION_SCHEMA.PROCESSLIST
+          WHERE ID = tid OR SRV_ID = tid);
 END|
 delimiter ;|
 

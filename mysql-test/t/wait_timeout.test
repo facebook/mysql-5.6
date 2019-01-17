@@ -146,6 +146,7 @@ connect (default,localhost,root,,test,,);
 --echo #
 
 --echo # Open con1 and set a timeout.
+--disable_rpc_protocol
 connect(con1,localhost,root,,);
 
 LET $ID= `SELECT connection_id()`;
@@ -191,6 +192,7 @@ connection con1;
 SELECT 1;
 
 disconnect con1;
+--enable_rpc_protocol
 connection default;
 
 # Wait till all disconnects are completed

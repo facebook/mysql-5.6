@@ -8,6 +8,12 @@
 
 --source include/have_debug.inc
 
+# Don't run with --rpc_protocol because the test issues a KILL and with
+# detached sessions this only kills the session, not the connection that
+# is running it.  This means the count of sessions does not end up right
+# at the end.
+--source include/not_rpc_protocol.inc
+
 # This test needs transactional engine as otherwise COMMIT
 # won't block FLUSH TABLES WITH GLOBAL READ LOCK.
 --source include/have_innodb.inc

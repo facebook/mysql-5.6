@@ -1,3 +1,7 @@
+# Don't run this test using --rpc_protocol because it is testing the RPC
+# protocol directly
+--source include/not_rpc_protocol.inc
+
 # Deprecate EOF functionality required by this test not supported
 # in async client.
 --disable_async_client

@@ -226,6 +226,10 @@ set @global_open_cache_overflow = (select variable_value from information_schema
 --echo # opening table 2 from another client session
 # For the test to operate correctly, both default and con1 need to hit the
 # same open table cache instance.
+#
+# Disable the rpc_protocol since we can't control which table cache instance
+# gets used by the detached session
+--disable_rpc_protocol
 --let $instances= `SELECT @@global.table_open_cache_instances`
 while ($instances > 1)
 {

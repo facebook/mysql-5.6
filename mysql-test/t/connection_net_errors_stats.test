@@ -1,3 +1,7 @@
+# Don't run this test under --rpc_protocol as it is validating connections
+# only
+--source include/not_rpc_protocol.inc
+
 create user mysqltest_1@localhost;
 
 # Hack: Create a connection so user statistics will be initialized

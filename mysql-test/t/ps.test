@@ -972,6 +972,9 @@ connection default;
 
 # Wait for the connection con1 to die
 let $wait_condition=SELECT COUNT(*)=0 FROM information_schema.processlist WHERE id=$con1_id;
+if (`SELECT $RPC_PROTOCOL > 0`) {
+  let $wait_condition=SELECT COUNT(*)=0 FROM information_schema.srv_sessions WHERE id=$con1_id;
+}
 --source include/wait_condition.inc
 
 deallocate prepare stmt;
@@ -3494,6 +3497,7 @@ DROP TABLE t1, t2;
 --echo #
 
 --echo # Note: This test case should be run with --ps-protocol
+--disable_rpc_protocol
 
 --disable_warnings ONCE
 DROP TABLE IF EXISTS t1;
@@ -3518,5 +3522,6 @@ disconnect con1;
 --source include/wait_until_disconnected.inc
 
 --echo # Connection default
+--enable_rpc_protocol
 connection default;
 DROP TABLE t1;

@@ -2,6 +2,11 @@
 # test SHOW STATUS/VARIABLES with thread id
 #
 
+# Don't run this test with --rpc_protocol because the variable updates occur
+# on the detached session, but we can only specify connections via
+# SHOW SESSION <ID> status ...
+--disable_rpc_protocol
+
 let $conn_root = query_get_value(SHOW processlist,Id,1);
 
 set max_join_size = 1000;

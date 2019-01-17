@@ -1,3 +1,7 @@
+# Don't run this test with --rpc_protocol because that mode adds other query
+# attributes (rpc_role/rpc_db) which make the output not match
+--source include/not_rpc_protocol.inc
+
 create database db1;
 use db1;
 

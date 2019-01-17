@@ -1,3 +1,7 @@
+# Don't run this test using --rpc_protocol because it is testing the RPC
+# protocol directly
+--source include/not_rpc_protocol.inc
+
 --disable_async_client
 
 # The THDs are stored in different places depending on whether stateful or

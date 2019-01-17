@@ -4,6 +4,9 @@
 # This test checks the packet number off the
 # network which is affected by compressed protocol
 --source include/not_compress.inc
+# Don't run this test under --rpc_protocol as it is validating connections
+# only
+--source include/not_rpc_protocol.inc
 
 --source connection_timeout_server_error_header.inc
 

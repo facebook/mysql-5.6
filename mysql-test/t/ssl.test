@@ -31,6 +31,7 @@ disconnect ssl_con;
 --echo #
 
 --echo # Open ssl_con and set a timeout.
+--disable_rpc_protocol # wait_timeout affects srv session instead of connection
 connect (ssl_con,localhost,root,,,,,SSL);
 
 LET $ID= `SELECT connection_id()`;
@@ -51,6 +52,7 @@ SELECT 1;
 
 connection default;
 disconnect ssl_con;
+--enable_rpc_protocol
 
 # Wait till all disconnects are completed
 --source include/wait_until_count_sessions.inc

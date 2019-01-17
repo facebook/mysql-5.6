@@ -1,5 +1,8 @@
 --source include/have_null_audit_plugin.inc
 --source include/not_embedded.inc
+# Cannot run this test with --rpc_protocol because it directly manipulates
+# the same query attributes
+--source include/not_rpc_protocol.inc
 
 # Adjustment to the OS dependent extension of shared libraries.
 let $expected_extension= so;

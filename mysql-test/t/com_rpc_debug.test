@@ -1,4 +1,7 @@
 # COM_RPC tests that require that we are running in debug mode
+# Don't run this test using --rpc_protocol because it is testing the RPC
+# protocol directly
+--source include/not_rpc_protocol.inc
 
 --source include/have_debug.inc
 

@@ -7,6 +7,10 @@
 # Save the initial number of concurrent sessions
 --source include/count_sessions.inc
 
+# Can't run this test using --rpc_protocol because the RPC protocol generates
+# different statistics which won't match the original
+--source include/not_rpc_protocol.inc
+
 # Disable concurrent inserts to avoid sporadic test failures as it might
 # affect the the value of variables used throughout the test case.
 set @old_concurrent_insert= @@global.concurrent_insert;

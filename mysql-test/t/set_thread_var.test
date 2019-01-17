@@ -2,6 +2,11 @@
 # test SET VARIABLES with thread id
 #
 
+# Don't run this test with --rpc_protocol because the variable updates occur
+# on the detached session, but we can only specify connections via
+# SET SESSION <ID> <variable> = <value>
+--source include/not_rpc_protocol.inc
+
 let $conn_root = query_get_value(SHOW processlist,Id,1);
 
 set max_join_size = 1000;

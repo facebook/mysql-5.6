@@ -1,3 +1,5 @@
+# Can't run this test using --rpc_protocol because uses COM_RESET_CONNECTION
+--source include/not_rpc_protocol.inc
 
 --source include/have_debug.inc
 

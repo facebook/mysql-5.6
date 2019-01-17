@@ -1,5 +1,8 @@
 -- source include/not_embedded.inc
 -- source include/no_protocol.inc
+# Can't run under --rpc_protocol since the test enables session_track_info and
+# thus the output is different (the rpc_id values show up in the output)
+-- source include/not_rpc_protocol.inc
 
 --echo #
 --echo # WL#6885  Track session state change

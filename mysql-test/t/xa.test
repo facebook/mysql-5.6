@@ -191,7 +191,7 @@ SEND UPDATE t1 SET a=5 WHERE a=2;
 connection default;
 let $wait_timeout= 2;
 let $wait_condition= SELECT 1 FROM INFORMATION_SCHEMA.PROCESSLIST
-WHERE ID=$conn_id AND STATE='Searching rows for update';
+WHERE (ID=$conn_id OR SRV_ID=$conn_id) AND STATE='Searching rows for update';
 --source include/wait_condition.inc
 
 --error ER_LOCK_DEADLOCK
@@ -215,7 +215,7 @@ SEND UPDATE t1 SET a=5 WHERE a=2;
 connection default;
 let $wait_timeout= 2;
 let $wait_condition= SELECT 1 FROM INFORMATION_SCHEMA.PROCESSLIST
-WHERE ID=$conn_id AND STATE='Searching rows for update';
+WHERE (ID=$conn_id OR SRV_ID=$conn_id) AND STATE='Searching rows for update';
 --source include/wait_condition.inc
 
 --error ER_LOCK_DEADLOCK

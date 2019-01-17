@@ -127,7 +127,7 @@ UPDATE `t``\""e` SET a = 12 WHERE a = 0;
 connection default;
 let $wait_timeout= 2;
 let $wait_condition= SELECT 1 FROM INFORMATION_SCHEMA.PROCESSLIST
-WHERE ID = $id_1 AND STATE = 'Searching rows for update';
+WHERE (ID = $id_1 OR SRV_ID = $id_1) AND STATE = 'Searching rows for update';
 --source include/wait_condition.inc
 #--echo # tested wait condition $wait_condition_reps times
 # INNODB_LOCKS only exists in innodb_plugin
