@@ -1851,6 +1851,13 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       thd = srv_session->get_thd();
       thd->set_command(command);
       thd->set_query_id(save_thd->query_id);
+      thd->enable_slow_log = save_thd->enable_slow_log;
+      thd->start_utime = save_thd->start_utime;
+      thd->utime_after_lock = save_thd->utime_after_lock;
+      if (opt_log_slow_extra) {
+        query_start_status= thd->status_var;
+      }
+
 #if defined(ENABLED_PROFILING)
       thd->profiling.start_new_query();
 #endif

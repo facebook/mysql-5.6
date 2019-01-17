@@ -1,0 +1,51 @@
+# Don't run with --rpc_protocol because we are directly testing the RPC
+# protocol in this test
+--source include/not_rpc_protocol.inc
+
+# Deprecate EOF functionality required by this test not supported
+# in async client.
+--disable_async_client
+
+# Make sure that when running with a detached session any entries in the slow
+# log get attributed to the user specified by rpc_role rather than by the
+# user that the connection connected as
+
+create database db_default;
+create database db_rpc;
+create user scriptro;
+
+# Connect as root
+connect (con1,localhost,root,,db_default);
+
+# Switch to using scriptro via rpc_role
+query_attrs_add rpc_role scriptro;
+query_attrs_add rpc_db db_rpc;
+
+# Calling SET changes state so switch to the specified rpc_id
+set timestamp=9;
+let $rpc_id=get_rpc_id();
+query_attrs_delete rpc_role;
+query_attrs_delete rpc_db;
+query_attrs_add rpc_id $rpc_id;
+
+# Now call two SELECTs that meet the requirements for logging in the slow log
+# (1 second according to the settings in com_rpc_slow_log-master.opt)
+select unix_timestamp(), sleep(2);
+select 1, sleep(2);
+
+# switch back to the default connection and make sure we have two entries in
+# the slow log that reference scriptro
+connection default;
+let $MYSQLD_DATADIR= `select @@datadir`;
+# the user is specified for each event so we expect 'scriptro' twice
+--exec [ "2" -eq `grep "scriptro" $MYSQLD_DATADIR/../mysqld-slow.log | wc -l` ]
+# the database is specified only on a database change so we expect 'db_rpc'
+# just once
+--exec [ "1" -eq `grep "db_rpc" $MYSQLD_DATADIR/../mysqld-slow.log | wc -l` ]
+
+# Cleanup
+drop user scriptro;
+drop database db_rpc;
+drop database db_default;
+
+

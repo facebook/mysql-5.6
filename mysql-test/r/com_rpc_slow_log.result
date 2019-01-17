@@ -1,0 +1,13 @@
+create database db_default;
+create database db_rpc;
+create user scriptro;
+set timestamp=9;
+select unix_timestamp(), sleep(2);
+unix_timestamp()	sleep(2)
+9	0
+select 1, sleep(2);
+1	sleep(2)
+1	0
+drop user scriptro;
+drop database db_rpc;
+drop database db_default;
