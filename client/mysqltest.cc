@@ -6178,7 +6178,7 @@ void dump_timed_out_connection_socket_buffer(struct st_connection *con) {
   } else {
     const char *err_str = "Error message is wrong: ";
     dynstr_append_mem(&ds, err_str, std::strlen(err_str));
-    dynstr_append_line(&ds, reinterpret_cast<char*>(&buf[8]), sz - 8);
+    dynstr_append_line(&ds, reinterpret_cast<char *>(&buf[8]), sz - 8);
   }
   log_file.write(&ds);
   log_file.flush();
@@ -6359,7 +6359,7 @@ static int connect_n_handle_errors(struct st_command *command, MYSQL *con,
 
       my_sleep(connection_retry_sleep); /* unexpected error, wait */
       set_default_auth(con);
-      continue;                         /* and give it 1 more chance */
+      continue; /* and give it 1 more chance */
     }
 
   do_handle_error:

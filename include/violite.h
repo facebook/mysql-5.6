@@ -345,8 +345,8 @@ struct Vio {
 
   timeout_t read_timeout = {UINT_MAX};  /* Timeout value (ms) for read ops. */
   timeout_t write_timeout = {UINT_MAX}; /* Timeout value (ms) for write ops. */
-  int retry_count = {1};    /* Retry count */
-  bool inactive = {false};  /* Connection has been shutdown */
+  int retry_count = {1};                /* Retry count */
+  bool inactive = {false};              /* Connection has been shutdown */
 
   struct sockaddr_storage local;  /* Local internet address */
   struct sockaddr_storage remote; /* Remote internet address */

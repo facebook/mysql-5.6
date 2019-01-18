@@ -1162,9 +1162,9 @@ typedef int (*panic_t)(handlerton *hton, enum ha_panic_function flag);
 
 typedef int (*start_consistent_snapshot_t)(handlerton *hton, THD *thd,
                                            char *binlog_file,
-                                           ulonglong* binlog_pos,
+                                           ulonglong *binlog_pos,
                                            char **gtid_executed,
-                                           int* gtid_executed_length);
+                                           int *gtid_executed_length);
 
 /**
   Flush the log(s) of storage engine(s).

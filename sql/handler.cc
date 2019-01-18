@@ -2312,8 +2312,7 @@ static bool snapshot_handlerton(THD *thd, plugin_ref plugin, void *arg) {
     info->error = false;
 
     if (hton->start_consistent_snapshot(hton, thd, info->binlog_file,
-                                        info->binlog_pos,
-                                        info->gtid_executed,
+                                        info->binlog_pos, info->gtid_executed,
                                         info->gtid_executed_length)) {
       my_printf_error(ER_UNKNOWN_ERROR,
                       "Cannot start InnoDB transaction or binlog disabled",

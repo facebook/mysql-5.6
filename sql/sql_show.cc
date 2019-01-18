@@ -2327,7 +2327,7 @@ void reset_status_vars() {
     if (ptr->type == SHOW_LONG || ptr->type == SHOW_SIGNED_LONG)
       *(ulong *)ptr->value = 0;
     else if (ptr->type == SHOW_TIMER)
-      *(ulonglong *) ptr->value= 0;
+      *(ulonglong *)ptr->value = 0;
   }
 }
 
@@ -2523,12 +2523,11 @@ const char *get_one_variable_ext(THD *running_thd, THD *target_thd,
       value_charset = system_charset_info;
       break;
 
-    case SHOW_TIMER:
-    {
+    case SHOW_TIMER: {
       /* 6 is the default precision for '%f' in sprintf() */
-      double tmp_val = my_timer_to_seconds(*(longlong*) value);
-      end= buff + my_fcvt(tmp_val, 6, buff, NULL);
-      value_charset= system_charset_info;
+      double tmp_val = my_timer_to_seconds(*(longlong *)value);
+      end = buff + my_fcvt(tmp_val, 6, buff, NULL);
+      value_charset = system_charset_info;
       break;
     }
     case SHOW_LONG_STATUS:

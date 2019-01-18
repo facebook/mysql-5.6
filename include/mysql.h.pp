@@ -317,7 +317,7 @@ bool my_thread_init(void);
 void my_thread_end(void);
 unsigned long net_field_length(unsigned char **packet);
 unsigned long net_field_length_checked(unsigned char **packet,
-                                       unsigned long max_length);
+                                               unsigned long max_length);
 unsigned long long net_field_length_ll(unsigned char **packet);
 unsigned char *net_store_length(unsigned char *pkg, unsigned long long length);
 unsigned int net_length_size(unsigned long long num);
@@ -685,15 +685,15 @@ bool mysql_real_connect_nonblocking_init(
     const char *db, unsigned int port, const char *unix_socket,
     unsigned long clientflag);
 enum net_async_status mysql_real_connect_nonblocking_run(MYSQL *mysql,
-                                                         int *error);
+                                                                 int *error);
 enum net_async_status mysql_send_query_nonblocking(MYSQL *mysql,
-                                                   const char *query,
-                                                   unsigned long length,
-                                                   int *error);
+                                                           const char *query,
+                                                           unsigned long length,
+                                                           int *error);
 enum net_async_status mysql_real_query_nonblocking(MYSQL *mysql,
-                                                   const char *query,
-                                                   unsigned long length,
-                                                   int *error);
+                                                           const char *query,
+                                                           unsigned long length,
+                                                           int *error);
 enum net_async_status
 mysql_store_result_nonblocking(MYSQL *mysql, MYSQL_RES **result);
 enum net_async_status mysql_next_result_nonblocking(MYSQL *mysql,
@@ -749,7 +749,7 @@ MYSQL_FIELD_OFFSET mysql_field_seek(MYSQL_RES *result,
                                             MYSQL_FIELD_OFFSET offset);
 MYSQL_ROW mysql_fetch_row(MYSQL_RES *result);
 enum net_async_status mysql_fetch_row_nonblocking(MYSQL_RES *res,
-                                                  MYSQL_ROW *row);
+                                                          MYSQL_ROW *row);
 unsigned long * mysql_fetch_lengths(MYSQL_RES *result);
 MYSQL_FIELD * mysql_fetch_field(MYSQL_RES *result);
 MYSQL_RES * mysql_list_fields(MYSQL *mysql, const char *table,
@@ -772,8 +772,8 @@ bool mysql_read_query_result(MYSQL *mysql);
 int mysql_reset_connection(MYSQL *mysql);
 unsigned long cli_safe_read(MYSQL *mysql, bool *is_data_packet);
 enum net_async_status cli_safe_read_nonblocking(MYSQL *mysql,
-                                                bool *is_data_packet,
-                                                ulong *res);
+                                                        bool *is_data_packet,
+                                                        ulong *res);
 int mysql_binlog_open(MYSQL *mysql, MYSQL_RPL *rpl);
 int mysql_binlog_fetch(MYSQL *mysql, MYSQL_RPL *rpl);
 void mysql_binlog_close(MYSQL *mysql, MYSQL_RPL *rpl);

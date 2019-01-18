@@ -1358,13 +1358,13 @@ bool Query_logger::slow_log_write(
   bool error = false;
   for (Log_event_handler **current_handler = slow_log_handler_list;
        *current_handler;) {
-    error |= (*current_handler++)
-                 ->log_slow(thd, current_utime,
-                            (thd->start_time.tv_sec * 1000000ULL) +
-                                thd->start_time.tv_usec,
-                            user_host_buff, user_host_len, query_utime,
-                            lock_utime, is_command, query, query_length,
-                            query_start_status);
+    error |=
+        (*current_handler++)
+            ->log_slow(
+                thd, current_utime,
+                (thd->start_time.tv_sec * 1000000ULL) + thd->start_time.tv_usec,
+                user_host_buff, user_host_len, query_utime, lock_utime,
+                is_command, query, query_length, query_start_status);
   }
 
   mysql_rwlock_unlock(&LOCK_logger);
@@ -1756,7 +1756,7 @@ bool log_slow_applicable(THD *thd) {
   DBUG_RETURN(false);
 }
 
-void log_slow_do(THD *thd, struct System_status_var* query_start_status) {
+void log_slow_do(THD *thd, struct System_status_var *query_start_status) {
   THD_STAGE_INFO(thd, stage_logging_slow_query);
   thd->status_var.long_query_count++;
 

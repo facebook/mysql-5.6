@@ -24,8 +24,8 @@
 #define RPL_GTID_H_INCLUDED
 
 #include <atomic>
-#include <map>
 #include <list>
+#include <map>
 #include <string>
 
 #include "libbinlogevents/include/uuid.h"

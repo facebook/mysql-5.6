@@ -39,8 +39,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "row0sel.h"
 
-#include <algorithm>
 #include <sys/types.h>
+#include <algorithm>
 
 #include "btr0btr.h"
 #include "btr0cur.h"
@@ -5994,7 +5994,7 @@ next_rec:
       if (trx &&
           row_read_ahead_logical(pcur, index, &mtr, trx, offsets, &heap)) {
         goto rec_loop;
-			}
+      }
       move = btr_pcur_move_to_next(pcur, &mtr);
     }
 

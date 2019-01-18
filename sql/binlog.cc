@@ -4168,8 +4168,8 @@ bool MYSQL_BIN_LOG::find_first_log_not_in_gtid_set(char *binlog_file_name,
         DBUG_RETURN(true);
       }
       enum_read_gtids_from_binlog_status ret = read_gtids_from_binlog(
-          full_log_name, NULL, NULL, first_gtid,
-          gtid_set->get_sid_map(), opt_master_verify_checksum, is_relay_log);
+          full_log_name, NULL, NULL, first_gtid, gtid_set->get_sid_map(),
+          opt_master_verify_checksum, is_relay_log);
       // some rpl tests injects the error skip_writing_previous_gtids_log_event
       // intentionally. Don't pass this error to dump thread which causes
       // slave io_thread error failing the tests.
@@ -4197,8 +4197,7 @@ bool MYSQL_BIN_LOG::find_first_log_not_in_gtid_set(char *binlog_file_name,
     tmp_uuid.copy(it->second->ptr(), it->second->length(), NULL);
   }
   mysql_mutex_unlock(&current_thd->LOCK_thd_data);
-  LogErr(WARNING_LEVEL, ER_FOUND_MISSING_GTIDS, tmp_uuid.ptr(),
-         missing_gtids);
+  LogErr(WARNING_LEVEL, ER_FOUND_MISSING_GTIDS, tmp_uuid.ptr(), missing_gtids);
   my_free(missing_gtids);
 
   *errmsg = ER_THD(current_thd, ER_MASTER_HAS_PURGED_REQUIRED_GTIDS);
@@ -6850,43 +6849,33 @@ uint MYSQL_BIN_LOG::next_file_id() {
   return res;
 }
 
-extern "C"
-char mysql_bin_log_is_open(void)
-{
-  return mysql_bin_log.is_open();
-}
+extern "C" char mysql_bin_log_is_open(void) { return mysql_bin_log.is_open(); }
 
-extern "C"
-void mysql_bin_log_lock_commits(void)
-{
+extern "C" void mysql_bin_log_lock_commits(void) {
   mysql_bin_log.lock_commits();
 }
 
-extern "C"
-void mysql_bin_log_unlock_commits(char* binlog_file,
-                                  unsigned long long* binlog_pos,
-                                  char** gtid_executed,
-                                  int* gtid_executed_length)
-{
+extern "C" void mysql_bin_log_unlock_commits(char *binlog_file,
+                                             unsigned long long *binlog_pos,
+                                             char **gtid_executed,
+                                             int *gtid_executed_length) {
   mysql_bin_log.unlock_commits(binlog_file, binlog_pos, gtid_executed,
                                gtid_executed_length);
 }
 
-void MYSQL_BIN_LOG::lock_commits(void)
-{
+void MYSQL_BIN_LOG::lock_commits(void) {
   mysql_mutex_lock(&LOCK_log);
   mysql_mutex_lock(&LOCK_sync);
   mysql_mutex_lock(&LOCK_commit);
 }
 
-void MYSQL_BIN_LOG::unlock_commits(char* binlog_file, ulonglong* binlog_pos,
-                                   char** gtid_executed,
-                                   int* gtid_executed_length)
-{
+void MYSQL_BIN_LOG::unlock_commits(char *binlog_file, ulonglong *binlog_pos,
+                                   char **gtid_executed,
+                                   int *gtid_executed_length) {
   strmake(binlog_file, log_file_name, FN_REFLEN);
   *binlog_pos = m_binlog_file->get_my_b_tell();
   global_sid_lock->wrlock();
-  const Gtid_set *logged_gtids= gtid_state->get_executed_gtids();
+  const Gtid_set *logged_gtids = gtid_state->get_executed_gtids();
   *gtid_executed_length = logged_gtids->to_string(gtid_executed);
   global_sid_lock->unlock();
   mysql_mutex_unlock(&LOCK_commit);

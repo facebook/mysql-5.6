@@ -1559,7 +1559,6 @@ class Fil_system {
   Fil_system &operator=(const Fil_system &) = delete;
 
   friend class Fil_shard;
-
 };
 
 /** The tablespace memory cache. This variable is nullptr before the module is
@@ -7470,8 +7469,8 @@ void fil_aio_wait(ulint segment) {
 @retval DB_SUCCESS on success
 @retval DB_TABLESPACE_DELETED if the tablespace does not exist */
 dberr_t _fil_io(const IORequest &type, bool sync, const page_id_t &page_id,
-               const page_size_t &page_size, ulint byte_offset, ulint len,
-               void *buf, void *message, bool should_buffer) {
+                const page_size_t &page_size, ulint byte_offset, ulint len,
+                void *buf, void *message, bool should_buffer) {
   auto shard = fil_system->shard_by_id(page_id.space());
 
   return (shard->do_io(type, sync, page_id, page_size, byte_offset, len, buf,
@@ -7648,7 +7647,7 @@ void Fil_shard::space_flush(space_id_t space_id) {
         srv_unix_file_flush_method == SRV_UNIX_O_DIRECT &&
         file.flush_size == file.size) {
       skip_flush = true;
-  }
+    }
 #endif
 
     while (file.n_pending_flushes > 0 && !skip_flush) {
@@ -9205,7 +9204,6 @@ bool Fil_system::check_missing_tablespaces() {
   buffer pages. If not then print a warning. */
 
   for (auto &page : dblwr.deferred) {
-
     /* If the tablespace was in the missing IDs then we
     know that the problem is elsewhere. If a file deleted
     record was not found in the redo log and the tablespace
@@ -10519,7 +10517,7 @@ void Fil_path::convert_to_lower_case(std::string &path) {
 
 /*************************************************************************
 Print tablespace data for SHOW INNODB STATUS. */
-void fil_print(FILE* file) {
+void fil_print(FILE *file) {
   fprintf(file,
           "fsync callers: %lu other, %lu checkpoint, %lu log aio,"
           " %lu log sync, %lu doublwrite\n",
