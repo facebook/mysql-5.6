@@ -3711,6 +3711,7 @@ private:
 
 public:
   void init(void);
+  void fix_pseudo_thread_id() { variables.pseudo_thread_id = m_thread_id; }
   /*
     Initialize memory roots necessary for query processing and (!)
     pre-allocate memory for it. We can't do that in THD constructor because

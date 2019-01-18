@@ -463,6 +463,15 @@ SET @@global.per_user_session_var_default_val = @original_val;
 SELECT @@global.per_user_session_var_default_val;
 @@global.per_user_session_var_default_val
 NULL
+
+# Case 17: CONNECTION_ID() on detached session is non-zero and
+#          different than the original connection
+
+SET @my_var='new_value';
+SELECT attached_id != 0, attached_id = attached_id,
+orig_id != attached_id, orig_id = orig_id;
+attached_id != 0	attached_id = attached_id	orig_id != attached_id	orig_id = orig_id
+1	1	1	1
 drop database db_default;
 drop database db_rpc;
 drop user scriptro;

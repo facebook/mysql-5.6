@@ -649,7 +649,9 @@ bool Srv_session::open(const THD* conn_thd)
 
   thd_.update_charset();
 
+  /* Get the THD's new thread id and update it in the THD correctly */
   thd_.set_new_thread_id();
+  thd_.fix_pseudo_thread_id();
 
   thd_.set_time();
   thd_.thr_create_utime= thd_.start_utime= my_micro_time();

@@ -840,6 +840,46 @@ connection default;
 SET @@global.per_user_session_var_default_val = @original_val;
 SELECT @@global.per_user_session_var_default_val;
 
+--echo
+--echo # Case 17: CONNECTION_ID() on detached session is non-zero and
+--echo #          different than the original connection
+--echo
+
+connect (conn,localhost,root,,db_default);
+
+# get the original connection id
+let $orig_id = `SELECT CONNECTION_ID()`;
+
+--query_attrs_add rpc_role scriptro
+--query_attrs_add rpc_db db_rpc
+
+# get the id of the attached session using rpc_role
+let $attached_id = `SELECT CONNECTION_ID()`;
+
+# now cause the session to detach
+SET @my_var='new_value';
+let $rpc_id=get_rpc_id();
+--query_attrs_delete rpc_role
+--query_attrs_delete rpc_db
+--query_attrs_add rpc_id $rpc_id
+
+let $detached_id = `SELECT CONNECTION_ID()`;
+
+--query_attrs_delete rpc_id
+let $final_id = `SELECT CONNECTION_ID()`;
+
+disconnect conn;
+
+connection default;
+# We expect that the value returned from connection_id() should be different
+# once we start using an attached session when rpc_role is specified.  It
+# should be non-zero.  Detaching should not change the value.
+# Finally after we stop using rpc_id the connection id should be the same as
+# we started with
+--replace_result $orig_id orig_id $attached_id attached_id
+eval SELECT $attached_id != 0, $attached_id = $detached_id,
+            $orig_id != $attached_id, $final_id = $orig_id;
+
 # delete all dbs and users
 connection default;
 
