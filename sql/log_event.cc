@@ -2361,14 +2361,14 @@ void Log_event::print_base64(IO_CACHE *file, PRINT_EVENT_INFO *print_event_info,
   if (print_event_info->base64_output_mode != BASE64_OUTPUT_DECODE_ROWS) {
     if (my_b_tell(file) == 0) {
       my_b_printf(file, "\nBINLOG '\n");
-      print_event_info->inside_binlog= true;
+      print_event_info->inside_binlog = true;
     }
 
     my_b_printf(file, "%s\n", tmp_str);
 
     if (!more) {
       my_b_printf(file, "'%s\n", print_event_info->delimiter);
-      print_event_info->inside_binlog= false;
+      print_event_info->inside_binlog = false;
     }
   }
 
@@ -2409,12 +2409,11 @@ void Log_event::print_base64(IO_CACHE *file, PRINT_EVENT_INFO *print_event_info,
     }
 
     if (print_event_info->inside_binlog) {
-      if (ev)
-        print_event_info->verbose_events.push_back(ev);
+      if (ev) print_event_info->verbose_events.push_back(ev);
     } else {
-      std::vector<Rows_log_event *> &evs= print_event_info->verbose_events;
-      for (size_t i= 0; i < evs.size(); ++i) {
-        Rows_log_event *rle= evs.at(i);
+      std::vector<Rows_log_event *> &evs = print_event_info->verbose_events;
+      for (size_t i = 0; i < evs.size(); ++i) {
+        Rows_log_event *rle = evs.at(i);
         rle->print_verbose(file, print_event_info);
         delete rle;
       }

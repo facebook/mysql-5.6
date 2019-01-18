@@ -5338,7 +5338,6 @@ static int init_server_components() {
       LogErr(WARNING_LEVEL, ER_RPL_INFINITY_IGNORED);
   }
 
-
   {
   /*
     We have to call a function in log_resource.cc, or its references
@@ -8482,7 +8481,7 @@ static int show_ssl_get_server_not_after(THD *, SHOW_VAR *var, char *buff) {
       return 1;
     }
   } else {
-    var->value= empty_c_string;
+    var->value = empty_c_string;
     mysql_rwlock_unlock(&LOCK_use_ssl);
   }
   return 0;

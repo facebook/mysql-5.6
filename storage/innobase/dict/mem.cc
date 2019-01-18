@@ -151,8 +151,7 @@ static const char *innobase_system_databases[] = {
 
 /** Determines if a table belongs to a system database
  @return */
-static bool dict_mem_table_is_system(
-    char *name) /*!< in: table name */
+static bool dict_mem_table_is_system(char *name) /*!< in: table name */
 {
   ut_ad(name);
 

@@ -434,7 +434,7 @@
 #include <limits>
 
 #include "decimal.h"
-#include "errmsg.h" // CR_*
+#include "errmsg.h"  // CR_*
 #include "lex_string.h"
 #include "m_ctype.h"
 #include "m_string.h"

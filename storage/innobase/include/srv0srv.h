@@ -872,9 +872,9 @@ void srv_wake_master_thread(void);
  @return false if not all information printed
  due to failure to obtain necessary mutex */
 ibool srv_printf_innodb_monitor(
-    FILE *file,       /*!< in: output stream */
-    ibool nowait,     /*!< in: whether to wait for the
-                      lock_sys_t::mutex */
+    FILE *file,          /*!< in: output stream */
+    ibool nowait,        /*!< in: whether to wait for the
+                         lock_sys_t::mutex */
     ibool include_trxs); /*!< in: include per-transaction output */
 
 /** Output for SHOW INNODB TRANSACTION STATUS */
@@ -1054,7 +1054,7 @@ struct export_var_t {
   ulint innodb_outstanding_aio_requests;
 #ifdef UNIV_DEBUG
   ulint innodb_max_outstanding_aio_requests;
-#endif /* UNIV_DEBUG */
+#endif                                         /* UNIV_DEBUG */
   ulint innodb_logical_read_ahead_misses;      /*!< total number of pages that
                                                logical-read-ahead missed
                                                during a table scan.  The

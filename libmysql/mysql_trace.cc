@@ -53,8 +53,8 @@
   hooks within libmysql code.
 */
 
-#include <mysql_com.h>
 #include "mysql_trace.h"
+#include <mysql_com.h>
 #include "my_dbug.h"
 #include "my_inttypes.h"
 #include "my_sys.h"

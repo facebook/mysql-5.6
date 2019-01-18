@@ -4032,6 +4032,7 @@ class THD : public MDL_context_owner,
     m_persist_variables_init = is_init;
   }
   bool is_persist_variables_init() { return m_persist_variables_init; }
+
  private:
   bool m_persist_variables_init = false;
 };

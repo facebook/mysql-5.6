@@ -253,8 +253,7 @@ int vio_set_blocking(Vio *vio, bool status) {
 #else
   {
 #ifdef DBUG_OFF
-    if (vio->is_blocking_flag == status)
-      DBUG_RETURN(0);
+    if (vio->is_blocking_flag == status) DBUG_RETURN(0);
 #endif
 
     int flags;

@@ -712,7 +712,7 @@ static char *fieldflags2str(uint f) {
 }
 
 static void set_query_in_com_data(union COM_DATA *cmd, const char *query) {
-  *cmd = COM_DATA(); // will initialize 'com_query' member of the union
+  *cmd = COM_DATA();  // will initialize 'com_query' member of the union
   cmd->com_query.query = (char *)query;
   cmd->com_query.length = strlen(query);
 }
@@ -1128,7 +1128,7 @@ static void test_4(MYSQL_SESSION session, void *p) {
     d_data++;
   }
 
-  cmd = COM_DATA(); // will initialize 'com_query' member of the union
+  cmd = COM_DATA();  // will initialize 'com_query' member of the union
   set_query_in_com_data(&cmd, "SELECT * FROM t2");
   run_cmd(session, COM_QUERY, &cmd, &ctx, false, p);
 

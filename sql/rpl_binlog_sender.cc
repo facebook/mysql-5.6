@@ -22,12 +22,12 @@
 
 #include "sql/rpl_binlog_sender.h"
 
+#include <errno.h>
 #include <stdio.h>
+#include <sys/socket.h>
 #include <algorithm>
 #include <atomic>
-#include <errno.h>
 #include <memory>
-#include <sys/socket.h>
 #include <unordered_map>
 #include <utility>
 
@@ -187,7 +187,7 @@ void Binlog_sender::init() {
   }
   m_transmit_started = true;
 
-  NET *net= thd->get_protocol_classic()->get_net();
+  NET *net = thd->get_protocol_classic()->get_net();
   if (rpl_send_buffer_size &&
       (setsockopt(net->vio->mysql_socket.fd, SOL_SOCKET, SO_SNDBUF,
                   &rpl_send_buffer_size, sizeof(rpl_send_buffer_size)) == -1

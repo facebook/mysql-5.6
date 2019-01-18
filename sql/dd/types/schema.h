@@ -26,8 +26,8 @@
 #include "my_inttypes.h"
 #include "sql/dd/impl/raw/object_keys.h"  // IWYU pragma: keep
 #include "sql/dd/properties.h"
-#include "sql/dd/sdi_fwd.h"               // RJ_Document
-#include "sql/dd/types/entity_object.h"   // dd::Entity_object
+#include "sql/dd/sdi_fwd.h"              // RJ_Document
+#include "sql/dd/types/entity_object.h"  // dd::Entity_object
 
 class THD;
 

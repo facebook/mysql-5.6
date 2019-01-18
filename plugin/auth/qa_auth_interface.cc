@@ -20,9 +20,9 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
-#include <mysql_com.h>
 #include <mysql/client_plugin.h>
 #include <mysql/plugin_auth.h>
+#include <mysql_com.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

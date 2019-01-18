@@ -101,8 +101,8 @@ class Basic_ostream;
 #endif
 
 #ifndef MYSQL_SERVER
-#include "sql/rpl_tblmap.h"  // table_mapping
 #include <vector>
+#include "sql/rpl_tblmap.h"  // table_mapping
 
 #endif
 

@@ -600,8 +600,9 @@ static int begin_packet_write_state(NET *net, uchar command,
     // If we have a payload to compress, then compress_packet will
     // add compression headers for us. This is what we have at this point where
     // each line is an iovec.
-    // | len              |cpn|uncompress len| len                                    | pn | command |
-    // | prefix + command |  0|             0| total_len = command + prefix + payload |  0 |   COM_* |
+    // | len              |cpn|uncompress len| len | pn | command | | prefix +
+    // command |  0|             0| total_len = command + prefix + payload |  0
+    // |   COM_* |
     //
     // | prefix |
     // | ...    |
@@ -610,8 +611,9 @@ static int begin_packet_write_state(NET *net, uchar command,
     // | ...     |
     //
     // We want to transform into this:
-    // | len              |cpn|uncompress len| len                                    | pn | command |
-    // | prefix + command |  0|             0| total_len = command + prefix + payload |  0 |   COM_* |
+    // | len              |cpn|uncompress len| len | pn | command | | prefix +
+    // command |  0|             0| total_len = command + prefix + payload |  0
+    // |   COM_* |
     //
     // | prefix |
     // | ...    |
@@ -1540,7 +1542,7 @@ static net_async_status net_read_packet_header_nonblock(NET *net,
     The local packet counter must be truncated since its not reset.
   */
   if (pkt_nr != (uchar)net->pkt_nr) {
-    /* Not a NET error on the client. XXX: why? */
+  /* Not a NET error on the client. XXX: why? */
 #if defined(MYSQL_SERVER)
     my_error(ER_NET_PACKETS_OUT_OF_ORDER, MYF(0));
 #elif defined(EXTRA_DEBUG)

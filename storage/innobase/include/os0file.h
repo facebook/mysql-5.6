@@ -69,7 +69,6 @@ extern ulint os_n_pending_reads;
 /** Number of pending write operations */
 extern ulint os_n_pending_writes;
 
-
 /* Flush after each os_fsync_threshold bytes */
 extern unsigned long long os_fsync_threshold;
 

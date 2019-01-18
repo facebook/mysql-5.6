@@ -41,8 +41,8 @@
 
 #include "my_config.h"
 
-#include <mysql_com.h>
 #include <mysql/client_plugin.h>
+#include <mysql_com.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <sys/types.h>
