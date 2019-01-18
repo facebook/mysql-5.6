@@ -655,11 +655,9 @@ bool Srv_session::open(const THD* conn_thd)
   thd_.thr_create_utime= thd_.start_utime= my_micro_time();
 
   /*
-    Disable QC - plugins will most probably install their own protocol
-    and it won't be compatible with the QC. In addition, Protocol_error
-    is not compatible with the QC.
+    Set the session THD's QC flags to what the connection has set.
   */
-  thd_.variables.query_cache_type = 0;
+  thd_.variables.query_cache_type = conn_thd->variables.query_cache_type;
 
   thd_.set_command(COM_SLEEP);
   thd_.init_for_queries();
