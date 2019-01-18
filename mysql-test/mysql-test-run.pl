@@ -1556,8 +1556,9 @@ sub command_line_setup {
     $basedir = dirname($basedir);
   }
 
-  # Set the asan suppressions file early
-  $ENV{'ASAN_OPTIONS'} = "suppressions=$basedir/mysql-test/asan.supp";
+  # Set the asan suppressions file early, but do not print suppressions,
+  # since the output is dumped to the test output files
+  $ENV{'ASAN_OPTIONS'} = "suppressions=$basedir/mysql-test/asan.supp:print_suppressions=0";
 
   # Respect MTR_BINDIR variable, which is typically set in to the
   # build directory in out-of-source builds.
