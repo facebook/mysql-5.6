@@ -314,14 +314,15 @@ static void set_slave_max_allowed_packet(THD *thd, MYSQL *mysql)
   DBUG_ASSERT(thd && mysql);
 
   thd->variables.max_allowed_packet= slave_max_allowed_packet;
-  thd->net.max_packet_size= slave_max_allowed_packet;
+  NET* net = thd->get_net();
+  net->max_packet_size= slave_max_allowed_packet;
   /*
     Adding MAX_LOG_EVENT_HEADER_LEN to the max_packet_size on the I/O
     thread and the mysql->option max_allowed_packet, since a
     replication event can become this much  larger than
     the corresponding packet (query) sent from client to master.
   */
-  thd->net.max_packet_size+= MAX_LOG_EVENT_HEADER;
+  net->max_packet_size+= MAX_LOG_EVENT_HEADER;
   /*
     Skipping the setting of mysql->net.max_packet size to slave
     max_allowed_packet since this is done during mysql_real_connect.
@@ -3559,7 +3560,7 @@ bool show_slave_status(THD* thd, Master_info* mi)
     mysql_mutex_unlock(&mi->data_lock);
 
     String* packet = protocol->storage_packet();
-    if (my_net_write(&protocol->get_thd()->net, (uchar*) packet->ptr(),
+    if (my_net_write(protocol->get_thd()->get_net(), (uchar*) packet->ptr(),
                      packet->length()))
     {
       my_free(sql_gtid_set_buffer);
@@ -3646,7 +3647,7 @@ static int init_slave_thread(THD* thd, SLAVE_THD_TYPE thd_type)
     SYSTEM_THREAD_SLAVE_WORKER : (thd_type == SLAVE_THD_SQL) ?
     SYSTEM_THREAD_SLAVE_SQL : SYSTEM_THREAD_SLAVE_IO;
   thd->security_ctx->skip_grants();
-  my_net_init(&thd->net, 0);
+  my_net_init(thd->get_net(), 0);
   thd->slave_thread = 1;
   thd->enable_slow_log= opt_log_slow_slave_statements;
   set_slave_thread_options(thd);
@@ -5460,8 +5461,9 @@ err:
   mi->info_thd= 0;
   mysql_mutex_unlock(&mi->info_thd_lock);
 
-  DBUG_ASSERT(thd->net.buff != 0);
-  net_end(&thd->net); // destructor will not free it, because net.vio is 0
+  NET* net = thd->get_net();
+  DBUG_ASSERT(net->buff != 0);
+  net_end(net); // destructor will not free it, because net.vio is 0
 
   thd->release_resources();
   THD_CHECK_SENTRY(thd);
@@ -5709,8 +5711,9 @@ err:
  
        /Alfranio
     */
-    DBUG_ASSERT(thd->net.buff != 0);
-    net_end(&thd->net);
+    NET* net = thd->get_net();
+    DBUG_ASSERT(net->buff != 0);
+    net_end(net);
 
     /*
       to avoid close_temporary_tables() closing temp tables as those
@@ -6999,8 +7002,9 @@ llstr(rli->get_group_master_log_pos(), llbuff));
     to avoid unneeded position re-init
   */
   thd->temporary_tables = 0; // remove tempation from destructor to close them
-  DBUG_ASSERT(thd->net.buff != 0);
-  net_end(&thd->net); // destructor will not free it, because we are weird
+  NET* net = thd->get_net();
+  DBUG_ASSERT(net->buff != 0);
+  net_end(net); // destructor will not free it, because we are weird
   DBUG_ASSERT(rli->info_thd == thd);
   THD_CHECK_SENTRY(thd);
   mysql_mutex_lock(&rli->info_thd_lock);
@@ -9100,7 +9104,7 @@ int start_slave(THD* thd , Master_info* mi,  bool net_report)
       thd->lex->slave_connection.password)
   {
 #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
-    if (thd->vio_ok() && !thd->net.vio->ssl_arg)
+    if (thd->vio_ok() && !thd->get_net()->vio->ssl_arg)
       push_warning(thd, Sql_condition::WARN_LEVEL_NOTE,
                    ER_INSECURE_PLAIN_TEXT,
                    ER(ER_INSECURE_PLAIN_TEXT));
@@ -9622,7 +9626,7 @@ bool change_master(THD* thd, Master_info* mi)
   if (lex_mi->user || lex_mi->password)
   {
 #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
-    if (thd->vio_ok() && !thd->net.vio->ssl_arg)
+    if (thd->vio_ok() && !thd->get_net()->vio->ssl_arg)
       push_warning(thd, Sql_condition::WARN_LEVEL_NOTE,
                    ER_INSECURE_PLAIN_TEXT,
                    ER(ER_INSECURE_PLAIN_TEXT));

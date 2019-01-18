@@ -52,7 +52,7 @@ int _my_b_net_read(register IO_CACHE *info, uchar *Buffer,
 		   size_t Count MY_ATTRIBUTE((unused)))
 {
   ulong read_length;
-  NET *net= &(current_thd)->net;
+  NET *net= current_thd->get_net();
   DBUG_ENTER("_my_b_net_read");
 
   if (!info->end_of_file)

@@ -811,13 +811,14 @@ void execute_init_command(THD *thd, LEX_STRING *init_command,
   thd->client_capabilities|= CLIENT_MULTI_QUERIES;
   /*
     We don't need return result of execution to client side.
-    To forbid this we should set thd->net.vio to 0.
+    To forbid this we should set thd->get_net()->vio to 0.
   */
-  save_vio= thd->net.vio;
-  thd->net.vio= 0;
+  NET* net = thd->get_net();
+  save_vio= net->vio;
+  net->vio= 0;
   dispatch_command(COM_QUERY, thd, buf, len);
   thd->client_capabilities= save_client_capabilities;
-  thd->net.vio= save_vio;
+  net->vio= save_vio;
 
 #if defined(ENABLED_PROFILING)
   thd->profiling.finish_current_query();
@@ -989,7 +990,7 @@ void do_handle_bootstrap(THD *thd)
   handle_bootstrap_impl(thd);
 
 end:
-  net_end(&thd->net);
+  net_end(thd->get_net());
   thd->release_resources();
 
   if (thd_added)
@@ -1061,7 +1062,7 @@ bool do_command(THD *thd)
   bool return_value;
   char *packet= 0;
   ulong packet_length;
-  NET *net= &thd->net;
+  NET *net= thd->get_net();
   enum enum_server_command command;
 
   DBUG_ENTER("do_command");
@@ -1563,7 +1564,7 @@ static inline bool is_query(enum enum_server_command command) {
 bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
                       uint packet_length)
 {
-  NET *net= &thd->net;
+  NET *net= thd->get_net();
   bool error= 0;
   ulonglong init_timer, last_timer;
   /* for USER_STATISTICS */
@@ -1858,6 +1859,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
         query_start_status= thd->status_var;
       }
 
+      thd->set_net(save_thd->get_net());
 #if defined(ENABLED_PROFILING)
       thd->profiling.start_new_query();
 #endif
@@ -2502,6 +2504,7 @@ done:
   if (srv_session) {
     // stage information (for SHOW PROCESSLIST)
     save_thd->copy_stage_info(thd);
+    thd->clear_net();
 
     thd = save_thd;
     cleanup_com_rpc(thd, std::move(srv_session), state_changed);
@@ -7857,7 +7860,7 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
       if (mqh_used && thd->get_user_connect() &&
 	  check_mqh(thd, lex->sql_command))
       {
-	thd->net.error = 0;
+	thd->get_net()->error = 0;
       }
       else
 #endif

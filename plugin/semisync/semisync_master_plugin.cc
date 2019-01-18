@@ -163,7 +163,7 @@ int repl_semi_after_send_event(Binlog_transmit_param *param,
   else
   {
     THD *thd= current_thd;
-    int err= repl_semisync.readSlaveReply(&thd->net,
+    int err= repl_semisync.readSlaveReply(thd->get_net(),
                                           param->server_id,
                                           event_buf);
     /*

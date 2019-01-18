@@ -77,7 +77,7 @@ void fix_user_conn(THD *thd, enum conn_denied_reason reason)
   mysql_mutex_lock(&LOCK_user_conn);
   thd->decrement_user_connections_counter();
   us->connections_total.dec();
-  if (thd->net.vio->type == VIO_TYPE_SSL) {
+  if (thd->get_net()->vio->type == VIO_TYPE_SSL) {
     us->connections_ssl_total.dec();
   }
   if (!(thd->main_security_ctx.master_access & SUPER_ACL))
@@ -147,7 +147,7 @@ int get_or_create_user_conn(THD *thd, const char *user,
   thd->set_user_connect(uc);
   thd->increment_user_connections_counter();
   uc->user_stats.connections_total.inc();
-  if (thd->net.vio->type == VIO_TYPE_SSL) {
+  if (thd->get_net()->vio->type == VIO_TYPE_SSL) {
     uc->user_stats.connections_ssl_total.inc();
   }
   if (!(thd->main_security_ctx.master_access & SUPER_ACL))
@@ -559,7 +559,7 @@ static int check_connection(THD *thd)
 {
   uint connect_errors= 0;
   int auth_rc;
-  NET *net= &thd->net;
+  NET *net= thd->get_net();
 
   DBUG_PRINT("info",
              ("New connection received on %s", vio_description(net->vio)));
@@ -787,7 +787,7 @@ bool setup_connection_thread_globals(THD *thd)
 
 bool login_connection(THD *thd)
 {
-  NET *net= &thd->net;
+  NET *net= thd->get_net();
   int error;
   DBUG_ENTER("login_connection");
   DBUG_PRINT("info", ("login_connection called by thread %u",
@@ -828,7 +828,7 @@ bool login_connection(THD *thd)
 
 void end_connection(THD *thd)
 {
-  NET *net= &thd->net;
+  NET *net= thd->get_net();
   plugin_thdvar_cleanup(thd);
 
   bool end_on_error= thd->killed || (net->error && net->vio != 0);
@@ -878,13 +878,14 @@ void end_connection(THD *thd)
 
 void prepare_new_connection_state(THD* thd)
 {
+  NET *net= thd->get_net();
   Security_context *sctx= thd->security_ctx;
 
   if (thd->client_capabilities & CLIENT_COMPRESS)
-    thd->net.compress=1;        // Use compression
+    net->compress=1;        // Use compression
 
   if (thd->client_capabilities & CLIENT_COMPRESS_EVENT)
-    thd->net.compress_event=1;        // Use event compression
+    net->compress_event=1;        // Use event compression
   /*
     Much of this is duplicated in create_embedded_thd() for the
     embedded server library.
@@ -902,7 +903,6 @@ void prepare_new_connection_state(THD* thd)
     {
       Host_errors errors;
       ulong packet_length;
-      NET *net= &thd->net;
 
       sql_print_warning(ER(ER_NEW_ABORTING_CONNECTION),
                         thd->thread_id(),
@@ -972,7 +972,7 @@ pthread_handler_t handle_one_connection(void *arg)
 
 void thd_update_net_stats(THD *thd)
 {
-  NET *net= &thd->net;
+  NET *net= thd->get_net();
 
   if (net->last_errno == 0) {
     return;
@@ -1037,7 +1037,7 @@ bool thd_prepare_connection(THD *thd)
 
 bool thd_is_connection_alive(THD *thd)
 {
-  NET *net= &thd->net;
+  NET *net= thd->get_net();
   if (!net->error &&
       net->vio != 0 &&
       !(thd->killed == THD::KILL_CONNECTION))
@@ -1052,21 +1052,22 @@ bool thd_is_connection_alive(THD *thd)
 */
 void set_conn_timeout_err(THD *thd, char *msg_buf)
 {
+  Vio* vio = thd->get_net()->vio;
   if (send_error_before_closing_timed_out_connection)
   {
     thd->protocol->gen_conn_timeout_err(msg_buf);
     if (strlen(msg_buf) > 0)
     {
       thd->conn_timeout_err_msg = msg_buf;
-      if (thd->net.vio)
-        thd->net.vio->timeout_err_msg = msg_buf;
+      if (vio)
+        vio->timeout_err_msg = msg_buf;
       return;
     }
   }
 
   thd->conn_timeout_err_msg = NULL;
-  if (thd->net.vio)
-    thd->net.vio->timeout_err_msg = NULL;
+  if (vio)
+    vio->timeout_err_msg = NULL;
 }
 
 void do_handle_one_connection(THD *thd_arg)
@@ -1121,7 +1122,7 @@ void do_handle_one_connection(THD *thd_arg)
   {
 	bool rc;
 
-    NET *net= &thd->net;
+    NET *net= thd->get_net();
     mysql_socket_set_thread_owner(net->vio->mysql_socket);
 
     start_time = my_timer_now();

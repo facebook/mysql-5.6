@@ -364,7 +364,7 @@ find_prepared_statement(THD *thd, ulong id)
 #ifndef EMBEDDED_LIBRARY
 static bool send_prep_stmt(Prepared_statement *stmt, uint columns)
 {
-  NET *net= &stmt->thd->net;
+  NET *net= stmt->thd->get_net();
   uchar buff[12];
   uint tmp;
   int error;
@@ -2710,7 +2710,8 @@ void mysqld_stmt_execute(THD *thd, char *packet_arg, uint packet_length)
   sp_cache_enforce_limit(thd->sp_func_cache, stored_program_cache_size);
 
   /* Close connection socket; for use with client testing (Bug#43560). */
-  DBUG_EXECUTE_IF("close_conn_after_stmt_execute", vio_shutdown(thd->net.vio););
+  DBUG_EXECUTE_IF("close_conn_after_stmt_execute",
+      vio_shutdown(thd->get_net()->vio););
 
   DBUG_VOID_RETURN;
 }

@@ -277,15 +277,15 @@ functions:
          queries hash.
          If a match is found the cached result set is sent through repeated
          calls to net_write_packet. (note: calling thread doesn't have a regis-
-         tered result set writer: thd->net.query_cache_query=0)
+         tered result set writer: thd->get_net()->query_cache_query=0)
  2. Query_cache::store_query
        - Called just before handle_select() and is used to register a result
          set writer to the statement currently being processed
-         (thd->net.query_cache_query).
+         (thd->get_net()->query_cache_query).
  3. query_cache_insert
        - Called from net_write_packet to append a result set to a cached query
          if (and only if) this query has a registered result set writer
-         (thd->net.query_cache_query).
+         (thd->get_net()->query_cache_query).
  4. Query_cache::invalidate
     Query_cache::invalidate_locked_for_write
        - Called from various places to invalidate query cache based on data-
@@ -1183,6 +1183,8 @@ void Query_cache::store_query(THD *thd, TABLE_LIST *tables_used)
 {
   TABLE_COUNTER_TYPE local_tables;
   ulong tot_length;
+  NET* net = thd->get_net();
+
   DBUG_ENTER("Query_cache::store_query");
   /*
     Testing 'query_cache_size' without a lock here is safe: the thing
@@ -1202,7 +1204,7 @@ void Query_cache::store_query(THD *thd, TABLE_LIST *tables_used)
     complete query result in this case, it does not make sense to
     register the query in the first place.
   */
-  if (thd->net.vio == NULL)
+  if (net->vio == NULL)
     DBUG_VOID_RETURN;
 #endif
 
@@ -1212,7 +1214,6 @@ void Query_cache::store_query(THD *thd, TABLE_LIST *tables_used)
 				  thd->query(), thd->lex, tables_used,
 				  &tables_type)))
   {
-    NET *net= &thd->net;
     Query_cache_query_flags flags;
     // fill all gaps between fields with 0 to get repeatable key
     memset(&flags, 0, QUERY_CACHE_FLAGS_SIZE);
@@ -1610,7 +1611,7 @@ Query_cache::send_result_to_client(THD *thd, char *sql, uint query_length)
                                      SERVER_MORE_RESULTS_EXISTS);
   flags.in_trans= thd->in_active_multi_stmt_transaction();
   flags.autocommit= MY_TEST(thd->server_status & SERVER_STATUS_AUTOCOMMIT);
-  flags.pkt_nr= thd->net.pkt_nr;
+  flags.pkt_nr= thd->get_net()->pkt_nr;
   flags.character_set_client_num= thd->variables.character_set_client->number;
   flags.character_set_results_num=
     (thd->variables.character_set_results ?
@@ -1809,13 +1810,14 @@ def_week_frmt: %lu, in_trans: %d, autocommit: %d",
                                    ALIGN_SIZE(sizeof(Query_cache_result)))));
     
     Query_cache_result *result = result_block->result();
-    if (send_data_in_chunks(&thd->net, result->data(),
+    NET* net = thd->get_net();
+    if (send_data_in_chunks(net, result->data(),
                             result_block->used -
                             result_block->headers_len() -
                             ALIGN_SIZE(sizeof(Query_cache_result))))
       break;                                    // Client aborted
     result_block = result_block->next;
-    thd->net.pkt_nr= query->last_pkt_nr; // Keep packet number updated
+    net->pkt_nr= query->last_pkt_nr; // Keep packet number updated
   } while (result_block != first_result_block);
 #else
   {

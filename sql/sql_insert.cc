@@ -1089,9 +1089,9 @@ bool mysql_insert(THD *thd,TABLE_LIST *table_list,
         {
 	  /*
 	    [Guilhem wrote] Temporary errors may have filled
-	    thd->net.last_error/errno.  For example if there has
+	    thd->get_net()->last_error/errno.  For example if there has
 	    been a disk full error when writing the row, and it was
-	    MyISAM, then thd->net.last_error/errno will be set to
+	    MyISAM, then thd->get_net()-.last_error/errno will be set to
             "disk full"... and the mysql_file_pwrite() will wait until free
 	    space appears, and so when it finishes then the
 	    write_row() was entirely successful
@@ -2209,7 +2209,7 @@ public:
     */
     thd.variables.lock_wait_timeout_nsec= LONG_TIMEOUT_NSEC;
 
-    memset(&thd.net, 0, sizeof(thd.net));           // Safety
+    memset(thd.get_net(), 0, sizeof(*thd.get_net()));           // Safety
     memset(&table_list, 0, sizeof(table_list));     // Safety
     thd.system_thread= SYSTEM_THREAD_DELAYED_INSERT;
     thd.security_ctx->host_or_ip= "";

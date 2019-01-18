@@ -1048,7 +1048,7 @@ static int reset_transmit_packet(THD *thd, ushort flags,
 
 static int send_file(THD *thd)
 {
-  NET* net = &thd->net;
+  NET* net = thd->get_net();
   int fd = -1, error = 1;
   size_t bytes;
   char fname[FN_REFLEN+1];
@@ -1391,6 +1391,7 @@ bool com_binlog_dump(THD *thd, char *packet, uint packet_length)
   ushort flags= 0;
   const uchar* packet_position= (uchar *) packet;
   uint packet_bytes_todo= packet_length;
+  NET* net = thd->get_net();
 
   status_var_increment(thd->status_var.com_other);
   thd->enable_slow_log= opt_log_slow_admin_statements;
@@ -1414,14 +1415,14 @@ bool com_binlog_dump(THD *thd, char *packet, uint packet_length)
                     packet + 10, (long) pos);
 
   my_atomic_add32(&thread_binlog_client, 1);
-  if (thd->net.compress_event)
+  if (net->compress_event)
     my_atomic_add32(&thread_binlog_comp_event_client, 1);
   dec_thread_running();
 
 #ifdef HAVE_JUNCTION
-  if (thd->net.compress_event)
+  if (net->compress_event)
   {
-    thd->net.qsbr_context= new junction::QSBR::Context(
+    net->qsbr_context= new junction::QSBR::Context(
         junction::DefaultQSBR.createContext());
   }
 #endif
@@ -1430,14 +1431,14 @@ bool com_binlog_dump(THD *thd, char *packet, uint packet_length)
 
   inc_thread_running();
   my_atomic_add32(&thread_binlog_client, -1);
-  if (thd->net.compress_event)
+  if (net->compress_event)
     my_atomic_add32(&thread_binlog_comp_event_client, -1);
 
 #ifdef HAVE_JUNCTION
-  if (thd->net.compress_event)
+  if (net->compress_event)
   {
     auto qsbr_context=
-      static_cast<junction::QSBR::Context*>(thd->net.qsbr_context);
+      static_cast<junction::QSBR::Context*>(net->qsbr_context);
     DBUG_ASSERT(qsbr_context != NULL);
     junction::DefaultQSBR.destroyContext(*qsbr_context);
     delete qsbr_context;
@@ -1472,6 +1473,7 @@ bool com_binlog_dump_gtid(THD *thd, char *packet, uint packet_length)
   Sid_map sid_map(NULL/*no sid_lock because this is a completely local object*/);
   Gtid_set slave_gtid_executed(&sid_map);
   uint error;
+  NET* net = thd->get_net();
 
   status_var_increment(thd->status_var.com_other);
   thd->enable_slow_log= opt_log_slow_admin_statements;
@@ -1498,14 +1500,14 @@ bool com_binlog_dump_gtid(THD *thd, char *packet, uint packet_length)
                     name, pos, gtid_string);
 
   my_atomic_add32(&thread_binlog_client, 1);
-  if (thd->net.compress_event)
+  if (net->compress_event)
     my_atomic_add32(&thread_binlog_comp_event_client, 1);
   dec_thread_running();
 
 #ifdef HAVE_JUNCTION
-  if (thd->net.compress_event)
+  if (net->compress_event)
   {
-    thd->net.qsbr_context= new junction::QSBR::Context(
+    net->qsbr_context= new junction::QSBR::Context(
         junction::DefaultQSBR.createContext());
   }
 #endif
@@ -1525,14 +1527,14 @@ bool com_binlog_dump_gtid(THD *thd, char *packet, uint packet_length)
 
   inc_thread_running();
   my_atomic_add32(&thread_binlog_client, -1);
-  if (thd->net.compress_event)
+  if (net->compress_event)
     my_atomic_add32(&thread_binlog_comp_event_client, -1);
 
 #ifdef HAVE_JUNCTION
-  if (thd->net.compress_event)
+  if (net->compress_event)
   {
     auto qsbr_context=
-      static_cast<junction::QSBR::Context*>(thd->net.qsbr_context);
+      static_cast<junction::QSBR::Context*>(net->qsbr_context);
     DBUG_ASSERT(qsbr_context != NULL);
     junction::DefaultQSBR.destroyContext(*qsbr_context);
     delete qsbr_context;
@@ -1691,7 +1693,7 @@ static bool get_dscp_value(THD *thd, int& ret_val) {
 
 // set the DSCP parameters on the binlog socket.
 static bool set_dscp(THD *thd) {
-  NET* net = &thd->net;
+  const NET* net = thd->get_net();
 
   int dscp_val= 0;
   bool dscp_set= get_dscp_value(thd, dscp_val);
@@ -1785,7 +1787,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   int error= 0;
   const char *errmsg = "Unknown error";
   char error_text[MAX_SLAVE_ERRMSG]; // to be send to slave via my_message()
-  NET* net = &thd->net;
+  NET* net = thd->get_net();
   if (rpl_send_buffer_size &&
       (setsockopt(net->vio->mysql_socket.fd, SOL_SOCKET, SO_SNDBUF,
                   &rpl_send_buffer_size, sizeof(rpl_send_buffer_size)) == -1

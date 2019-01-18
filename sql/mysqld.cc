@@ -1293,9 +1293,9 @@ void init_net_server_extension(THD *thd)
   thd->m_net_server_extension.m_before_header= net_before_header_psi;
   thd->m_net_server_extension.m_after_header= net_after_header_psi;
   /* Activate this private extension for the mysqld server. */
-  thd->net.extension= & thd->m_net_server_extension;
+  thd->get_net()->extension= & thd->m_net_server_extension;
 #else
-  thd->net.extension= NULL;
+  thd->get_net()->extension= NULL;
 #endif
 }
 #endif /* EMBEDDED_LIBRARY */
@@ -7883,9 +7883,10 @@ static void bootstrap(MYSQL_FILE *file)
   DBUG_ENTER("bootstrap");
 
   THD *thd= new THD;
+  NET* net = thd->get_net();
   thd->bootstrap=1;
-  my_net_init(&thd->net,(st_vio*) 0);
-  thd->max_client_packet_length= thd->net.max_packet;
+  my_net_init(net,(st_vio*) 0);
+  thd->max_client_packet_length= net->max_packet;
   thd->security_ctx->master_access= ~(ulong)0;
 
   thd->variables.pseudo_thread_id= thd->set_new_thread_id();
@@ -8445,14 +8446,15 @@ void handle_connections_sockets(bool admin, const MYSQL_SOCKET *socket_ptr)
 
       vio_tmp= mysql_socket_vio_new(new_sock, vio_type, vio_flags);
 
-      if (!vio_tmp || my_net_init(&thd->net, vio_tmp))
+      NET* net = thd->get_net();
+      if (!vio_tmp || my_net_init(net, vio_tmp))
       {
         /*
           Only delete the temporary vio if we didn't already attach it to the
           NET object. The destructor in THD will delete any initialized net
           structure.
         */
-        if (vio_tmp && thd->net.vio != vio_tmp)
+        if (vio_tmp && net->vio != vio_tmp)
           vio_delete(vio_tmp);
         else
         {
@@ -8532,14 +8534,15 @@ pthread_handler_t dedicated_conn_handling_thread(void *arg)
 
     st_vio *vio_tmp= mysql_socket_vio_new(new_sock, vio_type, vio_flags);
 
-    if (!vio_tmp || my_net_init(&thd->net, vio_tmp))
+    NET* net = thd->get_net();
+    if (!vio_tmp || my_net_init(net, vio_tmp))
     {
       /*
         Only delete the temporary vio if we didn't already attach it to the
         NET object. The destructor in THD will delete any initialized net
         structure.
       */
-      if (vio_tmp && thd->net.vio != vio_tmp)
+      if (vio_tmp && net->vio != vio_tmp)
         vio_delete(vio_tmp);
       else
       {
@@ -8657,8 +8660,9 @@ pthread_handler_t handle_connections_namedpipes(void *arg)
       CloseHandle(hConnectedPipe);
       continue;
     }
-    if (!(thd->net.vio= vio_new_win32pipe(hConnectedPipe)) ||
-  my_net_init(&thd->net, thd->net.vio))
+    NET* net = thd->get_net();
+    if (!(net->vio= vio_new_win32pipe(hConnectedPipe)) ||
+  my_net_init(net, net->vio))
     {
       close_connection(thd, ER_OUT_OF_RESOURCES);
       delete thd;
@@ -8846,14 +8850,15 @@ pthread_handler_t handle_connections_shared_memory(void *arg)
       errmsg= "Could not set client to read mode";
       goto errorconn;
     }
-    if (!(thd->net.vio= vio_new_win32shared_memory(handle_client_file_map,
+    NET* net = thd->get_net();
+    if (!(net->vio= vio_new_win32shared_memory(handle_client_file_map,
                                                    handle_client_map,
                                                    event_client_wrote,
                                                    event_client_read,
                                                    event_server_wrote,
                                                    event_server_read,
                                                    event_conn_closed)) ||
-                        my_net_init(&thd->net, thd->net.vio))
+                        my_net_init(net, net->vio))
     {
       close_connection(thd, ER_OUT_OF_RESOURCES);
       errmsg= 0;
@@ -9707,7 +9712,7 @@ static int show_queries(THD *thd, SHOW_VAR *var, char *buff)
 static int show_net_compression(THD *thd, SHOW_VAR *var, char *buff)
 {
   var->type= SHOW_MY_BOOL;
-  var->value= (char *)&thd->net.compress;
+  var->value= (char *)&thd->get_net()->compress;
   return 0;
 }
 
@@ -10164,9 +10169,10 @@ static int show_ssl_ctx_get_session_cache_mode(THD *thd, SHOW_VAR *var, char *bu
  */
 static int show_ssl_get_version(THD *thd, SHOW_VAR *var, char *buff)
 {
+  const NET* net = thd->get_net();
   var->type= SHOW_CHAR;
-  if( thd->vio_ok() && thd->net.vio->ssl_arg )
-    var->value= const_cast<char*>(SSL_get_version((SSL*) thd->net.vio->ssl_arg));
+  if( thd->vio_ok() && net->vio->ssl_arg )
+    var->value= const_cast<char*>(SSL_get_version((SSL*) net->vio->ssl_arg));
   else
     var->value= (char *)"";
   return 0;
@@ -10174,10 +10180,11 @@ static int show_ssl_get_version(THD *thd, SHOW_VAR *var, char *buff)
 
 static int show_ssl_session_reused(THD *thd, SHOW_VAR *var, char *buff)
 {
+  const NET* net = thd->get_net();
   var->type= SHOW_LONG;
   var->value= buff;
-  if( thd->vio_ok() && thd->net.vio->ssl_arg )
-    *((long *)buff)= (long)SSL_session_reused((SSL*) thd->net.vio->ssl_arg);
+  if( thd->vio_ok() && net->vio->ssl_arg )
+    *((long *)buff)= (long)SSL_session_reused((SSL*) net->vio->ssl_arg);
   else
     *((long *)buff)= 0;
   return 0;
@@ -10185,10 +10192,11 @@ static int show_ssl_session_reused(THD *thd, SHOW_VAR *var, char *buff)
 
 static int show_ssl_get_default_timeout(THD *thd, SHOW_VAR *var, char *buff)
 {
+  const NET* net = thd->get_net();
   var->type= SHOW_LONG;
   var->value= buff;
-  if( thd->vio_ok() && thd->net.vio->ssl_arg )
-    *((long *)buff)= (long)SSL_get_default_timeout((SSL*)thd->net.vio->ssl_arg);
+  if( thd->vio_ok() && net->vio->ssl_arg )
+    *((long *)buff)= (long)SSL_get_default_timeout((SSL*)net->vio->ssl_arg);
   else
     *((long *)buff)= 0;
   return 0;
@@ -10196,10 +10204,11 @@ static int show_ssl_get_default_timeout(THD *thd, SHOW_VAR *var, char *buff)
 
 static int show_ssl_get_verify_mode(THD *thd, SHOW_VAR *var, char *buff)
 {
+  const NET* net = thd->get_net();
   var->type= SHOW_LONG;
   var->value= buff;
-  if( thd->net.vio && thd->net.vio->ssl_arg )
-    *((long *)buff)= (long)SSL_get_verify_mode((SSL*)thd->net.vio->ssl_arg);
+  if( net->vio && net->vio->ssl_arg )
+    *((long *)buff)= (long)SSL_get_verify_mode((SSL*)net->vio->ssl_arg);
   else
     *((long *)buff)= 0;
   return 0;
@@ -10207,10 +10216,11 @@ static int show_ssl_get_verify_mode(THD *thd, SHOW_VAR *var, char *buff)
 
 static int show_ssl_get_verify_depth(THD *thd, SHOW_VAR *var, char *buff)
 {
+  const NET* net = thd->get_net();
   var->type= SHOW_LONG;
   var->value= buff;
-  if( thd->vio_ok() && thd->net.vio->ssl_arg )
-    *((long *)buff)= (long)SSL_get_verify_depth((SSL*)thd->net.vio->ssl_arg);
+  if( thd->vio_ok() && net->vio->ssl_arg )
+    *((long *)buff)= (long)SSL_get_verify_depth((SSL*)net->vio->ssl_arg);
   else
     *((long *)buff)= 0;
   return 0;
@@ -10218,9 +10228,10 @@ static int show_ssl_get_verify_depth(THD *thd, SHOW_VAR *var, char *buff)
 
 static int show_ssl_get_cipher(THD *thd, SHOW_VAR *var, char *buff)
 {
+  const NET* net = thd->get_net();
   var->type= SHOW_CHAR;
-  if( thd->vio_ok() && thd->net.vio->ssl_arg )
-    var->value= const_cast<char*>(SSL_get_cipher((SSL*) thd->net.vio->ssl_arg));
+  if( thd->vio_ok() && net->vio->ssl_arg )
+    var->value= const_cast<char*>(SSL_get_cipher((SSL*) net->vio->ssl_arg));
   else
     var->value= (char *)"";
   return 0;
@@ -10228,14 +10239,15 @@ static int show_ssl_get_cipher(THD *thd, SHOW_VAR *var, char *buff)
 
 static int show_ssl_get_cipher_list(THD *thd, SHOW_VAR *var, char *buff)
 {
+  const NET* net = thd->get_net();
   var->type= SHOW_CHAR;
   var->value= buff;
-  if (thd->vio_ok() && thd->net.vio->ssl_arg)
+  if (thd->vio_ok() && net->vio->ssl_arg)
   {
     int i;
     const char *p;
     char *end= buff + SHOW_VAR_FUNC_BUFF_SIZE;
-    for (i=0; (p= SSL_get_cipher_list((SSL*) thd->net.vio->ssl_arg,i)) &&
+    for (i=0; (p= SSL_get_cipher_list((SSL*) net->vio->ssl_arg,i)) &&
                buff < end; i++)
     {
       buff= strnmov(buff, p, end-buff-1);
@@ -10306,10 +10318,11 @@ end:
 static int
 show_ssl_get_server_not_before(THD *thd, SHOW_VAR *var, char *buff)
 {
+  const NET* net = thd->get_net();
   var->type= SHOW_CHAR;
-  if(thd->vio_ok() && thd->net.vio->ssl_arg)
+  if(thd->vio_ok() && net->vio->ssl_arg)
   {
-    SSL *ssl= (SSL*) thd->net.vio->ssl_arg;
+    SSL *ssl= (SSL*) net->vio->ssl_arg;
     X509 *cert= SSL_get_certificate(ssl);
     ASN1_TIME *not_before= (ASN1_TIME *)X509_get0_notBefore(cert);
 
@@ -10339,10 +10352,11 @@ show_ssl_get_server_not_before(THD *thd, SHOW_VAR *var, char *buff)
 static int
 show_ssl_get_server_not_after(THD *thd, SHOW_VAR *var, char *buff)
 {
+  const NET* net = thd->get_net();
   var->type= SHOW_CHAR;
-  if(thd->vio_ok() && thd->net.vio->ssl_arg)
+  if(thd->vio_ok() && net->vio->ssl_arg)
   {
-    SSL *ssl= (SSL*) thd->net.vio->ssl_arg;
+    SSL *ssl= (SSL*) net->vio->ssl_arg;
     X509 *cert= SSL_get_certificate(ssl);
     ASN1_TIME *not_after= (ASN1_TIME *)X509_get0_notAfter(cert);
 

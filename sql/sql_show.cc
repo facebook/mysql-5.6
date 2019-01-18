@@ -2181,25 +2181,24 @@ public:
 static const char *thread_state_info(THD *tmp)
 {
 #ifndef EMBEDDED_LIBRARY
-  if (tmp->net.reading_or_writing)
+  const NET* net = tmp->get_net_nullable();
+  if (!net || net->reading_or_writing)
   {
-    if (tmp->net.reading_or_writing == 2)
+    if (net && net->reading_or_writing == 2)
       return "Writing to net";
     else if (tmp->get_command() == COM_SLEEP)
       return "";
-    else
+    else if (net)
       return "Reading from net";
   }
-  else
 #endif
-  {
-    if (tmp->proc_info)
-      return tmp->proc_info;
-    else if (tmp->mysys_var && tmp->mysys_var->current_cond)
-      return "Waiting on cond";
-    else
-      return NULL;
-  }
+
+  if (tmp->proc_info)
+    return tmp->proc_info;
+  else if (tmp->mysys_var && tmp->mysys_var->current_cond)
+    return "Waiting on cond";
+  else
+    return NULL;
 }
 
 /****************************************************************************
@@ -3259,7 +3258,7 @@ int fill_schema_authinfo(THD* thd, TABLE_LIST* tables, Item* cond)
     /* SSL */
     bool ssl = false;
 #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
-    ssl = (tmp->vio_ok() && tmp->net.vio->ssl_arg);
+    ssl = (tmp->vio_ok() && tmp->get_net()->vio->ssl_arg);
 #endif
     table->field[3]->store(ssl, /*unsigned=*/ TRUE);
 

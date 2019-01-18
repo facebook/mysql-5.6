@@ -7377,10 +7377,10 @@ int Load_log_event::do_apply_event(NET* net, Relay_log_info const *rli,
       thd->variables.pseudo_thread_id= thread_id;
       if (net)
       {
-        // mysql_load will use thd->net to read the file
-        thd->net.vio = net->vio;
+        // mysql_load will use thd->get_net() to read the file
+        thd->get_net()->vio = net->vio;
         // Make sure the client does not get confused about the packet sequence
-        thd->net.pkt_nr = net->pkt_nr;
+        thd->get_net()->pkt_nr = net->pkt_nr;
       }
       /*
         It is safe to use tmp_list twice because we are not going to
@@ -7404,7 +7404,7 @@ int Load_log_event::do_apply_event(NET* net, Relay_log_info const *rli,
                           print_slave_db_safe(thd->db));
       }
       if (net)
-        net->pkt_nr= thd->net.pkt_nr;
+        net->pkt_nr= thd->get_net()->pkt_nr;
     }
   }
   else
@@ -7419,7 +7419,7 @@ int Load_log_event::do_apply_event(NET* net, Relay_log_info const *rli,
   }
 
 error:
-  thd->net.vio = 0;
+  thd->get_net()->vio = 0;
   const char *remember_db= thd->db;
   thd->catalog= 0;
   thd->set_db(NULL, 0);                   /* will free the current database */

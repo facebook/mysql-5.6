@@ -2899,7 +2899,7 @@ static void try_setup_rpc_role(st_connection *con) {
   // Only the root user has proxy privileges for other users so only
   // do this automatically for root.
   if (con->rpc_id[0] == '\0' && !con->rpc_role_set &&
-      (std::string(mysql->user) == std::string("root"))) {
+      mysql->user && (std::string(mysql->user) == std::string("root"))) {
     DBUG_PRINT("info",
         ("Converting query to com_rpc conn_id: %lu, role: %s, db: %s",
          mysql->thread_id, mysql->user, mysql->db));

@@ -258,9 +258,6 @@ private:
   // Identification (hostname or ip) from the original client connection
   std::string host_or_ip;
 
-  // Store the default vio and stmt_da fields to use when detaching the session
-  Vio* default_vio_to_restore_ = NULL;
-
   // Connection THD ID.
   std::atomic_uint conn_thd_id;
 

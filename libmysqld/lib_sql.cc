@@ -753,7 +753,7 @@ void *create_embedded_thd(int client_flag)
   thd->cur_data= 0;
   thd->first_data= 0;
   thd->data_tail= &thd->first_data;
-  memset(&thd->net, 0, sizeof(thd->net));
+  memset(thd->get_net(), 0, sizeof(*thd->get_net()));
 
   mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
   add_global_thread(thd);
@@ -874,8 +874,8 @@ int check_embedded_connection(MYSQL *mysql, const char *db)
 
   end= (char *) send_client_connect_attrs(mysql, (uchar *) end);
 
-  /* acl_authenticate() takes the data from thd->net->read_pos */
-  thd->net.read_pos= (uchar*)buf;
+  /* acl_authenticate() takes the data from thd->get_net()->read_pos */
+  thd->get_net()->read_pos= (uchar*)buf;
 
   if (acl_authenticate(thd, 0, end - buf))
   {

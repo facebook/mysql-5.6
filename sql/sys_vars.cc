@@ -2500,8 +2500,8 @@ static Sys_var_ulong Sys_net_buffer_length(
 static bool fix_net_read_timeout(sys_var *self, THD *thd, enum_var_type type)
 {
   if (type != OPT_GLOBAL)
-    my_net_set_read_timeout(
-      &thd->net, timeout_from_seconds(thd->variables.net_read_timeout_seconds));
+    my_net_set_read_timeout(thd->get_net(),
+        timeout_from_seconds(thd->variables.net_read_timeout_seconds));
   return false;
 }
 static Sys_var_ulong Sys_net_read_timeout(
@@ -2516,8 +2516,8 @@ static Sys_var_ulong Sys_net_read_timeout(
 static bool fix_net_write_timeout(sys_var *self, THD *thd, enum_var_type type)
 {
   if (type != OPT_GLOBAL)
-    my_net_set_write_timeout(
-      &thd->net, timeout_from_seconds(thd->variables.net_write_timeout_seconds));
+    my_net_set_write_timeout(thd->get_net(),
+        timeout_from_seconds(thd->variables.net_write_timeout_seconds));
   return false;
 }
 static Sys_var_ulong Sys_net_write_timeout(
@@ -2532,7 +2532,7 @@ static Sys_var_ulong Sys_net_write_timeout(
 static bool fix_net_retry_count(sys_var *self, THD *thd, enum_var_type type)
 {
   if (type != OPT_GLOBAL)
-    thd->net.retry_count=thd->variables.net_retry_count;
+    thd->get_net()->retry_count=thd->variables.net_retry_count;
   return false;
 }
 static Sys_var_ulong Sys_net_retry_count(

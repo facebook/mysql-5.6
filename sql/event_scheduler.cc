@@ -154,8 +154,9 @@ void
 deinit_event_thread(THD *thd)
 {
   thd->proc_info= "Clearing";
-  DBUG_ASSERT(thd->net.buff != 0);
-  net_end(&thd->net);
+  NET* net = thd->get_net();
+  DBUG_ASSERT(net->buff != 0);
+  net_end(net);
   DBUG_PRINT("exit", ("Event thread finishing"));
 
   dec_thread_running();
@@ -176,7 +177,7 @@ deinit_event_thread(THD *thd)
 
   NOTES
     1. The host of the thead is my_localhost
-    2. thd->net is initted with NULL - no communication.
+    2. thd->get_net() is initted with NULL - no communication.
 */
 
 void
@@ -187,9 +188,10 @@ pre_init_event_thread(THD* thd)
   thd->security_ctx->master_access= 0;
   thd->security_ctx->db_access= 0;
   thd->security_ctx->host_or_ip= (char*)my_localhost;
-  my_net_init(&thd->net, NULL);
+  NET* net = thd->get_net();
+  my_net_init(net, NULL);
   thd->security_ctx->set_user((char*)"event_scheduler");
-  thd->net.read_timeout = timeout_from_seconds(slave_net_timeout);
+  net->read_timeout = timeout_from_seconds(slave_net_timeout);
   thd->slave_thread= 0;
   thd->variables.option_bits|= OPTION_AUTO_IS_NULL;
   thd->client_capabilities|= CLIENT_MULTI_RESULTS;
@@ -242,7 +244,7 @@ event_scheduler_thread(void *arg)
   else
   {
     thd->proc_info= "Clearing";
-    net_end(&thd->net);
+    net_end(thd->get_net());
     delete thd;
   }
 
@@ -447,8 +449,9 @@ Event_scheduler::start(int *err_no)
                     *err_no);
 
     new_thd->proc_info= "Clearing";
-    DBUG_ASSERT(new_thd->net.buff != 0);
-    net_end(&new_thd->net);
+    NET* net = new_thd->get_net();
+    DBUG_ASSERT(net->buff != 0);
+    net_end(net);
 
     state= INITIALIZED;
     scheduler_thd= NULL;
@@ -579,8 +582,9 @@ Event_scheduler::execute_top(Event_queue_element_for_exec *event_name)
                     " thread (errno=%d). Stopping event scheduler", res);
 
     new_thd->proc_info= "Clearing";
-    DBUG_ASSERT(new_thd->net.buff != 0);
-    net_end(&new_thd->net);
+    NET* net = new_thd->get_net();
+    DBUG_ASSERT(net->buff != 0);
+    net_end(net);
 
     goto error;
   }

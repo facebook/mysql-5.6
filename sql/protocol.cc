@@ -197,7 +197,7 @@ bool generate_error_packet(THD *thd, THD *sess_thd, uint sql_errno,
                            bool force_hash, char* buff, uint* length)
 
 {
-  NET *net= &thd->net;
+  NET *net= thd->get_net();
   uint error;
   char converted_err[MYSQL_ERRMSG_SIZE], *pos;
 
@@ -290,7 +290,7 @@ net_send_ok(THD *thd, THD *sess_thd,
             ulonglong affected_rows, ulonglong id, const char *message,
             bool eof_identifier)
 {
-  NET *net= &thd->net;
+  NET *net= thd->get_net();
   uchar buff[MYSQL_ERRMSG_SIZE + 10];
   uchar *pos, *start;
 
@@ -439,7 +439,7 @@ static uchar eof_buff[1]= { (uchar) 254 };      /* Marker for end of fields */
 bool
 net_send_eof(THD *thd, uint server_status, uint statement_warn_count)
 {
-  NET *net= &thd->net;
+  NET *net= thd->get_net();
   bool error= FALSE;
   DBUG_ENTER("net_send_eof");
   /* Set to TRUE if no active vio, to work well in case of --init-file */
@@ -516,7 +516,7 @@ bool net_send_error_packet(THD *thd, THD *sess_thd, uint sql_errno,
                            const char *err, const char* sqlstate)
 
 {
-  NET *net= &thd->net;
+  NET *net= thd->get_net();
   uint length;
   /*
     buff[]: sql_errno:2 + ('#':1 + SQLSTATE_LENGTH:5) + MYSQL_ERRMSG_SIZE:512
@@ -830,7 +830,7 @@ bool Protocol::flush()
 #ifndef EMBEDDED_LIBRARY
   bool error;
   thd->get_stmt_da()->set_overwrite_status(true);
-  error= net_flush(&thd->net);
+  error= net_flush(thd->get_net());
   thd->get_stmt_da()->set_overwrite_status(false);
   return error;
 #else
@@ -931,7 +931,7 @@ bool Protocol::send_result_set_metadata(List<Item> *list, uint flags)
   if (flags & SEND_NUM_ROWS)
   {				// Packet with number of elements
     uchar *pos= net_store_length(buff, list->elements);
-    if (my_net_write(&thd->net, buff, (size_t) (pos-buff)))
+    if (my_net_write(thd->get_net(), buff, (size_t) (pos-buff)))
       DBUG_RETURN(1);
   }
 
@@ -1045,7 +1045,7 @@ bool Protocol::send_result_set_metadata(List<Item> *list, uint flags)
         to show that there is no cursor.
         Send no warning information, as it will be sent at statement end.
       */
-      if (write_eof_packet(thd, &thd->net, thd->server_status,
+      if (write_eof_packet(thd, thd->get_net(), thd->server_status,
                            thd->get_stmt_da()->current_statement_warn_count()))
         DBUG_RETURN(1);
     }
@@ -1062,7 +1062,7 @@ err:
 bool Protocol::write()
 {
   DBUG_ENTER("Protocol::write");
-  DBUG_RETURN(my_net_write(&thd->net, (uchar*) packet->ptr(),
+  DBUG_RETURN(my_net_write(thd->get_net(), (uchar*) packet->ptr(),
                            packet->length()));
 }
 #endif /* EMBEDDED_LIBRARY */

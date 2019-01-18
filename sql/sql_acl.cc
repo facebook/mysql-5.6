@@ -10905,7 +10905,7 @@ static void server_mpvio_info(MYSQL_PLUGIN_VIO *vio,
 static bool acl_check_ssl(THD *thd, const ACL_USER *acl_user)
 {
 #if defined(HAVE_OPENSSL)
-  Vio *vio= thd->net.vio;
+  Vio *vio= thd->get_net()->vio;
   SSL *ssl= (SSL *) vio->ssl_arg;
   X509 *cert;
 #endif
@@ -11077,6 +11077,7 @@ static void
 server_mpvio_initialize(THD *thd, MPVIO_EXT *mpvio,
                         Thd_charset_adapter *charset_adapter)
 {
+  NET* net = thd->get_net();
   memset(mpvio, 0, sizeof(MPVIO_EXT));
   mpvio->read_packet= server_mpvio_read_packet;
   mpvio->write_packet= server_mpvio_write_packet;
@@ -11087,7 +11088,7 @@ server_mpvio_initialize(THD *thd, MPVIO_EXT *mpvio,
   mpvio->auth_info.user_name= NULL;
   mpvio->auth_info.user_name_length= 0;
 #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
-  if (thd->net.vio && thd->net.vio->ssl_arg)
+  if (net->vio && net->vio->ssl_arg)
     mpvio->vio_is_encrypted= 1;
   else
 #endif /* HAVE_OPENSSL && !EMBEDDED_LIBRARY */
@@ -11100,7 +11101,7 @@ server_mpvio_initialize(THD *thd, MPVIO_EXT *mpvio,
   mpvio->rand= &thd->rand;
   mpvio->thread_id= thd->thread_id();
   mpvio->server_status= &thd->server_status;
-  mpvio->net= &thd->net;
+  mpvio->net= net;
   mpvio->ip= (char *) thd->security_ctx->get_ip()->ptr();
   mpvio->host= (char *) thd->security_ctx->get_host()->ptr();
   mpvio->charset_adapter= charset_adapter;

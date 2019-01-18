@@ -613,11 +613,10 @@ bool Srv_session::module_deinit()
 */
 Srv_session::Srv_session() : state_(SRV_SESSION_CREATED)
 {
+  NET* net = thd_.get_net();
   thd_.mark_as_srv_session();
   // needed for Valgrind not to complain of "Conditional jump"
-  thd_.net.reading_or_writing= 0;
-
-  default_vio_to_restore_ = thd_.net.vio;
+  net->reading_or_writing= 0;
 }
 
 
@@ -819,7 +818,6 @@ bool Srv_session::detach()
   // restore fields
   thd_.protocol = &thd_.protocol_text;
   thd_.reset_stmt_da();
-  thd_.net.vio = default_vio_to_restore_;
 
   thd_.restore_globals();
 

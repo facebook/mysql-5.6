@@ -2423,7 +2423,10 @@ public:
 #ifdef HAVE_QUERY_CACHE
   Query_cache_tls query_cache_tls;
 #endif
-  NET	  net;				// client connection descriptor
+private:
+  NET	 net_;				// client connection descriptor
+  NET* net_ptr_ = &net_;  // current NET - used in detached sessions
+public:
   /** Aditional network instrumentation for the server only. */
   NET_SERVER m_net_server_extension;
   Protocol *protocol;			// Current protocol
@@ -2502,6 +2505,35 @@ public:
   void copy_stage_info(const THD* other) {
     proc_info = other->proc_info;
     m_current_stage_key = other->m_current_stage_key;
+  }
+
+  NET* get_net() {
+    NET* ret = get_net_nullable();
+    DBUG_ASSERT(ret != nullptr);
+    return ret;
+  }
+
+  const NET* get_net() const {
+    const NET* ret = get_net_nullable();
+    DBUG_ASSERT(ret != nullptr);
+    return ret;
+  }
+
+  NET* get_net_nullable() {
+    return net_ptr_;
+  }
+
+  const NET* get_net_nullable() const {
+    return net_ptr_;
+  }
+
+  void clear_net() {
+    net_ptr_ = nullptr;
+  }
+
+  void set_net(NET* other_net) {
+    DBUG_ASSERT(other_net != nullptr);
+    net_ptr_ = other_net;
   }
 
   /*
@@ -4028,7 +4060,10 @@ public:
     DBUG_VOID_RETURN;
   }
 #ifndef EMBEDDED_LIBRARY
-  inline bool vio_ok() const { return net.vio != 0; }
+  inline bool vio_ok() const {
+    const NET* net = get_net_nullable();
+    return net != nullptr && net->vio != 0;
+  }
   /** Return FALSE if connection to client is broken. */
   bool is_connected()
   {
@@ -4037,7 +4072,9 @@ public:
       not using vio. So this function always returns true for all
       system threads.
     */
-    return system_thread || (vio_ok() ? vio_is_connected(net.vio) : FALSE);
+    return system_thread || (vio_ok()
+        ? vio_is_connected(get_net()->vio)
+        : FALSE);
   }
 #else
   inline bool vio_ok() const { return TRUE; }

@@ -1534,10 +1534,11 @@ int Old_rows_log_event::do_apply_event(Relay_log_info const *rli)
           Error reporting borrowed from Query_log_event with many excessive
           simplifications (we don't honour --slave-skip-errors)
         */
-        uint actual_error= thd->net.last_errno;
+        const NET* net = thd->get_net();
+        uint actual_error= net->last_errno;
         rli->report(ERROR_LEVEL, actual_error,
                     "Error '%s' in %s event: when locking tables",
-                    (actual_error ? thd->net.last_error :
+                    (actual_error ? net->last_error :
                      "unexpected success or fatal error"),
                     get_type_str());
         thd->is_fatal_error= 1;
@@ -1711,10 +1712,11 @@ int Old_rows_log_event::do_apply_event(Relay_log_info const *rli)
         break;
 
       default:
-	rli->report(ERROR_LEVEL, thd->net.last_errno,
+        const NET* net = thd->get_net();
+	rli->report(ERROR_LEVEL, net->last_errno,
                     "Error in %s event: row application failed. %s",
                     get_type_str(),
-                    thd->net.last_error);
+                    net->last_error);
        thd->is_slave_error= 1;
 	break;
       }
@@ -1749,12 +1751,13 @@ int Old_rows_log_event::do_apply_event(Relay_log_info const *rli)
 
   if (error)
   {                     /* error has occured during the transaction */
-    rli->report(ERROR_LEVEL, thd->net.last_errno,
+    const NET* net = thd->get_net();
+    rli->report(ERROR_LEVEL, net->last_errno,
                 "Error in %s event: error during transaction execution "
                 "on table %s.%s. %s",
                 get_type_str(), table->s->db.str,
                 table->s->table_name.str,
-                thd->net.last_error);
+                net->last_error);
 
     /*
       If one day we honour --skip-slave-errors in row-based replication, and
@@ -1889,9 +1892,9 @@ Old_rows_log_event::do_update_pos(Relay_log_info *rli)
      */
     rli->stmt_done(log_pos);
     /*
-      Clear any errors in thd->net.last_err*. It is not known if this is
+      Clear any errors in thd->get_net()->last_err*. It is not known if this is
       needed or not. It is believed that any errors that may exist in
-      thd->net.last_err* are allowed. Examples of errors are "key not
+      thd->get_net()->last_err* are allowed. Examples of errors are "key not
       found", which is produced in the test case rpl_row_conflicts.test
     */
     thd->clear_error();
@@ -2631,9 +2634,10 @@ Write_rows_log_event_old::do_exec_row(const Relay_log_info *const rli)
 {
   DBUG_ASSERT(m_table != NULL);
   int error= write_row(rli, TRUE /* overwrite */);
-  
-  if (error && !thd->net.last_errno)
-    thd->net.last_errno= error;
+
+  NET* net = thd->get_net();
+  if (error && !net->last_errno)
+    net->last_errno= error;
       
   return error; 
 }

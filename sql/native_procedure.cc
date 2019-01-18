@@ -541,7 +541,7 @@ int ExecutionContextImpl::send_metadata() {
 
   // Write column count.
   uchar *pos = net_store_length(buff, m_columns.size());
-  if (my_net_write(&thd->net, buff, (size_t)(pos - buff))) {
+  if (my_net_write(thd->get_net(), buff, (size_t)(pos - buff))) {
     return EC_NET_ERR;
   }
 
