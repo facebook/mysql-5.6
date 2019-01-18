@@ -6185,6 +6185,14 @@ void dump_timed_out_connection_socket_buffer(struct st_connection *con) {
   dynstr_free(&ds);
 }
 
+static void set_default_auth(MYSQL *mysql) {
+  if (opt_default_auth == nullptr) {
+    mysql_options(mysql, MYSQL_DEFAULT_AUTH, "caching_sha2_password");
+  } else {
+    mysql_options(mysql, MYSQL_DEFAULT_AUTH, opt_default_auth);
+  }
+}
+
 /*
   Connect to a server doing several retries if needed.
 
@@ -6227,11 +6235,7 @@ static void safe_connect(MYSQL *mysql, const char *name, const char *host,
                  "mysqltest");
   mysql_options(mysql, MYSQL_OPT_CAN_HANDLE_EXPIRED_PASSWORDS,
                 &can_handle_expired_passwords);
-  if (opt_default_auth == nullptr) {
-    mysql_options(mysql, MYSQL_DEFAULT_AUTH, "caching_sha2_password");
-  } else {
-    mysql_options(mysql, MYSQL_DEFAULT_AUTH, opt_default_auth);
-  }
+  set_default_auth(mysql);
   while (!mysql_real_connect_wrapper(
       mysql, host, user, pass, db, port, sock,
       CLIENT_MULTI_STATEMENTS | CLIENT_REMEMBER_OPTIONS)) {
@@ -6354,6 +6358,7 @@ static int connect_n_handle_errors(struct st_command *command, MYSQL *con,
       if (i >= 0) goto do_handle_error; /* expected error, handle */
 
       my_sleep(connection_retry_sleep); /* unexpected error, wait */
+      set_default_auth(con);
       continue;                         /* and give it 1 more chance */
     }
 
@@ -6610,12 +6615,7 @@ static void do_connect(struct st_command *command) {
   if (ds_default_auth.length)
     mysql_options(&con_slot->mysql, MYSQL_DEFAULT_AUTH, ds_default_auth.str);
   else {
-    if (opt_default_auth == nullptr) {
-      mysql_options(&con_slot->mysql, MYSQL_DEFAULT_AUTH,
-                    "caching_sha2_password");
-    } else {
-      mysql_options(&con_slot->mysql, MYSQL_DEFAULT_AUTH, opt_default_auth);
-    }
+    set_default_auth(&con_slot->mysql);
   }
 
   /* Set server public_key */
