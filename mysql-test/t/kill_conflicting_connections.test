@@ -14,7 +14,7 @@ create table t1 (i int);
 set lock_wait_timeout = 0.02;
 
 --echo # check both conn exist
---replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <RExam> 10 <RSent> 11 <TID>
+--replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <RExam> 10 <RSent> 11 <TID> 12 <SrvId>
 show processlist;
 
 ## Check that operation is blocked without high_priority_cmd flag
@@ -23,7 +23,7 @@ show processlist;
 select @@read_only;
 
 --echo # check other conn still exists
---replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <RExam> 10 <RSent> 11 <TID>
+--replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <RExam> 10 <RSent> 11 <TID> 12 <SrvId>
 show processlist;
 
 ## Enable hi priority flag and check that operation is not blocked anymore 
@@ -33,7 +33,7 @@ select @@kill_conflicting_connections;
 select @@read_only;
 
 --echo # check the other connection is gone
---replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <RExam> 10 <RSent> 11 <TID>
+--replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <RExam> 10 <RSent> 11 <TID> 12 <SrvId>
 show processlist;
 
 ##
@@ -77,7 +77,7 @@ set kill_conflicting_connections = 1;
 --eval unlock tables;
 
 --echo # check the other connection is gone
---replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <RExam> 10 <RSent> 11 <TID>
+--replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <RExam> 10 <RSent> 11 <TID> 12 <SrvId>
 show processlist;
 
 

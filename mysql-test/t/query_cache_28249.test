@@ -67,6 +67,7 @@ let $wait_condition= SELECT COUNT(*) = 1 FROM information_schema.processlist
 WHERE state = 'Waiting for table metadata lock'
   AND info = '$select_for_qc';
 --source include/wait_condition.inc
+--replace_result 'Query attributes' 'Query'
 eval
 SELECT user,command,state,info FROM information_schema.processlist
 WHERE state = 'Waiting for table metadata lock'

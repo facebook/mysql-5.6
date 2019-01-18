@@ -86,7 +86,7 @@ describe t1;
 --echo connection: default (for show processlist)
 connection default;
 --echo # both $con_block and $con_kill exist
---replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <RExam> 10 <RSent> 11 <TID>
+--replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <RExam> 10 <RSent> 11 <TID> 12 <SrvID>
 show processlist;
 
 --echo connection: $con_kill
@@ -138,7 +138,7 @@ if (!$use_sys_var) {
 
 --echo connection: default (for show processlist)
 connection default;
---replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <RExam> 10 <RSent> 11 <TID>
+--replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <RExam> 10 <RSent> 11 <TID> 12 <SrvID>
 show processlist;
 
 disconnect con1;

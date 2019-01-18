@@ -71,7 +71,7 @@ let $count_sessions= 1;
 --echo ## Switch to default connection
 connection default;
 --echo ## Show processlist: only the default connection will be listed
---replace_column 1 - 3 localhost 5 - 6 - 7 - 8 - 9 - 10 - 11 -
+--replace_column 1 - 3 localhost 5 - 6 - 7 - 8 - 9 - 10 - 11 - 12 -
 --replace_result init STATE "cleaning up" STATE
 --sorted_result
 show processlist;
@@ -98,7 +98,7 @@ while ($i<=4) {
 --echo ## Switch to default connection
 connection default;
 --echo ## Show processlist: totally 9 connections will be listed: the 8 non-admin connections and the default one
---replace_column 1 - 3 localhost 5 - 6 - 7 - 8 - 9 - 10 - 11 -
+--replace_column 1 - 3 localhost 5 - 6 - 7 - 8 - 9 - 10 - 11 - 12 -
 --replace_result init STATE "cleaning up" STATE
 --sorted_result
 show processlist;
@@ -121,7 +121,7 @@ while ($i<=8) {
 --echo ## Switch to default connection
 connection default;
 --echo ## Show processlist: totally 14 connections will be listed: the 5 admin connections, the 8 non-admin connections, and the default one
---replace_column 1 - 3 localhost 5 - 6 - 7 - 8 - 9 - 10 - 11 -
+--replace_column 1 - 3 localhost 5 - 6 - 7 - 8 - 9 - 10 - 11 - 12 -
 --replace_result init STATE "cleaning up" STATE
 --sorted_result
 show processlist;

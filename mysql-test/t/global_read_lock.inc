@@ -13,6 +13,7 @@ send INSERT INTO t1 SELECT sleep(10);
 # Back on the original thread show the process list
 connection default;
 real_sleep 1;
+--replace_result 'Query attributes' Query
 SELECT command, info FROM information_schema.processlist ORDER BY command, info;
 
 # In the second thread set super_read_only on.  Setting this used to block on
@@ -26,6 +27,7 @@ send SET GLOBAL super_read_only=1;
 # SET GLOBAL super_read_only is not waiting (unless in legacy mode)
 connection default;
 real_sleep 1;
+--replace_result 'Query attributes' Query
 SELECT command, info FROM information_schema.processlist ORDER BY command, info;
 
 if (!$legacy_mode) {

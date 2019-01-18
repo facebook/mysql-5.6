@@ -6,8 +6,8 @@ set lock_wait_timeout = 0.02;
 # check both conn exist
 show processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	<SrvId>
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	<SrvId>
 set global read_only = 1;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on global read: 
 select @@read_only;
@@ -16,8 +16,8 @@ select @@read_only;
 # check other conn still exists
 show processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	<SrvId>
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	<SrvId>
 set kill_conflicting_connections = 1;
 select @@kill_conflicting_connections;
 @@kill_conflicting_connections
@@ -29,7 +29,7 @@ select @@read_only;
 # check the other connection is gone
 show processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	<SrvId>
 set global read_only = 0;
 CREATE USER test_user;
 connection: conn2
@@ -50,6 +50,6 @@ unlock tables;;
 # check the other connection is gone
 show processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
-<Id>	test_user	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	0
+<Id>	test_user	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>	<SrvId>
 drop user test_user;
 drop table t1;

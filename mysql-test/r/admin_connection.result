@@ -70,7 +70,7 @@ super2
 ## Show processlist: only the default connection will be listed
 show processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
--	root	localhost	test	-	-	-	-	-	-	-	0
+-	root	localhost	test	-	-	-	-	-	-	-	-
 ## Start connections non_admin_con_super1_1,2,3,4
 ## Connections non_admin_con_super1_5 will fail due to too many connections for a user
 connect(127.0.0.1,super1,,mysql,MASTER_PORT,MASTER_SOCKET);
@@ -80,15 +80,15 @@ ERROR 42000: User super1 already has more than 'max_user_connections' active con
 ## Show processlist: totally 9 connections will be listed: the 8 non-admin connections and the default one
 show processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
--	root	localhost	test	-	-	-	-	-	-	-	0
--	super1	localhost	mysql	-	-	-	-	-	-	-	0
--	super1	localhost	mysql	-	-	-	-	-	-	-	0
--	super1	localhost	mysql	-	-	-	-	-	-	-	0
--	super1	localhost	mysql	-	-	-	-	-	-	-	0
--	super2	localhost	mysql	-	-	-	-	-	-	-	0
--	super2	localhost	mysql	-	-	-	-	-	-	-	0
--	super2	localhost	mysql	-	-	-	-	-	-	-	0
--	super2	localhost	mysql	-	-	-	-	-	-	-	0
+-	root	localhost	test	-	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-	-
 ## Start a connection fail_non_admin_con9 at master port
 ## This will fail due to the limit of the max number of connections
 connect(127.0.0.1,root,,mysql,MASTER_PORT,MASTER_SOCKET);
@@ -100,20 +100,20 @@ ERROR HY000: Too many connections
 ## Show processlist: totally 14 connections will be listed: the 5 admin connections, the 8 non-admin connections, and the default one
 show processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
--	root	localhost	mysql	-	-	-	-	-	-	-	0
--	root	localhost	mysql	-	-	-	-	-	-	-	0
--	root	localhost	mysql	-	-	-	-	-	-	-	0
--	root	localhost	mysql	-	-	-	-	-	-	-	0
--	root	localhost	mysql	-	-	-	-	-	-	-	0
--	root	localhost	test	-	-	-	-	-	-	-	0
--	super1	localhost	mysql	-	-	-	-	-	-	-	0
--	super1	localhost	mysql	-	-	-	-	-	-	-	0
--	super1	localhost	mysql	-	-	-	-	-	-	-	0
--	super1	localhost	mysql	-	-	-	-	-	-	-	0
--	super2	localhost	mysql	-	-	-	-	-	-	-	0
--	super2	localhost	mysql	-	-	-	-	-	-	-	0
--	super2	localhost	mysql	-	-	-	-	-	-	-	0
--	super2	localhost	mysql	-	-	-	-	-	-	-	0
+-	root	localhost	mysql	-	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-	-
+-	root	localhost	test	-	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-	-
 ## Switch to non_admin_con_super1_1
 select user from mysql.user order by 1 asc;
 user

@@ -1861,6 +1861,8 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
 #if defined(ENABLED_PROFILING)
       thd->profiling.start_new_query();
 #endif
+      // stage information (for SHOW PROCESSLIST)
+      thd->copy_stage_info(save_thd);
     }
 
     // Fall through to COM_QUERY
@@ -2498,6 +2500,9 @@ done:
 
   // if it's a COM RPC, clean up all the server session information
   if (srv_session) {
+    // stage information (for SHOW PROCESSLIST)
+    save_thd->copy_stage_info(thd);
+
     thd = save_thd;
     cleanup_com_rpc(thd, std::move(srv_session), state_changed);
     thd->set_command(COM_SLEEP);

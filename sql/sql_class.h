@@ -2499,6 +2499,11 @@ public:
   Security_context* security_context() const { return security_ctx; }
   void set_security_context(Security_context *sctx) { security_ctx= sctx; }
 
+  void copy_stage_info(const THD* other) {
+    proc_info = other->proc_info;
+    m_current_stage_key = other->m_current_stage_key;
+  }
+
   /*
     Points to info-string that we show in SHOW PROCESSLIST
     You are supposed to update thd->proc_info only if you have coded

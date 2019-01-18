@@ -2297,6 +2297,9 @@ static THD* get_session_thd_locked(THD* conn_thd, THD* srv_session_thd,
 // Get command from session if any attached, otherwise from conn_thd.
 static enum enum_server_command get_session_command(THD* conn_thd) {
   auto srv_session = conn_thd->get_attached_srv_session_safe();
+  if (srv_session == nullptr) {
+    srv_session = conn_thd->get_default_srv_session();
+  }
   return srv_session ? srv_session->get_thd()->get_command()
                       : conn_thd->get_command();
 }
@@ -2337,6 +2340,9 @@ static void set_thread_info_common(thread_info *thd_info, THD *thd,
 
   // ensures session thd does not get destroyed before collecting info
   auto srv_session = conn_thd->get_attached_srv_session_safe();
+  if (srv_session == nullptr) {
+    srv_session = conn_thd->get_default_srv_session();
+  }
   THD* srv_session_thd = srv_session?srv_session->get_thd():NULL;
 
   if ((thd_info->db= conn_thd->db))             // Safe test
@@ -2366,6 +2372,9 @@ static void set_thread_info_transaction_list(thread_info *thd_info,
                                               THD *conn_thd)
 {
   auto srv_session = conn_thd->get_attached_srv_session();
+  if (srv_session == nullptr) {
+    srv_session = conn_thd->get_default_srv_session();
+  }
   THD* tmp = srv_session?srv_session->get_thd():conn_thd;
 
   auto time_stats = get_thd_time_stats(tmp);
@@ -2629,6 +2638,9 @@ static bool fill_fields_processlist(THD *thd, THD *conn_thd, TABLE *table,
 
   // get shared_ptr to session to ensure thd does not get destroyed
   auto srv_session = conn_thd->get_attached_srv_session_safe();
+  if (srv_session == nullptr) {
+    srv_session = conn_thd->get_default_srv_session();
+  }
   THD* srv_session_thd = srv_session?srv_session->get_thd():NULL;
 
   /* MYSQL_TIME */
@@ -2706,6 +2718,9 @@ static bool fill_fields_transaction_list(THD *thd, THD *conn_thd, TABLE *table,
 
   // get shared_ptr to session to ensure thd does not get destroyed
   auto srv_session = conn_thd->get_attached_srv_session_safe();
+  if (srv_session == nullptr) {
+    srv_session = conn_thd->get_default_srv_session();
+  }
   THD* srv_session_thd = srv_session?srv_session->get_thd():NULL;
 
   // all other info will be collected from session thd
