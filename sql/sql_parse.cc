@@ -1854,6 +1854,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       thd->set_query_id(save_thd->query_id);
       thd->enable_slow_log = save_thd->enable_slow_log;
       thd->start_utime = save_thd->start_utime;
+      thd->start_time = save_thd->start_time;
       thd->utime_after_lock = save_thd->utime_after_lock;
       if (opt_log_slow_extra) {
         query_start_status= thd->status_var;
@@ -1863,6 +1864,8 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
 #if defined(ENABLED_PROFILING)
       thd->profiling.start_new_query();
 #endif
+      thd->set_time();
+
       // stage information (for SHOW PROCESSLIST)
       thd->copy_stage_info(save_thd);
     }

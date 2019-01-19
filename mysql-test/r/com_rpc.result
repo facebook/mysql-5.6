@@ -472,6 +472,15 @@ SELECT attached_id != 0, attached_id = attached_id,
 orig_id != attached_id, orig_id = orig_id;
 attached_id != 0	attached_id = attached_id	orig_id != attached_id	orig_id = orig_id
 1	1	1	1
+
+# Case 18: NOW() on a detached session returns the correct time
+#          An early bug had it returning the time the session was
+#          detached
+
+SET @my_var='new_value';
+SELECT IF(time1 != time2, 'Succeeded', 'Failed');
+IF(time1 != time2, 'Succeeded', 'Failed')
+Succeeded
 drop database db_default;
 drop database db_rpc;
 drop user scriptro;

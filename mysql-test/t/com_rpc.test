@@ -880,6 +880,34 @@ connection default;
 eval SELECT $attached_id != 0, $attached_id = $detached_id,
             $orig_id != $attached_id, $final_id = $orig_id;
 
+--echo
+--echo # Case 18: NOW() on a detached session returns the correct time
+--echo #          An early bug had it returning the time the session was
+--echo #          detached
+--echo
+
+connect (conn,localhost,root,,db_default);
+
+# use an rpc_role
+--query_attrs_add rpc_role scriptro
+--query_attrs_add rpc_db db_rpc
+
+# run a query that causes state change
+SET @my_var='new_value';
+let $rpc_id=get_rpc_id();
+--query_attrs_delete rpc_role
+--query_attrs_delete rpc_db
+--query_attrs_add rpc_id $rpc_id
+
+let $first_time = `SELECT second(now())`;
+sleep 2;
+let $second_time = `SELECT second(now())`;
+--replace_result $first_time time1 $second_time time2
+eval SELECT IF($first_time != $second_time, 'Succeeded', 'Failed');
+
+disconnect conn;
+
+
 # delete all dbs and users
 connection default;
 

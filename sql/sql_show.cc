@@ -2643,8 +2643,10 @@ static bool fill_fields_processlist(THD *thd, THD *conn_thd, TABLE *table,
   THD* srv_session_thd = srv_session?srv_session->get_thd():NULL;
 
   /* MYSQL_TIME */
-  table->field[5]->store((longlong)(conn_thd->start_time.tv_sec ?
-      now - conn_thd->start_time.tv_sec : 0), FALSE);
+  time_t start_time = srv_session_thd
+      ? srv_session_thd->start_time.tv_sec
+      : conn_thd->start_time.tv_sec;
+  table->field[5]->store((longlong)(start_time ? now - start_time : 0), FALSE);
 
   // all other info will be collected from session thd
   auto tmp = get_session_thd_locked(conn_thd, srv_session_thd, mysys_var);
