@@ -467,7 +467,7 @@ template <size_t buf_length> class Rdb_buf_writer {
  public:
   Rdb_buf_writer(const Rdb_buf_writer &) = delete;
   Rdb_buf_writer &operator=(const Rdb_buf_writer &) = delete;
-  Rdb_buf_writer() = default;
+  Rdb_buf_writer() { reset(); }
 
   void write_uint32(const uint32 n) {
     DBUG_ASSERT(m_ptr + sizeof(n) <= m_buf.data() + buf_length);
@@ -498,14 +498,20 @@ template <size_t buf_length> class Rdb_buf_writer {
   void write(const char *buf, const size_t size) {
     DBUG_ASSERT(m_ptr + size <= m_buf.data() + buf_length);
     memcpy(m_ptr, buf, size);
+    m_ptr += size;
   }
 
   void write(const uchar *buf, const size_t size) {
     DBUG_ASSERT(m_ptr + size <= m_buf.data() + buf_length);
     memcpy(m_ptr, buf, size);
+    m_ptr += size;
   }
 
-  const char *data() { return reinterpret_cast<char *>(m_buf.data()); }
+  void reset() { m_ptr = m_buf.data(); }
+
+  const char *data() const {
+    return reinterpret_cast<const char *>(m_buf.data());
+  }
 
   size_t capacity() { return buf_length; }
 
@@ -516,7 +522,7 @@ template <size_t buf_length> class Rdb_buf_writer {
 
  private:
   std::array<uchar, buf_length> m_buf;
-  uchar *m_ptr = m_buf.data();
+  uchar *m_ptr;
 };
 
 } // namespace myrocks
