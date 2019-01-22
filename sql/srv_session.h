@@ -73,7 +73,7 @@ public:
   static my_thread_id parse_session_key(const std::string& key);
   static std::shared_ptr<Srv_session> access_session(my_thread_id session_id);
   static void remove_session(my_thread_id session_id);
-  static void remove_session_if_ids_match(const Srv_session& session,
+  static void remove_session_if_ids_match(Srv_session& session,
                                           HHWheelTimer::ID id);
   static bool store_session(std::shared_ptr<Srv_session> session);
 
@@ -207,15 +207,24 @@ public:
 
   // Enable the wait timeout for this detached session
   void enableWaitTimeout() {
-    auto timeout = std::chrono::seconds(thd_get_net_wait_timeout(get_thd()));
-    callbackId_ = hhWheelTimer->scheduleTimeout(shared_from_this(),
-        std::chrono::duration_cast<std::chrono::milliseconds>(timeout));
+    if (!killed_) {
+      auto timeout = std::chrono::seconds(thd_get_net_wait_timeout(get_thd()));
+      callbackId_ = hhWheelTimer->scheduleTimeout(shared_from_this(),
+          std::chrono::duration_cast<std::chrono::milliseconds>(timeout));
+    }
   }
 
   // Disable the wait timeout
   void disableWaitTimeout() {
     hhWheelTimer->cancelTimeout(shared_from_this());
     callbackId_ = 0;
+  }
+
+  // (Re)enqueue this session on the wheel timer with an immediate timeout
+  void enableImmediateKill() {
+    killed_ = true;
+    callbackId_ = hhWheelTimer->scheduleTimeout(shared_from_this(),
+        std::chrono::milliseconds(0));
   }
 
 private:
@@ -235,8 +244,6 @@ private:
     // We want to do this under a lock for thread safety, so the check is
     // passed in as a predicate function.
     Srv_session::remove_session_if_ids_match(*this, id);
-    // TODO (jkedgar) add this session's ID into a map so we can detect that
-    // it timed out.
   }
 
   // We don't need to know that the timer was cancelled
@@ -263,6 +270,8 @@ private:
 
   // Set to true once a session has been detached
   bool has_been_detached_ = false;
+
+  bool killed_ = false;
 
   // Used to provide exclusion: a session can be attached to only one
   // connection thread at one time.

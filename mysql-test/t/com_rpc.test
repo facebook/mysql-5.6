@@ -313,9 +313,10 @@ connection default;
 --replace_result $rpc_id rpc_id
 eval KILL $rpc_id;
 
---echo # Srv_session should not be listed
---replace_result $rpc_id rpc_id
-eval select * from information_schema.srv_sessions where id=$rpc_id;
+# KILLing detached sessions occurs out-of-bound.  Wait for it...
+let $wait_condition =
+    select count(*) = 0 from information_schema.srv_sessions where id=$rpc_id;
+--source include/wait_condition.inc
 
 --echo # Connection should not be killed
 connection con2;
@@ -340,7 +341,7 @@ query_attrs_add rpc_db db_default;
 SET @my_var='new_value';
 let $rpc_id=get_rpc_id();
 
-# attemp to get lock from the SRV session, query remain running
+# attempt to get lock from the SRV session, query remain running
 query_attrs_add rpc_id $rpc_id;
 --send SELECT GET_LOCK('my_lock', 3600)
 
@@ -378,7 +379,7 @@ reap;
 connection default;
 --replace_result $rpc_id rpc_id
 eval KILL $rpc_id;
-let $wait_condition = select count(*) = 0 from information_schema.processlist where SRV_ID=$rpc_id;
+let $wait_condition = select count(*) = 0 from information_schema.srv_sessions where ID=$rpc_id;
 --source include/wait_condition.inc
 
 --replace_result $rpc_id rpc_id
@@ -389,7 +390,7 @@ eval select * from information_schema.srv_sessions where id=$rpc_id;
 eval select * from information_schema.processlist where SRV_ID=$rpc_id;
 
 --echo
---echo # KILL conn thd that is running an srv session query returns error.
+--echo # KILL conn thd that is running a srv session will kill the srv session
 connect (con5, localhost, root,,db_default);
 let $connection_id=`SELECT CONNECTION_ID()`;
 
@@ -406,12 +407,7 @@ let $wait_condition = select count(*) = 1 from information_schema.processlist
   where state = "User lock" and srv_id = $rpc_id6;
 --source include/wait_condition.inc
 --replace_result $connection_id ID
---error 1095
 eval KILL QUERY $connection_id;
-
-# now kill the session
---replace_result $rpc_id6 rpc_id6
-eval KILL QUERY $rpc_id6;
 
 # try to use this connection
 connection con5;
@@ -423,7 +419,7 @@ SELECT 1;
 connection default;
 --replace_result $rpc_id rpc_id
 --error 1094
-eval KILL $rpc_id;  # will fail as it was already removed up
+eval KILL $rpc_id;  # will fail as it was already removed up above
 
 --echo
 # cleanup, keep this at the end of the test.
@@ -454,7 +450,7 @@ eval KILL $rpc_id6;
 eval KILL $lock_rpc_id;
 
 # should be nothing left in srv_sessions and processlist
-let $wait_condition = select count(id) = 1 from information_schema.processlist;
+let $wait_condition = select count(id) = 0 from information_schema.srv_sessions;
 --source include/wait_condition.inc
 select count(id) from information_schema.srv_sessions;
 select count(id) from information_schema.processlist;

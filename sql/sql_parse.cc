@@ -8803,127 +8803,6 @@ void add_join_natural(TABLE_LIST *a, TABLE_LIST *b, List<String> *using_fields,
   lex->prev_join_using= using_fields;
 }
 
-
-/**
-  kill on thread.
-
-  @param thd			Thread class
-  @param id			Thread id
-  @param only_kill_query        Should it kill the query or the connection
-
-  @note
-    This is written such that we have a short lock on LOCK_thread_count
-*/
-
-uint kill_one_thread(THD *thd, my_thread_id id, bool only_kill_query)
-{
-  uint error=ER_NO_SUCH_THREAD;
-  DBUG_ENTER("kill_one_thread");
-  DBUG_PRINT("enter", ("id=%u only_kill=%d", id, only_kill_query));
-  THD* tmp = NULL;
-
-  // maybe it's a srv_session id
-  std::shared_ptr<Srv_session> srv_session;
-#ifndef EMBEDDED_LIBRARY
-  srv_session = Srv_session::access_session(id);
-
-  if (srv_session)
-  {
-    if (!only_kill_query)
-    {
-      // remove session from map
-      DBUG_PRINT("info", ("Kill CONN for srv_session, removing session."));
-      Srv_session::remove_session(id);
-
-      // For safety, clear the db_read_only_hash data structure. This is
-      // because after a THD is removed from the srv_session map in the above
-      // remove_session call, it's possible for entries in that hash to be
-      // free'd, without this THD being updated to reflect that. This is
-      // because this THD now exists outside of both global_thread_list and
-      // the srv_session map, and cannot updated by other threads.
-      //
-      // It's unlikely that the kill code paths will need to read from
-      // db_read_only_hash, but it's hard to verify all codepaths.
-      tmp = srv_session->get_thd();
-      mysql_mutex_lock(&tmp->LOCK_thd_db_read_only_hash);
-      my_hash_free(&tmp->db_read_only_hash);
-      mysql_mutex_unlock(&tmp->LOCK_thd_db_read_only_hash);
-    }
-    // We can't exit early if the session is not attached because
-    // it might have already been removed from the map
-    // continue executing code below with conn thread id
-    // continue to kill the query, set only_kill_query=true as connection
-    // should still remain active
-    only_kill_query = true;
-    tmp = srv_session->get_thd();
-    mysql_mutex_lock(&tmp->LOCK_thd_data);
-#ifndef DBUG_OFF
-    auto conn_id = srv_session->get_conn_thd_id();
-    DBUG_PRINT("info", ("Found srv_session to kill conn_thd=%d", conn_id));
-#endif // DBUG_OFF
-  }
-#endif // EMBEDDED_LIBRARY
-
-  if (!srv_session)
-  {
-    /* If successful we'll have LOCK_thd_data on return. */
-    tmp= find_thd_from_id(id);
-
-    // If the THD has attached, deny to execute that kill.
-    // Kill for sessions should be done using the srv session id,
-    // not the connection thd. The reason for this is that the connection thd
-    // could be running queries for another session by the time kill comes in.
-    if (tmp && tmp->get_attached_srv_session_safe())
-    {
-      DBUG_PRINT("error", ("Not allowed to kill conn with attached session"
-                            " conn_thid=%d", id));
-      mysql_mutex_unlock(&tmp->LOCK_thd_data);
-      error = ER_KILL_DENIED_ERROR;
-      tmp = NULL;
-    }
-  }
-
-  if (tmp)
-  {
-
-    /*
-      If we're SUPER, we can KILL anything, including system-threads.
-      No further checks.
-
-      KILLer: thd->security_ctx->user could in theory be NULL while
-      we're still in "unauthenticated" state. This is a theoretical
-      case (the code suggests this could happen, so we play it safe).
-
-      KILLee: tmp->security_ctx->user will be NULL for system threads.
-      We need to check so Jane Random User doesn't crash the server
-      when trying to kill a) system threads or b) unauthenticated users'
-      threads (Bug#43748).
-
-      If user of both killer and killee are non-NULL, proceed with
-      slayage if both are string-equal.
-    */
-
-    if ((thd->security_ctx->master_access & SUPER_ACL) ||
-        thd->security_ctx->user_matches(tmp->security_ctx))
-    {
-      /* process the kill only if thread is not already undergoing any kill
-         connection.
-      */
-      if (tmp->killed != THD::KILL_CONNECTION)
-      {
-        tmp->awake(only_kill_query ? THD::KILL_QUERY : THD::KILL_CONNECTION);
-      }
-      error= 0;
-    }
-    else
-      error=ER_KILL_DENIED_ERROR;
-    mysql_mutex_unlock(&tmp->LOCK_thd_data);
-  }
-  DBUG_PRINT("exit", ("%d", error));
-  DBUG_RETURN(error);
-}
-
-
 /*
   kills a thread and sends response
 
@@ -8938,7 +8817,7 @@ static
 void sql_kill(THD *thd, my_thread_id id, bool only_kill_query)
 {
   uint error;
-  if (!(error= kill_one_thread(thd, id, only_kill_query)))
+  if (!(error= thd->kill_one_thread(id, only_kill_query)))
   {
     if (! thd->killed)
       my_ok(thd);

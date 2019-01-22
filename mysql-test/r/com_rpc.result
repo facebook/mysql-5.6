@@ -141,9 +141,6 @@ ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	CONN_ID
 1	root	localhost	db_default	Sleep	0	Detached	NULL	0
 # KILL Unattached Session. It will be removed from session list.
 KILL rpc_id;
-# Srv_session should not be listed
-select * from information_schema.srv_sessions where id=rpc_id;
-ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	CONN_ID
 # Connection should not be killed
 select 1;
 1
@@ -181,12 +178,10 @@ ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	CONN_ID
 select * from information_schema.processlist where SRV_ID=rpc_id;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO	SRV_ID
 
-# KILL conn thd that is running an srv session query returns error.
+# KILL conn thd that is running a srv session will kill the srv session
 SET @my_var='new_value';
 SELECT GET_LOCK('my_lock', 3600);
 KILL QUERY ID;
-ERROR HY000: You are not owner of thread ID
-KILL QUERY rpc_id6;
 GET_LOCK('my_lock', 3600)
 NULL
 SELECT 1;

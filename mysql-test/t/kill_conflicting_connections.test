@@ -32,6 +32,12 @@ select @@kill_conflicting_connections;
 --eval set global read_only = 1
 select @@read_only;
 
+if (`SELECT $RPC_PROTOCOL > 0`)
+{
+  # When using rpc_protocol the session gets killed instead of the connection
+  --disconnect conn1
+}
+
 --echo # check the other connection is gone
 --replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <RExam> 10 <RSent> 11 <TID> 12 <SrvId>
 show processlist;
@@ -75,6 +81,12 @@ set lock_wait_timeout = 0.02;
 set kill_conflicting_connections = 1;
 --eval lock tables t1 write;
 --eval unlock tables;
+
+if (`SELECT $RPC_PROTOCOL > 0`)
+{
+  # When using rpc_protocol the session gets killed instead of the connection
+  --disconnect conn2
+}
 
 --echo # check the other connection is gone
 --replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <RExam> 10 <RSent> 11 <TID> 12 <SrvId>

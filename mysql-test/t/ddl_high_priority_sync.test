@@ -15,6 +15,12 @@ send ALTER TABLE t1 rename new_t1;
 
 connection default;
 
+if (`SELECT $RPC_PROTOCOL > 0`)
+{
+  # When using rpc_protocol the session gets killed instead of the connection
+  --disconnect con1
+}
+
 let $count_sessions = 2;
 --source include/wait_until_count_sessions.inc
 

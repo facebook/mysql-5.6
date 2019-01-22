@@ -3852,6 +3852,11 @@ public:
    */
   virtual bool kill_shared_locks(MDL_context_owner *in_use);
 
+  uint kill_one_thread(my_thread_id id, bool only_kill_query);
+  uint kill_one_thread(THD* other, bool only_kill_query) {
+    return kill_one_thread(other->thread_id(), only_kill_query);
+  }
+
   // End implementation of MDL_context_owner interface.
 
   inline sql_mode_t datetime_flags() const

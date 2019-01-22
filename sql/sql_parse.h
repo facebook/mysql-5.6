@@ -19,6 +19,7 @@
 #include "my_global.h"                          /* NO_EMBEDDED_ACCESS_CHECKS */
 #include "sql_acl.h"                            /* GLOBAL_ACLS */
 #include "global_threads.h"
+#include "srv_session.h"
 
 class Comp_creator;
 class Item;
@@ -189,6 +190,18 @@ inline THD* find_thd_from_id(my_thread_id id)
     }
   }
   mutex_unlock_all_shards(SHARDED(&LOCK_thread_count));
+
+#ifndef EMBEDDED_LIBRARY
+  if (tmp == nullptr) {
+    for (const auto& session : Srv_session::get_sorted_sessions()) {
+      if (session->get_thd()->thread_id() == id) {
+        tmp = session->get_thd();
+        mysql_mutex_lock(&tmp->LOCK_thd_data);
+        break;
+      }
+    }
+  }
+#endif
 
   return tmp;
 }

@@ -518,14 +518,16 @@ void Srv_session::remove_session(my_thread_id session_id) {
 
 constexpr ulong kIdleTimeoutMultiplier = 2;
 void Srv_session::remove_session_if_ids_match(
-    const Srv_session& session, HHWheelTimer::ID id) {
+    Srv_session& session, HHWheelTimer::ID id) {
   auto session_id = session.get_session_id();
   auto res = server_session_list.remove_if(
       session_id,
       [id](std::shared_ptr<Srv_session>& session) {
           return session->callbackId_ == id;
       });
-  if (res) {
+  if (res && !session.killed_) {
+    // If we got a normal wait timeout add this session_id to the list of
+    // timedout sessions.  Don't do this if we got here by killing the session
     auto wait_timeout = thd_get_net_wait_timeout(session.get_thd()); // seconds
     timed_out_session_list.insert(
         session_id,

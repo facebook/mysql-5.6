@@ -508,9 +508,17 @@ bool Log_to_csv_event_handler::
   result= FALSE;
 
 err:
-  if (result && !thd->killed)
-    sql_print_error("Failed to write to mysql.general_log: %s",
-                    error_handler.message());
+  if (result && !thd->killed &&
+      (command_type_len != 4 || strcmp(command_type, "Quit") != 0)) {
+    /* Don't generate the error if the current thd or its attached session
+     * (if any) has been killed. */
+    auto srv_session = thd->get_attached_srv_session();
+    if (!srv_session || !srv_session->get_thd()->killed) {
+      /* NO_LINT_DEBUG */
+      sql_print_error("Failed to write to mysql.general_log: %s",
+                      error_handler.message());
+    }
+  }
 
   if (need_rnd_end)
   {
