@@ -1,0 +1,18 @@
+{
+  "ignore_dirs": [
+    "_build-5.6-Asan",
+    "_build-5.6-Asan-PerfSchema",
+    "_build-5.6-clang",
+    "_build-5.6-Debug",
+    "_build-5.6-Debug-PerfSchema",
+    "_build-5.6-gcc6",
+    "_build-5.6-Release",
+    "_build-5.6-Release-PerfSchema",
+    "_build-5.6-rpm",
+    "_build-5.6-Valgrind"
+  ],
+  "content_hash_warming": true,
+  "content_hash_max_items": 333333,
+  "hint_num_files_per_dir": 8,
+  "fsevents_latency": 0.05
+}
