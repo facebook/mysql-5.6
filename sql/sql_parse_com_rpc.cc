@@ -196,7 +196,8 @@ std::pair<bool, std::shared_ptr<Srv_session>>  handle_com_rpc(THD *conn_thd)
     }
 
     // update db
-    if (srv_session->get_thd()->set_db(rpc_db.c_str(), rpc_db.size()))
+    if (rpc_db.size() > 0 &&
+        srv_session->get_thd()->set_db(rpc_db.c_str(), rpc_db.size()))
     {
       my_error(ER_RPC_FAILED_TO_SWITCH_DB, MYF(0), rpc_db.c_str());
       goto error;
