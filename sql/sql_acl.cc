@@ -8653,6 +8653,7 @@ acl_find_proxy_user(const char *user, const char *host, const char *ip,
 /**
   Validate if a user can proxy as another user
 
+  @param thd       the THD of the current session
   @param user      the current user (proxy user)
   @param host      the host of the user to proxy as
   @param ip        the ip of the user to proxy as
@@ -8661,8 +8662,8 @@ acl_find_proxy_user(const char *user, const char *host, const char *ip,
     @retval true     the permissions exist - accept it
     @retval false    no permissions exist - reject it
 */
-bool acl_validate_proxy_user(const char *user, const char *host, const char *ip,
-                             const char *auth_as)
+bool acl_validate_proxy_user(THD *thd, const char *user, const char *host,
+                             const char *ip, const char *auth_as)
 {
   if (!initialized)
   {
@@ -8670,12 +8671,29 @@ bool acl_validate_proxy_user(const char *user, const char *host, const char *ip,
     return TRUE;
   }
 
-  bool proxy_used;  // Not referenced
+  bool proxy_used;
 
   // If we find a valid match on the proxy permissions or the proxy user and
   // the proxied user are the same user return true;
-  return acl_find_proxy_user(user, host, ip, auth_as, &proxy_used) != nullptr ||
-      strcmp(user, auth_as) == 0;
+  auto proxy_user = acl_find_proxy_user(user, host, ip, auth_as, &proxy_used);
+  if (proxy_user && proxy_used) {
+    const char* proxied_host = proxy_user->get_proxied_host();
+    if (proxied_host) {
+      host = proxied_host;
+    }
+
+    mysql_mutex_lock(&acl_cache->lock);
+
+    auto acl_proxy_user= find_acl_user(host, auth_as, FALSE);
+    mysql_mutex_unlock(&acl_cache->lock);
+
+    if (acl_proxy_user) {
+      return !get_or_create_user_conn(thd, auth_as, host,
+            &acl_proxy_user->user_resource);
+    }
+  }
+
+  return FALSE;
 }
 
 

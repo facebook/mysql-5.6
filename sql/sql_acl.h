@@ -441,7 +441,7 @@ get_cached_table_access(GRANT_INTERNAL_INFO *grant_internal_info,
                         const char *schema_name,
                         const char *table_name);
 
-bool acl_validate_proxy_user(const char *user, const char *host,
+bool acl_validate_proxy_user(THD* thd, const char *user, const char *host,
                              const char *ip, const char *authenticated_as);
 
 bool acl_check_proxy_grant_access (THD *thd, const char *host, const char *user,

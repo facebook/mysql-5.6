@@ -1866,6 +1866,19 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
 #endif
       thd->set_time();
 
+      // This was incremented on the connection THD above, so we need to
+      // decrement it on the connection and incremente it for the session.
+      statistic_decrement(save_thd->status_var.questions, &LOCK_status);
+      statistic_increment(thd->status_var.questions, &LOCK_status);
+
+      thd->reset_user_stats_counters();
+
+      // Reset the starting values for the new THD
+      start_perf_read = thd->io_perf_read;
+      start_perf_read_blob = thd->io_perf_read_blob;
+      start_perf_read_primary = thd->io_perf_read_primary;
+      start_perf_read_secondary = thd->io_perf_read_secondary;
+
       // stage information (for SHOW PROCESSLIST)
       thd->copy_stage_info(save_thd);
     }

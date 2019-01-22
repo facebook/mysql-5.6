@@ -3319,6 +3319,8 @@ public:
   void set_user_connect(USER_CONN *uc);
   const USER_CONN* get_user_connect()
   { return m_user_connect; }
+  void copy_user_connect(const THD* other)
+  {  m_user_connect = other->m_user_connect; }
 
   void increment_user_connections_counter();
   void decrement_user_connections_counter();

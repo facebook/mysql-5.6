@@ -30,12 +30,16 @@ flush statistics;
 --echo
 --echo At start
 --echo
+# When running with --rpc_protocol we send more data - fake it!
+--replace_result 131 104
 --query_vertical select bytes_sent, bytes_received from information_schema.user_statistics where user_name = 'root';
 
 insert into userstats values (1,1);
 --echo
 --echo after insert
 --echo
+# When running with --rpc_protocol we send more data - fake it!
+--replace_result 328 247
 --query_vertical select bytes_sent, bytes_received from information_schema.user_statistics where user_name = 'root';
 
 
@@ -43,6 +47,8 @@ select * from userstats;
 --echo
 --echo after select
 --echo
+# When running with --rpc_protocol we send more data - fake it!
+--replace_result 514 379
 --query_vertical select bytes_sent, bytes_received from information_schema.user_statistics where user_name = 'root';
 
 # Cleanup

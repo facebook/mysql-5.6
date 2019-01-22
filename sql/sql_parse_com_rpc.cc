@@ -163,6 +163,8 @@ std::pair<bool, std::shared_ptr<Srv_session>>  handle_com_rpc(THD *conn_thd)
       srv_session->get_thd()->session_tracker.get_tracker(
                 SESSION_RESP_ATTR_TRACKER)->force_enable();
       conn_thd->set_default_srv_session(srv_session);
+      // newly created sessions need the net_ptr set to null
+      srv_session->get_thd()->clear_net();
     }
     else
     {
@@ -170,6 +172,7 @@ std::pair<bool, std::shared_ptr<Srv_session>>  handle_com_rpc(THD *conn_thd)
       used_default_srv_session = true;
     }
 
+    srv_session_thd = srv_session->get_thd();
     srv_session->set_host_or_ip(conn_thd->main_security_ctx.host_or_ip);
 
     // update user to the one in rpc attributes
@@ -177,14 +180,35 @@ std::pair<bool, std::shared_ptr<Srv_session>>  handle_com_rpc(THD *conn_thd)
 
     // Make sure the current user has permission to proxy for the requested
     // user
-    if (!acl_validate_proxy_user(
+    if (strcmp(conn_security_ctx->user, rpc_role.c_str()) == 0) {
+      // Attempting to proxy as ourselves - just copy the user_connect
+      srv_session_thd->copy_user_connect(conn_thd);
+    } else {
+      // For the attached session the net_ptr should be null, but we need it
+      // set to the connection's net_ptr for the acl_validate_proxy_user()
+      // call, because inside it there is a call got get_or_create_user_conn()
+      // which will attempt to increment a counter based on whether the
+      // the connection is an SSL connection or not and the net_ptr has that
+      // information.  Reset it after we call this as we may fail to use this
+      // session and we don't want to leave it set until we know we will
+      // succeed.  It will be set again outside this function by the caller.
+      DBUG_ASSERT(srv_session_thd->get_net_nullable() == nullptr);
+      srv_session_thd->set_net(conn_thd->get_net());
+
+      auto res = acl_validate_proxy_user(
+            srv_session_thd,
             conn_security_ctx->user, conn_security_ctx->get_host()->c_ptr(),
             conn_security_ctx->get_ip()->c_ptr(),
-            rpc_role.c_str()))
-    {
-      my_error(ER_RPC_NO_PERMISSION, MYF(0), conn_security_ctx->user,
-          rpc_role.c_str());
-      goto error;
+            rpc_role.c_str());
+      // Clear the net_ptr again - see above comment
+      srv_session_thd->clear_net();
+
+      if (!res)
+      {
+        my_error(ER_RPC_NO_PERMISSION, MYF(0), conn_security_ctx->user,
+            rpc_role.c_str());
+        goto error;
+      }
     }
 
     if (srv_session->switch_to_user(rpc_role.c_str(),
@@ -197,12 +221,12 @@ std::pair<bool, std::shared_ptr<Srv_session>>  handle_com_rpc(THD *conn_thd)
 
     // update db
     if (rpc_db.size() > 0 &&
-        srv_session->get_thd()->set_db(rpc_db.c_str(), rpc_db.size()))
+        srv_session_thd->set_db(rpc_db.c_str(), rpc_db.size()))
     {
       my_error(ER_RPC_FAILED_TO_SWITCH_DB, MYF(0), rpc_db.c_str());
       goto error;
     }
-    per_user_session_variables.set_thd(srv_session->get_thd());
+    per_user_session_variables.set_thd(srv_session_thd);
   }
 
   if (srv_session->attach())
@@ -219,6 +243,7 @@ std::pair<bool, std::shared_ptr<Srv_session>>  handle_com_rpc(THD *conn_thd)
     }
   }
 
+  // Not all code paths have this set yet
   srv_session_thd = srv_session->get_thd();
 
   DBUG_PRINT("info", ("rpc_thread_id=%d  to attach conn_thread_id=%d",

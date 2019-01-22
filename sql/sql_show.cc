@@ -3823,6 +3823,13 @@ void calc_sum_of_all_status(STATUS_VAR *to)
   /* Add to this status from existing threads */
   for (; it != end; ++it)
     add_to_status(to, &(*it)->status_var);
+
+#ifndef EMBEDDED_LIBRARY
+  auto session_list = Srv_session::get_sorted_sessions();
+  for (const auto& session : session_list) {
+    add_to_status(to, &session->get_thd()->status_var);
+  }
+#endif
   
   mutex_unlock_all_shards(SHARDED(&LOCK_thread_count));
   DBUG_VOID_RETURN;
