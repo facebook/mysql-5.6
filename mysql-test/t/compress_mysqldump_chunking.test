@@ -1,0 +1,50 @@
+--source compress_mysqldump_setup.inc
+
+# dump input compressed with zstd
+--exec $MYSQL_DUMP --tab=$tmp_dir test --compress-data --compress-data-chunk-size=1
+
+# validate compressed output
+--exec zstd -dcq $tmp_dir/t1.txt.*.zst > $generated_input_file 
+--exec cat  $generated_input_file | wc
+--exec zstd -dcq $tmp_dir/t2.txt.*.zst | wc
+--exec zstd -dcq $tmp_dir/t3.txt.*.zst > $generated_big_input_file
+--exec cat  $generated_big_input_file | wc
+
+
+#reload unarchived output and compare checksums 
+--let $checksum1=`CHECKSUM TABLE t1`
+DROP TABLE t1;
+CREATE TABLE t1(x VARCHAR(100));
+--replace_result $generated_input_file INPUT_FILE
+--eval LOAD DATA LOCAL INFILE '$generated_input_file' INTO TABLE t1;
+--let $checksum2=`CHECKSUM TABLE t1`
+if($checksum1 != $checksum2)
+{
+  --echo "table t1 checksums do no not match: [$checksum1] != [$checksum2]"
+}
+
+--let $checksum1=`CHECKSUM TABLE t3`
+DROP TABLE t3;
+CREATE TABLE t3(x VARCHAR(100));
+--replace_result $generated_big_input_file INPUT_FILE
+--eval LOAD DATA LOCAL INFILE '$generated_big_input_file' INTO TABLE t3;
+--let $checksum2=`CHECKSUM TABLE t3`
+if($checksum1 != $checksum2)
+{
+  --echo "table t3 checksums do no not match: [$checksum1] != [$checksum2]"
+}
+
+
+#check compression do not divide row with newlines in the middle
+--exec zstd -dq $tmp_dir/t4.txt.1.zst 
+--exec head -n 1 $tmp_dir/t4.txt.1
+--exec tail -n 1 $tmp_dir/t4.txt.1
+
+# cleanup
+--remove_files_wildcard $tmp_dir t*.txt.*.zst
+--remove_files_wildcard $tmp_dir t*.sql
+--remove_file $generated_input_file
+--remove_file $generated_big_input_file
+--remove_file $tmp_dir/t4.txt.1
+DROP TABLE t1, t2, t3, t4;
+
