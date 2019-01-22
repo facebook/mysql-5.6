@@ -56,6 +56,7 @@
 #include "mysqld_error.h"
 
 #include <welcome_copyright_notice.h> /* ORACLE_WELCOME_COPYRIGHT_NOTICE */
+#include "compress_mysqldump_output.h"
 
 /* Exit codes */
 
@@ -155,6 +156,8 @@ static uint opt_enable_cleartext_plugin= 0;
 static my_bool using_opt_enable_cleartext_plugin= 0;
 static uint opt_mysql_port= 0, opt_master_data;
 static uint opt_slave_data;
+static uint opt_compression_chunk_size = 0;
+static my_bool do_compress = 0;
 static uint my_end_arg;
 static char * opt_mysql_unix_port=0;
 static char *opt_bind_addr = NULL;
@@ -688,6 +691,11 @@ static struct my_option my_long_options[] =
    "Skip dumping table views.",
    &opt_ignore_views, &opt_ignore_views, 0,
    GET_BOOL, OPT_ARG, 0, 0, 0, 0, 0, 0},
+  {"compress-data", OPT_COMPRESS_DATA,
+   "Compress data using ZSTD library and split on chunks of"
+   " specified size in megabytes",
+   &opt_compression_chunk_size, &opt_compression_chunk_size, 0,
+   GET_UINT, OPT_ARG, 0, 0, 0xFFFFFFFFu, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}
 };
 
@@ -729,7 +737,7 @@ static void print_comment(FILE *sql_file, my_bool is_error, const char *format,
     ...   variable number of parameters
 */
 
-static void verbose_msg(const char *fmt, ...)
+void verbose_msg(const char *fmt, ...)
 {
   va_list args;
   DBUG_ENTER("verbose_msg");
@@ -1106,6 +1114,21 @@ get_one_option(int optid, const struct my_option *opt MY_ATTRIBUTE((unused)),
                                                     opt->name)-1;
       break;
     }
+  case (int) OPT_COMPRESS_DATA:
+    {
+      do_compress = 1;
+      // NO_LINT_DEBUG
+      if (opt_compression_chunk_size == 0)
+      {
+        fprintf(stderr,
+                "%s: --compress-data value must be bigger than zero.\n",
+                my_progname);
+        return(EX_USAGE);
+      }
+      verbose_msg("split data on chunks of %d MB size\n",
+          opt_compression_chunk_size);
+      break;
+    }
   }
   return 0;
 }
@@ -1224,6 +1247,16 @@ static int get_options(int *argc, char ***argv)
   }
   if (tty_password)
     opt_password=get_tty_password(NullS);
+
+  if (do_compress && !path)
+  {
+    // NO_LINT_DEBUG
+    fprintf(stderr,
+            "%s: --compress-data must be used with --tab.\n",
+            my_progname);
+    return(EX_USAGE);
+  }
+
   return(0);
 } /* get_options */
 
@@ -4147,12 +4180,19 @@ static void dump_table(char *table, char *db)
       dynstr_append_checked(&query_string, order_by);
     }
 
+    struct compress_context *compress_ctx = NULL;
+    if (do_compress)
+      compress_ctx = start_pipe_and_compress_output(
+          filename, opt_compression_chunk_size, table);
+
     if (mysql_real_query(mysql, query_string.str, query_string.length))
     {
       DB_error(mysql, "when executing 'SELECT INTO OUTFILE'");
       dynstr_free(&query_string);
       DBUG_VOID_RETURN;
     }
+    if (do_compress)
+      finish_pipe_and_compress_output(compress_ctx);
   }
   else
   {

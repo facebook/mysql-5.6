@@ -46,7 +46,8 @@ TARGET_LINK_LIBRARIES(mysqltest fbmysqlclient regex)
 MYSQL_ADD_EXECUTABLE(mysqlcheck mysqlcheck.c)
 TARGET_LINK_LIBRARIES(mysqlcheck fbmysqlclient)
 
-MYSQL_ADD_EXECUTABLE(mysqldump mysqldump.c ../sql-common/my_user.c)
+MYSQL_ADD_EXECUTABLE(mysqldump mysqldump.c ../sql-common/my_user.c
+  compress_mysqldump_output.cc)
 TARGET_LINK_LIBRARIES(mysqldump fbmysqlclient)
 
 MYSQL_ADD_EXECUTABLE(mysqlimport mysqlimport.c)

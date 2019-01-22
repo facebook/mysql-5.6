@@ -2888,7 +2888,10 @@ select_export::~select_export()
 static File create_file(THD *thd, char *path, sql_exchange *exchange,
 			IO_CACHE *cache)
 {
-  File file;
+  File file= -1;
+  bool new_file_created= false;
+  MY_STAT stat_arg;
+
   uint option= MY_UNPACK_FILENAME | MY_RELATIVE_PATH;
 
 #ifdef DONT_ALLOW_FULL_LOAD_DATA_PATHS
@@ -2911,25 +2914,42 @@ static File create_file(THD *thd, char *path, sql_exchange *exchange,
     return -1;
   }
 
-  if (!access(path, F_OK))
+  if (my_stat(path, &stat_arg, MYF(0)))
   {
-    my_error(ER_FILE_EXISTS_ERROR, MYF(0), exchange->file_name);
-    return -1;
+    /* Check if file is named pipe */
+    if (MY_S_ISFIFO(stat_arg.st_mode))
+    {
+      if ((file = mysql_file_open(key_select_to_file,
+                            path, O_WRONLY, MYF(MY_WME))) < 0)
+      {
+        return -1;
+      }
+    }
+    else
+    {
+      my_error(ER_FILE_EXISTS_ERROR, MYF(0), exchange->file_name);
+      return -1;
+    }
   }
-  /* Create the file world readable */
-  if ((file= mysql_file_create(key_select_to_file,
-                               path, 0666, O_WRONLY|O_EXCL, MYF(MY_WME))) < 0)
-    return file;
+  else
+  {
+    /* Create the file world readable */
+    if ((file= mysql_file_create(key_select_to_file,
+                                 path, 0666, O_WRONLY|O_EXCL, MYF(MY_WME))) < 0)
+      return file;
+    new_file_created= true;
 #ifdef HAVE_FCHMOD
-  (void) fchmod(file, 0666);			// Because of umask()
+    (void) fchmod(file, 0666);			// Because of umask()
 #else
-  (void) chmod(path, 0666);
+    (void) chmod(path, 0666);
 #endif
+  }
   if (init_io_cache(cache, file, 0L, WRITE_CACHE, 0L, 1, MYF(MY_WME)))
   {
     mysql_file_close(file, MYF(0));
-    /* Delete file on error, it was just created */
-    mysql_file_delete(key_select_to_file, path, MYF(0));
+    /* Delete file on error, if it was just created */
+    if (new_file_created)
+      mysql_file_delete(key_select_to_file, path, MYF(0));
     return -1;
   }
   return file;
