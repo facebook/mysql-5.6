@@ -5774,7 +5774,7 @@ int ha_rocksdb::convert_record_to_storage_format(
           rdb_netbuf_to_uint64(reinterpret_cast<const uchar *>(data)) +
               rdb_dbug_set_ttl_rec_ts());
 #endif
-      // Also store in m_ttl_bytes to propagate to update_sk
+      // Also store in m_ttl_bytes to propagate to update_write_sk
       memcpy(m_ttl_bytes, data, ROCKSDB_SIZEOF_TTL_RECORD);
     } else if (!has_ttl_column) {
       /*
@@ -5794,7 +5794,7 @@ int ha_rocksdb::convert_record_to_storage_format(
 #endif
         char *const data = const_cast<char *>(m_storage_record.ptr());
         rdb_netbuf_store_uint64(reinterpret_cast<uchar *>(data), ts);
-        // Also store in m_ttl_bytes to propagate to update_sk
+        // Also store in m_ttl_bytes to propagate to update_write_sk
         memcpy(m_ttl_bytes, data, ROCKSDB_SIZEOF_TTL_RECORD);
       }
     }
@@ -5884,7 +5884,7 @@ int ha_rocksdb::convert_record_to_storage_format(
           m_ttl_bytes_updated =
               memcmp(m_ttl_bytes, data, ROCKSDB_SIZEOF_TTL_RECORD);
         }
-        // Store timestamp in m_ttl_bytes to propagate to update_sk
+        // Store timestamp in m_ttl_bytes to propagate to update_write_sk
         memcpy(m_ttl_bytes, data, ROCKSDB_SIZEOF_TTL_RECORD);
       }
     }
@@ -9152,6 +9152,9 @@ const std::string ha_rocksdb::get_table_comment(const TABLE *const table_arg) {
 }
 
 /**
+  Write a new row
+
+  @param[in] buf                new row data to write
   @return
     HA_EXIT_SUCCESS  OK
     other            HA_ERR error code (can be SE-specific)
@@ -9203,6 +9206,15 @@ void ha_rocksdb::set_last_rowkey(const uchar *const old_data) {
   }
 }
 
+/**
+  Collect update data for primary key
+
+  @param[in, out] row_info            hold all data for update row, such as
+                                      new row data/old row data
+  @return
+    HA_EXIT_SUCCESS  OK
+    other            HA_ERR error code (can be SE-specific)
+*/
 int ha_rocksdb::get_pk_for_update(struct update_row_info *const row_info) {
   int size;
 
@@ -9242,6 +9254,18 @@ int ha_rocksdb::get_pk_for_update(struct update_row_info *const row_info) {
   return HA_EXIT_SUCCESS;
 }
 
+/**
+   Check the specified primary key value is unique and also lock the row
+
+  @param[in] key_id           key index
+  @param[in] row_info         hold all data for update row, such as old row
+                              data and new row data
+  @param[out] found           whether the primary key exists before.
+  @param[out] pk_changed      whether primary key is changed
+  @return
+    HA_EXIT_SUCCESS  OK
+    other            HA_ERR error code (can be SE-specific)
+*/
 int ha_rocksdb::check_and_lock_unique_pk(const uint key_id,
                                          const struct update_row_info &row_info,
                                          bool *const found,
@@ -9298,6 +9322,17 @@ int ha_rocksdb::check_and_lock_unique_pk(const uint key_id,
   return HA_EXIT_SUCCESS;
 }
 
+/**
+   Check the specified secondary key value is unique and also lock the row
+
+  @param[in] key_id           key index
+  @param[in] row_info         hold all data for update row, such as old row
+                              data and new row data
+  @param[out] found           whether specified key value exists before.
+  @return
+    HA_EXIT_SUCCESS  OK
+    other            HA_ERR error code (can be SE-specific)
+*/
 int ha_rocksdb::check_and_lock_sk(const uint key_id,
                                   const struct update_row_info &row_info,
                                   bool *const found) {
@@ -9428,6 +9463,16 @@ int ha_rocksdb::check_and_lock_sk(const uint key_id,
   return HA_EXIT_SUCCESS;
 }
 
+/**
+   Enumerate all keys to check their uniquess and also lock it
+
+  @param[in] row_info         hold all data for update row, such as old row
+                              data and new row data
+  @param[out] pk_changed      whether primary key is changed
+  @return
+    HA_EXIT_SUCCESS  OK
+    other            HA_ERR error code (can be SE-specific)
+*/
 int ha_rocksdb::check_uniqueness_and_lock(
     const struct update_row_info &row_info, bool *const pk_changed) {
   /*
@@ -9474,19 +9519,31 @@ int ha_rocksdb::check_uniqueness_and_lock(
   return HA_EXIT_SUCCESS;
 }
 
+/**
+  Check whether secondary key value is duplicate or not
+
+  @param[in] table_arg         the table currently working on
+  @param[in  key_def           the key_def is being checked
+  @param[in] key               secondary key storage data
+  @param[out] sk_info          hold secondary key memcmp datas(new/old)
+  @return
+    HA_EXIT_SUCCESS  OK
+    other            HA_ERR error code (can be SE-specific)
+*/
+
 int ha_rocksdb::check_duplicate_sk(const TABLE *table_arg,
-                                   const Rdb_key_def &index,
+                                   const Rdb_key_def &key_def,
                                    const rocksdb::Slice *key,
                                    struct unique_sk_buf_info *sk_info) {
   uint n_null_fields = 0;
-  const rocksdb::Comparator *index_comp = index.get_cf()->GetComparator();
+  const rocksdb::Comparator *index_comp = key_def.get_cf()->GetComparator();
 
   /* Get proper SK buffer. */
   uchar *sk_buf = sk_info->swap_and_get_sk_buf();
 
   /* Get memcmp form of sk without extended pk tail */
   uint sk_memcmp_size =
-      index.get_memcmp_sk_parts(table_arg, *key, sk_buf, &n_null_fields);
+      key_def.get_memcmp_sk_parts(table_arg, *key, sk_buf, &n_null_fields);
 
   sk_info->sk_memcmp_key =
       rocksdb::Slice(reinterpret_cast<char *>(sk_buf), sk_memcmp_size);
@@ -9550,9 +9607,20 @@ int ha_rocksdb::finalize_bulk_load(bool print_client_error) {
   DBUG_RETURN(res);
 }
 
-int ha_rocksdb::update_pk(const Rdb_key_def &kd,
-                          const struct update_row_info &row_info,
-                          const bool pk_changed) {
+/**
+  Update an existing primary key record or write a new primary key record
+
+  @param[in] kd                the primary key is being update/write
+  @param[in] update_row_info   hold all row data, such as old row data and
+                               new row data
+  @param[in] pk_changed        whether primary key is changed
+  @return
+    HA_EXIT_SUCCESS OK
+    Other           HA_ERR error code (can be SE-specific)
+ */
+int ha_rocksdb::update_write_pk(const Rdb_key_def &kd,
+                                const struct update_row_info &row_info,
+                                const bool pk_changed) {
   const uint key_id = kd.get_keyno();
   const bool hidden_pk = is_hidden_pk(key_id, table, m_tbl_def);
   ulonglong bytes_written = 0;
@@ -9624,9 +9692,22 @@ int ha_rocksdb::update_pk(const Rdb_key_def &kd,
   return rc;
 }
 
-int ha_rocksdb::update_sk(const TABLE *const table_arg, const Rdb_key_def &kd,
-                          const struct update_row_info &row_info,
-                          const bool bulk_load_sk) {
+/**
+  update an existing secondary key record or write a new secondary key record
+
+  @param[in] table_arg    Table we're working on
+  @param[in] kd           The secondary key being update/write
+  @param[in] row_info     data structure contains old row data and new row data
+  @param[in] bulk_load_sk whether support bulk load. Currently it is only
+                          support for write
+  @return
+    HA_EXIT_SUCCESS OK
+    Other           HA_ERR error code (can be SE-specific)
+ */
+int ha_rocksdb::update_write_sk(const TABLE *const table_arg,
+                                const Rdb_key_def &kd,
+                                const struct update_row_info &row_info,
+                                const bool bulk_load_sk) {
   int new_packed_size;
   int old_packed_size;
   int rc = HA_EXIT_SUCCESS;
@@ -9720,13 +9801,22 @@ int ha_rocksdb::update_sk(const TABLE *const table_arg, const Rdb_key_def &kd,
   return rc;
 }
 
-int ha_rocksdb::update_indexes(const struct update_row_info &row_info,
-                               const bool pk_changed) {
+/**
+   Update existing indexes(PK/SKs) or write new indexes(PK/SKs)
+
+   @param[in] row_info    hold all row data, such as old key/new key
+   @param[in] pk_changed  whether primary key is changed
+   @return
+     HA_EXIT_SUCCESS OK
+     Other           HA_ERR error code (can be SE-specific)
+ */
+int ha_rocksdb::update_write_indexes(const struct update_row_info &row_info,
+                                     const bool pk_changed) {
   int rc;
   bool bulk_load_sk;
 
   // The PK must be updated first to pull out the TTL value.
-  rc = update_pk(*m_pk_descr, row_info, pk_changed);
+  rc = update_write_pk(*m_pk_descr, row_info, pk_changed);
   if (rc != HA_EXIT_SUCCESS) {
     return rc;
   }
@@ -9741,7 +9831,8 @@ int ha_rocksdb::update_indexes(const struct update_row_info &row_info,
       continue;
     }
 
-    rc = update_sk(table, *m_key_descr_arr[key_id], row_info, bulk_load_sk);
+    rc = update_write_sk(table, *m_key_descr_arr[key_id], row_info,
+                         bulk_load_sk);
     if (rc != HA_EXIT_SUCCESS) {
       return rc;
     }
@@ -9750,6 +9841,16 @@ int ha_rocksdb::update_indexes(const struct update_row_info &row_info,
   return HA_EXIT_SUCCESS;
 }
 
+/**
+  Update an existing row or write a new row
+
+  @param[in] old_data           nullptr for write, non-null for update
+  @param[in] new_data           non-null for write/update
+  @param[in] skip_unique_check  whether to check uniqueness
+  @return
+    HA_EXIT_SUCCESS OK
+    Other           HA_ERR error code (can be SE-specific)
+ */
 int ha_rocksdb::update_write_row(const uchar *const old_data,
                                  const uchar *const new_data,
                                  const bool skip_unique_check) {
@@ -9802,7 +9903,7 @@ int ha_rocksdb::update_write_row(const uchar *const old_data,
     here because updates to the transaction will be made and those updates
     cannot be easily removed without rolling back the entire transaction.
   */
-  rc = update_indexes(row_info, pk_changed);
+  rc = update_write_indexes(row_info, pk_changed);
   if (rc != HA_EXIT_SUCCESS) {
     DBUG_RETURN(rc);
   }
@@ -10544,6 +10645,9 @@ void ha_rocksdb::calc_updated_indexes() {
 }
 
 /**
+  Update an existing row
+  @param[in] old_data           nullptr for write, non-null for update
+  @param[in] new_data           non-null for write/update
   @return
     HA_EXIT_SUCCESS  OK
     other            HA_ERR error code (can be SE-specific)
