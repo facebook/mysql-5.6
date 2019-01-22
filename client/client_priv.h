@@ -195,7 +195,9 @@ enum options_client {
   OPT_CHECKSUM,
   OPT_THREAD_PRIORITY,
   /* Add new option above this */
-  OPT_MAX_CLIENT_OPTION
+  OPT_MAX_CLIENT_OPTION,
+  OPT_COMPRESS_DATA,
+  OPT_COMPRESS_DATA_CHUNK_SIZE
 };
 
 /**

@@ -165,6 +165,9 @@ static uint opt_enable_cleartext_plugin = 0;
 static bool using_opt_enable_cleartext_plugin = false;
 static uint opt_mysql_port = 0, opt_master_data;
 static uint opt_slave_data;
+static bool opt_compress_data = false;
+static ulonglong opt_compression_chunk_size = 0;
+static bool do_compress = 0;
 static ulong opt_lra_size = 0;
 static ulong opt_lra_sleep = 0;
 static ulong opt_lra_pages_before_sleep = 0;
@@ -722,6 +725,13 @@ static struct my_option my_long_options[] = {
      "Thread Priority of the mysqldump session", &opt_thread_priority,
      &opt_thread_priority, 0, GET_INT, REQUIRED_ARG, 0, -20, 19, nullptr, 0,
      nullptr},
+    {"compress-data", OPT_COMPRESS_DATA,
+     "Enables compression of data using ZSTD", &opt_compress_data,
+     &opt_compress_data, 0, GET_BOOL, NO_ARG, 0, 0, 0, nullptr, 0, nullptr},
+    {"compress-data-chunk-size", OPT_COMPRESS_DATA_CHUNK_SIZE,
+     "Split compressed data on chunks of specified size in megabytes",
+     &opt_compression_chunk_size, &opt_compression_chunk_size, 0, GET_ULL,
+     OPT_ARG, 0, 0, (ulonglong)(~(my_off_t)0), nullptr, 0, nullptr},
     {nullptr, 0, nullptr, nullptr, nullptr, nullptr, GET_NO_ARG, NO_ARG, 0, 0,
      0, nullptr, 0, nullptr}};
 
@@ -1113,6 +1123,19 @@ static bool get_one_option(int optid, const struct my_option *opt,
       /* Store the supplied list of errors into an array. */
       if (parse_ignore_error()) exit(EX_EOM);
       break;
+    case (int)OPT_COMPRESS_DATA:
+      do_compress = 1;
+      break;
+    case (int)OPT_COMPRESS_DATA_CHUNK_SIZE: {
+      // NO_LINT_DEBUG
+      if (opt_compression_chunk_size > 0) {
+        verbose_msg("split data on chunks of %llu bytes size\n",
+                    opt_compression_chunk_size);
+      } else {
+        verbose_msg("No chunking on compressed data\n");
+      }
+      break;
+    }
   }
   return false;
 }
@@ -1209,6 +1232,23 @@ static int get_options(int *argc, char ***argv) {
     return EX_USAGE;
   }
   if (tty_password) opt_password = get_tty_password(NullS);
+
+  if (do_compress && !path) {
+    // NO_LINT_DEBUG
+    fprintf(stderr, "%s: --compress-data must be used with --tab.\n",
+            my_progname);
+    return (EX_USAGE);
+  }
+
+  if (!do_compress && opt_compression_chunk_size > 0) {
+    // NO_LINT_DEBUG
+    fprintf(stderr,
+            "%s: --compress-data-chunk-size > 0 must be used with "
+            "--compress-data.\n",
+            my_progname);
+    return (EX_USAGE);
+  }
+
   return (0);
 } /* get_options */
 
@@ -3869,6 +3909,13 @@ static void dump_table(char *table, char *db) {
                           "SELECT /*!40001 SQL_NO_CACHE */ * INTO OUTFILE '");
     dynstr_append_checked(&query_string, filename);
     dynstr_append_checked(&query_string, "'");
+
+    if (do_compress) {
+      dynstr_append_checked(&query_string, " COMPRESSED(");
+      dynstr_append_checked(&query_string,
+                            std::to_string(opt_compression_chunk_size).c_str());
+      dynstr_append_checked(&query_string, ")");
+    }
 
     dynstr_append_checked(&query_string, " /*!50138 CHARACTER SET ");
     dynstr_append_checked(&query_string,
