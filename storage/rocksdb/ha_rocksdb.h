@@ -829,7 +829,7 @@ private:
       MY_ATTRIBUTE((__warn_unused_result__));
   bool over_bulk_load_threshold(int *err)
       MY_ATTRIBUTE((__warn_unused_result__));
-  int check_duplicate_sk(const TABLE *table_arg, const Rdb_key_def &index,
+  int check_duplicate_sk(const TABLE *table_arg, const Rdb_key_def &key_def,
                          const rocksdb::Slice *key,
                          struct unique_sk_buf_info *sk_info)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
@@ -838,13 +838,16 @@ private:
                     bool sort)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   void update_bytes_written(ulonglong bytes_written);
-  int update_pk(const Rdb_key_def &kd, const struct update_row_info &row_info,
-                const bool pk_changed) MY_ATTRIBUTE((__warn_unused_result__));
-  int update_sk(const TABLE *const table_arg, const Rdb_key_def &kd,
-                const struct update_row_info &row_info, const bool bulk_load_sk)
+  int update_write_pk(const Rdb_key_def &kd,
+                      const struct update_row_info &row_info,
+                      const bool pk_changed)
       MY_ATTRIBUTE((__warn_unused_result__));
-  int update_indexes(const struct update_row_info &row_info,
-                     const bool pk_changed)
+  int update_write_sk(const TABLE *const table_arg, const Rdb_key_def &kd,
+                      const struct update_row_info &row_info,
+                      const bool bulk_load_sk)
+      MY_ATTRIBUTE((__warn_unused_result__));
+  int update_write_indexes(const struct update_row_info &row_info,
+                           const bool pk_changed)
       MY_ATTRIBUTE((__warn_unused_result__));
 
   int read_key_exact(const Rdb_key_def &kd, rocksdb::Iterator *const iter,
