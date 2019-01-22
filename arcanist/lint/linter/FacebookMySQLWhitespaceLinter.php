@@ -121,6 +121,19 @@ class FacebookMySQLWhitespaceLinter extends ArcanistLinter {
   }
 
   private function differsByWhitespaceOnly($line1, $line2) {
-    return $this->stripWhitespace($line1) === $this->stripWhitespace($line2);
+    if ($line1 === $line2) {
+      // Definitely don't flag two identical lines
+      return false;
+    }
+
+    $stripped_line1 = $this->stripWhitespace($line1);
+    $stripped_line2 = $this->stripWhitespace($line2);
+    if ($stripped_line1 === "" and
+        $stripped_line2 === "") {
+      // Don't want to flag two whitespace only lines by accident
+      return false;
+    }
+
+    return $stripped_line1 === $stripped_line2;
   }
 }
