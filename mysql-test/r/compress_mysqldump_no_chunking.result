@@ -1,0 +1,34 @@
+CREATE TABLE t1(x VARCHAR(100));
+CREATE TABLE t2(x VARCHAR(100));
+CREATE TABLE t3(x VARCHAR(100));
+CREATE TABLE t4(x VARCHAR(1000));
+insert into t4 values (concat("<<<", REPLACE(REPEAT("abc.", 100), ".", "\n"), ">>>"));
+insert into t4 select t4.* from t4, t4 t42, t4 t43, t4 t44;
+insert into t4 select t4.* from t4, t4 t42, t4 t43, t4 t44;
+insert into t4 select t4.* from t4, t4 t42, t4 t43, t4 t44;
+  20000   20000 1620000
+ 200000  200000 16200000
+LOAD DATA LOCAL INFILE 'INPUT_FILE' INTO TABLE t1;;
+LOAD DATA LOCAL INFILE 'INPUT_FILE' INTO TABLE t3;;
+select count(*) from t1;
+count(*)
+20000
+select count(*) from t2;
+count(*)
+0
+select count(*) from t3;
+count(*)
+200000
+select count(*) from t4;
+count(*)
+104994
+  20000   20000 1620000
+      0       0       0
+ 200000  200000 16200000
+DROP TABLE t1;
+CREATE TABLE t1(x VARCHAR(100));
+LOAD DATA LOCAL INFILE 'INPUT_FILE' INTO TABLE t1;;
+DROP TABLE t3;
+CREATE TABLE t3(x VARCHAR(100));
+LOAD DATA LOCAL INFILE 'INPUT_FILE' INTO TABLE t3;;
+DROP TABLE t1, t2, t3, t4;
