@@ -916,7 +916,6 @@ bool com_binlog_dump(THD *thd, char *packet, size_t packet_length) {
   ushort flags = 0;
   const uchar *packet_position = (uchar *)packet;
   size_t packet_bytes_todo = packet_length;
-  Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
 
   thd->status_var.com_other++;
   thd->enable_slow_log = opt_log_slow_admin_statements;
@@ -939,14 +938,8 @@ bool com_binlog_dump(THD *thd, char *packet, size_t packet_length) {
   query_logger.general_log_print(thd, thd->get_command(), "Log: '%s'  Pos: %ld",
                                  packet + 10, (long)pos);
 
-  thd_manager->inc_thread_binlog_client();
-  thd_manager->dec_thread_running();
-
   mysql_binlog_send(thd, thd->mem_strdup(packet + 10), (my_off_t)pos, NULL,
                     flags);
-
-  thd_manager->inc_thread_running();
-  thd_manager->dec_thread_binlog_client();
 
   unregister_slave(thd, true, true /*need_lock_slave_list=true*/);
   /*  fake COM_QUIT -- if we get here, the thread needs to terminate */
@@ -1001,6 +994,7 @@ bool com_binlog_dump_gtid(THD *thd, char *packet, size_t packet_length) {
   query_logger.general_log_print(thd, thd->get_command(),
                                  "Log: '%s' Pos: %llu GTIDs: '%s'", name, pos,
                                  gtid_string);
+
   if ((flags & USING_START_GTID_PROTOCOL)) {
     if ((error = find_gtid_position_helper(gtid_string, name, pos))) {
       my_error(error, MYF(0));
@@ -1024,9 +1018,17 @@ error_malformed_packet:
 
 void mysql_binlog_send(THD *thd, char *log_ident, my_off_t pos,
                        Gtid_set *slave_gtid_executed, uint32 flags) {
+  auto *thd_manager = Global_THD_manager::get_instance();
+
+  thd_manager->inc_thread_binlog_client();
+  thd_manager->dec_thread_running();
+
   Binlog_sender sender(thd, log_ident, pos, slave_gtid_executed, flags);
 
   sender.run();
+
+  thd_manager->inc_thread_running();
+  thd_manager->dec_thread_binlog_client();
 }
 
 /**
