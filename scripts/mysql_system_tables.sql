@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS db
 (
 Host char(60) binary DEFAULT '' NOT NULL,
 Db char(64) binary DEFAULT '' NOT NULL,
-User char(32) binary DEFAULT '' NOT NULL,
+User char(80) binary DEFAULT '' NOT NULL,
 Select_priv enum('N','Y') COLLATE utf8_general_ci DEFAULT 'N' NOT NULL,
 Insert_priv enum('N','Y') COLLATE utf8_general_ci DEFAULT 'N' NOT NULL,
 Update_priv enum('N','Y') COLLATE utf8_general_ci DEFAULT 'N' NOT NULL,
@@ -68,7 +68,7 @@ set @had_db_table= @@warning_count != 0;
 CREATE TABLE IF NOT EXISTS user
 (
 Host char(60) binary DEFAULT '' NOT NULL,
-User char(32) binary DEFAULT '' NOT NULL,
+User char(80) binary DEFAULT '' NOT NULL,
 Select_priv enum('N','Y') COLLATE utf8_general_ci DEFAULT 'N' NOT NULL,
 Insert_priv enum('N','Y') COLLATE utf8_general_ci DEFAULT 'N' NOT NULL,
 Update_priv enum('N','Y') COLLATE utf8_general_ci DEFAULT 'N' NOT NULL,
@@ -123,25 +123,25 @@ PRIMARY KEY Host (Host,User)
 CREATE TABLE IF NOT EXISTS default_roles
 (
 HOST CHAR(60) BINARY DEFAULT '' NOT NULL,
-USER CHAR(32) BINARY DEFAULT '' NOT NULL,
+USER CHAR(80) BINARY DEFAULT '' NOT NULL,
 DEFAULT_ROLE_HOST CHAR(60) BINARY DEFAULT '%' NOT NULL,
-DEFAULT_ROLE_USER CHAR(32) BINARY DEFAULT '' NOT NULL,
+DEFAULT_ROLE_USER CHAR(80) BINARY DEFAULT '' NOT NULL,
 PRIMARY KEY (HOST, USER, DEFAULT_ROLE_HOST, DEFAULT_ROLE_USER)
 ) engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8 COLLATE utf8_bin comment='Default roles' TABLESPACE=mysql;
 
 CREATE TABLE IF NOT EXISTS role_edges
 (
 FROM_HOST CHAR(60) BINARY DEFAULT '' NOT NULL,
-FROM_USER CHAR(32) BINARY DEFAULT '' NOT NULL,
+FROM_USER CHAR(80) BINARY DEFAULT '' NOT NULL,
 TO_HOST CHAR(60) BINARY DEFAULT '' NOT NULL,
-TO_USER CHAR(32) BINARY DEFAULT '' NOT NULL,
+TO_USER CHAR(80) BINARY DEFAULT '' NOT NULL,
 WITH_ADMIN_OPTION ENUM('N', 'Y') COLLATE UTF8_GENERAL_CI DEFAULT 'N' NOT NULL,
 PRIMARY KEY (FROM_HOST,FROM_USER,TO_HOST,TO_USER)
 ) engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8 COLLATE utf8_bin comment='Role hierarchy and role grants' TABLESPACE=mysql;
 
 CREATE TABLE IF NOT EXISTS global_grants
 (
-USER CHAR(32) BINARY DEFAULT '' NOT NULL,
+USER CHAR(80) BINARY DEFAULT '' NOT NULL,
 HOST CHAR(60) BINARY DEFAULT '' NOT NULL,
 PRIV CHAR(32) COLLATE UTF8_GENERAL_CI DEFAULT '' NOT NULL,
 WITH_GRANT_OPTION ENUM('N','Y') COLLATE UTF8_GENERAL_CI DEFAULT 'N' NOT NULL,
@@ -154,7 +154,7 @@ set @had_user_table= @@warning_count != 0;
 CREATE TABLE IF NOT EXISTS password_history
 (
   Host CHAR(60) BINARY DEFAULT '' NOT NULL,
-  User CHAR(32) BINARY DEFAULT '' NOT NULL,
+  User CHAR(80) BINARY DEFAULT '' NOT NULL,
   Password_timestamp TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   Password TEXT,
   PRIMARY KEY(Host, User, Password_timestamp DESC)
@@ -171,9 +171,9 @@ CREATE TABLE IF NOT EXISTS plugin ( name varchar(64) DEFAULT '' NOT NULL, dl var
 CREATE TABLE IF NOT EXISTS servers ( Server_name char(64) NOT NULL DEFAULT '', Host char(64) NOT NULL DEFAULT '', Db char(64) NOT NULL DEFAULT '', Username char(64) NOT NULL DEFAULT '', Password char(64) NOT NULL DEFAULT '', Port INT(4) NOT NULL DEFAULT '0', Socket char(64) NOT NULL DEFAULT '', Wrapper char(64) NOT NULL DEFAULT '', Owner char(64) NOT NULL DEFAULT '', PRIMARY KEY (Server_name)) engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8 comment='MySQL Foreign Servers table' TABLESPACE=mysql;
 
 
-CREATE TABLE IF NOT EXISTS tables_priv ( Host char(60) binary DEFAULT '' NOT NULL, Db char(64) binary DEFAULT '' NOT NULL, User char(32) binary DEFAULT '' NOT NULL, Table_name char(64) binary DEFAULT '' NOT NULL, Grantor char(93) DEFAULT '' NOT NULL, Timestamp timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, Table_priv set('Select','Insert','Update','Delete','Create','Drop','Grant','References','Index','Alter','Create View','Show view','Trigger') COLLATE utf8_general_ci DEFAULT '' NOT NULL, Column_priv set('Select','Insert','Update','References') COLLATE utf8_general_ci DEFAULT '' NOT NULL, PRIMARY KEY (Host,Db,User,Table_name), KEY Grantor (Grantor) ) engine=INNODB STATS_PERSISTENT=0 CHARACTER SET utf8   engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8 COLLATE utf8_bin   comment='Table privileges' TABLESPACE=mysql;
+CREATE TABLE IF NOT EXISTS tables_priv ( Host char(60) binary DEFAULT '' NOT NULL, Db char(64) binary DEFAULT '' NOT NULL, User char(80) binary DEFAULT '' NOT NULL, Table_name char(64) binary DEFAULT '' NOT NULL, Grantor char(93) DEFAULT '' NOT NULL, Timestamp timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, Table_priv set('Select','Insert','Update','Delete','Create','Drop','Grant','References','Index','Alter','Create View','Show view','Trigger') COLLATE utf8_general_ci DEFAULT '' NOT NULL, Column_priv set('Select','Insert','Update','References') COLLATE utf8_general_ci DEFAULT '' NOT NULL, PRIMARY KEY (Host,Db,User,Table_name), KEY Grantor (Grantor) ) engine=INNODB STATS_PERSISTENT=0 CHARACTER SET utf8   engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8 COLLATE utf8_bin   comment='Table privileges' TABLESPACE=mysql;
 
-CREATE TABLE IF NOT EXISTS columns_priv ( Host char(60) binary DEFAULT '' NOT NULL, Db char(64) binary DEFAULT '' NOT NULL, User char(32) binary DEFAULT '' NOT NULL, Table_name char(64) binary DEFAULT '' NOT NULL, Column_name char(64) binary DEFAULT '' NOT NULL, Timestamp timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, Column_priv set('Select','Insert','Update','References') COLLATE utf8_general_ci DEFAULT '' NOT NULL, PRIMARY KEY (Host,Db,User,Table_name,Column_name) ) engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8 COLLATE utf8_bin   comment='Column privileges' TABLESPACE=mysql;
+CREATE TABLE IF NOT EXISTS columns_priv ( Host char(60) binary DEFAULT '' NOT NULL, Db char(64) binary DEFAULT '' NOT NULL, User char(80) binary DEFAULT '' NOT NULL, Table_name char(64) binary DEFAULT '' NOT NULL, Column_name char(64) binary DEFAULT '' NOT NULL, Timestamp timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, Column_priv set('Select','Insert','Update','References') COLLATE utf8_general_ci DEFAULT '' NOT NULL, PRIMARY KEY (Host,Db,User,Table_name,Column_name) ) engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8 COLLATE utf8_bin   comment='Column privileges' TABLESPACE=mysql;
 
 
 CREATE TABLE IF NOT EXISTS help_topic ( help_topic_id int unsigned not null, name char(64) not null, help_category_id smallint unsigned not null, description text not null, example text not null, url text not null, primary key (help_topic_id), unique index (name) ) engine=INNODB STATS_PERSISTENT=0 CHARACTER SET utf8 comment='help topics' TABLESPACE=mysql;
@@ -203,7 +203,7 @@ CREATE TABLE IF NOT EXISTS time_zone_transition_type (   Time_zone_id int unsign
 CREATE TABLE IF NOT EXISTS time_zone_leap_second (   Transition_time bigint signed NOT NULL, Correction int signed NOT NULL, PRIMARY KEY TranTime (Transition_time) ) engine=INNODB STATS_PERSISTENT=0 CHARACTER SET utf8   comment='Leap seconds information for time zones' TABLESPACE=mysql;
 
 
-CREATE TABLE IF NOT EXISTS procs_priv ( Host char(60) binary DEFAULT '' NOT NULL, Db char(64) binary DEFAULT '' NOT NULL, User char(32) binary DEFAULT '' NOT NULL, Routine_name char(64) COLLATE utf8_general_ci DEFAULT '' NOT NULL, Routine_type enum('FUNCTION','PROCEDURE') NOT NULL, Grantor char(93) DEFAULT '' NOT NULL, Proc_priv set('Execute','Alter Routine','Grant') COLLATE utf8_general_ci DEFAULT '' NOT NULL, Timestamp timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY (Host,Db,User,Routine_name,Routine_type), KEY Grantor (Grantor) ) engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8 COLLATE utf8_bin   comment='Procedure privileges' TABLESPACE=mysql;
+CREATE TABLE IF NOT EXISTS procs_priv ( Host char(60) binary DEFAULT '' NOT NULL, Db char(64) binary DEFAULT '' NOT NULL, User char(80) binary DEFAULT '' NOT NULL, Routine_name char(64) COLLATE utf8_general_ci DEFAULT '' NOT NULL, Routine_type enum('FUNCTION','PROCEDURE') NOT NULL, Grantor char(93) DEFAULT '' NOT NULL, Proc_priv set('Execute','Alter Routine','Grant') COLLATE utf8_general_ci DEFAULT '' NOT NULL, Timestamp timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY (Host,Db,User,Routine_name,Routine_type), KEY Grantor (Grantor) ) engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8 COLLATE utf8_bin   comment='Procedure privileges' TABLESPACE=mysql;
 
 -- Create general_log
 CREATE TABLE IF NOT EXISTS general_log (event_time TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), user_host MEDIUMTEXT NOT NULL, thread_id BIGINT(21) UNSIGNED NOT NULL, server_id INTEGER UNSIGNED NOT NULL, command_type VARCHAR(64) NOT NULL, argument MEDIUMBLOB NOT NULL) engine=CSV CHARACTER SET utf8 comment="General log";
@@ -352,7 +352,7 @@ INSERT IGNORE INTO engine_cost(engine_name, device_type, cost_name) VALUES
   ("default", 0, "io_block_read_cost");
 
 
-CREATE TABLE IF NOT EXISTS proxies_priv (Host char(60) binary DEFAULT '' NOT NULL, User char(32) binary DEFAULT '' NOT NULL, Proxied_host char(60) binary DEFAULT '' NOT NULL, Proxied_user char(32) binary DEFAULT '' NOT NULL, With_grant BOOL DEFAULT 0 NOT NULL, Grantor char(93) DEFAULT '' NOT NULL, Timestamp timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY Host (Host,User,Proxied_host,Proxied_user), KEY Grantor (Grantor) ) engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8 COLLATE utf8_bin comment='User proxy privileges' TABLESPACE=mysql;
+CREATE TABLE IF NOT EXISTS proxies_priv (Host char(60) binary DEFAULT '' NOT NULL, User char(80) binary DEFAULT '' NOT NULL, Proxied_host char(60) binary DEFAULT '' NOT NULL, Proxied_user char(80) binary DEFAULT '' NOT NULL, With_grant BOOL DEFAULT 0 NOT NULL, Grantor char(93) DEFAULT '' NOT NULL, Timestamp timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY Host (Host,User,Proxied_host,Proxied_user), KEY Grantor (Grantor) ) engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8 COLLATE utf8_bin comment='User proxy privileges' TABLESPACE=mysql;
 
 -- Remember for later if proxies_priv table already existed
 set @had_proxies_priv_table= @@warning_count != 0;
