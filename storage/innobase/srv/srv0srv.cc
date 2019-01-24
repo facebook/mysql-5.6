@@ -1248,10 +1248,10 @@ void srv_printf_innodb_transaction(FILE *file) /*!< in: output stream */
  @return false if not all information printed
  due to failure to obtain necessary mutex */
 ibool srv_printf_innodb_monitor(
-    FILE *file,           /*!< in: output stream */
-    ibool nowait,         /*!< in: whether to wait for the
-                          lock_sys_t:: mutex */
-    ibool include_trxs)   /*!< in: include per-transaction output */
+    FILE *file,         /*!< in: output stream */
+    ibool nowait,       /*!< in: whether to wait for the
+                        lock_sys_t:: mutex */
+    ibool include_trxs) /*!< in: include per-transaction output */
 {
   double time_elapsed;
   time_t current_time;

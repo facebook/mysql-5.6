@@ -37,6 +37,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include <sql_thd_internal_api.h>
 
+#include "btr0pcur.h"
 #include "btr0sea.h"
 #include "dict0dd.h"
 #include "fsp0sysspace.h"
@@ -61,7 +62,6 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "ut0new.h"
 #include "ut0pool.h"
 #include "ut0vec.h"
-#include "btr0pcur.h"
 
 #include "my_dbug.h"
 
@@ -157,21 +157,21 @@ void trx_lra_free(lra_t *lra) /*!< in: lra structure */
 /** Creates or frees data structures related to logical-read-ahead.
  based on the value of lra_size. */
 void trx_lra_reset(
-    trx_t *trx,                     /*!< in: transaction */
-    ulint lra_size,                 /*!< in: lra_size in MB. If 0, the fields
-                                    that are related to logical-read-ahead will
-                                    be freed if they were initialized. */
-    ulint lra_pages_before_sleep,   /*!< in: The number of node pointer records
-                                    traversed while holding the index lock
-                                    before releasing the index lock and
-                                    sleeping for a short period of time so that
-                                    the other threads get a chance to x-latch
-                                    the index lock. */
-    ulint lra_sleep,                /*!< in: Sleep time in milliseconds. */
-    ulint lra_n_spaces,             /*!< in: Number of space switches before
-                                    lra is disabled. */
-    bool reset_lra_count_n_spaces)  /*!< in: whether to reset
-                                    lra_count_n_spaces.  */
+    trx_t *trx,                    /*!< in: transaction */
+    ulint lra_size,                /*!< in: lra_size in MB. If 0, the fields
+                                   that are related to logical-read-ahead will
+                                   be freed if they were initialized. */
+    ulint lra_pages_before_sleep,  /*!< in: The number of node pointer records
+                                   traversed while holding the index lock
+                                   before releasing the index lock and
+                                   sleeping for a short period of time so that
+                                   the other threads get a chance to x-latch
+                                   the index lock. */
+    ulint lra_sleep,               /*!< in: Sleep time in milliseconds. */
+    ulint lra_n_spaces,            /*!< in: Number of space switches before
+                                   lra is disabled. */
+    bool reset_lra_count_n_spaces) /*!< in: whether to reset
+                                   lra_count_n_spaces.  */
 {
 #ifndef UNIV_LINUX
   if (lra_size) {
