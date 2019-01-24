@@ -6857,8 +6857,6 @@ int ha_rocksdb::create_key_defs(
 
   DBUG_ASSERT(table_arg->s != nullptr);
 
-  uint i;
-
   /*
     These need to be one greater than MAX_INDEXES since the user can create
     MAX_INDEXES secondary keys and no primary key which would cause us
@@ -6875,6 +6873,36 @@ int ha_rocksdb::create_key_defs(
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
+  uint64 ttl_duration = 0;
+  std::string ttl_column;
+  uint ttl_field_offset;
+
+  uint err;
+  if ((err = Rdb_key_def::extract_ttl_duration(table_arg, tbl_def_arg,
+                                               &ttl_duration))) {
+    DBUG_RETURN(err);
+  }
+
+  if ((err = Rdb_key_def::extract_ttl_col(table_arg, tbl_def_arg, &ttl_column,
+                                          &ttl_field_offset))) {
+    DBUG_RETURN(err);
+  }
+
+  /* We don't currently support TTL on tables with hidden primary keys. */
+  if (ttl_duration > 0 && has_hidden_pk(table_arg)) {
+    my_error(ER_RDB_TTL_UNSUPPORTED, MYF(0));
+    DBUG_RETURN(HA_EXIT_FAILURE);
+  }
+
+  /*
+    If TTL duration is not specified but TTL column was specified, throw an
+    error because TTL column requires duration.
+  */
+  if (ttl_duration == 0 && !ttl_column.empty()) {
+    my_error(ER_RDB_TTL_COL_FORMAT, MYF(0), ttl_column.c_str());
+    DBUG_RETURN(HA_EXIT_FAILURE);
+  }
+
   if (!old_tbl_def_arg) {
     /*
       old_tbl_def doesn't exist. this means we are in the process of creating
@@ -6883,9 +6911,9 @@ int ha_rocksdb::create_key_defs(
       Get the index numbers (this will update the next_index_number)
       and create Rdb_key_def structures.
     */
-    for (i = 0; i < tbl_def_arg->m_key_count; i++) {
-      if (create_key_def(table_arg, i, tbl_def_arg, &m_key_descr_arr[i],
-                         cfs[i])) {
+    for (uint i = 0; i < tbl_def_arg->m_key_count; i++) {
+      if (create_key_def(table_arg, i, tbl_def_arg, &m_key_descr_arr[i], cfs[i],
+                         ttl_duration, ttl_column)) {
         DBUG_RETURN(HA_EXIT_FAILURE);
       }
     }
@@ -6896,7 +6924,8 @@ int ha_rocksdb::create_key_defs(
       generate the necessary new key definitions if any.
     */
     if (create_inplace_key_defs(table_arg, tbl_def_arg, old_table_arg,
-                                old_tbl_def_arg, cfs)) {
+                                old_tbl_def_arg, cfs, ttl_duration,
+                                ttl_column)) {
       DBUG_RETURN(HA_EXIT_FAILURE);
     }
   }
@@ -7027,7 +7056,8 @@ int ha_rocksdb::create_cfs(
 int ha_rocksdb::create_inplace_key_defs(
     const TABLE *const table_arg, Rdb_tbl_def *const tbl_def_arg,
     const TABLE *const old_table_arg, const Rdb_tbl_def *const old_tbl_def_arg,
-    const std::array<key_def_cf_info, MAX_INDEXES + 1> &cfs) const {
+    const std::array<key_def_cf_info, MAX_INDEXES + 1> &cfs,
+    uint64 ttl_duration, const std::string &ttl_column) const {
   DBUG_ENTER_FUNC();
 
   std::shared_ptr<Rdb_key_def> *const old_key_descr =
@@ -7080,7 +7110,7 @@ int ha_rocksdb::create_inplace_key_defs(
           dict_manager.get_stats(gl_index_id), index_info.m_index_flags,
           ttl_rec_offset, index_info.m_ttl_duration);
     } else if (create_key_def(table_arg, i, tbl_def_arg, &new_key_descr[i],
-                              cfs[i])) {
+                              cfs[i], ttl_duration, ttl_column)) {
       DBUG_RETURN(HA_EXIT_FAILURE);
     }
 
@@ -7233,40 +7263,12 @@ int ha_rocksdb::compare_key_parts(const KEY *const old_key,
 int ha_rocksdb::create_key_def(const TABLE *const table_arg, const uint i,
                                const Rdb_tbl_def *const tbl_def_arg,
                                std::shared_ptr<Rdb_key_def> *const new_key_def,
-                               const struct key_def_cf_info &cf_info) const {
+                               const struct key_def_cf_info &cf_info,
+                               uint64 ttl_duration,
+                               const std::string &ttl_column) const {
   DBUG_ENTER_FUNC();
 
   DBUG_ASSERT(*new_key_def == nullptr);
-
-  uint64 ttl_duration = 0;
-  std::string ttl_column;
-  uint ttl_field_offset;
-
-  uint err;
-  if ((err = Rdb_key_def::extract_ttl_duration(table_arg, tbl_def_arg,
-                                               &ttl_duration))) {
-    DBUG_RETURN(err);
-  }
-
-  if ((err = Rdb_key_def::extract_ttl_col(table_arg, tbl_def_arg, &ttl_column,
-                                          &ttl_field_offset))) {
-    DBUG_RETURN(err);
-  }
-
-  /* We don't currently support TTL on tables with hidden primary keys. */
-  if (ttl_duration > 0 && is_hidden_pk(i, table_arg, tbl_def_arg)) {
-    my_error(ER_RDB_TTL_UNSUPPORTED, MYF(0));
-    DBUG_RETURN(HA_EXIT_FAILURE);
-  }
-
-  /*
-    If TTL duration is not specified but TTL column was specified, throw an
-    error because TTL column requires duration.
-  */
-  if (ttl_duration == 0 && !ttl_column.empty()) {
-    my_error(ER_RDB_TTL_COL_FORMAT, MYF(0), ttl_column.c_str());
-    DBUG_RETURN(HA_EXIT_FAILURE);
-  }
 
   const uint index_id = ddl_manager.get_and_update_next_number(&dict_manager);
   const uint16_t index_dict_version = Rdb_key_def::INDEX_INFO_VERSION_LATEST;
