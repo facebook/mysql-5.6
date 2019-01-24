@@ -931,14 +931,6 @@ void Srv_session::set_detached()
   thd_set_thread_stack(&thd_, NULL);
 }
 
-static void append_session_id_in_ok(THD* session_thd) {
-  session_thd->get_stmt_da()->set_message("%s:%d",
-            Srv_session::RpcIdAttr, session_thd->thread_id());
-
-  DBUG_PRINT("info", ("Sending rpc id in OK %s",
-                      session_thd->get_stmt_da()->message()));
-}
-
 // Called after query executed and before sending out the OK/Err.
 // If session state changed:
 // - Appends session id in OK is session state changed
@@ -959,7 +951,6 @@ void Srv_session::end_statement() {
   }
 
   if (!thd_.is_error()) {
-    append_session_id_in_ok(&thd_);
     auto tracker =
         get_thd()->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
     if (tracker->is_enabled())
