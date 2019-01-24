@@ -765,14 +765,16 @@ private:
   int create_key_def(const TABLE *const table_arg, const uint i,
                      const Rdb_tbl_def *const tbl_def_arg,
                      std::shared_ptr<Rdb_key_def> *const new_key_def,
-                     const struct key_def_cf_info &cf_info) const
+                     const struct key_def_cf_info &cf_info, uint64 ttl_duration,
+                     const std::string &ttl_column) const
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   int create_inplace_key_defs(
       const TABLE *const table_arg, Rdb_tbl_def *vtbl_def_arg,
       const TABLE *const old_table_arg,
       const Rdb_tbl_def *const old_tbl_def_arg,
-      const std::array<key_def_cf_info, MAX_INDEXES + 1> &cfs) const
+      const std::array<key_def_cf_info, MAX_INDEXES + 1> &cf,
+      uint64 ttl_duration, const std::string &ttl_column) const
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   std::unordered_map<std::string, uint>
