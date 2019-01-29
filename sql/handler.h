@@ -1177,19 +1177,35 @@ struct st_ha_create_information_base
                             in Table_map_log_events */
 };
 
+
+/**
+  WARNING: Put your new field of C++ class types (such as string) and add
+  proper reset support in reset function. Add new POD fields in the base class.
+  Otherwise you may run into memory leak or data corruption as we call memset
+  on the base while reset the individual fields explicitly.
+ */
 typedef struct st_ha_create_information : public st_ha_create_information_base
 {
   String db_metadata;
   SQL_I_List<TABLE_LIST> merge_list;
 
-  /* initialize db_read_only parameter */
   st_ha_create_information()
+  {
+    reset();
+  }
+
+  /* reset this structure to default state */
+  void reset()
   {
     // memset the base struct with POD fields
     memset(
       (st_ha_create_information_base *)this,
       0,
       sizeof(st_ha_create_information_base));
+
+    // reset the individual C++ fields case by case
+    db_metadata.free();
+    merge_list.empty();
   }
 } HA_CREATE_INFO;
 

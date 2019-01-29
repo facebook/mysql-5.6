@@ -667,6 +667,9 @@ bool load_db_opt(THD *thd, const char *path, HA_CREATE_INFO *create,
   bool error=1;
   uint nbytes;
 
+  // Zero HA_CREATE_INFO structure as it may contain unwanted values
+  create->reset();
+
   create->default_table_charset= thd->variables.collation_server;
 
   /* Check if options for this database are already in the hash */

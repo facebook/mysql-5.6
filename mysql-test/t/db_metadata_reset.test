@@ -1,0 +1,61 @@
+# Test per-database database-metadata attribute
+--source include/have_innodb.inc
+connection default;
+
+--disable_query_log
+let $MYSQLD_DATADIR= `select @@datadir`;
+--enable_query_log
+
+--error 1
+file_exists $MYSQLD_DATADIR/mysql/db.opt;
+--error 1
+file_exists $MYSQLD_DATADIR/test/db.opt;
+
+# create database without any options
+create database test2;
+show create database test2;
+--exec cat $MYSQLD_DATADIR/test2/db.opt
+
+# create database with character set, read_only and db_metadata
+create database test3 character set utf8 read_only=true db_metadata = "{\"shard\":\"test3_shard\"}";
+show create database test3;
+--exec cat $MYSQLD_DATADIR/test3/db.opt
+
+# create database
+create database test4;
+show create database test4;
+--exec cat $MYSQLD_DATADIR/test4/db.opt
+
+# create database with character set, read_only and db_metadata
+create database test5 character set utf16 read_only=true db_metadata = "{\"shard\":\"test5_shard\"}";
+show create database test5;
+--exec cat $MYSQLD_DATADIR/test5/db.opt
+
+# create database
+create database test6;
+show create database test6;
+--exec cat $MYSQLD_DATADIR/test6/db.opt
+
+ # Modify test2/db.opt and test8/db.opt and let all field take default value
+--exec echo > $MYSQLD_DATADIR/test4/db.opt
+--exec echo > $MYSQLD_DATADIR/test6/db.opt
+
+# Restart server to get rid of the dboptions cache
+--source include/restart_mysqld.inc
+
+# Reload values from all db.opt and make sure we load them correctly
+# And the default values are loaded correctly (not get polluted by previous
+# values)
+select catalog_name, schema_name, default_character_set_name, default_collation_name, sql_path from information_schema.schemata;
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
+show create database test4;
+show create database test6;
+
+# cleanup
+--disable_warnings
+drop database if exists test2;
+drop database if exists test3;
+drop database if exists test4;
+drop database if exists test5;
+drop database if exists test6;
+--enable_warnings
