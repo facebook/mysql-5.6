@@ -1248,13 +1248,6 @@ class THD : public MDL_context_owner,
   */
   enum enum_server_command m_command;
 
- private:
-  bool is_admin_conn;
-
- public:
-  void set_admin_connection(bool admin = true) { is_admin_conn = admin; }
-  bool is_admin_connection() { return is_admin_conn; }
-
  public:
   uint32 unmasked_server_id;
   uint32 server_id;

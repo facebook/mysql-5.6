@@ -175,7 +175,6 @@ class Channel_info_tcpip_socket : public Channel_info {
     THD *thd = Channel_info::create_thd();
 
     if (thd != NULL) init_net_server_extension(thd);
-    if (this->get_admin()) thd->set_admin_connection();
     return thd;
   }
 
@@ -718,15 +717,14 @@ bool Unix_socket::create_lockfile() {
 
 Mysqld_socket_listener::Mysqld_socket_listener(
     const std::list<std::string> &bind_addresses, uint tcp_port, uint backlog,
-    uint port_timeout, std::string unix_sockname, bool admin)
+    uint port_timeout, std::string unix_sockname)
     : m_bind_addresses(bind_addresses),
       m_tcp_port(tcp_port),
       m_backlog(backlog),
       m_port_timeout(port_timeout),
       m_unix_sockname(unix_sockname),
       m_unlink_sockname(false),
-      m_error_count(0),
-      m_admin(admin) {
+      m_error_count(0) {
 #ifdef HAVE_LIBWRAP
   m_deny_severity = LOG_WARNING;
   m_libwrap_name = my_progname + dirname_length(my_progname);
@@ -911,10 +909,6 @@ Channel_info *Mysqld_socket_listener::listen_for_connection_event() {
     (void)mysql_socket_close(connect_sock);
     connection_errors_internal++;
     return NULL;
-  }
-
-  if (m_admin) {
-    channel_info->set_admin();
   }
 
   return channel_info;

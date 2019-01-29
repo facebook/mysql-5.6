@@ -3415,12 +3415,6 @@ int acl_authenticate(THD *thd, enum_server_command command) {
                       thd->password ? "yes" : "no", sctx->master_access(),
                       mpvio.db.str));
 
-  if (thd->is_admin_connection() &&
-      !(thd->m_main_security_ctx.check_access(SUPER_ACL))) {
-    my_error(ER_SPECIFIC_ACCESS_DENIED_ERROR, MYF(0), "SUPER");
-    DBUG_RETURN(1);
-  }
-
   if (command == COM_CONNECT &&
       !(thd->m_main_security_ctx.check_access(SUPER_ACL) ||
         thd->m_main_security_ctx

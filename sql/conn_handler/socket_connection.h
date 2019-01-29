@@ -93,8 +93,6 @@ class Mysqld_socket_listener {
 
   uint m_error_count;  // Internal variable for maintaining error count.
 
-  bool m_admin;  // Admin port
-
 #ifdef HAVE_POLL
   struct poll_info_t {
     std::vector<struct pollfd> m_fds;
@@ -148,11 +146,10 @@ class Mysqld_socket_listener {
                              connection queue used in listen.
     @param   port_timeout    portname.
     @param   unix_sockname   pathname for unix socket to bind to
-    @param   admin          socket listener is an admin port
   */
   Mysqld_socket_listener(const std::list<std::string> &bind_addresses,
                          uint tcp_port, uint backlog, uint port_timeout,
-                         std::string unix_sockname, bool admin = false);
+                         std::string unix_sockname);
 
   /**
     Set up a listener - set of sockets to listen for connection events

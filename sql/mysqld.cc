@@ -861,7 +861,6 @@ static PSI_mutex_key key_LOCK_handler_count;
 static PSI_cond_key key_COND_handler_count;
 static PSI_thread_key key_thread_handle_shutdown_restart;
 #else
-static PSI_thread_key key_thread_handle_con_admin_sockets;
 static PSI_mutex_key key_LOCK_socket_listener_active;
 static PSI_cond_key key_COND_socket_listener_active;
 static PSI_mutex_key key_LOCK_start_signal_handler;
@@ -882,7 +881,7 @@ PSI_statement_info stmt_info_rpl;
 /* the default log output is log tables */
 static bool lower_case_table_names_used = 0;
 #if !defined(_WIN32)
-static int socket_listener_active = 0;
+static bool socket_listener_active = false;
 static int pipe_write_fd = -1;
 static bool opt_daemonize = 0;
 #endif
@@ -1072,7 +1071,6 @@ const char *timestamp_type_names[] = {"UTC", "SYSTEM", NullS};
 ulong opt_log_timestamps;
 uint mysqld_port, test_flags, select_errors, ha_open_options;
 uint mysqld_port_timeout;
-ulong mysqld_admin_port;
 ulong delay_key_write_options;
 uint protocol_version;
 uint lower_case_table_names;
@@ -1471,8 +1469,6 @@ void substitute_progpath(char **argv) {
 
 static Connection_acceptor<Mysqld_socket_listener> *mysqld_socket_acceptor =
     NULL;
-static Connection_acceptor<Mysqld_socket_listener>
-    *mysqld_admin_socket_acceptor = NULL;
 #ifdef _WIN32
 Connection_acceptor<Named_pipe_listener> *named_pipe_acceptor = NULL;
 Connection_acceptor<Shared_mem_listener> *shared_mem_acceptor = NULL;
@@ -1842,8 +1838,6 @@ static void close_connections(void) {
 
   // Close listeners.
   if (mysqld_socket_acceptor != NULL) mysqld_socket_acceptor->close_listener();
-  if (mysqld_admin_socket_acceptor != NULL)
-    mysqld_admin_socket_acceptor->close_listener();
 #ifdef _WIN32
   if (named_pipe_acceptor != NULL) named_pipe_acceptor->close_listener();
 
@@ -2096,8 +2090,6 @@ bool gtid_server_init() {
 static void free_connection_acceptors() {
   delete mysqld_socket_acceptor;
   mysqld_socket_acceptor = NULL;
-  delete mysqld_admin_socket_acceptor;
-  mysqld_admin_socket_acceptor = NULL;
 
 #ifdef _WIN32
   delete named_pipe_acceptor;
@@ -2527,24 +2519,6 @@ static bool network_init(void) {
     if (report_port == 0) report_port = mysqld_port;
 
     if (!opt_disable_networking) DBUG_ASSERT(report_port != 0);
-
-    if (mysqld_admin_port != 0) {
-      mysqld_socket_listener = new (std::nothrow)
-          Mysqld_socket_listener(bind_addresses, mysqld_admin_port, back_log,
-                                 mysqld_port_timeout, "", true);
-      if (mysqld_socket_listener == NULL) return true;
-
-      mysqld_admin_socket_acceptor = new (std::nothrow)
-          Connection_acceptor<Mysqld_socket_listener>(mysqld_socket_listener);
-      if (mysqld_admin_socket_acceptor == NULL) {
-        delete mysqld_socket_listener;
-        mysqld_socket_listener = NULL;
-        return true;
-      }
-
-      if (mysqld_admin_socket_acceptor->init_connection_acceptor())
-        return true;  // mysqld_socket_acceptor would be freed in unireg_abort.
-    }
   }
 #ifdef _WIN32
   // Create named pipe
@@ -2996,7 +2970,7 @@ extern "C" void *signal_hand(void *arg MY_ATTRIBUTE((unused))) {
             and wait for us to finish all the cleanup below.
           */
           mysql_mutex_lock(&LOCK_socket_listener_active);
-          while (socket_listener_active > 0) {
+          while (socket_listener_active) {
             DBUG_PRINT("info", ("Killing socket listener"));
             if (pthread_kill(main_thread_id, SIGUSR1)) {
               DBUG_ASSERT(false);
@@ -3031,23 +3005,6 @@ extern "C" void *signal_hand(void *arg MY_ATTRIBUTE((unused))) {
     }
   }
   return NULL; /* purecov: deadcode */
-}
-
-extern "C" void *socket_conn_admin_event_handler(void *arg) {
-  my_thread_init();
-
-  Connection_acceptor<Mysqld_socket_listener> *conn_acceptor =
-      static_cast<Connection_acceptor<Mysqld_socket_listener> *>(arg);
-  conn_acceptor->connection_event_loop();
-
-  mysql_mutex_lock(&LOCK_socket_listener_active);
-  DBUG_ASSERT(socket_listener_active > 0);
-  socket_listener_active -= 1;
-  mysql_cond_broadcast(&COND_socket_listener_active);
-  mysql_mutex_unlock(&LOCK_socket_listener_active);
-
-  my_thread_end();
-  return 0;
 }
 
 #endif  // !_WIN32
@@ -5847,51 +5804,6 @@ static void set_super_read_only_post_init() {
   opt_super_readonly = super_read_only;
 }
 
-static void handle_connections_sockets_all() {
-  my_thread_handle admin_handle;
-
-  mysql_mutex_lock(&LOCK_socket_listener_active);
-
-  if (mysqld_admin_socket_acceptor) {
-    int error = mysql_thread_create(
-        key_thread_handle_con_admin_sockets, &admin_handle, &connection_attrib,
-        socket_conn_admin_event_handler, mysqld_admin_socket_acceptor);
-    if (error) {
-      LogErr(WARNING_LEVEL, ER_CANT_CREATE_TCPIP_THREAD, error);
-    } else {
-      socket_listener_active += 1;
-    }
-  }
-
-  // Make it possible for the signal handler to kill the listener.
-  socket_listener_active += 1;
-  mysql_mutex_unlock(&LOCK_socket_listener_active);
-
-  if (opt_daemonize) {
-    if (nstdout != nullptr) {
-      // Show the pid on stdout if deamonizing and connected to tty
-      fprintf(nstdout, "mysqld is running as pid %lu\n", current_pid);
-      fclose(nstdout);
-      nstdout = nullptr;
-    }
-
-    mysqld::runtime::signal_parent(pipe_write_fd, 1);
-  }
-  mysqld_socket_acceptor->connection_event_loop();
-
-  mysql_mutex_lock(&LOCK_socket_listener_active);
-
-  while (socket_listener_active > 1) {
-    DBUG_PRINT("info", ("Killing admin socket listener"));
-    if (pthread_kill(admin_handle.thread, SIGUSR1)) {
-      DBUG_ASSERT(false);
-      break;
-    }
-    mysql_cond_wait(&COND_socket_listener_active, &LOCK_socket_listener_active);
-  }
-  mysql_mutex_unlock(&LOCK_socket_listener_active);
-}
-
 #ifdef _WIN32
 int win_main(int argc, char **argv)
 #else
@@ -6811,7 +6723,23 @@ int mysqld_main(int argc, char **argv)
 #if defined(_WIN32)
   setup_conn_event_handler_threads();
 #else
-  handle_connections_sockets_all();
+  mysql_mutex_lock(&LOCK_socket_listener_active);
+  // Make it possible for the signal handler to kill the listener.
+  socket_listener_active = true;
+  mysql_mutex_unlock(&LOCK_socket_listener_active);
+
+  if (opt_daemonize) {
+    if (nstdout != nullptr) {
+      // Show the pid on stdout if deamonizing and connected to tty
+      fprintf(nstdout, "mysqld is running as pid %lu\n", current_pid);
+      fclose(nstdout);
+      nstdout = nullptr;
+    }
+
+    mysqld::runtime::signal_parent(pipe_write_fd, 1);
+  }
+
+  mysqld_socket_acceptor->connection_event_loop();
 #endif /* _WIN32 */
   server_operational_state = SERVER_SHUTTING_DOWN;
   sysd::notify("STOPPING=1\nSTATUS=SERVER_SHUTTING_DOWN\n");
@@ -6834,8 +6762,7 @@ int mysqld_main(int argc, char **argv)
 #ifndef _WIN32
   mysql_mutex_lock(&LOCK_socket_listener_active);
   // Notify the signal handler that we have stopped listening for connections.
-  DBUG_ASSERT(socket_listener_active == 1);
-  socket_listener_active = 0;
+  socket_listener_active = false;
   mysql_cond_broadcast(&COND_socket_listener_active);
   mysql_mutex_unlock(&LOCK_socket_listener_active);
 #endif  // !_WIN32
@@ -10712,8 +10639,6 @@ static PSI_thread_info all_server_threads[]=
   { &key_thread_handle_con_sharedmem, "con_shared_mem", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_thread_handle_con_sockets, "con_sockets", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_thread_handle_shutdown_restart, "shutdown_restart", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
-#else /* _WIN32 */
-  { &key_thread_handle_con_admin_sockets, "con_admin_sockets", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
 #endif /* _WIN32 */
   { &key_thread_bootstrap, "bootstrap", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_thread_handle_manager, "manager", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},

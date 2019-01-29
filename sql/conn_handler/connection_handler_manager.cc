@@ -97,9 +97,8 @@ bool Connection_handler_manager::valid_connection_count() {
   return connection_accepted;
 }
 
-bool Connection_handler_manager::check_and_incr_conn_count(bool admin) {
+bool Connection_handler_manager::check_and_incr_conn_count() {
   bool connection_accepted = true;
-  int admin_cap = admin ? 16 : 0;
   mysql_mutex_lock(&LOCK_connection_count);
   /*
     Here we allow max_connections + 1 clients to connect
@@ -108,10 +107,8 @@ bool Connection_handler_manager::check_and_incr_conn_count(bool admin) {
     The last connection is reserved for SUPER users. This is
     checked later during authentication where valid_connection_count()
     is called for non-SUPER users only.
-
-    Admin port can exceed the cap by 16 connections.
   */
-  if (connection_count > max_connections + admin_cap) {
+  if (connection_count > max_connections) {
     connection_accepted = false;
     m_connection_errors_max_connection++;
   } else {
@@ -250,8 +247,7 @@ bool Connection_handler_manager::unload_connection_handler() {
 
 void Connection_handler_manager::process_new_connection(
     Channel_info *channel_info) {
-  if (connection_events_loop_aborted() ||
-      !check_and_incr_conn_count(channel_info->get_admin())) {
+  if (connection_events_loop_aborted() || !check_and_incr_conn_count()) {
     channel_info->send_error_and_close_channel(ER_CON_COUNT_ERROR, 0, true);
     delete channel_info;
     return;

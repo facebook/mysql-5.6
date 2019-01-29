@@ -371,7 +371,6 @@ THD::THD(bool enable_plugins)
       m_current_stage_key(0),
       current_mutex(NULL),
       current_cond(NULL),
-      is_admin_conn(false),
       in_sub_stmt(0),
       fill_status_recursion_level(0),
       fill_variables_recursion_level(0),

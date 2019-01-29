@@ -241,7 +241,6 @@ extern bool relay_log_recovery;
 extern bool offline_mode;
 extern uint test_flags, select_errors, ha_open_options;
 extern uint protocol_version, mysqld_port;
-extern ulong mysqld_admin_port;
 
 enum enum_delay_key_write {
   DELAY_KEY_WRITE_NONE,

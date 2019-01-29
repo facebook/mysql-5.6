@@ -14,7 +14,6 @@ The following options may be given as the first argument:
  --activate-all-roles-on-login 
  Automatically set all granted roles as active after the
  user has authenticated successfully.
- --admin-port=#      Port number to use for connections from admin.
  --allow-noncurrent-db-rw=name 
  Switch to allow/deny reads and writes to a table not in
  the current database.
@@ -1376,7 +1375,6 @@ The following options may be given as the first argument:
 Variables (--variable-name=value)
 abort-slave-event-count 0
 activate-all-roles-on-login FALSE
-admin-port 0
 allow-noncurrent-db-rw ON
 allow-suspicious-udfs FALSE
 auto-increment-increment 1
