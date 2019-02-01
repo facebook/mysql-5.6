@@ -3068,6 +3068,7 @@ static bool init_previous_gtid_set_map(char *index_file_path) {
   uchar *previous_gtid_set_in_file = NULL;
   int length;
   int index_dir_len = dirname_length(opt_index_file_str);
+  bool ret = false;
 
   IO_CACHE index_file;
   File file = -1;
@@ -3080,6 +3081,8 @@ static bool init_previous_gtid_set_map(char *index_file_path) {
   if (init_io_cache(&index_file, file, IO_SIZE, READ_CACHE, 0, 0,
                     MYF(MY_WME))) {
     error("Error initializing index file cache");
+    ret = true;
+    my_close(file, MYF(MY_WME));
     DBUG_RETURN(true);
   }
 
@@ -3100,7 +3103,8 @@ static bool init_previous_gtid_set_map(char *index_file_path) {
       if (previous_gtid_set_in_file == NULL) {
         error("Malloc Failed to allocate %d bytes of memory",
               gtid_string_length + 1);
-        DBUG_RETURN(true);
+        ret = true;
+        goto end;
       }
       if (my_b_read(&index_file, previous_gtid_set_in_file,
                     gtid_string_length + 1)) {
@@ -3109,7 +3113,8 @@ static bool init_previous_gtid_set_map(char *index_file_path) {
             "index file",
             file_name_and_gtid_set_length);
         my_free(previous_gtid_set_in_file);
-        DBUG_RETURN(true);
+        ret = true;
+        goto end;
       }
     }
     int binlog_dir_len = dirname_length(file_name_and_gtid_set_length);
@@ -3122,7 +3127,18 @@ static bool init_previous_gtid_set_map(char *index_file_path) {
         string((char *)previous_gtid_set_in_file, gtid_string_length)));
     my_free(previous_gtid_set_in_file);
   }
-  DBUG_RETURN(false);
+
+end:
+  /*
+    Since the end_io_cache() writes to the file errors may happen.
+   */
+  if (end_io_cache(&index_file)) {
+    ret = true;
+  }
+
+  my_close(file, MYF(MY_WME));
+
+  DBUG_RETURN(ret);
 }
 
 /**
