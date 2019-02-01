@@ -22,12 +22,12 @@
 
 #include "sql/rpl_binlog_sender.h"
 
+#include <errno.h>
 #include <stdio.h>
+#include <sys/socket.h>
 #include <algorithm>
 #include <atomic>
-#include <errno.h>
 #include <memory>
-#include <sys/socket.h>
 #include <unordered_map>
 #include <utility>
 
@@ -135,7 +135,7 @@ void Binlog_sender::init() {
 
   thd->push_diagnostics_area(&m_diag_area);
   init_heartbeat_period();
-  m_last_event_sent_ts = time(0);
+  set_timespec_nsec(&m_last_event_sent_ts, 0);
 
   mysql_mutex_lock(&thd->LOCK_thd_data);
   thd->current_linfo = &m_linfo;
@@ -187,7 +187,7 @@ void Binlog_sender::init() {
   }
   m_transmit_started = true;
 
-  NET *net= thd->get_protocol_classic()->get_net();
+  NET *net = thd->get_protocol_classic()->get_net();
   if (rpl_send_buffer_size &&
       (setsockopt(net->vio->mysql_socket.fd, SOL_SOCKET, SO_SNDBUF,
                   &rpl_send_buffer_size, sizeof(rpl_send_buffer_size)) == -1
@@ -524,10 +524,14 @@ int Binlog_sender::send_events(File_reader *reader, my_off_t end_pos) {
        */
       DBUG_EXECUTE_IF("inject_2sec_sleep_when_skipping_an_event",
                       { my_sleep(2000000); });
-      time_t now = time(0);
-      DBUG_ASSERT(now >= m_last_event_sent_ts);
-      bool time_for_hb_event = ((ulonglong)(now - m_last_event_sent_ts) >=
-                                (ulonglong)(m_heartbeat_period / 1000000000UL));
+      struct timespec cur_clock;
+      set_timespec_nsec(&cur_clock, 0);
+      DBUG_ASSERT(cmp_timespec(&cur_clock, &m_last_event_sent_ts) >= 0);
+      // Both diff_timespec() and heartbeat_period are in nano seconds.
+      const bool time_for_hb_event =
+          (diff_timespec(&cur_clock, &m_last_event_sent_ts) >=
+           m_heartbeat_period);
+
       if (time_for_hb_event) {
         if (unlikely(send_heartbeat_event(log_pos))) DBUG_RETURN(1);
         exclude_group_end_pos = 0;
@@ -1200,7 +1204,7 @@ inline int Binlog_sender::send_packet() {
 
   /* Shrink the packet if needed. */
   int ret = shrink_packet() ? 1 : 0;
-  m_last_event_sent_ts = time(0);
+  set_timespec_nsec(&m_last_event_sent_ts, 0);
   DBUG_RETURN(ret);
 }
 
