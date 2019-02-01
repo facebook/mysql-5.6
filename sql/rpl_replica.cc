@@ -6322,7 +6322,8 @@ bool mta_checkpoint_routine(Relay_log_info *rli, bool force) {
          waiter: set wait_flag; waits....; drops wait_flag;
   */
 
-  error = rli->flush_info(Relay_log_info::RLI_FLUSH_IGNORE_SYNC_OPT);
+  if (global_gtid_mode.get() != Gtid_mode::ON)
+    error = rli->flush_info(Relay_log_info::RLI_FLUSH_IGNORE_SYNC_OPT);
 
   mysql_cond_broadcast(&rli->data_cond);
   mysql_mutex_unlock(&rli->data_lock);
