@@ -6309,7 +6309,8 @@ bool mts_checkpoint_routine(Relay_log_info *rli, bool force) {
          waiter: set wait_flag; waits....; drops wait_flag;
   */
 
-  error = rli->flush_info(true);
+  if (get_gtid_mode(GTID_MODE_LOCK_NONE) != GTID_MODE_ON)
+    error = rli->flush_info(true);
 
   mysql_cond_broadcast(&rli->data_cond);
   mysql_mutex_unlock(&rli->data_lock);
