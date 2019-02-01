@@ -12,6 +12,7 @@ SET @@GLOBAL.replica_checkpoint_period= 1;
 CREATE TABLE t1 (c1 INT NOT NULL PRIMARY KEY);
 INSERT INTO t1 VALUES (1);
 include/sync_slave_sql_with_master.inc
+FLUSH LOGS;
 include/assert.inc [The repository has the lastest position]
 include/assert.inc [The file name for the repository and the show replica status match]
 #

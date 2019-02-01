@@ -71,6 +71,7 @@ INSERT INTO t1 VALUES(10);
 # Check the genereted gtid event to verify the UUID in use is that of local server.
 --let $rpl_channel_name= 'channel_1'
 --source include/sync_slave_sql_with_master.inc
+FLUSH LOGS;
 
 --let server_2_uuid = `SELECT @@GLOBAL.SERVER_UUID`
 --let $gtid_step_count= 1

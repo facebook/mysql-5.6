@@ -51,6 +51,7 @@ if ( `SELECT '$_storage_engine' <> 'INNODB' AND '$_storage_engine' <> 'MYISAM'` 
 # 2 - Simple DDL
 --source include/rpl_connection_master.inc
 --eval CREATE TABLE t1 (c1 int PRIMARY KEY) ENGINE=$storage_engine
+FLUSH LOGS;
 --source include/sync_slave_io_with_master.inc
 --let $gtid_step_count= 1
 --source extra/rpl_tests/rpl_sync_relay_log_info_assert_pos.inc
@@ -58,6 +59,7 @@ if ( `SELECT '$_storage_engine' <> 'INNODB' AND '$_storage_engine' <> 'MYISAM'` 
 # 3 - Simple DML
 --source include/rpl_connection_master.inc
 INSERT INTO t1 VALUES (1);
+FLUSH LOGS;
 --source include/sync_slave_io_with_master.inc
 --let $gtid_step_count= 1
 --source extra/rpl_tests/rpl_sync_relay_log_info_assert_pos.inc
@@ -72,6 +74,7 @@ FLUSH LOCAL BINARY LOGS;
 # 5 - Simple DDL
 --source include/rpl_connection_master.inc
 DROP TABLE t1;
+FLUSH LOGS;
 --source include/sync_slave_io_with_master.inc
 --let $gtid_step_count= 1
 --source extra/rpl_tests/rpl_sync_relay_log_info_assert_pos.inc
@@ -104,6 +107,7 @@ FLUSH LOCAL RELAY LOGS;
 # 9 - The rest of the simple DDL
 SET DEBUG_SYNC= 'now SIGNAL continue_after_queue_event';
 --source include/rpl_connection_master.inc
+FLUSH LOGS;
 --source include/sync_slave_io_with_master.inc
 --let $gtid_step_count= 1
 --source extra/rpl_tests/rpl_sync_relay_log_info_assert_pos.inc
@@ -136,6 +140,7 @@ FLUSH LOCAL RELAY LOGS;
 # 13 - The rest of the simple DML
 SET DEBUG_SYNC= 'now SIGNAL continue_after_queue_event';
 --source include/rpl_connection_master.inc
+FLUSH LOGS;
 --source include/sync_slave_io_with_master.inc
 --let $gtid_step_count= 1
 --source extra/rpl_tests/rpl_sync_relay_log_info_assert_pos.inc
@@ -169,6 +174,7 @@ FLUSH LOCAL RELAY LOGS;
 # 17 - The rest of the simple DML
 SET DEBUG_SYNC= 'now SIGNAL continue_after_queue_event';
 --source include/rpl_connection_master.inc
+FLUSH LOGS;
 --source include/sync_slave_io_with_master.inc
 --let $gtid_step_count= 1
 --source extra/rpl_tests/rpl_sync_relay_log_info_assert_pos.inc
@@ -176,6 +182,7 @@ SET DEBUG_SYNC= 'now SIGNAL continue_after_queue_event';
 # 18 - Simple DDL
 --source include/rpl_connection_master.inc
 DROP TABLE t1;
+FLUSH LOGS;
 --source include/sync_slave_io_with_master.inc
 --let $gtid_step_count= 1
 --source extra/rpl_tests/rpl_sync_relay_log_info_assert_pos.inc
@@ -186,6 +193,7 @@ if ($_storage_engine == "INNODB")
   # 19 - Simple DDL
   --source include/rpl_connection_master.inc
   --eval CREATE TABLE t1 (c1 int PRIMARY KEY) ENGINE=$storage_engine
+  FLUSH LOGS;
   --source include/sync_slave_io_with_master.inc
   --let $gtid_step_count= 1
   --source extra/rpl_tests/rpl_sync_relay_log_info_assert_pos.inc
@@ -254,6 +262,7 @@ if ($_storage_engine == "INNODB")
   # 24 - The multi statement DML should be rolled back
   --source include/start_slave_sql.inc
   --source include/rpl_connection_master.inc
+  FLUSH LOGS;
   --source include/sync_slave_io_with_master.inc
   --let $gtid_step_count= 1
   --let $gtid_step_uuid= $master_uuid
@@ -262,6 +271,8 @@ if ($_storage_engine == "INNODB")
   # 25 - Simple DDL
   --source include/rpl_connection_master.inc
   DROP TABLE t1;
+  FLUSH LOGS;
+
   --source include/sync_slave_io_with_master.inc
   --let $gtid_step_count= 1
   --source extra/rpl_tests/rpl_sync_relay_log_info_assert_pos.inc

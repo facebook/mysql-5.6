@@ -23,6 +23,7 @@ START SLAVE;
 include/rpl_sync.inc
 include/diff_tables.inc [server_1:t1, server_2:t1, server_3:t1]
 [connection server_2]
+FLUSH LOGS;
 include/assert.inc [SQL thread position should be updated to after the split transaction]
 include/assert.inc [SQL thread file should be updated to after the split transaction]
 [connection server_1]

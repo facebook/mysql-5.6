@@ -23,6 +23,7 @@ include/gtid_step_assert.inc [count=0, only_count=0]
 include/start_slave.inc
 [connection master]
 CREATE TABLE t1 (c1 int PRIMARY KEY) ENGINE=InnoDB;
+FLUSH LOGS;
 include/sync_slave_io_with_master.inc
 [connection master]
 [connection slave]
@@ -32,6 +33,7 @@ Wait until (INNODB, sync_rli=0, step=2) SQL thread synced master binlog position
 include/gtid_step_assert.inc [count=1, only_count=0]
 [connection master]
 INSERT INTO t1 VALUES (1);
+FLUSH LOGS;
 include/sync_slave_io_with_master.inc
 [connection master]
 [connection slave]
@@ -50,6 +52,7 @@ Wait until (INNODB, sync_rli=0, step=4) SQL thread synced master binlog position
 include/gtid_step_assert.inc [count=0, only_count=0]
 [connection master]
 DROP TABLE t1;
+FLUSH LOGS;
 include/sync_slave_io_with_master.inc
 [connection master]
 [connection slave]
@@ -84,6 +87,7 @@ include/assert.inc [(INNODB, sync_rli=0, step=8) SQL thread did not synced maste
 include/gtid_step_assert.inc [count=0, only_count=0]
 SET DEBUG_SYNC= 'now SIGNAL continue_after_queue_event';
 [connection master]
+FLUSH LOGS;
 include/sync_slave_io_with_master.inc
 [connection master]
 [connection slave]
@@ -118,6 +122,7 @@ include/assert.inc [(INNODB, sync_rli=0, step=12) SQL thread did not synced mast
 include/gtid_step_assert.inc [count=0, only_count=0]
 SET DEBUG_SYNC= 'now SIGNAL continue_after_queue_event';
 [connection master]
+FLUSH LOGS;
 include/sync_slave_io_with_master.inc
 [connection master]
 [connection slave]
@@ -153,6 +158,7 @@ include/assert.inc [(INNODB, sync_rli=0, step=16) SQL thread did not synced mast
 include/gtid_step_assert.inc [count=0, only_count=0]
 SET DEBUG_SYNC= 'now SIGNAL continue_after_queue_event';
 [connection master]
+FLUSH LOGS;
 include/sync_slave_io_with_master.inc
 [connection master]
 [connection slave]
@@ -162,6 +168,7 @@ Wait until (INNODB, sync_rli=0, step=17) SQL thread synced master binlog positio
 include/gtid_step_assert.inc [count=1, only_count=0]
 [connection master]
 DROP TABLE t1;
+FLUSH LOGS;
 include/sync_slave_io_with_master.inc
 [connection master]
 [connection slave]
@@ -171,6 +178,7 @@ Wait until (INNODB, sync_rli=0, step=18) SQL thread synced master binlog positio
 include/gtid_step_assert.inc [count=1, only_count=0]
 [connection master]
 CREATE TABLE t1 (c1 int PRIMARY KEY) ENGINE=InnoDB;
+FLUSH LOGS;
 include/sync_slave_io_with_master.inc
 [connection master]
 [connection slave]
@@ -223,6 +231,7 @@ DELETE FROM t1 WHERE c1 = 2;
 include/gtid_step_assert.inc [count=1, only_count=0]
 include/start_slave_sql.inc
 [connection master]
+FLUSH LOGS;
 include/sync_slave_io_with_master.inc
 [connection master]
 [connection slave]
@@ -232,6 +241,7 @@ Wait until (INNODB, sync_rli=0, step=24) SQL thread synced master binlog positio
 include/gtid_step_assert.inc [count=1, only_count=0]
 [connection master]
 DROP TABLE t1;
+FLUSH LOGS;
 include/sync_slave_io_with_master.inc
 [connection master]
 [connection slave]
@@ -255,6 +265,7 @@ include/gtid_step_assert.inc [count=0, only_count=0]
 include/start_slave.inc
 [connection master]
 CREATE TABLE t1 (c1 int PRIMARY KEY) ENGINE=InnoDB;
+FLUSH LOGS;
 include/sync_slave_io_with_master.inc
 [connection master]
 [connection slave]
@@ -264,6 +275,7 @@ Wait until (INNODB, sync_rli=1, step=2) SQL thread synced master binlog position
 include/gtid_step_assert.inc [count=1, only_count=0]
 [connection master]
 INSERT INTO t1 VALUES (1);
+FLUSH LOGS;
 include/sync_slave_io_with_master.inc
 [connection master]
 [connection slave]
@@ -282,6 +294,7 @@ Wait until (INNODB, sync_rli=1, step=4) SQL thread synced master binlog position
 include/gtid_step_assert.inc [count=0, only_count=0]
 [connection master]
 DROP TABLE t1;
+FLUSH LOGS;
 include/sync_slave_io_with_master.inc
 [connection master]
 [connection slave]
@@ -316,6 +329,7 @@ include/assert.inc [(INNODB, sync_rli=1, step=8) SQL thread did not synced maste
 include/gtid_step_assert.inc [count=0, only_count=0]
 SET DEBUG_SYNC= 'now SIGNAL continue_after_queue_event';
 [connection master]
+FLUSH LOGS;
 include/sync_slave_io_with_master.inc
 [connection master]
 [connection slave]
@@ -350,6 +364,7 @@ include/assert.inc [(INNODB, sync_rli=1, step=12) SQL thread did not synced mast
 include/gtid_step_assert.inc [count=0, only_count=0]
 SET DEBUG_SYNC= 'now SIGNAL continue_after_queue_event';
 [connection master]
+FLUSH LOGS;
 include/sync_slave_io_with_master.inc
 [connection master]
 [connection slave]
@@ -385,6 +400,7 @@ include/assert.inc [(INNODB, sync_rli=1, step=16) SQL thread did not synced mast
 include/gtid_step_assert.inc [count=0, only_count=0]
 SET DEBUG_SYNC= 'now SIGNAL continue_after_queue_event';
 [connection master]
+FLUSH LOGS;
 include/sync_slave_io_with_master.inc
 [connection master]
 [connection slave]
@@ -394,6 +410,7 @@ Wait until (INNODB, sync_rli=1, step=17) SQL thread synced master binlog positio
 include/gtid_step_assert.inc [count=1, only_count=0]
 [connection master]
 DROP TABLE t1;
+FLUSH LOGS;
 include/sync_slave_io_with_master.inc
 [connection master]
 [connection slave]
@@ -403,6 +420,7 @@ Wait until (INNODB, sync_rli=1, step=18) SQL thread synced master binlog positio
 include/gtid_step_assert.inc [count=1, only_count=0]
 [connection master]
 CREATE TABLE t1 (c1 int PRIMARY KEY) ENGINE=InnoDB;
+FLUSH LOGS;
 include/sync_slave_io_with_master.inc
 [connection master]
 [connection slave]
@@ -455,6 +473,7 @@ DELETE FROM t1 WHERE c1 = 2;
 include/gtid_step_assert.inc [count=1, only_count=0]
 include/start_slave_sql.inc
 [connection master]
+FLUSH LOGS;
 include/sync_slave_io_with_master.inc
 [connection master]
 [connection slave]
@@ -464,6 +483,7 @@ Wait until (INNODB, sync_rli=1, step=24) SQL thread synced master binlog positio
 include/gtid_step_assert.inc [count=1, only_count=0]
 [connection master]
 DROP TABLE t1;
+FLUSH LOGS;
 include/sync_slave_io_with_master.inc
 [connection master]
 [connection slave]

@@ -25,6 +25,7 @@ include/start_slave.inc [FOR CHANNEL 'channel_1']
 [connection server_1]
 INSERT INTO t1 VALUES(10);
 include/sync_slave_sql_with_master.inc [FOR CHANNEL 'channel_1']
+FLUSH LOGS;
 include/gtid_step_assert.inc [count=1, only_count=1]
 INSTALL PLUGIN clone SONAME 'CLONE_PLUGIN';
 [connection server_3]
