@@ -1584,7 +1584,8 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
   if (command == COM_QUERY_ATTRS) {
     auto packet_ptr = packet;
     /*
-      Save query attributes.
+      Save query attributes.  Do this before calling handle_com_rpc() to make
+      sure the internal query attributes are populated.
      */
     size_t attrs_len= net_field_length((uchar**) &packet_ptr);
     thd->set_query_attrs(packet_ptr, attrs_len);
@@ -1592,6 +1593,23 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
     auto bytes_to_skip = attrs_len + net_length_size(attrs_len);
     packet_length -= bytes_to_skip;
     packet += bytes_to_skip; // command byte gets jumped below
+
+    bool rpc_error;
+    std::tie(rpc_error, srv_session) = handle_com_rpc(thd);
+    if (rpc_error) {
+      goto done;
+    }
+
+    if (srv_session != nullptr) {
+      // Switch to the detached session's thd - will be restored at the end
+      save_thd = thd;
+      thd = srv_session->get_thd();
+      thd->set_net(save_thd->get_net());
+
+      // The connection thd has already been marked as being in stage_init.
+      // Copy that information into the srv_session thd.
+      thd->copy_stage_info(save_thd);
+    }
   }
 
 #ifndef EMBEDDED_LIBRARY
@@ -1838,54 +1856,8 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
     mysqld_stmt_reset(thd, packet, packet_length);
     break;
   }
-  case COM_QUERY_ATTRS:
-  {
-    bool rpc_error;
-    std::tie(rpc_error, srv_session) = handle_com_rpc(thd);
-    if (rpc_error) {
-      goto done;
-    }
-
-    if (srv_session != nullptr) {
-      // Switch to use the detached session's thd - will be restored at the end
-      save_thd = thd;
-      thd = srv_session->get_thd();
-      thd->set_command(command);
-      thd->set_query_id(save_thd->query_id);
-      thd->enable_slow_log = save_thd->enable_slow_log;
-      thd->start_utime = save_thd->start_utime;
-      thd->start_time = save_thd->start_time;
-      thd->utime_after_lock = save_thd->utime_after_lock;
-      if (opt_log_slow_extra) {
-        query_start_status= thd->status_var;
-      }
-
-      thd->set_net(save_thd->get_net());
-#if defined(ENABLED_PROFILING)
-      thd->profiling.start_new_query();
-#endif
-      thd->set_time();
-
-      // This was incremented on the connection THD above, so we need to
-      // decrement it on the connection and incremente it for the session.
-      statistic_decrement(save_thd->status_var.questions, &LOCK_status);
-      statistic_increment(thd->status_var.questions, &LOCK_status);
-
-      thd->reset_user_stats_counters();
-
-      // Reset the starting values for the new THD
-      start_perf_read = thd->io_perf_read;
-      start_perf_read_blob = thd->io_perf_read_blob;
-      start_perf_read_primary = thd->io_perf_read_primary;
-      start_perf_read_secondary = thd->io_perf_read_secondary;
-
-      // stage information (for SHOW PROCESSLIST)
-      thd->copy_stage_info(save_thd);
-    }
-
-    // Fall through to COM_QUERY
-  }
   case COM_QUERY:
+  case COM_QUERY_ATTRS:
   {
     DBUG_ASSERT(thd->m_digest == NULL);
     thd->m_digest= & thd->m_digest_state;
