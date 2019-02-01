@@ -5331,6 +5331,7 @@ static int start_transaction(MYSQL *mysql_con, char *filename_out,
     {
       MYSQL_ROW row = mysql_fetch_row(res);
       if (!row || !row[0][0] || !row[1][0]) {
+        mysql_free_result(res);
         return 1;
       }
       strcpy(filename_out, row[0]);
@@ -5342,6 +5343,7 @@ static int start_transaction(MYSQL *mysql_con, char *filename_out,
         strcpy(*gtid_executed_set_pointer, row[2]);
       }
     }
+    mysql_free_result(res);
   }
   return 0;
 }
