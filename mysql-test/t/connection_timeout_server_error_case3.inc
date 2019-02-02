@@ -1,3 +1,9 @@
+# disable the use of --rpc_protocol for this test because the test relies on
+# the connection's wait timeout, but when running with --rpc_protocol setting
+# wait_timeout affects the session's wait timeout, not the connection's one.
+# The result is a different error message (specifying 3 seconds instead of 2)
+--disable_rpc_protocol
+
 select @@session.wait_timeout;
 select @@session.interactive_timeout;
 
@@ -30,3 +36,5 @@ set @@global.wait_timeout = @orig_wait_timeout;
 set @@global.interactive_timeout = @orig_interactive_timeout;
 
 drop table t1;
+
+--enable_rpc_protocol

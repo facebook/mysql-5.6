@@ -562,10 +562,16 @@ SELECT 1;
 --error ER_RPC_IDLE_TIMEOUT
 SELECT 1;
 
+# make sure the connection itself hasn't timed out which won't happen
+# because connection and session timeouts are tracked separately
+query_attrs_delete rpc_id;
+SELECT 1;
+
 connection default;
 SELECT sleep(11); # sleep more than 2 times the idle timeout
 
 connection con1;
+query_attrs_add rpc_id $rpc_id;
 --replace_result $rpc_id <rpc_id>
 --error ER_RPC_INVALID_ID
 SELECT 1;
