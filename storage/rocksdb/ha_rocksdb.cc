@@ -4709,7 +4709,8 @@ static int rocksdb_init_func(void *const p) {
   }
 
   // Check whether the filesystem backing rocksdb_datadir allows O_DIRECT
-  if (rocksdb_db_options->use_direct_reads) {
+  if (rocksdb_db_options->use_direct_reads ||
+      rocksdb_db_options->use_direct_io_for_flush_and_compaction) {
     rocksdb::EnvOptions soptions;
     rocksdb::Status check_status;
     rocksdb::Env *const env = rocksdb_db_options->env;
