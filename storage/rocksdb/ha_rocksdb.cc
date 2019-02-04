@@ -7489,35 +7489,29 @@ int ha_rocksdb::create(const char *const name, TABLE *const table_arg,
     DBUG_RETURN(HA_ERR_ROCKSDB_TABLE_INDEX_DIRECTORY_NOT_SUPPORTED);
   }
 
-  std::string str;
   int err;
+  /*
+    Construct dbname.tablename ourselves, because parititioning
+    passes strings like "./test/t14#P#p0" for individual partitions,
+    while table_arg->s->table_name has none of that.
+  */
+  std::string str;
+  err = rdb_normalize_tablename(name, &str);
+  if (err != HA_EXIT_SUCCESS) {
+    DBUG_RETURN(err);
+  }
 
   THD *const thd = my_core::thd_get_current_thd();
-
-  if (get_table_if_exists(name)) {
+  if (ddl_manager.find(str)) {
     if (thd->lex->sql_command == SQLCOM_TRUNCATE) {
       err = delete_table(name);
       if (err != HA_EXIT_SUCCESS) {
         DBUG_RETURN(err);
       }
     } else {
-      err = rdb_normalize_tablename(name, &str);
-      if (err != HA_EXIT_SUCCESS) {
-        DBUG_RETURN(err);
-      }
       my_error(ER_METADATA_INCONSISTENCY, MYF(0), str.c_str(), name);
       DBUG_RETURN(HA_ERR_ROCKSDB_CORRUPT_DATA);
     }
-  }
-
-  /*
-    Construct dbname.tablename ourselves, because parititioning
-    passes strings like "./test/t14#P#p0" for individual partitions,
-    while table_arg->s->table_name has none of that.
-  */
-  err = rdb_normalize_tablename(name, &str);
-  if (err != HA_EXIT_SUCCESS) {
-    DBUG_RETURN(err);
   }
 
   if (contains_foreign_key(thd)) {
