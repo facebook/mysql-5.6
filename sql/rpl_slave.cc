@@ -2889,7 +2889,7 @@ static bool wait_for_relay_log_space(Relay_log_info *rli) {
     }
 #endif
     if (rli->sql_force_rotate_relay) {
-      rotate_relay_log(mi);
+      rotate_relay_log(mi, true, true, false);
       rli->sql_force_rotate_relay = false;
     }
 
@@ -6982,7 +6982,7 @@ static int process_io_rotate(Master_info *mi, Rotate_log_event *rev) {
     Master will send a FD event immediately after the Roate event, so don't log
     the current FD event.
   */
-  int ret = rotate_relay_log(mi, false, false);
+  int ret = rotate_relay_log(mi, false, false, true);
 
   mysql_mutex_lock(&mi->data_lock);
   /* Safe copy as 'rev' has been "sanitized" in Rotate_log_event's ctor */
@@ -7922,7 +7922,8 @@ static int safe_reconnect(THD *thd, MYSQL *mysql, Master_info *mi,
   is void).
 */
 
-int rotate_relay_log(Master_info *mi, bool log_master_fd, bool need_lock) {
+int rotate_relay_log(Master_info *mi, bool log_master_fd, bool need_lock,
+                     bool need_log_space_lock) {
   DBUG_ENTER("rotate_relay_log");
 
   Relay_log_info *rli = mi->rli;
@@ -7965,7 +7966,7 @@ int rotate_relay_log(Master_info *mi, bool log_master_fd, bool need_lock) {
     If the log is closed, then this will just harvest the last writes, probably
     0 as they probably have been harvested.
   */
-  rli->relay_log.harvest_bytes_written(&rli->log_space_total);
+  rli->relay_log.harvest_bytes_written(rli, need_log_space_lock);
 end:
   if (need_lock) mysql_mutex_unlock(rli->relay_log.get_log_lock());
   DBUG_RETURN(error);
