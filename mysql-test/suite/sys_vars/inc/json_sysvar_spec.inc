@@ -285,9 +285,9 @@ let $sysvar_specs =
     "name": "replica_exec_mode",
     "alias": "slave_exec_mode",
     "default": "STRICT",
-    "values": ["IDEMPOTENT", "STRICT", "'IDEMPOTENT'", 0, 1],
-    "invalid": [$enum_invalid, -1, 2],
-    "value_map": {"'IDEMPOTENT'": "IDEMPOTENT", "0": "STRICT", "1": "IDEMPOTENT"},
+    "values": ["IDEMPOTENT", "STRICT", "'IDEMPOTENT'", "SEMI_STRICT", 0, 1, 2],
+    "invalid": [$enum_invalid, -1, 3],
+    "value_map": {"'IDEMPOTENT'": "IDEMPOTENT", "0": "STRICT", "1": "IDEMPOTENT", "2": "SEMI_STRICT"},
     "skip_set_persist_only_default": 1
   },
   {

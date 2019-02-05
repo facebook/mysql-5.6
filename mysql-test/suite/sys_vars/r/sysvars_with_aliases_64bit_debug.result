@@ -1660,7 +1660,7 @@ include/assert.inc [Variable slave_compressed_protocol should exist in performan
 sysvar:
 - name=replica_exec_mode
 - alias=slave_exec_mode
-- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 2]
+- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 3]
 - global=1
 - session=0
 - cmdline=1
@@ -1671,7 +1671,7 @@ sysvar:
 - max=
 - block_size=1
 - default=STRICT
-- values=["IDEMPOTENT", "STRICT", "'IDEMPOTENT'", 0, 1]
+- values=["IDEMPOTENT", "STRICT", "'IDEMPOTENT'", "SEMI_STRICT", 0, 1, 2]
 ==== Testing SET @@global.replica_exec_mode [allowed values, range, invalid values] ====
 # Initial value is default
 include/assert.inc [@@global.replica_exec_mode should be STRICT]
@@ -1694,6 +1694,11 @@ include/assert.inc [@@global.replica_exec_mode should be IDEMPOTENT]
 include/assert.inc [replica_exec_mode should be IDEMPOTENT in P_S.global_variables]
 include/assert.inc [@@global.slave_exec_mode should be IDEMPOTENT]
 include/assert.inc [slave_exec_mode should be IDEMPOTENT in P_S.global_variables]
+SET @@global.replica_exec_mode=SEMI_STRICT;
+include/assert.inc [@@global.replica_exec_mode should be SEMI_STRICT]
+include/assert.inc [replica_exec_mode should be SEMI_STRICT in P_S.global_variables]
+include/assert.inc [@@global.slave_exec_mode should be SEMI_STRICT]
+include/assert.inc [slave_exec_mode should be SEMI_STRICT in P_S.global_variables]
 SET @@global.replica_exec_mode=0;
 include/assert.inc [@@global.replica_exec_mode should be STRICT]
 include/assert.inc [replica_exec_mode should be STRICT in P_S.global_variables]
@@ -1704,6 +1709,11 @@ include/assert.inc [@@global.replica_exec_mode should be IDEMPOTENT]
 include/assert.inc [replica_exec_mode should be IDEMPOTENT in P_S.global_variables]
 include/assert.inc [@@global.slave_exec_mode should be IDEMPOTENT]
 include/assert.inc [slave_exec_mode should be IDEMPOTENT in P_S.global_variables]
+SET @@global.replica_exec_mode=2;
+include/assert.inc [@@global.replica_exec_mode should be SEMI_STRICT]
+include/assert.inc [replica_exec_mode should be SEMI_STRICT in P_S.global_variables]
+include/assert.inc [@@global.slave_exec_mode should be SEMI_STRICT]
+include/assert.inc [slave_exec_mode should be SEMI_STRICT in P_S.global_variables]
 # Setting default value for variable
 SET @@global.replica_exec_mode = DEFAULT;
 include/assert.inc [@@global.replica_exec_mode should be STRICT]
@@ -1723,7 +1733,7 @@ SET @@global.replica_exec_mode = 'FOO_BAR';
 Got one of the listed errors
 SET @@global.replica_exec_mode = -1;
 Got one of the listed errors
-SET @@global.replica_exec_mode = 2;
+SET @@global.replica_exec_mode = 3;
 Got one of the listed errors
 # Restore default
 SET @@global.replica_exec_mode = DEFAULT;
@@ -1748,6 +1758,10 @@ SET @@session.replica_exec_mode = 'IDEMPOTENT';
 ERROR HY000: Variable 'replica_exec_mode' is a GLOBAL variable and should be set with SET GLOBAL
 SET @@replica_exec_mode = 'IDEMPOTENT';
 ERROR HY000: Variable 'replica_exec_mode' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@session.replica_exec_mode = SEMI_STRICT;
+ERROR HY000: Variable 'replica_exec_mode' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@replica_exec_mode = SEMI_STRICT;
+ERROR HY000: Variable 'replica_exec_mode' is a GLOBAL variable and should be set with SET GLOBAL
 SET @@session.replica_exec_mode = 0;
 ERROR HY000: Variable 'replica_exec_mode' is a GLOBAL variable and should be set with SET GLOBAL
 SET @@replica_exec_mode = 0;
@@ -1755,6 +1769,10 @@ ERROR HY000: Variable 'replica_exec_mode' is a GLOBAL variable and should be set
 SET @@session.replica_exec_mode = 1;
 ERROR HY000: Variable 'replica_exec_mode' is a GLOBAL variable and should be set with SET GLOBAL
 SET @@replica_exec_mode = 1;
+ERROR HY000: Variable 'replica_exec_mode' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@session.replica_exec_mode = 2;
+ERROR HY000: Variable 'replica_exec_mode' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@replica_exec_mode = 2;
 ERROR HY000: Variable 'replica_exec_mode' is a GLOBAL variable and should be set with SET GLOBAL
 SELECT @@session.replica_exec_mode;
 ERROR HY000: Variable 'replica_exec_mode' is a GLOBAL variable
@@ -1790,6 +1808,13 @@ include/assert.inc [@@global.slave_exec_mode should be IDEMPOTENT]
 include/assert.inc [slave_exec_mode should be IDEMPOTENT in P_S.global_variables]
 include/assert.inc [@@global.replica_exec_mode should be IDEMPOTENT]
 include/assert.inc [replica_exec_mode should be IDEMPOTENT in P_S.global_variables]
+SET @@global.slave_exec_mode=SEMI_STRICT;
+Warnings:
+Warning	1287	'@@slave_exec_mode' is deprecated and will be removed in a future release. Please use replica_exec_mode instead.
+include/assert.inc [@@global.slave_exec_mode should be SEMI_STRICT]
+include/assert.inc [slave_exec_mode should be SEMI_STRICT in P_S.global_variables]
+include/assert.inc [@@global.replica_exec_mode should be SEMI_STRICT]
+include/assert.inc [replica_exec_mode should be SEMI_STRICT in P_S.global_variables]
 SET @@global.slave_exec_mode=0;
 Warnings:
 Warning	1287	'@@slave_exec_mode' is deprecated and will be removed in a future release. Please use replica_exec_mode instead.
@@ -1804,6 +1829,13 @@ include/assert.inc [@@global.slave_exec_mode should be IDEMPOTENT]
 include/assert.inc [slave_exec_mode should be IDEMPOTENT in P_S.global_variables]
 include/assert.inc [@@global.replica_exec_mode should be IDEMPOTENT]
 include/assert.inc [replica_exec_mode should be IDEMPOTENT in P_S.global_variables]
+SET @@global.slave_exec_mode=2;
+Warnings:
+Warning	1287	'@@slave_exec_mode' is deprecated and will be removed in a future release. Please use replica_exec_mode instead.
+include/assert.inc [@@global.slave_exec_mode should be SEMI_STRICT]
+include/assert.inc [slave_exec_mode should be SEMI_STRICT in P_S.global_variables]
+include/assert.inc [@@global.replica_exec_mode should be SEMI_STRICT]
+include/assert.inc [replica_exec_mode should be SEMI_STRICT in P_S.global_variables]
 # Setting default value for variable
 SET @@global.slave_exec_mode = DEFAULT;
 Warnings:
@@ -1825,7 +1857,7 @@ SET @@global.slave_exec_mode = 'FOO_BAR';
 Got one of the listed errors
 SET @@global.slave_exec_mode = -1;
 Got one of the listed errors
-SET @@global.slave_exec_mode = 2;
+SET @@global.slave_exec_mode = 3;
 Got one of the listed errors
 # Restore default
 SET @@global.slave_exec_mode = DEFAULT;
@@ -1852,6 +1884,10 @@ SET @@session.slave_exec_mode = 'IDEMPOTENT';
 ERROR HY000: Variable 'slave_exec_mode' is a GLOBAL variable and should be set with SET GLOBAL
 SET @@slave_exec_mode = 'IDEMPOTENT';
 ERROR HY000: Variable 'slave_exec_mode' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@session.slave_exec_mode = SEMI_STRICT;
+ERROR HY000: Variable 'slave_exec_mode' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@slave_exec_mode = SEMI_STRICT;
+ERROR HY000: Variable 'slave_exec_mode' is a GLOBAL variable and should be set with SET GLOBAL
 SET @@session.slave_exec_mode = 0;
 ERROR HY000: Variable 'slave_exec_mode' is a GLOBAL variable and should be set with SET GLOBAL
 SET @@slave_exec_mode = 0;
@@ -1859,6 +1895,10 @@ ERROR HY000: Variable 'slave_exec_mode' is a GLOBAL variable and should be set w
 SET @@session.slave_exec_mode = 1;
 ERROR HY000: Variable 'slave_exec_mode' is a GLOBAL variable and should be set with SET GLOBAL
 SET @@slave_exec_mode = 1;
+ERROR HY000: Variable 'slave_exec_mode' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@session.slave_exec_mode = 2;
+ERROR HY000: Variable 'slave_exec_mode' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@slave_exec_mode = 2;
 ERROR HY000: Variable 'slave_exec_mode' is a GLOBAL variable and should be set with SET GLOBAL
 SELECT @@session.slave_exec_mode;
 ERROR HY000: Variable 'slave_exec_mode' is a GLOBAL variable
