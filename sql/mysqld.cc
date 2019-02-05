@@ -5472,6 +5472,15 @@ static int init_server_components() {
         mysql_bin_log.open_index_file(opt_binlog_index_name, ln, true)) {
       unireg_abort(MYSQLD_ABORT_EXIT);
     }
+    /*
+      Remove entries of logs from the index that were deleted from
+      the file system but not from the index due to a crash.
+    */
+    if (!is_help_or_validate_option() &&
+        mysql_bin_log.remove_deleted_logs_from_index(true, true) ==
+            LOG_INFO_IO) {
+      unireg_abort(MYSQLD_ABORT_EXIT);
+    }
   }
 
   if (opt_bin_log) {

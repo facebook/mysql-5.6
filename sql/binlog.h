@@ -27,6 +27,7 @@
 #include <sys/types.h>
 #include <time.h>
 #include <atomic>
+#include <list>
 #include <utility>
 
 #include "libbinlogevents/include/binlog_event.h"  // enum_binlog_checksum_alg
@@ -71,6 +72,8 @@ class Binlog_cache_storage;
 struct Gtid;
 
 typedef int64 query_id_t;
+
+using log_file_name_container = std::list<std::string>;
 
 /*
   Maximum unique log filename extension.
@@ -778,6 +781,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
   void make_log_name(char *buf, const char *log_ident);
   bool is_active(const char *log_file_name);
   int remove_logs_from_index(LOG_INFO *linfo, bool need_update_threads);
+  int remove_deleted_logs_from_index(bool need_lock_index,
+                                     bool need_update_threads);
   int rotate(bool force_rotate, bool *check_purge);
   void purge();
   int rotate_and_purge(THD *thd, bool force_rotate);
@@ -818,6 +823,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
   int register_create_index_entry(const char *entry);
   int purge_index_entry(THD *thd, ulonglong *decrease_log_space,
                         bool need_lock_index);
+  int purge_logs_in_list(const log_file_name_container &delete_list, THD *thd,
+                         ulonglong *decrease_log_space, bool need_lock_index);
   bool reset_logs(THD *thd, bool delete_only = false);
   void close(uint exiting, bool need_lock_log, bool need_lock_index);
 

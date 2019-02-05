@@ -3911,12 +3911,9 @@ bool MYSQL_BIN_LOG::open_index_file(const char *index_file_name_arg,
 
   /*
     Sync the index by purging any binary log file that is not registered.
-    In other words, either purge binary log files that were removed from
-    the index but not purged from the file system due to a crash or purge
-    any binary log file that was created but not register in the index
-    due to a crash.
+    In other words, purge any binary log file that was created but not
+    register in the index due to a crash.
   */
-
   if (set_purge_index_file_name(index_file_name_arg) ||
       open_purge_index_file(false) ||
       purge_index_entry(nullptr, nullptr, false) || close_purge_index_file() ||
@@ -3929,6 +3926,58 @@ bool MYSQL_BIN_LOG::open_index_file(const char *index_file_name_arg,
 end:
   if (need_lock_index) mysql_mutex_unlock(&LOCK_index);
   return error;
+}
+
+/**
+  Remove logs from index that are not present on disk
+  NOTE: this method will not update index with arbitrarily
+  deleted logs. It will only remove entries of logs which
+  are deleted from the beginning of the sequence
+  @param need_lock_index        Need to lock index?
+  @param need_update_threads    If we want to update the log coordinates
+                                of all threads. False for relay logs,
+                                true otherwise.
+  @retval
+   0    ok
+  @retval
+    LOG_INFO_IO    Got IO error while reading/writing file
+    LOG_INFO_EOF   log-index-file is empty
+*/
+int MYSQL_BIN_LOG::remove_deleted_logs_from_index(bool need_lock_index,
+                                                  bool need_update_threads) {
+  int error;
+  int no_of_log_files_purged = 0;
+  LOG_INFO log_info;
+
+  DBUG_ENTER("remove_deleted_logs_from_index");
+
+  if (need_lock_index) mysql_mutex_lock(&LOCK_index);
+
+  if ((error = find_log_pos(&log_info, NullS, false /*need_lock_index=false*/)))
+    goto err;
+
+  while (true) {
+    if (my_access(log_info.log_file_name, F_OK) == 0) break;
+
+    int ret = find_next_log(&log_info, false /*need_lock_index=false*/);
+    if (ret == LOG_INFO_EOF) {
+      break;
+    } else if (ret == LOG_INFO_IO) {
+      LogErr(ERROR_LEVEL, ER_BINLOG_CANT_READ_INDEX,
+             "MYSQL_BIN_LOG::remove_deleted_logs_from_index");
+      goto err;
+    }
+
+    ++no_of_log_files_purged;
+  }
+
+  if (no_of_log_files_purged)
+    error = remove_logs_from_index(&log_info, need_update_threads);
+  DBUG_PRINT("info", ("num binlogs deleted = %d", no_of_log_files_purged));
+
+err:
+  if (need_lock_index) mysql_mutex_unlock(&LOCK_index);
+  DBUG_RETURN(error);
 }
 
 /**
@@ -5970,20 +6019,23 @@ err:
   @retval
     0			ok
   @retval
-    LOG_INFO_EOF		to_log not found
-    LOG_INFO_EMFILE             too many files opened
-    LOG_INFO_FATAL              if any other than ENOENT error from
+    LOG_INFO_EOF          to_log not found
+    LOG_INFO_EMFILE       Too many files opened
+    LOG_INFO_IO           Got IO error while reading/writing file
+    LOG_INFO_FATAL        If any other than ENOENT error from
                                 mysql_file_stat() or mysql_file_delete()
 */
 
 int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
                               bool need_lock_index, bool need_update_threads,
                               ulonglong *decrease_log_space, bool auto_purge) {
-  int error = 0, no_of_log_files_to_purge = 0, no_of_log_files_purged = 0;
+  int error = 0, error_index = 0, no_of_log_files_to_purge = 0;
   int no_of_threads_locking_log = 0;
   bool exit_loop = false;
   LOG_INFO log_info;
   THD *thd = current_thd;
+  log_file_name_container delete_list;
+
   DBUG_TRACE;
   DBUG_PRINT("info", ("to_log= %s", to_log));
 
@@ -5999,11 +6051,6 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
   }
 
   no_of_log_files_to_purge = log_info.entry_index;
-
-  if ((error = open_purge_index_file(true))) {
-    LogErr(ERROR_LEVEL, ER_BINLOG_PURGE_LOGS_CANT_SYNC_INDEX_FILE);
-    goto err;
-  }
 
   /*
     File name exists in index file; delete until we find this file
@@ -6028,16 +6075,11 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
                             ER_WARN_PURGE_LOG_IN_USE,
                             ER_THD(thd, ER_WARN_PURGE_LOG_IN_USE),
                             log_info.log_file_name, no_of_threads_locking_log,
-                            no_of_log_files_purged, no_of_log_files_to_purge);
+                            delete_list.size(), no_of_log_files_to_purge);
       break;
     }
-    no_of_log_files_purged++;
 
-    if ((error = register_purge_index_entry(log_info.log_file_name))) {
-      LogErr(ERROR_LEVEL, ER_BINLOG_PURGE_LOGS_CANT_COPY_TO_REGISTER_FILE,
-             log_info.log_file_name);
-      goto err;
-    }
+    delete_list.emplace_back(log_info.log_file_name);
 
     if (find_next_log(&log_info, false /*need_lock_index=false*/) || exit_loop)
       break;
@@ -6045,16 +6087,22 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
 
   DBUG_EXECUTE_IF("crash_purge_before_update_index", DBUG_SUICIDE(););
 
-  if ((error = sync_purge_index_file())) {
-    LogErr(ERROR_LEVEL, ER_BINLOG_PURGE_LOGS_CANT_FLUSH_REGISTER_FILE);
-    goto err;
-  }
+  /* Read each entry from the list and delete the file. */
+  if ((error_index = purge_logs_in_list(delete_list, thd, decrease_log_space,
+                                        false /*need_lock_index=false*/)))
+    LogErr(ERROR_LEVEL, ER_BINLOG_PURGE_LOGS_FAILED_TO_PURGE_LOG);
+
+  DBUG_EXECUTE_IF("crash_purge_critical_before_update_index", DBUG_SUICIDE(););
 
   /* We know how many files to delete. Update index file. */
-  if ((error = remove_logs_from_index(&log_info, need_update_threads))) {
+  if (delete_list.size() &&
+      (error = remove_logs_from_index(&log_info, need_update_threads))) {
     LogErr(ERROR_LEVEL, ER_BINLOG_PURGE_LOGS_CANT_UPDATE_INDEX_FILE);
     goto err;
   }
+
+  DBUG_EXECUTE_IF("crash_purge_non_critical_after_update_index",
+                  DBUG_SUICIDE(););
 
   // Update gtid_state->lost_gtids
   if (!is_relay_log) {
@@ -6064,34 +6112,16 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
         opt_master_verify_checksum, false /*false=don't need lock*/,
         nullptr /*trx_parser*/, nullptr /*partial_trx*/);
     global_sid_lock->unlock();
-    if (error) goto err;
   }
 
-  DBUG_EXECUTE_IF("crash_purge_critical_after_update_index", DBUG_SUICIDE(););
-
 err:
-
-  int error_index = 0, close_error_index = 0;
-  /* Read each entry from purge_index_file and delete the file. */
-  if (!error && is_inited_purge_index_file() &&
-      (error_index = purge_index_entry(thd, decrease_log_space,
-                                       false /*need_lock_index=false*/)))
-    LogErr(ERROR_LEVEL, ER_BINLOG_PURGE_LOGS_FAILED_TO_PURGE_LOG);
-
-  close_error_index = close_purge_index_file();
-
-  DBUG_EXECUTE_IF("crash_purge_non_critical_after_update_index",
-                  DBUG_SUICIDE(););
-
   if (need_lock_index) mysql_mutex_unlock(&LOCK_index);
 
   /*
     Error codes from purge logs take precedence.
     Then error codes from purging the index entry.
-    Finally, error codes from closing the purge index file.
   */
-  error = error ? error : (error_index ? error_index : close_error_index);
-
+  error = error ? error : error_index;
   return error;
 }
 
@@ -6180,10 +6210,10 @@ int MYSQL_BIN_LOG::register_create_index_entry(const char *entry) {
 
 int MYSQL_BIN_LOG::purge_index_entry(THD *thd, ulonglong *decrease_log_space,
                                      bool need_lock_index) {
-  MY_STAT s;
   int error = 0;
   LOG_INFO log_info;
   LOG_INFO check_log_info;
+  log_file_name_container delete_list;
 
   DBUG_TRACE;
 
@@ -6213,7 +6243,70 @@ int MYSQL_BIN_LOG::purge_index_entry(THD *thd, ulonglong *decrease_log_space,
     /* Get rid of the trailing '\n' */
     log_info.log_file_name[length - 1] = 0;
 
-    if (!mysql_file_stat(m_key_file_log, log_info.log_file_name, &s, MYF(0))) {
+    if ((error = find_log_pos(&check_log_info, log_info.log_file_name,
+                              need_lock_index))) {
+      if (error != LOG_INFO_EOF) {
+        if (thd) {
+          push_warning_printf(thd, Sql_condition::SL_WARNING,
+                              ER_BINLOG_PURGE_FATAL_ERR,
+                              "a problem with deleting %s and "
+                              "reading the binlog index file",
+                              log_info.log_file_name);
+        } else {
+          LogErr(INFORMATION_LEVEL,
+                 ER_BINLOG_CANT_DELETE_FILE_AND_READ_BINLOG_INDEX,
+                 log_info.log_file_name);
+        }
+        break;
+      }
+
+      error = 0;
+      if (!need_lock_index) {
+        /*
+          This is to avoid triggering an error in NDB.
+
+          @todo: This is weird, what does NDB errors have to do with
+          need_lock_index? Explain better or refactor /Sven
+        */
+        ha_binlog_index_purge_file(current_thd, log_info.log_file_name);
+      }
+
+      delete_list.emplace_back(log_info.log_file_name);
+    }
+  }
+
+  if (!error)
+    error = purge_logs_in_list(delete_list, thd, decrease_log_space,
+                               need_lock_index);
+
+err:
+  return error;
+}
+
+/**
+  Deletes logs sepecified in a list if they exist on the file system
+  @param delete_list         The list of log files to delete
+  @param thd                 Pointer to the THD object
+  @param decrease_log_space  Amount of space freed
+  @param need_lock_index     Need to lock the index?
+  @retval
+    0                        ok
+  @retval
+    LOG_INFO_EMFILE          Too many files opened
+    LOG_INFO_FATAL           If any other than ENOENT error from
+                             mysql_file_stat() or mysql_file_delete()
+*/
+int MYSQL_BIN_LOG::purge_logs_in_list(
+    const log_file_name_container &delete_list, THD *thd,
+    ulonglong *decrease_log_space,
+    bool need_lock_index MY_ATTRIBUTE((unused))) {
+  MY_STAT s;
+  int error = 0;
+
+  DBUG_TRACE;
+
+  for (const auto &log_file_name : delete_list) {
+    if (!mysql_file_stat(m_key_file_log, log_file_name.c_str(), &s, MYF(0))) {
       if (my_errno() == ENOENT) {
         /*
           It's not fatal if we can't stat a log file that does not exist;
@@ -6222,9 +6315,9 @@ int MYSQL_BIN_LOG::purge_index_entry(THD *thd, ulonglong *decrease_log_space,
         if (thd) {
           push_warning_printf(
               thd, Sql_condition::SL_WARNING, ER_LOG_PURGE_NO_FILE,
-              ER_THD(thd, ER_LOG_PURGE_NO_FILE), log_info.log_file_name);
+              ER_THD(thd, ER_LOG_PURGE_NO_FILE), log_file_name.c_str());
         }
-        LogErr(INFORMATION_LEVEL, ER_CANT_STAT_FILE, log_info.log_file_name);
+        LogErr(INFORMATION_LEVEL, ER_CANT_STAT_FILE, log_file_name.c_str());
         set_my_errno(0);
       } else {
         /*
@@ -6237,94 +6330,61 @@ int MYSQL_BIN_LOG::purge_index_entry(THD *thd, ulonglong *decrease_log_space,
                               "consider examining correspondence "
                               "of your binlog index file "
                               "to the actual binlog files",
-                              log_info.log_file_name);
+                              log_file_name.c_str());
         } else {
           LogErr(INFORMATION_LEVEL,
                  ER_BINLOG_CANT_DELETE_LOG_FILE_DOES_INDEX_MATCH_FILES,
-                 log_info.log_file_name);
+                 log_file_name.c_str());
         }
         error = LOG_INFO_FATAL;
-        goto err;
+        break;
       }
     } else {
-      if ((error = find_log_pos(&check_log_info, log_info.log_file_name,
-                                need_lock_index))) {
-        if (error != LOG_INFO_EOF) {
+      DBUG_PRINT("info", ("purging %s", log_file_name.c_str()));
+      if (!mysql_file_delete(key_file_binlog, log_file_name.c_str(), MYF(0))) {
+        DBUG_EXECUTE_IF("wait_in_purge_index_entry", {
+          const char action[] =
+              "now SIGNAL in_purge_index_entry WAIT_FOR go_ahead_sql";
+          DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(action)));
+          DBUG_SET("-d,wait_in_purge_index_entry");
+        };);
+        if (decrease_log_space) *decrease_log_space -= s.st_size;
+      } else {
+        if (my_errno() == ENOENT) {
+          if (thd) {
+            push_warning_printf(
+                thd, Sql_condition::SL_WARNING, ER_LOG_PURGE_NO_FILE,
+                ER_THD(thd, ER_LOG_PURGE_NO_FILE), log_file_name.c_str());
+          }
+          LogErr(INFORMATION_LEVEL, ER_BINLOG_CANT_DELETE_FILE,
+                 log_file_name.c_str());
+          set_my_errno(0);
+        } else {
           if (thd) {
             push_warning_printf(thd, Sql_condition::SL_WARNING,
                                 ER_BINLOG_PURGE_FATAL_ERR,
-                                "a problem with deleting %s and "
-                                "reading the binlog index file",
-                                log_info.log_file_name);
+                                "a problem with deleting %s; "
+                                "consider examining correspondence "
+                                "of your binlog index file "
+                                "to the actual binlog files",
+                                log_file_name.c_str());
           } else {
             LogErr(INFORMATION_LEVEL,
-                   ER_BINLOG_CANT_DELETE_FILE_AND_READ_BINLOG_INDEX,
-                   log_info.log_file_name);
+                   ER_BINLOG_CANT_DELETE_LOG_FILE_DOES_INDEX_MATCH_FILES,
+                   log_file_name.c_str());
           }
-          goto err;
-        }
-
-        error = 0;
-        if (!need_lock_index) {
-          /*
-            This is to avoid triggering an error in NDB.
-
-            @todo: This is weird, what does NDB errors have to do with
-            need_lock_index? Explain better or refactor /Sven
-          */
-          ha_binlog_index_purge_file(current_thd, log_info.log_file_name);
-        }
-
-        DBUG_PRINT("info", ("purging %s", log_info.log_file_name));
-        if (!mysql_file_delete(key_file_binlog, log_info.log_file_name,
-                               MYF(0))) {
-          DBUG_EXECUTE_IF("wait_in_purge_index_entry", {
-            const char action[] =
-                "now SIGNAL in_purge_index_entry WAIT_FOR go_ahead_sql";
-            DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(action)));
-            DBUG_SET("-d,wait_in_purge_index_entry");
-          };);
-
-          if (decrease_log_space) *decrease_log_space -= s.st_size;
-        } else {
-          if (my_errno() == ENOENT) {
-            if (thd) {
-              push_warning_printf(
-                  thd, Sql_condition::SL_WARNING, ER_LOG_PURGE_NO_FILE,
-                  ER_THD(thd, ER_LOG_PURGE_NO_FILE), log_info.log_file_name);
-            }
-            LogErr(INFORMATION_LEVEL, ER_BINLOG_CANT_DELETE_FILE,
-                   log_info.log_file_name);
-            set_my_errno(0);
-          } else {
-            if (thd) {
-              push_warning_printf(thd, Sql_condition::SL_WARNING,
-                                  ER_BINLOG_PURGE_FATAL_ERR,
-                                  "a problem with deleting %s; "
-                                  "consider examining correspondence "
-                                  "of your binlog index file "
-                                  "to the actual binlog files",
-                                  log_info.log_file_name);
-            } else {
-              LogErr(INFORMATION_LEVEL,
-                     ER_BINLOG_CANT_DELETE_LOG_FILE_DOES_INDEX_MATCH_FILES,
-                     log_info.log_file_name);
-            }
-            if (my_errno() == EMFILE) {
-              DBUG_PRINT("info", ("my_errno: %d, set ret = LOG_INFO_EMFILE",
-                                  my_errno()));
-              error = LOG_INFO_EMFILE;
-              goto err;
-            }
-            error = LOG_INFO_FATAL;
-            goto err;
+          if (my_errno() == EMFILE) {
+            DBUG_PRINT("info",
+                       ("my_errno: %d, set ret = LOG_INFO_EMFILE", my_errno()));
+            error = LOG_INFO_EMFILE;
+            break;
           }
+          error = LOG_INFO_FATAL;
+          break;
         }
       }
     }
   }
-
-err:
   return error;
 }
 

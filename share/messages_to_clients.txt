@@ -9592,6 +9592,12 @@ ER_BINLOG_INDEX_PREV_GTID_OUTOFMEMORY
 ER_BINLOG_INDEX_PREV_GTID_CORRUPT
   eng "MYSQL_BINLOG::init_gtid_sets failed because previous gtid set of binlog %s is corrupted in the index file"
 
+ER_BINLOG_CANT_READ_INDEX
+  eng "%s failed while reading log index file."
+
+ER_RPL_FAILED_IN_RLI_INIT_INFO
+  eng "Failed in %s called from Relay_log_info::rli_init_info()."
+
 #
 # End of 8.0 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error

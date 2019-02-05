@@ -147,11 +147,11 @@ file_exists $MYSQLD_DATADIR/binlog.000003;
 -- replace_regex /\.[\\\/]binlog/binlog/
 SELECT @index;
 
---echo # crash_purge_critical_after_update_index
+--echo # crash_purge_critical_before_update_index
 flush logs;
 
 --exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
-SET SESSION debug="+d,crash_purge_critical_after_update_index";
+SET SESSION debug="+d,crash_purge_critical_before_update_index";
 --error 2013
 purge binary logs TO 'binlog.000006';
 
@@ -443,9 +443,11 @@ purge binary logs TO 'binlog.000014';
 -- source include/wait_until_connected_again.inc
 -- disable_reconnect
 
--- echo # Test the index file is complete, although is not purged successfully.
+-- echo # Test if both the index file and binlogs are in sync
 -- source include/show_binary_logs.inc
+-- error 1
 file_exists $MYSQLD_DATADIR/binlog.000012;
+-- error 1
 file_exists $MYSQLD_DATADIR/binlog.000013;
 file_exists $MYSQLD_DATADIR/binlog.000014;
 
@@ -460,15 +462,15 @@ call mtr.add_suppression("Failed to delete the existing index file");
 call mtr.add_suppression("failed to move crash safe index file to index file");
 call mtr.add_suppression("failed to update the index file");
 
-# When index file cannot be recreated during purge binary logs command,
-# it should throw error but it should not disable binary logging.
--- error ER_IO_ERR_LOG_INDEX_READ
+# PURGE BINARY LOGS COMMAND doesn't throw ER_IO_ERR_LOG_INDEX_READ when delete_list.size() == 0
 -- eval PURGE BINARY LOGS TO 'binlog.000014';
 
--- echo # Test the index file is complete, although is not purged successfully.
+-- echo # Test if both the index file and binlogs are in sync
 -- echo # Also this will indicate that binary logging is not disabled.
 -- source include/show_binary_logs.inc
+-- error 1
 file_exists $MYSQLD_DATADIR/binlog.000012;
+-- error 1
 file_exists $MYSQLD_DATADIR/binlog.000013;
 file_exists $MYSQLD_DATADIR/binlog.000014;
 
