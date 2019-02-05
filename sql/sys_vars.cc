@@ -4026,7 +4026,7 @@ static Sys_var_deprecated_alias Sys_slave_compressed_protocol(
     "slave_compressed_protocol", Sys_replica_compressed_protocol);
 
 static const char *replica_exec_mode_names[] = {"STRICT", "IDEMPOTENT",
-                                                nullptr};
+                                                "SEMI_STRICT", nullptr};
 static Sys_var_enum Sys_replica_exec_mode(
     "replica_exec_mode",
     "Modes for how replication events should be executed. Legal values "

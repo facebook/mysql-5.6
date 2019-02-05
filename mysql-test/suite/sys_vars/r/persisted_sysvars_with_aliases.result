@@ -1277,7 +1277,7 @@ SET PERSIST_ONLY replica_compressed_protocol = 1;
 sysvar:
 - name=replica_exec_mode
 - alias=slave_exec_mode
-- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 2]
+- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 3]
 - global=1
 - session=0
 - cmdline=1
@@ -4199,7 +4199,7 @@ include/assert.inc [slave_compressed_protocol should have value ON in the persis
 sysvar:
 - name=replica_exec_mode
 - alias=slave_exec_mode
-- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 2]
+- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 3]
 - global=1
 - session=0
 - cmdline=1
@@ -4614,7 +4614,7 @@ include/assert.inc [slave_compressed_protocol should not exist in the persist fi
 sysvar:
 - name=replica_exec_mode
 - alias=slave_exec_mode
-- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 2]
+- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 3]
 - global=1
 - session=0
 - cmdline=1
@@ -5026,7 +5026,7 @@ include/assert.inc [slave_compressed_protocol should have value ON in the persis
 sysvar:
 - name=replica_exec_mode
 - alias=slave_exec_mode
-- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 2]
+- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 3]
 - global=1
 - session=0
 - cmdline=1
@@ -5465,7 +5465,7 @@ include/assert.inc [slave_compressed_protocol should have value ON in the persis
 sysvar:
 - name=replica_exec_mode
 - alias=slave_exec_mode
-- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 2]
+- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 3]
 - global=1
 - session=0
 - cmdline=1
@@ -5877,7 +5877,7 @@ include/assert.inc [slave_compressed_protocol should have value ON in the persis
 sysvar:
 - name=replica_exec_mode
 - alias=slave_exec_mode
-- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 2]
+- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 3]
 - global=1
 - session=0
 - cmdline=1
@@ -6317,7 +6317,7 @@ include/assert.inc [slave_compressed_protocol should not exist in the persist fi
 sysvar:
 - name=replica_exec_mode
 - alias=slave_exec_mode
-- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 2]
+- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 3]
 - global=1
 - session=0
 - cmdline=1
@@ -6733,7 +6733,7 @@ include/assert.inc [slave_compressed_protocol should not exist in the persist fi
 sysvar:
 - name=replica_exec_mode
 - alias=slave_exec_mode
-- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 2]
+- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 3]
 - global=1
 - session=0
 - cmdline=1
@@ -7173,7 +7173,7 @@ include/assert.inc [slave_compressed_protocol should not exist in the persist fi
 sysvar:
 - name=replica_exec_mode
 - alias=slave_exec_mode
-- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 2]
+- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 3]
 - global=1
 - session=0
 - cmdline=1
