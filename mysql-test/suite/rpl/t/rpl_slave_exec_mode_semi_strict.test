@@ -1,0 +1,23 @@
+source include/have_binlog_format_row.inc;
+source include/master-slave.inc;
+connection master;
+
+CREATE TABLE t1 (a INT PRIMARY KEY, b int) ENGINE=Innodb;
+INSERT INTO t1 VALUES(1, 2);
+
+--source include/sync_slave_sql_with_master.inc
+--let $unsafe_queries_before= query_get_value(SHOW GLOBAL STATUS LIKE 'Rbr_unsafe_queries', Value, 1)
+DELETE FROM t1 WHERE a=1;
+
+connection master;
+DELETE FROM t1 WHERE a=1;
+--source include/sync_slave_sql_with_master.inc
+
+--let $unsafe_queries_after= query_get_value(SHOW GLOBAL STATUS LIKE 'Rbr_unsafe_queries', Value, 1)
+--let $assert_text= Check if Rbr_unsafe_queries is increased by 1
+--let $assert_cond= $unsafe_queries_after - $unsafe_queries_before = 1
+--source include/assert.inc
+
+connection master;
+DROP TABLE t1;
+source include/rpl_end.inc;
