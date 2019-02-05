@@ -1013,6 +1013,8 @@ mysql_mutex_t LOCK_mandatory_roles;
 mysql_mutex_t LOCK_password_history;
 mysql_mutex_t LOCK_password_reuse_interval;
 
+ulonglong rbr_unsafe_queries = 0;
+
 /* Number of times the IO thread connected to the master */
 ulong relay_io_connected = 0;
 
@@ -8658,6 +8660,8 @@ SHOW_VAR status_vars[] = {
     {"Queries", (char *)&show_queries, SHOW_FUNC, SHOW_SCOPE_ALL},
     {"Questions", (char *)offsetof(System_status_var, questions),
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_ALL},
+    {"Rbr_unsafe_queries", (char *)&rbr_unsafe_queries, SHOW_LONGLONG,
+     SHOW_SCOPE_GLOBAL},
     {"Relay_log_io_connected", (char *)&relay_io_connected, SHOW_LONG,
      SHOW_SCOPE_GLOBAL},
     {"Relay_log_io_events", (char *)&relay_io_events, SHOW_LONG,
