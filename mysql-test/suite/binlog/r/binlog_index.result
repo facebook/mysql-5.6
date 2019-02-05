@@ -76,9 +76,9 @@ SELECT @index;
 binlog.000004
 binlog.000005
 
-# crash_purge_critical_after_update_index
+# crash_purge_critical_before_update_index
 flush logs;
-SET SESSION debug="+d,crash_purge_critical_after_update_index";
+SET SESSION debug="+d,crash_purge_critical_before_update_index";
 purge binary logs TO 'binlog.000006';
 ERROR HY000: Lost connection to MySQL server during query
 include/rpl_gen_binlog_index_file.inc
@@ -334,11 +334,9 @@ SET SESSION debug="+d,fault_injection_copy_part_file";
 purge binary logs TO 'binlog.000014';
 ERROR HY000: Lost connection to MySQL server during query
 # Restart the master server
-# Test the index file is complete, although is not purged successfully.
+# Test if both the index file and binlogs are in sync
 show binary logs;
 Log_name	File_size	Encrypted
-binlog.000012	#	#
-binlog.000013	#	#
 binlog.000014	#	#
 binlog.000015	#	#
 binlog.000016	#	#
@@ -352,13 +350,10 @@ call mtr.add_suppression("Failed to delete the existing index file");
 call mtr.add_suppression("failed to move crash safe index file to index file");
 call mtr.add_suppression("failed to update the index file");
 PURGE BINARY LOGS TO 'binlog.000014';;
-ERROR HY000: I/O error reading log index file
-# Test the index file is complete, although is not purged successfully.
+# Test if both the index file and binlogs are in sync
 # Also this will indicate that binary logging is not disabled.
 show binary logs;
 Log_name	File_size	Encrypted
-binlog.000012	#	#
-binlog.000013	#	#
 binlog.000014	#	#
 binlog.000015	#	#
 binlog.000016	#	#
@@ -374,8 +369,6 @@ ERROR HY000: You are not using binary logging
 # restart
 show binary logs;
 Log_name	File_size	Encrypted
-binlog.000012	#	#
-binlog.000013	#	#
 binlog.000014	#	#
 binlog.000015	#	#
 binlog.000016	#	#
@@ -395,8 +388,6 @@ ERROR HY000: You are not using binary logging
 # restart
 show binary logs;
 Log_name	File_size	Encrypted
-binlog.000012	#	#
-binlog.000013	#	#
 binlog.000014	#	#
 binlog.000015	#	#
 binlog.000016	#	#
