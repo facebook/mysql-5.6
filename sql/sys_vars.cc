@@ -6127,3 +6127,10 @@ static Sys_var_ulong Sys_session_set_dscp_on_socket(
        SESSION_ONLY(dscp_on_socket),
        NO_CMD_LINE, VALID_RANGE(0, 63), DEFAULT(0), BLOCK_SIZE(1),
        NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_mybool Sys_rpl_slave_flow_control(
+       "rpl_slave_flow_control", "If this is set then underrun and "
+       "overrun based flow control between coordinator and worker threads in "
+       "slave instance will be enabled. Does not affect master instance",
+       GLOBAL_VAR(rpl_slave_flow_control), CMD_LINE(OPT_ARG),
+       DEFAULT(TRUE));

@@ -735,6 +735,7 @@ ulong opt_max_running_queries, opt_max_waiting_queries;
 my_bool opt_admission_control_by_trx= 0;
 extern AC *db_ac;
 ulong rpl_stop_slave_timeout= LONG_TIMEOUT;
+my_bool rpl_slave_flow_control = 1;
 my_bool rpl_skip_tx_api = 0;
 my_bool log_bin_use_v1_row_events= 0;
 bool thread_cache_size_specified= false;

@@ -1,0 +1,24 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value 1
+####
+--echo Default value of rpl_slave_flow_control is 1
+SELECT @@global.rpl_slave_flow_control;
+
+####
+# Verify that this is not a session variable #
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.rpl_slave_flow_control;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the varisable is dynamic
+####
+--echo rpl_slave_flow_control is a dynamic variable
+SET @@global.rpl_slave_flow_control = 0;
+SELECT @@global.rpl_slave_flow_control;
+
+SET @@global.rpl_slave_flow_control = 1;
+SELECT @@global.rpl_slave_flow_control;

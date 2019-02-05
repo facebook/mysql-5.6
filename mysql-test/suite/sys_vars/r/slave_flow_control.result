@@ -1,0 +1,16 @@
+Default value of rpl_slave_flow_control is 1
+SELECT @@global.rpl_slave_flow_control;
+@@global.rpl_slave_flow_control
+1
+SELECT @@session.rpl_slave_flow_control;
+ERROR HY000: Variable 'rpl_slave_flow_control' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+rpl_slave_flow_control is a dynamic variable
+SET @@global.rpl_slave_flow_control = 0;
+SELECT @@global.rpl_slave_flow_control;
+@@global.rpl_slave_flow_control
+0
+SET @@global.rpl_slave_flow_control = 1;
+SELECT @@global.rpl_slave_flow_control;
+@@global.rpl_slave_flow_control
+1
