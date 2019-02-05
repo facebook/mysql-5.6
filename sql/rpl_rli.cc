@@ -1610,6 +1610,15 @@ int Relay_log_info::rli_init_info() {
       LogErr(ERROR_LEVEL, ER_RPL_OPEN_INDEX_FILE_FAILED);
       DBUG_RETURN(1);
     }
+    /*
+      Remove entries of logs from the index that were deleted from
+      the file system but not from the index due to a crash.
+    */
+    if (relay_log.remove_deleted_logs_from_index(true, false) == LOG_INFO_IO) {
+      LogErr(ERROR_LEVEL, ER_RPL_FAILED_IN_RLI_INIT_INFO,
+             "remove_deleted_logs_from_index()");
+      DBUG_RETURN(1);
+    }
 
     if (!gtid_retrieved_initialized) {
       /* Store the GTID of a transaction spanned in multiple relay log files */
