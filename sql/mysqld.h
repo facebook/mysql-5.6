@@ -153,6 +153,7 @@ enum enum_server_operational_state {
 enum_server_operational_state get_server_state();
 
 extern const char *mysql_compression_lib_names[5];
+extern bool rpl_slave_flow_control;
 extern bool opt_improved_dup_key_error;
 extern bool opt_large_files, server_id_supplied;
 extern bool opt_bin_log, opt_trim_binlog;
