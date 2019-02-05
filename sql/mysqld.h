@@ -347,6 +347,7 @@ enum enum_binlog_error_action {
 };
 extern const char *binlog_error_action_list[];
 
+extern ulonglong rbr_unsafe_queries;
 extern ulong relay_io_connected;
 extern ulong relay_io_events, relay_sql_events;
 extern ulonglong relay_io_bytes, relay_sql_bytes;

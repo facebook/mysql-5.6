@@ -3704,7 +3704,8 @@ static Sys_var_bool Sys_slave_compressed_protocol(
     GLOBAL_VAR(opt_slave_compressed_protocol), CMD_LINE(OPT_ARG),
     DEFAULT(false));
 
-static const char *slave_exec_mode_names[] = {"STRICT", "IDEMPOTENT", nullptr};
+static const char *slave_exec_mode_names[] = {"STRICT", "IDEMPOTENT",
+                                              "SEMI_STRICT", nullptr};
 static Sys_var_enum Slave_exec_mode(
     "slave_exec_mode",
     "Modes for how replication events should be executed. Legal values "

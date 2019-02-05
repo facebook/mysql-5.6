@@ -8632,10 +8632,18 @@ int Rows_log_event::handle_idempotent_and_ignored_errors(
     int actual_error = convert_handler_error(error, thd, m_table);
     bool idempotent_error = (idempotent_error_code(error) &&
                              (rbr_exec_mode == RBR_EXEC_MODE_IDEMPOTENT));
-    bool ignored_error =
-        (idempotent_error == 0 ? ignored_error_code(actual_error) : 0);
+    bool ignore_delete_error =
+        (rbr_exec_mode == RBR_EXEC_MODE_SEMI_STRICT &&
+         (error == HA_ERR_RECORD_CHANGED || error == HA_ERR_KEY_NOT_FOUND));
+    bool ignored_error = ((idempotent_error == 0 && !ignore_delete_error)
+                              ? ignored_error_code(actual_error)
+                              : 0);
 
-    if (idempotent_error || ignored_error) {
+    if (ignore_delete_error) {
+      ++rbr_unsafe_queries;
+    }
+
+    if (idempotent_error || ignored_error || ignore_delete_error) {
       loglevel ll;
       if (idempotent_error)
         ll = WARNING_LEVEL;
@@ -8648,7 +8656,7 @@ int Rows_log_event::handle_idempotent_and_ignored_errors(
       thd->get_stmt_da()->reset_condition_info(thd);
       clear_all_errors(thd, const_cast<Relay_log_info *>(rli));
       *err = 0;
-      if (idempotent_error == 0) return ignored_error;
+      if (idempotent_error == 0 && !ignore_delete_error) return ignored_error;
     }
   }
 
