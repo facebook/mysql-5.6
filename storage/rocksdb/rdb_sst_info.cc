@@ -53,11 +53,6 @@ Rdb_sst_file_ordered::Rdb_sst_file::~Rdb_sst_file() {
   // Make sure we clean up
   delete m_sst_file_writer;
   m_sst_file_writer = nullptr;
-
-  // In case something went wrong attempt to delete the temporary file.
-  // If everything went fine that file will have been renamed and this
-  // function call will fail.
-  std::remove(m_name.c_str());
 }
 
 rocksdb::Status Rdb_sst_file_ordered::Rdb_sst_file::open() {
@@ -147,23 +142,6 @@ rocksdb::Status Rdb_sst_file_ordered::Rdb_sst_file::commit() {
                             generateKey(fileinfo.smallest_key).c_str(),
                             generateKey(fileinfo.largest_key).c_str(),
                             fileinfo.file_size, fileinfo.num_entries);
-    }
-
-    // Add the file to the database
-    // Set the snapshot_consistency parameter to false since no one
-    // should be accessing the table we are bulk loading
-    rocksdb::IngestExternalFileOptions opts;
-    opts.move_files = true;
-    opts.snapshot_consistency = false;
-    opts.allow_global_seqno = false;
-    opts.allow_blocking_flush = false;
-    s = m_db->IngestExternalFile(m_cf, {m_name}, opts);
-
-    if (m_tracing) {
-      // NO_LINT_DEBUG
-      sql_print_information("SST Tracing: AddFile(%s) returned %s",
-                            fileinfo.file_path.c_str(),
-                            s.ok() ? "ok" : "not ok");
     }
   }
 
@@ -318,7 +296,7 @@ Rdb_sst_info::Rdb_sst_info(rocksdb::DB *const db, const std::string &tablename,
                            const rocksdb::DBOptions &db_options,
                            const bool tracing)
     : m_db(db), m_cf(cf), m_db_options(db_options), m_curr_size(0),
-      m_sst_count(0), m_background_error(HA_EXIT_SUCCESS), m_committed(false),
+      m_sst_count(0), m_background_error(HA_EXIT_SUCCESS), m_done(false),
       m_sst_file(nullptr), m_tracing(tracing), m_print_client_error(true) {
   m_prefix = db->GetName() + "/";
 
@@ -351,6 +329,15 @@ Rdb_sst_info::Rdb_sst_info(rocksdb::DB *const db, const std::string &tablename,
 
 Rdb_sst_info::~Rdb_sst_info() {
   DBUG_ASSERT(m_sst_file == nullptr);
+
+  for (auto sst_file : m_committed_files) {
+    // In case something went wrong attempt to delete the temporary file.
+    // If everything went fine that file will have been renamed and this
+    // function call will fail.
+    std::remove(sst_file.c_str());
+  }
+  m_committed_files.clear();
+
   mysql_mutex_destroy(&m_commit_mutex);
 }
 
@@ -378,17 +365,23 @@ int Rdb_sst_info::open_new_sst_file() {
   return HA_EXIT_SUCCESS;
 }
 
+void Rdb_sst_info::commit_sst_file(Rdb_sst_file_ordered *sst_file) {
+  const rocksdb::Status s = sst_file->commit();
+  if (!s.ok()) {
+    set_error_msg(sst_file->get_name(), s);
+    set_background_error(HA_ERR_ROCKSDB_BULK_LOAD);
+  }
+
+  m_committed_files.push_back(sst_file->get_name());
+
+  delete sst_file;
+}
+
 void Rdb_sst_info::close_curr_sst_file() {
   DBUG_ASSERT(m_sst_file != nullptr);
   DBUG_ASSERT(m_curr_size > 0);
 
-  const rocksdb::Status s = m_sst_file->commit();
-  if (!s.ok()) {
-    set_error_msg(m_sst_file->get_name(), s);
-    set_background_error(HA_ERR_ROCKSDB_BULK_LOAD);
-  }
-
-  delete m_sst_file;
+  commit_sst_file(m_sst_file);
 
   // Reset for next sst file
   m_sst_file = nullptr;
@@ -398,7 +391,7 @@ void Rdb_sst_info::close_curr_sst_file() {
 int Rdb_sst_info::put(const rocksdb::Slice &key, const rocksdb::Slice &value) {
   int rc;
 
-  DBUG_ASSERT(!m_committed);
+  DBUG_ASSERT(!m_done);
 
   if (m_curr_size + key.size() + value.size() >= m_max_size) {
     // The current sst file has reached its maximum, close it out
@@ -433,15 +426,22 @@ int Rdb_sst_info::put(const rocksdb::Slice &key, const rocksdb::Slice &value) {
   return HA_EXIT_SUCCESS;
 }
 
-int Rdb_sst_info::commit(bool print_client_error) {
+/*
+  Finish the current work and return the list of SST files ready to be
+  ingested. This function need to be idempotent and atomic
+ */
+int Rdb_sst_info::finish(Rdb_sst_commit_info *commit_info,
+                         bool print_client_error) {
   int ret = HA_EXIT_SUCCESS;
 
   // Both the transaction clean up and the ha_rocksdb handler have
   // references to this Rdb_sst_info and both can call commit, so
   // synchronize on the object here.
+  // This also means in such case the bulk loading operation stop being truly
+  // atomic, and we should consider fixing this in the future
   RDB_MUTEX_LOCK_CHECK(m_commit_mutex);
 
-  if (m_committed) {
+  if (is_done()) {
     RDB_MUTEX_UNLOCK_CHECK(m_commit_mutex);
     return ret;
   }
@@ -453,7 +453,13 @@ int Rdb_sst_info::commit(bool print_client_error) {
     close_curr_sst_file();
   }
 
-  m_committed = true;
+  // This checks out the list of files so that the caller can collect/group
+  // them and ingest them all in one go, and any racing calls to commit
+  // won't see them at all
+  commit_info->init(m_cf, std::move(m_committed_files));
+  DBUG_ASSERT(m_committed_files.size() == 0);
+
+  m_done = true;
   RDB_MUTEX_UNLOCK_CHECK(m_commit_mutex);
 
   // Did we get any errors?
@@ -467,10 +473,14 @@ int Rdb_sst_info::commit(bool print_client_error) {
 
 void Rdb_sst_info::set_error_msg(const std::string &sst_file_name,
                                  const rocksdb::Status &s) {
-
   if (!m_print_client_error)
     return;
 
+  report_error_msg(s, sst_file_name.c_str());
+}
+
+void Rdb_sst_info::report_error_msg(const rocksdb::Status &s,
+                                    const char *sst_file_name) {
   if (s.IsInvalidArgument() &&
       strcmp(s.getState(), "Keys must be added in order") == 0) {
     my_printf_error(ER_KEYS_OUT_OF_ORDER,
@@ -485,7 +495,7 @@ void Rdb_sst_info::set_error_msg(const std::string &sst_file_name,
                     MYF(0));
   } else {
     my_printf_error(ER_UNKNOWN_ERROR, "[%s] bulk load error: %s", MYF(0),
-                    sst_file_name.c_str(), s.ToString().c_str());
+                    sst_file_name, s.ToString().c_str());
   }
 }
 
