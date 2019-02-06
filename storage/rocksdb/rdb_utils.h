@@ -292,4 +292,17 @@ std::string rdb_hexdump(const char *data, const std::size_t data_len,
  */
 bool rdb_database_exists(const std::string &db_name);
 
+/*
+  Helper class to make sure cleanup always happens. Helpful for complicated
+  logic where there can be multiple exits/returns requiring cleanup
+ */
+class Ensure_cleanup {
+ public:
+  explicit Ensure_cleanup(std::function<void()> cleanup) : m_cleanup(cleanup) {}
+
+  ~Ensure_cleanup() { m_cleanup(); }
+
+ private:
+  std::function<void()> m_cleanup;
+};
 } // namespace myrocks
