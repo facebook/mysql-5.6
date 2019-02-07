@@ -363,7 +363,6 @@ int mysql_audit_notify(THD *thd, mysql_event_general_subclass_t subclass,
                        const char *subclass_name, int error_code,
                        const char *msg, size_t msg_len) {
   mysql_event_general event;
-  char user_buff[MAX_USER_HOST_SIZE];
 
   assert(thd);
 
@@ -377,8 +376,8 @@ int mysql_audit_notify(THD *thd, mysql_event_general_subclass_t subclass,
 
   Security_context *sctx = thd->security_context();
 
-  event.general_user.str = user_buff;
-  event.general_user.length = make_user_name(sctx, user_buff);
+  event.general_user.str = sctx->user().str;
+  event.general_user.length = sctx->user().str ? sctx->user().length : 0;
   event.general_ip = sctx->ip();
   event.general_host = sctx->host();
   event.general_external_user = sctx->external_user();
