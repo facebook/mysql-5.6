@@ -78,7 +78,7 @@ DROP TABLE tab1,tab2;
 let NEW_CMD = $MYSQLD --no-defaults --innodb_dedicated_server=OFF --initialize-insecure --basedir=$MYSQLD_BASEDIR --datadir=$MYSQLD_DATADIR2 --init-file=$BOOTSTRAP_SQL  --secure-file-priv="" --innodb_redo_log_encrypt=ON  </dev/null>>$MYSQLTEST_VARDIR/tmp/bootstrap2.log 2>&1;
 
 --echo # Run the bootstrap command of datadir2, it should fail since the keyring is not loaded.
---error 1,42
+--error 1,23,42
 --exec $NEW_CMD
 
 --force-rmdir $MYSQL_TMP_DIR/log_encrypt_dir2

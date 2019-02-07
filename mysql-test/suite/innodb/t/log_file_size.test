@@ -62,7 +62,7 @@ let SEARCH_PATTERN= Apply batch completed;
 --source include/search_pattern.inc
 --remove_file $SEARCH_FILE
 
---error 1,42
+--error 1,23,42
 --exec $MYSQLD_CMD $args --innodb-read-only
 let SEARCH_PATTERN= Can.t initiate database recovery, running in read-only-mode;
 --source include/search_pattern.inc
@@ -85,7 +85,7 @@ let SEARCH_PATTERN= Resizing redo log from 3\*[0-9]+ to 2\*[0-9]+ bytes;
 --source include/search_pattern.inc
 --remove_file $SEARCH_FILE
 
---error 1,42
+--error 1,23,42
 --exec $MYSQLD_CMD $args --innodb-read-only
 let SEARCH_PATTERN= Can.t initiate database recovery, running in read-only-mode;
 --source include/search_pattern.inc
@@ -105,7 +105,7 @@ let SEARCH_PATTERN= Resizing redo log from 3\*[0-9]+ to 2\*[0-9]+ bytes;
 # this crashes right after deleting all log files
 --remove_file $SEARCH_FILE
 
---error 1,42
+--error 1,23,42
 --exec $MYSQLD_CMD $args --innodb-read-only
 let SEARCH_PATTERN= Cannot create log files in read-only mode;
 --source include/search_pattern.inc
@@ -128,7 +128,7 @@ let SEARCH_PATTERN= Setting log file .*ib_logfile[0-9]+ size to;
 # Rename the log files, and trigger an error in recovery.
 --move_file $MYSQLD_DATADIR/ib_logfile101 $MYSQLD_DATADIR/ib_logfile0
 --move_file $MYSQLD_DATADIR/ib_logfile1 $MYSQLD_DATADIR/ib_logfile1_hidden
---error 1,42
+--error 1,23,42
 --exec $MYSQLD_CMD $args
 let SEARCH_PATTERN= Only one log file found;
 --source include/search_pattern.inc
@@ -140,7 +140,7 @@ die unless open(FILE, ">$ENV{MYSQLD_DATADIR}/ib_logfile0");
 print FILE "garbage";
 close(FILE);
 EOF
---error 1,42
+--error 1,23,42
 --exec $MYSQLD_CMD $args
 let SEARCH_PATTERN= Log file .*ib_logfile0 size 7 is not a multiple of innodb_page_size;
 --source include/search_pattern.inc
@@ -154,7 +154,7 @@ print FILE "junkfill" x 131072;
 close(FILE);
 EOF
 
---error 1,42
+--error 1,23,42
 --exec $MYSQLD_CMD $args
 let SEARCH_PATTERN= Log file .*ib_logfile1 is of different size 1048576 bytes than other log files;
 --source include/search_pattern.inc

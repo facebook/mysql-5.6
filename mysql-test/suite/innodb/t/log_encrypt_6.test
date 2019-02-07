@@ -97,7 +97,7 @@ DROP DATABASE tde_db;
 
 --echo # Try starting without keyring : Error
 let NEW_CMD = $MYSQLD --no-defaults --innodb_dedicated_server=OFF --innodb_undo_tablespaces=2 --innodb_page_size=$START_PAGE_SIZE --innodb_log_file_size=$LOG_FILE_SIZE --basedir=$MYSQLD_BASEDIR --datadir=$MYSQLD_DATADIR1  --secure-file-priv="" --console </dev/null>>$MYSQL_TMP_DIR/wl9290.err 2>&1;
---error 1,42
+--error 1,23,42
 --exec $NEW_CMD
 
 

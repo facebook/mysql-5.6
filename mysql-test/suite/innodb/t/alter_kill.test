@@ -141,7 +141,7 @@ XA PREPARE 'x';
 
 -- echo # Attempt to start without an *.ibd file.
 let SEARCH_FILE= $MYSQLTEST_VARDIR/log/my_restart.err;
--- error 1,42
+-- error 1,23,42
 -- exec $MYSQLD_CMD --core-file --console > $SEARCH_FILE 2>&1;
 
 let SEARCH_PATTERN= \[ERROR\].*Could not find any file associated with the tablespace ID:.*;

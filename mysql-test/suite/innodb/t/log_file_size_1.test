@@ -173,7 +173,7 @@ let SEARCH_PATTERN= syntax error in innodb_log_group_home_dir;
 --remove_file $SEARCH_FILE
 
 --echo "test misc 3"
---error 1,42
+--error 1,23,42
 --exec $MYSQLD_CMD $args --innodb-read-only
 let SEARCH_PATTERN=  Cannot resize log files in read-only mode;
 --source include/search_pattern.inc
@@ -184,7 +184,7 @@ let SEARCH_PATTERN=  Cannot resize log files in read-only mode;
 # Rename the log files, and trigger an error in recovery.
 #--move_file $MYSQLD_DATADIR/ib_logfile101 $MYSQLD_DATADIR/ib_logfile0
 --move_file $MYSQLD_DATADIR/ib_logfile1 $MYSQLD_DATADIR/ib_logfile1_hidden
---error 1,42
+--error 1,23,42
 --exec $MYSQLD_CMD $args
 let SEARCH_PATTERN=  Only one log file found;
 --source include/search_pattern.inc
@@ -200,7 +200,7 @@ die unless open(FILE, ">$ENV{MYSQLD_DATADIR}/ib_logfile0");
 print FILE "garbage";
 close(FILE);
 EOF
---error 1,42
+--error 1,23,42
 --exec $MYSQLD_CMD $args
 let SEARCH_PATTERN=  .*ib_logfile0 size 7 is not a multiple of innodb_page_size;
 --source include/search_pattern.inc
@@ -217,7 +217,7 @@ print FILE "junkfill" x 131072;
 close(FILE);
 EOF
 
---error 1,42
+--error 1,23,42
 --exec $MYSQLD_CMD $args
 let SEARCH_PATTERN=  .*ib_logfile1 is of different size;
 --source include/search_pattern.inc
