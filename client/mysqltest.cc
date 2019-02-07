@@ -6486,16 +6486,19 @@ static void do_connect(struct st_command *command) {
     while (*end && !my_isspace(charset_info, *end)) end++;
 
     size_t con_option_len = end - con_options;
-    char cur_con_option[10];
-    strmake(cur_con_option, con_options, con_option_len);
+    const size_t cur_con_option_len = 32;
+    char cur_con_option[cur_con_option_len + 1];
+    DBUG_ASSERT(cur_con_option_len >= con_option_len);
+    strmake(cur_con_option, con_options,
+            std::min(cur_con_option_len, con_option_len));
 
     if (!std::strcmp(cur_con_option, "SSL"))
       con_ssl = 1;
     else if (!std::strcmp(cur_con_option, "COMPRESS"))
       con_compress = 1;
-    else if (!std::strncmp(con_options, "TIMEOUT_1S", 10))
+    else if (!std::strcmp(cur_con_option, "TIMEOUT_1S"))
       con_timeout_1s = 1;
-    else if (!std::strncmp(con_options, "TIMEOUT_1500MS", 14))
+    else if (!std::strcmp(cur_con_option, "TIMEOUT_1500MS"))
       con_timeout_1500ms = 1;
     else if (!std::strcmp(cur_con_option, "PIPE"))
       con_pipe = 1;
