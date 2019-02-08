@@ -160,6 +160,47 @@ bool get_default_db_collation(THD *thd, const char *db_name,
 }
 
 /*
+ * Reads from the data dictionary to determine read only setting, and cache
+ * this on the THD, and optionally return in out parameter.
+ *
+ * Returns false on error, true on success.
+ */
+static bool fill_db_read_only_from_dd(THD *thd, const char *db,
+                                      enum enum_db_read_only *out) {
+  DBUG_ENTER("fill_db_read_only_from_dd");
+  dd::Schema_MDL_locker mdl_handler(thd);
+  dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());
+  const dd::Schema *sch_obj = NULL;
+  enum enum_db_read_only flag = DB_READ_ONLY_NULL;
+
+  if (mdl_handler.ensure_locked(db) ||
+      thd->dd_client()->acquire(db, &sch_obj)) {
+    DBUG_ASSERT(thd->is_error() || thd->killed);
+    DBUG_RETURN(true);
+  }
+
+  if (sch_obj) {
+    flag = get_db_read_only(*sch_obj);
+  } else {
+    // Database not found in DD. This happens during CREATE DATABASE, so
+    // assume not read only.
+    flag = DB_READ_ONLY_NO;
+    goto end;
+  }
+
+  // Cache value in THD.
+  mysql_mutex_lock(&thd->LOCK_thd_db_read_only_hash);
+  thd->m_db_read_only_hash[db] = flag;
+  mysql_mutex_unlock(&thd->LOCK_thd_db_read_only_hash);
+
+end:
+  if (out) {
+    *out = flag;
+  }
+  DBUG_RETURN(false);
+}
+
+/*
  * Check if the database is read-only from thread's local map.
  */
 bool is_thd_db_read_only_by_name(THD *thd, const char *db) {
@@ -177,31 +218,10 @@ bool is_thd_db_read_only_by_name(THD *thd, const char *db) {
 
   // Info was not found in THD. Check data dictionary.
   if (flag == DB_READ_ONLY_NULL) {
-    dd::Schema_MDL_locker mdl_handler(thd);
-    dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());
-    const dd::Schema *sch_obj = NULL;
-
-    if (mdl_handler.ensure_locked(db) ||
-        thd->dd_client()->acquire(db, &sch_obj)) {
-      DBUG_ASSERT(thd->is_error() || thd->killed);
+    if (fill_db_read_only_from_dd(thd, db, &flag)) {
       // Assume read only if we fail to read from DD.
       DBUG_RETURN(true);
     }
-
-    if (sch_obj) {
-      flag = get_db_read_only(*sch_obj);
-    } else {
-      // Database not found in DD. Assume not read only.
-      DBUG_RETURN(false);
-    }
-
-    // Cache value in THD.
-    mysql_mutex_lock(&thd->LOCK_thd_db_read_only_hash);
-    auto it = thd->m_db_read_only_hash.find(std::string(db));
-    if (it == thd->m_db_read_only_hash.end()) {
-      thd->m_db_read_only_hash[db] = flag;
-    }
-    mysql_mutex_unlock(&thd->LOCK_thd_db_read_only_hash);
   }
 
   DBUG_ASSERT(flag >= DB_READ_ONLY_NO && flag <= DB_READ_ONLY_SUPER);
@@ -508,6 +528,7 @@ bool mysql_create_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
 
 bool mysql_alter_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
   DBUG_ENTER("mysql_alter_db");
+  TABLE_LIST *tables = NULL;
 
   // Reject altering the system schema except for system threads.
   if (!thd->is_dd_system_thread() &&
@@ -525,6 +546,19 @@ bool mysql_alter_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
 
   if (schema == nullptr) {
     my_error(ER_NO_SUCH_DB, MYF(0), db);
+    DBUG_RETURN(true);
+  }
+
+  // Lock all tables while under schema lock so that we block all transactions
+  // from touching these tables until the ALTER is done. Because the DB read
+  // only check and the COMMIT are not done atomically, we use the table MDL
+  // to serialize ALTER DB and any write statements.
+  if (find_db_tables(thd, *schema, db, &tables)) {
+    DBUG_RETURN(true);
+  }
+
+  if (lock_table_names(thd, tables, NULL, thd->variables.lock_wait_timeout,
+                       0)) {
     DBUG_RETURN(true);
   }
 
@@ -546,6 +580,11 @@ bool mysql_alter_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
       mysql_mutex_lock(&thd->LOCK_thd_db_read_only_hash);
       thd->m_db_read_only_hash[db] = create_info->db_read_only;
       mysql_mutex_unlock(&thd->LOCK_thd_db_read_only_hash);
+    } else {
+      // If the current ALTER statement is for super read only, we also need
+      // to populate the THD cache before the data dictionary is updated, so
+      // that statement commit does not error with read only.
+      fill_db_read_only_from_dd(thd, db, nullptr);
     }
   }
 
@@ -653,12 +692,12 @@ bool mysql_rm_db(THD *thd, const LEX_CSTRING &db, bool if_exists) {
     DBUG_RETURN(true);
   }
 
+  if (lock_schema_name(thd, db.str)) DBUG_RETURN(true);
+
   if (is_thd_db_read_only_by_name(thd, db.str)) {
     my_error(ER_DB_READ_ONLY, MYF(0), db.str, "Cannot drop read only DB.");
     DBUG_RETURN(true);
   }
-
-  if (lock_schema_name(thd, db.str)) DBUG_RETURN(true);
 
   build_table_filename(path, sizeof(path) - 1, db.str, "", "", 0);
 

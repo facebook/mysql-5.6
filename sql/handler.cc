@@ -1697,6 +1697,8 @@ int ha_commit_trans(THD *thd, bool all, bool ignore_global_read_lock) {
       goto end;
     }
 
+    DEBUG_SYNC(thd, "ha_commit_trans_after_check_db_readonly");
+
     if (!trn_ctx->no_2pc(trx_scope) && (trn_ctx->rw_ha_count(trx_scope) > 1))
       error = tc_log->prepare(thd, all);
   }

@@ -82,21 +82,14 @@ select 't2', a from t2;
 connection default;
 
 --echo # turn on read_only in the middle of transaction (con1)
+set lock_wait_timeout = 1;
+--error ER_LOCK_WAIT_TIMEOUT
 alter database test read_only = true;
 show create database test;
-
-# con1
 --echo connection con1;
 connection con1;
-show create database test;
-
---source include/db_read_only_on.inc
-
---echo # super user can still write in read_only mode
---echo connection root2;
-connection root2;
-
---source include/db_read_only_off.inc
+# Rollback the transaction.
+rollback;
 
 --echo #
 --echo # super_read_only
@@ -126,8 +119,15 @@ select 't2', a from t2;
 connection default;
 
 --echo # now turn on super read_only in the middle of transaction (root2)
+set lock_wait_timeout = 1;
+--error ER_LOCK_WAIT_TIMEOUT
 alter database test super_read_only = true;
 show create database test;
+--echo connection root2;
+connection root2;
+# Rollback the transaction.
+rollback;
+alter database test super_read_only = true;
 
 # root2
 --echo connection root2;
