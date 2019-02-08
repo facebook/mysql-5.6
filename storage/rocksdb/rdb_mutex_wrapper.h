@@ -24,7 +24,7 @@
 #include <unordered_map>
 
 /* MySQL header files */
-#include "./my_sys.h"
+#include "my_sys.h"
 #include "mysql/plugin.h"
 
 /* RocksDB header files */

@@ -564,6 +564,71 @@ public:
     or at least sk_min if SK.*/
   bool index_format_min_check(const int pk_min, const int sk_min) const;
 
+  void pack_tiny(Rdb_field_packing *const fpi, Field *const field,
+                 uchar *buf MY_ATTRIBUTE((__unused__)), uchar **dst,
+                 Rdb_pack_field_context *const pack_ctx
+                     MY_ATTRIBUTE((__unused__))) const;
+
+  void pack_short(Rdb_field_packing *const fpi, Field *const field,
+                  uchar *buf MY_ATTRIBUTE((__unused__)), uchar **dst,
+                  Rdb_pack_field_context *const pack_ctx
+                      MY_ATTRIBUTE((__unused__))) const;
+
+  void pack_medium(Rdb_field_packing *const fpi, Field *const field,
+                   uchar *buf MY_ATTRIBUTE((__unused__)), uchar **dst,
+                   Rdb_pack_field_context *const pack_ctx
+                       MY_ATTRIBUTE((__unused__))) const;
+
+  void pack_long(Rdb_field_packing *const fpi, Field *const field,
+                 uchar *buf MY_ATTRIBUTE((__unused__)), uchar **dst,
+                 Rdb_pack_field_context *const pack_ctx
+                     MY_ATTRIBUTE((__unused__))) const;
+
+  void pack_longlong(Rdb_field_packing *const fpi, Field *const field,
+                     uchar *buf MY_ATTRIBUTE((__unused__)), uchar **dst,
+                     Rdb_pack_field_context *const pack_ctx
+                         MY_ATTRIBUTE((__unused__))) const;
+
+  void pack_double(Rdb_field_packing *const fpi, Field *const field,
+                   uchar *buf MY_ATTRIBUTE((__unused__)), uchar **dst,
+                   Rdb_pack_field_context *const pack_ctx
+                       MY_ATTRIBUTE((__unused__))) const;
+
+  void pack_float(Rdb_field_packing *const fpi, Field *const field,
+                  uchar *buf MY_ATTRIBUTE((__unused__)), uchar **dst,
+                  Rdb_pack_field_context *const pack_ctx
+                      MY_ATTRIBUTE((__unused__))) const;
+
+  void pack_new_decimal(Rdb_field_packing *const fpi, Field *const field,
+                        uchar *buf MY_ATTRIBUTE((__unused__)), uchar **dst,
+                        Rdb_pack_field_context *const pack_ctx
+                            MY_ATTRIBUTE((__unused__))) const;
+
+  void pack_datetime2(Rdb_field_packing *const fpi, Field *const field,
+                     uchar *buf MY_ATTRIBUTE((__unused__)), uchar **dst,
+                     Rdb_pack_field_context *const pack_ctx
+                         MY_ATTRIBUTE((__unused__))) const;
+
+  void pack_timestamp2(Rdb_field_packing *const fpi, Field *const field,
+                      uchar *buf MY_ATTRIBUTE((__unused__)), uchar **dst,
+                      Rdb_pack_field_context *const pack_ctx
+                          MY_ATTRIBUTE((__unused__))) const;
+
+  void pack_time2(Rdb_field_packing *const fpi, Field *const field,
+                  uchar *buf MY_ATTRIBUTE((__unused__)), uchar **dst,
+                  Rdb_pack_field_context *const pack_ctx
+                      MY_ATTRIBUTE((__unused__))) const;
+
+  void pack_year(Rdb_field_packing *const fpi, Field *const field,
+                 uchar *buf MY_ATTRIBUTE((__unused__)), uchar **dst,
+                 Rdb_pack_field_context *const pack_ctx
+                     MY_ATTRIBUTE((__unused__))) const;
+
+  void pack_newdate(Rdb_field_packing *const fpi, Field *const field,
+                    uchar *buf MY_ATTRIBUTE((__unused__)), uchar **dst,
+                    Rdb_pack_field_context *const pack_ctx
+                        MY_ATTRIBUTE((__unused__))) const;
+
   void pack_with_make_sort_key(
       Rdb_field_packing *const fpi, Field *const field,
       uchar *buf MY_ATTRIBUTE((__unused__)), uchar **dst,
@@ -1090,7 +1155,8 @@ interface Rdb_tables_scanner {
 
 class Rdb_ddl_manager {
   Rdb_dict_manager *m_dict = nullptr;
-  my_core::HASH m_ddl_hash; // Contains Rdb_tbl_def elements
+  // Contains Rdb_tbl_def elements
+  std::unordered_map<std::string, Rdb_tbl_def *> m_ddl_hash;
   // Maps index id to <table_name, index number>
   std::map<GL_INDEX_ID, std::pair<std::string, uint>> m_index_num_to_keydef;
 

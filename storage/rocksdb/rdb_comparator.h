@@ -19,7 +19,7 @@
 #include <string>
 
 /* MySQL includes */
-#include "./m_ctype.h"
+#include "m_ctype.h"
 
 /* RocksDB header files */
 #include "rocksdb/comparator.h"

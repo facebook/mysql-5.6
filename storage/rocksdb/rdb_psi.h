@@ -18,9 +18,8 @@
 #define _rdb_psi_h_
 
 /* MySQL header files */
-#include <my_global.h>
-#include <my_pthread.h>
-#include <mysql/psi/psi.h>
+#include "my_global.h"
+#include "mysql/psi/mysql_stage.h"
 
 /* MyRocks header files */
 #include "./rdb_utils.h"

@@ -18,8 +18,8 @@
 #include "./rdb_mutex_wrapper.h"
 
 /* MySQL header files */
-#include "../sql/sql_class.h"
-#include "../sql/replication.h"
+#include "sql_class.h"
+#include "replication.h"
 
 /* MyRocks header files */
 #include "./ha_rocksdb.h"

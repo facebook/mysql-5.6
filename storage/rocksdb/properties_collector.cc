@@ -24,9 +24,9 @@
 #include <vector>
 
 /* MySQL header files */
-#include "./log.h"
-#include "./my_stacktrace.h"
-#include "./sql_array.h"
+#include "log.h"
+#include "my_stacktrace.h"
+#include "sql_array.h"
 
 /* MyRocks header files */
 #include "./rdb_datadic.h"
