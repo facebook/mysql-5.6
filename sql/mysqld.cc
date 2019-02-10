@@ -3544,6 +3544,9 @@ SHOW_VAR com_status_vars[] = {
     {"purge_before_date",
      (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_PURGE_BEFORE]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"purge_gtid",
+     (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_PURGE_UUID]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {"release_savepoint",
      (char *)offsetof(System_status_var,
                       com_stat[(uint)SQLCOM_RELEASE_SAVEPOINT]),
@@ -5335,7 +5338,6 @@ static int init_server_components() {
     } else
       LogErr(WARNING_LEVEL, ER_RPL_INFINITY_IGNORED);
   }
-
 
   {
   /*
@@ -8455,7 +8457,7 @@ static int show_ssl_get_server_not_after(THD *, SHOW_VAR *var, char *buff) {
       return 1;
     }
   } else {
-    var->value= empty_c_string;
+    var->value = empty_c_string;
     mysql_rwlock_unlock(&LOCK_use_ssl);
   }
   return 0;

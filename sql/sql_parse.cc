@@ -187,6 +187,8 @@ class Abstract_table;
 using Mysql::Nullable;
 using std::max;
 
+bool get_master_sidno(THD *thd, rpl_sidno &master_sidno);
+
 /**
   @defgroup Runtime_Environment Runtime Environment
   @{
@@ -1263,7 +1265,8 @@ bool do_command(THD *thd) {
   thd->get_protocol_classic()->get_output_packet()->shrink(
       thd->variables.net_buffer_length);
   /* Restore read timeout value */
-  my_net_set_read_timeout(net, timeout_from_seconds(thd->variables.net_read_timeout));
+  my_net_set_read_timeout(
+      net, timeout_from_seconds(thd->variables.net_read_timeout));
 
   return_value = dispatch_command(thd, &com_data, command);
   thd->get_protocol_classic()->get_output_packet()->shrink(
@@ -1519,7 +1522,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
     query_start_status = thd->status_var;
   }
 
-  /* SHOW PROFILE instrumentation, begin */
+    /* SHOW PROFILE instrumentation, begin */
 #if defined(ENABLED_PROFILING)
   thd->profiling->start_new_query();
 #endif
@@ -2923,8 +2926,8 @@ int mysql_execute_command(THD *thd, bool first_level) {
       memcpy(cross_db_query_log + prefix_len, thd->query().str,
              thd->query().length);
       cross_db_query_log[log_len] = 0;
-      query_logger.slow_log_write(thd, cross_db_query_log,
-                                  log_len, &(thd->status_var));
+      query_logger.slow_log_write(thd, cross_db_query_log, log_len,
+                                  &(thd->status_var));
       my_free(cross_db_query_log);
     }
     if (ret == 2) /* For LOG_WARN */
@@ -3203,6 +3206,67 @@ int mysql_execute_command(THD *thd, bool first_level) {
       res = purge_master_logs_before_date(thd, purge_time);
       break;
     }
+    case SQLCOM_PURGE_UUID: {
+      if (check_global_access(thd, SUPER_ACL)) goto error;
+      rpl_sidno server_sidno = gtid_state->get_server_sidno();
+      rpl_sidno master_sidno = 0;
+      // We should not purge gtids received from current active master.
+      get_master_sidno(thd, master_sidno);
+      rpl_sidno_container sidnos;
+      char *token = strtok(lex->gtid_string, ",");
+      if (token == nullptr) {
+        my_error(ER_INVALID_UUID, MYF(0), token);
+        goto error;
+      }
+      while (token != nullptr) {
+        rpl_sid sid;
+        while (my_isspace(&my_charset_utf8_general_ci, *token)) token++;
+        const auto comma_pos = strchr(token, ',');
+        auto len = comma_pos == nullptr ? strlen(token) : comma_pos - token;
+        while (len > 0 &&
+               my_isspace(&my_charset_utf8_general_ci, token[len - 1]))
+          len--;
+        if (len == 0 || sid.parse(token, len) != RETURN_STATUS_OK) {
+          my_error(ER_INVALID_UUID, MYF(0), token);
+          goto error;
+        }
+        global_sid_lock->rdlock();
+        rpl_sidno sidno;
+        sidno = global_sid_map->sid_to_sidno(sid);
+        if (sidno == server_sidno ||
+            (master_sidno != 0 && sidno == master_sidno)) {
+          global_sid_lock->unlock();
+          my_error(ER_CANNOT_PURGE_SERVER_UUID, MYF(0), nullptr);
+          goto error;
+        }
+        if (sidno != 0 &&
+            gtid_state->get_previous_gtids_logged()->contains_sidno(sidno))
+          sidnos.push_back(sidno);
+        else {
+          push_warning_printf(
+              thd, Sql_condition::SL_NOTE, ER_UUID_NOT_IN_EXECUTED_GTID_SET,
+              ER_THD(thd, ER_UUID_NOT_IN_EXECUTED_GTID_SET), token);
+        }
+        global_sid_lock->unlock();
+        token = strtok(nullptr, ",");
+      }
+      mysql_mutex_lock(mysql_bin_log.get_log_lock());
+      global_sid_lock->wrlock();
+      gtid_state->get_previous_gtids_logged()->remove(sidnos);
+      global_sid_lock->unlock();
+      bool check_purge;
+      res = mysql_bin_log.rotate(true, &check_purge);
+      if (!res)
+        res = write_bin_log(thd, false, thd->query().str, thd->query().length);
+      /*
+        Ideally we should be reverting the change done to gtid set. But since
+        the purge operation is idempotent, sending an error to the client is
+        good enough.
+      */
+      if (!res) my_ok(thd);
+      mysql_mutex_unlock(mysql_bin_log.get_log_lock());
+      break;
+    }
     case SQLCOM_SHOW_WARNS: {
       res = mysqld_show_warnings(
           thd, (ulong)((1L << (uint)Sql_condition::SL_NOTE) |
@@ -3282,8 +3346,7 @@ int mysql_execute_command(THD *thd, bool first_level) {
       break;
     }
     case SQLCOM_SHOW_MEMORY_STATUS: {
-      if (check_global_access(thd, PROCESS_ACL))
-        goto error;
+      if (check_global_access(thd, PROCESS_ACL)) goto error;
 
       res = show_memory_status(thd);
       break;
