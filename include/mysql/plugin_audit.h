@@ -36,7 +36,7 @@
 #include "my_sqlcommand.h"
 #include "plugin_audit_message_types.h"
 
-#define MYSQL_AUDIT_INTERFACE_VERSION 0x0401
+#define MYSQL_AUDIT_INTERFACE_VERSION 0x0402
 
 /**
  @enum mysql_event_class_t
@@ -140,6 +140,11 @@ struct mysql_event_general {
   MYSQL_LEX_CSTRING general_sql_command;
   MYSQL_LEX_CSTRING general_external_user;
   MYSQL_LEX_CSTRING general_ip;
+  /* Added in version 402 */
+  long long query_id;
+  MYSQL_LEX_CSTRING database;
+  long long affected_rows;
+  unsigned int port;
 };
 
 /**
@@ -197,6 +202,8 @@ struct mysql_event_connection {
         - 5 Shared memory
   */
   int connection_type;
+  MYSQL_LEX_CSTRING connection_certificate;
+  unsigned int port;
 };
 
 /**

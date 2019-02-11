@@ -3505,6 +3505,11 @@ class THD : public MDL_context_owner,
   Gtid_set owned_gtid_set;
 #endif
 
+  std::string m_connection_certificate;
+
+  std::string const &connection_certificate() const noexcept;
+  void set_connection_certificate(std::string const &cert);
+
   /*
    Replication related context.
 

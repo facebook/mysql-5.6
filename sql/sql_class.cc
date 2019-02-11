@@ -945,6 +945,8 @@ void THD::cleanup_connection(void) {
   sp_cache_clear(&sp_proc_cache);
   sp_cache_clear(&sp_func_cache);
 
+  m_connection_certificate = "";
+
   clear_error();
   // clear the warnings
   get_stmt_da()->reset_condition_info(this);
@@ -973,6 +975,15 @@ void THD::cleanup_connection(void) {
   }
   /* DEBUG code only (end) */
 #endif
+}
+
+void THD::set_connection_certificate(std::string const &cert) {
+  DBUG_ASSERT(m_connection_certificate.empty());
+  m_connection_certificate = cert;
+}
+
+std::string const &THD::connection_certificate() const noexcept {
+  return m_connection_certificate;
 }
 
 /*
@@ -1126,6 +1137,8 @@ void THD::release_resources() {
   mysql_audit_free_thd(this);
 
   if (current_thd == this) restore_globals();
+
+  m_connection_certificate = "";
 
   mysql_mutex_lock(&LOCK_status);
   /* Add thread status to the global totals. */
