@@ -55,6 +55,7 @@ SET(STRINGS_SOURCES
   strxmov.cc
   strxnmov.cc
   xml.cc
+  fast_int2str.cc
 )
 
 # Aliasing bug in union in Clang

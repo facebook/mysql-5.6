@@ -279,6 +279,7 @@ size_t my_gcvt(double x, my_gcvt_arg_type type, int width, char *to,
 #define MY_GCVT_MAX_FIELD_WIDTH \
   (DBL_DIG + 4 + MY_MAX(5, MAX_DECPT_FOR_F_FORMAT))
 
+extern bool fast_integer_to_string;
 extern char *int2str(long val, char *dst, int radix, int upcase);
 C_MODE_START
 extern char *int10_to_str(long val, char *dst, int radix);

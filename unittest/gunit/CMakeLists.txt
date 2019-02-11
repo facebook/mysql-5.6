@@ -349,6 +349,7 @@ SET(TESTS
   varlen_sort
   collation_loader
   my_rcu_lock
+  fast_int2str
   )
 
 SET(ALL_SMALL_TESTS)
