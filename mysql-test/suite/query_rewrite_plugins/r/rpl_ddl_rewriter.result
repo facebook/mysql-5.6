@@ -11,7 +11,7 @@ SELECT PLUGIN_NAME, PLUGIN_TYPE, PLUGIN_VERSION, PLUGIN_TYPE_VERSION
 FROM information_schema.plugins
 WHERE plugin_name LIKE 'ddl_rewriter';
 PLUGIN_NAME	PLUGIN_TYPE	PLUGIN_VERSION	PLUGIN_TYPE_VERSION
-ddl_rewriter	AUDIT	1.0	4.1
+ddl_rewriter	AUDIT	1.0	4.2
 include/sync_slave_sql_with_master.inc
 SELECT PLUGIN_NAME, PLUGIN_TYPE, PLUGIN_VERSION, PLUGIN_TYPE_VERSION
 FROM information_schema.plugins

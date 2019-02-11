@@ -1,0 +1,16 @@
+INSTALL PLUGIN null_audit SONAME 'adt_null.so';
+CREATE USER cert_auth@localhost REQUIRE X509;
+GRANT SELECT ON test.* TO cert_auth@localhost;
+CREATE TABLE foo (i INT);
+FLUSH PRIVILEGES;
+SET @@null_audit_extended_log = 1;
+SELECT * FROM foo;
+i
+SHOW STATUS LIKE "Audit_null_connect_event_response";
+Variable_name	Value
+Audit_null_connect_event_response	connection_certificate:-----BEGIN CERTIFICATE-----\nMIIDyDCCArCgAwIBAgIJAOG0pVw936YVMA0GCSqGSIb3DQEBCwUAMGMxCzAJBgNV\nBAYTAlNFMRIwEAYDVQQIDAlTdG9ja2hvbG0xEjAQBgNVBAcMCVN0b2NraG9sbTEP\nMA0GA1UECgwGT3JhY2xlMQ4wDAYDVQQLDAVNeVNRTDELMAkGA1UEAwwCQ0EwHhcN\nMTQxMjA1MDQ0OTIzWhcNMjkxMjAx
+DROP USER cert_auth@localhost;
+DROP TABLE foo;
+UNINSTALL PLUGIN null_audit;
+Warnings:
+Warning	1620	Plugin is busy and will be uninstalled on shutdown
