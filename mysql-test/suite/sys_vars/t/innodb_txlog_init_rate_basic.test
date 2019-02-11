@@ -1,0 +1,22 @@
+SET @orig_txlog_init_rate = @@global.innodb_txlog_init_rate;
+
+SELECT @orig_txlog_init_rate;
+
+# 500MB/s
+SET GLOBAL innodb_txlog_init_rate = 500*1024*1024;
+SELECT @@global.innodb_txlog_init_rate;
+
+# min value
+SET GLOBAL innodb_txlog_init_rate = 0;
+SELECT @@global.innodb_txlog_init_rate;
+
+# invalid value
+# too small
+SET GLOBAL innodb_txlog_init_rate = -1;
+SELECT @@global.innodb_txlog_init_rate;
+
+# not bound to page size
+SET GLOBAL innodb_txlog_init_rate = 12345;
+SELECT @@global.innodb_txlog_init_rate;
+
+SET GLOBAL innodb_txlog_init_rate = @orig_txlog_init_rate;
