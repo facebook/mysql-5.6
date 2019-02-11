@@ -14,7 +14,10 @@ SET @@null_audit_extended_log = 1;
 
 SELECT * FROM foo;
 
---replace_regex /.*(connection_certificate:[^;]*).*/\1/
+# As "certificate:" part in the status var may be truncated because of the
+# max status var length limit, taking only first 255 chars here to make this
+# test stable
+--replace_regex /.*(connection_certificate:[^;]{255}).*/\1/
 SHOW STATUS LIKE "Audit_null_generic_event_response";
 
 disconnect con1;

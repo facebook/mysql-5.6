@@ -379,8 +379,9 @@ int mysql_audit_notify(THD *thd, mysql_event_general_subclass_t subclass,
   event.general_sql_command = sql_statement_names[thd->lex->sql_command];
   event.affected_rows = thd->get_row_count_func();
   event.port = mysqld_port;
-  event.connection_certificate.str = thd->connection_certificate().c_str();
-  event.connection_certificate.length = thd->connection_certificate().size();
+  event.connection_certificate.str = thd->get_connection_certificate().c_str();
+  event.connection_certificate.length =
+      thd->get_connection_certificate().size();
 
   thd_get_audit_query(thd, &event.general_query,
                       (const CHARSET_INFO **)&event.general_charset);
