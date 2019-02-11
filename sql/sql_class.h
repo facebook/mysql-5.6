@@ -3322,6 +3322,11 @@ class THD : public MDL_context_owner,
   Gtid_set owned_gtid_set;
 #endif
 
+  std::string m_connection_certificate;
+
+  std::string const &connection_certificate() const noexcept;
+  void set_connection_certificate(std::string const &cert);
+
   /*
    Replication related context.
 
@@ -4031,6 +4036,7 @@ class THD : public MDL_context_owner,
     m_persist_variables_init = is_init;
   }
   bool is_persist_variables_init() { return m_persist_variables_init; }
+
  private:
   bool m_persist_variables_init = false;
 };

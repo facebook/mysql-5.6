@@ -379,6 +379,11 @@ struct mysql_event_general {
   MYSQL_LEX_CSTRING general_sql_command;
   MYSQL_LEX_CSTRING general_external_user;
   MYSQL_LEX_CSTRING general_ip;
+  long long query_id;
+  MYSQL_LEX_CSTRING database;
+  long long affected_rows;
+  unsigned int port;  
+  MYSQL_LEX_CSTRING connection_certificate;
 };
 typedef enum {
   MYSQL_AUDIT_CONNECTION_CONNECT = 1 << 0,

@@ -25,6 +25,8 @@
 #include <mysqld_error.h>
 #include <stdio.h>
 #include <sys/types.h>
+#include <boost/algorithm/string/replace.hpp>
+#include <sstream>
 
 #include "lex_string.h"
 #include "m_ctype.h"
@@ -130,6 +132,13 @@ static char *g_record_buffer;
 
 #undef AUDIT_NULL_VAR
 
+#ifndef DBUG_OFF
+static const constexpr size_t event_response_buffer_len = 1000;
+static char generic_event_response[event_response_buffer_len + 1] = {
+    0,
+};
+#endif
+
 /*
   Plugin status variables for SHOW STATUS
 */
@@ -143,6 +152,11 @@ static SHOW_VAR simple_status[] = {
 #include "plugin/audit_null/audit_null_variables.h"
 
 #undef AUDIT_NULL_VAR
+
+#ifndef DBUG_OFF
+    {"Audit_null_generic_event_response", (char *)generic_event_response,
+     SHOW_CHAR, SHOW_SCOPE_GLOBAL},
+#endif
 
     {0, 0, SHOW_UNDEF, SHOW_SCOPE_GLOBAL}};
 
@@ -174,6 +188,12 @@ static MYSQL_THDVAR_INT(event_order_started, PLUGIN_VAR_RQCMDARG,
 static MYSQL_THDVAR_INT(event_order_check_exact, PLUGIN_VAR_RQCMDARG,
                         "Plugin checks exact event order.", NULL, NULL, 1, 0, 1,
                         0);
+
+#ifndef DBUG_OFF
+static MYSQL_THDVAR_INT(extended_log, PLUGIN_VAR_RQCMDARG,
+                        "Provide extended debug information with audit_null.",
+                        NULL, NULL, 1, 0, 1, 0);
+#endif
 
 static MYSQL_THDVAR_STR(event_record_def,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
@@ -411,6 +431,45 @@ static int process_command(MYSQL_THD thd, LEX_CSTRING event_command,
   return 0;
 }
 
+#ifndef DBUG_OFF
+/*
+ * Exposes a generic audit log event in a status variable
+ */
+static void log_event(const mysql_event_general *event) {
+#define EVENT_PARAM(name) event_str << #name ":" << event->name << ";";
+#define EVENT_PARAM_STR(name)                             \
+  {                                                       \
+    std::string tmp(event->name.str, event->name.length); \
+    boost::replace_all(tmp, "\n", "\\n");                 \
+    event_str << #name ":" << tmp << ";";                 \
+  }
+  std::stringstream event_str;
+  EVENT_PARAM(event_subclass);
+  EVENT_PARAM(general_error_code);
+  // skipping general_thread_id
+  EVENT_PARAM_STR(general_user);
+  EVENT_PARAM_STR(general_command);
+  EVENT_PARAM_STR(general_query);
+  // EVENT_PARAM_STR(general_charset);
+  EVENT_PARAM(general_time);
+  EVENT_PARAM(general_rows);
+  EVENT_PARAM_STR(general_host);
+  EVENT_PARAM_STR(general_sql_command);
+  EVENT_PARAM_STR(general_external_user);
+  EVENT_PARAM_STR(general_ip);
+  EVENT_PARAM(query_id);
+  EVENT_PARAM_STR(database);
+  EVENT_PARAM(affected_rows);
+  EVENT_PARAM(port);
+  EVENT_PARAM_STR(connection_certificate);
+#undef EVENT_PARAM
+#undef EVENT_PARAM_STR
+
+  const std::string str = event_str.str();
+  strncpy(generic_event_response, str.c_str(), event_response_buffer_len);
+}
+#endif
+
 /**
   @brief Plugin function handler.
 
@@ -454,9 +513,16 @@ static int audit_null_notify(MYSQL_THD thd, mysql_event_class_t event_class,
       case MYSQL_AUDIT_GENERAL_RESULT:
         number_of_calls_general_result++;
         break;
-      case MYSQL_AUDIT_GENERAL_STATUS:
+      case MYSQL_AUDIT_GENERAL_STATUS: {
+#ifndef DBUG_OFF
+        const int extended_info = static_cast<int>(THDVAR(thd, extended_log));
+        if (extended_info != 0) {
+          log_event(static_cast<const mysql_event_general *>(event));
+        }
+#endif
         number_of_calls_general_status++;
         break;
+      }
       default:
         break;
     }
@@ -767,6 +833,9 @@ static SYS_VAR *system_variables[] = {
     MYSQL_SYSVAR(event_order_check_consume_ignore_count),
     MYSQL_SYSVAR(event_order_started),
     MYSQL_SYSVAR(event_order_check_exact),
+#ifndef DBUG_OFF
+    MYSQL_SYSVAR(extended_log),
+#endif
 
     MYSQL_SYSVAR(event_record_def),
     MYSQL_SYSVAR(event_record),
