@@ -144,7 +144,7 @@ int get_ER_error_msg_by_code(uint code, const char **name_ptr,
   /* handle "global errors" */
   if ((code >= EE_ERROR_FIRST) && (code <= EE_ERROR_LAST)) {
     *name_ptr = NULL;
-    *msg_ptr = globerrs[code - EE_ERROR_FIRST];
+    *msg_ptr = EE(code);
     return 1;
   }
 
