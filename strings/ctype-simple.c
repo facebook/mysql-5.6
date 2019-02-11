@@ -18,6 +18,7 @@
 #include "m_ctype.h"
 #include "my_sys.h"  /* Needed for MY_ERRNO_ERANGE */
 #include <errno.h>
+#include <stdint.h>
 
 #include "stdarg.h"
 
@@ -731,7 +732,8 @@ double my_strntod_8bit(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
   Assume len >= 1
 */
 
-size_t my_long10_to_str_8bit(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
+static size_t
+my_long10_to_str_8bit_imp(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
                              char *dst, size_t len, int radix, long int val)
 {
   char buffer[66];
@@ -771,8 +773,29 @@ size_t my_long10_to_str_8bit(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
   return len+sign;
 }
 
+size_t my_long10_to_str_8bit(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
+                             char *dst, size_t len, int radix, long int val)
+{
+  if (fast_integer_to_string)
+  {
+    static_assert(sizeof(long int) == sizeof(long long),
+        "long int should be 64 bit");
+    extern size_t u64toa_jeaiii_n(uint64_t n, char* b, const size_t len);
+    extern size_t i64toa_jeaiii_n(int64_t i, char* b, const size_t len);
+    if (radix < 0)
+      return i64toa_jeaiii_n((int64_t)val, dst, len);
+    else
+      return u64toa_jeaiii_n((uint64_t)val, dst, len);
+  }
+  else
+  {
+    return my_long10_to_str_8bit_imp(cs, dst, len, radix, val);
+  }
 
-size_t my_longlong10_to_str_8bit(const CHARSET_INFO *cs
+}
+
+static size_t
+my_longlong10_to_str_8bit_imp(const CHARSET_INFO *cs
                                  MY_ATTRIBUTE((unused)),
                                  char *dst, size_t len, int radix,
                                  longlong val)
@@ -827,6 +850,26 @@ cnv:
   return len+sign;
 }
 
+size_t my_longlong10_to_str_8bit(const CHARSET_INFO *cs
+                                 MY_ATTRIBUTE((unused)),
+                                 char *dst, size_t len, int radix,
+                                 longlong val)
+{
+  extern size_t u64toa_jeaiii_n(uint64_t n, char* b, const size_t len);
+  extern size_t i64toa_jeaiii_n(int64_t i, char* b, const size_t len);
+
+  if (fast_integer_to_string)
+  {
+   if (radix < 0)
+     return i64toa_jeaiii_n((int64_t)val, dst, len);
+   else
+     return u64toa_jeaiii_n((uint64_t)val, dst, len);
+  }
+  else
+  {
+   return my_longlong10_to_str_8bit_imp(cs, dst, len, radix, val);
+  }
+}
 
 /*
 ** Compare string against string with wildcard

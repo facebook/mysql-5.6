@@ -1,0 +1,15 @@
+show global variables like 'fast_integer_to_string';
+SET @@GLOBAL.fast_integer_to_string=1;
+## integers converted to strings and then concatenated
+select concat(1,1);
+SET GLOBAL fast_integer_to_string='ON';
+SET @@GLOBAL.fast_integer_to_string=0;
+select concat(1,1);
+SET GLOBAL fast_integer_to_string='ON';
+show variables like 'fast_integer_to_string';
+show global variables like 'fast_integer_to_string';
+select concat(1,11,111,1111);
+SET @@GLOBAL.fast_integer_to_string=0;
+show variables like 'fast_integer_to_string';
+show global variables like 'fast_integer_to_string';
+select concat(11111, 11111);

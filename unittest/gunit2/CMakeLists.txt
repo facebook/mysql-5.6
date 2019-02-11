@@ -82,11 +82,13 @@ ENDIF()
 IF(NOT EXISTS DOWNLOAD_ROOT)
   MAKE_DIRECTORY(${DOWNLOAD_ROOT})
 ENDIF()
-SET(GMOCK_SOURCE_DIR
-    ${DOWNLOAD_ROOT}/googletest-${GMOCK_PACKAGE_NAME}/googlemock)
-SET(GTEST_SOURCE_DIR
-    ${DOWNLOAD_ROOT}/googletest-${GMOCK_PACKAGE_NAME}/googletest)
 
+IF(NOT GMOCK_SOURCE_DIR AND NOT GTEST_SOURCE_DIR)
+  SET(GMOCK_SOURCE_DIR
+    ${DOWNLOAD_ROOT}/googletest-${GMOCK_PACKAGE_NAME}/googlemock)
+  SET(GTEST_SOURCE_DIR
+    ${DOWNLOAD_ROOT}/googletest-${GMOCK_PACKAGE_NAME}/googletest)
+ENDIF()
 # We may have downloaded gmock/gtest already, building in a different directory.
 IF(EXISTS ${GMOCK_SOURCE_DIR} OR EXISTS ${LOCAL_GMOCK_ZIP})
   MESSAGE(STATUS "GMOCK_SOURCE_DIR:${GMOCK_SOURCE_DIR}")
@@ -246,12 +248,12 @@ ADD_DEFINITIONS(-DDATA_DIR="${CMAKE_CURRENT_BINARY_DIR}")
 
 # Add tests (link them with gunit/gmock libraries)
 SET(TESTS
-  hh_wheel_timer
+  ""
   )
 
 ## Merging tests into fewer executables saves *a lot* of
 ## link time and disk space ...
-OPTION(MERGE_UNITTESTS "Merge tests into one executable" ON)
+OPTION(MERGE_UNITTESTS "Merge tests into one executable" OFF)
 IF (MERGE_UNITTESTS)
   SET(HHWHEELTEST ${CMAKE_CURRENT_BINARY_DIR}/hhwheeltest.cc)
   SET_SOURCE_FILES_PROPERTIES(HHWHEELTEST
@@ -299,6 +301,10 @@ ENDIF(MERGE_UNITTESTS)
       ADD_TEST(${test} ${test}-t)
     ENDIF()
   ENDFOREACH()
+
+add_executable(fast_int2str-t fast_int2str_test.cc)
+target_link_libraries(fast_int2str-t gtest strings)
+add_test(fast_int2str fast_int2str-t)
 
 ## Most executables depend on libeay32.dll (through mysys_ssl).
 COPY_OPENSSL_DLLS(copy_openssl_gunit)

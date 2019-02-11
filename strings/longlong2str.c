@@ -40,6 +40,7 @@
 
 #include <my_global.h>
 #include "m_string.h"
+#include <stdint.h>
 
 #ifndef ll2str
 
@@ -98,7 +99,8 @@ char *ll2str(longlong val,char *dst,int radix, int upcase)
 #endif
 
 #ifndef longlong10_to_str
-char *longlong10_to_str(longlong val,char *dst,int radix)
+
+static char *longlong10_to_str_imp(longlong val,char *dst,int radix)
 {
   char buffer[65];
   register char *p;
@@ -140,5 +142,23 @@ char *longlong10_to_str(longlong val,char *dst,int radix)
   }
   while ((*dst++ = *p++) != 0) ;
   return dst-1;
+}
+
+char *longlong10_to_str(longlong val,char *dst,int radix)
+{
+  extern char* u64toa_jeaiii(uint64_t n, char* b);
+  extern char* i64toa_jeaiii(int64_t i, char* b);
+
+  if (fast_integer_to_string)
+  {
+    if (radix < 0)
+      return i64toa_jeaiii((int64_t)val, dst);
+    else
+      return u64toa_jeaiii((uint64_t)val, dst);
+  }
+  else
+  {
+    return longlong10_to_str_imp(val, dst, radix);
+  }
 }
 #endif

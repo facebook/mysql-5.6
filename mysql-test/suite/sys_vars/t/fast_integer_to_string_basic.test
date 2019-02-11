@@ -1,0 +1,6 @@
+show global variables like 'fast_integer_to_string';
+
+SET @@GLOBAL.fast_integer_to_string=1;
+select concat(123456789,123456789);
+SET @@GLOBAL.fast_integer_to_string=0;
+select concat(123456789,123456789);

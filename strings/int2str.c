@@ -15,6 +15,7 @@
 
 #include <my_global.h>
 #include "m_string.h"
+#include <stdint.h>
 
 /*
   _dig_vec arrays are public because they are used in several outer places.
@@ -129,8 +130,7 @@ int2str(register long int val, register char *dst, register int radix,
   RETURN VALUE
     Pointer to ending NUL character.
 */
-
-char *int10_to_str(long int val,char *dst,int radix)
+static char *int10_to_str_imp(long int val,char *dst,int radix)
 {
   char buffer[65];
   register char *p;
@@ -161,4 +161,25 @@ char *int10_to_str(long int val,char *dst,int radix)
   }
   while ((*dst++ = *p++) != 0) ;
   return dst-1;
+}
+
+my_bool fast_integer_to_string = 0;
+
+char *int10_to_str(long int val,char *dst,int radix)
+{
+  if (fast_integer_to_string)
+  {
+    static_assert(sizeof(long int) == sizeof(long long),
+        "long int should be 64 bit");
+    extern char* u64toa_jeaiii(uint64_t n, char* b);
+    extern char* i64toa_jeaiii(int64_t i, char* b);
+    if (radix < 0)
+      return i64toa_jeaiii((int64_t)val, dst);
+    else
+      return u64toa_jeaiii((uint64_t)val, dst);
+  }
+  else
+  {
+    return int10_to_str_imp(val, dst, radix);
+  }
 }

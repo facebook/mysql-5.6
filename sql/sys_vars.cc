@@ -6134,3 +6134,9 @@ static Sys_var_mybool Sys_rpl_slave_flow_control(
        "slave instance will be enabled. Does not affect master instance",
        GLOBAL_VAR(rpl_slave_flow_control), CMD_LINE(OPT_ARG),
        DEFAULT(TRUE));
+
+static Sys_var_mybool Sys_fast_integer_to_string(
+       "fast_integer_to_string",
+       "Optimized implementation of integer to string conversion",
+       GLOBAL_VAR(fast_integer_to_string),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));

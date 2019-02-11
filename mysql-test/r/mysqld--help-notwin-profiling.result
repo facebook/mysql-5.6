@@ -294,6 +294,8 @@ The following options may be given as the first argument:
  With this option enabled you can run myisamchk to test
  (not repair) tables while the MySQL server is running.
  Disable with --skip-external-locking.
+ --fast-integer-to-string 
+ Optimized implementation of integer to string conversion
  --fatal-semaphore-timeout=# 
  Maximum number of seconds that semaphore times out in
  innodb.
@@ -1952,6 +1954,7 @@ expand-fast-index-creation FALSE
 expire-logs-days 0
 explicit-defaults-for-timestamp FALSE
 external-locking FALSE
+fast-integer-to-string FALSE
 fatal-semaphore-timeout 600
 filesort-max-file-size 0
 flush FALSE
