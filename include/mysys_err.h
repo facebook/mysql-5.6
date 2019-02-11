@@ -27,12 +27,17 @@
   @file include/mysys_err.h
 */
 
+struct my_glob_errors {
+  const char *errname; /* error name */
+  const char *errdesc; /* error description */
+};
+
 #define GLOBERRS                                              \
   (EE_ERROR_LAST - EE_ERROR_FIRST + 1) /* Nr of global errors \
                                         */
-#define EE(X) (globerrs[(X)-EE_ERROR_FIRST])
+#define EE(X) (globerrs[(X)-EE_ERROR_FIRST].errdesc)
 
-extern const char *globerrs[]; /* my_error_messages is here */
+extern const struct my_glob_errors globerrs[]; /* my_error_messages is here */
 
 /* Error message numbers in global map */
 /*
