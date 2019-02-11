@@ -34,8 +34,6 @@
 /* MyRocks header files */
 #include "./rdb_utils.h"
 
-// #define RDB_SST_INFO_USE_THREAD /* uncomment to use threads */
-
 namespace myrocks {
 
 class Rdb_sst_file_ordered {
@@ -130,13 +128,6 @@ class Rdb_sst_info {
   static std::string m_suffix;
   bool m_committed;
   mysql_mutex_t m_commit_mutex;
-#if defined(RDB_SST_INFO_USE_THREAD)
-  std::queue<Rdb_sst_file_ordered *> m_queue;
-  std::mutex m_mutex;
-  std::condition_variable m_cond;
-  std::thread *m_thread;
-  bool m_finished;
-#endif
   Rdb_sst_file_ordered *m_sst_file;
   const bool m_tracing;
   bool m_print_client_error;
@@ -145,12 +136,6 @@ class Rdb_sst_info {
   void close_curr_sst_file();
   void set_error_msg(const std::string &sst_file_name,
                      const rocksdb::Status &s);
-
-#if defined(RDB_SST_INFO_USE_THREAD)
-  void run_thread();
-
-  static void thread_fcn(void *object);
-#endif
 
  public:
   Rdb_sst_info(rocksdb::DB *const db, const std::string &tablename,
