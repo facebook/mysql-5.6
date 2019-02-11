@@ -472,7 +472,7 @@ bool log_slow_applicable(THD *thd);
 
   @param thd              thread handle
 */
-void log_slow_do(THD *thd, struct System_status_var* query_start_status);
+void log_slow_do(THD *thd, struct System_status_var *query_start_status);
 
 /**
   Check whether we need to write the current statement to the slow query
@@ -486,7 +486,7 @@ void log_slow_do(THD *thd, struct System_status_var* query_start_status);
 
   @param thd              thread handle
 */
-void log_slow_statement(THD *thd, struct System_status_var* query_start_status);
+void log_slow_statement(THD *thd, struct System_status_var *query_start_status);
 
 /**
   @class Log_throttle

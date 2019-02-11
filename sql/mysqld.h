@@ -61,10 +61,10 @@
 #include "mysql_com.h"  // SERVER_VERSION_LENGTH
 #ifdef _WIN32
 #include "sql/nt_servc.h"
-#endif  // _WIN32
+#endif                    // _WIN32
+#include "sql/set_var.h"  // enum_var_type
 #include "sql/sql_bitmap.h"
 #include "sql/sql_const.h"  // UUID_LENGTH
-#include "sql/set_var.h"  // enum_var_type
 #include "sql/system_variables.h"
 #include "sql/thr_malloc.h"
 

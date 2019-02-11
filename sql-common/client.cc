@@ -1018,12 +1018,9 @@ net_async_status cli_safe_read_with_ok_nonblocking(MYSQL *mysql, bool parse_ok,
   DBUG_RETURN(NET_ASYNC_COMPLETE);
 }
 
-ulong
-cli_safe_read_with_ok_complete(MYSQL *mysql,
-                               bool parse_ok,
-                               bool *is_data_packet,
-                               ulong len) {
-  NET *net= &mysql->net;
+ulong cli_safe_read_with_ok_complete(MYSQL *mysql, bool parse_ok,
+                                     bool *is_data_packet, ulong len) {
+  NET *net = &mysql->net;
   DBUG_ENTER(__func__);
   if (len == packet_error || len == 0) {
     if (net->vio != 0) {
@@ -5375,9 +5372,8 @@ static mysql_state_machine_status authsm_handle_first_authenticate_user(
   After the first authenticate_user comes a call to read the result of the
   implied change_user.
 */
-static mysql_state_machine_status
-authsm_read_change_user_result(mysql_authsm_context *ctx)
-{
+static mysql_state_machine_status authsm_read_change_user_result(
+    mysql_authsm_context *ctx) {
   DBUG_ENTER(__func__);
   MYSQL *mysql = ctx->mysql;
   /* read the OK packet (or use the cached value in mysql->net.read_pos */

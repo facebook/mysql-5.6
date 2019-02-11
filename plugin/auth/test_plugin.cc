@@ -34,6 +34,7 @@
 #define LOG_COMPONENT_TAG "test_plugin_server"
 
 #include <mysql_com.h>
+
 #include <mysql/client_plugin.h>
 #include <mysql/components/my_service.h>
 #include <mysql/components/services/log_builtins.h>

@@ -183,11 +183,10 @@ static char *opt_bind_addr = NULL;
 static int connect_flag = CLIENT_INTERACTIVE;
 static bool opt_binary_mode = false;
 static bool opt_connect_expired_password = false;
-static char *current_host, *current_db,
-    *current_user = 0, *opt_password = 0, *current_prompt = 0,
-    *delimiter_str = 0,
-    *default_charset = (char *)"latin1",
-    *opt_init_command = 0;
+static char *current_host, *current_db, *current_user = 0, *opt_password = 0,
+                                        *current_prompt = 0, *delimiter_str = 0,
+                                        *default_charset = (char *)"latin1",
+                                        *opt_init_command = 0;
 static char *histfile;
 static char *histfile_tmp;
 static char *opt_histignore = NULL;

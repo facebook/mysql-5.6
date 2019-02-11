@@ -37,7 +37,6 @@
 #include <zstd.h>
 #include <algorithm>
 
-
 #include "my_compiler.h"
 #include "my_dbug.h"
 #include "my_inttypes.h"
@@ -45,7 +44,6 @@
 #include "mysql/service_mysql_alloc.h"
 #include "mysql_com.h"
 #include "mysys/mysys_priv.h"
-
 
 #ifdef MYSQL_SERVER
 extern uint zstd_net_compression_level;

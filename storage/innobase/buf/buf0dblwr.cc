@@ -386,15 +386,15 @@ static void buf_dblwr_reset(ulint doublewrite_mode) {
 
   ut_free(page_unaligned);
 }
-/****************************************************************//**
-At a database startup initializes the doublewrite buffer memory structure if
-we already have a doublewrite buffer created in the data files. If we are
-upgrading to an InnoDB version which supports multiple tablespaces, then this
-function performs the necessary update operations. If we are in a crash
-recovery, this function loads the pages from double write buffer into memory.
-@param[in]	file		File handle
-@param[in]	path		Path name of file
-@return DB_SUCCESS or error code */
+/****************************************************************/ /**
+ At a database startup initializes the doublewrite buffer memory structure if
+ we already have a doublewrite buffer created in the data files. If we are
+ upgrading to an InnoDB version which supports multiple tablespaces, then this
+ function performs the necessary update operations. If we are in a crash
+ recovery, this function loads the pages from double write buffer into memory.
+ @param[in]	file		File handle
+ @param[in]	path		Path name of file
+ @return DB_SUCCESS or error code */
 dberr_t buf_dblwr_init_or_load_pages(pfs_os_file_t file, const char *path) {
   byte *buf;
   byte *page;
@@ -507,10 +507,9 @@ dberr_t buf_dblwr_init_or_load_pages(pfs_os_file_t file, const char *path) {
   if (header_found) {
     byte *ptr = page + FIL_PAGE_DATA;
     ut_a(!reset_space_ids);
-    const page_size_t &header_page_size = page_size_t(
-				BUF_DBLWR_HEADER_SIZE,
-				BUF_DBLWR_HEADER_SIZE,
-				true/* use compressed as original checksum
+    const page_size_t &header_page_size =
+        page_size_t(BUF_DBLWR_HEADER_SIZE, BUF_DBLWR_HEADER_SIZE,
+                    true /* use compressed as original checksum
 				was calculated using #calc_zip_checksum*/);
     BlockReporter block(false, page, header_page_size, false);
     if (block.is_corrupted()) {

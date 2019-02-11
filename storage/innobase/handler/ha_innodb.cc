@@ -1419,12 +1419,12 @@ static void innodb_pre_dd_shutdown(handlerton *) {
  have one.
  @return 0 */
 static int innobase_start_trx_and_assign_read_view(
-    handlerton *hton, /* in: InnoDB handlerton */
-    THD *thd,         /* in: MySQL thread handle of the
-                      user for whom the transaction should
-                      be committed */
-    char *binlog_file,      /* out: binlog file for last commit */
-    ulonglong *binlog_pos,  /* out: binlog pos for last commit */
+    handlerton *hton,           /* in: InnoDB handlerton */
+    THD *thd,                   /* in: MySQL thread handle of the
+                                user for whom the transaction should
+                                be committed */
+    char *binlog_file,          /* out: binlog file for last commit */
+    ulonglong *binlog_pos,      /* out: binlog pos for last commit */
     char **gtid_executed,       /* out: Gtids logged until last commit */
     int *gtid_executed_length); /* out: Length of gtid_executed string */
 /** Flush InnoDB redo logs to the file system.
@@ -4838,13 +4838,13 @@ void innobase_commit_low(trx_t *trx) /*!< in: transaction handle */
  have one.
  @return 0 */
 static int innobase_start_trx_and_assign_read_view(
-    handlerton *hton, /*!< in: InnoDB handlerton */
-    THD *thd,         /*!< in: MySQL thread handle of the user for
-                      whom the transaction should be committed */
-    char *binlog_file,      /* out: binlog file for last commit */
-    ulonglong *binlog_pos,  /* out: binlog pos for last commit */
-    char **gtid_executed,       /* out: Gtids logged until last commit */
-    int *gtid_executed_length)  /* out: Length of gtid_executed string */
+    handlerton *hton,          /*!< in: InnoDB handlerton */
+    THD *thd,                  /*!< in: MySQL thread handle of the user for
+                               whom the transaction should be committed */
+    char *binlog_file,         /* out: binlog file for last commit */
+    ulonglong *binlog_pos,     /* out: binlog pos for last commit */
+    char **gtid_executed,      /* out: Gtids logged until last commit */
+    int *gtid_executed_length) /* out: Length of gtid_executed string */
 {
   DBUG_ENTER("innobase_start_trx_and_assign_read_view");
   DBUG_ASSERT(hton == innodb_hton_ptr);

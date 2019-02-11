@@ -1675,13 +1675,12 @@ static int connect_to_db(char *host, char *user, char *passwd) {
               my_progname);
     } else {
       if (opt_lra_sleep) {
-        snprintf(buff, sizeof(buff), "SET innodb_lra_sleep=%lu",
-                    opt_lra_sleep);
+        snprintf(buff, sizeof(buff), "SET innodb_lra_sleep=%lu", opt_lra_sleep);
         if (mysql_query_with_error_report(mysql, 0, buff)) DBUG_RETURN(1);
       }
       if (opt_lra_pages_before_sleep) {
         snprintf(buff, sizeof(buff), "SET innodb_lra_pages_before_sleep=%lu",
-                    opt_lra_pages_before_sleep);
+                 opt_lra_pages_before_sleep);
         if (mysql_query_with_error_report(mysql, 0, buff)) DBUG_RETURN(1);
       }
     }
@@ -1689,9 +1688,9 @@ static int connect_to_db(char *host, char *user, char *passwd) {
 
   if (opt_timeout) {
     snprintf(buff, sizeof(buff),
-                "SET wait_timeout=%lu, "
-                "net_write_timeout=%lu",
-                opt_timeout, opt_timeout);
+             "SET wait_timeout=%lu, "
+             "net_write_timeout=%lu",
+             opt_timeout, opt_timeout);
     if (mysql_query_with_error_report(mysql, 0, buff)) DBUG_RETURN(1);
   }
 
@@ -4213,8 +4212,7 @@ static void dump_table(char *table, char *db) {
       check_io(md_result_file);
     }
     mysql_free_result(res);
-    print_comment(md_result_file, 0,
-                  "\n--\n-- Rows found for %s: %lu\n--\n",
+    print_comment(md_result_file, 0, "\n--\n-- Rows found for %s: %lu\n--\n",
                   table, rownr);
     if (opt_enable_checksum_table) {
       print_comment(md_result_file, 0, "\n--\n-- Checksum for %s: %u\n--\n\n",
@@ -6044,8 +6042,7 @@ int main(int argc, char **argv) {
 
   if (opt_slave_data && do_stop_slave_sql(mysql)) goto err;
 
-  if ((opt_lock_all_tables ||
-       (opt_single_transaction && flush_logs)) &&
+  if ((opt_lock_all_tables || (opt_single_transaction && flush_logs)) &&
       do_flush_tables_read_lock(mysql))
     goto err;
 

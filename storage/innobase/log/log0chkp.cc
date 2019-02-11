@@ -474,8 +474,7 @@ static void log_checkpoint(log_t &log) {
     case SRV_WIN_IO_UNBUFFERED:
       break;
     case SRV_WIN_IO_NORMAL:
-      fil_flush_file_spaces(to_int(FIL_TYPE_TABLESPACE),
-                            FLUSH_FROM_CHECKPOINT);
+      fil_flush_file_spaces(to_int(FIL_TYPE_TABLESPACE), FLUSH_FROM_CHECKPOINT);
       break;
   }
 #else  /* !_WIN32 */
@@ -489,8 +488,7 @@ static void log_checkpoint(log_t &log) {
     case SRV_UNIX_LITTLESYNC:
     case SRV_UNIX_O_DIRECT:
     case SRV_UNIX_O_DIRECT_NO_FSYNC:
-      fil_flush_file_spaces(to_int(FIL_TYPE_TABLESPACE),
-                            FLUSH_FROM_CHECKPOINT);
+      fil_flush_file_spaces(to_int(FIL_TYPE_TABLESPACE), FLUSH_FROM_CHECKPOINT);
   }
 #endif /* _WIN32 */
 

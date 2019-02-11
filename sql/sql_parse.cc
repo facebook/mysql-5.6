@@ -1263,7 +1263,8 @@ bool do_command(THD *thd) {
   thd->get_protocol_classic()->get_output_packet()->shrink(
       thd->variables.net_buffer_length);
   /* Restore read timeout value */
-  my_net_set_read_timeout(net, timeout_from_seconds(thd->variables.net_read_timeout));
+  my_net_set_read_timeout(
+      net, timeout_from_seconds(thd->variables.net_read_timeout));
 
   return_value = dispatch_command(thd, &com_data, command);
   thd->get_protocol_classic()->get_output_packet()->shrink(
@@ -1519,7 +1520,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
     query_start_status = thd->status_var;
   }
 
-  /* SHOW PROFILE instrumentation, begin */
+    /* SHOW PROFILE instrumentation, begin */
 #if defined(ENABLED_PROFILING)
   thd->profiling->start_new_query();
 #endif
@@ -2923,8 +2924,8 @@ int mysql_execute_command(THD *thd, bool first_level) {
       memcpy(cross_db_query_log + prefix_len, thd->query().str,
              thd->query().length);
       cross_db_query_log[log_len] = 0;
-      query_logger.slow_log_write(thd, cross_db_query_log,
-                                  log_len, &(thd->status_var));
+      query_logger.slow_log_write(thd, cross_db_query_log, log_len,
+                                  &(thd->status_var));
       my_free(cross_db_query_log);
     }
     if (ret == 2) /* For LOG_WARN */
@@ -3282,8 +3283,7 @@ int mysql_execute_command(THD *thd, bool first_level) {
       break;
     }
     case SQLCOM_SHOW_MEMORY_STATUS: {
-      if (check_global_access(thd, PROCESS_ACL))
-        goto error;
+      if (check_global_access(thd, PROCESS_ACL)) goto error;
 
       res = show_memory_status(thd);
       break;

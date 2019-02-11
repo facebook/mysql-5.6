@@ -80,7 +80,7 @@
 #include "sql/log.h"        // log_*()
 #include "sql/log_event.h"  // Query_log_event
 #include "sql/mdl.h"
-#include "sql/mysqld.h"          // key_file_misc
+#include "sql/mysqld.h"  // key_file_misc
 #include "sql/mysqld_thd_manager.h"
 #include "sql/psi_memory_key.h"  // key_memory_THD_db
 #include "sql/rpl_gtid.h"
