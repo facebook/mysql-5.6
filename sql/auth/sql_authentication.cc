@@ -1932,10 +1932,13 @@ static bool read_client_connect_attrs(THD *thd, char **ptr,
   return false;
 }
 
+typedef std::string Sql_string_t;
+static Sql_string_t x509_cert_write(X509 *cert);
+
 static bool acl_check_ssl(THD *thd, const ACL_USER *acl_user) {
   Vio *vio = thd->get_protocol_classic()->get_vio();
   SSL *ssl = (SSL *)vio->ssl_arg;
-  X509 *cert;
+  X509 *cert = nullptr;
 
   /*
     At this point we know that user is allowed to connect
@@ -1960,6 +1963,7 @@ static bool acl_check_ssl(THD *thd, const ACL_USER *acl_user) {
       if (vio_type(vio) == VIO_TYPE_SSL &&
           SSL_get_verify_result(ssl) == X509_V_OK &&
           (cert = SSL_get_peer_certificate(ssl))) {
+        thd->set_connection_certificate(x509_cert_write(cert));
         X509_free(cert);
         return false;
       }
@@ -2009,6 +2013,7 @@ static bool acl_check_ssl(THD *thd, const ACL_USER *acl_user) {
         }
         OPENSSL_free(ptr);
       }
+      thd->set_connection_certificate(x509_cert_write(cert));
       X509_free(cert);
       return false;
   }
@@ -4386,8 +4391,6 @@ static MYSQL_SYSVAR_BOOL(
 static SYS_VAR *sha256_password_sysvars[] = {
     MYSQL_SYSVAR(private_key_path), MYSQL_SYSVAR(public_key_path),
     MYSQL_SYSVAR(auto_generate_rsa_keys), nullptr};
-
-typedef std::string Sql_string_t;
 
 /**
   Exception free resize

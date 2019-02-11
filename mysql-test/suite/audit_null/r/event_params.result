@@ -1,0 +1,33 @@
+INSTALL PLUGIN null_audit SONAME 'adt_null.so';
+SET @@null_audit_extended_log = 1;
+CREATE TABLE foo (v INT);
+DROP TABLE foo;
+SHOW STATUS LIKE "Audit_null_generic_event_response";
+Variable_name	Value
+Audit_null_generic_event_response	database:test
+CREATE TABLE foo (v INT);
+SHOW STATUS LIKE "Audit_null_generic_event_response";
+Variable_name	Value
+Audit_null_generic_event_response	affected_rows:0
+INSERT INTO foo VALUES (1), (2);
+SHOW STATUS LIKE "Audit_null_generic_event_response";
+Variable_name	Value
+Audit_null_generic_event_response	affected_rows:2
+SELECT * FROM foo;
+v
+1
+2
+SHOW STATUS LIKE "Audit_null_generic_event_response";
+Variable_name	Value
+Audit_null_generic_event_response	affected_rows:-1
+DELETE FROM foo;
+SHOW STATUS LIKE "Audit_null_generic_event_response";
+Variable_name	Value
+Audit_null_generic_event_response	affected_rows:2
+DROP TABLE foo;
+SHOW STATUS LIKE "Audit_null_generic_event_response";
+Variable_name	Value
+Audit_null_generic_event_response	port:MYSQLD_PORT
+UNINSTALL PLUGIN null_audit;
+Warnings:
+Warning	1620	Plugin is busy and will be uninstalled on shutdown
