@@ -23,5 +23,7 @@
 MYSQL_ADD_PLUGIN(audit_null audit_null.cc
   MODULE_ONLY MODULE_OUTPUT_NAME "adt_null")
 
+INCLUDE_DIRECTORIES(SYSTEM ${BOOST_PATCHES_DIR} ${BOOST_INCLUDE_DIR})
+
 MYSQL_ADD_PLUGIN(test_security_context test_security_context.cc
   TEST_ONLY MODULE_ONLY)
