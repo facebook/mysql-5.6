@@ -97,6 +97,7 @@
 #include "mysql/thread_type.h"
 #include "mysql_com.h"
 #include "mysqld_error.h"
+#include "mysys_err.h"
 #include "pfs_thread_provider.h"
 #include "prealloced_array.h"
 #include "sql-common/net_ns.h"
@@ -3190,6 +3191,7 @@ static void show_slave_status_metadata(List<Item> &field_list,
   field_list.push_back(
       new Item_empty_string("Replicate_Wild_Ignore_Table", 28));
   field_list.push_back(new Item_return_int("Last_Errno", 4, MYSQL_TYPE_LONG));
+  field_list.push_back(new Item_empty_string("Last_Symbolic_Errno", 20));
   field_list.push_back(new Item_empty_string("Last_Error", 20));
   field_list.push_back(
       new Item_return_int("Skip_Counter", 10, MYSQL_TYPE_LONG));
@@ -3348,6 +3350,17 @@ static bool show_slave_status_send_data(THD *thd, Master_info *mi,
   protocol->store(&tmp);
 
   protocol->store(mi->rli->last_error().number);
+
+  if (mi->rli->last_error().number == 0) {
+    protocol->store("", &my_charset_bin);
+  } else if (mi->rli->last_error().number >= EE_ERROR_FIRST &&
+             mi->rli->last_error().number <= EE_ERROR_LAST) {
+    protocol->store(get_global_errname(mi->rli->last_error().number),
+                    &my_charset_bin);
+  } else {
+    protocol->store("regular sql errno", &my_charset_bin);
+  }
+
   protocol->store(mi->rli->last_error().message, &my_charset_bin);
   protocol->store((uint32)mi->rli->slave_skip_counter);
   protocol->store((ulonglong)mi->rli->get_group_master_log_pos());

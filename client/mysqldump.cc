@@ -5208,8 +5208,8 @@ static int do_show_slave_status(MYSQL *mysql_con) {
     const int n_master_host = 1;
     const int n_master_port = 3;
     const int n_master_log_file = 9;
-    const int n_master_log_pos = 21;
-    const int n_channel_name = 55;
+    const int n_master_log_pos = 21 + 1 /* Last_Symbolic_Errno */;
+    const int n_channel_name = 55 + 1 /* Last_Symbolic_Errno */;
     MYSQL_ROW row = mysql_fetch_row(slave);
     /* Since 5.7 is is possible that SSS returns multiple channels */
     while (row) {
