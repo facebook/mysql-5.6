@@ -79,6 +79,10 @@ extern std::atomic<ulint> os_n_pending_writes;
 /* Flush after each os_fsync_threshold bytes */
 extern unsigned long long os_fsync_threshold;
 
+/** This is used to limit the IO write rate during
+initalization of redo log. Unit is bytes/second */
+extern unsigned long long os_txlog_init_rate;
+
 /** File offset in bytes */
 typedef uint64_t os_offset_t;
 
@@ -676,7 +680,6 @@ enum class AIO_mode : size_t {
 extern ulint os_n_file_reads;
 extern ulint os_n_file_writes;
 extern ulint os_n_fsyncs;
-
 /* File types for directory entry data type */
 
 enum os_file_type_t {
@@ -1457,7 +1460,7 @@ zeros otherwise.
 @return true if success */
 [[nodiscard]] bool os_file_set_size_fast(const char *name, pfs_os_file_t file,
                                          os_offset_t offset, os_offset_t size,
-                                         bool flush);
+                                         bool flush, bool throttle = false);
 
 /** Write the specified number of zeros to a file from specific offset.
 @param[in]      name            name of the file or path as a null-terminated
@@ -1466,10 +1469,11 @@ zeros otherwise.
 @param[in]      offset          file offset
 @param[in]      size            file size
 @param[in]      flush           flush file content to disk
+@param[in]	throttle	throttle the initialization IO write rate
 @return true if success */
 [[nodiscard]] bool os_file_set_size(const char *name, pfs_os_file_t file,
                                     os_offset_t offset, os_offset_t size,
-                                    bool flush);
+                                    bool flush, bool throttle = false);
 
 /** Truncates a file at its current position.
 @param[in,out]  file    file to be truncated
