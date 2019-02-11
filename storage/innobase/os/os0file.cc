@@ -102,6 +102,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 /* Flush after each os_fsync_threshold bytes */
 unsigned long long os_fsync_threshold = 0;
 
+/* Redo log initialization rate (128MB) */
+unsigned long long os_txlog_init_rate = 1ULL << 27;
+
 /** Insert buffer segment id */
 static const ulint IO_IBUF_SEGMENT = 0;
 
@@ -5523,7 +5526,7 @@ void os_file_set_nocache(int fd MY_ATTRIBUTE((unused)),
 
 bool os_file_set_size_fast(const char *name, pfs_os_file_t pfs_file,
                            os_offset_t offset, os_offset_t size, bool read_only,
-                           bool flush) {
+                           bool flush, bool throttle) {
 #if !defined(NO_FALLOCATE) && defined(UNIV_LINUX) && \
     defined(HAVE_FALLOC_FL_ZERO_RANGE)
   ut_a(size >= offset);
@@ -5551,11 +5554,13 @@ bool os_file_set_size_fast(const char *name, pfs_os_file_t pfs_file,
   }
 #endif /* !NO_FALLOCATE && UNIV_LINUX && HAVE_FALLOC_FL_ZERO_RANGE */
 
-  return os_file_set_size(name, pfs_file, offset, size, read_only, flush);
+  return os_file_set_size(name, pfs_file, offset, size, read_only, flush,
+                          throttle);
 }
 
 bool os_file_set_size(const char *name, pfs_os_file_t file, os_offset_t offset,
-                      os_offset_t size, bool read_only, bool flush) {
+                      os_offset_t size, bool read_only, bool flush,
+                      bool throttle) {
   /* Write up to FSP_EXTENT_SIZE bytes at a time. */
   ulint buf_size = 0;
 
@@ -5585,6 +5590,7 @@ bool os_file_set_size(const char *name, pfs_os_file_t file, os_offset_t offset,
   /* Count to check and print progress of file write for file_size > 100 MB. */
   uint percentage_count = 10;
 
+  ulonglong start_time = my_timer_now();
   while (current_size < size) {
     ulint n_bytes;
 
@@ -5612,6 +5618,15 @@ bool os_file_set_size(const char *name, pfs_os_file_t file, os_offset_t offset,
     if (err != DB_SUCCESS) {
       ut_free(buf2);
       return (false);
+    }
+
+    if (os_txlog_init_rate > 0 && throttle) {
+      /* check write rate on every chunk (1MB) we write */
+      while ((double)(current_size + n_bytes) >
+             os_txlog_init_rate *
+                 my_timer_to_seconds(my_timer_since(start_time))) {
+        os_thread_sleep(1000); /* sleep for 1000 usecs */
+      }
     }
 
     /* Flush after each os_fsync_threhold bytes */

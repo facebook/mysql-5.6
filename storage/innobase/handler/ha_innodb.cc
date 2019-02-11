@@ -21678,6 +21678,13 @@ static MYSQL_SYSVAR_ULONGLONG(
     "entire file at once before closing it.",
     nullptr, nullptr, 0, 0, ~0ULL, UNIV_PAGE_SIZE);
 
+static MYSQL_SYSVAR_ULONGLONG(
+    txlog_init_rate, os_txlog_init_rate, PLUGIN_VAR_OPCMDARG,
+    "The value of this variable determines how fast (in bytes/s) InnoDB "
+    "initializes the transaction log when creating a new file"
+    "Setting this value to 0 means no limit. Default is 128MB",
+    nullptr, nullptr, 1ULL << 27, 0ULL, ULONG_MAX, 1ULL << 20);
+
 static MYSQL_SYSVAR_ULONG(thread_concurrency, srv_thread_concurrency,
                           PLUGIN_VAR_RQCMDARG,
                           "Helps in performance tuning in heavily concurrent "
@@ -22185,6 +22192,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(spin_wait_delay),
     MYSQL_SYSVAR(spin_wait_pause_multiplier),
     MYSQL_SYSVAR(fsync_threshold),
+    MYSQL_SYSVAR(txlog_init_rate),
     MYSQL_SYSVAR(table_locks),
     MYSQL_SYSVAR(thread_concurrency),
     MYSQL_SYSVAR(adaptive_max_sleep_delay),

@@ -79,6 +79,10 @@ extern ulint os_n_pending_writes;
 /* Flush after each os_fsync_threshold bytes */
 extern unsigned long long os_fsync_threshold;
 
+/** This is used to limit the IO write rate during
+initalization of redo log. Unit is bytes/second */
+extern unsigned long long os_txlog_init_rate;
+
 /** Number of outstanding aio requests */
 extern ulint os_aio_n_outstanding;
 #ifdef UNIV_DEBUG
@@ -610,7 +614,6 @@ enum class AIO_mode : size_t {
 extern ulint os_n_file_reads;
 extern ulint os_n_file_writes;
 extern ulint os_n_fsyncs;
-
 /* File types for directory entry data type */
 
 enum os_file_type_t {
@@ -1421,7 +1424,8 @@ zeros otherwise.
 @return true if success */
 bool os_file_set_size_fast(const char *name, pfs_os_file_t file,
                            os_offset_t offset, os_offset_t size, bool read_only,
-                           bool flush) MY_ATTRIBUTE((warn_unused_result));
+                           bool flush, bool throttle = false)
+    MY_ATTRIBUTE((warn_unused_result));
 
 /** Write the specified number of zeros to a file from specific offset.
 @param[in]	name		name of the file or path as a null-terminated
@@ -1431,10 +1435,11 @@ bool os_file_set_size_fast(const char *name, pfs_os_file_t file,
 @param[in]	size		file size
 @param[in]	read_only	enable read-only checks if true
 @param[in]	flush		flush file content to disk
+@param[in]	throttle	throttle the initialization IO write rate
 @return true if success */
 bool os_file_set_size(const char *name, pfs_os_file_t file, os_offset_t offset,
-                      os_offset_t size, bool read_only, bool flush)
-    MY_ATTRIBUTE((warn_unused_result));
+                      os_offset_t size, bool read_only, bool flush,
+                      bool throttle = false) MY_ATTRIBUTE((warn_unused_result));
 
 /** Truncates a file at its current position.
 @param[in,out]	file	file to be truncated

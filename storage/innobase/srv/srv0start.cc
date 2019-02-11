@@ -314,7 +314,7 @@ static MY_ATTRIBUTE((warn_unused_result)) dberr_t
 #endif /* UNIV_DEBUG_DEDICATED */
 
   ret = os_file_set_size_fast(name, *file, 0, (os_offset_t)srv_log_file_size,
-                              srv_read_only_mode, true);
+                              srv_read_only_mode, true, true);
 
   if (!ret) {
     ib::error(ER_IB_MSG_1063, name, size);
