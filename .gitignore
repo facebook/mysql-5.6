@@ -502,6 +502,7 @@ comon.h
 comp_err/*.ds?
 comp_err/*.vcproj
 compile
+compile_commands.json
 config.cache
 config.guess
 config.h
