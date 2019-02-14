@@ -227,6 +227,7 @@ our $DEFAULT_SUITES =
 # End of list of default suites
 
 our $opt_big_test                  = 0;
+our $opt_skip_big_test             = 0;
 our $opt_check_testcases           = 1;
 our $opt_clean_vardir              = $ENV{'MTR_CLEAN_VARDIR'};
 our $opt_ctest                     = env_or_val(MTR_UNIT_TESTS => -1);
@@ -1457,6 +1458,7 @@ sub command_line_setup {
 
     # Control what test suites or cases to run
     'big-test'                 => \$opt_big_test,
+    'skip-big-test'            => \$opt_skip_big_test,
     'combination=s'            => \@opt_combinations,
     'do-suite=s'               => \$opt_do_suite,
     'do-test=s'                => \&collect_option,
@@ -1919,6 +1921,11 @@ sub command_line_setup {
   # Enable --big-test and option when test cases are specified command line.
   if (@opt_cases) {
     $opt_big_test = 1 if !$opt_big_test;
+  }
+
+  if ($opt_skip_big_test) {
+    $opt_big_test = 0;
+    $opt_only_big_test = 0;
   }
 
   $ENV{'BIG_TEST'} = 1 if ($opt_big_test or $opt_only_big_test);
