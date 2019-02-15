@@ -60,12 +60,6 @@ class FacebookMySQLLintEngine extends ArcanistLintEngine {
       }
     }
 
-    // This linter calls git diff to see the old data and gives warnings about
-    // lines that only have whitespace changes to avoid rebase problems later
-    // Run on all C++ paths
-    $linters[] = id(new FacebookMySQLWhitespaceLinter())
-        ->setPaths($all_cpp_paths);
-
     // This linter looks to see if any changes in InnoDB use tabs as most of
     // the files there expect tabs instead of spaces.
     // Run on all C++ files that are in InnoDB (include 'storage/innobase')
