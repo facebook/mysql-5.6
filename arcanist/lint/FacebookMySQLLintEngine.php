@@ -64,12 +64,6 @@ class FacebookMySQLLintEngine extends ArcanistLintEngine {
       }
     }
 
-    // This linter calls git diff to see the old data and gives warnings about
-    // lines that only have whitespace changes to avoid rebase problems later
-    // Run on all C++ paths
-    $linters[] = id(new FacebookMySQLWhitespaceLinter())
-        ->setPaths($all_cpp_paths);
-
     // ArcanistSpellingLinter enforces basic spelling. A blacklisted set of
     // words that are commonly spelled incorrectly are used.
     $spelling_linter = new ArcanistSpellingLinter();

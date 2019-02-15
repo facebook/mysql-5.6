@@ -20,7 +20,6 @@ phutil_register_library_map(array(
     'FacebookMySQLPort80Linter' => 'lint/linter/FacebookMySQLPort80Linter.php',
     'FacebookMySQLPrintfLinter' => 'lint/linter/FacebookMySQLPrintfLinter.php',
     'FacebookMySQLTestResultLinter' => 'lint/linter/FacebookMySQLTestResultLinter.php',
-    'FacebookMySQLWhitespaceLinter' => 'lint/linter/FacebookMySQLWhitespaceLinter.php',
   ),
   'function' =>
   array(
