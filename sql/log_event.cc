@@ -6415,20 +6415,42 @@ bool Format_description_log_event::write(IO_CACHE* file)
 {
   bool ret;
   bool no_checksum;
+
+  /*
+    Going with stack allocated buffer to handle format description events.
+    Since the actual size of the format description event depends on the mysql
+    version, the buffer size needs to be adjusted based on the length of the
+    format_description_event from the post_header_len. Since the length is
+    stored in a single byte, it should never be greater than 255 bytes.
+  */
+  const size_t MAX_FD_LEN = 256;
+  compile_time_assert(MAX_FD_LEN > FORMAT_DESCRIPTION_EVENT);
+  int num_log_event_types =
+      post_header_len[FORMAT_DESCRIPTION_EVENT - 1] - START_V3_HEADER_LEN - 1;
+
+  /* Smaller length than expected, revert to original behavior */
+  DBUG_ASSERT(num_log_event_types >= FORMAT_DESCRIPTION_EVENT);
+  if (num_log_event_types < FORMAT_DESCRIPTION_EVENT)
+    num_log_event_types = LOG_EVENT_TYPES;
+
   /*
     We don't call Start_log_event_v3::write() because this would make 2
     my_b_safe_write().
   */
-  uchar buff[FORMAT_DESCRIPTION_HEADER_LEN + BINLOG_CHECKSUM_ALG_DESC_LEN];
-  size_t rec_size= sizeof(buff);
+  uchar buff[MAX_FD_LEN + BINLOG_CHECKSUM_ALG_DESC_LEN];
+  size_t format_description_header_len =
+      FORMAT_DESCRIPTION_HEADER_LEN - LOG_EVENT_TYPES + num_log_event_types;
+  size_t rec_size =
+      format_description_header_len + BINLOG_CHECKSUM_ALG_DESC_LEN;
   int2store(buff + ST_BINLOG_VER_OFFSET,binlog_version);
   memcpy((char*) buff + ST_SERVER_VER_OFFSET,server_version,ST_SERVER_VER_LEN);
   if (!dont_set_created)
     created= get_time();
   int4store(buff + ST_CREATED_OFFSET,created);
   buff[ST_COMMON_HEADER_LEN_OFFSET]= LOG_EVENT_HEADER_LEN;
+
   memcpy((char*) buff+ST_COMMON_HEADER_LEN_OFFSET + 1, (uchar*) post_header_len,
-         LOG_EVENT_TYPES);
+         num_log_event_types);
   /*
     if checksum is requested
     record the checksum-algorithm descriptor next to
@@ -6441,7 +6463,7 @@ bool Format_description_log_event::write(IO_CACHE* file)
 #ifndef DBUG_OFF
   data_written= 0; // to prepare for need_checksum assert
 #endif
-  buff[FORMAT_DESCRIPTION_HEADER_LEN]= need_checksum() ?
+  buff[format_description_header_len]= need_checksum() ?
     checksum_alg : (uint8) BINLOG_CHECKSUM_ALG_OFF;
   /*
      FD of checksum-aware server is always checksum-equipped, (V) is in,
