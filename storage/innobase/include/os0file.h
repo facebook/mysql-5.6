@@ -74,7 +74,7 @@ extern unsigned long long os_fsync_threshold;
 
 /** This is used to limit the IO write rate during
 initalization of redo log. Unit is bytes/second */
-extern unsigned long long  os_txlog_init_rate;
+extern unsigned long long os_txlog_init_rate;
 
 /** Number of outstanding aio requests */
 extern ulint os_aio_n_outstanding;
@@ -1610,8 +1610,7 @@ os_offset_t os_file_get_size(pfs_os_file_t file)
 @return true if success */
 bool os_file_set_size(const char *name, pfs_os_file_t file, os_offset_t offset,
                       os_offset_t size, bool read_only, bool flush,
-                      bool throttle = false)
-MY_ATTRIBUTE((warn_unused_result));
+                      bool throttle = false) MY_ATTRIBUTE((warn_unused_result));
 
 /** Truncates a file at its current position.
 @param[in,out]	file	file to be truncated
