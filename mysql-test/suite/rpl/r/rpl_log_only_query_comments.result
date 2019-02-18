@@ -9,20 +9,14 @@ insert into t1 values(1);
 /*Comment test */ insert into t1 values(2);
 /*Comment test */   /* Comment test*/ insert into t1 values(4);
 drop table t1;
-#010909  4:46:40 server id 1  end_log_pos 539 CRC32 0x685344bd 	Rows_query
-# insert into t1 values(1)
---
-#010909  4:46:40 server id 1  end_log_pos 850 CRC32 0xb857d678 	Rows_query
+#010909  4:46:40 server id 1  end_log_pos 802 CRC32 0x1f36ad8a 	Rows_query
 # /*Comment test */
 --
-#010909  4:46:40 server id 1  end_log_pos 1181 CRC32 0x77aadb4e 	Rows_query
+#010909  4:46:40 server id 1  end_log_pos 1133 CRC32 0xb97b0f79 	Rows_query
 # /*Comment test */   /* Comment test*/
-#010909  4:46:40 server id 1  end_log_pos 548 CRC32 0xde290973 	Rows_query
-# insert into t1 values(1)
---
-#010909  4:46:40 server id 1  end_log_pos 861 CRC32 0x5b42ddb1 	Rows_query
+#010909  4:46:40 server id 1  end_log_pos 813 CRC32 0xfc23a643 	Rows_query
 # /*Comment test */
 --
-#010909  4:46:40 server id 1  end_log_pos 1194 CRC32 0x2b32e104 	Rows_query
+#010909  4:46:40 server id 1  end_log_pos 1146 CRC32 0xa0b32ab4 	Rows_query
 # /*Comment test */   /* Comment test*/
 include/rpl_end.inc

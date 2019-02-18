@@ -195,6 +195,7 @@ struct Slave_job_group {
   std::atomic<int32> done;  // Flag raised by W,  read and reset by Coordinator
   ulong shifted;            // shift the last CP bitmap at receiving a new CP
   time_t ts;  // Group's timestampt to update Seconds_behind_master
+  ulonglong ts_millis=0;
 #ifndef DBUG_OFF
   bool notified{false};  // to debug group_master_log_name change notification
 #endif

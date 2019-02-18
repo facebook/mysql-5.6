@@ -24,6 +24,8 @@ INCLUDE_DIRECTORIES(
   ${CMAKE_SOURCE_DIR}/libbinlogevents/include
 )
 
+INCLUDE_DIRECTORIES(SYSTEM ${BOOST_PATCHES_DIR} ${BOOST_INCLUDE_DIR})
+
 INCLUDE(${MYSQL_CMAKE_SCRIPT_DIR}/compile_flags.cmake)
 
 ## Subdirectory with common client code.

@@ -28,9 +28,9 @@ use d2;
 /*comment*/ delete from t2;
 flush logs;
 "There should be eight rows_query events in the binlog for d1 and d2 and none for test"
-8
-8
-0
+24
+24
+16
 use d1;
 drop database d1;
 use d2;

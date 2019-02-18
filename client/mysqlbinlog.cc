@@ -1420,6 +1420,11 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
         // avoid unflushed event warning we'll skip setting this flag when the
         // rows_query event contains trx metadata
         auto rq = static_cast<Rows_query_log_event *>(ev);
+
+	if(rq->has_trx_meta_data()) {
+		ev->print(result_file, print_event_info);
+	}
+
         print_event_info->have_unflushed_events = !rq->has_trx_meta_data();
         last_rows_query_event.event = rq;
         last_rows_query_event.event_pos = pos;
