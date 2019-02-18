@@ -15,6 +15,10 @@ left join t1 on variable_name=test_name where test_name is null ORDER BY variabl
 There should be *no* variables listed below:
 activate_all_roles_on_login
 activate_all_roles_on_login
+admission_control_by_trx
+admission_control_by_trx
+admission_control_filter
+admission_control_filter
 cte_max_recursion_depth
 cte_max_recursion_depth
 default_collation_for_utf8mb4
@@ -35,6 +39,10 @@ log_global_var_changes
 log_global_var_changes
 mandatory_roles
 mandatory_roles
+max_running_queries
+max_running_queries
+max_waiting_queries
+max_waiting_queries
 password_require_current
 password_require_current
 regexp_stack_limit
