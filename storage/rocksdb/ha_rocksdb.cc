@@ -7876,7 +7876,7 @@ int ha_rocksdb::read_row_from_secondary_key(uchar *const buf,
   DBUG_EXECUTE_IF("dbug.rocksdb.HA_EXTRA_KEYREAD", { m_keyread_only = true; });
 
   bool covered_lookup = (m_keyread_only && kd.can_cover_lookup()) ||
-                        kd.covers_lookup(table, &value, &m_lookup_bitmap);
+                        kd.covers_lookup(&value, &m_lookup_bitmap);
 
 #ifndef NDEBUG
   m_keyread_only = save_keyread_only;
@@ -8002,8 +8002,7 @@ int ha_rocksdb::secondary_index_read(const int keyno, uchar *const buf) {
       rocksdb::Slice value = m_scan_it->value();
       bool covered_lookup =
           (m_keyread_only && m_key_descr_arr[keyno]->can_cover_lookup()) ||
-          m_key_descr_arr[keyno]->covers_lookup(table, &value,
-                                                &m_lookup_bitmap);
+          m_key_descr_arr[keyno]->covers_lookup(&value, &m_lookup_bitmap);
       if (covered_lookup && m_lock_rows == RDB_LOCK_NONE) {
         rc = m_key_descr_arr[keyno]->unpack_record(
             table, buf, &key, &value, m_verify_row_debug_checksums);

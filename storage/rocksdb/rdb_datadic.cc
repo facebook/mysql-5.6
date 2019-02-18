@@ -909,8 +909,7 @@ void Rdb_key_def::get_lookup_bitmap(const TABLE *table, MY_BITMAP *map) const {
   - All values for columns that are prefix-only indexes are shorter or equal
     in length to the prefix
  */
-bool Rdb_key_def::covers_lookup(TABLE *const table,
-                                const rocksdb::Slice *const unpack_info,
+bool Rdb_key_def::covers_lookup(const rocksdb::Slice *const unpack_info,
                                 const MY_BITMAP *const lookup_bitmap) const {
   DBUG_ASSERT(lookup_bitmap != nullptr);
   if (!use_covered_bitmap_format() || lookup_bitmap->bitmap == nullptr) {
