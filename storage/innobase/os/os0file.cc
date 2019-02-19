@@ -5521,6 +5521,13 @@ void os_file_set_nocache(int fd MY_ATTRIBUTE((unused)),
                               << strerror(errno_save) << ", continuing anyway.";
     }
   }
+
+#ifdef POSIX_FADV_DONTNEED
+  /* Request the filesystem to flush cached pages. Otherwise,
+  DIRECTIO requests are serialized. */
+  posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+#endif /* POSIX_FADV_DONTNEED  */
+
 #endif /* defined(UNIV_SOLARIS) && defined(DIRECTIO_ON) */
 }
 
