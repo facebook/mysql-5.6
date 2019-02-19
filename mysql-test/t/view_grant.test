@@ -2994,7 +2994,7 @@ SELECT * FROM test1.v1;
 connection default;
 
 --error ER_WRONG_STRING_LENGTH
-CREATE DEFINER=user_name_len_33_0123456789012345@localhost
+CREATE DEFINER=user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901@localhost
   VIEW test1.v2 AS SELECT int_field FROM test1.t1;
 
 #Cleanup

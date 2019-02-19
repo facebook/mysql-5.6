@@ -5,14 +5,14 @@ Note	####	Storing MySQL user name or password information in the master info rep
 [connection master]
 ==== Create new replication user ====
 [on master]
-CREATE USER rpluser_with_length_32_123456789@127.0.0.1 IDENTIFIED BY 'rpl';
-CREATE USER rpluser_with_length_32_1234567890@127.0.0.1 IDENTIFIED BY 'rpl';
-ERROR HY000: String 'rpluser_with_length_32_1234567890' is too long for user name (should be no longer than 32)
-GRANT REPLICATION SLAVE ON *.* TO rpluser_with_length_32_123456789@127.0.0.1;
+CREATE USER rpluser_with_length_80_abcdefghij1234567890abcdefghij1234567890abcdefghij123456@127.0.0.1 IDENTIFIED BY 'rpl';
+CREATE USER rpluser_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890@127.0.0.1 IDENTIFIED BY 'rpl';
+ERROR HY000: String 'rpluser_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefg' is too long for user name (should be no longer than 80)
+GRANT REPLICATION SLAVE ON *.* TO rpluser_with_length_80_abcdefghij1234567890abcdefghij1234567890abcdefghij123456@127.0.0.1;
 [on slave]
 include/sync_slave_sql_with_master.inc
 include/stop_slave.inc
-CHANGE MASTER TO master_user='rpluser_with_length_32_123456789',
+CHANGE MASTER TO master_user='rpluser_with_length_80_abcdefghij1234567890abcdefghij1234567890abcdefghij123456',
 master_password='rpl', get_master_public_key = 1, master_ssl = 1;
 Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
@@ -29,7 +29,7 @@ n
 1
 ==== Delete new replication user ====
 [on master]
-DROP USER rpluser_with_length_32_123456789@127.0.0.1;
+DROP USER rpluser_with_length_80_abcdefghij1234567890abcdefghij1234567890abcdefghij123456@127.0.0.1;
 FLUSH PRIVILEGES;
 [on slave]
 include/sync_slave_sql_with_master.inc

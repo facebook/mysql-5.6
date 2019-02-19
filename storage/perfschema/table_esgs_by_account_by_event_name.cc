@@ -50,7 +50,7 @@ Plugin_table table_esgs_by_account_by_event_name::m_table_def(
     /* Name */
     "events_stages_summary_by_account_by_event_name",
     /* Definition */
-    "  USER CHAR(32) collate utf8mb4_bin default null,\n"
+    "  USER CHAR(80) collate utf8mb4_bin default null,\n"
     "  HOST CHAR(255) CHARACTER SET ASCII default null,\n"
     "  EVENT_NAME VARCHAR(128) not null,\n"
     "  COUNT_STAR BIGINT UNSIGNED not null,\n"

@@ -59,7 +59,7 @@ Plugin_table table_variables_info::m_table_def(
     "  MIN_VALUE varchar(64),\n"
     "  MAX_VALUE varchar(64),\n"
     "  SET_TIME TIMESTAMP(6) default null,\n"
-    "  SET_USER CHAR(32) collate utf8mb4_bin default null,\n"
+    "  SET_USER CHAR(80) collate utf8mb4_bin default null,\n"
     "  SET_HOST CHAR(255) CHARACTER SET ASCII default null\n",
     /* Options */
     " ENGINE=PERFORMANCE_SCHEMA",
