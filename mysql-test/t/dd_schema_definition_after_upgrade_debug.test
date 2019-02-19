@@ -102,6 +102,10 @@ let $file = $actual_table_defs;
 --force-rmdir $MYSQL_TMP_DIR/data_57022
 
 
+# Disabling the below part until FB8-220: Handle upgrade from FB-8.0.11 to FB-8.0.13
+# is implemented
+--disable_testcase BUG#00000
+
 --echo ########################################################################
 --echo # Unzip a 8.0.11 datadir, start the server against it and prepare a
 --echo # file containing the DD table definitions after upgrade.
@@ -226,6 +230,7 @@ let $file = $actual_table_defs;
 --remove_file $actual_table_defs
 --force-rmdir $MYSQL_TMP_DIR/data_80012
 
+--enable_testcase
 
 --echo ########################################################################
 --echo # Cleanup: Remove definition files and restart with default options.
