@@ -823,7 +823,7 @@ disconnect master;
 # Bug#10668 CREATE USER does not enforce username length limit
 #
 --error ER_WRONG_STRING_LENGTH
-create user mysqltest1_thisisreallyreallyreallyreallyreallyireallyreallytoolong;
+create user abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a;
 
 #
 # Test for Bug#16899 Possible buffer overflow in handling of DEFINER-clause.
@@ -913,13 +913,13 @@ USE test;
 # Working with database-level privileges.
 
 --error ER_WRONG_STRING_LENGTH
-GRANT CREATE ON mysqltest.* TO 1234567890abcdefGHIKL1234567890abcdefGHIKL@localhost;
+GRANT CREATE ON mysqltest.* TO abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a@localhost;
 
 --error ER_WRONG_STRING_LENGTH
 GRANT CREATE ON mysqltest.* TO some_user_name@host_1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890X;
 
 --error ER_WRONG_STRING_LENGTH
-REVOKE CREATE ON mysqltest.* FROM 1234567890abcdefGHIKL1234567890abcdefGHIKL@localhost;
+REVOKE CREATE ON mysqltest.* FROM abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a@localhost;
 
 --error ER_WRONG_STRING_LENGTH
 REVOKE CREATE ON mysqltest.* FROM some_user_name@host_1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890X;
@@ -927,13 +927,13 @@ REVOKE CREATE ON mysqltest.* FROM some_user_name@host_1234567890abcdefghij123456
 # Working with table-level privileges.
 
 --error ER_WRONG_STRING_LENGTH
-GRANT CREATE ON t1 TO 1234567890abcdefGHIKL1234567890abcdefGHIKL@localhost;
+GRANT CREATE ON t1 TO abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a@localhost;
 
 --error ER_WRONG_STRING_LENGTH
 GRANT CREATE ON t1 TO some_user_name@host_1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890X;
 
 --error ER_WRONG_STRING_LENGTH
-REVOKE CREATE ON t1 FROM 1234567890abcdefGHIKL1234567890abcdefGHIKL@localhost;
+REVOKE CREATE ON t1 FROM abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a@localhost;
 
 --error ER_WRONG_STRING_LENGTH
 REVOKE CREATE ON t1 FROM some_user_name@host_1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890X;
@@ -941,13 +941,13 @@ REVOKE CREATE ON t1 FROM some_user_name@host_1234567890abcdefghij1234567890abcde
 # Working with routine-level privileges.
 
 --error ER_WRONG_STRING_LENGTH
-GRANT EXECUTE ON PROCEDURE p1 TO 1234567890abcdefGHIKL1234567890abcdefGHIKL@localhost;
+GRANT EXECUTE ON PROCEDURE p1 TO abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a@localhost;
 
 --error ER_WRONG_STRING_LENGTH
 GRANT EXECUTE ON PROCEDURE p1 TO some_user_name@host_1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890X;
 
 --error ER_WRONG_STRING_LENGTH
-REVOKE EXECUTE ON PROCEDURE p1 FROM 1234567890abcdefGHIKL1234567890abcdefGHIKL@localhost;
+REVOKE EXECUTE ON PROCEDURE p1 FROM abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a@localhost;
 
 --error ER_WRONG_STRING_LENGTH
 REVOKE EXECUTE ON PROCEDURE t1 FROM some_user_name@host_1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890X;
@@ -1573,7 +1573,7 @@ grant select on test.* to юзер_юзер@localhost;
 revoke all on test.* from юзер_юзер@localhost;
 drop user юзер_юзер@localhost;
 --error ER_WRONG_STRING_LENGTH
-grant select on test.* to очень_длинный_юзер_very_long_user@localhost;
+grant select on test.* to очень_длинный_юзерочень_длинный_юзер_очень_длинный_юзерочень_длинный_юзер_юзерррр@localhost;
 set names default;
 
 #
@@ -2394,10 +2394,10 @@ CREATE USER user_name_len_22_01234@localhost;
 CREATE USER user_name_len_32_012345678901234@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-CREATE USER user_name_len_33_0123456789012345@localhost;
+CREATE USER user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-CREATE USER user_name_len_40_01234567890123456789012@localhost;
+CREATE USER user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901234@localhost;
 
 # Working with database-level privileges.
 
@@ -2406,20 +2406,20 @@ GRANT CREATE ON mysqltest.* TO user_name_len_22_01234@localhost;
 GRANT CREATE ON mysqltest.* TO user_name_len_32_012345678901234@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-GRANT CREATE ON mysqltest.* TO user_name_len_33_0123456789012345@localhost;
+GRANT CREATE ON mysqltest.* TO user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-GRANT CREATE ON mysqltest.* TO user_name_len_40_01234567890123456789012@localhost;
+GRANT CREATE ON mysqltest.* TO user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901234@localhost;
 
 REVOKE CREATE ON mysqltest.* FROM user_name_len_16@localhost;
 REVOKE CREATE ON mysqltest.* FROM user_name_len_22_01234@localhost;
 REVOKE CREATE ON mysqltest.* FROM user_name_len_32_012345678901234@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-REVOKE CREATE ON mysqltest.* FROM user_name_len_33_0123456789012345@localhost;
+REVOKE CREATE ON mysqltest.* FROM user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-REVOKE CREATE ON mysqltest.* FROM user_name_len_40_01234567890123456789012@localhost;
+REVOKE CREATE ON mysqltest.* FROM user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901234@localhost;
 
 # Working with table-level privileges.
 
@@ -2428,40 +2428,40 @@ GRANT CREATE ON t1 TO user_name_len_22_01234@localhost;
 GRANT CREATE ON t1 TO user_name_len_32_012345678901234@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-GRANT CREATE ON t1 TO user_name_len_33_0123456789012345@localhost;
+GRANT CREATE ON t1 TO user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-GRANT CREATE ON t1 TO user_name_len_40_01234567890123456789012@localhost;
+GRANT CREATE ON t1 TO user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901234@localhost;
 
 REVOKE CREATE ON t1 FROM user_name_len_16@localhost;
 REVOKE CREATE ON t1 FROM user_name_len_22_01234@localhost;
 REVOKE CREATE ON t1 FROM user_name_len_32_012345678901234@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-REVOKE CREATE ON t1 FROM user_name_len_33_0123456789012345@localhost;
+REVOKE CREATE ON t1 FROM user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-REVOKE CREATE ON t1 FROM user_name_len_40_01234567890123456789012@localhost;
+REVOKE CREATE ON t1 FROM user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901234@localhost;
 
 GRANT SELECT ON t1 TO user_name_len_16@localhost;
 GRANT SELECT ON t1 TO user_name_len_22_01234@localhost;
 GRANT SELECT ON t1 TO user_name_len_32_012345678901234@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-GRANT SELECT ON t1 TO user_name_len_33_0123456789012345@localhost;
+GRANT SELECT ON t1 TO user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-GRANT SELECT ON t1 TO user_name_len_40_01234567890123456789012@localhost;
+GRANT SELECT ON t1 TO user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901234@localhost;
 
 REVOKE SELECT ON t1 FROM user_name_len_16@localhost;
 REVOKE SELECT ON t1 FROM user_name_len_22_01234@localhost;
 REVOKE SELECT ON t1 FROM user_name_len_32_012345678901234@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-REVOKE SELECT ON t1 FROM user_name_len_33_0123456789012345@localhost;
+REVOKE SELECT ON t1 FROM user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-REVOKE SELECT ON t1 FROM user_name_len_40_01234567890123456789012@localhost;
+REVOKE SELECT ON t1 FROM user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901234@localhost;
 
 # Working with routine-level privileges.
 
@@ -2470,23 +2470,23 @@ GRANT EXECUTE ON PROCEDURE p1 TO user_name_len_22_01234@localhost;
 GRANT EXECUTE ON PROCEDURE p1 TO user_name_len_32_012345678901234@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-GRANT EXECUTE ON PROCEDURE p1 TO user_name_len_33_0123456789012345@localhost;
+GRANT EXECUTE ON PROCEDURE p1 TO user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-GRANT EXECUTE ON PROCEDURE p1 TO user_name_len_40_01234567890123456789012@localhost;
+GRANT EXECUTE ON PROCEDURE p1 TO user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901234@localhost;
 
 REVOKE EXECUTE ON PROCEDURE p1 FROM user_name_len_16@localhost;
 REVOKE EXECUTE ON PROCEDURE p1 FROM user_name_len_22_01234@localhost;
 REVOKE EXECUTE ON PROCEDURE p1 FROM user_name_len_32_012345678901234@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-REVOKE EXECUTE ON PROCEDURE p1 FROM user_name_len_33_0123456789012345@localhost;
+REVOKE EXECUTE ON PROCEDURE p1 FROM user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-REVOKE EXECUTE ON PROCEDURE p1 FROM user_name_len_40_01234567890123456789012@localhost;
+REVOKE EXECUTE ON PROCEDURE p1 FROM user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901234@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-DROP USER user_name_len_40_01234567890123456789012@localhost;
+DROP USER user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901234@localhost;
 
 --character_set utf8
 set names utf8;
@@ -2499,64 +2499,63 @@ CREATE USER очень_очень_длинный_юзер@localhost;
 CREATE USER очень_очень_очень_длинный_юзер__@localhost;
 # 36 characters user name
 --error ER_WRONG_STRING_LENGTH
-CREATE USER очень_очень_очень_очень_длинный_юзер@localhost;
+CREATE USER очень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзер@localhost;
 
 GRANT CREATE ON mysqltest.* TO очень_длинный_юз@localhost;
 GRANT CREATE ON mysqltest.* TO очень_очень_длинный_юзер@localhost;
 GRANT CREATE ON mysqltest.* TO очень_очень_очень_длинный_юзер__@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-GRANT CREATE ON mysqltest.* TO очень_очень_очень_очень_длинный_юзер@localhost;
+GRANT CREATE ON mysqltest.* TO очень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзер@localhost;
 
 REVOKE CREATE ON mysqltest.* FROM очень_длинный_юз@localhost;
 REVOKE CREATE ON mysqltest.* FROM очень_очень_длинный_юзер@localhost;
 REVOKE CREATE ON mysqltest.* FROM очень_очень_очень_длинный_юзер__@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-REVOKE CREATE ON mysqltest.* FROM очень_очень_очень_очень_длинный_юзер@localhost;
+REVOKE CREATE ON mysqltest.* FROM очень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзер@localhost;
 
 GRANT CREATE ON t1 TO очень_длинный_юз@localhost;
 GRANT CREATE ON t1 TO очень_очень_длинный_юзер@localhost;
 GRANT CREATE ON t1 TO очень_очень_очень_длинный_юзер__@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-GRANT CREATE ON t1 TO очень_очень_очень_очень_длинный_юзер@localhost;
+GRANT CREATE ON t1 TO очень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзер@localhost;
 
 REVOKE CREATE ON t1 FROM очень_длинный_юз@localhost;
 REVOKE CREATE ON t1 FROM очень_очень_длинный_юзер@localhost;
 REVOKE CREATE ON t1 FROM очень_очень_очень_длинный_юзер__@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-REVOKE CREATE ON t1 FROM очень_очень_очень_очень_длинный_юзер@localhost;
+REVOKE CREATE ON t1 FROM очень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзер@localhost;
 
 GRANT SELECT ON t1 TO очень_длинный_юз@localhost;
 GRANT SELECT ON t1 TO очень_очень_длинный_юзер@localhost;
 GRANT SELECT ON t1 TO очень_очень_очень_длинный_юзер__@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-GRANT SELECT ON t1 TO очень_очень_очень_очень_длинный_юзер@localhost;
+GRANT SELECT ON t1 TO очень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзер@localhost;
 
 REVOKE SELECT ON t1 FROM очень_длинный_юз@localhost;
 REVOKE SELECT ON t1 FROM очень_очень_длинный_юзер@localhost;
 REVOKE SELECT ON t1 FROM очень_очень_очень_длинный_юзер__@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-REVOKE SELECT ON t1 FROM очень_очень_очень_очень_длинный_юзер@localhost;
+REVOKE SELECT ON t1 FROM очень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзер@localhost;
 
 GRANT EXECUTE ON PROCEDURE p1 TO очень_длинный_юз@localhost;
 GRANT EXECUTE ON PROCEDURE p1 TO очень_очень_длинный_юзер@localhost;
 GRANT EXECUTE ON PROCEDURE p1 TO очень_очень_очень_длинный_юзер__@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-GRANT EXECUTE ON PROCEDURE p1 TO очень_очень_очень_очень_длинный_юзер@localhost;
+GRANT EXECUTE ON PROCEDURE p1 TO очень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзер@localhost;
 
 REVOKE EXECUTE ON PROCEDURE p1 FROM очень_длинный_юз@localhost;
 REVOKE EXECUTE ON PROCEDURE p1 FROM очень_очень_длинный_юзер@localhost;
 REVOKE EXECUTE ON PROCEDURE p1 FROM очень_очень_очень_длинный_юзер__@localhost;
 
 --error ER_WRONG_STRING_LENGTH
-REVOKE EXECUTE ON PROCEDURE p1 FROM очень_очень_очень_очень_длинный_юзер@localhost;
-
+REVOKE EXECUTE ON PROCEDURE p1 FROM очень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзер@localhost;
 
 --echo # Create a user, assign privileges, try to connect and use the granted
 --echo # privileges. Trying out different connections (socket/TCP/SSL).
@@ -2640,7 +2639,7 @@ DROP USER очень_длинный_юз@localhost;
 DROP USER очень_очень_длинный_юзер@localhost;
 DROP USER очень_очень_очень_длинный_юзер__@localhost;
 --error ER_WRONG_STRING_LENGTH
-DROP USER очень_очень_очень_очень_длинный_юзер@localhost;
+DROP USER очень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзер@localhost;
 
 set names default;
 

@@ -195,10 +195,33 @@
   performance_schema tables changed:
   - session_query_attrs added.
 
+  80028-002:
+  performance_schema tables changed:
+  - Schema of the following PFS tables are changed to have username of 80 chars
+  length (Upstream has username of 32 chars length).
+  table_accounts
+  table_ees_by_account_by_error
+  table_ees_by_user_by_error
+  table_esgs_by_account_by_event_name
+  table_esgs_by_user_by_event_name
+  table_esms_by_account_by_event_name
+  table_esms_by_user_by_event_name
+  table_ets_by_account_by_event_name
+  table_ets_by_user_by_event_name
+  table_ews_by_account_by_event_name
+  table_ews_by_user_by_event_name
+  table_replication_connection_configuration
+  table_setup_actors
+  table_status_by_account
+  table_status_by_user
+  table_threads
+  table_users
+  table_variables_info
+
   The last three digits reprents Facebook specific MySQL Schema changes.
-  Version published is now 80028-001. i.e. 8.0.28 Facebook schema change no. 1.
+  Version published is now 80028-002. i.e. 8.0.28 Facebook schema change no. 2.
 */
 
-static const uint PFS_DD_VERSION = 80028001;
+static const uint PFS_DD_VERSION = 80028002;
 
 #endif /* PFS_DD_VERSION_H */

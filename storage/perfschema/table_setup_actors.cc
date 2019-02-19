@@ -50,7 +50,7 @@ Plugin_table table_setup_actors::m_table_def(
     "setup_actors",
     /* Definition */
     "  HOST CHAR(255) CHARACTER SET ASCII default '%' not null,\n"
-    "  USER CHAR(32) COLLATE utf8mb4_bin default '%' not null,\n"
+    "  USER CHAR(80) COLLATE utf8mb4_bin default '%' not null,\n"
     "  `ROLE` CHAR(32) COLLATE utf8mb4_bin default '%' not null,\n"
     "  ENABLED ENUM ('YES', 'NO') not null default 'YES',\n"
     "  HISTORY ENUM ('YES', 'NO') not null default 'YES',\n"

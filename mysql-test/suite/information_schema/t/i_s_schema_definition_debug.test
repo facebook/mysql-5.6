@@ -120,7 +120,9 @@ let $current_i_s_version = `SELECT SUBSTRING_INDEX(
                             LOCATE('IS_VERSION', properties), 30), ';', 1)
                            , '=', -1) AS I_S_VERSION
                       FROM mysql.dd_properties`;
+let $current_i_s_version_major = `SELECT SUBSTRING('$current_i_s_version', 1, 5)`;
 --echo Current I_S_VERSION=$current_i_s_version
+--echo Current I_S_VERSION_MAJOR=$current_i_s_version_major
 
 let $current_mysqld_version = `SELECT SUBSTRING_INDEX(
                             SUBSTRING_INDEX(SUBSTRING(properties,
@@ -129,7 +131,7 @@ let $current_mysqld_version = `SELECT SUBSTRING_INDEX(
                       FROM mysql.dd_properties`;
 
 # Check if the I_S version on disk is greater than MYSQLD_VERSION.
-let $value = `SELECT $current_i_s_version > $current_mysqld_version`;
+let $value = `SELECT $current_i_s_version_major > $current_mysqld_version`;
 if ($value) {
   echo Error: I_S_VERSION ($current_i_s_version) version found in
     sql/dd/info_schema/metadata.h is greater than MYSQLD_VERSION
@@ -296,6 +298,12 @@ INSERT INTO I_S_published_schema
 INSERT INTO I_S_published_schema
   VALUES ('80023', '80023', 1,
         'f9e66faba69fd615e14afc9f3253a488609909d9358fd9a79d04a612ba8b0e57');
+INSERT INTO I_S_published_schema
+  VALUES ('80028', '80028001', 0,
+        '7cddd705414d8ae62985859e41c1612a7252668431b36ee379a6fef9849fe6ad');
+INSERT INTO I_S_published_schema
+  VALUES ('80028', '80028001', 1,
+        'e4ab0147982615885ea8c62171f4d99a2a31669e91f9db2fc11140a1313a8fcc');
 
 LET $checksum_version = `SELECT IF(ISNULL(mysqld_version), "0", i_s_version)
                   FROM I_S_published_schema i RIGHT OUTER JOIN whole_schema w
@@ -318,11 +326,11 @@ if ($checksum_version == "0") {
                            "update_checksum", "insert_checksum") as ACTION
                  FROM I_S_published_schema i
                  WHERE i.mysqld_version = '$current_mysqld_version' AND
-                       i.i_s_version = '$current_mysqld_version'`;
+                       SUBSTRING(i.i_s_version, 1, 5) = '$current_mysqld_version'`;
 
   # Make sure that we always bump the I_S version equal to latest MySQLD
   # version.
-  let $bump_version = `SELECT $current_mysqld_version != $current_i_s_version`;
+  let $bump_version = `SELECT $current_mysqld_version != $current_i_s_version_major`;
   if ($bump_version == "1") {
     echo Please increase the I_S_VERSION in sql/dd/info_schema/metadata.h
          to $current_mysqld_version.;

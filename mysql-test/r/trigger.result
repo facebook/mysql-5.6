@@ -1019,9 +1019,9 @@ DROP TABLE IF EXISTS t1;
 DROP TABLE IF EXISTS t2;
 CREATE TABLE t1(c INT);
 CREATE TABLE t2(c INT);
-CREATE DEFINER=1234567890abcdefGHIKL1234567890abcdefGHIKL@localhost
+CREATE DEFINER=abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a@localhost
 TRIGGER t1_bi BEFORE INSERT ON t1 FOR EACH ROW SET @a = 1;
-ERROR HY000: String '1234567890abcdefGHIKL1234567890abcdefGHIKL' is too long for user name (should be no longer than 32)
+ERROR HY000: String 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
 CREATE DEFINER=some_user_name@host_1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890X
 TRIGGER t2_bi BEFORE INSERT ON t2 FOR EACH ROW SET @a = 2;
 ERROR HY000: String 'host_1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij12345' is too long for host name (should be no longer than 255)
@@ -3080,9 +3080,9 @@ INSERT INTO test1.t1 VALUES (1,'haha');
 SELECT @a;
 @a
 1
-CREATE DEFINER=user_name_len_33_0123456789012345@localhost
+CREATE DEFINER=abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a@localhost
 TRIGGER test1.t1_bi BEFORE INSERT ON test1.t1 FOR EACH ROW SET @a = (SELECT COUNT(*) FROM test1.t1);
-ERROR HY000: String 'user_name_len_33_0123456789012345' is too long for user name (should be no longer than 32)
+ERROR HY000: String 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
 DROP DATABASE test1;
 DROP USER user_name_len_22_01234@localhost;
 DROP USER user_name_len_32_012345678901234@localhost;

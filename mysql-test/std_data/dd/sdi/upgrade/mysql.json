@@ -26950,7 +26950,7 @@
                 "is_virtual": false,
                 "hidden": 1,
                 "ordinal_position": 3,
-                "char_length": 96,
+                "char_length": 240,
                 "numeric_precision": 0,
                 "numeric_scale": 0,
                 "numeric_scale_null": true,
@@ -26973,7 +26973,7 @@
                 "engine_attribute": "",
                 "secondary_engine_attribute": "",
                 "column_key": 2,
-                "column_type_utf8": "char(32)",
+                "column_type_utf8": "char(80)",
                 "elements": [],
                 "collation_id": X,
                 "is_explicit_collation": false
@@ -27274,7 +27274,7 @@
                     },
                     {
                         "ordinal_position": 3,
-                        "length": 96,
+                        "length": 240,
                         "order": 2,
                         "hidden": false,
                         "column_opx": 2
@@ -27437,7 +27437,7 @@
                 "is_virtual": false,
                 "hidden": 1,
                 "ordinal_position": 3,
-                "char_length": 96,
+                "char_length": 240,
                 "numeric_precision": 0,
                 "numeric_scale": 0,
                 "numeric_scale_null": true,
@@ -27460,7 +27460,7 @@
                 "engine_attribute": "",
                 "secondary_engine_attribute": "",
                 "column_key": 2,
-                "column_type_utf8": "char(32)",
+                "column_type_utf8": "char(80)",
                 "elements": [],
                 "collation_id": X,
                 "is_explicit_collation": false
@@ -28485,7 +28485,7 @@
                     },
                     {
                         "ordinal_position": 3,
-                        "length": 96,
+                        "length": 240,
                         "order": 2,
                         "hidden": false,
                         "column_opx": 2
@@ -28658,7 +28658,7 @@
                 "elements": [
                     {
                         "ordinal_position": 1,
-                        "length": 96,
+                        "length": 240,
                         "order": 2,
                         "hidden": false,
                         "column_opx": 2
@@ -28755,7 +28755,7 @@
                 "is_virtual": false,
                 "hidden": 1,
                 "ordinal_position": 2,
-                "char_length": 96,
+                "char_length": 240,
                 "numeric_precision": 0,
                 "numeric_scale": 0,
                 "numeric_scale_null": true,
@@ -28778,7 +28778,7 @@
                 "engine_attribute": "",
                 "secondary_engine_attribute": "",
                 "column_key": 2,
-                "column_type_utf8": "char(32)",
+                "column_type_utf8": "char(80)",
                 "elements": [],
                 "collation_id": X,
                 "is_explicit_collation": false
@@ -28831,7 +28831,7 @@
                 "is_virtual": false,
                 "hidden": 1,
                 "ordinal_position": 4,
-                "char_length": 96,
+                "char_length": 240,
                 "numeric_precision": 0,
                 "numeric_scale": 0,
                 "numeric_scale_null": true,
@@ -28854,7 +28854,7 @@
                 "engine_attribute": "",
                 "secondary_engine_attribute": "",
                 "column_key": 2,
-                "column_type_utf8": "char(32)",
+                "column_type_utf8": "char(80)",
                 "elements": [],
                 "collation_id": X,
                 "is_explicit_collation": false
@@ -28979,7 +28979,7 @@
                     },
                     {
                         "ordinal_position": 2,
-                        "length": 96,
+                        "length": 240,
                         "order": 2,
                         "hidden": false,
                         "column_opx": 1
@@ -28993,7 +28993,7 @@
                     },
                     {
                         "ordinal_position": 4,
-                        "length": 96,
+                        "length": 240,
                         "order": 2,
                         "hidden": false,
                         "column_opx": 3
@@ -29515,7 +29515,7 @@
                 "is_virtual": false,
                 "hidden": 1,
                 "ordinal_position": 1,
-                "char_length": 96,
+                "char_length": 240,
                 "numeric_precision": 0,
                 "numeric_scale": 0,
                 "numeric_scale_null": true,
@@ -29538,7 +29538,7 @@
                 "engine_attribute": "",
                 "secondary_engine_attribute": "",
                 "column_key": 2,
-                "column_type_utf8": "char(32)",
+                "column_type_utf8": "char(80)",
                 "elements": [],
                 "collation_id": X,
                 "is_explicit_collation": false
@@ -29779,7 +29779,7 @@
                 "elements": [
                     {
                         "ordinal_position": 1,
-                        "length": 96,
+                        "length": 240,
                         "order": 2,
                         "hidden": false,
                         "column_opx": 0
@@ -31491,7 +31491,7 @@
                 "is_virtual": false,
                 "hidden": 1,
                 "ordinal_position": 2,
-                "char_length": 96,
+                "char_length": 240,
                 "numeric_precision": 0,
                 "numeric_scale": 0,
                 "numeric_scale_null": true,
@@ -31514,7 +31514,7 @@
                 "engine_attribute": "",
                 "secondary_engine_attribute": "",
                 "column_key": 2,
-                "column_type_utf8": "char(32)",
+                "column_type_utf8": "char(80)",
                 "elements": [],
                 "collation_id": X,
                 "is_explicit_collation": false
@@ -31715,7 +31715,7 @@
                     },
                     {
                         "ordinal_position": 2,
-                        "length": 96,
+                        "length": 240,
                         "order": 2,
                         "hidden": false,
                         "column_opx": 1
@@ -31826,7 +31826,7 @@
                 "is_virtual": false,
                 "hidden": 1,
                 "ordinal_position": 2,
-                "char_length": 96,
+                "char_length": 240,
                 "numeric_precision": 0,
                 "numeric_scale": 0,
                 "numeric_scale_null": true,
@@ -31849,7 +31849,7 @@
                 "engine_attribute": "",
                 "secondary_engine_attribute": "",
                 "column_key": 2,
-                "column_type_utf8": "char(32)",
+                "column_type_utf8": "char(80)",
                 "elements": [],
                 "collation_id": X,
                 "is_explicit_collation": false
@@ -31902,7 +31902,7 @@
                 "is_virtual": false,
                 "hidden": 1,
                 "ordinal_position": 4,
-                "char_length": 96,
+                "char_length": 240,
                 "numeric_precision": 0,
                 "numeric_scale": 0,
                 "numeric_scale_null": true,
@@ -31925,7 +31925,7 @@
                 "engine_attribute": "",
                 "secondary_engine_attribute": "",
                 "column_key": 2,
-                "column_type_utf8": "char(32)",
+                "column_type_utf8": "char(80)",
                 "elements": [],
                 "collation_id": X,
                 "is_explicit_collation": false
@@ -32164,7 +32164,7 @@
                     },
                     {
                         "ordinal_position": 2,
-                        "length": 96,
+                        "length": 240,
                         "order": 2,
                         "hidden": false,
                         "column_opx": 1
@@ -32178,7 +32178,7 @@
                     },
                     {
                         "ordinal_position": 4,
-                        "length": 96,
+                        "length": 240,
                         "order": 2,
                         "hidden": false,
                         "column_opx": 3
@@ -32350,7 +32350,7 @@
                 "is_virtual": false,
                 "hidden": 1,
                 "ordinal_position": 2,
-                "char_length": 96,
+                "char_length": 240,
                 "numeric_precision": 0,
                 "numeric_scale": 0,
                 "numeric_scale_null": true,
@@ -32373,7 +32373,7 @@
                 "engine_attribute": "",
                 "secondary_engine_attribute": "",
                 "column_key": 2,
-                "column_type_utf8": "char(32)",
+                "column_type_utf8": "char(80)",
                 "elements": [],
                 "collation_id": X,
                 "is_explicit_collation": false
@@ -32426,7 +32426,7 @@
                 "is_virtual": false,
                 "hidden": 1,
                 "ordinal_position": 4,
-                "char_length": 96,
+                "char_length": 240,
                 "numeric_precision": 0,
                 "numeric_scale": 0,
                 "numeric_scale_null": true,
@@ -32449,7 +32449,7 @@
                 "engine_attribute": "",
                 "secondary_engine_attribute": "",
                 "column_key": 2,
-                "column_type_utf8": "char(32)",
+                "column_type_utf8": "char(80)",
                 "elements": [],
                 "collation_id": X,
                 "is_explicit_collation": false
@@ -32621,7 +32621,7 @@
                     },
                     {
                         "ordinal_position": 2,
-                        "length": 96,
+                        "length": 240,
                         "order": 2,
                         "hidden": false,
                         "column_opx": 1
@@ -32635,7 +32635,7 @@
                     },
                     {
                         "ordinal_position": 4,
-                        "length": 96,
+                        "length": 240,
                         "order": 2,
                         "hidden": false,
                         "column_opx": 3
@@ -34982,7 +34982,7 @@
                 "is_virtual": false,
                 "hidden": 1,
                 "ordinal_position": 3,
-                "char_length": 96,
+                "char_length": 240,
                 "numeric_precision": 0,
                 "numeric_scale": 0,
                 "numeric_scale_null": true,
@@ -35005,7 +35005,7 @@
                 "engine_attribute": "",
                 "secondary_engine_attribute": "",
                 "column_key": 2,
-                "column_type_utf8": "char(32)",
+                "column_type_utf8": "char(80)",
                 "elements": [],
                 "collation_id": X,
                 "is_explicit_collation": false
@@ -35397,7 +35397,7 @@
                     },
                     {
                         "ordinal_position": 3,
-                        "length": 96,
+                        "length": 240,
                         "order": 2,
                         "hidden": false,
                         "column_opx": 2
@@ -40651,7 +40651,7 @@
                 "is_virtual": false,
                 "hidden": 1,
                 "ordinal_position": 3,
-                "char_length": 96,
+                "char_length": 240,
                 "numeric_precision": 0,
                 "numeric_scale": 0,
                 "numeric_scale_null": true,
@@ -40674,7 +40674,7 @@
                 "engine_attribute": "",
                 "secondary_engine_attribute": "",
                 "column_key": 2,
-                "column_type_utf8": "char(32)",
+                "column_type_utf8": "char(80)",
                 "elements": [],
                 "collation_id": X,
                 "is_explicit_collation": false
@@ -41018,7 +41018,7 @@
                     },
                     {
                         "ordinal_position": 3,
-                        "length": 96,
+                        "length": 240,
                         "order": 2,
                         "hidden": false,
                         "column_opx": 2
@@ -41211,7 +41211,7 @@
                 "is_virtual": false,
                 "hidden": 1,
                 "ordinal_position": 2,
-                "char_length": 96,
+                "char_length": 240,
                 "numeric_precision": 0,
                 "numeric_scale": 0,
                 "numeric_scale_null": true,
@@ -41234,7 +41234,7 @@
                 "engine_attribute": "",
                 "secondary_engine_attribute": "",
                 "column_key": 2,
-                "column_type_utf8": "char(32)",
+                "column_type_utf8": "char(80)",
                 "elements": [],
                 "collation_id": X,
                 "is_explicit_collation": false
@@ -43544,7 +43544,7 @@
                     },
                     {
                         "ordinal_position": 2,
-                        "length": 96,
+                        "length": 240,
                         "order": 2,
                         "hidden": false,
                         "column_opx": 1
