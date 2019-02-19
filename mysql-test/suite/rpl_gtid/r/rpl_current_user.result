@@ -18,10 +18,10 @@ CREATE USER 'bug48321_1-01234'@'localhost';
 GRANT ALL PRIVILEGES ON *.* TO 'bug48321_1-01234'@'localhost' WITH GRANT OPTION;
 
 # Make sure the max lengths of user and host
-# the user name is too lengh
-GRANT CREATE USER ON *.* TO '012345678901234567890123456789012'@'fakehost';
-ERROR HY000: String '012345678901234567890123456789012' is too long for user name (should be no longer than 32)
-# the host name is too lengh
+# the user name is too long
+GRANT CREATE USER ON *.* TO 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a'@'fakehost';
+ERROR HY000: String 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
+# the host name is too long
 GRANT CREATE USER ON *.* TO 'fakename'@'host_1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890X';
 ERROR HY000: String 'host_1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij12345' is too long for host name (should be no longer than 255)
 

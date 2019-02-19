@@ -33,16 +33,16 @@
 --echo ==== Create new replication user ====
 --echo [on master]
 connection master;
-CREATE USER rpluser_with_length_32_123456789@127.0.0.1 IDENTIFIED BY 'rpl';
+CREATE USER rpluser_with_length_80_abcdefghij1234567890abcdefghij1234567890abcdefghij123456@127.0.0.1 IDENTIFIED BY 'rpl';
 --error ER_WRONG_STRING_LENGTH
-CREATE USER rpluser_with_length_32_1234567890@127.0.0.1 IDENTIFIED BY 'rpl';
-GRANT REPLICATION SLAVE ON *.* TO rpluser_with_length_32_123456789@127.0.0.1;
+CREATE USER rpluser_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890@127.0.0.1 IDENTIFIED BY 'rpl';
+GRANT REPLICATION SLAVE ON *.* TO rpluser_with_length_80_abcdefghij1234567890abcdefghij1234567890abcdefghij123456@127.0.0.1;
 
 --echo [on slave]
 --source include/sync_slave_sql_with_master.inc
 source include/stop_slave.inc;
 --replace_column 2 ####
-CHANGE REPLICATION SOURCE TO SOURCE_USER='rpluser_with_length_32_123456789',
+CHANGE REPLICATION SOURCE TO SOURCE_USER='rpluser_with_length_80_abcdefghij1234567890abcdefghij1234567890abcdefghij123456',
 SOURCE_PASSWORD='rpl', GET_SOURCE_PUBLIC_KEY = 1, SOURCE_SSL = 1;
 source include/start_slave.inc;
 
@@ -58,7 +58,7 @@ SELECT * FROM t1;
 --echo ==== Delete new replication user ====
 --echo [on master]
 connection master;
-DROP USER rpluser_with_length_32_123456789@127.0.0.1;
+DROP USER rpluser_with_length_80_abcdefghij1234567890abcdefghij1234567890abcdefghij123456@127.0.0.1;
 FLUSH PRIVILEGES;
 
 --echo [on slave]

@@ -2674,9 +2674,9 @@ connection con_user_22;
 SELECT * FROM test1.v1;
 int_field
 connection default;
-CREATE DEFINER=user_name_len_33_0123456789012345@localhost
+CREATE DEFINER=user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901@localhost
 VIEW test1.v2 AS SELECT int_field FROM test1.t1;
-ERROR HY000: String 'user_name_len_33_0123456789012345' is too long for user name (should be no longer than 32)
+ERROR HY000: String 'user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
 DROP DATABASE test1;
 DROP USER user_name_len_22_01234@localhost;
 DROP USER user_name_len_32_012345678901234@localhost;

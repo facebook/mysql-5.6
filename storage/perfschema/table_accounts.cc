@@ -50,7 +50,7 @@ Plugin_table table_accounts::m_table_def(
     /* Name */
     "accounts",
     /* Definition */
-    "  USER CHAR(32) collate utf8mb4_bin default null,\n"
+    "  USER CHAR(80) collate utf8mb4_bin default null,\n"
     "  HOST CHAR(255) CHARACTER SET ASCII default null,\n"
     "  CURRENT_CONNECTIONS bigint not null,\n"
     "  TOTAL_CONNECTIONS bigint not null,\n"
