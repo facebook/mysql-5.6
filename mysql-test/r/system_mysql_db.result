@@ -42,7 +42,7 @@ Table	Create Table
 db	CREATE TABLE `db` (
   `Host` char(255) CHARACTER SET ascii COLLATE ascii_general_ci NOT NULL DEFAULT '',
   `Db` char(64) COLLATE utf8mb3_bin NOT NULL DEFAULT '',
-  `User` char(32) COLLATE utf8mb3_bin NOT NULL DEFAULT '',
+  `User` char(80) COLLATE utf8mb3_bin NOT NULL DEFAULT '',
   `Select_priv` enum('N','Y') COLLATE utf8mb3_general_ci NOT NULL DEFAULT 'N',
   `Insert_priv` enum('N','Y') COLLATE utf8mb3_general_ci NOT NULL DEFAULT 'N',
   `Update_priv` enum('N','Y') COLLATE utf8mb3_general_ci NOT NULL DEFAULT 'N',
@@ -69,7 +69,7 @@ show create table user;
 Table	Create Table
 user	CREATE TABLE `user` (
   `Host` char(255) CHARACTER SET ascii COLLATE ascii_general_ci NOT NULL DEFAULT '',
-  `User` char(32) COLLATE utf8mb3_bin NOT NULL DEFAULT '',
+  `User` char(80) COLLATE utf8mb3_bin NOT NULL DEFAULT '',
   `Select_priv` enum('N','Y') COLLATE utf8mb3_general_ci NOT NULL DEFAULT 'N',
   `Insert_priv` enum('N','Y') COLLATE utf8mb3_general_ci NOT NULL DEFAULT 'N',
   `Update_priv` enum('N','Y') COLLATE utf8mb3_general_ci NOT NULL DEFAULT 'N',
@@ -135,7 +135,7 @@ Table	Create Table
 tables_priv	CREATE TABLE `tables_priv` (
   `Host` char(255) CHARACTER SET ascii COLLATE ascii_general_ci NOT NULL DEFAULT '',
   `Db` char(64) COLLATE utf8mb3_bin NOT NULL DEFAULT '',
-  `User` char(32) COLLATE utf8mb3_bin NOT NULL DEFAULT '',
+  `User` char(80) COLLATE utf8mb3_bin NOT NULL DEFAULT '',
   `Table_name` char(64) COLLATE utf8mb3_bin NOT NULL DEFAULT '',
   `Grantor` varchar(288) COLLATE utf8mb3_bin NOT NULL DEFAULT '',
   `Timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -149,7 +149,7 @@ Table	Create Table
 columns_priv	CREATE TABLE `columns_priv` (
   `Host` char(255) CHARACTER SET ascii COLLATE ascii_general_ci NOT NULL DEFAULT '',
   `Db` char(64) COLLATE utf8mb3_bin NOT NULL DEFAULT '',
-  `User` char(32) COLLATE utf8mb3_bin NOT NULL DEFAULT '',
+  `User` char(80) COLLATE utf8mb3_bin NOT NULL DEFAULT '',
   `Table_name` char(64) COLLATE utf8mb3_bin NOT NULL DEFAULT '',
   `Column_name` char(64) COLLATE utf8mb3_bin NOT NULL DEFAULT '',
   `Timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -161,7 +161,7 @@ Table	Create Table
 procs_priv	CREATE TABLE `procs_priv` (
   `Host` char(255) CHARACTER SET ascii COLLATE ascii_general_ci NOT NULL DEFAULT '',
   `Db` char(64) COLLATE utf8mb3_bin NOT NULL DEFAULT '',
-  `User` char(32) COLLATE utf8mb3_bin NOT NULL DEFAULT '',
+  `User` char(80) COLLATE utf8mb3_bin NOT NULL DEFAULT '',
   `Routine_name` char(64) COLLATE utf8mb3_general_ci NOT NULL DEFAULT '',
   `Routine_type` enum('FUNCTION','PROCEDURE') COLLATE utf8mb3_bin NOT NULL,
   `Grantor` varchar(288) COLLATE utf8mb3_bin NOT NULL DEFAULT '',

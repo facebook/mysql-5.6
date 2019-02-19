@@ -54,7 +54,7 @@ Plugin_table table_threads::m_table_def(
     "  NAME VARCHAR(128) not null,\n"
     "  TYPE VARCHAR(10) not null,\n"
     "  PROCESSLIST_ID BIGINT unsigned,\n"
-    "  PROCESSLIST_USER VARCHAR(32),\n"
+    "  PROCESSLIST_USER VARCHAR(80),\n"
     "  PROCESSLIST_HOST VARCHAR(255) CHARACTER SET ASCII default null,\n"
     "  PROCESSLIST_DB VARCHAR(64),\n"
     "  PROCESSLIST_COMMAND VARCHAR(16),\n"

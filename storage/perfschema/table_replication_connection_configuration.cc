@@ -54,7 +54,7 @@ Plugin_table table_replication_connection_configuration::m_table_def(
     "  CHANNEL_NAME CHAR(64) not null,\n"
     "  HOST CHAR(255) CHARACTER SET ASCII not null,\n"
     "  PORT INTEGER not null,\n"
-    "  USER CHAR(32) collate utf8mb4_bin not null,\n"
+    "  USER CHAR(80) collate utf8mb4_bin not null,\n"
     "  NETWORK_INTERFACE CHAR(60) collate utf8mb4_bin not null,\n"
     "  AUTO_POSITION ENUM('1','0') not null,\n"
     "  SSL_ALLOWED ENUM('YES','NO','IGNORED') not null,\n"

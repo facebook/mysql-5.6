@@ -14,9 +14,6 @@ SHOW KEYS FROM mysql.tables_priv;
 SHOW KEYS FROM mysql.columns_priv;
 SHOW KEYS FROM mysql.procs_priv;
 
---echo # Restart server without upgrade option
---source include/restart_mysqld.inc
-
 --echo # Restart server with upgrade option
 --let $restart_parameters=restart:--upgrade=force
 --let $wait_counter= 10000

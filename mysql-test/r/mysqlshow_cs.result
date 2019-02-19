@@ -373,7 +373,7 @@ Database: mysql  Table: user  Wildcard: user
 +-------+----------+-------------+------+-----+---------+-------+---------------------------------+---------+
 | Field | Type     | Collation   | Null | Key | Default | Extra | Privileges                      | Comment |
 +-------+----------+-------------+------+-----+---------+-------+---------------------------------+---------+
-| User  | char(32) | utf8mb3_bin | NO   | PRI |         |       | select,insert,update,references |         |
+| User  | char(80) | utf8mb3_bin | NO   | PRI |         |       | select,insert,update,references |         |
 +-------+----------+-------------+------+-----+---------+-------+---------------------------------+---------+
 DROP USER 'user_with_length_32_abcdefghijkl'@'localhost';
 

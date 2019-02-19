@@ -39,7 +39,7 @@ SET @cmd = "CREATE TABLE IF NOT EXISTS db
 (
 Host char(255) CHARACTER SET ASCII DEFAULT '' NOT NULL,
 Db char(64) binary DEFAULT '' NOT NULL,
-User char(32) binary DEFAULT '' NOT NULL,
+User char(80) binary DEFAULT '' NOT NULL,
 Select_priv enum('N','Y') COLLATE utf8mb3_general_ci DEFAULT 'N' NOT NULL,
 Insert_priv enum('N','Y') COLLATE utf8mb3_general_ci DEFAULT 'N' NOT NULL,
 Update_priv enum('N','Y') COLLATE utf8mb3_general_ci DEFAULT 'N' NOT NULL,
@@ -74,7 +74,7 @@ set @had_db_table= @@warning_count != 0;
 SET @cmd = "CREATE TABLE IF NOT EXISTS user
 (
 Host char(255) CHARACTER SET ASCII DEFAULT '' NOT NULL,
-User char(32) binary DEFAULT '' NOT NULL,
+User char(80) binary DEFAULT '' NOT NULL,
 Select_priv enum('N','Y') COLLATE utf8mb3_general_ci DEFAULT 'N' NOT NULL,
 Insert_priv enum('N','Y') COLLATE utf8mb3_general_ci DEFAULT 'N' NOT NULL,
 Update_priv enum('N','Y') COLLATE utf8mb3_general_ci DEFAULT 'N' NOT NULL,
@@ -135,9 +135,9 @@ DROP PREPARE stmt;
 SET @cmd = "CREATE TABLE IF NOT EXISTS default_roles
 (
 HOST CHAR(255) CHARACTER SET ASCII DEFAULT '' NOT NULL,
-USER CHAR(32) BINARY DEFAULT '' NOT NULL,
+USER CHAR(80) BINARY DEFAULT '' NOT NULL,
 DEFAULT_ROLE_HOST CHAR(255) CHARACTER SET ASCII DEFAULT '%' NOT NULL,
-DEFAULT_ROLE_USER CHAR(32) BINARY DEFAULT '' NOT NULL,
+DEFAULT_ROLE_USER CHAR(80) BINARY DEFAULT '' NOT NULL,
 PRIMARY KEY (HOST, USER, DEFAULT_ROLE_HOST, DEFAULT_ROLE_USER)
 ) engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin comment='Default roles' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
 SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
@@ -149,9 +149,9 @@ DROP PREPARE stmt;
 SET @cmd = "CREATE TABLE IF NOT EXISTS role_edges
 (
 FROM_HOST CHAR(255) CHARACTER SET ASCII DEFAULT '' NOT NULL,
-FROM_USER CHAR(32) BINARY DEFAULT '' NOT NULL,
+FROM_USER CHAR(80) BINARY DEFAULT '' NOT NULL,
 TO_HOST CHAR(255) CHARACTER SET ASCII DEFAULT '' NOT NULL,
-TO_USER CHAR(32) BINARY DEFAULT '' NOT NULL,
+TO_USER CHAR(80) BINARY DEFAULT '' NOT NULL,
 WITH_ADMIN_OPTION ENUM('N', 'Y') COLLATE utf8mb3_general_ci DEFAULT 'N' NOT NULL,
 PRIMARY KEY (FROM_HOST,FROM_USER,TO_HOST,TO_USER)
 ) engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin comment='Role hierarchy and role grants' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
@@ -163,7 +163,7 @@ DROP PREPARE stmt;
 
 SET @cmd = "CREATE TABLE IF NOT EXISTS global_grants
 (
-USER CHAR(32) BINARY DEFAULT '' NOT NULL,
+USER CHAR(80) BINARY DEFAULT '' NOT NULL,
 HOST CHAR(255) CHARACTER SET ASCII DEFAULT '' NOT NULL,
 PRIV CHAR(32) COLLATE utf8mb3_general_ci DEFAULT '' NOT NULL,
 WITH_GRANT_OPTION ENUM('N','Y') COLLATE utf8mb3_general_ci DEFAULT 'N' NOT NULL,
@@ -181,7 +181,7 @@ set @had_user_table= @@warning_count != 0;
 SET @cmd = "CREATE TABLE IF NOT EXISTS password_history
 (
   Host CHAR(255) CHARACTER SET ASCII DEFAULT '' NOT NULL,
-  User CHAR(32) BINARY DEFAULT '' NOT NULL,
+  User CHAR(80) BINARY DEFAULT '' NOT NULL,
   Password_timestamp TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   Password TEXT,
   PRIMARY KEY(Host, User, Password_timestamp DESC)
@@ -246,7 +246,7 @@ SET @cmd = "CREATE TABLE IF NOT EXISTS tables_priv
 (
   Host char(255) CHARACTER SET ASCII DEFAULT '' NOT NULL,
   Db char(64) binary DEFAULT '' NOT NULL,
-  User char(32) binary DEFAULT '' NOT NULL,
+  User char(80) binary DEFAULT '' NOT NULL,
   Table_name char(64) binary DEFAULT '' NOT NULL,
   Grantor varchar(288) DEFAULT '' NOT NULL,
   Timestamp timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -266,7 +266,7 @@ SET @cmd = "CREATE TABLE IF NOT EXISTS columns_priv
 (
   Host char(255) CHARACTER SET ASCII DEFAULT '' NOT NULL,
   Db char(64) binary DEFAULT '' NOT NULL,
-  User char(32) binary DEFAULT '' NOT NULL,
+  User char(80) binary DEFAULT '' NOT NULL,
   Table_name char(64) binary DEFAULT '' NOT NULL,
   Column_name char(64) binary DEFAULT '' NOT NULL,
   Timestamp timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -332,7 +332,7 @@ SET @cmd = "CREATE TABLE IF NOT EXISTS procs_priv
 (
   Host char(255) CHARACTER SET ASCII DEFAULT '' NOT NULL,
   Db char(64) binary DEFAULT '' NOT NULL,
-  User char(32) binary DEFAULT '' NOT NULL,
+  User char(80) binary DEFAULT '' NOT NULL,
   Routine_name char(64) COLLATE utf8mb3_general_ci DEFAULT '' NOT NULL,
   Routine_type enum('FUNCTION','PROCEDURE') NOT NULL,
   Grantor varchar(288) DEFAULT '' NOT NULL,
@@ -581,7 +581,7 @@ INSERT IGNORE INTO engine_cost(engine_name, device_type, cost_name) VALUES
   ("default", 0, "io_block_read_cost");
 
 
-SET @cmd = "CREATE TABLE IF NOT EXISTS proxies_priv (Host char(255) CHARACTER SET ASCII DEFAULT '' NOT NULL, User char(32) binary DEFAULT '' NOT NULL, Proxied_host char(255) CHARACTER SET ASCII DEFAULT '' NOT NULL, Proxied_user char(32) binary DEFAULT '' NOT NULL, With_grant BOOL DEFAULT 0 NOT NULL, Grantor varchar(288) DEFAULT '' NOT NULL, Timestamp timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY Host (Host,User,Proxied_host,Proxied_user), KEY Grantor (Grantor) ) engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin comment='User proxy privileges' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
+SET @cmd = "CREATE TABLE IF NOT EXISTS proxies_priv (Host char(255) CHARACTER SET ASCII DEFAULT '' NOT NULL, User char(80) binary DEFAULT '' NOT NULL, Proxied_host char(255) CHARACTER SET ASCII DEFAULT '' NOT NULL, Proxied_user char(80) binary DEFAULT '' NOT NULL, With_grant BOOL DEFAULT 0 NOT NULL, Grantor varchar(288) DEFAULT '' NOT NULL, Timestamp timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY Host (Host,User,Proxied_host,Proxied_user), KEY Grantor (Grantor) ) engine=InnoDB STATS_PERSISTENT=0 CHARACTER SET utf8mb3 COLLATE utf8mb3_bin comment='User proxy privileges' ROW_FORMAT=DYNAMIC TABLESPACE=mysql";
 SET @str = CONCAT(@cmd, " ENCRYPTION='", @is_mysql_encrypted, "'");
 PREPARE stmt FROM @str;
 EXECUTE stmt;

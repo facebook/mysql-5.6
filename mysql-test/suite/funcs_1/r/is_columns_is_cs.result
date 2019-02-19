@@ -6,18 +6,18 @@ ORDER BY table_schema,
 table_name COLLATE utf8_general_ci,
 ordinal_position;
 TABLE_CATALOG	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	ORDINAL_POSITION	COLUMN_DEFAULT	IS_NULLABLE	DATA_TYPE	CHARACTER_MAXIMUM_LENGTH	CHARACTER_OCTET_LENGTH	NUMERIC_PRECISION	NUMERIC_SCALE	DATETIME_PRECISION	CHARACTER_SET_NAME	COLLATION_NAME	COLUMN_TYPE	COLUMN_KEY	EXTRA	PRIVILEGES	COLUMN_COMMENT	GENERATION_EXPRESSION	SRS_ID
-def	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	USER	1	NULL	YES	varchar	97	291	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(97)			select			NULL
+def	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	USER	1	NULL	YES	varchar	241	723	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(241)			select			NULL
 def	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	HOST	2	NULL	YES	varchar	256	768	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(256)			select			NULL
-def	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	GRANTEE	3	NULL	YES	varchar	97	388	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(97)			select			NULL
+def	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	GRANTEE	3	NULL	YES	varchar	241	964	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(241)			select			NULL
 def	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	GRANTEE_HOST	4	NULL	YES	varchar	256	1024	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(256)			select			NULL
 def	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	ROLE_NAME	5	NULL	YES	varchar	255	1020	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(255)			select			NULL
 def	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	ROLE_HOST	6	NULL	YES	varchar	256	1024	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(256)			select			NULL
 def	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	IS_GRANTABLE	7		NO	varchar	3	9	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(3)			select			NULL
 def	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	IS_DEFAULT	8	NULL	YES	varchar	3	9	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(3)			select			NULL
 def	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	IS_MANDATORY	9		NO	varchar	3	9	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(3)			select			NULL
-def	information_schema	APPLICABLE_ROLES	USER	1	NULL	YES	varchar	97	291	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(97)			select			NULL
+def	information_schema	APPLICABLE_ROLES	USER	1	NULL	YES	varchar	241	723	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(241)			select			NULL
 def	information_schema	APPLICABLE_ROLES	HOST	2	NULL	YES	varchar	256	768	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(256)			select			NULL
-def	information_schema	APPLICABLE_ROLES	GRANTEE	3	NULL	YES	varchar	97	388	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(97)			select			NULL
+def	information_schema	APPLICABLE_ROLES	GRANTEE	3	NULL	YES	varchar	241	964	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(241)			select			NULL
 def	information_schema	APPLICABLE_ROLES	GRANTEE_HOST	4	NULL	YES	varchar	256	1024	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(256)			select			NULL
 def	information_schema	APPLICABLE_ROLES	ROLE_NAME	5	NULL	YES	varchar	255	1020	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(255)			select			NULL
 def	information_schema	APPLICABLE_ROLES	ROLE_HOST	6	NULL	YES	varchar	256	1024	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(256)			select			NULL
@@ -69,7 +69,7 @@ def	information_schema	COLUMNS_EXTENSIONS	TABLE_NAME	3	NULL	NO	varchar	64	192	NU
 def	information_schema	COLUMNS_EXTENSIONS	COLUMN_NAME	4	NULL	YES	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8_bin	varchar(64)			select			NULL
 def	information_schema	COLUMNS_EXTENSIONS	ENGINE_ATTRIBUTE	5	NULL	YES	json	NULL	NULL	NULL	NULL	NULL	NULL	NULL	json			select			NULL
 def	information_schema	COLUMNS_EXTENSIONS	SECONDARY_ENGINE_ATTRIBUTE	6	NULL	YES	json	NULL	NULL	NULL	NULL	NULL	NULL	NULL	json			select			NULL
-def	information_schema	COLUMN_PRIVILEGES	GRANTEE	1		NO	varchar	97	292	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(292)			select			NULL
+def	information_schema	COLUMN_PRIVILEGES	GRANTEE	1		NO	varchar	113	340	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(340)			select			NULL
 def	information_schema	COLUMN_PRIVILEGES	TABLE_CATALOG	2		NO	varchar	170	512	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(512)			select			NULL
 def	information_schema	COLUMN_PRIVILEGES	TABLE_SCHEMA	3		NO	varchar	21	64	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(64)			select			NULL
 def	information_schema	COLUMN_PRIVILEGES	TABLE_NAME	4		NO	varchar	21	64	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(64)			select			NULL
@@ -223,7 +223,7 @@ def	information_schema	PLUGINS	PLUGIN_DESCRIPTION	9		YES	varchar	21845	65535	NUL
 def	information_schema	PLUGINS	PLUGIN_LICENSE	10		YES	varchar	26	80	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(80)			select			NULL
 def	information_schema	PLUGINS	LOAD_OPTION	11		NO	varchar	21	64	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(64)			select			NULL
 def	information_schema	PROCESSLIST	ID	1		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
-def	information_schema	PROCESSLIST	USER	2		NO	varchar	10	32	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(32)			select			NULL
+def	information_schema	PROCESSLIST	USER	2		NO	varchar	26	80	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(80)			select			NULL
 def	information_schema	PROCESSLIST	HOST	3		NO	varchar	87	261	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(261)			select			NULL
 def	information_schema	PROCESSLIST	DB	4		YES	varchar	21	64	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(64)			select			NULL
 def	information_schema	PROCESSLIST	COMMAND	5		NO	varchar	5	16	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(16)			select			NULL
@@ -360,9 +360,9 @@ def	information_schema	ROCKSDB_TRX	HAS_DEADLOCK_DETECTION	12		NO	int	NULL	NULL	N
 def	information_schema	ROCKSDB_TRX	NUM_ONGOING_BULKLOAD	13		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
 def	information_schema	ROCKSDB_TRX	THREAD_ID	14		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
 def	information_schema	ROCKSDB_TRX	QUERY	15		NO	varchar	64	193	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(193)			select			NULL
-def	information_schema	ROLE_COLUMN_GRANTS	GRANTOR	1	NULL	YES	varchar	97	291	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(97)			select			NULL
+def	information_schema	ROLE_COLUMN_GRANTS	GRANTOR	1	NULL	YES	varchar	241	723	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(241)			select			NULL
 def	information_schema	ROLE_COLUMN_GRANTS	GRANTOR_HOST	2	NULL	YES	varchar	256	768	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(256)			select			NULL
-def	information_schema	ROLE_COLUMN_GRANTS	GRANTEE	3		NO	char	32	96	NULL	NULL	NULL	utf8mb3	utf8mb3_bin	char(32)			select			NULL
+def	information_schema	ROLE_COLUMN_GRANTS	GRANTEE	3		NO	char	80	240	NULL	NULL	NULL	utf8mb3	utf8mb3_bin	char(80)			select			NULL
 def	information_schema	ROLE_COLUMN_GRANTS	GRANTEE_HOST	4		NO	char	255	255	NULL	NULL	NULL	ascii	ascii_general_ci	char(255)			select			NULL
 def	information_schema	ROLE_COLUMN_GRANTS	TABLE_CATALOG	5		NO	varchar	3	9	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(3)			select			NULL
 def	information_schema	ROLE_COLUMN_GRANTS	TABLE_SCHEMA	6		NO	char	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_bin	char(64)			select			NULL
@@ -370,9 +370,9 @@ def	information_schema	ROLE_COLUMN_GRANTS	TABLE_NAME	7		NO	char	64	192	NULL	NULL
 def	information_schema	ROLE_COLUMN_GRANTS	COLUMN_NAME	8		NO	char	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_bin	char(64)			select			NULL
 def	information_schema	ROLE_COLUMN_GRANTS	PRIVILEGE_TYPE	9		NO	set	31	93	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	set('Select','Insert','Update','References')			select			NULL
 def	information_schema	ROLE_COLUMN_GRANTS	IS_GRANTABLE	10		NO	varchar	3	9	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(3)			select			NULL
-def	information_schema	ROLE_ROUTINE_GRANTS	GRANTOR	1	NULL	YES	varchar	97	291	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(97)			select			NULL
+def	information_schema	ROLE_ROUTINE_GRANTS	GRANTOR	1	NULL	YES	varchar	241	723	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(241)			select			NULL
 def	information_schema	ROLE_ROUTINE_GRANTS	GRANTOR_HOST	2	NULL	YES	varchar	256	768	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(256)			select			NULL
-def	information_schema	ROLE_ROUTINE_GRANTS	GRANTEE	3		NO	char	32	96	NULL	NULL	NULL	utf8mb3	utf8mb3_bin	char(32)			select			NULL
+def	information_schema	ROLE_ROUTINE_GRANTS	GRANTEE	3		NO	char	80	240	NULL	NULL	NULL	utf8mb3	utf8mb3_bin	char(80)			select			NULL
 def	information_schema	ROLE_ROUTINE_GRANTS	GRANTEE_HOST	4		NO	char	255	255	NULL	NULL	NULL	ascii	ascii_general_ci	char(255)			select			NULL
 def	information_schema	ROLE_ROUTINE_GRANTS	SPECIFIC_CATALOG	5		NO	varchar	3	9	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(3)			select			NULL
 def	information_schema	ROLE_ROUTINE_GRANTS	SPECIFIC_SCHEMA	6		NO	char	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_bin	char(64)			select			NULL
@@ -382,9 +382,9 @@ def	information_schema	ROLE_ROUTINE_GRANTS	ROUTINE_SCHEMA	9		NO	char	64	192	NULL
 def	information_schema	ROLE_ROUTINE_GRANTS	ROUTINE_NAME	10		NO	char	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	char(64)			select			NULL
 def	information_schema	ROLE_ROUTINE_GRANTS	PRIVILEGE_TYPE	11		NO	set	27	81	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	set('Execute','Alter Routine','Grant')			select			NULL
 def	information_schema	ROLE_ROUTINE_GRANTS	IS_GRANTABLE	12		NO	varchar	3	9	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(3)			select			NULL
-def	information_schema	ROLE_TABLE_GRANTS	GRANTOR	1	NULL	YES	varchar	97	291	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(97)			select			NULL
+def	information_schema	ROLE_TABLE_GRANTS	GRANTOR	1	NULL	YES	varchar	241	723	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(241)			select			NULL
 def	information_schema	ROLE_TABLE_GRANTS	GRANTOR_HOST	2	NULL	YES	varchar	256	768	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(256)			select			NULL
-def	information_schema	ROLE_TABLE_GRANTS	GRANTEE	3		NO	char	32	96	NULL	NULL	NULL	utf8mb3	utf8mb3_bin	char(32)			select			NULL
+def	information_schema	ROLE_TABLE_GRANTS	GRANTEE	3		NO	char	80	240	NULL	NULL	NULL	utf8mb3	utf8mb3_bin	char(80)			select			NULL
 def	information_schema	ROLE_TABLE_GRANTS	GRANTEE_HOST	4		NO	char	255	255	NULL	NULL	NULL	ascii	ascii_general_ci	char(255)			select			NULL
 def	information_schema	ROLE_TABLE_GRANTS	TABLE_CATALOG	5		NO	varchar	3	9	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(3)			select			NULL
 def	information_schema	ROLE_TABLE_GRANTS	TABLE_SCHEMA	6		NO	char	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_bin	char(64)			select			NULL
@@ -431,7 +431,7 @@ def	information_schema	SCHEMATA	DEFAULT_ENCRYPTION	6	NULL	NO	enum	3	9	NULL	NULL	
 def	information_schema	SCHEMATA_EXTENSIONS	CATALOG_NAME	1	NULL	NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_bin	varchar(64)			select			NULL
 def	information_schema	SCHEMATA_EXTENSIONS	SCHEMA_NAME	2	NULL	NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_bin	varchar(64)			select			NULL
 def	information_schema	SCHEMATA_EXTENSIONS	OPTIONS	3	NULL	YES	varchar	256	768	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(256)			select			NULL
-def	information_schema	SCHEMA_PRIVILEGES	GRANTEE	1		NO	varchar	97	292	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(292)			select			NULL
+def	information_schema	SCHEMA_PRIVILEGES	GRANTEE	1		NO	varchar	113	340	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(340)			select			NULL
 def	information_schema	SCHEMA_PRIVILEGES	TABLE_CATALOG	2		NO	varchar	170	512	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(512)			select			NULL
 def	information_schema	SCHEMA_PRIVILEGES	TABLE_SCHEMA	3		NO	varchar	21	64	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(64)			select			NULL
 def	information_schema	SCHEMA_PRIVILEGES	PRIVILEGE_TYPE	4		NO	varchar	21	64	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(64)			select			NULL
@@ -521,7 +521,7 @@ def	information_schema	TABLE_CONSTRAINTS_EXTENSIONS	CONSTRAINT_NAME	3	NULL	NO	va
 def	information_schema	TABLE_CONSTRAINTS_EXTENSIONS	TABLE_NAME	4	NULL	NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_bin	varchar(64)			select			NULL
 def	information_schema	TABLE_CONSTRAINTS_EXTENSIONS	ENGINE_ATTRIBUTE	5	NULL	YES	json	NULL	NULL	NULL	NULL	NULL	NULL	NULL	json			select			NULL
 def	information_schema	TABLE_CONSTRAINTS_EXTENSIONS	SECONDARY_ENGINE_ATTRIBUTE	6	NULL	YES	json	NULL	NULL	NULL	NULL	NULL	NULL	NULL	json			select			NULL
-def	information_schema	TABLE_PRIVILEGES	GRANTEE	1		NO	varchar	97	292	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(292)			select			NULL
+def	information_schema	TABLE_PRIVILEGES	GRANTEE	1		NO	varchar	113	340	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(340)			select			NULL
 def	information_schema	TABLE_PRIVILEGES	TABLE_CATALOG	2		NO	varchar	170	512	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(512)			select			NULL
 def	information_schema	TABLE_PRIVILEGES	TABLE_SCHEMA	3		NO	varchar	21	64	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(64)			select			NULL
 def	information_schema	TABLE_PRIVILEGES	TABLE_NAME	4		NO	varchar	21	64	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(64)			select			NULL
@@ -549,10 +549,10 @@ def	information_schema	TRIGGERS	DEFINER	19	NULL	NO	varchar	288	864	NULL	NULL	NUL
 def	information_schema	TRIGGERS	CHARACTER_SET_CLIENT	20	NULL	NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(64)			select			NULL
 def	information_schema	TRIGGERS	COLLATION_CONNECTION	21	NULL	NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(64)			select			NULL
 def	information_schema	TRIGGERS	DATABASE_COLLATION	22	NULL	NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(64)			select			NULL
-def	information_schema	USER_ATTRIBUTES	USER	1		NO	char	32	96	NULL	NULL	NULL	utf8mb3	utf8mb3_bin	char(32)			select			NULL
+def	information_schema	USER_ATTRIBUTES	USER	1		NO	char	80	240	NULL	NULL	NULL	utf8mb3	utf8mb3_bin	char(80)			select			NULL
 def	information_schema	USER_ATTRIBUTES	HOST	2		NO	char	255	255	NULL	NULL	NULL	ascii	ascii_general_ci	char(255)			select			NULL
 def	information_schema	USER_ATTRIBUTES	ATTRIBUTE	3	NULL	YES	longtext	4294967295	4294967295	NULL	NULL	NULL	utf8mb4	utf8mb4_bin	longtext			select			NULL
-def	information_schema	USER_PRIVILEGES	GRANTEE	1		NO	varchar	97	292	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(292)			select			NULL
+def	information_schema	USER_PRIVILEGES	GRANTEE	1		NO	varchar	113	340	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(340)			select			NULL
 def	information_schema	USER_PRIVILEGES	TABLE_CATALOG	2		NO	varchar	170	512	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(512)			select			NULL
 def	information_schema	USER_PRIVILEGES	PRIVILEGE_TYPE	3		NO	varchar	21	64	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(64)			select			NULL
 def	information_schema	USER_PRIVILEGES	IS_GRANTABLE	4		NO	varchar	1	3	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(3)			select			NULL
@@ -619,7 +619,7 @@ COL_CML	DATA_TYPE	CHARACTER_SET_NAME	COLLATION_NAME
 3.0000	varchar	utf8mb3	utf8mb3_general_ci
 3.0029	varchar	utf8mb3	utf8mb3_general_ci
 3.0075	varchar	utf8mb3	utf8mb3_general_ci
-3.0103	varchar	utf8mb3	utf8mb3_general_ci
+3.0088	varchar	utf8mb3	utf8mb3_general_ci
 3.0118	varchar	utf8mb3	utf8mb3_general_ci
 3.0156	varchar	utf8mb3	utf8mb3_general_ci
 3.0238	varchar	utf8mb3	utf8mb3_general_ci
@@ -669,18 +669,18 @@ WHERE table_schema = 'information_schema'
 AND table_name <> 'PROFILING' AND table_name not like 'INNODB_%' AND table_name not like 'ndb%'
 ORDER BY TABLE_SCHEMA, TABLE_NAME COLLATE utf8_general_ci, ORDINAL_POSITION;
 COL_CML	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	DATA_TYPE	CHARACTER_MAXIMUM_LENGTH	CHARACTER_OCTET_LENGTH	CHARACTER_SET_NAME	COLLATION_NAME	COLUMN_TYPE
-3.0000	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	USER	varchar	97	291	utf8mb3	utf8mb3_general_ci	varchar(97)
+3.0000	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	USER	varchar	241	723	utf8mb3	utf8mb3_general_ci	varchar(241)
 3.0000	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	HOST	varchar	256	768	utf8mb3	utf8mb3_general_ci	varchar(256)
-4.0000	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	GRANTEE	varchar	97	388	utf8mb4	utf8mb4_0900_ai_ci	varchar(97)
+4.0000	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	GRANTEE	varchar	241	964	utf8mb4	utf8mb4_0900_ai_ci	varchar(241)
 4.0000	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	GRANTEE_HOST	varchar	256	1024	utf8mb4	utf8mb4_0900_ai_ci	varchar(256)
 4.0000	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	ROLE_NAME	varchar	255	1020	utf8mb4	utf8mb4_0900_ai_ci	varchar(255)
 4.0000	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	ROLE_HOST	varchar	256	1024	utf8mb4	utf8mb4_0900_ai_ci	varchar(256)
 3.0000	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	IS_GRANTABLE	varchar	3	9	utf8mb3	utf8mb3_general_ci	varchar(3)
 3.0000	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	IS_DEFAULT	varchar	3	9	utf8mb3	utf8mb3_general_ci	varchar(3)
 3.0000	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	IS_MANDATORY	varchar	3	9	utf8mb3	utf8mb3_general_ci	varchar(3)
-3.0000	information_schema	APPLICABLE_ROLES	USER	varchar	97	291	utf8mb3	utf8mb3_general_ci	varchar(97)
+3.0000	information_schema	APPLICABLE_ROLES	USER	varchar	241	723	utf8mb3	utf8mb3_general_ci	varchar(241)
 3.0000	information_schema	APPLICABLE_ROLES	HOST	varchar	256	768	utf8mb3	utf8mb3_general_ci	varchar(256)
-4.0000	information_schema	APPLICABLE_ROLES	GRANTEE	varchar	97	388	utf8mb4	utf8mb4_0900_ai_ci	varchar(97)
+4.0000	information_schema	APPLICABLE_ROLES	GRANTEE	varchar	241	964	utf8mb4	utf8mb4_0900_ai_ci	varchar(241)
 4.0000	information_schema	APPLICABLE_ROLES	GRANTEE_HOST	varchar	256	1024	utf8mb4	utf8mb4_0900_ai_ci	varchar(256)
 4.0000	information_schema	APPLICABLE_ROLES	ROLE_NAME	varchar	255	1020	utf8mb4	utf8mb4_0900_ai_ci	varchar(255)
 4.0000	information_schema	APPLICABLE_ROLES	ROLE_HOST	varchar	256	1024	utf8mb4	utf8mb4_0900_ai_ci	varchar(256)
@@ -732,7 +732,7 @@ NULL	information_schema	COLUMNS	SRS_ID	int	NULL	NULL	NULL	NULL	int unsigned
 3.0000	information_schema	COLUMNS_EXTENSIONS	COLUMN_NAME	varchar	64	192	utf8mb3	utf8_bin	varchar(64)
 NULL	information_schema	COLUMNS_EXTENSIONS	ENGINE_ATTRIBUTE	json	NULL	NULL	NULL	NULL	json
 NULL	information_schema	COLUMNS_EXTENSIONS	SECONDARY_ENGINE_ATTRIBUTE	json	NULL	NULL	NULL	NULL	json
-3.0103	information_schema	COLUMN_PRIVILEGES	GRANTEE	varchar	97	292	utf8mb3	utf8mb3_general_ci	varchar(292)
+3.0088	information_schema	COLUMN_PRIVILEGES	GRANTEE	varchar	113	340	utf8mb3	utf8mb3_general_ci	varchar(340)
 3.0118	information_schema	COLUMN_PRIVILEGES	TABLE_CATALOG	varchar	170	512	utf8mb3	utf8mb3_general_ci	varchar(512)
 3.0476	information_schema	COLUMN_PRIVILEGES	TABLE_SCHEMA	varchar	21	64	utf8mb3	utf8mb3_general_ci	varchar(64)
 3.0476	information_schema	COLUMN_PRIVILEGES	TABLE_NAME	varchar	21	64	utf8mb3	utf8mb3_general_ci	varchar(64)
@@ -886,7 +886,7 @@ NULL	information_schema	PARTITIONS	CHECKSUM	bigint	NULL	NULL	NULL	NULL	bigint
 3.0769	information_schema	PLUGINS	PLUGIN_LICENSE	varchar	26	80	utf8mb3	utf8mb3_general_ci	varchar(80)
 3.0476	information_schema	PLUGINS	LOAD_OPTION	varchar	21	64	utf8mb3	utf8mb3_general_ci	varchar(64)
 NULL	information_schema	PROCESSLIST	ID	bigint	NULL	NULL	NULL	NULL	bigint unsigned
-3.2000	information_schema	PROCESSLIST	USER	varchar	10	32	utf8mb3	utf8mb3_general_ci	varchar(32)
+3.0769	information_schema	PROCESSLIST	USER	varchar	26	80	utf8mb3	utf8mb3_general_ci	varchar(80)
 3.0000	information_schema	PROCESSLIST	HOST	varchar	87	261	utf8mb3	utf8mb3_general_ci	varchar(261)
 3.0476	information_schema	PROCESSLIST	DB	varchar	21	64	utf8mb3	utf8mb3_general_ci	varchar(64)
 3.2000	information_schema	PROCESSLIST	COMMAND	varchar	5	16	utf8mb3	utf8mb3_general_ci	varchar(16)
@@ -1023,9 +1023,9 @@ NULL	information_schema	ROCKSDB_TRX	HAS_DEADLOCK_DETECTION	int	NULL	NULL	NULL	NU
 NULL	information_schema	ROCKSDB_TRX	NUM_ONGOING_BULKLOAD	int	NULL	NULL	NULL	NULL	int
 NULL	information_schema	ROCKSDB_TRX	THREAD_ID	int	NULL	NULL	NULL	NULL	int
 3.0156	information_schema	ROCKSDB_TRX	QUERY	varchar	64	193	utf8mb3	utf8mb3_general_ci	varchar(193)
-3.0000	information_schema	ROLE_COLUMN_GRANTS	GRANTOR	varchar	97	291	utf8mb3	utf8mb3_general_ci	varchar(97)
+3.0000	information_schema	ROLE_COLUMN_GRANTS	GRANTOR	varchar	241	723	utf8mb3	utf8mb3_general_ci	varchar(241)
 3.0000	information_schema	ROLE_COLUMN_GRANTS	GRANTOR_HOST	varchar	256	768	utf8mb3	utf8mb3_general_ci	varchar(256)
-3.0000	information_schema	ROLE_COLUMN_GRANTS	GRANTEE	char	32	96	utf8mb3	utf8mb3_bin	char(32)
+3.0000	information_schema	ROLE_COLUMN_GRANTS	GRANTEE	char	80	240	utf8mb3	utf8mb3_bin	char(80)
 1.0000	information_schema	ROLE_COLUMN_GRANTS	GRANTEE_HOST	char	255	255	ascii	ascii_general_ci	char(255)
 3.0000	information_schema	ROLE_COLUMN_GRANTS	TABLE_CATALOG	varchar	3	9	utf8mb3	utf8mb3_general_ci	varchar(3)
 3.0000	information_schema	ROLE_COLUMN_GRANTS	TABLE_SCHEMA	char	64	192	utf8mb3	utf8mb3_bin	char(64)
@@ -1033,9 +1033,9 @@ NULL	information_schema	ROCKSDB_TRX	THREAD_ID	int	NULL	NULL	NULL	NULL	int
 3.0000	information_schema	ROLE_COLUMN_GRANTS	COLUMN_NAME	char	64	192	utf8mb3	utf8mb3_bin	char(64)
 3.0000	information_schema	ROLE_COLUMN_GRANTS	PRIVILEGE_TYPE	set	31	93	utf8mb3	utf8mb3_general_ci	set('Select','Insert','Update','References')
 3.0000	information_schema	ROLE_COLUMN_GRANTS	IS_GRANTABLE	varchar	3	9	utf8mb3	utf8mb3_general_ci	varchar(3)
-3.0000	information_schema	ROLE_ROUTINE_GRANTS	GRANTOR	varchar	97	291	utf8mb3	utf8mb3_general_ci	varchar(97)
+3.0000	information_schema	ROLE_ROUTINE_GRANTS	GRANTOR	varchar	241	723	utf8mb3	utf8mb3_general_ci	varchar(241)
 3.0000	information_schema	ROLE_ROUTINE_GRANTS	GRANTOR_HOST	varchar	256	768	utf8mb3	utf8mb3_general_ci	varchar(256)
-3.0000	information_schema	ROLE_ROUTINE_GRANTS	GRANTEE	char	32	96	utf8mb3	utf8mb3_bin	char(32)
+3.0000	information_schema	ROLE_ROUTINE_GRANTS	GRANTEE	char	80	240	utf8mb3	utf8mb3_bin	char(80)
 1.0000	information_schema	ROLE_ROUTINE_GRANTS	GRANTEE_HOST	char	255	255	ascii	ascii_general_ci	char(255)
 3.0000	information_schema	ROLE_ROUTINE_GRANTS	SPECIFIC_CATALOG	varchar	3	9	utf8mb3	utf8mb3_general_ci	varchar(3)
 3.0000	information_schema	ROLE_ROUTINE_GRANTS	SPECIFIC_SCHEMA	char	64	192	utf8mb3	utf8mb3_bin	char(64)
@@ -1045,9 +1045,9 @@ NULL	information_schema	ROCKSDB_TRX	THREAD_ID	int	NULL	NULL	NULL	NULL	int
 3.0000	information_schema	ROLE_ROUTINE_GRANTS	ROUTINE_NAME	char	64	192	utf8mb3	utf8mb3_general_ci	char(64)
 3.0000	information_schema	ROLE_ROUTINE_GRANTS	PRIVILEGE_TYPE	set	27	81	utf8mb3	utf8mb3_general_ci	set('Execute','Alter Routine','Grant')
 3.0000	information_schema	ROLE_ROUTINE_GRANTS	IS_GRANTABLE	varchar	3	9	utf8mb3	utf8mb3_general_ci	varchar(3)
-3.0000	information_schema	ROLE_TABLE_GRANTS	GRANTOR	varchar	97	291	utf8mb3	utf8mb3_general_ci	varchar(97)
+3.0000	information_schema	ROLE_TABLE_GRANTS	GRANTOR	varchar	241	723	utf8mb3	utf8mb3_general_ci	varchar(241)
 3.0000	information_schema	ROLE_TABLE_GRANTS	GRANTOR_HOST	varchar	256	768	utf8mb3	utf8mb3_general_ci	varchar(256)
-3.0000	information_schema	ROLE_TABLE_GRANTS	GRANTEE	char	32	96	utf8mb3	utf8mb3_bin	char(32)
+3.0000	information_schema	ROLE_TABLE_GRANTS	GRANTEE	char	80	240	utf8mb3	utf8mb3_bin	char(80)
 1.0000	information_schema	ROLE_TABLE_GRANTS	GRANTEE_HOST	char	255	255	ascii	ascii_general_ci	char(255)
 3.0000	information_schema	ROLE_TABLE_GRANTS	TABLE_CATALOG	varchar	3	9	utf8mb3	utf8mb3_general_ci	varchar(3)
 3.0000	information_schema	ROLE_TABLE_GRANTS	TABLE_SCHEMA	char	64	192	utf8mb3	utf8mb3_bin	char(64)
@@ -1094,7 +1094,7 @@ NULL	information_schema	SCHEMATA	SQL_PATH	binary	0	0	NULL	NULL	binary(0)
 3.0000	information_schema	SCHEMATA_EXTENSIONS	CATALOG_NAME	varchar	64	192	utf8mb3	utf8mb3_bin	varchar(64)
 3.0000	information_schema	SCHEMATA_EXTENSIONS	SCHEMA_NAME	varchar	64	192	utf8mb3	utf8mb3_bin	varchar(64)
 3.0000	information_schema	SCHEMATA_EXTENSIONS	OPTIONS	varchar	256	768	utf8mb3	utf8mb3_general_ci	varchar(256)
-3.0103	information_schema	SCHEMA_PRIVILEGES	GRANTEE	varchar	97	292	utf8mb3	utf8mb3_general_ci	varchar(292)
+3.0088	information_schema	SCHEMA_PRIVILEGES	GRANTEE	varchar	113	340	utf8mb3	utf8mb3_general_ci	varchar(340)
 3.0118	information_schema	SCHEMA_PRIVILEGES	TABLE_CATALOG	varchar	170	512	utf8mb3	utf8mb3_general_ci	varchar(512)
 3.0476	information_schema	SCHEMA_PRIVILEGES	TABLE_SCHEMA	varchar	21	64	utf8mb3	utf8mb3_general_ci	varchar(64)
 3.0476	information_schema	SCHEMA_PRIVILEGES	PRIVILEGE_TYPE	varchar	21	64	utf8mb3	utf8mb3_general_ci	varchar(64)
@@ -1184,7 +1184,7 @@ NULL	information_schema	TABLES_EXTENSIONS	SECONDARY_ENGINE_ATTRIBUTE	json	NULL	N
 3.0000	information_schema	TABLE_CONSTRAINTS_EXTENSIONS	TABLE_NAME	varchar	64	192	utf8mb3	utf8mb3_bin	varchar(64)
 NULL	information_schema	TABLE_CONSTRAINTS_EXTENSIONS	ENGINE_ATTRIBUTE	json	NULL	NULL	NULL	NULL	json
 NULL	information_schema	TABLE_CONSTRAINTS_EXTENSIONS	SECONDARY_ENGINE_ATTRIBUTE	json	NULL	NULL	NULL	NULL	json
-3.0103	information_schema	TABLE_PRIVILEGES	GRANTEE	varchar	97	292	utf8mb3	utf8mb3_general_ci	varchar(292)
+3.0088	information_schema	TABLE_PRIVILEGES	GRANTEE	varchar	113	340	utf8mb3	utf8mb3_general_ci	varchar(340)
 3.0118	information_schema	TABLE_PRIVILEGES	TABLE_CATALOG	varchar	170	512	utf8mb3	utf8mb3_general_ci	varchar(512)
 3.0476	information_schema	TABLE_PRIVILEGES	TABLE_SCHEMA	varchar	21	64	utf8mb3	utf8mb3_general_ci	varchar(64)
 3.0476	information_schema	TABLE_PRIVILEGES	TABLE_NAME	varchar	21	64	utf8mb3	utf8mb3_general_ci	varchar(64)
@@ -1212,10 +1212,10 @@ NULL	information_schema	TRIGGERS	CREATED	timestamp	NULL	NULL	NULL	NULL	timestamp
 3.0000	information_schema	TRIGGERS	CHARACTER_SET_CLIENT	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(64)
 3.0000	information_schema	TRIGGERS	COLLATION_CONNECTION	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(64)
 3.0000	information_schema	TRIGGERS	DATABASE_COLLATION	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(64)
-3.0000	information_schema	USER_ATTRIBUTES	USER	char	32	96	utf8mb3	utf8mb3_bin	char(32)
+3.0000	information_schema	USER_ATTRIBUTES	USER	char	80	240	utf8mb3	utf8mb3_bin	char(80)
 1.0000	information_schema	USER_ATTRIBUTES	HOST	char	255	255	ascii	ascii_general_ci	char(255)
 1.0000	information_schema	USER_ATTRIBUTES	ATTRIBUTE	longtext	4294967295	4294967295	utf8mb4	utf8mb4_bin	longtext
-3.0103	information_schema	USER_PRIVILEGES	GRANTEE	varchar	97	292	utf8mb3	utf8mb3_general_ci	varchar(292)
+3.0088	information_schema	USER_PRIVILEGES	GRANTEE	varchar	113	340	utf8mb3	utf8mb3_general_ci	varchar(340)
 3.0118	information_schema	USER_PRIVILEGES	TABLE_CATALOG	varchar	170	512	utf8mb3	utf8mb3_general_ci	varchar(512)
 3.0476	information_schema	USER_PRIVILEGES	PRIVILEGE_TYPE	varchar	21	64	utf8mb3	utf8mb3_general_ci	varchar(64)
 3.0000	information_schema	USER_PRIVILEGES	IS_GRANTABLE	varchar	1	3	utf8mb3	utf8mb3_general_ci	varchar(3)

@@ -166,6 +166,7 @@ call mtr.add_suppression("table is missing or has an incorrect definition");
 call mtr.add_suppression("ACL DDLs will not work unless mysql_upgrade is executed");
 call mtr.add_suppression(".* Native table .* has the wrong structure");
 call mtr.add_suppression("Column count of mysql.* is wrong");
+call mtr.add_suppression("Cannot load from mysql.* The table is probably corrupted!");
 call mtr.add_suppression("The privilege system failed to initialize correctly.*");
 call mtr.add_suppression(".*The system table mysql.global_grants is missing.*");
 call mtr.add_suppression("ACL table mysql.[a-z_]* missing. Some operations may fail.");

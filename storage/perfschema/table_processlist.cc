@@ -48,7 +48,7 @@
 
 THR_LOCK table_processlist::m_table_lock;
 
-static_assert(USERNAME_CHAR_LENGTH == 32, "Fix USER size");
+static_assert(USERNAME_CHAR_LENGTH == 80, "Fix USER size");
 static_assert(HOST_AND_PORT_LENGTH == 261, "Fix HOST size");
 
 Plugin_table table_processlist::m_table_def(

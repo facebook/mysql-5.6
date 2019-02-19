@@ -9716,7 +9716,7 @@ connection con_user_16;
 CALL test1.p1_len22();
 
 --error ER_WRONG_STRING_LENGTH
-CREATE DEFINER=user_name_len_33_0123456789012345@localhost PROCEDURE test1.p1_len33()
+CREATE DEFINER=abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a@localhost PROCEDURE test1.p1_len33()
   SELECT * FROM test1.t1;
 
 connection default;
@@ -9765,7 +9765,7 @@ CALL test1.p1_len22();
 
 connection default;
 --error ER_WRONG_STRING_LENGTH
-CREATE DEFINER=user_name_len_33_0123456789012345@localhost FUNCTION test1.f1_len33() RETURNS INT
+CREATE DEFINER=abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a@localhost FUNCTION test1.f1_len33() RETURNS INT
   RETURN (SELECT COUNT(*) FROM test1.t1);
 
 # Cleanup

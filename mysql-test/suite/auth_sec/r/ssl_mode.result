@@ -6,7 +6,7 @@ Database: mysql  Table: user  Wildcard: user
 +-------+----------+-------------+------+-----+---------+-------+---------------------------------+---------+
 | Field | Type     | Collation   | Null | Key | Default | Extra | Privileges                      | Comment |
 +-------+----------+-------------+------+-----+---------+-------+---------------------------------+---------+
-| User  | char(32) | utf8mb3_bin | NO   | PRI |         |       | select,insert,update,references |         |
+| User  | char(80) | utf8mb3_bin | NO   | PRI |         |       | select,insert,update,references |         |
 +-------+----------+-------------+------+-----+---------+-------+---------------------------------+---------+
 mysql.test: Records: 1  Deleted: 0  Skipped: 0  Warnings: 1
 # Testing of all clients with ssl mode REQUIRED
@@ -15,7 +15,7 @@ Database: mysql  Table: user  Wildcard: user
 +-------+----------+-------------+------+-----+---------+-------+---------------------------------+---------+
 | Field | Type     | Collation   | Null | Key | Default | Extra | Privileges                      | Comment |
 +-------+----------+-------------+------+-----+---------+-------+---------------------------------+---------+
-| User  | char(32) | utf8mb3_bin | NO   | PRI |         |       | select,insert,update,references |         |
+| User  | char(80) | utf8mb3_bin | NO   | PRI |         |       | select,insert,update,references |         |
 +-------+----------+-------------+------+-----+---------+-------+---------------------------------+---------+
 mysql.test: Records: 1  Deleted: 0  Skipped: 0  Warnings: 1
 # Testing of all clients with ssl mode VERIFY_CA
@@ -24,7 +24,7 @@ Database: mysql  Table: user  Wildcard: user
 +-------+----------+-------------+------+-----+---------+-------+---------------------------------+---------+
 | Field | Type     | Collation   | Null | Key | Default | Extra | Privileges                      | Comment |
 +-------+----------+-------------+------+-----+---------+-------+---------------------------------+---------+
-| User  | char(32) | utf8mb3_bin | NO   | PRI |         |       | select,insert,update,references |         |
+| User  | char(80) | utf8mb3_bin | NO   | PRI |         |       | select,insert,update,references |         |
 +-------+----------+-------------+------+-----+---------+-------+---------------------------------+---------+
 mysql.test: Records: 1  Deleted: 0  Skipped: 0  Warnings: 1
 # Testing of all clients with ssl mode VERIFY_IDENTITY
@@ -33,7 +33,7 @@ Database: mysql  Table: user  Wildcard: user
 +-------+----------+-------------+------+-----+---------+-------+---------------------------------+---------+
 | Field | Type     | Collation   | Null | Key | Default | Extra | Privileges                      | Comment |
 +-------+----------+-------------+------+-----+---------+-------+---------------------------------+---------+
-| User  | char(32) | utf8mb3_bin | NO   | PRI |         |       | select,insert,update,references |         |
+| User  | char(80) | utf8mb3_bin | NO   | PRI |         |       | select,insert,update,references |         |
 +-------+----------+-------------+------+-----+---------+-------+---------------------------------+---------+
 mysql.test: Records: 1  Deleted: 0  Skipped: 0  Warnings: 1
 # Tests related to deprecation of ssl options

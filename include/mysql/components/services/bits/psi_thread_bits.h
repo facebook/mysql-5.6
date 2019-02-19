@@ -458,7 +458,7 @@ typedef void (*get_thread_event_id_v2_t)(struct PSI_thread *psi,
                                          unsigned long long *event_id);
 
 /* Duplicate definitions to avoid dependency on mysql_com.h */
-#define PSI_USERNAME_LENGTH (32 * 3)
+#define PSI_USERNAME_LENGTH (80 * 3)
 #define PSI_NAME_LEN (64 * 3)
 #define PSI_HOSTNAME_LENGTH (255)
 

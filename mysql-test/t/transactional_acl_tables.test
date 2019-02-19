@@ -1980,6 +1980,9 @@ RENAME TABLE mysql.procs_priv_bak TO mysql.procs_priv;
 RENAME TABLE mysql.proxies_priv_bak TO mysql.proxies_priv;
 RENAME TABLE mysql.tables_priv_bak TO mysql.tables_priv;
 
+# Repair InnoDB's table to 80 bytes, otherwise upgrades will fail.
+ALTER TABLE mysql.columns_priv MODIFY User char(80) NOT NULL default '';
+
 --echo
 --echo ########################################################################
 --echo # F. Upgrade/downgrade tests.

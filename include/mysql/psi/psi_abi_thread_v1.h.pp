@@ -132,7 +132,7 @@ struct PSI_thread_attrs_v3 {
   unsigned long m_processlist_id;
   unsigned long long m_thread_os_id;
   void *m_user_data;
-  char m_username[(32 * 3)];
+  char m_username[(80 * 3)];
   size_t m_username_length;
   char m_hostname[(255)];
   size_t m_hostname_length;
