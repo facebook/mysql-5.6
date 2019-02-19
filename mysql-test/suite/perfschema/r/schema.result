@@ -115,7 +115,7 @@ variables_info
 show create table accounts;
 Table	Create Table
 accounts	CREATE TABLE `accounts` (
-  `USER` char(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `USER` char(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `HOST` char(255) CHARACTER SET ascii COLLATE ascii_general_ci DEFAULT NULL,
   `CURRENT_CONNECTIONS` bigint NOT NULL,
   `TOTAL_CONNECTIONS` bigint NOT NULL,
@@ -206,7 +206,7 @@ events_stages_summary_by_thread_by_event_name	CREATE TABLE `events_stages_summar
 show create table events_stages_summary_by_user_by_event_name;
 Table	Create Table
 events_stages_summary_by_user_by_event_name	CREATE TABLE `events_stages_summary_by_user_by_event_name` (
-  `USER` char(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `USER` char(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `EVENT_NAME` varchar(128) NOT NULL,
   `COUNT_STAR` bigint unsigned NOT NULL,
   `SUM_TIMER_WAIT` bigint unsigned NOT NULL,
@@ -218,7 +218,7 @@ events_stages_summary_by_user_by_event_name	CREATE TABLE `events_stages_summary_
 show create table events_stages_summary_by_account_by_event_name;
 Table	Create Table
 events_stages_summary_by_account_by_event_name	CREATE TABLE `events_stages_summary_by_account_by_event_name` (
-  `USER` char(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `USER` char(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `HOST` char(255) CHARACTER SET ascii COLLATE ascii_general_ci DEFAULT NULL,
   `EVENT_NAME` varchar(128) NOT NULL,
   `COUNT_STAR` bigint unsigned NOT NULL,
@@ -484,7 +484,7 @@ events_statements_summary_by_thread_by_event_name	CREATE TABLE `events_statement
 show create table events_statements_summary_by_user_by_event_name;
 Table	Create Table
 events_statements_summary_by_user_by_event_name	CREATE TABLE `events_statements_summary_by_user_by_event_name` (
-  `USER` char(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `USER` char(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `EVENT_NAME` varchar(128) NOT NULL,
   `COUNT_STAR` bigint unsigned NOT NULL,
   `SUM_TIMER_WAIT` bigint unsigned NOT NULL,
@@ -515,7 +515,7 @@ events_statements_summary_by_user_by_event_name	CREATE TABLE `events_statements_
 show create table events_statements_summary_by_account_by_event_name;
 Table	Create Table
 events_statements_summary_by_account_by_event_name	CREATE TABLE `events_statements_summary_by_account_by_event_name` (
-  `USER` char(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `USER` char(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `HOST` char(255) CHARACTER SET ascii COLLATE ascii_general_ci DEFAULT NULL,
   `EVENT_NAME` varchar(128) NOT NULL,
   `COUNT_STAR` bigint unsigned NOT NULL,
@@ -707,7 +707,7 @@ events_transactions_summary_by_thread_by_event_name	CREATE TABLE `events_transac
 show create table events_transactions_summary_by_user_by_event_name;
 Table	Create Table
 events_transactions_summary_by_user_by_event_name	CREATE TABLE `events_transactions_summary_by_user_by_event_name` (
-  `USER` char(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `USER` char(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `EVENT_NAME` varchar(128) NOT NULL,
   `COUNT_STAR` bigint unsigned NOT NULL,
   `SUM_TIMER_WAIT` bigint unsigned NOT NULL,
@@ -729,7 +729,7 @@ events_transactions_summary_by_user_by_event_name	CREATE TABLE `events_transacti
 show create table events_transactions_summary_by_account_by_event_name;
 Table	Create Table
 events_transactions_summary_by_account_by_event_name	CREATE TABLE `events_transactions_summary_by_account_by_event_name` (
-  `USER` char(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `USER` char(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `HOST` char(255) CHARACTER SET ascii COLLATE ascii_general_ci DEFAULT NULL,
   `EVENT_NAME` varchar(128) NOT NULL,
   `COUNT_STAR` bigint unsigned NOT NULL,
@@ -881,7 +881,7 @@ events_waits_summary_by_thread_by_event_name	CREATE TABLE `events_waits_summary_
 show create table events_waits_summary_by_user_by_event_name;
 Table	Create Table
 events_waits_summary_by_user_by_event_name	CREATE TABLE `events_waits_summary_by_user_by_event_name` (
-  `USER` char(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `USER` char(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `EVENT_NAME` varchar(128) NOT NULL,
   `COUNT_STAR` bigint unsigned NOT NULL,
   `SUM_TIMER_WAIT` bigint unsigned NOT NULL,
@@ -893,7 +893,7 @@ events_waits_summary_by_user_by_event_name	CREATE TABLE `events_waits_summary_by
 show create table events_waits_summary_by_account_by_event_name;
 Table	Create Table
 events_waits_summary_by_account_by_event_name	CREATE TABLE `events_waits_summary_by_account_by_event_name` (
-  `USER` char(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `USER` char(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `HOST` char(255) CHARACTER SET ascii COLLATE ascii_general_ci DEFAULT NULL,
   `EVENT_NAME` varchar(128) NOT NULL,
   `COUNT_STAR` bigint unsigned NOT NULL,
@@ -1219,7 +1219,7 @@ show create table setup_actors;
 Table	Create Table
 setup_actors	CREATE TABLE `setup_actors` (
   `HOST` char(255) CHARACTER SET ascii COLLATE ascii_general_ci NOT NULL DEFAULT '%',
-  `USER` char(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '%',
+  `USER` char(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '%',
   `ROLE` char(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '%',
   `ENABLED` enum('YES','NO') NOT NULL DEFAULT 'YES',
   `HISTORY` enum('YES','NO') NOT NULL DEFAULT 'YES',
@@ -1508,7 +1508,7 @@ threads	CREATE TABLE `threads` (
   `NAME` varchar(128) NOT NULL,
   `TYPE` varchar(10) NOT NULL,
   `PROCESSLIST_ID` bigint unsigned DEFAULT NULL,
-  `PROCESSLIST_USER` varchar(32) DEFAULT NULL,
+  `PROCESSLIST_USER` varchar(80) DEFAULT NULL,
   `PROCESSLIST_HOST` varchar(255) CHARACTER SET ascii COLLATE ascii_general_ci DEFAULT NULL,
   `PROCESSLIST_DB` varchar(64) DEFAULT NULL,
   `PROCESSLIST_COMMAND` varchar(16) DEFAULT NULL,
@@ -1533,7 +1533,7 @@ threads	CREATE TABLE `threads` (
 show create table users;
 Table	Create Table
 users	CREATE TABLE `users` (
-  `USER` char(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `USER` char(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `CURRENT_CONNECTIONS` bigint NOT NULL,
   `TOTAL_CONNECTIONS` bigint NOT NULL,
   UNIQUE KEY `USER` (`USER`)

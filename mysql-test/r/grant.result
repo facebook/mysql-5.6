@@ -533,7 +533,7 @@ SHOW FIELDS FROM mysql.tables_priv;
 Field	Type	Null	Key	Default	Extra
 Host	char(255)	NO	PRI		
 Db	char(64)	NO	PRI		
-User	char(32)	NO	PRI		
+User	char(80)	NO	PRI		
 Table_name	char(64)	NO	PRI		
 Grantor	varchar(288)	NO	MUL		
 Timestamp	timestamp	NO		CURRENT_TIMESTAMP	DEFAULT_GENERATED on update CURRENT_TIMESTAMP
@@ -974,8 +974,8 @@ DROP DATABASE mysqltest3;
 REVOKE ALL PRIVILEGES, GRANT OPTION FROM 'mysqltest_1'@'localhost';
 DROP USER 'mysqltest_1'@'localhost';
 USE test;
-create user mysqltest1_thisisreallyreallyreallyreallyreallyireallyreallytoolong;
-ERROR HY000: String 'mysqltest1_thisisreallyreallyreallyreallyreallyireallyreallytoolong' is too long for user name (should be no longer than 32)
+create user abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a;
+ERROR HY000: String 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
 CREATE DATABASE mysqltest1;
 CREATE TABLE mysqltest1.t1 (
 int_field INTEGER UNSIGNED NOT NULL,
@@ -1042,28 +1042,28 @@ ERROR 42000: DROP command denied to user 'mysqltest_1'@'localhost' for table 't1
 DROP USER mysqltest_1@localhost;
 DROP DATABASE mysqltest1;
 USE test;
-GRANT CREATE ON mysqltest.* TO 1234567890abcdefGHIKL1234567890abcdefGHIKL@localhost;
-ERROR HY000: String '1234567890abcdefGHIKL1234567890abcdefGHIKL' is too long for user name (should be no longer than 32)
+GRANT CREATE ON mysqltest.* TO abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a@localhost;
+ERROR HY000: String 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
 GRANT CREATE ON mysqltest.* TO some_user_name@host_1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890X;
 ERROR HY000: String 'host_1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij12345' is too long for host name (should be no longer than 255)
-REVOKE CREATE ON mysqltest.* FROM 1234567890abcdefGHIKL1234567890abcdefGHIKL@localhost;
-ERROR HY000: String '1234567890abcdefGHIKL1234567890abcdefGHIKL' is too long for user name (should be no longer than 32)
+REVOKE CREATE ON mysqltest.* FROM abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a@localhost;
+ERROR HY000: String 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
 REVOKE CREATE ON mysqltest.* FROM some_user_name@host_1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890X;
 ERROR HY000: String 'host_1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij12345' is too long for host name (should be no longer than 255)
-GRANT CREATE ON t1 TO 1234567890abcdefGHIKL1234567890abcdefGHIKL@localhost;
-ERROR HY000: String '1234567890abcdefGHIKL1234567890abcdefGHIKL' is too long for user name (should be no longer than 32)
+GRANT CREATE ON t1 TO abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a@localhost;
+ERROR HY000: String 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
 GRANT CREATE ON t1 TO some_user_name@host_1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890X;
 ERROR HY000: String 'host_1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij12345' is too long for host name (should be no longer than 255)
-REVOKE CREATE ON t1 FROM 1234567890abcdefGHIKL1234567890abcdefGHIKL@localhost;
-ERROR HY000: String '1234567890abcdefGHIKL1234567890abcdefGHIKL' is too long for user name (should be no longer than 32)
+REVOKE CREATE ON t1 FROM abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a@localhost;
+ERROR HY000: String 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
 REVOKE CREATE ON t1 FROM some_user_name@host_1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890X;
 ERROR HY000: String 'host_1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij12345' is too long for host name (should be no longer than 255)
-GRANT EXECUTE ON PROCEDURE p1 TO 1234567890abcdefGHIKL1234567890abcdefGHIKL@localhost;
-ERROR HY000: String '1234567890abcdefGHIKL1234567890abcdefGHIKL' is too long for user name (should be no longer than 32)
+GRANT EXECUTE ON PROCEDURE p1 TO abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a@localhost;
+ERROR HY000: String 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
 GRANT EXECUTE ON PROCEDURE p1 TO some_user_name@host_1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890X;
 ERROR HY000: String 'host_1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij12345' is too long for host name (should be no longer than 255)
-REVOKE EXECUTE ON PROCEDURE p1 FROM 1234567890abcdefGHIKL1234567890abcdefGHIKL@localhost;
-ERROR HY000: String '1234567890abcdefGHIKL1234567890abcdefGHIKL' is too long for user name (should be no longer than 32)
+REVOKE EXECUTE ON PROCEDURE p1 FROM abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a@localhost;
+ERROR HY000: String 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
 REVOKE EXECUTE ON PROCEDURE t1 FROM some_user_name@host_1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890X;
 ERROR HY000: String 'host_1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij12345' is too long for host name (should be no longer than 255)
 CREATE USER bug23556@localhost;
@@ -1553,8 +1553,8 @@ user()
 юзер_юзер@localhost
 revoke all on test.* from юзер_юзер@localhost;
 drop user юзер_юзер@localhost;
-grant select on test.* to очень_длинный_юзер_very_long_user@localhost;
-ERROR HY000: String 'очень_длинный_юзер_very_long_user' is too long for user name (should be no longer than 32)
+grant select on test.* to очень_длинный_юзерочень_длинный_юзер_очень_длинный_юзерочень_длинный_юзер_юзерррр@localhost;
+ERROR HY000: String 'очень_длинный_юзерочень_длинный_юзер_?' is too long for user name (should be no longer than 80)
 set names default;
 create database mysqltest;
 use mysqltest;
@@ -2583,116 +2583,116 @@ CREATE PROCEDURE p1() SELECT b FROM t1;
 CREATE USER user_name_len_16@localhost;
 CREATE USER user_name_len_22_01234@localhost;
 CREATE USER user_name_len_32_012345678901234@localhost;
-CREATE USER user_name_len_33_0123456789012345@localhost;
-ERROR HY000: String 'user_name_len_33_0123456789012345' is too long for user name (should be no longer than 32)
-CREATE USER user_name_len_40_01234567890123456789012@localhost;
-ERROR HY000: String 'user_name_len_40_01234567890123456789012' is too long for user name (should be no longer than 32)
+CREATE USER user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901@localhost;
+ERROR HY000: String 'user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
+CREATE USER user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901234@localhost;
+ERROR HY000: String 'user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
 GRANT CREATE ON mysqltest.* TO user_name_len_16@localhost;
 GRANT CREATE ON mysqltest.* TO user_name_len_22_01234@localhost;
 GRANT CREATE ON mysqltest.* TO user_name_len_32_012345678901234@localhost;
-GRANT CREATE ON mysqltest.* TO user_name_len_33_0123456789012345@localhost;
-ERROR HY000: String 'user_name_len_33_0123456789012345' is too long for user name (should be no longer than 32)
-GRANT CREATE ON mysqltest.* TO user_name_len_40_01234567890123456789012@localhost;
-ERROR HY000: String 'user_name_len_40_01234567890123456789012' is too long for user name (should be no longer than 32)
+GRANT CREATE ON mysqltest.* TO user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901@localhost;
+ERROR HY000: String 'user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
+GRANT CREATE ON mysqltest.* TO user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901234@localhost;
+ERROR HY000: String 'user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
 REVOKE CREATE ON mysqltest.* FROM user_name_len_16@localhost;
 REVOKE CREATE ON mysqltest.* FROM user_name_len_22_01234@localhost;
 REVOKE CREATE ON mysqltest.* FROM user_name_len_32_012345678901234@localhost;
-REVOKE CREATE ON mysqltest.* FROM user_name_len_33_0123456789012345@localhost;
-ERROR HY000: String 'user_name_len_33_0123456789012345' is too long for user name (should be no longer than 32)
-REVOKE CREATE ON mysqltest.* FROM user_name_len_40_01234567890123456789012@localhost;
-ERROR HY000: String 'user_name_len_40_01234567890123456789012' is too long for user name (should be no longer than 32)
+REVOKE CREATE ON mysqltest.* FROM user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901@localhost;
+ERROR HY000: String 'user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
+REVOKE CREATE ON mysqltest.* FROM user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901234@localhost;
+ERROR HY000: String 'user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
 GRANT CREATE ON t1 TO user_name_len_16@localhost;
 GRANT CREATE ON t1 TO user_name_len_22_01234@localhost;
 GRANT CREATE ON t1 TO user_name_len_32_012345678901234@localhost;
-GRANT CREATE ON t1 TO user_name_len_33_0123456789012345@localhost;
-ERROR HY000: String 'user_name_len_33_0123456789012345' is too long for user name (should be no longer than 32)
-GRANT CREATE ON t1 TO user_name_len_40_01234567890123456789012@localhost;
-ERROR HY000: String 'user_name_len_40_01234567890123456789012' is too long for user name (should be no longer than 32)
+GRANT CREATE ON t1 TO user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901@localhost;
+ERROR HY000: String 'user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
+GRANT CREATE ON t1 TO user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901234@localhost;
+ERROR HY000: String 'user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
 REVOKE CREATE ON t1 FROM user_name_len_16@localhost;
 REVOKE CREATE ON t1 FROM user_name_len_22_01234@localhost;
 REVOKE CREATE ON t1 FROM user_name_len_32_012345678901234@localhost;
-REVOKE CREATE ON t1 FROM user_name_len_33_0123456789012345@localhost;
-ERROR HY000: String 'user_name_len_33_0123456789012345' is too long for user name (should be no longer than 32)
-REVOKE CREATE ON t1 FROM user_name_len_40_01234567890123456789012@localhost;
-ERROR HY000: String 'user_name_len_40_01234567890123456789012' is too long for user name (should be no longer than 32)
+REVOKE CREATE ON t1 FROM user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901@localhost;
+ERROR HY000: String 'user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
+REVOKE CREATE ON t1 FROM user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901234@localhost;
+ERROR HY000: String 'user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
 GRANT SELECT ON t1 TO user_name_len_16@localhost;
 GRANT SELECT ON t1 TO user_name_len_22_01234@localhost;
 GRANT SELECT ON t1 TO user_name_len_32_012345678901234@localhost;
-GRANT SELECT ON t1 TO user_name_len_33_0123456789012345@localhost;
-ERROR HY000: String 'user_name_len_33_0123456789012345' is too long for user name (should be no longer than 32)
-GRANT SELECT ON t1 TO user_name_len_40_01234567890123456789012@localhost;
-ERROR HY000: String 'user_name_len_40_01234567890123456789012' is too long for user name (should be no longer than 32)
+GRANT SELECT ON t1 TO user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901@localhost;
+ERROR HY000: String 'user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
+GRANT SELECT ON t1 TO user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901234@localhost;
+ERROR HY000: String 'user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
 REVOKE SELECT ON t1 FROM user_name_len_16@localhost;
 REVOKE SELECT ON t1 FROM user_name_len_22_01234@localhost;
 REVOKE SELECT ON t1 FROM user_name_len_32_012345678901234@localhost;
-REVOKE SELECT ON t1 FROM user_name_len_33_0123456789012345@localhost;
-ERROR HY000: String 'user_name_len_33_0123456789012345' is too long for user name (should be no longer than 32)
-REVOKE SELECT ON t1 FROM user_name_len_40_01234567890123456789012@localhost;
-ERROR HY000: String 'user_name_len_40_01234567890123456789012' is too long for user name (should be no longer than 32)
+REVOKE SELECT ON t1 FROM user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901@localhost;
+ERROR HY000: String 'user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
+REVOKE SELECT ON t1 FROM user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901234@localhost;
+ERROR HY000: String 'user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
 GRANT EXECUTE ON PROCEDURE p1 TO user_name_len_16@localhost;
 GRANT EXECUTE ON PROCEDURE p1 TO user_name_len_22_01234@localhost;
 GRANT EXECUTE ON PROCEDURE p1 TO user_name_len_32_012345678901234@localhost;
-GRANT EXECUTE ON PROCEDURE p1 TO user_name_len_33_0123456789012345@localhost;
-ERROR HY000: String 'user_name_len_33_0123456789012345' is too long for user name (should be no longer than 32)
-GRANT EXECUTE ON PROCEDURE p1 TO user_name_len_40_01234567890123456789012@localhost;
-ERROR HY000: String 'user_name_len_40_01234567890123456789012' is too long for user name (should be no longer than 32)
+GRANT EXECUTE ON PROCEDURE p1 TO user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901@localhost;
+ERROR HY000: String 'user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
+GRANT EXECUTE ON PROCEDURE p1 TO user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901234@localhost;
+ERROR HY000: String 'user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
 REVOKE EXECUTE ON PROCEDURE p1 FROM user_name_len_16@localhost;
 REVOKE EXECUTE ON PROCEDURE p1 FROM user_name_len_22_01234@localhost;
 REVOKE EXECUTE ON PROCEDURE p1 FROM user_name_len_32_012345678901234@localhost;
-REVOKE EXECUTE ON PROCEDURE p1 FROM user_name_len_33_0123456789012345@localhost;
-ERROR HY000: String 'user_name_len_33_0123456789012345' is too long for user name (should be no longer than 32)
-REVOKE EXECUTE ON PROCEDURE p1 FROM user_name_len_40_01234567890123456789012@localhost;
-ERROR HY000: String 'user_name_len_40_01234567890123456789012' is too long for user name (should be no longer than 32)
-DROP USER user_name_len_40_01234567890123456789012@localhost;
-ERROR HY000: String 'user_name_len_40_01234567890123456789012' is too long for user name (should be no longer than 32)
+REVOKE EXECUTE ON PROCEDURE p1 FROM user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901@localhost;
+ERROR HY000: String 'user_with_length_81_abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
+REVOKE EXECUTE ON PROCEDURE p1 FROM user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901234@localhost;
+ERROR HY000: String 'user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
+DROP USER user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij12345678901234@localhost;
+ERROR HY000: String 'user_with_length_84_abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
 set names utf8;
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 CREATE USER очень_длинный_юз@localhost;
 CREATE USER очень_очень_длинный_юзер@localhost;
 CREATE USER очень_очень_очень_длинный_юзер__@localhost;
-CREATE USER очень_очень_очень_очень_длинный_юзер@localhost;
-ERROR HY000: String 'очень_очень_очень_очень_длинный_юзер' is too long for user name (should be no longer than 32)
+CREATE USER очень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзер@localhost;
+ERROR HY000: String 'очень_очень_очень_очень_длинный_юзеро?' is too long for user name (should be no longer than 80)
 GRANT CREATE ON mysqltest.* TO очень_длинный_юз@localhost;
 GRANT CREATE ON mysqltest.* TO очень_очень_длинный_юзер@localhost;
 GRANT CREATE ON mysqltest.* TO очень_очень_очень_длинный_юзер__@localhost;
-GRANT CREATE ON mysqltest.* TO очень_очень_очень_очень_длинный_юзер@localhost;
-ERROR HY000: String 'очень_очень_очень_очень_длинный_юзер' is too long for user name (should be no longer than 32)
+GRANT CREATE ON mysqltest.* TO очень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзер@localhost;
+ERROR HY000: String 'очень_очень_очень_очень_длинный_юзеро?' is too long for user name (should be no longer than 80)
 REVOKE CREATE ON mysqltest.* FROM очень_длинный_юз@localhost;
 REVOKE CREATE ON mysqltest.* FROM очень_очень_длинный_юзер@localhost;
 REVOKE CREATE ON mysqltest.* FROM очень_очень_очень_длинный_юзер__@localhost;
-REVOKE CREATE ON mysqltest.* FROM очень_очень_очень_очень_длинный_юзер@localhost;
-ERROR HY000: String 'очень_очень_очень_очень_длинный_юзер' is too long for user name (should be no longer than 32)
+REVOKE CREATE ON mysqltest.* FROM очень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзер@localhost;
+ERROR HY000: String 'очень_очень_очень_очень_длинный_юзеро?' is too long for user name (should be no longer than 80)
 GRANT CREATE ON t1 TO очень_длинный_юз@localhost;
 GRANT CREATE ON t1 TO очень_очень_длинный_юзер@localhost;
 GRANT CREATE ON t1 TO очень_очень_очень_длинный_юзер__@localhost;
-GRANT CREATE ON t1 TO очень_очень_очень_очень_длинный_юзер@localhost;
-ERROR HY000: String 'очень_очень_очень_очень_длинный_юзер' is too long for user name (should be no longer than 32)
+GRANT CREATE ON t1 TO очень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзер@localhost;
+ERROR HY000: String 'очень_очень_очень_очень_длинный_юзеро?' is too long for user name (should be no longer than 80)
 REVOKE CREATE ON t1 FROM очень_длинный_юз@localhost;
 REVOKE CREATE ON t1 FROM очень_очень_длинный_юзер@localhost;
 REVOKE CREATE ON t1 FROM очень_очень_очень_длинный_юзер__@localhost;
-REVOKE CREATE ON t1 FROM очень_очень_очень_очень_длинный_юзер@localhost;
-ERROR HY000: String 'очень_очень_очень_очень_длинный_юзер' is too long for user name (should be no longer than 32)
+REVOKE CREATE ON t1 FROM очень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзер@localhost;
+ERROR HY000: String 'очень_очень_очень_очень_длинный_юзеро?' is too long for user name (should be no longer than 80)
 GRANT SELECT ON t1 TO очень_длинный_юз@localhost;
 GRANT SELECT ON t1 TO очень_очень_длинный_юзер@localhost;
 GRANT SELECT ON t1 TO очень_очень_очень_длинный_юзер__@localhost;
-GRANT SELECT ON t1 TO очень_очень_очень_очень_длинный_юзер@localhost;
-ERROR HY000: String 'очень_очень_очень_очень_длинный_юзер' is too long for user name (should be no longer than 32)
+GRANT SELECT ON t1 TO очень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзер@localhost;
+ERROR HY000: String 'очень_очень_очень_очень_длинный_юзеро?' is too long for user name (should be no longer than 80)
 REVOKE SELECT ON t1 FROM очень_длинный_юз@localhost;
 REVOKE SELECT ON t1 FROM очень_очень_длинный_юзер@localhost;
 REVOKE SELECT ON t1 FROM очень_очень_очень_длинный_юзер__@localhost;
-REVOKE SELECT ON t1 FROM очень_очень_очень_очень_длинный_юзер@localhost;
-ERROR HY000: String 'очень_очень_очень_очень_длинный_юзер' is too long for user name (should be no longer than 32)
+REVOKE SELECT ON t1 FROM очень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзер@localhost;
+ERROR HY000: String 'очень_очень_очень_очень_длинный_юзеро?' is too long for user name (should be no longer than 80)
 GRANT EXECUTE ON PROCEDURE p1 TO очень_длинный_юз@localhost;
 GRANT EXECUTE ON PROCEDURE p1 TO очень_очень_длинный_юзер@localhost;
 GRANT EXECUTE ON PROCEDURE p1 TO очень_очень_очень_длинный_юзер__@localhost;
-GRANT EXECUTE ON PROCEDURE p1 TO очень_очень_очень_очень_длинный_юзер@localhost;
-ERROR HY000: String 'очень_очень_очень_очень_длинный_юзер' is too long for user name (should be no longer than 32)
+GRANT EXECUTE ON PROCEDURE p1 TO очень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзер@localhost;
+ERROR HY000: String 'очень_очень_очень_очень_длинный_юзеро?' is too long for user name (should be no longer than 80)
 REVOKE EXECUTE ON PROCEDURE p1 FROM очень_длинный_юз@localhost;
 REVOKE EXECUTE ON PROCEDURE p1 FROM очень_очень_длинный_юзер@localhost;
 REVOKE EXECUTE ON PROCEDURE p1 FROM очень_очень_очень_длинный_юзер__@localhost;
-REVOKE EXECUTE ON PROCEDURE p1 FROM очень_очень_очень_очень_длинный_юзер@localhost;
-ERROR HY000: String 'очень_очень_очень_очень_длинный_юзер' is too long for user name (should be no longer than 32)
+REVOKE EXECUTE ON PROCEDURE p1 FROM очень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзер@localhost;
+ERROR HY000: String 'очень_очень_очень_очень_длинный_юзеро?' is too long for user name (should be no longer than 80)
 # Create a user, assign privileges, try to connect and use the granted
 # privileges. Trying out different connections (socket/TCP/SSL).
 CREATE USER user_name_len_25_01234567@localhost;
@@ -2736,8 +2736,8 @@ DROP DATABASE db_1;
 DROP USER очень_длинный_юз@localhost;
 DROP USER очень_очень_длинный_юзер@localhost;
 DROP USER очень_очень_очень_длинный_юзер__@localhost;
-DROP USER очень_очень_очень_очень_длинный_юзер@localhost;
-ERROR HY000: String 'очень_очень_очень_очень_длинный_юзер' is too long for user name (should be no longer than 32)
+DROP USER очень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзерочень_очень_очень_очень_длинный_юзер@localhost;
+ERROR HY000: String 'очень_очень_очень_очень_длинный_юзеро?' is too long for user name (should be no longer than 80)
 set names default;
 DROP USER user_name_len_16@localhost;
 DROP USER user_name_len_22_01234@localhost;

@@ -49,7 +49,7 @@ Plugin_table table_ees_by_account_by_error::m_table_def(
     /* Name */
     "events_errors_summary_by_account_by_error",
     /* Definition */
-    "  USER CHAR(32) collate utf8mb4_bin default null,\n"
+    "  USER CHAR(80) collate utf8mb4_bin default null,\n"
     "  HOST CHAR(255) CHARACTER SET ASCII default null,\n"
     "  ERROR_NUMBER INTEGER,\n"
     "  ERROR_NAME VARCHAR(64),\n"

@@ -60,8 +60,8 @@
 #define PARTITION_EXPR_CHAR_LEN                \
   2048 /**< Maximum expression length in chars \
         */
-#define USERNAME_CHAR_LENGTH 32
-#define USERNAME_CHAR_LENGTH_STR "32"
+#define USERNAME_CHAR_LENGTH 80
+#define USERNAME_CHAR_LENGTH_STR "80"
 #ifndef NAME_LEN
 #define NAME_LEN (NAME_CHAR_LEN * SYSTEM_CHARSET_MBMAXLEN)
 #endif

@@ -259,6 +259,12 @@ INSERT INTO I_S_published_schema
 INSERT INTO I_S_published_schema
   VALUES ('80020001', 1,
     '066f3a44d7fd33f338d78e452d2f3d93410439704cdaa78a688920c71ac9df42');
+INSERT INTO I_S_published_schema
+  VALUES ('80020002', 0,
+    'd3c911d5fbdafb4182c2a9118be0ccdc40e845a1b55fc00da1c1d9ea597deddc');
+INSERT INTO I_S_published_schema
+  VALUES ('80020002', 1,
+    '42727f448e3d51ed5789b6e962aa633cd034533475d642b870721c61af9adf85');
 
 --sorted_result
 SELECT IFNULL(CONCAT('The schema checksum corresponds to I_S version ',

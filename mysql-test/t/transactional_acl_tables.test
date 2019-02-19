@@ -1974,7 +1974,8 @@ ALTER TABLE mysql.user ENGINE = MyISAM;
 
 ALTER TABLE mysql.db ENGINE = MyISAM;
 
-ALTER TABLE mysql.columns_priv ENGINE = MyISAM;
+# Changing User to 80 bytes exceeds the MyISAM limits, so fix this at 32
+ALTER TABLE mysql.columns_priv MODIFY User char(32) NOT NULL default '', ENGINE = MyISAM;
 
 ALTER TABLE mysql.procs_priv ENGINE = MyISAM;
 
@@ -2028,6 +2029,9 @@ RENAME TABLE mysql.columns_priv_bak TO mysql.columns_priv;
 RENAME TABLE mysql.procs_priv_bak TO mysql.procs_priv;
 RENAME TABLE mysql.proxies_priv_bak TO mysql.proxies_priv;
 RENAME TABLE mysql.tables_priv_bak TO mysql.tables_priv;
+
+# Repair InnoDB's table to 80 bytes, otherwise upgrades will fail.
+ALTER TABLE mysql.columns_priv MODIFY User char(80) NOT NULL default '';
 
 --echo
 --echo ########################################################################
@@ -2288,7 +2292,8 @@ ORDER BY table_name;
 
 ALTER TABLE mysql.user ENGINE = MyISAM;
 ALTER TABLE mysql.db ENGINE = MyISAM;
-ALTER TABLE mysql.columns_priv ENGINE = MyISAM;
+# Changing User to 80 bytes exceeds the MyISAM limits, so fix this at 32
+ALTER TABLE mysql.columns_priv MODIFY User char(32) NOT NULL default '', ENGINE = MyISAM;
 ALTER TABLE mysql.procs_priv ENGINE = MyISAM;
 ALTER TABLE mysql.proxies_priv ENGINE = MyISAM;
 ALTER TABLE mysql.tables_priv ENGINE = MyISAM;

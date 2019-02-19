@@ -5288,7 +5288,7 @@ CREATE DEFINER=1234567890abcdefGHIKLsdafdsjakfhkshfkshsndvkjsddngjhasdkjghskahfd
 BEGIN
 SET @a = 1;
 END|
-ERROR HY000: String '1234567890abcdefGHIKLsdafdsjakfhkshfkshsndvkjsddngjhasdkjghskahfdksjhc' is too long for user name (should be no longer than 32)
+ERROR HY000: String '1234567890abcdefGHIKLsdafdsjakfhkshfkshsndvkjsddngjhasdkjghskahfdksjhc' is too long for user name (should be no longer than 80)
 CREATE DEFINER=some_user_name@host_1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890X
 FUNCTION bug16899_f1() RETURNS INT
 BEGIN
@@ -8329,9 +8329,9 @@ GRANT EXECUTE ON PROCEDURE test1.p1_len22 TO user_name_len_16@localhost;
 # p1_len22 procedure
 CALL test1.p1_len22();
 int_field	char_field
-CREATE DEFINER=user_name_len_33_0123456789012345@localhost PROCEDURE test1.p1_len33()
+CREATE DEFINER=abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a@localhost PROCEDURE test1.p1_len33()
 SELECT * FROM test1.t1;
-ERROR HY000: String 'user_name_len_33_0123456789012345' is too long for user name (should be no longer than 32)
+ERROR HY000: String 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
 # REVOKE the SELECT permission from user_name_len_22_01234
 REVOKE SELECT ON test1.t1 FROM user_name_len_22_01234@localhost;
 # and GRANT it to user_name_len_32_012345678901234
@@ -8361,9 +8361,9 @@ GRANT EXECUTE ON PROCEDURE test1.p1_len22 TO user_name_len_16@localhost;
 # security context
 CALL test1.p1_len22();
 ERROR 42000: SELECT command denied to user 'user_name_len_16'@'localhost' for table 't1'
-CREATE DEFINER=user_name_len_33_0123456789012345@localhost FUNCTION test1.f1_len33() RETURNS INT
+CREATE DEFINER=abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a@localhost FUNCTION test1.f1_len33() RETURNS INT
 RETURN (SELECT COUNT(*) FROM test1.t1);
-ERROR HY000: String 'user_name_len_33_0123456789012345' is too long for user name (should be no longer than 32)
+ERROR HY000: String 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij' is too long for user name (should be no longer than 80)
 DROP DATABASE test1;
 DROP USER user_name_len_16@localhost;
 DROP USER user_name_len_22_01234@localhost;

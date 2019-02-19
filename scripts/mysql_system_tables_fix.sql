@@ -81,7 +81,7 @@ ALTER TABLE tables_priv
 
 ALTER TABLE tables_priv
   MODIFY Db char(64) NOT NULL default '',
-  MODIFY User char(32) NOT NULL default '',
+  MODIFY User char(80) NOT NULL default '',
   MODIFY Table_name char(64) NOT NULL default '',
   CONVERT TO CHARACTER SET utf8 COLLATE utf8_bin;
 
@@ -106,7 +106,7 @@ ALTER TABLE columns_priv
 
 ALTER TABLE columns_priv
   MODIFY Db char(64) NOT NULL default '',
-  MODIFY User char(32) NOT NULL default '',
+  MODIFY User char(80) NOT NULL default '',
   MODIFY Table_name char(64) NOT NULL default '',
   MODIFY Column_name char(64) NOT NULL default '',
   CONVERT TO CHARACTER SET utf8 COLLATE utf8_bin,
@@ -155,8 +155,8 @@ ADD max_connections int unsigned NOT NULL DEFAULT 0 AFTER max_updates;
 #
 # Update proxies_priv definition.
 #
-ALTER TABLE proxies_priv MODIFY User char(32) binary DEFAULT '' NOT NULL;
-ALTER TABLE proxies_priv MODIFY Proxied_user char(32) binary DEFAULT '' NOT NULL;
+ALTER TABLE proxies_priv MODIFY User char(80) binary DEFAULT '' NOT NULL;
+ALTER TABLE proxies_priv MODIFY Proxied_user char(80) binary DEFAULT '' NOT NULL;
 ALTER TABLE proxies_priv MODIFY Host char(255) CHARACTER SET ASCII DEFAULT '' NOT NULL, ENGINE=InnoDB;
 ALTER TABLE proxies_priv MODIFY Proxied_host char(255) CHARACTER SET ASCII DEFAULT '' NOT NULL;
 ALTER TABLE proxies_priv MODIFY Grantor varchar(288) binary DEFAULT '' NOT NULL;
@@ -179,7 +179,7 @@ alter table func comment='User defined functions';
 # Convert all tables to UTF-8 with binary collation
 # and reset all char columns to correct width
 ALTER TABLE user
-  MODIFY User char(32) NOT NULL default '',
+  MODIFY User char(80) NOT NULL default '',
   CONVERT TO CHARACTER SET utf8 COLLATE utf8_bin;
 ALTER TABLE user
   MODIFY Select_priv enum('N','Y') COLLATE utf8_general_ci DEFAULT 'N' NOT NULL,
@@ -207,7 +207,7 @@ ALTER TABLE user
 
 ALTER TABLE db
   MODIFY Db char(64) NOT NULL default '',
-  MODIFY User char(32) NOT NULL default '',
+  MODIFY User char(80) NOT NULL default '',
   CONVERT TO CHARACTER SET utf8 COLLATE utf8_bin;
 ALTER TABLE db
   MODIFY  Select_priv enum('N','Y') COLLATE utf8_general_ci DEFAULT 'N' NOT NULL,
@@ -357,7 +357,7 @@ UPDATE user LEFT JOIN db USING (Host,User) SET Create_user_priv='Y'
 #
 
 ALTER TABLE procs_priv
-  MODIFY User char(32) NOT NULL default '',
+  MODIFY User char(80) NOT NULL default '',
   CONVERT TO CHARACTER SET utf8 COLLATE utf8_bin;
 
 ALTER TABLE procs_priv
@@ -1281,6 +1281,25 @@ MODIFY Host CHAR(255) CHARACTER SET ASCII COMMENT 'The host name of the master.'
 ALTER TABLE procs_priv
 MODIFY Host char(255) CHARACTER SET ASCII DEFAULT '' NOT NULL,
 MODIFY Grantor varchar(288) binary DEFAULT '' NOT NULL;
+
+# Increase the length of the user column
+
+ALTER TABLE default_roles
+MODIFY USER CHAR(80) BINARY DEFAULT '' NOT NULL,
+MODIFY DEFAULT_ROLE_USER char (80) binary DEFAULT '' NOT NULL;
+
+ALTER TABLE role_edges
+MODIFY FROM_USER CHAR(80) BINARY DEFAULT '' NOT NULL,
+MODIFY TO_USER CHAR(80) BINARY DEFAULT '' NOT NULL;
+
+ALTER TABLE global_grants
+MODIFY USER CHAR(80) BINARY DEFAULT '' NOT NULL;
+
+ALTER TABLE password_history
+MODIFY User CHAR(80) BINARY DEFAULT '' NOT NULL;
+
+ALTER TABLE columns_priv
+MODIFY User char(80) binary DEFAULT '' NOT NULL;
 
 # Update the table row format to DYNAMIC
 ALTER TABLE columns_priv ROW_FORMAT=DYNAMIC;

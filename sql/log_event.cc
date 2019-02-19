@@ -3598,9 +3598,10 @@ bool Query_log_event::write(Basic_ostream *ostream) {
     });
 
     /*
-      Store user length and user. The max length of use is 16, so 1 byte is
+      Store user length and user. The max length of use is 80, so 1 byte is
       enough to store the user's length.
      */
+    assert(invoker_user.length < UINT_MAX8);
     *start++ = (uchar)invoker_user.length;
     memcpy(start, invoker_user.str, invoker_user.length);
     start += invoker_user.length;
