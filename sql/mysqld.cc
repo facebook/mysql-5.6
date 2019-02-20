@@ -999,7 +999,7 @@ LEX_STRING opt_init_connect, opt_init_slave;
 LEX_STRING opt_mandatory_roles;
 bool opt_mandatory_roles_cache = false;
 bool opt_always_activate_granted_roles = false;
-bool opt_bin_log;
+bool opt_bin_log, opt_trim_binlog;
 bool opt_general_log, opt_slow_log, opt_general_log_raw;
 ulonglong log_output_options;
 bool opt_log_queries_not_using_indexes = 0;
@@ -8095,6 +8095,11 @@ struct my_option my_long_options[] = {
      &opt_upgrade_mode, &opt_upgrade_mode, &upgrade_mode_typelib, GET_ENUM,
      REQUIRED_ARG, UPGRADE_AUTO, 0, 0, 0, 0, 0},
 
+    {"trim-binlog-to-recover", OPT_TRIM_BINLOG_TO_RECOVER,
+     "Trim the last binlog (if required) to the position until which the "
+     "engine has successfully committed all transactions.",
+     &opt_trim_binlog, &opt_trim_binlog, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
+
     {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}};
 
 #ifdef HAVE_JEMALLOC
@@ -9275,6 +9280,7 @@ static int mysql_init_variables() {
   mysql_home[0] = pidfile_name[0] = 0;
   binlog_file_basedir[0] = binlog_index_basedir[0] = 0;
   myisam_test_invalid_symlink = test_if_data_home_dir;
+  opt_trim_binlog = false;
   opt_general_log = opt_slow_log = false;
   opt_disable_networking = opt_skip_show_db = 0;
   opt_skip_name_resolve = 0;
@@ -9943,6 +9949,9 @@ bool mysqld_get_one_option(int optid,
       break;
     case OPT_SHOW_OLD_TEMPORALS:
       push_deprecated_warn_no_replacement(NULL, "show_old_temporals");
+      break;
+    case OPT_TRIM_BINLOG_TO_RECOVER:
+      opt_trim_binlog = true;
       break;
     case 'p':
       if (argument) {
