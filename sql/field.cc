@@ -6312,11 +6312,13 @@ uchar *Field_string::pack(uchar *to, const uchar *from, uint max_length,
            (this is for not packing padding adding bytes in BINARY
            fields).
   */
-  if (field_charset->mbmaxlen == 1) {
-    while (length && from[length - 1] == field_charset->pad_char) length--;
-  } else
-    length = field_charset->cset->lengthsp(field_charset, (const char *)from,
-                                           length);
+  if (key_type() != HA_KEYTYPE_BINARY) {
+    if (field_charset->mbmaxlen == 1) {
+      while (length && from[length - 1] == field_charset->pad_char) length--;
+    } else
+      length = field_charset->cset->lengthsp(field_charset, (const char *)from,
+                                             length);
+  }
 
   if (max_length < length_bytes)
     length = 0;
