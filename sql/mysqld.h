@@ -277,7 +277,7 @@ extern const char* mysql_compression_lib_names[3];
 
 extern MY_BITMAP temp_pool;
 extern bool opt_large_files, server_id_supplied;
-extern bool opt_update_log, opt_bin_log, opt_error_log;
+extern bool opt_update_log, opt_bin_log, opt_error_log, opt_trim_binlog;
 extern  my_bool rpl_slave_flow_control;
 extern bool opt_improved_dup_key_error;
 extern my_bool opt_log, opt_slow_log, opt_log_raw;
@@ -1472,6 +1472,7 @@ enum options_mysqld
   OPT_LOG_SLOW_EXTRA,
   OPT_SLOW_LOG_IF_ROWS_EXAMINED_EXCEED,
   OPT_PROCESS_CAN_DISABLE_BIN_LOG,
+  OPT_TRIM_BINLOG_TO_RECOVER,
 };
 
 

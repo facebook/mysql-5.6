@@ -1839,6 +1839,10 @@ The following options may be given as the first argument:
  --transaction-read-only 
  Default transaction access mode. True if transactions are
  read-only.
+ --trim-binlog-to-recover 
+ Trim the last binlog (if required) to the position until
+ which the engine has successfully committed all
+ transactions.
  --unique-check-lag-reset-threshold=# 
  Stop enabling skip_unique_check when lag drops below this
  threshold.
@@ -2443,6 +2447,7 @@ transaction-alloc-block-size 8192
 transaction-isolation REPEATABLE-READ
 transaction-prealloc-size 4096
 transaction-read-only FALSE
+trim-binlog-to-recover FALSE
 unique-check-lag-reset-threshold 2
 unique-check-lag-threshold 0
 updatable-views-with-limit YES

@@ -8243,6 +8243,27 @@ int MYSQL_BIN_LOG::recover(IO_CACHE *log, Format_description_log_event *fdle,
                  &engine_binlog_max_gtid))
     goto err2;
 
+  /* If trim binlog on recover option is set, then we essentially trim
+     binlog to the position that the engine thinks it has committed. Note
+     that if opt_trim_binlog option is set, then engine recovery (called
+     through ha_recover() above) ensures that all prepared txns are rolled
+     back. There are a few things which need to be kept in mind:
+     1. txns never span across two binlogs, hence it is safe to recover only
+        the latest binlog file.
+     2. A binlog rotation ensures that the previous binlogs and engine's
+        transaction logs are flushed and made durable. Hence all previous
+        transactions are made durable.
+  */
+  if (opt_trim_binlog)
+  {
+    if (*valid_pos > engine_binlog_pos)
+      *valid_pos = engine_binlog_pos;
+    else if (*valid_pos < engine_binlog_pos)
+      // NO_LINT_DEBUG
+      sql_print_information("Engine is ahead of binlog. Binlog will not be "
+                            "truncated to match engine position.");
+  }
+
   free_root(&mem_root, MYF(0));
   my_hash_free(&xids);
   return 0;

@@ -469,6 +469,7 @@ USER_STATS slave_user_stats;
 USER_STATS other_user_stats;
 
 bool opt_bin_log, opt_ignore_builtin_innodb= 0;
+bool opt_trim_binlog= 0;
 my_bool opt_log, opt_slow_log, opt_log_raw;
 ulonglong log_output_options;
 my_bool opt_log_queries_not_using_indexes= 0;
@@ -9483,6 +9484,10 @@ struct my_option my_long_options[]=
    "Print more attributes to the slow query log",
    (uchar**) &opt_log_slow_extra, (uchar**) &opt_log_slow_extra,
    0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
+  {"trim-binlog-to-recover", OPT_TRIM_BINLOG_TO_RECOVER,
+   "Trim the last binlog (if required) to the position until which the "
+   "engine has successfully committed all transactions.",
+   &opt_trim_binlog, &opt_trim_binlog, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}
 };
 
@@ -10811,6 +10816,7 @@ static int mysql_init_variables(void)
   myisam_test_invalid_symlink= test_if_data_home_dir;
   opt_log= opt_slow_log= 0;
   opt_bin_log= 0;
+  opt_trim_binlog= 0;
   opt_disable_networking= opt_skip_show_db=0;
   opt_skip_name_resolve= 0;
   opt_ignore_builtin_innodb= 0;
@@ -11420,6 +11426,9 @@ pfs_error:
     break;
   case OPT_SHOW_OLD_TEMPORALS:
     WARN_DEPRECATED_NO_REPLACEMENT(NULL, "show_old_temporals");
+    break;
+  case OPT_TRIM_BINLOG_TO_RECOVER:
+    opt_trim_binlog= 1;
     break;
   }
   return 0;
