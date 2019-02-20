@@ -28,7 +28,7 @@ extern char *histogram_step_size_binlog_fsync;
 extern int opt_histogram_step_size_binlog_group_commit;
 extern latency_histogram histogram_binlog_fsync;
 extern counter_histogram histogram_binlog_group_commit;
-
+extern Slow_log_throttle log_throttle_sbr_unsafe_query;
 class Relay_log_info;
 class Master_info;
 

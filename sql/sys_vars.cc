@@ -6140,3 +6140,29 @@ static Sys_var_mybool Sys_fast_integer_to_string(
        "Optimized implementation of integer to string conversion",
        GLOBAL_VAR(fast_integer_to_string),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
+static Sys_var_mybool Sys_log_sbr_unsafe_query(
+       "log_sbr_unsafe_query",
+       "Log SBR unsafe query in slow query log.",
+       GLOBAL_VAR(log_sbr_unsafe),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
+static bool update_throttle_sbr_unsafe_queries(sys_var *self,
+                                               THD *thd,
+                                               enum_var_type type)
+{
+  // Flush remaining logs
+  log_throttle_sbr_unsafe_query.flush(thd);
+  return false;
+}
+
+static Sys_var_ulong Sys_log_throttle_sbr_unsafe_query(
+       "log_throttle_sbr_unsafe_query",
+       "Log at most this many SBR unsafe queries per minute to the "
+       "slow log. This is useful only when log_sbr_unsafe_query is true",
+       GLOBAL_VAR(opt_log_throttle_sbr_unsafe_queries),
+       CMD_LINE(OPT_ARG),
+       VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(0),
+       ON_UPDATE(update_throttle_sbr_unsafe_queries));

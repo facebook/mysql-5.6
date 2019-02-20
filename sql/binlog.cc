@@ -95,6 +95,13 @@ static int binlog_commit(handlerton *hton, THD *thd, bool all, bool async);
 static int binlog_rollback(handlerton *hton, THD *thd, bool all);
 static int binlog_prepare(handlerton *hton, THD *thd, bool all, bool async);
 
+Slow_log_throttle log_throttle_sbr_unsafe_query(
+  &opt_log_throttle_sbr_unsafe_queries,
+  &LOCK_log_throttle_sbr_unsafe,
+  Log_throttle::LOG_THROTTLE_WINDOW_SIZE,
+  slow_log_print,
+  "throttle: %10lu 'sbr unsafe' warning(s) suppressed.");
+
 #ifdef HAVE_REPLICATION
 static inline bool has_commit_order_manager(THD *thd)
 {
@@ -10308,6 +10315,30 @@ void THD::issue_unsafe_warnings()
         else //cases other than LIMIT unsafety
           print_unsafe_warning_to_log(unsafe_type, buf, query());
       }
+    }
+  }
+
+  /*  If this statement is unsafe for SBR, then log the query to slow log */
+  if (log_sbr_unsafe && opt_slow_log && lex->is_stmt_unsafe() &&
+      !log_throttle_sbr_unsafe_query.log(this, true))
+  {
+    // Prefix the log so it can be mined later
+    const char* sbr_unsafe_log_prefix = "SBR_UNSAFE: ";
+    size_t prefix_len = strlen(sbr_unsafe_log_prefix);
+    size_t log_len = prefix_len + query_length();
+
+    char* log_line = (char *)my_malloc(log_len + 1, MYF(MY_WME));
+    if (log_line)
+    {
+      memcpy(log_line, sbr_unsafe_log_prefix, prefix_len);
+      memcpy(log_line + prefix_len, query(), query_length());
+      log_line[log_len] = 0;
+       // Now log into slow log
+      bool old_enable_slow_log = enable_slow_log;
+      enable_slow_log = TRUE;
+      slow_log_print(this, log_line, log_len, &status_var);
+      my_free(log_line);
+      enable_slow_log = old_enable_slow_log; // Restore old value
     }
   }
   DBUG_VOID_RETURN;

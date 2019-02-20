@@ -516,6 +516,8 @@ The following options may be given as the first argument:
  --log-raw           Log to general log before any rewriting of the query. For
  use in debugging, not production as sensitive information
  may be logged.
+ --log-sbr-unsafe-query 
+ Log SBR unsafe query in slow query log.
  --log-short-format  Don't log extra information to update and slow-query
  logs.
  --log-slave-updates Tells the slave to log the updates from the slave thread
@@ -544,6 +546,10 @@ The following options may be given as the first argument:
  condensed into a single summary line. A value of 0
  disables throttling. Option has no effect unless
  --log_queries_not_using_indexes is set.
+ --log-throttle-sbr-unsafe-query[=#] 
+ Log at most this many SBR unsafe queries per minute to
+ the slow log. This is useful only when
+ log_sbr_unsafe_query is true
  -W, --log-warnings[=#] 
  Log some not critical warnings to the log file
  --long-query-time=# Log all queries that have taken more than long_query_time
@@ -2026,6 +2032,7 @@ log-only-query-comments TRUE
 log-output FILE
 log-queries-not-using-indexes FALSE
 log-raw FALSE
+log-sbr-unsafe-query FALSE
 log-short-format FALSE
 log-slave-updates FALSE
 log-slow-admin-statements FALSE
@@ -2035,6 +2042,7 @@ log-tc tc.log
 log-tc-size 24576
 log-throttle-legacy-user 0
 log-throttle-queries-not-using-indexes 0
+log-throttle-sbr-unsafe-query 0
 log-warnings 1
 long-query-time 10
 low-priority-updates FALSE

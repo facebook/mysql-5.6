@@ -1,0 +1,25 @@
+Enable logging of sbr unsafe query
+SET @@global.log_sbr_unsafe_query = 1;
+SET @@global.log_throttle_sbr_unsafe_query = 100;
+Let slow log go to the table so that we can verify it
+SET GLOBAL log_output= 'TABLE';
+TRUNCATE mysql.slow_log;
+CREATE TABLE test1(
+id bigint(20) unsigned NOT NULL AUTO_INCREMENT, 
+uuid char(36) DEFAULT NULL, 
+PRIMARY KEY (id));
+CREATE TABLE test2(
+id bigint(20) unsigned NOT NULL,
+uuid varchar(20),
+PRIMARY KEY (id));
+Execute two queries - one safe for SBR and one unsafe for SBR. 
+Ensure that only SBR unsafe query is logged
+INSERT INTO test1 SET uuid=uuid();
+INSERT INTO test2 values(1, '1234');
+commit;
+TRUNCATE mysql.slow_log;
+DROP TABLE test1;
+DROP TABLE test2;
+SET GLOBAL log_output= 'FILE';
+SET @@global.log_sbr_unsafe_query = 0;
+SET @@global.log_throttle_sbr_unsafe_query = 0;

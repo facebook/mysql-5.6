@@ -1,0 +1,24 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value 0
+####
+--echo Default value of log_sbr_unsafe_query is 0
+SELECT @@global.log_sbr_unsafe_query;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.log_sbr_unsafe_query;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo log_sbr_unsafe_query is a dynamic variable
+SET @@global.log_sbr_unsafe_query = 1;
+SELECT @@global.log_sbr_unsafe_query;
+
+SET @@global.log_sbr_unsafe_query = 0;
+SELECT @@global.log_sbr_unsafe_query;

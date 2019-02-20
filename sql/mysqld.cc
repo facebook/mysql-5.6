@@ -475,6 +475,8 @@ my_bool opt_log_queries_not_using_indexes= 0;
 my_bool opt_disable_working_set_size = 0;
 ulong opt_log_throttle_queries_not_using_indexes= 0;
 ulong opt_log_throttle_legacy_user= 0;
+bool log_sbr_unsafe = 0;
+ulong opt_log_throttle_sbr_unsafe_queries = 0;
 bool opt_improved_dup_key_error= 0;
 bool opt_error_log= IF_WIN(1,0);
 bool opt_disable_networking=0, opt_skip_show_db=0;
@@ -995,6 +997,8 @@ mysql_mutex_t LOCK_sql_slave_skip_counter;
 mysql_mutex_t LOCK_slave_net_timeout;
 mysql_mutex_t LOCK_log_throttle_qni;
 mysql_mutex_t LOCK_log_throttle_legacy;
+mysql_mutex_t LOCK_log_throttle_sbr_unsafe;
+
 #ifdef HAVE_OPENSSL
 mysql_mutex_t LOCK_des_key_file;
 mysql_rwlock_t LOCK_use_ssl;
@@ -2423,6 +2427,7 @@ static void clean_up_mutexes()
 #endif
   mysql_mutex_destroy(&LOCK_log_throttle_qni);
   mysql_mutex_destroy(&LOCK_log_throttle_legacy);
+  mysql_mutex_destroy(&LOCK_log_throttle_sbr_unsafe);
   mysql_mutex_destroy(&LOCK_status);
   mysql_mutex_destroy(&LOCK_delayed_insert);
   mysql_mutex_destroy(&LOCK_delayed_status);
@@ -5343,6 +5348,8 @@ static int init_thread_environment()
                    &LOCK_log_throttle_qni, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_log_throttle_legacy,
                    &LOCK_log_throttle_legacy, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_log_throttle_sbr_unsafe,
+                   &LOCK_log_throttle_sbr_unsafe, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_global_table_stats,
                    &LOCK_global_table_stats, MY_MUTEX_INIT_ERRCHK);
 #ifdef HAVE_OPENSSL
@@ -12380,6 +12387,8 @@ PSI_mutex_key key_RELAYLOG_LOCK_binlog_end_pos;
 PSI_mutex_key key_LOCK_sql_rand;
 PSI_mutex_key key_gtid_ensure_index_mutex;
 PSI_mutex_key key_LOCK_thread_created;
+PSI_mutex_key key_LOCK_log_throttle_sbr_unsafe;
+
 #ifdef HAVE_MY_TIMER
 PSI_mutex_key key_thd_timer_mutex;
 #endif
@@ -12479,7 +12488,8 @@ static PSI_mutex_info all_server_mutexes[]=
 #endif
   { &key_gtid_info_run_lock, "Gtid_info::run_lock", 0},
   { &key_gtid_info_data_lock, "Gtid_info::data_lock", 0},
-  { &key_gtid_info_sleep_lock, "Gtid_info::sleep_lock", 0}
+  { &key_gtid_info_sleep_lock, "Gtid_info::sleep_lock", 0},
+  { &key_LOCK_log_throttle_sbr_unsafe, "LOCK_log_throttle_sbr_unsafe", PSI_FLAG_GLOBAL}
 };
 
 PSI_rwlock_key key_rwlock_LOCK_grant, key_rwlock_LOCK_logger,

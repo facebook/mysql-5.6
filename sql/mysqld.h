@@ -290,6 +290,8 @@ extern ulong log_backup_output_options;
 extern my_bool opt_log_queries_not_using_indexes;
 extern ulong opt_log_throttle_queries_not_using_indexes;
 extern ulong opt_log_throttle_legacy_user;
+extern ulong opt_log_throttle_sbr_unsafe_queries;
+extern bool log_sbr_unsafe;
 extern my_bool opt_disable_working_set_size;
 extern bool opt_disable_networking, opt_skip_show_db;
 extern bool opt_skip_name_resolve;
@@ -1121,6 +1123,7 @@ extern PSI_mutex_key key_RELAYLOG_LOCK_binlog_end_pos;
 extern PSI_mutex_key key_LOCK_sql_rand;
 extern PSI_mutex_key key_gtid_ensure_index_mutex;
 extern PSI_mutex_key key_LOCK_thread_created;
+extern PSI_mutex_key key_LOCK_log_throttle_sbr_unsafe;
 
 extern PSI_rwlock_key key_rwlock_LOCK_grant, key_rwlock_LOCK_logger,
   key_rwlock_LOCK_sys_init_connect, key_rwlock_LOCK_sys_init_slave,
@@ -1374,7 +1377,9 @@ extern mysql_mutex_t
        LOCK_global_system_variables, LOCK_user_conn, LOCK_log_throttle_qni,
        LOCK_log_throttle_legacy,
        LOCK_prepared_stmt_count, LOCK_error_messages, LOCK_connection_count,
-       LOCK_sql_slave_skip_counter, LOCK_slave_net_timeout;
+       LOCK_sql_slave_skip_counter, LOCK_slave_net_timeout,
+       LOCK_log_throttle_sbr_unsafe;
+
 #ifdef HAVE_OPENSSL
 extern char* des_key_file;
 extern mysql_mutex_t LOCK_des_key_file;

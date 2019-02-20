@@ -1,0 +1,55 @@
+--source include/have_log_bin.inc
+
+####
+### Verify that sbr unsafe queries are actually logged to slow log
+####
+--echo Enable logging of sbr unsafe query
+SET @@global.log_sbr_unsafe_query = 1;
+SET @@global.log_throttle_sbr_unsafe_query = 100;
+
+--echo Let slow log go to the table so that we can verify it
+SET GLOBAL log_output= 'TABLE';
+TRUNCATE mysql.slow_log;
+
+CREATE TABLE test1(
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT, 
+  uuid char(36) DEFAULT NULL, 
+  PRIMARY KEY (id));
+
+CREATE TABLE test2(
+  id bigint(20) unsigned NOT NULL,
+  uuid varchar(20),
+  PRIMARY KEY (id));
+
+--echo Execute two queries - one safe for SBR and one unsafe for SBR. 
+--echo Ensure that only SBR unsafe query is logged
+let $sbr_unsafe_query= INSERT INTO test1 SET uuid=uuid();
+let $sbr_ok_query= INSERT INTO test2 values(1, '1234');
+
+--disable_warnings
+eval $sbr_unsafe_query;
+--enable_warnings
+eval $sbr_ok_query;
+
+let $found_sbr_unsafe_query= `SELECT count(*) = 1 FROM mysql.slow_log WHERE sql_text like '%test1%'`;
+let $found_sbr_ok_query= `SELECT count(*) = 1 FROM mysql.slow_log WHERE sql_text like '%test2%'`;
+commit;
+
+if ($found_sbr_ok_query)
+{
+  SELECT * FROM mysql.slow_log;
+  die "SBR safe query was logged to slow query log!";
+}
+
+if (!$found_sbr_unsafe_query)
+{
+  SELECT * FROM mysql.slow_log;
+  die "SBR unsafe query was not logged to slow query log!";
+}
+TRUNCATE mysql.slow_log;
+DROP TABLE test1;
+DROP TABLE test2;
+
+SET GLOBAL log_output= 'FILE';
+SET @@global.log_sbr_unsafe_query = 0;
+SET @@global.log_throttle_sbr_unsafe_query = 0;
