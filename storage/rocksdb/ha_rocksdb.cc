@@ -7319,7 +7319,8 @@ int ha_rocksdb::create_key_def(const TABLE *const table_arg, const uint i,
   if (!ttl_column.empty()) {
     (*new_key_def)->m_ttl_column = ttl_column;
   }
-
+  // initialize key_def
+  (*new_key_def)->setup(table_arg, tbl_def_arg);
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
 
@@ -7446,9 +7447,100 @@ int rdb_split_normalized_tablename(const std::string &fullname,
   return HA_EXIT_SUCCESS;
 }
 
+/*
+ Create a table's Rdb_tbl_def and its Rdb_key_defs and store table information
+ into MyRocks Data Dictionary
+ The method is called during create table/partition, truncate table/partition
+
+ @param table_name            IN      table's name formated as
+ 'dbname.tablename'
+ @param table_arg             IN      sql table
+ @param auto_increment_value  IN      specified table's auto increment value
+
+  @return
+    HA_EXIT_SUCCESS  OK
+    other            HA_ERR error code (can be SE-specific)
+*/
+int ha_rocksdb::create_table(const std::string &table_name,
+                             const TABLE *table_arg,
+                             ulonglong auto_increment_value) {
+  DBUG_ENTER_FUNC();
+
+  int err;
+
+  const std::unique_ptr<rocksdb::WriteBatch> wb = dict_manager.begin();
+  rocksdb::WriteBatch *const batch = wb.get();
+
+  /* Create table/key descriptions and put them into the data dictionary */
+  m_tbl_def = new Rdb_tbl_def(table_name);
+
+  uint n_keys = table_arg->s->keys;
+
+  /*
+    If no primary key found, create a hidden PK and place it inside table
+    definition
+  */
+  if (has_hidden_pk(table_arg)) {
+    n_keys += 1;
+    // reset hidden pk id
+    // the starting valid value for hidden pk is 1
+    m_tbl_def->m_hidden_pk_val = 1;
+  }
+
+  m_key_descr_arr = new std::shared_ptr<Rdb_key_def>[n_keys];
+  m_tbl_def->m_key_count = n_keys;
+  m_tbl_def->m_key_descr_arr = m_key_descr_arr;
+
+  err = create_key_defs(table_arg, m_tbl_def);
+  if (err != HA_EXIT_SUCCESS) {
+    goto error;
+  }
+
+  m_pk_descr = m_key_descr_arr[pk_index(table_arg, m_tbl_def)];
+
+  if (auto_increment_value) {
+    bool autoinc_upgrade_test = false;
+    m_tbl_def->m_auto_incr_val = auto_increment_value;
+    DBUG_EXECUTE_IF("myrocks_autoinc_upgrade", autoinc_upgrade_test = true;);
+    if (!autoinc_upgrade_test) {
+      auto s = dict_manager.put_auto_incr_val(
+          batch, m_tbl_def->get_autoincr_gl_index_id(),
+          m_tbl_def->m_auto_incr_val);
+      if (!s.ok()) {
+        goto error;
+      }
+    }
+  }
+
+  dict_manager.lock();
+  err = ddl_manager.put_and_write(m_tbl_def, batch);
+  if (err != HA_EXIT_SUCCESS) {
+    dict_manager.unlock();
+    goto error;
+  }
+
+  err = dict_manager.commit(batch);
+  if (err != HA_EXIT_SUCCESS) {
+    dict_manager.unlock();
+    goto error;
+  }
+
+  dict_manager.unlock();
+
+  DBUG_RETURN(HA_EXIT_SUCCESS);
+
+error:
+  /* Delete what we have allocated so far */
+  delete m_tbl_def;
+  m_tbl_def = nullptr;
+  m_key_descr_arr = nullptr;
+
+  DBUG_RETURN(err);
+}
+
 /**
   @brief
-  create() is called to create a database. The variable name will have the name
+  create() is called to create a table. The variable name will have the name
   of the table.
 
   @details
@@ -7501,10 +7593,19 @@ int ha_rocksdb::create(const char *const name, TABLE *const table_arg,
     DBUG_RETURN(err);
   }
 
+  // FOREIGN KEY isn't supported yet
   THD *const thd = my_core::thd_get_current_thd();
-  if (ddl_manager.find(str)) {
+  if (contains_foreign_key(thd)) {
+    my_error(ER_NOT_SUPPORTED_YET, MYF(0),
+             "FOREIGN KEY for the RocksDB storage engine");
+    DBUG_RETURN(HA_ERR_UNSUPPORTED);
+  }
+
+  // Check whether Data Dictionary contain information
+  Rdb_tbl_def *tbl = ddl_manager.find(str);
+  if (tbl != nullptr) {
     if (thd->lex->sql_command == SQLCOM_TRUNCATE) {
-      err = delete_table(name);
+      err = delete_table(tbl);
       if (err != HA_EXIT_SUCCESS) {
         DBUG_RETURN(err);
       }
@@ -7514,77 +7615,7 @@ int ha_rocksdb::create(const char *const name, TABLE *const table_arg,
     }
   }
 
-  if (contains_foreign_key(thd)) {
-    my_error(ER_NOT_SUPPORTED_YET, MYF(0),
-             "FOREIGN KEY for the RocksDB storage engine");
-    DBUG_RETURN(HA_ERR_UNSUPPORTED);
-  }
-
-  const std::unique_ptr<rocksdb::WriteBatch> wb = dict_manager.begin();
-  rocksdb::WriteBatch *const batch = wb.get();
-
-  /* Create table/key descriptions and put them into the data dictionary */
-  m_tbl_def = new Rdb_tbl_def(str);
-
-  uint n_keys = table_arg->s->keys;
-
-  /*
-    If no primary key found, create a hidden PK and place it inside table
-    definition
-  */
-  if (has_hidden_pk(table_arg)) {
-    n_keys += 1;
-  }
-
-  m_key_descr_arr = new std::shared_ptr<Rdb_key_def>[n_keys];
-  m_tbl_def->m_key_count = n_keys;
-  m_tbl_def->m_key_descr_arr = m_key_descr_arr;
-
-  err = create_key_defs(table_arg, m_tbl_def);
-  if (err != HA_EXIT_SUCCESS) {
-    goto error;
-  }
-
-  m_pk_descr = m_key_descr_arr[pk_index(table_arg, m_tbl_def)];
-
-  if (create_info->auto_increment_value) {
-    bool autoinc_upgrade_test = false;
-    m_tbl_def->m_auto_incr_val = create_info->auto_increment_value;
-    DBUG_EXECUTE_IF("myrocks_autoinc_upgrade", autoinc_upgrade_test = true;);
-    if (!autoinc_upgrade_test) {
-      auto s = dict_manager.put_auto_incr_val(
-          batch, m_tbl_def->get_autoincr_gl_index_id(),
-          m_tbl_def->m_auto_incr_val);
-      if (!s.ok()) {
-        goto error;
-      }
-    }
-  }
-
-  dict_manager.lock();
-  err = ddl_manager.put_and_write(m_tbl_def, batch);
-  if (err != HA_EXIT_SUCCESS) {
-    dict_manager.unlock();
-    goto error;
-  }
-
-  err = dict_manager.commit(batch);
-  if (err != HA_EXIT_SUCCESS) {
-    dict_manager.unlock();
-    goto error;
-  }
-
-  dict_manager.unlock();
-
-  DBUG_RETURN(HA_EXIT_SUCCESS);
-
-error:
-  /* Delete what we have allocated so far */
-  delete m_tbl_def;
-  m_tbl_def = nullptr;
-  m_key_descr_arr = nullptr;
-
-  DBUG_RETURN(err);
+  DBUG_RETURN(create_table(str, table_arg, create_info->auto_increment_value));
 }
 
 /**
@@ -10286,10 +10317,20 @@ int ha_rocksdb::truncate() {
 
   DBUG_ASSERT(m_tbl_def != nullptr);
 
-  m_tbl_def->m_auto_incr_val = 1;
-  m_tbl_def->m_hidden_pk_val = 1;
+  // Save table name to use later
+  std::string table_name = m_tbl_def->full_tablename();
 
-  DBUG_RETURN(remove_rows(m_tbl_def));
+  // Delete current table
+  int err = delete_table(m_tbl_def);
+  if (err != HA_EXIT_SUCCESS) {
+    DBUG_RETURN(err);
+  }
+
+  // Reset auto_increment_value to 1 if auto-increment feature is enabled
+  // By default, the starting valid value for auto_increment_value is 1
+  DBUG_RETURN(create_table(
+      table_name, table,
+      table->found_next_number_field ? 1 : 0 /* auto_increment_value */));
 }
 
 /*
@@ -11053,6 +11094,44 @@ Rdb_tbl_def *ha_rocksdb::get_table_if_exists(const char *const tablename) {
 }
 
 /*
+  Overload func for delete table ---it deletes table meta data in data
+  dictionary immediately and delete real data in background thread(async)
+
+  @param tbl       IN      MyRocks table definition
+
+  @return
+    HA_EXIT_SUCCESS  OK
+    other            HA_ERR error code (can be SE-specific)
+*/
+int ha_rocksdb::delete_table(Rdb_tbl_def *const tbl) {
+  DBUG_ENTER_FUNC();
+
+  DBUG_ASSERT(tbl != nullptr);
+  DBUG_ASSERT(m_tbl_def == nullptr || m_tbl_def == tbl);
+
+  const std::unique_ptr<rocksdb::WriteBatch> wb = dict_manager.begin();
+  rocksdb::WriteBatch *const batch = wb.get();
+
+  dict_manager.add_drop_table(tbl->m_key_descr_arr, tbl->m_key_count, batch);
+
+  /*
+    Remove the table entry in data dictionary (this will also remove it from
+    the persistent data dictionary).
+  */
+  ddl_manager.remove(tbl, batch, true);
+
+  int err = dict_manager.commit(batch);
+  if (err) {
+    DBUG_RETURN(err);
+  }
+
+  rdb_drop_idx_thread.signal();
+  // avoid dangling pointer
+  m_tbl_def = nullptr;
+  DBUG_RETURN(HA_EXIT_SUCCESS);
+}
+
+/*
   Note: the following function is called when the table is not open. That is,
   this->table==nullptr, pk_key_descr==nullptr, etc.
 
@@ -11068,29 +11147,13 @@ int ha_rocksdb::delete_table(const char *const tablename) {
 
   DBUG_ASSERT(tablename != nullptr);
 
-  const std::unique_ptr<rocksdb::WriteBatch> wb = dict_manager.begin();
-  rocksdb::WriteBatch *const batch = wb.get();
-
   /* Find the table in the hash */
   Rdb_tbl_def *const tbl = get_table_if_exists(tablename);
-  if (!tbl)
+  if (!tbl) {
     DBUG_RETURN(HA_ERR_NO_SUCH_TABLE);
-  dict_manager.add_drop_table(tbl->m_key_descr_arr, tbl->m_key_count, batch);
-
-  /*
-    Remove the table entry in data dictionary (this will also remove it from
-    the persistent data dictionary).
-  */
-  ddl_manager.remove(tbl, batch, true);
-
-  int err = dict_manager.commit(batch);
-  if (err) {
-    DBUG_RETURN(err);
   }
 
-  rdb_drop_idx_thread.signal();
-
-  DBUG_RETURN(HA_EXIT_SUCCESS);
+  DBUG_RETURN(delete_table(tbl));
 }
 
 int ha_rocksdb::remove_rows(Rdb_tbl_def *const tbl) {
