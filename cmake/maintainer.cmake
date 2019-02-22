@@ -131,6 +131,7 @@ IF(CMAKE_C_COMPILER_ID MATCHES "Clang")
   STRING_APPEND(MY_C_WARNING_FLAGS " -Wconditional-uninitialized")
   STRING_APPEND(MY_C_WARNING_FLAGS " -Wextra-semi")
   STRING_APPEND(MY_C_WARNING_FLAGS " -Wmissing-noreturn")
+  STRING_APPEND(MY_C_WARNING_FLAGS " -Wno-unused-command-line-argument")
 
   MY_ADD_C_WARNING_FLAG("Wunreachable-code-break")
   MY_ADD_C_WARNING_FLAG("Wunreachable-code-return")
@@ -140,6 +141,7 @@ ENDIF()
 IF(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   # Disable a few default Clang++ warnings
   STRING_APPEND(MY_CXX_WARNING_FLAGS " -Wno-null-conversion -Wno-unused-private-field")
+  STRING_APPEND(MY_CXX_WARNING_FLAGS " -Wno-unused-command-line-argument")
 
   STRING_APPEND(MY_CXX_WARNING_FLAGS " -Wconditional-uninitialized")
   STRING_APPEND(MY_CXX_WARNING_FLAGS " -Wdeprecated")
