@@ -183,7 +183,7 @@ const struct my_glob_errors globerrs[GLOBERRS] = {
      "Failed to reset before a territory ignorable character %s."},
     {"EE_SHIFT_CHAR_OUT_OF_RANGE", "Shift character out of range: %s."},
     {"EE_RESET_CHAR_OUT_OF_RANGE", "Reset character out of range: %s."},
-    {"EE_UNKNOWN_LDML_TAG"
+    {"EE_UNKNOWN_LDML_TAG",
      "Unknown LDML tag: '%.*s'."}};
 
 /*
