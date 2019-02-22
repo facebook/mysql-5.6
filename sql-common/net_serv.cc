@@ -675,7 +675,7 @@ static net_async_status net_write_vector_nonblocking(NET *net, ssize_t *res) {
 #endif
           // In the unlikely event that there is a renegotiation and
           // SSL_ERROR_WANT_READ is returned, set blocking state to read.
-          if (static_cast<size_t>(*res) == VIO_SOCKET_WANT_READ) {
+          if (*res == VIO_SOCKET_WANT_READ) {
             net->async_blocking_state = NET_NONBLOCKING_READ;
           } else {
             net->async_blocking_state = NET_NONBLOCKING_WRITE;
@@ -936,7 +936,7 @@ static bool net_write_raw_loop(NET *net, const uchar *buf, size_t count) {
   unsigned int retry_count = 0;
 
   while (count) {
-    size_t sentcnt = vio_write(net->vio, buf, count);
+    ssize_t sentcnt = vio_write(net->vio, buf, count);
 
     if (sentcnt == VIO_SOCKET_READ_TIMEOUT ||
         sentcnt == VIO_SOCKET_WRITE_TIMEOUT) {
@@ -1277,7 +1277,7 @@ static bool net_read_raw_loop(NET *net, size_t count) {
   uchar *buf = net->buff + net->where_b;
 
   while (count) {
-    size_t recvcnt = vio_read(net->vio, buf, count);
+    ssize_t recvcnt = vio_read(net->vio, buf, count);
 
     if (recvcnt == VIO_SOCKET_READ_TIMEOUT ||
         recvcnt == VIO_SOCKET_WRITE_TIMEOUT) {
@@ -1422,7 +1422,7 @@ static bool net_read_packet_header(NET *net) {
    (when renegotiation occurs).
 */
 static ulong net_read_available(NET *net, size_t count) {
-  size_t recvcnt;
+  ssize_t recvcnt;
   DBUG_ENTER(__func__);
 
   if (net->cur_pos + count > net->buff + net->max_packet) {

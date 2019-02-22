@@ -130,11 +130,11 @@ enum enum_vio_io_event {
   VIO_IO_EVENT_CONNECT
 };
 
-#define VIO_SOCKET_ERROR ((size_t)-1)
-#define VIO_SOCKET_WANT_READ ((size_t)-2)
-#define VIO_SOCKET_WANT_WRITE ((size_t)-3)
-#define VIO_SOCKET_READ_TIMEOUT ((size_t)-4)
-#define VIO_SOCKET_WRITE_TIMEOUT ((size_t)-5)
+#define VIO_SOCKET_ERROR ((ssize_t)-1)
+#define VIO_SOCKET_WANT_READ ((ssize_t)-2)
+#define VIO_SOCKET_WANT_WRITE ((ssize_t)-3)
+#define VIO_SOCKET_READ_TIMEOUT ((ssize_t)-4)
+#define VIO_SOCKET_WRITE_TIMEOUT ((ssize_t)-5)
 
 #define VIO_LOCALHOST 1            /* a localhost connection */
 #define VIO_BUFFERED_READ 2        /* use buffered read */

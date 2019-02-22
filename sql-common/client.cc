@@ -4719,7 +4719,7 @@ static net_async_status cli_establish_ssl_nonblocking(MYSQL *mysql, int *res) {
     enum enum_ssl_init_error ssl_init_error;
     const char *cert_error;
     unsigned long ssl_error;
-    size_t ret;
+    ssize_t ret;
 
     MYSQL_TRACE_STAGE(mysql, SSL_NEGOTIATION);
 

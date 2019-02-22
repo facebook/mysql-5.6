@@ -439,10 +439,10 @@ typedef int (*ssl_handshake_func_t)(SSL *);
   @return Return value is 1 on success.
 */
 
-static size_t ssl_handshake_loop(Vio *vio, SSL *ssl, ssl_handshake_func_t func,
+static ssize_t ssl_handshake_loop(Vio *vio, SSL *ssl, ssl_handshake_func_t func,
                                  unsigned long *ssl_errno_holder) {
   DBUG_ENTER(__func__);
-  size_t ret = -1;
+  ssize_t ret = -1;
 
   vio->ssl_arg = ssl;
 
@@ -590,7 +590,7 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
     ssl = *sslptr;
   }
 
-  size_t loop_ret;
+  ssize_t loop_ret;
 
   /*
     At this point, the vio is still the non-SSL vio, but the socket is
