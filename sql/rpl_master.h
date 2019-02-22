@@ -29,7 +29,7 @@
 #include "mysql_com.h"      // HOSTNAME_LENGTH
 #include "sql/sql_const.h"  // MAX_PASSWORD_LENGTH
 
-class Gtid;
+struct Gtid;
 class Gtid_set;
 class String;
 class Sid_map;
