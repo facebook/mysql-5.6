@@ -501,7 +501,7 @@ class Per_user_session_variables {
   PSI_rwlock_key key_rwlock_LOCK_per_user_session_var;
   PSI_rwlock_info key_rwlock_LOCK_per_user_session_var_info[1] = {
       {&key_rwlock_LOCK_per_user_session_var,
-       "Per_user_session_variables::rwlock", 0}};
+       "Per_user_session_variables::rwlock", 0, 0, PSI_DOCUMENT_ME}};
 
  public:
   Per_user_session_variables();
