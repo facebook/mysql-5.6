@@ -640,6 +640,7 @@ uint Rdb_key_def::get_primary_key_tuple(const TABLE *const table,
                                         uchar *const pk_buffer) const {
   DBUG_ASSERT(table != nullptr);
   DBUG_ASSERT(key != nullptr);
+  DBUG_ASSERT(m_index_type == Rdb_key_def::INDEX_TYPE_SECONDARY);
   DBUG_ASSERT(pk_buffer);
 
   uint size = 0;
