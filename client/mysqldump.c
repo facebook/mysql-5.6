@@ -121,6 +121,7 @@ static my_bool  verbose= 0, opt_no_create_info= 0, opt_no_data= 0,
                 opt_events= 0, opt_comments_used= 0,
                 opt_alltspcs=0, opt_notspcs= 0, opt_drop_trigger= 0,
                 opt_secure_auth= 1, opt_rocksdb= 0, opt_rocksdb_bulk_load= 0,
+                opt_rocksdb_bulk_load_allow_sk= 0,
                 opt_order_by_primary_desc=0,
                 opt_view_error= 1,
                 opt_ignore_views = 0;
@@ -658,9 +659,13 @@ static struct my_option my_long_options[] =
 #endif
   {"rocksdb", OPT_USE_ROCKSDB, "Take RocksDB backup.",
    &opt_rocksdb, &opt_rocksdb, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
-  {"rocksdb_bulk_load", OPT_USE_ROCKSDB, "Generate rocksdb_bulk_load option.",
+  {"rocksdb_bulk_load", 0, "Generate rocksdb_bulk_load option.",
    &opt_rocksdb_bulk_load, &opt_rocksdb_bulk_load, 0, GET_BOOL, NO_ARG,
    0, 0, 0, 0, 0, 0},
+  {"rocksdb_bulk_load_allow_sk", 0,
+   "Set rocksdb_bulk_load_allow_sk option when --rocksdb_bulk_load is used.",
+   &opt_rocksdb_bulk_load_allow_sk, &opt_rocksdb_bulk_load_allow_sk, 0,
+   GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
   {"verbose", 'v', "Print info about the various stages.",
    &verbose, &verbose, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
   {"version",'V', "Output version information and exit.", 0, 0, 0,
@@ -860,6 +865,7 @@ static void write_header(FILE *sql_file, char *db_name)
             compatible_mode_normal_str);
 
     if (opt_rocksdb_bulk_load)
+    {
       fprintf(sql_file,
               "/*!50601 SELECT count(*) INTO @is_mysql8 FROM"
               " information_schema.TABLES WHERE"
@@ -871,11 +877,23 @@ static void write_header(FILE *sql_file, char *db_name)
               " '_schema.session_variables WHERE"
               " variable_name=\\'rocksdb_bulk_load\\'') */;\n"
               "/*!50601 PREPARE s FROM @check_rocksdb */;\n"
-              "/*!50601 EXECUTE s */;\n"
+              "/*!50601 EXECUTE s */;\n");
+
+      if (opt_rocksdb_bulk_load_allow_sk)
+        fprintf(sql_file,
+                "/*!50601 SET @bulk_load_allow_sk = IF (@is_rocksdb_supported,"
+                " 'SET SESSION rocksdb_bulk_load_allow_sk=1',"
+                " 'SET @dummy = 0') */;\n"
+                "/*!50601 PREPARE s FROM @bulk_load_allow_sk */;\n"
+                "/*!50601 EXECUTE s */;\n");
+
+      fprintf(sql_file,
               "/*!50601 SET @enable_bulk_load = IF (@is_rocksdb_supported,"
               " 'SET SESSION rocksdb_bulk_load=1', 'SET @dummy = 0') */;\n"
               "/*!50601 PREPARE s FROM @enable_bulk_load */;\n"
               "/*!50601 EXECUTE s */;\n");
+    }
+
     check_io(sql_file);
   }
 } /* write_header */
@@ -903,6 +921,15 @@ static void write_footer(FILE *sql_file)
               "/*!50601 SET @disable_bulk_load = IF (@is_rocksdb_supported, "
               "'SET SESSION rocksdb_bulk_load=0', 'SET @dummy = 0') */;\n"
               "/*!50601 PREPARE s FROM @disable_bulk_load */;\n"
+              "/*!50601 EXECUTE s */;\n");
+
+    if (opt_rocksdb_bulk_load_allow_sk)
+      fprintf(sql_file,
+              "/*!50601 SET @disable_bulk_load_allow_sk = "
+              "IF (@is_rocksdb_supported, "
+              "'SET SESSION rocksdb_bulk_load_allow_sk=0', "
+              "'SET @dummy = 0') */;\n"
+              "/*!50601 PREPARE s FROM @disable_bulk_load_allow_sk */;\n"
               "/*!50601 EXECUTE s */;\n");
 
     if (opt_tz_utc)
