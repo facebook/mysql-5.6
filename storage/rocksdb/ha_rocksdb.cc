@@ -5962,14 +5962,14 @@ void ha_rocksdb::setup_read_decoders() {
 
     if (field_requested) {
       // We will need to decode this field
-      m_decoders_vect.push_back({&m_encoder_arr[i], true, skip_size});
+      m_decoders_vect.emplace_back(&m_encoder_arr[i], true, skip_size);
       last_useful = m_decoders_vect.size();
       skip_size = 0;
     } else {
       if (m_encoder_arr[i].uses_variable_len_encoding() ||
           m_encoder_arr[i].maybe_null()) {
         // For variable-length field, we need to read the data and skip it
-        m_decoders_vect.push_back({&m_encoder_arr[i], false, skip_size});
+        m_decoders_vect.emplace_back(&m_encoder_arr[i], false, skip_size);
         skip_size = 0;
       } else {
         // Fixed-width field can be skipped without looking at it.

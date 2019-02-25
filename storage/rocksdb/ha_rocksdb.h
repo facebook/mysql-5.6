@@ -357,7 +357,9 @@ class ha_rocksdb : public my_core::handler {
 
   /* Describes instructions on how to decode the field */
   class READ_FIELD {
-  public:
+   public:
+    READ_FIELD(Rdb_field_encoder *field_enc, bool decode, int skip_size)
+        : m_field_enc(field_enc), m_decode(decode), m_skip(skip_size) {}
     /* Points to Rdb_field_encoder describing the field */
     Rdb_field_encoder *m_field_enc;
     /* if true, decode the field, otherwise skip it */
