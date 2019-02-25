@@ -112,17 +112,9 @@ const std::string DEFAULT_CF_NAME("default");
 const std::string DEFAULT_SYSTEM_CF_NAME("__system__");
 const std::string PER_INDEX_CF_NAME("$per_index_cf");
 
-class Rdb_explicit_snapshot;
-
-std::mutex explicit_snapshot_mutex;
-ulonglong explicit_snapshot_counter = 0;
-std::unordered_map<ulonglong, std::weak_ptr<Rdb_explicit_snapshot>>
-    explicit_snapshots;
 static std::vector<GL_INDEX_ID> rdb_indexes_to_recalc;
 
 class Rdb_explicit_snapshot : public explicit_snapshot {
-  std::unique_ptr<rocksdb::ManagedSnapshot> snapshot;
-
  public:
   static std::shared_ptr<Rdb_explicit_snapshot>
   create(snapshot_info_st *ss_info, rocksdb::DB *db,
@@ -140,6 +132,22 @@ class Rdb_explicit_snapshot : public explicit_snapshot {
     }
     explicit_snapshots[ss_info->snapshot_id] = ret;
     return ret;
+  }
+
+  static std::string dump_snapshots() {
+    std::string str;
+    std::lock_guard<std::mutex> lock(explicit_snapshot_mutex);
+    for (const auto &elem : explicit_snapshots) {
+      const auto &ss = elem.second.lock();
+      DBUG_ASSERT(ss != nullptr);
+      const auto &info = ss->ss_info;
+      str += "\nSnapshot ID: " + std::to_string(info.snapshot_id) +
+             "\nBinlog File: " + info.binlog_file +
+             "\nBinlog Pos: " + std::to_string(info.binlog_pos) +
+             "\nGtid Executed: " + info.gtid_executed + "\n";
+    }
+
+    return str;
   }
 
   static std::shared_ptr<Rdb_explicit_snapshot>
@@ -162,7 +170,20 @@ class Rdb_explicit_snapshot : public explicit_snapshot {
     std::lock_guard<std::mutex> lock(explicit_snapshot_mutex);
     explicit_snapshots.erase(ss_info.snapshot_id);
   }
+
+ private:
+  std::unique_ptr<rocksdb::ManagedSnapshot> snapshot;
+
+  static std::mutex explicit_snapshot_mutex;
+  static ulonglong explicit_snapshot_counter;
+  static std::unordered_map<ulonglong, std::weak_ptr<Rdb_explicit_snapshot>>
+      explicit_snapshots;
 };
+
+std::mutex Rdb_explicit_snapshot::explicit_snapshot_mutex;
+ulonglong Rdb_explicit_snapshot::explicit_snapshot_counter = 0;
+std::unordered_map<ulonglong, std::weak_ptr<Rdb_explicit_snapshot>>
+    Rdb_explicit_snapshot::explicit_snapshots;
 
 /**
   Updates row counters based on the table type and operation type.
@@ -4179,19 +4200,7 @@ static bool rocksdb_show_status(handlerton *const hton, THD *const thd,
     }
 
     /* Explicit snapshot information */
-    str.clear();
-    {
-      std::lock_guard<std::mutex> lock(explicit_snapshot_mutex);
-      for (const auto &elem : explicit_snapshots) {
-        const auto &ss = elem.second.lock();
-        DBUG_ASSERT(ss != nullptr);
-        const auto &info = ss->ss_info;
-        str += "\nSnapshot ID: " + std::to_string(info.snapshot_id) +
-               "\nBinlog File: " + info.binlog_file +
-               "\nBinlog Pos: " + std::to_string(info.binlog_pos) +
-               "\nGtid Executed: " + info.gtid_executed + "\n";
-      }
-    }
+    str = Rdb_explicit_snapshot::dump_snapshots();
     if (!str.empty()) {
       res |= print_stats(thd, "EXPLICIT_SNAPSHOTS", "rocksdb", str, stat_print);
     }
