@@ -3415,10 +3415,12 @@ bool Rdb_tbl_def::put_dict(Rdb_dict_manager *const dict,
     }
 
     rdb_netstr_append_uint32(&indexes, cf_id);
-    rdb_netstr_append_uint32(&indexes, kd.m_index_number);
+
+    uint32 index_number = kd.get_index_number();
+    rdb_netstr_append_uint32(&indexes, index_number);
 
     struct Rdb_index_info index_info;
-    index_info.m_gl_index_id = {cf_id, kd.m_index_number};
+    index_info.m_gl_index_id = {cf_id, index_number};
     index_info.m_index_dict_version = Rdb_key_def::INDEX_INFO_VERSION_LATEST;
     index_info.m_index_type = kd.m_index_type;
     index_info.m_kv_version = kd.m_kv_format_version;
