@@ -537,8 +537,9 @@ int Binlog_sender::send_events(File_reader *reader, my_off_t end_pos) {
       DBUG_ASSERT(now >= m_last_event_sent_ts);
 
       // if enough time has elapsed so that we should send another heartbeat
-      if ((now - m_last_event_sent_ts) >= m_heartbeat_period) {
-        if (unlikely(send_heartbeat_event(log_pos))) return 1;
+      if ((now - m_last_event_sent_ts) >= m_heartbeat_period ||
+          DBUG_EVALUATE_IF("send_zero_hb_event", true, false)) {
+        if (unlikely(send_heartbeat_event(log_pos, false))) return 1;
         exclude_group_end_pos = 0;
       } else {
         exclude_group_end_pos = log_pos;
@@ -557,7 +558,8 @@ int Binlog_sender::send_events(File_reader *reader, my_off_t end_pos) {
         tmp.copy(m_packet);
         tmp.length(m_packet.length());
 
-        if (unlikely(send_heartbeat_event(exclude_group_end_pos))) return 1;
+        if (unlikely(send_heartbeat_event(exclude_group_end_pos, false)))
+          return 1;
         exclude_group_end_pos = 0;
 
         /* Restore the copy back. */
@@ -578,7 +580,7 @@ int Binlog_sender::send_events(File_reader *reader, my_off_t end_pos) {
     master_log_pos correctly.
   */
   if (unlikely(in_exclude_group)) {
-    if (send_heartbeat_event(log_pos)) return 1;
+    if (send_heartbeat_event(log_pos, false)) return 1;
   }
   return 0;
 }
@@ -712,7 +714,7 @@ inline int Binlog_sender::wait_with_heartbeat(my_off_t log_pos) {
                ER_RPL_BINLOG_SKIPPING_REMAINING_HEARTBEAT_INFO);
     }
 #endif
-    if (send_heartbeat_event(log_pos)) return 1;
+    if (send_heartbeat_event(log_pos, true)) return 1;
   } while (!m_thd->killed);
 
   return ret ? 1 : 0;
@@ -1138,7 +1140,7 @@ inline int Binlog_sender::read_event(File_reader *reader, uchar **event_ptr,
   return 0;
 }
 
-int Binlog_sender::send_heartbeat_event(my_off_t log_pos) {
+int Binlog_sender::send_heartbeat_event(my_off_t log_pos, bool send_timestamp) {
   DBUG_TRACE;
   const char *filename = m_linfo.log_file_name;
   const char *p = filename + dirname_length(filename);
@@ -1155,7 +1157,14 @@ int Binlog_sender::send_heartbeat_event(my_off_t log_pos) {
   uchar *header = pointer_cast<uchar *>(m_packet.ptr()) + event_offset;
 
   /* Timestamp field */
-  int4store(header, 0);
+  // NOTE: if @last_master_timestamp is provided we're a slave and we use this
+  // value in the HB event otherwise we use now()
+  time_t ts = 0;
+  if (send_timestamp) {
+    ts = mysql_bin_log.last_master_timestamp.load();
+    if (ts == 0) ts = time(0);
+  }
+  int4store(header, ts);
   header[EVENT_TYPE_OFFSET] = binary_log::HEARTBEAT_LOG_EVENT;
   int4store(header + SERVER_ID_OFFSET, server_id);
   int4store(header + EVENT_LEN_OFFSET, event_len);

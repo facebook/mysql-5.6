@@ -1,0 +1,7 @@
+!include ../my.cnf
+
+
+[mysqld.3]
+
+[ENV]
+SERVER_MYPORT_3= @mysqld.3.port

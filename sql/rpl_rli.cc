@@ -402,7 +402,7 @@ void Relay_log_info::reset_notified_checkpoint(ulong shift, time_t new_ts,
 
   if (update_timestamp) {
     mysql_mutex_lock(&data_lock);
-    last_master_timestamp = new_ts;
+    set_last_master_timestamp(std::min(time(nullptr), new_ts));
     mysql_mutex_unlock(&data_lock);
   }
 }

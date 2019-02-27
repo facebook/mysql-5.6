@@ -340,6 +340,9 @@ class MYSQL_BIN_LOG : public TC_LOG {
   MYSQL_BIN_LOG(uint *sync_period, bool relay_log = false);
   ~MYSQL_BIN_LOG();
 
+  // copy of Relay_log_info::last_master_timestamp
+  std::atomic<time_t> last_master_timestamp;
+
   void set_psi_keys(
       PSI_mutex_key key_LOCK_index, PSI_mutex_key key_LOCK_commit,
       PSI_mutex_key key_LOCK_commit_queue, PSI_mutex_key key_LOCK_done,

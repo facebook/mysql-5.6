@@ -817,6 +817,11 @@ class Relay_log_info : public Rpl_info {
 
   time_t last_master_timestamp;
 
+  void set_last_master_timestamp(time_t ts) {
+    last_master_timestamp = ts;
+    mysql_bin_log.last_master_timestamp.store(last_master_timestamp);
+  }
+
   /**
     Reset the delay.
     This is used by RESET SLAVE to clear the delay.

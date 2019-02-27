@@ -4786,8 +4786,8 @@ static int exec_relay_log_event(THD *thd, Relay_log_info *rli,
         !(ev->is_artificial_event() || ev->is_relay_log_event() ||
           ev->get_type_code() == binary_log::FORMAT_DESCRIPTION_EVENT ||
           ev->server_id == 0)) {
-      rli->last_master_timestamp =
-          ev->common_header->when.tv_sec + (time_t)ev->exec_time;
+      rli->set_last_master_timestamp(ev->common_header->when.tv_sec +
+                                     (time_t)ev->exec_time);
       DBUG_ASSERT(rli->last_master_timestamp >= 0);
     }
 
@@ -7579,6 +7579,17 @@ QUEUE_EVENT_RESULT queue_event(Master_info *mi, const char *buf,
       mi->last_heartbeat = my_getsystime() / 10;
 
       /*
+        Update the last_master_timestamp if the heartbeat from the master
+        has a greater timestamp value, this makes sure last_master_timestamp
+        is always monotonically increasing
+      */
+      mysql_mutex_lock(&rli->data_lock);
+      if (hb.common_header->when.tv_sec > rli->last_master_timestamp) {
+        rli->set_last_master_timestamp(hb.common_header->when.tv_sec);
+      }
+      mysql_mutex_unlock(&rli->data_lock);
+
+      /*
         During GTID protocol, if the master skips transactions,
         a heartbeat event is sent to the slave at the end of last
         skipped transaction to update coordinates.
@@ -8939,6 +8950,8 @@ int reset_slave(THD *thd, Master_info *mi, bool reset_all) {
     mi->channel_unlock();
     goto err;
   }
+
+  mysql_bin_log.last_master_timestamp.store(0);
 
   DBUG_ASSERT(!mi->rli || !mi->rli->slave_running);  // none writes in rli table
   if ((reset_all && remove_info(mi)) ||  // Removes all repository information.
