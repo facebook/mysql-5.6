@@ -1,0 +1,41 @@
+include/rpl_init.inc [topology=1->2->3]
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+include/rpl_connect.inc [creating master]
+include/rpl_connect.inc [creating master1]
+include/rpl_connect.inc [creating slave]
+include/rpl_connect.inc [creating slave1]
+include/rpl_connect.inc [creating slave_2]
+STOP SLAVE;
+CHANGE MASTER TO MASTER_HEARTBEAT_PERIOD=2;
+START SLAVE;
+STOP SLAVE;
+CHANGE MASTER TO MASTER_HEARTBEAT_PERIOD=2;
+SET GLOBAL RESET_SECONDS_BEHIND_MASTER=0;
+START SLAVE;
+CREATE TABLE t1(a INT);
+INSERT INTO t1 VALUES(0);
+include/save_master_pos.inc
+include/sync_slave_sql.inc
+include/save_master_pos.inc
+include/sync_slave_sql.inc
+include/assert.inc [Seconds behind master should be between 0 and HB period]
+STOP SLAVE;
+include/assert.inc [Seconds behind master should keep increasing when intermidiate slave is stopped]
+START SLAVE;
+include/rpl_stop_server.inc [server_number=1]
+include/assert.inc [Seconds behind master should keep increasing when master is killed]
+include/rpl_start_server.inc [server_number=1]
+DROP TABLE t1;
+STOP SLAVE;
+CHANGE MASTER TO MASTER_HEARTBEAT_PERIOD=30.000;
+START SLAVE;
+STOP SLAVE;
+CHANGE MASTER TO MASTER_HEARTBEAT_PERIOD=30.000;
+SET GLOBAL RESET_SECONDS_BEHIND_MASTER=1;
+START SLAVE;
+include/rpl_end.inc
