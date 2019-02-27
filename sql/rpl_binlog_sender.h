@@ -291,10 +291,12 @@ class Binlog_sender : Gtid_mode_copy {
      It sends a heartbeat to the client.
 
      @param[in] log_pos  The log position that events before it are sent.
+     @param[in] send_timestamp     flag enables sending the HB event with
+                               the current timestamp: time().
 
      @return It returns 0 if succeeds, otherwise 1 is returned.
   */
-  int send_heartbeat_event(my_off_t log_pos);
+  int send_heartbeat_event(my_off_t log_pos, bool send_timestamp);
 
   /**
      It reads an event from binlog file. this function can set event_ptr either
