@@ -58,7 +58,7 @@ bool schema_exists(THD *thd, const char *schema_name, bool *exists) {
 }
 
 bool create_schema(THD *thd, const char *schema_name,
-                   const CHARSET_INFO *charset_info) {
+                   const CHARSET_INFO *charset_info, const char *db_metadata) {
   // Create dd::Schema object.
   std::unique_ptr<dd::Schema> schema(dd::create_object<dd::Schema>());
 
@@ -66,6 +66,7 @@ bool create_schema(THD *thd, const char *schema_name,
   schema->set_name(schema_name);
   DBUG_ASSERT(charset_info);
   schema->set_default_collation_id(charset_info->number);
+  schema->set_db_metadata(db_metadata != nullptr ? db_metadata : "");
 
   // Get statement start time.
   MYSQL_TIME curtime;

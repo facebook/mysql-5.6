@@ -1,0 +1,159 @@
+# Test per-database database-metadata attribute
+
+let $MYSQLD_DATADIR= `select @@datadir`;
+
+# create database without any options
+create database test2;
+show create database test2;
+
+# create database with character set
+create database test3 character set utf8;
+show create database test3;
+
+# create database with read only
+create database test4 read_only = true;
+show create database test4;
+
+# create database with db metadata
+create database test5 db_metadata = "{\"shard\":\"test5_shard\"}";
+show create database test5;
+
+# verify show create is valid
+--let $db_create=query_get_value(show create database test5, 'Create Database', 1)
+drop database test5;
+eval $db_create;
+show create database test5;
+
+# create database with character set and db metadata
+create database test6 character set utf8 db_metadata = "{\"shard\":\"test6_shard\"}";
+show create database test6;
+
+# create database with read only and db metadata
+create database test7 read_only = true db_metadata = "{\"shard\":\"test7_shard\"}";
+show create database test7;
+
+# create database with character set and read only
+create database test8 character set utf8 read_only = true;
+show create database test8;
+
+# create database with character set, read only and db metadata
+create database test9 character set utf8 read_only = true db_metadata = "{\"shard\":\"test9_shard\"}";
+show create database test9;
+
+# alter database tests
+
+# alter database character set
+alter database test3 character set ascii;
+show create database test3;
+
+# alter database read only
+alter database test4 read_only = true;
+show create database test4;
+
+# alter database db metadata
+alter database test5 db_metadata = "{\"shard\":\"test5_shard_altered\"}";
+show create database test5;
+
+# alter database character set but keep db metadata intact
+alter database test5 character set ascii;
+show create database test5;
+
+# alter database read only but keep db metadata intact
+alter database test5 read_only = true;
+show create database test5;
+
+# alter database character set and read only but keep db metadata intact
+alter database test5 character set utf8 read_only = false;
+show create database test5;
+
+# alter database reset db metadata
+alter database test5 db_metadata "";
+show create database test5;
+
+# alter database set db metadata to max length string
+alter database test5 db_metadata "{\"shard\":\"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin\"}";
+show create database test5;
+
+# alter database exceed db metadata max length
+--error ER_DB_METADATA_TOO_LONG
+--eval alter database test5 db_metadata \"{\\\"shard\\\":\\\"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin\\\"}\";
+
+# alter database character set and db metadata
+alter database test6 character set ascii db_metadata = "{\"shard\":\"test6_shard_altered\"}";
+show create database test6;
+
+# alter database read only and db metadata
+alter database test7 read_only = true db_metadata = "{\"shard\":\"test7_shard_altered\"}";
+show create database test7;
+
+# alter database character set and read only
+alter database test8 character set ascii read_only = true;
+show create database test8;
+
+# alter database character set, read only and db metadata
+alter database test9 character set ascii read_only = true db_metadata = "{\"shard\":\"test9_shard_altered\"}";
+show create database test9;
+
+# ensure information_schema and mysql tables are intact
+show create database information_schema;
+show create database mysql;
+
+--error ER_DBACCESS_DENIED_ERROR
+alter database information_schema db_metadata "{\"shard\":\"is_shard\"}";
+
+# alter database with invalid JSON string for db_metadata
+ --error ER_DB_METADATA_INVALID_JSON
+alter database test9 db_metadata = "invalid_json";
+show create database test9;
+
+
+
+# create database without any options
+create database test10;
+show create database test10;
+
+# alter database read only
+alter database test10 read_only = true;
+show create database test10;
+
+# alter database db metadata
+alter database test10 db_metadata = "{\"shard\":\"test10_shard_altered\"}";
+show create database test10;
+
+# alter database read only
+alter database test10 read_only = false;
+show create database test10;
+
+# create database with single quotation
+--error ER_DB_METADATA_INVALID_JSON
+create database test11 db_metadata = "{\'shard\':\'test11_shard\'}";
+
+# create database with double quote around metadata with single and double quotes in value
+create database test12 db_metadata = "{\"sha'rd\":\"test12\\\"_shard\"}";
+show create database test12;
+--let $db_create=query_get_value(show create database test12, 'Create Database', 1)
+drop database test12;
+eval $db_create;
+show create database test12;
+
+# create database with single quote around metadata with single and double quotes in value
+create database test13 db_metadata = '{"sha\'\\"rd":"test13\'_sh\\"ard"}';
+show create database test13;
+--let $db_create=query_get_value(show create database test13, 'Create Database', 1)
+drop database test13;
+eval $db_create;
+show create database test13;
+
+
+# cleanup
+drop database test2;
+drop database test3;
+drop database test4;
+drop database test5;
+drop database test6;
+drop database test7;
+drop database test8;
+drop database test9;
+drop database test10;
+drop database test12;
+drop database test13;

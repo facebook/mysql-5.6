@@ -106,6 +106,27 @@ bool Schema_impl::set_options_raw(const String_type &options_raw) {
   return false;
 }
 
+static constexpr auto db_metadata_key = "db_metadata";
+
+bool Schema_impl::set_db_metadata(const String_type &metadata) {
+  if (metadata.empty()) {
+    if (options().exists(db_metadata_key)) {
+      options().remove(db_metadata_key);
+    }
+  } else {
+    options().set(db_metadata_key, metadata);
+  }
+  return true;
+}
+
+String_type Schema_impl::get_db_metadata() const noexcept {
+  if (options().exists(db_metadata_key)) {
+    return options().value(db_metadata_key);
+  }
+
+  return "";
+}
+
 ///////////////////////////////////////////////////////////////////////////
 
 bool Schema_impl::restore_attributes(const Raw_record &r) {

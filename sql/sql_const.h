@@ -287,6 +287,8 @@ static const ulong EVENT_DEF_CACHE_MIN = 256;
 */
 #define MAX_TIME_ZONE_NAME_LENGTH (NAME_LEN + 1)
 
+#define DB_METADATA_MAX_LENGTH 1024 /* Max length for the db-metadata option */
+
 #if defined(_WIN32)
 #define INTERRUPT_PRIOR -2
 #define CONNECT_PRIOR -1
