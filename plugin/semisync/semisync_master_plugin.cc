@@ -107,8 +107,9 @@ int repl_semi_binlog_dump_start(Binlog_transmit_param *param,
     binlog events before the filename and position it requests.
   */
   int err= repl_semisync.reportReplyBinlog(param->server_id, log_file, log_pos);
-  // case: whitelist error, so it's okay to close the dump thread
-  if (err == 2)
+  // case: whitelist error or wait for ACK is enabled, so it's okay to close the
+  // dump thread
+  if (unlikely(err && (rpl_wait_for_semi_sync_ack || err == 2)))
   {
     ret = 1;
   }
@@ -166,11 +167,11 @@ int repl_semi_after_send_event(Binlog_transmit_param *param,
                                           param->server_id,
                                           event_buf);
     /*
-      Possible errors in reading slave reply EXCEPT whitelist related errors
-      are ignored deliberately because we do not want dump thread to quit.
-      Error messages are already reported.
+      Possible errors in reading slave reply EXCEPT whitelist related errors or
+      if waiting for ACK is enabled are ignored deliberately because we do not
+      want dump thread to quit. Error messages are already reported.
     */
-    if (err == 2)
+    if (unlikely(err && (rpl_wait_for_semi_sync_ack || err == 2)))
     {
       ret = 1;
     }

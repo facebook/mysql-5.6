@@ -2060,7 +2060,10 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   // case: let's assume semi-sync acks have been received for binlog pos being
   // requested by the acker
   if (semi_sync_slave && !skip_group && rpl_wait_for_semi_sync_ack)
-    signal_semi_sync_ack(p_start_coord);
+  {
+    const LOG_POS_COORD start_coord= { p_coord->file_name, p_start_coord->pos };
+    signal_semi_sync_ack(&start_coord);
+  }
 
   has_transmit_started= true;
   /* reset transmit packet for the fake rotate event below */
