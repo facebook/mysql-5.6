@@ -1,7 +1,4 @@
 # Warning: this works for clang-3.7 and later
-# These seem to cause parsing errors in sanitizer
-#odr_violation:*yaSSL*
-#odr_violation:*TaoCrypt*
+odr_violation:*yaSSL*
+odr_violation:*TaoCrypt*
 
-# Suppress openssl reported error during dl_open
-leak:DSO_load
