@@ -1,0 +1,136 @@
+# Tests the behavior of heartbeat timestamps
+#
+# First we create a chain topology with two slaves i.e. master->slave->slave_2.
+# We disable RESET_SECONDS_BEHIND_MASTER in slave_2 so that
+# Seconds_Behind_Master depends on incoming events instead of difference between
+# IO and SQL thread. Then we check that when the master is running the lag on
+# slave_2 is between 0 and heartbeat period. We then kill the master and
+# check if the lag on slave_2 keeps increasing.
+
+source include/not_valgrind.inc;
+source include/not_parallel.inc;
+
+let $rpl_server_count= 3;
+let $rpl_topology= 1->2->3;
+source include/rpl_init.inc;
+
+let $rpl_connection_name= master;
+let $rpl_server_number= 1;
+source include/rpl_connect.inc;
+
+let $rpl_connection_name= master1;
+let $rpl_server_number= 1;
+source include/rpl_connect.inc;
+
+let $rpl_connection_name= slave;
+let $rpl_server_number= 2;
+source include/rpl_connect.inc;
+
+let $rpl_connection_name= slave1;
+let $rpl_server_number= 2;
+source include/rpl_connect.inc;
+
+let $rpl_connection_name= slave_2;
+let $rpl_server_number= 3;
+source include/rpl_connect.inc;
+
+connection slave;
+let $old_slave_heartbeat_period= query_get_value(select heartbeat_interval from performance_schema.replication_connection_configuration, heartbeat_interval, 1);
+let $new_slave_heartbeat_period= 2;
+let $heartbeat_guarantee_sleep= `SELECT $new_slave_heartbeat_period + 1`;
+
+connection slave;
+--source include/stop_slave.inc
+eval CHANGE REPLICATION SOURCE TO SOURCE_HEARTBEAT_PERIOD=$new_slave_heartbeat_period, SOURCE_RETRY_COUNT=90, SOURCE_CONNECT_RETRY=10;
+--source include/start_slave.inc
+
+connection slave_2;
+--source include/stop_slave.inc
+eval CHANGE REPLICATION SOURCE TO SOURCE_HEARTBEAT_PERIOD=$new_slave_heartbeat_period, SOURCE_RETRY_COUNT=90, SOURCE_CONNECT_RETRY=10;
+SET GLOBAL RESET_SECONDS_BEHIND_MASTER=0;
+--source include/start_slave.inc
+
+# Send some binlog events so that last_master_timestamp > 0
+connection master;
+CREATE TABLE t1(a INT);
+INSERT INTO t1 VALUES(0);
+
+# Sync slave 1
+connection default;
+source include/save_master_pos.inc;
+connection slave;
+source include/sync_slave_sql.inc;
+
+# Sync slave 2
+connection slave;
+source include/save_master_pos.inc;
+connection slave_2;
+source include/sync_slave_sql.inc;
+
+# Check if seconds behind master is between 0 and heartbeat period
+connection slave_2;
+sleep $heartbeat_guarantee_sleep;
+let $first= query_get_value("SHOW SLAVE STATUS", Seconds_Behind_Master, 1);
+
+let $assert_cond= ($first <= $new_slave_heartbeat_period && $first >= 0);
+let $assert_text= Seconds behind master should be between 0 and HB period;
+source include/assert.inc;
+
+
+# Check if seconds behind master keeps increasing when intermediate slave is
+# stopped
+connection slave;
+--source include/stop_slave.inc
+connection slave_2;
+sleep $heartbeat_guarantee_sleep;
+let $first= query_get_value("SHOW SLAVE STATUS", Seconds_Behind_Master, 1);
+sleep $heartbeat_guarantee_sleep;
+let $second= query_get_value("SHOW SLAVE STATUS", Seconds_Behind_Master, 1);
+
+let $assert_cond= $first < $second;
+let $assert_text= Seconds behind master should keep increasing when intermidiate slave is stopped;
+source include/assert.inc;
+
+connection slave;
+--source include/start_slave.inc
+
+
+# Kill the master
+let $rpl_server_number= 1;
+let $rpl_force_stop= 1;
+source include/rpl_stop_server.inc;
+
+
+# Check if seconds behind master keeps increasing
+connection slave_2;
+sleep $heartbeat_guarantee_sleep;
+let $first= query_get_value("SHOW SLAVE STATUS", Seconds_Behind_Master, 1);
+sleep $heartbeat_guarantee_sleep;
+let $second= query_get_value("SHOW SLAVE STATUS", Seconds_Behind_Master, 1);
+
+let $assert_cond= $first < $second;
+let $assert_text= Seconds behind master should keep increasing when master is killed;
+source include/assert.inc;
+
+let $rpl_server_number= 1;
+source include/rpl_start_server.inc;
+
+connection default;
+DROP TABLE t1;
+
+# Sync slaves
+sync_slave_with_master slave;
+sync_slave_with_master slave_2;
+
+connection slave;
+--source include/stop_slave.inc
+eval CHANGE REPLICATION SOURCE TO SOURCE_HEARTBEAT_PERIOD=$old_slave_heartbeat_period;
+--source include/start_slave.inc
+
+connection slave_2;
+--source include/stop_slave.inc
+eval CHANGE REPLICATION SOURCE TO SOURCE_HEARTBEAT_PERIOD=$old_slave_heartbeat_period;
+SET GLOBAL RESET_SECONDS_BEHIND_MASTER=1;
+--source include/start_slave.inc
+
+source include/rpl_end.inc;

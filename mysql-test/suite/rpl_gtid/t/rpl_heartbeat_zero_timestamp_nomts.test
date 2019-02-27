@@ -1,0 +1,7 @@
+################################################################################
+# Testing the second behind master is correct with timestamp in HB event
+################################################################################
+
+# Start a new master-slave
+let $parallel_workers=1;
+--source suite/rpl/include/rpl_heartbeat_zero_timestamp.inc
