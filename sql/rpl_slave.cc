@@ -5602,6 +5602,9 @@ reading event"))
         };);
       }
 #endif
+
+      DBUG_EXECUTE_IF("error_before_semi_sync_reply", goto err;);
+
       if (RUN_HOOK(binlog_relay_io, after_queue_event,
                    (thd, mi, event_buf, event_len, synced))) {
         mi->report(ERROR_LEVEL, ER_SLAVE_FATAL_ERROR,
