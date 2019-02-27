@@ -304,10 +304,12 @@ class Binlog_sender {
      It sends a heartbeat to the client.
 
      @param[in] log_pos  The log position that events before it are sent.
+     @param[in] send_timestamp     flag enables sending the HB event with
+                               the current timestamp: time().
 
      @return It returns 0 if succeeds, otherwise 1 is returned.
   */
-  int send_heartbeat_event_v1(my_off_t log_pos);
+  int send_heartbeat_event_v1(my_off_t log_pos, bool send_timestamp);
   /**
      It sends a heartbeat to the client, for the cases when the
      flag USE_HEARTBEAT_EVENT_V2 is set.
@@ -315,7 +317,7 @@ class Binlog_sender {
 
      @return It returns 0 if succeeds, otherwise 1 is returned.
   */
-  int send_heartbeat_event_v2(my_off_t log_pos);
+  int send_heartbeat_event_v2(my_off_t log_pos, bool send_timestamp);
   /**
      Checks if the heartbeat_version flag is set or not, and call the correct
      send_heartbeat_method accordingly.
@@ -324,7 +326,7 @@ class Binlog_sender {
 
      @return It returns 0 if succeeds, otherwise 1 is returned.
    */
-  int send_heartbeat_event(my_off_t log_pos);
+  int send_heartbeat_event(my_off_t log_pos, bool send_timestamp);
   /**
      It reads an event from binlog file. this function can set event_ptr either
      a valid buffer pointer or nullptr. nullptr means it arrives at the end of
