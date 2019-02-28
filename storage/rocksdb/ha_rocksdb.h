@@ -68,6 +68,7 @@
 
 namespace myrocks {
 
+class Rdb_converter;
 class Rdb_key_def;
 class Rdb_tbl_def;
 class Rdb_transaction;
@@ -169,11 +170,6 @@ class ha_rocksdb : public my_core::handler {
   */
   mutable bool m_pk_can_be_decoded;
 
-  /*
-   TRUE <=> Some fields in the PK may require unpack_info.
-  */
-  bool m_maybe_unpack_info;
-
   uchar *m_pk_tuple;        /* Buffer for storing PK in KeyTupleFormat */
   uchar *m_pk_packed_tuple; /* Buffer for storing PK in StorageFormat */
   // ^^ todo: change it to 'char*'? TODO: ^ can we join this with last_rowkey?
@@ -217,10 +213,13 @@ class ha_rocksdb : public my_core::handler {
   */
   uchar *m_pack_buffer;
 
+  /* class to convert between Mysql format and RocksDB format*/
+  std::shared_ptr<Rdb_converter> m_converter;
+
   /*
     Pointer to the original TTL timestamp value (8 bytes) during UPDATE.
   */
-  char m_ttl_bytes[ROCKSDB_SIZEOF_TTL_RECORD];
+  char *m_ttl_bytes;
   /*
     The TTL timestamp value can change if the explicit TTL column is
     updated. If we detect this when updating the PK, we indicate it here so
@@ -353,55 +352,12 @@ class ha_rocksdb : public my_core::handler {
   void set_last_rowkey(const uchar *const old_data);
 
   /*
-    Array of table->s->fields elements telling how to store fields in the
-    record.
-  */
-  Rdb_field_encoder *m_encoder_arr;
-
-  /* Describes instructions on how to decode the field */
-  class READ_FIELD {
-   public:
-    READ_FIELD(Rdb_field_encoder *field_enc, bool decode, int skip_size)
-        : m_field_enc(field_enc), m_decode(decode), m_skip(skip_size) {}
-    /* Points to Rdb_field_encoder describing the field */
-    Rdb_field_encoder *m_field_enc;
-    /* if true, decode the field, otherwise skip it */
-    bool m_decode;
-    /* Skip this many bytes before reading (or skipping) this field */
-    int m_skip;
-  };
-
-  /*
-    This tells which table fields should be decoded (or skipped) when
-    decoding table row from (pk, encoded_row) pair. (Secondary keys are
-    just always decoded in full currently)
-  */
-  std::vector<READ_FIELD> m_decoders_vect;
-
-  /*
-    This tells if any field which is part of the key needs to be unpacked and
-    decoded.
-   */
-  bool m_key_requested = false;
-
-  /* Setup field_decoders based on type of scan and table->read_set */
-  void setup_read_decoders();
-
-  /*
     For the active index, indicates which columns must be covered for the
     current lookup to be covered. If the bitmap field is null, that means this
     index does not cover the current lookup for any record.
    */
   MY_BITMAP m_lookup_bitmap = {nullptr, 0, 0, nullptr, nullptr};
 
-  /*
-    Number of bytes in on-disk (storage) record format that are used for
-    storing SQL NULL flags.
-  */
-  uint m_null_bytes_in_rec;
-
-  void get_storage_type(Rdb_field_encoder *const encoder, const uint kp);
-  void setup_field_converters();
   int alloc_key_buffers(const TABLE *const table_arg,
                         const Rdb_tbl_def *const tbl_def_arg,
                         bool alloc_alter_buffers = false)
@@ -417,12 +373,6 @@ class ha_rocksdb : public my_core::handler {
   Rdb_io_perf m_io_perf;
 
   /*
-    A counter of how many row checksums were checked for this table. Note that
-    this does not include checksums for secondary index entries.
-  */
-  my_core::ha_rows m_row_checksums_checked;
-
-  /*
     Update stats
   */
   void update_stats(void);
@@ -435,8 +385,6 @@ public:
   */
   bool m_store_row_debug_checksums;
 
-  /* Same as above but for verifying checksums when reading */
-  bool m_verify_row_debug_checksums;
   int m_checksums_pct;
 
   ha_rocksdb(my_core::handlerton *const hton,
@@ -531,21 +479,6 @@ public:
   }
 
   int rename_table(const char *const from, const char *const to) override
-      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-
-  int convert_blob_from_storage_format(my_core::Field_blob *const blob,
-                                       Rdb_string_reader *const reader,
-                                       bool decode)
-      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-
-  int convert_varchar_from_storage_format(
-      my_core::Field_varstring *const field_var,
-      Rdb_string_reader *const reader, bool decode)
-      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-
-  int convert_field_from_storage_format(my_core::Field *const field,
-                                        Rdb_string_reader *const reader,
-                                        bool decode, uint len)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   int convert_record_from_storage_format(const rocksdb::Slice *const key,
