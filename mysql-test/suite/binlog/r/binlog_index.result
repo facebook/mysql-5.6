@@ -350,7 +350,6 @@ call mtr.add_suppression("Failed to delete the existing index file");
 call mtr.add_suppression("failed to move crash safe index file to index file");
 call mtr.add_suppression("failed to update the index file");
 PURGE BINARY LOGS TO 'binlog.000014';;
-ERROR HY000: I/O error reading log index file
 # Test if both the index file and binlogs are in sync
 # Also this will indicate that binary logging is not disabled.
 show binary logs;

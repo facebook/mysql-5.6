@@ -3706,7 +3706,8 @@ int MYSQL_BIN_LOG::remove_deleted_logs_from_index(bool need_lock_index,
     ++no_of_log_files_purged;
   }
 
-  error = remove_logs_from_index(&log_info, need_update_threads);
+  if (no_of_log_files_purged)
+    error = remove_logs_from_index(&log_info, need_update_threads);
   DBUG_PRINT("info", ("num binlogs deleted = %d", no_of_log_files_purged));
 
 err:
@@ -5652,8 +5653,7 @@ err:
 int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
                               bool need_lock_index, bool need_update_threads,
                               ulonglong *decrease_log_space, bool auto_purge) {
-  int error = 0, error_index = 0, no_of_log_files_to_purge = 0,
-      no_of_log_files_purged = 0;
+  int error = 0, error_index = 0, no_of_log_files_to_purge = 0;
   int no_of_threads_locking_log = 0;
   bool exit_loop = 0;
   LOG_INFO log_info;
@@ -5698,10 +5698,9 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
                             ER_WARN_PURGE_LOG_IN_USE,
                             ER_THD(thd, ER_WARN_PURGE_LOG_IN_USE),
                             log_info.log_file_name, no_of_threads_locking_log,
-                            no_of_log_files_purged, no_of_log_files_to_purge);
+                            delete_list.size(), no_of_log_files_to_purge);
       break;
     }
-    no_of_log_files_purged++;
 
     delete_list.emplace_back(log_info.log_file_name);
 
@@ -5719,7 +5718,8 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
   DBUG_EXECUTE_IF("crash_purge_critical_before_update_index", DBUG_SUICIDE(););
 
   /* We know how many files to delete. Update index file. */
-  if ((error = remove_logs_from_index(&log_info, need_update_threads))) {
+  if (delete_list.size() &&
+      (error = remove_logs_from_index(&log_info, need_update_threads))) {
     LogErr(ERROR_LEVEL, ER_BINLOG_PURGE_LOGS_CANT_UPDATE_INDEX_FILE);
     goto err;
   }
