@@ -64,6 +64,7 @@ SET(ROCKSDB_SOURCES
   rdb_datadic.cc rdb_datadic.h
   rdb_cf_options.cc rdb_cf_options.h
   rdb_cf_manager.cc rdb_cf_manager.h
+  rdb_converter.cc rdb_converter.h
   properties_collector.cc properties_collector.h
   event_listener.cc event_listener.h
   rdb_i_s.cc rdb_i_s.h
