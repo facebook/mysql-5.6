@@ -6758,9 +6758,8 @@ sub run_ctest() {
 
   # For ASan builds, add in the leak suppression file
   my $ctest_cmd =
-      join(" ", $asan_symbolizer_path,
-           "LSAN_OPTIONS="."suppressions=$glob_mysql_test_dir/asan.supp",
-           $ctest, "--test-timeout $opt_ctest_timeout $ctest_vs 2>&1");
+      join(" ", $asan_symbolizer_path, $ctest,
+           "--test-timeout $opt_ctest_timeout $ctest_vs 2>&1");
   my $ctest_out = `$ctest_cmd`;
   if ($? == $no_ctest && ($opt_ctest == -1 || defined $ENV{PB2WORKDIR})) {
     chdir($olddir);
