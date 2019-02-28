@@ -1569,14 +1569,20 @@ GenerateClear(io::Printer* printer) {
   // OFFSET_OF_FIELD_ computes the offset (in bytes) of a field in the Message.
   // ZR_ zeroes a non-empty range of fields via memset.
   const char* macros =
-      "#define OFFSET_OF_FIELD_(f) (reinterpret_cast<char*>(      \\\n"
-      "  &reinterpret_cast<$classname$*>(16)->f) - \\\n"
-      "   reinterpret_cast<char*>(16))\n\n"
-      "#define ZR_(first, last) do {                              \\\n"
-      "    size_t f = OFFSET_OF_FIELD_(first);                    \\\n"
-      "    size_t n = OFFSET_OF_FIELD_(last) - f + sizeof(last);  \\\n"
-      "    ::memset(&first, 0, n);                                \\\n"
-      "  } while (0)\n\n";
+      "#if defined(__clang__)\n"
+      "#define ZR_HELPER_(f) \\\n"
+      "  _Pragma(\"clang diagnostic push\") \\\n"
+      "  _Pragma(\"clang diagnostic ignored \\\"-Winvalid-offsetof\\\"\") \\\n"
+      "  __builtin_offsetof($classname$, f) \\\n"
+      "  _Pragma(\"clang diagnostic pop\")\n"
+      "#else\n"
+      "#define ZR_HELPER_(f) reinterpret_cast<char*>(\\\n"
+      "  &reinterpret_cast<$classname$*>(16)->f)\n\n"
+      "#endif\n\n"
+      "#define ZR_(first, last) do {\\\n"
+      "  ::memset(&first, 0,\\\n"
+      "           ZR_HELPER_(last) - ZR_HELPER_(first) + sizeof(last));\\\n"
+      "} while (0)\n\n";
   for (int i = 0; i < runs_of_fields_.size(); i++) {
     const vector<string>& run = runs_of_fields_[i];
     if (run.size() < 2) continue;
