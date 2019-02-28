@@ -70,6 +70,7 @@
 #include "./logger.h"
 #include "./rdb_cf_manager.h"
 #include "./rdb_cf_options.h"
+#include "./rdb_converter.h"
 #include "./rdb_datadic.h"
 #include "./rdb_i_s.h"
 #include "./rdb_index_merge.h"
@@ -5627,7 +5628,7 @@ ulonglong ha_rocksdb::load_auto_incr_value_from_index() {
   // appropriately and non-index-only lookup will not read the value)
   const bool save_keyread_only = m_keyread_only;
   m_keyread_only = true;
-  m_key_requested = true;
+  m_converter->set_is_key_requested(true);
 
   if (!index_last(table->record[0])) {
     Field *field =
@@ -5815,15 +5816,14 @@ ha_rocksdb::ha_rocksdb(my_core::handlerton *const hton,
       m_scan_it_skips_bloom(false), m_scan_it_snapshot(nullptr),
       m_scan_it_lower_bound(nullptr), m_scan_it_upper_bound(nullptr),
       m_tbl_def(nullptr), m_pk_descr(nullptr), m_key_descr_arr(nullptr),
-      m_pk_can_be_decoded(false), m_maybe_unpack_info(false),
-      m_pk_tuple(nullptr), m_pk_packed_tuple(nullptr),
-      m_sk_packed_tuple(nullptr), m_end_key_packed_tuple(nullptr),
-      m_sk_match_prefix(nullptr), m_sk_match_prefix_buf(nullptr),
-      m_sk_packed_tuple_old(nullptr), m_dup_sk_packed_tuple(nullptr),
-      m_dup_sk_packed_tuple_old(nullptr), m_pack_buffer(nullptr),
-      m_lock_rows(RDB_LOCK_NONE), m_keyread_only(FALSE), m_encoder_arr(nullptr),
-      m_row_checksums_checked(0), m_in_rpl_delete_rows(false),
-      m_in_rpl_update_rows(false), m_force_skip_unique_check(false) {}
+      m_pk_can_be_decoded(false), m_pk_tuple(nullptr),
+      m_pk_packed_tuple(nullptr), m_sk_packed_tuple(nullptr),
+      m_end_key_packed_tuple(nullptr), m_sk_match_prefix(nullptr),
+      m_sk_match_prefix_buf(nullptr), m_sk_packed_tuple_old(nullptr),
+      m_dup_sk_packed_tuple(nullptr), m_dup_sk_packed_tuple_old(nullptr),
+      m_pack_buffer(nullptr), m_lock_rows(RDB_LOCK_NONE), m_keyread_only(false),
+      m_in_rpl_delete_rows(false), m_in_rpl_update_rows(false),
+      m_force_skip_unique_check(false) {}
 
 static const char *ha_rocksdb_exts[] = {NullS};
 
@@ -5849,9 +5849,9 @@ bool ha_rocksdb::init_with_fields() {
   if (pk != MAX_KEY) {
     const uint key_parts = table_share->key_info[pk].user_defined_key_parts;
     check_keyread_allowed(pk /*PK*/, key_parts - 1, true);
-  } else
+  } else {
     m_pk_can_be_decoded = false;
-
+  }
   cached_table_flags = table_flags();
 
   DBUG_RETURN(false); /* Ok */
@@ -5952,7 +5952,8 @@ void ha_rocksdb::rocksdb_skip_expired_records(const Rdb_key_def &kd,
 
 int ha_rocksdb::convert_record_to_storage_format(
     const struct update_row_info &row_info, rocksdb::Slice *const packed_rec) {
-  DBUG_ASSERT_IMP(m_maybe_unpack_info, row_info.new_pk_unpack_info);
+  bool maybe_unpack_info = m_converter->get_maybe_unpack_info();
+  DBUG_ASSERT_IMP(maybe_unpack_info, row_info.new_pk_unpack_info);
   DBUG_ASSERT(m_pk_descr != nullptr);
 
   const rocksdb::Slice &pk_packed_slice = row_info.new_pk_slice;
@@ -5960,12 +5961,13 @@ int ha_rocksdb::convert_record_to_storage_format(
   bool has_ttl = m_pk_descr->has_ttl();
   bool has_ttl_column = !m_pk_descr->m_ttl_column.empty();
   bool ttl_in_pk = has_ttl_column && (row_info.ttl_pk_offset != UINT_MAX);
+  int null_bytes_in_record = m_converter->get_null_bytes_in_record();
 
   m_storage_record.length(0);
 
   if (has_ttl) {
     /* If it's a TTL record, reserve space for 8 byte TTL value in front. */
-    m_storage_record.fill(ROCKSDB_SIZEOF_TTL_RECORD + m_null_bytes_in_rec, 0);
+    m_storage_record.fill(ROCKSDB_SIZEOF_TTL_RECORD + null_bytes_in_record, 0);
     m_ttl_bytes_updated = false;
 
     /*
@@ -6023,38 +6025,38 @@ int ha_rocksdb::convert_record_to_storage_format(
     }
   } else {
     /* All NULL bits are initially 0 */
-    m_storage_record.fill(m_null_bytes_in_rec, 0);
+    m_storage_record.fill(null_bytes_in_record, 0);
   }
 
   // If a primary key may have non-empty unpack_info for certain values,
   // (m_maybe_unpack_info=TRUE), we write the unpack_info block. The block
   // itself was prepared in Rdb_key_def::pack_record.
-  if (m_maybe_unpack_info) {
+  if (maybe_unpack_info) {
     m_storage_record.append(reinterpret_cast<char *>(pk_unpack_info->ptr()),
                             pk_unpack_info->get_current_pos());
   }
-
+  auto encoder_arr = m_converter->get_encoder_arr();
   for (uint i = 0; i < table->s->fields; i++) {
     /* Don't pack decodable PK key parts */
-    if (m_encoder_arr[i].m_storage_type != Rdb_field_encoder::STORE_ALL) {
+    if (encoder_arr[i].m_storage_type != Rdb_field_encoder::STORE_ALL) {
       continue;
     }
 
     Field *const field = table->field[i];
-    if (m_encoder_arr[i].maybe_null()) {
+    if (encoder_arr[i].maybe_null()) {
       char *data = const_cast<char *>(m_storage_record.ptr());
       if (has_ttl) {
         data += ROCKSDB_SIZEOF_TTL_RECORD;
       }
 
       if (field->is_null()) {
-        data[m_encoder_arr[i].m_null_offset] |= m_encoder_arr[i].m_null_mask;
+        data[encoder_arr[i].m_null_offset] |= encoder_arr[i].m_null_mask;
         /* Don't write anything for NULL values */
         continue;
       }
     }
 
-    if (m_encoder_arr[i].m_field_type == MYSQL_TYPE_BLOB) {
+    if (encoder_arr[i].m_field_type == MYSQL_TYPE_BLOB) {
       my_core::Field_blob *blob = (my_core::Field_blob *)field;
       /* Get the number of bytes needed to store length*/
       const uint length_bytes = blob->pack_length() - portable_sizeof_char_ptr;
@@ -6067,7 +6069,7 @@ int ha_rocksdb::convert_record_to_storage_format(
       char *data_ptr;
       memcpy(&data_ptr, blob->ptr + length_bytes, sizeof(uchar **));
       m_storage_record.append(data_ptr, blob->get_length());
-    } else if (m_encoder_arr[i].m_field_type == MYSQL_TYPE_VARCHAR) {
+    } else if (encoder_arr[i].m_field_type == MYSQL_TYPE_VARCHAR) {
       Field_varstring *const field_var = (Field_varstring *)field;
       uint data_len;
       /* field_var->length_bytes is 1 or 2 */
@@ -6134,71 +6136,6 @@ int ha_rocksdb::convert_record_to_storage_format(
   return HA_EXIT_SUCCESS;
 }
 
-/*
-  @brief
-    Setup which fields will be unpacked when reading rows
-
-  @detail
-    Three special cases when we still unpack all fields:
-    - When this table is being updated (m_lock_rows==RDB_LOCK_WRITE).
-    - When @@rocksdb_verify_row_debug_checksums is ON (In this mode, we need to
-  read all fields to find whether there is a row checksum at the end. We could
-  skip the fields instead of decoding them, but currently we do decoding.)
-    - On index merge as bitmap is cleared during that operation
-
-  @seealso
-    ha_rocksdb::setup_field_converters()
-    ha_rocksdb::convert_record_from_storage_format()
-*/
-void ha_rocksdb::setup_read_decoders() {
-  m_decoders_vect.clear();
-  m_key_requested = false;
-
-  int last_useful = 0;
-  int skip_size = 0;
-
-  for (uint i = 0; i < table->s->fields; i++) {
-    // bitmap is cleared on index merge, but it still needs to decode columns
-    const bool field_requested =
-        m_lock_rows == RDB_LOCK_WRITE || m_verify_row_debug_checksums ||
-        bitmap_is_clear_all(table->read_set) ||
-        bitmap_is_set(table->read_set, table->field[i]->field_index);
-
-    // We only need the decoder if the whole record is stored.
-    if (m_encoder_arr[i].m_storage_type != Rdb_field_encoder::STORE_ALL) {
-      // the field potentially needs unpacking
-      if (field_requested) {
-        // the field is in the read set
-        m_key_requested = true;
-      }
-      continue;
-    }
-
-    if (field_requested) {
-      // We will need to decode this field
-      m_decoders_vect.emplace_back(&m_encoder_arr[i], true, skip_size);
-      last_useful = m_decoders_vect.size();
-      skip_size = 0;
-    } else {
-      if (m_encoder_arr[i].uses_variable_len_encoding() ||
-          m_encoder_arr[i].maybe_null()) {
-        // For variable-length field, we need to read the data and skip it
-        m_decoders_vect.emplace_back(&m_encoder_arr[i], false, skip_size);
-        skip_size = 0;
-      } else {
-        // Fixed-width field can be skipped without looking at it.
-        // Add appropriate skip_size to the next field.
-        skip_size += m_encoder_arr[i].m_pack_length_in_rec;
-      }
-    }
-  }
-
-  // It could be that the last few elements are varchars that just do
-  // skipping. Remove them.
-  m_decoders_vect.erase(m_decoders_vect.begin() + last_useful,
-                        m_decoders_vect.end());
-}
-
 #ifndef NDEBUG
 void dbug_append_garbage_at_end(rocksdb::PinnableSlice *on_disk_rec) {
   std::string str(on_disk_rec->data(), on_disk_rec->size());
@@ -6224,17 +6161,6 @@ void dbug_modify_rec_varchar12(rocksdb::PinnableSlice *on_disk_rec) {
   on_disk_rec->PinSelf(rocksdb::Slice(res));
 }
 
-void dbug_modify_key_varchar8(String &on_disk_rec) {
-  std::string res;
-  // The key starts with index number
-  res.append(on_disk_rec.ptr(), Rdb_key_def::INDEX_NUMBER_SIZE);
-
-  // Then, a mem-comparable form of a varchar(8) value.
-  res.append("ABCDE\0\0\0\xFC", 9);
-  on_disk_rec.length(0);
-  on_disk_rec.append(res.data(), res.size());
-}
-
 void dbug_create_err_inplace_alter() {
   my_printf_error(ER_UNKNOWN_ERROR,
                   "Intentional failure in inplace alter occurred.", MYF(0));
@@ -6254,92 +6180,6 @@ int ha_rocksdb::convert_record_from_storage_format(
   return convert_record_from_storage_format(key, &m_retrieved_record, buf);
 }
 
-int ha_rocksdb::convert_blob_from_storage_format(
-  my_core::Field_blob *const blob,
-  Rdb_string_reader *const   reader,
-  bool                       decode)
-{
-  /* Get the number of bytes needed to store length*/
-  const uint length_bytes = blob->pack_length() - portable_sizeof_char_ptr;
-
-  const char *data_len_str;
-  if (!(data_len_str = reader->read(length_bytes))) {
-    return HA_ERR_ROCKSDB_CORRUPT_DATA;
-  }
-
-  memcpy(blob->ptr, data_len_str, length_bytes);
-
-  const uint32 data_len = blob->get_length(
-      reinterpret_cast<const uchar*>(data_len_str), length_bytes,
-      table->s->db_low_byte_first);
-  const char *blob_ptr;
-  if (!(blob_ptr = reader->read(data_len))) {
-    return HA_ERR_ROCKSDB_CORRUPT_DATA;
-  }
-
-  if (decode) {
-    // set 8-byte pointer to 0, like innodb does (relevant for 32-bit
-    // platforms)
-    memset(blob->ptr + length_bytes, 0, 8);
-    memcpy(blob->ptr + length_bytes, &blob_ptr, sizeof(uchar **));
-  }
-
-  return HA_EXIT_SUCCESS;
-}
-
-int ha_rocksdb::convert_varchar_from_storage_format(
-  my_core::Field_varstring *const field_var,
-  Rdb_string_reader *const        reader,
-  bool                            decode)
-{
-  const char *data_len_str;
-  if (!(data_len_str = reader->read(field_var->length_bytes)))
-    return HA_ERR_ROCKSDB_CORRUPT_DATA;
-
-  uint data_len;
-  /* field_var->length_bytes is 1 or 2 */
-  if (field_var->length_bytes == 1) {
-    data_len = (uchar)data_len_str[0];
-  } else {
-    DBUG_ASSERT(field_var->length_bytes == 2);
-    data_len = uint2korr(data_len_str);
-  }
-
-  if (data_len > field_var->field_length) {
-    /* The data on disk is longer than table DDL allows? */
-    return HA_ERR_ROCKSDB_CORRUPT_DATA;
-  }
-
-  if (!reader->read(data_len)) {
-    return HA_ERR_ROCKSDB_CORRUPT_DATA;
-  }
-
-  if (decode) {
-    memcpy(field_var->ptr, data_len_str, field_var->length_bytes + data_len);
-  }
-
-  return HA_EXIT_SUCCESS;
-}
-
-int ha_rocksdb::convert_field_from_storage_format(
-  my_core::Field *const    field,
-  Rdb_string_reader *const reader,
-  bool                     decode,
-  uint                     len)
-{
-  const char *data_bytes;
-  if (len > 0) {
-    if ((data_bytes = reader->read(len)) == nullptr) {
-      return HA_ERR_ROCKSDB_CORRUPT_DATA;
-    }
-
-    if (decode)
-      memcpy(field->ptr, data_bytes, len);
-  }
-
-  return HA_EXIT_SUCCESS;
-}
-
 /*
   @brief
   Unpack the record in this->m_retrieved_record and this->m_last_rowkey from
@@ -6356,8 +6196,8 @@ int ha_rocksdb::convert_field_from_storage_format(
     m_retrieved_record).
 
   @seealso
-    ha_rocksdb::setup_read_decoders()  Sets up data structures which tell which
-    columns to decode.
+    rdb_converter::setup_read_decoders()  Sets up data structures which tell
+  which columns to decode.
 
   @return
     0      OK
@@ -6367,241 +6207,7 @@ int ha_rocksdb::convert_field_from_storage_format(
 int ha_rocksdb::convert_record_from_storage_format(
     const rocksdb::Slice *const key, const rocksdb::Slice *const value,
     uchar *const buf) {
-  Rdb_string_reader reader(value);
-
-  /*
-    Decode PK fields from the key
-  */
-  DBUG_EXECUTE_IF("myrocks_simulate_bad_pk_read1",
-                  dbug_modify_key_varchar8(m_last_rowkey););
-
-  const rocksdb::Slice rowkey_slice(m_last_rowkey.ptr(),
-                                    m_last_rowkey.length());
-  const char *unpack_info = nullptr;
-  uint16 unpack_info_len = 0;
-  rocksdb::Slice unpack_slice;
-
-  /* If it's a TTL record, skip the 8 byte TTL value */
-  const char *ttl_bytes;
-  if (m_pk_descr->has_ttl()) {
-    if ((ttl_bytes = reader.read(ROCKSDB_SIZEOF_TTL_RECORD))) {
-      memcpy(m_ttl_bytes, ttl_bytes, ROCKSDB_SIZEOF_TTL_RECORD);
-    } else {
-      return HA_ERR_ROCKSDB_CORRUPT_DATA;
-    }
-  }
-
-  /* Other fields are decoded from the value */
-  const char *null_bytes = nullptr;
-  if (m_null_bytes_in_rec && !(null_bytes = reader.read(m_null_bytes_in_rec))) {
-    return HA_ERR_ROCKSDB_CORRUPT_DATA;
-  }
-
-  if (m_maybe_unpack_info) {
-    unpack_info = reader.get_current_ptr();
-    if (!unpack_info || !Rdb_key_def::is_unpack_data_tag(unpack_info[0]) ||
-        !reader.read(Rdb_key_def::get_unpack_header_size(unpack_info[0]))) {
-      return HA_ERR_ROCKSDB_CORRUPT_DATA;
-    }
-
-    unpack_info_len =
-        rdb_netbuf_to_uint16(reinterpret_cast<const uchar *>(unpack_info + 1));
-    unpack_slice = rocksdb::Slice(unpack_info, unpack_info_len);
-
-    reader.read(unpack_info_len -
-                Rdb_key_def::get_unpack_header_size(unpack_info[0]));
-  }
-
-  int err = HA_EXIT_SUCCESS;
-  if (m_key_requested) {
-    err = m_pk_descr->unpack_record(table, buf, &rowkey_slice,
-                                    unpack_info ? &unpack_slice : nullptr,
-                                    false /* verify_checksum */);
-  }
-
-  if (err != HA_EXIT_SUCCESS) {
-    return err;
-  }
-
-  for (auto it = m_decoders_vect.begin(); it != m_decoders_vect.end(); it++) {
-    const Rdb_field_encoder *const field_dec = it->m_field_enc;
-    const bool decode = it->m_decode;
-    const bool isNull =
-        field_dec->maybe_null() &&
-        ((null_bytes[field_dec->m_null_offset] & field_dec->m_null_mask) != 0);
-
-    Field *const field = table->field[field_dec->m_field_index];
-
-    /* Skip the bytes we need to skip */
-    if (it->m_skip && !reader.read(it->m_skip)) {
-      return HA_ERR_ROCKSDB_CORRUPT_DATA;
-    }
-
-    uint field_offset = field->ptr - table->record[0];
-    uint null_offset = field->null_offset();
-    bool maybe_null = field->real_maybe_null();
-    field->move_field(buf + field_offset,
-                      maybe_null ? buf + null_offset : nullptr,
-                      field->null_bit);
-    // WARNING! - Don't return before restoring field->ptr and field->null_ptr!
-
-    if (isNull) {
-      if (decode) {
-        /* This sets the NULL-bit of this record */
-        field->set_null();
-        /*
-          Besides that, set the field value to default value. CHECKSUM TABLE
-          depends on this.
-        */
-        memcpy(field->ptr, table->s->default_values + field_offset,
-               field->pack_length());
-      }
-    } else {
-      if (decode) {
-        field->set_notnull();
-      }
-
-      if (field_dec->m_field_type == MYSQL_TYPE_BLOB) {
-        err = convert_blob_from_storage_format(
-            (my_core::Field_blob *) field, &reader, decode);
-      } else if (field_dec->m_field_type == MYSQL_TYPE_VARCHAR) {
-        err = convert_varchar_from_storage_format(
-            (my_core::Field_varstring *) field, &reader, decode);
-      } else {
-        err = convert_field_from_storage_format(
-            field, &reader, decode, field_dec->m_pack_length_in_rec);
-      }
-    }
-
-    // Restore field->ptr and field->null_ptr
-    field->move_field(table->record[0] + field_offset,
-                      maybe_null ? table->record[0] + null_offset : nullptr,
-                      field->null_bit);
-
-    if (err != HA_EXIT_SUCCESS) {
-      return err;
-    }
-  }
-
-  if (m_verify_row_debug_checksums) {
-    if (reader.remaining_bytes() == RDB_CHECKSUM_CHUNK_SIZE &&
-        reader.read(1)[0] == RDB_CHECKSUM_DATA_TAG) {
-      uint32_t stored_key_chksum =
-          rdb_netbuf_to_uint32((const uchar *)reader.read(RDB_CHECKSUM_SIZE));
-      uint32_t stored_val_chksum =
-          rdb_netbuf_to_uint32((const uchar *)reader.read(RDB_CHECKSUM_SIZE));
-
-      const uint32_t computed_key_chksum =
-          my_core::crc32(0, rdb_slice_to_uchar_ptr(key), key->size());
-      const uint32_t computed_val_chksum =
-          my_core::crc32(0, rdb_slice_to_uchar_ptr(value),
-                         value->size() - RDB_CHECKSUM_CHUNK_SIZE);
-
-      DBUG_EXECUTE_IF("myrocks_simulate_bad_pk_checksum1",
-                      stored_key_chksum++;);
-
-      if (stored_key_chksum != computed_key_chksum) {
-        m_pk_descr->report_checksum_mismatch(true, key->data(), key->size());
-        return HA_ERR_ROCKSDB_CHECKSUM_MISMATCH;
-      }
-
-      DBUG_EXECUTE_IF("myrocks_simulate_bad_pk_checksum2",
-                      stored_val_chksum++;);
-      if (stored_val_chksum != computed_val_chksum) {
-        m_pk_descr->report_checksum_mismatch(false, value->data(),
-                                             value->size());
-        return HA_ERR_ROCKSDB_CHECKSUM_MISMATCH;
-      }
-
-      m_row_checksums_checked++;
-    }
-    if (reader.remaining_bytes())
-      return HA_ERR_ROCKSDB_CORRUPT_DATA;
-  }
-
-  return HA_EXIT_SUCCESS;
-}
-
-void ha_rocksdb::get_storage_type(Rdb_field_encoder *const encoder,
-                                  const uint kp) {
-  // STORE_SOME uses unpack_info.
-  if (m_pk_descr->has_unpack_info(kp)) {
-    DBUG_ASSERT(m_pk_descr->can_unpack(kp));
-    encoder->m_storage_type = Rdb_field_encoder::STORE_SOME;
-    m_maybe_unpack_info = true;
-  } else if (m_pk_descr->can_unpack(kp)) {
-    encoder->m_storage_type = Rdb_field_encoder::STORE_NONE;
-  }
-}
-
-/*
-  Setup data needed to convert table->record[] to and from record storage
-  format.
-
-  @seealso
-     ha_rocksdb::convert_record_to_storage_format,
-     ha_rocksdb::convert_record_from_storage_format
-*/
-
-void ha_rocksdb::setup_field_converters() {
-  uint i;
-  uint null_bytes = 0;
-  uchar cur_null_mask = 0x1;
-
-  DBUG_ASSERT(m_encoder_arr == nullptr);
-  m_encoder_arr = static_cast<Rdb_field_encoder *>(
-      my_malloc(table->s->fields * sizeof(Rdb_field_encoder), MYF(0)));
-  if (m_encoder_arr == nullptr) {
-    return;
-  }
-
-  for (i = 0; i < table->s->fields; i++) {
-    Field *const field = table->field[i];
-    m_encoder_arr[i].m_storage_type = Rdb_field_encoder::STORE_ALL;
-
-    /*
-      Check if this field is
-      - a part of primary key, and
-      - it can be decoded back from its key image.
-      If both hold, we don't need to store this field in the value part of
-      RocksDB's key-value pair.
-
-      If hidden pk exists, we skip this check since the field will never be
-      part of the hidden pk.
-    */
-    if (!has_hidden_pk(table)) {
-      KEY *const pk_info = &table->key_info[table->s->primary_key];
-      for (uint kp = 0; kp < pk_info->user_defined_key_parts; kp++) {
-        /* key_part->fieldnr is counted from 1 */
-        if (field->field_index + 1 == pk_info->key_part[kp].fieldnr) {
-          get_storage_type(&m_encoder_arr[i], kp);
-          break;
-        }
-      }
-    }
-
-    m_encoder_arr[i].m_field_type = field->real_type();
-    m_encoder_arr[i].m_field_index = i;
-    m_encoder_arr[i].m_pack_length_in_rec = field->pack_length_in_rec();
-
-    if (field->real_maybe_null()) {
-      m_encoder_arr[i].m_null_mask = cur_null_mask;
-      m_encoder_arr[i].m_null_offset = null_bytes;
-      if (cur_null_mask == 0x80) {
-        cur_null_mask = 0x1;
-        null_bytes++;
-      } else
-        cur_null_mask = cur_null_mask << 1;
-    } else {
-      m_encoder_arr[i].m_null_mask = 0;
-    }
-  }
-
-  /* Count the last, unfinished NULL-bits byte */
-  if (cur_null_mask != 0x1)
-    null_bytes++;
-
-  m_null_bytes_in_rec = null_bytes;
+  return m_converter->decode(m_pk_descr, buf, key, value);
 }
 
 int ha_rocksdb::alloc_key_buffers(const TABLE *const table_arg,
@@ -6784,8 +6390,8 @@ int ha_rocksdb::open(const char *const name, int mode, uint test_if_locked) {
              "dictionary");
     DBUG_RETURN(HA_ERR_ROCKSDB_INVALID_TABLE);
   }
-  m_lock_rows = RDB_LOCK_NONE;
 
+  m_lock_rows = RDB_LOCK_NONE;
   m_key_descr_arr = m_tbl_def->m_key_descr_arr;
 
   /*
@@ -6814,7 +6420,15 @@ int ha_rocksdb::open(const char *const name, int mode, uint test_if_locked) {
   */
   init_with_fields();
 
-  setup_field_converters();
+  /* Initialize decoder */
+  m_converter = std::make_shared<Rdb_converter>(ha_thd(), m_tbl_def, table);
+
+  /*
+     Update m_ttl_bytes address to same as Rdb_converter's m_ttl_bytes.
+     Remove this code after moving convert_record_to_storage_format() into
+     Rdb_converter class.
+  */
+  m_ttl_bytes = m_converter->get_ttl_bytes_buffer();
 
   info(HA_STATUS_NO_LOCK | HA_STATUS_VARIABLE | HA_STATUS_CONST);
 
@@ -6822,11 +6436,10 @@ int ha_rocksdb::open(const char *const name, int mode, uint test_if_locked) {
     The following load_XXX code calls row decode functions, and they do
     that without having done ::external_lock() or index_init()/rnd_init().
     (Note: this also means we're doing a read when there was no
-    setup_field_converters() call)
+    rdb_converter::setup_field_encoders() call)
 
     Initialize the necessary variables for them:
   */
-  m_verify_row_debug_checksums = false;
 
   /* Load auto_increment value only once on first use. */
   if (table->found_next_number_field && m_tbl_def->m_auto_incr_val == 0) {
@@ -6854,11 +6467,8 @@ int ha_rocksdb::close(void) {
 
   m_pk_descr = nullptr;
   m_key_descr_arr = nullptr;
-
+  m_converter = nullptr;
   free_key_buffers();
-
-  my_free(m_encoder_arr);
-  m_encoder_arr = nullptr;
 
   if (m_table_handler != nullptr) {
     rdb_open_tables.release_table_handler(m_table_handler);
@@ -8124,7 +7734,7 @@ int ha_rocksdb::read_row_from_secondary_key(uchar *const buf,
       rc = HA_ERR_ROCKSDB_CORRUPT_DATA;
     } else {
       rc = kd.unpack_record(table, buf, &rkey, &value,
-                            m_verify_row_debug_checksums);
+                            m_converter->get_verify_row_debug_checksums());
       global_stats.covered_secondary_key_lookups.inc();
     }
   } else {
@@ -8240,7 +7850,8 @@ int ha_rocksdb::secondary_index_read(const int keyno, uchar *const buf) {
           m_key_descr_arr[keyno]->covers_lookup(&value, &m_lookup_bitmap);
       if (covered_lookup && m_lock_rows == RDB_LOCK_NONE) {
         rc = m_key_descr_arr[keyno]->unpack_record(
-            table, buf, &key, &value, m_verify_row_debug_checksums);
+            table, buf, &key, &value,
+            m_converter->get_verify_row_debug_checksums());
         global_stats.covered_secondary_key_lookups.inc();
       } else {
         DEBUG_SYNC(ha_thd(), "rocksdb_concurrent_delete_sk");
@@ -8552,7 +8163,7 @@ int ha_rocksdb::find_icp_matching_index_rec(const bool move_forward,
 
       const rocksdb::Slice value = m_scan_it->value();
       int err = kd.unpack_record(table, buf, &rkey, &value,
-                                 m_verify_row_debug_checksums);
+                                 m_converter->get_verify_row_debug_checksums());
       if (err != HA_EXIT_SUCCESS) {
         return err;
       }
@@ -8616,9 +8227,9 @@ int ha_rocksdb::check(THD *const thd, HA_CHECK_OPT *const check_opt) {
   // Rdb_transaction *tx= get_or_create_tx(table->in_use);
   // tx->snapshot= nullptr;
 
-  const bool save_verify_row_debug_checksums = m_verify_row_debug_checksums;
-  m_verify_row_debug_checksums = true;
-
+  bool save_verify_row_debug_checksums =
+      m_converter->get_verify_row_debug_checksums();
+  m_converter->set_verify_row_debug_checksums(true);
   /* For each secondary index, check that we can get a PK value from it */
   // NO_LINT_DEBUG
   sql_print_information("CHECKTABLE %s: Checking table %s", table_name,
@@ -8634,16 +8245,17 @@ int ha_rocksdb::check(THD *const thd, HA_CHECK_OPT *const check_opt) {
       ha_rows rows = 0;
       ha_rows checksums = 0;
       if (first_index)
-        row_checksums_at_start = m_row_checksums_checked;
+        row_checksums_at_start = m_converter->get_row_checksums_checked();
       int res;
       // NO_LINT_DEBUG
       sql_print_information("CHECKTABLE %s:   Checking index %s", table_name,
                             table->key_info[keyno].name);
       while (1) {
-        if (!rows)
+        if (!rows) {
           res = index_first(table->record[0]);
-        else
+        } else {
           res = index_next(table->record[0]);
+        }
 
         if (res == HA_ERR_END_OF_FILE)
           break;
@@ -8731,7 +8343,8 @@ int ha_rocksdb::check(THD *const thd, HA_CHECK_OPT *const check_opt) {
                             table_name, rows, checksums);
 
       if (first_index) {
-        row_checksums = m_row_checksums_checked - row_checksums_at_start;
+        row_checksums =
+            m_converter->get_row_checksums_checked() - row_checksums_at_start;
         first_index = false;
       }
       ha_index_end();
@@ -8744,7 +8357,7 @@ int ha_rocksdb::check(THD *const thd, HA_CHECK_OPT *const check_opt) {
   }
   extra(HA_EXTRA_NO_KEYREAD);
 
-  m_verify_row_debug_checksums = save_verify_row_debug_checksums;
+  m_converter->set_verify_row_debug_checksums(save_verify_row_debug_checksums);
   /*
     TODO: we should check also for PK records that are missing in the secondary
     indexes.
@@ -8753,7 +8366,7 @@ int ha_rocksdb::check(THD *const thd, HA_CHECK_OPT *const check_opt) {
   */
   DBUG_RETURN(HA_ADMIN_OK);
 error:
-  m_verify_row_debug_checksums = save_verify_row_debug_checksums;
+  m_converter->set_verify_row_debug_checksums(save_verify_row_debug_checksums);
   ha_index_or_rnd_end();
   extra(HA_EXTRA_NO_KEYREAD);
 
@@ -10340,7 +9953,10 @@ int ha_rocksdb::rnd_init(bool scan) {
   DBUG_ENTER_FUNC();
 
   Rdb_transaction *const tx = get_or_create_tx(table->in_use);
-  setup_read_decoders();
+
+  // when this table is being updated, decode all fields
+  m_converter->setup_field_decoders(table->read_set,
+                                    m_lock_rows == RDB_LOCK_WRITE);
 
   if (scan) {
     m_rnd_scan_is_new_snapshot = !tx->has_snapshot();
@@ -10512,7 +10128,9 @@ int ha_rocksdb::index_init(uint idx, bool sorted) {
   Rdb_transaction *const tx = get_or_create_tx(table->in_use);
   DBUG_ASSERT(tx != nullptr);
 
-  setup_read_decoders();
+  // when this table is being updated, decode all fields
+  m_converter->setup_field_decoders(table->read_set,
+                                    m_lock_rows == RDB_LOCK_WRITE);
 
   if (!m_keyread_only) {
     m_key_descr_arr[idx]->get_lookup_bitmap(table, &m_lookup_bitmap);
@@ -11034,7 +10652,8 @@ THR_LOCK_DATA **ha_rocksdb::store_lock(THD *const thd, THR_LOCK_DATA **to,
 
 void ha_rocksdb::read_thd_vars(THD *const thd) {
   m_store_row_debug_checksums = THDVAR(thd, store_row_debug_checksums);
-  m_verify_row_debug_checksums = THDVAR(thd, verify_row_debug_checksums);
+  m_converter->set_verify_row_debug_checksums(
+      THDVAR(thd, verify_row_debug_checksums));
   m_checksums_pct = THDVAR(thd, checksums_pct);
 }
 
@@ -12518,9 +12137,9 @@ int ha_rocksdb::inplace_populate_sk(
             is used inside print_keydup_error so that the error message shows
             the duplicate record.
           */
-          if (index->unpack_record(new_table_arg, new_table_arg->record[0],
-                                   &merge_key, &merge_val,
-                                   m_verify_row_debug_checksums)) {
+          if (index->unpack_record(
+                  new_table_arg, new_table_arg->record[0], &merge_key,
+                  &merge_val, m_converter->get_verify_row_debug_checksums())) {
             /* Should never reach here */
             DBUG_ASSERT(0);
           }
