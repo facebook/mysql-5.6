@@ -1,0 +1,117 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+show binary logs with gtid;
+Log_name	File_size	Encrypted	Prev_gtid_set
+master-bin.000001	#	No	# [empty]
+create table t1 (a int);
+insert into t1 values(1);
+insert into t1 values(2);
+show binary logs with gtid;
+Log_name	File_size	Encrypted	Prev_gtid_set
+master-bin.000001	#	No	# [empty]
+FLUSH LOGS;
+show binary logs with gtid;
+Log_name	File_size	Encrypted	Prev_gtid_set
+master-bin.000001	#	No	# [empty]
+master-bin.000002	#	No	# uuid:1-3
+include/sync_slave_sql_with_master.inc
+include/stop_slave.inc
+insert into t1 values(3);
+insert into t1 values(4);
+show binary logs with gtid;
+Log_name	File_size	Encrypted	Prev_gtid_set
+master-bin.000001	#	No	# [empty]
+master-bin.000002	#	No	# uuid:1-3
+FLUSH LOGS;
+show binary logs with gtid;
+Log_name	File_size	Encrypted	Prev_gtid_set
+master-bin.000001	#	No	# [empty]
+master-bin.000002	#	No	# uuid:1-3
+master-bin.000003	#	No	# uuid:1-5
+include/start_slave.inc
+"GTID sets on master"
+select @@global.gtid_executed , @@global.gtid_purged;
+@@global.gtid_executed	@@global.gtid_purged
+UUID:1-5	
+show binary logs with gtid;
+Log_name	File_size	Encrypted	Prev_gtid_set
+master-bin.000001	#	No	# [empty]
+master-bin.000002	#	No	# uuid:1-3
+master-bin.000003	#	No	# uuid:1-5
+include/sync_slave_sql_with_master.inc
+"GTID sets on slave"
+select @@global.gtid_executed , @@global.gtid_purged;
+@@global.gtid_executed	@@global.gtid_purged
+UUID:1-5	
+show binary logs with gtid;
+Log_name	File_size	Encrypted	Prev_gtid_set
+slave-bin.000001	#	No	# [empty]
+include/stop_slave.inc
+show binary logs with gtid;
+Log_name	File_size	Encrypted	Prev_gtid_set
+master-bin.000001	#	No	# [empty]
+master-bin.000002	#	No	# uuid:1-3
+master-bin.000003	#	No	# uuid:1-5
+include/rpl_restart_server.inc [server_number=1 gtids=on]
+"GTID sets on master after first restart"
+select @@global.gtid_executed , @@global.gtid_purged;
+@@global.gtid_executed	@@global.gtid_purged
+UUID:1-5	
+show binary logs with gtid;
+Log_name	File_size	Encrypted	Prev_gtid_set
+master-bin.000001	#	No	# [empty]
+master-bin.000002	#	No	# uuid:1-3
+master-bin.000003	#	No	# uuid:1-5
+master-bin.000004	#	No	# uuid:1-5
+purge binary logs to 'master-bin.000002';
+show binary logs with gtid;
+Log_name	File_size	Encrypted	Prev_gtid_set
+master-bin.000002	#	No	# uuid:1-3
+master-bin.000003	#	No	# uuid:1-5
+master-bin.000004	#	No	# uuid:1-5
+"GTID sets on master after purge"
+select @@global.gtid_executed , @@global.gtid_purged;
+@@global.gtid_executed	@@global.gtid_purged
+UUID:1-5	UUID:1-3
+include/rpl_restart_server.inc [server_number=1 gtids=on]
+"GTID sets on master after second restart"
+select @@global.gtid_executed , @@global.gtid_purged;
+@@global.gtid_executed	@@global.gtid_purged
+UUID:1-5	UUID:1-3
+show binary logs with gtid;
+Log_name	File_size	Encrypted	Prev_gtid_set
+master-bin.000002	#	No	# uuid:1-3
+master-bin.000003	#	No	# uuid:1-5
+master-bin.000004	#	No	# uuid:1-5
+master-bin.000005	#	No	# uuid:1-5
+change master to master_auto_position=0;
+include/start_slave.inc
+drop table t1;
+create table t1 (a int);
+insert into t1 values(5);
+insert into t1 values(6);
+FLUSH LOGS;
+drop table t1;
+"GTID sets on master finally"
+select @@global.gtid_executed , @@global.gtid_purged;
+@@global.gtid_executed	@@global.gtid_purged
+UUID:1-10	UUID:1-3
+show binary logs with gtid;
+Log_name	File_size	Encrypted	Prev_gtid_set
+master-bin.000002	#	No	# uuid:1-3
+master-bin.000003	#	No	# uuid:1-5
+master-bin.000004	#	No	# uuid:1-5
+master-bin.000005	#	No	# uuid:1-5
+master-bin.000006	#	No	# uuid:1-9
+include/sync_slave_sql_with_master.inc
+"GTID sets on slave finally"
+select @@global.gtid_executed , @@global.gtid_purged;
+@@global.gtid_executed	@@global.gtid_purged
+UUID:1-10	
+show binary logs with gtid;
+Log_name	File_size	Encrypted	Prev_gtid_set
+slave-bin.000001	#	No	# [empty]
+include/rpl_end.inc

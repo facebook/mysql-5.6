@@ -3937,7 +3937,7 @@ class Gtid_mode_copy {
 */
 class binlog_cmp {
  public:
-  bool operator()(std::string s1, std::string s2) {
+  bool operator()(const std::string &s1, const std::string &s2) const noexcept {
     return (s1.length() != s2.length()) ? (s1.length() < s2.length())
                                         : (s1 < s2);
   }

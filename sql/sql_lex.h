@@ -2731,6 +2731,10 @@ class Query_tables_list {
 
   void set_using_match() { using_match = true; }
   bool get_using_match() { return using_match; }
+  /**
+    for SHOW BINARY|MASTER LOGS, true if WITH GTID specified
+  */
+  bool with_gtid;
 
  private:
   /**

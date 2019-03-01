@@ -3603,7 +3603,7 @@ int mysql_execute_command(THD *thd, bool first_level) {
     }
     case SQLCOM_SHOW_BINLOGS: {
       if (check_global_access(thd, SUPER_ACL | REPL_CLIENT_ACL)) goto error;
-      res = show_binlogs(thd);
+      res = show_binlogs(thd, lex->with_gtid);
       break;
     }
     case SQLCOM_SHOW_CREATE:

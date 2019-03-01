@@ -1332,11 +1332,12 @@ bool show_master_status(THD *thd) {
 
   @param thd Pointer to THD object for the client thread executing the
   statement.
+  @param with_gtid Whether to include previous_gtid_set (default false)
 
   @retval false success
   @retval true failure
 */
-bool show_binlogs(THD *thd) {
+bool show_binlogs(THD *thd, bool with_gtid) {
   IO_CACHE *index_file;
   LOG_INFO cur;
   File file;
@@ -1356,6 +1357,10 @@ bool show_binlogs(THD *thd) {
   field_list.push_back(
       new Item_return_int("File_size", 20, MYSQL_TYPE_LONGLONG));
   field_list.push_back(new Item_empty_string("Encrypted", 3));
+  if (with_gtid)
+    field_list.push_back(
+        new Item_empty_string("Prev_gtid_set",
+                              0));  // max_size seems not to matter
   if (thd->send_result_metadata(&field_list,
                                 Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
     return true;
@@ -1414,6 +1419,25 @@ bool show_binlogs(THD *thd) {
     }
     protocol->store(file_length);
     protocol->store(encrypted_header_size ? "Yes" : "No", &my_charset_bin);
+
+    if (with_gtid) {
+      const auto previous_gtid_set_map =
+          mysql_bin_log.get_previous_gtid_set_map();
+      Sid_map sid_map(nullptr);
+      Gtid_set gtid_set(&sid_map, nullptr);
+      const auto gtid_str_it = previous_gtid_set_map->find(fname);
+      if (gtid_str_it != previous_gtid_set_map->end() &&
+          !gtid_str_it->second.empty()) {  // if GTID enabled
+        gtid_set.add_gtid_encoding((const uchar *)gtid_str_it->second.c_str(),
+                                   gtid_str_it->second.length(), nullptr);
+        char *buf;
+        gtid_set.to_string(&buf, false, &Gtid_set::commented_string_format);
+        protocol->store_string(buf, strlen(buf), &my_charset_bin);
+        my_free(buf);
+      } else {
+        protocol->store_string("", 0, &my_charset_bin);
+      }
+    }
     if (protocol->end_row()) {
       DBUG_PRINT(
           "info",
