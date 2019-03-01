@@ -435,9 +435,17 @@ extern bool avoid_temporal_upgrade;
 extern LEX_STRING opt_init_connect, opt_init_slave;
 extern ulong connection_errors_internal;
 extern ulong connection_errors_peer_addr;
+extern std::atomic<ulong> connection_errors_net_ER_NET_ERROR_ON_WRITE;
+extern std::atomic<ulong> connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER;
+extern std::atomic<ulong> connection_errors_net_ER_NET_PACKET_TOO_LARGE;
+extern std::atomic<ulong> connection_errors_net_ER_NET_READ_ERROR;
+extern std::atomic<ulong> connection_errors_net_ER_NET_READ_INTERRUPTED;
+extern std::atomic<ulong> connection_errors_net_ER_NET_UNCOMPRESS_ERROR;
+extern std::atomic<ulong> connection_errors_net_ER_NET_WRITE_INTERRUPTED;
 extern char *opt_log_error_suppression_list;
 extern char *opt_log_error_services;
 extern char *opt_protocol_compression_algorithms;
+
 /** The size of the host_cache. */
 extern uint host_cache_size;
 extern ulong log_error_verbosity;
