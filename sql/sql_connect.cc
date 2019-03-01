@@ -720,6 +720,36 @@ static bool login_connection(THD *thd) {
   return false;
 }
 
+static void thd_update_net_stats(NET *net) noexcept {
+  if (net->last_errno == 0) {
+    return;
+  }
+
+  switch (net->last_errno) {
+    case ER_NET_ERROR_ON_WRITE:
+      connection_errors_net_ER_NET_ERROR_ON_WRITE++;
+      break;
+    case ER_NET_PACKETS_OUT_OF_ORDER:
+      connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER++;
+      break;
+    case ER_NET_PACKET_TOO_LARGE:
+      connection_errors_net_ER_NET_PACKET_TOO_LARGE++;
+      break;
+    case ER_NET_READ_ERROR:
+      connection_errors_net_ER_NET_READ_ERROR++;
+      break;
+    case ER_NET_READ_INTERRUPTED:
+      connection_errors_net_ER_NET_READ_INTERRUPTED++;
+      break;
+    case ER_NET_UNCOMPRESS_ERROR:
+      connection_errors_net_ER_NET_UNCOMPRESS_ERROR++;
+      break;
+    case ER_NET_WRITE_INTERRUPTED:
+      connection_errors_net_ER_NET_WRITE_INTERRUPTED++;
+      break;
+  }
+}
+
 /*
   Close an established connection
 
@@ -729,6 +759,8 @@ static bool login_connection(THD *thd) {
 
 void end_connection(THD *thd) {
   NET *net = thd->get_protocol_classic()->get_net();
+
+  thd_update_net_stats(net);
 
   mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_CONNECTION_DISCONNECT), 0);
 

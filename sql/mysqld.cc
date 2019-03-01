@@ -1544,6 +1544,20 @@ my_decimal decimal_zero;
 ulong connection_errors_internal = 0;
 /** Number of errors when reading the peer address. */
 ulong connection_errors_peer_addr = 0;
+/** Number of connection errors while writing to client */
+std::atomic<ulong> connection_errors_net_ER_NET_ERROR_ON_WRITE{0};
+/** Number of connection errors because of packet ordering issues */
+std::atomic<ulong> connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER{0};
+/** Number of connection errors because the packet was too larger */
+std::atomic<ulong> connection_errors_net_ER_NET_PACKET_TOO_LARGE{0};
+/** Number of connection errors while reading data from client */
+std::atomic<ulong> connection_errors_net_ER_NET_READ_ERROR{0};
+/** Number of connection errors due to read timeout */
+std::atomic<ulong> connection_errors_net_ER_NET_READ_INTERRUPTED{0};
+/** Number of connection errors due to compression errors */
+std::atomic<ulong> connection_errors_net_ER_NET_UNCOMPRESS_ERROR{0};
+/** Number of connection errors due to write timeout */
+std::atomic<ulong> connection_errors_net_ER_NET_WRITE_INTERRUPTED{0};
 
 /* classes for comparation parsing/processing */
 Eq_creator eq_creator;
@@ -9354,6 +9368,81 @@ static int show_connection_errors_tcpwrap(THD *, SHOW_VAR *var, char *buff) {
   return 0;
 }
 
+static int show_connection_errors_net_ER_NET_ERROR_ON_WRITE(THD *,
+                                                            SHOW_VAR *var,
+                                                            char *buff) {
+  var->type = SHOW_LONG;
+  var->value = buff;
+  long *value = reinterpret_cast<long *>(buff);
+  *value =
+      static_cast<long>(connection_errors_net_ER_NET_ERROR_ON_WRITE.load());
+  return 0;
+}
+
+static int show_connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER(THD *,
+                                                                  SHOW_VAR *var,
+                                                                  char *buff) {
+  var->type = SHOW_LONG;
+  var->value = buff;
+  long *value = reinterpret_cast<long *>(buff);
+  *value = static_cast<long>(
+      connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER.load());
+  return 0;
+}
+
+static int show_connection_errors_net_ER_NET_PACKET_TOO_LARGE(THD *,
+                                                              SHOW_VAR *var,
+                                                              char *buff) {
+  var->type = SHOW_LONG;
+  var->value = buff;
+  long *value = reinterpret_cast<long *>(buff);
+  *value =
+      static_cast<long>(connection_errors_net_ER_NET_PACKET_TOO_LARGE.load());
+  return 0;
+}
+
+static int show_connection_errors_net_ER_NET_READ_ERROR(THD *, SHOW_VAR *var,
+                                                        char *buff) {
+  var->type = SHOW_LONG;
+  var->value = buff;
+  long *value = reinterpret_cast<long *>(buff);
+  *value = static_cast<long>(connection_errors_net_ER_NET_READ_ERROR.load());
+  return 0;
+}
+
+static int show_connection_errors_net_ER_NET_READ_INTERRUPTED(THD *,
+                                                              SHOW_VAR *var,
+                                                              char *buff) {
+  var->type = SHOW_LONG;
+  var->value = buff;
+  long *value = reinterpret_cast<long *>(buff);
+  *value =
+      static_cast<long>(connection_errors_net_ER_NET_READ_INTERRUPTED.load());
+  return 0;
+}
+
+static int show_connection_errors_net_ER_NET_UNCOMPRESS_ERROR(THD *,
+                                                              SHOW_VAR *var,
+                                                              char *buff) {
+  var->type = SHOW_LONG;
+  var->value = buff;
+  long *value = reinterpret_cast<long *>(buff);
+  *value =
+      static_cast<long>(connection_errors_net_ER_NET_UNCOMPRESS_ERROR.load());
+  return 0;
+}
+
+static int show_connection_errors_net_ER_NET_WRITE_INTERRUPTED(THD *,
+                                                               SHOW_VAR *var,
+                                                               char *buff) {
+  var->type = SHOW_LONG;
+  var->value = buff;
+  long *value = reinterpret_cast<long *>(buff);
+  *value =
+      static_cast<long>(connection_errors_net_ER_NET_WRITE_INTERRUPTED.load());
+  return 0;
+}
+
 #ifdef ENABLED_PROFILING
 static int show_flushstatustime(THD *thd, SHOW_VAR *var, char *buff) {
   var->type = SHOW_LONGLONG;
@@ -9591,6 +9680,27 @@ SHOW_VAR status_vars[] = {
      SHOW_LONG, SHOW_SCOPE_GLOBAL},
     {"Connection_errors_max_connections",
      (char *)&show_connection_errors_max_connection, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
+    {"Connection_errors_net_ER_NET_ERROR_ON_WRITE",
+     (char *)&show_connection_errors_net_ER_NET_ERROR_ON_WRITE, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
+    {"Connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER",
+     (char *)&show_connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
+    {"Connection_errors_net_ER_NET_PACKET_TOO_LARGE",
+     (char *)&show_connection_errors_net_ER_NET_PACKET_TOO_LARGE, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
+    {"Connection_errors_net_ER_NET_READ_ERROR",
+     (char *)&show_connection_errors_net_ER_NET_READ_ERROR, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
+    {"Connection_errors_net_ER_NET_READ_INTERRUPTED",
+     (char *)&show_connection_errors_net_ER_NET_READ_INTERRUPTED, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
+    {"Connection_errors_net_ER_NET_UNCOMPRESS_ERROR",
+     (char *)&show_connection_errors_net_ER_NET_UNCOMPRESS_ERROR, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
+    {"Connection_errors_net_ER_NET_WRITE_INTERRUPTED",
+     (char *)&show_connection_errors_net_ER_NET_WRITE_INTERRUPTED, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
     {"Connection_errors_peer_address", (char *)&connection_errors_peer_addr,
      SHOW_LONG, SHOW_SCOPE_GLOBAL},
