@@ -4063,7 +4063,7 @@ inline void gtid_state_commit_or_rollback(THD *thd, bool needs_to,
 */
 class binlog_cmp {
  public:
-  bool operator()(std::string s1, std::string s2) const {
+  bool operator()(const std::string &s1, const std::string &s2) const noexcept {
     return (s1.length() != s2.length()) ? (s1.length() < s2.length())
                                         : (s1 < s2);
   }
