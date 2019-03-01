@@ -316,7 +316,9 @@ bool Sql_cmd_show_binlogs::check_privileges(THD *thd) {
   return check_global_access(thd, SUPER_ACL | REPL_CLIENT_ACL);
 }
 
-bool Sql_cmd_show_binlogs::execute_inner(THD *thd) { return show_binlogs(thd); }
+bool Sql_cmd_show_binlogs::execute_inner(THD *thd) {
+  return show_binlogs(thd, lex->with_gtid);
+}
 
 bool Sql_cmd_show_create_database::check_privileges(THD *) { return false; }
 

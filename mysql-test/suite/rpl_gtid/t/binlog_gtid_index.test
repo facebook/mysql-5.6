@@ -1,0 +1,120 @@
+--source include/master-slave.inc
+
+--source include/rpl_connection_master.inc
+let $source_uuid=`select @@server_uuid;`;
+replace_result $source_uuid uuid; replace_column 2 #;
+show binary logs with gtid;
+create table t1 (a int);
+
+insert into t1 values(1);
+insert into t1 values(2);
+
+replace_result $source_uuid uuid; replace_column 2 #;
+show binary logs with gtid;
+
+FLUSH LOGS;
+
+replace_result $source_uuid uuid; replace_column 2 #;
+show binary logs with gtid;
+
+--source include/sync_slave_sql_with_master.inc
+--source include/stop_slave.inc
+
+--source include/rpl_connection_master.inc
+insert into t1 values(3);
+insert into t1 values(4);
+
+replace_result $source_uuid uuid; replace_column 2 #;
+show binary logs with gtid;
+
+FLUSH LOGS;
+
+replace_result $source_uuid uuid; replace_column 2 #;
+show binary logs with gtid;
+
+--source include/rpl_connection_slave.inc
+--source include/start_slave.inc
+
+--source include/rpl_connection_master.inc
+
+--echo "GTID sets on master"
+--replace_regex /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/UUID/
+select @@global.gtid_executed , @@global.gtid_purged;
+replace_result $source_uuid uuid; replace_column 2 #;
+show binary logs with gtid;
+
+--source include/sync_slave_sql_with_master.inc
+
+--echo "GTID sets on slave"
+--replace_regex /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/UUID/
+select @@global.gtid_executed , @@global.gtid_purged;
+
+replace_result $source_uuid uuid; replace_column 2 #;
+show binary logs with gtid;
+
+--source include/stop_slave.inc
+
+
+--source include/rpl_connection_master.inc
+
+replace_result $source_uuid uuid; replace_column 2 #;
+show binary logs with gtid;
+
+--let $rpl_server_number= 1
+--let $rpl_start_with_gtids= 1
+--source include/rpl_restart_server.inc
+
+--echo "GTID sets on master after first restart"
+--replace_regex /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/UUID/
+select @@global.gtid_executed , @@global.gtid_purged;
+
+replace_result $source_uuid uuid; replace_column 2 #;
+show binary logs with gtid;
+
+purge binary logs to 'master-bin.000002';
+replace_result $source_uuid uuid; replace_column 2 #;
+show binary logs with gtid;
+
+--echo "GTID sets on master after purge"
+--replace_regex /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/UUID/
+select @@global.gtid_executed , @@global.gtid_purged;
+
+--let $rpl_server_number= 1
+--let $rpl_start_with_gtids= 1
+--source include/rpl_restart_server.inc
+
+--echo "GTID sets on master after second restart"
+--replace_regex /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/UUID/
+select @@global.gtid_executed , @@global.gtid_purged;
+replace_result $source_uuid uuid; replace_column 2 #;
+show binary logs with gtid;
+
+--source include/rpl_connection_slave.inc
+change replication source to source_auto_position=0;
+--source include/start_slave.inc
+
+--source include/rpl_connection_master.inc
+drop table t1;
+create table t1 (a int);
+insert into t1 values(5);
+insert into t1 values(6);
+FLUSH LOGS;
+
+drop table t1;
+
+--echo "GTID sets on master finally"
+--replace_regex /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/UUID/
+select @@global.gtid_executed , @@global.gtid_purged;
+replace_result $source_uuid uuid; replace_column 2 #;
+show binary logs with gtid;
+
+--source include/sync_slave_sql_with_master.inc
+
+--echo "GTID sets on slave finally"
+--replace_regex /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/UUID/
+select @@global.gtid_executed , @@global.gtid_purged;
+replace_result $source_uuid uuid; replace_column 2 #;
+show binary logs with gtid;
+
+--source include/rpl_connection_master.inc
+--source include/rpl_end.inc
