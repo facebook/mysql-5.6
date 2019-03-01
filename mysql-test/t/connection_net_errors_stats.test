@@ -1,0 +1,39 @@
+--source include/count_sessions.inc
+
+create user mysqltest_1@localhost;
+
+# (herman) 8.0.17 has replaced ER_NET_READ_INTERRUPTED with ER_NET_WAIT_ERROR
+# so disable this test counter for now
+
+#
+# Run the test to simulate all network errors with root user
+#
+--let $ER_NET_READ_ERROR= 1
+--let $ER_NET_READ_INTERRUPTED= 0
+--let $user= root
+--source include/connection_net_errors_stats_test.inc
+
+#
+# Run the test to simulate all network errors for mysqltest_1 user
+#
+#--let $ER_NET_READ_ERROR= 1
+#--let $ER_NET_READ_INTERRUPTED= 0
+#--let $user=mysqltest_1
+#--source include/connection_net_errors_stats_test.inc
+
+#
+# Run the test to simulate only subset of network errors on mysqltest_1
+# user
+#
+--let $ER_NET_READ_ERROR= 1
+--let $ER_NET_READ_INTERRUPTED= 0
+--let $user=mysqltest_1
+--source include/connection_net_errors_stats_test.inc
+
+#
+# Cleanup
+#
+--connection default
+drop user mysqltest_1@localhost;
+
+--source include/wait_until_count_sessions.inc

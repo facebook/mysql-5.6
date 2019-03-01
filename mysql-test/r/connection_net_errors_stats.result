@@ -1,0 +1,28 @@
+create user mysqltest_1@localhost;
+connection_net_errors_stats_test (user= root, ER_NET_READ_ERROR= 1, ER_NET_READ_INTERRUPTED= 0)
+flush status;
+select "disconnect the connection";
+disconnect the connection
+disconnect the connection
+include/assert.inc [Connection_errors_net_ER_NET_READ_ERROR shall be 1]
+include/assert.inc [Connection_errors_net_ER_NET_READ_INTERRUPTED shall be 0]
+include/assert.inc [Connection_errors_net_ER_NET_ERROR_ON_WRITE shall be 0]
+include/assert.inc [Connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER shall be 0]
+include/assert.inc [Connection_errors_net_ER_NET_PACKET_TOO_LARGE shall be 0]
+include/assert.inc [Connection_errors_net_ER_NET_UNCOMPRESS_ERROR shall be 0]
+include/assert.inc [Connection_errors_net_ER_NET_WRITE_INTERRUPTED shall be 0]
+flush status;
+connection_net_errors_stats_test (user= mysqltest_1, ER_NET_READ_ERROR= 1, ER_NET_READ_INTERRUPTED= 0)
+flush status;
+select "disconnect the connection";
+disconnect the connection
+disconnect the connection
+include/assert.inc [Connection_errors_net_ER_NET_READ_ERROR shall be 1]
+include/assert.inc [Connection_errors_net_ER_NET_READ_INTERRUPTED shall be 0]
+include/assert.inc [Connection_errors_net_ER_NET_ERROR_ON_WRITE shall be 0]
+include/assert.inc [Connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER shall be 0]
+include/assert.inc [Connection_errors_net_ER_NET_PACKET_TOO_LARGE shall be 0]
+include/assert.inc [Connection_errors_net_ER_NET_UNCOMPRESS_ERROR shall be 0]
+include/assert.inc [Connection_errors_net_ER_NET_WRITE_INTERRUPTED shall be 0]
+flush status;
+drop user mysqltest_1@localhost;
