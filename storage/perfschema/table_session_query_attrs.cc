@@ -173,7 +173,7 @@ table_session_query_attrs_impl::table_session_query_attrs_impl(
   All_THD_query_attrs_visitor thd_query_attrs_visitor;
   Global_THD_manager::get_instance()->do_for_all_thd(&thd_query_attrs_visitor);
   m_all_rows.swap(thd_query_attrs_visitor.query_attributes());
-  m_current_row = &m_all_rows[curr_pos->m_index];
+  m_current_row = nullptr;
 }
 
 int table_session_query_attrs_impl::read_row_values(TABLE *table,
