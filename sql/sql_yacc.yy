@@ -12752,7 +12752,7 @@ show_param:
             lex->sql_command= SQLCOM_SHOW_FIELDS;
             MAKE_CMD(p);
           }
-        | master_or_binary LOGS_SYM
+        | master_or_binary LOGS_SYM gtid_bool
           {
             Lex->sql_command = SQLCOM_SHOW_BINLOGS;
           }
@@ -13041,6 +13041,16 @@ show_param:
             lex->grant_user=$3;
           }
         ;
+
+gtid_bool:
+         /* empty */
+         {
+           Lex->with_gtid = false;
+         }
+         | WITH GTID_SYM
+         {
+           Lex->with_gtid = true;
+         }
 
 show_engine_param:
           STATUS_SYM
