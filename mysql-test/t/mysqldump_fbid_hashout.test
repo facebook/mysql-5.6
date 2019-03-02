@@ -120,7 +120,27 @@ INSERT INTO hashout_udid VALUES ('h', 17, REPEAT('X', 5), 1,1);
 INSERT INTO hashout_udid VALUES ('i', 18, REPEAT('X', 6), 1,1);
 
 --exec $MYSQL_DUMP --skip-comments --skip-dump-date --dump-fbobj-assoc-stats=$MYSQLTEST_VARDIR/fbid_hashout_dump fbid_hashout_test fbid fbid_test hashout_test hashout_short_url hashout hashout_xid hashout_xid_crow hashout_udid
---cat_file $MYSQLTEST_VARDIR/fbid_hashout_dump
+--perl
+# Sort results because different std::unordered_map implementations give
+# different order.
+my $dir= $ENV{'MYSQLTEST_VARDIR'};
+open (FILE, "$dir/fbid_hashout_dump");
+my @lines = ();
+while (<FILE>) {
+  if (/FBObj\/Assoc/) {
+    if (scalar(@lines) > 0) {
+      @lines = sort @lines;
+      foreach my $line(@lines) {
+        print "$line";
+      }
+      @lines = ();
+    }
+    print $_;
+  } else {
+    push @lines, $_
+  }
+}
+EOF
 --remove_file $MYSQLTEST_VARDIR/fbid_hashout_dump
 
 DROP DATABASE fbid_hashout_test;

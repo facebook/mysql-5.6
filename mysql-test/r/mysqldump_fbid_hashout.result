@@ -265,24 +265,24 @@ UNLOCK TABLES;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
 -- Dumping FBObj/Assoc/Fbid/Hashout stats for: fbid
-3	42	1	7
-3	31	1	6
 3	20	2	14
+3	31	1	6
+3	42	1	7
 -- Dumping FBObj/Assoc/Fbid/Hashout stats for: hashout_short_url
-2	9	1	27
 2	8	2	54
+2	9	1	27
 -- Dumping FBObj/Assoc/Fbid/Hashout stats for: hashout
-2	11	2	63
 2	10	1	21
+2	11	2	63
 -- Dumping FBObj/Assoc/Fbid/Hashout stats for: hashout_xid
-2	13	2	69
 2	12	1	33
+2	13	2	69
 -- Dumping FBObj/Assoc/Fbid/Hashout stats for: hashout_xid_crow
-2	15	1	22
 2	14	2	44
+2	15	1	22
 -- Dumping FBObj/Assoc/Fbid/Hashout stats for: hashout_udid
+2	16	1	24
 2	17	1	25
 2	18	1	26
-2	16	1	24
 -- FBObj/Assoc stats dump completed.
 DROP DATABASE fbid_hashout_test;
