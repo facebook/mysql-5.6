@@ -126,6 +126,10 @@ rocksdb::ColumnFamilyHandle *Rdb_cf_manager::get_or_create_cf(
 /*
   Find column family by its cf_name.
 */
+rocksdb::ColumnFamilyHandle *
+Rdb_cf_manager::get_cf(const std::string &cf_name_arg) const {
+  return get_cf(cf_name_arg, false /*lock_held_by_caller*/);
+}
 
 rocksdb::ColumnFamilyHandle *Rdb_cf_manager::get_cf(
     const std::string &cf_name_arg, const bool lock_held_by_caller) const {
