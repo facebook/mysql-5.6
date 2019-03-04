@@ -1,7 +1,6 @@
-set timestamp=10;
-select unix_timestamp(), sleep(2);
-unix_timestamp()	sleep(2)
-10	0
+set @my_long_query_time = @@global.long_query_time;
+set @my_slow_logname = @@global.slow_query_log_file;
+set global slow_query_log_file = "slow_log_extra-slow.log";
 set global long_query_time=0;
 drop table if exists islow;
 drop table if exists mslow;
@@ -70,25 +69,29 @@ i
 6
 7
 8
-set global long_query_time=1;
-drop table islow;
-drop table mslow;
+set global long_query_time = @my_long_query_time;
+set global slow_query_log_file = @my_slow_logname;
 #
 # This is a hack to check the log result.
-# We strip off time related fields (non-deterministic) ana verify the rest are correct.
+# We strip off time related fields (non-deterministic)
+# and verify the rest are correct.
 #
-Rows_sent: 1  Rows_examined: 0 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 101 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
-Rows_sent: 0  Rows_examined: 0 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 11 Read_first: 0 Read_last: 0 Read_key: 4 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
-Rows_sent: 0  Rows_examined: 0 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 11 Read_first: 0 Read_last: 0 Read_key: 4 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
-Rows_sent: 0  Rows_examined: 0 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 11 Read_first: 0 Read_last: 0 Read_key: 19 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
-Rows_sent: 0  Rows_examined: 0 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 50 Read_first: 0 Read_last: 0 Read_key: 10 Read_next: 9 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
-Rows_sent: 0  Rows_examined: 0 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 11 Read_first: 0 Read_last: 0 Read_key: 12 Read_next: 1 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
-Rows_sent: 0  Rows_examined: 0 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 50 Read_first: 0 Read_last: 0 Read_key: 1 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
-Rows_sent: 8  Rows_examined: 8 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 106 Read_first: 1 Read_last: 0 Read_key: 1 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 9 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
-Rows_sent: 8  Rows_examined: 8 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 106 Read_first: 1 Read_last: 0 Read_key: 1 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 9 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
-Rows_sent: 8  Rows_examined: 8 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 106 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 9 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
-Rows_sent: 8  Rows_examined: 8 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 106 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 9 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
-Rows_sent: 8  Rows_examined: 8 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 106 Read_first: 1 Read_last: 0 Read_key: 1 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 9 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
-Rows_sent: 0  Rows_examined: 0 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 11 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
-Rows_sent: 8  Rows_examined: 8 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 106 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 9 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
-Rows_sent: 0  Rows_examined: 8 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 0 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+select * from log_output;
+Rows_sent	Rows_examined	Errno	Killed	Bytes_received	Bytes_sent	Read_first	Read_last	Read_key	Read_next	Read_prev	Read_rnd	Read_rnd_next	Sort_merge_passes	Sort_range_count	Sort_rows	Sort_scan_count	Created_tmp_disk_tables
+0	0	0	0	0	11	0	0	4	0	0	0	0	0	0	0	0	0
+0	0	0	0	0	11	0	0	4	0	0	0	0	0	0	0	0	0
+0	0	0	0	0	11	0	0	19	0	0	0	0	0	0	0	0	0
+0	0	0	0	0	50	0	0	10	9	0	0	0	0	0	0	0	0
+0	0	0	0	0	11	0	0	12	1	0	0	0	0	0	0	0	0
+0	0	0	0	0	50	0	0	1	0	0	0	0	0	0	0	0	0
+8	8	0	0	0	106	1	0	1	0	0	0	9	0	0	0	0	0
+8	8	0	0	0	106	1	0	1	0	0	0	9	0	0	0	0	0
+8	8	0	0	0	106	0	0	0	0	0	0	9	0	0	0	0	0
+8	8	0	0	0	106	0	0	0	0	0	0	9	0	0	0	0	0
+8	8	0	0	0	106	1	0	1	0	0	0	9	0	0	0	0	0
+0	0	0	0	0	11	0	0	0	0	0	0	0	0	0	0	0	0
+8	8	0	0	0	106	0	0	0	0	0	0	9	0	0	0	0	0
+if the following is not 1 you need to adjust the file_lines_count variable
+1
+drop table islow;
+drop table mslow;
