@@ -52,6 +52,7 @@
 #include "mysql/service_mysql_alloc.h"
 #include "mysys_err.h"  // EE_OUTOFMEMORY
 #include "pfs_statement_provider.h"
+#include "sql/auth/auth_acls.h"
 #include "sql/auth/sql_security_ctx.h"
 #include "sql/binlog.h"
 #include "sql/check_stack.h"
@@ -1367,6 +1368,26 @@ void THD::notify_shared_lock(MDL_context_owner *ctx_in_use,
     }
     mysql_mutex_unlock(&in_use->LOCK_thd_data);
   }
+}
+
+bool THD::kill_shared_locks(MDL_context_owner *ctx_in_use) {
+  THD *in_use = ctx_in_use->get_thd();
+
+  // Only allow super user with ddl command to kill blocking threads
+  if (this->variables.high_priority_ddl &&
+      this->m_security_ctx->master_access() & SUPER_ACL &&
+      support_high_priority(lex->sql_command)) {
+    mysql_mutex_lock(&in_use->LOCK_thd_data);
+    /* process the kill only if thread is not already undergoing any kill
+       connection.
+    */
+    if (in_use->killed != THD::KILL_CONNECTION) {
+      in_use->awake(THD::KILL_CONNECTION);
+    }
+    mysql_mutex_unlock(&in_use->LOCK_thd_data);
+    return true;
+  }
+  return false;
 }
 
 /*

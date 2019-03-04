@@ -51,6 +51,8 @@
 #include "mysqld_error.h"
 #include "prealloced_array.h"
 #include "sql/debug_sync.h"
+#include "sql/sql_class.h"
+#include "sql/sql_lex.h"
 #include "sql/thr_malloc.h"
 
 extern MYSQL_PLUGIN_IMPORT CHARSET_INFO *system_charset_info;
@@ -529,6 +531,8 @@ class MDL_lock {
       notification was requested.
     */
     void (*m_notify_conflicting_locks)(MDL_context *ctx, MDL_lock *lock);
+
+    bool (*m_kill_conflicting_locks)(MDL_context *ctx, MDL_lock *lock);
     /**
       Pointer to a static method which converts information about
       locks granted using "fast" path from fast_path_state_t
@@ -651,6 +655,12 @@ class MDL_lock {
   void notify_conflicting_locks(MDL_context *ctx) {
     if (m_strategy->m_notify_conflicting_locks)
       m_strategy->m_notify_conflicting_locks(ctx, this);
+  }
+
+  bool kill_conflicting_locks(MDL_context *ctx) {
+    return m_strategy->m_kill_conflicting_locks
+               ? m_strategy->m_kill_conflicting_locks(ctx, this)
+               : false;
   }
 
   bool needs_connection_check() const {
@@ -989,6 +999,9 @@ class MDL_lock {
   }
   static void object_lock_notify_conflicting_locks(MDL_context *ctx,
                                                    MDL_lock *lock);
+
+  static bool object_lock_kill_conflicting_locks(MDL_context *ctx,
+                                                 MDL_lock *lock);
   /**
     Get bitmap of "unobtrusive" locks granted using "fast path" algorithm
     for per-object locks.
@@ -2170,6 +2183,7 @@ const MDL_lock::MDL_lock_strategy MDL_lock::m_scoped_lock_strategy = {
       locks.
     */
     NULL,
+    nullptr,
     &MDL_lock::scoped_lock_fast_path_granted_bitmap,
     /* Scoped locks never require connection check. */
     NULL};
@@ -2372,6 +2386,7 @@ const MDL_lock::MDL_lock_strategy MDL_lock::m_object_lock_strategy = {
 
     &MDL_lock::object_lock_needs_notification,
     &MDL_lock::object_lock_notify_conflicting_locks,
+    &MDL_lock::object_lock_kill_conflicting_locks,
     &MDL_lock::object_lock_fast_path_granted_bitmap,
     &MDL_lock::object_lock_needs_connection_check};
 
@@ -3034,6 +3049,7 @@ retry:
     mdl_request->ticket = ticket;
 
     mysql_mdl_set_status(ticket->m_psi, MDL_ticket::GRANTED);
+    materialize_fast_path_locks();
     return false;
   }
 
@@ -3341,6 +3357,23 @@ void MDL_lock::object_lock_notify_conflicting_locks(MDL_context *ctx,
   }
 }
 
+bool MDL_lock::object_lock_kill_conflicting_locks(MDL_context *ctx,
+                                                  MDL_lock *lock) {
+  Ticket_iterator it(lock->m_granted);
+  MDL_ticket *conflicting_ticket;
+
+  while ((conflicting_ticket = it++)) {
+    if (conflicting_ticket->get_ctx() != ctx &&
+        conflicting_ticket->get_type() <= MDL_SHARED_NO_WRITE) {
+      MDL_context *conflicting_ctx = conflicting_ticket->get_ctx();
+      // if any conflicting thread is not killed, stop and just return false
+      if (!ctx->get_owner()->kill_shared_locks(conflicting_ctx->get_owner()))
+        return false;
+    }
+  }
+  return true;
+}
+
 /**
   Acquire one lock with waiting for conflicting locks to go away if needed.
 
@@ -3355,6 +3388,14 @@ void MDL_lock::object_lock_notify_conflicting_locks(MDL_context *ctx,
 
 bool MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
                                     ulonglong lock_wait_timeout_nsec) {
+  THD *thd = get_thd();
+  if (thd->variables.high_priority_ddl) {
+    // if this is a high priority command, use the
+    // high_priority_lock_wait_timeout_nsec
+    lock_wait_timeout_nsec =
+        thd->variables.high_priority_lock_wait_timeout_nsec;
+  }
+
   MDL_lock *lock;
   MDL_ticket *ticket;
   struct timespec abs_timeout;
@@ -3442,12 +3483,22 @@ bool MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
 
   find_deadlock();
 
+  /*
+    For high priority ddl, if this lock is upgradable, the
+    final timed_wait happens after connection kill. For other
+    requests, connections will not be killed.
+  */
+  const bool set_status_on_timeout =
+      !(get_thd()->variables.high_priority_ddl &&
+        (ticket->get_type() >= MDL_SHARED_UPGRADABLE));
+
   if (lock->needs_notification(ticket) || lock->needs_connection_check()) {
     struct timespec abs_shortwait;
     set_timespec(&abs_shortwait, 1);
     wait_status = MDL_wait::EMPTY;
 
-    while (cmp_timespec(&abs_shortwait, &abs_timeout) <= 0) {
+    while (set_status_on_timeout &&
+           cmp_timespec(&abs_shortwait, &abs_timeout) <= 0) {
       /* abs_timeout is far away. Wait a short while and notify locks. */
       wait_status = m_wait.timed_wait(m_owner, &abs_shortwait, false,
                                       mdl_request->key.get_wait_state_name());
@@ -3479,9 +3530,28 @@ bool MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
       set_timespec(&abs_shortwait, 1);
     }
     if (wait_status == MDL_wait::EMPTY)
-      wait_status = m_wait.timed_wait(m_owner, &abs_timeout, true,
-                                      mdl_request->key.get_wait_state_name());
+      wait_status =
+          m_wait.timed_wait(m_owner, &abs_timeout, set_status_on_timeout,
+                            mdl_request->key.get_wait_state_name());
   } else {
+    wait_status =
+        m_wait.timed_wait(m_owner, &abs_timeout, set_status_on_timeout,
+                          mdl_request->key.get_wait_state_name());
+  }
+
+  if (wait_status == MDL_wait::EMPTY && !set_status_on_timeout) {
+    /*
+     * If an upgradable shared metadata lock request (potentially from DDL) is
+     * blocked and timed out, we may be able to kill the blocking connections
+     * if the request is from a DDL command, and then retry a short wait.
+     * Note: any lock >= MDL_SHARED_UPGRADABLE may be upgraded to X lock.
+     */
+    mysql_prlock_wrlock(&lock->m_rwlock);
+    (void)lock->kill_conflicting_locks(this);
+    mysql_prlock_unlock(&lock->m_rwlock);
+    DEBUG_SYNC(get_thd(), "mdl_high_priority_kill_conflicting_locks");
+
+    set_timespec(&abs_timeout, 1);  // retry a short wait of 1 second
     wait_status = m_wait.timed_wait(m_owner, &abs_timeout, true,
                                     mdl_request->key.get_wait_state_name());
   }
@@ -4326,8 +4396,8 @@ void MDL_ticket::downgrade_lock(enum_mdl_type new_type) {
   @param mdl_type      Lock type. Pass in the weakest type to find
                        out if there is at least some lock.
 
-  @return TRUE if current context contains satisfied lock for the object,
-          FALSE otherwise.
+  @return true if current context contains satisfied lock for the object,
+          false otherwise.
 */
 
 bool MDL_context::owns_equal_or_stronger_lock(const MDL_key *mdl_key,

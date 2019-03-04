@@ -53,6 +53,10 @@ class Test_MDL_context_owner : public MDL_context_owner {
   virtual void notify_hton_post_release_exclusive(const MDL_key *) {}
 
   virtual uint get_rand_seed() { return 0; }
+
+  virtual bool kill_shared_locks(MDL_context_owner * /* unused */) {
+    return false;
+  }
 };
 
 #endif  // TEST_MDL_CONTEXT_OWNER_INCLUDED

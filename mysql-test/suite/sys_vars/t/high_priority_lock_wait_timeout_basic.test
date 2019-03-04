@@ -1,0 +1,2 @@
+--let $lock_wait_timeout = high_priority_lock_wait_timeout
+--source suite/sys_vars/inc/lock_wait_timeout_basic.inc
