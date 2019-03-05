@@ -270,8 +270,8 @@ bool acquire_mdl_for_trigger(THD *thd, const char *db, const char *trg_name,
 
   mdl_requests.push_front(&mdl_request);
 
-  if (thd->mdl_context.acquire_locks(&mdl_requests,
-                                     thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.acquire_locks_nsec(
+          &mdl_requests, thd->variables.lock_wait_timeout_nsec))
     return true;
 
   return false;
@@ -333,7 +333,8 @@ TABLE *Sql_cmd_ddl_trigger_common::open_and_lock_subj_table(
         find_table_for_mdl_upgrade(thd, tables->db, tables->table_name, false);
     if (tables->table == nullptr) return nullptr;
 
-    if (acquire_shared_backup_lock(thd, thd->variables.lock_wait_timeout))
+    if (acquire_shared_backup_lock_nsec(thd,
+                                        thd->variables.lock_wait_timeout_nsec))
       return nullptr;
   } else {
     tables->table = open_n_lock_single_table(thd, tables, TL_READ_NO_INSERT, 0);

@@ -557,8 +557,8 @@ bool mysql_alter_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
     DBUG_RETURN(true);
   }
 
-  if (lock_table_names(thd, tables, NULL, thd->variables.lock_wait_timeout,
-                       0)) {
+  if (lock_table_names_nsec(thd, tables, NULL,
+                            thd->variables.lock_wait_timeout_nsec, 0)) {
     DBUG_RETURN(true);
   }
 
@@ -760,8 +760,8 @@ bool mysql_rm_db(THD *thd, const LEX_CSTRING &db, bool if_exists) {
     }
 
     /* Lock all tables and stored routines about to be dropped. */
-    if (lock_table_names(thd, tables, NULL, thd->variables.lock_wait_timeout,
-                         0) ||
+    if (lock_table_names_nsec(thd, tables, NULL,
+                              thd->variables.lock_wait_timeout_nsec, 0) ||
         rm_table_do_discovery_and_lock_fk_tables(thd, tables) ||
         Events::lock_schema_events(thd, *schema) ||
         lock_db_routines(thd, *schema) || lock_trigger_names(thd, tables))

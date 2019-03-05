@@ -274,8 +274,8 @@ static bool lock_routine_name(THD *thd, enum_sp_type type, sp_name *name,
   MDL_REQUEST_INIT(&routine_request, mdl_type, name->m_db.str, lc_routine_name,
                    mdl_lock_type, MDL_TRANSACTION);
   // Acquire MDL locks
-  if (thd->mdl_context.acquire_lock(&routine_request,
-                                    thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.acquire_lock_nsec(&routine_request,
+                                         thd->variables.lock_wait_timeout_nsec))
     DBUG_RETURN(true);
 
   DBUG_RETURN(false);
@@ -1108,8 +1108,8 @@ bool lock_db_routines(THD *thd, const dd::Schema &schema) {
     mdl_requests.push_front(mdl_request);
   }
 
-  DBUG_RETURN(thd->mdl_context.acquire_locks(&mdl_requests,
-                                             thd->variables.lock_wait_timeout));
+  DBUG_RETURN(thd->mdl_context.acquire_locks_nsec(
+      &mdl_requests, thd->variables.lock_wait_timeout_nsec));
 }
 
 /**

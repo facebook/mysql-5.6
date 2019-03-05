@@ -1645,7 +1645,8 @@ bool mysql_drop_view(THD *thd, TABLE_LIST *views) {
     DBUG_RETURN(true);
   }
 
-  if (lock_table_names(thd, views, 0, thd->variables.lock_wait_timeout, 0))
+  if (lock_table_names_nsec(thd, views, 0,
+                            thd->variables.lock_wait_timeout_nsec, 0))
     DBUG_RETURN(true);
 
   dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());

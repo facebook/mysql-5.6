@@ -202,7 +202,8 @@ bool lock_rec(THD *thd, MDL_request_list *rlst, const LEX_STRING &tsp) {
                    MDL_INTENTION_EXCLUSIVE, MDL_TRANSACTION);
   rlst->push_front(&backup_lock_request);
 
-  return thd->mdl_context.acquire_locks(rlst, thd->variables.lock_wait_timeout);
+  return thd->mdl_context.acquire_locks_nsec(
+      rlst, thd->variables.lock_wait_timeout_nsec);
 }
 
 template <typename... Names>
@@ -979,8 +980,8 @@ bool Sql_cmd_alter_tablespace_rename::execute(THD *thd) {
     table_reqs.push_front(dd::mdl_req(thd, tref));
   }
 
-  if (thd->mdl_context.acquire_locks(&table_reqs,
-                                     thd->variables.lock_wait_timeout)) {
+  if (thd->mdl_context.acquire_locks_nsec(
+          &table_reqs, thd->variables.lock_wait_timeout_nsec)) {
     return true;
   }
 

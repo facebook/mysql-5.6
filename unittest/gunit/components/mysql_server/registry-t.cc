@@ -137,9 +137,9 @@ DEFINE_BOOL_METHOD(mysql_system_variable_source_imp::get,
   return true;
 }
 
-DEFINE_BOOL_METHOD(mysql_acquire_backup_lock,
+DEFINE_BOOL_METHOD(mysql_acquire_backup_lock_nsec,
                    (MYSQL_THD, enum enum_backup_lock_service_lock_kind,
-                    unsigned long)) {
+                    ulonglong)) {
   return true;
 }
 

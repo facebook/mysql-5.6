@@ -85,9 +85,10 @@ long long service_get_read_locks(UDF_INIT *, UDF_ARGS *args, unsigned char *,
   const char *lock_namespace = args->args[0];
   long long timeout = *((long long *)args->args[args->arg_count - 1]);
   // For the UDF 1 == success, 0 == failure.
-  return !acquire_locking_service_locks(
+  return !acquire_locking_service_locks_nsec(
       NULL, lock_namespace, const_cast<const char **>(&args->args[1]),
-      args->arg_count - 2, LOCKING_SERVICE_READ, static_cast<ulong>(timeout));
+      args->arg_count - 2, LOCKING_SERVICE_READ,
+      static_cast<ulonglong>(timeout) * 1000000000ULL);
 }
 
 bool service_get_write_locks_init(UDF_INIT *initid, UDF_ARGS *args,
@@ -100,9 +101,10 @@ long long service_get_write_locks(UDF_INIT *, UDF_ARGS *args, unsigned char *,
   const char *lock_namespace = args->args[0];
   long long timeout = *((long long *)args->args[args->arg_count - 1]);
   // For the UDF 1 == success, 0 == failure.
-  return !acquire_locking_service_locks(
+  return !acquire_locking_service_locks_nsec(
       NULL, lock_namespace, const_cast<const char **>(&args->args[1]),
-      args->arg_count - 2, LOCKING_SERVICE_WRITE, static_cast<ulong>(timeout));
+      args->arg_count - 2, LOCKING_SERVICE_WRITE,
+      static_cast<ulonglong>(timeout) * 1000000000ULL);
 }
 
 bool service_release_locks_init(UDF_INIT *initid, UDF_ARGS *args,

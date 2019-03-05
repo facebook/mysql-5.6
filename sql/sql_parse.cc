@@ -2502,9 +2502,9 @@ retry:
           triggers as we always acquire SRO (or even stronger SNRW) metadata
           lock for them.
         */
-        bool result = thd->mdl_context.upgrade_shared_lock(
+        bool result = thd->mdl_context.upgrade_shared_lock_nsec(
             table->table->mdl_ticket, MDL_SHARED_READ_ONLY,
-            thd->variables.lock_wait_timeout);
+            thd->variables.lock_wait_timeout_nsec);
 
         if (deadlock_handler.need_reopen()) {
           /*
@@ -4910,8 +4910,8 @@ bool show_precheck(THD *thd, LEX *lex, bool lock) {
       MDL_request mdl_request;
       MDL_REQUEST_INIT(&mdl_request, MDL_key::SCHEMA, lex_str_db.str, "",
                        MDL_INTENTION_EXCLUSIVE, MDL_TRANSACTION);
-      if (thd->mdl_context.acquire_lock(&mdl_request,
-                                        thd->variables.lock_wait_timeout))
+      if (thd->mdl_context.acquire_lock_nsec(
+              &mdl_request, thd->variables.lock_wait_timeout_nsec))
         return true;
 
       // Stop if given database does not exist.

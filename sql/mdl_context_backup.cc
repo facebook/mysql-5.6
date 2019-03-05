@@ -213,7 +213,8 @@ bool MDL_context_backup_manager::create_backup(MDL_request_list *mdl_requests,
       DBUG_RETURN(true);
     }
 
-    if (element->get_context()->acquire_locks(mdl_requests, LONG_TIMEOUT))
+    if (element->get_context()->acquire_locks_nsec(mdl_requests,
+                                                   LONG_TIMEOUT_NSEC))
       DBUG_RETURN(true);
 
     MUTEX_LOCK(guard, &m_LOCK_mdl_context_backup);

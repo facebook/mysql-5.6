@@ -57,7 +57,8 @@ static bool check_backup_admin_privilege(THD *thd) {
 
 bool Sql_cmd_lock_instance::execute(THD *thd) {
   if (check_backup_admin_privilege(thd) ||
-      acquire_exclusive_backup_lock(thd, thd->variables.lock_wait_timeout))
+      acquire_exclusive_backup_lock_nsec(thd,
+                                         thd->variables.lock_wait_timeout_nsec))
     return true;
 
   my_ok(thd);
@@ -86,9 +87,9 @@ bool Sql_cmd_unlock_instance::execute(THD *thd) {
     @retval true  Failure
 */
 
-static bool acquire_mdl_for_backup(THD *thd, enum_mdl_type mdl_type,
-                                   enum_mdl_duration mdl_duration,
-                                   ulong lock_wait_timeout) {
+static bool acquire_mdl_for_backup_nsec(THD *thd, enum_mdl_type mdl_type,
+                                        enum_mdl_duration mdl_duration,
+                                        ulonglong lock_wait_timeout_nsec) {
   MDL_request mdl_request;
 
   DBUG_ASSERT(mdl_type == MDL_SHARED || mdl_type == MDL_INTENTION_EXCLUSIVE);
@@ -96,7 +97,8 @@ static bool acquire_mdl_for_backup(THD *thd, enum_mdl_type mdl_type,
   MDL_REQUEST_INIT(&mdl_request, MDL_key::BACKUP_LOCK, "", "", mdl_type,
                    mdl_duration);
 
-  return thd->mdl_context.acquire_lock(&mdl_request, lock_wait_timeout);
+  return thd->mdl_context.acquire_lock_nsec(&mdl_request,
+                                            lock_wait_timeout_nsec);
 }
 
 /**
@@ -128,14 +130,16 @@ void release_backup_lock(THD *thd) {
   Backup Lock and IX lock should be considered as Shared Backup Lock.
 */
 
-bool acquire_exclusive_backup_lock(THD *thd, ulong lock_wait_timeout) {
-  return acquire_mdl_for_backup(thd, MDL_SHARED, MDL_EXPLICIT,
-                                lock_wait_timeout);
+bool acquire_exclusive_backup_lock_nsec(THD *thd,
+                                        ulonglong lock_wait_timeout_nsec) {
+  return acquire_mdl_for_backup_nsec(thd, MDL_SHARED, MDL_EXPLICIT,
+                                     lock_wait_timeout_nsec);
 }
 
-bool acquire_shared_backup_lock(THD *thd, ulong lock_wait_timeout) {
-  return acquire_mdl_for_backup(thd, MDL_INTENTION_EXCLUSIVE, MDL_TRANSACTION,
-                                lock_wait_timeout);
+bool acquire_shared_backup_lock_nsec(THD *thd,
+                                     ulonglong lock_wait_timeout_nsec) {
+  return acquire_mdl_for_backup_nsec(thd, MDL_INTENTION_EXCLUSIVE,
+                                     MDL_TRANSACTION, lock_wait_timeout_nsec);
 }
 
 Is_instance_backup_locked_result is_instance_backup_locked(THD *thd) {

@@ -222,6 +222,7 @@ int command_service_run_command(MYSQL_SESSION session,
                                 enum cs_text_or_binary text_or_binary,
                                 void *service_callbacks_ctx);
 #include <mysql/service_locking.h>
+#include "my_inttypes.h"
 enum enum_locking_service_lock_type {
   LOCKING_SERVICE_READ,
   LOCKING_SERVICE_WRITE
@@ -229,17 +230,17 @@ enum enum_locking_service_lock_type {
 typedef int (*mysql_acquire_locks_t)(
     void * opaque_thd, const char *lock_namespace, const char **lock_names,
     size_t lock_num, enum enum_locking_service_lock_type lock_type,
-    unsigned long lock_timeout);
+    ulonglong lock_timeout_nsec);
 typedef int (*mysql_release_locks_t)(void * opaque_thd,
                                      const char *lock_namespace);
 extern "C" struct mysql_locking_service_st {
-  mysql_acquire_locks_t mysql_acquire_locks;
+  mysql_acquire_locks_t mysql_acquire_locks_nsec;
   mysql_release_locks_t mysql_release_locks;
 } * mysql_locking_service;
-int mysql_acquire_locking_service_locks(
+int mysql_acquire_locking_service_locks_nsec(
     void * opaque_thd, const char *lock_namespace, const char **lock_names,
     size_t lock_num, enum enum_locking_service_lock_type lock_type,
-    unsigned long lock_timeout);
+    ulonglong lock_timeout);
 int mysql_release_locking_service_locks(void * opaque_thd,
                                         const char *lock_namespace);
 #include <mysql/service_my_plugin_log.h>

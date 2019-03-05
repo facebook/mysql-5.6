@@ -96,7 +96,8 @@ bool Rotate_innodb_master_key::execute() {
     return true;
   }
 
-  if (acquire_shared_backup_lock(m_thd, m_thd->variables.lock_wait_timeout)) {
+  if (acquire_shared_backup_lock_nsec(
+          m_thd, m_thd->variables.lock_wait_timeout_nsec)) {
     // MDL subsystem has to set an error in Diagnostics Area
     DBUG_ASSERT(m_thd->get_stmt_da()->is_error());
     return true;
