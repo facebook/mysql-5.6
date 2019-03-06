@@ -11102,8 +11102,6 @@ static int get_options(int *argc_ptr, char ***argv_ptr) {
     return 1;
   }
 
-  if (opt_noacl && !is_help_or_validate_option()) opt_disable_networking = true;
-
   if (opt_disable_networking) mysqld_port = 0;
 
   if (opt_skip_show_db) opt_specialflag |= SPECIAL_SKIP_SHOW_DB;
