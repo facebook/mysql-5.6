@@ -185,6 +185,7 @@ void lock_wait_suspend_thread(
   srv_slot_t *slot;
   double wait_time;
   trx_t *trx;
+  const lock_t *wait_lock;
   ibool was_declared_inside_innodb;
   int64_t start_time = 0;
   int64_t finish_time;
@@ -250,7 +251,8 @@ void lock_wait_suspend_thread(
 
   lock_mutex_enter();
 
-  if (const lock_t *wait_lock = trx->lock.wait_lock) {
+  wait_lock = trx->lock.wait_lock;
+  if (wait_lock) {
     lock_type = lock_get_type_low(wait_lock);
   }
 
@@ -362,6 +364,22 @@ void lock_wait_suspend_thread(
 
   if (lock_wait_timeout < 100000000 && wait_time > (double)lock_wait_timeout &&
       !trx_is_high_priority(trx)) {
+    lock_mutex_enter();
+
+    if (lock_type == LOCK_REC) {
+      trx_set_detailed_error(
+          trx, timeout_message("record in index", wait_lock->index->table_name,
+                               wait_lock->index->name)
+                   .c_ptr_safe());
+    } else if (lock_type == LOCK_TABLE) {
+      trx_set_detailed_error(
+          trx,
+          timeout_message("table", wait_lock->tab_lock.table->name.m_name, "")
+              .c_ptr_safe());
+    }
+
+    lock_mutex_exit();
+
     trx->error_state = DB_LOCK_WAIT_TIMEOUT;
 
     MONITOR_INC(MONITOR_TIMEOUT);

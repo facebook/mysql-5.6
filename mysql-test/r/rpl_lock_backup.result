@@ -16,11 +16,11 @@ connection default;
 LOCK INSTANCE FOR BACKUP;
 connection con1;
 CREATE DATABASE testdb;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 CREATE TABLESPACE testtablespace ADD DATAFILE 'ts.ibd' ENGINE=InnoDB;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 CREATE TABLE testtable_1 (c1 int, c2 varchar(10));
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 CREATE TEMPORARY TABLE temptable_1 (tt1 int);
 INSERT INTO temptable_1 SELECT * FROM t1;
 SELECT * FROM temptable_1;
@@ -39,9 +39,9 @@ INSERT INTO testtable_1 VALUES(4,'ddd'),(5,'eeeee'),(3,'fffffff');
 UPDATE testtable_1 SET c1=11, c2='yyy' WHERE c1=1;
 DELETE FROM testtable_1 WHERE c2 LIKE "aa";
 ALTER DATABASE testdb CHARACTER SET 'latin1';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 ALTER TABLE testtable_1 ADD INDEX i2(c2);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 connection default;
 UNLOCK INSTANCE;
 connection con1;

@@ -345,6 +345,7 @@ struct alter_table_old_info_t {
 /* Report an InnoDB error to the client by invoking my_error(). */
 static UNIV_COLD void my_error_innodb(
     dberr_t error,     /*!< in: InnoDB error code */
+    const char *db,    /*!< in: db name */
     const char *table, /*!< in: table name */
     ulint flags)       /*!< in: table flags */
 {
@@ -359,7 +360,8 @@ static UNIV_COLD void my_error_innodb(
       my_error(ER_LOCK_DEADLOCK, MYF(0));
       break;
     case DB_LOCK_WAIT_TIMEOUT:
-      my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0));
+      my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0),
+               timeout_message("alter table", db, table).c_ptr_safe());
       break;
     case DB_INTERRUPTED:
       my_error(ER_QUERY_INTERRUPTED, MYF(0));
@@ -4445,7 +4447,7 @@ static MY_ATTRIBUTE((warn_unused_result)) bool prepare_inplace_alter_table_dict(
         my_error(ER_UNSUPPORTED_EXTENSION, MYF(0), ctx->new_table->name.m_name);
         goto new_clustered_failed;
       default:
-        my_error_innodb(error, table_name, flags);
+        my_error_innodb(error, old_table->s->db.str, table_name, flags);
       new_clustered_failed:
         ut_ad(user_table->get_ref_count() == 1);
 
@@ -4724,7 +4726,8 @@ error_handling:
       my_error(ER_TABLE_CANT_HANDLE_SPKEYS, MYF(0));
       break;
     default:
-      my_error_innodb(error, table_name, user_table->flags);
+      my_error_innodb(error, old_table->s->db.str, table_name,
+                      user_table->flags);
   }
 
 error_handled:
@@ -5914,7 +5917,7 @@ oom:
                                   m_prebuilt->table));
       break;
     default:
-      my_error_innodb(error, table_share->table_name.str,
+      my_error_innodb(error, table_share->db.str, table_share->table_name.str,
                       m_prebuilt->table->flags);
   }
 
@@ -6058,7 +6061,8 @@ inline MY_ATTRIBUTE((warn_unused_result)) bool rollback_inplace_alter_table(
         case DB_SUCCESS:
           break;
         default:
-          my_error_innodb(err, table->s->table_name.str, flags);
+          my_error_innodb(err, table->s->db.str, table->s->table_name.str,
+                          flags);
           fail = true;
       }
     }
@@ -6281,7 +6285,8 @@ but do not touch the data dictionary cache.
 @retval false Success
 */
 static MY_ATTRIBUTE((warn_unused_result)) bool innobase_update_foreign_try(
-    ha_innobase_inplace_ctx *ctx, trx_t *trx, const char *table_name) {
+    ha_innobase_inplace_ctx *ctx, trx_t *trx, const char *db_name,
+    const char *table_name) {
   ulint foreign_id;
   ulint i;
 
@@ -6328,7 +6333,7 @@ static MY_ATTRIBUTE((warn_unused_result)) bool innobase_update_foreign_try(
     }
   }
   DBUG_EXECUTE_IF("ib_drop_foreign_error",
-                  my_error_innodb(DB_OUT_OF_FILE_SPACE, table_name, 0);
+                  my_error_innodb(DB_OUT_OF_FILE_SPACE, db_name, table_name, 0);
                   trx->error_state = DB_SUCCESS; DBUG_RETURN(true););
   DBUG_RETURN(false);
 }
@@ -6461,7 +6466,7 @@ inline MY_ATTRIBUTE((warn_unused_result)) bool commit_try_rebuild(
     }
   }
 
-  if (innobase_update_foreign_try(ctx, trx, table_name)) {
+  if (innobase_update_foreign_try(ctx, trx, old_table->s->db.str, table_name)) {
     DBUG_RETURN(true);
   }
 
@@ -6539,12 +6544,14 @@ inline MY_ATTRIBUTE((warn_unused_result)) bool commit_try_rebuild(
                  get_error_key_name(err_key, ha_alter_info, rebuilt_table));
         DBUG_RETURN(true);
       default:
-        my_error_innodb(error, table_name, user_table->flags);
+        my_error_innodb(error, old_table->s->db.str, table_name,
+                        user_table->flags);
         DBUG_RETURN(true);
     }
   }
   DBUG_EXECUTE_IF("ib_rename_column_error",
-                  my_error_innodb(DB_OUT_OF_FILE_SPACE, table_name, 0);
+                  my_error_innodb(DB_OUT_OF_FILE_SPACE, old_table->s->db.str,
+                                  table_name, 0);
                   trx->error_state = DB_SUCCESS; trx->op_info = "";
                   DBUG_RETURN(true););
   DBUG_EXECUTE_IF("ib_ddl_crash_before_rename", DBUG_SUICIDE(););
@@ -6587,7 +6594,8 @@ inline MY_ATTRIBUTE((warn_unused_result)) bool commit_try_rebuild(
       my_error(ER_TABLE_EXISTS_ERROR, MYF(0), ctx->tmp_name);
       DBUG_RETURN(true);
     default:
-      my_error_innodb(error, table_name, user_table->flags);
+      my_error_innodb(error, old_table->s->db.str, table_name,
+                      user_table->flags);
       DBUG_RETURN(true);
   }
 }
@@ -6698,22 +6706,25 @@ inline MY_ATTRIBUTE((warn_unused_result)) bool commit_try_norebuild(
     }
   }
 
-  if (innobase_update_foreign_try(ctx, trx, table_name)) {
+  if (innobase_update_foreign_try(ctx, trx, old_table->s->db.str, table_name)) {
     DBUG_RETURN(true);
   }
 
   DBUG_EXECUTE_IF("ib_rename_column_error",
-                  my_error_innodb(DB_OUT_OF_FILE_SPACE, table_name, 0);
+                  my_error_innodb(DB_OUT_OF_FILE_SPACE, old_table->s->db.str,
+                                  table_name, 0);
                   trx->error_state = DB_SUCCESS; trx->op_info = "";
                   DBUG_RETURN(true););
 
   DBUG_EXECUTE_IF("ib_resize_column_error",
-                  my_error_innodb(DB_OUT_OF_FILE_SPACE, table_name, 0);
+                  my_error_innodb(DB_OUT_OF_FILE_SPACE, old_table->s->db.str,
+                                  table_name, 0);
                   trx->error_state = DB_SUCCESS; trx->op_info = "";
                   DBUG_RETURN(true););
 
   DBUG_EXECUTE_IF(
-      "ib_rename_index_fail1", my_error_innodb(DB_DEADLOCK, table_name, 0);
+      "ib_rename_index_fail1",
+      my_error_innodb(DB_DEADLOCK, old_table->s->db.str, table_name, 0);
       trx->error_state = DB_SUCCESS; trx->op_info = ""; DBUG_RETURN(true););
 
   DBUG_RETURN(false);
@@ -7037,7 +7048,8 @@ bool ha_innobase::commit_inplace_alter_table_impl(
     error = row_merge_lock_table(m_prebuilt->trx, ctx->old_table, LOCK_X);
 
     if (error != DB_SUCCESS) {
-      my_error_innodb(error, table_share->table_name.str, 0);
+      my_error_innodb(error, table_share->db.str, table_share->table_name.str,
+                      0);
       DBUG_RETURN(true);
     }
   }
@@ -7190,7 +7202,7 @@ rollback_trx:
         /* Out of memory or a problem will occur
         when renaming files. */
         fail = true;
-        my_error_innodb(error, ctx->old_table->name.m_name,
+        my_error_innodb(error, table_share->db.str, ctx->old_table->name.m_name,
                         ctx->old_table->flags);
       }
       DBUG_INJECT_CRASH("ib_commit_inplace_crash", crash_inject_count++);

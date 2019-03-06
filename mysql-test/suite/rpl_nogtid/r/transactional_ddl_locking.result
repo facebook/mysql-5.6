@@ -47,7 +47,7 @@ DROP TABLE t1;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous ---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -69,7 +69,7 @@ ALTER TABLE t1 RENAME TO t1new;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -91,7 +91,7 @@ ALTER TABLE t2 DROP COLUMN a;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t2
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -113,7 +113,7 @@ ALTER TABLE t1 ADD COLUMN b INT;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -135,7 +135,7 @@ RENAME TABLE t1 to t2new;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -157,7 +157,7 @@ ALTER TABLE t1 MODIFY a bigINT COMMENT 'first';;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 COMMIT;
 SELECT COUNT(*) FROM t1 ;
 COUNT(*)
@@ -176,7 +176,7 @@ ALTER TABLE t1 ADD PRIMARY KEY (a);;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -198,7 +198,7 @@ ALTER TABLE t1 ADD FOREIGN KEY (a) REFERENCES t2 (a) ;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -220,7 +220,7 @@ ALTER TABLE t1 ALTER a SET DEFAULT 1;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -242,7 +242,7 @@ ALTER TABLE t1 CHANGE a b smallINT;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -265,7 +265,7 @@ ALTER TABLE t1 MODIFY a INTEGER;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -290,7 +290,7 @@ ALTER TABLE t1prim DROP PRIMARY KEY;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1prim
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -312,7 +312,7 @@ ALTER TABLE t1 disable KEYS;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -336,7 +336,7 @@ ALTER TABLE t1part PARTITION BY HASH(id) PARTITIONS 2 ;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1part
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -359,7 +359,7 @@ ALTER TABLE t2part ADD PARTITION (PARTITION p3 VALUES LESS THAN (2015));;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t2part
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -382,7 +382,7 @@ ALTER TABLE t2part Drop PARTITION p1 ;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t2part
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -405,7 +405,7 @@ ALTER TABLE t3part COALESCE PARTITION 2 ;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t3part
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -429,7 +429,7 @@ ALTER TABLE t4part REORGANIZE PARTITION p0,p1 INTO (PARTITION s0 VALUES LESS THA
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t4part
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -502,7 +502,7 @@ ALTER TABLE t2part OPTIMIZE PARTITION ALL;;
 --- connection master1 ---
 reap result of previous---
 Table	Op	Msg_type	Msg_text
-test.t2part	optimize	Error	Lock wait timeout exceeded; try restarting transaction
+test.t2part	optimize	Error	Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t2part
 test.t2part	optimize	status	Operation failed
 --- connection master ---
 COMMIT;
@@ -526,7 +526,7 @@ ALTER TABLE t2part REBUILD PARTITION ALL;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t2part
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -550,7 +550,7 @@ ALTER TABLE t2part REPAIR PARTITION ALL;;
 --- connection master1 ---
 reap result of previous---
 Table	Op	Msg_type	Msg_text
-test.t2part	repair	Error	Lock wait timeout exceeded; try restarting transaction
+test.t2part	repair	Error	Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t2part
 test.t2part	repair	status	Operation failed
 --- connection master ---
 COMMIT;
@@ -574,7 +574,7 @@ ALTER TABLE t2part REMOVE PARTITIONING ;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t2part
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -596,7 +596,7 @@ ALTER TABLE t1 ALGORITHM = COPY;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -645,7 +645,7 @@ DROP TABLE t1hand;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1hand
 --- connection master ---
 HANDLER t1hand CLOSE;
 --- connection slave ---
@@ -751,7 +751,7 @@ DROP TABLE t2;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t2
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -776,7 +776,7 @@ RENAME TABLE t1 to t2, t2 to t3, t3 to t4, t4 to t1;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -817,7 +817,7 @@ RENAME TABLE t3967_1 to t1_backup, t3967_2 to t3967_1;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t3967_1
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -875,7 +875,7 @@ DROP TABLE t1myisam;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1myisam
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -903,7 +903,7 @@ DROP TABLE t1;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -929,7 +929,7 @@ DROP DATABASE db1;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on schema metadata: db1
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -957,7 +957,7 @@ DROP FUNCTION f1;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on stored function metadata: test.f1
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -981,7 +981,7 @@ DROP PROCEDURE p1;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on stored procedure metadata: test.p1
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -1030,7 +1030,7 @@ ALTER VIEW v1 AS SELECT * FROM t2;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.v1
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -1054,7 +1054,7 @@ DROP VIEW v1;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.v1
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -1078,7 +1078,7 @@ ALTER VIEW v1 AS SELECT a,1 AS col2 FROM t2;;
 --- connection master ---
 --- connection master2 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.v1
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -1102,7 +1102,7 @@ ALTER VIEW v1 AS SELECT * FROM t2;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.v1
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -1173,7 +1173,7 @@ DROP TABLE t1,t3;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -1201,7 +1201,7 @@ DROP TABLE t3, t4;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t3
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -1233,7 +1233,7 @@ DROP DATABASE db1;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on schema metadata: db1
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -1262,7 +1262,7 @@ ALTER DATABASE db1 CHARACTER SET big5;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on schema metadata: db1
 --- connection master ---
 COMMIT;
 --- connection slave ---
@@ -1326,7 +1326,7 @@ ALTER TABLE t2lock RENAME t1lock;;
 --- connection master2 ---
 --- connection master1 ---
 reap result of previous---
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t2lock
 --- connection master ---
 COMMIT;
 --- connection slave ---

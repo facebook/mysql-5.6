@@ -322,7 +322,7 @@ class DL_commpare : public std::binary_function<const TABLE_LOCK_INFO &,
 static void push_locks_into_array(Saved_locks_array *ar, THR_LOCK_DATA *data,
                                   bool wait, const char *text) {
   if (data) {
-    TABLE *table = (TABLE *)data->debug_print_param;
+    TABLE *table = data->table;
     if (table && table->s->tmp_table == NO_TMP_TABLE) {
       TABLE_LOCK_INFO table_lock_info;
       table_lock_info.thread_id = table->in_use->thread_id();
