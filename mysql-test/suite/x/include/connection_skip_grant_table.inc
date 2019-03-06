@@ -31,7 +31,6 @@ exec $MYSQLXTEST $USER_CIPHER
 --echo #
 
 --replace_regex /\.dll/.so/
---let $wait_for_tcpsocket_status = undefined_value
 --let $restart_parameters = restart: --skip-grant-tables
 --source ../include/restart_mysqld_and_wait_for_xplugin.inc
 
