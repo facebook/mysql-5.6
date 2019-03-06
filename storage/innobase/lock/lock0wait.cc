@@ -46,6 +46,9 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "my_dbug.h"
 
+extern String timeout_message(const char *command, const char *name1,
+                              const char *name2);
+
 /** Print the contents of the lock_sys_t::waiting_threads array. */
 static void lock_wait_table_print(void) {
   ut_ad(lock_wait_mutex_own());
@@ -483,6 +486,22 @@ static void lock_wait_try_cancel(trx_t *trx, bool timeout) {
     2) when wait_lock is already set to nullptr. But, it's not nullptr. */
     ut_ad(trx->error_state != DB_DEADLOCK);
     trx->error_state = DB_LOCK_WAIT_TIMEOUT;
+    const lock_t *wait_lock = trx->lock.wait_lock;
+    if (wait_lock) {
+      auto lock_type = trx->lock.wait_lock_type;
+      if (lock_type == LOCK_REC) {
+        trx_set_detailed_error(
+            trx,
+            timeout_message("record in index", wait_lock->index->table_name,
+                            wait_lock->index->name)
+                .c_ptr_safe());
+      } else if (lock_type == LOCK_TABLE) {
+        trx_set_detailed_error(
+            trx,
+            timeout_message("table", wait_lock->tab_lock.table->name.m_name, "")
+                .c_ptr_safe());
+      }
+    }
     /* This flag can't be set, as we always call the
     lock_cancel_waiting_and_release() immediately after setting it, which
     either prevents the trx from going to sleep or resets the wait_lock, and

@@ -16,7 +16,7 @@ STOP SLAVE;
 [connection slave1]
 SET DEBUG_SYNC = "now WAIT_FOR replica_acquired_backup_lock";
 LOCK INSTANCE FOR BACKUP;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 SET DEBUG_SYNC = "now SIGNAL tried_to_lock_instance_for_backup";
 [connection slave]
 Warnings:
@@ -41,7 +41,7 @@ STOP SLAVE SQL_THREAD;
 [connection slave1]
 SET DEBUG_SYNC = "now WAIT_FOR replica_acquired_backup_lock";
 LOCK INSTANCE FOR BACKUP;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 SET DEBUG_SYNC = "now SIGNAL tried_to_lock_instance_for_backup";
 [connection slave]
 Warnings:

@@ -645,7 +645,7 @@ LOCK TABLE test.t WRITE;
 connect  con_1, localhost, root,, test;
 set @@session.lock_wait_timeout = 1;
 ALTER SCHEMA S READ ONLY=1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: S.c
 # LOCK TABLE READ will not block ALTER SCHEMA S from another connection,
 # but ALTER SCHEMA test will be blocked.
 connection default;
@@ -655,7 +655,7 @@ connection con_1;
 ALTER SCHEMA S READ ONLY=1;
 ALTER SCHEMA S READ ONLY=0;
 ALTER SCHEMA test READ ONLY=1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t
 connection default;
 disconnect con_1;
 UNLOCK TABLES;

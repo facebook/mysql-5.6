@@ -113,7 +113,7 @@ connection default;
 # IX-lock on the schema name.
 SET DEBUG_SYNC= 'now WAIT_FOR acquired';
 DROP SCHEMA testdb;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on schema metadata: testdb
 SET DEBUG_SYNC= 'now SIGNAL cont';
 connection con1;
 # Reaping SELECT * from testdb.no_such_table
@@ -155,7 +155,7 @@ USE testdb;
 connection default;
 SET DEBUG_SYNC= 'now WAIT_FOR acquired';
 DROP SCHEMA testdb;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on schema metadata: testdb
 SET DEBUG_SYNC= 'now SIGNAL cont';
 #
 # Reap, reset, and delete connection.

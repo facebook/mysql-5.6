@@ -237,7 +237,7 @@ a	b	c
 START TRANSACTION;
 SET innodb_lock_wait_timeout = 1;
 INSERT INTO t1 VALUES (2, 2, 3) ON DUPLICATE KEY UPDATE c=VALUES(c);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 COMMIT;
 # Connection default:
 INSERT INTO t1 VALUES (3, 2, 4) ON DUPLICATE KEY UPDATE c=VALUES(c);
@@ -273,7 +273,7 @@ INSERT INTO t1 VALUES(2, 10, 200) ON DUPLICATE KEY UPDATE f3 = 120;
 START TRANSACTION;
 SET innodb_lock_wait_timeout = 1;
 INSERT INTO t1 VALUES(2, 20, 300) ON DUPLICATE KEY UPDATE f3 = 500;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 COMMIT;
 # Connection other:
 COMMIT;

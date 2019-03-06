@@ -27,9 +27,9 @@ a	b
 25	Second row, p12
 connection test2;
 INSERT INTO t1 VALUES (13+11, 'Second row, p11');
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1#p#p11.PRIMARY
 INSERT INTO t1 VALUES (13+12, 'Second row, p12');
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1#p#p12.PRIMARY
 SELECT * FROM t1 ORDER BY a;
 a	b
 11	First row, p11

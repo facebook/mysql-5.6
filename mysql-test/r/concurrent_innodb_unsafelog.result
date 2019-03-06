@@ -374,7 +374,7 @@ begin;
 ** Update the same range which is marked for update on thread 2; this
 ** will hang because of row locks.
 update t1 set tipo=1 where tipo=2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 ** After the update the table will be unmodified because the previous
 ** transaction failed and was rolled back.
 select * from t1;
@@ -585,7 +585,7 @@ begin;
 ** Selecting a range for update by table scan will be blocked
 ** because of on-going transaction on thread 2.
 select * from t1 where tipo=1 FOR UPDATE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 ** connection thread2
 ** Table will be unchanged and the select command will not be
 ** blocked:
@@ -667,7 +667,7 @@ delete from t1 where tipo=2;
 ** connection thread1
 begin;
 update t1 set tipo=1 where tipo=2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 select * from t1;
 eta	tipo	c
 7	7	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa

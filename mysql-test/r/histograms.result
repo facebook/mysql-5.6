@@ -3885,7 +3885,7 @@ LOCK INSTANCE FOR BACKUP;
 # TABLE errors are printed out in the result set from the query.
 ANALYZE TABLE t1 UPDATE HISTOGRAM ON a WITH 5 BUCKETS;
 Table	Op	Msg_type	Msg_text
-test.t1	histogram	Error	Lock wait timeout exceeded; try restarting transaction
+test.t1	histogram	Error	Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 UNLOCK INSTANCE;
 DROP TABLE t1;
 #

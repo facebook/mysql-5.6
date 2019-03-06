@@ -75,7 +75,7 @@ DROP TRIGGER t1_bi;
 connection con1;
 SET DEBUG_SYNC='now WAIT_FOR drop_trigger_took_mdl';
 CREATE TRIGGER t1_bi BEFORE INSERT ON t1 FOR EACH ROW BEGIN END;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 SET DEBUG_SYNC='now SIGNAL drop_trigger_cont';
 connection con2;
 reaping execution status for DROP TRIGGER

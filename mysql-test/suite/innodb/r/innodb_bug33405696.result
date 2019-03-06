@@ -118,7 +118,7 @@ SET @@SESSION.innodb_lock_wait_timeout = 1;
 # of conflicting lock on the gap before 895000.
 BEGIN;
 INSERT INTO t1 (id,val) VALUES (894000, "x");
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 COMMIT;
 # No transaction should see the 894000 record:
 BEGIN;

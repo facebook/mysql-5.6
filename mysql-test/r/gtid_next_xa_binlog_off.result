@@ -272,7 +272,7 @@ Warnings:
 Warning	3129	Please do not modify the gtid_executed table. This is a mysql internal system table to store GTIDs for committed transactions. Modifying it can lead to an inconsistent GTID state.
 [connection master]
 XA COMMIT '14' one phase;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/gtid_executed.PRIMARY
 ROLLBACK;
 *** The failed at XA COMMIT trx is rolled back, so XA RECOVER ***
 *** results in empty list: ***
@@ -281,7 +281,7 @@ formatID	gtrid_length	bqual_length	data
 [connection master]
 SHOW WARNINGS;
 Level	Code	Message
-Error	1205	Lock wait timeout exceeded; try restarting transaction
+Error	1205	Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/gtid_executed.PRIMARY
 Error	1402	XA_RBROLLBACK: Transaction branch was rolled back
 include/assert.inc [Thread should not own any GTID.]
 include/assert.inc [No thread should own any GTID.]
@@ -302,7 +302,7 @@ XA START '15';
 INSERT INTO t1 VALUES(15);
 XA END '15';
 XA PREPARE '15';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/gtid_executed.PRIMARY
 ROLLBACK;
 *** The failed at XA PREPARE trx is rolled back, so XA RECOVER ***
 *** results in empty list: ***
@@ -311,7 +311,7 @@ formatID	gtrid_length	bqual_length	data
 [connection master]
 SHOW WARNINGS;
 Level	Code	Message
-Error	1205	Lock wait timeout exceeded; try restarting transaction
+Error	1205	Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/gtid_executed.PRIMARY
 Error	1402	XA_RBROLLBACK: Transaction branch was rolled back
 include/assert.inc [Thread should not own any GTID.]
 [connection master1]
@@ -349,7 +349,7 @@ Warnings:
 Warning	3129	Please do not modify the gtid_executed table. This is a mysql internal system table to store GTIDs for committed transactions. Modifying it can lead to an inconsistent GTID state.
 [connection master]
 XA COMMIT '16' ;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/gtid_executed.PRIMARY
 ROLLBACK;
 *** The failed at XA COMMIT trx is rolled back, so XA RECOVER ***
 *** results in empty list: ***
@@ -358,8 +358,8 @@ formatID	gtrid_length	bqual_length	data
 [connection master]
 SHOW WARNINGS;
 Level	Code	Message
-Error	1205	Lock wait timeout exceeded; try restarting transaction
-Error	1401	XAER_RMERR: Fatal error occurred in the transaction branch - check your data for consistency
+Error	1205	Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/gtid_executed.PRIMARY
+Error	1402	XA_RBROLLBACK: Transaction branch was rolled back
 include/assert.inc [Thread should not own any GTID.]
 include/assert.inc [No thread should own any GTID.]
 include/assert.inc [No thread should hold anonymous ownership.]
@@ -399,7 +399,7 @@ Warnings:
 Warning	3129	Please do not modify the gtid_executed table. This is a mysql internal system table to store GTIDs for committed transactions. Modifying it can lead to an inconsistent GTID state.
 [connection master]
 XA COMMIT '17' ;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/gtid_executed.PRIMARY
 ROLLBACK;
 *** The failed at XA COMMIT trx is rolled back, so XA RECOVER ***
 *** results in empty list: ***
@@ -408,7 +408,7 @@ formatID	gtrid_length	bqual_length	data
 [connection master]
 SHOW WARNINGS;
 Level	Code	Message
-Error	1205	Lock wait timeout exceeded; try restarting transaction
+Error	1205	Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/gtid_executed.PRIMARY
 Error	1402	XA_RBROLLBACK: Transaction branch was rolled back
 include/assert.inc [Thread should not own any GTID.]
 include/assert.inc [No thread should own any GTID.]
@@ -685,7 +685,7 @@ Warnings:
 Warning	3129	Please do not modify the gtid_executed table. This is a mysql internal system table to store GTIDs for committed transactions. Modifying it can lead to an inconsistent GTID state.
 [connection master]
 XA ROLLBACK '31' ;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/gtid_executed.PRIMARY
 ROLLBACK;
 *** The failed at XA COMMIT trx is rolled back, so XA RECOVER ***
 *** results in empty list: ***
@@ -694,7 +694,7 @@ formatID	gtrid_length	bqual_length	data
 [connection master]
 SHOW WARNINGS;
 Level	Code	Message
-Error	1205	Lock wait timeout exceeded; try restarting transaction
+Error	1205	Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/gtid_executed.PRIMARY
 include/assert.inc [Thread should not own any GTID.]
 include/assert.inc [No thread should own any GTID.]
 include/assert.inc [No thread should hold anonymous ownership.]
@@ -714,7 +714,7 @@ XA START '32';
 INSERT INTO t1 VALUES(32);
 XA END '32';
 XA PREPARE '32';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/gtid_executed.PRIMARY
 ROLLBACK;
 *** The failed at XA PREPARE trx is rolled back, so XA RECOVER ***
 *** results in empty list: ***
@@ -723,7 +723,7 @@ formatID	gtrid_length	bqual_length	data
 [connection master]
 SHOW WARNINGS;
 Level	Code	Message
-Error	1205	Lock wait timeout exceeded; try restarting transaction
+Error	1205	Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/gtid_executed.PRIMARY
 Error	1402	XA_RBROLLBACK: Transaction branch was rolled back
 include/assert.inc [Thread should not own any GTID.]
 [connection master1]
@@ -761,7 +761,7 @@ Warnings:
 Warning	3129	Please do not modify the gtid_executed table. This is a mysql internal system table to store GTIDs for committed transactions. Modifying it can lead to an inconsistent GTID state.
 [connection master]
 XA ROLLBACK '33' ;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/gtid_executed.PRIMARY
 ROLLBACK;
 *** The failed at XA COMMIT trx is rolled back, so XA RECOVER ***
 *** results in empty list: ***
@@ -770,7 +770,8 @@ formatID	gtrid_length	bqual_length	data
 [connection master]
 SHOW WARNINGS;
 Level	Code	Message
-Error	1205	Lock wait timeout exceeded; try restarting transaction
+Error	1205	Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/gtid_executed.PRIMARY
+Error	1402	XA_RBROLLBACK: Transaction branch was rolled back
 include/assert.inc [Thread should not own any GTID.]
 include/assert.inc [No thread should own any GTID.]
 include/assert.inc [No thread should hold anonymous ownership.]
@@ -810,7 +811,7 @@ Warnings:
 Warning	3129	Please do not modify the gtid_executed table. This is a mysql internal system table to store GTIDs for committed transactions. Modifying it can lead to an inconsistent GTID state.
 [connection master]
 XA ROLLBACK '34' ;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/gtid_executed.PRIMARY
 ROLLBACK;
 *** The failed at XA COMMIT trx is rolled back, so XA RECOVER ***
 *** results in empty list: ***
@@ -819,7 +820,7 @@ formatID	gtrid_length	bqual_length	data
 [connection master]
 SHOW WARNINGS;
 Level	Code	Message
-Error	1205	Lock wait timeout exceeded; try restarting transaction
+Error	1205	Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/gtid_executed.PRIMARY
 Error	1402	XA_RBROLLBACK: Transaction branch was rolled back
 include/assert.inc [Thread should not own any GTID.]
 include/assert.inc [No thread should own any GTID.]

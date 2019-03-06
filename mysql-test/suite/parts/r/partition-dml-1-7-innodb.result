@@ -100,9 +100,9 @@ a	b
 2	(p0-29-)subp3
 23	(p0-29-)subp5
 SELECT * FROM t1 PARTITION (`p0-29`) WHERE a BETWEEN 0 AND 9 LOCK IN SHARE MODE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1#p#p0@002d29#sp#subp3.PRIMARY
 SELECT * FROM t1 PARTITION (`p0-29`) WHERE a BETWEEN 20 AND 29 FOR UPDATE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1#p#p0@002d29#sp#subp3.PRIMARY
 connection session1;
 COMMIT WORK;
 ####### expect p0-29 (0-9) has been updated
@@ -148,9 +148,9 @@ a	b
 3	p0-29-upd-1
 4	p0-29-upd-1
 SELECT * FROM t1 PARTITION (`p0-29`) WHERE a BETWEEN 0 AND 9 LOCK IN SHARE MODE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1#p#p0@002d29#sp#subp3.PRIMARY
 SELECT * FROM t1 PARTITION (`p0-29`) WHERE a BETWEEN 20 AND 29 FOR UPDATE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1#p#p0@002d29#sp#subp3.PRIMARY
 connection session2;
 COMMIT WORK;
 ####### expect p0-29 is completely updated

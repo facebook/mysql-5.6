@@ -13,7 +13,7 @@ connection con1;
 # of the statement was blocked by LOCK INSTANCE issued
 # from connection default.
 CREATE TABLE t2 (a INT);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 # Test case 2: Check that DML statement is executed successfully
 # when LOCK INSTANCE was acquired from another connection.
 INSERT INTO t1 VALUES (100);

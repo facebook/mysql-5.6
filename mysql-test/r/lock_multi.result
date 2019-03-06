@@ -496,7 +496,7 @@ START TRANSACTION;
 INSERT INTO t1 VALUES (1);
 # Connection 2
 DROP TABLE t1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 # Connection default
 COMMIT;
 #
@@ -509,7 +509,7 @@ id
 1
 # Connection 2
 ALTER TABLE t1 RENAME TO t2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 # Connection default
 COMMIT;
 #
@@ -519,7 +519,7 @@ COMMIT;
 LOCK TABLE t1 WRITE;
 # Connection 2
 INSERT INTO t1(id) VALUES (2);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 # Connection default
 UNLOCK TABLES;
 #
@@ -529,7 +529,7 @@ UNLOCK TABLES;
 LOCK TABLE t1 READ;
 # Connection 2
 INSERT INTO t1(id) VALUES(4);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 # Connection default
 UNLOCK TABLES;
 #
@@ -542,7 +542,7 @@ LOCK TABLE t1 READ;
 FLUSH TABLES;
 # Connection con2
 SELECT * FROM t1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table closing: test.t1
 # Connection default
 UNLOCK TABLES;
 # Connection con3
@@ -561,9 +561,9 @@ SET SESSION information_schema_stats_expiry=0;
 SELECT table_name, table_rows, table_comment FROM information_schema.tables
 WHERE table_schema= 'test' AND table_name= 't1';
 TABLE_NAME	TABLE_ROWS	TABLE_COMMENT
-t1	0	Lock wait timeout exceeded; try restarting transaction
+t1	0	Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 Warnings:
-Warning	1205	Lock wait timeout exceeded; try restarting transaction
+Warning	1205	Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 SET SESSION information_schema_stats_expiry=default;
 # Connection default
 UNLOCK TABLES;

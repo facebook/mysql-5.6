@@ -87,7 +87,7 @@ EXECUTE st1;
 connection session2;
 SET @var1= 'p0-29-upd-2';
 EXECUTE st2 USING @var1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1#p#p0@002d29#sp#subp3.PRIMARY
 connection session1;
 COMMIT WORK;
 connection session2;

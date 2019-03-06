@@ -2781,13 +2781,13 @@ SET SESSION lock_wait_timeout=1;
 SET SESSION innodb_lock_wait_timeout=1;
 # Make sure that we do not allow updating ACL table.
 INSERT INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.user
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.user
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.user
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.user
 UNLOCK TABLES;
 # Case 13:
 # Run FTWRL READ mode and
@@ -2799,13 +2799,13 @@ Warnings:
 Warning	4009	Reads with serializable isolation/SELECT FOR SHARE are not supported for ACL tables.
 FLUSH TABLES WITH READ LOCK;
 INSERT INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on global read
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on global read
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on global read
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on global read
 UNLOCK TABLES;
 # Case 14:
 # Update ACL table in a DML inside a SP in different isolation mode.
@@ -2830,13 +2830,13 @@ mysql.user	PRIMARY	X	Acquired row lock on u2/u2x
 mysql.user	PRIMARY	X,GAP	Acquired row lock on u2/u2x
 # Make sure that we do not allow updating ACL table.
 INSERT INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 ROLLBACK;
 SELECT User FROM mysql.user WHERE User='u2';
 User
@@ -2896,11 +2896,11 @@ tab	INDEX_NAME	LOCK_MODE	Has_lock
 mysql.user	PRIMARY	S,REC_NOT_GAP	Acquired row lock on u2/u2x
 # Make sure that we do not allow updating ACL tables.
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 ROLLBACK;
 # Cleanup
 UPDATE user_bk SET user='u2x' WHERE user LIKE 'u2';
@@ -2929,11 +2929,11 @@ mysql.user	PRIMARY	X	Acquired row lock on u2/u2x
 mysql.user	PRIMARY	X,GAP	Acquired row lock on u2/u2x
 # Make sure that we do not allow updating ACL tables.
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 ROLLBACK;
 # Case 16.2 Read ACL table in a multi-table UPDATE command in
 # different isolation level. Ideally concurrent DML on ACL table
@@ -2958,11 +2958,11 @@ tab	INDEX_NAME	LOCK_MODE	Has_lock
 mysql.user	PRIMARY	S	Acquired row lock on u2/u2x
 # Make sure that we do not allow updating ACL tables.
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 ROLLBACK;
 # Case 17:
 # Case 17.1: Delete row in ACL table in a multi-table DELETE in
@@ -2990,11 +2990,11 @@ tab	INDEX_NAME	LOCK_MODE	Has_lock
 mysql.user	PRIMARY	X	Acquired row lock on u2/u2x
 # Make sure that we do not allow updating ACL table.
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 ROLLBACK;
 UPDATE user_bk SET user='u2x' WHERE user LIKE 'u2';
 # Case 17.2 Read ACL table in a multi-table DELETE command in
@@ -3086,13 +3086,13 @@ mysql.user	PRIMARY	X	Acquired row lock on u2/u2x
 mysql.user	PRIMARY	X,GAP	Acquired row lock on u2/u2x
 # Make sure that we do not allow updating ACL table.
 INSERT INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 SET SESSION lock_wait_timeout=default;
 SET SESSION innodb_lock_wait_timeout=default;
 ROLLBACK;
@@ -3386,13 +3386,13 @@ SET SESSION lock_wait_timeout=1;
 SET SESSION innodb_lock_wait_timeout=1;
 # Make sure that we do not allow updating ACL table.
 INSERT INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.user
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.user
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.user
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.user
 UNLOCK TABLES;
 # Case 13:
 # Run FTWRL READ mode and
@@ -3402,13 +3402,13 @@ User
 u2
 FLUSH TABLES WITH READ LOCK;
 INSERT INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on global read
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on global read
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on global read
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on global read
 UNLOCK TABLES;
 # Case 14:
 # Update ACL table in a DML inside a SP in different isolation mode.
@@ -3431,13 +3431,13 @@ mysql.user	PRIMARY	X	Acquired row lock on u2/u2x
 mysql.user	PRIMARY	X,GAP	Acquired row lock on u2/u2x
 # Make sure that we do not allow updating ACL table.
 INSERT INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 ROLLBACK;
 SELECT User FROM mysql.user WHERE User='u2';
 User
@@ -3491,11 +3491,11 @@ tab	INDEX_NAME	LOCK_MODE	Has_lock
 mysql.user	PRIMARY	S,REC_NOT_GAP	Acquired row lock on u2/u2x
 # Make sure that we do not allow updating ACL tables.
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 ROLLBACK;
 # Cleanup
 UPDATE user_bk SET user='u2x' WHERE user LIKE 'u2';
@@ -3522,11 +3522,11 @@ mysql.user	PRIMARY	X	Acquired row lock on u2/u2x
 mysql.user	PRIMARY	X,GAP	Acquired row lock on u2/u2x
 # Make sure that we do not allow updating ACL tables.
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 ROLLBACK;
 # Case 16.2 Read ACL table in a multi-table UPDATE command in
 # different isolation level. Ideally concurrent DML on ACL table
@@ -3549,11 +3549,11 @@ tab	INDEX_NAME	LOCK_MODE	Has_lock
 mysql.user	PRIMARY	S	Acquired row lock on u2/u2x
 # Make sure that we do not allow updating ACL tables.
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 ROLLBACK;
 # Case 17:
 # Case 17.1: Delete row in ACL table in a multi-table DELETE in
@@ -3579,11 +3579,11 @@ tab	INDEX_NAME	LOCK_MODE	Has_lock
 mysql.user	PRIMARY	X	Acquired row lock on u2/u2x
 # Make sure that we do not allow updating ACL table.
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 ROLLBACK;
 UPDATE user_bk SET user='u2x' WHERE user LIKE 'u2';
 # Case 17.2 Read ACL table in a multi-table DELETE command in
@@ -3665,13 +3665,13 @@ mysql.user	PRIMARY	X	Acquired row lock on u2/u2x
 mysql.user	PRIMARY	X,GAP	Acquired row lock on u2/u2x
 # Make sure that we do not allow updating ACL table.
 INSERT INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 SET SESSION lock_wait_timeout=default;
 SET SESSION innodb_lock_wait_timeout=default;
 ROLLBACK;
@@ -3961,13 +3961,13 @@ SET SESSION lock_wait_timeout=1;
 SET SESSION innodb_lock_wait_timeout=1;
 # Make sure that we do not allow updating ACL table.
 INSERT INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.user
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.user
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.user
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.user
 UNLOCK TABLES;
 # Case 13:
 # Run FTWRL READ mode and
@@ -3977,13 +3977,13 @@ User
 u2
 FLUSH TABLES WITH READ LOCK;
 INSERT INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on global read
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on global read
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on global read
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on global read
 UNLOCK TABLES;
 # Case 14:
 # Update ACL table in a DML inside a SP in different isolation mode.
@@ -4005,13 +4005,13 @@ tab	INDEX_NAME	LOCK_MODE	Has_lock
 mysql.user	PRIMARY	X,REC_NOT_GAP	Acquired row lock on u2/u2x
 # Make sure that we do not allow updating ACL table.
 INSERT INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 ROLLBACK;
 SELECT User FROM mysql.user WHERE User='u2';
 User
@@ -4065,11 +4065,11 @@ tab	INDEX_NAME	LOCK_MODE	Has_lock
 mysql.user	PRIMARY	S,REC_NOT_GAP	Acquired row lock on u2/u2x
 # Make sure that we do not allow updating ACL tables.
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 ROLLBACK;
 # Cleanup
 UPDATE user_bk SET user='u2x' WHERE user LIKE 'u2';
@@ -4095,11 +4095,11 @@ tab	INDEX_NAME	LOCK_MODE	Has_lock
 mysql.user	PRIMARY	X,REC_NOT_GAP	Acquired row lock on u2/u2x
 # Make sure that we do not allow updating ACL tables.
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 ROLLBACK;
 # Case 16.2 Read ACL table in a multi-table UPDATE command in
 # different isolation level. Ideally concurrent DML on ACL table
@@ -4122,11 +4122,11 @@ tab	INDEX_NAME	LOCK_MODE	Has_lock
 mysql.user	PRIMARY	S,REC_NOT_GAP	Acquired row lock on u2/u2x
 # Make sure that we do not allow updating ACL tables.
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 ROLLBACK;
 # Case 17:
 # Case 17.1: Delete row in ACL table in a multi-table DELETE in
@@ -4152,11 +4152,11 @@ tab	INDEX_NAME	LOCK_MODE	Has_lock
 mysql.user	PRIMARY	X,REC_NOT_GAP	Acquired row lock on u2/u2x
 # Make sure that we do not allow updating ACL table.
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 ROLLBACK;
 UPDATE user_bk SET user='u2x' WHERE user LIKE 'u2';
 # Case 17.2 Read ACL table in a multi-table DELETE command in
@@ -4237,13 +4237,13 @@ tab	INDEX_NAME	LOCK_MODE	Has_lock
 mysql.user	PRIMARY	X,REC_NOT_GAP	Acquired row lock on u2/u2x
 # Make sure that we do not allow updating ACL table.
 INSERT INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 SET SESSION lock_wait_timeout=default;
 SET SESSION innodb_lock_wait_timeout=default;
 ROLLBACK;
@@ -4533,13 +4533,13 @@ SET SESSION lock_wait_timeout=1;
 SET SESSION innodb_lock_wait_timeout=1;
 # Make sure that we do not allow updating ACL table.
 INSERT INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.user
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.user
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.user
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.user
 UNLOCK TABLES;
 # Case 13:
 # Run FTWRL READ mode and
@@ -4549,13 +4549,13 @@ User
 u2
 FLUSH TABLES WITH READ LOCK;
 INSERT INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on global read
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on global read
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on global read
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on global read
 UNLOCK TABLES;
 # Case 14:
 # Update ACL table in a DML inside a SP in different isolation mode.
@@ -4577,13 +4577,13 @@ tab	INDEX_NAME	LOCK_MODE	Has_lock
 mysql.user	PRIMARY	X,REC_NOT_GAP	Acquired row lock on u2/u2x
 # Make sure that we do not allow updating ACL table.
 INSERT INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 ROLLBACK;
 SELECT User FROM mysql.user WHERE User='u2';
 User
@@ -4637,11 +4637,11 @@ tab	INDEX_NAME	LOCK_MODE	Has_lock
 mysql.user	PRIMARY	S,REC_NOT_GAP	Acquired row lock on u2/u2x
 # Make sure that we do not allow updating ACL tables.
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 ROLLBACK;
 # Cleanup
 UPDATE user_bk SET user='u2x' WHERE user LIKE 'u2';
@@ -4667,11 +4667,11 @@ tab	INDEX_NAME	LOCK_MODE	Has_lock
 mysql.user	PRIMARY	X,REC_NOT_GAP	Acquired row lock on u2/u2x
 # Make sure that we do not allow updating ACL tables.
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 ROLLBACK;
 # Case 16.2 Read ACL table in a multi-table UPDATE command in
 # different isolation level. Ideally concurrent DML on ACL table
@@ -4694,11 +4694,11 @@ tab	INDEX_NAME	LOCK_MODE	Has_lock
 mysql.user	PRIMARY	S,REC_NOT_GAP	Acquired row lock on u2/u2x
 # Make sure that we do not allow updating ACL tables.
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 ROLLBACK;
 # Case 17:
 # Case 17.1: Delete row in ACL table in a multi-table DELETE in
@@ -4724,11 +4724,11 @@ tab	INDEX_NAME	LOCK_MODE	Has_lock
 mysql.user	PRIMARY	X,REC_NOT_GAP	Acquired row lock on u2/u2x
 # Make sure that we do not allow updating ACL table.
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 ROLLBACK;
 UPDATE user_bk SET user='u2x' WHERE user LIKE 'u2';
 # Case 17.2 Read ACL table in a multi-table DELETE command in
@@ -4809,13 +4809,13 @@ tab	INDEX_NAME	LOCK_MODE	Has_lock
 mysql.user	PRIMARY	X,REC_NOT_GAP	Acquired row lock on u2/u2x
 # Make sure that we do not allow updating ACL table.
 INSERT INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 REPLACE INTO mysql.user SELECT * FROM user_bk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 UPDATE mysql.user SET user='u2x' WHERE user LIKE 'u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 DELETE FROM mysql.user WHERE User='u2';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: mysql/user.PRIMARY
 SET SESSION lock_wait_timeout=default;
 SET SESSION innodb_lock_wait_timeout=default;
 ROLLBACK;

@@ -1140,7 +1140,7 @@ a	b
 1	e
 SET lock_wait_timeout=1;
 CREATE INDEX t1a ON t1(a);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 CREATE INDEX t2a ON t2(a);
 affected rows: 0
 info: Records: 0  Duplicates: 0  Warnings: 0

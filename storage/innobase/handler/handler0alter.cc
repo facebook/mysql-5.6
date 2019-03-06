@@ -105,6 +105,9 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "ha_innopart.h"
 #include "partition_info.h"
 
+extern String timeout_message(const char *command, const char *name1,
+                              const char *name2);
+
 /** Function to convert the Instant_Type to a comparable int */
 inline uint16_t instant_type_to_int(Instant_Type type) {
   return (static_cast<typename std::underlying_type<Log_Type>::type>(type));
@@ -350,6 +353,7 @@ struct alter_table_old_info_t {
 /* Report an InnoDB error to the client by invoking my_error(). */
 static UNIV_COLD void my_error_innodb(
     dberr_t error,     /*!< in: InnoDB error code */
+    const char *db,    /*!< in: db name */
     const char *table, /*!< in: table name */
     uint32_t flags)    /*!< in: table flags */
 {
@@ -364,7 +368,8 @@ static UNIV_COLD void my_error_innodb(
       my_error(ER_LOCK_DEADLOCK, MYF(0));
       break;
     case DB_LOCK_WAIT_TIMEOUT:
-      my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0));
+      my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0),
+               timeout_message("alter table", db, table).c_ptr_safe());
       break;
     case DB_INTERRUPTED:
       my_error(ER_QUERY_INTERRUPTED, MYF(0));
@@ -4847,7 +4852,7 @@ template <typename Table>
                  "Page Compression is not supported for this tablespace");
         goto new_clustered_failed;
       default:
-        my_error_innodb(error, table_name, flags);
+        my_error_innodb(error, old_table->s->db.str, table_name, flags);
       new_clustered_failed:
         ut_ad(user_table->get_ref_count() == 1);
 
@@ -5126,7 +5131,8 @@ error_handling:
       my_error(ER_TABLE_CANT_HANDLE_SPKEYS, MYF(0));
       break;
     default:
-      my_error_innodb(error, table_name, user_table->flags);
+      my_error_innodb(error, old_table->s->db.str, table_name,
+                      user_table->flags);
   }
 
 error_handled:
@@ -6308,7 +6314,7 @@ bool ha_innobase::inplace_alter_table_impl(TABLE *altered_table,
                                     ha_alter_info, m_prebuilt->table));
         break;
       default:
-        my_error_innodb(err, table_share->table_name.str,
+        my_error_innodb(err, table_share->db.str, table_share->table_name.str,
                         m_prebuilt->table->flags);
     }
 
@@ -6452,7 +6458,8 @@ during prepare, but might not be during commit).
         case DB_SUCCESS:
           break;
         default:
-          my_error_innodb(err, table->s->table_name.str, flags);
+          my_error_innodb(err, table->s->db.str, table->s->table_name.str,
+                          flags);
           fail = true;
       }
     }
@@ -6684,7 +6691,8 @@ but do not touch the data dictionary cache.
 @retval false Success
 */
 [[nodiscard]] static bool innobase_update_foreign_try(
-    ha_innobase_inplace_ctx *ctx, trx_t *trx, const char *table_name) {
+    ha_innobase_inplace_ctx *ctx, trx_t *trx, const char *db_name,
+    const char *table_name) {
   ulint foreign_id;
   ulint i;
 
@@ -6731,7 +6739,7 @@ but do not touch the data dictionary cache.
     }
   }
   DBUG_EXECUTE_IF("ib_drop_foreign_error",
-                  my_error_innodb(DB_OUT_OF_FILE_SPACE, table_name, 0);
+                  my_error_innodb(DB_OUT_OF_FILE_SPACE, db_name, table_name, 0);
                   trx->error_state = DB_SUCCESS; return true;);
   return false;
 }
@@ -6934,7 +6942,7 @@ when rebuilding the table.
     }
   }
 
-  if (innobase_update_foreign_try(ctx, trx, table_name)) {
+  if (innobase_update_foreign_try(ctx, trx, old_table->s->db.str, table_name)) {
     return true;
   }
 
@@ -7013,12 +7021,14 @@ when rebuilding the table.
                  get_error_key_name(err_key, ha_alter_info, rebuilt_table));
         return true;
       default:
-        my_error_innodb(error, table_name, user_table->flags);
+        my_error_innodb(error, old_table->s->db.str, table_name,
+                        user_table->flags);
         return true;
     }
   }
   DBUG_EXECUTE_IF("ib_rename_column_error",
-                  my_error_innodb(DB_OUT_OF_FILE_SPACE, table_name, 0);
+                  my_error_innodb(DB_OUT_OF_FILE_SPACE, old_table->s->db.str,
+                                  table_name, 0);
                   trx->error_state = DB_SUCCESS; trx->op_info = "";
                   return true;);
   DBUG_EXECUTE_IF("ib_ddl_crash_before_rename", DBUG_SUICIDE(););
@@ -7061,7 +7071,8 @@ when rebuilding the table.
       my_error(ER_TABLE_EXISTS_ERROR, MYF(0), ctx->tmp_name);
       return true;
     default:
-      my_error_innodb(error, table_name, user_table->flags);
+      my_error_innodb(error, old_table->s->db.str, table_name,
+                      user_table->flags);
       return true;
   }
 }
@@ -7135,7 +7146,7 @@ the table.
 @retval false Success */
 [[nodiscard]] inline bool commit_try_norebuild(
     Alter_inplace_info *ha_alter_info, ha_innobase_inplace_ctx *ctx, trx_t *trx,
-    const char *table_name) {
+    const char *db_name, const char *table_name) {
   DBUG_TRACE;
   assert(!ctx->need_rebuild());
   assert(trx->dict_operation_lock_mode == RW_X_LATCH);
@@ -7164,22 +7175,25 @@ the table.
     }
   }
 
-  if (innobase_update_foreign_try(ctx, trx, table_name)) {
+  if (innobase_update_foreign_try(ctx, trx, db_name, table_name)) {
     return true;
   }
 
   DBUG_EXECUTE_IF("ib_rename_column_error",
-                  my_error_innodb(DB_OUT_OF_FILE_SPACE, table_name, 0);
+                  my_error_innodb(DB_OUT_OF_FILE_SPACE, db_name,
+                                  table_name, 0);
                   trx->error_state = DB_SUCCESS; trx->op_info = "";
                   return true;);
 
   DBUG_EXECUTE_IF("ib_resize_column_error",
-                  my_error_innodb(DB_OUT_OF_FILE_SPACE, table_name, 0);
+                  my_error_innodb(DB_OUT_OF_FILE_SPACE, db_name,
+                                  table_name, 0);
                   trx->error_state = DB_SUCCESS; trx->op_info = "";
                   return true;);
 
   DBUG_EXECUTE_IF(
-      "ib_rename_index_fail1", my_error_innodb(DB_DEADLOCK, table_name, 0);
+      "ib_rename_index_fail1",
+      my_error_innodb(DB_DEADLOCK, db_name, table_name, 0);
       trx->error_state = DB_SUCCESS; trx->op_info = ""; return true;);
 
   return false;
@@ -7495,7 +7509,8 @@ bool ha_innobase::commit_inplace_alter_table_impl(
     error = ddl::lock_table(m_prebuilt->trx, ctx->old_table, LOCK_X);
 
     if (error != DB_SUCCESS) {
-      my_error_innodb(error, table_share->table_name.str, 0);
+      my_error_innodb(error, table_share->db.str, table_share->table_name.str,
+                      0);
       return true;
     }
   }
@@ -7608,7 +7623,7 @@ bool ha_innobase::commit_inplace_alter_table_impl(
       }
     } else {
       fail = commit_try_norebuild(ha_alter_info, ctx, trx,
-                                  table_share->table_name.str);
+                                  table->s->db.str, table_share->table_name.str);
     }
     DBUG_INJECT_CRASH("ib_commit_inplace_crash", crash_inject_count++);
 #ifdef UNIV_DEBUG
@@ -7646,7 +7661,7 @@ rollback_trx:
         /* Out of memory or a problem will occur
         when renaming files. */
         fail = true;
-        my_error_innodb(error, ctx->old_table->name.m_name,
+        my_error_innodb(error, table_share->db.str, ctx->old_table->name.m_name,
                         ctx->old_table->flags);
       }
       DBUG_INJECT_CRASH("ib_commit_inplace_crash", crash_inject_count++);

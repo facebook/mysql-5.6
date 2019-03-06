@@ -464,10 +464,10 @@ FLUSH TABLE WITH READ LOCK;
 connection con_tmp;
 # PREPARE error will do auto rollback.
 XA PREPARE 'test1';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on commit
 SHOW ERRORS;
 Level	Code	Message
-Error	1205	Lock wait timeout exceeded; try restarting transaction
+Error	1205	Lock wait timeout exceeded; try restarting transaction: Timeout on commit
 Error	1402	XA_RBROLLBACK: Transaction branch was rolled back
 connection default;
 UNLOCK TABLES;
@@ -481,20 +481,20 @@ FLUSH TABLES WITH READ LOCK;
 connection con_tmp;
 # LOCK error during ROLLBACK will not alter transaction state.
 XA ROLLBACK 'test1';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on commit
 SHOW ERRORS;
 Level	Code	Message
-Error	1205	Lock wait timeout exceeded; try restarting transaction
+Error	1205	Lock wait timeout exceeded; try restarting transaction: Timeout on commit
 Error	3197	The resource manager is not able to commit the transaction branch at this time. Please retry later.
 XA RECOVER;
 formatID	gtrid_length	bqual_length	data
 1	5	0	test1
 # LOCK error during COMMIT will not alter transaction state.
 XA COMMIT 'test1';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on commit
 SHOW ERRORS;
 Level	Code	Message
-Error	1205	Lock wait timeout exceeded; try restarting transaction
+Error	1205	Lock wait timeout exceeded; try restarting transaction: Timeout on commit
 Error	3197	The resource manager is not able to commit the transaction branch at this time. Please retry later.
 XA RECOVER;
 formatID	gtrid_length	bqual_length	data

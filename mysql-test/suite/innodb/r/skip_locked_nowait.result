@@ -30,7 +30,7 @@ seat_id	state
 1	0
 2	0
 SELECT * FROM t1 WHERE state = 0 LIMIT 2 FOR UPDATE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 SELECT * FROM t1 WHERE state = 0 LIMIT 2 FOR UPDATE NOWAIT;
 ERROR HY000: Statement aborted because lock(s) could not be acquired immediately and NOWAIT is set.
 SELECT * FROM t1 WHERE state = 0 LIMIT 2 FOR UPDATE SKIP LOCKED;
@@ -49,9 +49,9 @@ seat_id	state
 1	0
 2	0
 SELECT * FROM t1 WHERE state = 0 LIMIT 2 LOCK IN SHARE MODE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 SELECT * FROM t1 WHERE state = 0 LIMIT 2 FOR SHARE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 SELECT * FROM t1 WHERE state = 0 LIMIT 2 FOR SHARE NOWAIT;
 ERROR HY000: Statement aborted because lock(s) could not be acquired immediately and NOWAIT is set.
 SELECT * FROM t1 WHERE state = 0 LIMIT 2 FOR SHARE SKIP LOCKED;
@@ -59,7 +59,7 @@ seat_id	state
 3	0
 4	0
 SELECT * FROM t1 WHERE state = 0 LIMIT 2 FOR UPDATE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 SELECT * FROM t1 WHERE state = 0 LIMIT 2 FOR UPDATE NOWAIT;
 ERROR HY000: Statement aborted because lock(s) could not be acquired immediately and NOWAIT is set.
 SELECT * FROM t1 WHERE state = 0 LIMIT 2 FOR UPDATE SKIP LOCKED;

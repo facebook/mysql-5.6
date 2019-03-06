@@ -11,21 +11,21 @@ set binlog_format=mixed;
 set session transaction isolation level repeatable read;
 set autocommit=0;
 update t1 set a=10 where a=5;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 commit;
 commit;
 set session transaction isolation level read committed;
 update t1 set a=10 where a=5;
 select * from t1 where a=2 for update;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 select * from t1 where a=2 limit 1 for update;
 a
 2
 update t1 set a=11 where a=6;
 update t1 set a=12 where a=2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 update t1 set a=13 where a=1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 commit;
 update t1 set a=14 where a=1;
 commit;
@@ -46,22 +46,22 @@ select * from t1 where a=3 lock in share mode;
 a
 3
 update t1 straight_join t2 set a=10 where a=5;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 commit;
 commit;
 flush status;
 set session transaction isolation level read committed;
 update t1 straight_join t2 set a=10 where a=5;
 select * from t1 where a=2 for update;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 select * from t1 where a=2 limit 1 for update;
 a
 2
 update t1 straight_join t2 set a=11 where a=6;
 update t1 straight_join t2 set a=12 where a=2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 update t1 straight_join t2 set a=13 where a=1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 commit;
 update t1 straight_join t2 set a=14 where a=1;
 commit;
@@ -84,22 +84,22 @@ select * from t1 where a=3 lock in share mode;
 a
 3
 update t1 straight_join t2 set a=10,t2.col=t2.col+1 where a+1=5+1 and t2.col>0*a;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 commit;
 commit;
 flush status;
 set session transaction isolation level read committed;
 update t1 straight_join t2 set a=10,t2.col=t2.col+1 where a+1=5+1 and t2.col>0*a;
 select * from t1 where a=2 for update;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 select * from t1 where a=2 limit 1 for update;
 a
 2
 update t1 straight_join t2 set a=11,t2.col=t2.col+1 where a+1=6+1 and t2.col>0*a;
 update t1 straight_join t2 set a=12,t2.col=t2.col+1 where a+1=2+1 and t2.col>0*a;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 update t1 straight_join t2 set a=13,t2.col=t2.col+1 where a+1=1+1 and t2.col>0*a;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 commit;
 update t1 straight_join t2 set a=14,t2.col=t2.col+1 where a+1=1+1 and t2.col>0*a;
 commit;

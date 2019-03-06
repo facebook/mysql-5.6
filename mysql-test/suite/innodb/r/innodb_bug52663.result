@@ -10,7 +10,7 @@ select * from innodb_bug52663;
 what	id	count
 total	0	1
 update innodb_bug52663 set count = count + 1 where what = 'total' and id = 0;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/innodb_bug52663.PRIMARY
 select * from innodb_bug52663;
 what	id	count
 total	0	0

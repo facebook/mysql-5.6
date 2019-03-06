@@ -381,10 +381,10 @@ xa end 'test1';
 flush table with read lock;
 # PREPARE error will do auto rollback.
 xa prepare 'test1';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on commit
 show errors;
 Level	Code	Message
-Error	1205	Lock wait timeout exceeded; try restarting transaction
+Error	1205	Lock wait timeout exceeded; try restarting transaction: Timeout on commit
 Error	1402	XA_RBROLLBACK: Transaction branch was rolled back
 unlock tables;
 xa start 'test1';
@@ -394,20 +394,20 @@ xa prepare 'test1';
 flush tables with read lock;
 # LOCK error during ROLLBACK will not alter transaction state.
 xa rollback 'test1';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on commit
 show errors;
 Level	Code	Message
-Error	1205	Lock wait timeout exceeded; try restarting transaction
+Error	1205	Lock wait timeout exceeded; try restarting transaction: Timeout on commit
 Error	1401	XAER_RMERR: Fatal error occurred in the transaction branch - check your data for consistency
 xa recover;
 formatID	gtrid_length	bqual_length	data
 1	5	0	test1
 # LOCK error during COMMIT will not alter transaction state.
 xa commit 'test1';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on commit
 show errors;
 Level	Code	Message
-Error	1205	Lock wait timeout exceeded; try restarting transaction
+Error	1205	Lock wait timeout exceeded; try restarting transaction: Timeout on commit
 Error	3197	The resource manager is not able to commit the transaction branch at this time. Please retry later.
 xa recover;
 formatID	gtrid_length	bqual_length	data
