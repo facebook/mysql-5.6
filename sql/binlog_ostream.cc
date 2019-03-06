@@ -27,7 +27,8 @@ IO_CACHE_binlog_cache_storage::~IO_CACHE_binlog_cache_storage() { close(); }
 bool IO_CACHE_binlog_cache_storage::open(const char *dir, const char *prefix,
                                          my_off_t cache_size,
                                          my_off_t max_cache_size) {
-  if (open_cached_file(&m_io_cache, dir, prefix, cache_size, MYF(MY_WME)))
+  if (open_cached_file(&m_io_cache, dir, prefix, cache_size,
+                       MYF(MY_WME | MY_WAIT_IF_FULL)))
     return true;
 
   m_max_cache_size = max_cache_size;
