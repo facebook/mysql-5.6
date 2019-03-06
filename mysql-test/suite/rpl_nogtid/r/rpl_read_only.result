@@ -78,7 +78,11 @@ a
 1004
 1005
 insert into t1 values(1006);
-ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement
+ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement. Current master_host: 127.0.0.1, master_port: MASTER_PORT
+set global read_only_error_msg_extra = "This is a custom message";
+insert into t1 values(1006);
+ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement. Current master_host: 127.0.0.1, master_port: MASTER_PORT. This is a custom message
+set global read_only_error_msg_extra = default;
 drop user test;
 drop table t1;
 include/sync_slave_sql_with_master.inc
