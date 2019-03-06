@@ -1,0 +1,17 @@
+call mtr.add_suppression("OS errno 28 - No space left on device");
+CREATE TABLE t1(f1 TEXT) ENGINE = InnoDB;
+SET SESSION debug="+d,simulate_disk_full_at_binlog_cache_write";
+BEGIN;
+INSERT INTO t1 VALUES(md5(1));
+INSERT INTO t1 SELECT * FROM t1;
+INSERT INTO t1 SELECT * FROM t1;
+INSERT INTO t1 SELECT * FROM t1;
+INSERT INTO t1 SELECT * FROM t1;
+INSERT INTO t1 SELECT * FROM t1;
+INSERT INTO t1 SELECT * FROM t1;
+INSERT INTO t1 SELECT * FROM t1;
+INSERT INTO t1 SELECT * FROM t1;
+include/assert_grep.inc [Found the expected error: No space left on device.]
+COMMIT;
+SET SESSION debug="-d,simulate_disk_full_at_binlog_cache_write";
+DROP TABLE t1;
