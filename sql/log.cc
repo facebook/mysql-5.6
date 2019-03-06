@@ -1615,8 +1615,8 @@ char *make_query_log_name(char *buff, enum_log_table_type log_type) {
 }
 
 bool write_log_to_socket(int sockfd, THD *thd, ulonglong end_utime) {
-  // enough space for query plus all extra info (max 7 lines)
-  size_t buf_sz = 7 * 80 + thd->query().length;
+  // enough space for query plus all extra info (max 8 lines)
+  const size_t buf_sz = 8 * 80 + thd->query().length;
   size_t len = 0;
   ssize_t sent = 0;
   char *buf = (char *)my_malloc(PSI_NOT_INSTRUMENTED, buf_sz, MYF(MY_WME));
@@ -1636,6 +1636,10 @@ bool write_log_to_socket(int sockfd, THD *thd, ulonglong end_utime) {
     len += snprintf(buf, buf_sz - len, "# Time: %02d%02d%02d %2d:%02d:%02d\n",
                     local.tm_year % 100, local.tm_mon + 1, local.tm_mday,
                     local.tm_hour, local.tm_min, local.tm_sec);
+
+  if (len < buf_sz)
+    len += snprintf(buf + len, buf_sz - len, "# Threadid: %lu \n",
+                    static_cast<ulong>(thd->thread_id()));
 
   if (len < buf_sz)
     len += snprintf(buf + len, buf_sz - len, "# User@Host: %s[%s] @ %s [%s]\n",
