@@ -7,7 +7,7 @@ UPDATE t1 SET a = 5 WHERE a = 1;
 SET innodb_lock_wait_timeout = 20;
 START TRANSACTION;
 UPDATE t1 SET a = 3 WHERE a = 1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1#p#p0.GEN_CLUST_INDEX
 COMMIT;
 # Connection default
 COMMIT;

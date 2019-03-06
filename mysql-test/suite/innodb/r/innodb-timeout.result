@@ -35,6 +35,6 @@ insert into t1 values(4);
 set innodb_lock_wait_timeout=3;
 select * from t1 for update;
 commit;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 drop table t1;
 set global innodb_lock_wait_timeout=<initial_timeout>;

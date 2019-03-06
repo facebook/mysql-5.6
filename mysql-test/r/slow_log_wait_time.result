@@ -18,7 +18,7 @@ begin;
 
 # Query will timeout but should not be logged in the slow log
 select * from t1 for update;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 select @@long_query_time, @@innodb_lock_wait_timeout;
 @@long_query_time	@@innodb_lock_wait_timeout
 30.000000	15
@@ -39,7 +39,7 @@ begin;
 
 # Query will timeout and be logged in the slow log
 select * from t1 for update;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 select @@long_query_time, @@innodb_lock_wait_timeout;
 @@long_query_time	@@innodb_lock_wait_timeout
 5.000000	15

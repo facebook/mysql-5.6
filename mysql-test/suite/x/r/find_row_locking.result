@@ -59,7 +59,7 @@ switched to session session2
 doc
 {"a": 2, "_id": "2"}
 command ok
-Got expected error: Lock wait timeout exceeded; try restarting transaction (code 1205)
+Got expected error: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: xtest/test_coll.PRIMARY (code 1205)
 Verify [Expecting performance_schema.data_locks to be not empty]
 switched to session session1
 
@@ -86,7 +86,7 @@ command ok
 doc
 {"a": 30, "_id": "3"}
 command ok
-Got expected error: Lock wait timeout exceeded; try restarting transaction (code 1205)
+Got expected error: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: xtest/test_coll.PRIMARY (code 1205)
 Verify [Expecting performance_schema.data_locks to be not empty]
 switched to session session1
 
@@ -110,7 +110,7 @@ switched to session session2
 doc
 {"a": 2, "_id": "2"}
 command ok
-Got expected error: Lock wait timeout exceeded; try restarting transaction (code 1205)
+Got expected error: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: xtest/test_coll.PRIMARY (code 1205)
 Verify [Expecting performance_schema.data_locks to be not empty]
 switched to session session1
 

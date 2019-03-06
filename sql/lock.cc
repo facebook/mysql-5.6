@@ -126,7 +126,7 @@ static MYSQL_LOCK *get_lock_data(THD *thd, TABLE **table_ptr, size_t count,
                                  uint flags);
 static int lock_external(THD *thd, TABLE **table, uint count);
 static int unlock_external(THD *thd, TABLE **table, uint count);
-static void print_lock_error(int error, const char *);
+static void print_lock_error(int error, const char *, const char *);
 
 /* Map the return value of thr_lock to an error from errmsg.txt */
 static int thr_lock_errno_to_mysql[] = {0, ER_LOCK_ABORTED,
@@ -316,6 +316,7 @@ MYSQL_LOCK *mysql_lock_tables(THD *thd, TABLE **tables, size_t count,
                               uint flags) {
   int rc;
   MYSQL_LOCK *sql_lock;
+  THR_LOCK_DATA *error_pos = nullptr;
   ulong timeout = (flags & MYSQL_LOCK_IGNORE_TIMEOUT)
                       ? LONG_TIMEOUT
                       : thd->variables.lock_wait_timeout;
@@ -346,7 +347,7 @@ MYSQL_LOCK *mysql_lock_tables(THD *thd, TABLE **tables, size_t count,
   /* Lock on the copied half of the lock data array. */
   rc = thr_lock_errno_to_mysql[(int)thr_multi_lock(
       sql_lock->locks + sql_lock->lock_count, sql_lock->lock_count,
-      &thd->lock_info, timeout)];
+      &thd->lock_info, timeout, &error_pos)];
 
   DBUG_EXECUTE_IF("mysql_lock_tables_kill_query",
                   thd->killed = THD::KILL_QUERY;);
@@ -354,8 +355,16 @@ MYSQL_LOCK *mysql_lock_tables(THD *thd, TABLE **tables, size_t count,
   if (rc) {
     if (sql_lock->table_count)
       (void)unlock_external(thd, sql_lock->table, sql_lock->table_count);
+    if (!thd->killed) {
+      if (rc == ER_LOCK_WAIT_TIMEOUT) {
+        my_error(rc, MYF(0),
+                 timeout_message("table", error_pos->table->s->db.str,
+                                 error_pos->table->s->table_name.str)
+                     .c_ptr_safe());
+      } else
+        my_error(rc, MYF(0));
+    }
     reset_lock_data_and_free(&sql_lock);
-    if (!thd->killed) my_error(rc, MYF(0));
   }
 
 end:
@@ -391,7 +400,9 @@ static int lock_external(THD *thd, TABLE **tables, uint count) {
       lock_type = F_RDLCK;
 
     if ((error = (*tables)->file->ha_external_lock(thd, lock_type))) {
-      print_lock_error(error, (*tables)->file->table_type());
+      String msg;
+      (*tables)->file->get_error_message(error, &msg);
+      print_lock_error(error, msg.c_ptr_safe(), (*tables)->file->table_type());
       while (--i) {
         tables--;
         (*tables)->file->ha_external_lock(thd, F_UNLCK);
@@ -616,8 +627,10 @@ static int unlock_external(THD *thd, TABLE **table, uint count) {
     if ((*table)->current_lock != F_UNLCK) {
       (*table)->current_lock = F_UNLCK;
       if ((error = (*table)->file->ha_external_lock(thd, F_UNLCK))) {
+        String msg;
+        (*table)->file->get_error_message(error, &msg);
+        print_lock_error(error, msg.c_ptr_safe(), (*table)->file->table_type());
         error_code = error;
-        print_lock_error(error_code, (*table)->file->table_type());
       }
     }
     table++;
@@ -693,7 +706,7 @@ static MYSQL_LOCK *get_lock_data(THD *thd, TABLE **table_ptr, size_t count,
     *to++ = table;
     if (locks) {
       for (; org_locks != locks; org_locks++) {
-        (*org_locks)->debug_print_param = (void *)table;
+        (*org_locks)->table = table;
         (*org_locks)->m_psi = table->file->m_psi;
       }
     }
@@ -915,12 +928,12 @@ bool lock_object_name(THD *thd, MDL_key::enum_mdl_namespace mdl_type,
   return false;
 }
 
-static void print_lock_error(int error, const char *table) {
+static void print_lock_error(int error, const char *msg, const char *table) {
   DBUG_TRACE;
 
   switch (error) {
     case HA_ERR_LOCK_WAIT_TIMEOUT:
-      my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0), error);
+      my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0), msg);
       break;
     case HA_ERR_READ_ONLY_TRANSACTION:
       my_error(ER_READ_ONLY_TRANSACTION, MYF(0), error);

@@ -52,17 +52,17 @@ ALTER TABLE t1 CHANGE b b varchar(255) charset latin1;;
 SET lock_wait_timeout = 1;
 SET DEBUG_SYNC='now WAIT_FOR s1';
 INSERT INTO t1 (b) VALUES (repeat('d',300));
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 SELECT a,LEFT(b,10),LENGTH(b) = 254 FROM t1 ORDER BY a;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 UPDATE t1 SET b = repeat('y',300) WHERE b = repeat('a',254) ;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 SELECT a,LEFT(b,10),LENGTH(b) = 254 FROM t1 ORDER BY a;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 DELETE FROM t1 WHERE b = repeat('y',254);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 SELECT a,LEFT(b,10),LENGTH(b) = 254 FROM t1 ORDER BY a;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 SET DEBUG_SYNC='now SIGNAL s2';
 SHOW CREATE TABLE t1;
 Table	Create Table

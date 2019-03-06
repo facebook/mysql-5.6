@@ -29,7 +29,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 CREATE USER u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -53,7 +53,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 ALTER USER u1 IDENTIFIED BY 'abcd';
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -77,7 +77,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 RENAME USER u1 TO u2;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -100,7 +100,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 CREATE ROLE r1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -124,7 +124,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 GRANT SELECT ON *.* TO u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -149,7 +149,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 GRANT r1 TO u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -176,7 +176,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 SET DEFAULT ROLE r1 TO u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -201,7 +201,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 SET PASSWORD FOR u1 = 'efgh';
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -227,7 +227,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 REVOKE r1 FROM u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -252,7 +252,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 REVOKE SELECT ON *.* FROM u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -276,7 +276,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 DROP ROLE r1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -299,7 +299,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 DROP USER u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -326,7 +326,7 @@ CREATE USER u3, u2, u1;
 ERROR HY000: Operation CREATE USER failed for 'u1'@'%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -350,7 +350,7 @@ ALTER USER u2 IDENTIFIED BY 'abcd';
 ERROR HY000: Operation ALTER USER failed for 'u2'@'%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -373,7 +373,7 @@ RENAME USER u2 TO u3;
 ERROR HY000: Operation RENAME USER failed for 'u2'@'%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -396,7 +396,7 @@ DROP USER u2;
 ERROR HY000: Operation DROP USER failed for 'u2'@'%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -420,7 +420,7 @@ SET PASSWORD FOR u1 = 'abcd';
 ERROR 42000: Can't find any matching row in the user table
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout, wl14084_simulate_set_password_failure";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -445,7 +445,7 @@ CREATE ROLE r3, r2, r1;
 ERROR HY000: Operation CREATE ROLE failed for 'r1'@'%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -469,7 +469,7 @@ DROP ROLE r2;
 ERROR HY000: Operation DROP ROLE failed for 'r2'@'%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -492,7 +492,7 @@ GRANT SELECT ON *.* TO u2;
 ERROR 42000: You are not allowed to create a user with GRANT
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -516,7 +516,7 @@ GRANT r1 TO u2;
 ERROR HY000: Unknown authorization ID `u2`@`%`
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -541,7 +541,7 @@ REVOKE r1 FROM u2;
 ERROR HY000: Unknown authorization ID `u2`@`%`
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -565,7 +565,7 @@ REVOKE SELECT ON *.* FROM u2;
 ERROR 42000: There is no such grant defined for user 'u2' on host '%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -589,7 +589,7 @@ SET DEFAULT ROLE r1 TO u2;
 ERROR HY000: `r1`@`%` is not granted to `u2`@`%`
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -638,7 +638,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 CREATE USER u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -662,7 +662,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 ALTER USER u1 IDENTIFIED BY 'abcd';
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -686,7 +686,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 RENAME USER u1 TO u2;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -709,7 +709,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 CREATE ROLE r1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -733,7 +733,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 GRANT SELECT ON *.* TO u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -758,7 +758,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 GRANT r1 TO u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -785,7 +785,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 SET DEFAULT ROLE r1 TO u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -810,7 +810,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 SET PASSWORD FOR u1 = 'efgh';
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -836,7 +836,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 REVOKE r1 FROM u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -861,7 +861,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 REVOKE SELECT ON *.* FROM u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -885,7 +885,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 DROP ROLE r1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -908,7 +908,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 DROP USER u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -935,7 +935,7 @@ CREATE USER u3, u2, u1;
 ERROR HY000: Operation CREATE USER failed for 'u1'@'%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -959,7 +959,7 @@ ALTER USER u2 IDENTIFIED BY 'abcd';
 ERROR HY000: Operation ALTER USER failed for 'u2'@'%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -982,7 +982,7 @@ RENAME USER u2 TO u3;
 ERROR HY000: Operation RENAME USER failed for 'u2'@'%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1005,7 +1005,7 @@ DROP USER u2;
 ERROR HY000: Operation DROP USER failed for 'u2'@'%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1029,7 +1029,7 @@ SET PASSWORD FOR u1 = 'abcd';
 ERROR 42000: Can't find any matching row in the user table
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout, wl14084_simulate_set_password_failure";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1054,7 +1054,7 @@ CREATE ROLE r3, r2, r1;
 ERROR HY000: Operation CREATE ROLE failed for 'r1'@'%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1078,7 +1078,7 @@ DROP ROLE r2;
 ERROR HY000: Operation DROP ROLE failed for 'r2'@'%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1101,7 +1101,7 @@ GRANT SELECT ON *.* TO u2;
 ERROR 42000: You are not allowed to create a user with GRANT
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1125,7 +1125,7 @@ GRANT r1 TO u2;
 ERROR HY000: Unknown authorization ID `u2`@`%`
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1150,7 +1150,7 @@ REVOKE r1 FROM u2;
 ERROR HY000: Unknown authorization ID `u2`@`%`
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1174,7 +1174,7 @@ REVOKE SELECT ON *.* FROM u2;
 ERROR 42000: There is no such grant defined for user 'u2' on host '%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1198,7 +1198,7 @@ SET DEFAULT ROLE r1 TO u2;
 ERROR HY000: `r1`@`%` is not granted to `u2`@`%`
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1247,7 +1247,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 CREATE USER u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1271,7 +1271,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 ALTER USER u1 IDENTIFIED BY 'abcd';
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1295,7 +1295,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 RENAME USER u1 TO u2;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1318,7 +1318,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 CREATE ROLE r1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1342,7 +1342,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 GRANT SELECT ON *.* TO u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1367,7 +1367,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 GRANT r1 TO u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1394,7 +1394,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 SET DEFAULT ROLE r1 TO u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1419,7 +1419,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 SET PASSWORD FOR u1 = 'efgh';
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1445,7 +1445,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 REVOKE r1 FROM u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1470,7 +1470,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 REVOKE SELECT ON *.* FROM u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1494,7 +1494,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 DROP ROLE r1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1517,7 +1517,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 DROP USER u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1544,7 +1544,7 @@ CREATE USER u3, u2, u1;
 ERROR HY000: Operation CREATE USER failed for 'u1'@'%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1568,7 +1568,7 @@ ALTER USER u2 IDENTIFIED BY 'abcd';
 ERROR HY000: Operation ALTER USER failed for 'u2'@'%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1591,7 +1591,7 @@ RENAME USER u2 TO u3;
 ERROR HY000: Operation RENAME USER failed for 'u2'@'%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1614,7 +1614,7 @@ DROP USER u2;
 ERROR HY000: Operation DROP USER failed for 'u2'@'%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1638,7 +1638,7 @@ SET PASSWORD FOR u1 = 'abcd';
 ERROR 42000: Can't find any matching row in the user table
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout, wl14084_simulate_set_password_failure";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1663,7 +1663,7 @@ CREATE ROLE r3, r2, r1;
 ERROR HY000: Operation CREATE ROLE failed for 'r1'@'%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1687,7 +1687,7 @@ DROP ROLE r2;
 ERROR HY000: Operation DROP ROLE failed for 'r2'@'%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1710,7 +1710,7 @@ GRANT SELECT ON *.* TO u2;
 ERROR 42000: You are not allowed to create a user with GRANT
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1734,7 +1734,7 @@ GRANT r1 TO u2;
 ERROR HY000: Unknown authorization ID `u2`@`%`
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1759,7 +1759,7 @@ REVOKE r1 FROM u2;
 ERROR HY000: Unknown authorization ID `u2`@`%`
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1783,7 +1783,7 @@ REVOKE SELECT ON *.* FROM u2;
 ERROR 42000: There is no such grant defined for user 'u2' on host '%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1807,7 +1807,7 @@ SET DEFAULT ROLE r1 TO u2;
 ERROR HY000: `r1`@`%` is not granted to `u2`@`%`
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1856,7 +1856,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 CREATE USER u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1880,7 +1880,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 ALTER USER u1 IDENTIFIED BY 'abcd';
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1904,7 +1904,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 RENAME USER u1 TO u2;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1927,7 +1927,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 CREATE ROLE r1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1951,7 +1951,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 GRANT SELECT ON *.* TO u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -1976,7 +1976,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 GRANT r1 TO u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -2003,7 +2003,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 SET DEFAULT ROLE r1 TO u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -2028,7 +2028,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 SET PASSWORD FOR u1 = 'efgh';
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -2054,7 +2054,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 REVOKE r1 FROM u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -2079,7 +2079,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 REVOKE SELECT ON *.* FROM u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -2103,7 +2103,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 DROP ROLE r1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -2126,7 +2126,7 @@ SET DEBUG_SYNC="wl14084_after_table_locks SIGNAL flush_now";
 DROP USER u1;
 SET DEBUG="-d, wl14084_acl_ddl_after_table_lock_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -2153,7 +2153,7 @@ CREATE USER u3, u2, u1;
 ERROR HY000: Operation CREATE USER failed for 'u1'@'%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -2177,7 +2177,7 @@ ALTER USER u2 IDENTIFIED BY 'abcd';
 ERROR HY000: Operation ALTER USER failed for 'u2'@'%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -2200,7 +2200,7 @@ RENAME USER u2 TO u3;
 ERROR HY000: Operation RENAME USER failed for 'u2'@'%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -2223,7 +2223,7 @@ DROP USER u2;
 ERROR HY000: Operation DROP USER failed for 'u2'@'%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -2247,7 +2247,7 @@ SET PASSWORD FOR u1 = 'abcd';
 ERROR 42000: Can't find any matching row in the user table
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout, wl14084_simulate_set_password_failure";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -2272,7 +2272,7 @@ CREATE ROLE r3, r2, r1;
 ERROR HY000: Operation CREATE ROLE failed for 'r1'@'%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -2296,7 +2296,7 @@ DROP ROLE r2;
 ERROR HY000: Operation DROP ROLE failed for 'r2'@'%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -2319,7 +2319,7 @@ GRANT SELECT ON *.* TO u2;
 ERROR 42000: You are not allowed to create a user with GRANT
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -2343,7 +2343,7 @@ GRANT r1 TO u2;
 ERROR HY000: Unknown authorization ID `u2`@`%`
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -2368,7 +2368,7 @@ REVOKE r1 FROM u2;
 ERROR HY000: Unknown authorization ID `u2`@`%`
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -2392,7 +2392,7 @@ REVOKE SELECT ON *.* FROM u2;
 ERROR 42000: There is no such grant defined for user 'u2' on host '%'
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";
@@ -2416,7 +2416,7 @@ SET DEFAULT ROLE r1 TO u2;
 ERROR HY000: `r1`@`%` is not granted to `u2`@`%`
 SET DEBUG="-d, wl14084_acl_ddl_error_before_cache_reload_trigger_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 SET DEBUG="-d, wl14084_simulate_flush_privileges_timeout";
 connection default;
 SET DEBUG_SYNC="RESET";

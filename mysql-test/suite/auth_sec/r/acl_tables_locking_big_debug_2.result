@@ -28,7 +28,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -48,7 +48,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -68,7 +68,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -88,7 +88,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -108,7 +108,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -128,7 +128,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -148,7 +148,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -168,7 +168,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -188,7 +188,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -208,7 +208,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -228,7 +228,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -248,7 +248,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -294,7 +294,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -314,7 +314,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -334,7 +334,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -354,7 +354,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -374,7 +374,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -394,7 +394,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -414,7 +414,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -434,7 +434,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -454,7 +454,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -474,7 +474,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -494,7 +494,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -514,7 +514,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -560,7 +560,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -580,7 +580,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -600,7 +600,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -620,7 +620,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -640,7 +640,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -660,7 +660,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -680,7 +680,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -700,7 +700,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -720,7 +720,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -740,7 +740,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -760,7 +760,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -780,7 +780,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -826,7 +826,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -846,7 +846,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -866,7 +866,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -886,7 +886,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -906,7 +906,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -926,7 +926,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -946,7 +946,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -966,7 +966,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -986,7 +986,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -1006,7 +1006,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -1026,7 +1026,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;
@@ -1046,7 +1046,7 @@ SET DEBUG_SYNC="wl14084_flush_privileges_after_table_locks SIGNAL proceed_with_a
 FLUSH PRIVILEGES;
 SET DEBUG="-d, wl14084_trigger_acl_ddl_timeout";
 connection conn_attempt;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysql.columns_priv
 connection default;
 SET DEBUG_SYNC="RESET";
 disconnect conn_attempt;

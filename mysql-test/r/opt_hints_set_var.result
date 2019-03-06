@@ -305,7 +305,7 @@ VARIABLE_VALUE
 CREATE TABLE t1(i INT) ENGINE InnoDB;
 LOCK TABLES t1 WRITE;
 INSERT /*+ SET_VAR(lock_wait_timeout=1) */INTO t1 VALUES (1);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 UNLOCK TABLES;
 DROP TABLE t1;
 CALL test_hint("SET_VAR(lock_wait_timeout=1)", "lock_wait_timeout");

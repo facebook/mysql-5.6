@@ -30,7 +30,7 @@ LOCK TABLE t1 WRITE;
 SET lock_wait_timeout= 1;
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
-test.t1	check	Error	Lock wait timeout exceeded; try restarting transaction
+test.t1	check	Error	Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 test.t1	check	status	Operation failed
 # Connection default
 UNLOCK TABLES;

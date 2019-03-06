@@ -1567,7 +1567,8 @@ bool Sql_cmd_analyze_table::execute(THD *thd) {
     goto error;
 
   DBUG_EXECUTE_IF("simulate_analyze_table_lock_wait_timeout_error", {
-    my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0));
+    my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0),
+             "simulate_analyze_table_lock_wait_timeout_error");
     return true;
   });
 

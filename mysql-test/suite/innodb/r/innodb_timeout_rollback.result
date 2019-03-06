@@ -18,7 +18,7 @@ a
 1
 5
 insert into t1 values (2);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 select * from t1;
 a
 1
@@ -51,13 +51,13 @@ set session transaction isolation level repeatable read;
 # Will fail and request rollback due to blocking for update
 # (prior to fix this would trigger the assert).
 create table t2 as select * from t1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 # Additional coverage for WL#7743 "New data dictionary: changes
 # to DDL-related parts of SE API". Check how rollback is handled
 # by similar CTS for non-transactional table.
 BEGIN;
 create table t2 engine=myisam as select * from t1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 # Cleanup
 COMMIT;
 drop table t1;

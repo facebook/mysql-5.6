@@ -893,9 +893,18 @@ static void sort_locks(THR_LOCK_DATA **data, uint count) {
   }
 }
 
+/**
+  Locks everything given in 'data', which has length 'count'. If locking
+  has failed, then 'error_pos' points to the element in 'data' that has
+  failed.
+  The caller controls the lifetime of 'data', so the caller is responsible
+  for accessing 'error_pos' within the lifetime of 'data'.
+*/
+
 enum enum_thr_lock_result thr_multi_lock(THR_LOCK_DATA **data, uint count,
                                          THR_LOCK_INFO *owner,
-                                         ulong lock_wait_timeout) {
+                                         ulong lock_wait_timeout,
+                                         THR_LOCK_DATA **error_pos) {
   THR_LOCK_DATA **pos, **end;
   DBUG_TRACE;
   DBUG_PRINT("lock", ("data: %p  count: %d", data, count));
@@ -906,6 +915,7 @@ enum enum_thr_lock_result thr_multi_lock(THR_LOCK_DATA **data, uint count,
         thr_lock(*pos, owner, (*pos)->type, lock_wait_timeout);
     if (result != THR_LOCK_SUCCESS) { /* Aborted */
       thr_multi_unlock(data, (uint)(pos - data));
+      if (error_pos) *error_pos = *pos;
       return result;
     }
     DEBUG_SYNC_C("thr_multi_lock_after_thr_lock");
@@ -1209,7 +1219,8 @@ static void *test_thread(void *arg) {
       multi_locks[i] = &data[i];
       data[i].type = tests[param][i].lock_type;
     }
-    thr_multi_lock(multi_locks, lock_counts[param], &lock_info, TEST_TIMEOUT);
+    thr_multi_lock(multi_locks, lock_counts[param], &lock_info, TEST_TIMEOUT,
+                   nullptr);
     mysql_mutex_lock(&LOCK_thread_count);
     {
       int tmp = rand() & 7; /* Do something from 0-2 sec */

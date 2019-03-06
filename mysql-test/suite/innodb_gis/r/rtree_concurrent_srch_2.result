@@ -19,7 +19,7 @@ id
 set innodb_lock_wait_timeout = 1;
 set transaction isolation level serializable;
 insert into g values(1103, POINT(100, 1));
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/g.p_idx
 start transaction;
 select id from g WHERE MBRContains(ST_GeomFromText('Polygon((100 0,100 5,105
 5,105 0,100 0))'),p) for update;
@@ -28,7 +28,7 @@ commit;
 set innodb_lock_wait_timeout = 1;
 set transaction isolation level serializable;
 insert into g values(1103, POINT(100, 1));
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/g.p_idx
 commit;
 DROP TABLE g;
 DROP PROCEDURE populate_g;

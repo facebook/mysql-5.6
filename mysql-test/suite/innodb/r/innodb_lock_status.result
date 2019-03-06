@@ -29,7 +29,7 @@ select * from lockt where i=1 for update;
 i
 1
 select * from lockt where i=1 for update;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/lockt.PRIMARY
 rollback;
 N_lock_wait_timeouts	must be 1
 1	must be 1
@@ -46,9 +46,9 @@ select * from lockt where i=2 for update;
 i
 2
 select * from lockt where i=1 for update;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/lockt.PRIMARY
 select * from lockt where i=2 for update;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/lockt.PRIMARY
 rollback;
 rollback;
 N_deadlocks	must be 2

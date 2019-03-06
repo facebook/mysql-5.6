@@ -763,8 +763,12 @@ struct MDL_key {
     Get thread state name to be used in case when we have to
     wait on resource identified by key.
   */
-  const PSI_stage_info *get_wait_state_name() const {
-    return &m_namespace_to_wait_state_name[(int)mdl_namespace()];
+  const PSI_stage_info *get_wait_state_name() const noexcept {
+    return &m_namespace_to_wait_state_name[(int)mdl_namespace()].stage_info;
+  }
+
+  const char *get_namespace_name() const noexcept {
+    return m_namespace_to_wait_state_name[(int)mdl_namespace()].namespace_name;
   }
 
  private:
@@ -785,7 +789,11 @@ struct MDL_key {
   uint16 m_db_name_length{0};
   uint16 m_object_name_length{0};
   char m_ptr[MAX_MDLKEY_LENGTH]{0};
-  static PSI_stage_info m_namespace_to_wait_state_name[NAMESPACE_END];
+  struct PSI_stage_info_with_name {
+    PSI_stage_info stage_info;
+    const char *namespace_name;
+  };
+  static PSI_stage_info_with_name m_namespace_to_wait_state_name[NAMESPACE_END];
 };
 
 /**
