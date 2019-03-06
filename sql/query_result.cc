@@ -216,7 +216,7 @@ static File create_file(THD *thd, char *path, sql_exchange *exchange,
 
   if (!is_secure_file_path(path)) {
     /* Write only allowed to dir or subdir specified by secure_file_priv */
-    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--secure-file-priv");
+    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--secure-file-priv", "");
     return -1;
   }
 

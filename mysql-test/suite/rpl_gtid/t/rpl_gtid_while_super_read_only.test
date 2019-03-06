@@ -300,6 +300,7 @@ ALTER INSTANCE RELOAD TLS;
 --let $gtid_step_count = 0
 --source include/gtid_step_assert.inc
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 ALTER INSTANCE ROTATE INNODB MASTER KEY;
 
@@ -493,6 +494,7 @@ SET GTID_NEXT = 'AUTOMATIC';
 --source include/gtid_step_assert.inc
 
 eval SET GTID_NEXT = '$uuida:3';
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 START TRANSACTION READ WRITE;
 
@@ -528,46 +530,60 @@ PARTITION BY RANGE(c1)
        PARTITION p2 VALUES LESS THAN (10));
 SET GLOBAL SUPER_READ_ONLY = ON;
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 CREATE TABLE t_test(c1 INT NOT NULL PRIMARY KEY) ENGINE=InnoDB;
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 CREATE SPATIAL REFERENCE SYSTEM 13001000 NAME 'TEST13001000 Long-Lat WGS 84' DEFINITION 'GEOGCS["Long-Lat WGS 84",DATUM["World Geodetic System 1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.017453292519943278,AUTHORITY["EPSG","9122"]],AXIS["Lon",EAST],AXIS["Lat",NORTH],AUTHORITY["EPSG","4326"]]';
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 CREATE SERVER s1 FOREIGN DATA WRAPPER mysql
 OPTIONS (USER 'Remote', HOST '198.51.100.106', DATABASE 'test');
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 CREATE LOGFILE GROUP lg1 ADD UNDOFILE 'undo.dat' INITIAL_SIZE = 10M;
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 ALTER TABLE t_part TRUNCATE PARTITION p0, p1;
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 ALTER TABLE t_hash DISCARD TABLESPACE;
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 ALTER TABLE t_hash IMPORT TABLESPACE;
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 ALTER TABLE t_hash COALESCE PARTITION 1;
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 ALTER TABLE t_nopart1 REMOVE PARTITIONING;
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 ALTER TABLE t_part EXCHANGE PARTITION sp00 WITH TABLE t_nopart1;
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 ALTER TABLE t_part REBUILD PARTITION p0;
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 ALTER TABLE t_part1 REORGANIZE PARTITION p1,p2 INTO (PARTITION p3 VALUES LESS THAN (300));
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 ALTER TABLE t_part ADD PARTITION (PARTITION p3 VALUES LESS THAN (300));
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 ALTER TABLE t_part DROP PARTITION p3;
 
@@ -577,9 +593,11 @@ ALTER TABLE t_part DROP PARTITION p3;
 --source include/gtid_step_reset.inc
 
 # behavior changed with "D27213990 allow install/uninstall plugin when enable_super_log_bin_read_only is enabled"
+#--replace_result $MASTER_MYPORT MASTER_PORT
 #--error ER_OPTION_PREVENTS_STATEMENT
 #INSTALL PLUGIN keyring_file SONAME 'keyring_file.so';
 #
+#--replace_result $MASTER_MYPORT MASTER_PORT
 #--error ER_OPTION_PREVENTS_STATEMENT
 #UNINSTALL PLUGIN keyring_file;
 
@@ -590,14 +608,17 @@ ALTER TABLE t_part DROP PARTITION p3;
 --echo #### 11. [OPTIMIZE | ANALYZE | REPAIR] TABLE
 ########################################################################
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 REPAIR TABLE t1;
 
 --let $gtid_step_count = 1
 --source include/gtid_step_assert.inc
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 ANALYZE TABLE t1;
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 OPTIMIZE TABLE t1;
 
@@ -607,16 +628,19 @@ OPTIMIZE TABLE t1;
 ########################################################################
 --source include/gtid_step_reset.inc
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 ALTER TABLE t_part OPTIMIZE PARTITION p0, p1;
 --let $gtid_step_count = 0
 --source include/gtid_step_assert.inc
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 ALTER TABLE t_part ANALYZE PARTITION p0;
 --let $gtid_step_count = 0
 --source include/gtid_step_assert.inc
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 ALTER TABLE t_part REPAIR PARTITION p0, p1;
 --let $gtid_step_count = 0
@@ -631,26 +655,31 @@ CREATE USER 'u1'@localhost IDENTIFIED BY '';
 SET @@global.super_read_only = 1;
 --source include/gtid_step_reset.inc
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 CREATE USER u1,u2;
 --let $gtid_step_count = 0
 --source include/gtid_step_assert.inc
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 GRANT ALL ON *.* To u1,u2;
 --let $gtid_step_count = 0
 --source include/gtid_step_assert.inc
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 REVOKE ALL ON *.* from u1;
 --let $gtid_step_count = 0
 --source include/gtid_step_assert.inc
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 DROP USER u1;
 --let $gtid_step_count = 0
 --source include/gtid_step_assert.inc
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 DROP USER u1,u2;
 --let $gtid_step_count = 0
@@ -661,21 +690,25 @@ DROP USER u1,u2;
 --echo ####     slave_relay_log_info, and slave_worker_info tables.
 ########################################################################
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 UPDATE mysql.slave_master_info SET Retry_count = Retry_count + 1;
 --let $gtid_step_count = 0
 --source include/gtid_step_assert.inc
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 UPDATE mysql.slave_relay_log_info SET Sql_delay = Sql_delay + 1;
 --let $gtid_step_count = 0
 --source include/gtid_step_assert.inc
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 UPDATE mysql.slave_worker_info SET Relay_log_pos = Relay_log_pos + 1;
 --let $gtid_step_count = 0
 --source include/gtid_step_assert.inc
 
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 UPDATE mysql.gtid_executed SET interval_end = interval_end + 1;
 --let $gtid_step_count = 0

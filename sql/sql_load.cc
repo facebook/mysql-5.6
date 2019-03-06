@@ -489,12 +489,13 @@ bool Sql_cmd_load_table::execute_inner(THD *thd,
           bug.
         */
         LogErr(ERROR_LEVEL, ER_LOAD_DATA_INFILE_FAILED_IN_UNEXPECTED_WAY);
-        my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--replica-load-tmpdir");
+        my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--replica-load-tmpdir",
+                 "");
         return true;
       }
     } else if (!is_secure_file_path(name)) {
       /* Read only allowed from within dir specified by secure_file_priv */
-      my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--secure-file-priv");
+      my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--secure-file-priv", "");
       return true;
     }
 

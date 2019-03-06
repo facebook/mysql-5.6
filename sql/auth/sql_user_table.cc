@@ -1566,7 +1566,7 @@ int replace_routine_table(THD *thd, GRANT_NAME *grant_name, TABLE *table,
   DBUG_TRACE;
 
   if (!initialized) {
-    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables");
+    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables", "");
     return -1;
   }
 
@@ -1962,7 +1962,7 @@ int open_grant_tables(THD *thd, Table_ref *tables, bool *transactional_tables) {
   DBUG_TRACE;
 
   if (!initialized) {
-    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables");
+    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables", "");
     return -1;
   }
 

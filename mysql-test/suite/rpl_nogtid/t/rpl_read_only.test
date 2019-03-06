@@ -14,6 +14,7 @@ create user test;
 
 connect (master2,127.0.0.1,test,,test,$MASTER_MYPORT,);
 connect (slave2,127.0.0.1,test,,test,$SLAVE_MYPORT,);
+connect (slave2_root,127.0.0.1,root,,test,$SLAVE_MYPORT,);
 
 connection master1;
 
@@ -95,8 +96,20 @@ select * from t1;
 
 # Non root user can not write on the slave
 connection slave2;
+--replace_result $MASTER_MYPORT MASTER_PORT
 --error ER_OPTION_PREVENTS_STATEMENT
 insert into t1 values(1006);
+--replace_result $MASTER_MYPORT MASTER_PORT
+# set extra info for the error message
+connection slave2_root;
+set global read_only_error_msg_extra = "This is a custom message";
+connection slave2;
+--replace_result $MASTER_MYPORT MASTER_PORT
+--error ER_OPTION_PREVENTS_STATEMENT
+insert into t1 values(1006);
+--replace_result $MASTER_MYPORT MASTER_PORT
+connection slave2_root;
+set global read_only_error_msg_extra = default;
 
 ## Cleanup
 connection master;
