@@ -13,7 +13,7 @@ SET lock_wait_timeout=1;
 # With fix, con1 does not get lock on table "t1" so following insert
 # operation fails after waiting for "lock_wait_timeout" duration.
 INSERT INTO t1 VALUES (1);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 connection default;
 UNLOCK TABLES;
 # V1 should be empty here.

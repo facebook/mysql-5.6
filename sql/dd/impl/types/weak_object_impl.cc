@@ -56,7 +56,7 @@ bool Weak_object_impl::store(Open_dictionary_tables_ctx *otx) {
   DBUG_ENTER("Weak_object_impl::store");
 
   DBUG_EXECUTE_IF("fail_while_storing_dd_object", {
-    my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0));
+    my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0), "fail_while_storing_dd_object");
     DBUG_RETURN(true);
   });
 
@@ -172,7 +172,7 @@ bool Weak_object_impl::drop(Open_dictionary_tables_ctx *otx) const {
   DBUG_ENTER("Weak_object_impl::drop");
 
   DBUG_EXECUTE_IF("fail_while_dropping_dd_object", {
-    my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0));
+    my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0), "fail_while_dropping_dd_object");
     DBUG_RETURN(true);
   });
 

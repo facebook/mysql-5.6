@@ -45,16 +45,16 @@ connection con1;
 # blocked.
 SET @@lock_wait_timeout= 1;
 SELECT * FROM t0;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t0
 SELECT * FROM t00;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t00
 SELECT * FROM t1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 SELECT * FROM t01;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t01
 # And access to untouched table too.
 SELECT * FROM t2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t2
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection default;
 UNLOCK TABLES;
@@ -90,16 +90,16 @@ connection con1;
 # blocked.
 SET @@lock_wait_timeout= 1;
 SELECT * FROM t0;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t0
 SELECT * FROM mysqltest.t0;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysqltest.t0
 SELECT * FROM t1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 SELECT * FROM t01;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t01
 # New schema is IX locked.
 ALTER DATABASE mysqltest CHARACTER SET latin1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on schema metadata: mysqltest
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection default;
 UNLOCK TABLES;

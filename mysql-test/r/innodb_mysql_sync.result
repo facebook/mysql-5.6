@@ -248,23 +248,23 @@ SET DEBUG_SYNC= 'now SIGNAL continue1';
 SET DEBUG_SYNC= 'now WAIT_FOR upgraded';
 # Now both reads and writes should be blocked
 SELECT * FROM t1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 INSERT INTO t1 VALUES (4,4);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 SET DEBUG_SYNC= 'now SIGNAL continue2';
 SET DEBUG_SYNC= 'now WAIT_FOR beforecommit';
 # Still both reads and writes should be blocked.
 SELECT * FROM t1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 INSERT INTO t1 VALUES (5,5);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 SET DEBUG_SYNC= 'now SIGNAL continue3';
 SET DEBUG_SYNC= 'now WAIT_FOR binlog';
 # Same here.
 SELECT * FROM t1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 INSERT INTO t1 VALUES (6,6);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 SET DEBUG_SYNC= 'now SIGNAL continue4';
 # Connection default
 # Reaping ALTER TABLE ...
@@ -295,14 +295,14 @@ a	b
 2	2
 3	3
 INSERT INTO t1 VALUES (4,4);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 SET DEBUG_SYNC= 'now SIGNAL continue2';
 SET DEBUG_SYNC= 'now WAIT_FOR binlog';
 # Now both reads and writes should be blocked.
 SELECT * FROM t1 limit 1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 INSERT INTO t1 VALUES (5,5);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 SET DEBUG_SYNC= 'now SIGNAL continue3';
 # Connection default
 # Reaping ALTER TABLE ...
@@ -336,23 +336,23 @@ SET DEBUG_SYNC= 'now SIGNAL continue1';
 SET DEBUG_SYNC= 'now WAIT_FOR upgraded';
 # Now both reads and writes should be blocked.
 SELECT * FROM t1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 INSERT INTO t1 VALUES (4,4);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 SET DEBUG_SYNC= 'now SIGNAL continue2';
 SET DEBUG_SYNC= 'now WAIT_FOR beforecommit';
 # Same here.
 SELECT * FROM t1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 INSERT INTO t1 VALUES (5,5);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 SET DEBUG_SYNC= 'now SIGNAL continue3';
 SET DEBUG_SYNC= 'now WAIT_FOR binlog';
 # Same here.
 SELECT * FROM t1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 INSERT INTO t1 VALUES (6,6);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 SET DEBUG_SYNC= 'now SIGNAL continue4';
 # Connection default
 # Reaping ALTER TABLE ...

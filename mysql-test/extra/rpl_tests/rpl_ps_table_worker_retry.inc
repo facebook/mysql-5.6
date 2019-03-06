@@ -159,7 +159,7 @@ SET debug_sync= 'now SIGNAL signal.rpl_ps_tables_worker_retry_continue';
 --source include/assert.inc
 
 --let $assert_text = APPLYING_TRANSACTION_LAST_TRANSIENT_ERROR_MESSAGE must correspond to ER_LOCK_WAIT_TIMEOUT message
---let $assert_cond = "$applying_trx_errmsg_two_retries" = "Lock wait timeout exceeded; try restarting transaction"
+--let $assert_cond = "$applying_trx_errmsg_two_retries" = "Lock wait timeout exceeded; try restarting transaction: %-.256s"
 --source include/assert.inc
 
 --let $unix_applying_trx_errts_two_retries = `SELECT UNIX_TIMESTAMP('$applying_trx_errts_two_retries')`
@@ -334,7 +334,7 @@ ROLLBACK;
 --source include/assert.inc
 
 --let $assert_text = APPLYING_TRANSACTION_LAST_TRANSIENT_ERROR_MESSAGE must correspond to ER_LOCK_WAIT_TIMEOUT message
---let $assert_cond = "$applying_trx_errmsg" = "Lock wait timeout exceeded; try restarting transaction"
+--let $assert_cond = "$applying_trx_errmsg" = "Lock wait timeout exceeded; try restarting transaction: %-.256s"
 --source include/assert.inc
 
 # cleanup

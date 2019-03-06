@@ -11,7 +11,7 @@ connection default;
 LOCK INSTANCE FOR BACKUP;
 connection con1;
 CREATE TABLE testtable_2 (c1 int, c2 varchar(10)) ENGINE=MyISAM;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 connection default;
 UNLOCK INSTANCE;
 connection con1;
@@ -28,7 +28,7 @@ LOCK INSTANCE FOR BACKUP;
 connection con1;
 INSERT INTO testtable_2 VALUES(4,'ddd'),(5,'eeeee'),(3,'fffffff');
 ALTER TABLE testtable_2 ADD INDEX i2(c2);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 connection default;
 UNLOCK INSTANCE;
 UNLOCK INSTANCE;

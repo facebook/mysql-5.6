@@ -7,6 +7,6 @@ SET DEBUG_SYNC='mysql_rm_table_after_lock_table_names SIGNAL run_backup_lock WAI
 DROP TABLE t1;
 SET DEBUG_SYNC='now WAIT_FOR run_backup_lock';
 LOCK INSTANCE FOR BACKUP;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 SET DEBUG_SYNC='now SIGNAL continue_dropping_table';
 UNLOCK INSTANCE;

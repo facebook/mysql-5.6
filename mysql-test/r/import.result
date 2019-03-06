@@ -114,7 +114,7 @@ LOCK TABLES t1 WRITE;
 # Start new connection which will attempt to import locked table
 SET @@session.lock_wait_timeout= 1;
 IMPORT TABLE FROM 't1_*.sdi';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 # Switch back to default and disconnect import connection
 UNLOCK TABLES;
 DROP TABLE t1;

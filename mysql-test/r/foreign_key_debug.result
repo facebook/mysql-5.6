@@ -328,7 +328,7 @@ TABLE	test	child	NULL	SHARED_READ_ONLY
 # From another connection, verify that child is locked.
 SET @@session.lock_wait_timeout= 1;
 INSERT INTO child VALUES (1, 1);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.child
 UNLOCK TABLES;
 SET @@foreign_key_checks= 1;
 # Now, the locks are gone.
@@ -735,7 +735,7 @@ INSERT INTO parent VALUES (1);
 SET @old_lock_wait_timeout= @@lock_wait_timeout;
 SET @@lock_wait_timeout= 1;
 ALTER TABLE parent ADD COLUMN a INT;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.parent
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 SET DEBUG_SYNC="now SIGNAL go";
 connection default;
@@ -757,7 +757,7 @@ INSERT INTO parent VALUES (2);
 SET @old_lock_wait_timeout= @@lock_wait_timeout;
 SET @@lock_wait_timeout= 1;
 ALTER TABLE parent ADD COLUMN a INT;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.parent
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 SET DEBUG_SYNC="now SIGNAL go";
 connection default;
@@ -779,7 +779,7 @@ pk
 SET @old_lock_wait_timeout= @@lock_wait_timeout;
 SET @@lock_wait_timeout= 1;
 DELETE FROM parent;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.parent
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 SET DEBUG_SYNC="now SIGNAL go";
 connection default;

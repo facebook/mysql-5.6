@@ -46,7 +46,7 @@ begin;
 ** Not so if isolation level is READ COMMITTED or READ UNCOMMITTED.
 ** The locks that do not match the WHERE condition are released.
 update t1 set eta=2 where tipo=22;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 ** Release user level name lock from thread 1. This will cause the ULL
 ** on thread 2 to end its wait.
 DO release_lock("hello");
@@ -189,7 +189,7 @@ begin;
 ** Not so if isolation level is READ COMMITTED or READ UNCOMMITTED.
 ** The locks that do not match the WHERE condition are released.
 update t1 set tipo=1 where tipo=2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 ** Release ULL. This will release the next waiting ULL on thread 2.
 DO release_lock("hello");
 ** The table should still be updated with updates for thread 1 only:
@@ -374,7 +374,7 @@ begin;
 ** Update the same range which is marked for update on thread 2; this
 ** will hang because of row locks.
 update t1 set tipo=1 where tipo=2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 ** After the update the table will be unmodified because the previous
 ** transaction failed and was rolled back.
 select * from t1;
@@ -484,7 +484,7 @@ begin;
 ** Not so if isolation level is READ COMMITTED or READ UNCOMMITTED.
 ** The locks that do not match the WHERE condition are released.
 update t1 set tipo=11 where tipo=22;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 ** After the time out the transaction is aborted; no rows should
 ** have changed.
 select * from t1;
@@ -586,7 +586,7 @@ begin;
 ** Selecting a range for update by table scan will be blocked
 ** because of on-going transaction on thread 2.
 select * from t1 where tipo=1 FOR UPDATE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 ** connection thread2
 ** Table will be unchanged and the select command will not be
 ** blocked:
@@ -668,7 +668,7 @@ delete from t1 where tipo=2;
 ** connection thread1
 begin;
 update t1 set tipo=1 where tipo=2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 select * from t1;
 eta	tipo	c
 7	7	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
@@ -753,7 +753,7 @@ begin;
 ** Not so if isolation level is READ COMMITTED or READ UNCOMMITTED.
 ** The locks that do not match the WHERE condition are released.
 update t1 set tipo=1 where tipo=22;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 select * from t1;
 eta	tipo	c
 7	7	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa

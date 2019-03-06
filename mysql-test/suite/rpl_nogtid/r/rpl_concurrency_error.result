@@ -25,7 +25,7 @@ Note	1592	Unsafe statement written to the binary log using statement format sinc
 SET AUTOCOMMIT = 1;
 BEGIN;
 UPDATE IGNORE t SET f = 'magenta 2' WHERE f = 'red';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t.PRIMARY
 INSERT INTO t VALUES (5 + (2 * 10),"brown");
 INSERT INTO n VALUES (now(),"brown");
 COMMIT;
@@ -52,7 +52,7 @@ Note	1592	Unsafe statement written to the binary log using statement format sinc
 SET AUTOCOMMIT = 1;
 BEGIN;
 UPDATE IGNORE t SET f = 'dark blue 2' WHERE f = 'red';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t.PRIMARY
 INSERT INTO t VALUES (6 + (2 * 10),"brown");
 INSERT INTO n VALUES (now(),"brown");
 COMMIT;
@@ -75,7 +75,7 @@ Warnings:
 Note	1592	Unsafe statement written to the binary log using statement format since BINLOG_FORMAT = STATEMENT. Statement accesses nontransactional table as well as transactional or temporary table, and writes to any of them.
 SET AUTOCOMMIT = 0;
 UPDATE IGNORE t SET f = 'magenta 1' WHERE f = 'red';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t.PRIMARY
 INSERT INTO t VALUES (5 + (1 * 10),"brown");
 INSERT INTO n VALUES (now(),"brown");
 COMMIT;
@@ -100,7 +100,7 @@ Warnings:
 Note	1592	Unsafe statement written to the binary log using statement format since BINLOG_FORMAT = STATEMENT. Statement accesses nontransactional table as well as transactional or temporary table, and writes to any of them.
 SET AUTOCOMMIT = 0;
 UPDATE IGNORE t SET f = 'dark blue 1' WHERE f = 'red';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t.PRIMARY
 INSERT INTO t VALUES (6 + (1 * 10),"brown");
 INSERT INTO n VALUES (now(),"brown");
 COMMIT;

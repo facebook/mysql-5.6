@@ -87,7 +87,7 @@ select @@transaction_isolation;
 @@transaction_isolation
 SERIALIZABLE
 insert into t1 select * from t1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.c2
 select count(*) from t1;
 count(*)
 897
@@ -145,7 +145,7 @@ select @@transaction_isolation;
 @@transaction_isolation
 SERIALIZABLE
 INSERT INTO t1  VALUES (1, ST_GeomFromText('LineString(8 105, 200 105)'));
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.c2
 select count(*) from t1;
 count(*)
 1793
@@ -168,7 +168,7 @@ select @@innodb_lock_wait_timeout;
 @@innodb_lock_wait_timeout
 1
 insert into t1 values(4, Point(4,4));
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.c2
 rollback;
 truncate t1;
 INSERT INTO t1  VALUES (1, ST_GeomFromText('LineString(2 2, 150 150)'));
@@ -187,7 +187,7 @@ select @@innodb_lock_wait_timeout;
 @@innodb_lock_wait_timeout
 1
 insert into t1 values(4, Point(4,4));
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.c2
 rollback;
 truncate t1;
 create procedure insert_t1(IN start int, IN total int)
@@ -213,7 +213,7 @@ CALL insert_t1(1001, 2000);
 set session transaction isolation level serializable;
 set session innodb_lock_wait_timeout = 1;
 insert into t1 values (1200, Point(950, 950));
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.c2
 select sleep(2);
 sleep(2)
 0
@@ -246,7 +246,7 @@ count(*)
 2
 set session innodb_lock_wait_timeout = 1;
 delete from t1 where  c1 = 2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 commit;
 drop table t1;
 SET DEBUG_SYNC= 'RESET';

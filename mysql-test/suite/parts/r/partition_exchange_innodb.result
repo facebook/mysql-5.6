@@ -165,21 +165,21 @@ a	b
 # any write (update/delete/insert) into t or tp should fail
 SET SESSION lock_wait_timeout=1;
 UPDATE tp SET a = 53, b = concat("Fifty three, was ", b) WHERE a = 63;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.tp
 INSERT INTO tp VALUES (63, "Sixty three, new"), (59, "To be deleted");
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.tp
 DELETE FROM tp WHERE a = 59;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.tp
 UPDATE t SET a = 53, b = "Fifty three, was three" WHERE a = 3;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t
 INSERT INTO t VALUES (63, "Sixty three, new"), (59, "To be deleted");
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t
 DELETE FROM t WHERE a = 3;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t
 ALTER TABLE t ENGINE = 'InnoDB';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t
 ALTER TABLE tp ENGINE = 'InnoDB';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.tp
 SHOW CREATE TABLE t;
 Table	Create Table
 t	CREATE TABLE `t` (
@@ -207,22 +207,22 @@ SELECT * FROM tp WHERE a = 61;
 a	b
 61	Sixty one
 UPDATE tp SET a = 43, b = concat("Fifty three, was ", b) WHERE a = 63;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.tp
 INSERT INTO tp VALUES (63, "Sixty three, new 2"), (59, "To be deleted");
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.tp
 DELETE FROM tp WHERE a = 59;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.tp
 # any write (update/delete/insert) into t should fail
 UPDATE t SET a = 53, b = "Fifty three, was three" WHERE a = 3;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t
 INSERT INTO t VALUES (63, "Sixty three, new"), (59, "To be deleted");
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t
 DELETE FROM t WHERE a = 3;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t
 ALTER TABLE t ENGINE = 'InnoDB';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t
 ALTER TABLE tp ENGINE = 'InnoDB';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.tp
 SHOW CREATE TABLE t;
 Table	Create Table
 t	CREATE TABLE `t` (
@@ -244,56 +244,56 @@ SET DEBUG_SYNC= 'now SIGNAL goto_wait';
 SET DEBUG_SYNC= 'now WAIT_FOR swap_in_progress';
 # Both tables should now be under exclusive lock, even SHOW should fail
 SELECT * FROM t WHERE a = 99;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t
 SELECT * FROM tp WHERE a = 61;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.tp
 UPDATE tp SET a = 53, b = concat("Fifty three, was ", b) WHERE a = 63;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.tp
 INSERT INTO tp VALUES (63, "Sixty three, new 2"), (59, "To be deleted");
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.tp
 DELETE FROM tp WHERE a = 59;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.tp
 UPDATE t SET a = 53, b = "Fifty three, was three" WHERE a = 3;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t
 INSERT INTO t VALUES (63, "Sixty three, new"), (59, "To be deleted");
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t
 DELETE FROM t WHERE a = 3;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t
 SHOW CREATE TABLE t;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t
 SHOW CREATE TABLE tp;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.tp
 ALTER TABLE t ENGINE = 'InnoDB';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t
 ALTER TABLE tp ENGINE = 'InnoDB';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.tp
 SET DEBUG_SYNC= 'now SIGNAL goto_exchange';
 SET DEBUG_SYNC= 'now WAIT_FOR swap_in_progress';
 # Both tables should now be under exclusive lock
 SELECT * FROM t WHERE a = 99;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t
 SELECT * FROM tp WHERE a = 61;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.tp
 UPDATE tp SET a = 53, b = concat("Fifty three, was ", b) WHERE a = 63;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.tp
 INSERT INTO tp VALUES (63, "Sixty three, new 2"), (59, "To be deleted");
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.tp
 DELETE FROM tp WHERE a = 59;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.tp
 UPDATE t SET a = 53, b = "Fifty three, was three" WHERE a = 3;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t
 INSERT INTO t VALUES (63, "Sixty three, new"), (59, "To be deleted");
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t
 DELETE FROM t WHERE a = 3;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t
 ALTER TABLE t ENGINE = 'InnoDB';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t
 ALTER TABLE tp ENGINE = 'InnoDB';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.tp
 SHOW CREATE TABLE t;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t
 SHOW CREATE TABLE tp;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.tp
 SET DEBUG_SYNC= 'now SIGNAL test_done';
 # con1
 # con default

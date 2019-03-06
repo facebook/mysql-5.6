@@ -11,7 +11,7 @@ CREATE TABLE t1 (i INT) ENGINE=MyISAM;
 connect  con1, localhost, root;
 SET SESSION DEBUG='+d,fail_while_dropping_dd_object';
 DROP TABLE t1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: fail_while_dropping_dd_object
 SET SESSION DEBUG='-d,fail_while_dropping_dd_object';
 connection default;
 # Drop the table for real. Use IF EXISTS clause to ignore

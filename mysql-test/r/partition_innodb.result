@@ -260,10 +260,10 @@ id	name	myDate
 SET lock_wait_timeout = 1;
 # After the patch it will wait and fail on timeout.
 ALTER TABLE t1 DROP PARTITION p3;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 SHOW WARNINGS;
 Level	Code	Message
-Error	1205	Lock wait timeout exceeded; try restarting transaction
+Error	1205	Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 # Connection default
 SELECT * FROM t1;
 id	name	myDate
