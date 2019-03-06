@@ -145,17 +145,17 @@ connection default;
 connect(127.0.0.1,root,,test,ADMIN_PORT,MASTER_SOCKET);
 connect admin_tcp_con,127.0.0.1,root,,,$MASTER_ADMINPORT,,TCP;
 # Test case 15
-# Check that admin interface is turned off in case a server started
-# with the --skip-grant-tables option. If the server is started with
-# the --skip-grant-tables option to disable authentication checks,
-# the server enables --skip-networking automatically to prevent remote
-# connections. Therefore, listening on admin interface must be disabled too.
+# Check that admin interface is is still on in case a server started
+# with the --skip-grant-tables option.
 connection default;
 # Stop DB server
 # Starting up server with --admin-address=127.0.0.1 --skip-grant-tables
 # restart: --admin-address=127.0.0.1 --admin-port=ADMIN_PORT --skip-grant-tables
-connect(127.0.0.1,root,,test,ADMIN_PORT,MASTER_SOCKET);
 connect admin_tcp_con,127.0.0.1,root,,,$MASTER_ADMINPORT,,TCP;
+SELECT CURRENT_USER();
+CURRENT_USER()
+skip-grants user@skip-grants host
+disconnect admin_tcp_con;
 connection default;
 # Stop DB server
 # Test case 16

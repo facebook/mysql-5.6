@@ -253,13 +253,11 @@ SELECT CURRENT_USER();
 --disable_result_log
 --error CR_CONN_HOST_ERROR
 --connect(admin_tcp_con,127.0.0.1,root,,,$MASTER_ADMINPORT,,TCP)
+--enable_result_log
 
 --echo # Test case 15
---echo # Check that admin interface is turned off in case a server started
---echo # with the --skip-grant-tables option. If the server is started with
---echo # the --skip-grant-tables option to disable authentication checks,
---echo # the server enables --skip-networking automatically to prevent remote
---echo # connections. Therefore, listening on admin interface must be disabled too.
+--echo # Check that admin interface is is still on in case a server started
+--echo # with the --skip-grant-tables option.
 --connection default
 --echo # Stop DB server
 --source include/shutdown_mysqld.inc
@@ -271,12 +269,11 @@ SELECT CURRENT_USER();
 --source include/start_mysqld.inc
 
 --replace_result $MASTER_MYSOCK MASTER_SOCKET $MASTER_ADMINPORT ADMIN_PORT
-# Disable result_log to suppress output from subsequent connect() command
-# since it outputs error code reasoning why connection wasn't established
-# and its value could be distinct on different platforms.
---disable_result_log
---error CR_CONN_HOST_ERROR
 --connect(admin_tcp_con,127.0.0.1,root,,,$MASTER_ADMINPORT,,TCP)
+SELECT CURRENT_USER();
+
+--disconnect admin_tcp_con
+--source include/wait_until_disconnected.inc
 
 --connection default
 --echo # Stop DB server
@@ -325,8 +322,6 @@ SELECT @@admin_address, @@admin_port;
 --connection default
 --echo # Stop DB server
 --source include/shutdown_mysqld.inc
-
---enable_result_log
 
 --echo #
 --echo # Starting mysqld in the regular mode...
