@@ -1052,6 +1052,9 @@ The following options may be given as the first argument:
  --read-only         Make all non-temporary tables read-only, with the
  exception for replication (slave) threads and users with
  the SUPER privilege
+ --read-only-error-msg-extra[=name] 
+ Set this variable to print out extra error information,
+ which will be appended to read_only error messages.
  --read-only-slave   Blocks disabling read_only if the server is a slave. This
  is helpful in asserting that read_only is never disabled
  on a slave. Slave with read_only=0 may generate new GTID
@@ -1759,6 +1762,7 @@ range-alloc-block-size 4096
 range-optimizer-max-mem-size 8388608
 read-buffer-size 131072
 read-only FALSE
+read-only-error-msg-extra 
 read-only-slave TRUE
 read-rnd-buffer-size 262144
 regexp-stack-limit 8000000

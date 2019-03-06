@@ -3200,7 +3200,7 @@ int mysql_execute_command(THD *thd, bool first_level) {
 
   /* Check if the statement fulfill the requirements on ACL CACHE */
   if (!command_satisfy_acl_cache_requirement(lex->sql_command)) {
-    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables");
+    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables", "");
     goto error;
   }
 

@@ -1,0 +1,25 @@
+set @@global.read_only_error_msg_extra='Custom message before read_only';
+select @@global.read_only_error_msg_extra;
+
+set global read_only = true;
+set @@global.read_only_error_msg_extra = default;
+select @@global.read_only_error_msg_extra;
+set @saved_read_only_error_msg_extra = @@global.read_only_error_msg_extra;
+
+set @@global.read_only_error_msg_extra='This is a custom message';
+
+set global super_read_only = true;
+set @@global.read_only_error_msg_extra='This is another custom message';
+
+--error ER_WRONG_TYPE_FOR_VAR
+set @@global.read_only_error_msg_extra=1;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.read_only_error_msg_extra;
+--error ER_GLOBAL_VARIABLE
+set @@session.read_only_error_msg_extra='This is a custom message';
+
+set global read_only_error_msg_extra = @saved_read_only_error_msg_extra;
+
+set global super_read_only = false;
+set global read_only = false;

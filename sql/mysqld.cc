@@ -1067,6 +1067,7 @@ handlerton *temptable_hton;
 handlerton *myisam_hton;
 handlerton *innodb_hton;
 
+char *opt_read_only_error_msg_extra;
 char *opt_disabled_storage_engines;
 uint opt_server_id_bits = 0;
 ulong opt_server_id_mask = 0;

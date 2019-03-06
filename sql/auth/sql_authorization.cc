@@ -105,6 +105,7 @@
 #include "sql/mysqld.h" /* lower_case_table_names */
 #include "sql/nested_join.h"
 #include "sql/protocol.h"
+#include "sql/rpl_slave.h"  /* get_active_master_info */
 #include "sql/sp.h"         /* sp_exist_routines */
 #include "sql/sql_admin.h"  // enum role_enum
 #include "sql/sql_alter.h"
@@ -1910,13 +1911,15 @@ bool check_readonly(THD *thd, bool err_if_readonly) {
 
 */
 void err_readonly(THD *thd) {
+  std::string extra_info = get_active_master_info();
   my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0),
            thd->security_context()->check_access(SUPER_ACL) ||
                    thd->security_context()
                        ->has_global_grant(STRING_WITH_LEN("CONNECTION_ADMIN"))
                        .first
                ? "--super-read-only"
-               : "--read-only");
+               : "--read-only",
+           extra_info.c_str());
 }
 
 /**
