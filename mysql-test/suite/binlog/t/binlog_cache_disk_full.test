@@ -1,0 +1,39 @@
+--source include/have_log_bin.inc
+--source include/have_binlog_format_row.inc
+--source include/have_debug.inc
+
+call mtr.add_suppression("OS errno 28 - No space left on device");
+
+CREATE TABLE t1(f1 TEXT) ENGINE = InnoDB;
+
+# Simulate disk full during writing binlog cache
+# The property affects only single round of waiting for MY_WAIT_IF_FULL
+# It prints error message in the log, sleep for 1 second and continue
+SET SESSION debug="+d,simulate_disk_full_at_binlog_cache_write";
+
+# we need to generate huge transaction to hit binlog_cache_size
+BEGIN;
+INSERT INTO t1 VALUES(md5(1));
+let $i = 0;
+# binlog_cache_disk_full-master.opt sets binlog_cache_size to 4K so the
+# following number of insert is required to overflow the cache to hit disk
+let $NUMBER_OF_ITERATIONS = 8;
+while ($i < $NUMBER_OF_ITERATIONS)
+{
+    INSERT INTO t1 SELECT * FROM t1;
+    inc $i;
+}
+
+# after the loop we expect to hit binlog_cache_size and generate the warnings
+# telling us that we entered into MY_WAIT_IF_FULL mode
+--let $assert_file= $MYSQLTEST_VARDIR/log/mysqld.1.err
+--let $assert_only_after = CURRENT_TEST: binlog.binlog_cache_disk_full
+--let $assert_count = 1
+--let $assert_select = Disk is full writing .* \(OS errno 28 - No space left on device\). Waiting for someone to free space...
+--let $assert_text = Found the expected error: No space left on device.
+--source include/assert_grep.inc
+
+COMMIT;
+
+SET SESSION debug="-d,simulate_disk_full_at_binlog_cache_write";
+DROP TABLE t1;
