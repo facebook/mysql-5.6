@@ -222,7 +222,7 @@ Warning	1287	Setting user variables within expressions is deprecated and will be
 begin;
 select * from t1 for update;
 insert into t2 values (20);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.GEN_CLUST_INDEX
 select (@after:=unix_timestamp())*0;
 (@after:=unix_timestamp())*0
 0

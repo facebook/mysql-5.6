@@ -111,7 +111,7 @@ connection con1;
 # So concurrent inserts into child are blocked.
 SET @@lock_wait_timeout= 1;
 INSERT INTO t1 VALUES (NULL);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection default;
 # And delete from parent table is possible and doesn't cause asserts.

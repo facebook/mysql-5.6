@@ -4289,9 +4289,12 @@ void handler::print_error(int error, myf errflag) {
              table_share->table_name.str);
       break;
     }
-    case HA_ERR_LOCK_WAIT_TIMEOUT:
-      textno = ER_LOCK_WAIT_TIMEOUT;
-      break;
+    case HA_ERR_LOCK_WAIT_TIMEOUT: {
+      String str;
+      get_error_message(error, &str);
+      my_error(ER_LOCK_WAIT_TIMEOUT, errflag, str.c_ptr_safe());
+      return;
+    }
     case HA_ERR_LOCK_TABLE_FULL:
       textno = ER_LOCK_TABLE_FULL;
       break;

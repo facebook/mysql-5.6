@@ -610,7 +610,7 @@ UPDATE grandparent SET gpf2= 4;
 UPDATE grandparent SET gpf2= 100 * gpf1;
 # DDL on child will have conflicting locks.
 ALTER TABLE child ADD COLUMN (i INT);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.child
 SET @@session.lock_wait_timeout= DEFAULT;
 connection con_A;
 disconnect con_A;
@@ -669,7 +669,7 @@ pk
 connection default;
 SET @@lock_wait_timeout= 1;
 CREATE TABLE child (fk INT, FOREIGN KEY (fk) REFERENCES parent(pk));
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.parent
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;
@@ -716,7 +716,7 @@ fk
 connection default;
 SET @@lock_wait_timeout= 1;
 CREATE TABLE parent (pk INT PRIMARY KEY);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.child
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;
@@ -799,7 +799,7 @@ fk
 connection default;
 SET @@lock_wait_timeout= 1;
 CREATE TABLE IF NOT EXISTS parent LIKE parent_source;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.child
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;
@@ -828,7 +828,7 @@ INSERT INTO parent VALUES (1);
 connection con2;
 SET @@lock_wait_timeout= 1;
 ALTER TABLE parent ADD COLUMN a INT;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.parent
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 # Resume CREATE TABLE.
@@ -871,7 +871,7 @@ LOCK TABLE parent WRITE;
 connection default;
 SET @@lock_wait_timeout= 1;
 CREATE TABLE child (fk INT, FOREIGN KEY (fk) REFERENCES parent(pk)) SELECT NULL AS fk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.parent
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 UNLOCK TABLES;
@@ -884,7 +884,7 @@ pk
 connection default;
 SET @@lock_wait_timeout= 1;
 CREATE TABLE child (fk INT, FOREIGN KEY (fk) REFERENCES parent(pk)) SELECT NULL AS fk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.parent
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;
@@ -931,7 +931,7 @@ fk
 connection default;
 SET @@lock_wait_timeout= 1;
 CREATE TABLE parent (pk INT PRIMARY KEY) SELECT 1 AS pk;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.child
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;
@@ -987,7 +987,7 @@ pk
 connection default;
 SET @@lock_wait_timeout= 1;
 DROP TABLES child;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.parent
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;
@@ -1014,7 +1014,7 @@ fk
 connection default;
 SET @@lock_wait_timeout= 1;
 DROP TABLES parent;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.child
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;
@@ -1064,7 +1064,7 @@ pk
 connection default;
 SET @@lock_wait_timeout= 1;
 RENAME TABLES child TO child1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.parent
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;
@@ -1091,7 +1091,7 @@ fk
 connection default;
 SET @@lock_wait_timeout= 1;
 RENAME TABLES parent TO parent1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.child
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;
@@ -1127,7 +1127,7 @@ fk
 connection default;
 SET @@lock_wait_timeout= 1;
 RENAME TABLES parent TO parent1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.child
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;
@@ -1182,7 +1182,7 @@ pk
 connection default;
 SET @@lock_wait_timeout= 1;
 ALTER TABLE child RENAME TO child1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.parent
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;
@@ -1209,7 +1209,7 @@ fk
 connection default;
 SET @@lock_wait_timeout= 1;
 ALTER TABLE parent RENAME TO parent1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.child
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;
@@ -1245,7 +1245,7 @@ fk
 connection default;
 SET @@lock_wait_timeout= 1;
 ALTER TABLE parent RENAME TO parent1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.child
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;
@@ -1306,7 +1306,7 @@ LOCK TABLE parent WRITE;
 connection default;
 SET @@lock_wait_timeout= 1;
 ALTER TABLE child ADD CONSTRAINT fk FOREIGN KEY (fk) REFERENCES parent(pk), ALGORITHM=INPLACE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.parent
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 UNLOCK TABLES;
@@ -1319,7 +1319,7 @@ connection default;
 SET @@lock_wait_timeout= 1;
 SET FOREIGN_KEY_CHECKS=0;
 ALTER TABLE child ADD CONSTRAINT fk FOREIGN KEY (fk) REFERENCES parent(pk), ALGORITHM=INPLACE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.parent
 SET FOREIGN_KEY_CHECKS=1;
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
@@ -1367,7 +1367,7 @@ pk
 connection default;
 SET @@lock_wait_timeout= 1;
 ALTER TABLE child DROP FOREIGN KEY fk, ALGORITHM=INPLACE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.parent
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;
@@ -1411,7 +1411,7 @@ fk
 connection default;
 SET @@lock_wait_timeout= 1;
 ALTER TABLE parent RENAME KEY u1 TO u, ALGORITHM=INPLACE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.child
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;
@@ -1438,7 +1438,7 @@ pk
 connection default;
 SET @@lock_wait_timeout= 1;
 ALTER TABLE child RENAME TO child1, ADD COLUMN b INT, ALGORITHM=INPLACE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.parent
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;
@@ -1465,7 +1465,7 @@ fk	a
 connection default;
 SET @@lock_wait_timeout= 1;
 ALTER TABLE parent RENAME TO parent1, ADD COLUMN b INT, ALGORITHM=INPLACE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.child
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;
@@ -1501,7 +1501,7 @@ fk
 connection default;
 SET @@lock_wait_timeout= 1;
 ALTER TABLE parent RENAME TO parent1, ADD COLUMN d INT, ALGORITHM=INPLACE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.child
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;
@@ -1562,7 +1562,7 @@ LOCK TABLE parent WRITE;
 connection default;
 SET @@lock_wait_timeout= 1;
 ALTER TABLE child ADD CONSTRAINT fk FOREIGN KEY (fk) REFERENCES parent(pk), ALGORITHM=COPY;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.parent
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 UNLOCK TABLES;
@@ -1575,7 +1575,7 @@ DELETE FROM parent;
 connection default;
 SET @@lock_wait_timeout= 1;
 ALTER TABLE child ADD CONSTRAINT fk FOREIGN KEY (fk) REFERENCES parent(pk), ALGORITHM=COPY;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.parent
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;
@@ -1587,7 +1587,7 @@ pk
 connection default;
 SET @@lock_wait_timeout= 1;
 ALTER TABLE child ADD CONSTRAINT fk FOREIGN KEY (fk) REFERENCES parent(pk), ALGORITHM=COPY;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.parent
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;
@@ -1632,7 +1632,7 @@ pk
 connection default;
 SET @@lock_wait_timeout= 1;
 ALTER TABLE child DROP FOREIGN KEY fk, ALGORITHM=COPY;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.parent
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;
@@ -1676,7 +1676,7 @@ fk
 connection default;
 SET @@lock_wait_timeout= 1;
 ALTER TABLE parent RENAME KEY u1 TO u, ALGORITHM=COPY;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.child
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;
@@ -1703,7 +1703,7 @@ pk
 connection default;
 SET @@lock_wait_timeout= 1;
 ALTER TABLE child RENAME TO child1, ADD COLUMN b INT, ALGORITHM=COPY;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.parent
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;
@@ -1730,7 +1730,7 @@ fk	a
 connection default;
 SET @@lock_wait_timeout= 1;
 ALTER TABLE parent RENAME TO parent1, ADD COLUMN b INT, ALGORITHM=COPY;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.child
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;
@@ -1766,7 +1766,7 @@ fk
 connection default;
 SET @@lock_wait_timeout= 1;
 ALTER TABLE parent RENAME TO parent1, ADD COLUMN d INT, ALGORITHM=COPY;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.child
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection con1;
 COMMIT;

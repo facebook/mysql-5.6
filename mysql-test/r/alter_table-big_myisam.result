@@ -31,7 +31,7 @@ ERROR HY000: Table 't4' was not locked with LOCK TABLES
 # But metadata lock on old name can be still kept.
 SET @@lock_wait_timeout= 1;
 SELECT * FROM t2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t2
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 # New name should not be locked.
 SELECT * FROM t4;
@@ -70,7 +70,7 @@ ERROR HY000: Table 't4' was not locked with LOCK TABLES
 # But metadata lock on old name can be still kept.
 SET @@lock_wait_timeout= 1;
 SELECT * FROM t2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t2
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 # New name should not be locked.
 SELECT * FROM t4;
@@ -111,9 +111,9 @@ ERROR HY000: Table 't4' was not locked with LOCK TABLES
 # Metadata locks on both old and new names are still kept.
 SET @@lock_wait_timeout= 1;
 SELECT * FROM t2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t2
 SELECT * FROM t4;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t4
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 UNLOCK TABLES;
 # Now test SE not supporting atomic DDL and different schema
@@ -133,12 +133,12 @@ ERROR HY000: Table 't4' was not locked with LOCK TABLES
 # Metadata locks on both old and new names are still kept.
 SET @@lock_wait_timeout= 1;
 SELECT * FROM t4;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t4
 SELECT * FROM mysqltest.t4;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysqltest.t4
 # Also IX lock on new schema should be kept.
 ALTER DATABASE mysqltest CHARACTER SET latin1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on schema metadata: mysqltest
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 UNLOCK TABLES;
 DROP DATABASE mysqltest;
@@ -162,9 +162,9 @@ ERROR HY000: Table 't3' was not locked with LOCK TABLES
 # However, metadata locks on both old and new names are still kept.
 SET @@lock_wait_timeout= 1;
 SELECT * FROM t2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t2
 SELECT * FROM t3;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t3
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 # And delete from parent table is possible and doesn't cause asserts.
 DELETE FROM t1;

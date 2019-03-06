@@ -852,7 +852,7 @@ bool Dictionary_client::acquire(const K &key, const T **object,
   // Cache dictionary objects with UTC time
   Timestamp_timezone_guard ts(m_thd);
   DBUG_EXECUTE_IF("fail_while_acquiring_dd_object", {
-    my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0));
+    my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0), "fail_while_acquiring_dd_object");
     return true;
   });
 

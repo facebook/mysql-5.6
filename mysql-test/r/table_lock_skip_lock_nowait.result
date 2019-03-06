@@ -49,7 +49,7 @@ a	b
 #
 #  Dual locking clauses
 SELECT * FROM t1, t2 FOR SHARE OF t1 FOR UPDATE OF t2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t2
 SELECT * FROM t1, t2 FOR SHARE OF t1 FOR SHARE OF t2;
 a	b	a
 1	1	10
@@ -131,9 +131,9 @@ a	b
 #
 #  Dual locking clauses
 SELECT * FROM t1, t2 FOR SHARE OF t1 FOR UPDATE OF t2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t2
 SELECT * FROM t1, t2 FOR SHARE OF t1 FOR SHARE OF t2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t2
 SELECT * FROM t1 FOR SHARE OF t1 NOWAIT;
 a	b
 1	1
@@ -145,7 +145,7 @@ a	b
 2	2
 3	3
 SELECT * FROM t1, t2 FOR SHARE OF t1 NOWAIT FOR SHARE OF t2 NOWAIT;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t2
 COMMIT;
 connection con1;
 UNLOCK TABLES;

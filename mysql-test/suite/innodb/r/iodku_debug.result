@@ -65,7 +65,7 @@ WAIT_FOR rollback';
 INSERT INTO t1 VALUES(1, 10) ;;
 SET DEBUG_SYNC='now WAIT_FOR during_rollback';
 SELECT * FROM t1 WHERE a = 1 LOCK IN SHARE MODE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 SET GLOBAL innodb_purge_run_now=ON;
 SET DEBUG_SYNC='now SIGNAL rollback';
 ERROR 23000: Duplicate entry '10' for key 't1.b'

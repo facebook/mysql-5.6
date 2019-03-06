@@ -109,27 +109,44 @@ static void init_mdl_psi_keys(void) {
 /**
   Thread state names to be used in case when we have to wait on resource
   belonging to certain namespace.
+  Warning: stage_info->m_key can be modified by pfs_register_stage_v1
 */
 
-PSI_stage_info MDL_key::m_namespace_to_wait_state_name[NAMESPACE_END] = {
-    {0, "Waiting for global read lock", 0, PSI_DOCUMENT_ME},
-    {0, "Waiting for backup lock", 0, PSI_DOCUMENT_ME},
-    {0, "Waiting for tablespace metadata lock", 0, PSI_DOCUMENT_ME},
-    {0, "Waiting for schema metadata lock", 0, PSI_DOCUMENT_ME},
-    {0, "Waiting for table metadata lock", 0, PSI_DOCUMENT_ME},
-    {0, "Waiting for stored function metadata lock", 0, PSI_DOCUMENT_ME},
-    {0, "Waiting for stored procedure metadata lock", 0, PSI_DOCUMENT_ME},
-    {0, "Waiting for trigger metadata lock", 0, PSI_DOCUMENT_ME},
-    {0, "Waiting for event metadata lock", 0, PSI_DOCUMENT_ME},
-    {0, "Waiting for commit lock", 0, PSI_DOCUMENT_ME},
-    {0, "User lock", 0, PSI_DOCUMENT_ME}, /* Be compatible with old status. */
-    {0, "Waiting for locking service lock", 0, PSI_DOCUMENT_ME},
-    {0, "Waiting for spatial reference system lock", 0, PSI_DOCUMENT_ME},
-    {0, "Waiting for acl cache lock", 0, PSI_DOCUMENT_ME},
-    {0, "Waiting for column statistics lock", 0, PSI_DOCUMENT_ME},
-    {0, "Waiting for resource groups metadata lock", 0, PSI_DOCUMENT_ME},
-    {0, "Waiting for foreign key metadata lock", 0, PSI_DOCUMENT_ME},
-    {0, "Waiting for check constraint metadata lock", 0, PSI_DOCUMENT_ME}};
+MDL_key::PSI_stage_info_with_name
+    MDL_key::m_namespace_to_wait_state_name[NAMESPACE_END] = {
+        {{0, "Waiting for global read lock", 0, PSI_DOCUMENT_ME},
+         "global read"},
+        {{0, "Waiting for backup lock", 0, PSI_DOCUMENT_ME}, "backup"},
+        {{0, "Waiting for tablespace metadata lock", 0, PSI_DOCUMENT_ME},
+         "tablespace metadata"},
+        {{0, "Waiting for schema metadata lock", 0, PSI_DOCUMENT_ME},
+         "schema metadata"},
+        {{0, "Waiting for table metadata lock", 0, PSI_DOCUMENT_ME},
+         "table metadata"},
+        {{0, "Waiting for stored function metadata lock", 0, PSI_DOCUMENT_ME},
+         "stored function metadata"},
+        {{0, "Waiting for stored procedure metadata lock", 0, PSI_DOCUMENT_ME},
+         "stored procedure metadata"},
+        {{0, "Waiting for trigger metadata lock", 0, PSI_DOCUMENT_ME},
+         "trigger metadata"},
+        {{0, "Waiting for event metadata lock", 0, PSI_DOCUMENT_ME},
+         "event metadata"},
+        {{0, "Waiting for commit lock", 0, PSI_DOCUMENT_ME}, "commit"},
+        {{0, "User lock", 0, PSI_DOCUMENT_ME},
+         /* Be compatible with old status. */ "user"},
+        {{0, "Waiting for locking service lock", 0, PSI_DOCUMENT_ME},
+         "locking service"},
+        {{0, "Waiting for spatial reference system lock", 0, PSI_DOCUMENT_ME},
+         "spatial reference system"},
+        {{0, "Waiting for acl cache lock", 0, PSI_DOCUMENT_ME}, "acl cache"},
+        {{0, "Waiting for column statistics lock", 0, PSI_DOCUMENT_ME},
+         "column statistics"},
+        {{0, "Waiting for resource groups metadata lock", 0, PSI_DOCUMENT_ME},
+         "resource groups metadata"},
+        {{0, "Waiting for foreign key metadata lock", 0, PSI_DOCUMENT_ME},
+         "foreign key metadata"},
+        {{0, "Waiting for check constraint metadata lock", 0, PSI_DOCUMENT_ME},
+         "constraint metadata"}};
 
 #ifdef HAVE_PSI_INTERFACE
 void MDL_key::init_psi_keys() {
@@ -141,7 +158,7 @@ void MDL_key::init_psi_keys() {
       static_cast<int>(array_elements(MDL_key::m_namespace_to_wait_state_name));
   for (i = 0; i < count; i++) {
     /* mysql_stage_register wants an array of pointers, registering 1 by 1. */
-    info = &MDL_key::m_namespace_to_wait_state_name[i];
+    info = &MDL_key::m_namespace_to_wait_state_name[i].stage_info;
     mysql_stage_register("sql", &info, 1);
   }
 }
@@ -3358,7 +3375,11 @@ bool MDL_context::acquire_lock(MDL_request *mdl_request,
     if (!mdl_request->ticket) {
       /* We have failed to acquire lock instantly. */
       DEBUG_SYNC(get_thd(), "mdl_acquire_lock_wait");
-      my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0));
+      my_error(
+          ER_LOCK_WAIT_TIMEOUT, MYF(0),
+          timeout_message(mdl_request->key.get_namespace_name(),
+                          mdl_request->key.db_name(), mdl_request->key.name())
+              .c_ptr_safe());
       return true;
     }
     return false;
@@ -3493,7 +3514,11 @@ bool MDL_context::acquire_lock(MDL_request *mdl_request,
         my_error(ER_LOCK_DEADLOCK, MYF(0));
         break;
       case MDL_wait::TIMEOUT:
-        my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0));
+        my_error(
+            ER_LOCK_WAIT_TIMEOUT, MYF(0),
+            timeout_message(mdl_request->key.get_namespace_name(),
+                            mdl_request->key.db_name(), mdl_request->key.name())
+                .c_ptr_safe());
         break;
       case MDL_wait::KILLED:
         if (get_owner()->is_killed() == ER_QUERY_TIMEOUT)
@@ -4844,4 +4869,20 @@ void MDL_ticket_store::set_materialized() {
 
 MDL_ticket *MDL_ticket_store::materialized_front(int di) {
   return m_durations[di].m_mat_front;
+}
+
+String timeout_message(const char *command, const char *name1,
+                       const char *name2) {
+  String msg;
+  msg.append("Timeout on ");
+  msg.append(command);
+  if ((name1 && name1[0]) || (name2 && name2[0])) {
+    msg.append(": ");
+    msg.append(name1);
+  }
+  if (name2 && name2[0]) {
+    msg.append(".");
+    msg.append(name2);
+  }
+  return msg;
 }

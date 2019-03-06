@@ -16765,7 +16765,7 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
     new_table->next_number_field = new_table->found_next_number_field;
     THD_STAGE_INFO(thd, stage_copy_to_tmp_table);
     DBUG_EXECUTE_IF("abort_copy_table", {
-      my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0));
+      my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0), "abort_copy_table");
       goto err_new_table_cleanup;
     });
 

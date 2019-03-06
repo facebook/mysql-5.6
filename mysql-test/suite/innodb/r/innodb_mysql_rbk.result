@@ -7,7 +7,7 @@ a	b
 3	3
 START TRANSACTION;
 UPDATE t1 SET b=b+12 WHERE a > 2 ORDER BY a;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 ROLLBACK;
 START TRANSACTION;
 SELECT * FROM t1 WHERE b=3 LIMIT 1 FOR UPDATE;
@@ -15,7 +15,7 @@ a	b
 3	3
 START TRANSACTION;
 UPDATE t1 SET b=10 WHERE a > 1 ORDER BY a;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 SELECT * FROM t1 WHERE b = 10;
 a	b
 DROP TABLE t1;

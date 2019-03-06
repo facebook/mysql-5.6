@@ -173,7 +173,7 @@ UPDATE t1 SET val = val + 1;
 connect  con2,localhost,root,,test,,;
 SET SESSION innodb_lock_wait_timeout = 2;
 UPDATE t1 SET val = val + 1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 INSERT INTO t2 (id) VALUES (1);
 disconnect con2;
 connection default;

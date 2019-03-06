@@ -32,7 +32,7 @@ a	b
 update t1 set b = 5 where b = 1;
 set autocommit = 0;
 select * from t1 where a = 2 and b = 2 for update;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 commit;
 commit;
 drop table t1;
@@ -122,14 +122,14 @@ set autocommit = 0;
 update t9 set e = (select b from t2 where a = d for update);
 set autocommit = 0;
 create table t10(a int not null, b int, primary key(a)) select * from t2 for update;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t2.PRIMARY
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t2.PRIMARY
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t2.PRIMARY
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t2.PRIMARY
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t2.PRIMARY
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t2.PRIMARY
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t2.PRIMARY
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t2.PRIMARY
 ERROR HY000: Can't update table 't2' while 't10' is being created.
 commit;
 drop table t1, t2, t3, t5, t6, t8, t9;

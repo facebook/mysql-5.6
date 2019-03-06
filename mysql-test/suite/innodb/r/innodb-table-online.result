@@ -15,7 +15,7 @@ INSERT INTO t1 VALUES(1,2,3);
 SET DEBUG_SYNC = 'now WAIT_FOR have_handle';
 SET lock_wait_timeout = 1;
 ALTER TABLE t1 ROW_FORMAT=REDUNDANT;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 SET DEBUG_SYNC = 'now SIGNAL go_ahead';
 # session default
 ERROR 23000: Duplicate entry '1' for key 't1.PRIMARY'
@@ -47,7 +47,7 @@ INSERT INTO t1 VALUES(7,4,2);
 # session con1
 SET DEBUG_SYNC = 'row_log_table_apply1_before SIGNAL scanned WAIT_FOR insert_done';
 ALTER TABLE t1 DROP PRIMARY KEY, ADD UNIQUE INDEX(c2);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 # session default
 COMMIT;
 # session con1
@@ -302,7 +302,7 @@ INSERT INTO t1 VALUES(347,33101,NULL,'');
 ERROR 23000: Column 'c3' cannot be null
 INSERT INTO t1 VALUES(347,33101,'Pikku kakkosen posti','');
 # session con1
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 SET DEBUG_SYNC = 'now SIGNAL ddl_timed_out';
 SELECT name, count FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE
 subsystem = 'ddl' and name not in

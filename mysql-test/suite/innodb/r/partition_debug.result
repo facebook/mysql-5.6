@@ -70,11 +70,11 @@ SELECT COUNT(*) FROM INFORMATION_SCHEMA.PROCESSLIST;
 COUNT(*)
 4
 SET DEBUG_SYNC='now SIGNAL go1';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t_nopart
 SHOW WARNINGS;
 Level	Code	Message
-Error	1205	Lock wait timeout exceeded; try restarting transaction
-Warning	1205	Lock wait timeout exceeded; try restarting transaction
+Error	1205	Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t_nopart
+Warning	1205	Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t_nopart
 SET DEBUG_SYNC='now SIGNAL go2';
 SET SESSION lock_wait_timeout=default;
 SET DEBUG='-d,do_before_filling_i_s_innodb_columns';

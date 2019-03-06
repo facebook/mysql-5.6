@@ -16,13 +16,13 @@ connect con2, localhost, user2,;
 SET lock_wait_timeout= 1;
 SET autocommit= 0;
 CREATE TABLE testtable_21 (c1 int, c2 varchar(10));
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 CREATE TEMPORARY TABLE temptable_21 (tt1 int);
 connect con3, localhost, user3,;
 SET lock_wait_timeout= 1;
 SET autocommit= 0;
 CREATE TABLE testtable_31 (c1 int, c2 varchar(10));
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 CREATE TEMPORARY TABLE temptable_31 (tt1 int);
 connection con1;
 UNLOCK INSTANCE;
@@ -36,33 +36,33 @@ connection con2;
 LOCK INSTANCE FOR BACKUP;
 connection con1;
 CREATE TABLE testtable_12 (c1 int, c2 varchar(10));
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 connection con3;
 CREATE TABLE testtable_31 (c1 int, c2 varchar(10));
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 connection con1;
 LOCK INSTANCE FOR BACKUP;
 connection default;
 CREATE TABLE testtable_1 (c1 int, c2 varchar(10));
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 connection con1;
 DROP TABLE IF EXISTS testtable_11;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 DROP TABLE IF EXISTS testtable_12;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 connection con2;
 DROP TABLE IF EXISTS testtable_21;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 connection con3;
 DROP TABLE IF EXISTS testtable_31;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 connection con1;
 UNLOCK INSTANCE;
 connection con1;
 DROP TABLE IF EXISTS testtable_11;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 DROP TABLE IF EXISTS testtable_12;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 connection con2;
 UNLOCK INSTANCE;
 connection con1;

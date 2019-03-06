@@ -21,7 +21,7 @@ SET DEBUG_SYNC = 'now WAIT_FOR resume_clone';
 SET GLOBAL clone_autotune_concurrency = OFF;
 SET GLOBAL clone_max_concurrency = 8;
 CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 select ID, STATE, ERROR_NO from performance_schema.clone_status;
 ID	STATE	ERROR_NO
 1	Failed	1205
@@ -51,7 +51,7 @@ CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
 # In connection CON1
 SET DEBUG_SYNC = 'now WAIT_FOR start_ddl';
 CREATE TABLE t2 (col1 INT PRIMARY KEY);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 SET DEBUG_SYNC = 'now SIGNAL resume_clone';
 # In connection DEFAULT
 SET DEBUG_SYNC = 'RESET';
@@ -70,7 +70,7 @@ SET DEBUG_SYNC = 'now WAIT_FOR resume_clone';
 SET GLOBAL clone_autotune_concurrency = OFF;
 SET GLOBAL clone_max_concurrency = 8;
 CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 select ID, STATE, ERROR_NO from performance_schema.clone_status;
 ID	STATE	ERROR_NO
 1	Failed	1205
@@ -107,7 +107,7 @@ CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
 # In connection CON1
 SET DEBUG_SYNC = 'now WAIT_FOR start_ddl';
 ALTER TABLE t1 ADD COLUMN col3 int, ALGORITHM=COPY;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 SET DEBUG_SYNC = 'now SIGNAL resume_clone';
 # In connection DEFAULT
 SET DEBUG_SYNC = 'RESET';
@@ -125,7 +125,7 @@ SET DEBUG_SYNC = 'now WAIT_FOR resume_clone';
 SET GLOBAL clone_autotune_concurrency = OFF;
 SET GLOBAL clone_max_concurrency = 8;
 CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 select ID, STATE, ERROR_NO from performance_schema.clone_status;
 ID	STATE	ERROR_NO
 1	Failed	1205
@@ -163,7 +163,7 @@ CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
 # In connection CON1
 SET DEBUG_SYNC = 'now WAIT_FOR start_ddl';
 ALTER TABLE t1 ADD COLUMN col4 int, ALGORITHM=INPLACE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 SET DEBUG_SYNC = 'now SIGNAL resume_clone';
 # In connection DEFAULT
 SET DEBUG_SYNC = 'RESET';
@@ -184,7 +184,7 @@ SET DEBUG_SYNC = 'now WAIT_FOR resume_clone';
 SET GLOBAL clone_autotune_concurrency = OFF;
 SET GLOBAL clone_max_concurrency = 8;
 CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 select ID, STATE, ERROR_NO from performance_schema.clone_status;
 ID	STATE	ERROR_NO
 1	Failed	1205
@@ -217,7 +217,7 @@ CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
 # In connection CON1
 SET DEBUG_SYNC = 'now WAIT_FOR start_ddl';
 ALTER TABLE t1 ADD INDEX col3_idx(col3), ALGORITHM=COPY;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 SET DEBUG_SYNC = 'now SIGNAL resume_clone';
 # In connection DEFAULT
 SET DEBUG_SYNC = 'RESET';
@@ -239,7 +239,7 @@ SET DEBUG_SYNC = 'now WAIT_FOR resume_clone';
 SET GLOBAL clone_autotune_concurrency = OFF;
 SET GLOBAL clone_max_concurrency = 8;
 CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 select ID, STATE, ERROR_NO from performance_schema.clone_status;
 ID	STATE	ERROR_NO
 1	Failed	1205
@@ -273,7 +273,7 @@ CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
 # In connection CON1
 SET DEBUG_SYNC = 'now WAIT_FOR start_ddl';
 ALTER TABLE t1 ADD INDEX col1_idx(col1), ALGORITHM=COPY;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 SET DEBUG_SYNC = 'now SIGNAL resume_clone';
 # In connection DEFAULT
 SET DEBUG_SYNC = 'RESET';
@@ -285,7 +285,7 @@ CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
 # In connection CON1
 SET DEBUG_SYNC = 'now WAIT_FOR start_ddl';
 ALTER TABLE t1 DROP INDEX col3_idx, ALGORITHM=COPY;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 SET DEBUG_SYNC = 'now SIGNAL resume_clone';
 # In connection DEFAULT
 SET DEBUG_SYNC = 'RESET';
@@ -308,7 +308,7 @@ SET DEBUG_SYNC = 'now WAIT_FOR resume_clone';
 SET GLOBAL clone_autotune_concurrency = OFF;
 SET GLOBAL clone_max_concurrency = 8;
 CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 select ID, STATE, ERROR_NO from performance_schema.clone_status;
 ID	STATE	ERROR_NO
 1	Failed	1205
@@ -341,7 +341,7 @@ CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
 # In connection CON1
 SET DEBUG_SYNC = 'now WAIT_FOR start_ddl';
 ALTER TABLE t1 DROP INDEX col2_idx, ALGORITHM=INPLACE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 SET DEBUG_SYNC = 'now SIGNAL resume_clone';
 # In connection DEFAULT
 SET DEBUG_SYNC = 'RESET';
@@ -363,7 +363,7 @@ SET DEBUG_SYNC = 'now WAIT_FOR resume_clone';
 SET GLOBAL clone_autotune_concurrency = OFF;
 SET GLOBAL clone_max_concurrency = 8;
 CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 select ID, STATE, ERROR_NO from performance_schema.clone_status;
 ID	STATE	ERROR_NO
 1	Failed	1205
@@ -395,7 +395,7 @@ CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
 # In connection CON1
 SET DEBUG_SYNC = 'now WAIT_FOR start_ddl';
 TRUNCATE TABLE t1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 SET DEBUG_SYNC = 'now SIGNAL resume_clone';
 # In connection DEFAULT
 SET DEBUG_SYNC = 'RESET';
@@ -413,7 +413,7 @@ SET DEBUG_SYNC = 'now WAIT_FOR resume_clone';
 SET GLOBAL clone_autotune_concurrency = OFF;
 SET GLOBAL clone_max_concurrency = 8;
 CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 select ID, STATE, ERROR_NO from performance_schema.clone_status;
 ID	STATE	ERROR_NO
 1	Failed	1205
@@ -439,7 +439,7 @@ CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
 # In connection CON1
 SET DEBUG_SYNC = 'now WAIT_FOR start_ddl';
 DROP TABLE t1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 SET DEBUG_SYNC = 'now SIGNAL resume_clone';
 # In connection DEFAULT
 SET DEBUG_SYNC = 'RESET';
@@ -460,7 +460,7 @@ SET DEBUG_SYNC = 'now WAIT_FOR resume_clone';
 SET GLOBAL clone_autotune_concurrency = OFF;
 SET GLOBAL clone_max_concurrency = 8;
 CLONE LOCAL DATA DIRECTORY = 'CLONE_DATADIR';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 select ID, STATE, ERROR_NO from performance_schema.clone_status;
 ID	STATE	ERROR_NO
 1	Failed	1205
