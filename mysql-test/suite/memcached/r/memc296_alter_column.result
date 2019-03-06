@@ -37,7 +37,7 @@ Darmstadt
 connection con1;
 SLEEP(10)
 0
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 connection default;
 disconnect con1;
 drop procedure alter_column;

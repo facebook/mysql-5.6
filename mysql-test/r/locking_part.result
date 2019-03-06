@@ -135,7 +135,7 @@ SET SESSION innodb_lock_wait_timeout=1;
 #
 #  SHARE ...
 SELECT * FROM t1 FOR SHARE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1#p#p9.PRIMARY
 SELECT * FROM t1 FOR SHARE NOWAIT;
 ERROR HY000: Statement aborted because lock(s) could not be acquired immediately and NOWAIT is set.
 SELECT * FROM t1 ORDER BY d FOR SHARE SKIP LOCKED;
@@ -203,7 +203,7 @@ Note	1003	/* select#1 */ select `test`.`t3`.`d` AS `d`,`test`.`t3`.`a` AS `a`,`t
 #
 #  UPDATE ...
 SELECT * FROM t1 FOR UPDATE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1#p#p9.PRIMARY
 SELECT * FROM t1 FOR UPDATE NOWAIT;
 ERROR HY000: Statement aborted because lock(s) could not be acquired immediately and NOWAIT is set.
 SELECT * FROM t1 ORDER BY a FOR UPDATE SKIP LOCKED;
@@ -261,9 +261,9 @@ d	a	b	c
 #
 #  Dual locking clauses
 SELECT * FROM t1, t2 FOR SHARE OF t1 FOR UPDATE OF t2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1#p#p9.PRIMARY
 SELECT * FROM t1, t2 FOR SHARE OF t1 FOR SHARE OF t2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1#p#p9.PRIMARY
 SELECT * FROM t1 FOR SHARE OF t1 NOWAIT;
 ERROR HY000: Statement aborted because lock(s) could not be acquired immediately and NOWAIT is set.
 SELECT * FROM t1 FOR SHARE OF t1 SKIP LOCKED;
@@ -420,7 +420,7 @@ Note	1003	/* select#1 */ select `test`.`t3`.`d` AS `d`,`test`.`t3`.`a` AS `a`,`t
 #
 #  UPDATE ...
 SELECT * FROM t1 FOR UPDATE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1#p#p9.PRIMARY
 SELECT * FROM t1 FOR UPDATE NOWAIT;
 ERROR HY000: Statement aborted because lock(s) could not be acquired immediately and NOWAIT is set.
 SELECT * FROM t1 ORDER BY a FOR UPDATE SKIP LOCKED;

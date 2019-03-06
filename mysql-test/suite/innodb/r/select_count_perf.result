@@ -347,7 +347,7 @@ COUNT(*)
 #
 SET innodb_lock_wait_timeout = 1;
 SELECT COUNT(*) FROM t1 FOR UPDATE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 #
 # Connection 2 READ COMMITTED
 #
@@ -1210,9 +1210,9 @@ COUNT(*)
 #
 SET innodb_lock_wait_timeout = 1;
 SELECT c1, c2 FROM t1 WHERE c1 < ((SELECT COUNT(*) FROM t1) / 2) FOR UPDATE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 SELECT COUNT(*) FROM t1 FOR UPDATE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 COMMIT;
 ########## innodb_wl6742_selects.inc ##########
 SELECT * FROM t1;

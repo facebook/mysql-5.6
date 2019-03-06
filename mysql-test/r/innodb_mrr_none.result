@@ -764,7 +764,7 @@ dummy	a	b
 SET AUTOCOMMIT=0;
 START TRANSACTION;
 INSERT INTO t1 VALUES (2,2,2);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.a
 ROLLBACK;
 ROLLBACK;
 DROP TABLE t1;
@@ -781,7 +781,7 @@ COMMIT;
 INSERT INTO t1 VALUES (1,1,1),(3,3,3),(5,5,5);
 SET AUTOCOMMIT=0;
 SELECT * FROM t1 WHERE a > 2 FOR UPDATE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.a
 ROLLBACK;
 ROLLBACK;
 DROP TABLE t1;

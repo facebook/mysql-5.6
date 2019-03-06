@@ -11,26 +11,26 @@ connection default;
 LOCK INSTANCE FOR BACKUP;
 connection con1;
 CREATE DATABASE testdb;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 CREATE TABLESPACE testtablespace ADD DATAFILE 'ts.ibd' ENGINE=InnoDB;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 CREATE TABLE testtable_1 (c1 int, c2 varchar(10));
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 CREATE VIEW testview_1 AS SELECT c2 FROM testtable_1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 CREATE INDEX testindex_1 ON testtable_1(c1);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 CREATE SERVER s FOREIGN DATA WRAPPER mysql OPTIONS (DATABASE 'test');
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 CREATE PROCEDURE testproc_1()
 BEGIN
 SELECT * FROM testtable_1;
 END//
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 CREATE EVENT testevent_1 ON SCHEDULE EVERY 10 SECOND DO SELECT 1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 CREATE TRIGGER testtrigger_1 BEFORE INSERT ON testtable_1 FOR EACH ROW SET @a:=1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 INSERT INTO t1 VALUES(1),(2),(3);
 CREATE TEMPORARY TABLE temptable_1 (tt1 int);
 INSERT INTO temptable_1 SELECT * FROM t1;
@@ -80,21 +80,21 @@ c1	c2
 3	fffffff
 INSERT testtable_3 VALUES (4999,'aa');
 ALTER DATABASE testdb CHARACTER SET 'latin1';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 ALTER TABLE testtable_1 ADD INDEX i2(c2);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 ALTER VIEW testview_1 AS SELECT c1 FROM testtable_1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 ALTER PROCEDURE testproc_1 COMMENT 'procedure';
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 ALTER EVENT testevent_1 ON SCHEDULE EVERY 100 SECOND DO SELECT 1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 ALTER SERVER s OPTIONS (USER 'sally');
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 ALTER TABLE testtable_1 ALGORITHM=INPLACE, ADD COLUMN c3 VARCHAR(255);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 ALTER TABLE testtable_3 ADD PARTITION (PARTITION p5 VALUES LESS THAN (10000));
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on backup
 connection default;
 UNLOCK INSTANCE;
 UNLOCK INSTANCE;

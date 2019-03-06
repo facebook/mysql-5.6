@@ -151,7 +151,7 @@ connection con1;
 # Access by new name from other connections should be blocked.
 SET @@lock_wait_timeout= 1;
 SELECT * FROM t4;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t4
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 # But not for old table name.
 SELECT * FROM t5;
@@ -194,9 +194,9 @@ connection con1;
 # Access by new names from other connections should be blocked.
 SET @@lock_wait_timeout= 1;
 SELECT * FROM t2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t2
 SELECT * FROM t4;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t4
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 # But not for auxiliary name.
 SELECT * FROM t0;
@@ -221,7 +221,7 @@ connection con1;
 # Access by new name from other connections should be blocked.
 SET @@lock_wait_timeout= 1;
 SELECT * FROM t5;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t5
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 # But not for other names
 SELECT * FROM t1;
@@ -255,12 +255,12 @@ connection con1;
 # Access by new name from other connections should be blocked.
 SET @@lock_wait_timeout= 1;
 SELECT * FROM t1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 SELECT * FROM t2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t2
 # And access to untouched table too.
 SELECT * FROM t6;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t6
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 # Old names should not be locked.
 SELECT * FROM t4;
@@ -300,12 +300,12 @@ connection con1;
 # Access by old names from other connections should be blocked.
 SET @@lock_wait_timeout= 1;
 SELECT * FROM t1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 SELECT * FROM t2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t2
 # And access to untouched table too.
 SELECT * FROM t3;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t3
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 # New names should not be locked.
 SELECT * FROM t0;
@@ -352,7 +352,7 @@ connection con1;
 # Access by new name from other connections should be blocked.
 SET @@lock_wait_timeout= 1;
 SELECT * FROM v3;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.v3
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 # But not for old table name.
 SELECT * FROM v1;
@@ -373,9 +373,9 @@ connection con1;
 # Access by new names from other connections should be blocked.
 SET @@lock_wait_timeout= 1;
 SELECT * FROM v2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.v2
 SELECT * FROM v3;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.v3
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 # But not for auxiliary name.
 SELECT * FROM v0;

@@ -84,7 +84,7 @@ connection con1;
 # Access by new name from other connections should be blocked.
 SET @@lock_wait_timeout= 1;
 SELECT * FROM t2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t2
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 # But not for old table name.
 SELECT * FROM t1;
@@ -131,7 +131,7 @@ connection con1;
 # Access by new name from other connections should be blocked.
 SET @@lock_wait_timeout= 1;
 SELECT * FROM mysqltest.t1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysqltest.t1
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 # But not to old schema and table name.
 SELECT * FROM t1;
@@ -139,7 +139,7 @@ ERROR 42S02: Table 'test.t1' doesn't exist
 # Also IX lock on new schema should be kept.
 SET @@lock_wait_timeout= 1;
 ALTER DATABASE mysqltest CHARACTER SET latin1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on schema metadata: mysqltest
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection default;
 UNLOCK TABLES;
@@ -159,7 +159,7 @@ connection con1;
 # Access by new name from other connections should be blocked.
 SET @@lock_wait_timeout= 1;
 SELECT * FROM t2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t2
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 # But not for old table name.
 SELECT * FROM t1;
@@ -208,7 +208,7 @@ connection con1;
 # Access by new name from other connections should be blocked.
 SET @@lock_wait_timeout= 1;
 SELECT * FROM mysqltest.t1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysqltest.t1
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 # But not to old schema and table name.
 SELECT * FROM t1;
@@ -216,7 +216,7 @@ ERROR 42S02: Table 'test.t1' doesn't exist
 # Also IX lock on new schema should be kept.
 SET @@lock_wait_timeout= 1;
 ALTER DATABASE mysqltest CHARACTER SET latin1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on schema metadata: mysqltest
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection default;
 UNLOCK TABLES;
@@ -236,7 +236,7 @@ connection con1;
 # Access by new name from other connections should be blocked.
 SET @@lock_wait_timeout= 1;
 SELECT * FROM t2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t2
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 # But not for old table name.
 SELECT * FROM t1;
@@ -285,7 +285,7 @@ connection con1;
 # Access by new name from other connections should be blocked.
 SET @@lock_wait_timeout= 1;
 SELECT * FROM mysqltest.t1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: mysqltest.t1
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 # But not to old schema and table name.
 SELECT * FROM t1;
@@ -293,7 +293,7 @@ ERROR 42S02: Table 'test.t1' doesn't exist
 # Also IX lock on new schema should be kept.
 SET @@lock_wait_timeout= 1;
 ALTER DATABASE mysqltest CHARACTER SET latin1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on schema metadata: mysqltest
 SET @@lock_wait_timeout= @old_lock_wait_timeout;
 connection default;
 UNLOCK TABLES;

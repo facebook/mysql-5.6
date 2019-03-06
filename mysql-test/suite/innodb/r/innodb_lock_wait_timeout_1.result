@@ -15,13 +15,13 @@ b
 7
 BEGIN;
 SELECT b FROM t2 WHERE b=7 FOR UPDATE;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t2.PRIMARY
 INSERT INTO t1 (a) VALUES ((SELECT a FROM t2 WHERE b=7));
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t2.PRIMARY
 UPDATE t1 SET a='7000000' WHERE a=(SELECT a FROM t2 WHERE b=7);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t2.PRIMARY
 DELETE FROM t1 WHERE a=(SELECT a FROM t2 WHERE b=7);
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t2.PRIMARY
 SELECT * FROM t1;
 a	b
 1070109	99
@@ -41,7 +41,7 @@ select * from t1 where b=5 for update;
 a	b
 5	5
 insert ignore into t1 (b) select a as b from t1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.b
 # Cleanup
 #
 commit;
@@ -59,9 +59,9 @@ update t1 set v=id*2 where id=1;
 begin;
 update t1 set v=id*2 where id=2;
 update t1 set v=id*2 where id=2;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 insert ignore into t2 select * from t1 where id=1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 rollback;
 rollback;
 drop table t1, t2;
@@ -185,7 +185,7 @@ delete from t1 where a in (19,20);
 # Just demonstrate the effect.
 #
 delete from t1;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 rollback;
 #
 # Switching to connection default
@@ -360,7 +360,7 @@ select 3 as a, 1 as b) as t2 for update;
 # (previously it was possible).
 #
 delete from t1 where a=3;
-ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/t1.PRIMARY
 # Switching to connection default
 commit;
 set @@session.transaction_isolation=default;
