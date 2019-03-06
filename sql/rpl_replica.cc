@@ -11113,6 +11113,29 @@ static int check_slave_sql_config_conflict(const Relay_log_info *rli) {
   return 0;
 }
 
+// This function will generate the string containing current master host and
+// port info if available.
+std::string get_active_master_info() {
+  std::string str_ptr;
+
+  channel_map.rdlock();
+  Master_info *mi = channel_map.get_default_channel_mi();
+
+  if (Master_info::is_configured(mi)) {
+    str_ptr = ". Current master_host: ";
+    str_ptr += mi->host;
+    str_ptr += ", master_port: ";
+    str_ptr += std::to_string(mi->port);
+    if (opt_read_only_error_msg_extra && opt_read_only_error_msg_extra[0]) {
+      str_ptr += ". ";
+      str_ptr += opt_read_only_error_msg_extra;
+    }
+  }
+
+  channel_map.unlock();
+  return str_ptr;
+}
+
 /**
   Purge Group Replication channels relay logs after this server being a
   recipient of clone.

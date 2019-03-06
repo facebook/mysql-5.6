@@ -533,6 +533,7 @@ bool start_slave_thread(PSI_thread_key thread_key, my_start_routine h_func,
                         std::atomic<uint> *slave_running,
                         std::atomic<ulong> *slave_run_id, Master_info *mi);
 
+std::string get_active_master_info();
 bool show_slave_status(THD *thd, Master_info *mi);
 bool show_slave_status(THD *thd);
 bool rpl_master_has_bug(const Relay_log_info *rli, uint bug_id, bool report,

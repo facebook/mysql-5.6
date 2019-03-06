@@ -190,7 +190,7 @@ bool expand_sdi_pattern(const Dir_pat_tuple &dpt,
     x.append(opt_secure_file_priv);
     x.append("'");
     /* Read only allowed from within dir specified by secure_file_priv */
-    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), x.c_str());
+    my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), x.c_str(), "");
     return true;
   }
 

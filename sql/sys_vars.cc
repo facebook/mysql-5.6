@@ -2107,7 +2107,7 @@ static bool event_scheduler_check(sys_var *, THD *, set_var *var) {
   if (var->save_result.ulonglong_value == Events::EVENTS_DISABLED) return true;
   if (Events::opt_event_scheduler == Events::EVENTS_DISABLED) {
     my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0),
-             "--event-scheduler=DISABLED or --skip-grant-tables");
+             "--event-scheduler=DISABLED or --skip-grant-tables", "");
     return true;
   }
   return false;
@@ -7784,3 +7784,10 @@ static Sys_var_bool Sys_send_error_before_closing_timed_out_connection(
     "Send error before closing connections due to timeout.",
     GLOBAL_VAR(send_error_before_closing_timed_out_connection),
     CMD_LINE(OPT_ARG), DEFAULT(true));
+
+static Sys_var_charptr Sys_read_only_error_msg_extra(
+    "read_only_error_msg_extra",
+    "Set this variable to print out extra error information, "
+    "which will be appended to read_only error messages.",
+    GLOBAL_VAR(opt_read_only_error_msg_extra), CMD_LINE(OPT_ARG),
+    IN_SYSTEM_CHARSET, DEFAULT(""), NO_MUTEX_GUARD, NOT_IN_BINLOG);

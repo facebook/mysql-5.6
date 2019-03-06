@@ -5120,12 +5120,12 @@ ER_FEATURE_DISABLED
         spa "El recurso '%s' fue deshabilitado; usted necesita construir MySQL con '%s' para tener eso funcionando"
         swe "'%s' är inte aktiverad; För att aktivera detta måste du bygga om MySQL med '%s' definierad"
 ER_OPTION_PREVENTS_STATEMENT
-        eng "The MySQL server is running with the %s option so it cannot execute this statement"
-        ger "Der MySQL-Server läuft mit der Option %s und kann diese Anweisung deswegen nicht ausführen"
-        jpn "MySQLサーバーが %s オプションで実行されているので、このステートメントは実行できません。"
-        por "O servidor MySQL está rodando com a opção %s razão pela qual não pode executar esse commando"
-        spa "El servidor MySQL está rodando con la opción %s tal que no puede ejecutar este comando"
-        swe "MySQL är startad med %s. Pga av detta kan du inte använda detta kommando"
+        eng "The MySQL server is running with the %s option so it cannot execute this statement%s"
+        ger "Der MySQL-Server läuft mit der Option %s und kann diese Anweisung deswegen nicht ausführen%s"
+        jpn "MySQLサーバーが %s オプションで実行されているので、このステートメントは実行できません。%s"
+        por "O servidor MySQL está rodando com a opção %s razão pela qual não pode executar esse commando%s"
+        spa "El servidor MySQL está rodando con la opción %s tal que no puede ejecutar este comando%s"
+        swe "MySQL är startad med %s. Pga av detta kan du inte använda detta kommando%s"
 ER_DUPLICATED_VALUE_IN_TYPE
         eng "Column '%-.100s' has duplicated value '%-.64s' in %s"
         ger "Feld '%-.100s' hat doppelten Wert '%-.64s' in %s"
