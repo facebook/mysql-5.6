@@ -11750,6 +11750,7 @@ PSI_mutex_key key_LOCK_thd_protocol;
 PSI_mutex_key key_LOCK_thd_security_ctx;
 PSI_mutex_key key_LOCK_thd_db_read_only_hash;
 PSI_mutex_key key_LOCK_thd_db_metadata;
+PSI_mutex_key key_LOCK_thd_audit_data;
 PSI_mutex_key key_LOG_LOCK_log;
 PSI_mutex_key key_source_info_data_lock;
 PSI_mutex_key key_source_info_run_lock;
