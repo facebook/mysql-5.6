@@ -18,7 +18,7 @@ Latency_histogram_binlog_fsync_3968-8064us	0
 Latency_histogram_binlog_fsync_8064-16256us	0
 Latency_histogram_binlog_fsync_16256-32640us	0
 Latency_histogram_binlog_fsync_32640-65408us	0
-Latency_histogram_binlog_fsync_65408-130944us	0
+Latency_histogram_binlog_fsync_65408-MAXus	0
 SET @@GLOBAL.histogram_step_size_binlog_fsync='16us';
 select @@GLOBAL.histogram_step_size_binlog_fsync;
 @@GLOBAL.histogram_step_size_binlog_fsync

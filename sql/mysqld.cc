@@ -3919,38 +3919,54 @@ bool update_thread_nice_value(char *thd_id_nice_val)
 
   @param bucket_lower_display  Lower Range value of the Histogram Bucket
   @param bucket_upper_display  Upper Range value of the Histogram Bucket
+  @param is_last_bucket        Flag to denote last bucket in the histogram
 
   @return                      The display string for the Histogram Bucket
 */
 histogram_display_string
 histogram_bucket_to_display_string(ulonglong bucket_lower_display,
-                                   ulonglong bucket_upper_display)
+                                   ulonglong bucket_upper_display,
+                                   bool is_last_bucket)
 {
   struct histogram_display_string histogram_bucket_name;
+
+  std::string time_unit_suffix;
+  ulonglong time_factor= 1;
 
   if ((bucket_upper_display % 1000000) == 0 &&
       (bucket_lower_display % 1000000) == 0)
   {
-    my_snprintf(histogram_bucket_name.name,
-                HISTOGRAM_BUCKET_NAME_MAX_SIZE, "%llu-%llus",
-                bucket_lower_display/1000000,
-                bucket_upper_display/1000000);
+    time_unit_suffix= "s";
+    time_factor= 1000000;
   }
   else if ((bucket_upper_display % 1000) == 0 &&
            (bucket_lower_display % 1000) == 0)
   {
-    my_snprintf(histogram_bucket_name.name,
-                HISTOGRAM_BUCKET_NAME_MAX_SIZE, "%llu-%llums",
-                bucket_lower_display/1000,
-                bucket_upper_display/1000);
+    time_unit_suffix= "ms";
+    time_factor= 1000;
   }
   else
   {
-    my_snprintf(histogram_bucket_name.name,
-                HISTOGRAM_BUCKET_NAME_MAX_SIZE, "%llu-%lluus",
-                bucket_lower_display,
-                bucket_upper_display);
+    time_unit_suffix= "us";
   }
+
+  std::string bucket_display_format;
+  if (is_last_bucket)
+  {
+    bucket_display_format= "%llu-MAX" + time_unit_suffix;
+    my_snprintf(histogram_bucket_name.name, HISTOGRAM_BUCKET_NAME_MAX_SIZE,
+                bucket_display_format.c_str(),
+                bucket_lower_display / time_factor);
+  }
+  else
+  {
+    bucket_display_format= "%llu-%llu" + time_unit_suffix;
+    my_snprintf(histogram_bucket_name.name, HISTOGRAM_BUCKET_NAME_MAX_SIZE,
+                bucket_display_format.c_str(),
+                bucket_lower_display / time_factor,
+                bucket_upper_display / time_factor);
+  }
+
   return histogram_bucket_name;
 }
 
@@ -4011,8 +4027,9 @@ void prepare_latency_histogram_vars(latency_histogram* current_histogram,
       + bucket_lower_display;
 
     struct histogram_display_string histogram_bucket_name =
-      histogram_bucket_to_display_string(bucket_lower_display,
-                                         bucket_upper_display);
+        histogram_bucket_to_display_string(bucket_lower_display,
+                                           bucket_upper_display,
+                                           i == NUMBER_OF_HISTOGRAM_BINS - 1);
 
     const SHOW_VAR temp = {my_strdup(histogram_bucket_name.name, MYF(0)),
                            (char*) &(histogram_values[i]), SHOW_LONGLONG};

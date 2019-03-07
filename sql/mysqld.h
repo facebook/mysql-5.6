@@ -673,12 +673,14 @@ struct histogram_display_string {
 
   @param bucket_lower_display  Lower Range value of the Histogram Bucket
   @param bucket_upper_display  Upper Range value of the Histogram Bucket
+  @param is_last_bucket        Flag to denote last bucket in the histogram
 
   @return                      The display string for the Histogram Bucket
 */
 histogram_display_string
 histogram_bucket_to_display_string(ulonglong bucket_lower_display,
-                                   ulonglong bucket_upper_display);
+                                   ulonglong bucket_upper_display,
+                                   bool is_last_bucket = false);
 
 /**
   This function is called by the Callback function show_innodb_vars()

@@ -9,7 +9,7 @@ Latency_histogram_binlog_fsync_37200-75600ms	COUNT
 Latency_histogram_binlog_fsync_75600-152400ms	COUNT
 Latency_histogram_binlog_fsync_152400-306000ms	COUNT
 Latency_histogram_binlog_fsync_306000-613200ms	COUNT
-Latency_histogram_binlog_fsync_613200-1227600ms	COUNT
+Latency_histogram_binlog_fsync_613200-MAXms	COUNT
 histogram_binlog_group_commit_0-1	COUNT
 histogram_binlog_group_commit_1-2	COUNT
 histogram_binlog_group_commit_2-3	COUNT
