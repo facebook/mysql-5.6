@@ -490,6 +490,7 @@ extern PSI_mutex_key key_LOCK_thd_sysvar;
 extern PSI_mutex_key key_LOCK_thd_protocol;
 extern PSI_mutex_key key_LOCK_thd_db_read_only_hash;
 extern PSI_mutex_key key_LOCK_thd_db_metadata;
+extern PSI_mutex_key key_LOCK_thd_audit_data;
 extern PSI_mutex_key key_LOG_LOCK_log;
 extern PSI_mutex_key key_master_info_data_lock;
 extern PSI_mutex_key key_master_info_run_lock;

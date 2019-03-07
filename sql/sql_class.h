@@ -1032,6 +1032,7 @@ class THD : public MDL_context_owner,
   */
   mysql_mutex_t LOCK_thd_db_read_only_hash;
   mysql_mutex_t LOCK_thd_db_metadata;
+  mysql_mutex_t LOCK_thd_audit_data;
 
   /**
     Protects query plan (SELECT/UPDATE/DELETE's) from being freed/changed

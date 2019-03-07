@@ -501,6 +501,8 @@ THD::THD(bool enable_plugins)
 #ifndef DBUG_OFF
   dbug_sentry = THD_SENTRY_MAGIC;
 #endif
+  mysql_mutex_init(key_LOCK_thd_audit_data, &LOCK_thd_audit_data,
+                   MY_MUTEX_INIT_FAST);
   mysql_audit_init_thd(this);
   net.vio = nullptr;
   system_thread = NON_SYSTEM_THREAD;
@@ -1188,6 +1190,7 @@ THD::~THD() {
   mysql_mutex_destroy(&LOCK_current_cond);
   mysql_mutex_destroy(&LOCK_thd_db_read_only_hash);
   mysql_mutex_destroy(&LOCK_thd_db_metadata);
+  mysql_mutex_destroy(&LOCK_thd_audit_data);
   mysql_cond_destroy(&COND_thr_lock);
 #ifndef DBUG_OFF
   dbug_sentry = THD_SENTRY_GONE;
