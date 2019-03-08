@@ -42,6 +42,7 @@
 
 /* This indicates whether semi-synchronous replication is enabled. */
 bool rpl_semi_sync_master_enabled;
+bool rpl_semi_sync_master_crash_if_active_trxs;
 unsigned long rpl_semi_sync_master_timeout;
 unsigned long rpl_semi_sync_master_trace_level;
 char rpl_semi_sync_master_status = 0;
@@ -863,6 +864,13 @@ void ReplSemiSyncMaster::force_switch_on() { state_ = true; }
  */
 int ReplSemiSyncMaster::switch_off() {
   const char *kWho = "ReplSemiSyncMaster::switch_off";
+
+  if (rpl_semi_sync_master_crash_if_active_trxs &&
+      !active_tranxs_->is_empty()) {
+    LogErr(ERROR_LEVEL, ER_SEMISYNC_FORCE_SHUTDOWN);
+    delete_pid_file(MYF(MY_WME));
+    exit(0);
+  }
 
   function_enter(kWho);
   state_ = false;
