@@ -3039,7 +3039,7 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
   */
 
   bitmap_size = share->column_bitmap_size;
-  if (!(bitmaps = root->ArrayAlloc<uchar>(bitmap_size * 7))) goto err;
+  if (!(bitmaps = root->ArrayAlloc<uchar>(bitmap_size * 8))) goto err;
   bitmap_init(&outparam->def_read_set, (my_bitmap_map *)bitmaps, share->fields);
   bitmap_init(&outparam->def_write_set,
               (my_bitmap_map *)(bitmaps + bitmap_size), share->fields);
@@ -3053,6 +3053,8 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
               (my_bitmap_map *)(bitmaps + bitmap_size * 5), share->fields);
   bitmap_init(&outparam->pack_row_tmp_set,
               (my_bitmap_map *)(bitmaps + bitmap_size * 6), share->fields);
+  bitmap_init(&outparam->tmp_write_set,
+              (my_bitmap_map *)(bitmaps + bitmap_size * 7), share->fields);
   outparam->default_column_bitmaps();
 
   /*

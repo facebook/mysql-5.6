@@ -191,7 +191,8 @@ static xa_status_code binlog_xa_rollback(handlerton *hton, XID *xid);
 static void exec_binlog_error_action_abort(const char *err_string);
 static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
                            my_off_t *valid_pos);
-static void binlog_prepare_row_images(const THD *thd, TABLE *table);
+static void binlog_prepare_row_images(const THD *thd, TABLE *table,
+                                      bool is_update);
 static bool is_loggable_xa_prepare(THD *thd);
 
 bool normalize_binlog_name(char *to, const char *from, bool is_relay_log) {
@@ -11423,7 +11424,7 @@ int THD::binlog_update_row(TABLE *table, bool is_trans,
      not needed for binlogging. This is done according to the:
      binlog-row-image option.
    */
-  binlog_prepare_row_images(this, table);
+  binlog_prepare_row_images(this, table, true);
 
   Row_data_memory row_data(table, before_record, after_record,
                            variables.binlog_row_value_options);
@@ -11492,7 +11493,7 @@ int THD::binlog_delete_row(TABLE *table, bool is_trans, uchar const *record,
      not needed for binlogging. This is done according to the:
      binlog-row-image option.
    */
-  binlog_prepare_row_images(this, table);
+  binlog_prepare_row_images(this, table, false);
 
   /*
      Pack records into format for transfer. We are allocating more
@@ -11523,16 +11524,17 @@ int THD::binlog_delete_row(TABLE *table, bool is_trans, uchar const *record,
   return error;
 }
 
-void binlog_prepare_row_images(const THD *thd, TABLE *table) {
+void binlog_prepare_row_images(const THD *thd, TABLE *table, bool is_update) {
   DBUG_TRACE;
   /**
-    Remove from read_set spurious columns. The write_set has been
+    Remove spurious columns. The write_set has been partially
     handled before in table->mark_columns_needed_for_update.
    */
 
   DBUG_PRINT_BITSET("debug", "table->read_set (before preparing): %s",
                     table->read_set);
 
+  /* Handle the read set */
   /**
     if there is a primary key in the table (ie, user declared PK or a
     non-null unique index) and we dont want to ship the entire image,
@@ -11575,6 +11577,39 @@ void binlog_prepare_row_images(const THD *thd, TABLE *table) {
 
     /* set the temporary read_set */
     table->column_bitmaps_set_no_signal(&table->tmp_set, table->write_set);
+  }
+
+  /* Now, handle the write set */
+  if (is_update && thd->variables.binlog_row_image != BINLOG_ROW_IMAGE_FULL &&
+      !ha_check_storage_engine_flag(table->s->db_type(),
+                                    HTON_NO_BINLOG_ROW_OPT)) {
+    /**
+      Just to be sure that tmp_write_set is currently not in use as
+      the write_set already.
+    */
+    DBUG_ASSERT(table->write_set != &table->tmp_write_set);
+
+    bitmap_copy(&table->tmp_write_set, table->write_set);
+
+    for (Field **ptr = table->field; *ptr; ptr++) {
+      Field *field = (*ptr);
+      if (bitmap_is_set(&table->tmp_write_set, field->field_index)) {
+        /* When image type is NOBLOB, we prune only BLOB fields */
+        if (thd->variables.binlog_row_image == BINLOG_ROW_IMAGE_NOBLOB &&
+            field->type() != MYSQL_TYPE_BLOB)
+          continue;
+
+        /* compare null bit */
+        if (field->is_null() && field->is_null_in_record(table->record[1]))
+          bitmap_clear_bit(&table->tmp_write_set, field->field_index);
+
+        /* compare content, only if fields are not set to NULL */
+        else if (!field->is_null() &&
+                 !field->cmp_binary_offset(table->s->rec_buff_length))
+          bitmap_clear_bit(&table->tmp_write_set, field->field_index);
+      }
+    }
+    table->column_bitmaps_set_no_signal(table->read_set, &table->tmp_write_set);
   }
 
   DBUG_PRINT_BITSET("debug", "table->read_set (after preparing): %s",

@@ -1406,7 +1406,8 @@ struct TABLE {
       nullptr};  ///< Saved null_flags while null_row is true
 
   /* containers */
-  MY_BITMAP def_read_set, def_write_set, tmp_set, pack_row_tmp_set;
+  MY_BITMAP def_read_set, def_write_set, tmp_set, tmp_write_set,
+      pack_row_tmp_set;
   /*
     Bitmap of fields that one or more query condition refers to. Only
     used if optimizer_condition_fanout_filter is turned 'on'.
