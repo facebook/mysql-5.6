@@ -30,6 +30,7 @@
 #include "my_inttypes.h"
 #include "my_macros.h"
 #include "plugin/semisync/semisync_slave.h"
+#include "sql/debug_sync.h"
 
 ReplSemiSyncSlave *repl_semisync = nullptr;
 
@@ -130,6 +131,7 @@ static int repl_semi_slave_read_event(Binlog_relay_IO_param *,
 static int repl_semi_slave_queue_event(Binlog_relay_IO_param *param,
                                        const char *, unsigned long, uint32) {
   if (rpl_semi_sync_slave_status && semi_sync_need_reply) {
+    DBUG_EXECUTE_IF("dont_send_semi_sync_reply", { return 0; });
     /*
       We deliberately ignore the error in slaveReply, such error
       should not cause the slave IO thread to stop, and the error

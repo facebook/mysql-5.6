@@ -832,6 +832,7 @@ class ReplSemiSyncMaster : public ReplSemiSyncBase {
 
 /* System and status variables for the master component */
 extern bool rpl_semi_sync_master_enabled;
+extern bool rpl_semi_sync_master_crash_if_active_trxs;
 extern char rpl_semi_sync_master_status;
 extern unsigned long rpl_semi_sync_master_clients;
 extern unsigned long rpl_semi_sync_master_timeout;
