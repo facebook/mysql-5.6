@@ -865,7 +865,7 @@ bool SELECT_LEX::setup_tables(THD *thd, TABLE_LIST *tables,
     }
 
     if (table == NULL) continue;
-    table->pos_in_table_list = tr;
+    table->set_pos_in_table_list(tr);
     tr->reset();
     if (tr->process_index_hints(thd, table)) DBUG_RETURN(true);
     if (table->part_info)  // Count number of partitioned tables

@@ -683,7 +683,7 @@ bool SELECT_LEX_UNIT::prepare(THD *thd_arg, Query_result *sel_result,
     result_table_list.db = (char *)"";
     result_table_list.table_name = result_table_list.alias = (char *)"union";
     result_table_list.table = table = union_result->table;
-    table->pos_in_table_list = &result_table_list;
+    table->set_pos_in_table_list(&result_table_list);
     result_table_list.select_lex =
         fake_select_lex ? fake_select_lex : saved_fake_select_lex;
     result_table_list.set_tableno(0);

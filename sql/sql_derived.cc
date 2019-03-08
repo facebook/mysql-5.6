@@ -217,7 +217,7 @@ TABLE *Common_table_expr::clone_tmp_table(THD *thd, TABLE_LIST *tl) {
   t->copy_blobs = 1;
 
   tl->table = t;
-  t->pos_in_table_list = tl;
+  t->set_pos_in_table_list(tl);
 
   t->set_not_started();
 
@@ -552,7 +552,7 @@ bool TABLE_LIST::setup_materialized_derived_tmp_table(THD *thd)
     if (rc) DBUG_RETURN(true); /* purecov: inspected */
 
     table = derived_result->table;
-    table->pos_in_table_list = this;
+    table->set_pos_in_table_list(this);
     if (m_common_table_expr && m_common_table_expr->tmp_tables.push_back(this))
       DBUG_RETURN(true); /* purecov: inspected */
   }
@@ -647,7 +647,7 @@ bool TABLE_LIST::setup_table_function(THD *thd) {
   if (table_function->create_result_table(0LL, alias))
     DBUG_RETURN(true); /* purecov: inspected */
   table = table_function->table;
-  table->pos_in_table_list = this;
+  table->set_pos_in_table_list(this);
 
   table->s->tmp_table = NON_TRANSACTIONAL_TMP_TABLE;
 
