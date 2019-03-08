@@ -138,7 +138,7 @@ class Fake_TABLE : public TABLE {
     read_set = &read_set_struct;
     write_set = &write_set_struct;
     next_number_field = NULL;  // No autoinc column
-    pos_in_table_list = &table_list;
+    set_pos_in_table_list(&table_list);
     pos_in_table_list->select_lex = &select_lex;
     table_list.table = this;
     EXPECT_EQ(0, bitmap_init(write_set, &write_set_buf, s->fields, false));
