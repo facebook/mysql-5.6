@@ -2957,7 +2957,7 @@ bool JOIN::setup_semijoin_materialized_table(JOIN_TAB *tab, uint tableno,
 
   tl->set_tableno(tableno);
 
-  table->pos_in_table_list = tl;
+  table->set_pos_in_table_list(tl);
   table->pos_in_table_list->query_block = query_block;
 
   if (!(sjm_opt->mat_fields = (Item_field **)thd->mem_root->Alloc(

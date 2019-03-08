@@ -4101,8 +4101,9 @@ void TABLE::init(THD *thd, TABLE_LIST *tl) {
   covering_keys = s->keys_for_keyread;
 
   set_not_started();
+  master_had_triggers = false; /* used in RBR Triggers */
 
-  pos_in_table_list = tl;
+  set_pos_in_table_list(tl);
   tl->table = this;
 
   clear_column_bitmaps();
@@ -7955,4 +7956,67 @@ bool assert_invalid_stats_is_locked(const TABLE *table) {
   return true;
 }
 #endif
+
+/*
+  Prepare triggers  for INSERT-like statement.
+  SYNOPSIS
+    prepare_triggers_for_insert_stmt_or_event()
+  NOTE
+    Prepare triggers for INSERT-like statement by marking fields
+    used by triggers and inform handlers that batching of UPDATE/DELETE
+    cannot be done if there are BEFORE UPDATE/DELETE triggers.
+*/
+void TABLE::prepare_triggers_for_insert_stmt_or_event() {
+  if (triggers) {
+    if (triggers->has_triggers(TRG_EVENT_DELETE, TRG_ACTION_AFTER)) {
+      /*
+        The table has AFTER DELETE triggers that might access to
+        subject table and therefore might need delete to be done
+        immediately. So we turn-off the batching.
+      */
+      (void)file->ha_extra(HA_EXTRA_DELETE_CANNOT_BATCH);
+    }
+    if (triggers->has_triggers(TRG_EVENT_UPDATE, TRG_ACTION_AFTER)) {
+      /*
+        The table has AFTER UPDATE triggers that might access to subject
+        table and therefore might need update to be done immediately.
+        So we turn-off the batching.
+      */
+      (void)file->ha_extra(HA_EXTRA_UPDATE_CANNOT_BATCH);
+    }
+  }
+}
+
+bool TABLE::prepare_triggers_for_delete_stmt_or_event() {
+  if (triggers && triggers->has_triggers(TRG_EVENT_DELETE, TRG_ACTION_AFTER)) {
+    /*
+      The table has AFTER DELETE triggers that might access to subject table
+      and therefore might need delete to be done immediately. So we turn-off
+      the batching.
+    */
+    (void)file->ha_extra(HA_EXTRA_DELETE_CANNOT_BATCH);
+    return true;
+  }
+  return false;
+}
+
+bool TABLE::prepare_triggers_for_update_stmt_or_event() {
+  if (triggers && triggers->has_triggers(TRG_EVENT_UPDATE, TRG_ACTION_AFTER)) {
+    /*
+      The table has AFTER UPDATE triggers that might access to subject
+      table and therefore might need update to be done immediately.
+      So we turn-off the batching.
+    */
+    (void)file->ha_extra(HA_EXTRA_UPDATE_CANNOT_BATCH);
+    return true;
+  }
+  return false;
+}
+
+void TABLE::set_pos_in_table_list(TABLE_LIST *table_list) noexcept {
+  pos_in_table_list = table_list;
+  if (table_list)
+    disable_sql_log_bin_triggers = table_list->disable_sql_log_bin_triggers;
+}
+
 //////////////////////////////////////////////////////////////////////////

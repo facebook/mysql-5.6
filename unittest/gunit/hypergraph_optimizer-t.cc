@@ -140,7 +140,7 @@ Query_block *HypergraphTestBase<T>::ParseAndResolve(const char *query,
                                        Fake_TABLE(/*num_columns=*/4, nullable)
                                  : m_fake_tables[tl->alias];
     fake_table->alias = tl->alias;
-    fake_table->pos_in_table_list = tl;
+    fake_table->set_pos_in_table_list(tl);
     tl->table = fake_table;
     tl->set_tableno(num_tables++);
     m_fake_tables[tl->alias] = fake_table;

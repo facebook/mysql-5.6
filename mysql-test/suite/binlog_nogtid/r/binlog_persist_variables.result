@@ -216,6 +216,7 @@ SET PERSIST slave_rows_search_algorithms = @@GLOBAL.slave_rows_search_algorithms
 Warnings:
 Warning	1287	'@@slave_rows_search_algorithms' is deprecated and will be removed in a future release.
 Warning	1287	'@@slave_rows_search_algorithms' is deprecated and will be removed in a future release.
+SET PERSIST slave_run_triggers_for_rbr = @@GLOBAL.slave_run_triggers_for_rbr;
 SET PERSIST slave_skip_errors = @@GLOBAL.slave_skip_errors;
 ERROR HY000: Variable 'slave_skip_errors' is a read only variable
 SET PERSIST slave_sql_verify_checksum = @@GLOBAL.slave_sql_verify_checksum;
@@ -231,6 +232,7 @@ Warnings:
 Warning	1287	'@@slave_type_conversions' is deprecated and will be removed in a future release. Please use replica_type_conversions instead.
 Warning	1287	'@@slave_type_conversions' is deprecated and will be removed in a future release. Please use replica_type_conversions instead.
 SET PERSIST source_verify_checksum = @@GLOBAL.source_verify_checksum;
+SET PERSIST sql_log_bin_triggers = @@GLOBAL.sql_log_bin_triggers;
 SET PERSIST sql_replica_skip_counter = @@GLOBAL.sql_replica_skip_counter;
 SET PERSIST sql_slave_skip_counter = @@GLOBAL.sql_slave_skip_counter;
 Warnings:
@@ -436,6 +438,7 @@ RESET PERSIST IF EXISTS slave_preserve_commit_order;
 Warnings:
 Warning	3615	Variable slave_preserve_commit_order does not exist in persisted config file
 RESET PERSIST IF EXISTS slave_rows_search_algorithms;
+RESET PERSIST IF EXISTS slave_run_triggers_for_rbr;
 RESET PERSIST IF EXISTS slave_skip_errors;
 Warnings:
 Warning	3615	Variable slave_skip_errors does not exist in persisted config file
@@ -451,6 +454,7 @@ Warning	3615	Variable slave_type_conversions does not exist in persisted config 
 RESET PERSIST IF EXISTS source_verify_checksum;
 Warnings:
 Warning	3615	Variable source_verify_checksum does not exist in persisted config file
+RESET PERSIST IF EXISTS sql_log_bin_triggers;
 RESET PERSIST IF EXISTS sql_replica_skip_counter;
 RESET PERSIST IF EXISTS sql_slave_skip_counter;
 Warnings:

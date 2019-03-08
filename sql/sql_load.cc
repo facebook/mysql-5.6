@@ -432,7 +432,8 @@ bool Sql_cmd_load_table::execute_inner(THD *thd,
     if (table->triggers->mark_fields(TRG_EVENT_INSERT)) return true;
   }
 
-  prepare_triggers_for_insert_stmt(thd, table);
+  table->prepare_triggers_for_insert_stmt_or_event();
+  table->mark_columns_needed_for_insert(thd);
 
   size_t tot_length = 0;
   bool use_blobs = false, use_vars = false;

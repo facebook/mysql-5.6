@@ -2598,7 +2598,7 @@ bool create_ondisk_from_heap(THD *thd, TABLE *wtable, int error,
     new_table.hash_field = table->hash_field;
     new_table.group = table->group;
     new_table.alias = table->alias;
-    new_table.pos_in_table_list = table->pos_in_table_list;
+    new_table.set_pos_in_table_list(table->pos_in_table_list);
     new_table.reginfo = table->reginfo;
     new_table.read_set = table->read_set;
     new_table.write_set = table->write_set;

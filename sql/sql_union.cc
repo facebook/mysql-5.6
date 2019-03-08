@@ -622,7 +622,7 @@ bool Query_expression::prepare(THD *thd, Query_result *sel_result,
     result_table_list.table_name = "";
     result_table_list.alias = "";
     result_table_list.table = table;
-    table->pos_in_table_list = &result_table_list;
+    table->set_pos_in_table_list(&result_table_list);
     result_table_list.query_block =
         fake_query_block ? fake_query_block : saved_fake_query_block;
     result_table_list.set_tableno(0);

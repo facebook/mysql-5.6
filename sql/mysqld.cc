@@ -1364,6 +1364,7 @@ uint replica_net_timeout;
 ulong replica_exec_mode_options;
 ulonglong replica_type_conversions_options;
 ulong opt_mts_replica_parallel_workers;
+ulong slave_run_triggers_for_rbr = 0;
 ulonglong opt_mts_pending_jobs_size_max;
 ulonglong slave_rows_search_algorithms_options;
 bool opt_replica_preserve_commit_order;

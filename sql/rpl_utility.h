@@ -489,6 +489,7 @@ struct RPL_TABLE_LIST : public TABLE_LIST {
   bool m_tabledef_valid;
   table_def m_tabledef;
   TABLE *m_conv_table;
+  bool master_had_triggers;
 };
 
 class Deferred_log_events {

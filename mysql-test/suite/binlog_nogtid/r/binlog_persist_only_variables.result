@@ -233,6 +233,7 @@ SET PERSIST_ONLY slave_rows_search_algorithms = @@GLOBAL.slave_rows_search_algor
 Warnings:
 Warning	1287	'@@slave_rows_search_algorithms' is deprecated and will be removed in a future release.
 Warning	1287	'@@slave_rows_search_algorithms' is deprecated and will be removed in a future release.
+SET PERSIST_ONLY slave_run_triggers_for_rbr = @@GLOBAL.slave_run_triggers_for_rbr;
 SET PERSIST_ONLY slave_skip_errors = @@GLOBAL.slave_skip_errors;
 Warnings:
 Warning	1287	'@@slave_skip_errors' is deprecated and will be removed in a future release. Please use replica_skip_errors instead.
@@ -250,6 +251,7 @@ Warnings:
 Warning	1287	'@@slave_type_conversions' is deprecated and will be removed in a future release. Please use replica_type_conversions instead.
 Warning	1287	'@@slave_type_conversions' is deprecated and will be removed in a future release. Please use replica_type_conversions instead.
 SET PERSIST_ONLY source_verify_checksum = @@GLOBAL.source_verify_checksum;
+SET PERSIST_ONLY sql_log_bin_triggers = @@GLOBAL.sql_log_bin_triggers;
 SET PERSIST_ONLY sql_replica_skip_counter = @@GLOBAL.sql_replica_skip_counter;
 SET PERSIST_ONLY sql_slave_skip_counter = @@GLOBAL.sql_slave_skip_counter;
 Warnings:
@@ -376,7 +378,9 @@ RESET PERSIST session_track_gtids;
 RESET PERSIST skip_replica_start;
 RESET PERSIST slave_compression_lib;
 RESET PERSIST slave_rows_search_algorithms;
+RESET PERSIST slave_run_triggers_for_rbr;
 RESET PERSIST source_verify_checksum;
+RESET PERSIST sql_log_bin_triggers;
 RESET PERSIST sql_replica_skip_counter;
 RESET PERSIST sync_binlog;
 RESET PERSIST sync_relay_log;
