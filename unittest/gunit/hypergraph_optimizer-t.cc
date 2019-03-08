@@ -78,7 +78,7 @@ SELECT_LEX *MakeHypergraphTest::ParseAndResolve(const char *query,
     Fake_TABLE *fake_table =
         new (m_thd->mem_root) Fake_TABLE(/*num_columns=*/2, nullable);
     fake_table->alias = tl->alias;
-    fake_table->pos_in_table_list = tl;
+    fake_table->set_pos_in_table_list(tl);
     tl->table = fake_table;
     tl->set_tableno(num_tables++);
     m_fake_tables[tl->alias] = fake_table;

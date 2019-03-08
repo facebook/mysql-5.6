@@ -136,7 +136,7 @@ class Fake_TABLE : public TABLE {
     read_set = &read_set_struct;
     write_set = &write_set_struct;
     next_number_field = nullptr;  // No autoinc column
-    pos_in_table_list = new (*THR_MALLOC) Fake_TABLE_LIST();
+    set_pos_in_table_list(new (*THR_MALLOC) Fake_TABLE_LIST());
     pos_in_table_list->table = this;
     pos_in_table_list->select_lex =
         new (&mem_root) SELECT_LEX(&mem_root, nullptr, nullptr);
