@@ -612,7 +612,12 @@ int test_quick_select(THD *thd, MEM_ROOT *return_mem_root,
       thd->optimizer_switch_flag(OPTIMIZER_SWITCH_INDEX_MERGE_INTERSECT);
 
   /* Calculate cost of full index read for the shortest covering index */
-  if (!table->covering_keys.is_clear_all()) {
+  if (!table->covering_keys.is_clear_all() &&
+      /*
+        If optimizer_force_index_for_range is on and force index is used,
+        then skip calculating index scan cost.
+      */
+      !(thd->variables.optimizer_force_index_for_range && table->force_index)) {
     int key_for_use = find_shortest_key(table, &table->covering_keys);
     // find_shortest_key() should return a valid key:
     assert(key_for_use != MAX_KEY);

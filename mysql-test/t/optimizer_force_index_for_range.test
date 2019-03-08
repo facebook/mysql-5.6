@@ -1,0 +1,52 @@
+CREATE TABLE t (i INT, j INT, PRIMARY KEY (i, j));
+INSERT INTO t VALUES (1, 1);
+INSERT INTO t VALUES (1, 2);
+INSERT INTO t VALUES (2, 1);
+INSERT INTO t VALUES (2, 2);
+INSERT INTO t VALUES (3, 1);
+INSERT INTO t VALUES (3, 2);
+
+--echo # Test range plans
+SET optimizer_force_index_for_range = ON;
+--replace_column 10 #
+EXPLAIN SELECT i FROM t WHERE i IN (1, 2, 3) AND j IN (1, 2);
+--replace_column 10 #
+EXPLAIN SELECT i FROM t FORCE INDEX (PRIMARY) WHERE i IN (1, 2, 3) AND j IN (1, 2);
+SET optimizer_force_index_for_range = OFF;
+--replace_column 10 #
+EXPLAIN SELECT i FROM t WHERE i IN (1, 2, 3) AND j IN (1, 2);
+--replace_column 10 #
+EXPLAIN SELECT i FROM t FORCE INDEX (PRIMARY) WHERE i IN (1, 2, 3) AND j IN (1, 2);
+
+--echo # Test group-by plans.
+SET optimizer_force_index_for_range = ON;
+--replace_column 10 #
+EXPLAIN SELECT DISTINCT i FROM t;
+--replace_column 10 #
+EXPLAIN SELECT DISTINCT i FROM t FORCE INDEX (PRIMARY);
+SET optimizer_force_index_for_range = OFF;
+--replace_column 10 #
+EXPLAIN SELECT DISTINCT i FROM t;
+--replace_column 10 #
+EXPLAIN SELECT DISTINCT i FROM t FORCE INDEX (PRIMARY);
+
+--echo # Test skip-scan plans.
+SET optimizer_switch = 'skip_scan=on';
+SET optimizer_force_index_for_range = ON;
+--replace_column 10 #
+EXPLAIN SELECT i FROM t WHERE j > 1;
+--replace_column 10 #
+EXPLAIN SELECT i FROM t FORCE INDEX (PRIMARY) WHERE j > 1;
+SET optimizer_force_index_for_range = OFF;
+--replace_column 10 #
+EXPLAIN SELECT i FROM t WHERE j > 1;
+--replace_column 10 #
+EXPLAIN SELECT i FROM t FORCE INDEX (PRIMARY) WHERE j > 1;
+SET optimizer_switch = 'skip_scan=off';
+
+--echo # Test that in absence of range plan, index is used.
+SET optimizer_force_index_for_range = ON;
+--replace_column 10 #
+EXPLAIN SELECT i FROM t FORCE INDEX (PRIMARY) WHERE j > 1;
+
+DROP TABLE t;

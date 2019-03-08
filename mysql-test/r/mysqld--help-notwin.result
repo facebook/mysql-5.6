@@ -867,6 +867,9 @@ The following options may be given as the first argument:
  value is 0 then mysqld will reserve max_connections*5 or
  max_connections + table_open_cache*2 (whichever is
  larger) number of file descriptors
+ --optimizer-force-index-for-range 
+ If enabled, FORCE INDEX will also try to force a range
+ plan.
  --optimizer-max-subgraph-pairs=# 
  Maximum depth of subgraph pairs a query can have before
  the hypergraph join optimizer starts reducing the search
@@ -2592,6 +2595,7 @@ offline-mode FALSE
 old FALSE
 old-alter-table FALSE
 old-style-user-limits FALSE
+optimizer-force-index-for-range FALSE
 optimizer-max-subgraph-pairs 100000
 optimizer-prune-level 1
 optimizer-search-depth 62

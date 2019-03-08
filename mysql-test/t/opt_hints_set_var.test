@@ -259,6 +259,13 @@ t2.a IN (SELECT t3.b FROM t3 JOIN t1 t4 ON t3.b = t4.b);
 CALL test_hint("SET_VAR(optimizer_search_depth=1)", "optimizer_search_depth");
 CALL test_hint("SET_VAR(optimizer_prune_level=0)", "optimizer_prune_level");
 
+# Testing optimizer_force_index_for_range variable
+EXPLAIN SELECT DISTINCT a FROM t1 FORCE INDEX (PRIMARY);
+
+EXPLAIN SELECT /*+ SET_VAR(optimizer_force_index_for_range=1) */ DISTINCT a FROM t1 FORCE INDEX (PRIMARY);
+
+CALL test_hint("SET_VAR(optimizer_force_index_for_range=1)", "optimizer_force_index_for_range");
+
 DROP TABLE t1, t2, t3;
 
 
