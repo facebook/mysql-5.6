@@ -1106,6 +1106,7 @@ THD::~THD() {
   mysql_mutex_destroy(&LOCK_thd_protocol);
   mysql_mutex_destroy(&LOCK_current_cond);
   mysql_mutex_destroy(&LOCK_thd_db_read_only_hash);
+  mysql_mutex_destroy(&LOCK_thd_audit_data);
   mysql_cond_destroy(&COND_thr_lock);
 #ifndef DBUG_OFF
   dbug_sentry = THD_SENTRY_GONE;
