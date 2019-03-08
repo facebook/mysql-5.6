@@ -9601,6 +9601,9 @@ ER_BINLOG_CANT_READ_INDEX
 ER_RPL_FAILED_IN_RLI_INIT_INFO
   eng "Failed in %s called from Relay_log_info::rli_init_info()."
 
+ER_SEMISYNC_FORCE_SHUTDOWN
+   eng "Force shutdown: Semi-sync master is being switched off while there are active un-acked transactions"
+
 #
 # End of 8.0 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error

@@ -35,8 +35,8 @@ qa_auth_server                          plugin_output_directory PLUGIN_AUTH_SERV
 qa_auth_client                          plugin_output_directory PLUGIN_AUTH_CLIENT    qa_auth_client
 udf_example                             plugin_output_directory UDF_EXAMPLE_LIB
 ha_example                              plugin_output_directory EXAMPLE_PLUGIN         EXAMPLE
-semisync_master                         plugin_output_directory SEMISYNC_MASTER_PLUGIN
-semisync_slave                          plugin_output_directory SEMISYNC_SLAVE_PLUGIN
+semisync_master                         plugin_output_directory SEMISYNC_MASTER_PLUGIN	rpl_semi_sync_master
+semisync_slave                          plugin_output_directory SEMISYNC_SLAVE_PLUGIN	rpl_semi_sync_slave
 ha_archive                              plugin_output_directory ARCHIVE_PLUGIN
 ha_blackhole                            plugin_output_directory BLACKHOLE_PLUGIN
 ha_federated                            plugin_output_directory FEDERATED_PLUGIN
