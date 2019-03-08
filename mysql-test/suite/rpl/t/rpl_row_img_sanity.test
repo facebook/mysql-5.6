@@ -304,7 +304,7 @@ while (`SELECT HEX(@img_types) != HEX('')`)
     #      1. columns that are set to default value are in AI
     #
     #    UPDATE/MINIMAL:
-    #      2. columns that are set to the same value are in AI
+    #      2. columns that are set to the same value are not in AI
     #      3. columns that are not in WHERE clause but in PKE are in BI
     #      4. on slave, columns that are not in master's BI but are in slave's
     #         PKE are in slave's BI
@@ -330,11 +330,11 @@ while (`SELECT HEX(@img_types) != HEX('')`)
     -- source include/rpl_row_img_parts_master_slave.inc
 
     -- let $row_img_query= UPDATE t SET c2=100, c3=1000 WHERE c2=100;
-    #   2. columns that are set to the same value are in AI
+    #   2. columns that are set to the same value are not in AI
     #   3. columns that are not in WHERE clause but in PKE are in BI
     #   4. on slave, columns that are not in master's BI but are in slave's PKE are in slave's BI
-    -- let $row_img_expected_master= 1:1 | 2:100 3:1000
-    -- let $row_img_expected_slave = 2:100 3:1 | 2:100 3:1000
+    -- let $row_img_expected_master= 1:1 | 3:1000
+    -- let $row_img_expected_slave = 2:100 3:1 | 3:1000
     -- source include/rpl_row_img_parts_master_slave.inc
 
     -- let $row_img_query= DELETE FROM t WHERE c1=1
@@ -381,6 +381,54 @@ while (`SELECT HEX(@img_types) != HEX('')`)
     --source include/sync_slave_sql_with_master.inc
   }
 
+  if (`SELECT @@binlog_row_image = "MINIMAL" OR (SELECT @@binlog_row_image = "COMPLETE")`)
+  {
+    -- echo ####### MINIMAL AND COMPLETE PARTICULAR SCENARIO SETTING SAME VALUE ######
+
+    # ASSERTIONS:
+    #    1. columns that are set to the same value are not in AI
+    #    2. columns that are set to the same value by INSERT ... DUPLICATE KEY
+    #       are not in AI
+    #
+
+    -- connection master
+    CREATE TABLE t (c1 int, c2 int, c3 blob, primary key(c1));
+    INSERT INTO t VALUES (1,2,"a");
+
+
+    --source include/sync_slave_sql_with_master.inc
+    -- connection master
+
+    # Issue some statements
+    -- let $row_img_query= UPDATE t SET c1 = 1, c2 = 4 WHERE c3 = "a";
+    if (`SELECT @@binlog_row_image = "MINIMAL"`)
+    {
+      -- let $row_img_expected_master= 1:1 | 2:4
+    }
+    if (`SELECT @@binlog_row_image = "COMPLETE"`)
+    {
+      -- let $row_img_expected_master= 1:1 2:2 3:'a' | 2:4
+    }
+    -- let $row_img_expected_slave = $row_img_expected_master
+    -- source include/rpl_row_img_parts_master_slave.inc
+
+    -- let $row_img_query= INSERT INTO t VALUES (1, 4, "a") ON DUPLICATE KEY UPDATE c2 = c2 + 2, c3 = c3;
+    if (`SELECT @@binlog_row_image = "MINIMAL"`)
+    {
+      -- let $row_img_expected_master= 1:1 | 2:6
+    }
+    if (`SELECT @@binlog_row_image = "COMPLETE"`)
+    {
+      -- let $row_img_expected_master= 1:1 2:4 3:'a' | 2:6
+    }
+    -- let $row_img_expected_slave = $row_img_expected_master
+    -- source include/rpl_row_img_parts_master_slave.inc
+
+    -- connection master
+    DROP TABLE t;
+    --source include/sync_slave_sql_with_master.inc
+  }
+
   if (`SELECT @@binlog_row_image = "NOBLOB"`)
   {
     -- echo ####### NOBLOB PARTICULAR SCENARIO ######
@@ -390,19 +438,17 @@ while (`SELECT HEX(@img_types) != HEX('')`)
     #      1 non-blob columns that are set to default value are in AI
     #    
     #    UPDATE/NOBLOB:
-    #      2 non-blob columns that are set to default value are in AI
-    #      3 blob columns that are set to default value are in AI
-    #      4 blob columns that are in WHERE clause but not in PKE are not in BI
-    #      5 blob columns that are in NON-NULL UK but not in PK are not in BI
-    #      6 on slave, blob columns that are in master's BI clause but not in
+    #      2 blob columns that are in WHERE clause but not in PKE are not in BI
+    #      3 blob columns that are in NON-NULL UK but not in PK are not in BI
+    #      4 on slave, blob columns that are in master's BI clause but not in
     #        slave's PKE are not in BI
     #
     #    DELETE
-    #      7 non-blob columns that are not in WHERE clause but in PKE are in BI
-    #      8 blob columns that are used in WHERE clause but not in PKE are not
+    #      5 non-blob columns that are not in WHERE clause but in PKE are in BI
+    #      6 blob columns that are used in WHERE clause but not in PKE are not
     #        in BI
-    #      9 blob columns that are NOT NULL UK but not in PK are not in BI
-    #     10 on slave, blob columns that are in master's BI but not in slave's PKE
+    #      7 blob columns that are NOT NULL UK but not in PK are not in BI
+    #      8 on slave, blob columns that are in master's BI but not in slave's PKE
     #        are not in slave's BI
 
     -- connection master
@@ -425,23 +471,21 @@ while (`SELECT HEX(@img_types) != HEX('')`)
     -- connection master
     -- let $row_img_query= UPDATE t SET c2='aaa', c3=1000, c5=10000 WHERE c1=1 AND c4='bbb'
     # asserts that:
-    #  2. non-blob columns that are set to default value are in AI
-    #  3. blob columns that are set to default value are in AI
-    #  4. blob columns that are in WHERE clause but not in PKE are not in BI
-    #  5. blob columns that are in NON-NULL UK but not in PK are not in BI
-    #  6. on slave, blob columns that are in master's BI clause but not in
+    #  2. blob columns that are in WHERE clause but not in PKE are not in BI
+    #  3. blob columns that are in NON-NULL UK but not in PK are not in BI
+    #  4. on slave, blob columns that are in master's BI clause but not in
     #     slave's PKE are not in BI
-    -- let $row_img_expected_master= 1:1 2:'aaa' 3:1000 5:1 | 1:1 2:'aaa' 3:1000 5:10000
-    -- let $row_img_expected_slave = 1:1 3:1000 5:1 | 1:1 2:'aaa' 3:1000 5:10000
+    -- let $row_img_expected_master= 1:1 2:'aaa' 3:1000 5:1 | 1:1 3:1000 5:10000
+    -- let $row_img_expected_slave = 1:1 3:1000 5:1 | 1:1 3:1000 5:10000
     -- source include/rpl_row_img_parts_master_slave.inc
 
     -- connection master
     -- let $row_img_query= DELETE FROM t WHERE c1=1 AND c4='bbb'
     # asserts that:
-    #   7. non-blob columns that are not in WHERE clause but in PKE are in BI
-    #   8. blob columns that are used in WHERE clause but not in PKE are not n BI
-    #   9. blob columns that are NOT NULL UK but not in PK are not in BI
-    #  10. on slave, blob columns that are in master's BI but not in slave's PKE are not in slave's BI
+    #   5. non-blob columns that are not in WHERE clause but in PKE are in BI
+    #   6. blob columns that are used in WHERE clause but not in PKE are not n BI
+    #   7. blob columns that are NOT NULL UK but not in PK are not in BI
+    #   8. on slave, blob columns that are in master's BI but not in slave's PKE are not in slave's BI
     -- let $row_img_expected_master= 1:1 2:'aaa' 3:1000 5:10000 | 
     -- let $row_img_expected_slave = 1:1 3:1000 5:10000 | 
     -- source include/rpl_row_img_parts_master_slave.inc
