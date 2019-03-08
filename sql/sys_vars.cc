@@ -3053,6 +3053,12 @@ static Sys_var_ulong Sys_open_files_limit(
     /* open_files_limit is used as a sizing hint by the performance schema. */
     sys_var::PARSE_EARLY);
 
+static Sys_var_bool Sys_optimizer_force_index_for_range(
+    "optimizer_force_index_for_range",
+    "If enabled, FORCE INDEX will also try to force a range plan.",
+    HINT_UPDATEABLE SESSION_VAR(optimizer_force_index_for_range),
+    CMD_LINE(OPT_ARG), DEFAULT(false));
+
 /// @todo change to enum
 static Sys_var_ulong Sys_optimizer_prune_level(
     "optimizer_prune_level",
