@@ -80,6 +80,7 @@ Usage: $0 [OPTIONS]
   --core-file-size=LIMIT     Limit core files to the specified size
   --timezone=TZ              Set the system timezone
   --malloc-lib=LIB           Preload shared library LIB if available
+  --ld-preload-lib=LIB       Preload shared library LIB
   --mysqld=FILE              Use the specified file as mysqld
   --mysqld-version=VERSION   Use "mysqld-VERSION" as mysqld
   --nice=NICE                Set the scheduling priority of mysqld
@@ -253,6 +254,12 @@ parse_arguments() {
         ledir="$val"
         ;;
       --malloc-lib=*) set_malloc_lib "$val" ;;
+      --ld-preload-lib=*)
+        if [ -z "$pick_args" ]; then
+          log_error "--ld-preload-lib option can only be used as command line option, found in config file"
+          exit 1
+        fi
+        add_mysqld_ld_preload "$val" ;;
       --mysqld=*)
         if [ -z "$pick_args" ]; then
           log_error "--mysqld option can only be used as command line option, found in config file"
@@ -323,6 +330,12 @@ add_mysqld_ld_preload() {
       mysqld_ld_library_path="$mysqld_ld_library_path$lib_path"
       ;;
   esac
+
+  # Do not add if file does not exist.
+  if [ ! -f  "$lib_to_add" ]; then
+    log_error "no shared library found for $lib_to_add"
+    return
+  fi
 
   # LD_PRELOAD is a space-separated
   [ -n "$mysqld_ld_preload" ] && mysqld_ld_preload="$mysqld_ld_preload "
@@ -862,8 +875,11 @@ fi
 #  ulimit -n 256 > /dev/null 2>&1		# Fix for BSD and FreeBSD systems
 #fi
 
-cmd="`mysqld_ld_preload_text`$NOHUP_NICENESS"
+cmd="$NOHUP_NICENESS"
 
+if [ ! -z "`mysqld_ld_preload_text`" ]; then
+  cmd="$cmd env `mysqld_ld_preload_text`"
+fi
 for i in  "$ledir/$MYSQLD" "$defaults" "--basedir=$MY_BASEDIR_VERSION" \
   "--datadir=$DATADIR" "--plugin-dir=$plugin_dir" "$USER_OPTION"
 do
