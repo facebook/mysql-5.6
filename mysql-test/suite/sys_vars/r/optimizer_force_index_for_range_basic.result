@@ -1,0 +1,93 @@
+SET @session_start_value = @@session.optimizer_force_index_for_range;
+SELECT @session_start_value;
+@session_start_value
+0
+SET @global_start_value = @@global.optimizer_force_index_for_range;
+SELECT @global_start_value;
+@global_start_value
+0
+SET @@session.optimizer_force_index_for_range = 0;
+SET @@session.optimizer_force_index_for_range = DEFAULT;
+SELECT @@session.optimizer_force_index_for_range;
+@@session.optimizer_force_index_for_range
+0
+SET @@session.optimizer_force_index_for_range = 1;
+SET @@session.optimizer_force_index_for_range = DEFAULT;
+SELECT @@session.optimizer_force_index_for_range;
+@@session.optimizer_force_index_for_range
+0
+SET optimizer_force_index_for_range = 1;
+SELECT @@optimizer_force_index_for_range;
+@@optimizer_force_index_for_range
+1
+SELECT session.optimizer_force_index_for_range;
+ERROR 42S02: Unknown table 'session' in field list
+SELECT local.optimizer_force_index_for_range;
+ERROR 42S02: Unknown table 'local' in field list
+SET session optimizer_force_index_for_range = 0;
+SELECT @@session.optimizer_force_index_for_range;
+@@session.optimizer_force_index_for_range
+0
+SET @@session.optimizer_force_index_for_range = 0;
+SELECT @@session.optimizer_force_index_for_range;
+@@session.optimizer_force_index_for_range
+0
+SET @@session.optimizer_force_index_for_range = 1;
+SELECT @@session.optimizer_force_index_for_range;
+@@session.optimizer_force_index_for_range
+1
+SET @@session.optimizer_force_index_for_range = -1;
+ERROR 42000: Variable 'optimizer_force_index_for_range' can't be set to the value of '-1'
+SET @@session.optimizer_force_index_for_range = 2;
+ERROR 42000: Variable 'optimizer_force_index_for_range' can't be set to the value of '2'
+SET @@session.optimizer_force_index_for_range = "T";
+ERROR 42000: Variable 'optimizer_force_index_for_range' can't be set to the value of 'T'
+SET @@session.optimizer_force_index_for_range = "Y";
+ERROR 42000: Variable 'optimizer_force_index_for_range' can't be set to the value of 'Y'
+SET @@session.optimizer_force_index_for_range = NO;
+ERROR 42000: Variable 'optimizer_force_index_for_range' can't be set to the value of 'NO'
+SET @@global.optimizer_force_index_for_range = 1;
+SELECT @@global.optimizer_force_index_for_range;
+@@global.optimizer_force_index_for_range
+1
+SET @@global.optimizer_force_index_for_range = 0;
+SELECT count(VARIABLE_VALUE) FROM performance_schema.global_variables WHERE VARIABLE_NAME='optimizer_force_index_for_range';
+count(VARIABLE_VALUE)
+1
+SELECT IF(@@session.optimizer_force_index_for_range, "ON", "OFF") = VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='optimizer_force_index_for_range';
+IF(@@session.optimizer_force_index_for_range, "ON", "OFF") = VARIABLE_VALUE
+1
+SELECT @@session.optimizer_force_index_for_range;
+@@session.optimizer_force_index_for_range
+1
+SELECT VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='optimizer_force_index_for_range';
+VARIABLE_VALUE
+ON
+SET @@session.optimizer_force_index_for_range = OFF;
+SELECT @@session.optimizer_force_index_for_range;
+@@session.optimizer_force_index_for_range
+0
+SET @@session.optimizer_force_index_for_range = ON;
+SELECT @@session.optimizer_force_index_for_range;
+@@session.optimizer_force_index_for_range
+1
+SET @@session.optimizer_force_index_for_range = TRUE;
+SELECT @@session.optimizer_force_index_for_range;
+@@session.optimizer_force_index_for_range
+1
+SET @@session.optimizer_force_index_for_range = FALSE;
+SELECT @@session.optimizer_force_index_for_range;
+@@session.optimizer_force_index_for_range
+0
+SET @@session.optimizer_force_index_for_range = @session_start_value;
+SELECT @@session.optimizer_force_index_for_range;
+@@session.optimizer_force_index_for_range
+0
+SET @@global.optimizer_force_index_for_range = @global_start_value;
+SELECT @@global.optimizer_force_index_for_range;
+@@global.optimizer_force_index_for_range
+0
