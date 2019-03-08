@@ -1,0 +1,27 @@
+set @old_slave_run_triggers_for_rbr = @@global.slave_run_triggers_for_rbr;
+select @@global.slave_run_triggers_for_rbr;
+@@global.slave_run_triggers_for_rbr
+NO
+set global slave_run_triggers_for_rbr = 1;
+select @@global.slave_run_triggers_for_rbr;
+@@global.slave_run_triggers_for_rbr
+YES
+set global slave_run_triggers_for_rbr = LOGGING;
+select @@global.slave_run_triggers_for_rbr;
+@@global.slave_run_triggers_for_rbr
+LOGGING
+set global slave_run_triggers_for_rbr = YES;
+select @@global.slave_run_triggers_for_rbr;
+@@global.slave_run_triggers_for_rbr
+YES
+set global slave_run_triggers_for_rbr = NO;
+select @@global.slave_run_triggers_for_rbr;
+@@global.slave_run_triggers_for_rbr
+NO
+set global slave_run_triggers_for_rbr = 100;
+ERROR 42000: Variable 'slave_run_triggers_for_rbr' can't be set to the value of '100'
+set global slave_run_triggers_for_rbr = WRONG_VALUE;
+ERROR 42000: Variable 'slave_run_triggers_for_rbr' can't be set to the value of 'WRONG_VALUE'
+set session slave_run_triggers_for_rbr = 1;
+ERROR HY000: Variable 'slave_run_triggers_for_rbr' is a GLOBAL variable and should be set with SET GLOBAL
+set @@global.slave_run_triggers_for_rbr = @old_slave_run_triggers_for_rbr;

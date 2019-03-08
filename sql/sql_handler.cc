@@ -550,7 +550,7 @@ retry:
   if (!lock) goto err1;  // mysql_lock_tables() printed error message already
 
   tables->table = hash_tables->table;
-  tables->table->pos_in_table_list = tables;
+  tables->table->set_pos_in_table_list(tables);
 
   if (cond) {
     /*
@@ -767,7 +767,7 @@ ok:
     so that the engine doesn't have to count locks.
   */
   trans_commit_stmt(thd);
-  hash_tables->table->pos_in_table_list = hash_tables;
+  hash_tables->table->set_pos_in_table_list(hash_tables);
   mysql_unlock_tables(thd, lock);
   thd->mdl_context.rollback_to_savepoint(mdl_savepoint);
   table->cleanup_value_generator_items();
@@ -783,7 +783,7 @@ err1:
   thd->mdl_context.rollback_to_savepoint(mdl_savepoint);
 err0:
   if (hash_tables != nullptr && hash_tables->table != nullptr)
-    hash_tables->table->pos_in_table_list = hash_tables;
+    hash_tables->table->set_pos_in_table_list(hash_tables);
   DBUG_PRINT("exit", ("ERROR"));
   return true;
 }

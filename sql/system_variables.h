@@ -57,6 +57,12 @@ enum enum_rbr_exec_mode {
   RBR_EXEC_MODE_LAST_BIT
 };
 
+enum enum_slave_run_triggers_for_rbr {
+  SLAVE_RUN_TRIGGERS_FOR_RBR_NO,
+  SLAVE_RUN_TRIGGERS_FOR_RBR_YES,
+  SLAVE_RUN_TRIGGERS_FOR_RBR_LOGGING
+};
+
 // Values for binlog_row_image sysvar
 enum enum_binlog_row_image {
   /** PKE in the before image and changed columns in the after image */
@@ -458,6 +464,8 @@ struct System_variables {
     @sa Sys_var_require_row_format
   */
   bool require_row_format;
+
+  bool sql_log_bin_triggers;
 
   bool gap_lock_raise_error;
   bool gap_lock_write_log;

@@ -51,7 +51,6 @@ struct MYSQL_LOCK;
 
 bool check_that_all_fields_are_given_values(THD *thd, TABLE *entry,
                                             Table_ref *table_list);
-void prepare_triggers_for_insert_stmt(THD *thd, TABLE *table);
 bool write_record(THD *thd, TABLE *table, COPY_INFO *info, COPY_INFO *update);
 bool validate_default_values_of_unset_fields(THD *thd, TABLE *table);
 

@@ -213,6 +213,7 @@ enum enum_replica_type_conversions {
   REPLICA_TYPE_CONVERSIONS_ALL_UNSIGNED,
   REPLICA_TYPE_CONVERSIONS_ALL_SIGNED
 };
+extern ulong slave_run_triggers_for_rbr;
 extern ulonglong replica_type_conversions_options;
 
 extern bool read_only, opt_readonly;

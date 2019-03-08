@@ -275,7 +275,7 @@ TABLE *Sql_cmd_ddl_trigger_common::open_and_lock_subj_table(
   }
 
   TABLE *table = tables->table;
-  table->pos_in_table_list = tables;
+  table->set_pos_in_table_list(tables);
 
   /* Later on we will need it to downgrade the lock */
   *mdl_ticket = table->mdl_ticket;

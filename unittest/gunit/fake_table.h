@@ -140,7 +140,7 @@ class Fake_TABLE : public TABLE {
     read_set = &read_set_struct;
     write_set = &write_set_struct;
     next_number_field = nullptr;  // No autoinc column
-    pos_in_table_list = new (*THR_MALLOC) Fake_Table_ref();
+    set_pos_in_table_list(new (*THR_MALLOC) Fake_Table_ref());
     pos_in_table_list->table = this;
     pos_in_table_list->query_block =
         new (&mem_root) Query_block(&mem_root, nullptr, nullptr);

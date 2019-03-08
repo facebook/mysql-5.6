@@ -377,6 +377,13 @@ bool Trigger::execute(THD *thd) {
 
   thd->reset_sub_statement_state(&statement_state, SUB_STMT_TRIGGER);
 
+  const bool disable_binlog = !thd->variables.sql_log_bin_triggers;
+  if (disable_binlog) {
+    // option_bits restored back using statement_state in
+    // restore_sub_statement_state().
+    thd->variables.option_bits &= ~OPTION_BIN_LOG;
+  }
+
   /*
     Reset current_query_block before call execute_trigger() and
     restore it after return from one. This way error is set

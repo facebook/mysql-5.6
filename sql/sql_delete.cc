@@ -560,13 +560,7 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd) {
 
     THD_STAGE_INFO(thd, stage_updating);
 
-    if (has_after_triggers) {
-      /*
-        The table has AFTER DELETE triggers that might access to subject table
-        and therefore might need delete to be done immediately. So we turn-off
-        the batching.
-      */
-      (void)table->file->ha_extra(HA_EXTRA_DELETE_CANNOT_BATCH);
+    if (table->prepare_triggers_for_delete_stmt_or_event()) {
       will_batch = false;
     } else {
       // No after delete triggers, attempt to start bulk delete
@@ -1010,14 +1004,7 @@ bool DeleteRowsIterator::Init() {
     if (!IsBitSet(tableno, m_tables_to_delete_from)) continue;
 
     // We are going to delete from this table
-    if (IsBitSet(tableno, m_tables_with_after_triggers)) {
-      /*
-        The table has AFTER DELETE triggers that might access the subject
-        table and therefore might need delete to be done immediately.
-        So we turn-off the batching.
-      */
-      (void)table->file->ha_extra(HA_EXTRA_DELETE_CANNOT_BATCH);
-    }
+    table->prepare_triggers_for_delete_stmt_or_event();
     if (thd()->lex->is_ignore()) {
       table->file->ha_extra(HA_EXTRA_IGNORE_DUP_KEY);
     }

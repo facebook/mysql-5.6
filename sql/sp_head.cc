@@ -3358,7 +3358,8 @@ void sp_head::add_used_tables_to_table_list(THD *thd,
       table->prelocking_placeholder = true;
       table->belong_to_view = belong_to_view;
       table->trg_event_map = stab->trg_event_map;
-
+      table->disable_sql_log_bin_triggers =
+          !thd->variables.sql_log_bin_triggers;
       /* Everything else should be zeroed */
 
       **query_tables_last_ptr = table;

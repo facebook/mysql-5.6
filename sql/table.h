@@ -1847,6 +1847,9 @@ struct TABLE {
   /* If true, all partitions have been pruned away */
   bool all_partitions_pruned_away{false};
   MDL_ticket *mdl_ticket{nullptr};
+  /* used in RBR Triggers */
+  bool master_had_triggers{false};
+  bool disable_sql_log_bin_triggers{false};
 
  private:
   /// Cost model object for operations on this table
@@ -1868,6 +1871,7 @@ struct TABLE {
   bool fill_item_list(mem_root_deque<Item *> *item_list) const;
   void clear_column_bitmaps(void);
   void prepare_for_position(void);
+  void set_pos_in_table_list(Table_ref *table_list) noexcept;
 
   void mark_column_used(Field *field, enum enum_mark_columns mark);
   void mark_columns_used_by_index_no_reset(uint index, MY_BITMAP *map,
@@ -2379,6 +2383,10 @@ struct TABLE {
             set or not
   */
   bool should_binlog_drop_if_temp(void) const;
+
+  void prepare_triggers_for_insert_stmt_or_event();
+  bool prepare_triggers_for_delete_stmt_or_event();
+  bool prepare_triggers_for_update_stmt_or_event();
 };
 
 static inline void empty_record(TABLE *table) {
@@ -3912,6 +3920,9 @@ class Table_ref {
   MY_BITMAP write_set_saved;
   my_bitmap_map read_set_small[bitmap_buffer_size(64) / sizeof(my_bitmap_map)];
   my_bitmap_map write_set_small[bitmap_buffer_size(64) / sizeof(my_bitmap_map)];
+
+ public:
+  bool disable_sql_log_bin_triggers{false};
 };
 
 /*

@@ -85,6 +85,7 @@ class Basic_ostream;
 #include "sql/key.h"
 #include "sql/rpl_filter.h"  // rpl_filter
 #include "sql/table.h"
+#include "sql/trigger_def.h"            // enum_trigger_event_type
 #include "sql/xa.h"
 #endif
 
@@ -2328,7 +2329,9 @@ class Table_map_log_event : public binary_log::Table_map_event,
     TM_GENERATED_INVISIBLE_PK_F = (1U << 2),
     /* Picked 10 because MySQL flags flow in ascending order and MariaDB flags
        flow in descending order */
-    TM_METADATA_NOT_FB_FORMAT_F = (1U << 10)
+    TM_METADATA_NOT_FB_FORMAT_F = (1U << 10),
+    // MariaDB flags (we starts from the other end)
+    TM_BIT_HAS_TRIGGERS_F = (1U << 14)
   };
 
   flag_set get_flags(flag_set flag) const { return m_flags & flag; }
@@ -2712,6 +2715,10 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
   bool write_data_header(Basic_ostream *ostream) override;
   bool write_data_body(Basic_ostream *ostream) override;
   const char *get_db() override { return m_table->s->db.str; }
+  virtual uint8 get_trg_event_map() const noexcept = 0;
+  bool process_triggers(enum_trigger_event_type event,
+                        enum_trigger_action_time_type time_type,
+                        bool old_row_is_record1);
 #endif
 
   uint m_row_count; /* The number of rows added to the event */
@@ -2827,6 +2834,7 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
     for doing an index scan with HASH_SCAN search algorithm.
   */
   uchar *m_distinct_key_spare_buf;
+  bool master_had_triggers;
 
   /**
     Unpack the current row image from the event into m_table->record[0].
@@ -3204,6 +3212,7 @@ class Write_rows_log_event : public Rows_log_event,
   int do_before_row_operations(const Relay_log_info *const) override;
   int do_after_row_operations(const Relay_log_info *const, int) override;
   int do_exec_row(const Relay_log_info *const) override;
+  uint8 get_trg_event_map() const noexcept override;
 #endif
 };
 
@@ -3297,6 +3306,7 @@ class Update_rows_log_event : public Rows_log_event,
   int do_before_row_operations(const Relay_log_info *const) override;
   int do_after_row_operations(const Relay_log_info *const, int) override;
   int do_exec_row(const Relay_log_info *const) override;
+  uint8 get_trg_event_map() const noexcept override;
 
   int skip_after_image_for_update_event(const Relay_log_info *rli,
                                         const uchar *curr_bi_start) override;
@@ -3401,6 +3411,7 @@ class Delete_rows_log_event : public Rows_log_event,
   int do_before_row_operations(const Relay_log_info *const) override;
   int do_after_row_operations(const Relay_log_info *const, int) override;
   int do_exec_row(const Relay_log_info *const) override;
+  uint8 get_trg_event_map() const noexcept override;
 #endif
 };
 
