@@ -267,6 +267,14 @@ static MYSQL_SYSVAR_ULONG(
     fix_rpl_semi_sync_source_timeout,  // update
     10000, 0, ~0UL, 1);
 
+static MYSQL_SYSVAR_BOOL(crash_if_active_trxs,
+                         rpl_semi_sync_source_crash_if_active_trxs,
+                         PLUGIN_VAR_OPCMDARG,
+                         "Crash if there is an attempt to switch off semi-sync "
+                         "master while there are "
+                         "active un-acked transactions",
+                         nullptr, nullptr, false);
+
 #define DEFINE_WAIT_NO_REPLICA(NAME)                                           \
   static MYSQL_SYSVAR_BOOL(                                                    \
       NAME, rpl_semi_sync_source_wait_no_replica, PLUGIN_VAR_OPCMDARG,         \
@@ -344,6 +352,7 @@ DEFINE_WAIT_FOR_REPLICA_COUNT(wait_for_replica_count)
 static SYS_VAR *semi_sync_master_system_vars[] = {
     MYSQL_SYSVAR(enabled),
     MYSQL_SYSVAR(timeout),
+    MYSQL_SYSVAR(crash_if_active_trxs),
     MYSQL_SYSVAR(WAIT_NO_REPLICA_NAME),
     MYSQL_SYSVAR(trace_level),
     MYSQL_SYSVAR(wait_point),

@@ -1,0 +1,7 @@
+!include ../my.cnf
+[mysqld.1]
+rpl_semi_sync_source_enabled=1
+rpl_semi_sync_source_timeout=1000 # 1 second
+rpl_semi_sync_source_crash_if_active_trxs=1
+[mysqld.2]
+rpl_semi_sync_replica_enabled=1

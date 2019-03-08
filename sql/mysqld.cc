@@ -2011,7 +2011,6 @@ static void usage(void);
 static void clean_up_mutexes(void);
 static bool create_pid_file();
 [[noreturn]] static void mysqld_exit(int exit_code);
-static void delete_pid_file(myf flags);
 static void clean_up(bool print_message);
 static int handle_early_options();
 static void adjust_related_options(ulong *requested_open_files);
@@ -11638,7 +11637,7 @@ static bool create_pid_file() {
   @param  flags  file operation flags
 */
 
-static void delete_pid_file(myf flags) {
+void delete_pid_file(myf flags) {
   File file;
   if (opt_initialize || !pid_file_created ||
       !(file = mysql_file_open(key_file_pid, pidfile_name, O_RDONLY, flags)))

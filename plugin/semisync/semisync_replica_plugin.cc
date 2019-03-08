@@ -31,6 +31,7 @@
 #include "my_macros.h"
 #include "plugin/semisync/semisync_replica.h"
 #include "sql/current_thd.h"
+#include "sql/debug_sync.h"
 #include "sql/derror.h"       // ER_THD
 #include "sql/raii/sentry.h"  // raii::Sentry
 #include "sql/sql_error.h"
@@ -163,6 +164,7 @@ static int repl_semi_slave_read_event(Binlog_relay_IO_param *,
 static int repl_semi_slave_queue_event(Binlog_relay_IO_param *param,
                                        const char *, unsigned long, uint32) {
   if (rpl_semi_sync_replica_status && semi_sync_need_reply) {
+    DBUG_EXECUTE_IF("dont_send_semi_sync_reply", { return 0; });
     /*
       We deliberately ignore the error in slaveReply, such error
       should not cause the slave IO thread to stop, and the error
