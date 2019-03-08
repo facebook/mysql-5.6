@@ -1,0 +1,118 @@
+source include/not_valgrind.inc;
+source include/have_debug.inc;
+source include/master-slave.inc;
+source include/not_asan.inc;
+
+
+call mtr.add_suppression("Timeout waiting for reply of binlog");
+call mtr.add_suppression("Force shutdown: Semi-sync master is being switched off while there are active un-acked transactions");
+call mtr.add_suppression("A message intended for a client cannot be sent there as no client-session is attached");
+
+--source include/rpl_connection_master.inc
+create table t1(a int) engine=innodb;
+--source include/sync_slave_sql_with_master.inc
+
+# Disable ack on slave
+source include/stop_slave.inc;
+SET GLOBAL DEBUG='+d,dont_send_semi_sync_reply';
+CHANGE REPLICATION SOURCE TO SOURCE_RETRY_COUNT=0;
+source include/start_slave.inc;
+
+##
+## Ack timeout when there are active un-acked trxs should shutdown the master
+##
+--source include/rpl_connection_master.inc
+enable_reconnect;
+exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect;
+# The master will die while executing this stmt because slave will not ack it
+error CR_SERVER_LOST;
+insert into t1 values(1);
+
+# Wait for master to die
+source include/wait_until_disconnected.inc;
+
+# Resume normal slave operations i.e start acking
+--source include/rpl_connection_slave.inc
+SET GLOBAL DEBUG='-d,dont_send_semi_sync_reply';
+
+# Restart master
+echo # Restart the master server;
+let $rpl_server_number= 1;
+source include/rpl_start_server.inc;
+disable_reconnect;
+
+--source include/rpl_connection_master.inc
+--source include/sync_slave_sql_with_master.inc
+
+##
+## Turning off semi-sync when there are active un-acked trxs should shutdown the
+## master
+##
+
+# Disable ack on slave
+source include/stop_slave.inc;
+SET GLOBAL DEBUG='+d,dont_send_semi_sync_reply';
+source include/start_slave.inc;
+
+--source include/rpl_connection_master.inc
+# Set timeout to a large value so that we have a chance to switch semi-sync off
+# manually
+set @@global.rpl_semi_sync_source_timeout= 1000000;
+send insert into t1 values(2); # this stmt will hang
+
+# Wait till the insert is processed on the slave
+--source include/rpl_connection_slave.inc
+let $wait_condition= SELECT count(*) = 1 from t1 where a = 2;
+source include/wait_condition.inc;
+
+--source include/rpl_connection_master1.inc
+enable_reconnect;
+exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect;
+--shutdown_server 0
+--error CR_SERVER_LOST
+set @@global.rpl_semi_sync_source_timeout= 0; # master will shutdown
+
+# Wait for master to die
+source include/wait_until_disconnected.inc;
+
+--source include/rpl_connection_master.inc
+error CR_SERVER_LOST;
+reap;
+
+# Resume normal slave operations i.e start acking
+--source include/rpl_connection_slave.inc
+SET GLOBAL DEBUG='-d,dont_send_semi_sync_reply';
+
+# Restart master
+echo # Restart the master server;
+let $rpl_server_number= 1;
+source include/rpl_start_server.inc;
+disable_reconnect;
+
+--source include/rpl_connection_master.inc
+--source include/sync_slave_sql_with_master.inc
+
+# Will contain 2 rows because master recovery rolls trxs forward
+echo "Table at the master";
+--source include/rpl_connection_master.inc
+select * from t1;
+
+# Will contain 2 rows because slaves received all trxs
+echo "Table at the slave";
+--source include/rpl_connection_slave.inc
+select * from t1;
+
+##
+## Turning off semi-sync when there are no active un-acked trxs should succeed
+##
+--source include/rpl_connection_master.inc
+set @save.rpl_semi_sync_source_timeout = @@global.rpl_semi_sync_source_timeout;
+set @@global.rpl_semi_sync_source_timeout= 0; # should not fail
+set @@global.rpl_semi_sync_source_timeout = @save.rpl_semi_sync_source_timeout;
+
+# Cleanup
+--source include/rpl_connection_master.inc
+drop table t1;
+
+
+source include/rpl_end.inc;
