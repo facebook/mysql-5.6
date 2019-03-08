@@ -84,6 +84,7 @@ class Basic_ostream;
 #include "sql/rpl_filter.h"  // rpl_filter
 #include "sql/table.h"
 #include "sql/table_column_iterator.h"  // Table_columns_view::iterator
+#include "sql/trigger_def.h"            // enum_trigger_event_type
 #include "sql/xa.h"
 #endif
 
@@ -2434,7 +2435,9 @@ class Table_map_log_event : public binary_log::Table_map_event,
     TM_REFERRED_FK_DB_F = (1U << 1),
     /* Picked 10 because MySQL flags flow in ascending order and MariaDB flags
        flow in descending order */
-    TM_METADATA_NOT_FB_FORMAT_F = (1U << 10)
+    TM_METADATA_NOT_FB_FORMAT_F = (1U << 10),
+    // MariaDB flags (we starts from the other end)
+    TM_BIT_HAS_TRIGGERS_F = (1U << 14)
   };
 
   flag_set get_flags(flag_set flag) const { return m_flags & flag; }
@@ -2813,6 +2816,10 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
   virtual bool write_data_header(Basic_ostream *ostream) override;
   virtual bool write_data_body(Basic_ostream *ostream) override;
   virtual const char *get_db() override { return m_table->s->db.str; }
+  virtual uint8 get_trg_event_map() const noexcept = 0;
+  bool process_triggers(enum_trigger_event_type event,
+                        enum_trigger_action_time_type time_type,
+                        bool old_row_is_record1);
 #endif
 
   uint m_row_count; /* The number of rows added to the event */
@@ -2932,6 +2939,7 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
     Container to hold and manage the relevant TABLE fields
    */
   Replicated_columns_view m_fields;
+  bool master_had_triggers;
 
   /**
     Unpack the current row image from the event into m_table->record[0].
@@ -3274,6 +3282,7 @@ class Write_rows_log_event : public Rows_log_event,
   virtual int do_after_row_operations(const Slave_reporting_capability *const,
                                       int) override;
   virtual int do_exec_row(const Relay_log_info *const) override;
+  uint8 get_trg_event_map() const noexcept override;
 #endif
 };
 
@@ -3369,6 +3378,7 @@ class Update_rows_log_event : public Rows_log_event,
   virtual int do_after_row_operations(const Slave_reporting_capability *const,
                                       int) override;
   virtual int do_exec_row(const Relay_log_info *const) override;
+  uint8 get_trg_event_map() const noexcept override;
 
   virtual int skip_after_image_for_update_event(
       const Relay_log_info *rli, const uchar *curr_bi_start) override;
@@ -3473,6 +3483,7 @@ class Delete_rows_log_event : public Rows_log_event,
   virtual int do_after_row_operations(const Slave_reporting_capability *const,
                                       int) override;
   virtual int do_exec_row(const Relay_log_info *const) override;
+  uint8 get_trg_event_map() const noexcept override;
 #endif
 };
 

@@ -125,10 +125,12 @@ SET PERSIST_ONLY slave_rows_search_algorithms = @@GLOBAL.slave_rows_search_algor
 Warnings:
 Warning	1287	'@@slave_rows_search_algorithms' is deprecated and will be removed in a future release.
 Warning	1287	'@@slave_rows_search_algorithms' is deprecated and will be removed in a future release.
+SET PERSIST_ONLY slave_run_triggers_for_rbr = @@GLOBAL.slave_run_triggers_for_rbr;
 SET PERSIST_ONLY slave_skip_errors = @@GLOBAL.slave_skip_errors;
 SET PERSIST_ONLY slave_sql_verify_checksum = @@GLOBAL.slave_sql_verify_checksum;
 SET PERSIST_ONLY slave_transaction_retries = @@GLOBAL.slave_transaction_retries;
 SET PERSIST_ONLY slave_type_conversions = @@GLOBAL.slave_type_conversions;
+SET PERSIST_ONLY sql_log_bin_triggers = @@GLOBAL.sql_log_bin_triggers;
 SET PERSIST_ONLY sql_slave_skip_counter = @@GLOBAL.sql_slave_skip_counter;
 SET PERSIST_ONLY sync_binlog = @@GLOBAL.sync_binlog;
 SET PERSIST_ONLY sync_master_info = @@GLOBAL.sync_master_info;
@@ -240,10 +242,12 @@ RESET PERSIST slave_parallel_workers;
 RESET PERSIST slave_pending_jobs_size_max;
 RESET PERSIST slave_preserve_commit_order;
 RESET PERSIST slave_rows_search_algorithms;
+RESET PERSIST slave_run_triggers_for_rbr;
 RESET PERSIST slave_skip_errors;
 RESET PERSIST slave_sql_verify_checksum;
 RESET PERSIST slave_transaction_retries;
 RESET PERSIST slave_type_conversions;
+RESET PERSIST sql_log_bin_triggers;
 RESET PERSIST sql_slave_skip_counter;
 RESET PERSIST sync_binlog;
 RESET PERSIST sync_master_info;

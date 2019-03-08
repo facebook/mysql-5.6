@@ -7669,6 +7669,8 @@ bool ha_show_status(THD *thd, handlerton *db_type, enum ha_stat_type stat) {
   - The binary log is open
   - The database the table resides in shall be binlogged (binlog_*_db rules)
   - table is not mysql.event
+  - This is not a table opened when executing triggers or sql_log_bin_triggers
+    is TRUE.
 */
 
 static bool check_table_binlog_row_based(THD *thd, TABLE *table) {
@@ -7685,7 +7687,7 @@ static bool check_table_binlog_row_based(THD *thd, TABLE *table) {
   return (thd->is_current_stmt_binlog_format_row() &&
           table->s->cached_row_logging_check &&
           (thd->variables.option_bits & OPTION_BIN_LOG) &&
-          mysql_bin_log.is_open());
+          mysql_bin_log.is_open() && !table->disable_sql_log_bin_triggers);
 }
 
 /** @brief

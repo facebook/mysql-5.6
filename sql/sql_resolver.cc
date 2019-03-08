@@ -1027,7 +1027,7 @@ bool SELECT_LEX::setup_tables(THD *thd, TABLE_LIST *tables,
     }
 
     if (table == nullptr) continue;
-    table->pos_in_table_list = tr;
+    table->set_pos_in_table_list(tr);
 
     if (!tr->opt_hints_table ||
         // Ignore old index hint processing if new style hints are specified.

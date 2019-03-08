@@ -777,13 +777,7 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
     /// read_removal is only used by NDB storage engine
     bool read_removal = false;
 
-    if (has_after_triggers) {
-      /*
-        The table has AFTER UPDATE triggers that might access to subject
-        table and therefore might need update to be done immediately.
-        So we turn-off the batching.
-      */
-      (void)table->file->ha_extra(HA_EXTRA_UPDATE_CANNOT_BATCH);
+    if (table->prepare_triggers_for_update_stmt_or_event()) {
       will_batch = false;
     } else {
       // No after update triggers, attempt to start bulk update
@@ -1688,16 +1682,8 @@ bool Query_result_update::prepare(THD *thd, List<Item> &, SELECT_LEX_UNIT *u) {
       tr->shared = dup->shared = update_table_count++;
       table->no_keyread = true;
       table->covering_keys.clear_all();
-      table->pos_in_table_list = dup;
-      if (table->triggers &&
-          table->triggers->has_triggers(TRG_EVENT_UPDATE, TRG_ACTION_AFTER)) {
-        /*
-           The table has AFTER UPDATE triggers that might access to subject
-           table and therefore might need update to be done immediately.
-           So we turn-off the batching.
-        */
-        (void)table->file->ha_extra(HA_EXTRA_UPDATE_CANNOT_BATCH);
-      }
+      table->set_pos_in_table_list(dup);
+      table->prepare_triggers_for_update_stmt_or_event();
     }
   }
 

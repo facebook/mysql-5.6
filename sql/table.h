@@ -1649,6 +1649,9 @@ struct TABLE {
   /* If true, all partitions have been pruned away */
   bool all_partitions_pruned_away{false};
   MDL_ticket *mdl_ticket{nullptr};
+  /* used in RBR Triggers */
+  bool master_had_triggers{false};
+  bool disable_sql_log_bin_triggers{false};
 
  private:
   /// Cost model object for operations on this table
@@ -1671,6 +1674,7 @@ struct TABLE {
   void reset_item_list(List<Item> *item_list) const;
   void clear_column_bitmaps(void);
   void prepare_for_position(void);
+  void set_pos_in_table_list(TABLE_LIST *table_list) noexcept;
 
   void mark_column_used(Field *field, enum enum_mark_columns mark);
   void mark_columns_used_by_index_no_reset(uint index, MY_BITMAP *map,
@@ -2182,6 +2186,10 @@ struct TABLE {
             set or not
   */
   bool should_binlog_drop_if_temp(void) const;
+
+  void prepare_triggers_for_insert_stmt_or_event();
+  bool prepare_triggers_for_delete_stmt_or_event();
+  bool prepare_triggers_for_update_stmt_or_event();
 };
 
 static inline void empty_record(TABLE *table) {
@@ -3574,6 +3582,9 @@ struct TABLE_LIST {
   enum_table_ref_type m_table_ref_type{TABLE_REF_NULL};
   /** See comments for TABLE_SHARE::get_table_ref_version() */
   ulonglong m_table_ref_version{0};
+
+ public:
+  bool disable_sql_log_bin_triggers{false};
 };
 
 /*

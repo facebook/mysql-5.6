@@ -3786,7 +3786,7 @@ bool mysql_schema_table(THD *thd, LEX *lex, TABLE_LIST *table_list) {
   table_list->table_name = table->s->table_name.str;
   table_list->table_name_length = table->s->table_name.length;
   table_list->table = table;
-  table->pos_in_table_list = table_list;
+  table->set_pos_in_table_list(table_list);
   if (table_list->select_lex->first_execution)
     table_list->select_lex->add_base_options(OPTION_SCHEMA_TABLE);
   lex->safe_to_cache_query = false;

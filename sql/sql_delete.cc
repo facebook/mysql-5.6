@@ -476,13 +476,7 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd) {
 
     THD_STAGE_INFO(thd, stage_updating);
 
-    if (has_after_triggers) {
-      /*
-        The table has AFTER DELETE triggers that might access to subject table
-        and therefore might need delete to be done immediately. So we turn-off
-        the batching.
-      */
-      (void)table->file->ha_extra(HA_EXTRA_DELETE_CANNOT_BATCH);
+    if (table->prepare_triggers_for_delete_stmt_or_event()) {
       will_batch = false;
     } else {
       // No after delete triggers, attempt to start bulk delete
@@ -908,15 +902,7 @@ bool Query_result_delete::optimize() {
       transactional_table_map |= map;
     else
       non_transactional_table_map |= map;
-    if (table->triggers &&
-        table->triggers->has_triggers(TRG_EVENT_DELETE, TRG_ACTION_AFTER)) {
-      /*
-        The table has AFTER DELETE triggers that might access the subject
-        table and therefore might need delete to be done immediately.
-        So we turn-off the batching.
-      */
-      (void)table->file->ha_extra(HA_EXTRA_DELETE_CANNOT_BATCH);
-    }
+    table->prepare_triggers_for_delete_stmt_or_event();
     if (thd->lex->is_ignore()) table->file->ha_extra(HA_EXTRA_IGNORE_DUP_KEY);
     table->prepare_for_position();
     table->mark_columns_needed_for_delete(thd);

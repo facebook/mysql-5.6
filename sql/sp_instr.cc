@@ -368,6 +368,18 @@ bool sp_lex_instr::reset_lex_and_exec_core(THD *thd, uint *nextp,
   SP_instr_error_handler sp_instr_error_handler;
   thd->push_internal_handler(&sp_instr_error_handler);
 
+  /*
+     Set disable_sql_log_bin_triggers flag for query_tables if binlog is
+     turned OFF for trigger statements. This is necessary to avoid writing down
+     Table_map_log_events.
+  */
+  if (!thd->variables.sql_log_bin_triggers) {
+    for (TABLE_LIST *tables = m_lex->query_tables; tables;
+         tables = tables->next_global) {
+      tables->disable_sql_log_bin_triggers = true;
+    }
+  }
+
   /* Open tables if needed. */
 
   if (!error) {

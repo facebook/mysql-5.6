@@ -314,40 +314,6 @@ bool validate_default_values_of_unset_fields(THD *thd, TABLE *table) {
 }
 
 /**
-  Prepare triggers for INSERT-like statement.
-
-  @param thd     Thread handler
-  @param table   Table to which insert will happen
-
-  @note
-    Prepare triggers for INSERT-like statement by marking fields
-    used by triggers and inform handlers that batching of UPDATE/DELETE
-    cannot be done if there are BEFORE UPDATE/DELETE triggers.
-*/
-
-void prepare_triggers_for_insert_stmt(THD *thd, TABLE *table) {
-  if (table->triggers) {
-    if (table->triggers->has_triggers(TRG_EVENT_DELETE, TRG_ACTION_AFTER)) {
-      /*
-        The table has AFTER DELETE triggers that might access to
-        subject table and therefore might need delete to be done
-        immediately. So we turn-off the batching.
-      */
-      (void)table->file->ha_extra(HA_EXTRA_DELETE_CANNOT_BATCH);
-    }
-    if (table->triggers->has_triggers(TRG_EVENT_UPDATE, TRG_ACTION_AFTER)) {
-      /*
-        The table has AFTER UPDATE triggers that might access to subject
-        table and therefore might need update to be done immediately.
-        So we turn-off the batching.
-      */
-      (void)table->file->ha_extra(HA_EXTRA_UPDATE_CANNOT_BATCH);
-    }
-  }
-  table->mark_columns_needed_for_insert(thd);
-}
-
-/**
   Setup data for field BLOB/GEOMETRY field types for execution of
   "INSERT...UPDATE" statement. For a expression in 'UPDATE' clause
   like "a= VALUES(a)", let as call Field* referring 'a' as LHS_FIELD
@@ -539,8 +505,8 @@ bool Sql_cmd_insert_values::execute_inner(THD *thd) {
     if (thd->locked_tables_mode <= LTM_LOCK_TABLES)
       insert_table->file->ha_start_bulk_insert(insert_many_values.elements);
 
-    prepare_triggers_for_insert_stmt(thd, insert_table);
-
+    insert_table->prepare_triggers_for_insert_stmt_or_event();
+    insert_table->mark_columns_needed_for_insert(thd);
     /*
       Count warnings for all inserts. For single row insert, generate an error
       if trying to set a NOT NULL field to NULL.
@@ -2239,6 +2205,9 @@ bool Query_result_insert::prepare(THD *thd, List<Item> &, SELECT_LEX_UNIT *u) {
   if (duplicate_handling == DUP_UPDATE)
     table->file->ha_extra(HA_EXTRA_INSERT_WITH_UPDATE);
 
+  table->prepare_triggers_for_insert_stmt_or_event();
+  table->mark_columns_needed_for_insert(thd);
+
   for (Field **next_field = table->field; *next_field; ++next_field) {
     (*next_field)->reset_warnings();
     (*next_field)->reset_tmp_null();
@@ -2294,7 +2263,8 @@ bool Query_result_insert::send_data(THD *thd, List<Item> &values) {
          currently it is called for each row inserted by INSERT SELECT. Which
          looks like unnessary and results in resource wastage.
   */
-  prepare_triggers_for_insert_stmt(thd, table);
+  table->prepare_triggers_for_insert_stmt_or_event();
+  table->mark_columns_needed_for_insert(thd);
 
   if (table_list)  // Not CREATE ... SELECT
   {
