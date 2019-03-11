@@ -441,8 +441,9 @@ int mysql_audit_notify(THD *thd, mysql_event_connection_subclass_t subclass,
   event.database.str = thd->db().str;
   event.database.length = thd->db().length;
   event.connection_type = thd->get_vio_type();
-  event.connection_certificate.str = thd->connection_certificate().c_str();
-  event.connection_certificate.length = thd->connection_certificate().size();
+  event.connection_certificate.str = thd->get_connection_certificate().c_str();
+  event.connection_certificate.length =
+      thd->get_connection_certificate().size();
   event.port = mysqld_port;
 
   if (subclass == MYSQL_AUDIT_CONNECTION_DISCONNECT) {

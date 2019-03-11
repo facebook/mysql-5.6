@@ -29,6 +29,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <algorithm>
+#include <memory>
 #include <utility>
 
 #include <sstream>
@@ -947,7 +948,7 @@ void THD::cleanup_connection(void) {
   sp_cache_clear(&sp_proc_cache);
   sp_cache_clear(&sp_func_cache);
 
-  m_connection_certificate = "";
+  reset_connection_certificate();
 
   clear_error();
   // clear the warnings
@@ -979,13 +980,45 @@ void THD::cleanup_connection(void) {
 #endif
 }
 
-void THD::set_connection_certificate(std::string const &cert) {
-  DBUG_ASSERT(m_connection_certificate.empty());
-  m_connection_certificate = cert;
-}
+std::string THD::extract_peer_certificate_info(const THD *thd, bool printable) {
+  // Extracting user certificate from the thread
+  if (!thd->has_net_vio_ssl_arg()) return {};
 
-std::string const &THD::connection_certificate() const noexcept {
-  return m_connection_certificate;
+  auto ssl = static_cast<const SSL *>(thd->get_net_vio_ssl_arg());
+
+  // Creating new X509 abstraction
+  auto cert_deleter = [](X509 *cert) {
+    if (cert != nullptr) X509_free(cert);
+  };
+  using x509_ptr = std::unique_ptr<X509, decltype(cert_deleter)>;
+
+  x509_ptr cert{SSL_get_peer_certificate(ssl), cert_deleter};
+  if (!cert) return {};
+
+  // Creating new memory-based BIO object
+  auto bio_deleter = [](BIO *bio) {
+    if (bio != nullptr) BIO_free(bio);
+  };
+  using bio_ptr = std::unique_ptr<BIO, decltype(bio_deleter)>;
+
+  bio_ptr bio{BIO_new(BIO_s_mem()), bio_deleter};
+  if (!bio) return {};
+
+  // Printing the certificate to the bio object
+  int print_result = 0;
+  if (printable)
+    print_result = X509_print(bio.get(), cert.get());
+  else
+    print_result = PEM_write_bio_X509(bio.get(), cert.get());
+  if (print_result != 1) return {};
+
+  // Extracting data from the bio object
+  BUF_MEM *buf_mem;
+  BIO_get_mem_ptr(bio.get(), &buf_mem);
+  assert(buf_mem->length <= buf_mem->max);
+  if (buf_mem->data == nullptr) return {};
+
+  return std::string{buf_mem->data, buf_mem->length};
 }
 
 /*
@@ -1140,7 +1173,7 @@ void THD::release_resources() {
 
   if (current_thd == this) restore_globals();
 
-  m_connection_certificate = "";
+  reset_connection_certificate();
 
   mysql_mutex_lock(&LOCK_status);
   /* Add thread status to the global totals. */
