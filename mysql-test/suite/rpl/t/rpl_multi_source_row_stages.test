@@ -114,17 +114,17 @@ while ($j)
     if ($i == 3)
     {
       --let $state_progress= Applying batch of row changes (write)
-      --let $info= INSERT INTO t1 VALUES (1)
+      --let $info= INSERT INTO test.t1 (1)
     }
     if ($i == 2)
     {
       --let $state_progress= Applying batch of row changes (update)
-      --let $info= UPDATE t1 SET a= 2
+      --let $info= UPDATE test.t1 (1)(2)
     }
     if ($i == 1)
     {
       --let $state_progress= Applying batch of row changes (delete)
-      --let $info= DELETE FROM t1 WHERE a=2
+      --let $info= DELETE FROM test.t1 (2)
     }
 
     # this session waits for the progress to be updated
