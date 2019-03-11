@@ -2099,8 +2099,17 @@ class List_process_list : public Do_THD_Impl {
     /* INFO */
     mysql_mutex_lock(&inspect_thd->LOCK_thd_query);
     {
-      const char *query_str = inspect_thd->query().str;
-      size_t query_length = inspect_thd->query().length;
+      const char *query_str;
+      size_t query_length;
+
+      if (!inspect_thd->row_query.empty()) {
+        query_str = inspect_thd->row_query.c_str();
+        query_length = inspect_thd->row_query.size();
+      } else {
+        query_str = inspect_thd->query().str;
+        query_length = inspect_thd->query().length;
+      }
+
       String buf;
       if (inspect_thd->is_a_srv_session()) {
         buf.append(query_length ? "PLUGIN: " : "PLUGIN");
@@ -2286,8 +2295,17 @@ class Fill_process_list : public Do_THD_Impl {
     /* INFO */
     mysql_mutex_lock(&inspect_thd->LOCK_thd_query);
     {
-      const char *query_str = inspect_thd->query().str;
-      size_t query_length = inspect_thd->query().length;
+      const char *query_str;
+      size_t query_length;
+
+      if (!inspect_thd->row_query.empty()) {
+        query_str = inspect_thd->row_query.c_str();
+        query_length = inspect_thd->row_query.size();
+      } else {
+        query_str = inspect_thd->query().str;
+        query_length = inspect_thd->query().length;
+      }
+
       String buf;
       if (inspect_thd->is_a_srv_session()) {
         buf.append(query_length ? "PLUGIN: " : "PLUGIN");
