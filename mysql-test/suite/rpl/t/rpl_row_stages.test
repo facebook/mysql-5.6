@@ -60,19 +60,19 @@ while($i)
   if ($i == 3)
   {
     --let $state_progress= Applying batch of row changes (write)
-    --let $info= INSERT INTO t1 VALUES (1)
+    --let $info= INSERT INTO db_wl7364.t1 (1)
   }
 
   if ($i == 2)
   {
     --let $state_progress= Applying batch of row changes (update)
-    --let $info= UPDATE t1 SET c1= 2
+    --let $info= UPDATE db_wl7364.t1 (1)(2)
   }
 
   if ($i == 1)
   {
     --let $state_progress= Applying batch of row changes (delete)
-    --let $info= DELETE FROM t1 WHERE c1=2
+    --let $info= DELETE FROM db_wl7364.t1 (2)
   }
 
   # this session waits for the progress to be updated
@@ -135,16 +135,19 @@ while($i)
   if ($i == 3)
   {
     --let $state_progress= Applying batch of row changes (write)
+    --let $info= INSERT INTO db_wl7364.t1 (1)
   }
 
   if ($i == 2)
   {
     --let $state_progress= Applying batch of row changes (update)
+    --let $info= UPDATE db_wl7364.t1 (1)(2)
   }
 
   if ($i == 1)
   {
     --let $state_progress= Applying batch of row changes (delete)
+    --let $info= DELETE FROM db_wl7364.t1 (2)
   }
 
   SET debug_sync= 'now WAIT_FOR signal.rpl_row_apply_progress_updated';
@@ -207,7 +210,6 @@ BEGIN;
 --let $state_skip_show_processlist=1
 --let $state_thd_name= thread/sql/one_connection
 --let $state_command= Query
---let $state_info= BINLOG %
 --let $state_db= $db
 
 --source include/rpl_connection_master.inc
@@ -217,6 +219,7 @@ BEGIN;
 SET debug_sync= 'now WAIT_FOR signal.rpl_row_apply_progress_updated';
 
 --let $state_stage= Applying batch of row changes (write)
+--let $state_info= INSERT INTO db_wl7364.t1 (1)
 --source ../include/rpl_row_stages_validate.inc
 
 SET debug_sync= 'now SIGNAL signal.rpl_row_apply_process_next_row';
@@ -234,6 +237,7 @@ SET debug_sync= 'now SIGNAL signal.rpl_row_apply_process_next_row';
 SET debug_sync= 'now WAIT_FOR signal.rpl_row_apply_progress_updated';
 
 --let $state_stage= Applying batch of row changes (update)
+--let $state_info= UPDATE db_wl7364.t1 (1)(2)
 --source ../include/rpl_row_stages_validate.inc
 
 SET debug_sync= 'now SIGNAL signal.rpl_row_apply_process_next_row';
@@ -251,6 +255,7 @@ SET debug_sync= 'now SIGNAL signal.rpl_row_apply_process_next_row';
 SET debug_sync= 'now WAIT_FOR signal.rpl_row_apply_progress_updated';
 
 --let $state_stage= Applying batch of row changes (delete)
+--let $state_info= DELETE FROM db_wl7364.t1 (2)
 --source ../include/rpl_row_stages_validate.inc
 
 SET debug_sync= 'now SIGNAL signal.rpl_row_apply_process_next_row';
@@ -493,19 +498,19 @@ while($i)
   if ($i == 3)
   {
     --let $state_progress= Applying batch of row changes (write)
-    --let $info= INSERT INTO t1 VALUES (1)
+    --let $info= INSERT INTO db2.t1 (1)
   }
 
   if ($i == 2)
   {
     --let $state_progress= Applying batch of row changes (update)
-    --let $info= UPDATE t1 SET c1= 2
+    --let $info= UPDATE db2.t1 (1)(2)
   }
 
   if ($i == 1)
   {
     --let $state_progress= Applying batch of row changes (delete)
-    --let $info= DELETE FROM t1 WHERE c1=2
+    --let $info= DELETE FROM db2.t1 (2)
   }
 
   # this session waits for the progress to be updated

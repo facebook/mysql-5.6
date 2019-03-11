@@ -401,6 +401,36 @@ size_t pack_row(TABLE *table, MY_BITMAP const *columns_in_image,
   return static_cast<size_t>(pack_ptr - row_data);
 }
 
+static void insert_row_fields(std::string *row_query, TABLE *table) {
+  static constexpr size_t max_field_len = 100;
+  row_query->append("(");
+  String buf;
+#ifndef NDEBUG
+  uint index = 0;
+#endif
+  for (Field **ptr = table->field; *ptr; ptr++) {
+#ifndef NDEBUG
+    // Set the read bit to avoid assertions in val_str().
+    bool flip = false;
+    if (table->read_set && !bitmap_is_set(table->read_set, index)) {
+      flip = true;
+      bitmap_flip_bit(table->read_set, index);
+    }
+#endif
+    String *s = (*ptr)->val_str(&buf, &buf);
+    if (!s)
+      row_query->append("NULL");
+    else
+      row_query->append(s->ptr(), min(max_field_len, s->length()));
+    row_query->append(",");
+#ifndef NDEBUG
+    if (flip) bitmap_flip_bit(table->read_set, index);
+    ++index;
+#endif
+  }
+  if (row_query->back() == ',') row_query->back() = ')';
+}
+
 /**
   Read the value_options from a Partial_update_rows_log_event, and if
   value_options has any bit set, also read partial_bits.
@@ -458,7 +488,8 @@ bool unpack_row_with_column_info(TABLE *table, uchar const *const row_data,
                                  MY_BITMAP const *column_image,
                                  uchar const **const row_image_end_p,
                                  uchar const *const event_end, bool only_seek,
-                                 table_def *tabledef, TABLE *conv_table) {
+                                 table_def *tabledef, TABLE *conv_table,
+                                 std::string *row_query) {
   DBUG_ENTER("unpack_row_with_column_info");
 
   uint image_column_count = bitmap_bits_set(column_image);
@@ -525,6 +556,7 @@ bool unpack_row_with_column_info(TABLE *table, uchar const *const row_data,
       }
     }
   }
+  if (row_query) insert_row_fields(row_query, table);
   *row_image_end_p = pack_ptr;
   DBUG_RETURN(false);
 }
@@ -535,7 +567,8 @@ bool unpack_row(Relay_log_info const *rli, TABLE *table,
                 uchar const **const row_image_end_p,
                 uchar const *const event_end,
                 enum_row_image_type row_image_type,
-                bool event_has_value_options, bool only_seek) {
+                bool event_has_value_options, bool only_seek,
+                std::string *row_query) {
   DBUG_TRACE;
   assert(rli != nullptr);
   assert(table != nullptr);
@@ -570,7 +603,7 @@ bool unpack_row(Relay_log_info const *rli, TABLE *table,
     }
     return unpack_row_with_column_info(table, row_data, column_image,
                                        row_image_end_p, event_end, only_seek,
-                                       tabledef, conv_table);
+                                       tabledef, conv_table, row_query);
   }
 
   uint image_column_count = bitmap_bits_set(column_image);
@@ -834,6 +867,8 @@ bool unpack_row(Relay_log_info const *rli, TABLE *table,
       }
     }
   }
+
+  if (row_query) insert_row_fields(row_query, table);
 
   // We have read all the null bits.
   assert(null_bits.tell() == image_column_count);
