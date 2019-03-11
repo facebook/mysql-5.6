@@ -79,6 +79,7 @@ Database: information_schema
 +---------------------------------------+
 |                Tables                 |
 +---------------------------------------+
+| AUTHINFO                              |
 | CHARACTER_SETS                        |
 | CHECK_CONSTRAINTS                     |
 | COLLATIONS                            |
@@ -152,6 +153,7 @@ Database: INFORMATION_SCHEMA
 +---------------------------------------+
 |                Tables                 |
 +---------------------------------------+
+| AUTHINFO                              |
 | CHARACTER_SETS                        |
 | CHECK_CONSTRAINTS                     |
 | COLLATIONS                            |
