@@ -1,0 +1,6 @@
+#
+# Test case for information_schema.authinfo table
+# (SSL connection)
+#
+include/assert.inc [SSL field for the current connection must be set to 1]
+include/assert.inc [Info field (peer certificate) for the current connection must be non-empty]
