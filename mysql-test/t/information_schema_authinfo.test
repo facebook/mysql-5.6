@@ -1,0 +1,12 @@
+--echo #
+--echo # Test case for information_schema.authinfo table
+--echo # (SSL connection)
+--echo #
+
+--let $assert_text= SSL field for the current connection must be set to 1
+--let $assert_cond= [ SELECT `ssl` = 1 FROM information_schema.authinfo WHERE id = CONNECTION_ID() ]
+--source include/assert.inc
+
+--let $assert_text= Info field (peer certificate) for the current connection must be non-empty
+--let $assert_cond= [ SELECT LENGTH(info) > 0 FROM information_schema.authinfo WHERE id = CONNECTION_ID() ]
+--source include/assert.inc

@@ -941,7 +941,8 @@ enum enum_schema_tables : int {
   SCH_USER_PRIVILEGES,
   SCH_TMP_TABLE_COLUMNS,
   SCH_TMP_TABLE_KEYS,
-  SCH_LAST = SCH_TMP_TABLE_KEYS
+  SCH_AUTHINFO,
+  SCH_LAST = SCH_AUTHINFO
 };
 
 enum ha_stat_type {

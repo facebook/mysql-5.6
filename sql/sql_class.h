@@ -1908,6 +1908,14 @@ class THD : public MDL_context_owner,
   String packet;  // dynamic buffer for network I/O
  public:
   const NET *get_net() const { return &net; }
+  bool has_net_vio() const noexcept { return net.vio != nullptr; }
+  const Vio *get_net_vio() const noexcept { return net.vio; }
+  bool has_net_vio_ssl_arg() const noexcept {
+    return has_net_vio() && get_net_vio()->ssl_arg != nullptr;
+  }
+  const void *get_net_vio_ssl_arg() const noexcept {
+    return has_net_vio() ? get_net_vio()->ssl_arg : nullptr;
+  }
 
   void set_skip_readonly_check() { skip_readonly_check = true; }
 
@@ -3862,10 +3870,28 @@ class THD : public MDL_context_owner,
   Gtid_set owned_gtid_set;
 #endif
 
+ public:
+  static std::string extract_peer_certificate_info(const THD *thd,
+                                                   bool printable);
+
+ private:
+  friend int acl_authenticate(THD *, enum_server_command);
+
   std::string m_connection_certificate;
 
-  std::string const &connection_certificate() const noexcept;
-  void set_connection_certificate(std::string const &cert);
+  void update_connection_certificate() {
+    m_connection_certificate =
+        extract_peer_certificate_info(this, false /* pem format */);
+  }
+  void reset_connection_certificate() {
+    m_connection_certificate.clear();
+    m_connection_certificate.shrink_to_fit();
+  }
+
+ public:
+  std::string const &get_connection_certificate() const noexcept {
+    return m_connection_certificate;
+  }
 
   /*
    Replication related context.
