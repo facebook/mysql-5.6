@@ -25,6 +25,7 @@
 
 #include <stddef.h>
 #include <sys/types.h>
+#include <string>
 
 #include "my_inttypes.h"
 
@@ -46,7 +47,8 @@ bool unpack_row(Relay_log_info const *rli, TABLE *table,
                 uchar const **const row_image_end_p,
                 uchar const *const event_end,
                 enum_row_image_type row_image_type,
-                bool event_has_value_options, bool only_seek);
+                bool event_has_value_options, bool only_seek,
+                std::string &row_query);
 
 // Fill table's record[0] with default values.
 int prepare_record(TABLE *const table, const MY_BITMAP *cols, const bool check);

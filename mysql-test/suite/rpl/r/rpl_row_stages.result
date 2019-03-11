@@ -20,19 +20,19 @@ COMMIT;
 # Adding debug point 'dbug.rpl_apply_sync_barrier' to @@GLOBAL.debug
 include/start_slave_sql.inc
 SET debug_sync= 'now WAIT_FOR signal.rpl_row_apply_progress_updated';
-include/assert.inc [PERFORMANCE_SCHEMA.threads reports: state=Applying batch of row changes (write), db=db_wl7364, info LIKE "INSERT INTO t1 VALUES (1)", Query]
-include/assert.inc [INFORMATION_SCHEMA.processlist reports: db=db_wl7364, info LIKE "INSERT INTO t1 VALUES (1)", command=Query]
-[SHOW PROCESSLIST reports: db=db_wl7364, info LIKE "INSERT INTO t1 VALUES (1)", command=Query]
+include/assert.inc [PERFORMANCE_SCHEMA.threads reports: state=Applying batch of row changes (write), db=db_wl7364, info LIKE "INSERT INTO db_wl7364.t1 (1)", Query]
+include/assert.inc [INFORMATION_SCHEMA.processlist reports: db=db_wl7364, info LIKE "INSERT INTO db_wl7364.t1 (1)", command=Query]
+[SHOW PROCESSLIST reports: db=db_wl7364, info LIKE "INSERT INTO db_wl7364.t1 (1)", command=Query]
 SET debug_sync= 'now SIGNAL signal.rpl_row_apply_process_next_row';
 SET debug_sync= 'now WAIT_FOR signal.rpl_row_apply_progress_updated';
-include/assert.inc [PERFORMANCE_SCHEMA.threads reports: state=Applying batch of row changes (update), db=db_wl7364, info LIKE "UPDATE t1 SET c1= 2", Query]
-include/assert.inc [INFORMATION_SCHEMA.processlist reports: db=db_wl7364, info LIKE "UPDATE t1 SET c1= 2", command=Query]
-[SHOW PROCESSLIST reports: db=db_wl7364, info LIKE "UPDATE t1 SET c1= 2", command=Query]
+include/assert.inc [PERFORMANCE_SCHEMA.threads reports: state=Applying batch of row changes (update), db=db_wl7364, info LIKE "UPDATE db_wl7364.t1 (1)(2)", Query]
+include/assert.inc [INFORMATION_SCHEMA.processlist reports: db=db_wl7364, info LIKE "UPDATE db_wl7364.t1 (1)(2)", command=Query]
+[SHOW PROCESSLIST reports: db=db_wl7364, info LIKE "UPDATE db_wl7364.t1 (1)(2)", command=Query]
 SET debug_sync= 'now SIGNAL signal.rpl_row_apply_process_next_row';
 SET debug_sync= 'now WAIT_FOR signal.rpl_row_apply_progress_updated';
-include/assert.inc [PERFORMANCE_SCHEMA.threads reports: state=Applying batch of row changes (delete), db=db_wl7364, info LIKE "DELETE FROM t1 WHERE c1=2", Query]
-include/assert.inc [INFORMATION_SCHEMA.processlist reports: db=db_wl7364, info LIKE "DELETE FROM t1 WHERE c1=2", command=Query]
-[SHOW PROCESSLIST reports: db=db_wl7364, info LIKE "DELETE FROM t1 WHERE c1=2", command=Query]
+include/assert.inc [PERFORMANCE_SCHEMA.threads reports: state=Applying batch of row changes (delete), db=db_wl7364, info LIKE "DELETE FROM db_wl7364.t1 (2)", Query]
+include/assert.inc [INFORMATION_SCHEMA.processlist reports: db=db_wl7364, info LIKE "DELETE FROM db_wl7364.t1 (2)", command=Query]
+[SHOW PROCESSLIST reports: db=db_wl7364, info LIKE "DELETE FROM db_wl7364.t1 (2)", command=Query]
 SET debug_sync= 'now SIGNAL signal.rpl_row_apply_process_next_row';
 [connection master]
 SET @@SESSION.BINLOG_ROWS_QUERY_LOG_EVENTS=0;
@@ -50,19 +50,19 @@ COMMIT;
 # Adding debug point 'dbug.rpl_apply_sync_barrier' to @@GLOBAL.debug
 include/start_slave_sql.inc
 SET debug_sync= 'now WAIT_FOR signal.rpl_row_apply_progress_updated';
-include/assert.inc [PERFORMANCE_SCHEMA.threads reports: state=Applying batch of row changes (write), db=db_wl7364, info IS NULL, Query]
-include/assert.inc [INFORMATION_SCHEMA.processlist reports: db=db_wl7364, info IS NULL, command=Query]
-[SHOW PROCESSLIST reports: db=db_wl7364, info LIKE 'NULL', command=Query]
+include/assert.inc [PERFORMANCE_SCHEMA.threads reports: state=Applying batch of row changes (write), db=db_wl7364, info LIKE "INSERT INTO db_wl7364.t1 (1)", Query]
+include/assert.inc [INFORMATION_SCHEMA.processlist reports: db=db_wl7364, info LIKE "INSERT INTO db_wl7364.t1 (1)", command=Query]
+[SHOW PROCESSLIST reports: db=db_wl7364, info LIKE "INSERT INTO db_wl7364.t1 (1)", command=Query]
 SET debug_sync= 'now SIGNAL signal.rpl_row_apply_process_next_row';
 SET debug_sync= 'now WAIT_FOR signal.rpl_row_apply_progress_updated';
-include/assert.inc [PERFORMANCE_SCHEMA.threads reports: state=Applying batch of row changes (update), db=db_wl7364, info IS NULL, Query]
-include/assert.inc [INFORMATION_SCHEMA.processlist reports: db=db_wl7364, info IS NULL, command=Query]
-[SHOW PROCESSLIST reports: db=db_wl7364, info LIKE 'NULL', command=Query]
+include/assert.inc [PERFORMANCE_SCHEMA.threads reports: state=Applying batch of row changes (update), db=db_wl7364, info LIKE "UPDATE db_wl7364.t1 (1)(2)", Query]
+include/assert.inc [INFORMATION_SCHEMA.processlist reports: db=db_wl7364, info LIKE "UPDATE db_wl7364.t1 (1)(2)", command=Query]
+[SHOW PROCESSLIST reports: db=db_wl7364, info LIKE "UPDATE db_wl7364.t1 (1)(2)", command=Query]
 SET debug_sync= 'now SIGNAL signal.rpl_row_apply_process_next_row';
 SET debug_sync= 'now WAIT_FOR signal.rpl_row_apply_progress_updated';
-include/assert.inc [PERFORMANCE_SCHEMA.threads reports: state=Applying batch of row changes (delete), db=db_wl7364, info IS NULL, Query]
-include/assert.inc [INFORMATION_SCHEMA.processlist reports: db=db_wl7364, info IS NULL, command=Query]
-[SHOW PROCESSLIST reports: db=db_wl7364, info LIKE 'NULL', command=Query]
+include/assert.inc [PERFORMANCE_SCHEMA.threads reports: state=Applying batch of row changes (delete), db=db_wl7364, info LIKE "DELETE FROM db_wl7364.t1 (2)", Query]
+include/assert.inc [INFORMATION_SCHEMA.processlist reports: db=db_wl7364, info LIKE "DELETE FROM db_wl7364.t1 (2)", command=Query]
+[SHOW PROCESSLIST reports: db=db_wl7364, info LIKE "DELETE FROM db_wl7364.t1 (2)", command=Query]
 SET debug_sync= 'now SIGNAL signal.rpl_row_apply_process_next_row';
 # Removing debug point 'dbug.rpl_apply_sync_barrier' from @@GLOBAL.debug
 [connection master]
@@ -81,22 +81,22 @@ BEGIN;
 BINLOG 'mSKWVhMBAAAAMgAAAOYCAAAAAPAAAAAAAAEACWRiX3dsNzM2NAACdDEAAQMAAfg9wnk=mSKWVh4BAAAAKAAAAA4DAAAAAPAAAAAAAAEAAgAB//4BAAAAnirPSw==';
 [connection master]
 SET debug_sync= 'now WAIT_FOR signal.rpl_row_apply_progress_updated';
-include/assert.inc [PERFORMANCE_SCHEMA.threads reports: state=Applying batch of row changes (write), db=db_wl7364, info LIKE "BINLOG %", Query]
-include/assert.inc [INFORMATION_SCHEMA.processlist reports: db=db_wl7364, info LIKE "BINLOG %", command=Query]
+include/assert.inc [PERFORMANCE_SCHEMA.threads reports: state=Applying batch of row changes (write), db=db_wl7364, info LIKE "INSERT INTO db_wl7364.t1 (1)", Query]
+include/assert.inc [INFORMATION_SCHEMA.processlist reports: db=db_wl7364, info LIKE "INSERT INTO db_wl7364.t1 (1)", command=Query]
 SET debug_sync= 'now SIGNAL signal.rpl_row_apply_process_next_row';
 [connection master1]
 BINLOG 'mSKWVhMBAAAAMgAAAGsDAAAAAPAAAAAAAAEACWRiX3dsNzM2NAACdDEAAQMAAWFoKHE=mSKWVh8BAAAALgAAAJkDAAAAAPAAAAAAAAEAAgAB///+AQAAAP4CAAAAuiHqhw==';
 [connection master]
 SET debug_sync= 'now WAIT_FOR signal.rpl_row_apply_progress_updated';
-include/assert.inc [PERFORMANCE_SCHEMA.threads reports: state=Applying batch of row changes (update), db=db_wl7364, info LIKE "BINLOG %", Query]
-include/assert.inc [INFORMATION_SCHEMA.processlist reports: db=db_wl7364, info LIKE "BINLOG %", command=Query]
+include/assert.inc [PERFORMANCE_SCHEMA.threads reports: state=Applying batch of row changes (update), db=db_wl7364, info LIKE "UPDATE db_wl7364.t1 (1)(2)", Query]
+include/assert.inc [INFORMATION_SCHEMA.processlist reports: db=db_wl7364, info LIKE "UPDATE db_wl7364.t1 (1)(2)", command=Query]
 SET debug_sync= 'now SIGNAL signal.rpl_row_apply_process_next_row';
 [connection master1]
 BINLOG 'mSKWVhMBAAAAMgAAAPwDAAAAAPAAAAAAAAEACWRiX3dsNzM2NAACdDEAAQMAAd+b01A=mSKWViABAAAAKAAAACQEAAAAAPAAAAAAAAEAAgAB//4CAAAAN7fZXg== ';
 [connection master]
 SET debug_sync= 'now WAIT_FOR signal.rpl_row_apply_progress_updated';
-include/assert.inc [PERFORMANCE_SCHEMA.threads reports: state=Applying batch of row changes (delete), db=db_wl7364, info LIKE "BINLOG %", Query]
-include/assert.inc [INFORMATION_SCHEMA.processlist reports: db=db_wl7364, info LIKE "BINLOG %", command=Query]
+include/assert.inc [PERFORMANCE_SCHEMA.threads reports: state=Applying batch of row changes (delete), db=db_wl7364, info LIKE "DELETE FROM db_wl7364.t1 (2)", Query]
+include/assert.inc [INFORMATION_SCHEMA.processlist reports: db=db_wl7364, info LIKE "DELETE FROM db_wl7364.t1 (2)", command=Query]
 SET debug_sync= 'now SIGNAL signal.rpl_row_apply_process_next_row';
 [connection master1]
 COMMIT;
@@ -221,19 +221,19 @@ COMMIT;
 # Adding debug point 'dbug.rpl_apply_sync_barrier' to @@GLOBAL.debug
 include/start_slave_sql.inc
 SET debug_sync= 'now WAIT_FOR signal.rpl_row_apply_progress_updated';
-include/assert.inc [PERFORMANCE_SCHEMA.threads reports: state=Applying batch of row changes (write), db=db2, info LIKE "INSERT INTO t1 VALUES (1)", Query]
-include/assert.inc [INFORMATION_SCHEMA.processlist reports: db=db2, info LIKE "INSERT INTO t1 VALUES (1)", command=Query]
-[SHOW PROCESSLIST reports: db=db2, info LIKE "INSERT INTO t1 VALUES (1)", command=Query]
+include/assert.inc [PERFORMANCE_SCHEMA.threads reports: state=Applying batch of row changes (write), db=db2, info LIKE "INSERT INTO db2.t1 (1)", Query]
+include/assert.inc [INFORMATION_SCHEMA.processlist reports: db=db2, info LIKE "INSERT INTO db2.t1 (1)", command=Query]
+[SHOW PROCESSLIST reports: db=db2, info LIKE "INSERT INTO db2.t1 (1)", command=Query]
 SET debug_sync= 'now SIGNAL signal.rpl_row_apply_process_next_row';
 SET debug_sync= 'now WAIT_FOR signal.rpl_row_apply_progress_updated';
-include/assert.inc [PERFORMANCE_SCHEMA.threads reports: state=Applying batch of row changes (update), db=db2, info LIKE "UPDATE t1 SET c1= 2", Query]
-include/assert.inc [INFORMATION_SCHEMA.processlist reports: db=db2, info LIKE "UPDATE t1 SET c1= 2", command=Query]
-[SHOW PROCESSLIST reports: db=db2, info LIKE "UPDATE t1 SET c1= 2", command=Query]
+include/assert.inc [PERFORMANCE_SCHEMA.threads reports: state=Applying batch of row changes (update), db=db2, info LIKE "UPDATE db2.t1 (1)(2)", Query]
+include/assert.inc [INFORMATION_SCHEMA.processlist reports: db=db2, info LIKE "UPDATE db2.t1 (1)(2)", command=Query]
+[SHOW PROCESSLIST reports: db=db2, info LIKE "UPDATE db2.t1 (1)(2)", command=Query]
 SET debug_sync= 'now SIGNAL signal.rpl_row_apply_process_next_row';
 SET debug_sync= 'now WAIT_FOR signal.rpl_row_apply_progress_updated';
-include/assert.inc [PERFORMANCE_SCHEMA.threads reports: state=Applying batch of row changes (delete), db=db2, info LIKE "DELETE FROM t1 WHERE c1=2", Query]
-include/assert.inc [INFORMATION_SCHEMA.processlist reports: db=db2, info LIKE "DELETE FROM t1 WHERE c1=2", command=Query]
-[SHOW PROCESSLIST reports: db=db2, info LIKE "DELETE FROM t1 WHERE c1=2", command=Query]
+include/assert.inc [PERFORMANCE_SCHEMA.threads reports: state=Applying batch of row changes (delete), db=db2, info LIKE "DELETE FROM db2.t1 (2)", Query]
+include/assert.inc [INFORMATION_SCHEMA.processlist reports: db=db2, info LIKE "DELETE FROM db2.t1 (2)", command=Query]
+[SHOW PROCESSLIST reports: db=db2, info LIKE "DELETE FROM db2.t1 (2)", command=Query]
 SET debug_sync= 'now SIGNAL signal.rpl_row_apply_process_next_row';
 [connection slave]
 # Removing debug point 'dbug.rpl_apply_sync_barrier' from @@GLOBAL.debug
