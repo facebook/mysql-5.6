@@ -7888,6 +7888,35 @@ int Rows_log_event::unpack_current_row(const Relay_log_info *const rli,
                                        bool is_after_image, bool only_seek) {
   DBUG_ASSERT(m_table);
 
+  mysql_mutex_lock(&thd->LOCK_thd_query);
+  // For a update event we should not clear the query when unpacking after
+  // image. This can be checked using the cols parameter.
+  if (cols != &m_cols_ai) thd->row_query.clear();
+
+  Log_event_type type = get_type_code();
+  if (type == Log_event_type::WRITE_ROWS_EVENT ||
+      type == Log_event_type::WRITE_ROWS_EVENT_V1)
+    thd->row_query = "INSERT INTO ";
+  else if (type == Log_event_type::DELETE_ROWS_EVENT ||
+           type == Log_event_type::DELETE_ROWS_EVENT_V1)
+    thd->row_query = "DELETE FROM ";
+  else {
+    DBUG_ASSERT(type == Log_event_type::UPDATE_ROWS_EVENT ||
+                type == Log_event_type::UPDATE_ROWS_EVENT_V1 ||
+                type == Log_event_type::PARTIAL_UPDATE_ROWS_EVENT);
+    if (cols != &m_cols_ai) {
+      thd->row_query = "UPDATE ";
+    }
+  }
+
+  if (cols != &m_cols_ai) {
+    thd->row_query.append(m_table->s->db.str, m_table->s->db.length);
+    thd->row_query.append(".");
+    thd->row_query.append(m_table->s->table_name.str,
+                          m_table->s->table_name.length);
+    thd->row_query.append(" ");
+  }
+
   enum_row_image_type row_image_type;
   if (is_after_image) {
     DBUG_ASSERT(get_general_type_code() != binary_log::DELETE_ROWS_EVENT);
@@ -7904,11 +7933,18 @@ int Rows_log_event::unpack_current_row(const Relay_log_info *const rli,
       (get_type_code() == binary_log::PARTIAL_UPDATE_ROWS_EVENT);
   ASSERT_OR_RETURN_ERROR(m_curr_row <= m_rows_end, HA_ERR_CORRUPT_EVENT);
   if (::unpack_row(rli, m_table, m_width, m_curr_row, cols, &m_curr_row_end,
-                   m_rows_end, row_image_type, has_value_options, only_seek)) {
+                   m_rows_end, row_image_type, has_value_options, only_seek,
+                   thd->row_query)) {
     int error = thd->get_stmt_da()->mysql_errno();
     DBUG_ASSERT(error);
+    mysql_mutex_unlock(&thd->LOCK_thd_query);
     return error;
   }
+#ifdef HAVE_PSI_THREAD_INTERFACE
+  PSI_THREAD_CALL(set_thread_info)
+  (thd->row_query.c_str(), thd->row_query.size());
+#endif
+  mysql_mutex_unlock(&thd->LOCK_thd_query);
 
   // After the row is unpacked, we need to update all hidden generated columns
   // for functional indexes since those values are not included in the binlog
@@ -10162,6 +10198,9 @@ end:
       in dispatch_command() after command execution is completed.
      */
     if (thd->slave_thread) free_root(thd->mem_root, MYF(MY_KEEP_PREALLOC));
+    mysql_mutex_lock(&thd->LOCK_thd_query);
+    thd->row_query.clear();
+    mysql_mutex_unlock(&thd->LOCK_thd_query);
   }
   return error;
 

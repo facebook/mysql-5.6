@@ -2192,17 +2192,22 @@ class List_process_list : public Do_THD_Impl {
       const char *query_str = nullptr;
       size_t query_length = 0;
 
-      /* If a rewritten query exists, use that. */
-      if (inspect_thd->rewritten_query().length() > 0) {
-        query_length = inspect_thd->rewritten_query().length();
-        query_str = inspect_thd->rewritten_query().ptr();
-      }
-      /*
-        Otherwise, use the original query.
-      */
-      else {
-        query_length = inspect_thd->query().length;
-        query_str = inspect_thd->query().str;
+      if (!inspect_thd->row_query.empty()) {
+        query_str = inspect_thd->row_query.c_str();
+        query_length = inspect_thd->row_query.size();
+      } else {
+        /* If a rewritten query exists, use that. */
+        if (inspect_thd->rewritten_query().length() > 0) {
+          query_length = inspect_thd->rewritten_query().length();
+          query_str = inspect_thd->rewritten_query().ptr();
+        }
+        /*
+          Otherwise, use the original query.
+        */
+        else {
+          query_length = inspect_thd->query().length;
+          query_str = inspect_thd->query().str;
+        }
       }
 
       /* In the stand-alone server, add "PLUGIN" as needed. */
@@ -2394,17 +2399,22 @@ class Fill_process_list : public Do_THD_Impl {
       const char *query_str = nullptr;
       size_t query_length = 0;
 
-      /* If a rewritten query exists, use that. */
-      if (inspect_thd->rewritten_query().length() > 0) {
-        query_length = inspect_thd->rewritten_query().length();
-        query_str = inspect_thd->rewritten_query().ptr();
-      }
-      /*
-        Otherwise, use the original query.
-      */
-      else {
-        query_length = inspect_thd->query().length;
-        query_str = inspect_thd->query().str;
+      if (!inspect_thd->row_query.empty()) {
+        query_str = inspect_thd->row_query.c_str();
+        query_length = inspect_thd->row_query.size();
+      } else {
+        /* If a rewritten query exists, use that. */
+        if (inspect_thd->rewritten_query().length() > 0) {
+          query_length = inspect_thd->rewritten_query().length();
+          query_str = inspect_thd->rewritten_query().ptr();
+        }
+        /*
+          Otherwise, use the original query.
+        */
+        else {
+          query_length = inspect_thd->query().length;
+          query_str = inspect_thd->query().str;
+        }
       }
 
       /* In the stand-alone server, add "PLUGIN" as needed. */

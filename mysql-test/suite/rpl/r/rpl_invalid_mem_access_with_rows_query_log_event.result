@@ -31,7 +31,7 @@ INSERT INTO t1 VALUES(1);
 SET DEBUG_SYNC= "now WAIT_FOR deleted_rows_query_ev";
 SELECT state,info FROM information_schema.processlist WHERE state like 'debug%';;
 state	debug sync point: now
-info	NULL
+info	INSERT INTO test.t1 (1)
 SET DEBUG_SYNC = "now SIGNAL go_ahead";
 #
 # Step 6) Cleanup
