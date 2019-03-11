@@ -79,6 +79,7 @@ Database: information_schema
 +---------------------------------------+
 |                Tables                 |
 +---------------------------------------+
+| AUTHINFO                              |
 | CHARACTER_SETS                        |
 | COLLATIONS                            |
 | COLLATION_CHARACTER_SET_APPLICABILITY |
@@ -150,6 +151,7 @@ Database: INFORMATION_SCHEMA
 +---------------------------------------+
 |                Tables                 |
 +---------------------------------------+
+| AUTHINFO                              |
 | CHARACTER_SETS                        |
 | COLLATIONS                            |
 | COLLATION_CHARACTER_SET_APPLICABILITY |

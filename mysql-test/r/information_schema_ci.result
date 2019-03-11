@@ -60,6 +60,7 @@ table_name COLLATE utf8_general_ci not like 'ndb_%' AND
 table_name COLLATE utf8_general_ci not like 'innodb_%';
 select * from v1;
 c
+AUTHINFO
 CHARACTER_SETS
 COLLATIONS
 COLLATION_CHARACTER_SET_APPLICABILITY
@@ -609,8 +610,8 @@ from information_schema.tables
 where table_schema='information_schema'
 order by table_name collate utf8_general_ci limit 2;
 TABLE_NAME	TABLE_TYPE	ENGINE
+AUTHINFO	SYSTEM VIEW	NULL
 CHARACTER_SETS	SYSTEM VIEW	NULL
-COLLATIONS	SYSTEM VIEW	NULL
 show tables from information_schema like "T%";
 Tables_in_information_schema (T%)
 TABLES
@@ -846,7 +847,7 @@ table_schema IN ('mysql', 'information_schema', 'test', 'mysqltest')
 AND table_name not like 'ndb%' AND table_name COLLATE utf8_general_ci not like 'innodb_%'
 GROUP BY TABLE_SCHEMA;
 TABLE_SCHEMA	count(*)
-information_schema	35
+information_schema	36
 mysql	31
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
@@ -1287,6 +1288,7 @@ group by c2.column_type order by num limit 1)
 and t.table_name not like 'INNODB_%'
 group by t.table_name order by num1, t.table_name COLLATE utf8_general_ci;
 TABLE_NAME	group_concat(t.table_schema, '.', t.table_name)	num1
+AUTHINFO	information_schema.AUTHINFO	1
 CHARACTER_SETS	information_schema.CHARACTER_SETS	1
 COLLATIONS	information_schema.COLLATIONS	1
 COLLATION_CHARACTER_SET_APPLICABILITY	information_schema.COLLATION_CHARACTER_SET_APPLICABILITY	1
@@ -2418,6 +2420,7 @@ AND t.table_name NOT LIKE 'ndb%'
   ORDER BY t.table_name COLLATE utf8_general_ci,
 c1.column_name COLLATE utf8_general_ci;
 TABLE_NAME	COLUMN_NAME
+AUTHINFO	ID
 CHARACTER_SETS	CHARACTER_SET_NAME
 COLLATIONS	COLLATION_NAME
 COLLATION_CHARACTER_SET_APPLICABILITY	COLLATION_NAME
@@ -2472,6 +2475,7 @@ AND t.table_name NOT LIKE 'ndb%'
   ORDER BY t.table_name COLLATE utf8_general_ci,
 c1.column_name COLLATE utf8_general_ci;
 TABLE_NAME	COLUMN_NAME
+AUTHINFO	ID
 CHARACTER_SETS	CHARACTER_SET_NAME
 COLLATIONS	COLLATION_NAME
 COLLATION_CHARACTER_SET_APPLICABILITY	COLLATION_NAME

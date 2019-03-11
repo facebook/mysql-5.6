@@ -1915,6 +1915,101 @@ static const char *thread_state_info(THD *tmp) {
 }
 
 /**
+  This class implements callback function used by fill_schema_authinfo()
+  to populate all the client SSL auth information into I_S table.
+*/
+class Fill_authinfo_list : public Do_THD_Impl {
+ private:
+  THD *const m_thd;
+  TABLE *const m_table;
+  const char *const m_user;
+
+ public:
+  Fill_authinfo_list(THD *thd, TABLE_LIST *tables) noexcept
+      : m_thd(thd),
+        m_table(tables->table),
+        m_user(thd->security_context()->check_access(PROCESS_ACL)
+                   ? nullptr
+                   : thd->security_context()->priv_user().str) {}
+
+  virtual void operator()(THD *current_thd) override {
+    const auto current_sctx = current_thd->security_context();
+    const auto current_sctx_user = current_sctx->user();
+
+    if (!current_thd->has_net_vio() &&
+        current_thd->system_thread == NON_SYSTEM_THREAD)
+      return;
+    if (m_user != nullptr && (current_sctx_user.str == nullptr ||
+                              strcmp(current_sctx_user.str, m_user) != 0))
+      return;
+
+    restore_record(m_table, s->default_values);
+
+    /* ID */
+    m_table->field[0]->store(static_cast<ulonglong>(current_thd->thread_id()),
+                             /*unsigned=*/true);
+
+    /* USER */
+    const char *val = current_sctx_user.str
+                          ? current_sctx_user.str
+                          : (current_thd->system_thread != NON_SYSTEM_THREAD
+                                 ? "system user"
+                                 : "unauthenticated user");
+    m_table->field[1]->store(val, strlen(val), system_charset_info);
+
+    /* HOST */
+    const auto current_sctx_host = current_sctx->host();
+    const auto current_sctx_ip = current_sctx->ip();
+    const auto current_sctx_host_or_ip = current_sctx->host_or_ip();
+
+    std::string host_and_port;
+    if (current_sctx_host.str != nullptr && current_sctx_host.str[0] != '\0') {
+      host_and_port.assign(current_sctx_host.str, current_sctx_host.length);
+    } else if (current_sctx_ip.str != nullptr &&
+               current_sctx_ip.str[0] != '\0') {
+      host_and_port.assign(current_sctx_ip.str, current_sctx_ip.length);
+    } else if (current_sctx_host_or_ip.str != nullptr &&
+               current_sctx_host_or_ip.str[0] == '\0') {
+      host_and_port.assign(current_sctx_host_or_ip.str,
+                           current_sctx_host_or_ip.length);
+    }
+    if (!host_and_port.empty() && current_thd->peer_port != 0) {
+      host_and_port += ':';
+      host_and_port += std::to_string(current_thd->peer_port);
+    }
+    m_table->field[2]->store(host_and_port.c_str(), host_and_port.size(),
+                             system_charset_info);
+
+    /* SSL */
+    const auto ssl = current_thd->has_net_vio_ssl_arg();
+    m_table->field[3]->store(ssl, /*unsigned=*/true);
+
+    /* Info */
+    const auto cert = THD::extract_peer_certificate_info(
+        current_thd, true /* printable format */);
+    if (!cert.empty()) {
+      const auto width = std::min(
+          static_cast<std::size_t>(PROCESS_LIST_INFO_WIDTH), cert.size());
+      m_table->field[4]->store(cert.c_str(), width, system_charset_info);
+      m_table->field[4]->set_notnull();
+    }
+
+    schema_table_store_record(m_thd, m_table);
+  }
+};
+
+int fill_schema_authinfo(THD *thd, TABLE_LIST *tables, Item *) {
+  DBUG_ENTER("fill_schema_authinfo");
+
+  Fill_authinfo_list fill_authinfo_list(thd, tables);
+  if (!thd->killed) {
+    Global_THD_manager::get_instance()->do_for_all_thd_copy(
+        &fill_authinfo_list);
+  }
+  DBUG_RETURN(0);
+}
+
+/**
   This class implements callback function used by mysqld_list_processes() to
   list all the client process information.
 */
@@ -4993,6 +5088,17 @@ ST_FIELD_INFO processlist_fields_info[] = {
      SKIP_OPEN_TABLE},
     {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}};
 
+ST_FIELD_INFO authinfo_fields_info[] = {
+    {"ID", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "Id", SKIP_OPEN_TABLE},
+    {"USER", USERNAME_CHAR_LENGTH, MYSQL_TYPE_STRING, 0, 0, "User",
+     SKIP_OPEN_TABLE},
+    {"HOST", LIST_PROCESS_HOST_LEN, MYSQL_TYPE_STRING, 0, 0, "Host",
+     SKIP_OPEN_TABLE},
+    {"SSL", 7, MYSQL_TYPE_LONG, 0, 0, "Ssl", SKIP_OPEN_TABLE},
+    {"INFO", PROCESS_LIST_INFO_WIDTH, MYSQL_TYPE_STRING, 0, 1, "Info",
+     SKIP_OPEN_TABLE},
+    {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}};
+
 ST_FIELD_INFO plugin_fields_info[] = {
     {"PLUGIN_NAME", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, "Name",
      SKIP_OPEN_TABLE},
@@ -5091,6 +5197,8 @@ ST_SCHEMA_TABLE schema_tables[] = {
     {"TMP_TABLE_KEYS", tmp_table_keys_fields_info, create_schema_table,
      get_all_tables, make_old_format, get_schema_tmp_table_keys_record, -1, -1,
      1, 0},
+    {"AUTHINFO", authinfo_fields_info, create_schema_table,
+     fill_schema_authinfo, make_old_format, 0, -1, -1, 0, 0},
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}};
 
 int initialize_schema_table(st_plugin_int *plugin) {
