@@ -1125,6 +1125,7 @@ ulong specialflag = 0;
 ulong binlog_cache_use = 0, binlog_cache_disk_use = 0;
 ulong binlog_stmt_cache_use = 0, binlog_stmt_cache_disk_use = 0;
 ulong max_connections, max_connect_errors;
+ulong max_nonsuper_connections = 0, nonsuper_connections = 0;
 ulong rpl_stop_slave_timeout = LONG_TIMEOUT;
 bool log_bin_use_v1_row_events = 0;
 bool thread_cache_size_specified = false;

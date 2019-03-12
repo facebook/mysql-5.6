@@ -289,6 +289,7 @@ extern ulong tablespace_def_size;
 extern MYSQL_PLUGIN_IMPORT ulong max_connections;
 extern ulong max_digest_length;
 extern ulong max_connect_errors, connect_timeout;
+extern ulong max_nonsuper_connections, nonsuper_connections;
 extern bool opt_slave_allow_batching;
 extern ulong slave_trans_retries;
 extern uint slave_net_timeout;
