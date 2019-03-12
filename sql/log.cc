@@ -708,6 +708,7 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
   size_t buff_len;
   end = buff;
 
+  const bool tid_present = !(thd->trace_id.empty());
   mysql_mutex_lock(&LOCK_log);
   assert(is_open());
 
@@ -775,7 +776,8 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
         " Sort_rows: %lu Sort_scan_count: %lu"
         " Created_tmp_disk_tables: %lu"
         " Created_tmp_tables: %lu"
-        " Start: %s End: %s";
+        " Start: %s End: %s"
+        " Trace_Id: %s Instruction_Cost: %lu";
 
     // If the query start status is valid - i.e. the current thread's
     // status values should be no less than the query start status,
@@ -856,7 +858,9 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
                   thd->copy_status_var_ptr->created_tmp_disk_tables),
           (ulong)(thd->status_var.created_tmp_tables -
                   thd->copy_status_var_ptr->created_tmp_tables),
-          start_time_buff, end_time_buff);
+          start_time_buff, end_time_buff,
+          (tid_present ? thd->trace_id.c_str() : "NA"),
+          (tid_present ? thd->pc_val : 0));
     } else {
       error = my_b_printf(
           &log_file, log_str, query_time_buff, lock_time_buff,
@@ -881,7 +885,8 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
           (ulong)thd->status_var.filesort_scan_count,
           (ulong)thd->status_var.created_tmp_disk_tables,
           (ulong)thd->status_var.created_tmp_tables, start_time_buff,
-          end_time_buff);
+          end_time_buff, (tid_present ? thd->trace_id.c_str() : "NA"),
+          (tid_present ? thd->pc_val : 0));
     }
     if (error == (uint)-1) goto err;
 
@@ -1934,8 +1939,10 @@ bool log_slow_applicable(THD *thd) {
        opt_log_queries_not_using_indexes &&
        !(sql_command_flags[thd->lex->sql_command] & CF_STATUS_COMMAND));
   bool log_this_query =
-      ((thd->server_status & SERVER_QUERY_WAS_SLOW) || warn_no_index) &&
-      (thd->get_examined_row_count() >= thd->variables.min_examined_row_limit);
+      (((thd->server_status & SERVER_QUERY_WAS_SLOW) || warn_no_index) &&
+       (thd->get_examined_row_count() >=
+        thd->variables.min_examined_row_limit)) ||
+      !thd->trace_id.empty();
 
   // The docs say slow queries must be counted even when the log is off.
   if (log_this_query) thd->status_var.long_query_count++;
