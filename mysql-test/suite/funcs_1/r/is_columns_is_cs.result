@@ -7,7 +7,7 @@ table_name COLLATE utf8_general_ci,
 ordinal_position;
 TABLE_CATALOG	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	ORDINAL_POSITION	COLUMN_DEFAULT	IS_NULLABLE	DATA_TYPE	CHARACTER_MAXIMUM_LENGTH	CHARACTER_OCTET_LENGTH	NUMERIC_PRECISION	NUMERIC_SCALE	DATETIME_PRECISION	CHARACTER_SET_NAME	COLLATION_NAME	COLUMN_TYPE	COLUMN_KEY	EXTRA	PRIVILEGES	COLUMN_COMMENT	GENERATION_EXPRESSION	SRS_ID
 def	information_schema	AUTHINFO	ID	1		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint(21) unsigned			select			NULL
-def	information_schema	AUTHINFO	USER	2		NO	varchar	10	32	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select			NULL
+def	information_schema	AUTHINFO	USER	2		NO	varchar	26	80	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(80)			select			NULL
 def	information_schema	AUTHINFO	HOST	3		NO	varchar	21	64	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select			NULL
 def	information_schema	AUTHINFO	SSL	4		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int(7)			select			NULL
 def	information_schema	AUTHINFO	INFO	5		YES	varchar	21845	65535	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(65535)			select			NULL
@@ -464,7 +464,7 @@ AND table_name <> 'PROFILING' AND table_name not like 'INNODB_%' AND table_name 
 ORDER BY TABLE_SCHEMA, TABLE_NAME COLLATE utf8_general_ci, ORDINAL_POSITION;
 COL_CML	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	DATA_TYPE	CHARACTER_MAXIMUM_LENGTH	CHARACTER_OCTET_LENGTH	CHARACTER_SET_NAME	COLLATION_NAME	COLUMN_TYPE
 NULL	information_schema	AUTHINFO	ID	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
-3.2000	information_schema	AUTHINFO	USER	varchar	10	32	utf8	utf8_general_ci	varchar(32)
+3.0769	information_schema	AUTHINFO	USER	varchar	26	80	utf8	utf8_general_ci	varchar(80)
 3.0476	information_schema	AUTHINFO	HOST	varchar	21	64	utf8	utf8_general_ci	varchar(64)
 NULL	information_schema	AUTHINFO	SSL	int	NULL	NULL	NULL	NULL	int(7)
 3.0000	information_schema	AUTHINFO	INFO	varchar	21845	65535	utf8	utf8_general_ci	varchar(65535)
