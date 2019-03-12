@@ -73,6 +73,7 @@
 #include "mysql/udf_registration_types.h"
 #include "mysql_version.h"
 #include "mysqld_error.h"
+#include "mysys/perf_counters.h"
 #include "mysys_err.h"  // EE_CAPACITY_EXCEEDED
 #include "pfs_thread_provider.h"
 #include "prealloced_array.h"
@@ -1579,6 +1580,10 @@ static void check_secondary_engine_statement(THD *thd,
                                    query_length);
 }
 
+static std::string perf_counter_factory_name() { return "simple"; }
+static std::shared_ptr<utils::PerfCounterFactory> pc_factory =
+    utils::PerfCounterFactory::getFactory(perf_counter_factory_name());
+
 /*Reference to the GR callback that receives incoming connections*/
 static std::atomic<gr_incoming_connection_cb> com_incoming_gr_stream_cb;
 
@@ -1986,6 +1991,15 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
       const unsigned int attrslen = com_data->com_query.query_attrs_length;
       thd->set_query_attrs(attrs, attrslen);
       thd->parse_query_info_attr();
+
+      if (!thd->trace_id.empty()) {
+        if (!thd->query_perf) {
+          thd->query_perf = pc_factory->makeSharedPerfCounter(
+              utils::PerfCounterMode::THREAD,
+              utils::PerfCounterType::INSTRUCTIONS);
+        }
+        thd->query_perf->start();
+      }
 
       if (alloc_query(thd, com_data->com_query.query,
                       com_data->com_query.length))
@@ -2447,6 +2461,11 @@ done:
      execution of the command at thie point. */
   mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_COMMAND_END), command,
                      cn.c_str());
+
+  assert(command == COM_QUERY || thd->trace_id.empty());
+  if (command == COM_QUERY && !thd->trace_id.empty()) {
+    thd->pc_val = thd->query_perf->getAndStop();
+  }
 
   log_slow_statement(thd, query_start_status_ptr);
 
