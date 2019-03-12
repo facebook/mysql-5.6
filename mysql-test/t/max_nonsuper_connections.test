@@ -1,0 +1,156 @@
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
+create user test_user@localhost;
+grant all on test to test_user@localhost;
+
+create user super_user@localhost;
+grant all on *.* to super_user@localhost with grant option;
+
+SET @start_value = @@global.max_nonsuper_connections;
+
+SET @@global.max_nonsuper_connections = 10;
+SELECT @@global.max_nonsuper_connections;
+--let $assert_text= Non_super_connections should be 0
+--let $assert_cond= "[SHOW GLOBAL STATUS like \'Non_super_connections\', Value, 1]" = "0"
+--source include/assert.inc
+
+enable_connect_log;
+connection default;
+
+#
+# fill up max_nonsuper_connections
+#
+let $i = 10;
+while ($i)
+{
+  connect (con$i, localhost, test_user,,test);
+  dec $i;
+}
+
+#
+# New non-admin connection will be rejected
+#
+disable_query_log;
+--error ER_CON_COUNT_ERROR
+connect (con11, localhost, test_user,,test);
+enable_query_log;
+
+#
+# admin user connection is not limited by max_nonsuper_connections
+#
+connect (con_root, localhost, root,,test);
+--echo # connection con_root
+connection con_root;
+SELECT @@global.max_nonsuper_connections;
+--let $assert_text= Non_super_connections should be 10
+--let $assert_cond= "[SHOW GLOBAL STATUS like \'Non_super_connections\', Value, 1]" = "10"
+--source include/assert.inc
+
+disconnect con_root;
+connection default;
+
+#
+# Test another admin super_user
+#
+connect (con_super, localhost, super_user,,test);
+connection con_super;
+SELECT @@global.max_nonsuper_connections;
+--let $assert_text= Non_super_connections should be 10
+--let $assert_cond= "[SHOW GLOBAL STATUS like \'Non_super_connections\', Value, 1]" = "10"
+--source include/assert.inc
+
+#
+# change admin user to regular user in the current connection will fail
+# because max_total_user_connection is already reached
+#
+--error 1
+--exec echo "--change_user test_user" | $MYSQL_TEST 2>&1
+
+#
+# change user to root is OK
+#
+change_user root;
+disconnect con_super;
+
+#
+# change regular user to root will free up the nonsuper_connections
+# so we will be able to connect another regular user
+#
+connection con10;
+change_user root;
+connect (con11, localhost, test_user,,test);
+disconnect con11;
+
+#
+# change con10 back to regular user
+#
+connection con10;
+# wait for con11 to be disconnected
+let $wait_condition=
+  select count(*)=9 from information_schema.processlist where user='test_user';
+source include/wait_condition.inc;
+# now change user in con10
+change_user test_user;
+disable_query_log;
+# no new regular connection can be accepted
+--error ER_CON_COUNT_ERROR
+connect (con11, localhost, test_user,,test);
+enable_query_log;
+
+#
+# decrement user connection counts
+#
+connection default;
+let $i= 10;
+while ($i)
+{
+  disconnect con$i;
+  dec $i;
+}
+
+# Verify counter leak is fixed when permission to a database is denied
+--echo Verifying nonsuper_connections is decremented when db is denied
+--disable_query_log
+--let $i = 20
+--while ($i) {
+  --error ER_DBACCESS_DENIED_ERROR
+  --connect (con_denied_$i, localhost, test_user,,bogus_db)
+  --dec $i
+--}
+--enable_query_log
+
+# able to refill up max_nonsuper_connections
+connection default;
+let $i = 10;
+while ($i)
+{
+  connect (con$i, localhost, test_user,,test);
+  dec $i;
+}
+disable_query_log;
+--error ER_CON_COUNT_ERROR
+connect (con11, localhost, test_user,,test);
+enable_query_log;
+
+#
+# restore
+#
+connection default;
+SET @@global.max_nonsuper_connections = @start_value;
+SELECT @@global.max_nonsuper_connections;
+--let $assert_text= Non_super_connections should be 10
+--let $assert_cond= "[SHOW GLOBAL STATUS like \'Non_super_connections\', Value, 1]" = "10"
+--source include/assert.inc
+
+drop user test_user@localhost;
+drop user super_user@localhost;
+let $i= 10;
+while ($i)
+{
+  disconnect con$i;
+  dec $i;
+}
+
+# Wait till all disconnects are completed
+--source include/wait_until_count_sessions.inc
