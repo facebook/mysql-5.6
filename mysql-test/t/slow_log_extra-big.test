@@ -52,13 +52,19 @@ SELECT COUNT(*) FROM big_table_slow WHERE id>100;
 
 SELECT COUNT(*) FROM big_table_slow WHERE id<100;
 
+connect (con2, localhost,root,,);
+set session long_query_time = 10000;
+query_attrs_add traceid foobar;
+select count(*) from big_table_slow where id > 300;
+query_attrs_delete traceid;
+
 --echo # Cleanup
 
 connection default;
 
 # wait for queries to complete
 let $wait_condition=
-  SELECT COUNT(*)=2 FROM performance_schema.threads WHERE name="thread/sql/one_connection" AND processlist_command="Sleep";
+  SELECT COUNT(*)=3 FROM performance_schema.threads WHERE name="thread/sql/one_connection" AND processlist_command="Sleep";
 --source include/wait_condition.inc
 
 # make sure we add no more log lines
@@ -67,6 +73,7 @@ SET GLOBAL long_query_time=@my_lqt;
 # change back to original log file
 SET GLOBAL slow_query_log_file = @my_slow_logname;
 
+disconnect con2;
 disconnect con1;
 disconnect con;
 
@@ -88,5 +95,14 @@ foreach $line (@lines) {
   }
 }
 EOF
+
+# Check if our Trace_Id is included the log results
+let SEARCH_FILE = $BIG_LOG;
+let SEARCH_PATTERN= Trace_Id: foobar;
+--source include/search_pattern_in_file.inc
+
+# Try to detect a broken slow log
+--replace_regex /Time=.*//
+--exec $MYSQLDUMPSLOW $BIG_LOG -g 'from big_table_slow where id>100 and id<200'
 
 --remove_file $BIG_LOG
