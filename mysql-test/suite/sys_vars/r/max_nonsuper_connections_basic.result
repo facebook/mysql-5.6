@@ -1,0 +1,100 @@
+SET @start_value = @@global.max_nonsuper_connections;
+SELECT @start_value;
+@start_value
+0
+SET @@global.max_nonsuper_connections = DEFAULT;
+SELECT @@global.max_nonsuper_connections;
+@@global.max_nonsuper_connections
+0
+SET @@global.max_nonsuper_connections = 100000;
+SELECT @@global.max_nonsuper_connections;
+@@global.max_nonsuper_connections
+100000
+SET @@global.max_nonsuper_connections = 99999;
+SELECT @@global.max_nonsuper_connections;
+@@global.max_nonsuper_connections
+99999
+SET @@global.max_nonsuper_connections = 65536;
+SELECT @@global.max_nonsuper_connections;
+@@global.max_nonsuper_connections
+65536
+SET @@global.max_nonsuper_connections = 1;
+SELECT @@global.max_nonsuper_connections;
+@@global.max_nonsuper_connections
+1
+SET @@global.max_nonsuper_connections = 2;
+SELECT @@global.max_nonsuper_connections;
+@@global.max_nonsuper_connections
+2
+SET @@global.max_nonsuper_connections = TRUE;
+SELECT @@global.max_nonsuper_connections;
+@@global.max_nonsuper_connections
+1
+SET @@global.max_nonsuper_connections = FALSE;
+SELECT @@global.max_nonsuper_connections;
+@@global.max_nonsuper_connections
+0
+SET @@global.max_nonsuper_connections = -1;
+Warnings:
+Warning	1292	Truncated incorrect max_nonsuper_connections value: '-1'
+SELECT @@global.max_nonsuper_connections;
+@@global.max_nonsuper_connections
+0
+SET @@global.max_nonsuper_connections = 100000000000;
+SELECT @@global.max_nonsuper_connections;
+@@global.max_nonsuper_connections
+100000000000
+SET @@global.max_nonsuper_connections = 10000.01;
+ERROR 42000: Incorrect argument type to variable 'max_nonsuper_connections'
+SELECT @@global.max_nonsuper_connections;
+@@global.max_nonsuper_connections
+100000000000
+SET @@global.max_nonsuper_connections = -1024;
+Warnings:
+Warning	1292	Truncated incorrect max_nonsuper_connections value: '-1024'
+SELECT @@global.max_nonsuper_connections;
+@@global.max_nonsuper_connections
+0
+SET @@global.max_nonsuper_connections = ON;
+ERROR 42000: Incorrect argument type to variable 'max_nonsuper_connections'
+SELECT @@global.max_nonsuper_connections;
+@@global.max_nonsuper_connections
+0
+SET @@global.max_nonsuper_connections = 'test';
+ERROR 42000: Incorrect argument type to variable 'max_nonsuper_connections'
+SELECT @@global.max_nonsuper_connections;
+@@global.max_nonsuper_connections
+0
+SET @@session.max_nonsuper_connections = 4096;
+ERROR HY000: Variable 'max_nonsuper_connections' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.max_nonsuper_connections;
+ERROR HY000: Variable 'max_nonsuper_connections' is a GLOBAL variable
+SET max_nonsuper_connections = 6000;
+ERROR HY000: Variable 'max_nonsuper_connections' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@max_nonsuper_connections;
+@@max_nonsuper_connections
+0
+SET local.max_nonsuper_connections = 7000;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.max_nonsuper_connections = 7000' at line 1
+SELECT local.max_nonsuper_connections;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.max_nonsuper_connections = 8000;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'global.max_nonsuper_connections = 8000' at line 1
+SELECT global.max_nonsuper_connections;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT max_nonsuper_connections = @@session.max_nonsuper_connections;
+ERROR HY000: Variable 'max_nonsuper_connections' is a GLOBAL variable
+SELECT @@global.max_nonsuper_connections = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='max_nonsuper_connections';
+@@global.max_nonsuper_connections = VARIABLE_VALUE
+1
+SELECT @@max_nonsuper_connections = VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='max_nonsuper_connections';
+@@max_nonsuper_connections = VARIABLE_VALUE
+1
+SET @@global.max_nonsuper_connections = @start_value;
+SELECT @@global.max_nonsuper_connections;
+@@global.max_nonsuper_connections
+0

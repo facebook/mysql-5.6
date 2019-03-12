@@ -1,0 +1,95 @@
+--source include/load_sysvars.inc
+
+#
+# save original value
+#
+SET @start_value = @@global.max_nonsuper_connections;
+SELECT @start_value;
+
+
+#
+# set default value
+#
+SET @@global.max_nonsuper_connections = DEFAULT;
+SELECT @@global.max_nonsuper_connections;
+
+
+#
+# set various values
+#
+SET @@global.max_nonsuper_connections = 100000;
+SELECT @@global.max_nonsuper_connections;
+SET @@global.max_nonsuper_connections = 99999;
+SELECT @@global.max_nonsuper_connections;
+SET @@global.max_nonsuper_connections = 65536;
+SELECT @@global.max_nonsuper_connections;
+SET @@global.max_nonsuper_connections = 1;
+SELECT @@global.max_nonsuper_connections;
+SET @@global.max_nonsuper_connections = 2;
+SELECT @@global.max_nonsuper_connections;
+SET @@global.max_nonsuper_connections = TRUE;
+SELECT @@global.max_nonsuper_connections;
+SET @@global.max_nonsuper_connections = FALSE;
+SELECT @@global.max_nonsuper_connections;
+
+
+#
+# set invalid values
+#
+# Value truncated
+SET @@global.max_nonsuper_connections = -1;
+SELECT @@global.max_nonsuper_connections;
+# Value truncated
+SET @@global.max_nonsuper_connections = 100000000000;
+SELECT @@global.max_nonsuper_connections;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.max_nonsuper_connections = 10000.01;
+SELECT @@global.max_nonsuper_connections;
+# Value truncated
+SET @@global.max_nonsuper_connections = -1024;
+SELECT @@global.max_nonsuper_connections;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.max_nonsuper_connections = ON;
+SELECT @@global.max_nonsuper_connections;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.max_nonsuper_connections = 'test';
+SELECT @@global.max_nonsuper_connections;
+
+--Error ER_GLOBAL_VARIABLE
+SET @@session.max_nonsuper_connections = 4096;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.max_nonsuper_connections;
+
+--Error ER_GLOBAL_VARIABLE
+SET max_nonsuper_connections = 6000;
+SELECT @@max_nonsuper_connections;
+--Error ER_PARSE_ERROR
+SET local.max_nonsuper_connections = 7000;
+--Error ER_UNKNOWN_TABLE
+SELECT local.max_nonsuper_connections;
+--Error ER_PARSE_ERROR
+SET global.max_nonsuper_connections = 8000;
+--Error ER_UNKNOWN_TABLE
+SELECT global.max_nonsuper_connections;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT max_nonsuper_connections = @@session.max_nonsuper_connections;
+
+
+#
+# Check if the value in GLOBAL & SESSION Tables matches values in variable
+#
+SELECT @@global.max_nonsuper_connections = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='max_nonsuper_connections';
+
+SELECT @@max_nonsuper_connections = VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='max_nonsuper_connections';
+
+
+#
+# restore
+#
+SET @@global.max_nonsuper_connections = @start_value;
+SELECT @@global.max_nonsuper_connections;

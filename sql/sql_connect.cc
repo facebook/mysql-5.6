@@ -270,6 +270,17 @@ void release_user_connection(THD *thd) {
   const USER_CONN *uc = thd->get_user_connect();
   DBUG_TRACE;
 
+  // In 8.0, uc might be null this connection.
+  // It is also possible for the user's privilege access to have changed
+  // due to REVOKE after the connection was established. This means
+  // add_nonsuper_connections_ref was not called (at the time, it had
+  // SUPER access), but remove_nonsuper_connections_ref() is called here
+  // during cleanup because the it no longer has SUPER access.
+  if (!thd->m_main_security_ctx.check_access(SUPER_ACL)) {
+    // this is non-super user, decrement nonsuper_connections
+    thd->remove_nonsuper_connections_ref();
+  }
+
   if (uc) {
     mysql_mutex_lock(&LOCK_user_conn);
     assert(uc->connections > 0);
