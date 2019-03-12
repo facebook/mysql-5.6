@@ -1,0 +1,113 @@
+create user test_user@localhost;
+grant all on test to test_user@localhost;
+create user super_user@localhost;
+grant all on *.* to super_user@localhost with grant option;
+SET @start_value = @@global.max_nonsuper_connections;
+SET @@global.max_nonsuper_connections = 10;
+SELECT @@global.max_nonsuper_connections;
+@@global.max_nonsuper_connections
+10
+include/assert.inc [Non_super_connections should be 0]
+connection default;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+ERROR 08004: Too many connections
+connect  con_root, localhost, root,,test;
+# connection con_root
+connection con_root;
+SELECT @@global.max_nonsuper_connections;
+@@global.max_nonsuper_connections
+10
+include/assert.inc [Non_super_connections should be 10]
+connection con_root;
+connection con_root;
+disconnect con_root;
+connection default;
+connect  con_super, localhost, super_user,,test;
+connection con_super;
+SELECT @@global.max_nonsuper_connections;
+@@global.max_nonsuper_connections
+10
+include/assert.inc [Non_super_connections should be 10]
+connection con_super;
+connection con_super;
+mysqltest: At line 1: Query 'change_user test_user' failed.
+ERROR 1040 (08004): Too many connections
+disconnect con_super;
+connection con10;
+connect  con11, localhost, test_user,,test;
+disconnect con11;
+connection con10;
+ERROR 08004: Too many connections
+connection default;
+disconnect con10;
+disconnect con9;
+disconnect con8;
+disconnect con7;
+disconnect con6;
+disconnect con5;
+disconnect con4;
+disconnect con3;
+disconnect con2;
+disconnect con1;
+Verifying nonsuper_connections is decremented when db is denied
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+connection default;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+connect  con$i, localhost, test_user,,test;
+ERROR 08004: Too many connections
+connection default;
+SET @@global.max_nonsuper_connections = @start_value;
+SELECT @@global.max_nonsuper_connections;
+@@global.max_nonsuper_connections
+0
+include/assert.inc [Non_super_connections should be 10]
+connection default;
+connection default;
+drop user test_user@localhost;
+drop user super_user@localhost;
+disconnect con10;
+disconnect con9;
+disconnect con8;
+disconnect con7;
+disconnect con6;
+disconnect con5;
+disconnect con4;
+disconnect con3;
+disconnect con2;
+disconnect con1;

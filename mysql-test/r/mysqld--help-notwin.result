@@ -654,6 +654,9 @@ The following options may be given as the first argument:
  --max-length-for-sort-data=# 
  This variable is deprecated and will be removed in a
  future release.
+ --max-nonsuper-connections=# 
+ The maximum number of total active connections for
+ non-super user (0 = no limit)
  --max-points-in-geometry[=#] 
  Maximum number of points in a geometry
  --max-prepared-stmt-count=# 
@@ -1658,6 +1661,7 @@ max-execution-time 0
 max-heap-table-size 16777216
 max-join-size 18446744073709551615
 max-length-for-sort-data 4096
+max-nonsuper-connections 0
 max-points-in-geometry 65536
 max-prepared-stmt-count 16382
 max-relay-log-size 0
