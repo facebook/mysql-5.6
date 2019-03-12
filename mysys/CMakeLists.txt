@@ -103,6 +103,7 @@ SET(MYSYS_SOURCES
   my_user.cc
   my_write.cc
   pack.cc
+  perf_counters.cc
   print_version.cc
   psi_noop.cc
   ptr_cmp.cc

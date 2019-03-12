@@ -3187,7 +3187,9 @@ static const std::string num_queries_key{"num_queries"};
 
 int THD::parse_query_info_attr() {
   for (const auto &kvp : query_attrs_list) {
-    if (kvp.first == query_info_key) {
+    if (kvp.first == traceid_key) {
+      this->trace_id = kvp.second;
+    } else if (kvp.first == query_info_key) {
       rapidjson::Document root;
       if (root.Parse(kvp.second.c_str()).HasParseError()) {
         return -1;

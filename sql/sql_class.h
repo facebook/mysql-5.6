@@ -147,6 +147,10 @@ class Dictionary_client;
 class DD_kill_immunizer;
 }  // namespace dd
 
+namespace utils {
+class PerfCounter;
+}
+
 class Internal_error_handler;
 class Modification_plan;
 class Query_result;
@@ -4091,6 +4095,8 @@ class THD : public MDL_context_owner,
   uint64_t num_queries;
   std::string query_type;
   std::string trace_id;
+  uint64_t pc_val;
+  std::shared_ptr<utils::PerfCounter> query_perf;
 
  private:
   /** The current internal error handler for this thread, or NULL. */
