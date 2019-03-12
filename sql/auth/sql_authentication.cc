@@ -4110,6 +4110,19 @@ int acl_authenticate(THD *thd, enum_server_command command) {
                         thd->password ? "yes" : "no", sctx->master_access(),
                         mpvio.db.str));
 
+    if (!thd->m_main_security_ctx.check_access(SUPER_ACL)) {
+      // this is non-super user, increment nonsuper_connections
+      const bool limit_reached =
+          thd->add_nonsuper_connections_ref() > max_nonsuper_connections;
+
+      if (max_nonsuper_connections &&
+          limit_reached) {  // max_nonsuper_connections limit reached
+        release_user_connection(thd);
+        my_error(ER_CON_COUNT_ERROR, MYF(0));
+        return 1;
+      }
+    }
+
     if (command == COM_CONNECT &&
         check_restrictions_for_com_connect_command(thd)) {
       release_user_connection(thd);

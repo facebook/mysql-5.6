@@ -1391,6 +1391,8 @@ ulong specialflag = 0;
 ulong binlog_cache_use = 0, binlog_cache_disk_use = 0;
 ulong binlog_stmt_cache_use = 0, binlog_stmt_cache_disk_use = 0;
 ulong max_connections, max_connect_errors;
+ulong max_nonsuper_connections = 0;
+std::atomic<ulong> nonsuper_connections(0);
 ulong rpl_stop_replica_timeout = LONG_TIMEOUT;
 bool log_bin_use_v1_row_events = false;
 bool thread_cache_size_specified = false;
@@ -9834,6 +9836,8 @@ SHOW_VAR status_vars[] = {
      SHOW_SCOPE_GLOBAL},
     {"Max_used_connections_time", (char *)&show_max_used_connections_time,
      SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Non_super_connections", (char *)&nonsuper_connections, SHOW_LONG_NOFLUSH,
+     SHOW_SCOPE_GLOBAL},
     {"Not_flushed_delayed_rows", (char *)&delayed_rows_in_use,
      SHOW_LONG_NOFLUSH, SHOW_SCOPE_GLOBAL},
     {"Open_files", (char *)&my_file_opened, SHOW_LONG_NOFLUSH,

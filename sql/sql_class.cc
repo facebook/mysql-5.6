@@ -1438,6 +1438,9 @@ void THD::release_resources() {
     get_protocol_classic()->end_net();
   }
 
+  /* Free nonsuper connection reference if needed */
+  remove_nonsuper_connections_ref(true);
+
   /* modification plan for UPDATE/DELETE should be freed. */
   assert(query_plan.get_modification_plan() == nullptr);
   mysql_mutex_unlock(&LOCK_thd_data);
@@ -1501,6 +1504,8 @@ THD::~THD() {
   DBUG_PRINT("info", ("THD dtor, this %p", this));
 
   if (!release_resources_done()) release_resources();
+
+  assert(nonsuper_ref == 0);
 
   clear_next_event_pos();
 
@@ -2727,6 +2732,40 @@ void THD::increment_questions_counter() {
   DBUG_TRACE;
 
   m_user_connect->questions++;
+}
+
+ulong THD::add_nonsuper_connections_ref() {
+  DBUG_ENTER("THD::add_nonsuper_connections_ref");
+
+  // Changing user temporarily is considered two references
+  // If max_nonsuper_connections is 1, then this could be a problem
+  nonsuper_ref++;
+  ulong count = ++nonsuper_connections;
+
+  DBUG_RETURN(count);
+}
+
+void THD::remove_nonsuper_connections_ref(bool clear) {
+  DBUG_ENTER("THD::remove_nonsuper_connections_ref");
+
+  if (nonsuper_ref == 0) {
+    DBUG_VOID_RETURN;
+  }
+
+  bool underflow;
+  if (clear) {
+    underflow = nonsuper_connections < nonsuper_ref;
+    nonsuper_connections -= nonsuper_ref;
+    nonsuper_ref = 0;
+  } else {
+    underflow = ((nonsuper_connections--) == 0);
+    nonsuper_ref--;
+  }
+
+  assert(!underflow);
+  (void)underflow;  // prevent compiler warning about unused on non-debug builds
+
+  DBUG_VOID_RETURN;
 }
 
 /*
