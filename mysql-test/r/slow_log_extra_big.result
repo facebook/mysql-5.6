@@ -21,9 +21,13 @@ count(*)
 select count(*) from big_table_slow where id < 100;
 count(*)
 49
+set session long_query_time = 10000;
+select count(*) from big_table_slow where id > 300;
+count(*)
+50
 # Cleanup
 set global slow_query_log_file = @my_slow_logname;
-set global long_query_time=@my_long_query_time;
+set global long_query_time = @my_long_query_time;
 drop table big_table_slow;
 #
 # This is a hack to check the log result.
@@ -38,5 +42,6 @@ Rows_sent	Rows_examined	Errno	Killed	Bytes_received	Bytes_sent	Read_first	Read_l
 1	1	0	0	0	307	0	0	1	0	0	0	0	0	0	0	0	0
 1	150	0	0	0	58	0	0	1	150	0	0	0	0	0	0	0	0
 1	49	0	0	0	57	1	0	1	49	0	0	0	0	0	0	0	0
+1	50	0	0	0	57	0	0	1	50	0	0	0	0	0	0	0	0
 if the following is not 1 you need to adjust the file_lines_count variable
 1

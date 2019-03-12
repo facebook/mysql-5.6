@@ -2917,9 +2917,12 @@ void THD::set_query_attrs(const char *attrs, size_t length) {
 
 int THD::parse_query_info_attr() {
   static const std::string query_info_key = "query_info";
+  static const std::string traceid_key = "traceid";
 
   for (const auto &kvp : query_attrs_list) {
-    if (kvp.first == query_info_key) {
+    if (kvp.first == traceid_key) {
+      this->trace_id = kvp.second;
+    } else if (kvp.first == query_info_key) {
       ptree root;
       try {
         std::istringstream query_info_attr(kvp.second);
