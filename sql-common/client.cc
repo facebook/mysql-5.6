@@ -3153,6 +3153,10 @@ static void mysql_ssl_free(MYSQL *mysql) {
     mysql->options.extension->tls_version = 0;
     mysql->options.extension->ssl_mode = SSL_MODE_DISABLED;
     mysql->options.extension->ssl_fips_mode = SSL_FIPS_MODE_OFF;
+    if (mysql->options.extension->ssl_session) {
+      SSL_SESSION_free((SSL_SESSION *)mysql->options.extension->ssl_session);
+      mysql->options.extension->ssl_session = nullptr;
+    }
   }
   mysql->connector_fd = 0;
   DBUG_VOID_RETURN;
