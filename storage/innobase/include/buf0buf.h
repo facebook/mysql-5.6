@@ -227,7 +227,7 @@ struct buf_pools_list_size_t {
 @param[in]  total_size    Size of the total pool in bytes.
 @param[in]  n_instances   Number of buffer pool instances to create.
 @return DB_SUCCESS if success, DB_ERROR if not enough memory or error */
-dberr_t buf_pool_init(ulint total_size, ulint n_instances);
+dberr_t buf_pool_init(ulint total_size, ulint n_instances, bool populate);
 
 /** Frees the buffer pool at shutdown.  This must not be invoked before
  freeing all mutexes. */

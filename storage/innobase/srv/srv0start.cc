@@ -1816,7 +1816,8 @@ dberr_t srv_start(bool create_new_db, const std::string &scan_directories) {
   ib::info(ER_IB_MSG_1130, size, unit, srv_buf_pool_instances, chunk_size,
            chunk_unit);
 
-  err = buf_pool_init(srv_buf_pool_size, srv_buf_pool_instances);
+  err = buf_pool_init(srv_buf_pool_size, srv_buf_pool_populate,
+                      srv_buf_pool_instances);
 
   if (err != DB_SUCCESS) {
     ib::error(ER_IB_MSG_1131);
