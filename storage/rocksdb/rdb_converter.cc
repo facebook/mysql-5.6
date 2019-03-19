@@ -48,10 +48,275 @@ void dbug_modify_key_varchar8(String *on_disk_rec) {
 }
 
 /*
+  Convert field from rocksdb storage format into Mysql Record format
+  @param    buf         OUT          start memory to fill converted data
+  @param    offset      IN/OUT       decoded data is stored in buf + offset
+  @param    table       IN           current table
+  @param    field       IN           current field
+  @param    reader      IN           rocksdb value slice reader
+  @param    decode      IN           whether to decode current field
+  @return
+    0      OK
+    other  HA_ERR error code (can be SE-specific)
+*/
+int Rdb_convert_to_record_value_decoder::decode(uchar *const buf, uint *offset,
+                                                TABLE *table,
+                                                my_core::Field *field,
+                                                Rdb_field_encoder *field_dec,
+                                                Rdb_string_reader *reader,
+                                                bool decode, bool is_null) {
+  int err = HA_EXIT_SUCCESS;
+
+  uint field_offset = field->ptr - table->record[0];
+  *offset = field_offset;
+  uint null_offset = field->null_offset();
+  bool maybe_null = field->real_maybe_null();
+  field->move_field(buf + field_offset,
+                    maybe_null ? buf + null_offset : nullptr, field->null_bit);
+
+  if (is_null) {
+    if (decode) {
+      // This sets the NULL-bit of this record
+      field->set_null();
+      /*
+        Besides that, set the field value to default value. CHECKSUM TABLE
+        depends on this.
+      */
+      memcpy(field->ptr, table->s->default_values + field_offset,
+             field->pack_length());
+    }
+  } else {
+    if (decode) {
+      // sets non-null bits for this record
+      field->set_notnull();
+    }
+
+    if (field_dec->m_field_type == MYSQL_TYPE_BLOB) {
+      err = decode_blob(table, field, reader, decode);
+    } else if (field_dec->m_field_type == MYSQL_TYPE_VARCHAR) {
+      err = decode_varchar(field, reader, decode);
+    } else {
+      err = decode_fixed_length_field(field, field_dec, reader, decode);
+    }
+  }
+
+  // Restore field->ptr and field->null_ptr
+  field->move_field(table->record[0] + field_offset,
+                    maybe_null ? table->record[0] + null_offset : nullptr,
+                    field->null_bit);
+
+  return err;
+}
+
+/*
+  Convert blob from rocksdb storage format into Mysql Record format
+  @param    table       IN           current table
+  @param    field       IN           current field
+  @param    reader      IN           rocksdb value slice reader
+  @param    decode      IN           whether to decode current field
+  @return
+    0      OK
+    other  HA_ERR error code (can be SE-specific)
+*/
+int Rdb_convert_to_record_value_decoder::decode_blob(TABLE *table, Field *field,
+                                                     Rdb_string_reader *reader,
+                                                     bool decode) {
+  my_core::Field_blob *blob = (my_core::Field_blob *)field;
+
+  // Get the number of bytes needed to store length
+  const uint length_bytes = blob->pack_length() - portable_sizeof_char_ptr;
+
+  const char *data_len_str;
+  if (!(data_len_str = reader->read(length_bytes))) {
+    return HA_ERR_ROCKSDB_CORRUPT_DATA;
+  }
+
+  memcpy(blob->ptr, data_len_str, length_bytes);
+  uint32 data_len =
+      blob->get_length(reinterpret_cast<const uchar *>(data_len_str),
+                       length_bytes, table->s->db_low_byte_first);
+  const char *blob_ptr;
+  if (!(blob_ptr = reader->read(data_len))) {
+    return HA_ERR_ROCKSDB_CORRUPT_DATA;
+  }
+
+  if (decode) {
+    // set 8-byte pointer to 0, like innodb does (relevant for 32-bit
+    // platforms)
+    memset(blob->ptr + length_bytes, 0, 8);
+    memcpy(blob->ptr + length_bytes, &blob_ptr, sizeof(uchar **));
+  }
+
+  return HA_EXIT_SUCCESS;
+}
+
+/*
+  Convert fixed length field from rocksdb storage format into Mysql Record
+  format
+  @param    field       IN           current field
+  @param    field_dec   IN           data structure conttain field encoding data
+  @param    reader      IN           rocksdb value slice reader
+  @param    decode      IN           whether to decode current field
+  @return
+    0      OK
+    other  HA_ERR error code (can be SE-specific)
+*/
+int Rdb_convert_to_record_value_decoder::decode_fixed_length_field(
+    my_core::Field *const field, Rdb_field_encoder *field_dec,
+    Rdb_string_reader *const reader, bool decode) {
+  uint len = field_dec->m_pack_length_in_rec;
+  if (len > 0) {
+    const char *data_bytes;
+    if ((data_bytes = reader->read(len)) == nullptr) {
+      return HA_ERR_ROCKSDB_CORRUPT_DATA;
+    }
+
+    if (decode) {
+      memcpy(field->ptr, data_bytes, len);
+    }
+  }
+
+  return HA_EXIT_SUCCESS;
+}
+
+/*
+  Convert varchar field from rocksdb storage format into Mysql Record format
+  @param    field       IN           current field
+  @param    field_dec   IN           data structure conttain field encoding data
+  @param    reader      IN           rocksdb value slice reader
+  @param    decode      IN           whether to decode current field
+  @return
+    0      OK
+    other  HA_ERR error code (can be SE-specific)
+*/
+int Rdb_convert_to_record_value_decoder::decode_varchar(
+    Field *field, Rdb_string_reader *const reader, bool decode) {
+
+  my_core::Field_varstring *const field_var = (my_core::Field_varstring *)field;
+
+  const char *data_len_str;
+  if (!(data_len_str = reader->read(field_var->length_bytes))) {
+    return HA_ERR_ROCKSDB_CORRUPT_DATA;
+  }
+
+  uint data_len;
+  // field_var->length_bytes is 1 or 2
+  if (field_var->length_bytes == 1) {
+    data_len = (uchar)data_len_str[0];
+  } else {
+    DBUG_ASSERT(field_var->length_bytes == 2);
+    data_len = uint2korr(data_len_str);
+  }
+
+  if (data_len > field_var->field_length) {
+    // The data on disk is longer than table DDL allows?
+    return HA_ERR_ROCKSDB_CORRUPT_DATA;
+  }
+
+  if (!reader->read(data_len)) {
+    return HA_ERR_ROCKSDB_CORRUPT_DATA;
+  }
+
+  if (decode) {
+    memcpy(field_var->ptr, data_len_str, field_var->length_bytes + data_len);
+  }
+
+  return HA_EXIT_SUCCESS;
+}
+
+template <typename value_field_decoder>
+Rdb_value_field_iterator<value_field_decoder>::Rdb_value_field_iterator(
+    TABLE *table, Rdb_string_reader *value_slice_reader,
+    const Rdb_converter *rdb_converter, uchar *const buf)
+    : m_buf(buf) {
+  DBUG_ASSERT(table != nullptr);
+  DBUG_ASSERT(buf != nullptr);
+
+  m_table = table;
+  m_value_slice_reader = value_slice_reader;
+  auto fields = rdb_converter->get_decode_fields();
+  m_field_iter = fields->begin();
+  m_field_end = fields->end();
+  m_null_bytes = rdb_converter->get_null_bytes();
+  m_offset = 0;
+}
+
+// Iterate each requested field and decode one by one
+template <typename value_field_decoder>
+int Rdb_value_field_iterator<value_field_decoder>::next() {
+  int err = HA_EXIT_SUCCESS;
+  while (m_field_iter != m_field_end) {
+    m_field_dec = m_field_iter->m_field_enc;
+    bool decode = m_field_iter->m_decode;
+    bool maybe_null = m_field_dec->maybe_null();
+    // This is_null value is bind to how stroage format store its value
+    m_is_null = maybe_null && ((m_null_bytes[m_field_dec->m_null_offset] &
+                                m_field_dec->m_null_mask) != 0);
+
+    // Skip the bytes we need to skip
+    int skip = m_field_iter->m_skip;
+    if (skip && !m_value_slice_reader->read(skip)) {
+      return HA_ERR_ROCKSDB_CORRUPT_DATA;
+    }
+
+    m_field = m_table->field[m_field_dec->m_field_index];
+    // Decode each field
+    err = value_field_decoder::decode(m_buf, &m_offset, m_table, m_field,
+                                      m_field_dec, m_value_slice_reader, decode,
+                                      m_is_null);
+    if (err != HA_EXIT_SUCCESS) {
+      return err;
+    }
+    m_field_iter++;
+    // Only break for the field that are actually decoding rather than skipping
+    if (decode) {
+      break;
+    }
+  }
+  return err;
+}
+
+template <typename value_field_decoder>
+bool Rdb_value_field_iterator<value_field_decoder>::end_of_fields() const {
+  return m_field_iter == m_field_end;
+}
+
+template <typename value_field_decoder>
+Field *Rdb_value_field_iterator<value_field_decoder>::get_field() const {
+  DBUG_ASSERT(m_field != nullptr);
+  return m_field;
+}
+
+template <typename value_field_decoder>
+void *Rdb_value_field_iterator<value_field_decoder>::get_dst() const {
+  DBUG_ASSERT(m_buf != nullptr);
+  return m_buf + m_offset;
+}
+
+template <typename value_field_decoder>
+int Rdb_value_field_iterator<value_field_decoder>::get_field_index() const {
+  DBUG_ASSERT(m_field_dec != nullptr);
+  return m_field_dec->m_field_index;
+}
+
+template <typename value_field_decoder>
+enum_field_types
+Rdb_value_field_iterator<value_field_decoder>::get_field_type() const {
+  DBUG_ASSERT(m_field_dec != nullptr);
+  return m_field_dec->m_field_type;
+}
+
+template <typename value_field_decoder>
+bool Rdb_value_field_iterator<value_field_decoder>::is_null() const {
+  DBUG_ASSERT(m_field != nullptr);
+  return m_is_null;
+}
+
+/*
   Initialize Rdb_converter with table data
-  @thd        IN      Thread context
-  @tbl_def    IN      MyRocks table definition
-  @table      IN      Current open table
+  @param    thd        IN      Thread context
+  @param    tbl_def    IN      MyRocks table definition
+  @param    table      IN      Current open table
 */
 Rdb_converter::Rdb_converter(const THD *thd, const Rdb_tbl_def *tbl_def,
                              TABLE *table)
@@ -64,7 +329,7 @@ Rdb_converter::Rdb_converter(const THD *thd, const Rdb_tbl_def *tbl_def,
   m_verify_row_debug_checksums = false;
   m_maybe_unpack_info = false;
   m_row_checksums_checked = 0;
-
+  m_null_bytes = nullptr;
   setup_field_encoders();
 }
 
@@ -159,7 +424,7 @@ void Rdb_converter::setup_field_decoders(const MY_BITMAP *field_map,
 }
 
 void Rdb_converter::setup_field_encoders() {
-  uint null_bytes = 0;
+  uint null_bytes_length = 0;
   uchar cur_null_mask = 0x1;
 
   m_encoder_arr = static_cast<Rdb_field_encoder *>(
@@ -185,7 +450,7 @@ void Rdb_converter::setup_field_encoders() {
     if (!Rdb_key_def::table_has_hidden_pk(m_table)) {
       KEY *const pk_info = &m_table->key_info[m_table->s->primary_key];
       for (uint kp = 0; kp < pk_info->user_defined_key_parts; kp++) {
-        /* key_part->fieldnr is counted from 1 */
+        // key_part->fieldnr is counted from 1
         if (field->field_index + 1 == pk_info->key_part[kp].fieldnr) {
           get_storage_type(&m_encoder_arr[i], kp);
           break;
@@ -199,10 +464,10 @@ void Rdb_converter::setup_field_encoders() {
 
     if (field->real_maybe_null()) {
       m_encoder_arr[i].m_null_mask = cur_null_mask;
-      m_encoder_arr[i].m_null_offset = null_bytes;
+      m_encoder_arr[i].m_null_offset = null_bytes_length;
       if (cur_null_mask == 0x80) {
         cur_null_mask = 0x1;
-        null_bytes++;
+        null_bytes_length++;
       } else {
         cur_null_mask = cur_null_mask << 1;
       }
@@ -211,22 +476,25 @@ void Rdb_converter::setup_field_encoders() {
     }
   }
 
-  /* Count the last, unfinished NULL-bits byte */
+  // Count the last, unfinished NULL-bits byte
   if (cur_null_mask != 0x1) {
-    null_bytes++;
+    null_bytes_length++;
   }
 
-  m_null_bytes_in_record = null_bytes;
+  m_null_bytes_length_in_record = null_bytes_length;
 }
 
 /*
   EntryPoint for Decode:
   Decode key slice(if requested) and value slice using built-in field
   decoders
-  @key_def        IN          key definition to decode
-  @dst            IN,OUT      Mysql buffer to fill decoded content
-  @key_slice      IN          RocksDB key slice to decode
-  @value_slice    IN          RocksDB value slice to decode
+  @param     key_def        IN          key definition to decode
+  @param     dst            OUT         Mysql buffer to fill decoded content
+  @param     key_slice      IN          RocksDB key slice to decode
+  @param     value_slice    IN          RocksDB value slice to decode
+  @return
+    0      OK
+    other  HA_ERR error code (can be SE-specific)
 */
 int Rdb_converter::decode(const std::shared_ptr<Rdb_key_def> &key_def,
                           uchar *dst,  // address to fill data
@@ -250,26 +518,21 @@ int Rdb_converter::decode(const std::shared_ptr<Rdb_key_def> &key_def,
 }
 
 /*
-  Convert RocksDb key slice and value slice to Mysql format
-  @key_def       IN        key definition to decode
-  @key_slice      IN           RocksDB key slice
-  @value_slice    IN           RocksDB value slice
-  @dst            OUT          MySql format address
+  Decode value slice header
+  @param    reader         IN          value slice reader
+  @param    pk_def         IN          key definition to decode
+  @param    unpack_slice   OUT         unpack info slice
+  @return
+    0      OK
+    other  HA_ERR error code (can be SE-specific)
 */
-int Rdb_converter::convert_record_from_storage_format(
-    const std::shared_ptr<Rdb_key_def> &pk_def,
-    const rocksdb::Slice *const key_slice,
-    const rocksdb::Slice *const value_slice, uchar *const dst) {
-  Rdb_string_reader reader(value_slice);
-
-  const char *unpack_info = nullptr;
-  uint16 unpack_info_len = 0;
-  rocksdb::Slice unpack_slice;
-
+int Rdb_converter::decode_value_header(
+    Rdb_string_reader *reader, const std::shared_ptr<Rdb_key_def> &pk_def,
+    rocksdb::Slice *unpack_slice) {
   /* If it's a TTL record, skip the 8 byte TTL value */
-  const char *ttl_bytes;
   if (pk_def->has_ttl()) {
-    if ((ttl_bytes = reader.read(ROCKSDB_SIZEOF_TTL_RECORD))) {
+    const char *ttl_bytes;
+    if ((ttl_bytes = reader->read(ROCKSDB_SIZEOF_TTL_RECORD))) {
       memcpy(m_ttl_bytes, ttl_bytes, ROCKSDB_SIZEOF_TTL_RECORD);
     } else {
       return HA_ERR_ROCKSDB_CORRUPT_DATA;
@@ -277,228 +540,93 @@ int Rdb_converter::convert_record_from_storage_format(
   }
 
   /* Other fields are decoded from the value */
-  const char *null_bytes = nullptr;
-  if (m_null_bytes_in_record &&
-      !(null_bytes = reader.read(m_null_bytes_in_record))) {
+  if (m_null_bytes_length_in_record &&
+      !(m_null_bytes = reader->read(m_null_bytes_length_in_record))) {
     return HA_ERR_ROCKSDB_CORRUPT_DATA;
   }
 
   if (m_maybe_unpack_info) {
-    unpack_info = reader.get_current_ptr();
+    const char *unpack_info = reader->get_current_ptr();
     if (!unpack_info || !Rdb_key_def::is_unpack_data_tag(unpack_info[0]) ||
-        !reader.read(Rdb_key_def::get_unpack_header_size(unpack_info[0]))) {
+        !reader->read(Rdb_key_def::get_unpack_header_size(unpack_info[0]))) {
       return HA_ERR_ROCKSDB_CORRUPT_DATA;
     }
 
-    unpack_info_len =
+    uint16 unpack_info_len =
         rdb_netbuf_to_uint16(reinterpret_cast<const uchar *>(unpack_info + 1));
-    unpack_slice = rocksdb::Slice(unpack_info, unpack_info_len);
+    *unpack_slice = rocksdb::Slice(unpack_info, unpack_info_len);
 
-    reader.read(unpack_info_len -
-                Rdb_key_def::get_unpack_header_size(unpack_info[0]));
-  }
-
-  int err = HA_EXIT_SUCCESS;
-  if (m_key_requested) {
-    /*
-      Decode PK fields from the key
-    */
-    err = pk_def->unpack_record(m_table, dst, key_slice,
-                                unpack_info ? &unpack_slice : nullptr,
-                                false /* verify_checksum */);
-  }
-
-  if (err != HA_EXIT_SUCCESS) {
-    return err;
-  }
-
-  err = convert_fields_from_storage_format(pk_def, &reader, dst, null_bytes);
-  if (err != HA_EXIT_SUCCESS) {
-    return err;
-  }
-
-  if (m_verify_row_debug_checksums) {
-    return verify_row_debug_checksum(pk_def, &reader, key_slice, value_slice);
+    reader->read(unpack_info_len -
+                 Rdb_key_def::get_unpack_header_size(unpack_info[0]));
   }
 
   return HA_EXIT_SUCCESS;
 }
 
 /*
-   Convert MyRocks Value slice back to Mysql format
-   @pk_def        IN      Key definition
-   @reader        IN      RocksDB value slice reader
-   @key           IN      RocksDB key slice
-   @value         IN      RocksDB value slice
-   @dst           OUT     Mysql table record buffer address
-   @null_bytes    IN      Null bits mark
- */
-int Rdb_converter::convert_fields_from_storage_format(
-    const std::shared_ptr<Rdb_key_def> &pk_def, Rdb_string_reader *reader,
-    uchar *dst, const char *null_bytes) {
+  Convert RocksDb key slice and value slice to Mysql format
+  @param      key_def        IN           key definition to decode
+  @param      key_slice      IN           RocksDB key slice
+  @param      value_slice    IN           RocksDB value slice
+  @param      dst            OUT          MySql format address
+  @return
+    0      OK
+    other  HA_ERR error code (can be SE-specific)
+*/
+int Rdb_converter::convert_record_from_storage_format(
+    const std::shared_ptr<Rdb_key_def> &pk_def,
+    const rocksdb::Slice *const key_slice,
+    const rocksdb::Slice *const value_slice, uchar *const dst) {
   int err = HA_EXIT_SUCCESS;
-  for (auto it = m_decoders_vect.begin(); it != m_decoders_vect.end(); it++) {
-    const Rdb_field_encoder *const field_dec = it->m_field_enc;
-    bool decode = it->m_decode;
-    bool isNull =
-        field_dec->maybe_null() &&
-        ((null_bytes[field_dec->m_null_offset] & field_dec->m_null_mask) != 0);
 
-    Field *const field = m_table->field[field_dec->m_field_index];
+  Rdb_string_reader value_slice_reader(value_slice);
+  rocksdb::Slice unpack_slice;
+  err = decode_value_header(&value_slice_reader, pk_def, &unpack_slice);
+  if (err != HA_EXIT_SUCCESS) {
+    return err;
+  }
 
-    /* Skip the bytes we need to skip */
-    if (it->m_skip && !reader->read(it->m_skip)) {
-      return HA_ERR_ROCKSDB_CORRUPT_DATA;
-    }
+  /*
+    Decode PK fields from the key
+  */
+  if (m_key_requested) {
+    err = pk_def->unpack_record(m_table, dst, key_slice,
+                                !unpack_slice.empty() ? &unpack_slice : nullptr,
+                                false /* verify_checksum */);
+  }
+  if (err != HA_EXIT_SUCCESS) {
+    return err;
+  }
 
-    uint field_offset = field->ptr - m_table->record[0];
-    uint null_offset = field->null_offset();
-    bool maybe_null = field->real_maybe_null();
-    field->move_field(dst + field_offset,
-                      maybe_null ? dst + null_offset : nullptr,
-                      field->null_bit);
-    // WARNING! - Don't return before restoring field->ptr and field->null_ptr!
+  Rdb_value_field_iterator<Rdb_convert_to_record_value_decoder>
+      value_field_iterator(m_table, &value_slice_reader, this, dst);
 
-    if (isNull) {
-      if (decode) {
-        /* This sets the NULL-bit of this record */
-        field->set_null();
-        /*
-          Besides that, set the field value to default value. CHECKSUM TABLE
-          depends on this.
-        */
-        memcpy(field->ptr, m_table->s->default_values + field_offset,
-               field->pack_length());
-      }
-    } else {
-      if (decode) {
-        field->set_notnull();
-      }
-
-      if (field_dec->m_field_type == MYSQL_TYPE_BLOB) {
-        err = convert_blob_from_storage_format((my_core::Field_blob *)field,
-                                               reader, decode);
-      } else if (field_dec->m_field_type == MYSQL_TYPE_VARCHAR) {
-        err = convert_varchar_from_storage_format(
-            (my_core::Field_varstring *)field, reader, decode);
-      } else {
-        err = convert_field_from_storage_format(
-            field, reader, decode, field_dec->m_pack_length_in_rec);
-      }
-    }
-
-    // Restore field->ptr and field->null_ptr
-    field->move_field(m_table->record[0] + field_offset,
-                      maybe_null ? m_table->record[0] + null_offset : nullptr,
-                      field->null_bit);
+  // Decode value slices
+  while (!value_field_iterator.end_of_fields()) {
+    err = value_field_iterator.next();
 
     if (err != HA_EXIT_SUCCESS) {
       return err;
     }
   }
 
+  if (m_verify_row_debug_checksums) {
+    return verify_row_debug_checksum(pk_def, &value_slice_reader, key_slice,
+                                     value_slice);
+  }
   return HA_EXIT_SUCCESS;
 }
 
 /*
-   Convert RocksDB value slice into Mysql Record format
-   @blob      IN,OUT        Mysql blob field
-   @reader    IN            RocksDB value slice reader
-   @decode    IN            Control whether decode current field
+  Verify checksum for row
+  @param      pk_def   IN     key def
+  @param      reader   IN     RocksDB value slice reader
+  @param      key      IN     RocksDB key slice
+  @param      value    IN     RocksDB value slice
+  @return
+    0      OK
+    other  HA_ERR error code (can be SE-specific)
 */
-int Rdb_converter::convert_blob_from_storage_format(
-    my_core::Field_blob *const blob, Rdb_string_reader *const reader,
-    bool decode) {
-  /* Get the number of bytes needed to store length*/
-  const uint length_bytes = blob->pack_length() - portable_sizeof_char_ptr;
-
-  const char *data_len_str;
-  if (!(data_len_str = reader->read(length_bytes))) {
-    return HA_ERR_ROCKSDB_CORRUPT_DATA;
-  }
-
-  memcpy(blob->ptr, data_len_str, length_bytes);
-
-  const uint32 data_len =
-      blob->get_length(reinterpret_cast<const uchar *>(data_len_str),
-                       length_bytes, m_table->s->db_low_byte_first);
-  const char *blob_ptr;
-  if (!(blob_ptr = reader->read(data_len))) {
-    return HA_ERR_ROCKSDB_CORRUPT_DATA;
-  }
-
-  if (decode) {
-    // set 8-byte pointer to 0, like innodb does (relevant for 32-bit
-    // platforms)
-    memset(blob->ptr + length_bytes, 0, 8);
-    memcpy(blob->ptr + length_bytes, &blob_ptr, sizeof(uchar **));
-  }
-
-  return HA_EXIT_SUCCESS;
-}
-
-/*
-   Convert varchar field in RocksDB storage format into Mysql Record format
-   @field_var     IN,OUT    Mysql varchar field
-   @reader        IN        RocksDB value slice reader
-   @decode        IN        Control whether decode current field
-*/
-int Rdb_converter::convert_varchar_from_storage_format(
-    my_core::Field_varstring *const field_var, Rdb_string_reader *const reader,
-    bool decode) {
-  const char *data_len_str;
-  if (!(data_len_str = reader->read(field_var->length_bytes))) {
-    return HA_ERR_ROCKSDB_CORRUPT_DATA;
-  }
-
-  uint data_len;
-  /* field_var->length_bytes is 1 or 2 */
-  if (field_var->length_bytes == 1) {
-    data_len = (uchar)data_len_str[0];
-  } else {
-    DBUG_ASSERT(field_var->length_bytes == 2);
-    data_len = uint2korr(data_len_str);
-  }
-
-  if (data_len > field_var->field_length) {
-    /* The data on disk is longer than table DDL allows? */
-    return HA_ERR_ROCKSDB_CORRUPT_DATA;
-  }
-
-  if (!reader->read(data_len)) {
-    return HA_ERR_ROCKSDB_CORRUPT_DATA;
-  }
-
-  if (decode) {
-    memcpy(field_var->ptr, data_len_str, field_var->length_bytes + data_len);
-  }
-
-  return HA_EXIT_SUCCESS;
-}
-
-/*
-   Convert field in RocksDB storage format into Mysql Record format
-   @field    IN,OUT        Mysql field
-   @reader   IN            RocksDB value slice reader
-   @decode   IN            Control whether decode current field
-*/
-int Rdb_converter::convert_field_from_storage_format(
-    my_core::Field *const field, Rdb_string_reader *const reader, bool decode,
-    uint len) {
-  const char *data_bytes;
-  if (len > 0) {
-    if ((data_bytes = reader->read(len)) == nullptr) {
-      return HA_ERR_ROCKSDB_CORRUPT_DATA;
-    }
-
-    if (decode) {
-      memcpy(field->ptr, data_bytes, len);
-    }
-  }
-
-  return HA_EXIT_SUCCESS;
-}
-
 int Rdb_converter::verify_row_debug_checksum(
     const std::shared_ptr<Rdb_key_def> &pk_def, Rdb_string_reader *reader,
     const rocksdb::Slice *key, const rocksdb::Slice *value) {
@@ -567,8 +695,8 @@ int Rdb_converter::encode_value_slice(
 
   if (has_ttl) {
     /* If it's a TTL record, reserve space for 8 byte TTL value in front. */
-    m_storage_record.fill(ROCKSDB_SIZEOF_TTL_RECORD + m_null_bytes_in_record,
-                          0);
+    m_storage_record.fill(
+        ROCKSDB_SIZEOF_TTL_RECORD + m_null_bytes_length_in_record, 0);
     // NOTE: is_ttl_bytes_updated is only used for update case
     // During update, skip update sk key/values slice iff none of sk fields
     // have changed and ttl bytes isn't changed. see
@@ -614,7 +742,7 @@ int Rdb_converter::encode_value_slice(
     }
   } else {
     /* All NULL bits are initially 0 */
-    m_storage_record.fill(m_null_bytes_in_record, 0);
+    m_storage_record.fill(m_null_bytes_length_in_record, 0);
   }
 
   // If a primary key may have non-empty unpack_info for certain values,
