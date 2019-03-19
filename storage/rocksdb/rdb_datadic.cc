@@ -54,9 +54,229 @@ void get_mem_comparable_space(const CHARSET_INFO *cs,
                               size_t *mb_len);
 
 /*
+  Decode  current key field
+  @param  fpi               IN      data structure contains field metadata
+  @param  field             IN      current field
+  @param  reader            IN      key slice reader
+  @param  unp_reader        IN      unpack information reader
+  @return
+    HA_EXIT_SUCCESS    OK
+    other              HA_ERR error code
+*/
+int Rdb_convert_to_record_key_decoder::decode_field(
+    Rdb_field_packing *fpi, Field *field, Rdb_string_reader *reader,
+    const uchar *const default_value, Rdb_string_reader *unpack_reader) {
+  if (fpi->m_maybe_null) {
+    const char *nullp;
+    if (!(nullp = reader->read(1))) {
+      return HA_EXIT_FAILURE;
+    }
+
+    if (*nullp == 0) {
+      /* Set the NULL-bit of this field */
+      field->set_null();
+      /* Also set the field to its default value */
+      memcpy(field->ptr, default_value, field->pack_length());
+      return HA_EXIT_SUCCESS;
+    } else if (*nullp == 1) {
+      field->set_notnull();
+    } else {
+      return HA_EXIT_FAILURE;
+    }
+  }
+
+  return (fpi->m_unpack_func)(fpi, field, field->ptr, reader, unpack_reader);
+}
+
+/*
+  Decode  current key field
+
+  @param  buf               OUT     the buf starting address
+  @param  offset            OUT     the bytes offset when data is written
+  @param  fpi               IN      data structure contains field metadata
+  @param  table             IN      current table
+  @param  field             IN      current field
+  @param  has_unpack_inf    IN      whether contains unpack inf
+  @param  reader            IN      key slice reader
+  @param  unp_reader        IN      unpack information reader
+  @return
+    HA_EXIT_SUCCESS    OK
+    other              HA_ERR error code
+*/
+int Rdb_convert_to_record_key_decoder::decode(
+    uchar *const buf, uint *offset, Rdb_field_packing *fpi, TABLE *table,
+    Field *field, bool has_unpack_info, Rdb_string_reader *reader,
+    Rdb_string_reader *unpack_reader) {
+  DBUG_ASSERT(buf != nullptr);
+  DBUG_ASSERT(offset != nullptr);
+
+  uint field_offset = field->ptr - table->record[0];
+  *offset = field_offset;
+  uint null_offset = field->null_offset();
+  bool maybe_null = field->real_maybe_null();
+
+  field->move_field(buf + field_offset,
+                    maybe_null ? buf + null_offset : nullptr, field->null_bit);
+
+  // If we need unpack info, but there is none, tell the unpack function
+  // this by passing unp_reader as nullptr. If we never read unpack_info
+  // during unpacking anyway, then there won't an error.
+  bool maybe_missing_unpack = !has_unpack_info && fpi->uses_unpack_info();
+
+  int res =
+      decode_field(fpi, field, reader, table->s->default_values + field_offset,
+                   maybe_missing_unpack ? nullptr : unpack_reader);
+
+  // Restore field->ptr and field->null_ptr
+  field->move_field(table->record[0] + field_offset,
+                    maybe_null ? table->record[0] + null_offset : nullptr,
+                    field->null_bit);
+  if (res != UNPACK_SUCCESS) {
+    return HA_ERR_ROCKSDB_CORRUPT_DATA;
+  }
+  return HA_EXIT_SUCCESS;
+}
+
+/*
+  Skip current key field
+
+  @param  fpi          IN    data structure contains field metadata
+  @param  field        IN    current field
+  @param  reader       IN    key slice reader
+  @param  unp_reader   IN    unpack information reader
+  @return
+    HA_EXIT_SUCCESS    OK
+    other              HA_ERR error code
+*/
+int Rdb_convert_to_record_key_decoder::skip(const Rdb_field_packing *fpi,
+                                            const Field *field,
+                                            Rdb_string_reader *reader,
+                                            Rdb_string_reader *unp_reader) {
+  /* It is impossible to unpack the column. Skip it. */
+  if (fpi->m_maybe_null) {
+    const char *nullp;
+    if (!(nullp = reader->read(1))) {
+      return HA_ERR_ROCKSDB_CORRUPT_DATA;
+    }
+    if (*nullp == 0) {
+      /* This is a NULL value */
+      return HA_EXIT_SUCCESS;
+    }
+    /* If NULL marker is not '0', it can be only '1'  */
+    if (*nullp != 1) {
+      return HA_ERR_ROCKSDB_CORRUPT_DATA;
+    }
+  }
+  if ((fpi->m_skip_func)(fpi, field, reader)) {
+    return HA_ERR_ROCKSDB_CORRUPT_DATA;
+  }
+  // If this is a space padded varchar, we need to skip the indicator
+  // bytes for trailing bytes. They're useless since we can't restore the
+  // field anyway.
+  //
+  // There is a special case for prefixed varchars where we do not
+  // generate unpack info, because we know prefixed varchars cannot be
+  // unpacked. In this case, it is not necessary to skip.
+  if (fpi->m_skip_func == &Rdb_key_def::skip_variable_space_pad &&
+      !fpi->m_unpack_info_stores_value) {
+    unp_reader->read(fpi->m_unpack_info_uses_two_bytes ? 2 : 1);
+  }
+  return HA_EXIT_SUCCESS;
+}
+
+Rdb_key_field_iterator::Rdb_key_field_iterator(
+    const Rdb_key_def *key_def, Rdb_field_packing *pack_info,
+    Rdb_string_reader *reader, Rdb_string_reader *unp_reader, TABLE *table,
+    bool has_unpack_info, const MY_BITMAP *covered_bitmap, uchar *const buf) {
+  m_key_def = key_def;
+  m_pack_info = pack_info;
+  m_iter_index = 0;
+  m_iter_end = key_def->get_key_parts();
+  m_reader = reader;
+  m_unp_reader = unp_reader;
+  m_table = table;
+  m_has_unpack_info = has_unpack_info;
+  m_covered_bitmap = covered_bitmap;
+  m_buf = buf;
+  m_secondary_key =
+      (key_def->m_index_type == Rdb_key_def::INDEX_TYPE_SECONDARY);
+  m_hidden_pk_exists = Rdb_key_def::table_has_hidden_pk(table);
+  m_is_hidden_pk =
+      (key_def->m_index_type == Rdb_key_def::INDEX_TYPE_HIDDEN_PRIMARY);
+  m_curr_bitmap_pos = 0;
+  m_offset = 0;
+}
+
+void *Rdb_key_field_iterator::get_dst() const { return m_buf + m_offset; }
+
+int Rdb_key_field_iterator::get_field_index() const {
+  DBUG_ASSERT(m_field != nullptr);
+  return m_field->field_index;
+}
+
+bool Rdb_key_field_iterator::get_is_null() const { return m_is_null; }
+Field *Rdb_key_field_iterator::get_field() const {
+  DBUG_ASSERT(m_field != nullptr);
+  return m_field;
+}
+
+bool Rdb_key_field_iterator::has_next() { return m_iter_index < m_iter_end; }
+
+/**
+ Iterate each field in the key and decode/skip one by one
+*/
+int Rdb_key_field_iterator::next() {
+  int status = HA_EXIT_SUCCESS;
+  while (m_iter_index < m_iter_end) {
+    int curr_index = m_iter_index++;
+
+    m_fpi = &m_pack_info[curr_index];
+    /*
+      Hidden pk field is packed at the end of the secondary keys, but the SQL
+      layer does not know about it. Skip retrieving field if hidden pk.
+    */
+    if ((m_secondary_key && m_hidden_pk_exists &&
+         curr_index + 1 == m_iter_end) ||
+        m_is_hidden_pk) {
+      DBUG_ASSERT(m_fpi->m_unpack_func);
+      if ((m_fpi->m_skip_func)(m_fpi, nullptr, m_reader)) {
+        return HA_ERR_ROCKSDB_CORRUPT_DATA;
+      }
+      return HA_EXIT_SUCCESS;
+    }
+
+    m_field = m_fpi->get_field_in_table(m_table);
+
+    bool covered_column = true;
+    if (m_covered_bitmap != nullptr &&
+        m_field->real_type() == MYSQL_TYPE_VARCHAR && !m_fpi->m_covered) {
+      covered_column = m_curr_bitmap_pos < MAX_REF_PARTS &&
+                       bitmap_is_set(m_covered_bitmap, m_curr_bitmap_pos++);
+    }
+
+    if (m_fpi->m_unpack_func && covered_column) {
+      /* It is possible to unpack this column. Do it. */
+      status = Rdb_convert_to_record_key_decoder::decode(
+          m_buf, &m_offset, m_fpi, m_table, m_field, m_has_unpack_info,
+          m_reader, m_unp_reader);
+      if (status) {
+        return status;
+      }
+      break;
+    } else {
+      status = Rdb_convert_to_record_key_decoder::skip(m_fpi, m_field, m_reader,
+                                                       m_unp_reader);
+      if (status) {
+        return status;
+      }
+    }
+  }
+  return HA_EXIT_SUCCESS;
+}
+
+/*
   Rdb_key_def class implementation
 */
-
 Rdb_key_def::Rdb_key_def(uint indexnr_arg, uint keyno_arg,
                          rocksdb::ColumnFamilyHandle *cf_handle_arg,
                          uint16_t index_dict_version_arg, uchar index_type_arg,
@@ -1350,35 +1570,6 @@ size_t Rdb_key_def::key_length(const TABLE *const table,
   return key.size() - reader.remaining_bytes();
 }
 
-int Rdb_key_def::unpack_field(
-    Rdb_field_packing *const fpi,
-    Field *const             field,
-    Rdb_string_reader*       reader,
-    const uchar *const       default_value,
-    Rdb_string_reader*       unp_reader) const
-{
-  if (fpi->m_maybe_null) {
-    const char *nullp;
-    if (!(nullp = reader->read(1))) {
-      return HA_EXIT_FAILURE;
-    }
-
-    if (*nullp == 0) {
-      /* Set the NULL-bit of this field */
-      field->set_null();
-      /* Also set the field to its default value */
-      memcpy(field->ptr, default_value, field->pack_length());
-      return HA_EXIT_SUCCESS;
-    } else if (*nullp == 1) {
-      field->set_notnull();
-    } else {
-      return HA_EXIT_FAILURE;
-    }
-  }
-
-  return (fpi->m_unpack_func)(fpi, field, field->ptr, reader, unp_reader);
-}
-
 /*
   Take mem-comparable form and unpack_info and unpack it to Table->record
 
@@ -1397,13 +1588,11 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
   Rdb_string_reader reader(packed_key);
   Rdb_string_reader unp_reader = Rdb_string_reader::read_or_empty(unpack_info);
 
-  const bool is_hidden_pk = (m_index_type == INDEX_TYPE_HIDDEN_PRIMARY);
-  const bool hidden_pk_exists = table_has_hidden_pk(table);
-  const bool secondary_key = (m_index_type == INDEX_TYPE_SECONDARY);
   // There is no checksuming data after unpack_info for primary keys, because
   // the layout there is different. The checksum is verified in
   // ha_rocksdb::convert_record_from_storage_format instead.
-  DBUG_ASSERT_IMP(!secondary_key, !verify_row_debug_checksums);
+  DBUG_ASSERT_IMP(!(m_index_type == INDEX_TYPE_SECONDARY),
+                  !verify_row_debug_checksums);
 
   // Skip the index number
   if ((!reader.read(INDEX_NUMBER_SIZE))) {
@@ -1422,7 +1611,7 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
   }
 
   const char *unpack_header = unp_reader.get_current_ptr();
-  const bool has_unpack_info =
+  bool has_unpack_info =
       unp_reader.remaining_bytes() && is_unpack_data_tag(unpack_header[0]);
   if (has_unpack_info) {
     if (!unp_reader.read(get_unpack_header_size(unpack_header[0]))) {
@@ -1433,9 +1622,7 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
   // Read the covered bitmap
   MY_BITMAP covered_bitmap;
   my_bitmap_map covered_bits;
-  uint curr_bitmap_pos = 0;
-
-  const bool has_covered_bitmap =
+  bool has_covered_bitmap =
       has_unpack_info && (unpack_header[0] == RDB_UNPACK_COVERED_DATA_TAG);
   if (has_covered_bitmap) {
     bitmap_init(&covered_bitmap, &covered_bits, MAX_REF_PARTS, false);
@@ -1444,88 +1631,15 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
                                         RDB_UNPACK_COVERED_DATA_LEN_SIZE);
   }
 
-  for (uint i = 0; i < m_key_parts; i++) {
-    Rdb_field_packing *const fpi = &m_pack_info[i];
+  int err = HA_EXIT_SUCCESS;
 
-    /*
-      Hidden pk field is packed at the end of the secondary keys, but the SQL
-      layer does not know about it. Skip retrieving field if hidden pk.
-    */
-    if ((secondary_key && hidden_pk_exists && i + 1 == m_key_parts) ||
-        is_hidden_pk) {
-      DBUG_ASSERT(fpi->m_unpack_func);
-      if ((fpi->m_skip_func)(fpi, nullptr, &reader)) {
-        return HA_ERR_ROCKSDB_CORRUPT_DATA;
-      }
-      continue;
-    }
-
-    Field *const field = fpi->get_field_in_table(table);
-
-    bool covered_column = true;
-    if (has_covered_bitmap && field->real_type() == MYSQL_TYPE_VARCHAR &&
-        !m_pack_info[i].m_covered) {
-      covered_column = curr_bitmap_pos < MAX_REF_PARTS &&
-                       bitmap_is_set(&covered_bitmap, curr_bitmap_pos++);
-    }
-    if (fpi->m_unpack_func && covered_column) {
-      /* It is possible to unpack this column. Do it. */
-
-      uint field_offset = field->ptr - table->record[0];
-      uint null_offset = field->null_offset();
-      bool maybe_null = field->real_maybe_null();
-      field->move_field(buf + field_offset,
-                        maybe_null ? buf + null_offset : nullptr,
-                        field->null_bit);
-      // WARNING! Don't return without restoring field->ptr and field->null_ptr
-
-      // If we need unpack info, but there is none, tell the unpack function
-      // this by passing unp_reader as nullptr. If we never read unpack_info
-      // during unpacking anyway, then there won't an error.
-      const bool maybe_missing_unpack =
-          !has_unpack_info && fpi->uses_unpack_info();
-      int res = unpack_field(fpi, field, &reader,
-                             table->s->default_values + field_offset,
-                             maybe_missing_unpack ? nullptr : &unp_reader);
-
-      // Restore field->ptr and field->null_ptr
-      field->move_field(table->record[0] + field_offset,
-                        maybe_null ? table->record[0] + null_offset : nullptr,
-                        field->null_bit);
-
-      if (res != UNPACK_SUCCESS) {
-        return HA_ERR_ROCKSDB_CORRUPT_DATA;
-      }
-    } else {
-      /* It is impossible to unpack the column. Skip it. */
-      if (fpi->m_maybe_null) {
-        const char *nullp;
-        if (!(nullp = reader.read(1))) {
-          return HA_ERR_ROCKSDB_CORRUPT_DATA;
-        }
-        if (*nullp == 0) {
-          /* This is a NULL value */
-          continue;
-        }
-        /* If NULL marker is not '0', it can be only '1'  */
-        if (*nullp != 1) {
-          return HA_ERR_ROCKSDB_CORRUPT_DATA;
-        }
-      }
-      if ((fpi->m_skip_func)(fpi, field, &reader)) {
-        return HA_ERR_ROCKSDB_CORRUPT_DATA;
-      }
-      // If this is a space padded varchar, we need to skip the indicator
-      // bytes for trailing bytes. They're useless since we can't restore the
-      // field anyway.
-      //
-      // There is a special case for prefixed varchars where we do not
-      // generate unpack info, because we know prefixed varchars cannot be
-      // unpacked. In this case, it is not necessary to skip.
-      if (fpi->m_skip_func == skip_variable_space_pad &&
-          !fpi->m_unpack_info_stores_value) {
-        unp_reader.read(fpi->m_unpack_info_uses_two_bytes ? 2 : 1);
-      }
+  Rdb_key_field_iterator iter(
+      this, m_pack_info, &reader, &unp_reader, table, has_unpack_info,
+      has_covered_bitmap ? &covered_bitmap : nullptr, buf);
+  while (iter.has_next()) {
+    err = iter.next();
+    if (err) {
+      return err;
     }
   }
 
