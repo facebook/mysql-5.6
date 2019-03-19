@@ -1,0 +1,41 @@
+CREATE TABLE tables (
+table_id int(5) NOT NULL,
+created BOOLEAN NOT NULL,
+primary_cf_id int(5),
+secondary_cf_id int(5),
+PRIMARY KEY (table_id),
+KEY secondary_key (created, secondary_cf_id)
+) ENGINE=MEMORY;
+INSERT INTO tables VALUES(0, 0, NULL, NULL);
+INSERT INTO tables VALUES(1, 0, NULL, NULL);
+INSERT INTO tables VALUES(2, 0, NULL, NULL);
+INSERT INTO tables VALUES(3, 0, NULL, NULL);
+INSERT INTO tables VALUES(4, 0, NULL, NULL);
+INSERT INTO tables VALUES(5, 0, NULL, NULL);
+INSERT INTO tables VALUES(6, 0, NULL, NULL);
+INSERT INTO tables VALUES(7, 0, NULL, NULL);
+INSERT INTO tables VALUES(8, 0, NULL, NULL);
+INSERT INTO tables VALUES(9, 0, NULL, NULL);
+INSERT INTO tables VALUES(10, 0, NULL, NULL);
+INSERT INTO tables VALUES(11, 0, NULL, NULL);
+INSERT INTO tables VALUES(12, 0, NULL, NULL);
+INSERT INTO tables VALUES(13, 0, NULL, NULL);
+INSERT INTO tables VALUES(14, 0, NULL, NULL);
+INSERT INTO tables VALUES(15, 0, NULL, NULL);
+CREATE TABLE cfs (
+cf_id int(5) NOT NULL,
+used BOOLEAN NOT NULL,
+ref_count int(5) NOT NULL,
+PRIMARY KEY (cf_id),
+KEY secondary_key (used, ref_count)
+) ENGINE=MEMORY;
+INSERT INTO cfs VALUES(0, 0, 0);
+INSERT INTO cfs VALUES(1, 0, 0);
+INSERT INTO cfs VALUES(2, 0, 0);
+INSERT INTO cfs VALUES(3, 0, 0);
+INSERT INTO cfs VALUES(4, 0, 0);
+INSERT INTO cfs VALUES(5, 0, 0);
+INSERT INTO cfs VALUES(6, 0, 0);
+INSERT INTO cfs VALUES(7, 0, 0);
+DROP TABLE tables;
+DROP TABLE cfs;
