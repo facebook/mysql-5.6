@@ -1,0 +1,77 @@
+--disable_warnings
+--source include/not_valgrind.inc
+--source include/have_rocksdb.inc
+--source include/have_binlog_format_row.inc
+--enable_warnings
+
+--disable_query_log
+call mtr.add_suppression("Column family.*not found");
+call mtr.add_suppression("Cannot mark Column family.*to be dropped");
+call mtr.add_suppression("Could not get index information for Index Number");
+--enable_query_log
+
+--let $num_workers = 8
+--let $num_requests = 1000
+--let $num_tables = 16
+--let $num_cfs = 8
+
+--let $create_table_weight = 9
+--let $drop_table_weight = 9
+--let $add_index_weight = 9
+--let $drop_index_weight = 9
+--let $drop_cf_weight = 9
+--let $manual_compaction_weight = 1
+
+connect (conn1,localhost,root,,);
+--connection conn1
+
+--let $local_host = 127.0.0.1
+let $MYSQL_BASEDIR = `SELECT @@BASEDIR`;
+
+CREATE TABLE tables (
+    table_id int(5) NOT NULL,
+    created BOOLEAN NOT NULL,
+    primary_cf_id int(5),
+    secondary_cf_id int(5),
+    PRIMARY KEY (table_id),
+    KEY secondary_key (created, secondary_cf_id)
+    ) ENGINE=MEMORY;
+
+let $i = 0;
+WHILE ($i < $num_tables)
+{
+  let $stmt = INSERT INTO tables VALUES($i, 0, NULL, NULL);
+  eval $stmt;
+  inc $i;
+}
+
+CREATE TABLE cfs (
+    cf_id int(5) NOT NULL,
+    used BOOLEAN NOT NULL,
+    ref_count int(5) NOT NULL,
+    PRIMARY KEY (cf_id),
+    KEY secondary_key (used, ref_count)
+    ) ENGINE=MEMORY;
+
+let $i = 0;
+WHILE ($i < $num_cfs)
+{
+  let $stmt = INSERT INTO cfs VALUES($i, 0, 0);
+  eval $stmt;
+  inc $i;
+}
+
+let $exec =
+  python $MYSQL_BASEDIR/mysql-test/suite/rocksdb_stress/t/drop_cf_stress.py
+  -L $MYSQL_TMP_DIR/drop_cf_stress.log -H $local_host
+  -P $MASTER_MYPORT
+  -w $num_workers -r $num_requests -v
+  --ct-weight $create_table_weight --dt-weight $drop_table_weight
+  --ai-weight $add_index_weight --di-weight $drop_index_weight
+  --dc-weight $drop_cf_weight --mc-weight $manual_compaction_weight;
+
+exec $exec;
+
+DROP TABLE tables;
+DROP TABLE cfs;
+
