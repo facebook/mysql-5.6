@@ -189,6 +189,7 @@ enum options_client {
   OPT_ENABLE_CHECKSUM_TABLE,
   OPT_INNODB_STATS_ON_METADATA,
   OPT_DUMP_FBOBJ_STATS,
+  OPT_PRINT_GTIDS,
   /* Add new option above this */
   OPT_MAX_CLIENT_OPTION
 };

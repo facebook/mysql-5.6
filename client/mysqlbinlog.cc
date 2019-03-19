@@ -344,6 +344,7 @@ static MYSQL *mysql = NULL;
 static char *dirname_for_local_load = 0;
 static uint opt_server_id_bits = 0;
 ulong opt_server_id_mask = 0;
+static bool opt_print_gtids = false;
 Sid_map *global_sid_map = NULL;
 Checkable_rwlock *global_sid_lock = NULL;
 Gtid_set *gtid_set_included = NULL;
@@ -730,18 +731,22 @@ static bool shall_stop_gtids(Log_event *ev) {
   according to the include-gtids, exclude-gtids and
   skip-gtids options.
 
-  @param ev Pointer to the event to be checked.
+  @param[in] ev Pointer to the event to be checked.
+  @param[out] cached_gtid Store the gtid here.
 
   @return true if the event should be filtered out,
           false, otherwise.
 */
-static bool shall_skip_gtids(const Log_event *ev) {
+static bool shall_skip_gtids(const Log_event *ev, Gtid *cached_gtid) {
   bool filtered = false;
 
   switch (ev->get_type_code()) {
     case binary_log::GTID_LOG_EVENT:
     case binary_log::ANONYMOUS_GTID_LOG_EVENT: {
       Gtid_log_event *gtid = (Gtid_log_event *)ev;
+      if (gtid->get_sidno(true) > 0 && gtid->get_gno() != 0) {
+        cached_gtid->set(gtid->get_sidno(true), gtid->get_gno());
+      }
       if (opt_include_gtids_str != NULL) {
         filtered = filtered || !gtid_set_included->contains_gtid(
                                    gtid->get_sidno(true), gtid->get_gno());
@@ -757,6 +762,12 @@ static bool shall_skip_gtids(const Log_event *ev) {
     /* Skip previous gtids if --skip-gtids is set. */
     case binary_log::PREVIOUS_GTIDS_LOG_EVENT:
       filtered = opt_skip_gtids;
+      if (opt_print_gtids) {
+        Previous_gtids_log_event *pgev = (Previous_gtids_log_event *)ev;
+        global_sid_lock->rdlock();
+        pgev->add_to_set(gtid_set_excluded);
+        global_sid_lock->unlock();
+      }
       break;
 
     /*
@@ -1066,6 +1077,21 @@ void handle_last_rows_query_event(bool print,
   last_rows_query_event.event_pos = 0;
 }
 
+// Helper for next function
+static bool encounter_gtid(Gtid const& cached_gtid) {
+  global_sid_lock->rdlock();
+  if (!cached_gtid.is_empty()) {
+    if (gtid_set_excluded->ensure_sidno(cached_gtid.sidno) !=
+        RETURN_STATUS_OK) {
+      global_sid_lock->unlock();
+      return true;
+    }
+    gtid_set_excluded->_add_gtid(cached_gtid);
+  }
+  global_sid_lock->unlock();
+  return false;
+}
+
 /**
   Print the given event, and either delete it or delegate the deletion
   to someone else.
@@ -1095,6 +1121,7 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
   DBUG_ENTER("process_event");
   Exit_status retval = OK_CONTINUE;
   IO_CACHE *const head = &print_event_info->head_cache;
+  static Gtid cached_gtid;
 
   /*
     Format events are not concerned by --offset and such, we always need to
@@ -1140,7 +1167,7 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
 
     DBUG_PRINT("debug", ("event_type: %s", ev->get_type_str()));
 
-    if (shall_skip_gtids(ev)) goto end;
+    if (shall_skip_gtids(ev, &cached_gtid)) goto end;
 
     switch (ev_type) {
       case binary_log::QUERY_EVENT: {
@@ -1225,6 +1252,7 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
             cur_database = "";
             if (skip) break;
           }
+          if (opt_print_gtids && encounter_gtid(cached_gtid)) goto err;
         } else if (starts_group) {
           in_transaction = true;
 
@@ -1299,6 +1327,9 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
           output of Append_block_log_event::print is only a comment.
         */
         ev->print(result_file, print_event_info);
+
+        if (opt_print_gtids && encounter_gtid(cached_gtid)) goto err;
+
         if (head->error == -1) goto err;
         if ((retval = load_processor.process((Append_block_log_event *)ev)) !=
             OK_CONTINUE)
@@ -1722,6 +1753,8 @@ static struct my_option my_long_options[] = {
 #endif
      "built-in default (" STRINGIFY_ARG(MYSQL_PORT) ").",
      &port, &port, 0, GET_INT, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+    {"print_gtids", OPT_PRINT_GTIDS, "Print encountered gtid set to stderr.",
+     &opt_print_gtids, &opt_print_gtids, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
     {"protocol", OPT_MYSQL_PROTOCOL,
      "The protocol to use for connection (tcp, socket, pipe, memory).", 0, 0, 0,
      GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
@@ -3375,6 +3408,22 @@ int main(int argc, char **argv) {
           "/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;\n");
 
     fprintf(result_file, "/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=0*/;\n");
+  }
+
+  // print encountered gtids to stderr
+  if (opt_print_gtids) {
+    global_sid_lock->rdlock();
+    char *encountered_gtids = nullptr;
+    gtid_set_excluded->to_string(&encountered_gtids);
+    if (encountered_gtids) {
+      // Replace new lines with spaces. Easy for parsing the output.
+      for (char *ptr = encountered_gtids; *ptr; ++ptr) {
+        if (*ptr == '\n') *ptr = ' ';
+      }
+      fprintf(stderr, "Executed gtids: %s\n", encountered_gtids);
+      my_free(encountered_gtids);
+    }
+    global_sid_lock->unlock();
   }
 
   /*
