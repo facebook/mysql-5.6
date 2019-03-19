@@ -42,6 +42,27 @@ class Rdb_field_packing;
 class Rdb_cf_manager;
 class Rdb_ddl_manager;
 
+class Rdb_convert_to_record_key_decoder {
+ public:
+  Rdb_convert_to_record_key_decoder() = default;
+  Rdb_convert_to_record_key_decoder(
+      const Rdb_convert_to_record_key_decoder &decoder) = delete;
+  Rdb_convert_to_record_key_decoder &
+  operator=(const Rdb_convert_to_record_key_decoder &decoder) = delete;
+  static int decode(uchar *const buf, uint *offset, Rdb_field_packing *fpi,
+                    TABLE *table, Field *field, bool has_unpack_info,
+                    Rdb_string_reader *reader,
+                    Rdb_string_reader *unpack_reader);
+  static int skip(const Rdb_field_packing *fpi, const Field *field,
+                  Rdb_string_reader *reader, Rdb_string_reader *unpack_reader);
+
+ private:
+  static int decode_field(Rdb_field_packing *fpi, Field *field,
+                          Rdb_string_reader *reader,
+                          const uchar *const default_value,
+                          Rdb_string_reader *unpack_reader);
+};
+
 /*
   @brief
   Field packing context.
@@ -66,6 +87,45 @@ public:
 
   // NULL means we're not producing unpack_info.
   Rdb_string_writer *writer;
+};
+
+class Rdb_key_field_iterator {
+ private:
+  Rdb_field_packing *m_pack_info;
+  int m_iter_index;
+  int m_iter_end;
+  TABLE *m_table;
+  Rdb_string_reader *m_reader;
+  Rdb_string_reader *m_unp_reader;
+  uint m_curr_bitmap_pos;
+  const MY_BITMAP *m_covered_bitmap;
+  uchar *m_buf;
+  bool m_has_unpack_info;
+  const Rdb_key_def *m_key_def;
+  bool m_secondary_key;
+  bool m_hidden_pk_exists;
+  bool m_is_hidden_pk;
+  bool m_is_null;
+  Field *m_field;
+  uint m_offset;
+  Rdb_field_packing *m_fpi;
+
+ public:
+  Rdb_key_field_iterator(const Rdb_key_field_iterator &) = delete;
+  Rdb_key_field_iterator &operator=(const Rdb_key_field_iterator &) = delete;
+  Rdb_key_field_iterator(const Rdb_key_def *key_def,
+                         Rdb_field_packing *pack_info,
+                         Rdb_string_reader *reader,
+                         Rdb_string_reader *unp_reader, TABLE *table,
+                         bool has_unpack_info, const MY_BITMAP *covered_bitmap,
+                         uchar *buf);
+
+  int next();
+  bool has_next();
+  bool get_is_null() const;
+  Field *get_field() const;
+  int get_field_index() const;
+  void *get_dst() const;
 };
 
 struct Rdb_collation_codec;
@@ -204,9 +264,6 @@ public:
   /* Pack the hidden primary key into mem-comparable form. */
   uint pack_hidden_pk(const longlong hidden_pk_id,
                       uchar *const packed_tuple) const;
-  int unpack_field(Rdb_field_packing *const fpi, Field *const field,
-                   Rdb_string_reader *reader, const uchar *const default_value,
-                   Rdb_string_reader *unp_reader) const;
   int unpack_record(TABLE *const table, uchar *const buf,
                     const rocksdb::Slice *const packed_key,
                     const rocksdb::Slice *const unpack_info,
