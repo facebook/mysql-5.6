@@ -5928,17 +5928,23 @@ bool ha_rocksdb::should_hide_ttl_rec(const Rdb_key_def &kd,
   return is_hide_ttl;
 }
 
-void ha_rocksdb::rocksdb_skip_expired_records(const Rdb_key_def &kd,
-                                              rocksdb::Iterator *const iter,
-                                              bool seek_backward) {
+int ha_rocksdb::rocksdb_skip_expired_records(const Rdb_key_def &kd,
+                                             rocksdb::Iterator *const iter,
+                                             bool seek_backward) {
   if (kd.has_ttl()) {
+    THD *thd = ha_thd();
     while (iter->Valid() &&
            should_hide_ttl_rec(
                kd, iter->value(),
                get_or_create_tx(table->in_use)->m_snapshot_timestamp)) {
+      DEBUG_SYNC(thd, "rocksdb.check_flags_ser");
+      if (thd && thd->killed) {
+        return HA_ERR_QUERY_INTERRUPTED;
+      }
       rocksdb_smart_next(seek_backward, iter);
     }
   }
+  return HA_EXIT_SUCCESS;
 }
 
 #ifndef NDEBUG
@@ -7282,6 +7288,7 @@ int ha_rocksdb::read_key_exact(const Rdb_key_def &kd,
                                const bool /* unused */,
                                const rocksdb::Slice &key_slice,
                                const int64_t ttl_filter_ts) {
+  THD *thd = ha_thd();
   /*
     We are looking for the first record such that
       index_tuple= lookup_tuple.
@@ -7290,6 +7297,9 @@ int ha_rocksdb::read_key_exact(const Rdb_key_def &kd,
   rocksdb_smart_seek(kd.m_is_reverse_cf, iter, key_slice);
 
   while (iter->Valid() && kd.value_matches_prefix(iter->key(), key_slice)) {
+    if (thd && thd->killed) {
+      return HA_ERR_QUERY_INTERRUPTED;
+    }
     /*
       If TTL is enabled we need to check if the given key has already expired
       from the POV of the current transaction.  If it has, try going to the next
@@ -7314,6 +7324,7 @@ int ha_rocksdb::read_before_key(const Rdb_key_def &kd,
                                 const bool full_key_match,
                                 const rocksdb::Slice &key_slice,
                                 const int64_t ttl_filter_ts) {
+  THD *thd = ha_thd();
   /*
     We are looking for record with the biggest t.key such that
     t.key < lookup_tuple.
@@ -7321,6 +7332,9 @@ int ha_rocksdb::read_before_key(const Rdb_key_def &kd,
   rocksdb_smart_seek(!kd.m_is_reverse_cf, m_scan_it, key_slice);
 
   while (is_valid(m_scan_it)) {
+    if (thd && thd->killed) {
+      return HA_ERR_QUERY_INTERRUPTED;
+    }
     /*
       We are using full key and we've hit an exact match, or...
 
@@ -7345,6 +7359,7 @@ int ha_rocksdb::read_before_key(const Rdb_key_def &kd,
 int ha_rocksdb::read_after_key(const Rdb_key_def &kd,
                                const rocksdb::Slice &key_slice,
                                const int64_t ttl_filter_ts) {
+  THD *thd = ha_thd();
   /*
     We are looking for the first record such that
 
@@ -7362,6 +7377,9 @@ int ha_rocksdb::read_after_key(const Rdb_key_def &kd,
   */
   while (is_valid(m_scan_it) && kd.has_ttl() &&
          should_hide_ttl_rec(kd, m_scan_it->value(), ttl_filter_ts)) {
+    if (thd && thd->killed) {
+      return HA_ERR_QUERY_INTERRUPTED;
+    }
     rocksdb_smart_next(kd.m_is_reverse_cf, m_scan_it);
   }
 
@@ -7765,6 +7783,13 @@ int ha_rocksdb::index_read_map_impl(uchar *const buf, const uchar *const key,
 
   int rc = 0;
 
+  THD *thd = ha_thd();
+  DEBUG_SYNC(thd, "rocksdb.check_flags_rmi");
+  if (thd && thd->killed) {
+    rc = HA_ERR_QUERY_INTERRUPTED;
+    DBUG_RETURN(rc);
+  }
+
   ha_statistic_increment(&SSV::ha_read_key_count);
   const Rdb_key_def &kd = *m_key_descr_arr[active_index];
   const uint actual_key_parts = kd.get_key_parts();
@@ -7862,6 +7887,11 @@ int ha_rocksdb::index_read_map_impl(uchar *const buf, const uchar *const key,
   // Loop as long as we get a deadlock error AND we end up creating the
   // snapshot here (i.e. it did not exist prior to this)
   for (;;) {
+    DEBUG_SYNC(thd, "rocksdb.check_flags_rmi_scan");
+    if (thd && thd->killed) {
+      rc = HA_ERR_QUERY_INTERRUPTED;
+      break;
+    }
     /*
       This will open the iterator and position it at a record that's equal or
       greater than the lookup tuple.
@@ -7878,9 +7908,7 @@ int ha_rocksdb::index_read_map_impl(uchar *const buf, const uchar *const key,
                                 slice, &move_forward, tx->m_snapshot_timestamp);
 
     if (rc) {
-      /* This status is returned on any error */
-      table->status = STATUS_NOT_FOUND;
-      DBUG_RETURN(rc);
+      break;
     }
 
     m_skip_scan_it_next_call = false;
@@ -7905,7 +7933,10 @@ int ha_rocksdb::index_read_map_impl(uchar *const buf, const uchar *const key,
   }
 
   if (rc) {
-    /* the only possible error condition is record-not-found */
+    /*
+      This status is returned on any error
+      the only possible error condition is record-not-found
+    */
     table->status = STATUS_NOT_FOUND;
   } else {
     table->status = 0;
@@ -7941,9 +7972,17 @@ int ha_rocksdb::find_icp_matching_index_rec(const bool move_forward,
                                             uchar *const buf) {
   if (pushed_idx_cond && pushed_idx_cond_keyno == active_index) {
     const Rdb_key_def &kd = *m_key_descr_arr[active_index];
+    THD *thd = ha_thd();
 
     while (1) {
-      rocksdb_skip_expired_records(kd, m_scan_it, !move_forward);
+      int rc = rocksdb_skip_expired_records(kd, m_scan_it, !move_forward);
+      if (rc != HA_EXIT_SUCCESS) {
+        return rc;
+      }
+
+      if (thd && thd->killed) {
+        return HA_ERR_QUERY_INTERRUPTED;
+      }
 
       if (!is_valid(m_scan_it)) {
         table->status = STATUS_NOT_FOUND;
@@ -7986,14 +8025,6 @@ int ha_rocksdb::find_icp_matching_index_rec(const bool move_forward,
          * row. */
         break;
       }
-      /*
-        TODO: should we have this here, or RockDB handles this internally?
-        if (my_core::thd_killed(current_thd))
-        {
-          rc= HA_ERR_INTERNAL_ERROR; // doesn't matter
-          break;
-        }
-      */
     }
   }
   return HA_EXIT_SUCCESS;
@@ -8378,7 +8409,13 @@ int ha_rocksdb::index_next_with_direction(uchar *const buf, bool move_forward) {
   if (active_index == pk_index(table, m_tbl_def)) {
     rc = rnd_next_with_direction(buf, move_forward);
   } else {
+    THD *thd = ha_thd();
     for (;;) {
+      DEBUG_SYNC(thd, "rocksdb.check_flags_inwd");
+      if (thd && thd->killed) {
+        rc = HA_ERR_QUERY_INTERRUPTED;
+        break;
+      }
       if (m_skip_scan_it_next_call) {
         m_skip_scan_it_next_call = false;
       } else {
@@ -8387,8 +8424,11 @@ int ha_rocksdb::index_next_with_direction(uchar *const buf, bool move_forward) {
         else
           m_scan_it->Prev();
       }
-      rocksdb_skip_expired_records(*m_key_descr_arr[active_index], m_scan_it,
-                                   !move_forward);
+      rc = rocksdb_skip_expired_records(*m_key_descr_arr[active_index],
+                                        m_scan_it, !move_forward);
+      if (rc != HA_EXIT_SUCCESS) {
+        break;
+      }
       rc = find_icp_matching_index_rec(move_forward, buf);
       if (!rc)
         rc = secondary_index_read(active_index, buf);
@@ -9209,6 +9249,11 @@ int ha_rocksdb::bulk_load_key(Rdb_transaction *const tx, const Rdb_key_def &kd,
                               const rocksdb::Slice &value, bool sort) {
   DBUG_ENTER_FUNC();
   int res;
+  THD *thd = ha_thd();
+  if (thd && thd->killed) {
+    DBUG_RETURN(HA_ERR_QUERY_INTERRUPTED);
+  }
+
   rocksdb::ColumnFamilyHandle *cf = kd.get_cf();
 
   // In the case of unsorted inserts, m_sst_info allocated here is not
@@ -9537,6 +9582,11 @@ int ha_rocksdb::update_write_row(const uchar *const old_data,
                                  const bool skip_unique_check) {
   DBUG_ENTER_FUNC();
 
+  THD *thd = ha_thd();
+  if (thd && thd->killed) {
+    DBUG_RETURN(HA_ERR_QUERY_INTERRUPTED);
+  }
+
   bool pk_changed = false;
   struct update_row_info row_info;
 
@@ -9759,6 +9809,11 @@ void ha_rocksdb::setup_iterator_for_rnd_scan() {
 int ha_rocksdb::rnd_init(bool scan) {
   DBUG_ENTER_FUNC();
 
+  THD *thd = ha_thd();
+  if (thd && thd->killed) {
+    DBUG_RETURN(HA_ERR_QUERY_INTERRUPTED);
+  }
+
   Rdb_transaction *const tx = get_or_create_tx(table->in_use);
 
   // when this table is being updated, decode all fields
@@ -9817,6 +9872,7 @@ int ha_rocksdb::rnd_next_with_direction(uchar *const buf, bool move_forward) {
   DBUG_ENTER_FUNC();
 
   int rc;
+  THD *thd = ha_thd();
 
   table->status = STATUS_NOT_FOUND;
   stats.rows_requested++;
@@ -9834,6 +9890,12 @@ int ha_rocksdb::rnd_next_with_direction(uchar *const buf, bool move_forward) {
   }
 
   for (;;) {
+    DEBUG_SYNC(thd, "rocksdb.check_flags_rnwd");
+    if (thd && thd->killed) {
+      rc = HA_ERR_QUERY_INTERRUPTED;
+      break;
+    }
+
     if (m_skip_scan_it_next_call) {
       m_skip_scan_it_next_call = false;
     } else {
@@ -9931,6 +9993,11 @@ int ha_rocksdb::rnd_end() {
 */
 int ha_rocksdb::index_init(uint idx, bool sorted) {
   DBUG_ENTER_FUNC();
+
+  THD *thd = ha_thd();
+  if (thd && thd->killed) {
+    DBUG_RETURN(HA_ERR_QUERY_INTERRUPTED);
+  }
 
   Rdb_transaction *const tx = get_or_create_tx(table->in_use);
   DBUG_ASSERT(tx != nullptr);
