@@ -1768,6 +1768,15 @@ int Slave_worker::slave_worker_exec_event(Log_event *ev) {
   set_master_log_pos(static_cast<ulong>(ev->common_header->log_pos));
   set_gaq_index(ev->mts_group_idx);
   ret = ev->do_apply_event_worker(this);
+
+  DBUG_EXECUTE_IF("after_executed_write_rows_event", {
+    if (ev->get_type_code() == binary_log::WRITE_ROWS_EVENT) {
+      static constexpr char act[] = "now signal executed";
+      DBUG_ASSERT(opt_debug_sync_timeout > 0);
+      DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+    }
+  };);
+
   return ret;
 }
 

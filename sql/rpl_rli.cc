@@ -461,6 +461,39 @@ err:
   return ret;
 }
 
+bool Relay_log_info::mts_workers_queue_empty() const {
+  ulong ret = 0;
+
+  for (const auto &worker : workers) {
+    mysql_mutex_lock(&worker->jobs_lock);
+    ret += worker->curr_jobs;
+    mysql_mutex_unlock(&worker->jobs_lock);
+  }
+
+  return ret == 0;
+}
+
+/* Checks if all in-flight stmts/trx can be safely rollbacked */
+bool Relay_log_info::cannot_safely_rollback() const {
+  if (!is_parallel_exec())
+    return info_thd->get_transaction()->cannot_safely_rollback(
+        Transaction_ctx::SESSION);
+
+  bool ret = false;
+
+  for (const auto &worker : workers) {
+    mysql_mutex_lock(&worker->jobs_lock);
+    if (worker->running_status != Slave_worker::NOT_RUNNING) {
+      ret = worker->info_thd->get_transaction()->cannot_safely_rollback(
+          Transaction_ctx::SESSION);
+    }
+    mysql_mutex_unlock(&worker->jobs_lock);
+    if (ret) break;
+  }
+
+  return ret;
+}
+
 static inline int add_relay_log(Relay_log_info *rli, LOG_INFO *linfo) {
   MY_STAT s;
   DBUG_TRACE;

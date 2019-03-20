@@ -568,6 +568,17 @@ int Binlog_sender::send_events(File_reader *reader, my_off_t end_pos) {
       }
 
       if (unlikely(send_packet())) return 1;
+
+      DBUG_EXECUTE_IF("dump_thread_wait_after_send_write_rows", {
+        if (event_type == binary_log::WRITE_ROWS_EVENT) {
+          thd->get_protocol()->flush();
+          static constexpr char act[] =
+              "now "
+              "wait_for signal.continue";
+          DBUG_ASSERT(opt_debug_sync_timeout > 0);
+          DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+        }
+      });
     }
 
     if (unlikely(after_send_hook(log_file, in_exclude_group ? log_pos : 0)))
