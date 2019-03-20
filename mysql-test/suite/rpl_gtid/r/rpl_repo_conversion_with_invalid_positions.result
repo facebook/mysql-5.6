@@ -8,6 +8,7 @@ Note	####	Storing MySQL user name or password information in the master info rep
 #     Configure the replica channel with GTID_ONLY=1
 #     Restart the replica so it uses FILE repositories
 [connection slave]
+call mtr.add_suppression("The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state");
 CHANGE REPLICATION SOURCE TO REQUIRE_ROW_FORMAT = 1, GTID_ONLY = 1;
 include/rpl_restart_server.inc [server_number=2 parameters: --relay_log_info_repository=FILE --master_info_repository=FILE --skip_slave_start=0]
 SET @@GLOBAL.replica_checkpoint_period= 1;

@@ -9,6 +9,7 @@ Note	####	Storing MySQL user name or password information in the master info rep
 #     Add some data in the source and replicate it
 #     Restart the replica but don't start replication
 [connection slave]
+call mtr.add_suppression("The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state");
 SET @@GLOBAL.replica_checkpoint_period= 1;
 CHANGE REPLICATION SOURCE TO REQUIRE_ROW_FORMAT = 1, GTID_ONLY = 1;
 include/start_slave.inc

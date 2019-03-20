@@ -50,6 +50,7 @@
 --echo #     Restart the replica so it uses FILE repositories
 
 --source include/rpl_connection_slave.inc
+call mtr.add_suppression("The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state");
 
 CHANGE REPLICATION SOURCE TO REQUIRE_ROW_FORMAT = 1, GTID_ONLY = 1;
 
