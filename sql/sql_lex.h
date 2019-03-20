@@ -2479,6 +2479,7 @@ struct LEX: public Query_tables_list
   */
   bool is_set_password_sql;
   bool contains_plaintext_password;
+  bool can_optimize_replace_into;
 
   ulong thread_id_opt; //thread id option
 

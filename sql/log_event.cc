@@ -13974,6 +13974,10 @@ Write_rows_log_event::Write_rows_log_event(THD *thd_arg, TABLE *tbl_arg,
                    WRITE_ROWS_EVENT,
                    extra_row_info)
 {
+  if (thd_arg && thd_arg->lex->can_optimize_replace_into)
+  {
+    set_replace_into_event();
+  }
 }
 #endif
 
@@ -14233,6 +14237,9 @@ Write_rows_log_event::write_row(const Relay_log_info *const rli,
   int error;
   int UNINIT_VAR(keynum);
   auto_afree_ptr<char> key(NULL);
+
+  if (is_replace_into_event())
+    thd->lex->duplicates= DUP_REPLACE;
 
   const bool invoke_triggers =
     slave_run_triggers_for_rbr && !master_had_triggers && table->triggers;

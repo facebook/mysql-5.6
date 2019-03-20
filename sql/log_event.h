@@ -651,6 +651,10 @@ struct sql_ex_info
 
 
 /**
+  flag for myrocks replace into
+ */
+#define LOG_EVENT_DUP_REPLACE_F 0x400
+/**
   @def OPTIONS_WRITTEN_TO_BIN_LOG
 
   OPTIONS_WRITTEN_TO_BIN_LOG are the bits of thd->options which must
@@ -1414,10 +1418,12 @@ public:
   virtual bool is_valid() const = 0;
   void set_artificial_event() { flags |= LOG_EVENT_ARTIFICIAL_F; }
   void set_relay_log_event() { flags |= LOG_EVENT_RELAY_LOG_F; }
+  void set_replace_into_event() { flags |= LOG_EVENT_DUP_REPLACE_F; }
   bool is_artificial_event() const { return flags & LOG_EVENT_ARTIFICIAL_F; }
   bool is_relay_log_event() const { return flags & LOG_EVENT_RELAY_LOG_F; }
   bool is_ignorable_event() const { return flags & LOG_EVENT_IGNORABLE_F; }
   bool is_no_filter_event() const { return flags & LOG_EVENT_NO_FILTER_F; }
+  bool is_replace_into_event() const { return flags & LOG_EVENT_DUP_REPLACE_F; }
   inline bool is_using_trans_cache() const
   {
     return (event_cache_type == EVENT_TRANSACTIONAL_CACHE);

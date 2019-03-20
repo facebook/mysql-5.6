@@ -1,0 +1,66 @@
+--source include/have_rocksdb.inc
+--source include/master-slave.inc
+
+connection master;
+SET @prior_rocksdb_perf_context_level = @@rocksdb_perf_context_level;
+SET GLOBAL rocksdb_perf_context_level=3;
+
+create table t1(c1 int,c2 int, primary key (c1)) engine=rocksdb;
+insert into t1 values(1,1),(2,2),(3,3);
+select * from t1;
+
+sync_slave_with_master;
+--echo connect slave
+select value into @c from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+
+
+connection master;
+--echo connect master
+select value into @c from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+replace into t1 values(1,11);
+replace into t1 values(2,22);
+replace into t1 values(3,33);
+select case when value-@c > 0 then 'false' else 'true' end as read_free from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+select * from t1;
+
+sync_slave_with_master;
+--echo connect slave
+select case when value-@c > 0 then 'false' else 'true' end as read_free from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+select * from t1;
+
+
+select value into @c from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+
+connection master;
+--echo connect master
+select value into @c from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+replace into t1 values(2,44),(3,55);
+select case when value-@g > 0 then 'false' else 'true' end as read_free from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+select * from t1;
+
+sync_slave_with_master;
+--echo connect slave
+select case when value-@c > 0 then 'false' else 'true' end as read_free from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+select * from t1;
+
+select value into @c from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+
+connection master;
+--echo connect master
+select value into @c from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+update t1 set c2=66 where c1=3;
+select case when value-@c > 0 then 'false' else 'true' end as read_free from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+select * from t1;
+
+--source include/show_binlog_events.inc
+
+sync_slave_with_master;
+--echo connect slave
+select case when value-@c > 0 then 'false' else 'true' end as read_free from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+select * from t1;
+
+connection master;
+drop table t1;
+SET GLOBAL rocksdb_perf_context_level = @prior_rocksdb_perf_context_level;
+
+--source include/rpl_end.inc

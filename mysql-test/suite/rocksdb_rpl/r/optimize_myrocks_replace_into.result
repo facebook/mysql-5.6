@@ -1,0 +1,110 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+SET @prior_rocksdb_perf_context_level = @@rocksdb_perf_context_level;
+SET GLOBAL rocksdb_perf_context_level=3;
+create table t1(c1 int,c2 int, primary key (c1)) engine=rocksdb;
+insert into t1 values(1,1),(2,2),(3,3);
+select * from t1;
+c1	c2
+1	1
+2	2
+3	3
+connect slave
+select value into @c from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+connect master
+select value into @c from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+replace into t1 values(1,11);
+replace into t1 values(2,22);
+replace into t1 values(3,33);
+select case when value-@c > 0 then 'false' else 'true' end as read_free from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+read_free
+true
+select * from t1;
+c1	c2
+1	11
+2	22
+3	33
+connect slave
+select case when value-@c > 0 then 'false' else 'true' end as read_free from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+read_free
+true
+select * from t1;
+c1	c2
+1	11
+2	22
+3	33
+select value into @c from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+connect master
+select value into @c from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+replace into t1 values(2,44),(3,55);
+select case when value-@g > 0 then 'false' else 'true' end as read_free from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+read_free
+true
+select * from t1;
+c1	c2
+1	11
+2	44
+3	55
+connect slave
+select case when value-@c > 0 then 'false' else 'true' end as read_free from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+read_free
+true
+select * from t1;
+c1	c2
+1	11
+2	44
+3	55
+select value into @c from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+connect master
+select value into @c from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+update t1 set c2=66 where c1=3;
+select case when value-@c > 0 then 'false' else 'true' end as read_free from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+read_free
+false
+select * from t1;
+c1	c2
+1	11
+2	44
+3	66
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000001	#	Query	#	#	use `test`; create table t1(c1 int,c2 int, primary key (c1)) engine=rocksdb
+master-bin.000001	#	Query	#	#	BEGIN
+master-bin.000001	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000001	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000001	#	Xid	#	#	COMMIT /* XID */
+master-bin.000001	#	Query	#	#	BEGIN
+master-bin.000001	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000001	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000001	#	Xid	#	#	COMMIT /* XID */
+master-bin.000001	#	Query	#	#	BEGIN
+master-bin.000001	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000001	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000001	#	Xid	#	#	COMMIT /* XID */
+master-bin.000001	#	Query	#	#	BEGIN
+master-bin.000001	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000001	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000001	#	Xid	#	#	COMMIT /* XID */
+master-bin.000001	#	Query	#	#	BEGIN
+master-bin.000001	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000001	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000001	#	Xid	#	#	COMMIT /* XID */
+master-bin.000001	#	Query	#	#	BEGIN
+master-bin.000001	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000001	#	Update_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000001	#	Xid	#	#	COMMIT /* XID */
+connect slave
+select case when value-@c > 0 then 'false' else 'true' end as read_free from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+read_free
+true
+select * from t1;
+c1	c2
+1	11
+2	44
+3	66
+drop table t1;
+SET GLOBAL rocksdb_perf_context_level = @prior_rocksdb_perf_context_level;
+include/rpl_end.inc

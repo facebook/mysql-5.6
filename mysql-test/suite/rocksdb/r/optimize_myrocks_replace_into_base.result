@@ -1,0 +1,82 @@
+SET @prior_rocksdb_perf_context_level = @@rocksdb_perf_context_level;
+SET GLOBAL rocksdb_perf_context_level=3;
+create table t1(c1 int,c2 int, primary key (c1)) engine=rocksdb;
+insert into t1 values(1,1),(2,2),(3,3);
+select * from t1;
+c1	c2
+1	1
+2	2
+3	3
+select value into @c from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+replace into t1 values(1,11);
+select case when value-@c > 0 then 'false' else 'true' end as read_free from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+read_free
+true
+drop table t1;
+create table t1(c1 int,c2 int, primary key (c1)) engine=rocksdb;
+create trigger trg before insert on t1 for each row set @a:=1;
+insert into t1 values(1,1),(2,2),(3,3);
+select * from t1;
+c1	c2
+1	1
+2	2
+3	3
+select value into @c from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+replace into t1 values(1,11);
+select case when value-@c > 0 then 'false' else 'true' end as read_free from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+read_free
+false
+drop table t1;
+create table t1(c1 int,c2 int) engine=rocksdb;
+insert into t1 values(1,1),(2,2),(3,3);
+select * from t1;
+c1	c2
+1	1
+2	2
+3	3
+select value into @c from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+replace into t1 values(1,11);
+select case when value-@c > 0 then 'false' else 'true' end as read_free from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+read_free
+false
+drop table t1;
+create table t1(c1 int,c2 int unique) engine=rocksdb;
+insert into t1 values(1,1),(2,2),(3,3);
+select * from t1;
+c1	c2
+1	1
+2	2
+3	3
+select value into @c from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+replace into t1 values(1,11);
+select case when value-@c > 0 then 'false' else 'true' end as read_free from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+read_free
+false
+drop table t1;
+create table t1(c1 int primary key,c2 int unique) engine=rocksdb;
+insert into t1 values(1,1),(2,2),(3,3);
+select * from t1;
+c1	c2
+1	1
+2	2
+3	3
+select value into @c from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+replace into t1 values(1,11);
+select case when value-@c > 0 then 'false' else 'true' end as read_free from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+read_free
+false
+drop table t1;
+create table t1(c1 int primary key,c2 int, key idx1(c2)) engine=rocksdb;
+insert into t1 values(1,1),(2,2),(3,3);
+select * from t1;
+c1	c2
+1	1
+2	2
+3	3
+select value into @c from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+replace into t1 values(1,11);
+select case when value-@c > 0 then 'false' else 'true' end as read_free from information_schema.rocksdb_perf_context where table_schema='test' and table_name='t1' and stat_type='GET_FROM_MEMTABLE_COUNT';
+read_free
+false
+drop table t1;
+SET GLOBAL rocksdb_perf_context_level = @prior_rocksdb_perf_context_level;

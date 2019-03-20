@@ -338,6 +338,7 @@ class ha_rocksdb : public my_core::handler {
       MY_ATTRIBUTE((__warn_unused_result__));
   bool is_blind_delete_enabled();
   bool skip_unique_check() const MY_ATTRIBUTE((__warn_unused_result__));
+  bool can_optimize_replace_into() const MY_ATTRIBUTE((__warn_unused_result__));
   void set_force_skip_unique_check(bool skip) override;
   bool commit_in_the_middle() MY_ATTRIBUTE((__warn_unused_result__));
   bool do_bulk_commit(Rdb_transaction *const tx)

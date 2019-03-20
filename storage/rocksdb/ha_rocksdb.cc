@@ -9173,6 +9173,20 @@ bool ha_rocksdb::skip_unique_check() const {
           m_tbl_def->m_key_count == 1);
 }
 
+bool ha_rocksdb::can_optimize_replace_into() const {
+  /*
+    optimize replace into can only works if:
+      1) table only have primary key but no hidden primary key,
+         with any other secondary indexes
+      2) no triggers
+  */
+  THD *thd = ha_thd();
+  return (thd->lex->duplicates == DUP_REPLACE &&
+	  table->s->keys == 1 &&
+	  !has_hidden_pk(table) &&
+	  !table->triggers);
+}
+
 void ha_rocksdb::set_force_skip_unique_check(bool skip) {
   DBUG_ENTER_FUNC();
 
@@ -9437,6 +9451,8 @@ int ha_rocksdb::check_and_lock_unique_pk(const uint key_id,
   DBUG_ASSERT(found != nullptr);
   DBUG_ASSERT(pk_changed != nullptr);
 
+  bool ignore_get = false;
+
   *pk_changed = false;
 
   /*
@@ -9455,6 +9471,9 @@ int ha_rocksdb::check_and_lock_unique_pk(const uint key_id,
     *pk_changed = true;
   }
 
+  ignore_get = can_optimize_replace_into();
+  if (ignore_get)
+    ha_thd()->lex->can_optimize_replace_into = true;
   /*
     Perform a read to determine if a duplicate entry exists. For primary
     keys, a point lookup will be sufficient.
@@ -9476,13 +9495,13 @@ int ha_rocksdb::check_and_lock_unique_pk(const uint key_id,
   */
   const rocksdb::Status s =
       get_for_update(row_info.tx, m_pk_descr->get_cf(), row_info.new_pk_slice,
-                     &m_retrieved_record);
+                     ignore_get ? nullptr : &m_retrieved_record);
   if (!s.ok() && !s.IsNotFound()) {
     return row_info.tx->set_status_error(
         table->in_use, s, *m_key_descr_arr[key_id], m_tbl_def, m_table_handler);
   }
 
-  *found = !s.IsNotFound();
+  *found = ignore_get ? false : !s.IsNotFound() ;
   return HA_EXIT_SUCCESS;
 }
 
