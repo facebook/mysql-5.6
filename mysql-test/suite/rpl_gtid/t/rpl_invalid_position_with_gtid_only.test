@@ -36,6 +36,7 @@
 --echo #     Restart the replica but don't start replication
 
 --source include/rpl_connection_slave.inc
+call mtr.add_suppression("The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state");
 
 # Reduce this to a minimum
 --let $replica_checkpoint_period_value = `SELECT @@global.replica_checkpoint_period`

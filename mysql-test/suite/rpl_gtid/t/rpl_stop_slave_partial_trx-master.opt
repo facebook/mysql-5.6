@@ -1,0 +1,1 @@
+--slave_parallel_workers=8 --log-slave-updates --debug_sync_timeout=20

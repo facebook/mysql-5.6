@@ -1365,6 +1365,9 @@ class Relay_log_info : public Rpl_info {
     return is_parallel_exec() && mts_group_status == MTS_IN_GROUP;
   }
 
+  bool mts_workers_queue_empty() const;
+  bool cannot_safely_rollback() const;
+
   /**
      Check if it is time to compute MTS checkpoint.
 
