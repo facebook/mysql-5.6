@@ -719,9 +719,9 @@ private:
                            const rocksdb::Slice &ttl_rec_val,
                            const int64_t curr_ts)
       MY_ATTRIBUTE((__warn_unused_result__));
-  void rocksdb_skip_expired_records(const Rdb_key_def &kd,
-                                    rocksdb::Iterator *const iter,
-                                    bool seek_backward);
+  int rocksdb_skip_expired_records(const Rdb_key_def &kd,
+                                   rocksdb::Iterator *const iter,
+                                   bool seek_backward);
 
   int index_first_intern(uchar *buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
