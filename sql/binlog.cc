@@ -9164,8 +9164,12 @@ commit_stage:
     DBUG_EXECUTE_IF("semi_sync_3-way_deadlock",
                     DEBUG_SYNC(thd, "before_process_commit_stage_queue"););
 
-    if (flush_error == 0 && sync_error == 0)
+    ulonglong start_time;
+    if (flush_error == 0 && sync_error == 0) {
+      start_time = my_timer_now();
       sync_error = call_after_sync_hook(commit_queue);
+      thd->semisync_ack_time = my_timer_since(start_time);
+    }
 
     /*
       process_commit_stage_queue will call update_on_commit or
@@ -9182,7 +9186,9 @@ commit_stage:
       Gtid_set, and adding and removing intervals requires a mutex,
       which would reduce performance.
     */
+    start_time = my_timer_now();
     process_commit_stage_queue(thd, commit_queue);
+    thd->engine_commit_time = my_timer_since(start_time);
     mysql_mutex_unlock(&LOCK_commit);
     /*
       Process after_commit after LOCK_commit is released for avoiding
