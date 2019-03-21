@@ -1,0 +1,45 @@
+SET @old_binlog_rows_event_max_rows = @@global.binlog_rows_event_max_rows;
+SELECT @old_binlog_rows_event_max_rows;
+@old_binlog_rows_event_max_rows
+18446744073709551615
+SET @@global.binlog_rows_event_max_rows = DEFAULT;
+SELECT @@global.binlog_rows_event_max_rows;
+@@global.binlog_rows_event_max_rows
+18446744073709551615
+# binlog_rows_event_max_rows is a global variable.
+SET @@session.binlog_rows_event_max_rows = 1;
+ERROR HY000: Variable 'binlog_rows_event_max_rows' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@binlog_rows_event_max_rows;
+@@binlog_rows_event_max_rows
+18446744073709551615
+SET @@global.binlog_rows_event_max_rows = 512;
+SELECT @@global.binlog_rows_event_max_rows;
+@@global.binlog_rows_event_max_rows
+512
+SET @@global.binlog_rows_event_max_rows = 1000000;
+SELECT @@global.binlog_rows_event_max_rows;
+@@global.binlog_rows_event_max_rows
+1000000
+SET @@global.binlog_rows_event_max_rows = 1.01;
+ERROR 42000: Incorrect argument type to variable 'binlog_rows_event_max_rows'
+SET @@global.binlog_rows_event_max_rows = 'ten';
+ERROR 42000: Incorrect argument type to variable 'binlog_rows_event_max_rows'
+SELECT @@global.binlog_rows_event_max_rows;
+@@global.binlog_rows_event_max_rows
+1000000
+# set binlog_rows_event_max_rows to wrong value
+SET @@global.binlog_rows_event_max_rows = 1500000;
+SELECT @@global.binlog_rows_event_max_rows;
+@@global.binlog_rows_event_max_rows
+1500000
+# set binlog_rows_event_max_rows to wrong value
+SET @@global.binlog_rows_event_max_rows = 0;
+Warnings:
+Warning	1292	Truncated incorrect binlog_rows_event_max_rows value: '0'
+SELECT @@global.binlog_rows_event_max_rows;
+@@global.binlog_rows_event_max_rows
+1
+SET @@global.binlog_rows_event_max_rows = @old_binlog_rows_event_max_rows;
+SELECT @@global.binlog_rows_event_max_rows;
+@@global.binlog_rows_event_max_rows
+18446744073709551615
