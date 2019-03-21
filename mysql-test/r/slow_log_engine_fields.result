@@ -1,0 +1,4 @@
+SET SESSION long_query_time = 0;
+CREATE TABLE t1 (A INT);
+INSERT INTO t1 VALUES (1),(2),(3);
+DROP TABLE t1;

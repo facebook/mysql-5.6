@@ -1560,6 +1560,10 @@ class THD : public MDL_context_owner,
     m_lock_usec = 0;
   }
   void pop_lock_usec(ulonglong top) { m_lock_usec = top; }
+  /* record the semisync ack time */
+  ulonglong semisync_ack_time = 0;
+  /* record the engine commit time */
+  ulonglong engine_commit_time = 0;
 
   /**
     Type of lock to be used for all DML statements, except INSERT, in cases
