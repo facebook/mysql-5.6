@@ -1,0 +1,30 @@
+source include/have_binlog_format_row.inc;
+
+# Deletes all the binary logs
+RESET MASTER;
+
+SET @old_binlog_rows_event_max_rows = @@global.binlog_rows_event_max_rows;
+
+# setup
+let $MYSQLD_DATADIR = `select @@datadir`;
+let $MYSQLD_SECURE_FILE_DIR = `select @@secure_file_priv`;
+SET @@global.binlog_rows_event_max_rows= 1;
+CREATE TABLE t1 (a INT);
+
+# each insert should be in a separate row event because binlog_rows_event_max_rows = 1
+INSERT INTO t1 VALUES (1), (2), (3);
+
+# each update should be in a separate row event because binlog_rows_event_max_rows = 1
+UPDATE t1 SET a = 10;
+
+# there should be two delete events, 1st one with 2 rows and 2nd one with one
+# row because binlog_rows_event_max_rows = 2
+SET @@global.binlog_rows_event_max_rows= 2;
+DELETE FROM t1;
+
+--source include/show_binlog_events.inc
+
+# cleanup
+DROP TABLE t1;
+
+SET @@global.binlog_rows_event_max_rows = @old_binlog_rows_event_max_rows;

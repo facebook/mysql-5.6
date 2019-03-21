@@ -858,6 +858,12 @@ static Sys_var_ulong Sys_binlog_group_commit_sync_no_delay_count(
     CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, 100000 /* max connections */),
     DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
+static Sys_var_ulonglong Sys_binlog_rows_event_max_rows(
+    "binlog_rows_event_max_rows", "Max number of rows in a single rows event",
+    GLOBAL_VAR(opt_binlog_rows_event_max_rows), CMD_LINE(OPT_ARG),
+    VALID_RANGE(1, ULLONG_MAX), DEFAULT(ULLONG_MAX), BLOCK_SIZE(1),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
 static bool check_has_super(sys_var *self MY_ATTRIBUTE((unused)), THD *thd,
                             set_var *) {
   DBUG_ASSERT(self->scope() !=

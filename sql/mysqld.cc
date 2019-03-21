@@ -1053,6 +1053,7 @@ int32_t opt_regexp_time_limit;
 int32_t opt_regexp_stack_limit;
 
 ulong opt_binlog_rows_event_max_size;
+ulonglong opt_binlog_rows_event_max_rows = 0;
 bool opt_log_only_query_comments = false;
 bool opt_log_column_names = false;
 ulong binlog_checksum_options;
