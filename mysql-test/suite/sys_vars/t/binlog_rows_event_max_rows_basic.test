@@ -1,0 +1,33 @@
+--source include/load_sysvars.inc
+
+SET @old_binlog_rows_event_max_rows = @@global.binlog_rows_event_max_rows;
+SELECT @old_binlog_rows_event_max_rows;
+
+SET @@global.binlog_rows_event_max_rows = DEFAULT;
+SELECT @@global.binlog_rows_event_max_rows;
+
+-- echo # binlog_rows_event_max_rows is a global variable.
+--error ER_GLOBAL_VARIABLE
+SET @@session.binlog_rows_event_max_rows = 1;
+SELECT @@binlog_rows_event_max_rows;
+
+SET @@global.binlog_rows_event_max_rows = 512;
+SELECT @@global.binlog_rows_event_max_rows;
+SET @@global.binlog_rows_event_max_rows = 1000000;
+SELECT @@global.binlog_rows_event_max_rows;
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET @@global.binlog_rows_event_max_rows = 1.01;
+--error ER_WRONG_TYPE_FOR_VAR
+SET @@global.binlog_rows_event_max_rows = 'ten';
+SELECT @@global.binlog_rows_event_max_rows;
+-- echo # set binlog_rows_event_max_rows to wrong value
+SET @@global.binlog_rows_event_max_rows = 1500000;
+SELECT @@global.binlog_rows_event_max_rows;
+-- echo # set binlog_rows_event_max_rows to wrong value
+SET @@global.binlog_rows_event_max_rows = 0;
+SELECT @@global.binlog_rows_event_max_rows;
+
+
+SET @@global.binlog_rows_event_max_rows = @old_binlog_rows_event_max_rows;
+SELECT @@global.binlog_rows_event_max_rows;
