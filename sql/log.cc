@@ -775,7 +775,7 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
         " Sort_rows: %lu Sort_scan_count: %lu"
         " Created_tmp_disk_tables: %lu"
         " Created_tmp_tables: %lu"
-        " Start: %s End: %s\n";
+        " Start: %s End: %s";
 
     // If the query start status is valid - i.e. the current thread's
     // status values should be no less than the query start status,
@@ -884,6 +884,17 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
           end_time_buff);
     }
     if (error == (uint)-1) goto err;
+
+    static const char *times =
+        " Semisync_ack_time: %s Engine_commit_time: %s\n";
+    /* Semisync ack time and Engine commit time  */
+    sprintf(query_time_buff, "%.6f",
+            my_timer_to_seconds(thd->semisync_ack_time));
+    sprintf(lock_time_buff, "%.6f",
+            my_timer_to_seconds(thd->engine_commit_time));
+    if (my_b_printf(&log_file, times, query_time_buff, lock_time_buff) ==
+        (uint)-1)
+      goto err;
   }
 
   if (thd->db().str && strcmp(thd->db().str, db)) {  // Database changed
