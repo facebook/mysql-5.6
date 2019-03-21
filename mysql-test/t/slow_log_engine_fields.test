@@ -1,0 +1,16 @@
+SET SESSION long_query_time = 0;
+
+CREATE TABLE t1 (A INT);
+INSERT INTO t1 VALUES (1),(2),(3);
+
+--let SEARCH_FILE = $MYSQLTEST_VARDIR/mysqld.1/mysqld-slow.log
+
+# Check if Semisync_ack_time is included in slow log results
+--let SEARCH_PATTERN= Semisync_ack_time:
+--source include/search_pattern_in_file.inc
+
+# Check if Engine_commit_time is included in slow log results
+--let SEARCH_PATTERN= Engine_commit_time:
+--source include/search_pattern_in_file.inc
+
+DROP TABLE t1;
