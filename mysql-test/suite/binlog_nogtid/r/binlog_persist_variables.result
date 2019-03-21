@@ -25,7 +25,7 @@ VARIABLE_NAME LIKE '%slave%') AND
 'reset_seconds_behind_master', 'skip_flush_master_info'))
 ORDER BY VARIABLE_NAME;
 
-include/assert.inc ['Expect 87 variables in the table.']
+include/assert.inc ['Expect 88 variables in the table.']
 
 # Test SET PERSIST
 SET PERSIST binlog_cache_size = @@GLOBAL.binlog_cache_size;
@@ -51,6 +51,7 @@ ERROR HY000: Variable 'binlog_row_event_max_size' is a read only variable
 SET PERSIST binlog_row_image = @@GLOBAL.binlog_row_image;
 SET PERSIST binlog_row_metadata = @@GLOBAL.binlog_row_metadata;
 SET PERSIST binlog_row_value_options = @@GLOBAL.binlog_row_value_options;
+SET PERSIST binlog_rows_event_max_rows = @@GLOBAL.binlog_rows_event_max_rows;
 SET PERSIST binlog_rows_query_log_events = @@GLOBAL.binlog_rows_query_log_events;
 SET PERSIST binlog_stmt_cache_size = @@GLOBAL.binlog_stmt_cache_size;
 SET PERSIST binlog_transaction_dependency_history_size = @@GLOBAL.binlog_transaction_dependency_history_size;
@@ -139,16 +140,16 @@ SET PERSIST sync_master_info = @@GLOBAL.sync_master_info;
 SET PERSIST sync_relay_log = @@GLOBAL.sync_relay_log;
 SET PERSIST sync_relay_log_info = @@GLOBAL.sync_relay_log_info;
 
-include/assert.inc ['Expect 69 persisted variables in persisted_variables table.']
+include/assert.inc ['Expect 70 persisted variables in persisted_variables table.']
 
 ############################################################
 # 2. Restart server, it must preserve the persisted variable
 #    settings. Verify persisted configuration.
 # restart
 
-include/assert.inc ['Expect 69 persisted variables in persisted_variables table.']
-include/assert.inc ['Expect 69 persisted variables shown as PERSISTED in variables_info table.']
-include/assert.inc ['Expect 69 persisted variables with matching persisted and global values.']
+include/assert.inc ['Expect 70 persisted variables in persisted_variables table.']
+include/assert.inc ['Expect 70 persisted variables shown as PERSISTED in variables_info table.']
+include/assert.inc ['Expect 70 persisted variables with matching persisted and global values.']
 
 ############################################################
 # 3. Test RESET PERSIST IF EXISTS. Verify persisted variable
@@ -176,6 +177,7 @@ Warning	3615	Variable binlog_row_event_max_size does not exist in persisted conf
 RESET PERSIST IF EXISTS binlog_row_image;
 RESET PERSIST IF EXISTS binlog_row_metadata;
 RESET PERSIST IF EXISTS binlog_row_value_options;
+RESET PERSIST IF EXISTS binlog_rows_event_max_rows;
 RESET PERSIST IF EXISTS binlog_rows_query_log_events;
 RESET PERSIST IF EXISTS binlog_stmt_cache_size;
 RESET PERSIST IF EXISTS binlog_transaction_dependency_history_size;
