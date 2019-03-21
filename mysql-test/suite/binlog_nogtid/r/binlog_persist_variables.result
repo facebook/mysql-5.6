@@ -51,6 +51,7 @@ ERROR HY000: Variable 'binlog_row_event_max_size' is a read only variable
 SET PERSIST binlog_row_image = @@GLOBAL.binlog_row_image;
 SET PERSIST binlog_row_metadata = @@GLOBAL.binlog_row_metadata;
 SET PERSIST binlog_row_value_options = @@GLOBAL.binlog_row_value_options;
+SET PERSIST binlog_rows_event_max_rows = @@GLOBAL.binlog_rows_event_max_rows;
 SET PERSIST binlog_rows_query_log_events = @@GLOBAL.binlog_rows_query_log_events;
 SET PERSIST binlog_stmt_cache_size = @@GLOBAL.binlog_stmt_cache_size;
 SET PERSIST binlog_transaction_compression = @@GLOBAL.binlog_transaction_compression;
@@ -181,6 +182,7 @@ Warning	3615	Variable binlog_row_event_max_size does not exist in persisted conf
 RESET PERSIST IF EXISTS binlog_row_image;
 RESET PERSIST IF EXISTS binlog_row_metadata;
 RESET PERSIST IF EXISTS binlog_row_value_options;
+RESET PERSIST IF EXISTS binlog_rows_event_max_rows;
 RESET PERSIST IF EXISTS binlog_rows_query_log_events;
 RESET PERSIST IF EXISTS binlog_stmt_cache_size;
 RESET PERSIST IF EXISTS binlog_transaction_compression;

@@ -1147,6 +1147,7 @@ restart server again with old databse files. */
 bool clone_recovery_error = false;
 
 ulong binlog_row_event_max_size;
+ulonglong opt_binlog_rows_event_max_rows = 0;
 bool opt_log_only_query_comments = false;
 bool opt_binlog_trx_meta_data = false;
 bool opt_log_column_names = false;

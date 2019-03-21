@@ -196,6 +196,8 @@ The following options may be given as the first argument:
  such updates, only the modified parts of the JSON
  document are included in the binary log, so small changes
  of big documents may need significantly less space.
+ --binlog-rows-event-max-rows[=#] 
+ Max number of rows in a single rows event
  --binlog-rows-query-log-events 
  Allow writing of Rows_query_log events into binary log.
  --binlog-stmt-cache-size=# 
@@ -1524,6 +1526,7 @@ binlog-row-event-max-size 8192
 binlog-row-image FULL
 binlog-row-metadata FACEBOOK
 binlog-row-value-options 
+binlog-rows-event-max-rows 18446744073709551615
 binlog-rows-query-log-events FALSE
 binlog-stmt-cache-size 32768
 binlog-transaction-compression FALSE
