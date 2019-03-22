@@ -110,8 +110,8 @@ call mtr.add_suppression("Slave: Can't find record in 't1'.*");
 --source include/wait_for_slave_sql_error.inc
 
 connection slave;
-set @save_rocksdb_read_free_rpl_tables=@@global.rocksdb_read_free_rpl_tables;
-set global rocksdb_read_free_rpl_tables="t.*";
+set @save_rocksdb_read_free_rpl=@@global.rocksdb_read_free_rpl;
+set global rocksdb_read_free_rpl=PK_SK;
 START SLAVE;
 connection master;
 --source include/sync_slave_sql_with_master.inc
@@ -122,7 +122,7 @@ connection master;
 
 # cleanup
 connection slave;
-set global rocksdb_read_free_rpl_tables=@save_rocksdb_read_free_rpl_tables;
+set global rocksdb_read_free_rpl=@save_rocksdb_read_free_rpl;
 connection master;
 SET session rocksdb_blind_delete_primary_key=@save_rocksdb_blind_delete_primary_key;
 SET session rocksdb_master_skip_tx_api=@save_rocksdb_master_skip_tx_api;

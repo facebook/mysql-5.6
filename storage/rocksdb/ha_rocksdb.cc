@@ -609,6 +609,15 @@ static my_bool rocksdb_large_prefix = 0;
 static my_bool rocksdb_allow_to_start_after_corruption = 0;
 static uint64_t rocksdb_write_policy =
     rocksdb::TxnDBWritePolicy::WRITE_COMMITTED;
+char *rocksdb_read_free_rpl_tables;
+std::mutex rocksdb_read_free_rpl_tables_mutex;
+#if defined(HAVE_PSI_INTERFACE)
+Regex_list_handler rdb_read_free_regex_handler(key_rwlock_read_free_rpl_tables);
+#else
+Regex_list_handler rdb_read_free_regex_handler;
+#endif
+enum read_free_rpl_type { OFF = 0, PK_ONLY, PK_SK };
+static uint64_t rocksdb_read_free_rpl = read_free_rpl_type::OFF;
 static my_bool rocksdb_error_on_suboptimal_collation = 1;
 static uint32_t rocksdb_stats_recalc_rate = 0;
 static uint32_t rocksdb_debug_manual_compaction_delay = 0;
@@ -621,6 +630,9 @@ std::atomic<uint64_t> rocksdb_snapshot_conflict_errors(0);
 std::atomic<uint64_t> rocksdb_wal_group_syncs(0);
 std::atomic<uint64_t> rocksdb_manual_compactions_processed(0);
 std::atomic<uint64_t> rocksdb_manual_compactions_running(0);
+#ifndef DBUG_OFF
+std::atomic<uint64_t> rocksdb_num_get_for_update_calls(0);
+#endif
 
 static std::unique_ptr<rocksdb::DBOptions> rdb_init_rocksdb_db_options(void) {
   auto o = std::unique_ptr<rocksdb::DBOptions>(new rocksdb::DBOptions());
@@ -652,6 +664,13 @@ static const char *write_policy_names[] = {"write_committed", "write_prepared",
 static TYPELIB write_policy_typelib = {array_elements(write_policy_names) - 1,
                                        "write_policy_typelib",
                                        write_policy_names, nullptr};
+
+/* This array needs to be kept up to date with myrocks::read_free_rpl_type */
+static const char *read_free_rpl_names[] = {"OFF", "PK_ONLY", "PK_SK", NullS};
+
+static TYPELIB read_free_rpl_typelib = {array_elements(read_free_rpl_names) - 1,
+                                        "read_free_rpl_typelib",
+                                        read_free_rpl_names, nullptr};
 
 /* This enum needs to be kept up to date with rocksdb::InfoLogLevel */
 static const char *info_log_level_names[] = {"debug_level", "info_level",
@@ -848,12 +867,80 @@ static MYSQL_THDVAR_BOOL(
     " Blind delete is disabled if the table has secondary key",
     nullptr, nullptr, FALSE);
 
-#define DEFAULT_READ_FREE_RPL_TABLES ""
-static MYSQL_THDVAR_STR(
-    read_free_rpl_tables, PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+static const char *DEFAULT_READ_FREE_RPL_TABLES = ".*";
+
+static int rocksdb_validate_read_free_rpl_tables(
+    THD *thd MY_ATTRIBUTE((__unused__)),
+    struct st_mysql_sys_var *var MY_ATTRIBUTE((__unused__)), void *save,
+    struct st_mysql_value *value) {
+  char buff[STRING_BUFFER_USUAL_SIZE];
+  int length = sizeof(buff);
+  const char *wlist_buf = value->val_str(value, buff, &length);
+  const auto wlist = wlist_buf ? wlist_buf : DEFAULT_READ_FREE_RPL_TABLES;
+
+#if defined(HAVE_PSI_INTERFACE)
+  Regex_list_handler regex_handler(key_rwlock_read_free_rpl_tables);
+#else
+  Regex_list_handler regex_handler;
+#endif
+
+  if (!regex_handler.set_patterns(wlist)) {
+    warn_about_bad_patterns(&regex_handler, "rocksdb_read_free_rpl_tables");
+    return HA_EXIT_FAILURE;
+  }
+
+  *static_cast<const char **>(save) = my_strdup(wlist, MYF(MY_WME));
+  return HA_EXIT_SUCCESS;
+}
+
+static void rocksdb_update_read_free_rpl_tables(
+    THD *thd MY_ATTRIBUTE((__unused__)),
+    struct st_mysql_sys_var *var MY_ATTRIBUTE((__unused__)), void *var_ptr,
+    const void *save) {
+  const auto wlist = *static_cast<const char *const *>(save);
+  DBUG_ASSERT(wlist != nullptr);
+
+  // This is bound to succeed since we've already checked for bad patterns in
+  // rocksdb_validate_read_free_rpl_tables
+  rdb_read_free_regex_handler.set_patterns(wlist);
+
+  // update all table defs
+  struct Rdb_read_free_rpl_updater : public Rdb_tables_scanner {
+    int add_table(Rdb_tbl_def *tdef) override {
+      tdef->check_and_set_read_free_rpl_table();
+      return HA_EXIT_SUCCESS;
+    }
+  } updater;
+  ddl_manager.scan_for_tables(&updater);
+
+  if (wlist == DEFAULT_READ_FREE_RPL_TABLES) {
+    // If running SET var = DEFAULT, then rocksdb_validate_read_free_rpl_tables
+    // isn't called, and memory is never allocated for the value. Allocate it
+    // here.
+    *static_cast<const char **>(var_ptr) = my_strdup(wlist, MYF(MY_WME));
+  } else {
+    // Otherwise, we just reuse the value allocated from
+    // rocksdb_validate_read_free_rpl_tables.
+    *static_cast<const char **>(var_ptr) = wlist;
+  }
+}
+
+static MYSQL_SYSVAR_STR(
+    read_free_rpl_tables, rocksdb_read_free_rpl_tables,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC | PLUGIN_VAR_ALLOCATED,
     "List of tables that will use read-free replication on the slave "
     "(i.e. not lookup a row during replication)",
-    nullptr, nullptr, DEFAULT_READ_FREE_RPL_TABLES);
+    rocksdb_validate_read_free_rpl_tables, rocksdb_update_read_free_rpl_tables,
+    DEFAULT_READ_FREE_RPL_TABLES);
+
+static MYSQL_SYSVAR_ENUM(
+    read_free_rpl, rocksdb_read_free_rpl,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+    "Use read-free replication on the slave (i.e. no row lookup during "
+    "replication). Default is OFF, PK_SK will enable it on all tables with "
+    "primary key. PK_ONLY will enable it on tables where the only key is the "
+    "primary key (i.e. no secondary keys).",
+    nullptr, nullptr, read_free_rpl_type::OFF, &read_free_rpl_typelib);
 
 static MYSQL_THDVAR_BOOL(skip_bloom_filter_on_read, PLUGIN_VAR_RQCMDARG,
                          "Skip using bloom filter for reads", nullptr, nullptr,
@@ -1756,6 +1843,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(commit_in_the_middle),
     MYSQL_SYSVAR(blind_delete_primary_key),
     MYSQL_SYSVAR(read_free_rpl_tables),
+    MYSQL_SYSVAR(read_free_rpl),
     MYSQL_SYSVAR(bulk_load_size),
     MYSQL_SYSVAR(merge_buf_size),
     MYSQL_SYSVAR(enable_bulk_load_api),
@@ -4801,6 +4889,8 @@ static int rocksdb_init_func(void *const p) {
     rocksdb_db_options->max_open_files = open_files_limit / 2;
   }
 
+  rdb_read_free_regex_handler.set_patterns(DEFAULT_READ_FREE_RPL_TABLES);
+
   rocksdb_stats = rocksdb::CreateDBStatistics();
   rocksdb_db_options->statistics = rocksdb_stats;
 
@@ -6637,22 +6727,6 @@ void ha_rocksdb::free_key_buffers() {
   m_scan_it_upper_bound = nullptr;
 }
 
-void ha_rocksdb::set_use_read_free_rpl(const char *const whitelist) {
-  const char *const wl = whitelist ? whitelist : DEFAULT_READ_FREE_RPL_TABLES;
-
-#if defined(HAVE_PSI_INTERFACE)
-  Regex_list_handler regex_handler(key_rwlock_read_free_rpl_tables);
-#else
-  Regex_list_handler regex_handler;
-#endif
-
-  if (!regex_handler.set_patterns(wl)) {
-    warn_about_bad_patterns(&regex_handler, "read_free_rpl_tables");
-  }
-
-  m_use_read_free_rpl = regex_handler.matches(m_tbl_def->base_tablename());
-}
-
 void ha_rocksdb::set_skip_unique_check_tables(const char *const whitelist) {
   const char *const wl =
       whitelist ? whitelist : DEFAULT_SKIP_UNIQUE_CHECK_TABLES;
@@ -6768,9 +6842,6 @@ int ha_rocksdb::open(const char *const name, int mode, uint test_if_locked) {
 
   /* Index block size in MyRocks: used by MySQL in query optimization */
   stats.block_size = rocksdb_tbl_options->block_size;
-
-  /* Determine at open whether we can use Read Free Replication or not */
-  set_use_read_free_rpl(THDVAR(ha_thd(), read_free_rpl_tables));
 
   /* Determine at open whether we should skip unique checks for this table */
   set_skip_unique_check_tables(THDVAR(ha_thd(), skip_unique_check_tables));
@@ -8736,6 +8807,9 @@ rocksdb::Status ha_rocksdb::get_for_update(
   rocksdb::Status s =
       tx->get_for_update(column_family, key, value, exclusive, do_validate);
 
+#ifndef DBUG_OFF
+  ++rocksdb_num_get_for_update_calls;
+#endif
   return s;
 }
 
@@ -9164,12 +9238,14 @@ bool ha_rocksdb::skip_unique_check() const {
       3) the user set unique_checks option to 0, and the table does not have
          any indexes. If the table has secondary keys, then those might becomes
          inconsisted/corrupted
+      4) We're using read-free replication
   */
   return THDVAR(table->in_use, bulk_load) ||
          (m_force_skip_unique_check && m_skip_unique_check) ||
          (my_core::thd_test_options(table->in_use,
                                     OPTION_RELAXED_UNIQUE_CHECKS) &&
-          m_tbl_def->m_key_count == 1);
+          m_tbl_def->m_key_count == 1) ||
+         use_read_free_rpl();
 }
 
 void ha_rocksdb::set_force_skip_unique_check(bool skip) {
@@ -9431,28 +9507,11 @@ int ha_rocksdb::get_pk_for_update(struct update_row_info *const row_info) {
 */
 int ha_rocksdb::check_and_lock_unique_pk(const uint key_id,
                                          const struct update_row_info &row_info,
-                                         bool *const found,
-                                         bool *const pk_changed) {
+                                         bool *const found) {
   DBUG_ASSERT(found != nullptr);
-  DBUG_ASSERT(pk_changed != nullptr);
 
-  *pk_changed = false;
-
-  /*
-    For UPDATEs, if the key has changed, we need to obtain a lock. INSERTs
-    always require locking.
-  */
-  if (row_info.old_pk_slice.size() > 0) {
-    /*
-      If the keys are the same, then no lock is needed
-    */
-    if (!row_info.new_pk_slice.compare(row_info.old_pk_slice)) {
-      *found = false;
-      return HA_EXIT_SUCCESS;
-    }
-
-    *pk_changed = true;
-  }
+  DBUG_ASSERT(row_info.old_pk_slice.size() == 0 ||
+              row_info.new_pk_slice.compare(row_info.old_pk_slice) != 0);
 
   /*
     Perform a read to determine if a duplicate entry exists. For primary
@@ -9637,7 +9696,7 @@ int ha_rocksdb::check_and_lock_sk(const uint key_id,
     other            HA_ERR error code (can be SE-specific)
 */
 int ha_rocksdb::check_uniqueness_and_lock(
-    const struct update_row_info &row_info, bool *const pk_changed) {
+    const struct update_row_info &row_info, bool pk_changed) {
   /*
     Go through each index and determine if the index has uniqueness
     requirements. If it does, then try to obtain a row lock on the new values.
@@ -9649,7 +9708,12 @@ int ha_rocksdb::check_uniqueness_and_lock(
     int rc;
 
     if (is_pk(key_id, table, m_tbl_def)) {
-      rc = check_and_lock_unique_pk(key_id, row_info, &found, pk_changed);
+      if (row_info.old_pk_slice.size() > 0 && !pk_changed) {
+        found = false;
+        rc = HA_EXIT_SUCCESS;
+      } else {
+        rc = check_and_lock_unique_pk(key_id, row_info, &found);
+      }
     } else {
       rc = check_and_lock_sk(key_id, row_info, &found);
     }
@@ -10080,12 +10144,20 @@ int ha_rocksdb::update_write_row(const uchar *const old_data,
     DBUG_RETURN(rc);
   }
 
+  /*
+    For UPDATEs, if the key has changed, we need to obtain a lock. INSERTs
+    always require locking.
+  */
+  if (row_info.old_pk_slice.size() > 0) {
+    pk_changed = row_info.new_pk_slice.compare(row_info.old_pk_slice) != 0;
+  }
+
   if (!skip_unique_check) {
     /*
       Check to see if we are going to have failures because of unique
       keys.  Also lock the appropriate key values.
     */
-    rc = check_uniqueness_and_lock(row_info, &pk_changed);
+    rc = check_uniqueness_and_lock(row_info, pk_changed);
     if (rc != HA_EXIT_SUCCESS) {
       DBUG_RETURN(rc);
     }
@@ -10872,7 +10944,7 @@ int ha_rocksdb::update_row(const uchar *const old_data, uchar *const new_data) {
   DBUG_ASSERT(new_data == table->record[0]);
 
   ha_statistic_increment(&SSV::ha_update_count);
-  const int rv = update_write_row(old_data, new_data, false);
+  const int rv = update_write_row(old_data, new_data, skip_unique_check());
 
   if (rv == 0) {
     stats.rows_updated++;
@@ -13115,6 +13187,10 @@ static SHOW_VAR rocksdb_status_vars[] = {
                        SHOW_LONGLONG),
     DEF_STATUS_VAR_PTR("number_sst_entry_other", &rocksdb_num_sst_entry_other,
                        SHOW_LONGLONG),
+#ifndef DBUG_OFF
+    DEF_STATUS_VAR_PTR("num_get_for_update_calls",
+                       &rocksdb_num_get_for_update_calls, SHOW_LONGLONG),
+#endif
     // the variables generated by SHOW_FUNC are sorted only by prefix (first
     // arg in the tuple below), so make sure it is unique to make sorting
     // deterministic as quick sort is not stable
@@ -13398,7 +13474,7 @@ bool ha_rocksdb::should_recreate_snapshot(const int rc,
  * using TX API and skipping row locking.
  */
 bool ha_rocksdb::can_assume_tracked(THD *thd) {
-  if (m_use_read_free_rpl || (THDVAR(thd, blind_delete_primary_key))) {
+  if (use_read_free_rpl() || (THDVAR(thd, blind_delete_primary_key))) {
     return false;
   }
   return true;
@@ -14103,18 +14179,33 @@ void ha_rocksdb::rpl_after_update_rows() {
   DBUG_VOID_RETURN;
 }
 
+bool ha_rocksdb::is_read_free_rpl_table() const {
+  return table->s && m_tbl_def->m_is_read_free_rpl_table;
+}
+
 /**
   @brief
-  Read Free Replication can be used or not. Returning False means
-  Read Free Replication can be used. Read Free Replication can be used
-  on UPDATE or DELETE row events, and table must have user defined
-  primary key.
+  Read Free Replication can be used or not. Returning true means
+  Read Free Replication can be used.
 */
-bool ha_rocksdb::use_read_free_rpl() {
+bool ha_rocksdb::use_read_free_rpl() const {
   DBUG_ENTER_FUNC();
 
-  DBUG_RETURN((m_in_rpl_delete_rows || m_in_rpl_update_rows) &&
-              !has_hidden_pk(table) && m_use_read_free_rpl);
+  if (!ha_thd()->rli_slave || table->triggers || !is_read_free_rpl_table()) {
+    DBUG_RETURN(false);
+  }
+
+  switch (rocksdb_read_free_rpl) {
+  case read_free_rpl_type::OFF:
+    DBUG_RETURN(false);
+  case read_free_rpl_type::PK_ONLY:
+    DBUG_RETURN(!has_hidden_pk(table) && table->s->keys == 1);
+  case read_free_rpl_type::PK_SK:
+    DBUG_RETURN(!has_hidden_pk(table));
+  }
+
+  DBUG_ASSERT(false);
+  DBUG_RETURN(false);
 }
 
 double ha_rocksdb::read_time(uint index, uint ranges, ha_rows rows) {

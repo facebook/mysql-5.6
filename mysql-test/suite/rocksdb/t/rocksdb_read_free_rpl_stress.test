@@ -1,0 +1,22 @@
+source include/have_rocksdb.inc;
+source include/master-slave.inc;
+source include/not_valgrind.inc;
+
+connection slave;
+stop slave;
+set @@global.rocksdb_read_free_rpl = PK_SK;
+start slave;
+source rocksdb_read_free_rpl_stress.inc;
+
+connection slave;
+stop slave;
+set @@global.rocksdb_read_free_rpl = PK_ONLY;
+start slave;
+source rocksdb_read_free_rpl_stress.inc;
+
+connection slave;
+stop slave;
+set @@global.rocksdb_read_free_rpl = default;
+start slave;
+
+source include/rpl_end.inc;
