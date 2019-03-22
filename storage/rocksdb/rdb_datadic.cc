@@ -40,9 +40,11 @@
 #include "./sql_table.h"
 
 /* MyRocks header files */
+#include "./ha_rocksdb.h"
 #include "./ha_rocksdb_proto.h"
 #include "./my_stacktrace.h"
 #include "./rdb_cf_manager.h"
+#include "./rdb_psi.h"
 #include "./rdb_utils.h"
 
 namespace myrocks {
@@ -3495,6 +3497,11 @@ void Rdb_tbl_def::check_if_is_mysql_system_table() {
   }
 }
 
+void Rdb_tbl_def::check_and_set_read_free_rpl_table() {
+  m_is_read_free_rpl_table =
+      rdb_read_free_regex_handler.matches(base_tablename());
+}
+
 void Rdb_tbl_def::set_name(const std::string &name) {
   int err MY_ATTRIBUTE((__unused__));
 
@@ -4200,6 +4207,7 @@ int Rdb_ddl_manager::put(Rdb_tbl_def *const tbl, const bool lock) {
     m_index_num_to_keydef[tbl->m_key_descr_arr[keyno]->get_gl_index_id()] =
         std::make_pair(dbname_tablename, keyno);
   }
+  tbl->check_and_set_read_free_rpl_table();
 
   if (lock)
     mysql_rwlock_unlock(&m_rwlock);

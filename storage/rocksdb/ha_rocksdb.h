@@ -75,6 +75,12 @@ class Rdb_transaction_impl;
 class Rdb_writebatch_impl;
 class Rdb_field_encoder;
 
+extern char *rocksdb_read_free_rpl_tables;
+#if defined(HAVE_PSI_INTERFACE)
+extern PSI_rwlock_key key_rwlock_read_free_rpl_tables;
+#endif
+extern Regex_list_handler rdb_read_free_regex_handler;
+
 /**
   @brief
   Rdb_table_handler is a reference-counted structure storing information for
@@ -246,9 +252,6 @@ class ha_rocksdb : public my_core::handler {
 
   /* TRUE means we are accessing the first row after a snapshot was created */
   bool m_rnd_scan_is_new_snapshot;
-
-  /* TRUE means the replication slave will use Read Free Replication */
-  bool m_use_read_free_rpl;
 
   /*
     TRUE means we should skip unique key checks for this table if the
@@ -820,14 +823,14 @@ private:
   int get_pk_for_update(struct update_row_info *const row_info);
   int check_and_lock_unique_pk(const uint key_id,
                                const struct update_row_info &row_info,
-                               bool *const found, bool *const pk_changed)
+                               bool *const found)
       MY_ATTRIBUTE((__warn_unused_result__));
   int check_and_lock_sk(const uint key_id,
                         const struct update_row_info &row_info,
                         bool *const found)
       MY_ATTRIBUTE((__warn_unused_result__));
   int check_uniqueness_and_lock(const struct update_row_info &row_info,
-                                bool *const pk_changed)
+                                bool pk_changed)
       MY_ATTRIBUTE((__warn_unused_result__));
   bool over_bulk_load_threshold(int *err)
       MY_ATTRIBUTE((__warn_unused_result__));
@@ -1022,17 +1025,17 @@ private:
                              my_core::Alter_inplace_info *const ha_alter_info,
                              bool commit) override;
 
-  void set_use_read_free_rpl(const char *const whitelist);
   void set_skip_unique_check_tables(const char *const whitelist);
+  bool is_read_free_rpl_table() const;
 
-public:
+ public:
   virtual void rpl_before_delete_rows() override;
   virtual void rpl_after_delete_rows() override;
   virtual void rpl_before_update_rows() override;
   virtual void rpl_after_update_rows() override;
-  virtual bool use_read_free_rpl() override;
+  virtual bool use_read_free_rpl() const override;
 
-private:
+ private:
   /* Flags tracking if we are inside different replication operation */
   bool m_in_rpl_delete_rows;
   bool m_in_rpl_update_rows;
