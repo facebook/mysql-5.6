@@ -28,10 +28,10 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 class THD;
 // release_backup_lock
 
-DEFINE_BOOL_METHOD(mysql_acquire_backup_lock,
+DEFINE_BOOL_METHOD(mysql_acquire_backup_lock_nsec,
                    (MYSQL_THD opaque_thd,
                     enum enum_backup_lock_service_lock_kind lock_kind,
-                    unsigned long lock_timeout)) {
+                    ulonglong lock_timeout_nsec)) {
   THD *thd;
   if (opaque_thd)
     thd = static_cast<THD *>(opaque_thd);
@@ -39,7 +39,7 @@ DEFINE_BOOL_METHOD(mysql_acquire_backup_lock,
     thd = current_thd;
 
   if (lock_kind == BACKUP_LOCK_SERVICE_DEFAULT)
-    return acquire_exclusive_backup_lock(thd, lock_timeout, false);
+    return acquire_exclusive_backup_lock_nsec(thd, lock_timeout_nsec, false);
 
   /*
     Return error in case lock_kind has an unexpected value.

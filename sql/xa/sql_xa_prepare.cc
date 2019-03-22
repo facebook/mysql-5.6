@@ -159,8 +159,8 @@ bool Sql_cmd_xa_prepare::trans_xa_prepare(THD *thd) {
   MDL_REQUEST_INIT(&mdl_request, MDL_key::COMMIT, "", "",
                    MDL_INTENTION_EXCLUSIVE, MDL_STATEMENT);
   if (DBUG_EVALUATE_IF("xaprep_mdl_fail", true, false) ||
-      thd->mdl_context.acquire_lock(&mdl_request,
-                                    thd->variables.lock_wait_timeout)) {
+      thd->mdl_context.acquire_lock_nsec(
+          &mdl_request, thd->variables.lock_wait_timeout_nsec)) {
     // Rollback the transaction if lock failed.
     ha_rollback_trans(thd, true);
     return true;

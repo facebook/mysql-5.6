@@ -28,7 +28,7 @@
 /**
   @file mysys/thr_lock.cc
 Read and write locks for Posix threads. Every thread must acquire
-all locks it needs through thr_multi_lock() to avoid dead-locks.
+all locks it needs through thr_multi_lock_nsec() to avoid dead-locks.
 A lock consists of a master lock (THR_LOCK), and lock instances
 (THR_LOCK_DATA).
 Any thread can have any number of lock instances (read and write:s) on
@@ -352,11 +352,9 @@ static inline bool has_old_lock(THR_LOCK_DATA *data, THR_LOCK_INFO *owner) {
 
 static void wake_up_waiters(THR_LOCK *lock);
 
-static enum enum_thr_lock_result wait_for_lock(struct st_lock_list *wait,
-                                               THR_LOCK_DATA *data,
-                                               THR_LOCK_INFO *owner,
-                                               bool in_wait_list,
-                                               ulong lock_wait_timeout) {
+static enum enum_thr_lock_result wait_for_lock_nsec(
+    struct st_lock_list *wait, THR_LOCK_DATA *data, THR_LOCK_INFO *owner,
+    bool in_wait_list, ulonglong lock_wait_timeout_nsec) {
   struct timespec wait_timeout;
   enum enum_thr_lock_result result = THR_LOCK_ABORTED;
   PSI_stage_info old_stage;
@@ -412,7 +410,7 @@ static enum enum_thr_lock_result wait_for_lock(struct st_lock_list *wait,
   if ((!is_killed_hook(nullptr) || in_wait_list) && before_lock_wait)
     (*before_lock_wait)();
 
-  set_timespec(&wait_timeout, lock_wait_timeout);
+  set_timespec_nsec(&wait_timeout, lock_wait_timeout_nsec);
   while (!is_killed_hook(nullptr) || in_wait_list) {
     int rc =
         mysql_cond_timedwait(data->cond, &data->lock->mutex, &wait_timeout);
@@ -472,9 +470,10 @@ static enum enum_thr_lock_result wait_for_lock(struct st_lock_list *wait,
   return result;
 }
 
-enum enum_thr_lock_result thr_lock(THR_LOCK_DATA *data, THR_LOCK_INFO *owner,
-                                   enum thr_lock_type lock_type,
-                                   ulong lock_wait_timeout) {
+enum enum_thr_lock_result thr_lock_nsec(THR_LOCK_DATA *data,
+                                        THR_LOCK_INFO *owner,
+                                        enum thr_lock_type lock_type,
+                                        ulonglong lock_wait_timeout_nsec) {
   THR_LOCK *lock = data->lock;
   enum enum_thr_lock_result result = THR_LOCK_SUCCESS;
   struct st_lock_list *wait_queue;
@@ -673,7 +672,8 @@ enum enum_thr_lock_result thr_lock(THR_LOCK_DATA *data, THR_LOCK_INFO *owner,
     wait_queue = &lock->write_wait;
   }
   /* Can't get lock yet;  Wait for it */
-  result = wait_for_lock(wait_queue, data, owner, false, lock_wait_timeout);
+  result = wait_for_lock_nsec(wait_queue, data, owner, false,
+                              lock_wait_timeout_nsec);
   MYSQL_END_TABLE_LOCK_WAIT(locker);
   return result;
 end:
@@ -901,10 +901,10 @@ static void sort_locks(THR_LOCK_DATA **data, uint count) {
   for accessing 'error_pos' within the lifetime of 'data'.
 */
 
-enum enum_thr_lock_result thr_multi_lock(THR_LOCK_DATA **data, uint count,
-                                         THR_LOCK_INFO *owner,
-                                         ulong lock_wait_timeout,
-                                         THR_LOCK_DATA **error_pos) {
+enum enum_thr_lock_result thr_multi_lock_nsec(THR_LOCK_DATA **data, uint count,
+                                              THR_LOCK_INFO *owner,
+                                              ulonglong lock_wait_timeout_nsec,
+                                              THR_LOCK_DATA **error_pos) {
   THR_LOCK_DATA **pos, **end;
   DBUG_TRACE;
   DBUG_PRINT("lock", ("data: %p  count: %d", data, count));
@@ -912,7 +912,7 @@ enum enum_thr_lock_result thr_multi_lock(THR_LOCK_DATA **data, uint count,
   /* lock everything */
   for (pos = data, end = data + count; pos < end; pos++) {
     enum enum_thr_lock_result result =
-        thr_lock(*pos, owner, (*pos)->type, lock_wait_timeout);
+        thr_lock_nsec(*pos, owner, (*pos)->type, lock_wait_timeout_nsec);
     if (result != THR_LOCK_SUCCESS) { /* Aborted */
       thr_multi_unlock(data, (uint)(pos - data));
       if (error_pos) *error_pos = *pos;
@@ -1181,6 +1181,7 @@ static ulong sum = 0;
 
 #define MAX_LOCK_COUNT 8
 #define TEST_TIMEOUT 100000
+#define TEST_TIMEOUT_NSEC (100000 * 1000000000ULL)
 
 /* The following functions is for WRITE_CONCURRENT_INSERT */
 
@@ -1219,8 +1220,8 @@ static void *test_thread(void *arg) {
       multi_locks[i] = &data[i];
       data[i].type = tests[param][i].lock_type;
     }
-    thr_multi_lock(multi_locks, lock_counts[param], &lock_info, TEST_TIMEOUT,
-                   nullptr);
+    thr_multi_lock_nsec(multi_locks, lock_counts[param], &lock_info,
+                        TEST_TIMEOUT_NSEC, nullptr);
     mysql_mutex_lock(&LOCK_thread_count);
     {
       int tmp = rand() & 7; /* Do something from 0-2 sec */

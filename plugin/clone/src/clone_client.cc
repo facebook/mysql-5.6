@@ -1625,8 +1625,9 @@ int Client::set_locators(const uchar *buffer, size_t length) {
 
     /* If cloning to current data directory, prevent any DDL. */
     if (get_data_dir() == nullptr) {
-      auto failed = mysql_service_mysql_backup_lock->acquire(
-          get_thd(), BACKUP_LOCK_SERVICE_DEFAULT, clone_ddl_timeout);
+      auto failed = mysql_service_mysql_backup_lock->acquire_nsec(
+          get_thd(), BACKUP_LOCK_SERVICE_DEFAULT,
+          clone_ddl_timeout * 1000000000ULL);
 
       if (failed) {
         return (ER_LOCK_WAIT_TIMEOUT);

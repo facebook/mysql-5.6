@@ -323,9 +323,9 @@ bool has_exclusive_tablespace_mdl(THD *thd, const char *tablespace_name);
                                 attempt.
 */
 
-[[nodiscard]] bool acquire_exclusive_table_mdl(
+[[nodiscard]] bool acquire_exclusive_table_mdl_nsec(
     THD *thd, const char *schema_name, const char *table_name,
-    unsigned long int lock_wait_timeout, MDL_ticket **out_mdl_ticket);
+    unsigned long long lock_wait_timeout, MDL_ticket **out_mdl_ticket);
 
 /**
   Acquire exclusive metadata lock on the given schema name with

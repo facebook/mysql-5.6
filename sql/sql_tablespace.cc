@@ -212,7 +212,8 @@ bool lock_rec(THD *thd, MDL_request_list *rlst, const LEX_STRING &tsp) {
                    MDL_INTENTION_EXCLUSIVE, MDL_TRANSACTION);
   rlst->push_front(&backup_lock_request);
 
-  if (thd->mdl_context.acquire_locks(rlst, thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.acquire_locks_nsec(
+          rlst, thd->variables.lock_wait_timeout_nsec))
     return true;
 
   /*
@@ -800,8 +801,8 @@ static bool set_table_encryption_type(THD *thd, const dd::Tablespace &ts,
   for (auto &sname : schemaset) {
     table_mdl_reqs->push_front(dd::mdl_schema_req(thd, sname));
   }
-  if (thd->mdl_context.acquire_locks(table_mdl_reqs,
-                                     thd->variables.lock_wait_timeout)) {
+  if (thd->mdl_context.acquire_locks_nsec(
+          table_mdl_reqs, thd->variables.lock_wait_timeout_nsec)) {
     return true;
   }
 
@@ -890,8 +891,8 @@ static bool upgrade_lock_for_tables_in_tablespace(
   for (size_t i = 0; i < req_count; ++i) {
     MDL_request *r = it++;
     if (r->key.mdl_namespace() == MDL_key::TABLE &&
-        thd->mdl_context.upgrade_shared_lock(r->ticket, MDL_EXCLUSIVE,
-                                             LONG_TIMEOUT))
+        thd->mdl_context.upgrade_shared_lock_nsec(r->ticket, MDL_EXCLUSIVE,
+                                                  LONG_TIMEOUT_NSEC))
       return true;
   }
 
@@ -1299,8 +1300,8 @@ bool Sql_cmd_alter_tablespace_rename::execute(THD *thd) {
     table_reqs.push_front(dd::mdl_req(thd, tref, MDL_EXCLUSIVE));
   }
 
-  if (thd->mdl_context.acquire_locks(&table_reqs,
-                                     thd->variables.lock_wait_timeout)) {
+  if (thd->mdl_context.acquire_locks_nsec(
+          &table_reqs, thd->variables.lock_wait_timeout_nsec)) {
     return true;
   }
 

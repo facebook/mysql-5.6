@@ -723,8 +723,8 @@ bool mysql_alter_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
   */
   Table_ref *tables = nullptr;
   if (find_db_tables(thd, *schema, db, &tables) ||
-      lock_table_names(thd, tables, nullptr, thd->variables.lock_wait_timeout,
-                       0))
+      lock_table_names_nsec(thd, tables, nullptr,
+                            thd->variables.lock_wait_timeout_nsec, 0))
     return true;
 
   // Set new collation ID if submitted in the statement.
@@ -969,8 +969,8 @@ bool mysql_rm_db(THD *thd, const LEX_CSTRING &db, bool if_exists) {
     }
 
     /* Lock all tables and stored routines about to be dropped. */
-    if (lock_table_names(thd, tables, nullptr, thd->variables.lock_wait_timeout,
-                         0) ||
+    if (lock_table_names_nsec(thd, tables, nullptr,
+                              thd->variables.lock_wait_timeout_nsec, 0) ||
         rm_table_do_discovery_and_lock_fk_tables(thd, tables) ||
         lock_check_constraint_names(thd, tables) ||
         Events::lock_schema_events(thd, *schema) ||

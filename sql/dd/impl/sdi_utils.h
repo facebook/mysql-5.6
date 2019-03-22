@@ -83,8 +83,8 @@ inline bool mdl_lock(THD *thd, MDL_key::enum_mdl_namespace ns,
   MDL_request mdl_request;
   MDL_REQUEST_INIT(&mdl_request, ns, schema_name.c_str(), object_name.c_str(),
                    mt, md);
-  return checked_return(thd->mdl_context.acquire_lock(
-      &mdl_request, thd->variables.lock_wait_timeout));
+  return checked_return(thd->mdl_context.acquire_lock_nsec(
+      &mdl_request, thd->variables.lock_wait_timeout_nsec));
 }
 
 template <typename T>

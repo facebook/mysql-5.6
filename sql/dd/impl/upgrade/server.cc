@@ -284,8 +284,8 @@ class MySQL_check {
       MDL_REQUEST_INIT(&table_request, MDL_key::TABLE, converted_schema_name,
                        converted_table_name, MDL_SHARED, MDL_EXPLICIT);
 
-      if (thd->mdl_context.acquire_lock(&table_request,
-                                        thd->variables.lock_wait_timeout)) {
+      if (thd->mdl_context.acquire_lock_nsec(
+              &table_request, thd->variables.lock_wait_timeout_nsec)) {
         return true;
       }
       dd::cache::Dictionary_client::Auto_releaser table_releaser(
@@ -450,10 +450,10 @@ static bool upgrade_firewall(THD *thd) {
 
     // check whether firewall tables exist
     bool error =
-        (thd->mdl_context.acquire_lock(&request1,
-                                       thd->variables.lock_wait_timeout) ||
-         thd->mdl_context.acquire_lock(&request2,
-                                       thd->variables.lock_wait_timeout) ||
+        (thd->mdl_context.acquire_lock_nsec(
+             &request1, thd->variables.lock_wait_timeout_nsec) ||
+         thd->mdl_context.acquire_lock_nsec(
+             &request2, thd->variables.lock_wait_timeout_nsec) ||
          dd::table_exists(thd->dd_client(), INFORMATION_SCHEMA_NAME.str,
                           "MYSQL_FIREWALL_USERS", &has_old_firewall_tables) ||
          dd::table_exists(thd->dd_client(), PERFORMANCE_SCHEMA_DB_NAME.str,
@@ -915,7 +915,7 @@ bool upgrade_system_schemas(THD *thd) {
    * close everything.
    */
   close_thread_tables(thd);
-  close_cached_tables(nullptr, nullptr, false, LONG_TIMEOUT);
+  close_cached_tables_nsec(nullptr, nullptr, false, LONG_TIMEOUT_NSEC);
 
   return dd::end_transaction(thd, err);
 }

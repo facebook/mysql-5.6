@@ -34,6 +34,8 @@
 #include "unittest/gunit/test_utils.h"
 #include "unittest/gunit/thread_utils.h"
 
+static constexpr const ulonglong sec3600 = 3600000000000ULL;
+
 /*
   Putting everything in a namespace prevents any (unintentional)
   name clashes with the code under test.
@@ -98,8 +100,8 @@ ErrorHandlerFunctionPointer LockingServiceTest::m_old_error_handler_hook;
 TEST_F(LockingServiceTest, AcquireAndRelease) {
   // Take two read locks
   const char *names1[] = {lock_name1, lock_name2};
-  EXPECT_FALSE(acquire_locking_service_locks(m_thd, namespace1, names1, 2,
-                                             LOCKING_SERVICE_READ, 3600));
+  EXPECT_FALSE(acquire_locking_service_locks_nsec(
+      m_thd, namespace1, names1, 2, LOCKING_SERVICE_READ, sec3600));
   EXPECT_TRUE(m_thd->mdl_context.owns_equal_or_stronger_lock(
       MDL_key::LOCKING_SERVICE, namespace1, lock_name1, MDL_SHARED));
   EXPECT_TRUE(m_thd->mdl_context.owns_equal_or_stronger_lock(
@@ -114,23 +116,23 @@ TEST_F(LockingServiceTest, AcquireAndRelease) {
 
   // Take one write lock
   const char *names2[] = {lock_name3};
-  EXPECT_FALSE(acquire_locking_service_locks(m_thd, namespace1, names2, 1,
-                                             LOCKING_SERVICE_WRITE, 3600));
+  EXPECT_FALSE(acquire_locking_service_locks_nsec(m_thd, namespace1, names2, 1,
+                                                  LOCKING_SERVICE_WRITE, 3600));
   EXPECT_TRUE(m_thd->mdl_context.owns_equal_or_stronger_lock(
       MDL_key::LOCKING_SERVICE, namespace1, lock_name3, MDL_EXCLUSIVE));
 
   // Take another write lock
   const char *names3[] = {lock_name4};
-  EXPECT_FALSE(acquire_locking_service_locks(m_thd, namespace1, names3, 1,
-                                             LOCKING_SERVICE_WRITE, 3600));
+  EXPECT_FALSE(acquire_locking_service_locks_nsec(
+      m_thd, namespace1, names3, 1, LOCKING_SERVICE_WRITE, sec3600));
   EXPECT_TRUE(m_thd->mdl_context.owns_equal_or_stronger_lock(
       MDL_key::LOCKING_SERVICE, namespace1, lock_name3, MDL_EXCLUSIVE));
   EXPECT_TRUE(m_thd->mdl_context.owns_equal_or_stronger_lock(
       MDL_key::LOCKING_SERVICE, namespace1, lock_name4, MDL_EXCLUSIVE));
 
   // Take the read locks again
-  EXPECT_FALSE(acquire_locking_service_locks(m_thd, namespace1, names1, 2,
-                                             LOCKING_SERVICE_READ, 3600));
+  EXPECT_FALSE(acquire_locking_service_locks_nsec(
+      m_thd, namespace1, names1, 2, LOCKING_SERVICE_READ, sec3600));
   EXPECT_TRUE(m_thd->mdl_context.owns_equal_or_stronger_lock(
       MDL_key::LOCKING_SERVICE, namespace1, lock_name1, MDL_SHARED));
   EXPECT_TRUE(m_thd->mdl_context.owns_equal_or_stronger_lock(
@@ -159,16 +161,16 @@ TEST_F(LockingServiceTest, CaseSensitive) {
   const char *lower[] = {"test"};
   const char *upper[] = {"TEST"};
 
-  EXPECT_FALSE(acquire_locking_service_locks(m_thd, namespace1, lower, 1,
-                                             LOCKING_SERVICE_WRITE, 3600));
+  EXPECT_FALSE(acquire_locking_service_locks_nsec(
+      m_thd, namespace1, lower, 1, LOCKING_SERVICE_WRITE, sec3600));
   EXPECT_TRUE(m_thd->mdl_context.owns_equal_or_stronger_lock(
       MDL_key::LOCKING_SERVICE, namespace1, "test", MDL_EXCLUSIVE));
   EXPECT_FALSE(m_thd->mdl_context.owns_equal_or_stronger_lock(
       MDL_key::LOCKING_SERVICE, namespace1, "TEST", MDL_EXCLUSIVE));
   EXPECT_FALSE(release_locking_service_locks(m_thd, namespace1));
 
-  EXPECT_FALSE(acquire_locking_service_locks(m_thd, "test", upper, 1,
-                                             LOCKING_SERVICE_WRITE, 3600));
+  EXPECT_FALSE(acquire_locking_service_locks_nsec(
+      m_thd, "test", upper, 1, LOCKING_SERVICE_WRITE, sec3600));
   EXPECT_TRUE(m_thd->mdl_context.owns_equal_or_stronger_lock(
       MDL_key::LOCKING_SERVICE, "test", "TEST", MDL_EXCLUSIVE));
   EXPECT_FALSE(m_thd->mdl_context.owns_equal_or_stronger_lock(
@@ -185,10 +187,10 @@ TEST_F(LockingServiceTest, ValidNames) {
     const char *null = nullptr;
     const char *names1[] = {null};
     Mock_error_handler error_handler(m_thd, ER_LOCKING_SERVICE_WRONG_NAME);
-    EXPECT_TRUE(acquire_locking_service_locks(m_thd, namespace1, names1, 1,
-                                              LOCKING_SERVICE_READ, 3600));
-    EXPECT_TRUE(acquire_locking_service_locks(m_thd, null, ok_name, 1,
-                                              LOCKING_SERVICE_READ, 3600));
+    EXPECT_TRUE(acquire_locking_service_locks_nsec(
+        m_thd, namespace1, names1, 1, LOCKING_SERVICE_READ, sec3600));
+    EXPECT_TRUE(acquire_locking_service_locks_nsec(
+        m_thd, null, ok_name, 1, LOCKING_SERVICE_READ, sec3600));
     EXPECT_TRUE(release_locking_service_locks(m_thd, null));
     EXPECT_EQ(3, error_handler.handle_called());
   }
@@ -197,10 +199,10 @@ TEST_F(LockingServiceTest, ValidNames) {
     const char *empty = "";
     const char *names2[] = {empty};
     Mock_error_handler error_handler(m_thd, ER_LOCKING_SERVICE_WRONG_NAME);
-    EXPECT_TRUE(acquire_locking_service_locks(m_thd, namespace1, names2, 1,
-                                              LOCKING_SERVICE_READ, 3600));
-    EXPECT_TRUE(acquire_locking_service_locks(m_thd, empty, ok_name, 1,
-                                              LOCKING_SERVICE_READ, 3600));
+    EXPECT_TRUE(acquire_locking_service_locks_nsec(
+        m_thd, namespace1, names2, 1, LOCKING_SERVICE_READ, sec3600));
+    EXPECT_TRUE(acquire_locking_service_locks_nsec(
+        m_thd, empty, ok_name, 1, LOCKING_SERVICE_READ, sec3600));
     EXPECT_TRUE(release_locking_service_locks(m_thd, empty));
     EXPECT_EQ(3, error_handler.handle_called());
   }
@@ -210,10 +212,10 @@ TEST_F(LockingServiceTest, ValidNames) {
         "12345678901234567890123456789012345678901234567890123456789012345";
     const char *names3[] = {long65};
     Mock_error_handler error_handler(m_thd, ER_LOCKING_SERVICE_WRONG_NAME);
-    EXPECT_TRUE(acquire_locking_service_locks(m_thd, namespace1, names3, 1,
-                                              LOCKING_SERVICE_READ, 3600));
-    EXPECT_TRUE(acquire_locking_service_locks(m_thd, long65, ok_name, 1,
-                                              LOCKING_SERVICE_READ, 3600));
+    EXPECT_TRUE(acquire_locking_service_locks_nsec(
+        m_thd, namespace1, names3, 1, LOCKING_SERVICE_READ, sec3600));
+    EXPECT_TRUE(acquire_locking_service_locks_nsec(
+        m_thd, long65, ok_name, 1, LOCKING_SERVICE_READ, sec3600));
     EXPECT_TRUE(release_locking_service_locks(m_thd, long65));
     EXPECT_EQ(3, error_handler.handle_called());
   }
@@ -225,15 +227,15 @@ TEST_F(LockingServiceTest, ValidNames) {
 TEST_F(LockingServiceTest, TransactionInteraction) {
   // Releasing transactional locks should not affect lock service locks.
   const char *names1[] = {lock_name1};
-  EXPECT_FALSE(acquire_locking_service_locks(m_thd, namespace1, names1, 1,
-                                             LOCKING_SERVICE_READ, 3600));
+  EXPECT_FALSE(acquire_locking_service_locks_nsec(
+      m_thd, namespace1, names1, 1, LOCKING_SERVICE_READ, sec3600));
 
   m_thd->mdl_context.release_transactional_locks();
   EXPECT_TRUE(m_thd->mdl_context.owns_equal_or_stronger_lock(
       MDL_key::LOCKING_SERVICE, namespace1, lock_name1, MDL_SHARED));
 
-  EXPECT_FALSE(acquire_locking_service_locks(m_thd, namespace1, names1, 1,
-                                             LOCKING_SERVICE_WRITE, 3600));
+  EXPECT_FALSE(acquire_locking_service_locks_nsec(
+      m_thd, namespace1, names1, 1, LOCKING_SERVICE_WRITE, sec3600));
   EXPECT_TRUE(m_thd->mdl_context.owns_equal_or_stronger_lock(
       MDL_key::LOCKING_SERVICE, namespace1, lock_name1, MDL_EXCLUSIVE));
   m_thd->mdl_context.release_transactional_locks();
@@ -246,10 +248,11 @@ TEST_F(LockingServiceTest, TransactionInteraction) {
   MDL_request fake_request;
   MDL_REQUEST_INIT(&fake_request, MDL_key::SCHEMA, "db", "table", MDL_EXCLUSIVE,
                    MDL_TRANSACTION);
-  EXPECT_FALSE(m_thd->mdl_context.acquire_lock(&fake_request, 3600));
+  EXPECT_FALSE(
+      m_thd->mdl_context.acquire_lock_nsec(&fake_request, 3600000000000ULL));
 
-  EXPECT_FALSE(acquire_locking_service_locks(m_thd, namespace1, names1, 1,
-                                             LOCKING_SERVICE_READ, 3600));
+  EXPECT_FALSE(acquire_locking_service_locks_nsec(
+      m_thd, namespace1, names1, 1, LOCKING_SERVICE_READ, sec3600));
 
   m_thd->mdl_context.release_transactional_locks();
   EXPECT_TRUE(m_thd->mdl_context.owns_equal_or_stronger_lock(
@@ -278,8 +281,8 @@ class LockServiceThread : public Thread {
     m_initializer.SetUp();
     THD *m_thd = m_initializer.thd();
 
-    EXPECT_FALSE(acquire_locking_service_locks(m_thd, namespace1, m_names,
-                                               m_num, m_lock_type, 3600));
+    EXPECT_FALSE(acquire_locking_service_locks_nsec(
+        m_thd, namespace1, m_names, m_num, m_lock_type, sec3600));
     if (m_lock_grabbed) m_lock_grabbed->notify();
     if (m_lock_release) m_lock_release->wait_for_notification();
 
@@ -308,16 +311,16 @@ TEST_F(LockingServiceTest, ReadCompatibility) {
   thread.start();
   lock_grabbed.wait_for_notification();
 
-  EXPECT_FALSE(acquire_locking_service_locks(m_thd, namespace1, names1, 1,
-                                             LOCKING_SERVICE_READ, 3600));
+  EXPECT_FALSE(acquire_locking_service_locks_nsec(
+      m_thd, namespace1, names1, 1, LOCKING_SERVICE_READ, sec3600));
   EXPECT_TRUE(m_thd->mdl_context.owns_equal_or_stronger_lock(
       MDL_key::LOCKING_SERVICE, namespace1, lock_name1, MDL_SHARED));
   EXPECT_FALSE(release_locking_service_locks(m_thd, namespace1));
 
   {
     Mock_error_handler error_handler(m_thd, ER_LOCKING_SERVICE_TIMEOUT);
-    EXPECT_TRUE(acquire_locking_service_locks(m_thd, namespace1, names1, 1,
-                                              LOCKING_SERVICE_WRITE, 2));
+    EXPECT_TRUE(acquire_locking_service_locks_nsec(
+        m_thd, namespace1, names1, 1, LOCKING_SERVICE_WRITE, 2000000000ULL));
     // Wait 2 seconds here so that we hit the "abs_timeout is far away"
     // code path in MDL_context::acquire_lock() on all platforms.
     EXPECT_FALSE(m_thd->mdl_context.owns_equal_or_stronger_lock(
@@ -342,8 +345,8 @@ TEST_F(LockingServiceTest, WriteCompatibility) {
 
   {
     Mock_error_handler error_handler(m_thd, ER_LOCKING_SERVICE_TIMEOUT);
-    EXPECT_TRUE(acquire_locking_service_locks(m_thd, namespace1, names1, 1,
-                                              LOCKING_SERVICE_WRITE, 1));
+    EXPECT_TRUE(acquire_locking_service_locks_nsec(
+        m_thd, namespace1, names1, 1, LOCKING_SERVICE_WRITE, 1000000000ULL));
     EXPECT_FALSE(m_thd->mdl_context.owns_equal_or_stronger_lock(
         MDL_key::LOCKING_SERVICE, namespace1, lock_name1, MDL_SHARED));
     EXPECT_EQ(1, error_handler.handle_called());
@@ -369,8 +372,8 @@ TEST_F(LockingServiceTest, AtomicAcquire) {
     // Conflict on lock_name1, lock_name2 should not be acquired.
     const char *names2[] = {lock_name1, lock_name2};
     Mock_error_handler error_handler(m_thd, ER_LOCKING_SERVICE_TIMEOUT);
-    EXPECT_TRUE(acquire_locking_service_locks(m_thd, namespace1, names2, 2,
-                                              LOCKING_SERVICE_WRITE, 1));
+    EXPECT_TRUE(acquire_locking_service_locks_nsec(
+        m_thd, namespace1, names2, 2, LOCKING_SERVICE_WRITE, 1000000000ULL));
     EXPECT_FALSE(m_thd->mdl_context.owns_equal_or_stronger_lock(
         MDL_key::LOCKING_SERVICE, namespace1, lock_name1, MDL_SHARED));
     EXPECT_FALSE(m_thd->mdl_context.owns_equal_or_stronger_lock(
@@ -382,8 +385,8 @@ TEST_F(LockingServiceTest, AtomicAcquire) {
     // Reverse order of lock names - should give same result.
     const char *names2[] = {lock_name2, lock_name1};
     Mock_error_handler error_handler(m_thd, ER_LOCKING_SERVICE_TIMEOUT);
-    EXPECT_TRUE(acquire_locking_service_locks(m_thd, namespace1, names2, 2,
-                                              LOCKING_SERVICE_WRITE, 1));
+    EXPECT_TRUE(acquire_locking_service_locks_nsec(
+        m_thd, namespace1, names2, 2, LOCKING_SERVICE_WRITE, 1000000000ULL));
     EXPECT_FALSE(m_thd->mdl_context.owns_equal_or_stronger_lock(
         MDL_key::LOCKING_SERVICE, namespace1, lock_name1, MDL_SHARED));
     EXPECT_FALSE(m_thd->mdl_context.owns_equal_or_stronger_lock(
@@ -400,8 +403,8 @@ TEST_F(LockingServiceTest, AtomicAcquire) {
 */
 TEST_F(LockingServiceTest, Namespaces) {
   const char *names1[] = {lock_name1};
-  EXPECT_FALSE(acquire_locking_service_locks(m_thd, namespace1, names1, 1,
-                                             LOCKING_SERVICE_READ, 3600));
+  EXPECT_FALSE(acquire_locking_service_locks_nsec(
+      m_thd, namespace1, names1, 1, LOCKING_SERVICE_READ, sec3600));
   EXPECT_TRUE(m_thd->mdl_context.owns_equal_or_stronger_lock(
       MDL_key::LOCKING_SERVICE, namespace1, lock_name1, MDL_SHARED));
   EXPECT_FALSE(m_thd->mdl_context.owns_equal_or_stronger_lock(
@@ -420,8 +423,8 @@ TEST_F(LockingServiceTest, Namespaces) {
   lock_grabbed.wait_for_notification();
 
   // We should be able to take a write lock in namespace2.
-  EXPECT_FALSE(acquire_locking_service_locks(m_thd, namespace2, names1, 1,
-                                             LOCKING_SERVICE_WRITE, 3600));
+  EXPECT_FALSE(acquire_locking_service_locks_nsec(
+      m_thd, namespace2, names1, 1, LOCKING_SERVICE_WRITE, sec3600));
   EXPECT_TRUE(m_thd->mdl_context.owns_equal_or_stronger_lock(
       MDL_key::LOCKING_SERVICE, namespace2, lock_name1, MDL_EXCLUSIVE));
   EXPECT_FALSE(m_thd->mdl_context.owns_equal_or_stronger_lock(
@@ -445,8 +448,8 @@ class LockServiceDisconnectThread : public Thread {
     THD *m_thd = m_initializer.thd();
 
     const char *names1[] = {lock_name1};
-    EXPECT_FALSE(acquire_locking_service_locks(m_thd, namespace1, names1, 1,
-                                               LOCKING_SERVICE_WRITE, 3600));
+    EXPECT_FALSE(acquire_locking_service_locks_nsec(
+        m_thd, namespace1, names1, 1, LOCKING_SERVICE_WRITE, sec3600));
     m_initializer.TearDown();
   }
 };
@@ -461,8 +464,8 @@ TEST_F(LockingServiceTest, Disconnect) {
 
   // Check that we now can acquire a write lock on name1.
   const char *names1[] = {lock_name1};
-  EXPECT_FALSE(acquire_locking_service_locks(m_thd, namespace1, names1, 1,
-                                             LOCKING_SERVICE_WRITE, 3600));
+  EXPECT_FALSE(acquire_locking_service_locks_nsec(
+      m_thd, namespace1, names1, 1, LOCKING_SERVICE_WRITE, sec3600));
   EXPECT_FALSE(release_locking_service_locks(m_thd, namespace1));
 }
 
@@ -480,8 +483,8 @@ class LockServiceDeadlockThread : public Thread {
     THD *m_thd = m_initializer.thd();
 
     const char *names1[] = {lock_name1};
-    EXPECT_FALSE(acquire_locking_service_locks(m_thd, namespace1, names1, 1,
-                                               LOCKING_SERVICE_WRITE, 3600));
+    EXPECT_FALSE(acquire_locking_service_locks_nsec(
+        m_thd, namespace1, names1, 1, LOCKING_SERVICE_WRITE, sec3600));
     m_lock_grabbed1->notify();
 
     m_wait->wait_for_notification();
@@ -491,8 +494,8 @@ class LockServiceDeadlockThread : public Thread {
       // We should therefore fail.
       const char *names2[] = {lock_name2};
       Mock_error_handler error_handler(m_thd, ER_LOCKING_SERVICE_DEADLOCK);
-      EXPECT_TRUE(acquire_locking_service_locks(m_thd, namespace1, names2, 1,
-                                                LOCKING_SERVICE_READ, 3600));
+      EXPECT_TRUE(acquire_locking_service_locks_nsec(
+          m_thd, namespace1, names2, 1, LOCKING_SERVICE_READ, sec3600));
       EXPECT_EQ(1, error_handler.handle_called());
     }
 
@@ -525,16 +528,16 @@ TEST_F(LockingServiceTest, DeadlockRead) {
 
   // Acquire write lock on name 2
   const char *names2[] = {lock_name2};
-  EXPECT_FALSE(acquire_locking_service_locks(m_thd, namespace1, names2, 1,
-                                             LOCKING_SERVICE_WRITE, 3600));
+  EXPECT_FALSE(acquire_locking_service_locks_nsec(
+      m_thd, namespace1, names2, 1, LOCKING_SERVICE_WRITE, sec3600));
 
   // Signal the other thread to continue, taking write lock on name1
   wait.notify();
 
   // The other thread will be aborted so that we will acquire the lock.
   const char *names1[] = {lock_name1};
-  EXPECT_FALSE(acquire_locking_service_locks(m_thd, namespace1, names1, 1,
-                                             LOCKING_SERVICE_WRITE, 3600));
+  EXPECT_FALSE(acquire_locking_service_locks_nsec(
+      m_thd, namespace1, names1, 1, LOCKING_SERVICE_WRITE, sec3600));
 
   // Both locks should now be held
   EXPECT_TRUE(m_thd->mdl_context.owns_equal_or_stronger_lock(

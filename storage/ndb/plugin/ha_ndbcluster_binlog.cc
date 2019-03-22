@@ -1733,19 +1733,19 @@ class Ndb_schema_event_handler {
 
   class Lock_wait_timeout_guard {
    public:
-    Lock_wait_timeout_guard(THD *thd, ulong lock_wait_timeout)
+    Lock_wait_timeout_guard(THD *thd, ulong lock_wait_timeout_nsec)
         : m_thd(thd),
-          m_save_lock_wait_timeout(thd->variables.lock_wait_timeout) {
-      m_thd->variables.lock_wait_timeout = lock_wait_timeout;
+          m_save_lock_wait_timeout_nsec(thd->variables.lock_wait_timeout_nsec) {
+      m_thd->variables.lock_wait_timeout_nsec = lock_wait_timeout_nsec;
     }
 
     ~Lock_wait_timeout_guard() {
-      m_thd->variables.lock_wait_timeout = m_save_lock_wait_timeout;
+      m_thd->variables.lock_wait_timeout_nsec = m_save_lock_wait_timeout_nsec;
     }
 
    private:
     THD *const m_thd;
-    ulong m_save_lock_wait_timeout;
+    ulong m_save_lock_wait_timeout_nsec;
   };
 
   // Log error code and message returned from NDB

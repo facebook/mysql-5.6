@@ -24,6 +24,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 #define BACKUP_LOCK_SERVICE_H
 #include <mysql/components/service.h>
 #include <stddef.h>
+#include "my_inttypes.h"
 
 /**
   Kind of Backup Lock to be acquired. In future we might
@@ -59,9 +60,9 @@ BEGIN_SERVICE_DEFINITION(mysql_backup_lock)
     @retval true  Failure
 */
 
-DECLARE_BOOL_METHOD(acquire,
+DECLARE_BOOL_METHOD(acquire_nsec,
                     (MYSQL_THD, enum enum_backup_lock_service_lock_kind,
-                     unsigned long /* lock_timeout*/));
+                     ulonglong /* lock_timeout*/));
 
 /**
   Service API to release Backup Lock.

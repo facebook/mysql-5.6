@@ -560,8 +560,8 @@ ulonglong Table_statistics::read_stat_from_SE(
   Info_schema_error_handler info_schema_error_handler(thd, &schema_name_ptr,
                                                       &table_name_ptr);
   thd->push_internal_handler(&info_schema_error_handler);
-  if (thd->mdl_context.acquire_lock(&mdl_request,
-                                    thd->variables.lock_wait_timeout)) {
+  if (thd->mdl_context.acquire_lock_nsec(
+          &mdl_request, thd->variables.lock_wait_timeout_nsec)) {
     error = -1;
   }
   thd->pop_internal_handler();

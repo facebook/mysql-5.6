@@ -1469,8 +1469,8 @@ bool rm_table_do_discovery_and_lock_fk_tables(THD *thd, Table_ref *tables) {
   }
 
   if (!mdl_requests.is_empty() &&
-      thd->mdl_context.acquire_locks(&mdl_requests,
-                                     thd->variables.lock_wait_timeout))
+      thd->mdl_context.acquire_locks_nsec(
+          &mdl_requests, thd->variables.lock_wait_timeout_nsec))
     return true;
 
   return false;
@@ -1579,8 +1579,8 @@ bool mysql_rm_table(THD *thd, Table_ref *tables, bool if_exists,
 
   if (!drop_temporary) {
     if (!thd->locked_tables_mode) {
-      if (lock_table_names(thd, tables, nullptr,
-                           thd->variables.lock_wait_timeout, 0) ||
+      if (lock_table_names_nsec(thd, tables, nullptr,
+                                thd->variables.lock_wait_timeout_nsec, 0) ||
           lock_trigger_names(thd, tables))
         return true;
 
@@ -1635,7 +1635,8 @@ bool mysql_rm_table(THD *thd, Table_ref *tables, bool if_exists,
         }
 
       if (acquire_backup_lock &&
-          acquire_shared_backup_lock(thd, thd->variables.lock_wait_timeout))
+          acquire_shared_backup_lock_nsec(
+              thd, thd->variables.lock_wait_timeout_nsec))
         return true;
     }
 
@@ -5783,8 +5784,8 @@ static bool adjust_foreign_key_names_for_old_table_version(
 
   assert(!mdl_requests.is_empty());
 
-  if (thd->mdl_context.acquire_locks(&mdl_requests,
-                                     thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.acquire_locks_nsec(
+          &mdl_requests, thd->variables.lock_wait_timeout_nsec))
     return true;
 
   return thd->dd_client()->update(table_def);
@@ -10085,8 +10086,8 @@ bool mysql_create_table(THD *thd, Table_ref *create_table,
                                      0,  // No pre-existing FKs
                                      &mdl_requests) ||
         (!mdl_requests.is_empty() &&
-         thd->mdl_context.acquire_locks(&mdl_requests,
-                                        thd->variables.lock_wait_timeout))) {
+         thd->mdl_context.acquire_locks_nsec(
+             &mdl_requests, thd->variables.lock_wait_timeout_nsec))) {
       result = true;
       goto end;
     }
@@ -10905,8 +10906,9 @@ bool mysql_create_like_table(THD *thd, Table_ref *table, Table_ref *src_table,
     After we have identified the tablespace names, we iterate
     over the names and acquire MDL lock for each of them.
   */
-  if (lock_tablespace_names(thd, &tablespace_set,
-                            thd->variables.lock_wait_timeout, thd->mem_root)) {
+  if (lock_tablespace_names_nsec(thd, &tablespace_set,
+                                 thd->variables.lock_wait_timeout_nsec,
+                                 thd->mem_root)) {
     return true;
   }
 
@@ -10975,8 +10977,8 @@ bool mysql_create_like_table(THD *thd, Table_ref *table, Table_ref *src_table,
                              local_create_info.db_type, MDL_EXCLUSIVE,
                              &mdl_requests)) ||
         (!mdl_requests.is_empty() &&
-         thd->mdl_context.acquire_locks(&mdl_requests,
-                                        thd->variables.lock_wait_timeout)))
+         thd->mdl_context.acquire_locks_nsec(
+             &mdl_requests, thd->variables.lock_wait_timeout_nsec)))
       return true;
   }
 
@@ -11283,8 +11285,8 @@ bool Sql_cmd_discard_import_tablespace::mysql_discard_or_import_tablespace(
       (thd->locked_tables_mode == LTM_LOCK_TABLES ||
        thd->locked_tables_mode == LTM_PRELOCKED_UNDER_LOCK_TABLES)) {
     mdl_ticket = table_list->table->mdl_ticket;
-    if (thd->mdl_context.upgrade_shared_lock(mdl_ticket, MDL_EXCLUSIVE,
-                                             thd->variables.lock_wait_timeout))
+    if (thd->mdl_context.upgrade_shared_lock_nsec(
+            mdl_ticket, MDL_EXCLUSIVE, thd->variables.lock_wait_timeout_nsec))
       return true;
   }
 
@@ -11499,8 +11501,8 @@ bool Sql_cmd_secondary_load_unload::mysql_secondary_load_or_unload(
       mdl_ticket->downgrade_lock(MDL_SHARED_NO_READ_WRITE);
     }
   });
-  if (thd->mdl_context.upgrade_shared_lock(mdl_ticket, MDL_EXCLUSIVE,
-                                           thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.upgrade_shared_lock_nsec(
+          mdl_ticket, MDL_EXCLUSIVE, thd->variables.lock_wait_timeout_nsec))
     return true;
 
   // Cleanup that must be done regardless of commit or rollback.
@@ -12867,8 +12869,8 @@ static bool collect_and_lock_fk_tables_for_complex_alter_table(
   }
 
   if (!mdl_requests.is_empty() &&
-      thd->mdl_context.acquire_locks(&mdl_requests,
-                                     thd->variables.lock_wait_timeout))
+      thd->mdl_context.acquire_locks_nsec(
+          &mdl_requests, thd->variables.lock_wait_timeout_nsec))
     return true;
 
   return false;
@@ -13146,9 +13148,9 @@ static bool remove_secondary_engine(THD *thd, const Table_ref &table,
 
   if (!is_null) return false;
 
-  if (thd->mdl_context.upgrade_shared_lock(table.table->mdl_ticket,
-                                           MDL_EXCLUSIVE,
-                                           thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.upgrade_shared_lock_nsec(
+          table.table->mdl_ticket, MDL_EXCLUSIVE,
+          thd->variables.lock_wait_timeout_nsec))
     return true;
 
   return secondary_engine_unload_table(thd, table.db, table.table_name,
@@ -13252,8 +13254,9 @@ static bool mysql_inplace_alter_table(
       Don't mark TABLE_SHARE as old in this case, as this won't allow opening
       of table by other threads during main phase of in-place ALTER TABLE.
     */
-    if (thd->mdl_context.upgrade_shared_lock(table->mdl_ticket, MDL_EXCLUSIVE,
-                                             thd->variables.lock_wait_timeout))
+    if (thd->mdl_context.upgrade_shared_lock_nsec(
+            table->mdl_ticket, MDL_EXCLUSIVE,
+            thd->variables.lock_wait_timeout_nsec))
       goto cleanup;
 
     tdc_remove_table(thd, TDC_RT_REMOVE_NOT_OWN_KEEP_SHARE, table->s->db.str,
@@ -13268,9 +13271,9 @@ static bool mysql_inplace_alter_table(
   */
   if ((inplace_supported == HA_ALTER_INPLACE_SHARED_LOCK ||
        alter_info->requested_lock == Alter_info::ALTER_TABLE_LOCK_SHARED) &&
-      thd->mdl_context.upgrade_shared_lock(table->mdl_ticket,
-                                           MDL_SHARED_NO_WRITE,
-                                           thd->variables.lock_wait_timeout)) {
+      thd->mdl_context.upgrade_shared_lock_nsec(
+          table->mdl_ticket, MDL_SHARED_NO_WRITE,
+          thd->variables.lock_wait_timeout_nsec)) {
     goto cleanup;
   }
 
@@ -13290,8 +13293,8 @@ static bool mysql_inplace_alter_table(
     goto cleanup;
 
   if (!mdl_requests.is_empty() &&
-      thd->mdl_context.acquire_locks(&mdl_requests,
-                                     thd->variables.lock_wait_timeout))
+      thd->mdl_context.acquire_locks_nsec(
+          &mdl_requests, thd->variables.lock_wait_timeout_nsec))
     goto cleanup;
 
   /*
@@ -15558,8 +15561,8 @@ bool collect_and_lock_fk_tables_for_rename_table(
     return true;
 
   if (!mdl_requests.is_empty() &&
-      thd->mdl_context.acquire_locks(&mdl_requests,
-                                     thd->variables.lock_wait_timeout))
+      thd->mdl_context.acquire_locks_nsec(
+          &mdl_requests, thd->variables.lock_wait_timeout_nsec))
     return true;
 
   return false;
@@ -16399,8 +16402,9 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
     introduced by a previous ALTER while already in LOCK TABLE mode).
   */
   if (thd->locked_tables_mode &&
-      get_and_lock_tablespace_names(thd, table_list, nullptr,
-                                    thd->variables.lock_wait_timeout, MYF(0))) {
+      get_and_lock_tablespace_names_nsec(thd, table_list, nullptr,
+                                         thd->variables.lock_wait_timeout_nsec,
+                                         MYF(0))) {
     return true;
   }
 
@@ -16528,8 +16532,8 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
       assert(thd->mdl_context.owns_equal_or_stronger_lock(
           MDL_key::GLOBAL, "", "", MDL_INTENTION_EXCLUSIVE));
 
-      if (thd->mdl_context.acquire_locks(&mdl_requests,
-                                         thd->variables.lock_wait_timeout))
+      if (thd->mdl_context.acquire_locks_nsec(
+              &mdl_requests, thd->variables.lock_wait_timeout_nsec))
         return true;
 
       DEBUG_SYNC(thd, "locked_table_name");
@@ -16685,8 +16689,8 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
     }
 
     if (!mdl_requests.is_empty() &&
-        thd->mdl_context.acquire_locks(&mdl_requests,
-                                       thd->variables.lock_wait_timeout))
+        thd->mdl_context.acquire_locks_nsec(
+            &mdl_requests, thd->variables.lock_wait_timeout_nsec))
       return true;
 
     DEBUG_SYNC(thd, "alter_table_after_mdl_lock_fk");
@@ -17023,8 +17027,8 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
   if (!is_tmp_table) {
     MDL_REQUEST_INIT(&tmp_name_mdl_request, MDL_key::TABLE, alter_ctx.new_db,
                      alter_ctx.tmp_name, MDL_EXCLUSIVE, MDL_STATEMENT);
-    if (thd->mdl_context.acquire_lock(&tmp_name_mdl_request,
-                                      thd->variables.lock_wait_timeout))
+    if (thd->mdl_context.acquire_lock_nsec(
+            &tmp_name_mdl_request, thd->variables.lock_wait_timeout_nsec))
       return true;
   }
 
@@ -17466,8 +17470,9 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
       Note that under LOCK TABLES, we will already have SHARED_NO_READ_WRITE.
     */
     if (alter_info->requested_lock != Alter_info::ALTER_TABLE_LOCK_EXCLUSIVE &&
-        thd->mdl_context.upgrade_shared_lock(mdl_ticket, MDL_SHARED_NO_WRITE,
-                                             thd->variables.lock_wait_timeout))
+        thd->mdl_context.upgrade_shared_lock_nsec(
+            mdl_ticket, MDL_SHARED_NO_WRITE,
+            thd->variables.lock_wait_timeout_nsec))
       goto err_new_table_cleanup;
 
     DEBUG_SYNC(thd, "alter_table_copy_after_lock_upgrade");
@@ -17522,8 +17527,8 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
       goto err_new_table_cleanup;
 
     if (!mdl_requests.is_empty() &&
-        thd->mdl_context.acquire_locks(&mdl_requests,
-                                       thd->variables.lock_wait_timeout))
+        thd->mdl_context.acquire_locks_nsec(
+            &mdl_requests, thd->variables.lock_wait_timeout_nsec))
       goto err_new_table_cleanup;
 
     /*
@@ -17796,8 +17801,8 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
     dd::cache::Dictionary_client::Auto_releaser releaser_2(thd->dd_client());
     const dd::Table *backup_table = nullptr;
 
-    if (thd->mdl_context.acquire_lock(&backup_name_mdl_request,
-                                      thd->variables.lock_wait_timeout) ||
+    if (thd->mdl_context.acquire_lock_nsec(
+            &backup_name_mdl_request, thd->variables.lock_wait_timeout_nsec) ||
         thd->dd_client()->acquire(alter_ctx.db, backup_name, &backup_table)) {
       /* purecov: begin tested */
       /*
@@ -19017,8 +19022,8 @@ bool prepare_check_constraints_for_create(THD *thd, const char *db_name,
   }
 
   DEBUG_SYNC(thd, "before_acquiring_lock_on_check_constraints");
-  if (thd->mdl_context.acquire_locks(&cc_mdl_request_list,
-                                     thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.acquire_locks_nsec(
+          &cc_mdl_request_list, thd->variables.lock_wait_timeout_nsec))
     return true;
   DEBUG_SYNC(thd, "after_acquiring_lock_on_check_constraints");
 
@@ -19085,8 +19090,8 @@ static bool prepare_check_constraints_for_create_like_table(
   }
 
   DEBUG_SYNC(thd, "before_acquiring_lock_on_check_constraints");
-  if (thd->mdl_context.acquire_locks(&cc_mdl_request_list,
-                                     thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.acquire_locks_nsec(
+          &cc_mdl_request_list, thd->variables.lock_wait_timeout_nsec))
     return true;
   DEBUG_SYNC(thd, "after_acquiring_lock_on_check_constraints");
 
@@ -19466,8 +19471,8 @@ static bool prepare_check_constraints_for_alter(
 
   // Acquire MDL lock on all the MDL_request prepared in this method.
   DEBUG_SYNC(thd, "before_acquiring_lock_on_check_constraints");
-  if (thd->mdl_context.acquire_locks(&cc_mdl_request_list,
-                                     thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.acquire_locks_nsec(
+          &cc_mdl_request_list, thd->variables.lock_wait_timeout_nsec))
     return true;
   DEBUG_SYNC(thd, "after_acquiring_lock_on_check_constraints");
 
@@ -19581,8 +19586,8 @@ static bool adjust_check_constraint_names_for_old_table_version(
     cc->set_name(temp_cc_name);
   }
 
-  if (thd->mdl_context.acquire_locks(&mdl_requests,
-                                     thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.acquire_locks_nsec(
+          &mdl_requests, thd->variables.lock_wait_timeout_nsec))
     return true;
 
   return false;
@@ -19723,8 +19728,8 @@ bool lock_check_constraint_names_for_rename(THD *thd, const char *db,
 
   // Acquire locks on all the collected check constraint names.
   if (!mdl_requests.is_empty() &&
-      thd->mdl_context.acquire_locks(&mdl_requests,
-                                     thd->variables.lock_wait_timeout))
+      thd->mdl_context.acquire_locks_nsec(
+          &mdl_requests, thd->variables.lock_wait_timeout_nsec))
     return true;
 
   DEBUG_SYNC(thd, "after_acquiring_lock_on_check_constraints_for_rename");
@@ -19774,8 +19779,8 @@ bool lock_check_constraint_names(THD *thd, Table_ref *tables) {
 
   // Acquire MDL lock on all the check constraint names.
   if (!mdl_requests.is_empty() &&
-      thd->mdl_context.acquire_locks(&mdl_requests,
-                                     thd->variables.lock_wait_timeout))
+      thd->mdl_context.acquire_locks_nsec(
+          &mdl_requests, thd->variables.lock_wait_timeout_nsec))
     return true;
 
   return false;

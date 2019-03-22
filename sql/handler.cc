@@ -1675,8 +1675,8 @@ int ha_commit_trans(THD *thd, bool all, bool ignore_global_read_lock) {
                        MDL_INTENTION_EXCLUSIVE, MDL_EXPLICIT);
 
       DBUG_PRINT("debug", ("Acquire MDL commit lock"));
-      if (thd->mdl_context.acquire_lock(&mdl_request,
-                                        thd->variables.lock_wait_timeout)) {
+      if (thd->mdl_context.acquire_lock_nsec(
+              &mdl_request, thd->variables.lock_wait_timeout_nsec)) {
         ha_rollback_trans(thd, all);
         return 1;
       }
@@ -8611,8 +8611,8 @@ TABLE *Temp_table_handle::open(THD *thd, const char *db_name,
   MDL_REQUEST_INIT(&table_request, MDL_key::TABLE, db_name, table_name,
                    MDL_SHARED, MDL_TRANSACTION);
 
-  if (thd->mdl_context.acquire_lock(&table_request,
-                                    thd->variables.lock_wait_timeout)) {
+  if (thd->mdl_context.acquire_lock_nsec(
+          &table_request, thd->variables.lock_wait_timeout_nsec)) {
     return nullptr;
   }
 

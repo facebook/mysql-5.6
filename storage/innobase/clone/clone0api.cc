@@ -2692,9 +2692,9 @@ static int clone_init_tablespaces(THD *thd) {
   /* We need to acquire X backup lock here to prevent DDLs. Clone by default
   skips DDL lock. The API can handle recursive calls and it is not an issue
   if clone has already acquired backup lock. */
-  auto timeout = static_cast<ulong>(get_ddl_timeout(thd));
+  auto timeout = static_cast<ulonglong>(get_ddl_timeout(thd));
 
-  if (acquire_exclusive_backup_lock(thd, timeout, false)) {
+  if (acquire_exclusive_backup_lock_nsec(thd, timeout * 1000000000UL, false)) {
     /* Timeout on backup lock. */
     my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0));
     return ER_LOCK_WAIT_TIMEOUT;

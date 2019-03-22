@@ -1927,8 +1927,8 @@ static bool acl_tables_setup_for_write_and_acquire_mdl(THD *thd,
       of ER_DEADLOCK_ERROR. However, there won't be any error
       set in THD thatnks to custom error handler.
     */
-    mdl_acquire_error = thd->mdl_context.acquire_locks(
-        &mdl_requests, thd->variables.lock_wait_timeout);
+    mdl_acquire_error = thd->mdl_context.acquire_locks_nsec(
+        &mdl_requests, thd->variables.lock_wait_timeout_nsec);
     /* Retry acquire_locks only if there was a deadlock */
     if (mdl_acquire_error && handler.hit_deadlock())
       continue;

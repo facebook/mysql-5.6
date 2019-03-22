@@ -400,8 +400,8 @@ bool acquire_mandatory_metadata_locks(THD *thd, xid_t *detached_xid) {
   MDL_request mdl_request;
   MDL_REQUEST_INIT(&mdl_request, MDL_key::COMMIT, "", "",
                    MDL_INTENTION_EXCLUSIVE, MDL_STATEMENT);
-  if (thd->mdl_context.acquire_lock(&mdl_request,
-                                    thd->variables.lock_wait_timeout)) {
+  if (thd->mdl_context.acquire_lock_nsec(
+          &mdl_request, thd->variables.lock_wait_timeout_nsec)) {
     return true;
   }
 

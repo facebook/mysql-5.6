@@ -254,7 +254,7 @@ struct System_variables {
   uint cte_max_recursion_depth;
   ulonglong histogram_generation_max_mem_size;
   ulong join_buff_size;
-  ulong lock_wait_timeout;
+  ulonglong lock_wait_timeout_nsec;
   ulong max_allowed_packet;
   ulong max_error_count;
   ulong max_length_for_sort_data;  ///< Unused.
@@ -359,6 +359,7 @@ struct System_variables {
   bool binlog_rows_query_log_events;
 
   double long_query_time_double;
+  double lock_wait_timeout_double;
 
   bool pseudo_replica_mode;
 

@@ -35,10 +35,10 @@
 bool ndb_tdc_close_cached_tables(void) {
   DBUG_TRACE;
 
-  const int res = close_cached_tables(nullptr,  // No need for thd pointer
-                                      nullptr,  // Close all tables
-                                      false,    // Don't wait
-                                      0  // Timeout unused when not waiting
+  const int res = close_cached_tables_nsec(nullptr,  // No need for thd pointer
+                                           nullptr,  // Close all tables
+                                           false,    // Don't wait
+                                           0  // Timeout unused when not waiting
   );
   return res;
 }
@@ -63,9 +63,9 @@ bool ndb_tdc_close_cached_table(THD *thd, const char *dbname,
   table_list.db = dbname;
   table_list.alias = table_list.table_name = tabname;
 
-  const int res = close_cached_tables(thd, &table_list,
-                                      false,  // Don't wait
-                                      0       // Timeout unused when not waiting
+  const int res = close_cached_tables_nsec(thd, &table_list,
+                                           false,  // Don't wait
+                                           0  // Timeout unused when not waiting
   );
   return res;
 }

@@ -156,6 +156,7 @@ constexpr const int MAX_FLOAT_STR_LENGTH{FLT_DIG + 6};
 constexpr const int MAX_DOUBLE_STR_LENGTH{DBL_DIG + 7};
 
 constexpr const unsigned long LONG_TIMEOUT{3600 * 24 * 365};
+constexpr const ulonglong LONG_TIMEOUT_NSEC{LONG_TIMEOUT * 1000000000ULL};
 
 /*
   Flags below are set when we perform

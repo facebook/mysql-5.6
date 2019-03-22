@@ -56,14 +56,16 @@ bool lock_schema_name(THD *thd, const char *db);
 typedef malloc_unordered_set<std::string> Tablespace_hash_set;
 
 // Lock tablespace names.
-bool lock_tablespace_names(THD *thd, Tablespace_hash_set *tablespace_set,
-                           ulong lock_wait_timeout, MEM_ROOT *mem_root);
+bool lock_tablespace_names_nsec(THD *thd, Tablespace_hash_set *tablespace_set,
+                                ulonglong lock_wait_timeout_nsec,
+                                MEM_ROOT *mem_root);
 
 /* Lock based on stored routine name */
 bool lock_object_name(THD *thd, MDL_key::enum_mdl_namespace mdl_type,
                       const char *db, const char *name);
 
 /* Acquire protection against the global read lock. */
-bool acquire_shared_global_read_lock(THD *thd, unsigned long lock_wait_timeout);
+bool acquire_shared_global_read_lock_nsec(THD *thd,
+                                          ulonglong lock_wait_timeout_nsec);
 
 #endif /* LOCK_INCLUDED */

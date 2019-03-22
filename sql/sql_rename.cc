@@ -286,8 +286,9 @@ bool mysql_rename_tables(THD *thd, Table_ref *table_list) {
     */
   }
 
-  if (lock_table_names(thd, table_list, nullptr,
-                       thd->variables.lock_wait_timeout, 0, &schema_reqs) ||
+  if (lock_table_names_nsec(thd, table_list, nullptr,
+                            thd->variables.lock_wait_timeout_nsec, 0,
+                            &schema_reqs) ||
       lock_trigger_names(thd, table_list))
     return true;
 

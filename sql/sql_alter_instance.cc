@@ -107,8 +107,8 @@ bool Rotate_innodb_master_key::execute() {
     value since encryption key rotation is not allowed in read_only/
     super_read_only mode.
   */
-  if (acquire_shared_global_read_lock(m_thd,
-                                      m_thd->variables.lock_wait_timeout)) {
+  if (acquire_shared_global_read_lock_nsec(
+          m_thd, m_thd->variables.lock_wait_timeout_nsec)) {
     // MDL subsystem has to set an error in Diagnostics Area
     assert(m_thd->get_stmt_da()->is_error());
     return true;
@@ -119,9 +119,10 @@ bool Rotate_innodb_master_key::execute() {
     backup lock to block any concurrent DDL. The fact that we acquire both
     these locks also ensures that concurrent KEY rotation requests are blocked.
   */
-  if (acquire_exclusive_backup_lock(m_thd, m_thd->variables.lock_wait_timeout,
-                                    true) ||
-      acquire_shared_backup_lock(m_thd, m_thd->variables.lock_wait_timeout)) {
+  if (acquire_exclusive_backup_lock_nsec(
+          m_thd, m_thd->variables.lock_wait_timeout_nsec, true) ||
+      acquire_shared_backup_lock_nsec(
+          m_thd, m_thd->variables.lock_wait_timeout_nsec)) {
     // MDL subsystem has to set an error in Diagnostics Area
     assert(m_thd->get_stmt_da()->is_error());
     return true;
@@ -178,9 +179,10 @@ bool Innodb_redo_log::execute() {
     backup lock to block any concurrent DDL. This would also serialize any
     concurrent key rotation and other redo log enable/disable calls.
   */
-  if (acquire_exclusive_backup_lock(m_thd, m_thd->variables.lock_wait_timeout,
-                                    true) ||
-      acquire_shared_backup_lock(m_thd, m_thd->variables.lock_wait_timeout)) {
+  if (acquire_exclusive_backup_lock_nsec(
+          m_thd, m_thd->variables.lock_wait_timeout_nsec, true) ||
+      acquire_shared_backup_lock_nsec(
+          m_thd, m_thd->variables.lock_wait_timeout_nsec)) {
     assert(m_thd->get_stmt_da()->is_error());
     return true;
   }

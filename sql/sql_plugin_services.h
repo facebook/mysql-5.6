@@ -289,7 +289,8 @@ static struct transaction_write_set_service_st transaction_write_set_handler = {
     set_write_set_memory_size_limit, update_write_set_memory_size_limit};
 
 static struct mysql_locking_service_st locking_service_handler = {
-    mysql_acquire_locking_service_locks, mysql_release_locking_service_locks};
+    mysql_acquire_locking_service_locks_nsec,
+    mysql_release_locking_service_locks};
 
 static struct security_context_service_st security_context_handler = {
     thd_get_security_context,    thd_set_security_context,

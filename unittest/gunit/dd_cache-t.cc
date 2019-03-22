@@ -104,8 +104,8 @@ class CacheStorageTest : public ::testing::Test, public Test_MDL_context_owner {
     MDL_request mdl_request;
     MDL_REQUEST_INIT(&mdl_request, MDL_key::TABLE, MYSQL_SCHEMA_NAME.str,
                      name.c_str(), MDL_EXCLUSIVE, MDL_TRANSACTION);
-    EXPECT_FALSE(m_mdl_context.acquire_lock(
-        &mdl_request, thd()->variables.lock_wait_timeout));
+    EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(
+        &mdl_request, thd()->variables.lock_wait_timeout_nsec));
   }
 
  protected:
@@ -1136,8 +1136,8 @@ TEST_F(CacheStorageTest, TestSchema) {
       MDL_REQUEST_INIT(&m_request, MDL_key::TABLE, "schema1", "table1",
                        MDL_EXCLUSIVE, MDL_TRANSACTION);
 
-      m_mdl_context.acquire_lock(&m_request,
-                                 thd()->variables.lock_wait_timeout);
+      m_mdl_context.acquire_lock_nsec(&m_request,
+                                      thd()->variables.lock_wait_timeout_nsec);
 
       // Get "schema1.table1" table from cache.
       const dd::Table *s1_t1 = nullptr;

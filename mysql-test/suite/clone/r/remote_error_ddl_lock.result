@@ -17,7 +17,7 @@ Variable_name	Value
 clone_ddl_timeout	1
 SHOW VARIABLES LIKE "lock_wait_timeout";
 Variable_name	Value
-lock_wait_timeout	1
+lock_wait_timeout	1.000000
 # In connection DEFAULT
 # 1A. Clone while CREATE TABLE in progress
 # In connection CON1
