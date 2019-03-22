@@ -1451,6 +1451,12 @@ The following options may be given as the first argument:
  *.err log
  --rocksdb-rate-limiter-bytes-per-sec=# 
  DBOptions::rate_limiter bytes_per_sec for RocksDB
+ --rocksdb-read-free-rpl=name 
+ Use read-free replication on the slave (i.e. no row
+ lookup during replication). Default is OFF, PK_SK will
+ enable it on all tables with primary key. PK_ONLY will
+ enable it on tables where the only key is the primary key
+ (i.e. no secondary keys).
  --rocksdb-read-free-rpl-tables=name 
  List of tables that will use read-free replication on the
  slave (i.e. not lookup a row during replication)
@@ -2324,6 +2330,7 @@ rocksdb-persistent-cache-size-mb 0
 rocksdb-pin-l0-filter-and-index-blocks-in-cache TRUE
 rocksdb-print-snapshot-conflict-queries FALSE
 rocksdb-rate-limiter-bytes-per-sec 0
+rocksdb-read-free-rpl OFF
 rocksdb-read-free-rpl-tables (No default value)
 rocksdb-records-in-range 0
 rocksdb-reset-stats FALSE

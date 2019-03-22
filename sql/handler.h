@@ -3559,7 +3559,7 @@ public:
      @return true if old rows should not be read
              false if old rows should be read (the default)
    */
-  virtual bool use_read_free_rpl() { return false; }
+  virtual bool use_read_free_rpl() const { return false; }
   /*
      Storage engine hooks to be called before and after row write, delete, and
      update events
