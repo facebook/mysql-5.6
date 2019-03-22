@@ -42,6 +42,8 @@ class THD;
 #define MYSQL_THD void *
 #endif
 
+#include "my_inttypes.h"
+
 /**
   Types of locking service locks.
   LOCKING_SERVICE_READ is compatible with LOCKING_SERVICE_READ.
@@ -92,7 +94,7 @@ extern "C" struct mysql_locking_service_st {
 
     @sa acquire_locking_service_locks, MDL_context::acquire_locks
   */
-  mysql_acquire_locks_t mysql_acquire_locks;
+  mysql_acquire_locks_t mysql_acquire_locks_nsec;
   /**
     Release all lock service locks taken by the given connection
     in the given namespace.
@@ -110,16 +112,16 @@ extern "C" struct mysql_locking_service_st {
 
 #ifdef MYSQL_DYNAMIC_PLUGIN
 
-#define mysql_acquire_locking_service_locks(_THD, _NAMESPACE, _NAMES, _NUM,  \
-                                            _TYPE, _TIMEOUT)                 \
-  mysql_locking_service->mysql_acquire_locks(_THD, _NAMESPACE, _NAMES, _NUM, \
-                                             _TYPE, _TIMEOUT)
+#define mysql_acquire_locking_service_locks_nsec(_THD, _NAMESPACE, _NAMES,  \
+                                                 _NUM, _TYPE, _TIMEOUT)     \
+  mysql_locking_service->mysql_acquire_locks_nsec(_THD, _NAMESPACE, _NAMES, \
+                                                  _NUM, _TYPE, _TIMEOUT)
 #define mysql_release_locking_service_locks(_THD, _NAMESPACE) \
   mysql_locking_service->mysql_release_locks(_THD, _NAMESPACE)
 
 #else
 
-int mysql_acquire_locking_service_locks(
+int mysql_acquire_locking_service_locks_nsec(
     MYSQL_THD opaque_thd, const char *lock_namespace, const char **lock_names,
     size_t lock_num, enum enum_locking_service_lock_type lock_type,
     uint64_t lock_timeout);

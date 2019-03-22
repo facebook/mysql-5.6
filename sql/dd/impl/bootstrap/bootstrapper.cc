@@ -257,8 +257,8 @@ bool acquire_exclusive_mdl(THD *thd) {
   }
 
   // Finally, acquire all the MDL locks.
-  return (thd->mdl_context.acquire_locks(&mdl_requests,
-                                         thd->variables.lock_wait_timeout));
+  return (thd->mdl_context.acquire_locks_nsec(
+      &mdl_requests, thd->variables.lock_wait_timeout_nsec));
 }
 
 /*

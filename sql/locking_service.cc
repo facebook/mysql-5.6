@@ -106,11 +106,11 @@ class Release_locking_service_locks : public MDL_release_locks_visitor {
   }
 };
 
-int acquire_locking_service_locks(MYSQL_THD opaque_thd,
-                                  const char *lock_namespace,
-                                  const char **lock_names, size_t lock_num,
-                                  enum_locking_service_lock_type lock_type,
-                                  Timeout_type lock_timeout) {
+int acquire_locking_service_locks_nsec(MYSQL_THD opaque_thd,
+                                       const char *lock_namespace,
+                                       const char **lock_names, size_t lock_num,
+                                       enum_locking_service_lock_type lock_type,
+                                       Timeout_type lock_timeout_nsec) {
   if (lock_num == 0) return 0;
 
   // Check that namespace length is acceptable
@@ -139,7 +139,8 @@ int acquire_locking_service_locks(MYSQL_THD opaque_thd,
   // Acquire locks
   Locking_service_deadlock_error_handler handler;
   thd->push_internal_handler(&handler);
-  bool res = thd->mdl_context.acquire_locks(&mdl_requests, lock_timeout);
+  bool res =
+      thd->mdl_context.acquire_locks_nsec(&mdl_requests, lock_timeout_nsec);
   thd->pop_internal_handler();
   if (res) return 1;
 
@@ -174,12 +175,13 @@ void release_all_locking_service_locks(THD *thd) {
   in service_locking.h as UDFs are built with MYSQL_DYNAMIC_PLUGIN
   yet are not able to call service API functions.
 */
-int mysql_acquire_locking_service_locks(
+int mysql_acquire_locking_service_locks_nsec(
     MYSQL_THD opaque_thd, const char *lock_namespace, const char **lock_names,
     size_t lock_num, enum_locking_service_lock_type lock_type,
-    Timeout_type lock_timeout) {
-  return acquire_locking_service_locks(opaque_thd, lock_namespace, lock_names,
-                                       lock_num, lock_type, lock_timeout);
+    Timeout_type lock_timeout_nsec) {
+  return acquire_locking_service_locks_nsec(opaque_thd, lock_namespace,
+                                            lock_names, lock_num, lock_type,
+                                            lock_timeout_nsec);
 }
 
 int mysql_release_locking_service_locks(MYSQL_THD opaque_thd,

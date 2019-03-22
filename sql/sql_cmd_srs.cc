@@ -169,8 +169,10 @@ bool Sql_cmd_create_srs::execute(THD *thd) {
     return true;
   }
 
-  if (acquire_shared_global_read_lock(thd, thd->variables.lock_wait_timeout) ||
-      acquire_shared_backup_lock(thd, thd->variables.lock_wait_timeout))
+  if (acquire_shared_global_read_lock_nsec(
+          thd, thd->variables.lock_wait_timeout_nsec) ||
+      acquire_shared_backup_lock_nsec(thd,
+                                      thd->variables.lock_wait_timeout_nsec))
     return true;
 
   Disable_autocommit_guard dag(thd);
@@ -239,8 +241,10 @@ bool Sql_cmd_drop_srs::execute(THD *thd) {
     return true;
   }
 
-  if (acquire_shared_global_read_lock(thd, thd->variables.lock_wait_timeout) ||
-      acquire_shared_backup_lock(thd, thd->variables.lock_wait_timeout))
+  if (acquire_shared_global_read_lock_nsec(
+          thd, thd->variables.lock_wait_timeout_nsec) ||
+      acquire_shared_backup_lock_nsec(thd,
+                                      thd->variables.lock_wait_timeout_nsec))
     return true;
 
   Disable_autocommit_guard dag(thd);

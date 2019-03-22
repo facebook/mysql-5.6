@@ -89,6 +89,8 @@ const char table_name3[] = "some_table3";
 const char table_name4[] = "some_table4";
 const ulong zero_timeout = 0;
 const ulong long_timeout = (ulong)3600L * 24L * 365L;
+const ulonglong long_timeout_nsec =
+    static_cast<ulonglong>(long_timeout) * 1000000000ULL;
 
 class MDLTest : public ::testing::Test, public Test_MDL_context_owner {
  protected:
@@ -216,7 +218,7 @@ void MDL_thread::run() {
   MDL_REQUEST_INIT(&request, MDL_key::TABLE, db_name, m_table_name, m_mdl_type,
                    MDL_TRANSACTION);
 
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&request, long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&request, long_timeout_nsec));
   EXPECT_TRUE(m_mdl_context.owns_equal_or_stronger_lock(
       MDL_key::TABLE, db_name, m_table_name, m_mdl_type));
 
@@ -315,7 +317,8 @@ TEST_F(MDLTest, OneExclusive) {
   m_request_list.push_front(&m_request);
   m_request_list.push_front(&m_global_request);
 
-  EXPECT_FALSE(m_mdl_context.acquire_locks(&m_request_list, long_timeout));
+  EXPECT_FALSE(
+      m_mdl_context.acquire_locks_nsec(&m_request_list, long_timeout_nsec));
 
   EXPECT_NE(m_null_ticket, m_request.ticket);
   EXPECT_NE(m_null_ticket, m_global_request.ticket);
@@ -400,14 +403,15 @@ TEST_F(MDLTest, UpgradeSharedUpgradable) {
   m_request_list.push_front(&m_request);
   m_request_list.push_front(&m_global_request);
 
-  EXPECT_FALSE(m_mdl_context.acquire_locks(&m_request_list, long_timeout));
-  EXPECT_FALSE(m_mdl_context.upgrade_shared_lock(m_request.ticket,
-                                                 MDL_EXCLUSIVE, long_timeout));
+  EXPECT_FALSE(
+      m_mdl_context.acquire_locks_nsec(&m_request_list, long_timeout_nsec));
+  EXPECT_FALSE(m_mdl_context.upgrade_shared_lock_nsec(
+      m_request.ticket, MDL_EXCLUSIVE, long_timeout_nsec));
   EXPECT_EQ(MDL_EXCLUSIVE, m_request.ticket->get_type());
 
   // Another upgrade should be a no-op.
-  EXPECT_FALSE(m_mdl_context.upgrade_shared_lock(m_request.ticket,
-                                                 MDL_EXCLUSIVE, long_timeout));
+  EXPECT_FALSE(m_mdl_context.upgrade_shared_lock_nsec(
+      m_request.ticket, MDL_EXCLUSIVE, long_timeout_nsec));
   EXPECT_EQ(MDL_EXCLUSIVE, m_request.ticket->get_type());
 
   m_mdl_context.release_transactional_locks();
@@ -475,7 +479,7 @@ TEST_F(MDLTest, ConcurrentShared) {
   MDL_REQUEST_INIT(&m_request, MDL_key::TABLE, db_name, table_name1, MDL_SHARED,
                    MDL_TRANSACTION);
 
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&m_request, long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&m_request, long_timeout_nsec));
   EXPECT_TRUE(m_mdl_context.owns_equal_or_stronger_lock(
       MDL_key::TABLE, db_name, table_name1, MDL_SHARED));
 
@@ -506,7 +510,7 @@ TEST_F(MDLTest, ConcurrentSharedExclusive) {
   m_request_list.push_front(&m_global_request);
 
   // We should *not* be able to grab the lock here.
-  EXPECT_TRUE(m_mdl_context.acquire_locks(&m_request_list, zero_timeout));
+  EXPECT_TRUE(m_mdl_context.acquire_locks_nsec(&m_request_list, zero_timeout));
   EXPECT_FALSE(m_mdl_context.owns_equal_or_stronger_lock(
       MDL_key::TABLE, db_name, table_name1, MDL_EXCLUSIVE));
 
@@ -514,7 +518,7 @@ TEST_F(MDLTest, ConcurrentSharedExclusive) {
   mdl_thread.join();
 
   // Now we should be able to grab the lock.
-  EXPECT_FALSE(m_mdl_context.acquire_locks(&m_request_list, zero_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_locks_nsec(&m_request_list, zero_timeout));
   EXPECT_NE(m_null_ticket, m_request.ticket);
 
   m_mdl_context.release_transactional_locks();
@@ -542,7 +546,7 @@ TEST_F(MDLTest, ConcurrentExclusiveShared) {
   release_locks.notify();
 
   // The other thread should eventually release its locks.
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&m_request, long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&m_request, long_timeout_nsec));
   EXPECT_NE(m_null_ticket, m_request.ticket);
 
   mdl_thread.join();
@@ -563,7 +567,8 @@ TEST_F(MDLTest, ConcurrentUpgrade) {
   m_request_list.push_front(&m_request);
   m_request_list.push_front(&m_global_request);
 
-  EXPECT_FALSE(m_mdl_context.acquire_locks(&m_request_list, long_timeout));
+  EXPECT_FALSE(
+      m_mdl_context.acquire_locks_nsec(&m_request_list, long_timeout_nsec));
   EXPECT_TRUE(m_mdl_context.owns_equal_or_stronger_lock(
       MDL_key::TABLE, db_name, table_name1, MDL_SHARED_UPGRADABLE));
   EXPECT_FALSE(m_mdl_context.owns_equal_or_stronger_lock(
@@ -577,8 +582,8 @@ TEST_F(MDLTest, ConcurrentUpgrade) {
   mdl_thread.start();
   lock_grabbed.wait_for_notification();
 
-  EXPECT_FALSE(m_mdl_context.upgrade_shared_lock(m_request.ticket,
-                                                 MDL_EXCLUSIVE, long_timeout));
+  EXPECT_FALSE(m_mdl_context.upgrade_shared_lock_nsec(
+      m_request.ticket, MDL_EXCLUSIVE, long_timeout_nsec));
   EXPECT_TRUE(m_mdl_context.owns_equal_or_stronger_lock(
       MDL_key::TABLE, db_name, table_name1, MDL_EXCLUSIVE));
 
@@ -608,7 +613,7 @@ TEST_F(MDLTest, UpgradableConcurrency) {
                    MDL_SHARED_UPGRADABLE, MDL_TRANSACTION);
   request_list.push_front(&m_global_request);
   request_list.push_front(&request_2);
-  EXPECT_TRUE(m_mdl_context.acquire_locks(&request_list, zero_timeout));
+  EXPECT_TRUE(m_mdl_context.acquire_locks_nsec(&request_list, zero_timeout));
   EXPECT_EQ(m_null_ticket, request_2.ticket);
 
   release_locks.notify();
@@ -2033,10 +2038,11 @@ TEST_F(MDLTest, SelfConflict) {
   /* Acquire S lock, it will be acquired using "fast path" algorithm. */
   MDL_REQUEST_INIT(&m_request, MDL_key::TABLE, db_name, table_name1, MDL_SHARED,
                    MDL_TRANSACTION);
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&m_request, long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&m_request, long_timeout_nsec));
 
   /* Acquire global IX lock to be able acquire X lock later. */
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&m_global_request, long_timeout));
+  EXPECT_FALSE(
+      m_mdl_context.acquire_lock_nsec(&m_global_request, long_timeout_nsec));
 
   /*
     Acquire X lock on the same table. MDL subsystem should be able to detect
@@ -2045,7 +2051,7 @@ TEST_F(MDLTest, SelfConflict) {
   */
   MDL_REQUEST_INIT(&m_request, MDL_key::TABLE, db_name, table_name1,
                    MDL_EXCLUSIVE, MDL_TRANSACTION);
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&m_request, long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&m_request, long_timeout_nsec));
 
   m_mdl_context.release_transactional_locks();
 
@@ -2056,7 +2062,8 @@ TEST_F(MDLTest, SelfConflict) {
   */
   MDL_REQUEST_INIT(&m_global_request, MDL_key::GLOBAL, "", "", MDL_SHARED,
                    MDL_TRANSACTION);
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&m_global_request, long_timeout));
+  EXPECT_FALSE(
+      m_mdl_context.acquire_lock_nsec(&m_global_request, long_timeout_nsec));
 
   /*
     Now let us acquire IX lock. Note that S lock is not exactly stronger
@@ -2065,7 +2072,8 @@ TEST_F(MDLTest, SelfConflict) {
   */
   MDL_REQUEST_INIT(&m_global_request, MDL_key::GLOBAL, "", "",
                    MDL_INTENTION_EXCLUSIVE, MDL_TRANSACTION);
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&m_global_request, long_timeout));
+  EXPECT_FALSE(
+      m_mdl_context.acquire_lock_nsec(&m_global_request, long_timeout_nsec));
 
   m_mdl_context.release_transactional_locks();
 }
@@ -2084,7 +2092,7 @@ TEST_F(MDLTest, CloneSharedExclusive) {
   /* Acquire SHARED lock, it will be acquired using "fast path" algorithm. */
   MDL_REQUEST_INIT(&m_request, MDL_key::TABLE, db_name, table_name1, MDL_SHARED,
                    MDL_EXPLICIT);
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&m_request, long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&m_request, long_timeout_nsec));
 
   /*
     Save initial ticket and create its clone.
@@ -2125,7 +2133,7 @@ TEST_F(MDLTest, CloneExclusiveShared) {
   MDL_REQUEST_INIT(&m_request, MDL_key::TABLE, db_name, table_name1,
                    MDL_EXCLUSIVE, MDL_EXPLICIT);
 
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&m_request, long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&m_request, long_timeout_nsec));
 
   /*
     Save initial ticket and create its clone.
@@ -2244,14 +2252,15 @@ TEST_F(MDLTest, UpgradeScenarios) {
   /* Acquire S lock to be upgraded. */
   MDL_REQUEST_INIT(&m_request, MDL_key::TABLE, db_name, table_name1, MDL_SHARED,
                    MDL_TRANSACTION);
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&m_request, long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&m_request, long_timeout_nsec));
 
   /* Acquire IX lock to be able to upgrade. */
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&m_global_request, long_timeout));
+  EXPECT_FALSE(
+      m_mdl_context.acquire_lock_nsec(&m_global_request, long_timeout_nsec));
 
   /* Upgrade S lock to X lock. */
-  EXPECT_FALSE(m_mdl_context.upgrade_shared_lock(m_request.ticket,
-                                                 MDL_EXCLUSIVE, long_timeout));
+  EXPECT_FALSE(m_mdl_context.upgrade_shared_lock_nsec(
+      m_request.ticket, MDL_EXCLUSIVE, long_timeout_nsec));
 
   /*
     Ensure that there is pending S lock, so release of X lock won't destroy
@@ -2291,11 +2300,11 @@ TEST_F(MDLTest, UpgradeScenarios) {
   /* Acquire S lock to be upgraded. */
   MDL_REQUEST_INIT(&m_request, MDL_key::TABLE, db_name, table_name1, MDL_SHARED,
                    MDL_TRANSACTION);
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&m_request, long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&m_request, long_timeout_nsec));
 
   /* Upgrade S lock to X lock. */
-  EXPECT_FALSE(m_mdl_context.upgrade_shared_lock(m_request.ticket,
-                                                 MDL_EXCLUSIVE, long_timeout));
+  EXPECT_FALSE(m_mdl_context.upgrade_shared_lock_nsec(
+      m_request.ticket, MDL_EXCLUSIVE, long_timeout_nsec));
 
   /*
     Try to acquire X lock, it will block.
@@ -2328,11 +2337,11 @@ TEST_F(MDLTest, UpgradeScenarios) {
   /* Acquire SU lock to be upgraded. */
   MDL_REQUEST_INIT(&m_request, MDL_key::TABLE, db_name, table_name1,
                    MDL_SHARED_UPGRADABLE, MDL_TRANSACTION);
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&m_request, long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&m_request, long_timeout_nsec));
 
   /* Upgrade SU lock to X lock. */
-  EXPECT_FALSE(m_mdl_context.upgrade_shared_lock(m_request.ticket,
-                                                 MDL_EXCLUSIVE, long_timeout));
+  EXPECT_FALSE(m_mdl_context.upgrade_shared_lock_nsec(
+      m_request.ticket, MDL_EXCLUSIVE, long_timeout_nsec));
 
   /*
     Ensure that there is pending S lock, so release of X lock won't destroy
@@ -2379,7 +2388,7 @@ TEST_F(MDLTest, Deadlock) {
   /* Acquire SR lock which will be granted using "fast path". */
   MDL_REQUEST_INIT(&m_request, MDL_key::TABLE, db_name, table_name1,
                    MDL_SHARED_READ, MDL_TRANSACTION);
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&m_request, long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&m_request, long_timeout_nsec));
 
   /* Now try to request X lock. This will blocked. */
   mdl_thread.start();
@@ -2396,7 +2405,7 @@ TEST_F(MDLTest, Deadlock) {
 
   MDL_REQUEST_INIT(&m_request, MDL_key::TABLE, db_name, table_name1,
                    MDL_SHARED_WRITE, MDL_TRANSACTION);
-  EXPECT_TRUE(m_mdl_context.acquire_lock(&m_request, long_timeout));
+  EXPECT_TRUE(m_mdl_context.acquire_lock_nsec(&m_request, long_timeout_nsec));
 
   /* Wrap-up. */
   m_mdl_context.release_transactional_locks();
@@ -2414,12 +2423,13 @@ TEST_F(MDLTest, DowngradeShared) {
                         NULL);
 
   /* Acquire global IX lock first to satisfy MDL asserts. */
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&m_global_request, long_timeout));
+  EXPECT_FALSE(
+      m_mdl_context.acquire_lock_nsec(&m_global_request, long_timeout_nsec));
 
   /* Acquire "obtrusive" X lock. */
   MDL_REQUEST_INIT(&m_request, MDL_key::TABLE, db_name, table_name1,
                    MDL_EXCLUSIVE, MDL_TRANSACTION);
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&m_request, long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&m_request, long_timeout_nsec));
 
   /* Downgrade lock to S lock. */
   m_request.ticket->downgrade_lock(MDL_SHARED);
@@ -2514,7 +2524,8 @@ TEST_F(MDLTest, ConcurrentSharedTryExclusive) {
   first_grabbed.wait_for_notification();
 
   /* Acquire global IX lock to satisfy asserts in MDL subsystem. */
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&m_global_request, long_timeout));
+  EXPECT_FALSE(
+      m_mdl_context.acquire_lock_nsec(&m_global_request, long_timeout_nsec));
   EXPECT_NE(m_null_ticket, m_global_request.ticket);
 
   MDL_REQUEST_INIT(&m_request, MDL_key::TABLE, db_name, table_name1,
@@ -2733,7 +2744,7 @@ TEST_F(MDLTest, UnusedLowWater) {
   for (i = 0; i < TABLES; ++i) {
     MDL_REQUEST_INIT(&request, MDL_key::TABLE, db_name, table_names[i],
                      MDL_SHARED, MDL_TRANSACTION);
-    EXPECT_FALSE(m_mdl_context.acquire_lock(&request, long_timeout));
+    EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&request, long_timeout_nsec));
   }
 
   EXPECT_EQ(0, mdl_get_unused_locks_count());
@@ -2768,7 +2779,7 @@ TEST_F(MDLTest, UnusedMinRatio) {
   for (i = 0; i < TABLES; ++i) {
     MDL_REQUEST_INIT(&request, MDL_key::TABLE, db_name, table_names_a[i],
                      MDL_SHARED, MDL_TRANSACTION);
-    EXPECT_FALSE(m_mdl_context.acquire_lock(&request, long_timeout));
+    EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&request, long_timeout_nsec));
   }
 
   EXPECT_EQ(0, mdl_get_unused_locks_count());
@@ -2780,7 +2791,7 @@ TEST_F(MDLTest, UnusedMinRatio) {
   for (i = 0; i < TABLES; ++i) {
     MDL_REQUEST_INIT(&request, MDL_key::TABLE, db_name, table_names_b[i],
                      MDL_SHARED, MDL_TRANSACTION);
-    EXPECT_FALSE(m_mdl_context.acquire_lock(&request, long_timeout));
+    EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&request, long_timeout_nsec));
   }
 
   /* Now release part of the locks we hold. */
@@ -3547,7 +3558,8 @@ void MDL_SRO_SNRW_thread::run() {
       Lock acquisition should succeed and never deadlock. I.e. we should
       always acquire SNRW first and only then SRO.
     */
-    EXPECT_FALSE(m_mdl_context.acquire_locks(&request_list, long_timeout));
+    EXPECT_FALSE(
+        m_mdl_context.acquire_locks_nsec(&request_list, long_timeout_nsec));
     m_mdl_context.release_transactional_locks();
   }
 }
@@ -3617,7 +3629,7 @@ void MDL_weight_thread::run() {
   MDL_REQUEST_INIT(&request1, MDL_key::TABLE, db_name, table_name1,
                    MDL_SHARED_NO_READ_WRITE, MDL_TRANSACTION);
 
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&request1, long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&request1, long_timeout_nsec));
 
   m_first_grabbed->notify();
   m_go_for_second->wait_for_notification();
@@ -3633,7 +3645,7 @@ void MDL_weight_thread::run() {
     thread being chosen as victim.
   */
   expected_error = ER_LOCK_DEADLOCK;
-  EXPECT_TRUE(m_mdl_context.acquire_lock(&request2, long_timeout));
+  EXPECT_TRUE(m_mdl_context.acquire_lock_nsec(&request2, long_timeout_nsec));
 
   m_mdl_context.release_transactional_locks();
 }
@@ -3656,7 +3668,7 @@ TEST_F(MDLTest, ForceDMLDeadlockWeight) {
   /* Now let us grab SNRW lock table_name2. */
   MDL_REQUEST_INIT(&m_request, MDL_key::TABLE, db_name, table_name2,
                    MDL_SHARED_NO_READ_WRITE, MDL_TRANSACTION);
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&m_request, long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&m_request, long_timeout_nsec));
 
   /*
     Resume the concurrent thread. It should try to acquire SNRW lock on
@@ -3678,7 +3690,7 @@ TEST_F(MDLTest, ForceDMLDeadlockWeight) {
   */
   MDL_REQUEST_INIT(&m_request, MDL_key::TABLE, db_name, table_name1,
                    MDL_SHARED_NO_READ_WRITE, MDL_TRANSACTION);
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&m_request, long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&m_request, long_timeout_nsec));
 
   m_mdl_context.release_transactional_locks();
 
@@ -3846,7 +3858,7 @@ TEST_F(MDLHtonNotifyTest, NotifyNamespaces) {
                        "",  // To work with GLOBAL/COMMIT spaces
                        MDL_EXCLUSIVE, MDL_TRANSACTION);
     }
-    EXPECT_FALSE(m_mdl_context.acquire_lock(&request, long_timeout));
+    EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&request, long_timeout_nsec));
     m_mdl_context.release_transactional_locks();
 
     if (notify_or_not[i]) {
@@ -3871,7 +3883,7 @@ TEST_F(MDLHtonNotifyTest, NotifyLockTypes) {
   MDL_REQUEST_INIT(&request, MDL_key::SCHEMA, db_name, "",
                    MDL_INTENTION_EXCLUSIVE, MDL_TRANSACTION);
 
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&request, long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&request, long_timeout_nsec));
   m_mdl_context.release_transactional_locks();
 
   EXPECT_EQ(0U, pre_acquire_count());
@@ -3886,7 +3898,7 @@ TEST_F(MDLHtonNotifyTest, NotifyLockTypes) {
     MDL_REQUEST_INIT(&request, MDL_key::TABLE, db_name, table_name1,
                      static_cast<enum_mdl_type>(i), MDL_TRANSACTION);
 
-    EXPECT_FALSE(m_mdl_context.acquire_lock(&request, long_timeout));
+    EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&request, long_timeout_nsec));
     m_mdl_context.release_transactional_locks();
 
     EXPECT_EQ(0U, pre_acquire_count());
@@ -3897,7 +3909,7 @@ TEST_F(MDLHtonNotifyTest, NotifyLockTypes) {
   MDL_REQUEST_INIT(&request, MDL_key::TABLE, db_name, table_name1,
                    MDL_EXCLUSIVE, MDL_TRANSACTION);
 
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&request, long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&request, long_timeout_nsec));
   m_mdl_context.release_transactional_locks();
 
   EXPECT_EQ(1U, pre_acquire_count());
@@ -3920,7 +3932,7 @@ TEST_F(MDLHtonNotifyTest, NotifyAcquireRelease) {
   MDL_REQUEST_INIT(&request1, MDL_key::TABLE, db_name, table_name1,
                    MDL_EXCLUSIVE, MDL_TRANSACTION);
 
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&request1, long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&request1, long_timeout_nsec));
   EXPECT_EQ(1U, pre_acquire_count());
   EXPECT_EQ(0U, post_release_count());
   EXPECT_TRUE(pre_acquire_key().is_equal(&request1.key));
@@ -3940,13 +3952,13 @@ TEST_F(MDLHtonNotifyTest, NotifyAcquireRelease) {
   MDL_REQUEST_INIT(&request2, MDL_key::TABLE, db_name, table_name1,
                    MDL_EXCLUSIVE, MDL_TRANSACTION);
 
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&request1, long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&request1, long_timeout_nsec));
   EXPECT_EQ(1U, pre_acquire_count());
   EXPECT_EQ(0U, post_release_count());
   EXPECT_TRUE(pre_acquire_key().is_equal(&request1.key));
 
   // The second acquisition should not cause notification.
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&request2, long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&request2, long_timeout_nsec));
   EXPECT_EQ(1U, pre_acquire_count());
   EXPECT_EQ(0U, post_release_count());
 
@@ -3965,7 +3977,7 @@ TEST_F(MDLHtonNotifyTest, NotifyAcquireRelease) {
   expected_error = ER_LOCK_REFUSED_BY_ENGINE;
   set_refuse_acquire();
 
-  EXPECT_TRUE(m_mdl_context.acquire_lock(&request1, long_timeout));
+  EXPECT_TRUE(m_mdl_context.acquire_lock_nsec(&request1, long_timeout_nsec));
   EXPECT_EQ(1U, pre_acquire_count());
   EXPECT_EQ(0U, post_release_count());
   EXPECT_FALSE(m_mdl_context.owns_equal_or_stronger_lock(
@@ -4014,7 +4026,7 @@ TEST_F(MDLHtonNotifyTest, NotifyAcquireFail) {
   */
   expected_error = ER_LOCK_WAIT_TIMEOUT;
 
-  EXPECT_TRUE(m_mdl_context.acquire_lock(&request, zero_timeout));
+  EXPECT_TRUE(m_mdl_context.acquire_lock_nsec(&request, zero_timeout));
   /*
     Again we treat failure to acquire X lock after successful pre-acquire
     notification in the same way as lock release.
@@ -4039,9 +4051,9 @@ TEST_F(MDLHtonNotifyTest, NotifyUpgrade) {
                    MDL_SHARED_UPGRADABLE, MDL_TRANSACTION);
 
   // Check that we notify SE about upgrade.
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&request, long_timeout));
-  EXPECT_FALSE(m_mdl_context.upgrade_shared_lock(request.ticket, MDL_EXCLUSIVE,
-                                                 long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&request, long_timeout_nsec));
+  EXPECT_FALSE(m_mdl_context.upgrade_shared_lock_nsec(
+      request.ticket, MDL_EXCLUSIVE, long_timeout_nsec));
 
   EXPECT_EQ(1U, pre_acquire_count());
   EXPECT_EQ(0U, post_release_count());
@@ -4050,8 +4062,8 @@ TEST_F(MDLHtonNotifyTest, NotifyUpgrade) {
       MDL_key::TABLE, db_name, table_name1, MDL_EXCLUSIVE));
 
   // Second attempt to upgrade should not cause additional notification.
-  EXPECT_FALSE(m_mdl_context.upgrade_shared_lock(request.ticket, MDL_EXCLUSIVE,
-                                                 long_timeout));
+  EXPECT_FALSE(m_mdl_context.upgrade_shared_lock_nsec(
+      request.ticket, MDL_EXCLUSIVE, long_timeout_nsec));
   EXPECT_EQ(1U, pre_acquire_count());
   EXPECT_EQ(0U, post_release_count());
 
@@ -4066,13 +4078,13 @@ TEST_F(MDLHtonNotifyTest, NotifyUpgrade) {
   MDL_REQUEST_INIT(&request, MDL_key::TABLE, db_name, table_name1,
                    MDL_SHARED_UPGRADABLE, MDL_TRANSACTION);
 
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&request, long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&request, long_timeout_nsec));
 
   expected_error = ER_LOCK_REFUSED_BY_ENGINE;
   set_refuse_acquire();
 
-  EXPECT_TRUE(m_mdl_context.upgrade_shared_lock(request.ticket, MDL_EXCLUSIVE,
-                                                long_timeout));
+  EXPECT_TRUE(m_mdl_context.upgrade_shared_lock_nsec(
+      request.ticket, MDL_EXCLUSIVE, long_timeout_nsec));
   EXPECT_EQ(1U, pre_acquire_count());
   EXPECT_EQ(0U, post_release_count());
   EXPECT_FALSE(m_mdl_context.owns_equal_or_stronger_lock(
@@ -4099,12 +4111,12 @@ TEST_F(MDLHtonNotifyTest, NotifyUpgrade) {
   MDL_REQUEST_INIT(&request, MDL_key::TABLE, db_name, table_name1,
                    MDL_SHARED_UPGRADABLE, MDL_TRANSACTION);
 
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&request, long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&request, long_timeout_nsec));
 
   expected_error = ER_LOCK_WAIT_TIMEOUT;
 
-  EXPECT_TRUE(m_mdl_context.upgrade_shared_lock(request.ticket, MDL_EXCLUSIVE,
-                                                zero_timeout));
+  EXPECT_TRUE(m_mdl_context.upgrade_shared_lock_nsec(
+      request.ticket, MDL_EXCLUSIVE, zero_timeout));
 
   /*
     Failure to upgrade lock after successful notification is treated as release.
@@ -4135,7 +4147,7 @@ TEST_F(MDLHtonNotifyTest, NotifyDowngrade) {
                    MDL_EXCLUSIVE, MDL_TRANSACTION);
 
   // Acquire X lock.
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&request, long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&request, long_timeout_nsec));
   EXPECT_EQ(1U, pre_acquire_count());
   EXPECT_EQ(0U, post_release_count());
   EXPECT_TRUE(pre_acquire_key().is_equal(&request.key));
@@ -4172,7 +4184,7 @@ TEST_F(MDLHtonNotifyTest, NotifyClone) {
   MDL_REQUEST_INIT(&request1, MDL_key::TABLE, db_name, table_name1,
                    MDL_EXCLUSIVE, MDL_TRANSACTION);
 
-  EXPECT_FALSE(m_mdl_context.acquire_lock(&request1, long_timeout));
+  EXPECT_FALSE(m_mdl_context.acquire_lock_nsec(&request1, long_timeout_nsec));
   EXPECT_EQ(1U, pre_acquire_count());
   EXPECT_EQ(0U, post_release_count());
   EXPECT_TRUE(pre_acquire_key().is_equal(&request1.key));
@@ -4342,7 +4354,7 @@ static void lock_bench(MDL_context &ctx, const Name_vec &names) {
     MDL_request request;
     MDL_REQUEST_INIT(&request, MDL_key::TABLE, "S", name.c_str(),
                      MDL_INTENTION_EXCLUSIVE, MDL_TRANSACTION);
-    ctx.acquire_lock(&request, 2);
+    ctx.acquire_lock_nsec(&request, 2000000000ULL);
   }
   ctx.release_transactional_locks();
 }

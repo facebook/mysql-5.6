@@ -585,8 +585,8 @@ class Upgrade_MDL_guard {
   }
   bool acquire_lock_tablespace(Tablespace_hash_set *tablespace_names) {
     m_tablespace_lock = true;
-    return lock_tablespace_names(m_thd, tablespace_names,
-                                 m_thd->variables.lock_wait_timeout);
+    return lock_tablespace_names_nsec(m_thd, tablespace_names,
+                                      m_thd->variables.lock_wait_timeout_nsec);
   }
 
   Upgrade_MDL_guard(THD *thd)

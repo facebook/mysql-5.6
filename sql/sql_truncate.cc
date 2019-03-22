@@ -327,7 +327,8 @@ bool Sql_cmd_truncate_table::lock_table(THD *thd, TABLE_LIST *table_ref) {
                                              table_ref->table_name, false)))
       DBUG_RETURN(true);
 
-    if (acquire_shared_backup_lock(thd, thd->variables.lock_wait_timeout))
+    if (acquire_shared_backup_lock_nsec(thd,
+                                        thd->variables.lock_wait_timeout_nsec))
       DBUG_RETURN(true);
 
     table_ref->mdl_request.ticket = table->mdl_ticket;
@@ -352,8 +353,8 @@ bool Sql_cmd_truncate_table::lock_table(THD *thd, TABLE_LIST *table_ref) {
 
   /* Acquire an exclusive lock. */
   DBUG_ASSERT(table_ref->next_global == NULL);
-  if (lock_table_names(thd, table_ref, NULL, thd->variables.lock_wait_timeout,
-                       0))
+  if (lock_table_names_nsec(thd, table_ref, NULL,
+                            thd->variables.lock_wait_timeout_nsec, 0))
     DBUG_RETURN(true);
 
   /* Table is already locked exclusively. Remove cached instances. */
