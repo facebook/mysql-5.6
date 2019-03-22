@@ -69,7 +69,13 @@ SELECT @@session.lock_wait_timeout = 31536000;
 # Change the value of lock_wait_timeout to a valid value for GLOBAL Scope     #
 ###############################################################################
 
+SET @@global.lock_wait_timeout = 0;
+SELECT @@global.lock_wait_timeout;
+SET @@global.lock_wait_timeout = 0.005;
+SELECT @@global.lock_wait_timeout;
 SET @@global.lock_wait_timeout = 1;
+SELECT @@global.lock_wait_timeout;
+SET @@global.lock_wait_timeout = 1.23;
 SELECT @@global.lock_wait_timeout;
 SET @@global.lock_wait_timeout = 60020;
 SELECT @@global.lock_wait_timeout;
@@ -83,8 +89,14 @@ SELECT @@global.lock_wait_timeout;
 # Change the value of lock_wait_timeout to a valid value for SESSION Scope    #
 ###############################################################################
 
+SET @@global.lock_wait_timeout = 0;
+SELECT @@global.lock_wait_timeout;
+SET @@global.lock_wait_timeout = 0.005;
+SELECT @@global.lock_wait_timeout;
 SET @@session.lock_wait_timeout = 1;
 SELECT @@session.lock_wait_timeout;
+SET @@global.lock_wait_timeout = 1.23;
+SELECT @@global.lock_wait_timeout;
 SET @@session.lock_wait_timeout = 50050;
 SELECT @@session.lock_wait_timeout;
 SET @@session.lock_wait_timeout = 65535;
@@ -98,8 +110,6 @@ SELECT @@session.lock_wait_timeout;
 # Change the value of lock_wait_timeout to an invalid value     #
 #################################################################
 # for global scope
-SET @@global.lock_wait_timeout = 0;
-SELECT @@global.lock_wait_timeout;
 SET @@global.lock_wait_timeout = -1024;
 SELECT @@global.lock_wait_timeout;
 SET @@global.lock_wait_timeout = 31536001;
@@ -107,8 +117,6 @@ SELECT @@global.lock_wait_timeout;
 SET @@global.lock_wait_timeout = 3153600112;
 SELECT @@global.lock_wait_timeout;
 
---Error ER_WRONG_TYPE_FOR_VAR
-SET @@global.lock_wait_timeout = 65532.01;
 SELECT @@global.lock_wait_timeout;
 --Error ER_WRONG_TYPE_FOR_VAR
 SET @@global.lock_wait_timeout = ON;
@@ -127,8 +135,6 @@ SET @@global.lock_wait_timeout = ' ';
 SELECT @@global.lock_wait_timeout;
 
 # for session scope
-SET @@session.lock_wait_timeout = 0;
-SELECT @@session.lock_wait_timeout;
 SET @@session.lock_wait_timeout = -2;
 SELECT @@session.lock_wait_timeout;
 SET @@session.lock_wait_timeout = 3176990909;
@@ -138,8 +144,6 @@ SELECT @@session.lock_wait_timeout;
 SET @@session.lock_wait_timeout = -1024;
 SELECT @@session.lock_wait_timeout;
 
---Error ER_WRONG_TYPE_FOR_VAR
-SET @@session.lock_wait_timeout = 65532.01;
 SELECT @@session.lock_wait_timeout;
 --Error ER_WRONG_TYPE_FOR_VAR
 SET @@session.lock_wait_timeout = ON;

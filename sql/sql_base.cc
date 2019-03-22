@@ -478,7 +478,7 @@ void table_def_start_shutdown(void) {
     table_def_shutdown_in_progress = true;
     table_cache_manager.unlock_all_and_tdc();
     /* Free all cached but unused TABLEs and TABLE_SHAREs. */
-    close_cached_tables(nullptr, nullptr, false, LONG_TIMEOUT);
+    close_cached_tables_nsec(nullptr, nullptr, false, LONG_TIMEOUT_NSEC);
   }
 }
 
@@ -574,8 +574,8 @@ static bool read_histograms(THD *thd, TABLE_SHARE *share,
     mdl_requests.push_front(request);
   }
 
-  if (thd->mdl_context.acquire_locks(&mdl_requests,
-                                     thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.acquire_locks_nsec(
+          &mdl_requests, thd->variables.lock_wait_timeout_nsec))
     return true; /* purecov: deadcode */
 
   for (const auto column : table_def->columns()) {
@@ -1129,8 +1129,8 @@ void free_io_cache(TABLE *table) {
         lock taken by thread trying to obtain global read lock.
 */
 
-bool close_cached_tables(THD *thd, TABLE_LIST *tables, bool wait_for_refresh,
-                         ulong timeout) {
+bool close_cached_tables_nsec(THD *thd, TABLE_LIST *tables,
+                              bool wait_for_refresh, ulonglong timeout_nsec) {
   bool result = false;
   bool found = true;
   struct timespec abstime;
@@ -1182,7 +1182,7 @@ bool close_cached_tables(THD *thd, TABLE_LIST *tables, bool wait_for_refresh,
 
   if (!wait_for_refresh) return result;
 
-  set_timespec(&abstime, timeout);
+  set_timespec_nsec(&abstime, timeout_nsec);
 
   if (thd->locked_tables_mode) {
     /*
@@ -2443,8 +2443,9 @@ bool wait_while_table_is_used(THD *thd, TABLE *table,
                        table->s->table_name.str, table->s, table->db_stat,
                        table->s->version()));
 
-  if (thd->mdl_context.upgrade_shared_lock(table->mdl_ticket, MDL_EXCLUSIVE,
-                                           thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.upgrade_shared_lock_nsec(
+          table->mdl_ticket, MDL_EXCLUSIVE,
+          thd->variables.lock_wait_timeout_nsec))
     return true;
 
   tdc_remove_table(thd, TDC_RT_REMOVE_NOT_OWN, table->s->db.str,
@@ -2683,8 +2684,8 @@ static bool open_table_get_mdl_lock(THD *thd, Open_table_context *ot_ctx,
     thd->push_internal_handler(&mdl_deadlock_handler);
     thd->mdl_context.set_force_dml_deadlock_weight(ot_ctx->can_back_off());
 
-    bool result =
-        thd->mdl_context.acquire_lock(mdl_request, ot_ctx->get_timeout());
+    bool result = thd->mdl_context.acquire_lock_nsec(
+        mdl_request, ot_ctx->get_timeout_nsec());
 
     thd->mdl_context.set_force_dml_deadlock_weight(false);
     thd->pop_internal_handler();
@@ -2710,9 +2711,10 @@ static bool open_table_get_mdl_lock(THD *thd, Open_table_context *ot_ctx,
                   in a deadlock or timeout). Reported.
 */
 
-static bool tdc_wait_for_old_version(THD *thd, const char *db,
-                                     const char *table_name, ulong wait_timeout,
-                                     uint deadlock_weight) {
+static bool tdc_wait_for_old_version_nsec(THD *thd, const char *db,
+                                          const char *table_name,
+                                          ulonglong wait_timeout_nsec,
+                                          uint deadlock_weight) {
   TABLE_SHARE *share;
   bool res = false;
 
@@ -2720,7 +2722,7 @@ static bool tdc_wait_for_old_version(THD *thd, const char *db,
   if ((share = get_cached_table_share(db, table_name)) &&
       share->has_old_version()) {
     struct timespec abstime;
-    set_timespec(&abstime, wait_timeout);
+    set_timespec_nsec(&abstime, wait_timeout_nsec);
     res = share->wait_for_old_version(thd, &abstime, deadlock_weight);
   }
   mysql_mutex_unlock(&LOCK_open);
@@ -3015,8 +3017,8 @@ bool open_table(THD *thd, TABLE_LIST *table_list, Open_table_context *ot_ctx) {
       thd->push_internal_handler(&mdl_deadlock_handler);
       thd->mdl_context.set_force_dml_deadlock_weight(ot_ctx->can_back_off());
 
-      bool result = thd->mdl_context.acquire_lock(&protection_request,
-                                                  ot_ctx->get_timeout());
+      bool result = thd->mdl_context.acquire_lock_nsec(
+          &protection_request, ot_ctx->get_timeout_nsec());
 
       /*
         Unlike in other places where we acquire protection against global read
@@ -3065,9 +3067,9 @@ bool open_table(THD *thd, TABLE_LIST *table_list, Open_table_context *ot_ctx) {
         thd->push_internal_handler(&mdl_deadlock_handler);
 
         DEBUG_SYNC(thd, "before_upgrading_lock_from_S_to_X_for_create_table");
-        bool wait_result = thd->mdl_context.upgrade_shared_lock(
+        bool wait_result = thd->mdl_context.upgrade_shared_lock_nsec(
             table_list->mdl_request.ticket, MDL_EXCLUSIVE,
-            thd->variables.lock_wait_timeout);
+            thd->variables.lock_wait_timeout_nsec);
 
         thd->pop_internal_handler();
         DEBUG_SYNC(thd, "after_upgrading_lock_from_S_to_X_for_create_table");
@@ -3287,9 +3289,9 @@ share_found:
                                  ? MDL_wait_for_subgraph::DEADLOCK_WEIGHT_DML
                                  : mdl_ticket->get_deadlock_weight();
 
-      wait_result =
-          tdc_wait_for_old_version(thd, table_list->db, table_list->table_name,
-                                   ot_ctx->get_timeout(), deadlock_weight);
+      wait_result = tdc_wait_for_old_version_nsec(
+          thd, table_list->db, table_list->table_name,
+          ot_ctx->get_timeout_nsec(), deadlock_weight);
 
       thd->pop_internal_handler();
 
@@ -4005,9 +4007,9 @@ Open_table_context::Open_table_context(THD *thd, uint flags)
     : m_thd(thd),
       m_failed_table(nullptr),
       m_start_of_statement_svp(thd->mdl_context.mdl_savepoint()),
-      m_timeout(flags & MYSQL_LOCK_IGNORE_TIMEOUT
-                    ? LONG_TIMEOUT
-                    : thd->variables.lock_wait_timeout),
+      m_timeout_nsec(flags & MYSQL_LOCK_IGNORE_TIMEOUT
+                         ? LONG_TIMEOUT_NSEC
+                         : thd->variables.lock_wait_timeout_nsec),
       m_flags(flags),
       m_action(OT_NO_ACTION),
       m_has_locks(thd->mdl_context.has_locks()),
@@ -4169,8 +4171,8 @@ bool Open_table_context::recover_from_failed_open() {
     case OT_REOPEN_TABLES:
       break;
     case OT_DISCOVER: {
-      if ((result = lock_table_names(m_thd, m_failed_table, nullptr,
-                                     get_timeout(), 0)))
+      if ((result = lock_table_names_nsec(m_thd, m_failed_table, nullptr,
+                                          get_timeout_nsec(), 0)))
         break;
 
       tdc_remove_table(m_thd, TDC_RT_REMOVE_ALL, m_failed_table->db,
@@ -4192,8 +4194,8 @@ bool Open_table_context::recover_from_failed_open() {
       break;
     }
     case OT_REPAIR: {
-      if ((result = lock_table_names(m_thd, m_failed_table, nullptr,
-                                     get_timeout(), 0)))
+      if ((result = lock_table_names_nsec(m_thd, m_failed_table, nullptr,
+                                          get_timeout_nsec(), 0)))
         break;
 
       tdc_remove_table(m_thd, TDC_RT_REMOVE_ALL, m_failed_table->db,
@@ -4227,8 +4229,8 @@ bool Open_table_context::recover_from_failed_open() {
         break;
       }
 
-      if ((result = lock_table_names(m_thd, m_failed_table, nullptr,
-                                     get_timeout(), 0)))
+      if ((result = lock_table_names_nsec(m_thd, m_failed_table, nullptr,
+                                          get_timeout_nsec(), 0)))
         break;
 
       result = fix_row_type(m_thd, m_failed_table);
@@ -4513,8 +4515,8 @@ static bool open_and_process_routine(
         MDL_deadlock_handler mdl_deadlock_handler(ot_ctx);
 
         thd->push_internal_handler(&mdl_deadlock_handler);
-        bool result =
-            thd->mdl_context.acquire_lock(&mdl_request, ot_ctx->get_timeout());
+        bool result = thd->mdl_context.acquire_lock_nsec(
+            &mdl_request, ot_ctx->get_timeout_nsec());
         thd->pop_internal_handler();
 
         if (result) return true;
@@ -4609,8 +4611,8 @@ static bool open_and_process_routine(
         MDL_deadlock_handler mdl_deadlock_handler(ot_ctx);
 
         thd->push_internal_handler(&mdl_deadlock_handler);
-        bool result =
-            thd->mdl_context.acquire_lock(&mdl_request, ot_ctx->get_timeout());
+        bool result = thd->mdl_context.acquire_lock_nsec(
+            &mdl_request, ot_ctx->get_timeout_nsec());
         thd->pop_internal_handler();
 
         if (result) return true;
@@ -5201,9 +5203,10 @@ static inline bool is_temporary_table_being_opened(const TABLE_LIST *table) {
   @retval true   Failure (e.g. connection was killed)
   @retval false  Success.
 */
-bool get_and_lock_tablespace_names(THD *thd, TABLE_LIST *tables_start,
-                                   TABLE_LIST *tables_end,
-                                   ulong lock_wait_timeout, uint flags) {
+bool get_and_lock_tablespace_names_nsec(THD *thd, TABLE_LIST *tables_start,
+                                        TABLE_LIST *tables_end,
+                                        ulonglong lock_wait_timeout_nsec,
+                                        uint flags) {
   // If this is a DISCARD or IMPORT TABLESPACE command (indicated by
   // the THD:: tablespace_op flag), we skip this phase, because these
   // commands are only used for file-per-table tablespaces, which we
@@ -5283,7 +5286,7 @@ bool get_and_lock_tablespace_names(THD *thd, TABLE_LIST *tables_start,
     After we have identified the tablespace names, we iterate
     over the names and acquire IX locks on each of them.
   */
-  if (lock_tablespace_names(thd, &tablespace_set, lock_wait_timeout))
+  if (lock_tablespace_names_nsec(thd, &tablespace_set, lock_wait_timeout_nsec))
     return true;
 
   return false;
@@ -5315,10 +5318,10 @@ bool get_and_lock_tablespace_names(THD *thd, TABLE_LIST *tables_start,
   @retval true   Failure (e.g. connection was killed)
 */
 
-bool lock_table_names(THD *thd, TABLE_LIST *tables_start,
-                      TABLE_LIST *tables_end, ulong lock_wait_timeout,
-                      uint flags,
-                      Prealloced_array<MDL_request *, 1> *schema_reqs) {
+bool lock_table_names_nsec(THD *thd, TABLE_LIST *tables_start,
+                           TABLE_LIST *tables_end,
+                           ulonglong lock_wait_timeout_nsec, uint flags,
+                           Prealloced_array<MDL_request *, 1> *schema_reqs) {
   MDL_request_list mdl_requests;
   TABLE_LIST *table;
   MDL_request global_request;
@@ -5421,7 +5424,8 @@ bool lock_table_names(THD *thd, TABLE_LIST *tables_start,
   }
 
   // Phase 3: Acquire the locks which have been requested so far.
-  if (thd->mdl_context.acquire_locks(&mdl_requests, lock_wait_timeout))
+  if (thd->mdl_context.acquire_locks_nsec(&mdl_requests,
+                                          lock_wait_timeout_nsec))
     return true;
 
   /*
@@ -5442,8 +5446,8 @@ bool lock_table_names(THD *thd, TABLE_LIST *tables_start,
     dictionary to get hold of the tablespace name, and in order
     to do this, we must have acquired a lock on the table.
   */
-  return get_and_lock_tablespace_names(thd, tables_start, tables_end,
-                                       lock_wait_timeout, flags);
+  return get_and_lock_tablespace_names_nsec(thd, tables_start, tables_end,
+                                            lock_wait_timeout_nsec, flags);
 }
 
 /**
@@ -5531,7 +5535,8 @@ static bool acquire_backup_lock_in_lock_tables_mode(THD *thd,
 
     if (table->mdl_request.is_ddl_or_lock_tables_lock_request() &&
         table->mdl_request.type != MDL_SHARED_READ_ONLY)
-      return acquire_shared_backup_lock(thd, thd->variables.lock_wait_timeout);
+      return acquire_shared_backup_lock_nsec(
+          thd, thd->variables.lock_wait_timeout_nsec);
   }
 
   return false;
@@ -5633,8 +5638,8 @@ restart:
       }
     } else {
       TABLE_LIST *table;
-      if (lock_table_names(thd, *start, thd->lex->first_not_own_table(),
-                           ot_ctx.get_timeout(), flags)) {
+      if (lock_table_names_nsec(thd, *start, thd->lex->first_not_own_table(),
+                                ot_ctx.get_timeout_nsec(), flags)) {
         error = true;
         goto err;
       }

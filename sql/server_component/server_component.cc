@@ -237,7 +237,7 @@ BEGIN_SERVICE_IMPLEMENTATION(mysql_server, system_variable_source)
 mysql_system_variable_source_imp::get END_SERVICE_IMPLEMENTATION();
 
 BEGIN_SERVICE_IMPLEMENTATION(mysql_server, mysql_backup_lock)
-mysql_acquire_backup_lock,
+mysql_acquire_backup_lock_nsec,
     mysql_release_backup_lock END_SERVICE_IMPLEMENTATION();
 
 BEGIN_SERVICE_IMPLEMENTATION(mysql_server, clone_protocol)

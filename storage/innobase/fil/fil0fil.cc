@@ -8954,8 +8954,8 @@ bool Fil_system::encryption_rotate_in_a_shard(Fil_shard *shard) {
       MDL_ticket *mdl_ticket = nullptr;
       if (fsp_is_undo_tablespace(space->id)) {
         THD *thd = current_thd;
-        while (
-            acquire_shared_backup_lock(thd, thd->variables.lock_wait_timeout)) {
+        while (acquire_shared_backup_lock_nsec(
+            thd, thd->variables.lock_wait_timeout_nsec)) {
           os_thread_sleep(20);
         }
 

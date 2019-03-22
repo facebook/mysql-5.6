@@ -5909,8 +5909,8 @@ bool dd_tablespace_get_mdl(const char *space_name, MDL_ticket **mdl_ticket,
   bool trx_duration = foreground;
 
   /* Background thread should not block on MDL lock. */
-  ulong timeout = foreground ? thd->variables.lock_wait_timeout : 0;
-  bool result = acquire_shared_backup_lock(thd, timeout, trx_duration);
+  ulonglong timeout = foreground ? thd->variables.lock_wait_timeout_nsec : 0;
+  bool result = acquire_shared_backup_lock_nsec(thd, timeout, trx_duration);
 
   if (!result) {
     result = dd::acquire_exclusive_tablespace_mdl(thd, space_name, false,

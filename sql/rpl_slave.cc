@@ -3966,7 +3966,7 @@ static int init_slave_thread(THD *thd, SLAVE_THD_TYPE thd_type) {
   }
   thd->set_time();
   /* Do not use user-supplied timeout value for system threads. */
-  thd->variables.lock_wait_timeout = LONG_TIMEOUT;
+  thd->variables.lock_wait_timeout_nsec = LONG_TIMEOUT_NSEC;
   return 0;
 }
 

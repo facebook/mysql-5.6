@@ -4613,8 +4613,8 @@ static bool acquire_mdl_for_table(THD *thd, const char *db_name,
   MDL_REQUEST_INIT(&table_request, MDL_key::TABLE, db_name, table_name,
                    MDL_SHARED, MDL_TRANSACTION);
 
-  if (thd->mdl_context.acquire_lock(&table_request,
-                                    thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.acquire_lock_nsec(&table_request,
+                                         thd->variables.lock_wait_timeout_nsec))
     return true;
 
   return false;

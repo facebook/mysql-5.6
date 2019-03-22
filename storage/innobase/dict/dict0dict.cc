@@ -5927,8 +5927,8 @@ dberr_t dd_sdi_acquire_exclusive_mdl(THD *thd, space_id_t space_id,
   if (lock_wait_timeout < 100000) {
     lock_wait_timeout += 100000;
   }
-  if (dd::acquire_exclusive_table_mdl(thd, db_buf, tbl_buf, lock_wait_timeout,
-                                      sdi_mdl)) {
+  if (dd::acquire_exclusive_table_mdl(
+          thd, db_buf, tbl_buf, lock_wait_timeout * 1000000000UL, sdi_mdl)) {
     /* MDL failure can happen with lower timeout
     values chosen by user */
     return (DB_LOCK_WAIT_TIMEOUT);

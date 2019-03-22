@@ -3277,8 +3277,8 @@ bool MDL_lock_guard::lock(MDL_key::enum_mdl_namespace namespace_arg,
                      MDL_EXPLICIT);
 
     if (blocking)
-      this->m_target->mdl_context.acquire_lock(
-          &this->m_request, this->m_target->variables.lock_wait_timeout);
+      this->m_target->mdl_context.acquire_lock_nsec(
+          &this->m_request, this->m_target->variables.lock_wait_timeout_nsec);
     else
       this->m_target->mdl_context.try_acquire_lock(&this->m_request);
 

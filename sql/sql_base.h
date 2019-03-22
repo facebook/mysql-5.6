@@ -261,12 +261,13 @@ void update_non_unique_table_error(TABLE_LIST *update, const char *operation,
 int setup_ftfuncs(const THD *thd, SELECT_LEX *select);
 bool init_ftfuncs(THD *thd, SELECT_LEX *select);
 int run_before_dml_hook(THD *thd);
-bool get_and_lock_tablespace_names(THD *thd, TABLE_LIST *tables_start,
-                                   TABLE_LIST *tables_end,
-                                   ulong lock_wait_timeout, uint flags);
-bool lock_table_names(
+bool get_and_lock_tablespace_names_nsec(THD *thd, TABLE_LIST *tables_start,
+                                        TABLE_LIST *tables_end,
+                                        ulonglong lock_wait_timeout_nsec,
+                                        uint flags);
+bool lock_table_names_nsec(
     THD *thd, TABLE_LIST *table_list, TABLE_LIST *table_list_end,
-    ulong lock_wait_timeout, uint flags,
+    ulonglong lock_wait_timeout_nsec, uint flags,
     Prealloced_array<MDL_request *, 1> *schema_reqs = nullptr);
 bool open_tables(THD *thd, TABLE_LIST **tables, uint *counter, uint flags,
                  Prelocking_strategy *prelocking_strategy);
@@ -303,8 +304,8 @@ TABLE *open_log_table(THD *thd, TABLE_LIST *one_table,
                       Open_tables_backup *backup);
 void close_log_table(THD *thd, Open_tables_backup *backup);
 
-bool close_cached_tables(THD *thd, TABLE_LIST *tables, bool wait_for_refresh,
-                         ulong timeout);
+bool close_cached_tables_nsec(THD *thd, TABLE_LIST *tables,
+                              bool wait_for_refresh, ulonglong timeout_nsec);
 
 /**
   Close all open instances of the table but keep the MDL lock.
@@ -490,7 +491,7 @@ class Open_table_context {
     return m_start_of_statement_svp;
   }
 
-  inline ulong get_timeout() const { return m_timeout; }
+  inline ulong get_timeout_nsec() const { return m_timeout_nsec; }
 
   uint get_flags() const { return m_flags; }
 
@@ -520,7 +521,7 @@ class Open_table_context {
     Lock timeout in seconds. Initialized to LONG_TIMEOUT when opening system
     tables or to the "lock_wait_timeout" system variable for regular tables.
   */
-  ulong m_timeout;
+  ulonglong m_timeout_nsec;
   /* open_table() flags. */
   uint m_flags;
   /** Back off action. */

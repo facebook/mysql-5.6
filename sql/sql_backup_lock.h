@@ -25,6 +25,7 @@
 
 #include <sys/types.h>
 
+#include "my_inttypes.h"
 #include "my_sqlcommand.h"  // SQLCOM_LOCK_INSTANCE, SQLCOM_UNLOCK_INSTANCE
 #include "sql/sql_cmd.h"    // Sql_cmd
 
@@ -76,7 +77,7 @@ class Sql_cmd_unlock_instance : public Sql_cmd {
   Acquire exclusive Backup Lock.
 
   @param[in] thd                Current thread context
-  @param[in] lock_wait_timeout  How many seconds to wait before timeout.
+  @param[in] lock_wait_timeout  How many nanoseconds to wait before timeout.
   @param[in] for_trx            true if MDL duration is MDL_TRANSACTION
                                 false if MDL duration is MDL_EXPLICIT
 
@@ -85,8 +86,9 @@ class Sql_cmd_unlock_instance : public Sql_cmd {
     @retval true  Failure
 */
 
-bool acquire_exclusive_backup_lock(THD *thd, unsigned long lock_wait_timeout,
-                                   bool for_trx);
+bool acquire_exclusive_backup_lock_nsec(THD *thd,
+                                        ulonglong lock_wait_timeout_nsec,
+                                        bool for_trx);
 
 /**
   Acquire shared Backup Lock.
@@ -101,8 +103,9 @@ bool acquire_exclusive_backup_lock(THD *thd, unsigned long lock_wait_timeout,
     @retval true  Failure
 */
 
-bool acquire_shared_backup_lock(THD *thd, unsigned long lock_wait_timeout,
-                                bool for_trx = true);
+bool acquire_shared_backup_lock_nsec(THD *thd,
+                                     unsigned long lock_wait_timeout_nsec,
+                                     bool for_trx = true);
 
 /**
   Release Backup Lock if it was acquired.

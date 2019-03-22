@@ -2263,11 +2263,27 @@ static Sys_var_bool Sys_local_infile("local_infile",
                                      GLOBAL_VAR(opt_local_infile),
                                      CMD_LINE(OPT_ARG), DEFAULT(false));
 
-static Sys_var_ulong Sys_lock_wait_timeout(
+static bool update_cached_lock_wait_timeout(sys_var * /* unused */, THD *thd,
+                                            enum_var_type type) {
+  if (type == OPT_SESSION)
+    thd->variables.lock_wait_timeout_nsec =
+        double2ulonglong(thd->variables.lock_wait_timeout_double * 1e9);
+  else
+    global_system_variables.lock_wait_timeout_nsec = double2ulonglong(
+        global_system_variables.lock_wait_timeout_double * 1e9);
+  return false;
+}
+
+static Sys_var_double Sys_lock_wait_timeout(
     "lock_wait_timeout",
-    "Timeout in seconds to wait for a lock before returning an error.",
-    HINT_UPDATEABLE SESSION_VAR(lock_wait_timeout), CMD_LINE(REQUIRED_ARG),
-    VALID_RANGE(1, LONG_TIMEOUT), DEFAULT(LONG_TIMEOUT), BLOCK_SIZE(1));
+    "Timeout in seconds to wait for a lock before returning an error. "
+    "The argument will be treated as a decimal value with nanosecond "
+    "precision.",
+    // very small nanosecond values will effectively be no waiting
+    HINT_UPDATEABLE SESSION_VAR(lock_wait_timeout_double),
+    CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, LONG_TIMEOUT), DEFAULT(LONG_TIMEOUT),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0),
+    ON_UPDATE(update_cached_lock_wait_timeout));
 
 #ifdef HAVE_MLOCKALL
 static Sys_var_bool Sys_locked_in_memory(

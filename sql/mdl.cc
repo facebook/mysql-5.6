@@ -3351,16 +3351,16 @@ void MDL_lock::object_lock_notify_conflicting_locks(MDL_context *ctx,
 
   @param [in,out] mdl_request Lock request object for lock to be acquired
 
-  @param lock_wait_timeout Seconds to wait before timeout.
+  @param lock_wait_timeout_nsec Nanoseconds to wait before timeout.
 
   @retval  false   Success. MDL_request::ticket points to the ticket
                    for the lock.
   @retval  true    Failure (Out of resources or waiting is aborted),
 */
 
-bool MDL_context::acquire_lock(MDL_request *mdl_request,
-                               Timeout_type lock_wait_timeout) {
-  if (lock_wait_timeout == 0) {
+bool MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
+                                    Timeout_type lock_wait_timeout_nsec) {
+  if (lock_wait_timeout_nsec == 0) {
     /*
       Resort to try_acquire_lock() in case of zero timeout.
 
@@ -3392,7 +3392,7 @@ bool MDL_context::acquire_lock(MDL_request *mdl_request,
   struct timespec abs_timeout;
   MDL_wait::enum_wait_status wait_status;
   /* Do some work outside the critical section. */
-  set_timespec(&abs_timeout, lock_wait_timeout);
+  set_timespec_nsec(&abs_timeout, lock_wait_timeout_nsec);
 
   if (try_acquire_lock_impl(mdl_request, &ticket)) return true;
 
@@ -3576,7 +3576,7 @@ class MDL_request_cmp {
 
   @param  mdl_requests  List of requests for locks to be acquired.
 
-  @param lock_wait_timeout  Seconds to wait before timeout.
+  @param lock_wait_timeout_nsec  Nanoeconds to wait before timeout.
 
   @note The list of requests should not contain non-exclusive lock requests.
         There should not be any acquired locks in the context.
@@ -3593,8 +3593,8 @@ class MDL_request_cmp {
   @retval true   Failure
 */
 
-bool MDL_context::acquire_locks(MDL_request_list *mdl_requests,
-                                Timeout_type lock_wait_timeout) {
+bool MDL_context::acquire_locks_nsec(MDL_request_list *mdl_requests,
+                                     Timeout_type lock_wait_timeout_nsec) {
   MDL_request_list::Iterator it(*mdl_requests);
   MDL_request **p_req;
   MDL_savepoint mdl_svp = mdl_savepoint();
@@ -3620,7 +3620,7 @@ bool MDL_context::acquire_locks(MDL_request_list *mdl_requests,
 
   size_t num_acquired = 0;
   for (p_req = sort_buf.begin(); p_req != sort_buf.end(); p_req++) {
-    if (acquire_lock(*p_req, lock_wait_timeout)) goto err;
+    if (acquire_lock_nsec(*p_req, lock_wait_timeout_nsec)) goto err;
     ++num_acquired;
   }
   return false;
@@ -3682,7 +3682,7 @@ bool MDL_context::clone_tickets(const MDL_context *ticket_owner,
 
   @param mdl_ticket         Lock to upgrade.
   @param new_type           Lock type to upgrade to.
-  @param lock_wait_timeout  Seconds to wait before timeout.
+  @param lock_wait_timeout_nsec  Nanoeconds to wait before timeout.
 
   @note In case of failure to upgrade lock (e.g. because upgrader
         was killed) leaves lock in its original state (locked in
@@ -3700,9 +3700,9 @@ bool MDL_context::clone_tickets(const MDL_context *ticket_owner,
   @retval true   Failure (thread was killed)
 */
 
-bool MDL_context::upgrade_shared_lock(MDL_ticket *mdl_ticket,
-                                      enum_mdl_type new_type,
-                                      Timeout_type lock_wait_timeout) {
+bool MDL_context::upgrade_shared_lock_nsec(
+    MDL_ticket *mdl_ticket, enum_mdl_type new_type,
+    Timeout_type lock_wait_timeout_nsec) {
   MDL_request mdl_new_lock_request;
   MDL_savepoint mdl_svp = mdl_savepoint();
   bool is_new_ticket;
@@ -3720,7 +3720,8 @@ bool MDL_context::upgrade_shared_lock(MDL_ticket *mdl_ticket,
   MDL_REQUEST_INIT_BY_KEY(&mdl_new_lock_request, &mdl_ticket->m_lock->key,
                           new_type, MDL_TRANSACTION);
 
-  if (acquire_lock(&mdl_new_lock_request, lock_wait_timeout)) return true;
+  if (acquire_lock_nsec(&mdl_new_lock_request, lock_wait_timeout_nsec))
+    return true;
 
   is_new_ticket = !has_lock(mdl_svp, mdl_new_lock_request.ticket);
 

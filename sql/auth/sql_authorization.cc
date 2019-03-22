@@ -2676,8 +2676,8 @@ int mysql_table_grant(THD *thd, TABLE_LIST *table_list,
         MDL_request mdl_request;
         MDL_REQUEST_INIT(&mdl_request, MDL_key::TABLE, table_list->db,
                          table_list->table_name, MDL_SHARED, MDL_TRANSACTION);
-        if (thd->mdl_context.acquire_lock(&mdl_request,
-                                          thd->variables.lock_wait_timeout))
+        if (thd->mdl_context.acquire_lock_nsec(
+                &mdl_request, thd->variables.lock_wait_timeout_nsec))
           return true;
 
         bool exists;

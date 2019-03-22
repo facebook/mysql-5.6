@@ -1662,8 +1662,8 @@ bool mysql_drop_view(THD *thd, TABLE_LIST *views) {
     return true;
   }
 
-  if (lock_table_names(thd, views, nullptr, thd->variables.lock_wait_timeout,
-                       0))
+  if (lock_table_names_nsec(thd, views, nullptr,
+                            thd->variables.lock_wait_timeout_nsec, 0))
     return true;
 
   dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());

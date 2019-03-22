@@ -425,7 +425,8 @@ static bool close_cached_connection_tables(THD *thd,
   }
   mysql_mutex_unlock(&LOCK_open);
 
-  if (tables) result = close_cached_tables(thd, tables, false, LONG_TIMEOUT);
+  if (tables)
+    result = close_cached_tables_nsec(thd, tables, false, LONG_TIMEOUT_NSEC);
 
   return result;
 }
@@ -613,7 +614,8 @@ void Server_options::store_altered_server(TABLE *table,
 
 bool Sql_cmd_common_server::check_and_open_table(THD *thd) {
   if (check_global_access(thd, SUPER_ACL) ||
-      acquire_shared_backup_lock(thd, thd->variables.lock_wait_timeout))
+      acquire_shared_backup_lock_nsec(thd,
+                                      thd->variables.lock_wait_timeout_nsec))
     return true;
 
   TABLE_LIST tables("mysql", "servers", TL_WRITE);

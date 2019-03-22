@@ -2199,8 +2199,10 @@ static bool mysql_install_plugin(THD *thd, LEX_CSTRING name,
       check_table_access(thd, INSERT_ACL, &tables, false, 1, false))
     return true;
 
-  if (acquire_shared_global_read_lock(thd, thd->variables.lock_wait_timeout) ||
-      acquire_shared_backup_lock(thd, thd->variables.lock_wait_timeout))
+  if (acquire_shared_global_read_lock_nsec(
+          thd, thd->variables.lock_wait_timeout_nsec) ||
+      acquire_shared_backup_lock_nsec(thd,
+                                      thd->variables.lock_wait_timeout_nsec))
     return true;
 
   /* need to open before acquiring LOCK_plugin or it will deadlock */
@@ -2290,8 +2292,8 @@ static bool mysql_install_plugin(THD *thd, LEX_CSTRING name,
       MDL_REQUEST_INIT(&mdl_request, MDL_key::TABLE,
                        INFORMATION_SCHEMA_NAME.str, tmp->name.str,
                        MDL_EXCLUSIVE, MDL_TRANSACTION);
-      if (thd->mdl_context.acquire_lock(&mdl_request,
-                                        thd->variables.lock_wait_timeout))
+      if (thd->mdl_context.acquire_lock_nsec(
+              &mdl_request, thd->variables.lock_wait_timeout_nsec))
         error = true;
     } else
       error = true;
@@ -2389,8 +2391,10 @@ static bool mysql_uninstall_plugin(THD *thd, LEX_CSTRING name) {
     return true;
   }
 
-  if (acquire_shared_global_read_lock(thd, thd->variables.lock_wait_timeout) ||
-      acquire_shared_backup_lock(thd, thd->variables.lock_wait_timeout))
+  if (acquire_shared_global_read_lock_nsec(
+          thd, thd->variables.lock_wait_timeout_nsec) ||
+      acquire_shared_backup_lock_nsec(thd,
+                                      thd->variables.lock_wait_timeout_nsec))
     return true;
 
   Disable_autocommit_guard autocommit_guard(thd);

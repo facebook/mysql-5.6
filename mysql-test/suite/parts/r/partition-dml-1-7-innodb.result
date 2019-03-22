@@ -8,7 +8,7 @@ SET @lock_timeout= @@global.lock_wait_timeout;
 SET @@global.lock_wait_timeout= 1;
 SELECT @@global.lock_wait_timeout;
 @@global.lock_wait_timeout
-1
+1.000000
 SET @innodb_lock_timeout= @@global.innodb_lock_wait_timeout;
 SET @@global.innodb_lock_wait_timeout= 1;
 # Additional tests for WL#5217 by QA, testplan 1.1

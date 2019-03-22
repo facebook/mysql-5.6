@@ -578,7 +578,7 @@ bool Sql_cmd_alter_table_repair_partition::execute(THD *thd) {
 
 bool Sql_cmd_alter_table_truncate_partition::execute(THD *thd) {
   int error;
-  ulong timeout = thd->variables.lock_wait_timeout;
+  ulonglong timeout_nsec = thd->variables.lock_wait_timeout_nsec;
   TABLE_LIST *first_table = thd->lex->select_lex->table_list.first;
   uint table_counter;
   Partition_handler *part_handler = nullptr;
@@ -636,7 +636,8 @@ bool Sql_cmd_alter_table_truncate_partition::execute(THD *thd) {
 
   if (thd->locked_tables_mode) {
     MDL_ticket *ticket = first_table->table->mdl_ticket;
-    if (thd->mdl_context.upgrade_shared_lock(ticket, MDL_EXCLUSIVE, timeout))
+    if (thd->mdl_context.upgrade_shared_lock_nsec(ticket, MDL_EXCLUSIVE,
+                                                  timeout_nsec))
       return true;
     downgrade_mdl_guard.reset(ticket);
   }

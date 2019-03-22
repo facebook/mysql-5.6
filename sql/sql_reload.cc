@@ -214,9 +214,9 @@ bool handle_reload_request(THD *thd, unsigned long options, TABLE_LIST *tables,
       tmp_write_to_binlog = 0;
       if (thd->global_read_lock.lock_global_read_lock(thd))
         return true;  // Killed
-      if (close_cached_tables(thd, tables,
-                              ((options & REFRESH_FAST) ? false : true),
-                              thd->variables.lock_wait_timeout)) {
+      if (close_cached_tables_nsec(thd, tables,
+                                   ((options & REFRESH_FAST) ? false : true),
+                                   thd->variables.lock_wait_timeout_nsec)) {
         /*
           NOTE: my_error() has been already called by reopen_tables() within
           close_cached_tables().
@@ -266,9 +266,10 @@ bool handle_reload_request(THD *thd, unsigned long options, TABLE_LIST *tables,
         }
       }
 
-      if (close_cached_tables(
-              thd, tables, ((options & REFRESH_FAST) ? false : true),
-              (thd ? thd->variables.lock_wait_timeout : LONG_TIMEOUT))) {
+      if (close_cached_tables_nsec(thd, tables,
+                                   ((options & REFRESH_FAST) ? false : true),
+                                   (thd ? thd->variables.lock_wait_timeout_nsec
+                                        : LONG_TIMEOUT_NSEC))) {
         /*
           NOTE: my_error() has been already called by reopen_tables() within
           close_cached_tables().
@@ -407,9 +408,9 @@ bool flush_tables_with_read_lock(THD *thd, TABLE_LIST *all_tables) {
     IX and database-scope IX locks on the tables as this will make
     this statement incompatible with FLUSH TABLES WITH READ LOCK.
   */
-  if (lock_table_names(thd, all_tables, nullptr,
-                       thd->variables.lock_wait_timeout,
-                       MYSQL_OPEN_SKIP_SCOPED_MDL_LOCK))
+  if (lock_table_names_nsec(thd, all_tables, nullptr,
+                            thd->variables.lock_wait_timeout_nsec,
+                            MYSQL_OPEN_SKIP_SCOPED_MDL_LOCK))
     goto error;
 
   DEBUG_SYNC(thd, "flush_tables_with_read_lock_after_acquire_locks");

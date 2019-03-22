@@ -232,7 +232,7 @@ void pre_init_event_thread(THD *thd) {
   thd->set_time();
 
   /* Do not use user-supplied timeout value for system threads. */
-  thd->variables.lock_wait_timeout = LONG_TIMEOUT;
+  thd->variables.lock_wait_timeout_nsec = LONG_TIMEOUT_NSEC;
 }
 
 /*
@@ -362,8 +362,8 @@ void Event_worker_thread::run(THD *thd, Event_queue_element_for_exec *event) {
     MDL_request event_mdl_request;
     MDL_REQUEST_INIT_BY_KEY(&event_mdl_request, &mdl_key, MDL_SHARED,
                             MDL_EXPLICIT);
-    if (thd->mdl_context.acquire_lock(&event_mdl_request,
-                                      thd->variables.lock_wait_timeout)) {
+    if (thd->mdl_context.acquire_lock_nsec(
+            &event_mdl_request, thd->variables.lock_wait_timeout_nsec)) {
       DBUG_PRINT("error", ("Got error in getting MDL locks"));
       goto end;
     }

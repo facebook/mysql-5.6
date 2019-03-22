@@ -4492,7 +4492,8 @@ static void resume_alter_encrypt_tablespace(THD *thd) {
     /* In case of crash/recovery, following has to be set explicitly
         - DD tablespace flags.
         - DD encryption option value. */
-    while (acquire_shared_backup_lock(thd, thd->variables.lock_wait_timeout)) {
+    while (acquire_shared_backup_lock_nsec(
+        thd, thd->variables.lock_wait_timeout_nsec)) {
       os_thread_sleep(20);
     }
 

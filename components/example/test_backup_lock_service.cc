@@ -37,8 +37,8 @@ extern REQUIRES_SERVICE_PLACEHOLDER(mysql_backup_lock);
 */
 
 mysql_service_status_t test_backup_lock_service_init() {
-  return mysql_service_mysql_backup_lock->acquire(
-      nullptr, BACKUP_LOCK_SERVICE_DEFAULT, 100);
+  return mysql_service_mysql_backup_lock->acquire_nsec(
+      nullptr, BACKUP_LOCK_SERVICE_DEFAULT, 100 * 1000000000ULL);
 }
 
 /**

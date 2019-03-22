@@ -822,7 +822,7 @@ bool upgrade_system_schemas(THD *thd) {
    * close everything.
    */
   close_thread_tables(thd);
-  close_cached_tables(nullptr, nullptr, false, LONG_TIMEOUT);
+  close_cached_tables_nsec(nullptr, nullptr, false, LONG_TIMEOUT_NSEC);
 
   return dd::end_transaction(thd, err);
 }

@@ -492,7 +492,8 @@ The following options may be given as the first argument:
  --local-infile      Enable LOAD DATA LOCAL INFILE
  --lock-wait-timeout=# 
  Timeout in seconds to wait for a lock before returning an
- error.
+ error. The argument will be treated as a decimal value
+ with nanosecond precision.
  --log-bin[=name]    Configures the name prefix to use for binary log files.
  If the --log-bin option is not supplied, the name prefix
  defaults to "binlog". If the --log-bin option is supplied
@@ -1617,7 +1618,7 @@ large-pages FALSE
 lc-messages en_US
 lc-time-names en_US
 local-infile FALSE
-lock-wait-timeout 31536000
+lock-wait-timeout 3.1536e+07
 log-bin (No default value)
 log-bin-index (No default value)
 log-bin-trust-function-creators FALSE

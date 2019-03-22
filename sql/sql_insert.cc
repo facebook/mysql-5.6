@@ -2612,8 +2612,8 @@ static TABLE *create_table_from_items(THD *thd, HA_CREATE_INFO *create_info,
       return nullptr;
 
     if (!mdl_requests.is_empty() &&
-        thd->mdl_context.acquire_locks(&mdl_requests,
-                                       thd->variables.lock_wait_timeout))
+        thd->mdl_context.acquire_locks_nsec(
+            &mdl_requests, thd->variables.lock_wait_timeout_nsec))
       return nullptr;
   }
 
@@ -3000,8 +3000,8 @@ bool Query_result_create::send_eof(THD *thd) {
                                        MDL_EXCLUSIVE, create_info->db_type,
                                        &mdl_requests, &fk_invalidator) ||
         (!mdl_requests.is_empty() &&
-         thd->mdl_context.acquire_locks(&mdl_requests,
-                                        thd->variables.lock_wait_timeout)))
+         thd->mdl_context.acquire_locks_nsec(
+             &mdl_requests, thd->variables.lock_wait_timeout_nsec)))
       error = true;
     else {
       dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());
