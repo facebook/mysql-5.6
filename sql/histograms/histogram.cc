@@ -209,8 +209,8 @@ static bool lock_for_write(THD *thd, const MDL_key &mdl_key) {
                           MDL_TRANSACTION);
 
   // If locking fails, an error has already been flagged.
-  return thd->mdl_context.acquire_lock(&mdl_request,
-                                       thd->variables.lock_wait_timeout);
+  return thd->mdl_context.acquire_lock_nsec(
+      &mdl_request, thd->variables.lock_wait_timeout_nsec);
 }
 
 Histogram::Histogram(MEM_ROOT *mem_root, const std::string &db_name,
@@ -1094,8 +1094,8 @@ bool drop_histograms(THD *thd, TABLE_LIST &table, const columns_set &columns,
         return true;
       }
     } else {
-      if (thd->mdl_context.acquire_lock(&table.mdl_request,
-                                        thd->variables.lock_wait_timeout))
+      if (thd->mdl_context.acquire_lock_nsec(
+              &table.mdl_request, thd->variables.lock_wait_timeout_nsec))
         return true;  // error is already reported.
     }
   } else {
@@ -1290,8 +1290,8 @@ bool rename_histograms(THD *thd, const char *old_schema_name,
   MDL_REQUEST_INIT(&mdl_request, MDL_key::TABLE, old_schema_name,
                    old_table_name, MDL_SHARED_READ_ONLY, MDL_TRANSACTION);
 
-  if (thd->mdl_context.acquire_lock(&mdl_request,
-                                    thd->variables.lock_wait_timeout)) {
+  if (thd->mdl_context.acquire_lock_nsec(
+          &mdl_request, thd->variables.lock_wait_timeout_nsec)) {
     // error has already been reported
     return true; /* purecov: deadcode */
   }

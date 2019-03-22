@@ -256,8 +256,8 @@ bool store_in_dd(THD *thd, Update_context *ctx, ST_SCHEMA_TABLE *schema_table,
     MDL_REQUEST_INIT(&mdl_request, MDL_key::TABLE,
                      ctx->info_schema()->name().c_str(),
                      view_obj->name().c_str(), MDL_EXCLUSIVE, MDL_TRANSACTION);
-    if (thd->mdl_context.acquire_lock(&mdl_request,
-                                      thd->variables.lock_wait_timeout))
+    if (thd->mdl_context.acquire_lock_nsec(
+            &mdl_request, thd->variables.lock_wait_timeout_nsec))
       return true;
   }
 
@@ -656,8 +656,8 @@ bool remove_I_S_view_metadata(THD *thd, const dd::String_type &view_name) {
   MDL_request mdl_request;
   MDL_REQUEST_INIT(&mdl_request, MDL_key::TABLE, INFORMATION_SCHEMA_NAME.str,
                    view_name.c_str(), MDL_EXCLUSIVE, MDL_TRANSACTION);
-  if (thd->mdl_context.acquire_lock(&mdl_request,
-                                    thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.acquire_lock_nsec(&mdl_request,
+                                         thd->variables.lock_wait_timeout_nsec))
     return (true);
 
   // Acquire the object.

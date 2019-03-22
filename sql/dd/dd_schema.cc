@@ -113,8 +113,8 @@ bool mdl_lock_schema(THD *thd, const char *schema_name,
     Acquire the lock request created above, and check if
     acquisition fails (e.g. timeout or deadlock).
   */
-  if (thd->mdl_context.acquire_lock(&mdl_request,
-                                    thd->variables.lock_wait_timeout)) {
+  if (thd->mdl_context.acquire_lock_nsec(
+          &mdl_request, thd->variables.lock_wait_timeout_nsec)) {
     assert(thd->is_system_thread() || thd->killed || thd->is_error());
     return true;
   }

@@ -376,8 +376,8 @@ static bool mark_all_views_invalid(THD *thd, const char *db,
     mdl_requests.push_front(schema_request);
     mdl_requests.push_front(&view->mdl_request);
   }
-  if (thd->mdl_context.acquire_locks(&mdl_requests,
-                                     thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.acquire_locks_nsec(
+          &mdl_requests, thd->variables.lock_wait_timeout_nsec))
     return true;
 
   // Check schema read only for all views.
@@ -457,14 +457,14 @@ static bool open_views_and_update_metadata(
 
       MDL_REQUEST_INIT(&schema_request, MDL_key::SCHEMA, view->db, "",
                        MDL_INTENTION_EXCLUSIVE, MDL_STATEMENT);
-      if (thd->mdl_context.acquire_lock(&schema_request,
-                                        thd->variables.lock_wait_timeout))
+      if (thd->mdl_context.acquire_lock_nsec(
+              &schema_request, thd->variables.lock_wait_timeout_nsec))
         return true;
 
       MDL_REQUEST_INIT_BY_KEY(&view_request, &view->mdl_request.key,
                               MDL_EXCLUSIVE, MDL_STATEMENT);
-      if (thd->mdl_context.acquire_lock(&view_request,
-                                        thd->variables.lock_wait_timeout))
+      if (thd->mdl_context.acquire_lock_nsec(
+              &view_request, thd->variables.lock_wait_timeout_nsec))
         return true;
     }
   }

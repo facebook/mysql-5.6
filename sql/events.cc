@@ -741,8 +741,8 @@ bool Events::lock_schema_events(THD *thd, const dd::Schema &schema) {
     mdl_requests.push_front(mdl_request);
   }
 
-  return thd->mdl_context.acquire_locks(&mdl_requests,
-                                        thd->variables.lock_wait_timeout);
+  return thd->mdl_context.acquire_locks_nsec(
+      &mdl_requests, thd->variables.lock_wait_timeout_nsec);
 }
 
 /**
@@ -872,8 +872,8 @@ bool Events::show_create_event(THD *thd, LEX_CSTRING dbname, LEX_CSTRING name) {
   MDL_request event_mdl_request;
   MDL_REQUEST_INIT_BY_KEY(&event_mdl_request, &mdl_key, MDL_SHARED_HIGH_PRIO,
                           MDL_TRANSACTION);
-  if (thd->mdl_context.acquire_lock(&event_mdl_request,
-                                    thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.acquire_lock_nsec(&event_mdl_request,
+                                         thd->variables.lock_wait_timeout_nsec))
     return true;
 
   DEBUG_SYNC(thd, "after_acquiring_shared_lock_on_the_event");

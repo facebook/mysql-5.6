@@ -485,8 +485,8 @@ retry:
 
     thd->push_internal_handler(&sql_handler_lock_error);
 
-    error = thd->mdl_context.acquire_lock(&read_request,
-                                          thd->variables.lock_wait_timeout);
+    error = thd->mdl_context.acquire_lock_nsec(
+        &read_request, thd->variables.lock_wait_timeout_nsec);
     thd->pop_internal_handler();
 
     if (sql_handler_lock_error.need_reopen()) {

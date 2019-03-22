@@ -224,8 +224,8 @@ bool Shared_multi_map<T>::reset(THD *thd) {
     mdl_requests.push_front(
         lock_request(thd, schema_map, it->second->object()));
 
-  if (thd->mdl_context.acquire_locks(&mdl_requests,
-                                     thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.acquire_locks_nsec(
+          &mdl_requests, thd->variables.lock_wait_timeout_nsec))
     return true;
 
   /*

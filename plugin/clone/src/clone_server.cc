@@ -152,8 +152,9 @@ int Server::init_storage(Ha_clone_mode mode, uchar *com_buf, size_t com_len) {
 
     /* Acquire backup lock */
     if (block_ddl()) {
-      auto failed = mysql_service_mysql_backup_lock->acquire(
-          thd, BACKUP_LOCK_SERVICE_DEFAULT, m_client_ddl_timeout);
+      auto failed = mysql_service_mysql_backup_lock->acquire_nsec(
+          thd, BACKUP_LOCK_SERVICE_DEFAULT,
+          m_client_ddl_timeout * 1000000000ULL);
 
       if (failed) {
         return (ER_LOCK_WAIT_TIMEOUT);

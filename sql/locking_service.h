@@ -45,11 +45,10 @@ class THD;
   @note both lock_namespace and lock_names are limited to 64 characters max.
   Names are compared using binary comparison.
 */
-int acquire_locking_service_locks(MYSQL_THD opaque_thd,
-                                  const char *lock_namespace,
-                                  const char **lock_names, size_t lock_num,
-                                  enum enum_locking_service_lock_type lock_type,
-                                  Timeout_type lock_timeout);
+int acquire_locking_service_locks_nsec(
+    MYSQL_THD opaque_thd, const char *lock_namespace, const char **lock_names,
+    size_t lock_num, enum enum_locking_service_lock_type lock_type,
+    Timeout_type lock_timeout_nsec);
 
 /**
   Release all lock service locks taken by the given connection

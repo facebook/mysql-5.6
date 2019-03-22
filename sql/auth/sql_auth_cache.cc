@@ -3451,6 +3451,8 @@ void shutdown_acl_cache() {
 
 /* Constants used by Acl_cache_lock_guard */
 static const ulong ACL_CACHE_LOCK_TIMEOUT = 3600UL;
+static const ulonglong ACL_CACHE_LOCK_TIMEOUT_NSEC =
+    ACL_CACHE_LOCK_TIMEOUT * 1000000000ULL;
 static const MDL_key ACL_CACHE_KEY(MDL_key::ACL_CACHE, "", "");
 
 /**
@@ -3544,8 +3546,8 @@ bool Acl_cache_lock_guard::lock(bool raise_error) /* = true */
       MDL_EXPLICIT);
   Acl_cache_error_handler handler;
   m_thd->push_internal_handler(&handler);
-  m_locked =
-      !m_thd->mdl_context.acquire_lock(&lock_request, ACL_CACHE_LOCK_TIMEOUT);
+  m_locked = !m_thd->mdl_context.acquire_lock_nsec(&lock_request,
+                                                   ACL_CACHE_LOCK_TIMEOUT_NSEC);
   m_thd->pop_internal_handler();
 
   if (!m_locked && raise_error)

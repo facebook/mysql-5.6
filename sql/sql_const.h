@@ -272,6 +272,7 @@ constexpr const int STACK_BUFF_ALLOC{352};  ///< For stack overrun checks
 #define DELAYED_WAIT_TIMEOUT 5 * 60 /**< Wait for delayed insert */
 
 #define LONG_TIMEOUT ((ulong)3600L * 24L * 365L)
+#define LONG_TIMEOUT_NSEC ((ulonglong)LONG_TIMEOUT * 1000000000ULL)
 
 /**
   Maximum length of time zone name that we support (Time zone name is

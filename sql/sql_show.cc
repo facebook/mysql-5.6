@@ -221,8 +221,8 @@ bool Sql_cmd_show_schema_base::set_metadata_lock(THD *thd) {
   MDL_request mdl_request;
   MDL_REQUEST_INIT(&mdl_request, MDL_key::SCHEMA, lex_str_db.str, "",
                    MDL_INTENTION_EXCLUSIVE, MDL_TRANSACTION);
-  if (thd->mdl_context.acquire_lock(&mdl_request,
-                                    thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.acquire_lock_nsec(&mdl_request,
+                                         thd->variables.lock_wait_timeout_nsec))
     return true;
   return false;
 }
@@ -777,8 +777,8 @@ static bool try_acquire_high_prio_shared_mdl_lock(THD *thd, TABLE_LIST *table,
     */
     error = thd->mdl_context.try_acquire_lock(&table->mdl_request);
   } else {
-    error = thd->mdl_context.acquire_lock(&table->mdl_request,
-                                          thd->variables.lock_wait_timeout);
+    error = thd->mdl_context.acquire_lock_nsec(
+        &table->mdl_request, thd->variables.lock_wait_timeout_nsec);
   }
   return error;
 }
@@ -5398,8 +5398,8 @@ static bool acquire_mdl_for_table(THD *thd, const char *db_name,
   MDL_REQUEST_INIT(&table_request, MDL_key::TABLE, db_name, table_name,
                    MDL_SHARED, MDL_TRANSACTION);
 
-  if (thd->mdl_context.acquire_lock(&table_request,
-                                    thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.acquire_lock_nsec(&table_request,
+                                         thd->variables.lock_wait_timeout_nsec))
     return true;
 
   return false;

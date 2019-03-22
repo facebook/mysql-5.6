@@ -86,15 +86,17 @@ class Storing_auto_THD {
 */
 class Lock_wait_timeout {
  public:
-  Lock_wait_timeout(THD *thd, ulong new_timeout)
-      : m_thd(thd), m_save_timeout(thd->variables.lock_wait_timeout) {
-    m_thd->variables.lock_wait_timeout = new_timeout;
+  Lock_wait_timeout(THD *thd, ulonglong new_timeout)
+      : m_thd(thd), m_save_timeout_nsec(thd->variables.lock_wait_timeout_nsec) {
+    m_thd->variables.lock_wait_timeout_nsec = new_timeout;
   }
-  ~Lock_wait_timeout() { m_thd->variables.lock_wait_timeout = m_save_timeout; }
+  ~Lock_wait_timeout() {
+    m_thd->variables.lock_wait_timeout_nsec = m_save_timeout_nsec;
+  }
 
  private:
   THD *const m_thd;
-  ulong m_save_timeout;
+  ulonglong m_save_timeout_nsec;
 };
 
 /**

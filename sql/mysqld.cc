@@ -11165,6 +11165,9 @@ static int get_options(int *argc_ptr, char ***argv_ptr) {
   global_system_variables.long_query_time =
       (ulonglong)(global_system_variables.long_query_time_double * 1e6);
 
+  global_system_variables.lock_wait_timeout_nsec =
+      (ulonglong)(global_system_variables.lock_wait_timeout_double * 1e9);
+
   if (opt_short_log_format) opt_specialflag |= SPECIAL_SHORT_LOG_FORMAT;
 
   if (Connection_handler_manager::init()) {
@@ -12439,8 +12442,8 @@ bool do_create_native_table_for_pfs(THD *thd, const Plugin_table *t) {
   MDL_REQUEST_INIT(&table_request, MDL_key::TABLE, schema_name, table_name,
                    MDL_EXCLUSIVE, MDL_TRANSACTION);
 
-  if (thd->mdl_context.acquire_lock(&table_request,
-                                    thd->variables.lock_wait_timeout)) {
+  if (thd->mdl_context.acquire_lock_nsec(
+          &table_request, thd->variables.lock_wait_timeout_nsec)) {
     /* Error, failed to get MDL lock. */
     return true;
   }
@@ -12470,8 +12473,8 @@ static bool do_drop_native_table_for_pfs(THD *thd, const char *schema_name,
   MDL_REQUEST_INIT(&table_request, MDL_key::TABLE, schema_name, table_name,
                    MDL_EXCLUSIVE, MDL_TRANSACTION);
 
-  if (thd->mdl_context.acquire_lock(&table_request,
-                                    thd->variables.lock_wait_timeout)) {
+  if (thd->mdl_context.acquire_lock_nsec(
+          &table_request, thd->variables.lock_wait_timeout_nsec)) {
     /* Error, failed to get MDL lock. */
     return true;
   }
