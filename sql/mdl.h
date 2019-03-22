@@ -1298,10 +1298,12 @@ class MDL_context {
   void destroy();
 
   bool try_acquire_lock(MDL_request *mdl_request);
-  bool acquire_lock(MDL_request *mdl_request, ulong lock_wait_timeout);
-  bool acquire_locks(MDL_request_list *requests, ulong lock_wait_timeout);
-  bool upgrade_shared_lock(MDL_ticket *mdl_ticket, enum_mdl_type new_type,
-                           ulong lock_wait_timeout);
+  bool acquire_lock_nsec(MDL_request *mdl_request,
+                         ulonglong lock_wait_timeout_nsec);
+  bool acquire_locks_nsec(MDL_request_list *requests,
+                          ulonglong lock_wait_timeout_nsec);
+  bool upgrade_shared_lock_nsec(MDL_ticket *mdl_ticket, enum_mdl_type new_type,
+                                ulonglong lock_wait_timeout_nsec);
 
   bool clone_ticket(MDL_request *mdl_request);
 

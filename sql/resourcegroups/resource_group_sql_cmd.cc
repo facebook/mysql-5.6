@@ -89,8 +89,8 @@ static bool acquire_exclusive_mdl_for_resource_group(THD *thd,
   MDL_request mdl_request;
   MDL_REQUEST_INIT(&mdl_request, MDL_key::RESOURCE_GROUPS, "", lc_name,
                    MDL_EXCLUSIVE, MDL_TRANSACTION);
-  if (thd->mdl_context.acquire_lock(&mdl_request,
-                                    thd->variables.lock_wait_timeout))
+  if (thd->mdl_context.acquire_lock_nsec(&mdl_request,
+                                         thd->variables.lock_wait_timeout_nsec))
     DBUG_RETURN(true);
 
   DBUG_RETURN(false);
@@ -217,8 +217,10 @@ bool resourcegroups::Sql_cmd_create_resource_group::execute(THD *thd) {
                                  num_vcpus))
     DBUG_RETURN(true);
 
-  if (acquire_shared_global_read_lock(thd, thd->variables.lock_wait_timeout) ||
-      acquire_shared_backup_lock(thd, thd->variables.lock_wait_timeout))
+  if (acquire_shared_global_read_lock_nsec(
+          thd, thd->variables.lock_wait_timeout_nsec) ||
+      acquire_shared_backup_lock_nsec(thd,
+                                      thd->variables.lock_wait_timeout_nsec))
     DBUG_RETURN(true);
 
   // Acquire exclusive lock on the resource group name.
@@ -331,8 +333,10 @@ bool resourcegroups::Sql_cmd_alter_resource_group::execute(THD *thd) {
     DBUG_RETURN(true);
   }
 
-  if (acquire_shared_global_read_lock(thd, thd->variables.lock_wait_timeout) ||
-      acquire_shared_backup_lock(thd, thd->variables.lock_wait_timeout))
+  if (acquire_shared_global_read_lock_nsec(
+          thd, thd->variables.lock_wait_timeout_nsec) ||
+      acquire_shared_backup_lock_nsec(thd,
+                                      thd->variables.lock_wait_timeout_nsec))
     DBUG_RETURN(true);
 
   // Acquire exclusive lock on the resource group name.
@@ -448,8 +452,10 @@ bool resourcegroups::Sql_cmd_drop_resource_group::execute(THD *thd) {
     DBUG_RETURN(true);
   }
 
-  if (acquire_shared_global_read_lock(thd, thd->variables.lock_wait_timeout) ||
-      acquire_shared_backup_lock(thd, thd->variables.lock_wait_timeout))
+  if (acquire_shared_global_read_lock_nsec(
+          thd, thd->variables.lock_wait_timeout_nsec) ||
+      acquire_shared_backup_lock_nsec(thd,
+                                      thd->variables.lock_wait_timeout_nsec))
     DBUG_RETURN(true);
 
   // Acquire exclusive lock on the resource group name.

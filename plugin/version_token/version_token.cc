@@ -372,9 +372,9 @@ static int parse_vtokens(char *input, enum command type) {
 
       case CHECK_VTOKEN: {
         char error_str[MYSQL_ERRMSG_SIZE];
-        if (!mysql_acquire_locking_service_locks(
+        if (!mysql_acquire_locking_service_locks_nsec(
                 thd, VTOKEN_LOCKS_NAMESPACE, (const char **)&(token_name.str),
-                1, LOCKING_SERVICE_READ, LONG_TIMEOUT) &&
+                1, LOCKING_SERVICE_READ, LONG_TIMEOUT_NSEC) &&
             !vtokens_unchanged) {
           auto it = version_tokens_hash->find(to_string(token_name));
           if (it != version_tokens_hash->end()) {
@@ -1020,9 +1020,10 @@ PLUGIN_EXPORT long long version_tokens_lock_shared(UDF_INIT *, UDF_ARGS *args,
   }
 
   // For the UDF 1 == success, 0 == failure.
-  return !acquire_locking_service_locks(
+  return !acquire_locking_service_locks_nsec(
       NULL, VTOKEN_LOCKS_NAMESPACE, const_cast<const char **>(&args->args[0]),
-      args->arg_count - 1, LOCKING_SERVICE_READ, (unsigned long)timeout);
+      args->arg_count - 1, LOCKING_SERVICE_READ,
+      (ulonglong)timeout * 1000000000ULL);
 }
 
 PLUGIN_EXPORT bool version_tokens_lock_exclusive_init(UDF_INIT *initid,
@@ -1046,9 +1047,10 @@ PLUGIN_EXPORT long long version_tokens_lock_exclusive(UDF_INIT *,
   }
 
   // For the UDF 1 == success, 0 == failure.
-  return !acquire_locking_service_locks(
+  return !acquire_locking_service_locks_nsec(
       NULL, VTOKEN_LOCKS_NAMESPACE, const_cast<const char **>(&args->args[0]),
-      args->arg_count - 1, LOCKING_SERVICE_WRITE, (unsigned long)timeout);
+      args->arg_count - 1, LOCKING_SERVICE_WRITE,
+      (ulonglong)timeout * 1000000000ULL);
 }
 
 PLUGIN_EXPORT bool version_tokens_unlock_init(UDF_INIT *, UDF_ARGS *args,

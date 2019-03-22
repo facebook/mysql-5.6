@@ -132,7 +132,8 @@ class MDLSyncThread : public Thread {
       MDL_REQUEST_INIT(&request, MDL_key::TABLE, "db", m_pre_table,
                        m_pre_mdl_type, MDL_TRANSACTION);
 
-      EXPECT_FALSE(m_mdl_context->acquire_lock(&request, 3600));
+      EXPECT_FALSE(
+          m_mdl_context->acquire_lock_nsec(&request, 3600000000000ULL));
 
       /* The above should not generate any warnings (e.g. about timeouts). */
       EXPECT_EQ(0, error_handler.handle_called());
@@ -153,7 +154,8 @@ class MDLSyncThread : public Thread {
       MDL_REQUEST_INIT(&request, MDL_key::TABLE, "db", m_main_table,
                        m_main_mdl_type, MDL_TRANSACTION);
 
-      EXPECT_FALSE(m_mdl_context->acquire_lock(&request, 3600));
+      EXPECT_FALSE(
+          m_mdl_context->acquire_lock_nsec(&request, 3600000000000ULL));
       EXPECT_TRUE(m_mdl_context->owns_equal_or_stronger_lock(
           MDL_key::TABLE, "db", m_main_table, m_main_mdl_type));
 

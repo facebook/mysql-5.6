@@ -327,7 +327,8 @@ bool Sql_cmd_truncate_table::lock_table(THD *thd, TABLE_LIST *table_ref,
                                              table_ref->table_name, false)))
       DBUG_RETURN(true);
 
-    if (acquire_shared_backup_lock(thd, thd->variables.lock_wait_timeout))
+    if (acquire_shared_backup_lock_nsec(thd,
+                                        thd->variables.lock_wait_timeout_nsec))
       DBUG_RETURN(true);
 
     *hton = table->s->db_type();
@@ -336,8 +337,8 @@ bool Sql_cmd_truncate_table::lock_table(THD *thd, TABLE_LIST *table_ref,
   } else {
     /* Acquire an exclusive lock. */
     DBUG_ASSERT(table_ref->next_global == NULL);
-    if (lock_table_names(thd, table_ref, NULL, thd->variables.lock_wait_timeout,
-                         0))
+    if (lock_table_names_nsec(thd, table_ref, NULL,
+                              thd->variables.lock_wait_timeout_nsec, 0))
       DBUG_RETURN(true);
 
     const char *schema_name = table_ref->db;
