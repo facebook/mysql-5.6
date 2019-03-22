@@ -42,6 +42,8 @@ class THD;
 #define MYSQL_THD void *
 #endif
 
+#include "my_inttypes.h"
+
 /**
   Types of locking service locks.
   LOCKING_SERVICE_READ is compatible with LOCKING_SERVICE_READ.
@@ -104,22 +106,22 @@ typedef int (*mysql_release_locks_t)(MYSQL_THD opaque_thd,
   of metadata will be detected using the MDL deadlock detector.
 */
 extern "C" struct mysql_locking_service_st {
-  mysql_acquire_locks_t mysql_acquire_locks;
+  mysql_acquire_locks_t mysql_acquire_locks_nsec;
   mysql_release_locks_t mysql_release_locks;
 } * mysql_locking_service;
 
 #ifdef MYSQL_DYNAMIC_PLUGIN
 
-#define mysql_acquire_locking_service_locks(_THD, _NAMESPACE, _NAMES, _NUM,  \
-                                            _TYPE, _TIMEOUT)                 \
-  mysql_locking_service->mysql_acquire_locks(_THD, _NAMESPACE, _NAMES, _NUM, \
-                                             _TYPE, _TIMEOUT)
+#define mysql_acquire_locking_service_locks_nsec(_THD, _NAMESPACE, _NAMES,  \
+                                                 _NUM, _TYPE, _TIMEOUT)     \
+  mysql_locking_service->mysql_acquire_locks_nsec(_THD, _NAMESPACE, _NAMES, \
+                                                  _NUM, _TYPE, _TIMEOUT)
 #define mysql_release_locking_service_locks(_THD, _NAMESPACE) \
   mysql_locking_service->mysql_release_locks(_THD, _NAMESPACE)
 
 #else
 
-int mysql_acquire_locking_service_locks(
+int mysql_acquire_locking_service_locks_nsec(
     MYSQL_THD opaque_thd, const char *lock_namespace, const char **lock_names,
     size_t lock_num, enum enum_locking_service_lock_type lock_type,
     uint64_t lock_timeout);

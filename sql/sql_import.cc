@@ -159,8 +159,8 @@ bool Sql_cmd_import_table::execute(THD *thd) {
                    MDL_INTENTION_EXCLUSIVE, MDL_TRANSACTION);
   mdl_requests.push_front(mdl_request_for_grl);
 
-  if (thd->mdl_context.acquire_locks(&mdl_requests,
-                                     thd->variables.lock_wait_timeout)) {
+  if (thd->mdl_context.acquire_locks_nsec(
+          &mdl_requests, thd->variables.lock_wait_timeout_nsec)) {
     return true;
   }
 

@@ -67,8 +67,8 @@ bool Srs_fetcher::lock(gis::srid_t srid, enum_mdl_type lock_type) {
   MDL_request mdl_request;
   mdl_request.init_with_source(MDL_key::SRID, "", id_str, lock_type,
                                MDL_TRANSACTION, __FILE__, __LINE__);
-  if (m_thd->mdl_context.acquire_lock(&mdl_request,
-                                      m_thd->variables.lock_wait_timeout)) {
+  if (m_thd->mdl_context.acquire_lock_nsec(
+          &mdl_request, m_thd->variables.lock_wait_timeout_nsec)) {
     /* purecov: begin inspected */
     // If locking fails, an error has already been flagged.
     return true;

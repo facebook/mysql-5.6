@@ -227,8 +227,8 @@ bool Tablespace_statistics::read_stat_from_SE(THD *thd,
     error = true;
   }
 
-  error = error || thd->mdl_context.acquire_lock(
-                       &mdl_request, thd->variables.lock_wait_timeout);
+  error = error || thd->mdl_context.acquire_lock_nsec(
+                       &mdl_request, thd->variables.lock_wait_timeout_nsec);
   thd->pop_internal_handler();
 
   if (!error) {

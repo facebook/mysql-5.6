@@ -261,9 +261,10 @@ bool Resource_group_mgr::acquire_shared_mdl_for_resource_group(
   MDL_REQUEST_INIT_BY_KEY(&mdl_request, &mdl_key, MDL_INTENTION_EXCLUSIVE,
                           lock_duration);
 
-  bool res = try_acquire ? thd->mdl_context.acquire_lock(&mdl_request, 0)
-                         : thd->mdl_context.acquire_lock(
-                               &mdl_request, thd->variables.lock_wait_timeout);
+  bool res = try_acquire
+                 ? thd->mdl_context.acquire_lock_nsec(&mdl_request, 0)
+                 : thd->mdl_context.acquire_lock_nsec(
+                       &mdl_request, thd->variables.lock_wait_timeout_nsec);
   if (!res && ticket != nullptr) *ticket = mdl_request.ticket;
 
   return res;

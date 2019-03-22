@@ -99,8 +99,8 @@ int Local::clone_exec() {
 
   /* Acquire DDL lock. Wait for 5 minutes by default. */
   if (acquire_backup_lock) {
-    auto failed = mysql_service_mysql_backup_lock->acquire(
-        thd, BACKUP_LOCK_SERVICE_DEFAULT, clone_ddl_timeout);
+    auto failed = mysql_service_mysql_backup_lock->acquire_nsec(
+        thd, BACKUP_LOCK_SERVICE_DEFAULT, clone_ddl_timeout * 1000000000ULL);
 
     if (failed) {
       return (ER_LOCK_WAIT_TIMEOUT);

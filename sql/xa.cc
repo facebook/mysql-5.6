@@ -546,8 +546,8 @@ static bool acquire_mandatory_metadata_locks(THD *thd, xid_t *external_xid) {
   MDL_request mdl_request;
   MDL_REQUEST_INIT(&mdl_request, MDL_key::COMMIT, "", "",
                    MDL_INTENTION_EXCLUSIVE, MDL_STATEMENT);
-  if (thd->mdl_context.acquire_lock(&mdl_request,
-                                    thd->variables.lock_wait_timeout)) {
+  if (thd->mdl_context.acquire_lock_nsec(
+          &mdl_request, thd->variables.lock_wait_timeout_nsec)) {
     return true;
   }
 
@@ -746,8 +746,8 @@ bool Sql_cmd_xa_commit::process_internal_xa_commit(THD *thd,
     */
     MDL_REQUEST_INIT(&mdl_request, MDL_key::COMMIT, "", "",
                      MDL_INTENTION_EXCLUSIVE, MDL_STATEMENT);
-    if (thd->mdl_context.acquire_lock(&mdl_request,
-                                      thd->variables.lock_wait_timeout)) {
+    if (thd->mdl_context.acquire_lock_nsec(
+            &mdl_request, thd->variables.lock_wait_timeout_nsec)) {
       /*
         We can't rollback an XA transaction on lock failure due to
         Innodb redo log and bin log update are involved in rollback.
@@ -1007,8 +1007,8 @@ bool Sql_cmd_xa_rollback::process_internal_xa_rollback(THD *thd,
   MDL_request mdl_request;
   MDL_REQUEST_INIT(&mdl_request, MDL_key::COMMIT, "", "",
                    MDL_INTENTION_EXCLUSIVE, MDL_STATEMENT);
-  if (thd->mdl_context.acquire_lock(&mdl_request,
-                                    thd->variables.lock_wait_timeout)) {
+  if (thd->mdl_context.acquire_lock_nsec(
+          &mdl_request, thd->variables.lock_wait_timeout_nsec)) {
     /*
       We can't rollback an XA transaction on lock failure due to
       Innodb redo log and bin log update is involved in rollback.
@@ -1189,8 +1189,8 @@ bool Sql_cmd_xa_prepare::trans_xa_prepare(THD *thd) {
     MDL_request mdl_request;
     MDL_REQUEST_INIT(&mdl_request, MDL_key::COMMIT, "", "",
                      MDL_INTENTION_EXCLUSIVE, MDL_STATEMENT);
-    if (thd->mdl_context.acquire_lock(&mdl_request,
-                                      thd->variables.lock_wait_timeout) ||
+    if (thd->mdl_context.acquire_lock_nsec(
+            &mdl_request, thd->variables.lock_wait_timeout_nsec) ||
         ha_xa_prepare(thd)) {
       /*
         Rollback the transaction if lock failed. For ha_xa_prepare() failure
