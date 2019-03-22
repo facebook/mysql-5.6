@@ -1,0 +1,21 @@
+set @save.mts_dynamic_rebalance= @@global.mts_dynamic_rebalance;
+select @@session.mts_dynamic_rebalance;
+ERROR HY000: Variable 'mts_dynamic_rebalance' is a GLOBAL variable
+select variable_name from performance_schema.global_variables where variable_name='$var';
+variable_name
+select variable_name from performance_schema.session_variables where variable_name='$var';
+variable_name
+set @@global.mts_dynamic_rebalance= false;
+select @@global.mts_dynamic_rebalance;
+@@global.mts_dynamic_rebalance
+0
+set @@global.mts_dynamic_rebalance= 1.1;
+ERROR 42000: Incorrect argument type to variable 'mts_dynamic_rebalance'
+set @@global.mts_dynamic_rebalance= "foo";
+ERROR 42000: Variable 'mts_dynamic_rebalance' can't be set to the value of 'foo'
+set @@global.mts_dynamic_rebalance= false;
+set @@global.mts_dynamic_rebalance= true;
+select @@global.mts_dynamic_rebalance as "truncated to the maximum";
+truncated to the maximum
+1
+set @@global.mts_dynamic_rebalance= @save.mts_dynamic_rebalance;

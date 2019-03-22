@@ -69,6 +69,10 @@
 #include "mysql_time.h"
 #include "mysqld_error.h"
 #include "nullable.h"
+#include "rpl_mi.h"
+#include "rpl_msr.h"
+#include "rpl_rli.h"
+#include "rpl_rli_pdb.h"
 #include "scope_guard.h"  // Scope_guard
 #include "sql/auth/auth_acls.h"
 #include "sql/auth/auth_common.h"  // check_grant_db
@@ -2344,6 +2348,45 @@ static int fill_schema_processlist(THD *thd, TABLE_LIST *tables, Item *) {
     Global_THD_manager::get_instance()->do_for_all_thd_copy(&fill_process_list);
   }
   DBUG_RETURN(0);
+}
+
+static int fill_slave_db_load(THD *thd, TABLE_LIST *tables, Item *) {
+  DBUG_ENTER("fill_slave_db_load");
+  int error = 0;
+  TABLE *table = tables->table;
+  CHARSET_INFO *cs = system_charset_info;
+
+  for (auto it : channel_map) {
+    if (Master_info::is_configured(it.second)) {
+      Relay_log_info *rli = it.second->rli;
+
+      if (!rli->inited_hash_workers) {
+        continue;
+      }
+
+      mysql_mutex_lock(&rli->slave_worker_hash_lock);
+      for (auto const &item : rli->mapping_db_to_worker) {
+        db_worker_hash_entry const *entry = item.second.get();
+
+        restore_record(table, s->default_values);
+
+        /* ID */
+        if (entry->db) table->field[0]->store(entry->db, strlen(entry->db), cs);
+        /* Worker */
+        if (entry->worker) table->field[1]->store(entry->worker->id, true);
+        /* Load */
+        table->field[2]->store(entry->load, true);
+
+        if (schema_table_store_record(thd, table)) {
+          error = 1;
+          break;
+        }
+      }
+      mysql_mutex_unlock(&rli->slave_worker_hash_lock);
+    }
+  }
+
+  DBUG_RETURN(error);
 }
 
 /*****************************************************************************
@@ -5121,6 +5164,14 @@ ST_FIELD_INFO authinfo_fields_info[] = {
      SKIP_OPEN_TABLE},
     {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}};
 
+ST_FIELD_INFO slave_db_load_fields_info[] = {
+    {"DB", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, "Database", SKIP_OPEN_TABLE},
+    {"WORKER", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "Worker ID",
+     SKIP_OPEN_TABLE},
+    {"DB_LOAD", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "DB Load",
+     SKIP_OPEN_TABLE},
+    {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}};
+
 ST_FIELD_INFO plugin_fields_info[] = {
     {"PLUGIN_NAME", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, "Name",
      SKIP_OPEN_TABLE},
@@ -5221,6 +5272,8 @@ ST_SCHEMA_TABLE schema_tables[] = {
      1, 0},
     {"AUTHINFO", authinfo_fields_info, create_schema_table,
      fill_schema_authinfo, make_old_format, 0, -1, -1, 0, 0},
+    {"SLAVE_DB_LOAD", slave_db_load_fields_info, create_schema_table,
+     fill_slave_db_load, 0, 0, -1, -1, 0, 0},
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}};
 
 int initialize_schema_table(st_plugin_int *plugin) {
