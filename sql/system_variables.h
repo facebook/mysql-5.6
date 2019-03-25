@@ -245,6 +245,7 @@ struct System_variables {
   long optimizer_trace_limit;
   ulong optimizer_trace_max_mem_size;
   bool optimizer_force_index_for_range;
+  bool optimizer_full_scan;
   sql_mode_t sql_mode;  ///< which non-standard SQL behaviour should be enabled
   ulonglong option_bits;  ///< OPTION_xxx constants, e.g. OPTION_PROFILING
   ha_rows select_limit;

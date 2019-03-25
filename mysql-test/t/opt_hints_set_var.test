@@ -259,12 +259,18 @@ t2.a IN (SELECT t3.b FROM t3 JOIN t1 t4 ON t3.b = t4.b);
 CALL test_hint("SET_VAR(optimizer_search_depth=1)", "optimizer_search_depth");
 CALL test_hint("SET_VAR(optimizer_prune_level=0)", "optimizer_prune_level");
 
-# Testing optimizer_force_index_for_range variable
+# Testing optimizer_force_index_for_range, optimizer_full_scan variables
 EXPLAIN SELECT DISTINCT a FROM t1 FORCE INDEX (PRIMARY);
 
-EXPLAIN SELECT /*+ SET_VAR(optimizer_force_index_for_range=1) */ DISTINCT a FROM t1 FORCE INDEX (PRIMARY);
+EXPLAIN SELECT /*+ SET_VAR(optimizer_force_index_for_range=ON) */ DISTINCT a FROM t1 FORCE INDEX (PRIMARY);
 
-CALL test_hint("SET_VAR(optimizer_force_index_for_range=1)", "optimizer_force_index_for_range");
+EXPLAIN SELECT a FROM t1 IGNORE INDEX (PRIMARY) WHERE a IN (1, 2, 3) AND b IN (10, 20);
+
+--error ER_FULL_SCAN_DISABLED
+SELECT /*+ SET_VAR(optimizer_full_scan=OFF) */ a FROM t1 IGNORE INDEX (PRIMARY) WHERE a IN (1, 2, 3) AND b IN (10, 20);
+
+CALL test_hint("SET_VAR(optimizer_force_index_for_range=ON)", "optimizer_force_index_for_range");
+CALL test_hint("SET_VAR(optimizer_full_scan=OFF)", "optimizer_full_scan");
 
 DROP TABLE t1, t2, t3;
 

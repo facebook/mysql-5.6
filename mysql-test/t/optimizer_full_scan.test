@@ -1,0 +1,64 @@
+CREATE TABLE t (i INT, j INT, KEY(i));
+INSERT INTO t VALUES (1, 1);
+INSERT INTO t VALUES (1, 2);
+INSERT INTO t VALUES (2, 1);
+INSERT INTO t VALUES (2, 2);
+INSERT INTO t VALUES (3, 1);
+INSERT INTO t VALUES (3, 2);
+
+ANALYZE TABLE t;
+
+--echo # Basic tests
+--replace_column 10 #
+EXPLAIN SELECT * FROM t;
+SET optimizer_full_scan = OFF;
+--error ER_FULL_SCAN_DISABLED
+SELECT * FROM t;
+SET optimizer_full_scan = ON;
+SELECT * FROM t;
+
+--replace_column 10 #
+EXPLAIN SELECT i FROM t FORCE INDEX (i);
+SET optimizer_full_scan = OFF;
+--error ER_FULL_SCAN_DISABLED
+SELECT i FROM t FORCE INDEX (i);
+SET optimizer_full_scan = ON;
+SELECT i FROM t FORCE INDEX (i);
+
+--replace_column 10 #
+EXPLAIN SELECT * FROM t a, t b WHERE a.i = b.i;
+SET optimizer_full_scan = OFF;
+--error ER_FULL_SCAN_DISABLED
+SELECT * FROM t a, t b WHERE a.i = b.i;
+SET optimizer_full_scan = ON;
+SELECT * FROM t a, t b WHERE a.i = b.i;
+
+--replace_column 10 #
+EXPLAIN SELECT * FROM t a STRAIGHT_JOIN t b WHERE a.i = 10;
+SET optimizer_full_scan = OFF;
+--error ER_FULL_SCAN_DISABLED
+SELECT * FROM t a STRAIGHT_JOIN t b WHERE a.i = 10;
+SET optimizer_full_scan = ON;
+SELECT * FROM t a STRAIGHT_JOIN t b WHERE a.i = 10;
+
+SET @sql_mode_session = @@session.sql_mode;
+SET SESSION sql_mode = '';  # remove ONLY_FULL_GROUP_BY
+--replace_column 10 #
+EXPLAIN SELECT * FROM (SELECT * FROM t GROUP BY i) a GROUP BY i;
+SET SESSION sql_mode = @sql_mode_session;
+
+--echo # Test integration with optimizer_force_index_for_range
+ALTER TABLE t DROP INDEX i, ADD PRIMARY KEY (i, j);
+
+--echo # Test range plans
+SET optimizer_force_index_for_range = ON;
+SET optimizer_full_scan = OFF;
+--replace_column 10 #
+EXPLAIN SELECT i FROM t WHERE i IN (1, 2, 3) AND j IN (1, 2);
+--error ER_FULL_SCAN_DISABLED
+SELECT i FROM t WHERE i IN (1, 2, 3) AND j IN (1, 2);
+--replace_column 10 #
+EXPLAIN SELECT i FROM t FORCE INDEX (PRIMARY) WHERE i IN (1, 2, 3) AND j IN (1, 2);
+SELECT i FROM t FORCE INDEX (PRIMARY) WHERE i IN (1, 2, 3) AND j IN (1, 2);
+
+DROP TABLE t;
