@@ -3046,6 +3046,11 @@ bool make_join_readinfo(JOIN *join, uint no_jbuf_after) {
           if (statistics) join->thd->inc_status_select_range_check();
         } else {
           if (statistics) {
+            /* Block full table/index scans, if optimizer_full_scan is off. */
+            if (!join->thd->variables.optimizer_full_scan) {
+              my_error(ER_FULL_SCAN_DISABLED, MYF(0));
+              return true;
+            }
             if (i == join->const_tables)
               join->thd->inc_status_select_scan();
             else

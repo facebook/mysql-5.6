@@ -754,6 +754,9 @@ The following options may be given as the first argument:
  --optimizer-force-index-for-range 
  If enabled, FORCE INDEX will also try to force a range
  plan.
+ --optimizer-full-scan 
+ Enable full table and index scans.
+ (Defaults to on; use --skip-optimizer-full-scan to disable.)
  --optimizer-prune-level=# 
  Controls the heuristic(s) applied during query
  optimization to prune less-promising partial plans from
@@ -1697,6 +1700,7 @@ old FALSE
 old-alter-table FALSE
 old-style-user-limits FALSE
 optimizer-force-index-for-range FALSE
+optimizer-full-scan TRUE
 optimizer-prune-level 1
 optimizer-search-depth 62
 optimizer-switch index_merge=on,index_merge_union=on,index_merge_sort_union=on,index_merge_intersection=on,engine_condition_pushdown=on,index_condition_pushdown=on,mrr=on,mrr_cost_based=on,block_nested_loop=on,batched_key_access=off,materialization=on,semijoin=on,loosescan=on,firstmatch=on,duplicateweedout=on,subquery_materialization_cost_based=on,use_index_extensions=on,condition_fanout_filter=on,derived_merge=on,use_invisible_indexes=off,skip_scan=on,hash_join=on

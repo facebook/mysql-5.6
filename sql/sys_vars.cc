@@ -3073,6 +3073,11 @@ static Sys_var_bool Sys_optimizer_force_index_for_range(
     HINT_UPDATEABLE SESSION_VAR(optimizer_force_index_for_range),
     CMD_LINE(OPT_ARG), DEFAULT(false));
 
+static Sys_var_bool Sys_optimizer_full_scan(
+    "optimizer_full_scan", "Enable full table and index scans.",
+    HINT_UPDATEABLE SESSION_VAR(optimizer_full_scan), CMD_LINE(OPT_ARG),
+    DEFAULT(true));
+
 /// @todo change to enum
 static Sys_var_ulong Sys_optimizer_prune_level(
     "optimizer_prune_level",

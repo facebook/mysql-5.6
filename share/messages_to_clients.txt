@@ -9575,8 +9575,8 @@ ER_PLACEHOLDER_50075
 ER_PLACEHOLDER_50076
   eng "Placeholder"
 
-ER_PLACEHOLDER_50077
-  eng "Placeholder"
+ER_FULL_SCAN_DISABLED
+  eng "Full table/index scan is disabled"
 
 #
 # FB error codes specifically for 8.0 only start at 50100.
