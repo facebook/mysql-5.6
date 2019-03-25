@@ -1,0 +1,93 @@
+SET @session_start_value = @@session.optimizer_full_scan;
+SELECT @session_start_value;
+@session_start_value
+1
+SET @global_start_value = @@global.optimizer_full_scan;
+SELECT @global_start_value;
+@global_start_value
+1
+SET @@session.optimizer_full_scan = 0;
+SET @@session.optimizer_full_scan = DEFAULT;
+SELECT @@session.optimizer_full_scan;
+@@session.optimizer_full_scan
+1
+SET @@session.optimizer_full_scan = 1;
+SET @@session.optimizer_full_scan = DEFAULT;
+SELECT @@session.optimizer_full_scan;
+@@session.optimizer_full_scan
+1
+SET optimizer_full_scan = 1;
+SELECT @@optimizer_full_scan;
+@@optimizer_full_scan
+1
+SELECT session.optimizer_full_scan;
+ERROR 42S02: Unknown table 'session' in field list
+SELECT local.optimizer_full_scan;
+ERROR 42S02: Unknown table 'local' in field list
+SET session optimizer_full_scan = 0;
+SELECT @@session.optimizer_full_scan;
+@@session.optimizer_full_scan
+0
+SET @@session.optimizer_full_scan = 0;
+SELECT @@session.optimizer_full_scan;
+@@session.optimizer_full_scan
+0
+SET @@session.optimizer_full_scan = 1;
+SELECT @@session.optimizer_full_scan;
+@@session.optimizer_full_scan
+1
+SET @@session.optimizer_full_scan = -1;
+ERROR 42000: Variable 'optimizer_full_scan' can't be set to the value of '-1'
+SET @@session.optimizer_full_scan = 2;
+ERROR 42000: Variable 'optimizer_full_scan' can't be set to the value of '2'
+SET @@session.optimizer_full_scan = "T";
+ERROR 42000: Variable 'optimizer_full_scan' can't be set to the value of 'T'
+SET @@session.optimizer_full_scan = "Y";
+ERROR 42000: Variable 'optimizer_full_scan' can't be set to the value of 'Y'
+SET @@session.optimizer_full_scan = NO;
+ERROR 42000: Variable 'optimizer_full_scan' can't be set to the value of 'NO'
+SET @@global.optimizer_full_scan = 1;
+SELECT @@global.optimizer_full_scan;
+@@global.optimizer_full_scan
+1
+SET @@global.optimizer_full_scan = 0;
+SELECT count(VARIABLE_VALUE) FROM performance_schema.global_variables WHERE VARIABLE_NAME='optimizer_full_scan';
+count(VARIABLE_VALUE)
+1
+SELECT IF(@@session.optimizer_full_scan, "ON", "OFF") = VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='optimizer_full_scan';
+IF(@@session.optimizer_full_scan, "ON", "OFF") = VARIABLE_VALUE
+1
+SELECT @@session.optimizer_full_scan;
+@@session.optimizer_full_scan
+1
+SELECT VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='optimizer_full_scan';
+VARIABLE_VALUE
+ON
+SET @@session.optimizer_full_scan = OFF;
+SELECT @@session.optimizer_full_scan;
+@@session.optimizer_full_scan
+0
+SET @@session.optimizer_full_scan = ON;
+SELECT @@session.optimizer_full_scan;
+@@session.optimizer_full_scan
+1
+SET @@session.optimizer_full_scan = TRUE;
+SELECT @@session.optimizer_full_scan;
+@@session.optimizer_full_scan
+1
+SET @@session.optimizer_full_scan = FALSE;
+SELECT @@session.optimizer_full_scan;
+@@session.optimizer_full_scan
+0
+SET @@session.optimizer_full_scan = @session_start_value;
+SELECT @@session.optimizer_full_scan;
+@@session.optimizer_full_scan
+1
+SET @@global.optimizer_full_scan = @global_start_value;
+SELECT @@global.optimizer_full_scan;
+@@global.optimizer_full_scan
+1
