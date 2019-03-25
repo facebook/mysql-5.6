@@ -1,0 +1,102 @@
+--source include/load_sysvars.inc
+
+
+# Saving initial value of optimizer_full_scan in a temporary variable
+
+SET @session_start_value = @@session.optimizer_full_scan;
+SELECT @session_start_value;
+SET @global_start_value = @@global.optimizer_full_scan;
+SELECT @global_start_value;
+
+# Display the DEFAULT value of optimizer_full_scan
+
+SET @@session.optimizer_full_scan = 0;
+SET @@session.optimizer_full_scan = DEFAULT;
+SELECT @@session.optimizer_full_scan;
+
+SET @@session.optimizer_full_scan = 1;
+SET @@session.optimizer_full_scan = DEFAULT;
+SELECT @@session.optimizer_full_scan;
+
+
+# Check if optimizer_full_scan can be accessed with and without @@ sign
+
+SET optimizer_full_scan = 1;
+SELECT @@optimizer_full_scan;
+
+--Error ER_UNKNOWN_TABLE
+SELECT session.optimizer_full_scan;
+
+--Error ER_UNKNOWN_TABLE
+SELECT local.optimizer_full_scan;
+
+SET session optimizer_full_scan = 0;
+SELECT @@session.optimizer_full_scan;
+
+# change the value of optimizer_full_scan to a valid value
+
+SET @@session.optimizer_full_scan = 0;
+SELECT @@session.optimizer_full_scan;
+SET @@session.optimizer_full_scan = 1;
+SELECT @@session.optimizer_full_scan;
+
+
+# Change the value of optimizer_full_scan to invalid value
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.optimizer_full_scan = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.optimizer_full_scan = 2;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.optimizer_full_scan = "T";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.optimizer_full_scan = "Y";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.optimizer_full_scan = NO;
+
+
+# Test if accessing global optimizer_full_scan gives error
+
+SET @@global.optimizer_full_scan = 1;
+SELECT @@global.optimizer_full_scan;
+SET @@global.optimizer_full_scan = 0;
+
+
+# Check if the value in GLOBAL Table contains variable value
+
+SELECT count(VARIABLE_VALUE) FROM performance_schema.global_variables WHERE VARIABLE_NAME='optimizer_full_scan';
+
+
+# Check if the value in GLOBAL Table matches value in variable
+
+SELECT IF(@@session.optimizer_full_scan, "ON", "OFF") = VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='optimizer_full_scan';
+SELECT @@session.optimizer_full_scan;
+SELECT VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='optimizer_full_scan';
+
+
+# Check if ON and OFF values can be used on variable
+
+SET @@session.optimizer_full_scan = OFF;
+SELECT @@session.optimizer_full_scan;
+SET @@session.optimizer_full_scan = ON;
+SELECT @@session.optimizer_full_scan;
+
+
+# Check if TRUE and FALSE values can be used on variable
+
+SET @@session.optimizer_full_scan = TRUE;
+SELECT @@session.optimizer_full_scan;
+SET @@session.optimizer_full_scan = FALSE;
+SELECT @@session.optimizer_full_scan;
+
+
+# Restore initial value
+
+SET @@session.optimizer_full_scan = @session_start_value;
+SELECT @@session.optimizer_full_scan;
+SET @@global.optimizer_full_scan = @global_start_value;
+SELECT @@global.optimizer_full_scan;

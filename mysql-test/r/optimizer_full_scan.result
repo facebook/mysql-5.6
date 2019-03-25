@@ -1,0 +1,116 @@
+CREATE TABLE t (i INT, j INT, KEY(i));
+INSERT INTO t VALUES (1, 1);
+INSERT INTO t VALUES (1, 2);
+INSERT INTO t VALUES (2, 1);
+INSERT INTO t VALUES (2, 2);
+INSERT INTO t VALUES (3, 1);
+INSERT INTO t VALUES (3, 2);
+ANALYZE TABLE t;
+Table	Op	Msg_type	Msg_text
+test.t	analyze	status	OK
+# Basic tests
+EXPLAIN SELECT * FROM t;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t`.`i` AS `i`,`test`.`t`.`j` AS `j` from `test`.`t`
+SET optimizer_full_scan = OFF;
+SELECT * FROM t;
+ERROR HY000: Full table/index scan is disabled
+SET optimizer_full_scan = ON;
+SELECT * FROM t;
+i	j
+1	1
+1	2
+2	1
+2	2
+3	1
+3	2
+EXPLAIN SELECT i FROM t FORCE INDEX (i);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	NULL	i	5	NULL	#	100.00	Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t`.`i` AS `i` from `test`.`t` FORCE INDEX (`i`)
+SET optimizer_full_scan = OFF;
+SELECT i FROM t FORCE INDEX (i);
+ERROR HY000: Full table/index scan is disabled
+SET optimizer_full_scan = ON;
+SELECT i FROM t FORCE INDEX (i);
+i
+1
+1
+2
+2
+3
+3
+EXPLAIN SELECT * FROM t a, t b WHERE a.i = b.i;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	a	NULL	ALL	i	NULL	NULL	NULL	#	100.00	NULL
+1	SIMPLE	b	NULL	ALL	i	NULL	NULL	NULL	#	33.33	Using where; Using join buffer (hash join)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`a`.`i` AS `i`,`test`.`a`.`j` AS `j`,`test`.`b`.`i` AS `i`,`test`.`b`.`j` AS `j` from `test`.`t` `a` join `test`.`t` `b` where (`test`.`b`.`i` = `test`.`a`.`i`)
+SET optimizer_full_scan = OFF;
+SELECT * FROM t a, t b WHERE a.i = b.i;
+ERROR HY000: Full table/index scan is disabled
+SET optimizer_full_scan = ON;
+SELECT * FROM t a, t b WHERE a.i = b.i;
+i	j	i	j
+1	2	1	1
+1	1	1	1
+1	2	1	2
+1	1	1	2
+2	2	2	1
+2	1	2	1
+2	2	2	2
+2	1	2	2
+3	2	3	1
+3	1	3	1
+3	2	3	2
+3	1	3	2
+EXPLAIN SELECT * FROM t a STRAIGHT_JOIN t b WHERE a.i = 10;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	a	NULL	ref	i	i	5	const	#	100.00	NULL
+1	SIMPLE	b	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Using join buffer (hash join)
+Warnings:
+Note	1003	/* select#1 */ select `test`.`a`.`i` AS `i`,`test`.`a`.`j` AS `j`,`test`.`b`.`i` AS `i`,`test`.`b`.`j` AS `j` from `test`.`t` `a` straight_join `test`.`t` `b` where (`test`.`a`.`i` = 10)
+SET optimizer_full_scan = OFF;
+SELECT * FROM t a STRAIGHT_JOIN t b WHERE a.i = 10;
+ERROR HY000: Full table/index scan is disabled
+SET optimizer_full_scan = ON;
+SELECT * FROM t a STRAIGHT_JOIN t b WHERE a.i = 10;
+i	j	i	j
+SET @sql_mode_session = @@session.sql_mode;
+SET SESSION sql_mode = '';
+EXPLAIN SELECT * FROM (SELECT * FROM t GROUP BY i) a GROUP BY i;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Using temporary
+2	DERIVED	t	NULL	index	i	i	5	NULL	#	100.00	NULL
+Warnings:
+Note	1003	/* select#1 */ select `a`.`i` AS `i`,`a`.`j` AS `j` from (/* select#2 */ select `test`.`t`.`i` AS `i`,`test`.`t`.`j` AS `j` from `test`.`t` group by `test`.`t`.`i`) `a` group by `a`.`i`
+SET SESSION sql_mode = @sql_mode_session;
+# Test integration with optimizer_force_index_for_range
+ALTER TABLE t DROP INDEX i, ADD PRIMARY KEY (i, j);
+# Test range plans
+SET optimizer_force_index_for_range = ON;
+SET optimizer_full_scan = OFF;
+EXPLAIN SELECT i FROM t WHERE i IN (1, 2, 3) AND j IN (1, 2);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	PRIMARY	PRIMARY	8	NULL	#	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t`.`i` AS `i` from `test`.`t` where ((`test`.`t`.`i` in (1,2,3)) and (`test`.`t`.`j` in (1,2)))
+SELECT i FROM t WHERE i IN (1, 2, 3) AND j IN (1, 2);
+ERROR HY000: Full table/index scan is disabled
+EXPLAIN SELECT i FROM t FORCE INDEX (PRIMARY) WHERE i IN (1, 2, 3) AND j IN (1, 2);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	range	PRIMARY	PRIMARY	8	NULL	#	100.00	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t`.`i` AS `i` from `test`.`t` FORCE INDEX (PRIMARY) where ((`test`.`t`.`i` in (1,2,3)) and (`test`.`t`.`j` in (1,2)))
+SELECT i FROM t FORCE INDEX (PRIMARY) WHERE i IN (1, 2, 3) AND j IN (1, 2);
+i
+1
+1
+2
+2
+3
+3
+DROP TABLE t;

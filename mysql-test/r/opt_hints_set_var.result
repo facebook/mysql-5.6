@@ -466,18 +466,32 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 1	SIMPLE	t1	NULL	index	PRIMARY	PRIMARY	4	NULL	4	100.00	Using index
 Warnings:
 Note	1003	/* select#1 */ select distinct `test`.`t1`.`a` AS `a` from `test`.`t1` FORCE INDEX (PRIMARY)
-EXPLAIN SELECT /*+ SET_VAR(optimizer_force_index_for_range=1) */ DISTINCT a FROM t1 FORCE INDEX (PRIMARY);
+EXPLAIN SELECT /*+ SET_VAR(optimizer_force_index_for_range=ON) */ DISTINCT a FROM t1 FORCE INDEX (PRIMARY);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	range	PRIMARY	PRIMARY	4	NULL	5	100.00	Using index for group-by
 Warnings:
-Note	1003	/* select#1 */ select /*+ SET_VAR(optimizer_force_index_for_range=1) */ distinct `test`.`t1`.`a` AS `a` from `test`.`t1` FORCE INDEX (PRIMARY)
-CALL test_hint("SET_VAR(optimizer_force_index_for_range=1)", "optimizer_force_index_for_range");
+Note	1003	/* select#1 */ select /*+ SET_VAR(optimizer_force_index_for_range='ON') */ distinct `test`.`t1`.`a` AS `a` from `test`.`t1` FORCE INDEX (PRIMARY)
+EXPLAIN SELECT a FROM t1 IGNORE INDEX (PRIMARY) WHERE a IN (1, 2, 3) AND b IN (10, 20);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	4	25.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` IGNORE INDEX (PRIMARY) where ((`test`.`t1`.`a` in (1,2,3)) and (`test`.`t1`.`b` in (10,20)))
+SELECT /*+ SET_VAR(optimizer_full_scan=OFF) */ a FROM t1 IGNORE INDEX (PRIMARY) WHERE a IN (1, 2, 3) AND b IN (10, 20);
+ERROR HY000: Full table/index scan is disabled
+CALL test_hint("SET_VAR(optimizer_force_index_for_range=ON)", "optimizer_force_index_for_range");
 VARIABLE_VALUE
 OFF
 VARIABLE_VALUE
 ON
 VARIABLE_VALUE
 OFF
+CALL test_hint("SET_VAR(optimizer_full_scan=OFF)", "optimizer_full_scan");
+VARIABLE_VALUE
+ON
+VARIABLE_VALUE
+OFF
+VARIABLE_VALUE
+ON
 DROP TABLE t1, t2, t3;
 CREATE TABLE t1
 (
