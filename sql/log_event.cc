@@ -4611,7 +4611,8 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
           query_start_status = thd->status_var;
         }
 
-        mysql_parse(thd, &parser_state, true);
+        ulonglong last_timer = my_timer_now();
+        mysql_parse(thd, &parser_state, &last_timer, true);
 
         enum_sql_command command = thd->lex->sql_command;
 

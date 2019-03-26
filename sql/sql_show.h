@@ -144,6 +144,7 @@ bool mysqld_show_create(THD *thd, TABLE_LIST *table_list);
 bool mysqld_show_create_db(THD *thd, char *dbname, HA_CREATE_INFO *create);
 
 void mysqld_list_processes(THD *thd, const char *user, bool verbose);
+void mysqld_list_transactions(THD *thd, const char *user, bool verbose);
 bool mysqld_show_privileges(THD *thd);
 void calc_sum_of_all_status(System_status_var *to);
 void append_definer(THD *thd, String *buffer, const LEX_CSTRING &definer_user,

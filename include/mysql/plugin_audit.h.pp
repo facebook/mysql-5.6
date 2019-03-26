@@ -56,9 +56,9 @@ struct MYSQL_XID {
 };
 struct SYS_VAR;
 struct st_mysql_value;
-typedef int (*mysql_var_check_func)(void * thd, SYS_VAR *var, void *save,
+typedef int (*mysql_var_check_func)(void *thd, SYS_VAR *var, void *save,
                                     struct st_mysql_value *value);
-typedef void (*mysql_var_update_func)(void * thd, SYS_VAR *var,
+typedef void (*mysql_var_update_func)(void *thd, SYS_VAR *var,
                                       void *var_ptr, const void *save);
 struct st_mysql_plugin {
   int type;
@@ -96,35 +96,35 @@ struct st_mysql_value {
   int (*val_int)(struct st_mysql_value *, long long *intbuf);
   int (*is_unsigned)(struct st_mysql_value *);
 };
-int thd_in_lock_tables(const void * thd);
-int thd_tablespace_op(const void * thd);
-long long thd_test_options(const void * thd, long long test_options);
-int thd_sql_command(const void * thd);
-const char *set_thd_proc_info(void * thd, const char *info,
+int thd_in_lock_tables(const void *thd);
+int thd_tablespace_op(const void *thd);
+long long thd_test_options(const void *thd, long long test_options);
+int thd_sql_command(const void *thd);
+const char *set_thd_proc_info(void *thd, const char *info,
                               const char *calling_func,
                               const char *calling_file,
                               const unsigned int calling_line);
-void **thd_ha_data(const void * thd, const struct handlerton *hton);
-void thd_storage_lock_wait(void * thd, long long value);
-int thd_tx_isolation(const void * thd);
-int thd_tx_is_read_only(const void * thd);
-void * thd_tx_arbitrate(void * requestor, void * holder);
-int thd_tx_priority(const void * thd);
-int thd_tx_is_dd_trx(const void * thd);
-char *thd_security_context(void * thd, char *buffer, size_t length,
+void **thd_ha_data(const void *thd, const struct handlerton *hton);
+void thd_storage_lock_wait(void *thd, long long value);
+int thd_tx_isolation(const void *thd);
+int thd_tx_is_read_only(const void *thd);
+void *thd_tx_arbitrate(void *requestor, void *holder);
+int thd_tx_priority(const void *thd);
+int thd_tx_is_dd_trx(const void *thd);
+char *thd_security_context(void *thd, char *buffer, size_t length,
                            size_t max_query_len);
-void thd_inc_row_count(void * thd);
-int thd_allow_batch(void * thd);
-void thd_mark_transaction_to_rollback(void * thd, int all);
+void thd_inc_row_count(void *thd);
+int thd_allow_batch(void *thd);
+void thd_mark_transaction_to_rollback(void *thd, int all);
 int mysql_tmpfile(const char *prefix);
-int thd_killed(const void * v_thd);
-void thd_set_kill_status(const void * thd);
-void thd_binlog_pos(const void * thd, const char **file_var,
+int thd_killed(const void *v_thd);
+void thd_set_kill_status(const void *thd);
+void thd_binlog_pos(const void *thd, const char **file_var,
                     unsigned long long *pos_var, const char **gtid_var);
-unsigned long thd_get_thread_id(const void * thd);
-void thd_get_xid(const void * thd, MYSQL_XID *xid);
-void *thd_get_ha_data(const void * thd, const struct handlerton *hton);
-void thd_set_ha_data(void * thd, const struct handlerton *hton,
+unsigned long thd_get_thread_id(const void *thd);
+void thd_get_xid(const void *thd, MYSQL_XID *xid);
+void *thd_get_ha_data(const void *thd, const struct handlerton *hton);
+void thd_set_ha_data(void *thd, const struct handlerton *hton,
                      const void *ha_data);
 void remove_ssl_err_thread_state();
 char mysql_bin_log_is_open(void);
@@ -193,6 +193,7 @@ enum enum_sql_command {
   SQLCOM_SHOW_ENGINE_STATUS,
   SQLCOM_SHOW_ENGINE_MUTEX,
   SQLCOM_SHOW_PROCESSLIST,
+  SQLCOM_SHOW_TRANSACTION_LIST,
   SQLCOM_SHOW_MASTER_STAT,
   SQLCOM_SHOW_SLAVE_STAT,
   SQLCOM_SHOW_GRANTS,
@@ -383,7 +384,7 @@ struct mysql_event_general {
   long long query_id;
   MYSQL_LEX_CSTRING database;
   long long affected_rows;
-  unsigned int port;  
+  unsigned int port;
   MYSQL_LEX_CSTRING connection_certificate;
 };
 typedef enum {

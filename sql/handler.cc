@@ -1660,6 +1660,9 @@ int ha_commit_trans(THD *thd, bool all, bool ignore_global_read_lock) {
     /* rw_trans is true when we in a transaction changing data */
     rw_trans = is_real_trans && (rw_ha_count > 0);
 
+    /* Tracking if the transaction will potentially change data */
+    thd->rw_trans = (rw_ha_count > 0);
+
     DBUG_EXECUTE_IF("dbug.enabled_commit", {
       const char act[] = "now signal Reached wait_for signal.commit_continue";
       DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
@@ -1820,6 +1823,9 @@ int ha_commit_low(THD *thd, bool all, bool run_after_commit) {
 
   DBUG_ENTER("ha_commit_low");
 
+  // Save the state of the current transaction to reset thd->trx_secs
+  thd->is_real_trans = all || !trn_ctx->is_active(Transaction_ctx::SESSION);
+
   if (ha_info) {
     bool restore_backup_ha_data = false;
     /*
@@ -1956,6 +1962,9 @@ int ha_rollback_trans(THD *thd, bool all) {
     transaction.all.ha_list, see why in trans_register_ha()).
   */
   bool is_real_trans = all || !trn_ctx->is_active(Transaction_ctx::SESSION);
+
+  // Save the state of the current transaction to reset thd->trx_secs
+  thd->is_real_trans = is_real_trans;
 
   DBUG_ENTER("ha_rollback_trans");
 

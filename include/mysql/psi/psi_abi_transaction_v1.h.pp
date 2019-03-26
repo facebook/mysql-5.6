@@ -54,6 +54,8 @@ typedef void (*set_transaction_gtid_v1_t)(struct PSI_transaction_locker *locker,
                                           const void *gtid_spec);
 typedef void (*set_transaction_trxid_v1_t)(
     struct PSI_transaction_locker *locker, const unsigned long long *trxid);
+using set_transaction_time_v1_t = void (*)(struct PSI_transaction_locker *locker,
+                                          const void *time);
 typedef void (*inc_transaction_savepoints_v1_t)(
     struct PSI_transaction_locker *locker, unsigned long count);
 typedef void (*inc_transaction_rollback_to_savepoint_v1_t)(
@@ -74,6 +76,7 @@ struct PSI_transaction_service_v1 {
   set_transaction_xa_state_v1_t set_transaction_xa_state;
   set_transaction_gtid_v1_t set_transaction_gtid;
   set_transaction_trxid_v1_t set_transaction_trxid;
+  set_transaction_time_v1_t set_transaction_time;
   inc_transaction_savepoints_v1_t inc_transaction_savepoints;
   inc_transaction_rollback_to_savepoint_v1_t
       inc_transaction_rollback_to_savepoint;

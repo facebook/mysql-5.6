@@ -3736,6 +3736,10 @@ SHOW_VAR com_status_vars[] = {
      (char *)offsetof(System_status_var,
                       com_stat[(uint)SQLCOM_SHOW_PROCESSLIST]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"show_transaction_list",
+     (char *)offsetof(System_status_var,
+                      com_stat[(uint)SQLCOM_SHOW_TRANSACTION_LIST]),
+     SHOW_LONG_STATUS},
     {"show_profile",
      (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_SHOW_PROFILE]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
@@ -7803,6 +7807,30 @@ static int show_starttime(THD *thd, SHOW_VAR *var, char *buff) {
   return 0;
 }
 
+static int show_stmt_time(THD *thd, SHOW_VAR *var, char *buff) {
+  var->type = SHOW_TIMER;
+  var->value = buff;
+  // if there is an in-fly query, calculate the in-fly statement time
+  if (thd->stmt_start)
+    *((longlong *)buff) = (longlong)(my_timer_since(thd->stmt_start));
+  else
+    *((longlong *)buff) = (longlong)0;
+  return 0;
+}
+
+static int show_trx_time(THD *thd, SHOW_VAR *var, char *buff) {
+  var->type = SHOW_TIMER;
+  var->value = buff;
+  // if there is an in-fly query, calculate the transaction time including the
+  // in-fly query
+  if (thd->stmt_start)
+    *((longlong *)buff) =
+        (longlong)(thd->trx_time + my_timer_since(thd->stmt_start));
+  else
+    *((longlong *)buff) = (longlong)(thd->trx_time);
+  return 0;
+}
+
 static int show_max_used_connections_time(THD *thd, SHOW_VAR *var, char *buff) {
   MYSQL_TIME max_used_connections_time;
   var->type = SHOW_CHAR;
@@ -7901,31 +7929,41 @@ static int show_connection_errors_tcpwrap(THD *, SHOW_VAR *var, char *buff) {
   return 0;
 }
 
-static int show_connection_errors_net_ER_NET_ERROR_ON_WRITE(THD *, SHOW_VAR *var, char *buff) {
+static int show_connection_errors_net_ER_NET_ERROR_ON_WRITE(THD *,
+                                                            SHOW_VAR *var,
+                                                            char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
   long *value = reinterpret_cast<long *>(buff);
-  *value = static_cast<long>(connection_errors_net_ER_NET_ERROR_ON_WRITE.load());
+  *value =
+      static_cast<long>(connection_errors_net_ER_NET_ERROR_ON_WRITE.load());
   return 0;
 }
 
-static int show_connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER(THD *, SHOW_VAR *var, char *buff) {
+static int show_connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER(THD *,
+                                                                  SHOW_VAR *var,
+                                                                  char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
   long *value = reinterpret_cast<long *>(buff);
-  *value = static_cast<long>(connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER.load());
+  *value = static_cast<long>(
+      connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER.load());
   return 0;
 }
 
-static int show_connection_errors_net_ER_NET_PACKET_TOO_LARGE(THD *, SHOW_VAR *var, char *buff) {
+static int show_connection_errors_net_ER_NET_PACKET_TOO_LARGE(THD *,
+                                                              SHOW_VAR *var,
+                                                              char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
   long *value = reinterpret_cast<long *>(buff);
-  *value = static_cast<long>(connection_errors_net_ER_NET_PACKET_TOO_LARGE.load());
+  *value =
+      static_cast<long>(connection_errors_net_ER_NET_PACKET_TOO_LARGE.load());
   return 0;
 }
 
-static int show_connection_errors_net_ER_NET_READ_ERROR(THD *, SHOW_VAR *var, char *buff) {
+static int show_connection_errors_net_ER_NET_READ_ERROR(THD *, SHOW_VAR *var,
+                                                        char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
   long *value = reinterpret_cast<long *>(buff);
@@ -7933,27 +7971,36 @@ static int show_connection_errors_net_ER_NET_READ_ERROR(THD *, SHOW_VAR *var, ch
   return 0;
 }
 
-static int show_connection_errors_net_ER_NET_READ_INTERRUPTED(THD *, SHOW_VAR *var, char *buff) {
+static int show_connection_errors_net_ER_NET_READ_INTERRUPTED(THD *,
+                                                              SHOW_VAR *var,
+                                                              char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
   long *value = reinterpret_cast<long *>(buff);
-  *value = static_cast<long>(connection_errors_net_ER_NET_READ_INTERRUPTED.load());
+  *value =
+      static_cast<long>(connection_errors_net_ER_NET_READ_INTERRUPTED.load());
   return 0;
 }
 
-static int show_connection_errors_net_ER_NET_UNCOMPRESS_ERROR(THD *, SHOW_VAR *var, char *buff) {
+static int show_connection_errors_net_ER_NET_UNCOMPRESS_ERROR(THD *,
+                                                              SHOW_VAR *var,
+                                                              char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
   long *value = reinterpret_cast<long *>(buff);
-  *value = static_cast<long>(connection_errors_net_ER_NET_UNCOMPRESS_ERROR.load());
+  *value =
+      static_cast<long>(connection_errors_net_ER_NET_UNCOMPRESS_ERROR.load());
   return 0;
 }
 
-static int show_connection_errors_net_ER_NET_WRITE_INTERRUPTED(THD *, SHOW_VAR *var, char *buff) {
+static int show_connection_errors_net_ER_NET_WRITE_INTERRUPTED(THD *,
+                                                               SHOW_VAR *var,
+                                                               char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
   long *value = reinterpret_cast<long *>(buff);
-  *value = static_cast<long>(connection_errors_net_ER_NET_WRITE_INTERRUPTED.load());
+  *value =
+      static_cast<long>(connection_errors_net_ER_NET_WRITE_INTERRUPTED.load());
   return 0;
 }
 
@@ -8871,6 +8918,8 @@ SHOW_VAR status_vars[] = {
      SHOW_SCOPE_GLOBAL},
 #endif
 #endif /* HAVE_OPENSSL */
+    {"Statement_seconds", (char *)&show_stmt_time, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
     {"Table_locks_immediate", (char *)&locks_immediate, SHOW_LONG,
      SHOW_SCOPE_GLOBAL},
     {"Table_locks_waited", (char *)&locks_waited, SHOW_LONG, SHOW_SCOPE_GLOBAL},
@@ -8901,6 +8950,8 @@ SHOW_VAR status_vars[] = {
     {"Threads_running", (char *)&show_num_thread_running, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
     {"Timer_in_use", (char *)&timer_in_use, SHOW_CHAR_PTR, SHOW_SCOPE_GLOBAL},
+    {"Transaction_seconds", (char *)&show_trx_time, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
     {"Uptime", (char *)&show_starttime, SHOW_FUNC, SHOW_SCOPE_GLOBAL},
 #ifdef ENABLED_PROFILING
     {"Uptime_since_flush_status", (char *)&show_flushstatustime, SHOW_FUNC,

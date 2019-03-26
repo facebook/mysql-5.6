@@ -39,6 +39,7 @@
 #include "sql/field.h"
 #include "sql/handler.h"
 #include "sql/item.h"
+#include "sql/mysqld.h"
 #include "sql/parse_tree_node_base.h"
 #include "sql/protocol.h"
 #include "sql/query_options.h"
@@ -129,6 +130,7 @@ bool mysql_open_cursor(THD *thd, Query_result *result,
   Query_result *save_result;
   Query_result_materialize *result_materialize;
   LEX *lex = thd->lex;
+  ulonglong start_time = my_timer_now();
 
   if (!(result_materialize =
             new (thd->mem_root) Query_result_materialize(thd, result)))
@@ -142,7 +144,7 @@ bool mysql_open_cursor(THD *thd, Query_result *result,
   parent_locker = thd->m_statement_psi;
   thd->m_digest = NULL;
   thd->m_statement_psi = NULL;
-  bool rc = mysql_execute_command(thd);
+  bool rc = mysql_execute_command(thd, &start_time);
   thd->m_digest = parent_digest;
   DEBUG_SYNC(thd, "after_table_close");
   thd->m_statement_psi = parent_locker;

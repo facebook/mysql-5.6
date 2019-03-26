@@ -539,6 +539,7 @@ void init_sql_command_flags(void) {
   sql_command_flags[SQLCOM_SHOW_ENGINE_LOGS] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_ENGINE_TRX] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_PROCESSLIST] = CF_STATUS_COMMAND;
+  sql_command_flags[SQLCOM_SHOW_TRANSACTION_LIST] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_GRANTS] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE_DB] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE] = CF_STATUS_COMMAND;
@@ -1485,7 +1486,8 @@ static void check_secondary_engine_statement(THD *thd,
   parser_state->reset(query_string, query_length);
 
   // Restart the statement.
-  mysql_parse(thd, parser_state, true /* force_primary_storage_engine */);
+  mysql_parse(thd, parser_state, nullptr,
+              true /* force_primary_storage_engine */);
 }
 
 /**
@@ -1512,6 +1514,8 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
   Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
   DBUG_ENTER("dispatch_command");
   DBUG_PRINT("info", ("command: %d", command));
+
+  ulonglong init_timer = my_timer_now();
 
   /* For per-query performance counters with log_slow_statement */
   struct System_status_var query_start_status;
@@ -1793,7 +1797,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
       Parser_state parser_state;
       if (parser_state.init(thd, thd->query().str, thd->query().length)) break;
 
-      mysql_parse(thd, &parser_state, false);
+      mysql_parse(thd, &parser_state, &init_timer, false);
 
       // Check if the statement failed while being prepared for
       // execution on a secondary storage engine. If so, reprepare the
@@ -1875,7 +1879,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         thd->set_time(); /* Reset the query start time. */
         parser_state.reset(beginning_of_next_stmt, length);
         /* TODO: set thd->lex->sql_command to SQLCOM_END here */
-        mysql_parse(thd, &parser_state, false);
+        mysql_parse(thd, &parser_state, &init_timer, false);
 
         check_secondary_engine_statement(thd, &parser_state,
                                          beginning_of_next_stmt, length);
@@ -2215,6 +2219,13 @@ done:
 #if defined(ENABLED_PROFILING)
   thd->profiling->finish_current_query();
 #endif
+
+  /* Don't count the thread running on a master to send binlog events to a
+     slave as that runs a long time. */
+  if (command != COM_BINLOG_DUMP) {
+    ulonglong wall_time = my_timer_since(init_timer);
+    thd->status_var.command_time += wall_time;
+  }
 
   DBUG_RETURN(error);
 }
@@ -2702,7 +2713,8 @@ static inline void binlog_gtid_end_transaction(THD *thd) {
     true        Error
 */
 
-int mysql_execute_command(THD *thd, bool first_level) {
+int mysql_execute_command(THD *thd, ulonglong *statement_start_time,
+                          bool first_level) {
   int res = false;
   LEX *const lex = thd->lex;
   /* first SELECT_LEX (have special meaning for many of non-SELECTcommands) */
@@ -2720,6 +2732,8 @@ int mysql_execute_command(THD *thd, bool first_level) {
               lex->sql_command == SQLCOM_EXPLAIN_OTHER);
 
   thd->work_part_info = 0;
+
+  thd->stmt_start = *statement_start_time;
 
   /*
     Each statement or replication event which might produce deadlock
@@ -4161,6 +4175,16 @@ int mysql_execute_command(THD *thd, bool first_level) {
       sql_kill(thd, thread_id, lex->type & ONLY_KILL_QUERY);
       break;
     }
+    case SQLCOM_SHOW_TRANSACTION_LIST: {
+      Security_context *sctx = thd->security_context();
+      if (sctx->priv_user().length > 0 && check_global_access(thd, PROCESS_ACL))
+        break;
+      mysqld_list_transactions(
+          thd,
+          (sctx->master_access() & PROCESS_ACL ? NullS : sctx->priv_user().str),
+          lex->verbose);
+      break;
+    }
     case SQLCOM_SHOW_PRIVILEGES: {
       mysqld_show_privileges(thd);
       break;
@@ -4762,11 +4786,22 @@ finish:
       thd->get_stmt_da()->set_overwrite_status(true);
       trans_commit_stmt(thd);
       thd->get_stmt_da()->set_overwrite_status(false);
+
+      if (thd->is_real_trans)
+        // reset trx timer at the end of a transaction
+        thd->trx_time = 0;
+      else
+        // add the current statement_time to transaction_time of an open
+        // transaction
+        thd->trx_time += my_timer_since(*statement_start_time);
     }
     if (thd->killed == THD::KILL_QUERY || thd->killed == THD::KILL_TIMEOUT) {
       thd->killed = THD::NOT_KILLED;
     }
   }
+
+  // Reset statement start time
+  thd->stmt_start = 0;
 
   lex->unit->cleanup(true);
   /* Free tables */
@@ -5238,12 +5273,14 @@ bool create_select_for_variable(Parse_context *pc, const char *var_name) {
   forced to use primary storage engines only.
 */
 
-void mysql_parse(THD *thd, Parser_state *parser_state,
+void mysql_parse(THD *thd, Parser_state *parser_state, ulonglong *last_timer,
                  bool force_primary_storage_engine) {
   DBUG_ENTER("mysql_parse");
   DBUG_PRINT("mysql_parse", ("query: '%s'", thd->query().str));
 
   DBUG_EXECUTE_IF("parser_debug", turn_parser_debug_on(););
+
+  ulonglong start_time = last_timer == nullptr ? my_timer_now() : *last_timer;
 
   mysql_reset_thd_for_next_command(thd);
   lex_start(thd);
@@ -5354,7 +5391,7 @@ void mysql_parse(THD *thd, Parser_state *parser_state,
           bool switched = mgr_ptr->switch_resource_group_if_needed(
               thd, &src_res_grp, &dest_res_grp, &ticket, &cur_ticket);
 
-          error = mysql_execute_command(thd, true);
+          error = mysql_execute_command(thd, &start_time, true);
 
           if (switched)
             mgr_ptr->restore_original_resource_group(thd, src_res_grp,

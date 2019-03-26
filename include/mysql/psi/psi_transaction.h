@@ -85,6 +85,8 @@ struct PSI_transaction_service_v1 {
   set_transaction_gtid_v1_t set_transaction_gtid;
   /** @sa set_transaction_trxid_v1_t. */
   set_transaction_trxid_v1_t set_transaction_trxid;
+  /** @sa set_transaction_gtid_v1_t. */
+  set_transaction_time_v1_t set_transaction_time;
   /** @sa inc_transaction_savepoints_v1_t. */
   inc_transaction_savepoints_v1_t inc_transaction_savepoints;
   /** @sa inc_transaction_rollback_to_savepoint_v1_t. */

@@ -1,0 +1,222 @@
+#
+# TRANSACTION_LIST
+#
+--source include/count_sessions.inc
+
+desc information_schema.transaction_list;
+
+let $conn_root = query_get_value(SHOW processlist,Id,1);
+
+create table t1 (id integer not null auto_increment, i int, primary key (id))
+engine = innodb;
+
+create user mysqluser1;
+connect (a,localhost,mysqluser1,,);
+
+###############################
+--echo
+--echo ##
+--echo ## Test Open Transaction
+--echo ##
+--echo
+###############################
+
+--echo # connection a
+connection a;
+let $conn_a = query_get_value(SHOW processlist,Id,1);
+--echo # Start a transaction
+begin;
+insert into t1 (i) values
+(1),(2),(4),(5),(6),(7),(8),(9),(10),(11),(12),(13),(14);
+
+--echo # connection default
+connection default;
+--replace_column 1 # 3 localhost 6 State 7 # 8 # 9 #
+--sorted_result
+show transaction_list;
+
+# Statement_seconds will be reset at every query
+--replace_regex /Id = [0-9]*/Id = conn_a/
+eval select statement_seconds from information_schema.transaction_list where Id = $conn_a;
+
+let $trx_secs_1 = `select transaction_seconds from information_schema.transaction_list where Id = $conn_a`;
+let $cmd_secs_1 = `select command_seconds from information_schema.transaction_list where id = $conn_a`;
+let $read_only = `select read_only from information_schema.transaction_list where id = $conn_a`;
+let $sql_log_bin = `select sql_log_bin from information_schema.transaction_list where id = $conn_a`;
+
+--let $assert_text= For an open transation, Transaction_seconds should not be zero
+--let $assert_cond= "$trx_secs_1" != 0
+--source include/assert.inc
+
+--let $assert_text= Transaction_seconds is larger than Command_seconds.
+--let $assert_cond= "$trx_secs_1" <= "$cmd_secs_1"
+--source include/assert.inc
+
+--let $assert_text= Transaction is not read only
+--let $assert_cond= "$read_only" != 1
+--source include/assert.inc
+
+--let $assert_text= sql_log_bin value incorrect
+--let $assert_cond= "$sql_log_bin" != 0
+--source include/assert.inc
+
+--echo # connection a
+connection a;
+insert into t1 (i) select i from t1 where id > 6 AND id < 20;
+select count(*) from t1 where id > 6 AND id < 20;
+commit;
+
+--echo # connection default
+connection default;
+--replace_column 1 # 3 localhost 6 State 7 # 8 # 9 #
+--sorted_result
+show transaction_list;
+
+# Statement_seconds will be reset at every query
+--replace_regex /Id = [0-9]*/Id = conn_a/
+eval select statement_seconds from information_schema.transaction_list where Id = $conn_a;
+
+# Transaction_seconds will be reset at the end of each transaction
+--replace_regex /Id = [0-9]*/Id = conn_a/
+eval select transaction_seconds from information_schema.transaction_list where Id = $conn_a;
+
+let $cmd_secs_2 = `select command_seconds from information_schema.transaction_list where id = $conn_a`;
+
+--let $assert_text= Command_seconds is increasing.
+--let $assert_cond= "$cmd_secs_1" <= "$cmd_secs_2"
+--source include/assert.inc
+
+# Test rollback will also reset timers
+--echo # connection a
+connection a;
+begin;
+insert into t1 (i) select i from t1 where id > 6 AND id < 20;
+select count(*) from t1;
+rollback;
+
+--echo # connection default
+connection default;
+--replace_column 1 # 3 localhost 6 State 7 # 8 # 9 #
+--sorted_result
+show transaction_list;
+
+# Statement_seconds will be reset at every query
+--replace_regex /Id = [0-9]*/Id = conn_a/
+eval select statement_seconds from information_schema.transaction_list where Id = $conn_a;
+
+# Transaction_seconds will be reset at the end of each transaction
+--replace_regex /Id = [0-9]*/Id = conn_a/
+eval select transaction_seconds from information_schema.transaction_list where Id = $conn_a;
+
+let $cmd_secs_1 = `select command_seconds from information_schema.transaction_list where id = $conn_a`;
+let $read_only = `select read_only from information_schema.transaction_list where id = $conn_a`;
+let $sql_log_bin = `select sql_log_bin from information_schema.transaction_list where id = $conn_a`;
+
+--let $assert_text= Command_seconds is increasing.
+--let $assert_cond= "$cmd_secs_2" <= "$cmd_secs_1"
+--source include/assert.inc
+
+--let $assert_text= Transaction is read only
+--let $assert_cond= "$read_only" != 0
+--source include/assert.inc
+
+--let $assert_text= sql_log_bin value incorrect
+--let $assert_cond= "$sql_log_bin" != 0
+--source include/assert.inc
+
+
+########################################################
+--echo
+--echo ##
+--echo ## Test Autocommit Transaction (single statement)
+--echo ##
+--echo
+########################################################
+
+--echo # connection a
+connection a;
+--echo # Start another transaction autocommit
+insert into t1 (i) select i from t1 where id > 6 AND id < 20;
+
+--echo # connection default
+connection default;
+--replace_column 1 # 3 localhost 6 State 7 # 8 # 9 #
+--sorted_result
+show transaction_list;
+
+# Statement_seconds will be reset at every query
+--replace_regex /Id = [0-9]*/Id = conn_a/
+eval select statement_seconds from information_schema.transaction_list where Id = $conn_a;
+
+# Transaction_seconds will be reset at the end of each transaction (auto commit)
+--replace_regex /Id = [0-9]*/Id = conn_a/
+eval select transaction_seconds from information_schema.transaction_list where Id = $conn_a;
+
+let $cmd_secs_2 = `select command_seconds from information_schema.transaction_list where id = $conn_a`;
+
+#####################################################
+--echo
+--echo ##
+--echo ## Test long-running query in open transaction
+--echo ##
+--echo
+#####################################################
+
+--echo # connection a
+connection a;
+# Simulate long running query
+send select sleep(10);
+
+# Check all time measurements increase while the query is still running
+--echo # connection default
+connection default;
+
+let $stmt_secs_1 = `select statement_seconds from information_schema.transaction_list where Id = $conn_a`;
+sleep 0.1;
+let $stmt_secs_2 = `select statement_seconds from information_schema.transaction_list where Id = $conn_a`;
+--let $assert_text= Statement seconds is increasing.
+--let $assert_cond= "$stmt_secs_1" <= "$stmt_secs_2"
+--source include/assert.inc
+
+let $trx_secs_1 = `select transaction_seconds from information_schema.transaction_list where id = $conn_a`;
+sleep 0.1;
+let $trx_secs_2 = `select transaction_seconds from information_schema.transaction_list where id = $conn_a`;
+--let $assert_text= Transaction seconds is increasing.
+--let $assert_cond= "$trx_secs_1" <= "$trx_secs_2"
+--source include/assert.inc
+
+let $cmd_secs_1 = `select command_seconds from information_schema.transaction_list where id = $conn_a`;
+sleep 0.1;
+let $cmd_secs_2 = `select command_seconds from information_schema.transaction_list where id = $conn_a`;
+--let $assert_text= Command seconds is increasing.
+--let $assert_cond= "$cmd_secs_1" <= "$cmd_secs_2"
+--source include/assert.inc
+
+--echo # connection a
+connection a;
+# After reap, both Statement_transaction and Transaction_seconds should be reset
+reap;
+
+
+--echo # connection default
+connection default;
+--replace_column 1 # 3 localhost 6 State 7 # 8 # 9 #
+--replace_result Query Command Sleep Command
+--sorted_result
+show transaction_list;
+
+# Statement_seconds will be reset at every query
+--replace_regex /Id = [0-9]*/Id = conn_a/
+eval select statement_seconds from information_schema.transaction_list where Id = $conn_a;
+
+# Transaction_seconds will be reset at the end of each transaction (auto commit)
+--replace_regex /Id = [0-9]*/Id = conn_a/
+eval select transaction_seconds from information_schema.transaction_list where Id = $conn_a;
+
+# cleanup
+connection default;
+
+drop user mysqluser1;
+drop table t1;
+disconnect a;
+--source include/wait_until_count_sessions.inc

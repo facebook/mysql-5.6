@@ -137,6 +137,9 @@ typedef void (*set_transaction_gtid_v1_t)(struct PSI_transaction_locker *locker,
 typedef void (*set_transaction_trxid_v1_t)(
     struct PSI_transaction_locker *locker, const unsigned long long *trxid);
 
+using set_transaction_time_v1_t = void (*)(struct PSI_transaction_locker *locker,
+                                          const void *time);
+
 /**
   Increment a transaction event savepoint count.
   @param locker the transaction locker

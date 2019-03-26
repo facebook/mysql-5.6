@@ -1236,6 +1236,7 @@ void warn_about_deprecated_national(THD *thd)
 %token<keyword> GTID_SYM
 %token<keyword> GTID_EXECUTED                 /* MYSQL */
 %token<keyword> SUPER_READ_ONLY_SYM           /* MYSQL */
+%token<keyword> TRANSACTION_LIST_SYM
 
 
 /*
@@ -12561,6 +12562,11 @@ show_param:
             Lex->sql_command= SQLCOM_SHOW_PROCESSLIST;
             Lex->verbose= $1;
           }
+        | opt_full TRANSACTION_LIST_SYM
+          {
+            Lex->sql_command= SQLCOM_SHOW_TRANSACTION_LIST;
+            Lex->verbose= $1;
+          }
         | opt_var_type VARIABLES opt_wild_or_where_for_show
           {
             Lex->sql_command= SQLCOM_SHOW_VARIABLES;
@@ -14131,6 +14137,7 @@ role_or_label_keyword:
         | PREV_SYM
         | PRIVILEGES
         | PROCESSLIST_SYM
+        | TRANSACTION_LIST_SYM
         | PROFILES_SYM
         | PROFILE_SYM
         | QUARTER_SYM

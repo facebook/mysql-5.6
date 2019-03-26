@@ -1883,6 +1883,11 @@ class thread_info {
   uint command;
   const char *user, *host, *db, *proc_info, *state_info;
   CSET_STRING query_string;
+
+  // time measurements for transaction list
+  my_decimal stmt_secs, trx_secs, cmd_secs;
+  // tracking the thread's transaction
+  bool rw_trans, sql_log_bin;
 };
 
 // For sorting by thread_id.
@@ -2137,6 +2142,177 @@ class List_process_list : public Do_THD_Impl {
   }
 };
 
+struct time_stat {
+  double stmt_secs;
+  double trx_secs;
+  double cmd_secs;
+};
+
+static time_stat get_thd_time_stats(THD *thd) {
+  double cmd_secs = 0, stmt_secs = 0, trx_secs = 0;
+  ulonglong stmt_start = thd->stmt_start;
+  if (stmt_start) {
+    stmt_secs = my_timer_to_seconds(my_timer_since(stmt_start));
+    trx_secs = my_timer_to_seconds(thd->trx_time) + stmt_secs;
+    cmd_secs = my_timer_to_seconds(thd->status_var.command_time) + stmt_secs;
+  } else {
+    stmt_secs = 0;  // not in the mid of any statement execution
+    trx_secs = my_timer_to_seconds(thd->trx_time);
+    cmd_secs = my_timer_to_seconds(thd->status_var.command_time);
+  }
+
+  return {stmt_secs, trx_secs, cmd_secs};
+}
+
+class List_transaction_list : public Do_THD_Impl {
+ private:
+  /* Username of connected client. */
+  const char *m_user;
+  Thread_info_array *m_thread_infos;
+  /* THD of connected client. */
+  THD *m_client_thd;
+
+ public:
+  List_transaction_list(const char *user_value, Thread_info_array *thread_infos,
+                        THD *thd_value) noexcept
+      : m_user(user_value),
+        m_thread_infos(thread_infos),
+        m_client_thd(thd_value) {}
+
+  virtual void operator()(THD *inspect_thd) override {
+    Security_context *inspect_sctx = inspect_thd->security_context();
+    LEX_CSTRING inspect_sctx_user = inspect_sctx->user();
+    LEX_CSTRING inspect_sctx_host = inspect_sctx->host();
+    LEX_CSTRING inspect_sctx_host_or_ip = inspect_sctx->host_or_ip();
+
+    mysql_mutex_lock(&inspect_thd->LOCK_thd_protocol);
+    if ((!(inspect_thd->get_protocol() &&
+           inspect_thd->get_protocol()->connection_alive()) &&
+         !inspect_thd->system_thread) ||
+        (m_user && (inspect_thd->system_thread || !inspect_sctx_user.str ||
+                    strcmp(inspect_sctx_user.str, m_user)))) {
+      mysql_mutex_unlock(&inspect_thd->LOCK_thd_protocol);
+      return;
+    }
+    mysql_mutex_unlock(&inspect_thd->LOCK_thd_protocol);
+
+    thread_info *thd_info = new (*THR_MALLOC) thread_info;
+
+    /* ID */
+    thd_info->thread_id = inspect_thd->thread_id();
+
+    /* USER */
+    if (inspect_sctx_user.str)
+      thd_info->user = m_client_thd->mem_strdup(inspect_sctx_user.str);
+    else if (inspect_thd->system_thread)
+      thd_info->user = "system user";
+    else
+      thd_info->user = "unauthenticated user";
+
+    /* HOST */
+    if (inspect_thd->peer_port &&
+        (inspect_sctx_host.length || inspect_sctx->ip().length) &&
+        m_client_thd->security_context()->host_or_ip().str[0]) {
+      if ((thd_info->host =
+               (char *)m_client_thd->alloc(LIST_PROCESS_HOST_LEN + 1)))
+        snprintf((char *)thd_info->host, LIST_PROCESS_HOST_LEN, "%s:%u",
+                 inspect_sctx_host_or_ip.str, inspect_thd->peer_port);
+    } else
+      thd_info->host = m_client_thd->mem_strdup(
+          inspect_sctx_host_or_ip.str[0]
+              ? inspect_sctx_host_or_ip.str
+              : inspect_sctx_host.length ? inspect_sctx_host.str : "");
+
+    /* DB */
+    mysql_mutex_lock(&inspect_thd->LOCK_thd_data);
+    const char *db = inspect_thd->db().str;
+    if (db) thd_info->db = m_client_thd->mem_strdup(db);
+    mysql_mutex_unlock(&inspect_thd->LOCK_thd_data);
+
+    auto time_stats = get_thd_time_stats(inspect_thd);
+    /* Statement_seconds */
+    double2my_decimal(E_DEC_FATAL_ERROR, time_stats.stmt_secs,
+                      &thd_info->stmt_secs);
+    thd_info->stmt_secs.frac = 6;
+    /* Transaction_seconds */
+    double2my_decimal(E_DEC_FATAL_ERROR, time_stats.trx_secs,
+                      &thd_info->trx_secs);
+    thd_info->trx_secs.frac = 6;
+    /* Command_seconds */
+    double2my_decimal(E_DEC_FATAL_ERROR, time_stats.cmd_secs,
+                      &thd_info->cmd_secs);
+    thd_info->cmd_secs.frac = 6;
+
+    /* rw_trans */
+    thd_info->rw_trans = inspect_thd->rw_trans;
+    /* sql_log_bin */
+    thd_info->sql_log_bin = inspect_thd->variables.sql_log_bin;
+
+    m_thread_infos->push_back(thd_info);
+  }
+};
+
+void mysqld_list_transactions(THD *thd, const char *user, bool) {
+  Item *field;
+  List<Item> field_list;
+  Thread_info_array thread_infos(thd->mem_root);
+  Protocol *protocol = thd->get_protocol();
+  DBUG_ENTER("mysqld_list_transactions");
+
+  field_list.push_back(
+      new Item_int(NAME_STRING("Id"), 0, MY_INT64_NUM_DECIMAL_DIGITS));
+  field_list.push_back(new Item_empty_string("User", USERNAME_CHAR_LENGTH));
+  field_list.push_back(new Item_empty_string("Host", LIST_PROCESS_HOST_LEN));
+  field_list.push_back(field = new Item_empty_string("db", NAME_CHAR_LEN));
+  field->maybe_null = 1;
+  field_list.push_back(field = new Item_empty_string("State", 30));
+  field->maybe_null = 1;
+  my_decimal tmp_buf;
+  field_list.push_back(
+      new Item_decimal(NAME_STRING("Statement_seconds"), &tmp_buf, 6, 65));
+  field_list.push_back(
+      new Item_decimal(NAME_STRING("Transaction_seconds"), &tmp_buf, 6, 65));
+  field_list.push_back(
+      new Item_decimal(NAME_STRING("Command_seconds"), &tmp_buf, 6, 65));
+  field_list.push_back(new Item_int(NAME_STRING("Read_only"), 0, 1));
+  field_list.push_back(new Item_int(NAME_STRING("Sql_log_bin"), 0, 1));
+
+  if (thd->send_result_metadata(&field_list,
+                                Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
+    DBUG_VOID_RETURN;
+
+  if (!thd->killed) {
+    thread_infos.reserve(Global_THD_manager::get_instance()->get_thd_count());
+    List_transaction_list list_transaction_list(user, &thread_infos, thd);
+    Global_THD_manager::get_instance()->do_for_all_thd_copy(
+        &list_transaction_list);
+  }
+
+  // Return list sorted by thread_id.
+  std::sort(thread_infos.begin(), thread_infos.end(), thread_info_compare());
+
+  for (size_t ix = 0; ix < thread_infos.size(); ++ix) {
+    thread_info *thd_info = thread_infos[ix];
+    protocol->start_row();
+    protocol->store((ulonglong)thd_info->thread_id);
+    protocol->store(thd_info->user, system_charset_info);
+    protocol->store(thd_info->host, system_charset_info);
+    protocol->store(thd_info->db, system_charset_info);
+
+    protocol->store(thd_info->state_info, system_charset_info);
+
+    protocol->store_decimal(&thd_info->stmt_secs, 9, 6);
+    protocol->store_decimal(&thd_info->trx_secs, 9, 6);
+    protocol->store_decimal(&thd_info->cmd_secs, 9, 6);
+    protocol->store((longlong)(!thd_info->rw_trans)); /* Read_only */
+    protocol->store((longlong)thd_info->sql_log_bin);
+
+    if (protocol->end_row()) break; /* purecov: inspected */
+  }
+  my_eof(thd);
+  DBUG_VOID_RETURN;
+}
+
 void mysqld_list_processes(THD *thd, const char *user, bool verbose) {
   Item *field;
   List<Item> field_list;
@@ -2198,22 +2374,14 @@ void mysqld_list_processes(THD *thd, const char *user, bool verbose) {
   DBUG_VOID_RETURN;
 }
 
-/**
-  This class implements callback function used by fill_schema_processlist()
-  to populate all the client process information into I_S table.
-*/
-class Fill_process_list : public Do_THD_Impl {
- private:
+class Fill_thread_or_process_list_base : public Do_THD_Impl {
+ protected:
   /* THD of connected client. */
   THD *m_client_thd;
   /* Information of each process is added as records into this table. */
   TABLE_LIST *m_tables;
 
- public:
-  Fill_process_list(THD *thd_value, TABLE_LIST *tables_value)
-      : m_client_thd(thd_value), m_tables(tables_value) {}
-
-  virtual void operator()(THD *inspect_thd) {
+  bool operator_common(THD *inspect_thd) {
     Security_context *inspect_sctx = inspect_thd->security_context();
     LEX_CSTRING inspect_sctx_user = inspect_sctx->user();
     LEX_CSTRING inspect_sctx_host = inspect_sctx->host();
@@ -2229,7 +2397,7 @@ class Fill_process_list : public Do_THD_Impl {
          !inspect_thd->system_thread) ||
         (user && (inspect_thd->system_thread || !inspect_sctx_user.str ||
                   strcmp(inspect_sctx_user.str, user))))
-      return;
+      return true;
 
     TABLE *table = m_tables->table;
     restore_record(table, s->default_values);
@@ -2283,8 +2451,31 @@ class Fill_process_list : public Do_THD_Impl {
                              command_name[inspect_thd->get_command()].length,
                              system_charset_info);
 
+    return false;
+  }
+
+ public:
+  Fill_thread_or_process_list_base(THD *thd_value, TABLE_LIST *tables_value)
+      : m_client_thd(thd_value), m_tables(tables_value) {}
+};
+
+/**
+  This class implements callback function used by fill_schema_processlist()
+  to populate all the client process information into I_S table.
+*/
+class Fill_process_list : public Fill_thread_or_process_list_base {
+ public:
+  Fill_process_list(THD *thd_value, TABLE_LIST *tables_value) noexcept
+      : Fill_thread_or_process_list_base(thd_value, tables_value) {}
+
+  virtual void operator()(THD *inspect_thd) override {
+    if(operator_common(inspect_thd)) {
+      return;
+    }
+    TABLE *table = m_tables->table;
+
     /* STATE */
-    val = thread_state_info(inspect_thd);
+    const char *val = thread_state_info(inspect_thd);
     if (val) {
       table->field[6]->store(val, strlen(val), system_charset_info);
       table->field[6]->set_notnull();
@@ -2342,6 +2533,56 @@ static int fill_schema_processlist(THD *thd, TABLE_LIST *tables, Item *) {
   Fill_process_list fill_process_list(thd, tables);
   if (!thd->killed) {
     Global_THD_manager::get_instance()->do_for_all_thd_copy(&fill_process_list);
+  }
+  DBUG_RETURN(0);
+}
+
+class Fill_transaction_list : public Fill_thread_or_process_list_base {
+ public:
+  Fill_transaction_list(THD *thd_value, TABLE_LIST *tables_value)
+      : Fill_thread_or_process_list_base(thd_value, tables_value) {}
+
+  virtual void operator()(THD *inspect_thd) override {
+    if(operator_common(inspect_thd)) {
+      return;
+    }
+
+    TABLE *table = m_tables->table;
+
+    /* STATE */
+    const char *val;
+    if ((val = thread_state_info(inspect_thd))) {
+      table->field[5]->store(val, strlen(val), system_charset_info);
+      table->field[5]->set_notnull();
+    }
+
+    auto time_stats = get_thd_time_stats(inspect_thd);
+    /* Statement_seconds */
+    table->field[6]->store(time_stats.stmt_secs);
+    /* Transaction_seconds */
+    table->field[7]->store(time_stats.trx_secs);
+    /* Command_seconds */
+    table->field[8]->store(time_stats.cmd_secs);
+
+    /* Read_only */
+    table->field[9]->store((uint)(!inspect_thd->rw_trans));
+    /* Sql_log_bin */
+    table->field[10]->store((uint)inspect_thd->variables.sql_log_bin);
+
+    // unlock LOCK_thd_data (locked in fill_fields_process_common())
+    mysql_mutex_unlock(&inspect_thd->LOCK_thd_data);
+
+    schema_table_store_record(m_client_thd, table);
+  }
+};
+
+static int fill_schema_transaction_list(THD *thd, TABLE_LIST *tables, Item *) {
+  DBUG_ENTER("fill_schema_transaction_list");
+
+  Fill_transaction_list fill_transaction_list(thd, tables);
+  if (!thd->killed) {
+    Global_THD_manager::get_instance()->do_for_all_thd_copy(
+        &fill_transaction_list);
   }
   DBUG_RETURN(0);
 }
@@ -5106,6 +5347,25 @@ ST_FIELD_INFO processlist_fields_info[] = {
      SKIP_OPEN_TABLE},
     {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}};
 
+ST_FIELD_INFO transaction_list_fields_info[] = {
+    {"ID", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "Id", SKIP_OPEN_TABLE},
+    {"USER", USERNAME_CHAR_LENGTH, MYSQL_TYPE_STRING, 0, 0, "User",
+     SKIP_OPEN_TABLE},
+    {"HOST", LIST_PROCESS_HOST_LEN, MYSQL_TYPE_STRING, 0, 0, "Host",
+     SKIP_OPEN_TABLE},
+    {"DB", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 1, "Db", SKIP_OPEN_TABLE},
+    {"COMMAND", 16, MYSQL_TYPE_STRING, 0, 0, "Command", SKIP_OPEN_TABLE},
+    {"STATE", 64, MYSQL_TYPE_STRING, 0, 1, "State", SKIP_OPEN_TABLE},
+    {"STATEMENT_SECONDS", 6506, MYSQL_TYPE_DECIMAL, 0, 0, "Statement_seconds",
+     SKIP_OPEN_TABLE},
+    {"TRANSACTION_SECONDS", 6506, MYSQL_TYPE_DECIMAL, 0, 0,
+     "Transaction_seconds", SKIP_OPEN_TABLE},
+    {"COMMAND_SECONDS", 6506, MYSQL_TYPE_DECIMAL, 0, 0, "Command_seconds",
+     SKIP_OPEN_TABLE},
+    {"READ_ONLY", 1, MYSQL_TYPE_TINY, 0, 0, "Read_only", SKIP_OPEN_TABLE},
+    {"SQL_LOG_BIN", 1, MYSQL_TYPE_TINY, 0, 0, "Sql_log_bin", SKIP_OPEN_TABLE},
+    {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}};
+
 ST_FIELD_INFO authinfo_fields_info[] = {
     {"ID", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "Id", SKIP_OPEN_TABLE},
     {"USER", USERNAME_CHAR_LENGTH, MYSQL_TYPE_STRING, 0, 0, "User",
@@ -5195,6 +5455,8 @@ ST_SCHEMA_TABLE schema_tables[] = {
      make_old_format, 0, -1, -1, 0, 0},
     {"PROCESSLIST", processlist_fields_info, create_schema_table,
      fill_schema_processlist, make_old_format, 0, -1, -1, 0, 0},
+    {"TRANSACTION_LIST", transaction_list_fields_info, create_schema_table,
+     fill_schema_transaction_list, make_old_format, 0, -1, -1, 0, 0},
     {"QUERY_PERF_COUNTER", qutils::query_tag_perf_fields_info,
      create_schema_table, qutils::fill_query_tag_perf_counter, NULL, NULL, -1,
      -1, false, 0},

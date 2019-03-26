@@ -449,6 +449,8 @@ struct System_status_var {
   */
   double last_query_cost;
   ulonglong last_query_partial_plans;
+
+  ulonglong command_time; /* Time handling client commands */
 };
 
 /*

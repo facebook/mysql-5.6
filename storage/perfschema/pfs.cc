@@ -6694,6 +6694,21 @@ void pfs_set_transaction_gtid_v1(PSI_transaction_locker *locker,
   }
 }
 
+void pfs_set_transaction_time_v1(PSI_transaction_locker *locker,
+                                 const void *time) {
+  PSI_transaction_locker_state *state =
+      reinterpret_cast<PSI_transaction_locker_state *>(locker);
+  DBUG_ASSERT(state != nullptr);
+  DBUG_ASSERT(time != nullptr);
+
+  if (state->m_flags & STATE_FLAG_EVENT) {
+    PFS_events_transactions *pfs =
+        reinterpret_cast<PFS_events_transactions *>(state->m_transaction);
+    DBUG_ASSERT(pfs != nullptr);
+    // pfs->m_time = *(rpl_sid *)sid;
+  }
+}
+
 void pfs_set_transaction_xid_v1(PSI_transaction_locker *locker, const void *xid,
                                 int xa_state) {
   PSI_transaction_locker_state *state =
@@ -8078,6 +8093,7 @@ PSI_transaction_service_v1 pfs_transaction_service_v1 = {
     pfs_set_transaction_xa_state_v1,
     pfs_set_transaction_gtid_v1,
     pfs_set_transaction_trxid_v1,
+    pfs_set_transaction_time_v1,
     pfs_inc_transaction_savepoints_v1,
     pfs_inc_transaction_rollback_to_savepoint_v1,
     pfs_inc_transaction_release_savepoint_v1,
@@ -8092,6 +8108,7 @@ SERVICE_IMPLEMENTATION(performance_schema, psi_transaction_v1) = {
     pfs_set_transaction_xa_state_v1,
     pfs_set_transaction_gtid_v1,
     pfs_set_transaction_trxid_v1,
+    pfs_set_transaction_time_v1,
     pfs_inc_transaction_savepoints_v1,
     pfs_inc_transaction_rollback_to_savepoint_v1,
     pfs_inc_transaction_release_savepoint_v1,

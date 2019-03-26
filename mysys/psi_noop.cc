@@ -795,6 +795,10 @@ static void set_transaction_trxid_noop(PSI_transaction_locker *,
   return;
 }
 
+static void set_transaction_time_noop(PSI_transaction_locker *, const void *) {
+  return;
+}
+
 static void inc_transaction_savepoints_noop(PSI_transaction_locker *, ulong) {
   return;
 }
@@ -818,6 +822,7 @@ static PSI_transaction_service_t psi_transaction_noop = {
     set_transaction_xa_state_noop,
     set_transaction_gtid_noop,
     set_transaction_trxid_noop,
+    set_transaction_time_noop,
     inc_transaction_savepoints_noop,
     inc_transaction_rollback_to_savepoint_noop,
     inc_transaction_release_savepoint_noop,

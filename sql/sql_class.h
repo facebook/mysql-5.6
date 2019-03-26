@@ -813,6 +813,16 @@ class THD : public MDL_context_owner,
     return m_dd_client.get();
   }
 
+  /* whether the last query is a real transaction */
+  bool is_real_trans = false;
+  /* whether the transaction is a writer */
+  bool rw_trans = false;
+
+  /* record the current statement start time */
+  ulonglong stmt_start;
+  /* record the transaction time (including in-fly) */
+  ulonglong trx_time;
+
  private:
   std::unique_ptr<dd::cache::Dictionary_client> m_dd_client;
 
@@ -825,8 +835,8 @@ class THD : public MDL_context_owner,
   /**
     Currently selected catalog.
   */
-
   LEX_CSTRING m_catalog;
+
   /**
     Name of the current (default) database.
 

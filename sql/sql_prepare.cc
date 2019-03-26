@@ -2196,6 +2196,7 @@ bool Execute_sql_statement::execute_server_code(THD *thd) {
   sql_digest_state *parent_digest;
   PSI_statement_locker *parent_locker;
   bool error;
+  ulonglong start_time = my_timer_now();
 
   if (alloc_query(thd, m_sql_text.str, m_sql_text.length)) return true;
 
@@ -2229,7 +2230,7 @@ bool Execute_sql_statement::execute_server_code(THD *thd) {
   rewrite_query_if_needed(thd);
   log_execute_line(thd);
 
-  error = mysql_execute_command(thd);
+  error = mysql_execute_command(thd, &start_time);
   thd->m_statement_psi = parent_locker;
 
 end:
@@ -3147,7 +3148,8 @@ bool Prepared_statement::execute(String *expanded_query, bool open_cursor) {
       bool switched = mgr_ptr->switch_resource_group_if_needed(
           thd, &src_res_grp, &dest_res_grp, &ticket, &cur_ticket);
 
-      error = mysql_execute_command(thd, true);
+      ulonglong start_time = my_timer_now();
+      error = mysql_execute_command(thd, &start_time, true);
 
       if (switched)
         mgr_ptr->restore_original_resource_group(thd, src_res_grp,
