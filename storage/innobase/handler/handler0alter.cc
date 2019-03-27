@@ -6292,7 +6292,7 @@ bool ha_innobase::inplace_alter_table_impl(TABLE *altered_table,
                 &ha_alter_info->key_info_buffer[m_prebuilt->trx->error_key_num];
           }
         }
-        print_keydup_error(altered_table, dup_key, MYF(0),
+        print_keydup_error(altered_table, dup_key, MYF(0), m_user_thd,
                            table_share->table_name.str);
         break;
       }
@@ -6910,11 +6910,10 @@ when rebuilding the table.
 @retval true Failure
 @retval false Success
 */
-[[nodiscard]] inline bool commit_try_rebuild(Alter_inplace_info *ha_alter_info,
-                                             ha_innobase_inplace_ctx *ctx,
-                                             TABLE *altered_table,
-                                             const TABLE *old_table, trx_t *trx,
-                                             const char *table_name) {
+[[nodiscard]] bool ha_innobase::commit_try_rebuild(
+    Alter_inplace_info *ha_alter_info, ha_innobase_inplace_ctx *ctx,
+    TABLE *altered_table, const TABLE *old_table, trx_t *trx,
+    const char *table_name) {
   dict_table_t *rebuilt_table = ctx->new_table;
   dict_table_t *user_table = ctx->old_table;
 
@@ -7002,7 +7001,7 @@ when rebuilding the table.
             dup_key = &ha_alter_info->key_info_buffer[err_key];
           }
         }
-        print_keydup_error(altered_table, dup_key, MYF(0),
+        print_keydup_error(altered_table, dup_key, MYF(0), m_user_thd,
                            old_table->s->table_name.str);
         return true;
       case DB_ONLINE_LOG_TOO_BIG:

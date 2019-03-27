@@ -76,6 +76,8 @@ struct INNOBASE_SHARE {
 /** Prebuilt structures in an InnoDB table handle used within MySQL */
 struct row_prebuilt_t;
 
+struct ha_innobase_inplace_ctx;
+
 namespace dd {
 namespace cache {
 class Dictionary_client;
@@ -432,6 +434,11 @@ class ha_innobase : public handler {
                                   bool commit, const dd::Table *old_dd_tab,
                                   dd::Table *new_dd_tab) override;
   /** @} */
+  [[nodiscard]] bool commit_try_rebuild(Alter_inplace_info *ha_alter_info,
+                                        ha_innobase_inplace_ctx *ctx,
+                                        TABLE *altered_table,
+                                        const TABLE *old_table, trx_t *trx,
+                                        const char *table_name);
 
   using Reader = Parallel_reader_adapter;
 

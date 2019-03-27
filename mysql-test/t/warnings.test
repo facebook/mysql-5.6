@@ -274,5 +274,19 @@ SHOW WARNINGS;
 
 --echo
 
+set @save_improved_dup_key_error = @@global.improved_dup_key_error;
+set @@global.improved_dup_key_error = 1;
+
+--error ER_DUP_ENTRY
+SHOW TABLES WHERE f1(11) = 11;
+
+--echo
+
+SHOW WARNINGS;
+
+--echo
+
+set @@global.improved_dup_key_error = @save_improved_dup_key_error;
+
 DROP TABLE t1;
 DROP FUNCTION f1;
