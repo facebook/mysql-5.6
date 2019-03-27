@@ -1240,11 +1240,11 @@ inline bool free_page(void *ptr) noexcept {
                 ut::malloc_large_page_withkey(key, 10*sizeof(int))
               );
  */
-inline void *malloc_large_page_withkey(PSI_memory_key_t key,
-                                       std::size_t size) noexcept {
+inline void *malloc_large_page_withkey(PSI_memory_key_t key, std::size_t size,
+                                       bool populate) noexcept {
   using impl = detail::select_large_page_alloc_impl_t<WITH_PFS_MEMORY>;
   using large_page_alloc_impl = detail::Large_alloc_<impl>;
-  return large_page_alloc_impl::alloc(size, key());
+  return large_page_alloc_impl::alloc(size, key(), populate);
 }
 
 /** Dynamically allocates memory backed up by large (huge) pages.
@@ -1264,9 +1264,9 @@ inline void *malloc_large_page_withkey(PSI_memory_key_t key,
     Example:
      int *x = static_cast<int*>(ut::malloc_large_page(10*sizeof(int)));
  */
-inline void *malloc_large_page(std::size_t size) noexcept {
+inline void *malloc_large_page(std::size_t size, bool populate) noexcept {
   return ut::malloc_large_page_withkey(
-      make_psi_memory_key(PSI_NOT_INSTRUMENTED), size);
+      make_psi_memory_key(PSI_NOT_INSTRUMENTED), size, populate);
 }
 
 /** Retrieves the total amount of bytes that are available for application code
@@ -1348,10 +1348,11 @@ struct fallback_to_normal_page_t {};
  */
 inline void *malloc_large_page_withkey(
     PSI_memory_key_t key, std::size_t size, fallback_to_normal_page_t,
-    bool large_pages_enabled = os_use_large_pages) noexcept {
+    bool large_pages_enabled = os_use_large_pages,
+    bool populate = false) noexcept {
   void *large_page_mem = nullptr;
   if (large_pages_enabled) {
-    large_page_mem = malloc_large_page_withkey(key, size);
+    large_page_mem = malloc_large_page_withkey(key, size, populate);
   }
   return large_page_mem ? large_page_mem : malloc_page_withkey(key, size);
 }
@@ -1379,12 +1380,12 @@ inline void *malloc_large_page_withkey(
                 )
               );
  */
-inline void *malloc_large_page(
-    std::size_t size, fallback_to_normal_page_t,
-    bool large_pages_enabled = os_use_large_pages) noexcept {
+inline void *malloc_large_page(std::size_t size, fallback_to_normal_page_t,
+                               bool large_pages_enabled = os_use_large_pages,
+                               bool populate = false) noexcept {
   return ut::malloc_large_page_withkey(
       make_psi_memory_key(PSI_NOT_INSTRUMENTED), size,
-      fallback_to_normal_page_t{}, large_pages_enabled);
+      fallback_to_normal_page_t{}, large_pages_enabled, populate);
 }
 
 /** Retrieves the total amount of bytes that are available for application code
