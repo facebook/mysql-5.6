@@ -30,6 +30,7 @@
 
 /* MyRocks header files */
 #include "./ha_rocksdb.h"
+#include "./ha_rocksdb_proto.h"
 #include "./rdb_datadic.h"
 #include "./rdb_utils.h"
 
@@ -70,6 +71,8 @@ Rdb_converter::Rdb_converter(const THD *thd, const Rdb_tbl_def *tbl_def,
 Rdb_converter::~Rdb_converter() {
   my_free(m_encoder_arr);
   m_encoder_arr = nullptr;
+  // These are needed to suppress valgrind errors in rocksdb.partition
+  m_storage_record.free();
 }
 
 /*
@@ -533,4 +536,167 @@ int Rdb_converter::verify_row_debug_checksum(
   return HA_EXIT_SUCCESS;
 }
 
+/**
+  Convert record from table->record[0] form into a form that can be written
+  into rocksdb.
+
+  @param pk_def               IN        Current key def
+  @pk_unpack_info             IN        Unpack info generated during key pack
+  @is_update_row              IN        Whether it is update row
+  @store_row_debug_checksums  IN        Whether to store checksums
+  @param ttl_bytes            IN/OUT    Old ttl value from previous record and
+                                        ttl value during current encode
+  @is_ttl_bytes_updated       OUT       Whether ttl bytes is updated
+  @param value_slice          OUT       Data slice with record data.
+*/
+int Rdb_converter::encode_value_slice(
+    const std::shared_ptr<Rdb_key_def> &pk_def,
+    const rocksdb::Slice &pk_packed_slice, Rdb_string_writer *pk_unpack_info,
+    bool is_update_row, bool store_row_debug_checksums, char *ttl_bytes,
+    bool *is_ttl_bytes_updated, rocksdb::Slice *const value_slice) {
+  DBUG_ASSERT(pk_def != nullptr);
+  // Currently only primary key will store value slice
+  DBUG_ASSERT(pk_def->m_index_type == Rdb_key_def::INDEX_TYPE_PRIMARY ||
+              pk_def->m_index_type == Rdb_key_def::INDEX_TYPE_HIDDEN_PRIMARY);
+  DBUG_ASSERT_IMP(m_maybe_unpack_info, pk_unpack_info);
+
+  bool has_ttl = pk_def->has_ttl();
+  bool has_ttl_column = !pk_def->m_ttl_column.empty();
+
+  m_storage_record.length(0);
+
+  if (has_ttl) {
+    /* If it's a TTL record, reserve space for 8 byte TTL value in front. */
+    m_storage_record.fill(ROCKSDB_SIZEOF_TTL_RECORD + m_null_bytes_in_record,
+                          0);
+    // NOTE: is_ttl_bytes_updated is only used for update case
+    // During update, skip update sk key/values slice iff none of sk fields
+    // have changed and ttl bytes isn't changed. see
+    // ha_rocksdb::update_write_sk() for more info
+    *is_ttl_bytes_updated = false;
+    char *const data = const_cast<char *>(m_storage_record.ptr());
+    if (has_ttl_column) {
+      DBUG_ASSERT(pk_def->get_ttl_field_index() != UINT_MAX);
+      Field *const field = m_table->field[pk_def->get_ttl_field_index()];
+      DBUG_ASSERT(field->pack_length_in_rec() == ROCKSDB_SIZEOF_TTL_RECORD);
+      DBUG_ASSERT(field->real_type() == MYSQL_TYPE_LONGLONG);
+
+      uint64 ts = uint8korr(field->ptr);
+#ifndef NDEBUG
+      ts += rdb_dbug_set_ttl_rec_ts();
+#endif
+      rdb_netbuf_store_uint64(reinterpret_cast<uchar *>(data), ts);
+      if (is_update_row) {
+        *is_ttl_bytes_updated =
+            memcmp(ttl_bytes, data, ROCKSDB_SIZEOF_TTL_RECORD);
+      }
+      // Also store in m_ttl_bytes to propagate to update_write_sk
+      memcpy(ttl_bytes, data, ROCKSDB_SIZEOF_TTL_RECORD);
+    } else {
+      /*
+        For implicitly generated TTL records we need to copy over the old
+        TTL value from the old record in the event of an update. It was stored
+        in m_ttl_bytes.
+
+        Otherwise, generate a timestamp using the current time.
+      */
+      if (is_update_row) {
+        memcpy(data, ttl_bytes, sizeof(uint64));
+      } else {
+        uint64 ts = static_cast<uint64>(std::time(nullptr));
+#ifndef NDEBUG
+        ts += rdb_dbug_set_ttl_rec_ts();
+#endif
+        rdb_netbuf_store_uint64(reinterpret_cast<uchar *>(data), ts);
+        // Also store in m_ttl_bytes to propagate to update_write_sk
+        memcpy(ttl_bytes, data, ROCKSDB_SIZEOF_TTL_RECORD);
+      }
+    }
+  } else {
+    /* All NULL bits are initially 0 */
+    m_storage_record.fill(m_null_bytes_in_record, 0);
+  }
+
+  // If a primary key may have non-empty unpack_info for certain values,
+  // (m_maybe_unpack_info=TRUE), we write the unpack_info block. The block
+  // itself was prepared in Rdb_key_def::pack_record.
+  if (m_maybe_unpack_info) {
+    m_storage_record.append(reinterpret_cast<char *>(pk_unpack_info->ptr()),
+                            pk_unpack_info->get_current_pos());
+  }
+  for (uint i = 0; i < m_table->s->fields; i++) {
+    Rdb_field_encoder &encoder = m_encoder_arr[i];
+    /* Don't pack decodable PK key parts */
+    if (encoder.m_storage_type != Rdb_field_encoder::STORE_ALL) {
+      continue;
+    }
+
+    Field *const field = m_table->field[i];
+    if (encoder.maybe_null()) {
+      char *data = const_cast<char *>(m_storage_record.ptr());
+      if (has_ttl) {
+        data += ROCKSDB_SIZEOF_TTL_RECORD;
+      }
+
+      if (field->is_null()) {
+        data[encoder.m_null_offset] |= encoder.m_null_mask;
+        /* Don't write anything for NULL values */
+        continue;
+      }
+    }
+
+    if (encoder.m_field_type == MYSQL_TYPE_BLOB) {
+      my_core::Field_blob *blob =
+          reinterpret_cast<my_core::Field_blob *>(field);
+      /* Get the number of bytes needed to store length*/
+      const uint length_bytes = blob->pack_length() - portable_sizeof_char_ptr;
+
+      /* Store the length of the value */
+      m_storage_record.append(reinterpret_cast<char *>(blob->ptr),
+                              length_bytes);
+
+      /* Store the blob value itself */
+      char *data_ptr;
+      memcpy(&data_ptr, blob->ptr + length_bytes, sizeof(uchar **));
+      m_storage_record.append(data_ptr, blob->get_length());
+    } else if (encoder.m_field_type == MYSQL_TYPE_VARCHAR) {
+      Field_varstring *const field_var =
+          reinterpret_cast<Field_varstring *>(field);
+      uint data_len;
+      /* field_var->length_bytes is 1 or 2 */
+      if (field_var->length_bytes == 1) {
+        data_len = field_var->ptr[0];
+      } else {
+        DBUG_ASSERT(field_var->length_bytes == 2);
+        data_len = uint2korr(field_var->ptr);
+      }
+      m_storage_record.append(reinterpret_cast<char *>(field_var->ptr),
+                              field_var->length_bytes + data_len);
+    } else {
+      /* Copy the field data */
+      const uint len = field->pack_length_in_rec();
+      m_storage_record.append(reinterpret_cast<char *>(field->ptr), len);
+    }
+  }
+
+  if (store_row_debug_checksums) {
+    const uint32_t key_crc32 = my_core::crc32(
+        0, rdb_slice_to_uchar_ptr(&pk_packed_slice), pk_packed_slice.size());
+    const uint32_t val_crc32 =
+        my_core::crc32(0, rdb_mysql_str_to_uchar_str(&m_storage_record),
+                       m_storage_record.length());
+    uchar key_crc_buf[RDB_CHECKSUM_SIZE];
+    uchar val_crc_buf[RDB_CHECKSUM_SIZE];
+    rdb_netbuf_store_uint32(key_crc_buf, key_crc32);
+    rdb_netbuf_store_uint32(val_crc_buf, val_crc32);
+    m_storage_record.append((const char *)&RDB_CHECKSUM_DATA_TAG, 1);
+    m_storage_record.append((const char *)key_crc_buf, RDB_CHECKSUM_SIZE);
+    m_storage_record.append((const char *)val_crc_buf, RDB_CHECKSUM_SIZE);
+  }
+
+  *value_slice =
+      rocksdb::Slice(m_storage_record.ptr(), m_storage_record.length());
+
+  return HA_EXIT_SUCCESS;
+}
 }  // namespace myrocks
